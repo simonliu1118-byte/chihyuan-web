@@ -107,3 +107,63 @@ The current practical limitation is that SMART ERP operates on Windows and is in
 The Legacy system indicates the kinds of workflows CY Web is intended to cover, including customer visits, customer extension data, orders/workflow assistance, outsourcing/material handling, work logs/scoring, item extensions, defect reports, and related history/audit views.
 
 The exact system-of-record boundary for every individual field/module will be decided during the canonical data review. This decision only fixes the top-level direction: **SMART ERP stays primary; CY Web extends it, especially for Web/mobile workflows.**
+
+## BD-003 — Long-term read-only SMART ERP database integration
+
+**Status:** CONFIRMED LONG-TERM DIRECTION
+
+### Goal
+
+The long-term objective is for CY Web to obtain authoritative ERP data directly from the local SMART ERP database in read-only mode. This would remove much of the current manual re-entry/binding work and complete the data connection between SMART ERP and CY Web while preserving SMART ERP as the primary ERP.
+
+### Environment constraint
+
+The SMART ERP database is on the local office network / local Windows environment. Administrative SQL access is available for investigation, but production integration must not depend on an unrestricted administrator credential.
+
+### Security boundary
+
+- Do not expose the SMART ERP database/SQL Server directly to the public Internet.
+- Do not use the `sa`/database administrator credential as the production CY Web integration credential.
+- Initial schema discovery may use an administrator account when necessary and under controlled conditions.
+- Production integration should use a dedicated least-privilege read-only login/user with only the required `SELECT` access, preferably against approved Views when practical.
+- CY Web must never write directly into the SMART ERP database unless a future, separately approved project explicitly changes this read-only boundary.
+
+### Preferred integration architecture
+
+The intended pattern is a local **ERP Bridge / Sync Agent** running inside the same trusted local network as SMART ERP:
+
+```text
+SMART ERP local database
+        ↓ read-only SQL
+CY ERP Bridge / Sync Agent
+        ↓ authenticated outbound HTTPS
+CY Web Cloud API
+        ↓
+D1 canonical / synchronized projections
+```
+
+The bridge should initiate outbound connections to CY Web. The design should avoid inbound Internet access to the local database and avoid requiring the cloud Worker to connect directly through the office firewall/NAT to SQL Server.
+
+### Data ownership and synchronization
+
+- SMART ERP remains authoritative for ERP-owned master and transaction fields.
+- CY Web remains authoritative for CY Web-only extension data and mobile/Web workflows.
+- Imported ERP fields should be marked/documented as ERP-owned and normally read-only in CY Web.
+- The adapter layer maps SMART ERP table/column names into CY Web canonical semantics; SMART ERP's physical schema must not leak throughout application modules.
+- Synchronization should be incremental and repeatable where possible, using stable ERP keys plus an appropriate change/watermark strategy discovered from the actual database schema.
+- Full reconciliation remains necessary so missed incremental updates can be detected and repaired.
+
+### Examples of future benefits
+
+Potential read-only synchronization may eventually allow CY Web to obtain ERP-authoritative data such as:
+
+- formal customer master/customer numbers;
+- item master/item numbers;
+- ERP order/sales references and statuses where useful;
+- other reference or transaction data needed by mobile/Web workflows.
+
+The actual tables/Views and synchronization scope must be determined by a separate read-only SMART ERP database schema investigation. No table names, vendor schema assumptions, or polling strategy are frozen by this decision.
+
+### Design implication today
+
+Even though this integration is not a near-term implementation item, CY Web should be designed now so that manual ERP identifiers can later be replaced or reconciled by the ERP adapter without redesigning the canonical database. In particular, internal CY Web IDs and SMART ERP external identifiers must remain separate fields/contracts.
