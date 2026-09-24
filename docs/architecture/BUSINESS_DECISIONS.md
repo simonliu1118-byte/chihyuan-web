@@ -239,3 +239,48 @@ This decision does **not** yet define:
 - whether historical old item numbers remain searchable as aliases in CY Web.
 
 Those points require the future SMART ERP schema/coding investigation.
+
+## BD-005 — Internal IDs are technical, not human-readable business codes
+
+**Status:** CONFIRMED
+
+### Context
+
+In the Legacy Google Sheets architecture, internal IDs such as `C00001` or `I000001` were intentionally made human-readable because the Sheet itself was often opened and inspected directly. That operational reason largely disappears after migration to Cloudflare D1, where normal use and administration should occur through CY Web, APIs, logs and controlled tooling rather than direct database browsing.
+
+### Decision
+
+CY Web internal primary keys do not need a human-readable entity prefix or business encoding.
+
+The internal `id` for Customer, Item, Order and other entities must instead optimize for:
+
+- uniqueness;
+- immutability;
+- simple and reliable relational use;
+- database/index efficiency;
+- migration/integration stability.
+
+The exact physical key type is a D1 schema implementation decision. For the current single-cloud-writer/non-offline-first architecture, a simple SQLite/D1 integer primary key is acceptable and should be preferred unless a concrete requirement later justifies UUID/ULID or another identifier type.
+
+### Boundary with business identifiers
+
+Human-recognizable identifiers belong in explicit business fields, for example:
+
+```text
+customers.id           technical internal key
+customers.customer_no  SMART ERP customer number
+items.id               technical internal key
+items.item_no           current SMART ERP item number
+```
+
+Internal IDs must never encode mutable business attributes such as year, region, department, salesperson, category, customer status or ERP number.
+
+### Legacy migration implication
+
+Legacy readable IDs such as `custId = C00001` and `itemId = I000001` remain useful for migration reconciliation only. They may be preserved in `legacy_id_map` or migration metadata, but CY Web does not need to continue their formatting convention as its production primary-key format.
+
+### API/UI implication
+
+- Normal users should not need to see technical database IDs.
+- Search and display should use meaningful business fields such as customer name, SMART ERP customer number, item number, item name and document numbers.
+- If a future API/security requirement makes sequential database IDs unsuitable for external exposure, introduce a separate opaque public identifier at the API boundary rather than changing the relational primary key solely for presentation reasons.
