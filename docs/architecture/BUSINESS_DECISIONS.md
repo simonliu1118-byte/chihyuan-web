@@ -675,3 +675,47 @@ The status change must be audited like other significant customer-master changes
 ### Data-retention rule
 
 Marking a customer as `closed_business` never deletes or rewrites historical records. The customer remains searchable and should be visually distinguishable as closed/inactive in customer search and detail screens.
+
+## BD-015 — Customer visit person may link to a contact but always keeps a visit-time snapshot
+
+**Status:** CONFIRMED
+
+### Decision
+
+A customer Visit may optionally reference an existing customer contact, but the visited person must not be restricted to contacts already stored in the customer master.
+
+The Visit keeps the actual person/name used at the time of the visit as a text snapshot. This allows field staff to record a person who has not yet been added to the customer's contact list without blocking the visit workflow.
+
+### Canonical treatment
+
+Candidate fields are:
+
+```text
+customer_visits.customer_id
+customer_visits.contact_id          nullable
+customer_visits.person_snapshot     required when a person is recorded
+customer_visits.visited_at
+customer_visits.employee_id
+customer_visits.content
+```
+
+When an existing contact is selected, CY Web should copy the contact's current display name into `person_snapshot` while retaining `contact_id` for live relationship/navigation.
+
+When the visited person is not in the contact master, `contact_id` remains null and `person_snapshot` stores the entered name/title text directly.
+
+### Historical behavior
+
+Later edits, renames, deactivation or deletion/retirement of a customer contact must not silently rewrite the historical Visit's `person_snapshot`. The snapshot records who the visit was recorded against at that time; the optional live `contact_id` answers which current contact entity it was linked to.
+
+### UI implication
+
+The visit form should support both:
+
+- selecting an existing customer contact; and
+- entering an unlisted person directly.
+
+The UI should not force the user to create a contact-master row before a Visit can be saved.
+
+### Migration implication
+
+Legacy `Visits.person` is migrated as `person_snapshot`. Where value-level profiling can safely and unambiguously match that text to an existing customer contact, migration may populate `contact_id`; otherwise the relationship remains null rather than guessing from name text.
