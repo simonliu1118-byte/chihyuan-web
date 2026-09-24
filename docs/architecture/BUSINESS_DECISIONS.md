@@ -214,14 +214,14 @@ Exact columns may change during D1 design, but the semantic requirement is fixed
 
 ### Historical transaction implication
 
-Historical documents must not silently display the new number when the transaction originally used the old number. Transaction lines therefore keep explicit snapshots where needed, for example:
+By default, historical documents retain the item number that was current when the document became formal. Transaction lines therefore keep explicit snapshots where needed, for example:
 
 - `item_no_snapshot`
 - `item_name_snapshot`
 - `spec_snapshot`
 - `unit_snapshot`
 
-The live `item_id` relationship answers which product the line belongs to; the snapshot answers what was used/displayed at that historical time.
+The live `item_id` relationship answers which product the line belongs to; the snapshot answers what was used/displayed at that historical time. The exceptional full-renumbering migration defined in BD-011 may deliberately rewrite only the historical item-number snapshot when the user explicitly retires the old coding system.
 
 ### Migration/integration implication
 
@@ -235,8 +235,7 @@ The live `item_id` relationship answers which product the line belongs to; the s
 This decision does **not** yet define:
 
 - which SMART ERP database key, if any, is the stable item identity;
-- the exact mechanics of the upcoming SMART ERP coding migration;
-- whether historical old item numbers remain searchable as aliases in CY Web.
+- the exact mechanics of the upcoming SMART ERP coding migration.
 
 Those points require the future SMART ERP schema/coding investigation.
 
@@ -317,6 +316,8 @@ The live `customer_id` / `item_id` relations are still retained so the historica
 ### Scope
 
 This is the default policy for formal Order, Quote and other document-like transaction records where historical reconstruction matters. Defect/Outsourcing records should apply the same principle only to fields that represent an actual historical document or business fact; ordinary operational references may continue to show current master data.
+
+BD-011 defines one deliberate exception: a user-authorized full SMART ERP item-renumbering migration may rewrite only historical item-number snapshots so the retired coding system can be fully removed. That migration is not an ordinary master-data refresh and does not alter other frozen commercial terms.
 
 ### Draft-to-formal transition
 
@@ -519,7 +520,7 @@ Legacy Settings values must be classified before migration:
 
 **Status:** CONFIRMED
 
-### Decision
+### Default transition behavior
 
 When SMART ERP changes an item's official item number, the previous number remains associated with the same immutable `items.id` as a historical alias.
 
@@ -527,20 +528,73 @@ Historical aliases are searchable by default and do not expire automatically. Se
 
 New business transactions must always use the current `items.item_no`; a historical alias is a search/reconciliation aid, not an alternative current code.
 
-### Retention rule
-
 Historical item-number aliases are retained until the user explicitly decides they are no longer needed. CY Web must not purge them merely because a fixed amount of time has elapsed.
 
-A future explicit cleanup request may remove selected old-number aliases from normal search behavior. The preferred implementation is to support a state such as `is_searchable = false` or `retired_at` so traceability can be retained without continuing to surface the alias in ordinary searches.
+### Medium-term full-renumbering migration
 
-Physical deletion/purge of the historical mapping should only occur when explicitly requested and deliberately implemented, rather than as the default retirement behavior.
+The SMART ERP item-code replacement is a medium-term business plan. After the new coding system has stabilized and the user explicitly decides the old coding system should be retired, CY Web may perform a controlled **Full Renumbering Migration**.
 
-### Historical-document boundary
+That migration may, under explicit authorization:
 
-Retiring or deleting an alias must never rewrite:
+1. validate a complete and unambiguous old-number → current-number mapping;
+2. preserve the immutable `items.id` identity and all relational foreign keys;
+3. rewrite historical item-number snapshots to the current SMART ERP item number across applicable CY Web data, including Orders, Quotes, Defect records, Outsourcing records, BOM/material records and other item-number snapshots discovered in the final schema;
+4. leave unrelated historical facts such as quantity, price, tax terms, names/specifications and dates unchanged unless a separate migration explicitly authorizes them;
+5. remove old aliases from normal search;
+6. physically delete old item-number mapping/history rows when the user explicitly requests full removal;
+7. run before/after reconciliation so every affected row is accounted for.
 
-- the immutable `items.id` identity;
-- historical transaction snapshots such as `item_no_snapshot`;
-- the historical content of already-formal Orders, Quotes or other documents.
+This is an exceptional data migration, not ordinary master-data editing. It is the deliberate exception to BD-006 for `item_no_snapshot` only.
 
-The alias/history table exists for master-data reconciliation and search convenience; formal-document history remains independently preserved by BD-006.
+### Safety / audit requirements
+
+Before a Full Renumbering Migration is finalized, the implementation should provide:
+
+- dry-run results and affected-row counts;
+- duplicate/unmapped/conflicting-code checks;
+- a recoverable backup or rollback point appropriate to the production environment;
+- post-migration integrity/reconciliation checks;
+- an administrative audit event recording that the migration occurred, who authorized/executed it, when it ran and aggregate affected counts.
+
+If the purpose is to remove the retired item codes completely from active production data, the audit event does not need to retain the individual old item-number values. Backup-retention implications should be reviewed separately at execution time.
+
+## BD-012 — WorkLog scoring rules are configurable; finalized scores are frozen
+
+**Status:** CONFIRMED
+
+### Decision
+
+WorkLog scoring configuration is administrator-managed business configuration. Administrators may change scoring rules, scores, descriptions, custom scoring rows and related thresholds for future work.
+
+A WorkLog may preview/recalculate against the current scoring rules while it remains a draft/editable record. When the WorkLog is formally submitted/confirmed, its scoring result is frozen as the historical result for that record.
+
+Later changes to scoring configuration must not retroactively recalculate already-finalized WorkLogs.
+
+### Historical reporting rule
+
+Historical performance/statistics reports use the score stored with each finalized WorkLog, not the latest scoring configuration.
+
+For example:
+
+```text
+September rule: item setup = 2 points
+September finalized WorkLog = 2 points
+October administrator changes rule to 3 points
+October/new WorkLogs = 3 points
+September historical WorkLog remains = 2 points
+```
+
+### Canonical treatment
+
+The final schema should preserve enough scoring evidence to reproduce the finalized result without depending on mutable current settings. Candidate data includes:
+
+- total/final score snapshot;
+- scoring component/category snapshots where needed;
+- scoring rule/version reference or equivalent audit metadata;
+- finalized timestamp and actor.
+
+The exact physical tables/columns are deferred to the Canonical Data Dictionary and D1 schema design.
+
+### Correction boundary
+
+A later correction to a finalized WorkLog must be an explicit correction/revision action. It must not silently change because an administrator edits the global scoring rules. Whether an authorized correction reuses the original rule snapshot or deliberately recalculates under another rule is a separate correction-workflow decision to be defined when that workflow is implemented.
