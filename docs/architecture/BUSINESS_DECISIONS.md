@@ -649,3 +649,29 @@ All other current Legacy customer-status labels remain administrator-managed bus
 ### Migration implication
 
 Legacy customer-status values should be migrated to status lookup records. `已歇業` maps to the fixed system-protected `closed_business` state; other distinct Legacy labels become normal administrator-managed lookup rows unless value-level profiling reveals duplicates/obsolete variants that require reconciliation.
+
+## BD-014 — Closed-business customers remain historical but cannot create new commercial transactions
+
+**Status:** CONFIRMED
+
+### Decision
+
+A customer whose system-protected status is `closed_business` (`已歇業`) remains fully available for historical lookup and reporting, but ordinary users cannot create new commercial transactions for that customer.
+
+Historical data must remain accessible, including customer master information, previous Orders, Quotes, Visits, WorkLogs/related statistics where applicable, and other existing relationships.
+
+### Transaction gate
+
+While the customer is `closed_business`, CY Web must block creation/finalization of new commercial transactions that represent renewed business activity. This includes at least new Orders and formal Quotes; the final Data Dictionary/workflow review should apply the same gate to other transaction types where appropriate.
+
+The system should not provide a routine per-transaction bypass that lets ordinary users ignore the closed-business state, because that would reduce the state to a warning rather than an actual business rule.
+
+### Reopening rule
+
+If business resumes, an authorized user must explicitly change the customer from `closed_business` to an allowed active/configurable customer status first. Only after that status change may new commercial transactions be created.
+
+The status change must be audited like other significant customer-master changes so the history shows when and by whom the customer was reopened.
+
+### Data-retention rule
+
+Marking a customer as `closed_business` never deletes or rewrites historical records. The customer remains searchable and should be visually distinguishable as closed/inactive in customer search and detail screens.
