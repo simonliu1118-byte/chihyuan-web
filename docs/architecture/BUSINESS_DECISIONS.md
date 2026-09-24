@@ -598,3 +598,54 @@ The exact physical tables/columns are deferred to the Canonical Data Dictionary 
 ### Correction boundary
 
 A later correction to a finalized WorkLog must be an explicit correction/revision action. It must not silently change because an administrator edits the global scoring rules. Whether an authorized correction reuses the original rule snapshot or deliberately recalculates under another rule is a separate correction-workflow decision to be defined when that workflow is implemented.
+
+## BD-013 — ERP qualification is separate from configurable customer business status
+
+**Status:** CONFIRMED
+
+### Decision
+
+Whether a customer is formally established in SMART ERP and the customer's current commercial/business status are separate concepts.
+
+ERP qualification is derived from the authoritative customer-number relationship:
+
+```text
+customers.customer_no IS NULL      → not yet a formal SMART ERP customer
+customers.customer_no IS NOT NULL  → formally established in SMART ERP
+```
+
+CY Web must not add a second manually editable `prospect/formal customer` flag or status that can contradict the presence of the SMART ERP customer number.
+
+### Configurable business statuses
+
+The customer-status field is a company-managed classification used to describe the current business relationship or follow-up state. Legacy examples include statuses such as normal, visited, quoted-awaiting-response, low-volume ordering, specific product-line relationship, long-inactive, no-longer-ordering and disliked customer. These examples describe current business practice; they are not fixed canonical codes that must be hard-coded into the application.
+
+Except for the system-protected closed-business state described below, administrators may:
+
+- add new customer statuses;
+- rename them;
+- reorder them;
+- change their presentation metadata such as color/icon where supported;
+- disable statuses that should no longer be selectable for new/updated customers.
+
+Statuses already referenced by historical/current customer data should normally be disabled rather than hard-deleted, consistent with BD-010.
+
+### System-protected closed-business state
+
+`已歇業` is a system-protected semantic state because it can participate in application safeguards rather than being only a descriptive tag.
+
+The canonical model should use a stable system code, for example:
+
+```text
+customer_status.code = closed_business
+customer_status.label = 已歇業
+customer_status.is_system = true
+```
+
+This state must always exist and cannot be deleted through ordinary administrator settings. The final workflow/UI design may restrict new commercial transactions or require an explicit override when a customer is in this state.
+
+All other current Legacy customer-status labels remain administrator-managed business configuration unless a later explicit business decision promotes another status to a system-controlled semantic state.
+
+### Migration implication
+
+Legacy customer-status values should be migrated to status lookup records. `已歇業` maps to the fixed system-protected `closed_business` state; other distinct Legacy labels become normal administrator-managed lookup rows unless value-level profiling reveals duplicates/obsolete variants that require reconciliation.
