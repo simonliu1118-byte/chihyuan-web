@@ -1,0 +1,32 @@
+# Secrets / local settings
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+.wrangler/
+.clasp.json
+.claude/settings.local.json
+
+# Dependencies / build
+node_modules/
+dist/
+build/
+coverage/
+.cache/
+.tmp/
+tmp/
+
+# Runtime / local data
+*.log
+*.sqlite
+*.sqlite3
+*.db
+backup/
+backups/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
