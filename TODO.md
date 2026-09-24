@@ -10,13 +10,17 @@
 - [x] 同步 AITeam Common Rules 2.6.0。
 - [x] 定義 CY shared visual canonical 邊界與 Web Design System 原則。
 - [x] AITeam PR #62 改為納管 `chihyuan-web`。
-- [ ] CY Web Governance bootstrap PR 驗證與合併。
-- [ ] AITeam PR #62 驗證與合併。
+- [x] CY Web Governance bootstrap PR 驗證與合併。
+- [x] AITeam PR #62 驗證與合併。
 
 ## Phase 1 — Legacy inventory / architecture decision
 
-- [ ] 盤點 Legacy 五大系統：Customer、Order、Outsourcing、WorkLog、Item。
-- [ ] 從 Private Legacy 抽出資料模型、ID、狀態、驗證、權限與操作流程，分類為「必須保留／可重構／可淘汰」。
+- [x] 盤點 Legacy 五大系統：Customer、Order、Outsourcing、WorkLog、Item，以及實際 Sheet／子資料結構。
+- [x] 從 Private Legacy 抽出資料模型、ID、狀態、驗證、權限與操作流程，分類為 master／FK／child／snapshot／lookup／audit／migration-only／drop／open。
+- [x] 建立 `docs/architecture/LEGACY_DATA_AUDIT.md` 與第一版 `CANONICAL_DATA_MODEL.md`。
+- [ ] 對目前 GAS Sheet 做 value-level 唯讀 profiling：筆數、空值、重複 business number、orphan FK、實際遇到的舊 alias/JSON shape。
+- [ ] 與使用者確認 Canonical Data Model 內 `OPEN` 的業務語意與 snapshot policy。
+- [ ] 完成最終 Canonical Data Dictionary。
 - [ ] 最終確認 frontend 技術棧；目前推薦 TypeScript + React + Vite。
 - [ ] 建立 Cloudflare Worker project、環境切分與 health endpoint。
 - [ ] 設計 D1 relational schema、indexes、constraints、audit 與 forward migrations。
