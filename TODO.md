@@ -18,6 +18,7 @@
 - [x] 盤點 Legacy 五大系統：Customer、Order、Outsourcing、WorkLog、Item，以及實際 Sheet／子資料結構。
 - [x] 從 Private Legacy 抽出資料模型、ID、狀態、驗證、權限與操作流程，分類為 master／FK／child／snapshot／lookup／audit／migration-only／drop／open。
 - [x] 建立 `docs/architecture/LEGACY_DATA_AUDIT.md` 與第一版 `CANONICAL_DATA_MODEL.md`。
+- [x] 以 Desktop Legacy 為主重新核對各模組 workflow、狀態回退、權限、跨模組副作用與 Audit／history，記錄於 `docs/architecture/LEGACY_DESKTOP_WORKFLOW_AUDIT.md`。
 - [ ] 對目前 GAS Sheet 做 value-level 唯讀 profiling：筆數、空值、重複 business number、orphan FK、實際遇到的舊 alias/JSON shape。
 - [ ] 與使用者確認 Canonical Data Model 內 `OPEN` 的業務語意與 snapshot policy。
 - [ ] 完成最終 Canonical Data Dictionary。
