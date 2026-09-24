@@ -752,3 +752,35 @@ customers.tax_id        nullable; indexed; duplicates allowed with warning
 ### Migration implication
 
 Legacy customers sharing the same nonblank tax ID must not be automatically merged solely because the tax ID matches. Value-level profiling should report duplicate tax IDs for review while preserving distinct customer records unless another authoritative mapping proves they are duplicates.
+
+## BD-017 — Quantities and monetary values support decimal precision
+
+**Status:** CONFIRMED
+
+### Decision
+
+CY Web must support decimal values for business quantities and monetary fields. The data model must not assume that quantities, unit prices, costs, subtotals or totals are always whole numbers.
+
+This applies across modules where these semantics occur, including Item cost/price fields, Quote price breaks, Order lines, Outsourcing pricing, BOM/component quantities and other applicable business calculations.
+
+### Storage vs presentation boundary
+
+Storage/calculation precision and user-facing display/rounding are separate concerns.
+
+- The canonical data model must preserve enough decimal precision for correct business calculations.
+- UI formatting must not be used as the authoritative stored value.
+- Intermediate calculations must not repeatedly round merely because a screen displays fewer decimal places.
+- Binary floating-point values must not be treated as the authoritative representation for money where they can introduce rounding artifacts; the D1/API implementation should use an exact/fixed-point strategy appropriate to the final approved scale.
+
+### Deliberately still open
+
+This decision does **not** yet freeze:
+
+- maximum decimal places for quantity;
+- maximum decimal places for unit price/cost;
+- display decimal places for TWD amounts;
+- whether line subtotals or only document totals are rounded;
+- the exact rounding method and timing;
+- physical D1 representation (for example scaled integer/fixed-point encoding) until the business rounding rule is confirmed.
+
+Those rules must be decided before the D1 SQL schema and financial calculation helpers are finalized.
