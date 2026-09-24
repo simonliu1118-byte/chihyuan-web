@@ -719,3 +719,36 @@ The UI should not force the user to create a contact-master row before a Visit c
 ### Migration implication
 
 Legacy `Visits.person` is migrated as `person_snapshot`. Where value-level profiling can safely and unambiguously match that text to an existing customer contact, migration may populate `contact_id`; otherwise the relationship remains null rather than guessing from name text.
+
+## BD-016 — Customer tax ID may repeat; duplicates require a strong warning
+
+**Status:** CONFIRMED
+
+### Decision
+
+`customers.tax_id` is not a globally unique customer identity in CY Web and must not have a database-level `UNIQUE` constraint.
+
+A legal entity may legitimately appear as multiple customer records, for example separate locations, operational units or SMART ERP customer numbers that share the same Taiwan tax ID. The stable customer identity remains `customers.id`, while formal ERP qualification/identity uses the separately governed `customer_no` relationship.
+
+### Validation and duplicate detection
+
+`tax_id` may be null/blank. When present, CY Web should validate the Taiwan uniform business number format according to the application's approved validation rule and index the field for fast lookup.
+
+When a user enters a tax ID already used by another customer, CY Web must show a strong duplicate warning and identify the matching existing customer records so the user can determine whether the new record is intentional.
+
+The warning is advisory rather than a hard database rejection: after reviewing the matches, an authorized/normal permitted user may still save the new customer when the duplicate is legitimate.
+
+### Boundary with customer number
+
+This does not weaken the customer-number rule from BD-001:
+
+```text
+customers.customer_no   nullable before formal SMART ERP creation; UNIQUE when present
+customers.tax_id        nullable; indexed; duplicates allowed with warning
+```
+
+`tax_id` must never be used as a foreign key or as a substitute for the immutable internal customer ID.
+
+### Migration implication
+
+Legacy customers sharing the same nonblank tax ID must not be automatically merged solely because the tax ID matches. Value-level profiling should report duplicate tax IDs for review while preserving distinct customer records unless another authoritative mapping proves they are duplicates.
