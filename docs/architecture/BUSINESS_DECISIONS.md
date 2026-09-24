@@ -390,3 +390,41 @@ contractor_contacts.note
 Legacy `Contractors.name`, `Outsourcing.contractor` and `StockAdjustLogs.contractorName` must be reconciled to one contractor entity during migration instead of preserving name-based relationships.
 
 Where Legacy data does not indicate whether a counterparty is a person or organization, migration may leave the classification unresolved/defaulted for later review rather than infer it from the name.
+
+## BD-008 — Customer region is geographic; business ownership is organizational
+
+**Status:** CONFIRMED
+
+### Decision
+
+The Legacy customer `region` field represents the customer's Taiwan county/city geographic classification, not the company's internal sales territory or organizational ownership.
+
+The existing UI groups county/city choices under presentation headings such as north, central and south. Those headings are navigation/display grouping only; the stored semantic value is the selected county/city.
+
+Business/sales ownership is represented separately by the customer's responsible department and salesperson.
+
+### Canonical treatment
+
+The customer model should therefore separate these concepts explicitly:
+
+```text
+customers.region_id              geographic county/city reference
+customers.owner_department_id    internal responsible department
+customers.owner_employee_id      responsible salesperson/employee
+```
+
+`region_id` should reference a controlled Taiwan county/city lookup rather than free text. The lookup should use a stable internal code/ID distinct from the editable/display Chinese label.
+
+The broad north/central/south grouping can be stored as lookup metadata or derived for UI grouping/filtering; it must not replace the actual county/city identity.
+
+### Organizational distinction
+
+Department choices such as a branch/store or regional sales team are organizational structures, not geography. A customer located in one county/city may still be reassigned to a different responsible department without changing the customer's geographic region.
+
+This separation avoids coupling customer address/geography to internal company reorganizations.
+
+### Migration implication
+
+Legacy `Customers.region` values should be normalized against the approved county/city lookup during migration. Legacy `Customers.dept` remains a separate responsible-department relation and must not be inferred from `region`.
+
+The migration should report unmatched/nonstandard geographic labels for review rather than silently create new free-text regions.
