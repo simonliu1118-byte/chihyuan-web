@@ -284,3 +284,49 @@ Legacy readable IDs such as `custId = C00001` and `itemId = I000001` remain usef
 - Normal users should not need to see technical database IDs.
 - Search and display should use meaningful business fields such as customer name, SMART ERP customer number, item number, item name and document numbers.
 - If a future API/security requirement makes sequential database IDs unsuitable for external exposure, introduce a separate opaque public identifier at the API boundary rather than changing the relational primary key solely for presentation reasons.
+
+## BD-006 — Formal transaction documents freeze business snapshots
+
+**Status:** CONFIRMED
+
+### Decision
+
+CY Web uses a relationship-plus-snapshot model for formal commercial/history documents.
+
+- Master and ordinary relationship screens show the **current** master data through the stable foreign-key relation.
+- Draft documents may refresh/reselect from current master data while they remain editable.
+- When a document becomes formally established/issued, the business fields needed to reproduce that document are frozen as explicit snapshots.
+- Later customer/item master edits must not silently rewrite historical document content.
+
+Typical customer snapshots include, where relevant:
+
+- `customer_no_snapshot`
+- `customer_name_snapshot`
+- billing/tax/address/contact snapshots when the document actually uses those values.
+
+Typical item-line snapshots include, where relevant:
+
+- `item_no_snapshot`
+- `item_name_snapshot`
+- `spec_snapshot`
+- `unit_snapshot`
+- transaction `unit_price` and tax/business terms.
+
+The live `customer_id` / `item_id` relations are still retained so the historical document can be traced to the current master entity.
+
+### Scope
+
+This is the default policy for formal Order, Quote and other document-like transaction records where historical reconstruction matters. Defect/Outsourcing records should apply the same principle only to fields that represent an actual historical document or business fact; ordinary operational references may continue to show current master data.
+
+### Draft-to-formal transition
+
+Before formalization, the UI may offer or perform an explicit refresh from current master data. Formalization freezes the approved snapshot set. Any later correction to an already-formal document must be handled as a controlled document correction/revision workflow rather than an implicit master-data refresh.
+
+### Migration implication
+
+Legacy duplicated fields must be classified by semantics rather than copied mechanically:
+
+- accidental duplicate used only to avoid a lookup → normalize to FK/current master;
+- value that represented what the historical document actually displayed/agreed → migrate as an explicit `*_snapshot` when recoverable.
+
+This distinction is required before Legacy duplicated customer/item names are removed during migration.
