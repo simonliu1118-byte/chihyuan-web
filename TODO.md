@@ -52,6 +52,18 @@
 - [ ] WorkLog／Scoring／History Statistics。
 - [ ] Settings／Admin。
 
+## 中期規劃 — SMART ERP 品號換碼收斂
+
+此項不是 CY Web 初期上線阻塞項目；待 SMART ERP 新品號制度完成並穩定後再執行。
+
+- [ ] 定義完整舊品號 → 新品號 mapping，檢查重複、遺漏與衝突。
+- [ ] 過渡期保留舊品號 alias/history 搜尋，新交易只使用現行 SMART ERP 正式品號。
+- [ ] 建立 Full Renumbering Migration dry-run 與 affected-row reconciliation。
+- [ ] 批次更新適用的歷史 item-number snapshots（Order／Quote／Defect／Outsourcing／BOM 等），但不改寫無關的價格、數量、日期等歷史事實。
+- [ ] 依使用者明確授權，停止舊品號搜尋並可進一步物理刪除舊品號 mapping/history。
+- [ ] 執行前建立可復原備份／rollback point，執行後做完整資料一致性核對。
+- [ ] 保留 migration-level audit event；若目標是完全退場舊碼，audit 不必保存逐筆舊品號內容。
+
 ## Phase 5 — CYCloud Identity
 
 - [ ] 盤點 CYInvoice Cloud 可共用 Workspace／Employee／Credential／Session／OTP／Recovery contract。
