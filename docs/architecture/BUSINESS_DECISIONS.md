@@ -468,3 +468,49 @@ This follows a common CRM pattern where geographic classification used for custo
 ### Migration implication
 
 Legacy `Customers.region` remains the source for the initial customer-level region during migration. Address text should not be used to override a valid Legacy region automatically. Address parsing may be used only as a reconciliation warning or suggestion when region is blank or inconsistent.
+
+## BD-010 — Configurable business lookups are separate from fixed workflow states
+
+**Status:** CONFIRMED
+
+### Decision
+
+CY Web must distinguish administrator-managed business classifications from workflow states that participate in program logic.
+
+Administrator-managed lookups may be added, renamed, reordered, disabled and otherwise maintained through settings when that does not alter application state-machine semantics. Examples include:
+
+- customer categories;
+- item categories;
+- departments / organizational units;
+- work-log categories;
+- work-log platforms;
+- customer statuses when they are descriptive/classification values rather than workflow gates.
+
+These lookups must still have stable internal IDs/codes so a display-label rename does not rewrite historical relationships.
+
+Workflow states that control allowed actions, transitions, inventory/accounting effects or other program behavior are system-defined. Examples include Order and Outsourcing workflow states.
+
+### Workflow-state rule
+
+Stable workflow codes are fixed application contracts, for example:
+
+```text
+order.status_code = created / issued / waiting_stock / picked / shipped
+outsourcing.status_code = pending_outbound / outbound / received / priced / paid
+```
+
+Administrators must not be able to arbitrarily add/delete workflow codes through ordinary Settings because application behavior depends on those semantic states.
+
+A future display-customization feature may allow a user-facing label to differ from the stable code, but the code and transition semantics remain system-controlled.
+
+### Configuration behavior
+
+For administrator-managed lookups, records should normally be **disabled/inactivated rather than hard-deleted** once referenced by business data. This preserves relational integrity and historical reporting while preventing obsolete choices from appearing for new records.
+
+### Migration implication
+
+Legacy Settings values must be classified before migration:
+
+- classification/reference data → managed lookup rows;
+- program state-machine values → mapped to canonical system workflow codes;
+- obsolete/unmatched values → reconciliation report rather than silent creation of new workflow states.
