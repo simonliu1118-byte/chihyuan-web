@@ -428,3 +428,43 @@ This separation avoids coupling customer address/geography to internal company r
 Legacy `Customers.region` values should be normalized against the approved county/city lookup during migration. Legacy `Customers.dept` remains a separate responsible-department relation and must not be inferred from `region`.
 
 The migration should report unmatched/nonstandard geographic labels for review rather than silently create new free-text regions.
+
+## BD-009 — Customer region is independent from individual addresses
+
+**Status:** CONFIRMED
+
+### Decision
+
+`customers.region_id` is a customer-level geographic classification and is not mechanically derived from one specific address row.
+
+A customer may have multiple addresses in different Taiwan counties/cities. Therefore changing, adding or deleting an address must not silently rewrite the customer's selected region.
+
+### Canonical treatment
+
+```text
+customers.region_id              customer-level primary geographic classification
+customer_addresses.customer_id   relation to customer
+customer_addresses.postal_code
+customer_addresses.address
+```
+
+Address rows remain independent operational/contact locations and may span multiple counties/cities.
+
+### UI behavior
+
+When entering or editing an address, CY Web may parse/recognize the county/city and suggest or prefill `region_id` when appropriate, especially for a new customer with no region selected yet.
+
+However:
+
+- the user retains control of the customer-level region;
+- address edits do not silently overwrite an already-selected region;
+- multiple addresses never create an ambiguous automatic winner;
+- an explicit user action is required to change the customer-level region once set.
+
+### Rationale
+
+This follows a common CRM pattern where geographic classification used for customer search/filter/reporting is distinct from the one-to-many physical address collection. It also supports prospects that may have only partial address information when first created.
+
+### Migration implication
+
+Legacy `Customers.region` remains the source for the initial customer-level region during migration. Address text should not be used to override a valid Legacy region automatically. Address parsing may be used only as a reconciliation warning or suggestion when region is blank or inconsistent.
