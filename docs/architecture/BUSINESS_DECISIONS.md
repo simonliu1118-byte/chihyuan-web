@@ -330,3 +330,63 @@ Legacy duplicated fields must be classified by semantics rather than copied mech
 - value that represented what the historical document actually displayed/agreed → migrate as an explicit `*_snapshot` when recoverable.
 
 This distinction is required before Legacy duplicated customer/item names are removed during migration.
+
+## BD-007 — Contractor/vendor may be a person or an organization
+
+**Status:** CONFIRMED
+
+### Decision
+
+The CY Web Contractor domain represents an outsourcing/vendor transaction counterparty, not specifically a natural person.
+
+A contractor may therefore be:
+
+- an individual person;
+- a company;
+- a factory;
+- a workshop/studio or another organization that performs outsourced work.
+
+This follows the common ERP/vendor-master pattern where the master entity represents the business counterparty and contacts are separate subordinate records.
+
+### Canonical treatment
+
+Candidate master fields include:
+
+```text
+contractors.id
+contractors.entity_type       person / organization
+contractors.display_name
+contractors.legal_name        nullable
+contractors.tax_id            nullable
+contractors.phone             nullable
+contractors.address           nullable
+contractors.note              nullable
+contractors.is_active
+```
+
+The exact optional fields can be finalized during the Data Dictionary stage.
+
+A separate contact relation should support one or more people for an organizational contractor:
+
+```text
+contractor_contacts.id
+contractor_contacts.contractor_id
+contractor_contacts.name
+contractor_contacts.title
+contractor_contacts.phone
+contractor_contacts.mobile
+contractor_contacts.note
+```
+
+### Relationship rule
+
+- Outsourcing orders, pricing and stock ledgers reference `contractor_id`.
+- Contractor/contact names must never be used as foreign keys.
+- Renaming a contractor or replacing a contact does not change the underlying contractor relationship.
+- Formal historical outsourcing/pricing documents use snapshots where BD-006 requires historical reconstruction.
+
+### Migration implication
+
+Legacy `Contractors.name`, `Outsourcing.contractor` and `StockAdjustLogs.contractorName` must be reconciled to one contractor entity during migration instead of preserving name-based relationships.
+
+Where Legacy data does not indicate whether a counterparty is a person or organization, migration may leave the classification unresolved/defaulted for later review rather than infer it from the name.
