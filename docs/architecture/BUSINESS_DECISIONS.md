@@ -514,3 +514,33 @@ Legacy Settings values must be classified before migration:
 - classification/reference data → managed lookup rows;
 - program state-machine values → mapped to canonical system workflow codes;
 - obsolete/unmatched values → reconciliation report rather than silent creation of new workflow states.
+
+## BD-011 — Previous SMART ERP item numbers remain searchable until explicitly retired
+
+**Status:** CONFIRMED
+
+### Decision
+
+When SMART ERP changes an item's official item number, the previous number remains associated with the same immutable `items.id` as a historical alias.
+
+Historical aliases are searchable by default and do not expire automatically. Searching an old item number should resolve to the current Item master and clearly indicate that the entered number is a previous/retired number.
+
+New business transactions must always use the current `items.item_no`; a historical alias is a search/reconciliation aid, not an alternative current code.
+
+### Retention rule
+
+Historical item-number aliases are retained until the user explicitly decides they are no longer needed. CY Web must not purge them merely because a fixed amount of time has elapsed.
+
+A future explicit cleanup request may remove selected old-number aliases from normal search behavior. The preferred implementation is to support a state such as `is_searchable = false` or `retired_at` so traceability can be retained without continuing to surface the alias in ordinary searches.
+
+Physical deletion/purge of the historical mapping should only occur when explicitly requested and deliberately implemented, rather than as the default retirement behavior.
+
+### Historical-document boundary
+
+Retiring or deleting an alias must never rewrite:
+
+- the immutable `items.id` identity;
+- historical transaction snapshots such as `item_no_snapshot`;
+- the historical content of already-formal Orders, Quotes or other documents.
+
+The alias/history table exists for master-data reconciliation and search convenience; formal-document history remains independently preserved by BD-006.
