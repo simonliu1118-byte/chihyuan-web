@@ -784,3 +784,32 @@ This decision does **not** yet freeze:
 - physical D1 representation (for example scaled integer/fixed-point encoding) until the business rounding rule is confirmed.
 
 Those rules must be decided before the D1 SQL schema and financial calculation helpers are finalized.
+
+## BD-018 — TWD formal monetary amounts use a two-decimal baseline pending SMART ERP confirmation
+
+**Status:** CONFIRMED BASELINE
+
+### Decision
+
+For the current CY Web design, formal TWD monetary amounts support two decimal places. The application must therefore be able to represent and display cents/fractional-dollar values rather than assuming every TWD amount is a whole integer.
+
+This is the current CY Web baseline for formal monetary values while the exact SMART ERP monetary/rounding configuration has not yet been confirmed.
+
+### SMART ERP alignment rule
+
+SMART ERP remains the primary ERP. If later verification shows that SMART ERP uses a different TWD scale, line-rounding rule, total-rounding rule or other monetary convention, CY Web must be adjusted deliberately to match the ERP contract rather than preserving this baseline for its own sake.
+
+The schema/calculation design should therefore avoid making a two-decimal UI convention impossible to change during the ERP-alignment stage.
+
+### Still open
+
+This decision fixes the current formal TWD decimal scale baseline only. It does **not** yet freeze:
+
+- maximum stored precision for unit price/cost before formal rounding;
+- maximum quantity precision;
+- whether line subtotals are rounded before document summation;
+- tax rounding;
+- exact rounding method (for example half-up vs another rule);
+- whether the UI always shows trailing `.00`.
+
+Those rules should be finalized after the remaining business review and, where relevant, checked against SMART ERP. 
