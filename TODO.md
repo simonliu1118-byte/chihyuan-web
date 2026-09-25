@@ -60,7 +60,10 @@
 - [x] CY Web 與 CYAccountingWeb 可使用同一 GCP Project，但目前各自使用獨立 backup dataset（bucket 或明確隔離 namespace）與獨立 least-privilege service identity／credential；不共用一把廣權限 GCS key。
 - [x] 定義兩層 backup contract：application-level `BackupService` 負責 create/list/verify/restore/retention；storage-level `BackupStorageProvider` 只負責 put/get/list/delete object（BD-046）。
 - [x] 定義可攜 backup set：`manifest.json` + `data.json`；manifest 含 App/schema/format version、UTC 建立時間、record counts、byte length、SHA-256 與 restore metadata；成功需 upload 後 read-back 再驗證（BD-046）。
-- [ ] 建立 CY Web 專用 GCS bucket／namespace 與專用最小權限 identity；實際 project／bucket／credential 僅由 deployment/runtime secret 注入，不進 Public Git。
+- [x] 建立 production GCP backup project，並分別建立 CY Web 與 CYAccountingWeb 的獨立 Standard GCS bucket；bucket 採 US Always Free 適用區域、Uniform access、Public Access Prevention、Soft Delete，未啟用 Object Versioning／Bucket retention lock。正式資源識別碼不進 Public Git。
+- [x] 分別建立 CY Web 與 CYAccountingWeb 專用 service identity，未授予廣泛 Project role，且目前尚未建立任何 JSON key。
+- [ ] 驗證兩個 bucket 的 bucket-scoped `Storage Object Admin` IAM；CYAccountingWeb principal 在 Console 新增主體畫面出現驗證異常，下一步改由 Cloud Shell / gcloud 套用並讀回 IAM policy。精確 production 資源名稱與指令保存在 Private `chihyuan-legacy-private` branch `ops/gcs-backup-setup-status` 的 `ops/CYWEB_GCS_SETUP_STATUS.md`。
+- [ ] 決定 Cloudflare Workers → GCP 正式驗證方式；在 IAM 驗證完成前不要建立 service-account JSON key。評估 keyless / Workload Identity Federation 與 JSON key + Cloudflare Secret 的實作成本與安全性後再定案。
 - [ ] 實作 `BackupStorageProvider` 的 GCS adapter，禁止 application service 直接依賴 GCS-specific API。
 - [ ] 實作 `BackupService`：D1 export、package/manifest、SHA-256、read-back verify、list、retention、restore orchestration。
 - [ ] 實作 SA-only 備份、備份清單、完整性驗證與雙重確認還原 API／UI／Audit。
