@@ -1,5 +1,13 @@
 # CY Web Governance Changelog
 
+## 1.1.0 — 2026/09/26
+
+- 依使用者最新確認，修正永久 Legacy 邊界：舊 GAS／Google Sheets 尚未投入正式使用，現有測試／開發資料不作 production D1 migration source。
+- `PROJECT_RULES.md` 改為 fresh-start production D1；保留 forward schema migration、server validation、audit、backup/recovery 與未來 ERP integration 要求。
+- `REPO_POLICY.md` 明確把 Legacy 定位為 Private behavior/reference source，Public repo 不建立未使用測試資料的 migration compatibility layer。
+- 新增 architecture document map、Business Decision index 與 archive 邊界，避免舊 draft／audit 的 `OPEN`／migration 假設凌駕後續已確認決策。
+- 新增 BD-047（Legacy test data 不搬入 production）與 BD-048（SMART ERP 客戶編號可受控更正／變更，Customer internal ID 不變）。
+
 ## 1.0.0 — 2026/09/24
 
 - 建立新的 Public `simonliu1118-byte/chihyuan-web`，正式產品名稱為 Chihyuan Enterprise Management System，簡稱 CY Web。
