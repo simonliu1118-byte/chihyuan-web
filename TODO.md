@@ -53,6 +53,19 @@
 - [ ] WorkLog／Scoring／History Statistics。
 - [ ] Settings／Admin。
 
+## Backup / recovery — GCS coordination
+
+- [x] 保留程式內備份／還原能力；只允許 Super Admin 操作，還原需雙重確認並留下 Audit（BD-044）。
+- [x] 志遠 production 初期採 Google Cloud Storage 作為 Cloudflare D1 的 off-site backup；Public source 維持 provider-neutral `BACKUP_PROVIDER`（BD-045）。
+- [x] CY Web 與 CYAccountingWeb 可使用同一 GCP Project，但目前各自使用獨立 backup dataset（bucket 或明確隔離 namespace）與獨立 least-privilege service identity／credential；不共用一把廣權限 GCS key。
+- [ ] 定義共用 `BACKUP_PROVIDER` contract：create、list、verify、restore、retention／deleteExpired。
+- [ ] 定義可攜 D1 backup package／manifest：App／schema version、建立時間、資料筆數、SHA-256 與必要 restore metadata。
+- [ ] 建立 CY Web 專用 GCS bucket／namespace 與專用最小權限 identity；實際 project／bucket／credential 僅由 deployment/runtime secret 注入，不進 Public Git。
+- [ ] 實作 SA-only 備份、備份清單、完整性驗證與雙重確認還原 API／UI／Audit。
+- [ ] 定義 retention、失敗重試、上傳後 read-back/checksum 驗證與災難復原演練。
+- [ ] 與 `CYapps/apps/CYAccountingWeb` 對齊 backup contract、manifest/checksum 與 restore safety；Accounting 現有 Google Drive V0.16 實作視為過渡／可重用邏輯來源，production target 改為 GCS。
+- [ ] 未來 CYAccountingWeb 併入 CY Web 後，抽出共用 CY Backup Service／Worker；各 App 改走 service boundary，撤除個別直接 GCS credential，但各 backup set 仍獨立可還原。
+
 ## 中期規劃 — SMART ERP 品號換碼收斂
 
 此項不是 CY Web 初期上線阻塞項目；待 SMART ERP 新品號制度完成並穩定後再執行。
