@@ -16,4 +16,4 @@
 
 AITeam `shared/cy-visual/` 是外部 canonical reference，不在本 repo 建立第四層規則檔；採用與例外由 `REPO_POLICY.md`／`PROJECT_RULES.md` 表達。
 
-README、TODO、設計文件、migration 文件與版本紀錄不是永久規則來源。
+README、TODO、architecture docs、Business Decision、audit/archive、handoff、CHANGELOG、版本紀錄與其他設計文件都不是第四層永久規則來源；它們描述目前狀態、確認決策、設計、歷史或待辦。架構文件的閱讀入口為 `docs/architecture/README.md`。
