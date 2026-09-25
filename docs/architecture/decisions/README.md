@@ -5,6 +5,7 @@ This index records the current interpretation of confirmed CY Web Business Decis
 - BD-001 through BD-018 are summarized in `../BUSINESS_DECISIONS.md`; the detailed pre-consolidation text is preserved in `../archive/BUSINESS_DECISIONS_001_018_PRE_CONSOLIDATION.md`.
 - BD-019 and later have individual files in this directory.
 - BD-047 makes all earlier **Legacy GAS/Sheet production-migration implications non-operative**. Those passages remain useful historical context only.
+- BD-049 and BD-050 refine the backup direction from BD-045/046 into a tiered R2 + GCS topology and a shared cross-App portable/service contract.
 
 ## Decision index
 
@@ -54,12 +55,14 @@ This index records the current interpretation of confirmed CY Web Business Decis
 | BD-042 | Public WorkLog source provides configurable structure, not Chihyuan production parameters | CONFIRMED |
 | BD-043 | CY Web configuration authority is split between Super Admin and Admin | CONFIRMED |
 | BD-044 | In-app backup and restore are Super Admin-only with double confirmation | CONFIRMED |
-| BD-045 | Chihyuan production backup uses GCS through a provider-neutral contract | CONFIRMED |
-| BD-046 | Backup service contract, storage-provider boundary, and portable package format | CONFIRMED |
+| BD-045 | Chihyuan production backup uses GCS through a provider-neutral contract | CONFIRMED; provider role refined by BD-049 |
+| BD-046 | Backup service contract, storage-provider boundary, and portable package format | CONFIRMED; cross-App/package boundary extended by BD-050 |
 | BD-047 | CY Web production starts clean; Legacy test data is not migrated | CONFIRMED |
 | BD-048 | SMART ERP customer number may be corrected or changed without changing customer identity | CONFIRMED; supersedes BD-001 immutability clause |
+| BD-049 | Tiered backup uses R2 for daily operational recovery and GCS for cross-cloud disaster recovery | CONFIRMED; refines BD-045 |
+| BD-050 | CY Web and CYAccountingWeb share one portable backup contract and converge on CY Backup Service | CONFIRMED; extends BD-046 |
 
-## Cross-decision supersession notes
+## Cross-decision supersession / refinement notes
 
 ### Legacy migration
 
@@ -75,11 +78,19 @@ BD-048 changes only the assigned-number immutability rule from BD-001. The Custo
 
 BD-035 supersedes the transaction-blocking and mandatory-reopen behavior in BD-014. `closed_business / 已歇業` remains visible and historically retained, but does not by itself block supported CY Web workflows.
 
+### Backup topology
+
+BD-049 keeps the core intent of BD-045 — GCS remains an independent off-cloud recovery destination — but adds Cloudflare R2 as the primary daily operational backup tier. The standard target is daily R2 plus Wednesday/Sunday GCS replication of the exact same logical backup set.
+
+BD-050 extends BD-046 so CY Web and CYAccountingWeb share the same outer package/integrity/provider contract and can later move provider storage/replication/retention behind a common CY Backup Service / Worker. App-specific export and restore semantics remain inside each application.
+
+Current detailed backup architecture is consolidated in `../BACKUP_ARCHITECTURE.md`.
+
 ## Use during implementation
 
 Before asking the user a new business-rule question:
 
 1. check this index;
 2. read the applicable decision file(s);
-3. check whether a later decision superseded an older statement;
+3. check whether a later decision superseded or refined an older statement;
 4. ask only if the semantic point genuinely remains unresolved.
