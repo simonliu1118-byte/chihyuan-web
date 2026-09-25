@@ -5,12 +5,13 @@ This file records current work and engineering direction. It is not a permanent 
 ## Immediate sequence
 
 1. [x] Consolidate architecture documents and Business Decision supersession map through BD-048.
-2. [ ] Review only the **genuinely unresolved** items listed in the current `docs/architecture/CANONICAL_DATA_MODEL.md`.
-3. [ ] Produce the Final Data Dictionary.
-4. [ ] Freeze the initial D1 relational schema / indexes / constraints / forward migrations.
-5. [ ] Create the Cloudflare Worker project and environment/binding templates.
-6. [ ] Add CY Web GCS runtime secrets to the CY Web Worker only after that Worker exists.
-7. [ ] Implement the reusable application foundation, then business modules.
+2. [x] Finalize the shared tiered backup architecture: D1 live, R2 daily operational backup, GCS cross-cloud DR, shared package/provider contract and future CY Backup Service boundary (BD-049/050).
+3. [ ] Review only the **genuinely unresolved** items listed in the current `docs/architecture/CANONICAL_DATA_MODEL.md`.
+4. [ ] Produce the Final Data Dictionary.
+5. [ ] Freeze the initial D1 relational schema / indexes / constraints / forward migrations.
+6. [ ] Create the Cloudflare Worker project and environment/binding templates.
+7. [ ] Add CY Web R2/GCS runtime configuration only after the real CY Web Worker exists.
+8. [ ] Implement the reusable application foundation, then business modules.
 
 ## Phase 0 — Governance / Public foundation
 
@@ -30,6 +31,7 @@ This file records current work and engineering direction. It is not a permanent 
 - [x] Record Business Decisions BD-001 through BD-046.
 - [x] Confirm that existing Legacy rows are development/test data and **will not be migrated** to production D1 (BD-047).
 - [x] Confirm that SMART ERP customer number may be changed/corrected without changing Customer identity (BD-048).
+- [x] Confirm tiered backup and shared-service direction (BD-049/050).
 - [x] Archive pre-consolidation architecture drafts and replace active docs with consolidated indexes/current model.
 - [ ] Resolve only remaining real Data-Dictionary questions; do not repeat already confirmed Business Decisions.
 - [ ] Complete Final Data Dictionary.
@@ -84,31 +86,45 @@ Implementation order may be adjusted for dependency efficiency, but all modules 
 
 Before implementing each workflow, check `docs/architecture/decisions/README.md` and applicable BD files so resolved decisions are not re-opened.
 
-## Backup / recovery — GCS
+## Backup / recovery — tiered R2 + GCS
+
+Canonical detail: `docs/architecture/BACKUP_ARCHITECTURE.md`.
 
 Architecture:
 
 - [x] In-app backup/restore is Super Admin-only; restore requires double confirmation and audit (BD-044).
-- [x] Chihyuan production initially uses GCS as off-site storage while D1 remains live data (BD-045).
-- [x] CY Web and CYAccountingWeb use isolated backup datasets and isolated service identities during independent deployment.
-- [x] Define provider-neutral `BackupService` + `BackupStorageProvider` boundary (BD-046).
-- [x] Define portable `manifest.json + data.json` backup set and SHA-256 upload/read-back verification (BD-046).
+- [x] Keep D1 as live authoritative database; backup stores are not live/sync databases.
+- [x] Use Cloudflare R2 as the daily operational backup tier: daily 03:30 Taiwan time, 30-day retention (BD-049).
+- [x] Use GCS as cross-cloud disaster recovery: Wednesday/Sunday replication, 26-week retention (BD-049).
+- [x] One logical backup is exported from D1 only once; R2 and GCS copies use identical `manifest.json + data.json` bytes and the same `backupId` (BD-049/050).
+- [x] Keep provider-neutral `BackupService` + `BackupStorageProvider` boundary (BD-046/050).
+- [x] Standardize CY Web / CYAccountingWeb on the same outer `CYBackupSet` contract and SHA-256/read-back verification model (BD-050).
+- [x] Keep CY Web and CYAccountingWeb datasets and credentials isolated even when they later use a shared CY Backup Service / Worker (BD-050).
+- [x] Define future shared service boundary: shared Worker owns provider adapters/replication/retention/copy catalog; each App keeps D1 export, schema compatibility, authorization and restore writes (BD-050).
 
 CY Web infrastructure preparation:
 
-- [x] Create CY Web production GCS bucket with non-public, uniform bucket-level access and recovery-oriented settings.
-- [x] Create CY Web dedicated least-privilege service identity.
-- [x] Verify bucket-scoped `Storage Object Admin` IAM for the CY Web service identity.
-- [x] Create the CY Web Service Account JSON credential for the selected direct Worker→GCS deployment path. The key itself remains outside Git.
-- [ ] After the CY Web Worker exists, store the credential as a Cloudflare Worker Secret and store bucket/runtime configuration through the approved deployment/runtime boundary.
-- [ ] Implement GCS `BackupStorageProvider`: put/get/list/delete.
-- [ ] Implement `BackupService`: D1 export, package/manifest, SHA-256, read-back verify, list, retention, restore orchestration.
-- [ ] Implement SA-only backup/list/verify/restore API + UI + audit.
-- [ ] Finalize retention, retry/failure semantics and disaster-recovery drill.
+- [x] Create CY Web production GCS bucket and dedicated least-privilege service identity.
+- [x] Verify bucket-scoped GCS IAM for the CY Web identity.
+- [x] Create the CY Web Service Account JSON credential; keep it outside Git.
+- [ ] After the real CY Web Worker exists, create a CY Web-specific R2 operational backup bucket/binding.
+- [ ] Configure CY Web Worker runtime with app-scoped R2 binding plus CY Web GCS configuration/secret through the approved deployment/runtime boundary.
+- [ ] Implement canonical `CYBackupSet` builder and app-level `BackupService`.
+- [ ] Implement R2 `BackupStorageProvider` and GCS `BackupStorageProvider` behind the same contract.
+- [ ] Implement logical backup + provider-copy catalog semantics so one backup is listed once with per-provider health.
+- [ ] Implement daily R2 backup, Wednesday/Sunday GCS replication from the same already-created bytes, retry and provider-specific retention.
+- [ ] Implement SA-only backup/list/verify/restore API + UI + audit; normal restore prefers R2 and falls back to GCS.
+- [ ] Perform operational restore and cross-cloud disaster-recovery drills.
 
-CYAccountingWeb implementation is **not modified from this project branch**. Its GCS implementation was handed back to the CYAccountingWeb workstream; this repo only retains the shared architectural contract.
+CYAccountingWeb coordination:
 
-Precise production GCP resource identifiers and operational setup status remain in the Private operational handoff rather than Public Git.
+- [x] Confirm CYAccountingWeb V0.17 GCS production backup has passed real acceptance and must remain the accepted rollback path during migration.
+- [x] Produce a new public-safe handoff at `docs/handoffs/CYACCOUNTINGWEB_TIERED_BACKUP_HANDOFF.md`.
+- [ ] CYAccountingWeb workstream implements the additive migration; **this CY Web branch does not modify CYAccountingWeb source/runtime**.
+- [ ] Require 14 consecutive successful parallel R2 + existing daily GCS backups before CYAccountingWeb changes to the tiered daily-R2 / Wed-Sun-GCS schedule.
+- [ ] Only after shared-service acceptance may direct per-App provider credentials/bindings be retired.
+
+Precise production resource identifiers remain in Private operational documentation rather than Public Git.
 
 ## Medium-term — SMART ERP item-code replacement
 
@@ -140,6 +156,6 @@ Acceptance focuses on the new system:
 - [ ] Identity/session/permission/high-risk-operation acceptance.
 - [ ] Customer/Item/Order/Outsourcing/WorkLog/Settings workflow acceptance.
 - [ ] Desktop/Tablet/Mobile real-device/browser acceptance.
-- [ ] Backup/restore integrity and disaster-recovery acceptance.
+- [ ] R2 operational restore and GCS cross-cloud disaster-recovery acceptance.
 - [ ] Any enabled SMART ERP integration is reconciled against its explicit adapter contract.
 - [ ] After the user confirms CY Web is stable for real use, retire the old GAS deployment/Sheet as appropriate.
