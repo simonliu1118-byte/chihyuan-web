@@ -7,6 +7,9 @@
 - `REPO_POLICY.md` 明確把 Legacy 定位為 Private behavior/reference source，Public repo 不建立未使用測試資料的 migration compatibility layer。
 - 新增 architecture document map、Business Decision index 與 archive 邊界，避免舊 draft／audit 的 `OPEN`／migration 假設凌駕後續已確認決策。
 - 新增 BD-047（Legacy test data 不搬入 production）與 BD-048（SMART ERP 客戶編號可受控更正／變更，Customer internal ID 不變）。
+- 新增 BD-049／BD-050 與 `docs/architecture/BACKUP_ARCHITECTURE.md`：D1 維持 live database，R2 定位為每日 operational backup，GCS 定位為較低頻率 cross-cloud DR；同一 logical backup 僅 export 一次並以相同 portable bytes 複寫。
+- CY Web／CYAccountingWeb 共用 portable package、SHA-256/read-back verification 與 `BackupStorageProvider` contract；未來收斂為 app-scoped dataset/credential 隔離的 `CY Backup Service / Worker`。
+- 新增 `docs/handoffs/CYACCOUNTINGWEB_TIERED_BACKUP_HANDOFF.md`，要求 Accounting 採 additive migration，V0.17 已驗收 GCS production path 在平行驗證通過前不得破壞。
 
 ## 1.0.0 — 2026/09/24
 
