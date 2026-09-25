@@ -56,14 +56,16 @@
 ## Backup / recovery — GCS coordination
 
 - [x] 保留程式內備份／還原能力；只允許 Super Admin 操作，還原需雙重確認並留下 Audit（BD-044）。
-- [x] 志遠 production 初期採 Google Cloud Storage 作為 Cloudflare D1 的 off-site backup；Public source 維持 provider-neutral `BACKUP_PROVIDER`（BD-045）。
+- [x] 志遠 production 初期採 Google Cloud Storage 作為 Cloudflare D1 的 off-site backup；Public source 維持 provider-neutral backup boundary（BD-045）。
 - [x] CY Web 與 CYAccountingWeb 可使用同一 GCP Project，但目前各自使用獨立 backup dataset（bucket 或明確隔離 namespace）與獨立 least-privilege service identity／credential；不共用一把廣權限 GCS key。
-- [ ] 定義共用 `BACKUP_PROVIDER` contract：create、list、verify、restore、retention／deleteExpired。
-- [ ] 定義可攜 D1 backup package／manifest：App／schema version、建立時間、資料筆數、SHA-256 與必要 restore metadata。
+- [x] 定義兩層 backup contract：application-level `BackupService` 負責 create/list/verify/restore/retention；storage-level `BackupStorageProvider` 只負責 put/get/list/delete object（BD-046）。
+- [x] 定義可攜 backup set：`manifest.json` + `data.json`；manifest 含 App/schema/format version、UTC 建立時間、record counts、byte length、SHA-256 與 restore metadata；成功需 upload 後 read-back 再驗證（BD-046）。
 - [ ] 建立 CY Web 專用 GCS bucket／namespace 與專用最小權限 identity；實際 project／bucket／credential 僅由 deployment/runtime secret 注入，不進 Public Git。
+- [ ] 實作 `BackupStorageProvider` 的 GCS adapter，禁止 application service 直接依賴 GCS-specific API。
+- [ ] 實作 `BackupService`：D1 export、package/manifest、SHA-256、read-back verify、list、retention、restore orchestration。
 - [ ] 實作 SA-only 備份、備份清單、完整性驗證與雙重確認還原 API／UI／Audit。
-- [ ] 定義 retention、失敗重試、上傳後 read-back/checksum 驗證與災難復原演練。
-- [ ] 與 `CYapps/apps/CYAccountingWeb` 對齊 backup contract、manifest/checksum 與 restore safety；Accounting 現有 Google Drive V0.16 實作視為過渡／可重用邏輯來源，production target 改為 GCS。
+- [ ] 定義 retention、失敗重試與災難復原演練；不完整／驗證失敗的 backup set 不可顯示為可還原版本。
+- [ ] 與 `CYapps/apps/CYAccountingWeb` 對齊 BackupService／BackupStorageProvider、manifest/checksum 與 restore safety；Accounting 現有 Google Drive V0.16 實作視為過渡／可重用邏輯來源，production target 改為 GCS。
 - [ ] 未來 CYAccountingWeb 併入 CY Web 後，抽出共用 CY Backup Service／Worker；各 App 改走 service boundary，撤除個別直接 GCS credential，但各 backup set 仍獨立可還原。
 
 ## 中期規劃 — SMART ERP 品號換碼收斂
