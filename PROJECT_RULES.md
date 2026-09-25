@@ -23,6 +23,20 @@
 - Google Sheets → 新資料層必須有可重跑、可核對、可回溯的 migration 流程；不得直接手動搬資料後宣稱完成。
 - 具體 frontend framework、database 或 Cloudflare service 組合在使用者正式定案前屬工程規劃；可先記錄於 README／TODO／設計文件，不得只因技術推薦就默默升格為永久規則。
 
+### 3.1 Public Source 與正式 Cloud Infrastructure 分離
+
+- **Source 留接口，不留實際正式連線。** Public repo 只保存通用 binding／service contract，例如 `DB`、`IDENTITY`、`STORAGE`、`BACKUP_PROVIDER`，不得把志遠正式 Cloudflare 資源直接寫死在 source/config。
+- Public repo 不得保存志遠正式環境的 D1 `database_id`、正式 D1 database name、正式 Worker／Service Binding service 名稱、Cloudflare Account ID、API Token、OAuth Client Secret、Refresh Token、Encryption Key、其他 production Secret、正式使用者資料或正式業務資料。
+- 可保存 deployment template、placeholder、migration、deployment script、binding 名稱與 API contract；例如 `__D1_DATABASE_ID__`、`__IDENTITY_SERVICE__` 之類的占位符是允許的。
+- Cloudflare infrastructure metadata（例如正式 Worker 名稱、D1 Database Name／ID、Service Binding 實際 service、R2／KV／Queue resource identifier）必須由 GitHub Deployment Environment 或其他核准的部署環境在 deploy 時注入，不直接 commit 到 Public Git。
+- 正式部署可由 CI 動態產生 deployment-only Wrangler config；該檔案只存在 runner/workspace，部署完成後不得回寫 Public repo。
+- 部署 Cloudflare 所需 credential 使用 GitHub Environment Secrets 或等價的 protected deployment secret store；Worker runtime Secret 使用 Cloudflare Worker Secrets 或等價的 runtime secret store。程式只引用 `env.<SECRET_NAME>`，不保存實際值。
+- Google／Microsoft／其他第三方 OAuth/API 採同一原則：Public source 只保存 callback contract、scope、secret/binding 名稱與 API 邏輯；實際 Client ID／Client Secret／Refresh Token／Encryption Key 與第三方 private data 不進 Git。
+- 同一份 Public source 應可由 fork/deployer 接到**自己的** Cloudflare Account、D1、Identity、Storage、OAuth/API 與 Secrets；不同部署預設不得共享志遠正式資源或機密。
+- PR／一般 CI 階段不得取得 production deployment secrets，也不得部署 production。只有核准 branch／GitHub Environment 的正式 deploy job 才能注入正式資源設定、執行 remote migration 與 production deploy。
+- 後續新增 Workers、D1、Service Binding、R2、KV、Queues、Google API、Microsoft API、Email、Backup Provider 或其他外部服務時，**必須先依本邊界設計 binding 與部署注入方式，不得先把 production identifier 寫進 Public source 再事後清除。**
+- 詳細實作參考：`docs/architecture/CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md`。若該文件與本 `PROJECT_RULES.md` 衝突，以本文件為準。
+
 ## 4. RWD + Adaptive UI
 
 - 前端只維護 **單一網站、單一主要前端 codebase**，不建立獨立 Desktop 網站與 Mobile 網站兩套長期 source。
