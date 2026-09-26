@@ -6,6 +6,7 @@ This index records the current interpretation of confirmed CY Web Business Decis
 - BD-019 and later have individual files in this directory.
 - BD-047 makes all earlier **Legacy GAS/Sheet production-migration implications non-operative**. Those passages remain useful historical context only.
 - BD-049 and BD-050 refine the backup direction from BD-045/046 into a tiered R2 + GCS topology and a shared cross-App portable/service contract.
+- BD-051 clarifies that WorkLog cancel-review needs structured audit but does not require retention of the cancelled score payload as a historical review version.
 
 ## Decision index
 
@@ -22,7 +23,7 @@ This index records the current interpretation of confirmed CY Web Business Decis
 | BD-009 | Customer region is independent from individual addresses | CONFIRMED |
 | BD-010 | Configurable business lookups are separate from fixed workflow states | CONFIRMED |
 | BD-011 | Previous SMART ERP item numbers remain searchable until explicitly retired | CONFIRMED |
-| BD-012 | WorkLog scoring rules are configurable; finalized scores are frozen | CONFIRMED |
+| BD-012 | WorkLog scoring rules are configurable; finalized scores are frozen | CONFIRMED; explicit cancel-review behavior refined by BD-051 |
 | BD-013 | ERP qualification is separate from configurable customer business status | CONFIRMED; transaction-gating interpretation refined by BD-035 |
 | BD-014 | Closed-business customers remain historical but cannot create new commercial transactions | PARTIALLY SUPERSEDED by BD-035; retention/visibility intent remains |
 | BD-015 | Customer visit person may link to a contact but always keeps a visit-time snapshot | CONFIRMED |
@@ -61,6 +62,7 @@ This index records the current interpretation of confirmed CY Web Business Decis
 | BD-048 | SMART ERP customer number may be corrected or changed without changing customer identity | CONFIRMED; supersedes BD-001 immutability clause |
 | BD-049 | Tiered backup uses R2 for daily operational recovery and GCS for cross-cloud disaster recovery | CONFIRMED; refines BD-045 |
 | BD-050 | CY Web and CYAccountingWeb share one portable backup contract and converge on CY Backup Service | CONFIRMED; extends BD-046 |
+| BD-051 | WorkLog cancel-review requires audit, not retained review-version history | CONFIRMED; refines BD-012 review-reopen handling |
 
 ## Cross-decision supersession / refinement notes
 
@@ -77,6 +79,10 @@ BD-048 changes only the assigned-number immutability rule from BD-001. The Custo
 ### Closed-business status
 
 BD-035 supersedes the transaction-blocking and mandatory-reopen behavior in BD-014. `closed_business / 已歇業` remains visible and historically retained, but does not by itself block supported CY Web workflows.
+
+### WorkLog review cancellation
+
+BD-051 clarifies BD-012's finalized-score rule. A completed review remains frozen against later scoring-configuration changes while it is active, but an explicit authorized `取消審核` action may clear the current review/scoring values and return the WorkLog to `pending_review`. The cancellation itself must remain in structured audit/history; the cancelled score payload does not need a retained review-version snapshot in the initial schema.
 
 ### Backup topology
 
