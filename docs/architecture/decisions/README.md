@@ -7,6 +7,8 @@ This index records the current interpretation of confirmed CY Web Business Decis
 - BD-047 makes all earlier **Legacy GAS/Sheet production-migration implications non-operative**. Those passages remain useful historical context only.
 - BD-049 and BD-050 refine the backup direction from BD-045/046 into a tiered R2 + GCS topology and a shared cross-App portable/service contract.
 - BD-051 clarifies that WorkLog cancel-review needs structured audit but does not require retention of the cancelled score payload as a historical review version.
+- BD-052 confirms that the initial CY Web field set follows the validated Legacy/GAS business model while exact SMART ERP field ownership is deferred.
+- BD-053 and BD-054 define the CY Web audit boundary: ordinary edits retain last-modified metadata, meaningful business actions use structured audit, and all CY Web modules use one shared in-App Audit Core with cost-conscious payloads.
 
 ## Decision index
 
@@ -63,6 +65,9 @@ This index records the current interpretation of confirmed CY Web Business Decis
 | BD-049 | Tiered backup uses R2 for daily operational recovery and GCS for cross-cloud disaster recovery | CONFIRMED; refines BD-045 |
 | BD-050 | CY Web and CYAccountingWeb share one portable backup contract and converge on CY Backup Service | CONFIRMED; extends BD-046 |
 | BD-051 | WorkLog cancel-review requires audit, not retained review-version history | CONFIRMED; refines BD-012 review-reopen handling |
+| BD-052 | Initial CY Web field set follows validated Legacy/GAS design; SMART ERP field ownership is deferred | CONFIRMED |
+| BD-053 | General edits keep only last-modified metadata; detailed audit is Admin/SA-only | CONFIRMED |
+| BD-054 | CY Web uses one shared in-App Audit Core with cost-conscious storage | CONFIRMED; scoped to CY Web only |
 
 ## Cross-decision supersession / refinement notes
 
@@ -83,6 +88,14 @@ BD-035 supersedes the transaction-blocking and mandatory-reopen behavior in BD-0
 ### WorkLog review cancellation
 
 BD-051 clarifies BD-012's finalized-score rule. A completed review remains frozen against later scoring-configuration changes while it is active, but an explicit authorized `取消審核` action may clear the current review/scoring values and return the WorkLog to `pending_review`. The cancellation itself must remain in structured audit/history; the cancelled score payload does not need a retained review-version snapshot in the initial schema.
+
+### Initial field ownership / SMART ERP integration timing
+
+BD-052 keeps SMART ERP as the long-term primary ERP direction but removes future ERP schema investigation from the initial Data-Dictionary gate. Initial CY Web fields follow the validated Legacy/GAS business semantics and confirmed Business Decisions; exact ERP-owned/read-only/synchronized classification is deferred until the later SMART ERP integration project.
+
+### CY Web audit architecture
+
+BD-053 defines the difference between ordinary last-modified metadata and meaningful structured business audit. BD-054 requires one shared Audit Core inside CY Web so modules do not maintain separate audit implementations. Audit payloads must remain compact because D1 audit growth also increases R2/GCS backup volume. This shared-core decision does not currently apply to CYAccountingWeb, CYInvoice or other separately developed Apps.
 
 ### Backup topology
 
