@@ -25,6 +25,7 @@ For product/architecture semantics, current explicit user decisions and later co
 - `IDENTITY_ADAPTER.md` — shared-Identity adapter boundary, normalized principal contract and CY Web app-local authorization split.
 - `AUDIT_CORE.md` — one shared CY Web AuditService contract, concise timeline/detailed Audit Log split and storage-cost safeguards.
 - `UI_FOUNDATION.md` — new-Web shared UI/interaction architecture, Adaptive UI boundary and pre-business-screen shared-component gate.
+- `APP_SHELL_FOUNDATION.md` — shared application frame/navigation boundary and first reusable UI primitives; visual styling remains provisional.
 - `BACKUP_ARCHITECTURE.md` — tiered R2 + GCS backup topology and provider/service boundary.
 - `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public-source / production-infrastructure separation.
 - `../DOMAIN_STRATEGY.md` — confirmed `chihyuancm.com` parent-domain namespace and controlled rollout direction for the official website and CY-family Web systems.
@@ -44,7 +45,7 @@ Their detailed historical versions remain under `archive/`. Legacy evidence expl
 
 ## Current architecture baseline
 
-As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/request foundation:
+As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/request/App-Shell foundation:
 
 - CY Web is one Web application for Desktop / Tablet / Mobile using RWD + Adaptive UI.
 - `chihyuancm.com` is the confirmed shared parent domain for the future public Chihyuan website and internal/business CY-family Web systems; each application keeps its own hostname/origin, deployment and security/session boundary.
@@ -63,7 +64,9 @@ As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/requ
 - CY Web uses one shared in-App Audit Core; ordinary edits keep only latest modifier/time and meaningful business events use compact structured Audit.
 - Initial AuditService rejects credential-like payload keys, bounds JSON payload size and serves both concise timeline and detailed Admin/SA inspection from the same event store.
 - Repeated interaction mechanics are implemented as shared CY Web foundations rather than one copy per business module or one copy per device class.
-- Final visual composition/tokens remain a dedicated UI/UX review item; current foundation work establishes reusable behavior and architecture without freezing a GAS-derived look.
+- One shared App Shell now provides the structural application frame and data-driven navigation boundary; business modules must compose inside it rather than building independent frames.
+- Initial `Button`, `Notice`, `Section` and `StatusChip` primitives exist so common UI states do not start diverging per module.
+- Current shell styling/tokens are explicitly provisional. Final visual composition, branding and production menu hierarchy remain a dedicated UI/UX review item and are not inherited from GAS.
 
 ## Backup baseline
 
@@ -100,7 +103,11 @@ shared Audit Core
         ↓
 cross-module Legacy reusable-pattern audit
         ↓
-new-Web UI foundation + shared interaction primitives
+new-Web UI foundation
+        ↓
+shared App Shell + shared primitives
+        ↓
+remaining reusable data-entry/data-view patterns
         ↓
 business modules
         ↓
@@ -109,7 +116,7 @@ production custom-domain rollout
 production acceptance
 ```
 
-The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation, shared request/validation foundation and initial shared record-editor state foundation. The production shared-Identity browser-session provider contract is still an external dependency, and the production D1 database / production Worker bindings have **not** been created by these branches.
+The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation, shared request/validation foundation, shared record-editor state foundation and initial shared App Shell/primitives. The production shared-Identity browser-session provider contract is still an external dependency, and the production D1 database / production Worker bindings have **not** been created by these branches.
 
 ## Document precedence
 
