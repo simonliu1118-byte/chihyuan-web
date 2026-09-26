@@ -23,6 +23,7 @@ For product/architecture semantics, current explicit user decisions and later co
 - `API_CONTRACT.md` — initial Worker/API envelope, error, cache, validation and concurrency contract.
 - `IDENTITY_ADAPTER.md` — shared-Identity adapter boundary, normalized principal contract and CY Web app-local authorization split.
 - `AUDIT_CORE.md` — one shared CY Web AuditService contract, concise timeline/detailed Audit Log split and storage-cost safeguards.
+- `UI_FOUNDATION.md` — new-Web shared UI/interaction architecture, Adaptive UI boundary and pre-business-screen shared-component gate.
 - `BACKUP_ARCHITECTURE.md` — tiered R2 + GCS backup topology and provider/service boundary.
 - `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public-source / production-infrastructure separation.
 
@@ -37,14 +38,15 @@ For product/architecture semantics, current explicit user decisions and later co
 - `LEGACY_DESKTOP_WORKFLOW_AUDIT.md`
 - `LEGACY_REUSABLE_PATTERN_AUDIT.md` — cross-module review of repeated Legacy behavior/UI patterns and the pre-UI shared-component extraction gate.
 
-Their detailed historical versions remain under `archive/`. Legacy evidence explains behavior/semantics; it is not a production migration contract.
+Their detailed historical versions remain under `archive/`. Legacy evidence explains behavior/semantics; it is not a production migration contract or a screen blueprint.
 
 ## Current architecture baseline
 
-As of the decisions through BD-054 and the initial D1/API/Identity/Audit foundation:
+As of the decisions through BD-055 and the initial D1/API/Identity/Audit/UI foundation:
 
 - CY Web is one Web application for Desktop / Tablet / Mobile using RWD + Adaptive UI.
 - Legacy GAS / Google Sheets is behavior/data-semantic reference only; unused test rows are not migrated to production D1.
+- Legacy UX is evaluated selectively: useful proven behavior may be retained/adapted, while the new screen structure, component implementation and responsive behavior follow the new Web architecture rather than reproducing GAS.
 - Cloudflare Workers is the target application backend and D1 is the live relational database direction.
 - Current frontend foundation is TypeScript + React + Vite + Cloudflare Vite plugin.
 - Shared Identity is consumed through an adapter/service boundary; CY Web does not duplicate the shared account-role hierarchy or credential store.
@@ -54,8 +56,8 @@ As of the decisions through BD-054 and the initial D1/API/Identity/Audit foundat
 - Formal business records retain only deliberate historical snapshots.
 - CY Web uses one shared in-App Audit Core; ordinary edits keep only latest modifier/time and meaningful business events use compact structured Audit.
 - Initial AuditService rejects credential-like payload keys, bounds JSON payload size and serves both concise timeline and detailed Admin/SA inspection from the same event store.
-- Before business-module UI implementation, repeated Legacy interaction mechanics are reviewed cross-module and moved into shared CY Web primitives rather than rebuilt independently per module.
-- Detailed modern UI/UX is redesigned for the new Web system; Legacy GAS visual/refresh workarounds are not implementation requirements.
+- Repeated interaction mechanics are implemented as shared CY Web foundations rather than one copy per business module or one copy per device class.
+- Final visual composition/tokens remain a dedicated UI/UX review item; current foundation work establishes reusable behavior and architecture without freezing a GAS-derived look.
 
 ## Backup baseline
 
@@ -90,14 +92,14 @@ shared Audit Core
         ↓
 cross-module Legacy reusable-pattern audit
         ↓
-common Web components / shared interaction primitives
+new-Web UI foundation + shared interaction primitives
         ↓
 business modules
         ↓
 production acceptance
 ```
 
-The repository now contains the provider-neutral Identity adapter contract, app-local module-access service and shared AuditService foundation. The production shared-Identity browser-session provider contract is still an external dependency, and the production D1 database / production Worker bindings have **not** been created by these branches.
+The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation and initial shared record-editor state foundation. The production shared-Identity browser-session provider contract is still an external dependency, and the production D1 database / production Worker bindings have **not** been created by these branches.
 
 ## Document precedence
 
