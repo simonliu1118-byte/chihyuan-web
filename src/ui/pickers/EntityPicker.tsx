@@ -64,6 +64,7 @@ export function EntityPicker<T>({
   const inputRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef(search);
   const searchErrorRef = useRef(onSearchError);
+  const skipNextNullSyncRef = useRef(false);
   const selectedLabel = value !== null ? getLabel(value) : "";
 
   const [inputValue, setInputValue] = useState(selectedLabel);
@@ -82,6 +83,10 @@ export function EntityPicker<T>({
   }, [onSearchError]);
 
   useEffect(() => {
+    if (value === null && skipNextNullSyncRef.current) {
+      skipNextNullSyncRef.current = false;
+      return;
+    }
     setInputValue(selectedLabel);
   }, [value, selectedLabel]);
 
@@ -138,6 +143,7 @@ export function EntityPicker<T>({
   );
 
   function selectItem(item: T) {
+    skipNextNullSyncRef.current = false;
     onSelect(item);
     setInputValue(getLabel(item));
     setOpen(false);
@@ -148,7 +154,12 @@ export function EntityPicker<T>({
   }
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
-    setInputValue(event.target.value);
+    const nextValue = event.target.value;
+    if (value !== null && nextValue !== selectedLabel) {
+      skipNextNullSyncRef.current = true;
+      onSelect(null);
+    }
+    setInputValue(nextValue);
     setOpen(true);
     setActiveIndex(-1);
   }
@@ -193,6 +204,7 @@ export function EntityPicker<T>({
   }
 
   function handleClear() {
+    skipNextNullSyncRef.current = false;
     onSelect(null);
     setInputValue("");
     setResults([]);
