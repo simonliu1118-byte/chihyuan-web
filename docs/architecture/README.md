@@ -27,6 +27,7 @@ For product/architecture semantics, current explicit user decisions and later co
 - `UI_FOUNDATION.md` — new-Web shared UI/interaction architecture, Adaptive UI boundary and pre-business-screen shared-component gate.
 - `BACKUP_ARCHITECTURE.md` — tiered R2 + GCS backup topology and provider/service boundary.
 - `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public-source / production-infrastructure separation.
+- `../DOMAIN_STRATEGY.md` — confirmed `chihyuancm.com` parent-domain namespace and controlled rollout direction for the official website and CY-family Web systems.
 
 ### Implementation handoffs
 
@@ -43,9 +44,11 @@ Their detailed historical versions remain under `archive/`. Legacy evidence expl
 
 ## Current architecture baseline
 
-As of the decisions through BD-055 and the initial D1/API/Identity/Audit/UI/request foundation:
+As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/request foundation:
 
 - CY Web is one Web application for Desktop / Tablet / Mobile using RWD + Adaptive UI.
+- `chihyuancm.com` is the confirmed shared parent domain for the future public Chihyuan website and internal/business CY-family Web systems; each application keeps its own hostname/origin, deployment and security/session boundary.
+- Production custom-domain binding is a controlled rollout step, not an early foundation-development prerequisite.
 - Legacy GAS / Google Sheets is behavior/data-semantic reference only; unused test rows are not migrated to production D1.
 - Legacy UX is evaluated selectively: useful proven behavior may be retained/adapted, while the new screen structure, component implementation and responsive behavior follow the new Web architecture rather than reproducing GAS.
 - Cloudflare Workers is the target application backend and D1 is the live relational database direction.
@@ -100,6 +103,8 @@ cross-module Legacy reusable-pattern audit
 new-Web UI foundation + shared interaction primitives
         ↓
 business modules
+        ↓
+production custom-domain rollout
         ↓
 production acceptance
 ```
