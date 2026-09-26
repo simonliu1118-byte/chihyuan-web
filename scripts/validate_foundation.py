@@ -68,6 +68,10 @@ def main() -> int:
     if "ApiClientError" not in api_client or 'cache: "no-store"' not in api_client:
         raise AssertionError("shared browser API client safeguards missing")
 
+    app_shell = require("src/ui/shell/AppShell.tsx").read_text(encoding="utf-8")
+    if "cy-main-content" not in app_shell or "NavigationGroup" not in app_shell:
+        raise AssertionError("shared app shell structure missing")
+
     for path in (
         "index.html",
         "src/main.tsx",
@@ -75,6 +79,12 @@ def main() -> int:
         "src/app.css",
         "src/api/request-state.ts",
         "src/ui/foundation/record-editor.ts",
+        "src/ui/foundation/navigation.ts",
+        "src/ui/primitives/Button.tsx",
+        "src/ui/primitives/Notice.tsx",
+        "src/ui/primitives/Section.tsx",
+        "src/ui/primitives/StatusChip.tsx",
+        "docs/architecture/APP_SHELL_FOUNDATION.md",
         "shared/api.ts",
         "vite.config.ts",
         "tsconfig.json",
