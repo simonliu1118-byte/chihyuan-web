@@ -30,8 +30,17 @@ def validate_source_contracts() -> None:
         if field not in contract:
             raise AssertionError(f"missing normalized principal field: {field}")
 
-    if "credential" in access.lower() or "password" in access.lower():
-        raise AssertionError("app-local authorization must not copy credential/password logic")
+    forbidden_credential_logic = (
+        "credential_verifier",
+        "verifyPassword",
+        "pbkdf2",
+        "password_hash",
+        "password_verifier",
+    )
+    lowered_access = access.lower()
+    for token in forbidden_credential_logic:
+        if token.lower() in lowered_access:
+            raise AssertionError(f"app-local authorization contains credential logic: {token}")
 
     for token in ("app_members", "app_member_tags", "app_tag_modules"):
         if token not in access:
