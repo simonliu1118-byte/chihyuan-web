@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import type { ApiResponse, HealthData } from "../shared/api";
+import type { HealthData } from "../shared/api";
+import { apiRequest } from "./api/client";
 
 type HealthState =
   | { status: "loading" }
@@ -14,15 +15,12 @@ export default function App() {
 
     async function checkHealth() {
       try {
-        const response = await fetch("/api/health", {
-          headers: { Accept: "application/json" },
+        const data = await apiRequest<HealthData>("/api/health", {
           signal: controller.signal,
         });
-        const body = (await response.json()) as ApiResponse<HealthData>;
 
-        if (!response.ok || !body.ok || body.data.database !== "ok") {
-          const message = body.ok ? `HTTP ${response.status}` : body.error.message;
-          throw new Error(message);
+        if (data.database !== "ok") {
+          throw new Error("Database health check failed");
         }
 
         setHealth({ status: "ok" });

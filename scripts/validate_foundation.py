@@ -43,16 +43,38 @@ def main() -> int:
     worker = require("worker/index.ts").read_text(encoding="utf-8")
     if '"/api/health"' not in worker:
         raise AssertionError("health route missing")
-    if '"cache-control": "no-store"' not in worker:
-        raise AssertionError("API no-store header missing")
     if "crypto.randomUUID()" not in worker:
         raise AssertionError("request correlation id generation missing")
+
+    response_helper = require("worker/http/response.ts").read_text(encoding="utf-8")
+    if '"cache-control": "no-store"' not in response_helper:
+        raise AssertionError("API no-store header missing")
+    if "ApiSuccess" not in response_helper or "ApiFailure" not in response_helper:
+        raise AssertionError("shared API response envelope helper missing")
+
+    request_helper = require("worker/http/request.ts").read_text(encoding="utf-8")
+    if "REQUEST_TOO_LARGE" not in request_helper or "INVALID_JSON" not in request_helper:
+        raise AssertionError("bounded JSON request parsing checks missing")
+
+    validation_helper = require("worker/validation/fields.ts").read_text(encoding="utf-8")
+    if "FieldValidationError" not in validation_helper or "ValidationBag" not in validation_helper:
+        raise AssertionError("shared field validation helper missing")
+
+    error_helper = require("worker/http/errors.ts").read_text(encoding="utf-8")
+    if "VALIDATION_ERROR" not in error_helper or "INTERNAL_ERROR" not in error_helper:
+        raise AssertionError("shared request error mapping missing")
+
+    api_client = require("src/api/client.ts").read_text(encoding="utf-8")
+    if "ApiClientError" not in api_client or 'cache: "no-store"' not in api_client:
+        raise AssertionError("shared browser API client safeguards missing")
 
     for path in (
         "index.html",
         "src/main.tsx",
         "src/App.tsx",
         "src/app.css",
+        "src/api/request-state.ts",
+        "src/ui/foundation/record-editor.ts",
         "shared/api.ts",
         "vite.config.ts",
         "tsconfig.json",
