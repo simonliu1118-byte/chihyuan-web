@@ -58,7 +58,14 @@ export function useToastQueue(defaultDurationMs = 4000) {
     setToasts([]);
   }, []);
 
-  useEffect(() => clearToasts, [clearToasts]);
+  useEffect(() => {
+    return () => {
+      for (const timer of timersRef.current.values()) {
+        window.clearTimeout(timer);
+      }
+      timersRef.current.clear();
+    };
+  }, []);
 
   return {
     toasts,
