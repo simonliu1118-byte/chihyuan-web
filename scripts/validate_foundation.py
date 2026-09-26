@@ -72,19 +72,30 @@ def main() -> int:
     if "cy-main-content" not in app_shell or "NavigationGroup" not in app_shell:
         raise AssertionError("shared app shell structure missing")
 
+    unsaved_guard = require("src/ui/foundation/useUnsavedChangesGuard.ts").read_text(encoding="utf-8")
+    if "beforeunload" not in unsaved_guard or "confirmNavigation" not in unsaved_guard:
+        raise AssertionError("shared unsaved-change guard missing")
+
     for path in (
         "index.html",
         "src/main.tsx",
         "src/App.tsx",
         "src/app.css",
         "src/api/request-state.ts",
+        "src/ui/forms.css",
         "src/ui/foundation/record-editor.ts",
         "src/ui/foundation/navigation.ts",
+        "src/ui/foundation/useUnsavedChangesGuard.ts",
         "src/ui/primitives/Button.tsx",
+        "src/ui/primitives/FieldFrame.tsx",
         "src/ui/primitives/Notice.tsx",
         "src/ui/primitives/Section.tsx",
+        "src/ui/primitives/SelectField.tsx",
         "src/ui/primitives/StatusChip.tsx",
+        "src/ui/primitives/TextArea.tsx",
+        "src/ui/primitives/TextInput.tsx",
         "docs/architecture/APP_SHELL_FOUNDATION.md",
+        "docs/architecture/FORM_FOUNDATION.md",
         "shared/api.ts",
         "vite.config.ts",
         "tsconfig.json",
