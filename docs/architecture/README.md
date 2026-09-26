@@ -27,6 +27,7 @@ For product/architecture semantics, current explicit user decisions and later co
 - `UI_FOUNDATION.md` — new-Web shared UI/interaction architecture, Adaptive UI boundary and pre-business-screen shared-component gate.
 - `APP_SHELL_FOUNDATION.md` — shared application frame/navigation boundary and first reusable UI primitives; visual styling remains provisional.
 - `FORM_FOUNDATION.md` — shared field semantics, validation presentation and unsaved-change protection.
+- `DATA_VIEW_FOUNDATION.md` — shared search/filter/list states, Desktop table/Mobile card projection and pagination boundary.
 - `BACKUP_ARCHITECTURE.md` — tiered R2 + GCS backup topology and provider/service boundary.
 - `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public-source / production-infrastructure separation.
 - `../DOMAIN_STRATEGY.md` — confirmed `chihyuancm.com` parent-domain namespace and controlled rollout direction for the official website and CY-family Web systems.
@@ -46,7 +47,7 @@ Their detailed historical versions remain under `archive/`. Legacy evidence expl
 
 ## Current architecture baseline
 
-As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/request/App-Shell/form foundation:
+As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/request/App-Shell/form/data-view foundation:
 
 - CY Web is one Web application for Desktop / Tablet / Mobile using RWD + Adaptive UI.
 - `chihyuancm.com` is the confirmed shared parent domain for the future public Chihyuan website and internal/business CY-family Web systems; each application keeps its own hostname/origin, deployment and security/session boundary.
@@ -66,9 +67,11 @@ As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/requ
 - Initial AuditService rejects credential-like payload keys, bounds JSON payload size and serves both concise timeline and detailed Admin/SA inspection from the same event store.
 - Repeated interaction mechanics are implemented as shared CY Web foundations rather than one copy per business module or one copy per device class.
 - One shared App Shell provides the structural application frame and data-driven navigation boundary; business modules compose inside it rather than building independent frames.
-- Shared UI primitives now cover common button/notice/section/status and basic form-field semantics.
+- Shared UI primitives cover common button/notice/section/status and basic form-field semantics.
 - Unsaved-change protection is a shared application behavior, including browser-unload protection and an in-app confirmation contract; business pages do not implement independent page-local prompts.
-- Current shell/form styling and tokens are explicitly provisional. Final visual composition, branding, production menu hierarchy and business-form layouts remain a dedicated UI/UX review item and are not inherited from GAS.
+- Shared data views now provide one search/filter/result-state and selection surface with Desktop table and Mobile card projections over the same query state.
+- Production business lists are expected to query Worker/D1 on demand by search/filter/page rather than loading a whole module dataset into a browser-global cache as GAS did.
+- Current shell/form/data-view styling and tokens are explicitly provisional. Final visual composition, branding, production menu hierarchy and business layouts remain a dedicated UI/UX review item and are not inherited from GAS.
 
 ## Backup baseline
 
@@ -111,7 +114,9 @@ shared App Shell + UI primitives
         ↓
 shared form + unsaved-change foundation
         ↓
-remaining reusable data-view / picker / editable-list patterns
+shared adaptive data-view foundation
+        ↓
+remaining reusable picker / editable-list / overlay patterns
         ↓
 business modules
         ↓
@@ -120,7 +125,7 @@ production custom-domain rollout
 production acceptance
 ```
 
-The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation, shared request/validation foundation, shared record-editor state, shared App Shell/primitives and initial shared form/unsaved-change foundation. The production shared-Identity browser-session provider contract is still an external dependency, and the production D1 database / production Worker bindings have **not** been created by these branches.
+The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation, shared request/validation foundation, shared record-editor state, shared App Shell/primitives, shared form/unsaved-change handling, and the initial adaptive Data View foundation. The production shared-Identity browser-session provider contract is still an external dependency, and the production D1 database / production Worker bindings have **not** been created by these branches.
 
 ## Document precedence
 
