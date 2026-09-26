@@ -2,7 +2,7 @@
 
 > Project: Chihyuan Enterprise Management System (CY Web)
 >
-> Status: **initial complete draft for D1 schema freeze review**.
+> Status: **initial complete draft, cross-checked against current Legacy/GAS headers plus key Desktop Order/WorkLog behavior; ready for SQL-draft verification**.
 >
 > Source order: current explicit user decisions → confirmed Business Decisions → `CANONICAL_DATA_MODEL.md` → validated Legacy/GAS business semantics.
 >
@@ -52,6 +52,8 @@ revision
 
 Per BD-053, ordinary edits retain only the **latest** update actor/time; they do not create field-by-field historical versions.
 
+When an owned child row is changed through its aggregate — for example Customer phone/address/contact, Item unit conversion, Work Order line, BOM component, or WorkLog entry — the owning aggregate's `updated_at`, `updated_by`, and `revision` are also advanced. This keeps the visible “last modified by / time” meaningful without storing unlimited ordinary-edit history.
+
 ### 1.6 Delete behavior
 
 - Referenced master/lookup/business rows use `RESTRICT` semantics and are retired/inactivated where appropriate.
@@ -68,7 +70,9 @@ CY Web reuses shared Identity. These tables contain CY Web-local membership/tag 
 | --- | --- | --- | --- |
 | `id` | INTEGER PK | no | immutable local key |
 | `identity_employee_id` | TEXT | no | UNIQUE; shared Identity subject |
+| `display_name` | TEXT | no | local display cache from shared Identity; not credential authority |
 | `employee_no` | TEXT | yes | optional company reference |
+| `department_id` | INTEGER FK departments | yes | CY Web-local department classification |
 | `is_active` | INTEGER bool | no | default 1 |
 | `created_at` | TEXT utc_ts | no | |
 | `updated_at` | TEXT utc_ts | no | |
@@ -316,8 +320,8 @@ CY Web work orders exist before the authoritative SMART ERP sales order and cont
 | `status_code` | TEXT | no | fixed workflow code |
 | `erp_no` | TEXT | yes | external SMART ERP order number |
 | `hide_price_on_sales_document` | INTEGER bool | no | default 0 |
-| `invoice_type_code` | TEXT | yes | stable application code |
-| `receipt_option_code` | TEXT | yes | stable application code |
+| `invoice_type_code` | TEXT | yes | `two_copy` / `three_copy`; null when not selected |
+| `receipt_option_code` | TEXT | yes | `with_receipt` / `without_receipt`; null when not selected |
 | `voided_at` | TEXT utc_ts | yes | |
 | `voided_by` | INTEGER FK app_members | yes | RESTRICT |
 | `created_at` | TEXT utc_ts | no | |
@@ -344,7 +348,7 @@ Customer validation:
 - no fuzzy/automatic Customer linking;
 - once an exact Customer is linked, do not persist a conflicting free-typed customer name.
 
-Indexes: `work_order_ref UNIQUE`, `erp_no`, `(status_code, order_date DESC)`, `customer_id`.
+Indexes: `work_order_ref UNIQUE`, partial unique `erp_no` when present if SMART ERP uniqueness is confirmed during implementation, `(status_code, order_date DESC)`, `customer_id`.
 
 ### `sales_work_order_items`
 
@@ -458,6 +462,7 @@ UNIQUE may be applied to `(bom_recipe_id, component_item_id, unit)` unless a con
 | `status_code` | TEXT | no | fixed workflow code |
 | `operator_employee_id` | INTEGER FK app_members | no | RESTRICT |
 | `contractor_id` | INTEGER FK contractors | no | RESTRICT |
+| `contractor_name_snapshot` | TEXT | no | historical display; draft may refresh until outbound is confirmed |
 | `order_date` | TEXT date | no | |
 | `outbound_date` | TEXT date | yes | set when outbound confirmed |
 | `paid_at` | TEXT utc_ts | yes | current paid fact |
@@ -486,6 +491,9 @@ pending_outbound -> outbound -> received -> priced -> paid
 | `outsourcing_order_id` | INTEGER FK outsourcing_orders | no | CASCADE only while order is legally hard-deletable |
 | `bom_recipe_id` | INTEGER FK bom_recipes | yes | RESTRICT |
 | `finished_item_id` | INTEGER FK items | yes | RESTRICT |
+| `finished_item_no_snapshot` | TEXT | yes | historical display when finished Item is present |
+| `finished_item_name_snapshot` | TEXT | yes | historical display when finished Item is present |
+| `finished_spec_snapshot` | TEXT | yes | historical display when finished Item is present |
 | `component_item_id` | INTEGER FK items | no | RESTRICT |
 | `component_item_no_snapshot` | TEXT | no | |
 | `component_item_name_snapshot` | TEXT | no | |
@@ -560,15 +568,16 @@ Indexes: `(contractor_id, item_id, occurred_at)`, `outsourcing_order_id`, `rever
 | --- | --- | --- | --- |
 | `id` | INTEGER PK | no | |
 | `work_log_ref` | TEXT | no | UNIQUE system/display reference |
-| `date_from` | TEXT date | no | |
-| `date_to` | TEXT date | no | `>= date_from` |
+| `log_date` | TEXT date | no | Legacy/GAS「填寫日期」; separate from work interval |
+| `date_from` | TEXT date | no | start of 日誌區間 |
+| `date_to` | TEXT date | no | `>= date_from`; single-day is derived when equal |
 | `work_days` | INTEGER scaled4 | no | `> 0` |
-| `type_code` | TEXT | no | stable application/configured semantic as defined by workflow |
+| `type_code` | TEXT | no | current initial type maps Legacy「美編日誌」to stable code; future types may extend |
 | `employee_id` | INTEGER FK app_members | no | owner |
 | `status_code` | TEXT | no | fixed workflow code |
 | `reviewed_by` | INTEGER FK app_members | yes | cleared on cancel-review |
 | `reviewed_at` | TEXT utc_ts | yes | cleared on cancel-review |
-| `review_remark` | TEXT | yes | current effective review only |
+| `review_remark` | TEXT | yes | current effective overall review only |
 | `final_score` | INTEGER scaled4 | yes | current finalized score only |
 | `average_daily_score` | INTEGER scaled4 | yes | current finalized score / work_days |
 | `created_at` | TEXT utc_ts | no | |
@@ -585,13 +594,19 @@ created -> pending_review -> reviewed
 
 Owner may submit/withdraw according to confirmed workflow. Admin/authorized reviewer reviews. Cancel-review returns `reviewed -> pending_review`, clears current review/scoring values, and records only the required Audit event; no historical review-version table is required.
 
+Legacy `singleDay` is not stored as a second authority; it is derived from `date_from = date_to`.
+
 ### `work_log_entries`
 
 `id`, `work_log_id FK NOT NULL CASCADE`, `entry_type_code TEXT NOT NULL`, `content TEXT`, `platform_id FK work_log_platforms`, `remark TEXT`, `score_snapshot INTEGER scaled4`, `sort_order`.
 
+Initial `entry_type_code` covers the current Legacy concepts such as platform-product rows and store-ad/other rows. The platform relation is nullable for row types that do not use a platform.
+
 ### `work_log_entry_categories`
 
 `id`, `work_log_entry_id FK NOT NULL CASCADE`, `work_log_category_id FK NOT NULL RESTRICT`, `quantity INTEGER scaled4 NOT NULL`, `sort_order`.
+
+For a boolean-style category, `quantity = 1`. Quantity-style categories store the actual count. This replaces the Legacy hardcoded category-name special case.
 
 ### `work_log_categories`
 
@@ -600,8 +615,8 @@ Owner may submit/withdraw according to confirmed workflow. Admin/authorized revi
 | `id` | INTEGER PK | no | stable configurable identity |
 | `code` | TEXT | no | UNIQUE stable key |
 | `name` | TEXT | no | editable display label |
-| `unit_label` | TEXT | yes | |
-| `points_per_unit` | INTEGER scaled4 | yes | runtime scoring config |
+| `input_mode` | TEXT | no | `boolean` / `quantity` |
+| `unit_label` | TEXT | yes | optional display unit |
 | `sort_order` | INTEGER | no | default 0 |
 | `is_active` | INTEGER bool | no | default 1 |
 | `updated_at` | TEXT utc_ts | no | |
@@ -611,6 +626,25 @@ Owner may submit/withdraw according to confirmed workflow. Admin/authorized revi
 
 `id`, `code UNIQUE`, `name`, `sort_order`, `is_active`, `updated_at`, `updated_by`.
 
+### `work_log_scoring_rows`
+
+Typed replacement for Legacy `logScoring` category rows and `_extra` custom rows.
+
+| Column | Type | Null | Rule |
+| --- | --- | --- | --- |
+| `id` | INTEGER PK | no | |
+| `work_log_category_id` | INTEGER FK work_log_categories | yes | RESTRICT; set for category-backed reference row |
+| `custom_name` | TEXT | yes | required for a custom/extra row |
+| `score_value` | INTEGER scaled4 | yes | reference score |
+| `description` | TEXT | yes | Legacy `desc` semantic |
+| `note` | TEXT | yes | Legacy `note` semantic |
+| `sort_order` | INTEGER | no | default 0 |
+| `is_active` | INTEGER bool | no | default 1 |
+| `updated_at` | TEXT utc_ts | no | |
+| `updated_by` | INTEGER FK app_members | yes | |
+
+Validation: a scoring row is either category-backed or custom-name-backed; it must not silently bind a custom row to a category by display-name guessing.
+
 ### `work_log_scoring_config`
 
 Singleton/current typed configuration rather than opaque generic Settings JSON.
@@ -618,8 +652,8 @@ Singleton/current typed configuration rather than opaque generic Settings JSON.
 | Column | Type | Null | Rule |
 | --- | --- | --- | --- |
 | `id` | INTEGER PK | no | single current row |
-| `target_average_daily_score` | INTEGER scaled4 | yes | runtime production config |
-| `minimum_average_daily_score` | INTEGER scaled4 | yes | runtime production config |
+| `target_average_daily_score` | INTEGER scaled4 | yes | optional runtime production config |
+| `minimum_average_daily_score` | INTEGER scaled4 | yes | Legacy `_minAvgScore` / confirmed runtime config |
 | `updated_at` | TEXT utc_ts | no | |
 | `updated_by` | INTEGER FK app_members | yes | |
 | `revision` | INTEGER | no | default 1 |
@@ -753,6 +787,7 @@ Examples:
 
 - `Users.pin` — replaced by shared Identity;
 - Legacy JSON cells such as Customer phones/contacts/addresses, Order items/history, WorkLog content/history, BOM parts, Contractor pricing/materialStock — normalized into relational tables;
+- Legacy WorkLog `singleDay` — derived from equal start/end dates rather than stored as a second authority;
 - `Outsourcing.isPriced` — workflow status and pricing/payment facts are authoritative;
 - `StockAdjustLogs.newQty` — balance is derived from movement ledger;
 - rendered `logText` / free-text history arrays — presentation generated from structured records/Audit events;
@@ -762,7 +797,7 @@ Examples:
 ## 20. Next engineering gate
 
 ```text
-Final Data Dictionary review
+Final Data Dictionary verification
         ↓
 initial D1 SQL migration
         ↓
