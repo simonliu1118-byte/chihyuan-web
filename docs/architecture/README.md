@@ -21,6 +21,7 @@ For product/architecture semantics, current explicit user decisions and later co
 - `FINAL_DATA_DICTIONARY.md` — current initial relational/physical Data Dictionary aligned with the D1 schema draft.
 - `D1_SCHEMA_REVIEW.md` — schema validation state, refinements and remaining freeze gate.
 - `API_CONTRACT.md` — initial Worker/API envelope, error, cache, validation and concurrency contract.
+- `REQUEST_FOUNDATION.md` — shared browser API client, request-state model, Worker JSON parsing/response and field-validation foundation.
 - `IDENTITY_ADAPTER.md` — shared-Identity adapter boundary, normalized principal contract and CY Web app-local authorization split.
 - `AUDIT_CORE.md` — one shared CY Web AuditService contract, concise timeline/detailed Audit Log split and storage-cost safeguards.
 - `UI_FOUNDATION.md` — new-Web shared UI/interaction architecture, Adaptive UI boundary and pre-business-screen shared-component gate.
@@ -42,13 +43,15 @@ Their detailed historical versions remain under `archive/`. Legacy evidence expl
 
 ## Current architecture baseline
 
-As of the decisions through BD-055 and the initial D1/API/Identity/Audit/UI foundation:
+As of the decisions through BD-055 and the initial D1/API/Identity/Audit/UI/request foundation:
 
 - CY Web is one Web application for Desktop / Tablet / Mobile using RWD + Adaptive UI.
 - Legacy GAS / Google Sheets is behavior/data-semantic reference only; unused test rows are not migrated to production D1.
 - Legacy UX is evaluated selectively: useful proven behavior may be retained/adapted, while the new screen structure, component implementation and responsive behavior follow the new Web architecture rather than reproducing GAS.
 - Cloudflare Workers is the target application backend and D1 is the live relational database direction.
 - Current frontend foundation is TypeScript + React + Vite + Cloudflare Vite plugin.
+- Browser business requests use one shared API client/error/request-state foundation rather than per-page fetch conventions.
+- Worker APIs use shared response, bounded JSON-request parsing and generic field-validation/error-mapping helpers; domain validation remains inside business modules.
 - Shared Identity is consumed through an adapter/service boundary; CY Web does not duplicate the shared account-role hierarchy or credential store.
 - CY Web app-local authorization uses `app_members` + app tags/module mappings while shared ADMIN/SUPER_ADMIN authority remains external Identity authority.
 - Customer/Item relationships use immutable internal IDs; ERP business numbers are separate values.
@@ -86,6 +89,8 @@ local/dev D1 validation
         ↓
 Worker + API foundation
         ↓
+shared request / validation foundation
+        ↓
 shared Identity adapter + app-local authorization
         ↓
 shared Audit Core
@@ -99,7 +104,7 @@ business modules
 production acceptance
 ```
 
-The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation and initial shared record-editor state foundation. The production shared-Identity browser-session provider contract is still an external dependency, and the production D1 database / production Worker bindings have **not** been created by these branches.
+The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation, shared request/validation foundation and initial shared record-editor state foundation. The production shared-Identity browser-session provider contract is still an external dependency, and the production D1 database / production Worker bindings have **not** been created by these branches.
 
 ## Document precedence
 
