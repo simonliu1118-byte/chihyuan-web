@@ -29,7 +29,9 @@ export function useUnsavedChangesGuard({
   }, [active]);
 
   const confirmNavigation = useCallback(
-    (confirm: (message: string) => boolean = window.confirm): NavigationDecision => {
+    (
+      confirm: (message: string) => boolean = (prompt) => window.confirm(prompt),
+    ): NavigationDecision => {
       if (!active) return { allowed: true, reason: "clean" };
       const allowed = confirm(message);
       return { allowed, reason: allowed ? "confirmed" : "cancelled" };
