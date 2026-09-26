@@ -35,6 +35,7 @@ For product/architecture semantics, current explicit user decisions and later co
 
 - `LEGACY_DATA_AUDIT.md`
 - `LEGACY_DESKTOP_WORKFLOW_AUDIT.md`
+- `LEGACY_REUSABLE_PATTERN_AUDIT.md` — cross-module review of repeated Legacy behavior/UI patterns and the pre-UI shared-component extraction gate.
 
 Their detailed historical versions remain under `archive/`. Legacy evidence explains behavior/semantics; it is not a production migration contract.
 
@@ -53,6 +54,7 @@ As of the decisions through BD-054 and the initial D1/API/Identity/Audit foundat
 - Formal business records retain only deliberate historical snapshots.
 - CY Web uses one shared in-App Audit Core; ordinary edits keep only latest modifier/time and meaningful business events use compact structured Audit.
 - Initial AuditService rejects credential-like payload keys, bounds JSON payload size and serves both concise timeline and detailed Admin/SA inspection from the same event store.
+- Before business-module UI implementation, repeated Legacy interaction mechanics are reviewed cross-module and moved into shared CY Web primitives rather than rebuilt independently per module.
 - Detailed modern UI/UX is redesigned for the new Web system; Legacy GAS visual/refresh workarounds are not implementation requirements.
 
 ## Backup baseline
@@ -86,7 +88,9 @@ shared Identity adapter + app-local authorization
         ↓
 shared Audit Core
         ↓
-common Web components
+cross-module Legacy reusable-pattern audit
+        ↓
+common Web components / shared interaction primitives
         ↓
 business modules
         ↓
