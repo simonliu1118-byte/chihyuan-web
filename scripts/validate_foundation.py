@@ -76,6 +76,12 @@ def main() -> int:
     if "beforeunload" not in unsaved_guard or "confirmNavigation" not in unsaved_guard:
         raise AssertionError("shared unsaved-change guard missing")
 
+    data_view = require("src/ui/data/DataView.tsx").read_text(encoding="utf-8")
+    if "cy-data-table-wrap" not in data_view or "cy-data-cards" not in data_view:
+        raise AssertionError("adaptive shared data view projections missing")
+    if 'status === "loading"' not in data_view or 'status === "error"' not in data_view:
+        raise AssertionError("shared data view request states missing")
+
     for path in (
         "index.html",
         "src/main.tsx",
@@ -83,6 +89,10 @@ def main() -> int:
         "src/app.css",
         "src/api/request-state.ts",
         "src/ui/forms.css",
+        "src/ui/data/data-view.css",
+        "src/ui/data/DataPagination.tsx",
+        "src/ui/data/DataView.tsx",
+        "src/ui/data/DataViewToolbar.tsx",
         "src/ui/foundation/record-editor.ts",
         "src/ui/foundation/navigation.ts",
         "src/ui/foundation/useUnsavedChangesGuard.ts",
@@ -96,6 +106,7 @@ def main() -> int:
         "src/ui/primitives/TextInput.tsx",
         "docs/architecture/APP_SHELL_FOUNDATION.md",
         "docs/architecture/FORM_FOUNDATION.md",
+        "docs/architecture/DATA_VIEW_FOUNDATION.md",
         "shared/api.ts",
         "vite.config.ts",
         "tsconfig.json",
