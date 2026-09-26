@@ -6,6 +6,8 @@ export type AuditJsonValue =
 
 export type AuditPayload = Record<string, AuditJsonValue>;
 
+type D1Scalar = string | number | null;
+
 export interface AuditEventInput {
   entityType: string;
   entityKey: string;
@@ -234,9 +236,9 @@ export class AuditService {
 
   async listDetailed(query: AuditQuery): Promise<AuditEventRecord[]> {
     const where: string[] = [];
-    const values: unknown[] = [];
+    const values: D1Scalar[] = [];
 
-    const bind = (value: unknown): string => {
+    const bind = (value: D1Scalar): string => {
       values.push(value);
       return `?${values.length}`;
     };
