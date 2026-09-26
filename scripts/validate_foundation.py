@@ -82,6 +82,12 @@ def main() -> int:
     if 'status === "loading"' not in data_view or 'status === "error"' not in data_view:
         raise AssertionError("shared data view request states missing")
 
+    entity_picker = require("src/ui/pickers/EntityPicker.tsx").read_text(encoding="utf-8")
+    if "AbortController" not in entity_picker or 'role="combobox"' not in entity_picker:
+        raise AssertionError("shared async entity picker contract missing")
+    if "skipNextNullSyncRef" not in entity_picker or "onSelect(null)" not in entity_picker:
+        raise AssertionError("entity picker stale-selection invalidation missing")
+
     for path in (
         "index.html",
         "src/main.tsx",
@@ -95,7 +101,10 @@ def main() -> int:
         "src/ui/data/DataViewToolbar.tsx",
         "src/ui/foundation/record-editor.ts",
         "src/ui/foundation/navigation.ts",
+        "src/ui/foundation/useDebouncedValue.ts",
         "src/ui/foundation/useUnsavedChangesGuard.ts",
+        "src/ui/pickers/entity-picker.css",
+        "src/ui/pickers/EntityPicker.tsx",
         "src/ui/primitives/Button.tsx",
         "src/ui/primitives/FieldFrame.tsx",
         "src/ui/primitives/Notice.tsx",
@@ -107,6 +116,7 @@ def main() -> int:
         "docs/architecture/APP_SHELL_FOUNDATION.md",
         "docs/architecture/FORM_FOUNDATION.md",
         "docs/architecture/DATA_VIEW_FOUNDATION.md",
+        "docs/architecture/ENTITY_PICKER_FOUNDATION.md",
         "shared/api.ts",
         "vite.config.ts",
         "tsconfig.json",
