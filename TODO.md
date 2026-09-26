@@ -10,7 +10,7 @@ This file records current work and engineering direction. It is not a permanent 
 4. [ ] Produce the Final Data Dictionary.
 5. [ ] Freeze the initial D1 relational schema / indexes / constraints / forward migrations.
 6. [ ] Create the Cloudflare Worker project and environment/binding templates.
-7. [ ] Add CY Web R2/GCS runtime configuration only after the real CY Web Worker exists.
+7. [ ] Bind the already-provisioned CY Web R2 bucket and add CY Web GCS runtime configuration only after the real CY Web Worker exists.
 8. [ ] Implement the reusable application foundation, then business modules.
 
 ## Phase 0 — Governance / Public foundation
@@ -102,13 +102,20 @@ Architecture:
 - [x] Keep CY Web and CYAccountingWeb datasets and credentials isolated even when they later use a shared CY Backup Service / Worker (BD-050).
 - [x] Define future shared service boundary: shared Worker owns provider adapters/replication/retention/copy catalog; each App keeps D1 export, schema compatibility, authorization and restore writes (BD-050).
 
+Shared R2 infrastructure preparation:
+
+- [x] Activate R2 for the Cloudflare account.
+- [x] Provision separate production R2 buckets for CY Web and CYAccountingWeb; use Standard storage, Asia-Pacific automatic placement, public access disabled and no Bucket Lock.
+- [x] Add an R2 bucket-level 45-day delete Lifecycle rule as a safety guard behind the application-level 30-day retention policy; keep the default multipart-abort rule enabled.
+- [x] Keep the two applications physically isolated at the bucket/binding boundary rather than sharing one bucket by prefix only.
+
 CY Web infrastructure preparation:
 
 - [x] Create CY Web production GCS bucket and dedicated least-privilege service identity.
 - [x] Verify bucket-scoped GCS IAM for the CY Web identity.
 - [x] Create the CY Web Service Account JSON credential; keep it outside Git.
-- [ ] After the real CY Web Worker exists, create a CY Web-specific R2 operational backup bucket/binding.
-- [ ] Configure CY Web Worker runtime with app-scoped R2 binding plus CY Web GCS configuration/secret through the approved deployment/runtime boundary.
+- [x] Provision the CY Web-specific R2 operational backup bucket; binding waits for the real CY Web Worker.
+- [ ] Configure the real CY Web Worker runtime with the existing app-scoped R2 bucket binding plus CY Web GCS configuration/secret through the approved deployment/runtime boundary.
 - [ ] Implement canonical `CYBackupSet` builder and app-level `BackupService`.
 - [ ] Implement R2 `BackupStorageProvider` and GCS `BackupStorageProvider` behind the same contract.
 - [ ] Implement logical backup + provider-copy catalog semantics so one backup is listed once with per-provider health.
@@ -120,7 +127,8 @@ CYAccountingWeb coordination:
 
 - [x] Confirm CYAccountingWeb V0.17 GCS production backup has passed real acceptance and must remain the accepted rollback path during migration.
 - [x] Produce a new public-safe handoff at `docs/handoffs/CYACCOUNTINGWEB_TIERED_BACKUP_HANDOFF.md`.
-- [ ] CYAccountingWeb workstream implements the additive migration; **this CY Web branch does not modify CYAccountingWeb source/runtime**.
+- [x] Provision the Accounting-specific production R2 bucket and 45-day lifecycle safety guard; the Accounting workstream must reuse it rather than create another R2 dataset.
+- [ ] CYAccountingWeb workstream implements the additive migration and binds its existing R2 bucket; **this CY Web branch does not modify CYAccountingWeb source/runtime**.
 - [ ] Require 14 consecutive successful parallel R2 + existing daily GCS backups before CYAccountingWeb changes to the tiered daily-R2 / Wed-Sun-GCS schedule.
 - [ ] Only after shared-service acceptance may direct per-App provider credentials/bindings be retired.
 
