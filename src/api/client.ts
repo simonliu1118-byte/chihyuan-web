@@ -69,20 +69,21 @@ export async function apiRequest<T>(
   input: string,
   init: ApiRequestInit = {},
 ): Promise<T> {
-  const headers = new Headers(init.headers);
+  const { json, body: explicitBody, ...requestInit } = init;
+  const headers = new Headers(requestInit.headers);
   if (!headers.has("accept")) headers.set("accept", "application/json");
 
-  let body = init.body ?? null;
-  if (init.json !== undefined) {
+  let body = explicitBody ?? null;
+  if (json !== undefined) {
     if (!headers.has("content-type")) headers.set("content-type", "application/json; charset=utf-8");
-    body = JSON.stringify(init.json);
+    body = JSON.stringify(json);
   }
 
   const response = await fetch(input, {
-    ...init,
+    ...requestInit,
     headers,
     body,
-    credentials: init.credentials ?? "same-origin",
+    credentials: requestInit.credentials ?? "same-origin",
     cache: "no-store",
   });
 
