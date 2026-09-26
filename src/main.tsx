@@ -4,6 +4,7 @@ import App from "./App";
 import "./app.css";
 import "./ui/forms.css";
 import "./ui/data/data-view.css";
+import "./ui/pickers/entity-picker.css";
 
 const root = document.getElementById("root");
 
