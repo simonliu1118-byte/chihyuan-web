@@ -10,6 +10,7 @@ This index records the current interpretation of confirmed CY Web Business Decis
 - BD-052 confirms that the initial CY Web field set follows the validated Legacy/GAS business model while exact SMART ERP field ownership is deferred.
 - BD-053 and BD-054 define the CY Web audit boundary: ordinary edits retain last-modified metadata, meaningful business actions use structured audit, and all CY Web modules use one shared in-App Audit Core with cost-conscious payloads.
 - BD-055 confirms that Legacy GAS UX is reference evidence rather than a replication target: useful proven behavior may be retained/adapted, while the new UI and implementation follow the new Web architecture and shared-component model.
+- BD-056 confirms `chihyuancm.com` as the shared parent domain for the future official website and internal/business CY Web systems, with separate hostnames/origins and security boundaries.
 
 ## Decision index
 
@@ -70,6 +71,7 @@ This index records the current interpretation of confirmed CY Web Business Decis
 | BD-053 | General edits keep only last-modified metadata; detailed audit is Admin/SA-only | CONFIRMED |
 | BD-054 | CY Web uses one shared in-App Audit Core with cost-conscious storage | CONFIRMED; scoped to CY Web only |
 | BD-055 | Legacy UX is reference evidence, not a replication target; retain/adapt good proven behavior under the new architecture | CONFIRMED |
+| BD-056 | `chihyuancm.com` is the shared parent domain for the public website and internal/business CY Web systems | CONFIRMED |
 
 ## Cross-decision supersession / refinement notes
 
@@ -102,6 +104,10 @@ BD-053 defines the difference between ordinary last-modified metadata and meanin
 ### Legacy UX and new Web design
 
 BD-055 makes Legacy behavior a source of evidence, not a screen blueprint. Proven interaction details may be retained or adapted when they still serve the current workflow, but UI structure, component implementation, responsive behavior and common mechanics must follow the new CY Web architecture. GAS-era workarounds and duplicated per-page/per-device implementations are not preserved merely for familiarity.
+
+### Parent domain / Web namespace
+
+BD-056 fixes `chihyuancm.com` as the shared parent domain for the future public official website and internal/business CY-family Web systems. Sharing the parent domain does not imply a shared origin or shared application session: each system keeps its own hostname, deployment and security boundary, and production custom-domain binding is performed through controlled rollout when the relevant application is ready.
 
 ### Backup topology
 
