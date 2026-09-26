@@ -1,45 +1,33 @@
 -- CY Web initial D1 schema draft
 -- Source: docs/architecture/FINAL_DATA_DICTIONARY.md
 -- This migration is a source-of-truth draft only. It does not modify production D1 by itself.
-
-PRAGMA foreign_keys = ON;
+--
+-- Cloudflare D1 enforces foreign keys by default. Do not rely on toggling
+-- PRAGMA foreign_keys inside a migration.
 
 -- Numeric storage convention:
---   *_scaled4 values are stored as INTEGER x 10,000.
---   *_money2 values are stored as INTEGER x 100.
--- Application/API mappers expose decimal values; do not use binary floating point for persisted business values.
+--   scaled4 values are stored as INTEGER x 10,000.
+--   money2 values are stored as INTEGER x 100.
+-- Application/API mappers expose decimal values; do not use binary floating point
+-- for persisted business values.
 
 -- ============================================================
 -- Shared Identity / app-local authorization
 -- ============================================================
 
-CREATE TABLE departments (
-    id INTEGER PRIMARY KEY,
-    code TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
-    updated_at TEXT NOT NULL,
-    updated_by INTEGER,
-    FOREIGN KEY (updated_by) REFERENCES app_members(id) ON UPDATE RESTRICT ON DELETE RESTRICT
-);
-
 CREATE TABLE app_members (
     id INTEGER PRIMARY KEY,
-    identity_employee_id TEXT NOT NULL UNIQUE,
-    display_name TEXT NOT NULL,
+    identity_employee_id TEXT NOT NULL UNIQUE CHECK (length(trim(identity_employee_id)) > 0),
     employee_no TEXT,
-    department_id INTEGER,
     is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    FOREIGN KEY (department_id) REFERENCES departments(id) ON UPDATE RESTRICT ON DELETE RESTRICT
+    updated_at TEXT NOT NULL
 );
 
 CREATE TABLE app_tags (
     id INTEGER PRIMARY KEY,
-    code TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
+    code TEXT NOT NULL UNIQUE CHECK (length(trim(code)) > 0),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
     sort_order INTEGER NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
     updated_at TEXT NOT NULL,
@@ -49,7 +37,7 @@ CREATE TABLE app_tags (
 
 CREATE TABLE app_tag_modules (
     tag_id INTEGER NOT NULL,
-    module_code TEXT NOT NULL,
+    module_code TEXT NOT NULL CHECK (length(trim(module_code)) > 0),
     PRIMARY KEY (tag_id, module_code),
     FOREIGN KEY (tag_id) REFERENCES app_tags(id) ON UPDATE RESTRICT ON DELETE CASCADE
 );
@@ -66,10 +54,21 @@ CREATE TABLE app_member_tags (
 -- Common lookups
 -- ============================================================
 
+CREATE TABLE departments (
+    id INTEGER PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE CHECK (length(trim(code)) > 0),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+    updated_at TEXT NOT NULL,
+    updated_by INTEGER,
+    FOREIGN KEY (updated_by) REFERENCES app_members(id) ON UPDATE RESTRICT ON DELETE RESTRICT
+);
+
 CREATE TABLE customer_categories (
     id INTEGER PRIMARY KEY,
-    code TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
+    code TEXT NOT NULL UNIQUE CHECK (length(trim(code)) > 0),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
     sort_order INTEGER NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
     updated_at TEXT NOT NULL,
@@ -79,8 +78,8 @@ CREATE TABLE customer_categories (
 
 CREATE TABLE customer_statuses (
     id INTEGER PRIMARY KEY,
-    code TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
+    code TEXT NOT NULL UNIQUE CHECK (length(trim(code)) > 0),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
     sort_order INTEGER NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
     updated_at TEXT NOT NULL,
@@ -90,8 +89,8 @@ CREATE TABLE customer_statuses (
 
 CREATE TABLE regions (
     id INTEGER PRIMARY KEY,
-    code TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
+    code TEXT NOT NULL UNIQUE CHECK (length(trim(code)) > 0),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
     group_code TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1))
@@ -99,8 +98,8 @@ CREATE TABLE regions (
 
 CREATE TABLE item_categories (
     id INTEGER PRIMARY KEY,
-    code TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
+    code TEXT NOT NULL UNIQUE CHECK (length(trim(code)) > 0),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
     parent_id INTEGER,
     sort_order INTEGER NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
@@ -116,10 +115,10 @@ CREATE TABLE item_categories (
 
 CREATE TABLE items (
     id INTEGER PRIMARY KEY,
-    item_no TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
+    item_no TEXT NOT NULL UNIQUE CHECK (length(trim(item_no)) > 0),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
     spec TEXT,
-    base_unit TEXT NOT NULL,
+    base_unit TEXT NOT NULL CHECK (length(trim(base_unit)) > 0),
     item_category_id INTEGER,
     cost INTEGER,
     cost_tax_mode TEXT CHECK (cost_tax_mode IS NULL OR cost_tax_mode IN ('none', 'inclusive', 'exclusive')),
@@ -143,7 +142,7 @@ CREATE TABLE items (
 CREATE TABLE item_number_history (
     id INTEGER PRIMARY KEY,
     item_id INTEGER NOT NULL,
-    item_no TEXT NOT NULL,
+    item_no TEXT NOT NULL CHECK (length(trim(item_no)) > 0),
     valid_from TEXT NOT NULL,
     valid_to TEXT,
     change_source TEXT,
@@ -162,9 +161,9 @@ CREATE INDEX idx_item_number_history_item_from
 CREATE TABLE item_unit_conversions (
     id INTEGER PRIMARY KEY,
     item_id INTEGER NOT NULL,
-    from_unit TEXT NOT NULL,
+    from_unit TEXT NOT NULL CHECK (length(trim(from_unit)) > 0),
     quantity INTEGER NOT NULL CHECK (quantity > 0),
-    to_unit TEXT NOT NULL,
+    to_unit TEXT NOT NULL CHECK (length(trim(to_unit)) > 0),
     sort_order INTEGER NOT NULL DEFAULT 0,
     CHECK (from_unit <> to_unit),
     UNIQUE (item_id, from_unit, to_unit),
@@ -177,7 +176,7 @@ CREATE TABLE item_unit_conversions (
 
 CREATE TABLE customers (
     id INTEGER PRIMARY KEY,
-    customer_no TEXT,
+    customer_no TEXT CHECK (customer_no IS NULL OR length(trim(customer_no)) > 0),
     short_name TEXT NOT NULL CHECK (length(trim(short_name)) > 0),
     full_name TEXT,
     tax_id TEXT,
@@ -203,7 +202,7 @@ CREATE TABLE customers (
 
 CREATE UNIQUE INDEX ux_customers_customer_no_present
     ON customers(customer_no)
-    WHERE customer_no IS NOT NULL AND trim(customer_no) <> '';
+    WHERE customer_no IS NOT NULL;
 
 CREATE INDEX idx_customers_tax_id
     ON customers(tax_id);
@@ -223,7 +222,7 @@ CREATE INDEX idx_customers_region
 CREATE TABLE customer_phones (
     id INTEGER PRIMARY KEY,
     customer_id INTEGER NOT NULL,
-    phone_number TEXT NOT NULL,
+    phone_number TEXT NOT NULL CHECK (length(trim(phone_number)) > 0),
     extension TEXT,
     note TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0,
@@ -238,7 +237,7 @@ CREATE INDEX idx_customer_phones_customer
 CREATE TABLE customer_contacts (
     id INTEGER PRIMARY KEY,
     customer_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
     department_name TEXT,
     title TEXT,
     phone TEXT,
@@ -258,7 +257,7 @@ CREATE TABLE customer_addresses (
     id INTEGER PRIMARY KEY,
     customer_id INTEGER NOT NULL,
     postal_code TEXT,
-    address TEXT NOT NULL,
+    address TEXT NOT NULL CHECK (length(trim(address)) > 0),
     note TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
@@ -272,7 +271,7 @@ CREATE INDEX idx_customer_addresses_customer
 CREATE TABLE customer_notes (
     id INTEGER PRIMARY KEY,
     customer_id INTEGER NOT NULL,
-    content TEXT NOT NULL,
+    content TEXT NOT NULL CHECK (length(trim(content)) > 0),
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     created_by INTEGER,
@@ -300,7 +299,7 @@ CREATE TABLE customer_visits (
     updated_by INTEGER,
     revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
     FOREIGN KEY (customer_id) REFERENCES customers(id) ON UPDATE RESTRICT ON DELETE RESTRICT,
-    FOREIGN KEY (contact_id) REFERENCES customer_contacts(id) ON UPDATE RESTRICT ON DELETE SET NULL,
+    FOREIGN KEY (contact_id) REFERENCES customer_contacts(id) ON UPDATE RESTRICT ON DELETE RESTRICT,
     FOREIGN KEY (employee_id) REFERENCES app_members(id) ON UPDATE RESTRICT ON DELETE RESTRICT,
     FOREIGN KEY (created_by) REFERENCES app_members(id) ON UPDATE RESTRICT ON DELETE RESTRICT,
     FOREIGN KEY (updated_by) REFERENCES app_members(id) ON UPDATE RESTRICT ON DELETE RESTRICT
@@ -319,7 +318,7 @@ CREATE TABLE customer_frequent_items (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     CHECK (
-        (item_id IS NOT NULL AND custom_item_name IS NULL)
+        (item_id IS NOT NULL AND custom_item_name IS NULL AND custom_category_name IS NULL)
         OR
         (item_id IS NULL AND custom_item_name IS NOT NULL AND length(trim(custom_item_name)) > 0)
     ),
@@ -340,8 +339,8 @@ CREATE TABLE customer_item_quotes (
     item_id INTEGER NOT NULL,
     quote_date TEXT NOT NULL,
     employee_id INTEGER NOT NULL,
-    item_no_snapshot TEXT NOT NULL,
-    item_name_snapshot TEXT NOT NULL,
+    item_no_snapshot TEXT NOT NULL CHECK (length(trim(item_no_snapshot)) > 0),
+    item_name_snapshot TEXT NOT NULL CHECK (length(trim(item_name_snapshot)) > 0),
     spec_snapshot TEXT,
     created_at TEXT NOT NULL,
     created_by INTEGER,
@@ -365,7 +364,7 @@ CREATE TABLE quote_price_breaks (
     id INTEGER PRIMARY KEY,
     quote_id INTEGER NOT NULL,
     quantity INTEGER NOT NULL CHECK (quantity > 0),
-    unit TEXT NOT NULL,
+    unit TEXT NOT NULL CHECK (length(trim(unit)) > 0),
     unit_price INTEGER NOT NULL CHECK (unit_price >= 0),
     note TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0,
@@ -378,7 +377,7 @@ CREATE TABLE quote_price_breaks (
 
 CREATE TABLE sales_work_orders (
     id INTEGER PRIMARY KEY,
-    work_order_ref TEXT NOT NULL UNIQUE,
+    work_order_ref TEXT NOT NULL UNIQUE CHECK (length(trim(work_order_ref)) > 0),
     customer_id INTEGER,
     customer_no_snapshot TEXT,
     customer_name_snapshot TEXT NOT NULL CHECK (length(trim(customer_name_snapshot)) > 0),
@@ -386,7 +385,7 @@ CREATE TABLE sales_work_orders (
     operator_employee_id INTEGER NOT NULL,
     note TEXT,
     status_code TEXT NOT NULL CHECK (status_code IN ('created', 'issued', 'waiting_stock', 'picked', 'shipped', 'voided')),
-    erp_no TEXT,
+    erp_no TEXT CHECK (erp_no IS NULL OR length(trim(erp_no)) > 0),
     hide_price_on_sales_document INTEGER NOT NULL DEFAULT 0 CHECK (hide_price_on_sales_document IN (0, 1)),
     invoice_type_code TEXT CHECK (invoice_type_code IS NULL OR invoice_type_code IN ('two_copy', 'three_copy')),
     receipt_option_code TEXT CHECK (receipt_option_code IS NULL OR receipt_option_code IN ('with_receipt', 'without_receipt')),
@@ -397,7 +396,11 @@ CREATE TABLE sales_work_orders (
     updated_at TEXT NOT NULL,
     updated_by INTEGER,
     revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
-    CHECK (customer_id IS NOT NULL OR (customer_no_snapshot IS NULL AND length(trim(customer_name_snapshot)) > 0)),
+    CHECK (
+        customer_id IS NOT NULL
+        OR
+        (customer_no_snapshot IS NULL AND length(trim(customer_name_snapshot)) > 0)
+    ),
     FOREIGN KEY (customer_id) REFERENCES customers(id) ON UPDATE RESTRICT ON DELETE RESTRICT,
     FOREIGN KEY (operator_employee_id) REFERENCES app_members(id) ON UPDATE RESTRICT ON DELETE RESTRICT,
     FOREIGN KEY (voided_by) REFERENCES app_members(id) ON UPDATE RESTRICT ON DELETE RESTRICT,
@@ -418,11 +421,11 @@ CREATE TABLE sales_work_order_items (
     id INTEGER PRIMARY KEY,
     sales_work_order_id INTEGER NOT NULL,
     item_id INTEGER NOT NULL,
-    item_no_snapshot TEXT NOT NULL,
-    item_name_snapshot TEXT NOT NULL,
+    item_no_snapshot TEXT NOT NULL CHECK (length(trim(item_no_snapshot)) > 0),
+    item_name_snapshot TEXT NOT NULL CHECK (length(trim(item_name_snapshot)) > 0),
     spec_snapshot TEXT,
     quantity INTEGER NOT NULL CHECK (quantity > 0),
-    unit_snapshot TEXT NOT NULL,
+    unit_snapshot TEXT NOT NULL CHECK (length(trim(unit_snapshot)) > 0),
     unit_price INTEGER NOT NULL CHECK (unit_price >= 0),
     note TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0,
@@ -442,13 +445,13 @@ CREATE TABLE defect_reports (
     reported_date TEXT NOT NULL,
     customer_id INTEGER NOT NULL,
     customer_no_snapshot TEXT,
-    customer_name_snapshot TEXT NOT NULL,
+    customer_name_snapshot TEXT NOT NULL CHECK (length(trim(customer_name_snapshot)) > 0),
     item_id INTEGER NOT NULL,
-    item_no_snapshot TEXT NOT NULL,
-    item_name_snapshot TEXT NOT NULL,
+    item_no_snapshot TEXT NOT NULL CHECK (length(trim(item_no_snapshot)) > 0),
+    item_name_snapshot TEXT NOT NULL CHECK (length(trim(item_name_snapshot)) > 0),
     spec_snapshot TEXT,
     owner_employee_id INTEGER NOT NULL,
-    defect_description TEXT NOT NULL,
+    defect_description TEXT NOT NULL CHECK (length(trim(defect_description)) > 0),
     handling TEXT,
     status_code TEXT NOT NULL CHECK (status_code IN ('created', 'processing', 'resolved')),
     created_at TEXT NOT NULL,
@@ -479,7 +482,7 @@ CREATE INDEX idx_defect_reports_item
 CREATE TABLE contractors (
     id INTEGER PRIMARY KEY,
     entity_type TEXT NOT NULL CHECK (entity_type IN ('person', 'organization')),
-    display_name TEXT NOT NULL,
+    display_name TEXT NOT NULL CHECK (length(trim(display_name)) > 0),
     legal_name TEXT,
     tax_id TEXT,
     phone TEXT,
@@ -501,7 +504,7 @@ CREATE INDEX idx_contractors_name
 CREATE TABLE contractor_contacts (
     id INTEGER PRIMARY KEY,
     contractor_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
     title TEXT,
     phone TEXT,
     mobile TEXT,
@@ -515,7 +518,7 @@ CREATE TABLE contractor_pricing (
     id INTEGER PRIMARY KEY,
     contractor_id INTEGER NOT NULL,
     item_id INTEGER NOT NULL,
-    pricing_unit TEXT NOT NULL,
+    pricing_unit TEXT NOT NULL CHECK (length(trim(pricing_unit)) > 0),
     unit_price INTEGER NOT NULL CHECK (unit_price >= 0),
     note TEXT,
     updated_at TEXT NOT NULL,
@@ -529,10 +532,10 @@ CREATE TABLE contractor_pricing (
 
 CREATE TABLE bom_recipes (
     id INTEGER PRIMARY KEY,
-    recipe_ref TEXT NOT NULL UNIQUE,
+    recipe_ref TEXT NOT NULL UNIQUE CHECK (length(trim(recipe_ref)) > 0),
     finished_item_id INTEGER NOT NULL,
     output_quantity INTEGER NOT NULL CHECK (output_quantity > 0),
-    output_unit TEXT NOT NULL,
+    output_unit TEXT NOT NULL CHECK (length(trim(output_unit)) > 0),
     is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
     created_at TEXT NOT NULL,
     created_by INTEGER,
@@ -552,7 +555,7 @@ CREATE TABLE bom_components (
     bom_recipe_id INTEGER NOT NULL,
     component_item_id INTEGER NOT NULL,
     quantity INTEGER NOT NULL CHECK (quantity > 0),
-    unit TEXT NOT NULL,
+    unit TEXT NOT NULL CHECK (length(trim(unit)) > 0),
     sort_order INTEGER NOT NULL DEFAULT 0,
     UNIQUE (bom_recipe_id, component_item_id, unit),
     FOREIGN KEY (bom_recipe_id) REFERENCES bom_recipes(id) ON UPDATE RESTRICT ON DELETE CASCADE,
@@ -565,11 +568,11 @@ CREATE TABLE bom_components (
 
 CREATE TABLE outsourcing_orders (
     id INTEGER PRIMARY KEY,
-    outsourcing_ref TEXT NOT NULL UNIQUE,
+    outsourcing_ref TEXT NOT NULL UNIQUE CHECK (length(trim(outsourcing_ref)) > 0),
     status_code TEXT NOT NULL CHECK (status_code IN ('pending_outbound', 'outbound', 'received', 'priced', 'paid', 'voided')),
     operator_employee_id INTEGER NOT NULL,
     contractor_id INTEGER NOT NULL,
-    contractor_name_snapshot TEXT NOT NULL,
+    contractor_name_snapshot TEXT NOT NULL CHECK (length(trim(contractor_name_snapshot)) > 0),
     order_date TEXT NOT NULL,
     outbound_date TEXT,
     paid_at TEXT,
@@ -604,11 +607,11 @@ CREATE TABLE outsourcing_order_parts (
     finished_item_name_snapshot TEXT,
     finished_spec_snapshot TEXT,
     component_item_id INTEGER NOT NULL,
-    component_item_no_snapshot TEXT NOT NULL,
-    component_item_name_snapshot TEXT NOT NULL,
+    component_item_no_snapshot TEXT NOT NULL CHECK (length(trim(component_item_no_snapshot)) > 0),
+    component_item_name_snapshot TEXT NOT NULL CHECK (length(trim(component_item_name_snapshot)) > 0),
     component_spec_snapshot TEXT,
     quantity INTEGER NOT NULL CHECK (quantity > 0),
-    unit_snapshot TEXT NOT NULL,
+    unit_snapshot TEXT NOT NULL CHECK (length(trim(unit_snapshot)) > 0),
     note TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (outsourcing_order_id) REFERENCES outsourcing_orders(id) ON UPDATE RESTRICT ON DELETE CASCADE,
@@ -635,11 +638,11 @@ CREATE TABLE outsourcing_receipt_items (
     receipt_id INTEGER NOT NULL,
     item_id INTEGER NOT NULL,
     bom_recipe_id INTEGER,
-    item_no_snapshot TEXT NOT NULL,
-    item_name_snapshot TEXT NOT NULL,
+    item_no_snapshot TEXT NOT NULL CHECK (length(trim(item_no_snapshot)) > 0),
+    item_name_snapshot TEXT NOT NULL CHECK (length(trim(item_name_snapshot)) > 0),
     spec_snapshot TEXT,
     quantity INTEGER NOT NULL CHECK (quantity > 0),
-    unit_snapshot TEXT NOT NULL,
+    unit_snapshot TEXT NOT NULL CHECK (length(trim(unit_snapshot)) > 0),
     note TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (receipt_id) REFERENCES outsourcing_receipts(id) ON UPDATE RESTRICT ON DELETE CASCADE,
@@ -663,9 +666,9 @@ CREATE TABLE outsourcing_pricing_items (
     id INTEGER PRIMARY KEY,
     pricing_id INTEGER NOT NULL,
     item_id INTEGER NOT NULL,
-    item_no_snapshot TEXT NOT NULL,
-    item_name_snapshot TEXT NOT NULL,
-    unit_snapshot TEXT NOT NULL,
+    item_no_snapshot TEXT NOT NULL CHECK (length(trim(item_no_snapshot)) > 0),
+    item_name_snapshot TEXT NOT NULL CHECK (length(trim(item_name_snapshot)) > 0),
+    unit_snapshot TEXT NOT NULL CHECK (length(trim(unit_snapshot)) > 0),
     quantity INTEGER NOT NULL CHECK (quantity > 0),
     unit_price INTEGER NOT NULL CHECK (unit_price >= 0),
     subtotal INTEGER NOT NULL CHECK (subtotal >= 0),
@@ -717,8 +720,8 @@ CREATE INDEX idx_contractor_stock_movements_reversal
 
 CREATE TABLE work_log_categories (
     id INTEGER PRIMARY KEY,
-    code TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
+    code TEXT NOT NULL UNIQUE CHECK (length(trim(code)) > 0),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
     input_mode TEXT NOT NULL CHECK (input_mode IN ('boolean', 'quantity')),
     unit_label TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0,
@@ -730,8 +733,8 @@ CREATE TABLE work_log_categories (
 
 CREATE TABLE work_log_platforms (
     id INTEGER PRIMARY KEY,
-    code TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
+    code TEXT NOT NULL UNIQUE CHECK (length(trim(code)) > 0),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
     sort_order INTEGER NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
     updated_at TEXT NOT NULL,
@@ -775,12 +778,12 @@ CREATE TABLE work_log_scoring_config (
 
 CREATE TABLE work_logs (
     id INTEGER PRIMARY KEY,
-    work_log_ref TEXT NOT NULL UNIQUE,
+    work_log_ref TEXT NOT NULL UNIQUE CHECK (length(trim(work_log_ref)) > 0),
     log_date TEXT NOT NULL,
     date_from TEXT NOT NULL,
     date_to TEXT NOT NULL,
     work_days INTEGER NOT NULL CHECK (work_days > 0),
-    type_code TEXT NOT NULL,
+    type_code TEXT NOT NULL CHECK (length(trim(type_code)) > 0),
     employee_id INTEGER NOT NULL,
     status_code TEXT NOT NULL CHECK (status_code IN ('created', 'pending_review', 'reviewed')),
     reviewed_by INTEGER,
@@ -795,9 +798,18 @@ CREATE TABLE work_logs (
     revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
     CHECK (date_to >= date_from),
     CHECK (
-        (status_code = 'reviewed' AND reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL AND final_score IS NOT NULL AND average_daily_score IS NOT NULL)
+        (status_code = 'reviewed'
+            AND reviewed_by IS NOT NULL
+            AND reviewed_at IS NOT NULL
+            AND final_score IS NOT NULL
+            AND average_daily_score IS NOT NULL)
         OR
-        (status_code <> 'reviewed' AND reviewed_by IS NULL AND reviewed_at IS NULL AND final_score IS NULL AND average_daily_score IS NULL)
+        (status_code <> 'reviewed'
+            AND reviewed_by IS NULL
+            AND reviewed_at IS NULL
+            AND review_remark IS NULL
+            AND final_score IS NULL
+            AND average_daily_score IS NULL)
     ),
     FOREIGN KEY (employee_id) REFERENCES app_members(id) ON UPDATE RESTRICT ON DELETE RESTRICT,
     FOREIGN KEY (reviewed_by) REFERENCES app_members(id) ON UPDATE RESTRICT ON DELETE RESTRICT,
@@ -817,11 +829,11 @@ CREATE INDEX idx_work_logs_interval
 CREATE TABLE work_log_entries (
     id INTEGER PRIMARY KEY,
     work_log_id INTEGER NOT NULL,
-    entry_type_code TEXT NOT NULL,
+    entry_type_code TEXT NOT NULL CHECK (length(trim(entry_type_code)) > 0),
     content TEXT,
     platform_id INTEGER,
-    remark TEXT,
-    score_snapshot INTEGER,
+    review_remark TEXT,
+    review_score INTEGER,
     sort_order INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (work_log_id) REFERENCES work_logs(id) ON UPDATE RESTRICT ON DELETE CASCADE,
     FOREIGN KEY (platform_id) REFERENCES work_log_platforms(id) ON UPDATE RESTRICT ON DELETE RESTRICT
@@ -847,9 +859,9 @@ CREATE TABLE work_log_entry_categories (
 
 CREATE TABLE audit_events (
     id INTEGER PRIMARY KEY,
-    entity_type TEXT NOT NULL,
-    entity_id INTEGER NOT NULL,
-    action TEXT NOT NULL,
+    entity_type TEXT NOT NULL CHECK (length(trim(entity_type)) > 0),
+    entity_key TEXT NOT NULL CHECK (length(trim(entity_key)) > 0),
+    action TEXT NOT NULL CHECK (length(trim(action)) > 0),
     actor_employee_id INTEGER,
     occurred_at TEXT NOT NULL,
     status_from TEXT,
@@ -862,7 +874,7 @@ CREATE TABLE audit_events (
 );
 
 CREATE INDEX idx_audit_events_entity_time
-    ON audit_events(entity_type, entity_id, occurred_at DESC);
+    ON audit_events(entity_type, entity_key, occurred_at DESC);
 
 CREATE INDEX idx_audit_events_time
     ON audit_events(occurred_at DESC);
@@ -870,20 +882,21 @@ CREATE INDEX idx_audit_events_time
 CREATE INDEX idx_audit_events_actor_time
     ON audit_events(actor_employee_id, occurred_at DESC);
 
--- Deliberately no action/time index yet; add only when observed query usage justifies its write/storage cost.
+-- Deliberately no action/time index yet; add only when observed query usage
+-- justifies its write/storage cost.
 
 -- ============================================================
 -- Backup operational catalog
 -- ============================================================
 
 CREATE TABLE backup_sets (
-    backup_id TEXT PRIMARY KEY,
+    backup_id TEXT PRIMARY KEY CHECK (length(trim(backup_id)) > 0),
     created_at TEXT NOT NULL,
     schema_version TEXT NOT NULL,
-    data_sha256 TEXT NOT NULL,
+    data_sha256 TEXT NOT NULL CHECK (length(trim(data_sha256)) > 0),
     data_byte_length INTEGER NOT NULL CHECK (data_byte_length >= 0),
     total_record_count INTEGER NOT NULL CHECK (total_record_count >= 0),
-    status_code TEXT NOT NULL
+    status_code TEXT NOT NULL CHECK (length(trim(status_code)) > 0)
 );
 
 CREATE INDEX idx_backup_sets_created_at
@@ -892,9 +905,9 @@ CREATE INDEX idx_backup_sets_created_at
 CREATE TABLE backup_copies (
     id INTEGER PRIMARY KEY,
     backup_id TEXT NOT NULL,
-    provider_code TEXT NOT NULL,
-    status_code TEXT NOT NULL,
-    object_prefix TEXT NOT NULL,
+    provider_code TEXT NOT NULL CHECK (length(trim(provider_code)) > 0),
+    status_code TEXT NOT NULL CHECK (length(trim(status_code)) > 0),
+    object_prefix TEXT NOT NULL CHECK (length(trim(object_prefix)) > 0),
     verified_at TEXT,
     last_error_code TEXT,
     updated_at TEXT NOT NULL,
@@ -906,5 +919,7 @@ CREATE INDEX idx_backup_copies_provider_status
     ON backup_copies(provider_code, status_code);
 
 -- End of initial schema draft.
--- Cross-row workflow transitions, category-cycle detection, Customer reconciliation,
--- generated reference formatting, and exact financial rounding remain service-layer responsibilities.
+-- Cross-row workflow transitions, WorkLog review-score clearing,
+-- Item unit-conversion cycle detection, Customer reconciliation,
+-- generated reference formatting, and exact financial rounding remain
+-- service-layer responsibilities.
