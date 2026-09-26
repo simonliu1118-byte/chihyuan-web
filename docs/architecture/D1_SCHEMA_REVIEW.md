@@ -2,11 +2,11 @@
 
 > Branch: `architecture/d1-schema-draft`
 >
-> Status: initial schema draft validated locally against SQLite semantics; **not yet applied to any production D1 database**.
+> Status: initial schema draft validated locally against SQLite semantics and aligned with the current Final Data Dictionary; **not yet applied to any production D1 database**.
 
 ## Current artifacts
 
-- `docs/architecture/FINAL_DATA_DICTIONARY.md` — business/data contract input.
+- `docs/architecture/FINAL_DATA_DICTIONARY.md` — schema-aligned business/data contract.
 - `migrations/0001_initial.sql` — current clean-start D1 schema draft.
 - `scripts/validate_schema.py` — zero-dependency local smoke validator using Python stdlib `sqlite3`.
 
@@ -50,13 +50,23 @@ No historical review-version table is introduced.
 
 Audit payloads remain deliberately compact per BD-053/054.
 
+## Data Dictionary alignment
+
+`FINAL_DATA_DICTIONARY.md` has now been reconciled with the reviewed SQL, including:
+
+- Visit/Customer Contact retention behavior;
+- WorkLog `review_remark` / `review_score` naming and cancel-review semantics;
+- normalized WorkLog scoring rows/configuration;
+- generic Audit `entity_key`;
+- Outsourcing contractor/item snapshots actually present in the schema;
+- explicit deferral of detailed modern UI/UX and Legacy GAS refresh-warning replacement to the UI/UX phase.
+
 ## Still required before schema freeze
 
-1. Reconcile the exact physical-column wording in `FINAL_DATA_DICTIONARY.md` with the reviewed SQL where the SQL review refined naming/constraints.
-2. Run `scripts/validate_schema.py` from a normal checkout after each schema edit.
-3. Once the actual Worker/Wrangler project exists, apply the migration to a **local/dev D1 target first** and run D1-specific smoke checks before any production database exists.
-4. Define the initial lookup/configuration seed mechanism separately from production scoring values; Chihyuan production WorkLog parameters remain runtime configuration, not Public-source constants.
-5. Freeze the migration only after the Data Dictionary and SQL are one-to-one and the local/dev D1 apply path passes.
+1. Run `scripts/validate_schema.py` from a normal checkout after each schema edit.
+2. Once the actual Worker/Wrangler project exists, apply the migration to a **local/dev D1 target first** and run D1-specific smoke checks before any production database exists.
+3. Define the initial lookup/configuration seed mechanism separately from production scoring values; Chihyuan production WorkLog parameters remain runtime configuration, not Public-source constants.
+4. Freeze the migration only after the local/dev D1 apply path passes and no further business-semantic changes are pending.
 
 ## Cost / CI note
 
