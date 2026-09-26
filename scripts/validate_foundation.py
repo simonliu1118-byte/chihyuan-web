@@ -111,6 +111,12 @@ def main() -> int:
     if 'aria-live="polite"' not in toast_region or "cy-toast" not in toast_region:
         raise AssertionError("shared toast region foundation missing")
 
+    enter_advance = require("src/ui/foundation/enter-advance.ts").read_text(encoding="utf-8")
+    if 'data-enter-advance="true"' not in enter_advance or "isComposing" not in enter_advance:
+        raise AssertionError("opt-in Enter progression safeguards missing")
+    if 'role") === "combobox"' not in enter_advance or "SELECTABLE_INPUT_TYPES" not in enter_advance:
+        raise AssertionError("Enter progression component exclusions missing")
+
     for path in (
         "index.html",
         "src/main.tsx",
@@ -126,6 +132,7 @@ def main() -> int:
         "src/ui/feedback/ToastRegion.tsx",
         "src/ui/feedback/useToastQueue.ts",
         "src/ui/foundation/editable-list.ts",
+        "src/ui/foundation/enter-advance.ts",
         "src/ui/foundation/record-editor.ts",
         "src/ui/foundation/navigation.ts",
         "src/ui/foundation/useDebouncedValue.ts",
@@ -149,6 +156,7 @@ def main() -> int:
         "docs/architecture/ENTITY_PICKER_FOUNDATION.md",
         "docs/architecture/EDITABLE_LIST_FOUNDATION.md",
         "docs/architecture/OVERLAY_FEEDBACK_FOUNDATION.md",
+        "docs/architecture/KEYBOARD_ENTRY_FOUNDATION.md",
         "shared/api.ts",
         "vite.config.ts",
         "tsconfig.json",
