@@ -61,9 +61,14 @@ This is deliberately different from the Legacy GAS approach where broad datasets
 
 Typing text is not the same as selecting an entity.
 
-The existing selected entity remains authoritative until the user explicitly chooses another result or clears the selection. Dismissing the picker without selecting reverts the visible text to the current selected entity label.
+When a user edits the visible text of an already-selected entity, the picker clears the controlled selected entity before continuing the search. The typed text is only a search query; it is not a valid relationship until the user explicitly selects a result.
 
-This prevents free-typed text from silently becoming a foreign-key relationship.
+If the picker is dismissed without a new selection, unresolved query text is discarded. Business validation can therefore treat `value === null` as “no valid entity selected” even when the user had typed search text.
+
+This prevents both failure modes:
+
+- free-typed text silently becoming a foreign-key relationship; and
+- an old selected internal ID remaining hidden behind newly typed text.
 
 Where a business workflow intentionally allows free-text entry, that workflow should use a separate explicit free-text field/mode rather than weakening the generic entity picker.
 
