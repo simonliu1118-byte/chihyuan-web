@@ -53,6 +53,8 @@ portable CYBackupSet
 - schedule: daily 03:30 Taiwan time;
 - retention: 30 rolling days.
 
+Operational infrastructure status: an Accounting-specific production R2 bucket has already been provisioned by the shared CY Web infrastructure workstream. It uses Standard storage, Asia-Pacific automatic placement, public access disabled, no Bucket Lock, and a 45-day bucket Lifecycle deletion rule as a safety guard behind the 30-day application retention policy. **Do not create a second Accounting R2 bucket.** The exact production bucket name remains in the Private operational handoff. The bucket is not yet bound to the CYAccountingWeb Worker; that binding belongs to the CYAccountingWeb migration workstream.
+
 **GCS**
 
 - independent cross-cloud disaster recovery;
@@ -267,7 +269,7 @@ Add compatibility tests for existing V0.17 format before switching to the common
 
 ### Phase C — add R2 in parallel
 
-Implement `R2BackupStorageProvider` using the same provider contract.
+Implement `R2BackupStorageProvider` using the same provider contract and bind the **already-provisioned Accounting R2 bucket**. Do not create another bucket.
 
 During production parallel validation:
 
@@ -276,7 +278,7 @@ During production parallel validation:
 - write/verify R2;
 - write/verify GCS using the exact same backup-set bytes;
 - GCS remains daily and retains the current 14-day policy during this phase;
-- R2 retention is 30 days.
+- R2 application retention is 30 days; the bucket-level 45-day Lifecycle rule remains only a safety guard.
 
 **Acceptance gate: at least 14 consecutive scheduled production backups** where both provider copies verify successfully and paired copies have the same logical backup ID and package digest.
 
@@ -336,7 +338,8 @@ Rules:
 - cleanup occurs after successful verification;
 - cleanup failure is warning/follow-up, not new-backup failure;
 - a source backup required for pending replication cannot be cleaned first;
-- provider lifecycle may be a second guard only when configured longer than the application policy;
+- R2 bucket Lifecycle deletion is currently 45 days and is only a secondary safety guard;
+- provider lifecycle must remain longer than the application policy;
 - old V0.17 GCS daily backups are not destructively rewritten or mass-deleted during migration.
 
 ## 13. Restore behavior
@@ -385,4 +388,4 @@ Do not consider the new architecture complete until all are verified:
 
 Start by reading current `main`, especially V0.17 backup source and this handoff. Do not immediately replace the working GCS implementation.
 
-Implement the migration in the phases above, with V0.17 GCS kept as the accepted rollback path until the parallel 14-backup acceptance gate has passed.
+Reuse the already-provisioned Accounting R2 bucket and implement the migration in the phases above, with V0.17 GCS kept as the accepted rollback path until the parallel 14-backup acceptance gate has passed.
