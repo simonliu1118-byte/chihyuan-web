@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from "react";
 
 const ENTER_ADVANCE_SELECTOR = '[data-enter-advance="true"]';
+const SELECTABLE_INPUT_TYPES = new Set(["text", "search", "url", "tel", "password"]);
 
 function isFocusableCandidate(element: HTMLElement): boolean {
   if (element.hidden) return false;
@@ -44,7 +45,7 @@ export function advanceFocusOnEnter(event: KeyboardEvent<HTMLElement>): boolean 
 
   event.preventDefault();
   next.focus();
-  if (next instanceof HTMLInputElement && typeof next.select === "function") {
+  if (next instanceof HTMLInputElement && SELECTABLE_INPUT_TYPES.has(next.type)) {
     next.select();
   }
   return true;
