@@ -12,50 +12,45 @@ For product/architecture semantics, current explicit user decisions and later co
 
 ## Current document map
 
-### Active working documents
+### Active architecture / implementation contracts
 
-- `decisions/README.md` — index of confirmed Business Decisions and supersession/refinement notes.
-- `BUSINESS_DECISIONS.md` — consolidated summary for BD-001 through BD-018. Detailed pre-consolidation text is preserved under `archive/`.
+- `decisions/README.md` — confirmed Business Decision index and supersession/refinement map.
+- `BUSINESS_DECISIONS.md` — consolidated BD-001 through BD-018 summary.
 - `decisions/BD-019.md` through the latest `BD-*.md` — later detailed decisions.
-- `CANONICAL_DATA_MODEL.md` — current working logical model. This is the input to the final Data Dictionary and D1 schema, not a copy of Legacy Sheet headers.
-- `BACKUP_ARCHITECTURE.md` — current shared CY Web / CYAccountingWeb backup topology, provider contract, schedule, retention, service boundary and Accounting migration plan.
+- `CANONICAL_DATA_MODEL.md` — current logical model.
+- `FINAL_DATA_DICTIONARY.md` — current initial relational/physical Data Dictionary aligned with the D1 schema draft.
+- `D1_SCHEMA_REVIEW.md` — schema validation state, refinements and remaining freeze gate.
+- `API_CONTRACT.md` — initial Worker/API envelope, error, cache, validation and concurrency contract.
+- `BACKUP_ARCHITECTURE.md` — tiered R2 + GCS backup topology and provider/service boundary.
 - `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public-source / production-infrastructure separation.
 
 ### Implementation handoffs
 
-- `../handoffs/CYACCOUNTINGWEB_TIERED_BACKUP_HANDOFF.md` — public-safe handoff for the CYAccountingWeb workstream. CY Web does not modify Accounting source/runtime from this branch.
+- `../handoffs/CYACCOUNTINGWEB_TIERED_BACKUP_HANDOFF.md` — public-safe handoff for the CYAccountingWeb workstream. CY Web does not modify Accounting source/runtime from this workstream.
 
-### Legacy evidence documents
+### Legacy evidence
 
 - `LEGACY_DATA_AUDIT.md`
 - `LEGACY_DESKTOP_WORKFLOW_AUDIT.md`
 
-These are reference indexes after consolidation. Their original detailed contents are preserved verbatim under `archive/`.
-
-Legacy evidence is used to understand behavior and semantics. It is **not** a production migration contract.
-
-### Archive
-
-`archive/` contains preserved pre-consolidation architecture documents. Archived files are historical evidence only and must not be treated as the current source of product truth when they conflict with later confirmed decisions.
+Their detailed historical versions remain under `archive/`. Legacy evidence explains behavior/semantics; it is not a production migration contract.
 
 ## Current architecture baseline
 
-As of the consolidation through BD-050:
+As of the decisions through BD-054 and the initial D1/API foundation:
 
-- CY Web is a single Web application for Desktop / Tablet / Mobile with RWD + Adaptive UI.
-- SMART ERP remains the primary ERP; CY Web complements it for Web/mobile workflows and extension data.
-- Cloudflare is the target application platform; D1 is the live relational database direction.
-- Shared Identity is reused through an adapter/service boundary; CY Web does not duplicate the common account hierarchy.
-- Backup is tiered: **R2 is the daily operational tier; GCS is the lower-frequency cross-cloud disaster-recovery tier**.
-- CY Web and CYAccountingWeb use one provider-neutral portable outer backup contract and converge toward a shared CY Backup Service / Worker while retaining app-specific dataset/credential isolation.
-- Legacy GAS / Google Sheets has not entered production use. Existing rows are disposable development/test data and are **not migrated** into production D1 (BD-047).
-- Production starts from a clean canonical D1 schema.
-- Customer and Item relationships use immutable internal IDs. ERP business identifiers remain separate fields.
-- SMART ERP customer numbers may be corrected/changed without changing Customer identity (BD-048).
+- CY Web is one Web application for Desktop / Tablet / Mobile using RWD + Adaptive UI.
+- Legacy GAS / Google Sheets is behavior/data-semantic reference only; unused test rows are not migrated to production D1.
+- Cloudflare Workers is the target application backend and D1 is the live relational database direction.
+- Current frontend foundation is TypeScript + React + Vite + Cloudflare Vite plugin.
+- Shared Identity is consumed through an adapter/service boundary; CY Web does not duplicate the shared account-role hierarchy.
+- Customer/Item relationships use immutable internal IDs; ERP business numbers are separate values.
+- Initial fields follow validated GAS/Legacy business semantics; exact SMART ERP ownership/sync mapping is deferred to the future ERP integration project.
+- Formal business records retain only deliberate historical snapshots.
+- CY Web uses one shared in-App Audit Core; ordinary edits keep only latest modifier/time and meaningful business events use compact structured Audit.
+- Detailed modern UI/UX is redesigned for the new Web system; Legacy GAS visual/refresh workarounds are not implementation requirements.
 
 ## Backup baseline
-
-Current target policy:
 
 ```text
 D1   live authoritative database
@@ -63,43 +58,43 @@ R2   daily 03:30 Taiwan / 30-day operational retention
 GCS  Wed + Sun replication / 26-week cross-cloud DR retention
 ```
 
-One logical backup is exported from D1 once. The same `backupId`, `manifest.json`, `data.json`, SHA-256 and byte counts are reused across provider copies.
+One logical backup is exported from D1 once. Provider copies use the same `backupId`, payload bytes and integrity metadata.
 
-See `BACKUP_ARCHITECTURE.md`, BD-049 and BD-050 for the full contract.
+See `BACKUP_ARCHITECTURE.md`, BD-049 and BD-050.
 
-## Document precedence inside architecture work
-
-When two architecture documents appear to disagree, use this order:
-
-1. current explicit user decision;
-2. latest applicable confirmed `BD-*` decision, including explicit supersession/refinement notes;
-3. current specialized architecture document (for example `BACKUP_ARCHITECTURE.md` for backup design);
-4. current `CANONICAL_DATA_MODEL.md`;
-5. current workflow/audit summary;
-6. archived/pre-consolidation evidence.
-
-If a conflict remains after applying that order, stop and resolve it before freezing the D1 Data Dictionary or implementing business logic.
-
-## Next architecture gate
-
-The previous Legacy-data-migration gate is retired by BD-047. The backup topology is now separately finalized through BD-049/050.
-
-The current main application-data gate is:
+## Current implementation chain
 
 ```text
 confirmed Business Decisions
         ↓
-consolidated Canonical Data Model
-        ↓
-remaining genuinely open business semantics only
+Canonical Data Model
         ↓
 Final Data Dictionary
         ↓
-D1 SQL schema / forward migrations
+0001 initial D1 migration
         ↓
-Worker + API contracts
+local/dev D1 validation
         ↓
-module implementation and acceptance
+Worker + API foundation
+        ↓
+shared Identity / Audit / common Web components
+        ↓
+business modules
+        ↓
+production acceptance
 ```
 
-Do not re-open already confirmed business questions merely because an older draft still contains an `OPEN` marker. Check `decisions/README.md` first.
+The current repository has reached the D1 schema + Worker/API foundation stage, but the production D1 database and production Worker bindings have **not** been created by this branch.
+
+## Document precedence
+
+When architecture documents appear to disagree:
+
+1. current explicit user decision;
+2. latest applicable confirmed Business Decision;
+3. current specialized architecture/implementation contract;
+4. current Canonical Data Model / Data Dictionary as applicable;
+5. current workflow/audit summary;
+6. archived Legacy evidence.
+
+Do not re-open already confirmed business questions merely because an older draft contains an `OPEN` marker. Check `decisions/README.md` first.
