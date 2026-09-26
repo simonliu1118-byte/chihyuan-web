@@ -6,13 +6,14 @@
 
 - Node.js version supported by current Wrangler.
 - npm.
-- Python 3 for the zero-dependency schema validator.
+- Python 3 for the zero-dependency source/schema validators.
 
 ## First setup
 
 ```bash
 npm install
-python scripts/validate_schema.py
+npm run validate:source
+npm run typecheck
 npm run db:migrate:local
 npm run dev
 ```
@@ -24,6 +25,7 @@ Do not add production D1 IDs, R2 bucket names, GCS credentials, API keys or othe
 ## Useful commands
 
 ```bash
+npm run validate:source
 npm run typecheck
 npm run build
 npm run db:migrations:local
@@ -32,6 +34,12 @@ npm run dev
 ```
 
 `GET /api/health` verifies the Worker can access its D1 binding without exposing business data.
+
+## Validation boundary
+
+`validate:source` checks the SQL/schema contract and Public-safe foundation configuration without third-party Python packages. It does not replace the real Vite/Worker build or local D1 migration apply.
+
+Before this branch is merge-ready, a normal networked checkout still needs to complete `npm install`, `npm run typecheck`, `npm run build`, local D1 migration apply and `/api/health` smoke verification.
 
 ## Production boundary
 
