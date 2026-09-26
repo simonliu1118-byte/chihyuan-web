@@ -1,4 +1,4 @@
-import type { ApiFailure, ApiResponse } from "../../shared/api";
+import type { ApiResponse } from "../../shared/api";
 
 export interface ApiRequestInit extends Omit<RequestInit, "body"> {
   json?: unknown;
@@ -89,14 +89,22 @@ export async function apiRequest<T>(
 
   const envelope = await readEnvelope<T>(response);
 
-  if (!response.ok || !envelope.ok) {
-    const failure = envelope as ApiFailure;
+  if (!envelope.ok) {
     throw new ApiClientError({
       status: response.status,
-      code: failure.error.code,
-      message: failure.error.message,
-      requestId: failure.requestId,
-      fields: failure.error.fields,
+      code: envelope.error.code,
+      message: envelope.error.message,
+      requestId: envelope.requestId,
+      fields: envelope.error.fields,
+    });
+  }
+
+  if (!response.ok) {
+    throw new ApiClientError({
+      status: response.status,
+      code: "HTTP_ENVELOPE_MISMATCH",
+      message: `伺服器回應狀態異常（HTTP ${response.status}）`,
+      requestId: envelope.requestId,
     });
   }
 
