@@ -17,11 +17,11 @@ export function DataPagination({
 }: DataPaginationProps) {
   return (
     <div className="cy-data-pagination" aria-label="資料分頁">
-      <Button type="button" variant="secondary" size="small" disabled={!canPrevious} onClick={onPrevious}>
+      <Button type="button" tone="secondary" size="small" disabled={!canPrevious} onClick={onPrevious}>
         上一頁
       </Button>
       {label ? <span className="cy-data-pagination-label">{label}</span> : null}
-      <Button type="button" variant="secondary" size="small" disabled={!canNext} onClick={onNext}>
+      <Button type="button" tone="secondary" size="small" disabled={!canNext} onClick={onNext}>
         下一頁
       </Button>
     </div>
