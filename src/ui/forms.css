@@ -1,0 +1,99 @@
+.cy-field {
+  display: grid;
+  gap: 7px;
+}
+
+.cy-field-label {
+  color: var(--cy-text);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.cy-field-required {
+  color: var(--cy-danger);
+}
+
+.cy-input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--cy-border-strong);
+  border-radius: 9px;
+  padding: 8px 10px;
+  background: var(--cy-surface);
+  color: var(--cy-text);
+  line-height: 1.45;
+  transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+
+.cy-input:hover:not(:disabled):not([readonly]) {
+  border-color: #aeb9c2;
+}
+
+.cy-input:focus {
+  border-color: var(--cy-info);
+  box-shadow: 0 0 0 3px rgba(52, 95, 138, 0.12);
+  outline: none;
+}
+
+.cy-input:disabled {
+  cursor: not-allowed;
+  background: #f0f2f4;
+  color: #8a949d;
+}
+
+.cy-input[readonly] {
+  background: var(--cy-surface-muted);
+}
+
+.cy-field.has-error .cy-input {
+  border-color: var(--cy-danger);
+}
+
+.cy-field.has-error .cy-input:focus {
+  box-shadow: 0 0 0 3px rgba(155, 49, 49, 0.12);
+}
+
+.cy-field-description,
+.cy-field-error {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.cy-field-description {
+  color: var(--cy-text-muted);
+}
+
+.cy-field-error {
+  color: var(--cy-danger);
+  font-weight: 650;
+}
+
+.cy-textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.cy-select {
+  appearance: auto;
+}
+
+.cy-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 18px;
+}
+
+.cy-form-grid-full {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 720px) {
+  .cy-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cy-form-grid-full {
+    grid-column: auto;
+  }
+}
