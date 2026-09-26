@@ -11,8 +11,9 @@ This file records current work and engineering direction. It is not a permanent 
 5. [ ] Freeze the initial D1 relational schema after local/dev D1 migration and D1-specific smoke validation. SQLite schema/constraint smoke validation is already complete.
 6. [ ] Complete Cloudflare Worker/Vite local foundation acceptance. Source/config foundation, API contract and `/api/health` are staged; npm build + local D1 apply remain pending in a normal networked checkout.
 7. [ ] Complete Shared Identity browser-session provider wiring. The CY Web provider-neutral adapter, normalized principal contract and app-local module-access guards are staged; the shared provider still needs a CY Web-compatible browser-session contract.
-8. [ ] Bind the already-provisioned CY Web R2 bucket and add CY Web GCS runtime configuration only after the real CY Web Worker deployment boundary is accepted.
-9. [ ] Implement reusable application foundation, then business modules.
+8. [x] Stage the shared CY Web Audit Core with compact payload guards, timeline projection and Admin/SA detail-query foundation.
+9. [ ] Bind the already-provisioned CY Web R2 bucket and add CY Web GCS runtime configuration only after the real CY Web Worker deployment boundary is accepted.
+10. [ ] Implement remaining reusable application foundation, then business modules.
 
 ## Phase 0 — Governance / Public foundation
 
@@ -63,7 +64,7 @@ Legacy source remains available as behavior/reference evidence.
 - [x] Establish `migrations/` as the forward schema-migration source of truth for the clean-start database.
 - [x] Define the initial API response/error/cache/concurrency/validation/list-search contract in `docs/architecture/API_CONTRACT.md`.
 - [ ] Implement shared server-side request validation helpers and the first authenticated business API slice after Identity session wiring is available.
-- [ ] Implement the shared CY Web Audit Core service on top of the confirmed `audit_events` schema.
+- [x] Stage the shared CY Web Audit Core service on top of the confirmed `audit_events` schema; route-level authorization/UI wiring remains later work.
 - [ ] Apply migrations to local/dev D1 and run Worker + D1 smoke acceptance before schema freeze.
 
 Production starts from a clean D1 schema; forward D1 schema migrations remain required even though Legacy data migration is not.

@@ -22,12 +22,14 @@ For product/architecture semantics, current explicit user decisions and later co
 - `D1_SCHEMA_REVIEW.md` — schema validation state, refinements and remaining freeze gate.
 - `API_CONTRACT.md` — initial Worker/API envelope, error, cache, validation and concurrency contract.
 - `IDENTITY_ADAPTER.md` — shared-Identity adapter boundary, normalized principal contract and CY Web app-local authorization split.
+- `AUDIT_CORE.md` — one shared CY Web AuditService contract, concise timeline/detailed Audit Log split and storage-cost safeguards.
 - `BACKUP_ARCHITECTURE.md` — tiered R2 + GCS backup topology and provider/service boundary.
 - `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public-source / production-infrastructure separation.
 
 ### Implementation handoffs
 
 - `../handoffs/CYACCOUNTINGWEB_TIERED_BACKUP_HANDOFF.md` — public-safe handoff for the CYAccountingWeb workstream. CY Web does not modify Accounting source/runtime from this workstream.
+- `../handoffs/CYWEB_IDENTITY_PROVIDER_REQUIREMENTS.md` — requirements handed to the Shared Identity/CYInvoice workstream for CY Web-compatible browser-session support.
 
 ### Legacy evidence
 
@@ -38,7 +40,7 @@ Their detailed historical versions remain under `archive/`. Legacy evidence expl
 
 ## Current architecture baseline
 
-As of the decisions through BD-054 and the initial D1/API/Identity foundation:
+As of the decisions through BD-054 and the initial D1/API/Identity/Audit foundation:
 
 - CY Web is one Web application for Desktop / Tablet / Mobile using RWD + Adaptive UI.
 - Legacy GAS / Google Sheets is behavior/data-semantic reference only; unused test rows are not migrated to production D1.
@@ -50,6 +52,7 @@ As of the decisions through BD-054 and the initial D1/API/Identity foundation:
 - Initial fields follow validated GAS/Legacy business semantics; exact SMART ERP ownership/sync mapping is deferred to the future ERP integration project.
 - Formal business records retain only deliberate historical snapshots.
 - CY Web uses one shared in-App Audit Core; ordinary edits keep only latest modifier/time and meaningful business events use compact structured Audit.
+- Initial AuditService rejects credential-like payload keys, bounds JSON payload size and serves both concise timeline and detailed Admin/SA inspection from the same event store.
 - Detailed modern UI/UX is redesigned for the new Web system; Legacy GAS visual/refresh workarounds are not implementation requirements.
 
 ## Backup baseline
@@ -81,14 +84,16 @@ Worker + API foundation
         ↓
 shared Identity adapter + app-local authorization
         ↓
-Audit / common Web components
+shared Audit Core
+        ↓
+common Web components
         ↓
 business modules
         ↓
 production acceptance
 ```
 
-The repository now contains the provider-neutral Identity adapter contract and app-local module-access service, but the production shared-Identity browser-session provider contract is still an external dependency. The production D1 database and production Worker bindings have **not** been created by these branches.
+The repository now contains the provider-neutral Identity adapter contract, app-local module-access service and shared AuditService foundation. The production shared-Identity browser-session provider contract is still an external dependency, and the production D1 database / production Worker bindings have **not** been created by these branches.
 
 ## Document precedence
 
