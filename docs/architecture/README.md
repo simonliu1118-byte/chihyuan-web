@@ -26,6 +26,7 @@ For product/architecture semantics, current explicit user decisions and later co
 - `AUDIT_CORE.md` — one shared CY Web AuditService contract, concise timeline/detailed Audit Log split and storage-cost safeguards.
 - `UI_FOUNDATION.md` — new-Web shared UI/interaction architecture, Adaptive UI boundary and pre-business-screen shared-component gate.
 - `APP_SHELL_FOUNDATION.md` — shared application frame/navigation boundary and first reusable UI primitives; visual styling remains provisional.
+- `FORM_FOUNDATION.md` — shared field semantics, validation presentation and unsaved-change protection.
 - `BACKUP_ARCHITECTURE.md` — tiered R2 + GCS backup topology and provider/service boundary.
 - `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public-source / production-infrastructure separation.
 - `../DOMAIN_STRATEGY.md` — confirmed `chihyuancm.com` parent-domain namespace and controlled rollout direction for the official website and CY-family Web systems.
@@ -45,7 +46,7 @@ Their detailed historical versions remain under `archive/`. Legacy evidence expl
 
 ## Current architecture baseline
 
-As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/request/App-Shell foundation:
+As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/request/App-Shell/form foundation:
 
 - CY Web is one Web application for Desktop / Tablet / Mobile using RWD + Adaptive UI.
 - `chihyuancm.com` is the confirmed shared parent domain for the future public Chihyuan website and internal/business CY-family Web systems; each application keeps its own hostname/origin, deployment and security/session boundary.
@@ -64,9 +65,10 @@ As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/requ
 - CY Web uses one shared in-App Audit Core; ordinary edits keep only latest modifier/time and meaningful business events use compact structured Audit.
 - Initial AuditService rejects credential-like payload keys, bounds JSON payload size and serves both concise timeline and detailed Admin/SA inspection from the same event store.
 - Repeated interaction mechanics are implemented as shared CY Web foundations rather than one copy per business module or one copy per device class.
-- One shared App Shell now provides the structural application frame and data-driven navigation boundary; business modules must compose inside it rather than building independent frames.
-- Initial `Button`, `Notice`, `Section` and `StatusChip` primitives exist so common UI states do not start diverging per module.
-- Current shell styling/tokens are explicitly provisional. Final visual composition, branding and production menu hierarchy remain a dedicated UI/UX review item and are not inherited from GAS.
+- One shared App Shell provides the structural application frame and data-driven navigation boundary; business modules compose inside it rather than building independent frames.
+- Shared UI primitives now cover common button/notice/section/status and basic form-field semantics.
+- Unsaved-change protection is a shared application behavior, including browser-unload protection and an in-app confirmation contract; business pages do not implement independent page-local prompts.
+- Current shell/form styling and tokens are explicitly provisional. Final visual composition, branding, production menu hierarchy and business-form layouts remain a dedicated UI/UX review item and are not inherited from GAS.
 
 ## Backup baseline
 
@@ -105,9 +107,11 @@ cross-module Legacy reusable-pattern audit
         ↓
 new-Web UI foundation
         ↓
-shared App Shell + shared primitives
+shared App Shell + UI primitives
         ↓
-remaining reusable data-entry/data-view patterns
+shared form + unsaved-change foundation
+        ↓
+remaining reusable data-view / picker / editable-list patterns
         ↓
 business modules
         ↓
@@ -116,7 +120,7 @@ production custom-domain rollout
 production acceptance
 ```
 
-The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation, shared request/validation foundation, shared record-editor state foundation and initial shared App Shell/primitives. The production shared-Identity browser-session provider contract is still an external dependency, and the production D1 database / production Worker bindings have **not** been created by these branches.
+The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation, shared request/validation foundation, shared record-editor state, shared App Shell/primitives and initial shared form/unsaved-change foundation. The production shared-Identity browser-session provider contract is still an external dependency, and the production D1 database / production Worker bindings have **not** been created by these branches.
 
 ## Document precedence
 
