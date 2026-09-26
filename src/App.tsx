@@ -1,16 +1,10 @@
 import { useEffect, useState } from "react";
+import type { ApiResponse, HealthData } from "../shared/api";
 
 type HealthState =
   | { status: "loading" }
-  | { status: "ok"; checkedAt: string }
+  | { status: "ok" }
   | { status: "error"; message: string };
-
-interface HealthResponse {
-  ok: boolean;
-  service: string;
-  database: "ok" | "error";
-  time: string;
-}
 
 export default function App() {
   const [health, setHealth] = useState<HealthState>({ status: "loading" });
@@ -24,14 +18,14 @@ export default function App() {
           headers: { Accept: "application/json" },
           signal: controller.signal,
         });
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+        const body = (await response.json()) as ApiResponse<HealthData>;
+
+        if (!response.ok || !body.ok || body.data.database !== "ok") {
+          const message = body.ok ? `HTTP ${response.status}` : body.error.message;
+          throw new Error(message);
         }
-        const body = (await response.json()) as HealthResponse;
-        if (!body.ok || body.database !== "ok") {
-          throw new Error("Backend or local database is not ready");
-        }
-        setHealth({ status: "ok", checkedAt: body.time });
+
+        setHealth({ status: "ok" });
       } catch (error) {
         if (controller.signal.aborted) return;
         setHealth({
