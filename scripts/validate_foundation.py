@@ -88,6 +88,13 @@ def main() -> int:
     if "skipNextNullSyncRef" not in entity_picker or "onSelect(null)" not in entity_picker:
         raise AssertionError("entity picker stale-selection invalidation missing")
 
+    editable_list = require("src/ui/foundation/editable-list.ts").read_text(encoding="utf-8")
+    for required_action in ('type: "add"', 'type: "update"', 'type: "remove"', 'type: "move"', 'type: "commit"'):
+        if required_action not in editable_list:
+            raise AssertionError(f"shared editable-list action missing: {required_action}")
+    if "baselineRows" not in editable_list or "serializeEditableList" not in editable_list:
+        raise AssertionError("editable-list baseline/serialization contract missing")
+
     for path in (
         "index.html",
         "src/main.tsx",
@@ -99,6 +106,7 @@ def main() -> int:
         "src/ui/data/DataPagination.tsx",
         "src/ui/data/DataView.tsx",
         "src/ui/data/DataViewToolbar.tsx",
+        "src/ui/foundation/editable-list.ts",
         "src/ui/foundation/record-editor.ts",
         "src/ui/foundation/navigation.ts",
         "src/ui/foundation/useDebouncedValue.ts",
@@ -117,6 +125,7 @@ def main() -> int:
         "docs/architecture/FORM_FOUNDATION.md",
         "docs/architecture/DATA_VIEW_FOUNDATION.md",
         "docs/architecture/ENTITY_PICKER_FOUNDATION.md",
+        "docs/architecture/EDITABLE_LIST_FOUNDATION.md",
         "shared/api.ts",
         "vite.config.ts",
         "tsconfig.json",
