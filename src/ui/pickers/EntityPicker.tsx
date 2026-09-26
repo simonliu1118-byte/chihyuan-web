@@ -22,6 +22,7 @@ export interface EntityPickerProps<T> {
   getKey: (item: T) => Key;
   getLabel: (item: T) => string;
   getDescription?: (item: T) => ReactNode;
+  onSearchError?: (error: unknown) => void;
   placeholder?: string;
   description?: ReactNode;
   error?: ReactNode;
@@ -43,6 +44,7 @@ export function EntityPicker<T>({
   getKey,
   getLabel,
   getDescription,
+  onSearchError,
   placeholder = "輸入關鍵字搜尋…",
   description,
   error,
@@ -60,7 +62,9 @@ export function EntityPicker<T>({
   const listboxId = `${inputId}-listbox`;
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const selectedLabel = value ? getLabel(value) : "";
+  const searchRef = useRef(search);
+  const searchErrorRef = useRef(onSearchError);
+  const selectedLabel = value !== null ? getLabel(value) : "";
 
   const [inputValue, setInputValue] = useState(selectedLabel);
   const [open, setOpen] = useState(false);
@@ -68,6 +72,14 @@ export function EntityPicker<T>({
   const [status, setStatus] = useState<EntityPickerSearchStatus>("idle");
   const [activeIndex, setActiveIndex] = useState(-1);
   const debouncedQuery = useDebouncedValue(inputValue.trim(), debounceMs);
+
+  useEffect(() => {
+    searchRef.current = search;
+  }, [search]);
+
+  useEffect(() => {
+    searchErrorRef.current = onSearchError;
+  }, [onSearchError]);
 
   useEffect(() => {
     setInputValue(selectedLabel);
@@ -88,7 +100,7 @@ export function EntityPicker<T>({
     setResults([]);
     setActiveIndex(-1);
 
-    void search(debouncedQuery, controller.signal)
+    void searchRef.current(debouncedQuery, controller.signal)
       .then((items) => {
         if (controller.signal.aborted) return;
         setResults(items);
@@ -97,14 +109,14 @@ export function EntityPicker<T>({
       })
       .catch((cause) => {
         if (controller.signal.aborted) return;
-        console.error("EntityPicker search failed", cause);
+        searchErrorRef.current?.(cause);
         setResults([]);
         setStatus("error");
         setActiveIndex(-1);
       });
 
     return () => controller.abort();
-  }, [debouncedQuery, disabled, minQueryLength, open, search]);
+  }, [debouncedQuery, disabled, minQueryLength, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -229,7 +241,7 @@ export function EntityPicker<T>({
             aria-invalid={error ? true : undefined}
             aria-busy={status === "loading" || undefined}
           />
-          {clearable && value && !disabled ? (
+          {clearable && value !== null && !disabled ? (
             <button className="cy-entity-picker-clear" type="button" onClick={handleClear} aria-label="清除選取">
               ×
             </button>
@@ -265,7 +277,7 @@ export function EntityPicker<T>({
                 ? results.map((item, index) => {
                     const itemKey = getKey(item);
                     const active = index === activeIndex;
-                    const selected = value ? getKey(value) === itemKey : false;
+                    const selected = value !== null ? getKey(value) === itemKey : false;
                     return (
                       <div
                         key={itemKey}
