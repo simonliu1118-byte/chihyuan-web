@@ -21,6 +21,7 @@ For product/architecture semantics, current explicit user decisions and later co
 - `FINAL_DATA_DICTIONARY.md` — current initial relational/physical Data Dictionary aligned with the D1 schema draft.
 - `D1_SCHEMA_REVIEW.md` — schema validation state, refinements and remaining freeze gate.
 - `API_CONTRACT.md` — initial Worker/API envelope, error, cache, validation and concurrency contract.
+- `IDENTITY_ADAPTER.md` — shared-Identity adapter boundary, normalized principal contract and CY Web app-local authorization split.
 - `BACKUP_ARCHITECTURE.md` — tiered R2 + GCS backup topology and provider/service boundary.
 - `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public-source / production-infrastructure separation.
 
@@ -37,13 +38,14 @@ Their detailed historical versions remain under `archive/`. Legacy evidence expl
 
 ## Current architecture baseline
 
-As of the decisions through BD-054 and the initial D1/API foundation:
+As of the decisions through BD-054 and the initial D1/API/Identity foundation:
 
 - CY Web is one Web application for Desktop / Tablet / Mobile using RWD + Adaptive UI.
 - Legacy GAS / Google Sheets is behavior/data-semantic reference only; unused test rows are not migrated to production D1.
 - Cloudflare Workers is the target application backend and D1 is the live relational database direction.
 - Current frontend foundation is TypeScript + React + Vite + Cloudflare Vite plugin.
-- Shared Identity is consumed through an adapter/service boundary; CY Web does not duplicate the shared account-role hierarchy.
+- Shared Identity is consumed through an adapter/service boundary; CY Web does not duplicate the shared account-role hierarchy or credential store.
+- CY Web app-local authorization uses `app_members` + app tags/module mappings while shared ADMIN/SUPER_ADMIN authority remains external Identity authority.
 - Customer/Item relationships use immutable internal IDs; ERP business numbers are separate values.
 - Initial fields follow validated GAS/Legacy business semantics; exact SMART ERP ownership/sync mapping is deferred to the future ERP integration project.
 - Formal business records retain only deliberate historical snapshots.
@@ -77,14 +79,16 @@ local/dev D1 validation
         ↓
 Worker + API foundation
         ↓
-shared Identity / Audit / common Web components
+shared Identity adapter + app-local authorization
+        ↓
+Audit / common Web components
         ↓
 business modules
         ↓
 production acceptance
 ```
 
-The current repository has reached the D1 schema + Worker/API foundation stage, but the production D1 database and production Worker bindings have **not** been created by this branch.
+The repository now contains the provider-neutral Identity adapter contract and app-local module-access service, but the production shared-Identity browser-session provider contract is still an external dependency. The production D1 database and production Worker bindings have **not** been created by these branches.
 
 ## Document precedence
 
