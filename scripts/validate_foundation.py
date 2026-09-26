@@ -45,12 +45,15 @@ def main() -> int:
         raise AssertionError("health route missing")
     if '"cache-control": "no-store"' not in worker:
         raise AssertionError("API no-store header missing")
+    if "crypto.randomUUID()" not in worker:
+        raise AssertionError("request correlation id generation missing")
 
     for path in (
         "index.html",
         "src/main.tsx",
         "src/App.tsx",
         "src/app.css",
+        "shared/api.ts",
         "vite.config.ts",
         "tsconfig.json",
         "tsconfig.worker.json",
