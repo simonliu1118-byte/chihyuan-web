@@ -7,8 +7,8 @@ This document records the current domain direction for Chihyuan's public website
 ## 1. Registered parent domain
 
 - `chihyuancm.com` is the confirmed long-term parent domain.
-- The domain was registered through Cloudflare Registrar on 2026-09-27.
-- Registration is maintained on an annual renewal basis.
+- The domain was registered through Cloudflare Registrar on 2026-09-27 with an initial one-year registration term.
+- Renewal/registration term may later be extended to multiple years when appropriate; the exact renewal term is an operational choice and does not change the domain architecture.
 - The same parent domain is intentionally used for both the official public website and Chihyuan internal/business Web systems.
 - `chihyuancm` keeps the full Chihyuan brand spelling and avoids the legacy `jycm` abbreviation style.
 - `CM` is used as a compact Chinese-medicine business identifier; public-facing branding may present it simply as `Chihyuan CM` while the website itself describes the business in full.
