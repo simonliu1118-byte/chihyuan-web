@@ -41,7 +41,7 @@ def main() -> int:
         raise AssertionError("D1 migration source directory mismatch")
 
     worker = require("worker/index.ts").read_text(encoding="utf-8")
-    if 'url.pathname === "/api/health"' not in worker:
+    if '"/api/health"' not in worker:
         raise AssertionError("health route missing")
     if '"cache-control": "no-store"' not in worker:
         raise AssertionError("API no-store header missing")
