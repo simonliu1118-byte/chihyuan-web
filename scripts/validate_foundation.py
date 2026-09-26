@@ -60,6 +60,10 @@ def main() -> int:
     if "FieldValidationError" not in validation_helper or "ValidationBag" not in validation_helper:
         raise AssertionError("shared field validation helper missing")
 
+    error_helper = require("worker/http/errors.ts").read_text(encoding="utf-8")
+    if "VALIDATION_ERROR" not in error_helper or "INTERNAL_ERROR" not in error_helper:
+        raise AssertionError("shared request error mapping missing")
+
     api_client = require("src/api/client.ts").read_text(encoding="utf-8")
     if "ApiClientError" not in api_client or 'cache: "no-store"' not in api_client:
         raise AssertionError("shared browser API client safeguards missing")
