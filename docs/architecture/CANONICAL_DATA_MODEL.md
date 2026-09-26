@@ -2,7 +2,7 @@
 
 > Project: Chihyuan Enterprise Management System (CY Web)
 >
-> Status: consolidated logical model through BD-048. This is the working input to the Final Data Dictionary and D1 SQL schema. It is not a governance rules source and it is not a physical migration file.
+> Status: consolidated logical model through BD-054. The lower-level initial schema contract is now drafted in `FINAL_DATA_DICTIONARY.md`. This file remains the logical-model layer, not a governance rules source and not a physical migration file.
 >
 > The pre-consolidation draft is preserved at `archive/CANONICAL_DATA_MODEL_PRE_CONSOLIDATION.md`.
 
@@ -20,7 +20,7 @@ Core rules:
 - formal historical documents preserve explicit snapshots where required by BD-006;
 - query-critical relationships/fields are relational, not opaque JSON;
 - workflow state codes are stable application contracts; configurable classifications are lookup data;
-- audit/history is explicit and structured where business reconstruction matters.
+- ordinary CRUD keeps latest-modified metadata, while meaningful business actions use structured audit under BD-053/054.
 
 ## 2. Naming and physical-ID direction
 
@@ -48,13 +48,21 @@ Candidate local application structures:
 
 - `id`
 - `identity_employee_id` — stable shared Identity subject/reference
-- `employee_no` nullable application/company reference where needed
+- current display metadata/cache needed by CY Web, such as employee number/name and CY Web department where applicable
 - `is_active`
 - `created_at`, `updated_at`
 
+### `app_tags`
+
+Stable CY Web-local module-access tags managed under BD-043.
+
+### `app_tag_modules`
+
+Maps an App tag to fixed CY Web module codes.
+
 ### `app_member_tags`
 
-App-specific module-access tags such as `sales`, `staff`, `warehouse`, `designer`.
+Maps an App member to App-local tags.
 
 Shared `user / admin / super-admin` semantics remain owned by the shared Identity authority. CY Web configuration authority follows BD-043.
 
@@ -69,7 +77,7 @@ Candidate lookup entities:
 - `item_categories` — supports hierarchy
 - `work_log_categories`
 - `work_log_platforms`
-- typed WorkLog scoring configuration
+- typed WorkLog scoring configuration/reference rows
 
 Configurable lookup identity is stable and separate from editable display labels (BD-010).
 
@@ -139,20 +147,20 @@ Ordered highlighted/customer notes without the Legacy fixed-three JSON-cell limi
 - `customer_id`
 - `content`
 - `sort_order`
-- audit timestamps/actor fields
+- latest-modified metadata as appropriate
 
 ### `customer_visits`
 
 - `id`
-- `customer_id`
+- `customer_id` required
 - `visit_date`
 - `contact_id` nullable
 - `person_snapshot`
 - `employee_id`
 - `content`
-- audit fields
+- latest-modified metadata
 
-Visit-time person text is preserved even when a Contact relation exists (BD-015).
+Visit-time person text is preserved even when a Contact relation exists (BD-015). A Visit is always attached to a real Customer internal identity; name-only Visit records are not allowed.
 
 ### `customer_frequent_items`
 
@@ -160,7 +168,7 @@ Visit-time person text is preserved even when a Contact relation exists (BD-015)
 - `customer_id`
 - `item_id` nullable
 - `custom_item_name` nullable
-- optional display snapshot fields where useful
+- optional free-text category/display fields for unfiled entries
 - `sort_order`
 
 A row is either an explicit formal Item relation or a free-text customer-information entry. Text matching never auto-links to Item; formal linkage requires explicit selection (BD-023/039).
@@ -176,8 +184,8 @@ CY Web Quote is not the formal SMART ERP quotation document (BD-020/021).
 - `item_id`
 - `quote_date`
 - `employee_id`
-- relevant customer/item snapshots where required
-- `created_at`, `updated_at`, audit actor/revision fields
+- Item display snapshots needed to preserve the historical quote context
+- `created_at`, `updated_at`, actor/revision fields
 
 One record represents one Customer + one Item quotation event. A genuine new commercial quotation creates a new history record rather than overwriting the previous one.
 
@@ -209,9 +217,9 @@ Corrections of an existing quote-history record are permitted only as explicit a
 - `clinic_price`
 - `notes`
 - active/status fields as required
-- audit fields
+- latest-modified metadata/revision
 
-Formal Item master creation is ERP-owned (BD-004). Exact ERP-owned vs CY Web-extension field ownership is finalized during ERP-integration/Data-Dictionary work.
+Formal Item master creation remains conceptually ERP-owned (BD-004). Per BD-052, the **initial CY Web field set follows the validated Legacy/GAS business fields now**; exact `ERP-owned / CY Web extension / read-only / synchronized` classification is deferred until the future SMART ERP integration project inspects the real approved ERP interface.
 
 ### `item_number_history`
 
@@ -238,7 +246,7 @@ Old Item numbers remain searchable until explicitly retired. New transactions us
 
 Validation must reject invalid/cyclic/unresolved conversion graphs.
 
-General Item commercial/unit changes are recorded through structured audit/history rather than a misleading free-text `priceLog` field.
+General Item edits do not require unlimited field-by-field history. Important controlled Item-number operations remain explicit business/audit events where applicable under BD-053/054.
 
 ## 8. Sales work-order domain
 
@@ -247,18 +255,37 @@ CY Web owns the field/pre-ERP work order and operational fulfillment workflow; S
 ### `sales_work_orders`
 
 - `id`
-- `customer_id` nullable only where the confirmed field-entry flow permits a not-yet-linked customer context
-- customer display/snapshot fields needed by the work order
+- system-generated human/display reference separate from the technical PK
+- `customer_id` nullable only for the confirmed name-only field-entry flow
+- `customer_no_snapshot` nullable
+- `customer_name_snapshot` required
 - `order_date`
 - `operator_employee_id`
 - `note`
 - `status_code`
 - `erp_no` nullable until ERP handoff
 - `hide_price_on_sales_document`
-- `invoice_type` nullable stable value/code
-- `receipt_option` nullable stable value/code
+- `invoice_type_code` nullable stable value/code
+- `receipt_option_code` nullable stable value/code
 - void metadata when applicable
-- audit fields
+- latest-modified metadata/revision
+
+Permitted customer-entry modes follow BD-031:
+
+```text
+A. lookup/select a Customer
+   customer_id = present
+   customer_no may be present or absent on the Customer
+   displayed name comes from Customer master and is snapshotted for the work order
+
+B. field name only
+   customer_id = null
+   customer_no snapshot = null
+   customer-name snapshot = required free text
+   internal staff later performs deliberate reconciliation
+```
+
+CY Web does not fuzzy-match, auto-link, or silently merge the name-only Order entry with a Customer.
 
 Candidate stable lifecycle codes:
 
@@ -279,7 +306,7 @@ Hard delete is limited to the pre-ERP condition defined by BD-029. After ERP iss
 
 - `id`
 - `sales_work_order_id`
-- `item_id` nullable only for an explicitly supported unfiled line
+- `item_id` required in the initial schema because the validated Legacy/current workflow selects a formal Item
 - `item_no_snapshot`
 - `item_name_snapshot`
 - `spec_snapshot`
@@ -289,7 +316,7 @@ Hard delete is limited to the pre-ERP condition defined by BD-029. After ERP iss
 - `note`
 - `sort_order`
 
-Formal snapshots follow BD-006.
+Formal snapshots follow BD-006. An unfiled/free-text Order item is not part of the initial confirmed workflow.
 
 ## 9. Defect domain
 
@@ -298,13 +325,14 @@ Formal snapshots follow BD-006.
 - `id`
 - `reported_date`
 - `customer_id`
+- Customer number/name snapshots as used by the historical record
 - `item_id`
+- Item number/name/spec snapshots
 - `owner_employee_id`
 - `defect_description`
 - `handling`
 - `status_code`
-- applicable snapshots only where the record represents a historical fact/document
-- audit fields
+- latest-modified metadata/revision
 
 Lifecycle:
 
@@ -327,7 +355,7 @@ A resolved record may be explicitly reopened to processing (BD-028). Edit/delete
 - `address` nullable
 - `note` nullable
 - `is_active`
-- audit fields
+- latest-modified metadata/revision
 
 ### `contractor_contacts`
 
@@ -350,7 +378,7 @@ One current price per Contractor + Item (BD-038):
 - `pricing_unit`
 - `unit_price`
 - `note`
-- effective/updated timestamps and audit metadata
+- updated timestamp/actor/revision
 
 Historical paid/priced outsourcing records retain their transaction-time pricing facts.
 
@@ -359,11 +387,12 @@ Historical paid/priced outsourcing records retain their transaction-time pricing
 ### `bom_recipes`
 
 - `id`
+- system/display reference separate from the technical PK
 - `finished_item_id`
 - `output_quantity`
 - `output_unit`
-- active/version metadata as needed
-- audit fields
+- active metadata
+- latest-modified metadata/revision
 
 Multiple BOM variants are allowed for the same finished Item (BD-036).
 
@@ -383,13 +412,15 @@ Receiving records preserve which BOM was actually selected so later BOM edits do
 ### `outsourcing_orders`
 
 - `id`
+- system/display reference separate from the technical PK
 - `status_code`
 - `operator_employee_id`
 - `contractor_id`
+- `contractor_name_snapshot`
 - `order_date`
 - `outbound_date` nullable until confirmed
-- void metadata where applicable
-- audit fields
+- payment/void metadata where applicable
+- latest-modified metadata/revision
 
 Lifecycle:
 
@@ -407,10 +438,12 @@ Hard delete is allowed only before confirmed outbound (BD-027). Inventory-affect
 
 - `id`
 - `outsourcing_order_id`
+- `bom_recipe_id` nullable where appropriate
 - `finished_item_id` nullable where appropriate
+- applicable finished-item snapshots
 - `component_item_id`
-- planned/confirmed quantity and unit facts
-- applicable document snapshots
+- applicable component-item snapshots
+- quantity/unit facts
 - `note`
 - `sort_order`
 
@@ -420,7 +453,8 @@ Hard delete is allowed only before confirmed outbound (BD-027). Inventory-affect
 - `outsourcing_order_id`
 - `received_date`
 - `operator_employee_id`
-- audit fields
+
+The initial workflow represents one completed receipt per order; partial/multiple receiving is not silently introduced without a later explicit requirement.
 
 ### `outsourcing_receipt_items`
 
@@ -429,8 +463,8 @@ Hard delete is allowed only before confirmed outbound (BD-027). Inventory-affect
 - `item_id`
 - `bom_recipe_id` — selected BOM where required by BD-036
 - `quantity`
-- `unit`
-- applicable snapshots
+- `unit_snapshot`
+- applicable Item snapshots
 - `note`
 - `sort_order`
 
@@ -441,7 +475,7 @@ Hard delete is allowed only before confirmed outbound (BD-027). Inventory-affect
 - `priced_date`
 - `operator_employee_id`
 - `total_amount`
-- audit fields
+- revision/creation metadata
 
 ### `outsourcing_pricing_items`
 
@@ -466,21 +500,22 @@ Physical/business movements are authoritative; a mutable balance is not an indep
 - `id`
 - `contractor_id`
 - `item_id`
+- optional related finished Item context
 - `movement_type`
 - signed `quantity_delta`
 - `occurred_at`
 - `operator_employee_id`
 - `outsourcing_order_id` nullable
+- `outsourcing_receipt_id` nullable
+- reversal/correction reference fields as needed
 - `reason` nullable
-- correction/reversal reference fields as needed
-- audit/correlation metadata
 
 Candidate movement types include:
 
 - `outbound_supply`
 - `receipt_consumption`
 - `manual_adjustment`
-- correction/reversal counterparts where needed
+- explicit reversal
 
 Current stock is derived from movement totals. If a balance cache is later introduced for performance, it remains derived/transactionally maintained rather than a second authority.
 
@@ -489,14 +524,17 @@ Current stock is derived from movement totals. If a balance cache is later intro
 ### `work_logs`
 
 - `id`
-- `work_date` and/or confirmed date range fields
+- system/display reference separate from the technical PK
+- `log_date` — Legacy/GAS 「填寫日期」
+- `date_from`
+- `date_to`
 - `work_days` required and `> 0`; fractional values allowed (BD-041)
 - `type_code`
 - `employee_id`
 - `status_code`
-- finalized/review metadata
-- frozen scoring summary fields as required
-- audit fields
+- current effective review actor/time/remark
+- current finalized score and average-daily score
+- latest-modified metadata/revision
 
 Lifecycle remains conceptually:
 
@@ -504,13 +542,15 @@ Lifecycle remains conceptually:
 created -> pending_review -> reviewed
 ```
 
-Controlled withdrawal/review-correction/reopen actions preserve history rather than silently rewriting finalized scores.
+Owner submit/withdraw and Admin review remain controlled actions. Per BD-051, an explicit cancel-review action returns `reviewed -> pending_review`, clears the currently effective review/scoring values, and keeps the cancellation Audit event; the cancelled score payload is **not** retained as a separate review version in the initial schema.
+
+Legacy `singleDay` is derivable from an equal start/end date and does not need to be a second stored authority.
 
 ### `work_log_entries`
 
 - `id`
 - `work_log_id`
-- `entry_type`
+- `entry_type_code`
 - `content`
 - `platform_id` nullable
 - `remark` nullable
@@ -524,17 +564,33 @@ Controlled withdrawal/review-correction/reopen actions preserve history rather t
 - `work_log_category_id`
 - `quantity`
 
-### Scoring configuration
+### `work_log_categories`
 
-Scoring categories/rules, descriptions, custom rows, target/minimum average, platform/channel lists, display order, and active state are runtime/configuration data rather than Chihyuan-specific Public-source constants (BD-042).
+Configurable category identity plus an explicit input mode (`boolean` / `quantity`) replaces the Legacy hardcoded category-name special case.
 
-Finalized WorkLog scores remain frozen against later global configuration changes (BD-012).
+### `work_log_platforms`
+
+Stable configurable platform/channel identity.
+
+### `work_log_scoring_rows`
+
+Typed scoring/reference rows preserve Legacy/confirmed semantics such as category-linked reference scores, descriptions, notes, and custom/extra rows without storing the whole configuration as one opaque Settings object.
+
+### `work_log_scoring_config`
+
+Typed current scoring settings such as minimum/target average values where configured.
+
+Scoring category/rule descriptions, custom rows, platform lists, display order, active state and production scoring values are runtime/configuration data rather than Chihyuan-specific Public-source constants (BD-042).
+
+Finalized WorkLog scores remain frozen against later global configuration changes while the review remains active (BD-012/051).
 
 ## 15. Audit and domain history
 
 ### `audit_events`
 
-Cross-module structured audit source, candidate fields:
+CY Web uses one shared in-App Audit Core and one common event foundation across modules (BD-054).
+
+Candidate event fields:
 
 - `id`
 - `entity_type`
@@ -542,12 +598,20 @@ Cross-module structured audit source, candidate fields:
 - `action`
 - `actor_employee_id`
 - `occurred_at`
-- `request_id` / correlation ID
-- `metadata_json` for non-relational before/after detail
+- optional `status_from` / `status_to`
+- optional request/correlation ID
+- compact optional before/after/metadata JSON
 
-JSON is acceptable for event detail metadata; query-critical business relationships remain relational.
+Rules:
 
-Domains with lifecycle semantics may also expose/query domain-specific event projections while retaining one structured audit foundation.
+- ordinary CRUD does not create a new Audit row on every save; aggregate/master rows keep the latest `updated_at / updated_by` per BD-053;
+- meaningful workflow, authorization, stock, review, ERP-handoff, configuration and recovery actions create structured Audit events;
+- only the minimum useful before/after facts are stored;
+- no files, images, PDFs, large record copies or secrets are stored in Audit payloads;
+- normal business timeline and Admin/SA detailed Audit Log are two projections of the same event store, not duplicate histories;
+- the Audit Core must support later retention/pruning, but no arbitrary retention period is frozen before production volume is measurable.
+
+This shared Audit Core is scoped to CY Web. It does not require CYAccountingWeb, CYInvoice or other independently developed Apps to share this implementation at this stage.
 
 Hard-delete policy follows BD-030: master records may be physically deleted only while never referenced; once referenced they remain identifiable and are retired/inactivated/statused instead.
 
@@ -555,19 +619,22 @@ Hard-delete policy follows BD-030: master records may be physically deleted only
 
 Backup data is not part of the live business relational model.
 
-Per BD-044 through BD-046:
+Per BD-044 through BD-050:
 
-- D1 remains the live database;
-- GCS is the initial Chihyuan off-site provider behind `BackupStorageProvider`;
-- `BackupService` owns create/list/verify/restore/retention and restore authorization/audit;
-- backup sets use `manifest.json + data.json` with SHA-256 and upload/read-back verification;
-- restore is Super Admin-only and double-confirmed.
+- D1 remains the live authoritative database;
+- R2 is the daily operational backup tier;
+- GCS is the lower-frequency cross-cloud disaster-recovery tier;
+- one logical backup is exported from D1 once and the exact same bytes/manifest/hash are reused across provider copies;
+- `BackupService` / provider boundaries own create/list/verify/restore/retention behavior;
+- backup sets use the portable `CYBackupSet` outer contract with `manifest.json + data.json` and SHA-256/read-back verification;
+- restore is Super Admin-only and double-confirmed;
+- provider credentials and production infrastructure identifiers remain outside Public Git.
 
-Production infrastructure identifiers and credentials remain outside Public Git.
+App-local backup set/copy catalog rows may exist as operational metadata and may later move behind the shared CY Backup Service boundary defined by BD-050.
 
 ## 17. Decimal/date baseline
 
-Per BD-017 through BD-019:
+Per BD-017 through BD-019 and the current Data Dictionary direction:
 
 ```text
 quantity scale           up to 4 decimal places
@@ -575,9 +642,9 @@ unit price / cost scale  up to 4 decimal places
 formal TWD amount scale  2 decimal places baseline
 ```
 
-Exact physical fixed-point representation, line/tax/document rounding timing/method, and final SMART ERP monetary alignment must be resolved before financial SQL/calculation helpers are frozen.
+Initial D1 physical storage uses scaled integers rather than binary floating point. Exact line/tax/document rounding timing/method remains deferred until the later SMART ERP financial-behavior verification; this does not block the initial schema.
 
-Date-only business fields should use a consistent date representation; timestamps should use an explicit UTC convention with presentation conversion at the application boundary.
+Date-only business fields use a consistent `YYYY-MM-DD` representation. Timestamps use an explicit UTC convention with presentation conversion at the application boundary.
 
 ## 18. Removed Legacy-only structures
 
@@ -591,26 +658,30 @@ The production canonical model intentionally does **not** include structures who
 
 Legacy audits remain useful for feature/workflow understanding only.
 
-## 19. Genuine remaining Data-Dictionary work
+Other Legacy implementation fields are normalized or retired where a newer canonical source exists, including opaque history/log arrays, `materialStock` as an authoritative balance, and `Outsourcing.isPriced` as a competing workflow source.
 
-The following are still legitimate implementation/detail questions before SQL freeze; they should not be confused with old resolved `OPEN` markers:
+## 19. Data-Dictionary status
 
-1. exact ERP-owned versus CY Web-extension fields for Item/Customer once SMART ERP integration is investigated;
-2. exact Customer/Order unlinked-customer capture shape required by the confirmed field work-order workflow;
-3. exact snapshot column set per formal document/event, applying BD-006 without unnecessary duplication;
-4. physical fixed-point representation and exact rounding rules after SMART ERP financial behavior is verified;
-5. exact WorkLog scoring/version evidence and controlled review-correction schema;
-6. exact audit metadata schema and retention/query indexes;
-7. final D1 indexes, foreign-key actions, uniqueness/partial-index constraints, and optimistic-concurrency strategy.
+The previous list of genuinely unresolved Data-Dictionary questions has now been reduced by BD-051 through BD-054 and the initial `FINAL_DATA_DICTIONARY.md` draft:
 
-Everything else already answered by a confirmed Business Decision should be treated as decided unless the user explicitly changes it.
+- Order name-only versus linked-Customer capture is defined by BD-031;
+- initial fields follow validated Legacy/GAS business semantics while SMART ERP field ownership is deferred by BD-052;
+- required snapshot fields are now enumerated in the Data Dictionary from the actual workflow/document boundaries;
+- scaled physical decimal storage is selected; only future ERP rounding timing remains deferred;
+- WorkLog cancel-review/version evidence is defined by BD-051;
+- ordinary edit metadata versus structured Audit and the one-core/cost boundary are defined by BD-053/054;
+- the Data Dictionary now proposes concrete FK/delete behavior, indexes, uniqueness, partial uniqueness and optimistic concurrency.
+
+Remaining items are implementation verification rather than unanswered current business semantics. They include exact SQL syntax/index tuning, generated display-reference formatting, runtime production WorkLog values, final Audit retention after real usage is measurable, and future SMART ERP integration/rounding behavior.
+
+The current lower-level source for schema work is:
+
+`docs/architecture/FINAL_DATA_DICTIONARY.md`
 
 ## 20. Next gate
 
 ```text
-this consolidated logical model
-        ↓
-Final Data Dictionary
+Final Data Dictionary verification
         ↓
 D1 SQL schema + forward migrations
         ↓
