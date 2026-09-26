@@ -95,6 +95,22 @@ def main() -> int:
     if "baselineRows" not in editable_list or "serializeEditableList" not in editable_list:
         raise AssertionError("editable-list baseline/serialization contract missing")
 
+    dialog = require("src/ui/overlays/Dialog.tsx").read_text(encoding="utf-8")
+    if "showModal()" not in dialog or "onCancel" not in dialog or "BottomSheet" not in dialog:
+        raise AssertionError("shared dialog/drawer/sheet foundation missing")
+
+    confirm_dialog = require("src/ui/overlays/ConfirmDialog.tsx").read_text(encoding="utf-8")
+    if "confirmTone" not in confirm_dialog or "busy" not in confirm_dialog:
+        raise AssertionError("shared confirmation dialog foundation missing")
+
+    toast_queue = require("src/ui/feedback/useToastQueue.ts").read_text(encoding="utf-8")
+    if "pushToast" not in toast_queue or "dismissToast" not in toast_queue or "timersRef" not in toast_queue:
+        raise AssertionError("shared toast queue foundation missing")
+
+    toast_region = require("src/ui/feedback/ToastRegion.tsx").read_text(encoding="utf-8")
+    if 'aria-live="polite"' not in toast_region or "cy-toast" not in toast_region:
+        raise AssertionError("shared toast region foundation missing")
+
     for path in (
         "index.html",
         "src/main.tsx",
@@ -106,11 +122,17 @@ def main() -> int:
         "src/ui/data/DataPagination.tsx",
         "src/ui/data/DataView.tsx",
         "src/ui/data/DataViewToolbar.tsx",
+        "src/ui/feedback/toast.css",
+        "src/ui/feedback/ToastRegion.tsx",
+        "src/ui/feedback/useToastQueue.ts",
         "src/ui/foundation/editable-list.ts",
         "src/ui/foundation/record-editor.ts",
         "src/ui/foundation/navigation.ts",
         "src/ui/foundation/useDebouncedValue.ts",
         "src/ui/foundation/useUnsavedChangesGuard.ts",
+        "src/ui/overlays/ConfirmDialog.tsx",
+        "src/ui/overlays/Dialog.tsx",
+        "src/ui/overlays/overlay.css",
         "src/ui/pickers/entity-picker.css",
         "src/ui/pickers/EntityPicker.tsx",
         "src/ui/primitives/Button.tsx",
@@ -126,6 +148,7 @@ def main() -> int:
         "docs/architecture/DATA_VIEW_FOUNDATION.md",
         "docs/architecture/ENTITY_PICKER_FOUNDATION.md",
         "docs/architecture/EDITABLE_LIST_FOUNDATION.md",
+        "docs/architecture/OVERLAY_FEEDBACK_FOUNDATION.md",
         "shared/api.ts",
         "vite.config.ts",
         "tsconfig.json",
