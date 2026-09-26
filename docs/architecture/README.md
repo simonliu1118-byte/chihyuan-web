@@ -29,6 +29,7 @@ For product/architecture semantics, current explicit user decisions and later co
 - `FORM_FOUNDATION.md` — shared field semantics, validation presentation and unsaved-change protection.
 - `DATA_VIEW_FOUNDATION.md` — shared search/filter/list states, Desktop table/Mobile card projection and pagination boundary.
 - `ENTITY_PICKER_FOUNDATION.md` — shared asynchronous entity lookup, explicit-selection semantics and D1/API query boundary.
+- `EDITABLE_LIST_FOUNDATION.md` — shared repeated-row state, stable row identity, validation/error bags and dirty/reset/commit semantics.
 - `BACKUP_ARCHITECTURE.md` — tiered R2 + GCS backup topology and provider/service boundary.
 - `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public-source / production-infrastructure separation.
 - `../DOMAIN_STRATEGY.md` — confirmed `chihyuancm.com` parent-domain namespace and controlled rollout direction for the official website and CY-family Web systems.
@@ -48,7 +49,7 @@ Their detailed historical versions remain under `archive/`. Legacy evidence expl
 
 ## Current architecture baseline
 
-As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/request/App-Shell/form/data-view/entity-picker foundation:
+As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/request/App-Shell/form/data-view/entity-picker/editable-list foundation:
 
 - CY Web is one Web application for Desktop / Tablet / Mobile using RWD + Adaptive UI.
 - `chihyuancm.com` is the confirmed shared parent domain for the future public Chihyuan website and internal/business CY-family Web systems; each application keeps its own hostname/origin, deployment and security/session boundary.
@@ -71,7 +72,8 @@ As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/requ
 - Shared UI primitives cover common button/notice/section/status and basic form-field semantics.
 - Unsaved-change protection is a shared application behavior, including browser-unload protection and an in-app confirmation contract; business pages do not implement independent page-local prompts.
 - Shared data views provide one search/filter/result-state and selection surface with Desktop table and Mobile card projections over the same query state.
-- Shared entity lookup now provides one async combobox contract with debounce, stale-request cancellation, keyboard/pointer selection and explicit internal-ID selection semantics.
+- Shared entity lookup provides one async combobox contract with debounce, stale-request cancellation, keyboard/pointer selection and explicit internal-ID selection semantics.
+- Repeated line-item editing now has one shared immutable list-state model with stable row keys, add/update/remove/move, per-row error bags and dirty/reset/commit semantics. Final visual grid composition remains domain-driven.
 - Production business lists and entity lookups query Worker/D1 on demand rather than loading a whole module/master dataset into a browser-global cache as GAS did.
 - Current shell/form/data-view/picker styling and tokens are explicitly provisional. Final visual composition, branding, production menu hierarchy and business layouts remain a dedicated UI/UX review item and are not inherited from GAS.
 
@@ -120,7 +122,9 @@ shared adaptive data-view foundation
         ↓
 shared async entity-picker foundation
         ↓
-remaining reusable editable-list / overlay patterns
+shared editable-list state foundation
+        ↓
+remaining reusable overlay / keyboard-focus patterns
         ↓
 business modules
         ↓
@@ -129,7 +133,7 @@ production custom-domain rollout
 production acceptance
 ```
 
-The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation, shared request/validation foundation, shared record-editor state, shared App Shell/primitives, shared form/unsaved-change handling, adaptive Data View and async Entity Picker foundations. The production shared-Identity browser-session provider contract is still an external dependency, and the production D1 database / production Worker bindings have **not** been created by these branches.
+The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation, shared request/validation foundation, shared record-editor state, shared App Shell/primitives, shared form/unsaved-change handling, adaptive Data View, async Entity Picker, and editable-list state foundations. The production shared-Identity browser-session provider contract is still an external dependency, and the production D1 database / production Worker bindings have **not** been created by these branches.
 
 ## Document precedence
 
