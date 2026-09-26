@@ -1,142 +1,110 @@
-# Canonical Data Model — Draft
+# CY Web Canonical Data Model — Current Working Model
 
 > Project: Chihyuan Enterprise Management System (CY Web)
 >
-> Status: architecture draft based on the completed Legacy source/header audit. This document is **not** a governance rules source and is not yet a final D1 migration.
+> Status: consolidated logical model through BD-054. The lower-level initial schema contract is now drafted in `FINAL_DATA_DICTIONARY.md`. This file remains the logical-model layer, not a governance rules source and not a physical migration file.
+>
+> The pre-consolidation draft is preserved at `archive/CANONICAL_DATA_MODEL_PRE_CONSOLIDATION.md`.
 
-## 1. Objective
+## 1. Scope and source of truth
 
-CY Web must replace the Legacy pattern of module-specific Sheets and module-specific field names with one canonical enterprise data model.
+CY Web starts with a clean production D1 database. The current GAS / Google Sheets test dataset is not migrated (BD-047).
 
-Core rule:
+The canonical model therefore optimizes for the new system's business semantics rather than compatibility with Legacy Sheet headers, readable Legacy IDs, old aliases, or old JSON cell shapes.
 
-> One business entity + one semantic meaning = one canonical field name and one authoritative source.
+Core rules:
 
-Modules may reference an entity; they must not silently create a second customer/item/employee/contractor master under another field name.
+- one business entity + one semantic meaning = one canonical field/source;
+- relationships use stable internal IDs, never mutable names/business numbers;
+- ERP-owned identifiers are separate from CY Web internal identity;
+- formal historical documents preserve explicit snapshots where required by BD-006;
+- query-critical relationships/fields are relational, not opaque JSON;
+- workflow state codes are stable application contracts; configurable classifications are lookup data;
+- ordinary CRUD keeps latest-modified metadata, while meaningful business actions use structured audit under BD-053/054.
 
-Intentional historical snapshots are allowed, but they must be explicit (`*_snapshot`) and justified by business history requirements.
+## 2. Naming and physical-ID direction
 
-## 2. Naming conventions
+### Database
 
-### 2.1 Database
+D1/SQL uses `snake_case`.
 
-D1/SQL columns use `snake_case`.
+### API / TypeScript
 
-Examples:
+TypeScript may expose `camelCase` through one schema/mapper boundary, with one-to-one semantic mapping to database fields.
 
-- `customer_id`
-- `customer_no`
-- `owner_employee_id`
-- `created_at`
+### Internal IDs
 
-### 2.2 API / TypeScript
+Per BD-005, internal IDs are technical immutable keys. A simple D1/SQLite integer primary key is acceptable unless a later concrete requirement justifies an opaque external/public ID or another physical key type.
 
-TypeScript can use `camelCase` through a single mapper/schema layer, for example `customerId`, but the semantic name must stay one-to-one with the database contract.
+Business numbers such as SMART ERP Customer/Item numbers remain separate fields.
 
-Do not create alternative semantic aliases such as `clinicId`, `custId`, `customerCode`, `customerNo` for the same concept in different modules.
+## 3. Shared Identity and application authorization
 
-### 2.3 Stable internal ID vs business number
+CY Web reuses the shared Identity authority rather than recreating a local username/PIN account system (BD-037).
 
-Each major entity should have an internal stable `id` that does not change when a user-visible number/name changes.
-
-Business-facing numbers remain separate unique attributes where applicable.
-
-Example:
-
-```text
-customers.id           internal immutable key
-customers.customer_no  user-facing customer number
-customers.short_name   user-facing short name
-customers.full_name    user-facing full name
-```
-
-Legacy hidden IDs such as `C00001` and `I000001` should be imported as traceability/migration identifiers if needed, not reused as the meaning of user-facing customer/item numbers.
-
-## 3. Reference vs snapshot policy
-
-A foreign key answers **which entity** the record belongs to.
-
-A snapshot answers **what the transaction displayed/agreed at that historical moment**.
-
-Example order line:
-
-```text
-item_id                 -> current Item master relation
-item_no_snapshot        -> item number printed/used on that order
-item_name_snapshot      -> item name at that time
-spec_snapshot           -> item spec at that time
-unit_snapshot           -> unit at that time
-unit_price              -> transaction price
-```
-
-This is intentionally different from accidental duplication such as copying customer short name into every module only to avoid a join.
-
-## 4. Identity / application membership
-
-CY Web should not recreate the Legacy six-digit PIN Users table as the primary identity system.
-
-Current direction:
-
-- shared identity authority: CYInvoice Cloud-compatible account authority through an adapter;
-- medium term: CYCloud Identity;
-- CY Web app-specific roles/permissions remain separate from global identity membership.
-
-Proposed local application tables/contracts:
+Candidate local application structures:
 
 ### `app_members`
 
 - `id`
-- `identity_employee_id` — stable external identity subject/reference
-- `employee_no` — optional application/company employee number
+- `identity_employee_id` — stable shared Identity subject/reference
+- current display metadata/cache needed by CY Web, such as employee number/name and CY Web department where applicable
 - `is_active`
 - `created_at`, `updated_at`
 
-Display name/email should come from the identity contract or a deliberately documented cache, not be used as foreign keys.
+### `app_tags`
 
-### `app_role_assignments` / `app_permission_grants`
+Stable CY Web-local module-access tags managed under BD-043.
 
-App-specific authorization only. Do not map Legacy `admin/staff/sales/warehouse` directly onto a global identity role without an explicit compatibility mapping.
+### `app_tag_modules`
 
-## 5. Reference/lookup data
+Maps an App tag to fixed CY Web module codes.
+
+### `app_member_tags`
+
+Maps an App member to App-local tags.
+
+Shared `user / admin / super-admin` semantics remain owned by the shared Identity authority. CY Web configuration authority follows BD-043.
+
+## 4. Reference and lookup data
 
 Candidate lookup entities:
 
 - `departments`
 - `customer_categories`
 - `customer_statuses`
-- `item_categories` (supports parent/child hierarchy)
-- `log_categories`
-- `log_platforms`
-- typed scoring configuration tables
+- `regions` — controlled Taiwan county/city references
+- `item_categories` — supports hierarchy
+- `work_log_categories`
+- `work_log_platforms`
+- typed WorkLog scoring configuration/reference rows
 
-Each configurable lookup should have a stable key/ID distinct from its editable display label.
+Configurable lookup identity is stable and separate from editable display labels (BD-010).
 
-This prevents a label rename from changing the semantic identity of historical records.
+Workflow states such as Order/Outsourcing lifecycle codes are not administrator-created lookup rows.
 
-## 6. Customer domain
+## 5. Customer domain
 
 ### `customers`
 
 Candidate fields:
 
 - `id`
-- `legacy_customer_id` — migration traceability only
-- `customer_no`
+- `customer_no` nullable; SMART ERP-owned; unique when present; controlled changes allowed by BD-048
 - `short_name`
 - `full_name`
-- `tax_id`
+- `tax_id` nullable; indexed; duplicates allowed with strong warning (BD-016)
 - `customer_category_id`
-- `region` or `region_id` (`OPEN`)
+- `region_id` — customer-level county/city classification (BD-008/009)
 - `owner_department_id`
 - `owner_employee_id`
 - `fax`
 - `customer_status_id`
 - `created_at`, `updated_at`, `created_by`, `updated_by`, `revision`
 
-Candidate constraints:
+A Customer/prospect may exist before `customer_no` exists. ERP qualification is derived from whether a current customer number is present (BD-001/013/048).
 
-- `customer_no`: `UNIQUE` is strongly recommended, final mutability rule is `OPEN`;
-- `tax_id`: text, not numeric; uniqueness depends on business policy and nullable behavior.
+`closed_business / 已歇業` remains visible/status information but does not by itself block normal CY Web workflows (BD-035).
 
 ### `customer_phones`
 
@@ -154,10 +122,11 @@ Candidate constraints:
 - `name`
 - `department_name`
 - `title`
+- `phone`
 - `mobile`
+- `note`
 - `sort_order`
-
-`department_name` here is a customer-contact department and is deliberately **not** `owner_department_id`.
+- active/retirement metadata as needed
 
 ### `customer_addresses`
 
@@ -168,41 +137,57 @@ Candidate constraints:
 - `note`
 - `sort_order`
 
+Addresses do not silently determine or overwrite `customers.region_id` (BD-009).
+
 ### `customer_notes`
+
+Ordered highlighted/customer notes without the Legacy fixed-three JSON-cell limitation.
 
 - `id`
 - `customer_id`
 - `content`
 - `sort_order`
-- audit timestamps
-
-This replaces the fixed three-string JSON array while preserving ordered highlighted notes.
+- latest-modified metadata as appropriate
 
 ### `customer_visits`
 
 - `id`
-- `legacy_visit_id`
-- `customer_id`
+- `customer_id` required
 - `visit_date`
-- `contact_person`
+- `contact_id` nullable
+- `person_snapshot`
 - `employee_id`
 - `content`
-- audit fields
+- latest-modified metadata
 
-### `customer_quotes`
+Visit-time person text is preserved even when a Contact relation exists (BD-015). A Visit is always attached to a real Customer internal identity; name-only Visit records are not allowed.
 
-A Legacy quote currently refers to one customer + one item.
-
-Candidate fields:
+### `customer_frequent_items`
 
 - `id`
-- `legacy_quote_id`
+- `customer_id`
+- `item_id` nullable
+- `custom_item_name` nullable
+- optional free-text category/display fields for unfiled entries
+- `sort_order`
+
+A row is either an explicit formal Item relation or a free-text customer-information entry. Text matching never auto-links to Item; formal linkage requires explicit selection (BD-023/039).
+
+## 6. Customer-item quotation history
+
+CY Web Quote is not the formal SMART ERP quotation document (BD-020/021).
+
+### `customer_item_quotes`
+
+- `id`
 - `customer_id`
 - `item_id`
 - `quote_date`
 - `employee_id`
-- optional explicit customer/item snapshot fields once snapshot policy is confirmed
-- audit fields
+- Item display snapshots needed to preserve the historical quote context
+- `created_at`, `updated_at`, actor/revision fields
+
+One record represents one Customer + one Item quotation event. A genuine new commercial quotation creates a new history record rather than overwriting the previous one.
 
 ### `quote_price_breaks`
 
@@ -214,36 +199,41 @@ Candidate fields:
 - `note`
 - `sort_order`
 
-### `customer_frequent_items`
-
-- `id`
-- `customer_id`
-- `item_id` nullable
-- `custom_item_name` nullable
-- optional `item_no_snapshot`, `item_name_snapshot`, `spec_snapshot`, `category_snapshot` for imported legacy/custom data
-- `sort_order`
-
-This intentionally supports the Legacy ability to record an unfiled frequent product.
+Corrections of an existing quote-history record are permitted only as explicit audited corrections (BD-022).
 
 ## 7. Item domain
 
 ### `items`
 
 - `id`
-- `legacy_item_id`
-- `item_no`
+- `item_no` — current SMART ERP Item number; unique current value
 - `name`
 - `spec`
 - `base_unit`
 - `item_category_id`
 - `cost`
-- `cost_tax_mode` — stable code such as `none / tax_included / tax_excluded`
+- `cost_tax_mode`
 - `store_price`
 - `clinic_price`
 - `notes`
-- audit fields
+- active/status fields as required
+- latest-modified metadata/revision
 
-Candidate constraint: `item_no` should normally be `UNIQUE`; edit/alias policy is `OPEN`.
+Formal Item master creation remains conceptually ERP-owned (BD-004). Per BD-052, the **initial CY Web field set follows the validated Legacy/GAS business fields now**; exact `ERP-owned / CY Web extension / read-only / synchronized` classification is deferred until the future SMART ERP integration project inspects the real approved ERP interface.
+
+### `item_number_history`
+
+Supports ERP-authorized Item-number changes (BD-004/011):
+
+- `id`
+- `item_id`
+- `item_no`
+- `valid_from`
+- `valid_to` nullable
+- `change_source`
+- retirement/searchability metadata as needed
+
+Old Item numbers remain searchable until explicitly retired. New transactions use the current Item number.
 
 ### `item_unit_conversions`
 
@@ -254,58 +244,69 @@ Candidate constraint: `item_no` should normally be `UNIQUE`; edit/alias policy i
 - `to_unit`
 - `sort_order`
 
-Validation must reject cycles and unresolved target units, preserving current Legacy behavior.
+Validation must reject invalid/cyclic/unresolved conversion graphs.
 
-### Item change history
+General Item edits do not require unlimited field-by-field history. Important controlled Item-number operations remain explicit business/audit events where applicable under BD-053/054.
 
-Do not recreate the misleading `priceLog` column.
+## 8. Sales work-order domain
 
-General item changes should be represented by `audit_events`. If future reporting needs structured price analytics, introduce a specific price-history projection/table rather than storing free-form combined text as the primary record.
+CY Web owns the field/pre-ERP work order and operational fulfillment workflow; SMART ERP owns the authoritative formal sales order (BD-024).
 
-## 8. Defect domain
-
-### `defect_reports`
+### `sales_work_orders`
 
 - `id`
-- `legacy_defect_id`
-- `reported_date`
-- `customer_id`
-- `item_id`
-- `owner_employee_id`
-- `defect_description`
-- `handling`
-- `status_code` (`created / processing / resolved` candidate)
-- explicit customer/item snapshot fields only where approved
-- audit fields
-
-Legacy free-text `logs[]` should migrate into audit events linked to the defect entity.
-
-## 9. Order domain
-
-### `orders`
-
-- `id`
-- `legacy_order_id` or canonical business order number field, depending final ID policy
-- `customer_id`
+- system-generated human/display reference separate from the technical PK
+- `customer_id` nullable only for the confirmed name-only field-entry flow
+- `customer_no_snapshot` nullable
+- `customer_name_snapshot` required
 - `order_date`
 - `operator_employee_id`
 - `note`
 - `status_code`
-- `erp_no`
-- `hide_price_on_sales_document` boolean
-- `invoice_type` nullable stable code
-- `receipt_option` nullable stable code
-- audit fields
+- `erp_no` nullable until ERP handoff
+- `hide_price_on_sales_document`
+- `invoice_type_code` nullable stable value/code
+- `receipt_option_code` nullable stable value/code
+- void metadata when applicable
+- latest-modified metadata/revision
 
-Legacy `custNo` and `custshortName` should not remain ambiguous master duplicates on the order header.
+Permitted customer-entry modes follow BD-031:
 
-If historical customer display must be frozen, use explicit `customer_no_snapshot` / `customer_name_snapshot` fields after business approval.
+```text
+A. lookup/select a Customer
+   customer_id = present
+   customer_no may be present or absent on the Customer
+   displayed name comes from Customer master and is snapshotted for the work order
 
-### `order_items`
+B. field name only
+   customer_id = null
+   customer_no snapshot = null
+   customer-name snapshot = required free text
+   internal staff later performs deliberate reconciliation
+```
+
+CY Web does not fuzzy-match, auto-link, or silently merge the name-only Order entry with a Customer.
+
+Candidate stable lifecycle codes:
+
+```text
+created
+issued
+waiting_stock
+picked
+shipped
+voided
+```
+
+`waiting_stock` is optional in the flow. ERP first-fill changes the work order into the issued phase. ERP data fill/correction uses the single contextual action defined in BD-034.
+
+Hard delete is limited to the pre-ERP condition defined by BD-029. After ERP issuance the explicit termination action is `voided / 作廢`.
+
+### `sales_work_order_items`
 
 - `id`
-- `order_id`
-- `item_id` nullable only for a deliberately supported unfiled line
+- `sales_work_order_id`
+- `item_id` required in the initial schema because the validated Legacy/current workflow selects a formal Item
 - `item_no_snapshot`
 - `item_name_snapshot`
 - `spec_snapshot`
@@ -315,36 +316,85 @@ If historical customer display must be frozen, use explicit `customer_no_snapsho
 - `note`
 - `sort_order`
 
-Order item snapshots are recommended because item master changes must not silently rewrite the meaning of a historical order.
+Formal snapshots follow BD-006. An unfiled/free-text Order item is not part of the initial confirmed workflow.
 
-### Order workflow candidate codes
+## 9. Defect domain
 
-Legacy presentation strings map to stable codes:
+### `defect_reports`
 
-| Legacy label | Candidate code |
-| --- | --- |
-| 已建檔 | `created` |
-| 已出單 | `issued` |
-| 等到貨 | `waiting_stock` |
-| 已撿貨 | `picked` |
-| 已出貨 | `shipped` |
+- `id`
+- `reported_date`
+- `customer_id`
+- Customer number/name snapshots as used by the historical record
+- `item_id`
+- Item number/name/spec snapshots
+- `owner_employee_id`
+- `defect_description`
+- `handling`
+- `status_code`
+- latest-modified metadata/revision
 
-Emoji/color remain UI presentation.
+Lifecycle:
 
-## 10. BOM / manufacturing recipe domain
+```text
+created -> processing -> resolved
+```
 
-The Legacy `Materials` table should not become a D1 table named `materials` with the same ambiguous meaning.
+A resolved record may be explicitly reopened to processing (BD-028). Edit/delete boundaries follow BD-033.
+
+## 10. Contractor domain
+
+### `contractors`
+
+- `id`
+- `entity_type` — `person / organization`
+- `display_name`
+- `legal_name` nullable
+- `tax_id` nullable
+- `phone` nullable
+- `address` nullable
+- `note` nullable
+- `is_active`
+- latest-modified metadata/revision
+
+### `contractor_contacts`
+
+- `id`
+- `contractor_id`
+- `name`
+- `title`
+- `phone`
+- `mobile`
+- `note`
+- `sort_order`
+
+### `contractor_pricing`
+
+One current price per Contractor + Item (BD-038):
+
+- `id`
+- `contractor_id`
+- `item_id`
+- `pricing_unit`
+- `unit_price`
+- `note`
+- updated timestamp/actor/revision
+
+Historical paid/priced outsourcing records retain their transaction-time pricing facts.
+
+## 11. BOM / recipe domain
 
 ### `bom_recipes`
 
 - `id`
-- `legacy_material_id`
+- system/display reference separate from the technical PK
 - `finished_item_id`
 - `output_quantity`
 - `output_unit`
-- audit fields
+- active metadata
+- latest-modified metadata/revision
 
-Finished name/spec come from the Item relation unless an explicit snapshot/version requirement is later approved.
+Multiple BOM variants are allowed for the same finished Item (BD-036).
 
 ### `bom_components`
 
@@ -355,102 +405,77 @@ Finished name/spec come from the Item relation unless an explicit snapshot/versi
 - `unit`
 - `sort_order`
 
-This replaces `finId/finName/finSpec` plus `parts[]` copies with explicit item relationships.
-
-## 11. Contractor domain
-
-### `contractors`
-
-- `id`
-- `legacy_contractor_id`
-- `name`
-- `phone`
-- `address`
-- `note`
-- `is_active`
-- audit fields
-
-`OPEN`: determine whether the business concept may represent companies/vendors as well as individuals; if yes, expand contact fields intentionally instead of adding ad hoc fields such as old Mobile `cell`.
-
-### `contractor_pricing`
-
-- `id`
-- `contractor_id`
-- `item_id`
-- `unit`
-- `unit_price`
-- `note`
-- effective/updated timestamps as needed
-
-Names/specs should not be used as the relationship key. Historical paid/priced outsourcing records keep their own pricing snapshots.
+Receiving records preserve which BOM was actually selected so later BOM edits do not rewrite historical consumption.
 
 ## 12. Outsourcing domain
 
 ### `outsourcing_orders`
 
 - `id`
-- `legacy_outsourcing_id`
+- system/display reference separate from the technical PK
 - `status_code`
 - `operator_employee_id`
 - `contractor_id`
+- `contractor_name_snapshot`
 - `order_date`
-- `outbound_date`
-- audit fields
+- `outbound_date` nullable until confirmed
+- payment/void metadata where applicable
+- latest-modified metadata/revision
 
-Candidate workflow codes:
+Lifecycle:
 
-| Legacy label | Candidate code |
-| --- | --- |
-| 待出庫 | `pending_outbound` |
-| 已出庫 | `outbound` |
-| 已入庫 | `received` |
-| 已計價 | `priced` |
-| 已付款 | `paid` |
+```text
+pending_outbound -> outbound -> received -> priced -> paid
+```
 
-Drop `isPriced` as an independent truth source. Pricing existence/status and payment status are explicit domain facts.
+`voided` is a terminal state used when a confirmed outbound is cancelled (BD-040).
+
+A planned `pending_outbound` order does not change actual contractor-held stock. Stock changes only when outbound is confirmed (BD-026).
+
+Hard delete is allowed only before confirmed outbound (BD-027). Inventory-affecting outbound facts are not ordinary editable fields after confirmation; corrections use controlled reversal/correction events (BD-032).
 
 ### `outsourcing_order_parts`
 
-Candidate fields:
-
 - `id`
 - `outsourcing_order_id`
-- `bom_recipe_id` nullable
-- `finished_item_id` nullable
+- `bom_recipe_id` nullable where appropriate
+- `finished_item_id` nullable where appropriate
+- applicable finished-item snapshots
 - `component_item_id`
-- `quantity`
-- `unit`
+- applicable component-item snapshots
+- quantity/unit facts
 - `note`
-- explicit snapshots needed to reproduce the historical outbound document
 - `sort_order`
 
 ### `outsourcing_receipts`
 
 - `id`
-- `outsourcing_order_id` unique
+- `outsourcing_order_id`
 - `received_date`
 - `operator_employee_id`
-- audit fields
+
+The initial workflow represents one completed receipt per order; partial/multiple receiving is not silently introduced without a later explicit requirement.
 
 ### `outsourcing_receipt_items`
 
 - `id`
 - `receipt_id`
 - `item_id`
+- `bom_recipe_id` — selected BOM where required by BD-036
 - `quantity`
-- `unit`
+- `unit_snapshot`
+- applicable Item snapshots
 - `note`
-- item snapshots if needed
 - `sort_order`
 
 ### `outsourcing_pricings`
 
 - `id`
-- `outsourcing_order_id` unique for current Legacy behavior
+- `outsourcing_order_id`
 - `priced_date`
 - `operator_employee_id`
 - `total_amount`
-- audit fields
+- revision/creation metadata
 
 ### `outsourcing_pricing_items`
 
@@ -466,91 +491,106 @@ Candidate fields:
 - `note`
 - `sort_order`
 
-## 13. Contractor stock / inventory ledger
+## 13. Contractor stock ledger
 
-The Legacy system can rebuild `materialStock` from outbound supply, receiving consumption and manual adjustment logs. The new system should make movements authoritative.
+Physical/business movements are authoritative; a mutable balance is not an independent source of truth.
 
 ### `contractor_stock_movements`
 
 - `id`
 - `contractor_id`
-- `item_id` — component/part Item
-- `movement_type` — e.g. `outbound_supply`, `receipt_consumption`, `manual_adjustment`, `migration_opening`
+- `item_id`
+- optional related finished Item context
+- `movement_type`
 - signed `quantity_delta`
 - `occurred_at`
 - `operator_employee_id`
 - `outsourcing_order_id` nullable
+- `outsourcing_receipt_id` nullable
+- reversal/correction reference fields as needed
 - `reason` nullable
-- metadata for imported legacy references if needed
 
-Current stock is derived by `SUM(quantity_delta)` grouped by contractor/item.
+Candidate movement types include:
 
-This removes three competing sources of truth (`materialStock`, `StockAdjustLogs`, reconstructed order math).
+- `outbound_supply`
+- `receipt_consumption`
+- `manual_adjustment`
+- explicit reversal
 
-If performance later requires a balance cache, it must be transactional/derived and never become a second independent authority.
+Current stock is derived from movement totals. If a balance cache is later introduced for performance, it remains derived/transactionally maintained rather than a second authority.
 
-## 14. Work-log domain
-
-The current Desktop work-log data is queryable/scorable and should not remain one opaque `content` JSON cell.
+## 14. WorkLog / scoring domain
 
 ### `work_logs`
 
 - `id`
-- `legacy_log_id`
-- `work_date`
-- `date_from` nullable
-- `date_to` nullable
-- `single_day` boolean
-- `work_days` numeric/integer according to confirmed business behavior
+- system/display reference separate from the technical PK
+- `log_date` — Legacy/GAS 「填寫日期」
+- `date_from`
+- `date_to`
+- `work_days` required and `> 0`; fractional values allowed (BD-041)
 - `type_code`
 - `employee_id`
 - `status_code`
-- audit fields
+- current effective review actor/time/remark
+- current finalized score and average-daily score
+- latest-modified metadata/revision
 
-Candidate status codes:
+Lifecycle remains conceptually:
 
-- `created`
-- `pending_review`
-- `reviewed`
+```text
+created -> pending_review -> reviewed
+```
+
+Owner submit/withdraw and Admin review remain controlled actions. Per BD-051, an explicit cancel-review action returns `reviewed -> pending_review`, clears the currently effective review/scoring values, and keeps the cancellation Audit event; the cancelled score payload is **not** retained as a separate review version in the initial schema.
+
+Legacy `singleDay` is derivable from an equal start/end date and does not need to be a second stored authority.
 
 ### `work_log_entries`
 
 - `id`
 - `work_log_id`
-- `entry_type` (`platform` / `advertising` candidate)
+- `entry_type_code`
 - `content`
 - `platform_id` nullable
 - `remark` nullable
-- `score` nullable
+- `score_snapshot` nullable/finalized as applicable
 - `sort_order`
 
 ### `work_log_entry_categories`
 
 - `id`
 - `work_log_entry_id`
-- `log_category_id`
+- `work_log_category_id`
 - `quantity`
 
-Boolean category selection can be represented by an existing row with quantity `1`; quantity-bearing categories store the actual quantity. This avoids separate boolean-vs-number schemas for the same category relation.
+### `work_log_categories`
 
-### Scoring configuration
+Configurable category identity plus an explicit input mode (`boolean` / `quantity`) replaces the Legacy hardcoded category-name special case.
 
-Current `logScoring` stores fixed category rules, custom `_extra` rows and `_minAvgScore` inside one JSON object.
+### `work_log_platforms`
 
-Proposed split:
+Stable configurable platform/channel identity.
 
-- `log_scoring_rules`
-- stable relation to category/custom rule identity
-- score, description, note, active/order fields
-- application setting for minimum average score
+### `work_log_scoring_rows`
 
-Exact scoring schema should be finalized together with the history-statistics query requirements.
+Typed scoring/reference rows preserve Legacy/confirmed semantics such as category-linked reference scores, descriptions, notes, and custom/extra rows without storing the whole configuration as one opaque Settings object.
 
-## 15. Audit / history
+### `work_log_scoring_config`
+
+Typed current scoring settings such as minimum/target average values where configured.
+
+Scoring category/rule descriptions, custom rows, platform lists, display order, active state and production scoring values are runtime/configuration data rather than Chihyuan-specific Public-source constants (BD-042).
+
+Finalized WorkLog scores remain frozen against later global configuration changes while the review remains active (BD-012/051).
+
+## 15. Audit and domain history
 
 ### `audit_events`
 
-Cross-module structured audit source:
+CY Web uses one shared in-App Audit Core and one common event foundation across modules (BD-054).
+
+Candidate event fields:
 
 - `id`
 - `entity_type`
@@ -558,101 +598,98 @@ Cross-module structured audit source:
 - `action`
 - `actor_employee_id`
 - `occurred_at`
-- `request_id` / correlation ID where available
-- `metadata_json` for non-relational before/after detail or migrated Legacy text
+- optional `status_from` / `status_to`
+- optional request/correlation ID
+- compact optional before/after/metadata JSON
 
-Use JSON here only as event detail metadata; entity relationships and query-critical fields stay relational.
+Rules:
 
-Legacy `history`, `logs`, `priceLog` and `DeleteLogs` should be imported as historical audit material where useful, not recreated as separate free-text truth stores.
+- ordinary CRUD does not create a new Audit row on every save; aggregate/master rows keep the latest `updated_at / updated_by` per BD-053;
+- meaningful workflow, authorization, stock, review, ERP-handoff, configuration and recovery actions create structured Audit events;
+- only the minimum useful before/after facts are stored;
+- no files, images, PDFs, large record copies or secrets are stored in Audit payloads;
+- normal business timeline and Admin/SA detailed Audit Log are two projections of the same event store, not duplicate histories;
+- the Audit Core must support later retention/pruning, but no arbitrary retention period is frozen before production volume is measurable.
 
-## 16. Migration traceability
+This shared Audit Core is scoped to CY Web. It does not require CYAccountingWeb, CYInvoice or other independently developed Apps to share this implementation at this stage.
 
-### `legacy_id_map`
+Hard-delete policy follows BD-030: master records may be physically deleted only while never referenced; once referenced they remain identifiable and are retired/inactivated/statused instead.
 
-Candidate columns:
+## 16. Backup/recovery model boundary
 
-- `source_entity`
-- `legacy_id`
-- `new_id`
-- optional `source_sheet`
-- migration batch/version
+Backup data is not part of the live business relational model.
 
-This allows repeatable imports and reconciliation without making Legacy IDs the new application primary keys.
+Per BD-044 through BD-050:
 
-A dedicated mapping table also helps handle aliases such as old `customerNo`/`shortName` and legacy ID-format variants encountered during value-level profiling.
+- D1 remains the live authoritative database;
+- R2 is the daily operational backup tier;
+- GCS is the lower-frequency cross-cloud disaster-recovery tier;
+- one logical backup is exported from D1 once and the exact same bytes/manifest/hash are reused across provider copies;
+- `BackupService` / provider boundaries own create/list/verify/restore/retention behavior;
+- backup sets use the portable `CYBackupSet` outer contract with `manifest.json + data.json` and SHA-256/read-back verification;
+- restore is Super Admin-only and double-confirmed;
+- provider credentials and production infrastructure identifiers remain outside Public Git.
 
-## 17. Recommended relationship overview
+App-local backup set/copy catalog rows may exist as operational metadata and may later move behind the shared CY Backup Service boundary defined by BD-050.
 
-```mermaid
-erDiagram
-    CUSTOMERS ||--o{ CUSTOMER_PHONES : has
-    CUSTOMERS ||--o{ CUSTOMER_CONTACTS : has
-    CUSTOMERS ||--o{ CUSTOMER_ADDRESSES : has
-    CUSTOMERS ||--o{ CUSTOMER_VISITS : has
-    CUSTOMERS ||--o{ CUSTOMER_QUOTES : has
-    CUSTOMERS ||--o{ CUSTOMER_FREQUENT_ITEMS : has
-    CUSTOMERS ||--o{ ORDERS : places
+## 17. Decimal/date baseline
 
-    ITEMS ||--o{ ITEM_UNIT_CONVERSIONS : has
-    ITEMS ||--o{ ORDER_ITEMS : referenced_by
-    ITEMS ||--o{ DEFECT_REPORTS : subject_of
-    ITEMS ||--o{ BOM_RECIPES : finished_item
-    BOM_RECIPES ||--o{ BOM_COMPONENTS : contains
-    ITEMS ||--o{ BOM_COMPONENTS : component
+Per BD-017 through BD-019 and the current Data Dictionary direction:
 
-    ORDERS ||--o{ ORDER_ITEMS : contains
-
-    CONTRACTORS ||--o{ CONTRACTOR_PRICING : has
-    CONTRACTORS ||--o{ OUTSOURCING_ORDERS : receives
-    OUTSOURCING_ORDERS ||--o{ OUTSOURCING_ORDER_PARTS : contains
-    OUTSOURCING_ORDERS ||--o| OUTSOURCING_RECEIPTS : has
-    OUTSOURCING_ORDERS ||--o| OUTSOURCING_PRICINGS : has
-    CONTRACTORS ||--o{ CONTRACTOR_STOCK_MOVEMENTS : stock_ledger
-    ITEMS ||--o{ CONTRACTOR_STOCK_MOVEMENTS : item
-
-    WORK_LOGS ||--o{ WORK_LOG_ENTRIES : contains
-    WORK_LOG_ENTRIES ||--o{ WORK_LOG_ENTRY_CATEGORIES : categorized_as
+```text
+quantity scale           up to 4 decimal places
+unit price / cost scale  up to 4 decimal places
+formal TWD amount scale  2 decimal places baseline
 ```
 
-## 18. Constraints/indexes to plan in the D1 draft
+Initial D1 physical storage uses scaled integers rather than binary floating point. Exact line/tax/document rounding timing/method remains deferred until the later SMART ERP financial-behavior verification; this does not block the initial schema.
 
-Candidate requirements:
+Date-only business fields use a consistent `YYYY-MM-DD` representation. Timestamps use an explicit UTC convention with presentation conversion at the application boundary.
 
-- unique indexes on stable business numbers where approved (`customer_no`, `item_no`);
-- FKs/indexes on all `*_id` relationships;
-- indexes for date/status/owner filters used by lists;
-- composite indexes for common history queries, e.g. customer + date, employee + work date;
-- optimistic concurrency via `revision` on mutable business records;
-- server-side schema validation before D1 writes;
-- money/quantity precision rules defined before SQL schema is frozen;
-- date-only fields stored consistently as `YYYY-MM-DD`; timestamps stored in UTC.
+## 18. Removed Legacy-only structures
 
-## 19. Decisions intentionally not frozen yet
+The production canonical model intentionally does **not** include structures whose sole purpose was importing the unused Legacy test dataset, including:
 
-`OPEN` items before SQL migration files are written:
+- `legacy_id_map`;
+- `legacy_customer_id`, `legacy_item_id`, and similar migration-only columns;
+- imported old JSON cell-shape compatibility tables;
+- Sheet-row-order identity;
+- Legacy readable ID-format preservation solely for migration.
 
-1. customer/item business-number immutability and alias policy;
-2. exact snapshot fields for Quote/Order/Defect/Outsourcing;
-3. contractor person-vs-company semantics;
-4. region model;
-5. which lookup labels remain administrator-editable;
-6. money precision / rounding policy per module;
-7. exact WorkLog scoring/reporting relational shape;
-8. whether imported Legacy generated IDs remain visible to users or only migration metadata.
+Legacy audits remain useful for feature/workflow understanding only.
 
-These decisions should be resolved with user-facing business examples, not by asking the user to interpret old variable names.
+Other Legacy implementation fields are normalized or retired where a newer canonical source exists, including opaque history/log arrays, `materialStock` as an authoritative balance, and `Outsourcing.isPriced` as a competing workflow source.
 
-## 20. Implementation gate
+## 19. Data-Dictionary status
 
-Do **not** build the production D1 schema by copying the Legacy Sheet headers.
+The previous list of genuinely unresolved Data-Dictionary questions has now been reduced by BD-051 through BD-054 and the initial `FINAL_DATA_DICTIONARY.md` draft:
 
-The next gate is:
+- Order name-only versus linked-Customer capture is defined by BD-031;
+- initial fields follow validated Legacy/GAS business semantics while SMART ERP field ownership is deferred by BD-052;
+- required snapshot fields are now enumerated in the Data Dictionary from the actual workflow/document boundaries;
+- scaled physical decimal storage is selected; only future ERP rounding timing remains deferred;
+- WorkLog cancel-review/version evidence is defined by BD-051;
+- ordinary edit metadata versus structured Audit and the one-core/cost boundary are defined by BD-053/054;
+- the Data Dictionary now proposes concrete FK/delete behavior, indexes, uniqueness, partial uniqueness and optimistic concurrency.
 
-1. value-level read-only profiling (counts, duplicates, nulls, orphan relations, old aliases);
-2. user review of the `OPEN` business semantics;
-3. final Data Dictionary;
-4. D1 SQL schema/migrations;
-5. repeatable dry-run importer + reconciliation report;
-6. only after successful verification, module implementation/cutover.
+Remaining items are implementation verification rather than unanswered current business semantics. They include exact SQL syntax/index tuning, generated display-reference formatting, runtime production WorkLog values, final Audit retention after real usage is measurable, and future SMART ERP integration/rounding behavior.
 
-The existing GAS Sheet/deployment remains untouched during this process.
+The current lower-level source for schema work is:
+
+`docs/architecture/FINAL_DATA_DICTIONARY.md`
+
+## 20. Next gate
+
+```text
+Final Data Dictionary verification
+        ↓
+D1 SQL schema + forward migrations
+        ↓
+API/validation/error contracts
+        ↓
+Worker/app foundation
+        ↓
+module implementation
+```
+
+There is no Legacy-data importer/cutover gate under BD-047.
