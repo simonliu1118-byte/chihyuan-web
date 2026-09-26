@@ -68,7 +68,7 @@ export function DataView<T>({
           <div className="cy-data-error-content">
             <span>{errorMessage}</span>
             {onRetry ? (
-              <Button variant="secondary" size="small" type="button" onClick={onRetry}>
+              <Button tone="secondary" size="small" type="button" onClick={onRetry}>
                 再試一次
               </Button>
             ) : null}
