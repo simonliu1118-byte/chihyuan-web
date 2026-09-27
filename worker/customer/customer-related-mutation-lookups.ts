@@ -2,6 +2,7 @@ import type { CustomerVisitRecord } from "../../shared/customer-related";
 
 export interface CustomerFrequentItemVersion {
   id: number;
+  itemId: number | null;
   updatedAt: string;
 }
 
@@ -66,11 +67,15 @@ export class CustomerRelatedMutationLookups {
     frequentId: number,
   ): Promise<CustomerFrequentItemVersion | null> {
     const row = await this.db.prepare(`
-      SELECT id, updated_at
+      SELECT id, item_id, updated_at
         FROM customer_frequent_items
        WHERE customer_id = ?1 AND id = ?2
        LIMIT 1
-    `).bind(customerId, frequentId).first<{ id: number; updated_at: string }>();
-    return row ? { id: row.id, updatedAt: row.updated_at } : null;
+    `).bind(customerId, frequentId).first<{
+      id: number;
+      item_id: number | null;
+      updated_at: string;
+    }>();
+    return row ? { id: row.id, itemId: row.item_id, updatedAt: row.updated_at } : null;
   }
 }
