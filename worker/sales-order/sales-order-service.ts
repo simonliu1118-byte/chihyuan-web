@@ -266,7 +266,7 @@ export class SalesWorkOrderService {
     );
   }
 
-  async void(
+  async voidOrder(
     orderId: number,
     raw: unknown,
     context: SalesWorkOrderMutationContext,
