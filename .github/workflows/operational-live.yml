@@ -7,14 +7,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: cyweb-operational-live
   cancel-in-progress: true
 
 jobs:
-  publish:
+  package:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
@@ -31,20 +31,15 @@ jobs:
       - name: Build operational runtime
         run: npm run build:operational
 
-      - name: Publish static runtime branch
-        shell: bash
+      - name: Stamp source commit
         run: |
-          set -euo pipefail
-          publish_dir="$(mktemp -d)"
-          cp -a dist-operational/. "$publish_dir/"
-          printf '%s\n' "${GITHUB_SHA}" > "$publish_dir/SOURCE_COMMIT"
-          touch "$publish_dir/.nojekyll"
+          printf '%s\n' "${GITHUB_SHA}" > dist-operational/SOURCE_COMMIT
+          touch dist-operational/.nojekyll
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout --orphan operational-live
-          git rm -rf .
-          cp -a "$publish_dir/." .
-          git add -A
-          git commit -m "deploy: operational runtime ${GITHUB_SHA}"
-          git push --force origin HEAD:operational-live
+      - name: Upload operational runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: operational-runtime
+          path: dist-operational/
+          if-no-files-found: error
+          retention-days: 30
