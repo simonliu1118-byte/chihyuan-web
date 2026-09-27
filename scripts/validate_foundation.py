@@ -117,6 +117,21 @@ def main() -> int:
     if 'role") === "combobox"' not in enter_advance or "SELECTABLE_INPUT_TYPES" not in enter_advance:
         raise AssertionError("Enter progression component exclusions missing")
 
+    customer_contract = require("shared/customer.ts").read_text(encoding="utf-8")
+    for required_type in (
+        "CustomerSummary",
+        "CustomerDetail",
+        "CustomerProfileInput",
+        "CustomerSearchQuery",
+        "CustomerListResult",
+        "CustomerTaxIdCheckResult",
+        "UpdateCustomerRequest",
+    ):
+        if required_type not in customer_contract:
+            raise AssertionError(f"Customer shared contract missing: {required_type}")
+    if "expectedRevision" not in customer_contract or "confirmDuplicateTaxId" not in customer_contract:
+        raise AssertionError("Customer concurrency/duplicate-confirmation contract missing")
+
     for path in (
         "index.html",
         "src/main.tsx",
@@ -157,7 +172,10 @@ def main() -> int:
         "docs/architecture/EDITABLE_LIST_FOUNDATION.md",
         "docs/architecture/OVERLAY_FEEDBACK_FOUNDATION.md",
         "docs/architecture/KEYBOARD_ENTRY_FOUNDATION.md",
+        "docs/architecture/PRE_BUSINESS_READINESS.md",
+        "docs/architecture/CUSTOMER_MODULE_CONTRACT.md",
         "shared/api.ts",
+        "shared/customer.ts",
         "vite.config.ts",
         "tsconfig.json",
         "tsconfig.worker.json",
