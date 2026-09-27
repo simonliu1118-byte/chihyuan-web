@@ -53,7 +53,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch --orphan operational-test-publish
-          git rm -rf .
+          git rm -rf . || true
           cp -a /tmp/cyweb-operational-site/. .
           git add -A
           git commit -m "deploy: CY Web operational test ${GITHUB_SHA}"
