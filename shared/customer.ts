@@ -7,7 +7,7 @@ export interface CustomerLookupRef {
 export interface CustomerEmployeeRef {
   id: number;
   employeeNo: string | null;
-  displayName: string;
+  displayName: string | null;
 }
 
 export interface CustomerSummary {
