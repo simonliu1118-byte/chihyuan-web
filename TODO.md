@@ -13,7 +13,7 @@ This file records current work and engineering direction. It is not a permanent 
 7. [ ] Complete Shared Identity browser-session provider wiring. The CY Web provider-neutral adapter, normalized principal contract and app-local module-access guards are staged; the shared provider still needs a CY Web-compatible browser-session contract.
 8. [x] Stage the shared CY Web Audit Core with compact payload guards, timeline projection and Admin/SA detail-query foundation.
 9. [ ] Bind the already-provisioned CY Web R2 bucket and add CY Web GCS runtime configuration only after the real CY Web Worker deployment boundary is accepted.
-10. [x] Complete the pre-business reusable application-foundation gate and initial Customer module/API contract; next is the first Customer visual composition review while protected API wiring waits for Identity + local/dev runtime acceptance.
+10. [x] Complete the pre-business reusable application-foundation gate and initial Customer module/API contract; first Customer Desktop-first composition preview is staged for new-Web UI review while protected API wiring waits for Identity + local/dev runtime acceptance.
 
 ## Phase 0 — Governance / Public foundation
 
@@ -88,14 +88,14 @@ Production starts from a clean D1 schema; forward D1 schema migrations remain re
 - [ ] Shared concise Audit timeline UI when the first real record/API integration proves the final presentation contract.
 - [ ] Admin/SA detailed Audit Log UI after authenticated Admin/SA API wiring exists.
 - [ ] Unit picker / conversion display helper when Item/Order becomes the first real use; avoid speculative calculation abstraction.
-- [ ] Dedicated modern UI/UX review of the first Customer composition; do not copy Legacy GAS visual/refresh limitations by default.
+- [ ] Dedicated modern UI/UX review of the first Customer composition. **Static Desktop-first search/detail preview is staged; final acceptance remains pending.**
 - [ ] Desktop/Tablet/Mobile real-device/browser acceptance later in the production acceptance phase.
 
 ## Phase 4 — Business modules
 
 Implementation order may be adjusted for dependency efficiency, but all modules reuse the shared foundation rather than creating parallel patterns.
 
-- [ ] Customer / Visits / Frequent items / customer-item Quote history. **Customer master contract and shared TypeScript request/response models are staged. Next: first Desktop/Tablet/Mobile visual composition review; protected route wiring waits for Identity.**
+- [ ] Customer / Visits / Frequent items / customer-item Quote history. **Customer master contract, shared TypeScript request/response models and static Desktop-first composition preview are staged. Next: review/adjust composition, then create/edit interaction surface; protected route wiring waits for Identity.**
 - [ ] Item / unit conversion / Item history / Defect.
 - [ ] Sales work order / ERP fill-correct / picking / shipment / void.
 - [ ] Contractor / BOM / Outsourcing / receiving / pricing / payment / stock ledger.
