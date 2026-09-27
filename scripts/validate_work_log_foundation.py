@@ -51,7 +51,7 @@ def schema_checks() -> None:
     now = "2026-09-27T10:00:00Z"
     conn.execute("INSERT INTO app_members(identity_employee_id,employee_no,is_active,created_at,updated_at) VALUES('e1','E001',1,?,?)", (now, now))
     conn.execute("INSERT INTO work_log_categories(code,name,input_mode,sort_order,is_active,updated_at) VALUES('c1','Example Boolean','boolean',0,1,?)", (now,))
-    conn.execute("INSERT INTO work_log_categories(code,name,input_mode,unit_label,sort_order,is_active,updated_at) VALUES('c2','Example Quantity','件',NULL,1,1,?)".replace("'件',NULL", "'quantity','件'"), (now,))
+    conn.execute("INSERT INTO work_log_categories(code,name,input_mode,unit_label,sort_order,is_active,updated_at) VALUES('c2','Example Quantity','quantity','件',1,1,?)", (now,))
     conn.execute("INSERT INTO work_log_platforms(code,name,sort_order,is_active,updated_at) VALUES('p1','Example Platform',0,1,?)", (now,))
     conn.execute("INSERT INTO work_logs(work_log_ref,log_date,date_from,date_to,work_days,type_code,employee_id,status_code,created_at,updated_at,revision) VALUES('WL1','2026-09-27','2026-09-27','2026-09-27',5000,'generic',1,'created',?,?,1)", (now, now))
     conn.execute("INSERT INTO work_log_entries(work_log_id,entry_type_code,content,platform_id,sort_order) VALUES(1,'standard','Example',1,0)")
