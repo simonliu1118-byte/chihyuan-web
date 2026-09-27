@@ -57,8 +57,21 @@ jobs:
         with:
           node-version: "24"
       - run: npm install --no-audit --no-fund
-      - name: Browser TypeScript
-        run: npx tsc --noEmit -p tsconfig.json
+      - name: Capture browser TypeScript diagnostics
+        shell: bash
+        run: |
+          set +e
+          npx tsc --noEmit -p tsconfig.json --pretty false > browser-tsc.log 2>&1
+          echo $? > browser-tsc.exit
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: browser-tsc-diagnostics
+          path: |
+            browser-tsc.log
+            browser-tsc.exit
+      - name: Enforce browser TypeScript
+        run: test "$(cat browser-tsc.exit)" = "0"
 
   worker-typecheck:
     runs-on: ubuntu-latest
@@ -69,8 +82,21 @@ jobs:
         with:
           node-version: "24"
       - run: npm install --no-audit --no-fund
-      - name: Worker TypeScript
-        run: npx tsc --noEmit -p tsconfig.worker.json
+      - name: Capture Worker TypeScript diagnostics
+        shell: bash
+        run: |
+          set +e
+          npx tsc --noEmit -p tsconfig.worker.json --pretty false > worker-tsc.log 2>&1
+          echo $? > worker-tsc.exit
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: worker-tsc-diagnostics
+          path: |
+            worker-tsc.log
+            worker-tsc.exit
+      - name: Enforce Worker TypeScript
+        run: test "$(cat worker-tsc.exit)" = "0"
 
   build:
     runs-on: ubuntu-latest
