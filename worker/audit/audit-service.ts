@@ -1,10 +1,17 @@
 export type AuditJsonPrimitive = string | number | boolean | null;
 export type AuditJsonValue =
   | AuditJsonPrimitive
-  | AuditJsonValue[]
-  | { [key: string]: AuditJsonValue };
+  | readonly AuditJsonValue[]
+  | { readonly [key: string]: AuditJsonValue };
 
-export type AuditPayload = Record<string, AuditJsonValue>;
+/** Stored/read Audit payload after JSON serialization. */
+export type AuditPayload = Readonly<Record<string, AuditJsonValue>>;
+/**
+ * Domain services may pass typed rows, readonly arrays, or D1 values without
+ * weakening their own types. AuditService performs the JSON/sensitive-key
+ * validation at the persistence boundary before anything is written.
+ */
+export type AuditInputPayload = Readonly<Record<string, unknown>>;
 export type AuditSqlScalar = string | number | null;
 
 export interface AuditEventInput {
@@ -16,9 +23,9 @@ export interface AuditEventInput {
   statusFrom?: string | null;
   statusTo?: string | null;
   requestId?: string | null;
-  before?: AuditPayload | null;
-  after?: AuditPayload | null;
-  metadata?: AuditPayload | null;
+  before?: AuditInputPayload | null;
+  after?: AuditInputPayload | null;
+  metadata?: AuditInputPayload | null;
 }
 
 export interface AuditInsertCondition {
@@ -100,24 +107,31 @@ function normalizeOptionalText(value: string | null | undefined, maxLength = 80)
   return normalized;
 }
 
-function assertNoSecretKeys(value: AuditJsonValue, path = "payload"): void {
-  if (Array.isArray(value)) {
-    value.forEach((item, index) => assertNoSecretKeys(item, `${path}[${index}]`));
+function assertJsonCompatible(value: unknown, path = "payload"): asserts value is AuditJsonValue {
+  if (value == null || typeof value === "string" || typeof value === "boolean") return;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error(`AUDIT_NON_JSON_VALUE:${path}`);
     return;
   }
-  if (!value || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => assertJsonCompatible(item, `${path}[${index}]`));
+    return;
+  }
+  if (typeof value !== "object") {
+    throw new Error(`AUDIT_NON_JSON_VALUE:${path}`);
+  }
 
   for (const [key, nested] of Object.entries(value)) {
     if (SECRET_KEY_PATTERN.test(key)) {
       throw new Error(`AUDIT_SECRET_FIELD_REJECTED:${path}.${key}`);
     }
-    assertNoSecretKeys(nested, `${path}.${key}`);
+    assertJsonCompatible(nested, `${path}.${key}`);
   }
 }
 
-function encodePayload(value: AuditPayload | null | undefined): { json: string | null; bytes: number } {
+function encodePayload(value: AuditInputPayload | null | undefined): { json: string | null; bytes: number } {
   if (value == null) return { json: null, bytes: 0 };
-  assertNoSecretKeys(value);
+  assertJsonCompatible(value);
   const json = JSON.stringify(value);
   const bytes = new TextEncoder().encode(json).byteLength;
   if (bytes > MAX_JSON_BYTES_EACH) {
