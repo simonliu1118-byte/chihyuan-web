@@ -60,7 +60,15 @@ def validate_sources() -> None:
         if token not in related_repo:
             raise AssertionError(f"Customer related repository missing: {token}")
 
-    for token in ("class CustomerRelatedService", "requireCustomer", "CUSTOMER_QUOTE_NOT_FOUND"):
+    for token in (
+        "class CustomerRelatedService",
+        "requireCustomer",
+        "CUSTOMER_QUOTE_NOT_FOUND",
+        "createVisit",
+        "createFrequentItem",
+        "createQuote",
+        "correctQuote",
+    ):
         if token not in related_service:
             raise AssertionError(f"Customer related service missing: {token}")
 
@@ -79,8 +87,8 @@ def validate_sources() -> None:
 
     for token in (
         "D1 `batch()` transaction",
-        "Visit-referenced",
-        "related-record **read** services only",
+        "Visit keeps `person_snapshot`",
+        "separate Customer-context resources",
         "BD-022",
     ):
         if token not in doc:
@@ -111,16 +119,12 @@ def validate_schema_semantics() -> None:
         ("王小姐", "拜訪內容", now, now),
     )
 
-    # Visit-time person text must remain historical even when Contact changes.
     conn.execute("UPDATE customer_contacts SET name='王主任' WHERE id=1")
     snapshot = conn.execute("SELECT person_snapshot FROM customer_visits WHERE id=1").fetchone()
     if snapshot != ("王小姐",):
         raise AssertionError("Visit person snapshot changed with Contact master")
 
-    # Commit the valid seed state before intentionally testing the RESTRICT failure.
     conn.commit()
-
-    # Visit-referenced Contact is protected by FK RESTRICT and therefore must be retained/deactivated.
     try:
         conn.execute("DELETE FROM customer_contacts WHERE id=1")
     except sqlite3.IntegrityError:
