@@ -8,6 +8,8 @@ import type {
 import { FieldValidationError } from "../validation/fields";
 import {
   CustomerRepository,
+  type CustomerForeignChildIds,
+  type CustomerOwnedChildIds,
   type CustomerReferenceErrors,
   type CustomerReferenceIds,
 } from "./customer-repository";
@@ -48,9 +50,38 @@ function referenceIds(profile: NormalizedCustomerProfile): CustomerReferenceIds 
   };
 }
 
+function ownedChildIds(profile: NormalizedCustomerProfile): CustomerOwnedChildIds {
+  return {
+    phoneIds: profile.phones.flatMap((row) => row.id == null ? [] : [row.id]),
+    contactIds: profile.contacts.flatMap((row) => row.id == null ? [] : [row.id]),
+    addressIds: profile.addresses.flatMap((row) => row.id == null ? [] : [row.id]),
+    noteIds: profile.notes.flatMap((row) => row.id == null ? [] : [row.id]),
+  };
+}
+
 function assertReferenceErrors(errors: CustomerReferenceErrors): void {
   if (Object.keys(errors).length > 0) {
     throw new FieldValidationError(errors);
+  }
+}
+
+function assertOwnedChildren(errors: CustomerForeignChildIds): void {
+  const fields: Record<string, string> = {};
+  const groups: readonly [string, readonly number[]][] = [
+    ["phones", errors.phoneIds],
+    ["contacts", errors.contactIds],
+    ["addresses", errors.addressIds],
+    ["notes", errors.noteIds],
+  ];
+
+  for (const [field, ids] of groups) {
+    for (const id of ids) {
+      fields[`${field}.id.${id}`] = "子資料不存在或不屬於此客戶";
+    }
+  }
+
+  if (Object.keys(fields).length > 0) {
+    throw new FieldValidationError(fields);
   }
 }
 
@@ -146,6 +177,7 @@ export class CustomerService {
     }
 
     await this.assertReferences(input);
+    assertOwnedChildren(await this.repository.findForeignChildIds(id, ownedChildIds(input)));
     await this.assertDuplicateTaxIdAcknowledged(input, id);
     return input;
   }
