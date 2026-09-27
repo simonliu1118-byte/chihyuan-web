@@ -12,109 +12,149 @@ For product/architecture semantics, current explicit user decisions and later co
 
 ## Current document map
 
-### Active architecture / implementation contracts
+### Core architecture / implementation contracts
 
 - `decisions/README.md` — confirmed Business Decision index and supersession/refinement map.
 - `BUSINESS_DECISIONS.md` — consolidated BD-001 through BD-018 summary.
-- `decisions/BD-019.md` through the latest `BD-*.md` — later detailed decisions.
+- `decisions/BD-019.md` onward — later detailed Business Decisions.
 - `CANONICAL_DATA_MODEL.md` — current logical model.
-- `FINAL_DATA_DICTIONARY.md` — current initial relational/physical Data Dictionary aligned with the D1 schema draft.
-- `D1_SCHEMA_REVIEW.md` — schema validation state, refinements and remaining freeze gate.
-- `API_CONTRACT.md` — initial Worker/API envelope, error, cache, validation and concurrency contract.
-- `REQUEST_FOUNDATION.md` — shared browser API client, request-state model, Worker JSON parsing/response and field-validation foundation.
-- `IDENTITY_ADAPTER.md` — shared-Identity adapter boundary, normalized principal contract and CY Web app-local authorization split.
-- `AUDIT_CORE.md` — one shared CY Web AuditService contract, concise timeline/detailed Audit Log split and storage-cost safeguards.
-- `UI_FOUNDATION.md` — new-Web shared UI/interaction architecture, Adaptive UI boundary and pre-business-screen shared-component gate.
-- `APP_SHELL_FOUNDATION.md` — shared application frame/navigation boundary and first reusable UI primitives; visual styling remains provisional.
-- `FORM_FOUNDATION.md` — shared field semantics, validation presentation and unsaved-change protection.
-- `DATA_VIEW_FOUNDATION.md` — shared search/filter/list states, Desktop table/Mobile card projection and pagination boundary.
-- `ENTITY_PICKER_FOUNDATION.md` — shared asynchronous entity lookup, explicit-selection semantics and D1/API query boundary.
-- `EDITABLE_LIST_FOUNDATION.md` — shared repeated-row state, stable row identity, validation/error bags and dirty/reset/commit semantics.
-- `OVERLAY_FEEDBACK_FOUNDATION.md` — shared Dialog/Drawer/Bottom Sheet, confirmation and non-blocking Toast feedback hierarchy.
-- `KEYBOARD_ENTRY_FOUNDATION.md` — opt-in Enter field progression for proven high-frequency data-entry workflows without global key overrides.
-- `PRE_BUSINESS_READINESS.md` — final shared-foundation readiness matrix before the first production business module, including explicit deferred/runtime gates.
-- `CUSTOMER_MODULE_CONTRACT.md` — first business-module contract: Customer identity/profile aggregate, list/detail/mutation boundaries, duplicate Tax-ID warning semantics and related-record boundaries.
-- `CUSTOMER_UI_COMPOSITION.md` — approved Desktop-first Customer Master–Detail direction; search/filter/result controls belong to the left Search Pane and are not a page-wide toolbar.
-- `CUSTOMER_EDIT_INTERACTION.md` — Customer create/view/edit/cancel interaction contract consuming shared record-editor, editable-list, unsaved guard, confirmation and Toast foundations.
-- `CUSTOMER_SERVICE_FOUNDATION.md` — Worker-side Customer repository/domain/persistence boundary, search/detail queries, concurrency, duplicate Tax-ID, reference and child-row ownership safeguards before protected route wiring.
-- `CUSTOMER_RELATED_FOUNDATION.md` — Customer profile persistence plus Visit/Frequent Item/Quote read and mutation boundaries, optimistic concurrency, exact fixed-point handling and structured Audit safeguards.
-- `CUSTOMER_RELATED_UI.md` — first shared related-record panel and Customer Visit/Quote/Frequent/Audit presentation contract; explicitly not a recreation of Legacy `頁內表單`.
-- `CUSTOMER_FULL_WORKSPACE_PREVIEW.md` — integrated browser-local Customer functional review gate combining master and related-record interactions before protected API wiring.
-- `CUSTOMER_UI_REVIEW_BACKLOG.md` — confirmed Customer visual/readability follow-up items kept separate from functional correctness work.
-- `ITEM_MODULE_CONTRACT.md` — Item master/service contract covering ERP-number boundary, scaled4 values, conversion-graph validation, historical-number search and controlled audited renumbering.
+- `FINAL_DATA_DICTIONARY.md` — current relational/physical Data Dictionary baseline.
+- `D1_SCHEMA_REVIEW.md` — schema validation state and remaining freeze gate.
+- `API_CONTRACT.md` — Worker/API envelope, errors, cache, validation and concurrency.
+- `REQUEST_FOUNDATION.md` — shared browser API client and server request-validation foundation.
+- `IDENTITY_ADAPTER.md` — Shared Identity adapter and CY Web app-local authorization split.
+- `AUDIT_CORE.md` — shared CY Web AuditService and timeline/detail boundaries.
+- `UI_FOUNDATION.md`, `APP_SHELL_FOUNDATION.md`, `FORM_FOUNDATION.md` — new-Web shell/form architecture.
+- `DATA_VIEW_FOUNDATION.md`, `ENTITY_PICKER_FOUNDATION.md`, `EDITABLE_LIST_FOUNDATION.md` — shared search/lookup/repeated-row mechanics.
+- `OVERLAY_FEEDBACK_FOUNDATION.md`, `KEYBOARD_ENTRY_FOUNDATION.md` — shared overlay/feedback and opt-in fast-entry behavior.
+- `PRE_BUSINESS_READINESS.md` — common-foundation readiness gate before business modules.
+
+### Customer
+
+- `CUSTOMER_MODULE_CONTRACT.md`
+- `CUSTOMER_UI_COMPOSITION.md`
+- `CUSTOMER_EDIT_INTERACTION.md`
+- `CUSTOMER_SERVICE_FOUNDATION.md`
+- `CUSTOMER_RELATED_FOUNDATION.md`
+- `CUSTOMER_RELATED_UI.md`
+- `CUSTOMER_FULL_WORKSPACE_PREVIEW.md`
+- `CUSTOMER_UI_REVIEW_BACKLOG.md`
+
+Customer browser review confirmed the left Search Pane + independent right Detail Pane direction. Search/filter/result controls belong together in the Search Pane. Readability was raised to a normal business-content baseline around 14–16px, and long edit forms keep Cancel/Save controls at both top and bottom.
+
+### Item / Defect
+
+- `ITEM_MODULE_CONTRACT.md` — Item master, exact scaled4 values, conversion graph, historical Item numbers and controlled renumbering.
+- `DEFECT_MODULE_CONTRACT.md` — Defect lifecycle/edit/delete/invalidation rules.
+
+The integrated Item preview covers Item master, unit conversions, controlled Item-number change/history and Defect lifecycle.
+
+### Sales Work Order
+
+- `SALES_WORK_ORDER_MODULE_CONTRACT.md` — field/pre-ERP Work Order, ERP fill/correction and fulfillment lifecycle.
+- `SALES_WORK_ORDER_UI_PREVIEW.md` — integrated browser-local workflow preview.
+
+The staged lifecycle is:
+
+```text
+created
+  -> first ERP fill
+issued
+  -> waiting_stock (optional)
+  -> picked
+  -> shipped
+```
+
+Direct `issued -> picked`, controlled `shipped -> picked`, ERP-reference correction, post-ERP voiding and pre-ERP-only hard delete follow the confirmed Business Decisions.
+
+### Contractor / BOM / Outsourcing
+
+- `CONTRACTOR_OUTSOURCING_MODULE_CONTRACT.md` — Contractor, current Contractor Price, multi-BOM, Outsourcing, movement ledger, receiving, pricing/payment and reversal rules.
+- `OUTSOURCING_FULL_WORKSPACE_PREVIEW.md` — browser-local integrated functional review surface.
+
+Key stock rule:
+
+```text
+pending_outbound = plan only, no actual stock movement
+confirmed outbound = create contractor stock movements
+```
+
+Confirmed physical facts are corrected with explicit reversal/replacement movements, not destructive balance rewriting. Multiple BOM variants may exist for the same finished Item; receiving requires explicit BOM selection when more than one active variant applies. Contractor pricing has one current record per Contractor + Item with an explicit valid Item pricing unit.
+
+### WorkLog
+
+- `WORK_LOG_MODULE_CONTRACT.md` — WorkLog ownership, lifecycle, Work Days, configurable entries, review/cancel-review and statistics.
+- `WORK_LOG_FULL_WORKSPACE_PREVIEW.md` — browser-local owner/reviewer/statistics review surface.
+
+Public source contains only generic configurable WorkLog structure. Chihyuan production categories, platforms, scoring values and thresholds are deployment D1 data, not source-code constants.
+
+The lifecycle is:
+
+```text
+created -> pending_review -> reviewed
+pending_review -> created          owner withdrawal
+reviewed -> pending_review         authorized cancel review
+```
+
+Work Days is required, positive and independently entered. Reviewer correction of Work Days is supported. Active reviewed scores are frozen against later configuration changes. Cancel review clears the current review/scoring result and records Shared Audit without retaining a second cancelled-review version payload.
+
+### Backup / deployment / domain
+
 - `BACKUP_ARCHITECTURE.md` — tiered R2 + GCS backup topology and provider/service boundary.
 - `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public-source / production-infrastructure separation.
-- `../DOMAIN_STRATEGY.md` — confirmed `chihyuancm.com` parent-domain namespace and controlled rollout direction for the official website and CY-family Web systems.
+- `../DOMAIN_STRATEGY.md` — confirmed `chihyuancm.com` parent-domain namespace for the future official website and CY-family Web systems.
 
 ### Implementation handoffs
 
-- `../handoffs/CYACCOUNTINGWEB_TIERED_BACKUP_HANDOFF.md` — public-safe handoff for the CYAccountingWeb workstream. CY Web does not modify Accounting source/runtime from this workstream.
-- `../handoffs/CYWEB_IDENTITY_PROVIDER_REQUIREMENTS.md` — requirements handed to the Shared Identity/CYInvoice workstream for CY Web-compatible browser-session support.
+- `../handoffs/CYACCOUNTINGWEB_TIERED_BACKUP_HANDOFF.md` — public-safe handoff only; this workstream does not modify CYAccountingWeb runtime/source.
+- `../handoffs/CYWEB_IDENTITY_PROVIDER_REQUIREMENTS.md` — Shared Identity browser-session requirements for CY Web.
 
 ### Legacy evidence
 
 - `LEGACY_DATA_AUDIT.md`
 - `LEGACY_DESKTOP_WORKFLOW_AUDIT.md`
-- `LEGACY_REUSABLE_PATTERN_AUDIT.md` — cross-module review of repeated Legacy behavior/UI patterns and the pre-UI shared-component extraction gate.
+- `LEGACY_REUSABLE_PATTERN_AUDIT.md`
 
-Their detailed historical versions remain under `archive/`. Legacy evidence explains behavior/semantics; it is not a production migration contract or a screen blueprint.
+Legacy evidence explains business behavior and useful proven interaction patterns. It is not a production migration contract or a screen blueprint. GAS-specific loading/refresh workarounds and duplicated page/device implementations are not carried forward merely for familiarity.
 
 ## Current architecture baseline
 
-As of the decisions through BD-056 and the current D1/API/Identity/Audit/UI/request/shared-component/Customer/Item foundations:
+- CY Web is one TypeScript + React + Vite + Cloudflare Worker application for Desktop / Tablet / Mobile using RWD + Adaptive UI.
+- D1 is the live relational direction. Business search/list/detail queries are bounded and on-demand rather than loading whole module datasets into a browser-global cache.
+- Shared Identity owns credentials, sessions and the global EMPLOYEE/ADMIN/SUPER_ADMIN hierarchy. CY Web uses an adapter plus app-local tags/module mapping and never duplicates the credential store.
+- One shared Audit Core records meaningful business actions. Ordinary edits generally retain only latest modifier/time/revision.
+- One shared App Shell and common UI/interaction foundations are reused across modules. New business screens do not recreate the old GAS page/tab/form implementation.
+- Normal business text uses the browser-reviewed readability baseline rather than micro-text. Long forms provide reachable save/cancel controls at both top and bottom.
+- Persisted business quantities/prices/scores use exact fixed-point integers. Item unit conversions follow `1 fromUnit = quantity toUnit` and resolve through the canonical conversion graph.
+- Production custom-domain binding is a controlled rollout step. `chihyuancm.com` is the shared parent domain, while the official site and internal systems keep separate hostnames/origins/security boundaries.
+- Production D1/Worker/Identity-protected business routes remain gated on Shared Identity browser-session wiring plus local/dev D1 and Worker acceptance.
 
-- CY Web is one Web application for Desktop / Tablet / Mobile using RWD + Adaptive UI.
-- `chihyuancm.com` is the confirmed shared parent domain for the future public Chihyuan website and internal/business CY-family Web systems; each application keeps its own hostname/origin, deployment and security/session boundary.
-- Production custom-domain binding is a controlled rollout step, not an early foundation-development prerequisite.
-- Legacy GAS / Google Sheets is behavior/data-semantic reference only; unused test rows are not migrated to production D1.
-- Legacy UX is evaluated selectively: useful proven behavior may be retained/adapted, while the new screen structure, component implementation and responsive behavior follow the new Web architecture rather than reproducing GAS.
-- Cloudflare Workers is the target application backend and D1 is the live relational database direction.
-- Current frontend foundation is TypeScript + React + Vite + Cloudflare Vite plugin.
-- Browser business requests use one shared API client/error/request-state foundation rather than per-page fetch conventions.
-- Worker APIs use shared response, bounded JSON-request parsing and generic field-validation/error-mapping helpers; domain validation remains inside business modules.
-- Shared Identity is consumed through an adapter/service boundary; CY Web does not duplicate the shared account-role hierarchy or credential store.
-- CY Web app-local authorization uses `app_members` + app tags/module mappings while shared ADMIN/SUPER_ADMIN authority remains external Identity authority.
-- Customer/Item relationships use immutable internal IDs; ERP business numbers are separate values.
-- Initial fields follow validated GAS/Legacy business semantics; exact SMART ERP ownership/sync mapping is deferred to the future ERP integration project.
-- Formal business records retain only deliberate historical snapshots.
-- CY Web uses one shared in-App Audit Core; ordinary edits keep only latest modifier/time and meaningful business events use compact structured Audit.
-- AuditService rejects credential-like payload keys, bounds JSON payload size, serves both concise timeline and detailed Admin/SA inspection, and exposes a prepared conditional insert boundary so an important domain mutation and its Audit event can participate in one D1 batch transaction.
-- Repeated interaction mechanics are implemented as shared CY Web foundations rather than one copy per business module or one copy per device class.
-- One shared App Shell provides the structural application frame and data-driven navigation boundary; business modules compose inside it rather than building independent frames.
-- Shared UI primitives cover common button/notice/section/status and basic form-field semantics.
-- Unsaved-change protection is a shared application behavior, including browser-unload protection and an in-app confirmation contract; business pages do not implement independent page-local prompts.
-- Shared data views provide one search/filter/result-state and selection surface with Desktop table and Mobile card projections over the same query state.
-- Shared entity lookup provides one async combobox contract with debounce, stale-request cancellation, keyboard/pointer selection and explicit internal-ID selection semantics.
-- Repeated line-item editing has one shared immutable list-state model with stable row keys, add/update/remove/move, per-row error bags and dirty/reset/commit semantics. Final visual grid composition remains domain-driven.
-- Dialog/Drawer/Bottom Sheet and confirmation behavior share one overlay foundation; routine successful actions use non-blocking Toast feedback instead of page-specific blocking alerts.
-- High-risk flows keep their stronger Business Decision safeguards; generic dialogs do not weaken Restore double-confirmation or authorization requirements.
-- Enter-to-next-field productivity behavior is available through one shared opt-in helper, while Tab order and component keyboard semantics remain authoritative. No global document-level Enter override is introduced.
-- Shared fixed-point helpers format and parse scaled values exactly; quote quantities/prices and Item cost/reference prices are converted to scaled4 integers without binary-floating persistence semantics.
-- The pre-business readiness review confirms that business-module work may proceed without adding more speculative generic framework. Audit presentation and authenticated permission UI remain runtime-gated concerns.
-- The initial Customer module contract separates the bounded Customer profile aggregate from Visits, Frequent Items and Quote history; search/list stays server-side and protected route wiring remains behind the Shared Identity/runtime gates.
-- The Customer Desktop composition has been browser-reviewed and refined to one left Search Pane plus independent right Detail Pane. Search/filter/result count/result list belong together; the search controls no longer span the whole page.
-- The Customer create/edit interaction preview consumes the shared record-editor, editable-list, unsaved-change guard, common form primitives, confirmation Dialog, Toast and opt-in Enter progression. Preview save remains browser-local/static only; it does not bypass the protected API gate.
-- Customer readability was raised after full-workspace browser review: normal business content targets roughly 14–16px rather than 10–12px micro-text, and edit mode keeps save/cancel controls at both top and bottom for long forms.
-- Customer duplicate Tax-ID behavior is represented as an explicit confirmation interaction in the preview, while the Worker/D1 check remains authoritative.
-- The Customer repository/service foundation performs bounded on-demand search/detail queries and server-side checks for active references, optimistic revision, controlled Customer-number changes, duplicate Tax-ID acknowledgement and owned child-row IDs.
-- Customer master create/update persistence is staged behind the service boundary using transactional D1 batches, local actor metadata and one optimistic revision increment per successful profile update; no protected HTTP route is exposed yet.
-- Visit-referenced Contacts are retained/deactivated rather than deleted when removed from the active Customer profile, preserving BD-015 historical relations and person snapshots.
-- Visits, Frequent Items and Customer-Item Quote history are separate on-demand resources and are not folded into every Customer-detail query.
-- Visit mutation supports create/update/delete. Update uses revision concurrency; delete records a structured shared-Audit event in the same transaction as deletion.
-- Frequent Item mutation preserves the formal-Item versus free-text identity boundary. Formal linking always requires explicit `itemId`; update/delete use the existing row timestamp as the child-level concurrency token.
-- New Customer-Item Quote commercial terms create a new history record. Existing-record correction is a separate `correctQuote` path with revision checking and structured before/after Audit in the same batch. Quote hard-delete has not been reintroduced.
-- Related-record navigation has a shared `RelatedRecordPanel` shell rather than each business page creating its own tab mechanics. Domain modules still own their own record shape/content/actions.
-- Customer related-record UI has first-use presentations for Visit timeline, Quote history/price breaks, formal-vs-free-text Frequent Items and a restrained future Audit/History state. It is not a new name for the old GAS `頁內表單` implementation.
-- The integrated Customer full-workspace preview combines Customer master and related-record interactions in one browser-local workflow so functional review can continue before protected API wiring and final visual polish.
-- Item search/detail now has a staged Worker/D1 service foundation. Search includes current Item number, name/spec/category and searchable historical Item numbers rather than loading the whole Item master into the browser.
-- Item create/register requires a pre-existing SMART ERP Item number; CY Web never generates the formal ERP Item number.
-- Item ordinary update uses revision concurrency and may update profile/unit conversions, but it does not overwrite `item_no`.
-- Unit conversion rows use the Legacy-proven semantic `1 fromUnit = quantity toUnit`, with server checks for duplicates, unresolved targets and cycles; every path must resolve to the base unit.
-- Item cost/store/clinic values use scaled4 exact storage/transport semantics per BD-017/019.
-- Item-number changes are a dedicated controlled business action: the previous number is written to `item_number_history`, the current number/revision is updated, and a shared Audit event is written in the same D1 batch transaction. Previous numbers remain searchable by default.
-- No universally enabled Item hard-delete action is introduced; BD-030 server-derived never-used eligibility remains authoritative.
-- Production business lists and entity lookups query Worker/D1 on demand rather than loading a whole module/master dataset into a browser-global cache as GAS did.
-- Current shell/form/data-view/picker/overlay/Customer-preview styling and tokens remain provisional. Final branding and later Tablet/Mobile refinements are not inherited from GAS.
+## Business-module implementation state
+
+```text
+Customer
+  contract / service / persistence / related records / integrated preview   staged
+
+Item + Defect
+  Item service / conversions / renumbering / Defect lifecycle / preview     staged
+
+Sales Work Order
+  pre-ERP + ERP handoff + fulfillment + reversal/void / preview              staged
+
+Contractor + BOM + Outsourcing
+  Contractor/current price + multi-BOM + stock ledger + receipt/pricing
+  + payment/reversals + integrated preview                                   staged
+
+WorkLog
+  owner lifecycle + configurable content + review/cancel-review
+  + statistics + integrated preview                                          staged
+
+Settings / Admin
+  configuration mutation UI/service + Audit UI + backup/restore product UI   next
+
+Protected HTTP routes
+  blocked on Shared Identity browser session + local/dev runtime gate         pending
+```
 
 ## Backup baseline
 
@@ -124,89 +164,53 @@ R2   daily 03:30 Taiwan / 30-day operational retention
 GCS  Wed + Sun replication / 26-week cross-cloud DR retention
 ```
 
-One logical backup is exported from D1 once. Provider copies use the same `backupId`, payload bytes and integrity metadata.
-
-See `BACKUP_ARCHITECTURE.md`, BD-049 and BD-050.
+One logical backup is exported from D1 once. Provider copies use the same `backupId`, payload bytes and integrity metadata. Precise production resource identifiers and credentials remain deployment-private.
 
 ## Current implementation chain
 
 ```text
 confirmed Business Decisions
         ↓
-Canonical Data Model
+Canonical Data Model / Final Data Dictionary / D1 migrations
         ↓
-Final Data Dictionary
+Worker + API / request / validation foundation
         ↓
-0001 initial D1 migration
+Shared Identity adapter + app-local authorization
         ↓
-local/dev D1 validation
+Shared Audit Core
         ↓
-Worker + API foundation
+Legacy reusable-pattern audit
         ↓
-shared request / validation foundation
+new-Web common UI foundations
         ↓
-shared Identity adapter + app-local authorization
+Customer
         ↓
-shared Audit Core
+Item + Defect
         ↓
-cross-module Legacy reusable-pattern audit
+Sales Work Order
         ↓
-new-Web UI foundation
+Contractor + BOM + Outsourcing + movement ledger
         ↓
-shared App Shell + UI primitives
+WorkLog + review/statistics
         ↓
-shared form + unsaved-change foundation
+Settings / Admin
         ↓
-shared adaptive data-view foundation
+Shared Identity browser-session wiring + local/dev D1/Worker acceptance
         ↓
-shared async entity-picker foundation
+protected business HTTP routes
         ↓
-shared editable-list state foundation
-        ↓
-shared overlay + non-blocking feedback foundation
-        ↓
-opt-in keyboard data-entry foundation
-        ↓
-pre-business shared-foundation readiness gate
-        ↓
-Customer module contract + shared TypeScript contract
-        ↓
-Customer Desktop-first composition / browser UI review
-        ↓
-approved left Search Pane + right Detail Pane refinement
-        ↓
-Customer create/edit interaction preview using shared foundations
-        ↓
-Customer repository/domain-validation service foundation
-        ↓
-Customer transactional profile persistence + related-record read services
-        ↓
-shared RelatedRecordPanel + Customer related-record UI review
-        ↓
-Customer Visit/Frequent Item/Quote mutation services + transactional Audit
-        ↓
-integrated Customer full-workspace functional preview
-        ↓
-Item module contract + shared TypeScript contract
-        ↓
-Item repository / validation / transactional persistence / controlled renumbering
-        ↓
-Defect domain service + integrated Item functional preview
-        ↓
-protected business HTTP route wiring after Identity + local/dev D1/Worker gates
+full-system browser/device acceptance
         ↓
 production custom-domain rollout
         ↓
 production acceptance
 ```
 
-The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation, shared request/validation foundation, shared record-editor state, shared App Shell/primitives, shared form/unsaved-change handling, adaptive Data View, async Entity Picker, editable-list state, overlay/feedback, opt-in keyboard data-entry, RelatedRecordPanel and exact fixed-point foundations.
+## Runtime status
 
-The Customer workstream includes the module/type contract, approved Desktop search/detail direction, browser-local create/edit/full-workspace interaction preview, Worker-side Customer query/domain service, transactional profile persistence, on-demand related-record reads, related-record UI surface, and non-HTTP mutation services for Visits/Frequent Items/Quote history. These services are still not exposed through protected Customer HTTP routes.
+The current branches stage source/contracts/services and browser-memory functional previews. They do **not** prove npm/typecheck/build/Wrangler/D1 runtime acceptance in the current tool environment. Full execution remains required in a normal networked checkout/runtime environment.
 
-The Item workstream now includes the module/type contract, D1 search/detail repository, exact decimal validation, unit-conversion graph validation, transactional profile create/update, searchable historical Item-number support and a dedicated transactional audited Item-number-change path. Defect remains the next Item-domain slice. Protected Item HTTP routes remain blocked on the same Shared Identity/local-dev runtime acceptance gate.
-
-The production Shared Identity browser-session provider contract remains an external dependency, and production D1 / Worker bindings have **not** been created by these branches.
+Production D1, production Worker bindings, DNS and backup resources have not been modified by the business-module preview branches.
 
 ## Document precedence
 
