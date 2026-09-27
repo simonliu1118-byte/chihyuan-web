@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { NavigationGroup } from "./ui/foundation/navigation";
 import { AppShell } from "./ui/shell/AppShell";
 import { OperationalWorkspace, type OperationalRoute } from "./runtime/OperationalWorkspace";
+import { CustomerOperationalPage } from "./runtime/modules/CustomerOperationalPage";
 
 const navigation: readonly NavigationGroup[] = [
   {
@@ -59,7 +60,7 @@ export default function App() {
       headerActions={<div className="cy-op-runtime-banner">本機操作模式 · localStorage 持久保存</div>}
       footer={<span className="cy-shell-foundation-note">Operational Local Runtime · 尚未連接 D1 / Shared Identity</span>}
     >
-      <OperationalWorkspace route={route} />
+      {route === "customers" ? <CustomerOperationalPage /> : <OperationalWorkspace route={route} />}
     </AppShell>
   );
 }
