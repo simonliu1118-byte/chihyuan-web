@@ -30,10 +30,21 @@ def source_checks() -> None:
     for token in ["WorkLogStatusCode", "ReviewWorkLogRequest", "WorkLogStatisticsResult", "WorkLogConfiguration"]:
         if token not in shared:
             raise AssertionError(f"missing shared WorkLog token: {token}")
-    for token in ["submitForReview", "withdrawReview", "cancelReview", "roundedScaled4Ratio", "allowCrossEmployeeRead"]:
+    for token in [
+        "submitForReview",
+        "withdrawReview",
+        "cancelReview",
+        "roundedScaled4Ratio",
+        "allowCrossEmployeeRead",
+        "work_log.review.submitted",
+        "work_log.review.withdrawn",
+    ]:
         if token not in service:
             raise AssertionError(f"missing WorkLog service token: {token}")
-    for token in ["work_log.review.submitted", "work_log.review.withdrawn", "work_log.review.cancelled", "work_log.reviewed", "AuditService"]:
+    # Submit/withdraw use the generic transition persistence boundary, so their
+    # action names live in the service. Review/cancel-review are specialized
+    # persistence operations and own their action strings directly.
+    for token in ["work_log.review.cancelled", "work_log.reviewed", "AuditService"]:
         if token not in persistence:
             raise AssertionError(f"missing WorkLog audit token: {token}")
     for token in ["work_log_categories", "work_log_platforms", "work_log_scoring_rows", "weightedAverageDailyScore"]:
