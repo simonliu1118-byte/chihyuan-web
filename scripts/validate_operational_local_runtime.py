@@ -18,10 +18,13 @@ def read(path: str) -> str:
 def main() -> int:
     app = read("src/App.tsx")
     store = read("src/runtime/local-database.ts")
+    advanced = read("src/runtime/advanced-local-types.ts")
     workspace = read("src/runtime/OperationalWorkspace.tsx")
+    customer = read("src/runtime/modules/CustomerOperationalPage.tsx")
+    defect = read("src/runtime/modules/DefectOperationalPage.tsx")
     doc = read("docs/architecture/OPERATIONAL_LOCAL_RUNTIME.md")
 
-    for token in ["#customers", "#items", "#orders", "#outsourcing", "#worklogs", "#settings", "#audit"]:
+    for token in ["#customers", "#items", "#defects", "#orders", "#outsourcing", "#worklogs", "#settings", "#audit"]:
         if token not in app:
             raise AssertionError(f"missing operational navigation: {token}")
 
@@ -40,8 +43,11 @@ def main() -> int:
         if token not in store:
             raise AssertionError(f"missing persistent local-store contract: {token}")
 
+    for token in ["LocalCustomerVisit", "LocalCustomerQuote", "LocalCustomerFrequentItem", "LocalDefect", "defects?:"]:
+        if token not in advanced:
+            raise AssertionError(f"missing advanced local runtime contract: {token}")
+
     for token in [
-        "CustomerPage",
         "ItemPage",
         "SalesOrderPage",
         "OutsourcingPage",
@@ -54,6 +60,30 @@ def main() -> int:
     ]:
         if token not in workspace:
             raise AssertionError(f"missing operational UI behavior: {token}")
+
+    for token in [
+        "新增拜訪",
+        "修正紀錄",
+        "常用商品",
+        "customer.number.changed",
+        "customer.visit.deleted",
+        "duplicateTax",
+        "cy-customer-action-stack",
+    ]:
+        if token not in customer:
+            raise AssertionError(f"missing full Customer operational behavior: {token}")
+
+    for token in [
+        "defect.processing.started",
+        "defect.resolved",
+        "defect.reopened",
+        "defect.invalidated",
+        "defect.deleted",
+        "顯示作廢",
+        "不是第四個工作狀態",
+    ]:
+        if token not in defect:
+            raise AssertionError(f"missing Defect operational behavior: {token}")
 
     for token in ["reload does not reset", "Worker protected HTTP API", "standalone `preview/*`", "never writes D1"]:
         if token not in doc:
