@@ -13,7 +13,7 @@ This file records current work and engineering direction. It is not a permanent 
 7. [ ] Complete Shared Identity browser-session provider wiring. The CY Web provider-neutral adapter, normalized principal contract and app-local module-access guards are staged; the shared provider still needs a CY Web-compatible browser-session contract.
 8. [x] Stage the shared CY Web Audit Core with compact payload guards, timeline projection and Admin/SA detail-query foundation.
 9. [ ] Bind the already-provisioned CY Web R2 bucket and add CY Web GCS runtime configuration only after the real CY Web Worker deployment boundary is accepted.
-10. [x] Complete the pre-business reusable application-foundation gate, Customer module/API contract, Desktop-first composition preview and Customer create/edit interaction preview. Protected API wiring still waits for Identity + local/dev runtime acceptance.
+10. [x] Complete the pre-business reusable application-foundation gate, Customer module/API contract, approved Desktop Search-Pane/Detail-Pane direction, Customer create/edit interaction preview and Worker-side Customer repository/domain-validation foundation. Protected persistence/API wiring still waits for Identity + local/dev runtime acceptance.
 
 ## Phase 0 — Governance / Public foundation
 
@@ -66,6 +66,7 @@ Legacy source remains available as behavior/reference evidence.
 - [x] Implement shared server-side bounded JSON parsing, generic field-validation and API error/response helpers.
 - [ ] Implement the first authenticated business API slice after Identity session wiring is available.
 - [x] Stage the shared CY Web Audit Core service on top of the confirmed `audit_events` schema; route-level authorization/UI wiring remains later work.
+- [x] Stage the Customer repository/domain-validation service foundation without exposing protected routes or production writes.
 - [ ] Apply migrations to local/dev D1 and run Worker + D1 smoke acceptance before schema freeze.
 
 Production starts from a clean D1 schema; forward D1 schema migrations remain required even though Legacy data migration is not.
@@ -88,14 +89,14 @@ Production starts from a clean D1 schema; forward D1 schema migrations remain re
 - [ ] Shared concise Audit timeline UI when the first real record/API integration proves the final presentation contract.
 - [ ] Admin/SA detailed Audit Log UI after authenticated Admin/SA API wiring exists.
 - [ ] Unit picker / conversion display helper when Item/Order becomes the first real use; avoid speculative calculation abstraction.
-- [ ] Dedicated modern UI/UX review of the first Customer composition. **Desktop-first search/detail plus create/edit interaction preview is staged; final visual acceptance remains pending.**
+- [x] Customer Desktop structural UI review: approved left Search Pane + right Detail Pane direction. Final branding/tokens and Tablet/Mobile acceptance remain later work.
 - [ ] Desktop/Tablet/Mobile real-device/browser acceptance later in the production acceptance phase.
 
 ## Phase 4 — Business modules
 
 Implementation order may be adjusted for dependency efficiency, but all modules reuse the shared foundation rather than creating parallel patterns.
 
-- [ ] Customer / Visits / Frequent items / customer-item Quote history. **Customer master contract, shared TypeScript request/response models, Desktop-first composition and create/edit interaction preview are staged. Next: review/adjust interaction details and prepare the Customer repository/domain-validation service; protected route wiring waits for Identity.**
+- [ ] Customer / Visits / Frequent items / customer-item Quote history. **Customer master contract, shared TypeScript models, approved Desktop composition, create/edit interaction preview and repository/domain-validation service foundation are staged. Next: implement persistence boundary and protected Customer API after Identity + local/dev Worker/D1 gates.**
 - [ ] Item / unit conversion / Item history / Defect.
 - [ ] Sales work order / ERP fill-correct / picking / shipment / void.
 - [ ] Contractor / BOM / Outsourcing / receiving / pricing / payment / stock ledger.
