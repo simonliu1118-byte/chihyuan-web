@@ -12,6 +12,11 @@ import type {
 } from "../../shared/customer";
 
 type D1Scalar = string | number | null;
+type CustomerChildTable =
+  | "customer_phones"
+  | "customer_contacts"
+  | "customer_addresses"
+  | "customer_notes";
 
 type CustomerSummaryRow = {
   id: number;
@@ -116,8 +121,21 @@ export interface CustomerRecordVersion {
   revision: number;
 }
 
-const CUSTOMER_SUMMARY_SELECT = `
-  SELECT
+export interface CustomerOwnedChildIds {
+  phoneIds: readonly number[];
+  contactIds: readonly number[];
+  addressIds: readonly number[];
+  noteIds: readonly number[];
+}
+
+export interface CustomerForeignChildIds {
+  phoneIds: readonly number[];
+  contactIds: readonly number[];
+  addressIds: readonly number[];
+  noteIds: readonly number[];
+}
+
+const CUSTOMER_SELECT_FIELDS = `
     c.id,
     c.customer_no,
     c.short_name,
@@ -139,6 +157,9 @@ const CUSTOMER_SUMMARY_SELECT = `
     cs.name AS status_name,
     c.revision,
     c.updated_at
+`;
+
+const CUSTOMER_FROM = `
   FROM customers AS c
   LEFT JOIN customer_categories AS cc ON cc.id = c.customer_category_id
   LEFT JOIN regions AS r ON r.id = c.region_id
@@ -146,6 +167,9 @@ const CUSTOMER_SUMMARY_SELECT = `
   LEFT JOIN app_members AS m ON m.id = c.owner_employee_id
   LEFT JOIN customer_statuses AS cs ON cs.id = c.customer_status_id
 `;
+
+const CUSTOMER_SUMMARY_SELECT = `SELECT ${CUSTOMER_SELECT_FIELDS} ${CUSTOMER_FROM}`;
+const CUSTOMER_DETAIL_SELECT = `SELECT ${CUSTOMER_SELECT_FIELDS}, c.fax, c.created_at ${CUSTOMER_FROM}`;
 
 function toLookup(
   id: number | null,
@@ -216,6 +240,10 @@ function optionalPositive(value: number | undefined): number | null {
   return Number.isInteger(value) && value > 0 ? value : null;
 }
 
+function uniquePositiveIds(ids: readonly number[]): readonly number[] {
+  return [...new Set(ids.filter((id) => Number.isInteger(id) && id > 0))];
+}
+
 export class CustomerRepository {
   constructor(private readonly db: D1Database) {}
 
@@ -278,7 +306,7 @@ export class CustomerRepository {
 
   async getDetail(customerId: number): Promise<CustomerDetail | null> {
     const statements = [
-      this.db.prepare(`${CUSTOMER_SUMMARY_SELECT}, c.fax, c.created_at WHERE c.id = ? LIMIT 1`).bind(customerId),
+      this.db.prepare(`${CUSTOMER_DETAIL_SELECT} WHERE c.id = ? LIMIT 1`).bind(customerId),
       this.db.prepare(`
         SELECT id, phone_number, extension, note, sort_order
           FROM customer_phones
@@ -386,7 +414,10 @@ export class CustomerRepository {
     }));
   }
 
-  async customerNumberExists(customerNo: string, excludeCustomerId: number | null = null): Promise<boolean> {
+  async customerNumberExists(
+    customerNo: string,
+    excludeCustomerId: number | null = null,
+  ): Promise<boolean> {
     const row = await this.db
       .prepare(`
         SELECT 1 AS found
@@ -453,5 +484,34 @@ export class CustomerRepository {
     if (row.department_ok !== 1) errors.ownerDepartmentId = "負責部門不存在或已停用";
     if (row.employee_ok !== 1) errors.ownerEmployeeId = "負責人員不存在或已停用";
     return errors;
+  }
+
+  async findForeignChildIds(
+    customerId: number,
+    ids: CustomerOwnedChildIds,
+  ): Promise<CustomerForeignChildIds> {
+    return {
+      phoneIds: await this.findIdsNotOwnedBy("customer_phones", customerId, ids.phoneIds),
+      contactIds: await this.findIdsNotOwnedBy("customer_contacts", customerId, ids.contactIds),
+      addressIds: await this.findIdsNotOwnedBy("customer_addresses", customerId, ids.addressIds),
+      noteIds: await this.findIdsNotOwnedBy("customer_notes", customerId, ids.noteIds),
+    };
+  }
+
+  private async findIdsNotOwnedBy(
+    table: CustomerChildTable,
+    customerId: number,
+    rawIds: readonly number[],
+  ): Promise<readonly number[]> {
+    const ids = uniquePositiveIds(rawIds);
+    if (ids.length === 0) return [];
+
+    const placeholders = ids.map(() => "?").join(", ");
+    const result = await this.db
+      .prepare(`SELECT id FROM ${table} WHERE customer_id = ? AND id IN (${placeholders})`)
+      .bind(customerId, ...ids)
+      .all<{ id: number }>();
+    const owned = new Set((result.results ?? []).map((row) => row.id));
+    return ids.filter((id) => !owned.has(id));
   }
 }
