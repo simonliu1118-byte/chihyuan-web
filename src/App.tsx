@@ -16,7 +16,7 @@ const previewNavigation: readonly NavigationGroup[] = [
     key: "business",
     label: "業務",
     items: [
-      { key: "customers", label: "客戶", href: "#customers", description: "Customer composition preview" },
+      { key: "customers", label: "客戶", href: "#customers", description: "Customer interaction preview" },
       { key: "items", label: "商品", href: "#", disabled: true },
       { key: "orders", label: "銷售工單", href: "#", disabled: true },
       { key: "outsourcing", label: "委外", href: "#", disabled: true },
@@ -77,7 +77,7 @@ export default function App() {
           <StatusChip tone={statusTone}>{statusLabel}</StatusChip>
         </span>
       }
-      footer={<span className="cy-shell-foundation-note">Customer composition preview · 非正式 UI</span>}
+      footer={<span className="cy-shell-foundation-note">Customer interaction preview · 非正式 UI / 非正式資料</span>}
     >
       <div id="customers">
         <CustomerWorkspacePreview />
