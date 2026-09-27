@@ -38,6 +38,7 @@ For product/architecture semantics, current explicit user decisions and later co
 - `CUSTOMER_EDIT_INTERACTION.md` — Customer create/view/edit/cancel interaction contract consuming shared record-editor, editable-list, unsaved guard, confirmation and Toast foundations.
 - `CUSTOMER_SERVICE_FOUNDATION.md` — Worker-side Customer repository/domain/persistence boundary, search/detail queries, concurrency, duplicate Tax-ID, reference and child-row ownership safeguards before protected route wiring.
 - `CUSTOMER_RELATED_FOUNDATION.md` — Customer profile persistence details plus on-demand Visit/Frequent Item/Quote read-service boundaries and quote-history/audit safeguards.
+- `CUSTOMER_RELATED_UI.md` — first shared related-record panel and Customer Visit/Quote/Frequent/Audit presentation contract; explicitly not a recreation of Legacy `頁內表單`.
 - `BACKUP_ARCHITECTURE.md` — tiered R2 + GCS backup topology and provider/service boundary.
 - `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public-source / production-infrastructure separation.
 - `../DOMAIN_STRATEGY.md` — confirmed `chihyuancm.com` parent-domain namespace and controlled rollout direction for the official website and CY-family Web systems.
@@ -95,6 +96,9 @@ As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/requ
 - Visit-referenced Contacts are retained/deactivated rather than deleted when removed from the active Customer profile, preserving BD-015 historical relations and person snapshots.
 - Visits, Frequent Items and Customer-Item Quote history are separate on-demand resources. Initial read services are staged without folding them into every Customer-detail query.
 - Quote history uses a shared fixed-point mapper for scaled4 quantity/unit-price values and keeps BD-022 correction mutation deferred until structured Audit is wired.
+- Related-record navigation now has a shared `RelatedRecordPanel` shell rather than each business page creating its own tab mechanics. Domain modules still own their own record shape/content/actions.
+- Customer related-record UI has first-use presentations for Visit timeline, Quote history/price breaks, formal-vs-free-text Frequent Items and a restrained future Audit/History state. It is not a new name for the old GAS `頁內表單` implementation.
+- A temporary `#customer-related-preview` route mounts fictional data for layout review without protected API/D1 access.
 - Production business lists and entity lookups query Worker/D1 on demand rather than loading a whole module/master dataset into a browser-global cache as GAS did.
 - Current shell/form/data-view/picker/overlay/Customer-preview styling and tokens remain provisional. Final branding and later Tablet/Mobile refinements are not inherited from GAS.
 
@@ -163,6 +167,8 @@ Customer repository/domain-validation service foundation
         ↓
 Customer transactional profile persistence + related-record read services
         ↓
+shared RelatedRecordPanel + Customer related-record UI review
+        ↓
 protected Customer HTTP route wiring after Identity + local/dev D1/Worker gates
         ↓
 production custom-domain rollout
@@ -170,9 +176,9 @@ production custom-domain rollout
 production acceptance
 ```
 
-The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation, shared request/validation foundation, shared record-editor state, shared App Shell/primitives, shared form/unsaved-change handling, adaptive Data View, async Entity Picker, editable-list state, overlay/feedback and opt-in keyboard data-entry foundations. The pre-business readiness review records which remaining concerns are intentional first-use deferrals versus real external/runtime blockers.
+The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation, shared request/validation foundation, shared record-editor state, shared App Shell/primitives, shared form/unsaved-change handling, adaptive Data View, async Entity Picker, editable-list state, overlay/feedback, opt-in keyboard data-entry and RelatedRecordPanel foundations. The pre-business readiness review records which remaining concerns are intentional first-use deferrals versus real external/runtime blockers.
 
-The Customer workstream now includes the module/type contract, approved Desktop search/detail direction, browser-local create/edit interaction preview, Worker-side Customer query/domain service, transactional profile persistence and initial on-demand read services for Visits/Frequent Items/Quote history. These services are still not exposed through protected Customer HTTP routes. The production Shared Identity browser-session provider contract remains an external dependency, and production D1 / Worker bindings have **not** been created by these branches.
+The Customer workstream now includes the module/type contract, approved Desktop search/detail direction, browser-local create/edit interaction preview, Worker-side Customer query/domain service, transactional profile persistence, initial on-demand read services for Visits/Frequent Items/Quote history, and a first related-record UI review surface. These services are still not exposed through protected Customer HTTP routes. The production Shared Identity browser-session provider contract remains an external dependency, and production D1 / Worker bindings have **not** been created by these branches.
 
 ## Document precedence
 
