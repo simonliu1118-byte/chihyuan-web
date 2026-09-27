@@ -21,6 +21,7 @@ def main() -> int:
     advanced = read("src/runtime/advanced-local-types.ts")
     workspace = read("src/runtime/OperationalWorkspace.tsx")
     customer = read("src/runtime/modules/CustomerOperationalPage.tsx")
+    item = read("src/runtime/modules/ItemOperationalPage.tsx")
     defect = read("src/runtime/modules/DefectOperationalPage.tsx")
     doc = read("docs/architecture/OPERATIONAL_LOCAL_RUNTIME.md")
 
@@ -43,12 +44,11 @@ def main() -> int:
         if token not in store:
             raise AssertionError(f"missing persistent local-store contract: {token}")
 
-    for token in ["LocalCustomerVisit", "LocalCustomerQuote", "LocalCustomerFrequentItem", "LocalDefect", "defects?:"]:
+    for token in ["LocalCustomerVisit", "LocalCustomerQuote", "LocalCustomerFrequentItem", "LocalItemNumberHistory", "LocalDefect", "defects?:"]:
         if token not in advanced:
             raise AssertionError(f"missing advanced local runtime contract: {token}")
 
     for token in [
-        "ItemPage",
         "SalesOrderPage",
         "OutsourcingPage",
         "WorkLogPage",
@@ -72,6 +72,19 @@ def main() -> int:
     ]:
         if token not in customer:
             raise AssertionError(f"missing full Customer operational behavior: {token}")
+
+    for token in [
+        "validateConversions",
+        "item.number.changed",
+        "numberHistory",
+        "costTaxMode",
+        "storePrice",
+        "clinicPrice",
+        "更改品號",
+        "歷史品號",
+    ]:
+        if token not in item:
+            raise AssertionError(f"missing full Item operational behavior: {token}")
 
     for token in [
         "defect.processing.started",
