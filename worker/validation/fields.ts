@@ -1,10 +1,13 @@
 export class FieldValidationError extends Error {
   readonly fields: Record<string, string>;
 
-  constructor(fields: Record<string, string>) {
+  constructor(fields: object) {
     super("Request validation failed");
     this.name = "FieldValidationError";
-    this.fields = fields;
+    this.fields = {};
+    for (const [field, message] of Object.entries(fields)) {
+      if (typeof message === "string") this.fields[field] = message;
+    }
   }
 }
 
