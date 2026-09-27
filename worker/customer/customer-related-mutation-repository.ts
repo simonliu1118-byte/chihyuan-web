@@ -37,13 +37,17 @@ function assertContext(context: CustomerRelatedMutationContext): void {
 }
 
 function visitAuditPayload(visit: CustomerVisitRecord): AuditPayload {
+  const content = visit.content ?? "";
+  const contentPreview = content.slice(0, 1000);
   return {
     customerId: visit.customerId,
     visitDate: visit.visitDate,
     contactId: visit.contactId,
     personSnapshot: visit.personSnapshot,
     employeeId: visit.employee.id,
-    content: visit.content,
+    contentPreview,
+    contentLength: content.length,
+    contentTruncated: content.length > contentPreview.length,
     revision: visit.revision,
   };
 }
