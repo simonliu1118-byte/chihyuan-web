@@ -2,6 +2,7 @@ import type {
   CreateDefectRequest,
   DefectProfileInput,
   DefectTransitionRequest,
+  DeleteDefectRequest,
   UpdateDefectRequest,
 } from "../../shared/defect";
 import { FieldValidationError, ValidationBag } from "../validation/fields";
@@ -24,6 +25,10 @@ export interface NormalizedUpdateDefectRequest extends NormalizedDefectProfile {
 export interface NormalizedDefectTransitionRequest {
   expectedRevision: number;
   reason: string | null;
+}
+
+export interface NormalizedDeleteDefectRequest {
+  expectedRevision: number;
 }
 
 function asObject(value: unknown): Record<string, unknown> {
@@ -73,4 +78,12 @@ export function normalizeDefectTransitionRequest(raw: unknown): NormalizedDefect
   const reason = bag.optionalText("reason", { maxLength: 1000 });
   bag.throwIfInvalid();
   return { expectedRevision: expectedRevision ?? 0, reason };
+}
+
+export function normalizeDeleteDefectRequest(raw: unknown): NormalizedDeleteDefectRequest {
+  const input = asObject(raw as DeleteDefectRequest);
+  const bag = new ValidationBag(input);
+  const expectedRevision = bag.requiredPositiveInteger("expectedRevision");
+  bag.throwIfInvalid();
+  return { expectedRevision: expectedRevision ?? 0 };
 }
