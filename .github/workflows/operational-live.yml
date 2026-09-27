@@ -8,13 +8,18 @@ on:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
 
 concurrency:
   group: cyweb-operational-live
   cancel-in-progress: true
 
 jobs:
-  package:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
@@ -36,10 +41,16 @@ jobs:
           printf '%s\n' "${GITHUB_SHA}" > dist-operational/SOURCE_COMMIT
           touch dist-operational/.nojekyll
 
-      - name: Upload operational runtime
-        uses: actions/upload-artifact@v4
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
         with:
-          name: operational-runtime
+          enablement: true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
           path: dist-operational/
-          if-no-files-found: error
-          retention-days: 30
+
+      - name: Deploy Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
