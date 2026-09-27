@@ -36,15 +36,20 @@ jobs:
           python scripts/validate_foundation.py
           python scripts/validate_identity_foundation.py
           python scripts/validate_audit_foundation.py
-      - name: Customer source validators
-        run: |
-          python scripts/validate_customer_ui_preview.py
-          python scripts/validate_customer_service_foundation.py
-          python scripts/validate_customer_persistence_related.py
-          python scripts/validate_customer_related_ui.py
-          python scripts/validate_customer_related_mutations.py
-          python scripts/validate_customer_related_interactions.py
-          python scripts/validate_customer_full_preview.py
+      - name: Customer UI preview validator
+        run: python scripts/validate_customer_ui_preview.py
+      - name: Customer service validator
+        run: python scripts/validate_customer_service_foundation.py
+      - name: Customer persistence validator
+        run: python scripts/validate_customer_persistence_related.py
+      - name: Customer related UI validator
+        run: python scripts/validate_customer_related_ui.py
+      - name: Customer related mutation validator
+        run: python scripts/validate_customer_related_mutations.py
+      - name: Customer related interaction validator
+        run: python scripts/validate_customer_related_interactions.py
+      - name: Customer full preview validator
+        run: python scripts/validate_customer_full_preview.py
       - name: Item and Sales source validators
         run: |
           python scripts/validate_item_foundation.py
