@@ -117,6 +117,9 @@ def validate_schema_semantics() -> None:
     if snapshot != ("王小姐",):
         raise AssertionError("Visit person snapshot changed with Contact master")
 
+    # Commit the valid seed state before intentionally testing the RESTRICT failure.
+    conn.commit()
+
     # Visit-referenced Contact is protected by FK RESTRICT and therefore must be retained/deactivated.
     try:
         conn.execute("DELETE FROM customer_contacts WHERE id=1")
@@ -125,7 +128,6 @@ def validate_schema_semantics() -> None:
     else:
         raise AssertionError("Visit-referenced Contact unexpectedly deleted")
 
-    # Recreate after rollback of the attempted delete transaction state if needed.
     contact = conn.execute("SELECT id FROM customer_contacts WHERE id=1").fetchone()
     if contact is None:
         raise AssertionError("referenced Contact retention failed")
