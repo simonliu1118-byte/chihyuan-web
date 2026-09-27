@@ -10,5 +10,5 @@
     "moduleResolution": "Bundler",
     "noEmit": true
   },
-  "include": ["worker"]
+  "include": ["worker", "shared"]
 }

@@ -13,7 +13,7 @@ This file records current work and engineering direction. It is not a permanent 
 7. [ ] Complete Shared Identity browser-session provider wiring. The CY Web provider-neutral adapter, normalized principal contract and app-local module-access guards are staged; the shared provider still needs a CY Web-compatible browser-session contract.
 8. [x] Stage the shared CY Web Audit Core with compact payload guards, timeline projection and Admin/SA detail-query foundation.
 9. [ ] Bind the already-provisioned CY Web R2 bucket and add CY Web GCS runtime configuration only after the real CY Web Worker deployment boundary is accepted.
-10. [x] Complete the pre-business reusable application-foundation gate; begin Customer module contract/design while protected API wiring waits for Identity + local/dev runtime acceptance.
+10. [x] Complete the pre-business reusable application-foundation gate and initial Customer module/API contract; next is the first Customer visual composition review while protected API wiring waits for Identity + local/dev runtime acceptance.
 
 ## Phase 0 — Governance / Public foundation
 
@@ -95,7 +95,7 @@ Production starts from a clean D1 schema; forward D1 schema migrations remain re
 
 Implementation order may be adjusted for dependency efficiency, but all modules reuse the shared foundation rather than creating parallel patterns.
 
-- [ ] Customer / Visits / Frequent items / customer-item Quote history. **Next: module contract, query/validation boundary and first visual composition review; protected route wiring waits for Identity.**
+- [ ] Customer / Visits / Frequent items / customer-item Quote history. **Customer master contract and shared TypeScript request/response models are staged. Next: first Desktop/Tablet/Mobile visual composition review; protected route wiring waits for Identity.**
 - [ ] Item / unit conversion / Item history / Defect.
 - [ ] Sales work order / ERP fill-correct / picking / shipment / void.
 - [ ] Contractor / BOM / Outsourcing / receiving / pricing / payment / stock ledger.
