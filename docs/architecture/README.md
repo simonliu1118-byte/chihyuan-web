@@ -37,7 +37,7 @@ For product/architecture semantics, current explicit user decisions and later co
 - `CUSTOMER_UI_COMPOSITION.md` — approved Desktop-first Customer Master–Detail direction; search/filter/result controls belong to the left Search Pane and are not a page-wide toolbar.
 - `CUSTOMER_EDIT_INTERACTION.md` — Customer create/view/edit/cancel interaction contract consuming shared record-editor, editable-list, unsaved guard, confirmation and Toast foundations.
 - `CUSTOMER_SERVICE_FOUNDATION.md` — Worker-side Customer repository/domain/persistence boundary, search/detail queries, concurrency, duplicate Tax-ID, reference and child-row ownership safeguards before protected route wiring.
-- `CUSTOMER_RELATED_FOUNDATION.md` — Customer profile persistence details plus on-demand Visit/Frequent Item/Quote read-service boundaries and quote-history/audit safeguards.
+- `CUSTOMER_RELATED_FOUNDATION.md` — Customer profile persistence plus Visit/Frequent Item/Quote read and mutation boundaries, optimistic concurrency, exact fixed-point handling and structured Audit safeguards.
 - `CUSTOMER_RELATED_UI.md` — first shared related-record panel and Customer Visit/Quote/Frequent/Audit presentation contract; explicitly not a recreation of Legacy `頁內表單`.
 - `BACKUP_ARCHITECTURE.md` — tiered R2 + GCS backup topology and provider/service boundary.
 - `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public-source / production-infrastructure separation.
@@ -58,13 +58,13 @@ Their detailed historical versions remain under `archive/`. Legacy evidence expl
 
 ## Current architecture baseline
 
-As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/request/App-Shell/form/data-view/entity-picker/editable-list/overlay-feedback/keyboard-entry foundation:
+As of the decisions through BD-056 and the current D1/API/Identity/Audit/UI/request/shared-component/Customer foundations:
 
 - CY Web is one Web application for Desktop / Tablet / Mobile using RWD + Adaptive UI.
 - `chihyuancm.com` is the confirmed shared parent domain for the future public Chihyuan website and internal/business CY-family Web systems; each application keeps its own hostname/origin, deployment and security/session boundary.
 - Production custom-domain binding is a controlled rollout step, not an early foundation-development prerequisite.
 - Legacy GAS / Google Sheets is behavior/data-semantic reference only; unused test rows are not migrated to production D1.
-- Legacy UX is evaluated selectively: useful proven behavior may be retained/adapted, while the new screen structure, component implementation and responsive behavior follow the new CY Web architecture rather than reproducing GAS.
+- Legacy UX is evaluated selectively: useful proven behavior may be retained/adapted, while the new screen structure, component implementation and responsive behavior follow the new Web architecture rather than reproducing GAS.
 - Cloudflare Workers is the target application backend and D1 is the live relational database direction.
 - Current frontend foundation is TypeScript + React + Vite + Cloudflare Vite plugin.
 - Browser business requests use one shared API client/error/request-state foundation rather than per-page fetch conventions.
@@ -75,7 +75,7 @@ As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/requ
 - Initial fields follow validated GAS/Legacy business semantics; exact SMART ERP ownership/sync mapping is deferred to the future ERP integration project.
 - Formal business records retain only deliberate historical snapshots.
 - CY Web uses one shared in-App Audit Core; ordinary edits keep only latest modifier/time and meaningful business events use compact structured Audit.
-- Initial AuditService rejects credential-like payload keys, bounds JSON payload size and serves both concise timeline and detailed Admin/SA inspection from the same event store.
+- AuditService rejects credential-like payload keys, bounds JSON payload size, serves both concise timeline and detailed Admin/SA inspection, and now exposes a prepared conditional insert boundary so an important domain mutation and its Audit event can participate in one D1 batch transaction.
 - Repeated interaction mechanics are implemented as shared CY Web foundations rather than one copy per business module or one copy per device class.
 - One shared App Shell provides the structural application frame and data-driven navigation boundary; business modules compose inside it rather than building independent frames.
 - Shared UI primitives cover common button/notice/section/status and basic form-field semantics.
@@ -86,7 +86,8 @@ As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/requ
 - Dialog/Drawer/Bottom Sheet and confirmation behavior share one overlay foundation; routine successful actions use non-blocking Toast feedback instead of page-specific blocking alerts.
 - High-risk flows keep their stronger Business Decision safeguards; generic dialogs do not weaken Restore double-confirmation or authorization requirements.
 - Enter-to-next-field productivity behavior is available through one shared opt-in helper, while Tab order and component keyboard semantics remain authoritative. No global document-level Enter override is introduced.
-- The pre-business readiness review confirms that Customer module design/domain-contract work may begin without adding more speculative generic framework. Unit conversion UI, Audit presentation and authenticated permission UI are deferred to their first real use or runtime gate.
+- Shared fixed-point helpers now format and parse scaled values exactly; quote quantities/prices are converted to scaled4 integers without binary-floating persistence semantics.
+- The pre-business readiness review confirms that Customer module design/domain-contract work may begin without adding more speculative generic framework. Unit conversion UI, Audit presentation and authenticated permission UI remain first-use/runtime-gated concerns.
 - The initial Customer module contract separates the bounded Customer profile aggregate from Visits, Frequent Items and Quote history; search/list stays server-side and protected route wiring remains behind the Shared Identity/runtime gates.
 - The Customer Desktop composition has been browser-reviewed and refined to one left Search Pane plus independent right Detail Pane. Search/filter/result count/result list belong together; the search controls no longer span the whole page.
 - The Customer create/edit interaction preview consumes the shared record-editor, editable-list, unsaved-change guard, common form primitives, confirmation Dialog, Toast and opt-in Enter progression. Preview save remains browser-local/static only; it does not bypass the protected API gate.
@@ -94,9 +95,11 @@ As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/requ
 - The Customer repository/service foundation performs bounded on-demand search/detail queries and server-side checks for active references, optimistic revision, controlled Customer-number changes, duplicate Tax-ID acknowledgement and owned child-row IDs.
 - Customer master create/update persistence is staged behind the service boundary using transactional D1 batches, local actor metadata and one optimistic revision increment per successful profile update; no protected HTTP route is exposed yet.
 - Visit-referenced Contacts are retained/deactivated rather than deleted when removed from the active Customer profile, preserving BD-015 historical relations and person snapshots.
-- Visits, Frequent Items and Customer-Item Quote history are separate on-demand resources. Initial read services are staged without folding them into every Customer-detail query.
-- Quote history uses a shared fixed-point mapper for scaled4 quantity/unit-price values and keeps BD-022 correction mutation deferred until structured Audit is wired.
-- Related-record navigation now has a shared `RelatedRecordPanel` shell rather than each business page creating its own tab mechanics. Domain modules still own their own record shape/content/actions.
+- Visits, Frequent Items and Customer-Item Quote history are separate on-demand resources and are not folded into every Customer-detail query.
+- Visit mutation supports create/update/delete. Update uses revision concurrency; delete records a structured shared-Audit event in the same transaction as deletion.
+- Frequent Item mutation preserves the formal-Item versus free-text identity boundary. Formal linking always requires explicit `itemId`; update/delete use the existing row timestamp as the child-level concurrency token.
+- New Customer-Item Quote commercial terms create a new history record. Existing-record correction is a separate `correctQuote` path with revision checking and structured before/after Audit in the same batch. Quote hard-delete has not been reintroduced.
+- Related-record navigation has a shared `RelatedRecordPanel` shell rather than each business page creating its own tab mechanics. Domain modules still own their own record shape/content/actions.
 - Customer related-record UI has first-use presentations for Visit timeline, Quote history/price breaks, formal-vs-free-text Frequent Items and a restrained future Audit/History state. It is not a new name for the old GAS `頁內表單` implementation.
 - A temporary `#customer-related-preview` route mounts fictional data for layout review without protected API/D1 access.
 - Production business lists and entity lookups query Worker/D1 on demand rather than loading a whole module/master dataset into a browser-global cache as GAS did.
@@ -169,6 +172,8 @@ Customer transactional profile persistence + related-record read services
         ↓
 shared RelatedRecordPanel + Customer related-record UI review
         ↓
+Customer Visit/Frequent Item/Quote mutation services + transactional Audit
+        ↓
 protected Customer HTTP route wiring after Identity + local/dev D1/Worker gates
         ↓
 production custom-domain rollout
@@ -176,9 +181,9 @@ production custom-domain rollout
 production acceptance
 ```
 
-The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation, shared request/validation foundation, shared record-editor state, shared App Shell/primitives, shared form/unsaved-change handling, adaptive Data View, async Entity Picker, editable-list state, overlay/feedback, opt-in keyboard data-entry and RelatedRecordPanel foundations. The pre-business readiness review records which remaining concerns are intentional first-use deferrals versus real external/runtime blockers.
+The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation, shared request/validation foundation, shared record-editor state, shared App Shell/primitives, shared form/unsaved-change handling, adaptive Data View, async Entity Picker, editable-list state, overlay/feedback, opt-in keyboard data-entry, RelatedRecordPanel and exact fixed-point foundations.
 
-The Customer workstream now includes the module/type contract, approved Desktop search/detail direction, browser-local create/edit interaction preview, Worker-side Customer query/domain service, transactional profile persistence, initial on-demand read services for Visits/Frequent Items/Quote history, and a first related-record UI review surface. These services are still not exposed through protected Customer HTTP routes. The production Shared Identity browser-session provider contract remains an external dependency, and production D1 / Worker bindings have **not** been created by these branches.
+The Customer workstream now includes the module/type contract, approved Desktop search/detail direction, browser-local create/edit interaction preview, Worker-side Customer query/domain service, transactional profile persistence, on-demand related-record reads, first related-record UI review surface, and non-HTTP mutation services for Visits/Frequent Items/Quote history. These services are still not exposed through protected Customer HTTP routes. The production Shared Identity browser-session provider contract remains an external dependency, and production D1 / Worker bindings have **not** been created by these branches.
 
 ## Document precedence
 
