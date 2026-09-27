@@ -91,7 +91,7 @@ export default function App() {
       }
       footer={
         <span className="cy-shell-foundation-note">
-          {previewRoute === "customer-related" ? "Customer related-record UI review" : "Customer interaction preview"} · 非正式 UI / 非正式資料
+          {previewRoute === "customer-related" ? "Customer related-record interaction review" : "Customer interaction preview"} · 非正式 UI / 非正式資料
         </span>
       }
     >
