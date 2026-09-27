@@ -32,6 +32,7 @@ For product/architecture semantics, current explicit user decisions and later co
 - `EDITABLE_LIST_FOUNDATION.md` — shared repeated-row state, stable row identity, validation/error bags and dirty/reset/commit semantics.
 - `OVERLAY_FEEDBACK_FOUNDATION.md` — shared Dialog/Drawer/Bottom Sheet, confirmation and non-blocking Toast feedback hierarchy.
 - `KEYBOARD_ENTRY_FOUNDATION.md` — opt-in Enter field progression for proven high-frequency data-entry workflows without global key overrides.
+- `PRE_BUSINESS_READINESS.md` — final shared-foundation readiness matrix before the first production business module, including explicit deferred/runtime gates.
 - `BACKUP_ARCHITECTURE.md` — tiered R2 + GCS backup topology and provider/service boundary.
 - `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public-source / production-infrastructure separation.
 - `../DOMAIN_STRATEGY.md` — confirmed `chihyuancm.com` parent-domain namespace and controlled rollout direction for the official website and CY-family Web systems.
@@ -79,6 +80,7 @@ As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/requ
 - Dialog/Drawer/Bottom Sheet and confirmation behavior share one overlay foundation; routine successful actions use non-blocking Toast feedback instead of page-specific blocking alerts.
 - High-risk flows keep their stronger Business Decision safeguards; generic dialogs do not weaken Restore double-confirmation or authorization requirements.
 - Enter-to-next-field productivity behavior is available through one shared opt-in helper, while Tab order and component keyboard semantics remain authoritative. No global document-level Enter override is introduced.
+- The pre-business readiness review confirms that Customer module design/domain-contract work may begin without adding more speculative generic framework. Unit conversion UI, Audit presentation and authenticated permission UI are deferred to their first real use or runtime gate.
 - Production business lists and entity lookups query Worker/D1 on demand rather than loading a whole module/master dataset into a browser-global cache as GAS did.
 - Current shell/form/data-view/picker/overlay styling and tokens are explicitly provisional. Final visual composition, branding, production menu hierarchy and business layouts remain a dedicated UI/UX review item and are not inherited from GAS.
 
@@ -133,14 +135,20 @@ shared overlay + non-blocking feedback foundation
         ↓
 opt-in keyboard data-entry foundation
         ↓
-first business-module/API slice after remaining acceptance gates
+pre-business shared-foundation readiness gate
+        ↓
+Customer module contract/design work
+        ↓
+protected business API wiring after Identity + local/dev D1/Worker gates
         ↓
 production custom-domain rollout
         ↓
 production acceptance
 ```
 
-The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation, shared request/validation foundation, shared record-editor state, shared App Shell/primitives, shared form/unsaved-change handling, adaptive Data View, async Entity Picker, editable-list state, overlay/feedback and opt-in keyboard data-entry foundations. The production shared-Identity browser-session provider contract is still an external dependency, and the production D1 database / production Worker bindings have **not** been created by these branches.
+The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation, shared request/validation foundation, shared record-editor state, shared App Shell/primitives, shared form/unsaved-change handling, adaptive Data View, async Entity Picker, editable-list state, overlay/feedback and opt-in keyboard data-entry foundations. The pre-business readiness review records which remaining concerns are intentional first-use deferrals versus real external/runtime blockers.
+
+The production shared-Identity browser-session provider contract is still an external dependency, and the production D1 database / production Worker bindings have **not** been created by these branches.
 
 ## Document precedence
 

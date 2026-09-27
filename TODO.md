@@ -13,7 +13,7 @@ This file records current work and engineering direction. It is not a permanent 
 7. [ ] Complete Shared Identity browser-session provider wiring. The CY Web provider-neutral adapter, normalized principal contract and app-local module-access guards are staged; the shared provider still needs a CY Web-compatible browser-session contract.
 8. [x] Stage the shared CY Web Audit Core with compact payload guards, timeline projection and Admin/SA detail-query foundation.
 9. [ ] Bind the already-provisioned CY Web R2 bucket and add CY Web GCS runtime configuration only after the real CY Web Worker deployment boundary is accepted.
-10. [ ] Implement remaining reusable application foundation, then business modules.
+10. [x] Complete the pre-business reusable application-foundation gate; begin Customer module contract/design while protected API wiring waits for Identity + local/dev runtime acceptance.
 
 ## Phase 0 — Governance / Public foundation
 
@@ -63,7 +63,8 @@ Legacy source remains available as behavior/reference evidence.
 - [x] Implement `migrations/0001_initial.sql` from the Final Data Dictionary and add zero-dependency schema validation.
 - [x] Establish `migrations/` as the forward schema-migration source of truth for the clean-start database.
 - [x] Define the initial API response/error/cache/concurrency/validation/list-search contract in `docs/architecture/API_CONTRACT.md`.
-- [ ] Implement shared server-side request validation helpers and the first authenticated business API slice after Identity session wiring is available.
+- [x] Implement shared server-side bounded JSON parsing, generic field-validation and API error/response helpers.
+- [ ] Implement the first authenticated business API slice after Identity session wiring is available.
 - [x] Stage the shared CY Web Audit Core service on top of the confirmed `audit_events` schema; route-level authorization/UI wiring remains later work.
 - [ ] Apply migrations to local/dev D1 and run Worker + D1 smoke acceptance before schema freeze.
 
@@ -71,22 +72,30 @@ Production starts from a clean D1 schema; forward D1 schema migrations remain re
 
 ## Phase 3 — Reusable CY Web foundation
 
-- [ ] App Shell / navigation / route guard.
-- [ ] Shared Identity adapter / session handling / permission guard. Provider-neutral interface, principal normalization and reusable guards are staged; concrete shared-provider browser-session wiring remains pending.
+- [x] Shared App Shell and data-driven navigation structure.
+- [ ] Authenticated client route/menu permission state after Shared Identity browser-session wiring. UI hiding is never authoritative authorization.
+- [ ] Shared Identity adapter / session handling / permission guard. Provider-neutral interface, principal normalization and reusable server guards are staged; concrete shared-provider browser-session wiring remains pending.
 - [x] App-local `app_members` projection and app-tag/module access service per BD-037 are staged without copying credentials or shared roles into CY Web D1.
-- [ ] API client / standardized error / loading / retry pattern.
-- [ ] Form controls and validation presentation.
-- [ ] Data table / mobile cards / filter / search / pagination.
-- [ ] Dialog / Drawer / Bottom Sheet / full-screen mobile form patterns.
-- [ ] Shared Audit/history UI: concise business timeline plus Admin/SA detailed Audit Log.
-- [ ] RWD + Adaptive Desktop/Tablet/Mobile acceptance matrix.
-- [ ] Dedicated modern UI/UX review; do not copy Legacy GAS visual/refresh limitations by default.
+- [x] API client / standardized error / loading / retry pattern.
+- [x] Form controls and validation presentation.
+- [x] Record editor state + shared unsaved-change guard.
+- [x] Data table / mobile cards / filter / search / pagination.
+- [x] Generic asynchronous entity picker with explicit-selection semantics.
+- [x] Shared editable repeated-row state foundation.
+- [x] Dialog / Drawer / Bottom Sheet / confirmation / non-blocking Toast feedback.
+- [x] Opt-in accessible Enter-to-next-field data-entry helper.
+- [x] Pre-business shared-foundation readiness review and first-use/defer matrix (`PRE_BUSINESS_READINESS.md`).
+- [ ] Shared concise Audit timeline UI when the first real record/API integration proves the final presentation contract.
+- [ ] Admin/SA detailed Audit Log UI after authenticated Admin/SA API wiring exists.
+- [ ] Unit picker / conversion display helper when Item/Order becomes the first real use; avoid speculative calculation abstraction.
+- [ ] Dedicated modern UI/UX review of the first Customer composition; do not copy Legacy GAS visual/refresh limitations by default.
+- [ ] Desktop/Tablet/Mobile real-device/browser acceptance later in the production acceptance phase.
 
 ## Phase 4 — Business modules
 
 Implementation order may be adjusted for dependency efficiency, but all modules reuse the shared foundation rather than creating parallel patterns.
 
-- [ ] Customer / Visits / Frequent items / customer-item Quote history.
+- [ ] Customer / Visits / Frequent items / customer-item Quote history. **Next: module contract, query/validation boundary and first visual composition review; protected route wiring waits for Identity.**
 - [ ] Item / unit conversion / Item history / Defect.
 - [ ] Sales work order / ERP fill-correct / picking / shipment / void.
 - [ ] Contractor / BOM / Outsourcing / receiving / pricing / payment / stock ledger.
