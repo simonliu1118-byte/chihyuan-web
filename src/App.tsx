@@ -4,6 +4,7 @@ import { AppShell } from "./ui/shell/AppShell";
 import { OperationalWorkspace, type OperationalRoute } from "./runtime/OperationalWorkspace";
 import { CustomerOperationalPage } from "./runtime/modules/CustomerOperationalPage";
 import { DefectOperationalPage } from "./runtime/modules/DefectOperationalPage";
+import { ItemOperationalPage } from "./runtime/modules/ItemOperationalPage";
 
 type AppRoute = OperationalRoute | "defects";
 
@@ -58,6 +59,7 @@ export default function App() {
 
   let content: React.ReactNode;
   if (route === "customers") content = <CustomerOperationalPage />;
+  else if (route === "items") content = <ItemOperationalPage />;
   else if (route === "defects") content = <DefectOperationalPage />;
   else content = <OperationalWorkspace route={route as OperationalRoute} />;
 
