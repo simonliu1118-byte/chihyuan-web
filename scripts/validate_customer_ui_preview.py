@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Zero-dependency source checks for the Customer composition/edit interaction preview."""
+"""Zero-dependency source checks for Customer UI foundations and operational mounting."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ def require(path: str) -> str:
 
 def main() -> int:
     app = require("src/App.tsx")
+    operational = require("src/runtime/OperationalWorkspace.tsx")
     preview = require("src/modules/customer/CustomerWorkspacePreview.tsx")
     preview_css = require("src/modules/customer/customer-preview.css")
     edit_css = require("src/modules/customer/customer-edit-preview.css")
@@ -25,9 +26,11 @@ def main() -> int:
     edit_contract = require("docs/architecture/CUSTOMER_EDIT_INTERACTION.md")
     contract = require("docs/architecture/CUSTOMER_MODULE_CONTRACT.md")
 
-    if "CustomerWorkspacePreview" not in app or 'activeNavigationKey="customers"' not in app:
-        raise AssertionError("Customer preview is not mounted through the shared App Shell")
+    if "OperationalWorkspace" not in app or 'href: "#customers"' not in app or "CustomerPage" not in operational:
+        raise AssertionError("Customer operational workspace is not mounted through the shared App Shell")
 
+    # Keep validating the accepted Customer interaction/reference implementation even though
+    # the forward app surface is now the persistent operational runtime.
     for required in (
         "DataViewToolbar",
         "DataView",
@@ -78,7 +81,7 @@ def main() -> int:
     if "expectedRevision" not in contract or "DUPLICATE_TAX_ID_CONFIRM_REQUIRED" not in contract:
         raise AssertionError("Customer business contract safeguards are missing")
 
-    print("PASS Customer composition/edit interaction source checks")
+    print("PASS Customer UI foundation / operational mounting checks")
     return 0
 
 
@@ -86,5 +89,5 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except Exception as exc:
-        print(f"FAIL Customer preview validation: {exc}", file=sys.stderr)
+        print(f"FAIL Customer UI validation: {exc}", file=sys.stderr)
         raise
