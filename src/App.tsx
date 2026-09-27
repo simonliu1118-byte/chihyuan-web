@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { HealthData } from "../shared/api";
 import { apiRequest } from "./api/client";
+import { CustomerRelatedReviewPage } from "./modules/customer/CustomerRelatedReviewPage";
 import { CustomerWorkspacePreview } from "./modules/customer/CustomerWorkspacePreview";
 import type { NavigationGroup } from "./ui/foundation/navigation";
 import { StatusChip } from "./ui/primitives/StatusChip";
@@ -33,8 +34,13 @@ const previewNavigation: readonly NavigationGroup[] = [
   },
 ];
 
+function currentPreviewRoute(): "customer" | "customer-related" {
+  return window.location.hash === "#customer-related-preview" ? "customer-related" : "customer";
+}
+
 export default function App() {
   const [health, setHealth] = useState<HealthState>({ status: "loading" });
+  const [previewRoute, setPreviewRoute] = useState(currentPreviewRoute);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -63,6 +69,12 @@ export default function App() {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    const handleHashChange = () => setPreviewRoute(currentPreviewRoute());
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
+
   const statusTone = health.status === "ok" ? "success" : health.status === "error" ? "danger" : "neutral";
   const statusLabel = health.status === "ok" ? "基礎正常" : health.status === "error" ? "本機尚未就緒" : "檢查中";
 
@@ -77,11 +89,19 @@ export default function App() {
           <StatusChip tone={statusTone}>{statusLabel}</StatusChip>
         </span>
       }
-      footer={<span className="cy-shell-foundation-note">Customer interaction preview · 非正式 UI / 非正式資料</span>}
+      footer={
+        <span className="cy-shell-foundation-note">
+          {previewRoute === "customer-related" ? "Customer related-record UI review" : "Customer interaction preview"} · 非正式 UI / 非正式資料
+        </span>
+      }
     >
-      <div id="customers">
-        <CustomerWorkspacePreview />
-      </div>
+      {previewRoute === "customer-related" ? (
+        <CustomerRelatedReviewPage />
+      ) : (
+        <div id="customers">
+          <CustomerWorkspacePreview />
+        </div>
+      )}
     </AppShell>
   );
 }
