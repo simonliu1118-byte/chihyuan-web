@@ -34,6 +34,7 @@ For product/architecture semantics, current explicit user decisions and later co
 - `KEYBOARD_ENTRY_FOUNDATION.md` — opt-in Enter field progression for proven high-frequency data-entry workflows without global key overrides.
 - `PRE_BUSINESS_READINESS.md` — final shared-foundation readiness matrix before the first production business module, including explicit deferred/runtime gates.
 - `CUSTOMER_MODULE_CONTRACT.md` — first business-module contract: Customer identity/profile aggregate, list/detail/mutation boundaries, duplicate Tax-ID warning semantics and related-record boundaries.
+- `CUSTOMER_UI_COMPOSITION.md` — first Desktop-first Customer new-Web information architecture and review boundary; explicitly not a Legacy GAS screen replica.
 - `BACKUP_ARCHITECTURE.md` — tiered R2 + GCS backup topology and provider/service boundary.
 - `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public-source / production-infrastructure separation.
 - `../DOMAIN_STRATEGY.md` — confirmed `chihyuancm.com` parent-domain namespace and controlled rollout direction for the official website and CY-family Web systems.
@@ -82,9 +83,10 @@ As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/requ
 - High-risk flows keep their stronger Business Decision safeguards; generic dialogs do not weaken Restore double-confirmation or authorization requirements.
 - Enter-to-next-field productivity behavior is available through one shared opt-in helper, while Tab order and component keyboard semantics remain authoritative. No global document-level Enter override is introduced.
 - The pre-business readiness review confirms that Customer module design/domain-contract work may begin without adding more speculative generic framework. Unit conversion UI, Audit presentation and authenticated permission UI are deferred to their first real use or runtime gate.
-- The initial Customer module contract now separates the bounded Customer profile aggregate from Visits, Frequent Items and Quote history; search/list stays server-side and protected route wiring remains behind the Shared Identity/runtime gates.
+- The initial Customer module contract separates the bounded Customer profile aggregate from Visits, Frequent Items and Quote history; search/list stays server-side and protected route wiring remains behind the Shared Identity/runtime gates.
+- The first Customer composition is now staged as a static new-Web review surface: Desktop uses a search-and-detail workspace, view mode uses readable label/value presentation rather than disabled inputs, and related records remain bounded/on-demand instead of loading with every Customer detail.
 - Production business lists and entity lookups query Worker/D1 on demand rather than loading a whole module/master dataset into a browser-global cache as GAS did.
-- Current shell/form/data-view/picker/overlay styling and tokens are explicitly provisional. Final visual composition, branding, production menu hierarchy and business layouts remain a dedicated UI/UX review item and are not inherited from GAS.
+- Current shell/form/data-view/picker/overlay/Customer-preview styling and tokens are explicitly provisional. Final visual composition, branding, production menu hierarchy and business layouts remain a dedicated UI/UX review item and are not inherited from GAS.
 
 ## Backup baseline
 
@@ -141,7 +143,9 @@ pre-business shared-foundation readiness gate
         ↓
 Customer module contract + shared TypeScript contract
         ↓
-first Customer visual composition review
+Customer Desktop-first composition preview / UI review
+        ↓
+Customer create/edit interaction surface
         ↓
 protected Customer API wiring after Identity + local/dev D1/Worker gates
         ↓
@@ -152,7 +156,7 @@ production acceptance
 
 The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation, shared request/validation foundation, shared record-editor state, shared App Shell/primitives, shared form/unsaved-change handling, adaptive Data View, async Entity Picker, editable-list state, overlay/feedback and opt-in keyboard data-entry foundations. The pre-business readiness review records which remaining concerns are intentional first-use deferrals versus real external/runtime blockers.
 
-The Customer workstream has now begun at the contract layer with shared TypeScript request/response models. The production shared-Identity browser-session provider contract is still an external dependency, and the production D1 database / production Worker bindings have **not** been created by these branches.
+The Customer workstream now includes both the module/type contract and a static first composition preview. The preview intentionally contains no production Customer route/data and remains a review surface until the new-Web composition is accepted. The production shared-Identity browser-session provider contract is still an external dependency, and the production D1 database / production Worker bindings have **not** been created by these branches.
 
 ## Document precedence
 
