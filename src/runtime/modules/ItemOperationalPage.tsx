@@ -5,7 +5,7 @@ import {
   nextLocalId,
   timestampNow,
   type LocalItem,
-  type LocalUnitConversion,
+  type LocalItemConversion,
   useLocalDatabase,
 } from "../local-database";
 import "./item-operational.css";
@@ -36,8 +36,8 @@ function newDraft(database: ReturnType<typeof useLocalDatabase>): ItemDraft {
   };
 }
 
-function validateConversions(baseUnit: string, conversions: LocalUnitConversion[]): string | null {
-  const byFrom = new Map<string, LocalUnitConversion>();
+function validateConversions(baseUnit: string, conversions: LocalItemConversion[]): string | null {
+  const byFrom = new Map<string, LocalItemConversion>();
   for (const row of conversions) {
     const from = row.fromUnit.trim();
     const to = row.toUnit.trim();
@@ -178,7 +178,7 @@ export function ItemOperationalPage() {
     patch({ conversions: [...draft.conversions, { fromUnit: candidate, quantity: 1, toUnit: draft.baseUnit }] });
   }
 
-  function updateConversion(index: number, field: keyof LocalUnitConversion, value: string) {
+  function updateConversion(index: number, field: keyof LocalItemConversion, value: string) {
     if (!draft) return;
     patch({ conversions: draft.conversions.map((row, rowIndex) => rowIndex === index ? { ...row, [field]: field === "quantity" ? Number(value) : value } : row) });
   }
