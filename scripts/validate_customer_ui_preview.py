@@ -44,6 +44,8 @@ def main() -> int:
         "advanceFocusOnEnter",
         "新增客戶",
         "未儲存",
+        'readOnly={editor.mode === "edit"}',
+        "此客戶編號已存在",
     ):
         if required not in preview:
             raise AssertionError(f"Customer preview requirement missing: {required}")
@@ -65,6 +67,7 @@ def main() -> int:
     for required in (
         "shared `record-editor` state machine",
         "shared editable-list reducer",
+        "Customer number boundary",
         "Duplicate Tax ID preview",
         "Success uses the shared Toast region",
         "Hard delete is intentionally not added",
