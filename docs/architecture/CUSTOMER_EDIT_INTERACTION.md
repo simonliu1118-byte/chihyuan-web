@@ -63,7 +63,20 @@ High-frequency single-line inputs may opt into shared Enter-to-next-field progre
 
 Field validation is inline. Routine validation errors must not use blocking alerts.
 
-## 5. Duplicate Tax ID preview
+## 5. Customer number boundary
+
+`customerNo` remains conceptually SMART ERP-owned even though live ERP synchronization is deferred.
+
+The preview therefore distinguishes two cases:
+
+- while creating a new preview Customer, the optional field may be entered so both numbered and not-yet-numbered Customer states can be reviewed;
+- once an existing Customer is loaded, the number is not treated as an ordinary profile-edit field.
+
+Assignment/correction/change of an existing Customer number is a meaningful controlled action and must later use the protected server workflow plus shared Audit Core. The normal edit surface must not silently overwrite it.
+
+A duplicate non-empty Customer number is a hard conflict. The preview blocks an obvious duplicate in its static dataset; production D1 uniqueness and Worker validation remain authoritative.
+
+## 6. Duplicate Tax ID preview
 
 The confirmed Customer contract allows duplicate Tax ID but requires strong warning and explicit acknowledgement.
 
@@ -76,7 +89,7 @@ The interaction preview therefore:
 
 The production implementation will perform the authoritative check in the Worker/D1 service and use `DUPLICATE_TAX_ID_CONFIRM_REQUIRED`; client-side detection is not authoritative.
 
-## 6. Save feedback
+## 7. Save feedback
 
 Preview save writes only to in-memory/static browser state so the complete interaction can be reviewed before Identity/runtime wiring.
 
@@ -89,7 +102,7 @@ When protected API wiring is later available:
 - server response replaces the preview-only local mutation;
 - conflict, authorization and domain validation remain authoritative on the server.
 
-## 7. Customer selection during edit
+## 8. Customer selection during edit
 
 Desktop search stays visible beside Customer detail. This creates an important interaction rule:
 
@@ -99,13 +112,13 @@ Desktop search stays visible beside Customer detail. This creates an important i
 
 Search state remains independent from Customer record state.
 
-## 8. Delete boundary
+## 9. Delete boundary
 
 Hard delete is intentionally not added to this interaction preview merely because Legacy had a Delete button.
 
 The final Customer UI may expose hard delete only after the protected server dependency check confirms the Customer has never become a referenced business entity. Client state alone can never infer this safely.
 
-## 9. Production/runtime boundary
+## 10. Production/runtime boundary
 
 This preview does not:
 
@@ -118,7 +131,7 @@ This preview does not:
 
 Protected Customer CRUD still waits for the Shared Identity browser-session provider and local/dev Worker + D1 acceptance.
 
-## 10. Visual status
+## 11. Visual status
 
 The interaction is implemented inside the current Desktop-first Customer composition so usability can be reviewed with realistic state transitions.
 
