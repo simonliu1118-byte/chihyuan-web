@@ -18,6 +18,8 @@ Structured Audit is for meaningful actions such as:
 - Outsourcing outbound, receipt, pricing, payment and correction/reversal;
 - WorkLog submit, withdraw, review and cancel-review;
 - Defect status changes and reopen;
+- Customer Visit hard deletion where historical data is intentionally removed;
+- Customer-Item Quote correction of an existing historical record;
 - access/permission configuration changes;
 - important Settings/scoring/configuration changes;
 - backup/restore high-risk actions.
@@ -97,7 +99,28 @@ The Audit Core does not copy passwords or Shared Identity credential material.
 
 Normal timeline projection may join the current employee number for a concise display. If a later UI needs richer actor-name display, that should be resolved through the approved Identity/application presentation layer rather than duplicating credential authority in Audit.
 
-## 8. Query boundaries
+## 8. Transactional domain-event recording
+
+`AuditService` supports two write forms:
+
+1. `record(input)` for a direct standalone Audit event;
+2. `prepareRecord(input, condition?)` for a prepared D1 statement that a domain service can place inside the same `db.batch()` transaction as the business mutation.
+
+The optional condition is a trusted **server-side SQL expression only**. It lets an Audit insert use the same optimistic-concurrency predicate as the business mutation, for example:
+
+- Visit exists with the submitted revision before hard deletion;
+- Quote exists with the submitted revision before correction.
+
+The browser/API caller never supplies SQL or controls this condition text.
+
+This avoids the undesirable state where a meaningful business mutation commits but its required Audit event fails separately, or an Audit row is written for a stale mutation that did not occur.
+
+Current first uses:
+
+- Customer Visit delete;
+- Customer-Item Quote correction.
+
+## 9. Query boundaries
 
 ### Timeline
 
@@ -123,13 +146,13 @@ It intentionally omits `before_json`, `after_json`, `metadata_json` and request/
 
 The calling API must enforce Admin / Super Admin authorization before exposing this detailed projection.
 
-## 9. Retention
+## 10. Retention
 
 The Audit Core is designed so a retention/pruning operation can be added later, but no arbitrary production retention period is set now.
 
 A future policy must be based on observed event volume, D1 growth, backup-size impact and operational investigation needs, while respecting any Business Decision that explicitly requires particular evidence to remain available.
 
-## 10. Current implementation boundary
+## 11. Current implementation boundary
 
 Current source:
 
@@ -137,4 +160,4 @@ Current source:
 worker/audit/audit-service.ts
 ```
 
-The service is intentionally not yet exposed as a public API route. API wiring follows after Shared Identity/session authorization can protect the detailed Audit Log and after the first domain service begins recording confirmed business actions.
+The service is intentionally not yet exposed as a public detailed-Audit API route. Domain services may already use it internally. Detailed Audit API/UI wiring still follows Shared Identity/session authorization and the Admin/Super Admin boundary.
