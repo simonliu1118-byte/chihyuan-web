@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local zero-dependency smoke validation for the CY Web initial D1 schema draft.
+"""Local zero-dependency smoke validation for the CY Web D1 schema migration chain.
 
 This intentionally uses Python's stdlib sqlite3 so the schema can be checked without
 spending GitHub Actions minutes. It validates SQLite syntax/foreign keys and a few
@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATION = ROOT / "migrations" / "0001_initial.sql"
+MIGRATIONS_DIR = ROOT / "migrations"
 
 EXPECTED_TABLES = {
     "app_member_tags",
@@ -66,9 +66,10 @@ EXPECTED_TABLES = {
 
 
 def load_schema() -> str:
-    if not MIGRATION.is_file():
-        raise AssertionError(f"missing migration: {MIGRATION}")
-    return MIGRATION.read_text(encoding="utf-8")
+    migration_files = sorted(MIGRATIONS_DIR.glob("*.sql"))
+    if not migration_files:
+        raise AssertionError(f"missing migrations in: {MIGRATIONS_DIR}")
+    return "\n\n".join(path.read_text(encoding="utf-8") for path in migration_files)
 
 
 def new_db(schema: str) -> sqlite3.Connection:
@@ -146,7 +147,6 @@ def validate_order_customer_modes(schema: str) -> None:
     seed_member(conn)
     now = "2026-09-27T00:00:00Z"
 
-    # Name-only field entry is intentionally legal before internal staff reconciles the Customer.
     conn.execute(
         """
         INSERT INTO sales_work_orders(
@@ -157,7 +157,6 @@ def validate_order_customer_modes(schema: str) -> None:
         (now, now),
     )
 
-    # An unlinked order may not pretend to carry a formal Customer number.
     assert_integrity_error(
         conn,
         """
@@ -200,7 +199,6 @@ def validate_worklog_cancel_review_shape(schema: str) -> None:
     seed_member(conn)
     now = "2026-09-27T00:00:00Z"
 
-    # pending_review must not retain the cancelled review's current-effective fields.
     assert_integrity_error(
         conn,
         """
@@ -243,6 +241,45 @@ def validate_audit_generic_entity_key(schema: str) -> None:
     conn.close()
 
 
+def validate_defect_invalidation_shape(schema: str) -> None:
+    conn = new_db(schema)
+    seed_member(conn)
+    now = "2026-09-27T00:00:00Z"
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(defect_reports)")}
+    if not {"invalidated_at", "invalidated_by"}.issubset(columns):
+        raise AssertionError("Defect invalidation migration columns missing")
+
+    conn.execute(
+        "INSERT INTO customers(short_name, created_at, updated_at) VALUES ('甲診所', ?, ?)",
+        (now, now),
+    )
+    conn.execute(
+        "INSERT INTO items(item_no, name, base_unit, created_at, updated_at) VALUES ('I001', '測試品', '盒', ?, ?)",
+        (now, now),
+    )
+    conn.execute(
+        """
+        INSERT INTO defect_reports(
+            reported_date, customer_id, customer_name_snapshot,
+            item_id, item_no_snapshot, item_name_snapshot,
+            owner_employee_id, defect_description, status_code,
+            created_at, updated_at
+        ) VALUES ('2026-09-27', 1, '甲診所', 1, 'I001', '測試品', 1, '瑕疵', 'processing', ?, ?)
+        """,
+        (now, now),
+    )
+    conn.execute(
+        "UPDATE defect_reports SET invalidated_at=?, invalidated_by=? WHERE id=1",
+        (now, 1),
+    )
+    invalidated = conn.execute(
+        "SELECT invalidated_at, invalidated_by FROM defect_reports WHERE id=1"
+    ).fetchone()
+    if invalidated != (now, 1):
+        raise AssertionError("Defect invalidation metadata did not persist")
+    conn.close()
+
+
 def main() -> int:
     schema = load_schema()
     checks = [
@@ -252,12 +289,17 @@ def main() -> int:
         validate_contact_history_retention,
         validate_worklog_cancel_review_shape,
         validate_audit_generic_entity_key,
+        validate_defect_invalidation_shape,
     ]
     for check in checks:
         check(schema)
         print(f"PASS {check.__name__}")
 
-    print(f"PASS initial schema: {len(EXPECTED_TABLES)} tables, {len(checks)} validation groups")
+    migration_count = len(list(MIGRATIONS_DIR.glob("*.sql")))
+    print(
+        f"PASS schema migration chain: {migration_count} migrations, "
+        f"{len(EXPECTED_TABLES)} tables, {len(checks)} validation groups"
+    )
     return 0
 
 
