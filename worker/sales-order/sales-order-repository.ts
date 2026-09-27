@@ -66,6 +66,8 @@ export interface SalesWorkOrderItemRef {
   itemNo: string;
   itemName: string;
   spec: string | null;
+  baseUnit: string;
+  allowedUnits: ReadonlySet<string>;
 }
 
 export interface SalesWorkOrderOperatorRef {
@@ -313,16 +315,46 @@ export class SalesWorkOrderRepository {
     const ids = [...new Set(itemIds.filter((id) => Number.isInteger(id) && id > 0))];
     if (ids.length === 0) return new Map();
     const placeholders = ids.map(() => "?").join(", ");
-    const result = await this.db.prepare(`
-      SELECT id, item_no, name, spec
-        FROM items
-       WHERE id IN (${placeholders})
-    `).bind(...ids).all<{ id: number; item_no: string; name: string; spec: string | null }>();
-    return new Map((result.results ?? []).map((row) => [row.id, {
-      id: row.id,
-      itemNo: row.item_no,
-      itemName: row.name,
-      spec: row.spec,
-    }]));
+    const [itemResult, conversionResult] = await this.db.batch([
+      this.db.prepare(`
+        SELECT id, item_no, name, spec, base_unit
+          FROM items
+         WHERE id IN (${placeholders})
+      `).bind(...ids),
+      this.db.prepare(`
+        SELECT item_id, from_unit
+          FROM item_unit_conversions
+         WHERE item_id IN (${placeholders})
+      `).bind(...ids),
+    ]);
+
+    const unitMap = new Map<number, Set<string>>();
+    for (const raw of conversionResult?.results ?? []) {
+      const row = raw as { item_id: number; from_unit: string };
+      const set = unitMap.get(row.item_id) ?? new Set<string>();
+      set.add(row.from_unit);
+      unitMap.set(row.item_id, set);
+    }
+
+    const entries = (itemResult?.results ?? []).map((raw) => {
+      const row = raw as {
+        id: number;
+        item_no: string;
+        name: string;
+        spec: string | null;
+        base_unit: string;
+      };
+      const allowedUnits = unitMap.get(row.id) ?? new Set<string>();
+      allowedUnits.add(row.base_unit);
+      return [row.id, {
+        id: row.id,
+        itemNo: row.item_no,
+        itemName: row.name,
+        spec: row.spec,
+        baseUnit: row.base_unit,
+        allowedUnits,
+      }] as const;
+    });
+    return new Map(entries);
   }
 }
