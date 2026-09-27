@@ -71,7 +71,7 @@ def main() -> int:
         "interaction review",
         "Drawer",
         "explicitly selects",
-        "new commercial quote",
+        "New commercial quote",
         "correction",
         "not a production route",
     ):
