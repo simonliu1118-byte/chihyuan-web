@@ -4,7 +4,6 @@ import type {
   CustomerContactInput,
   CustomerNoteInput,
   CustomerPhoneInput,
-  CustomerProfileInput,
   UpdateCustomerRequest,
 } from "../../shared/customer";
 import { FieldValidationError, ValidationBag } from "../validation/fields";
@@ -268,7 +267,7 @@ export function normalizeCreateCustomerRequest(raw: unknown): NormalizedCreateCu
 
 export function normalizeUpdateCustomerRequest(raw: unknown): NormalizedUpdateCustomerRequest {
   const input = asObject(raw as UpdateCustomerRequest);
-  const normalized = normalizeProfile(input as CustomerProfileInput);
+  const normalized = normalizeProfile(input);
   const bag = new ValidationBag(input);
   const expectedRevision = bag.requiredPositiveInteger("expectedRevision");
   bag.throwIfInvalid();
