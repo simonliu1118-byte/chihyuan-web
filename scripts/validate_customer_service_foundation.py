@@ -65,7 +65,7 @@ def validate_sources() -> None:
 
     for token in (
         "on demand",
-        "child-row ownership",
+        "Owned child-row protection",
         "Shared Identity",
         "does not by itself",
     ):

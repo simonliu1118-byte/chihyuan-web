@@ -7,6 +7,10 @@ import type {
 } from "../../shared/customer";
 import { FieldValidationError } from "../validation/fields";
 import {
+  CustomerPersistence,
+  type CustomerMutationContext,
+} from "./customer-persistence";
+import {
   CustomerRepository,
   type CustomerForeignChildIds,
   type CustomerOwnedChildIds,
@@ -92,11 +96,19 @@ function normalizeCustomerId(customerId: number): number {
   return customerId;
 }
 
+function isCustomerNumberConstraintError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /UNIQUE constraint failed:\s*customers\.customer_no/i.test(message)
+    || /ux_customers_customer_no_present/i.test(message);
+}
+
 export class CustomerService {
   private readonly repository: CustomerRepository;
+  private readonly persistence: CustomerPersistence;
 
   constructor(db: D1Database) {
     this.repository = new CustomerRepository(db);
+    this.persistence = new CustomerPersistence(db);
   }
 
   async search(query: CustomerSearchQuery): Promise<CustomerListResult> {
@@ -130,6 +142,44 @@ export class CustomerService {
       matches,
       requiresConfirmation: matches.length > 0,
     };
+  }
+
+  async create(raw: unknown, context: CustomerMutationContext): Promise<CustomerDetail> {
+    const input = await this.preflightCreate(raw);
+    let customerId: number;
+    try {
+      customerId = await this.persistence.create(input, context);
+    } catch (error) {
+      // Preflight gives a friendly conflict in the common case; the D1 unique
+      // index remains the final authority if another writer wins the race.
+      if (isCustomerNumberConstraintError(error)) {
+        throw new CustomerServiceError(
+          "CUSTOMER_NO_CONFLICT",
+          409,
+          "Customer number already exists",
+        );
+      }
+      throw error;
+    }
+    return this.getDetail(customerId);
+  }
+
+  async update(
+    customerId: number,
+    raw: unknown,
+    context: CustomerMutationContext,
+  ): Promise<CustomerDetail> {
+    const id = normalizeCustomerId(customerId);
+    const input = await this.preflightUpdate(id, raw);
+    const updated = await this.persistence.update(id, input, context);
+    if (!updated) {
+      throw new CustomerServiceError(
+        "CUSTOMER_REVISION_CONFLICT",
+        409,
+        "Customer has changed since it was loaded",
+      );
+    }
+    return this.getDetail(id);
   }
 
   async preflightCreate(raw: unknown): Promise<NormalizedCreateCustomerRequest> {

@@ -36,7 +36,8 @@ For product/architecture semantics, current explicit user decisions and later co
 - `CUSTOMER_MODULE_CONTRACT.md` — first business-module contract: Customer identity/profile aggregate, list/detail/mutation boundaries, duplicate Tax-ID warning semantics and related-record boundaries.
 - `CUSTOMER_UI_COMPOSITION.md` — approved Desktop-first Customer Master–Detail direction; search/filter/result controls belong to the left Search Pane and are not a page-wide toolbar.
 - `CUSTOMER_EDIT_INTERACTION.md` — Customer create/view/edit/cancel interaction contract consuming shared record-editor, editable-list, unsaved guard, confirmation and Toast foundations.
-- `CUSTOMER_SERVICE_FOUNDATION.md` — Worker-side Customer repository/domain-validation boundary, search/detail queries, concurrency, duplicate Tax-ID, reference and child-row ownership safeguards before protected route wiring.
+- `CUSTOMER_SERVICE_FOUNDATION.md` — Worker-side Customer repository/domain/persistence boundary, search/detail queries, concurrency, duplicate Tax-ID, reference and child-row ownership safeguards before protected route wiring.
+- `CUSTOMER_RELATED_FOUNDATION.md` — Customer profile persistence details plus on-demand Visit/Frequent Item/Quote read-service boundaries and quote-history/audit safeguards.
 - `BACKUP_ARCHITECTURE.md` — tiered R2 + GCS backup topology and provider/service boundary.
 - `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public-source / production-infrastructure separation.
 - `../DOMAIN_STRATEGY.md` — confirmed `chihyuancm.com` parent-domain namespace and controlled rollout direction for the official website and CY-family Web systems.
@@ -89,7 +90,11 @@ As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/requ
 - The Customer Desktop composition has been browser-reviewed and refined to one left Search Pane plus independent right Detail Pane. Search/filter/result count/result list belong together; the search controls no longer span the whole page.
 - The Customer create/edit interaction preview consumes the shared record-editor, editable-list, unsaved-change guard, common form primitives, confirmation Dialog, Toast and opt-in Enter progression. Preview save remains browser-local/static only; it does not bypass the protected API gate.
 - Customer duplicate Tax-ID behavior is represented as an explicit confirmation interaction in the preview, while the Worker/D1 check remains authoritative.
-- The staged Customer repository/service foundation now performs bounded on-demand search/detail queries and server-side preflight checks for active references, optimistic revision, controlled Customer-number changes, duplicate Tax-ID acknowledgement and owned child-row IDs. It still exposes no protected Customer route and performs no production write.
+- The Customer repository/service foundation performs bounded on-demand search/detail queries and server-side checks for active references, optimistic revision, controlled Customer-number changes, duplicate Tax-ID acknowledgement and owned child-row IDs.
+- Customer master create/update persistence is staged behind the service boundary using transactional D1 batches, local actor metadata and one optimistic revision increment per successful profile update; no protected HTTP route is exposed yet.
+- Visit-referenced Contacts are retained/deactivated rather than deleted when removed from the active Customer profile, preserving BD-015 historical relations and person snapshots.
+- Visits, Frequent Items and Customer-Item Quote history are separate on-demand resources. Initial read services are staged without folding them into every Customer-detail query.
+- Quote history uses a shared fixed-point mapper for scaled4 quantity/unit-price values and keeps BD-022 correction mutation deferred until structured Audit is wired.
 - Production business lists and entity lookups query Worker/D1 on demand rather than loading a whole module/master dataset into a browser-global cache as GAS did.
 - Current shell/form/data-view/picker/overlay/Customer-preview styling and tokens remain provisional. Final branding and later Tablet/Mobile refinements are not inherited from GAS.
 
@@ -156,7 +161,9 @@ Customer create/edit interaction preview using shared foundations
         ↓
 Customer repository/domain-validation service foundation
         ↓
-protected Customer persistence + API wiring after Identity + local/dev D1/Worker gates
+Customer transactional profile persistence + related-record read services
+        ↓
+protected Customer HTTP route wiring after Identity + local/dev D1/Worker gates
         ↓
 production custom-domain rollout
         ↓
@@ -165,7 +172,7 @@ production acceptance
 
 The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation, shared request/validation foundation, shared record-editor state, shared App Shell/primitives, shared form/unsaved-change handling, adaptive Data View, async Entity Picker, editable-list state, overlay/feedback and opt-in keyboard data-entry foundations. The pre-business readiness review records which remaining concerns are intentional first-use deferrals versus real external/runtime blockers.
 
-The Customer workstream now includes the module/type contract, an approved Desktop search/detail direction, a browser-local create/edit interaction preview and a staged Worker-side Customer repository/domain-validation service. The preview intentionally contains no production Customer data, and the service is not yet exposed through protected Customer routes. The production Shared Identity browser-session provider contract remains an external dependency, and the production D1 database / production Worker bindings have **not** been created by these branches.
+The Customer workstream now includes the module/type contract, approved Desktop search/detail direction, browser-local create/edit interaction preview, Worker-side Customer query/domain service, transactional profile persistence and initial on-demand read services for Visits/Frequent Items/Quote history. These services are still not exposed through protected Customer HTTP routes. The production Shared Identity browser-session provider contract remains an external dependency, and production D1 / Worker bindings have **not** been created by these branches.
 
 ## Document precedence
 
