@@ -9,6 +9,7 @@ import "./ui/overlays/overlay.css";
 import "./ui/feedback/toast.css";
 import "./modules/customer/customer-preview.css";
 import "./modules/customer/customer-edit-preview.css";
+import "./modules/customer/customer-approved-layout.css";
 
 const root = document.getElementById("root");
 
