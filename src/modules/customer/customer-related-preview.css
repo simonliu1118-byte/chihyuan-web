@@ -128,6 +128,18 @@
   line-height: 1.6;
 }
 
+.cy-customer-related-row-actions,
+.cy-customer-quote-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.cy-customer-quote-actions {
+  padding: 0 10px 10px;
+}
+
 .cy-customer-quote-list {
   display: grid;
   gap: 10px;
@@ -317,9 +329,101 @@
   border-top: 0;
 }
 
+.cy-related-editor-form {
+  display: grid;
+  gap: 18px;
+}
+
+.cy-related-editor-grid-2,
+.cy-related-editor-grid-3 {
+  display: grid;
+  gap: 12px;
+}
+
+.cy-related-editor-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.cy-related-editor-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cy-related-editor-list-head,
+.cy-related-editor-card-head,
+.cy-related-editor-card-bottom {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cy-related-editor-list-head > div {
+  display: grid;
+  gap: 3px;
+}
+
+.cy-related-editor-list-head strong {
+  font-size: 13px;
+}
+
+.cy-related-editor-list-head span {
+  color: var(--cy-text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.cy-related-editor-list {
+  display: grid;
+  gap: 10px;
+}
+
+.cy-related-editor-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--cy-border);
+  border-radius: 12px;
+  background: var(--cy-surface-muted);
+}
+
+.cy-related-editor-card-head > .cy-field,
+.cy-related-editor-card-bottom > .cy-field {
+  flex: 1 1 auto;
+}
+
+.cy-related-editor-card-bottom {
+  align-items: end;
+}
+
+.cy-related-editor-error {
+  margin-top: -8px;
+  color: var(--cy-danger);
+  font-size: 12px;
+}
+
 @media (max-width: 1120px) {
   .cy-customer-frequent-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .cy-related-editor-grid-2,
+  .cy-related-editor-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .cy-related-editor-list-head,
+  .cy-related-editor-card-head,
+  .cy-related-editor-card-bottom {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cy-related-editor-list-head .cy-button,
+  .cy-related-editor-card-head .cy-button,
+  .cy-related-editor-card-bottom .cy-button {
+    width: 100%;
   }
 }
 
