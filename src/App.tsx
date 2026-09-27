@@ -3,6 +3,9 @@ import type { NavigationGroup } from "./ui/foundation/navigation";
 import { AppShell } from "./ui/shell/AppShell";
 import { OperationalWorkspace, type OperationalRoute } from "./runtime/OperationalWorkspace";
 import { CustomerOperationalPage } from "./runtime/modules/CustomerOperationalPage";
+import { DefectOperationalPage } from "./runtime/modules/DefectOperationalPage";
+
+type AppRoute = OperationalRoute | "defects";
 
 const navigation: readonly NavigationGroup[] = [
   {
@@ -11,6 +14,7 @@ const navigation: readonly NavigationGroup[] = [
     items: [
       { key: "customers", label: "客戶", href: "#customers" },
       { key: "items", label: "商品", href: "#items" },
+      { key: "defects", label: "瑕疵", href: "#defects" },
       { key: "orders", label: "銷售工單", href: "#orders" },
       { key: "outsourcing", label: "委外", href: "#outsourcing" },
       { key: "worklogs", label: "工作日誌", href: "#worklogs" },
@@ -26,9 +30,10 @@ const navigation: readonly NavigationGroup[] = [
   },
 ];
 
-const routes = new Set<OperationalRoute>([
+const routes = new Set<AppRoute>([
   "customers",
   "items",
+  "defects",
   "orders",
   "outsourcing",
   "worklogs",
@@ -36,13 +41,13 @@ const routes = new Set<OperationalRoute>([
   "audit",
 ]);
 
-function currentRoute(): OperationalRoute {
-  const value = window.location.hash.replace(/^#/, "") as OperationalRoute;
+function currentRoute(): AppRoute {
+  const value = window.location.hash.replace(/^#/, "") as AppRoute;
   return routes.has(value) ? value : "customers";
 }
 
 export default function App() {
-  const [route, setRoute] = useState<OperationalRoute>(currentRoute);
+  const [route, setRoute] = useState<AppRoute>(currentRoute);
 
   useEffect(() => {
     if (!window.location.hash) window.location.hash = "#customers";
@@ -50,6 +55,11 @@ export default function App() {
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
+
+  let content: React.ReactNode;
+  if (route === "customers") content = <CustomerOperationalPage />;
+  else if (route === "defects") content = <DefectOperationalPage />;
+  else content = <OperationalWorkspace route={route as OperationalRoute} />;
 
   return (
     <AppShell
@@ -60,7 +70,7 @@ export default function App() {
       headerActions={<div className="cy-op-runtime-banner">本機操作模式 · localStorage 持久保存</div>}
       footer={<span className="cy-shell-foundation-note">Operational Local Runtime · 尚未連接 D1 / Shared Identity</span>}
     >
-      {route === "customers" ? <CustomerOperationalPage /> : <OperationalWorkspace route={route} />}
+      {content}
     </AppShell>
   );
 }
