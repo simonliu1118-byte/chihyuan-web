@@ -5,8 +5,7 @@ export type AuditJsonValue =
   | { [key: string]: AuditJsonValue };
 
 export type AuditPayload = Record<string, AuditJsonValue>;
-
-type D1Scalar = string | number | null;
+export type AuditSqlScalar = string | number | null;
 
 export interface AuditEventInput {
   entityType: string;
@@ -20,6 +19,16 @@ export interface AuditEventInput {
   before?: AuditPayload | null;
   after?: AuditPayload | null;
   metadata?: AuditPayload | null;
+}
+
+export interface AuditInsertCondition {
+  /**
+   * Trusted server-side SQL expression appended after WHERE. Use anonymous `?`
+   * placeholders only; values are bound after the audit values. This is intended
+   * for atomic domain-mutation batches, never for client-provided SQL.
+   */
+  sql: string;
+  values?: readonly AuditSqlScalar[];
 }
 
 export interface AuditEventRecord {
@@ -136,56 +145,77 @@ function normalizeLimit(value: number | undefined): number {
   return value;
 }
 
+function normalizedAuditValues(input: AuditEventInput): readonly AuditSqlScalar[] {
+  const entityType = normalizeCode(input.entityType, "entityType");
+  const entityKey = normalizeEntityKey(input.entityKey);
+  const action = normalizeCode(input.action, "action");
+  const statusFrom = normalizeOptionalText(input.statusFrom);
+  const statusTo = normalizeOptionalText(input.statusTo);
+  const requestId = normalizeOptionalText(input.requestId, MAX_REQUEST_ID_LENGTH);
+  const occurredAt = input.occurredAt?.trim() || new Date().toISOString();
+
+  const before = encodePayload(input.before);
+  const after = encodePayload(input.after);
+  const metadata = encodePayload(input.metadata);
+  if (before.bytes + after.bytes + metadata.bytes > MAX_JSON_BYTES_TOTAL) {
+    throw new Error("AUDIT_PAYLOAD_TOTAL_TOO_LARGE");
+  }
+
+  return [
+    entityType,
+    entityKey,
+    action,
+    input.actorEmployeeId ?? null,
+    occurredAt,
+    statusFrom,
+    statusTo,
+    requestId,
+    before.json,
+    after.json,
+    metadata.json,
+  ];
+}
+
 export class AuditService {
   constructor(private readonly db: D1Database) {}
 
-  async record(input: AuditEventInput): Promise<number> {
-    const entityType = normalizeCode(input.entityType, "entityType");
-    const entityKey = normalizeEntityKey(input.entityKey);
-    const action = normalizeCode(input.action, "action");
-    const statusFrom = normalizeOptionalText(input.statusFrom);
-    const statusTo = normalizeOptionalText(input.statusTo);
-    const requestId = normalizeOptionalText(input.requestId, MAX_REQUEST_ID_LENGTH);
-    const occurredAt = input.occurredAt?.trim() || new Date().toISOString();
+  prepareRecord(input: AuditEventInput, condition?: AuditInsertCondition): D1PreparedStatement {
+    const values = normalizedAuditValues(input);
+    const columns = `
+      entity_type,
+      entity_key,
+      action,
+      actor_employee_id,
+      occurred_at,
+      status_from,
+      status_to,
+      request_id,
+      before_json,
+      after_json,
+      metadata_json
+    `;
 
-    const before = encodePayload(input.before);
-    const after = encodePayload(input.after);
-    const metadata = encodePayload(input.metadata);
-    if (before.bytes + after.bytes + metadata.bytes > MAX_JSON_BYTES_TOTAL) {
-      throw new Error("AUDIT_PAYLOAD_TOTAL_TOO_LARGE");
+    if (!condition) {
+      return this.db.prepare(`
+        INSERT INTO audit_events (${columns})
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(...values);
     }
 
-    const result = await this.db
-      .prepare(
-        `INSERT INTO audit_events (
-           entity_type,
-           entity_key,
-           action,
-           actor_employee_id,
-           occurred_at,
-           status_from,
-           status_to,
-           request_id,
-           before_json,
-           after_json,
-           metadata_json
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`,
-      )
-      .bind(
-        entityType,
-        entityKey,
-        action,
-        input.actorEmployeeId ?? null,
-        occurredAt,
-        statusFrom,
-        statusTo,
-        requestId,
-        before.json,
-        after.json,
-        metadata.json,
-      )
-      .run();
+    const conditionSql = condition.sql.trim();
+    if (!conditionSql || conditionSql.includes(";")) {
+      throw new Error("INVALID_AUDIT_INSERT_CONDITION");
+    }
 
+    return this.db.prepare(`
+      INSERT INTO audit_events (${columns})
+      SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+       WHERE (${conditionSql})
+    `).bind(...values, ...(condition.values ?? []));
+  }
+
+  async record(input: AuditEventInput): Promise<number> {
+    const result = await this.prepareRecord(input).run();
     const id = Number(result.meta.last_row_id);
     if (!Number.isInteger(id) || id <= 0) throw new Error("AUDIT_INSERT_FAILED");
     return id;
@@ -236,9 +266,9 @@ export class AuditService {
 
   async listDetailed(query: AuditQuery): Promise<AuditEventRecord[]> {
     const where: string[] = [];
-    const values: D1Scalar[] = [];
+    const values: AuditSqlScalar[] = [];
 
-    const bind = (value: D1Scalar): string => {
+    const bind = (value: AuditSqlScalar): string => {
       values.push(value);
       return `?${values.length}`;
     };
