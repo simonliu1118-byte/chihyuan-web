@@ -1,0 +1,109 @@
+/*
+ * Readability baseline raised after first full Customer workspace review.
+ * Keep information density, but do not use 10–12px body text for normal business reading.
+ */
+
+body {
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.cy-shell-brand-subtitle,
+.cy-shell-nav-label,
+.cy-shell-foundation-note {
+  font-size: 12px;
+}
+
+.cy-shell-nav-item {
+  font-size: 15px;
+}
+
+.cy-shell-topbar-title {
+  font-size: 16px;
+}
+
+.cy-page-eyebrow {
+  font-size: 13px;
+}
+
+.cy-page-description,
+.cy-notice,
+.cy-notice-body {
+  font-size: 14px;
+}
+
+.cy-button {
+  font-size: 14px;
+}
+
+.cy-button-small,
+.cy-status-chip {
+  font-size: 13px;
+}
+
+.cy-field-label {
+  font-size: 14px;
+}
+
+.cy-input,
+.cy-select,
+.cy-textarea {
+  font-size: 15px;
+}
+
+.cy-field-description,
+.cy-field-error {
+  font-size: 13px;
+}
+
+/* Customer master/detail first proving use. */
+.cy-customer-panel-kicker,
+.cy-customer-detail-value > span,
+.cy-customer-subheading,
+.cy-customer-result-identity span,
+.cy-customer-result-card span,
+.cy-customer-result-card small {
+  font-size: 13px;
+}
+
+.cy-customer-result-identity strong,
+.cy-customer-result-card strong,
+.cy-customer-info-card-title,
+.cy-customer-detail-value > strong,
+.cy-customer-line {
+  font-size: 15px;
+}
+
+.cy-customer-detail-subtitle,
+.cy-customer-detail-meta,
+.cy-customer-contact-row,
+.cy-customer-address-row,
+.cy-customer-note-list > div,
+.cy-customer-related-tabs button,
+.cy-customer-related-content p {
+  font-size: 14px;
+}
+
+.cy-customer-detail-titleline h2 {
+  font-size: 26px;
+}
+
+/* Related-record first-use views should remain compact but readable. */
+.cy-customer-related-heading strong,
+.cy-customer-visit-meta strong,
+.cy-customer-quote-title strong,
+.cy-customer-frequent-card > strong {
+  font-size: 15px;
+}
+
+.cy-customer-related-heading span,
+.cy-customer-visit-meta,
+.cy-customer-visit-body p,
+.cy-customer-price-break-head,
+.cy-customer-price-break,
+.cy-customer-frequent-card span,
+.cy-customer-frequent-card small,
+.cy-customer-related-footnote,
+.cy-related-editor-error {
+  font-size: 13px;
+}
