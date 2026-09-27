@@ -13,7 +13,7 @@ This file records current work and engineering direction. It is not a permanent 
 7. [ ] Complete Shared Identity browser-session provider wiring. The CY Web provider-neutral adapter, normalized principal contract and app-local module-access guards are staged; the shared provider still needs a CY Web-compatible browser-session contract.
 8. [x] Stage the shared CY Web Audit Core with compact payload guards, timeline projection and Admin/SA detail-query foundation.
 9. [ ] Bind the already-provisioned CY Web R2 bucket and add CY Web GCS runtime configuration only after the real CY Web Worker deployment boundary is accepted.
-10. [x] Complete the pre-business reusable application-foundation gate, Customer module/API contract, approved Desktop Search-Pane/Detail-Pane direction, Customer create/edit interaction preview, Worker-side Customer repository/domain-validation, transactional Customer profile persistence, and initial on-demand Visit/Frequent Item/Quote read services. Protected HTTP route wiring still waits for Identity + local/dev runtime acceptance.
+10. [x] Complete the pre-business reusable application-foundation gate, Customer module/API contract, approved Desktop Search-Pane/Detail-Pane direction, Customer create/edit interaction preview, Worker-side Customer repository/domain-validation, transactional Customer profile persistence, initial on-demand Visit/Frequent Item/Quote read services, and the first shared related-record UI foundation. Protected HTTP route wiring still waits for Identity + local/dev runtime acceptance.
 
 ## Phase 0 — Governance / Public foundation
 
@@ -86,8 +86,9 @@ Production starts from a clean D1 schema; forward D1 schema migrations remain re
 - [x] Shared editable repeated-row state foundation.
 - [x] Dialog / Drawer / Bottom Sheet / confirmation / non-blocking Toast feedback.
 - [x] Opt-in accessible Enter-to-next-field data-entry helper.
+- [x] Shared related-record panel/tab shell; Customer is the first proving use while domain content remains module-owned.
 - [x] Pre-business shared-foundation readiness review and first-use/defer matrix (`PRE_BUSINESS_READINESS.md`).
-- [ ] Shared concise Audit timeline UI when the first real record/API integration proves the final presentation contract.
+- [ ] Shared concise Audit timeline UI when the first real authenticated record/API integration proves the final presentation contract.
 - [ ] Admin/SA detailed Audit Log UI after authenticated Admin/SA API wiring exists.
 - [ ] Unit picker / conversion display helper when Item/Order becomes the first real use; avoid speculative calculation abstraction.
 - [x] Customer Desktop structural UI review: approved left Search Pane + right Detail Pane direction. Final branding/tokens and Tablet/Mobile acceptance remain later work.
@@ -97,7 +98,7 @@ Production starts from a clean D1 schema; forward D1 schema migrations remain re
 
 Implementation order may be adjusted for dependency efficiency, but all modules reuse the shared foundation rather than creating parallel patterns.
 
-- [ ] Customer / Visits / Frequent items / customer-item Quote history. **Customer master contract, shared TypeScript models, approved Desktop composition, create/edit interaction preview, repository/domain-validation, transactional profile persistence and initial related-record read services are staged. Next protected step: authenticated Customer HTTP routes after Identity + local/dev Worker/D1 gates. Related-record mutation work will preserve Visit snapshot, Frequent Item identity and Quote correction/audit decisions rather than inventing new semantics.**
+- [ ] Customer / Visits / Frequent items / customer-item Quote history. **Customer master contract, shared TypeScript models, approved Desktop composition, create/edit interaction preview, repository/domain-validation, transactional profile persistence, initial related-record read services, and first Visit/Quote/Frequent related-record UI presentation are staged. Next protected step: authenticated Customer HTTP routes after Identity + local/dev Worker/D1 gates. Related-record mutation work will preserve Visit snapshot, Frequent Item identity and Quote correction/audit decisions rather than inventing new semantics.**
 - [ ] Item / unit conversion / Item history / Defect.
 - [ ] Sales work order / ERP fill-correct / picking / shipment / void.
 - [ ] Contractor / BOM / Outsourcing / receiving / pricing / payment / stock ledger.
