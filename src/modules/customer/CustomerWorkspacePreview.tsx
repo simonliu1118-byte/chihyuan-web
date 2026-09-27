@@ -85,6 +85,7 @@ type PendingNavigation =
   | null;
 
 interface CoreErrors {
+  customerNo?: string;
   shortName?: string;
   taxId?: string;
 }
@@ -403,7 +404,7 @@ export function CustomerWorkspacePreview() {
   function changeCore<K extends keyof CustomerCoreDraft>(key: K, value: CustomerCoreDraft[K]) {
     if (!editor.value) return;
     dispatchEditor({ type: "change", value: { ...editor.value, [key]: value } });
-    if (key === "shortName" || key === "taxId") {
+    if (key === "customerNo" || key === "shortName" || key === "taxId") {
       setCoreErrors((current) => ({ ...current, [key]: undefined }));
     }
   }
@@ -411,6 +412,10 @@ export function CustomerWorkspacePreview() {
   function validateCore(): boolean {
     if (!editor.value) return false;
     const nextErrors: CoreErrors = {};
+    const customerNo = editor.value.customerNo.trim();
+    if (editor.mode === "create" && customerNo && customers.some((customer) => customer.customerNo === customerNo)) {
+      nextErrors.customerNo = "此客戶編號已存在；正式 API 會以衝突拒絕。";
+    }
     if (!editor.value.shortName.trim()) nextErrors.shortName = "請輸入客戶簡稱。";
     if (editor.value.taxId && !/^\d{8}$/.test(editor.value.taxId)) {
       nextErrors.taxId = "統一編號需為 8 碼數字。";
@@ -616,8 +621,10 @@ export function CustomerWorkspacePreview() {
                         label="客戶編號"
                         value={displayCore.customerNo}
                         onChange={(event) => changeCore("customerNo", event.target.value)}
-                        description="可先留空；正式編號由 SMART ERP 管理。"
-                        data-enter-advance="true"
+                        error={coreErrors.customerNo}
+                        readOnly={editor.mode === "edit"}
+                        description={editor.mode === "edit" ? "既有客戶編號的指派／更正屬受控業務動作，正式版不在一般修改中直接覆寫。" : "可先留空；正式編號由 SMART ERP 管理。"}
+                        data-enter-advance={editor.mode === "create" ? "true" : undefined}
                       />
                       <TextInput
                         label="客戶簡稱"
