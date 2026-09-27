@@ -38,8 +38,8 @@ def check_sources() -> None:
     for token in ["setCurrentPrice", "CONTRACTOR_PRICE_REVISION_CONFLICT", "deleteNeverUsed"]:
         if token not in contractor:
             raise AssertionError(f"missing Contractor token: {token}")
-    for token in ["Multiple", "components", "allowedUnits", "expectedRevision"]:
-        if token.lower() not in bom.lower():
+    for token in ["bom_recipes", "bom_components", "allowedUnits", "expectedRevision"]:
+        if token not in bom:
             raise AssertionError(f"missing BOM token: {token}")
     for token in ["confirmOutbound", "correctOutbound", "cancelOutbound", "cancelReceipt", "cancelPricing", "cancelPayment", "buildPricingPlan"]:
         if token not in outsourcing:
