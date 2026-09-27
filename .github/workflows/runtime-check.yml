@@ -30,8 +30,38 @@ jobs:
           node-version: "24"
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-      - name: Source validators
-        run: npm run validate:source
+      - name: Core source validators
+        run: |
+          python scripts/validate_schema.py
+          python scripts/validate_foundation.py
+          python scripts/validate_identity_foundation.py
+          python scripts/validate_audit_foundation.py
+      - name: Customer source validators
+        run: |
+          python scripts/validate_customer_ui_preview.py
+          python scripts/validate_customer_service_foundation.py
+          python scripts/validate_customer_persistence_related.py
+          python scripts/validate_customer_related_ui.py
+          python scripts/validate_customer_related_mutations.py
+          python scripts/validate_customer_related_interactions.py
+          python scripts/validate_customer_full_preview.py
+      - name: Item and Sales source validators
+        run: |
+          python scripts/validate_item_foundation.py
+          python scripts/validate_defect_foundation.py
+          python scripts/validate_item_full_preview.py
+          python scripts/validate_sales_work_order_foundation.py
+          python scripts/validate_sales_work_order_preview.py
+      - name: Outsourcing WorkLog Settings validators
+        run: |
+          python scripts/validate_contractor_outsourcing_foundation.py
+          python scripts/validate_outsourcing_full_preview.py
+          python scripts/validate_work_log_foundation.py
+          python scripts/validate_work_log_full_preview.py
+          python scripts/validate_settings_admin_foundation.py
+          python scripts/validate_settings_admin_full_preview.py
+      - name: Operational runtime validator
+        run: python scripts/validate_operational_local_runtime.py
       - name: Typecheck
         run: npm run typecheck
       - name: Build
