@@ -1,0 +1,437 @@
+.cy-customer-preview-page {
+  gap: 18px;
+}
+
+.cy-customer-page-header {
+  align-items: center;
+}
+
+.cy-customer-toolbar-wrap {
+  border: 1px solid var(--cy-border);
+  border-radius: var(--cy-radius-lg);
+  background: var(--cy-surface);
+  box-shadow: var(--cy-shadow-sm);
+  overflow: hidden;
+}
+
+.cy-customer-toolbar-wrap .cy-data-toolbar {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.cy-customer-filter-preview {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cy-customer-filter-preview button {
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid var(--cy-border);
+  border-radius: 8px;
+  background: var(--cy-surface-muted);
+  color: var(--cy-text-muted);
+}
+
+.cy-customer-workspace {
+  display: grid;
+  grid-template-columns: minmax(310px, 0.78fr) minmax(0, 1.72fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.cy-customer-results,
+.cy-customer-detail {
+  border: 1px solid var(--cy-border);
+  border-radius: var(--cy-radius-lg);
+  background: var(--cy-surface);
+  box-shadow: var(--cy-shadow-sm);
+  overflow: hidden;
+}
+
+.cy-customer-results {
+  position: sticky;
+  top: 18px;
+}
+
+.cy-customer-panel-heading {
+  min-height: 66px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--cy-border);
+}
+
+.cy-customer-panel-heading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.cy-customer-panel-heading > span {
+  min-width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--cy-surface-muted);
+  color: var(--cy-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.cy-customer-panel-kicker {
+  color: var(--cy-text-muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.cy-customer-results .cy-data-view {
+  border: 0;
+}
+
+.cy-customer-results .cy-data-table-wrap {
+  max-height: 620px;
+  overflow: auto;
+}
+
+.cy-customer-results .cy-data-table th,
+.cy-customer-results .cy-data-table td {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.cy-customer-result-identity,
+.cy-customer-result-card > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.cy-customer-result-identity strong,
+.cy-customer-result-card strong {
+  font-size: 13px;
+}
+
+.cy-customer-result-identity span,
+.cy-customer-result-card span,
+.cy-customer-result-card small {
+  color: var(--cy-text-muted);
+  font-size: 11px;
+}
+
+.cy-customer-result-card {
+  display: grid;
+  gap: 8px;
+}
+
+.cy-customer-detail {
+  min-width: 0;
+}
+
+.cy-customer-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px;
+  border-bottom: 1px solid var(--cy-border);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcfd 100%);
+}
+
+.cy-customer-detail-titleblock {
+  min-width: 0;
+}
+
+.cy-customer-detail-titleline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cy-customer-detail-titleline h2 {
+  margin: 0;
+  font-size: 24px;
+  letter-spacing: -0.02em;
+}
+
+.cy-customer-detail-subtitle {
+  margin-top: 5px;
+  color: var(--cy-text-muted);
+  font-size: 13px;
+}
+
+.cy-customer-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 12px;
+  color: #4d5965;
+  font-size: 12px;
+}
+
+.cy-customer-detail-meta span + span::before {
+  content: "·";
+  margin-right: 12px;
+  color: #a1a9b1;
+}
+
+.cy-customer-detail-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.cy-customer-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+  background: #f7f9fa;
+}
+
+.cy-customer-info-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--cy-border);
+  border-radius: 12px;
+  background: var(--cy-surface);
+}
+
+.cy-customer-info-card-wide {
+  grid-column: 1 / -1;
+}
+
+.cy-customer-info-card-title {
+  margin-bottom: 13px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.cy-customer-value-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+
+.cy-customer-detail-value {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.cy-customer-detail-value > span,
+.cy-customer-subheading {
+  color: var(--cy-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.cy-customer-detail-value > strong {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cy-customer-contact-layout {
+  display: grid;
+  grid-template-columns: 0.75fr 1.25fr;
+  gap: 24px;
+}
+
+.cy-customer-contact-layout > div {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.cy-customer-line {
+  font-size: 13px;
+}
+
+.cy-customer-muted {
+  color: var(--cy-text-muted);
+}
+
+.cy-customer-contact-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 0.7fr) minmax(110px, 1fr) minmax(110px, 0.8fr);
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--cy-border);
+  font-size: 12px;
+}
+
+.cy-customer-contact-row:last-child {
+  border-bottom: 0;
+}
+
+.cy-customer-contact-row span,
+.cy-customer-contact-row small {
+  color: var(--cy-text-muted);
+}
+
+.cy-customer-address-list,
+.cy-customer-note-list {
+  display: grid;
+  gap: 8px;
+}
+
+.cy-customer-address-row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 110px;
+  gap: 10px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.cy-customer-address-row > span,
+.cy-customer-address-row > small {
+  color: var(--cy-text-muted);
+}
+
+.cy-customer-note-card {
+  border-color: #ead8b2;
+  background: #fffdf7;
+}
+
+.cy-customer-note-list > div {
+  position: relative;
+  padding-left: 14px;
+  color: #5f4a25;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.cy-customer-note-list > div::before {
+  content: "";
+  position: absolute;
+  top: 0.62em;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--cy-warning);
+}
+
+.cy-customer-related {
+  border-top: 1px solid var(--cy-border);
+}
+
+.cy-customer-related-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px 12px 0;
+  overflow-x: auto;
+}
+
+.cy-customer-related-tabs button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--cy-text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cy-customer-related-tabs button.is-active {
+  border-bottom-color: var(--cy-accent);
+  color: var(--cy-accent);
+}
+
+.cy-customer-related-content {
+  min-height: 116px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px;
+}
+
+.cy-customer-related-content p {
+  margin: 5px 0 0;
+  color: var(--cy-text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+@media (max-width: 1180px) {
+  .cy-customer-workspace {
+    grid-template-columns: minmax(280px, 0.68fr) minmax(0, 1.32fr);
+  }
+
+  .cy-customer-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cy-customer-info-card-wide {
+    grid-column: auto;
+  }
+
+  .cy-customer-value-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 920px) {
+  .cy-customer-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .cy-customer-results {
+    position: static;
+  }
+
+  .cy-customer-results .cy-data-table-wrap {
+    max-height: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .cy-customer-page-header,
+  .cy-customer-detail-header,
+  .cy-customer-related-content {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cy-customer-page-header .cy-button,
+  .cy-customer-detail-actions .cy-button {
+    width: 100%;
+  }
+
+  .cy-customer-overview-grid {
+    padding: 10px;
+  }
+
+  .cy-customer-value-grid,
+  .cy-customer-contact-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .cy-customer-contact-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .cy-customer-address-row {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .cy-customer-address-row > small {
+    grid-column: 2;
+  }
+
+  .cy-customer-detail-meta span + span::before {
+    content: none;
+    margin: 0;
+  }
+}
