@@ -6,11 +6,11 @@
 
 The Customer workstream previously reviewed the master record and the related-record interactions separately. This stage combines them into one Customer workspace so the workflow can be tested as a whole before further visual polish.
 
-Current priority is **functional completeness first, UI refinement second**.
+Current priority is **functional completeness first, UI refinement second**, with two usability requirements promoted into the baseline: readable business text and save/cancel access at both the top and bottom of long edit forms.
 
 ## Integrated preview scope
 
-The standalone preview at `preview/customer/full-workspace-v1.html` includes one in-memory Customer workflow:
+The standalone previews under `preview/customer/` include one in-memory Customer workflow:
 
 - Customer search and filter;
 - Customer selection;
@@ -28,6 +28,8 @@ The standalone preview at `preview/customer/full-workspace-v1.html` includes one
 - basic unsaved Customer edit protection;
 - browser-memory-only preview persistence.
 
+`full-workspace-v2-readable.html` is the current review target. It raises the readability baseline and keeps `取消` / `儲存` available in both the upper edit header and the lower form action area.
+
 The independent related-record review page remains development scaffolding only. It is not a production menu/page concept.
 
 ## Production semantics preserved
@@ -43,6 +45,29 @@ The preview intentionally follows the already-staged domain contracts:
 - no casual Quote hard-delete action is introduced;
 - Frequent Item free text never auto-links by name to a formal Item.
 
+## Readability baseline
+
+The first full-workspace preview used too much 10–12px text and was difficult to read on a normal Desktop display. That is now treated as a usability defect rather than deferred visual polish.
+
+The current direction is:
+
+- normal business content: roughly 14–16px depending on hierarchy;
+- field values / form controls: approximately 15px;
+- secondary metadata: generally 13px;
+- 10–12px reserved only for truly minor supporting information where readability remains acceptable.
+
+The React foundation also loads the same readability direction through a shared override layer rather than fixing Customer only.
+
+## Edit-action accessibility
+
+Customer create/edit is a long form. Therefore:
+
+- the upper Customer header action area exposes `取消` and `儲存` immediately after entering edit/create mode;
+- the same actions are repeated after the final form section;
+- both action sets use the same save/cancel semantics, validation and unsaved-change protection.
+
+This avoids forcing a user who changes only an upper field to scroll to the bottom, while still supporting users already working near the end of the form.
+
 ## Customer lifecycle action note
 
 BD-030 already defines the deletion boundary:
@@ -52,7 +77,7 @@ BD-030 already defines the deletion boundary:
 - `已歇業` is a business status, not deletion;
 - if a separate inactive/archive mechanism is later introduced, it is distinct from `已歇業` and hard delete.
 
-Therefore the final Customer header must not show a universally enabled `刪除` button. The server must determine whether hard delete is currently eligible. UI placement/presentation is intentionally left in the visual-polish backlog.
+Therefore the final Customer header must not show a universally enabled `刪除` button. The server must determine whether hard delete is currently eligible. UI placement/presentation is intentionally left in the later visual-polish backlog.
 
 ## Runtime boundary
 
