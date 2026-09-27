@@ -106,7 +106,7 @@ def main() -> int:
           item_id, item_no_snapshot, item_name_snapshot,
           owner_employee_id, defect_description, status_code,
           created_at, created_by, updated_at, updated_by, revision
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)
         """,
         ("2026-09-27", 1, "甲診所", 1, "I001", "測試商品", 1, "外觀異常", "processing", now, 1, now, 1),
     )
