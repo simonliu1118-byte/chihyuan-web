@@ -79,11 +79,12 @@ function optionalNonNegativeInteger(
   field: string,
   errors: Record<string, string>,
   fallback = 0,
+  errorField = field,
 ): number {
   const value = input[field];
   if (value == null || value === "") return fallback;
   if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
-    errors[field] = "必須是 0 以上整數";
+    errors[errorField] = "必須是 0 以上整數";
     return fallback;
   }
   return value;
@@ -231,7 +232,13 @@ function normalizeQuote(raw: unknown): NormalizedQuoteInput {
         }
       }
 
-      const sortOrder = optionalNonNegativeInteger(row, "sortOrder", errors, index);
+      const sortOrder = optionalNonNegativeInteger(
+        row,
+        "sortOrder",
+        errors,
+        index,
+        `${path}.sortOrder`,
+      );
       return { quantity, unit, unitPrice, note, sortOrder };
     },
   );
