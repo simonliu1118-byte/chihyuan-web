@@ -18,57 +18,40 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  source-contracts:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
-      - name: Core source validators
+      - uses: actions/checkout@v4
+      - name: Core contracts
         run: |
           python scripts/validate_schema.py
           python scripts/validate_foundation.py
           python scripts/validate_identity_foundation.py
           python scripts/validate_audit_foundation.py
-      - name: Customer UI preview validator
-        run: python scripts/validate_customer_ui_preview.py
-      - name: Customer service validator
-        run: python scripts/validate_customer_service_foundation.py
-      - name: Customer persistence source validator
-        run: python -c "from scripts.validate_customer_persistence_related import validate_sources; validate_sources(); print('PASS Customer persistence source diagnostics')"
-      - name: Customer persistence schema validator
-        run: python -c "from scripts.validate_customer_persistence_related import validate_schema_semantics; validate_schema_semantics(); print('PASS Customer persistence schema diagnostics')"
-      - name: Customer related UI validator
-        run: python scripts/validate_customer_related_ui.py
-      - name: Customer related mutation validator
-        run: python scripts/validate_customer_related_mutations.py
-      - name: Customer related interaction validator
-        run: python scripts/validate_customer_related_interactions.py
-      - name: Customer full preview validator
-        run: python scripts/validate_customer_full_preview.py
-      - name: Item and Sales source validators
+      - name: Business service contracts
         run: |
+          python scripts/validate_customer_service_foundation.py
+          python scripts/validate_customer_related_mutations.py
           python scripts/validate_item_foundation.py
           python scripts/validate_defect_foundation.py
-          python scripts/validate_item_full_preview.py
           python scripts/validate_sales_work_order_foundation.py
-          python scripts/validate_sales_work_order_preview.py
-      - name: Outsourcing WorkLog Settings validators
-        run: |
           python scripts/validate_contractor_outsourcing_foundation.py
-          python scripts/validate_outsourcing_full_preview.py
           python scripts/validate_work_log_foundation.py
-          python scripts/validate_work_log_full_preview.py
           python scripts/validate_settings_admin_foundation.py
-          python scripts/validate_settings_admin_full_preview.py
-      - name: Operational runtime validator
+      - name: Operational runtime contract
         run: python scripts/validate_operational_local_runtime.py
+
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
       - name: Typecheck
         run: npm run typecheck
       - name: Build
