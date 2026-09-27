@@ -1,107 +1,65 @@
 import { useEffect, useState } from "react";
-import type { HealthData } from "../shared/api";
-import { apiRequest } from "./api/client";
-import { CustomerRelatedReviewPage } from "./modules/customer/CustomerRelatedReviewPage";
-import { CustomerWorkspacePreview } from "./modules/customer/CustomerWorkspacePreview";
 import type { NavigationGroup } from "./ui/foundation/navigation";
-import { StatusChip } from "./ui/primitives/StatusChip";
 import { AppShell } from "./ui/shell/AppShell";
+import { OperationalWorkspace, type OperationalRoute } from "./runtime/OperationalWorkspace";
 
-type HealthState =
-  | { status: "loading" }
-  | { status: "ok" }
-  | { status: "error"; message: string };
-
-const previewNavigation: readonly NavigationGroup[] = [
+const navigation: readonly NavigationGroup[] = [
   {
     key: "business",
     label: "業務",
     items: [
-      { key: "customers", label: "客戶", href: "#customers", description: "Customer interaction preview" },
-      { key: "items", label: "商品", href: "#", disabled: true },
-      { key: "orders", label: "銷售工單", href: "#", disabled: true },
-      { key: "outsourcing", label: "委外", href: "#", disabled: true },
-      { key: "worklogs", label: "工作日誌", href: "#", disabled: true },
+      { key: "customers", label: "客戶", href: "#customers" },
+      { key: "items", label: "商品", href: "#items" },
+      { key: "orders", label: "銷售工單", href: "#orders" },
+      { key: "outsourcing", label: "委外", href: "#outsourcing" },
+      { key: "worklogs", label: "工作日誌", href: "#worklogs" },
     ],
   },
   {
     key: "administration",
     label: "管理",
     items: [
-      { key: "settings", label: "設定", href: "#", disabled: true },
-      { key: "audit", label: "稽核紀錄", href: "#", disabled: true },
+      { key: "settings", label: "設定", href: "#settings" },
+      { key: "audit", label: "稽核紀錄", href: "#audit" },
     ],
   },
 ];
 
-function currentPreviewRoute(): "customer" | "customer-related" {
-  return window.location.hash === "#customer-related-preview" ? "customer-related" : "customer";
+const routes = new Set<OperationalRoute>([
+  "customers",
+  "items",
+  "orders",
+  "outsourcing",
+  "worklogs",
+  "settings",
+  "audit",
+]);
+
+function currentRoute(): OperationalRoute {
+  const value = window.location.hash.replace(/^#/, "") as OperationalRoute;
+  return routes.has(value) ? value : "customers";
 }
 
 export default function App() {
-  const [health, setHealth] = useState<HealthState>({ status: "loading" });
-  const [previewRoute, setPreviewRoute] = useState(currentPreviewRoute);
+  const [route, setRoute] = useState<OperationalRoute>(currentRoute);
 
   useEffect(() => {
-    const controller = new AbortController();
-
-    async function checkHealth() {
-      try {
-        const data = await apiRequest<HealthData>("/api/health", {
-          signal: controller.signal,
-        });
-
-        if (data.database !== "ok") {
-          throw new Error("Database health check failed");
-        }
-
-        setHealth({ status: "ok" });
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        setHealth({
-          status: "error",
-          message: error instanceof Error ? error.message : "Unknown health-check error",
-        });
-      }
-    }
-
-    void checkHealth();
-    return () => controller.abort();
-  }, []);
-
-  useEffect(() => {
-    const handleHashChange = () => setPreviewRoute(currentPreviewRoute());
+    if (!window.location.hash) window.location.hash = "#customers";
+    const handleHashChange = () => setRoute(currentRoute());
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
-
-  const statusTone = health.status === "ok" ? "success" : health.status === "error" ? "danger" : "neutral";
-  const statusLabel = health.status === "ok" ? "基礎正常" : health.status === "error" ? "本機尚未就緒" : "檢查中";
 
   return (
     <AppShell
       appName="CY Web"
       subtitle="Chihyuan Enterprise Management System"
-      navigation={previewNavigation}
-      activeNavigationKey="customers"
-      headerActions={
-        <span title={health.status === "error" ? health.message : undefined}>
-          <StatusChip tone={statusTone}>{statusLabel}</StatusChip>
-        </span>
-      }
-      footer={
-        <span className="cy-shell-foundation-note">
-          {previewRoute === "customer-related" ? "Customer related-record interaction review" : "Customer interaction preview"} · 非正式 UI / 非正式資料
-        </span>
-      }
+      navigation={navigation}
+      activeNavigationKey={route}
+      headerActions={<div className="cy-op-runtime-banner">本機操作模式 · localStorage 持久保存</div>}
+      footer={<span className="cy-shell-foundation-note">Operational Local Runtime · 尚未連接 D1 / Shared Identity</span>}
     >
-      {previewRoute === "customer-related" ? (
-        <CustomerRelatedReviewPage />
-      ) : (
-        <div id="customers">
-          <CustomerWorkspacePreview />
-        </div>
-      )}
+      <OperationalWorkspace route={route} />
     </AppShell>
   );
 }
