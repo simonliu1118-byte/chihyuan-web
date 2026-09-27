@@ -40,8 +40,10 @@ jobs:
         run: python scripts/validate_customer_ui_preview.py
       - name: Customer service validator
         run: python scripts/validate_customer_service_foundation.py
-      - name: Customer persistence validator
-        run: python scripts/validate_customer_persistence_related.py
+      - name: Customer persistence source validator
+        run: python -c "from scripts.validate_customer_persistence_related import validate_sources; validate_sources(); print('PASS Customer persistence source diagnostics')"
+      - name: Customer persistence schema validator
+        run: python -c "from scripts.validate_customer_persistence_related import validate_schema_semantics; validate_schema_semantics(); print('PASS Customer persistence schema diagnostics')"
       - name: Customer related UI validator
         run: python scripts/validate_customer_related_ui.py
       - name: Customer related mutation validator
