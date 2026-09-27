@@ -1,6 +1,6 @@
 # CY Web Customer Service Foundation
 
-> Status: domain/repository foundation staged before protected route wiring.
+> Status: domain/repository/persistence foundation staged before protected route wiring.
 
 ## 1. Purpose
 
@@ -11,6 +11,7 @@ It separates:
 - request/domain normalization;
 - Customer business validation;
 - D1 query/repository behavior;
+- D1 persistence behavior;
 - route authentication/authorization, which remains a later layer.
 
 The browser must never be treated as authoritative for Customer validation.
@@ -22,14 +23,14 @@ The staged service provides:
 - bounded server-side Customer search;
 - Customer detail loading;
 - duplicate Tax ID inspection;
-- create preflight validation;
-- update preflight validation;
+- create/update preflight validation;
 - reference lookup validation;
 - optimistic revision checks;
 - Customer-number conflict/control checks;
-- child-row ownership validation.
+- child-row ownership validation;
+- transactional Customer profile create/update persistence behind a mutation context.
 
-Actual create/update persistence and protected HTTP route exposure are intentionally separate from this foundation.
+Protected HTTP route exposure is intentionally separate from this foundation.
 
 ## 3. Search contract
 
@@ -76,15 +77,21 @@ When another Customer already uses the same non-empty Tax ID:
 
 Ordinary profile update does not silently assign/correct/change an existing Customer number. If the submitted value differs from the current value, the service requires the future controlled Customer-number action.
 
+The D1 partial unique index remains authoritative if two create requests race after preflight.
+
 This preserves BD-048 semantics and keeps future SMART ERP ownership/integration behavior separable from ordinary Customer editing.
 
-## 7. Optimistic concurrency
+## 7. Optimistic concurrency and persistence
 
-Update preflight requires `expectedRevision`.
+Update requires `expectedRevision`.
 
-If the persisted revision no longer matches, the service returns `CUSTOMER_REVISION_CONFLICT` instead of silently overwriting newer data.
+Customer profile writes use a dedicated persistence boundary and D1 `batch()` transactions. Owned child writes are revision-gated and execute before the final Customer master revision increment within the same transaction.
 
-The final persistence implementation must increment `revision` only after a successful mutation.
+If the submitted revision is stale, the child statements do not mutate rows and the final master update changes zero rows; the service returns `CUSTOMER_REVISION_CONFLICT` instead of silently overwriting newer data.
+
+A successful update increments `customers.revision` exactly once and records the authenticated local app-member actor/time supplied by the later route layer.
+
+Create writes the Customer plus owned phones/contacts/addresses/notes in one D1 batch transaction.
 
 ## 8. Reference validation
 
@@ -102,9 +109,11 @@ Invalid or inactive references are mapped to field validation errors.
 
 Update payloads may contain existing child IDs for phones, contacts, addresses and notes.
 
-Before later persistence is allowed, every supplied child ID must already belong to the Customer being updated. A client cannot move or overwrite another Customer's child row merely by submitting its ID.
+Before persistence is allowed, every supplied child ID must already belong to the Customer being updated. A client cannot move or overwrite another Customer's child row merely by submitting its ID.
 
 Create payloads cannot supply existing child IDs.
+
+Visit-referenced Customer Contacts have an additional retention rule: removing them from the active Customer profile deactivates them rather than deleting the referenced Contact row. Unreferenced omitted contacts may be deleted normally.
 
 ## 10. Shared Identity boundary
 
@@ -115,8 +124,8 @@ Later protected routes must:
 1. resolve the Shared Identity principal;
 2. enforce CY Web Customer module access;
 3. resolve the local app member projection;
-4. call CustomerService;
-5. use the local actor ID for mutation metadata/audit where required.
+4. call CustomerService with that local actor ID;
+5. map domain errors into the shared API envelope.
 
 No passwords, credential verifiers, OTPs or CYInvoice-specific credential logic belong in CustomerService.
 
@@ -126,14 +135,16 @@ Ordinary Customer profile edits follow BD-053 and retain latest modifier/time/re
 
 Meaningful controlled actions, such as a future Customer-number assignment/correction operation, may create Audit Core events when that action is implemented.
 
+Related Quote correction remains separate because BD-022 explicitly requires audit semantics; see `CUSTOMER_RELATED_FOUNDATION.md`.
+
 ## 12. Runtime gate
 
 This foundation does not by itself:
 
 - expose Customer mutation routes;
-- write production D1;
 - bypass Shared Identity;
+- bind or write production D1;
 - change production Worker/DNS/R2/GCS bindings;
 - modify CYAccountingWeb or CYInvoice runtime.
 
-Protected Customer persistence/routes remain gated by Shared Identity browser-session wiring and local/dev Worker + D1 acceptance.
+Protected Customer routes remain gated by Shared Identity browser-session wiring and local/dev Worker + D1 acceptance.
