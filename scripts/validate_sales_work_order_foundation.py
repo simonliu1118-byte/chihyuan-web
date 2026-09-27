@@ -49,11 +49,11 @@ def check_source_contracts() -> None:
         if token not in repo:
             raise AssertionError(f"missing repository token: {token}")
 
+    # Persistence owns the actual Audit write boundary. Generic lifecycle action
+    # names are selected by SalesWorkOrderService and passed into persistence.
     for token in [
         "sales_work_order.erp.filled",
         "sales_work_order.erp.corrected",
-        "sales_work_order.shipment.reversed",
-        "sales_work_order.voided",
         "sales_work_order.deleted",
         "AuditService",
         "status_code = 'created'",
@@ -71,6 +71,8 @@ def check_source_contracts() -> None:
         "allowShipmentReversal",
         "allowHardDelete",
         "nextReference",
+        "sales_work_order.shipment.reversed",
+        "sales_work_order.voided",
     ]:
         if token not in service:
             raise AssertionError(f"missing service token: {token}")
