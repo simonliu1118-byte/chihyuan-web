@@ -264,6 +264,59 @@
   line-height: 1.6;
 }
 
+.cy-customer-related-review-page {
+  gap: 18px;
+}
+
+.cy-customer-related-review-customer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--cy-border);
+  border-radius: var(--cy-radius-lg);
+  background: var(--cy-surface);
+  box-shadow: var(--cy-shadow-sm);
+}
+
+.cy-customer-related-review-customer > div {
+  display: grid;
+  gap: 3px;
+}
+
+.cy-customer-related-review-customer > div > span,
+.cy-customer-related-review-customer small {
+  color: var(--cy-text-muted);
+  font-size: 11px;
+}
+
+.cy-customer-related-review-customer strong {
+  font-size: 15px;
+}
+
+.cy-customer-related-review-customer select {
+  min-width: 210px;
+  min-height: 38px;
+  border: 1px solid var(--cy-border-strong);
+  border-radius: 9px;
+  padding: 7px 10px;
+  background: var(--cy-surface);
+  color: var(--cy-text);
+}
+
+.cy-customer-related-review-panel {
+  overflow: hidden;
+  border: 1px solid var(--cy-border);
+  border-radius: var(--cy-radius-lg);
+  background: var(--cy-surface);
+  box-shadow: var(--cy-shadow-sm);
+}
+
+.cy-customer-related-review-panel .cy-related-panel {
+  border-top: 0;
+}
+
 @media (max-width: 1120px) {
   .cy-customer-frequent-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -273,12 +326,14 @@
 @media (max-width: 620px) {
   .cy-customer-related-heading,
   .cy-customer-history-preview,
-  .cy-customer-quote-card > header {
+  .cy-customer-quote-card > header,
+  .cy-customer-related-review-customer {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .cy-customer-related-heading .cy-button {
+  .cy-customer-related-heading .cy-button,
+  .cy-customer-related-review-customer select {
     width: 100%;
   }
 
