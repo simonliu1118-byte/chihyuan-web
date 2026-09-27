@@ -76,6 +76,18 @@ export interface LocalCustomerFrequentItem {
   createdAt: string;
 }
 
+export interface LocalItemNumberHistory {
+  id: number;
+  itemNo: string;
+  validFrom: string;
+  validTo: string | null;
+  changeSource: string | null;
+  isSearchable: boolean;
+  createdAt: string;
+}
+
+export type LocalItemCostTaxMode = "none" | "inclusive" | "exclusive";
+
 export type LocalDefectStatus = "created" | "processing" | "resolved";
 
 export interface LocalDefect {
@@ -106,6 +118,15 @@ declare module "./local-database" {
     contacts?: LocalCustomerContact[];
     addresses?: LocalCustomerAddress[];
     importantNotes?: LocalCustomerImportantNote[];
+  }
+
+  interface LocalItem {
+    cost?: number | null;
+    costTaxMode?: LocalItemCostTaxMode | null;
+    storePrice?: number | null;
+    clinicPrice?: number | null;
+    notes?: string | null;
+    numberHistory?: LocalItemNumberHistory[];
   }
 
   interface LocalDatabase {
