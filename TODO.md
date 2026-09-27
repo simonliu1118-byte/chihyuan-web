@@ -14,6 +14,7 @@ This file records current work and engineering direction. It is not a permanent 
 8. [x] Stage the shared CY Web Audit Core with compact payload guards, timeline projection and Admin/SA detail-query foundation.
 9. [ ] Bind the already-provisioned CY Web R2 bucket and add CY Web GCS runtime configuration only after the real CY Web Worker deployment boundary is accepted.
 10. [x] Complete the pre-business reusable application-foundation gate, Customer module/API contract, approved Desktop Search-Pane/Detail-Pane direction, Customer create/edit interaction preview, Worker-side Customer repository/domain-validation, transactional Customer profile persistence, on-demand Visit/Frequent Item/Quote reads, shared related-record UI, and related-record mutation services. Protected HTTP route wiring still waits for Identity + local/dev runtime acceptance.
+11. [x] Stage the Item master service foundation: shared Item contracts, server-side search/detail, scaled4 cost/price handling, conversion-graph validation, transactional profile persistence, historical Item-number search, and an audited controlled Item-number-change path. Defect is the next Item-domain slice.
 
 ## Phase 0 — Governance / Public foundation
 
@@ -69,6 +70,7 @@ Legacy source remains available as behavior/reference evidence.
 - [x] Stage the Customer repository/domain-validation service foundation without exposing protected routes or production writes.
 - [x] Stage transactional Customer profile persistence plus on-demand Customer Visit/Frequent Item/Quote read repositories/services without exposing protected routes.
 - [x] Stage Customer Visit create/update/delete, Frequent Item create/update/delete and Quote create/correct domain services. Visit deletion and Quote correction use structured Audit; no protected routes are exposed yet.
+- [x] Stage Item master repository/domain validation/persistence/service without protected routes. Item search includes searchable historical Item numbers; ordinary edit cannot overwrite Item number; controlled Item-number change is transactionally historized and audited.
 - [ ] Apply migrations to local/dev D1 and run Worker + D1 smoke acceptance before schema freeze.
 
 Production starts from a clean D1 schema; forward D1 schema migrations remain required even though Legacy data migration is not.
@@ -93,7 +95,7 @@ Production starts from a clean D1 schema; forward D1 schema migrations remain re
 - [x] Pre-business shared-foundation readiness review and first-use/defer matrix (`PRE_BUSINESS_READINESS.md`).
 - [ ] Shared concise Audit timeline UI when the first real authenticated record/API integration proves the final presentation contract.
 - [ ] Admin/SA detailed Audit Log UI after authenticated Admin/SA API wiring exists.
-- [ ] Unit picker / conversion display helper when Item/Order becomes the first real use; avoid speculative calculation abstraction.
+- [ ] Unit picker / conversion display helper when the Item UI becomes the proving use. Server-side conversion graph semantics are now staged; visual helper remains UI work.
 - [x] Customer Desktop structural UI review: approved left Search Pane + right Detail Pane direction. Final branding/tokens and Tablet/Mobile acceptance remain later work.
 - [ ] Desktop/Tablet/Mobile real-device/browser acceptance later in the production acceptance phase.
 
@@ -102,7 +104,7 @@ Production starts from a clean D1 schema; forward D1 schema migrations remain re
 Implementation order may be adjusted for dependency efficiency, but all modules reuse the shared foundation rather than creating parallel patterns.
 
 - [ ] Customer / Visits / Frequent items / customer-item Quote history. **Customer master contract, shared TypeScript models, approved Desktop composition, create/edit interaction preview, repository/domain-validation, transactional profile persistence, related-record reads/UI and mutation services are staged. Visit deletion is audited; Frequent Item formal/free-text identity remains explicit; new commercial Quote creates history; existing Quote correction is a separate audited path. Next protected step: authenticated Customer HTTP routes after Identity + local/dev Worker/D1 gates. Quote hard-delete remains deliberately unintroduced.**
-- [ ] Item / unit conversion / Item history / Defect.
+- [ ] Item / unit conversion / Item history / Defect. **Item master shared contracts, D1 search/detail, scaled4 commercial values, conversion-graph validation, transactional create/update, historical-number search and controlled audited renumbering are staged. Next: Defect read/mutation service and an integrated Item functional preview; protected Item routes still wait for Identity/runtime gates.**
 - [ ] Sales work order / ERP fill-correct / picking / shipment / void.
 - [ ] Contractor / BOM / Outsourcing / receiving / pricing / payment / stock ledger.
 - [ ] WorkLog / Scoring / History Statistics.
