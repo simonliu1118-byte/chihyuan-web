@@ -8,6 +8,7 @@ import "./ui/pickers/entity-picker.css";
 import "./ui/overlays/overlay.css";
 import "./ui/feedback/toast.css";
 import "./modules/customer/customer-preview.css";
+import "./modules/customer/customer-edit-preview.css";
 
 const root = document.getElementById("root");
 
