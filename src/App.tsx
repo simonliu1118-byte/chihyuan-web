@@ -73,9 +73,9 @@ export default function App() {
       navigation={previewNavigation}
       activeNavigationKey="customers"
       headerActions={
-        <StatusChip tone={statusTone} title={health.status === "error" ? health.message : undefined}>
-          {statusLabel}
-        </StatusChip>
+        <span title={health.status === "error" ? health.message : undefined}>
+          <StatusChip tone={statusTone}>{statusLabel}</StatusChip>
+        </span>
       }
       footer={<span className="cy-shell-foundation-note">Customer composition preview · 非正式 UI</span>}
     >
