@@ -1,0 +1,121 @@
+.cy-customer-preview-page {
+  display: grid;
+  grid-template-columns: minmax(310px, 0.78fr) minmax(0, 1.72fr);
+  column-gap: 18px;
+  row-gap: 18px;
+  align-items: start;
+}
+
+.cy-customer-preview-page > .cy-customer-page-header,
+.cy-customer-preview-page > .cy-notice {
+  grid-column: 1 / -1;
+}
+
+.cy-customer-toolbar-wrap {
+  grid-column: 1;
+  grid-row: 3;
+  margin-bottom: -18px;
+  z-index: 2;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  box-shadow: none;
+}
+
+.cy-customer-toolbar-wrap .cy-data-toolbar {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 14px 12px;
+}
+
+.cy-customer-toolbar-wrap .cy-data-toolbar-primary,
+.cy-customer-toolbar-wrap .cy-data-toolbar-secondary {
+  width: 100%;
+}
+
+.cy-customer-toolbar-wrap .cy-data-toolbar-primary {
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.cy-customer-toolbar-wrap .cy-data-search {
+  max-width: none;
+  flex-basis: auto;
+}
+
+.cy-customer-toolbar-wrap .cy-data-toolbar-secondary {
+  justify-content: flex-end;
+}
+
+.cy-customer-filter-preview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+}
+
+.cy-customer-filter-preview button {
+  width: 100%;
+}
+
+.cy-customer-workspace {
+  display: contents;
+}
+
+.cy-customer-results {
+  grid-column: 1;
+  grid-row: 4;
+  margin-top: -18px;
+  border-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  box-shadow: var(--cy-shadow-sm);
+}
+
+.cy-customer-detail {
+  grid-column: 2;
+  grid-row: 3 / span 2;
+}
+
+.cy-customer-panel-heading {
+  min-height: 58px;
+}
+
+@media (max-width: 1180px) {
+  .cy-customer-preview-page {
+    grid-template-columns: minmax(280px, 0.68fr) minmax(0, 1.32fr);
+  }
+}
+
+@media (max-width: 920px) {
+  .cy-customer-preview-page {
+    grid-template-columns: 1fr;
+  }
+
+  .cy-customer-preview-page > .cy-customer-page-header,
+  .cy-customer-preview-page > .cy-notice,
+  .cy-customer-toolbar-wrap,
+  .cy-customer-results,
+  .cy-customer-detail {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .cy-customer-toolbar-wrap {
+    margin-bottom: -18px;
+  }
+
+  .cy-customer-results {
+    margin-top: -18px;
+  }
+}
+
+@media (max-width: 620px) {
+  .cy-customer-filter-preview {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .cy-customer-toolbar-wrap .cy-data-toolbar-secondary {
+    justify-content: flex-start;
+  }
+}
