@@ -1,11 +1,16 @@
 import { Button } from "../../ui/primitives/Button";
 import { StatusChip } from "../../ui/primitives/StatusChip";
+import { RelatedRecordPanel, type RelatedRecordTab } from "../../ui/related/RelatedRecordPanel";
 
 export type CustomerRelatedPreviewKey = "visits" | "quotes" | "frequent" | "history";
 
 export interface CustomerRelatedPreviewProps {
   customerId: number;
   activeKey: CustomerRelatedPreviewKey;
+}
+
+export interface CustomerRelatedPanelPreviewProps extends CustomerRelatedPreviewProps {
+  onChange: (key: CustomerRelatedPreviewKey) => void;
 }
 
 interface VisitPreview {
@@ -39,6 +44,13 @@ interface FrequentPreview {
   spec?: string;
   category?: string;
 }
+
+const relatedTabs: readonly RelatedRecordTab<CustomerRelatedPreviewKey>[] = [
+  { key: "visits", label: "拜訪紀錄" },
+  { key: "quotes", label: "報價紀錄" },
+  { key: "frequent", label: "常用商品" },
+  { key: "history", label: "動態 / 歷史" },
+];
 
 const visitPreview: Record<number, readonly VisitPreview[]> = {
   1: [
@@ -245,4 +257,22 @@ export function CustomerRelatedPreview({ customerId, activeKey }: CustomerRelate
   if (activeKey === "quotes") return <Quotes customerId={customerId} />;
   if (activeKey === "frequent") return <FrequentItems customerId={customerId} />;
   return <History />;
+}
+
+export function CustomerRelatedPanelPreview({
+  customerId,
+  activeKey,
+  onChange,
+}: CustomerRelatedPanelPreviewProps) {
+  return (
+    <RelatedRecordPanel
+      tabs={relatedTabs}
+      activeKey={activeKey}
+      onChange={onChange}
+      ariaLabel="客戶相關紀錄"
+      headerActions={<StatusChip tone="info">按需載入</StatusChip>}
+    >
+      <CustomerRelatedPreview customerId={customerId} activeKey={activeKey} />
+    </RelatedRecordPanel>
+  );
 }
