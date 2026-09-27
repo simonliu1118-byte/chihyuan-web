@@ -11,7 +11,7 @@ import type {
 import { parseScaled4 } from "../../shared/fixed-point";
 import { FieldValidationError, ValidationBag } from "../validation/fields";
 
-const MAX_QUOTE_BREAKS = 30;
+const MAX_QUOTE_BREAKS = 10;
 
 export interface NormalizedVisitInput {
   visitDate: string;
@@ -227,7 +227,7 @@ function normalizeQuote(raw: unknown): NormalizedQuoteInput {
         if (typeof row.note !== "string") errors[`${path}.note`] = "格式錯誤";
         else {
           const text = row.note.trim();
-          if (text.length > 500) errors[`${path}.note`] = "不可超過 500 個字元";
+          if (text.length > 120) errors[`${path}.note`] = "不可超過 120 個字元";
           else note = text || null;
         }
       }
@@ -256,7 +256,7 @@ export function normalizeCorrectQuoteRequest(raw: unknown): NormalizedCorrectQuo
   const normalized = normalizeQuote(input);
   const bag = new ValidationBag(input);
   const expectedRevision = bag.requiredPositiveInteger("expectedRevision");
-  const correctionReason = bag.optionalText("correctionReason", { maxLength: 500 });
+  const correctionReason = bag.optionalText("correctionReason", { maxLength: 240 });
   bag.throwIfInvalid();
   return {
     ...normalized,
