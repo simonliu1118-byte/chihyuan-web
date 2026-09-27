@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: cyweb-operational-package
@@ -43,3 +43,18 @@ jobs:
           path: dist-operational/
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish browser-test branch
+        run: |
+          rm -rf /tmp/cyweb-operational-site
+          mkdir -p /tmp/cyweb-operational-site
+          cp -a dist-operational/. /tmp/cyweb-operational-site/
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --orphan operational-test-publish
+          git rm -rf .
+          cp -a /tmp/cyweb-operational-site/. .
+          git add -A
+          git commit -m "deploy: CY Web operational test ${GITHUB_SHA}"
+          git push --force origin HEAD:refs/heads/cyweb/operational-test-runtime
