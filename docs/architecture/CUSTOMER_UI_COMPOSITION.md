@@ -1,6 +1,6 @@
-# CY Web Customer UI Composition — First Review Draft
+# CY Web Customer UI Composition — Approved Search-Pane Direction
 
-> Status: first Customer visual-composition review draft.
+> Status: Desktop-first Customer composition direction approved through UI preview review.
 >
 > This document defines the first **new-Web** information architecture for Customer. It is intentionally not a reproduction of the Legacy GAS screen, and it does not freeze final colors, typography, spacing, or all Tablet/Mobile details.
 
@@ -8,7 +8,7 @@
 
 Customer is the first real CY Web business screen and therefore sets the reusable master-record pattern for later Item, Contractor and related modules.
 
-The first composition should optimize for:
+The composition optimizes for:
 
 - fast office search and selection;
 - high information density without the old desktop-form appearance;
@@ -20,32 +20,37 @@ The first composition should optimize for:
 
 Legacy Customer remains workflow evidence only. Useful field grouping and workflow knowledge may be retained, but the tab strip, fixed-width form rows, old button placement and GAS-specific loading/refresh behavior are not carried forward as layout requirements.
 
-## 2. Desktop workspace model
+## 2. Approved Desktop workspace model
 
-The first Desktop composition uses a **search-and-detail workspace** rather than a sequence of independent Legacy tabs.
+The approved first Desktop composition uses a **Master–Detail search workspace** rather than a sequence of independent Legacy tabs.
+
+The important refinement confirmed during browser preview review is that Customer search controls belong to the **left Search Pane**, because those controls govern only the Customer result set. They are not a page-wide toolbar and do not govern the selected Customer detail.
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────┐
 │ Page title: 客戶管理                              [新增客戶]         │
-│ Search / filters / result count                                      │
 ├───────────────────────┬──────────────────────────────────────────────┤
-│ Customer result list  │ Selected Customer                            │
+│ Search Pane           │ Selected Customer                            │
 │                       │ header / identity / status / actions          │
+│ keyword search        ├──────────────────────────────────────────────┤
+│ filters               │ Overview                                     │
+│ result count          │  基本資料       負責資訊                       │
+│───────────────────────│  電話/傳真      聯絡人                         │
+│ Customer result list  │  地址           重要備註                       │
 │ no. / short name      ├──────────────────────────────────────────────┤
-│ category / region     │ Overview                                     │
-│ owner / status        │  基本資料       負責資訊                       │
-│                       │  電話/傳真      聯絡人                         │
-│                       │  地址           重要備註                       │
-│                       ├──────────────────────────────────────────────┤
-│                       │ Related records                               │
-│                       │ [拜訪] [報價] [常用品] [動態/歷史]             │
+│ category / region     │ Related records                               │
+│ owner / status        │ [拜訪] [報價] [常用品] [動態/歷史]             │
 │                       │ bounded list loaded on demand                 │
 └───────────────────────┴──────────────────────────────────────────────┘
 ```
 
-The exact left/right width ratio remains provisional and should be tuned in browser review.
+The exact left/right width ratio remains tunable during later browser/device review, but the ownership of search controls is now established:
 
-## 3. Search and result area
+> **Search / filter / result count / result list are one Search Pane. Detail is an independent Detail Pane.**
+
+This pattern should be reused for later master-record modules where the same interaction semantics apply, rather than rebuilding a page-wide search toolbar per module.
+
+## 3. Search Pane
 
 Desktop keeps Customer search visible while a record is open.
 
@@ -59,9 +64,9 @@ Initial search/filter controls:
 - result count;
 - explicit clear/reset action.
 
-The result list is a compact `DataView` projection. It should prioritize the fields useful for recognition rather than reproducing the Legacy 11-column search table.
+The result list is a compact `DataView` projection. It should prioritize fields useful for recognition rather than reproducing the Legacy 11-column search table.
 
-Recommended first-row emphasis:
+Recommended result emphasis:
 
 1. Customer short name;
 2. Customer number when assigned;
@@ -71,6 +76,8 @@ Recommended first-row emphasis:
 6. optional Tax ID secondary text when useful.
 
 Phone, contact and address do not need permanent full-width columns in the main result list. They remain searchable/detail information when later usage proves that cross-field search is needed.
+
+The Search Pane may remain sticky on Desktop so a user can continue changing Customer selection while reviewing a long Customer detail.
 
 ## 4. Customer detail header
 
@@ -116,7 +123,7 @@ Geographic region remains separate from individual addresses.
 - fax;
 - contacts.
 
-Phone and Contact repeated rows use shared editable-list mechanics in edit mode. View mode should render compact readable values rather than disabled inputs everywhere.
+Phone and Contact repeated rows use shared editable-list mechanics in edit mode. View mode renders compact readable values rather than disabled inputs everywhere.
 
 ### D. 地址
 
@@ -126,25 +133,25 @@ Editing an address never silently changes Customer region. A future address pars
 
 ### E. 重要備註
 
-Important notes are visible in normal Customer context and must not be hidden behind a special Legacy-only settings modal. Their final visual emphasis should distinguish genuinely important information without making the whole screen visually noisy.
+Important notes are visible in normal Customer context and are not hidden behind a special Legacy-only settings modal. Their final visual emphasis should distinguish genuinely important information without making the whole screen visually noisy.
 
 ## 6. View mode versus edit mode
 
-CY Web should not imitate the Legacy pattern of rendering every field as disabled input controls during normal viewing.
+CY Web does not imitate the Legacy pattern of rendering every field as disabled input controls during normal viewing.
 
 ### View mode
 
-- use readable label/value presentation;
-- show empty values deliberately and quietly;
-- repeated data is rendered as compact rows/cards;
+- readable label/value presentation;
+- empty values shown deliberately and quietly;
+- repeated data rendered as compact rows/cards;
 - primary actions remain obvious;
 - no disabled-input visual clutter.
 
 ### Edit/create mode
 
-- switch relevant sections to shared form primitives;
-- retain the same information hierarchy and screen location where practical;
-- use shared record-editor dirty detection;
+- relevant sections switch to shared form primitives;
+- same information hierarchy and screen location are retained where practical;
+- shared record-editor dirty detection is used;
 - `儲存` / `取消` use the shared action pattern;
 - field errors appear inline;
 - successful save uses non-blocking feedback;
@@ -154,7 +161,7 @@ CY Web should not imitate the Legacy pattern of rendering every field as disable
 
 Visits, Customer+Item Quote history and Frequent Items are contextual Customer data, but are not part of the Customer-detail payload.
 
-The first Desktop composition keeps them in a dedicated related-record area below or beside the main profile according to viewport width.
+The Desktop composition keeps them in a dedicated related-record area in Customer context.
 
 Initial navigation labels:
 
@@ -170,7 +177,7 @@ The old term `頁內表單` is not used as the new component identity.
 ## 8. Add/edit action behavior
 
 - `新增客戶` is a page-level primary action.
-- selecting a Customer opens it in the detail workspace without losing the current search state.
+- selecting a Customer opens it in the Detail Pane without losing current Search Pane state.
 - `修改` is record-level.
 - hard delete is shown only when the server confirms the Customer is never-used/deletable.
 - Customer-number correction is a controlled meaningful action when it exists, not an ordinary silent field overwrite.
@@ -178,13 +185,13 @@ The old term `頁內表單` is not used as the new component identity.
 
 ## 9. Responsive direction
 
-This draft reviews Desktop first, but the structure must remain adaptable.
+Desktop is reviewed first, but the structure must remain adaptable.
 
 ### Tablet
 
 Likely direction:
 
-- result list may narrow or collapse;
+- Search Pane may narrow or collapse;
 - detail remains the main workspace;
 - related records become stacked sections or a local sub-navigation.
 
@@ -192,12 +199,12 @@ Likely direction:
 
 Likely direction:
 
-- search/results and detail become sequential views over the same query/selection state;
+- Search Pane and Detail Pane become sequential views over the same query/selection state;
 - profile sections become stacked cards/sections;
 - editing may use full-screen or Bottom Sheet patterns depending on field density;
 - no separate Mobile business implementation.
 
-These are direction only; final Tablet/Mobile composition is reviewed after the Desktop information hierarchy is accepted.
+These remain direction until later Tablet/Mobile review.
 
 ## 10. Explicit differences from Legacy GAS
 
@@ -221,16 +228,10 @@ Useful Legacy behavior retained/adapted:
 - strong duplicate Tax-ID warning;
 - keyboard efficiency where appropriate.
 
-## 11. First implementation-preview boundary
+## 11. Review and implementation boundary
 
-The first React preview may use static Customer sample data only to validate composition against the shared UI foundation.
+The static browser preview confirmed the high-level Desktop composition and the Search-Pane refinement. The formal React Customer preview is aligned to that direction.
 
-It must not:
+This approval does **not** mean that final visual tokens, exact spacing, Tablet/Mobile layout or all detailed field interactions are frozen.
 
-- expose unauthenticated production Customer routes;
-- invent production data;
-- bind production D1;
-- freeze final visual tokens;
-- imply that the current preview is accepted final UI.
-
-After composition review, the same surface becomes the target for the protected Customer search/detail/create/update implementation once Identity and local/dev Worker+D1 runtime gates are cleared.
+Protected Customer search/detail/create/update remains gated by Shared Identity browser-session wiring and local/dev Worker+D1 acceptance. Production D1, Worker, DNS and backup resources remain untouched by this UI review.

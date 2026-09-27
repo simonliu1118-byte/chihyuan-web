@@ -35,6 +35,7 @@ For product/architecture semantics, current explicit user decisions and later co
 - `PRE_BUSINESS_READINESS.md` — final shared-foundation readiness matrix before the first production business module, including explicit deferred/runtime gates.
 - `CUSTOMER_MODULE_CONTRACT.md` — first business-module contract: Customer identity/profile aggregate, list/detail/mutation boundaries, duplicate Tax-ID warning semantics and related-record boundaries.
 - `CUSTOMER_UI_COMPOSITION.md` — first Desktop-first Customer new-Web information architecture and review boundary; explicitly not a Legacy GAS screen replica.
+- `CUSTOMER_EDIT_INTERACTION.md` — Customer create/view/edit/cancel interaction contract consuming shared record-editor, editable-list, unsaved guard, confirmation and Toast foundations.
 - `BACKUP_ARCHITECTURE.md` — tiered R2 + GCS backup topology and provider/service boundary.
 - `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public-source / production-infrastructure separation.
 - `../DOMAIN_STRATEGY.md` — confirmed `chihyuancm.com` parent-domain namespace and controlled rollout direction for the official website and CY-family Web systems.
@@ -60,7 +61,7 @@ As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/requ
 - `chihyuancm.com` is the confirmed shared parent domain for the future public Chihyuan website and internal/business CY-family Web systems; each application keeps its own hostname/origin, deployment and security/session boundary.
 - Production custom-domain binding is a controlled rollout step, not an early foundation-development prerequisite.
 - Legacy GAS / Google Sheets is behavior/data-semantic reference only; unused test rows are not migrated to production D1.
-- Legacy UX is evaluated selectively: useful proven behavior may be retained/adapted, while the new screen structure, component implementation and responsive behavior follow the new Web architecture rather than reproducing GAS.
+- Legacy UX is evaluated selectively: useful proven behavior may be retained/adapted, while the new screen structure, component implementation and responsive behavior follow the new CY Web architecture rather than reproducing GAS.
 - Cloudflare Workers is the target application backend and D1 is the live relational database direction.
 - Current frontend foundation is TypeScript + React + Vite + Cloudflare Vite plugin.
 - Browser business requests use one shared API client/error/request-state foundation rather than per-page fetch conventions.
@@ -84,7 +85,9 @@ As of the decisions through BD-056 and the initial D1/API/Identity/Audit/UI/requ
 - Enter-to-next-field productivity behavior is available through one shared opt-in helper, while Tab order and component keyboard semantics remain authoritative. No global document-level Enter override is introduced.
 - The pre-business readiness review confirms that Customer module design/domain-contract work may begin without adding more speculative generic framework. Unit conversion UI, Audit presentation and authenticated permission UI are deferred to their first real use or runtime gate.
 - The initial Customer module contract separates the bounded Customer profile aggregate from Visits, Frequent Items and Quote history; search/list stays server-side and protected route wiring remains behind the Shared Identity/runtime gates.
-- The first Customer composition is now staged as a static new-Web review surface: Desktop uses a search-and-detail workspace, view mode uses readable label/value presentation rather than disabled inputs, and related records remain bounded/on-demand instead of loading with every Customer detail.
+- The first Customer composition is staged as a new-Web review surface: Desktop uses a search-and-detail workspace, view mode uses readable label/value presentation rather than disabled inputs, and related records remain bounded/on-demand instead of loading with every Customer detail.
+- The Customer create/edit interaction preview now consumes the shared record-editor, editable-list, unsaved-change guard, common form primitives, confirmation Dialog, Toast and opt-in Enter progression. Preview save remains browser-local/static only; it does not bypass the protected API gate.
+- Customer duplicate Tax-ID behavior is represented as an explicit confirmation interaction in the preview, while the future Worker/D1 check remains authoritative.
 - Production business lists and entity lookups query Worker/D1 on demand rather than loading a whole module/master dataset into a browser-global cache as GAS did.
 - Current shell/form/data-view/picker/overlay/Customer-preview styling and tokens are explicitly provisional. Final visual composition, branding, production menu hierarchy and business layouts remain a dedicated UI/UX review item and are not inherited from GAS.
 
@@ -145,7 +148,9 @@ Customer module contract + shared TypeScript contract
         ↓
 Customer Desktop-first composition preview / UI review
         ↓
-Customer create/edit interaction surface
+Customer create/edit interaction preview using shared foundations
+        ↓
+Customer repository/domain-validation service
         ↓
 protected Customer API wiring after Identity + local/dev D1/Worker gates
         ↓
@@ -156,7 +161,7 @@ production acceptance
 
 The repository now contains the provider-neutral Identity adapter contract, app-local module-access service, shared AuditService foundation, shared request/validation foundation, shared record-editor state, shared App Shell/primitives, shared form/unsaved-change handling, adaptive Data View, async Entity Picker, editable-list state, overlay/feedback and opt-in keyboard data-entry foundations. The pre-business readiness review records which remaining concerns are intentional first-use deferrals versus real external/runtime blockers.
 
-The Customer workstream now includes both the module/type contract and a static first composition preview. The preview intentionally contains no production Customer route/data and remains a review surface until the new-Web composition is accepted. The production shared-Identity browser-session provider contract is still an external dependency, and the production D1 database / production Worker bindings have **not** been created by these branches.
+The Customer workstream now includes the module/type contract, a static first composition preview and a browser-local create/edit interaction preview. The preview intentionally contains no production Customer route/data and remains a review surface until the new-Web composition and interaction are accepted. The production shared-Identity browser-session provider contract is still an external dependency, and the production D1 database / production Worker bindings have **not** been created by these branches.
 
 ## Document precedence
 
