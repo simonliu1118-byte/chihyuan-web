@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Zero-dependency source checks for Customer UI foundations and operational mounting."""
+"""Zero-dependency checks for Customer UI foundations after operational-runtime cutover."""
 
 from __future__ import annotations
 
@@ -19,69 +19,41 @@ def require(path: str) -> str:
 def main() -> int:
     app = require("src/App.tsx")
     operational = require("src/runtime/OperationalWorkspace.tsx")
-    preview = require("src/modules/customer/CustomerWorkspacePreview.tsx")
-    preview_css = require("src/modules/customer/customer-preview.css")
-    edit_css = require("src/modules/customer/customer-edit-preview.css")
-    composition = require("docs/architecture/CUSTOMER_UI_COMPOSITION.md")
-    edit_contract = require("docs/architecture/CUSTOMER_EDIT_INTERACTION.md")
+    runtime_doc = require("docs/architecture/OPERATIONAL_LOCAL_RUNTIME.md")
     contract = require("docs/architecture/CUSTOMER_MODULE_CONTRACT.md")
 
-    if "OperationalWorkspace" not in app or 'href: "#customers"' not in app or "CustomerPage" not in operational:
-        raise AssertionError("Customer operational workspace is not mounted through the shared App Shell")
+    # The old Customer preview remains in source as design/history evidence only.
+    for path in (
+        "src/modules/customer/CustomerWorkspacePreview.tsx",
+        "src/modules/customer/customer-preview.css",
+        "src/modules/customer/customer-edit-preview.css",
+        "docs/architecture/CUSTOMER_UI_COMPOSITION.md",
+        "docs/architecture/CUSTOMER_EDIT_INTERACTION.md",
+    ):
+        require(path)
 
-    # Keep validating the accepted Customer interaction/reference implementation even though
-    # the forward app surface is now the persistent operational runtime.
+    if "OperationalWorkspace" not in app or 'href: "#customers"' not in app:
+        raise AssertionError("Customer route is not mounted through the shared App Shell")
+
     for required in (
-        "DataViewToolbar",
-        "DataView",
-        "客戶管理",
-        "拜訪紀錄",
-        "報價紀錄",
-        "常用商品",
-        "按需載入",
-        "recordEditorReducer",
-        "editableListReducer",
-        "useUnsavedChangesGuard",
-        "ConfirmDialog",
-        "ToastRegion",
-        "advanceFocusOnEnter",
+        "function CustomerPage",
         "新增客戶",
-        "未儲存",
-        'readOnly={editor.mode === "edit"}',
-        "此客戶編號已存在",
+        "ERP 客戶編號",
+        "搜尋編號、名稱、電話、聯絡人",
+        "customer.created",
+        "customer.updated",
+        "customer.active.changed",
     ):
-        if required not in preview:
-            raise AssertionError(f"Customer preview requirement missing: {required}")
+        if required not in operational:
+            raise AssertionError(f"Customer operational behavior missing: {required}")
 
-    if "grid-template-columns" not in preview_css or "@media (max-width: 920px)" not in preview_css:
-        raise AssertionError("Customer preview adaptive workspace CSS missing")
-    if "cy-customer-edit-surface" not in edit_css or "cy-customer-repeat-card" not in edit_css:
-        raise AssertionError("Customer edit interaction styling missing")
-
-    for required in (
-        "search-and-detail workspace",
-        "View mode versus edit mode",
-        "Explicit differences from Legacy GAS",
-        "Desktop first",
-    ):
-        if required not in composition:
-            raise AssertionError(f"Customer composition contract missing: {required}")
-
-    for required in (
-        "shared `record-editor` state machine",
-        "shared editable-list reducer",
-        "Customer number boundary",
-        "Duplicate Tax ID preview",
-        "Success uses the shared Toast region",
-        "Hard delete is intentionally not added",
-    ):
-        if required not in edit_contract:
-            raise AssertionError(f"Customer edit interaction contract missing: {required}")
+    if "standalone `preview/*` files remain design/history references" not in runtime_doc:
+        raise AssertionError("operational-runtime preview supersession rule missing")
 
     if "expectedRevision" not in contract or "DUPLICATE_TAX_ID_CONFIRM_REQUIRED" not in contract:
         raise AssertionError("Customer business contract safeguards are missing")
 
-    print("PASS Customer UI foundation / operational mounting checks")
+    print("PASS Customer operational UI / retained-reference checks")
     return 0
 
 
