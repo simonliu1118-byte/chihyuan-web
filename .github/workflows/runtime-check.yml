@@ -1,0 +1,111 @@
+name: Runtime Check
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "shared/**"
+      - "worker/**"
+      - "migrations/**"
+      - "scripts/**"
+      - "package.json"
+      - "vite.config.ts"
+      - "tsconfig*.json"
+      - ".github/workflows/runtime-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Core contracts
+        run: |
+          python scripts/validate_schema.py
+          python scripts/validate_foundation.py
+          python scripts/validate_identity_foundation.py
+          python scripts/validate_audit_foundation.py
+      - name: Customer service contract
+        run: python scripts/validate_customer_service_foundation.py
+      - name: Customer related mutation contract
+        run: python scripts/validate_customer_related_mutations.py
+      - name: Item contract
+        run: python scripts/validate_item_foundation.py
+      - name: Defect contract
+        run: python scripts/validate_defect_foundation.py
+      - name: Sales Work Order contract
+        run: python scripts/validate_sales_work_order_foundation.py
+      - name: Contractor Outsourcing contract
+        run: python scripts/validate_contractor_outsourcing_foundation.py
+      - name: WorkLog contract
+        run: python scripts/validate_work_log_foundation.py
+      - name: Settings Admin contract
+        run: python scripts/validate_settings_admin_foundation.py
+      - name: Operational runtime contract
+        run: python scripts/validate_operational_local_runtime.py
+
+  browser-typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm install --no-audit --no-fund
+      - name: Capture browser TypeScript diagnostics
+        shell: bash
+        run: |
+          set +e
+          npx tsc --noEmit -p tsconfig.json --pretty false > browser-tsc.log 2>&1
+          echo $? > browser-tsc.exit
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: browser-tsc-diagnostics
+          path: |
+            browser-tsc.log
+            browser-tsc.exit
+      - name: Enforce browser TypeScript
+        run: test "$(cat browser-tsc.exit)" = "0"
+
+  worker-typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm install --no-audit --no-fund
+      - name: Capture Worker TypeScript diagnostics
+        shell: bash
+        run: |
+          set +e
+          npx tsc --noEmit -p tsconfig.worker.json --pretty false > worker-tsc.log 2>&1
+          echo $? > worker-tsc.exit
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: worker-tsc-diagnostics
+          path: |
+            worker-tsc.log
+            worker-tsc.exit
+      - name: Enforce Worker TypeScript
+        run: test "$(cat worker-tsc.exit)" = "0"
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm install --no-audit --no-fund
+      - name: Vite build
+        run: npx vite build

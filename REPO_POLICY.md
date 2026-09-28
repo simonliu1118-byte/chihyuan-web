@@ -13,9 +13,9 @@
 ## 2. Public 安全
 
 - Git、Issue、PR、Actions log、Artifact metadata 與 Release note 均視為可能公開。
-- 不得提交正式 API key、OAuth secret、access/refresh token、private key、session secret、OTP secret、Email provider key、固定正式密碼／雜湊、真實客戶／交易／帳務／員工敏感資料、正式資料庫 export、Google Sheet／GAS 正式識別資訊或本機私密設定。
-- `.clasp.json`、`.claude/settings.local.json`、`.env`、正式 Cloudflare runtime secrets 與其他 local-only 設定不得進入 Public source。
-- 舊 Private Legacy repository 的可讀內容不代表可直接複製到本 Public repository；遷移前必須先做資料最小化與 Public-safe 檢查。
+- Public repository 不得保存 production credentials、正式使用者／客戶／交易／帳務／員工敏感資料、正式資料庫 export、第三方 private data、正式執行環境設定或其他機密。
+- `.clasp.json`、local-only settings、runtime secret files 與同類本機設定不得進入 Public source。
+- 舊 Private Legacy repository 的可讀內容不代表可直接複製到本 Public repository；抽取前必須先做資料最小化與 Public-safe 檢查。
 
 ## 3. AITeam 共通規則同步
 
@@ -27,20 +27,22 @@
 ## 4. CY 共用視覺 canonical source
 
 - AITeam `main:/shared/cy-visual/` 是 CY 家族共用視覺與 production design asset 的 canonical source。
-- 現有 `shared/cy-visual/desktop/CY_DESKTOP_VISUAL_GUIDE.md` 與 Windows icon-family 規則主要適用 CY Windows desktop apps；**CY Web 不自動採用 Desktop Visual Guide 或 Windows icon-production 規則作 Web UI 規格**。
-- CY Web 仍維持必要的 CY 品牌、名稱與家族辨識一致性；Web layout、navigation、form、table、responsive pattern、touch interaction 與 adaptive presentation 依本專案 Web 規則設計。
-- 若未來 AITeam 建立正式 `shared/cy-visual/web/` 或等價 Web canonical package，CY Web 應透過既有 `REPO_POLICY.md`／`PROJECT_RULES.md` 治理鏈宣告採用，不建立第四層規則檔。
+- 現有 Windows desktop 視覺／icon 規則主要適用 CY Windows desktop apps；CY Web 不自動採用 Desktop Visual Guide 或 Windows icon-production 規則作 Web UI 規格。
+- CY Web 維持必要的 CY 品牌、名稱與家族辨識一致性；Web layout、navigation、form、table、responsive pattern、touch interaction 與 adaptive presentation 依本專案 Web 規則設計。
+- 若未來 AITeam 建立正式 Web canonical package，CY Web 應透過既有治理鏈宣告採用，不建立第四層規則檔。
 - Family-wide 視覺標準需要變更時先回 AITeam canonical source；CY Web 專屬永久例外只寫入唯一 `PROJECT_RULES.md`。
 
 ## 5. Legacy 邊界
 
 - 舊 GAS／Google Sheets prototype 的完整 source 與 Git 歷史保留於 Private `chihyuan-legacy-private`，不 mirror 進本 Public repo。
-- 本 repo 只保存經確認可公開的 Legacy 資料模型、流程、ID、行為與遷移規格；不得為方便而搬入 Script ID、本機設定、舊登入 bootstrap 或真實測試資料。
+- 該 prototype 尚未正式投入使用；現有測試／開發資料不是 Public repo 的 production migration source。
+- 本 repo 只保存經確認可公開的 Legacy 資料模型、流程、ID／狀態／驗證語意與行為參考，以及新 CY Web 的 Business Decisions／canonical design；不得為方便搬入私密識別資訊、本機設定、舊登入 bootstrap 或真實測試資料。
+- Pre-consolidation audit/draft 可存放於 architecture archive 作追溯；current architecture index 與較新的 Business Decisions 才是日常實作應優先閱讀的文件。
 
 ## 6. Web 部署與 Release
 
 - Web deploy 與 GitHub Release 是不同流程。
-- 正式部署必須可由 repository source、migration 與受控環境設定重建並留下可追蹤紀錄。
+- 正式部署必須可由 repository source、forward schema migrations 與受控環境設定重建並留下可追蹤紀錄。
 - 正式資料庫 schema 變更必須回寫 migration/source of truth，不得只在 Cloudflare Dashboard 手工修改。
 - 未經使用者明確要求，不因一般 branch push 建立 GitHub Release。
 

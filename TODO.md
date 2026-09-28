@@ -1,64 +1,277 @@
 # CY Web TODO
 
-本文件只記錄待辦與工程方向，不作永久規則來源。
+This file records the current implementation sequence. It is not a permanent rules source.
 
-## Phase 0 — Governance / Public foundation
+## Current checkpoint — 2026-09-28
 
-- [x] 建立 Public `chihyuan-web` 與 `main` 正式基準。
-- [x] 舊完整 GAS source／歷史留在 Private `chihyuan-legacy-private`。
-- [x] 建立 AITeam Governance 2.0 三層規則骨架。
-- [x] 同步 AITeam Common Rules 2.6.0。
-- [x] 定義 CY shared visual canonical 邊界與 Web Design System 原則。
-- [x] AITeam PR #62 改為納管 `chihyuan-web`。
-- [ ] CY Web Governance bootstrap PR 驗證與合併。
-- [ ] AITeam PR #62 驗證與合併。
+- Active repository: `simonliu1118-byte/chihyuan-web`
+- Active implementation branch: `cyweb/operational-local-runtime`
+- Active PR: `#41` — Open / Draft / do not merge without explicit user authorization.
+- Current version: `0.1.39`.
+- Forward UI: the **real integrated React operational application**, not standalone preview pages.
+- Current persistence adapter: versioned browser `localStorage`.
+- Latest accepted runtime checkpoint: browser TypeScript, Worker TypeScript, Vite build and source/schema validators are green.
+- Current migration chain: `0001_initial.sql` + `0002_defect_invalidation.sql`.
+- Production D1/Worker/DNS/R2/GCS/SMART ERP are untouched by the operational branch.
+- CYAccountingWeb remains a separate workstream and must not be modified here.
 
-## Phase 1 — Legacy inventory / architecture decision
+Canonical continuation document:
 
-- [ ] 盤點 Legacy 五大系統：Customer、Order、Outsourcing、WorkLog、Item。
-- [ ] 從 Private Legacy 抽出資料模型、ID、狀態、驗證、權限與操作流程，分類為「必須保留／可重構／可淘汰」。
-- [ ] 最終確認 frontend 技術棧；目前推薦 TypeScript + React + Vite。
-- [ ] 建立 Cloudflare Worker project、環境切分與 health endpoint。
-- [ ] 設計 D1 relational schema、indexes、constraints、audit 與 forward migrations。
-- [ ] 定義 API contract、error contract、validation schema、pagination/search pattern。
+`docs/handoffs/CYWEB_OPERATIONAL_RUNTIME_HANDOFF_2026-09-28.md`
 
-## Phase 2 — Reusable CY Web foundation
+## Immediate sequence
 
-- [ ] App Shell／navigation／route guard。
-- [ ] CYInvoice Cloud identity adapter／session handling／permission guard。
-- [ ] API client／error／loading／retry pattern。
-- [ ] Form controls／validation presentation。
-- [ ] Data table／mobile cards／filter／search／pagination。
-- [ ] Dialog／Drawer／Bottom Sheet／full-screen mobile form patterns。
-- [ ] Audit/history UI。
-- [ ] RWD + Adaptive 真實 Desktop/Tablet/Mobile 驗收矩陣。
+1. [x] Consolidate Governance / Business Decisions / Canonical Data Model / Final Data Dictionary.
+2. [x] Implement initial D1 migrations and schema/constraint validation.
+3. [x] Stage Worker/API request, validation, Identity adapter and shared Audit foundations.
+4. [x] Build the shared AppShell/form/data-view/entity-picker/editable-list/overlay/keyboard foundations.
+5. [x] Stage Customer service/persistence/related-record workflows.
+6. [x] Stage Item + Defect service/workflow foundations.
+7. [x] Stage Sales Work Order workflow foundation.
+8. [x] Stage Contractor + BOM + Outsourcing + stock-ledger workflow foundation.
+9. [x] Stage WorkLog review/statistics foundation.
+10. [x] Stage Settings/Admin authority foundation.
+11. [x] Replace disposable module previews with one persistent operational React runtime.
+12. [x] Add local JSON export/import/reset and local Audit projection.
+13. [x] Add automated TypeScript/Vite/source-contract runtime checks; latest checkpoint is green.
+14. [x] Add browser-test packaging for the same operational React runtime.
+15. [ ] Continue real-user functional/UI testing directly against the operational React app; make fixes in the same UI rather than returning to standalone previews.
+16. [ ] Apply migrations to **local/dev Cloudflare D1** and run D1-specific smoke/transaction acceptance.
+17. [ ] Freeze the initial D1 relational schema after real D1 acceptance.
+18. [ ] Complete Shared Identity browser-session provider wiring for CY Web.
+19. [ ] Add protected Worker business HTTP routes with server-side role/module authorization.
+20. [ ] Replace the temporary localStorage persistence adapter with Worker API -> D1 while preserving the same React UI/workflow.
+21. [ ] Perform Desktop/Tablet/Mobile real-browser/device acceptance.
+22. [ ] Bind/deploy production Worker/D1/custom domain only after explicit production acceptance.
 
-## Phase 3 — Data migration
+UI polish is continuous and is **not** a prerequisite for beginning D1 integration.
 
-- [ ] 建立 Google Sheets → D1 可重跑 migration tool。
-- [ ] 建立資料筆數、ID、關聯、日期、compound fields、numeric-string 欄位核對報告。
-- [ ] 定義 dry-run、正式 cutover、rollback／重新執行策略。
+## Operational UI rules already accepted
 
-## Phase 4 — Module migration
+### General
 
-- [ ] Customer。
-- [ ] Item。
-- [ ] Order。
-- [ ] Outsourcing。
-- [ ] WorkLog／Scoring／History Statistics。
-- [ ] Settings／Admin。
+- Real React screens are the forward implementation path.
+- `preview/*` files are reference/history only unless a focused comparison artifact is explicitly needed.
+- Functional correctness first; layout/visual corrections are applied continuously to the same operational UI.
+- Normal business text must remain readable; avoid micro-text. Current accepted baseline is approximately 14–16px for ordinary content.
+- Long forms should keep important Cancel/Save controls reachable at both top and bottom.
 
-## Phase 5 — CYCloud Identity
+### Customer
 
-- [ ] 盤點 CYInvoice Cloud 可共用 Workspace／Employee／Credential／Session／OTP／Recovery contract。
-- [ ] 定義 CYCloud Identity 與 App-specific permission 邊界。
-- [ ] 抽離 CYInvoice-specific naming／routing／schema coupling。
-- [ ] CY Web 與 CYInvoice 改為 CYCloud Identity consumers。
+- Search/filter/result count/result list belong together in the **left Search Pane**.
+- Selected Customer detail is an independent **right Detail Pane**.
+- Left/right major card top edges should align.
+- Result columns must remain stable even when labels have different Chinese-character lengths; one field must not push another sideways.
+- Header Edit is compact/single-line rather than a tall multi-row action block.
+- Delete/Deactivate is a secondary lifecycle action rather than increasing the Edit button height.
+- Existing ERP Customer number is not silently changed by ordinary editing; assignment/correction is a controlled action.
+- Duplicate Tax ID is allowed only after an explicit warning/confirmation.
+- Related-record visual detail is intentionally deferred for a later concentrated pass.
 
-## Phase 6 — Cutover
+## Module state
 
-- [ ] Legacy vs Cloud 核心資料與行為對照驗收。
-- [ ] Desktop／Tablet／Mobile 真實工作流驗收。
-- [ ] 權限／Session／高風險操作驗收。
-- [ ] 備份／復原與 migration rollback 演練。
-- [ ] 使用者確認正式上線穩定後，再停止／刪除舊 GAS deployment 與 Sheet。
+### Customer
+
+Current operational/service scope includes:
+
+- Customer master create/edit;
+- phones / contacts / addresses / important notes;
+- ERP Customer-number assignment/correction;
+- active/inactive lifecycle;
+- duplicate Tax-ID warning path;
+- Visits;
+- Frequent Items;
+- Customer + Item Quote history/correction;
+- important activity/Audit.
+
+Next: keep testing/fixing the real operational screen, then wire protected API/D1 after runtime/Identity gates.
+
+### Item + Defect
+
+Current scope includes:
+
+- Item master;
+- scaled4 commercial values;
+- unit conversion graph;
+- historical Item-number search;
+- controlled audited Item-number change;
+- Defect `created -> processing -> resolved`;
+- resolved reopen;
+- created-only hard delete boundary;
+- invalidation overlay without creating a fourth workflow status.
+
+### Sales Work Order
+
+Current lifecycle baseline:
+
+```text
+created
+  -> first ERP fill
+issued
+  -> waiting_stock (optional)
+  -> picked
+  -> shipped
+```
+
+Also staged: direct `issued -> picked`, ERP reference correction, controlled shipment reversal, post-ERP voiding and pre-ERP-only hard-delete rules.
+
+### Contractor / BOM / Outsourcing
+
+Current scope includes:
+
+- Contractor master/current Contractor Price;
+- multiple BOM variants;
+- pending outbound planning;
+- confirmed outbound stock movement;
+- outbound correction by reversal + replacement;
+- cancel/void;
+- receiving + BOM consumption;
+- cancel receiving;
+- pricing/cancel pricing;
+- payment/cancel payment;
+- movement-derived contractor stock.
+
+Critical rule:
+
+```text
+pending_outbound = plan only
+confirmed outbound = actual contractor stock movement
+```
+
+### WorkLog
+
+Current scope includes:
+
+- create/edit while `created`;
+- independent Work Days;
+- submit/withdraw review;
+- reviewer scoring;
+- reviewer Work Days correction;
+- per-entry remark/score;
+- finalized total/average-daily score;
+- cancel review back to `pending_review`;
+- historical statistics from stored finalized results.
+
+Chihyuan production WorkLog categories/platforms/scoring values remain deployment D1 configuration, not Public-source constants.
+
+### Settings / Admin / Audit
+
+Current authority foundation:
+
+- departments/customer categories/customer statuses/item categories: `SUPER_ADMIN` mutation only;
+- App Tags/module mappings/member-tag assignments: `SUPER_ADMIN` mutation only;
+- WorkLog operational configuration: `ADMIN` or `SUPER_ADMIN`;
+- regular `EMPLOYEE`: no configuration mutation authority;
+- meaningful configuration changes create shared Audit.
+
+Protected Settings/Admin/Audit HTTP access still waits for Shared Identity browser-session wiring.
+
+## D1 / Worker acceptance
+
+### Already complete
+
+- [x] `migrations/` is the forward schema source of truth.
+- [x] `0001_initial.sql` implemented.
+- [x] `0002_defect_invalidation.sql` implemented.
+- [x] SQLite schema/constraint validation.
+- [x] Worker TypeScript compile at latest accepted runtime checkpoint.
+- [x] Browser TypeScript/Vite build at latest accepted runtime checkpoint.
+
+### Still required before schema freeze
+
+- [ ] Apply migrations to local/dev Cloudflare D1.
+- [ ] Run Worker against local/dev D1.
+- [ ] Test optimistic revision conflicts against D1.
+- [ ] Test Audit + business mutation transactional behavior.
+- [ ] Test exact fixed-point persistence/conversion behavior.
+- [ ] Test Outsourcing reversal/replacement and WorkLog review/cancel-review transitions.
+- [ ] Confirm D1-specific constraints/transaction semantics.
+- [ ] Mark initial schema frozen only after those checks pass.
+
+The schema is stable enough for UI/product work and early D1 integration. Do not redesign it merely because screen layout changes.
+
+## Shared Identity
+
+Already staged:
+
+- [x] provider-neutral Identity adapter;
+- [x] normalized principal contract;
+- [x] shared role hierarchy `EMPLOYEE / ADMIN / SUPER_ADMIN`;
+- [x] CY Web-local app tags/module access projection.
+
+Still required:
+
+- [ ] concrete Shared Identity browser-session provider for CY Web;
+- [ ] authenticated client session/menu state;
+- [ ] protected Worker-route server authorization;
+- [ ] integration acceptance before multi-user D1 operation.
+
+Do not create a second CY Web credential/session system or copy CYInvoice auth internals as a shortcut.
+
+## Browser-test runtime
+
+Operational browser build command:
+
+```text
+npm run build:operational
+```
+
+The operational packaging workflow publishes the built static package to:
+
+```text
+cyweb/operational-test-runtime
+```
+
+and also produces an `operational-runtime` GitHub Actions artifact when Actions capacity is available.
+
+The package uses the same React operational app with localStorage persistence. It is not a production deployment.
+
+## Backup / recovery
+
+Canonical detail: `docs/architecture/BACKUP_ARCHITECTURE.md`.
+
+Confirmed architecture:
+
+```text
+D1   live authoritative database after cutover
+R2   daily 03:30 Taiwan / 30-day operational retention
+GCS  Wed + Sun replication / 26-week cross-cloud DR retention
+```
+
+Already prepared:
+
+- [x] R2 account activation.
+- [x] Separate CY Web / CYAccountingWeb production R2 buckets.
+- [x] 45-day bucket lifecycle safety guard behind 30-day application retention.
+- [x] CY Web production GCS bucket + least-privilege service identity.
+- [x] Provider-neutral BackupService / BackupStorageProvider architecture.
+
+Still later:
+
+- [ ] bind CY Web runtime R2/GCS only after real Worker deployment boundary is accepted;
+- [ ] implement backup-set builder/providers/catalog/retention;
+- [ ] implement SA-only backup/list/verify/restore API/UI/Audit;
+- [ ] run restore and cross-cloud DR drills.
+
+## Domain baseline
+
+- `chihyuancm.com` — official public site.
+- `admin.chihyuancm.com` — CY Web.
+- `accounting.chihyuancm.com` — CYAccountingWeb.
+- `invoice.chihyuancm.com` — CYInvoice Web.
+- `auth.chihyuancm.com` — future Shared Identity.
+- `portal.chihyuancm.com` — future unified entry if needed.
+
+Actual custom-domain binding remains a controlled production rollout step.
+
+## Continuation checklist
+
+A new CY Web conversation should first read:
+
+1. `docs/handoffs/CYWEB_OPERATIONAL_RUNTIME_HANDOFF_2026-09-28.md`
+2. `docs/architecture/README.md`
+3. this `TODO.md`
+4. `docs/architecture/OPERATIONAL_LOCAL_RUNTIME.md`
+5. `docs/architecture/decisions/README.md` plus relevant module Business Decisions.
+
+Do not re-open settled Business Decisions unless the user explicitly changes them.

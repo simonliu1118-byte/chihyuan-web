@@ -1,0 +1,163 @@
+.cy-dialog {
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  margin: auto;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--cy-text);
+}
+
+.cy-dialog::backdrop {
+  background: rgba(20, 28, 36, 0.42);
+}
+
+.cy-dialog-surface {
+  display: flex;
+  flex-direction: column;
+  width: min(620px, calc(100vw - 32px));
+  max-height: min(82vh, 760px);
+  margin: auto;
+  overflow: hidden;
+  border: 1px solid var(--cy-border);
+  border-radius: var(--cy-radius-lg);
+  background: var(--cy-surface);
+  box-shadow: 0 24px 64px rgba(20, 28, 36, 0.2);
+}
+
+.cy-dialog-small .cy-dialog-surface {
+  width: min(440px, calc(100vw - 32px));
+}
+
+.cy-dialog-large .cy-dialog-surface {
+  width: min(900px, calc(100vw - 32px));
+}
+
+.cy-dialog-header,
+.cy-dialog-footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+}
+
+.cy-dialog-header {
+  border-bottom: 1px solid var(--cy-border);
+}
+
+.cy-dialog-footer {
+  align-items: center;
+  border-top: 1px solid var(--cy-border);
+}
+
+.cy-dialog-heading {
+  min-width: 0;
+}
+
+.cy-dialog-title {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.cy-dialog-description {
+  margin-top: 5px;
+  color: var(--cy-text-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.cy-dialog-close {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--cy-text-muted);
+  cursor: pointer;
+  font-size: 23px;
+  line-height: 1;
+}
+
+.cy-dialog-close:hover,
+.cy-dialog-close:focus-visible {
+  background: var(--cy-surface-muted);
+  color: var(--cy-text);
+}
+
+.cy-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 20px;
+}
+
+.cy-dialog-action-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.cy-dialog-drawer {
+  margin: 0 0 0 auto;
+  height: 100dvh;
+}
+
+.cy-dialog-drawer .cy-dialog-surface {
+  width: min(560px, 92vw);
+  height: 100dvh;
+  max-height: none;
+  margin: 0 0 0 auto;
+  border-radius: 0;
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.cy-dialog-sheet {
+  margin: auto 0 0;
+}
+
+.cy-dialog-sheet .cy-dialog-surface {
+  width: 100%;
+  max-height: min(78dvh, 720px);
+  margin: auto 0 0;
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  border-radius: 18px 18px 0 0;
+}
+
+@media (max-width: 680px) {
+  .cy-dialog-modal .cy-dialog-surface {
+    width: calc(100vw - 20px);
+    max-height: calc(100dvh - 20px);
+  }
+
+  .cy-dialog-header,
+  .cy-dialog-footer,
+  .cy-dialog-body {
+    padding: 16px;
+  }
+
+  .cy-dialog-action-row {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .cy-dialog-action-row .cy-button {
+    width: 100%;
+  }
+
+  .cy-dialog-drawer .cy-dialog-surface {
+    width: 100vw;
+  }
+}

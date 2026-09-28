@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CY Web｜Customer Full Workspace Preview V2</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f4f6f8}
+iframe{display:block;width:100%;height:100%;border:0;background:#f4f6f8}
+</style>
+</head>
+<body>
+<iframe id="preview" src="./full-workspace-v1.html" title="CY Web Customer Full Workspace Preview V2"></iframe>
+<script>
+const frame=document.getElementById('preview');
+frame.addEventListener('load',()=>{
+  const win=frame.contentWindow;
+  const doc=frame.contentDocument;
+  if(!win||!doc)return;
+
+  const style=doc.createElement('style');
+  style.textContent=`
+    body{font-size:16px;line-height:1.5}
+    .brand b{font-size:16px}.brand small,.navlabel,.aside-note{font-size:12px}
+    .nav a{font-size:15px}
+    .topbar{font-size:16px}.chip{font-size:13px}
+    .head h1{font-size:29px}.head p{font-size:14px;line-height:1.6}
+    .btn{font-size:14px}.btn.sm{font-size:13px;min-height:34px}
+    .notice{font-size:14px;line-height:1.55}
+    .searchtitle small,.resultmeta,.clear{font-size:13px}
+    .searchtitle b{font-size:16px}.count{font-size:13px}
+    .searchbox input,.filterrow select{font-size:14px;min-height:40px}
+    .row{grid-template-columns:minmax(0,1fr) 82px 92px;padding:13px 14px}
+    .row strong{font-size:15px}.row small{font-size:13px}.row .region{font-size:14px}
+    .detailhead{align-items:flex-start}.titleline h2{font-size:26px}.subtitle{font-size:14px}.meta{font-size:14px}
+    .cardtitle{font-size:15px}.val span,.subhead{font-size:13px}.val b,.line{font-size:15px}
+    .contactrow,.addrrow,.notes div{font-size:14px}
+    .tabs button{font-size:14px}
+    .relhead strong{font-size:15px}.relhead span{font-size:13px;line-height:1.5}
+    .visit time,.visitmeta{font-size:13px}.visitmeta b,.visitbody p{font-size:14px}.visitbody p{line-height:1.6}
+    .quote header b{font-size:14px}.quote header span,.breakrow{font-size:13px}
+    .frequent b{font-size:14px}.frequent span,.frequent small{font-size:13px}
+    .empty{font-size:14px}
+    .formsection h3{font-size:16px}.field label{font-size:13px}
+    .field input,.field select,.field textarea{font-size:15px;min-height:40px}
+    .warning,.drawerhead p{font-size:13px}.drawerhead h2{font-size:20px}.toast{font-size:14px}
+    .preview-top-edit-actions{display:flex;gap:8px;align-items:flex-start;flex:0 0 auto}
+    @media(max-width:620px){.preview-top-edit-actions{width:100%}.preview-top-edit-actions .btn{flex:1}}
+  `;
+  doc.head.appendChild(style);
+
+  function ensureTopEditActions(){
+    const detail=doc.getElementById('detail');
+    if(!detail)return;
+    const form=detail.querySelector('.form');
+    const head=detail.querySelector('.detailhead');
+    if(!form||!head||head.querySelector('.preview-top-edit-actions'))return;
+
+    const actions=doc.createElement('div');
+    actions.className='preview-top-edit-actions';
+
+    const cancel=doc.createElement('button');
+    cancel.type='button';
+    cancel.className='btn secondary';
+    cancel.textContent='取消';
+    cancel.addEventListener('click',()=>win.cancelCustomerEdit());
+
+    const save=doc.createElement('button');
+    save.type='button';
+    save.className='btn primary';
+    save.textContent='儲存';
+    save.addEventListener('click',()=>win.saveCustomer());
+
+    actions.append(cancel,save);
+    head.appendChild(actions);
+  }
+
+  const detail=doc.getElementById('detail');
+  if(detail){
+    new MutationObserver(ensureTopEditActions).observe(detail,{childList:true,subtree:true});
+  }
+  ensureTopEditActions();
+});
+</script>
+</body>
+</html>

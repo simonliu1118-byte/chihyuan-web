@@ -1,0 +1,60 @@
+name: Operational Package
+
+on:
+  push:
+    branches:
+      - cyweb/operational-local-runtime
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cyweb-operational-package
+  cancel-in-progress: true
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build operational runtime
+        run: npm run build:operational
+
+      - name: Stamp source commit
+        run: |
+          printf '%s\n' "${GITHUB_SHA}" > dist-operational/SOURCE_COMMIT
+          touch dist-operational/.nojekyll
+
+      - name: Upload operational runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: operational-runtime
+          path: dist-operational/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish browser-test branch
+        run: |
+          rm -rf /tmp/cyweb-operational-site
+          mkdir -p /tmp/cyweb-operational-site
+          cp -a dist-operational/. /tmp/cyweb-operational-site/
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --orphan operational-test-publish
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a /tmp/cyweb-operational-site/. .
+          git add -A
+          git commit -m "deploy: CY Web operational test ${GITHUB_SHA}"
+          git push --force origin HEAD:refs/heads/cyweb/operational-test-runtime
