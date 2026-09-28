@@ -1,195 +1,277 @@
 # CY Web TODO
 
-This file records current work and engineering direction. It is not a permanent rules source.
+This file records the current implementation sequence. It is not a permanent rules source.
+
+## Current checkpoint — 2026-09-28
+
+- Active repository: `simonliu1118-byte/chihyuan-web`
+- Active implementation branch: `cyweb/operational-local-runtime`
+- Active PR: `#41` — Open / Draft / do not merge without explicit user authorization.
+- Current version: `0.1.39`.
+- Forward UI: the **real integrated React operational application**, not standalone preview pages.
+- Current persistence adapter: versioned browser `localStorage`.
+- Latest accepted runtime checkpoint: browser TypeScript, Worker TypeScript, Vite build and source/schema validators are green.
+- Current migration chain: `0001_initial.sql` + `0002_defect_invalidation.sql`.
+- Production D1/Worker/DNS/R2/GCS/SMART ERP are untouched by the operational branch.
+- CYAccountingWeb remains a separate workstream and must not be modified here.
+
+Canonical continuation document:
+
+`docs/handoffs/CYWEB_OPERATIONAL_RUNTIME_HANDOFF_2026-09-28.md`
 
 ## Immediate sequence
 
-1. [x] Consolidate architecture documents and Business Decision supersession map through BD-054.
-2. [x] Finalize the shared tiered backup architecture: D1 live, R2 daily operational backup, GCS cross-cloud DR, shared package/provider contract and future CY Backup Service boundary (BD-049/050).
-3. [x] Resolve the genuinely open Data-Dictionary business semantics; defer only explicit non-blocking SMART ERP/UI/retention items.
-4. [x] Produce and align the initial Final Data Dictionary with the D1 schema draft.
-5. [ ] Freeze the initial D1 relational schema after local/dev D1 migration and D1-specific smoke validation. SQLite schema/constraint smoke validation is already complete.
-6. [ ] Complete Cloudflare Worker/Vite local foundation acceptance. Source/config foundation, API contract and `/api/health` are staged; npm build + local D1 apply remain pending in a normal networked checkout.
-7. [ ] Complete Shared Identity browser-session provider wiring. The CY Web provider-neutral adapter, normalized principal contract and app-local module-access guards are staged; the shared provider still needs a CY Web-compatible browser-session contract.
-8. [x] Stage the shared CY Web Audit Core with compact payload guards, timeline projection and Admin/SA detail-query foundation.
-9. [ ] Bind the already-provisioned CY Web R2 bucket and add CY Web GCS runtime configuration only after the real CY Web Worker deployment boundary is accepted.
-10. [x] Complete the pre-business reusable application-foundation gate, Customer module/API contract, approved Desktop Search-Pane/Detail-Pane direction, Customer create/edit interaction preview, Worker-side Customer repository/domain-validation, transactional Customer profile persistence, on-demand Visit/Frequent Item/Quote reads, shared related-record UI, and related-record mutation services. Protected HTTP route wiring still waits for Identity + local/dev runtime acceptance.
-11. [x] Stage the Item master service foundation: shared Item contracts, server-side search/detail, scaled4 cost/price handling, conversion-graph validation, transactional profile persistence, historical Item-number search, and an audited controlled Item-number-change path. Defect is the next Item-domain slice.
+1. [x] Consolidate Governance / Business Decisions / Canonical Data Model / Final Data Dictionary.
+2. [x] Implement initial D1 migrations and schema/constraint validation.
+3. [x] Stage Worker/API request, validation, Identity adapter and shared Audit foundations.
+4. [x] Build the shared AppShell/form/data-view/entity-picker/editable-list/overlay/keyboard foundations.
+5. [x] Stage Customer service/persistence/related-record workflows.
+6. [x] Stage Item + Defect service/workflow foundations.
+7. [x] Stage Sales Work Order workflow foundation.
+8. [x] Stage Contractor + BOM + Outsourcing + stock-ledger workflow foundation.
+9. [x] Stage WorkLog review/statistics foundation.
+10. [x] Stage Settings/Admin authority foundation.
+11. [x] Replace disposable module previews with one persistent operational React runtime.
+12. [x] Add local JSON export/import/reset and local Audit projection.
+13. [x] Add automated TypeScript/Vite/source-contract runtime checks; latest checkpoint is green.
+14. [x] Add browser-test packaging for the same operational React runtime.
+15. [ ] Continue real-user functional/UI testing directly against the operational React app; make fixes in the same UI rather than returning to standalone previews.
+16. [ ] Apply migrations to **local/dev Cloudflare D1** and run D1-specific smoke/transaction acceptance.
+17. [ ] Freeze the initial D1 relational schema after real D1 acceptance.
+18. [ ] Complete Shared Identity browser-session provider wiring for CY Web.
+19. [ ] Add protected Worker business HTTP routes with server-side role/module authorization.
+20. [ ] Replace the temporary localStorage persistence adapter with Worker API -> D1 while preserving the same React UI/workflow.
+21. [ ] Perform Desktop/Tablet/Mobile real-browser/device acceptance.
+22. [ ] Bind/deploy production Worker/D1/custom domain only after explicit production acceptance.
 
-## Phase 0 — Governance / Public foundation
+UI polish is continuous and is **not** a prerequisite for beginning D1 integration.
 
-- [x] Create Public `chihyuan-web` and `main` baseline.
-- [x] Keep the complete GAS source/history in Private `chihyuan-legacy-private`.
-- [x] Adopt AITeam Governance 2.0 three-layer rules.
-- [x] Establish Public-safe source/infrastructure boundary.
-- [x] Define CY shared-visual boundary and CY Web Design System direction.
-- [x] Establish Governance Check / common-rules synchronization.
-- [x] Consolidate repository documentation so active docs, historical audits, decisions, and operational handoffs have distinct roles.
+## Operational UI rules already accepted
 
-## Phase 1 — Legacy behavior inventory / architecture
+### General
 
-- [x] Inventory Customer, Order, Outsourcing, WorkLog, Item and supporting Sheet/data structures.
-- [x] Audit Legacy data semantics and normalize master/FK/child/snapshot/lookup/audit concepts.
-- [x] Re-audit Desktop workflow, reversals, permissions, cross-module effects, and history/audit behavior.
-- [x] Record and consolidate Business Decisions through BD-054.
-- [x] Confirm existing Legacy rows are development/test data and are **not migrated** into production D1 (BD-047).
-- [x] Confirm SMART ERP customer number may change/correct without changing Customer identity (BD-048).
-- [x] Confirm tiered backup/shared-service direction (BD-049/050).
-- [x] Confirm WorkLog cancel-review audit-only history policy (BD-051).
-- [x] Confirm initial fields follow validated GAS/Legacy semantics while SMART ERP field ownership is deferred (BD-052).
-- [x] Confirm general-edit vs important-action Audit boundary and Admin/SA detailed Audit visibility (BD-053).
-- [x] Confirm one shared cost-conscious Audit Core inside CY Web only (BD-054).
-- [x] Archive pre-consolidation architecture drafts and replace active docs with consolidated indexes/current model.
-- [x] Resolve remaining real Data-Dictionary questions without repeating settled Business Decisions.
-- [x] Complete the initial schema-aligned Final Data Dictionary.
+- Real React screens are the forward implementation path.
+- `preview/*` files are reference/history only unless a focused comparison artifact is explicitly needed.
+- Functional correctness first; layout/visual corrections are applied continuously to the same operational UI.
+- Normal business text must remain readable; avoid micro-text. Current accepted baseline is approximately 14–16px for ordinary content.
+- Long forms should keep important Cancel/Save controls reachable at both top and bottom.
 
-### Removed from launch scope by BD-047
+### Customer
 
-The following are intentionally **not** launch tasks:
+- Search/filter/result count/result list belong together in the **left Search Pane**.
+- Selected Customer detail is an independent **right Detail Pane**.
+- Left/right major card top edges should align.
+- Result columns must remain stable even when labels have different Chinese-character lengths; one field must not push another sideways.
+- Header Edit is compact/single-line rather than a tall multi-row action block.
+- Delete/Deactivate is a secondary lifecycle action rather than increasing the Edit button height.
+- Existing ERP Customer number is not silently changed by ordinary editing; assignment/correction is a controlled action.
+- Duplicate Tax ID is allowed only after an explicit warning/confirmation.
+- Related-record visual detail is intentionally deferred for a later concentrated pass.
 
-- Legacy Sheet value-level profiling for migration acceptance;
-- Google Sheets → D1 production importer;
-- `legacy_id_map`;
-- Legacy row-count / orphan-FK / alias reconciliation as a cutover gate;
-- Legacy-data migration dry-run / rollback.
+## Module state
 
-Legacy source remains available as behavior/reference evidence.
+### Customer
 
-## Phase 2 — Cloudflare / D1 foundation
+Current operational/service scope includes:
 
-- [x] Adopt the initial frontend stack: TypeScript + React + Vite with the Cloudflare Vite plugin.
-- [ ] Complete Cloudflare Worker project/environment acceptance. Local/public-safe source foundation exists; production environment injection remains separate.
-- [x] Add source-level `/api/health` Worker endpoint and same-origin SPA/API routing foundation.
-- [x] Add a public-safe local D1 binding/migration template; no production D1 identifier is committed.
-- [x] Implement `migrations/0001_initial.sql` from the Final Data Dictionary and add zero-dependency schema validation.
-- [x] Establish `migrations/` as the forward schema-migration source of truth for the clean-start database.
-- [x] Define the initial API response/error/cache/concurrency/validation/list-search contract in `docs/architecture/API_CONTRACT.md`.
-- [x] Implement shared server-side bounded JSON parsing, generic field-validation and API error/response helpers.
-- [ ] Implement the first authenticated business API slice after Identity session wiring is available.
-- [x] Stage the shared CY Web Audit Core service on top of the confirmed `audit_events` schema; route-level authorization/UI wiring remains later work.
-- [x] Stage the Customer repository/domain-validation service foundation without exposing protected routes or production writes.
-- [x] Stage transactional Customer profile persistence plus on-demand Customer Visit/Frequent Item/Quote read repositories/services without exposing protected routes.
-- [x] Stage Customer Visit create/update/delete, Frequent Item create/update/delete and Quote create/correct domain services. Visit deletion and Quote correction use structured Audit; no protected routes are exposed yet.
-- [x] Stage Item master repository/domain validation/persistence/service without protected routes. Item search includes searchable historical Item numbers; ordinary edit cannot overwrite Item number; controlled Item-number change is transactionally historized and audited.
-- [ ] Apply migrations to local/dev D1 and run Worker + D1 smoke acceptance before schema freeze.
+- Customer master create/edit;
+- phones / contacts / addresses / important notes;
+- ERP Customer-number assignment/correction;
+- active/inactive lifecycle;
+- duplicate Tax-ID warning path;
+- Visits;
+- Frequent Items;
+- Customer + Item Quote history/correction;
+- important activity/Audit.
 
-Production starts from a clean D1 schema; forward D1 schema migrations remain required even though Legacy data migration is not.
+Next: keep testing/fixing the real operational screen, then wire protected API/D1 after runtime/Identity gates.
 
-## Phase 3 — Reusable CY Web foundation
+### Item + Defect
 
-- [x] Shared App Shell and data-driven navigation structure.
-- [ ] Authenticated client route/menu permission state after Shared Identity browser-session wiring. UI hiding is never authoritative authorization.
-- [ ] Shared Identity adapter / session handling / permission guard. Provider-neutral interface, principal normalization and reusable server guards are staged; concrete shared-provider browser-session wiring remains pending.
-- [x] App-local `app_members` projection and app-tag/module access service per BD-037 are staged without copying credentials or shared roles into CY Web D1.
-- [x] API client / standardized error / loading / retry pattern.
-- [x] Form controls and validation presentation.
-- [x] Record editor state + shared unsaved-change guard.
-- [x] Data table / mobile cards / filter / search / pagination.
-- [x] Generic asynchronous entity picker with explicit-selection semantics.
-- [x] Shared editable repeated-row state foundation.
-- [x] Dialog / Drawer / Bottom Sheet / confirmation / non-blocking Toast feedback.
-- [x] Opt-in accessible Enter-to-next-field data-entry helper.
-- [x] Shared related-record panel/tab shell; Customer is the first proving use while domain content remains module-owned.
-- [x] Shared Audit Core supports prepared conditional inserts so meaningful domain mutation + Audit can share one D1 batch transaction.
-- [x] Shared exact fixed-point formatting/parsing foundation for scaled4/money2 values.
-- [x] Pre-business shared-foundation readiness review and first-use/defer matrix (`PRE_BUSINESS_READINESS.md`).
-- [ ] Shared concise Audit timeline UI when the first real authenticated record/API integration proves the final presentation contract.
-- [ ] Admin/SA detailed Audit Log UI after authenticated Admin/SA API wiring exists.
-- [ ] Unit picker / conversion display helper when the Item UI becomes the proving use. Server-side conversion graph semantics are now staged; visual helper remains UI work.
-- [x] Customer Desktop structural UI review: approved left Search Pane + right Detail Pane direction. Final branding/tokens and Tablet/Mobile acceptance remain later work.
-- [ ] Desktop/Tablet/Mobile real-device/browser acceptance later in the production acceptance phase.
+Current scope includes:
 
-## Phase 4 — Business modules
+- Item master;
+- scaled4 commercial values;
+- unit conversion graph;
+- historical Item-number search;
+- controlled audited Item-number change;
+- Defect `created -> processing -> resolved`;
+- resolved reopen;
+- created-only hard delete boundary;
+- invalidation overlay without creating a fourth workflow status.
 
-Implementation order may be adjusted for dependency efficiency, but all modules reuse the shared foundation rather than creating parallel patterns.
+### Sales Work Order
 
-- [ ] Customer / Visits / Frequent items / customer-item Quote history. **Customer master contract, shared TypeScript models, approved Desktop composition, create/edit interaction preview, repository/domain-validation, transactional profile persistence, related-record reads/UI and mutation services are staged. Visit deletion is audited; Frequent Item formal/free-text identity remains explicit; new commercial Quote creates history; existing Quote correction is a separate audited path. Next protected step: authenticated Customer HTTP routes after Identity + local/dev Worker/D1 gates. Quote hard-delete remains deliberately unintroduced.**
-- [ ] Item / unit conversion / Item history / Defect. **Item master shared contracts, D1 search/detail, scaled4 commercial values, conversion-graph validation, transactional create/update, historical-number search and controlled audited renumbering are staged. Next: Defect read/mutation service and an integrated Item functional preview; protected Item routes still wait for Identity/runtime gates.**
-- [ ] Sales work order / ERP fill-correct / picking / shipment / void.
-- [ ] Contractor / BOM / Outsourcing / receiving / pricing / payment / stock ledger.
-- [ ] WorkLog / Scoring / History Statistics.
-- [ ] Settings / Admin.
+Current lifecycle baseline:
 
-Before implementing each workflow, check `docs/architecture/decisions/README.md` and applicable BD files so resolved decisions are not re-opened.
+```text
+created
+  -> first ERP fill
+issued
+  -> waiting_stock (optional)
+  -> picked
+  -> shipped
+```
 
-## Backup / recovery — tiered R2 + GCS
+Also staged: direct `issued -> picked`, ERP reference correction, controlled shipment reversal, post-ERP voiding and pre-ERP-only hard-delete rules.
+
+### Contractor / BOM / Outsourcing
+
+Current scope includes:
+
+- Contractor master/current Contractor Price;
+- multiple BOM variants;
+- pending outbound planning;
+- confirmed outbound stock movement;
+- outbound correction by reversal + replacement;
+- cancel/void;
+- receiving + BOM consumption;
+- cancel receiving;
+- pricing/cancel pricing;
+- payment/cancel payment;
+- movement-derived contractor stock.
+
+Critical rule:
+
+```text
+pending_outbound = plan only
+confirmed outbound = actual contractor stock movement
+```
+
+### WorkLog
+
+Current scope includes:
+
+- create/edit while `created`;
+- independent Work Days;
+- submit/withdraw review;
+- reviewer scoring;
+- reviewer Work Days correction;
+- per-entry remark/score;
+- finalized total/average-daily score;
+- cancel review back to `pending_review`;
+- historical statistics from stored finalized results.
+
+Chihyuan production WorkLog categories/platforms/scoring values remain deployment D1 configuration, not Public-source constants.
+
+### Settings / Admin / Audit
+
+Current authority foundation:
+
+- departments/customer categories/customer statuses/item categories: `SUPER_ADMIN` mutation only;
+- App Tags/module mappings/member-tag assignments: `SUPER_ADMIN` mutation only;
+- WorkLog operational configuration: `ADMIN` or `SUPER_ADMIN`;
+- regular `EMPLOYEE`: no configuration mutation authority;
+- meaningful configuration changes create shared Audit.
+
+Protected Settings/Admin/Audit HTTP access still waits for Shared Identity browser-session wiring.
+
+## D1 / Worker acceptance
+
+### Already complete
+
+- [x] `migrations/` is the forward schema source of truth.
+- [x] `0001_initial.sql` implemented.
+- [x] `0002_defect_invalidation.sql` implemented.
+- [x] SQLite schema/constraint validation.
+- [x] Worker TypeScript compile at latest accepted runtime checkpoint.
+- [x] Browser TypeScript/Vite build at latest accepted runtime checkpoint.
+
+### Still required before schema freeze
+
+- [ ] Apply migrations to local/dev Cloudflare D1.
+- [ ] Run Worker against local/dev D1.
+- [ ] Test optimistic revision conflicts against D1.
+- [ ] Test Audit + business mutation transactional behavior.
+- [ ] Test exact fixed-point persistence/conversion behavior.
+- [ ] Test Outsourcing reversal/replacement and WorkLog review/cancel-review transitions.
+- [ ] Confirm D1-specific constraints/transaction semantics.
+- [ ] Mark initial schema frozen only after those checks pass.
+
+The schema is stable enough for UI/product work and early D1 integration. Do not redesign it merely because screen layout changes.
+
+## Shared Identity
+
+Already staged:
+
+- [x] provider-neutral Identity adapter;
+- [x] normalized principal contract;
+- [x] shared role hierarchy `EMPLOYEE / ADMIN / SUPER_ADMIN`;
+- [x] CY Web-local app tags/module access projection.
+
+Still required:
+
+- [ ] concrete Shared Identity browser-session provider for CY Web;
+- [ ] authenticated client session/menu state;
+- [ ] protected Worker-route server authorization;
+- [ ] integration acceptance before multi-user D1 operation.
+
+Do not create a second CY Web credential/session system or copy CYInvoice auth internals as a shortcut.
+
+## Browser-test runtime
+
+Operational browser build command:
+
+```text
+npm run build:operational
+```
+
+The operational packaging workflow publishes the built static package to:
+
+```text
+cyweb/operational-test-runtime
+```
+
+and also produces an `operational-runtime` GitHub Actions artifact when Actions capacity is available.
+
+The package uses the same React operational app with localStorage persistence. It is not a production deployment.
+
+## Backup / recovery
 
 Canonical detail: `docs/architecture/BACKUP_ARCHITECTURE.md`.
 
-Architecture:
+Confirmed architecture:
 
-- [x] In-app backup/restore is Super Admin-only; restore requires double confirmation and audit (BD-044).
-- [x] Keep D1 as live authoritative database; backup stores are not live/sync databases.
-- [x] Use Cloudflare R2 as the daily operational backup tier: daily 03:30 Taiwan time, 30-day retention (BD-049).
-- [x] Use GCS as cross-cloud disaster recovery: Wednesday/Sunday replication, 26-week retention (BD-049).
-- [x] One logical backup is exported from D1 only once; R2 and GCS copies use identical `manifest.json + data.json` bytes and the same `backupId` (BD-049/050).
-- [x] Keep provider-neutral `BackupService` + `BackupStorageProvider` boundary (BD-046/050).
-- [x] Standardize CY Web / CYAccountingWeb on the same outer `CYBackupSet` contract and SHA-256/read-back verification model (BD-050).
-- [x] Keep CY Web and CYAccountingWeb datasets and credentials isolated even when they later use a shared CY Backup Service / Worker (BD-050).
-- [x] Define future shared service boundary: shared Worker owns provider adapters/replication/retention/copy catalog; each App keeps D1 export, schema compatibility, authorization and restore writes (BD-050).
+```text
+D1   live authoritative database after cutover
+R2   daily 03:30 Taiwan / 30-day operational retention
+GCS  Wed + Sun replication / 26-week cross-cloud DR retention
+```
 
-Shared R2 infrastructure preparation:
+Already prepared:
 
-- [x] Activate R2 for the Cloudflare account.
-- [x] Provision separate production R2 buckets for CY Web and CYAccountingWeb; Standard storage, Asia-Pacific automatic placement, public access disabled, no Bucket Lock.
-- [x] Add an R2 bucket-level 45-day delete Lifecycle safety guard behind the application-level 30-day retention policy; keep default multipart-abort enabled.
-- [x] Keep the two applications physically isolated at the bucket/binding boundary rather than sharing one bucket by prefix only.
+- [x] R2 account activation.
+- [x] Separate CY Web / CYAccountingWeb production R2 buckets.
+- [x] 45-day bucket lifecycle safety guard behind 30-day application retention.
+- [x] CY Web production GCS bucket + least-privilege service identity.
+- [x] Provider-neutral BackupService / BackupStorageProvider architecture.
 
-CY Web infrastructure preparation:
+Still later:
 
-- [x] Create CY Web production GCS bucket and dedicated least-privilege service identity.
-- [x] Verify bucket-scoped GCS IAM for the CY Web identity.
-- [x] Create the CY Web Service Account JSON credential; keep it outside Git.
-- [x] Provision the CY Web-specific R2 operational backup bucket; binding waits for the accepted real CY Web Worker deployment boundary.
-- [ ] Configure the real CY Web Worker runtime with the existing app-scoped R2 bucket binding plus CY Web GCS configuration/secret through the approved deployment/runtime boundary.
-- [ ] Implement canonical `CYBackupSet` builder and app-level `BackupService`.
-- [ ] Implement R2 and GCS `BackupStorageProvider` adapters behind the same contract.
-- [ ] Implement logical backup + provider-copy catalog semantics so one backup is listed once with per-provider health.
-- [ ] Implement daily R2 backup, Wednesday/Sunday GCS replication from the same already-created bytes, retry and provider-specific retention.
-- [ ] Implement SA-only backup/list/verify/restore API + UI + audit; normal restore prefers R2 and falls back to GCS.
-- [ ] Perform operational restore and cross-cloud disaster-recovery drills.
+- [ ] bind CY Web runtime R2/GCS only after real Worker deployment boundary is accepted;
+- [ ] implement backup-set builder/providers/catalog/retention;
+- [ ] implement SA-only backup/list/verify/restore API/UI/Audit;
+- [ ] run restore and cross-cloud DR drills.
 
-CYAccountingWeb coordination:
+## Domain baseline
 
-- [x] Confirm CYAccountingWeb accepted GCS production backup remains the rollback path during tiered migration.
-- [x] Produce `docs/handoffs/CYACCOUNTINGWEB_TIERED_BACKUP_HANDOFF.md`.
-- [x] Provision the Accounting-specific production R2 bucket and 45-day lifecycle safety guard; Accounting workstream reuses it.
-- [ ] CYAccountingWeb workstream implements/binds its R2 migration; **this CY Web workstream does not modify CYAccountingWeb source/runtime**.
-- [ ] Require 14 consecutive successful parallel R2 + existing daily GCS backups before Accounting changes schedule.
-- [ ] Only after shared-service acceptance may direct per-App provider credentials/bindings be retired.
+- `chihyuancm.com` — official public site.
+- `admin.chihyuancm.com` — CY Web.
+- `accounting.chihyuancm.com` — CYAccountingWeb.
+- `invoice.chihyuancm.com` — CYInvoice Web.
+- `auth.chihyuancm.com` — future Shared Identity.
+- `portal.chihyuancm.com` — future unified entry if needed.
 
-Precise production resource identifiers remain in Private operational documentation rather than Public Git.
+Actual custom-domain binding remains a controlled production rollout step.
 
-## Medium-term — SMART ERP item-code replacement
+## Continuation checklist
 
-This future production business-data operation is separate from the removed Legacy GAS/Sheet migration.
+A new CY Web conversation should first read:
 
-- [ ] Obtain/validate complete old Item number → new Item number mapping when SMART ERP coding replacement is ready.
-- [ ] Keep old Item numbers searchable during transition; new transactions use current SMART ERP numbers (BD-011).
-- [ ] Provide dry-run, duplicate/unmapped/conflict checks and affected-row reconciliation.
-- [ ] Preserve immutable `items.id` and relational foreign keys.
-- [ ] Update only explicitly authorized item-number snapshots/mappings during final retirement; do not rewrite unrelated historical facts.
-- [ ] Create recoverable backup/rollback point before execution.
-- [ ] Record migration-level administrative audit evidence.
-- [ ] Remove old-number search/mappings only after explicit user authorization.
+1. `docs/handoffs/CYWEB_OPERATIONAL_RUNTIME_HANDOFF_2026-09-28.md`
+2. `docs/architecture/README.md`
+3. this `TODO.md`
+4. `docs/architecture/OPERATIONAL_LOCAL_RUNTIME.md`
+5. `docs/architecture/decisions/README.md` plus relevant module Business Decisions.
 
-## Phase 5 — CYCloud Identity evolution
-
-- [ ] Inventory the reusable shared Workspace / Employee / Credential / Session / OTP / Recovery contract.
-- [ ] Define CYCloud Identity versus App-specific permission/tag boundaries.
-- [ ] Remove CYInvoice-specific naming/routing/schema coupling from shared identity when extraction begins.
-- [ ] Move CY Web and CYInvoice to the extracted shared Identity service when ready.
-
-## Phase 6 — Fresh production launch
-
-There is no Legacy-data cutover.
-
-Acceptance focuses on the new system:
-
-- [ ] Production D1 starts from the approved clean schema.
-- [ ] Identity/session/permission/high-risk-operation acceptance.
-- [ ] Customer/Item/Order/Outsourcing/WorkLog/Settings workflow acceptance.
-- [ ] Desktop/Tablet/Mobile real-device/browser acceptance.
-- [ ] R2 operational restore and GCS cross-cloud disaster-recovery acceptance.
-- [ ] Any enabled SMART ERP integration is reconciled against its explicit adapter contract.
-- [ ] After the user confirms CY Web is stable for real use, retire the old GAS deployment/Sheet as appropriate.
+Do not re-open settled Business Decisions unless the user explicitly changes them.
