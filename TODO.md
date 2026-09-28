@@ -4,13 +4,13 @@
 
 ## Current checkpoint — 2026-09-28
 
-- Formal code baseline: `main`; current work item is version `0.1.40` on the D1 local-integration PR until merged.
+- Formal code baseline: `main`; current work item version: `0.1.41`.
 - Forward product surface: real integrated React operational application.
 - Temporary browser persistence: versioned `localStorage`.
-- Forward D1 migration chain: `0001_initial.sql` + `0002_defect_invalidation.sql`.
+- Frozen initial D1 migration baseline: `0001_initial.sql` + `0002_defect_invalidation.sql`.
 - Source/schema contracts, browser TypeScript, Worker TypeScript and Vite build are green for the current work item.
-- Wrangler **local D1** migration + core Worker/D1 acceptance is green for Customer batch persistence, optimistic revision, rollback, Audit atomic batch, fixed-point integer storage, foreign keys and Defect invalidation migration shape.
-- The D1 acceptance gate exposed and fixed a Customer child-row ordering bug in real `D1Database.batch()` behavior.
+- Wrangler local D1 migration/runtime acceptance is green for the core transaction gate plus Item exact conversion, Outsourcing reversal/replacement + derived stock, and WorkLog review/cancel-review/finalized-result behavior.
+- The initial relational schema is now frozen; later data-model changes require explicit forward migrations rather than revising the accepted baseline for UI convenience.
 - Production/remote D1, production Worker/DNS, R2/GCS resources and SMART ERP remain untouched.
 - CYAccountingWeb remains a separate application workstream.
 
@@ -18,8 +18,8 @@
 
 1. [ ] Continue real-user functional/UI testing directly against the integrated React application; fixes stay in the same product UI rather than returning to standalone previews.
 2. [x] Apply the current migration chain to fresh Wrangler local D1 and run the core Worker/D1 acceptance gate.
-3. [ ] Extend D1 acceptance to Item conversion/fixed-point domain behavior, Outsourcing reversal/replacement + derived stock, and WorkLog review/cancel-review persistence.
-4. [ ] Freeze the initial relational schema after the remaining domain-specific D1 acceptance cases pass.
+3. [x] Complete Item conversion/fixed-point, Outsourcing reversal/replacement + derived-stock, and WorkLog review/cancel-review D1 acceptance.
+4. [x] Freeze the initial relational schema after the D1 acceptance gates pass.
 5. [ ] Complete the concrete Shared Identity browser-session provider acceptance for CY Web.
 6. [ ] Add protected Worker business HTTP routes with server-side role/module authorization.
 7. [ ] Replace the temporary `localStorage` persistence adapter with Worker API → D1 while preserving the same React UI/workflows.
@@ -27,33 +27,29 @@
 9. [ ] Bind/deploy production Worker／D1／custom domain only after explicit production acceptance.
 10. [ ] Implement and acceptance-test CY Web backup runtime/providers/restore flow when the production Worker/D1 boundary is ready.
 
-UI polish is continuous and does **not** block D1 integration.
+UI polish is continuous and does **not** block Identity/API integration.
 
 ## Current acceptance gates
 
-### D1 / Worker
+### D1 / Worker — schema gate complete
 
-Completed core local-runtime gate:
+Accepted on Wrangler local D1:
 
-- forward migrations apply through Wrangler local D1;
-- migration reapply is safe;
-- real Worker can use the same temporary local D1 state;
+- forward migrations apply and safely reapply;
+- real Worker uses the same temporary local D1 state;
 - Customer parent/child batch persistence;
 - optimistic revision conflict behavior;
 - failed-batch rollback;
 - business mutation + Audit atomic batch;
-- exact fixed-point integer round-trip;
+- exact fixed-point integer round-trip and Item chained unit conversion;
 - D1 foreign-key enforcement;
-- Defect invalidation migration columns.
+- Defect invalidation migration columns;
+- Outsourcing plan-only pending state, confirmed stock movements, correction reversal/replacement, cancellation and derived-stock reconciliation;
+- WorkLog submit/review/cancel-review, reviewer-corrected Work Days, finalized scores, stored-result statistics and Audit sequence.
 
-Still required before schema freeze:
+Initial schema freeze is complete. Future schema changes use new numbered forward migrations and must preserve these acceptance gates.
 
-- Item conversion/fixed-point domain acceptance;
-- Outsourcing confirmed movement + reversal/replacement + derived-stock acceptance;
-- WorkLog review/cancel-review/finalized-result acceptance;
-- any remaining D1-specific transactional/Audit invariants found while exercising those workflows.
-
-### Shared Identity
+### Shared Identity — next blocking integration gate
 
 Already staged in CY Web:
 
@@ -75,8 +71,8 @@ Still required before protected multi-user D1 operation:
 
 Production deployment remains gated by:
 
-- completed D1/schema acceptance;
-- Identity/permission acceptance;
+- Shared Identity/permission acceptance;
+- protected Worker/API + D1 persistence integration;
 - major workflow acceptance;
 - Desktop/Tablet/Mobile acceptance;
 - backup/restore recovery acceptance;
@@ -90,7 +86,7 @@ Do not copy detailed rules into this TODO. Read the applicable source instead:
 - Business Decisions: `docs/architecture/decisions/README.md`
 - Data model: `docs/architecture/CANONICAL_DATA_MODEL.md`
 - Physical dictionary: `docs/architecture/FINAL_DATA_DICTIONARY.md`
-- D1 schema gate: `docs/architecture/D1_SCHEMA_REVIEW.md`
+- D1 schema gate/freeze: `docs/architecture/D1_SCHEMA_REVIEW.md`
 - Operational local runtime: `docs/architecture/OPERATIONAL_LOCAL_RUNTIME.md`
 - API contract: `docs/architecture/API_CONTRACT.md`
 - Shared Identity boundary: `docs/architecture/IDENTITY_ADAPTER.md`

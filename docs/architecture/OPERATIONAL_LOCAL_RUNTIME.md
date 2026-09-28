@@ -85,18 +85,19 @@ Worker protected HTTP API
 D1
 ```
 
-Before cutover is accepted:
+The initial relational schema gate has been accepted and frozen through the Wrangler local D1 runtime harness. The accepted baseline covers migration apply/reapply, constraints, fixed-point behavior, optimistic revision conflicts, transactional Audit, Customer child persistence, Item chained conversion, Outsourcing reversal/replacement + derived stock, and WorkLog review/cancel-review behavior.
 
-1. apply forward migrations to local/dev D1;
-2. run the Worker against local/dev D1;
-3. verify constraints and transaction semantics;
-4. verify fixed-point persistence/conversion behavior;
-5. verify optimistic revision conflict handling;
-6. verify Audit + meaningful business mutations are atomic where required;
-7. verify reversal/replacement and review/cancel-review workflows;
-8. only then freeze the initial relational schema.
+The schema freeze means UI/layout work no longer reopens the relational model by itself. A genuine later data-model change uses a new forward migration and the applicable data-contract/Business Decision review.
 
-Visual polish may continue in parallel and does not by itself block local/dev D1 integration.
+The remaining cutover work is integration rather than schema discovery:
+
+1. complete Shared Identity browser-session/provider acceptance;
+2. expose protected Worker business routes with server-side authorization;
+3. wire the React data adapter to those Worker APIs;
+4. exercise authenticated multi-user API → D1 workflows;
+5. retain the existing local D1 acceptance gate for regression coverage.
+
+Visual polish may continue in parallel and does not by itself block Identity/API integration.
 
 ## Shared Identity boundary
 
