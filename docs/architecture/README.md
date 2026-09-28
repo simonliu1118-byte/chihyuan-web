@@ -30,8 +30,10 @@ Archive、舊 preview、review backlog、readiness checkpoint、handoff 或舊 b
 - 單一 TypeScript + React + Vite Web application，Desktop／Tablet／Mobile 共用一套主要 codebase，以 RWD + Adaptive UI 呈現。
 - Cloudflare Workers 是 runtime/API target；D1 是正式 relational database target。
 - 現階段 integrated React operational runtime 使用 versioned browser `localStorage` 作暫時 persistence adapter；這不是第二套 domain model。
-- Forward schema source of truth 是 `migrations/`；正式 schema freeze 尚待 local/dev D1 + Worker acceptance。
-- Shared Identity 擁有 credential/session/shared-role authority；CY Web 只保存 app-local access projection 與 domain authorization。
+- Forward schema source of truth 是 `migrations/`；已套用的 migration 不重寫，後續變更持續使用新的 forward migration。
+- **CYCloud Identity** 擁有 Workspace、Employee、Credential、Identity Group、Application Access、Session、OTP、Recovery 與 Workspace 最高權限 authority；CY Web 只保存 app-local access projection 與 domain authorization。
+- Workspace 最高權限以 `isWorkspaceSuperAdmin` 顯式傳遞；一般 Identity Groups 保持資料驅動，不以固定普通角色 enum 取代。
+- CY Web 不保存 Identity session row；只在 HttpOnly cookie 中傳輸 CYCloud Identity 的 opaque session token，並在後續請求重新向 Identity resolve。
 - API 使用 same-origin `/api/*`，server-side validation/authorization 才是權威。
 - 一個 shared Audit Core 記錄需要追溯的重要業務動作。
 - Production infrastructure metadata/credentials 不進 Public source；runtime/deployment 透過受控 binding/secret boundary 注入。
@@ -54,7 +56,7 @@ Archive、舊 preview、review backlog、readiness checkpoint、handoff 或舊 b
 - `D1_SCHEMA_REVIEW.md` — D1 schema validation/freeze gate。
 - `API_CONTRACT.md` — Worker API envelope、errors、validation、concurrency。
 - `REQUEST_FOUNDATION.md` — shared browser request/client boundary。
-- `IDENTITY_ADAPTER.md` — Shared Identity / CY Web authorization split and provider acceptance contract。
+- `IDENTITY_ADAPTER.md` — CYCloud Identity / CY Web authorization split and provider acceptance contract。
 - `AUDIT_CORE.md` — Audit service/query boundary。
 - `OPERATIONAL_LOCAL_RUNTIME.md` — localStorage operational runtime adapter/cutover contract。
 
@@ -94,6 +96,7 @@ Module contract 與適用的最新 Business Decisions 共同定義業務語意�
 - `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public source 與 production infrastructure boundary。
 - `../DOMAIN_STRATEGY.md` — Chihyuan parent-domain namespace、security boundary、rollout sequence。
 - `../development/LOCAL_DEVELOPMENT.md` — local development workflow。
+- `../development/IDENTITY_DEPLOYMENT.md` — CYCloud Identity development deployment and browser acceptance path。
 
 ## Historical evidence / archive
 
@@ -115,7 +118,7 @@ confirmed Business Decisions
         ↓
 Canonical Data Model / Final Data Dictionary / migrations
         ↓
-Worker/API + Identity adapter + Audit Core
+Worker/API + CYCloud Identity adapter + Audit Core
         ↓
 shared UI foundations
         ↓
@@ -125,9 +128,7 @@ real integrated React operational runtime
         ↓
 local/dev D1 + Worker acceptance
         ↓
-initial schema freeze
-        ↓
-Shared Identity concrete browser-session integration
+CYCloud Identity concrete browser-session integration
         ↓
 localStorage adapter → protected Worker API → D1
         ↓
