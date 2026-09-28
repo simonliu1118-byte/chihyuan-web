@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./app.css";
 import "./auth/auth.css";
+import "./identity/identity.css";
 import "./ui/forms.css";
 import "./ui/data/data-view.css";
 import "./ui/pickers/entity-picker.css";
