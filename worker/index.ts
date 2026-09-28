@@ -1,9 +1,8 @@
 import type { HealthData } from "../shared/api";
+import { handleAuthRoute, type IdentityBridgeEnv } from "./http/auth-routes";
 import { failure, success } from "./http/response";
 
-interface Env {
-  DB: D1Database;
-}
+interface Env extends IdentityBridgeEnv {}
 
 async function health(env: Env, requestId: string): Promise<Response> {
   try {
@@ -31,6 +30,9 @@ export default {
     if (request.method === "GET" && url.pathname === "/api/health") {
       return health(env, requestId);
     }
+
+    const authResponse = await handleAuthRoute(request, env, requestId);
+    if (authResponse) return authResponse;
 
     if (url.pathname.startsWith("/api/")) {
       return failure({ code: "NOT_FOUND", message: "API route not found" }, requestId, 404);

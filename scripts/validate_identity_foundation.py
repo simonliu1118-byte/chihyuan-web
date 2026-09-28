@@ -17,8 +17,19 @@ def require(path: str) -> Path:
     return target
 
 
+def migration_schema() -> str:
+    files = sorted((ROOT / "migrations").glob("*.sql"))
+    if not files:
+        raise AssertionError("missing migrations")
+    return "\n\n".join(path.read_text(encoding="utf-8") for path in files)
+
+
 def validate_source_contracts() -> None:
     contract = require("worker/identity/contract.ts").read_text(encoding="utf-8")
+    login_contract = require("worker/identity/login-provider.ts").read_text(encoding="utf-8")
+    bridge = require("worker/identity/cyinvoice-web-auth-provider.ts").read_text(encoding="utf-8")
+    session = require("worker/identity/d1-session-adapter.ts").read_text(encoding="utf-8")
+    routes = require("worker/http/auth-routes.ts").read_text(encoding="utf-8")
     access = require("worker/auth/app-access.ts").read_text(encoding="utf-8")
     doc = require("docs/architecture/IDENTITY_ADAPTER.md").read_text(encoding="utf-8")
 
@@ -29,6 +40,29 @@ def validate_source_contracts() -> None:
     for field in ("employeeId", "employeeNo", "displayName", "workspaceId"):
         if field not in contract:
             raise AssertionError(f"missing normalized principal field: {field}")
+
+    for token in ("IdentityLoginProvider", "IdentityLoginResult"):
+        if token not in login_contract:
+            raise AssertionError(f"missing provider-neutral login contract: {token}")
+
+    for token in ("/v1/web-auth/login", "application", "employeeNo", "password"):
+        if token not in bridge:
+            raise AssertionError(f"temporary provider bridge missing expected contract token: {token}")
+
+    for forbidden in ("credential_verifier", "pbkdf2", "password_hash", "password_verifier"):
+        if forbidden.lower() in bridge.lower():
+            raise AssertionError(f"temporary provider bridge copied credential internals: {forbidden}")
+
+    for token in ("cyweb_session", "HttpOnly", "Secure", "SameSite=Strict", "web_sessions"):
+        if token not in session:
+            raise AssertionError(f"session adapter missing browser/session safety token: {token}")
+
+    for path in ("/api/auth/login", "/api/auth/me", "/api/auth/logout"):
+        if path not in routes:
+            raise AssertionError(f"auth route missing: {path}")
+
+    if "IDENTITY_LOGIN_APPLICATION" not in routes or "IDENTITY" not in routes:
+        raise AssertionError("auth routes must use deployment-injected provider binding/application")
 
     forbidden_credential_logic = (
         "credential_verifier",
@@ -51,10 +85,9 @@ def validate_source_contracts() -> None:
 
 
 def validate_schema_access_shape() -> None:
-    schema = require("migrations/0001_initial.sql").read_text(encoding="utf-8")
     conn = sqlite3.connect(":memory:")
     conn.execute("PRAGMA foreign_keys = ON")
-    conn.executescript(schema)
+    conn.executescript(migration_schema())
 
     now = "2026-09-27T00:00:00Z"
     conn.execute(
@@ -98,6 +131,22 @@ def validate_schema_access_shape() -> None:
     if row is not None:
         raise AssertionError("inactive app tag must not grant module access")
 
+    conn.execute(
+        """
+        INSERT INTO web_sessions(
+            session_hash, identity_employee_id, employee_no, employee_name, role,
+            credential_version, employee_revision, created_at, expires_at
+        ) VALUES (?, 'employee-1', '0001', 'Employee One', 'ADMIN', 1, 2, ?, ?)
+        """,
+        ("d" * 64, now, "2026-09-27T08:00:00Z"),
+    )
+    session = conn.execute(
+        "SELECT identity_employee_id, role FROM web_sessions WHERE session_hash = ?",
+        ("d" * 64,),
+    ).fetchone()
+    if session != ("employee-1", "ADMIN"):
+        raise AssertionError("CY Web session projection did not resolve")
+
     conn.close()
 
 
@@ -105,7 +154,7 @@ def main() -> int:
     validate_source_contracts()
     print("PASS identity source contracts")
     validate_schema_access_shape()
-    print("PASS identity app-tag schema shape")
+    print("PASS identity app-tag/session schema shape")
     return 0
 
 

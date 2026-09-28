@@ -4,28 +4,32 @@
 
 ## Current checkpoint — 2026-09-28
 
-- Formal code baseline: `main`; current work item version: `0.1.41`.
+- Formal code baseline: `main`; current Identity bridge work item version: `0.1.42` until merged.
 - Forward product surface: real integrated React operational application.
-- Temporary browser persistence: versioned `localStorage`.
-- Frozen initial D1 migration baseline: `0001_initial.sql` + `0002_defect_invalidation.sql`.
-- Source/schema contracts, browser TypeScript, Worker TypeScript and Vite build are green for the current work item.
-- Wrangler local D1 migration/runtime acceptance is green for the core transaction gate plus Item exact conversion, Outsourcing reversal/replacement + derived stock, and WorkLog review/cancel-review/finalized-result behavior.
-- The initial relational schema is now frozen; later data-model changes require explicit forward migrations rather than revising the accepted baseline for UI convenience.
+- Temporary browser business-data persistence: versioned `localStorage`.
+- Frozen initial relational baseline: `0001_initial.sql` + `0002_defect_invalidation.sql`.
+- Post-freeze forward migration: `0003_identity_web_sessions.sql` for CY Web's temporary browser-session projection; the frozen business schema was not rewritten.
+- Source/schema contracts, browser TypeScript, Worker TypeScript, Vite build and Wrangler local D1 acceptance are green for the Identity bridge work item.
+- Temporary account bridge follows the already-proven CYAccountingWeb pattern: private `IDENTITY` Service Binding → existing external Web Auth login → CY Web-owned short-lived D1 session.
+- CYInvoice Cloud is not modified, CY Web does not read its D1, and credential verifier/OTP/recovery internals are not copied into CY Web.
+- The external provider target and temporary login application/audience remain deployment-injected values; no production provider identifier is committed to Public source.
 - Production/remote D1, production Worker/DNS, R2/GCS resources and SMART ERP remain untouched.
 - CYAccountingWeb remains a separate application workstream.
 
 ## Active next sequence
 
 1. [ ] Continue real-user functional/UI testing directly against the integrated React application; fixes stay in the same product UI rather than returning to standalone previews.
-2. [x] Apply the current migration chain to fresh Wrangler local D1 and run the core Worker/D1 acceptance gate.
+2. [x] Apply the initial migration chain to fresh Wrangler local D1 and run the core Worker/D1 acceptance gate.
 3. [x] Complete Item conversion/fixed-point, Outsourcing reversal/replacement + derived-stock, and WorkLog review/cancel-review D1 acceptance.
 4. [x] Freeze the initial relational schema after the D1 acceptance gates pass.
-5. [ ] Complete the concrete Shared Identity browser-session provider acceptance for CY Web.
-6. [ ] Add protected Worker business HTTP routes with server-side role/module authorization.
-7. [ ] Replace the temporary `localStorage` persistence adapter with Worker API → D1 while preserving the same React UI/workflows.
-8. [ ] Perform Desktop／Tablet／Mobile real-browser/device acceptance.
-9. [ ] Bind/deploy production Worker／D1／custom domain only after explicit production acceptance.
-10. [ ] Implement and acceptance-test CY Web backup runtime/providers/restore flow when the production Worker/D1 boundary is ready.
+5. [x] Stage the temporary provider-neutral CYInvoice account bridge and CY Web-owned browser session layer without modifying CYInvoice Cloud.
+6. [ ] Bind a non-production `IDENTITY` Service Binding + temporary provider application value and perform real login / me / logout acceptance against the existing account service.
+7. [ ] Add protected Worker business HTTP routes with server-side role/module authorization.
+8. [ ] Replace the temporary `localStorage` business-data persistence adapter with Worker API → D1 while preserving the same React UI/workflows.
+9. [ ] Complete final Shared Identity extraction/acceptance for `EMPLOYEE / ADMIN / SUPER_ADMIN`, provider-side revocation and final audience semantics; then remove the temporary CYInvoice-specific provider adapter.
+10. [ ] Perform Desktop／Tablet／Mobile real-browser/device acceptance.
+11. [ ] Bind/deploy production Worker／D1／custom domain only after explicit production acceptance.
+12. [ ] Implement and acceptance-test CY Web backup runtime/providers/restore flow when the production Worker/D1 boundary is ready.
 
 UI polish is continuous and does **not** block Identity/API integration.
 
@@ -45,34 +49,40 @@ Accepted on Wrangler local D1:
 - D1 foreign-key enforcement;
 - Defect invalidation migration columns;
 - Outsourcing plan-only pending state, confirmed stock movements, correction reversal/replacement, cancellation and derived-stock reconciliation;
-- WorkLog submit/review/cancel-review, reviewer-corrected Work Days, finalized scores, stored-result statistics and Audit sequence.
+- WorkLog submit/review/cancel-review, reviewer-corrected Work Days, finalized scores, stored-result statistics and Audit sequence;
+- post-freeze `0003_identity_web_sessions.sql` migration and identity-session D1 round-trip.
 
-Initial schema freeze is complete. Future schema changes use new numbered forward migrations and must preserve these acceptance gates.
+The initial business schema remains frozen. Future schema changes use new numbered forward migrations and must preserve these acceptance gates.
 
-### Shared Identity — next blocking integration gate
+### Identity — temporary bridge staged, real binding acceptance pending
 
-Already staged in CY Web:
+Already implemented in CY Web:
 
-- provider-neutral Identity adapter boundary;
+- provider-neutral `IdentityLoginProvider` and request `IdentityAdapter` boundaries;
 - normalized principal contract;
 - shared `EMPLOYEE / ADMIN / SUPER_ADMIN` role semantics;
-- CY Web-local app-tag/module access projection.
+- CY Web-local app-tag/module access projection;
+- isolated temporary CYInvoice Web Auth provider adapter;
+- CY Web-owned `web_sessions` D1 projection;
+- `cyweb_session` HttpOnly / Secure / SameSite=Strict cookie;
+- `/api/auth/login`, `/api/auth/me`, `/api/auth/logout`;
+- stable provider error normalization and no credential-internal copy.
 
-Still required before protected multi-user D1 operation:
+Still required before protected multi-user business operation:
 
-- CY Web application audience/scope at the shared provider;
-- browser-safe session establishment and server-side session resolution;
-- disabled/revoked identity/session behavior;
-- logout/revocation path;
-- authenticated client session/menu state;
-- protected Worker-route server authorization.
+- inject the non-production `IDENTITY` Service Binding and temporary provider application/audience value;
+- real end-to-end login / session / logout acceptance against the existing account service;
+- confirm the currently available external audience's role restriction in the actual environment;
+- add protected Worker-route server authorization;
+- later complete Shared Identity extraction so ordinary `EMPLOYEE` support and provider-side disabled/revoked session semantics no longer depend on the temporary compatibility provider.
 
 ### Production rollout
 
 Production deployment remains gated by:
 
-- Shared Identity/permission acceptance;
+- real non-production Identity bridge acceptance;
 - protected Worker/API + D1 persistence integration;
+- final Shared Identity/permission acceptance;
 - major workflow acceptance;
 - Desktop/Tablet/Mobile acceptance;
 - backup/restore recovery acceptance;
@@ -90,6 +100,7 @@ Do not copy detailed rules into this TODO. Read the applicable source instead:
 - Operational local runtime: `docs/architecture/OPERATIONAL_LOCAL_RUNTIME.md`
 - API contract: `docs/architecture/API_CONTRACT.md`
 - Shared Identity boundary: `docs/architecture/IDENTITY_ADAPTER.md`
+- Temporary Identity bridge deployment: `docs/development/IDENTITY_BRIDGE_DEPLOYMENT.md`
 - Backup/recovery: `docs/architecture/BACKUP_ARCHITECTURE.md`
 - Domain namespace/rollout: `docs/DOMAIN_STRATEGY.md`
 - Module-specific behavior: applicable `*_MODULE_CONTRACT.md` plus latest applicable Business Decisions.

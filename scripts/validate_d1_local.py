@@ -18,7 +18,11 @@ from urllib.request import urlopen
 ROOT = Path(__file__).resolve().parents[1]
 MAIN_CONFIG = ROOT / "wrangler.jsonc"
 ACCEPTANCE_CONFIG = ROOT / "wrangler.d1-acceptance.jsonc"
-EXPECTED_MIGRATIONS = {"0001_initial.sql", "0002_defect_invalidation.sql"}
+EXPECTED_MIGRATIONS = {
+    "0001_initial.sql",
+    "0002_defect_invalidation.sql",
+    "0003_identity_web_sessions.sql",
+}
 
 
 def npx_command() -> str:
@@ -147,6 +151,69 @@ def stop_process(process: subprocess.Popen[str]) -> None:
         process.wait(timeout=8)
 
 
+def validate_identity_session_d1(state_dir: Path) -> None:
+    columns = {
+        str(row.get("name", ""))
+        for row in result_rows(d1_json(state_dir, "PRAGMA table_info(web_sessions)"))
+    }
+    required = {
+        "session_hash",
+        "identity_employee_id",
+        "employee_no",
+        "employee_name",
+        "role",
+        "workspace_id",
+        "credential_version",
+        "employee_revision",
+        "created_at",
+        "expires_at",
+    }
+    missing = required - columns
+    if missing:
+        raise RuntimeError(f"web_sessions migration columns missing: {sorted(missing)}")
+
+    d1_json(
+        state_dir,
+        """
+        INSERT OR IGNORE INTO app_members(
+          identity_employee_id, employee_no, is_active, created_at, updated_at
+        ) VALUES(
+          'identity-session-acceptance', '9999', 1,
+          '2026-09-28T00:00:00.000Z', '2026-09-28T00:00:00.000Z'
+        );
+        INSERT INTO web_sessions(
+          session_hash, identity_employee_id, employee_no, employee_name, role,
+          credential_version, employee_revision, created_at, expires_at
+        ) VALUES(
+          'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+          'identity-session-acceptance', '9999', 'Identity Acceptance', 'ADMIN',
+          2, 3, '2026-09-28T00:00:00.000Z', '2026-09-28T08:00:00.000Z'
+        );
+        """,
+    )
+    rows = result_rows(
+        d1_json(
+            state_dir,
+            """
+            SELECT identity_employee_id, employee_no, employee_name, role,
+                   credential_version, employee_revision
+              FROM web_sessions
+             WHERE session_hash =
+               'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+            """,
+        )
+    )
+    if rows != [{
+        "identity_employee_id": "identity-session-acceptance",
+        "employee_no": "9999",
+        "employee_name": "Identity Acceptance",
+        "role": "ADMIN",
+        "credential_version": 2,
+        "employee_revision": 3,
+    }]:
+        raise RuntimeError(f"D1 identity session round-trip mismatch: {rows!r}")
+
+
 def main() -> int:
     if not MAIN_CONFIG.is_file() or not ACCEPTANCE_CONFIG.is_file():
         raise RuntimeError("Wrangler local D1 configuration is missing")
@@ -236,8 +303,11 @@ def main() -> int:
         if failed:
             raise RuntimeError(f"D1 acceptance checks failed or were missing: {failed}; payload={payload!r}")
 
+        validate_identity_session_d1(state_dir)
+
         print("PASS Wrangler local D1 migrations:", ", ".join(sorted(applied)))
         print("PASS Worker + D1 acceptance:", ", ".join(sorted(expected_checks)))
+        print("PASS Identity session migration + D1 round-trip")
 
     return 0
 
