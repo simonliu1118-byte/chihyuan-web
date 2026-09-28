@@ -1,8 +1,8 @@
 import type { HealthData } from "../shared/api";
-import { handleAuthRoute, type IdentityBridgeEnv } from "./http/auth-routes";
+import { handleAuthRoute, type IdentityRuntimeEnv } from "./http/auth-routes";
 import { failure, success } from "./http/response";
 
-interface Env extends IdentityBridgeEnv {}
+interface Env extends IdentityRuntimeEnv {}
 
 async function health(env: Env, requestId: string): Promise<Response> {
   try {
