@@ -26,48 +26,66 @@ def migration_schema() -> str:
 
 def validate_source_contracts() -> None:
     contract = require("worker/identity/contract.ts").read_text(encoding="utf-8")
-    login_contract = require("worker/identity/login-provider.ts").read_text(encoding="utf-8")
-    bridge = require("worker/identity/cyinvoice-web-auth-provider.ts").read_text(encoding="utf-8")
-    session = require("worker/identity/d1-session-adapter.ts").read_text(encoding="utf-8")
+    provider = require("worker/identity/cycloud-identity-adapter.ts").read_text(encoding="utf-8")
     routes = require("worker/http/auth-routes.ts").read_text(encoding="utf-8")
     access = require("worker/auth/app-access.ts").read_text(encoding="utf-8")
     doc = require("docs/architecture/IDENTITY_ADAPTER.md").read_text(encoding="utf-8")
 
-    for role in ("EMPLOYEE", "ADMIN", "SUPER_ADMIN"):
-        if role not in contract:
-            raise AssertionError(f"missing shared Identity role: {role}")
-
-    for field in ("employeeId", "employeeNo", "displayName", "workspaceId"):
+    for field in (
+        "workspaceId",
+        "employeeId",
+        "employeeNo",
+        "displayName",
+        "isWorkspaceSuperAdmin",
+        "groupKeys",
+        "credentialVersion",
+        "employeeRevision",
+    ):
         if field not in contract:
             raise AssertionError(f"missing normalized principal field: {field}")
 
-    for token in ("IdentityLoginProvider", "IdentityLoginResult"):
-        if token not in login_contract:
-            raise AssertionError(f"missing provider-neutral login contract: {token}")
+    if "SharedIdentityRole" in contract:
+        raise AssertionError("normal Identity authority must not be hard-coded as a role enum")
 
-    for token in ("/v1/web-auth/login", "application", "employeeNo", "password"):
-        if token not in bridge:
-            raise AssertionError(f"temporary provider bridge missing expected contract token: {token}")
+    for token in (
+        "/v1/identity/login",
+        "/v1/identity/session/resolve",
+        "/v1/identity/logout",
+        "x-identity-application",
+        "cyweb_identity_session",
+        "HttpOnly",
+        "Secure",
+        "SameSite=Strict",
+    ):
+        if token not in provider:
+            raise AssertionError(f"CYCloud Identity adapter missing expected token: {token}")
 
-    for forbidden in ("credential_verifier", "pbkdf2", "password_hash", "password_verifier"):
-        if forbidden.lower() in bridge.lower():
-            raise AssertionError(f"temporary provider bridge copied credential internals: {forbidden}")
-
-    for token in ("cyweb_session", "HttpOnly", "Secure", "SameSite=Strict", "web_sessions"):
-        if token not in session:
-            raise AssertionError(f"session adapter missing browser/session safety token: {token}")
+    for forbidden in (
+        "credential_verifier",
+        "pbkdf2",
+        "scrypt",
+        "password_hash",
+        "password_verifier",
+    ):
+        if forbidden.lower() in provider.lower():
+            raise AssertionError(f"CY Web copied credential internals: {forbidden}")
 
     for path in ("/api/auth/login", "/api/auth/me", "/api/auth/logout"):
         if path not in routes:
             raise AssertionError(f"auth route missing: {path}")
 
-    if "IDENTITY_LOGIN_APPLICATION" not in routes or "IDENTITY" not in routes:
-        raise AssertionError("auth routes must use deployment-injected provider binding/application")
+    for token in ("IDENTITY_APPLICATION_ID", "IDENTITY_WORKSPACE_ID", "IDENTITY"):
+        if token not in routes:
+            raise AssertionError(f"auth routes missing deployment-injected Identity value: {token}")
+
+    if "8" not in routes or "16" not in routes:
+        raise AssertionError("CY Web login route must enforce the shared 8-16 character password boundary")
 
     forbidden_credential_logic = (
         "credential_verifier",
         "verifyPassword",
         "pbkdf2",
+        "scrypt",
         "password_hash",
         "password_verifier",
     )
@@ -76,10 +94,12 @@ def validate_source_contracts() -> None:
         if token.lower() in lowered_access:
             raise AssertionError(f"app-local authorization contains credential logic: {token}")
 
-    for token in ("app_members", "app_member_tags", "app_tag_modules"):
+    for token in ("app_members", "app_member_tags", "app_tag_modules", "isWorkspaceSuperAdmin"):
         if token not in access:
-            raise AssertionError(f"app access service does not use expected table: {token}")
+            raise AssertionError(f"app access service missing expected boundary token: {token}")
 
+    if "CYCloud Identity" not in doc:
+        raise AssertionError("Identity boundary document must name the concrete shared authority")
     if "CYAccountingWeb" not in doc or "CYInvoice" not in doc:
         raise AssertionError("Identity boundary document must state cross-project ownership limits")
 
@@ -89,11 +109,11 @@ def validate_schema_access_shape() -> None:
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(migration_schema())
 
-    now = "2026-09-27T00:00:00Z"
+    now = "2026-09-29T00:00:00Z"
     conn.execute(
         """
         INSERT INTO app_members(identity_employee_id, employee_no, is_active, created_at, updated_at)
-        VALUES ('employee-1', '0001', 1, ?, ?)
+        VALUES ('employee-1', '3001', 1, ?, ?)
         """,
         (now, now),
     )
@@ -131,30 +151,20 @@ def validate_schema_access_shape() -> None:
     if row is not None:
         raise AssertionError("inactive app tag must not grant module access")
 
-    conn.execute(
-        """
-        INSERT INTO web_sessions(
-            session_hash, identity_employee_id, employee_no, employee_name, role,
-            credential_version, employee_revision, created_at, expires_at
-        ) VALUES (?, 'employee-1', '0001', 'Employee One', 'ADMIN', 1, 2, ?, ?)
-        """,
-        ("d" * 64, now, "2026-09-27T08:00:00Z"),
-    )
-    session = conn.execute(
-        "SELECT identity_employee_id, role FROM web_sessions WHERE session_hash = ?",
-        ("d" * 64,),
+    web_sessions = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='web_sessions'"
     ).fetchone()
-    if session != ("employee-1", "ADMIN"):
-        raise AssertionError("CY Web session projection did not resolve")
+    if web_sessions is not None:
+        raise AssertionError("CY Web must not retain a competing local Identity session table")
 
     conn.close()
 
 
 def main() -> int:
     validate_source_contracts()
-    print("PASS identity source contracts")
+    print("PASS CYCloud Identity source contracts")
     validate_schema_access_shape()
-    print("PASS identity app-tag/session schema shape")
+    print("PASS Identity app-tag/schema authority split")
     return 0
 
 
