@@ -10,12 +10,31 @@ These documents are not a fourth governance layer. Permanent rules remain in the
 
 For product/architecture semantics, current explicit user decisions and later confirmed Business Decisions supersede older drafts or audit notes.
 
+## Current implementation checkpoint
+
+As of 2026-09-28, CY Web has moved from isolated static previews to the **real integrated React operational runtime**.
+
+Current working baseline:
+
+- active branch: `cyweb/operational-local-runtime`;
+- active PR: `#41` (Open, Draft; do not merge without explicit user authorization);
+- application version: `0.1.39`;
+- current persistence adapter: versioned browser `localStorage`;
+- forward UI: the actual React AppShell and operational module pages;
+- standalone `preview/*`: reference/history only;
+- latest Runtime Check at the handoff checkpoint: fully green for browser TypeScript, Worker TypeScript, Vite build and source/schema contract validation;
+- D1 cutover: not yet active in the operational browser test runtime;
+- formal schema freeze: still waits for local/dev D1 migration + Worker/D1 smoke acceptance;
+- Shared Identity browser-session provider: still pending before protected multi-user D1 operation.
+
+Detailed continuation state: `../handoffs/CYWEB_OPERATIONAL_RUNTIME_HANDOFF_2026-09-28.md`.
+
 ## Current document map
 
 ### Core architecture / implementation contracts
 
 - `decisions/README.md` — confirmed Business Decision index and supersession/refinement map.
-- `BUSINESS_DECISIONS.md` — consolidated BD-001 through BD-018 summary.
+- `BUSINESS_DECISIONS.md` — consolidated early Business Decisions.
 - `decisions/BD-019.md` onward — later detailed Business Decisions.
 - `CANONICAL_DATA_MODEL.md` — current logical model.
 - `FINAL_DATA_DICTIONARY.md` — current relational/physical Data Dictionary baseline.
@@ -24,10 +43,11 @@ For product/architecture semantics, current explicit user decisions and later co
 - `REQUEST_FOUNDATION.md` — shared browser API client and server request-validation foundation.
 - `IDENTITY_ADAPTER.md` — Shared Identity adapter and CY Web app-local authorization split.
 - `AUDIT_CORE.md` — shared CY Web AuditService and timeline/detail boundaries.
-- `UI_FOUNDATION.md`, `APP_SHELL_FOUNDATION.md`, `FORM_FOUNDATION.md` — new-Web shell/form architecture.
+- `UI_FOUNDATION.md`, `APP_SHELL_FOUNDATION.md`, `FORM_FOUNDATION.md` — shell/form architecture.
 - `DATA_VIEW_FOUNDATION.md`, `ENTITY_PICKER_FOUNDATION.md`, `EDITABLE_LIST_FOUNDATION.md` — shared search/lookup/repeated-row mechanics.
 - `OVERLAY_FEEDBACK_FOUNDATION.md`, `KEYBOARD_ENTRY_FOUNDATION.md` — shared overlay/feedback and opt-in fast-entry behavior.
-- `PRE_BUSINESS_READINESS.md` — common-foundation readiness gate before business modules.
+- `PRE_BUSINESS_READINESS.md` — common-foundation readiness gate.
+- `OPERATIONAL_LOCAL_RUNTIME.md` — **current forward implementation/test mode**.
 
 ### Customer
 
@@ -37,24 +57,33 @@ For product/architecture semantics, current explicit user decisions and later co
 - `CUSTOMER_SERVICE_FOUNDATION.md`
 - `CUSTOMER_RELATED_FOUNDATION.md`
 - `CUSTOMER_RELATED_UI.md`
-- `CUSTOMER_FULL_WORKSPACE_PREVIEW.md`
+- `CUSTOMER_FULL_WORKSPACE_PREVIEW.md` — historical/reference review artifact.
 - `CUSTOMER_UI_REVIEW_BACKLOG.md`
 
-Customer browser review confirmed the left Search Pane + independent right Detail Pane direction. Search/filter/result controls belong together in the Search Pane. Readability was raised to a normal business-content baseline around 14–16px, and long edit forms keep Cancel/Save controls at both top and bottom.
+Current accepted UI baseline:
+
+- Search/filter/results belong in the left Search Pane;
+- Detail is an independent right pane;
+- major left/right card tops should align;
+- result columns should not shift according to label length;
+- normal business text uses a readable approximately 14–16px baseline;
+- view-header action buttons are compact/single-line;
+- long edit forms expose Cancel/Save at both top and bottom;
+- related-record detail polish remains a later UI pass.
 
 ### Item / Defect
 
 - `ITEM_MODULE_CONTRACT.md` — Item master, exact scaled4 values, conversion graph, historical Item numbers and controlled renumbering.
 - `DEFECT_MODULE_CONTRACT.md` — Defect lifecycle/edit/delete/invalidation rules.
 
-The integrated Item preview covers Item master, unit conversions, controlled Item-number change/history and Defect lifecycle.
+The real operational runtime now carries Item and Defect flows. Earlier integrated preview files remain reference artifacts.
 
 ### Sales Work Order
 
 - `SALES_WORK_ORDER_MODULE_CONTRACT.md` — field/pre-ERP Work Order, ERP fill/correction and fulfillment lifecycle.
-- `SALES_WORK_ORDER_UI_PREVIEW.md` — integrated browser-local workflow preview.
+- `SALES_WORK_ORDER_UI_PREVIEW.md` — historical/reference workflow artifact.
 
-The staged lifecycle is:
+Lifecycle baseline:
 
 ```text
 created
@@ -65,30 +94,30 @@ issued
   -> shipped
 ```
 
-Direct `issued -> picked`, controlled `shipped -> picked`, ERP-reference correction, post-ERP voiding and pre-ERP-only hard delete follow the confirmed Business Decisions.
+Direct `issued -> picked`, controlled `shipped -> picked`, ERP-reference correction, post-ERP voiding and pre-ERP-only hard delete follow confirmed Business Decisions.
 
 ### Contractor / BOM / Outsourcing
 
 - `CONTRACTOR_OUTSOURCING_MODULE_CONTRACT.md` — Contractor, current Contractor Price, multi-BOM, Outsourcing, movement ledger, receiving, pricing/payment and reversal rules.
-- `OUTSOURCING_FULL_WORKSPACE_PREVIEW.md` — browser-local integrated functional review surface.
+- `OUTSOURCING_FULL_WORKSPACE_PREVIEW.md` — historical/reference integrated preview.
 
-Key stock rule:
+Critical stock timing rule:
 
 ```text
 pending_outbound = plan only, no actual stock movement
 confirmed outbound = create contractor stock movements
 ```
 
-Confirmed physical facts are corrected with explicit reversal/replacement movements, not destructive balance rewriting. Multiple BOM variants may exist for the same finished Item; receiving requires explicit BOM selection when more than one active variant applies. Contractor pricing has one current record per Contractor + Item with an explicit valid Item pricing unit.
+Confirmed physical facts are corrected with reversal/replacement movements rather than destructive balance rewriting. Multiple BOM variants may exist for one finished Item; receiving requires explicit BOM selection when more than one active variant applies.
 
 ### WorkLog
 
-- `WORK_LOG_MODULE_CONTRACT.md` — WorkLog ownership, lifecycle, Work Days, configurable entries, review/cancel-review and statistics.
-- `WORK_LOG_FULL_WORKSPACE_PREVIEW.md` — browser-local owner/reviewer/statistics review surface.
+- `WORK_LOG_MODULE_CONTRACT.md` — ownership, lifecycle, Work Days, configurable entries, review/cancel-review and statistics.
+- `WORK_LOG_FULL_WORKSPACE_PREVIEW.md` — historical/reference owner/reviewer/statistics preview.
 
-Public source contains only generic configurable WorkLog structure. Chihyuan production categories, platforms, scoring values and thresholds are deployment D1 data, not source-code constants.
+Public source contains only generic configurable WorkLog structure. Chihyuan production categories, platforms, scoring values and thresholds are deployment D1 data.
 
-The lifecycle is:
+Lifecycle:
 
 ```text
 created -> pending_review -> reviewed
@@ -96,18 +125,31 @@ pending_review -> created          owner withdrawal
 reviewed -> pending_review         authorized cancel review
 ```
 
-Work Days is required, positive and independently entered. Reviewer correction of Work Days is supported. Active reviewed scores are frozen against later configuration changes. Cancel review clears the current review/scoring result and records Shared Audit without retaining a second cancelled-review version payload.
+Work Days is positive and independently entered; reviewer correction is supported. Reviewed scores are finalized/stored and are not recalculated merely because current scoring configuration changes.
+
+### Settings / Admin
+
+- `SETTINGS_ADMIN_MODULE_CONTRACT.md` — server-side authority boundary for structural lookups, App Tags/member assignments and WorkLog operational configuration.
+
+Authority baseline:
+
+- structural lookup/App Tag/member-tag mutation: `SUPER_ADMIN` only;
+- WorkLog operational configuration: `ADMIN` or `SUPER_ADMIN`;
+- regular `EMPLOYEE`: no configuration mutation authority.
+
+Protected Settings/Admin/Audit HTTP access still waits for Shared Identity browser-session wiring.
 
 ### Backup / deployment / domain
 
 - `BACKUP_ARCHITECTURE.md` — tiered R2 + GCS backup topology and provider/service boundary.
 - `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public-source / production-infrastructure separation.
-- `../DOMAIN_STRATEGY.md` — confirmed `chihyuancm.com` parent-domain namespace for the future official website and CY-family Web systems.
+- `../DOMAIN_STRATEGY.md` — confirmed `chihyuancm.com` parent-domain namespace.
 
 ### Implementation handoffs
 
-- `../handoffs/CYACCOUNTINGWEB_TIERED_BACKUP_HANDOFF.md` — public-safe handoff only; this workstream does not modify CYAccountingWeb runtime/source.
+- `../handoffs/CYWEB_OPERATIONAL_RUNTIME_HANDOFF_2026-09-28.md` — **current continuation checkpoint**.
 - `../handoffs/CYWEB_IDENTITY_PROVIDER_REQUIREMENTS.md` — Shared Identity browser-session requirements for CY Web.
+- `../handoffs/CYACCOUNTINGWEB_TIERED_BACKUP_HANDOFF.md` — public-safe handoff only; this workstream does not modify CYAccountingWeb runtime/source.
 
 ### Legacy evidence
 
@@ -120,46 +162,88 @@ Legacy evidence explains business behavior and useful proven interaction pattern
 ## Current architecture baseline
 
 - CY Web is one TypeScript + React + Vite + Cloudflare Worker application for Desktop / Tablet / Mobile using RWD + Adaptive UI.
-- D1 is the live relational direction. Business search/list/detail queries are bounded and on-demand rather than loading whole module datasets into a browser-global cache.
-- Shared Identity owns credentials, sessions and the global EMPLOYEE/ADMIN/SUPER_ADMIN hierarchy. CY Web uses an adapter plus app-local tags/module mapping and never duplicates the credential store.
-- One shared Audit Core records meaningful business actions. Ordinary edits generally retain only latest modifier/time/revision.
-- One shared App Shell and common UI/interaction foundations are reused across modules. New business screens do not recreate the old GAS page/tab/form implementation.
-- Normal business text uses the browser-reviewed readability baseline rather than micro-text. Long forms provide reachable save/cancel controls at both top and bottom.
-- Persisted business quantities/prices/scores use exact fixed-point integers. Item unit conversions follow `1 fromUnit = quantity toUnit` and resolve through the canonical conversion graph.
-- Production custom-domain binding is a controlled rollout step. `chihyuancm.com` is the shared parent domain, while the official site and internal systems keep separate hostnames/origins/security boundaries.
-- Production D1/Worker/Identity-protected business routes remain gated on Shared Identity browser-session wiring plus local/dev D1 and Worker acceptance.
+- The **same real React UI** is now used for operational browser testing; it is not a disposable mock.
+- Current browser-test persistence is localStorage; D1 remains the authoritative relational target.
+- D1 business search/list/detail is designed as bounded on-demand queries, not whole-module browser preload.
+- Shared Identity owns credentials, sessions and global `EMPLOYEE / ADMIN / SUPER_ADMIN`; CY Web adds app-local tags/module mapping and never duplicates credentials.
+- One shared Audit Core records meaningful business actions; ordinary edits generally keep latest modifier/time/revision only.
+- One shared AppShell and common interaction foundations are reused across modules.
+- Persisted quantities/prices/scores use exact fixed-point integers in the authoritative D1/Worker model.
+- Production custom-domain binding is a later controlled rollout; `chihyuancm.com` remains the shared parent domain.
 
 ## Business-module implementation state
 
 ```text
 Customer
-  contract / service / persistence / related records / integrated preview   staged
+  service + persistence + related records + real operational React UI        active/staged
 
 Item + Defect
-  Item service / conversions / renumbering / Defect lifecycle / preview     staged
+  Item service/conversions/renumbering + Defect lifecycle + operational UI   active/staged
 
 Sales Work Order
-  pre-ERP + ERP handoff + fulfillment + reversal/void / preview              staged
+  pre-ERP + ERP handoff + fulfillment + reversal/void + operational flow     active/staged
 
 Contractor + BOM + Outsourcing
-  Contractor/current price + multi-BOM + stock ledger + receipt/pricing
-  + payment/reversals + integrated preview                                   staged
+  current price + multi-BOM + stock ledger + receipt/pricing/payment
+  + reversals + operational flow                                              active/staged
 
 WorkLog
   owner lifecycle + configurable content + review/cancel-review
-  + statistics + integrated preview                                          staged
+  + statistics + operational flow                                             active/staged
 
-Settings / Admin
-  configuration mutation UI/service + Audit UI + backup/restore product UI   next
+Settings / Admin / Audit
+  server authority foundation + local operational Settings/Audit surfaces     active/staged
 
-Protected HTTP routes
-  blocked on Shared Identity browser session + local/dev runtime gate         pending
+Protected Worker HTTP routes
+  blocked on Shared Identity browser session + local/dev D1 runtime gate       pending
+
+D1-backed multi-user runtime
+  migrations/service contracts ready; local/dev acceptance + cutover pending  pending
 ```
+
+## Runtime acceptance
+
+The active operational branch now has automated GitHub Actions coverage for:
+
+- browser TypeScript;
+- Worker TypeScript;
+- Vite build;
+- core/module source contracts;
+- SQLite-backed schema/constraint semantics.
+
+At the current handoff checkpoint those checks are green. This supersedes older notes stating that npm/typecheck/build had not been run.
+
+Remaining runtime gate is specifically **Cloudflare local/dev D1 + Worker acceptance**, not general TypeScript/Vite compilation.
+
+Current migration chain:
+
+```text
+0001_initial.sql
+0002_defect_invalidation.sql
+```
+
+Do not declare the initial relational schema formally frozen until those migrations and critical transactional workflows pass against real local/dev D1.
+
+## Operational browser package
+
+`.github/workflows/operational-live.yml` builds:
+
+```text
+npm run build:operational
+```
+
+and publishes the static browser-test output to branch:
+
+```text
+cyweb/operational-test-runtime
+```
+
+The package uses the same React operational application and localStorage adapter. It is not a production deployment.
 
 ## Backup baseline
 
 ```text
-D1   live authoritative database
+D1   live authoritative database after cutover
 R2   daily 03:30 Taiwan / 30-day operational retention
 GCS  Wed + Sun replication / 26-week cross-cloud DR retention
 ```
@@ -171,46 +255,43 @@ One logical backup is exported from D1 once. Provider copies use the same `backu
 ```text
 confirmed Business Decisions
         ↓
-Canonical Data Model / Final Data Dictionary / D1 migrations
+Canonical Data Model / Final Data Dictionary / migrations
         ↓
-Worker + API / request / validation foundation
+Worker/API/request/validation + Identity adapter + Audit Core
         ↓
-Shared Identity adapter + app-local authorization
+shared UI foundations
         ↓
-Shared Audit Core
+business services and workflow contracts
         ↓
-Legacy reusable-pattern audit
+real integrated operational React runtime (current)
         ↓
-new-Web common UI foundations
+continuous functional/UI browser testing (current)
         ↓
-Customer
+local/dev D1 + Worker acceptance
         ↓
-Item + Defect
+initial D1 schema freeze
         ↓
-Sales Work Order
+Shared Identity browser-session integration
         ↓
-Contractor + BOM + Outsourcing + movement ledger
+replace localStorage adapter with protected Worker API -> D1
         ↓
-WorkLog + review/statistics
+Desktop/Tablet/Mobile acceptance
         ↓
-Settings / Admin
-        ↓
-Shared Identity browser-session wiring + local/dev D1/Worker acceptance
-        ↓
-protected business HTTP routes
-        ↓
-full-system browser/device acceptance
-        ↓
-production custom-domain rollout
+production custom-domain/runtime rollout
         ↓
 production acceptance
 ```
 
-## Runtime status
+## Production safety
 
-The current branches stage source/contracts/services and browser-memory functional previews. They do **not** prove npm/typecheck/build/Wrangler/D1 runtime acceptance in the current tool environment. Full execution remains required in a normal networked checkout/runtime environment.
+The current operational branch does **not** modify:
 
-Production D1, production Worker bindings, DNS and backup resources have not been modified by the business-module preview branches.
+- production D1 data;
+- production CY Web Worker binding/deployment;
+- production DNS;
+- production R2/GCS backup resources;
+- SMART ERP;
+- CYAccountingWeb source/runtime.
 
 ## Document precedence
 
