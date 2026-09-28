@@ -14,12 +14,6 @@ on:
       - "package.json"
       - ".github/workflows/development-deploy.yml"
   workflow_dispatch:
-    inputs:
-      deploy:
-        description: "Deploy the current default-branch source to the development Cloudflare environment"
-        required: true
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -78,7 +72,7 @@ jobs:
         run: rm -f wrangler.ci.generated.jsonc
 
   deploy-development:
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy == 'true'
+    if: github.event_name == 'workflow_dispatch'
     needs: validate-deployment-contract
     runs-on: ubuntu-latest
     timeout-minutes: 15
