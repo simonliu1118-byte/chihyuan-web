@@ -1,136 +1,79 @@
 # CY Web Operational Local Runtime
 
-> Status: active implementation mode for the real UI/flow test surface before Shared Identity + D1 cutover.
+> Status: current temporary runtime/persistence mode for functional and UI testing before protected Worker API → D1 cutover.
 >
-> Current checkpoint: version `0.1.39` is consolidated into `main` through integration PR `#42` (merge commit `bea60a5b1fed5ed9283bb00c1ced4ca27c0ae9f0`). The earlier `cyweb/operational-local-runtime` / PR `#41` references are pre-merge implementation history. Standalone `preview/*` files are no longer the forward implementation path.
+> Current implementation progress and next tasks are tracked in root `TODO.md`; this document defines the runtime contract only.
 
 ## Purpose
 
-CY Web no longer treats business-module pages as disposable previews. The React application now runs as one integrated operational surface with persistent browser-local data.
+CY Web uses the **real integrated React application** as the forward product surface. Business functionality is no longer developed in disposable standalone module previews and then rewritten later.
 
-The user-confirmed direction is:
+The runtime direction is:
 
 ```text
-build the real operational UI
+real React operational UI
         ↓
-use it directly
+shared runtime/repository boundary
         ↓
-fix workflow/UI issues in the same React application
+Worker protected HTTP API
         ↓
-connect Worker/D1 without rewriting the UI
+D1
 ```
 
-Functional correctness is prioritized first. UI is refined continuously while the operational version is being used.
+The UI/workflow surface remains the same across the persistence cutover. D1 integration is an adapter/runtime change, not a second product implementation.
 
-## Persistence
+## Local persistence contract
 
-The current runtime adapter uses browser `localStorage` under a versioned CY Web key.
+The current adapter uses browser `localStorage` under a versioned CY Web key.
 
-Unlike the earlier browser-memory previews:
+Required behavior:
 
 - reload does not reset ordinary changes;
-- Customer, Item, Defect, Sales Work Order, Outsourcing and WorkLog data share one local runtime;
-- cross-module references use stable numeric IDs;
-- important actions append a local Audit entry;
+- Customer, Item, Defect, Sales Work Order, Outsourcing and WorkLog share one local runtime dataset;
+- cross-module relationships use stable IDs rather than display text as authority;
+- important actions append a local Audit projection;
 - the complete local dataset can be exported/imported as JSON;
-- an explicit reset returns to fictional seed data.
+- explicit reset returns only to fictional seed data;
+- newly added optional projections should remain backward-compatible where practical; an incompatible client format change requires a real migration or an explicit export/reset/import path.
 
 No production or development D1 data is touched in local-storage mode.
 
-The current storage reader deliberately tolerates newly added optional operational projections so UI capability can grow without forcing an immediate reset of a tester's existing local dataset. Before any incompatible local format change, add a real client-side migration or provide an explicit export/reset/import path.
+This adapter is temporary persistence only. Business semantics remain authoritative in confirmed Business Decisions, current module contracts, the Canonical Data Model, Final Data Dictionary and forward migrations.
 
-This local adapter is temporary persistence, not a second domain model. The Final Data Dictionary, D1 migrations, Business Decisions and Worker service contracts remain authoritative.
+## Product surface
 
-## Operational modules
+The integrated AppShell exposes the forward application surface for:
 
-The integrated AppShell currently exposes the same forward application surface for:
-
-- Customer master, multiple phones/contacts/addresses/important notes;
-- Customer controlled ERP-number assignment/correction;
-- Customer Visits, Quote History, Frequent Items and important activity;
-- Item master, unit conversion and Item-number history/change behavior;
-- Defect lifecycle, reopen, created-only hard delete and invalidation overlay;
+- Customer and related records;
+- Item and Defect;
 - Sales Work Order;
-- Contractor/BOM/Outsourcing and movement-derived contractor stock;
-- WorkLog lifecycle/review/statistics;
-- Settings;
+- Contractor / BOM / Outsourcing;
+- WorkLog;
+- Settings / Admin;
 - Audit.
 
-Standalone `preview/*` files remain design/history references only and should not receive new business functionality unless a focused comparison artifact is specifically required.
+Standalone `preview/*` files and archived workspace-preview documents are historical/design evidence only. New business functionality belongs in the integrated React runtime unless a focused comparison artifact is explicitly needed.
 
-## Customer operational rules
+Module lifecycle/state/business rules are not duplicated here. Use the applicable `*_MODULE_CONTRACT.md` plus the latest applicable Business Decisions.
 
-The operational Customer screen uses the approved Search-Pane + Detail-Pane structure.
+## Shared UI expectations in operational mode
 
-- search/filter/results stay in the left pane;
-- left/right major cards must align cleanly at the top;
-- result fields use stable layout columns instead of allowing a longer label to push an adjacent field sideways;
-- normal business text uses the accepted readable approximately 14–16px baseline rather than micro-text;
-- view-header action buttons use compact single-line height;
-- long edit forms provide Cancel/Save controls at both top and bottom;
-- delete/deactivate is kept as a secondary lifecycle action rather than making the Edit button unnecessarily tall;
-- ordinary editing cannot silently change an existing ERP Customer number;
-- ERP number assignment/correction is a separate meaningful action and appends Audit;
-- duplicate Tax ID is allowed only after an explicit warning/confirmation;
-- never-used Customer may be hard-deleted; referenced Customer is retained and uses active/inactive lifecycle instead;
-- Quote correction creates a new correction record rather than silently overwriting the historical quote.
+The runtime consumes the shared AppShell, form, Data View, Entity Picker, editable-list, overlay/feedback and keyboard-entry foundations.
 
-Customer related-record visual detail remains intentionally open for a later concentrated UI pass.
+Operational screens should preserve the confirmed cross-cutting usability baseline:
 
-## Defect operational rules
+- normal business content remains readable without browser zoom;
+- long edit flows keep important Save/Cancel actions reachable where needed;
+- search/result/detail layouts remain stable as labels/data lengths change;
+- routine success feedback is non-blocking;
+- unsaved-change protection uses the shared mechanism;
+- client visibility is never treated as authoritative authorization.
 
-The operational Defect screen follows the fixed three-state workflow:
+Module-specific composition stays in the module contract/UI document rather than being promoted into a second global UI rule set.
 
-```text
-created -> processing -> resolved
-                    ^       |
-                    | reopen|
-                    +-------+
-```
+## D1 cutover contract
 
-- ordinary edit and hard delete are limited to the confirmed lifecycle boundary;
-- invalidation after processing begins retains the row and original workflow status;
-- invalidation is not a fourth workflow status;
-- ordinary search excludes invalidated rows unless the operator explicitly asks to display them;
-- processing/resolution/reopen/invalidation/delete are important Audit actions.
-
-## Other integrated workflow baselines
-
-### Sales Work Order
-
-```text
-created
-  -> first ERP fill
-issued
-  -> waiting_stock (optional)
-  -> picked
-  -> shipped
-```
-
-ERP correction, direct `issued -> picked`, controlled shipment reversal, post-ERP voiding and pre-ERP-only hard-delete rules remain server-contract behaviors.
-
-### Outsourcing
-
-```text
-pending_outbound = plan only
-confirmed outbound = actual contractor stock movement
-```
-
-Confirmed physical facts are corrected with reversal/replacement movements rather than destructive balance rewriting. Receiving uses the selected BOM; pricing/payment and their controlled reversals remain explicit lifecycle actions.
-
-### WorkLog
-
-```text
-created -> pending_review -> reviewed
-pending_review -> created
-reviewed -> pending_review
-```
-
-Work Days is independently entered and reviewer-correctable. Reviewed score results are stored/finalized and are not recalculated merely because current scoring configuration changes.
-
-## Data-adapter cutover
-
-The next persistence cutover remains:
+The persistence cutover must preserve the current product surface:
 
 ```text
 React operational UI
@@ -142,92 +85,53 @@ Worker protected HTTP API
 D1
 ```
 
-The same React UI remains the product surface. D1 cutover is an adapter/runtime change, not a UI rewrite.
+Before cutover is accepted:
 
-The user has explicitly approved connecting D1 before the UI is visually final if doing so helps testing. Therefore visual polish is not a prerequisite for D1 work.
+1. apply forward migrations to local/dev D1;
+2. run the Worker against local/dev D1;
+3. verify constraints and transaction semantics;
+4. verify fixed-point persistence/conversion behavior;
+5. verify optimistic revision conflict handling;
+6. verify Audit + meaningful business mutations are atomic where required;
+7. verify reversal/replacement and review/cancel-review workflows;
+8. only then freeze the initial relational schema.
 
-## D1/schema gate
+Visual polish may continue in parallel and does not by itself block local/dev D1 integration.
 
-The relational architecture is stable enough for continued product work, but the initial D1 schema is not formally frozen until real D1 acceptance is complete.
+## Shared Identity boundary
 
-Current migration chain:
+Local operational mode does not pretend to provide production authentication. Any local actor label is fictional/test context only.
 
-- `migrations/0001_initial.sql`;
-- `migrations/0002_defect_invalidation.sql`.
+Protected multi-user operation requires:
 
-Automated source/SQLite schema validation is green at the current checkpoint. Remaining freeze work:
+- Shared Identity browser-session provider acceptance;
+- authenticated principal/session state;
+- server-side role/module authorization on protected Worker routes;
+- CY Web-local app-tag/module projection for ordinary employees.
 
-1. apply migrations to local/dev D1;
-2. run Worker against that D1;
-3. exercise fixed-point, optimistic revision, Audit and reversal workflows;
-4. confirm D1-specific transaction/constraint behavior;
-5. then mark the initial schema frozen.
-
-UI layout changes do not justify redesigning the relational schema by themselves.
-
-## Shared Identity
-
-Local operational mode does not pretend to authenticate a real user. It uses explicit fictional/local actor context only where a workflow needs an actor label.
-
-Before real D1-backed multi-user operation, protected business routes still require:
-
-- Shared Identity browser-session provider wiring;
-- server-side role/module authorization;
-- authenticated client session/menu state.
-
-CY Web must not create a parallel credential/session store or copy CYInvoice authentication internals as a shortcut.
-
-## Runtime/CI acceptance
-
-At the 2026-09-28 main-integration checkpoint, Governance Check `#98` and Runtime Check `#60` both passed for the PR `#42` integration head.
-
-The automated runtime gates cover:
-
-- browser TypeScript typecheck;
-- Worker TypeScript typecheck;
-- Vite build;
-- source/schema contract validators for the staged business domains and the operational local runtime.
-
-This materially supersedes earlier notes that npm/typecheck/build had not been executed.
-
-It still does **not** equal local/dev D1 + Worker smoke acceptance; that remains the next infrastructure/runtime gate.
+CY Web must not create a parallel password/session authority or copy CYInvoice credential internals as a shortcut. See `IDENTITY_ADAPTER.md`.
 
 ## Browser-test package
 
-The operational bundle has a dedicated static build:
+The same operational application can be built with:
 
 ```text
 npm run build:operational
 ```
 
-`.github/workflows/operational-live.yml` built the same React runtime on pushes to `cyweb/operational-local-runtime`, uploaded a 30-day `operational-runtime` artifact, stamped `SOURCE_COMMIT`, and published the static result to:
+The resulting package is a testing artifact for the local persistence mode. It is not a production Worker deployment and does not expose protected production D1 routes.
 
-```text
-cyweb/operational-test-runtime
-```
+Branch-specific artifact publication details are CI implementation details and should not be treated as a permanent runtime contract.
 
-That package remains the browser-test artifact for the merged 0.1.39 operational runtime while persistence is local. It is not a production Worker deployment and does not expose protected D1 routes. Future implementation work should branch from `main`; packaging workflow scope can be adjusted when the next runtime branch is established.
+## Runtime safety boundary
 
-## UI review mode
+While this local adapter is active:
 
-From this point forward, UI changes should normally be made directly in the operational React application and tested in place:
+- default data is fictional seed/test data;
+- production D1 is not written;
+- SMART ERP is not written;
+- Shared Identity is not bypassed on protected server routes;
+- production Worker/DNS/R2/GCS resources are not modified by browser-local persistence;
+- CYAccountingWeb source/runtime is outside this application boundary.
 
-1. operate the real local runtime;
-2. report layout/flow/wording issues;
-3. adjust the same React application;
-4. keep local persistence compatible where practical;
-5. apply local/dev D1 migrations and complete Worker/D1 acceptance;
-6. cut persistence from localStorage to protected Worker/D1 without replacing the UI.
-
-## Runtime safety
-
-The current 0.1.39 main baseline:
-
-- contains only fictional seed data by default;
-- never writes production D1;
-- never writes SMART ERP;
-- never bypasses Shared Identity on a protected server route;
-- does not modify production Worker, DNS, R2 or GCS resources;
-- does not modify CYAccountingWeb source/runtime.
-
-For the current continuation checkpoint, read `docs/handoffs/CYWEB_MAIN_BASELINE_HANDOFF_2026-09-28.md`.
+For what is complete versus pending, read root `TODO.md` rather than adding checkpoint metadata to this contract.

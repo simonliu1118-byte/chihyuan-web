@@ -1,14 +1,14 @@
 # CY Web Identity Adapter — Foundation Contract
 
-> Status: implementation foundation. This document defines the CY Web boundary around the existing shared Identity authority. It does not create a second account system and does not modify CYInvoice Cloud runtime from this repository.
+> Status: current CY Web boundary around the shared Identity authority. This document defines stable semantics and acceptance conditions; implementation progress belongs in root `TODO.md`.
 
 ## 1. Purpose
 
-CY Web reuses the existing shared Workspace / Employee / Credential / Session / OTP / Recovery authority through an adapter boundary.
+CY Web reuses the shared Workspace / Employee / Credential / Session / OTP / Recovery authority through a provider-neutral adapter.
 
-CY Web business modules must not call CYInvoice-specific identity endpoints directly. They consume one CY Web-local identity contract so the provider can later move from the current CYInvoice Cloud implementation to CYCloud Identity without rewriting Customer, Order, Item, Outsourcing, WorkLog, Settings or other modules.
+Business modules consume one CY Web-local identity contract. They must not depend on CYInvoice-specific endpoint names, credential code, cookies/tokens or transport details. This allows the shared provider to evolve without rewriting Customer, Item, Sales Work Order, Outsourcing, WorkLog, Settings or other business modules.
 
-This implements `PROJECT_RULES.md` section 7 and BD-037.
+This implements the applicable `PROJECT_RULES.md` identity requirements and confirmed Business Decisions.
 
 ## 2. Authority split
 
@@ -16,10 +16,10 @@ This implements `PROJECT_RULES.md` section 7 and BD-037.
 
 - Workspace identity and membership authority.
 - Employee identity and stable employee ID.
-- Employee number / display name.
+- Employee number and display name.
 - Credential verification.
-- Session authority.
-- Shared account role semantics: ordinary employee, admin, super admin.
+- Browser/session authority.
+- Shared role semantics: `EMPLOYEE`, `ADMIN`, `SUPER_ADMIN`.
 - OTP / recovery / shared account lifecycle.
 
 CY Web must not persist password verifiers, recovery secrets, OTPs or a competing shared role hierarchy in its D1.
@@ -27,14 +27,15 @@ CY Web must not persist password verifiers, recovery secrets, OTPs or a competin
 ### CY Web owns
 
 - Local `app_members` projection keyed by the stable shared Identity employee ID.
-- CY Web-only app tags such as sales / staff / warehouse / designer.
-- App-tag to module-entry mapping.
-- Domain-specific authorization rules inside each business workflow.
-- CY Web audit events for protected CY Web operations.
+- CY Web-only app tags and app-tag → module-entry mapping.
+- Domain-specific authorization inside each business workflow.
+- CY Web Audit events for protected CY Web operations.
 
-## 3. Request identity contract
+CY Web app tags are not shared global roles.
 
-Protected CY Web APIs resolve a request through one adapter contract and receive a normalized principal:
+## 3. Normalized principal contract
+
+Protected CY Web APIs resolve the current request through one adapter contract and receive a normalized principal:
 
 ```ts
 interface IdentityPrincipal {
@@ -46,101 +47,110 @@ interface IdentityPrincipal {
 }
 ```
 
-Provider-specific response fields, cookies, tokens and endpoint names must not escape the adapter implementation.
+Provider-specific response fields and transport details must not escape the adapter implementation.
 
-The adapter result is one of:
+The adapter must distinguish at least:
 
 - authenticated principal;
-- unauthenticated request;
+- unauthenticated/missing session;
+- invalid or revoked authentication;
+- shared-provider application access denied;
 - identity dependency temporarily unavailable.
-
-Business modules should translate these states through the common API error contract rather than inspecting provider-specific error strings.
 
 ## 4. App-member projection
 
-When an authenticated principal is accepted, CY Web resolves the local `app_members` row by `identity_employee_id`.
+When an authenticated principal is accepted, CY Web resolves its local `app_members` projection by `identity_employee_id`.
 
-The local row is a projection/reference only, not an account authority.
-
-- `identity_employee_id` is immutable identity linkage.
+- `identity_employee_id` is the stable linkage.
 - `employee_no` may be refreshed as display/search metadata.
 - credentials are never copied into CY Web.
-- shared admin/super-admin promotion or demotion is never performed by CY Web.
-
-An authenticated shared employee can exist before any CY Web app tag is assigned. For an ordinary employee this means the account is known but no tagged module entry is granted yet.
+- shared Admin/Super Admin promotion or demotion is never performed by CY Web.
+- an authenticated ordinary employee may exist before any CY Web app tag is assigned; in that case no tagged module entry is granted.
 
 ## 5. Authorization layering
 
 Authorization has three layers:
 
-1. Shared Identity confirms who the employee is and the current shared role.
+1. Shared Identity establishes who the employee is and the current shared role/workspace context.
 2. CY Web app authorization decides module entry.
 3. The target domain service enforces operation-specific workflow rules.
 
-Initial module-entry rule from BD-037:
+Initial module-entry semantics:
 
-- `ADMIN` and `SUPER_ADMIN` use the inherited shared administrative authority and are not converted into CY Web-local roles.
-- ordinary `EMPLOYEE` users enter only modules granted by their active CY Web app tags.
-- app tags can be combined; access is the union of active tag/module mappings.
-- hiding a menu is never the authoritative permission check; protected APIs enforce access server-side.
+- `ADMIN` and `SUPER_ADMIN` retain inherited shared administrative authority; CY Web does not convert them into local roles.
+- ordinary `EMPLOYEE` users enter modules granted by their active CY Web app tags.
+- app tags may be combined; access is the union of active tag/module mappings.
+- hiding a menu/control is never authoritative permission enforcement; protected APIs check authorization server-side.
 
-## 6. Session and browser boundary
+## 6. Browser-session provider requirements
 
-CY Web is a browser application, so the provider integration must expose a browser-safe authenticated-session contract.
+A successful one-shot password check is not enough for CY Web. The shared provider must support a browser-safe session lifecycle so normal later requests can resolve identity without repeatedly handling credentials.
 
-The CY Web repository must not implement a parallel password database merely to bridge a temporary provider limitation.
+Required provider semantics:
 
-The current CYInvoice Cloud implementation is useful identity authority evidence, but the currently inspected `web-auth` path is not yet a complete CY Web provider contract: it currently declares an application policy for CYAccountingWeb and returns a one-shot authenticated employee result rather than a CY Web session contract.
+- recognize CY Web as an application audience/scope;
+- authenticate eligible `EMPLOYEE`, `ADMIN` and `SUPER_ADMIN` identities according to shared authority;
+- establish an authenticated CY Web browser session after login;
+- resolve later protected requests to the current employee/workspace/shared role;
+- reject disabled/invalid/revoked identity or session state;
+- support logout/session termination and revocation;
+- keep credential verifiers, signing secrets and provider-internal secrets out of the browser;
+- retain server-side rate/abuse protection for sensitive authentication actions.
 
-Therefore:
+The concrete transport may use HttpOnly cookies, signed short-lived tokens, service-to-service session lookup or another reviewed mechanism. CY Web depends on the semantics, not a provider-specific transport shape.
 
-- CY Web may implement the adapter interface and app-local authorization now;
-- production login/session wiring remains blocked until the shared Identity provider exposes the required CY Web-compatible application/session contract;
-- that provider change belongs to the Identity/CYInvoice workstream, not to CY Web business-module code;
-- CY Web must not modify CYInvoice source/runtime from this branch.
+## 7. Provider acceptance gate
 
-## 7. Error normalization
+The concrete provider adapter is accepted only when a non-production test environment can prove all of the following:
 
-The adapter normalizes provider outcomes into stable CY Web errors:
+1. CY Web application audience/scope is recognized.
+2. `EMPLOYEE`, `ADMIN` and `SUPER_ADMIN` identities can authenticate according to shared authority.
+3. A browser session can be established and later resolved server-side without resending credential material on normal requests.
+4. Disabled/revoked identity and session behavior is testable.
+5. CY Web receives the normalized principal fields without receiving password verifiers, OTP/recovery material or provider secrets.
+6. Logout/revocation is testable.
+7. Provider-unavailable and access-denied outcomes can be normalized without leaking provider-specific internal messages.
+
+Only after this gate may protected multi-user business API wiring be treated as accepted.
+
+## 8. Error normalization
 
 | CY Web condition | HTTP | Stable error code |
 | --- | ---: | --- |
 | no authenticated session | 401 | `AUTH_REQUIRED` |
-| authenticated identity disabled/rejected by provider | 401 | `AUTH_INVALID` |
+| identity/session invalid or revoked | 401 | `AUTH_INVALID` |
 | authenticated but no module permission | 403 | `ACCESS_DENIED` |
+| shared-provider application access denied | 403 | `ACCESS_DENIED` |
 | identity provider unavailable | 503 | `IDENTITY_UNAVAILABLE` |
 
-Provider-specific internal messages must not be forwarded directly to the browser.
+Provider-specific internal messages are not forwarded directly to the browser.
 
-## 8. No production identifiers in Public source
+## 9. Cross-project ownership boundary
 
-Public source may contain only generic binding / adapter / endpoint contract names and placeholders.
+CY Web may reuse shared authority exposed today or later by CYInvoice/CYCloud Identity infrastructure, but it must not copy CYInvoice credential/session internals into this repository.
 
-Do not commit:
+CYAccountingWeb is a separate application workstream and may have different application-access policy. CY Web requirements must not be inferred by copying CYAccountingWeb role restrictions or endpoint behavior.
 
-- production Identity endpoint;
+Provider-side changes belong to the shared Identity/CYInvoice workstream; CY Web owns only its adapter, app-local authorization and protected business routes.
+
+## 10. Public repository boundary
+
+Public source may contain generic contracts, binding names and placeholders only. Do not commit:
+
+- production Identity endpoint/resource identifiers;
 - production Workspace ID;
-- employee identifiers or real employee data;
+- real employee data;
 - session signing secrets;
 - provider tokens;
-- OTP/recovery secrets.
+- password/OTP/recovery secrets.
 
 Production resolution is injected through the approved runtime/deployment boundary.
 
-## 9. Implementation sequence
+## 11. Non-goals
 
-1. Add provider-neutral Identity types and adapter result types.
-2. Add local `app_members` projection and module-access service using the existing D1 schema.
-3. Add `requireIdentity` / `requireModuleAccess` guards for future protected API routes.
-4. Keep `/api/health` unauthenticated and non-sensitive.
-5. When the shared Identity provider exposes the CY Web browser-session contract, add the concrete provider adapter without changing business modules.
-6. Implement the first authenticated business API slice only after the adapter is wired and tested.
-
-## 10. Non-goals for this phase
-
-- No new CY Web password table.
-- No copy of CYInvoice credential-verification code.
-- No duplicated SUPER_ADMIN / ADMIN lifecycle.
-- No CYAccountingWeb identity changes.
-- No production login UI yet.
-- No production Identity deployment from this branch.
+- No CY Web password table.
+- No duplicate shared role lifecycle.
+- No provider-specific auth calls from business modules.
+- No CY Web app tags in Shared Identity.
+- No credential material in CY Web D1.
+- No CYAccountingWeb runtime/source change from this application workstream.
