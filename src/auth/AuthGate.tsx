@@ -33,6 +33,10 @@ function errorMessage(error: unknown): string {
   return "登入失敗，請稍後再試。";
 }
 
+function passwordLength(value: string): number {
+  return Array.from(value).length;
+}
+
 export function AuthGate({ children }: AuthGateProps) {
   const [state, setState] = useState<AuthState>({ status: "checking" });
   const [employeeNo, setEmployeeNo] = useState("");
@@ -69,8 +73,9 @@ export function AuthGate({ children }: AuthGateProps) {
     if (submitting) return;
 
     const normalizedEmployeeNo = employeeNo.trim();
-    if (!/^\d{4}$/.test(normalizedEmployeeNo) || password.length === 0) {
-      setState({ status: "anonymous", message: "請輸入 4 碼員工編號與密碼。" });
+    const length = passwordLength(password);
+    if (!/^\d{4}$/.test(normalizedEmployeeNo) || length < 8 || length > 16) {
+      setState({ status: "anonymous", message: "請輸入 4 碼員工編號與 8～16 字元密碼。" });
       return;
     }
 
@@ -87,13 +92,16 @@ export function AuthGate({ children }: AuthGateProps) {
   }
 
   async function handleLogout() {
-    if (signingOut) return;
+    if (signingOut || state.status !== "authenticated") return;
     setSigningOut(true);
     try {
       await logoutCurrentSession();
-    } finally {
       setPassword("");
       setState({ status: "anonymous" });
+    } catch (error) {
+      setState({ status: "authenticated", session: state.session });
+      throw error;
+    } finally {
       setSigningOut(false);
     }
   }
@@ -160,6 +168,8 @@ export function AuthGate({ children }: AuthGateProps) {
             <input
               type="password"
               autoComplete="current-password"
+              minLength={8}
+              maxLength={16}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               disabled={submitting}
@@ -175,7 +185,7 @@ export function AuthGate({ children }: AuthGateProps) {
         </form>
 
         <p className="cy-auth-note">
-          目前 development 環境暫時使用既有員工帳號驗證；CY Web 不保存密碼。
+          帳號由 CYCloud Identity 驗證；CY Web 不保存密碼或密碼雜湊。
         </p>
       </section>
     </main>
