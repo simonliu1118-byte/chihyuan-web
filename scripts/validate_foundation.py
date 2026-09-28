@@ -172,7 +172,6 @@ def main() -> int:
         "docs/architecture/EDITABLE_LIST_FOUNDATION.md",
         "docs/architecture/OVERLAY_FEEDBACK_FOUNDATION.md",
         "docs/architecture/KEYBOARD_ENTRY_FOUNDATION.md",
-        "docs/architecture/PRE_BUSINESS_READINESS.md",
         "docs/architecture/CUSTOMER_MODULE_CONTRACT.md",
         "shared/api.ts",
         "shared/customer.ts",

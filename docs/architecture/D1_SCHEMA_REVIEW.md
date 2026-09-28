@@ -1,79 +1,68 @@
 # CY Web D1 Schema Review
 
-> Branch: `architecture/d1-schema-draft`
->
-> Status: initial schema draft validated locally against SQLite semantics and aligned with the current Final Data Dictionary; **not yet applied to any production D1 database**.
+> Status: initial relational schema is source-validated and has passed the first Wrangler local D1 + Worker runtime acceptance gate. It is **not yet frozen** and has not been applied to production D1.
 
-## Current artifacts
+## Current authoritative artifacts
 
-- `docs/architecture/FINAL_DATA_DICTIONARY.md` — schema-aligned business/data contract.
-- `migrations/0001_initial.sql` — current clean-start D1 schema draft.
-- `scripts/validate_schema.py` — zero-dependency local smoke validator using Python stdlib `sqlite3`.
+- `docs/architecture/FINAL_DATA_DICTIONARY.md` — physical/business data contract.
+- `migrations/0001_initial.sql` — initial clean-start schema.
+- `migrations/0002_defect_invalidation.sql` — Defect invalidation overlay migration.
+- `scripts/validate_schema.py` — zero-dependency SQLite/source shape validator.
+- `scripts/validate_d1_local.py` — repeatable Wrangler local D1 runtime acceptance driver.
 
-No Cloudflare Worker, production D1 database, R2 binding, GCS runtime secret, or production dataset is created/changed by these files.
+The forward migration source of truth is `migrations/`; schema changes must continue through forward migrations rather than manual Dashboard drift.
 
-## Validation completed
+## Source/schema validation
 
-The current `0001_initial.sql` was executed against an in-memory SQLite database with foreign-key enforcement enabled.
+The current chain creates the expected 46-table application schema and validates key structural/business constraints, including:
 
-Validated results:
+- nullable pre-ERP Customer numbers with uniqueness for non-null Customer numbers;
+- Visit → Customer and referenced Contact retention behavior;
+- confirmed Sales Work Order customer-entry modes;
+- WorkLog cancelled-review current-state shape;
+- generic text Audit `entity_key`;
+- Defect invalidation metadata layered on the three-state workflow.
 
-- schema creates successfully;
-- `PRAGMA foreign_key_check` returns no violations after schema creation;
-- 46 expected application tables are present;
-- nullable Customer numbers allow pre-ERP Customers while duplicate non-null Customer numbers are rejected;
-- Visit requires a real `customer_id`;
-- Sales Work Order supports the confirmed name-only field-entry mode but rejects an unlinked order carrying a formal Customer number;
-- a Customer Contact referenced by a Visit cannot be hard-deleted;
-- a non-reviewed WorkLog cannot retain the cancelled review's current-effective review header fields;
-- the shared Audit Core accepts a generic text `entity_key`, so non-integer operational entities such as a backup ID can use the same Audit Core.
+## Wrangler local D1 runtime acceptance
 
-## Schema refinements made during review
-
-### D1 foreign-key behavior
-
-The migration no longer attempts to use `PRAGMA foreign_keys = ON` as an application switch. D1 enforces foreign keys by default. Future migrations that temporarily need deferred validation should use the D1-supported `PRAGMA defer_foreign_keys` pattern rather than depending on disabling foreign-key enforcement.
-
-### Referenced Customer Contacts
-
-`customer_visits.contact_id` uses `RESTRICT` rather than silently nulling the relation. The Visit still keeps `person_snapshot`, but an already-referenced Contact follows the confirmed referenced-master retention principle and should normally be inactivated instead of physically deleted.
-
-### WorkLog cancelled review data
-
-The current review-only line fields are named `review_remark` and `review_score`, not historical `*_snapshot` fields. Cancel-review is expected to clear these current-effective fields together with the WorkLog review header values; the cancellation itself remains in Audit per BD-051.
-
-No historical review-version table is introduced.
-
-### Audit target key
-
-`audit_events` uses a generic text `entity_key` rather than assuming every audited target has an integer primary key. Integer business-row IDs are encoded as their canonical decimal string; operational keys such as a backup ID can be stored directly. This keeps one Audit Core without adding parallel audit tables.
-
-Audit payloads remain deliberately compact per BD-053/054.
-
-## Data Dictionary alignment
-
-`FINAL_DATA_DICTIONARY.md` has now been reconciled with the reviewed SQL, including:
-
-- Visit/Customer Contact retention behavior;
-- WorkLog `review_remark` / `review_score` naming and cancel-review semantics;
-- normalized WorkLog scoring rows/configuration;
-- generic Audit `entity_key`;
-- Outsourcing contractor/item snapshots actually present in the schema;
-- explicit deferral of detailed modern UI/UX and Legacy GAS refresh-warning replacement to the UI/UX phase.
-
-## Still required before schema freeze
-
-1. Run `scripts/validate_schema.py` from a normal checkout after each schema edit.
-2. Once the actual Worker/Wrangler project exists, apply the migration to a **local/dev D1 target first** and run D1-specific smoke checks before any production database exists.
-3. Define the initial lookup/configuration seed mechanism separately from production scoring values; Chihyuan production WorkLog parameters remain runtime configuration, not Public-source constants.
-4. Freeze the migration only after the local/dev D1 apply path passes and no further business-semantic changes are pending.
-
-## Cost / CI note
-
-The schema validator intentionally requires no third-party package and is not wired to a GitHub Actions workflow at this stage. It can be run locally with:
+The `0.1.40` work item added a real Worker + Wrangler local D1 acceptance path using fresh temporary state. The accepted migration chain is:
 
 ```text
-python scripts/validate_schema.py
+0001_initial.sql
+0002_defect_invalidation.sql
 ```
 
-This preserves the project's CI-cost discipline while the schema is still changing frequently. A lightweight CI gate can be added later when the schema stabilizes.
+The current core runtime gate has passed all of the following against Wrangler local D1:
+
+- migrations apply successfully and are recorded by D1;
+- reapplying the migration command is a safe no-op/success path;
+- Customer create with owned child rows through existing `D1Database.batch()` persistence;
+- Customer update with existing + newly inserted child rows;
+- optimistic revision conflict rejection without stale mutation;
+- a later failing statement rolls back earlier statements in the same D1 batch;
+- business mutation + conditional Audit insert succeed atomically in one batch;
+- scaled fixed-point integer values round-trip exactly through D1 storage;
+- foreign-key enforcement rejects an invalid Customer Visit relation;
+- `0002_defect_invalidation.sql` produces `invalidated_at` and `invalidated_by` on `defect_reports`.
+
+This acceptance exposed a real Customer child-persistence ordering defect: newly inserted child rows were followed by omission cleanup and could be deleted again in the same batch. The persistence order was corrected so omission cleanup runs before new child inserts.
+
+## What this acceptance does not prove
+
+The first local D1 gate is intentionally a core runtime gate. It does not yet complete every domain-specific schema-freeze scenario.
+
+Still required before the initial schema is marked frozen:
+
+1. exercise Item conversion/fixed-point domain behavior beyond raw integer round-trip;
+2. exercise Outsourcing confirmed movement, reversal/replacement and derived-stock behavior against D1;
+3. exercise WorkLog submit/review/cancel-review transitions and finalized result persistence against D1;
+4. confirm any remaining domain-specific transactional/Audit invariants that depend on D1 statement ordering;
+5. keep source validators and Worker/browser typechecks green after those acceptance cases.
+
+A separate remote non-production D1 deployment may be added later when its runtime/config boundary is deliberately provisioned. No production or remote D1 identifier is committed to this Public repository, and remote provisioning is not required to claim the current **Wrangler local D1** acceptance result.
+
+## Schema-freeze rule
+
+UI layout changes do not justify redesigning the relational schema. Once the remaining domain-specific D1 acceptance cases pass, freeze the initial relational schema and require later data-model changes to use explicit forward migrations with the applicable Business Decision/data-contract review.
+
+Until then, `TODO.md` is the current progress tracker; this document records the D1/schema acceptance boundary rather than PR/branch checkpoint metadata.
