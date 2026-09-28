@@ -10,6 +10,7 @@ on:
       - "scripts/**"
       - "package.json"
       - "vite.config.ts"
+      - "wrangler*.jsonc"
       - "tsconfig*.json"
       - ".github/workflows/runtime-check.yml"
   workflow_dispatch:
@@ -107,5 +108,7 @@ jobs:
         with:
           node-version: "24"
       - run: npm install --no-audit --no-fund
+      - name: Local D1 runtime acceptance
+        run: npm run validate:d1:local
       - name: Vite build
         run: npx vite build

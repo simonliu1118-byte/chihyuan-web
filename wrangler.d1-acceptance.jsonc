@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "chihyuan-web-d1-acceptance",
+  "main": "./worker/acceptance/d1-local-acceptance.ts",
+  "compatibility_date": "2026-09-27",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cyweb-local",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
