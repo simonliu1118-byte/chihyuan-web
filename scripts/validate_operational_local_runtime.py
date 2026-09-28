@@ -98,8 +98,9 @@ def main() -> int:
         if token not in defect:
             raise AssertionError(f"missing Defect operational behavior: {token}")
 
-    for token in ["reload does not reset", "Worker protected HTTP API", "standalone `preview/*`", "never writes D1"]:
-        if token not in doc:
+    normalized_doc = doc.lower()
+    for token in ["reload does not reset", "worker protected http api", "standalone `preview/*`", "never writes d1"]:
+        if token not in normalized_doc:
             raise AssertionError(f"missing operational-runtime contract: {token}")
 
     print("PASS operational local runtime source contracts")
