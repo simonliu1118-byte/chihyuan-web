@@ -24,7 +24,14 @@
 - Static delivery：Workers Static Assets / SPA fallback。
 - API：same-origin `/api/*`，共用 success/failure envelope + `requestId`。
 
-`migrations/0001_initial.sql` 是目前 clean-start D1 schema draft；正式 D1 尚未由 foundation branch 建立或修改。
+目前 forward migration chain：
+
+- `migrations/0001_initial.sql`
+- `migrations/0002_defect_invalidation.sql`
+
+目前實際瀏覽器測試面是整合後的 React operational runtime，暫以 versioned browser `localStorage` 作 persistence adapter。正式 schema freeze 仍待 local/dev Cloudflare D1 migration 與 Worker/D1 runtime smoke acceptance；正式 production D1 尚未由目前 operational branch 寫入。
+
+目前續作 checkpoint 見 `docs/handoffs/CYWEB_OPERATIONAL_RUNTIME_HANDOFF_2026-09-28.md`。
 
 本機開發流程見 `docs/development/LOCAL_DEVELOPMENT.md`。
 
