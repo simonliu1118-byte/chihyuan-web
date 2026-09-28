@@ -12,7 +12,7 @@ import subprocess
 import tempfile
 import time
 from typing import Any
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -97,6 +97,10 @@ def free_port() -> int:
         return int(sock.getsockname()[1])
 
 
+def worker_log(log_path: Path) -> str:
+    return log_path.read_text(encoding="utf-8", errors="replace") if log_path.exists() else ""
+
+
 def wait_for_acceptance(port: int, process: subprocess.Popen[str], log_path: Path) -> dict[str, Any]:
     url = f"http://127.0.0.1:{port}/__d1_acceptance"
     deadline = time.monotonic() + 60
@@ -104,8 +108,9 @@ def wait_for_acceptance(port: int, process: subprocess.Popen[str], log_path: Pat
 
     while time.monotonic() < deadline:
         if process.poll() is not None:
-            log = log_path.read_text(encoding="utf-8", errors="replace") if log_path.exists() else ""
-            raise RuntimeError(f"Wrangler acceptance Worker exited early with {process.returncode}\n{log}")
+            raise RuntimeError(
+                f"Wrangler acceptance Worker exited early with {process.returncode}\n{worker_log(log_path)}"
+            )
         try:
             with urlopen(url, timeout=2) as response:
                 body = response.read().decode("utf-8")
@@ -113,12 +118,22 @@ def wait_for_acceptance(port: int, process: subprocess.Popen[str], log_path: Pat
                 if response.status != 200 or payload.get("ok") is not True:
                     raise RuntimeError(f"D1 acceptance Worker failed: HTTP {response.status} {payload!r}")
                 return payload
+        except HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            try:
+                payload: Any = json.loads(body)
+            except json.JSONDecodeError:
+                payload = body
+            raise RuntimeError(
+                f"D1 acceptance Worker failed: HTTP {exc.code} {payload!r}\n{worker_log(log_path)}"
+            ) from exc
         except (URLError, TimeoutError, json.JSONDecodeError) as exc:
             last_error = exc
             time.sleep(0.5)
 
-    log = log_path.read_text(encoding="utf-8", errors="replace") if log_path.exists() else ""
-    raise RuntimeError(f"Timed out waiting for D1 acceptance Worker: {last_error}\n{log}")
+    raise RuntimeError(
+        f"Timed out waiting for D1 acceptance Worker: {last_error}\n{worker_log(log_path)}"
+    )
 
 
 def stop_process(process: subprocess.Popen[str]) -> None:
