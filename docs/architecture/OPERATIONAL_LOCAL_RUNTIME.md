@@ -2,7 +2,7 @@
 
 > Status: active implementation mode for the real UI/flow test surface before Shared Identity + D1 cutover.
 >
-> Current checkpoint: version `0.1.39`, active PR `#41`, operational React runtime. Standalone `preview/*` files are no longer the forward implementation path.
+> Current checkpoint: version `0.1.39` is consolidated into `main` through integration PR `#42` (merge commit `bea60a5b1fed5ed9283bb00c1ced4ca27c0ae9f0`). The earlier `cyweb/operational-local-runtime` / PR `#41` references are pre-merge implementation history. Standalone `preview/*` files are no longer the forward implementation path.
 
 ## Purpose
 
@@ -179,9 +179,9 @@ CY Web must not create a parallel credential/session store or copy CYInvoice aut
 
 ## Runtime/CI acceptance
 
-At the 2026-09-28 checkpoint, the active `cyweb/operational-local-runtime` head had a fully successful `Runtime Check` run.
+At the 2026-09-28 main-integration checkpoint, Governance Check `#98` and Runtime Check `#60` both passed for the PR `#42` integration head.
 
-The automated gates cover:
+The automated runtime gates cover:
 
 - browser TypeScript typecheck;
 - Worker TypeScript typecheck;
@@ -200,13 +200,13 @@ The operational bundle has a dedicated static build:
 npm run build:operational
 ```
 
-`.github/workflows/operational-live.yml` builds the same React runtime on pushes to `cyweb/operational-local-runtime`, uploads a 30-day `operational-runtime` artifact, stamps `SOURCE_COMMIT`, and publishes the static result to:
+`.github/workflows/operational-live.yml` built the same React runtime on pushes to `cyweb/operational-local-runtime`, uploaded a 30-day `operational-runtime` artifact, stamped `SOURCE_COMMIT`, and published the static result to:
 
 ```text
 cyweb/operational-test-runtime
 ```
 
-This is the preferred browser-test package while persistence remains local. It is not a production Worker deployment and does not expose protected D1 routes.
+That package remains the browser-test artifact for the merged 0.1.39 operational runtime while persistence is local. It is not a production Worker deployment and does not expose protected D1 routes. Future implementation work should branch from `main`; packaging workflow scope can be adjusted when the next runtime branch is established.
 
 ## UI review mode
 
@@ -221,7 +221,7 @@ From this point forward, UI changes should normally be made directly in the oper
 
 ## Runtime safety
 
-The current operational branch:
+The current 0.1.39 main baseline:
 
 - contains only fictional seed data by default;
 - never writes production D1;
@@ -230,4 +230,4 @@ The current operational branch:
 - does not modify production Worker, DNS, R2 or GCS resources;
 - does not modify CYAccountingWeb source/runtime.
 
-For a detailed continuation checkpoint, read `docs/handoffs/CYWEB_OPERATIONAL_RUNTIME_HANDOFF_2026-09-28.md`.
+For the current continuation checkpoint, read `docs/handoffs/CYWEB_MAIN_BASELINE_HANDOFF_2026-09-28.md`.
