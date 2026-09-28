@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { AuthGate } from "./auth/AuthGate";
+import type { AuthSession } from "./auth/auth-client";
 import type { NavigationGroup } from "./ui/foundation/navigation";
 import { AppShell } from "./ui/shell/AppShell";
 import { OperationalWorkspace, type OperationalRoute } from "./runtime/OperationalWorkspace";
@@ -47,7 +49,15 @@ function currentRoute(): AppRoute {
   return routes.has(value) ? value : "customers";
 }
 
-export default function App() {
+function OperationalApp({
+  session,
+  logout,
+  signingOut,
+}: {
+  session: AuthSession;
+  logout: () => Promise<void>;
+  signingOut: boolean;
+}) {
   const [route, setRoute] = useState<AppRoute>(currentRoute);
 
   useEffect(() => {
@@ -63,16 +73,48 @@ export default function App() {
   else if (route === "defects") content = <DefectOperationalPage />;
   else content = <OperationalWorkspace route={route as OperationalRoute} />;
 
+  const roleLabel = session.user.role === "SUPER_ADMIN"
+    ? "Super Admin"
+    : session.user.role === "ADMIN"
+      ? "Admin"
+      : "Employee";
+
   return (
     <AppShell
       appName="CY Web"
       subtitle="Chihyuan Enterprise Management System"
       navigation={navigation}
       activeNavigationKey={route}
-      headerActions={<div className="cy-op-runtime-banner">本機操作模式 · localStorage 持久保存</div>}
-      footer={<span className="cy-shell-foundation-note">Operational Local Runtime · 尚未連接 D1 / Shared Identity</span>}
+      headerActions={
+        <>
+          <div className="cy-op-runtime-banner">業務資料暫存模式 · localStorage</div>
+          <div className="cy-auth-user">
+            <strong>{session.user.displayName}</strong>
+            <span>{session.user.employeeNo ?? "—"} · {roleLabel}</span>
+          </div>
+          <button
+            className="cy-auth-logout-button"
+            type="button"
+            disabled={signingOut}
+            onClick={() => void logout()}
+          >
+            {signingOut ? "登出中…" : "登出"}
+          </button>
+        </>
+      }
+      footer={<span className="cy-shell-foundation-note">Development Identity Bridge · 業務資料尚未切換 D1</span>}
     >
       {content}
     </AppShell>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthGate>
+      {(session, logout, signingOut) => (
+        <OperationalApp session={session} logout={logout} signingOut={signingOut} />
+      )}
+    </AuthGate>
   );
 }
