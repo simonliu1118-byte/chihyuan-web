@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AuthGate } from "./auth/AuthGate";
 import type { AuthSession } from "./auth/auth-client";
+import { SharedIdentityPage } from "./identity/SharedIdentityPage";
 import type { NavigationGroup } from "./ui/foundation/navigation";
 import { AppShell } from "./ui/shell/AppShell";
 import { OperationalWorkspace, type OperationalRoute } from "./runtime/OperationalWorkspace";
@@ -8,7 +9,7 @@ import { CustomerOperationalPage } from "./runtime/modules/CustomerOperationalPa
 import { DefectOperationalPage } from "./runtime/modules/DefectOperationalPage";
 import { ItemOperationalPage } from "./runtime/modules/ItemOperationalPage";
 
-type AppRoute = OperationalRoute | "defects";
+type AppRoute = OperationalRoute | "defects" | "identity";
 
 const navigation: readonly NavigationGroup[] = [
   {
@@ -27,6 +28,7 @@ const navigation: readonly NavigationGroup[] = [
     key: "administration",
     label: "管理",
     items: [
+      { key: "identity", label: "帳號與權限", href: "#identity" },
       { key: "settings", label: "設定", href: "#settings" },
       { key: "audit", label: "稽核紀錄", href: "#audit" },
     ],
@@ -40,6 +42,7 @@ const routes = new Set<AppRoute>([
   "orders",
   "outsourcing",
   "worklogs",
+  "identity",
   "settings",
   "audit",
 ]);
@@ -71,6 +74,7 @@ function OperationalApp({
   if (route === "customers") content = <CustomerOperationalPage />;
   else if (route === "items") content = <ItemOperationalPage />;
   else if (route === "defects") content = <DefectOperationalPage />;
+  else if (route === "identity") content = <SharedIdentityPage session={session} />;
   else content = <OperationalWorkspace route={route as OperationalRoute} />;
 
   const authorityLabel = session.user.isWorkspaceSuperAdmin ? "最高權限" : "一般帳號";
