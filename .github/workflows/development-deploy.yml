@@ -78,7 +78,7 @@ jobs:
         run: rm -f wrangler.ci.generated.jsonc
 
   deploy-development:
-    if: github.event_name == 'workflow_dispatch' && inputs.deploy == true
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy == 'true'
     needs: validate-deployment-contract
     runs-on: ubuntu-latest
     timeout-minutes: 15
