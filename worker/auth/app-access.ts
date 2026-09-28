@@ -1,4 +1,4 @@
-import { isSharedAdmin, type IdentityPrincipal } from "../identity/contract";
+import type { IdentityPrincipal } from "../identity/contract";
 
 export interface AppMemberRecord {
   id: number;
@@ -35,9 +35,9 @@ function normalizeEmployeeNo(value: string | null): string | null {
 /**
  * Resolve the local CY Web projection for a shared Identity employee.
  *
- * This deliberately avoids a write on every request. The row is inserted when
- * first seen, and employee_no is refreshed only when it actually changes.
- * Credentials and shared roles are never copied into CY Web D1.
+ * The row is inserted when first seen, and employee_no is refreshed only when
+ * it changes. Credentials, Identity groups and Workspace authority are never
+ * copied into CY Web D1 as a competing source of truth.
  */
 export async function resolveAppMember(
   db: D1Database,
@@ -101,8 +101,10 @@ export async function resolveAppMember(
 }
 
 /**
- * Shared ADMIN/SUPER_ADMIN authority remains shared-Identity authority.
- * Ordinary employees need at least one active CY Web tag granting the module.
+ * The protected Workspace highest authority can enter every CY Web module.
+ * All other employees use CY Web-local app tags for module entry. Identity
+ * groups remain extensible shared-Identity data and are not hard-coded here as
+ * a role enum.
  */
 export async function checkModuleAccess(
   db: D1Database,
@@ -119,7 +121,7 @@ export async function checkModuleAccess(
     return { allowed: false, reason: "app-member-inactive", member };
   }
 
-  if (isSharedAdmin(principal.role)) {
+  if (principal.isWorkspaceSuperAdmin) {
     return { allowed: true, member };
   }
 
