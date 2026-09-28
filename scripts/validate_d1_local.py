@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run CY Web migrations and core transaction checks against Wrangler local D1."""
+"""Run CY Web migrations and core/domain transaction checks against Wrangler local D1."""
 
 from __future__ import annotations
 
@@ -175,8 +175,6 @@ def main() -> int:
         if missing:
             raise RuntimeError(f"Expected D1 migrations were not applied: {sorted(missing)}; applied={sorted(applied)}")
 
-        # Re-applying the chain must be a no-op/success so a developer can run the
-        # documented command repeatedly without rebuilding local state.
         wrangler(
             "d1",
             "migrations",
@@ -228,6 +226,9 @@ def main() -> int:
             "fixedPointIntegers",
             "foreignKeys",
             "defectInvalidationMigration",
+            "itemConversionExact",
+            "outsourcingReversalStock",
+            "workLogReviewLifecycle",
         }
         if not isinstance(checks, dict):
             raise RuntimeError(f"Acceptance response did not include checks: {payload!r}")
