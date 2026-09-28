@@ -29,9 +29,9 @@
 - `migrations/0001_initial.sql`
 - `migrations/0002_defect_invalidation.sql`
 
-目前實際瀏覽器測試面是整合後的 React operational runtime，暫以 versioned browser `localStorage` 作 persistence adapter。正式 schema freeze 仍待 local/dev Cloudflare D1 migration 與 Worker/D1 runtime smoke acceptance；正式 production D1 尚未由目前 operational branch 寫入。
+目前實際瀏覽器測試面是整合後的 React operational runtime，暫以 versioned browser `localStorage` 作 persistence adapter。正式 schema freeze 仍待 local/dev Cloudflare D1 migration 與 Worker/D1 runtime smoke acceptance；正式 production D1 尚未由目前 `0.1.39` main baseline 寫入。
 
-目前續作 checkpoint 見 `docs/handoffs/CYWEB_OPERATIONAL_RUNTIME_HANDOFF_2026-09-28.md`。
+目前續作 checkpoint 見 `docs/handoffs/CYWEB_MAIN_BASELINE_HANDOFF_2026-09-28.md`。
 
 本機開發流程見 `docs/development/LOCAL_DEVELOPMENT.md`。
 
@@ -53,14 +53,15 @@
 
 接續架構／實作前優先讀：
 
-1. `docs/architecture/README.md`
-2. `docs/architecture/decisions/README.md`
-3. `docs/architecture/CANONICAL_DATA_MODEL.md`
-4. `docs/architecture/FINAL_DATA_DICTIONARY.md`
-5. `docs/architecture/D1_SCHEMA_REVIEW.md`
-6. `docs/architecture/API_CONTRACT.md`
-7. `docs/architecture/BACKUP_ARCHITECTURE.md`（若涉及 backup/recovery/storage）
-8. `TODO.md`
+1. `docs/handoffs/CYWEB_MAIN_BASELINE_HANDOFF_2026-09-28.md`
+2. `docs/architecture/README.md`
+3. `docs/architecture/decisions/README.md`
+4. `docs/architecture/CANONICAL_DATA_MODEL.md`
+5. `docs/architecture/FINAL_DATA_DICTIONARY.md`
+6. `docs/architecture/D1_SCHEMA_REVIEW.md`
+7. `docs/architecture/API_CONTRACT.md`
+8. `docs/architecture/BACKUP_ARCHITECTURE.md`（若涉及 backup/recovery/storage）
+9. `TODO.md`
 
 ## Governance
 
@@ -69,8 +70,9 @@
 1. `REPOSITORY_RULES.md`
 2. `REPO_POLICY.md`
 3. `PROJECT_RULES.md`
-4. `docs/architecture/README.md`
-5. `docs/architecture/decisions/README.md`
-6. `TODO.md` 與本次工作相關 source／design docs
+4. `docs/handoffs/CYWEB_MAIN_BASELINE_HANDOFF_2026-09-28.md`
+5. `docs/architecture/README.md`
+6. `docs/architecture/decisions/README.md`
+7. `TODO.md` 與本次工作相關 source／design docs
 
 AITeam `main` 是 Common Rules 與 CY family shared visual 的 canonical source；CY Web 不自動套用 Windows Desktop Visual Guide 作 Web UI 規格。
