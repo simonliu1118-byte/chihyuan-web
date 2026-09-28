@@ -1,0 +1,129 @@
+.cy-auth-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background: #f4f1ea;
+}
+
+.cy-auth-card {
+  width: min(100%, 430px);
+  background: #fff;
+  border: 1px solid #d8d2c7;
+  border-radius: 18px;
+  box-shadow: 0 18px 48px rgba(49, 43, 34, 0.12);
+  padding: 30px;
+}
+
+.cy-auth-status-card {
+  text-align: center;
+}
+
+.cy-auth-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 26px;
+}
+
+.cy-auth-heading h1,
+.cy-auth-status-card h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.cy-auth-heading p,
+.cy-auth-status-card p {
+  margin: 4px 0 0;
+  color: #6b6257;
+}
+
+.cy-auth-brand-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: #7a1f1f;
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.cy-auth-form {
+  display: grid;
+  gap: 18px;
+}
+
+.cy-auth-form label {
+  display: grid;
+  gap: 7px;
+  font-weight: 700;
+}
+
+.cy-auth-form input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #bdb6aa;
+  border-radius: 9px;
+  font: inherit;
+  background: #fff;
+}
+
+.cy-auth-form input:focus {
+  outline: 3px solid rgba(122, 31, 31, 0.16);
+  border-color: #7a1f1f;
+}
+
+.cy-auth-primary-button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 9px;
+  padding: 10px 18px;
+  background: #7a1f1f;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cy-auth-primary-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.cy-auth-error {
+  margin: 0;
+  color: #a02020;
+  font-weight: 700;
+}
+
+.cy-auth-note {
+  margin: 22px 0 0;
+  color: #6b6257;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.cy-auth-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+  font-size: 14px;
+}
+
+.cy-auth-user strong {
+  font-weight: 800;
+}
+
+.cy-auth-logout-button {
+  border: 1px solid #bdb6aa;
+  background: #fff;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font: inherit;
+  cursor: pointer;
+}
