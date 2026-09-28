@@ -96,14 +96,12 @@ export function AuthGate({ children }: AuthGateProps) {
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting) return;
-
     const normalizedEmployeeNo = employeeNo.trim();
     const length = passwordLength(password);
     if (!/^\d{4}$/.test(normalizedEmployeeNo) || length < 8 || length > 16) {
       setState({ status: "anonymous", message: "請輸入 4 碼員工編號與 8～16 字元密碼。" });
       return;
     }
-
     setSubmitting(true);
     try {
       const session = await loginWithPassword(normalizedEmployeeNo, password);
@@ -125,11 +123,13 @@ export function AuthGate({ children }: AuthGateProps) {
     }
     setSubmitting(true); setFlowMessage(null);
     try {
-      const result = mode === "recover"
-        ? await startPasswordRecovery(normalizedEmployeeNo)
-        : await startEmployeeActivation(normalizedEmployeeNo);
-      const issue = mode === "recover" ? result.recovery : result.activation;
-      setChallengeId(issue.challengeId);
+      if (mode === "recover") {
+        const result = await startPasswordRecovery(normalizedEmployeeNo);
+        setChallengeId(result.recovery.challengeId);
+      } else {
+        const result = await startEmployeeActivation(normalizedEmployeeNo);
+        setChallengeId(result.activation.challengeId);
+      }
       setFlowMessage("若帳號符合條件，驗證碼已寄至登記 Email。請輸入 6 位數驗證碼。未收到時請稍候 60 秒後再試。");
     } catch (error) {
       setFlowMessage(errorMessage(error));
@@ -148,14 +148,13 @@ export function AuthGate({ children }: AuthGateProps) {
     try {
       if (mode === "recover") {
         await confirmPasswordRecovery(employeeNo.trim(), challengeId, otp, newPassword);
-        setFlowMessage("密碼已重設，請使用新密碼登入。");
       } else {
         await confirmEmployeeActivation(employeeNo.trim(), challengeId, otp, newPassword);
-        setFlowMessage("帳號啟用完成，請使用剛設定的密碼登入。");
       }
+      const completedMode = mode;
       setChallengeId(null); setOtp(""); setNewPassword(""); setConfirmPassword("");
       setMode("login");
-      setState({ status: "anonymous", message: mode === "recover" ? "密碼已重設，請重新登入。" : "帳號已啟用，請登入。" });
+      setState({ status: "anonymous", message: completedMode === "recover" ? "密碼已重設，請重新登入。" : "帳號已啟用，請登入。" });
     } catch (error) {
       setFlowMessage(errorMessage(error));
     } finally {
@@ -178,48 +177,20 @@ export function AuthGate({ children }: AuthGateProps) {
     }
   }
 
-  if (state.status === "authenticated") {
-    return <>{children(state.session, handleLogout, signingOut)}</>;
-  }
+  if (state.status === "authenticated") return <>{children(state.session, handleLogout, signingOut)}</>;
 
   if (state.status === "checking") {
-    return (
-      <main className="cy-auth-screen" aria-busy="true">
-        <section className="cy-auth-card cy-auth-status-card">
-          <div className="cy-auth-brand-mark" aria-hidden="true">CY</div>
-          <h1>CY Web</h1>
-          <p>正在確認登入狀態…</p>
-        </section>
-      </main>
-    );
+    return <main className="cy-auth-screen" aria-busy="true"><section className="cy-auth-card cy-auth-status-card"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><h1>CY Web</h1><p>正在確認登入狀態…</p></section></main>;
   }
 
   if (state.status === "unavailable") {
-    return (
-      <main className="cy-auth-screen">
-        <section className="cy-auth-card cy-auth-status-card">
-          <div className="cy-auth-brand-mark" aria-hidden="true">CY</div>
-          <h1>CY Web</h1>
-          <p className="cy-auth-error" role="alert">{state.message}</p>
-          <button className="cy-auth-primary-button" type="button" onClick={() => void checkSession()}>
-            重新連線
-          </button>
-        </section>
-      </main>
-    );
+    return <main className="cy-auth-screen"><section className="cy-auth-card cy-auth-status-card"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><h1>CY Web</h1><p className="cy-auth-error" role="alert">{state.message}</p><button className="cy-auth-primary-button" type="button" onClick={() => void checkSession()}>重新連線</button></section></main>;
   }
 
   return (
     <main className="cy-auth-screen">
       <section className="cy-auth-card" aria-labelledby="cy-auth-title">
-        <div className="cy-auth-heading">
-          <div className="cy-auth-brand-mark" aria-hidden="true">CY</div>
-          <div>
-            <h1 id="cy-auth-title">CY Web</h1>
-            <p>志遠企業管理系統</p>
-          </div>
-        </div>
-
+        <div className="cy-auth-heading"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><div><h1 id="cy-auth-title">CY Web</h1><p>志遠企業管理系統</p></div></div>
         {mode === "login" ? <form className="cy-auth-form" onSubmit={handleLogin}>
           <label><span>員工編號</span><input autoComplete="username" inputMode="numeric" maxLength={4} pattern="[0-9]{4}" value={employeeNo} onChange={(event) => setEmployeeNo(event.target.value.replace(/\D/g, "").slice(0, 4))} disabled={submitting} autoFocus required /></label>
           <label><span>密碼</span><input type="password" autoComplete="current-password" minLength={8} maxLength={16} value={password} onChange={(event) => setPassword(event.target.value)} disabled={submitting} required /></label>
@@ -241,7 +212,6 @@ export function AuthGate({ children }: AuthGateProps) {
           <button className="cy-auth-primary-button" disabled={submitting || otp.length !== 6}>{submitting ? "處理中…" : mode === "recover" ? "重設密碼" : "完成啟用"}</button>
           <button className="cy-auth-link-button" type="button" onClick={() => setChallengeId(null)}>重新寄送</button>
         </form>}
-
         <p className="cy-auth-note">帳號由 CYCloud Identity 驗證；CY Web 不保存密碼、OTP 或密碼雜湊。</p>
       </section>
     </main>
