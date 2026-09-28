@@ -178,6 +178,9 @@ export async function handleIdentityManagementRoute(
   if (request.method === "GET" && path === "/api/identity/admin/snapshot") {
     return proxyAuthenticated(request, env, requestId, "/v1/admin/identity/snapshot", "GET");
   }
+  if (request.method === "GET" && path === "/api/identity/admin/authority") {
+    return proxyAuthenticated(request, env, requestId, "/v1/admin/authority", "GET");
+  }
   if ((request.method === "GET" || request.method === "PUT") && path === "/api/identity/admin/security-policy") {
     return proxyAuthenticated(request, env, requestId, "/v1/admin/security-policy", request.method);
   }
