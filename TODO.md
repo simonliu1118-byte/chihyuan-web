@@ -4,16 +4,17 @@
 
 ## Current checkpoint — 2026-09-28
 
-- Formal code baseline: `main`; current Identity bridge work item version: `0.1.42` until merged.
+- Formal code baseline: `main`; current work item version: `0.1.43`.
 - Forward product surface: real integrated React operational application.
 - Temporary browser business-data persistence: versioned `localStorage`.
 - Frozen initial relational baseline: `0001_initial.sql` + `0002_defect_invalidation.sql`.
 - Post-freeze forward migration: `0003_identity_web_sessions.sql` for CY Web's temporary browser-session projection; the frozen business schema was not rewritten.
-- Source/schema contracts, browser TypeScript, Worker TypeScript, Vite build and Wrangler local D1 acceptance are green for the Identity bridge work item.
+- Source/schema contracts, browser TypeScript, Worker TypeScript, Vite build and Wrangler local D1 acceptance are green.
 - Temporary account bridge follows the already-proven CYAccountingWeb pattern: private `IDENTITY` Service Binding → existing external Web Auth login → CY Web-owned short-lived D1 session.
+- Development deployment contract is staged and CI-accepted: placeholder render, rendered-config local migrations, Cloudflare Vite production build and Wrangler deployment dry-run are green.
+- Real development deployment is manual-only through the GitHub `development` Environment; actual Cloudflare resource/provider targets are not stored in Public source.
 - CYInvoice Cloud is not modified, CY Web does not read its D1, and credential verifier/OTP/recovery internals are not copied into CY Web.
-- The external provider target and temporary login application/audience remain deployment-injected values; no production provider identifier is committed to Public source.
-- Production/remote D1, production Worker/DNS, R2/GCS resources and SMART ERP remain untouched.
+- Production D1/Worker/DNS/custom domain, R2/GCS resources and SMART ERP remain untouched.
 - CYAccountingWeb remains a separate application workstream.
 
 ## Active next sequence
@@ -23,13 +24,14 @@
 3. [x] Complete Item conversion/fixed-point, Outsourcing reversal/replacement + derived-stock, and WorkLog review/cancel-review D1 acceptance.
 4. [x] Freeze the initial relational schema after the D1 acceptance gates pass.
 5. [x] Stage the temporary provider-neutral CYInvoice account bridge and CY Web-owned browser session layer without modifying CYInvoice Cloud.
-6. [ ] Bind a non-production `IDENTITY` Service Binding + temporary provider application value and perform real login / me / logout acceptance against the existing account service.
-7. [ ] Add protected Worker business HTTP routes with server-side role/module authorization.
-8. [ ] Replace the temporary `localStorage` business-data persistence adapter with Worker API → D1 while preserving the same React UI/workflows.
-9. [ ] Complete final Shared Identity extraction/acceptance for `EMPLOYEE / ADMIN / SUPER_ADMIN`, provider-side revocation and final audience semantics; then remove the temporary CYInvoice-specific provider adapter.
-10. [ ] Perform Desktop／Tablet／Mobile real-browser/device acceptance.
-11. [ ] Bind/deploy production Worker／D1／custom domain only after explicit production acceptance.
-12. [ ] Implement and acceptance-test CY Web backup runtime/providers/restore flow when the production Worker/D1 boundary is ready.
+6. [x] Build and CI-accept the development deployment contract for D1 + private `IDENTITY` Service Binding.
+7. [ ] Configure/run the manual non-production deployment and perform real login / me / logout acceptance against the existing account service.
+8. [ ] Add protected Worker business HTTP routes with server-side role/module authorization.
+9. [ ] Replace the temporary `localStorage` business-data persistence adapter with Worker API → D1 while preserving the same React UI/workflows.
+10. [ ] Complete final Shared Identity extraction/acceptance for `EMPLOYEE / ADMIN / SUPER_ADMIN`, provider-side revocation and final audience semantics; then remove the temporary CYInvoice-specific provider adapter.
+11. [ ] Perform Desktop／Tablet／Mobile real-browser/device acceptance.
+12. [ ] Bind/deploy production Worker／D1／custom domain only after explicit production acceptance.
+13. [ ] Implement and acceptance-test CY Web backup runtime/providers/restore flow when the production Worker/D1 boundary is ready.
 
 UI polish is continuous and does **not** block Identity/API integration.
 
@@ -54,9 +56,9 @@ Accepted on Wrangler local D1:
 
 The initial business schema remains frozen. Future schema changes use new numbered forward migrations and must preserve these acceptance gates.
 
-### Identity — temporary bridge staged, real binding acceptance pending
+### Identity — bridge and deployment path staged; real binding acceptance pending
 
-Already implemented in CY Web:
+Already implemented/accepted in CY Web:
 
 - provider-neutral `IdentityLoginProvider` and request `IdentityAdapter` boundaries;
 - normalized principal contract;
@@ -66,13 +68,17 @@ Already implemented in CY Web:
 - CY Web-owned `web_sessions` D1 projection;
 - `cyweb_session` HttpOnly / Secure / SameSite=Strict cookie;
 - `/api/auth/login`, `/api/auth/me`, `/api/auth/logout`;
-- stable provider error normalization and no credential-internal copy.
+- stable provider error normalization and no credential-internal copy;
+- placeholder-only Wrangler deployment template and validated renderer;
+- development workflow with local migration + Vite build + Wrangler deploy dry-run;
+- manual-only development deploy job using GitHub Environment-injected Cloudflare/D1/Identity values.
 
 Still required before protected multi-user business operation:
 
-- inject the non-production `IDENTITY` Service Binding and temporary provider application/audience value;
+- configure/confirm the `development` Environment inputs for this repository;
+- run the manual development deployment;
 - real end-to-end login / session / logout acceptance against the existing account service;
-- confirm the currently available external audience's role restriction in the actual environment;
+- confirm the currently available external audience's actual role restriction;
 - add protected Worker-route server authorization;
 - later complete Shared Identity extraction so ordinary `EMPLOYEE` support and provider-side disabled/revoked session semantics no longer depend on the temporary compatibility provider.
 
