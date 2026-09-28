@@ -7,26 +7,26 @@ import {
 import type { IdentityPrincipal } from "../identity/contract";
 import { failure, success } from "./response";
 
-export interface IdentityBridgeEnv {
+export interface IdentityRuntimeEnv {
   DB: D1Database;
   IDENTITY?: Fetcher;
   IDENTITY_APPLICATION_ID?: string;
   IDENTITY_WORKSPACE_ID?: string;
 }
 
-function normalizedApplicationId(env: IdentityBridgeEnv): string | null {
+function normalizedApplicationId(env: IdentityRuntimeEnv): string | null {
   const value = env.IDENTITY_APPLICATION_ID?.trim().toUpperCase() ?? "";
   if (value.length < 2 || value.length > 64 || /[^A-Z0-9_-]/.test(value)) return null;
   return value;
 }
 
-function normalizedWorkspaceId(env: IdentityBridgeEnv): string | null {
+function normalizedWorkspaceId(env: IdentityRuntimeEnv): string | null {
   const value = env.IDENTITY_WORKSPACE_ID?.trim() ?? "";
   if (value.length < 5 || value.length > 80 || /[^A-Za-z0-9_-]/.test(value)) return null;
   return value;
 }
 
-function identityClient(env: IdentityBridgeEnv): CYCloudIdentityClient | null {
+function identityClient(env: IdentityRuntimeEnv): CYCloudIdentityClient | null {
   if (!env.IDENTITY || typeof env.IDENTITY.fetch !== "function") return null;
   const applicationId = normalizedApplicationId(env);
   const workspaceId = normalizedWorkspaceId(env);
@@ -51,7 +51,7 @@ function passwordLength(value: string): number {
 
 async function login(
   request: Request,
-  env: IdentityBridgeEnv,
+  env: IdentityRuntimeEnv,
   requestId: string,
 ): Promise<Response> {
   const provider = identityClient(env);
@@ -122,7 +122,7 @@ async function login(
   );
 }
 
-async function me(request: Request, env: IdentityBridgeEnv, requestId: string): Promise<Response> {
+async function me(request: Request, env: IdentityRuntimeEnv, requestId: string): Promise<Response> {
   const provider = identityClient(env);
   if (!provider) {
     return failure(
@@ -165,7 +165,7 @@ async function me(request: Request, env: IdentityBridgeEnv, requestId: string): 
   return response;
 }
 
-async function logout(request: Request, env: IdentityBridgeEnv, requestId: string): Promise<Response> {
+async function logout(request: Request, env: IdentityRuntimeEnv, requestId: string): Promise<Response> {
   const provider = identityClient(env);
   if (!provider) {
     return failure(
@@ -193,7 +193,7 @@ async function logout(request: Request, env: IdentityBridgeEnv, requestId: strin
 
 export async function handleAuthRoute(
   request: Request,
-  env: IdentityBridgeEnv,
+  env: IdentityRuntimeEnv,
   requestId: string,
 ): Promise<Response | null> {
   const url = new URL(request.url);
