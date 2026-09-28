@@ -1,6 +1,6 @@
 # CY Backup Architecture
 
-> Scope: current shared backup architecture for CY Web and CYAccountingWeb. This is an architecture/design document, not a fourth governance-rules layer.
+> Scope: shared provider-neutral backup/recovery architecture used by CY Web and reusable by other CY-family applications. Application-specific migration/cutover status belongs in each application's own repository/TODO, not in this architecture contract.
 
 ## 1. Target topology
 
@@ -16,7 +16,7 @@ CY Backup storage orchestration
         └─ GCS — lower-frequency cross-cloud disaster recovery
 ```
 
-D1 remains the live database. R2 and GCS are immutable-style backup targets, not live sync stores.
+D1 remains the live authoritative database after application cutover. R2 and GCS are backup targets, not live synchronization stores.
 
 ## 2. Recovery tiers
 
@@ -25,14 +25,14 @@ D1 remains the live database. R2 and GCS are immutable-style backup targets, not
 Purpose:
 
 - routine daily backup;
-- normal in-app restore while Cloudflare services are available;
+- normal in-app restore source while Cloudflare is healthy;
 - short operational recovery window;
-- fast provider-local access from Workers.
+- provider-local access from Workers.
 
 Policy:
 
 - schedule: daily, 03:30 Taiwan time;
-- retention: 30 rolling days of verified backup copies;
+- application retention: 30 rolling days of verified backup copies;
 - read-back verification required after upload;
 - normal restore selection prefers R2 when an equivalent valid copy exists.
 
@@ -40,47 +40,44 @@ Policy:
 
 Purpose:
 
-- recover when Cloudflare/R2 is unavailable, compromised or otherwise unsuitable as the only recovery source;
-- retain a longer independent history outside the Cloudflare provider boundary.
+- independent recovery source when Cloudflare/R2 is unavailable, compromised or otherwise unsuitable as the only recovery source;
+- longer history outside the Cloudflare provider boundary.
 
 Policy:
 
-- standard replication days: Wednesday and Sunday, Taiwan local date;
-- retention: 26 rolling weeks (182 days);
-- GCS receives the exact same already-created portable backup set; it never causes an independent D1 export;
+- scheduled replication days: Wednesday and Sunday, Taiwan local date;
+- retention: 26 rolling weeks / 182 days;
+- receives the exact same already-created portable backup-set bytes as the logical R2 backup;
+- must never trigger a second D1 export for the same logical backup;
 - manual/high-risk/pre-restore safety backup requests both providers regardless of weekday.
 
-Expected schedule characteristics:
+Expected normal scheduled RPO characteristics:
 
 ```text
-R2 operational RPO       < 24 hours under normal scheduled operation
-GCS cross-cloud DR RPO   <= about 4 days under normal Wed/Sun replication
+R2 operational RPO       < 24 hours
+GCS cross-cloud DR RPO   <= about 4 days
 ```
-
-A failed eligible GCS copy remains pending/failed and must be retried from the already-created verified backup set rather than rebuilding a new D1 export with the same conceptual purpose.
 
 ## 3. Logical backup identity
 
-A logical backup is not provider-specific.
+A logical backup is provider-neutral:
 
 ```text
 backupId = one application backup event
 ```
 
-One `backupId` may have:
+One `backupId` can have multiple provider-copy states:
 
 ```text
-R2 copy       verified / failed / pending / absent
-GCS copy      verified / failed / pending / absent
+R2 copy   verified / failed / pending / absent
+GCS copy  verified / failed / pending / absent
 ```
 
-The provider copies share identical portable bytes when both exist.
-
-Do not display two provider copies of the same `backupId` as two separate business backups.
+Provider copies of one logical backup share the same portable payload/manifest bytes when both exist. User-facing history lists one logical backup once, with provider-copy health beneath it.
 
 ## 4. Portable package contract
 
-Target shared layout:
+Shared layout:
 
 ```text
 <app-scope>/<backup-id>/
@@ -88,7 +85,7 @@ Target shared layout:
 └─ data.json
 ```
 
-Target shared outer format:
+Shared outer format:
 
 ```text
 format        CYBackupSet
@@ -114,37 +111,32 @@ dataSha256
 dataByteLength
 ```
 
-The exact stored bytes are authoritative for integrity verification. `dataSha256` is calculated over the exact UTF-8 bytes stored as `data.json`.
+`data.json` remains application-specific. The shared contract is the outer package/integrity contract, not a requirement for identical application schemas.
 
-Provider-specific state must not mutate the package. In particular, do not put provider copy verification status, R2/GCS object generation, bucket identifier or provider credential metadata into the portable manifest.
+Provider-specific copy state, bucket IDs, object generations, bindings or credential metadata must not mutate the portable manifest.
 
-## 5. Export once / replicate bytes
+## 5. Export once / replicate exact bytes
 
-The required sequence for a normal daily backup is:
+Required sequence:
 
 ```text
 export application D1 once
 → serialize data.json once
-→ SHA-256(data.json)
+→ SHA-256(data.json exact bytes)
 → build manifest.json once
 → create logical backupId
-→ upload exact bytes to R2
-→ read back R2 objects
-→ verify bytes/digest/counts/manifest
-→ mark R2 copy verified
-→ if GCS policy applies for this backupId:
-     replicate exact same data.json + manifest.json bytes
-     → read back GCS objects
-     → verify same bytes/digest/counts/manifest
-     → mark GCS copy verified
+→ store + read-back verify R2
+→ when GCS policy applies:
+     replicate the same data.json + manifest.json bytes
+     → read-back verify GCS
 → apply provider-specific retention
 ```
 
-A GCS retry reuses the existing backup-set bytes. It does not query/export D1 again.
+A failed GCS copy is retried from the already-created backup set. It must not query/export D1 again while pretending to be the same backup event.
 
-## 6. Provider contract
+## 6. BackupStorageProvider contract
 
-Required common interface:
+Required common boundary:
 
 ```text
 BackupStorageProvider
@@ -154,79 +146,78 @@ BackupStorageProvider
 - deleteObject(key, versionToken?)
 ```
 
-Normalized list/object metadata should expose only portable storage facts needed by orchestration, for example:
+Normalize provider metadata into portable fields such as:
 
 ```text
 key
 byteSize
 timeCreated
-versionToken?   // opaque provider token when applicable
+versionToken?  // opaque provider token when applicable
 ```
 
-`versionToken` may internally represent a GCS generation, R2 version/etag or another provider concept, but callers must not assume its provider-specific shape.
+Domain/orchestration code must not branch on GCS- or R2-specific token semantics.
 
-## 7. Service responsibilities
+## 7. Responsibility split
 
 ### App-specific BackupService
 
-Owned by CY Web or CYAccountingWeb individually:
+Owned by each application:
 
 - application D1 export;
-- data serialization;
+- deterministic serialization;
 - application schema/version compatibility;
 - portable manifest generation;
-- application record-count validation;
-- user-facing backup/restore authorization;
-- Super Admin restriction and double-confirmation restore;
-- application restore ordering and D1 writes;
+- record-count/domain validation;
+- user authorization;
+- Super Admin restriction where required;
+- double-confirmation restore;
+- application-specific restore ordering/writes;
 - application audit evidence.
 
 ### BackupStorageProvider
 
 Owned by provider adapter:
 
-- object put/get/list/delete only;
+- object put/get/list/delete;
 - provider authentication/binding mechanics;
-- normalization of provider metadata/errors.
+- provider metadata/error normalization;
+- read-back object access needed by integrity verification.
 
-It does not know application tables, roles or restore semantics.
+It does not know application tables, business roles or restore ordering.
 
-### Future CY Backup Service / Worker
+### Shared CY Backup orchestration
 
-Shared infrastructure service:
+Reusable infrastructure may own:
 
 - provider adapters;
 - provider-copy catalog;
 - exact-byte storage verification;
-- R2→GCS replication;
+- R2 → GCS replication;
 - retention execution;
-- storage health and retry state;
+- storage health/retry state;
 - app-scoped dataset routing.
 
-The shared service must not perform application D1 restore writes.
+Shared storage orchestration must not perform application D1 restore writes by itself.
 
 ## 8. Isolation boundary
 
-Isolation is mandatory at two levels.
+Isolation is mandatory at logical and resource/credential levels.
 
 ### Logical isolation
 
-Every package contains an `appId`; backup listing/restoration is scoped by the authenticated calling application.
+- every package identifies its `appId`;
+- listing/replication/recovery operations are scoped to the authenticated/authorized application;
+- a caller cannot cross scope merely by changing an `appId` parameter.
 
-### Credential/resource isolation
+### Resource / credential isolation
 
-For each application:
+Each application uses app-scoped storage resources/bindings and least-privilege credentials. Do not share one broad credential across CY applications merely because storage orchestration is reusable.
 
-- separate R2 dataset/bucket or isolated binding;
-- separate GCS dataset/bucket;
-- separate least-privilege GCS service identity/credential;
-- no broad credential shared simply because one CY Backup Worker serves multiple apps.
+Production bucket names, service-account payloads, tokens and exact resource identifiers remain deployment-private and must not be committed to this Public repository.
 
-A future shared Worker maps internal caller identity to an allowed app scope. The caller cannot cross scope by changing an `appId` parameter.
+## 9. Logical catalog
 
-## 9. Catalog model
-
-The preferred logical catalog separates backup identity from provider copies:
+Preferred semantics separate logical backup identity from provider copies:
 
 ```text
 backup_sets
@@ -246,15 +237,15 @@ backup_copies
   status
   verified_at
   storage_prefix
-  version_token / provider metadata (opaque)
+  version_token
   last_error
 ```
 
-The exact table ownership may remain app-local initially and later move into CY Backup Service.
+Exact table ownership may initially be app-local and later move behind shared orchestration. The user-facing meaning remains one logical backup with zero or more provider copies.
 
 ## 10. Retention rules
 
-Primary application policy:
+Application policy:
 
 ```text
 R2  = 30 days
@@ -264,109 +255,57 @@ GCS = 182 days / 26 weeks
 Rules:
 
 - only verified copies count as recoverable;
-- retention cleanup occurs only after a new copy is successfully verified;
-- cleanup failure does not invalidate the new copy;
-- a copy needed as the source of pending replication is protected until replication resolves;
-- provider lifecycle rules, if used, are secondary guards with thresholds longer than the application policy;
-- no bulk destructive cleanup occurs during architecture migration until the replacement path has passed acceptance.
+- retention cleanup runs only after a new copy is successfully verified;
+- cleanup failure does not invalidate the newly verified copy;
+- a copy needed as pending replication source remains protected until replication resolves;
+- provider lifecycle rules, if used, are secondary safety guards with thresholds longer than application retention;
+- architecture/provider migration must not perform destructive bulk cleanup before replacement recovery acceptance.
 
 ## 11. Restore selection
 
-Normal in-app restore candidate flow:
+Normal application restore flow:
 
 ```text
 logical backup list
-→ verify requested appId / schema compatibility
+→ verify app scope + schema compatibility
 → prefer verified R2 copy
 → fallback to verified GCS copy of same backupId
 → load bytes
-→ portable integrity verification
-→ app-specific restore validation
-→ double confirmation
+→ verify portable integrity
+→ application-specific restore validation
+→ required confirmation/authorization
 → controlled D1 restore
-→ reconciliation + audit
+→ reconciliation + Audit
 ```
 
-For provider-wide Cloudflare disaster recovery, GCS is the independent recovery source.
+GCS remains the independent recovery source for provider-wide Cloudflare disaster scenarios.
 
-## 12. CYAccountingWeb V0.17 migration plan
+## 12. Migration / compatibility principles
 
-Current accepted baseline:
+When an application adopts or changes this architecture:
 
-- D1 is authoritative;
-- GCS provider is production and verified;
-- V0.17 exports a portable two-file backup set;
-- daily 03:30 Taiwan schedule;
-- current GCS retention is 14 days;
-- current provider contract already uses put/get/list/delete.
+- preserve its last accepted backup/restore path until the replacement path passes application-specific acceptance;
+- introduce format/provider changes additively and version compatibility explicitly;
+- do not rewrite old accepted backup objects in place merely to attach new provider metadata;
+- do not destructively change backup format and storage provider at the same instant without a tested compatibility path;
+- keep rollback to the last accepted topology during the migration acceptance window;
+- application-specific phase names, version numbers, current provider state and cutover dates belong in that application's own repository/status tracker, not here.
 
-The migration is deliberately additive-first.
+## 13. Acceptance matrix
 
-### Phase A — freeze accepted GCS path
-
-Do not remove, rename or disable the working V0.17 GCS path while the new architecture is only documentation/design.
-
-### Phase B — package compatibility
-
-- isolate one reusable backup-set builder from provider execution;
-- add the shared `CYBackupSet` outer contract behind a versioned compatibility path;
-- keep the V0.17 application-specific format readable;
-- test deterministic bytes/digests and old-format validation before changing production output.
-
-### Phase C — add R2, keep GCS behavior
-
-- implement an R2 `BackupStorageProvider` adapter;
-- configure an Accounting-specific R2 dataset/binding;
-- export once per scheduled backup;
-- write the same backup-set bytes to R2 and the existing GCS path during the parallel acceptance period;
-- keep GCS daily schedule and current 14-day behavior during this phase;
-- set R2 operational retention to 30 days.
-
-Acceptance gate: at least **14 consecutive scheduled backups** with successful R2 and GCS read-back verification, identical logical backup IDs/package digests for paired copies, and no regression to current GCS recovery evidence.
-
-### Phase D — switch to tiered schedule
-
-After Phase C acceptance:
-
-- R2 remains daily at 03:30;
-- GCS changes from daily export target to Wed/Sun replication target;
-- GCS retention changes to 26 weeks;
-- GCS replication uses the same verified backup set, never a second D1 export;
-- pre-cutover daily GCS objects are not bulk-deleted at cutover; they age out safely under an explicit compatibility cleanup policy.
-
-### Phase E — shared CY Backup Service
-
-When CY Web reaches the same implementation stage:
-
-- move provider adapters, provider-copy catalog, replication and retention behind the shared CY Backup Service/Worker;
-- keep Accounting exporter/restorer/schema validation inside CYAccountingWeb;
-- migrate one app at a time behind feature/config switches;
-- retain direct GCS rollback capability during acceptance;
-- only after shared-service acceptance remove direct provider credentials/bindings from the application Worker.
-
-## 13. Migration rollback principles
-
-At every production migration step:
-
-- accepted V0.17 GCS backups remain valid;
-- do not rewrite old objects in place;
-- do not change existing backup bytes merely to add provider metadata;
-- new format/version readers must coexist with old accepted backup format until retention/compatibility policy explicitly allows retirement;
-- a feature/config switch must permit rollback to the last accepted storage topology during the validation window.
-
-## 14. Acceptance matrix
-
-A tiered/shared implementation is not complete until all of the following pass:
+A tiered/shared implementation is not complete until the applicable application proves:
 
 1. one D1 export creates one logical `backupId`;
 2. R2 read-back SHA-256/byte-length/record-count verification passes;
 3. GCS copy of the same logical backup has identical portable bytes/digests;
 4. forced GCS copy failure does not invalidate a valid R2 backup;
 5. GCS retry does not re-export D1;
-6. retention respects 30-day R2 / 26-week GCS policy;
-7. one backup is shown once even when two provider copies exist;
+6. retention follows the 30-day R2 / 26-week GCS policy;
+7. one logical backup is displayed once even when multiple provider copies exist;
 8. R2-unavailable restore can fall back to a valid GCS copy;
 9. cross-app listing/access is rejected;
-10. existing CYAccountingWeb V0.17 GCS backups remain readable/valid;
-11. direct GCS production path remains available until the explicit cutover gate is passed;
-12. shared service, when introduced, cannot perform application D1 restore writes on its own.
+10. pre-existing accepted backup formats remain readable for their declared compatibility window;
+11. migration rollback remains possible until explicit cutover acceptance;
+12. shared storage orchestration cannot perform application D1 restore writes on its own.
+
+Current per-application implementation progress is intentionally excluded from this document. Use each application's current `main`/`TODO` and deployment-private operational records.

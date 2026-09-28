@@ -1,257 +1,112 @@
 # CY Web Architecture Documents
 
-This directory contains the current architecture/design record for **Chihyuan Enterprise Management System (CY Web)**.
+本目錄是 **Chihyuan Enterprise Management System（CY Web）** 的 current architecture/design 文件入口。
 
-These documents are not a fourth governance layer. Permanent rules remain in the repository root:
+它不是第四層治理。永久規則只存在於 repository root 的：
 
 1. `REPOSITORY_RULES.md`
 2. `REPO_POLICY.md`
 3. `PROJECT_RULES.md`
 
-For product/architecture semantics, current explicit user decisions and later confirmed Business Decisions supersede older drafts or audit notes.
+目前實作進度與下一步只由根 `TODO.md` 維護；本目錄不另外維護一份平行 status/handoff。
 
-## Current implementation checkpoint
+## 文件語意與優先順序
 
-As of 2026-09-28, CY Web has moved from isolated static previews to the **real integrated React operational runtime**, and the completed 0.1.39 stack has been consolidated into `main`.
+治理衝突依正式 Governance 規則處理。對非永久規則的 architecture/product 文件，工作時依下列來源分工判讀：
 
-Current working baseline:
+1. 使用者當前明確決定；
+2. 最新適用的 confirmed Business Decision；
+3. current specialized architecture/module contract；
+4. `CANONICAL_DATA_MODEL.md`／`FINAL_DATA_DICTIONARY.md`／forward migrations；
+5. current source 與可重建驗證結果；
+6. archive/legacy/preview evidence。
 
-- canonical implementation baseline: `main`;
-- integration PR: `#42` — merged on 2026-09-28;
-- main integration commit: `bea60a5b1fed5ed9283bb00c1ced4ca27c0ae9f0`;
-- pre-merge PR `#41` / branch `cyweb/operational-local-runtime`: historical implementation checkpoint after the integration merge;
-- application version: `0.1.39`;
-- current persistence adapter: versioned browser `localStorage`;
-- forward UI: the actual React AppShell and operational module pages;
-- standalone `preview/*`: reference/history only;
-- latest accepted integration gates: Governance Check `#98` and Runtime Check `#60` passed, including browser TypeScript, Worker TypeScript, Vite build and source/schema contract validation;
-- D1 cutover: not yet active in the operational browser test runtime;
-- formal schema freeze: still waits for local/dev D1 migration + Worker/D1 smoke acceptance;
-- Shared Identity browser-session provider: still pending before protected multi-user D1 operation.
-
-Detailed continuation state: `../handoffs/CYWEB_MAIN_BASELINE_HANDOFF_2026-09-28.md`.
-
-## Current document map
-
-### Core architecture / implementation contracts
-
-- `decisions/README.md` — confirmed Business Decision index and supersession/refinement map.
-- `BUSINESS_DECISIONS.md` — consolidated early Business Decisions.
-- `decisions/BD-019.md` onward — later detailed Business Decisions.
-- `CANONICAL_DATA_MODEL.md` — current logical model.
-- `FINAL_DATA_DICTIONARY.md` — current relational/physical Data Dictionary baseline.
-- `D1_SCHEMA_REVIEW.md` — schema validation state and remaining freeze gate.
-- `API_CONTRACT.md` — Worker/API envelope, errors, cache, validation and concurrency.
-- `REQUEST_FOUNDATION.md` — shared browser API client and server request-validation foundation.
-- `IDENTITY_ADAPTER.md` — Shared Identity adapter and CY Web app-local authorization split.
-- `AUDIT_CORE.md` — shared CY Web AuditService and timeline/detail boundaries.
-- `UI_FOUNDATION.md`, `APP_SHELL_FOUNDATION.md`, `FORM_FOUNDATION.md` — shell/form architecture.
-- `DATA_VIEW_FOUNDATION.md`, `ENTITY_PICKER_FOUNDATION.md`, `EDITABLE_LIST_FOUNDATION.md` — shared search/lookup/repeated-row mechanics.
-- `OVERLAY_FEEDBACK_FOUNDATION.md`, `KEYBOARD_ENTRY_FOUNDATION.md` — shared overlay/feedback and opt-in fast-entry behavior.
-- `PRE_BUSINESS_READINESS.md` — common-foundation readiness gate.
-- `OPERATIONAL_LOCAL_RUNTIME.md` — **current forward implementation/test mode**.
-
-### Customer
-
-- `CUSTOMER_MODULE_CONTRACT.md`
-- `CUSTOMER_UI_COMPOSITION.md`
-- `CUSTOMER_EDIT_INTERACTION.md`
-- `CUSTOMER_SERVICE_FOUNDATION.md`
-- `CUSTOMER_RELATED_FOUNDATION.md`
-- `CUSTOMER_RELATED_UI.md`
-- `CUSTOMER_FULL_WORKSPACE_PREVIEW.md` — historical/reference review artifact.
-- `CUSTOMER_UI_REVIEW_BACKLOG.md`
-
-Current accepted UI baseline:
-
-- Search/filter/results belong in the left Search Pane;
-- Detail is an independent right pane;
-- major left/right card tops should align;
-- result columns should not shift according to label length;
-- normal business text uses a readable approximately 14–16px baseline;
-- view-header action buttons are compact/single-line;
-- long edit forms expose Cancel/Save at both top and bottom;
-- related-record detail polish remains a later UI pass.
-
-### Item / Defect
-
-- `ITEM_MODULE_CONTRACT.md` — Item master, exact scaled4 values, conversion graph, historical Item numbers and controlled renumbering.
-- `DEFECT_MODULE_CONTRACT.md` — Defect lifecycle/edit/delete/invalidation rules.
-
-The real operational runtime now carries Item and Defect flows. Earlier integrated preview files remain reference artifacts.
-
-### Sales Work Order
-
-- `SALES_WORK_ORDER_MODULE_CONTRACT.md` — field/pre-ERP Work Order, ERP fill/correction and fulfillment lifecycle.
-- `SALES_WORK_ORDER_UI_PREVIEW.md` — historical/reference workflow artifact.
-
-Lifecycle baseline:
-
-```text
-created
-  -> first ERP fill
-issued
-  -> waiting_stock (optional)
-  -> picked
-  -> shipped
-```
-
-Direct `issued -> picked`, controlled `shipped -> picked`, ERP-reference correction, post-ERP voiding and pre-ERP-only hard delete follow confirmed Business Decisions.
-
-### Contractor / BOM / Outsourcing
-
-- `CONTRACTOR_OUTSOURCING_MODULE_CONTRACT.md` — Contractor, current Contractor Price, multi-BOM, Outsourcing, movement ledger, receiving, pricing/payment and reversal rules.
-- `OUTSOURCING_FULL_WORKSPACE_PREVIEW.md` — historical/reference integrated preview.
-
-Critical stock timing rule:
-
-```text
-pending_outbound = plan only, no actual stock movement
-confirmed outbound = create contractor stock movements
-```
-
-Confirmed physical facts are corrected with reversal/replacement movements rather than destructive balance rewriting. Multiple BOM variants may exist for one finished Item; receiving requires explicit BOM selection when more than one active variant applies.
-
-### WorkLog
-
-- `WORK_LOG_MODULE_CONTRACT.md` — ownership, lifecycle, Work Days, configurable entries, review/cancel-review and statistics.
-- `WORK_LOG_FULL_WORKSPACE_PREVIEW.md` — historical/reference owner/reviewer/statistics preview.
-
-Public source contains only generic configurable WorkLog structure. Chihyuan production categories, platforms, scoring values and thresholds are deployment D1 data.
-
-Lifecycle:
-
-```text
-created -> pending_review -> reviewed
-pending_review -> created          owner withdrawal
-reviewed -> pending_review         authorized cancel review
-```
-
-Work Days is positive and independently entered; reviewer correction is supported. Reviewed scores are finalized/stored and are not recalculated merely because current scoring configuration changes.
-
-### Settings / Admin
-
-- `SETTINGS_ADMIN_MODULE_CONTRACT.md` — server-side authority boundary for structural lookups, App Tags/member assignments and WorkLog operational configuration.
-
-Authority baseline:
-
-- structural lookup/App Tag/member-tag mutation: `SUPER_ADMIN` only;
-- WorkLog operational configuration: `ADMIN` or `SUPER_ADMIN`;
-- regular `EMPLOYEE`: no configuration mutation authority.
-
-Protected Settings/Admin/Audit HTTP access still waits for Shared Identity browser-session wiring.
-
-### Backup / deployment / domain
-
-- `BACKUP_ARCHITECTURE.md` — tiered R2 + GCS backup topology and provider/service boundary.
-- `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public-source / production-infrastructure separation.
-- `../DOMAIN_STRATEGY.md` — confirmed `chihyuancm.com` parent-domain namespace.
-
-### Implementation handoffs
-
-- `../handoffs/CYWEB_MAIN_BASELINE_HANDOFF_2026-09-28.md` — **current continuation checkpoint after the 0.1.39 integration merge**.
-- `../handoffs/CYWEB_OPERATIONAL_RUNTIME_HANDOFF_2026-09-28.md` — pre-merge operational-runtime checkpoint retained as implementation-history evidence.
-- `../handoffs/CYWEB_IDENTITY_PROVIDER_REQUIREMENTS.md` — Shared Identity browser-session requirements for CY Web.
-- `../handoffs/CYACCOUNTINGWEB_TIERED_BACKUP_HANDOFF.md` — public-safe handoff only; this workstream does not modify CYAccountingWeb runtime/source.
-
-### Legacy evidence
-
-- `LEGACY_DATA_AUDIT.md`
-- `LEGACY_DESKTOP_WORKFLOW_AUDIT.md`
-- `LEGACY_REUSABLE_PATTERN_AUDIT.md`
-
-Legacy evidence explains business behavior and useful proven interaction patterns. It is not a production migration contract or a screen blueprint. GAS-specific loading/refresh workarounds and duplicated page/device implementations are not carried forward merely for familiarity.
+Archive、舊 preview、review backlog、readiness checkpoint、handoff 或舊 branch metadata 都不能覆蓋較新的 current contract／Business Decision／`main` source。
 
 ## Current architecture baseline
 
-- CY Web is one TypeScript + React + Vite + Cloudflare Worker application for Desktop / Tablet / Mobile using RWD + Adaptive UI.
-- The **same real React UI** is now used for operational browser testing; it is not a disposable mock.
-- Current browser-test persistence is localStorage; D1 remains the authoritative relational target.
-- D1 business search/list/detail is designed as bounded on-demand queries, not whole-module browser preload.
-- Shared Identity owns credentials, sessions and global `EMPLOYEE / ADMIN / SUPER_ADMIN`; CY Web adds app-local tags/module mapping and never duplicates credentials.
-- One shared Audit Core records meaningful business actions; ordinary edits generally keep latest modifier/time/revision only.
-- One shared AppShell and common interaction foundations are reused across modules.
-- Persisted quantities/prices/scores use exact fixed-point integers in the authoritative D1/Worker model.
-- Production custom-domain binding is a later controlled rollout; `chihyuancm.com` remains the shared parent domain.
+目前穩定的 architecture baseline：
 
-## Business-module implementation state
+- 單一 TypeScript + React + Vite Web application，Desktop／Tablet／Mobile 共用一套主要 codebase，以 RWD + Adaptive UI 呈現。
+- Cloudflare Workers 是 runtime/API target；D1 是正式 relational database target。
+- 現階段 integrated React operational runtime 使用 versioned browser `localStorage` 作暫時 persistence adapter；這不是第二套 domain model。
+- Forward schema source of truth 是 `migrations/`；正式 schema freeze 尚待 local/dev D1 + Worker acceptance。
+- Shared Identity 擁有 credential/session/shared-role authority；CY Web 只保存 app-local access projection 與 domain authorization。
+- API 使用 same-origin `/api/*`，server-side validation/authorization 才是權威。
+- 一個 shared Audit Core 記錄需要追溯的重要業務動作。
+- Production infrastructure metadata/credentials 不進 Public source；runtime/deployment 透過受控 binding/secret boundary 注入。
+- Backup target architecture 是 D1 live → R2 operational recovery tier → GCS cross-cloud DR tier；同一 logical backup 只 export D1 一次。
 
-```text
-Customer
-  service + persistence + related records + real operational React UI        active/staged
+最新 implementation status、尚未完成的 gate 與工作順序：讀根 `TODO.md`。
 
-Item + Defect
-  Item service/conversions/renumbering + Defect lifecycle + operational UI   active/staged
+## Architecture map
 
-Sales Work Order
-  pre-ERP + ERP handoff + fulfillment + reversal/void + operational flow     active/staged
+### Decisions
 
-Contractor + BOM + Outsourcing
-  current price + multi-BOM + stock ledger + receipt/pricing/payment
-  + reversals + operational flow                                              active/staged
+- `BUSINESS_DECISIONS.md` — 早期已整併的 confirmed Business Decisions。
+- `decisions/README.md` — current Business Decision index、supersession/refinement map。
+- `decisions/BD-019.md` onward — 後續逐項 Business Decisions。
 
-WorkLog
-  owner lifecycle + configurable content + review/cancel-review
-  + statistics + operational flow                                             active/staged
+### Data / API / runtime
 
-Settings / Admin / Audit
-  server authority foundation + local operational Settings/Audit surfaces     active/staged
+- `CANONICAL_DATA_MODEL.md` — current logical data model。
+- `FINAL_DATA_DICTIONARY.md` — current relational/physical dictionary baseline。
+- `D1_SCHEMA_REVIEW.md` — D1 schema validation/freeze gate。
+- `API_CONTRACT.md` — Worker API envelope、errors、validation、concurrency。
+- `REQUEST_FOUNDATION.md` — shared browser request/client boundary。
+- `IDENTITY_ADAPTER.md` — Shared Identity / CY Web authorization split and provider acceptance contract。
+- `AUDIT_CORE.md` — Audit service/query boundary。
+- `OPERATIONAL_LOCAL_RUNTIME.md` — localStorage operational runtime adapter/cutover contract。
 
-Protected Worker HTTP routes
-  blocked on Shared Identity browser session + local/dev D1 runtime gate       pending
+### Shared Web UI foundations
 
-D1-backed multi-user runtime
-  migrations/service contracts ready; local/dev acceptance + cutover pending  pending
-```
+- `UI_FOUNDATION.md`
+- `APP_SHELL_FOUNDATION.md`
+- `FORM_FOUNDATION.md`
+- `DATA_VIEW_FOUNDATION.md`
+- `ENTITY_PICKER_FOUNDATION.md`
+- `EDITABLE_LIST_FOUNDATION.md`
+- `OVERLAY_FEEDBACK_FOUNDATION.md`
+- `KEYBOARD_ENTRY_FOUNDATION.md`
 
-## Runtime acceptance
+這些文件描述 reusable foundation；module-specific business semantics 不應反向寫成 global UI 規則。
 
-The merged 0.1.39 main baseline has automated GitHub Actions coverage for:
+### Business modules
 
-- browser TypeScript;
-- Worker TypeScript;
-- Vite build;
-- core/module source contracts;
-- SQLite-backed schema/constraint semantics.
+- `CUSTOMER_MODULE_CONTRACT.md`
+- `CUSTOMER_SERVICE_FOUNDATION.md`
+- `CUSTOMER_RELATED_FOUNDATION.md`
+- `CUSTOMER_UI_COMPOSITION.md`
+- `CUSTOMER_EDIT_INTERACTION.md`
+- `CUSTOMER_RELATED_UI.md`
+- `ITEM_MODULE_CONTRACT.md`
+- `DEFECT_MODULE_CONTRACT.md`
+- `SALES_WORK_ORDER_MODULE_CONTRACT.md`
+- `CONTRACTOR_OUTSOURCING_MODULE_CONTRACT.md`
+- `WORK_LOG_MODULE_CONTRACT.md`
+- `SETTINGS_ADMIN_MODULE_CONTRACT.md`
 
-For integration PR `#42`, Governance Check `#98` and Runtime Check `#60` both passed. This supersedes older notes stating that npm/typecheck/build had not been run or that PR `#41` remained the active integration gate.
+Module contract 與適用的最新 Business Decisions 共同定義業務語意；不要從歷史 preview 反推 current business rule。
 
-Remaining runtime gate is specifically **Cloudflare local/dev D1 + Worker acceptance**, not general TypeScript/Vite compilation.
+### Infrastructure / deployment
 
-Current migration chain:
+- `BACKUP_ARCHITECTURE.md` — provider-neutral tiered backup/recovery architecture。
+- `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public source 與 production infrastructure boundary。
+- `../DOMAIN_STRATEGY.md` — Chihyuan parent-domain namespace、security boundary、rollout sequence。
+- `../development/LOCAL_DEVELOPMENT.md` — local development workflow。
 
-```text
-0001_initial.sql
-0002_defect_invalidation.sql
-```
+## Historical evidence / archive
 
-Do not declare the initial relational schema formally frozen until those migrations and critical transactional workflows pass against real local/dev D1.
+`archive/` 保存已被 current implementation/contracts 取代、但仍可能有追溯價值的：
 
-## Operational browser package
+- pre-consolidation architecture snapshots；
+- Legacy behavior/audit evidence；
+- standalone workspace previews；
+- completed readiness reviews；
+- historical UI review backlog；
+- superseded rollout notes。
 
-`.github/workflows/operational-live.yml` builds:
-
-```text
-npm run build:operational
-```
-
-and publishes the static browser-test output to branch:
-
-```text
-cyweb/operational-test-runtime
-```
-
-The package uses the same React operational application and localStorage adapter. It is not a production deployment. The 0.1.39 operational runtime has now been consolidated into `main`; future implementation work should branch from `main` while preserving this same application surface.
-
-## Backup baseline
-
-```text
-D1   live authoritative database after cutover
-R2   daily 03:30 Taiwan / 30-day operational retention
-GCS  Wed + Sun replication / 26-week cross-cloud DR retention
-```
-
-One logical backup is exported from D1 once. Provider copies use the same `backupId`, payload bytes and integrity metadata. Precise production resource identifiers and credentials remain deployment-private.
+這些檔案不是 current architecture source。需要追溯時才讀，日常實作不應把它們和 current contracts 並列載入。
 
 ## Current implementation chain
 
@@ -260,51 +115,25 @@ confirmed Business Decisions
         ↓
 Canonical Data Model / Final Data Dictionary / migrations
         ↓
-Worker/API/request/validation + Identity adapter + Audit Core
+Worker/API + Identity adapter + Audit Core
         ↓
 shared UI foundations
         ↓
-business services and workflow contracts
+module services/contracts
         ↓
-real integrated operational React runtime (merged into main)
-        ↓
-continuous functional/UI browser testing (current)
+real integrated React operational runtime
         ↓
 local/dev D1 + Worker acceptance
         ↓
-initial D1 schema freeze
+initial schema freeze
         ↓
-Shared Identity browser-session integration
+Shared Identity concrete browser-session integration
         ↓
-replace localStorage adapter with protected Worker API -> D1
+localStorage adapter → protected Worker API → D1
         ↓
 Desktop/Tablet/Mobile acceptance
         ↓
-production custom-domain/runtime rollout
-        ↓
-production acceptance
+controlled production rollout
 ```
 
-## Production safety
-
-The merged 0.1.39 main baseline does **not** modify:
-
-- production D1 data;
-- production CY Web Worker binding/deployment;
-- production DNS;
-- production R2/GCS backup resources;
-- SMART ERP;
-- CYAccountingWeb source/runtime.
-
-## Document precedence
-
-When architecture documents appear to disagree:
-
-1. current explicit user decision;
-2. latest applicable confirmed Business Decision;
-3. current specialized architecture/implementation contract;
-4. current Canonical Data Model / Data Dictionary as applicable;
-5. current workflow/audit summary;
-6. archived Legacy evidence.
-
-Do not re-open already confirmed business questions merely because an older draft contains an `OPEN` marker. Check `decisions/README.md` first.
+不要因 UI layout 調整而重開已定案的資料語意；也不要因 archive 中仍存在舊 `OPEN`／preview 設計就重新詢問已由 Business Decision 解決的問題。
