@@ -12,7 +12,8 @@ const REQUIRED = {
   CF_D1_DATABASE_NAME: "__CF_D1_DATABASE_NAME__",
   CF_D1_DATABASE_ID: "__CF_D1_DATABASE_ID__",
   CF_IDENTITY_SERVICE: "__CF_IDENTITY_SERVICE__",
-  CF_IDENTITY_LOGIN_APPLICATION: "__CF_IDENTITY_LOGIN_APPLICATION__",
+  CF_IDENTITY_APPLICATION_ID: "__CF_IDENTITY_APPLICATION_ID__",
+  CF_IDENTITY_WORKSPACE_ID: "__CF_IDENTITY_WORKSPACE_ID__",
 };
 
 function requireValue(env, name) {
@@ -35,8 +36,15 @@ function validateValues(values) {
   if (!workerLike.test(values.CF_IDENTITY_SERVICE)) {
     throw new Error("CF_IDENTITY_SERVICE has an invalid format.");
   }
-  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(values.CF_IDENTITY_LOGIN_APPLICATION)) {
-    throw new Error("CF_IDENTITY_LOGIN_APPLICATION has an invalid format.");
+  if (!/^[A-Z0-9][A-Z0-9_-]{1,63}$/.test(values.CF_IDENTITY_APPLICATION_ID)) {
+    throw new Error("CF_IDENTITY_APPLICATION_ID has an invalid format.");
+  }
+  if (
+    values.CF_IDENTITY_WORKSPACE_ID.length < 5
+    || values.CF_IDENTITY_WORKSPACE_ID.length > 80
+    || /[^A-Za-z0-9_-]/.test(values.CF_IDENTITY_WORKSPACE_ID)
+  ) {
+    throw new Error("CF_IDENTITY_WORKSPACE_ID has an invalid format.");
   }
 }
 
