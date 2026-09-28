@@ -55,6 +55,16 @@ export interface IdentityAdminSnapshot {
   groupAccess: IdentityGroupAccessRow[];
 }
 
+export interface HighestAuthorityView {
+  authority: {
+    workspaceId: string;
+    superAdminEmployeeId: string;
+    recoveryEmail: string | null;
+    recoveryEmailVerified: boolean;
+    workspaceRevision: number;
+  };
+}
+
 export interface SecurityPolicy {
   otpResendCooldownSeconds: number;
   otpMaxAttempts: number;
@@ -76,6 +86,31 @@ export interface OtpIssueView {
 
 export function loadIdentityAdminSnapshot(): Promise<IdentityAdminSnapshot> {
   return apiRequest<IdentityAdminSnapshot>("/api/identity/admin/snapshot", { method: "GET" });
+}
+
+export function loadHighestAuthority(): Promise<HighestAuthorityView> {
+  return apiRequest<HighestAuthorityView>("/api/identity/admin/authority", { method: "GET" });
+}
+
+export function startHighestAuthorityTransfer(targetEmployeeId: string, currentPassword: string): Promise<{ transfer: OtpIssueView & { targetEmployeeId: string } }> {
+  return apiRequest<{ transfer: OtpIssueView & { targetEmployeeId: string } }>("/api/identity/admin/authority-transfer/start", {
+    method: "POST",
+    json: { targetEmployeeId, currentPassword },
+  });
+}
+
+export function confirmHighestAuthorityTransfer(targetEmployeeId: string, challengeId: string, code: string) {
+  return apiRequest<{
+    transferred: boolean;
+    workspaceId: string;
+    previousEmployeeId: string;
+    superAdminEmployeeId: string;
+    recoveryEmail: string;
+    previousAuthoritySessionsRevoked: boolean;
+  }>("/api/identity/admin/authority-transfer/confirm", {
+    method: "POST",
+    json: { targetEmployeeId, challengeId, code },
+  });
 }
 
 export function createIdentityEmployee(input: { employeeNo: string; displayName: string; email: string }) {
