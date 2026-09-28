@@ -1,17 +1,19 @@
-export type SharedIdentityRole = "EMPLOYEE" | "ADMIN" | "SUPER_ADMIN";
-
 export interface IdentityPrincipal {
+  workspaceId: string;
   employeeId: string;
-  employeeNo: string | null;
+  employeeNo: string;
   displayName: string;
-  role: SharedIdentityRole;
-  workspaceId: string | null;
+  isWorkspaceSuperAdmin: boolean;
+  groupKeys: string[];
+  credentialVersion: number;
+  employeeRevision: number;
 }
 
 export type IdentityResolution =
   | {
       status: "authenticated";
       principal: IdentityPrincipal;
+      expiresAt: string;
     }
   | {
       status: "unauthenticated";
@@ -24,14 +26,10 @@ export type IdentityResolution =
 /**
  * Provider-neutral request identity boundary.
  *
- * A concrete provider adapter may use cookies, bearer tokens, service bindings or
- * another approved session mechanism, but those provider details must not leak
- * into CY Web business modules.
+ * CYCloud Identity owns credential and session authority. CY Web only transports
+ * the opaque provider session through an HttpOnly cookie and consumes the
+ * normalized principal returned by the provider.
  */
 export interface IdentityAdapter {
   resolve(request: Request): Promise<IdentityResolution>;
-}
-
-export function isSharedAdmin(role: SharedIdentityRole): boolean {
-  return role === "ADMIN" || role === "SUPER_ADMIN";
 }

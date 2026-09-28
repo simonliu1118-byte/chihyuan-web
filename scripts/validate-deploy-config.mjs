@@ -10,8 +10,9 @@ const env = {
   CF_WORKER_NAME: "cyweb-ci",
   CF_D1_DATABASE_NAME: "cyweb-ci-db",
   CF_D1_DATABASE_ID: "11111111-1111-4111-8111-111111111111",
-  CF_IDENTITY_SERVICE: "cyidentity-ci-placeholder",
-  CF_IDENTITY_LOGIN_APPLICATION: "CYAccountingWeb",
+  CF_IDENTITY_SERVICE: "cycloud-identity-ci-placeholder",
+  CF_IDENTITY_APPLICATION_ID: "CYWEB",
+  CF_IDENTITY_WORKSPACE_ID: "ws_11111111-1111-4111-8111-111111111111",
 };
 
 try {
@@ -28,14 +29,17 @@ try {
   if (config.services?.[0]?.service !== env.CF_IDENTITY_SERVICE) {
     throw new Error("IDENTITY service mismatch");
   }
-  if (config.vars?.IDENTITY_LOGIN_APPLICATION !== env.CF_IDENTITY_LOGIN_APPLICATION) {
+  if (config.vars?.IDENTITY_APPLICATION_ID !== env.CF_IDENTITY_APPLICATION_ID) {
     throw new Error("Identity application mismatch");
+  }
+  if (config.vars?.IDENTITY_WORKSPACE_ID !== env.CF_IDENTITY_WORKSPACE_ID) {
+    throw new Error("Identity Workspace mismatch");
   }
   if (/__CF_[A-Z0-9_]+__/.test(raw)) throw new Error("unresolved placeholder remains");
 
   let missingRejected = false;
   try {
-    renderDeployConfig({ env: { ...env, CF_IDENTITY_SERVICE: "" }, outputPath: output });
+    renderDeployConfig({ env: { ...env, CF_IDENTITY_WORKSPACE_ID: "" }, outputPath: output });
   } catch {
     missingRejected = true;
   }

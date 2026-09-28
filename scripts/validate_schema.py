@@ -55,7 +55,6 @@ EXPECTED_TABLES = {
     "regions",
     "sales_work_order_items",
     "sales_work_orders",
-    "web_sessions",
     "work_log_categories",
     "work_log_entries",
     "work_log_entry_categories",
@@ -281,45 +280,13 @@ def validate_defect_invalidation_shape(schema: str) -> None:
     conn.close()
 
 
-def validate_identity_session_shape(schema: str) -> None:
+def validate_no_local_identity_session(schema: str) -> None:
     conn = new_db(schema)
-    seed_member(conn)
-    conn.execute(
-        """
-        INSERT INTO web_sessions(
-            session_hash, identity_employee_id, employee_no, employee_name, role,
-            credential_version, employee_revision, created_at, expires_at
-        ) VALUES (?, 'emp-1', 'E001', '測試員工', 'ADMIN', 2, 3, ?, ?)
-        """,
-        (
-            "a" * 64,
-            "2026-09-28T00:00:00Z",
-            "2026-09-28T08:00:00Z",
-        ),
-    )
     row = conn.execute(
-        "SELECT identity_employee_id, role, credential_version, employee_revision FROM web_sessions"
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='web_sessions'"
     ).fetchone()
-    if row != ("emp-1", "ADMIN", 2, 3):
-        raise AssertionError("Identity session projection did not persist")
-    assert_integrity_error(
-        conn,
-        """
-        INSERT INTO web_sessions(
-            session_hash, identity_employee_id, employee_name, role, created_at, expires_at
-        ) VALUES (?, 'emp-1', '測試員工', 'OWNER', ?, ?)
-        """,
-        ("b" * 64, "2026-09-28T00:00:00Z", "2026-09-28T08:00:00Z"),
-    )
-    assert_integrity_error(
-        conn,
-        """
-        INSERT INTO web_sessions(
-            session_hash, identity_employee_id, employee_name, role, created_at, expires_at
-        ) VALUES (?, 'missing-employee', '測試員工', 'ADMIN', ?, ?)
-        """,
-        ("c" * 64, "2026-09-28T00:00:00Z", "2026-09-28T08:00:00Z"),
-    )
+    if row is not None:
+        raise AssertionError("retired local Identity session table still exists")
     conn.close()
 
 
@@ -333,7 +300,7 @@ def main() -> int:
         validate_worklog_cancel_review_shape,
         validate_audit_generic_entity_key,
         validate_defect_invalidation_shape,
-        validate_identity_session_shape,
+        validate_no_local_identity_session,
     ]
     for check in checks:
         check(schema)
