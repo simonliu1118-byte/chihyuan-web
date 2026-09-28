@@ -295,14 +295,17 @@ export function buildUpdateCustomerChildStatements(
   const addressIds = existingIds(input.addresses);
   const noteIds = existingIds(input.notes);
 
+  // Omission cleanup must run before inserts for rows without IDs. If cleanup
+  // runs after an INSERT, the just-created row is absent from the retained-ID
+  // list and would be deleted again in the same D1 batch.
   return [
-    ...input.phones.map((row) => updatePhone(db, customerId, expectedRevision, row, context)),
     deleteOmitted(db, "customer_phones", customerId, expectedRevision, phoneIds),
-    ...input.contacts.map((row) => updateContact(db, customerId, expectedRevision, row, context)),
+    ...input.phones.map((row) => updatePhone(db, customerId, expectedRevision, row, context)),
     ...retainReferencedAndDeleteOmittedContacts(db, customerId, expectedRevision, contactIds, context),
-    ...input.addresses.map((row) => updateAddress(db, customerId, expectedRevision, row, context)),
+    ...input.contacts.map((row) => updateContact(db, customerId, expectedRevision, row, context)),
     deleteOmitted(db, "customer_addresses", customerId, expectedRevision, addressIds),
-    ...input.notes.map((row) => updateNote(db, customerId, expectedRevision, row, context)),
+    ...input.addresses.map((row) => updateAddress(db, customerId, expectedRevision, row, context)),
     deleteOmitted(db, "customer_notes", customerId, expectedRevision, noteIds),
+    ...input.notes.map((row) => updateNote(db, customerId, expectedRevision, row, context)),
   ];
 }
