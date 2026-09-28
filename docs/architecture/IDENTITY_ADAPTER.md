@@ -84,9 +84,9 @@ Initial module-entry semantics:
 
 ## 6. Browser-session provider requirements
 
-A successful one-shot password check is not enough for CY Web. The shared provider must support a browser-safe session lifecycle so normal later requests can resolve identity without repeatedly handling credentials.
+A successful one-shot password check is not enough for the final Shared Identity architecture. The shared provider must support a browser-safe session lifecycle so normal later requests can resolve identity without repeatedly handling credentials.
 
-Required provider semantics:
+Required final provider semantics:
 
 - recognize CY Web as an application audience/scope;
 - authenticate eligible `EMPLOYEE`, `ADMIN` and `SUPER_ADMIN` identities according to shared authority;
@@ -99,9 +99,39 @@ Required provider semantics:
 
 The concrete transport may use HttpOnly cookies, signed short-lived tokens, service-to-service session lookup or another reviewed mechanism. CY Web depends on the semantics, not a provider-specific transport shape.
 
-## 7. Provider acceptance gate
+## 7. Temporary CYInvoice compatibility bridge
 
-The concrete provider adapter is accepted only when a non-production test environment can prove all of the following:
+Until Shared Identity is extracted, CY Web may temporarily use the same compatibility pattern already proven by CYAccountingWeb:
+
+```text
+CY Web
+  ↓ private `IDENTITY` Service Binding
+existing CYInvoice Cloud Web Auth login contract
+  ↓ normalized employee identity
+CY Web D1 short-lived `web_sessions`
+  ↓ HttpOnly / Secure / SameSite=Strict cookie
+normal CY Web requests
+```
+
+This bridge is intentionally narrower than final Shared Identity acceptance:
+
+- CYInvoice Cloud is not modified by this CY Web workstream;
+- CY Web never reads CYInvoice D1 directly;
+- credential verifiers, password hashing code, OTP/recovery secrets and provider internals are not copied into CY Web;
+- provider-specific code is isolated in `worker/identity/cyinvoice-web-auth-provider.ts`;
+- one-shot credential verification is exposed through the provider-neutral `IdentityLoginProvider` contract;
+- normal CY Web requests resolve the CY Web-owned short-lived session through `IdentityAdapter` rather than resending the password;
+- the deployment target for `IDENTITY` and the temporary provider application/audience value are injected outside Public source.
+
+The temporary session stores only the identity/session projection needed for CY Web request resolution. A cached shared role in that short-lived session is a provider-authenticated login snapshot, not a second role authority and is never written into `app_members` as local role state.
+
+Current provider policy may restrict which shared roles can use the temporary audience. CY Web must not bypass that restriction by impersonating another account source, reading provider tables, or duplicating credential verification logic. Full `EMPLOYEE / ADMIN / SUPER_ADMIN` acceptance remains a later Shared Identity gate.
+
+Deployment details are documented in `docs/development/IDENTITY_BRIDGE_DEPLOYMENT.md`.
+
+## 8. Provider acceptance gate
+
+The final concrete provider adapter is accepted only when a non-production test environment can prove all of the following:
 
 1. CY Web application audience/scope is recognized.
 2. `EMPLOYEE`, `ADMIN` and `SUPER_ADMIN` identities can authenticate according to shared authority.
@@ -111,9 +141,9 @@ The concrete provider adapter is accepted only when a non-production test enviro
 6. Logout/revocation is testable.
 7. Provider-unavailable and access-denied outcomes can be normalized without leaking provider-specific internal messages.
 
-Only after this gate may protected multi-user business API wiring be treated as accepted.
+The temporary CYInvoice bridge may be used for development and staged integration before this full gate is satisfied, but it must not be represented as final Shared Identity acceptance.
 
-## 8. Error normalization
+## 9. Error normalization
 
 | CY Web condition | HTTP | Stable error code |
 | --- | ---: | --- |
@@ -125,15 +155,15 @@ Only after this gate may protected multi-user business API wiring be treated as 
 
 Provider-specific internal messages are not forwarded directly to the browser.
 
-## 9. Cross-project ownership boundary
+## 10. Cross-project ownership boundary
 
 CY Web may reuse shared authority exposed today or later by CYInvoice/CYCloud Identity infrastructure, but it must not copy CYInvoice credential/session internals into this repository.
 
 CYAccountingWeb is a separate application workstream and may have different application-access policy. CY Web requirements must not be inferred by copying CYAccountingWeb role restrictions or endpoint behavior.
 
-Provider-side changes belong to the shared Identity/CYInvoice workstream; CY Web owns only its adapter, app-local authorization and protected business routes.
+Provider-side changes belong to the shared Identity/CYInvoice workstream; CY Web owns only its adapter, app-local authorization and protected business routes. The temporary bridge described above does not authorize CY Web to modify CYInvoice Cloud merely to satisfy CY Web login requirements.
 
-## 10. Public repository boundary
+## 11. Public repository boundary
 
 Public source may contain generic contracts, binding names and placeholders only. Do not commit:
 
@@ -146,7 +176,7 @@ Public source may contain generic contracts, binding names and placeholders only
 
 Production resolution is injected through the approved runtime/deployment boundary.
 
-## 11. Non-goals
+## 12. Non-goals
 
 - No CY Web password table.
 - No duplicate shared role lifecycle.
@@ -154,3 +184,4 @@ Production resolution is injected through the approved runtime/deployment bounda
 - No CY Web app tags in Shared Identity.
 - No credential material in CY Web D1.
 - No CYAccountingWeb runtime/source change from this application workstream.
+- No CYInvoice Cloud source/runtime change merely to make the temporary bridge work.
