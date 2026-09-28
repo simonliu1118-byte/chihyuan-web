@@ -5,19 +5,21 @@ This file records the current implementation sequence. It is not a permanent rul
 ## Current checkpoint — 2026-09-28
 
 - Active repository: `simonliu1118-byte/chihyuan-web`
-- Active implementation branch: `cyweb/operational-local-runtime`
-- Active PR: `#41` — Open / Draft / do not merge without explicit user authorization.
+- Canonical implementation baseline: `main`.
+- Integration PR: `#42` — merged on 2026-09-28.
+- Main integration commit: `bea60a5b1fed5ed9283bb00c1ced4ca27c0ae9f0`.
 - Current version: `0.1.39`.
 - Forward UI: the **real integrated React operational application**, not standalone preview pages.
 - Current persistence adapter: versioned browser `localStorage`.
-- Latest accepted runtime checkpoint: browser TypeScript, Worker TypeScript, Vite build and source/schema validators are green.
+- Latest accepted integration gates: Governance Check #98 and Runtime Check #60 are green; browser TypeScript, Worker TypeScript, Vite build and source/schema validators passed.
 - Current migration chain: `0001_initial.sql` + `0002_defect_invalidation.sql`.
-- Production D1/Worker/DNS/R2/GCS/SMART ERP are untouched by the operational branch.
+- Production D1/Worker/DNS/R2/GCS/SMART ERP were untouched by the 0.1.39 integration merge.
 - CYAccountingWeb remains a separate workstream and must not be modified here.
+- Pre-merge PR `#41` / `cyweb/operational-local-runtime` references in older checkpoint documents are historical after the integration merge.
 
 Canonical continuation document:
 
-`docs/handoffs/CYWEB_OPERATIONAL_RUNTIME_HANDOFF_2026-09-28.md`
+`docs/handoffs/CYWEB_MAIN_BASELINE_HANDOFF_2026-09-28.md`
 
 ## Immediate sequence
 
@@ -35,14 +37,15 @@ Canonical continuation document:
 12. [x] Add local JSON export/import/reset and local Audit projection.
 13. [x] Add automated TypeScript/Vite/source-contract runtime checks; latest checkpoint is green.
 14. [x] Add browser-test packaging for the same operational React runtime.
-15. [ ] Continue real-user functional/UI testing directly against the operational React app; make fixes in the same UI rather than returning to standalone previews.
-16. [ ] Apply migrations to **local/dev Cloudflare D1** and run D1-specific smoke/transaction acceptance.
-17. [ ] Freeze the initial D1 relational schema after real D1 acceptance.
-18. [ ] Complete Shared Identity browser-session provider wiring for CY Web.
-19. [ ] Add protected Worker business HTTP routes with server-side role/module authorization.
-20. [ ] Replace the temporary localStorage persistence adapter with Worker API -> D1 while preserving the same React UI/workflow.
-21. [ ] Perform Desktop/Tablet/Mobile real-browser/device acceptance.
-22. [ ] Bind/deploy production Worker/D1/custom domain only after explicit production acceptance.
+15. [x] Consolidate the operational runtime stack into `main` as the 0.1.39 baseline through PR #42.
+16. [ ] Continue real-user functional/UI testing directly against the operational React app; make fixes in the same UI rather than returning to standalone previews.
+17. [ ] Apply migrations to **local/dev Cloudflare D1** and run D1-specific smoke/transaction acceptance.
+18. [ ] Freeze the initial D1 relational schema after real D1 acceptance.
+19. [ ] Complete Shared Identity browser-session provider wiring for CY Web.
+20. [ ] Add protected Worker business HTTP routes with server-side role/module authorization.
+21. [ ] Replace the temporary localStorage persistence adapter with Worker API -> D1 while preserving the same React UI/workflow.
+22. [ ] Perform Desktop/Tablet/Mobile real-browser/device acceptance.
+23. [ ] Bind/deploy production Worker/D1/custom domain only after explicit production acceptance.
 
 UI polish is continuous and is **not** a prerequisite for beginning D1 integration.
 
@@ -268,10 +271,12 @@ Actual custom-domain binding remains a controlled production rollout step.
 
 A new CY Web conversation should first read:
 
-1. `docs/handoffs/CYWEB_OPERATIONAL_RUNTIME_HANDOFF_2026-09-28.md`
+1. `docs/handoffs/CYWEB_MAIN_BASELINE_HANDOFF_2026-09-28.md`
 2. `docs/architecture/README.md`
 3. this `TODO.md`
 4. `docs/architecture/OPERATIONAL_LOCAL_RUNTIME.md`
 5. `docs/architecture/decisions/README.md` plus relevant module Business Decisions.
+
+The earlier `CYWEB_OPERATIONAL_RUNTIME_HANDOFF_2026-09-28.md` remains useful pre-merge implementation-history evidence, but its active PR/branch metadata is superseded by the main baseline handoff above.
 
 Do not re-open settled Business Decisions unless the user explicitly changes them.

@@ -12,22 +12,24 @@ For product/architecture semantics, current explicit user decisions and later co
 
 ## Current implementation checkpoint
 
-As of 2026-09-28, CY Web has moved from isolated static previews to the **real integrated React operational runtime**.
+As of 2026-09-28, CY Web has moved from isolated static previews to the **real integrated React operational runtime**, and the completed 0.1.39 stack has been consolidated into `main`.
 
 Current working baseline:
 
-- active branch: `cyweb/operational-local-runtime`;
-- active PR: `#41` (Open, Draft; do not merge without explicit user authorization);
+- canonical implementation baseline: `main`;
+- integration PR: `#42` — merged on 2026-09-28;
+- main integration commit: `bea60a5b1fed5ed9283bb00c1ced4ca27c0ae9f0`;
+- pre-merge PR `#41` / branch `cyweb/operational-local-runtime`: historical implementation checkpoint after the integration merge;
 - application version: `0.1.39`;
 - current persistence adapter: versioned browser `localStorage`;
 - forward UI: the actual React AppShell and operational module pages;
 - standalone `preview/*`: reference/history only;
-- latest Runtime Check at the handoff checkpoint: fully green for browser TypeScript, Worker TypeScript, Vite build and source/schema contract validation;
+- latest accepted integration gates: Governance Check `#98` and Runtime Check `#60` passed, including browser TypeScript, Worker TypeScript, Vite build and source/schema contract validation;
 - D1 cutover: not yet active in the operational browser test runtime;
 - formal schema freeze: still waits for local/dev D1 migration + Worker/D1 smoke acceptance;
 - Shared Identity browser-session provider: still pending before protected multi-user D1 operation.
 
-Detailed continuation state: `../handoffs/CYWEB_OPERATIONAL_RUNTIME_HANDOFF_2026-09-28.md`.
+Detailed continuation state: `../handoffs/CYWEB_MAIN_BASELINE_HANDOFF_2026-09-28.md`.
 
 ## Current document map
 
@@ -147,7 +149,8 @@ Protected Settings/Admin/Audit HTTP access still waits for Shared Identity brows
 
 ### Implementation handoffs
 
-- `../handoffs/CYWEB_OPERATIONAL_RUNTIME_HANDOFF_2026-09-28.md` — **current continuation checkpoint**.
+- `../handoffs/CYWEB_MAIN_BASELINE_HANDOFF_2026-09-28.md` — **current continuation checkpoint after the 0.1.39 integration merge**.
+- `../handoffs/CYWEB_OPERATIONAL_RUNTIME_HANDOFF_2026-09-28.md` — pre-merge operational-runtime checkpoint retained as implementation-history evidence.
 - `../handoffs/CYWEB_IDENTITY_PROVIDER_REQUIREMENTS.md` — Shared Identity browser-session requirements for CY Web.
 - `../handoffs/CYACCOUNTINGWEB_TIERED_BACKUP_HANDOFF.md` — public-safe handoff only; this workstream does not modify CYAccountingWeb runtime/source.
 
@@ -203,7 +206,7 @@ D1-backed multi-user runtime
 
 ## Runtime acceptance
 
-The active operational branch now has automated GitHub Actions coverage for:
+The merged 0.1.39 main baseline has automated GitHub Actions coverage for:
 
 - browser TypeScript;
 - Worker TypeScript;
@@ -211,7 +214,7 @@ The active operational branch now has automated GitHub Actions coverage for:
 - core/module source contracts;
 - SQLite-backed schema/constraint semantics.
 
-At the current handoff checkpoint those checks are green. This supersedes older notes stating that npm/typecheck/build had not been run.
+For integration PR `#42`, Governance Check `#98` and Runtime Check `#60` both passed. This supersedes older notes stating that npm/typecheck/build had not been run or that PR `#41` remained the active integration gate.
 
 Remaining runtime gate is specifically **Cloudflare local/dev D1 + Worker acceptance**, not general TypeScript/Vite compilation.
 
@@ -238,7 +241,7 @@ and publishes the static browser-test output to branch:
 cyweb/operational-test-runtime
 ```
 
-The package uses the same React operational application and localStorage adapter. It is not a production deployment.
+The package uses the same React operational application and localStorage adapter. It is not a production deployment. The 0.1.39 operational runtime has now been consolidated into `main`; future implementation work should branch from `main` while preserving this same application surface.
 
 ## Backup baseline
 
@@ -263,7 +266,7 @@ shared UI foundations
         ↓
 business services and workflow contracts
         ↓
-real integrated operational React runtime (current)
+real integrated operational React runtime (merged into main)
         ↓
 continuous functional/UI browser testing (current)
         ↓
@@ -284,7 +287,7 @@ production acceptance
 
 ## Production safety
 
-The current operational branch does **not** modify:
+The merged 0.1.39 main baseline does **not** modify:
 
 - production D1 data;
 - production CY Web Worker binding/deployment;
