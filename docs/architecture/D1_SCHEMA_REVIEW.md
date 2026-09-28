@@ -1,6 +1,6 @@
 # CY Web D1 Schema Review
 
-> Status: initial relational schema is source-validated and has passed the first Wrangler local D1 + Worker runtime acceptance gate. It is **not yet frozen** and has not been applied to production D1.
+> Status: **initial relational schema frozen** after source validation plus Wrangler local D1 + Worker runtime acceptance through the `0.1.41` domain gate. The frozen schema has not been applied to production D1, and no remote production/development D1 identifier is committed to this Public repository.
 
 ## Current authoritative artifacts
 
@@ -10,11 +10,11 @@
 - `scripts/validate_schema.py` — zero-dependency SQLite/source shape validator.
 - `scripts/validate_d1_local.py` — repeatable Wrangler local D1 runtime acceptance driver.
 
-The forward migration source of truth is `migrations/`; schema changes must continue through forward migrations rather than manual Dashboard drift.
+The forward migration source of truth is `migrations/`. The accepted `0001 + 0002` chain is now the frozen initial relational baseline; later data-model changes require an explicit new forward migration rather than editing the accepted baseline or making manual Dashboard drift.
 
 ## Source/schema validation
 
-The current chain creates the expected 46-table application schema and validates key structural/business constraints, including:
+The frozen chain creates the expected 46-table application schema and validates key structural/business constraints, including:
 
 - nullable pre-ERP Customer numbers with uniqueness for non-null Customer numbers;
 - Visit → Customer and referenced Contact retention behavior;
@@ -25,14 +25,18 @@ The current chain creates the expected 46-table application schema and validates
 
 ## Wrangler local D1 runtime acceptance
 
-The `0.1.40` work item added a real Worker + Wrangler local D1 acceptance path using fresh temporary state. The accepted migration chain is:
+The accepted migration chain is:
 
 ```text
 0001_initial.sql
 0002_defect_invalidation.sql
 ```
 
-The current core runtime gate has passed all of the following against Wrangler local D1:
+The repeatable local gate creates fresh temporary Wrangler D1 state, applies the migrations, starts the acceptance-only Worker against that same persisted state, exercises the current services/persistence, and deletes the temporary state after the run.
+
+### Core D1 gate
+
+The `0.1.40` work item proved:
 
 - migrations apply successfully and are recorded by D1;
 - reapplying the migration command is a safe no-op/success path;
@@ -45,24 +49,53 @@ The current core runtime gate has passed all of the following against Wrangler l
 - foreign-key enforcement rejects an invalid Customer Visit relation;
 - `0002_defect_invalidation.sql` produces `invalidated_at` and `invalidated_by` on `defect_reports`.
 
-This acceptance exposed a real Customer child-persistence ordering defect: newly inserted child rows were followed by omission cleanup and could be deleted again in the same batch. The persistence order was corrected so omission cleanup runs before new child inserts.
+This gate exposed a real Customer child-persistence ordering defect: newly inserted child rows were followed by omission cleanup and could be deleted again in the same batch. The persistence order was corrected so omission cleanup runs before new child inserts.
 
-## What this acceptance does not prove
+### Domain-specific freeze gate
 
-The first local D1 gate is intentionally a core runtime gate. It does not yet complete every domain-specific schema-freeze scenario.
+The `0.1.41` work item then exercised the remaining schema-freeze scenarios through the current domain services on Wrangler local D1:
 
-Still required before the initial schema is marked frozen:
+#### Item
 
-1. exercise Item conversion/fixed-point domain behavior beyond raw integer round-trip;
-2. exercise Outsourcing confirmed movement, reversal/replacement and derived-stock behavior against D1;
-3. exercise WorkLog submit/review/cancel-review transitions and finalized result persistence against D1;
-4. confirm any remaining domain-specific transactional/Audit invariants that depend on D1 statement ordering;
-5. keep source validators and Worker/browser typechecks green after those acceptance cases.
+- ItemService persists a chained conversion graph (`CASE -> BOX -> EA`);
+- scaled4 conversion factors round-trip from D1 exactly;
+- chained quantity conversion is exact at scaled4 precision;
+- scaled4 quantity × scaled4 unit price produces exact money2 when representable, with no hidden floating-point authority.
 
-A separate remote non-production D1 deployment may be added later when its runtime/config boundary is deliberately provisioned. No production or remote D1 identifier is committed to this Public repository, and remote provisioning is not required to claim the current **Wrangler local D1** acceptance result.
+#### Contractor / Outsourcing
 
-## Schema-freeze rule
+- `pending_outbound` remains plan-only and does not change contractor stock;
+- confirmed outbound creates base-unit `outbound_supply` movements;
+- correction preserves the old movement, writes a linked reversal, replaces the current part snapshot and writes replacement outbound movement(s);
+- derived contractor stock equals the replacement physical fact after correction;
+- cancel outbound writes a linked reversal for the active replacement movement, moves the order to `voided`, and reconciles derived stock to zero.
 
-UI layout changes do not justify redesigning the relational schema. Once the remaining domain-specific D1 acceptance cases pass, freeze the initial relational schema and require later data-model changes to use explicit forward migrations with the applicable Business Decision/data-contract review.
+#### WorkLog
 
-Until then, `TODO.md` is the current progress tracker; this document records the D1/schema acceptance boundary rather than PR/branch checkpoint metadata.
+- owner create and `created -> pending_review` submit work against D1;
+- authorized review persists reviewer-corrected Work Days, per-entry review values, finalized total score and deterministic average-daily score;
+- statistics read the stored finalized reviewed result rather than recalculating from configuration;
+- `reviewed -> pending_review` cancel-review clears the current finalized review projection and per-entry review values;
+- submit/review/cancel-review Audit events are retained.
+
+Runtime Check `#66` passed the complete acceptance set together with source contracts, browser TypeScript, Worker TypeScript and Vite build.
+
+## Freeze decision
+
+The initial relational schema is frozen because all schema gates previously listed in this review have passed against the current service/persistence implementation and the actual Wrangler local D1 runtime.
+
+From this point forward:
+
+1. do not redesign the relational schema for ordinary UI/layout changes;
+2. do not rewrite accepted migration semantics in place merely for implementation convenience;
+3. a real data-model requirement must be reviewed against the applicable Business Decision / Final Data Dictionary;
+4. implement approved schema evolution through a new numbered forward migration;
+5. keep the local D1 acceptance harness green and extend it when a new migration introduces new critical semantics.
+
+A separate remote non-production D1 deployment may still be added later as a deployment/integration acceptance step. That does not reopen the frozen initial relational model by itself.
+
+## Production boundary
+
+Schema freeze is **not** production acceptance. Protected multi-user operation still requires Shared Identity/session wiring, protected Worker HTTP routes, API-backed React persistence, browser/device acceptance, backup/restore acceptance, and explicit production rollout approval.
+
+No production D1 data, Worker deployment, DNS, R2/GCS resource or SMART ERP data was modified by this schema-freeze acceptance work.
