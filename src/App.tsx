@@ -73,11 +73,7 @@ function OperationalApp({
   else if (route === "defects") content = <DefectOperationalPage />;
   else content = <OperationalWorkspace route={route as OperationalRoute} />;
 
-  const roleLabel = session.user.role === "SUPER_ADMIN"
-    ? "Super Admin"
-    : session.user.role === "ADMIN"
-      ? "Admin"
-      : "Employee";
+  const authorityLabel = session.user.isWorkspaceSuperAdmin ? "最高權限" : "一般帳號";
 
   return (
     <AppShell
@@ -90,7 +86,7 @@ function OperationalApp({
           <div className="cy-op-runtime-banner">業務資料暫存模式 · localStorage</div>
           <div className="cy-auth-user">
             <strong>{session.user.displayName}</strong>
-            <span>{session.user.employeeNo ?? "—"} · {roleLabel}</span>
+            <span>{session.user.employeeNo} · {authorityLabel}</span>
           </div>
           <button
             className="cy-auth-logout-button"
@@ -102,7 +98,7 @@ function OperationalApp({
           </button>
         </>
       }
-      footer={<span className="cy-shell-foundation-note">Development Identity Bridge · 業務資料尚未切換 D1</span>}
+      footer={<span className="cy-shell-foundation-note">Development · CYCloud Identity · 業務資料尚未切換 D1</span>}
     >
       {content}
     </AppShell>
