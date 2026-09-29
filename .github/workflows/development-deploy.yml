@@ -127,12 +127,64 @@ jobs:
         run: npx vite build
 
       - name: Deploy development Worker
+        id: deploy
         shell: bash
         run: |
           set -euo pipefail
           OUTPUT_CONFIG="$(find dist -type f -name wrangler.json | head -n 1)"
           test -n "$OUTPUT_CONFIG"
-          npx wrangler deploy --config "$OUTPUT_CONFIG"
+          DEPLOY_OUTPUT="$(npx wrangler deploy --config "$OUTPUT_CONFIG")"
+          printf '%s\n' "$DEPLOY_OUTPUT"
+          WORKER_URL="$(printf '%s\n' "$DEPLOY_OUTPUT" | grep -Eo 'https://[^[:space:]]+\.workers\.dev' | tail -n 1)"
+          if [ -z "$WORKER_URL" ]; then
+            echo "Unable to resolve deployed Worker URL from Wrangler output." >&2
+            exit 1
+          fi
+          echo "worker_url=$WORKER_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Accept invalid provider session through CY Web
+        shell: bash
+        env:
+          CYWEB_WORKER_URL: ${{ steps.deploy.outputs.worker_url }}
+        run: |
+          set -euo pipefail
+          HEADERS_FILE="$(mktemp)"
+          BODY_FILE="$(mktemp)"
+          trap 'rm -f "$HEADERS_FILE" "$BODY_FILE"' EXIT
+
+          STATUS="$(curl \
+            --silent \
+            --show-error \
+            --output "$BODY_FILE" \
+            --dump-header "$HEADERS_FILE" \
+            --write-out '%{http_code}' \
+            --cookie 'cyweb_identity_session=cyweb-development-invalid-session-acceptance' \
+            "$CYWEB_WORKER_URL/api/auth/me")"
+
+          if [ "$STATUS" != "401" ]; then
+            echo "Expected HTTP 401 for invalid provider session, received $STATUS." >&2
+            cat "$BODY_FILE" >&2
+            exit 1
+          fi
+
+          node --input-type=module - "$BODY_FILE" <<'NODE'
+          import fs from 'node:fs';
+
+          const bodyPath = process.argv[2];
+          const payload = JSON.parse(fs.readFileSync(bodyPath, 'utf8'));
+          if (payload?.error?.code !== 'AUTH_INVALID') {
+            console.error('Expected error.code AUTH_INVALID.', payload);
+            process.exit(1);
+          }
+          NODE
+
+          if ! grep -Eqi '^set-cookie:[[:space:]]*cyweb_identity_session=.*Max-Age=0' "$HEADERS_FILE"; then
+            echo "Expected CY Web to clear cyweb_identity_session after provider rejection." >&2
+            cat "$HEADERS_FILE" >&2
+            exit 1
+          fi
+
+          echo "CY Web invalid provider-session acceptance passed."
 
       - name: Remove generated deployment config
         if: always()
