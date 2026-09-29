@@ -107,7 +107,7 @@ jobs:
           done
           echo "Common rules match AITeam main."
 
-          bash scripts/validate-cyid-consumer-version.sh
+          bash scripts/validate-cyid-consumer-sync.sh
 
           if [ "$EVENT_NAME" = "pull_request" ]; then
             git fetch --no-tags origin "main:refs/remotes/origin/main"
@@ -131,7 +131,7 @@ jobs:
               [ "$path" = "COMMON_RULES_CHANGELOG.md" ] && common_changelog_changed=1
 
               case "$path" in
-                REPO_POLICY.md|PROJECT_RULES.md|RULES_INDEX.md|GOVERNANCE_VERSION|GOVERNANCE_CHANGELOG.md|AGENTS.md|.github/workflows/governance-check.yml|.github/workflows/sync-common-rules.yml|scripts/validate-cyid-consumer-version.sh|CYID_CONSUMER_VERSION)
+                REPO_POLICY.md|PROJECT_RULES.md|RULES_INDEX.md|GOVERNANCE_VERSION|GOVERNANCE_CHANGELOG.md|AGENTS.md|.github/workflows/governance-check.yml|.github/workflows/sync-common-rules.yml|scripts/validate-cyid-consumer-version.sh|scripts/validate-cyid-consumer-sync.sh|scripts/sync-cyid-consumer-contract.sh|CYID_CONSUMER_VERSION|docs/contracts/cyid/*)
                   repo_gov_changed=1 ;;
               esac
               [ "$path" = "GOVERNANCE_VERSION" ] && gov_version_changed=1

@@ -4,10 +4,10 @@
 
 ## Current checkpoint — 2026-09-30
 
-- Current formal source baseline is **CY Web 0.4.0 Build 0**，development runtime 也已部署 **0.4.0 Build 0**。
-- CYCloud Identity formal source baseline is **0.3.2 Build 0**；development runtime remains **0.3.0 Build 0**。Shared Consumer Contract = **1.0.0**，Minimum Compatible = **1.0.0**。
+- Current formal source baseline is **CY Web 0.5.2 Build 0**；本 patch 完成 CYID cross-repository contract mirror governance，development runtime remains **0.5.0 Build 0**。
+- CYCloud Identity formal source baseline is **0.3.3 Build 0**；development runtime remains **0.3.0 Build 0**。Shared Consumer Contract = **1.0.1**，Minimum Compatible = **1.0.0**。
 - `https://admin.chihyuancm.com` 仍是固定 CY Web canonical user-facing URL；0.3 development deploy 已重新驗證 Custom Domain 與 invalid-provider-session fallback。
-- CY Web 根 `CYID_CONSUMER_VERSION=1.0.0` 宣告所採用的 shared Identity contract；Governance Check 與 development deploy 都會對照 CYID `main` 的 supported consumer window，落後最低相容版時直接阻止後續部署。
+- CY Web 根 `CYID_CONSUMER_VERSION=1.0.1` 宣告所採用的 shared Identity contract；`docs/contracts/cyid/` mirror 依 CYID `CONSUMER_SYNC_MANIFEST.json` 保存 7 個 canonical artifacts + manifest snapshot。Governance Check 與 development deploy 同時驗證 supported version window 與逐檔 byte-level sync；任一漂移都阻止後續部署。
 - CY Web 登入頁現在只有**單一一般登入入口**。舊「啟用帳號」按鈕、`?activate=1` deep-link UI 與 CY Web public activation start/confirm proxy 已移除。
 - 一般登入會由 CYID 判斷是正式密碼還是一次性首次登入密碼：
   - 正式密碼成功 -> 建立一般 CYID Session，CY Web 只保存 provider opaque token 的 HttpOnly cookie；
@@ -18,14 +18,15 @@
 - 首次登入密碼／ticket 逾期時，UI 統一引導聯絡有權限管理員 **重寄驗證 Email**。
 - 帳號管理頁的新 Employee 狀態/操作已改用 `Email 未驗證`、`重寄驗證 Email` 等 terminology；不再以「啟用帳號」作新使用者流程名稱。
 - 忘記密碼仍維持獨立 Email OTP recovery flow；activated-account Email re-verification 也維持既有 OTP flow。
-- CY Web 0.4 CI 已通過 browser/worker TypeScript、source contracts、direct Module Access validator、Local D1 runtime acceptance、Vite build、deployment dry-run；development deploy 已成功完成 migration 0005、D1、Worker/assets、canonical domain 與 invalid-session smoke。
+- CY Web 0.5 CI 已通過 browser/worker TypeScript、source contracts、Module Access validator、protected business HTTP API validator、Local D1 runtime acceptance、Vite build、deployment dry-run；development deploy 已成功完成 Customer／Item／Defect protected Worker API Phase 1、D1/Worker/assets、canonical domain 與 invalid-session smoke。
 - CY Web Module Access 已切到 direct `Employee × Module` 本地 authority：`CUSTOMERS / ITEMS / DEFECTS / ORDERS / OUTSOURCING / WORKLOGS`。Identity Admin／Super Admin 可管理 eligible Employee；Identity Admin 不可改自己的 Module Access；Super Admin 固定全模組。舊 App tag 關聯只保留 metadata/history，不再作 runtime authorization。
 - Production D1/Worker cutover、backup rollout與 SMART ERP remain untouched。
 
 ## Documentation consolidation
 
 - `PROJECT_RULES.md` contains permanent CY Web product rules.
-- `docs/architecture/IDENTITY_ADAPTER.md` is the single current CY Web <-> CYID contract.
+- `docs/contracts/cyid/` is the synchronized read-only mirror of the shared CYID consumer package.
+- `docs/architecture/IDENTITY_ADAPTER.md` is the CY Web-specific adapter/module contract only.
 - Root `TODO.md` is the only current status / next-work tracker.
 - Dated Identity handoff is not part of active docs; historical checkpoints remain in Git history.
 
@@ -53,13 +54,14 @@ CY Web should use optimistic UI where appropriate, but destructive/irreversible 
 16. [ ] Accept activated-account forced Email recovery / `啟用 · Email 待驗證` re-verification.
 17. [ ] Accept role/App Access session invalidation and literal expired normal Session behavior.
 18. [ ] Accept forgot-password, own Email change and controlled Super Admin transfer.
-19. [ ] Add protected Worker business HTTP routes with server-side module authorization.
-20. [ ] Replace temporary business-data `localStorage` persistence with Worker API -> D1 while preserving the React workflow.
-21. [ ] Perform dedicated UI/UX refinement and Desktop/Tablet/Mobile real-browser acceptance.
-22. [ ] Implement/accept backup+restore before production rollout.
-23. [x] Publish governed CYID shared Consumer Integration Standard + version window；CY Web adopts `CYID_CONSUMER_VERSION=1.0.0` and deployment compatibility gate。CYACC handoff remains app-specific at `CYapps/apps/CYCloudIdentity/docs/consumers/CYACC_INTEGRATION_HANDOFF.md`。
-24. [ ] 在 CYInvoice 工作線的適合接入點產出其 consumer-specific CYID handoff；Device/local/offline 邊界保持 CYInvoice-owned。
-25. [ ] Prepare production Worker/D1 cutover only after explicit user approval.
+19. [x] Add/deploy protected Customer／Item／Defect Worker HTTP routes with server-side Module Access before domain-service access.
+20. [ ] Extend the same protected Worker HTTP boundary to Order／Outsourcing（including contractor/BOM/stock）／WorkLog.
+21. [ ] Replace temporary business-data `localStorage` persistence with Worker API -> D1 while preserving the React workflow.
+22. [ ] Perform dedicated UI/UX refinement and Desktop/Tablet/Mobile real-browser acceptance.
+23. [ ] Implement/accept backup+restore before production rollout.
+24. [x] Publish governed CYID shared Consumer Integration Standard + compatibility window + cross-repository manifest mirror；CY Web adopts `CYID_CONSUMER_VERSION=1.0.1` and exact-sync deployment gate。CYACC handoff remains app-specific at `CYapps/apps/CYCloudIdentity/docs/consumers/CYACC_INTEGRATION_HANDOFF.md`。
+25. [ ] 在 CYInvoice 工作線的適合接入點產出其 consumer-specific CYID handoff；Device/local/offline 邊界保持 CYInvoice-owned。
+26. [ ] Prepare production Worker/D1 cutover only after explicit user approval.
 
 ## Current Identity acceptance boundary
 
@@ -92,7 +94,8 @@ Still requiring real browser / Email-provider acceptance:
 - Governance/product permanence: `PROJECT_RULES.md`
 - Architecture index: `docs/architecture/README.md`
 - Business Decisions: `docs/architecture/decisions/README.md`
-- Shared Identity consumer contract: `docs/architecture/IDENTITY_ADAPTER.md`
+- Shared CYID consumer package mirror: `docs/contracts/cyid/`
+- CY Web-specific Identity adapter: `docs/architecture/IDENTITY_ADAPTER.md`
 - Identity deployment: `docs/development/IDENTITY_DEPLOYMENT.md`
 - Data model / physical dictionary: `docs/architecture/CANONICAL_DATA_MODEL.md` / `FINAL_DATA_DICTIONARY.md`
 - Worker API: `docs/architecture/API_CONTRACT.md`

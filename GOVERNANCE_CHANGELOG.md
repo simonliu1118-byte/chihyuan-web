@@ -1,5 +1,12 @@
 # CY Web Governance Changelog
 
+## 1.1.4 — 2026/09/30
+
+- CY Web 作為跨 repository CYID consumer，新增 `docs/contracts/cyid/` read-only contract mirror；內容依 CYID `CONSUMER_SYNC_MANIFEST.json` 同步 current/minimum versions、Consumer Standard、Consumer Changelog、Auth、Role/Access 與 Architecture。
+- 新增 `scripts/sync-cyid-consumer-contract.sh` 與 `scripts/validate-cyid-consumer-sync.sh`；sync 依 remote manifest 更新並清除 stale mirror files，validation 對 manifest 與每個 artifact 逐檔 byte-compare CYID `main`。
+- Governance Check 與 development deploy 改為同時檢查 contract version support window + exact document mirror；任何 remote contract 文件變更未同步、本地直接修改 mirror 或殘留已移除檔案都會阻止部署。
+- `CYID_CONSUMER_VERSION` 升至 `1.0.1`；CYID Minimum Compatible 維持 `1.0.0`。Shared contract mirror 與 CY Web-specific `IDENTITY_ADAPTER.md` 的責任正式分離。
+- 修正 current status/document index：CY Web source 0.5.x 已完成 Customer／Item／Defect protected Worker API Phase 1；下一步 protected routes 為 Order／Outsourcing／WorkLog。
 ## 1.1.3 — 2026/09/30
 
 - CY Web 正式採用 CYCloud Identity shared `CONSUMER_INTEGRATION_STANDARD.md`，不得在本 repo 分叉 shared Role／Identity Admin／Application Access／Session／Email verification／Recovery 語意。

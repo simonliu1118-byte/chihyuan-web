@@ -14,6 +14,9 @@ on:
       - "package.json"
       - "CYID_CONSUMER_VERSION"
       - "scripts/validate-cyid-consumer-version.sh"
+      - "scripts/validate-cyid-consumer-sync.sh"
+      - "scripts/sync-cyid-consumer-contract.sh"
+      - "docs/contracts/cyid/**"
       - ".github/workflows/development-deploy.yml"
   push:
     branches:
@@ -44,7 +47,7 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Verify CYID consumer contract support window
-        run: bash scripts/validate-cyid-consumer-version.sh
+        run: bash scripts/validate-cyid-consumer-sync.sh
 
       - name: Validate deployment template contract
         run: node scripts/validate-deploy-config.mjs
@@ -111,7 +114,7 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Verify CYID consumer contract support window
-        run: bash scripts/validate-cyid-consumer-version.sh
+        run: bash scripts/validate-cyid-consumer-sync.sh
 
       - name: Verify development deployment inputs
         shell: bash

@@ -32,6 +32,7 @@ Archive、舊 preview、review backlog、readiness checkpoint、舊 handoff 或�
 - 現階段 integrated React operational runtime 使用 versioned browser `localStorage` 作暫時 persistence adapter；這不是第二套 domain model。
 - Forward schema source of truth 是 `migrations/`；已套用的 migration 不重寫，後續變更持續使用新的 forward migration。
 - **CYCloud Identity** 擁有 Workspace、Employee、Credential、Workspace Role、Identity Admin capability、Application Access、Session、Email verification／OTP／Recovery 與受保護的 Super Admin authority；CY Web 只保存 app-local Module Access 與 domain authorization。
+- Shared CYID consumer contract 以 `../contracts/cyid/` 的 read-only synchronized mirror 作本 repo 工作副本；Governance/Deploy 逐檔對照 CYID `main`，canonical authority 仍在 CYID。
 - Workspace Role 固定為 `SUPER_ADMIN / ADMIN / USER` 並由 CY Web 直接採用；Identity Admin 是 ADMIN capability，不是第四種角色。Legacy Identity Group fields 若仍存在只作 compatibility/history，不是 authorization source。
 - CY Web 不保存 Identity session row；只在 HttpOnly cookie 中傳輸 CYCloud Identity 的 opaque session token，並在後續請求重新向 Identity resolve。
 - API 使用 same-origin `/api/*`，server-side validation/authorization 才是權威。
@@ -56,7 +57,8 @@ Archive、舊 preview、review backlog、readiness checkpoint、舊 handoff 或�
 - `D1_SCHEMA_REVIEW.md` — D1 schema validation/freeze gate。
 - `API_CONTRACT.md` — Worker API envelope、errors、validation、concurrency。
 - `REQUEST_FOUNDATION.md` — shared browser request/client boundary。
-- `IDENTITY_ADAPTER.md` — CYCloud Identity / CY Web authorization split and provider acceptance contract。
+- `../contracts/cyid/` — synchronized shared CYID Consumer Integration Standard / Auth / Role / Architecture package。
+- `IDENTITY_ADAPTER.md` — CY Web-specific Identity adapter、Module Access split and provider acceptance contract。
 - `AUDIT_CORE.md` — Audit service/query boundary。
 - `OPERATIONAL_LOCAL_RUNTIME.md` — localStorage operational runtime adapter/cutover contract。
 
