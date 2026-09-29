@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { ApiClientError } from "../api/client";
+import { loadModuleAccessAdminSnapshot, setEmployeeModuleAccess, type ModuleAccessAdminSnapshot } from "../access/module-access-client";
 import type { AuthSession } from "../auth/auth-client";
 import {
   changeOwnPassword,
@@ -359,6 +360,67 @@ function ApplicationAccessPanel({ snapshot, session, refresh }: {
   </section>;
 }
 
+function ModuleAccessPanel({ snapshot, session }: {
+  snapshot: IdentityAdminSnapshot;
+  session: AuthSession;
+}) {
+  const [view, setView] = useState<ModuleAccessAdminSnapshot | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setMessage(null);
+    try { setView(await loadModuleAccessAdminSnapshot()); }
+    catch (error) { setMessage(messageOf(error)); }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const enabled = useMemo(
+    () => new Set((view?.grants ?? []).filter((row) => row.enabled === 1).map((row) => `${row.employee_id}:${row.module_code}`)),
+    [view],
+  );
+
+  async function change(employeeId: string, moduleCode: Parameters<typeof setEmployeeModuleAccess>[1], next: boolean) {
+    setBusy(true); setMessage(null);
+    try {
+      const result = await setEmployeeModuleAccess(employeeId, moduleCode, next);
+      setMessage(result.access.enabled
+        ? `${moduleCode} 已允許；後續 request 立即生效。`
+        : `${moduleCode} 已取消；後續 request 立即生效。`);
+      await load();
+    } catch (error) {
+      setMessage(messageOf(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <section className="cy-op-panel">
+    <div className="cy-op-panel-header"><div><h3>CY Web 模組使用權</h3><p>這裡只管理 CY Web 內的業務模組。Identity Admin／超級管理員可設定他人的 Module Access；一般管理員沒有此管理權。</p></div><button type="button" className="cy-op-button" disabled={busy} onClick={() => void load()}>重新整理</button></div>
+    {message ? <div className="cy-identity-message" role="status">{message}</div> : null}
+    {view ? <div className="cy-identity-table-wrap"><table className="cy-op-table cy-identity-access-table">
+      <thead><tr><th className="cy-access-user-col">使用者</th><th className="cy-access-permission-col">權限</th>{view.modules.map((module) => <th className="cy-access-app-col" key={module.code}>{module.label}</th>)}</tr></thead>
+      <tbody>{snapshot.employees.map((employee) => {
+        const own = employee.employee_id === session.user.employeeId;
+        const superAdmin = employee.workspace_role === "SUPER_ADMIN";
+        return <tr key={employee.employee_id}>
+          <td>{employee.employee_no} {employee.name}</td>
+          <td>{permissionLabel(employee.workspace_role)}{employee.identity_admin === 1 ? <small className="cy-identity-subtext">Identity Admin</small> : null}</td>
+          {view.modules.map((module) => {
+            if (superAdmin) return <td key={module.code}><span className="cy-identity-access-fixed">永遠允許</span></td>;
+            const checked = enabled.has(`${employee.employee_id}:${module.code}`);
+            const disabled = busy || own;
+            const title = own ? "Identity Admin 不可修改自己的 Module Access" : `${module.label} Module Access`;
+            return <td key={module.code}><label title={title}><input type="checkbox" checked={checked} disabled={disabled} onChange={(event) => void change(employee.employee_id, module.code, event.target.checked)} /></label></td>;
+          })}
+        </tr>;
+      })}</tbody>
+    </table></div> : <p>{message ? "Module Access 尚未載入。" : "正在讀取 Module Access…"}</p>}
+    <p className="cy-identity-subtext">模組權限與 Workspace Role、CYID App Access 是獨立維度；Role 升降不會自動重算這張表。Super Admin 全模組固定允許。</p>
+  </section>;
+}
+
 function SecurityPanel() {
   const [view, setView] = useState<SecurityPolicyView | null>(null);
   const [busy, setBusy] = useState(false);
@@ -418,6 +480,7 @@ export function SharedIdentityPage({ session }: { session: AuthSession }) {
       {snapshot ? <div className="cy-identity-admin-stack">
         <EmployeeManagement snapshot={snapshot} session={session} refresh={refresh} />
         {canManageAccess ? <ApplicationAccessPanel snapshot={snapshot} session={session} refresh={refresh} /> : null}
+        {canManageAccess ? <ModuleAccessPanel snapshot={snapshot} session={session} /> : null}
         {session.user.workspaceRole === "SUPER_ADMIN" ? <SecurityPanel /> : null}
       </div> : <section className="cy-op-panel"><p>{loading ? "正在讀取 Identity 資料…" : "尚未取得 Identity 管理資料。"}</p></section>}
     </> : null}
