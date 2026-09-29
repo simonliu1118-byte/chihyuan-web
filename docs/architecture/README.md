@@ -21,7 +21,7 @@
 5. current source 與可重建驗證結果；
 6. archive/legacy/preview evidence。
 
-Archive、舊 preview、review backlog、readiness checkpoint、handoff 或舊 branch metadata 都不能覆蓋較新的 current contract／Business Decision／`main` source。
+Archive、舊 preview、review backlog、readiness checkpoint、舊 handoff 或舊 branch metadata 都不能覆蓋較新的 current contract／Business Decision／`main` source。Active tree 不維護 dated Identity handoff；歷史 checkpoint 以 Git history 追溯。
 
 ## Current architecture baseline
 
@@ -31,8 +31,8 @@ Archive、舊 preview、review backlog、readiness checkpoint、handoff 或舊 b
 - Cloudflare Workers 是 runtime/API target；D1 是正式 relational database target。
 - 現階段 integrated React operational runtime 使用 versioned browser `localStorage` 作暫時 persistence adapter；這不是第二套 domain model。
 - Forward schema source of truth 是 `migrations/`；已套用的 migration 不重寫，後續變更持續使用新的 forward migration。
-- **CYCloud Identity** 擁有 Workspace、Employee、Credential、Identity Group、Application Access、Session、OTP、Recovery 與 Workspace 最高權限 authority；CY Web 只保存 app-local access projection 與 domain authorization。
-- Workspace 最高權限以 `isWorkspaceSuperAdmin` 顯式傳遞；一般 Identity Groups 保持資料驅動，不以固定普通角色 enum 取代。
+- **CYCloud Identity** 擁有 Workspace、Employee、Credential、Workspace Role、Identity Admin capability、Application Access、Session、Email verification／OTP／Recovery 與受保護的 Super Admin authority；CY Web 只保存 app-local Module Access 與 domain authorization。
+- Workspace Role 固定為 `SUPER_ADMIN / ADMIN / USER` 並由 CY Web 直接採用；Identity Admin 是 ADMIN capability，不是第四種角色。Legacy Identity Group fields 若仍存在只作 compatibility/history，不是 authorization source。
 - CY Web 不保存 Identity session row；只在 HttpOnly cookie 中傳輸 CYCloud Identity 的 opaque session token，並在後續請求重新向 Identity resolve。
 - API 使用 same-origin `/api/*`，server-side validation/authorization 才是權威。
 - 一個 shared Audit Core 記錄需要追溯的重要業務動作。
