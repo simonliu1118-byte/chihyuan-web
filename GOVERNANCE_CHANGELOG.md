@@ -1,5 +1,13 @@
 # CY Web Governance Changelog
 
+## 1.1.2 — 2026/09/30
+
+- 依使用者最終確認，CY Web 新 Employee 首次使用流程對外統一稱 **Email 驗證**；登入頁只保留單一一般登入入口，不再維護獨立「啟用帳號」入口。
+- Email 驗證信改以具 expiry 的一次性首次登入密碼進入 CY Web；該 temporary credential 只能換取短效 first-login ticket，不得建立一般 Identity Session，也不得登入其他 CY App。
+- 使用者完成正式密碼設定後，CYID 只完成 Email 驗證、正式 credential 建立與 temporary credential/ticket 作廢；CY Web 必須回到一般登入頁，要求使用者以新正式密碼重新登入。
+- 首次登入密碼逾期、管理員重寄驗證 Email 或 pending Email 被修改時，舊 temporary credential 必須立即失效並重新計算有效期限；對外名稱維持「重寄驗證 Email」。
+- CY Web Identity 文件收斂為 `PROJECT_RULES.md` 永久規則、`docs/architecture/IDENTITY_ADAPTER.md` 單一 consumer contract、根 `TODO.md` 單一 current status tracker；dated Identity handoff 不再留在 active tree。
+
 ## 1.1.1 — 2026/09/29
 
 - 依使用者最終確認，CY Web Shared Identity 永久規則改採 CYCloud Identity 三層 Workspace Role：`SUPER_ADMIN / ADMIN / USER`；`Identity Admin` 是 ADMIN 上的特殊 capability，不是第四個 Role。

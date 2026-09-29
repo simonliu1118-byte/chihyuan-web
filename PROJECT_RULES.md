@@ -61,10 +61,15 @@
 
 ## 7. 帳號、Workspace Role 與 CYCloud Identity
 
-- CYCloud Identity 是 CY Web 的 Shared Identity authority，負責 Workspace、Employee、Credential、Workspace Role、Identity Admin capability、Application Access、Session、Email OTP／Recovery。CY Web 不得複製一套 credential/session/OTP authority。
+- CYCloud Identity 是 CY Web 的 Shared Identity authority，負責 Workspace、Employee、Credential、Workspace Role、Identity Admin capability、Application Access、Session、Email verification／OTP／Recovery。CY Web 不得複製一套 credential/session/OTP authority。
 - CYID Workspace Role 固定為 `SUPER_ADMIN / ADMIN / USER` 三層；CY Web 直接採用相同角色，不另行重新投影另一套 Super Admin／Admin／User。
 - `Identity Admin` 是 CYID 中附掛於 ADMIN 的特殊 Identity-management capability，不是第四種 CY Web Role。
 - CY Web 是 **核心帳號管理 App**：所有有效 Employee 的 CY Web entry access 固定為 `TRUE`／不可取消。即使沒有任何業務 Module Access，Employee 仍必須能登入 CY Web 使用自己的帳號／密碼／Email 等 self-service。
+- 新 Employee 的首次使用流程對外一律稱 **Email 驗證**。CY Web 登入頁只維護單一一般登入入口，不另外提供「啟用帳號」入口。
+- CYID 寄出的 Email 驗證信可提供一次性首次登入密碼；CY Web 只把它送交 CYID 驗證，不自行判斷或保存 initial credential。
+- 首次登入密碼只能進入 CY Web 核心帳號流程，必須有 expiry，且不得建立一般 Identity Session。有效首次登入密碼只可換得短效 first-login ticket，用來強制設定正式密碼。
+- 使用者設定完正式密碼後，CY Web **不得直接把使用者視為已登入**；CYID 完成 Email 驗證與正式 credential 建立後，CY Web 必須回到一般登入頁，要求使用者用新正式密碼重新登入。
+- 首次登入密碼逾期、管理員重寄驗證 Email 或 pending Email 被修改時，舊 initial credential 必須立即失效；對外操作名稱維持「重寄驗證 Email」。
 - Super Admin 對 CY Web 所有業務 Module 自動具有 Access，且不可取消。
 - CY Web 的 Customer／Order／Item／Outsourcing／WorkLog 等 Module Access 屬 CY Web-local authorization，不存入 CYID 作 universal permission catalog；CYID 只提供身分、Role、Identity Admin capability 與 App-level entry authority。
 - 一般 ADMIN 不得設定任何人的 App Access 或 CY Web Module Access。
@@ -73,7 +78,7 @@
 - Role 升降不自動新增或刪除 Module Access；Role 與 Module Access 是不同維度。
 - CY Web Module Access 的前端顯示不是授權來源；受保護 Worker/API 必須 server-side enforcement，Access 異動須在後續 request 即時生效。
 - Identity Admin 能力本身的授予／撤銷仍由 Super Admin 管理；CY Web 不得用本地資料把自己或其他 Employee 升成 Identity Admin／Super Admin。
-- CYCloud Identity 尚未完成三層 Role migration 前，CY Web 可暫時相容目前 provider legacy fields，但不得再擴充 Identity Group／Group-derived compatibility role 作為未來產品模型。
+- Legacy `groupKeys`／Group-derived fields 若因相容性暫時存在，只能作 descriptive compatibility；不得作 forward authorization 或新的產品模型。
 
 ## 8. 上線與驗收
 

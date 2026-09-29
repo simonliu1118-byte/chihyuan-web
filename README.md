@@ -31,12 +31,13 @@
 
 - `docs/architecture/README.md` — architecture/design 文件索引與來源分工。
 - `docs/architecture/decisions/README.md` — 已確認 Business Decisions 索引。
+- `docs/architecture/IDENTITY_ADAPTER.md` — CY Web 唯一 current CYCloud Identity consumer contract。
 - `TODO.md` — 唯一 current implementation status / next-work tracker。
 - `docs/development/LOCAL_DEVELOPMENT.md` — 本機開發流程。
 - `docs/DOMAIN_STRATEGY.md` — Chihyuan Web systems 的 domain namespace／rollout architecture。
 - `docs/architecture/BACKUP_ARCHITECTURE.md` — R2 + GCS backup/recovery architecture。
 
-歷史 preview、audit、readiness、review checkpoint 收在 `docs/architecture/archive/`，只作追溯，不作 current implementation source。
+歷史 preview、audit、readiness、review checkpoint 收在 `docs/architecture/archive/` 或 Git history，只作追溯，不作 current implementation source。Active tree 不再維護 dated Identity handoff；consumer handoff 只在 shared contract 驗收後針對目標工作線產生。
 
 ## Governance
 
