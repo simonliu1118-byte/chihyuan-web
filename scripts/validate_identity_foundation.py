@@ -36,21 +36,27 @@ def validate_source_contracts() -> None:
         "employeeId",
         "employeeNo",
         "displayName",
+        "workspaceRole",
+        "isIdentityAdmin",
+        "emailVerified",
         "isWorkspaceSuperAdmin",
-        "groupKeys",
         "credentialVersion",
         "employeeRevision",
     ):
         if field not in contract:
             raise AssertionError(f"missing normalized principal field: {field}")
 
-    if "SharedIdentityRole" in contract:
-        raise AssertionError("normal Identity authority must not be hard-coded as a role enum")
+    for role in ("SUPER_ADMIN", "ADMIN", "USER"):
+        if role not in contract:
+            raise AssertionError(f"missing Workspace role contract: {role}")
 
     for token in (
         "/v1/identity/login",
         "/v1/identity/session/resolve",
         "/v1/identity/logout",
+        "workspaceRole",
+        "isIdentityAdmin",
+        "emailVerified",
         "x-identity-application",
         "cyweb_identity_session",
         "HttpOnly",
@@ -94,9 +100,12 @@ def validate_source_contracts() -> None:
         if token.lower() in lowered_access:
             raise AssertionError(f"app-local authorization contains credential logic: {token}")
 
-    for token in ("app_members", "app_member_tags", "app_tag_modules", "isWorkspaceSuperAdmin"):
+    for token in ("app_members", "app_member_tags", "app_tag_modules", "workspaceRole", "SUPER_ADMIN"):
         if token not in access:
             raise AssertionError(f"app access service missing expected boundary token: {token}")
+
+    if "groupKeys" in access:
+        raise AssertionError("CY Web module authorization must not derive authority from legacy Identity Groups")
 
     if "CYCloud Identity" not in doc:
         raise AssertionError("Identity boundary document must name the concrete shared authority")
@@ -162,7 +171,7 @@ def validate_schema_access_shape() -> None:
 
 def main() -> int:
     validate_source_contracts()
-    print("PASS CYCloud Identity source contracts")
+    print("PASS CYCloud Identity 0.2 source contracts")
     validate_schema_access_shape()
     print("PASS Identity app-tag/schema authority split")
     return 0
