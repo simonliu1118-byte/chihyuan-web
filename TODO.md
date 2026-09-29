@@ -11,7 +11,7 @@
 - CYCloud Identity development authority is live. CY Web uses the private `IDENTITY` Service Binding and no longer owns a duplicate Identity session authority.
 - Browser acceptance already passed for the first development highest-authority account: password login, authenticated navigation, F5 session resolve, logout and post-logout F5.
 - Shared Identity account-management UI is implemented and development-deployed from CY Web `0.1.49`.
-- CY Web `0.1.50` adds a post-deployment live invalid-provider-session gate to the manual Development Deploy workflow. The gate is merged to `main`, but has not yet been executed by a development `workflow_dispatch`; invalid-session acceptance is therefore not marked complete yet, and expired-session evidence remains separate.
+- CY Web `0.1.50` adds a post-deployment live invalid-provider-session gate to the manual Development Deploy workflow. Manual Development Deploy run `#20` passed on 2026-09-29, proving that a provider-rejected invalid session returns HTTP `401` / `AUTH_INVALID` through deployed CY Web and clears the `cyweb_identity_session` cookie. Expired-session evidence remains separate.
 - Self-service UI includes password change and Email change. Login page includes forgot-password and account activation flows.
 - Highest-authority-only Workspace management UI includes Employee administration, Identity Groups/membership, Group/direct Application Access, Application `USER_ADMIN` compatibility mode, OTP security settings, highest-authority summary/Recovery Email and authority-transfer flow.
 - Workspace highest authority is protected by CYCloud Identity backend and cannot be directly disabled before transfer.
@@ -29,7 +29,7 @@
 2. [x] Add Shared Identity self-service UI, Employee/Group/Application Access UI and highest-authority-only OTP settings.
 3. [x] Add highest-authority summary/Recovery Email and authority-transfer UI.
 4. [x] Hide the normal Employee enable/disable action for the current Workspace highest authority; backend remains the final protection boundary.
-5. [ ] Verify invalid/expired provider-session rejection through CY Web. The live invalid-session gate is merged in `0.1.50` and awaits manual development `workflow_dispatch`; expired-session evidence remains separate.
+5. [ ] Verify invalid/expired provider-session rejection through CY Web. Invalid-session live acceptance passed in Development Deploy run `#20`; separate expired-session evidence is still required before this combined item can be closed.
 6. [ ] Create one ordinary non-highest-authority development Employee and accept activation/login.
 7. [ ] Prove ordinary Employee sees self-service only and sees **no** Workspace management, OTP settings or highest-authority controls.
 8. [ ] Exercise one controlled Group membership + Application Access path and verify effective `USER`/`ADMIN` compatibility projection.
@@ -54,6 +54,7 @@ Accepted:
 - CY Web HttpOnly Identity cookie boundary;
 - same-origin `/api/auth/login`, `/api/auth/me`, `/api/auth/logout` browser contract;
 - F5 resolve, logout revocation and post-logout rejection;
+- deployed CY Web rejection of a provider-invalid session with HTTP `401` / `AUTH_INVALID` and browser-cookie clearing;
 - self-service / management UI load through the private Identity binding;
 - highest-authority-only UI gating;
 - server protection against directly disabling current highest authority;
@@ -63,7 +64,7 @@ Accepted:
 
 Still required before protected multi-user business operation:
 
-- execute the merged live invalid-session gate through CY Web and obtain separate expired-session acceptance evidence;
+- obtain separate expired-session acceptance evidence through CY Web;
 - ordinary Employee activation/login/UI-visibility acceptance;
 - controlled mutation acceptance for Employee/Group/access/security-policy/self-service/authority transfer;
 - protected Worker business-route server authorization;
