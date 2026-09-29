@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AuthGate } from "./auth/AuthGate";
-import type { AuthSession } from "./auth/auth-client";
+import type { AuthSession, WorkspaceRole } from "./auth/auth-client";
 import { SharedIdentityPage } from "./identity/SharedIdentityPage";
 import type { NavigationGroup } from "./ui/foundation/navigation";
 import { AppShell } from "./ui/shell/AppShell";
@@ -52,6 +52,12 @@ function currentRoute(): AppRoute {
   return routes.has(value) ? value : "customers";
 }
 
+function permissionLabel(role: WorkspaceRole): string {
+  if (role === "SUPER_ADMIN") return "超級管理員";
+  if (role === "ADMIN") return "管理員";
+  return "一般使用者";
+}
+
 function OperationalApp({
   session,
   logout,
@@ -77,8 +83,6 @@ function OperationalApp({
   else if (route === "identity") content = <SharedIdentityPage session={session} />;
   else content = <OperationalWorkspace route={route as OperationalRoute} />;
 
-  const authorityLabel = session.user.isWorkspaceSuperAdmin ? "最高權限" : "一般帳號";
-
   return (
     <AppShell
       appName="CY Web"
@@ -88,18 +92,20 @@ function OperationalApp({
       headerActions={
         <>
           <div className="cy-op-runtime-banner">業務資料暫存模式 · localStorage</div>
-          <div className="cy-auth-user">
-            <strong>{session.user.displayName}</strong>
-            <span>{session.user.employeeNo} · {authorityLabel}</span>
+          <div className="cy-auth-account-control">
+            <div className="cy-auth-user">
+              <strong>{session.user.displayName}</strong>
+              <span>{session.user.employeeNo} · {permissionLabel(session.user.workspaceRole)}</span>
+            </div>
+            <button
+              className="cy-auth-logout-button"
+              type="button"
+              disabled={signingOut}
+              onClick={() => void logout()}
+            >
+              {signingOut ? "登出中…" : "登出"}
+            </button>
           </div>
-          <button
-            className="cy-auth-logout-button"
-            type="button"
-            disabled={signingOut}
-            onClick={() => void logout()}
-          >
-            {signingOut ? "登出中…" : "登出"}
-          </button>
         </>
       }
       footer={<span className="cy-shell-foundation-note">Development · CYCloud Identity · 業務資料尚未切換 D1</span>}
