@@ -1,4 +1,4 @@
-import { FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
+import { FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { ApiClientError } from "../api/client";
 import {
   confirmEmployeeActivation,
@@ -29,10 +29,19 @@ type AuthState =
 
 type LoginMode = "login" | "recover" | "activate";
 
+function activationLinkState() {
+  const params = new URLSearchParams(window.location.search);
+  const employeeNo = params.get("employeeNo")?.trim() ?? "";
+  return {
+    linkedActivation: params.get("activate") === "1" && /^\d{4}$/.test(employeeNo),
+    employeeNo: /^\d{4}$/.test(employeeNo) ? employeeNo : "",
+  };
+}
+
 function errorMessage(error: unknown): string {
   if (error instanceof ApiClientError) {
     if (error.code === "LOGIN_FAILED") return "員工編號或密碼不正確。";
-    if (error.code === "ACCESS_DENIED") return "此帳號目前沒有 CY Web 使用權限。";
+    if (error.code === "ACCESS_DENIED") return "此帳號目前無法登入指定系統。";
     if (error.code === "LOGIN_RATE_LIMITED") return "登入嘗試過於頻繁，請稍後再試。";
     if (error.code === "IDENTITY_UNAVAILABLE") return "帳號服務目前無法連線，請稍後再試。";
     if (error.code === "INVALID_LOGIN_REQUEST") return "請確認員工編號與密碼格式。";
@@ -46,15 +55,18 @@ function passwordLength(value: string): number {
 }
 
 export function AuthGate({ children }: AuthGateProps) {
+  const linked = useMemo(activationLinkState, []);
   const [state, setState] = useState<AuthState>({ status: "checking" });
-  const [mode, setMode] = useState<LoginMode>("login");
-  const [employeeNo, setEmployeeNo] = useState("");
+  const [mode, setMode] = useState<LoginMode>(linked.linkedActivation ? "activate" : "login");
+  const [employeeNo, setEmployeeNo] = useState(linked.employeeNo);
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
-  const [flowMessage, setFlowMessage] = useState<string | null>(null);
+  const [flowMessage, setFlowMessage] = useState<string | null>(
+    linked.linkedActivation ? "已從啟用信開啟。請繼續取得本次驗證流程，並輸入信中的 6 位數驗證碼。" : null,
+  );
   const [submitting, setSubmitting] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -81,7 +93,7 @@ export function AuthGate({ children }: AuthGateProps) {
           return;
         }
         if (error.code === "ACCESS_DENIED") {
-          setState({ status: "anonymous", message: "此帳號目前沒有 CY Web 使用權限。" });
+          setState({ status: "anonymous", message: "此帳號目前無法登入指定系統。" });
           return;
         }
       }
@@ -130,7 +142,9 @@ export function AuthGate({ children }: AuthGateProps) {
         const result = await startEmployeeActivation(normalizedEmployeeNo);
         setChallengeId(result.activation.challengeId);
       }
-      setFlowMessage("若帳號符合條件，驗證碼已寄至登記 Email。請輸入 6 位數驗證碼。未收到時請稍候 60 秒後再試。");
+      setFlowMessage(mode === "activate"
+        ? "請輸入啟用信中的 6 位數驗證碼，並設定第一次登入密碼。若原驗證碼已失效，系統會依寄送限制補寄新的驗證碼。"
+        : "若帳號符合條件，驗證碼已寄至登記 Email。請輸入 6 位數驗證碼。");
     } catch (error) {
       setFlowMessage(errorMessage(error));
     } finally {
@@ -154,6 +168,10 @@ export function AuthGate({ children }: AuthGateProps) {
       const completedMode = mode;
       setChallengeId(null); setOtp(""); setNewPassword(""); setConfirmPassword("");
       setMode("login");
+      if (completedMode === "activate") {
+        const cleanUrl = `${window.location.pathname}${window.location.hash || ""}`;
+        window.history.replaceState({}, "", cleanUrl);
+      }
       setState({ status: "anonymous", message: completedMode === "recover" ? "密碼已重設，請重新登入。" : "帳號已啟用，請登入。" });
     } catch (error) {
       setFlowMessage(errorMessage(error));
@@ -198,10 +216,10 @@ export function AuthGate({ children }: AuthGateProps) {
           <button className="cy-auth-primary-button" type="submit" disabled={submitting}>{submitting ? "登入中…" : "登入"}</button>
           <div className="cy-auth-secondary-actions"><button type="button" onClick={() => resetFlow("recover")}>忘記密碼</button><button type="button" onClick={() => resetFlow("activate")}>啟用帳號</button></div>
         </form> : !challengeId ? <form className="cy-auth-form" onSubmit={startOtpFlow}>
-          <div className="cy-auth-flow-title"><h2>{mode === "recover" ? "忘記密碼" : "啟用帳號"}</h2><p>{mode === "recover" ? "驗證登記 Email 後重新設定密碼。" : "新建帳號第一次使用時，以 Email OTP 驗證並自行設定密碼。"}</p></div>
+          <div className="cy-auth-flow-title"><h2>{mode === "recover" ? "忘記密碼" : "啟用帳號"}</h2><p>{mode === "recover" ? "驗證登記 Email 後重新設定密碼。" : "使用啟用信中的 Email OTP 完成第一次驗證並設定密碼。"}</p></div>
           <label><span>員工編號</span><input inputMode="numeric" maxLength={4} value={employeeNo} onChange={(event) => setEmployeeNo(event.target.value.replace(/\D/g, "").slice(0, 4))} required /></label>
           {flowMessage ? <p className="cy-auth-error" role="status">{flowMessage}</p> : null}
-          <button className="cy-auth-primary-button" disabled={submitting}>{submitting ? "處理中…" : "寄送驗證碼"}</button>
+          <button className="cy-auth-primary-button" disabled={submitting}>{submitting ? "處理中…" : mode === "activate" ? "繼續啟用" : "寄送驗證碼"}</button>
           <button className="cy-auth-link-button" type="button" onClick={() => resetFlow("login")}>返回登入</button>
         </form> : <form className="cy-auth-form" onSubmit={confirmOtpFlow}>
           <div className="cy-auth-flow-title"><h2>{mode === "recover" ? "重設密碼" : "設定登入密碼"}</h2><p>員工編號 {employeeNo}</p></div>
@@ -210,7 +228,7 @@ export function AuthGate({ children }: AuthGateProps) {
           <label><span>確認新密碼</span><input type="password" minLength={8} maxLength={16} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required /></label>
           {flowMessage ? <p className="cy-auth-error" role="status">{flowMessage}</p> : null}
           <button className="cy-auth-primary-button" disabled={submitting || otp.length !== 6}>{submitting ? "處理中…" : mode === "recover" ? "重設密碼" : "完成啟用"}</button>
-          <button className="cy-auth-link-button" type="button" onClick={() => setChallengeId(null)}>重新寄送</button>
+          <button className="cy-auth-link-button" type="button" onClick={() => setChallengeId(null)}>重新開始驗證</button>
         </form>}
         <p className="cy-auth-note">帳號由 CYCloud Identity 驗證；CY Web 不保存密碼、OTP 或密碼雜湊。</p>
       </section>
