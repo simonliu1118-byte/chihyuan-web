@@ -28,6 +28,8 @@ def validate_source_contracts() -> None:
     contract = require("worker/identity/contract.ts").read_text(encoding="utf-8")
     provider = require("worker/identity/cycloud-identity-adapter.ts").read_text(encoding="utf-8")
     routes = require("worker/http/auth-routes.ts").read_text(encoding="utf-8")
+    management_routes = require("worker/http/identity-management-routes.ts").read_text(encoding="utf-8")
+    auth_gate = require("src/auth/AuthGate.tsx").read_text(encoding="utf-8")
     access = require("worker/auth/app-access.ts").read_text(encoding="utf-8")
     doc = require("docs/architecture/IDENTITY_ADAPTER.md").read_text(encoding="utf-8")
 
@@ -52,8 +54,11 @@ def validate_source_contracts() -> None:
 
     for token in (
         "/v1/identity/login",
+        "/v1/identity/first-login/complete",
         "/v1/identity/session/resolve",
         "/v1/identity/logout",
+        "password_change_required",
+        "cyif_",
         "workspaceRole",
         "isIdentityAdmin",
         "emailVerified",
@@ -76,9 +81,22 @@ def validate_source_contracts() -> None:
         if forbidden.lower() in provider.lower():
             raise AssertionError(f"CY Web copied credential internals: {forbidden}")
 
-    for path in ("/api/auth/login", "/api/auth/me", "/api/auth/logout"):
+    for path in ("/api/auth/login", "/api/auth/first-login/complete", "/api/auth/me", "/api/auth/logout"):
         if path not in routes:
             raise AssertionError(f"auth route missing: {path}")
+
+    for token in ("passwordChangeRequired", "firstLogin", "completeFirstLogin"):
+        if token not in routes and token not in auth_gate:
+            raise AssertionError(f"first-login flow missing expected token: {token}")
+
+    for retired in (
+        "/api/identity/activation/start",
+        "/api/identity/activation/confirm",
+        "啟用帳號",
+        "?activate=1",
+    ):
+        if retired in management_routes or retired in auth_gate:
+            raise AssertionError(f"retired activation UI/route remains: {retired}")
 
     for token in ("IDENTITY_APPLICATION_ID", "IDENTITY_WORKSPACE_ID", "IDENTITY"):
         if token not in routes:
@@ -111,6 +129,9 @@ def validate_source_contracts() -> None:
         raise AssertionError("Identity boundary document must name the concrete shared authority")
     if "CYAccountingWeb" not in doc or "CYInvoice" not in doc:
         raise AssertionError("Identity boundary document must state cross-project ownership limits")
+    for token in ("一次性預設密碼", "first-login", "尚未驗證"):
+        if token not in doc:
+            raise AssertionError(f"Identity boundary document missing first-login contract token: {token}")
 
 
 def validate_schema_access_shape() -> None:
@@ -171,7 +192,7 @@ def validate_schema_access_shape() -> None:
 
 def main() -> int:
     validate_source_contracts()
-    print("PASS CYCloud Identity 0.2 source contracts")
+    print("PASS CYCloud Identity 0.3 first-login source contracts")
     validate_schema_access_shape()
     print("PASS Identity app-tag/schema authority split")
     return 0
