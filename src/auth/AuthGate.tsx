@@ -164,9 +164,9 @@ export function AuthGate({ children }: AuthGateProps) {
 
   return <main className="cy-auth-screen"><section className="cy-auth-card" aria-labelledby="cy-auth-title">
     <div className="cy-auth-heading"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><div><h1 id="cy-auth-title">CY Web</h1><p>志遠企業管理系統</p></div></div>
-    {mode === "login" ? <form className="cy-auth-form" onSubmit={handleLogin}>
+    {mode === "login" ? <form className="cy-auth-form" onSubmit={handleLogin} noValidate>
       <label><span>員工編號</span><input autoComplete="username" inputMode="numeric" maxLength={4} pattern="[0-9]{4}" value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value.replace(/\D/g, "").slice(0, 4))} disabled={submitting} autoFocus required /></label>
-      <label><span>密碼</span><input type="password" autoComplete="current-password" minLength={8} maxLength={16} value={password} onChange={(e) => setPassword(e.target.value)} disabled={submitting} required /></label>
+      <label><span>密碼</span><input type="password" autoComplete="current-password" maxLength={16} value={password} onChange={(e) => setPassword(e.target.value)} disabled={submitting} required /></label>
       {state.message ? <p className="cy-auth-error" role="alert">{state.message}</p> : null}
       <button className="cy-auth-primary-button" type="submit" disabled={submitting}>{submitting ? "登入中…" : "登入"}</button>
       <div className="cy-auth-secondary-actions"><button type="button" onClick={() => resetFlow("recover")}>忘記密碼</button><button type="button" onClick={() => resetFlow("activate")}>啟用帳號</button></div>
@@ -176,11 +176,11 @@ export function AuthGate({ children }: AuthGateProps) {
       {flowMessage ? <p className="cy-auth-error" role="status">{flowMessage}</p> : null}
       <button className="cy-auth-primary-button" disabled={submitting}>{submitting ? "處理中…" : "取得啟用驗證"}</button>
       <button className="cy-auth-link-button" type="button" onClick={() => resetFlow("login")}>返回登入</button>
-    </form> : <form className="cy-auth-form" onSubmit={confirmOtpFlow}>
+    </form> : <form className="cy-auth-form" onSubmit={confirmOtpFlow} noValidate>
       <div className="cy-auth-flow-title"><h2>{mode === "recover" ? "重設密碼" : "設定登入密碼"}</h2><p>員工編號 {employeeNo}</p></div>
       <label><span>6 位數驗證碼</span><input inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} required /></label>
-      <label><span>新密碼</span><input type="password" minLength={8} maxLength={16} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required /></label>
-      <label><span>確認新密碼</span><input type="password" minLength={8} maxLength={16} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required /></label>
+      <label><span>新密碼</span><input type="password" maxLength={16} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required /></label>
+      <label><span>確認新密碼</span><input type="password" maxLength={16} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required /></label>
       {flowMessage ? <p className="cy-auth-error" role="status">{flowMessage}</p> : null}
       <button className="cy-auth-primary-button" disabled={submitting || otp.length !== 6}>{submitting ? "處理中…" : mode === "recover" ? "重設密碼" : "完成啟用"}</button>
       <button className="cy-auth-link-button" type="button" onClick={() => setChallengeId(null)}>重新取得驗證</button>

@@ -70,6 +70,19 @@
   flex-wrap: wrap;
 }
 
+.cy-identity-access-fixed {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--cy-success-soft);
+  color: var(--cy-success);
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
 .cy-identity-modal-backdrop {
   position: fixed;
   inset: 0;
