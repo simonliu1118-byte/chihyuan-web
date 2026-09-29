@@ -9,7 +9,7 @@ export interface AppMemberRecord {
 
 export type ModuleAccessDecision =
   | { allowed: true; member: AppMemberRecord }
-  | { allowed: false; reason: "app-member-inactive" | "module-not-granted"; member: AppMemberRecord };
+  | { allowed: false; reason: "module-not-granted"; member: AppMemberRecord };
 
 type AppMemberRow = {
   id: number;
@@ -32,12 +32,16 @@ function normalizeEmployeeNo(value: string | null): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+export function normalizeModuleCode(value: string): string | null {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized || normalized.length > 64 || /[^a-z0-9_-]/.test(normalized)) return null;
+  return normalized;
+}
+
 /**
- * Resolve the local CY Web projection for a shared Identity employee.
- *
- * The row is inserted when first seen, and employee_no is refreshed only when
- * it changes. Credentials, Identity groups and Workspace authority are never
- * copied into CY Web D1 as a competing source of truth.
+ * Resolve the CY Web projection for business-domain foreign keys. This row is not
+ * a second account-status authority: every enabled CYID Employee may enter the CY
+ * Web account shell regardless of historical app_members.is_active state.
  */
 export async function resolveAppMember(
   db: D1Database,
@@ -71,79 +75,58 @@ export async function resolveAppMember(
       .run();
 
     const id = Number(result.meta.last_row_id);
-    if (!Number.isInteger(id) || id <= 0) {
-      throw new Error("APP_MEMBER_INSERT_FAILED");
-    }
-
-    return {
-      id,
-      identityEmployeeId: principal.employeeId,
-      employeeNo,
-      isActive: true,
-    };
+    if (!Number.isInteger(id) || id <= 0) throw new Error("APP_MEMBER_INSERT_FAILED");
+    return { id, identityEmployeeId: principal.employeeId, employeeNo, isActive: true };
   }
 
   const member = toAppMember(existing);
-  if (member.employeeNo !== employeeNo) {
+  if (member.employeeNo !== employeeNo || !member.isActive) {
     await db
       .prepare(
         `UPDATE app_members
             SET employee_no = ?2,
+                is_active = 1,
                 updated_at = ?3
           WHERE id = ?1`,
       )
       .bind(member.id, employeeNo, nowIso)
       .run();
     member.employeeNo = employeeNo;
+    member.isActive = true;
   }
-
   return member;
 }
 
 /**
- * The protected Workspace highest authority can enter every CY Web module.
- * All other employees use CY Web-local app tags for module entry. Identity
- * groups remain extensible shared-Identity data and are not hard-coded here as
- * a role enum.
+ * Super Admin automatically owns every CY Web module. All other Employees use a
+ * direct CY Web-local Employee -> Module grant keyed by the stable CYID Employee
+ * id. Workspace ADMIN with a granted module is a full administrator of that
+ * module; finer USER permissions are intentionally outside this phase.
  */
 export async function checkModuleAccess(
   db: D1Database,
   principal: IdentityPrincipal,
   moduleCode: string,
 ): Promise<ModuleAccessDecision> {
-  const normalizedModule = moduleCode.trim();
-  if (normalizedModule.length === 0 || normalizedModule.length > 64) {
-    throw new Error("INVALID_MODULE_CODE");
-  }
+  const normalizedModule = normalizeModuleCode(moduleCode);
+  if (!normalizedModule) throw new Error("INVALID_MODULE_CODE");
 
   const member = await resolveAppMember(db, principal);
-  if (!member.isActive) {
-    return { allowed: false, reason: "app-member-inactive", member };
-  }
-
-  if (principal.isWorkspaceSuperAdmin) {
-    return { allowed: true, member };
-  }
+  if (principal.workspaceRole === "SUPER_ADMIN") return { allowed: true, member };
 
   const grant = await db
     .prepare(
       `SELECT 1 AS allowed
-         FROM app_member_tags AS mt
-         JOIN app_tags AS t
-           ON t.id = mt.tag_id
-          AND t.is_active = 1
-         JOIN app_tag_modules AS tm
-           ON tm.tag_id = t.id
-        WHERE mt.member_id = ?1
-          AND tm.module_code = ?2
+         FROM identity_module_access
+        WHERE identity_employee_id = ?1
+          AND module_code = ?2
+          AND enabled = 1
         LIMIT 1`,
     )
-    .bind(member.id, normalizedModule)
+    .bind(principal.employeeId, normalizedModule)
     .first<{ allowed: number }>();
 
-  if (!grant) {
-    return { allowed: false, reason: "module-not-granted", member };
-  }
-
-  return { allowed: true, member };
+  return grant
+    ? { allowed: true, member }
+    : { allowed: false, reason: "module-not-granted", member };
 }
