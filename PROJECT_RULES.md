@@ -83,6 +83,8 @@
 - CY Web 以根 `CYID_CONSUMER_VERSION` 宣告已採用的 CYID consumer contract revision。Development／production deploy 前必須確認該 revision 位於 CYID `CONSUMER_MIN_COMPATIBLE_VERSION..CONSUMER_CONTRACT_VERSION` 支援窗內。
 - 若 CYID consumer contract 更新，CY Web 必須依 consumer changelog 判斷 `BACKWARD_COMPATIBLE` 或 `CONSUMER_UPDATE_REQUIRED`；需要更新時在 provider 移除舊 compatibility path 前完成 migration。不得以 app-local workaround 固定舊 Role／Session／App Access／Recovery 語意。
 - App-specific browser/session presentation（例如 SameSite policy）可依 CY Web 實機需求調整，但不得削弱 CYID token 保護、Session authority 或 shared contract。
+- 因 CY Web 與 CYID 位於不同 repository，必須依 CYID `CONSUMER_SYNC_MANIFEST.json` 維護 `docs/contracts/cyid/` read-only mirror；mirror 內 manifest-listed artifacts 必須與 CYID `main` canonical bytes 完全一致，不得直接手改形成平行規格。
+- CYID contract mirror 的唯一更新方式是執行 `bash scripts/sync-cyid-consumer-contract.sh`（或等價受治理 automation）；Governance Check 與 development/production deploy 前必須執行 exact-sync validation，mirror 漂移時不得部署。
 
 ## 8. 上線與驗收
 
