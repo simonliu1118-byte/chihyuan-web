@@ -167,9 +167,11 @@ CY Web is a multi-module exception:
 - normal ADMIN: no Module Access administration;
 - ADMIN with a module: full administration authority inside that module;
 - Identity Admin cannot change its own Module Access;
-- Role changes do not silently add/remove Module Access.
+- Role changes do not silently add/remove Module Access;
+- forward storage authority is direct `app_member_module_access` (Employee × fixed Module code);
+- legacy `app_tags / app_tag_modules / app_member_tags` may remain as metadata/history but do not authorize runtime requests.
 
-Protected Worker/API routes must enforce current Module Access server-side on each relevant request.
+Protected Worker/API routes must enforce current Module Access server-side on each relevant request. Navigation visibility is not an authorization boundary.
 
 ## 11. Activated-account Email recovery
 
