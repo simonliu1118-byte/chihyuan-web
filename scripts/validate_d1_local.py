@@ -23,6 +23,7 @@ EXPECTED_MIGRATIONS = {
     "0002_defect_invalidation.sql",
     "0003_identity_web_sessions.sql",
     "0004_remove_local_identity_sessions.sql",
+    "0005_direct_module_access.sql",
 }
 
 
