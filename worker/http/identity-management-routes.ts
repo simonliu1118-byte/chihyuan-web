@@ -17,12 +17,10 @@ function normalizedApplicationId(env: IdentityRuntimeEnv): string | null {
   const value = env.IDENTITY_APPLICATION_ID?.trim().toUpperCase() ?? "";
   return value.length >= 2 && value.length <= 64 && !/[^A-Z0-9_-]/.test(value) ? value : null;
 }
-
 function normalizedWorkspaceId(env: IdentityRuntimeEnv): string | null {
   const value = env.IDENTITY_WORKSPACE_ID?.trim() ?? "";
   return value.length >= 5 && value.length <= 80 && !/[^A-Za-z0-9_-]/.test(value) ? value : null;
 }
-
 function cookieValue(request: Request, name: string): string | null {
   const raw = request.headers.get("cookie") ?? "";
   for (const part of raw.split(";")) {
@@ -32,34 +30,22 @@ function cookieValue(request: Request, name: string): string | null {
   }
   return null;
 }
-
 function isSessionToken(value: string | null): value is string {
   return Boolean(value && /^cyid_[0-9a-f]{64}$/.test(value));
 }
-
 function providerData(payload: ProviderPayload): Record<string, unknown> {
   const data: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(payload)) if (!PROVIDER_META_KEYS.has(key)) data[key] = value;
   return data;
 }
 
-async function providerResponse(
-  env: IdentityRuntimeEnv,
-  requestId: string,
-  path: string,
-  init: RequestInit,
-): Promise<Response> {
-  if (!env.IDENTITY || typeof env.IDENTITY.fetch !== "function") {
-    return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is not configured" }, requestId, 503);
-  }
+async function providerResponse(env: IdentityRuntimeEnv, requestId: string, path: string, init: RequestInit): Promise<Response> {
+  if (!env.IDENTITY || typeof env.IDENTITY.fetch !== "function") return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is not configured" }, requestId, 503);
   let response: Response;
   try { response = await env.IDENTITY.fetch(new Request(`https://identity.internal${path}`, init)); }
   catch { return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is unavailable" }, requestId, 503); }
-
   const payload = await response.json().catch(() => null) as ProviderPayload | null;
-  if (!payload || typeof payload !== "object") {
-    return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider response is invalid" }, requestId, 503);
-  }
+  if (!payload || typeof payload !== "object") return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider response is invalid" }, requestId, 503);
   if (!response.ok || payload.ok === false) {
     const code = typeof payload.error?.code === "string" ? payload.error.code : "IDENTITY_REQUEST_FAILED";
     const message = typeof payload.error?.message === "string" ? payload.error.message : "Identity request failed";
@@ -67,32 +53,19 @@ async function providerResponse(
   }
   return success(providerData(payload), requestId, { status: response.status });
 }
-
 async function readObject(request: Request): Promise<Record<string, unknown> | null> {
   return request.json().catch(() => null) as Promise<Record<string, unknown> | null>;
 }
-
 function authenticatedHeaders(request: Request, env: IdentityRuntimeEnv): Headers | null {
   const applicationId = normalizedApplicationId(env);
   const token = cookieValue(request, CYWEB_IDENTITY_COOKIE);
   if (!applicationId || !isSessionToken(token)) return null;
-  const headers = new Headers({
-    authorization: `Bearer ${token}`,
-    "x-identity-application": applicationId,
-    "content-type": "application/json; charset=utf-8",
-  });
+  const headers = new Headers({ authorization: `Bearer ${token}`, "x-identity-application": applicationId, "content-type": "application/json; charset=utf-8" });
   const requestId = request.headers.get("x-request-id")?.trim();
   if (requestId) headers.set("x-request-id", requestId);
   return headers;
 }
-
-async function proxyAuthenticated(
-  request: Request,
-  env: IdentityRuntimeEnv,
-  requestId: string,
-  providerPath: string,
-  method: string,
-): Promise<Response> {
+async function proxyAuthenticated(request: Request, env: IdentityRuntimeEnv, requestId: string, providerPath: string, method: string): Promise<Response> {
   const headers = authenticatedHeaders(request, env);
   if (!headers) return failure({ code: "AUTH_REQUIRED", message: "Authentication required" }, requestId, 401);
   let body: string | undefined;
@@ -104,34 +77,18 @@ async function proxyAuthenticated(
   if (method === "GET" || method === "DELETE") headers.delete("content-type");
   return providerResponse(env, requestId, providerPath, { method, headers, body });
 }
-
-async function proxyPublicWorkspace(
-  request: Request,
-  env: IdentityRuntimeEnv,
-  requestId: string,
-  providerPath: string,
-): Promise<Response> {
+async function proxyPublicWorkspace(request: Request, env: IdentityRuntimeEnv, requestId: string, providerPath: string): Promise<Response> {
   const workspaceId = normalizedWorkspaceId(env);
   if (!workspaceId) return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity Workspace is not configured" }, requestId, 503);
   const value = await readObject(request);
   if (value === null) return failure({ code: "INVALID_REQUEST", message: "Request body is invalid" }, requestId, 400);
-  return providerResponse(env, requestId, providerPath, {
-    method: "POST",
-    headers: { "content-type": "application/json; charset=utf-8" },
-    body: JSON.stringify({ ...value, workspaceId }),
-  });
+  return providerResponse(env, requestId, providerPath, { method: "POST", headers: { "content-type": "application/json; charset=utf-8" }, body: JSON.stringify({ ...value, workspaceId }) });
 }
 
-export async function handleIdentityManagementRoute(
-  request: Request,
-  env: IdentityRuntimeEnv,
-  requestId: string,
-): Promise<Response | null> {
+export async function handleIdentityManagementRoute(request: Request, env: IdentityRuntimeEnv, requestId: string): Promise<Response | null> {
   const path = new URL(request.url).pathname;
 
   const publicRoutes: Record<string, string> = {
-    "/api/identity/activation/start": "/v1/identity/activation/start",
-    "/api/identity/activation/confirm": "/v1/identity/activation/confirm",
     "/api/identity/password-recovery/start": "/v1/identity/password-recovery/start",
     "/api/identity/password-recovery/confirm": "/v1/identity/password-recovery/confirm",
   };
@@ -145,92 +102,44 @@ export async function handleIdentityManagementRoute(
   };
   if (request.method === "POST" && selfRoutes[path]) return proxyAuthenticated(request, env, requestId, selfRoutes[path], "POST");
 
-  if (request.method === "GET" && path === "/api/identity/admin/snapshot") {
-    return proxyAuthenticated(request, env, requestId, "/v1/admin/identity/snapshot", "GET");
-  }
-  if (request.method === "GET" && path === "/api/identity/admin/authority") {
-    return proxyAuthenticated(request, env, requestId, "/v1/admin/authority", "GET");
-  }
-  if ((request.method === "GET" || request.method === "PUT") && path === "/api/identity/admin/security-policy") {
-    return proxyAuthenticated(request, env, requestId, "/v1/admin/security-policy", request.method);
-  }
-  if (request.method === "POST" && path === "/api/identity/admin/employees") {
-    return proxyAuthenticated(request, env, requestId, "/v1/admin/identity/employees", "POST");
-  }
-  if (request.method === "POST" && path === "/api/identity/admin/authority-transfer/start") {
-    return proxyAuthenticated(request, env, requestId, "/v1/admin/authority-transfer/start", "POST");
-  }
-  if (request.method === "POST" && path === "/api/identity/admin/authority-transfer/confirm") {
-    return proxyAuthenticated(request, env, requestId, "/v1/admin/authority-transfer/confirm", "POST");
-  }
+  if (request.method === "GET" && path === "/api/identity/admin/snapshot") return proxyAuthenticated(request, env, requestId, "/v1/admin/identity/snapshot", "GET");
+  if (request.method === "GET" && path === "/api/identity/admin/authority") return proxyAuthenticated(request, env, requestId, "/v1/admin/authority", "GET");
+  if ((request.method === "GET" || request.method === "PUT") && path === "/api/identity/admin/security-policy") return proxyAuthenticated(request, env, requestId, "/v1/admin/security-policy", request.method);
+  if (request.method === "POST" && path === "/api/identity/admin/employees") return proxyAuthenticated(request, env, requestId, "/v1/admin/identity/employees", "POST");
+  if (request.method === "POST" && path === "/api/identity/admin/authority-transfer/start") return proxyAuthenticated(request, env, requestId, "/v1/admin/authority-transfer/start", "POST");
+  if (request.method === "POST" && path === "/api/identity/admin/authority-transfer/confirm") return proxyAuthenticated(request, env, requestId, "/v1/admin/authority-transfer/confirm", "POST");
 
   let match = /^\/api\/identity\/admin\/employees\/([^/]+)$/.exec(path);
-  if ((request.method === "PATCH" || request.method === "DELETE") && match) {
-    return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/employees/${encodeURIComponent(match[1])}`, request.method);
-  }
+  if ((request.method === "PATCH" || request.method === "DELETE") && match) return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/employees/${encodeURIComponent(match[1])}`, request.method);
 
+  // Internal compatibility path retained while the UI label is "重寄 Email 驗證".
+  // Provider semantics are one-time initial-password replacement, not activation-link resend.
   match = /^\/api\/identity\/admin\/employees\/([^/]+)\/activation\/resend$/.exec(path);
-  if (request.method === "POST" && match) {
-    return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/employees/${encodeURIComponent(match[1])}/activation/resend`, "POST");
-  }
+  if (request.method === "POST" && match) return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/employees/${encodeURIComponent(match[1])}/activation/resend`, "POST");
 
   match = /^\/api\/identity\/admin\/employees\/([^/]+)\/identity-admin$/.exec(path);
-  if (request.method === "PUT" && match) {
-    return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/employees/${encodeURIComponent(match[1])}/identity-admin`, "PUT");
-  }
+  if (request.method === "PUT" && match) return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/employees/${encodeURIComponent(match[1])}/identity-admin`, "PUT");
 
   match = /^\/api\/identity\/admin\/employees\/([^/]+)\/email-recovery$/.exec(path);
-  if (request.method === "POST" && match) {
-    return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/employees/${encodeURIComponent(match[1])}/email-recovery`, "POST");
-  }
+  if (request.method === "POST" && match) return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/employees/${encodeURIComponent(match[1])}/email-recovery`, "POST");
 
   match = /^\/api\/identity\/admin\/employees\/([^/]+)\/email-verification\/resend$/.exec(path);
-  if (request.method === "POST" && match) {
-    return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/employees/${encodeURIComponent(match[1])}/email-verification/resend`, "POST");
-  }
+  if (request.method === "POST" && match) return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/employees/${encodeURIComponent(match[1])}/email-verification/resend`, "POST");
 
   match = /^\/api\/identity\/admin\/employees\/([^/]+)\/applications\/([^/]+)$/.exec(path);
-  if (request.method === "PUT" && match) {
-    return proxyAuthenticated(
-      request, env, requestId,
-      `/v1/admin/identity/employees/${encodeURIComponent(match[1])}/applications/${encodeURIComponent(match[2])}`,
-      "PUT",
-    );
-  }
+  if (request.method === "PUT" && match) return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/employees/${encodeURIComponent(match[1])}/applications/${encodeURIComponent(match[2])}`, "PUT");
 
   // Legacy Group management stays proxied temporarily for old clients, but the
-  // CY Web 0.2 UI no longer presents it and CYID 0.2 does not authorize from it.
-  if (request.method === "POST" && path === "/api/identity/admin/groups") {
-    return proxyAuthenticated(request, env, requestId, "/v1/admin/identity/groups", "POST");
-  }
+  // current CY Web UI no longer presents it and CYID does not authorize from it.
+  if (request.method === "POST" && path === "/api/identity/admin/groups") return proxyAuthenticated(request, env, requestId, "/v1/admin/identity/groups", "POST");
   match = /^\/api\/identity\/admin\/groups\/([^/]+)$/.exec(path);
-  if (request.method === "PATCH" && match) {
-    return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/groups/${encodeURIComponent(match[1])}`, "PATCH");
-  }
+  if (request.method === "PATCH" && match) return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/groups/${encodeURIComponent(match[1])}`, "PATCH");
   match = /^\/api\/identity\/admin\/groups\/([^/]+)\/members\/([^/]+)$/.exec(path);
-  if (match && (request.method === "PUT" || request.method === "DELETE")) {
-    return proxyAuthenticated(
-      request, env, requestId,
-      `/v1/admin/identity/groups/${encodeURIComponent(match[1])}/members/${encodeURIComponent(match[2])}`,
-      request.method,
-    );
-  }
+  if (match && (request.method === "PUT" || request.method === "DELETE")) return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/groups/${encodeURIComponent(match[1])}/members/${encodeURIComponent(match[2])}`, request.method);
   match = /^\/api\/identity\/admin\/groups\/([^/]+)\/applications\/([^/]+)$/.exec(path);
-  if (request.method === "PUT" && match) {
-    return proxyAuthenticated(
-      request, env, requestId,
-      `/v1/admin/identity/groups/${encodeURIComponent(match[1])}/applications/${encodeURIComponent(match[2])}`,
-      "PUT",
-    );
-  }
+  if (request.method === "PUT" && match) return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/groups/${encodeURIComponent(match[1])}/applications/${encodeURIComponent(match[2])}`, "PUT");
   match = /^\/api\/identity\/admin\/applications\/([^/]+)\/compatibility-role-mode$/.exec(path);
-  if (request.method === "PUT" && match) {
-    return proxyAuthenticated(
-      request, env, requestId,
-      `/v1/admin/identity/applications/${encodeURIComponent(match[1])}/compatibility-role-mode`,
-      "PUT",
-    );
-  }
+  if (request.method === "PUT" && match) return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/applications/${encodeURIComponent(match[1])}/compatibility-role-mode`, "PUT");
 
   return null;
 }
