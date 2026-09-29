@@ -1,6 +1,6 @@
 # Chihyuan Domain Strategy
 
-Status: `chihyuancm.com` registered; CYAccountingWeb `acc.chihyuancm.com` live; other app rollouts pending
+Status: `chihyuancm.com` registered; CYAccountingWeb `acc.chihyuancm.com` live; CY Web canonical hostname fixed as `admin.chihyuancm.com`
 
 This document records the current domain direction for Chihyuan's public website and CY-family Web systems. It is an architecture/operations planning note, not a permanent governance rule.
 
@@ -33,6 +33,8 @@ auth.chihyuancm.com            Shared identity / future CYCloud Identity
 portal.chihyuancm.com          Future unified CY system portal, when needed
 api.chihyuancm.com             Reserved for truly shared/API services when needed
 ```
+
+`admin.chihyuancm.com` is the permanent canonical user-facing hostname for CY Web. CY Web does **not** use a separate `dev-admin.*` hostname. Development browser/E2E acceptance may temporarily run against a development Worker/database behind this canonical hostname; later production cutover changes the Cloudflare backing Worker/database, not the public URL.
 
 `acc.chihyuancm.com` is the confirmed CYAccountingWeb user-facing hostname. The shorter `acc` label is intentional for routine business use and replaces the earlier planning placeholder `accounting.chihyuancm.com`.
 
@@ -68,6 +70,14 @@ The official website is public-facing. Internal/business systems may require aut
 - Keep 2FA, registrar lock, DNSSEC where supported, recovery codes, and organizational backup administration enabled for the registrar/DNS account.
 - Do not commit Cloudflare credentials, account/zone identifiers, origin secrets, private keys, production database identifiers, or other sensitive deployment metadata into the Public repository.
 
+### CY Web canonical-hostname rule
+
+- Canonical URL: `https://admin.chihyuancm.com`.
+- User-facing Identity links (first activation, Email re-verification, password/account flows) should point to the canonical URL once the CYCloud Identity portal setting is updated.
+- The development Worker may keep its `workers.dev` URL enabled strictly as a technical fallback and diagnostics endpoint.
+- The canonical hostname is managed as a Cloudflare Worker Custom Domain in the CY Web deployment contract rather than as an ad-hoc manual DNS record.
+- Future development-to-production cutover must preserve `admin.chihyuancm.com`; only the backing Worker/database boundary changes.
+
 ## 5. Cloudflare direction
 
 - Cloudflare Registrar currently holds `chihyuancm.com`.
@@ -82,27 +92,35 @@ The official website is public-facing. Internal/business systems may require aut
 - Production deployment contract now carries an App-scoped hostname variable rather than a generic shared domain variable.
 - CYAccountingWeb explicitly retains its `workers.dev` URL as a technical fallback during this stage.
 - User smoke testing of the Custom Domain succeeded on 2026-09-29.
-- This rollout does not imply that `admin.chihyuancm.com`, `auth.chihyuancm.com`, `invoice.chihyuancm.com`, or the public website hostname have completed their own rollout.
+- This rollout does not imply that `auth.chihyuancm.com`, `invoice.chihyuancm.com`, or the public website hostname have completed their own rollout.
+
+### CY Web rollout status
+
+- `admin.chihyuancm.com` is fixed as the CY Web canonical hostname and is being brought under the governed CY Web deployment contract.
+- CY Web intentionally skips a separate development hostname so Identity/browser acceptance occurs on the long-term origin from this point forward.
+- During the current development phase, the canonical hostname may resolve to the development CY Web Worker/D1.
+- Production acceptance later rebinds the same hostname to production CY Web resources; this is an infrastructure cutover, not a user-facing URL migration.
+- `workers.dev` remains enabled as a technical fallback until a later explicit decision removes it.
 
 ## 6. Rollout timing
 
-Domain naming is fixed now, but production DNS/custom-domain binding does not need to happen during early foundation development.
+Domain naming is fixed now. Individual applications may bind their canonical hostname earlier than final production when doing so materially improves browser/session/Identity acceptance, provided the backing environment remains explicit and governed.
 
-Preferred rollout sequence:
+CY Web is intentionally taking this path because activation links, HttpOnly cookies, TLS/origin behavior and account-management E2E should be accepted on the same long-term hostname users will keep.
+
+Current CY Web sequence:
 
 ```text
-application foundation
-→ Identity/session/permission acceptance
-→ production Worker / database boundary
-→ major business workflows and UI nearing acceptance
-→ bind production custom hostname(s)
-→ verify TLS, redirects, cookies/session boundaries and browser/device access
+Identity/session/permission foundation
+→ bind admin.chihyuancm.com to governed development deployment
+→ verify TLS, same-origin APIs, cookies/session boundaries and Identity deep links
+→ complete role/Access/module/business-data acceptance
+→ prepare production Worker / production D1 / backup boundary
+→ rebind the same admin.chihyuancm.com hostname to production resources
 → final production acceptance
 ```
 
-This keeps the domain strategy stable without making DNS/custom-domain rollout an early-development dependency.
-
-CYAccountingWeb has reached the custom-hostname rollout stage independently of CY Web. Binding `acc.chihyuancm.com` does not require waiting for the CY Web or CYCloud Identity production-domain rollout because each application keeps its own origin/session boundary.
+CYAccountingWeb reached its custom-hostname rollout independently. Binding `acc.chihyuancm.com` does not require waiting for CY Web or CYCloud Identity production-domain rollout because each application keeps its own origin/session boundary.
 
 ## 7. Ownership
 
@@ -111,5 +129,9 @@ Domain namespace planning for the official website and CY-family Web systems is 
 The confirmed baseline is:
 
 > `chihyuancm.com` is the shared Chihyuan parent domain for the future official website and internal/business Web systems, with separate subdomains/origins and security boundaries for each application.
+
+For CY Web specifically:
+
+> `https://admin.chihyuancm.com` is the permanent canonical URL. Environment changes may replace the backing Worker/database but must not introduce a new user-facing CY Web hostname without an explicit business decision.
 
 Future changes to the parent-domain strategy require an explicit business decision.

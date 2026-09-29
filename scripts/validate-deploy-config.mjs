@@ -8,6 +8,7 @@ const output = path.join(temporary, "wrangler.generated.jsonc");
 
 const env = {
   CF_WORKER_NAME: "cyweb-ci",
+  CF_PUBLIC_HOSTNAME: "admin.chihyuancm.com",
   CF_D1_DATABASE_NAME: "cyweb-ci-db",
   CF_D1_DATABASE_ID: "11111111-1111-4111-8111-111111111111",
   CF_IDENTITY_SERVICE: "cycloud-identity-ci-placeholder",
@@ -21,6 +22,10 @@ try {
   const config = JSON.parse(raw);
 
   if (config.name !== env.CF_WORKER_NAME) throw new Error("worker name mismatch");
+  if (config.workers_dev !== true) throw new Error("workers.dev fallback must remain enabled");
+  if (config.routes?.length !== 1) throw new Error("canonical Custom Domain route missing");
+  if (config.routes[0]?.pattern !== env.CF_PUBLIC_HOSTNAME) throw new Error("public hostname mismatch");
+  if (config.routes[0]?.custom_domain !== true) throw new Error("public hostname must be a Custom Domain");
   if (config.d1_databases?.[0]?.binding !== "DB") throw new Error("DB binding missing");
   if (config.d1_databases?.[0]?.database_id !== env.CF_D1_DATABASE_ID) {
     throw new Error("D1 database id mismatch");
@@ -39,11 +44,19 @@ try {
 
   let missingRejected = false;
   try {
-    renderDeployConfig({ env: { ...env, CF_IDENTITY_WORKSPACE_ID: "" }, outputPath: output });
+    renderDeployConfig({ env: { ...env, CF_PUBLIC_HOSTNAME: "" }, outputPath: output });
   } catch {
     missingRejected = true;
   }
   if (!missingRejected) throw new Error("missing deployment variable was not rejected");
+
+  let invalidRejected = false;
+  try {
+    renderDeployConfig({ env: { ...env, CF_PUBLIC_HOSTNAME: "https://admin.chihyuancm.com" }, outputPath: output });
+  } catch {
+    invalidRejected = true;
+  }
+  if (!invalidRejected) throw new Error("hostname with URL scheme was not rejected");
 
   console.log("PASS Cloudflare deployment config render contract");
 } finally {

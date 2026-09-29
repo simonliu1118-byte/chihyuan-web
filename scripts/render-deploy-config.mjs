@@ -9,6 +9,7 @@ const DEFAULT_TEMPLATE = path.join(ROOT, "wrangler.deploy.template.jsonc");
 
 const REQUIRED = {
   CF_WORKER_NAME: "__CF_WORKER_NAME__",
+  CF_PUBLIC_HOSTNAME: "__CF_PUBLIC_HOSTNAME__",
   CF_D1_DATABASE_NAME: "__CF_D1_DATABASE_NAME__",
   CF_D1_DATABASE_ID: "__CF_D1_DATABASE_ID__",
   CF_IDENTITY_SERVICE: "__CF_IDENTITY_SERVICE__",
@@ -26,6 +27,9 @@ function validateValues(values) {
   const workerLike = /^[a-z0-9][a-z0-9._-]{1,62}$/i;
   if (!workerLike.test(values.CF_WORKER_NAME)) {
     throw new Error("CF_WORKER_NAME has an invalid format.");
+  }
+  if (!/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(values.CF_PUBLIC_HOSTNAME)) {
+    throw new Error("CF_PUBLIC_HOSTNAME must be a valid hostname.");
   }
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(values.CF_D1_DATABASE_NAME)) {
     throw new Error("CF_D1_DATABASE_NAME has an invalid format.");

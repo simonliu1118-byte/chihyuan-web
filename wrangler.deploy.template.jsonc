@@ -3,6 +3,13 @@
   "name": "__CF_WORKER_NAME__",
   "main": "./worker/index.ts",
   "compatibility_date": "2026-09-28",
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "__CF_PUBLIC_HOSTNAME__",
+      "custom_domain": true
+    }
+  ],
   "assets": {
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"]
