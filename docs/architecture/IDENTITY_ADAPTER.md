@@ -1,33 +1,32 @@
 # CY Web Identity Adapter — CYCloud Identity Contract
 
-> **Status: approved CY Web target boundary; CYCloud Identity 0.2.0 source is merged, coordinated development deployment/acceptance remains pending.**
+> **Status: CYCloud Identity 0.3 / CY Web 0.3 first-login contract.**
 >
-> The currently deployed development CYCloud Identity runtime may still be the previous 0.1.x generation until the governed 0.2.0 deployment is completed. CY Web 0.2.0 consumer source converges on this document and CYCloud Identity `docs/ROLE_AND_ACCESS_MODEL.md`; do not extend the legacy Group model.
+> CY Web consumes shared identity authority from CYCloud Identity (CYID). Identity Group compatibility data may remain during migration, but forward authorization uses direct Workspace role, Identity Admin capability and direct Application Access.
 
 ## 1. Purpose
 
-CY Web consumes shared Workspace / Employee / Credential / Workspace Role / Identity Admin capability / Application Access / Session / OTP / Recovery authority from **CYCloud Identity** through a private Cloudflare Service Binding.
+CY Web consumes shared Workspace / Employee / Credential / Workspace Role / Identity Admin capability / Application Access / Session / Email verification / Recovery authority from **CYCloud Identity** through a private Cloudflare Service Binding.
 
-Business modules consume one CY Web-local normalized principal. They must not depend on Identity D1 tables, credential algorithms, OTP/recovery internals or provider transport details.
+Business modules consume one CY Web-local normalized principal. They must not depend on Identity D1 tables, credential algorithms, temporary first-login credentials, OTP/recovery internals or provider transport details.
 
 ## 2. Authority split
 
 ### CYCloud Identity owns
 
-- Workspace identity and lifecycle;
-- Employee identity and stable employee ID;
-- Employee number, display name, Email state and enabled/revision state;
-- credential verification and credential version;
-- Workspace role: `SUPER_ADMIN / ADMIN / USER`;
+- Workspace and Employee identity/lifecycle;
+- employee number, display name, Email state and enabled/revision state;
+- permanent and temporary credential verification;
+- Workspace role `SUPER_ADMIN / ADMIN / USER`;
 - protected Super Admin authority pointer;
 - `Identity Admin` capability on ADMIN;
 - Workspace/Application enablement and App-level entry Access;
 - Identity session creation, validation, expiry and revocation;
-- Email OTP, recovery and shared account lifecycle.
+- first-login Email verification, password recovery and Email recovery.
 
-Super Admin is a protected authority pointer. CY Web receives provider authority and must not reconstruct Super Admin from editable local data.
+Super Admin is a protected authority pointer. CY Web receives provider authority and must not reconstruct it from editable local data.
 
-Identity Admin is a provider-owned ADMIN capability. CY Web may use that capability to authorize Module Access administration, but cannot grant/revoke it locally.
+Identity Admin is a provider-owned ADMIN capability. CY Web may use it to authorize Module Access administration, but cannot grant/revoke it locally.
 
 ### CY Web owns
 
@@ -37,21 +36,17 @@ Identity Admin is a provider-owned ADMIN capability. CY Web may use that capabil
 - domain-specific authorization inside each workflow;
 - CY Web audit events for protected CY Web operations.
 
-CY Web Module Access is not duplicated back into CYID as a universal permission catalog.
+CY Web Module Access is not duplicated into CYID as a universal permission catalog.
 
 ## 3. Core CY Web entry rule
 
-CY Web is the core account-management application.
-
-Every valid Employee must be able to enter CY Web even with zero business Module Access so they can manage their own account.
-
-Conceptually:
+CY Web is the core account-management application. Every valid activated Employee must be able to enter CY Web even with zero business Module Access so they can manage their own account.
 
 ```text
 CYWEB entry access = TRUE (locked / non-revocable)
 ```
 
-A consumer-side missing business Module grant must never prevent self-service account access. CY Web-local member state is a module projection and must not become a second shell-entry switch.
+A first-time unverified Employee is a special pre-session case: they may submit the Email-delivered one-time password only to enter the mandatory password-replacement flow. That temporary authority is **not** CY Web business/application access and does not create a normal session.
 
 ## 4. Role contract
 
@@ -63,13 +58,11 @@ CYID ADMIN       -> CY Web ADMIN
 CYID USER        -> CY Web USER
 ```
 
-No Identity Group-to-role translation is part of the forward contract.
-
-`Identity Admin` is an extra capability on `ADMIN`, not a fourth CY Web role.
+No Identity Group-to-role translation is part of the forward contract. `Identity Admin` is an extra capability on `ADMIN`, not a fourth role.
 
 ## 5. Normalized principal
 
-The CY Web 0.2 consumer normalizes at least:
+Normal authenticated sessions normalize at least:
 
 ```ts
 interface IdentityPrincipal {
@@ -86,50 +79,74 @@ interface IdentityPrincipal {
 }
 ```
 
-`isWorkspaceSuperAdmin` remains a stable compatibility/protection signal and must agree with `workspaceRole === "SUPER_ADMIN"`. Legacy `groupKeys` may remain temporarily as descriptive compatibility data, but CY Web authorization must not depend on it.
+`isWorkspaceSuperAdmin` must agree with `workspaceRole === "SUPER_ADMIN"`. Legacy `groupKeys` may remain temporarily as descriptive compatibility data, but CY Web authorization must not depend on it.
 
-## 6. Browser session transport
-
-CYCloud Identity owns the session record and revocation authority.
-
-CY Web browser flow:
+## 6. Normal browser session transport
 
 ```text
 Browser
-  ↓ POST /api/auth/login (employeeNo + password)
+  ↓ POST /api/auth/login (employeeNo + permanent password)
 CY Web Worker
   ↓ private IDENTITY Service Binding
-CYCloud Identity /v1/identity/login
+CYID /v1/identity/login
   ↓ opaque Identity session token
 CY Web Worker
   ↓ HttpOnly / Secure / SameSite=Strict cookie
 Browser
 ```
 
-Later requests resolve the opaque token through CYCloud Identity. CY Web does not persist a duplicate Identity browser session authority in its own D1.
+Later requests resolve the opaque token through CYID. CY Web does not persist a duplicate Identity browser-session authority in its own D1.
 
-Logout calls CYCloud Identity before clearing the browser cookie. If Identity is unavailable, CY Web does not report a successful provider revocation.
+Logout calls CYID before clearing the browser cookie. If Identity is unavailable, CY Web does not report a successful provider revocation.
 
-## 7. Module Access
+## 7. First-time Email verification / forced password replacement
+
+The old activation-link + activation-OTP flow is retired.
+
+A newly created Employee is shown as:
+
+```text
+Email: 尚未驗證
+狀態: 尚未驗證
+```
+
+Creation flow:
+
+1. manager creates the User and selects an allowed initial role;
+2. CYID creates the never-activated account with no permanent credential;
+3. CYID generates an 8-character random **一次性預設密碼** and sends an Email containing the 4-digit account number and that password; the Email does not need an activation link;
+4. the User opens the normal CY Web login at `https://admin.chihyuancm.com` and submits account number + one-time password;
+5. successful verification returns only a short-lived `first-login` ticket; it does **not** create an Identity session and cannot authorize modules or other Apps;
+6. CY Web forces the User to set a new 8–16-character permanent password before any normal session exists;
+7. successful completion atomically creates the permanent credential, marks Email verified, writes first activation, enables the account, invalidates/removes the temporary credential and then creates the normal Identity session;
+8. the User enters CY Web directly after password replacement.
+
+The one-time password plaintext exists only for Email delivery. CY Web never receives it back from CYID except as the user's login input, never stores it, and never implements its verifier.
+
+Pending-row actions are:
+
+```text
+編輯 | 重寄 Email 驗證 | 刪除
+```
+
+`重寄 Email 驗證` generates a new one-time default password and invalidates the previous one. Email delivery failure must not delete the User; preserve the `尚未驗證` account and allow resend.
+
+The login page therefore has no separate `啟用帳號` entry and no `?activate=1` deep-link flow.
+
+## 8. Module Access
 
 CY Web is a multi-module exception among CY Apps.
-
-Initial rules:
 
 - `SUPER_ADMIN`: all modules automatically allowed / locked;
 - `Identity Admin`: may configure eligible USER / ADMIN / other Identity Admin Module Access, except its own;
 - `ADMIN`: no Module Access configuration capability;
 - `USER`: receives only module/business permissions granted under CY Web-local policy;
 - an `ADMIN` with a module Access has full administration authority inside that module;
-- Role change does not silently change Module Access.
+- role change does not silently change Module Access.
 
-Identity Admin's own Module Access must be changed by another Identity Admin or Super Admin.
+Identity Admin's own Module Access must be changed by another Identity Admin or Super Admin. Super Admin Module Access is not represented as cancellable ordinary rows.
 
-Super Admin Module Access is not represented as cancellable ordinary rows.
-
-## 8. Account-management UI authorization
-
-CY Web hosts the Shared Identity management UI but provider authorization remains authoritative.
+## 9. Account-management UI authorization
 
 ### USER
 
@@ -160,45 +177,22 @@ CY Web hosts the Shared Identity management UI but provider authorization remain
 - Workspace Recovery/security-core/OTP policy;
 - automatic all-App/all-CY-Web-module access.
 
-## 9. Employee activation UX
+## 10. Forced Email recovery for an activated account
 
-Employee creation/activation behavior:
+Identity Admin / Super Admin may replace an activated User's unusable Email. This is distinct from first-time verification.
 
-1. manager creates Employee and chooses an allowed initial role;
-2. CYID creates the pending Employee;
-3. CYID automatically sends the first activation Email;
-4. Email contains a link opening CY Web activation UI;
-5. link itself is not an authentication credential;
-6. CY Web obtains/reuses the active activation challenge and asks for the 6-digit OTP from the Email;
-7. Employee completes OTP verification and first-password setup;
-8. account becomes enabled.
-
-Pending management actions include:
-
-```text
-編輯 | 重寄啟用信 | 刪除
-```
-
-Email delivery failure must not delete the created Employee; show failure and allow resend.
-
-## 10. Forced Email recovery
-
-Identity Admin / Super Admin may replace an activated Employee's unusable Email.
-
-CY Web renders the resulting state distinctly, for example:
+CY Web renders the state distinctly, for example:
 
 ```text
 啟用 · Email 待驗證
 ```
 
-The account remains activated, password remains, sessions are revoked, and the new Email requires verification. It does not revert to first-time pending activation.
+The account remains activated, the permanent password remains, sessions are revoked, and the replacement Email uses the activated-account verification flow. It does not revert to first-time `尚未驗證`.
 
 ## 11. Authorization layering
 
-Authorization has four practical layers:
-
-1. CYCloud Identity authenticates Employee and resolves current Workspace Role / Identity Admin capability.
-2. CYCloud Identity enforces App-level entry authority; CY Web entry is the mandatory core exception.
+1. CYID authenticates Employee and resolves current Workspace Role / Identity Admin capability.
+2. CYID enforces App-level entry authority; CY Web is the mandatory core exception.
 3. CY Web enforces Module Access server-side.
 4. The target domain service enforces operation-specific business rules / USER-level finer permissions.
 
@@ -206,25 +200,22 @@ UI hiding is never sufficient authorization.
 
 ## 12. Immediate effect
 
-At minimum:
-
 - Employee disabled -> provider session invalid;
-- role change -> provider session revoked/re-established under the new role;
+- role change -> provider session revoked/re-established under new role;
 - App Access removal -> affected App session can no longer authorize;
 - forced Email recovery -> provider sessions revoked;
-- CY Web Module Access change -> subsequent protected API requests use the new authorization;
-- browser stale navigation never preserves removed authority.
+- CY Web Module Access change -> subsequent protected API requests use new authorization;
+- stale browser navigation never preserves removed authority.
 
-## 13. Login and password boundary
+## 13. Password boundary
 
 CY Web does not implement password hashing or credential verification.
 
-Input boundary remains:
-
 - employee number: exactly 4 digits;
-- password: 8–16 Unicode characters.
+- one-time default password supplied by CYID: 8 random characters;
+- permanent password: 8–16 Unicode characters.
 
-CYCloud Identity performs actual credential verification.
+CYID performs all credential verification. A successful one-time-password check yields only the short-lived first-login ticket. Only permanent-password completion may lead to a normal session.
 
 ## 14. Error normalization
 
@@ -234,31 +225,35 @@ CYCloud Identity performs actual credential verification.
 | Identity session invalid/revoked | 401 | `AUTH_INVALID` |
 | bad employee number/password | 401 | `LOGIN_FAILED` |
 | malformed login input | 400 | `INVALID_LOGIN_REQUEST` |
+| first-login ticket invalid/expired | 400 | `FIRST_LOGIN_EXPIRED` / `INVALID_FIRST_LOGIN` |
 | authenticated but CY Web module operation denied | 403 | `ACCESS_DENIED` |
 | login rate limited | 429 | `LOGIN_RATE_LIMITED` |
 | Identity provider unavailable/invalid response | 503 | `IDENTITY_UNAVAILABLE` |
 
-Provider-specific internal messages are not forwarded directly to the browser where doing so would expose internal/runtime detail.
+Provider-specific internal messages are not forwarded directly when doing so would expose runtime detail.
 
 ## 15. Legacy compatibility boundary
 
-CYID 0.2.0 may temporarily keep old Group tables/endpoints and descriptive compatibility fields so existing consumers can migrate safely. They are not effective forward authorization sources.
+Legacy Group tables/endpoints and descriptive fields may remain temporarily so older consumers can migrate safely. They are not effective forward authorization sources.
 
-CY Web 0.2 must not:
+CY Web must not:
 
 - derive Role from Identity Group membership;
 - present Group-to-App compatibility role as the forward management model;
 - use `groupKeys` to grant module or Workspace authority;
-- let local `app_members.is_active` revoke the mandatory CY Web account shell.
+- let local `app_members.is_active` revoke the mandatory CY Web account shell;
+- restore the retired public activation-link / activation-OTP flow.
+
+The internal admin path currently named `activation/resend` may remain temporarily as a compatibility transport name; its user-visible and provider semantics are `重寄 Email 驗證` by replacing the one-time initial password.
 
 ## 16. Cross-project boundary
 
-CYCloud Identity is the shared authority for **CY Web**, **CYAccountingWeb (CYACC-web)**, **CYInvoice**, and future CY Apps as they migrate.
+CYID is the shared authority for **CY Web**, **CYAccountingWeb (CYACC-web)**, **CYInvoice**, and future CY Apps as they migrate.
 
 - CY Web does not read or mutate CYInvoice D1/runtime/device lifecycle;
-- CYInvoice integration remains a separate CYInvoice workstream and is reference-only from this CY Web workstream;
-- CYAccountingWeb (CYACC-web) remains a separate consumer integration workstream; this CY Web migration does not modify its runtime;
-- CYInvoice-specific Device/local/offline behavior stays CYInvoice-specific unless separately promoted into a shared contract.
+- CYInvoice integration remains a separate CYInvoice workstream and is reference-only from this workstream;
+- CYAccountingWeb remains a separate consumer integration workstream;
+- CYInvoice-specific Device/local/offline behavior remains CYInvoice-specific unless separately promoted into a shared contract.
 
 ## 17. Public repository boundary
 
