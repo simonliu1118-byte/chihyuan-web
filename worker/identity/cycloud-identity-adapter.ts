@@ -1,4 +1,4 @@
-import type { IdentityAdapter, IdentityPrincipal, IdentityResolution } from "./contract";
+import type { IdentityAdapter, IdentityPrincipal, IdentityResolution, WorkspaceRole } from "./contract";
 
 export const CYWEB_IDENTITY_COOKIE = "cyweb_identity_session";
 
@@ -7,8 +7,12 @@ interface ProviderPrincipal {
   employeeId?: unknown;
   employeeNo?: unknown;
   displayName?: unknown;
+  workspaceRole?: unknown;
+  isIdentityAdmin?: unknown;
+  emailVerified?: unknown;
   isWorkspaceSuperAdmin?: unknown;
   groupKeys?: unknown;
+  applicationRoleKey?: unknown;
   credentialVersion?: unknown;
   employeeRevision?: unknown;
 }
@@ -66,6 +70,7 @@ function cookieValue(request: Request, name: string): string | null {
 }
 
 function normalizeGroupKeys(value: unknown): string[] | null {
+  if (value === undefined) return [];
   if (!Array.isArray(value) || value.length > 100) return null;
   const result: string[] = [];
   const seen = new Set<string>();
@@ -81,6 +86,10 @@ function normalizeGroupKeys(value: unknown): string[] | null {
   return result;
 }
 
+function normalizeWorkspaceRole(value: unknown): WorkspaceRole | null {
+  return value === "USER" || value === "ADMIN" || value === "SUPER_ADMIN" ? value : null;
+}
+
 function nonNegativeInteger(value: unknown): number | null {
   const number = Number(value);
   return Number.isSafeInteger(number) && number >= 0 ? number : null;
@@ -91,9 +100,15 @@ function normalizePrincipal(value: ProviderPrincipal | undefined): IdentityPrinc
   const employeeId = typeof value?.employeeId === "string" ? value.employeeId.trim() : "";
   const employeeNo = typeof value?.employeeNo === "string" ? value.employeeNo.trim() : "";
   const displayName = typeof value?.displayName === "string" ? value.displayName.trim() : "";
+  const workspaceRole = normalizeWorkspaceRole(value?.workspaceRole ?? value?.applicationRoleKey);
   const groupKeys = normalizeGroupKeys(value?.groupKeys);
   const credentialVersion = nonNegativeInteger(value?.credentialVersion);
   const employeeRevision = nonNegativeInteger(value?.employeeRevision);
+  const superAdmin = typeof value?.isWorkspaceSuperAdmin === "boolean"
+    ? value.isWorkspaceSuperAdmin
+    : workspaceRole === "SUPER_ADMIN";
+  const identityAdmin = typeof value?.isIdentityAdmin === "boolean" ? value.isIdentityAdmin : false;
+  const emailVerified = typeof value?.emailVerified === "boolean" ? value.emailVerified : true;
 
   if (
     workspaceId.length < 5
@@ -103,10 +118,12 @@ function normalizePrincipal(value: ProviderPrincipal | undefined): IdentityPrinc
     || !/^\d{4}$/.test(employeeNo)
     || !displayName
     || displayName.length > 200
-    || typeof value?.isWorkspaceSuperAdmin !== "boolean"
+    || !workspaceRole
     || !groupKeys
     || credentialVersion === null
     || employeeRevision === null
+    || superAdmin !== (workspaceRole === "SUPER_ADMIN")
+    || (identityAdmin && workspaceRole !== "ADMIN")
   ) {
     return null;
   }
@@ -116,7 +133,10 @@ function normalizePrincipal(value: ProviderPrincipal | undefined): IdentityPrinc
     employeeId,
     employeeNo,
     displayName,
-    isWorkspaceSuperAdmin: value.isWorkspaceSuperAdmin,
+    workspaceRole,
+    isIdentityAdmin: identityAdmin,
+    emailVerified,
+    isWorkspaceSuperAdmin: superAdmin,
     groupKeys,
     credentialVersion,
     employeeRevision,
