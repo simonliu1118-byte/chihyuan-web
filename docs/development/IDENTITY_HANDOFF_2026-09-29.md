@@ -7,14 +7,15 @@
 ## Baseline
 
 - Repository: `simonliu1118-byte/chihyuan-web`
-- Current version: `0.1.49`
+- Current version: `0.1.50`
 - Shared Identity management PR: `#55`
 - Highest-authority disable-action UI correction: PR `#56`, no extra version bump
-- Latest manual development deployment after PR `#56`: successful
+- Invalid-provider-session live gate: merged in PR `#58`
+- Manual Development Deploy run `#20`: successful, including deployed invalid-provider-session acceptance
 - Identity provider: CYCloud Identity through the private Worker Service Binding
 - CY Web no longer owns a shared Identity session table or credential authority
 
-## Already accepted in the browser
+## Already accepted in the browser/runtime
 
 Using the first development Workspace highest-authority account:
 
@@ -25,6 +26,15 @@ Using the first development Workspace highest-authority account:
 - F5 after logout remains logged out
 - `帳號與權限` page loads Shared Identity data
 - highest-authority-only sections render for the highest-authority account
+
+Using the deployed CY Web runtime acceptance gate:
+
+- a syntactically supplied but provider-invalid Identity session is rejected through the real CY Web → CYCloud Identity binding
+- CY Web returns HTTP `401` with `AUTH_INVALID`
+- CY Web clears the `cyweb_identity_session` browser cookie
+- no real password, OTP or live Employee session token is used by this acceptance gate
+
+Literal expired-session evidence remains separate and is not yet accepted.
 
 ## Current UI surface
 
@@ -67,7 +77,7 @@ CYInvoice compatibility-role decision consumed from Identity:
 
 ## Next browser acceptance
 
-1. Test invalid/expired Identity session handling through CY Web.
+1. Obtain literal expired-session handling evidence through CY Web. Invalid-session handling is already accepted by Development Deploy run `#20` and must not be conflated with expiry.
 2. Create one ordinary development test Employee from `帳號與權限`.
 3. Activate that Employee from the login page using Email OTP and set the first password.
 4. Log in as the ordinary Employee and verify only self-service is visible; Workspace management/OTP/highest-authority sections must be absent.
@@ -100,4 +110,4 @@ The Identity provider implementation and fuller continuation handoff live in the
 - `apps/CYCloudIdentity/docs/OTP_SECURITY.md`
 - `apps/CYCloudIdentity/docs/UI_ACCESS.md`
 
-CYInvoice remains reference-only here. Do not modify CYInvoice from the CY Web conversation.
+CYACC-web and CYInvoice are separate Shared Identity consumer integration workstreams. This CY Web conversation coordinates the shared contract/handoff; CYInvoice remains reference-only here and must not be modified from this conversation.
