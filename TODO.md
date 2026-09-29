@@ -2,108 +2,92 @@
 
 > 本文件只記錄 **current implementation status 與下一步**；不是永久規則來源，也不重複保存 Business Decision、module contract 或 architecture semantics。
 
-## Current checkpoint — 2026-09-29
+## Current checkpoint — 2026-09-30
 
-- Formal baseline remains `main`; current CY Web line is `0.2.4`, development-deployed.
-- CYCloud Identity `0.2.1` is merged and development-deployed. `0006` repaired the first-activation Email-verification race introduced by the former credential trigger; verified activation state is again durable and consistent.
-- CYID 0.2 replaces Group-derived authorization with direct Workspace roles `SUPER_ADMIN / ADMIN / USER`, ADMIN-only `Identity Admin` capability, direct Employee App Access, durable activation state, create-time activation Email, pending resend/edit/delete, and activated-account forced Email recovery.
-- CY Web normalizes `workspaceRole / isIdentityAdmin / emailVerified` and keeps legacy `groupKeys` descriptive only.
-- CY Web shell entry is Identity-authoritative and mandatory for every valid Employee. Local `app_members.is_active` is no longer allowed to block the account-management shell; it remains a CY Web-local module projection only.
-- Super Admin module access is protected and automatic. CY Web Module Access remains CY Web-owned; Identity Admin / Super Admin will manage eligible accounts, normal ADMIN has no Access-management authority, and ADMIN with a granted module has full administration authority in that module.
-- Shared Identity management UI has been migrated away from the forward Group/`USER_ADMIN` surface: permission-aware Employee lifecycle, direct App Access, Identity Admin controls, forced Email recovery, and Super-Admin-only security controls are represented.
-- Pending lifecycle uses durable first activation (`activated_at`) rather than `email_verified_at`; an activated Employee whose Email is replaced remains `啟用 · Email 待驗證`, not first-time pending.
-- User-account UI uses 使用者 terminology, Chinese permission labels, compact account controls and Email verification pills. Email verified/unverified state is now shown inline beside the Email address.
-- Employee creation expects create-time permission selection and reports whether the first activation Email was sent. Pending actions are edit / resend / delete.
-- Activation Email deep links use `?activate=1&employeeNo=####` to open CY Web directly in the activation flow. CY Web asks CYID for the existing active challenge; the URL itself is not an authentication credential and OTP + first password remain mandatory.
-- `https://admin.chihyuancm.com` is live and fixed as the permanent CY Web canonical user-facing URL. No separate `dev-admin.*` hostname is used. Development acceptance currently runs against development Worker/D1 behind that hostname; future production cutover changes backing resources without changing the public URL.
-- CY Web deployment uses governed `deploy/cyweb-development` branch push. The canonical hostname is part of the Wrangler deployment contract; deployment acceptance verifies TLS/custom-domain routing, same-origin auth API behavior, invalid-session cookie clearing, and the `workers.dev` technical fallback.
-- CYInvoice remains unchanged/reference-only in this workstream. CYAccountingWeb (CYACC-web) and CYInvoice integrations occur in their own workstreams after the shared contract is accepted.
+- Current source line on this documentation-consolidation branch is **CY Web 0.2.5 Build 0**. The currently deployed development runtime remains **0.2.4**; this docs-only change does not itself require a runtime deployment.
+- CYCloud Identity formal `main` and development runtime remain **0.2.1 Build 0**. Direct Workspace Role `SUPER_ADMIN / ADMIN / USER`, ADMIN-only Identity Admin capability, direct Employee App Access and current session model are already deployed.
+- CYID PR #214 is the approved **0.3.0 first-login Email verification** workstream. Its CI validates source/migrations, but PR validation does not deploy development.
+- Finalized first-login product flow: create Employee -> CYID sends **Email 驗證** message with expiring one-time first-login password -> user enters through the ordinary CY Web login screen -> CYID returns first-login ticket only -> CY Web forces permanent-password creation -> CYID completes Email verification and invalidates temporary credential -> **no normal Session is issued** -> CY Web returns to login -> user logs in again with the new permanent password.
+- CY Web will remove the separate「啟用帳號」entry. External terminology remains **Email 驗證**; resend action is **重寄驗證 Email**.
+- First-login credential expiry, resend invalidation and pending-Email-change invalidation are part of the forward shared contract.
+- CY Web already normalizes `workspaceRole / isIdentityAdmin / emailVerified`; legacy `groupKeys` is descriptive only.
+- CY Web shell entry is Identity-authoritative and mandatory for every valid Employee. CY Web Module Access remains CY Web-owned and requires server-side enforcement.
+- `https://admin.chihyuancm.com` is the permanent canonical CY Web user-facing URL. Development currently runs behind that same hostname.
+- CYAccountingWeb and CYInvoice are separate consumer workstreams. This control workstream will publish their integration handoff only after the shared CYID contract is accepted.
 - Production D1/Worker cutover, backup rollout and SMART ERP remain untouched.
+
+## Documentation consolidation
+
+- `PROJECT_RULES.md` contains permanent CY Web product rules.
+- `docs/architecture/IDENTITY_ADAPTER.md` is the single current CY Web <-> CYID contract.
+- Root `TODO.md` is the only current status / next-work tracker.
+- The dated Identity handoff has been removed from the active tree; historical checkpoints remain available through Git history.
+- Architecture/module docs keep their specialized responsibilities and must not maintain parallel Identity status narratives.
 
 ## Deferred UI/UX direction — optimistic interaction
 
-- Product direction: CY Web should use **optimistic UI wherever appropriate**. User actions should normally reflect immediately in the interface while persistence/synchronization runs in the background; backend failure should roll back the local state and surface an actionable error.
-- This is a deferred UI/UX refinement, **not part of the current Identity acceptance patch**.
-- Do not apply optimistic behavior mechanically to every mutation. Before implementing the following classes, surface the trade-off for explicit product confirmation: destructive/irreversible deletion, Employee disable/role/Identity-Admin mutations, Super Admin transfer, forced Email/password/security operations, financial/inventory/invoice/formal-document mutations, and edits with material revision/concurrency conflicts.
-- For operations that are not suitable for full optimistic success, prefer responsive local feedback (immediate pressed/selected state, inline pending indicator, background request) without falsely representing server acceptance.
+CY Web should use optimistic UI where appropriate, but destructive/irreversible actions, Employee authority changes, Super Admin transfer, credential/Email/security operations, financial/inventory/invoice mutations and material concurrency conflicts require explicit per-mutation review before representing success optimistically.
 
 ## Active next sequence
 
-1. [x] Cut initial CY Web login/session/logout to CYCloud Identity and accept the first Super Admin session path.
-2. [x] Finalize the replacement three-role / Identity Admin / App Access / CY Web core+module model.
-3. [x] Implement CYCloud Identity `0.2.0` direct-role runtime in source and merge it to CYapps `main`.
-4. [x] Implement CY Web `0.2.0` principal adapter, permission-aware management UI, lifecycle controls, direct App Access and activation deep link.
-5. [x] Merge CY Web `0.2.0` consumer source to `main`.
-6. [x] Configure required CYID development Environment variables privately and deploy CYID `0.2.0` development through the governed deploy branch.
-7. [x] Verify CYID migration, Worker deployment and existing validation after `0.2.0` development deployment.
-8. [x] Deploy CY Web development through governed `deploy/cyweb-development` branch push.
-9. [x] Repair the CYID first-activation Email-verification race in `0.2.1` and verify the affected activated account reports Email verified correctly.
-10. [x] Bind and accept permanent `admin.chihyuancm.com` through the CY Web deployment contract.
-11. [ ] Update CYID development account-portal delivery to `https://admin.chihyuancm.com`, redeploy CYID, and verify new Identity Email links use the canonical hostname.
-12. [ ] Browser-accept the revised Account & Permissions surface and current acceptance UI fixes on the canonical hostname.
-13. [ ] Create a controlled new test User and accept first activation Email delivery, Brevo event, canonical CY Web activation link, OTP and first-password completion.
-14. [ ] Accept pending edit / resend / delete behavior and delivery-failure recovery without deleting the User automatically.
-15. [ ] Accept ordinary USER login/self-service and prove no Workspace management/Access controls are exposed.
-16. [ ] Accept normal ADMIN USER-lifecycle limits and prove no App/Module Access administration.
-17. [ ] Accept Identity Admin USER↔ADMIN, App Access, Email recovery and anti-self-escalation boundaries.
-18. [ ] Implement/accept CY Web-local Module Access management UI + server-side enforcement for Identity Admin/Super Admin. Do not move module permissions into CYID.
-19. [ ] Accept activated-account forced Email recovery and `啟用 · Email 待驗證` re-verification flow.
-20. [ ] Accept role/App Access session invalidation and immediate authorization changes.
-21. [ ] Obtain literal expired-session evidence through CY Web; invalid-session handling is already accepted separately.
-22. [ ] Manually accept self-service forgot-password/own Email change and controlled Super Admin transfer without risking lockout.
-23. [ ] Add protected Worker business HTTP routes with server-side module authorization.
-24. [ ] Replace temporary `localStorage` business-data persistence with Worker API -> D1 while preserving the React workflow.
-25. [ ] Perform dedicated UI/UX refinement, including explicit per-mutation optimistic-UI review under the direction recorded above.
-26. [ ] Perform Desktop/Tablet/Mobile real-browser acceptance.
-27. [ ] Implement and accept backup/restore before production rollout.
-28. [ ] Prepare production Worker/D1 and rebind the same `admin.chihyuancm.com` hostname only after explicit production acceptance.
+1. [x] Complete/deploy CYID 0.2 direct Role / Identity Admin / direct App Access migration.
+2. [x] Complete/deploy CY Web 0.2 consumer principal/session/account-management foundation.
+3. [x] Bind and accept permanent `admin.chihyuancm.com`.
+4. [x] Consolidate CY Web Identity documentation and remove dated handoff as current source.
+5. [ ] Finish CYID PR #214 against the final 0.3 contract: initial-password expiry + resend invalidation.
+6. [ ] Finish CYID PR #214: first-login completion must return relogin-required **without** issuing a normal Session.
+7. [ ] Merge/deploy CYID 0.3.0 development and verify migration/Worker health plus existing permanent-password Super Admin login.
+8. [ ] Update CY Web consumer to a single login entry that handles normal login or `passwordChangeRequired`; remove old activation/deep-link UI path.
+9. [ ] Add forced permanent-password screen using the first-login ticket; after success return to ordinary login without setting a Session cookie.
+10. [ ] Browser-accept a controlled new USER: create -> Email delivery -> one-time first-login password -> forced permanent password -> return to login -> fresh permanent-password login.
+11. [ ] Accept expired initial credential, 重寄驗證 Email, pending Email edit, old credential invalidation and delivery-failure recovery.
+12. [ ] Accept USER self-service and prove no management surface is exposed.
+13. [ ] Accept normal ADMIN USER-lifecycle boundary and prove no App/Module Access administration.
+14. [ ] Accept Identity Admin USER<->ADMIN, direct App Access, forced Email recovery and anti-self-escalation boundaries.
+15. [ ] Implement/accept CY Web-local Module Access management UI + protected Worker/API server-side enforcement.
+16. [ ] Accept activated-account forced Email recovery / `啟用 · Email 待驗證` re-verification.
+17. [ ] Accept role/App Access session invalidation and literal expired-session behavior.
+18. [ ] Accept forgot-password, own Email change and controlled Super Admin transfer.
+19. [ ] Add protected Worker business HTTP routes with server-side module authorization.
+20. [ ] Replace temporary business-data `localStorage` persistence with Worker API -> D1 while preserving the React workflow.
+21. [ ] Perform dedicated UI/UX refinement and Desktop/Tablet/Mobile real-browser acceptance.
+22. [ ] Implement/accept backup+restore before production rollout.
+23. [ ] After shared CYID acceptance, publish consumer integration handoffs for CYAccountingWeb and CYInvoice.
+24. [ ] Prepare production Worker/D1 cutover only after explicit user approval.
 
 ## Current Identity acceptance boundary
 
 Already accepted:
 
-- dedicated CYCloud Identity Worker/D1 in development;
-- Email-OTP bootstrap of the first Workspace;
-- 8-16 Unicode-character password boundary;
-- application-aware login and provider-owned session;
-- CY Web HttpOnly Identity cookie boundary;
-- same-origin login/me/logout browser contract;
-- F5 resolve, logout revocation and post-logout rejection;
-- deployed rejection of provider-invalid session with `401 AUTH_INVALID` + cookie clearing;
-- provider protection against directly disabling/deleting current Super Admin;
-- Public-source secret/operational-ID boundaries;
-- CYID 0.2 development migration and Worker deployment;
-- CYID 0.2.1 activation-verification repair and development deployment;
-- CY Web 0.2 development deployment and invalid-provider-session acceptance;
-- CY Web canonical `admin.chihyuancm.com` Custom Domain routing/TLS/auth-cookie acceptance.
+- dedicated CYID Worker/D1 development authority;
+- Workspace bootstrap and password/session baseline;
+- CYID 0.2 role/access migration and 0.2.1 verification-state repair;
+- CY Web provider-owned session transport and invalid-session cookie clearing;
+- direct Workspace role / Identity Admin / direct App Access consumer model;
+- protected Super Admin baseline;
+- canonical CY Web domain routing/TLS.
 
-Implemented/deployed but still requiring browser acceptance:
+Still pending or superseded by 0.3 acceptance:
 
-- direct Workspace-role principal (`SUPER_ADMIN / ADMIN / USER`);
-- Identity Admin capability and its management boundaries;
-- locked CY Web core shell entry for all valid Employees;
-- direct App Access without Group-derived role authority;
-- permission-aware User create/update lifecycle;
-- automatic first activation Email + direct CY Web link + resend/failure state;
-- durable first-activation state and pending-only physical delete;
-- activated-account forced Email recovery and re-verification;
-- role/App Access session invalidation;
-- CY Web 0.2 consumer UI/adapters;
-- literal expired-session evidence remains separate.
+- one-time first-login password + expiry;
+- no-session first-login completion + explicit re-login;
+- single CY Web login entry with no separate activation entry;
+- resend verification Email / pending Email edit invalidation;
+- full USER/ADMIN/Identity Admin/Super Admin browser matrix;
+- CY Web-local Module Access management + server enforcement;
+- literal expired normal Session evidence;
+- final self-service/recovery/transfer acceptance.
 
 ## Topic source map
 
+- Governance/product permanence: `PROJECT_RULES.md`
 - Architecture index: `docs/architecture/README.md`
 - Business Decisions: `docs/architecture/decisions/README.md`
-- Data model: `docs/architecture/CANONICAL_DATA_MODEL.md`
-- Physical dictionary: `docs/architecture/FINAL_DATA_DICTIONARY.md`
-- D1 schema gate/freeze: `docs/architecture/D1_SCHEMA_REVIEW.md`
-- Operational local runtime: `docs/architecture/OPERATIONAL_LOCAL_RUNTIME.md`
-- API contract: `docs/architecture/API_CONTRACT.md`
-- Shared Identity boundary: `docs/architecture/IDENTITY_ADAPTER.md`
-- CYCloud Identity deployment: `docs/development/IDENTITY_DEPLOYMENT.md`
+- Shared Identity consumer contract: `docs/architecture/IDENTITY_ADAPTER.md`
+- Identity deployment: `docs/development/IDENTITY_DEPLOYMENT.md`
+- Data model / physical dictionary: `docs/architecture/CANONICAL_DATA_MODEL.md` / `FINAL_DATA_DICTIONARY.md`
+- Worker API: `docs/architecture/API_CONTRACT.md`
 - Backup/recovery: `docs/architecture/BACKUP_ARCHITECTURE.md`
-- Domain namespace/rollout: `docs/DOMAIN_STRATEGY.md`
-- AI continuity handoff only: `docs/development/IDENTITY_HANDOFF_2026-09-29.md`
+- Current progress: this file only
 
-Historical preview/audit/readiness/review documents under `docs/architecture/archive/` are evidence only. Handoff notes are also non-canonical and must not override current rules/contracts or later Business Decisions.
+Historical preview/audit/readiness/review material under `docs/architecture/archive/` and Git history is evidence only, not current contract.
