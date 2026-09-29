@@ -4,8 +4,8 @@
 
 ## Current checkpoint — 2026-09-30
 
-- Current source line on this documentation-consolidation branch is **CY Web 0.2.5 Build 0**. The currently deployed development runtime remains **0.2.4**; this docs-only change does not itself require a runtime deployment.
-- CYCloud Identity formal `main` and development runtime remain **0.2.1 Build 0**. Direct Workspace Role `SUPER_ADMIN / ADMIN / USER`, ADMIN-only Identity Admin capability, direct Employee App Access and current session model are already deployed.
+- Current formal source baseline is **CY Web 0.2.5 Build 1**. The currently deployed development runtime remains **0.2.4 Build 0**; this documentation consolidation does not itself require a runtime deployment.
+- CYCloud Identity formal source baseline is **0.2.2 Build 1** after the same documentation consolidation; its currently deployed development runtime remains **0.2.1 Build 0**. Direct Workspace Role `SUPER_ADMIN / ADMIN / USER`, ADMIN-only Identity Admin capability, direct Employee App Access and current session model are already deployed.
 - CYID PR #214 is the approved **0.3.0 first-login Email verification** workstream. Its CI validates source/migrations, but PR validation does not deploy development.
 - Finalized first-login product flow: create Employee -> CYID sends **Email 驗證** message with expiring one-time first-login password -> user enters through the ordinary CY Web login screen -> CYID returns first-login ticket only -> CY Web forces permanent-password creation -> CYID completes Email verification and invalidates temporary credential -> **no normal Session is issued** -> CY Web returns to login -> user logs in again with the new permanent password.
 - CY Web will remove the separate「啟用帳號」entry. External terminology remains **Email 驗證**; resend action is **重寄驗證 Email**.
