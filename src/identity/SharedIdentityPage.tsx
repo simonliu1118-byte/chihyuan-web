@@ -127,7 +127,7 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
 }
 
 function lifecycleStatus(row: IdentityEmployeeRow): string {
-  if (!row.activated_at) return "尚未驗證／待啟用";
+  if (!row.activated_at) return "尚未驗證";
   if (row.enabled !== 1) return "停用";
   return row.email_verified_at ? "啟用" : "啟用 · Email 待驗證";
 }
@@ -170,8 +170,8 @@ function EmployeeManagement({ snapshot, session, refresh }: {
       const result = await createIdentityEmployee({ employeeNo, displayName, email, roleKey: canIdentityAdmin ? roleKey : "USER" });
       setEmployeeNo(""); setDisplayName(""); setEmail(""); setRoleKey("USER");
       setMessage(result.activationDelivery.sent
-        ? "使用者已建立，第一封啟用信已寄出。使用者可直接點信中的 CY Web 連結完成啟用。"
-        : `使用者已建立，但啟用信尚未寄出（${result.activationDelivery.errorCode ?? "寄送失敗"}）。可在下方按「重寄」。`);
+        ? "使用者已建立，Email 驗證信已寄出。請使用信中的帳號與一次性預設密碼登入 CY Web。"
+        : `使用者已建立，但 Email 驗證信尚未寄出（${result.activationDelivery.errorCode ?? "寄送失敗"}）。可在下方按「重寄 Email 驗證」。`);
       await refresh();
     } catch (error) { setMessage(messageOf(error)); }
     finally { setBusy(false); }
@@ -179,7 +179,7 @@ function EmployeeManagement({ snapshot, session, refresh }: {
 
   async function resend(row: IdentityEmployeeRow) {
     setBusy(true); setMessage(null);
-    try { await resendEmployeeActivation(row.employee_id); setMessage("啟用信已重新寄出。"); }
+    try { await resendEmployeeActivation(row.employee_id); setMessage("Email 驗證信已重新寄出，舊的一次性預設密碼已失效。"); }
     catch (error) { setMessage(messageOf(error)); }
     finally { setBusy(false); }
   }
@@ -199,16 +199,16 @@ function EmployeeManagement({ snapshot, session, refresh }: {
         email: nextEmail,
         revision: row.revision,
       });
-      setMessage(result.activationDelivery?.sent ? "待啟用資料已更新，新啟用信已寄出。" : "待啟用資料已更新。");
+      setMessage(result.activationDelivery?.sent ? "尚未驗證資料已更新，新 Email 驗證信已寄出。" : "尚未驗證資料已更新。");
       await refresh();
     } catch (error) { setMessage(messageOf(error)); }
     finally { setBusy(false); }
   }
 
   async function deletePending(row: IdentityEmployeeRow) {
-    if (!window.confirm(`確定刪除尚未啟用的使用者帳號「${row.employee_no} ${row.name}」？`)) return;
+    if (!window.confirm(`確定刪除尚未驗證的使用者帳號「${row.employee_no} ${row.name}」？`)) return;
     setBusy(true); setMessage(null);
-    try { await deletePendingIdentityEmployee(row.employee_id); setMessage("尚未啟用的使用者帳號已刪除。"); await refresh(); }
+    try { await deletePendingIdentityEmployee(row.employee_id); setMessage("尚未驗證的使用者帳號已刪除。"); await refresh(); }
     catch (error) { setMessage(messageOf(error)); }
     finally { setBusy(false); }
   }
@@ -280,7 +280,7 @@ function EmployeeManagement({ snapshot, session, refresh }: {
   }
 
   return <section className="cy-op-panel">
-    <div className="cy-op-panel-header"><div><h3>使用者帳號</h3><p>新增時直接指定權限；第一封啟用信會自動寄出。一般管理員只能建立與管理一般使用者。</p></div></div>
+    <div className="cy-op-panel-header"><div><h3>使用者帳號</h3><p>新增時直接指定權限；Email 驗證信會自動寄出。一般管理員只能建立與管理一般使用者。</p></div></div>
     {message ? <div className="cy-identity-message" role="status">{message}</div> : null}
     <form className="cy-identity-create-row" onSubmit={create}>
       <input className="cy-op-input" inputMode="numeric" placeholder="4 碼使用者編號" maxLength={4} value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value.replace(/\D/g, "").slice(0, 4))} required />
@@ -301,7 +301,7 @@ function EmployeeManagement({ snapshot, session, refresh }: {
         <td>{lifecycleStatus(row)}</td>
         <td><div className="cy-identity-actions">
           {row.workspace_role === "SUPER_ADMIN" && isSuperAdmin ? <button type="button" className="cy-op-button" disabled={busy || eligibleTransferEmployees.length === 0} onClick={() => { setTargetEmployeeId(eligibleTransferEmployees[0]?.employee_id ?? ""); setTransferOpen(true); }}>移交</button> : null}
-          {pending && rowManageable ? <><button type="button" className="cy-op-button" disabled={busy} onClick={() => void editPending(row)}>編輯</button><button type="button" className="cy-op-button" disabled={busy} onClick={() => void resend(row)}>重寄</button><button type="button" className="cy-op-button danger" disabled={busy} onClick={() => void deletePending(row)}>刪除</button></> : null}
+          {pending && rowManageable ? <><button type="button" className="cy-op-button" disabled={busy} onClick={() => void editPending(row)}>編輯</button><button type="button" className="cy-op-button" disabled={busy} onClick={() => void resend(row)}>重寄 Email 驗證</button><button type="button" className="cy-op-button danger" disabled={busy} onClick={() => void deletePending(row)}>刪除</button></> : null}
           {!pending && rowManageable ? <button type="button" className="cy-op-button" disabled={busy} onClick={() => void toggle(row)}>{row.enabled === 1 ? "停用" : "啟用"}</button> : null}
           {canRecover ? <button type="button" className="cy-op-button" disabled={busy} onClick={() => void recoverEmail(row)}>變更 Email</button> : null}
           {canRecover && !row.email_verified_at ? <button type="button" className="cy-op-button" disabled={busy} onClick={() => void resendEmailVerification(row)}>重寄 Email 驗證</button> : null}
