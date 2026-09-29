@@ -70,7 +70,12 @@ CI never receives the real development Workspace ID or real Identity service tar
 
 ## Development deployment gate
 
-Real development deployment remains manual-only through the protected GitHub `development` Environment.
+Real development deployment uses the protected GitHub `development` Environment and may be started in either of two controlled ways:
+
+1. advance the dedicated `deploy/cyweb-development` branch to an already-reviewed commit; or
+2. use `workflow_dispatch` manually as an operational fallback.
+
+Normal pushes to `main` never deploy development automatically. The deploy branch is an explicit release signal only; it must not be used as a development branch or receive unrelated commits.
 
 The workflow:
 
@@ -79,7 +84,8 @@ The workflow:
 3. applies remote development D1 migrations;
 4. builds the Worker/assets;
 5. deploys the development Worker;
-6. removes generated input config.
+6. accepts invalid-provider-session behavior through the deployed CY Web Worker;
+7. removes generated input config.
 
 There is no automatic production rollout.
 
@@ -100,8 +106,8 @@ Acceptance requires:
 - `/api/auth/me` asks CYCloud Identity to re-resolve current authority;
 - Identity disabled/revoked/expired state invalidates later requests;
 - logout revokes the provider session before clearing the browser cookie;
-- the Workspace highest authority is represented by `isWorkspaceSuperAdmin`;
-- normal Identity Groups remain data-driven and are not converted into a hard-coded CY Web shared-role enum;
+- Workspace authority resolves to `SUPER_ADMIN / ADMIN / USER` plus the separate `isIdentityAdmin` capability;
+- CY Web core entry remains mandatory for every valid Employee/User while App Access is enforced by CYID;
 - invalid credentials, Application Access denial, rate limit and provider outage map to stable CY Web errors.
 
 Real credentials, session tokens and runtime identifiers must not be committed to source or CI fixtures.
