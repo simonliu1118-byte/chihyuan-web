@@ -4,7 +4,7 @@
 
 ## Current checkpoint — 2026-09-30
 
-- Current formal source baseline is **CY Web 0.3.0 Build 0**，development runtime 也已部署 **0.3.0 Build 0**。
+- Current formal source baseline is **CY Web 0.4.0 Build 0**，development runtime 也已部署 **0.4.0 Build 0**。
 - CYCloud Identity formal source/development baseline is **0.3.0 Build 0**。
 - `https://admin.chihyuancm.com` 仍是固定 CY Web canonical user-facing URL；0.3 development deploy 已重新驗證 Custom Domain 與 invalid-provider-session fallback。
 - CY Web 登入頁現在只有**單一一般登入入口**。舊「啟用帳號」按鈕、`?activate=1` deep-link UI 與 CY Web public activation start/confirm proxy 已移除。
@@ -18,7 +18,7 @@
 - 帳號管理頁的新 Employee 狀態/操作已改用 `Email 未驗證`、`重寄驗證 Email` 等 terminology；不再以「啟用帳號」作新使用者流程名稱。
 - 忘記密碼仍維持獨立 Email OTP recovery flow；activated-account Email re-verification 也維持既有 OTP flow。
 - CY Web 0.3 CI 已通過 browser/worker TypeScript、source contracts、Local D1 runtime acceptance、Vite build、deployment dry-run；development deploy 已成功完成 D1、Worker/assets、canonical domain 與 invalid-session smoke。
-- CY Web Module Access 仍由 CY Web 自己保存與 server-side enforcement；Shared Identity contract 完成後下一個實作重點仍是完整 Module Access management + protected business APIs。
+- CY Web Module Access 已切到 direct `Employee × Module` 本地 authority：`CUSTOMERS / ITEMS / DEFECTS / ORDERS / OUTSOURCING / WORKLOGS`。Identity Admin／Super Admin 可管理 eligible Employee；Identity Admin 不可改自己的 Module Access；Super Admin 固定全模組。舊 App tag 關聯只保留 metadata/history，不再作 runtime authorization。
 - Production D1/Worker cutover、backup rollout與 SMART ERP remain untouched。
 
 ## Documentation consolidation
@@ -48,7 +48,7 @@ CY Web should use optimistic UI where appropriate, but destructive/irreversible 
 12. [ ] Accept ordinary USER self-service and prove no Workspace management controls are exposed.
 13. [ ] Accept normal ADMIN USER-lifecycle limits and prove no App/Module Access administration.
 14. [ ] Accept Identity Admin USER<->ADMIN, direct App Access, forced Email recovery and anti-self-escalation boundaries.
-15. [ ] Implement/accept CY Web-local Module Access management UI + protected Worker/API server-side enforcement.
+15. [x] Implement/deploy CY Web-local direct Module Access management UI、navigation filtering、server-side module check 與 reusable Worker authorization guard。實際 business HTTP routes 接入同一 guard 仍在第 19 步。
 16. [ ] Accept activated-account forced Email recovery / `啟用 · Email 待驗證` re-verification.
 17. [ ] Accept role/App Access session invalidation and literal expired normal Session behavior.
 18. [ ] Accept forgot-password, own Email change and controlled Super Admin transfer.
@@ -68,6 +68,7 @@ Already accepted by automated/source/deployment evidence:
 - first-login completion returns `reloginRequired` with no normal Session;
 - resend/pending Email edit invalidate prior initial credentials;
 - CY Web separate HttpOnly first-login cookie boundary;
+- CY Web direct Employee × Module Access schema/migration、anti-self-escalation management API、atomic audit、navigation filtering、server module-check endpoint and reusable authorization guard;
 - single login entry with no separate activation UI/public activation route;
 - browser/worker typecheck and source-contract gates;
 - CY Web Local D1 runtime/build;
