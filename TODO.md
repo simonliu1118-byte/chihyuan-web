@@ -4,13 +4,14 @@
 
 ## Current checkpoint — 2026-09-29
 
-- Formal code baseline: `main`; current version: `0.1.49`.
+- Formal code baseline: `main`; current version: `0.1.50`.
 - Forward product surface remains the integrated React operational application; temporary browser business-data persistence remains versioned `localStorage` pending Worker API → D1 migration.
 - Frozen initial relational baseline remains `0001_initial.sql` + `0002_defect_invalidation.sql`; Identity compatibility history is `0003_identity_web_sessions.sql` followed by `0004_remove_local_identity_sessions.sql`.
 - Source/schema contracts, browser TypeScript, Worker TypeScript, Vite build, Wrangler local D1 acceptance, Governance and deployment-contract validation are green for the current Identity management work.
 - CYCloud Identity development authority is live. CY Web uses the private `IDENTITY` Service Binding and no longer owns a duplicate Identity session authority.
 - Browser acceptance already passed for the first development highest-authority account: password login, authenticated navigation, F5 session resolve, logout and post-logout F5.
-- Shared Identity account-management UI is now implemented and development-deployed in CY Web `0.1.49`.
+- Shared Identity account-management UI is implemented and development-deployed from CY Web `0.1.49`.
+- CY Web `0.1.50` adds a post-deployment live invalid-provider-session gate to the manual Development Deploy workflow. The gate is merged to `main`, but has not yet been executed by a development `workflow_dispatch`; invalid-session acceptance is therefore not marked complete yet, and expired-session evidence remains separate.
 - Self-service UI includes password change and Email change. Login page includes forgot-password and account activation flows.
 - Highest-authority-only Workspace management UI includes Employee administration, Identity Groups/membership, Group/direct Application Access, Application `USER_ADMIN` compatibility mode, OTP security settings, highest-authority summary/Recovery Email and authority-transfer flow.
 - Workspace highest authority is protected by CYCloud Identity backend and cannot be directly disabled before transfer.
@@ -19,7 +20,7 @@
 - CYInvoice compatibility mapping is consumed from CYCloud Identity: `SUPER_ADMIN > ADMIN > USER`; ordinary Groups only map to `USER`/`ADMIN`; ordinary Group membership cannot create `SUPER_ADMIN`.
 - CY Web continues to own only app-local module authorization/tags; shared Employee/Group/session/OTP authority stays in CYCloud Identity.
 - Development deployment remains manual-only through the GitHub `development` Environment. Real operational targets/Workspace identifiers are not stored in Public source.
-- CYInvoice Cloud remains unchanged. CY Accounting Web remains a separate consumer workstream.
+- CYACC-web and CYInvoice are separate Shared Identity consumer integration workstreams. CYInvoice remains unchanged by this CY Web work.
 - Production D1/Worker/DNS/custom domain, backup rollout and SMART ERP remain untouched.
 
 ## Active next sequence
@@ -28,7 +29,7 @@
 2. [x] Add Shared Identity self-service UI, Employee/Group/Application Access UI and highest-authority-only OTP settings.
 3. [x] Add highest-authority summary/Recovery Email and authority-transfer UI.
 4. [x] Hide the normal Employee enable/disable action for the current Workspace highest authority; backend remains the final protection boundary.
-5. [ ] Verify invalid/expired provider-session rejection through CY Web.
+5. [ ] Verify invalid/expired provider-session rejection through CY Web. The live invalid-session gate is merged in `0.1.50` and awaits manual development `workflow_dispatch`; expired-session evidence remains separate.
 6. [ ] Create one ordinary non-highest-authority development Employee and accept activation/login.
 7. [ ] Prove ordinary Employee sees self-service only and sees **no** Workspace management, OTP settings or highest-authority controls.
 8. [ ] Exercise one controlled Group membership + Application Access path and verify effective `USER`/`ADMIN` compatibility projection.
@@ -62,7 +63,7 @@ Accepted:
 
 Still required before protected multi-user business operation:
 
-- invalid/expired session acceptance through CY Web;
+- execute the merged live invalid-session gate through CY Web and obtain separate expired-session acceptance evidence;
 - ordinary Employee activation/login/UI-visibility acceptance;
 - controlled mutation acceptance for Employee/Group/access/security-policy/self-service/authority transfer;
 - protected Worker business-route server authorization;
