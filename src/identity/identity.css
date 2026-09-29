@@ -67,6 +67,47 @@
   font-size: 11px;
 }
 
+.cy-identity-email-col {
+  width: 320px;
+  max-width: 320px;
+}
+
+.cy-identity-email-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 320px;
+}
+
+.cy-identity-email-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cy-identity-email-tag {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.cy-identity-email-tag.verified {
+  background: #e8f5ec;
+  color: #2f6b3f;
+}
+
+.cy-identity-email-tag.unverified {
+  background: #eef1f3;
+  color: #626c75;
+}
+
 .cy-identity-actions {
   display: flex;
   align-items: center;
