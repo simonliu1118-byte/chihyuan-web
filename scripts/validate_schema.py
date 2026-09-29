@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS_DIR = ROOT / "migrations"
 
 EXPECTED_TABLES = {
+    "app_member_module_access",
     "app_member_tags",
     "app_members",
     "app_tag_modules",

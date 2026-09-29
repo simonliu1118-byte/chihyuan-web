@@ -1,6 +1,7 @@
 import type { HealthData } from "../shared/api";
 import { handleAuthRoute, type IdentityRuntimeEnv } from "./http/auth-routes";
 import { handleIdentityManagementRoute } from "./http/identity-management-routes";
+import { handleModuleAccessRoute } from "./http/module-access-routes";
 import { failure, success } from "./http/response";
 
 interface Env extends IdentityRuntimeEnv {}
@@ -37,6 +38,9 @@ export default {
 
     const identityResponse = await handleIdentityManagementRoute(request, env, requestId);
     if (identityResponse) return identityResponse;
+
+    const moduleAccessResponse = await handleModuleAccessRoute(request, env, requestId);
+    if (moduleAccessResponse) return moduleAccessResponse;
 
     if (url.pathname.startsWith("/api/")) {
       return failure({ code: "NOT_FOUND", message: "API route not found" }, requestId, 404);

@@ -119,3 +119,39 @@ It does not prove that every schema migration or business module is ready; those
 - Log only the minimum diagnostic metadata needed for troubleshooting.
 - Authentication/authorization failures do not reveal protected record details.
 - Audit events and operational logs are separate concerns; an API error does not automatically become a business Audit event.
+
+## 11. CY Web Module Access
+
+CY Web business-module entry uses server-authoritative, application-local Module Access. Workspace Role and CYID Application Access are separate dimensions.
+
+Current fixed business modules:
+
+```text
+CUSTOMERS
+ITEMS
+DEFECTS
+ORDERS
+OUTSOURCING
+WORKLOGS
+```
+
+Endpoints:
+
+| Method | Path | Authority | Purpose |
+| --- | --- | --- | --- |
+| GET | `/api/module-access` | any authenticated CY Web Employee | return current effective business modules; Super Admin receives implicit all |
+| GET | `/api/module-access/check/:moduleCode` | authenticated + requested module grant | authoritative module-entry check; returns 403 `ACCESS_DENIED` when absent |
+| GET | `/api/module-access/admin` | Identity Admin / Super Admin | return direct Employee × Module grants for account-management UI |
+| PUT | `/api/module-access/admin/employees/:employeeId/modules/:moduleCode` | Identity Admin / Super Admin | enable/disable one direct Module Access grant |
+
+Mutation rules:
+
+- normal ADMIN cannot call Module Access administration APIs;
+- Identity Admin cannot change their own Module Access;
+- Super Admin Module Access is implicit/all-enabled and cannot be converted into ordinary stored grants;
+- target Employee/role is revalidated against current CYID authority on every mutation;
+- grant mutation and CY Web audit event are written in one D1 batch;
+- changes affect subsequent module checks immediately and do not require re-login;
+- browser navigation filtering is convenience only; protected Worker/business routes must call the server-side Module Access guard before reading or mutating protected data.
+
+`app_tags / app_tag_modules / app_member_tags` are not forward authorization sources. The authoritative store is `app_member_module_access`.
