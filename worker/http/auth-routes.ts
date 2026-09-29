@@ -26,7 +26,7 @@ function normalizedWorkspaceId(env: IdentityRuntimeEnv): string | null {
   return value;
 }
 
-function identityClient(env: IdentityRuntimeEnv): CYCloudIdentityClient | null {
+export function identityClient(env: IdentityRuntimeEnv): CYCloudIdentityClient | null {
   if (!env.IDENTITY || typeof env.IDENTITY.fetch !== "function") return null;
   const applicationId = normalizedApplicationId(env);
   const workspaceId = normalizedWorkspaceId(env);
@@ -40,8 +40,10 @@ function user(principal: IdentityPrincipal) {
     employeeNo: principal.employeeNo,
     displayName: principal.displayName,
     workspaceId: principal.workspaceId,
+    workspaceRole: principal.workspaceRole,
+    isIdentityAdmin: principal.isIdentityAdmin,
+    emailVerified: principal.emailVerified,
     isWorkspaceSuperAdmin: principal.isWorkspaceSuperAdmin,
-    groupKeys: principal.groupKeys,
   };
 }
 
@@ -106,11 +108,10 @@ async function login(
     );
   }
 
-  const member = await resolveAppMember(env.DB, result.principal);
-  if (!member.isActive) {
-    await provider.revokeToken(request, result.token);
-    return failure({ code: "ACCESS_DENIED", message: "CY Web access is disabled" }, requestId, 403);
-  }
+  // CY Web is the mandatory account-management shell. Provider authentication
+  // and Employee enabled state are the entry authority; the local app_members
+  // projection cannot independently block core CY Web access.
+  await resolveAppMember(env.DB, result.principal);
 
   return success(
     {
@@ -134,10 +135,7 @@ async function me(request: Request, env: IdentityRuntimeEnv, requestId: string):
 
   const resolution = await provider.resolve(request);
   if (resolution.status === "authenticated") {
-    const member = await resolveAppMember(env.DB, resolution.principal);
-    if (!member.isActive) {
-      return failure({ code: "ACCESS_DENIED", message: "CY Web access is disabled" }, requestId, 403);
-    }
+    await resolveAppMember(env.DB, resolution.principal);
     return success(
       { user: user(resolution.principal), expiresAt: resolution.expiresAt },
       requestId,
