@@ -170,8 +170,8 @@ function EmployeeManagement({ snapshot, session, refresh }: {
       const result = await createIdentityEmployee({ employeeNo, displayName, email, roleKey: canIdentityAdmin ? roleKey : "USER" });
       setEmployeeNo(""); setDisplayName(""); setEmail(""); setRoleKey("USER");
       setMessage(result.activationDelivery.sent
-        ? "員工已建立，第一封啟用信已寄出。員工可直接點信中的 CY Web 連結完成啟用。"
-        : `員工已建立，但啟用信尚未寄出（${result.activationDelivery.errorCode ?? "寄送失敗"}）。可在下方按「重寄」。`);
+        ? "使用者已建立，第一封啟用信已寄出。使用者可直接點信中的 CY Web 連結完成啟用。"
+        : `使用者已建立，但啟用信尚未寄出（${result.activationDelivery.errorCode ?? "寄送失敗"}）。可在下方按「重寄」。`);
       await refresh();
     } catch (error) { setMessage(messageOf(error)); }
     finally { setBusy(false); }
@@ -185,7 +185,7 @@ function EmployeeManagement({ snapshot, session, refresh }: {
   }
 
   async function editPending(row: IdentityEmployeeRow) {
-    const nextNo = window.prompt("員工編號", row.employee_no)?.trim();
+    const nextNo = window.prompt("使用者編號", row.employee_no)?.trim();
     if (!nextNo) return;
     const nextName = window.prompt("姓名", row.name)?.trim();
     if (!nextName) return;
@@ -206,9 +206,9 @@ function EmployeeManagement({ snapshot, session, refresh }: {
   }
 
   async function deletePending(row: IdentityEmployeeRow) {
-    if (!window.confirm(`確定刪除尚未啟用的員工帳號「${row.employee_no} ${row.name}」？`)) return;
+    if (!window.confirm(`確定刪除尚未啟用的使用者帳號「${row.employee_no} ${row.name}」？`)) return;
     setBusy(true); setMessage(null);
-    try { await deletePendingIdentityEmployee(row.employee_id); setMessage("尚未啟用的帳號已刪除。"); await refresh(); }
+    try { await deletePendingIdentityEmployee(row.employee_id); setMessage("尚未啟用的使用者帳號已刪除。"); await refresh(); }
     catch (error) { setMessage(messageOf(error)); }
     finally { setBusy(false); }
   }
@@ -240,7 +240,7 @@ function EmployeeManagement({ snapshot, session, refresh }: {
   async function recoverEmail(row: IdentityEmployeeRow) {
     const nextEmail = window.prompt(`替 ${row.employee_no} ${row.name} 設定新的 Email`, row.email_normalized)?.trim();
     if (!nextEmail || nextEmail === row.email_normalized) return;
-    if (!window.confirm("變更後會立即撤銷此員工現有登入，並要求新 Email 重新驗證。確定繼續？")) return;
+    if (!window.confirm("變更後會立即撤銷此使用者現有登入，並要求新 Email 重新驗證。確定繼續？")) return;
     setBusy(true); setMessage(null);
     try {
       const result = await forceEmployeeEmailRecovery(row.employee_id, nextEmail);
@@ -280,14 +280,14 @@ function EmployeeManagement({ snapshot, session, refresh }: {
   }
 
   return <section className="cy-op-panel">
-    <div className="cy-op-panel-header"><div><h3>員工帳號</h3><p>新增時直接指定權限；第一封啟用信會自動寄出。一般管理員只能建立與管理一般使用者。</p></div></div>
+    <div className="cy-op-panel-header"><div><h3>使用者帳號</h3><p>新增時直接指定權限；第一封啟用信會自動寄出。一般管理員只能建立與管理一般使用者。</p></div></div>
     {message ? <div className="cy-identity-message" role="status">{message}</div> : null}
     <form className="cy-identity-create-row" onSubmit={create}>
-      <input className="cy-op-input" inputMode="numeric" placeholder="4 碼員工編號" maxLength={4} value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value.replace(/\D/g, "").slice(0, 4))} required />
+      <input className="cy-op-input" inputMode="numeric" placeholder="4 碼使用者編號" maxLength={4} value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value.replace(/\D/g, "").slice(0, 4))} required />
       <input className="cy-op-input" placeholder="姓名" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
       <input className="cy-op-input" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
       {canIdentityAdmin ? <select className="cy-op-input" value={roleKey} onChange={(e) => setRoleKey(e.target.value as "USER" | "ADMIN")}><option value="USER">一般使用者</option><option value="ADMIN">管理員</option></select> : <div className="cy-identity-subtext">權限：一般使用者</div>}
-      <button className="cy-op-button primary" disabled={busy}>新增員工</button>
+      <button className="cy-op-button primary" disabled={busy}>新增使用者</button>
     </form>
     <div className="cy-identity-table-wrap"><table className="cy-op-table"><thead><tr><th>編號</th><th>姓名</th><th>Email</th><th>權限</th><th>狀態</th><th>操作</th></tr></thead><tbody>{snapshot.employees.map((row) => {
       const pending = !row.activated_at;
@@ -342,9 +342,9 @@ function ApplicationAccessPanel({ snapshot, session, refresh }: {
   }
 
   return <section className="cy-op-panel">
-    <div className="cy-op-panel-header"><div><h3>系統使用權</h3><p>Identity Admin 與超級管理員設定各系統准入；CY Web 是所有有效員工固定可使用的核心帳號入口，因此不列入此表。</p></div></div>
+    <div className="cy-op-panel-header"><div><h3>系統使用權</h3><p>Identity Admin 與超級管理員設定各系統准入；CY Web 是所有有效使用者固定可使用的核心帳號入口，因此不列入此表。</p></div></div>
     {message ? <div className="cy-identity-message">{message}</div> : null}
-    <div className="cy-identity-table-wrap"><table className="cy-op-table"><thead><tr><th>員工</th>{applications.map((app) => <th key={app.application_id}>{app.display_name}</th>)}</tr></thead><tbody>{snapshot.employees.map((employee) => <tr key={employee.employee_id}><td>{employee.employee_no} {employee.name}<small className="cy-identity-subtext">{permissionLabel(employee.workspace_role)}{employee.identity_admin === 1 ? " · Identity Admin" : ""}</small></td>{applications.map((app) => {
+    <div className="cy-identity-table-wrap"><table className="cy-op-table cy-identity-access-table"><thead><tr><th className="cy-access-user-col">使用者</th><th className="cy-access-permission-col">權限</th>{applications.map((app) => <th className="cy-access-app-col" key={app.application_id}>{app.display_name}</th>)}</tr></thead><tbody>{snapshot.employees.map((employee) => <tr key={employee.employee_id}><td>{employee.employee_no} {employee.name}</td><td>{permissionLabel(employee.workspace_role)}{employee.identity_admin === 1 ? <small className="cy-identity-subtext">Identity Admin</small> : null}</td>{applications.map((app) => {
       const sa = employee.workspace_role === "SUPER_ADMIN";
       if (sa) return <td key={app.application_id}><span className="cy-identity-access-fixed">永遠允許</span></td>;
       const own = employee.employee_id === session.user.employeeId;
@@ -411,7 +411,7 @@ export function SharedIdentityPage({ session }: { session: AuthSession }) {
     <div className="cy-op-page-header"><div><h1>帳號與權限</h1><p>CYID 身分、Email 與系統准入的管理入口。</p></div>{isWorkspaceAdmin ? <button className="cy-op-button" disabled={loading} onClick={() => void refresh()}>重新整理</button> : null}</div>
     <SelfServicePanel session={session} />
     {isWorkspaceAdmin ? <>
-      <SectionTitle title="Workspace 管理" description={canManageAccess ? "管理員工生命週期、權限與系統准入。" : "一般管理員可管理一般使用者帳號生命週期；Access 由 Identity Admin / 超級管理員管理。"} />
+      <SectionTitle title="Workspace 管理" description={canManageAccess ? "管理使用者生命週期、權限與系統准入。" : "一般管理員可管理一般使用者帳號生命週期；Access 由 Identity Admin / 超級管理員管理。"} />
       {error ? <div className="cy-identity-message error">{error}</div> : null}
       {snapshot ? <div className="cy-identity-admin-stack">
         <EmployeeManagement snapshot={snapshot} session={session} refresh={refresh} />
