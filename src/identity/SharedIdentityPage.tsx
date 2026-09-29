@@ -164,7 +164,7 @@ function EmployeeManagement({ snapshot, refresh, highestAuthorityEmployeeId }: {
     </form>
     <div className="cy-identity-table-wrap"><table className="cy-op-table"><thead><tr><th>編號</th><th>姓名</th><th>Email</th><th>狀態</th><th>操作</th></tr></thead><tbody>{snapshot.employees.map((row) => {
       const isHighestAuthority = row.employee_id === highestAuthorityEmployeeId;
-      return <tr key={row.employee_id}><td>{row.employee_no}</td><td>{row.name}{isHighestAuthority ? <small className="cy-identity-subtext">Workspace 最高權限</small> : null}</td><td>{row.email_normalized}<small className="cy-identity-subtext">{row.email_verified_at ? "已驗證" : "待驗證"}</small></td><td>{isHighestAuthority ? "最高權限 · 啟用" : row.enabled === 1 ? "啟用" : "停用／待啟用"}</td><td><button className="cy-op-button" disabled={busy || !row.email_verified_at || isHighestAuthority} onClick={() => void toggle(row)}>{isHighestAuthority ? "需先移交" : row.enabled === 1 ? "停用" : "啟用"}</button></td></tr>;
+      return <tr key={row.employee_id}><td>{row.employee_no}</td><td>{row.name}{isHighestAuthority ? <small className="cy-identity-subtext">Workspace 最高權限</small> : null}</td><td>{row.email_normalized}<small className="cy-identity-subtext">{row.email_verified_at ? "已驗證" : "待驗證"}</small></td><td>{isHighestAuthority ? "最高權限 · 啟用" : row.enabled === 1 ? "啟用" : "停用／待啟用"}</td><td>{isHighestAuthority ? null : <button className="cy-op-button" disabled={busy || !row.email_verified_at} onClick={() => void toggle(row)}>{row.enabled === 1 ? "停用" : "啟用"}</button>}</td></tr>;
     })}</tbody></table></div>
   </section>;
 }
