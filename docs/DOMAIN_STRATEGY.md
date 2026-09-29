@@ -1,6 +1,6 @@
 # Chihyuan Domain Strategy
 
-Status: `chihyuancm.com` registered; rollout pending
+Status: `chihyuancm.com` registered; CYAccountingWeb custom-domain rollout approved
 
 This document records the current domain direction for Chihyuan's public website and CY-family Web systems. It is an architecture/operations planning note, not a permanent governance rule.
 
@@ -27,12 +27,14 @@ chihyuancm.com                 Official public website
 www.chihyuancm.com             Website alias / redirect
 
 admin.chihyuancm.com           Chihyuan Enterprise Management System (CY Web)
-accounting.chihyuancm.com      CYAccountingWeb
+acc.chihyuancm.com             CYAccountingWeb
 invoice.chihyuancm.com         CYInvoice Web
 auth.chihyuancm.com            Shared identity / future CYCloud Identity
 portal.chihyuancm.com          Future unified CY system portal, when needed
 api.chihyuancm.com             Reserved for truly shared/API services when needed
 ```
+
+`acc.chihyuancm.com` is the confirmed CYAccountingWeb user-facing hostname. The shorter `acc` label is intentional for routine business use and replaces the earlier planning placeholder `accounting.chihyuancm.com`.
 
 Additional systems should normally receive a direct subdomain rather than introducing unnecessary extra levels such as `app.apps.<domain>`.
 
@@ -47,7 +49,7 @@ Examples:
 ```text
 https://chihyuancm.com
 https://admin.chihyuancm.com
-https://accounting.chihyuancm.com
+https://acc.chihyuancm.com
 https://invoice.chihyuancm.com
 ```
 
@@ -91,6 +93,8 @@ application foundation
 ```
 
 This keeps the domain strategy stable without making DNS/custom-domain rollout an early-development dependency.
+
+CYAccountingWeb has reached the custom-hostname rollout stage independently of CY Web. Binding `acc.chihyuancm.com` does not require waiting for the CY Web or CYCloud Identity production-domain rollout because each application keeps its own origin/session boundary.
 
 ## 7. Ownership
 
