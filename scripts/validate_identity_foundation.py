@@ -29,6 +29,8 @@ def validate_source_contracts() -> None:
     provider = require("worker/identity/cycloud-identity-adapter.ts").read_text(encoding="utf-8")
     routes = require("worker/http/auth-routes.ts").read_text(encoding="utf-8")
     access = require("worker/auth/app-access.ts").read_text(encoding="utf-8")
+    auth_ui = require("src/auth/AuthGate.tsx").read_text(encoding="utf-8")
+    management_routes = require("worker/http/identity-management-routes.ts").read_text(encoding="utf-8")
     doc = require("docs/architecture/IDENTITY_ADAPTER.md").read_text(encoding="utf-8")
 
     for field in (
@@ -54,6 +56,10 @@ def validate_source_contracts() -> None:
         "/v1/identity/login",
         "/v1/identity/session/resolve",
         "/v1/identity/logout",
+        "/v1/identity/first-login/complete",
+        "cyweb_first_login",
+        "cyif_",
+        "reloginRequired",
         "workspaceRole",
         "isIdentityAdmin",
         "emailVerified",
@@ -76,9 +82,13 @@ def validate_source_contracts() -> None:
         if forbidden.lower() in provider.lower():
             raise AssertionError(f"CY Web copied credential internals: {forbidden}")
 
-    for path in ("/api/auth/login", "/api/auth/me", "/api/auth/logout"):
+    for path in ("/api/auth/login", "/api/auth/first-login/complete", "/api/auth/me", "/api/auth/logout"):
         if path not in routes:
             raise AssertionError(f"auth route missing: {path}")
+
+    for token in ("FIRST_LOGIN_REQUIRED", "FIRST_LOGIN_PASSWORD_EXPIRED", "clearFirstLoginCookie"):
+        if token not in routes:
+            raise AssertionError(f"CY Web auth routes missing first-login boundary: {token}")
 
     for token in ("IDENTITY_APPLICATION_ID", "IDENTITY_WORKSPACE_ID", "IDENTITY"):
         if token not in routes:
@@ -106,6 +116,16 @@ def validate_source_contracts() -> None:
 
     if "groupKeys" in access:
         raise AssertionError("CY Web module authorization must not derive authority from legacy Identity Groups")
+
+    if "啟用帳號" in auth_ui or "startEmployeeActivation" in auth_ui or "confirmEmployeeActivation" in auth_ui:
+        raise AssertionError("CY Web login UI must not expose the legacy activation flow")
+    for token in ("完成 Email 驗證", "設定正式密碼", "completeFirstLogin"):
+        if token not in auth_ui:
+            raise AssertionError(f"CY Web first-login UI missing expected token: {token}")
+
+    for legacy_path in ("/api/identity/activation/start", "/api/identity/activation/confirm"):
+        if legacy_path in management_routes:
+            raise AssertionError(f"legacy public activation route must not remain exposed: {legacy_path}")
 
     if "CYCloud Identity" not in doc:
         raise AssertionError("Identity boundary document must name the concrete shared authority")
@@ -171,7 +191,7 @@ def validate_schema_access_shape() -> None:
 
 def main() -> int:
     validate_source_contracts()
-    print("PASS CYCloud Identity 0.2 source contracts")
+    print("PASS CYCloud Identity 0.3 source contracts")
     validate_schema_access_shape()
     print("PASS Identity app-tag/schema authority split")
     return 0
