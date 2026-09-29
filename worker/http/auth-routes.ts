@@ -29,7 +29,7 @@ function normalizedWorkspaceId(env: IdentityRuntimeEnv): string | null {
   return value;
 }
 
-function identityClient(env: IdentityRuntimeEnv): CYCloudIdentityClient | null {
+export function identityClient(env: IdentityRuntimeEnv): CYCloudIdentityClient | null {
   if (!env.IDENTITY || typeof env.IDENTITY.fetch !== "function") return null;
   const applicationId = normalizedApplicationId(env);
   const workspaceId = normalizedWorkspaceId(env);
