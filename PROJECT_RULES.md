@@ -79,6 +79,10 @@
 - CY Web Module Access 的前端顯示不是授權來源；受保護 Worker/API 必須 server-side enforcement，Access 異動須在後續 request 即時生效。
 - Identity Admin 能力本身的授予／撤銷仍由 Super Admin 管理；CY Web 不得用本地資料把自己或其他 Employee 升成 Identity Admin／Super Admin。
 - Legacy `groupKeys`／Group-derived fields 若因相容性暫時存在，只能作 descriptive compatibility；不得作 forward authorization 或新的產品模型。
+- CY Web 作為 CYID consumer，必須遵守 CYapps `main:/apps/CYCloudIdentity/docs/CONSUMER_INTEGRATION_STANDARD.md` 與其 canonical contracts，不得在本 repo 建立另一套 shared Identity 規格。
+- CY Web 以根 `CYID_CONSUMER_VERSION` 宣告已採用的 CYID consumer contract revision。Development／production deploy 前必須確認該 revision 位於 CYID `CONSUMER_MIN_COMPATIBLE_VERSION..CONSUMER_CONTRACT_VERSION` 支援窗內。
+- 若 CYID consumer contract 更新，CY Web 必須依 consumer changelog 判斷 `BACKWARD_COMPATIBLE` 或 `CONSUMER_UPDATE_REQUIRED`；需要更新時在 provider 移除舊 compatibility path 前完成 migration。不得以 app-local workaround 固定舊 Role／Session／App Access／Recovery 語意。
+- App-specific browser/session presentation（例如 SameSite policy）可依 CY Web 實機需求調整，但不得削弱 CYID token 保護、Session authority 或 shared contract。
 
 ## 8. 上線與驗收
 

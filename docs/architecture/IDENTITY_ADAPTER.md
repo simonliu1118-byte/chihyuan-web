@@ -1,6 +1,6 @@
 # CY Web Identity Adapter — CYCloud Identity Contract
 
-> **Status:** approved CY Web consumer boundary. Current deployed CY Web/CYID versions and rollout state are tracked only in root `TODO.md`; this document describes the forward contract, not a parallel progress log.
+> **Status:** CY Web-specific CYID adapter contract. Shared consumer semantics come from CYapps `main:/apps/CYCloudIdentity/docs/CONSUMER_INTEGRATION_STANDARD.md`; this document only describes CY Web-specific adapter/module behavior. Current deployed versions and rollout state are tracked in root `TODO.md`.
 
 ## 1. Purpose
 
@@ -9,6 +9,8 @@ CY Web consumes Shared Identity from CYCloud Identity through a private Cloudfla
 CYID owns Workspace, Employee, Credential, Workspace Role, Identity Admin capability, Application Access, Session, Email verification, OTP, Recovery and protected Super Admin authority. CY Web owns its business Module Access and domain authorization.
 
 CY Web business modules consume one normalized principal and must not depend on Identity D1 tables, password algorithms, OTP internals, initial credential storage or provider transport details.
+
+CY Web declares the shared contract revision it implements in root `CYID_CONSUMER_VERSION`; governed validation/deployment must keep that version inside the provider support window.
 
 ## 2. Authority split
 

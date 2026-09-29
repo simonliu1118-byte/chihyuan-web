@@ -1,5 +1,13 @@
 # CY Web Governance Changelog
 
+## 1.1.3 — 2026/09/30
+
+- CY Web 正式採用 CYCloud Identity shared `CONSUMER_INTEGRATION_STANDARD.md`，不得在本 repo 分叉 shared Role／Identity Admin／Application Access／Session／Email verification／Recovery 語意。
+- 新增根 `CYID_CONSUMER_VERSION`，以 machine-readable revision 宣告 CY Web 已採用的 CYID consumer contract；目前 baseline 為 `1.0.0`。
+- Governance Check 與 development deploy 都必須從 CYapps `main` 讀取 CYID `CONSUMER_MIN_COMPATIBLE_VERSION..CONSUMER_CONTRACT_VERSION`，確認 CY Web revision 位於 provider 支援窗內；落後最低相容版時 deployment 必須被阻止。
+- CYID consumer contract 更新時，CY Web 依 provider consumer changelog／impact classification 進行 migration；不得以 app-local workaround 固定舊 shared Identity semantics。
+- App-specific browser cookie presentation 仍可依 CY Web 實機需求調整，但不得削弱 raw token protection 或 provider Session authority。
+
 ## 1.1.2 — 2026/09/30
 
 - 依使用者最終確認，CY Web 新 Employee 首次使用流程對外統一稱 **Email 驗證**；登入頁只保留單一一般登入入口，不再維護獨立「啟用帳號」入口。

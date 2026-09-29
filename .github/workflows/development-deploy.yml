@@ -12,6 +12,8 @@ on:
       - "wrangler.deploy.template.jsonc"
       - "vite.config.ts"
       - "package.json"
+      - "CYID_CONSUMER_VERSION"
+      - "scripts/validate-cyid-consumer-version.sh"
       - ".github/workflows/development-deploy.yml"
   push:
     branches:
@@ -40,6 +42,9 @@ jobs:
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+
+      - name: Verify CYID consumer contract support window
+        run: bash scripts/validate-cyid-consumer-version.sh
 
       - name: Validate deployment template contract
         run: node scripts/validate-deploy-config.mjs
@@ -104,6 +109,9 @@ jobs:
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+
+      - name: Verify CYID consumer contract support window
+        run: bash scripts/validate-cyid-consumer-version.sh
 
       - name: Verify development deployment inputs
         shell: bash

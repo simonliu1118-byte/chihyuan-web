@@ -5,8 +5,9 @@
 ## Current checkpoint — 2026-09-30
 
 - Current formal source baseline is **CY Web 0.4.0 Build 0**，development runtime 也已部署 **0.4.0 Build 0**。
-- CYCloud Identity formal source baseline is **0.3.1 Build 0**（CYACC handoff/document baseline）；development runtime remains **0.3.0 Build 0**。
+- CYCloud Identity formal source baseline is **0.3.2 Build 0**；development runtime remains **0.3.0 Build 0**。Shared Consumer Contract = **1.0.0**，Minimum Compatible = **1.0.0**。
 - `https://admin.chihyuancm.com` 仍是固定 CY Web canonical user-facing URL；0.3 development deploy 已重新驗證 Custom Domain 與 invalid-provider-session fallback。
+- CY Web 根 `CYID_CONSUMER_VERSION=1.0.0` 宣告所採用的 shared Identity contract；Governance Check 與 development deploy 都會對照 CYID `main` 的 supported consumer window，落後最低相容版時直接阻止後續部署。
 - CY Web 登入頁現在只有**單一一般登入入口**。舊「啟用帳號」按鈕、`?activate=1` deep-link UI 與 CY Web public activation start/confirm proxy 已移除。
 - 一般登入會由 CYID 判斷是正式密碼還是一次性首次登入密碼：
   - 正式密碼成功 -> 建立一般 CYID Session，CY Web 只保存 provider opaque token 的 HttpOnly cookie；
@@ -56,7 +57,7 @@ CY Web should use optimistic UI where appropriate, but destructive/irreversible 
 20. [ ] Replace temporary business-data `localStorage` persistence with Worker API -> D1 while preserving the React workflow.
 21. [ ] Perform dedicated UI/UX refinement and Desktop/Tablet/Mobile real-browser acceptance.
 22. [ ] Implement/accept backup+restore before production rollout.
-23. [x] Publish CYAccountingWeb（CYACCweb）CYID consumer integration handoff from canonical CYID 0.3 contract：`CYapps/apps/CYCloudIdentity/docs/consumers/CYACC_INTEGRATION_HANDOFF.md`。Real Email/browser lifecycle acceptance 暫緩但仍是 production gate；CYACC development integration 可先進行。
+23. [x] Publish governed CYID shared Consumer Integration Standard + version window；CY Web adopts `CYID_CONSUMER_VERSION=1.0.0` and deployment compatibility gate。CYACC handoff remains app-specific at `CYapps/apps/CYCloudIdentity/docs/consumers/CYACC_INTEGRATION_HANDOFF.md`。
 24. [ ] 在 CYInvoice 工作線的適合接入點產出其 consumer-specific CYID handoff；Device/local/offline 邊界保持 CYInvoice-owned。
 25. [ ] Prepare production Worker/D1 cutover only after explicit user approval.
 
