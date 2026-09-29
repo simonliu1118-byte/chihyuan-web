@@ -59,12 +59,21 @@
 - Customer、Order、Item、Outsourcing、WorkLog 等模組優先延伸既有 shared component／service／schema，不建立功能等價但互不相容的第二套實作。
 - 共用模板不得把單一模組特殊業務硬塞成全域規則；真正特殊需求維持最小 scope。
 
-## 7. 帳號與 CYCloud Identity
+## 7. 帳號、Workspace Role 與 CYCloud Identity
 
-- 現階段 CY Web 先重用 CYInvoice Cloud 既有帳號能力，包含相容的 Workspace／Employee／Credential／Session／OTP／Recovery contract。
-- CY Web 必須透過清楚的 auth／identity adapter 或 service boundary 使用既有帳號能力，避免在 UI、domain model 或 business module 中擴大 CYInvoice-specific 耦合。
-- 中期目標是把共用身分能力從 CYInvoice Cloud 抽離為 CYCloud Identity，供 CYInvoice、CY Web、CYAccounting Web 與未來 Cloud App 共用。
-- App-specific permission 由各 App 定義；共用 Identity 不應把單一 App 的全部細部 permission 永久寫死成全域角色。
+- CYCloud Identity 是 CY Web 的 Shared Identity authority，負責 Workspace、Employee、Credential、Workspace Role、Identity Admin capability、Application Access、Session、Email OTP／Recovery。CY Web 不得複製一套 credential/session/OTP authority。
+- CYID Workspace Role 固定為 `SUPER_ADMIN / ADMIN / USER` 三層；CY Web 直接採用相同角色，不另行重新投影另一套 Super Admin／Admin／User。
+- `Identity Admin` 是 CYID 中附掛於 ADMIN 的特殊 Identity-management capability，不是第四種 CY Web Role。
+- CY Web 是 **核心帳號管理 App**：所有有效 Employee 的 CY Web entry access 固定為 `TRUE`／不可取消。即使沒有任何業務 Module Access，Employee 仍必須能登入 CY Web 使用自己的帳號／密碼／Email 等 self-service。
+- Super Admin 對 CY Web 所有業務 Module 自動具有 Access，且不可取消。
+- CY Web 的 Customer／Order／Item／Outsourcing／WorkLog 等 Module Access 屬 CY Web-local authorization，不存入 CYID 作 universal permission catalog；CYID 只提供身分、Role、Identity Admin capability 與 App-level entry authority。
+- 一般 ADMIN 不得設定任何人的 App Access 或 CY Web Module Access。
+- Identity Admin／Super Admin 可以設定 eligible USER、ADMIN 與其他 Identity Admin 的 CY Web Module Access；Identity Admin 不得修改自己的 Module Access，也不得修改 Super Admin 的 Module Access。
+- ADMIN 只要具備某一 CY Web Module Access，即在該 Module 內具有完整管理權；現階段不再把 ADMIN 拆成更細的 module permission。USER 的細部業務權限若未來需要，仍由 CY Web 自己管理。
+- Role 升降不自動新增或刪除 Module Access；Role 與 Module Access 是不同維度。
+- CY Web Module Access 的前端顯示不是授權來源；受保護 Worker/API 必須 server-side enforcement，Access 異動須在後續 request 即時生效。
+- Identity Admin 能力本身的授予／撤銷仍由 Super Admin 管理；CY Web 不得用本地資料把自己或其他 Employee 升成 Identity Admin／Super Admin。
+- CYCloud Identity 尚未完成三層 Role migration 前，CY Web 可暫時相容目前 provider legacy fields，但不得再擴充 Identity Group／Group-derived compatibility role 作為未來產品模型。
 
 ## 8. 上線與驗收
 
