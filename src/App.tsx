@@ -52,8 +52,8 @@ function currentRoute(): AppRoute {
   return routes.has(value) ? value : "customers";
 }
 
-function permissionLabel(role: WorkspaceRole): string {
-  if (role === "SUPER_ADMIN") return "超級管理員";
+function accountPermissionLabel(role: WorkspaceRole): string {
+  if (role === "SUPER_ADMIN") return "超級使用者";
   if (role === "ADMIN") return "管理員";
   return "一般使用者";
 }
@@ -94,8 +94,7 @@ function OperationalApp({
           <div className="cy-op-runtime-banner">業務資料暫存模式 · localStorage</div>
           <div className="cy-auth-account-control">
             <div className="cy-auth-user">
-              <strong>{session.user.displayName}</strong>
-              <span>{session.user.employeeNo} · {permissionLabel(session.user.workspaceRole)}</span>
+              <span><strong>{session.user.employeeNo}</strong> {session.user.displayName} <span className="cy-auth-permission-badge">[{accountPermissionLabel(session.user.workspaceRole)}]</span></span>
             </div>
             <button
               className="cy-auth-logout-button"

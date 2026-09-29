@@ -91,23 +91,18 @@
 }
 
 .cy-auth-user {
-  display: grid;
-  gap: 1px;
+  display: flex;
+  align-items: center;
   min-width: 0;
-  padding: 6px 11px;
+  padding: 7px 11px;
   font-size: 13px;
   line-height: 1.25;
-}
-.cy-auth-user strong {
-  overflow: hidden;
-  font-weight: 800;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
-.cy-auth-user span {
+.cy-auth-user strong { font-weight: 800; }
+.cy-auth-permission-badge {
   color: #6b6257;
-  font-size: 11px;
-  white-space: nowrap;
+  font-size: 12px;
 }
 .cy-auth-logout-button {
   min-width: 58px;

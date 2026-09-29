@@ -40,10 +40,14 @@
 
 .cy-identity-create-row {
   display: grid;
-  grid-template-columns: 150px minmax(150px, 0.8fr) minmax(220px, 1.2fr) auto;
+  grid-template-columns: 132px minmax(140px, .75fr) minmax(240px, 1.45fr) 132px 132px;
   gap: 8px;
   align-items: center;
   margin: 14px 0 18px;
+}
+
+.cy-identity-create-row > .cy-op-button {
+  white-space: nowrap;
 }
 
 .cy-identity-admin-stack {
@@ -68,6 +72,32 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.cy-op-table.cy-identity-access-table {
+  width: max-content;
+  min-width: 0;
+  table-layout: auto;
+}
+
+.cy-identity-access-table th,
+.cy-identity-access-table td {
+  white-space: nowrap;
+}
+
+.cy-identity-access-table .cy-access-user-col {
+  width: 220px;
+  min-width: 220px;
+}
+
+.cy-identity-access-table .cy-access-permission-col {
+  width: 150px;
+  min-width: 150px;
+}
+
+.cy-identity-access-table .cy-access-app-col {
+  width: 150px;
+  min-width: 150px;
 }
 
 .cy-identity-access-fixed {
@@ -233,6 +263,12 @@
 
 .cy-identity-policy-grid .wide {
   grid-column: 1 / -1;
+}
+
+@media (max-width: 1180px) {
+  .cy-identity-create-row {
+    grid-template-columns: 132px minmax(150px, .8fr) minmax(220px, 1.2fr);
+  }
 }
 
 @media (max-width: 980px) {
