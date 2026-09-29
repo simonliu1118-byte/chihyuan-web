@@ -1,4 +1,8 @@
 import { apiRequest } from "../api/client";
+import type { CyWebModuleCode } from "../../shared/module-access";
+
+export type WorkspaceRole = "USER" | "ADMIN" | "SUPER_ADMIN";
+export type StoredEmployeeRole = "USER" | "ADMIN";
 
 export interface IdentityEmployeeRow {
   employee_id: string;
@@ -7,21 +11,13 @@ export interface IdentityEmployeeRow {
   email_normalized: string;
   email_verified_at: string | null;
   enabled: number;
+  role_key: StoredEmployeeRole;
+  identity_admin: number;
+  activated_at: string | null;
   revision: number;
-}
-
-export interface IdentityGroupRow {
-  group_id: string;
-  group_key: string;
-  display_name: string;
-  description: string | null;
-  status: "active" | "disabled";
-  revision: number;
-}
-
-export interface IdentityMembershipRow {
-  employee_id: string;
-  group_id: string;
+  credential_present: number;
+  is_super_admin: number;
+  workspace_role: WorkspaceRole;
 }
 
 export interface IdentityApplicationRow {
@@ -29,7 +25,8 @@ export interface IdentityApplicationRow {
   display_name: string;
   application_status: string;
   enabled: number;
-  compatibility_role_mode: "USER_ADMIN" | null;
+  compatibility_role_mode?: "USER_ADMIN" | null;
+  core_access_locked: number;
 }
 
 export interface IdentityDirectAccessRow {
@@ -38,21 +35,16 @@ export interface IdentityDirectAccessRow {
   enabled: number;
 }
 
-export interface IdentityGroupAccessRow {
-  group_id: string;
-  application_id: string;
-  enabled: number;
-  application_role_key: "USER" | "ADMIN" | null;
-}
-
 export interface IdentityAdminSnapshot {
   workspaceId: string;
+  actor: {
+    employeeId: string;
+    workspaceRole: WorkspaceRole;
+    isIdentityAdmin: boolean;
+  };
   employees: IdentityEmployeeRow[];
-  groups: IdentityGroupRow[];
-  memberships: IdentityMembershipRow[];
   applications: IdentityApplicationRow[];
   directAccess: IdentityDirectAccessRow[];
-  groupAccess: IdentityGroupAccessRow[];
 }
 
 export interface HighestAuthorityView {
@@ -84,6 +76,22 @@ export interface OtpIssueView {
   resendAfter: string;
 }
 
+export interface DeliveryView extends Partial<OtpIssueView> {
+  sent: boolean;
+  errorCode?: string;
+}
+
+export interface ModuleAccessGrant {
+  identity_employee_id: string;
+  module_code: CyWebModuleCode;
+  enabled: number;
+}
+
+export interface ModuleAccessView {
+  modules: ReadonlyArray<{ code: CyWebModuleCode; label: string }>;
+  grants: ModuleAccessGrant[];
+}
+
 export function loadIdentityAdminSnapshot(): Promise<IdentityAdminSnapshot> {
   return apiRequest<IdentityAdminSnapshot>("/api/identity/admin/snapshot", { method: "GET" });
 }
@@ -113,20 +121,30 @@ export function confirmHighestAuthorityTransfer(targetEmployeeId: string, challe
   });
 }
 
-export function createIdentityEmployee(input: { employeeNo: string; displayName: string; email: string }) {
-  return apiRequest<{ employee: unknown }>("/api/identity/admin/employees", { method: "POST", json: input });
+export function createIdentityEmployee(input: {
+  employeeNo: string;
+  displayName: string;
+  email: string;
+  roleKey: StoredEmployeeRole;
+}) {
+  return apiRequest<{ employee: IdentityEmployeeRow; activationDelivery: DeliveryView }>(
+    "/api/identity/admin/employees",
+    { method: "POST", json: input },
+  );
 }
 
 export function updateIdentityEmployee(employeeId: string, input: {
-  employeeNo: string;
-  displayName: string;
-  enabled: boolean;
+  employeeNo?: string;
+  displayName?: string;
+  email?: string;
+  enabled?: boolean;
+  roleKey?: StoredEmployeeRole;
   revision: number;
 }) {
-  return apiRequest<{ employee: unknown }>(`/api/identity/admin/employees/${encodeURIComponent(employeeId)}`, {
-    method: "PATCH",
-    json: input,
-  });
+  return apiRequest<{ employee: unknown; activationDelivery?: DeliveryView }>(
+    `/api/identity/admin/employees/${encodeURIComponent(employeeId)}`,
+    { method: "PATCH", json: input },
+  );
 }
 
 export function deletePendingIdentityEmployee(employeeId: string) {
@@ -136,39 +154,31 @@ export function deletePendingIdentityEmployee(employeeId: string) {
   );
 }
 
-export function createIdentityGroup(input: { groupKey: string; displayName: string; description?: string | null }) {
-  return apiRequest<{ group: unknown }>("/api/identity/admin/groups", { method: "POST", json: input });
-}
-
-export function updateIdentityGroup(groupId: string, input: {
-  groupKey: string;
-  displayName: string;
-  description: string | null;
-  status: "active" | "disabled";
-  revision: number;
-}) {
-  return apiRequest<{ group: unknown }>(`/api/identity/admin/groups/${encodeURIComponent(groupId)}`, {
-    method: "PATCH",
-    json: input,
-  });
-}
-
-export function setIdentityGroupMember(groupId: string, employeeId: string, enabled: boolean) {
-  return apiRequest<{ membership: unknown }>(
-    `/api/identity/admin/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(employeeId)}`,
-    { method: enabled ? "PUT" : "DELETE" },
+export function resendIdentityEmployeeActivation(employeeId: string) {
+  return apiRequest<{ activationDelivery: DeliveryView }>(
+    `/api/identity/admin/employees/${encodeURIComponent(employeeId)}/activation/resend`,
+    { method: "POST", json: {} },
   );
 }
 
-export function setGroupApplicationAccess(
-  groupId: string,
-  applicationId: string,
-  enabled: boolean,
-  applicationRoleKey: "USER" | "ADMIN" | null,
-) {
-  return apiRequest<{ access: unknown }>(
-    `/api/identity/admin/groups/${encodeURIComponent(groupId)}/applications/${encodeURIComponent(applicationId)}`,
-    { method: "PUT", json: { enabled, applicationRoleKey } },
+export function setIdentityAdminCapability(employeeId: string, enabled: boolean) {
+  return apiRequest<{ employee: unknown; sessionsRevoked: boolean }>(
+    `/api/identity/admin/employees/${encodeURIComponent(employeeId)}/identity-admin`,
+    { method: "PUT", json: { enabled } },
+  );
+}
+
+export function forceIdentityEmployeeEmailRecovery(employeeId: string, email: string) {
+  return apiRequest<{ recovered: boolean; verificationDelivery: DeliveryView; sessionsRevoked: boolean }>(
+    `/api/identity/admin/employees/${encodeURIComponent(employeeId)}/email-recovery`,
+    { method: "POST", json: { email } },
+  );
+}
+
+export function resendIdentityEmployeeEmailVerification(employeeId: string) {
+  return apiRequest<{ verificationDelivery: DeliveryView }>(
+    `/api/identity/admin/employees/${encodeURIComponent(employeeId)}/email-verification/resend`,
+    { method: "POST", json: {} },
   );
 }
 
@@ -179,10 +189,14 @@ export function setEmployeeApplicationAccess(employeeId: string, applicationId: 
   );
 }
 
-export function setApplicationCompatibilityRoleMode(applicationId: string, mode: "USER_ADMIN" | null) {
-  return apiRequest<{ application: unknown }>(
-    `/api/identity/admin/applications/${encodeURIComponent(applicationId)}/compatibility-role-mode`,
-    { method: "PUT", json: { mode } },
+export function loadModuleAccess(): Promise<ModuleAccessView> {
+  return apiRequest<ModuleAccessView>("/api/identity/admin/module-access", { method: "GET" });
+}
+
+export function setModuleAccess(employeeId: string, moduleCode: CyWebModuleCode, enabled: boolean) {
+  return apiRequest<{ access: unknown }>(
+    `/api/identity/admin/module-access/${encodeURIComponent(employeeId)}/${encodeURIComponent(moduleCode)}`,
+    { method: "PUT", json: { enabled } },
   );
 }
 
@@ -205,6 +219,13 @@ export function startOwnEmailChange(currentPassword: string, email: string): Pro
   return apiRequest<{ verification: OtpIssueView }>("/api/identity/email-change/start", {
     method: "POST",
     json: { currentPassword, email },
+  });
+}
+
+export function startCurrentEmailVerification(): Promise<{ verification: OtpIssueView; reused: boolean }> {
+  return apiRequest<{ verification: OtpIssueView; reused: boolean }>("/api/identity/email-verification/start-current", {
+    method: "POST",
+    json: {},
   });
 }
 
