@@ -4,7 +4,7 @@
 
 ## Current checkpoint — 2026-09-29
 
-- Formal baseline remains `main`; current CY Web line is `0.2.4` once the canonical-hostname rollout merges and deploys.
+- Formal baseline remains `main`; current CY Web line is `0.2.4`, development-deployed.
 - CYCloud Identity `0.2.1` is merged and development-deployed. `0006` repaired the first-activation Email-verification race introduced by the former credential trigger; verified activation state is again durable and consistent.
 - CYID 0.2 replaces Group-derived authorization with direct Workspace roles `SUPER_ADMIN / ADMIN / USER`, ADMIN-only `Identity Admin` capability, direct Employee App Access, durable activation state, create-time activation Email, pending resend/edit/delete, and activated-account forced Email recovery.
 - CY Web normalizes `workspaceRole / isIdentityAdmin / emailVerified` and keeps legacy `groupKeys` descriptive only.
@@ -15,8 +15,8 @@
 - User-account UI uses 使用者 terminology, Chinese permission labels, compact account controls and Email verification pills. Email verified/unverified state is now shown inline beside the Email address.
 - Employee creation expects create-time permission selection and reports whether the first activation Email was sent. Pending actions are edit / resend / delete.
 - Activation Email deep links use `?activate=1&employeeNo=####` to open CY Web directly in the activation flow. CY Web asks CYID for the existing active challenge; the URL itself is not an authentication credential and OTP + first password remain mandatory.
-- `https://admin.chihyuancm.com` is fixed as the permanent CY Web canonical user-facing URL. No separate `dev-admin.*` hostname is used. Development acceptance may temporarily run against development Worker/D1 behind that hostname; future production cutover changes backing resources without changing the public URL.
-- CY Web deployment uses governed `deploy/cyweb-development` branch push. The custom hostname is part of the Wrangler deployment contract; `workers.dev` remains a technical fallback.
+- `https://admin.chihyuancm.com` is live and fixed as the permanent CY Web canonical user-facing URL. No separate `dev-admin.*` hostname is used. Development acceptance currently runs against development Worker/D1 behind that hostname; future production cutover changes backing resources without changing the public URL.
+- CY Web deployment uses governed `deploy/cyweb-development` branch push. The canonical hostname is part of the Wrangler deployment contract; deployment acceptance verifies TLS/custom-domain routing, same-origin auth API behavior, invalid-session cookie clearing, and the `workers.dev` technical fallback.
 - CYInvoice remains unchanged/reference-only in this workstream. CYAccountingWeb (CYACC-web) and CYInvoice integrations occur in their own workstreams after the shared contract is accepted.
 - Production D1/Worker cutover, backup rollout and SMART ERP remain untouched.
 
@@ -38,24 +38,25 @@
 7. [x] Verify CYID migration, Worker deployment and existing validation after `0.2.0` development deployment.
 8. [x] Deploy CY Web development through governed `deploy/cyweb-development` branch push.
 9. [x] Repair the CYID first-activation Email-verification race in `0.2.1` and verify the affected activated account reports Email verified correctly.
-10. [ ] Bind and accept permanent `admin.chihyuancm.com` through the CY Web deployment contract, then update CYID account-portal delivery to the canonical URL.
-11. [ ] Browser-accept the revised Account & Permissions surface and current acceptance UI fixes on the canonical hostname.
-12. [ ] Create a controlled new test User and accept first activation Email delivery, Brevo event, canonical CY Web activation link, OTP and first-password completion.
-13. [ ] Accept pending edit / resend / delete behavior and delivery-failure recovery without deleting the User automatically.
-14. [ ] Accept ordinary USER login/self-service and prove no Workspace management/Access controls are exposed.
-15. [ ] Accept normal ADMIN USER-lifecycle limits and prove no App/Module Access administration.
-16. [ ] Accept Identity Admin USER↔ADMIN, App Access, Email recovery and anti-self-escalation boundaries.
-17. [ ] Implement/accept CY Web-local Module Access management UI + server-side enforcement for Identity Admin/Super Admin. Do not move module permissions into CYID.
-18. [ ] Accept activated-account forced Email recovery and `啟用 · Email 待驗證` re-verification flow.
-19. [ ] Accept role/App Access session invalidation and immediate authorization changes.
-20. [ ] Obtain literal expired-session evidence through CY Web; invalid-session handling is already accepted separately.
-21. [ ] Manually accept self-service forgot-password/own Email change and controlled Super Admin transfer without risking lockout.
-22. [ ] Add protected Worker business HTTP routes with server-side module authorization.
-23. [ ] Replace temporary `localStorage` business-data persistence with Worker API -> D1 while preserving the React workflow.
-24. [ ] Perform dedicated UI/UX refinement, including explicit per-mutation optimistic-UI review under the direction recorded above.
-25. [ ] Perform Desktop/Tablet/Mobile real-browser acceptance.
-26. [ ] Implement and accept backup/restore before production rollout.
-27. [ ] Prepare production Worker/D1 and rebind the same `admin.chihyuancm.com` hostname only after explicit production acceptance.
+10. [x] Bind and accept permanent `admin.chihyuancm.com` through the CY Web deployment contract.
+11. [ ] Update CYID development account-portal delivery to `https://admin.chihyuancm.com`, redeploy CYID, and verify new Identity Email links use the canonical hostname.
+12. [ ] Browser-accept the revised Account & Permissions surface and current acceptance UI fixes on the canonical hostname.
+13. [ ] Create a controlled new test User and accept first activation Email delivery, Brevo event, canonical CY Web activation link, OTP and first-password completion.
+14. [ ] Accept pending edit / resend / delete behavior and delivery-failure recovery without deleting the User automatically.
+15. [ ] Accept ordinary USER login/self-service and prove no Workspace management/Access controls are exposed.
+16. [ ] Accept normal ADMIN USER-lifecycle limits and prove no App/Module Access administration.
+17. [ ] Accept Identity Admin USER↔ADMIN, App Access, Email recovery and anti-self-escalation boundaries.
+18. [ ] Implement/accept CY Web-local Module Access management UI + server-side enforcement for Identity Admin/Super Admin. Do not move module permissions into CYID.
+19. [ ] Accept activated-account forced Email recovery and `啟用 · Email 待驗證` re-verification flow.
+20. [ ] Accept role/App Access session invalidation and immediate authorization changes.
+21. [ ] Obtain literal expired-session evidence through CY Web; invalid-session handling is already accepted separately.
+22. [ ] Manually accept self-service forgot-password/own Email change and controlled Super Admin transfer without risking lockout.
+23. [ ] Add protected Worker business HTTP routes with server-side module authorization.
+24. [ ] Replace temporary `localStorage` business-data persistence with Worker API -> D1 while preserving the React workflow.
+25. [ ] Perform dedicated UI/UX refinement, including explicit per-mutation optimistic-UI review under the direction recorded above.
+26. [ ] Perform Desktop/Tablet/Mobile real-browser acceptance.
+27. [ ] Implement and accept backup/restore before production rollout.
+28. [ ] Prepare production Worker/D1 and rebind the same `admin.chihyuancm.com` hostname only after explicit production acceptance.
 
 ## Current Identity acceptance boundary
 
@@ -73,7 +74,8 @@ Already accepted:
 - Public-source secret/operational-ID boundaries;
 - CYID 0.2 development migration and Worker deployment;
 - CYID 0.2.1 activation-verification repair and development deployment;
-- CY Web 0.2 development deployment and invalid-provider-session acceptance.
+- CY Web 0.2 development deployment and invalid-provider-session acceptance;
+- CY Web canonical `admin.chihyuancm.com` Custom Domain routing/TLS/auth-cookie acceptance.
 
 Implemented/deployed but still requiring browser acceptance:
 
