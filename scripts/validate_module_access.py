@@ -60,14 +60,12 @@ def validate_source_contract() -> None:
         if forbidden in access:
             raise AssertionError(f"legacy tag authority still present in runtime Module Access: {forbidden}")
 
-    for path in (
-        "/api/module-access",
-        "/api/module-access/admin",
-        "/api/module-access/check/",
-        "/modules/",
-    ):
+    for path in ("/api/module-access", "/api/module-access/admin"):
         if path not in routes:
             raise AssertionError(f"Module Access route contract missing: {path}")
+    for pattern in ("module-access\\/check", "module-access\\/admin\\/employees", "\\/modules\\/"):
+        if pattern not in routes:
+            raise AssertionError(f"Module Access regex route contract missing: {pattern}")
 
     for token in (
         "requireIdentity",
