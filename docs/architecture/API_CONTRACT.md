@@ -155,3 +155,61 @@ Mutation rules:
 - browser navigation filtering is convenience only; protected Worker/business routes must call the server-side Module Access guard before reading or mutating protected data.
 
 `app_tags / app_tag_modules / app_member_tags` are not forward authorization sources. The authoritative store is `app_member_module_access`.
+
+## 12. Protected Business HTTP API — Phase 1
+
+CY Web 0.5 Phase 1 exposes the existing D1 domain services for Customer, Item and Defect through same-origin Worker APIs.
+
+Every route below resolves the current CYID session and requires the matching **current server-side CY Web Module Access before the domain service is touched**.
+
+### Customer — `CUSTOMERS`
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/business/customers` | bounded search/list |
+| POST | `/api/business/customers` | create Customer |
+| GET | `/api/business/customers/:customerId` | detail |
+| PATCH | `/api/business/customers/:customerId` | revision-gated update |
+| GET | `/api/business/customers/tax-id-check` | duplicate Tax ID preflight |
+
+### Item — `ITEMS`
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/business/items` | bounded search/list |
+| POST | `/api/business/items` | create Item |
+| GET | `/api/business/items/:itemId` | detail |
+| PATCH | `/api/business/items/:itemId` | revision-gated update |
+| GET | `/api/business/items/:itemId/number-history` | Item number history |
+| POST | `/api/business/items/:itemId/number` | controlled Item number change |
+
+### Defect — `DEFECTS`
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/business/defects` | bounded search/list |
+| POST | `/api/business/defects` | create Defect report |
+| GET | `/api/business/defects/:defectId` | detail |
+| PATCH | `/api/business/defects/:defectId` | revision-gated edit |
+| POST | `/api/business/defects/:defectId/start-processing` | created → processing |
+| POST | `/api/business/defects/:defectId/resolve` | processing → resolved |
+| POST | `/api/business/defects/:defectId/reopen` | resolved → processing |
+| POST | `/api/business/defects/:defectId/invalidate` | durable invalidation |
+| DELETE | `/api/business/defects/:defectId` | delete still-created report under service rules |
+
+### Authorization and mutation context
+
+- Missing/invalid provider session → `401 AUTH_REQUIRED/AUTH_INVALID`.
+- CYID unavailable → `503 IDENTITY_UNAVAILABLE`.
+- Authenticated Employee without the matching Module Access → `403 ACCESS_DENIED`.
+- Super Admin retains implicit all-module access.
+- Mutation `actorMemberId` always comes from the authorized CY Web `app_members` projection returned by the Module Access guard; it is never accepted from browser JSON.
+- Destructive Defect administrative delete authority is derived from the current Workspace Role, not a client flag.
+- Domain validation, D1 constraints, optimistic `revision` checks and existing Audit logic remain in the established service/persistence layer.
+
+Browser navigation filtering is not sufficient authorization. Directly calling any `/api/business/*` endpoint still performs the server-side Module Access check.
+
+Phase 1 does **not** yet move the React Customer / Item / Defect pages off localStorage. The next transport-migration phase will make those pages consume these APIs without changing the domain contract.
+
+Order / Outsourcing / WorkLog protected routes follow this same boundary in the next API phase.
+

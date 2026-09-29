@@ -30,6 +30,7 @@ jobs:
           python scripts/validate_foundation.py
           python scripts/validate_identity_foundation.py
           python scripts/validate_module_access.py
+          python scripts/validate_business_http_api.py
           python scripts/validate_audit_foundation.py
       - name: Customer service contract
         run: python scripts/validate_customer_service_foundation.py
