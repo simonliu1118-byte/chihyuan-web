@@ -48,10 +48,10 @@ export async function loginWithPassword(employeeNo: string, password: string): P
     method: "POST",
     json: { employeeNo, password },
   });
-  if ("passwordChangeRequired" in result && result.passwordChangeRequired === true) {
-    return { status: "first_login", firstLogin: result.firstLogin };
+  if ("user" in result) {
+    return { status: "authenticated", session: result };
   }
-  return { status: "authenticated", session: result };
+  return { status: "first_login", firstLogin: result.firstLogin };
 }
 
 export function completeFirstLogin(password: string) {
