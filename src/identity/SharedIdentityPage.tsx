@@ -7,7 +7,7 @@ import {
   confirmOwnEmailChange,
   createIdentityEmployee,
   createIdentityGroup,
-  loadHighestAuthority,
+  deletePendingIdentityEmployee,
   loadIdentityAdminSnapshot,
   loadSecurityPolicy,
   setApplicationCompatibilityRoleMode,
@@ -19,7 +19,6 @@ import {
   updateIdentityEmployee,
   updateIdentityGroup,
   updateSecurityPolicy,
-  type HighestAuthorityView,
   type IdentityAdminSnapshot,
   type IdentityApplicationRow,
   type IdentityEmployeeRow,
@@ -113,31 +112,52 @@ function SelfServicePanel() {
   </>;
 }
 
-function EmployeeManagement({ snapshot, refresh, highestAuthorityEmployeeId }: {
+function EmployeeManagement({ snapshot, refresh, superAdminEmployeeId }: {
   snapshot: IdentityAdminSnapshot;
   refresh: () => Promise<void>;
-  highestAuthorityEmployeeId: string;
+  superAdminEmployeeId: string;
 }) {
   const [employeeNo, setEmployeeNo] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [targetEmployeeId, setTargetEmployeeId] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [transferChallengeId, setTransferChallengeId] = useState<string | null>(null);
+  const [transferOtp, setTransferOtp] = useState("");
+  const [transferMessage, setTransferMessage] = useState<string | null>(null);
+
+  const eligibleTransferEmployees = useMemo(
+    () => snapshot.employees.filter((row) => row.employee_id !== superAdminEmployeeId && row.enabled === 1 && Boolean(row.email_verified_at)),
+    [snapshot.employees, superAdminEmployeeId],
+  );
+
+  useEffect(() => {
+    if (!transferOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !busy) closeTransfer();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [transferOpen, busy]);
 
   async function create(event: FormEvent) {
     event.preventDefault(); setBusy(true); setMessage(null);
     try {
       await createIdentityEmployee({ employeeNo, displayName, email });
       setEmployeeNo(""); setDisplayName(""); setEmail("");
-      setMessage("員工已建立為待啟用狀態。請由該員工在登入頁執行『啟用帳號』並設定自己的密碼。");
+      setMessage("員工已建立，目前為「尚未驗證／待啟用」。請由該員工在登入頁執行『啟用帳號』並設定自己的密碼。");
       await refresh();
     } catch (error) { setMessage(messageOf(error)); }
     finally { setBusy(false); }
   }
 
   async function toggle(row: IdentityEmployeeRow) {
-    if (row.employee_id === highestAuthorityEmployeeId && row.enabled === 1) {
-      setMessage("目前最高權限帳號不能直接停用；請先完成最高管理權移交。");
+    if (!row.email_verified_at) return;
+    if (row.employee_id === superAdminEmployeeId) {
+      setMessage("超級管理員不能直接停用；如需更換請先完成超級管理員移交。");
       return;
     }
     setBusy(true); setMessage(null);
@@ -153,9 +173,69 @@ function EmployeeManagement({ snapshot, refresh, highestAuthorityEmployeeId }: {
     finally { setBusy(false); }
   }
 
+  async function deletePending(row: IdentityEmployeeRow) {
+    if (row.email_verified_at) return;
+    const confirmed = window.confirm(`確定刪除尚未啟用的員工帳號「${row.employee_no} ${row.name}」？\n\n刪除後，該帳號必須重新建立才能啟用。`);
+    if (!confirmed) return;
+    setBusy(true); setMessage(null);
+    try {
+      await deletePendingIdentityEmployee(row.employee_id);
+      setMessage(`已刪除尚未啟用的員工帳號 ${row.employee_no} ${row.name}。`);
+      await refresh();
+    } catch (error) { setMessage(messageOf(error)); }
+    finally { setBusy(false); }
+  }
+
+  function openTransfer() {
+    if (eligibleTransferEmployees.length === 0) return;
+    setTargetEmployeeId(eligibleTransferEmployees[0]?.employee_id ?? "");
+    setCurrentPassword("");
+    setTransferChallengeId(null);
+    setTransferOtp("");
+    setTransferMessage(null);
+    setTransferOpen(true);
+  }
+
+  function closeTransfer() {
+    if (busy) return;
+    setTransferOpen(false);
+    setTargetEmployeeId("");
+    setCurrentPassword("");
+    setTransferChallengeId(null);
+    setTransferOtp("");
+    setTransferMessage(null);
+  }
+
+  async function startTransfer(event: FormEvent) {
+    event.preventDefault();
+    if (!targetEmployeeId) { setTransferMessage("請選擇新的超級管理員。"); return; }
+    setBusy(true); setTransferMessage(null);
+    try {
+      const result = await startHighestAuthorityTransfer(targetEmployeeId, currentPassword);
+      setTransferChallengeId(result.transfer.challengeId);
+      setCurrentPassword("");
+      setTransferMessage("移交驗證碼已寄至目前超級管理員的已驗證 Email。請輸入 6 位數驗證碼完成移交。");
+    } catch (error) { setTransferMessage(messageOf(error)); }
+    finally { setBusy(false); }
+  }
+
+  async function confirmTransfer(event: FormEvent) {
+    event.preventDefault();
+    if (!transferChallengeId || !targetEmployeeId || !/^\d{6}$/.test(transferOtp)) return;
+    setBusy(true); setTransferMessage(null);
+    try {
+      await confirmHighestAuthorityTransfer(targetEmployeeId, transferChallengeId, transferOtp);
+      window.alert("超級管理員已移交。Recovery Email 會跟隨新的超級管理員，目前登入已撤銷，請重新登入。");
+      window.location.reload();
+    } catch (error) { setTransferMessage(messageOf(error)); }
+    finally { setBusy(false); }
+  }
+
+  const transferTarget = eligibleTransferEmployees.find((row) => row.employee_id === targetEmployeeId) ?? null;
+
   return <section className="cy-op-panel">
-    <div className="cy-op-panel-header"><div><h3>員工帳號</h3><p>管理者只建立帳號資料；第一次密碼由員工透過 Email OTP 自行設定。</p></div></div>
-    {message ? <div className="cy-identity-message">{message}</div> : null}
+    <div className="cy-op-panel-header"><div><h3>員工帳號</h3><p>管理者只建立帳號資料；第一次密碼由員工透過 Email OTP 自行設定。超級管理員移交也在本表操作。</p></div></div>
+    {message ? <div className="cy-identity-message" role="status">{message}</div> : null}
     <form className="cy-identity-create-row" onSubmit={create}>
       <input className="cy-op-input" inputMode="numeric" placeholder="4 碼員工編號" maxLength={4} value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value.replace(/\D/g, "").slice(0, 4))} required />
       <input className="cy-op-input" placeholder="姓名" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
@@ -163,16 +243,49 @@ function EmployeeManagement({ snapshot, refresh, highestAuthorityEmployeeId }: {
       <button className="cy-op-button primary" disabled={busy}>新增員工</button>
     </form>
     <div className="cy-identity-table-wrap"><table className="cy-op-table"><thead><tr><th>編號</th><th>姓名</th><th>Email</th><th>狀態</th><th>操作</th></tr></thead><tbody>{snapshot.employees.map((row) => {
-      const isHighestAuthority = row.employee_id === highestAuthorityEmployeeId;
-      return <tr key={row.employee_id}><td>{row.employee_no}</td><td>{row.name}{isHighestAuthority ? <small className="cy-identity-subtext">Workspace 最高權限</small> : null}</td><td>{row.email_normalized}<small className="cy-identity-subtext">{row.email_verified_at ? "已驗證" : "待驗證"}</small></td><td>{isHighestAuthority ? "最高權限 · 啟用" : row.enabled === 1 ? "啟用" : "停用／待啟用"}</td><td>{isHighestAuthority ? null : <button className="cy-op-button" disabled={busy || !row.email_verified_at} onClick={() => void toggle(row)}>{row.enabled === 1 ? "停用" : "啟用"}</button>}</td></tr>;
+      const isSuperAdmin = row.employee_id === superAdminEmployeeId;
+      const pendingActivation = !row.email_verified_at;
+      const status = pendingActivation
+        ? "尚未驗證／待啟用"
+        : isSuperAdmin
+          ? "超級管理員 · 啟用"
+          : row.enabled === 1 ? "啟用" : "停用";
+      return <tr key={row.employee_id}>
+        <td>{row.employee_no}</td>
+        <td>{row.name}{isSuperAdmin ? <small className="cy-identity-subtext">超級管理員</small> : null}</td>
+        <td>{row.email_normalized}<small className="cy-identity-subtext">{row.email_verified_at ? "已驗證" : "尚未驗證"}</small></td>
+        <td>{status}</td>
+        <td><div className="cy-identity-actions">
+          {isSuperAdmin ? <button type="button" className="cy-op-button" disabled={busy || eligibleTransferEmployees.length === 0} title={eligibleTransferEmployees.length === 0 ? "目前沒有已啟用且 Email 已驗證的可移交員工" : "移交超級管理員"} onClick={openTransfer}>移交</button> : pendingActivation ? <button type="button" className="cy-op-button danger" disabled={busy} onClick={() => void deletePending(row)}>刪除</button> : <button type="button" className="cy-op-button" disabled={busy} onClick={() => void toggle(row)}>{row.enabled === 1 ? "停用" : "啟用"}</button>}
+        </div></td>
+      </tr>;
     })}</tbody></table></div>
+    {transferOpen ? <div className="cy-identity-modal-backdrop" role="presentation">
+      <div className="cy-identity-modal" role="dialog" aria-modal="true" aria-labelledby="cy-super-admin-transfer-title">
+        <div className="cy-identity-modal-header">
+          <div><h3 id="cy-super-admin-transfer-title">移交超級管理員</h3><p>只有已啟用、Email 已驗證且已完成密碼設定的員工可接任。</p></div>
+          <button type="button" className="cy-identity-modal-close" aria-label="關閉" disabled={busy} onClick={closeTransfer}>×</button>
+        </div>
+        {transferMessage ? <div className="cy-identity-message" role="status">{transferMessage}</div> : null}
+        <div className="cy-notice cy-notice-warning"><div className="cy-notice-title">移交後立即生效</div><div className="cy-notice-body">完成後 Recovery Email 會切換為新超級管理員的已驗證 Email，原超級管理員既有 Session 會撤銷。</div></div>
+        {!transferChallengeId ? <form className="cy-op-form" onSubmit={startTransfer}>
+          <label>新的超級管理員<select className="cy-op-input" value={targetEmployeeId} onChange={(e) => setTargetEmployeeId(e.target.value)} required>{eligibleTransferEmployees.map((row) => <option key={row.employee_id} value={row.employee_id}>{row.employee_no} · {row.name} · {row.email_normalized}</option>)}</select></label>
+          <label>目前超級管理員密碼<input className="cy-op-input" type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required /></label>
+          <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={closeTransfer}>取消</button><button className="cy-op-button danger" disabled={busy || !targetEmployeeId || !currentPassword}>寄送移交驗證碼</button></div>
+        </form> : <form className="cy-op-form" onSubmit={confirmTransfer}>
+          <p>準備移交給 <strong>{transferTarget ? `${transferTarget.employee_no} ${transferTarget.name}` : "所選員工"}</strong>。</p>
+          <label>6 位數驗證碼<input className="cy-op-input" inputMode="numeric" maxLength={6} value={transferOtp} onChange={(e) => setTransferOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} required /></label>
+          <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={closeTransfer}>取消</button><button className="cy-op-button danger" disabled={busy || transferOtp.length !== 6}>確認移交</button></div>
+        </form>}
+      </div>
+    </div> : null}
   </section>;
 }
 
-function GroupManagement({ snapshot, refresh, highestAuthorityEmployeeId }: {
+function GroupManagement({ snapshot, refresh, superAdminEmployeeId }: {
   snapshot: IdentityAdminSnapshot;
   refresh: () => Promise<void>;
-  highestAuthorityEmployeeId: string;
+  superAdminEmployeeId: string;
 }) {
   const [groupKey, setGroupKey] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -243,79 +356,11 @@ function GroupManagement({ snapshot, refresh, highestAuthorityEmployeeId }: {
       <h5>成員</h5><div className="cy-op-chip-list">{snapshot.employees.map((employee) => { const active = membershipSet.has(`${group.group_id}:${employee.employee_id}`); return <label className={`cy-identity-toggle-chip ${active ? "active" : ""}`} key={employee.employee_id}><input type="checkbox" checked={active} disabled={busy || group.status !== "active"} onChange={(e) => void membership(group.group_id, employee.employee_id, e.target.checked)} />{employee.employee_no} {employee.name}</label>; })}</div>
       <h5>系統使用權</h5>{snapshot.applications.map((app) => { const current = groupAccess.get(`${group.group_id}:${app.application_id}`); const enabled = current?.enabled === 1; const roleMode = app.compatibility_role_mode === "USER_ADMIN"; return <div className="cy-identity-access-row" key={app.application_id}><label><input type="checkbox" checked={enabled} disabled={busy || group.status !== "active" || app.enabled !== 1} onChange={(e) => void groupApp(group.group_id, app, e.target.checked, e.target.checked && roleMode ? (current?.application_role_key ?? "USER") : null)} /><span>{app.display_name}</span></label>{roleMode && enabled ? <select className="cy-op-input compact" value={current?.application_role_key ?? "USER"} disabled={busy} onChange={(e) => void groupApp(group.group_id, app, true, e.target.value as "USER" | "ADMIN")}><option value="USER">User</option><option value="ADMIN">Admin</option></select> : null}</div>; })}
     </article>)}</div>
-    <div className="cy-identity-direct-access"><h4>個別系統使用權</h4><p>只有需要例外開放時使用；若系統採 User/Admin 相容模式，單獨授權預設視為 User。Workspace 最高權限不需要額外勾選，會自動擁有已啟用系統的使用權。</p><div className="cy-identity-table-wrap"><table className="cy-op-table"><thead><tr><th>員工</th>{snapshot.applications.map((app) => <th key={app.application_id}>{app.display_name}</th>)}</tr></thead><tbody>{snapshot.employees.map((employee) => <tr key={employee.employee_id}><td>{employee.employee_no} {employee.name}</td>{snapshot.applications.map((app) => {
-      if (employee.employee_id === highestAuthorityEmployeeId) return <td key={app.application_id}><span className="cy-identity-subtext">最高權限自動允許</span></td>;
+    <div className="cy-identity-direct-access"><h4>個別系統使用權</h4><p>只有需要例外開放時使用；若系統採 User/Admin 相容模式，單獨授權預設視為 User。超級管理員不需要額外勾選，會自動擁有已啟用系統的使用權。</p><div className="cy-identity-table-wrap"><table className="cy-op-table"><thead><tr><th>員工</th>{snapshot.applications.map((app) => <th key={app.application_id}>{app.display_name}</th>)}</tr></thead><tbody>{snapshot.employees.map((employee) => <tr key={employee.employee_id}><td>{employee.employee_no} {employee.name}</td>{snapshot.applications.map((app) => {
+      if (employee.employee_id === superAdminEmployeeId) return <td key={app.application_id}><span className="cy-identity-subtext">超級管理員自動允許</span></td>;
       const active = directAccess.has(`${employee.employee_id}:${app.application_id}`);
       return <td key={app.application_id}><input type="checkbox" checked={active} disabled={busy || app.enabled !== 1} onChange={(e) => void directApp(employee.employee_id, app.application_id, e.target.checked)} /></td>;
     })}</tr>)}</tbody></table></div></div>
-  </section>;
-}
-
-function HighestAuthorityPanel({ snapshot, currentEmployeeId }: {
-  snapshot: IdentityAdminSnapshot;
-  currentEmployeeId: string;
-}) {
-  const [view, setView] = useState<HighestAuthorityView | null>(null);
-  const [targetEmployeeId, setTargetEmployeeId] = useState("");
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [challengeId, setChallengeId] = useState<string | null>(null);
-  const [otp, setOtp] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-
-  const eligibleEmployees = useMemo(
-    () => snapshot.employees.filter((row) => row.employee_id !== currentEmployeeId && row.enabled === 1 && Boolean(row.email_verified_at)),
-    [snapshot.employees, currentEmployeeId],
-  );
-
-  useEffect(() => {
-    void loadHighestAuthority().then(setView).catch((error) => setMessage(messageOf(error)));
-  }, []);
-
-  async function startTransfer(event: FormEvent) {
-    event.preventDefault();
-    if (!targetEmployeeId) { setMessage("請先選擇新的最高權限員工。"); return; }
-    setBusy(true); setMessage(null);
-    try {
-      const result = await startHighestAuthorityTransfer(targetEmployeeId, currentPassword);
-      setChallengeId(result.transfer.challengeId);
-      setCurrentPassword("");
-      setMessage("移交驗證碼已寄至目前最高權限帳號的已驗證 Email。請輸入 6 位數驗證碼完成移交。");
-    } catch (error) { setMessage(messageOf(error)); }
-    finally { setBusy(false); }
-  }
-
-  async function confirmTransfer(event: FormEvent) {
-    event.preventDefault();
-    if (!challengeId || !targetEmployeeId || !/^\d{6}$/.test(otp)) return;
-    setBusy(true); setMessage(null);
-    try {
-      await confirmHighestAuthorityTransfer(targetEmployeeId, challengeId, otp);
-      window.alert("Workspace 最高管理權已移交。Recovery Email 已跟隨新的最高權限帳號，目前登入已撤銷，請重新登入。");
-      window.location.reload();
-    } catch (error) { setMessage(messageOf(error)); }
-    finally { setBusy(false); }
-  }
-
-  const target = eligibleEmployees.find((row) => row.employee_id === targetEmployeeId) ?? null;
-
-  return <section className="cy-op-panel">
-    <div className="cy-op-panel-header"><div><h3>Workspace 最高管理權</h3><p>目前最高權限帳號不可直接停用。需要更換時，必須先完成密碼再驗證與 Email OTP 移交。</p></div></div>
-    {message ? <div className="cy-identity-message" role="status">{message}</div> : null}
-    {view ? <div className="cy-op-detail-grid">
-      <div><span>目前最高權限</span><strong>{snapshot.employees.find((row) => row.employee_id === view.authority.superAdminEmployeeId)?.employee_no ?? "—"} {snapshot.employees.find((row) => row.employee_id === view.authority.superAdminEmployeeId)?.name ?? ""}</strong></div>
-      <div><span>Recovery Email</span><strong>{view.authority.recoveryEmail ?? "尚未設定"}</strong><small className="cy-identity-subtext">{view.authority.recoveryEmailVerified ? "已驗證" : "未驗證"}</small></div>
-    </div> : <p>正在讀取最高管理權資料…</p>}
-    <div className="cy-notice cy-notice-warning"><div className="cy-notice-title">移交後立即生效</div><div className="cy-notice-body">新的最高權限必須是已啟用、Email 已驗證且已有登入密碼的員工。移交完成後 Recovery Email 會改為新最高權限的已驗證 Email，舊最高權限的既有 Session 會撤銷。</div></div>
-    {eligibleEmployees.length === 0 ? <p>目前沒有可移交的員工。請先建立並完成另一個員工帳號的啟用與 Email 驗證。</p> : !challengeId ? <form className="cy-op-form" onSubmit={startTransfer}>
-      <label>新的最高權限員工<select className="cy-op-input" value={targetEmployeeId} onChange={(e) => setTargetEmployeeId(e.target.value)} required><option value="">請選擇</option>{eligibleEmployees.map((row) => <option key={row.employee_id} value={row.employee_id}>{row.employee_no} · {row.name} · {row.email_normalized}</option>)}</select></label>
-      <label>目前最高權限密碼<input className="cy-op-input" type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required /></label>
-      <div className="cy-op-form-footer"><button className="cy-op-button danger" disabled={busy || !targetEmployeeId}>寄送移交驗證碼</button></div>
-    </form> : <form className="cy-op-form" onSubmit={confirmTransfer}>
-      <p>準備移交給 <strong>{target ? `${target.employee_no} ${target.name}` : "所選員工"}</strong>。</p>
-      <label>6 位數驗證碼<input className="cy-op-input" inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} required /></label>
-      <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => { setChallengeId(null); setOtp(""); }}>取消</button><button className="cy-op-button danger" disabled={busy || otp.length !== 6}>確認移交最高管理權</button></div>
-    </form>}
   </section>;
 }
 
@@ -347,7 +392,7 @@ function SecurityPanel({ snapshot }: { snapshot: IdentityAdminSnapshot }) {
   }
 
   return <section className="cy-op-panel">
-    <h3>Identity 安全設定</h3><p>此區只對 Workspace 最高權限帳號呈現。全域 Email 上限由系統安全設定控制，這裡只能設較低的 Workspace 上限。</p>
+    <h3>Identity 安全設定</h3><p>此區只對超級管理員呈現。全域 Email 上限由系統安全設定控制，這裡只能設較低的 Workspace 上限。</p>
     {message ? <div className="cy-identity-message">{message}</div> : null}
     {view ? <form className="cy-identity-policy-grid" onSubmit={save}>
       <label>OTP 重寄冷卻（秒）<input className="cy-op-input" type="number" min={30} max={600} value={view.policy.otpResendCooldownSeconds} onChange={(e) => setView({ ...view, policy: { ...view.policy, otpResendCooldownSeconds: Number(e.target.value) } })} /></label>
@@ -382,9 +427,8 @@ export function SharedIdentityPage({ session }: { session: AuthSession }) {
       <SectionTitle title="Workspace 管理" description="以下設定由 CYCloud Identity 保存與驗證；CY Web 只提供管理介面。" />
       {error ? <div className="cy-identity-message error">{error}</div> : null}
       {snapshot ? <div className="cy-identity-admin-stack">
-        <EmployeeManagement snapshot={snapshot} refresh={refresh} highestAuthorityEmployeeId={session.user.employeeId} />
-        <HighestAuthorityPanel snapshot={snapshot} currentEmployeeId={session.user.employeeId} />
-        <GroupManagement snapshot={snapshot} refresh={refresh} highestAuthorityEmployeeId={session.user.employeeId} />
+        <EmployeeManagement snapshot={snapshot} refresh={refresh} superAdminEmployeeId={session.user.employeeId} />
+        <GroupManagement snapshot={snapshot} refresh={refresh} superAdminEmployeeId={session.user.employeeId} />
         <SecurityPanel snapshot={snapshot} />
       </div> : <section className="cy-op-panel"><p>{loading ? "正在讀取 Identity 資料…" : "尚未取得 Identity 管理資料。"}</p></section>}
     </> : null}
