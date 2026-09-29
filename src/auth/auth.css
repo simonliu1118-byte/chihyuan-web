@@ -81,13 +81,43 @@
 .cy-auth-flow-title h2 { margin: 0; font-size: 21px; }
 .cy-auth-flow-title p { margin: 5px 0 0; color: #6b6257; line-height: 1.5; }
 
-.cy-auth-user { display: inline-flex; align-items: center; gap: 8px; padding: 0 4px; font-size: 14px; }
-.cy-auth-user strong { font-weight: 800; }
-.cy-auth-logout-button {
+.cy-auth-account-control {
+  display: inline-flex;
+  align-items: stretch;
+  overflow: hidden;
   border: 1px solid #bdb6aa;
+  border-radius: 9px;
   background: #fff;
-  border-radius: 8px;
-  padding: 7px 10px;
+}
+
+.cy-auth-user {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  padding: 6px 11px;
+  font-size: 13px;
+  line-height: 1.25;
+}
+.cy-auth-user strong {
+  overflow: hidden;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cy-auth-user span {
+  color: #6b6257;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.cy-auth-logout-button {
+  min-width: 58px;
+  border: 0;
+  border-left: 1px solid #d8d2c7;
+  background: #fff;
+  padding: 7px 11px;
   font: inherit;
+  font-weight: 700;
   cursor: pointer;
 }
+.cy-auth-logout-button:hover:not(:disabled) { background: #f7f4ee; }
+.cy-auth-logout-button:disabled { opacity: 0.6; cursor: wait; }
