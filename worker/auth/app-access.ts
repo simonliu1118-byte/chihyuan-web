@@ -1,3 +1,4 @@
+import { CYWEB_MODULES, isCyWebModuleCode, type CyWebModuleCode } from "../../shared/modules";
 import type { IdentityPrincipal } from "../identity/contract";
 
 export interface AppMemberRecord {
@@ -32,12 +33,17 @@ function normalizeEmployeeNo(value: string | null): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
-/** Local CY Web projection only. It is never a CY Web shell-entry authority. */
-export async function resolveAppMember(
+export async function ensureAppMemberProjection(
   db: D1Database,
-  principal: IdentityPrincipal,
+  identityEmployeeId: string,
+  employeeNo: string | null,
   nowIso = new Date().toISOString(),
 ): Promise<AppMemberRecord> {
+  const normalizedIdentityEmployeeId = identityEmployeeId.trim();
+  if (!normalizedIdentityEmployeeId || normalizedIdentityEmployeeId.length > 128) {
+    throw new Error("INVALID_IDENTITY_EMPLOYEE_ID");
+  }
+
   const existing = await db
     .prepare(
       `SELECT id, identity_employee_id, employee_no, is_active
@@ -45,10 +51,10 @@ export async function resolveAppMember(
         WHERE identity_employee_id = ?1
         LIMIT 1`,
     )
-    .bind(principal.employeeId)
+    .bind(normalizedIdentityEmployeeId)
     .first<AppMemberRow>();
 
-  const employeeNo = normalizeEmployeeNo(principal.employeeNo);
+  const normalizedEmployeeNo = normalizeEmployeeNo(employeeNo);
   if (!existing) {
     const result = await db
       .prepare(
@@ -56,35 +62,66 @@ export async function resolveAppMember(
            identity_employee_id, employee_no, is_active, created_at, updated_at
          ) VALUES (?1, ?2, 1, ?3, ?3)`,
       )
-      .bind(principal.employeeId, employeeNo, nowIso)
+      .bind(normalizedIdentityEmployeeId, normalizedEmployeeNo, nowIso)
       .run();
     const id = Number(result.meta.last_row_id);
     if (!Number.isInteger(id) || id <= 0) throw new Error("APP_MEMBER_INSERT_FAILED");
-    return { id, identityEmployeeId: principal.employeeId, employeeNo, isActive: true };
+    return { id, identityEmployeeId: normalizedIdentityEmployeeId, employeeNo: normalizedEmployeeNo, isActive: true };
   }
 
   const member = toAppMember(existing);
-  if (member.employeeNo !== employeeNo) {
+  if (member.employeeNo !== normalizedEmployeeNo) {
     await db.prepare(
       `UPDATE app_members SET employee_no = ?2, updated_at = ?3 WHERE id = ?1`,
-    ).bind(member.id, employeeNo, nowIso).run();
-    member.employeeNo = employeeNo;
+    ).bind(member.id, normalizedEmployeeNo, nowIso).run();
+    member.employeeNo = normalizedEmployeeNo;
   }
   return member;
 }
 
+/** Local CY Web projection only. It is never a CY Web shell-entry authority. */
+export async function resolveAppMember(
+  db: D1Database,
+  principal: IdentityPrincipal,
+  nowIso = new Date().toISOString(),
+): Promise<AppMemberRecord> {
+  return ensureAppMemberProjection(db, principal.employeeId, principal.employeeNo, nowIso);
+}
+
+export async function allowedModuleCodes(
+  db: D1Database,
+  principal: IdentityPrincipal,
+): Promise<CyWebModuleCode[]> {
+  if (principal.workspaceRole === "SUPER_ADMIN") return CYWEB_MODULES.map((module) => module.code);
+
+  const member = await resolveAppMember(db, principal);
+  if (!member.isActive) return [];
+
+  const result = await db.prepare(
+    `SELECT module_code
+       FROM app_member_module_access
+      WHERE member_id = ?1
+        AND enabled = 1
+      ORDER BY module_code`,
+  ).bind(member.id).all<{ module_code: string }>();
+
+  return (result.results ?? [])
+    .map((row) => row.module_code)
+    .filter(isCyWebModuleCode);
+}
+
 /**
  * CY Web module authorization. Super Admin always has every module. Other
- * Employees use CY Web-local module grants; local state cannot revoke the core
- * CY Web account shell established by CYCloud Identity.
+ * Employees use direct CY Web-local Employee × Module grants; local state cannot
+ * revoke the core CY Web account shell established by CYCloud Identity.
  */
 export async function checkModuleAccess(
   db: D1Database,
   principal: IdentityPrincipal,
   moduleCode: string,
 ): Promise<ModuleAccessDecision> {
-  const normalizedModule = moduleCode.trim();
-  if (normalizedModule.length === 0 || normalizedModule.length > 64) throw new Error("INVALID_MODULE_CODE");
+  const normalizedModule = moduleCode.trim().toUpperCase();
+  if (!isCyWebModuleCode(normalizedModule)) throw new Error("INVALID_MODULE_CODE");
 
   const member = await resolveAppMember(db, principal);
   if (principal.workspaceRole === "SUPER_ADMIN") return { allowed: true, member };
@@ -93,11 +130,10 @@ export async function checkModuleAccess(
   const grant = await db
     .prepare(
       `SELECT 1 AS allowed
-         FROM app_member_tags AS mt
-         JOIN app_tags AS t ON t.id = mt.tag_id AND t.is_active = 1
-         JOIN app_tag_modules AS tm ON tm.tag_id = t.id
-        WHERE mt.member_id = ?1
-          AND tm.module_code = ?2
+         FROM app_member_module_access
+        WHERE member_id = ?1
+          AND module_code = ?2
+          AND enabled = 1
         LIMIT 1`,
     )
     .bind(member.id, normalizedModule)
