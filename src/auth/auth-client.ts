@@ -18,15 +18,47 @@ export interface AuthSession {
   expiresAt?: string;
 }
 
+export interface FirstLoginRequirement {
+  employeeNo?: string;
+  displayName?: string;
+  expiresAt?: string;
+}
+
+type LoginResponse =
+  | AuthSession
+  | {
+      passwordChangeRequired: true;
+      firstLogin: {
+        employeeNo: string;
+        displayName: string;
+        expiresAt: string;
+      };
+    };
+
+export type AuthLoginResult =
+  | { status: "authenticated"; session: AuthSession }
+  | { status: "first_login"; firstLogin: FirstLoginRequirement };
+
 export function loadCurrentSession(): Promise<AuthSession> {
   return apiRequest<AuthSession>("/api/auth/me", { method: "GET" });
 }
 
-export function loginWithPassword(employeeNo: string, password: string): Promise<AuthSession> {
-  return apiRequest<AuthSession>("/api/auth/login", {
+export async function loginWithPassword(employeeNo: string, password: string): Promise<AuthLoginResult> {
+  const result = await apiRequest<LoginResponse>("/api/auth/login", {
     method: "POST",
     json: { employeeNo, password },
   });
+  if ("user" in result) {
+    return { status: "authenticated", session: result };
+  }
+  return { status: "first_login", firstLogin: result.firstLogin };
+}
+
+export function completeFirstLogin(password: string) {
+  return apiRequest<{ emailVerified: true; passwordChanged: true; reloginRequired: true }>(
+    "/api/auth/first-login/complete",
+    { method: "POST", json: { password } },
+  );
 }
 
 export async function logoutCurrentSession(): Promise<void> {

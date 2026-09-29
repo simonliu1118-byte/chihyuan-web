@@ -59,6 +59,7 @@
 }
 .cy-auth-primary-button:disabled { opacity: 0.6; cursor: wait; }
 .cy-auth-error { margin: 0; color: #a02020; font-weight: 700; }
+.cy-auth-note-inline { margin: 0; color: #6b6257; font-size: 13px; line-height: 1.55; }
 .cy-auth-note { margin: 22px 0 0; color: #6b6257; font-size: 13px; line-height: 1.55; }
 
 .cy-auth-secondary-actions {

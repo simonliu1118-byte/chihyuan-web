@@ -106,7 +106,7 @@ export function createIdentityEmployee(input: {
   email: string;
   roleKey: "USER" | "ADMIN";
 }) {
-  return apiRequest<{ employee: unknown; activationDelivery: DeliveryView }>("/api/identity/admin/employees", {
+  return apiRequest<{ employee: unknown; emailVerificationDelivery: DeliveryView; activationDelivery?: DeliveryView }>("/api/identity/admin/employees", {
     method: "POST",
     json: input,
   });
@@ -120,7 +120,7 @@ export function updateIdentityEmployee(employeeId: string, input: {
   roleKey?: "USER" | "ADMIN";
   revision: number;
 }) {
-  return apiRequest<{ employee: unknown; activationDelivery?: DeliveryView }>(`/api/identity/admin/employees/${encodeURIComponent(employeeId)}`, {
+  return apiRequest<{ employee: unknown; emailVerificationDelivery?: DeliveryView; activationDelivery?: DeliveryView }>(`/api/identity/admin/employees/${encodeURIComponent(employeeId)}`, {
     method: "PATCH",
     json: input,
   });
@@ -133,8 +133,8 @@ export function deletePendingIdentityEmployee(employeeId: string) {
   );
 }
 
-export function resendEmployeeActivation(employeeId: string) {
-  return apiRequest<{ activationDelivery: DeliveryView }>(
+export function resendEmployeeEmailVerification(employeeId: string) {
+  return apiRequest<{ emailVerificationDelivery: DeliveryView; activationDelivery?: DeliveryView }>(
     `/api/identity/admin/employees/${encodeURIComponent(employeeId)}/activation/resend`,
     { method: "POST", json: {} },
   );
@@ -223,16 +223,3 @@ export function confirmPasswordRecovery(employeeNo: string, challengeId: string,
   });
 }
 
-export function startEmployeeActivation(employeeNo: string): Promise<{ activation: OtpIssueView; message: string }> {
-  return apiRequest<{ activation: OtpIssueView; message: string }>("/api/identity/activation/start", {
-    method: "POST",
-    json: { employeeNo },
-  });
-}
-
-export function confirmEmployeeActivation(employeeNo: string, challengeId: string, code: string, password: string) {
-  return apiRequest<{ activated: boolean; employee: unknown }>("/api/identity/activation/confirm", {
-    method: "POST",
-    json: { employeeNo, challengeId, code, password },
-  });
-}
