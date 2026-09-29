@@ -98,7 +98,7 @@ function OperationalApp({
         setModuleAccessError(messageOf(error));
       });
     return () => { cancelled = true; };
-  }, [session.user.employeeId, session.user.employeeRevision, session.user.workspaceRole]);
+  }, [session.user.employeeId, session.user.workspaceRole]);
 
   const allowedModules = useMemo(
     () => new Set<CyWebModuleCode>(moduleAccess?.allowedModules ?? []),
