@@ -1,6 +1,6 @@
 # Chihyuan Domain Strategy
 
-Status: `chihyuancm.com` registered; CYAccountingWeb `acc.chihyuancm.com` live; CY Web canonical hostname fixed as `admin.chihyuancm.com`
+Status: `chihyuancm.com` registered; CYAccountingWeb `acc.chihyuancm.com` live; CY Web `admin.chihyuancm.com` live
 
 This document records the current domain direction for Chihyuan's public website and CY-family Web systems. It is an architecture/operations planning note, not a permanent governance rule.
 
@@ -96,9 +96,10 @@ The official website is public-facing. Internal/business systems may require aut
 
 ### CY Web rollout status
 
-- `admin.chihyuancm.com` is fixed as the CY Web canonical hostname and is being brought under the governed CY Web deployment contract.
+- `admin.chihyuancm.com` was bound to the governed CY Web development deployment on 2026-09-29 and is the live canonical hostname.
+- Deployment acceptance passed TLS/custom-domain routing, same-origin `/api/auth/me`, invalid-session cookie clearing, and the `workers.dev` technical fallback.
 - CY Web intentionally skips a separate development hostname so Identity/browser acceptance occurs on the long-term origin from this point forward.
-- During the current development phase, the canonical hostname may resolve to the development CY Web Worker/D1.
+- During the current development phase, the canonical hostname resolves to the development CY Web Worker/D1.
 - Production acceptance later rebinds the same hostname to production CY Web resources; this is an infrastructure cutover, not a user-facing URL migration.
 - `workers.dev` remains enabled as a technical fallback until a later explicit decision removes it.
 
