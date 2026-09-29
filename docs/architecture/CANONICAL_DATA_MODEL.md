@@ -52,19 +52,22 @@ Candidate local application structures:
 - `is_active`
 - `created_at`, `updated_at`
 
-### `app_tags`
+### `app_member_module_access`
 
-Stable CY Web-local module-access tags managed under BD-043.
+Direct CY Web-local Employee × Module grants are the forward authorization source.
 
-### `app_tag_modules`
+- target: `app_members.id`;
+- module: one fixed CY Web business module code;
+- grant state: enabled/disabled;
+- last-change actor/time retained for audit correlation.
 
-Maps an App tag to fixed CY Web module codes.
+Workspace Role and Module Access are independent. Super Admin receives all modules implicitly and does not depend on stored grant rows. Identity Admin / Super Admin manage eligible Employee grants under the anti-self-escalation rules in the Identity contract.
 
-### `app_member_tags`
+### Legacy App tags
 
-Maps an App member to App-local tags.
+`app_tags / app_tag_modules / app_member_tags` remain available as historical or future grouping metadata, but they no longer determine runtime Module Access. A one-time forward migration may project known development tag grants into direct Employee grants.
 
-Shared `user / admin / super-admin` semantics remain owned by the shared Identity authority. CY Web configuration authority follows BD-043.
+Shared `SUPER_ADMIN / ADMIN / USER` semantics remain owned by CYCloud Identity; CY Web configuration authority follows current Identity rules plus BD-043 where still applicable.
 
 ## 4. Reference and lookup data
 
