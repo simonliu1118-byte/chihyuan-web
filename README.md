@@ -31,7 +31,8 @@
 
 - `docs/architecture/README.md` — architecture/design 文件索引與來源分工。
 - `docs/architecture/decisions/README.md` — 已確認 Business Decisions 索引。
-- `docs/architecture/IDENTITY_ADAPTER.md` — CY Web 唯一 current CYCloud Identity consumer contract。
+- `docs/contracts/cyid/` — CYID shared consumer contract 的 read-only synchronized mirror；內容由 manifest 管理並與 CYID `main` 逐檔驗證。
+- `docs/architecture/IDENTITY_ADAPTER.md` — CY Web-specific Identity adapter／Module Access 邊界；不得取代 shared CYID contract。
 - `TODO.md` — 唯一 current implementation status / next-work tracker。
 - `docs/development/LOCAL_DEVELOPMENT.md` — 本機開發流程。
 - `docs/DOMAIN_STRATEGY.md` — Chihyuan Web systems 的 domain namespace／rollout architecture。
