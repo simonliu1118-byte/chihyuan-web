@@ -198,8 +198,14 @@ export async function handleIdentityManagementRoute(
   }
 
   let match = /^\/api\/identity\/admin\/employees\/([^/]+)$/.exec(path);
-  if (request.method === "PATCH" && match) {
-    return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/employees/${encodeURIComponent(match[1])}`, "PATCH");
+  if ((request.method === "PATCH" || request.method === "DELETE") && match) {
+    return proxyAuthenticated(
+      request,
+      env,
+      requestId,
+      `/v1/admin/identity/employees/${encodeURIComponent(match[1])}`,
+      request.method,
+    );
   }
 
   match = /^\/api\/identity\/admin\/groups\/([^/]+)$/.exec(path);
