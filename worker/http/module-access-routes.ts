@@ -21,7 +21,9 @@ export async function handleModuleAccessRoute(
   requestId: string,
 ): Promise<Response | null> {
   const path = new URL(request.url).pathname;
-  if (!path.startsWith("/api/identity/admin/module-access")) return null;
+  const isOwnAccess = request.method === "GET" && path === "/api/identity/module-access/me";
+  const isAdminAccess = path.startsWith("/api/identity/admin/module-access");
+  if (!isOwnAccess && !isAdminAccess) return null;
 
   const actor = await resolveActor(request, env);
   if (actor.kind === "unavailable") {
@@ -30,6 +32,24 @@ export async function handleModuleAccessRoute(
   if (actor.kind === "unauthenticated") {
     return failure({ code: "AUTH_REQUIRED", message: "Authentication required" }, requestId, 401);
   }
+
+  if (isOwnAccess) {
+    if (actor.principal.workspaceRole === "SUPER_ADMIN") {
+      return success({ modules: CYWEB_MODULES, allowed: CYWEB_MODULES.map((module) => module.code) }, requestId);
+    }
+    const rows = await env.DB.prepare(
+      `SELECT module_code
+         FROM identity_module_access
+        WHERE identity_employee_id = ?1
+          AND enabled = 1
+        ORDER BY module_code`,
+    ).bind(actor.principal.employeeId).all<{ module_code: string }>();
+    return success({
+      modules: CYWEB_MODULES,
+      allowed: (rows.results ?? []).map((row) => row.module_code).filter(isCyWebModuleCode),
+    }, requestId);
+  }
+
   if (!isAccessAdministrator(actor.principal.workspaceRole, actor.principal.isIdentityAdmin)) {
     return failure({ code: "IDENTITY_ADMIN_REQUIRED", message: "Identity administration authority is required" }, requestId, 403);
   }
