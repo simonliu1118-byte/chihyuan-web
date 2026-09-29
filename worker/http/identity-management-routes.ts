@@ -170,6 +170,7 @@ export async function handleIdentityManagementRoute(
     "/api/identity/password/change": "/v1/identity/password/change",
     "/api/identity/email-change/start": "/v1/identity/email-change/start",
     "/api/identity/email-change/confirm": "/v1/identity/email-change/confirm",
+    "/api/identity/email-verification/start-current": "/v1/identity/email-verification/start-current",
   };
   if (request.method === "POST" && selfRoutes[path]) {
     return proxyAuthenticated(request, env, requestId, selfRoutes[path], "POST");
@@ -186,9 +187,6 @@ export async function handleIdentityManagementRoute(
   }
   if (request.method === "POST" && path === "/api/identity/admin/employees") {
     return proxyAuthenticated(request, env, requestId, "/v1/admin/identity/employees", "POST");
-  }
-  if (request.method === "POST" && path === "/api/identity/admin/groups") {
-    return proxyAuthenticated(request, env, requestId, "/v1/admin/identity/groups", "POST");
   }
   if (request.method === "POST" && path === "/api/identity/admin/authority-transfer/start") {
     return proxyAuthenticated(request, env, requestId, "/v1/admin/authority-transfer/start", "POST");
@@ -208,29 +206,31 @@ export async function handleIdentityManagementRoute(
     );
   }
 
-  match = /^\/api\/identity\/admin\/groups\/([^/]+)$/.exec(path);
-  if (request.method === "PATCH" && match) {
-    return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/groups/${encodeURIComponent(match[1])}`, "PATCH");
+  const employeeActionRoutes: Array<[RegExp, string]> = [
+    [/^\/api\/identity\/admin\/employees\/([^/]+)\/activation\/resend$/, "activation/resend"],
+    [/^\/api\/identity\/admin\/employees\/([^/]+)\/email-recovery$/, "email-recovery"],
+    [/^\/api\/identity\/admin\/employees\/([^/]+)\/email-verification\/resend$/, "email-verification/resend"],
+  ];
+  for (const [pattern, suffix] of employeeActionRoutes) {
+    match = pattern.exec(path);
+    if (request.method === "POST" && match) {
+      return proxyAuthenticated(
+        request,
+        env,
+        requestId,
+        `/v1/admin/identity/employees/${encodeURIComponent(match[1])}/${suffix}`,
+        "POST",
+      );
+    }
   }
 
-  match = /^\/api\/identity\/admin\/groups\/([^/]+)\/members\/([^/]+)$/.exec(path);
-  if ((request.method === "PUT" || request.method === "DELETE") && match) {
-    return proxyAuthenticated(
-      request,
-      env,
-      requestId,
-      `/v1/admin/identity/groups/${encodeURIComponent(match[1])}/members/${encodeURIComponent(match[2])}`,
-      request.method,
-    );
-  }
-
-  match = /^\/api\/identity\/admin\/groups\/([^/]+)\/applications\/([^/]+)$/.exec(path);
+  match = /^\/api\/identity\/admin\/employees\/([^/]+)\/identity-admin$/.exec(path);
   if (request.method === "PUT" && match) {
     return proxyAuthenticated(
       request,
       env,
       requestId,
-      `/v1/admin/identity/groups/${encodeURIComponent(match[1])}/applications/${encodeURIComponent(match[2])}`,
+      `/v1/admin/identity/employees/${encodeURIComponent(match[1])}/identity-admin`,
       "PUT",
     );
   }
@@ -246,16 +246,7 @@ export async function handleIdentityManagementRoute(
     );
   }
 
-  match = /^\/api\/identity\/admin\/applications\/([^/]+)\/compatibility-role-mode$/.exec(path);
-  if (request.method === "PUT" && match) {
-    return proxyAuthenticated(
-      request,
-      env,
-      requestId,
-      `/v1/admin/identity/applications/${encodeURIComponent(match[1])}/compatibility-role-mode`,
-      "PUT",
-    );
-  }
-
+  // Legacy Group endpoints are deliberately not proxied by the new CY Web UI.
+  // Provider-side compatibility routes may remain temporarily during migration.
   return null;
 }
