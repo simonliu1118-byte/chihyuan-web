@@ -1,8 +1,8 @@
 # CY Web Identity Adapter — CYCloud Identity Contract
 
-> **Status: approved CY Web target boundary; provider/runtime migration pending.**
+> **Status: approved CY Web target boundary; CYCloud Identity 0.2.0 source is merged, coordinated development deployment/acceptance remains pending.**
 >
-> Current CY Web `0.1.51` and deployed CYCloud Identity `0.1.14` still contain legacy Identity Group / compatibility-role fields. New implementation must converge on this document and CYCloud Identity `docs/ROLE_AND_ACCESS_MODEL.md` rather than extend the legacy Group model.
+> The currently deployed development CYCloud Identity runtime may still be the previous 0.1.x generation until the governed 0.2.0 deployment is completed. CY Web 0.2.0 consumer source converges on this document and CYCloud Identity `docs/ROLE_AND_ACCESS_MODEL.md`; do not extend the legacy Group model.
 
 ## 1. Purpose
 
@@ -51,7 +51,7 @@ Conceptually:
 CYWEB entry access = TRUE (locked / non-revocable)
 ```
 
-A consumer-side missing business Module grant must never prevent self-service account access.
+A consumer-side missing business Module grant must never prevent self-service account access. CY Web-local member state is a module projection and must not become a second shell-entry switch.
 
 ## 4. Role contract
 
@@ -67,9 +67,9 @@ No Identity Group-to-role translation is part of the forward contract.
 
 `Identity Admin` is an extra capability on `ADMIN`, not a fourth CY Web role.
 
-## 5. Target normalized principal
+## 5. Normalized principal
 
-The target adapter should normalize at least:
+The CY Web 0.2 consumer normalizes at least:
 
 ```ts
 interface IdentityPrincipal {
@@ -77,14 +77,16 @@ interface IdentityPrincipal {
   employeeId: string;
   employeeNo: string;
   displayName: string;
-  role: "SUPER_ADMIN" | "ADMIN" | "USER";
+  workspaceRole: "SUPER_ADMIN" | "ADMIN" | "USER";
   isIdentityAdmin: boolean;
+  emailVerified: boolean;
+  isWorkspaceSuperAdmin: boolean;
   credentialVersion: number;
   employeeRevision: number;
 }
 ```
 
-During migration, legacy provider fields such as `isWorkspaceSuperAdmin`, `groupKeys` and `applicationRoleKey` may still exist. The adapter may translate them temporarily, but CY Web must not add new product behavior that depends on Group-derived roles.
+`isWorkspaceSuperAdmin` remains a stable compatibility/protection signal and must agree with `workspaceRole === "SUPER_ADMIN"`. Legacy `groupKeys` may remain temporarily as descriptive compatibility data, but CY Web authorization must not depend on it.
 
 ## 6. Browser session transport
 
@@ -160,15 +162,16 @@ CY Web hosts the Shared Identity management UI but provider authorization remain
 
 ## 9. Employee activation UX
 
-Target Employee creation/activation behavior:
+Employee creation/activation behavior:
 
-1. manager creates Employee and chooses allowed initial role;
-2. CYID creates pending Employee;
-3. CYID automatically sends first activation email;
-4. email contains a link opening CY Web activation UI;
+1. manager creates Employee and chooses an allowed initial role;
+2. CYID creates the pending Employee;
+3. CYID automatically sends the first activation Email;
+4. Email contains a link opening CY Web activation UI;
 5. link itself is not an authentication credential;
-6. Employee completes Email verification/OTP and first-password setup;
-7. account becomes enabled.
+6. CY Web obtains/reuses the active activation challenge and asks for the 6-digit OTP from the Email;
+7. Employee completes OTP verification and first-password setup;
+8. account becomes enabled.
 
 Pending management actions include:
 
@@ -182,7 +185,7 @@ Email delivery failure must not delete the created Employee; show failure and al
 
 Identity Admin / Super Admin may replace an activated Employee's unusable Email.
 
-CY Web should render the resulting state distinctly, for example:
+CY Web renders the resulting state distinctly, for example:
 
 ```text
 啟用 · Email 待驗證
@@ -206,7 +209,8 @@ UI hiding is never sufficient authorization.
 At minimum:
 
 - Employee disabled -> provider session invalid;
-- role change -> provider session invalid/re-resolved under new role;
+- role change -> provider session revoked/re-established under the new role;
+- App Access removal -> affected App session can no longer authorize;
 - forced Email recovery -> provider sessions revoked;
 - CY Web Module Access change -> subsequent protected API requests use the new authorization;
 - browser stale navigation never preserves removed authority.
@@ -234,26 +238,26 @@ CYCloud Identity performs actual credential verification.
 | login rate limited | 429 | `LOGIN_RATE_LIMITED` |
 | Identity provider unavailable/invalid response | 503 | `IDENTITY_UNAVAILABLE` |
 
-Provider-specific internal messages are not forwarded directly to the browser.
+Provider-specific internal messages are not forwarded directly to the browser where doing so would expose internal/runtime detail.
 
-## 15. Current legacy implementation note
+## 15. Legacy compatibility boundary
 
-The currently deployed provider still uses:
+CYID 0.2.0 may temporarily keep old Group tables/endpoints and descriptive compatibility fields so existing consumers can migrate safely. They are not effective forward authorization sources.
 
-- Identity Groups and memberships;
-- Group/direct Application grants;
-- optional `USER_ADMIN` compatibility-role projection;
-- `groupKeys` / Group-derived `applicationRoleKey` in the principal.
+CY Web 0.2 must not:
 
-Those fields remain implementation compatibility during migration only. New CY Web code should target direct Workspace Role + Identity Admin capability.
+- derive Role from Identity Group membership;
+- present Group-to-App compatibility role as the forward management model;
+- use `groupKeys` to grant module or Workspace authority;
+- let local `app_members.is_active` revoke the mandatory CY Web account shell.
 
 ## 16. Cross-project boundary
 
-CYCloud Identity is the shared authority for CY Web, CY Accounting Web, CYInvoice and future CY Apps as they migrate.
+CYCloud Identity is the shared authority for **CY Web**, **CYAccountingWeb (CYACC-web)**, **CYInvoice**, and future CY Apps as they migrate.
 
-- CY Web does not read CYInvoice D1;
-- CY Web does not modify CYInvoice runtime to satisfy this migration;
-- CY Accounting Web remains a separate application/integration workstream;
+- CY Web does not read or mutate CYInvoice D1/runtime/device lifecycle;
+- CYInvoice integration remains a separate CYInvoice workstream and is reference-only from this CY Web workstream;
+- CYAccountingWeb (CYACC-web) remains a separate consumer integration workstream; this CY Web migration does not modify its runtime;
 - CYInvoice-specific Device/local/offline behavior stays CYInvoice-specific unless separately promoted into a shared contract.
 
 ## 17. Public repository boundary

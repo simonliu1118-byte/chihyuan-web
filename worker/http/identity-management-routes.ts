@@ -2,11 +2,7 @@ import { CYWEB_IDENTITY_COOKIE } from "../identity/cycloud-identity-adapter";
 import type { IdentityRuntimeEnv } from "./auth-routes";
 import { failure, success } from "./response";
 
-interface ProviderError {
-  code?: unknown;
-  message?: unknown;
-}
-
+interface ProviderError { code?: unknown; message?: unknown; }
 interface ProviderPayload {
   ok?: unknown;
   error?: ProviderError;
@@ -14,14 +10,7 @@ interface ProviderPayload {
 }
 
 const PROVIDER_META_KEYS = new Set([
-  "ok",
-  "service",
-  "serviceVersion",
-  "apiVersion",
-  "environment",
-  "requestId",
-  "timestamp",
-  "error",
+  "ok", "service", "serviceVersion", "apiVersion", "environment", "requestId", "timestamp", "error",
 ]);
 
 function normalizedApplicationId(env: IdentityRuntimeEnv): string | null {
@@ -39,11 +28,7 @@ function cookieValue(request: Request, name: string): string | null {
   for (const part of raw.split(";")) {
     const index = part.indexOf("=");
     if (index < 0 || part.slice(0, index).trim() !== name) continue;
-    try {
-      return decodeURIComponent(part.slice(index + 1).trim());
-    } catch {
-      return null;
-    }
+    try { return decodeURIComponent(part.slice(index + 1).trim()); } catch { return null; }
   }
   return null;
 }
@@ -54,9 +39,7 @@ function isSessionToken(value: string | null): value is string {
 
 function providerData(payload: ProviderPayload): Record<string, unknown> {
   const data: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(payload)) {
-    if (!PROVIDER_META_KEYS.has(key)) data[key] = value;
-  }
+  for (const [key, value] of Object.entries(payload)) if (!PROVIDER_META_KEYS.has(key)) data[key] = value;
   return data;
 }
 
@@ -69,25 +52,19 @@ async function providerResponse(
   if (!env.IDENTITY || typeof env.IDENTITY.fetch !== "function") {
     return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is not configured" }, requestId, 503);
   }
-
   let response: Response;
-  try {
-    response = await env.IDENTITY.fetch(new Request(`https://identity.internal${path}`, init));
-  } catch {
-    return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is unavailable" }, requestId, 503);
-  }
+  try { response = await env.IDENTITY.fetch(new Request(`https://identity.internal${path}`, init)); }
+  catch { return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is unavailable" }, requestId, 503); }
 
   const payload = await response.json().catch(() => null) as ProviderPayload | null;
   if (!payload || typeof payload !== "object") {
     return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider response is invalid" }, requestId, 503);
   }
-
   if (!response.ok || payload.ok === false) {
     const code = typeof payload.error?.code === "string" ? payload.error.code : "IDENTITY_REQUEST_FAILED";
     const message = typeof payload.error?.message === "string" ? payload.error.message : "Identity request failed";
     return failure({ code, message }, requestId, response.status || 500);
   }
-
   return success(providerData(payload), requestId, { status: response.status });
 }
 
@@ -118,7 +95,6 @@ async function proxyAuthenticated(
 ): Promise<Response> {
   const headers = authenticatedHeaders(request, env);
   if (!headers) return failure({ code: "AUTH_REQUIRED", message: "Authentication required" }, requestId, 401);
-
   let body: string | undefined;
   if (method !== "GET" && method !== "DELETE") {
     const value = await readObject(request);
@@ -136,9 +112,7 @@ async function proxyPublicWorkspace(
   providerPath: string,
 ): Promise<Response> {
   const workspaceId = normalizedWorkspaceId(env);
-  if (!workspaceId) {
-    return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity Workspace is not configured" }, requestId, 503);
-  }
+  if (!workspaceId) return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity Workspace is not configured" }, requestId, 503);
   const value = await readObject(request);
   if (value === null) return failure({ code: "INVALID_REQUEST", message: "Request body is invalid" }, requestId, 400);
   return providerResponse(env, requestId, providerPath, {
@@ -153,8 +127,7 @@ export async function handleIdentityManagementRoute(
   env: IdentityRuntimeEnv,
   requestId: string,
 ): Promise<Response | null> {
-  const url = new URL(request.url);
-  const path = url.pathname;
+  const path = new URL(request.url).pathname;
 
   const publicRoutes: Record<string, string> = {
     "/api/identity/activation/start": "/v1/identity/activation/start",
@@ -162,18 +135,15 @@ export async function handleIdentityManagementRoute(
     "/api/identity/password-recovery/start": "/v1/identity/password-recovery/start",
     "/api/identity/password-recovery/confirm": "/v1/identity/password-recovery/confirm",
   };
-  if (request.method === "POST" && publicRoutes[path]) {
-    return proxyPublicWorkspace(request, env, requestId, publicRoutes[path]);
-  }
+  if (request.method === "POST" && publicRoutes[path]) return proxyPublicWorkspace(request, env, requestId, publicRoutes[path]);
 
   const selfRoutes: Record<string, string> = {
     "/api/identity/password/change": "/v1/identity/password/change",
     "/api/identity/email-change/start": "/v1/identity/email-change/start",
     "/api/identity/email-change/confirm": "/v1/identity/email-change/confirm",
+    "/api/identity/email-verification/start-current": "/v1/identity/email-verification/start-current",
   };
-  if (request.method === "POST" && selfRoutes[path]) {
-    return proxyAuthenticated(request, env, requestId, selfRoutes[path], "POST");
-  }
+  if (request.method === "POST" && selfRoutes[path]) return proxyAuthenticated(request, env, requestId, selfRoutes[path], "POST");
 
   if (request.method === "GET" && path === "/api/identity/admin/snapshot") {
     return proxyAuthenticated(request, env, requestId, "/v1/admin/identity/snapshot", "GET");
@@ -187,9 +157,6 @@ export async function handleIdentityManagementRoute(
   if (request.method === "POST" && path === "/api/identity/admin/employees") {
     return proxyAuthenticated(request, env, requestId, "/v1/admin/identity/employees", "POST");
   }
-  if (request.method === "POST" && path === "/api/identity/admin/groups") {
-    return proxyAuthenticated(request, env, requestId, "/v1/admin/identity/groups", "POST");
-  }
   if (request.method === "POST" && path === "/api/identity/admin/authority-transfer/start") {
     return proxyAuthenticated(request, env, requestId, "/v1/admin/authority-transfer/start", "POST");
   }
@@ -199,59 +166,67 @@ export async function handleIdentityManagementRoute(
 
   let match = /^\/api\/identity\/admin\/employees\/([^/]+)$/.exec(path);
   if ((request.method === "PATCH" || request.method === "DELETE") && match) {
-    return proxyAuthenticated(
-      request,
-      env,
-      requestId,
-      `/v1/admin/identity/employees/${encodeURIComponent(match[1])}`,
-      request.method,
-    );
+    return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/employees/${encodeURIComponent(match[1])}`, request.method);
   }
 
-  match = /^\/api\/identity\/admin\/groups\/([^/]+)$/.exec(path);
-  if (request.method === "PATCH" && match) {
-    return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/groups/${encodeURIComponent(match[1])}`, "PATCH");
+  match = /^\/api\/identity\/admin\/employees\/([^/]+)\/activation\/resend$/.exec(path);
+  if (request.method === "POST" && match) {
+    return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/employees/${encodeURIComponent(match[1])}/activation/resend`, "POST");
   }
 
-  match = /^\/api\/identity\/admin\/groups\/([^/]+)\/members\/([^/]+)$/.exec(path);
-  if ((request.method === "PUT" || request.method === "DELETE") && match) {
-    return proxyAuthenticated(
-      request,
-      env,
-      requestId,
-      `/v1/admin/identity/groups/${encodeURIComponent(match[1])}/members/${encodeURIComponent(match[2])}`,
-      request.method,
-    );
-  }
-
-  match = /^\/api\/identity\/admin\/groups\/([^/]+)\/applications\/([^/]+)$/.exec(path);
+  match = /^\/api\/identity\/admin\/employees\/([^/]+)\/identity-admin$/.exec(path);
   if (request.method === "PUT" && match) {
-    return proxyAuthenticated(
-      request,
-      env,
-      requestId,
-      `/v1/admin/identity/groups/${encodeURIComponent(match[1])}/applications/${encodeURIComponent(match[2])}`,
-      "PUT",
-    );
+    return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/employees/${encodeURIComponent(match[1])}/identity-admin`, "PUT");
+  }
+
+  match = /^\/api\/identity\/admin\/employees\/([^/]+)\/email-recovery$/.exec(path);
+  if (request.method === "POST" && match) {
+    return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/employees/${encodeURIComponent(match[1])}/email-recovery`, "POST");
+  }
+
+  match = /^\/api\/identity\/admin\/employees\/([^/]+)\/email-verification\/resend$/.exec(path);
+  if (request.method === "POST" && match) {
+    return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/employees/${encodeURIComponent(match[1])}/email-verification/resend`, "POST");
   }
 
   match = /^\/api\/identity\/admin\/employees\/([^/]+)\/applications\/([^/]+)$/.exec(path);
   if (request.method === "PUT" && match) {
     return proxyAuthenticated(
-      request,
-      env,
-      requestId,
+      request, env, requestId,
       `/v1/admin/identity/employees/${encodeURIComponent(match[1])}/applications/${encodeURIComponent(match[2])}`,
       "PUT",
     );
   }
 
+  // Legacy Group management stays proxied temporarily for old clients, but the
+  // CY Web 0.2 UI no longer presents it and CYID 0.2 does not authorize from it.
+  if (request.method === "POST" && path === "/api/identity/admin/groups") {
+    return proxyAuthenticated(request, env, requestId, "/v1/admin/identity/groups", "POST");
+  }
+  match = /^\/api\/identity\/admin\/groups\/([^/]+)$/.exec(path);
+  if (request.method === "PATCH" && match) {
+    return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/groups/${encodeURIComponent(match[1])}`, "PATCH");
+  }
+  match = /^\/api\/identity\/admin\/groups\/([^/]+)\/members\/([^/]+)$/.exec(path);
+  if (match && (request.method === "PUT" || request.method === "DELETE")) {
+    return proxyAuthenticated(
+      request, env, requestId,
+      `/v1/admin/identity/groups/${encodeURIComponent(match[1])}/members/${encodeURIComponent(match[2])}`,
+      request.method,
+    );
+  }
+  match = /^\/api\/identity\/admin\/groups\/([^/]+)\/applications\/([^/]+)$/.exec(path);
+  if (request.method === "PUT" && match) {
+    return proxyAuthenticated(
+      request, env, requestId,
+      `/v1/admin/identity/groups/${encodeURIComponent(match[1])}/applications/${encodeURIComponent(match[2])}`,
+      "PUT",
+    );
+  }
   match = /^\/api\/identity\/admin\/applications\/([^/]+)\/compatibility-role-mode$/.exec(path);
   if (request.method === "PUT" && match) {
     return proxyAuthenticated(
-      request,
-      env,
-      requestId,
+      request, env, requestId,
       `/v1/admin/identity/applications/${encodeURIComponent(match[1])}/compatibility-role-mode`,
       "PUT",
     );

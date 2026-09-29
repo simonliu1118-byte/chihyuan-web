@@ -1,12 +1,16 @@
 import { apiRequest } from "../api/client";
 
+export type WorkspaceRole = "SUPER_ADMIN" | "ADMIN" | "USER";
+
 export interface AuthUser {
   employeeId: string;
   employeeNo: string;
   displayName: string;
   workspaceId: string;
+  workspaceRole: WorkspaceRole;
+  isIdentityAdmin: boolean;
+  emailVerified: boolean;
   isWorkspaceSuperAdmin: boolean;
-  groupKeys: string[];
 }
 
 export interface AuthSession {

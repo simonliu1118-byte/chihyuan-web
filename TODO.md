@@ -4,53 +4,51 @@
 
 ## Current checkpoint — 2026-09-29
 
-- Formal code baseline remains `main`; current source version is `0.1.51`.
-- CYCloud Identity development authority is live and CY Web uses the private `IDENTITY` Service Binding for login/session/logout.
-- Browser acceptance already passed for the first development Super Admin account: password login, authenticated navigation, F5 resolve, logout and post-logout F5.
-- Invalid-provider-session handling is accepted through the deployed CY Web runtime; literal expired-session evidence remains outstanding.
-- CY Web `0.1.51` source contains the earlier Employee lifecycle/Super Admin UI correction but has not yet been manually development-deployed.
-- **The forward Identity model changed before `0.1.51` management UI acceptance was completed.** Do not spend further design effort extending the current Identity Group / `USER_ADMIN` management UI. Next Identity implementation must migrate to the finalized three-role contract first.
-- Approved shared model: CYID roles are `SUPER_ADMIN / ADMIN / USER`; `Identity Admin` is an ADMIN capability, not a fourth role; all integrated CY Apps consume the same role directly.
-- CY Web is the mandatory core account-management App: every valid Employee has CY Web entry access locked TRUE so self-service remains available even with zero business Module Access.
-- CY Web is the multi-module exception: module access is owned/enforced by CY Web, not CYID. Super Admin has all modules automatically. Identity Admin / Super Admin can manage eligible USER/ADMIN/other Identity Admin module access; normal ADMIN cannot manage Module Access; ADMIN with a module Access has full management authority in that module.
-- Normal ADMIN may manage ordinary USER lifecycle only; Identity Admin adds USER<->ADMIN, App Access, CY Web Module Access and activated-account forced Email recovery; Super Admin retains Identity Admin grant/revoke, protected transfer and Workspace security-core authority.
-- Identity Admin cannot modify its own App/Module Access or Super Admin protected state. Another Identity Admin or Super Admin may adjust an Identity Admin's normal Access.
-- Employee creation target: normal ADMIN can create USER only; Identity Admin / Super Admin can directly create USER or ADMIN. Role is selected at creation; Access is configured afterward.
-- First activation target: CYID automatically sends an activation email immediately after Employee creation. The message contains a direct link opening CY Web activation; the link itself is not authentication and does not bypass OTP/Email verification/first-password setup. Pending UI exposes edit/resend/delete; send failure keeps the pending account and allows resend.
-- Activated-account Email recovery target: Identity Admin / Super Admin may replace an unusable Email, keep the account activated/password intact, mark new Email unverified, revoke sessions and resend verification.
-- Only never-activated Employees may be physically deleted. Activated Employees remain historical records and are disabled/re-enabled.
-- Current CYCloud Identity `0.1.14` still implements legacy Identity Groups and Group/direct App grants; provider migration is required before CY Web adopts the target principal contract.
-- CYInvoice remains unchanged/reference-only in this workstream. CYACC-web and CYInvoice integrations happen separately after the shared contract stabilizes.
+- Formal baseline remains `main`; CY Web `0.2.0` consumer migration is in PR `#64` on `identity/cyid-0.2-consumer` until CI/merge completes.
+- CYCloud Identity `0.2.0` source is merged to CYapps `main` (PR `#204`) but is **not yet development-deployed**. The currently live development Identity runtime must be treated as the previous generation until the governed 0.2.0 deploy succeeds.
+- CYID 0.2.0 replaces Group-derived authorization with direct Workspace roles `SUPER_ADMIN / ADMIN / USER`, ADMIN-only `Identity Admin` capability, direct Employee App Access, durable activation state, create-time activation Email, pending resend/edit/delete, and activated-account forced Email recovery.
+- CY Web `0.2.0` consumer source now normalizes `workspaceRole / isIdentityAdmin / emailVerified` and keeps legacy `groupKeys` descriptive only.
+- CY Web shell entry is Identity-authoritative and mandatory for every valid Employee. Local `app_members.is_active` is no longer allowed to block the account-management shell; it remains a CY Web-local module projection only.
+- Super Admin module access is protected and automatic. CY Web Module Access remains CY Web-owned; Identity Admin / Super Admin will manage eligible accounts, normal ADMIN has no Access-management authority, and ADMIN with a granted module has full administration authority in that module.
+- Shared Identity management UI has been migrated away from the forward Group/`USER_ADMIN` surface: role-aware Employee lifecycle, direct App Access, Identity Admin controls, forced Email recovery, and Super-Admin-only security controls are now represented.
+- Pending lifecycle uses durable first activation (`activated_at`) rather than `email_verified_at`; an activated Employee whose Email is replaced remains `啟用 · Email 待驗證`, not first-time pending.
+- Employee creation now expects create-time Role selection and reports whether the first activation Email was sent. Pending actions are edit / resend / delete.
+- Activation Email deep links use `?activate=1&employeeNo=####` to open CY Web directly in the activation flow. CY Web asks CYID for the existing active challenge; the URL itself is not an authentication credential and OTP + first password remain mandatory.
+- Existing browser acceptance from the previous generation remains valid for basic Super Admin login/F5/logout and invalid-session rejection. Literal expired-session evidence remains outstanding and 0.2 role/lifecycle behavior still requires fresh browser acceptance after coordinated deployment.
+- CYID 0.2.0 development deployment now requires two deployment-only Environment variables for the locked CY Web core application ID and CY Web account-portal URL. Values must remain private operational configuration and must not be committed or pasted into chat.
+- CYInvoice remains unchanged/reference-only in this workstream. CYAccountingWeb (CYACC-web) and CYInvoice integrations occur in their own workstreams after the shared contract is accepted.
 - Production D1/Worker/DNS/custom domain, backup rollout and SMART ERP remain untouched.
 
 ## Active next sequence
 
-1. [x] Cut CY Web login/session/logout to CYCloud Identity and accept the initial Super Admin session path.
-2. [x] Add initial Shared Identity management UI and pending Employee lifecycle protection.
-3. [x] Finalize the replacement Identity contract: direct `SUPER_ADMIN / ADMIN / USER`, Identity Admin capability, App Access separation and CY Web core/multi-module rules.
-4. [ ] Wait for / coordinate CYCloud Identity forward migration from legacy Group projection to direct Workspace Role + Identity Admin capability.
-5. [ ] Update CY Web auth adapter/principal normalization to consume direct `role` + `isIdentityAdmin` provider authority.
-6. [ ] Replace the current Super-Admin-only/Group management UI with role-aware USER / ADMIN / Identity Admin / Super Admin surfaces.
-7. [ ] Implement CY Web Module Access persistence + server-side enforcement. Super Admin all modules; Identity Admin/Super Admin manage eligible accounts; normal Admin no access-management controls.
-8. [ ] Keep CY Web core self-service entry available for every active Employee regardless of business Module Access.
-9. [ ] Implement create-time Role selection and UI behavior: ADMIN creates USER only; Identity Admin/Super Admin create USER or ADMIN.
-10. [ ] Surface activation email send state, pending edit/resend/delete, and direct-link activation UX after provider support exists.
-11. [ ] Surface forced activated-account Email recovery for Identity Admin/Super Admin and `啟用 · Email 待驗證` state.
-12. [ ] Browser-accept USER / ADMIN / Identity Admin / Super Admin visibility and mutation boundaries, including Identity Admin anti-self-escalation.
-13. [ ] Browser-accept CY Web Module Access changes and immediate server-side enforcement.
-14. [ ] Accept first activation email + resend + direct CY Web activation link through the configured Email provider.
-15. [ ] Accept role/App Access changes and provider session invalidation behavior.
-16. [ ] Obtain literal expired-session evidence through CY Web; invalid-session handling is already accepted.
-17. [ ] Manually accept self-service forgot-password/own Email change and controlled Super Admin transfer without risking lockout.
-18. [ ] Add protected Worker business HTTP routes with server-side module authorization.
-19. [ ] Replace temporary `localStorage` business-data persistence with Worker API -> D1 while preserving the React workflow.
-20. [ ] Perform Desktop/Tablet/Mobile real-browser acceptance.
-21. [ ] Implement and accept backup/restore before production rollout.
-22. [ ] Bind/deploy production Worker/D1/custom domain only after explicit production acceptance.
+1. [x] Cut initial CY Web login/session/logout to CYCloud Identity and accept the first Super Admin session path.
+2. [x] Finalize the replacement three-role / Identity Admin / App Access / CY Web core+module model.
+3. [x] Implement CYCloud Identity `0.2.0` direct-role runtime in source and merge it to CYapps `main`.
+4. [x] Implement CY Web `0.2.0` principal adapter, role-aware management UI, lifecycle controls, direct App Access and activation deep link in PR `#64`.
+5. [ ] Finish PR `#64` CI, merge CY Web `0.2.0` consumer source to `main`.
+6. [ ] Configure the two required CYID development Environment variables privately in GitHub, then deploy CYID `0.2.0` development through the governed deploy branch.
+7. [ ] Verify migration `0005`, Worker deployment and existing Super Admin login/session survival after CYID `0.2.0` development deployment.
+8. [ ] Manually deploy CY Web `0.2.0` from `main` only after CYID `0.2.0` development is live.
+9. [ ] Browser-accept the new Account & Permissions surface: no forward Group UI; correct Super Admin / Admin / User / Identity Admin visibility.
+10. [ ] Create a controlled test Employee and accept first activation Email delivery, Brevo event, direct CY Web activation link, OTP and first-password completion.
+11. [ ] Accept pending edit / resend / delete behavior and delivery-failure recovery without deleting the Employee automatically.
+12. [ ] Accept ordinary USER login/self-service and prove no Workspace management/Access controls are exposed.
+13. [ ] Accept normal ADMIN USER-lifecycle limits and prove no App/Module Access administration.
+14. [ ] Accept Identity Admin USER↔ADMIN, App Access, Email recovery and anti-self-escalation boundaries.
+15. [ ] Implement/accept CY Web-local Module Access management UI + server-side enforcement for Identity Admin/Super Admin. Do not move module permissions into CYID.
+16. [ ] Accept activated-account forced Email recovery and `啟用 · Email 待驗證` re-verification flow.
+17. [ ] Accept role/App Access session invalidation and immediate authorization changes.
+18. [ ] Obtain literal expired-session evidence through CY Web; invalid-session handling is already accepted separately.
+19. [ ] Manually accept self-service forgot-password/own Email change and controlled Super Admin transfer without risking lockout.
+20. [ ] Add protected Worker business HTTP routes with server-side module authorization.
+21. [ ] Replace temporary `localStorage` business-data persistence with Worker API -> D1 while preserving the React workflow.
+22. [ ] Perform Desktop/Tablet/Mobile real-browser acceptance.
+23. [ ] Implement and accept backup/restore before production rollout.
+24. [ ] Bind/deploy production Worker/D1/custom domain only after explicit production acceptance.
 
 ## Current Identity acceptance boundary
 
-Already accepted:
+Already accepted from the previous generation:
 
 - dedicated CYCloud Identity Worker/D1 in development;
 - Email-OTP bootstrap of the first Workspace;
@@ -61,20 +59,21 @@ Already accepted:
 - F5 resolve, logout revocation and post-logout rejection;
 - deployed rejection of provider-invalid session with `401 AUTH_INVALID` + cookie clearing;
 - provider protection against directly disabling/deleting current Super Admin;
-- pending-first-activation deletion in current provider runtime;
 - Public-source secret/operational-ID boundaries.
 
-Approved but not implemented/accepted yet:
+Implemented in source but still requiring coordinated development deployment/browser acceptance:
 
-- direct Workspace role principal (`SUPER_ADMIN / ADMIN / USER`);
+- direct Workspace-role principal (`SUPER_ADMIN / ADMIN / USER`);
 - Identity Admin capability and its management boundaries;
-- locked CY Web core entry for all valid Employees;
-- target App Access model without Group-derived coarse role;
-- CY Web Module Access for Admin/User identities;
-- automatic first activation email + direct CY Web link + resend/failure state;
-- forced activated-account Email recovery;
-- target role/access session invalidation acceptance;
-- literal expired-session evidence.
+- locked CY Web core shell entry for all valid Employees;
+- direct App Access without Group-derived role authority;
+- role-aware Employee create/update lifecycle;
+- automatic first activation Email + direct CY Web link + resend/failure state;
+- durable first-activation state and pending-only physical delete;
+- activated-account forced Email recovery and re-verification;
+- role/App Access session invalidation;
+- CY Web 0.2 consumer UI/adapters;
+- literal expired-session evidence remains separate.
 
 ## Topic source map
 

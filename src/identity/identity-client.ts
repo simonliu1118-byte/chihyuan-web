@@ -1,5 +1,7 @@
 import { apiRequest } from "../api/client";
 
+export type WorkspaceRole = "SUPER_ADMIN" | "ADMIN" | "USER";
+
 export interface IdentityEmployeeRow {
   employee_id: string;
   employee_no: string;
@@ -7,21 +9,12 @@ export interface IdentityEmployeeRow {
   email_normalized: string;
   email_verified_at: string | null;
   enabled: number;
+  role_key: "USER" | "ADMIN";
+  workspace_role: WorkspaceRole;
+  identity_admin: number;
+  activated_at: string | null;
+  credential_present: number;
   revision: number;
-}
-
-export interface IdentityGroupRow {
-  group_id: string;
-  group_key: string;
-  display_name: string;
-  description: string | null;
-  status: "active" | "disabled";
-  revision: number;
-}
-
-export interface IdentityMembershipRow {
-  employee_id: string;
-  group_id: string;
 }
 
 export interface IdentityApplicationRow {
@@ -29,7 +22,8 @@ export interface IdentityApplicationRow {
   display_name: string;
   application_status: string;
   enabled: number;
-  compatibility_role_mode: "USER_ADMIN" | null;
+  core_access_locked: number;
+  compatibility_role_mode?: "USER_ADMIN" | null;
 }
 
 export interface IdentityDirectAccessRow {
@@ -38,21 +32,16 @@ export interface IdentityDirectAccessRow {
   enabled: number;
 }
 
-export interface IdentityGroupAccessRow {
-  group_id: string;
-  application_id: string;
-  enabled: number;
-  application_role_key: "USER" | "ADMIN" | null;
-}
-
 export interface IdentityAdminSnapshot {
   workspaceId: string;
+  actor: {
+    employeeId: string;
+    workspaceRole: WorkspaceRole;
+    isIdentityAdmin: boolean;
+  };
   employees: IdentityEmployeeRow[];
-  groups: IdentityGroupRow[];
-  memberships: IdentityMembershipRow[];
   applications: IdentityApplicationRow[];
   directAccess: IdentityDirectAccessRow[];
-  groupAccess: IdentityGroupAccessRow[];
 }
 
 export interface HighestAuthorityView {
@@ -84,6 +73,11 @@ export interface OtpIssueView {
   resendAfter: string;
 }
 
+export interface DeliveryView extends Partial<OtpIssueView> {
+  sent: boolean;
+  errorCode?: string;
+}
+
 export function loadIdentityAdminSnapshot(): Promise<IdentityAdminSnapshot> {
   return apiRequest<IdentityAdminSnapshot>("/api/identity/admin/snapshot", { method: "GET" });
 }
@@ -100,30 +94,33 @@ export function startHighestAuthorityTransfer(targetEmployeeId: string, currentP
 }
 
 export function confirmHighestAuthorityTransfer(targetEmployeeId: string, challengeId: string, code: string) {
-  return apiRequest<{
-    transferred: boolean;
-    workspaceId: string;
-    previousEmployeeId: string;
-    superAdminEmployeeId: string;
-    recoveryEmail: string;
-    previousAuthoritySessionsRevoked: boolean;
-  }>("/api/identity/admin/authority-transfer/confirm", {
+  return apiRequest<{ transferred: boolean; previousAuthoritySessionsRevoked: boolean }>("/api/identity/admin/authority-transfer/confirm", {
     method: "POST",
     json: { targetEmployeeId, challengeId, code },
   });
 }
 
-export function createIdentityEmployee(input: { employeeNo: string; displayName: string; email: string }) {
-  return apiRequest<{ employee: unknown }>("/api/identity/admin/employees", { method: "POST", json: input });
+export function createIdentityEmployee(input: {
+  employeeNo: string;
+  displayName: string;
+  email: string;
+  roleKey: "USER" | "ADMIN";
+}) {
+  return apiRequest<{ employee: unknown; activationDelivery: DeliveryView }>("/api/identity/admin/employees", {
+    method: "POST",
+    json: input,
+  });
 }
 
 export function updateIdentityEmployee(employeeId: string, input: {
-  employeeNo: string;
-  displayName: string;
-  enabled: boolean;
+  employeeNo?: string;
+  displayName?: string;
+  email?: string;
+  enabled?: boolean;
+  roleKey?: "USER" | "ADMIN";
   revision: number;
 }) {
-  return apiRequest<{ employee: unknown }>(`/api/identity/admin/employees/${encodeURIComponent(employeeId)}`, {
+  return apiRequest<{ employee: unknown; activationDelivery?: DeliveryView }>(`/api/identity/admin/employees/${encodeURIComponent(employeeId)}`, {
     method: "PATCH",
     json: input,
   });
@@ -136,53 +133,43 @@ export function deletePendingIdentityEmployee(employeeId: string) {
   );
 }
 
-export function createIdentityGroup(input: { groupKey: string; displayName: string; description?: string | null }) {
-  return apiRequest<{ group: unknown }>("/api/identity/admin/groups", { method: "POST", json: input });
-}
-
-export function updateIdentityGroup(groupId: string, input: {
-  groupKey: string;
-  displayName: string;
-  description: string | null;
-  status: "active" | "disabled";
-  revision: number;
-}) {
-  return apiRequest<{ group: unknown }>(`/api/identity/admin/groups/${encodeURIComponent(groupId)}`, {
-    method: "PATCH",
-    json: input,
-  });
-}
-
-export function setIdentityGroupMember(groupId: string, employeeId: string, enabled: boolean) {
-  return apiRequest<{ membership: unknown }>(
-    `/api/identity/admin/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(employeeId)}`,
-    { method: enabled ? "PUT" : "DELETE" },
+export function resendEmployeeActivation(employeeId: string) {
+  return apiRequest<{ activationDelivery: DeliveryView }>(
+    `/api/identity/admin/employees/${encodeURIComponent(employeeId)}/activation/resend`,
+    { method: "POST", json: {} },
   );
 }
 
-export function setGroupApplicationAccess(
-  groupId: string,
-  applicationId: string,
-  enabled: boolean,
-  applicationRoleKey: "USER" | "ADMIN" | null,
-) {
-  return apiRequest<{ access: unknown }>(
-    `/api/identity/admin/groups/${encodeURIComponent(groupId)}/applications/${encodeURIComponent(applicationId)}`,
-    { method: "PUT", json: { enabled, applicationRoleKey } },
+export function setEmployeeIdentityAdmin(employeeId: string, enabled: boolean) {
+  return apiRequest<{ employee: unknown; sessionsRevoked: boolean }>(
+    `/api/identity/admin/employees/${encodeURIComponent(employeeId)}/identity-admin`,
+    { method: "PUT", json: { enabled } },
   );
 }
 
 export function setEmployeeApplicationAccess(employeeId: string, applicationId: string, enabled: boolean) {
-  return apiRequest<{ access: unknown }>(
+  return apiRequest<{ access: unknown; affectedApplicationSessionsRevoked?: boolean }>(
     `/api/identity/admin/employees/${encodeURIComponent(employeeId)}/applications/${encodeURIComponent(applicationId)}`,
     { method: "PUT", json: { enabled } },
   );
 }
 
-export function setApplicationCompatibilityRoleMode(applicationId: string, mode: "USER_ADMIN" | null) {
-  return apiRequest<{ application: unknown }>(
-    `/api/identity/admin/applications/${encodeURIComponent(applicationId)}/compatibility-role-mode`,
-    { method: "PUT", json: { mode } },
+export function forceEmployeeEmailRecovery(employeeId: string, email: string) {
+  return apiRequest<{
+    recovered: boolean;
+    employee: unknown;
+    verificationDelivery: DeliveryView;
+    sessionsRevoked: boolean;
+  }>(`/api/identity/admin/employees/${encodeURIComponent(employeeId)}/email-recovery`, {
+    method: "POST",
+    json: { email },
+  });
+}
+
+export function resendActivatedEmailVerification(employeeId: string) {
+  return apiRequest<{ verificationDelivery: DeliveryView }>(
+    `/api/identity/admin/employees/${encodeURIComponent(employeeId)}/email-verification/resend`,
+    { method: "POST", json: {} },
   );
 }
 
@@ -205,6 +192,13 @@ export function startOwnEmailChange(currentPassword: string, email: string): Pro
   return apiRequest<{ verification: OtpIssueView }>("/api/identity/email-change/start", {
     method: "POST",
     json: { currentPassword, email },
+  });
+}
+
+export function startCurrentEmailVerification(): Promise<{ verification: OtpIssueView; reused: boolean }> {
+  return apiRequest<{ verification: OtpIssueView; reused: boolean }>("/api/identity/email-verification/start-current", {
+    method: "POST",
+    json: {},
   });
 }
 

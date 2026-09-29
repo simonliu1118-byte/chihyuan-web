@@ -40,8 +40,10 @@ function user(principal: IdentityPrincipal) {
     employeeNo: principal.employeeNo,
     displayName: principal.displayName,
     workspaceId: principal.workspaceId,
+    workspaceRole: principal.workspaceRole,
+    isIdentityAdmin: principal.isIdentityAdmin,
+    emailVerified: principal.emailVerified,
     isWorkspaceSuperAdmin: principal.isWorkspaceSuperAdmin,
-    groupKeys: principal.groupKeys,
   };
 }
 
@@ -49,18 +51,10 @@ function passwordLength(value: string): number {
   return Array.from(value).length;
 }
 
-async function login(
-  request: Request,
-  env: IdentityRuntimeEnv,
-  requestId: string,
-): Promise<Response> {
+async function login(request: Request, env: IdentityRuntimeEnv, requestId: string): Promise<Response> {
   const provider = identityClient(env);
   if (!provider) {
-    return failure(
-      { code: "IDENTITY_UNAVAILABLE", message: "Identity provider is not configured" },
-      requestId,
-      503,
-    );
+    return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is not configured" }, requestId, 503);
   }
 
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
@@ -68,55 +62,31 @@ async function login(
   const password = typeof body?.password === "string" ? body.password : "";
   const length = passwordLength(password);
   if (!/^\d{4}$/.test(employeeNo) || length < 8 || length > 16) {
-    return failure(
-      { code: "INVALID_LOGIN_REQUEST", message: "Employee number or password format is invalid" },
-      requestId,
-      400,
-    );
+    return failure({ code: "INVALID_LOGIN_REQUEST", message: "Employee number or password format is invalid" }, requestId, 400);
   }
 
   const result = await provider.login(request, employeeNo, password);
-  if (result.status === "invalid") {
-    return failure({ code: "LOGIN_FAILED", message: "Authentication failed" }, requestId, 401);
-  }
-  if (result.status === "denied") {
-    return failure({ code: "ACCESS_DENIED", message: "Application access denied" }, requestId, 403);
-  }
+  if (result.status === "invalid") return failure({ code: "LOGIN_FAILED", message: "Authentication failed" }, requestId, 401);
+  if (result.status === "denied") return failure({ code: "ACCESS_DENIED", message: "Application access denied" }, requestId, 403);
   if (result.status === "rate_limited") {
-    const response = failure(
-      { code: "LOGIN_RATE_LIMITED", message: "Too many login attempts" },
-      requestId,
-      429,
-    );
+    const response = failure({ code: "LOGIN_RATE_LIMITED", message: "Too many login attempts" }, requestId, 429);
     response.headers.set("retry-after", String(result.retryAfterSeconds));
     return response;
   }
   if (result.status === "invalid_response") {
-    return failure(
-      { code: "IDENTITY_UNAVAILABLE", message: "Identity provider response is invalid" },
-      requestId,
-      503,
-    );
+    return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider response is invalid" }, requestId, 503);
   }
   if (result.status === "unavailable") {
-    return failure(
-      { code: "IDENTITY_UNAVAILABLE", message: "Identity provider is unavailable" },
-      requestId,
-      503,
-    );
+    return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is unavailable" }, requestId, 503);
   }
 
-  const member = await resolveAppMember(env.DB, result.principal);
-  if (!member.isActive) {
-    await provider.revokeToken(request, result.token);
-    return failure({ code: "ACCESS_DENIED", message: "CY Web access is disabled" }, requestId, 403);
-  }
+  // CY Web is the mandatory account shell. A valid CYID principal may never be
+  // denied shell entry by the local module projection. Keep the local member row
+  // in sync only for CY Web module authorization.
+  await resolveAppMember(env.DB, result.principal);
 
   return success(
-    {
-      user: user(result.principal),
-      expiresAt: result.expiresAt,
-    },
+    { user: user(result.principal), expiresAt: result.expiresAt },
     requestId,
     { headers: { "set-cookie": identitySessionCookie(result.token, result.expiresAt) } },
   );
@@ -125,30 +95,16 @@ async function login(
 async function me(request: Request, env: IdentityRuntimeEnv, requestId: string): Promise<Response> {
   const provider = identityClient(env);
   if (!provider) {
-    return failure(
-      { code: "IDENTITY_UNAVAILABLE", message: "Identity provider is not configured" },
-      requestId,
-      503,
-    );
+    return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is not configured" }, requestId, 503);
   }
 
   const resolution = await provider.resolve(request);
   if (resolution.status === "authenticated") {
-    const member = await resolveAppMember(env.DB, resolution.principal);
-    if (!member.isActive) {
-      return failure({ code: "ACCESS_DENIED", message: "CY Web access is disabled" }, requestId, 403);
-    }
-    return success(
-      { user: user(resolution.principal), expiresAt: resolution.expiresAt },
-      requestId,
-    );
+    await resolveAppMember(env.DB, resolution.principal);
+    return success({ user: user(resolution.principal), expiresAt: resolution.expiresAt }, requestId);
   }
   if (resolution.status === "unavailable") {
-    return failure(
-      { code: "IDENTITY_UNAVAILABLE", message: "Identity provider is unavailable" },
-      requestId,
-      503,
-    );
+    return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is unavailable" }, requestId, 503);
   }
 
   const response = failure(
@@ -159,29 +115,19 @@ async function me(request: Request, env: IdentityRuntimeEnv, requestId: string):
     requestId,
     401,
   );
-  if (resolution.reason === "invalid") {
-    response.headers.set("set-cookie", clearIdentitySessionCookie());
-  }
+  if (resolution.reason === "invalid") response.headers.set("set-cookie", clearIdentitySessionCookie());
   return response;
 }
 
 async function logout(request: Request, env: IdentityRuntimeEnv, requestId: string): Promise<Response> {
   const provider = identityClient(env);
   if (!provider) {
-    return failure(
-      { code: "IDENTITY_UNAVAILABLE", message: "Identity provider is not configured" },
-      requestId,
-      503,
-    );
+    return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is not configured" }, requestId, 503);
   }
 
   const result = await provider.logout(request);
   if (result.status === "unavailable") {
-    return failure(
-      { code: "IDENTITY_UNAVAILABLE", message: "Identity provider is unavailable" },
-      requestId,
-      503,
-    );
+    return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is unavailable" }, requestId, 503);
   }
 
   return success(
@@ -197,14 +143,8 @@ export async function handleAuthRoute(
   requestId: string,
 ): Promise<Response | null> {
   const url = new URL(request.url);
-  if (request.method === "POST" && url.pathname === "/api/auth/login") {
-    return login(request, env, requestId);
-  }
-  if (request.method === "GET" && url.pathname === "/api/auth/me") {
-    return me(request, env, requestId);
-  }
-  if (request.method === "POST" && url.pathname === "/api/auth/logout") {
-    return logout(request, env, requestId);
-  }
+  if (request.method === "POST" && url.pathname === "/api/auth/login") return login(request, env, requestId);
+  if (request.method === "GET" && url.pathname === "/api/auth/me") return me(request, env, requestId);
+  if (request.method === "POST" && url.pathname === "/api/auth/logout") return logout(request, env, requestId);
   return null;
 }

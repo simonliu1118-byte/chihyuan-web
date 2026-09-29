@@ -1,4 +1,4 @@
-import type { IdentityAdapter, IdentityPrincipal, IdentityResolution } from "./contract";
+import type { IdentityAdapter, IdentityPrincipal, IdentityResolution, WorkspaceRole } from "./contract";
 
 export const CYWEB_IDENTITY_COOKIE = "cyweb_identity_session";
 
@@ -7,6 +7,9 @@ interface ProviderPrincipal {
   employeeId?: unknown;
   employeeNo?: unknown;
   displayName?: unknown;
+  workspaceRole?: unknown;
+  isIdentityAdmin?: unknown;
+  emailVerified?: unknown;
   isWorkspaceSuperAdmin?: unknown;
   groupKeys?: unknown;
   credentialVersion?: unknown;
@@ -81,6 +84,10 @@ function normalizeGroupKeys(value: unknown): string[] | null {
   return result;
 }
 
+function normalizeWorkspaceRole(value: unknown): WorkspaceRole | null {
+  return value === "SUPER_ADMIN" || value === "ADMIN" || value === "USER" ? value : null;
+}
+
 function nonNegativeInteger(value: unknown): number | null {
   const number = Number(value);
   return Number.isSafeInteger(number) && number >= 0 ? number : null;
@@ -91,6 +98,7 @@ function normalizePrincipal(value: ProviderPrincipal | undefined): IdentityPrinc
   const employeeId = typeof value?.employeeId === "string" ? value.employeeId.trim() : "";
   const employeeNo = typeof value?.employeeNo === "string" ? value.employeeNo.trim() : "";
   const displayName = typeof value?.displayName === "string" ? value.displayName.trim() : "";
+  const workspaceRole = normalizeWorkspaceRole(value?.workspaceRole);
   const groupKeys = normalizeGroupKeys(value?.groupKeys);
   const credentialVersion = nonNegativeInteger(value?.credentialVersion);
   const employeeRevision = nonNegativeInteger(value?.employeeRevision);
@@ -103,7 +111,12 @@ function normalizePrincipal(value: ProviderPrincipal | undefined): IdentityPrinc
     || !/^\d{4}$/.test(employeeNo)
     || !displayName
     || displayName.length > 200
+    || !workspaceRole
+    || typeof value?.isIdentityAdmin !== "boolean"
+    || typeof value?.emailVerified !== "boolean"
     || typeof value?.isWorkspaceSuperAdmin !== "boolean"
+    || value.isWorkspaceSuperAdmin !== (workspaceRole === "SUPER_ADMIN")
+    || (value.isIdentityAdmin && workspaceRole !== "ADMIN")
     || !groupKeys
     || credentialVersion === null
     || employeeRevision === null
@@ -116,6 +129,9 @@ function normalizePrincipal(value: ProviderPrincipal | undefined): IdentityPrinc
     employeeId,
     employeeNo,
     displayName,
+    workspaceRole,
+    isIdentityAdmin: value.isIdentityAdmin,
+    emailVerified: value.emailVerified,
     isWorkspaceSuperAdmin: value.isWorkspaceSuperAdmin,
     groupKeys,
     credentialVersion,
@@ -165,27 +181,16 @@ export class CYCloudIdentityClient implements IdentityAdapter {
     const response = await this.providerFetch(new Request("https://identity.internal/v1/identity/login", {
       method: "POST",
       headers: forwardedHeaders(request),
-      body: JSON.stringify({
-        workspaceId: this.workspaceId,
-        applicationId: this.applicationId,
-        employeeNo,
-        password,
-      }),
+      body: JSON.stringify({ workspaceId: this.workspaceId, applicationId: this.applicationId, employeeNo, password }),
     }));
     if (!response) return { status: "unavailable" };
 
     const payload = await response.json().catch(() => null) as ProviderPayload | null;
     const providerCode = String(payload?.error?.code ?? "");
     if (!response.ok) {
-      if (response.status === 429) {
-        return { status: "rate_limited", retryAfterSeconds: boundedRetryAfter(response) };
-      }
-      if (response.status === 401 || providerCode === "AUTHENTICATION_FAILED") {
-        return { status: "invalid" };
-      }
-      if (response.status === 403 || providerCode === "APPLICATION_ACCESS_DENIED") {
-        return { status: "denied" };
-      }
+      if (response.status === 429) return { status: "rate_limited", retryAfterSeconds: boundedRetryAfter(response) };
+      if (response.status === 401 || providerCode === "AUTHENTICATION_FAILED") return { status: "invalid" };
+      if (response.status === 403 || providerCode === "APPLICATION_ACCESS_DENIED") return { status: "denied" };
       if (response.status >= 500) return { status: "unavailable" };
       return { status: "invalid_response" };
     }
@@ -197,7 +202,6 @@ export class CYCloudIdentityClient implements IdentityAdapter {
       return { status: "invalid_response" };
     }
     if (principal.workspaceId !== this.workspaceId) return { status: "invalid_response" };
-
     return { status: "authenticated", principal, token, expiresAt };
   }
 
@@ -210,11 +214,7 @@ export class CYCloudIdentityClient implements IdentityAdapter {
     headers.delete("content-type");
     headers.set("authorization", `Bearer ${token}`);
     headers.set("x-identity-application", this.applicationId);
-
-    const response = await this.providerFetch(new Request("https://identity.internal/v1/identity/session/resolve", {
-      method: "POST",
-      headers,
-    }));
+    const response = await this.providerFetch(new Request("https://identity.internal/v1/identity/session/resolve", { method: "POST", headers }));
     if (!response) return { status: "unavailable" };
 
     const payload = await response.json().catch(() => null) as ProviderPayload | null;
@@ -226,28 +226,19 @@ export class CYCloudIdentityClient implements IdentityAdapter {
 
     const principal = normalizePrincipal(payload?.principal);
     const expiresAt = typeof payload?.session?.expiresAt === "string" ? payload.session.expiresAt : "";
-    if (!principal || !expiresAt || !Number.isFinite(new Date(expiresAt).getTime())) {
-      return { status: "unavailable" };
-    }
-    if (principal.workspaceId !== this.workspaceId) {
-      return { status: "unauthenticated", reason: "invalid" };
-    }
+    if (!principal || !expiresAt || !Number.isFinite(new Date(expiresAt).getTime())) return { status: "unavailable" };
+    if (principal.workspaceId !== this.workspaceId) return { status: "unauthenticated", reason: "invalid" };
     return { status: "authenticated", principal, expiresAt };
   }
 
   async logout(request: Request): Promise<IdentityLogoutResult> {
     const token = cookieValue(request, CYWEB_IDENTITY_COOKIE);
     if (!token || !isSessionToken(token)) return { status: "logged_out" };
-
     const headers = forwardedHeaders(request);
     headers.delete("content-type");
     headers.set("authorization", `Bearer ${token}`);
     headers.set("x-identity-application", this.applicationId);
-
-    const response = await this.providerFetch(new Request("https://identity.internal/v1/identity/logout", {
-      method: "POST",
-      headers,
-    }));
+    const response = await this.providerFetch(new Request("https://identity.internal/v1/identity/logout", { method: "POST", headers }));
     if (!response || response.status >= 500) return { status: "unavailable" };
     return { status: "logged_out" };
   }
@@ -258,9 +249,6 @@ export class CYCloudIdentityClient implements IdentityAdapter {
     headers.delete("content-type");
     headers.set("authorization", `Bearer ${token}`);
     headers.set("x-identity-application", this.applicationId);
-    await this.providerFetch(new Request("https://identity.internal/v1/identity/logout", {
-      method: "POST",
-      headers,
-    }));
+    await this.providerFetch(new Request("https://identity.internal/v1/identity/logout", { method: "POST", headers }));
   }
 }
