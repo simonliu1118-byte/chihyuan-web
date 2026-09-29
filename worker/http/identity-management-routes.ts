@@ -130,8 +130,6 @@ export async function handleIdentityManagementRoute(
   const path = new URL(request.url).pathname;
 
   const publicRoutes: Record<string, string> = {
-    "/api/identity/activation/start": "/v1/identity/activation/start",
-    "/api/identity/activation/confirm": "/v1/identity/activation/confirm",
     "/api/identity/password-recovery/start": "/v1/identity/password-recovery/start",
     "/api/identity/password-recovery/confirm": "/v1/identity/password-recovery/confirm",
   };
