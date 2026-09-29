@@ -75,19 +75,29 @@ CY Web reuses the shared Identity authority. It does not recreate passwords, PIN
 | `created_at` | TEXT utc_ts | no | |
 | `updated_at` | TEXT utc_ts | no | |
 
-### `app_tags`
+### `app_member_module_access`
 
-`id`, `code UNIQUE`, `name`, `sort_order`, `is_active`, `updated_at`, `updated_by`.
+Direct CY Web-local Employee × Module authority.
 
-### `app_tag_modules`
+| Column | Type | Null | Rule |
+| --- | --- | --- | --- |
+| `member_id` | INTEGER FK app_members | no | target CY Web member |
+| `module_code` | TEXT | no | fixed CY Web module code |
+| `enabled` | INTEGER bool | no | direct grant state |
+| `updated_at` | TEXT utc_ts | no | |
+| `updated_by` | INTEGER FK app_members | yes | actor |
 
-`tag_id`, `module_code`; unique/primary key `(tag_id, module_code)`.
+Primary key `(member_id, module_code)`.
 
-### `app_member_tags`
+Current fixed business module codes are `CUSTOMERS / ITEMS / DEFECTS / ORDERS / OUTSOURCING / WORKLOGS`. Super Admin does not require stored rows; all modules are implicit/locked TRUE.
 
-`member_id`, `tag_id`; unique/primary key `(member_id, tag_id)`.
+### Legacy application tags
 
-Shared Identity owns `user / admin / super-admin`; CY Web tags only control app/module entry per BD-037.
+`app_tags`, `app_tag_modules`, and `app_member_tags` remain in the initial schema for historical/development compatibility and possible future grouping metadata. They are **not** forward runtime Module Access authority.
+
+Migration `0005_direct_module_access.sql` copies recognizable pre-existing development tag grants once into direct grants so the authority transition does not silently remove existing development access.
+
+Shared Identity owns Workspace Role and App entry; CY Web direct Module Access is an independent application-local dimension.
 
 ## 3. Common lookup/configuration
 
