@@ -1,6 +1,7 @@
 import type { IdentityAdapter, IdentityPrincipal, IdentityResolution, WorkspaceRole } from "./contract";
 
 export const CYWEB_IDENTITY_COOKIE = "cyweb_identity_session";
+export const CYWEB_FIRST_LOGIN_COOKIE = "cyweb_first_login";
 
 interface ProviderPrincipal {
   workspaceId?: unknown;
@@ -21,9 +22,21 @@ interface ProviderSession {
   expiresAt?: unknown;
 }
 
+interface ProviderFirstLogin {
+  token?: unknown;
+  employeeNo?: unknown;
+  displayName?: unknown;
+  expiresAt?: unknown;
+}
+
 interface ProviderPayload {
   principal?: ProviderPrincipal;
   session?: ProviderSession;
+  firstLogin?: ProviderFirstLogin;
+  passwordChangeRequired?: unknown;
+  emailVerified?: unknown;
+  passwordChanged?: unknown;
+  reloginRequired?: unknown;
   loggedOut?: unknown;
   error?: { code?: unknown };
 }
@@ -35,9 +48,24 @@ export type IdentityLoginResult =
       token: string;
       expiresAt: string;
     }
+  | {
+      status: "first_login";
+      employeeNo: string;
+      displayName: string;
+      token: string;
+      expiresAt: string;
+    }
+  | { status: "first_login_expired" }
   | { status: "invalid" }
   | { status: "denied" }
   | { status: "rate_limited"; retryAfterSeconds: number }
+  | { status: "unavailable" }
+  | { status: "invalid_response" };
+
+export type IdentityFirstLoginCompletionResult =
+  | { status: "completed" }
+  | { status: "expired" }
+  | { status: "invalid" }
   | { status: "unavailable" }
   | { status: "invalid_response" };
 
@@ -51,6 +79,10 @@ function boundedRetryAfter(response: Response): number {
 
 function isSessionToken(value: unknown): value is string {
   return typeof value === "string" && /^cyid_[0-9a-f]{64}$/.test(value);
+}
+
+function isFirstLoginToken(value: unknown): value is string {
+  return typeof value === "string" && /^cyif_[0-9a-f]{64}$/.test(value);
 }
 
 function cookieValue(request: Request, name: string): string | null {
@@ -148,18 +180,35 @@ function forwardedHeaders(request: Request): Headers {
   return headers;
 }
 
+function secureCookie(name: string, token: string, expiresAt: string, now: Date): string {
+  const expiry = new Date(expiresAt);
+  if (!Number.isFinite(expiry.getTime()) || expiry.getTime() <= now.getTime()) {
+    throw new Error("IDENTITY_COOKIE_EXPIRY_INVALID");
+  }
+  const maxAge = Math.max(1, Math.min(Math.floor((expiry.getTime() - now.getTime()) / 1000), 24 * 60 * 60));
+  return `${name}=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
+}
+
 export function identitySessionCookie(token: string, expiresAt: string, now = new Date()): string {
   if (!isSessionToken(token)) throw new Error("IDENTITY_SESSION_TOKEN_INVALID");
-  const expiry = new Date(expiresAt);
-  const maxAge = Math.max(1, Math.min(Math.floor((expiry.getTime() - now.getTime()) / 1000), 24 * 60 * 60));
-  if (!Number.isFinite(expiry.getTime()) || expiry.getTime() <= now.getTime()) {
-    throw new Error("IDENTITY_SESSION_EXPIRY_INVALID");
-  }
-  return `${CYWEB_IDENTITY_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
+  return secureCookie(CYWEB_IDENTITY_COOKIE, token, expiresAt, now);
+}
+
+export function firstLoginCookie(token: string, expiresAt: string, now = new Date()): string {
+  if (!isFirstLoginToken(token)) throw new Error("IDENTITY_FIRST_LOGIN_TOKEN_INVALID");
+  return secureCookie(CYWEB_FIRST_LOGIN_COOKIE, token, expiresAt, now);
 }
 
 export function clearIdentitySessionCookie(): string {
   return `${CYWEB_IDENTITY_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`;
+}
+
+export function clearFirstLoginCookie(): string {
+  return `${CYWEB_FIRST_LOGIN_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`;
+}
+
+export function hasFirstLoginCookie(request: Request): boolean {
+  return isFirstLoginToken(cookieValue(request, CYWEB_FIRST_LOGIN_COOKIE));
 }
 
 export class CYCloudIdentityClient implements IdentityAdapter {
@@ -188,11 +237,29 @@ export class CYCloudIdentityClient implements IdentityAdapter {
     const payload = await response.json().catch(() => null) as ProviderPayload | null;
     const providerCode = String(payload?.error?.code ?? "");
     if (!response.ok) {
+      if (providerCode === "FIRST_LOGIN_PASSWORD_EXPIRED") return { status: "first_login_expired" };
       if (response.status === 429) return { status: "rate_limited", retryAfterSeconds: boundedRetryAfter(response) };
       if (response.status === 401 || providerCode === "AUTHENTICATION_FAILED") return { status: "invalid" };
       if (response.status === 403 || providerCode === "APPLICATION_ACCESS_DENIED") return { status: "denied" };
       if (response.status >= 500) return { status: "unavailable" };
       return { status: "invalid_response" };
+    }
+
+    if (payload?.passwordChangeRequired === true) {
+      const token = payload.firstLogin?.token;
+      const firstEmployeeNo = typeof payload.firstLogin?.employeeNo === "string" ? payload.firstLogin.employeeNo.trim() : "";
+      const displayName = typeof payload.firstLogin?.displayName === "string" ? payload.firstLogin.displayName.trim() : "";
+      const expiresAt = typeof payload.firstLogin?.expiresAt === "string" ? payload.firstLogin.expiresAt : "";
+      if (
+        !isFirstLoginToken(token)
+        || !/^\d{4}$/.test(firstEmployeeNo)
+        || !displayName
+        || !expiresAt
+        || !Number.isFinite(new Date(expiresAt).getTime())
+      ) {
+        return { status: "invalid_response" };
+      }
+      return { status: "first_login", employeeNo: firstEmployeeNo, displayName, token, expiresAt };
     }
 
     const principal = normalizePrincipal(payload?.principal);
@@ -203,6 +270,37 @@ export class CYCloudIdentityClient implements IdentityAdapter {
     }
     if (principal.workspaceId !== this.workspaceId) return { status: "invalid_response" };
     return { status: "authenticated", principal, token, expiresAt };
+  }
+
+  async completeFirstLogin(request: Request, password: string): Promise<IdentityFirstLoginCompletionResult> {
+    const token = cookieValue(request, CYWEB_FIRST_LOGIN_COOKIE);
+    if (!isFirstLoginToken(token)) return { status: "invalid" };
+
+    const response = await this.providerFetch(new Request("https://identity.internal/v1/identity/first-login/complete", {
+      method: "POST",
+      headers: forwardedHeaders(request),
+      body: JSON.stringify({
+        workspaceId: this.workspaceId,
+        applicationId: this.applicationId,
+        token,
+        password,
+      }),
+    }));
+    if (!response) return { status: "unavailable" };
+
+    const payload = await response.json().catch(() => null) as ProviderPayload | null;
+    const providerCode = String(payload?.error?.code ?? "");
+    if (!response.ok) {
+      if (providerCode === "FIRST_LOGIN_EXPIRED" || providerCode === "INVALID_FIRST_LOGIN") return { status: "expired" };
+      if (response.status >= 500) return { status: "unavailable" };
+      return { status: "invalid" };
+    }
+
+    if (payload?.emailVerified !== true || payload?.passwordChanged !== true || payload?.reloginRequired !== true) {
+      return { status: "invalid_response" };
+    }
+    if (payload.principal !== undefined || payload.session !== undefined) return { status: "invalid_response" };
+    return { status: "completed" };
   }
 
   async resolve(request: Request): Promise<IdentityResolution> {
