@@ -129,6 +129,13 @@ export function updateIdentityEmployee(employeeId: string, input: {
   });
 }
 
+export function deletePendingIdentityEmployee(employeeId: string) {
+  return apiRequest<{ deleted: boolean; employeeId: string; employeeNo: string }>(
+    `/api/identity/admin/employees/${encodeURIComponent(employeeId)}`,
+    { method: "DELETE" },
+  );
+}
+
 export function createIdentityGroup(input: { groupKey: string; displayName: string; description?: string | null }) {
   return apiRequest<{ group: unknown }>("/api/identity/admin/groups", { method: "POST", json: input });
 }
