@@ -4,108 +4,71 @@
 
 ## Current checkpoint — 2026-09-29
 
-- Formal code baseline: `main`; current work item version: `0.1.47`.
-- Forward product surface: real integrated React operational application.
-- Temporary browser business-data persistence: versioned `localStorage`.
-- Frozen initial relational baseline: `0001_initial.sql` + `0002_defect_invalidation.sql`.
-- Identity migration history: `0003_identity_web_sessions.sql` records the retired compatibility bridge; `0004_remove_local_identity_sessions.sql` removes the duplicate CY Web session table after the CYCloud Identity cutover.
-- Source/schema contracts, browser TypeScript, Worker TypeScript, Vite build, Wrangler local D1 acceptance and deployment-contract validation are green.
-- CYCloud Identity development authority is live and bootstrap/login/logout have been manually accepted for the first development Workspace highest-authority account.
-- CY Web V0.1.47 is deployed in development against `CYCloud Identity`; private `IDENTITY` Service Binding now resolves login/session/logout and CY Web no longer owns a duplicate Identity session authority.
-- Real browser acceptance with Employee `3001` passed: password login, authenticated navigation, F5 session resolve, logout and post-logout F5 all behaved correctly.
-- Shared normal authorization uses extensible Identity Groups; the Workspace highest authority is the protected `isWorkspaceSuperAdmin` signal, not an ordinary role enum.
-- CY Web continues to own app-local `app_members` / app tags / module authorization only.
-- Development deployment remains manual-only through the GitHub `development` Environment; actual Cloudflare resource/provider targets and Workspace identifiers are not stored in Public source.
-- CYInvoice Cloud remains unchanged and is no longer the CY Web development login provider.
-- Production D1/Worker/DNS/custom domain, R2/GCS resources and SMART ERP remain untouched.
-- CYAccountingWeb remains a separate application workstream.
+- Formal code baseline: `main`; current version: `0.1.49`.
+- Forward product surface remains the integrated React operational application; temporary browser business-data persistence remains versioned `localStorage` pending Worker API → D1 migration.
+- Frozen initial relational baseline remains `0001_initial.sql` + `0002_defect_invalidation.sql`; Identity compatibility history is `0003_identity_web_sessions.sql` followed by `0004_remove_local_identity_sessions.sql`.
+- Source/schema contracts, browser TypeScript, Worker TypeScript, Vite build, Wrangler local D1 acceptance, Governance and deployment-contract validation are green for the current Identity management work.
+- CYCloud Identity development authority is live. CY Web uses the private `IDENTITY` Service Binding and no longer owns a duplicate Identity session authority.
+- Browser acceptance already passed for the first development highest-authority account: password login, authenticated navigation, F5 session resolve, logout and post-logout F5.
+- Shared Identity account-management UI is now implemented and development-deployed in CY Web `0.1.49`.
+- Self-service UI includes password change and Email change. Login page includes forgot-password and account activation flows.
+- Highest-authority-only Workspace management UI includes Employee administration, Identity Groups/membership, Group/direct Application Access, Application `USER_ADMIN` compatibility mode, OTP security settings, highest-authority summary/Recovery Email and authority-transfer flow.
+- Workspace highest authority is protected by CYCloud Identity backend and cannot be directly disabled before transfer.
+- Current highest-authority Employee row no longer presents the normal enable/disable action. This UI correction was merged as PR `#56` without an additional version bump and is included in the latest successful development deployment.
+- Highest-authority Application access is represented as protected automatic access, not as a misleading ordinary direct-grant checkbox.
+- CYInvoice compatibility mapping is consumed from CYCloud Identity: `SUPER_ADMIN > ADMIN > USER`; ordinary Groups only map to `USER`/`ADMIN`; ordinary Group membership cannot create `SUPER_ADMIN`.
+- CY Web continues to own only app-local module authorization/tags; shared Employee/Group/session/OTP authority stays in CYCloud Identity.
+- Development deployment remains manual-only through the GitHub `development` Environment. Real operational targets/Workspace identifiers are not stored in Public source.
+- CYInvoice Cloud remains unchanged. CY Accounting Web remains a separate consumer workstream.
+- Production D1/Worker/DNS/custom domain, backup rollout and SMART ERP remain untouched.
 
 ## Active next sequence
 
-1. [x] Complete the CYCloud Identity cutover PR and make all CI/validation gates green.
-2. [x] Update CY Web `development` Environment values to the CYCloud Identity service/Application/Workspace targets and run the manual development deployment.
-3. [x] Perform real browser login / me / logout acceptance in CY Web with employee `3001` without exposing credentials/session token to frontend JavaScript.
-4. [ ] Verify invalid/expired provider-session handling through CY Web; normal logout revocation has already been accepted.
-5. [ ] Add protected Worker business HTTP routes with server-side module authorization.
-6. [ ] Replace the temporary `localStorage` business-data persistence adapter with Worker API → D1 while preserving the same React UI/workflows.
-7. [ ] Build CY Web account-management UI on the shared Identity management APIs when those APIs are completed; Workspace highest authority alone sees OTP security settings.
-8. [ ] Add at least one ordinary non-highest-authority development Employee and prove group/direct Application Access + CY Web-local module tags independently.
-9. [ ] Perform Desktop／Tablet／Mobile real-browser/device acceptance.
-10. [ ] Bind/deploy production Worker／D1／custom domain only after explicit production acceptance.
-11. [ ] Implement and acceptance-test CY Web backup runtime/providers/restore flow when the production Worker/D1 boundary is ready.
+1. [x] Cut login/session/logout to CYCloud Identity and accept login/F5/logout in development.
+2. [x] Add Shared Identity self-service UI, Employee/Group/Application Access UI and highest-authority-only OTP settings.
+3. [x] Add highest-authority summary/Recovery Email and authority-transfer UI.
+4. [x] Hide the normal Employee enable/disable action for the current Workspace highest authority; backend remains the final protection boundary.
+5. [ ] Verify invalid/expired provider-session rejection through CY Web.
+6. [ ] Create one ordinary non-highest-authority development Employee and accept activation/login.
+7. [ ] Prove ordinary Employee sees self-service only and sees **no** Workspace management, OTP settings or highest-authority controls.
+8. [ ] Exercise one controlled Group membership + Application Access path and verify effective `USER`/`ADMIN` compatibility projection.
+9. [ ] Manually accept forgot-password and own Email-change paths. Do not expose passwords/OTP values in chat or screenshots.
+10. [ ] Controlled highest-authority transfer acceptance only after a safe second verified Employee exists; preserve a working authority path throughout the test.
+11. [ ] Add protected Worker business HTTP routes with server-side module authorization.
+12. [ ] Replace temporary `localStorage` business-data persistence with Worker API → D1 while preserving the same React UI/workflows.
+13. [ ] Perform Desktop／Tablet／Mobile real-browser/device acceptance.
+14. [ ] Implement and acceptance-test backup runtime/providers/restore when the production Worker/D1 boundary is ready.
+15. [ ] Bind/deploy production Worker／D1／custom domain only after explicit production acceptance.
 
 UI polish is continuous and does **not** block Identity/API integration.
 
-## Current acceptance gates
+## Current Identity acceptance boundary
 
-### D1 / Worker — schema gate complete
+Accepted:
 
-Accepted on Wrangler local D1:
-
-- forward migrations apply and safely reapply;
-- real Worker uses the same temporary local D1 state;
-- Customer parent/child batch persistence;
-- optimistic revision conflict behavior;
-- failed-batch rollback;
-- business mutation + Audit atomic batch;
-- exact fixed-point integer round-trip and Item chained unit conversion;
-- D1 foreign-key enforcement;
-- Defect invalidation migration columns;
-- Outsourcing plan-only pending state, confirmed stock movements, correction reversal/replacement, cancellation and derived-stock reconciliation;
-- WorkLog submit/review/cancel-review, reviewer-corrected Work Days, finalized scores, stored-result statistics and Audit sequence;
-- identity migration `0004` removes only the retired temporary `web_sessions` projection.
-
-The initial business schema remains frozen. Future schema changes use new numbered forward migrations and must preserve these acceptance gates.
-
-### Identity — CYCloud Identity development cutover accepted
-
-Accepted in CYCloud Identity development:
-
-- dedicated Identity Worker and Identity D1;
-- first development Workspace bootstrap by Email OTP;
-- first highest-authority Employee login;
-- 8–16 Unicode-character password boundary;
-- provider-owned 8-hour Identity session;
-- logout/revocation;
-- protected highest-authority signal `isWorkspaceSuperAdmin`;
-- extensible Identity Groups and Application Access model;
-- no real secrets/Workspace data committed to Public source.
-
-Accepted through CY Web V0.1.47:
-
-- concrete `CYCloudIdentityClient` using `/v1/identity/login`, `/v1/identity/session/resolve`, `/v1/identity/logout`;
-- normalized principal with `workspaceId`, employee identity, `isWorkspaceSuperAdmin`, `groupKeys`, credential/revision metadata;
-- no hard-coded normal shared role enum;
-- opaque Identity session in `cyweb_identity_session` HttpOnly / Secure / SameSite=Strict cookie;
-- no CY Web-owned Identity session table after `0004`;
-- `/api/auth/login`, `/api/auth/me`, `/api/auth/logout` remain same-origin browser contracts;
-- provider error normalization and local `app_members`/tag authorization boundary;
-- deployment-injected `IDENTITY` Service Binding, `IDENTITY_APPLICATION_ID`, `IDENTITY_WORKSPACE_ID`;
-- synthetic-only CI deployment placeholders;
-- development deployment completed successfully;
-- real browser password login, F5 session resolve, logout and post-logout F5 acceptance passed.
+- dedicated CYCloud Identity Worker/D1 in development;
+- Email-OTP bootstrap of the first development Workspace;
+- 8–16 Unicode-character credential boundary;
+- application-aware login and provider-owned session;
+- CY Web HttpOnly Identity cookie boundary;
+- same-origin `/api/auth/login`, `/api/auth/me`, `/api/auth/logout` browser contract;
+- F5 resolve, logout revocation and post-logout rejection;
+- self-service / management UI load through the private Identity binding;
+- highest-authority-only UI gating;
+- server protection against directly disabling current highest authority;
+- highest-authority summary and Recovery Email API/UI wiring;
+- Group/direct Application Access and coarse compatibility-role UI;
+- no real secrets/operational IDs committed to Public source.
 
 Still required before protected multi-user business operation:
 
-- invalid/expired provider-session rejection through CY Web;
-- an ordinary non-highest-authority development Employee with group/direct Application Access acceptance;
+- invalid/expired session acceptance through CY Web;
+- ordinary Employee activation/login/UI-visibility acceptance;
+- controlled mutation acceptance for Employee/Group/access/security-policy/self-service/authority transfer;
 - protected Worker business-route server authorization;
-- remaining shared Identity account-management/recovery APIs before CY Web exposes the account-management UI.
-
-### Production rollout
-
-Production deployment remains gated by:
-
-- protected Worker/API + D1 persistence integration;
-- remaining Shared Identity recovery/management acceptance;
-- major workflow acceptance;
-- Desktop/Tablet/Mobile acceptance;
-- backup/restore recovery acceptance;
-- explicit production approval.
+- Worker API → D1 business persistence cutover.
 
 ## Topic source map
-
-Do not copy detailed rules into this TODO. Read the applicable source instead:
 
 - Architecture index: `docs/architecture/README.md`
 - Business Decisions: `docs/architecture/decisions/README.md`
@@ -118,6 +81,6 @@ Do not copy detailed rules into this TODO. Read the applicable source instead:
 - CYCloud Identity deployment: `docs/development/IDENTITY_DEPLOYMENT.md`
 - Backup/recovery: `docs/architecture/BACKUP_ARCHITECTURE.md`
 - Domain namespace/rollout: `docs/DOMAIN_STRATEGY.md`
-- Module-specific behavior: applicable `*_MODULE_CONTRACT.md` plus latest applicable Business Decisions.
+- AI continuity handoff only: `docs/development/IDENTITY_HANDOFF_2026-09-29.md`
 
-Historical preview/audit/readiness/review documents under `docs/architecture/archive/` are evidence only. They must not override current source, current specialized contracts or later confirmed Business Decisions.
+Historical preview/audit/readiness/review documents under `docs/architecture/archive/` are evidence only. Handoff notes are also non-canonical and must not override current rules/contracts or later Business Decisions.
