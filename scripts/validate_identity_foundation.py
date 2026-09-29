@@ -110,9 +110,13 @@ def validate_source_contracts() -> None:
         if token.lower() in lowered_access:
             raise AssertionError(f"app-local authorization contains credential logic: {token}")
 
-    for token in ("app_members", "app_member_tags", "app_tag_modules", "workspaceRole", "SUPER_ADMIN"):
+    for token in ("app_members", "app_member_module_access", "workspaceRole", "SUPER_ADMIN"):
         if token not in access:
             raise AssertionError(f"app access service missing expected boundary token: {token}")
+
+    for legacy_authority in ("JOIN app_member_tags", "JOIN app_tag_modules"):
+        if legacy_authority in access:
+            raise AssertionError(f"legacy tag relation must not remain runtime Module Access authority: {legacy_authority}")
 
     if "groupKeys" in access:
         raise AssertionError("CY Web module authorization must not derive authority from legacy Identity Groups")
@@ -146,39 +150,61 @@ def validate_schema_access_shape() -> None:
         """,
         (now, now),
     )
+
     conn.execute(
-        "INSERT INTO app_tags(code, name, is_active, updated_at) VALUES ('sales', 'Sales', 1, ?)",
+        """
+        INSERT INTO app_member_module_access(member_id, module_code, enabled, updated_at)
+        VALUES (1, 'CUSTOMERS', 1, ?)
+        """,
         (now,),
     )
-    conn.execute("INSERT INTO app_tag_modules(tag_id, module_code) VALUES (1, 'customer')")
-    conn.execute("INSERT INTO app_member_tags(member_id, tag_id) VALUES (1, 1)")
-
     row = conn.execute(
         """
         SELECT 1
-          FROM app_member_tags AS mt
-          JOIN app_tags AS t ON t.id = mt.tag_id AND t.is_active = 1
-          JOIN app_tag_modules AS tm ON tm.tag_id = t.id
-         WHERE mt.member_id = 1 AND tm.module_code = 'customer'
+          FROM app_member_module_access
+         WHERE member_id = 1
+           AND module_code = 'CUSTOMERS'
+           AND enabled = 1
          LIMIT 1
         """
     ).fetchone()
     if row != (1,):
-        raise AssertionError("active tag/module grant was not resolved")
+        raise AssertionError("direct Employee × Module grant was not resolved")
 
-    conn.execute("UPDATE app_tags SET is_active = 0 WHERE id = 1")
+    conn.execute(
+        "INSERT INTO app_tags(code, name, is_active, updated_at) VALUES ('legacy-tag', 'Legacy Tag', 1, ?)",
+        (now,),
+    )
+    conn.execute("INSERT INTO app_tag_modules(tag_id, module_code) VALUES (1, 'items')")
+    conn.execute("INSERT INTO app_member_tags(member_id, tag_id) VALUES (1, 1)")
     row = conn.execute(
         """
         SELECT 1
-          FROM app_member_tags AS mt
-          JOIN app_tags AS t ON t.id = mt.tag_id AND t.is_active = 1
-          JOIN app_tag_modules AS tm ON tm.tag_id = t.id
-         WHERE mt.member_id = 1 AND tm.module_code = 'customer'
+          FROM app_member_module_access
+         WHERE member_id = 1
+           AND module_code = 'ITEMS'
+           AND enabled = 1
          LIMIT 1
         """
     ).fetchone()
     if row is not None:
-        raise AssertionError("inactive app tag must not grant module access")
+        raise AssertionError("legacy tag metadata must not create runtime Module Access after migration")
+
+    conn.execute(
+        "UPDATE app_member_module_access SET enabled = 0 WHERE member_id = 1 AND module_code = 'CUSTOMERS'"
+    )
+    row = conn.execute(
+        """
+        SELECT 1
+          FROM app_member_module_access
+         WHERE member_id = 1
+           AND module_code = 'CUSTOMERS'
+           AND enabled = 1
+         LIMIT 1
+        """
+    ).fetchone()
+    if row is not None:
+        raise AssertionError("disabled direct Module Access must not authorize")
 
     web_sessions = conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='web_sessions'"
@@ -193,7 +219,7 @@ def main() -> int:
     validate_source_contracts()
     print("PASS CYCloud Identity 0.3 source contracts")
     validate_schema_access_shape()
-    print("PASS Identity app-tag/schema authority split")
+    print("PASS direct Employee Module Access authority split")
     return 0
 
 
