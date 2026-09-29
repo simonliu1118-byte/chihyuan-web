@@ -89,33 +89,6 @@ async function readEnabled(request: Request): Promise<boolean | null> {
   return typeof body?.enabled === "boolean" ? body.enabled : null;
 }
 
-async function auditModuleAccess(
-  env: IdentityRuntimeEnv,
-  actorMemberId: number,
-  targetEmployeeId: string,
-  moduleCode: CyWebModuleCode,
-  before: boolean,
-  after: boolean,
-  requestId: string,
-): Promise<void> {
-  await env.DB.prepare(
-    `INSERT INTO audit_events(
-       entity_type, entity_key, action, actor_employee_id, occurred_at,
-       request_id, before_json, after_json, metadata_json
-     ) VALUES(
-       'module_access', ?1, 'module_access.updated', ?2, ?3, ?4, ?5, ?6, ?7
-     )`,
-  ).bind(
-    `${targetEmployeeId}:${moduleCode}`,
-    actorMemberId,
-    new Date().toISOString(),
-    requestId,
-    JSON.stringify({ enabled: before }),
-    JSON.stringify({ enabled: after }),
-    JSON.stringify({ targetEmployeeId, moduleCode }),
-  ).run();
-}
-
 async function currentAccess(request: Request, env: IdentityRuntimeEnv, requestId: string): Promise<Response> {
   const provider = identityClient(env);
   if (!provider) return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is unavailable" }, requestId, 503);
@@ -203,18 +176,38 @@ async function putEmployeeModule(
   ).bind(targetMember.id, moduleCode).first<{ enabled: number }>();
   const before = previous?.enabled === 1;
 
-  await env.DB.prepare(
-    `INSERT INTO app_member_module_access(member_id, module_code, enabled, updated_at, updated_by)
-     VALUES(?1, ?2, ?3, ?4, ?5)
-     ON CONFLICT(member_id, module_code) DO UPDATE SET
-       enabled = excluded.enabled,
-       updated_at = excluded.updated_at,
-       updated_by = excluded.updated_by`,
-  ).bind(targetMember.id, moduleCode, enabled ? 1 : 0, now, actorMember.id).run();
+  const statements: D1PreparedStatement[] = [
+    env.DB.prepare(
+      `INSERT INTO app_member_module_access(member_id, module_code, enabled, updated_at, updated_by)
+       VALUES(?1, ?2, ?3, ?4, ?5)
+       ON CONFLICT(member_id, module_code) DO UPDATE SET
+         enabled = excluded.enabled,
+         updated_at = excluded.updated_at,
+         updated_by = excluded.updated_by`,
+    ).bind(targetMember.id, moduleCode, enabled ? 1 : 0, now, actorMember.id),
+  ];
 
   if (before !== enabled) {
-    await auditModuleAccess(env, actorMember.id, target.employee_id, moduleCode, before, enabled, requestId);
+    statements.push(
+      env.DB.prepare(
+        `INSERT INTO audit_events(
+           entity_type, entity_key, action, actor_employee_id, occurred_at,
+           request_id, before_json, after_json, metadata_json
+         ) VALUES(
+           'module_access', ?1, 'module_access.updated', ?2, ?3, ?4, ?5, ?6, ?7
+         )`,
+      ).bind(
+        `${target.employee_id}:${moduleCode}`,
+        actorMember.id,
+        now,
+        requestId,
+        JSON.stringify({ enabled: before }),
+        JSON.stringify({ enabled }),
+        JSON.stringify({ targetEmployeeId: target.employee_id, moduleCode }),
+      ),
+    );
   }
+  await env.DB.batch(statements);
 
   return success({
     access: {
