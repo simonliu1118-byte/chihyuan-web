@@ -289,14 +289,14 @@ function EmployeeManagement({ snapshot, session, refresh }: {
       {canIdentityAdmin ? <select className="cy-op-input" value={roleKey} onChange={(e) => setRoleKey(e.target.value as "USER" | "ADMIN")}><option value="USER">一般使用者</option><option value="ADMIN">管理員</option></select> : <div className="cy-identity-subtext">權限：一般使用者</div>}
       <button className="cy-op-button primary" disabled={busy}>新增使用者</button>
     </form>
-    <div className="cy-identity-table-wrap"><table className="cy-op-table"><thead><tr><th>編號</th><th>姓名</th><th>Email</th><th>權限</th><th>狀態</th><th>操作</th></tr></thead><tbody>{snapshot.employees.map((row) => {
+    <div className="cy-identity-table-wrap"><table className="cy-op-table"><thead><tr><th>編號</th><th>姓名</th><th className="cy-identity-email-col">Email</th><th>權限</th><th>狀態</th><th>操作</th></tr></thead><tbody>{snapshot.employees.map((row) => {
       const pending = !row.activated_at;
       const rowManageable = manageable(row);
       const canRecover = canIdentityAdmin && row.workspace_role !== "SUPER_ADMIN" && row.employee_id !== session.user.employeeId && Boolean(row.activated_at);
       return <tr key={row.employee_id}>
         <td>{row.employee_no}</td>
         <td>{row.name}{row.identity_admin === 1 ? <small className="cy-identity-subtext">Identity Admin</small> : null}</td>
-        <td>{row.email_normalized}<small className="cy-identity-subtext">{row.email_verified_at ? "已驗證" : "尚未驗證"}</small></td>
+        <td className="cy-identity-email-col"><div className="cy-identity-email-line"><span className="cy-identity-email-value">{row.email_normalized}</span><span className={`cy-identity-email-tag ${row.email_verified_at ? "verified" : "unverified"}`}>{row.email_verified_at ? "已驗證" : "尚未驗證"}</span></div></td>
         <td>{row.workspace_role === "SUPER_ADMIN" ? "超級管理員" : canIdentityAdmin && rowManageable && row.identity_admin !== 1 ? <select className="cy-op-input compact" value={row.role_key} disabled={busy} onChange={(e) => void changeRole(row, e.target.value as "USER" | "ADMIN")}><option value="USER">一般使用者</option><option value="ADMIN">管理員</option></select> : permissionLabel(row.workspace_role)}</td>
         <td>{lifecycleStatus(row)}</td>
         <td><div className="cy-identity-actions">
