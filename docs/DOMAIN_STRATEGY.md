@@ -1,6 +1,6 @@
 # Chihyuan Domain Strategy
 
-Status: `chihyuancm.com` registered; CYAccountingWeb custom-domain rollout approved
+Status: `chihyuancm.com` registered; CYAccountingWeb `acc.chihyuancm.com` live; other app rollouts pending
 
 This document records the current domain direction for Chihyuan's public website and CY-family Web systems. It is an architecture/operations planning note, not a permanent governance rule.
 
@@ -75,6 +75,14 @@ The official website is public-facing. Internal/business systems may require aut
 - Existing `*.workers.dev` addresses are technical/deployment addresses, not the long-term user-facing namespace.
 - CY Web, CYAccountingWeb, CYInvoice Web, the future official website, and other Cloudflare-hosted services may continue running on Workers or other suitable hosting while being exposed through custom hostnames under `chihyuancm.com`.
 - Registration, DNS, Worker Custom Domains, redirects, certificates, and cutover should be changed through controlled rollout rather than all at once.
+
+### CYAccountingWeb rollout status
+
+- `acc.chihyuancm.com` was bound to the production CYAccountingWeb Worker on 2026-09-29.
+- Production deployment contract now carries an App-scoped hostname variable rather than a generic shared domain variable.
+- CYAccountingWeb explicitly retains its `workers.dev` URL as a technical fallback during this stage.
+- User smoke testing of the Custom Domain succeeded on 2026-09-29.
+- This rollout does not imply that `admin.chihyuancm.com`, `auth.chihyuancm.com`, `invoice.chihyuancm.com`, or the public website hostname have completed their own rollout.
 
 ## 6. Rollout timing
 
