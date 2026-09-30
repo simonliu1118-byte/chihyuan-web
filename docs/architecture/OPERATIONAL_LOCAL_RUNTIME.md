@@ -29,7 +29,7 @@ Current authority:
 | Module | Browser transport | Business persistence |
 | --- | --- | --- |
 | Item | Worker protected HTTP API | development D1 |
-| Customer | temporary local runtime | browser localStorage |
+| Customer | Worker protected HTTP API | development D1 |
 | Defect | temporary local runtime | browser localStorage |
 | Sales Work Order | temporary local runtime | browser localStorage |
 | Outsourcing | temporary local runtime | browser localStorage |
@@ -37,6 +37,8 @@ Current authority:
 | Settings/Audit operational preview | temporary local runtime where still used | browser localStorage |
 
 The Item operational page no longer reads or mutates `local-database.ts`. Its list, detail, create/update, active-state change, controlled Item-number change, Item-number history and canonical category lookup all use Worker/D1.
+
+The Customer operational page also no longer reads or mutates `local-database.ts`. Customer list/detail/create/update, canonical lookups, controlled ERP Customer-number mutation, Visits, Quotes, Frequent Items and the Customer-scoped active-Item picker all use Worker/D1. Customer lifecycle uses canonical `customer_status_id`; the former browser-only Customer `isActive` and hard-delete simulation are not forward authority.
 
 **localStorage remains temporary** for the modules not yet migrated. A migrated module must not fall back to browser-local business authority when its Worker/API request fails.
 
@@ -97,7 +99,7 @@ The migration order is:
 5. deploy development and exercise authenticated multi-user behavior when browser acceptance is available;
 6. remove obsolete local projections only after remaining dependent modules no longer need them.
 
-Item is the first module through step 4.
+Item and Customer are through step 4. Defect is the next business-data transport candidate.
 
 ## Item transport boundary
 
@@ -111,6 +113,20 @@ Important consequences:
 - controlled Item-number changes use the dedicated server action and preserve searchable number history;
 - the page does not read Defect counts merely because localStorage happened to contain them; `ITEMS` access must not leak `DEFECTS` data;
 - server errors do not trigger fallback writes to localStorage.
+
+## Customer transport boundary
+
+Customer uses canonical contracts from `shared/customer.ts`, `shared/customer-related.ts` and `shared/business-lookups.ts`.
+
+Important consequences:
+
+- Customer category/status/region selections send canonical IDs rather than local seed labels;
+- duplicate Tax ID handling is server-preflighted and requires explicit acknowledgement before an intentional duplicate save;
+- normal profile PATCH cannot silently change the ERP Customer number; the controlled number action is revision-gated and audited;
+- Customer Quote/Frequent Item Item selection uses a bounded `CUSTOMERS`-guarded projection and does not require separate `ITEMS` Module Access;
+- Visit/Quote/Frequent Item concurrency tokens remain server authority;
+- Shared Audit is durable history; the UI does not recreate activity history from local browser events;
+- server/API failures do not trigger Customer fallback writes to localStorage.
 
 ## Shared Identity / authorization boundary
 
@@ -127,16 +143,16 @@ See the synchronized CYID consumer package under `docs/contracts/cyid/` and the 
 
 ## Browser-test package
 
-`npm run build:operational` remains useful as a compilation/testing artifact, but after the first module cutover it is **not** a complete offline/local product runtime: Item requires its same-origin Worker API.
+`npm run build:operational` remains useful as a compilation/testing artifact, but after the first module cutover it is **not** a complete offline/local product runtime: Item and Customer require their same-origin Worker APIs.
 
-A standalone static artifact must not emulate Item writes in localStorage just to make the screen appear functional.
+A standalone static artifact must not emulate Item or Customer writes in localStorage just to make the screen appear functional.
 
 ## Runtime safety boundary
 
 During mixed transport:
 
 - local seed data is fictional development data;
-- Item development writes go only through the configured development Worker/D1;
+- Item and Customer development writes go only through the configured development Worker/D1;
 - production D1 is not cut over by this development migration;
 - SMART ERP is not written;
 - Shared Identity is not bypassed on protected server routes;
