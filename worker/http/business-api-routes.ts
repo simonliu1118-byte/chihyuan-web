@@ -393,6 +393,8 @@ async function handleDefects(
       customerId: positiveInteger(url.searchParams.get("customerId"), "customerId"),
       itemId: positiveInteger(url.searchParams.get("itemId"), "itemId"),
       ownerId: positiveInteger(url.searchParams.get("ownerId"), "ownerId"),
+      customerQuery: url.searchParams.get("customerQ")?.trim() ?? "",
+      itemQuery: url.searchParams.get("itemQ")?.trim() ?? "",
       limit: boundedLimit(url.searchParams.get("limit")) ?? 100,
     }), requestId);
   }
