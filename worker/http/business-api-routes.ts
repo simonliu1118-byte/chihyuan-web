@@ -3,8 +3,10 @@ import type { DefectSearchQuery, DefectStatusCode } from "../../shared/defect";
 import type { ItemSearchQuery } from "../../shared/item";
 import { requireModuleAccess, type ModuleGateSuccess } from "../auth/guard";
 import { CustomerService, CustomerServiceError } from "../customer/customer-service";
+import { CustomerRelatedService, CustomerRelatedServiceError } from "../customer/customer-related-service";
 import { DefectService, DefectServiceError } from "../defect/defect-service";
 import { ItemService, ItemServiceError } from "../item/item-service";
+import { BusinessLookupService } from "../reference/business-lookup-service";
 import { FieldValidationError } from "../validation/fields";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
 import { failure, success } from "./response";
@@ -154,6 +156,14 @@ function isWorkspaceAdmin(role: ModuleGateSuccess["principal"]["workspaceRole"])
   return role === "ADMIN" || role === "SUPER_ADMIN";
 }
 
+function actorRef(gate: ModuleGateSuccess) {
+  return {
+    appMemberId: gate.member.id,
+    employeeNo: gate.member.employeeNo,
+    displayName: gate.principal.displayName,
+  };
+}
+
 function knownBusinessFailure(error: unknown, requestId: string): Response | null {
   if (error instanceof FieldValidationError) {
     return failure(
@@ -164,6 +174,7 @@ function knownBusinessFailure(error: unknown, requestId: string): Response | nul
   }
   if (
     error instanceof CustomerServiceError
+    || error instanceof CustomerRelatedServiceError
     || error instanceof ItemServiceError
     || error instanceof DefectServiceError
   ) {
@@ -182,22 +193,112 @@ async function handleCustomers(
   const guarded = await requireBusinessModule(request, env, requestId, "CUSTOMERS");
   if (isGuardedResponse(guarded)) return guarded.response;
   const service = new CustomerService(env.DB);
+  const related = new CustomerRelatedService(env.DB);
+  const lookups = new BusinessLookupService(env.DB);
   const context = {
     actorMemberId: guarded.gate.member.id,
     now: new Date().toISOString(),
+    requestId,
   };
+
+  if (request.method === "GET" && url.pathname === "/api/business/customers/lookups") {
+    return success(await lookups.customerLookups(actorRef(guarded.gate)), requestId);
+  }
 
   if (request.method === "GET" && url.pathname === "/api/business/customers/tax-id-check") {
     const taxId = url.searchParams.get("taxId");
     const exclude = positiveInteger(url.searchParams.get("excludeCustomerId"), "excludeCustomerId") ?? null;
     return success(await service.checkTaxId(taxId, exclude), requestId);
   }
+
   if (url.pathname === "/api/business/customers") {
     if (request.method === "GET") return success(await service.search(customerSearch(url)), requestId);
     if (request.method === "POST") return success(await service.create(await jsonBody(request), context), requestId, { status: 201 });
   }
 
-  const match = /^\/api\/business\/customers\/(\d+)$/.exec(url.pathname);
+  let match = /^\/api\/business\/customers\/(\d+)\/visits$/.exec(url.pathname);
+  if (match) {
+    const customerId = routeId(match[1], "customerId");
+    if (request.method === "GET") {
+      return success(await related.listVisits(customerId, {
+        limit: boundedLimit(url.searchParams.get("limit")),
+        cursor: url.searchParams.get("cursor")?.trim() || undefined,
+      }), requestId);
+    }
+    if (request.method === "POST") {
+      return success(await related.createVisit(customerId, await jsonBody(request), context), requestId, { status: 201 });
+    }
+  }
+
+  match = /^\/api\/business\/customers\/(\d+)\/visits\/(\d+)$/.exec(url.pathname);
+  if (match) {
+    const customerId = routeId(match[1], "customerId");
+    const visitId = routeId(match[2], "visitId");
+    if (request.method === "PATCH") {
+      return success(await related.updateVisit(customerId, visitId, await jsonBody(request), context), requestId);
+    }
+    if (request.method === "DELETE") {
+      await related.deleteVisit(customerId, visitId, await jsonBody(request), context);
+      return success({ deleted: true, customerId, visitId }, requestId);
+    }
+  }
+
+  match = /^\/api\/business\/customers\/(\d+)\/frequent-items$/.exec(url.pathname);
+  if (match) {
+    const customerId = routeId(match[1], "customerId");
+    if (request.method === "GET") {
+      const limit = boundedLimit(url.searchParams.get("limit")) ?? 100;
+      return success({ items: await related.listFrequentItems(customerId, limit) }, requestId);
+    }
+    if (request.method === "POST") {
+      const frequentItemId = await related.createFrequentItem(customerId, await jsonBody(request), context);
+      return success({ customerId, frequentItemId }, requestId, { status: 201 });
+    }
+  }
+
+  match = /^\/api\/business\/customers\/(\d+)\/frequent-items\/(\d+)$/.exec(url.pathname);
+  if (match) {
+    const customerId = routeId(match[1], "customerId");
+    const frequentItemId = routeId(match[2], "frequentItemId");
+    if (request.method === "PATCH") {
+      await related.updateFrequentItem(customerId, frequentItemId, await jsonBody(request), context);
+      return success({ updated: true, customerId, frequentItemId }, requestId);
+    }
+    if (request.method === "DELETE") {
+      await related.deleteFrequentItem(customerId, frequentItemId, await jsonBody(request));
+      return success({ deleted: true, customerId, frequentItemId }, requestId);
+    }
+  }
+
+  match = /^\/api\/business\/customers\/(\d+)\/quotes$/.exec(url.pathname);
+  if (match) {
+    const customerId = routeId(match[1], "customerId");
+    if (request.method === "GET") {
+      return success(await related.listQuotes(customerId, {
+        limit: boundedLimit(url.searchParams.get("limit")),
+        cursor: url.searchParams.get("cursor")?.trim() || undefined,
+      }), requestId);
+    }
+    if (request.method === "POST") {
+      return success(await related.createQuote(customerId, await jsonBody(request), context), requestId, { status: 201 });
+    }
+  }
+
+  match = /^\/api\/business\/customers\/(\d+)\/quotes\/(\d+)\/correct$/.exec(url.pathname);
+  if (match && request.method === "POST") {
+    const customerId = routeId(match[1], "customerId");
+    const quoteId = routeId(match[2], "quoteId");
+    return success(await related.correctQuote(customerId, quoteId, await jsonBody(request), context), requestId);
+  }
+
+  match = /^\/api\/business\/customers\/(\d+)\/quotes\/(\d+)$/.exec(url.pathname);
+  if (match && request.method === "GET") {
+    const customerId = routeId(match[1], "customerId");
+    const quoteId = routeId(match[2], "quoteId");
+    return success(await related.getQuoteDetail(customerId, quoteId), requestId);
+  }
+
+  match = /^\/api\/business\/customers\/(\d+)$/.exec(url.pathname);
   if (!match) return null;
   const customerId = routeId(match[1], "customerId");
   if (request.method === "GET") return success(await service.getDetail(customerId), requestId);
@@ -215,11 +316,16 @@ async function handleItems(
   const guarded = await requireBusinessModule(request, env, requestId, "ITEMS");
   if (isGuardedResponse(guarded)) return guarded.response;
   const service = new ItemService(env.DB);
+  const lookups = new BusinessLookupService(env.DB);
   const context = {
     actorMemberId: guarded.gate.member.id,
     now: new Date().toISOString(),
     requestId,
   };
+
+  if (request.method === "GET" && url.pathname === "/api/business/items/lookups") {
+    return success(await lookups.itemLookups(actorRef(guarded.gate)), requestId);
+  }
 
   if (url.pathname === "/api/business/items") {
     if (request.method === "GET") return success(await service.search(itemSearch(url)), requestId);

@@ -149,6 +149,7 @@ export class SettingsService {
       this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM departments ORDER BY sort_order,id"),
       this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM customer_categories ORDER BY sort_order,id"),
       this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM customer_statuses ORDER BY sort_order,id"),
+      this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM regions ORDER BY sort_order,id"),
       this.db.prepare("SELECT id,code,name,parent_id,sort_order,is_active,updated_at FROM item_categories ORDER BY sort_order,id"),
       this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM app_tags ORDER BY sort_order,id"),
       this.db.prepare("SELECT tag_id,module_code FROM app_tag_modules ORDER BY tag_id,module_code"),
@@ -162,19 +163,20 @@ export class SettingsService {
       isActive: Number(row.is_active) === 1, updatedAt: String(row.updated_at),
       ...(Object.prototype.hasOwnProperty.call(row, "parent_id") ? { parentId: row.parent_id == null ? null : Number(row.parent_id) } : {}),
     }));
-    const tagRows = (results[4]?.results ?? []) as Array<{id:number;code:string;name:string;sort_order:number;is_active:number;updated_at:string}>;
-    const tagModules = (results[5]?.results ?? []) as Array<{tag_id:number;module_code:string}>;
+    const tagRows = (results[5]?.results ?? []) as Array<{id:number;code:string;name:string;sort_order:number;is_active:number;updated_at:string}>;
+    const tagModules = (results[6]?.results ?? []) as Array<{tag_id:number;module_code:string}>;
     const moduleMap = new Map<number, string[]>();
     tagModules.forEach((row) => { const list = moduleMap.get(row.tag_id) ?? []; list.push(row.module_code); moduleMap.set(row.tag_id, list); });
-    const workCategories = (results[6]?.results ?? []) as Array<{id:number;code:string;name:string;input_mode:"boolean"|"quantity";unit_label:string|null;sort_order:number;is_active:number;updated_at:string}>;
-    const workPlatforms = (results[7]?.results ?? []) as Array<{id:number;code:string;name:string;sort_order:number;is_active:number;updated_at:string}>;
-    const scoringRows = (results[8]?.results ?? []) as Array<{id:number;work_log_category_id:number|null;custom_name:string|null;score_value:number|null;description:string|null;note:string|null;sort_order:number;is_active:number;updated_at:string}>;
-    const scoringConfig = (results[9]?.results?.[0] ?? null) as {target_average_daily_score:number|null;minimum_average_daily_score:number|null;revision:number;updated_at:string}|null;
+    const workCategories = (results[7]?.results ?? []) as Array<{id:number;code:string;name:string;input_mode:"boolean"|"quantity";unit_label:string|null;sort_order:number;is_active:number;updated_at:string}>;
+    const workPlatforms = (results[8]?.results ?? []) as Array<{id:number;code:string;name:string;sort_order:number;is_active:number;updated_at:string}>;
+    const scoringRows = (results[9]?.results ?? []) as Array<{id:number;work_log_category_id:number|null;custom_name:string|null;score_value:number|null;description:string|null;note:string|null;sort_order:number;is_active:number;updated_at:string}>;
+    const scoringConfig = (results[10]?.results?.[0] ?? null) as {target_average_daily_score:number|null;minimum_average_daily_score:number|null;revision:number;updated_at:string}|null;
     return {
       departments: mapLookup((results[0]?.results ?? []) as Record<string, unknown>[]),
       customerCategories: mapLookup((results[1]?.results ?? []) as Record<string, unknown>[]),
       customerStatuses: mapLookup((results[2]?.results ?? []) as Record<string, unknown>[]),
-      itemCategories: mapLookup((results[3]?.results ?? []) as Record<string, unknown>[]),
+      regions: mapLookup((results[3]?.results ?? []) as Record<string, unknown>[]),
+      itemCategories: mapLookup((results[4]?.results ?? []) as Record<string, unknown>[]),
       appTags: tagRows.map<AppTagSetting>((row) => ({id:row.id,code:row.code,name:row.name,sortOrder:row.sort_order,isActive:row.is_active===1,moduleCodes:moduleMap.get(row.id)??[],updatedAt:row.updated_at})),
       workLogCategories: workCategories.map<WorkLogCategorySetting>((row) => ({id:row.id,code:row.code,name:row.name,inputMode:row.input_mode,unitLabel:row.unit_label,sortOrder:row.sort_order,isActive:row.is_active===1,updatedAt:row.updated_at})),
       workLogPlatforms: workPlatforms.map<WorkLogPlatformSetting>((row) => ({id:row.id,code:row.code,name:row.name,sortOrder:row.sort_order,isActive:row.is_active===1,updatedAt:row.updated_at})),

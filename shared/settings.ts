@@ -145,6 +145,7 @@ export interface SettingsSnapshot {
   departments: readonly LookupSetting[];
   customerCategories: readonly LookupSetting[];
   customerStatuses: readonly LookupSetting[];
+  regions: readonly LookupSetting[];
   itemCategories: readonly LookupSetting[];
   appTags: readonly AppTagSetting[];
   workLogCategories: readonly WorkLogCategorySetting[];

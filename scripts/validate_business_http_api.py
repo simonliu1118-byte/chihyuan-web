@@ -35,11 +35,16 @@ def assert_guard_before_service(source: str, handler: str, module: str, service:
 def main() -> int:
     routes = read("worker/http/business-api-routes.ts")
     phase2 = read("worker/http/business-api-phase2-routes.ts")
+    lookup_contract = read("shared/business-lookups.ts")
+    lookup_service = read("worker/reference/business-lookup-service.ts")
     index = read("worker/index.ts")
     api_doc = read("docs/architecture/API_CONTRACT.md")
 
     assert_guard_before_service(routes, "handleCustomers", "CUSTOMERS", "CustomerService")
+    assert_guard_before_service(routes, "handleCustomers", "CUSTOMERS", "CustomerRelatedService")
+    assert_guard_before_service(routes, "handleCustomers", "CUSTOMERS", "BusinessLookupService")
     assert_guard_before_service(routes, "handleItems", "ITEMS", "ItemService")
+    assert_guard_before_service(routes, "handleItems", "ITEMS", "BusinessLookupService")
     assert_guard_before_service(routes, "handleDefects", "DEFECTS", "DefectService")
     assert_guard_before_service(phase2, "handleOrders", "ORDERS", "SalesWorkOrderService")
     assert_guard_before_service(phase2, "handleOutsourcing", "OUTSOURCING", "ContractorService")
@@ -50,6 +55,9 @@ def main() -> int:
         "knownBusinessFailure",
         "FieldValidationError",
         "CustomerServiceError",
+        "CustomerRelatedServiceError",
+        "CustomerRelatedService",
+        "BusinessLookupService",
         "ItemServiceError",
         "DefectServiceError",
         "actorMemberId: guarded.gate.member.id",
@@ -57,6 +65,30 @@ def main() -> int:
     ):
         if token not in routes:
             raise AssertionError(f"phase 1 business HTTP boundary missing: {token}")
+
+    for token in (
+        "CustomerModuleLookups",
+        "ItemModuleLookups",
+        "BusinessActorRef",
+    ):
+        if token not in lookup_contract:
+            raise AssertionError(f"business lookup contract missing: {token}")
+
+    for token in (
+        "customerLookups",
+        "itemLookups",
+        "FROM departments",
+        "FROM customer_categories",
+        "FROM customer_statuses",
+        "FROM regions",
+        "FROM item_categories",
+    ):
+        if token not in lookup_service:
+            raise AssertionError(f"business lookup service missing: {token}")
+
+    for forbidden in ("app_tags", "work_log_scoring", "work_log_categories", "work_log_platforms"):
+        if forbidden in lookup_service:
+            raise AssertionError(f"business lookup service exposes unrelated settings source: {forbidden}")
 
     for token in (
         "requireModuleAccess",
@@ -82,13 +114,23 @@ def main() -> int:
 
     for endpoint in (
         "/api/business/customers",
+        "/api/business/customers/lookups",
         "/api/business/items",
+        "/api/business/items/lookups",
         "/api/business/defects",
     ):
         if endpoint not in routes:
             raise AssertionError(f"phase 1 business HTTP route missing: {endpoint}")
         if endpoint not in api_doc:
             raise AssertionError(f"API contract missing business route: {endpoint}")
+
+    for endpoint in (
+        "/api/business/customers/:customerId/visits",
+        "/api/business/customers/:customerId/frequent-items",
+        "/api/business/customers/:customerId/quotes",
+    ):
+        if endpoint not in api_doc:
+            raise AssertionError(f"API contract missing parameterized Customer route: {endpoint}")
 
     for endpoint in (
         "/api/business/orders",
@@ -104,7 +146,12 @@ def main() -> int:
             raise AssertionError(f"API contract missing phase 2 business route: {endpoint}")
 
     for action in (
+        "lookups",
         "tax-id-check",
+        "visits",
+        "frequent-items",
+        "quotes",
+        "correct",
         "number-history",
         "start-processing",
         "invalidate",
