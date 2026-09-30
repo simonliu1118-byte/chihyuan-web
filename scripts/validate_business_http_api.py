@@ -23,7 +23,7 @@ def assert_guard_before_service(source: str, handler: str, module: str, service:
     next_handler = source.find("\nasync function ", start + 1)
     block = source[start:next_handler if next_handler >= 0 else len(source)]
     guard = block.find(f'requireBusinessModule(request, env, requestId, "{module}")')
-    service_pos = block.find(f"new {service}(env.DB)")
+    service_pos = block.find(f"new {service}(env.DB")
     if guard < 0:
         raise AssertionError(f"{handler} does not require {module} Module Access")
     if service_pos < 0:
