@@ -1,4 +1,5 @@
 import type {
+  ChangeCustomerNumberRequest,
   CreateCustomerRequest,
   CustomerAddressInput,
   CustomerContactInput,
@@ -32,6 +33,12 @@ export interface NormalizedCreateCustomerRequest extends NormalizedCustomerProfi
 
 export interface NormalizedUpdateCustomerRequest extends NormalizedCustomerProfile {
   expectedRevision: number;
+}
+
+export interface NormalizedChangeCustomerNumberRequest {
+  newCustomerNo: string | null;
+  expectedRevision: number;
+  changeReason: string | null;
 }
 
 function asObject(value: unknown): Record<string, unknown> {
@@ -272,4 +279,18 @@ export function normalizeUpdateCustomerRequest(raw: unknown): NormalizedUpdateCu
   const expectedRevision = bag.requiredPositiveInteger("expectedRevision");
   bag.throwIfInvalid();
   return { ...normalized, expectedRevision: expectedRevision ?? 0 };
+}
+
+export function normalizeChangeCustomerNumberRequest(raw: unknown): NormalizedChangeCustomerNumberRequest {
+  const input = asObject(raw as ChangeCustomerNumberRequest);
+  const bag = new ValidationBag(input);
+  const newCustomerNo = bag.optionalText("newCustomerNo", { maxLength: 64 });
+  const expectedRevision = bag.requiredPositiveInteger("expectedRevision");
+  const changeReason = bag.optionalText("changeReason", { maxLength: 240 });
+  bag.throwIfInvalid();
+  return {
+    newCustomerNo,
+    expectedRevision: expectedRevision ?? 0,
+    changeReason,
+  };
 }
