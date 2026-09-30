@@ -17,6 +17,7 @@ import { requireModuleAccess, type ModuleGateSuccess } from "../auth/guard";
 import { BomService, BomServiceError } from "../bom/bom-service";
 import { ContractorService, ContractorServiceError } from "../contractor/contractor-service";
 import { OutsourcingService, OutsourcingServiceError } from "../outsourcing/outsourcing-service";
+import { BusinessLookupService } from "../reference/business-lookup-service";
 import { SalesWorkOrderService, SalesWorkOrderServiceError } from "../sales-order/sales-order-service";
 import { FieldValidationError } from "../validation/fields";
 import { WorkLogService, WorkLogServiceError } from "../worklog/work-log-service";
@@ -65,11 +66,30 @@ function isWorkspaceAdmin(gate: ModuleGateSuccess): boolean {
   return gate.principal.workspaceRole === "ADMIN" || gate.principal.workspaceRole === "SUPER_ADMIN";
 }
 
+function actorRef(gate: ModuleGateSuccess) {
+  return {
+    appMemberId: gate.member.id,
+    employeeNo: gate.member.employeeNo,
+    displayName: gate.principal.displayName,
+  };
+}
+
 function positiveInteger(value: string | null, field: string): number | undefined {
   if (value == null || value === "") return undefined;
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed <= 0) throw new FieldValidationError({ [field]: "必須是正整數" });
   return parsed;
+}
+
+function positiveIntegerList(value: string | null, field: string): readonly number[] {
+  if (value == null || value.trim() === "") return [];
+  const parts = value.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length > 100) throw new FieldValidationError({ [field]: "最多 100 筆" });
+  const values = parts.map((part) => Number(part));
+  if (values.some((id) => !Number.isSafeInteger(id) || id <= 0)) {
+    throw new FieldValidationError({ [field]: "必須是逗號分隔的正整數" });
+  }
+  return [...new Set(values)];
 }
 
 function routeId(value: string, field: string): number {
@@ -265,6 +285,7 @@ async function handleOrders(request: Request, env: IdentityRuntimeEnv, requestId
   const service = new SalesWorkOrderService(env.DB, {
     nextReference: async () => opaqueReference("WO"),
   });
+  const lookups = new BusinessLookupService(env.DB);
   const context = {
     actorMemberId: guarded.gate.member.id,
     now: new Date().toISOString(),
@@ -272,6 +293,17 @@ async function handleOrders(request: Request, env: IdentityRuntimeEnv, requestId
     allowHardDelete: admin,
     allowShipmentReversal: admin,
   };
+
+  if (request.method === "GET" && url.pathname === "/api/business/orders/lookups") {
+    return success(await lookups.salesWorkOrderLookups(actorRef(guarded.gate), {
+      customerId: positiveInteger(url.searchParams.get("customerId"), "customerId"),
+      itemIds: positiveIntegerList(url.searchParams.get("itemIds"), "itemIds"),
+      operatorId: positiveInteger(url.searchParams.get("operatorId"), "operatorId"),
+      customerQuery: url.searchParams.get("customerQ")?.trim() ?? "",
+      itemQuery: url.searchParams.get("itemQ")?.trim() ?? "",
+      limit: boundedLimit(url.searchParams.get("limit")) ?? 100,
+    }), requestId);
+  }
 
   if (url.pathname === "/api/business/orders") {
     if (request.method === "GET") return success(await service.search(salesSearch(url)), requestId);
