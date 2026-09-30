@@ -39,7 +39,7 @@ There are, however, obsolete Identity proxies, a required legacy provider field,
 
 ## Coordinated sequence
 
-1. Read the [CYID review](https://github.com/simonliu1118-byte/CYapps/blob/docs/cyid-compatibility-review/apps/CYCloudIdentity/docs/COMPATIBILITY_REVIEW.md), particularly the production provisioning replay risk. Do not re-run continuity provisioning as a normal deploy.
+1. Read the [CYID review](https://github.com/simonliu1118-byte/CYapps/blob/main/apps/CYCloudIdentity/docs/COMPATIBILITY_REVIEW.md), particularly the production provisioning replay risk. Do not re-run continuity provisioning as a normal deploy.
 2. Remove Web Group-field dependency/proxies alongside the CYID consumer inventory and contract retirement plan; provider removal must not precede affected consumer updates.
 3. Finish the existing WorkLog branch with its necessary checks; retire duplicated local business pages and complete Settings/Audit authority/presentation. Treat these as a concrete cutover, not another wrapper.
 4. Consolidate existing provider transport and bounded request failures only where required; retain fail-closed behavior and cookie protection.
