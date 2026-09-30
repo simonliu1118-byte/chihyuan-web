@@ -2,9 +2,9 @@
 
 > 本文件只記錄 **current implementation status 與下一步**；不是永久規則來源，也不重複保存 Business Decision、module contract 或 architecture semantics。
 
-## Current checkpoint — 2026-09-30
+## Current checkpoint — 2026-10-01
 
-- Current formal source baseline is **CY Web 0.6.0 Build 0**；本 phase starts the React business-data cutover to Worker API → D1。Development runtime before this phase remains **0.5.4 Build 0**。
+- Current formal source baseline is **CY Web 0.6.0 Build 0**；本 phase starts the React business-data cutover to Worker API → D1。Development runtime is **0.6.0 Build 0**, accepted by Development Deploy #71 at `f9025de4ad9247c035b744e90bc2f015f2cdaf28`。
 - CYCloud Identity formal source baseline is **0.3.3 Build 0**；development runtime remains **0.3.0 Build 0**。Shared Consumer Contract = **1.0.1**，Minimum Compatible = **1.0.0**。
 - `https://admin.chihyuancm.com` 仍是固定 CY Web canonical user-facing URL；0.3 development deploy 已重新驗證 Custom Domain 與 invalid-provider-session fallback。
 - CY Web 根 `CYID_CONSUMER_VERSION=1.0.1` 宣告所採用的 shared Identity contract；`docs/contracts/cyid/` mirror 依 CYID `CONSUMER_SYNC_MANIFEST.json` 保存 7 個 canonical artifacts + manifest snapshot。Governance Check 與 development deploy 同時驗證 supported version window 與逐檔 byte-level sync；任一漂移都阻止後續部署。
@@ -21,7 +21,11 @@
 - CY Web 0.5.4 development 已完成六個業務模組的 protected Worker/D1 API foundation（Customer／Item／Defect／Order／Outsourcing／WorkLog），並補齊 Customer related operations、Customer/Item canonical lookup/read model 與 regions。CI/deploy gates 全綠。
 - CY Web Module Access 已切到 direct `Employee × Module` 本地 authority：`CUSTOMERS / ITEMS / DEFECTS / ORDERS / OUTSOURCING / WORKLOGS`。Identity Admin／Super Admin 可管理 eligible Employee；Identity Admin 不可改自己的 Module Access；Super Admin 固定全模組。舊 App tag 關聯只保留 metadata/history，不再作 runtime authorization。
 - **Item + Customer + Defect + Order + Outsourcing React pages 已移除 localStorage authority**：Item／Customer／Defect／Order 皆維持前述 Worker API → D1 boundary；Outsourcing 的 Contractor/BOM/stock read model、pending create/update、OUTSOURCING-scoped Item lookup、出庫更正/取消、入庫/取消、計價/取消、付款/取消與 server-authorized pending delete 亦改走 Worker API → D1，庫存只由 movement ledger 推導。WorkLog 暫時仍是 localStorage，runtime 維持最後一段 mixed transport。
-- Production D1/Worker cutover、backup rollout與 SMART ERP remain untouched。
+- CYID production provisioning 已獲明確批准，獨立 provider 的 Production Provisioning run #12 已成功；這不等於 CY Web business-data production cutover。CY Web production D1/Worker cutover、backup rollout與 SMART ERP remain untouched。
+- WorkLog 的 API client/page/App routing 與 source gates 已存在 `feature/worklog-worker-d1-transport` at `5307131702deaaf759ccef8de9059d23a3b5b650`；尚未合入 main/取得部署 acceptance，不再重做另一套 adapter。
+- Settings/Audit 仍經 `OperationalWorkspace.tsx` 使用 browser-local store；五個已切換模組仍有舊 local 頁面 source 殘留。不能只因 WorkLog 完成就宣稱 localStorage 已全數退休。
+- 相容層檢查已完成，讀 `docs/architecture/COMPATIBILITY_REVIEW.md`。沒有 version-numbered runtime wrapper chain，但有必填 legacy groupKeys、unused Group proxies、duplicated local pages 與 provider transport 重複。尚未執行 runtime 清理。
+- 下次 CYID production deploy 前先處理一次性 provisioning 的 development→production Employee overwrite 風險；不得重跑 continuity workflow 作日常 deploy。
 
 ## Documentation consolidation
 
@@ -62,7 +66,9 @@ CY Web should use optimistic UI where appropriate, but destructive/irreversible 
 23. [ ] Implement/accept backup+restore before production rollout.
 24. [x] Publish governed CYID shared Consumer Integration Standard + compatibility window + cross-repository manifest mirror；CY Web adopts `CYID_CONSUMER_VERSION=1.0.1` and exact-sync deployment gate。CYACC handoff remains app-specific at `CYapps/apps/CYCloudIdentity/docs/consumers/CYACC_INTEGRATION_HANDOFF.md`。
 25. [ ] 在 CYInvoice 工作線的適合接入點產出其 consumer-specific CYID handoff；Device/local/offline 邊界保持 CYInvoice-owned。
-26. [ ] Prepare production Worker/D1 cutover only after explicit user approval.
+26. [ ] Prepare CY Web production Worker/D1 cutover only after explicit user approval; CYID provider provisioning 的既有批准與成功證據不表示 CY Web production rollout 已批准。
+27. [x] Review compatibility/runtime/deployment layers; record source evidence and cleanup order in `docs/architecture/COMPATIBILITY_REVIEW.md`.
+28. [ ] Coordinate Group-field/proxy retirement with CYID; finish existing WorkLog branch, remove superseded local business pages and complete Settings/Audit data boundary without another compatibility wrapper.
 
 ## Current Identity acceptance boundary
 
