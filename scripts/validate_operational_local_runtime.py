@@ -25,6 +25,7 @@ def main() -> int:
     item_client = read("src/runtime/api/item-runtime-client.ts")
     customer_client = read("src/runtime/api/customer-runtime-client.ts")
     defect = read("src/runtime/modules/DefectOperationalPage.tsx")
+    defect_client = read("src/runtime/api/defect-runtime-client.ts")
     doc = read("docs/architecture/OPERATIONAL_LOCAL_RUNTIME.md")
 
     for token in ["#customers", "#items", "#defects", "#orders", "#outsourcing", "#worklogs", "#settings", "#audit"]:
@@ -138,16 +139,45 @@ def main() -> int:
             raise AssertionError(f"missing Item Worker API transport contract: {token}")
 
     for token in [
-        "defect.processing.started",
-        "defect.resolved",
-        "defect.reopened",
-        "defect.invalidated",
-        "defect.deleted",
+        "loadDefectLookups",
+        "searchDefects",
+        "loadDefectDetail",
+        "createDefect",
+        "updateDefect",
+        "startDefectProcessing",
+        "resolveDefect",
+        "reopenDefect",
+        "invalidateDefect",
+        "deleteDefect",
+        "Worker / D1",
         "顯示作廢",
         "不是第四個工作狀態",
     ]:
         if token not in defect:
-            raise AssertionError(f"missing Defect operational behavior: {token}")
+            raise AssertionError(f"missing D1 Defect operational behavior: {token}")
+
+    for forbidden in [
+        "useLocalDatabase",
+        "mutateLocalDatabase",
+        "../local-database",
+        "LocalDefect",
+        "nextLocalId",
+        "timestampNow",
+    ]:
+        if forbidden in defect:
+            raise AssertionError(f"Defect operational page must not retain localStorage authority: {forbidden}")
+
+    for token in [
+        "/api/business/defects",
+        "/lookups",
+        "/start-processing",
+        "/resolve",
+        "/reopen",
+        "/invalidate",
+        "apiRequest",
+    ]:
+        if token not in defect_client:
+            raise AssertionError(f"missing Defect Worker API transport contract: {token}")
 
     normalized_doc = doc.lower()
     for token in [
@@ -160,7 +190,7 @@ def main() -> int:
         if token not in normalized_doc:
             raise AssertionError(f"missing operational-runtime contract: {token}")
 
-    print("PASS mixed operational runtime source contracts (Item + Customer Worker/D1 authority)")
+    print("PASS mixed operational runtime source contracts (Item + Customer + Defect Worker/D1 authority)")
     return 0
 
 
