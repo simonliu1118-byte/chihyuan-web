@@ -4,7 +4,7 @@
 
 ## Current checkpoint — 2026-09-30
 
-- Current formal source baseline is **CY Web 0.5.2 Build 0**；本 patch 完成 CYID cross-repository contract mirror governance，development runtime remains **0.5.0 Build 0**。
+- Current formal source baseline is **CY Web 0.6.0 Build 0**；本 phase starts the React business-data cutover to Worker API → D1。Development runtime before this phase remains **0.5.4 Build 0**。
 - CYCloud Identity formal source baseline is **0.3.3 Build 0**；development runtime remains **0.3.0 Build 0**。Shared Consumer Contract = **1.0.1**，Minimum Compatible = **1.0.0**。
 - `https://admin.chihyuancm.com` 仍是固定 CY Web canonical user-facing URL；0.3 development deploy 已重新驗證 Custom Domain 與 invalid-provider-session fallback。
 - CY Web 根 `CYID_CONSUMER_VERSION=1.0.1` 宣告所採用的 shared Identity contract；`docs/contracts/cyid/` mirror 依 CYID `CONSUMER_SYNC_MANIFEST.json` 保存 7 個 canonical artifacts + manifest snapshot。Governance Check 與 development deploy 同時驗證 supported version window 與逐檔 byte-level sync；任一漂移都阻止後續部署。
@@ -18,8 +18,9 @@
 - 首次登入密碼／ticket 逾期時，UI 統一引導聯絡有權限管理員 **重寄驗證 Email**。
 - 帳號管理頁的新 Employee 狀態/操作已改用 `Email 未驗證`、`重寄驗證 Email` 等 terminology；不再以「啟用帳號」作新使用者流程名稱。
 - 忘記密碼仍維持獨立 Email OTP recovery flow；activated-account Email re-verification 也維持既有 OTP flow。
-- CY Web 0.5 CI 已通過 browser/worker TypeScript、source contracts、Module Access validator、protected business HTTP API validator、Local D1 runtime acceptance、Vite build、deployment dry-run；development deploy 已成功完成 Customer／Item／Defect protected Worker API Phase 1、D1/Worker/assets、canonical domain 與 invalid-session smoke。
+- CY Web 0.5.4 development 已完成六個業務模組的 protected Worker/D1 API foundation（Customer／Item／Defect／Order／Outsourcing／WorkLog），並補齊 Customer related operations、Customer/Item canonical lookup/read model 與 regions。CI/deploy gates 全綠。
 - CY Web Module Access 已切到 direct `Employee × Module` 本地 authority：`CUSTOMERS / ITEMS / DEFECTS / ORDERS / OUTSOURCING / WORKLOGS`。Identity Admin／Super Admin 可管理 eligible Employee；Identity Admin 不可改自己的 Module Access；Super Admin 固定全模組。舊 App tag 關聯只保留 metadata/history，不再作 runtime authorization。
+- **Item React page 已移除 localStorage authority**：list/detail/create/update、啟用/停用、受控品號更正、歷史品號與 category lookup 全部改走 same-origin Worker API → D1；其他業務頁暫時仍是 localStorage，runtime 明確標示為 mixed transport。
 - Production D1/Worker cutover、backup rollout與 SMART ERP remain untouched。
 
 ## Documentation consolidation
@@ -55,8 +56,8 @@ CY Web should use optimistic UI where appropriate, but destructive/irreversible 
 17. [ ] Accept role/App Access session invalidation and literal expired normal Session behavior.
 18. [ ] Accept forgot-password, own Email change and controlled Super Admin transfer.
 19. [x] Add/deploy protected Customer／Item／Defect Worker HTTP routes with server-side Module Access before domain-service access.
-20. [ ] Extend the same protected Worker HTTP boundary to Order／Outsourcing（including contractor/BOM/stock）／WorkLog.
-21. [ ] Replace temporary business-data `localStorage` persistence with Worker API -> D1 while preserving the React workflow.
+20. [x] Extend protected Worker HTTP boundary to Order／Outsourcing（including contractor/BOM/stock）／WorkLog；六個業務模組 API foundation complete。
+21. [ ] Replace temporary business-data `localStorage` persistence with Worker API -> D1 while preserving the React workflow：**Item [x]；Customer [ ]；Defect [ ]；Order [ ]；Outsourcing [ ]；WorkLog [ ]**。
 22. [ ] Perform dedicated UI/UX refinement and Desktop/Tablet/Mobile real-browser acceptance.
 23. [ ] Implement/accept backup+restore before production rollout.
 24. [x] Publish governed CYID shared Consumer Integration Standard + compatibility window + cross-repository manifest mirror；CY Web adopts `CYID_CONSUMER_VERSION=1.0.1` and exact-sync deployment gate。CYACC handoff remains app-specific at `CYapps/apps/CYCloudIdentity/docs/consumers/CYACC_INTEGRATION_HANDOFF.md`。
