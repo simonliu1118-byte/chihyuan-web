@@ -20,7 +20,7 @@
 - 忘記密碼仍維持獨立 Email OTP recovery flow；activated-account Email re-verification 也維持既有 OTP flow。
 - CY Web 0.5.4 development 已完成六個業務模組的 protected Worker/D1 API foundation（Customer／Item／Defect／Order／Outsourcing／WorkLog），並補齊 Customer related operations、Customer/Item canonical lookup/read model 與 regions。CI/deploy gates 全綠。
 - CY Web Module Access 已切到 direct `Employee × Module` 本地 authority：`CUSTOMERS / ITEMS / DEFECTS / ORDERS / OUTSOURCING / WORKLOGS`。Identity Admin／Super Admin 可管理 eligible Employee；Identity Admin 不可改自己的 Module Access；Super Admin 固定全模組。舊 App tag 關聯只保留 metadata/history，不再作 runtime authorization。
-- **Item + Customer React pages 已移除 localStorage authority**：Item list/detail/create/update、啟用/停用、受控品號更正、歷史品號與 category lookup 全部改走 same-origin Worker API → D1；Customer list/detail/create/update、canonical lookup、受控 ERP 客戶編號、拜訪、報價、常用商品與 Customer-scoped Item picker 亦改走 Worker API → D1。Defect／Order／Outsourcing／WorkLog 暫時仍是 localStorage，runtime 維持 mixed transport。
+- **Item + Customer + Defect React pages 已移除 localStorage authority**：Item list/detail/create/update、啟用/停用、受控品號更正、歷史品號與 category lookup 全部改走 same-origin Worker API → D1；Customer list/detail/create/update、canonical lookup、受控 ERP 客戶編號、拜訪、報價、常用商品與 Customer-scoped Item picker 亦改走 Worker API → D1；Defect list/detail/create/update、scoped Customer/Item/owner lookup、start-processing／resolve／reopen／invalidate／created-only delete 亦改走 Worker API → D1。Order／Outsourcing／WorkLog 暫時仍是 localStorage，runtime 維持 mixed transport。
 - Production D1/Worker cutover、backup rollout與 SMART ERP remain untouched。
 
 ## Documentation consolidation
@@ -57,7 +57,7 @@ CY Web should use optimistic UI where appropriate, but destructive/irreversible 
 18. [ ] Accept forgot-password, own Email change and controlled Super Admin transfer.
 19. [x] Add/deploy protected Customer／Item／Defect Worker HTTP routes with server-side Module Access before domain-service access.
 20. [x] Extend protected Worker HTTP boundary to Order／Outsourcing（including contractor/BOM/stock）／WorkLog；六個業務模組 API foundation complete。
-21. [ ] Replace temporary business-data `localStorage` persistence with Worker API -> D1 while preserving the React workflow：**Item [x]；Customer [x]；Defect [ ]；Order [ ]；Outsourcing [ ]；WorkLog [ ]**。
+21. [ ] Replace temporary business-data `localStorage` persistence with Worker API -> D1 while preserving the React workflow：**Item [x]；Customer [x]；Defect [x]；Order [ ]；Outsourcing [ ]；WorkLog [ ]**。
 22. [ ] Perform dedicated UI/UX refinement and Desktop/Tablet/Mobile real-browser acceptance.
 23. [ ] Implement/accept backup+restore before production rollout.
 24. [x] Publish governed CYID shared Consumer Integration Standard + compatibility window + cross-repository manifest mirror；CY Web adopts `CYID_CONSUMER_VERSION=1.0.1` and exact-sync deployment gate。CYACC handoff remains app-specific at `CYapps/apps/CYCloudIdentity/docs/consumers/CYACC_INTEGRATION_HANDOFF.md`。
