@@ -1,48 +1,63 @@
-# CY Web Operational Local Runtime
+# CY Web Operational Runtime
 
-> Status: current temporary runtime/persistence mode for functional and UI testing before protected Worker API → D1 cutover.
+> Status: **mixed transport** during the controlled Worker API → D1 cutover.
 >
-> Current implementation progress and next tasks are tracked in root `TODO.md`; this document defines the runtime contract only.
+> Current implementation progress and next tasks are tracked in root `TODO.md`; this document defines the temporary runtime boundary only.
 
 ## Purpose
 
-CY Web uses the **real integrated React application** as the forward product surface. Business functionality is no longer developed in disposable standalone module previews and then rewritten later.
+CY Web uses the real integrated React application as the forward product surface. Business functionality is not developed in disposable previews and rewritten later.
 
-The runtime direction is:
+Target:
 
 ```text
-real React operational UI
+React operational UI
         ↓
-shared runtime/repository boundary
-        ↓
-Worker protected HTTP API
+same-origin Worker protected HTTP API
         ↓
 D1
 ```
 
-The UI/workflow surface remains the same across the persistence cutover. D1 integration is an adapter/runtime change, not a second product implementation.
+The persistence cutover is performed module by module while preserving the confirmed product workflow.
 
-## Local persistence contract
+## Current mixed transport
 
-The current adapter uses browser `localStorage` under a versioned CY Web key.
+The runtime is intentionally mixed while migration is in progress.
 
-Required behavior:
+Current authority:
 
-- reload does not reset ordinary changes;
-- Customer, Item, Defect, Sales Work Order, Outsourcing and WorkLog share one local runtime dataset;
-- cross-module relationships use stable IDs rather than display text as authority;
-- important actions append a local Audit projection;
-- the complete local dataset can be exported/imported as JSON;
-- explicit reset returns only to fictional seed data;
-- newly added optional projections should remain backward-compatible where practical; an incompatible client format change requires a real migration or an explicit export/reset/import path.
+| Module | Browser transport | Business persistence |
+| --- | --- | --- |
+| Item | Worker protected HTTP API | development D1 |
+| Customer | temporary local runtime | browser localStorage |
+| Defect | temporary local runtime | browser localStorage |
+| Sales Work Order | temporary local runtime | browser localStorage |
+| Outsourcing | temporary local runtime | browser localStorage |
+| WorkLog | temporary local runtime | browser localStorage |
+| Settings/Audit operational preview | temporary local runtime where still used | browser localStorage |
 
-No production or development D1 data is touched in local-storage mode.
+The Item operational page no longer reads or mutates `local-database.ts`. Its list, detail, create/update, active-state change, controlled Item-number change, Item-number history and canonical category lookup all use Worker/D1.
 
-This adapter is temporary persistence only. Business semantics remain authoritative in confirmed Business Decisions, current module contracts, the Canonical Data Model, Final Data Dictionary and forward migrations.
+**localStorage remains temporary** for the modules not yet migrated. A migrated module must not fall back to browser-local business authority when its Worker/API request fails.
+
+## Remaining local-persistence contract
+
+The versioned local dataset continues to support the not-yet-migrated modules.
+
+Required temporary behavior:
+
+- reload does not reset ordinary local changes;
+- remaining local modules share one local runtime dataset;
+- cross-module local relationships use stable IDs rather than display text as authority;
+- local-only actions append the local Audit projection;
+- the legacy local dataset can still be exported/imported for development continuity;
+- explicit reset returns to fictional seed data only.
+
+The retained `LocalItem` projection may temporarily remain in the local schema because unmigrated Order/Outsourcing fixtures still reference Item IDs. It is **not** Item-module authority and the Item React page must not use it.
 
 ## Product surface
 
-The integrated AppShell exposes the forward application surface for:
+The integrated AppShell remains the forward application surface for:
 
 - Customer and related records;
 - Item and Defect;
@@ -52,87 +67,80 @@ The integrated AppShell exposes the forward application surface for:
 - Settings / Admin;
 - Audit.
 
-Standalone `preview/*` files and archived workspace-preview documents are historical/design evidence only. New business functionality belongs in the integrated React runtime unless a focused comparison artifact is explicitly needed.
+Standalone `preview/*` files and archived workspace-preview documents are historical/design evidence only.
 
-Module lifecycle/state/business rules are not duplicated here. Use the applicable `*_MODULE_CONTRACT.md` plus the latest applicable Business Decisions.
+## Shared UI expectations
 
-## Shared UI expectations in operational mode
+Operational screens preserve the confirmed shared usability baseline:
 
-The runtime consumes the shared AppShell, form, Data View, Entity Picker, editable-list, overlay/feedback and keyboard-entry foundations.
-
-Operational screens should preserve the confirmed cross-cutting usability baseline:
-
-- normal business content remains readable without browser zoom;
-- long edit flows keep important Save/Cancel actions reachable where needed;
+- normal content remains readable without browser zoom;
+- long edit flows keep Save/Cancel actions reachable;
 - search/result/detail layouts remain stable as labels/data lengths change;
 - routine success feedback is non-blocking;
-- unsaved-change protection uses the shared mechanism;
-- client visibility is never treated as authoritative authorization.
+- unsaved-change protection remains available;
+- UI visibility is never treated as authorization.
 
-Module-specific composition stays in the module contract/UI document rather than being promoted into a second global UI rule set.
+The Item D1 cutover does not authorize visual redesign by itself.
 
-## D1 cutover contract
+## Worker/D1 cutover contract
 
-The persistence cutover must preserve the current product surface:
+All six business modules now have a **Worker protected HTTP API** foundation with current CYID Session + CY Web Module Access enforced before domain-service access.
 
-```text
-React operational UI
-      ↓
-shared runtime/repository boundary
-      ↓
-Worker protected HTTP API
-      ↓
-D1
-```
+The accepted D1 foundation covers migrations, constraints, fixed-point behavior, optimistic revision conflicts, transactional Audit, Customer child persistence, Item chained conversion and number history, Outsourcing stock/reversal workflows, and WorkLog review/cancel-review behavior.
 
-The initial relational schema gate has been accepted and frozen through the Wrangler local D1 runtime harness. The accepted baseline covers migration apply/reapply, constraints, fixed-point behavior, optimistic revision conflicts, transactional Audit, Customer child persistence, Item chained conversion, Outsourcing reversal/replacement + derived stock, and WorkLog review/cancel-review behavior.
+The migration order is:
 
-The schema freeze means UI/layout work no longer reopens the relational model by itself. A genuine later data-model change uses a new forward migration and the applicable data-contract/Business Decision review.
+1. complete the protected Worker/domain route for a module;
+2. expose only the canonical lookup/reference data its React page needs;
+3. replace the page's local-store adapter with same-origin API requests;
+4. forbid local business fallback for that migrated page in source contracts;
+5. deploy development and exercise authenticated multi-user behavior when browser acceptance is available;
+6. remove obsolete local projections only after remaining dependent modules no longer need them.
 
-The remaining cutover work is integration rather than schema discovery:
+Item is the first module through step 4.
 
-1. complete Shared Identity browser-session/provider acceptance;
-2. expose protected Worker business routes with server-side authorization;
-3. wire the React data adapter to those Worker APIs;
-4. exercise authenticated multi-user API → D1 workflows;
-5. retain the existing local D1 acceptance gate for regression coverage.
+## Item transport boundary
 
-Visual polish may continue in parallel and does not by itself block Identity/API integration.
+Item uses canonical contracts from `shared/item.ts` and `shared/business-lookups.ts`.
 
-## Shared Identity boundary
+Important consequences:
 
-Local operational mode does not pretend to provide production authentication. Any local actor label is fictional/test context only.
+- Item category selection sends canonical `itemCategoryId`, not a seed label;
+- fixed-point prices/quantities remain decimal strings across the browser/API boundary;
+- `revision` remains the optimistic-concurrency authority;
+- controlled Item-number changes use the dedicated server action and preserve searchable number history;
+- the page does not read Defect counts merely because localStorage happened to contain them; `ITEMS` access must not leak `DEFECTS` data;
+- server errors do not trigger fallback writes to localStorage.
 
-Protected multi-user operation requires:
+## Shared Identity / authorization boundary
 
-- Shared Identity browser-session provider acceptance;
-- authenticated principal/session state;
-- server-side role/module authorization on protected Worker routes;
-- CY Web-local app-tag/module projection for ordinary employees.
+Protected business operation requires:
 
-CY Web must not create a parallel password/session authority or copy CYInvoice credential internals as a shortcut. See `IDENTITY_ADAPTER.md`.
+- current CYID browser Session;
+- server-side Session resolve;
+- current CY Web Module Access;
+- app-local domain authorization.
+
+The mixed transport period does not change Identity authority. Migrated pages use protected Worker routes; remaining local pages are development-only temporary persistence surfaces.
+
+See the synchronized CYID consumer package under `docs/contracts/cyid/` and the CY Web-specific `IDENTITY_ADAPTER.md`.
 
 ## Browser-test package
 
-The same operational application can be built with:
+`npm run build:operational` remains useful as a compilation/testing artifact, but after the first module cutover it is **not** a complete offline/local product runtime: Item requires its same-origin Worker API.
 
-```text
-npm run build:operational
-```
-
-The resulting package is a testing artifact for the local persistence mode. It is not a production Worker deployment and does not expose protected production D1 routes.
-
-Branch-specific artifact publication details are CI implementation details and should not be treated as a permanent runtime contract.
+A standalone static artifact must not emulate Item writes in localStorage just to make the screen appear functional.
 
 ## Runtime safety boundary
 
-While this local adapter is active:
+During mixed transport:
 
-- default data is fictional seed/test data;
-- production D1 is not written;
+- local seed data is fictional development data;
+- Item development writes go only through the configured development Worker/D1;
+- production D1 is not cut over by this development migration;
 - SMART ERP is not written;
 - Shared Identity is not bypassed on protected server routes;
-- production Worker/DNS/R2/GCS resources are not modified by browser-local persistence;
-- CYAccountingWeb source/runtime is outside this application boundary.
+- production Worker/DNS/R2/GCS resources remain untouched until explicit production approval;
+- CYAccountingWeb source/runtime remains outside this application boundary.
 
-For what is complete versus pending, read root `TODO.md` rather than adding checkpoint metadata to this contract.
+For completion status, read root `TODO.md`.
