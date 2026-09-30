@@ -240,6 +240,12 @@ Every route below resolves the current CYID session and requires the matching cu
 
 ### Outsourcing — `OUTSOURCING`
 
+Scoped references:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/business/outsourcing/lookups` | bounded active/selected Item projection with allowed units + current actor under OUTSOURCING authority |
+
 Contractor:
 
 | Method | Path | Purpose |
@@ -270,15 +276,15 @@ Outsourcing order:
 | GET | `/api/business/outsourcing/orders/:orderId` | detail |
 | PATCH | `/api/business/outsourcing/orders/:orderId` | update pending order |
 | DELETE | `/api/business/outsourcing/orders/:orderId` | hard delete pending order under service rules |
-| POST | `.../:orderId/confirm-outbound` | confirm outbound |
-| POST | `.../:orderId/correct-outbound` | administrative outbound correction |
-| POST | `.../:orderId/cancel-outbound` | administrative outbound cancellation |
-| POST | `.../:orderId/receive` | receive returned goods |
-| POST | `.../:orderId/cancel-receipt` | cancel receipt |
-| POST | `.../:orderId/price` | price completed work |
-| POST | `.../:orderId/cancel-pricing` | cancel pricing |
-| POST | `.../:orderId/paid` | mark paid |
-| POST | `.../:orderId/cancel-payment` | cancel payment |
+| POST | `/api/business/outsourcing/orders/:orderId/confirm-outbound` | confirm outbound |
+| POST | `/api/business/outsourcing/orders/:orderId/correct-outbound` | administrative outbound correction |
+| POST | `/api/business/outsourcing/orders/:orderId/cancel-outbound` | administrative outbound cancellation |
+| POST | `/api/business/outsourcing/orders/:orderId/receive` | receive returned goods |
+| POST | `/api/business/outsourcing/orders/:orderId/cancel-receipt` | cancel receipt |
+| POST | `/api/business/outsourcing/orders/:orderId/price` | price completed work |
+| POST | `/api/business/outsourcing/orders/:orderId/cancel-pricing` | cancel pricing |
+| POST | `/api/business/outsourcing/orders/:orderId/paid` | mark paid |
+| POST | `/api/business/outsourcing/orders/:orderId/cancel-payment` | cancel payment |
 
 ### WorkLog — `WORKLOGS`
 
@@ -493,3 +499,28 @@ Browser requirements:
 - API failure never falls back to `localStorage` Sales Work Order writes.
 
 Legacy `LocalSalesOrder` fixtures may remain temporarily only because the not-yet-migrated local runtime is still being dismantled module by module. The active `#orders` route does not use those fixtures as authority.
+
+## 19. React transport cutover — Contractor / BOM / Outsourcing
+
+Outsourcing is the fifth business React page whose active route uses Worker API → D1 rather than browser-local business authority.
+
+The integrated page uses:
+
+- `GET /api/business/outsourcing/lookups` for current actor and bounded active/selected Item options with allowed units;
+- Contractor list/detail/current-price reads under `/api/business/outsourcing/contractors`;
+- BOM list/detail reads under `/api/business/outsourcing/boms`;
+- `GET /api/business/outsourcing/stock?contractorId=...` for movement-derived stock balances;
+- Outsourcing order list/detail/create/update/delete and explicit lifecycle/correction endpoints from the Phase 2 table.
+
+Browser requirements:
+
+- Item selection is an `OUTSOURCING`-guarded read projection and does not require separate `ITEMS` Module Access;
+- the current authenticated actor is used as the order/receipt/pricing operator in the current React workflow; the page does not offer arbitrary Employee impersonation;
+- quantities and Contractor Price values remain decimal strings across the API boundary;
+- pending-order edit, outbound correction, receiving, pricing, payment and reverse actions carry the current D1 revision;
+- confirmed outbound stock is represented only by `contractor_stock_movements`; the browser never maintains a second stock balance authority;
+- outbound correction/cancellation and pending hard-delete capability remain server-derived from current Workspace authority;
+- receive/BOM consumption, pricing and all reverse operations are computed/validated by the domain service;
+- API failure never falls back to browser-local Outsourcing, Contractor, BOM or stock writes.
+
+Legacy local Contractor/BOM/Outsourcing fixtures may remain temporarily only for not-yet-migrated development surfaces until the last local business page is removed. The active `#outsourcing` route does not use those fixtures as authority.
