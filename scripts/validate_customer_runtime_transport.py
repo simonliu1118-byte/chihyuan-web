@@ -27,7 +27,7 @@ def main() -> int:
     for forbidden in (
         "useLocalDatabase",
         "mutateLocalDatabase",
-        "localStorage",
+        "../local-database",
         "LocalCustomer",
         "nextLocalId",
         "timestampNow",
