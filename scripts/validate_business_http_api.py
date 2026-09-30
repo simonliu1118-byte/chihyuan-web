@@ -115,9 +115,6 @@ def main() -> int:
     for endpoint in (
         "/api/business/customers",
         "/api/business/customers/lookups",
-        "/api/business/customers/:customerId/visits",
-        "/api/business/customers/:customerId/frequent-items",
-        "/api/business/customers/:customerId/quotes",
         "/api/business/items",
         "/api/business/items/lookups",
         "/api/business/defects",
@@ -126,6 +123,14 @@ def main() -> int:
             raise AssertionError(f"phase 1 business HTTP route missing: {endpoint}")
         if endpoint not in api_doc:
             raise AssertionError(f"API contract missing business route: {endpoint}")
+
+    for endpoint in (
+        "/api/business/customers/:customerId/visits",
+        "/api/business/customers/:customerId/frequent-items",
+        "/api/business/customers/:customerId/quotes",
+    ):
+        if endpoint not in api_doc:
+            raise AssertionError(f"API contract missing parameterized Customer route: {endpoint}")
 
     for endpoint in (
         "/api/business/orders",
