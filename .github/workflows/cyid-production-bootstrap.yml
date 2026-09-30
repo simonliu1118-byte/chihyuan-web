@@ -1,0 +1,93 @@
+name: CYID Production Worker Bootstrap
+
+on:
+  push:
+    branches:
+      - deploy/cyid-production-bootstrap
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cyid-production-worker-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: development
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      DEV_CYID_WORKER_NAME: ${{ vars.CF_IDENTITY_SERVICE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install Wrangler
+        run: npm install --no-audit --no-fund
+
+      - name: Bootstrap isolated CYID production Worker only
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID DEV_CYID_WORKER_NAME; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing protected CY Web deployment prerequisite." >&2
+              exit 1
+            fi
+          done
+
+          if [[ "$DEV_CYID_WORKER_NAME" == *-development ]]; then
+            PROD_CYID_WORKER_NAME="${DEV_CYID_WORKER_NAME%-development}-production"
+          elif [[ "$DEV_CYID_WORKER_NAME" == *-dev ]]; then
+            PROD_CYID_WORKER_NAME="${DEV_CYID_WORKER_NAME%-dev}-prod"
+          else
+            PROD_CYID_WORKER_NAME="${DEV_CYID_WORKER_NAME}-prod"
+          fi
+
+          if [[ "$PROD_CYID_WORKER_NAME" == "$DEV_CYID_WORKER_NAME" ]]; then
+            echo "CYID production Worker must be distinct from development." >&2
+            exit 1
+          fi
+
+          echo "::add-mask::$DEV_CYID_WORKER_NAME"
+          echo "::add-mask::$PROD_CYID_WORKER_NAME"
+
+          api="https://api.cloudflare.com/client/v4"
+          code="$(curl -sS -o /tmp/cyid-prod-check.json -w '%{http_code}'             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"             "$api/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$PROD_CYID_WORKER_NAME/settings")"
+
+          if [[ "$code" == "200" ]]; then
+            echo "Isolated CYID production Worker already exists."
+            exit 0
+          fi
+          if [[ "$code" != "404" ]]; then
+            echo "CY Web credential cannot inspect the CYID production Worker target." >&2
+            exit 1
+          fi
+
+          printf '%s\n' 'export default { async fetch() { return new Response("CYID production bootstrap"); } };' > /tmp/cyid-production-bootstrap.mjs
+          if ! npx wrangler deploy /tmp/cyid-production-bootstrap.mjs             --name "$PROD_CYID_WORKER_NAME"             --compatibility-date 2026-09-25             > /tmp/cyid-production-bootstrap.log 2>&1; then
+            node -e '
+              const fs=require("node:fs");
+              const t=fs.existsSync("/tmp/cyid-production-bootstrap.log")?fs.readFileSync("/tmp/cyid-production-bootstrap.log","utf8").toLowerCase():"";
+              const c=[];
+              if(t.includes("access")||t.includes("permission")||t.includes("forbidden")||t.includes("unauthorized")) c.push("PERMISSION");
+              if(t.includes("quota")||t.includes("limit")) c.push("QUOTA");
+              if(t.includes("name")&&(t.includes("invalid")||t.includes("already"))) c.push("NAME");
+              console.error("CYID production Worker bootstrap failed category="+(c.join(",")||"unclassified"));
+            '
+            exit 1
+          fi
+
+          verify="$(curl -sS -o /tmp/cyid-prod-verify.json -w '%{http_code}'             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"             "$api/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$PROD_CYID_WORKER_NAME/settings")"
+          [[ "$verify" == "200" ]] || { echo "CYID production Worker bootstrap verification failed." >&2; exit 1; }
+          echo "Isolated CYID production Worker bootstrap completed."
+
+      - name: Cleanup
+        if: always()
+        run: rm -f /tmp/cyid-prod-* /tmp/cyid-production-bootstrap.*
