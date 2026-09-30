@@ -82,3 +82,18 @@ export interface SalesWorkOrderModuleLookups {
   items: readonly SalesWorkOrderItemOption[];
   operators: readonly SalesWorkOrderOperatorOption[];
 }
+
+export interface OutsourcingItemOption {
+  id: number;
+  itemNo: string;
+  name: string;
+  spec: string | null;
+  baseUnit: string;
+  allowedUnits: readonly string[];
+  isActive: boolean;
+}
+
+export interface OutsourcingModuleLookups {
+  actor: BusinessActorRef;
+  items: readonly OutsourcingItemOption[];
+}
