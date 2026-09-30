@@ -84,8 +84,9 @@ def main() -> int:
         if token not in persistence:
             raise AssertionError(f"controlled Customer-number persistence missing: {token}")
 
-    if "isActive" in page and "contacts" not in page:
-        raise AssertionError("Customer page appears to reintroduce Customer-level isActive authority")
+    for forbidden in ("selected.isActive", "draft.isActive", "customer.isActive"):
+        if forbidden in page:
+            raise AssertionError(f"Customer page reintroduces Customer-level isActive authority: {forbidden}")
 
     print("PASS Customer React transport uses Worker API -> D1 with no browser-local fallback")
     return 0
