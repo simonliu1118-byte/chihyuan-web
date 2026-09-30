@@ -18,3 +18,11 @@ export interface ItemModuleLookups {
   actor: BusinessActorRef;
   itemCategories: readonly LookupSetting[];
 }
+
+export interface CustomerItemOption {
+  id: number;
+  itemNo: string;
+  name: string;
+  spec: string | null;
+  baseUnit: string;
+}

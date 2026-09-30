@@ -1,5 +1,6 @@
 import type {
   BusinessActorRef,
+  CustomerItemOption,
   CustomerModuleLookups,
   ItemModuleLookups,
 } from "../../shared/business-lookups";
@@ -46,6 +47,38 @@ export class BusinessLookupService {
       customerStatuses: ((results[2]?.results ?? []) as LookupRow[]).map(toLookup),
       regions: ((results[3]?.results ?? []) as LookupRow[]).map(toLookup),
     };
+  }
+
+  async customerItemOptions(query: string, limit = 50): Promise<readonly CustomerItemOption[]> {
+    const normalized = query.trim();
+    const bounded = Math.max(1, Math.min(Math.trunc(limit), 100));
+    const like = `%${normalized.replace(/[\\%_]/g, (match) => `\\${match}`)}%`;
+    const result = await this.db.prepare(`
+      SELECT id, item_no, name, spec, base_unit
+        FROM items
+       WHERE is_active = 1
+         AND (
+           ?1 = ''
+           OR item_no LIKE ?2 ESCAPE '\\'
+           OR name LIKE ?2 ESCAPE '\\'
+           OR COALESCE(spec, '') LIKE ?2 ESCAPE '\\'
+         )
+       ORDER BY item_no ASC, id ASC
+       LIMIT ?3
+    `).bind(normalized, like, bounded).all<{
+      id: number;
+      item_no: string;
+      name: string;
+      spec: string | null;
+      base_unit: string;
+    }>();
+    return (result.results ?? []).map((row) => ({
+      id: row.id,
+      itemNo: row.item_no,
+      name: row.name,
+      spec: row.spec,
+      baseUnit: row.base_unit,
+    }));
   }
 
   async itemLookups(actor: BusinessActorRef): Promise<ItemModuleLookups> {

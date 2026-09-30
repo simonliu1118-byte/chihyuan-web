@@ -205,6 +205,12 @@ async function handleCustomers(
     return success(await lookups.customerLookups(actorRef(guarded.gate)), requestId);
   }
 
+  if (request.method === "GET" && url.pathname === "/api/business/customers/item-options") {
+    const q = url.searchParams.get("q")?.trim() ?? "";
+    const limit = boundedLimit(url.searchParams.get("limit")) ?? 50;
+    return success(await lookups.customerItemOptions(q, limit), requestId);
+  }
+
   if (request.method === "GET" && url.pathname === "/api/business/customers/tax-id-check") {
     const taxId = url.searchParams.get("taxId");
     const exclude = positiveInteger(url.searchParams.get("excludeCustomerId"), "excludeCustomerId") ?? null;
@@ -296,6 +302,12 @@ async function handleCustomers(
     const customerId = routeId(match[1], "customerId");
     const quoteId = routeId(match[2], "quoteId");
     return success(await related.getQuoteDetail(customerId, quoteId), requestId);
+  }
+
+  match = /^\/api\/business\/customers\/(\d+)\/number$/.exec(url.pathname);
+  if (match && request.method === "POST") {
+    const customerId = routeId(match[1], "customerId");
+    return success(await service.changeCustomerNumber(customerId, await jsonBody(request), context), requestId);
   }
 
   match = /^\/api\/business\/customers\/(\d+)$/.exec(url.pathname);

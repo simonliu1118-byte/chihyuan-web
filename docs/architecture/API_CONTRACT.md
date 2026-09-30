@@ -170,7 +170,9 @@ Every route below resolves the current CYID session and requires the matching **
 | POST | `/api/business/customers` | create Customer |
 | GET | `/api/business/customers/:customerId` | detail |
 | PATCH | `/api/business/customers/:customerId` | revision-gated update |
+| POST | `/api/business/customers/:customerId/number` | controlled ERP Customer-number assignment/correction/clear |
 | GET | `/api/business/customers/tax-id-check` | duplicate Tax ID preflight |
+| GET | `/api/business/customers/item-options` | bounded active Item picker under CUSTOMERS authority |
 
 ### Item — `ITEMS`
 
@@ -209,7 +211,7 @@ Every route below resolves the current CYID session and requires the matching **
 
 Browser navigation filtering is not sufficient authorization. Directly calling any `/api/business/*` endpoint still performs the server-side Module Access check.
 
-Phase 1 does **not** yet move the React Customer / Item / Defect pages off localStorage. The next transport-migration phase will make those pages consume these APIs without changing the domain contract.
+Phase 1 established the protected domain API boundary. React transport migration is tracked separately below; Item and Customer have now moved to Worker API → D1 while Defect and later modules still retain temporary browser-local presentation adapters.
 
 Order / Outsourcing / WorkLog protected routes follow this same boundary in the next API phase.
 
@@ -335,6 +337,12 @@ The endpoint does **not** return App Tags, WorkLog scoring configuration or unre
 
 Customer lifecycle in D1 uses `customer_status_id`. The temporary localStorage-only `isActive` field is not a canonical Customer authority and must not be reintroduced into D1 merely to preserve the old local UI.
 
+### Customer transport-readiness operations — `CUSTOMERS`
+
+`GET /api/business/customers/item-options` returns a bounded active-Item picker projection for Customer quote/frequent-item workflows. It stays behind `CUSTOMERS` Module Access and therefore does **not** require the user to also hold `ITEMS` Module Access. The projection is read-only and exposes only `id / itemNo / name / spec / baseUnit`.
+
+`POST /api/business/customers/:customerId/number` is the controlled ERP Customer-number mutation. It requires the current Customer `revision`, enforces uniqueness, increments the aggregate revision, and records Shared Audit. Ordinary Customer `PATCH` continues to reject a Customer-number change.
+
 ### Customer related operations — `CUSTOMERS`
 
 | Method | Path | Purpose |
@@ -397,3 +405,34 @@ Browser requirements:
 The legacy `LocalItem` type may remain temporarily because not-yet-migrated Order/Outsourcing local fixtures reference Item IDs. Its presence in the local schema does not make it Item-module authority.
 
 Global runtime presentation must describe this as a mixed migration state until the remaining business pages also use Worker/D1.
+
+
+## 16. React transport cutover — Customer
+
+Customer is the second business React page whose forward data authority is Worker API → D1 rather than the temporary browser-local runtime.
+
+The Customer page uses:
+
+- `GET /api/business/customers/lookups`;
+- `GET /api/business/customers/item-options`;
+- `GET /api/business/customers`;
+- `GET /api/business/customers/:customerId`;
+- `POST /api/business/customers`;
+- `PATCH /api/business/customers/:customerId`;
+- `GET /api/business/customers/tax-id-check`;
+- `POST /api/business/customers/:customerId/number`;
+- Customer Visit / Frequent Item / Quote related endpoints from section 14.
+
+Browser requirements:
+
+- canonical lookup IDs are sent for category/status/region rather than local display labels;
+- `customer_status_id` remains the Customer lifecycle/status authority; the retired local-only `isActive` flag is not recreated as D1 authority;
+- duplicate Tax ID save requires the server preflight/confirmation contract;
+- profile and related-record updates carry the server concurrency token (`revision` or `updatedAt`) required by that aggregate;
+- ERP Customer-number assignment/correction/clear uses the controlled number endpoint and cannot be smuggled through ordinary profile update;
+- Customer quote/frequent-item selection uses the Customer-scoped Item picker and does not require separate `ITEMS` Module Access;
+- API failure never falls back to `localStorage` Customer writes;
+- the former browser-local hard-delete/deactivate simulation is not carried forward without a canonical server lifecycle/delete contract;
+- Shared Audit remains the durable mutation history; until a dedicated Audit read UI is added, the Customer page must not fabricate an activity history from local browser state.
+
+Legacy Customer fixture types may remain temporarily because not-yet-migrated modules can still reference Customer IDs in their browser-local fixtures. Their presence does not make Customer-module data browser-authoritative.

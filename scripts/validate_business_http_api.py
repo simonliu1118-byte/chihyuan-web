@@ -68,6 +68,7 @@ def main() -> int:
 
     for token in (
         "CustomerModuleLookups",
+        "CustomerItemOption",
         "ItemModuleLookups",
         "BusinessActorRef",
     ):
@@ -76,6 +77,7 @@ def main() -> int:
 
     for token in (
         "customerLookups",
+        "customerItemOptions",
         "itemLookups",
         "FROM departments",
         "FROM customer_categories",
@@ -125,6 +127,7 @@ def main() -> int:
             raise AssertionError(f"API contract missing business route: {endpoint}")
 
     for endpoint in (
+        "/api/business/customers/:customerId/number",
         "/api/business/customers/:customerId/visits",
         "/api/business/customers/:customerId/frequent-items",
         "/api/business/customers/:customerId/quotes",
@@ -147,6 +150,7 @@ def main() -> int:
 
     for action in (
         "lookups",
+        "item-options",
         "tax-id-check",
         "visits",
         "frequent-items",

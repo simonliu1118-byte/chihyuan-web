@@ -18,8 +18,10 @@ import {
   type CustomerReferenceIds,
 } from "./customer-repository";
 import {
+  normalizeChangeCustomerNumberRequest,
   normalizeCreateCustomerRequest,
   normalizeUpdateCustomerRequest,
+  type NormalizedChangeCustomerNumberRequest,
   type NormalizedCreateCustomerRequest,
   type NormalizedCustomerProfile,
   type NormalizedUpdateCustomerRequest,
@@ -30,6 +32,7 @@ export type CustomerServiceErrorCode =
   | "CUSTOMER_REVISION_CONFLICT"
   | "CUSTOMER_NO_CONFLICT"
   | "CUSTOMER_NO_CONTROLLED_ACTION_REQUIRED"
+  | "CUSTOMER_NO_UNCHANGED"
   | "DUPLICATE_TAX_ID_CONFIRM_REQUIRED";
 
 export class CustomerServiceError extends Error {
@@ -180,6 +183,59 @@ export class CustomerService {
       );
     }
     return this.getDetail(id);
+  }
+
+  async changeCustomerNumber(
+    customerId: number,
+    raw: unknown,
+    context: CustomerMutationContext,
+  ): Promise<CustomerDetail> {
+    const id = normalizeCustomerId(customerId);
+    const input = await this.preflightCustomerNumberChange(id, raw);
+    const current = await this.repository.getRecordVersion(id);
+    if (!current) throw new CustomerServiceError("CUSTOMER_NOT_FOUND", 404, "Customer not found");
+
+    let changed: boolean;
+    try {
+      changed = await this.persistence.changeCustomerNumber(id, current.customerNo, input, context);
+    } catch (error) {
+      if (isCustomerNumberConstraintError(error)) {
+        throw new CustomerServiceError("CUSTOMER_NO_CONFLICT", 409, "Customer number already exists");
+      }
+      throw error;
+    }
+    if (!changed) {
+      throw new CustomerServiceError(
+        "CUSTOMER_REVISION_CONFLICT",
+        409,
+        "Customer has changed since it was loaded",
+      );
+    }
+    return this.getDetail(id);
+  }
+
+  async preflightCustomerNumberChange(
+    customerId: number,
+    raw: unknown,
+  ): Promise<NormalizedChangeCustomerNumberRequest> {
+    const id = normalizeCustomerId(customerId);
+    const input = normalizeChangeCustomerNumberRequest(raw);
+    const current = await this.repository.getRecordVersion(id);
+    if (!current) throw new CustomerServiceError("CUSTOMER_NOT_FOUND", 404, "Customer not found");
+    if (current.revision !== input.expectedRevision) {
+      throw new CustomerServiceError(
+        "CUSTOMER_REVISION_CONFLICT",
+        409,
+        "Customer has changed since it was loaded",
+      );
+    }
+    if (current.customerNo === input.newCustomerNo) {
+      throw new CustomerServiceError("CUSTOMER_NO_UNCHANGED", 422, "Customer number is unchanged");
+    }
+    if (input.newCustomerNo && await this.repository.customerNumberExists(input.newCustomerNo, id)) {
+      throw new CustomerServiceError("CUSTOMER_NO_CONFLICT", 409, "Customer number already exists");
+    }
+    return input;
   }
 
   async preflightCreate(raw: unknown): Promise<NormalizedCreateCustomerRequest> {
