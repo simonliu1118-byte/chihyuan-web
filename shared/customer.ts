@@ -156,6 +156,21 @@ export interface CustomerTaxIdCheckResult {
   requiresConfirmation: boolean;
 }
 
+export interface ChangeCustomerNumberRequest {
+  newCustomerNo: string;
+  expectedRevision: number;
+  changeSource?: string | null;
+}
+
+export interface DeleteCustomerRequest {
+  expectedRevision: number;
+}
+
+export interface CustomerDeletionEligibility {
+  deletable: boolean;
+  reason: "NEVER_USED" | "REFERENCED_BUSINESS_HISTORY";
+}
+
 export interface CustomerMutationResult {
   customer: CustomerDetail;
 }
