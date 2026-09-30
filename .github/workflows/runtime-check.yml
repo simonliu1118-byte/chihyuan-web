@@ -36,6 +36,8 @@ jobs:
         run: python scripts/validate_customer_service_foundation.py
       - name: Customer related mutation contract
         run: python scripts/validate_customer_related_mutations.py
+      - name: Customer runtime transport contract
+        run: python scripts/validate_customer_runtime_transport.py
       - name: Item contract
         run: python scripts/validate_item_foundation.py
       - name: Defect contract
