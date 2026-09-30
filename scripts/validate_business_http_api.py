@@ -39,7 +39,10 @@ def main() -> int:
     api_doc = read("docs/architecture/API_CONTRACT.md")
 
     assert_guard_before_service(routes, "handleCustomers", "CUSTOMERS", "CustomerService")
+    assert_guard_before_service(routes, "handleCustomers", "CUSTOMERS", "CustomerRelatedService")
+    assert_guard_before_service(routes, "handleCustomers", "CUSTOMERS", "BusinessLookupService")
     assert_guard_before_service(routes, "handleItems", "ITEMS", "ItemService")
+    assert_guard_before_service(routes, "handleItems", "ITEMS", "BusinessLookupService")
     assert_guard_before_service(routes, "handleDefects", "DEFECTS", "DefectService")
     assert_guard_before_service(phase2, "handleOrders", "ORDERS", "SalesWorkOrderService")
     assert_guard_before_service(phase2, "handleOutsourcing", "OUTSOURCING", "ContractorService")
@@ -50,6 +53,9 @@ def main() -> int:
         "knownBusinessFailure",
         "FieldValidationError",
         "CustomerServiceError",
+        "CustomerRelatedServiceError",
+        "CustomerRelatedService",
+        "BusinessLookupService",
         "ItemServiceError",
         "DefectServiceError",
         "actorMemberId: guarded.gate.member.id",
@@ -82,7 +88,12 @@ def main() -> int:
 
     for endpoint in (
         "/api/business/customers",
+        "/api/business/customers/lookups",
+        "/api/business/customers/:customerId/visits",
+        "/api/business/customers/:customerId/frequent-items",
+        "/api/business/customers/:customerId/quotes",
         "/api/business/items",
+        "/api/business/items/lookups",
         "/api/business/defects",
     ):
         if endpoint not in routes:
@@ -104,7 +115,12 @@ def main() -> int:
             raise AssertionError(f"API contract missing phase 2 business route: {endpoint}")
 
     for action in (
+        "lookups",
         "tax-id-check",
+        "visits",
+        "frequent-items",
+        "quotes",
+        "correct",
         "number-history",
         "start-processing",
         "invalidate",
