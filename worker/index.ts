@@ -3,6 +3,7 @@ import { handleAuthRoute, type IdentityRuntimeEnv } from "./http/auth-routes";
 import { handleIdentityManagementRoute } from "./http/identity-management-routes";
 import { handleModuleAccessRoute } from "./http/module-access-routes";
 import { handleBusinessApiRoute } from "./http/business-api-routes";
+import { handleBusinessApiPhase2Route } from "./http/business-api-phase2-routes";
 import { failure, success } from "./http/response";
 
 interface Env extends IdentityRuntimeEnv {}
@@ -45,6 +46,9 @@ export default {
 
     const businessResponse = await handleBusinessApiRoute(request, env, requestId);
     if (businessResponse) return businessResponse;
+
+    const businessPhase2Response = await handleBusinessApiPhase2Route(request, env, requestId);
+    if (businessPhase2Response) return businessPhase2Response;
 
     if (url.pathname.startsWith("/api/")) {
       return failure({ code: "NOT_FOUND", message: "API route not found" }, requestId, 404);
