@@ -48,6 +48,7 @@ def main() -> int:
     assert_guard_before_service(routes, "handleDefects", "DEFECTS", "DefectService")
     assert_guard_before_service(routes, "handleDefects", "DEFECTS", "BusinessLookupService")
     assert_guard_before_service(phase2, "handleOrders", "ORDERS", "SalesWorkOrderService")
+    assert_guard_before_service(phase2, "handleOrders", "ORDERS", "BusinessLookupService")
     assert_guard_before_service(phase2, "handleOutsourcing", "OUTSOURCING", "ContractorService")
     assert_guard_before_service(phase2, "handleWorkLogs", "WORKLOGS", "WorkLogService")
 
@@ -71,6 +72,7 @@ def main() -> int:
         "CustomerModuleLookups",
         "CustomerItemOption",
         "DefectModuleLookups",
+        "SalesWorkOrderModuleLookups",
         "ItemModuleLookups",
         "BusinessActorRef",
     ):
@@ -81,6 +83,7 @@ def main() -> int:
         "customerLookups",
         "customerItemOptions",
         "defectLookups",
+        "salesWorkOrderLookups",
         "itemLookups",
         "FROM departments",
         "FROM customer_categories",
@@ -99,6 +102,7 @@ def main() -> int:
         "requireModuleAccess",
         "knownFailure",
         "SalesWorkOrderServiceError",
+        "BusinessLookupService",
         "ContractorServiceError",
         "BomServiceError",
         "OutsourcingServiceError",
@@ -141,6 +145,7 @@ def main() -> int:
 
     for endpoint in (
         "/api/business/orders",
+        "/api/business/orders/lookups",
         "/api/business/outsourcing/contractors",
         "/api/business/outsourcing/boms",
         "/api/business/outsourcing/stock",
