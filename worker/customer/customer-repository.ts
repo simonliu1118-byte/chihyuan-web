@@ -486,6 +486,19 @@ export class CustomerRepository {
     return errors;
   }
 
+  async hasExternalBusinessReferences(customerId: number): Promise<boolean> {
+    const row = await this.db.prepare(`
+      SELECT CASE WHEN
+        EXISTS(SELECT 1 FROM customer_visits WHERE customer_id = ?1)
+        OR EXISTS(SELECT 1 FROM customer_item_quotes WHERE customer_id = ?1)
+        OR EXISTS(SELECT 1 FROM sales_work_orders WHERE customer_id = ?1)
+        OR EXISTS(SELECT 1 FROM defect_reports WHERE customer_id = ?1)
+      THEN 1 ELSE 0 END AS referenced
+    `).bind(customerId).first<{ referenced: number }>();
+    if (!row) throw new Error("CUSTOMER_REFERENCE_CHECK_FAILED");
+    return row.referenced === 1;
+  }
+
   async findForeignChildIds(
     customerId: number,
     ids: CustomerOwnedChildIds,
