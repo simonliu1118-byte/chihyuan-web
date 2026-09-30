@@ -186,7 +186,7 @@ function OperationalApp({
       activeNavigationKey={route}
       headerActions={
         <>
-          <div className="cy-op-runtime-banner">業務資料暫存模式 · localStorage</div>
+          <div className="cy-op-runtime-banner">資料移轉中 · 商品已使用 Worker / D1</div>
           <div className="cy-auth-account-control">
             <div className="cy-auth-user">
               <span><strong>{session.user.employeeNo}</strong> {session.user.displayName} <span className="cy-auth-permission-badge">[{accountPermissionLabel(session.user.workspaceRole)}]</span></span>
@@ -202,7 +202,7 @@ function OperationalApp({
           </div>
         </>
       }
-      footer={<span className="cy-shell-foundation-note">Development · CYCloud Identity · 業務資料尚未切換 D1</span>}
+      footer={<span className="cy-shell-foundation-note">Development · CYCloud Identity · Item on D1 · 其他業務模組遷移中</span>}
     >
       {moduleAccessError && route === "identity" ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-title">模組權限狀態</div><div className="cy-notice-body">{moduleAccessError}</div></div> : null}
       {content}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Zero-dependency structural checks for the persistent React local runtime."""
+"""Zero-dependency structural checks for the mixed React business runtime."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ def main() -> int:
     workspace = read("src/runtime/OperationalWorkspace.tsx")
     customer = read("src/runtime/modules/CustomerOperationalPage.tsx")
     item = read("src/runtime/modules/ItemOperationalPage.tsx")
+    item_client = read("src/runtime/api/item-runtime-client.ts")
     defect = read("src/runtime/modules/DefectOperationalPage.tsx")
     doc = read("docs/architecture/OPERATIONAL_LOCAL_RUNTIME.md")
 
@@ -75,16 +76,39 @@ def main() -> int:
 
     for token in [
         "validateConversions",
-        "item.number.changed",
-        "numberHistory",
+        "changeItemNumberRequest",
+        "loadItemNumberHistory",
+        "createItem",
+        "updateItem",
         "costTaxMode",
         "storePrice",
         "clinicPrice",
         "更改品號",
         "歷史品號",
+        "Worker / D1",
     ]:
         if token not in item:
-            raise AssertionError(f"missing full Item operational behavior: {token}")
+            raise AssertionError(f"missing D1 Item operational behavior: {token}")
+
+    for forbidden in [
+        "useLocalDatabase",
+        "mutateLocalDatabase",
+        "../local-database",
+        "nextLocalId",
+        "timestampNow",
+    ]:
+        if forbidden in item:
+            raise AssertionError(f"Item operational page must not retain localStorage authority: {forbidden}")
+
+    for token in [
+        "/api/business/items",
+        "/api/business/items/lookups",
+        "/number-history",
+        "/number",
+        "apiRequest",
+    ]:
+        if token not in item_client:
+            raise AssertionError(f"missing Item Worker API transport contract: {token}")
 
     for token in [
         "defect.processing.started",
@@ -100,15 +124,16 @@ def main() -> int:
 
     normalized_doc = doc.lower()
     for token in [
-        "reload does not reset",
+        "mixed transport",
+        "item",
         "worker protected http api",
         "standalone `preview/*`",
-        "no production or development d1 data is touched",
+        "localstorage remains temporary",
     ]:
         if token not in normalized_doc:
             raise AssertionError(f"missing operational-runtime contract: {token}")
 
-    print("PASS operational local runtime source contracts")
+    print("PASS mixed operational runtime source contracts")
     return 0
 
 

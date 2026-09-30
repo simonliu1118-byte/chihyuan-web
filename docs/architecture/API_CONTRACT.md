@@ -370,3 +370,30 @@ The endpoint intentionally excludes unrelated Settings data.
 `SettingsSnapshot` includes canonical `regions` in addition to departments, Customer categories/statuses and Item categories. Regions remain controlled reference data; adding them to the read model does not make them a normal editable structural lookup.
 
 These transport-readiness endpoints remove the need for React forms to derive canonical IDs from local seed labels. The next frontend migration phase must send canonical lookup IDs and domain revisions supplied by D1.
+
+## 15. React transport cutover — Item
+
+Item is the first business React page whose forward data authority is Worker API → D1 rather than the temporary browser-local runtime.
+
+The Item page uses:
+
+- `GET /api/business/items/lookups`;
+- `GET /api/business/items`;
+- `GET /api/business/items/:itemId`;
+- `POST /api/business/items`;
+- `PATCH /api/business/items/:itemId`;
+- `POST /api/business/items/:itemId/number`;
+- `GET /api/business/items/:itemId/number-history`.
+
+Browser requirements:
+
+- canonical `itemCategoryId` is sent instead of a local category-name label;
+- persisted fixed-point values cross the browser/API boundary as decimal strings;
+- update and controlled Item-number mutation send the current `revision`;
+- stale writes surface the Worker conflict response instead of overwriting local state;
+- API failure never falls back to `localStorage` Item writes;
+- the page does not read Defect-derived counts unless the user separately holds `DEFECTS` authority and a later cross-module contract explicitly allows that projection.
+
+The legacy `LocalItem` type may remain temporarily because not-yet-migrated Order/Outsourcing local fixtures reference Item IDs. Its presence in the local schema does not make it Item-module authority.
+
+Global runtime presentation must describe this as a mixed migration state until the remaining business pages also use Worker/D1.
