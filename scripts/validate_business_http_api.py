@@ -50,6 +50,7 @@ def main() -> int:
     assert_guard_before_service(phase2, "handleOrders", "ORDERS", "SalesWorkOrderService")
     assert_guard_before_service(phase2, "handleOrders", "ORDERS", "BusinessLookupService")
     assert_guard_before_service(phase2, "handleOutsourcing", "OUTSOURCING", "ContractorService")
+    assert_guard_before_service(phase2, "handleOutsourcing", "OUTSOURCING", "BusinessLookupService")
     assert_guard_before_service(phase2, "handleWorkLogs", "WORKLOGS", "WorkLogService")
 
     for token in (
@@ -73,6 +74,7 @@ def main() -> int:
         "CustomerItemOption",
         "DefectModuleLookups",
         "SalesWorkOrderModuleLookups",
+        "OutsourcingModuleLookups",
         "ItemModuleLookups",
         "BusinessActorRef",
     ):
@@ -84,6 +86,7 @@ def main() -> int:
         "customerItemOptions",
         "defectLookups",
         "salesWorkOrderLookups",
+        "outsourcingLookups",
         "itemLookups",
         "FROM departments",
         "FROM customer_categories",
@@ -146,6 +149,7 @@ def main() -> int:
     for endpoint in (
         "/api/business/orders",
         "/api/business/orders/lookups",
+        "/api/business/outsourcing/lookups",
         "/api/business/outsourcing/contractors",
         "/api/business/outsourcing/boms",
         "/api/business/outsourcing/stock",

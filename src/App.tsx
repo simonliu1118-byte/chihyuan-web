@@ -11,6 +11,7 @@ import { OperationalWorkspace, type OperationalRoute } from "./runtime/Operation
 import { CustomerOperationalPage } from "./runtime/modules/CustomerOperationalPage";
 import { DefectOperationalPage } from "./runtime/modules/DefectOperationalPage";
 import { ItemOperationalPage } from "./runtime/modules/ItemOperationalPage";
+import { OutsourcingOperationalPage } from "./runtime/modules/OutsourcingOperationalPage";
 import { SalesOrderOperationalPage } from "./runtime/modules/SalesOrderOperationalPage";
 
 type AppRoute = OperationalRoute | "defects" | "identity";
@@ -177,6 +178,7 @@ function OperationalApp({
   else if (route === "items") content = <ItemOperationalPage />;
   else if (route === "defects") content = <DefectOperationalPage />;
   else if (route === "orders") content = <SalesOrderOperationalPage />;
+  else if (route === "outsourcing") content = <OutsourcingOperationalPage />;
   else if (route === "identity") content = <SharedIdentityPage session={session} />;
   else content = <OperationalWorkspace route={route as OperationalRoute} />;
 
@@ -188,7 +190,7 @@ function OperationalApp({
       activeNavigationKey={route}
       headerActions={
         <>
-          <div className="cy-op-runtime-banner">資料移轉中 · 客戶／商品／瑕疵／銷售工單已使用 Worker / D1</div>
+          <div className="cy-op-runtime-banner">資料移轉中 · 客戶／商品／瑕疵／銷售工單／委外已使用 Worker / D1</div>
           <div className="cy-auth-account-control">
             <div className="cy-auth-user">
               <span><strong>{session.user.employeeNo}</strong> {session.user.displayName} <span className="cy-auth-permission-badge">[{accountPermissionLabel(session.user.workspaceRole)}]</span></span>
@@ -204,7 +206,7 @@ function OperationalApp({
           </div>
         </>
       }
-      footer={<span className="cy-shell-foundation-note">Development · CYCloud Identity · Customer / Item / Defect / Order on D1 · 其餘業務模組遷移中</span>}
+      footer={<span className="cy-shell-foundation-note">Development · CYCloud Identity · Customer / Item / Defect / Order / Outsourcing on D1 · WorkLog 遷移中</span>}
     >
       {moduleAccessError && route === "identity" ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-title">模組權限狀態</div><div className="cy-notice-body">{moduleAccessError}</div></div> : null}
       {content}

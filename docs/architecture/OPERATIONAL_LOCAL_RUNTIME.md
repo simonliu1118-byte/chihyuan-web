@@ -32,7 +32,7 @@ Current authority:
 | Customer | Worker protected HTTP API | development D1 |
 | Defect | Worker protected HTTP API | development D1 |
 | Sales Work Order | Worker protected HTTP API | development D1 |
-| Outsourcing | temporary local runtime | browser localStorage |
+| Outsourcing | Worker protected HTTP API | development D1 |
 | WorkLog | temporary local runtime | browser localStorage |
 | Settings/Audit operational preview | temporary local runtime where still used | browser localStorage |
 
@@ -43,6 +43,8 @@ The Customer operational page also no longer reads or mutates `local-database.ts
 The Defect operational page now also uses Worker/D1 for bounded list/detail, create/update, lifecycle transitions, invalidation and created-only delete. Customer / Item / owner picker data comes from a bounded `DEFECTS`-guarded lookup endpoint rather than the browser-local Customer/Item stores.
 
 The Sales Work Order route now uses Worker/D1 for bounded list/detail, draft create/update, ERP fill/correction and explicit fulfillment actions. Customer / Item / operator choices come from an `ORDERS`-guarded lookup projection; shipment reversal and draft-delete authority remain server-derived.
+
+The Outsourcing route now uses Worker/D1 for Contractor/BOM reads, movement-derived stock, pending-order create/update and the complete outbound/receipt/pricing/payment forward and reverse lifecycle. Item choices come from an `OUTSOURCING`-guarded projection and current actor is server-projected for operational mutations.
 
 **localStorage remains temporary** for the modules not yet migrated. A migrated module must not fall back to browser-local business authority when its Worker/API request fails.
 
@@ -103,7 +105,7 @@ The migration order is:
 5. deploy development and exercise authenticated multi-user behavior when browser acceptance is available;
 6. remove obsolete local projections only after remaining dependent modules no longer need them.
 
-Item, Customer, Defect and Sales Work Order are through step 4. Outsourcing is the next business-data transport candidate.
+Item, Customer, Defect, Sales Work Order and Outsourcing are through step 4. WorkLog is the final business-data transport candidate.
 
 ## Item transport boundary
 
@@ -160,6 +162,21 @@ Important consequences:
 - Shared Audit for ERP/lifecycle/correction/delete is produced by the server persistence path;
 - server/API failures do not trigger Order fallback writes to localStorage.
 
+## Outsourcing transport boundary
+
+Outsourcing uses canonical contracts from `shared/contractor-outsourcing.ts` plus the scoped Item projection in `shared/business-lookups.ts`.
+
+Important consequences:
+
+- Contractor, BOM, Outsourcing order and contractor-stock reads come from D1, never the browser-local dataset;
+- Item picker data is bounded under `OUTSOURCING` Module Access and carries allowed units needed by server validation;
+- current authenticated actor is used for current React create/receive/price operations rather than exposing arbitrary Employee selection;
+- pending facts are editable only before confirmed outbound; later correction/reversal uses dedicated audited actions;
+- contractor-held stock is derived from immutable/reversal-linked movements and the browser does not cache a second mutable balance;
+- receive/BOM consumption and Contractor Price calculation remain exact server-side fixed-point operations;
+- hard delete, outbound correction and outbound cancellation capabilities remain server-derived;
+- server/API failures do not trigger Contractor/BOM/Outsourcing/stock fallback writes to localStorage.
+
 ## Shared Identity / authorization boundary
 
 Protected business operation requires:
@@ -175,16 +192,16 @@ See the synchronized CYID consumer package under `docs/contracts/cyid/` and the 
 
 ## Browser-test package
 
-`npm run build:operational` remains useful as a compilation/testing artifact, but after the first module cutover it is **not** a complete offline/local product runtime: Item, Customer, Defect and Sales Work Order require their same-origin Worker APIs.
+`npm run build:operational` remains useful as a compilation/testing artifact, but after the first module cutover it is **not** a complete offline/local product runtime: Item, Customer, Defect, Sales Work Order and Outsourcing require their same-origin Worker APIs.
 
-A standalone static artifact must not emulate migrated Item, Customer, Defect or Sales Work Order writes in localStorage just to make the screen appear functional.
+A standalone static artifact must not emulate migrated Item, Customer, Defect, Sales Work Order or Outsourcing writes in localStorage just to make the screen appear functional.
 
 ## Runtime safety boundary
 
 During mixed transport:
 
 - local seed data is fictional development data;
-- Item, Customer, Defect and Sales Work Order development writes go only through the configured development Worker/D1;
+- Item, Customer, Defect, Sales Work Order and Outsourcing development writes go only through the configured development Worker/D1;
 - production D1 is not cut over by this development migration;
 - SMART ERP is not written;
 - Shared Identity is not bypassed on protected server routes;

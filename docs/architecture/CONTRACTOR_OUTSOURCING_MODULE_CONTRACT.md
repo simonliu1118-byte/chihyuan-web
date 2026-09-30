@@ -1,6 +1,6 @@
 # CY Web Contractor / BOM / Outsourcing Module Contract
 
-> Status: staged service-foundation contract before protected HTTP wiring.
+> Status: active Contractor / BOM / Outsourcing domain/runtime contract; protected HTTP API and React Worker/D1 transport are implemented in development.
 >
 > Legacy GAS is workflow evidence only. Stock timing and correction behavior follow the confirmed CY Web Business Decisions rather than Legacy mutable-balance shortcuts.
 
@@ -18,7 +18,7 @@ This slice covers:
 - pricing and payment;
 - controlled reversal/correction paths.
 
-No protected HTTP route or production D1 binding is introduced by this foundation.
+Protected same-origin Worker routes now expose this domain in development behind current CYID Session + `OUTSOURCING` Module Access. Production cutover remains separate and explicitly approved.
 
 ## 2. Contractor
 
@@ -219,11 +219,17 @@ Formal SMART ERP rounding remains a later ERP-integration concern and is not inf
 
 ## 15. Runtime gate
 
-This foundation remains behind the existing gates:
+The integrated `#outsourcing` React route now uses the protected Worker/D1 path.
 
-- Shared Identity browser session/provider;
-- local/dev D1 migration acceptance;
-- Worker build/typecheck/smoke acceptance;
-- protected route/module permission mapping.
+Runtime rules:
 
-No production Worker/D1/DNS/R2/GCS resource is changed here.
+- every Contractor / BOM / stock / Outsourcing request resolves the current CYID Session and requires current `OUTSOURCING` Module Access before lookup or domain-service access;
+- Item picker data comes from bounded `/api/business/outsourcing/lookups` projections under the same authority and includes allowed units;
+- the current authenticated actor is used as the current React order/receipt/pricing operator;
+- pending edit and all later correction/reversal actions send the current D1 revision;
+- hard-delete, outbound-correction and outbound-cancellation capabilities are derived server-side from current Workspace authority;
+- contractor stock remains movement-derived; no browser-local mutable balance is used as authority;
+- React does not fall back to browser-local Contractor/BOM/Outsourcing/stock writes when the API fails;
+- development writes target development Worker/D1 only; production cutover remains a separate explicitly approved operation.
+
+No production Worker/D1/DNS/R2/GCS resource is changed by this development transport cutover.

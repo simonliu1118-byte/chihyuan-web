@@ -28,6 +28,8 @@ def main() -> int:
     defect_client = read("src/runtime/api/defect-runtime-client.ts")
     order = read("src/runtime/modules/SalesOrderOperationalPage.tsx")
     order_client = read("src/runtime/api/sales-order-runtime-client.ts")
+    outsourcing = read("src/runtime/modules/OutsourcingOperationalPage.tsx")
+    outsourcing_client = read("src/runtime/api/outsourcing-runtime-client.ts")
     doc = read("docs/architecture/OPERATIONAL_LOCAL_RUNTIME.md")
 
     for token in ["#customers", "#items", "#defects", "#orders", "#outsourcing", "#worklogs", "#settings", "#audit"]:
@@ -54,11 +56,9 @@ def main() -> int:
             raise AssertionError(f"missing advanced local runtime contract: {token}")
 
     for token in [
-        "OutsourcingPage",
         "WorkLogPage",
         "SettingsPage",
         "AuditPage",
-        "確認出庫",
         "審核計分",
     ]:
         if token not in workspace:
@@ -221,6 +221,52 @@ def main() -> int:
         if token not in order_client:
             raise AssertionError(f"missing Sales Order Worker API transport contract: {token}")
 
+
+    for token in [
+        "loadOutsourcingLookups",
+        "searchContractors",
+        "searchBoms",
+        "loadContractorStock",
+        "searchOutsourcingOrders",
+        "createOutsourcingOrder",
+        "confirmOutsourcingOutbound",
+        "receiveOutsourcing",
+        "priceOutsourcing",
+        "markOutsourcingPaid",
+        "Worker / D1",
+    ]:
+        if token not in outsourcing:
+            raise AssertionError(f"missing D1 Outsourcing operational behavior: {token}")
+
+    for forbidden in [
+        "useLocalDatabase",
+        "mutateLocalDatabase",
+        "../local-database",
+        "LocalOutsourcingOrder",
+        "stockMovements",
+        "nextLocalId",
+        "timestampNow",
+    ]:
+        if forbidden in outsourcing:
+            raise AssertionError(f"Outsourcing page must not retain localStorage authority: {forbidden}")
+
+    for token in [
+        "/api/business/outsourcing",
+        "/lookups",
+        "/contractors",
+        "/boms",
+        "/stock",
+        "/orders",
+        "confirm-outbound",
+        "receive",
+        "price",
+        "paid",
+        "cancel-payment",
+        "apiRequest",
+    ]:
+        if token not in outsourcing_client:
+            raise AssertionError(f"missing Outsourcing Worker API transport contract: {token}")
+
     normalized_doc = doc.lower()
     for token in [
         "mixed transport",
@@ -232,7 +278,7 @@ def main() -> int:
         if token not in normalized_doc:
             raise AssertionError(f"missing operational-runtime contract: {token}")
 
-    print("PASS mixed operational runtime source contracts (Item + Customer + Defect + Order Worker/D1 authority)")
+    print("PASS mixed operational runtime source contracts (Item + Customer + Defect + Order + Outsourcing Worker/D1 authority)")
     return 0
 
 
