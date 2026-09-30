@@ -463,3 +463,33 @@ Browser requirements:
 - API failure never falls back to `localStorage` Defect writes.
 
 Legacy `LocalDefect` fixtures may remain temporarily only where not-yet-migrated browser-local modules still need fictional development relationships. Their presence does not make Defect-module data browser-authoritative.
+
+## 18. React transport cutover — Sales Work Order
+
+Sales Work Order is the fourth business React page whose forward data authority is Worker API → D1 rather than the temporary browser-local runtime.
+
+The Order page uses:
+
+- `GET /api/business/orders/lookups` for bounded Customer / Item / operator projections under `ORDERS` Module Access;
+- `GET /api/business/orders` and `GET /api/business/orders/:orderId`;
+- `POST /api/business/orders` and `PATCH /api/business/orders/:orderId`;
+- `POST /api/business/orders/:orderId/erp` for ERP fill/correction;
+- `POST /api/business/orders/:orderId/waiting-stock`;
+- `POST /api/business/orders/:orderId/picked`;
+- `POST /api/business/orders/:orderId/shipped`;
+- `POST /api/business/orders/:orderId/reverse-shipment`;
+- `POST /api/business/orders/:orderId/void`;
+- `DELETE /api/business/orders/:orderId` for the existing server-authorized draft-delete rule.
+
+Browser requirements:
+
+- Customer / Item / operator choices come from the `ORDERS`-guarded lookup projection and do not require separate `CUSTOMERS` or `ITEMS` Module Access;
+- selected Item options include the base unit plus allowed conversion units needed for line validation;
+- quantities and unit prices stay decimal strings across the browser/API boundary;
+- draft update, ERP fill/correction, lifecycle actions and delete carry the current D1 `revision`;
+- first ERP fill and later ERP correction use the dedicated action; ordinary draft PATCH never mutates ERP relationship state;
+- shipment reversal and hard-delete authority remain server-derived from the current principal; browser button visibility is not authorization;
+- workflow state changes use explicit server actions rather than a generic client-side status setter;
+- API failure never falls back to `localStorage` Sales Work Order writes.
+
+Legacy `LocalSalesOrder` fixtures may remain temporarily only because the not-yet-migrated local runtime is still being dismantled module by module. The active `#orders` route does not use those fixtures as authority.
