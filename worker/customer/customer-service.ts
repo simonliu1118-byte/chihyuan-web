@@ -1,4 +1,5 @@
 import type {
+  CustomerDeletionEligibility,
   CustomerDetail,
   CustomerListResult,
   CustomerSearchQuery,
@@ -18,7 +19,9 @@ import {
   type CustomerReferenceIds,
 } from "./customer-repository";
 import {
+  normalizeChangeCustomerNumberRequest,
   normalizeCreateCustomerRequest,
+  normalizeDeleteCustomerRequest,
   normalizeUpdateCustomerRequest,
   type NormalizedCreateCustomerRequest,
   type NormalizedCustomerProfile,
@@ -30,12 +33,15 @@ export type CustomerServiceErrorCode =
   | "CUSTOMER_REVISION_CONFLICT"
   | "CUSTOMER_NO_CONFLICT"
   | "CUSTOMER_NO_CONTROLLED_ACTION_REQUIRED"
+  | "CUSTOMER_NUMBER_CHANGE_NOT_ALLOWED"
+  | "CUSTOMER_DELETE_NOT_ALLOWED"
+  | "CUSTOMER_REFERENCED_DELETE_NOT_ALLOWED"
   | "DUPLICATE_TAX_ID_CONFIRM_REQUIRED";
 
 export class CustomerServiceError extends Error {
   constructor(
     readonly code: CustomerServiceErrorCode,
-    readonly status: 404 | 409 | 422,
+    readonly status: 403 | 404 | 409 | 422,
     message: string,
     readonly matches: readonly CustomerTaxIdMatch[] = [],
   ) {
@@ -122,6 +128,120 @@ export class CustomerService {
       throw new CustomerServiceError("CUSTOMER_NOT_FOUND", 404, "Customer not found");
     }
     return customer;
+  }
+
+  async deletionEligibility(customerId: number): Promise<CustomerDeletionEligibility> {
+    const id = normalizeCustomerId(customerId);
+    const current = await this.repository.getRecordVersion(id);
+    if (!current) throw new CustomerServiceError("CUSTOMER_NOT_FOUND", 404, "Customer not found");
+    const referenced = await this.repository.hasExternalBusinessReferences(id);
+    return {
+      deletable: !referenced,
+      reason: referenced ? "REFERENCED_BUSINESS_HISTORY" : "NEVER_USED",
+    };
+  }
+
+  async changeCustomerNumber(
+    customerId: number,
+    raw: unknown,
+    context: CustomerMutationContext,
+  ): Promise<CustomerDetail> {
+    if (context.allowControlledNumberChange !== true) {
+      throw new CustomerServiceError(
+        "CUSTOMER_NUMBER_CHANGE_NOT_ALLOWED",
+        403,
+        "Customer number change requires module administration authority",
+      );
+    }
+
+    const id = normalizeCustomerId(customerId);
+    const input = normalizeChangeCustomerNumberRequest(raw);
+    const current = await this.repository.getRecordVersion(id);
+    if (!current) throw new CustomerServiceError("CUSTOMER_NOT_FOUND", 404, "Customer not found");
+
+    if (current.revision !== input.expectedRevision) {
+      throw new CustomerServiceError(
+        "CUSTOMER_REVISION_CONFLICT",
+        409,
+        "Customer has changed since it was loaded",
+      );
+    }
+    if (current.customerNo === input.newCustomerNo) {
+      throw new FieldValidationError({ newCustomerNo: "新客戶編號不可與目前編號相同" });
+    }
+    if (await this.repository.customerNumberExists(input.newCustomerNo, id)) {
+      throw new CustomerServiceError("CUSTOMER_NO_CONFLICT", 409, "Customer number already exists");
+    }
+
+    let changed: boolean;
+    try {
+      changed = await this.persistence.changeCustomerNumber(current, input, context);
+    } catch (error) {
+      if (isCustomerNumberConstraintError(error)) {
+        throw new CustomerServiceError("CUSTOMER_NO_CONFLICT", 409, "Customer number already exists");
+      }
+      throw error;
+    }
+    if (!changed) {
+      throw new CustomerServiceError(
+        "CUSTOMER_REVISION_CONFLICT",
+        409,
+        "Customer has changed since it was loaded",
+      );
+    }
+    return this.getDetail(id);
+  }
+
+  async deleteNeverUsed(
+    customerId: number,
+    raw: unknown,
+    context: CustomerMutationContext,
+  ): Promise<void> {
+    if (context.allowHardDelete !== true) {
+      throw new CustomerServiceError(
+        "CUSTOMER_DELETE_NOT_ALLOWED",
+        403,
+        "Customer hard delete requires module administration authority",
+      );
+    }
+
+    const id = normalizeCustomerId(customerId);
+    const input = normalizeDeleteCustomerRequest(raw);
+    const current = await this.repository.getRecordVersion(id);
+    if (!current) throw new CustomerServiceError("CUSTOMER_NOT_FOUND", 404, "Customer not found");
+
+    if (current.revision !== input.expectedRevision) {
+      throw new CustomerServiceError(
+        "CUSTOMER_REVISION_CONFLICT",
+        409,
+        "Customer has changed since it was loaded",
+      );
+    }
+    if (await this.repository.hasExternalBusinessReferences(id)) {
+      throw new CustomerServiceError(
+        "CUSTOMER_REFERENCED_DELETE_NOT_ALLOWED",
+        409,
+        "Referenced Customer cannot be hard-deleted",
+      );
+    }
+
+    const deleted = await this.persistence.deleteNeverUsed(current, context);
+    if (deleted) return;
+
+    const latest = await this.repository.getRecordVersion(id);
+    if (!latest) return;
+    if (await this.repository.hasExternalBusinessReferences(id)) {
+      throw new CustomerServiceError(
+        "CUSTOMER_REFERENCED_DELETE_NOT_ALLOWED",
+        409,
+        "Referenced Customer cannot be hard-deleted",
+      );
+    }
+    throw new CustomerServiceError(
+      "CUSTOMER_REVISION_CONFLICT",
+      409,
+      "Customer has changed since it was loaded",
+    );
   }
 
   async checkTaxId(
