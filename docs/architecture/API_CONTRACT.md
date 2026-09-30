@@ -213,3 +213,102 @@ Phase 1 does **not** yet move the React Customer / Item / Defect pages off local
 
 Order / Outsourcing / WorkLog protected routes follow this same boundary in the next API phase.
 
+## 13. Protected Business HTTP API — Phase 2
+
+CY Web 0.5 Phase 2 exposes the existing D1 domain services for Sales Work Order, Outsourcing and WorkLog through the same server-authoritative boundary used by Phase 1.
+
+Every route below resolves the current CYID session and requires the matching current CY Web Module Access **before** the domain service is constructed or touched.
+
+### Sales Work Order — `ORDERS`
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/business/orders` | bounded search/list |
+| POST | `/api/business/orders` | create draft order |
+| GET | `/api/business/orders/:orderId` | detail |
+| PATCH | `/api/business/orders/:orderId` | revision-gated draft update |
+| DELETE | `/api/business/orders/:orderId` | administrative hard delete under service rules |
+| POST | `/api/business/orders/:orderId/erp` | fill/correct ERP number |
+| POST | `/api/business/orders/:orderId/waiting-stock` | transition to waiting stock |
+| POST | `/api/business/orders/:orderId/picked` | mark picked |
+| POST | `/api/business/orders/:orderId/shipped` | mark shipped |
+| POST | `/api/business/orders/:orderId/reverse-shipment` | administrative shipment reversal |
+| POST | `/api/business/orders/:orderId/void` | void order under workflow rules |
+
+### Outsourcing — `OUTSOURCING`
+
+Contractor:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/business/outsourcing/contractors` | bounded contractor search/list |
+| POST | `/api/business/outsourcing/contractors` | create contractor |
+| GET | `/api/business/outsourcing/contractors/:contractorId` | detail |
+| PATCH | `/api/business/outsourcing/contractors/:contractorId` | revision-gated update |
+| DELETE | `/api/business/outsourcing/contractors/:contractorId` | administrative hard delete when never used |
+| PUT | `/api/business/outsourcing/contractors/:contractorId/prices` | set current contractor price |
+
+BOM / stock:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/business/outsourcing/boms` | bounded BOM search/list |
+| POST | `/api/business/outsourcing/boms` | create BOM |
+| GET | `/api/business/outsourcing/boms/:bomId` | detail |
+| PATCH | `/api/business/outsourcing/boms/:bomId` | revision-gated update |
+| GET | `/api/business/outsourcing/stock?contractorId=...` | contractor stock balances |
+
+Outsourcing order:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/business/outsourcing/orders` | bounded search/list |
+| POST | `/api/business/outsourcing/orders` | create pending order |
+| GET | `/api/business/outsourcing/orders/:orderId` | detail |
+| PATCH | `/api/business/outsourcing/orders/:orderId` | update pending order |
+| DELETE | `/api/business/outsourcing/orders/:orderId` | hard delete pending order under service rules |
+| POST | `.../:orderId/confirm-outbound` | confirm outbound |
+| POST | `.../:orderId/correct-outbound` | administrative outbound correction |
+| POST | `.../:orderId/cancel-outbound` | administrative outbound cancellation |
+| POST | `.../:orderId/receive` | receive returned goods |
+| POST | `.../:orderId/cancel-receipt` | cancel receipt |
+| POST | `.../:orderId/price` | price completed work |
+| POST | `.../:orderId/cancel-pricing` | cancel pricing |
+| POST | `.../:orderId/paid` | mark paid |
+| POST | `.../:orderId/cancel-payment` | cancel payment |
+
+### WorkLog — `WORKLOGS`
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/business/worklogs` | bounded search/list; ordinary users are scoped to self |
+| POST | `/api/business/worklogs` | create own WorkLog |
+| GET | `/api/business/worklogs/:workLogId` | detail under current access context |
+| PATCH | `/api/business/worklogs/:workLogId` | update own created WorkLog |
+| DELETE | `/api/business/worklogs/:workLogId` | owner/admin delete under service rules |
+| GET | `/api/business/worklogs/configuration` | active configuration; inactive values only for administration |
+| GET | `/api/business/worklogs/statistics` | statistics; ordinary users are scoped to self |
+| POST | `.../:workLogId/submit` | owner submits for review |
+| POST | `.../:workLogId/withdraw` | owner withdraws pending review |
+| POST | `.../:workLogId/review` | ADMIN / Super Admin review |
+| POST | `.../:workLogId/cancel-review` | ADMIN / Super Admin cancel review |
+
+### Server-derived authority
+
+- Order hard-delete and shipment-reversal capability comes from current Workspace Role.
+- Outsourcing hard-delete / outbound-correction / outbound-cancellation capability comes from current Workspace Role.
+- WorkLog cross-employee read, review and administrative-delete capability comes from current Workspace Role.
+- The browser cannot submit or elevate these permission flags.
+- Mutation actor is always the authorized CY Web member projection returned by the Module Access guard.
+
+Normal module users retain the workflow actions permitted by the domain service. ADMIN with the matching Module Access receives the module-level administrative actions defined by current CY Web rules; Super Admin remains implicit all-module.
+
+### Reference generation
+
+The current canonical data model requires unique order/work-log references but does not yet define a final human business-number format for Sales Work Order, Outsourcing Order or WorkLog.
+
+Phase 2 therefore generates bounded unique internal references from Worker-side cryptographic UUID material. It **does not** promote preview strings such as `PREVIEW-*` or invent an ERP/business numbering policy.
+
+If a later product decision defines a formal numbering sequence, the reference-provider interface is the replacement boundary; API authorization and domain workflow do not need to change.
+
+Phase 2 still does not switch React business pages away from localStorage. Frontend transport migration is the next stage after all six business modules have protected Worker/D1 APIs.
