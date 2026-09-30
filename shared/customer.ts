@@ -126,6 +126,12 @@ export interface UpdateCustomerRequest extends CustomerProfileInput {
   expectedRevision: number;
 }
 
+export interface ChangeCustomerNumberRequest {
+  newCustomerNo: string | null;
+  expectedRevision: number;
+  changeReason?: string | null;
+}
+
 export interface CustomerSearchQuery {
   q?: string;
   customerCategoryId?: number;
