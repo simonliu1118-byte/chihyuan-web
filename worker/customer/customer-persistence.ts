@@ -1,4 +1,6 @@
+import { AuditService } from "../audit/audit-service";
 import type {
+  NormalizedChangeCustomerNumberRequest,
   NormalizedCreateCustomerRequest,
   NormalizedUpdateCustomerRequest,
 } from "./customer-validation";
@@ -10,6 +12,7 @@ import {
 export interface CustomerMutationContext {
   actorMemberId: number;
   now: string;
+  requestId?: string | null;
 }
 
 function assertMutationContext(context: CustomerMutationContext): void {
@@ -22,7 +25,11 @@ function assertMutationContext(context: CustomerMutationContext): void {
 }
 
 export class CustomerPersistence {
-  constructor(private readonly db: D1Database) {}
+  private readonly audit: AuditService;
+
+  constructor(private readonly db: D1Database) {
+    this.audit = new AuditService(db);
+  }
 
   async create(
     input: NormalizedCreateCustomerRequest,
@@ -70,6 +77,49 @@ export class CustomerPersistence {
       throw new Error("CUSTOMER_CREATE_ID_UNAVAILABLE");
     }
     return customerId;
+  }
+
+  async changeCustomerNumber(
+    customerId: number,
+    previousCustomerNo: string | null,
+    input: NormalizedChangeCustomerNumberRequest,
+    context: CustomerMutationContext,
+  ): Promise<boolean> {
+    assertMutationContext(context);
+    const nextRevision = input.expectedRevision + 1;
+    const statements: D1PreparedStatement[] = [
+      this.db.prepare(`
+        UPDATE customers
+           SET customer_no = ?1,
+               updated_at = ?2,
+               updated_by = ?3,
+               revision = revision + 1
+         WHERE id = ?4
+           AND revision = ?5
+      `).bind(
+        input.newCustomerNo,
+        context.now,
+        context.actorMemberId,
+        customerId,
+        input.expectedRevision,
+      ),
+      this.audit.prepareRecord({
+        entityType: "customer",
+        entityKey: String(customerId),
+        action: "customer.number.changed",
+        actorEmployeeId: context.actorMemberId,
+        occurredAt: context.now,
+        requestId: context.requestId,
+        before: { customerNo: previousCustomerNo },
+        after: { customerNo: input.newCustomerNo },
+        metadata: input.changeReason ? { changeReason: input.changeReason } : null,
+      }, {
+        sql: "EXISTS (SELECT 1 FROM customers WHERE id = ? AND revision = ?)",
+        values: [customerId, nextRevision],
+      }),
+    ];
+    const results = await this.db.batch(statements);
+    return Number(results[0]?.meta?.changes ?? 0) === 1;
   }
 
   async update(
