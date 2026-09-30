@@ -23,6 +23,7 @@ def main() -> int:
     customer = read("src/runtime/modules/CustomerOperationalPage.tsx")
     item = read("src/runtime/modules/ItemOperationalPage.tsx")
     item_client = read("src/runtime/api/item-runtime-client.ts")
+    customer_client = read("src/runtime/api/customer-runtime-client.ts")
     defect = read("src/runtime/modules/DefectOperationalPage.tsx")
     doc = read("docs/architecture/OPERATIONAL_LOCAL_RUNTIME.md")
 
@@ -66,13 +67,39 @@ def main() -> int:
         "新增拜訪",
         "修正紀錄",
         "常用商品",
-        "customer.number.changed",
-        "customer.visit.deleted",
-        "duplicateTax",
-        "cy-customer-action-stack",
+        "changeCustomerNumber",
+        "checkCustomerTaxId",
+        "createCustomerVisit",
+        "createCustomerQuote",
+        "createCustomerFrequentItem",
+        "Worker / D1",
     ]:
         if token not in customer:
-            raise AssertionError(f"missing full Customer operational behavior: {token}")
+            raise AssertionError(f"missing D1 Customer operational behavior: {token}")
+
+    for forbidden in [
+        "useLocalDatabase",
+        "mutateLocalDatabase",
+        "../local-database",
+        "nextLocalId",
+        "timestampNow",
+    ]:
+        if forbidden in customer:
+            raise AssertionError(f"Customer operational page must not retain localStorage authority: {forbidden}")
+
+    for token in [
+        "/api/business/customers",
+        "/api/business/customers/lookups",
+        "/item-options",
+        "/tax-id-check",
+        "/number",
+        "/visits",
+        "/quotes",
+        "/frequent-items",
+        "apiRequest",
+    ]:
+        if token not in customer_client:
+            raise AssertionError(f"missing Customer Worker API transport contract: {token}")
 
     for token in [
         "validateConversions",
@@ -133,7 +160,7 @@ def main() -> int:
         if token not in normalized_doc:
             raise AssertionError(f"missing operational-runtime contract: {token}")
 
-    print("PASS mixed operational runtime source contracts")
+    print("PASS mixed operational runtime source contracts (Item + Customer Worker/D1 authority)")
     return 0
 
 
