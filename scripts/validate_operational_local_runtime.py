@@ -170,10 +170,10 @@ def main() -> int:
     for token in [
         "/api/business/defects",
         "/lookups",
-        "/start-processing",
-        "/resolve",
-        "/reopen",
-        "/invalidate",
+        "start-processing",
+        "resolve",
+        "reopen",
+        "invalidate",
         "apiRequest",
     ]:
         if token not in defect_client:
