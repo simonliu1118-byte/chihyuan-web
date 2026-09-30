@@ -30,12 +30,16 @@ export function loadDefectLookups(selected: {
   customerId?: number | null;
   itemId?: number | null;
   ownerId?: number | null;
+  customerQuery?: string;
+  itemQuery?: string;
   limit?: number;
 } = {}): Promise<DefectModuleLookups> {
   const params=new URLSearchParams();
   if(selected.customerId!=null) params.set("customerId",String(selected.customerId));
   if(selected.itemId!=null) params.set("itemId",String(selected.itemId));
   if(selected.ownerId!=null) params.set("ownerId",String(selected.ownerId));
+  if(selected.customerQuery?.trim()) params.set("customerQ",selected.customerQuery.trim());
+  if(selected.itemQuery?.trim()) params.set("itemQ",selected.itemQuery.trim());
   params.set("limit",String(selected.limit ?? 100));
   return apiRequest<DefectModuleLookups>(`/api/business/defects/lookups?${params.toString()}`,{method:"GET"});
 }
