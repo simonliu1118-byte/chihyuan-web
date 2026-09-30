@@ -53,3 +53,32 @@ export interface DefectModuleLookups {
   items: readonly DefectItemOption[];
   owners: readonly DefectOwnerOption[];
 }
+
+export interface SalesWorkOrderCustomerOption {
+  id: number;
+  customerNo: string | null;
+  shortName: string;
+}
+
+export interface SalesWorkOrderItemOption {
+  id: number;
+  itemNo: string;
+  name: string;
+  spec: string | null;
+  baseUnit: string;
+  allowedUnits: readonly string[];
+  isActive: boolean;
+}
+
+export interface SalesWorkOrderOperatorOption {
+  id: number;
+  employeeNo: string | null;
+  isActive: boolean;
+}
+
+export interface SalesWorkOrderModuleLookups {
+  actor: BusinessActorRef;
+  customers: readonly SalesWorkOrderCustomerOption[];
+  items: readonly SalesWorkOrderItemOption[];
+  operators: readonly SalesWorkOrderOperatorOption[];
+}
