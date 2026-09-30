@@ -1,14 +1,26 @@
 import type {
+  ChangeCustomerNumberRequest,
   CreateCustomerRequest,
   CustomerAddressInput,
   CustomerContactInput,
   CustomerNoteInput,
   CustomerPhoneInput,
+  DeleteCustomerRequest,
   UpdateCustomerRequest,
 } from "../../shared/customer";
 import { FieldValidationError, ValidationBag } from "../validation/fields";
 
 const MAX_PROFILE_ROWS = 50;
+
+export interface NormalizedChangeCustomerNumberRequest {
+  newCustomerNo: string;
+  expectedRevision: number;
+  changeSource: string | null;
+}
+
+export interface NormalizedDeleteCustomerRequest {
+  expectedRevision: number;
+}
 
 export interface NormalizedCustomerProfile {
   customerNo: string | null;
@@ -272,4 +284,26 @@ export function normalizeUpdateCustomerRequest(raw: unknown): NormalizedUpdateCu
   const expectedRevision = bag.requiredPositiveInteger("expectedRevision");
   bag.throwIfInvalid();
   return { ...normalized, expectedRevision: expectedRevision ?? 0 };
+}
+
+export function normalizeChangeCustomerNumberRequest(raw: unknown): NormalizedChangeCustomerNumberRequest {
+  const input = asObject(raw as ChangeCustomerNumberRequest);
+  const bag = new ValidationBag(input);
+  const newCustomerNo = bag.requiredText("newCustomerNo", { maxLength: 64 }) ?? "";
+  const expectedRevision = bag.requiredPositiveInteger("expectedRevision");
+  const changeSource = bag.optionalText("changeSource", { maxLength: 240 });
+  bag.throwIfInvalid();
+  return {
+    newCustomerNo,
+    expectedRevision: expectedRevision ?? 0,
+    changeSource,
+  };
+}
+
+export function normalizeDeleteCustomerRequest(raw: unknown): NormalizedDeleteCustomerRequest {
+  const input = asObject(raw as DeleteCustomerRequest);
+  const bag = new ValidationBag(input);
+  const expectedRevision = bag.requiredPositiveInteger("expectedRevision");
+  bag.throwIfInvalid();
+  return { expectedRevision: expectedRevision ?? 0 };
 }
