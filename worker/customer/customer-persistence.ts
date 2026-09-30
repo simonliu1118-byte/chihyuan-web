@@ -14,6 +14,8 @@ export interface CustomerMutationContext {
   actorMemberId: number;
   now: string;
   requestId?: string | null;
+  allowControlledNumberChange?: boolean;
+  allowHardDelete?: boolean;
 }
 
 function assertMutationContext(context: CustomerMutationContext): void {
