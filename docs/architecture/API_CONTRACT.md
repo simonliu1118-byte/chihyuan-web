@@ -190,6 +190,7 @@ Every route below resolves the current CYID session and requires the matching **
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/api/business/defects` | bounded search/list |
+| GET | `/api/business/defects/lookups` | bounded Customer / Item / owner picker data under DEFECTS authority |
 | POST | `/api/business/defects` | create Defect report |
 | GET | `/api/business/defects/:defectId` | detail |
 | PATCH | `/api/business/defects/:defectId` | revision-gated edit |
@@ -436,3 +437,29 @@ Browser requirements:
 - Shared Audit remains the durable mutation history; until a dedicated Audit read UI is added, the Customer page must not fabricate an activity history from local browser state.
 
 Legacy Customer fixture types may remain temporarily because not-yet-migrated modules can still reference Customer IDs in their browser-local fixtures. Their presence does not make Customer-module data browser-authoritative.
+
+## 17. React transport cutover — Defect
+
+Defect is the third business React page whose forward data authority is Worker API → D1 rather than the temporary browser-local runtime.
+
+The Defect page uses:
+
+- `GET /api/business/defects/lookups`;
+- `GET /api/business/defects`;
+- `GET /api/business/defects/:defectId`;
+- `POST /api/business/defects`;
+- `PATCH /api/business/defects/:defectId`;
+- explicit lifecycle endpoints for start-processing / resolve / reopen / invalidate;
+- `DELETE /api/business/defects/:defectId` for the existing created-only service rule.
+
+Browser requirements:
+
+- Customer / Item / owner choices use bounded server projections under `DEFECTS` Module Access; the page does not read Customer or Item browser-local stores as authority;
+- create/update send canonical IDs and current `revision` values supplied by D1;
+- status is never a freely editable client field; lifecycle changes use the dedicated server actions;
+- invalidation remains a durable overlay, not a fourth workflow status;
+- hard-delete eligibility and administrative authority remain server-derived;
+- stale writes surface Worker conflict responses instead of silently overwriting newer state;
+- API failure never falls back to `localStorage` Defect writes.
+
+Legacy `LocalDefect` fixtures may remain temporarily only where not-yet-migrated browser-local modules still need fictional development relationships. Their presence does not make Defect-module data browser-authoritative.

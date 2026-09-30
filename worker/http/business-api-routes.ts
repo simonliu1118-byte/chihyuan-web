@@ -375,6 +375,7 @@ async function handleDefects(
   const guarded = await requireBusinessModule(request, env, requestId, "DEFECTS");
   if (isGuardedResponse(guarded)) return guarded.response;
   const service = new DefectService(env.DB);
+  const lookups = new BusinessLookupService(env.DB);
   const context = {
     actorMemberId: guarded.gate.member.id,
     now: new Date().toISOString(),
@@ -385,6 +386,17 @@ async function handleDefects(
   if (url.pathname === "/api/business/defects") {
     if (request.method === "GET") return success(await service.search(defectSearch(url)), requestId);
     if (request.method === "POST") return success(await service.create(await jsonBody(request), context), requestId, { status: 201 });
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/business/defects/lookups") {
+    return success(await lookups.defectLookups(actorRef(guarded.gate), {
+      customerId: positiveInteger(url.searchParams.get("customerId"), "customerId"),
+      itemId: positiveInteger(url.searchParams.get("itemId"), "itemId"),
+      ownerId: positiveInteger(url.searchParams.get("ownerId"), "ownerId"),
+      customerQuery: url.searchParams.get("customerQ")?.trim() ?? "",
+      itemQuery: url.searchParams.get("itemQ")?.trim() ?? "",
+      limit: boundedLimit(url.searchParams.get("limit")) ?? 100,
+    }), requestId);
   }
 
   let match = /^\/api\/business\/defects\/(\d+)\/(start-processing|resolve|reopen|invalidate)$/.exec(url.pathname);

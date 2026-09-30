@@ -1,6 +1,6 @@
 # CY Web Defect Module Contract
 
-> Status: service/lifecycle contract staged before protected HTTP route wiring and integrated Item UI review.
+> Status: active Defect domain/runtime contract; protected HTTP API and React Worker/D1 transport are implemented in development.
 
 ## 1. Scope
 
@@ -143,4 +143,12 @@ Do not duplicate Defect business logic for each presentation context.
 
 ## 10. Runtime boundary
 
-This service foundation does not expose unauthenticated or production Defect HTTP routes and does not write production D1. Protected route wiring still waits for Shared Identity browser-session support plus local/dev Worker+D1 acceptance.
+Defect now uses the protected same-origin Worker API in the integrated React application.
+
+Runtime rules:
+
+- every Defect request resolves the current CYID Session and requires current `DEFECTS` Module Access before domain-service access;
+- Customer / Item / owner pickers come from the bounded `/api/business/defects/lookups` projection under the same `DEFECTS` authority; the browser does not use Customer/Item localStorage as Defect authority;
+- mutation actor and administrative-delete capability are server-derived;
+- React does not fall back to browser-local Defect writes when the API fails;
+- development writes target development Worker/D1 only; production cutover remains a separate explicitly approved operation.

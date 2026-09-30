@@ -2,6 +2,7 @@ import type {
   BusinessActorRef,
   CustomerItemOption,
   CustomerModuleLookups,
+  DefectModuleLookups,
   ItemModuleLookups,
 } from "../../shared/business-lookups";
 import type { LookupSetting } from "../../shared/settings";
@@ -79,6 +80,86 @@ export class BusinessLookupService {
       spec: row.spec,
       baseUnit: row.base_unit,
     }));
+  }
+
+  async defectLookups(
+    actor: BusinessActorRef,
+    selected: {
+      customerId?: number | null;
+      itemId?: number | null;
+      ownerId?: number | null;
+      customerQuery?: string;
+      itemQuery?: string;
+      limit?: number;
+    },
+  ): Promise<DefectModuleLookups> {
+    const limit = Math.max(1, Math.min(Math.trunc(selected.limit ?? 100), 100));
+    const customerId = selected.customerId ?? -1;
+    const itemId = selected.itemId ?? -1;
+    const ownerId = selected.ownerId ?? -1;
+    const customerQuery = selected.customerQuery?.trim() ?? "";
+    const itemQuery = selected.itemQuery?.trim() ?? "";
+    const customerLike = `%${customerQuery.replace(/[\\%_]/g, (match) => `\\${match}`)}%`;
+    const itemLike = `%${itemQuery.replace(/[\\%_]/g, (match) => `\\${match}`)}%`;
+    const results = await this.db.batch([
+      this.db.prepare(`
+        SELECT id, customer_no, short_name
+          FROM customers
+         WHERE ?1 = ''
+            OR id = ?2
+            OR COALESCE(customer_no, '') LIKE ?3 ESCAPE '\\'
+            OR short_name LIKE ?3 ESCAPE '\\'
+         ORDER BY CASE WHEN id = ?2 THEN 0 ELSE 1 END, short_name, id
+         LIMIT ?4
+      `).bind(customerQuery, customerId, customerLike, limit),
+      this.db.prepare(`
+        SELECT id, item_no, name, spec, is_active
+          FROM items
+         WHERE (is_active = 1 OR id = ?2)
+           AND (
+             ?1 = ''
+             OR id = ?2
+             OR item_no LIKE ?3 ESCAPE '\\'
+             OR name LIKE ?3 ESCAPE '\\'
+             OR COALESCE(spec, '') LIKE ?3 ESCAPE '\\'
+           )
+         ORDER BY CASE WHEN id = ?2 THEN 0 ELSE 1 END, item_no, id
+         LIMIT ?4
+      `).bind(itemQuery, itemId, itemLike, limit),
+      this.db.prepare(`
+        SELECT id, employee_no, is_active
+          FROM app_members
+         WHERE is_active = 1 OR id = ?1
+         ORDER BY CASE WHEN id = ?1 THEN 0 ELSE 1 END, COALESCE(employee_no, ''), id
+         LIMIT ?2
+      `).bind(ownerId, limit),
+    ]);
+    return {
+      actor,
+      customers: ((results[0]?.results ?? []) as {
+        id: number; customer_no: string | null; short_name: string;
+      }[]).map((row) => ({
+        id: row.id,
+        customerNo: row.customer_no,
+        shortName: row.short_name,
+      })),
+      items: ((results[1]?.results ?? []) as {
+        id: number; item_no: string; name: string; spec: string | null; is_active: number;
+      }[]).map((row) => ({
+        id: row.id,
+        itemNo: row.item_no,
+        name: row.name,
+        spec: row.spec,
+        isActive: row.is_active === 1,
+      })),
+      owners: ((results[2]?.results ?? []) as {
+        id: number; employee_no: string | null; is_active: number;
+      }[]).map((row) => ({
+        id: row.id,
+        employeeNo: row.employee_no,
+        isActive: row.is_active === 1,
+      })),
+    };
   }
 
   async itemLookups(actor: BusinessActorRef): Promise<ItemModuleLookups> {

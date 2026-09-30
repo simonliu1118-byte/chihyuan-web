@@ -46,6 +46,7 @@ def main() -> int:
     assert_guard_before_service(routes, "handleItems", "ITEMS", "ItemService")
     assert_guard_before_service(routes, "handleItems", "ITEMS", "BusinessLookupService")
     assert_guard_before_service(routes, "handleDefects", "DEFECTS", "DefectService")
+    assert_guard_before_service(routes, "handleDefects", "DEFECTS", "BusinessLookupService")
     assert_guard_before_service(phase2, "handleOrders", "ORDERS", "SalesWorkOrderService")
     assert_guard_before_service(phase2, "handleOutsourcing", "OUTSOURCING", "ContractorService")
     assert_guard_before_service(phase2, "handleWorkLogs", "WORKLOGS", "WorkLogService")
@@ -69,6 +70,7 @@ def main() -> int:
     for token in (
         "CustomerModuleLookups",
         "CustomerItemOption",
+        "DefectModuleLookups",
         "ItemModuleLookups",
         "BusinessActorRef",
     ):
@@ -78,6 +80,7 @@ def main() -> int:
     for token in (
         "customerLookups",
         "customerItemOptions",
+        "defectLookups",
         "itemLookups",
         "FROM departments",
         "FROM customer_categories",
@@ -120,6 +123,7 @@ def main() -> int:
         "/api/business/items",
         "/api/business/items/lookups",
         "/api/business/defects",
+        "/api/business/defects/lookups",
     ):
         if endpoint not in routes:
             raise AssertionError(f"phase 1 business HTTP route missing: {endpoint}")
