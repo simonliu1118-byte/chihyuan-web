@@ -35,6 +35,8 @@ def assert_guard_before_service(source: str, handler: str, module: str, service:
 def main() -> int:
     routes = read("worker/http/business-api-routes.ts")
     phase2 = read("worker/http/business-api-phase2-routes.ts")
+    lookup_contract = read("shared/business-lookups.ts")
+    lookup_service = read("worker/reference/business-lookup-service.ts")
     index = read("worker/index.ts")
     api_doc = read("docs/architecture/API_CONTRACT.md")
 
@@ -63,6 +65,30 @@ def main() -> int:
     ):
         if token not in routes:
             raise AssertionError(f"phase 1 business HTTP boundary missing: {token}")
+
+    for token in (
+        "CustomerModuleLookups",
+        "ItemModuleLookups",
+        "BusinessActorRef",
+    ):
+        if token not in lookup_contract:
+            raise AssertionError(f"business lookup contract missing: {token}")
+
+    for token in (
+        "customerLookups",
+        "itemLookups",
+        "FROM departments",
+        "FROM customer_categories",
+        "FROM customer_statuses",
+        "FROM regions",
+        "FROM item_categories",
+    ):
+        if token not in lookup_service:
+            raise AssertionError(f"business lookup service missing: {token}")
+
+    for forbidden in ("app_tags", "work_log_scoring", "work_log_categories", "work_log_platforms"):
+        if forbidden in lookup_service:
+            raise AssertionError(f"business lookup service exposes unrelated settings source: {forbidden}")
 
     for token in (
         "requireModuleAccess",
