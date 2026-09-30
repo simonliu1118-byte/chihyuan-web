@@ -26,6 +26,8 @@ def main() -> int:
     customer_client = read("src/runtime/api/customer-runtime-client.ts")
     defect = read("src/runtime/modules/DefectOperationalPage.tsx")
     defect_client = read("src/runtime/api/defect-runtime-client.ts")
+    order = read("src/runtime/modules/SalesOrderOperationalPage.tsx")
+    order_client = read("src/runtime/api/sales-order-runtime-client.ts")
     doc = read("docs/architecture/OPERATIONAL_LOCAL_RUNTIME.md")
 
     for token in ["#customers", "#items", "#defects", "#orders", "#outsourcing", "#worklogs", "#settings", "#audit"]:
@@ -52,12 +54,10 @@ def main() -> int:
             raise AssertionError(f"missing advanced local runtime contract: {token}")
 
     for token in [
-        "SalesOrderPage",
         "OutsourcingPage",
         "WorkLogPage",
         "SettingsPage",
         "AuditPage",
-        "ERP 回填",
         "確認出庫",
         "審核計分",
     ]:
@@ -179,6 +179,48 @@ def main() -> int:
         if token not in defect_client:
             raise AssertionError(f"missing Defect Worker API transport contract: {token}")
 
+
+    for token in [
+        "loadSalesOrderLookups",
+        "searchSalesOrders",
+        "loadSalesOrderDetail",
+        "createSalesOrder",
+        "updateSalesOrder",
+        "fillOrCorrectSalesOrderErp",
+        "markSalesOrderPicked",
+        "markSalesOrderShipped",
+        "reverseSalesOrderShipment",
+        "deleteSalesOrderDraft",
+        "Worker / D1",
+    ]:
+        if token not in order:
+            raise AssertionError(f"missing D1 Sales Order operational behavior: {token}")
+
+    for forbidden in [
+        "useLocalDatabase",
+        "mutateLocalDatabase",
+        "../local-database",
+        "LocalSalesOrder",
+        "nextLocalId",
+        "timestampNow",
+    ]:
+        if forbidden in order:
+            raise AssertionError(f"Sales Order operational page must not retain localStorage authority: {forbidden}")
+
+    for token in [
+        "/api/business/orders",
+        "/lookups",
+        "/erp",
+        "waiting-stock",
+        "picked",
+        "shipped",
+        "reverse-shipment",
+        "void",
+        "apiRequest",
+    ]:
+        if token not in order_client:
+            raise AssertionError(f"missing Sales Order Worker API transport contract: {token}")
+
     normalized_doc = doc.lower()
     for token in [
         "mixed transport",
@@ -190,7 +232,7 @@ def main() -> int:
         if token not in normalized_doc:
             raise AssertionError(f"missing operational-runtime contract: {token}")
 
-    print("PASS mixed operational runtime source contracts (Item + Customer + Defect Worker/D1 authority)")
+    print("PASS mixed operational runtime source contracts (Item + Customer + Defect + Order Worker/D1 authority)")
     return 0
 
 
