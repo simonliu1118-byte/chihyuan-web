@@ -4,6 +4,7 @@ import type {
   CustomerModuleLookups,
   DefectModuleLookups,
   ItemModuleLookups,
+  OutsourcingModuleLookups,
   SalesWorkOrderModuleLookups,
 } from "../../shared/business-lookups";
 import type { LookupSetting } from "../../shared/settings";
@@ -263,6 +264,70 @@ export class BusinessLookupService {
       operators: (operatorResult.results ?? []).map((row) => ({
         id: row.id,
         employeeNo: row.employee_no,
+        isActive: row.is_active === 1,
+      })),
+    };
+  }
+
+  async outsourcingLookups(
+    actor: BusinessActorRef,
+    selected: {
+      itemIds?: readonly number[];
+      itemQuery?: string;
+      limit?: number;
+    },
+  ): Promise<OutsourcingModuleLookups> {
+    const limit = Math.max(1, Math.min(Math.trunc(selected.limit ?? 100), 100));
+    const itemIds = [...new Set((selected.itemIds ?? []).filter((id) => Number.isInteger(id) && id > 0))].slice(0, 100);
+    const itemPlaceholders = itemIds.length ? itemIds.map(() => "?").join(", ") : "?";
+    const itemValues = itemIds.length ? itemIds : [-1];
+    const itemQuery = selected.itemQuery?.trim() ?? "";
+    const itemLike = `%${itemQuery.replace(/[\\%_]/g, (match) => `\\${match}`)}%`;
+    const result = await this.db.prepare(`
+      SELECT id, item_no, name, spec, base_unit, is_active
+        FROM items
+       WHERE (
+         (is_active = 1 AND (
+           ?1 = ''
+           OR item_no LIKE ?2 ESCAPE '\\'
+           OR name LIKE ?2 ESCAPE '\\'
+           OR COALESCE(spec, '') LIKE ?2 ESCAPE '\\'
+         ))
+         OR id IN (${itemPlaceholders})
+       )
+       ORDER BY CASE WHEN id IN (${itemPlaceholders}) THEN 0 ELSE 1 END, item_no, id
+       LIMIT ?
+    `).bind(itemQuery, itemLike, ...itemValues, ...itemValues, limit).all<{
+      id: number; item_no: string; name: string; spec: string | null; base_unit: string; is_active: number;
+    }>();
+
+    const itemRows = result.results ?? [];
+    const units = new Map<number, string[]>();
+    if (itemRows.length > 0) {
+      const ids = itemRows.map((row) => row.id);
+      const placeholders = ids.map(() => "?").join(", ");
+      const conversions = await this.db.prepare(`
+        SELECT item_id, from_unit
+          FROM item_unit_conversions
+         WHERE item_id IN (${placeholders})
+         ORDER BY item_id, sort_order, id
+      `).bind(...ids).all<{ item_id: number; from_unit: string }>();
+      for (const row of conversions.results ?? []) {
+        const list = units.get(row.item_id) ?? [];
+        if (!list.includes(row.from_unit)) list.push(row.from_unit);
+        units.set(row.item_id, list);
+      }
+    }
+
+    return {
+      actor,
+      items: itemRows.map((row) => ({
+        id: row.id,
+        itemNo: row.item_no,
+        name: row.name,
+        spec: row.spec,
+        baseUnit: row.base_unit,
+        allowedUnits: [row.base_unit, ...(units.get(row.id) ?? []).filter((unit) => unit !== row.base_unit)],
         isActive: row.is_active === 1,
       })),
     };
