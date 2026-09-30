@@ -1,4 +1,7 @@
+import { AuditService } from "../audit/audit-service";
+import type { CustomerRecordVersion } from "./customer-repository";
 import type {
+  NormalizedChangeCustomerNumberRequest,
   NormalizedCreateCustomerRequest,
   NormalizedUpdateCustomerRequest,
 } from "./customer-validation";
@@ -10,6 +13,7 @@ import {
 export interface CustomerMutationContext {
   actorMemberId: number;
   now: string;
+  requestId?: string | null;
 }
 
 function assertMutationContext(context: CustomerMutationContext): void {
@@ -22,7 +26,11 @@ function assertMutationContext(context: CustomerMutationContext): void {
 }
 
 export class CustomerPersistence {
-  constructor(private readonly db: D1Database) {}
+  private readonly audit: AuditService;
+
+  constructor(private readonly db: D1Database) {
+    this.audit = new AuditService(db);
+  }
 
   async create(
     input: NormalizedCreateCustomerRequest,
@@ -121,5 +129,101 @@ export class CustomerPersistence {
     const results = await this.db.batch(statements);
     const masterResult = results[results.length - 1];
     return Number(masterResult?.meta?.changes ?? 0) === 1;
+  }
+
+  async changeCustomerNumber(
+    current: CustomerRecordVersion,
+    input: NormalizedChangeCustomerNumberRequest,
+    context: CustomerMutationContext,
+  ): Promise<boolean> {
+    assertMutationContext(context);
+    const nextRevision = input.expectedRevision + 1;
+    const results = await this.db.batch([
+      this.db.prepare(`
+        UPDATE customers
+           SET customer_no = ?1,
+               updated_at = ?2,
+               updated_by = ?3,
+               revision = revision + 1
+         WHERE id = ?4
+           AND revision = ?5
+      `).bind(
+        input.newCustomerNo,
+        context.now,
+        context.actorMemberId,
+        current.id,
+        input.expectedRevision,
+      ),
+      this.audit.prepareRecord({
+        entityType: "customer",
+        entityKey: String(current.id),
+        action: "customer.number.changed",
+        actorEmployeeId: context.actorMemberId,
+        occurredAt: context.now,
+        requestId: context.requestId,
+        before: { customerNo: current.customerNo },
+        after: { customerNo: input.newCustomerNo },
+        metadata: input.changeSource ? { changeSource: input.changeSource } : null,
+      }, {
+        sql: "EXISTS (SELECT 1 FROM customers WHERE id = ? AND revision = ? AND customer_no = ?)",
+        values: [current.id, nextRevision, input.newCustomerNo],
+      }),
+    ]);
+    return Number(results[0]?.meta?.changes ?? 0) === 1;
+  }
+
+  async deleteNeverUsed(
+    current: CustomerRecordVersion,
+    context: CustomerMutationContext,
+  ): Promise<boolean> {
+    assertMutationContext(context);
+    const noBusinessReferences = `
+      NOT EXISTS(SELECT 1 FROM customer_visits WHERE customer_id = ?)
+      AND NOT EXISTS(SELECT 1 FROM customer_item_quotes WHERE customer_id = ?)
+      AND NOT EXISTS(SELECT 1 FROM sales_work_orders WHERE customer_id = ?)
+      AND NOT EXISTS(SELECT 1 FROM defect_reports WHERE customer_id = ?)
+    `;
+
+    const results = await this.db.batch([
+      this.audit.prepareRecord({
+        entityType: "customer",
+        entityKey: String(current.id),
+        action: "customer.deleted",
+        actorEmployeeId: context.actorMemberId,
+        occurredAt: context.now,
+        requestId: context.requestId,
+        before: {
+          customerNo: current.customerNo,
+          revision: current.revision,
+        },
+      }, {
+        sql: `EXISTS (
+          SELECT 1
+            FROM customers
+           WHERE id = ?
+             AND revision = ?
+             AND ${noBusinessReferences}
+        )`,
+        values: [
+          current.id,
+          current.revision,
+          current.id,
+          current.id,
+          current.id,
+          current.id,
+        ],
+      }),
+      this.db.prepare(`
+        DELETE FROM customers
+         WHERE id = ?1
+           AND revision = ?2
+           AND NOT EXISTS(SELECT 1 FROM customer_visits WHERE customer_id = ?1)
+           AND NOT EXISTS(SELECT 1 FROM customer_item_quotes WHERE customer_id = ?1)
+           AND NOT EXISTS(SELECT 1 FROM sales_work_orders WHERE customer_id = ?1)
+           AND NOT EXISTS(SELECT 1 FROM defect_reports WHERE customer_id = ?1)
+      `).bind(current.id, current.revision),
+    ]);
+
+    return Number(results[1]?.meta?.changes ?? 0) === 1;
   }
 }
