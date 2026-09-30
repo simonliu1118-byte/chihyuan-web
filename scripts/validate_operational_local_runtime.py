@@ -30,6 +30,8 @@ def main() -> int:
     order_client = read("src/runtime/api/sales-order-runtime-client.ts")
     outsourcing = read("src/runtime/modules/OutsourcingOperationalPage.tsx")
     outsourcing_client = read("src/runtime/api/outsourcing-runtime-client.ts")
+    worklog = read("src/runtime/modules/WorkLogOperationalPage.tsx")
+    worklog_client = read("src/runtime/api/work-log-runtime-client.ts")
     doc = read("docs/architecture/OPERATIONAL_LOCAL_RUNTIME.md")
 
     for token in ["#customers", "#items", "#defects", "#orders", "#outsourcing", "#worklogs", "#settings", "#audit"]:
@@ -56,10 +58,8 @@ def main() -> int:
             raise AssertionError(f"missing advanced local runtime contract: {token}")
 
     for token in [
-        "WorkLogPage",
         "SettingsPage",
         "AuditPage",
-        "審核計分",
     ]:
         if token not in workspace:
             raise AssertionError(f"missing operational UI behavior: {token}")
@@ -267,10 +267,51 @@ def main() -> int:
         if token not in outsourcing_client:
             raise AssertionError(f"missing Outsourcing Worker API transport contract: {token}")
 
+
+    for token in [
+        "loadWorkLogConfiguration",
+        "loadWorkLogStatistics",
+        "searchWorkLogs",
+        "loadWorkLogDetail",
+        "createWorkLog",
+        "updateWorkLogCreated",
+        "submitWorkLog",
+        "withdrawWorkLog",
+        "reviewWorkLog",
+        "cancelWorkLogReview",
+        "deleteWorkLogCreated",
+        "Worker / D1",
+    ]:
+        if token not in worklog:
+            raise AssertionError(f"missing D1 WorkLog operational behavior: {token}")
+
+    for forbidden in [
+        "useLocalDatabase",
+        "mutateLocalDatabase",
+        "../local-database",
+        "LocalWorkLog",
+        "nextLocalId",
+        "timestampNow",
+    ]:
+        if forbidden in worklog:
+            raise AssertionError(f"WorkLog operational page must not retain localStorage authority: {forbidden}")
+
+    for token in [
+        "/api/business/worklogs",
+        "/configuration",
+        "/statistics",
+        "/submit",
+        "/withdraw",
+        "/review",
+        "/cancel-review",
+        "apiRequest",
+    ]:
+        if token not in worklog_client:
+            raise AssertionError(f"missing WorkLog Worker API transport contract: {token}")
+
     normalized_doc = doc.lower()
     for token in [
-        "mixed transport",
-        "item",
+        "business transport complete",
         "worker protected http api",
         "standalone `preview/*`",
         "localstorage remains temporary",
@@ -278,7 +319,7 @@ def main() -> int:
         if token not in normalized_doc:
             raise AssertionError(f"missing operational-runtime contract: {token}")
 
-    print("PASS mixed operational runtime source contracts (Item + Customer + Defect + Order + Outsourcing Worker/D1 authority)")
+    print("PASS business operational runtime contracts (all six business modules use Worker/D1 authority)")
     return 0
 
 
