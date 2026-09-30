@@ -1,6 +1,6 @@
 # CY Web Sales Work Order Module Contract
 
-Status: implementation contract before protected HTTP-route wiring.
+Status: active Sales Work Order domain/runtime contract; protected HTTP API and React Worker/D1 transport are implemented in development.
 
 This contract follows the confirmed Sales Work Order decisions, especially BD-024, BD-029, BD-031, BD-034 and BD-035. Legacy Desktop is behavior evidence only; the new Worker/D1 domain service is authoritative.
 
@@ -158,6 +158,15 @@ The exact production formatting rule for newly generated `work_order_ref` remain
 
 ## Runtime boundary
 
-This foundation does not expose protected HTTP routes yet. Shared Identity browser-session wiring and local/dev Worker+D1 acceptance remain the route/runtime gate.
+Sales Work Order now uses the protected same-origin Worker API in the integrated React application.
 
-Production D1, Worker bindings, DNS and backup resources are not modified by this contract.
+Runtime rules:
+
+- every Order request resolves the current CYID Session and requires current `ORDERS` Module Access before lookup or domain-service access;
+- Customer / Item / operator picker data comes from bounded `/api/business/orders/lookups` projections under that same `ORDERS` authority and does not depend on browser-local Customer/Item data;
+- mutation actor, draft-delete authority and shipment-reversal authority are derived server-side from the current principal;
+- the React route uses current D1 `revision` for draft update, ERP fill/correction, lifecycle actions and delete;
+- React does not fall back to browser-local Order writes when the API fails;
+- development writes target development Worker/D1 only; production cutover remains a separate explicitly approved operation.
+
+Production D1, Worker bindings, DNS and backup resources are not modified by this development transport cutover.
