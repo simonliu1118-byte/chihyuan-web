@@ -25,10 +25,10 @@ def source_checks() -> None:
     service = read("worker/settings/settings-service.ts")
     doc = read("docs/architecture/SETTINGS_ADMIN_MODULE_CONTRACT.md")
 
-    for token in ["StructuralLookupKind", "AppTagSetting", "SetMemberTagsRequest", "WorkLogScoringRowSetting", "SettingsSnapshot"]:
+    for token in ["StructuralLookupKind", "AppTagSetting", "SetMemberTagsRequest", "WorkLogScoringRowSetting", "SettingsSnapshot", "regions"]:
         if token not in shared:
             raise AssertionError(f"missing settings shared token: {token}")
-    for token in ["assertSuperAdmin", "assertAdmin", "createStructuralLookup", "updateAppTag", "setMemberTags", "upsertWorkLogScoringRow", "updateWorkLogScoringConfig", "AuditService"]:
+    for token in ["assertSuperAdmin", "assertAdmin", "createStructuralLookup", "updateAppTag", "setMemberTags", "upsertWorkLogScoringRow", "updateWorkLogScoringConfig", "AuditService", "FROM regions"]:
         if token not in service:
             raise AssertionError(f"missing settings service token: {token}")
     for token in ["Super Admin only", "Admin or Super Admin", "Public source", "double-confirmation", "updated_at"]:
