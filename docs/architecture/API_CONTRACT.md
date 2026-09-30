@@ -312,3 +312,61 @@ Phase 2 therefore generates bounded unique internal references from Worker-side 
 If a later product decision defines a formal numbering sequence, the reference-provider interface is the replacement boundary; API authorization and domain workflow do not need to change.
 
 Phase 2 still does not switch React business pages away from localStorage. Frontend transport migration is the next stage after all six business modules have protected Worker/D1 APIs.
+
+## 14. Frontend transport-readiness APIs
+
+Before React business pages move off the temporary localStorage runtime, the Worker exposes the canonical lookup and Customer-related operations that the current UI requires.
+
+All endpoints below remain behind the owning module's current server-side Module Access guard.
+
+### Customer module lookup — `CUSTOMERS`
+
+`GET /api/business/customers/lookups`
+
+Returns only the Customer module's required read references:
+
+- current actor `appMemberId / employeeNo / displayName`;
+- departments;
+- customer categories;
+- customer statuses;
+- regions.
+
+The endpoint does **not** return App Tags, WorkLog scoring configuration or unrelated Settings administration data.
+
+Customer lifecycle in D1 uses `customer_status_id`. The temporary localStorage-only `isActive` field is not a canonical Customer authority and must not be reintroduced into D1 merely to preserve the old local UI.
+
+### Customer related operations — `CUSTOMERS`
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/business/customers/:customerId/visits` | bounded visit history |
+| POST | `/api/business/customers/:customerId/visits` | create visit |
+| PATCH | `/api/business/customers/:customerId/visits/:visitId` | revision-gated visit update |
+| DELETE | `/api/business/customers/:customerId/visits/:visitId` | revision-gated visit delete |
+| GET | `/api/business/customers/:customerId/frequent-items` | frequent-item list |
+| POST | `/api/business/customers/:customerId/frequent-items` | create frequent item |
+| PATCH | `/api/business/customers/:customerId/frequent-items/:frequentItemId` | updated-at-gated update |
+| DELETE | `/api/business/customers/:customerId/frequent-items/:frequentItemId` | updated-at-gated delete |
+| GET | `/api/business/customers/:customerId/quotes` | bounded quote history |
+| POST | `/api/business/customers/:customerId/quotes` | create quote |
+| GET | `/api/business/customers/:customerId/quotes/:quoteId` | quote detail |
+| POST | `/api/business/customers/:customerId/quotes/:quoteId/correct` | correction preserving quote history |
+
+Mutation actor IDs always come from the authorized `CUSTOMERS` Module Access guard. The browser cannot select an arbitrary audit actor.
+
+### Item module lookup — `ITEMS`
+
+`GET /api/business/items/lookups`
+
+Returns:
+
+- current actor `appMemberId / employeeNo / displayName`;
+- canonical Item categories, including active state and hierarchy metadata.
+
+The endpoint intentionally excludes unrelated Settings data.
+
+### Settings read model alignment
+
+`SettingsSnapshot` includes canonical `regions` in addition to departments, Customer categories/statuses and Item categories. Regions remain controlled reference data; adding them to the read model does not make them a normal editable structural lookup.
+
+These transport-readiness endpoints remove the need for React forms to derive canonical IDs from local seed labels. The next frontend migration phase must send canonical lookup IDs and domain revisions supplied by D1.
