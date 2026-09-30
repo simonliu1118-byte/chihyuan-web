@@ -345,12 +345,21 @@ async function handleOutsourcing(request: Request, env: IdentityRuntimeEnv, requ
   const outsourcingService = new OutsourcingService(env.DB, {
     nextReference: async () => opaqueReference("OUT"),
   });
+  const lookups = new BusinessLookupService(env.DB);
   const outsourcingContext = {
     ...mutation,
     allowHardDelete: admin,
     allowOutboundCorrection: admin,
     allowOutboundCancellation: admin,
   };
+
+  if (request.method === "GET" && url.pathname === "/api/business/outsourcing/lookups") {
+    return success(await lookups.outsourcingLookups(actorRef(guarded.gate), {
+      itemIds: positiveIntegerList(url.searchParams.get("itemIds"), "itemIds"),
+      itemQuery: url.searchParams.get("itemQ")?.trim() ?? "",
+      limit: boundedLimit(url.searchParams.get("limit")) ?? 100,
+    }), requestId);
+  }
 
   if (url.pathname === "/api/business/outsourcing/contractors") {
     if (request.method === "GET") return success(await contractorService.search(contractorSearch(url)), requestId);
