@@ -105,7 +105,7 @@ export function createIdentityEmployee(input: {
   email: string;
   roleKey: "USER" | "ADMIN";
 }) {
-  return apiRequest<{ employee: unknown; emailVerificationDelivery: DeliveryView; activationDelivery?: DeliveryView }>("/api/identity/admin/employees", {
+  return apiRequest<{ employee: unknown; emailVerificationDelivery: DeliveryView }>("/api/identity/admin/employees", {
     method: "POST",
     json: input,
   });
@@ -119,7 +119,7 @@ export function updateIdentityEmployee(employeeId: string, input: {
   roleKey?: "USER" | "ADMIN";
   revision: number;
 }) {
-  return apiRequest<{ employee: unknown; emailVerificationDelivery?: DeliveryView; activationDelivery?: DeliveryView }>(`/api/identity/admin/employees/${encodeURIComponent(employeeId)}`, {
+  return apiRequest<{ employee: unknown; emailVerificationDelivery?: DeliveryView }>(`/api/identity/admin/employees/${encodeURIComponent(employeeId)}`, {
     method: "PATCH",
     json: input,
   });
@@ -133,8 +133,8 @@ export function deletePendingIdentityEmployee(employeeId: string) {
 }
 
 export function resendEmployeeEmailVerification(employeeId: string) {
-  return apiRequest<{ emailVerificationDelivery: DeliveryView; activationDelivery?: DeliveryView }>(
-    `/api/identity/admin/employees/${encodeURIComponent(employeeId)}/activation/resend`,
+  return apiRequest<{ emailVerificationDelivery: DeliveryView }>(
+    `/api/identity/admin/employees/${encodeURIComponent(employeeId)}/email-verification/resend-initial`,
     { method: "POST", json: {} },
   );
 }

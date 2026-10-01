@@ -22,4 +22,5 @@ export interface HealthData {
   service: "cyweb";
   database: "ok";
   time: string;
+  identityConsumerVersion: string | null;
 }

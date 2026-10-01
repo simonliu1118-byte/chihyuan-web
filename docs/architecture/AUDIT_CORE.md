@@ -1,6 +1,6 @@
 # CY Web Audit Core — Initial Implementation Contract
 
-> Status: implementation foundation for BD-053 / BD-054.
+> Status: protected Worker/D1 Audit service and read-only operational query UI for BD-053 / BD-054.
 
 ## 1. Scope
 
@@ -160,4 +160,4 @@ Current source:
 worker/audit/audit-service.ts
 ```
 
-The service is intentionally not yet exposed as a public detailed-Audit API route. Domain services may already use it internally. Detailed Audit API/UI wiring still follows Shared Identity/session authorization and the Admin/Super Admin boundary.
+`GET /api/admin/audit` and the operational Audit page expose bounded detailed queries after resolving a current CYID Session, ADMIN/SUPER_ADMIN role and active App member. No Audit write endpoint exists. Domain services remain the only event writers, using their atomic mutation boundary. Worker/D1 acceptance verifies unauthorized denial, server-derived actors, bounded filters and read-only behavior.

@@ -7,15 +7,16 @@ import { stripTypeScriptTypes } from "node:module";
 import { pathToFileURL } from "node:url";
 
 const directory = mkdtempSync(join(tmpdir(), "cyweb-identity-test-"));
-let CYCloudIdentityClient, handleIdentityManagementRoute;
+let CYCloudIdentityClient, handleIdentityManagementRoute, fetchIdentityProvider;
 try {
-  for (const name of ["identity/cycloud-identity-adapter", "http/identity-management-routes", "http/response"]) {
+  for (const name of ["identity/provider-transport", "identity/cycloud-identity-adapter", "http/identity-management-routes", "http/response"]) {
     const source = readFileSync(new URL(`../worker/${name}.ts`, import.meta.url), "utf8");
     const path = join(directory, `${name}.mjs`);
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, stripTypeScriptTypes(source, { mode: "transform" })
       .replace(/from "(\.\.?\/[^"]+)"/g, 'from "$1.mjs"'));
   }
+  ({ fetchIdentityProvider } = await import(pathToFileURL(join(directory, "identity/provider-transport.mjs"))));
   ({ CYCloudIdentityClient } = await import(pathToFileURL(join(directory, "identity/cycloud-identity-adapter.mjs"))));
   ({ handleIdentityManagementRoute } = await import(pathToFileURL(join(directory, "http/identity-management-routes.mjs"))));
 } finally { rmSync(directory, { recursive: true, force: true }); }
@@ -48,4 +49,30 @@ test("retired Group and compatibility-mode routes never reach the provider", asy
   for (const [method, path] of [["POST", "groups"], ["PATCH", "groups/group-test"], ["PUT", "groups/group-test/members/employee-test"], ["DELETE", "groups/group-test/members/employee-test"], ["PUT", "groups/group-test/applications/APP_TEST"], ["PUT", "applications/APP_TEST/compatibility-role-mode"]]) {
     assert.equal(await handleIdentityManagementRoute(new Request(`https://web.test/api/identity/admin/${path}`, { method }), env, "test"), null);
   }
+});
+
+for (const phase of ["headers", "body", "exception"]) {
+  test(`provider ${phase} failure is bounded and never retried`, async () => {
+    let attempts = 0;
+    const binding = { async fetch() {
+      attempts++;
+      if (phase === "exception") throw new Error("provider unavailable");
+      if (phase === "headers") return new Promise(() => {});
+      return new Response(new ReadableStream({ start() {} }));
+    } };
+    assert.equal(await fetchIdentityProvider(binding, new Request("https://identity.test/"), 15), null);
+    assert.equal(attempts, 1);
+  });
+}
+test("bounded transport preserves successful status, headers and body", async () => {
+  const response = await fetchIdentityProvider({ async fetch() { return Response.json({ error: { code: "SESSION_INVALID" } }, { status: 401, headers: { "x-request-id": "test" } }); } }, new Request("https://identity.test/"));
+  assert.equal(response.status, 401);
+  assert.equal(response.headers.get("x-request-id"), "test");
+  assert.equal((await response.json()).error.code, "SESSION_INVALID");
+});
+
+test("bounded transport preserves a valid empty response", async () => {
+  const response = await fetchIdentityProvider({ async fetch() { return new Response(null, { status: 204 }); } }, new Request("https://identity.test/"));
+  assert.equal(response.status, 204);
+  assert.equal(await response.text(), "");
 });

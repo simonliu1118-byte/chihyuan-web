@@ -1,5 +1,10 @@
 # CY Web Governance Changelog
 
+## 1.1.6 — 2026/10/01
+
+- Runtime Check includes WorkLog transport and Settings/Audit protected D1 acceptance. Retire obsolete static operational publication; the single React runtime now requires its protected Worker API.
+- Adopt CYID Consumer 1.0.2 and expose the build-injected adoption marker in health for coordinated provider retirement; deployment still requires canonical byte-level contract sync.
+
 ## 1.1.5 — 2026/10/01
 
 - Runtime Check now executes Identity adapter regression tests for direct-role principals, retained authority validation and retired Group routes.

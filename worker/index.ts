@@ -1,4 +1,5 @@
 import type { HealthData } from "../shared/api";
+import { handleSettingsAuditRoute } from "./http/settings-audit-routes";
 import { handleAuthRoute, type IdentityRuntimeEnv } from "./http/auth-routes";
 import { handleIdentityManagementRoute } from "./http/identity-management-routes";
 import { handleModuleAccessRoute } from "./http/module-access-routes";
@@ -15,6 +16,7 @@ async function health(env: Env, requestId: string): Promise<Response> {
       service: "cyweb",
       database: "ok",
       time: new Date().toISOString(),
+      identityConsumerVersion: env.IDENTITY_CONSUMER_VERSION ?? null,
     };
     return success(data, requestId);
   } catch {
@@ -43,6 +45,9 @@ export default {
 
     const moduleAccessResponse = await handleModuleAccessRoute(request, env, requestId);
     if (moduleAccessResponse) return moduleAccessResponse;
+
+    const settingsAuditResponse = await handleSettingsAuditRoute(request, env, requestId);
+    if (settingsAuditResponse) return settingsAuditResponse;
 
     const businessResponse = await handleBusinessApiRoute(request, env, requestId);
     if (businessResponse) return businessResponse;

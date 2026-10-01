@@ -61,7 +61,7 @@ Archive、舊 preview、review backlog、readiness checkpoint、舊 handoff 或�
 - `IDENTITY_ADAPTER.md` — CY Web-specific Identity adapter、Module Access split and provider acceptance contract。
 - `COMPATIBILITY_REVIEW.md` — source/deployment evidence、obsolete compatibility paths and cleanup order; not a new contract or progress tracker。
 - `AUDIT_CORE.md` — Audit service/query boundary。
-- `OPERATIONAL_LOCAL_RUNTIME.md` — localStorage operational runtime adapter/cutover contract。
+- `OPERATIONAL_RUNTIME.md` — localStorage operational runtime adapter/cutover contract。
 
 ### Shared Web UI foundations
 

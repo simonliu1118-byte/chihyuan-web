@@ -78,6 +78,10 @@ export function renderDeployConfig({
     throw new Error("Unresolved Cloudflare deployment placeholder remains.");
   }
 
+  const consumerVersion = fs.readFileSync(path.join(ROOT, "CYID_CONSUMER_VERSION"), "utf8").trim();
+  if (!/^\d+\.\d+\.\d+$/.test(consumerVersion)) throw new Error("Invalid CYID consumer version");
+  rendered = rendered.replaceAll("__CYID_CONSUMER_VERSION__", jsonFragment(consumerVersion));
+
   const absoluteOutput = path.resolve(outputPath);
   fs.writeFileSync(absoluteOutput, rendered, { encoding: "utf8", mode: 0o600 });
   return absoluteOutput;

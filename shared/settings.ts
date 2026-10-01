@@ -1,4 +1,4 @@
-export type SettingsAuthority = "EMPLOYEE" | "ADMIN" | "SUPER_ADMIN";
+export type SettingsAuthority = "USER" | "ADMIN" | "SUPER_ADMIN";
 
 export type StructuralLookupKind =
   | "department"

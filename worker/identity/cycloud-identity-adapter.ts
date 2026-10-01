@@ -1,7 +1,6 @@
 import type { IdentityAdapter, IdentityPrincipal, IdentityResolution, WorkspaceRole } from "./contract";
 
-export const CYWEB_IDENTITY_COOKIE = "cyweb_identity_session";
-export const CYWEB_FIRST_LOGIN_COOKIE = "cyweb_first_login";
+import { CYWEB_IDENTITY_COOKIE, CYWEB_FIRST_LOGIN_COOKIE, cookieValue, isSessionToken, forwardedHeaders, fetchIdentityProvider } from "./provider-transport";
 
 interface ProviderPrincipal {
   workspaceId?: unknown;
@@ -76,27 +75,8 @@ function boundedRetryAfter(response: Response): number {
   return Math.max(1, Math.min(Math.trunc(value), 3600));
 }
 
-function isSessionToken(value: unknown): value is string {
-  return typeof value === "string" && /^cyid_[0-9a-f]{64}$/.test(value);
-}
-
 function isFirstLoginToken(value: unknown): value is string {
   return typeof value === "string" && /^cyif_[0-9a-f]{64}$/.test(value);
-}
-
-function cookieValue(request: Request, name: string): string | null {
-  const raw = request.headers.get("cookie") ?? "";
-  for (const part of raw.split(";")) {
-    const index = part.indexOf("=");
-    if (index < 0) continue;
-    if (part.slice(0, index).trim() !== name) continue;
-    try {
-      return decodeURIComponent(part.slice(index + 1).trim());
-    } catch {
-      return null;
-    }
-  }
-  return null;
 }
 
 function normalizeWorkspaceRole(value: unknown): WorkspaceRole | null {
@@ -151,15 +131,6 @@ function normalizePrincipal(value: ProviderPrincipal | undefined): IdentityPrinc
   };
 }
 
-function forwardedHeaders(request: Request): Headers {
-  const headers = new Headers({ "content-type": "application/json" });
-  const clientIp = request.headers.get("cf-connecting-ip")?.trim();
-  if (clientIp) headers.set("cf-connecting-ip", clientIp);
-  const requestId = request.headers.get("x-request-id")?.trim();
-  if (requestId) headers.set("x-request-id", requestId);
-  return headers;
-}
-
 function secureCookie(name: string, token: string, expiresAt: string, now: Date): string {
   const expiry = new Date(expiresAt);
   if (!Number.isFinite(expiry.getTime()) || expiry.getTime() <= now.getTime()) {
@@ -198,16 +169,8 @@ export class CYCloudIdentityClient implements IdentityAdapter {
     private readonly workspaceId: string,
   ) {}
 
-  private async providerFetch(request: Request): Promise<Response | null> {
-    try {
-      return await this.binding.fetch(request);
-    } catch {
-      return null;
-    }
-  }
-
   async login(request: Request, employeeNo: string, password: string): Promise<IdentityLoginResult> {
-    const response = await this.providerFetch(new Request("https://identity.internal/v1/identity/login", {
+    const response = await fetchIdentityProvider(this.binding, new Request("https://identity.internal/v1/identity/login", {
       method: "POST",
       headers: forwardedHeaders(request),
       body: JSON.stringify({ workspaceId: this.workspaceId, applicationId: this.applicationId, employeeNo, password }),
@@ -256,7 +219,7 @@ export class CYCloudIdentityClient implements IdentityAdapter {
     const token = cookieValue(request, CYWEB_FIRST_LOGIN_COOKIE);
     if (!isFirstLoginToken(token)) return { status: "invalid" };
 
-    const response = await this.providerFetch(new Request("https://identity.internal/v1/identity/first-login/complete", {
+    const response = await fetchIdentityProvider(this.binding, new Request("https://identity.internal/v1/identity/first-login/complete", {
       method: "POST",
       headers: forwardedHeaders(request),
       body: JSON.stringify({
@@ -292,7 +255,7 @@ export class CYCloudIdentityClient implements IdentityAdapter {
     headers.delete("content-type");
     headers.set("authorization", `Bearer ${token}`);
     headers.set("x-identity-application", this.applicationId);
-    const response = await this.providerFetch(new Request("https://identity.internal/v1/identity/session/resolve", { method: "POST", headers }));
+    const response = await fetchIdentityProvider(this.binding, new Request("https://identity.internal/v1/identity/session/resolve", { method: "POST", headers }));
     if (!response) return { status: "unavailable" };
 
     const payload = await response.json().catch(() => null) as ProviderPayload | null;
@@ -316,7 +279,7 @@ export class CYCloudIdentityClient implements IdentityAdapter {
     headers.delete("content-type");
     headers.set("authorization", `Bearer ${token}`);
     headers.set("x-identity-application", this.applicationId);
-    const response = await this.providerFetch(new Request("https://identity.internal/v1/identity/logout", { method: "POST", headers }));
+    const response = await fetchIdentityProvider(this.binding, new Request("https://identity.internal/v1/identity/logout", { method: "POST", headers }));
     if (!response || response.status >= 500) return { status: "unavailable" };
     return { status: "logged_out" };
   }
@@ -327,6 +290,6 @@ export class CYCloudIdentityClient implements IdentityAdapter {
     headers.delete("content-type");
     headers.set("authorization", `Bearer ${token}`);
     headers.set("x-identity-application", this.applicationId);
-    await this.providerFetch(new Request("https://identity.internal/v1/identity/logout", { method: "POST", headers }));
+    await fetchIdentityProvider(this.binding, new Request("https://identity.internal/v1/identity/logout", { method: "POST", headers }));
   }
 }

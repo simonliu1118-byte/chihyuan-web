@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -17,9 +18,6 @@ def read(path: str) -> str:
 
 def main() -> int:
     app = read("src/App.tsx")
-    store = read("src/runtime/local-database.ts")
-    advanced = read("src/runtime/advanced-local-types.ts")
-    workspace = read("src/runtime/OperationalWorkspace.tsx")
     customer = read("src/runtime/modules/CustomerOperationalPage.tsx")
     item = read("src/runtime/modules/ItemOperationalPage.tsx")
     item_client = read("src/runtime/api/item-runtime-client.ts")
@@ -30,43 +28,24 @@ def main() -> int:
     order_client = read("src/runtime/api/sales-order-runtime-client.ts")
     outsourcing = read("src/runtime/modules/OutsourcingOperationalPage.tsx")
     outsourcing_client = read("src/runtime/api/outsourcing-runtime-client.ts")
-    doc = read("docs/architecture/OPERATIONAL_LOCAL_RUNTIME.md")
+    worklog = read("src/runtime/modules/WorkLogOperationalPage.tsx")
+    worklog_client = read("src/runtime/api/work-log-runtime-client.ts")
+    doc = read("docs/architecture/OPERATIONAL_RUNTIME.md")
 
     for token in ["#customers", "#items", "#defects", "#orders", "#outsourcing", "#worklogs", "#settings", "#audit"]:
         if token not in app:
             raise AssertionError(f"missing operational navigation: {token}")
 
-    for token in [
-        "localStorage",
-        "LocalCustomer",
-        "LocalItem",
-        "LocalSalesOrder",
-        "LocalOutsourcingOrder",
-        "LocalWorkLog",
-        "stockMovements",
-        "exportLocalDatabase",
-        "importLocalDatabase",
-        "resetLocalDatabase",
-    ]:
-        if token not in store:
-            raise AssertionError(f"missing persistent local-store contract: {token}")
-
-    for token in ["LocalCustomerVisit", "LocalCustomerQuote", "LocalCustomerFrequentItem", "LocalItemNumberHistory", "LocalDefect", "defects?:"]:
-        if token not in advanced:
-            raise AssertionError(f"missing advanced local runtime contract: {token}")
-
-    for forbidden in ["function CustomerPage(", "function ItemPage(", "function SalesOrderPage(", "function OutsourcingPage("]:
-        if forbidden in workspace:
-            raise AssertionError(f"removed local business page returned: {forbidden}")
-
-    for token in [
-        "WorkLogPage",
-        "SettingsPage",
-        "AuditPage",
-        "審核計分",
-    ]:
-        if token not in workspace:
-            raise AssertionError(f"missing operational UI behavior: {token}")
+    for retired in ["src/runtime/OperationalWorkspace.tsx", "src/runtime/local-database.ts", "src/runtime/advanced-local-types.ts"]:
+        if (ROOT / retired).exists():
+            raise AssertionError(f"retired local runtime returned: {retired}")
+    for page in ROOT.glob("src/**/*.tsx"):
+        if "local-database" in page.read_text() or re.search(r"\blocalStorage\s*(?:\.|\[)", page.read_text()):
+            raise AssertionError(f"browser-local authority returned: {page}")
+    for page, token in [("SettingsOperationalPage", "loadSettings"), ("AuditOperationalPage", "loadAudit")]:
+        source = read(f"src/runtime/modules/{page}.tsx")
+        if page not in app or token not in source:
+            raise AssertionError(f"missing protected admin page: {page}")
 
     for token in [
         "新增拜訪",
@@ -271,18 +250,59 @@ def main() -> int:
         if token not in outsourcing_client:
             raise AssertionError(f"missing Outsourcing Worker API transport contract: {token}")
 
+
+    for token in [
+        "loadWorkLogConfiguration",
+        "loadWorkLogStatistics",
+        "searchWorkLogs",
+        "loadWorkLogDetail",
+        "createWorkLog",
+        "updateWorkLogCreated",
+        "submitWorkLog",
+        "withdrawWorkLog",
+        "reviewWorkLog",
+        "cancelWorkLogReview",
+        "deleteWorkLogCreated",
+        "Worker / D1",
+    ]:
+        if token not in worklog:
+            raise AssertionError(f"missing D1 WorkLog operational behavior: {token}")
+
+    for forbidden in [
+        "useLocalDatabase",
+        "mutateLocalDatabase",
+        "../local-database",
+        "LocalWorkLog",
+        "nextLocalId",
+        "timestampNow",
+    ]:
+        if forbidden in worklog:
+            raise AssertionError(f"WorkLog operational page must not retain localStorage authority: {forbidden}")
+
+    for token in [
+        "/api/business/worklogs",
+        "/configuration",
+        "/statistics",
+        'transition(workLogId, "submit", input)',
+        'transition(workLogId, "withdraw", input)',
+        "/review",
+        'transition(workLogId, "cancel-review", input)',
+        "apiRequest",
+    ]:
+        if token not in worklog_client:
+            raise AssertionError(f"missing WorkLog Worker API transport contract: {token}")
+
     normalized_doc = doc.lower()
     for token in [
-        "mixed transport",
-        "item",
+        "business transport complete",
         "worker protected http api",
         "standalone `preview/*`",
-        "localstorage remains temporary",
+        "browser-local authority retired",
     ]:
         if token not in normalized_doc:
             raise AssertionError(f"missing operational-runtime contract: {token}")
 
-    print("PASS mixed operational runtime source contracts (Item + Customer + Defect + Order + Outsourcing Worker/D1 authority)")
+    print("PASS business operational runtime contracts (all six business modules use Worker/D1 authority)")
     return 0
 
 

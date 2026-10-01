@@ -524,3 +524,30 @@ Browser requirements:
 - API failure never falls back to browser-local Outsourcing, Contractor, BOM or stock writes.
 
 Legacy local Contractor/BOM/Outsourcing fixtures may remain temporarily only for not-yet-migrated development surfaces until the last local business page is removed. The active `#outsourcing` route does not use those fixtures as authority.
+
+
+## WorkLog protected lifecycle transport
+
+- `POST /api/business/worklogs/:workLogId/submit`
+- `POST /api/business/worklogs/:workLogId/withdraw`
+- `POST /api/business/worklogs/:workLogId/review`
+- `POST /api/business/worklogs/:workLogId/cancel-review`
+
+All operations use existing WORKLOGS Module Access, member ownership, administrative review permission and optimistic revision checks. No browser-local persistence fallback exists.
+
+## Settings / Audit HTTP transport
+
+ADMIN / SUPER_ADMIN may read `GET /api/admin/settings` and `GET /api/admin/audit`. USER and invalid/revoked/unavailable Identity are rejected before a detailed projection is read. The local App member must remain active. Actor and authority are constructed server-side; request-body role/actor fields cannot elevate authority.
+
+| Route | Methods | Mutation authority |
+| --- | --- | --- |
+| `/api/admin/settings/lookups/{kind}[/{id}]` | POST / PATCH | SUPER_ADMIN |
+| `/api/admin/settings/worklog-categories[/{id}]` | POST / PATCH | ADMIN / SUPER_ADMIN |
+| `/api/admin/settings/worklog-platforms[/{id}]` | POST / PATCH | ADMIN / SUPER_ADMIN |
+| `/api/admin/settings/worklog-scoring-rows` | PUT | ADMIN / SUPER_ADMIN |
+| `/api/admin/settings/worklog-scoring-config` | PUT | ADMIN / SUPER_ADMIN |
+| `/api/admin/settings/app-tags[/{id}]` | POST / PATCH | SUPER_ADMIN; metadata only |
+
+Lookup kind is one of department/customer_category/customer_status/item_category. Existing SettingsService validation, `expectedUpdatedAt` / `expectedRevision`, deactivation and shared Audit semantics remain authoritative. The UI exposes structural, WorkLog and scoring maintenance, and reads historical App-tag metadata; Module Access stays in account management.
+
+Detailed Audit accepts bounded `limit` 1–200 and optional entityType/entityKey/action/actorEmployeeId/occurredFrom/occurredTo. Codes, IDs and time ranges are validated before querying the single existing AuditService. Writes, user-scoped bypasses and browser-local audit lists are not provided.

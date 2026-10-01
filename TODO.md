@@ -4,10 +4,10 @@
 
 ## Current checkpoint — 2026-10-01
 
-- Current formal source baseline is **CY Web 0.6.1 Build 0**；本 patch 移除 unused Identity compatibility source 與 duplicate local business pages。Development runtime is **0.6.0 Build 0**, accepted by Development Deploy #71 at `f9025de4ad9247c035b744e90bc2f015f2cdaf28`。
+- Current source release **CY Web 0.7.0 Build 0** completes all six business pages and Settings/Audit on protected Worker API → D1. Source and deployment evidence are recorded separately below.
 - CYCloud Identity formal source baseline is **0.3.3 Build 0**；development runtime remains **0.3.0 Build 0**。Shared Consumer Contract = **1.0.1**，Minimum Compatible = **1.0.0**。
 - `https://admin.chihyuancm.com` 仍是固定 CY Web canonical user-facing URL；0.3 development deploy 已重新驗證 Custom Domain 與 invalid-provider-session fallback。
-- CY Web 根 `CYID_CONSUMER_VERSION=1.0.1` 宣告所採用的 shared Identity contract；`docs/contracts/cyid/` mirror 依 CYID `CONSUMER_SYNC_MANIFEST.json` 保存 7 個 canonical artifacts + manifest snapshot。Governance Check 與 development deploy 同時驗證 supported version window 與逐檔 byte-level sync；任一漂移都阻止後續部署。
+- CY Web 根 `CYID_CONSUMER_VERSION=1.0.2` 宣告所採用的 shared Identity contract；`docs/contracts/cyid/` mirror 依 CYID `CONSUMER_SYNC_MANIFEST.json` 保存 7 個 canonical artifacts + manifest snapshot。Governance Check 與 development deploy 同時驗證 supported version window 與逐檔 byte-level sync；任一漂移都阻止後續部署。
 - CY Web 登入頁現在只有**單一一般登入入口**。舊「啟用帳號」按鈕、`?activate=1` deep-link UI 與 CY Web public activation start/confirm proxy 已移除。
 - 一般登入會由 CYID 判斷是正式密碼還是一次性首次登入密碼：
   - 正式密碼成功 -> 建立一般 CYID Session，CY Web 只保存 provider opaque token 的 HttpOnly cookie；
@@ -20,12 +20,12 @@
 - 忘記密碼仍維持獨立 Email OTP recovery flow；activated-account Email re-verification 也維持既有 OTP flow。
 - CY Web 0.5.4 development 已完成六個業務模組的 protected Worker/D1 API foundation（Customer／Item／Defect／Order／Outsourcing／WorkLog），並補齊 Customer related operations、Customer/Item canonical lookup/read model 與 regions。CI/deploy gates 全綠。
 - CY Web Module Access 已切到 direct `Employee × Module` 本地 authority：`CUSTOMERS / ITEMS / DEFECTS / ORDERS / OUTSOURCING / WORKLOGS`。Identity Admin／Super Admin 可管理 eligible Employee；Identity Admin 不可改自己的 Module Access；Super Admin 固定全模組。舊 App tag 關聯只保留 metadata/history，不再作 runtime authorization。
-- **Item + Customer + Defect + Order + Outsourcing React pages 已移除 localStorage authority**：Item／Customer／Defect／Order 皆維持前述 Worker API → D1 boundary；Outsourcing 的 Contractor/BOM/stock read model、pending create/update、OUTSOURCING-scoped Item lookup、出庫更正/取消、入庫/取消、計價/取消、付款/取消與 server-authorized pending delete 亦改走 Worker API → D1，庫存只由 movement ledger 推導。WorkLog 暫時仍是 localStorage，runtime 維持最後一段 mixed transport。
+- **Item / Customer / Defect / Order / Outsourcing / WorkLog** all use Worker API → D1. WorkLog preserves create/edit/delete, submit/withdraw, review/cancel-review and statistics; authority and stock/financial changes remain server-side.
 - CYID production provisioning 已獲明確批准，獨立 provider 的 Production Provisioning run #12 已成功；這不等於 CY Web business-data production cutover。CY Web production D1/Worker cutover、backup rollout與 SMART ERP remain untouched。
-- WorkLog 的 API client/page/App routing 與 source gates 已存在 `feature/worklog-worker-d1-transport` at `5307131702deaaf759ccef8de9059d23a3b5b650`；尚未合入 main/取得部署 acceptance，不再重做另一套 adapter。
-- Settings/Audit 仍經 `OperationalWorkspace.tsx` 使用 browser-local store；四個 duplicate local Customer/Item/Order/Outsourcing 頁面與 dispatch 已移除。不能只因 WorkLog 完成就宣稱 localStorage 已全數退休。
-- 相容層檢查已完成，讀 `docs/architecture/COMPATIBILITY_REVIEW.md`。沒有 version-numbered runtime wrapper chain，但有必填 legacy groupKeys、unused Group proxies、duplicated local pages 與 provider transport 重複。本批已移除 `groupKeys` dependency、Group/compatibility-mode proxies、unused client type 與四個 duplicate local business pages；provider transport duplication、WorkLog/Settings/Audit authority cutover 尚未完成。
-- CYID PR #254 已在 production deployment branch 將一次性 provisioning 換成 inert retirement gate，不能再重播 development Employee；日常 production deployment path 仍待建立。
+- Existing WorkLog branch implementation was integrated; there is one runtime API client and page, with no duplicate adapter.
+- Settings/Audit use protected `/api/admin/settings` and read-only `/api/admin/audit`; server-side Session + active App member + direct ADMIN/SUPER_ADMIN authority. `OperationalWorkspace.tsx`, browser-local database/types and local static deployment workflow are removed.
+- 相容層檢查及 source remediation 完成，讀 `docs/architecture/COMPATIBILITY_REVIEW.md`。Group proxies/fields and duplicate local pages are retired; all Identity callers share a single bounded provider transport with no retry. CYID 0.3.5 and Consumer 1.0.2 coordinate canonical initial Email re-send route/fields.
+- CYID PR #254 已在 production deployment branch 將一次性 provisioning 換成 inert retirement gate，不能再重播 development Employee；CYID 日常 production release 已另建 main-only manual workflow，consumer readiness 通過後只作 forward schema/source deploy；本輪沒有 CY Web production rollout。
 
 ## Documentation consolidation
 
@@ -61,14 +61,14 @@ CY Web should use optimistic UI where appropriate, but destructive/irreversible 
 18. [ ] Accept forgot-password, own Email change and controlled Super Admin transfer.
 19. [x] Add/deploy protected Customer／Item／Defect Worker HTTP routes with server-side Module Access before domain-service access.
 20. [x] Extend protected Worker HTTP boundary to Order／Outsourcing（including contractor/BOM/stock）／WorkLog；六個業務模組 API foundation complete。
-21. [ ] Replace temporary business-data `localStorage` persistence with Worker API -> D1 while preserving the React workflow：**Item [x]；Customer [x]；Defect [x]；Order [x]；Outsourcing [x]；WorkLog [ ]**。
+21. [x] Replace temporary business-data `localStorage` persistence with Worker API -> D1 while preserving the React workflow：**Item [x]；Customer [x]；Defect [x]；Order [x]；Outsourcing [x]；WorkLog [x]**。
 22. [ ] Perform dedicated UI/UX refinement and Desktop/Tablet/Mobile real-browser acceptance.
 23. [ ] Implement/accept backup+restore before production rollout.
-24. [x] Publish governed CYID shared Consumer Integration Standard + compatibility window + cross-repository manifest mirror；CY Web adopts `CYID_CONSUMER_VERSION=1.0.1` and exact-sync deployment gate。CYACC handoff remains app-specific at `CYapps/apps/CYCloudIdentity/docs/consumers/CYACC_INTEGRATION_HANDOFF.md`。
+24. [x] Publish governed CYID shared Consumer Integration Standard + compatibility window + cross-repository manifest mirror；CY Web adopts `CYID_CONSUMER_VERSION=1.0.2` and exact-sync deployment gate。CYACC handoff remains app-specific at `CYapps/apps/CYCloudIdentity/docs/consumers/CYACC_INTEGRATION_HANDOFF.md`。
 25. [ ] 在 CYInvoice 工作線的適合接入點產出其 consumer-specific CYID handoff；Device/local/offline 邊界保持 CYInvoice-owned。
 26. [ ] Prepare CY Web production Worker/D1 cutover only after explicit user approval; CYID provider provisioning 的既有批准與成功證據不表示 CY Web production rollout 已批准。
 27. [x] Review compatibility/runtime/deployment layers; record source evidence and cleanup order in `docs/architecture/COMPATIBILITY_REVIEW.md`.
-28. [ ] Coordinate Group-field/proxy retirement with CYID; finish existing WorkLog branch, remove superseded local business pages and complete Settings/Audit data boundary without another compatibility wrapper.
+28. [x] Coordinate Group-field/proxy retirement with CYID; finish existing WorkLog branch, remove superseded local business pages and complete Settings/Audit data boundary without another compatibility wrapper.
 
 ## Current Identity acceptance boundary
 
@@ -116,3 +116,10 @@ Historical preview/audit/readiness/review material under `docs/architecture/arch
 - 三個 Identity adapter regression tests 通過：無 Group projection 的 direct-role principal 可登入、required authority checks 保持 fail closed、retired routes 不呼叫 provider。Runtime Check 執行相同 tests。
 - Full source checks、browser/Worker TypeScript 與 operational bundle 通過。Local D1/Worker acceptance 被執行環境 `uv_interface_addresses` 錯誤阻擋；GitHub Actions existing Local D1 runtime acceptance 是 merge gate。
 - 本批只更新 source；development runtime 仍為 0.6.0，未宣稱完成 provider legacy-field retirement 或整體 localStorage cutover。
+
+## 0.7.0 cleanup verification
+
+- Browser/Worker TypeScript, full source/schema/transport checks, operational bundle and deployment renderer pass locally. Eight Identity tests cover current principal validation, retired routes, one-attempt header/body timeout and exception behavior.
+- Worker/D1 acceptance now requires Settings/Audit Session/role denial, body-role spoof rejection, real persisted settings writes, stale-write conflict, server-derived Audit actor, read-only Audit and inactive App member rejection, alongside existing business transaction/WorkLog lifecycle checks.
+- Shared contract mirror must exactly match CYID main at 1.0.2 before merge/deploy. `/api/health` reports the build's declared consumer version so production provider retirement can verify actual core-consumer readiness.
+- Source completion does not claim real Email/browser/device acceptance, backup/restore or production business-data cutover. Development release evidence is recorded after the deployment runs complete.
