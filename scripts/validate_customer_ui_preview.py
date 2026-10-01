@@ -19,7 +19,7 @@ def require(path: str) -> str:
 def main() -> int:
     app = require("src/App.tsx")
     operational = require("src/runtime/OperationalWorkspace.tsx")
-    runtime_doc = require("docs/architecture/OPERATIONAL_LOCAL_RUNTIME.md")
+    runtime_doc = require("docs/architecture/OPERATIONAL_RUNTIME.md")
     contract = require("docs/architecture/CUSTOMER_MODULE_CONTRACT.md")
 
     # The old Customer preview remains in source as design/history evidence only.

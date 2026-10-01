@@ -1,7 +1,7 @@
 import { CYWEB_MODULES, isCyWebModuleCode, type CyWebModuleCode } from "../../shared/modules";
 import { allowedModuleCodes, ensureAppMemberProjection, resolveAppMember } from "../auth/app-access";
 import { requireIdentity, requireModuleAccess } from "../auth/guard";
-import { CYWEB_IDENTITY_COOKIE } from "../identity/cycloud-identity-adapter";
+import { CYWEB_IDENTITY_COOKIE, cookieValue, isSessionToken, normalizedApplicationId, fetchIdentityProvider } from "../identity/provider-transport";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
 import { failure, success } from "./response";
 
@@ -21,25 +21,6 @@ function canManageModuleAccess(role: "SUPER_ADMIN" | "ADMIN" | "USER", isIdentit
   return role === "SUPER_ADMIN" || (role === "ADMIN" && isIdentityAdmin);
 }
 
-function cookieValue(request: Request, name: string): string | null {
-  const raw = request.headers.get("cookie") ?? "";
-  for (const part of raw.split(";")) {
-    const index = part.indexOf("=");
-    if (index < 0 || part.slice(0, index).trim() !== name) continue;
-    try { return decodeURIComponent(part.slice(index + 1).trim()); } catch { return null; }
-  }
-  return null;
-}
-
-function normalizedApplicationId(env: IdentityRuntimeEnv): string | null {
-  const value = env.IDENTITY_APPLICATION_ID?.trim().toUpperCase() ?? "";
-  return value.length >= 2 && value.length <= 64 && !/[^A-Z0-9_-]/.test(value) ? value : null;
-}
-
-function isSessionToken(value: string | null): value is string {
-  return Boolean(value && /^cyid_[0-9a-f]{64}$/.test(value));
-}
-
 async function identityTarget(
   request: Request,
   env: IdentityRuntimeEnv,
@@ -55,18 +36,11 @@ async function identityTarget(
   if (!env.IDENTITY || typeof env.IDENTITY.fetch !== "function" || !applicationId) return { status: "unavailable" };
   if (!isSessionToken(token)) return { status: "unauthorized" };
 
-  let response: Response;
-  try {
-    response = await env.IDENTITY.fetch(new Request("https://identity.internal/v1/admin/identity/snapshot", {
-      method: "GET",
-      headers: {
-        authorization: `Bearer ${token}`,
-        "x-identity-application": applicationId,
-      },
-    }));
-  } catch {
-    return { status: "unavailable" };
-  }
+  const response = await fetchIdentityProvider(env.IDENTITY, new Request("https://identity.internal/v1/admin/identity/snapshot", {
+    method: "GET",
+    headers: { authorization: `Bearer ${token}`, "x-identity-application": applicationId },
+  }));
+  if (!response) return { status: "unavailable" };
 
   if (response.status === 401 || response.status === 403) return { status: "unauthorized" };
   if (!response.ok) return { status: "unavailable" };

@@ -158,11 +158,34 @@ jobs:
           fi
           echo "worker_url=$WORKER_URL" >> "$GITHUB_OUTPUT"
 
+      - name: Verify deployed source consumer declaration and D1 health
+        shell: bash
+        env:
+          CYWEB_WORKER_URL: ${{ steps.deploy.outputs.worker_url }}
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const version=fs.readFileSync('VERSION','utf8').trim();
+          const consumer=fs.readFileSync('CYID_CONSUMER_VERSION','utf8').trim();
+          for(const origin of ['https://'+process.env.CF_PUBLIC_HOSTNAME,process.env.CYWEB_WORKER_URL]){
+            let ready=false;
+            for(let attempt=0;attempt<10;attempt++){
+              const response=await fetch(origin+'/api/health',{signal:AbortSignal.timeout(10000)});
+              const body=await response.json();
+              if(response.ok&&body.ok===true&&body.data?.service==='cyweb'&&body.data?.version===version&&body.data?.database==='ok'&&body.data?.identityConsumerVersion===consumer){ready=true;break;}
+              await new Promise(resolve=>setTimeout(resolve,1000));
+            }
+            if(!ready) throw new Error('DEPLOYED_SOURCE_CONSUMER_OR_D1_HEALTH_MISMATCH');
+          }
+          console.log('Canonical and workers.dev D1 health: source '+version+', consumer '+consumer+'.');
+          NODE
+
       - name: Accept canonical Custom Domain
         shell: bash
         run: |
           set -euo pipefail
           TARGET="https://${CF_PUBLIC_HOSTNAME}"
+          INVALID_SESSION="cyid_$(openssl rand -hex 32)"
           HEADERS_FILE="$(mktemp)"
           BODY_FILE="$(mktemp)"
           trap 'rm -f "$HEADERS_FILE" "$BODY_FILE"' EXIT
@@ -178,7 +201,7 @@ jobs:
               --output "$BODY_FILE" \
               --dump-header "$HEADERS_FILE" \
               --write-out '%{http_code}' \
-              --cookie 'cyweb_identity_session=cyweb-development-invalid-session-acceptance' \
+              --cookie "cyweb_identity_session=$INVALID_SESSION" \
               "$TARGET/api/auth/me" || true)"
 
             if [ "$STATUS" = "401" ] \
@@ -212,6 +235,7 @@ jobs:
           CYWEB_WORKER_URL: ${{ steps.deploy.outputs.worker_url }}
         run: |
           set -euo pipefail
+          INVALID_SESSION="cyid_$(openssl rand -hex 32)"
           HEADERS_FILE="$(mktemp)"
           BODY_FILE="$(mktemp)"
           trap 'rm -f "$HEADERS_FILE" "$BODY_FILE"' EXIT
@@ -222,7 +246,7 @@ jobs:
             --output "$BODY_FILE" \
             --dump-header "$HEADERS_FILE" \
             --write-out '%{http_code}' \
-            --cookie 'cyweb_identity_session=cyweb-development-invalid-session-acceptance' \
+            --cookie "cyweb_identity_session=$INVALID_SESSION" \
             "$CYWEB_WORKER_URL/api/auth/me")"
 
           if [ "$STATUS" != "401" ]; then

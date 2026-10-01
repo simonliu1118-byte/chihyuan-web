@@ -1,4 +1,4 @@
-import { CYWEB_IDENTITY_COOKIE } from "../identity/cycloud-identity-adapter";
+import { CYWEB_IDENTITY_COOKIE, cookieValue, isSessionToken, normalizedApplicationId, normalizedWorkspaceId, fetchIdentityProvider } from "../identity/provider-transport";
 import type { IdentityRuntimeEnv } from "./auth-routes";
 import { failure, success } from "./response";
 
@@ -12,30 +12,6 @@ interface ProviderPayload {
 const PROVIDER_META_KEYS = new Set([
   "ok", "service", "serviceVersion", "apiVersion", "environment", "requestId", "timestamp", "error",
 ]);
-
-function normalizedApplicationId(env: IdentityRuntimeEnv): string | null {
-  const value = env.IDENTITY_APPLICATION_ID?.trim().toUpperCase() ?? "";
-  return value.length >= 2 && value.length <= 64 && !/[^A-Z0-9_-]/.test(value) ? value : null;
-}
-
-function normalizedWorkspaceId(env: IdentityRuntimeEnv): string | null {
-  const value = env.IDENTITY_WORKSPACE_ID?.trim() ?? "";
-  return value.length >= 5 && value.length <= 80 && !/[^A-Za-z0-9_-]/.test(value) ? value : null;
-}
-
-function cookieValue(request: Request, name: string): string | null {
-  const raw = request.headers.get("cookie") ?? "";
-  for (const part of raw.split(";")) {
-    const index = part.indexOf("=");
-    if (index < 0 || part.slice(0, index).trim() !== name) continue;
-    try { return decodeURIComponent(part.slice(index + 1).trim()); } catch { return null; }
-  }
-  return null;
-}
-
-function isSessionToken(value: string | null): value is string {
-  return Boolean(value && /^cyid_[0-9a-f]{64}$/.test(value));
-}
 
 function providerData(payload: ProviderPayload): Record<string, unknown> {
   const data: Record<string, unknown> = {};
@@ -52,9 +28,8 @@ async function providerResponse(
   if (!env.IDENTITY || typeof env.IDENTITY.fetch !== "function") {
     return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is not configured" }, requestId, 503);
   }
-  let response: Response;
-  try { response = await env.IDENTITY.fetch(new Request(`https://identity.internal${path}`, init)); }
-  catch { return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is unavailable" }, requestId, 503); }
+  const response = await fetchIdentityProvider(env.IDENTITY, new Request(`https://identity.internal${path}`, init));
+  if (!response) return failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is unavailable" }, requestId, 503);
 
   const payload = await response.json().catch(() => null) as ProviderPayload | null;
   if (!payload || typeof payload !== "object") {
@@ -167,9 +142,9 @@ export async function handleIdentityManagementRoute(
     return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/employees/${encodeURIComponent(match[1])}`, request.method);
   }
 
-  match = /^\/api\/identity\/admin\/employees\/([^/]+)\/activation\/resend$/.exec(path);
+  match = /^\/api\/identity\/admin\/employees\/([^/]+)\/email-verification\/resend-initial$/.exec(path);
   if (request.method === "POST" && match) {
-    return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/employees/${encodeURIComponent(match[1])}/activation/resend`, "POST");
+    return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/employees/${encodeURIComponent(match[1])}/email-verification/resend-initial`, "POST");
   }
 
   match = /^\/api\/identity\/admin\/employees\/([^/]+)\/identity-admin$/.exec(path);

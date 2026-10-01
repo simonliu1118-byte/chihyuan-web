@@ -7,7 +7,7 @@ import type {
   OutsourcingModuleLookups,
   SalesWorkOrderModuleLookups,
 } from "../../shared/business-lookups";
-import type { LookupSetting } from "../../shared/settings";
+import type { LookupSetting, RegionSetting } from "../../shared/settings";
 
 type LookupRow = {
   id: number;
@@ -41,14 +41,14 @@ export class BusinessLookupService {
       this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM departments ORDER BY sort_order,id"),
       this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM customer_categories ORDER BY sort_order,id"),
       this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM customer_statuses ORDER BY sort_order,id"),
-      this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM regions ORDER BY sort_order,id"),
+      this.db.prepare("SELECT id,code,name,group_code,sort_order,is_active FROM regions ORDER BY sort_order,id"),
     ]);
     return {
       actor,
       departments: ((results[0]?.results ?? []) as LookupRow[]).map(toLookup),
       customerCategories: ((results[1]?.results ?? []) as LookupRow[]).map(toLookup),
       customerStatuses: ((results[2]?.results ?? []) as LookupRow[]).map(toLookup),
-      regions: ((results[3]?.results ?? []) as LookupRow[]).map(toLookup),
+      regions: ((results[3]?.results ?? []) as (Omit<LookupRow, "updated_at"> & { group_code: string | null })[]).map<RegionSetting>(row => ({ id: row.id, code: row.code, name: row.name, groupCode: row.group_code, sortOrder: row.sort_order, isActive: row.is_active === 1 })),
     };
   }
 

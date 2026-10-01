@@ -248,6 +248,7 @@ def main() -> int:
             "itemConversionExact",
             "outsourcingReversalStock",
             "workLogReviewLifecycle",
+            "settingsAuditHttpAuthority",
         }
         if not isinstance(checks, dict):
             raise RuntimeError(f"Acceptance response did not include checks: {payload!r}")

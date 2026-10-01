@@ -1,5 +1,11 @@
 # CY Web Governance Changelog
 
+## 1.1.7 — 2026/10/01
+
+- Complete WorkLog/Settings/Audit protected D1 runtime and remove browser-local authority and obsolete static deployment workflow.
+- Add deployed source/consumer declaration and real D1 health verification; invalid Session probes reach the bound provider using valid opaque syntax.
+- Preserve exact CYID 1.0.2 mirror and latest common rules 2.7.0.
+
 ## 1.1.6 — 2026/10/01
 
 - CY Web 完成 CYID Consumer Contract 1.0.2 adoption marker：`CYID_CONSUMER_VERSION` 由 1.0.1 升至 1.0.2，對齊已完成的 direct-role／Identity Admin／retired Group routes runtime cleanup。

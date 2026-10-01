@@ -7,14 +7,16 @@ import { SharedIdentityPage } from "./identity/SharedIdentityPage";
 import { moduleCodeForRoute, type CyWebModuleCode } from "../shared/modules";
 import type { NavigationGroup } from "./ui/foundation/navigation";
 import { AppShell } from "./ui/shell/AppShell";
-import { OperationalWorkspace, type OperationalRoute } from "./runtime/OperationalWorkspace";
+import { SettingsOperationalPage } from "./runtime/modules/SettingsOperationalPage";
+import { AuditOperationalPage } from "./runtime/modules/AuditOperationalPage";
 import { CustomerOperationalPage } from "./runtime/modules/CustomerOperationalPage";
 import { DefectOperationalPage } from "./runtime/modules/DefectOperationalPage";
 import { ItemOperationalPage } from "./runtime/modules/ItemOperationalPage";
 import { OutsourcingOperationalPage } from "./runtime/modules/OutsourcingOperationalPage";
 import { SalesOrderOperationalPage } from "./runtime/modules/SalesOrderOperationalPage";
+import { WorkLogOperationalPage } from "./runtime/modules/WorkLogOperationalPage";
 
-type AppRoute = OperationalRoute | "defects" | "identity";
+type AppRoute = "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "settings" | "audit" | "identity";
 
 const baseNavigation: readonly NavigationGroup[] = [
   {
@@ -179,8 +181,10 @@ function OperationalApp({
   else if (route === "defects") content = <DefectOperationalPage />;
   else if (route === "orders") content = <SalesOrderOperationalPage />;
   else if (route === "outsourcing") content = <OutsourcingOperationalPage />;
+  else if (route === "worklogs") content = <WorkLogOperationalPage />;
   else if (route === "identity") content = <SharedIdentityPage session={session} />;
-  else content = <OperationalWorkspace route={route as OperationalRoute} />;
+  else if (route === "settings") content = <SettingsOperationalPage role={session.user.workspaceRole} />;
+  else content = <AuditOperationalPage />;
 
   return (
     <AppShell
@@ -190,7 +194,7 @@ function OperationalApp({
       activeNavigationKey={route}
       headerActions={
         <>
-          <div className="cy-op-runtime-banner">資料移轉中 · 客戶／商品／瑕疵／銷售工單／委外已使用 Worker / D1</div>
+          <div className="cy-op-runtime-banner">六個業務模組已使用 Worker / D1</div>
           <div className="cy-auth-account-control">
             <div className="cy-auth-user">
               <span><strong>{session.user.employeeNo}</strong> {session.user.displayName} <span className="cy-auth-permission-badge">[{accountPermissionLabel(session.user.workspaceRole)}]</span></span>
@@ -206,7 +210,7 @@ function OperationalApp({
           </div>
         </>
       }
-      footer={<span className="cy-shell-foundation-note">Development · CYCloud Identity · Customer / Item / Defect / Order / Outsourcing on D1 · WorkLog 遷移中</span>}
+      footer={<span className="cy-shell-foundation-note">Development · CYCloud Identity · 六個業務模組皆為 Worker / D1 authority</span>}
     >
       {moduleAccessError && route === "identity" ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-title">模組權限狀態</div><div className="cy-notice-body">{moduleAccessError}</div></div> : null}
       {content}

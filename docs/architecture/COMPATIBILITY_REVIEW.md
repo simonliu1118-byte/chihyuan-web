@@ -48,7 +48,7 @@ No runtime cleanup, remote deployment, schema/data mutation or consumer contract
 
 ## Verification
 
-Locally passed `validate_identity_foundation.py`, `validate_module_access.py`, `validate_operational_local_runtime.py`, and Customer/Defect/Sales Order/Outsourcing transport validators on main. Inspected root/Worker dispatch, auth/management transport, active React route selection, local database call sites and WorkLog branch diff. Source-contract validators do not replace real browser/Email/device acceptance or prove unused external consumers. No new tests were added for this documentation-only change.
+Locally passed `validate_identity_foundation.py`, `validate_module_access.py`, `validate_operational_runtime.py`, and Customer/Defect/Sales Order/Outsourcing transport validators on main. Inspected root/Worker dispatch, auth/management transport, active React route selection, local database call sites and WorkLog branch diff. Source-contract validators do not replace real browser/Email/device acceptance or prove unused external consumers. No new tests were added for this documentation-only change.
 
 ## First remediation — CY Web 0.6.1
 
@@ -56,3 +56,14 @@ Locally passed `validate_identity_foundation.py`, `validate_module_access.py`, `
 - Removed Group CRUD/membership/App Access and compatibility-role-mode proxies, unused compatibility-mode client type, and the unused local Customer/Item/Order/Outsourcing components and dispatch. Active D1 pages remain the App routes.
 - Static bundle documentation now reflects its same-origin Worker API requirement. Local Settings copy no longer claims it changes migrated D1 modules.
 - Provider public-field retirement awaits coordinated consumer deployment. Transport duplication and WorkLog/Settings/Audit migration remain open; this source-only patch does not deploy runtime changes.
+
+## Final source remediation — CY Web 0.7.0
+
+The earlier findings describe the reviewed historical baseline. Remaining source cleanup is implemented:
+
+- Integrated the existing WorkLog Worker/D1 client and page, completing all six business transports. Removed `OperationalWorkspace`, browser-local database/types and the obsolete static operational deployment workflow.
+- Settings and Audit have direct protected Worker APIs and operational pages. Role and actor come from the resolved CYID principal and active App member. Structural writes require SUPER_ADMIN; WorkLog settings allow ADMIN/SUPER_ADMIN; Audit has no write route. Historical App tags are metadata, not authorization.
+- Authentication, management and Module Access callers share one bounded Identity transport, cookie/config/token helpers and forwarded headers. The deadline covers both headers and body; there are no retries or local authority fallbacks.
+- CYID Consumer 1.0.2 removes provider obsolete Group/role-mode/initial-delivery aliases. The Web client uses canonical `/email-verification/resend-initial` and `emailVerificationDelivery`. The exact contract mirror and deployment gates remain required.
+
+Full local source checks, browser/Worker TypeScript, operational bundle, deployment rendering and eight Identity tests pass. Actual Worker/D1 acceptance is a required CI gate and now covers the Settings/Audit HTTP authority boundary as well as existing business transactions. Deployed consumer version is exposed in health; production business-data rollout, real Email/browser/device acceptance and backup/restore are independent pending work.

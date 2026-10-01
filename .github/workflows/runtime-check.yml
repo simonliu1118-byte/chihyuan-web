@@ -48,10 +48,12 @@ jobs:
         run: python scripts/validate_contractor_outsourcing_foundation.py
       - name: WorkLog contract
         run: python scripts/validate_work_log_foundation.py
+      - name: WorkLog runtime transport
+        run: python scripts/validate_worklog_runtime_transport.py
       - name: Settings Admin contract
         run: python scripts/validate_settings_admin_foundation.py
       - name: Operational runtime contract
-        run: python scripts/validate_operational_local_runtime.py
+        run: python scripts/validate_operational_runtime.py
 
   browser-typecheck:
     runs-on: ubuntu-latest

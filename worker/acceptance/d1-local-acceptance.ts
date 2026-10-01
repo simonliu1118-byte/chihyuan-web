@@ -4,6 +4,8 @@ import { CustomerService } from "../customer/customer-service";
 import { ItemService } from "../item/item-service";
 import { convertScaled4Exact, scaled4ProductToMoney2Exact } from "../item/unit-conversion";
 import { OutsourcingService } from "../outsourcing/outsourcing-service";
+import { BusinessLookupService } from "../reference/business-lookup-service";
+import { handleSettingsAuditRoute } from "../http/settings-audit-routes";
 import { WorkLogService } from "../worklog/work-log-service";
 
 interface Env {
@@ -21,6 +23,7 @@ interface AcceptanceChecks {
   itemConversionExact: boolean;
   outsourcingReversalStock: boolean;
   workLogReviewLifecycle: boolean;
+  settingsAuditHttpAuthority: boolean;
 }
 
 function assertAcceptance(condition: unknown, code: string): asserts condition {
@@ -39,6 +42,63 @@ async function stockBalance(db: D1Database, contractorId: number, itemId: number
      WHERE contractor_id = ?1 AND item_id = ?2
   `).bind(contractorId, itemId).first<{ balance: number }>();
   return Number(row?.balance ?? 0);
+}
+
+async function acceptSettingsAuditHttp(db: D1Database): Promise<void> {
+  let role: "USER" | "ADMIN" | "SUPER_ADMIN" = "USER";
+  let validSession = true;
+  const env = { DB: db, IDENTITY_APPLICATION_ID: "APP_TEST", IDENTITY_WORKSPACE_ID: "workspace-test",
+    IDENTITY: { async fetch() {
+      if (!validSession) return Response.json({ error: { code: "SESSION_INVALID" } }, { status: 401 });
+      return Response.json({ ok: true, principal: {
+        workspaceId: "workspace-test", employeeId: "settings-acceptance", employeeNo: "0098", displayName: "Settings Acceptance",
+        workspaceRole: role, isIdentityAdmin: role === "ADMIN", emailVerified: true, isWorkspaceSuperAdmin: role === "SUPER_ADMIN", credentialVersion: 1, employeeRevision: 1,
+      }, session: { expiresAt: "2999-01-01T00:00:00.000Z" } });
+    } } as unknown as Fetcher,
+  };
+  async function call(path: string, method = "GET", body?: unknown): Promise<Response> {
+    const response = await handleSettingsAuditRoute(new Request("https://acceptance.test" + path, {
+      method, headers: { cookie: "cyweb_identity_session=cyid_" + "a".repeat(64), "content-type": "application/json" },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    }), env, "accept-settings-http");
+    assertAcceptance(response, "ACCEPT_SETTINGS_ROUTE_MISSING");
+    return response;
+  }
+  assertAcceptance((await call("/api/admin/settings")).status === 403, "ACCEPT_SETTINGS_USER_ACCESS");
+  assertAcceptance((await call("/api/admin/audit")).status === 403, "ACCEPT_AUDIT_USER_ACCESS");
+  role = "ADMIN";
+  validSession = false;
+  assertAcceptance((await call("/api/admin/settings")).status === 401, "ACCEPT_SETTINGS_INVALID_SESSION");
+  validSession = true;
+  assertAcceptance((await call("/api/admin/settings")).status === 200, "ACCEPT_SETTINGS_ADMIN_READ");
+  const input = { code: "ACCEPT_SETTINGS_HTTP", name: "Settings HTTP", role: "SUPER_ADMIN", actorMemberId: 1 };
+  assertAcceptance((await call("/api/admin/settings/lookups/department", "POST", input)).status === 403, "ACCEPT_SETTINGS_SPOOFED_AUTHORITY");
+  role = "SUPER_ADMIN";
+  assertAcceptance((await call("/api/admin/settings/lookups/department", "POST", input)).status === 200, "ACCEPT_SETTINGS_CREATE");
+  const snapshot = await (await call("/api/admin/settings")).json() as { data: { departments: { id: number; code: string; updatedAt: string }[] } };
+  const row = snapshot.data.departments.find(value => value.code === input.code);
+  assertAcceptance(row, "ACCEPT_SETTINGS_PERSISTENCE");
+  const patch = { name: "Updated HTTP", sortOrder: 1, isActive: true, expectedUpdatedAt: "1999-01-01T00:00:00.000Z" };
+  assertAcceptance((await call(`/api/admin/settings/lookups/department/${row.id}`, "PATCH", patch)).status === 409, "ACCEPT_SETTINGS_STALE_UPDATE");
+  assertAcceptance((await call(`/api/admin/settings/lookups/department/${row.id}`, "PATCH", { ...patch, expectedUpdatedAt: row.updatedAt })).status === 200, "ACCEPT_SETTINGS_UPDATE");
+  await db.prepare("CREATE TRIGGER acceptance_settings_audit_failure BEFORE INSERT ON audit_events WHEN NEW.entity_key='ACCEPT_SETTINGS_ROLLBACK' BEGIN SELECT RAISE(ABORT,'acceptance forced audit failure'); END").run();
+  const rolledBack = await call("/api/admin/settings/lookups/department", "POST", { code: "ACCEPT_SETTINGS_ROLLBACK", name: "Must roll back" });
+  assertAcceptance(rolledBack.status >= 400, "ACCEPT_SETTINGS_AUDIT_FAILURE_REPORTED");
+  const absent = await db.prepare("SELECT COUNT(*) AS count FROM departments WHERE code='ACCEPT_SETTINGS_ROLLBACK'").first<{ count: number }>();
+  assertAcceptance(absent?.count === 0, "ACCEPT_SETTINGS_ATOMIC_ROLLBACK");
+  await db.prepare("DROP TRIGGER acceptance_settings_audit_failure").run();
+  await db.prepare("INSERT INTO regions(code,name,group_code,sort_order,is_active) VALUES('ACCEPT_REGION_HTTP','Region read model','TEST',0,1)").run();
+  const references = await new BusinessLookupService(db).customerLookups({ appMemberId: 1, employeeNo: "T0001", displayName: "Acceptance" });
+  assertAcceptance(references.regions.some(value => value.code === "ACCEPT_REGION_HTTP" && value.groupCode === "TEST" && !("updatedAt" in value)), "ACCEPT_REGION_LOOKUP_SCHEMA");
+  role = "ADMIN";
+  assertAcceptance((await call("/api/admin/settings/worklog-categories", "POST", { code: "ACCEPT_HTTP_LOG", name: "HTTP WorkLog", inputMode: "boolean" })).status === 200, "ACCEPT_SETTINGS_ADMIN_WORKLOG");
+  const audit = await (await call("/api/admin/audit?entityType=setting.department&limit=100")).json() as { data: { events: { actorEmployeeId: number }[] } };
+  const member = await db.prepare("SELECT id FROM app_members WHERE identity_employee_id = ?1").bind("settings-acceptance").first<{ id: number }>();
+  assertAcceptance(audit.data.events.length >= 2 && audit.data.events.every(event => event.actorEmployeeId === member?.id), "ACCEPT_SETTINGS_AUDIT_SERVER_ACTOR");
+  assertAcceptance((await call("/api/admin/audit?limit=201")).status === 422, "ACCEPT_AUDIT_LIMIT_VALIDATION");
+  assertAcceptance((await call("/api/admin/audit", "POST", {})).status === 405, "ACCEPT_AUDIT_READ_ONLY");
+  await db.prepare("UPDATE app_members SET is_active=0 WHERE identity_employee_id=?1").bind("settings-acceptance").run();
+  assertAcceptance((await call("/api/admin/settings")).status === 403, "ACCEPT_SETTINGS_INACTIVE_MEMBER");
 }
 
 async function runAcceptance(db: D1Database): Promise<AcceptanceChecks> {
@@ -535,7 +595,10 @@ async function runAcceptance(db: D1Database): Promise<AcceptanceChecks> {
   `).bind(String(workLogCreated.id)).first<{ count: number }>();
   assertAcceptance(Number(workLogAudit?.count ?? 0) === 3, "ACCEPT_WORKLOG_AUDIT_SEQUENCE_MISSING");
 
+  await acceptSettingsAuditHttp(db);
+
   return {
+    settingsAuditHttpAuthority: true,
     customerBatchCreate: true,
     optimisticRevision: true,
     batchRollback: true,

@@ -52,6 +52,8 @@ def validate_source_contracts() -> None:
         if role not in contract:
             raise AssertionError(f"missing Workspace role contract: {role}")
 
+    provider += (ROOT / "worker/identity/provider-transport.ts").read_text(encoding="utf-8")
+
     for token in (
         "/v1/identity/login",
         "/v1/identity/session/resolve",

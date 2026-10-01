@@ -1,3 +1,4 @@
+import { normalizedApplicationId, normalizedWorkspaceId } from "../identity/provider-transport";
 import { resolveAppMember } from "../auth/app-access";
 import {
   clearFirstLoginCookie,
@@ -15,18 +16,8 @@ export interface IdentityRuntimeEnv {
   IDENTITY?: Fetcher;
   IDENTITY_APPLICATION_ID?: string;
   IDENTITY_WORKSPACE_ID?: string;
-}
-
-function normalizedApplicationId(env: IdentityRuntimeEnv): string | null {
-  const value = env.IDENTITY_APPLICATION_ID?.trim().toUpperCase() ?? "";
-  if (value.length < 2 || value.length > 64 || /[^A-Z0-9_-]/.test(value)) return null;
-  return value;
-}
-
-function normalizedWorkspaceId(env: IdentityRuntimeEnv): string | null {
-  const value = env.IDENTITY_WORKSPACE_ID?.trim() ?? "";
-  if (value.length < 5 || value.length > 80 || /[^A-Za-z0-9_-]/.test(value)) return null;
-  return value;
+  IDENTITY_CONSUMER_VERSION?: string;
+  SOURCE_VERSION?: string;
 }
 
 export function identityClient(env: IdentityRuntimeEnv): CYCloudIdentityClient | null {

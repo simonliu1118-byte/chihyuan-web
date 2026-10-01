@@ -820,7 +820,7 @@ export function CustomerOperationalPage() {
                   {relatedTab === "visits" ? <VisitsPanel selected={selected} rows={visits} draft={visitDraft} setDraft={setVisitDraft} save={saveVisit} edit={editVisit} remove={removeVisit} busy={busy} /> : null}
                   {relatedTab === "quotes" ? <QuotesPanel items={itemOptions} rows={quotes} draft={quoteDraft} setDraft={setQuoteDraft} startNew={startQuote} save={saveQuote} correct={startQuoteCorrection} busy={busy} /> : null}
                   {relatedTab === "frequent" ? <FrequentPanel items={itemOptions} rows={frequentItems} itemId={frequentItemId} setItemId={setFrequentItemId} freeText={frequentText} setFreeText={setFrequentText} add={addFrequentItem} remove={removeFrequent} busy={busy} /> : null}
-                  {relatedTab === "activity" ? <div className="cy-customer-related-content"><h3>重要操作</h3><p className="cy-customer-muted">重要異動已由 Worker 寫入 Shared Audit；集中稽核查詢 UI 尚未接上，因此不再以 localStorage 模擬歷史紀錄。</p></div> : null}
+                  {relatedTab === "activity" ? <div className="cy-customer-related-content"><h3>重要操作</h3><p className="cy-customer-muted">重要異動已保存至稽核紀錄；管理員可在「稽核／操作記錄」依客戶與操作類型查詢。</p></div> : null}
                 </section>
               </div>
             </div>

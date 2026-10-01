@@ -40,6 +40,8 @@ try {
   if (config.vars?.IDENTITY_WORKSPACE_ID !== env.CF_IDENTITY_WORKSPACE_ID) {
     throw new Error("Identity Workspace mismatch");
   }
+  if (config.vars?.SOURCE_VERSION !== fs.readFileSync(new URL("../VERSION", import.meta.url), "utf8").trim()) throw new Error("deployed source marker mismatch");
+  if (config.vars?.IDENTITY_CONSUMER_VERSION !== fs.readFileSync(new URL("../CYID_CONSUMER_VERSION", import.meta.url), "utf8").trim()) throw new Error("consumer declaration missing from deployed health marker");
   if (/__CF_[A-Z0-9_]+__/.test(raw)) throw new Error("unresolved placeholder remains");
 
   let missingRejected = false;
