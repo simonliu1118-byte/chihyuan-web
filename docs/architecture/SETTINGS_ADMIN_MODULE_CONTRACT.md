@@ -121,3 +121,5 @@ This Settings foundation does **not** bind backup providers or storage credentia
 ## 10. Runtime gate
 
 The operational Settings and Audit pages use `/api/admin/settings` and `/api/admin/audit`. Each request resolves a CYID Session and an active App member. The server supplies actor and role; client body fields cannot override authority. Structural settings require SUPER_ADMIN; WorkLog settings permit ADMIN and SUPER_ADMIN. Audit is read-only. Worker/D1 CI acceptance exercises role denial, spoofed role rejection, persisted writes, optimistic conflicts, server-derived Audit actors and inactive-member denial. Backup/restore remains a separate runtime gate.
+
+Settings mutations commit the setting and its Audit event in one D1 batch. A failed Audit insert rolls back the setting; zero-row optimistic writes do not create an Audit event. Regions are read-only reference rows without `updated_at`; their projection exposes `groupCode` and does not invent edit timestamps.

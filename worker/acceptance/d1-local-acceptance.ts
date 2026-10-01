@@ -4,6 +4,7 @@ import { CustomerService } from "../customer/customer-service";
 import { ItemService } from "../item/item-service";
 import { convertScaled4Exact, scaled4ProductToMoney2Exact } from "../item/unit-conversion";
 import { OutsourcingService } from "../outsourcing/outsourcing-service";
+import { BusinessLookupService } from "../reference/business-lookup-service";
 import { handleSettingsAuditRoute } from "../http/settings-audit-routes";
 import { WorkLogService } from "../worklog/work-log-service";
 
@@ -51,7 +52,7 @@ async function acceptSettingsAuditHttp(db: D1Database): Promise<void> {
       if (!validSession) return Response.json({ error: { code: "SESSION_INVALID" } }, { status: 401 });
       return Response.json({ ok: true, principal: {
         workspaceId: "workspace-test", employeeId: "settings-acceptance", employeeNo: "0098", displayName: "Settings Acceptance",
-        workspaceRole: role, isIdentityAdmin: role !== "USER", emailVerified: true, isWorkspaceSuperAdmin: role === "SUPER_ADMIN", credentialVersion: 1, employeeRevision: 1,
+        workspaceRole: role, isIdentityAdmin: role === "ADMIN", emailVerified: true, isWorkspaceSuperAdmin: role === "SUPER_ADMIN", credentialVersion: 1, employeeRevision: 1,
       }, session: { expiresAt: "2999-01-01T00:00:00.000Z" } });
     } } as unknown as Fetcher,
   };
@@ -80,6 +81,15 @@ async function acceptSettingsAuditHttp(db: D1Database): Promise<void> {
   const patch = { name: "Updated HTTP", sortOrder: 1, isActive: true, expectedUpdatedAt: "1999-01-01T00:00:00.000Z" };
   assertAcceptance((await call(`/api/admin/settings/lookups/department/${row.id}`, "PATCH", patch)).status === 409, "ACCEPT_SETTINGS_STALE_UPDATE");
   assertAcceptance((await call(`/api/admin/settings/lookups/department/${row.id}`, "PATCH", { ...patch, expectedUpdatedAt: row.updatedAt })).status === 200, "ACCEPT_SETTINGS_UPDATE");
+  await db.prepare("CREATE TRIGGER acceptance_settings_audit_failure BEFORE INSERT ON audit_events WHEN NEW.entity_key='ACCEPT_SETTINGS_ROLLBACK' BEGIN SELECT RAISE(ABORT,'acceptance forced audit failure'); END").run();
+  const rolledBack = await call("/api/admin/settings/lookups/department", "POST", { code: "ACCEPT_SETTINGS_ROLLBACK", name: "Must roll back" });
+  assertAcceptance(rolledBack.status >= 400, "ACCEPT_SETTINGS_AUDIT_FAILURE_REPORTED");
+  const absent = await db.prepare("SELECT COUNT(*) AS count FROM departments WHERE code='ACCEPT_SETTINGS_ROLLBACK'").first<{ count: number }>();
+  assertAcceptance(absent?.count === 0, "ACCEPT_SETTINGS_ATOMIC_ROLLBACK");
+  await db.prepare("DROP TRIGGER acceptance_settings_audit_failure").run();
+  await db.prepare("INSERT INTO regions(code,name,group_code,sort_order,is_active) VALUES('ACCEPT_REGION_HTTP','Region read model','TEST',0,1)").run();
+  const references = await new BusinessLookupService(db).customerLookups({ appMemberId: 1, employeeNo: "T0001", displayName: "Acceptance" });
+  assertAcceptance(references.regions.some(value => value.code === "ACCEPT_REGION_HTTP" && value.groupCode === "TEST" && !("updatedAt" in value)), "ACCEPT_REGION_LOOKUP_SCHEMA");
   role = "ADMIN";
   assertAcceptance((await call("/api/admin/settings/worklog-categories", "POST", { code: "ACCEPT_HTTP_LOG", name: "HTTP WorkLog", inputMode: "boolean" })).status === 200, "ACCEPT_SETTINGS_ADMIN_WORKLOG");
   const audit = await (await call("/api/admin/audit?entityType=setting.department&limit=100")).json() as { data: { events: { actorEmployeeId: number }[] } };

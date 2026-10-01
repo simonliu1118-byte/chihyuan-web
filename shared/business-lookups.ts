@@ -1,4 +1,4 @@
-import type { LookupSetting } from "./settings";
+import type { LookupSetting, RegionSetting } from "./settings";
 
 export interface BusinessActorRef {
   appMemberId: number;
@@ -11,7 +11,7 @@ export interface CustomerModuleLookups {
   departments: readonly LookupSetting[];
   customerCategories: readonly LookupSetting[];
   customerStatuses: readonly LookupSetting[];
-  regions: readonly LookupSetting[];
+  regions: readonly RegionSetting[];
 }
 
 export interface ItemModuleLookups {

@@ -120,6 +120,6 @@ Historical preview/audit/readiness/review material under `docs/architecture/arch
 ## 0.7.0 cleanup verification
 
 - Browser/Worker TypeScript, full source/schema/transport checks, operational bundle and deployment renderer pass locally. Eight Identity tests cover current principal validation, retired routes, one-attempt header/body timeout and exception behavior.
-- Worker/D1 acceptance now requires Settings/Audit Session/role denial, body-role spoof rejection, real persisted settings writes, stale-write conflict, server-derived Audit actor, read-only Audit and inactive App member rejection, alongside existing business transaction/WorkLog lifecycle checks.
+- Worker/D1 acceptance now requires Settings/Audit Session/role denial, body-role spoof rejection, real persisted settings writes, stale-write conflict, server-derived Audit actor, atomic rollback on Audit failure, schema-correct region references, read-only Audit and inactive App member rejection, alongside existing business transaction/WorkLog lifecycle checks.
 - Shared contract mirror must exactly match CYID main at 1.0.2 before merge/deploy. `/api/health` reports the build's declared consumer version so production provider retirement can verify actual core-consumer readiness.
 - Source completion does not claim real Email/browser/device acceptance, backup/restore or production business-data cutover. Development release evidence is recorded after the deployment runs complete.

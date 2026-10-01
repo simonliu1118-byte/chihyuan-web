@@ -16,6 +16,10 @@ export interface LookupSetting {
   parentId?: number | null;
 }
 
+export interface RegionSetting extends Omit<LookupSetting, "updatedAt"> {
+  groupCode: string | null;
+}
+
 export interface CreateLookupSettingRequest {
   code: string;
   name: string;
@@ -54,11 +58,6 @@ export interface UpdateAppTagRequest {
   isActive: boolean;
   moduleCodes: readonly string[];
   expectedUpdatedAt: string;
-}
-
-export interface SetMemberTagsRequest {
-  memberId: number;
-  tagIds: readonly number[];
 }
 
 export interface WorkLogCategorySetting {
@@ -145,7 +144,7 @@ export interface SettingsSnapshot {
   departments: readonly LookupSetting[];
   customerCategories: readonly LookupSetting[];
   customerStatuses: readonly LookupSetting[];
-  regions: readonly LookupSetting[];
+  regions: readonly RegionSetting[];
   itemCategories: readonly LookupSetting[];
   appTags: readonly AppTagSetting[];
   workLogCategories: readonly WorkLogCategorySetting[];
