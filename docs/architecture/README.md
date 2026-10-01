@@ -29,11 +29,11 @@ Archive、舊 preview、review backlog、readiness checkpoint、舊 handoff 或�
 
 - 單一 TypeScript + React + Vite Web application，Desktop／Tablet／Mobile 共用一套主要 codebase，以 RWD + Adaptive UI 呈現。
 - Cloudflare Workers 是 runtime/API target；D1 是正式 relational database target。
-- 現階段 integrated React operational runtime 使用 versioned browser `localStorage` 作暫時 persistence adapter；這不是第二套 domain model。
+- Integrated React operational runtime 的六個業務模組與 Settings/Audit 全部使用 protected Worker API → D1；browser-local business authority 已退休。
 - Forward schema source of truth 是 `migrations/`；已套用的 migration 不重寫，後續變更持續使用新的 forward migration。
 - **CYCloud Identity** 擁有 Workspace、Employee、Credential、Workspace Role、Identity Admin capability、Application Access、Session、Email verification／OTP／Recovery 與受保護的 Super Admin authority；CY Web 只保存 app-local Module Access 與 domain authorization。
 - Shared CYID consumer contract 以 `../contracts/cyid/` 的 read-only synchronized mirror 作本 repo 工作副本；Governance/Deploy 逐檔對照 CYID `main`，canonical authority 仍在 CYID。
-- Workspace Role 固定為 `SUPER_ADMIN / ADMIN / USER` 並由 CY Web 直接採用；Identity Admin 是 ADMIN capability，不是第四種角色。Legacy Identity Group fields 若仍存在只作 compatibility/history，不是 authorization source。
+- Workspace Role 固定為 `SUPER_ADMIN / ADMIN / USER` 並由 CY Web 直接採用；Identity Admin 是 ADMIN capability，不是第四種角色。Identity Group APIs／projection fields 已退休；歷史實體資料只作 migration/history，不是 authorization source。
 - CY Web 不保存 Identity session row；只在 HttpOnly cookie 中傳輸 CYCloud Identity 的 opaque session token，並在後續請求重新向 Identity resolve。
 - API 使用 same-origin `/api/*`，server-side validation/authorization 才是權威。
 - 一個 shared Audit Core 記錄需要追溯的重要業務動作。
@@ -61,7 +61,7 @@ Archive、舊 preview、review backlog、readiness checkpoint、舊 handoff 或�
 - `IDENTITY_ADAPTER.md` — CY Web-specific Identity adapter、Module Access split and provider acceptance contract。
 - `COMPATIBILITY_REVIEW.md` — source/deployment evidence、obsolete compatibility paths and cleanup order; not a new contract or progress tracker。
 - `AUDIT_CORE.md` — Audit service/query boundary。
-- `OPERATIONAL_RUNTIME.md` — localStorage operational runtime adapter/cutover contract。
+- `OPERATIONAL_RUNTIME.md` — single React → protected Worker API → D1 runtime boundary。
 
 ### Shared Web UI foundations
 
@@ -133,7 +133,7 @@ local/dev D1 + Worker acceptance
         ↓
 CYCloud Identity concrete browser-session integration
         ↓
-localStorage adapter → protected Worker API → D1
+single React application → protected Worker API → D1
         ↓
 Desktop/Tablet/Mobile acceptance
         ↓
