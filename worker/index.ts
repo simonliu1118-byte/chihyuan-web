@@ -17,6 +17,7 @@ async function health(env: Env, requestId: string): Promise<Response> {
       database: "ok",
       time: new Date().toISOString(),
       identityConsumerVersion: env.IDENTITY_CONSUMER_VERSION ?? null,
+      version: env.SOURCE_VERSION ?? null,
     };
     return success(data, requestId);
   } catch {

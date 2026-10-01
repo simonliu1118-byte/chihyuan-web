@@ -23,4 +23,5 @@ export interface HealthData {
   database: "ok";
   time: string;
   identityConsumerVersion: string | null;
+  version: string | null;
 }

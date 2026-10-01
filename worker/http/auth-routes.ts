@@ -17,6 +17,7 @@ export interface IdentityRuntimeEnv {
   IDENTITY_APPLICATION_ID?: string;
   IDENTITY_WORKSPACE_ID?: string;
   IDENTITY_CONSUMER_VERSION?: string;
+  SOURCE_VERSION?: string;
 }
 
 export function identityClient(env: IdentityRuntimeEnv): CYCloudIdentityClient | null {
