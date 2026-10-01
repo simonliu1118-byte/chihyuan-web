@@ -12,3 +12,5 @@
 .cy-backup-card-footer{display:flex;gap:.6rem;justify-content:space-between;align-items:center;margin-top:.8rem;color:#526472}
 .cy-backup-history-note{margin:1rem 0 0}
 @media(max-width:640px){.cy-backup-policy{display:grid;gap:.55rem}.cy-backup-history .cy-data-card{display:grid;gap:.7rem}.cy-backup-card-footer{flex-wrap:wrap}}
+
+.cy-backup-actions .cy-op-button:disabled,.cy-backup-history .cy-op-button:disabled{background:#eef1f4;border-color:#d7dfe5;color:#7a8893;cursor:not-allowed}
