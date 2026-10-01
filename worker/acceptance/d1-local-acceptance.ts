@@ -1,3 +1,4 @@
+import { acceptPortableRecovery } from "./portable-recovery-acceptance";
 import { parseScaled4 } from "../../shared/fixed-point";
 import { AuditService } from "../audit/audit-service";
 import { CustomerService } from "../customer/customer-service";
@@ -10,9 +11,11 @@ import { WorkLogService } from "../worklog/work-log-service";
 
 interface Env {
   DB: D1Database;
+  RESTORE_DB: D1Database;
 }
 
 interface AcceptanceChecks {
+  portableBackupRecovery: boolean;
   customerBatchCreate: boolean;
   optimisticRevision: boolean;
   batchRollback: boolean;
@@ -101,7 +104,7 @@ async function acceptSettingsAuditHttp(db: D1Database): Promise<void> {
   assertAcceptance((await call("/api/admin/settings")).status === 403, "ACCEPT_SETTINGS_INACTIVE_MEMBER");
 }
 
-async function runAcceptance(db: D1Database): Promise<AcceptanceChecks> {
+async function runAcceptance(db: D1Database, restoreDb: D1Database): Promise<AcceptanceChecks> {
   const t0 = "2026-09-28T00:00:00.000Z";
   const t1 = "2026-09-28T00:01:00.000Z";
   const t2 = "2026-09-28T00:02:00.000Z";
@@ -596,8 +599,10 @@ async function runAcceptance(db: D1Database): Promise<AcceptanceChecks> {
   assertAcceptance(Number(workLogAudit?.count ?? 0) === 3, "ACCEPT_WORKLOG_AUDIT_SEQUENCE_MISSING");
 
   await acceptSettingsAuditHttp(db);
+  await acceptPortableRecovery(db, restoreDb);
 
   return {
+    portableBackupRecovery: true,
     settingsAuditHttpAuthority: true,
     customerBatchCreate: true,
     optimisticRevision: true,
@@ -627,7 +632,7 @@ export default {
     }
 
     try {
-      const checks = await runAcceptance(env.DB);
+      const checks = await runAcceptance(env.DB, env.RESTORE_DB);
       return jsonResponse({ ok: true, checks });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

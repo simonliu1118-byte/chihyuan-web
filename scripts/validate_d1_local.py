@@ -204,6 +204,11 @@ def main() -> int:
             str(MAIN_CONFIG),
         )
 
+        wrangler(
+            "d1", "migrations", "apply", "RESTORE_DB", "--local",
+            "--persist-to", str(state_dir), "--config", str(ACCEPTANCE_CONFIG),
+        )
+
         validate_identity_session_removed(state_dir)
 
         port = free_port()
@@ -249,6 +254,7 @@ def main() -> int:
             "outsourcingReversalStock",
             "workLogReviewLifecycle",
             "settingsAuditHttpAuthority",
+            "portableBackupRecovery",
         }
         if not isinstance(checks, dict):
             raise RuntimeError(f"Acceptance response did not include checks: {payload!r}")

@@ -63,7 +63,7 @@ CY Web should use optimistic UI where appropriate, but destructive/irreversible 
 20. [x] Extend protected Worker HTTP boundary to Order／Outsourcing（including contractor/BOM/stock）／WorkLog；六個業務模組 API foundation complete。
 21. [x] Replace temporary business-data `localStorage` persistence with Worker API -> D1 while preserving the React workflow：**Item [x]；Customer [x]；Defect [x]；Order [x]；Outsourcing [x]；WorkLog [x]**。
 22. [ ] Perform dedicated UI/UX refinement and Desktop/Tablet/Mobile real-browser acceptance.
-23. [ ] Implement/accept backup+restore before production rollout.
+23. [ ] Implement/accept R2 + GCS backup+restore before production rollout; portable package/fresh-D1 rehearsal is the first implementation stage, not external-provider or live-restore acceptance.
 24. [x] Publish governed CYID shared Consumer Integration Standard + compatibility window + cross-repository manifest mirror；CY Web adopts `CYID_CONSUMER_VERSION=1.0.2` and exact-sync deployment gate。CYACC handoff remains app-specific at `CYapps/apps/CYCloudIdentity/docs/consumers/CYACC_INTEGRATION_HANDOFF.md`。
 25. [ ] 在 CYInvoice 工作線的適合接入點產出其 consumer-specific CYID handoff；Device/local/offline 邊界保持 CYInvoice-owned。
 26. [ ] Prepare CY Web production Worker/D1 cutover only after explicit user approval; CYID provider provisioning 的既有批准與成功證據不表示 CY Web production rollout 已批准。
@@ -142,3 +142,28 @@ Historical preview/audit/readiness/review material under `docs/architecture/arch
 - Forgot-password -> return-to-login navigation passed without sending an Email. Real Email delivery, controlled new USER first-login, resend/expiry/pending-email-edit and recovery are still pending. Next prerequisite: a user-designated controlled inbox not already used by an Employee in this development Workspace; creation sends a real verification Email and requires explicit recipient/access authorization. New credential entry must be completed by the user through the browser handoff.
 - Visual refinement remains pending: the one-row Customer list stretches the selected row to fill the tall list panel. No Desktop/Tablet/Mobile acceptance is inferred from this desktop viewport.
 - Architecture index was corrected to remove stale localStorage-adapter descriptions. Runtime/product versions and contract mirror are unchanged.
+
+## Durable pending-test checklist — Email deferred by user, 2026-10-01
+
+Email acceptance is explicitly deferred while engineering work continues. These unchecked items remain in Git across conversations; no inbox needs to be supplied to continue the non-Email work.
+
+- [ ] Controlled new USER: real verification Email receipt -> initial password -> first-login ticket -> user-entered permanent password -> return to login -> fresh permanent-password login. Prerequisite: designated inbox not already assigned in the development Workspace and authorized account creation/Email send.
+- [ ] Initial expiry, re-send, pending Email edit, prior credential/ticket invalidation and delivery failure/retry UX.
+- [ ] Activated-account forced Email recovery/re-verification, forgot-password and own Email change.
+- [ ] Protected Super Admin transfer, including credential/OTP confirmation; no real authority transfer was performed.
+- [ ] USER/normal ADMIN/Identity Admin real-browser action matrix and Role/App/Module Access revocation; current real-browser result covers SUPER_ADMIN only.
+- [ ] Full six-module business lifecycle, concurrency and audit acceptance beyond the completed page-load and Customer create/reload check.
+- [ ] Desktop/Tablet/Mobile real-device acceptance; Customer selected-row stretch needs visual refinement.
+- [ ] Real R2/GCS object upload/read-back, retry, catalog/retention, scheduling and independent disaster recovery.
+- [ ] Super Admin-only backup/restore HTTP/UI, double confirmation, pre-restore safety copy, controlled live restore and structured audit.
+- [ ] Explicit production readiness/release approval; this work provisions no storage resource and mutates no production database.
+
+## Backup implementation checkpoint — 0.7.1 source
+
+- CY Web target remains **R2 daily 03:30 Taiwan / 30 days + GCS Wednesday/Sunday Taiwan / 182 days**. Export once and replicate identical portable bytes; manual/pre-restore requests both. Separate app-scoped resources/credentials remain required.
+- CYACCweb currently runs Phase C paired R2/GCS; its GCS daily/14-day policy remains until 14 consecutive paired scheduled acceptance events. Its existing `CYAccountingWebBackupSet / formatVersion 2` stays CYACC-owned; CY Web starts the approved `CYBackupSet / formatVersion 1` without introducing an old-format wrapper. No CYACC source or migration is changed here.
+- New internal portable backup module reads 45 app data tables in one D1 data batch, preserves fixed-point integer/text/IDs and rejects unexpected table coverage. Provider-copy catalog and migration/internal tables are excluded from the portable data, not from the schema/empty-target guards. Identity credentials/Sessions remain outside CY Web.
+- Manifest includes app/scope/schema fingerprint, counts, exact UTF-8 byte length and SHA-256. Provider copies must read back both files with identical bytes; retry consumes the existing package without another source export.
+- Fresh-database restore rejects corruption, wrong app/scope/format/schema/counts/columns and nonempty targets before inserts; rechecks emptiness inside the atomic write batch and preserves D1 foreign-key enforcement. No deletion, live overwrite or production HTTP route is exposed.
+- Initial bounded rehearsal capacity: 500 rows total / 5 MiB. Larger datasets fail closed; capacity, Worker memory/CPU and per-invocation D1 query limits (including metadata/restore/reconciliation reads) must be measured/reworked before production acceptance. No chunked partial restore is claimed.
+- Existing Runtime Check now requires real separate local D1 recovery/reconciliation and FK/duplicate-failure rollback. Synthetic in-memory providers only validate the byte-copy protocol; they do not constitute actual R2/GCS acceptance. Development deployed runtime remains 0.7.0 until a separate release.

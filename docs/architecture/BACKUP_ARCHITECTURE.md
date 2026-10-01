@@ -308,4 +308,6 @@ A tiered/shared implementation is not complete until the applicable application 
 11. migration rollback remains possible until explicit cutover acceptance;
 12. shared storage orchestration cannot perform application D1 restore writes on its own.
 
+CY Web implements the shared outer `CYBackupSet / formatVersion 1` for new packages. CYAccountingWeb currently preserves its already-accepted app-specific outer format during its governed migration; sharing storage/manifest concepts does not make the two applications' payloads or restore readers interchangeable.
+
 Current per-application implementation progress is intentionally excluded from this document. Use each application's current `main`/`TODO` and deployment-private operational records.
