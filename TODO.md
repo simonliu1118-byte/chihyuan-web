@@ -4,8 +4,8 @@
 
 ## Current checkpoint — 2026-10-01
 
-- Current source release **CY Web 0.7.0 Build 0** completes all six business pages and Settings/Audit on protected Worker API → D1. Source and deployment evidence are recorded separately below.
-- CYCloud Identity formal source baseline is **0.3.3 Build 0**；development runtime remains **0.3.0 Build 0**。Shared Consumer Contract = **1.0.1**，Minimum Compatible = **1.0.0**。
+- Current source release **CY Web 0.7.0 Build 0** completes all six business pages and Settings/Audit on protected Worker API → D1. **Development 0.7.0 Build 0 已部署並驗證**，run `36821410198`；source 與部署證據分開記錄。
+- CYCloud Identity source/development **0.3.5 Build 0**；development run `36821423383` 通過實際 Worker/D1 binding、version 與 invalid Session readback。Shared Consumer Contract = **1.0.2**，Minimum Compatible = **1.0.0**。
 - `https://admin.chihyuancm.com` 仍是固定 CY Web canonical user-facing URL；0.3 development deploy 已重新驗證 Custom Domain 與 invalid-provider-session fallback。
 - CY Web 根 `CYID_CONSUMER_VERSION=1.0.2` 宣告所採用的 shared Identity contract；`docs/contracts/cyid/` mirror 依 CYID `CONSUMER_SYNC_MANIFEST.json` 保存 7 個 canonical artifacts + manifest snapshot。Governance Check 與 development deploy 同時驗證 supported version window 與逐檔 byte-level sync；任一漂移都阻止後續部署。
 - CY Web 登入頁現在只有**單一一般登入入口**。舊「啟用帳號」按鈕、`?activate=1` deep-link UI 與 CY Web public activation start/confirm proxy 已移除。
@@ -123,3 +123,12 @@ Historical preview/audit/readiness/review material under `docs/architecture/arch
 - Worker/D1 acceptance now requires Settings/Audit Session/role denial, body-role spoof rejection, real persisted settings writes, stale-write conflict, server-derived Audit actor, atomic rollback on Audit failure, schema-correct region references, read-only Audit and inactive App member rejection, alongside existing business transaction/WorkLog lifecycle checks.
 - Shared contract mirror must exactly match CYID main at 1.0.2 before merge/deploy. `/api/health` reports the build's declared consumer version so production provider retirement can verify actual core-consumer readiness.
 - Source completion does not claim real Email/browser/device acceptance, backup/restore or production business-data cutover. Development release evidence is recorded after the deployment runs complete.
+
+## Development release acceptance — 2026-10-01
+
+- [PR #90](https://github.com/simonliu1118-byte/chihyuan-web/pull/90) merged at `1935d44d3d720737b514dc5c975b5f3725909e72`: CY Web 0.7.0 Build 0, GOV 1.1.7, common rules 2.7.0 and exact CYID consumer 1.0.2 mirror.
+- [Development Deploy run 36821410198](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/36821410198) passed remote migrations, Worker/assets deploy, actual canonical and workers.dev D1 health, source version 0.7.0, consumer declaration 1.0.2, cookie clearing and rejection of syntactically valid unregistered provider Sessions.
+- Required PR Runtime Check `36821248740` passed actual Worker/D1 business transactions, WorkLog lifecycle and Settings/Audit role/spoofing/conflict/atomic-rollback/reference-schema checks. Full source gates, TypeScript and eight Identity tests passed.
+- CYID development 0.3.5 release passed [run 36821423383](https://github.com/simonliu1118-byte/CYapps/actions/runs/36821423383), including actual development Worker/D1 isolation and fail-closed Session resolution.
+- Browser-local runtime authority is retired. No browser-local business data was imported into remote D1 by this release; any needed legacy browser-data recovery/import must be a separately reviewed operation.
+- Production business-data cutover, backup/restore and actual Email/browser/device lifecycle acceptance remain pending; development deployment is not their acceptance evidence.
