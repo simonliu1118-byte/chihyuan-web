@@ -4,7 +4,7 @@
 
 ## Current checkpoint — 2026-10-01
 
-- Current source release **CY Web 0.7.3 Build 1** includes immutable tiered backup providers/catalog, protected backup management and isolated recovery rehearsal; all six business pages and Settings/Audit remain on protected Worker API → D1. **Development 0.7.3 Build 1 已部署並驗證**，run `36857492008`; historical checkpoints retain their original deployment version.
+- Current source release **CY Web 0.7.4 Build 0** includes immutable tiered backup providers/catalog, protected backup management and isolated recovery rehearsal; all six business pages and Settings/Audit remain on protected Worker API → D1. **Development 0.7.3 Build 1 已部署並驗證**，run `36857492008`; historical checkpoints retain their original deployment version.
 - CYCloud Identity source/development **0.3.5 Build 0**；development run `36821423383` 通過實際 Worker/D1 binding、version 與 invalid Session readback。Shared Consumer Contract = **1.0.2**，Minimum Compatible = **1.0.0**。
 - `https://admin.chihyuancm.com` 仍是固定 CY Web canonical user-facing URL；0.3 development deploy 已重新驗證 Custom Domain 與 invalid-provider-session fallback。
 - CY Web 根 `CYID_CONSUMER_VERSION=1.0.2` 宣告所採用的 shared Identity contract；`docs/contracts/cyid/` mirror 依 CYID `CONSUMER_SYNC_MANIFEST.json` 保存 7 個 canonical artifacts + manifest snapshot。Governance Check 與 development deploy 同時驗證 supported version window 與逐檔 byte-level sync；任一漂移都阻止後續部署。
@@ -226,3 +226,21 @@ Email acceptance is explicitly deferred while engineering work continues. These 
 - A fresh real-browser reload restored the existing SUPER_ADMIN Session and rendered the unconfigured backup page without a stuck loading/error state. History refresh returned to ready. Create remained disabled and its appearance was verified inactive. The earlier synthetic Customer fixture remained present before this final reload. No backup object, live restore, Email or permission change was executed in the development browser.
 - Source and deployed development are **0.7.3 Build 1**, GOV 1.1.10, consumer 1.0.2. CI recovery uses three independent ephemeral D1 bindings and local R2; GCS remains simulated. There is no production deployment or new storage resource/cron activation.
 - Next: controlled app-owned R2/GCS runtime configuration and genuine provider upload/read-back/scheduled/independent recovery acceptance; then configured UI/manual/retry, full business/role/device acceptance and guarded live-restore/release readiness. Email remains explicitly deferred in the durable checklist. Keep the 500-row / 5-MiB rehearsal capacity and full CPU/memory/query budget prerequisites visible before cloud activation.
+
+
+## Cloud activation checkpoint — 0.7.4 Build 0
+
+- Deployment now forwards protected backup settings and validates/uploads the GCS runtime secret with Worker source. Manual activation and schedule activation have separate opt-ins; disabled/manual deployments explicitly remove cron and the Worker independently ignores disabled schedule events.
+- Local deployment-contract tests cover manual/scheduled/disabled states, missing storage inputs, safe credential errors, secret projection and private-file permissions. Runtime schedule regression verifies disabled scheduled events do not access D1 or providers. Required PR CI retains real ephemeral D1/R2 recovery and simulated GCS coverage.
+- Cloud administration/secret-management capability is unavailable in this session; existing protected resource names/secret values were not read or copied. This change provisions no R2/GCS resource and establishes no live cloud acceptance.
+- Existing development baseline remains **0.7.3 Build 1**, run `36857492008`, until a separately recorded successful deployment. Email tests remain deferred in the existing persistent checklist.
+
+### Remaining live cloud acceptance
+
+- [ ] Confirm development has dedicated app-owned R2/GCS buckets, suitable bucket-only service-account permissions, no external R2 overwrite writer, and protected deployment inputs. No CYACC storage/credentials sharing.
+- [ ] Deploy with `CF_BACKUP_ENABLED=true` and `CF_BACKUP_SCHEDULE_ENABLED=false`; verify Super Admin manual controls become available and other roles remain denied.
+- [ ] Run manual backup; verify actual R2/GCS readback, identical data/manifest SHA and backup event, and non-secret catalog/audit results.
+- [ ] Controlled GCS failure/retry: verified R2 remains intact; retry copies the same immutable event bytes and creates no new snapshot.
+- [ ] Real isolated recovery: selected cloud backup plus both verified pre-restore safety copies; empty migrated target, record/byte reconciliation, source unchanged and structured audit. Never target the live business D1.
+- [ ] After manual/recovery acceptance, explicitly enable schedule; verify Taiwan dates, daily R2, Wednesday/Sunday GCS, 30/182-day retention and pending-GCS R2 protection.
+- [ ] Record actual deployment run and acceptance outcome here using non-sensitive status only. Production CY Web activation remains a separate rollout.

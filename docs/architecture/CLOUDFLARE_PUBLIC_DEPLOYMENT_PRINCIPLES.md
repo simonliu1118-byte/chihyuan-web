@@ -230,3 +230,24 @@ Only an explicitly authorized production deploy job from the approved branch/env
 Whenever CY Web later adds Cloudflare Workers, D1, Service Bindings, R2, KV, Queues, Google APIs, Microsoft APIs, email providers, backup providers, or other external services, implementation must start from this boundary rather than committing a working production identifier first and trying to remove it later.
 
 The permanent rule is defined in `PROJECT_RULES.md`; this document is the implementation reference for future cloud/integration work.
+
+
+## Backup deployment activation contract
+
+The protected `development` environment supplies the following inputs; their actual values remain outside Public Git.
+
+| Input | Store | Purpose |
+| --- | --- | --- |
+| `CF_BACKUP_ENABLED` | environment variable | Exact `true` enables manual backup routes; absent/false leaves backup unavailable. |
+| `CF_BACKUP_R2_BUCKET` | environment variable | Existing app-owned R2 bucket bound as `BACKUP_R2`; required when enabled. |
+| `GCS_BUCKET` | environment variable | Existing app-owned GCS bucket; required when enabled. |
+| `GCS_SERVICE_ACCOUNT_JSON` | environment secret | Dedicated service account credential with access limited to this application's GCS bucket. |
+| `CF_BACKUP_SCHEDULE_ENABLED` | environment variable | Separate exact `true` opt-in for Taiwan 03:30 scheduling; requires backup enabled. |
+
+Enable manual operation first, leaving schedule absent/false. Before remote migrations, the deployment validates required storage inputs and service-account JSON/PKCS8 RSA format. This is configuration validation, not evidence of live bucket permissions or successful replication. The credential is reduced to fields used by the provider, written exclusively to a mode-0600 runner-temporary file, and uploaded atomically with Worker code using `wrangler deploy --secrets-file`. It is never a Wrangler plain-text variable or build artifact and is removed by the always-running cleanup step.
+
+Scheduled activation renders UTC cron `30 19 * * *`; manual-only or disabled activation renders an explicit empty cron array to remove an older schedule. The Worker also independently ignores scheduled events without `BACKUP_SCHEDULE_ENABLED=true`. Disabling backup leaves existing provider copies/catalog intact; it does not erase cloud credentials, buckets or backup objects.
+
+Live acceptance must select a successful manual event through the normal Super Admin interface, verify R2 and GCS copies have the same manifest/data bytes and event identifier, record a bounded same-event GCS retry after a controlled GCS failure, and complete recovery in a separately migrated empty D1 target. Only then enable the schedule and verify actual scheduled catalog/audit events and retention. Existing CI uses ephemeral D1/R2 and simulated GCS and cannot substitute for this acceptance. Do not reuse another application's backup bucket, payload reader or broad service-account credential.
+
+This deployment workflow consumes existing resources; it does not create buckets, service accounts, IAM grants, billing configuration or production infrastructure. Resource names, credentials, object contents and business backup exports must stay in protected operational records rather than Public Git/Actions artifacts.

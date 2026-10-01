@@ -4,6 +4,7 @@ import { GCSBackupProvider } from "./gcs-provider";
 import { R2BackupProvider } from "./r2-provider";
 export interface BackupRuntimeEnv extends IdentityRuntimeEnv {
   BACKUP_ENABLED?: string;
+  BACKUP_SCHEDULE_ENABLED?: string;
   BACKUP_R2?: R2Bucket;
   GCS_BUCKET?: string;
   GCS_SERVICE_ACCOUNT_JSON?: string;
