@@ -1,5 +1,10 @@
 # CY Web Governance Changelog
 
+## 1.1.8 — 2026/10/01
+
+- Existing Runtime Check now requires portable backup integrity/replication and fresh-database recovery against a separate ephemeral local D1 binding.
+- Restore acceptance applies canonical migrations to its isolated target; no new remote resources, live restore endpoint or production rollout.
+
 ## 1.1.7 — 2026/10/01
 
 - Complete WorkLog/Settings/Audit protected D1 runtime and remove browser-local authority and obsolete static deployment workflow.

@@ -9,6 +9,12 @@
       "database_name": "cyweb-local",
       "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "migrations"
+    },
+    {
+      "binding": "RESTORE_DB",
+      "database_name": "cyweb-restore-acceptance",
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "migrations_dir": "migrations"
     }
   ]
 }
