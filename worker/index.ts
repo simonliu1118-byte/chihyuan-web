@@ -33,6 +33,7 @@ async function health(env: Env, requestId: string): Promise<Response> {
 
 export default {
   async scheduled(controller: ScheduledController, env: Env): Promise<void> {
+    if (env.BACKUP_SCHEDULE_ENABLED !== "true") return;
     const service = backupService(env);
     if (service) await service.scheduled({ now: new Date(controller.scheduledTime).toISOString(), actorMemberId: null, requestId: crypto.randomUUID() });
   },

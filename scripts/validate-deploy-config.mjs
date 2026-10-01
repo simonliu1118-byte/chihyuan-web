@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { generateKeyPairSync } from "node:crypto";
+import { renderBackupSecrets } from "./render-backup-secrets.mjs";
 import { renderDeployConfig } from "./render-deploy-config.mjs";
 
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "cyweb-deploy-config-"));
@@ -43,14 +45,49 @@ try {
   if (config.vars?.SOURCE_VERSION !== fs.readFileSync(new URL("../VERSION", import.meta.url), "utf8").trim()) throw new Error("deployed source marker mismatch");
   if (config.vars?.IDENTITY_CONSUMER_VERSION !== fs.readFileSync(new URL("../CYID_CONSUMER_VERSION", import.meta.url), "utf8").trim()) throw new Error("consumer declaration missing from deployed health marker");
   if (/__CF_[A-Z0-9_]+__/.test(raw)) throw new Error("unresolved placeholder remains");
-  if (config.triggers || config.r2_buckets || config.vars.BACKUP_ENABLED) throw new Error("backup activated without opt-in");
-  renderDeployConfig({ env: { ...env, CF_BACKUP_ENABLED: "true", CF_BACKUP_R2_BUCKET: "cyweb-ci-backup" }, outputPath: output });
+  if (config.triggers?.crons?.length !== 0 || config.r2_buckets || config.vars.BACKUP_ENABLED) throw new Error("backup activated without opt-in");
+  renderDeployConfig({ env: { ...env, CF_BACKUP_ENABLED: "true", CF_BACKUP_R2_BUCKET: "cyweb-ci-backup", GCS_BUCKET: "cyweb-ci-gcs" }, outputPath: output });
   const enabled = JSON.parse(fs.readFileSync(output, "utf8"));
   if (enabled.r2_buckets?.[0]?.binding !== "BACKUP_R2" || enabled.vars.BACKUP_ENABLED !== "true"
-    || enabled.triggers?.crons?.[0] !== "30 19 * * *") throw new Error("backup opt-in contract mismatch");
+    || enabled.vars.GCS_BUCKET !== "cyweb-ci-gcs" || enabled.vars.BACKUP_SCHEDULE_ENABLED !== "false"
+    || enabled.triggers?.crons?.length !== 0) throw new Error("backup opt-in contract mismatch");
   let backupRejected = false;
   try { renderDeployConfig({ env: { ...env, CF_BACKUP_ENABLED: "true" }, outputPath: output }); } catch { backupRejected = true; }
   if (!backupRejected) throw new Error("backup enabled without bucket");
+
+  const manualEnv = { ...env, CF_BACKUP_ENABLED: "true", CF_BACKUP_R2_BUCKET: "cyweb-ci-backup", GCS_BUCKET: "cyweb-ci-gcs" };
+  renderDeployConfig({ env: { ...manualEnv, CF_BACKUP_SCHEDULE_ENABLED: "true" }, outputPath: output });
+  const scheduled = JSON.parse(fs.readFileSync(output, "utf8"));
+  if (scheduled.vars.BACKUP_SCHEDULE_ENABLED !== "true" || scheduled.triggers.crons.join() !== "30 19 * * *") throw new Error("schedule opt-in mismatch");
+  for (const invalid of [
+    { ...env, CF_BACKUP_SCHEDULE_ENABLED: "true" },
+    { ...manualEnv, CF_BACKUP_SCHEDULE_ENABLED: "yes" },
+    { ...manualEnv, GCS_BUCKET: "" },
+    { ...manualEnv, GCS_BUCKET: "https://invalid" },
+  ]) {
+    let rejected = false;
+    try { renderDeployConfig({ env: invalid, outputPath: output }); } catch { rejected = true; }
+    if (!rejected) throw new Error("invalid backup activation accepted");
+  }
+  const secretOutput = path.join(temporary, "secrets.json");
+  if (renderBackupSecrets({ env, outputPath: secretOutput }) || fs.existsSync(secretOutput)) throw new Error("secret created while backup disabled");
+  for (const credential of [undefined, "sensitive-invalid-value", JSON.stringify({ type: "service_account", private_key: "sensitive-invalid-key" })]) {
+    let rejected = false;
+    try { renderBackupSecrets({ env: { ...manualEnv, GCS_SERVICE_ACCOUNT_JSON: credential }, outputPath: secretOutput }); }
+    catch (error) {
+      rejected = true;
+      if (error.message !== "Missing or invalid GCS_SERVICE_ACCOUNT_JSON") throw new Error("credential detail leaked");
+    }
+    if (!rejected || fs.existsSync(secretOutput)) throw new Error("invalid secret accepted");
+  }
+  const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const account = { type: "service_account", client_email: "ci@placeholder.iam.gserviceaccount.com",
+    private_key: privateKey.export({ type: "pkcs8", format: "pem" }), ignored: "omit" };
+  renderBackupSecrets({ env: { ...manualEnv, GCS_SERVICE_ACCOUNT_JSON: JSON.stringify(account) }, outputPath: secretOutput });
+  if ((fs.statSync(secretOutput).mode & 0o777) !== 0o600) throw new Error("unsafe secret file permission");
+  const stored = JSON.parse(JSON.parse(fs.readFileSync(secretOutput, "utf8")).GCS_SERVICE_ACCOUNT_JSON);
+  if (stored.private_key !== account.private_key || stored.client_email !== account.client_email || stored.ignored) throw new Error("secret projection mismatch");
+  if (fs.readFileSync(output, "utf8").includes("PRIVATE KEY")) throw new Error("secret included in deployment config");
 
   let missingRejected = false;
   try {

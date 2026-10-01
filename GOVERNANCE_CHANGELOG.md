@@ -1,5 +1,11 @@
 # CY Web Governance Changelog
 
+## 1.1.11 — 2026/10/01
+
+- Development deployment forwards protected R2/GCS settings and uploads validated GCS credentials with the Worker deployment; temporary credential files are private and removed on completion.
+- Backup manual activation and scheduled execution require separate opt-ins. Explicit empty cron configuration removes prior schedules when disabled; runtime also rejects scheduled events without the schedule flag.
+- Deployment contract checks cover missing/invalid storage configuration, manual-first activation, schedule gating and credential isolation. No storage provisioning or production rollout.
+
 ## 1.1.10 — 2026/10/01
 
 - Runtime Check adds backup UI projection tests and a third ephemeral D1 recovery-rehearsal binding.
