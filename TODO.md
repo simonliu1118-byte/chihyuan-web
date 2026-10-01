@@ -2,9 +2,9 @@
 
 > 本文件只記錄 **current implementation status 與下一步**；不是永久規則來源，也不重複保存 Business Decision、module contract 或 architecture semantics。
 
-## Current checkpoint — 2026-10-01
+## Current checkpoint — 2026-10-02
 
-- Current source release **CY Web 0.7.5 Build 0** includes immutable tiered backup providers/catalog, protected backup management and isolated recovery rehearsal; all six business pages and Settings/Audit remain on protected Worker API → D1. **Development 0.7.4 Build 0 已部署並驗證**，run `36860791237` attempt 2; historical checkpoints retain their original deployment version.
+- Current source release **CY Web 0.7.5 Build 0** includes immutable tiered backup providers/catalog, protected backup management and isolated recovery rehearsal; all six business pages and Settings/Audit remain on protected Worker API → D1. **Development 0.7.5 Build 0 已部署並驗證**，run `36890514762` attempt 1; historical checkpoints retain their original deployment version.
 - CYCloud Identity source/development **0.3.5 Build 0**；development run `36821423383` 通過實際 Worker/D1 binding、version 與 invalid Session readback。Shared Consumer Contract = **1.0.2**，Minimum Compatible = **1.0.0**。
 - `https://admin.chihyuancm.com` 仍是固定 CY Web canonical user-facing URL；0.3 development deploy 已重新驗證 Custom Domain 與 invalid-provider-session fallback。
 - CY Web 根 `CYID_CONSUMER_VERSION=1.0.2` 宣告所採用的 shared Identity contract；`docs/contracts/cyid/` mirror 依 CYID `CONSUMER_SYNC_MANIFEST.json` 保存 7 個 canonical artifacts + manifest snapshot。Governance Check 與 development deploy 同時驗證 supported version window 與逐檔 byte-level sync；任一漂移都阻止後續部署。
@@ -153,7 +153,8 @@ Email acceptance is explicitly deferred while engineering work continues. These 
 - [ ] Protected Super Admin transfer, including credential/OTP confirmation; no real authority transfer was performed.
 - [ ] USER/normal ADMIN/Identity Admin real-browser action matrix and Role/App/Module Access revocation; current real-browser result covers SUPER_ADMIN only.
 - [ ] Full six-module business lifecycle, concurrency and audit acceptance beyond the completed page-load and Customer create/reload check.
-- [ ] Desktop/Tablet/Mobile real-device acceptance; Customer selected-row stretch needs visual refinement.
+- [ ] Desktop/Tablet/Mobile real-device acceptance.
+- [x] Customer single-row stretch: shared Grid track alignment fixed and verified in the real desktop browser on development 0.7.5 Build 0.
 - [ ] Real R2/GCS object upload/read-back, retry, catalog/retention, scheduling and independent disaster recovery.
 - [ ] Super Admin-only backup/restore HTTP/UI, double confirmation, pre-restore safety copy, controlled live restore and structured audit.
 - [ ] Explicit production readiness/release approval; this work provisions no storage resource and mutates no production database.
@@ -270,3 +271,13 @@ Email acceptance is explicitly deferred while engineering work continues. These 
 - **0.7.5 Build 0:** fix the previously observed Customer one-row selection stretching across its tall result pane. The existing shared operational list grid now aligns its tracks to the start; content-height rows remain grouped at the top while the Customer pane keeps its layout/scrolling rules. No duplicate component, runtime viewport switch or data/permission change.
 - Browser/Worker TypeScript, source contracts and existing regression checks are required before merge; deployed verification is recorded separately. Development remains **0.7.4 Build 0** until the new deployment passes.
 - Next independent work: Desktop/Tablet/Mobile presentation and full business lifecycle/concurrency/audit acceptance; real multi-role browser checks still require suitable controlled test accounts.
+
+
+### Independent UI/business verification — 0.7.5 Build 0
+
+- [PR #103](https://github.com/simonliu1118-byte/chihyuan-web/pull/103), head `a4867fa76ea2da587473fcc515c8f01f6cf299e2`, merged `cec1ec3fe383f1f7cc98d4d75330a138a6b3788e`. Governance `36890196100`, deployment contract `36890196057` and Runtime Check `36890196058` passed; remote source bytes reconciled. Source/schema/TypeScript and 18 existing regression tests also passed locally.
+- [Development Deploy 36890514762](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/36890514762) attempt 1 succeeded: exact CYID sync, forward migrations/source deployment, canonical and fallback source/consumer/D1 health, Custom Domain and invalid-provider-session checks.
+- Real desktop browser: the same one-row Customer list and 673.9px pane changed from a **673.9px row** (`align-content:normal`) to a **70px row** (`align-content:start`). Reload retained the saved Customer and selection. No Mobile/Tablet acceptance is inferred from this desktop viewport.
+- Two real browser tabs used the existing synthetic development Customer at revision 1. First tab changed its synthetic full name and saved revision 2. Second tab's stale revision-1 write displayed “資料已被其他人修改，請重新載入後再操作。”; cancelling its draft loaded revision 2. Full reload, including after the new deployment, preserved the first tab's value. No stale overwrite or automatic mutation retry occurred.
+- The synthetic Customer remains in development at revision 2; its full name now includes the concurrency-acceptance marker. No Customer deletion, real customer edit, authority change, Email send or production mutation was performed. Browser screenshots contain session display identity and remain private, outside Public Git.
+- User-owned R2/GCS setup stays deferred to the week of 2026-10-05. Email stays deferred. Next independent acceptance: Customer related operations and the other business-module workflows/concurrency/audit, plus device presentation and controlled multi-role browser coverage.
