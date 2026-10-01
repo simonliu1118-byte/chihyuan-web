@@ -4,7 +4,7 @@
 
 ## Current checkpoint — 2026-10-01
 
-- Current source release **CY Web 0.7.4 Build 0** includes immutable tiered backup providers/catalog, protected backup management and isolated recovery rehearsal; all six business pages and Settings/Audit remain on protected Worker API → D1. **Development 0.7.3 Build 1 已部署並驗證**，run `36857492008`; historical checkpoints retain their original deployment version.
+- Current source release **CY Web 0.7.4 Build 0** includes immutable tiered backup providers/catalog, protected backup management and isolated recovery rehearsal; all six business pages and Settings/Audit remain on protected Worker API → D1. **Development 0.7.4 Build 0 已部署並驗證**，run `36860791237` attempt 2; historical checkpoints retain their original deployment version.
 - CYCloud Identity source/development **0.3.5 Build 0**；development run `36821423383` 通過實際 Worker/D1 binding、version 與 invalid Session readback。Shared Consumer Contract = **1.0.2**，Minimum Compatible = **1.0.0**。
 - `https://admin.chihyuancm.com` 仍是固定 CY Web canonical user-facing URL；0.3 development deploy 已重新驗證 Custom Domain 與 invalid-provider-session fallback。
 - CY Web 根 `CYID_CONSUMER_VERSION=1.0.2` 宣告所採用的 shared Identity contract；`docs/contracts/cyid/` mirror 依 CYID `CONSUMER_SYNC_MANIFEST.json` 保存 7 個 canonical artifacts + manifest snapshot。Governance Check 與 development deploy 同時驗證 supported version window 與逐檔 byte-level sync；任一漂移都阻止後續部署。
@@ -233,7 +233,7 @@ Email acceptance is explicitly deferred while engineering work continues. These 
 - Deployment now forwards protected backup settings and validates/uploads the GCS runtime secret with Worker source. Manual activation and schedule activation have separate opt-ins; disabled/manual deployments explicitly remove cron and the Worker independently ignores disabled schedule events.
 - Local deployment-contract tests cover manual/scheduled/disabled states, missing storage inputs, safe credential errors, secret projection and private-file permissions. Runtime schedule regression verifies disabled scheduled events do not access D1 or providers. Required PR CI retains real ephemeral D1/R2 recovery and simulated GCS coverage.
 - Cloud administration/secret-management capability is unavailable in this session; existing protected resource names/secret values were not read or copied. This change provisions no R2/GCS resource and establishes no live cloud acceptance.
-- Existing development baseline remains **0.7.3 Build 1**, run `36857492008`, until a separately recorded successful deployment. Email tests remain deferred in the existing persistent checklist.
+- Development **0.7.4 Build 0** deployed from `ebe169ab8da47aeffb9c9aa3d22e40ced9819a13`, run `36860791237` attempt 2. Exact CYID sync, canonical/fallback source+consumer+D1 health and invalid Session acceptance passed. Attempt 1 deployed successfully but failed the immediate source/consumer/D1 health gate; the same source passed on one governed rerun, with no code change. This does not establish the underlying transient cause. Email tests remain deferred in the existing persistent checklist.
 
 ### Remaining live cloud acceptance
 
@@ -244,3 +244,11 @@ Email acceptance is explicitly deferred while engineering work continues. These 
 - [ ] Real isolated recovery: selected cloud backup plus both verified pre-restore safety copies; empty migrated target, record/byte reconciliation, source unchanged and structured audit. Never target the live business D1.
 - [ ] After manual/recovery acceptance, explicitly enable schedule; verify Taiwan dates, daily R2, Wednesday/Sunday GCS, 30/182-day retention and pending-GCS R2 protection.
 - [ ] Record actual deployment run and acceptance outcome here using non-sensitive status only. Production CY Web activation remains a separate rollout.
+
+
+### Cloud activation validation results
+
+- [PR #100](https://github.com/simonliu1118-byte/chihyuan-web/pull/100) merged controlled cloud configuration, source **0.7.4 Build 0**, GOV **1.1.11**. Governance `36860550180`, deployment contract `36860550211` and Runtime Check `36860550312` all passed on final source head `55b883f8d9c2bf63a575719b7e5747a1ddca444f`; remote file bytes were reconciled before merge.
+- [Development deploy 36860791237](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/36860791237) attempt 2 succeeded. Protected runner explicitly reported **Backup disabled; no credential uploaded**. Real R2/GCS backup and cron remain inactive; successful source deployment is not cloud-backup acceptance.
+- Provider-specific plugin discovery found no matching Cloudflare/GCS administration capability in the returned results. Other plugins may exist in the plugin directory; unrelated file-storage/BigQuery plugins cannot manage these buckets or runtime secrets. The browser's direct health-page navigation was blocked by its client; deployment verification relies on the successful governed runner checks rather than a claimed browser check.
+- Next dependency: protected cloud resource/settings access, then the remaining manual dual-provider, failure/retry and isolated-recovery checklist above. No credentials should be pasted into chat or Public Git. Production CY Web remains untouched.
