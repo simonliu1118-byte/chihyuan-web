@@ -84,6 +84,18 @@ export function renderDeployConfig({
   if (!/^\d+\.\d+\.\d+$/.test(consumerVersion)) throw new Error("Invalid CYID consumer version");
   rendered = rendered.replaceAll("__CYID_CONSUMER_VERSION__", jsonFragment(consumerVersion)).replaceAll("__CYWEB_VERSION__", jsonFragment(sourceVersion));
 
+  if (env.CF_BACKUP_ENABLED !== undefined && !["true", "false", ""].includes(env.CF_BACKUP_ENABLED)) throw new Error("Invalid CF_BACKUP_ENABLED");
+  if (env.CF_BACKUP_ENABLED === "true") {
+    const bucket = requireValue(env, "CF_BACKUP_R2_BUCKET");
+    if (!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(bucket)) throw new Error("Invalid backup R2 bucket");
+    const config = JSON.parse(rendered);
+    config.r2_buckets = [{ binding: "BACKUP_R2", bucket_name: bucket }];
+    config.vars.BACKUP_ENABLED = "true";
+    // UTC 19:30 is the next Taiwan calendar day's 03:30.
+    config.triggers = { crons: ["30 19 * * *"] };
+    rendered = JSON.stringify(config, null, 2) + "\n";
+  }
+
   const absoluteOutput = path.resolve(outputPath);
   fs.writeFileSync(absoluteOutput, rendered, { encoding: "utf8", mode: 0o600 });
   return absoluteOutput;

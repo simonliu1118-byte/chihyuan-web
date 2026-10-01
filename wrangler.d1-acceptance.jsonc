@@ -3,6 +3,7 @@
   "name": "chihyuan-web-d1-acceptance",
   "main": "./worker/acceptance/d1-local-acceptance.ts",
   "compatibility_date": "2026-09-27",
+  "r2_buckets": [{ "binding": "BACKUP_R2", "bucket_name": "cyweb-ephemeral-acceptance" }],
   "d1_databases": [
     {
       "binding": "DB",

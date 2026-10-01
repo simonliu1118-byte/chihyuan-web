@@ -1,4 +1,6 @@
 import type { HealthData } from "../shared/api";
+import { backupService, type BackupRuntimeEnv } from "./backup/runtime";
+import { handleBackupRoute } from "./http/backup-routes";
 import { handleSettingsAuditRoute } from "./http/settings-audit-routes";
 import { handleAuthRoute, type IdentityRuntimeEnv } from "./http/auth-routes";
 import { handleIdentityManagementRoute } from "./http/identity-management-routes";
@@ -7,7 +9,7 @@ import { handleBusinessApiRoute } from "./http/business-api-routes";
 import { handleBusinessApiPhase2Route } from "./http/business-api-phase2-routes";
 import { failure, success } from "./http/response";
 
-interface Env extends IdentityRuntimeEnv {}
+interface Env extends IdentityRuntimeEnv, BackupRuntimeEnv {}
 
 async function health(env: Env, requestId: string): Promise<Response> {
   try {
@@ -30,6 +32,10 @@ async function health(env: Env, requestId: string): Promise<Response> {
 }
 
 export default {
+  async scheduled(controller: ScheduledController, env: Env): Promise<void> {
+    const service = backupService(env);
+    if (service) await service.scheduled({ now: new Date(controller.scheduledTime).toISOString(), actorMemberId: null, requestId: crypto.randomUUID() });
+  },
   async fetch(request: Request, env: Env): Promise<Response> {
     const requestId = crypto.randomUUID();
     const url = new URL(request.url);
@@ -46,6 +52,9 @@ export default {
 
     const moduleAccessResponse = await handleModuleAccessRoute(request, env, requestId);
     if (moduleAccessResponse) return moduleAccessResponse;
+
+    const backupResponse = await handleBackupRoute(request, env, requestId);
+    if (backupResponse) return backupResponse;
 
     const settingsAuditResponse = await handleSettingsAuditRoute(request, env, requestId);
     if (settingsAuditResponse) return settingsAuditResponse;
