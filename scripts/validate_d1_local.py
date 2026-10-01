@@ -24,6 +24,7 @@ EXPECTED_MIGRATIONS = {
     "0003_identity_web_sessions.sql",
     "0004_remove_local_identity_sessions.sql",
     "0005_direct_module_access.sql",
+    "0006_backup_catalog.sql",
 }
 
 
@@ -255,6 +256,7 @@ def main() -> int:
             "workLogReviewLifecycle",
             "settingsAuditHttpAuthority",
             "portableBackupRecovery",
+        "tieredBackup",
         }
         if not isinstance(checks, dict):
             raise RuntimeError(f"Acceptance response did not include checks: {payload!r}")

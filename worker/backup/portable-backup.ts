@@ -1,18 +1,10 @@
 // App-owned portable snapshot foundation. No public restore route or live overwrite.
-export const BACKUP_TABLES = [
-  "app_member_module_access", "app_member_tags", "app_members", "app_tag_modules", "app_tags", "audit_events",
-  "bom_components", "bom_recipes", "contractor_contacts", "contractor_pricing", "contractor_stock_movements", "contractors",
-  "customer_addresses", "customer_categories", "customer_contacts", "customer_frequent_items", "customer_item_quotes",
-  "customer_notes", "customer_phones", "customer_statuses", "customer_visits", "customers", "defect_reports", "departments",
-  "item_categories", "item_number_history", "item_unit_conversions", "items", "outsourcing_order_parts", "outsourcing_orders",
-  "outsourcing_pricing_items", "outsourcing_pricings", "outsourcing_receipt_items", "outsourcing_receipts", "quote_price_breaks",
-  "regions", "sales_work_order_items", "sales_work_orders", "work_log_categories", "work_log_entries", "work_log_entry_categories",
-  "work_log_platforms", "work_log_scoring_config", "work_log_scoring_rows", "work_logs",
-] as const;
+import { BACKUP_COLUMNS } from "./schema-columns";
+export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
 const ALL_TABLES = [...BACKUP_TABLES, "backup_copies", "backup_sets"].sort();
 const MAX_ROWS = 500;
 const MAX_BYTES = 5 * 1024 * 1024;
-const SCHEMA_VERSION = "0005_direct_module_access";
+const SCHEMA_VERSION = "0006_backup_catalog";
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 type Cell = string | number | null;
@@ -52,23 +44,23 @@ async function sha256(bytes: Uint8Array): Promise<string> {
   return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, "0")).join("");
 }
 const SCHEMA_SQL = `SELECT type, name, tbl_name, sql FROM sqlite_master
-  WHERE tbl_name IN (${ALL_TABLES.map(value => `'${value}'`).join(",")}) ORDER BY type, name`;
+  WHERE tbl_name != 'd1_migrations' AND tbl_name NOT GLOB 'sqlite_*' AND tbl_name NOT GLOB '_cf_*' ORDER BY type, name`;
 async function layout(db: D1Database): Promise<{ schema: string; columns: Record<string, string[]> }> {
-  const tables = await db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all<{ name: string }>();
-  const appTables = tables.results.map(row => row.name).filter(name =>
-    name !== "d1_migrations" && !name.startsWith("sqlite_") && !name.startsWith("_cf_"));
-  check(same(appTables, ALL_TABLES), "BACKUP_TABLE_COVERAGE_MISMATCH");
-  const results = await db.batch([
-    db.prepare(SCHEMA_SQL),
-    ...BACKUP_TABLES.map(table => db.prepare(`PRAGMA table_info(${identifier(table)})`)),
-  ]);
-  const columns: Record<string, string[]> = {};
-  BACKUP_TABLES.forEach((table, index) => {
-    columns[table] = (results[index + 1].results as { name: string }[]).map(row => row.name).sort();
-    check(columns[table].length > 0, "BACKUP_COLUMNS_MISSING");
-  });
-  return { schema: JSON.stringify(results[0].results), columns };
+  const result = await db.prepare(SCHEMA_SQL).all<{ type: string; name: string }>();
+  const tables = result.results.filter(row => row.type === "table").map(row => row.name).sort();
+  check(same(tables, ALL_TABLES), "BACKUP_TABLE_COVERAGE_MISMATCH");
+  const columnResult = await db.prepare(`SELECT sm.name AS table_name, col.name AS name FROM sqlite_master sm
+    JOIN pragma_table_info(sm.name) col WHERE sm.type='table' AND sm.name IN (${BACKUP_TABLES.map(t => `'${t}'`).join(",")})`)
+    .all<{ table_name: string; name: string }>();
+  const columns = columnResult.results;
+  for (const table of BACKUP_TABLES) check(same(columns.filter(row => row.table_name === table).map(row => row.name).sort(), BACKUP_COLUMNS[table]), "BACKUP_COLUMNS_MISMATCH");
+  return { schema: JSON.stringify(result.results), columns: BACKUP_COLUMNS };
 }
+const DATA_SQL = "WITH snapshots(table_name, rows_json) AS (VALUES " + BACKUP_TABLES.map(table => {
+  const columns = BACKUP_COLUMNS[table].map(identifier).join(",");
+  return `('${table}', (SELECT json_group_array(json_array(${columns}))
+    FROM (SELECT ${columns} FROM ${identifier(table)} LIMIT ${MAX_ROWS + 1})))`;
+}).join(",") + ") SELECT table_name, rows_json FROM snapshots";
 function canonicalData(data: Data): Uint8Array {
   for (const table of BACKUP_TABLES) data.tables[table].rows.sort((a, b) => {
     const x = JSON.stringify(a), y = JSON.stringify(b);
@@ -76,20 +68,23 @@ function canonicalData(data: Data): Uint8Array {
   });
   return encoder.encode(JSON.stringify(data));
 }
-export async function exportPortableBackup(db: D1Database, scope: Scope): Promise<PortableBackup> {
+export async function exportPortableBackup(db: D1Database, scope: Scope, event?: { backupId: string; createdAtUtc: string }): Promise<PortableBackup> {
   validScope(scope);
   const target = await layout(db);
   // Every data table is read in one D1 transaction; no provider-specific re-export.
   const results = await db.batch([
     db.prepare(SCHEMA_SQL),
-    ...BACKUP_TABLES.map(table => db.prepare(`SELECT * FROM ${identifier(table)} LIMIT ${MAX_ROWS + 1}`)),
+    db.prepare(DATA_SQL),
   ]);
   check(JSON.stringify(results[0].results) === target.schema, "BACKUP_SCHEMA_CHANGED");
   const data: Data = { tables: {} }, recordCounts: Record<string, number> = {};
+  const tableResults = results.slice(1).flatMap(result => result.results);
   let totalRecordCount = 0;
   BACKUP_TABLES.forEach((table, index) => {
     const columns = target.columns[table];
-    const rows = (results[index + 1].results as Record<string, Cell>[]).map(row => columns.map(column => row[column]));
+    const result = tableResults[index] as { table_name: string; rows_json: string };
+    check(result.table_name === table, "BACKUP_TABLE_COVERAGE_MISMATCH");
+    const rows = JSON.parse(result.rows_json) as Cell[][];
     totalRecordCount += rows.length;
     check(totalRecordCount <= MAX_ROWS, "BACKUP_CAPACITY_EXCEEDED");
     for (const row of rows) for (const cell of row)
@@ -100,9 +95,9 @@ export async function exportPortableBackup(db: D1Database, scope: Scope): Promis
   const dataBytes = canonicalData(data);
   check(dataBytes.byteLength <= MAX_BYTES, "BACKUP_CAPACITY_EXCEEDED");
   const manifest: Manifest = {
-    format: "CYBackupSet", formatVersion: 1, backupId: crypto.randomUUID(), appId: "cyweb", appVersion: scope.appVersion,
+    format: "CYBackupSet", formatVersion: 1, backupId: event?.backupId ?? crypto.randomUUID(), appId: "cyweb", appVersion: scope.appVersion,
     schemaVersion: SCHEMA_VERSION, schemaSha256: await sha256(encoder.encode(target.schema)),
-    createdAtUtc: new Date().toISOString(), sourceDatabaseEngine: "d1", workspaceScope: scope.workspaceScope,
+    createdAtUtc: event?.createdAtUtc ?? new Date().toISOString(), sourceDatabaseEngine: "d1", workspaceScope: scope.workspaceScope,
     recordCounts, totalRecordCount, dataObjectName: "data.json", dataSha256: await sha256(dataBytes), dataByteLength: dataBytes.byteLength,
   };
   return { manifestBytes: encoder.encode(JSON.stringify(manifest)), dataBytes };

@@ -8,6 +8,7 @@ high-value contracts that were explicitly confirmed during architecture review.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import sys
 from pathlib import Path
@@ -115,6 +116,12 @@ def validate_schema_shape(schema: str) -> None:
     unexpected = tables - EXPECTED_TABLES
     if missing or unexpected:
         raise AssertionError(f"table-set mismatch; missing={sorted(missing)}, unexpected={sorted(unexpected)}")
+    source = (ROOT / "worker/backup/schema-columns.ts").read_text()
+    declared = json.loads(source.split(" = ", 1)[1].rstrip().removesuffix(";"))
+    actual = {table: sorted(row[1] for row in conn.execute(f'PRAGMA table_info("{table}")'))
+              for table in sorted(EXPECTED_TABLES - {"backup_sets", "backup_copies"})}
+    if declared != actual:
+        raise AssertionError("backup schema columns differ from canonical migrations")
     conn.close()
 
 

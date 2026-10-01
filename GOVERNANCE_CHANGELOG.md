@@ -1,5 +1,10 @@
 # CY Web Governance Changelog
 
+## 1.1.9 — 2026/10/01
+
+- Runtime Check requires tiered backup catalog/retention acceptance against actual ephemeral Worker R2 and isolated D1, plus GCS HTTP/JWT regression tests.
+- Deployment rendering supports explicit backup opt-in; no default cron, production storage resource or credential is introduced.
+
 ## 1.1.8 — 2026/10/01
 
 - Existing Runtime Check now requires portable backup integrity/replication and fresh-database recovery against a separate ephemeral local D1 binding.
