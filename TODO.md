@@ -4,7 +4,7 @@
 
 ## Current checkpoint — 2026-10-01
 
-- Current source release **CY Web 0.7.4 Build 0** includes immutable tiered backup providers/catalog, protected backup management and isolated recovery rehearsal; all six business pages and Settings/Audit remain on protected Worker API → D1. **Development 0.7.4 Build 0 已部署並驗證**，run `36860791237` attempt 2; historical checkpoints retain their original deployment version.
+- Current source release **CY Web 0.7.5 Build 0** includes immutable tiered backup providers/catalog, protected backup management and isolated recovery rehearsal; all six business pages and Settings/Audit remain on protected Worker API → D1. **Development 0.7.4 Build 0 已部署並驗證**，run `36860791237` attempt 2; historical checkpoints retain their original deployment version.
 - CYCloud Identity source/development **0.3.5 Build 0**；development run `36821423383` 通過實際 Worker/D1 binding、version 與 invalid Session readback。Shared Consumer Contract = **1.0.2**，Minimum Compatible = **1.0.0**。
 - `https://admin.chihyuancm.com` 仍是固定 CY Web canonical user-facing URL；0.3 development deploy 已重新驗證 Custom Domain 與 invalid-provider-session fallback。
 - CY Web 根 `CYID_CONSUMER_VERSION=1.0.2` 宣告所採用的 shared Identity contract；`docs/contracts/cyid/` mirror 依 CYID `CONSUMER_SYNC_MANIFEST.json` 保存 7 個 canonical artifacts + manifest snapshot。Governance Check 與 development deploy 同時驗證 supported version window 與逐檔 byte-level sync；任一漂移都阻止後續部署。
@@ -63,7 +63,7 @@ CY Web should use optimistic UI where appropriate, but destructive/irreversible 
 20. [x] Extend protected Worker HTTP boundary to Order／Outsourcing（including contractor/BOM/stock）／WorkLog；六個業務模組 API foundation complete。
 21. [x] Replace temporary business-data `localStorage` persistence with Worker API -> D1 while preserving the React workflow：**Item [x]；Customer [x]；Defect [x]；Order [x]；Outsourcing [x]；WorkLog [x]**。
 22. [ ] Perform dedicated UI/UX refinement and Desktop/Tablet/Mobile real-browser acceptance.
-23. [ ] Implement/accept R2 + GCS backup+restore before production rollout; portable package/fresh-D1 rehearsal is the first implementation stage, not external-provider or live-restore acceptance.
+23. [ ] Implement/accept R2 + GCS backup+restore before production rollout. User-owned development resource/secret setup is deferred until the week beginning 2026-10-05; resume live cloud acceptance only after user handback. Continue independent UI/business acceptance meanwhile.
 24. [x] Publish governed CYID shared Consumer Integration Standard + compatibility window + cross-repository manifest mirror；CY Web adopts `CYID_CONSUMER_VERSION=1.0.2` and exact-sync deployment gate。CYACC handoff remains app-specific at `CYapps/apps/CYCloudIdentity/docs/consumers/CYACC_INTEGRATION_HANDOFF.md`。
 25. [ ] 在 CYInvoice 工作線的適合接入點產出其 consumer-specific CYID handoff；Device/local/offline 邊界保持 CYInvoice-owned。
 26. [ ] Prepare CY Web production Worker/D1 cutover only after explicit user approval; CYID provider provisioning 的既有批准與成功證據不表示 CY Web production rollout 已批准。
@@ -261,3 +261,12 @@ Email acceptance is explicitly deferred while engineering work continues. These 
 - [ ] User completes/confirms private development R2/GCS buckets, bucket-only service-account permission, and the existing GitHub `development` environment's four backup variables plus one GCS secret. Return only a completion message, never credential contents.
 - [ ] On handback, deploy the already-governed source in manual-only mode, then execute and record the remaining live cloud acceptance above. Current development stays **0.7.4 Build 0**, backup disabled, until that deployment succeeds.
 - Email acceptance remains deferred. No production resources, credentials or cloud IAM changes were made in this documentation task.
+
+
+## Deferred cloud setup and independent UI work — 2026-10-02
+
+- User explicitly deferred the manual development R2/GCS resource/IAM/GitHub-secret setup until next week (week beginning **2026-10-05**, Asia/Tokyo). Keep it unchecked in this file; no cloud activation, resource provisioning or reminder was requested. Await the user's setup-completion handback before the dependent live-cloud acceptance.
+- Email/provider acceptance remains deferred in the durable checklist. Continue independent UI/business work rather than treating either deferred dependency as a general engineering blocker.
+- **0.7.5 Build 0:** fix the previously observed Customer one-row selection stretching across its tall result pane. The existing shared operational list grid now aligns its tracks to the start; content-height rows remain grouped at the top while the Customer pane keeps its layout/scrolling rules. No duplicate component, runtime viewport switch or data/permission change.
+- Browser/Worker TypeScript, source contracts and existing regression checks are required before merge; deployed verification is recorded separately. Development remains **0.7.4 Build 0** until the new deployment passes.
+- Next independent work: Desktop/Tablet/Mobile presentation and full business lifecycle/concurrency/audit acceptance; real multi-role browser checks still require suitable controlled test accounts.
