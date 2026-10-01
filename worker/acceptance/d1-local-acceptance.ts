@@ -1,4 +1,5 @@
 import { handleBackupRoute } from "../http/backup-routes";
+import { acceptIsolatedRecovery } from "./isolated-recovery-acceptance";
 import { acceptTieredBackup } from "./tiered-backup-acceptance";
 import { acceptPortableRecovery } from "./portable-recovery-acceptance";
 import { parseScaled4 } from "../../shared/fixed-point";
@@ -14,12 +15,14 @@ import { WorkLogService } from "../worklog/work-log-service";
 interface Env {
   DB: D1Database;
   RESTORE_DB: D1Database;
+  REHEARSAL_DB: D1Database;
   BACKUP_R2: R2Bucket;
 }
 
 interface AcceptanceChecks {
   portableBackupRecovery: boolean;
   tieredBackup: boolean;
+  isolatedRecovery: boolean;
   customerBatchCreate: boolean;
   optimisticRevision: boolean;
   batchRollback: boolean;
@@ -73,16 +76,17 @@ async function acceptSettingsAuditHttp(db: D1Database): Promise<void> {
   }
   assertAcceptance((await call("/api/admin/settings")).status === 403, "ACCEPT_SETTINGS_USER_ACCESS");
   assertAcceptance((await call("/api/admin/audit")).status === 403, "ACCEPT_AUDIT_USER_ACCESS");
-  async function backupCall(): Promise<Response> {
+  async function backupCall(method = "POST"): Promise<Response> {
     const response = await handleBackupRoute(new Request("https://acceptance.test/api/admin/backups", {
-      method: "POST", headers: { cookie: "cyweb_identity_session=cyid_" + "a".repeat(64) },
-      body: JSON.stringify({ role: "SUPER_ADMIN", workspaceScope: "spoof", actorMemberId: 1 }),
+      method, headers: { cookie: "cyweb_identity_session=cyid_" + "a".repeat(64) },
+      ...(method === "POST" ? { body: JSON.stringify({ role: "SUPER_ADMIN", workspaceScope: "spoof", actorMemberId: 1 }) } : {}),
     }), env, "accept-backup-http");
     assertAcceptance(response, "ACCEPT_BACKUP_ROUTE_MISSING"); return response;
   }
   assertAcceptance((await backupCall()).status === 403, "ACCEPT_BACKUP_USER_ACCESS");
   role = "ADMIN";
   assertAcceptance((await backupCall()).status === 403, "ACCEPT_BACKUP_ADMIN_OR_SPOOF_ACCESS");
+  assertAcceptance((await backupCall("GET")).status === 403, "ACCEPT_BACKUP_ADMIN_HISTORY_ACCESS");
   validSession = false;
   assertAcceptance((await backupCall()).status === 401, "ACCEPT_BACKUP_INVALID_SESSION");
   assertAcceptance((await call("/api/admin/settings")).status === 401, "ACCEPT_SETTINGS_INVALID_SESSION");
@@ -92,6 +96,9 @@ async function acceptSettingsAuditHttp(db: D1Database): Promise<void> {
   assertAcceptance((await call("/api/admin/settings/lookups/department", "POST", input)).status === 403, "ACCEPT_SETTINGS_SPOOFED_AUTHORITY");
   role = "SUPER_ADMIN";
   assertAcceptance((await backupCall()).status === 503, "ACCEPT_BACKUP_MISSING_CONFIG");
+  const backupHistory = await backupCall("GET");
+  const backupEnvelope = await backupHistory.json() as { data: { configured: boolean; sets: unknown[] } };
+  assertAcceptance(backupHistory.status === 200 && backupEnvelope.data.configured === false && Array.isArray(backupEnvelope.data.sets), "ACCEPT_BACKUP_UNCONFIGURED_HISTORY");
   assertAcceptance((await call("/api/admin/settings/lookups/department", "POST", input)).status === 200, "ACCEPT_SETTINGS_CREATE");
   const snapshot = await (await call("/api/admin/settings")).json() as { data: { departments: { id: number; code: string; updatedAt: string }[] } };
   const row = snapshot.data.departments.find(value => value.code === input.code);
@@ -121,7 +128,7 @@ async function acceptSettingsAuditHttp(db: D1Database): Promise<void> {
   assertAcceptance((await backupCall()).status === 403, "ACCEPT_BACKUP_INACTIVE_MEMBER");
 }
 
-async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bucket): Promise<AcceptanceChecks> {
+async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bucket, rehearsalDb: D1Database): Promise<AcceptanceChecks> {
   const t0 = "2026-09-28T00:00:00.000Z";
   const t1 = "2026-09-28T00:01:00.000Z";
   const t2 = "2026-09-28T00:02:00.000Z";
@@ -618,10 +625,12 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
   await acceptSettingsAuditHttp(db);
   await acceptPortableRecovery(db, restoreDb);
   await acceptTieredBackup(db, bucket);
+  await acceptIsolatedRecovery(db, rehearsalDb, bucket);
 
   return {
     portableBackupRecovery: true,
     tieredBackup: true,
+    isolatedRecovery: true,
     settingsAuditHttpAuthority: true,
     customerBatchCreate: true,
     optimisticRevision: true,
@@ -651,7 +660,7 @@ export default {
     }
 
     try {
-      const checks = await runAcceptance(env.DB, env.RESTORE_DB, env.BACKUP_R2);
+      const checks = await runAcceptance(env.DB, env.RESTORE_DB, env.BACKUP_R2, env.REHEARSAL_DB);
       return jsonResponse({ ok: true, checks });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

@@ -20,6 +20,8 @@ export async function acceptTieredBackup(db: D1Database, bucket: R2Bucket): Prom
   const rows = await db.prepare("SELECT provider_code,status_code FROM backup_copies WHERE backup_id=? ORDER BY provider_code").bind(oldId).all<{ provider_code: string; status_code: string }>();
   assert(rows.results.some(r => r.provider_code === "r2" && r.status_code === "verified")
     && rows.results.some(r => r.provider_code === "gcs" && r.status_code === "failed"), "ACCEPT_BACKUP_PARTIAL_PROVIDER_STATE");
+  const partial = (await service.list()).sets.find(row => row.backupId === oldId);
+  assert(partial?.copies.length === 2 && partial.canRetry && partial.status === "verified", "ACCEPT_BACKUP_GROUPED_PARTIAL_HISTORY");
   const oldPrefix = `cyweb/${oldId}/`, original = await r2.getObject(oldPrefix + "data.json");
   assert(original, "ACCEPT_BACKUP_R2_READBACK");
   // Exercise actual R2 conditional create/read-back and collision rejection.
@@ -45,7 +47,7 @@ export async function acceptTieredBackup(db: D1Database, bucket: R2Bucket): Prom
   const first = await service.create("scheduled", july), duplicate = await service.create("scheduled", { ...july, requestId: "synthetic-repeat-cron" });
   assert(first === duplicate, "ACCEPT_BACKUP_DUPLICATE_CRON");
   const listing = await service.list();
-  assert(listing.sets.filter((row: any) => row.backup_id === first).length === 1, "ACCEPT_BACKUP_DUPLICATE_LOGICAL_HISTORY");
+  assert(listing.sets.filter(row => row.backupId === first).length === 1, "ACCEPT_BACKUP_DUPLICATE_LOGICAL_HISTORY");
   const other = new BackupService(db, "other-workspace", "0.7.2", { r2, gcs });
   assert((await other.list()).sets.length === 0, "ACCEPT_BACKUP_CROSS_SCOPE_LIST");
   let rejected = false; try { await other.retry(first, july); } catch { rejected = true; }

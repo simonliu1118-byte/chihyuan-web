@@ -15,8 +15,9 @@ import { ItemOperationalPage } from "./runtime/modules/ItemOperationalPage";
 import { OutsourcingOperationalPage } from "./runtime/modules/OutsourcingOperationalPage";
 import { SalesOrderOperationalPage } from "./runtime/modules/SalesOrderOperationalPage";
 import { WorkLogOperationalPage } from "./runtime/modules/WorkLogOperationalPage";
+import { BackupOperationalPage } from "./runtime/modules/BackupOperationalPage";
 
-type AppRoute = "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "settings" | "audit" | "identity";
+type AppRoute = "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "settings" | "audit" | "identity" | "backups";
 
 const baseNavigation: readonly NavigationGroup[] = [
   {
@@ -38,6 +39,7 @@ const baseNavigation: readonly NavigationGroup[] = [
       { key: "identity", label: "帳號與權限", href: "#identity" },
       { key: "settings", label: "設定", href: "#settings" },
       { key: "audit", label: "稽核紀錄", href: "#audit" },
+      { key: "backups", label: "備份管理", href: "#backups" },
     ],
   },
 ];
@@ -52,6 +54,7 @@ const routes = new Set<AppRoute>([
   "identity",
   "settings",
   "audit",
+  "backups",
 ]);
 
 function currentRoute(): AppRoute {
@@ -116,6 +119,7 @@ function OperationalApp({
     });
     const administration = baseNavigation[1].items.filter((item) => {
       if (item.key === "identity") return true;
+      if (item.key === "backups") return session.user.workspaceRole === "SUPER_ADMIN";
       return session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN";
     });
     return [
@@ -146,7 +150,8 @@ function OperationalApp({
       return;
     }
 
-    if ((moduleCode && !allowedModules.has(moduleCode)) || (adminOnly && !adminAllowed)) {
+    if ((moduleCode && !allowedModules.has(moduleCode)) || (adminOnly && !adminAllowed)
+      || (routeNow === "backups" && session.user.workspaceRole !== "SUPER_ADMIN")) {
       window.location.hash = "#identity";
     }
   }, [moduleAccess, allowedModules, session.user.workspaceRole]);
@@ -184,6 +189,7 @@ function OperationalApp({
   else if (route === "worklogs") content = <WorkLogOperationalPage />;
   else if (route === "identity") content = <SharedIdentityPage session={session} />;
   else if (route === "settings") content = <SettingsOperationalPage role={session.user.workspaceRole} />;
+  else if (route === "backups") content = session.user.workspaceRole === "SUPER_ADMIN" ? <BackupOperationalPage /> : <section className="cy-op-panel">需要最高管理員權限。</section>;
   else content = <AuditOperationalPage />;
 
   return (

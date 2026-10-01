@@ -145,14 +145,18 @@ export async function storeVerifiedCopy(provider: BackupStorageProvider, bundle:
 }
 // Internal fresh-database recovery primitive. Caller owns authorization, target isolation
 // and confirmation. This module is deliberately absent from production HTTP routes.
-export async function restoreIntoEmptyDatabase(db: D1Database, bundle: PortableBackup, workspaceScope: string): Promise<void> {
+export async function validateEmptyBackupTarget(db: D1Database, bundle: PortableBackup, workspaceScope: string): Promise<{ manifest: Manifest; data: Data }> {
   const { manifest, data } = await verifyPortableBackup(bundle, workspaceScope);
   const target = await layout(db);
   check(manifest.schemaSha256 === await sha256(encoder.encode(target.schema)), "BACKUP_SCHEMA_MISMATCH");
   for (const table of BACKUP_TABLES) check(same(data.tables[table].columns, target.columns[table]), "BACKUP_COLUMNS_MISMATCH");
-  const existing = (await db.batch(ALL_TABLES.map(table => db.prepare(`SELECT COUNT(*) AS n FROM ${identifier(table)}`))))
-    .some(result => Number((result.results[0] as { n: number }).n) !== 0);
-  check(!existing, "BACKUP_TARGET_NOT_EMPTY");
+  const guard = ALL_TABLES.map(table => `NOT EXISTS(SELECT 1 FROM ${identifier(table)})`).join(" AND ");
+  const empty = await db.prepare(`SELECT CASE WHEN ${guard} THEN 1 ELSE 0 END AS empty_target`).first<{ empty_target: number }>();
+  check(empty?.empty_target === 1, "BACKUP_TARGET_NOT_EMPTY");
+  return { manifest, data };
+}
+export async function restoreIntoEmptyDatabase(db: D1Database, bundle: PortableBackup, workspaceScope: string): Promise<void> {
+  const { manifest, data } = await validateEmptyBackupTarget(db, bundle, workspaceScope);
   // Recheck emptiness inside the same transaction as all inserts to close the race.
   // Malformed JSON makes a failed guard abort the entire batch without deleting data.
   const emptyGuard = ALL_TABLES.map(table => `NOT EXISTS(SELECT 1 FROM ${identifier(table)})`).join(" AND ");
