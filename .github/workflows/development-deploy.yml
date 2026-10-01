@@ -180,7 +180,7 @@ jobs:
           console.log('Canonical and workers.dev D1 health: source '+version+', consumer '+consumer+'.');
           NODE
 
-
+      - name: Accept canonical Custom Domain
         shell: bash
         run: |
           set -euo pipefail
