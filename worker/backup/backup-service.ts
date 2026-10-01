@@ -113,7 +113,7 @@ export class BackupService {
     if (pending) await this.retry(pending.backup_id, context);
   }
   private async retain(provider: ProviderCode, freshId: string, context: Context): Promise<void> {
-    // At most two old copies per event. Catalog scope, new verified-copy gate and
+    // At most one old copy per provider/event. Catalog scope, new verified-copy gate and
     // copy leases protect failed replicas; no bucket-wide delete or business SQL.
     const cutoff = new Date(Date.parse(context.now) - (provider === "r2" ? 30 : 182) * 86400000).toISOString();
     const candidates = await this.db.prepare(`SELECT bc.backup_id FROM backup_copies bc JOIN backup_sets bs ON bs.backup_id=bc.backup_id
@@ -122,7 +122,7 @@ export class BackupService {
       AND (bc.lease_until IS NULL OR bc.lease_until<=?)
       AND (?='gcs' OR NOT EXISTS(SELECT 1 FROM backup_copies g WHERE g.backup_id=bc.backup_id
         AND g.provider_code='gcs' AND (g.status_code IN ('pending','failed') OR g.lease_until>?)))
-      ORDER BY bs.created_at LIMIT 2`).bind(this.workspace, provider, cutoff, freshId, provider, context.now, provider, context.now)
+      ORDER BY bs.created_at LIMIT 1`).bind(this.workspace, provider, cutoff, freshId, provider, context.now, provider, context.now)
       .all<{ backup_id: string }>();
     for (const row of candidates.results) {
       const lease = new Date(Date.parse(context.now) + 10 * 60 * 1000).toISOString();

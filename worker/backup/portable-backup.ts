@@ -49,17 +49,18 @@ async function layout(db: D1Database): Promise<{ schema: string; columns: Record
   const result = await db.prepare(SCHEMA_SQL).all<{ type: string; name: string }>();
   const tables = result.results.filter(row => row.type === "table").map(row => row.name).sort();
   check(same(tables, ALL_TABLES), "BACKUP_TABLE_COVERAGE_MISMATCH");
-  const columnResults = await db.batch([BACKUP_TABLES.slice(0, 25), BACKUP_TABLES.slice(25)].map(tables =>
-    db.prepare(tables.map(table => `SELECT '${table}' AS table_name, name FROM pragma_table_info('${table}')`).join(" UNION ALL "))));
-  const columns = columnResults.flatMap(result => result.results as { table_name: string; name: string }[]);
+  const columnResult = await db.prepare(`SELECT sm.name AS table_name, col.name AS name FROM sqlite_master sm
+    JOIN pragma_table_info(sm.name) col WHERE sm.type='table' AND sm.name IN (${BACKUP_TABLES.map(t => `'${t}'`).join(",")})`)
+    .all<{ table_name: string; name: string }>();
+  const columns = columnResult.results;
   for (const table of BACKUP_TABLES) check(same(columns.filter(row => row.table_name === table).map(row => row.name).sort(), BACKUP_COLUMNS[table]), "BACKUP_COLUMNS_MISMATCH");
   return { schema: JSON.stringify(result.results), columns: BACKUP_COLUMNS };
 }
-function dataSql(tables: string[]): string { return tables.map(table => {
+const DATA_SQL = "WITH snapshots(table_name, rows_json) AS (VALUES " + BACKUP_TABLES.map(table => {
   const columns = BACKUP_COLUMNS[table].map(identifier).join(",");
-  return `SELECT '${table}' AS table_name, json_group_array(json_array(${columns})) AS rows_json
-    FROM (SELECT ${columns} FROM ${identifier(table)} LIMIT ${MAX_ROWS + 1})`;
-}).join(" UNION ALL "); }
+  return `('${table}', (SELECT json_group_array(json_array(${columns}))
+    FROM (SELECT ${columns} FROM ${identifier(table)} LIMIT ${MAX_ROWS + 1})))`;
+}).join(",") + ") SELECT table_name, rows_json FROM snapshots";
 function canonicalData(data: Data): Uint8Array {
   for (const table of BACKUP_TABLES) data.tables[table].rows.sort((a, b) => {
     const x = JSON.stringify(a), y = JSON.stringify(b);
@@ -73,8 +74,7 @@ export async function exportPortableBackup(db: D1Database, scope: Scope, event?:
   // Every data table is read in one D1 transaction; no provider-specific re-export.
   const results = await db.batch([
     db.prepare(SCHEMA_SQL),
-    db.prepare(dataSql(BACKUP_TABLES.slice(0, 25))),
-    db.prepare(dataSql(BACKUP_TABLES.slice(25))),
+    db.prepare(DATA_SQL),
   ]);
   check(JSON.stringify(results[0].results) === target.schema, "BACKUP_SCHEMA_CHANGED");
   const data: Data = { tables: {} }, recordCounts: Record<string, number> = {};
