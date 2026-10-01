@@ -141,6 +141,9 @@ export class BackupService {
         this.db.prepare(`UPDATE backup_copies SET status_code=?,last_error_code=?,updated_at=?,lease_until=NULL
           WHERE backup_id=? AND provider_code=? AND lease_until=?`)
           .bind(deleted ? "deleted" : "deleting", deleted ? null : "BACKUP_RETENTION_FAILED", context.now, row.backup_id, provider, lease),
+        this.db.prepare(`UPDATE backup_sets SET status_code='expired' WHERE backup_id=? AND workspace_scope=?
+          AND NOT EXISTS(SELECT 1 FROM backup_copies WHERE backup_id=? AND status_code='verified')`)
+          .bind(row.backup_id, this.workspace, row.backup_id),
         this.audit(row.backup_id, deleted ? "backup.retention.deleted" : "backup.retention.failed", context, provider),
       ]);
     }
