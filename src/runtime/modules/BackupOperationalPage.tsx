@@ -76,7 +76,7 @@ export function BackupOperationalPage() {
   }
   const enabled = !loading && !busy && history?.configured === true;
   return <><div className="cy-op-page-header"><div><h1>備份管理</h1><p>查看備份與副本狀態，建立手動備份或重試未完成的 GCS 副本。</p></div>
-    <div className="cy-op-page-actions"><button className="cy-op-button" type="button" disabled={loading || busy} onClick={() => void run("refresh")}>更新紀錄</button>
+    <div className="cy-op-page-actions cy-backup-actions"><button className="cy-op-button" type="button" disabled={loading || busy} onClick={() => void run("refresh")}>更新紀錄</button>
       <button className="cy-op-button primary" type="button" disabled={!enabled} onClick={() => void run("create")}>{busy ? "處理中…" : "建立手動備份"}</button></div></div>
     <div className="cy-op-panel cy-backup-policy"><span><strong>R2</strong> 每日 03:30 · 保留 30 天</span><span><strong>GCS</strong> 週三、週日 · 保留 182 天</span><span>時間皆為台灣時間；手動備份會建立兩端副本。</span></div>
     {history && !history.configured ? <div className="cy-op-notice" role="status">備份儲存尚未設定，建立與重試暫停使用。</div> : null}

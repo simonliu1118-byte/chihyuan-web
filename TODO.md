@@ -4,7 +4,7 @@
 
 ## Current checkpoint — 2026-10-01
 
-- Current source release **CY Web 0.7.1 Build 0** adds portable backup and fresh-D1 recovery foundations; all six business pages and Settings/Audit remain on protected Worker API → D1. **Development 0.7.0 Build 0 已部署並驗證**，run `36821410198`；source 與部署證據分開記錄。
+- Current source release **CY Web 0.7.3 Build 1** includes immutable tiered backup providers/catalog, protected backup management and isolated recovery rehearsal; all six business pages and Settings/Audit remain on protected Worker API → D1. Development release/acceptance evidence is recorded in the latest section below; historical checkpoints retain their original deployment version.
 - CYCloud Identity source/development **0.3.5 Build 0**；development run `36821423383` 通過實際 Worker/D1 binding、version 與 invalid Session readback。Shared Consumer Contract = **1.0.2**，Minimum Compatible = **1.0.0**。
 - `https://admin.chihyuancm.com` 仍是固定 CY Web canonical user-facing URL；0.3 development deploy 已重新驗證 Custom Domain 與 invalid-provider-session fallback。
 - CY Web 根 `CYID_CONSUMER_VERSION=1.0.2` 宣告所採用的 shared Identity contract；`docs/contracts/cyid/` mirror 依 CYID `CONSUMER_SYNC_MANIFEST.json` 保存 7 個 canonical artifacts + manifest snapshot。Governance Check 與 development deploy 同時驗證 supported version window 與逐檔 byte-level sync；任一漂移都阻止後續部署。
@@ -206,3 +206,15 @@ Email acceptance is explicitly deferred while engineering work continues. These 
 - [ ] True GCS service-account/bucket read-back, cross-cloud recovery, real scheduled events and measured production CPU/memory/query/capacity budgets.
 - [ ] Identity-backed live restore authorization, two destructive UI confirmations, both-provider safety copy, target isolation/rollback, recovery audit and explicit release approval.
 - Email pending tests above remain deferred by user and unchecked in Git.
+
+### Backup management / rehearsal source verification
+
+- [PR #97](https://github.com/simonliu1118-byte/chihyuan-web/pull/97) merged at `1a04258a985b532bb484ede4899f406c5015f2bf`, CY Web 0.7.3 Build 0 / GOV 1.1.10. [Runtime Check 36856421670](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/36856421670) passed separate D1/R2 backup/recovery, new third-D1 controlled rehearsal, GCS fallback/catalog mismatch rejection, failed safety-copy write prevention, nonempty-target/authority/confirmation denial and source business preservation/reconciliation/Audit.
+- Governance 36856421596 and development deployment validation 36856421690 passed. Browser/Worker TypeScript, full source/schema checks and 16 Identity/provider/UI projection tests passed. Provider/UI tests do not replace real cloud/device acceptance.
+
+### Development release / browser acceptance — backup management
+
+- [Development Deploy 36856683096](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/36856683096) deployed 0.7.3 Build 0 from `1a04258a985b532bb484ede4899f406c5015f2bf`, applying forward migrations and passing exact CYID sync, version/D1 health, canonical Custom Domain and invalid-provider-session acceptance. Backup remains unconfigured; no provider resource or cron was activated.
+- Real cloud browser restored the existing SUPER_ADMIN Session after reload, retained the earlier synthetic Customer fixture, displayed the new backup navigation/page, completed history load and showed the unconfigured/empty state. Create was disabled; refresh was available. No real backup, restore, Email, Role/Access change or production mutation was performed.
+- Source 0.7.3 Build 1 makes disabled backup actions visually clear following the first development UI check; version remains 0.7.3 for this same work item. The follow-up deployment/visual result is recorded below when complete.
+- Populated/partial-copy browser interaction and Desktop/Tablet/Mobile real-device acceptance remain unchecked. The completed browser check covers the unconfigured state in this desktop viewport only.
