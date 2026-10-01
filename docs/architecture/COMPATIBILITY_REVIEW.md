@@ -67,3 +67,7 @@ The earlier findings describe the reviewed historical baseline. Remaining source
 - CYID Consumer 1.0.2 removes provider obsolete Group/role-mode/initial-delivery aliases. The Web client uses canonical `/email-verification/resend-initial` and `emailVerificationDelivery`. The exact contract mirror and deployment gates remain required.
 
 Full local source checks, browser/Worker TypeScript, operational bundle, deployment rendering and eight Identity tests pass. Actual Worker/D1 acceptance is a required CI gate and now covers the Settings/Audit HTTP authority boundary as well as existing business transactions. Deployed consumer version is exposed in health; production business-data rollout, real Email/browser/device acceptance and backup/restore are independent pending work.
+
+## Development release accepted — 2026-10-01
+
+PR #90 merged; CY Web 0.7.0 and CYID 0.3.5 development deployments passed runs 36821410198 and 36821423383. The actual deployed Web endpoints report source 0.7.0, consumer 1.0.2 and D1 health; invalid opaque Sessions reach the bound provider and are rejected with cookie clearing. CI also passed real Settings/Audit atomic rollback and authority checks. Production, real Email/browser/device and backup/restore remain separate pending gates. Browser-local business data was not automatically imported.
