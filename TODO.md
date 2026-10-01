@@ -252,3 +252,12 @@ Email acceptance is explicitly deferred while engineering work continues. These 
 - [Development deploy 36860791237](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/36860791237) attempt 2 succeeded. Protected runner explicitly reported **Backup disabled; no credential uploaded**. Real R2/GCS backup and cron remain inactive; successful source deployment is not cloud-backup acceptance.
 - Provider-specific plugin discovery found no matching Cloudflare/GCS administration capability in the returned results. Other plugins may exist in the plugin directory; unrelated file-storage/BigQuery plugins cannot manage these buckets or runtime secrets. The browser's direct health-page navigation was blocked by its client; deployment verification relies on the successful governed runner checks rather than a claimed browser check.
 - Next dependency: protected cloud resource/settings access, then the remaining manual dual-provider, failure/retry and isolated-recovery checklist above. No credentials should be pasted into chat or Public Git. Production CY Web remains untouched.
+
+
+### Development resource setup handoff
+
+- [x] Rechecked CYACC's latest `origin/main` backup documentation: isolated application dataset/service account, bucket-scoped IAM, accepted real R2/GCS copies; its Phase C/legacy payload and production resources are separate from CY Web.
+- [x] Added the exact manual resource, IAM, environment-variable/secret and handback steps to [the existing deployment principles](docs/architecture/CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md#development-backup-manual-setup-and-handback), verified against provider documentation. No new rule layer or code/configuration wrapper.
+- [ ] User completes/confirms private development R2/GCS buckets, bucket-only service-account permission, and the existing GitHub `development` environment's four backup variables plus one GCS secret. Return only a completion message, never credential contents.
+- [ ] On handback, deploy the already-governed source in manual-only mode, then execute and record the remaining live cloud acceptance above. Current development stays **0.7.4 Build 0**, backup disabled, until that deployment succeeds.
+- Email acceptance remains deferred. No production resources, credentials or cloud IAM changes were made in this documentation task.

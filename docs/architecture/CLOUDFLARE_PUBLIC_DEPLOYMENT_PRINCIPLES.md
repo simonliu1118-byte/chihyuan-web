@@ -251,3 +251,32 @@ Scheduled activation renders UTC cron `30 19 * * *`; manual-only or disabled act
 Live acceptance must select a successful manual event through the normal Super Admin interface, verify R2 and GCS copies have the same manifest/data bytes and event identifier, record a bounded same-event GCS retry after a controlled GCS failure, and complete recovery in a separately migrated empty D1 target. Only then enable the schedule and verify actual scheduled catalog/audit events and retention. Existing CI uses ephemeral D1/R2 and simulated GCS and cannot substitute for this acceptance. Do not reuse another application's backup bucket, payload reader or broad service-account credential.
 
 This deployment workflow consumes existing resources; it does not create buckets, service accounts, IAM grants, billing configuration or production infrastructure. Resource names, credentials, object contents and business backup exports must stay in protected operational records rather than Public Git/Actions artifacts.
+
+
+### Development backup: manual setup and handback
+
+These instructions fill protected resources/settings outside Public Git. Their completion is not successful backup acceptance; deploy/readback/recovery results belong in `TODO.md`. CYACC's accepted topology is the reference for per-application isolation, not a source of shared bucket contents or credentials.
+
+1. **Cloudflare R2:** in the account already hosting the CY Web development Worker, open R2 and create/confirm an application-owned private development bucket. Use a lowercase 3–63-character name accepted by the renderer. Keep public bucket access disabled. The deployment adds the `BACKUP_R2` binding automatically; no R2 S3 access key or manual Worker binding is needed.
+2. **Google Cloud Storage:** use the existing approved Google Cloud project if suitable, but create/confirm a separate private CY Web development bucket. This deployment currently accepts lowercase 3–63-character names using letters, digits, hyphens or underscores, with alphanumeric ends. Use uniform bucket-level access and public access prevention. Leave automatic object expiration and locked retention policies unconfigured during acceptance; application retention must be tested first.
+3. **Google service account:** create/confirm a dedicated CY Web development service account. In this bucket's Permissions, grant that account `Storage Object User` (`roles/storage.objectUser`) on this bucket only, covering create/read/list/delete for replication and retention. The runtime account does not need project-wide Storage Admin. In its Keys tab, choose Add key → Create new key → JSON. Keep the downloaded JSON private and use it only as the environment secret below.
+4. **GitHub:** open `simonliu1118-byte/chihyuan-web` → Settings → Environments → existing `development` environment. Add/update these fields; preserve the existing Cloudflare/D1/Identity configuration and deployment protections.
+
+| Location | Exact name | Value |
+| --- | --- | --- |
+| Environment variable | `CF_BACKUP_R2_BUCKET` | CY Web development R2 bucket name |
+| Environment variable | `GCS_BUCKET` | CY Web development GCS bucket name |
+| Environment variable | `CF_BACKUP_ENABLED` | `true` after the resources and secret are ready |
+| Environment variable | `CF_BACKUP_SCHEDULE_ENABLED` | `false` throughout manual/recovery acceptance |
+| Environment secret | `GCS_SERVICE_ACCOUNT_JSON` | Entire downloaded service-account JSON, preserving its contents; not a filename or only the private-key field |
+
+Do not paste the JSON into chat, a Git commit, an Issue, a PR or an environment **variable**. Use GitHub's environment **secret**. Resource/settings changes alone do not deploy the Worker. Hand back only a non-sensitive completion message, for example “development 備份設定完成”; bucket names, project identifiers and JSON contents are not needed in the handback message.
+
+The maintainer then runs the existing governed development deployment and checks the normal Super Admin backup UI, both provider readbacks, same-event retry and isolated empty-target recovery. Keep `CF_BACKUP_SCHEDULE_ENABLED=false` until those checks pass. Production resource setup/cutover and scheduled activation are later, separate steps.
+
+Provider references (checked 2026-10-01):
+
+- [Cloudflare: create R2 buckets](https://developers.cloudflare.com/r2/buckets/create-buckets/)
+- [Google Cloud: Cloud Storage IAM roles](https://docs.cloud.google.com/storage/docs/access-control/iam-roles)
+- [Google Cloud: create service-account JSON keys](https://docs.cloud.google.com/iam/docs/keys-create-delete)
+- [GitHub: deployment environments, secrets and variables](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments)
