@@ -187,3 +187,10 @@ Email acceptance is explicitly deferred while engineering work continues. These 
 - Durable pending tests above remain unchecked: real Email is still explicitly deferred; real provider provisioning/upload/read-back, scheduled runs and independent disaster recovery, UI/restore confirmations, full business/role/device acceptance and production release remain pending.
 
 - Runtime Check caught the D1 compound SELECT term limit; UNION reads were replaced by a table-valued column join and a VALUES-based snapshot, retaining one data transaction and exact table coverage. Cleanup is capped at one old copy per provider/event to bound the full invocation query budget; fresh head is revalidated before merge.
+
+### Tiered backup verification
+
+- [PR #96](https://github.com/simonliu1118-byte/chihyuan-web/pull/96), source head `fdba2f281ba3575f539c5cc4645be0820f4c5d66`: [Runtime Check 36850070200](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/36850070200) passed actual separate D1 recovery and ephemeral R2 upload/read-back, immutable collision rejection, provider-copy failure/retry, 30/182-day policy, pending-replica protection, duplicate daily event and Workspace/role/inactive-member checks.
+- Governance 36850070797 and development deployment validation 36850070460 passed. Deployment job was skipped; development remains 0.7.0. GCS tests use generated in-memory RSA keys and simulated HTTP, not a real bucket/service account.
+- Next engineering step: backup history/manual/retry UI and protected recovery rehearsal workflow; retain the current empty-target primitive. Before any live restore, implement and accept Super Admin double confirmation, pre-restore both-provider safety copy, target isolation/rollback and structured audit. No one-click clear or arbitrary portable import/export is planned.
+- Controlled development R2/GCS resource/secret configuration, true scheduled event/read-back and independent GCS recovery require their own acceptance evidence; production rollout remains pending explicit readiness approval.
