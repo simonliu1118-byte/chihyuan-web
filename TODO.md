@@ -132,3 +132,13 @@ Historical preview/audit/readiness/review material under `docs/architecture/arch
 - CYID development 0.3.5 release passed [run 36821423383](https://github.com/simonliu1118-byte/CYapps/actions/runs/36821423383), including actual development Worker/D1 isolation and fail-closed Session resolution.
 - Browser-local runtime authority is retired. No browser-local business data was imported into remote D1 by this release; any needed legacy browser-data recovery/import must be a separately reviewed operation.
 - Production business-data cutover, backup/restore and actual Email/browser/device lifecycle acceptance remain pending; development deployment is not their acceptance evidence.
+
+## Real browser acceptance — 2026-10-01
+
+- Dedicated cloud browser accepted normal permanent-password login through the deployed canonical CY Web domain. Fresh reload completed Session resolution and returned to the business UI; no stuck login state was observed in this session. Tested principal: SUPER_ADMIN; no real Employee identifiers or credentials are recorded here.
+- Customer create persisted the synthetic `CYWEB 驗收 20261001` fixture with full name `Development 瀏覽器持久化驗收資料`; a full reload returned the saved revision and fields. The fixture remains in development D1 and was not deleted. No production data was changed.
+- Customer, Item, Defect, Sales Work Order, Outsourcing and WorkLog all finished authority/data loading. Settings, read-only Audit and Identity management also finished loading. Empty development lookups mean this is page-load coverage, not full business workflow acceptance for all six modules.
+- SUPER_ADMIN self-service, Employee management, App/Module Access and security-policy controls rendered. No Role/Access/security-policy mutation, credential change or Super Admin transfer was performed. Other roles remain unaccepted in the real browser.
+- Forgot-password -> return-to-login navigation passed without sending an Email. Real Email delivery, controlled new USER first-login, resend/expiry/pending-email-edit and recovery are still pending. Next prerequisite: a user-designated controlled inbox not already used by an Employee in this development Workspace; creation sends a real verification Email and requires explicit recipient/access authorization. New credential entry must be completed by the user through the browser handoff.
+- Visual refinement remains pending: the one-row Customer list stretches the selected row to fill the tall list panel. No Desktop/Tablet/Mobile acceptance is inferred from this desktop viewport.
+- Architecture index was corrected to remove stale localStorage-adapter descriptions. Runtime/product versions and contract mirror are unchanged.
