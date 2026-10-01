@@ -4,7 +4,7 @@
 
 ## Current checkpoint — 2026-10-01
 
-- Current source release **CY Web 0.7.0 Build 0** completes all six business pages and Settings/Audit on protected Worker API → D1. **Development 0.7.0 Build 0 已部署並驗證**，run `36821410198`；source 與部署證據分開記錄。
+- Current source release **CY Web 0.7.1 Build 0** adds portable backup and fresh-D1 recovery foundations; all six business pages and Settings/Audit remain on protected Worker API → D1. **Development 0.7.0 Build 0 已部署並驗證**，run `36821410198`；source 與部署證據分開記錄。
 - CYCloud Identity source/development **0.3.5 Build 0**；development run `36821423383` 通過實際 Worker/D1 binding、version 與 invalid Session readback。Shared Consumer Contract = **1.0.2**，Minimum Compatible = **1.0.0**。
 - `https://admin.chihyuancm.com` 仍是固定 CY Web canonical user-facing URL；0.3 development deploy 已重新驗證 Custom Domain 與 invalid-provider-session fallback。
 - CY Web 根 `CYID_CONSUMER_VERSION=1.0.2` 宣告所採用的 shared Identity contract；`docs/contracts/cyid/` mirror 依 CYID `CONSUMER_SYNC_MANIFEST.json` 保存 7 個 canonical artifacts + manifest snapshot。Governance Check 與 development deploy 同時驗證 supported version window 與逐檔 byte-level sync；任一漂移都阻止後續部署。
@@ -167,3 +167,10 @@ Email acceptance is explicitly deferred while engineering work continues. These 
 - Fresh-database restore rejects corruption, wrong app/scope/format/schema/counts/columns and nonempty targets before inserts; rechecks emptiness inside the atomic write batch and preserves D1 foreign-key enforcement. No deletion, live overwrite or production HTTP route is exposed.
 - Initial bounded rehearsal capacity: 500 rows total / 5 MiB. Larger datasets fail closed; capacity, Worker memory/CPU and per-invocation D1 query limits (including metadata/restore/reconciliation reads) must be measured/reworked before production acceptance. No chunked partial restore is claimed.
 - Existing Runtime Check now requires real separate local D1 recovery/reconciliation and FK/duplicate-failure rollback. Synthetic in-memory providers only validate the byte-copy protocol; they do not constitute actual R2/GCS acceptance. Development deployed runtime remains 0.7.0 until a separate release.
+
+### Backup foundation verification
+
+- [Runtime Check 36842783185](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/36842783185) passed actual separate local D1 migrations and required `portableBackupRecovery`, alongside all existing business/Settings/Audit acceptance.
+- Recovery verified full canonical-data byte reconciliation and foreign keys; valid-digest FK/duplicate-key failures rolled back to an empty target. Cross-app/scope, corruption, unsupported format/schema, mismatched counts/columns and nonempty target were rejected.
+- Synthetic provider outage/retry/corrupt-readback tests passed, retaining byte-identical copies. These establish protocol behavior only; actual R2/GCS provider acceptance remains unchecked above.
+- Governance 36842783192 and development deployment validation 36842783092 passed. The PR did not execute a development or production deployment. Root source is 0.7.1; deployed development remains 0.7.0.

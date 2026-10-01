@@ -25,6 +25,7 @@ tmp/
 *.db
 backup/
 backups/
+!worker/backup/
 
 # IDE / OS
 .vscode/
