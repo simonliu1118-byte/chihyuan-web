@@ -105,7 +105,7 @@ jobs:
       - name: Enforce Worker TypeScript
         run: test "$(cat worker-tsc.exit)" = "0"
       - name: Identity adapter regression tests
-        run: node --test scripts/identity-adapter.test.mjs scripts/backup-providers.test.mjs
+        run: node --test scripts/identity-adapter.test.mjs scripts/backup-providers.test.mjs scripts/backup-ui.test.mjs
 
   build:
     runs-on: ubuntu-latest

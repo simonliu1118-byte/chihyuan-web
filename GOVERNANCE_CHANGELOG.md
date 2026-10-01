@@ -1,5 +1,10 @@
 # CY Web Governance Changelog
 
+## 1.1.10 — 2026/10/01
+
+- Runtime Check adds backup UI projection tests and a third ephemeral D1 recovery-rehearsal binding.
+- Required isolated recovery acceptance checks GCS fallback, both-provider pre-restore safety verification, authority/confirmation denial, nonempty-target rejection, byte reconciliation and structured audit. No remote restore route or deployment configuration is enabled.
+
 ## 1.1.9 — 2026/10/01
 
 - Runtime Check requires tiered backup catalog/retention acceptance against actual ephemeral Worker R2 and isolated D1, plus GCS HTTP/JWT regression tests.

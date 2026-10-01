@@ -1,10 +1,35 @@
 import { AuditService } from "../audit/audit-service";
-import { exportPortableBackup, storeVerifiedCopy, verifyPortableBackup, type BackupStorageProvider, type PortableBackup } from "./portable-backup";
+import type { BackupHistory, BackupProvider } from "../../shared/backups";
+import { exportPortableBackup, restoreIntoEmptyDatabase, validateEmptyBackupTarget, storeVerifiedCopy, verifyPortableBackup, type BackupStorageProvider, type PortableBackup } from "./portable-backup";
 import { BACKUP_ID, storageCheck } from "./storage-guard";
 
 type ProviderCode = "r2" | "gcs";
-interface Context { now: string; actorMemberId: number | null; requestId: string }
+export interface BackupContext { now: string; actorMemberId: number | null; requestId: string }
+type Context = BackupContext;
 interface SetRow { backup_id: string; created_at: string; data_sha256: string; data_byte_length: number; total_record_count: number; status_code: string }
+export async function loadBackupHistory(db: D1Database, workspace: string, configured: boolean): Promise<BackupHistory> {
+  const results = await db.batch([
+    db.prepare(`SELECT backup_id, created_at, app_version, schema_version, data_sha256,
+      data_byte_length, total_record_count, status_code, trigger_kind FROM backup_sets
+      WHERE workspace_scope=? ORDER BY created_at DESC, backup_id DESC LIMIT 50`).bind(workspace),
+    db.prepare(`SELECT backup_id, provider_code, status_code, verified_at, last_error_code, lease_until
+      FROM backup_copies WHERE backup_id IN (SELECT backup_id FROM backup_sets WHERE workspace_scope=?
+      ORDER BY created_at DESC, backup_id DESC LIMIT 50) ORDER BY backup_id, provider_code`).bind(workspace),
+  ]);
+  const copies = results[1].results as { backup_id: string; provider_code: BackupProvider; status_code: string;
+    verified_at: string | null; last_error_code: string | null; lease_until: string | null }[];
+  return { configured, sets: (results[0].results as (SetRow & { app_version: string; schema_version: string; trigger_kind: string })[]).map(row => {
+    const children = copies.filter(copy => copy.backup_id === row.backup_id);
+    return { backupId: row.backup_id, createdAt: row.created_at, appVersion: row.app_version, schemaVersion: row.schema_version,
+      dataSha256: row.data_sha256, byteLength: row.data_byte_length, recordCount: row.total_record_count,
+      status: row.status_code, triggerKind: row.trigger_kind,
+      copies: children.map(copy => ({ provider: copy.provider_code, status: copy.status_code, verifiedAt: copy.verified_at, errorCode: copy.last_error_code })),
+      canRetry: configured && children.some(copy => copy.provider_code === "r2" && copy.status_code === "verified")
+        && children.some(copy => copy.provider_code === "gcs" && ["pending", "failed"].includes(copy.status_code)
+          && (!copy.lease_until || copy.lease_until <= new Date().toISOString())),
+    };
+  }) };
+}
 export function taiwanBackupPolicy(time: string): { date: string; gcs: boolean } {
   const value = new Date(Date.parse(time) + 8 * 60 * 60 * 1000);
   storageCheck(Number.isFinite(value.getTime()), "BACKUP_TIME_INVALID");
@@ -21,33 +46,77 @@ export class BackupService {
       actorEmployeeId: context.actorMemberId, occurredAt: context.now, requestId: context.requestId,
       metadata: provider ? { provider } : undefined });
   }
-  async list(): Promise<{ sets: unknown[]; copies: unknown[] }> {
+  async list(): Promise<BackupHistory> { return loadBackupHistory(this.db, this.workspace, true); }
+  async loadVerified(id: string, onlyProvider?: ProviderCode): Promise<{ bundle: PortableBackup; provider: ProviderCode }> {
+    storageCheck(BACKUP_ID.test(id), "BACKUP_ID_INVALID");
     const results = await this.db.batch([
-      this.db.prepare(`SELECT backup_id, created_at, app_version, schema_version, data_sha256,
-        data_byte_length, total_record_count, status_code, trigger_kind FROM backup_sets
-        WHERE workspace_scope=? ORDER BY created_at DESC, backup_id DESC LIMIT 50`).bind(this.workspace),
-      this.db.prepare(`SELECT backup_id, provider_code, status_code, verified_at, last_error_code, updated_at
-        FROM backup_copies WHERE backup_id IN (SELECT backup_id FROM backup_sets WHERE workspace_scope=?
-        ORDER BY created_at DESC, backup_id DESC LIMIT 50) ORDER BY backup_id, provider_code`).bind(this.workspace),
+      this.db.prepare("SELECT * FROM backup_sets WHERE backup_id=? AND workspace_scope=?").bind(id, this.workspace),
+      this.db.prepare(`SELECT provider_code FROM backup_copies WHERE backup_id=? AND status_code='verified'
+        AND EXISTS(SELECT 1 FROM backup_sets WHERE backup_id=? AND workspace_scope=?)`).bind(id, id, this.workspace),
     ]);
-    return { sets: results[0].results, copies: results[1].results };
+    const row = results[0].results[0] as (SetRow & { app_version: string; schema_version: string }) | undefined;
+    storageCheck(row, "BACKUP_SCOPE_OR_ID_INVALID");
+    for (const provider of onlyProvider ? [onlyProvider] : ["r2", "gcs"] as const) {
+      if (!(results[1].results as { provider_code: string }[]).some(copy => copy.provider_code === provider)) continue;
+      try {
+        const prefix = `cyweb/${id}/`;
+        const dataBytes = await this.providers[provider].getObject(prefix + "data.json");
+        const manifestBytes = await this.providers[provider].getObject(prefix + "manifest.json");
+        storageCheck(dataBytes && manifestBytes, "BACKUP_READBACK_MISSING");
+        const bundle = { dataBytes, manifestBytes }, { manifest } = await verifyPortableBackup(bundle, this.workspace);
+        storageCheck(manifest.backupId === id && manifest.createdAtUtc === row.created_at && manifest.dataSha256 === row.data_sha256
+          && manifest.dataByteLength === row.data_byte_length && manifest.totalRecordCount === row.total_record_count
+          && manifest.appVersion === row.app_version && manifest.schemaVersion === row.schema_version, "BACKUP_CATALOG_MISMATCH");
+        return { bundle, provider };
+      } catch {}
+    }
+    throw new Error("BACKUP_NO_VERIFIED_COPY_AVAILABLE");
   }
-  async create(kind: "manual" | "scheduled", context: Context): Promise<string> {
+  async isolatedRecovery(target: D1Database, input: { backupId: string; selectionConfirmation: string;
+    targetConfirmation: "isolated_empty_database"; role: string; isActive: boolean }, context: Context): Promise<{ safetyBackupId: string; provider: ProviderCode }> {
+    storageCheck(input.role === "SUPER_ADMIN" && input.isActive && context.actorMemberId !== null, "BACKUP_RECOVERY_AUTHORITY_REQUIRED");
+    storageCheck(input.selectionConfirmation === input.backupId && input.targetConfirmation === "isolated_empty_database", "BACKUP_RECOVERY_CONFIRMATION_REQUIRED");
+    storageCheck(target !== this.db, "BACKUP_RECOVERY_TARGET_NOT_ISOLATED");
+    const selected = await this.loadVerified(input.backupId);
+    await validateEmptyBackupTarget(target, selected.bundle, this.workspace);
+    // Resolve immutable selected bytes first. Safety export then captures current
+    // source data, requires both verified providers, and never clears a target.
+    const safetyBackupId = await this.create("pre_restore", { ...context, requestId: `${context.requestId}:safety` });
+    storageCheck(safetyBackupId !== input.backupId, "BACKUP_RECOVERY_SAFETY_ID_INVALID");
+    await this.loadVerified(safetyBackupId, "r2");
+    await this.loadVerified(safetyBackupId, "gcs");
+    await new AuditService(this.db).record({ entityType: "backup", entityKey: input.backupId, action: "backup.rehearsal.started",
+      actorEmployeeId: context.actorMemberId, occurredAt: context.now, requestId: context.requestId,
+      metadata: { safetyBackupId, provider: selected.provider, target: "isolated_empty_database" } });
+    try {
+      await restoreIntoEmptyDatabase(target, selected.bundle, this.workspace);
+      await new AuditService(this.db).record({ entityType: "backup", entityKey: input.backupId, action: "backup.rehearsal.verified",
+        actorEmployeeId: context.actorMemberId, occurredAt: context.now, requestId: context.requestId,
+        metadata: { safetyBackupId, provider: selected.provider, target: "isolated_empty_database" } });
+    } catch {
+      await new AuditService(this.db).record({ entityType: "backup", entityKey: input.backupId, action: "backup.rehearsal.failed",
+        actorEmployeeId: context.actorMemberId, occurredAt: context.now, requestId: context.requestId,
+        metadata: { safetyBackupId, provider: selected.provider, target: "isolated_empty_database" } });
+      throw new Error("BACKUP_ISOLATED_RECOVERY_FAILED");
+    }
+    return { safetyBackupId, provider: selected.provider };
+  }
+  async create(kind: "manual" | "scheduled" | "pre_restore", context: Context): Promise<string> {
     const policy = taiwanBackupPolicy(context.now), id = crypto.randomUUID();
     const claim = await this.db.prepare(`INSERT OR IGNORE INTO backup_sets
       (backup_id,created_at,schema_version,data_sha256,data_byte_length,total_record_count,status_code,
        workspace_scope,app_version,trigger_kind,trigger_key) VALUES (?,?,'0006_backup_catalog','pending',0,0,'creating',?,?,?,?)`)
-      .bind(id, context.now, this.workspace, this.version, kind, kind === "scheduled" ? `daily:${policy.date}` : `manual:${context.requestId}`).run();
+      .bind(id, context.now, this.workspace, this.version, kind, kind === "scheduled" ? `daily:${policy.date}` : `${kind}:${context.requestId}`).run();
     if (claim.meta.changes === 0) {
       const previous = await this.db.prepare("SELECT backup_id FROM backup_sets WHERE workspace_scope=? AND trigger_key=?")
-        .bind(this.workspace, kind === "scheduled" ? `daily:${policy.date}` : `manual:${context.requestId}`).first<{ backup_id: string }>();
+        .bind(this.workspace, kind === "scheduled" ? `daily:${policy.date}` : `${kind}:${context.requestId}`).first<{ backup_id: string }>();
       storageCheck(previous, "BACKUP_CLAIM_FAILED"); return previous.backup_id;
     }
     try {
       await this.audit(id, "backup.started", context).run();
       const bundle = await exportPortableBackup(this.db, { workspaceScope: this.workspace, appVersion: this.version }, { backupId: id, createdAtUtc: context.now });
       const { manifest } = await verifyPortableBackup(bundle, this.workspace);
-      const both = kind === "manual" || policy.gcs;
+      const both = kind !== "scheduled" || policy.gcs;
       await this.db.batch([
         this.db.prepare("UPDATE backup_sets SET data_sha256=?,data_byte_length=?,total_record_count=? WHERE backup_id=? AND workspace_scope=?")
           .bind(manifest.dataSha256, manifest.dataByteLength, manifest.totalRecordCount, id, this.workspace),
