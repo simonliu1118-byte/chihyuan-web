@@ -10,7 +10,6 @@ export interface IdentityPrincipal {
   emailVerified: boolean;
   isWorkspaceSuperAdmin: boolean;
   /** Legacy descriptive compatibility only; never use for authorization. */
-  groupKeys: string[];
   credentialVersion: number;
   employeeRevision: number;
 }

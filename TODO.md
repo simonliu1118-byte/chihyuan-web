@@ -4,7 +4,7 @@
 
 ## Current checkpoint — 2026-10-01
 
-- Current formal source baseline is **CY Web 0.6.0 Build 0**；本 phase starts the React business-data cutover to Worker API → D1。Development runtime is **0.6.0 Build 0**, accepted by Development Deploy #71 at `f9025de4ad9247c035b744e90bc2f015f2cdaf28`。
+- Current formal source baseline is **CY Web 0.6.1 Build 0**；本 patch 移除 unused Identity compatibility source 與 duplicate local business pages。Development runtime is **0.6.0 Build 0**, accepted by Development Deploy #71 at `f9025de4ad9247c035b744e90bc2f015f2cdaf28`。
 - CYCloud Identity formal source baseline is **0.3.3 Build 0**；development runtime remains **0.3.0 Build 0**。Shared Consumer Contract = **1.0.1**，Minimum Compatible = **1.0.0**。
 - `https://admin.chihyuancm.com` 仍是固定 CY Web canonical user-facing URL；0.3 development deploy 已重新驗證 Custom Domain 與 invalid-provider-session fallback。
 - CY Web 根 `CYID_CONSUMER_VERSION=1.0.1` 宣告所採用的 shared Identity contract；`docs/contracts/cyid/` mirror 依 CYID `CONSUMER_SYNC_MANIFEST.json` 保存 7 個 canonical artifacts + manifest snapshot。Governance Check 與 development deploy 同時驗證 supported version window 與逐檔 byte-level sync；任一漂移都阻止後續部署。
@@ -23,9 +23,9 @@
 - **Item + Customer + Defect + Order + Outsourcing React pages 已移除 localStorage authority**：Item／Customer／Defect／Order 皆維持前述 Worker API → D1 boundary；Outsourcing 的 Contractor/BOM/stock read model、pending create/update、OUTSOURCING-scoped Item lookup、出庫更正/取消、入庫/取消、計價/取消、付款/取消與 server-authorized pending delete 亦改走 Worker API → D1，庫存只由 movement ledger 推導。WorkLog 暫時仍是 localStorage，runtime 維持最後一段 mixed transport。
 - CYID production provisioning 已獲明確批准，獨立 provider 的 Production Provisioning run #12 已成功；這不等於 CY Web business-data production cutover。CY Web production D1/Worker cutover、backup rollout與 SMART ERP remain untouched。
 - WorkLog 的 API client/page/App routing 與 source gates 已存在 `feature/worklog-worker-d1-transport` at `5307131702deaaf759ccef8de9059d23a3b5b650`；尚未合入 main/取得部署 acceptance，不再重做另一套 adapter。
-- Settings/Audit 仍經 `OperationalWorkspace.tsx` 使用 browser-local store；五個已切換模組仍有舊 local 頁面 source 殘留。不能只因 WorkLog 完成就宣稱 localStorage 已全數退休。
-- 相容層檢查已完成，讀 `docs/architecture/COMPATIBILITY_REVIEW.md`。沒有 version-numbered runtime wrapper chain，但有必填 legacy groupKeys、unused Group proxies、duplicated local pages 與 provider transport 重複。尚未執行 runtime 清理。
-- 下次 CYID production deploy 前先處理一次性 provisioning 的 development→production Employee overwrite 風險；不得重跑 continuity workflow 作日常 deploy。
+- Settings/Audit 仍經 `OperationalWorkspace.tsx` 使用 browser-local store；四個 duplicate local Customer/Item/Order/Outsourcing 頁面與 dispatch 已移除。不能只因 WorkLog 完成就宣稱 localStorage 已全數退休。
+- 相容層檢查已完成，讀 `docs/architecture/COMPATIBILITY_REVIEW.md`。沒有 version-numbered runtime wrapper chain，但有必填 legacy groupKeys、unused Group proxies、duplicated local pages 與 provider transport 重複。本批已移除 `groupKeys` dependency、Group/compatibility-mode proxies、unused client type 與四個 duplicate local business pages；provider transport duplication、WorkLog/Settings/Audit authority cutover 尚未完成。
+- CYID PR #254 已在 production deployment branch 將一次性 provisioning 換成 inert retirement gate，不能再重播 development Employee；日常 production deployment path 仍待建立。
 
 ## Documentation consolidation
 
@@ -110,3 +110,9 @@ Still requiring real browser / Email-provider acceptance:
 - Current progress: this file only
 
 Historical preview/audit/readiness/review material under `docs/architecture/archive/` and Git history is evidence only, not current contract.
+
+## 0.6.1 source cleanup validation
+
+- 三個 Identity adapter regression tests 通過：無 Group projection 的 direct-role principal 可登入、required authority checks 保持 fail closed、retired routes 不呼叫 provider。Runtime Check 執行相同 tests。
+- Full source checks、browser/Worker TypeScript 與 operational bundle 通過。Local D1/Worker acceptance 被執行環境 `uv_interface_addresses` 錯誤阻擋；GitHub Actions existing Local D1 runtime acceptance 是 merge gate。
+- 本批只更新 source；development runtime 仍為 0.6.0，未宣稱完成 provider legacy-field retirement 或整體 localStorage cutover。

@@ -23,7 +23,6 @@ export interface IdentityApplicationRow {
   application_status: string;
   enabled: number;
   core_access_locked: number;
-  compatibility_role_mode?: "USER_ADMIN" | null;
 }
 
 export interface IdentityDirectAccessRow {
