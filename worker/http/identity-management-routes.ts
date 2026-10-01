@@ -196,39 +196,5 @@ export async function handleIdentityManagementRoute(
     );
   }
 
-  // Legacy Group management stays proxied temporarily for old clients, but the
-  // CY Web 0.2 UI no longer presents it and CYID 0.2 does not authorize from it.
-  if (request.method === "POST" && path === "/api/identity/admin/groups") {
-    return proxyAuthenticated(request, env, requestId, "/v1/admin/identity/groups", "POST");
-  }
-  match = /^\/api\/identity\/admin\/groups\/([^/]+)$/.exec(path);
-  if (request.method === "PATCH" && match) {
-    return proxyAuthenticated(request, env, requestId, `/v1/admin/identity/groups/${encodeURIComponent(match[1])}`, "PATCH");
-  }
-  match = /^\/api\/identity\/admin\/groups\/([^/]+)\/members\/([^/]+)$/.exec(path);
-  if (match && (request.method === "PUT" || request.method === "DELETE")) {
-    return proxyAuthenticated(
-      request, env, requestId,
-      `/v1/admin/identity/groups/${encodeURIComponent(match[1])}/members/${encodeURIComponent(match[2])}`,
-      request.method,
-    );
-  }
-  match = /^\/api\/identity\/admin\/groups\/([^/]+)\/applications\/([^/]+)$/.exec(path);
-  if (request.method === "PUT" && match) {
-    return proxyAuthenticated(
-      request, env, requestId,
-      `/v1/admin/identity/groups/${encodeURIComponent(match[1])}/applications/${encodeURIComponent(match[2])}`,
-      "PUT",
-    );
-  }
-  match = /^\/api\/identity\/admin\/applications\/([^/]+)\/compatibility-role-mode$/.exec(path);
-  if (request.method === "PUT" && match) {
-    return proxyAuthenticated(
-      request, env, requestId,
-      `/v1/admin/identity/applications/${encodeURIComponent(match[1])}/compatibility-role-mode`,
-      "PUT",
-    );
-  }
-
   return null;
 }

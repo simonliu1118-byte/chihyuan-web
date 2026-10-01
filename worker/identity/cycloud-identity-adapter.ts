@@ -12,7 +12,6 @@ interface ProviderPrincipal {
   isIdentityAdmin?: unknown;
   emailVerified?: unknown;
   isWorkspaceSuperAdmin?: unknown;
-  groupKeys?: unknown;
   credentialVersion?: unknown;
   employeeRevision?: unknown;
 }
@@ -100,22 +99,6 @@ function cookieValue(request: Request, name: string): string | null {
   return null;
 }
 
-function normalizeGroupKeys(value: unknown): string[] | null {
-  if (!Array.isArray(value) || value.length > 100) return null;
-  const result: string[] = [];
-  const seen = new Set<string>();
-  for (const item of value) {
-    if (typeof item !== "string") return null;
-    const normalized = item.trim();
-    if (!normalized || normalized.length > 128) return null;
-    if (!seen.has(normalized)) {
-      seen.add(normalized);
-      result.push(normalized);
-    }
-  }
-  return result;
-}
-
 function normalizeWorkspaceRole(value: unknown): WorkspaceRole | null {
   return value === "SUPER_ADMIN" || value === "ADMIN" || value === "USER" ? value : null;
 }
@@ -131,7 +114,6 @@ function normalizePrincipal(value: ProviderPrincipal | undefined): IdentityPrinc
   const employeeNo = typeof value?.employeeNo === "string" ? value.employeeNo.trim() : "";
   const displayName = typeof value?.displayName === "string" ? value.displayName.trim() : "";
   const workspaceRole = normalizeWorkspaceRole(value?.workspaceRole);
-  const groupKeys = normalizeGroupKeys(value?.groupKeys);
   const credentialVersion = nonNegativeInteger(value?.credentialVersion);
   const employeeRevision = nonNegativeInteger(value?.employeeRevision);
 
@@ -149,7 +131,6 @@ function normalizePrincipal(value: ProviderPrincipal | undefined): IdentityPrinc
     || typeof value?.isWorkspaceSuperAdmin !== "boolean"
     || value.isWorkspaceSuperAdmin !== (workspaceRole === "SUPER_ADMIN")
     || (value.isIdentityAdmin && workspaceRole !== "ADMIN")
-    || !groupKeys
     || credentialVersion === null
     || employeeRevision === null
   ) {
@@ -165,7 +146,6 @@ function normalizePrincipal(value: ProviderPrincipal | undefined): IdentityPrinc
     isIdentityAdmin: value.isIdentityAdmin,
     emailVerified: value.emailVerified,
     isWorkspaceSuperAdmin: value.isWorkspaceSuperAdmin,
-    groupKeys,
     credentialVersion,
     employeeRevision,
   };

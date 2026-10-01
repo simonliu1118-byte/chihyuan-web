@@ -55,6 +55,10 @@ def main() -> int:
         if token not in advanced:
             raise AssertionError(f"missing advanced local runtime contract: {token}")
 
+    for forbidden in ["function CustomerPage(", "function ItemPage(", "function SalesOrderPage(", "function OutsourcingPage("]:
+        if forbidden in workspace:
+            raise AssertionError(f"removed local business page returned: {forbidden}")
+
     for token in [
         "WorkLogPage",
         "SettingsPage",

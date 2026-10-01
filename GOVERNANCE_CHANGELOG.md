@@ -1,5 +1,9 @@
 # CY Web Governance Changelog
 
+## 1.1.5 — 2026/10/01
+
+- Runtime Check now executes Identity adapter regression tests for direct-role principals, retained authority validation and retired Group routes.
+
 ## 1.1.4 — 2026/09/30
 
 - CY Web 作為跨 repository CYID consumer，新增 `docs/contracts/cyid/` read-only contract mirror；內容依 CYID `CONSUMER_SYNC_MANIFEST.json` 同步 current/minimum versions、Consumer Standard、Consumer Changelog、Auth、Role/Access 與 Architecture。
