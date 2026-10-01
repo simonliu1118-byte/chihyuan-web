@@ -1,5 +1,11 @@
 # CY Web Governance Changelog
 
+## 1.1.6 — 2026/10/01
+
+- CY Web 完成 CYID Consumer Contract 1.0.2 adoption marker：`CYID_CONSUMER_VERSION` 由 1.0.1 升至 1.0.2，對齊已完成的 direct-role／Identity Admin／retired Group routes runtime cleanup。
+- `docs/contracts/cyid/` 依 canonical `CONSUMER_SYNC_MANIFEST.json` 全量 byte-sync 至 CYID main 1.0.2；mirror 仍為 read-only contract copy，不成為第二套 authority。
+- 此治理同步不改 CY Web business/module authorization；只正式宣告與驗證目前 runtime 已採用 provider 1.0.2 consumer contract。
+
 ## 1.1.5 — 2026/10/01
 
 - Runtime Check now executes Identity adapter regression tests for direct-role principals, retained authority validation and retired Group routes.
