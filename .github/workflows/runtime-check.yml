@@ -119,6 +119,8 @@ jobs:
           node-version: "24"
       - run: npm install --no-audit --no-fund
       - name: Local D1 runtime acceptance
-        run: npm run validate:d1:local
+        run: |
+          python scripts/test_d1_runner.py
+          npm run validate:d1:local
       - name: Vite build
         run: npx vite build

@@ -109,38 +109,54 @@ def worker_log(log_path: Path) -> str:
 
 
 def wait_for_acceptance(port: int, process: subprocess.Popen[str], log_path: Path) -> dict[str, Any]:
-    url = f"http://127.0.0.1:{port}/__d1_acceptance"
+    origin = f"http://127.0.0.1:{port}"
     deadline = time.monotonic() + 60
     last_error: Exception | None = None
 
+    # Probe a non-mutating route while Wrangler starts. The acceptance route
+    # writes fixtures and must never be used as a readiness/retry probe.
     while time.monotonic() < deadline:
         if process.poll() is not None:
             raise RuntimeError(
                 f"Wrangler acceptance Worker exited early with {process.returncode}\n{worker_log(log_path)}"
             )
         try:
-            with urlopen(url, timeout=2) as response:
-                body = response.read().decode("utf-8")
-                payload = json.loads(body)
-                if response.status != 200 or payload.get("ok") is not True:
-                    raise RuntimeError(f"D1 acceptance Worker failed: HTTP {response.status} {payload!r}")
-                return payload
+            with urlopen(origin + "/__d1_ready", timeout=2) as response:
+                raise RuntimeError(f"Unexpected acceptance readiness response: {response.status}")
         except HTTPError as exc:
-            body = exc.read().decode("utf-8", errors="replace")
-            try:
-                payload: Any = json.loads(body)
-            except json.JSONDecodeError:
-                payload = body
-            raise RuntimeError(
-                f"D1 acceptance Worker failed: HTTP {exc.code} {payload!r}\n{worker_log(log_path)}"
-            ) from exc
-        except (URLError, TimeoutError, json.JSONDecodeError) as exc:
+            payload = json.loads(exc.read().decode("utf-8"))
+            if exc.code != 404 or payload.get("error") != "NOT_FOUND":
+                raise RuntimeError(f"Unexpected acceptance readiness response: {exc.code} {payload!r}") from exc
+            break
+        except (URLError, TimeoutError) as exc:
             last_error = exc
             time.sleep(0.5)
+    else:
+        raise RuntimeError(
+            f"Timed out waiting for D1 acceptance Worker: {last_error}\n{worker_log(log_path)}"
+        )
 
-    raise RuntimeError(
-        f"Timed out waiting for D1 acceptance Worker: {last_error}\n{worker_log(log_path)}"
-    )
+    # One request with a bounded suite timeout. Timeout, invalid JSON or an HTTP
+    # failure is terminal: the first request may already have written fixtures.
+    try:
+        with urlopen(origin + "/__d1_acceptance", timeout=60) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            if response.status != 200 or payload.get("ok") is not True:
+                raise RuntimeError(f"D1 acceptance Worker failed: HTTP {response.status} {payload!r}")
+            return payload
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        try:
+            payload = json.loads(body)
+        except json.JSONDecodeError:
+            payload = body
+        raise RuntimeError(
+            f"D1 acceptance Worker failed: HTTP {exc.code} {payload!r}\n{worker_log(log_path)}"
+        ) from exc
+    except (URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise RuntimeError(
+            f"D1 acceptance request failed; not retried: {exc}\n{worker_log(log_path)}"
+        ) from exc
 
 
 def stop_process(process: subprocess.Popen[str]) -> None:
