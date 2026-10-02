@@ -1,3 +1,4 @@
+import { nextEntityIdSql } from "../persistence/entity-id";
 import { AuditService } from "../audit/audit-service";
 import type {
   NormalizedChangeCustomerNumberRequest,
@@ -39,11 +40,11 @@ export class CustomerPersistence {
 
     const statements: D1PreparedStatement[] = [
       this.db.prepare(`
-        INSERT INTO customers (
+        INSERT INTO customers (id,
           customer_no, short_name, full_name, tax_id, customer_category_id,
           region_id, owner_department_id, owner_employee_id, fax, customer_status_id,
           created_at, created_by, updated_at, updated_by, revision
-        ) VALUES (
+        ) VALUES (${nextEntityIdSql("customers")},
           ?1, ?2, ?3, ?4, ?5,
           ?6, ?7, ?8, ?9, ?10,
           ?11, ?12, ?11, ?12, 1
@@ -65,8 +66,8 @@ export class CustomerPersistence {
       ...buildCreateCustomerChildStatements(this.db, input, context),
     ];
 
-    // D1 batch() is a single transaction. The first INSERT receives the next
-    // INTEGER PRIMARY KEY, so MAX(customers.id) remains this Customer for the
+    // D1 batch() is a single transaction. The first INSERT explicitly assigns
+    // an ID above current and retired IDs, so MAX(customers.id) is this Customer for the
     // remainder of the same batch and can be used by its owned child inserts.
     statements.push(this.db.prepare("SELECT MAX(id) AS customer_id FROM customers"));
 

@@ -270,6 +270,10 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "updated_at",
     "updated_by"
   ],
+  "entity_id_high_watermarks": [
+    "last_id",
+    "table_name"
+  ],
   "item_categories": [
     "code",
     "id",

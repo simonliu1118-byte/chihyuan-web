@@ -184,8 +184,8 @@ export async function acceptBusinessHttpAuthority(db: D1Database): Promise<void>
     check(current.revision === revision + 1, "SALES_HTTP_REVISION_" + action);
     revision = current.revision;
   }
-  const orderAudit = await db.prepare("SELECT action,actor_employee_id FROM audit_events WHERE entity_type='sales_work_order' AND entity_key=? AND id>? ORDER BY id")
-    .bind(String(order.id), auditBoundary).all<{ action: string; actor_employee_id: number }>();
+  const orderAudit = await db.prepare("SELECT action,actor_employee_id FROM audit_events WHERE entity_type='sales_work_order' AND entity_key=? ORDER BY id")
+    .bind(String(order.id)).all<{ action: string; actor_employee_id: number }>();
   check(JSON.stringify(orderAudit.results.map(row => row.action)) === JSON.stringify([
     "sales_work_order.erp.filled", "sales_work_order.picked", "sales_work_order.shipped", "sales_work_order.shipment.reversed", "sales_work_order.voided",
   ]) && orderAudit.results.every(row => row.actor_employee_id === creator?.created_by), "SALES_HTTP_AUDIT");

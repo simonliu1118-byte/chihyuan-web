@@ -1,3 +1,4 @@
+import { nextEntityIdSql } from "../persistence/entity-id";
 import type { DefectStatusCode } from "../../shared/defect";
 import { AuditService } from "../audit/audit-service";
 import type { DefectReferenceSnapshot, DefectRecordState } from "./defect-repository";
@@ -49,13 +50,13 @@ export class DefectPersistence {
     assertResolvedReferences(refs);
     const statements = [
       this.db.prepare(`
-        INSERT INTO defect_reports (
+        INSERT INTO defect_reports (id,
           reported_date,
           customer_id, customer_no_snapshot, customer_name_snapshot,
           item_id, item_no_snapshot, item_name_snapshot, spec_snapshot,
           owner_employee_id, defect_description, handling, status_code,
           created_at, created_by, updated_at, updated_by, revision
-        ) VALUES (
+        ) VALUES (${nextEntityIdSql("defect_reports")},
           ?1,
           ?2, ?3, ?4,
           ?5, ?6, ?7, ?8,
@@ -260,8 +261,9 @@ export class DefectPersistence {
            AND revision = ?2
            AND status_code = 'created'
            AND invalidated_at IS NULL
+         RETURNING id
       `).bind(state.id, state.revision),
     ]);
-    return Number(results[1]?.meta?.changes ?? 0) === 1;
+    return (results[1]?.results?.length ?? 0) === 1;
   }
 }

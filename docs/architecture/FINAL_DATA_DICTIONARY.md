@@ -17,6 +17,10 @@
 - ERP/business identifiers such as Customer number and Item number are separate fields and are never relational keys.
 - Normal users do not need to see internal database IDs.
 
+Forward migration `0007_retired_entity_ids.sql` adds `entity_id_high_watermarks`: `table_name TEXT PRIMARY KEY` (allowlisted table names), `last_id INTEGER NOT NULL` (positive safe integer). Deletion triggers retain each table's highest retired ID in the same transaction. Canonical create statements for Customer, Item, Defect, Sales Order, Outsourcing Order, Contractor, WorkLog, Visit and Frequent Item explicitly allocate above both current IDs and this watermark. Existing IDs and Audit payloads are unchanged. Migration seeds retained numeric Audit identities where available; it cannot infer previously deleted IDs with no retained evidence or disentangle existing ambiguous history.
+
+This table is application data included in backup/recovery. It must remain even when all records of a table are deleted or Audit is pruned; resetting it independently can reintroduce identity reuse. Child rows and non-deletable Quote/BOM history retain their existing allocation model. No automatic identity rewrite or historical Audit repair is introduced.
+
 ### 1.2 Dates and timestamps
 
 - Date-only business fields: `TEXT`, canonical `YYYY-MM-DD`.

@@ -1,3 +1,4 @@
+import { nextEntityIdSql } from "../persistence/entity-id";
 import { AuditService } from "../audit/audit-service";
 import type { OutsourcingRecordState, OutsourcingItemRef, StockMovementRef } from "./outsourcing-repository";
 import type {
@@ -125,11 +126,11 @@ export class OutsourcingPersistence {
     assertContext(context);
     const statements: D1PreparedStatement[] = [
       this.db.prepare(`
-        INSERT INTO outsourcing_orders(
+        INSERT INTO outsourcing_orders(id,
           outsourcing_ref,status_code,operator_employee_id,contractor_id,contractor_name_snapshot,
           order_date,outbound_date,paid_at,paid_by,voided_at,voided_by,
           created_at,created_by,updated_at,updated_by,revision
-        ) VALUES(?1,'pending_outbound',?2,?3,?4,?5,NULL,NULL,NULL,NULL,NULL,?6,?7,?6,?7,1)
+        ) VALUES(${nextEntityIdSql("outsourcing_orders")}, ?1,'pending_outbound',?2,?3,?4,?5,NULL,NULL,NULL,NULL,NULL,?6,?7,?6,?7,1)
       `).bind(outsourcingRef,resolved.operatorEmployeeId,resolved.contractorId,resolved.contractorName,resolved.orderDate,context.now,context.actorMemberId),
     ];
     resolved.parts.forEach((part)=>statements.push(partInsertStatement(this.db,"(SELECT MAX(id) FROM outsourcing_orders)",[],part)));
@@ -279,7 +280,7 @@ export class OutsourcingPersistence {
     const results=await this.db.batch([
       this.audit.prepareRecord({entityType:"outsourcing_order",entityKey:String(state.id),action:"outsourcing.deleted",actorEmployeeId:context.actorMemberId,occurredAt:context.now,requestId:context.requestId,before:{outsourcingRef:state.outsourcingRef,statusCode:state.statusCode,revision:state.revision}}, {sql:"EXISTS(SELECT 1 FROM outsourcing_orders WHERE id=? AND revision=? AND status_code='pending_outbound')",values:[state.id,state.revision]}),
       this.db.prepare("DELETE FROM outsourcing_order_parts WHERE outsourcing_order_id=?1 AND EXISTS(SELECT 1 FROM outsourcing_orders WHERE id=?1 AND revision=?2 AND status_code='pending_outbound')").bind(state.id,state.revision),
-      this.db.prepare("DELETE FROM outsourcing_orders WHERE id=?1 AND revision=?2 AND status_code='pending_outbound'").bind(state.id,state.revision),
-    ]);return Number(results[2]?.meta?.changes??0)===1;
+      this.db.prepare("DELETE FROM outsourcing_orders WHERE id=?1 AND revision=?2 AND status_code='pending_outbound' RETURNING id").bind(state.id,state.revision),
+    ]);return (results[2]?.results?.length ?? 0) === 1;
   }
 }

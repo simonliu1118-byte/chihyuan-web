@@ -1,3 +1,4 @@
+import { nextEntityIdSql } from "../persistence/entity-id";
 import { AuditService } from "../audit/audit-service";
 import type { WorkLogStatusCode } from "../../shared/work-log";
 import type {
@@ -80,11 +81,11 @@ export class WorkLogPersistence {
     assertContext(context);
     const statements: D1PreparedStatement[] = [
       this.db.prepare(`
-        INSERT INTO work_logs(
+        INSERT INTO work_logs(id,
           work_log_ref,log_date,date_from,date_to,work_days,type_code,employee_id,status_code,
           reviewed_by,reviewed_at,review_remark,final_score,average_daily_score,
           created_at,created_by,updated_at,updated_by,revision
-        ) VALUES(?1,?2,?3,?4,?5,?6,?7,'created',NULL,NULL,NULL,NULL,NULL,?8,?7,?8,?7,1)
+        ) VALUES(${nextEntityIdSql("work_logs")}, ?1,?2,?3,?4,?5,?6,?7,'created',NULL,NULL,NULL,NULL,NULL,?8,?7,?8,?7,1)
       `).bind(
         workLogRef,input.logDate,input.dateFrom,input.dateTo,input.workDaysScaled4,input.typeCode,
         context.actorMemberId,context.now,
@@ -248,8 +249,8 @@ export class WorkLogPersistence {
         sql:"EXISTS(SELECT 1 FROM work_logs WHERE id=? AND revision=? AND status_code='created')",
         values:[state.id,state.revision],
       }),
-      this.db.prepare("DELETE FROM work_logs WHERE id=?1 AND revision=?2 AND status_code='created'").bind(state.id,state.revision),
+      this.db.prepare("DELETE FROM work_logs WHERE id=?1 AND revision=?2 AND status_code='created' RETURNING id").bind(state.id,state.revision),
     ]);
-    return Number(results[1]?.meta?.changes ?? 0) === 1;
+    return (results[1]?.results?.length ?? 0) === 1;
   }
 }

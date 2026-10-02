@@ -105,7 +105,7 @@ export class BackupService {
     const policy = taiwanBackupPolicy(context.now), id = crypto.randomUUID();
     const claim = await this.db.prepare(`INSERT OR IGNORE INTO backup_sets
       (backup_id,created_at,schema_version,data_sha256,data_byte_length,total_record_count,status_code,
-       workspace_scope,app_version,trigger_kind,trigger_key) VALUES (?,?,'0006_backup_catalog','pending',0,0,'creating',?,?,?,?)`)
+       workspace_scope,app_version,trigger_kind,trigger_key) VALUES (?,?,'0007_retired_entity_ids','pending',0,0,'creating',?,?,?,?)`)
       .bind(id, context.now, this.workspace, this.version, kind, kind === "scheduled" ? `daily:${policy.date}` : `${kind}:${context.requestId}`).run();
     if (claim.meta.changes === 0) {
       const previous = await this.db.prepare("SELECT backup_id FROM backup_sets WHERE workspace_scope=? AND trigger_key=?")
