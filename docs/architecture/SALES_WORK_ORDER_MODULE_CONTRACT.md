@@ -101,7 +101,7 @@ Hard delete is permitted only when all are true:
 - no ERP sales-order number is present; and
 - caller authorization permits the delete.
 
-After ERP issuance or later fulfillment, hard delete is prohibited. The supported terminal business action is `void`, which preserves the work order, ERP references and prior business facts.
+After ERP issuance or later fulfillment, hard delete is prohibited. The supported terminal business action is `void`, which preserves the work order, ERP references and prior business facts. Eligible draft deletion identifies success by its returned master row; cascaded line deletion counts are not interpreted as revision conflicts.
 
 The exact role/tag-to-permission mapping remains outside this domain contract; the service consumes already-resolved authorization capability flags.
 
@@ -148,7 +148,7 @@ Audit payloads remain compact. They do not duplicate whole row/line snapshots un
 
 All mutations require `expectedRevision` where a record already exists. Worker-side optimistic concurrency is authoritative.
 
-Meaningful state/reference actions use one D1 batch for the domain update plus Audit insert so the event is not recorded if the guarded mutation did not occur.
+Meaningful state/reference actions use one D1 batch for the domain update plus Audit insert so the event is not recorded if the guarded mutation did not occur. ERP fill/correction and status Audit require `changes() = 1` from their immediately preceding master UPDATE, as well as the expected resulting revision/state. A captured stale request produces no event even if another request already reached the same resulting state.
 
 ## Reference generation
 
