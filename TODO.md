@@ -4,8 +4,8 @@
 
 ## 目前基準 — 2026-10-03（Asia/Tokyo）
 
-- 已接受並部署：**Development 0.7.13 Build 0**，source `332bb2694a239cc22f3379a25adac4ab916f25cb`，Development run `37008551551` attempt 1。兩個入口首次觀察都符合版本／commit／consumer／D1，427ms。
-- 本輪工作分支：**0.7.14 Build 0**，補委外完整 protected HTTP 流程驗收並收斂本文件；尚未取得遠端驗收／合併／部署證據，不代表 Development 已升版。
+- 已接受並部署：**Development 0.7.14 Build 0**，source `459cd5a5d80eba0c60fcd3c27c46c7f108af3c09`，Development run `37026541319` attempt 1。兩入口在同一次部署的 20910ms 內符合版本／commit／consumer／D1，無 redeploy。
+- 本輪工作分支：**0.7.15 Build 0**，補 WorkLog 完整流程／統計與 Customer／Item／Quote／Defect HTTP lifecycle；遠端驗收尚待完成，不代表 Development 已升版。
 - CYID source/development **0.3.5 Build 0**；shared Consumer **1.0.2**，minimum **1.0.0**。`docs/contracts/cyid/` 依 canonical manifest exact-sync，支援窗及同步 gate 保留。
 - 固定入口 `https://admin.chihyuancm.com` 目前仍為 CY Web Development；CYID production provider 已完成不代表 CY Web production 已上線。
 - 六個業務模組及 Settings/Audit 使用單一 React → protected Worker API → D1。舊 local business authority、Group proxy、activation 入口與重複 local pages 已退休；無另加版本殼。
@@ -27,7 +27,7 @@
 | Customer / Quote | persistence／related schema、Contact retention、Visit snapshot、Frequent Item、Quote 新歷史；Quote stale correction、精確 price breaks、Audit、原子 rollback | 正式 Item／Quote 真人流程需合法 ERP 品項；完整畫面流程仍待人工確認 |
 | Item / Defect | Item 精確單位換算；Defect processing/resolved/reopen/invalidate、stale／delete／Audit service 驗收，HTTP creator 與 ADMIN 刪除界線 | 真實正式 Item、完整 lifecycle 畫面及裝置驗收 |
 | Sales Order | ERP fill/correction、waiting/pick/ship/reversal/void、draft edit/delete、stale snapshot 及精確 Audit；HTTP 主要生命週期 | 合法 ERP 參考及真實多角色／畫面驗收 |
-| Outsourcing | 全九種 persistence 轉換／stale replay、庫存與 receipt/pricing ledger preservation；取消後重建資料不被舊請求改動 | 完整 protected HTTP 計算／BOM／計價／反轉本輪 local D1 通過，遠端待驗；真人流程未完成 |
+| Outsourcing | 全九種 persistence 轉換／stale replay、庫存與 receipt/pricing ledger preservation；取消後重建資料不被舊請求改動 | 完整 protected HTTP 計算／BOM／計價／反轉遠端已通過；真人流程未完成 |
 | WorkLog | service lifecycle、併發／Audit；HTTP owner、非 owner、ADMIN review、revoked-access 邊界 | 完整畫面、統計與設定組合及真人多角色 |
 | Backup / recovery | separate migrated D1 還原、FK／duplicate rollback、immutable copies、catalog/retry/retention、ephemeral R2；GCS 使用模擬 HTTP | 真實 GCS/R2 及排程、獨立 DR、實際 SUPER_ADMIN 畫面驗收 |
 | ID / Audit | 九種 standalone entity 刪除後不重用 ID；migration backfill／rollback／備份還原後分配及 exact entity-key history | 無法推斷未留證據的舊 ID，也未重寫既有可能混淆的 Audit |
@@ -42,7 +42,7 @@
 
 ## 部署觀察保留事項
 
-- [ ] 持續保留 recurrent first-attempt health mismatch 診斷。0.7.10 與 0.7.12 曾觀察入口先回舊 source，於同一次部署後 13598ms／14586ms 轉為新 source，無再次 deploy；Cloudflare 內部原因仍未建立。
+- [ ] 持續保留 recurrent first-attempt health mismatch 診斷。0.7.10、0.7.12 與 0.7.14 曾觀察入口先回舊 source，於同一次部署後 13598ms／14586ms／20910ms 轉為新 source，無再次 deploy；Cloudflare 內部原因仍未建立。
 - 現有 gate 在 90 秒內只讀觀察兩入口的 allowlisted version／commit／consumer／D1，無自動 redeploy。0.7.13 首次觀察成功不表示歷史問題已根治。
 - acceptance runner 原二秒 timeout 會重送已成功 fixture 寫入的原因已修正：readiness 不寫入、正式 acceptance 單次執行與 60 秒 bound；不保留舊 replay 做法。
 
@@ -98,20 +98,27 @@ The user requested automated acceptance first, followed by one combined manual r
 - This workline used the existing sign-in account and created no acceptance account. If dedicated acceptance accounts are added later, add them explicitly to this inventory and review their cleanup separately; preserve existing users and authority records.
 - This is development fixture cleanup, separate from clean-schema production provisioning. No production database change or blanket reset is authorized here. No cleanup has yet been executed. Email and user-owned R2/GCS setup remain deferred as previously recorded.
 
-## 本輪 local 驗收 — 0.7.14 Build 0
+## 本輪補齊業務 HTTP lifecycle — 0.7.15 Build 0
+
+- Local actual Worker/D1 通過：Item create/edit/renumber、舊版本 409、精確成本／conversion／number Audit；Quote create/correct、新歷史保留、精確 price breaks／Audit before/after/reason；Visit create/edit/delete；正式／自由文字 Frequent Item create/edit/delete 及舊 timestamp edit/delete 409；Defect processing/resolve/reopen/invalidate 及逐步 stale replay／精確 Audit。
+- WorkLog HTTP review/statistics、ADMIN cancel-review、owner withdraw/edit/submit/withdraw/delete 與 cascade、stale／delete replay、精確七筆 Audit actor 通過；撤銷後統計不包含未審紀錄，已審不可直接 withdraw。初次 local expectation 用非 owner 測 withdraw 得 403；改為 owner 測 state 422，未改業務權限。
+- 相同套件包括先前六模組 HTTP authority、Sales／Outsourcing lifecycle、settings/Audit、全部 domain/stale／ID／backup/recovery，七 migration/48 tables 及 source/TypeScript/Vite 都通過。Local scratch shim 不進 repo/CI。遠端 required checks 與部署尚待完成。
+- 全部新增資料只存在 ephemeral D1；live fixture、權限、Email、ERP／庫存／付款及雲端設定未操作。
+
+## 已接受委外 HTTP 驗收 — 0.7.14 Build 0
 
 - 委外 HTTP 建立 Contractor／BOM／Current Price → 建單 → 確認出庫 → ADMIN 修正 → 入庫 → 計價 → 付款 → 撤銷付款／計價／入庫／出庫通過。CASE 轉 24 EA，2 CASE 出庫 48 EA，3 成品依 BOM 耗料 6 EA，3 × 1.25 = 3.75，最終庫存歸零。
 - 九種轉換舊 revision 重送均回 409，完整 business/config/Audit snapshot 不變；USER body 偽造不能修正／取消出庫或刪除，ADMIN 不能硬刪已出庫單，未逆付款不能撤銷計價／入庫，精確九筆 Audit 及 server actor 通過。
-- Local actual Worker/D1 全套、七 migration／48 tables、TypeScript、source validation 及 whitespace 通過。只在 scratch 使用既有 host loopback shim；未提交或供 CI／部署使用。遠端必要檢查尚未完成。
+- Local actual Worker/D1 全套、七 migration／48 tables、TypeScript、source validation 及 whitespace 通過。只在 scratch 使用既有 host loopback shim；未提交或供 CI／部署使用。[PR #126](https://github.com/simonliu1118-byte/chihyuan-web/pull/126) head `8a5d3db15a7eb78a44cb26764007304e2f7e985b`，五個 blobs exact-match；Governance `37026324707`、Runtime `37026324511`、deploy contract `37026324698` 全通過。Development `37026541319` attempt 1 通過部署、兩入口 source/consumer/D1、canonical 與 invalid Session fallback。
 - 本輪未操作 live fixture／帳號、真實 ERP／庫存／付款、Email、權限或雲端設定。
 
-## 目前已接受版本的證據
+## 保留的 ID 修正證據
 
 ### Retired identity release acceptance — 0.7.13 Build 0
 
 - [PR #124](https://github.com/simonliu1118-byte/chihyuan-web/pull/124) accepted head `e36727cb7d26e0c61cd9ab11c906b65494af89ac`; merged source `332bb2694a239cc22f3379a25adac4ab916f25cb`. All 25 changed source/schema/document blobs reconciled exactly before merge; local merged tree matches accepted remote source. No governance/Identity/other-App rules changed.
 - Required unmodified remote checks passed without source/job retry: Governance `37008313399`, Runtime `37008313258` (actual isolated Worker/D1 nine-entity retirement/rollback/restored-allocation/Audit-isolation plus domain/HTTP/portable/tiered/isolated-recovery acceptance and Vite build), deployment contract `37008313232`. Schema validation also verifies nonempty old-schema migration preserves business rows/events, backfills an audited deleted ID, ignores nonnumeric keys, never lowers retirement and rolls back with deletion; fresh targets remain empty.
-- [Development Deploy 37008551551](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/37008551551) **attempt 1 passed** exact CYID canonical sync/support window, all seven migrations including `0007_retired_entity_ids`, build/deploy, source/consumer/D1 health, canonical Custom Domain and invalid-provider-Session fallback. Both origins returned `0.7.13`, exact source commit `332bb2694a239cc22f3379a25adac4ab916f25cb`, consumer `1.0.2`, database `ok` on first observations; total health **427ms**, `exceededFormerWindow:false`. Development is **0.7.13 Build 0**.
+- [Development Deploy 37008551551](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/37008551551) **attempt 1 passed** exact CYID canonical sync/support window, all seven migrations including `0007_retired_entity_ids`, build/deploy, source/consumer/D1 health, canonical Custom Domain and invalid-provider-Session fallback. Both origins returned `0.7.13`, exact source commit `332bb2694a239cc22f3379a25adac4ab916f25cb`, consumer `1.0.2`, database `ok` on first observations; total health **427ms**, `exceededFormerWindow:false`. 此項證據屬 0.7.13；目前 Development 以頂端基準為準。
 - [x] The focused newly-created-entity ID reuse / mixed Audit association blocker is resolved for the nine canonical standalone create paths. The earlier open-blocker/development-0.7.12 checkpoints are superseded. The exact full Sales entity-key history assertion now passes without an event-ID filter, and restored identities cannot inherit the deleted predecessor's Audit.
 - Existing IDs, business fixtures, accounts and historical Audit were not rewritten/deleted. Development applied the forward schema/watermark migration; it does not infer unrecorded historical identities or repair already ambiguous events. Production was not deployed. Backup credentials/activation/schedule, Email, cloud provisioning and authority remain unchanged.
 - Full live six-module workflows, real Identity/multi-role/browser/device acceptance, legitimate ERP Item/Quote references, deferred Email and week-of-2026-10-05 R2/GCS setup, production readiness and existing fixture cleanup retain the consolidated manual/pending lists above. The user will review and request UI adjustments in one later manual round; no manual acceptance is inferred from this automated correction.
