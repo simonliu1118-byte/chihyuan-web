@@ -4,8 +4,8 @@
 
 ## 目前基準 — 2026-10-03（Asia/Tokyo）
 
-- 已接受並部署：**Development 0.7.14 Build 0**，source `459cd5a5d80eba0c60fcd3c27c46c7f108af3c09`，Development run `37026541319` attempt 1。兩入口在同一次部署的 20910ms 內符合版本／commit／consumer／D1，無 redeploy。
-- 本輪工作分支：**0.7.15 Build 0**，補 WorkLog 完整流程／統計與 Customer／Item／Quote／Defect HTTP lifecycle；遠端驗收尚待完成，不代表 Development 已升版。
+- 已接受並部署：**Development 0.7.15 Build 0**，source `d0f380c4492795fb1c939559b657c586cf163d2b`，Development run `37027810625` attempt 1。兩入口在同一次部署的 32620ms 內符合版本／commit／consumer／D1，無 redeploy。
+- Source **0.7.15 Build 0** 已合併並部署，補 WorkLog 完整流程／統計與 Customer／Item／Quote／Defect HTTP lifecycle；本輪獨立自動驗收準備完成，進入 UI／UX 與小功能整理階段。
 - CYID source/development **0.3.5 Build 0**；shared Consumer **1.0.2**，minimum **1.0.0**。`docs/contracts/cyid/` 依 canonical manifest exact-sync，支援窗及同步 gate 保留。
 - 固定入口 `https://admin.chihyuancm.com` 目前仍為 CY Web Development；CYID production provider 已完成不代表 CY Web production 已上線。
 - 六個業務模組及 Settings/Audit 使用單一 React → protected Worker API → D1。舊 local business authority、Group proxy、activation 入口與重複 local pages 已退休；無另加版本殼。
@@ -13,10 +13,18 @@
 
 ## 後續順序
 
-1. [ ] 補齊可獨立完成的完整業務 HTTP／service／D1 驗收：實際欄位解析、重要計算、正反狀態、舊版本衝突、權限與精確 Audit。每批保存成功證據，不以重點案例冒充全部完成。
-2. [ ] 自動驗收準備完成後，進入使用者統一人工驗收、UI／UX 調整及小幅功能新增階段。新增功能待使用者具體指定，採既有共用元件與單一 runtime。
+1. [x] 本輪獨立自動驗收準備完成：六模組 protected HTTP／service／D1 的規劃案例、實際欄位解析、重要計算、正反狀態、舊版本衝突、權限與精確 Audit 已通過 local 與 required GitHub checks。這不代表所有可能組合、真實服務／多角色／裝置已完成。
+2. [ ] **目前階段：使用者統一人工驗收、UI／UX 調整及小幅功能新增。** 新增功能待使用者具體指定，採既有共用元件與單一 runtime；新增／調整後執行適用回歸驗收。
 3. [ ] 完成下方人工／Email／ERP／雲端項目後，核對第一版 readiness、測試資料清理及乾淨 production schema；使用者確認後才上線。這項順序確認不代表立即 production 部署批准。
 4. [ ] CYInvoice 到適合接入點時，依 CYID canonical standard 產出 consumer-specific handoff；不順手修改另一工作線的 CYACC／CYInvoice。
+
+## UI／UX 與小功能階段的工作範圍
+
+- [ ] 依統一人工清單收集實際操作與畫面問題，回寫本文件，不另建平行進度表。
+- [ ] 優先調整共用 navigation、清單密度、表單／明細、dialog/drawer、loading/error/empty feedback 及鍵盤／觸控；Desktop/Tablet/Mobile 維持同一資料與權限契約。
+- [ ] 低風險 optimistic interaction 依既有方向逐項檢視；刪除、權限／credential、financial/inventory 等高風險操作不先呈現成功。
+- [ ] 使用者提出小功能後記錄需求與驗收條件，再開獨立工作項目；不自行假設第一版要增加什麼。
+- [ ] 每批 UI／功能變更跑適用 automated regression，真人/裝置 checklist 仍須實際確認。
 
 ## 已接受的工程與驗收範圍
 
@@ -24,11 +32,11 @@
 | --- | --- | --- |
 | Identity | 單一登入、first-login ticket 與 normal Session 分離、設定正式密碼後要求重新登入；consumer exact-sync；invalid provider Session fallback | 實際 Email 收信／完整首次登入、跨角色／撤權／Session 的真人瀏覽器驗收 |
 | 六模組 HTTP 權限 | 未登入、無 Module Access、grant revoke/restore、Role 不改 grants、inactive member、provider invalid/unavailable、body 權限偽造拒絕；實際 routes/services/D1 | provider 為 isolated stub，不等於真實 CYID／瀏覽器全流程 |
-| Customer / Quote | persistence／related schema、Contact retention、Visit snapshot、Frequent Item、Quote 新歷史；Quote stale correction、精確 price breaks、Audit、原子 rollback | 正式 Item／Quote 真人流程需合法 ERP 品項；完整畫面流程仍待人工確認 |
-| Item / Defect | Item 精確單位換算；Defect processing/resolved/reopen/invalidate、stale／delete／Audit service 驗收，HTTP creator 與 ADMIN 刪除界線 | 真實正式 Item、完整 lifecycle 畫面及裝置驗收 |
+| Customer / Quote | persistence／related schema、Contact retention、Visit snapshot；HTTP Visit/Frequent Item create/edit/delete、stale；Quote HTTP 新歷史／correct/stale／精確 price breaks／Audit、原子 rollback | 正式 Item／Quote 真人流程需合法 ERP 品項；完整畫面流程仍待人工確認 |
+| Item / Defect | Item HTTP create/edit/renumber/stale／number Audit、精確成本／單位換算；Defect HTTP processing/resolved/reopen/invalidate/stale／Audit，creator 與 ADMIN 刪除界線 | 真實正式 Item、完整 lifecycle 畫面及裝置驗收 |
 | Sales Order | ERP fill/correction、waiting/pick/ship/reversal/void、draft edit/delete、stale snapshot 及精確 Audit；HTTP 主要生命週期 | 合法 ERP 參考及真實多角色／畫面驗收 |
 | Outsourcing | 全九種 persistence 轉換／stale replay、庫存與 receipt/pricing ledger preservation；取消後重建資料不被舊請求改動 | 完整 protected HTTP 計算／BOM／計價／反轉遠端已通過；真人流程未完成 |
-| WorkLog | service lifecycle、併發／Audit；HTTP owner、非 owner、ADMIN review、revoked-access 邊界 | 完整畫面、統計與設定組合及真人多角色 |
+| WorkLog | service lifecycle、併發／Audit；HTTP CRUD/submit/withdraw/review/cancel-review／statistics、cascade、精確 actor 與 stale；owner、非 owner、ADMIN／revoked-access 邊界 | 完整畫面、統計與設定組合及真人多角色 |
 | Backup / recovery | separate migrated D1 還原、FK／duplicate rollback、immutable copies、catalog/retry/retention、ephemeral R2；GCS 使用模擬 HTTP | 真實 GCS/R2 及排程、獨立 DR、實際 SUPER_ADMIN 畫面驗收 |
 | ID / Audit | 九種 standalone entity 刪除後不重用 ID；migration backfill／rollback／備份還原後分配及 exact entity-key history | 無法推斷未留證據的舊 ID，也未重寫既有可能混淆的 Audit |
 
@@ -42,7 +50,7 @@
 
 ## 部署觀察保留事項
 
-- [ ] 持續保留 recurrent first-attempt health mismatch 診斷。0.7.10、0.7.12 與 0.7.14 曾觀察入口先回舊 source，於同一次部署後 13598ms／14586ms／20910ms 轉為新 source，無再次 deploy；Cloudflare 內部原因仍未建立。
+- [ ] 持續保留 recurrent first-attempt health mismatch 診斷。0.7.10、0.7.12、0.7.14 與 0.7.15 曾觀察入口先回舊 source，於同一次部署後 13598ms／14586ms／20910ms／32620ms 轉為新 source，無再次 deploy；Cloudflare 內部原因仍未建立。
 - 現有 gate 在 90 秒內只讀觀察兩入口的 allowlisted version／commit／consumer／D1，無自動 redeploy。0.7.13 首次觀察成功不表示歷史問題已根治。
 - acceptance runner 原二秒 timeout 會重送已成功 fixture 寫入的原因已修正：readiness 不寫入、正式 acceptance 單次執行與 60 秒 bound；不保留舊 replay 做法。
 
@@ -54,34 +62,34 @@
 - 雲端操作步驟沿用 [既有 deployment 文件](docs/architecture/CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md#development-backup-manual-setup-and-handback)。App-owned buckets／credentials 與 CYACC 分離；策略 R2 每日臺灣 03:30／30 天、GCS 臺灣週三／週日／182 天，同一份 portable bytes 複製兩邊。
 - 使用者完成設定後，先 manual-only 接續驗收，再啟用排程；不因等待這些項目停止獨立工程工作。
 
-### Remaining live cloud acceptance
+### 真實雲端驗收清單
 
-- [ ] Confirm development has dedicated app-owned R2/GCS buckets, suitable bucket-only service-account permissions, no external R2 overwrite writer, and protected deployment inputs. No CYACC storage/credentials sharing.
-- [ ] Deploy with `CF_BACKUP_ENABLED=true` and `CF_BACKUP_SCHEDULE_ENABLED=false`; verify Super Admin manual controls become available and other roles remain denied.
-- [ ] Run manual backup; verify actual R2/GCS readback, identical data/manifest SHA and backup event, and non-secret catalog/audit results.
-- [ ] Controlled GCS failure/retry: verified R2 remains intact; retry copies the same immutable event bytes and creates no new snapshot.
-- [ ] Real isolated recovery: selected cloud backup plus both verified pre-restore safety copies; empty migrated target, record/byte reconciliation, source unchanged and structured audit. Never target the live business D1.
-- [ ] After manual/recovery acceptance, explicitly enable schedule; verify Taiwan dates, daily R2, Wednesday/Sunday GCS, 30/182-day retention and pending-GCS R2 protection.
-- [ ] Record actual deployment run and acceptance outcome here using non-sensitive status only. Production CY Web activation remains a separate rollout.
+- [ ] 專屬 development R2/GCS buckets、bucket-only service account、R2 無外部覆寫來源、protected deployment inputs；不得共用 CYACC storage/credentials。
+- [ ] 先 `CF_BACKUP_ENABLED=true`／`CF_BACKUP_SCHEDULE_ENABLED=false` 部署，確認 SUPER_ADMIN manual controls 與其他角色拒絕。
+- [ ] 真實 manual backup：兩邊 readback、相同 bytes/manifest SHA／backup event、非敏感 catalog/Audit。
+- [ ] 受控 GCS failure/retry：verified R2 保留，重試只複製同一 immutable event bytes，不建立新 snapshot。
+- [ ] 真實 isolated recovery：選定 cloud backup、兩邊 verified safety copies、空的 migrated target、record/byte reconciliation、source 不變與 structured Audit；不得以 live business D1 為 target。
+- [ ] manual/recovery 通過後再明確啟用排程，驗證臺灣日期、每日 R2／週三週日 GCS、30/182-day retention 與 pending replica 保護。
+- [ ] 就地記錄實際 run／結果，production activation 另行處理。
 
-### Consolidated manual acceptance — user will review after automated acceptance
+### 統一人工驗收清單
 
-The user requested automated acceptance first, followed by one combined manual review/adjustment round. Keep the following items pending until observed; automated checks do not mark them complete.
+使用者安排在自動驗收後集中操作及調整；以下須實際觀察，不以自動檢查代替。
 
-| Area | Manual confirmation still required | Prerequisite / retained scope |
+| 範圍 | 人工確認 | 前提與保留界線 |
 | --- | --- | --- |
-| Core account / CYID | Login/logout, expired/revoked Session, self-service and return-to-login behavior | Existing authorized acceptance accounts; no new live account or authority grant by this task |
-| Role / Module Access | USER, ADMIN, Identity Admin and SUPER_ADMIN presentation; grant revoke/restore and role change in real browser | Controlled existing-account coverage; avoid unapproved live authority changes |
-| Customer | Create/edit/search, contact/Visit snapshots and dates, Frequent Items, Quote new-history/correction/Audit | Existing synthetic fixtures retained; formal Item/Quote needs a user-designated legitimate SMART ERP item |
-| Item / Defect | Formal Item fields, exact units/prices, Defect lifecycle and administrative controls | Legitimate ERP acceptance references; no fabricated live formal Item |
-| Sales Order | Draft, ERP fill/correction, waiting/picking/shipping/reversal/void and permission feedback | Legitimate ERP references and controlled synthetic workflow |
-| Outsourcing | Contractor/BOM, outbound/receipt/pricing/payment and reversals with stock/Audit readback | Controlled synthetic workflow; no real inventory/payment mutation |
-| WorkLog | Owner CRUD/submit/withdraw, ADMIN review/cancel-review, statistics and readback | Controlled synthetic workflow and existing-account role coverage |
-| Settings / Audit | Editable settings, read-only Audit search and actor/reason details | Existing permissions; no production settings change |
-| Desktop / Tablet / Mobile | Density, navigation, forms, scrolling, selection, error/loading and touch/keyboard behavior | User's real devices; record requested adjustments in this same durable TODO |
-| Email | Verification, resend/expiry, password reset/recovery and real mail delivery | Explicitly deferred by user; do not send Email during this automated round |
-| Backup / recovery | R2/GCS credentials/setup, protected history/create, restore/rehearsal and scheduler acceptance | User manual setup deferred to week of 2026-10-05; no backup activation/schedule or production restore |
-| Acceptance cleanup / production | Review fixture/account inventory, then approved cleanup and final launch gates | Existing durable cleanup list; no deletion before acceptance or automatic production cutover |
+| 核心帳號 / CYID | 登入/登出、Session 逾期/撤銷、self-service、返回登入 | 既有受控帳號；不自行新增帳號或授權 |
+| Role / Module Access | USER/ADMIN/Identity Admin/SUPER_ADMIN 畫面、撤權/恢復/角色變更 | 受控帳號，不執行未指定的 live 權限變更 |
+| Customer | 建立/編輯/搜尋、Contact/Visit snapshot/日期、Frequent Item、Quote 新歷史/更正/Audit | 保留既有 synthetic fixtures；正式 Item/Quote 需合法 ERP 品項 |
+| Item / Defect | 正式欄位、單位/價格精度、Defect 狀態與管理操作 | 合法 ERP 參考，不捏造 live 正式 Item |
+| Sales Order | Draft、ERP fill/correction、waiting/picking/shipping/reversal/void、權限提示 | 合法 ERP 參考與受控 synthetic workflow |
+| Outsourcing | Contractor/BOM、outbound/receipt/pricing/payment 及反轉、stock/Audit readback | 受控 synthetic workflow，不異動真實庫存/付款 |
+| WorkLog | owner CRUD/submit/withdraw、ADMIN review/cancel-review、statistics/readback | 受控 synthetic workflow 與既有帳號 |
+| Settings / Audit | 編輯 settings、唯讀 Audit search、actor/reason | 既有權限，不改 production settings |
+| 電腦 / 平板 / 手機 | 密度、導覽、表單、捲動、選取、錯誤/載入、觸控/鍵盤 | 真實裝置，調整需求回寫同一 TODO |
+| Email | 驗證、重寄/逾期、密碼 recovery 與實際收信 | 使用者明確延後，此輪不寄信 |
+| Backup / recovery | R2/GCS 設定、history/create、隔離還原/演練、排程 | 2026-10-05 起一週設定後再驗收，不啟動 production restore |
+| 清理 / 上線 | 核對 fixture/account 清單、受控清理與 first-release gates | 驗收後確認，不自動刪除或 production cutover |
 
 ## 上線前暫時保留 — 用途與結束條件
 
@@ -90,19 +98,18 @@ The user requested automated acceptance first, followed by one combined manual r
 - 未完成的人工／雲端／Email gate 保留到取得實測結果；完成後更新此文件，不另外新增狀態文件或永久例外規則。
 - 舊 GAS／Sheet 只保留作參考，直到使用者確認新系統穩定後再決定停用／刪除；不把舊測試資料搬入 production。
 
-### Development acceptance fixture cleanup — pending after acceptance
+### Development 測試資料清理 — 驗收後
 
-- [ ] Once the remaining relevant acceptance is complete, inventory and review only the synthetic records created by this workline, including their current IDs, references and normal product deletion/recovery behavior. Record the reviewed cleanup result in Git without private identity or credential data.
-- Current fixture scope: one Customer `CYWEB 驗收 20261001` at revision 4 with synthetic phone/contact/address/note; one linked synthetic Visit at revision 5; one free-text Frequent Item marked `Development 常用商品驗收（未建檔合成品項）`; one draft Work Log with type `DEVELOPMENT_ACCEPTANCE` and synthetic acceptance content at revision 2. No formal Item or Quote was created.
-- [ ] Clean up the identified synthetic records in dependency order using supported product behavior; preserve required audit/history evidence and unrelated records. Any irreversible cleanup must obtain action-time confirmation before execution. This entry does not authorize broad database clearing.
-- This workline used the existing sign-in account and created no acceptance account. If dedicated acceptance accounts are added later, add them explicitly to this inventory and review their cleanup separately; preserve existing users and authority records.
-- This is development fixture cleanup, separate from clean-schema production provisioning. No production database change or blanket reset is authorized here. No cleanup has yet been executed. Email and user-owned R2/GCS setup remain deferred as previously recorded.
+- [ ] 核對此工作線建立的合成資料、ID/reference 及支援的正常清理行為；Git 只記錄非敏感結果。
+- 保留範圍：Customer `CYWEB 驗收 20261001` revision 4（合成 phone/contact/address/note）；linked Visit revision 5；自由文字 Frequent Item `Development 常用商品驗收（未建檔合成品項）`；draft WorkLog type `DEVELOPMENT_ACCEPTANCE` revision 2。未建立 live 正式 Item/Quote。
+- [ ] 驗收完成後依相依順序使用正常產品行為清理；不可逆清理取得當次確認，保留必要 Audit/history 與其他資料。此項不授權清空資料庫。
+- 使用既有登入帳號，未建立驗收帳號；日後若新增受控帳號須補清單，不刪既有使用者／authority。此清單與 production 乾淨 schema provisioning 分離，目前未執行清理。
 
-## 本輪補齊業務 HTTP lifecycle — 0.7.15 Build 0
+## 已接受業務 HTTP lifecycle — 0.7.15 Build 0
 
 - Local actual Worker/D1 通過：Item create/edit/renumber、舊版本 409、精確成本／conversion／number Audit；Quote create/correct、新歷史保留、精確 price breaks／Audit before/after/reason；Visit create/edit/delete；正式／自由文字 Frequent Item create/edit/delete 及舊 timestamp edit/delete 409；Defect processing/resolve/reopen/invalidate 及逐步 stale replay／精確 Audit。
 - WorkLog HTTP review/statistics、ADMIN cancel-review、owner withdraw/edit/submit/withdraw/delete 與 cascade、stale／delete replay、精確七筆 Audit actor 通過；撤銷後統計不包含未審紀錄，已審不可直接 withdraw。初次 local expectation 用非 owner 測 withdraw 得 403；改為 owner 測 state 422，未改業務權限。
-- 相同套件包括先前六模組 HTTP authority、Sales／Outsourcing lifecycle、settings/Audit、全部 domain/stale／ID／backup/recovery，七 migration/48 tables 及 source/TypeScript/Vite 都通過。Local scratch shim 不進 repo/CI。遠端 required checks 與部署尚待完成。
+- 相同套件包括先前六模組 HTTP authority、Sales／Outsourcing lifecycle、settings/Audit、全部 domain/stale／ID／backup/recovery，七 migration/48 tables 及 source/TypeScript/Vite 都通過。Local scratch shim 不進 repo/CI。[PR #127](https://github.com/simonliu1118-byte/chihyuan-web/pull/127) accepted head `24a15de0774d055435e13014f8556a14ec512a71`，四 blobs exact-match；merged source `d0f380c4492795fb1c939559b657c586cf163d2b`。Governance `37027576034`、Runtime `37027575424`、deploy contract `37027575046` 全通過；actual isolated D1 acceptance／Vite build 及 types 均成功。[Development run 37027810625](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/37027810625) attempt 1 通過 exact CYID sync/support window、七 migration、source build/deploy、兩入口正確 source/consumer/D1、canonical 與 invalid Session fallback；32620ms ready，未重部署。
 - 全部新增資料只存在 ephemeral D1；live fixture、權限、Email、ERP／庫存／付款及雲端設定未操作。
 
 ## 已接受委外 HTTP 驗收 — 0.7.14 Build 0
