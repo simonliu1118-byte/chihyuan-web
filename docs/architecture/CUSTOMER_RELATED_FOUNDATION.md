@@ -133,6 +133,7 @@ Existing-record correction:
 - may correct historical input data while retaining the same quote identity;
 - writes compact structured before/after data through the shared Audit Core with action `customer_item_quote / corrected`;
 - the Audit insert, quote update and price-break replacement are assembled into the same D1 batch transaction;
+- Audit and every price-break replacement statement share the master pre-state customer/id/revision predicate; the master UPDATE runs last in the atomic batch. A captured stale request cannot replace price breaks even when its actor and timestamp match the winning request;
 - an optional correction reason can be retained as Audit metadata without making it a required business field before the UI/workflow explicitly requires one.
 
 A newly negotiated price/quantity structure must use **new quote**, not correction, per BD-021/022.
@@ -168,5 +169,7 @@ It is **not** a client SQL surface. Route/browser data never supplies the condit
 These services are used by the protected Customer HTTP API and the operational React Customer page. Shared Identity resolution, Customer module authorization and local app-member projection occur at the Worker boundary. See `OPERATIONAL_RUNTIME.md` for current application routing and transport; root `TODO.md` for actual development deployment and pending acceptance.
 
 `validate_customer_persistence_related.py` checks source wiring and isolated SQLite semantics for contact-reference retention, historical snapshots, formal/free-text Frequent Items and preserved Quote history. It is required by the existing Runtime Check and local `validate:source` command. These checks do not establish live cloud, multi-role or device acceptance.
+
+`worker/acceptance/customer-quote-stale-acceptance.ts` runs through the required isolated Worker/D1 acceptance suite: successful audited correction, identical actor/time captured stale replays with one and multiple breaks, exact master/break/Audit preservation, service 409, and new quote history retention. It uses ephemeral synthetic fixtures only.
 
 This foundation does not expose unauthenticated Customer routes or authorize production rollout, cloud resource changes or changes to other CY applications.

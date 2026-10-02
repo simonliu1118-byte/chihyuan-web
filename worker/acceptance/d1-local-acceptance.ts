@@ -1,4 +1,5 @@
 import { acceptSalesOrderStaleAudit } from "./sales-order-stale-acceptance";
+import { acceptCustomerQuoteStaleMutation } from "./customer-quote-stale-acceptance";
 import { acceptDefectStaleAudit } from "./defect-stale-acceptance";
 import { acceptOutsourcingStaleEffects } from "./outsourcing-stale-acceptance";
 import { handleBackupRoute } from "../http/backup-routes";
@@ -326,6 +327,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
 
   await acceptDefectStaleAudit(db,created.id,1001);
   await acceptSalesOrderStaleAudit(db,created.id,1001);
+  await acceptCustomerQuoteStaleMutation(db, created.id, 1001);
 
   // Item domain: persist a chained conversion graph through ItemService, then
   // prove exact scaled4 conversion and exact money2 multiplication from the
