@@ -361,8 +361,11 @@ export class SalesWorkOrderPersistence {
            AND revision = ?2
            AND status_code = 'created'
            AND erp_no IS NULL
+        RETURNING id
       `).bind(state.id, state.revision),
     ]);
-    return Number(results[1]?.meta?.changes ?? 0) === 1;
+    // D1 meta.changes includes cascaded line deletions; returned master rows
+    // identify this guarded deletion without misreporting success as conflict.
+    return (results[1]?.results?.length ?? 0) === 1;
   }
 }

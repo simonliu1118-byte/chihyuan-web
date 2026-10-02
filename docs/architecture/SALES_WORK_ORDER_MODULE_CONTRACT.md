@@ -101,7 +101,7 @@ Hard delete is permitted only when all are true:
 - no ERP sales-order number is present; and
 - caller authorization permits the delete.
 
-After ERP issuance or later fulfillment, hard delete is prohibited. The supported terminal business action is `void`, which preserves the work order, ERP references and prior business facts.
+After ERP issuance or later fulfillment, hard delete is prohibited. The supported terminal business action is `void`, which preserves the work order, ERP references and prior business facts. Eligible draft deletion identifies success by its returned master row; cascaded line deletion counts are not interpreted as revision conflicts.
 
 The exact role/tag-to-permission mapping remains outside this domain contract; the service consumes already-resolved authorization capability flags.
 

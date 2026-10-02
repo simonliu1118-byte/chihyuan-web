@@ -93,12 +93,14 @@ export async function acceptSalesOrderStaleAudit(db:D1Database,customerId:number
     if(target==="picked")await transition(extra.id,target,"sales_work_order.picked",revision=>service.markPicked(extra.id,{expectedRevision:revision},context));
     await transition(extra.id,"voided","sales_work_order.voided",revision=>service.voidOrder(extra.id,{expectedRevision:revision},context));
   }
-  const draft=await service.create(profile,context),captured=await state(draft.id);
+  const draftProfile={...profile,lines:[profile.lines[0],{...profile.lines[0],quantity:"1",sortOrder:1}]};
+  const draft=await service.create(draftProfile,context),captured=await state(draft.id);
   await rejected(draft.id,"SALES_WORK_ORDER_DELETE_NOT_ALLOWED",403,()=>service.deleteDraft(draft.id,{expectedRevision:draft.revision},context));
-  const input=normalizeUpdateSalesWorkOrderRequest({...profile,lines:[{...profile.lines[0],quantity:"3"}],expectedRevision:draft.revision});
+  const editedProfile={...draftProfile,lines:[{...profile.lines[0],quantity:"3"},draftProfile.lines[1]]};
+  const input=normalizeUpdateSalesWorkOrderRequest({...editedProfile,expectedRevision:draft.revision});
   const resolved={customer,customerNameOnly:null,itemById:await repository.resolveItems([itemId])};
-  const edited=await service.updateDraft(draft.id,{...profile,lines:[{...profile.lines[0],quantity:"3"}],expectedRevision:draft.revision},context);
-  if(edited.revision!==draft.revision+1||edited.lines[0]?.quantity!=="3"||(await actions(draft.id)).length!==0)throw new Error("ACCEPT_SALES_DRAFT_UPDATE");
+  const edited=await service.updateDraft(draft.id,{...editedProfile,expectedRevision:draft.revision},context);
+  if(edited.revision!==draft.revision+1||edited.lines.length!==2||edited.lines[0]?.quantity!=="3"||(await actions(draft.id)).length!==0)throw new Error("ACCEPT_SALES_DRAFT_UPDATE");
   await stale(draft.id,()=>persistence.updateDraft(draft.id,input,resolved,context));
   await stale(draft.id,()=>persistence.deleteDraft(captured,context));
   const deleteState=await state(draft.id);
