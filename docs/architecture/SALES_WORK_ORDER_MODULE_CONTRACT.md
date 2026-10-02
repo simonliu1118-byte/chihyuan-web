@@ -148,7 +148,7 @@ Audit payloads remain compact. They do not duplicate whole row/line snapshots un
 
 All mutations require `expectedRevision` where a record already exists. Worker-side optimistic concurrency is authoritative.
 
-Meaningful state/reference actions use one D1 batch for the domain update plus Audit insert so the event is not recorded if the guarded mutation did not occur.
+Meaningful state/reference actions use one D1 batch for the domain update plus Audit insert so the event is not recorded if the guarded mutation did not occur. ERP fill/correction and status Audit require `changes() = 1` from their immediately preceding master UPDATE, as well as the expected resulting revision/state. A captured stale request produces no event even if another request already reached the same resulting state.
 
 ## Reference generation
 

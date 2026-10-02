@@ -223,6 +223,7 @@ export class SalesWorkOrderPersistence {
     const nextRevision = input.expectedRevision + 1;
     const action = firstFill ? "sales_work_order.erp.filled" : "sales_work_order.erp.corrected";
 
+    // Audit immediately follows its guarded master UPDATE in this atomic batch.
     const results = await this.db.batch([
       this.db.prepare(`
         UPDATE sales_work_orders
@@ -271,7 +272,7 @@ export class SalesWorkOrderPersistence {
         },
         metadata: input.reason ? { reason: input.reason } : null,
       }, {
-        sql: "EXISTS (SELECT 1 FROM sales_work_orders WHERE id = ? AND revision = ? AND status_code = ? AND erp_no = ?)",
+        sql: "changes() = 1 AND EXISTS (SELECT 1 FROM sales_work_orders WHERE id = ? AND revision = ? AND status_code = ? AND erp_no = ?)",
         values: [state.id, nextRevision, nextStatus, input.erpNo],
       }),
     ]);
@@ -288,6 +289,7 @@ export class SalesWorkOrderPersistence {
     assertContext(context);
     const nextRevision = input.expectedRevision + 1;
     const isVoid = toStatus === "voided";
+    // Audit immediately follows its guarded master UPDATE in this atomic batch.
     const results = await this.db.batch([
       this.db.prepare(`
         UPDATE sales_work_orders
@@ -323,7 +325,7 @@ export class SalesWorkOrderPersistence {
           ...(isVoid ? { erpNo: state.erpNo } : {}),
         },
       }, {
-        sql: "EXISTS (SELECT 1 FROM sales_work_orders WHERE id = ? AND revision = ? AND status_code = ?)",
+        sql: "changes() = 1 AND EXISTS (SELECT 1 FROM sales_work_orders WHERE id = ? AND revision = ? AND status_code = ?)",
         values: [state.id, nextRevision, toStatus],
       }),
     ]);
