@@ -113,7 +113,7 @@ Meaningful Defect actions use the shared Audit Core:
 - `defect.invalidated`;
 - `defect.deleted`.
 
-Status transitions store `status_from` / `status_to`. Optional reason is compact metadata. Mutation + Audit is prepared for the same D1 batch transaction.
+Status transitions store `status_from` / `status_to`. Optional reason is compact metadata. Mutation + Audit is prepared for the same D1 batch transaction. Transition and invalidation Audit require `changes() = 1` from the immediately preceding master UPDATE, together with the expected resulting revision/state. A captured stale request produces no Audit event even if another request already reached that state.
 
 ## 8. Search/query boundary
 
