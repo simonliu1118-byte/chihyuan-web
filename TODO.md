@@ -4,7 +4,7 @@
 
 ## Current checkpoint — 2026-10-02
 
-- Current source release **CY Web 0.7.11 Build 0** includes immutable tiered backup providers/catalog, protected backup management and isolated recovery rehearsal; all six business pages and Settings/Audit remain on protected Worker API → D1. **Development 0.7.11 Build 0 已部署並驗證**，run `36989854112` attempt 1; historical checkpoints retain their original deployment version.
+- Current source release **CY Web 0.7.12 Build 1** includes immutable tiered backup providers/catalog, protected backup management and isolated recovery rehearsal; all six business pages and Settings/Audit remain on protected Worker API → D1. **Development 0.7.11 Build 0 已部署並驗證**，run `36989854112` attempt 1; historical checkpoints retain their original deployment version.
 - CYCloud Identity source/development **0.3.5 Build 0**；development run `36821423383` 通過實際 Worker/D1 binding、version 與 invalid Session readback。Shared Consumer Contract = **1.0.2**，Minimum Compatible = **1.0.0**。
 - `https://admin.chihyuancm.com` 仍是固定 CY Web canonical user-facing URL；0.3 development deploy 已重新驗證 Custom Domain 與 invalid-provider-session fallback。
 - CY Web 根 `CYID_CONSUMER_VERSION=1.0.2` 宣告所採用的 shared Identity contract；`docs/contracts/cyid/` mirror 依 CYID `CONSUMER_SYNC_MANIFEST.json` 保存 7 個 canonical artifacts + manifest snapshot。Governance Check 與 development deploy 同時驗證 supported version window 與逐檔 byte-level sync；任一漂移都阻止後續部署。
@@ -464,3 +464,45 @@ Email acceptance is explicitly deferred while engineering work continues. These 
 - [x] Customer Quote captured stale price-break correction completed with actual isolated D1 acceptance. The preceding pre-validation/development-0.7.10 statements are superseded by accepted **Development 0.7.11 Build 0**. This closes the focused stale-effect follow-up across Work Log, Outsourcing, Defect, Sales Order and Quote; it does not imply full cross-module live/device/role acceptance.
 - Next independent work remains protected business workflow/HTTP acceptance and browser/device/multi-role coverage. Live Quote/formal Item acceptance still needs a user-designated legitimate SMART ERP item; Email and week-of-2026-10-05 R2/GCS manual setup remain deferred. Backup activation/schedule, production readiness and existing synthetic fixture/account cleanup retain their durable lists. No live fixture/account or production data was created, changed or deleted in this task.
 - Merged local source branch was removed after exact tree reconciliation. Remote short branch deletion is unavailable through the GitHub connector, and direct Git push has no credentials; merged PR/source history remains available. No credential was requested or changed.
+
+
+### Automated business HTTP acceptance — 0.7.12 Build 0, 2026-10-02
+
+- Added a required isolated HTTP acceptance suite using the actual protected routes, domain services and ephemeral D1. Only the remote CYID binding is stubbed; this is not live Identity or real-browser acceptance. Local account projections and grants exist solely in the ephemeral acceptance database.
+- Six-module checks cover absent/invalid Session and provider unavailable, USER/ADMIN without Module Access, Identity Admin capability without implicit business access, automatic SUPER_ADMIN access, granted USER/ADMIN reads, invalid-write validation, immediate grant revoke/restore, unchanged grants across role changes, inactive projection denial and restoration. Nested Quote/Visit/Item/Defect/Order/Outsourcing/WorkLog mutation paths also deny unauthorized requests. Business/config/Audit snapshots detect side effects from rejected requests; expected local projection/grant setup is excluded.
+- Customer HTTP create/update/readback and stale 409 preserve winning data. Server-derived Customer actor, WorkLog owner and review Audit actor are asserted despite spoofed client role/actor/capability fields. WorkLog HTTP submit rejects USER review; another granted USER cannot read the owner's log; a granted ADMIN can read/review; subsequent grant revoke prevents cancellation without side effects.
+- Additional actual HTTP cases cover USER denial of spoofed shipment reversal and outbound correction/cancellation, non-creator USER denial / ADMIN success for isolated Defect deletion (creator deletion remains allowed per BD-033), and Sales Order create/ERP fill/pick/ship/ADMIN reversal/void with exact revision and ordered server-actor Audit. No real ERP/inventory/payment operation occurs.
+- Local TypeScript, full source validation, acceptance-runner regression and whitespace checks pass. Required remote actual Worker/D1 acceptance must pass before merge. Local Wrangler's previously documented environment startup limitation remains; no local D1 pass is inferred. Development remains **0.7.11 Build 0** until an accepted 0.7.12 deployment.
+
+### Consolidated manual acceptance — user will review after automated acceptance
+
+The user requested automated acceptance first, followed by one combined manual review/adjustment round. Keep the following items pending until observed; automated checks do not mark them complete.
+
+| Area | Manual confirmation still required | Prerequisite / retained scope |
+| --- | --- | --- |
+| Core account / CYID | Login/logout, expired/revoked Session, self-service and return-to-login behavior | Existing authorized acceptance accounts; no new live account or authority grant by this task |
+| Role / Module Access | USER, ADMIN, Identity Admin and SUPER_ADMIN presentation; grant revoke/restore and role change in real browser | Controlled existing-account coverage; avoid unapproved live authority changes |
+| Customer | Create/edit/search, contact/Visit snapshots and dates, Frequent Items, Quote new-history/correction/Audit | Existing synthetic fixtures retained; formal Item/Quote needs a user-designated legitimate SMART ERP item |
+| Item / Defect | Formal Item fields, exact units/prices, Defect lifecycle and administrative controls | Legitimate ERP acceptance references; no fabricated live formal Item |
+| Sales Order | Draft, ERP fill/correction, waiting/picking/shipping/reversal/void and permission feedback | Legitimate ERP references and controlled synthetic workflow |
+| Outsourcing | Contractor/BOM, outbound/receipt/pricing/payment and reversals with stock/Audit readback | Controlled synthetic workflow; no real inventory/payment mutation |
+| WorkLog | Owner CRUD/submit/withdraw, ADMIN review/cancel-review, statistics and readback | Controlled synthetic workflow and existing-account role coverage |
+| Settings / Audit | Editable settings, read-only Audit search and actor/reason details | Existing permissions; no production settings change |
+| Desktop / Tablet / Mobile | Density, navigation, forms, scrolling, selection, error/loading and touch/keyboard behavior | User's real devices; record requested adjustments in this same durable TODO |
+| Email | Verification, resend/expiry, password reset/recovery and real mail delivery | Explicitly deferred by user; do not send Email during this automated round |
+| Backup / recovery | R2/GCS credentials/setup, protected history/create, restore/rehearsal and scheduler acceptance | User manual setup deferred to week of 2026-10-05; no backup activation/schedule or production restore |
+| Acceptance cleanup / production | Review fixture/account inventory, then approved cleanup and final launch gates | Existing durable cleanup list; no deletion before acceptance or automatic production cutover |
+
+
+### HTTP acceptance runner correction — 0.7.12 Build 1
+
+- Initial Runtime `37002930890` stopped before business assertions: the full-data snapshot attempted to read Cloudflare's protected `_cf_METADATA` table (`SQLITE_AUTH`). The snapshot now excludes `_cf_*` platform tables while retaining application business/config/Audit tables. This is an acceptance-harness correction, not a production permission or database change; no failed run is marked passed.
+- Build increments within the same HTTP acceptance task; 0.7.12 version is retained. Required unmodified GitHub Worker/D1 acceptance still must pass before merge. Development remains 0.7.11 until release acceptance; the consolidated manual list and deferred prerequisites remain unchanged.
+- Local execution was enabled for this diagnostic round with a scratch-only Node loopback-interface shim to avoid the host `uv_interface_addresses` restriction; it is not committed or used in CI/deployment. The local run also caught an incorrect test expectation: BD-033 permits the creator to delete a created Defect. The test now uses another granted USER for denial and the same employee as ADMIN for positive administrative deletion; no application rule was changed. Required GitHub acceptance runs without this host workaround.
+
+
+### Open blocker found by HTTP acceptance: deleted identity reuse / Audit association
+
+- [ ] Before production and before concluding overall Audit acceptance, resolve stable identity after hard deletion. In the isolated suite, a newly created Sales Order reused the highest ID from a previously deleted draft; Audit filtered by `sales_work_order` plus numeric `entity_key` included the old draft's `sales_work_order.deleted` event before the new order's five legitimate state events. Old event payloads were retained, but numeric entity grouping did not uniquely identify one document over time. This was observed in ephemeral D1 only; existing live records were not changed.
+- HTTP boundary acceptance now asserts the exact new Audit events after a captured event-ID boundary and separately verifies all prior Audit rows are unchanged. This verifies new-event actor/order and retention, **not** resolution of entity identity reuse. No identity-generation workaround, schema rebuild or rule change was silently introduced to make the assertion pass.
+- Next focused engineering task: review canonical stable identity / hard-delete / Audit contracts and ID allocation across audited deletable entities, reproduce a focused delete-highest/create/history-query regression, implement the smallest durable forward solution, and verify migrations/backup/recovery plus actual D1. Scope beyond Sales Order remains unverified; do not claim other modules are immune. Overall automated/manual readiness remains incomplete until this finding is resolved.

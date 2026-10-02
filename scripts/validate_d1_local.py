@@ -275,6 +275,7 @@ def main() -> int:
             "outsourcingReversalStock",
             "workLogReviewLifecycle",
             "settingsAuditHttpAuthority",
+            "businessHttpAuthority",
             "portableBackupRecovery",
         "tieredBackup",
         "isolatedRecovery",
