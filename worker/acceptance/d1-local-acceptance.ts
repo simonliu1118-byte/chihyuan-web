@@ -1,3 +1,4 @@
+import { acceptDefectStaleAudit } from "./defect-stale-acceptance";
 import { acceptOutsourcingStaleEffects } from "./outsourcing-stale-acceptance";
 import { handleBackupRoute } from "../http/backup-routes";
 import { acceptIsolatedRecovery } from "./isolated-recovery-acceptance";
@@ -321,6 +322,8 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
   const columnNames = new Set(defectColumns.results.map((row) => row.name));
   assertAcceptance(columnNames.has("invalidated_at"), "ACCEPT_DEFECT_INVALIDATED_AT_MISSING");
   assertAcceptance(columnNames.has("invalidated_by"), "ACCEPT_DEFECT_INVALIDATED_BY_MISSING");
+
+  await acceptDefectStaleAudit(db,created.id,1001);
 
   // Item domain: persist a chained conversion graph through ItemService, then
   // prove exact scaled4 conversion and exact money2 multiplication from the

@@ -151,6 +151,8 @@ export class DefectPersistence {
         ? "defect.processing.started"
         : "defect.resolved";
 
+    // Audit immediately follows the master UPDATE in this atomic batch;
+    // changes() must belong to this request, not an earlier winner.
     const results = await this.db.batch([
       this.db.prepare(`
         UPDATE defect_reports
@@ -181,7 +183,7 @@ export class DefectPersistence {
         statusTo: toStatus,
         metadata: input.reason ? { reason: input.reason } : null,
       }, {
-        sql: "EXISTS (SELECT 1 FROM defect_reports WHERE id = ? AND revision = ? AND status_code = ? AND invalidated_at IS NULL)",
+        sql: "changes() = 1 AND EXISTS (SELECT 1 FROM defect_reports WHERE id = ? AND revision = ? AND status_code = ? AND invalidated_at IS NULL)",
         values: [defectId, nextRevision, toStatus],
       }),
     ]);
@@ -195,6 +197,8 @@ export class DefectPersistence {
   ): Promise<boolean> {
     assertContext(context);
     const nextRevision = input.expectedRevision + 1;
+    // Audit immediately follows the master UPDATE in this atomic batch;
+    // changes() must belong to this request, not an earlier winner.
     const results = await this.db.batch([
       this.db.prepare(`
         UPDATE defect_reports
@@ -225,7 +229,7 @@ export class DefectPersistence {
           ...(input.reason ? { reason: input.reason } : {}),
         },
       }, {
-        sql: "EXISTS (SELECT 1 FROM defect_reports WHERE id = ? AND revision = ? AND invalidated_at = ?)",
+        sql: "changes() = 1 AND EXISTS (SELECT 1 FROM defect_reports WHERE id = ? AND revision = ? AND invalidated_at = ?)",
         values: [state.id, nextRevision, context.now],
       }),
     ]);
