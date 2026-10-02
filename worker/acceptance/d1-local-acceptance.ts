@@ -10,6 +10,9 @@ import { convertScaled4Exact, scaled4ProductToMoney2Exact } from "../item/unit-c
 import { OutsourcingService } from "../outsourcing/outsourcing-service";
 import { BusinessLookupService } from "../reference/business-lookup-service";
 import { handleSettingsAuditRoute } from "../http/settings-audit-routes";
+import { WorkLogRepository } from "../worklog/work-log-repository";
+import { WorkLogPersistence } from "../worklog/work-log-persistence";
+import { normalizeReviewWorkLogRequest } from "../worklog/work-log-validation";
 import { WorkLogService } from "../worklog/work-log-service";
 
 interface Env {
@@ -552,6 +555,28 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
   assertAcceptance(workLogCreated.statusCode === "created", "ACCEPT_WORKLOG_CREATE_STATUS");
   assertAcceptance(workLogCreated.entries.length === 2, "ACCEPT_WORKLOG_CREATE_ENTRIES");
 
+  const workLogRepository = new WorkLogRepository(db);
+  const workLogPersistence = new WorkLogPersistence(db);
+  async function workLogAuditCount(): Promise<number> {
+    const row = await db.prepare("SELECT COUNT(*) AS count FROM audit_events WHERE entity_type='work_log' AND entity_key=?")
+      .bind(String(workLogCreated.id)).first<{ count: number }>();
+    return Number(row?.count ?? 0);
+  }
+  async function assertWorkLogRejected(action: () => Promise<unknown>, expectedCode: string): Promise<void> {
+    const before = JSON.stringify(await workLogService.getDetail(workLogCreated.id, { actorMemberId: 1 }));
+    const auditCount = await workLogAuditCount();
+    let caught: string | null = null;
+    try { await action(); } catch (error) { caught = errorCode(error); }
+    assertAcceptance(caught === expectedCode, "ACCEPT_WORKLOG_EXPECTED_" + expectedCode);
+    assertAcceptance(JSON.stringify(await workLogService.getDetail(workLogCreated.id, { actorMemberId: 1 })) === before,
+      "ACCEPT_WORKLOG_DENIED_WRITE_CHANGED_DETAIL");
+    assertAcceptance(await workLogAuditCount() === auditCount, "ACCEPT_WORKLOG_DENIED_WRITE_ADDED_AUDIT");
+  }
+  const submitState = await workLogRepository.getRecordState(workLogCreated.id);
+  assertAcceptance(submitState, "ACCEPT_WORKLOG_SUBMIT_STATE");
+  await assertWorkLogRejected(() => workLogService.submitForReview(workLogCreated.id,
+    { expectedRevision: workLogCreated.revision }, { actorMemberId: 2, now: t7 }), "WORK_LOG_ACCESS_DENIED");
+  await assertWorkLogRejected(() => workLogService.getDetail(workLogCreated.id, { actorMemberId: 2 }), "WORK_LOG_ACCESS_DENIED");
   const workLogSubmitted = await workLogService.submitForReview(
     workLogCreated.id,
     { expectedRevision: workLogCreated.revision, reason: "acceptance submit" },
@@ -559,11 +584,26 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
   );
   assertAcceptance(workLogSubmitted.statusCode === "pending_review", "ACCEPT_WORKLOG_SUBMIT_STATUS");
 
+  assertAcceptance(!await workLogPersistence.transition(submitState, "pending_review", "work_log.review.submitted",
+    { expectedRevision: submitState.revision, reason: "stale submit replay" }, { actorMemberId: 1, now: t7 }),
+    "ACCEPT_WORKLOG_STALE_SUBMIT_CHANGED");
+  assertAcceptance(await workLogAuditCount() === 1, "ACCEPT_WORKLOG_STALE_SUBMIT_DUPLICATE_AUDIT");
+  assertAcceptance(JSON.stringify(await workLogService.getDetail(workLogCreated.id, { actorMemberId: 1 })) === JSON.stringify(workLogSubmitted),
+    "ACCEPT_WORKLOG_STALE_SUBMIT_CHANGED_DETAIL");
+  await assertWorkLogRejected(() => workLogService.submitForReview(workLogCreated.id,
+    { expectedRevision: workLogCreated.revision }, { actorMemberId: 1, now: t7 }), "WORK_LOG_REVISION_CONFLICT");
+  await assertWorkLogRejected(() => workLogService.withdrawReview(workLogCreated.id,
+    { expectedRevision: workLogSubmitted.revision }, { actorMemberId: 2, now: t7 }), "WORK_LOG_ACCESS_DENIED");
+  const reviewState = await workLogRepository.getRecordState(workLogCreated.id);
+  assertAcceptance(reviewState, "ACCEPT_WORKLOG_REVIEW_STATE");
   const reviewEntries = workLogSubmitted.entries.map((entry, index) => ({
     entryId: entry.id,
     reviewRemark: index === 0 ? "first" : "second",
     reviewScore: index === 0 ? "10" : "20",
   }));
+  await assertWorkLogRejected(() => workLogService.review(workLogCreated.id,
+    { expectedRevision: workLogSubmitted.revision, workDays: "2.5", entries: reviewEntries },
+    { actorMemberId: 1, now: t8 }), "WORK_LOG_REVIEW_NOT_ALLOWED");
   const workLogReviewed = await workLogService.review(
     workLogSubmitted.id,
     {
@@ -583,6 +623,15 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
     "ACCEPT_WORKLOG_ENTRY_SCORE_MISSING",
   );
 
+  const reviewedSnapshot = JSON.stringify(workLogReviewed);
+  assertAcceptance(!await workLogPersistence.review(reviewState,
+    normalizeReviewWorkLogRequest({ expectedRevision: reviewState.revision, workDays: "9", entries: reviewEntries }),
+    900000, 100000, { actorMemberId: 2, now: t8, allowReview: true }), "ACCEPT_WORKLOG_STALE_REVIEW_CHANGED");
+  assertAcceptance(await workLogAuditCount() === 2, "ACCEPT_WORKLOG_STALE_REVIEW_DUPLICATE_AUDIT");
+  assertAcceptance(JSON.stringify(await workLogService.getDetail(workLogCreated.id, { actorMemberId: 1 })) === reviewedSnapshot,
+    "ACCEPT_WORKLOG_STALE_REVIEW_CHANGED_DETAIL");
+  const restrictedStats = await workLogService.statistics({ employeeId: 1 }, { actorMemberId: 2 });
+  assertAcceptance(restrictedStats.reviewedCount === 0, "ACCEPT_WORKLOG_CROSS_EMPLOYEE_STATS_LEAK");
   const reviewedStats = await workLogService.statistics(
     { employeeId: 1 },
     { actorMemberId: 2, allowCrossEmployeeRead: true },
@@ -595,6 +644,10 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
     "ACCEPT_WORKLOG_STATS_AVERAGE",
   );
 
+  const cancelState = await workLogRepository.getRecordState(workLogCreated.id);
+  assertAcceptance(cancelState, "ACCEPT_WORKLOG_CANCEL_STATE");
+  await assertWorkLogRejected(() => workLogService.cancelReview(workLogCreated.id,
+    { expectedRevision: workLogReviewed.revision }, { actorMemberId: 1, now: t9 }), "WORK_LOG_REVIEW_NOT_ALLOWED");
   const workLogCancelled = await workLogService.cancelReview(
     workLogReviewed.id,
     { expectedRevision: workLogReviewed.revision, reason: "acceptance cancel review" },
@@ -608,6 +661,12 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
     workLogCancelled.entries.every((entry) => entry.reviewScore == null && entry.reviewRemark == null),
     "ACCEPT_WORKLOG_CANCEL_ENTRY_REVIEW_NOT_CLEARED",
   );
+  assertAcceptance(!await workLogPersistence.cancelReview(cancelState,
+    { expectedRevision: cancelState.revision, reason: "stale cancel replay" },
+    { actorMemberId: 2, now: t9, allowReview: true }), "ACCEPT_WORKLOG_STALE_CANCEL_CHANGED");
+  assertAcceptance(await workLogAuditCount() === 3, "ACCEPT_WORKLOG_STALE_CANCEL_DUPLICATE_AUDIT");
+  assertAcceptance(JSON.stringify(await workLogService.getDetail(workLogCreated.id, { actorMemberId: 1 })) === JSON.stringify(workLogCancelled),
+    "ACCEPT_WORKLOG_STALE_CANCEL_CHANGED_DETAIL");
   const cancelledStats = await workLogService.statistics(
     { employeeId: 1 },
     { actorMemberId: 2, allowCrossEmployeeRead: true },
@@ -621,6 +680,23 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
        AND action IN ('work_log.review.submitted', 'work_log.reviewed', 'work_log.review.cancelled')
   `).bind(String(workLogCreated.id)).first<{ count: number }>();
   assertAcceptance(Number(workLogAudit?.count ?? 0) === 3, "ACCEPT_WORKLOG_AUDIT_SEQUENCE_MISSING");
+
+  const withdrawState = await workLogRepository.getRecordState(workLogCreated.id);
+  assertAcceptance(withdrawState, "ACCEPT_WORKLOG_WITHDRAW_STATE");
+  const withdrawn = await workLogService.withdrawReview(workLogCreated.id,
+    { expectedRevision: workLogCancelled.revision, reason: "acceptance withdraw" }, { actorMemberId: 1, now: t9 });
+  assertAcceptance(withdrawn.statusCode === "created" && withdrawn.revision === workLogCancelled.revision + 1,
+    "ACCEPT_WORKLOG_WITHDRAW_STATE_REVISION");
+  assertAcceptance(!await workLogPersistence.transition(withdrawState, "created", "work_log.review.withdrawn",
+    { expectedRevision: withdrawState.revision, reason: "stale withdraw replay" }, { actorMemberId: 1, now: t9 }),
+    "ACCEPT_WORKLOG_STALE_WITHDRAW_CHANGED");
+  assertAcceptance(await workLogAuditCount() === 4, "ACCEPT_WORKLOG_STALE_WITHDRAW_DUPLICATE_AUDIT");
+  assertAcceptance(JSON.stringify(await workLogService.getDetail(workLogCreated.id, { actorMemberId: 1 })) === JSON.stringify(withdrawn),
+    "ACCEPT_WORKLOG_STALE_WITHDRAW_CHANGED_DETAIL");
+  await assertWorkLogRejected(() => workLogService.withdrawReview(workLogCreated.id,
+    { expectedRevision: withdrawState.revision }, { actorMemberId: 1, now: t9 }), "WORK_LOG_REVISION_CONFLICT");
+  await assertWorkLogRejected(() => workLogService.withdrawReview(workLogCreated.id,
+    { expectedRevision: withdrawn.revision }, { actorMemberId: 1, now: t9 }), "WORK_LOG_TRANSITION_NOT_ALLOWED");
 
   await acceptSettingsAuditHttp(db);
   await acceptPortableRecovery(db, restoreDb);

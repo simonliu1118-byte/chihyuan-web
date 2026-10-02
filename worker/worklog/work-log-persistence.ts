@@ -133,6 +133,7 @@ export class WorkLogPersistence {
     context: WorkLogMutationContext,
   ): Promise<boolean> {
     assertContext(context);
+    // Gate Audit on this batch's immediately preceding master UPDATE, not another writer's resulting state.
     const nextRevision = state.revision + 1;
     const results = await this.db.batch([
       this.db.prepare(`
@@ -146,7 +147,7 @@ export class WorkLogPersistence {
         statusFrom:state.statusCode,statusTo:toStatus,
         metadata:input.reason ? { reason:input.reason } : null,
       },{
-        sql:"EXISTS(SELECT 1 FROM work_logs WHERE id=? AND revision=? AND status_code=?)",
+        sql:"changes() = 1 AND EXISTS(SELECT 1 FROM work_logs WHERE id=? AND revision=? AND status_code=?)",
         values:[state.id,nextRevision,toStatus],
       }),
     ]);
@@ -195,7 +196,7 @@ export class WorkLogPersistence {
       before: state.workDaysScaled4 === input.workDaysScaled4 ? null : { workDaysScaled4:state.workDaysScaled4 },
       after: { workDaysScaled4:input.workDaysScaled4, finalScoreScaled4, averageDailyScoreScaled4 },
     },{
-      sql:"EXISTS(SELECT 1 FROM work_logs WHERE id=? AND revision=? AND status_code='reviewed')",
+      sql:"changes() = 1 AND EXISTS(SELECT 1 FROM work_logs WHERE id=? AND revision=? AND status_code='reviewed')",
       values:[state.id,nextRevision],
     }));
     const results = await this.db.batch(statements);
@@ -229,7 +230,7 @@ export class WorkLogPersistence {
         statusFrom:"reviewed",statusTo:"pending_review",
         metadata:input.reason ? { reason:input.reason } : null,
       },{
-        sql:"EXISTS(SELECT 1 FROM work_logs WHERE id=? AND revision=? AND status_code='pending_review')",
+        sql:"changes() = 1 AND EXISTS(SELECT 1 FROM work_logs WHERE id=? AND revision=? AND status_code='pending_review')",
         values:[state.id,nextRevision],
       }),
     ]);
