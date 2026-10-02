@@ -412,33 +412,23 @@ export class CustomerRelatedMutationRepository {
       input.expectedRevision,
     );
 
-    const quoteUpdated = `EXISTS (
-      SELECT 1 FROM customer_item_quotes
-       WHERE customer_id = ? AND id = ? AND revision = ? AND updated_at = ? AND updated_by = ?
-    )`;
-    const updatedValues = [
-      before.customerId,
-      before.id,
-      input.expectedRevision + 1,
-      context.now,
-      context.actorMemberId,
-    ] as const;
-
+    // Keep the master revision unchanged until all guarded effects finish.
+    // D1 batch is atomic: every statement sees this request's pre-state gate,
+    // and a failed statement rolls back Audit, breaks and the final UPDATE.
     const statements: D1PreparedStatement[] = [
       audit,
-      update,
       this.db.prepare(`
         DELETE FROM quote_price_breaks
          WHERE quote_id = ?
-           AND ${quoteUpdated}
-      `).bind(before.id, ...updatedValues),
+           AND ${condition.sql}
+      `).bind(before.id, ...condition.values),
     ];
 
     for (const row of input.priceBreaks) {
       statements.push(this.db.prepare(`
         INSERT INTO quote_price_breaks (quote_id, quantity, unit, unit_price, note, sort_order)
         SELECT ?, ?, ?, ?, ?, ?
-         WHERE ${quoteUpdated}
+         WHERE ${condition.sql}
       `).bind(
         before.id,
         row.quantity,
@@ -446,11 +436,12 @@ export class CustomerRelatedMutationRepository {
         row.unitPrice,
         row.note,
         row.sortOrder,
-        ...updatedValues,
+        ...condition.values,
       ));
     }
 
+    statements.push(update);
     const results = await this.db.batch(statements);
-    return Number(results[1]?.meta?.changes ?? 0) === 1;
+    return Number(results[results.length - 1]?.meta?.changes ?? 0) === 1;
   }
 }
