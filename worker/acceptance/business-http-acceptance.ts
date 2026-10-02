@@ -3,7 +3,7 @@ import { handleBusinessApiPhase2Route } from "../http/business-api-phase2-routes
 import type { IdentityRuntimeEnv } from "../http/auth-routes";
 
 /** Real protected routes/services/D1; only the remote Identity binding is stubbed. */
-export async function acceptBusinessHttpAuthority(db: D1Database): Promise<void> {
+export async function acceptBusinessHttpAuthority(db: D1Database, componentId: number, finishedId: number): Promise<void> {
   let role: "USER" | "ADMIN" | "SUPER_ADMIN" = "USER";
   let employee = "http-acceptance-owner";
   let identityAdmin = false;
@@ -191,6 +191,85 @@ export async function acceptBusinessHttpAuthority(db: D1Database): Promise<void>
   ]) && orderAudit.results.every(row => row.actor_employee_id === creator?.created_by), "SALES_HTTP_AUDIT");
   const retainedAudit = await db.prepare("SELECT * FROM audit_events WHERE id<=? ORDER BY id").bind(auditBoundary).all();
   check(JSON.stringify(retainedAudit.results) === JSON.stringify(priorAudit.results), "PREVIOUS_AUDIT_RETENTION");
+  role = "USER";
+
+  // Full outsourcing HTTP path: real BOM/unit/price resolution and reversals.
+  const contractor = (await (await expect("outsourcing/contractors", 201, "POST", {
+    entityType: "organization", displayName: "Isolated HTTP Contractor", contacts: [],
+  })).json() as { data: { id: number } }).data;
+  const bom = (await (await expect("outsourcing/boms", 201, "POST", {
+    recipeRef: "ACC-HTTP-BOM-001", finishedItemId: finishedId, outputQuantity: "1", outputUnit: "EA",
+    components: [{ itemId: componentId, quantity: "2", unit: "EA", sortOrder: 0 }],
+  })).json() as { data: { id: number } }).data;
+  await expect("outsourcing/contractors/" + contractor.id + "/prices", 200, "PUT", {
+    itemId: finishedId, pricingUnit: "EA", unitPrice: "1.25",
+  });
+  const outProfile = { contractorId: contractor.id, operatorEmployeeId: await memberId(), orderDate: "2026-10-02",
+    parts: [{ finishedItemId: finishedId, componentItemId: componentId, bomRecipeId: bom.id,
+      quantity: "1", unit: "CASE", sortOrder: 0 }] };
+  const outsourcing = (await (await expect("outsourcing/orders", 201, "POST", outProfile)).json() as {
+    data: { id: number; revision: number };
+  }).data;
+  const outPath = "outsourcing/orders/" + outsourcing.id;
+  let outRevision = outsourcing.revision;
+  async function outStock(expected: number): Promise<void> {
+    const row = await db.prepare("SELECT COALESCE(SUM(quantity_delta),0) AS n FROM contractor_stock_movements WHERE outsourcing_order_id=?")
+      .bind(outsourcing.id).first<{ n: number }>();
+    check(Number(row?.n) === expected, "OUTSOURCING_STOCK_" + expected);
+    await expect("outsourcing/stock?contractorId=" + contractor.id, 200);
+  }
+  async function outAction(action: string, target: string, extra: Record<string, unknown> = {}): Promise<void> {
+    const body = { ...spoof, expectedRevision: outRevision, reason: "isolated HTTP acceptance", ...extra };
+    const detail = (await (await expect(outPath + "/" + action, 200, "POST", body)).json() as {
+      data: { revision: number; statusCode: string; pricing: { totalAmount: string } | null };
+    }).data;
+    check(detail.revision === outRevision + 1 && detail.statusCode === target, "OUTSOURCING_STATE_" + action);
+    if (action === "price") check(detail.pricing?.totalAmount === "3.75", "OUTSOURCING_EXACT_PRICE");
+    outRevision = detail.revision;
+    const saved = await snapshot();
+    await expect(outPath + "/" + action, 409, "POST", body, true, "OUTSOURCING_REVISION_CONFLICT");
+    check(await snapshot() === saved, "OUTSOURCING_STALE_HTTP_" + action);
+    await expect(outPath, 200);
+  }
+  await outStock(0);
+  await outAction("confirm-outbound", "outbound", { effectiveDate: "2026-10-02" });
+  await outStock(240000); // CASE -> 2 BOX -> 24 EA.
+  const outboundSaved = await snapshot();
+  await expect(outPath, 403, "DELETE", { expectedRevision: outRevision, ...spoof });
+  await expect(outPath + "/correct-outbound", 403, "POST", { ...outProfile, expectedRevision: outRevision, ...spoof });
+  check(await snapshot() === outboundSaved, "OUTSOURCING_USER_ADMIN_SPOOF");
+  role = "ADMIN";
+  await expect(outPath, 409, "DELETE", { expectedRevision: outRevision }, true, "OUTSOURCING_DELETE_NOT_ALLOWED");
+  await outAction("correct-outbound", "outbound", { ...outProfile,
+    parts: [{ ...outProfile.parts[0], quantity: "2" }] });
+  await outStock(480000);
+  role = "USER";
+  await outAction("receive", "received", { receivedDate: "2026-10-02", operatorEmployeeId: await memberId(),
+    items: [{ itemId: finishedId, bomRecipeId: bom.id, quantity: "3", unit: "EA", sortOrder: 0 }] });
+  await outStock(420000); // 3 finished units consume 6 component units.
+  await outAction("price", "priced", { pricedDate: "2026-10-02", operatorEmployeeId: await memberId() });
+  await outAction("paid", "paid");
+  const paidSaved = await snapshot();
+  await expect(outPath + "/cancel-pricing", 422, "POST", { expectedRevision: outRevision, reason: "blocked" });
+  await expect(outPath + "/cancel-receipt", 422, "POST", { expectedRevision: outRevision, reason: "blocked" });
+  check(await snapshot() === paidSaved, "OUTSOURCING_REVERSE_ORDER_MUTATION");
+  await outAction("cancel-payment", "priced");
+  await outAction("cancel-pricing", "received");
+  await outAction("cancel-receipt", "outbound");
+  await outStock(480000);
+  const reversalSaved = await snapshot();
+  await expect(outPath + "/cancel-outbound", 403, "POST", { expectedRevision: outRevision, ...spoof });
+  check(await snapshot() === reversalSaved, "OUTSOURCING_USER_CANCEL_MUTATION");
+  role = "ADMIN";
+  await outAction("cancel-outbound", "voided");
+  await outStock(0);
+  const outAudit = await db.prepare("SELECT action,actor_employee_id FROM audit_events WHERE entity_type='outsourcing_order' AND entity_key=? ORDER BY id")
+    .bind(String(outsourcing.id)).all<{ action: string; actor_employee_id: number }>();
+  check(JSON.stringify(outAudit.results.map(row => row.action)) === JSON.stringify([
+    "outsourcing.outbound.confirmed", "outsourcing.outbound.corrected", "outsourcing.received", "outsourcing.priced",
+    "outsourcing.paid", "outsourcing.payment.cancelled", "outsourcing.pricing.cancelled",
+    "outsourcing.receipt.cancelled", "outsourcing.outbound.cancelled",
+  ]) && outAudit.results.every(row => row.actor_employee_id === creator?.created_by), "OUTSOURCING_HTTP_AUDIT");
   role = "USER";
 
   // WorkLog owner scope and ADMIN review are derived from the provider, not body.
