@@ -4,7 +4,7 @@
 
 ## Current checkpoint — 2026-10-02
 
-- Current source release **CY Web 0.7.6 Build 0** includes immutable tiered backup providers/catalog, protected backup management and isolated recovery rehearsal; all six business pages and Settings/Audit remain on protected Worker API → D1. **Development 0.7.5 Build 0 已部署並驗證**，run `36890514762` attempt 1; historical checkpoints retain their original deployment version.
+- Current source release **CY Web 0.7.6 Build 0** includes immutable tiered backup providers/catalog, protected backup management and isolated recovery rehearsal; all six business pages and Settings/Audit remain on protected Worker API → D1. **Development 0.7.6 Build 0 已部署並驗證**，run `36957832420` attempt 2; historical checkpoints retain their original deployment version.
 - CYCloud Identity source/development **0.3.5 Build 0**；development run `36821423383` 通過實際 Worker/D1 binding、version 與 invalid Session readback。Shared Consumer Contract = **1.0.2**，Minimum Compatible = **1.0.0**。
 - `https://admin.chihyuancm.com` 仍是固定 CY Web canonical user-facing URL；0.3 development deploy 已重新驗證 Custom Domain 與 invalid-provider-session fallback。
 - CY Web 根 `CYID_CONSUMER_VERSION=1.0.2` 宣告所採用的 shared Identity contract；`docs/contracts/cyid/` mirror 依 CYID `CONSUMER_SYNC_MANIFEST.json` 保存 7 個 canonical artifacts + manifest snapshot。Governance Check 與 development deploy 同時驗證 supported version window 與逐檔 byte-level sync；任一漂移都阻止後續部署。
@@ -347,3 +347,20 @@ Email acceptance is explicitly deferred while engineering work continues. These 
 - Positive lifecycle retains create/submit/review/cancel-review and adds owner withdrawal back to created with exactly one revision increase. Tests use only ephemeral isolated fixtures, not the existing development acceptance Customer/Work Log or real accounts.
 - Local TypeScript and full source checks passed; SQLite demonstrated the old predicate accepting a stale write and the guarded predicate rejecting it. Remote Runtime Check must pass actual Worker/D1 acceptance before merge/deployment. Prior local Wrangler system-interface startup failure remains an environment limitation; no acceptance success is inferred from it.
 - Current development remains **0.7.5 Build 0** until the separately tracked 0.7.6 development deployment passes source/consumer/D1 health. Live browser lifecycle/multi-role/device acceptance remains pending. Email, real ERP Item/Quote prerequisites, R2/GCS setup and fixture cleanup retain their earlier status.
+
+
+### Priority follow-up — stale post-state gates in other domains
+
+- [ ] Before broader inventory/business rollout, reproduce and correct stale-write side effects in other domains using isolated D1 fixtures. Source review found post-transition `nextRevision/status` gates in `worker/outsourcing/outsourcing-persistence.ts` and `worker/defect/defect-persistence.ts`, analogous to the Work Log predicate just corrected.
+- Highest priority: Outsourcing outbound/receive/reversal side effects may include stock movements, not only duplicate Audit. Test a captured old state after a winning batch; verify zero extra movements/Audit and unchanged balances when the stale master update changes zero rows. Do not simply add `changes()` to every child insert: preceding statements differ, so each batch needs its own atomic success gate review.
+- Review remaining Customer Quote and Sales Order Audit batch order as part of this focused follow-up. This checkpoint establishes the Work Log fix only; no blanket cross-module concurrency acceptance is claimed.
+- Use existing isolated acceptance infrastructure and synthetic fixtures. No live inventory, payment, real business records or production resources were mutated while identifying these source patterns.
+
+
+### Work Log correction release evidence — 0.7.6 Build 0
+
+- [PR #109](https://github.com/simonliu1118-byte/chihyuan-web/pull/109), head `fac2bf81f5a3b6f5689cf7e8825cfe8132f60c27`, merged/deployed source `c9caacd2bab736e650884cf6030ccb32544ec2a2`. Remote source files were byte-reconciled. Governance `36957682253`, Runtime Check `36957682309` and deployment contract `36957682287` passed, including actual isolated Worker/D1 stale-replay/ownership/statistics assertions, TypeScript and build.
+- [Development Deploy 36957832420](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/36957832420) **attempt 2 passed** exact CYID sync, migrations, deployment, source/consumer/D1 health, canonical Custom Domain and invalid Session fallback checks. Development now uses **0.7.6 Build 0**; backup activation/schedule remain disabled and deferred user cloud setup is unchanged.
+- Attempt 1 deployed successfully but failed `DEPLOYED_SOURCE_CONSUMER_OR_D1_HEALTH_MISMATCH`; subsequent canonical/invalid-session checks were skipped. One same-source job rerun succeeded. There was no source change or version/Build increment for retry; the underlying health-gate failure cause is **not established**.
+- [ ] Investigate the recurrent first-attempt deployment health-gate failure with bounded, non-secret diagnostics before the next deployment-maintenance change. Prior same-source success is not proof of propagation/network/D1 cause; do not add blind retries or compatibility wrappers as a substitute for diagnosis.
+- The earlier “development stays 0.7.5 until deployment passes” entry records the pre-deployment checkpoint and is now superseded by this successful 0.7.6 release evidence. No live browser lifecycle or multi-role acceptance was completed during this backend regression task. Existing synthetic fixtures remain available and on their durable cleanup list.
