@@ -1,3 +1,4 @@
+import { acceptOutsourcingStaleEffects } from "./outsourcing-stale-acceptance";
 import { handleBackupRoute } from "../http/backup-routes";
 import { acceptIsolatedRecovery } from "./isolated-recovery-acceptance";
 import { acceptTieredBackup } from "./tiered-backup-acceptance";
@@ -492,6 +493,8 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
     finalMovementRows.results.filter((row) => row.movement_type === "reversal" && row.reversal_of_movement_id != null).length === 2,
     "ACCEPT_OUTSOURCING_LINKED_REVERSALS_MISSING",
   );
+
+  await acceptOutsourcingStaleEffects(db,componentItem.id,finishedItem.id);
 
   // WorkLog domain: owner creates/submits, reviewer finalizes corrected Work Days
   // and scores, statistics read the stored finalized result, then cancel-review
