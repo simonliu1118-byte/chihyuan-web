@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS_DIR = ROOT / "migrations"
 
 EXPECTED_TABLES = {
+    "entity_id_high_watermarks",
     "app_member_module_access",
     "app_member_tags",
     "app_members",
@@ -298,6 +299,36 @@ def validate_no_local_identity_session(schema: str) -> None:
     conn.close()
 
 
+def validate_retired_identity_migration(schema: str) -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.execute("PRAGMA foreign_keys=ON")
+    for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
+        if path.name < "0007_retired_entity_ids.sql":
+            conn.executescript(path.read_text())
+    conn.execute("INSERT INTO customers(id,short_name,created_at,updated_at) VALUES(4,'Migration fixture','2026-10-02','2026-10-02')")
+    conn.execute("INSERT INTO audit_events(entity_type,entity_key,action,occurred_at) VALUES('customer','20','deleted','2026-10-02')")
+    conn.execute("INSERT INTO audit_events(entity_type,entity_key,action,occurred_at) VALUES('customer','not-an-id','historical','2026-10-02')")
+    before = conn.execute("SELECT * FROM customers").fetchall(), conn.execute("SELECT * FROM audit_events ORDER BY id").fetchall()
+    conn.executescript((MIGRATIONS_DIR / "0007_retired_entity_ids.sql").read_text())
+    after = conn.execute("SELECT * FROM customers").fetchall(), conn.execute("SELECT * FROM audit_events ORDER BY id").fetchall()
+    if before != after or conn.execute("SELECT last_id FROM entity_id_high_watermarks WHERE table_name='customers'").fetchone() != (20,):
+        raise AssertionError("retired identity migration changed history or missed an absent audited identity")
+    conn.execute("DELETE FROM customers WHERE id=4")
+    if conn.execute("SELECT last_id FROM entity_id_high_watermarks WHERE table_name='customers'").fetchone() != (20,):
+        raise AssertionError("lower deletion reduced retired identity high-water mark")
+    conn.execute("INSERT INTO customers(id,short_name,created_at,updated_at) VALUES(30,'Rollback fixture','2026-10-02','2026-10-02')")
+    conn.execute("SAVEPOINT retirement")
+    conn.execute("DELETE FROM customers WHERE id=30")
+    conn.execute("ROLLBACK TO retirement")
+    if conn.execute("SELECT id FROM customers").fetchall() != [(30,)] or conn.execute("SELECT last_id FROM entity_id_high_watermarks WHERE table_name='customers'").fetchone() != (20,):
+        raise AssertionError("retirement trigger was not rolled back with parent deletion")
+    conn.close()
+    fresh = new_db(schema)
+    if fresh.execute("SELECT COUNT(*) FROM entity_id_high_watermarks").fetchone() != (0,):
+        raise AssertionError("fresh recovery target is not empty")
+    fresh.close()
+
+
 def main() -> int:
     schema = load_schema()
     checks = [
@@ -309,6 +340,7 @@ def main() -> int:
         validate_audit_generic_entity_key,
         validate_defect_invalidation_shape,
         validate_no_local_identity_session,
+        validate_retired_identity_migration,
     ]
     for check in checks:
         check(schema)

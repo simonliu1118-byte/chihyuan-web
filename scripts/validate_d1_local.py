@@ -25,6 +25,7 @@ EXPECTED_MIGRATIONS = {
     "0004_remove_local_identity_sessions.sql",
     "0005_direct_module_access.sql",
     "0006_backup_catalog.sql",
+    "0007_retired_entity_ids.sql",
 }
 
 
@@ -276,6 +277,7 @@ def main() -> int:
             "workLogReviewLifecycle",
             "settingsAuditHttpAuthority",
             "businessHttpAuthority",
+            "retiredEntityIds",
             "portableBackupRecovery",
         "tieredBackup",
         "isolatedRecovery",

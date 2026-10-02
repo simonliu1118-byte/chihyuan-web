@@ -1,3 +1,4 @@
+import { nextEntityIdSql } from "../persistence/entity-id";
 import { AuditService } from "../audit/audit-service";
 import type { ItemRecordVersion } from "./item-repository";
 import type {
@@ -63,11 +64,11 @@ export class ItemPersistence {
     assertContext(context);
     const statements: D1PreparedStatement[] = [
       this.db.prepare(`
-        INSERT INTO items (
+        INSERT INTO items (id,
           item_no, name, spec, base_unit, item_category_id,
           cost, cost_tax_mode, store_price, clinic_price, notes, is_active,
           created_at, created_by, updated_at, updated_by, revision
-        ) VALUES (
+        ) VALUES (${nextEntityIdSql("items")},
           ?1, ?2, ?3, ?4, ?5,
           ?6, ?7, ?8, ?9, ?10, ?11,
           ?12, ?13, ?12, ?13, 1

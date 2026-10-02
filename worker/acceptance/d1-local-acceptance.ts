@@ -1,6 +1,7 @@
 import { acceptSalesOrderStaleAudit } from "./sales-order-stale-acceptance";
 import { acceptCustomerQuoteStaleMutation } from "./customer-quote-stale-acceptance";
 import { acceptBusinessHttpAuthority } from "./business-http-acceptance";
+import { acceptRetiredIdentitySource, acceptRetiredIdentityRestore } from "./retired-identity-acceptance";
 import { acceptDefectStaleAudit } from "./defect-stale-acceptance";
 import { acceptOutsourcingStaleEffects } from "./outsourcing-stale-acceptance";
 import { handleBackupRoute } from "../http/backup-routes";
@@ -43,6 +44,7 @@ interface AcceptanceChecks {
   workLogReviewLifecycle: boolean;
   settingsAuditHttpAuthority: boolean;
   businessHttpAuthority: boolean;
+  retiredEntityIds: boolean;
 }
 
 function assertAcceptance(condition: unknown, code: string): asserts condition {
@@ -712,7 +714,9 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
 
   await acceptSettingsAuditHttp(db);
   await acceptBusinessHttpAuthority(db);
+  await acceptRetiredIdentitySource(db);
   await acceptPortableRecovery(db, restoreDb);
+  await acceptRetiredIdentityRestore(db, restoreDb);
   await acceptTieredBackup(db, bucket);
   await acceptIsolatedRecovery(db, rehearsalDb, bucket);
 
@@ -722,6 +726,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
     isolatedRecovery: true,
     settingsAuditHttpAuthority: true,
     businessHttpAuthority: true,
+    retiredEntityIds: true,
     customerBatchCreate: true,
     optimisticRevision: true,
     batchRollback: true,

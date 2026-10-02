@@ -696,3 +696,5 @@ module implementation
 ```
 
 There is no Legacy-data importer/cutover gate under BD-047.
+
+The forward `0007_retired_entity_ids` model preserves a per-table retired-ID high-water mark for nine standalone deletable business entities. Canonical inserts allocate above existing and retired IDs; deletes record retirement atomically. The watermark survives Audit pruning and portable/tiered backup recovery. This implements immutable technical identities without rebuilding or renumbering current business tables; see `FINAL_DATA_DICTIONARY.md` and `AUDIT_CORE.md` for scope and historical-evidence limitations.

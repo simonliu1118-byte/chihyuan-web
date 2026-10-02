@@ -148,6 +148,8 @@ The calling API must enforce Admin / Super Admin authorization before exposing t
 
 ## 10. Retention
 
+Numeric entity keys must not be reused by a later entity after hard deletion. The canonical create path now uses `worker/persistence/entity-id.ts` and migration `0007_retired_entity_ids.sql` for the nine deletable standalone business entities listed in the Final Data Dictionary. The watermark is durable independently of Audit retention and is restored with business data. This prevents new history from being grouped with a deleted entity's history; existing IDs/events are not rewritten, and ambiguous historical events cannot be repaired without additional evidence.
+
 The Audit Core is designed so a retention/pruning operation can be added later, but no arbitrary production retention period is set now.
 
 A future policy must be based on observed event volume, D1 growth, backup-size impact and operational investigation needs, while respecting any Business Decision that explicitly requires particular evidence to remain available.

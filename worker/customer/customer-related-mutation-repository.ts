@@ -1,3 +1,4 @@
+import { nextEntityIdSql } from "../persistence/entity-id";
 import type {
   CustomerFrequentItemRecord,
   CustomerItemQuoteDetail,
@@ -150,10 +151,10 @@ export class CustomerRelatedMutationRepository {
   ): Promise<number> {
     assertContext(context);
     const result = await this.db.prepare(`
-      INSERT INTO customer_visits (
+      INSERT INTO customer_visits (id,
         customer_id, visit_date, contact_id, person_snapshot, employee_id, content,
         created_at, created_by, updated_at, updated_by, revision
-      ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?7, ?8, 1)
+      ) VALUES (${nextEntityIdSql("customer_visits")}, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?7, ?8, 1)
     `).bind(
       customerId,
       input.visitDate,
@@ -232,9 +233,10 @@ export class CustomerRelatedMutationRepository {
     const remove = this.db.prepare(`
       DELETE FROM customer_visits
        WHERE customer_id = ?1 AND id = ?2 AND revision = ?3
+       RETURNING id
     `).bind(visit.customerId, visit.id, expectedRevision);
     const results = await this.db.batch([audit, remove]);
-    return Number(results[1]?.meta?.changes ?? 0) === 1;
+    return (results[1]?.results?.length ?? 0) === 1;
   }
 
   async createFrequentItem(
@@ -244,10 +246,10 @@ export class CustomerRelatedMutationRepository {
   ): Promise<number> {
     assertContext(context);
     const result = await this.db.prepare(`
-      INSERT INTO customer_frequent_items (
+      INSERT INTO customer_frequent_items (id,
         customer_id, item_id, custom_item_name, custom_category_name,
         sort_order, created_at, updated_at
-      ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)
+      ) VALUES (${nextEntityIdSql("customer_frequent_items")}, ?1, ?2, ?3, ?4, ?5, ?6, ?6)
     `).bind(
       customerId,
       input.itemId,
@@ -301,8 +303,9 @@ export class CustomerRelatedMutationRepository {
        WHERE customer_id = ?1
          AND id = ?2
          AND updated_at = ?3
+       RETURNING id
     `).bind(customerId, frequentId, expectedUpdatedAt).run();
-    return Number(result.meta.changes ?? 0) === 1;
+    return (result.results?.length ?? 0) === 1;
   }
 
   async createQuote(

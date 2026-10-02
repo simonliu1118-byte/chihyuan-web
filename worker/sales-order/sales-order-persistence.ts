@@ -1,3 +1,4 @@
+import { nextEntityIdSql } from "../persistence/entity-id";
 import type { SalesWorkOrderStatusCode } from "../../shared/sales-work-order";
 import { AuditService } from "../audit/audit-service";
 import type {
@@ -109,13 +110,13 @@ export class SalesWorkOrderPersistence {
     const customer = customerSnapshot(resolved);
     const statements: D1PreparedStatement[] = [
       this.db.prepare(`
-        INSERT INTO sales_work_orders (
+        INSERT INTO sales_work_orders (id,
           work_order_ref,
           customer_id, customer_no_snapshot, customer_name_snapshot,
           order_date, operator_employee_id, note, status_code, erp_no,
           hide_price_on_sales_document, invoice_type_code, receipt_option_code,
           created_at, created_by, updated_at, updated_by, revision
-        ) VALUES (
+        ) VALUES (${nextEntityIdSql("sales_work_orders")},
           ?1,
           ?2, ?3, ?4,
           ?5, ?6, ?7, 'created', NULL,

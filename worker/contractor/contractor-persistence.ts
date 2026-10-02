@@ -1,3 +1,4 @@
+import { nextEntityIdSql } from "../persistence/entity-id";
 import { AuditService } from "../audit/audit-service";
 import type {
   NormalizedContractorPriceRequest,
@@ -52,10 +53,10 @@ export class ContractorPersistence {
     assertContext(context);
     const statements: D1PreparedStatement[] = [
       this.db.prepare(`
-        INSERT INTO contractors (
+        INSERT INTO contractors (id,
           entity_type, display_name, legal_name, tax_id, phone, address, note, is_active,
           created_at, created_by, updated_at, updated_by, revision
-        ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?9,?10,1)
+        ) VALUES (${nextEntityIdSql("contractors")}, ?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?9,?10,1)
       `).bind(
         input.entityType, input.displayName, input.legalName, input.taxId, input.phone,
         input.address, input.note, input.isActive ? 1 : 0, context.now, context.actorMemberId,
@@ -188,8 +189,8 @@ export class ContractorPersistence {
       }),
       this.db.prepare("DELETE FROM contractor_pricing WHERE contractor_id=?1 AND EXISTS (SELECT 1 FROM contractors WHERE id=?1 AND revision=?2 AND NOT EXISTS (SELECT 1 FROM outsourcing_orders WHERE contractor_id=?1))").bind(state.id, state.revision),
       this.db.prepare("DELETE FROM contractor_contacts WHERE contractor_id=?1 AND EXISTS (SELECT 1 FROM contractors WHERE id=?1 AND revision=?2 AND NOT EXISTS (SELECT 1 FROM outsourcing_orders WHERE contractor_id=?1))").bind(state.id, state.revision),
-      this.db.prepare("DELETE FROM contractors WHERE id=?1 AND revision=?2 AND NOT EXISTS (SELECT 1 FROM outsourcing_orders WHERE contractor_id=?1)").bind(state.id, state.revision),
+      this.db.prepare("DELETE FROM contractors WHERE id=?1 AND revision=?2 AND NOT EXISTS (SELECT 1 FROM outsourcing_orders WHERE contractor_id=?1) RETURNING id").bind(state.id, state.revision),
     ]);
-    return Number(results[3]?.meta?.changes ?? 0) === 1;
+    return (results[3]?.results?.length ?? 0) === 1;
   }
 }
