@@ -1,5 +1,10 @@
 # CY Web Governance Changelog
 
+## 1.1.13 — 2026/10/02
+
+- Isolated D1 runner waits for Wrangler on a non-mutating route, then invokes the fixture-writing acceptance suite exactly once with a bounded 60-second timeout. Execution timeout, malformed JSON and HTTP failures are terminal, never fixture-writing retries.
+- Correct the former two-second read-timeout loop that replayed a successfully running suite and obscured its result with duplicate fixture primary keys. No application release, authority, deployment or production resource change.
+
 ## 1.1.12 — 2026/10/02
 
 - Existing Runtime Check and local source validation now require Customer persistence/related schema semantics, including contact retention, snapshots and independent Quote history.
