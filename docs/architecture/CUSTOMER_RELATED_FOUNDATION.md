@@ -1,6 +1,6 @@
 # CY Web Customer Persistence + Related Records Foundation
 
-> Status: Worker-side Customer persistence/read/mutation foundation staged before protected HTTP route wiring.
+> Status: Customer persistence/read/mutation services are wired into the protected operational Worker API. Development acceptance and outstanding browser/device/production gates are tracked in root `TODO.md`.
 
 ## 1. Purpose
 
@@ -24,7 +24,7 @@ Mutation context requires:
 - local `app_members.id` actor;
 - server-side UTC timestamp.
 
-The later authenticated route layer is responsible for resolving the Shared Identity principal and local app-member projection before calling the service.
+The authenticated route layer is responsible for resolving the Shared Identity principal and local app-member projection before calling the service.
 
 ### Create
 
@@ -163,15 +163,10 @@ This is used for:
 
 It is **not** a client SQL surface. Route/browser data never supplies the condition SQL.
 
-## 7. Runtime gate
+## 7. Current runtime and verification boundary
 
-Still pending before protected Customer HTTP routes are exposed:
+These services are used by the protected Customer HTTP API and the operational React Customer page. Shared Identity resolution, Customer module authorization and local app-member projection occur at the Worker boundary. See `OPERATIONAL_RUNTIME.md` for current application routing and transport; root `TODO.md` for actual development deployment and pending acceptance.
 
-1. Shared Identity browser-session provider support;
-2. authenticated Customer module authorization;
-3. local/dev D1 migration + Worker runtime acceptance;
-4. route-level error mapping and request acceptance tests.
+`validate_customer_persistence_related.py` checks source wiring and isolated SQLite semantics for contact-reference retention, historical snapshots, formal/free-text Frequent Items and preserved Quote history. It is required by the existing Runtime Check and local `validate:source` command. These checks do not establish live cloud, multi-role or device acceptance.
 
-The staged mutation services are therefore callable foundations, not public endpoints.
-
-This branch does not modify production D1/Worker/DNS/R2/GCS resources and does not modify CYAccountingWeb or CYInvoice runtime.
+This foundation does not expose unauthenticated Customer routes or authorize production rollout, cloud resource changes or changes to other CY applications.

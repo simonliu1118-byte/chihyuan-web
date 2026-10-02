@@ -33,7 +33,9 @@ jobs:
           python scripts/validate_business_http_api.py
           python scripts/validate_audit_foundation.py
       - name: Customer service contract
-        run: python scripts/validate_customer_service_foundation.py
+        run: |
+          python scripts/validate_customer_service_foundation.py
+          python scripts/validate_customer_persistence_related.py
       - name: Customer related mutation contract
         run: python scripts/validate_customer_related_mutations.py
       - name: Customer runtime transport contract

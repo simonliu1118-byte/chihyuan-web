@@ -1,5 +1,11 @@
 # CY Web Governance Changelog
 
+## 1.1.12 — 2026/10/02
+
+- Existing Runtime Check and local source validation now require Customer persistence/related schema semantics, including contact retention, snapshots and independent Quote history.
+- Correct the validator’s combined BD-021/022 reference; classify retained preview-asset checks/documentation as historical without restoring their retired application route.
+- No runtime release/version, deployment, credentials, cloud resources or production-data change.
+
 ## 1.1.11 — 2026/10/01
 
 - Development deployment forwards protected R2/GCS settings and uploads validated GCS credentials with the Worker deployment; temporary credential files are private and removed on completion.

@@ -89,7 +89,7 @@ def validate_sources() -> None:
         "D1 `batch()` transaction",
         "Visit keeps `person_snapshot`",
         "separate Customer-context resources",
-        "BD-022",
+        "BD-021/022",
     ):
         if token not in doc:
             raise AssertionError(f"Customer related boundary doc missing: {token}")

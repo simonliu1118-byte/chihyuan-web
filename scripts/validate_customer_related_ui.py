@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Zero-dependency checks for Customer related-record UI foundation."""
+"""Historical Customer related-preview asset checks; not runtime acceptance."""
 
 from __future__ import annotations
 
@@ -20,7 +20,6 @@ def main() -> int:
     panel = require("src/ui/related/RelatedRecordPanel.tsx")
     customer = require("src/modules/customer/CustomerRelatedPreview.tsx")
     page = require("src/modules/customer/CustomerRelatedReviewPage.tsx")
-    app = require("src/App.tsx")
     css = require("src/modules/customer/customer-related-preview.css")
     doc = require("docs/architecture/CUSTOMER_RELATED_UI.md")
 
@@ -48,9 +47,6 @@ def main() -> int:
     if "CustomerRelatedReviewPage" not in page or "setActiveKey" not in page:
         raise AssertionError("Customer related review page is not interactive")
 
-    if '#customer-related-preview' not in app or "CustomerRelatedReviewPage" not in app:
-        raise AssertionError("Customer related review route is not mounted")
-
     for token in (
         ".cy-customer-visit-row",
         ".cy-customer-quote-card",
@@ -70,7 +66,7 @@ def main() -> int:
         if token not in doc:
             raise AssertionError(f"Customer related UI document missing: {token}")
 
-    print("PASS Customer related-record UI source checks")
+    print("PASS historical Customer related-preview assets (not operational UI acceptance)")
     return 0
 
 
