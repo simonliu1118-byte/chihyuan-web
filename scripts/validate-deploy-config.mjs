@@ -9,6 +9,7 @@ const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "cyweb-deploy-config-"))
 const output = path.join(temporary, "wrangler.generated.jsonc");
 
 const env = {
+  CF_SOURCE_COMMIT: "a".repeat(40),
   CF_WORKER_NAME: "cyweb-ci",
   CF_PUBLIC_HOSTNAME: "admin.chihyuancm.com",
   CF_D1_DATABASE_NAME: "cyweb-ci-db",
@@ -23,6 +24,13 @@ try {
   const raw = fs.readFileSync(output, "utf8");
   const config = JSON.parse(raw);
 
+  if (config.vars.SOURCE_COMMIT !== env.CF_SOURCE_COMMIT) throw new Error("source commit mismatch");
+  for (const sourceCommit of [undefined, "invalid", "https://sensitive.invalid/token"]) {
+    let rejected = false;
+    try { renderDeployConfig({ env: { ...env, CF_SOURCE_COMMIT: sourceCommit }, outputPath: output }); }
+    catch (error) { rejected = error.message === "Invalid or missing CF_SOURCE_COMMIT"; }
+    if (!rejected) throw new Error("invalid source provenance accepted");
+  }
   if (config.name !== env.CF_WORKER_NAME) throw new Error("worker name mismatch");
   if (config.workers_dev !== true) throw new Error("workers.dev fallback must remain enabled");
   if (config.routes?.length !== 1) throw new Error("canonical Custom Domain route missing");

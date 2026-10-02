@@ -24,4 +24,5 @@ export interface HealthData {
   time: string;
   identityConsumerVersion: string | null;
   version: string | null;
+  sourceCommit: string | null;
 }

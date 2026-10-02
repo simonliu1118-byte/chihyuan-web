@@ -84,6 +84,12 @@ export function renderDeployConfig({
   if (!/^\d+\.\d+\.\d+$/.test(consumerVersion)) throw new Error("Invalid CYID consumer version");
   rendered = rendered.replaceAll("__CYID_CONSUMER_VERSION__", jsonFragment(consumerVersion)).replaceAll("__CYWEB_VERSION__", jsonFragment(sourceVersion));
 
+  const sourceCommit = String(env.CF_SOURCE_COMMIT ?? "").trim();
+  if (!/^[0-9a-f]{40}$/.test(sourceCommit)) throw new Error("Invalid or missing CF_SOURCE_COMMIT");
+  const provenanceConfig = JSON.parse(rendered);
+  provenanceConfig.vars.SOURCE_COMMIT = sourceCommit;
+  rendered = JSON.stringify(provenanceConfig, null, 2) + "\n";
+
   if (env.CF_BACKUP_ENABLED !== undefined && !["true", "false", ""].includes(env.CF_BACKUP_ENABLED)) throw new Error("Invalid CF_BACKUP_ENABLED");
   if (env.CF_BACKUP_SCHEDULE_ENABLED !== undefined && !["true", "false", ""].includes(env.CF_BACKUP_SCHEDULE_ENABLED)) throw new Error("Invalid CF_BACKUP_SCHEDULE_ENABLED");
   if (env.CF_BACKUP_SCHEDULE_ENABLED === "true" && env.CF_BACKUP_ENABLED !== "true") throw new Error("Backup schedule requires enabled backup");

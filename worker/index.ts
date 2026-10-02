@@ -20,6 +20,7 @@ async function health(env: Env, requestId: string): Promise<Response> {
       time: new Date().toISOString(),
       identityConsumerVersion: env.IDENTITY_CONSUMER_VERSION ?? null,
       version: env.SOURCE_VERSION ?? null,
+      sourceCommit: env.SOURCE_COMMIT ?? null,
     };
     return success(data, requestId);
   } catch {

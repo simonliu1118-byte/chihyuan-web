@@ -10,6 +10,8 @@ on:
       - "scripts/render-deploy-config.mjs"
       - "scripts/render-backup-secrets.mjs"
       - "scripts/validate-deploy-config.mjs"
+      - "scripts/verify-deployed-health.mjs"
+      - "scripts/test-deployed-health.mjs"
       - "wrangler.deploy.template.jsonc"
       - "vite.config.ts"
       - "package.json"
@@ -51,10 +53,13 @@ jobs:
         run: bash scripts/validate-cyid-consumer-sync.sh
 
       - name: Validate deployment template contract
-        run: node scripts/validate-deploy-config.mjs
+        run: |
+          node scripts/validate-deploy-config.mjs
+          node --test scripts/test-deployed-health.mjs
 
       - name: Render CI-only deployment config
         env:
+          CF_SOURCE_COMMIT: ${{ github.sha }}
           CF_WORKER_NAME: cyweb-ci
           CF_PUBLIC_HOSTNAME: admin.chihyuancm.com
           CF_D1_DATABASE_NAME: cyweb-ci-db
@@ -94,6 +99,7 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CF_SOURCE_COMMIT: ${{ github.sha }}
       CF_WORKER_NAME: ${{ vars.CF_WORKER_NAME }}
       CF_PUBLIC_HOSTNAME: admin.chihyuancm.com
       CF_D1_DATABASE_NAME: ${{ vars.CF_D1_DATABASE_NAME }}
@@ -176,23 +182,7 @@ jobs:
         shell: bash
         env:
           CYWEB_WORKER_URL: ${{ steps.deploy.outputs.worker_url }}
-        run: |
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          const version=fs.readFileSync('VERSION','utf8').trim();
-          const consumer=fs.readFileSync('CYID_CONSUMER_VERSION','utf8').trim();
-          for(const origin of ['https://'+process.env.CF_PUBLIC_HOSTNAME,process.env.CYWEB_WORKER_URL]){
-            let ready=false;
-            for(let attempt=0;attempt<10;attempt++){
-              const response=await fetch(origin+'/api/health',{signal:AbortSignal.timeout(10000)});
-              const body=await response.json();
-              if(response.ok&&body.ok===true&&body.data?.service==='cyweb'&&body.data?.version===version&&body.data?.database==='ok'&&body.data?.identityConsumerVersion===consumer){ready=true;break;}
-              await new Promise(resolve=>setTimeout(resolve,1000));
-            }
-            if(!ready) throw new Error('DEPLOYED_SOURCE_CONSUMER_OR_D1_HEALTH_MISMATCH');
-          }
-          console.log('Canonical and workers.dev D1 health: source '+version+', consumer '+consumer+'.');
-          NODE
+        run: node scripts/verify-deployed-health.mjs
 
       - name: Accept canonical Custom Domain
         shell: bash

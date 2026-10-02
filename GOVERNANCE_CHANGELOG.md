@@ -1,5 +1,11 @@
 # CY Web Governance Changelog
 
+## 1.1.14 — 2026/10/02
+
+- Development health acceptance records allowlisted status/version/consumer/source-commit and failure categories for canonical and workers.dev independently. A bounded observation window performs GET reads only; it never redeploys or prints response bodies, credentials or resolved infrastructure config.
+- Rendered deployment requires source commit provenance, exposed by the health response in application 0.7.9. Required deployment contract tests cover delayed old-release responses, permanent mismatch, D1/HTTP/network/JSON failures and safe output projection.
+- Investigates recurrent first-attempt health mismatch with evidence instead of blind redeployment; no production rollout or backup activation.
+
 ## 1.1.13 — 2026/10/02
 
 - Isolated D1 runner waits for Wrangler on a non-mutating route, then invokes the fixture-writing acceptance suite exactly once with a bounded 60-second timeout. Execution timeout, malformed JSON and HTTP failures are terminal, never fixture-writing retries.
