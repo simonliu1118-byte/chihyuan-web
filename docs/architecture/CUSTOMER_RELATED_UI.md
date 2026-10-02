@@ -1,6 +1,15 @@
 # CY Web Customer Related-Record UI Foundation
 
-> Status: Customer related-record presentation + interaction review foundation.
+> Status: Historical Customer related-record presentation/interaction proposal and preview assets, not the current operational screen contract.
+
+## Current implementation boundary
+
+The old `#customer-related-preview` route is no longer mounted by `src/App.tsx`. Current `#customers` uses `CustomerOperationalPage` with protected Worker/D1 transport; see `OPERATIONAL_RUNTIME.md` and root `TODO.md` for actual behavior and acceptance.
+
+The Drawer, EntityPicker, repeated price-break rows and selected-resource-only loading described below are historical preview behavior/proposals, not evidence that the operational page implements them. `scripts/validate_customer_related_ui.py` checks only the retained historical preview assets and is not an operational acceptance gate. It must not require the old route to return.
+
+BD-022 still distinguishes a new commercial Quote from correction of existing history. BD-053/054 refine ordinary-change metadata and meaningful Audit events; historical UI text does not override those current decisions.
+
 
 ## 1. Purpose
 
@@ -133,9 +142,9 @@ Tablet/Mobile reuse the same related-resource state and components:
 
 ## 9. Review route
 
-During foundation development, `#customer-related-preview` mounts an interaction review using fictional browser-local data.
+During foundation development, `#customer-related-preview` mounted an interaction review using fictional browser-local data. It is no longer an application route.
 
-The user can currently test:
+The retained preview demonstrated:
 
 - Visit create/edit/delete + discard confirmation;
 - Quote new-history create + explicit correction flow;
@@ -152,4 +161,4 @@ This is **not a production route**. It does not:
 - bypass Shared Identity;
 - freeze final colors/branding.
 
-The production Customer screen later embeds the same shared `RelatedRecordPanel` and domain interaction composition into the Customer Detail Pane when protected API wiring is available.
+The original plan was to embed this composition after protected API wiring. Current implementation status must be read from `OPERATIONAL_RUNTIME.md` and the operational source; this historical plan is not a completed-runtime claim.
