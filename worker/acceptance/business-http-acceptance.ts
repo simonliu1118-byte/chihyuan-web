@@ -143,6 +143,101 @@ export async function acceptBusinessHttpAuthority(db: D1Database, componentId: n
   const readback = (await (await expect("customers/" + created.id, 200)).json() as { data: { revision: number; shortName: string } }).data;
   check(readback.revision === created.revision + 1 && readback.shortName === edit.shortName, "CUSTOMER_HTTP_READBACK");
 
+  // Formal Item/Quote HTTP uses synthetic references exclusively in isolated D1.
+  const itemProfile = { itemNo: "ACC-HTTP-ITEM-001", name: "Isolated HTTP Item", baseUnit: "EA", cost: "1.2345", costTaxMode: "none",
+    unitConversions: [{ fromUnit: "BOX", quantity: "12", toUnit: "EA", sortOrder: 0 }] };
+  const item = (await (await expect("items", 201, "POST", itemProfile)).json() as { data: { id: number; revision: number } }).data;
+  const itemPath = "items/" + item.id;
+  const itemEdit = { ...itemProfile, name: "Isolated HTTP Item corrected", expectedRevision: item.revision };
+  await expect(itemPath, 200, "PATCH", itemEdit);
+  const itemSaved = await snapshot();
+  await expect(itemPath, 409, "PATCH", itemEdit, true, "ITEM_REVISION_CONFLICT");
+  check(await snapshot() === itemSaved, "ITEM_HTTP_STALE_MUTATION");
+  const numberBody = { newItemNo: "ACC-HTTP-ITEM-002", expectedRevision: item.revision + 1, changeSource: "manual" };
+  await expect(itemPath + "/number", 200, "POST", numberBody);
+  const numberedSaved = await snapshot();
+  await expect(itemPath + "/number", 409, "POST", numberBody);
+  check(await snapshot() === numberedSaved, "ITEM_HTTP_STALE_RENUMBER");
+  await expect(itemPath + "/number-history", 200);
+  const itemRead = (await (await expect(itemPath, 200)).json() as { data: { itemNo: string; cost: string; unitConversions: unknown[] } }).data;
+  check(itemRead.itemNo === numberBody.newItemNo && itemRead.cost === "1.2345" && itemRead.unitConversions.length === 1,
+    "ITEM_HTTP_EXACT_READBACK");
+  const itemAudit = await db.prepare("SELECT action,actor_employee_id FROM audit_events WHERE entity_type='item' AND entity_key=? ORDER BY id")
+    .bind(String(item.id)).all<{ action: string; actor_employee_id: number }>();
+  check(itemAudit.results.length === 1 && itemAudit.results[0]?.action === "item.number.changed"
+    && itemAudit.results[0]?.actor_employee_id === creator?.created_by, "ITEM_HTTP_NUMBER_AUDIT");
+  const customerPath = "customers/" + created.id;
+  const quoteProfile = { itemId: item.id, quoteDate: "2026-10-02", employeeId: await memberId(),
+    priceBreaks: [{ quantity: "1.25", unit: "EA", unitPrice: "2.3456", sortOrder: 0 }] };
+  const quote = (await (await expect(customerPath + "/quotes", 201, "POST", quoteProfile)).json() as { data: { id: number; revision: number } }).data;
+  const quotePath = customerPath + "/quotes/" + quote.id;
+  const quoteCorrection = { ...quoteProfile, expectedRevision: quote.revision, correctionReason: "isolated correction",
+    priceBreaks: [{ quantity: "1.25", unit: "EA", unitPrice: "2.1234", sortOrder: 0 }] };
+  await expect(quotePath + "/correct", 200, "POST", quoteCorrection);
+  const quoteSaved = await snapshot();
+  await expect(quotePath + "/correct", 409, "POST", quoteCorrection, true, "CUSTOMER_QUOTE_REVISION_CONFLICT");
+  check(await snapshot() === quoteSaved, "QUOTE_HTTP_STALE_MUTATION");
+  const quoteRead = (await (await expect(quotePath, 200)).json() as { data: { revision: number; priceBreaks: { unitPrice: string }[] } }).data;
+  check(quoteRead.revision === quote.revision + 1 && quoteRead.priceBreaks[0]?.unitPrice === "2.1234", "QUOTE_HTTP_EXACT_READBACK");
+  const nextQuote = (await (await expect(customerPath + "/quotes", 201, "POST", { ...quoteProfile, quoteDate: "2026-10-03" })).json() as { data: { id: number } }).data;
+  check(nextQuote.id !== quote.id, "QUOTE_HTTP_NEW_HISTORY");
+  const oldQuoteRead = (await (await expect(quotePath, 200)).json() as { data: unknown }).data;
+  check(JSON.stringify(oldQuoteRead) === JSON.stringify(quoteRead), "QUOTE_HTTP_PREVIOUS_HISTORY_RETENTION");
+  const quoteAudit = await db.prepare("SELECT action,actor_employee_id,before_json,after_json,metadata_json FROM audit_events WHERE entity_type='customer_item_quote' AND entity_key=? ORDER BY id")
+    .bind(String(quote.id)).all<{ action: string; actor_employee_id: number; before_json: string; after_json: string; metadata_json: string }>();
+  const quoteEvent = quoteAudit.results[0];
+  check(quoteAudit.results.length === 1 && quoteEvent?.action === "corrected" && quoteEvent.actor_employee_id === creator?.created_by
+    && JSON.parse(quoteEvent.before_json).priceBreaks[0]?.unitPrice === "2.3456"
+    && JSON.parse(quoteEvent.after_json).priceBreaks[0]?.unitPrice === "2.1234"
+    && JSON.parse(quoteEvent.metadata_json).correctionReason === quoteCorrection.correctionReason, "QUOTE_HTTP_AUDIT_PAYLOAD");
+  const visitProfile = { visitDate: "2026-11-01", employeeId: await memberId(), personSnapshot: "Isolated visitor", content: "HTTP Visit" };
+  const visit = (await (await expect(customerPath + "/visits", 201, "POST", visitProfile)).json() as { data: { id: number; revision: number } }).data;
+  const visitPath = customerPath + "/visits/" + visit.id;
+  const visitEdit = { ...visitProfile, content: "HTTP Visit corrected", expectedRevision: visit.revision };
+  await expect(visitPath, 200, "PATCH", visitEdit);
+  const visitSaved = await snapshot();
+  await expect(visitPath, 409, "PATCH", visitEdit, true, "CUSTOMER_VISIT_REVISION_CONFLICT");
+  check(await snapshot() === visitSaved, "VISIT_HTTP_STALE_MUTATION");
+  await expect(visitPath, 200, "DELETE", { expectedRevision: visit.revision + 1 });
+  await expect(customerPath + "/visits", 200);
+  check(await db.prepare("SELECT id FROM customer_visits WHERE id=?").bind(visit.id).first() === null, "VISIT_HTTP_DELETE");
+  for (const frequentProfile of [{ customItemName: "HTTP free-text item", sortOrder: 0 }, { itemId: item.id, sortOrder: 1 }]) {
+    const frequent = (await (await expect(customerPath + "/frequent-items", 201, "POST", frequentProfile)).json() as { data: { frequentItemId: number } }).data;
+    const frequentPath = customerPath + "/frequent-items/" + frequent.frequentItemId;
+    const before = await db.prepare("SELECT updated_at FROM customer_frequent_items WHERE id=?").bind(frequent.frequentItemId).first<{ updated_at: string }>();
+    check(before, "FREQUENT_HTTP_VERSION");
+    const editFrequent = { ...frequentProfile, sortOrder: 2, expectedUpdatedAt: before.updated_at };
+    await expect(frequentPath, 200, "PATCH", editFrequent);
+    const saved = await snapshot();
+    await expect(frequentPath, 409, "PATCH", editFrequent, true, "CUSTOMER_FREQUENT_ITEM_CONFLICT");
+    await expect(frequentPath, 409, "DELETE", { expectedUpdatedAt: before.updated_at }, true, "CUSTOMER_FREQUENT_ITEM_CONFLICT");
+    check(await snapshot() === saved, "FREQUENT_HTTP_STALE_MUTATION");
+    const current = await db.prepare("SELECT updated_at,sort_order FROM customer_frequent_items WHERE id=?").bind(frequent.frequentItemId).first<{ updated_at: string; sort_order: number }>();
+    check(current?.sort_order === 2, "FREQUENT_HTTP_EDIT_READBACK");
+    await expect(customerPath + "/frequent-items", 200);
+    await expect(frequentPath, 200, "DELETE", { expectedUpdatedAt: current.updated_at });
+    check(await db.prepare("SELECT id FROM customer_frequent_items WHERE id=?").bind(frequent.frequentItemId).first() === null, "FREQUENT_HTTP_DELETE");
+  }
+
+  const lifecycleProfile = { customerId: created.id, itemId: item.id, ownerEmployeeId: await memberId(), reportedDate: "2026-10-02",
+    defectDescription: "Isolated HTTP lifecycle" };
+  const lifecycle = (await (await expect("defects", 201, "POST", lifecycleProfile)).json() as { data: { id: number; revision: number } }).data;
+  let defectRevision = lifecycle.revision;
+  for (const [action, target] of [["start-processing", "processing"], ["resolve", "resolved"], ["reopen", "processing"], ["invalidate", "processing"]]) {
+    const body = { expectedRevision: defectRevision, reason: "isolated HTTP lifecycle" };
+    const result = (await (await expect("defects/" + lifecycle.id + "/" + action, 200, "POST", body)).json() as { data: { revision: number; statusCode: string } }).data;
+    check(result.revision === defectRevision + 1 && result.statusCode === target, "DEFECT_HTTP_STATE_" + action);
+    defectRevision = result.revision;
+    const saved = await snapshot();
+    await expect("defects/" + lifecycle.id + "/" + action, 409, "POST", body, true, "DEFECT_REVISION_CONFLICT");
+    check(await snapshot() === saved, "DEFECT_HTTP_STALE_" + action);
+  }
+  const lifecycleAudit = await db.prepare("SELECT action,actor_employee_id FROM audit_events WHERE entity_type='defect' AND entity_key=? ORDER BY id")
+    .bind(String(lifecycle.id)).all<{ action: string; actor_employee_id: number }>();
+  check(JSON.stringify(lifecycleAudit.results.map(row => row.action)) === JSON.stringify([
+    "defect.processing.started", "defect.resolved", "defect.reopened", "defect.invalidated",
+  ]) && lifecycleAudit.results.every(row => row.actor_employee_id === creator?.created_by), "DEFECT_HTTP_LIFECYCLE_AUDIT");
+
   // Defect administrative deletion must ignore client capability flags.
   const defect = (await (await expect("defects", 201, "POST", {
     customerId: created.id, itemId: 1001, ownerEmployeeId: await memberId(), reportedDate: "2026-10-02",
@@ -300,4 +395,67 @@ export async function acceptBusinessHttpAuthority(db: D1Database, componentId: n
   const reviewed = await snapshot();
   await expect("worklogs/" + log.id + "/cancel-review", 403, "POST", { expectedRevision: submitted.revision + 1, ...spoof });
   check(await snapshot() === reviewed, "REVOKED_ADMIN_MUTATION");
+  await grant("WORKLOGS", 1);
+  const logPath = "worklogs/" + log.id;
+  let logRevision = submitted.revision + 1;
+  async function logAction(action: string, target: string): Promise<void> {
+    const body = { expectedRevision: logRevision, reason: "isolated HTTP lifecycle", ...spoof };
+    const result = (await (await expect(logPath + "/" + action, 200, "POST", body)).json() as {
+      data: { revision: number; statusCode: string; finalScore: string | null };
+    }).data;
+    check(result.revision === logRevision + 1 && result.statusCode === target, "WORKLOG_HTTP_STATE_" + action);
+    if (action === "cancel-review") check(result.finalScore === null, "WORKLOG_HTTP_CANCEL_SCORE");
+    logRevision = result.revision;
+    const saved = await snapshot();
+    await expect(logPath + "/" + action, 409, "POST", body, true, "WORK_LOG_REVISION_CONFLICT");
+    check(await snapshot() === saved, "WORKLOG_HTTP_STALE_" + action);
+  }
+  const stats = (await (await expect("worklogs/statistics?employeeId=" + owner.employee_id, 200)).json() as {
+    data: { reviewedCount: number; totalFinalScore: string; points: { workLogId: number }[] };
+  }).data;
+  check(stats.reviewedCount === 1 && stats.totalFinalScore === "1" && stats.points[0]?.workLogId === log.id, "WORKLOG_HTTP_REVIEW_STATS");
+  const finalized = await snapshot();
+  employee = "http-acceptance-owner"; role = "USER";
+  await expect(logPath + "/withdraw", 422, "POST", { expectedRevision: logRevision });
+  check(await snapshot() === finalized, "WORKLOG_HTTP_REVIEWED_WITHDRAW_MUTATION");
+  employee = "http-acceptance-other"; role = "ADMIN";
+  await logAction("cancel-review", "pending_review");
+  const clearedStats = (await (await expect("worklogs/statistics?employeeId=" + owner.employee_id, 200)).json() as {
+    data: { reviewedCount: number; points: unknown[] };
+  }).data;
+  check(clearedStats.reviewedCount === 0 && clearedStats.points.length === 0, "WORKLOG_HTTP_CANCEL_STATS");
+  employee = "http-acceptance-owner"; role = "USER";
+  await logAction("withdraw", "created");
+  const logProfile = { logDate: "2026-10-02", dateFrom: "2026-10-02", dateTo: "2026-10-02", workDays: "2", typeCode: "daily",
+    entries: [{ entryTypeCode: "standard", content: "HTTP lifecycle corrected", platformId: 3001, sortOrder: 0,
+      categories: [{ workLogCategoryId: 3002, quantity: "3", sortOrder: 0 }] }] };
+  const editLog = { ...logProfile, expectedRevision: logRevision, ...spoof };
+  const editedLog = (await (await expect(logPath, 200, "PATCH", editLog)).json() as {
+    data: { revision: number; entries: { id: number; content: string; categories: unknown[] }[] };
+  }).data;
+  check(editedLog.revision === logRevision + 1 && editedLog.entries[0]?.content === "HTTP lifecycle corrected"
+    && editedLog.entries[0]?.categories.length === 1, "WORKLOG_HTTP_EDIT_READBACK");
+  logRevision = editedLog.revision;
+  const editedSaved = await snapshot();
+  await expect(logPath, 409, "PATCH", editLog, true, "WORK_LOG_REVISION_CONFLICT");
+  check(await snapshot() === editedSaved, "WORKLOG_HTTP_STALE_EDIT");
+  await logAction("submit", "pending_review");
+  await logAction("withdraw", "created");
+  const deletion = { expectedRevision: logRevision };
+  await expect(logPath, 200, "DELETE", deletion);
+  await expect(logPath, 404);
+  check(await db.prepare("SELECT id FROM work_log_entries WHERE work_log_id=?").bind(log.id).first() === null,
+    "WORKLOG_HTTP_DELETE_CHILDREN");
+  const deletedSaved = await snapshot();
+  await expect(logPath, 404, "DELETE", deletion);
+  check(await snapshot() === deletedSaved, "WORKLOG_HTTP_DELETE_REPLAY");
+  const logAudit = await db.prepare("SELECT action,actor_employee_id FROM audit_events WHERE entity_type='work_log' AND entity_key=? ORDER BY id")
+    .bind(String(log.id)).all<{ action: string; actor_employee_id: number }>();
+  check(JSON.stringify(logAudit.results.map(row => row.action)) === JSON.stringify([
+    "work_log.review.submitted", "work_log.reviewed", "work_log.review.cancelled", "work_log.review.withdrawn",
+    "work_log.review.submitted", "work_log.review.withdrawn", "work_log.deleted",
+  ]) && logAudit.results[1]?.actor_employee_id === audit.results[0]?.actor_employee_id
+    && logAudit.results[2]?.actor_employee_id === audit.results[0]?.actor_employee_id
+    && logAudit.results.filter((_, i) => i !== 1 && i !== 2).every(row => row.actor_employee_id === owner.employee_id),
+    "WORKLOG_HTTP_LIFECYCLE_AUDIT");
 }
