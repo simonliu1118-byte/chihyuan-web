@@ -58,7 +58,7 @@ export async function acceptBusinessHttpAuthority(db: D1Database): Promise<void>
       .bind(await memberId(), module, enabled).run();
   }
   // Compare every business/config/Audit table; local projection/grants are setup.
-  const tables = await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('app_members','app_member_module_access','d1_migrations') ORDER BY name")
+  const tables = await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT GLOB '_cf_*' AND name NOT IN ('app_members','app_member_module_access','d1_migrations') ORDER BY name")
     .all<{ name: string }>();
   async function snapshot(): Promise<string> {
     const rows = await db.batch(tables.results.map(row => db.prepare('SELECT * FROM "' + row.name.replaceAll('"', '""') + '" ORDER BY rowid')));
@@ -149,15 +149,20 @@ export async function acceptBusinessHttpAuthority(db: D1Database): Promise<void>
     defectDescription: "Isolated HTTP Defect", ...spoof,
   })).json() as { data: { id: number; revision: number } }).data;
   const defectSaved = await snapshot();
+  employee = "http-acceptance-other";
+  await expect("defects", 403);
+  await grant("DEFECTS", 1);
   await expect("defects/" + defect.id, 403, "DELETE", { expectedRevision: defect.revision, ...spoof });
   check(await snapshot() === defectSaved, "USER_DEFECT_DELETE_MUTATION");
   role = "ADMIN";
   await expect("defects/" + defect.id, 200, "DELETE", { expectedRevision: defect.revision });
   const deleted = await db.prepare("SELECT id FROM defect_reports WHERE id=?").bind(defect.id).first();
   check(deleted === null, "ADMIN_DEFECT_DELETE");
-  role = "USER";
+  role = "USER"; employee = "http-acceptance-owner";
 
   // Sales HTTP lifecycle uses only synthetic ERP reference text in isolated D1.
+  const priorAudit = await db.prepare("SELECT * FROM audit_events ORDER BY id").all<{ id: number }>();
+  const auditBoundary = priorAudit.results.at(-1)?.id ?? 0;
   const order = (await (await expect("orders", 201, "POST", {
     customerId: created.id, orderDate: "2026-10-02", operatorEmployeeId: await memberId(),
     lines: [{ itemId: 1001, quantity: "2", unit: "EA", unitPrice: "1.25", sortOrder: 0 }], ...spoof,
@@ -179,11 +184,13 @@ export async function acceptBusinessHttpAuthority(db: D1Database): Promise<void>
     check(current.revision === revision + 1, "SALES_HTTP_REVISION_" + action);
     revision = current.revision;
   }
-  const orderAudit = await db.prepare("SELECT action,actor_employee_id FROM audit_events WHERE entity_type='sales_work_order' AND entity_key=? ORDER BY id")
-    .bind(String(order.id)).all<{ action: string; actor_employee_id: number }>();
+  const orderAudit = await db.prepare("SELECT action,actor_employee_id FROM audit_events WHERE entity_type='sales_work_order' AND entity_key=? AND id>? ORDER BY id")
+    .bind(String(order.id), auditBoundary).all<{ action: string; actor_employee_id: number }>();
   check(JSON.stringify(orderAudit.results.map(row => row.action)) === JSON.stringify([
     "sales_work_order.erp.filled", "sales_work_order.picked", "sales_work_order.shipped", "sales_work_order.shipment.reversed", "sales_work_order.voided",
   ]) && orderAudit.results.every(row => row.actor_employee_id === creator?.created_by), "SALES_HTTP_AUDIT");
+  const retainedAudit = await db.prepare("SELECT * FROM audit_events WHERE id<=? ORDER BY id").bind(auditBoundary).all();
+  check(JSON.stringify(retainedAudit.results) === JSON.stringify(priorAudit.results), "PREVIOUS_AUDIT_RETENTION");
   role = "USER";
 
   // WorkLog owner scope and ADMIN review are derived from the provider, not body.
