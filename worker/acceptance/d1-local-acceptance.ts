@@ -713,7 +713,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
     { expectedRevision: withdrawn.revision }, { actorMemberId: 1, now: t9 }), "WORK_LOG_TRANSITION_NOT_ALLOWED");
 
   await acceptSettingsAuditHttp(db);
-  await acceptBusinessHttpAuthority(db);
+  await acceptBusinessHttpAuthority(db, componentItem.id, finishedItem.id);
   await acceptRetiredIdentitySource(db);
   await acceptPortableRecovery(db, restoreDb);
   await acceptRetiredIdentityRestore(db, restoreDb);
