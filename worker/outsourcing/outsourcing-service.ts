@@ -141,7 +141,7 @@ export class OutsourcingService {
     const id=normalizeId(orderId);const input=normalizeTransitionRequest(raw);const state=await this.requireState(id);this.assertRevision(state,input.expectedRevision);
     if(state.statusCode!=="received")throw new OutsourcingServiceError("OUTSOURCING_TRANSITION_NOT_ALLOWED",422,"Pricing/payment must be reversed before receiving can be cancelled");
     const detail=await this.getDetail(id);if(!detail.receipt)throw new OutsourcingServiceError("OUTSOURCING_TRANSITION_NOT_ALLOWED",409,"Receiving record is missing");
-    const active=await this.repository.listActiveMovements(id,"receipt_consumption");const snapshot={receivedDate:detail.receipt.receivedDate,items:detail.receipt.items.map(i=>({itemId:i.itemId,bomRecipeId:i.bomRecipeId,quantity:i.quantity,unit:i.unitSnapshot}))};
+    const active=await this.repository.listActiveMovements(id,"receipt_consumption");const snapshot={receipt:detail.receipt,movementIds:active.map(m=>m.id)};
     const changed=await this.persistence.cancelReceipt(state,snapshot,active,input,context);if(!changed)this.throwRevisionConflict();return this.getDetail(id);
   }
 

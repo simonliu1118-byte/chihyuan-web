@@ -79,8 +79,10 @@ export async function acceptOutsourcingStaleEffects(db:D1Database,componentId:nu
   await stale("cancel-old-price-after-reprice",cancelledPrice,cancelPricing);
   await pair("cancel-reprice","received",cancelPricing);
   const consumed=await repository.listActiveMovements(orderId,"receipt_consumption");
-  const cancelReceipt=(value:OutsourcingRecordState)=>persistence.cancelReceipt(value,{acceptance:true},consumed,transition(value),context);
+  const cancelReceipt=(value:OutsourcingRecordState)=>persistence.cancelReceipt(value,{acceptance:true,movementIds:consumed.map(m=>m.id)},consumed,transition(value),context);
   const cancelledReceipt=await pair("cancel-receipt","outbound",cancelReceipt);
+  const cancelledMovements=await db.prepare("SELECT id,quantity_delta,outsourcing_receipt_id FROM contractor_stock_movements WHERE outsourcing_order_id=? AND movement_type='receipt_consumption'").bind(orderId).all<{id:number;quantity_delta:number;outsourcing_receipt_id:number|null}>();
+  if(cancelledMovements.results.length!==1||cancelledMovements.results[0].id!==consumed[0]?.id||cancelledMovements.results[0].quantity_delta!==-10000||cancelledMovements.results[0].outsourcing_receipt_id!==null)throw new Error("ACCEPT_OUTSOURCING_CANCEL_RECEIPT_LEDGER_PRESERVATION");
   await pair("receive-again","received",value=>persistence.receive(value,receipt(value),context));
   await stale("cancel-old-receipt-after-receive",cancelledReceipt,cancelReceipt);
   const newConsumption=await repository.listActiveMovements(orderId,"receipt_consumption");

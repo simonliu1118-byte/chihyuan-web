@@ -197,6 +197,8 @@ Cancellation is not an ordinary edit. Each action records shared Audit.
 
 The current pricing row is the active priced projection. Cancelling pricing records its transaction facts in Audit before removing the current projection and returning the workflow to `received`.
 
+Cancelling receipt records the full receipt snapshot and consumption movement IDs in Audit, inserts linked reversal movements, and clears only the nullable receipt link before removing the active receipt projection. Original stock quantities, order links and reversal links are retained. All effects and the final master revision transition share one atomic original-revision/status gate; stale cancellation cannot unlink or remove a newer receipt.
+
 Cancelling payment preserves the prior payment timestamp in Audit and clears the current payment projection before returning to `priced`.
 
 ## 13. Pending hard delete
