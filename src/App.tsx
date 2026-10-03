@@ -16,8 +16,9 @@ import { OutsourcingOperationalPage } from "./runtime/modules/OutsourcingOperati
 import { SalesOrderOperationalPage } from "./runtime/modules/SalesOrderOperationalPage";
 import { WorkLogOperationalPage } from "./runtime/modules/WorkLogOperationalPage";
 import { BackupOperationalPage } from "./runtime/modules/BackupOperationalPage";
+import { ProgramCatalogPage } from "./runtime/modules/ProgramCatalogPage";
 
-type AppRoute = "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "settings" | "audit" | "identity" | "backups";
+type AppRoute = "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "settings" | "audit" | "identity" | "backups" | "programs";
 
 const baseNavigation: readonly NavigationGroup[] = [
   {
@@ -44,6 +45,10 @@ const baseNavigation: readonly NavigationGroup[] = [
   },
 ];
 
+const programsNavigation: NavigationGroup = {
+  key: "tools", label: "工具", items: [{ key: "programs", label: "CY 程式", href: "#programs" }],
+};
+
 const routes = new Set<AppRoute>([
   "customers",
   "items",
@@ -55,6 +60,7 @@ const routes = new Set<AppRoute>([
   "settings",
   "audit",
   "backups",
+  "programs",
 ]);
 
 function currentRoute(): AppRoute {
@@ -125,6 +131,7 @@ function OperationalApp({
     return [
       { ...baseNavigation[0], items: business },
       { ...baseNavigation[1], items: administration },
+      programsNavigation,
     ];
   }, [allowedModules, session.user.workspaceRole]);
 
@@ -188,6 +195,7 @@ function OperationalApp({
   else if (route === "outsourcing") content = <OutsourcingOperationalPage />;
   else if (route === "worklogs") content = <WorkLogOperationalPage />;
   else if (route === "identity") content = <SharedIdentityPage session={session} />;
+  else if (route === "programs") content = <ProgramCatalogPage />;
   else if (route === "settings") content = <SettingsOperationalPage role={session.user.workspaceRole} />;
   else if (route === "backups") content = session.user.workspaceRole === "SUPER_ADMIN" ? <BackupOperationalPage /> : <section className="cy-op-panel">需要最高管理員權限。</section>;
   else content = <AuditOperationalPage />;

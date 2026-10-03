@@ -1,0 +1,15 @@
+.cy-program-catalog { max-width: 1440px; margin-inline: auto; }
+.cy-program-name { display: flex; align-items: center; gap: 12px; min-width: 230px; }
+.cy-program-name img { flex: 0 0 56px; object-fit: contain; }
+.cy-program-name > div { display: grid; gap: 4px; }
+.cy-program-name span, .cy-program-checked { color: var(--cy-text-secondary, #526174); font-size: .875rem; }
+.cy-program-description { margin: 0; max-width: 440px; line-height: 1.65; }
+.cy-program-links { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-width: 160px; }
+.cy-program-links a { white-space: nowrap; }
+.cy-program-meta { display: flex; flex-wrap: wrap; gap: 12px; margin-block: 12px 8px; }
+.cy-program-checked { line-height: 1.6; margin-bottom: 0; }
+@media (max-width: 767px) {
+  .cy-program-name { min-width: 0; }
+  .cy-program-description { margin-block: 10px; }
+  .cy-program-links { margin-top: 12px; }
+}
