@@ -15,7 +15,15 @@ interface Release {
 }
 
 class CatalogFailure extends Error {
-  constructor(readonly detail: NonNullable<ProgramCatalog["refreshFailure"]>) { super(detail.code); }
+  constructor(readonly detail: NonNullable<ProgramCatalog["refreshFailure"]>, readonly retryAt?: number) { super(detail.code); }
+}
+
+function rateLimitDeadline(response: Response, now: number): number {
+  const seconds = (value: string | null) => value && /^\d{1,12}$/.test(value) ? Number(value) : 0;
+  const retry = seconds(response.headers.get("retry-after"));
+  const reset = seconds(response.headers.get("x-ratelimit-reset"));
+  // Headers stay inside the reader. Never sleep/retry in the HTTP request.
+  return Math.min(now + 86400000, Math.max(now + 60000, now + retry * 1000, reset * 1000 + 1000));
 }
 
 /** A release is usable only when its known tag, published date and asset agree. */
@@ -47,11 +55,13 @@ export function selectProgramRelease(program: ProgramEntry, values: readonly unk
     releaseUrl: `${repository}/releases/tag/${tag}`, downloadUrl: asset ? expectedUrl : null };
 }
 
-async function readPage(response: Response): Promise<unknown[]> {
+async function readPage(response: Response, now: number): Promise<unknown[]> {
   if (!response.ok) {
-    const rateLimited = response.status === 429 || ((response.status === 403) && response.headers.get("x-ratelimit-remaining") === "0");
+    const rateLimited = response.status === 429 || ((response.status === 403)
+      && (response.headers.get("x-ratelimit-remaining") === "0" || response.headers.has("retry-after")));
     await response.body?.cancel().catch(() => undefined);
-    throw new CatalogFailure({ code: rateLimited ? "RATE_LIMIT" : "HTTP", httpStatus: response.status });
+    throw new CatalogFailure({ code: rateLimited ? "RATE_LIMIT" : "HTTP", httpStatus: response.status },
+      rateLimited ? rateLimitDeadline(response, now) : undefined);
   }
   if (!response.body) throw new CatalogFailure({ code: "BODY" });
   const reader = response.body.getReader();
@@ -74,7 +84,8 @@ async function readPage(response: Response): Promise<unknown[]> {
 }
 
 /** Fixed public source; no user URL, credential, request retry or DB mutation. */
-export async function readProgramCatalog(fetcher: typeof fetch = fetch, now = new Date().toISOString()): Promise<ProgramCatalog> {
+export async function readProgramCatalog(fetcher: typeof fetch = fetch, now = new Date().toISOString(),
+  onCooldown?: (retryAt: number) => void, clock: () => number = Date.now): Promise<ProgramCatalog> {
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), 8000);
   try {
@@ -85,7 +96,7 @@ export async function readProgramCatalog(fetcher: typeof fetch = fetch, now = ne
         // returns 3xx to readPage, which rejects it without following Location.
         signal: abort.signal, redirect: "manual", headers: { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "CYWeb-ProgramCatalog" },
       });
-      const rows = await readPage(response);
+      const rows = await readPage(response, clock());
       releases.push(...rows);
       if (rows.length < 100) break;
       if (page === 4) throw new CatalogFailure({ code: "PAGE_LIMIT" });
@@ -95,6 +106,7 @@ export async function readProgramCatalog(fetcher: typeof fetch = fetch, now = ne
     if (programs.some(program => program === null)) throw new CatalogFailure({ code: "MISSING" });
     return { programs: programs as ProgramEntry[], checkedAt: now, current: true };
   } catch (error) {
+    if (error instanceof CatalogFailure && error.retryAt !== undefined) onCooldown?.(error.retryAt);
     // Only an allowlisted classification/status crosses the authenticated API.
     // Never return provider bodies, exception text, headers, credentials or IPs.
     return { ...verifiedProgramCatalog, refreshFailure: error instanceof CatalogFailure ? error.detail
@@ -103,14 +115,21 @@ export async function readProgramCatalog(fetcher: typeof fetch = fetch, now = ne
   finally { clearTimeout(timer); }
 }
 
-let cached: { value: ProgramCatalog; expires: number } | undefined;
-let pending: Promise<ProgramCatalog> | undefined;
-export function loadProgramCatalog(): Promise<ProgramCatalog> {
-  if (cached && cached.expires > Date.now()) return Promise.resolve(cached.value);
-  if (pending) return pending;
-  pending = readProgramCatalog().then(value => {
-    cached = { value, expires: Date.now() + (value.current ? 300000 : 30000) };
-    return value;
-  }).finally(() => { pending = undefined; });
-  return pending;
+export function createProgramCatalogLoader(fetcher: typeof fetch = fetch, clock: () => number = Date.now): () => Promise<ProgramCatalog> {
+  let cached: { value: ProgramCatalog; expires: number } | undefined;
+  let pending: Promise<ProgramCatalog> | undefined;
+  let lastSuccess: ProgramCatalog | undefined;
+  return () => {
+    if (cached && cached.expires > clock()) return Promise.resolve(cached.value);
+    if (pending) return pending;
+    let retryAt: number | undefined;
+    pending = readProgramCatalog(fetcher, new Date(clock()).toISOString(), until => { retryAt = until; }, clock).then(value => {
+      if (value.current) lastSuccess = value;
+      else if (lastSuccess) value = { ...lastSuccess, current: false, refreshFailure: value.refreshFailure };
+      cached = { value, expires: value.current ? clock() + 300000 : retryAt ?? clock() + 30000 };
+      return value;
+    }).finally(() => { pending = undefined; });
+    return pending;
+  };
 }
+export const loadProgramCatalog = createProgramCatalogLoader();
