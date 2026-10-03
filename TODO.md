@@ -4,8 +4,8 @@
 
 ## 目前基準 — 2026-10-03（Asia/Tokyo）
 
-- 已接受並部署：**Development 0.7.16 Build 0**，source `825d277228c1133c757264ca5bdbb954d7c9d48d`，Development run `37087977710` attempt 1。兩入口首次觀察均符合版本／commit／consumer／D1，總計 391ms，無 redeploy。
-- Source **0.7.17 Build 0** 本輪依使用者要求移除 CY 程式頁「發版說明」連結，正在驗收／部署；已接受 Development 仍以上一列為準。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
+- 已接受並部署：**Development 0.7.17 Build 0**，source `cf33d1d46e41dc2a478bbd994f69afe0d2a5f722`，Development run `37113296429` attempt 1。兩入口首次觀察均符合版本／commit／consumer／D1，總計 294ms，無 redeploy。
+- Source **0.7.17 Build 0** 已依使用者要求移除 CY 程式頁「發版說明」連結並部署。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
 - CYID source/development **0.3.5 Build 0**；shared Consumer **1.0.2**，minimum **1.0.0**。`docs/contracts/cyid/` 依 canonical manifest exact-sync，支援窗及同步 gate 保留。
 - 固定入口 `https://admin.chihyuancm.com` 目前仍為 CY Web Development；CYID production provider 已完成不代表 CY Web production 已上線。
 - 六個業務模組及 Settings/Audit 使用單一 React → protected Worker API → D1。舊 local business authority、Group proxy、activation 入口與重複 local pages 已退休；無另加版本殼。
@@ -20,11 +20,12 @@
 
 ## UI／UX 與小功能階段的工作範圍
 
-- [ ] CY 程式頁移除獨立 GitHub 發版說明連結，保留網站入口與 compiled ZIP 下載；同一清單的 Desktop／Mobile 皆適用。本輪驗收／部署後更新此項。
+- [x] CY 程式頁移除獨立 GitHub 發版說明連結，保留網站入口與 compiled ZIP 下載；同一清單的 Desktop／Mobile 皆適用。共用 render 核對／TypeScript／Vite 及 required remote checks 通過，已部署 0.7.17；既有 SUPER_ADMIN 重新載入後實際顯示七列、僅一個網站與三個下載連結，無發版說明。
 
 - [x] CY 程式頁工程驗收與 Development 部署：所有已登入使用者均可使用，不需 Module Access。四個正式程式提供版本／日期／功能／核准 ICON 與網頁或 compiled Release 入口；SMART 銷貨單格式轉換工具、CYEnvelope、CYWatermark 先保留功能介紹並標示尚未發版，不提供虛構下載。
 - [x] 既有 SUPER_ADMIN 的 Desktop `#programs` 導覽、七項介紹、圖示載入、已確認版本／日期、三個未發版無連結、更新 loading 及失敗標示已觀察。三個公開 compiled ZIP 經匿名 HTTP HEAD／redirect 回 200，網頁入口可到 CYAccountingWeb 登入頁；未下載執行桌面程式。
 - [ ] **CY 程式正式版本即時更新待修／驗收**：初次載入及手動更新均回到已確認 snapshot；目前七項與已公開最新版本相符，但不能視為 live Release refresh 成功。Repository 確認為 public；Git connector 與 scratch 匿名 API 可讀八個 Release，尚未取得部署 Worker subrequest 的狀態／錯誤證據，不臆測為 rate limit，也不以重跑部署或新增版本殼處理。
+- 相同公開 API 實際 response（57426 bytes／八個 Release）輸入現行 reader 後回 `current=true`，四個正式版本選取正確，三個未發版保留 null；解析未重現失敗。下一步取部署端 subrequest 的安全錯誤分類／HTTP status 證據，再按原因修正；不盲目換來源或注入憑證。
 - [ ] `#programs` Tablet/Mobile、USER/ADMIN（含無 Module Access）的真人畫面與實際下載使用尚待確認；既有 isolated 三 Role API 通過不代替這些結果。
 
 - [ ] 依統一人工清單收集實際操作與畫面問題，回寫本文件，不另建平行進度表。
@@ -116,7 +117,9 @@
 - [ ] 驗收完成後依相依順序使用正常產品行為清理；不可逆清理取得當次確認，保留必要 Audit/history 與其他資料。此項不授權清空資料庫。
 - 使用既有登入帳號，未建立驗收帳號；日後若新增受控帳號須補清單，不刪既有使用者／authority。此清單與 production 乾淨 schema provisioning 分離，目前未執行清理。
 
-## CY 程式頁驗收證據 — 0.7.16 Build 0
+## CY 程式頁驗收證據
+
+- 0.7.17 移除 GitHub 發版說明連結：[PR #131](https://github.com/simonliu1118-byte/chihyuan-web/pull/131) accepted head `8181442e43c559bcb7a40c53a99e6c64d4b79fcf`，五個 source/docs blobs exact-match。共用 render 核對 Desktop／Mobile 無發版說明／releases-tag link，網站與三個 compiled ZIP、未發版狀態保留；TypeScript 與無 host shim 的 Vite build 通過。Governance `37113205038`、Runtime `37113205050`、deploy contract `37113205044` 均通過。[Development run 37113296429](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/37113296429) attempt 1 通過 source／consumer／D1、canonical 與 invalid Session fallback，兩入口首次 ready，294ms。版本更新 reader 未更改，live refresh 待修不因本輪部署而視為完成。
 
 - [PR #129](https://github.com/simonliu1118-byte/chihyuan-web/pull/129) accepted head `5427489115e103d232b091e3e0cca9c96ee6c628`，22 個 blobs 與本機／合併 tree exact-match；六個 AITeam SVG 的 bytes、SHA-256、Git blob 完全一致，source provenance 在 assets manifest。未公開 private Release 或 key，未修改其他 App source。
 - Local TypeScript／source／actual Worker/D1 全套與 Vite build 通過；共用 Desktop 表格／Mobile cards 的渲染核對通過。GitHub Governance `37087879187`、Runtime `37087879207`、deploy contract `37087879183` 全通過；未修改的遠端 actual D1 執行新增 mandatory `programCatalog`，包含三 Role／無 Module Access、未登入／invalid／unavailable provider／GET-only、正式 semver、trusted ZIP、分頁及上限、標示 snapshot 與三個未發版空連結。
