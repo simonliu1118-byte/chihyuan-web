@@ -4,8 +4,8 @@
 
 ## 目前基準 — 2026-10-03（Asia/Tokyo）
 
-- 已接受並部署：**Development 0.7.20 Build 0**，source `3c0d285aefe0e5a8a4dc19f09f61799efe88c016`，Development run `37118566726` attempt 1。兩入口首次觀察均符合版本／commit／consumer／D1，總計 290ms，無 redeploy。
-- Source **0.7.20 Build 0** 已完成 quota cooldown／最近成功版本保留，並包含既有 skip-link 修正；CY 程式頁仍依使用者要求不顯示「發版說明」連結。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
+- 已接受並部署：**Development 0.7.21 Build 1**，source `abcd1f9d2833b05236f39693aa962ac0b046f076`，Development run `37119745615` attempt 1。canonical 初次仍為前一 source，既有 health reader 下一次觀察兩入口符合版本／commit／consumer／D1，總計 1516ms，無 redeploy。
+- Source **0.7.21 Build 1** 已採用 Customer／WorkLog 共用 Dialog／ConfirmDialog，修正關閉焦點並移除六模組／Shell 工程描述；包含 quota cooldown／最近成功版本保留及 skip-link 修正；CY 程式頁仍依使用者要求不顯示「發版說明」連結。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
 - CYID source/development **0.3.5 Build 0**；shared Consumer **1.0.2**，minimum **1.0.0**。`docs/contracts/cyid/` 依 canonical manifest exact-sync，支援窗及同步 gate 保留。
 - 固定入口 `https://admin.chihyuancm.com` 目前仍為 CY Web Development；CYID production provider 已完成不代表 CY Web production 已上線。
 - 六個業務模組及 Settings/Audit 使用單一 React → protected Worker API → D1。舊 local business authority、Group proxy、activation 入口與重複 local pages 已退休；無另加版本殼。
@@ -37,11 +37,12 @@
 - [ ] 使用者提出小功能後記錄需求與驗收條件，再開獨立工作項目；不自行假設第一版要增加什麼。
 - [ ] 每批 UI／功能變更跑適用 automated regression，真人/裝置 checklist 仍須實際確認。
 
-- [x] 既有 SUPER_ADMIN 合成 WorkLog Desktop 送審（rev.3）、審核（rev.4）、reload／統計 1 筆／1 日／2.5 分、取消審核（rev.5）統計歸零、撤回回草稿（rev.6）已觀察；未操作其他員工真實日誌。
+- [x] 既有 SUPER_ADMIN 合成 WorkLog Desktop 共用表單：送審 rev.7 → 審核 rev.8（1 日／2.5 分）→ 取消審核 rev.9（統計歸零）→ 撤回回草稿 rev.10。無效日數被拒絕且欄位保留；兩頁籤 rev.7 表單於另一頁完成後被拒絕，未覆蓋 rev.8；未操作其他員工真實日誌。
 
-- [x] Desktop Audit 四筆 WorkLog 送審／審核／取消／撤回，entity work_log/1、actor 2、filter 與取消狀態／原因 readback 通過；WorkLog rev.6 返回頁面仍保留草稿，已審篩選空資料提示通過。Frequent Item 移除確認取消後既有合成品項保留，未 hard delete。
+- [x] Desktop Audit 本輪新增四筆 WorkLog 送審／審核／取消／撤回，累計八筆，entity work_log/1、actor 2；取消 reviewed → pending_review 與本輪合成原因 readback 通過。Customer ERP 表單／主檔取消、Visit 刪除 Escape 及 Frequent Item 移除取消後原資料保留；Customer rev.4、新舊 Visit／Frequent Item 未改，未 hard delete。
 - [x] 最後進行 Desktop 共用 UI／UX 檢查：1363×936 程式頁無 document 橫向溢出、七個可見 ICON 56px 載入、active navigation 與網站／ZIP rel 正確。Keyboard Tab 可到 skip link，但 Enter 將 hash 改成 cy-main-content 而切到 Identity，為實測 bug；0.7.19 共用 AppShell 改成只移焦點，live Tab → Enter 確認 hash 保持 #programs、activeElement 為 cy-main-content、CY 程式內容不變。
-- [ ] 0.7.21 共用 UI 整理：Customer／WorkLog 已改既有 Dialog／ConfirmDialog；WorkLog 一次填寫工作日數／整體備註／各項分數；客戶 ERP 編號與原因同一表單。編輯／已修改彈窗關閉採 shared async dirty guard，busy 鎖定，高風險 API 維持等伺服器成功才更新。六模組及 Shell 工程描述改使用者語言。0.7.21 required CI／Development 部署通過，live 發現 shared Dialog unmount 時焦點落到 BODY；Build 1 以 layout cleanup 關閉並移回原觸發元素，待 CI／部署與 Desktop 完整驗收；跨模組導覽及真實裝置仍未驗收。
+- [x] 0.7.21 共用 UI 整理與 Build 1 焦點修正：Customer／WorkLog 採既有 Dialog／ConfirmDialog；WorkLog 一次填工作日數／整體備註／各項分數，客戶 ERP 編號與原因同一表單。dirty guard 的取消保留／放棄、busy inputs／actions／dismissal 鎖定、失敗及 stale 表單保留，Desktop 已實測。Escape／取消回 connected 原按鈕；nested confirmation 取消回原表單取消按鈕；native Tab 經 browser chrome 後回 dialog，未進入背景頁。1363×936 審核畫面無 document 橫向溢出。六模組及 Shell 工程描述改使用者語言。
+- [ ] 共用 UI 後續：跨模組 hash navigation 的未儲存保護、Customer 重複統編確認／ERP 編號正式送出、reason 表單 dirty 取消，以及多項日誌表單的實機／角色／裝置驗收仍待完成；本輪只驗收 ERP 表單取消，不寫入 ERP 編號。
 
 ## 已接受的工程與驗收範圍
 
@@ -54,7 +55,7 @@
 | Item / Defect | Item HTTP create/edit/renumber/stale／number Audit、精確成本／單位換算；Defect HTTP processing/resolved/reopen/invalidate/stale／Audit，creator 與 ADMIN 刪除界線 | 真實正式 Item、完整 lifecycle 畫面及裝置驗收 |
 | Sales Order | ERP fill/correction、waiting/pick/ship/reversal/void、draft edit/delete、stale snapshot 及精確 Audit；HTTP 主要生命週期 | 合法 ERP 參考及真實多角色／畫面驗收 |
 | Outsourcing | 全九種 persistence 轉換／stale replay、庫存與 receipt/pricing ledger preservation；取消後重建資料不被舊請求改動 | 完整 protected HTTP 計算／BOM／計價／反轉遠端已通過；真人流程未完成 |
-| WorkLog | service lifecycle、併發／Audit；HTTP CRUD/submit/withdraw/review/cancel-review／statistics、cascade、精確 actor 與 stale；owner、非 owner、ADMIN／revoked-access 邊界 | 完整畫面、統計與設定組合及真人多角色 |
+| WorkLog | service lifecycle、併發／Audit；HTTP CRUD/submit/withdraw/review/cancel-review／statistics、cascade、精確 actor 與 stale；owner、非 owner、ADMIN／revoked-access 邊界 | 既有 SUPER_ADMIN 合成 Desktop workflow／錯誤／stale 通過；其他角色、設定組合、多項表單及裝置待驗收 |
 | Backup / recovery | separate migrated D1 還原、FK／duplicate rollback、immutable copies、catalog/retry/retention、ephemeral R2；GCS 使用模擬 HTTP | 真實 GCS/R2 及排程、獨立 DR、實際 SUPER_ADMIN 畫面驗收 |
 | ID / Audit | 九種 standalone entity 刪除後不重用 ID；migration backfill／rollback／備份還原後分配及 exact entity-key history | 無法推斷未留證據的舊 ID，也未重寫既有可能混淆的 Audit |
 
@@ -122,45 +123,16 @@
 ### Development 測試資料清理 — 驗收後
 
 - [ ] 核對此工作線建立的合成資料、ID/reference 及支援的正常清理行為；Git 只記錄非敏感結果。
-- 保留範圍：Customer `CYWEB 驗收 20261001` revision 4（合成 phone/contact/address/note）；linked Visit revision 5；新增 Visit `2026-10-03` revision 1（改名後 snapshot 合成驗收）；自由文字 Frequent Item `Development 常用商品驗收（未建檔合成品項）`；draft WorkLog type `DEVELOPMENT_ACCEPTANCE` revision 6。未建立 live 正式 Item/Quote。
+- 保留範圍：Customer `CYWEB 驗收 20261001` revision 4（合成 phone/contact/address/note）；linked Visit revision 5；新增 Visit `2026-10-03` revision 1（改名後 snapshot 合成驗收）；自由文字 Frequent Item `Development 常用商品驗收（未建檔合成品項）`；draft WorkLog type `DEVELOPMENT_ACCEPTANCE` revision 10。未建立 live 正式 Item/Quote。
 - [ ] 驗收完成後依相依順序使用正常產品行為清理；不可逆清理取得當次確認，保留必要 Audit/history 與其他資料。此項不授權清空資料庫。
 - 使用既有登入帳號，未建立驗收帳號；日後若新增受控帳號須補清單，不刪既有使用者／authority。此清單與 production 乾淨 schema provisioning 分離，目前未執行清理。
 
-## CY 程式頁驗收證據
+## 目前接受與部署證據
 
-- 0.7.19 [PR #135](https://github.com/simonliu1118-byte/chihyuan-web/pull/135)，accepted head `02f73d04b28179d6ec85baf0ca2340c0291bd472`，五 blobs exact-match；Governance 37117449546／Runtime 37117449543／deploy contract 37117449462 通過。[Development run 37117553352](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/37117553352) attempt 1，兩入口首次 source／consumer／D1 正確，348ms；live 初次／手動版本讀取及 skip-link route/focus 通過。Customer 新 Visit、WorkLog 狀態／統計／Audit 與 fixture 清單見上方，沒有依此推論其他角色／裝置／真實外部服務已驗收。
-
-- 0.7.17 移除 GitHub 發版說明連結：[PR #131](https://github.com/simonliu1118-byte/chihyuan-web/pull/131) accepted head `8181442e43c559bcb7a40c53a99e6c64d4b79fcf`，五個 source/docs blobs exact-match。共用 render 核對 Desktop／Mobile 無發版說明／releases-tag link，網站與三個 compiled ZIP、未發版狀態保留；TypeScript 與無 host shim 的 Vite build 通過。Governance `37113205038`、Runtime `37113205050`、deploy contract `37113205044` 均通過。[Development run 37113296429](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/37113296429) attempt 1 通過 source／consumer／D1、canonical 與 invalid Session fallback，兩入口首次 ready，294ms。版本更新 reader 未更改，live refresh 待修不因本輪部署而視為完成。
-
-- [PR #129](https://github.com/simonliu1118-byte/chihyuan-web/pull/129) accepted head `5427489115e103d232b091e3e0cca9c96ee6c628`，22 個 blobs 與本機／合併 tree exact-match；六個 AITeam SVG 的 bytes、SHA-256、Git blob 完全一致，source provenance 在 assets manifest。未公開 private Release 或 key，未修改其他 App source。
-- Local TypeScript／source／actual Worker/D1 全套與 Vite build 通過；共用 Desktop 表格／Mobile cards 的渲染核對通過。GitHub Governance `37087879187`、Runtime `37087879207`、deploy contract `37087879183` 全通過；未修改的遠端 actual D1 執行新增 mandatory `programCatalog`，包含三 Role／無 Module Access、未登入／invalid／unavailable provider／GET-only、正式 semver、trusted ZIP、分頁及上限、標示 snapshot 與三個未發版空連結。
-- [Development run 37087977710](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/37087977710) attempt 1 通過 exact CYID sync/support window、七 migration、build/deploy、兩入口 `0.7.16`／source `825d277228c1133c757264ca5bdbb954d7c9d48d`／consumer `1.0.2`／D1 ok、canonical 與 invalid Session fallback；首次觀察 ready，391ms，無 redeploy。未執行 production 發布或 live 業務資料寫入。
-- 2026-10-03 Desktop live read-only review：既有 SUPER_ADMIN 開啟 `#programs`、更新 loading／labelled snapshot、七列圖示及三個未發版零連結通過；三個 compiled ZIP HEAD 跟隨 redirect 均 200；網站入口至 CYAccountingWeb 登入頁，未登入另一 App。公開 Release API 確認八列且 snapshot 版本相符，但部署端 live refresh 未成功，列為待修。未更動帳號、grants、業務 fixture、Email／雲端或 production，未把 snapshot 顯示算成 live refresh 成功。
-
-## 已接受業務 HTTP lifecycle — 0.7.15 Build 0
-
-- Local actual Worker/D1 通過：Item create/edit/renumber、舊版本 409、精確成本／conversion／number Audit；Quote create/correct、新歷史保留、精確 price breaks／Audit before/after/reason；Visit create/edit/delete；正式／自由文字 Frequent Item create/edit/delete 及舊 timestamp edit/delete 409；Defect processing/resolve/reopen/invalidate 及逐步 stale replay／精確 Audit。
-- WorkLog HTTP review/statistics、ADMIN cancel-review、owner withdraw/edit/submit/withdraw/delete 與 cascade、stale／delete replay、精確七筆 Audit actor 通過；撤銷後統計不包含未審紀錄，已審不可直接 withdraw。初次 local expectation 用非 owner 測 withdraw 得 403；改為 owner 測 state 422，未改業務權限。
-- 相同套件包括先前六模組 HTTP authority、Sales／Outsourcing lifecycle、settings/Audit、全部 domain/stale／ID／backup/recovery，七 migration/48 tables 及 source/TypeScript/Vite 都通過。Local scratch shim 不進 repo/CI。[PR #127](https://github.com/simonliu1118-byte/chihyuan-web/pull/127) accepted head `24a15de0774d055435e13014f8556a14ec512a71`，四 blobs exact-match；merged source `d0f380c4492795fb1c939559b657c586cf163d2b`。Governance `37027576034`、Runtime `37027575424`、deploy contract `37027575046` 全通過；actual isolated D1 acceptance／Vite build 及 types 均成功。[Development run 37027810625](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/37027810625) attempt 1 通過 exact CYID sync/support window、七 migration、source build/deploy、兩入口正確 source/consumer/D1、canonical 與 invalid Session fallback；32620ms ready，未重部署。
-- 全部新增資料只存在 ephemeral D1；live fixture、權限、Email、ERP／庫存／付款及雲端設定未操作。
-
-## 已接受委外 HTTP 驗收 — 0.7.14 Build 0
-
-- 委外 HTTP 建立 Contractor／BOM／Current Price → 建單 → 確認出庫 → ADMIN 修正 → 入庫 → 計價 → 付款 → 撤銷付款／計價／入庫／出庫通過。CASE 轉 24 EA，2 CASE 出庫 48 EA，3 成品依 BOM 耗料 6 EA，3 × 1.25 = 3.75，最終庫存歸零。
-- 九種轉換舊 revision 重送均回 409，完整 business/config/Audit snapshot 不變；USER body 偽造不能修正／取消出庫或刪除，ADMIN 不能硬刪已出庫單，未逆付款不能撤銷計價／入庫，精確九筆 Audit 及 server actor 通過。
-- Local actual Worker/D1 全套、七 migration／48 tables、TypeScript、source validation 及 whitespace 通過。只在 scratch 使用既有 host loopback shim；未提交或供 CI／部署使用。[PR #126](https://github.com/simonliu1118-byte/chihyuan-web/pull/126) head `8a5d3db15a7eb78a44cb26764007304e2f7e985b`，五個 blobs exact-match；Governance `37026324707`、Runtime `37026324511`、deploy contract `37026324698` 全通過。Development `37026541319` attempt 1 通過部署、兩入口 source/consumer/D1、canonical 與 invalid Session fallback。
-- 本輪未操作 live fixture／帳號、真實 ERP／庫存／付款、Email、權限或雲端設定。
-
-## 保留的 ID 修正證據
-
-### Retired identity release acceptance — 0.7.13 Build 0
-
-- [PR #124](https://github.com/simonliu1118-byte/chihyuan-web/pull/124) accepted head `e36727cb7d26e0c61cd9ab11c906b65494af89ac`; merged source `332bb2694a239cc22f3379a25adac4ab916f25cb`. All 25 changed source/schema/document blobs reconciled exactly before merge; local merged tree matches accepted remote source. No governance/Identity/other-App rules changed.
-- Required unmodified remote checks passed without source/job retry: Governance `37008313399`, Runtime `37008313258` (actual isolated Worker/D1 nine-entity retirement/rollback/restored-allocation/Audit-isolation plus domain/HTTP/portable/tiered/isolated-recovery acceptance and Vite build), deployment contract `37008313232`. Schema validation also verifies nonempty old-schema migration preserves business rows/events, backfills an audited deleted ID, ignores nonnumeric keys, never lowers retirement and rolls back with deletion; fresh targets remain empty.
-- [Development Deploy 37008551551](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/37008551551) **attempt 1 passed** exact CYID canonical sync/support window, all seven migrations including `0007_retired_entity_ids`, build/deploy, source/consumer/D1 health, canonical Custom Domain and invalid-provider-Session fallback. Both origins returned `0.7.13`, exact source commit `332bb2694a239cc22f3379a25adac4ab916f25cb`, consumer `1.0.2`, database `ok` on first observations; total health **427ms**, `exceededFormerWindow:false`. 此項證據屬 0.7.13；目前 Development 以頂端基準為準。
-- [x] The focused newly-created-entity ID reuse / mixed Audit association blocker is resolved for the nine canonical standalone create paths. The earlier open-blocker/development-0.7.12 checkpoints are superseded. The exact full Sales entity-key history assertion now passes without an event-ID filter, and restored identities cannot inherit the deleted predecessor's Audit.
-- Existing IDs, business fixtures, accounts and historical Audit were not rewritten/deleted. Development applied the forward schema/watermark migration; it does not infer unrecorded historical identities or repair already ambiguous events. Production was not deployed. Backup credentials/activation/schedule, Email, cloud provisioning and authority remain unchanged.
-- Full live six-module workflows, real Identity/multi-role/browser/device acceptance, legitimate ERP Item/Quote references, deferred Email and week-of-2026-10-05 R2/GCS setup, production readiness and existing fixture cleanup retain the consolidated manual/pending lists above. The user will review and request UI adjustments in one later manual round; no manual acceptance is inferred from this automated correction.
+- quota/cache：[PR #137](https://github.com/simonliu1118-byte/chihyuan-web/pull/137) accepted head `af2c8eb446846bf1daac837afd667f216a1d5556`；Governance `37118362496`、Runtime `37118362481`、deploy contract `37118362503` 通過。Development `37118566726` attempt 1，290ms ready。Actual loader 隔離測試包含 concurrent coalescing、5min cache、reset／retry-after、invalid header、最近成功資料保留及 on-demand recovery；live reload／manual refresh 仍標示 fallback，不能推論 quota 恢復或跨 isolate 全域快取。
+- 共用 UI：[PR #138](https://github.com/simonliu1118-byte/chihyuan-web/pull/138) accepted head `f19109774f48392f924e65788ba9a2468a8b3135`，14 blobs 及 tree exact-match；local TypeScript／source／Vite 通過。Governance `37119318772`、Runtime `37119318792`（actual D1 full acceptance）、deploy contract `37119318807` 通過；Development `37119391904` attempt 1，421ms ready。Live 取消後 BODY 焦點問題於同工作項目 Build 1 修正。
+- 焦點修正：[PR #139](https://github.com/simonliu1118-byte/chihyuan-web/pull/139) accepted head `78ffaf1f3d512655f972e4f073f31d3bdec8b779`，四 blobs exact-match；local TypeScript／Vite、Governance `37119656203`、Runtime `37119656168` 通過。UI-only 路徑不觸發 PR deploy-contract；[Development run 37119745615](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/37119745615) 包含部署契約／完整 build／health，attempt 1 成功，canonical 前一 source 下一次觀察轉新 source，1516ms ready，未 redeploy。共享 Dialog layout cleanup 於移除前關閉／回焦點，live connected trigger／nested form／review cancel 通過。
+- 最新 Runtime 的 actual Worker/D1 full suite 仍包含六模組 protected HTTP／roles／grants／stale／domain lifecycle／exact Audit／ID non-reuse／restore／backup regression、七 migrations／48 tables、Program Catalog 三 Role 無 Module Access及 trusted release；provider、R2/GCS 等隔離邊界不替代真人／真實外部服務驗收。已完成語意與未完成範圍見上方矩陣。舊版本逐輪 PR／run／preview 記錄以 Git history 追溯，避免在本文件保存互相矛盾的過期基準。
 
 ## Topic source map
 
@@ -176,5 +148,3 @@
 - Current progress: this file only
 
 Historical preview/audit/readiness/review material under `docs/architecture/archive/` and Git history is evidence only, not current contract.
-
-- 0.7.20 quota/cache：[PR #137](https://github.com/simonliu1118-byte/chihyuan-web/pull/137) accepted head `af2c8eb446846bf1daac837afd667f216a1d5556`；Governance `37118362496`、Runtime `37118362481`、deploy contract `37118362503` 通過。Development `37118566726` attempt 1 成功，兩入口首次 ready，290ms。隔離 loader 測試包含 concurrent coalescing、5min cache、quota deadline／retry-after、invalid header、最近成功資料保留及 on-demand recovery；不代表跨 isolate 全域快取或 live quota 恢復。
