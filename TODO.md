@@ -4,14 +4,14 @@
 
 ## 目前基準 — 2026-10-03（Asia/Tokyo）
 
-- 已接受並部署：**Development 0.7.21 Build 1**，source `abcd1f9d2833b05236f39693aa962ac0b046f076`，Development run `37119745615` attempt 1。canonical 初次仍為前一 source，既有 health reader 下一次觀察兩入口符合版本／commit／consumer／D1，總計 1516ms，無 redeploy。
-- Source **0.7.21 Build 1** 已採用 Customer／WorkLog 共用 Dialog／ConfirmDialog，修正關閉焦點並移除六模組／Shell 工程描述；包含 quota cooldown／最近成功版本保留及 skip-link 修正；CY 程式頁仍依使用者要求不顯示「發版說明」連結。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
+- 已接受並部署：**Development 0.7.22 Build 0**，source `f682a666afd1d37ef0ed276ca2e752118189114d`，Development run `37121550746` attempt 1。兩入口初次仍為 0.7.21，既有 health reader 下一次觀察兩入口符合版本／commit／consumer／D1，總計 1471ms，無 redeploy。
+- Source **0.7.22 Build 0** 已加入單次切換模組提醒，並沿用 Customer／WorkLog 共用 Dialog／ConfirmDialog，修正關閉焦點並移除六模組／Shell 工程描述；包含 quota cooldown／最近成功版本保留及 skip-link 修正；CY 程式頁仍依使用者要求不顯示「發版說明」連結。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
 - CYID source/development **0.3.5 Build 0**；shared Consumer **1.0.2**，minimum **1.0.0**。`docs/contracts/cyid/` 依 canonical manifest exact-sync，支援窗及同步 gate 保留。
 - 固定入口 `https://admin.chihyuancm.com` 目前仍為 CY Web Development；CYID production provider 已完成不代表 CY Web production 已上線。
 - 六個業務模組及 Settings/Audit 使用單一 React → protected Worker API → D1。舊 local business authority、Group proxy、activation 入口與重複 local pages 已退休；無另加版本殼。
 - 備份／isolated recovery 工程已實作；實際雲端備份及排程仍未啟用。Production 業務資料 cutover 尚未執行。
 
-- 本輪工作順序：版本即時更新修正 → Contact 改名後新 Visit 補測 → 既有帳號 Desktop 流程補驗收 → 最後共用 UI／UX 檢查。
+- 本輪已完成單次切換模組提醒與既有 SUPER_ADMIN Desktop 驗收；後續依下方未勾選項目整理共用 UI／UX。
 
 ## 後續順序
 
@@ -42,8 +42,8 @@
 - [x] Desktop Audit 本輪新增四筆 WorkLog 送審／審核／取消／撤回，累計八筆，entity work_log/1、actor 2；取消 reviewed → pending_review 與本輪合成原因 readback 通過。Customer ERP 表單／主檔取消、Visit 刪除 Escape 及 Frequent Item 移除取消後原資料保留；Customer rev.4、新舊 Visit／Frequent Item 未改，未 hard delete。
 - [x] 最後進行 Desktop 共用 UI／UX 檢查：1363×936 程式頁無 document 橫向溢出、七個可見 ICON 56px 載入、active navigation 與網站／ZIP rel 正確。Keyboard Tab 可到 skip link，但 Enter 將 hash 改成 cy-main-content 而切到 Identity，為實測 bug；0.7.19 共用 AppShell 改成只移焦點，live Tab → Enter 確認 hash 保持 #programs、activeElement 為 cy-main-content、CY 程式內容不變。
 - [x] 0.7.21 共用 UI 整理與 Build 1 焦點修正：Customer／WorkLog 採既有 Dialog／ConfirmDialog；WorkLog 一次填工作日數／整體備註／各項分數，客戶 ERP 編號與原因同一表單。dirty guard 的取消保留／放棄、busy inputs／actions／dismissal 鎖定、失敗及 stale 表單保留，Desktop 已實測。Escape／取消回 connected 原按鈕；nested confirmation 取消回原表單取消按鈕；native Tab 經 browser chrome 後回 dialog，未進入背景頁。1363×936 審核畫面無 document 橫向溢出。六模組及 Shell 工程描述改使用者語言。
-- [ ] 0.7.22 切換模組提醒：六模組編輯／Settings／Customer 關聯編輯採共用 guard，普通導覽及 hash／Back 單次詢問「確定切換」／「放棄切換，繼續編輯」。確認即放棄並切換，不強制儲存、不另建保存層、不追加確認。拒絕保留原頁／欄位；busy 操作及權限強制返回不受過期同意覆蓋。目的模組等待自己的權限檢查才 mount。六項 transition tests 通過；待 required CI／Development 與 browser 實測。
-- [ ] 共用 UI 後續：Customer 重複統編確認／ERP 編號正式送出、reason 表單 dirty 取消，以及多項日誌表單的實機／角色／裝置驗收仍待完成；本輪只驗收 ERP 表單取消，不寫入 ERP 編號。
+- [x] 0.7.22 切換模組提醒：六模組編輯／Settings／Customer 關聯編輯採共用 guard，普通導覽及 hash／Back 單次詢問「確定切換」／「放棄切換，繼續編輯」。確認即放棄並切換，不強制儲存、不另建保存層、不追加確認。拒絕保留原頁／欄位；busy 操作及權限強制返回不受過期同意覆蓋。目的模組等待自己的權限檢查才 mount。六項 transition tests、TypeScript／build 及 required CI 通過（Governance `37121454070`、Runtime `37121454067`、部署契約 `37121454072`）。Development 已部署；既有 SUPER_ADMIN Desktop 側邊欄／Back 的確認與放棄皆實測，取消保留 Customer 欄位及兩項未儲存 WorkLog 內容，確認一次即切換。Customer 回讀仍為原內容／rev.4，WorkLog 仍為單筆草稿／rev.10；本輪無儲存、送審或刪除。其他角色／裝置及 Identity 專屬表單不外推為已驗收。
+- [ ] 共用 UI 後續：Customer 重複統編確認／ERP 編號正式送出、reason 表單 dirty 取消，以及多項日誌儲存／審核與其他角色／裝置驗收仍待完成；本輪只驗收 ERP 表單取消，不寫入 ERP 編號。
 
 ## 已接受的工程與驗收範圍
 
