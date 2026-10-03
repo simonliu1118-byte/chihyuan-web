@@ -397,7 +397,7 @@ export function DefectOperationalPage() {
       <div className="cy-op-page-header">
         <div>
           <h1>瑕疵</h1>
-          <p>瑕疵列表、建檔、處理流程與作廢直接由 CY Web Worker / D1 管理；作廢是覆蓋旗標，不是第四個工作狀態。</p>
+          <p>管理瑕疵紀錄、處理進度及作廢。</p>
         </div>
         <div className="cy-op-page-actions">
           <button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增瑕疵</button>

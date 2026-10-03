@@ -39,5 +39,11 @@ export function useUnsavedChangesGuard({
     [active, message],
   );
 
-  return { confirmNavigation };
+  const confirmNavigationAsync = useCallback(async (confirm: (message: string) => Promise<boolean>): Promise<NavigationDecision> => {
+    if (!active) return { allowed: true, reason: "clean" };
+    const allowed = await confirm(message);
+    return { allowed, reason: allowed ? "confirmed" : "cancelled" };
+  }, [active, message]);
+
+  return { confirmNavigation, confirmNavigationAsync };
 }

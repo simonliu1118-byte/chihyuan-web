@@ -56,7 +56,6 @@ def main() -> int:
         "createCustomerVisit",
         "createCustomerQuote",
         "createCustomerFrequentItem",
-        "Worker / D1",
     ]:
         if token not in customer:
             raise AssertionError(f"missing D1 Customer operational behavior: {token}")
@@ -96,7 +95,6 @@ def main() -> int:
         "clinicPrice",
         "更改品號",
         "歷史品號",
-        "Worker / D1",
     ]:
         if token not in item:
             raise AssertionError(f"missing D1 Item operational behavior: {token}")
@@ -132,9 +130,7 @@ def main() -> int:
         "reopenDefect",
         "invalidateDefect",
         "deleteDefect",
-        "Worker / D1",
         "顯示作廢",
-        "不是第四個工作狀態",
     ]:
         if token not in defect:
             raise AssertionError(f"missing D1 Defect operational behavior: {token}")
@@ -174,7 +170,6 @@ def main() -> int:
         "markSalesOrderShipped",
         "reverseSalesOrderShipment",
         "deleteSalesOrderDraft",
-        "Worker / D1",
     ]:
         if token not in order:
             raise AssertionError(f"missing D1 Sales Order operational behavior: {token}")
@@ -216,7 +211,6 @@ def main() -> int:
         "receiveOutsourcing",
         "priceOutsourcing",
         "markOutsourcingPaid",
-        "Worker / D1",
     ]:
         if token not in outsourcing:
             raise AssertionError(f"missing D1 Outsourcing operational behavior: {token}")
@@ -263,7 +257,6 @@ def main() -> int:
         "reviewWorkLog",
         "cancelWorkLogReview",
         "deleteWorkLogCreated",
-        "Worker / D1",
     ]:
         if token not in worklog:
             raise AssertionError(f"missing D1 WorkLog operational behavior: {token}")

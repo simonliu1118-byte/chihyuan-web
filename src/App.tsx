@@ -187,7 +187,7 @@ function OperationalApp({
   let content: React.ReactNode;
   const moduleCode = moduleCodeForRoute(route);
   if (moduleCode && routeAccess !== "allowed") {
-    content = <section className="cy-op-panel"><h2>{routeAccess === "denied" ? "無模組使用權" : "正在確認模組權限…"}</h2><p>{moduleAccessError ?? "CY Web 會由 Worker 重新確認目前權限。"}</p></section>;
+    content = <section className="cy-op-panel"><h2>{routeAccess === "denied" ? "無模組使用權" : "正在確認模組權限…"}</h2><p>{moduleAccessError ?? "正在確認目前的模組使用權限。"}</p></section>;
   } else if (route === "customers") content = <CustomerOperationalPage />;
   else if (route === "items") content = <ItemOperationalPage />;
   else if (route === "defects") content = <DefectOperationalPage />;
@@ -208,7 +208,6 @@ function OperationalApp({
       activeNavigationKey={route}
       headerActions={
         <>
-          <div className="cy-op-runtime-banner">六個業務模組已使用 Worker / D1</div>
           <div className="cy-auth-account-control">
             <div className="cy-auth-user">
               <span><strong>{session.user.employeeNo}</strong> {session.user.displayName} <span className="cy-auth-permission-badge">[{accountPermissionLabel(session.user.workspaceRole)}]</span></span>
@@ -224,7 +223,7 @@ function OperationalApp({
           </div>
         </>
       }
-      footer={<span className="cy-shell-foundation-note">Development · CYCloud Identity · 六個業務模組皆為 Worker / D1 authority</span>}
+      footer={<span className="cy-shell-foundation-note">Development</span>}
     >
       {moduleAccessError && route === "identity" ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-title">模組權限狀態</div><div className="cy-notice-body">{moduleAccessError}</div></div> : null}
       {content}

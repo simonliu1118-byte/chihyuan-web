@@ -4,8 +4,8 @@
 
 ## 目前基準 — 2026-10-03（Asia/Tokyo）
 
-- 已接受並部署：**Development 0.7.19 Build 0**，source `cc1e510b843c0c110ae0c81b07071f67ca20f2e6`，Development run `37117553352` attempt 1。兩入口首次觀察均符合版本／commit／consumer／D1，總計 348ms，無 redeploy。
-- Source **0.7.19 Build 0** 修正共用 skip-link 意外切換模組；CY 程式頁仍依使用者要求不顯示「發版說明」連結。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
+- 已接受並部署：**Development 0.7.20 Build 0**，source `3c0d285aefe0e5a8a4dc19f09f61799efe88c016`，Development run `37118566726` attempt 1。兩入口首次觀察均符合版本／commit／consumer／D1，總計 290ms，無 redeploy。
+- Source **0.7.20 Build 0** 已完成 quota cooldown／最近成功版本保留，並包含既有 skip-link 修正；CY 程式頁仍依使用者要求不顯示「發版說明」連結。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
 - CYID source/development **0.3.5 Build 0**；shared Consumer **1.0.2**，minimum **1.0.0**。`docs/contracts/cyid/` 依 canonical manifest exact-sync，支援窗及同步 gate 保留。
 - 固定入口 `https://admin.chihyuancm.com` 目前仍為 CY Web Development；CYID production provider 已完成不代表 CY Web production 已上線。
 - 六個業務模組及 Settings/Audit 使用單一 React → protected Worker API → D1。舊 local business authority、Group proxy、activation 入口與重複 local pages 已退休；無另加版本殼。
@@ -28,7 +28,7 @@
 - [x] 既有 SUPER_ADMIN 的 Desktop `#programs` 導覽、七項介紹、圖示載入、已確認版本／日期、三個未發版無連結、更新 loading 及失敗標示已觀察。三個公開 compiled ZIP 經匿名 HTTP HEAD／redirect 回 200，網頁入口可到 CYAccountingWeb 登入頁；未下載執行桌面程式。
 - [x] **CY 程式正式版本即時更新實測通過**：0.7.19 部署後既有 SUPER_ADMIN 初次讀取顯示「最新正式版本」且無 snapshot warning；手動更新 loading → 正常按鈕，七項、版本／日期、網站／三個 compiled ZIP 與三個未發版狀態保持正確。成功讀取採既有五分鐘 process cache；手動按鈕不表示每次強制繞過 cache。
 - 根因／修正證據：0.7.18 診斷 actual NETWORK；相同 compatibility date 的 actual workerd 重現 Request `redirect:error` 拋 TypeError，舊純 fetch stub 未真正建立 Request，掩蓋執行環境問題。0.7.18 Build 1 改 `manual`，非 2xx／302 拒絕且不跟隨 Location，補 actual Request construction regression；local／remote Worker/D1、TypeScript／build 均通過。[PR #133](https://github.com/simonliu1118-byte/chihyuan-web/pull/133)／[PR #134](https://github.com/simonliu1118-byte/chihyuan-web/pull/134)；診斷 source f42fa3bfd2d9eb319c0b02ff343bb71de5fd3938／run 37116571600；修正 source 0a0208ec4b0a39ef19cf560e11b35f50ff196380／run 37117059457，兩入口首次 ready 270ms。
-- [ ] **GitHub quota／cache 穩定性後續**：修正參數後於 10:40Z actual provider 回 RATE_LIMIT 403（x-ratelimit-remaining=0），明示 snapshot fallback 正常；其後成功不能推論限流已根治或 quota 如何恢復。現有 success 5min／fallback 30sec process cache，0.7.20 正在補 provider reset／retry-after cooldown 與失敗保留最近成功版本；範圍為既有 process cache，跨 isolate 不宣稱全域抑制。保留真實限流與恢復驗收。診斷只回 allowlisted code／HTTP status，不回 provider body、headers、exception text、IP／credential；不以循環重試、重部署或新增版本殼處理。
+- [ ] **GitHub quota／cache 穩定性後續**：修正參數後於 10:40Z actual provider 回 RATE_LIMIT 403（x-ratelimit-remaining=0），明示 snapshot fallback 正常；其後成功不能推論限流已根治或 quota 如何恢復。現有 success 5min／fallback 30sec process cache，0.7.20 已補 provider reset／retry-after cooldown 與失敗保留最近成功版本，actual loader 隔離測試及 required CI／Development health 通過；live reload 仍顯示 fallback，不能視為實際 quota 已恢復；範圍為既有 process cache，跨 isolate 不宣稱全域抑制。保留真實限流與恢復驗收。診斷只回 allowlisted code／HTTP status，不回 provider body、headers、exception text、IP／credential；不以循環重試、重部署或新增版本殼處理。
 - [ ] `#programs` Tablet/Mobile、USER/ADMIN（含無 Module Access）的真人畫面與實際下載使用尚待確認；既有 isolated 三 Role API 通過不代替這些結果。
 
 - [ ] 依統一人工清單收集實際操作與畫面問題，回寫本文件，不另建平行進度表。
@@ -41,7 +41,7 @@
 
 - [x] Desktop Audit 四筆 WorkLog 送審／審核／取消／撤回，entity work_log/1、actor 2、filter 與取消狀態／原因 readback 通過；WorkLog rev.6 返回頁面仍保留草稿，已審篩選空資料提示通過。Frequent Item 移除確認取消後既有合成品項保留，未 hard delete。
 - [x] 最後進行 Desktop 共用 UI／UX 檢查：1363×936 程式頁無 document 橫向溢出、七個可見 ICON 56px 載入、active navigation 與網站／ZIP rel 正確。Keyboard Tab 可到 skip link，但 Enter 將 hash 改成 cy-main-content 而切到 Identity，為實測 bug；0.7.19 共用 AppShell 改成只移焦點，live Tab → Enter 確認 hash 保持 #programs、activeElement 為 cy-main-content、CY 程式內容不變。
-- [ ] UI 整理結果：WorkLog 審核仍以連續 browser prompts 收集工作日數／備註／逐列分數；Customer／WorkLog destructive/discard 仍有 native confirm，應後續採既有 Dialog／ConfirmDialog 與 dirty guard，不另建專用彈窗。各模組仍顯示 Worker/D1/authority 等工程描述，後續統一改使用者語言。這些是待調整項目，不代表已套用共用 UI。
+- [ ] 0.7.21 共用 UI 整理：Customer／WorkLog 已改既有 Dialog／ConfirmDialog；WorkLog 一次填寫工作日數／整體備註／各項分數；客戶 ERP 編號與原因同一表單。編輯／已修改彈窗關閉採 shared async dirty guard，busy 鎖定，高風險 API 維持等伺服器成功才更新。六模組及 Shell 工程描述改使用者語言。待 required CI、Development 部署與既有帳號 Desktop 彈窗／取消／錯誤／stale／審核生命週期驗收；跨模組導覽及真實裝置仍未驗收。
 
 ## 已接受的工程與驗收範圍
 
@@ -176,3 +176,5 @@
 - Current progress: this file only
 
 Historical preview/audit/readiness/review material under `docs/architecture/archive/` and Git history is evidence only, not current contract.
+
+- 0.7.20 quota/cache：[PR #137](https://github.com/simonliu1118-byte/chihyuan-web/pull/137) accepted head `af2c8eb446846bf1daac837afd667f216a1d5556`；Governance `37118362496`、Runtime `37118362481`、deploy contract `37118362503` 通過。Development `37118566726` attempt 1 成功，兩入口首次 ready，290ms。隔離 loader 測試包含 concurrent coalescing、5min cache、quota deadline／retry-after、invalid header、最近成功資料保留及 on-demand recovery；不代表跨 isolate 全域快取或 live quota 恢復。

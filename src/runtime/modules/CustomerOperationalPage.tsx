@@ -1,4 +1,7 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useId, useMemo, useState } from "react";
+import { Dialog } from "../../ui/overlays/Dialog";
+import { useConfirmation } from "../../ui/overlays/useConfirmation";
+import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import type { CustomerItemOption, CustomerModuleLookups } from "../../../shared/business-lookups";
 import type {
   CustomerAddressInput,
@@ -263,6 +266,20 @@ export function CustomerOperationalPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [refreshEpoch, setRefreshEpoch] = useState(0);
   const [relatedEpoch, setRelatedEpoch] = useState(0);
+  const { confirm, confirmationDialog } = useConfirmation();
+  const unsavedGuard = useUnsavedChangesGuard({ active: editing, message: "目前有尚未儲存的客戶修改，確定放棄？" });
+  const canLeave = async () => (await unsavedGuard.confirmNavigationAsync(description => confirm({
+    title: "放棄尚未儲存的修改", description, confirmLabel: "放棄修改", confirmTone: "danger",
+  }))).allowed;
+  const [numberDraft, setNumberDraft] = useState<{ record: CustomerDetail; number: string; reason: string } | null>(null);
+  const numberFormId = useId();
+  const numberGuard = useUnsavedChangesGuard({ active: !!numberDraft &&
+    (numberDraft.number !== (numberDraft.record.customerNo ?? "") || numberDraft.reason !== (numberDraft.record.customerNo ? "ERP 編號更正" : "ERP 建檔後回填")) });
+  async function closeNumber() {
+    if (busy) return;
+    if ((await numberGuard.confirmNavigationAsync(description => confirm({ title: "放棄客戶編號修改", description,
+      confirmLabel: "放棄修改", confirmTone: "danger" }))).allowed) setNumberDraft(null);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -362,8 +379,8 @@ export function CustomerOperationalPage() {
   const statuses = useMemo(() => lookups?.customerStatuses ?? [], [lookups]);
   const regions = useMemo(() => lookups?.regions ?? [], [lookups]);
 
-  function selectCustomer(id: number) {
-    if (editing && !window.confirm("目前有尚未儲存的客戶修改，確定放棄？")) return;
+  async function selectCustomer(id: number) {
+    if (busy || !(await canLeave())) return;
     setSelectedId(id);
     setEditing(false);
     setCreating(false);
@@ -373,8 +390,8 @@ export function CustomerOperationalPage() {
     setMessage(null);
   }
 
-  function startCreate() {
-    if (editing && !window.confirm("放棄目前尚未儲存的修改？")) return;
+  async function startCreate() {
+    if (busy || !(await canLeave())) return;
     setSelectedId(null);
     setSelected(null);
     setCreating(true);
@@ -391,7 +408,8 @@ export function CustomerOperationalPage() {
     setMessage(null);
   }
 
-  function cancelEdit() {
+  async function cancelEdit() {
+    if (busy || !(await canLeave())) return;
     setEditing(false);
     setCreating(false);
     setDraft(null);
@@ -415,9 +433,8 @@ export function CustomerOperationalPage() {
       if (taxId) {
         const check = await checkCustomerTaxId(taxId, creating ? undefined : selected?.id);
         if (check.requiresConfirmation) {
-          confirmDuplicateTaxId = window.confirm(
-            `已有 ${check.matches.length} 筆客戶使用相同統編 ${taxId}。仍要儲存嗎？`,
-          );
+          confirmDuplicateTaxId = await confirm({ title: "確認重複統編",
+            description: `已有 ${check.matches.length} 筆客戶使用相同統編 ${taxId}。仍要儲存嗎？`, confirmLabel: "仍要儲存" });
           if (!confirmDuplicateTaxId) return;
         }
       }
@@ -445,27 +462,29 @@ export function CustomerOperationalPage() {
     }
   }
 
-  async function setCustomerNumber() {
+  function setCustomerNumber() {
     if (!selected || busy) return;
-    const raw = window.prompt("輸入 ERP 客戶編號；留空代表清除目前編號", selected.customerNo ?? "");
-    if (raw == null) return;
-    const next = raw.trim() || null;
-    if (next === selected.customerNo) return;
-    const reason = window.prompt(
-      "請輸入此次 ERP 客戶編號指派／更正原因",
-      selected.customerNo ? "ERP 編號更正" : "ERP 建檔後回填",
-    );
-    if (reason == null) return;
+    setMessage(null);
+    setNumberDraft({ record: selected, number: selected.customerNo ?? "", reason: selected.customerNo ? "ERP 編號更正" : "ERP 建檔後回填" });
+  }
+
+  async function saveCustomerNumber(event: FormEvent) {
+    event.preventDefault();
+    if (!numberDraft || busy) return;
+    const { record, number, reason } = numberDraft;
+    const next = number.trim() || null;
+    if (next === record.customerNo) { setNumberDraft(null); return; }
 
     setBusy(true);
     setMessage(null);
     try {
-      const saved = await changeCustomerNumber(selected.id, {
+      const saved = await changeCustomerNumber(record.id, {
         newCustomerNo: next,
-        expectedRevision: selected.revision,
+        expectedRevision: record.revision,
         changeReason: reason.trim() || null,
       });
       setSelected(saved);
+      setNumberDraft(null);
       setMessage("ERP 客戶編號已更新。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
@@ -547,7 +566,8 @@ export function CustomerOperationalPage() {
   }
 
   async function removeVisit(visit: CustomerVisitRecord) {
-    if (!selected || busy || !window.confirm(`確定刪除 ${visit.visitDate} 的拜訪紀錄？`)) return;
+    if (!selected || busy) return;
+    if (!(await confirm({ title: "刪除拜訪紀錄", description: `確定刪除 ${visit.visitDate} 的拜訪紀錄？此操作無法復原。`, confirmLabel: "刪除", confirmTone: "danger" }))) return;
     setBusy(true);
     setMessage(null);
     try {
@@ -661,7 +681,8 @@ export function CustomerOperationalPage() {
   }
 
   async function removeFrequent(row: CustomerFrequentItemRecord) {
-    if (!selected || busy || !window.confirm("確定移除此常用商品？")) return;
+    if (!selected || busy) return;
+    if (!(await confirm({ title: "移除常用商品", description: "確定移除此常用商品？", confirmLabel: "移除", confirmTone: "danger" }))) return;
     setBusy(true);
     setMessage(null);
     try {
@@ -678,10 +699,20 @@ export function CustomerOperationalPage() {
 
   return (
     <div className="cy-customer-op">
+      {confirmationDialog}
+      {numberDraft ? <Dialog open title="ERP 客戶編號" size="small" dismissible={!busy} onClose={() => void closeNumber()}
+        description="輸入 ERP 客戶編號；留空代表清除目前編號。"
+        footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void closeNumber()}>取消</button><button type="submit" form={numberFormId} className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : "儲存"}</button></div>}>
+        <form id={numberFormId} className="cy-op-form-grid" onSubmit={event => void saveCustomerNumber(event)}>
+          <label className="wide">ERP 客戶編號<input className="cy-op-input" disabled={busy} value={numberDraft.number} onChange={event => setNumberDraft({ ...numberDraft, number: event.target.value })} /></label>
+          <label className="wide">指派／更正原因<textarea className="cy-op-input" disabled={busy} value={numberDraft.reason} onChange={event => setNumberDraft({ ...numberDraft, reason: event.target.value })} /></label>
+          {message ? <p role="alert">{message}</p> : null}
+        </form>
+      </Dialog> : null}
       <div className="cy-op-page-header cy-customer-page-header">
         <div>
           <h1>客戶</h1>
-          <p>客戶主檔、聯絡資料、拜訪、報價與常用商品直接由 CY Web Worker / D1 讀寫；瀏覽器不再保存 Customer authority。</p>
+          <p>管理客戶資料、聯絡人、拜訪紀錄、報價與常用商品。</p>
         </div>
         <div className="cy-op-page-actions">
           <button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增客戶</button>

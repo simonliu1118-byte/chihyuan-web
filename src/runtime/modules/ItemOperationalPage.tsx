@@ -434,7 +434,7 @@ export function ItemOperationalPage() {
     <div className="cy-op-page-header">
       <div>
         <h1>商品</h1>
-        <p>商品資料直接由 CY Web Worker / D1 讀寫；品號更正、revision 與單位換算由伺服器權威驗證。</p>
+        <p>管理商品資料、品號、價格及單位換算。</p>
       </div>
       <div className="cy-op-page-actions"><button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增商品</button></div>
     </div>

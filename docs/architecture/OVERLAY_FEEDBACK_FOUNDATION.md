@@ -1,6 +1,6 @@
 # CY Web Overlay / Feedback Foundation
 
-> Status: reusable interaction foundation before production business screens.
+> Status: reusable interaction foundation, adopted by Customer and WorkLog operational screens.
 
 ## Purpose
 
@@ -50,6 +50,10 @@ It supports normal and danger confirmation tones and can lock dismissal while an
 
 This generic component does **not** weaken stronger confirmed safeguards. For example, Backup/Restore remains governed by BD-044 and requires the approved Super Admin authorization and double-confirmation flow even if one step uses this shared dialog component.
 
+`useConfirmation()` provides an asynchronous decision through the existing `ConfirmDialog`: only one decision is pending per mounted screen; cancellation, Escape and unmount resolve it as false. It does not execute the mutation. Callers send the existing protected API request only after confirmation.
+
+Customer ERP-number editing and WorkLog review/withdraw/cancel-review use the existing `Dialog` with one form, captured record revision, busy dismissal lock and recoverable errors. Failed requests retain the form; successful requests close it after server confirmation. No separate modal renderer or business authority is introduced.
+
 ## Toast feedback
 
 `useToastQueue()` + `ToastRegion` provide non-blocking transient feedback.
@@ -75,6 +79,8 @@ Data freshness is handled through API mutation results and targeted revalidation
 ## Unsaved-change integration
 
 Drawer/Sheet/Dialog editors that can discard unsaved work must use the shared unsaved-change guard before closing.
+
+`useUnsavedChangesGuard.confirmNavigationAsync()` accepts the shared confirmation callback; the synchronous entry remains available to existing callers. Customer/WorkLog draft cancellation and modified dialog closing use the asynchronous path. The browser before-unload safeguard remains native. This adoption does not yet guard all cross-module hash navigation.
 
 The overlay itself does not invent a page-local dirty flag. It consumes the existing shared record-editor/list dirty state through the calling workflow.
 
