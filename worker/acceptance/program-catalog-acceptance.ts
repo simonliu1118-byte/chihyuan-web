@@ -46,15 +46,24 @@ export async function acceptProgramCatalog(): Promise<void> {
     return Response.json(pages === 1 ? Array(100).fill({}) : releases);
   }) as typeof fetch);
   check(paginated.current && pages === 2, "PAGINATION");
-  for (const response of [new Response("rate limited", { status: 403 }), Response.json({}), Response.json([]),
-    new Response("x".repeat(1048577)), new Response("invalid JSON")]) {
+  for (const [response, code, status] of [
+    [new Response("private provider body", { status: 403 }), "HTTP", 403],
+    [new Response("private provider body", { status: 403, headers: { "x-ratelimit-remaining": "0" } }), "RATE_LIMIT", 403],
+    [new Response("private provider body", { status: 429 }), "RATE_LIMIT", 429],
+    [Response.json({}), "INVALID", undefined], [Response.json([]), "MISSING", undefined],
+    [new Response("x".repeat(1048577)), "TOO_LARGE", undefined], [new Response("invalid JSON"), "INVALID", undefined],
+  ] as const) {
     const fallback = await readProgramCatalog((async () => response) as typeof fetch);
     check(!fallback.current && fallback.checkedAt === verifiedProgramCatalog.checkedAt
       && JSON.stringify(fallback.programs) === JSON.stringify(verifiedProgramCatalog.programs), "LABELLED_VERIFIED_FALLBACK");
+    check(fallback.refreshFailure?.code === code && fallback.refreshFailure.httpStatus === status
+      && !JSON.stringify(fallback).includes("private provider body"), "SAFE_FAILURE_CLASSIFICATION");
   }
+  const network = await readProgramCatalog((async () => { throw new Error("private network details"); }) as typeof fetch);
+  check(network.refreshFailure?.code === "NETWORK" && !JSON.stringify(network).includes("private network details"), "NO_EXCEPTION_LEAK");
   let limitedCalls = 0;
   const limited = await readProgramCatalog((async () => { limitedCalls++; return Response.json(Array(100).fill({})); }) as typeof fetch);
-  check(!limited.current && limitedCalls === 4, "PAGE_LIMIT");
+  check(!limited.current && limitedCalls === 4 && limited.refreshFailure?.code === "PAGE_LIMIT", "PAGE_LIMIT");
 
   let role = "USER", provider = "ready", reads = 0;
   const env = { DB: { prepare() { throw new Error("PROGRAMS_MUST_NOT_REQUIRE_D1_ACCESS"); } },

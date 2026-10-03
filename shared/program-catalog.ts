@@ -15,6 +15,7 @@ export interface ProgramCatalog {
   programs: readonly ProgramEntry[];
   checkedAt: string;
   current: boolean;
+  refreshFailure?: { code: "HTTP" | "RATE_LIMIT" | "TIMEOUT" | "NETWORK" | "BODY" | "TOO_LARGE" | "INVALID" | "PAGE_LIMIT" | "MISSING"; httpStatus?: number };
 }
 
 /** Verified public release snapshot; live lookups only replace release fields. */
