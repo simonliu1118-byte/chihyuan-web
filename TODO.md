@@ -4,8 +4,8 @@
 
 ## 目前基準 — 2026-10-03（Asia/Tokyo）
 
-- 已接受並部署：**Development 0.7.15 Build 0**，source `d0f380c4492795fb1c939559b657c586cf163d2b`，Development run `37027810625` attempt 1。兩入口在同一次部署的 32620ms 內符合版本／commit／consumer／D1，無 redeploy。
-- Source **0.7.16 Build 0** 本輪新增 `#programs` CY 程式頁，正在驗收／部署；Development 已接受基準仍以上一列為準。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
+- 已接受並部署：**Development 0.7.16 Build 0**，source `825d277228c1133c757264ca5bdbb954d7c9d48d`，Development run `37087977710` attempt 1。兩入口首次觀察均符合版本／commit／consumer／D1，總計 391ms，無 redeploy。
+- Source **0.7.16 Build 0** 已合併並部署，新增 `#programs` CY 程式頁。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
 - CYID source/development **0.3.5 Build 0**；shared Consumer **1.0.2**，minimum **1.0.0**。`docs/contracts/cyid/` 依 canonical manifest exact-sync，支援窗及同步 gate 保留。
 - 固定入口 `https://admin.chihyuancm.com` 目前仍為 CY Web Development；CYID production provider 已完成不代表 CY Web production 已上線。
 - 六個業務模組及 Settings/Audit 使用單一 React → protected Worker API → D1。舊 local business authority、Group proxy、activation 入口與重複 local pages 已退休；無另加版本殼。
@@ -20,7 +20,7 @@
 
 ## UI／UX 與小功能階段的工作範圍
 
-- [ ] CY 程式頁工程驗收與 Development 部署：所有已登入使用者均可使用，不需 Module Access。四個正式程式提供版本／日期／功能／核准 ICON 與網頁或 compiled Release 入口；SMART 銷貨單格式轉換工具、CYEnvelope、CYWatermark 先保留功能介紹並標示尚未發版，不提供虛構下載。
+- [x] CY 程式頁工程驗收與 Development 部署：所有已登入使用者均可使用，不需 Module Access。四個正式程式提供版本／日期／功能／核准 ICON 與網頁或 compiled Release 入口；SMART 銷貨單格式轉換工具、CYEnvelope、CYWatermark 先保留功能介紹並標示尚未發版，不提供虛構下載。
 - [ ] 人工確認 `#programs` 導覽、七個程式介紹、正式版本及連結、尚未發版提示、更新失敗標示，以及 Desktop/Tablet/Mobile 排版。真人跨角色確認留在統一清單；不因 isolated API 測試而勾選完成。
 
 - [ ] 依統一人工清單收集實際操作與畫面問題，回寫本文件，不另建平行進度表。
@@ -34,7 +34,7 @@
 | 範圍 | 已通過 | 尚不能視為完成 |
 | --- | --- | --- |
 | Identity | 單一登入、first-login ticket 與 normal Session 分離、設定正式密碼後要求重新登入；consumer exact-sync；invalid provider Session fallback | 實際 Email 收信／完整首次登入、跨角色／撤權／Session 的真人瀏覽器驗收 |
-| CY 程式 | 本輪驗收中：七項共用清單、四個正式 Release＋三個未發版介紹；只要求有效 Session，不要求 Module Access | 真人角色、裝置與實際下載／網站操作待人工確認 |
+| CY 程式 | 七項共用清單、四個正式 Release＋三個未發版介紹；三種 Role 無 Module Access 可讀取，401/503/405、正式版本／資產／分頁與失敗提示均已自動驗收 | 真人角色、裝置與實際下載／網站操作待人工確認 |
 | 六模組 HTTP 權限 | 未登入、無 Module Access、grant revoke/restore、Role 不改 grants、inactive member、provider invalid/unavailable、body 權限偽造拒絕；實際 routes/services/D1 | provider 為 isolated stub，不等於真實 CYID／瀏覽器全流程 |
 | Customer / Quote | persistence／related schema、Contact retention、Visit snapshot；HTTP Visit/Frequent Item create/edit/delete、stale；Quote HTTP 新歷史／correct/stale／精確 price breaks／Audit、原子 rollback | 正式 Item／Quote 真人流程需合法 ERP 品項；完整畫面流程仍待人工確認 |
 | Item / Defect | Item HTTP create/edit/renumber/stale／number Audit、精確成本／單位換算；Defect HTTP processing/resolved/reopen/invalidate/stale／Audit，creator 與 ADMIN 刪除界線 | 真實正式 Item、完整 lifecycle 畫面及裝置驗收 |
@@ -51,11 +51,13 @@
 - Visit 建立／編輯／reload／兩頁籤 stale 拒絕；原生鍵盤日期 `2026-11-01` 保留；Contact 改名及 Visit 再編輯後仍保留原 snapshot。改名後新 Visit capture 尚待測。
 - Frequent Item 空白拒絕／自由文字新增／reload；WorkLog draft 建立／編輯／reload 通過。未建立正式 Item／Quote。
 - 以上只涵蓋已觀察的 Desktop 與既有帳號，不外推其他角色或 Tablet/Mobile。
+- 本輪 CY 程式瀏覽器入口仍停在登入要求，未觀察登入後清單；直接開 API 被瀏覽器 client 阻擋，未取得 live API 回應，不能當作 live 401 證據。API 401／所有 Role 的證據來自 isolated actual Worker 驗收；真人／裝置待測仍保留。
 
 ## 部署觀察保留事項
 
 - [ ] 持續保留 recurrent first-attempt health mismatch 診斷。0.7.10、0.7.12、0.7.14 與 0.7.15 曾觀察入口先回舊 source，於同一次部署後 13598ms／14586ms／20910ms／32620ms 轉為新 source，無再次 deploy；Cloudflare 內部原因仍未建立。
 - 現有 gate 在 90 秒內只讀觀察兩入口的 allowlisted version／commit／consumer／D1，無自動 redeploy。0.7.13 首次觀察成功不表示歷史問題已根治。
+- 0.7.16 兩入口首次觀察成功，391ms ready；不據此宣稱歷史 mismatch 原因已修復。
 - acceptance runner 原二秒 timeout 會重送已成功 fixture 寫入的原因已修正：readiness 不寫入、正式 acceptance 單次執行與 60 秒 bound；不保留舊 replay 做法。
 
 ## 需要使用者完成及暫緩事項
@@ -109,6 +111,12 @@
 - 保留範圍：Customer `CYWEB 驗收 20261001` revision 4（合成 phone/contact/address/note）；linked Visit revision 5；自由文字 Frequent Item `Development 常用商品驗收（未建檔合成品項）`；draft WorkLog type `DEVELOPMENT_ACCEPTANCE` revision 2。未建立 live 正式 Item/Quote。
 - [ ] 驗收完成後依相依順序使用正常產品行為清理；不可逆清理取得當次確認，保留必要 Audit/history 與其他資料。此項不授權清空資料庫。
 - 使用既有登入帳號，未建立驗收帳號；日後若新增受控帳號須補清單，不刪既有使用者／authority。此清單與 production 乾淨 schema provisioning 分離，目前未執行清理。
+
+## CY 程式頁驗收證據 — 0.7.16 Build 0
+
+- [PR #129](https://github.com/simonliu1118-byte/chihyuan-web/pull/129) accepted head `5427489115e103d232b091e3e0cca9c96ee6c628`，22 個 blobs 與本機／合併 tree exact-match；六個 AITeam SVG 的 bytes、SHA-256、Git blob 完全一致，source provenance 在 assets manifest。未公開 private Release 或 key，未修改其他 App source。
+- Local TypeScript／source／actual Worker/D1 全套與 Vite build 通過；共用 Desktop 表格／Mobile cards 的渲染核對通過。GitHub Governance `37087879187`、Runtime `37087879207`、deploy contract `37087879183` 全通過；未修改的遠端 actual D1 執行新增 mandatory `programCatalog`，包含三 Role／無 Module Access、未登入／invalid／unavailable provider／GET-only、正式 semver、trusted ZIP、分頁及上限、標示 snapshot 與三個未發版空連結。
+- [Development run 37087977710](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/37087977710) attempt 1 通過 exact CYID sync/support window、七 migration、build/deploy、兩入口 `0.7.16`／source `825d277228c1133c757264ca5bdbb954d7c9d48d`／consumer `1.0.2`／D1 ok、canonical 與 invalid Session fallback；首次觀察 ready，391ms，無 redeploy。未執行 production 發布或 live 業務資料寫入。
 
 ## 已接受業務 HTTP lifecycle — 0.7.15 Build 0
 
