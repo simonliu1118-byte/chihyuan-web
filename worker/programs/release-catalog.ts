@@ -81,7 +81,9 @@ export async function readProgramCatalog(fetcher: typeof fetch = fetch, now = ne
     const releases: unknown[] = [];
     for (let page = 1; page <= 4; page++) {
       const response = await fetcher(`https://api.github.com/repos/simonliu1118-byte/CYapps/releases?per_page=100&page=${page}`, {
-        signal: abort.signal, redirect: "error", headers: { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "CYWeb-ProgramCatalog" },
+        // Workers reject redirect:"error" at request construction. Manual
+        // returns 3xx to readPage, which rejects it without following Location.
+        signal: abort.signal, redirect: "manual", headers: { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "CYWeb-ProgramCatalog" },
       });
       const rows = await readPage(response);
       releases.push(...rows);

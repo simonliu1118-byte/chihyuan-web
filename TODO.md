@@ -27,7 +27,7 @@
 - [x] CY 程式頁工程驗收與 Development 部署：所有已登入使用者均可使用，不需 Module Access。四個正式程式提供版本／日期／功能／核准 ICON 與網頁或 compiled Release 入口；SMART 銷貨單格式轉換工具、CYEnvelope、CYWatermark 先保留功能介紹並標示尚未發版，不提供虛構下載。
 - [x] 既有 SUPER_ADMIN 的 Desktop `#programs` 導覽、七項介紹、圖示載入、已確認版本／日期、三個未發版無連結、更新 loading 及失敗標示已觀察。三個公開 compiled ZIP 經匿名 HTTP HEAD／redirect 回 200，網頁入口可到 CYAccountingWeb 登入頁；未下載執行桌面程式。
 - [ ] **CY 程式正式版本即時更新待修／驗收**：初次載入及手動更新均回到已確認 snapshot；目前七項與已公開最新版本相符，但不能視為 live Release refresh 成功。Repository 確認為 public；Git connector 與 scratch 匿名 API 可讀八個 Release，尚未取得部署 Worker subrequest 的狀態／錯誤證據，不臆測為 rate limit，也不以重跑部署或新增版本殼處理。
-- 相同公開 API 實際 response（57426 bytes／八個 Release）輸入現行 reader 後回 `current=true`，四個正式版本選取正確，三個未發版保留 null；解析未重現失敗。本輪先補部署端 subrequest 的安全錯誤分類／HTTP status 診斷（0.7.18，local source／TypeScript／Worker D1／build 已通過，尚未部署），再按取得的原因修正；不盲目換來源或注入憑證。
+- 相同公開 API 實際 response（57426 bytes／八個 Release）輸入現行 reader 後回 `current=true`，四個正式版本選取正確，三個未發版保留 null；解析未重現失敗。0.7.18 部署診斷回 NETWORK；相同 compatibility date 的 actual workerd 最小重現確認 Request redirect:error 拋 TypeError（unsupportedRedirect=true）；改用 manual＋拒絕所有非 2xx（0.7.18 Build 1），補真實 Request construction 與 302 不跟隨 regression，local 全套／build 通過，待部署 readback。本輪先補部署端 subrequest 的安全錯誤分類／HTTP status 診斷（0.7.18 已部署，run 37116571600），再按取得的原因修正；不盲目換來源或注入憑證。
 - [ ] `#programs` Tablet/Mobile、USER/ADMIN（含無 Module Access）的真人畫面與實際下載使用尚待確認；既有 isolated 三 Role API 通過不代替這些結果。
 
 - [ ] 依統一人工清單收集實際操作與畫面問題，回寫本文件，不另建平行進度表。
@@ -35,6 +35,8 @@
 - [ ] 低風險 optimistic interaction 依既有方向逐項檢視；刪除、權限／credential、financial/inventory 等高風險操作不先呈現成功。
 - [ ] 使用者提出小功能後記錄需求與驗收條件，再開獨立工作項目；不自行假設第一版要增加什麼。
 - [ ] 每批 UI／功能變更跑適用 automated regression，真人/裝置 checklist 仍須實際確認。
+
+- [x] 既有 SUPER_ADMIN 合成 WorkLog Desktop 送審（rev.3）、審核（rev.4）、reload／統計 1 筆／1 日／2.5 分、取消審核（rev.5）統計歸零、撤回回草稿（rev.6）已觀察；未操作其他員工真實日誌。
 
 ## 已接受的工程與驗收範圍
 
@@ -55,7 +57,7 @@
 
 - 既有 SUPER_ADMIN 登入後模組／Settings／Audit 頁面載入；forgot-password 返回登入導覽通過，未寄信。
 - Customer 建立／欄位儲存／reload、兩頁籤 stale save 拒絕通過。Customer 單列過高問題已修，673.9px pane 中 row 回到 70px。
-- Visit 建立／編輯／reload／兩頁籤 stale 拒絕；原生鍵盤日期 `2026-11-01` 保留；Contact 改名及 Visit 再編輯後仍保留原 snapshot。改名後新 Visit 已由既有 SUPER_ADMIN 儲存成功，取得改名後 snapshot；reload readback 本輪接續確認。
+- Visit 建立／編輯／reload／兩頁籤 stale 拒絕；原生鍵盤日期 `2026-11-01` 保留；Contact 改名及 Visit 再編輯後仍保留原 snapshot。改名後新 Visit 已由既有 SUPER_ADMIN 儲存成功，取得改名後 snapshot；reload readback 通過，新舊 snapshot 各自保留。
 - Frequent Item 空白拒絕／自由文字新增／reload；WorkLog draft 建立／編輯／reload 通過。未建立正式 Item／Quote。
 - 以上只涵蓋已觀察的 Desktop 與既有帳號，不外推其他角色或 Tablet/Mobile。
 - CY 程式頁已由既有 SUPER_ADMIN 登入後觀察：Desktop 七列、七個 56×56 圖示完整載入，無頁面橫向溢出；三個尚未發版列各有零連結。初次及手動更新顯示 loading，最後保留明示「已確認正式版本」，live refresh 未通過。這取代先前「登入後清單未觀察」狀態；live API 401、其他真人角色／Tablet/Mobile 仍未驗收。
@@ -115,7 +117,7 @@
 ### Development 測試資料清理 — 驗收後
 
 - [ ] 核對此工作線建立的合成資料、ID/reference 及支援的正常清理行為；Git 只記錄非敏感結果。
-- 保留範圍：Customer `CYWEB 驗收 20261001` revision 4（合成 phone/contact/address/note）；linked Visit revision 5；新增 Visit `2026-10-03` revision 1（改名後 snapshot 合成驗收）；自由文字 Frequent Item `Development 常用商品驗收（未建檔合成品項）`；draft WorkLog type `DEVELOPMENT_ACCEPTANCE` revision 2。未建立 live 正式 Item/Quote。
+- 保留範圍：Customer `CYWEB 驗收 20261001` revision 4（合成 phone/contact/address/note）；linked Visit revision 5；新增 Visit `2026-10-03` revision 1（改名後 snapshot 合成驗收）；自由文字 Frequent Item `Development 常用商品驗收（未建檔合成品項）`；draft WorkLog type `DEVELOPMENT_ACCEPTANCE` revision 6。未建立 live 正式 Item/Quote。
 - [ ] 驗收完成後依相依順序使用正常產品行為清理；不可逆清理取得當次確認，保留必要 Audit/history 與其他資料。此項不授權清空資料庫。
 - 使用既有登入帳號，未建立驗收帳號；日後若新增受控帳號須補清單，不刪既有使用者／authority。此清單與 production 乾淨 schema provisioning 分離，目前未執行清理。
 
