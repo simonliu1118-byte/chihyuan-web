@@ -29,7 +29,6 @@ function links(program: ProgramEntry) {
     {program.websiteUrl ? <a className="cy-op-button is-primary" href={program.websiteUrl} target="_blank" rel="noopener noreferrer">開啟網站</a>
       : program.downloadUrl ? <a className="cy-op-button is-primary" href={program.downloadUrl} target="_blank" rel="noopener noreferrer">下載程式</a>
       : <span>尚無可下載檔案</span>}
-    {program.releaseUrl ? <a href={program.releaseUrl} target="_blank" rel="noopener noreferrer">發版說明</a> : null}
   </div>;
 }
 export function ProgramCatalogView({ catalog }: { catalog: ProgramCatalog }) {
