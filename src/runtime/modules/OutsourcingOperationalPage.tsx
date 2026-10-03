@@ -500,7 +500,7 @@ export function OutsourcingOperationalPage() {
   return (
     <div className="cy-outsourcing-op">
       <div className="cy-op-page-header">
-        <div><h1>委外／代工</h1><p>代工單、BOM、代工單價與 movement-derived 庫存直接使用 CY Web Worker / D1。</p></div>
+        <div><h1>委外／代工</h1><p>管理代工單、材料清單、代工單價與庫存。</p></div>
         {tab === "orders" ? <div className="cy-op-page-actions"><button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增代工單</button></div> : null}
       </div>
       {message ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-body">{message}</div></div> : null}

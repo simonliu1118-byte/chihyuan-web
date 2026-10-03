@@ -1,4 +1,7 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useId, useMemo, useState } from "react";
+import { Dialog } from "../../ui/overlays/Dialog";
+import { useConfirmation } from "../../ui/overlays/useConfirmation";
+import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import type {
   WorkLogCategoryRef,
   WorkLogConfiguration,
@@ -132,6 +135,31 @@ export function WorkLogOperationalPage() {
   const [loadingList, setLoadingList] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [refreshEpoch, setRefreshEpoch] = useState(0);
+  const { confirm, confirmationDialog } = useConfirmation();
+  const guard = useUnsavedChangesGuard({ active: editing });
+  const canLeave = async () => (await guard.confirmNavigationAsync(description => confirm({
+    title: "放棄尚未儲存的修改？", description, confirmLabel: "放棄修改", confirmTone: "danger",
+  }))).allowed;
+  const [reviewDraft, setReviewDraft] = useState<null | { record: WorkLogDetail; workDays: string; remark: string;
+    entries: { entryId: number; content: string; score: string; remark: string }[] }>(null);
+  const [reasonDraft, setReasonDraft] = useState<null | { record: WorkLogDetail; kind: "withdraw" | "cancel"; reason: string }>(null);
+  const reviewFormId = useId(), reasonFormId = useId();
+  const reviewGuard = useUnsavedChangesGuard({ active: !!reviewDraft && (reviewDraft.workDays !== reviewDraft.record.workDays ||
+    reviewDraft.remark !== (reviewDraft.record.reviewRemark ?? "") || reviewDraft.entries.some(entry => {
+      const original = reviewDraft.record.entries.find(row => row.id === entry.entryId);
+      return entry.score !== (original?.reviewScore ?? "") || entry.remark !== (original?.reviewRemark ?? "");
+    })) });
+  const reasonGuard = useUnsavedChangesGuard({ active: !!reasonDraft?.reason });
+  async function closeReview() {
+    if (busy) return;
+    if ((await reviewGuard.confirmNavigationAsync(description => confirm({ title: "放棄審核修改", description,
+      confirmLabel: "放棄修改", confirmTone: "danger" }))).allowed) setReviewDraft(null);
+  }
+  async function closeReason() {
+    if (busy) return;
+    if ((await reasonGuard.confirmNavigationAsync(description => confirm({ title: "放棄已填原因", description,
+      confirmLabel: "放棄修改", confirmTone: "danger" }))).allowed) setReasonDraft(null);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -211,8 +239,8 @@ export function WorkLogOperationalPage() {
     [configuration],
   );
 
-  function startCreate() {
-    if (editing && !window.confirm("放棄目前尚未儲存的修改？")) return;
+  async function startCreate() {
+    if (busy || !await canLeave()) return;
     setCreating(true);
     setEditing(true);
     setSelectedId(null);
@@ -229,7 +257,8 @@ export function WorkLogOperationalPage() {
     setMessage(null);
   }
 
-  function cancelEdit() {
+  async function cancelEdit() {
+    if (busy || !await canLeave()) return;
     setCreating(false);
     setEditing(false);
     setDraft(null);
@@ -356,9 +385,11 @@ export function WorkLogOperationalPage() {
       setSelectedId(detail.id);
       setMessage(success);
       setRefreshEpoch((value) => value + 1);
+      return true;
     } catch (error) {
       setMessage(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -372,67 +403,55 @@ export function WorkLogOperationalPage() {
     );
   }
 
-  async function withdraw() {
+  function withdraw() {
     if (!selected) return;
-    const reason = window.prompt("撤回原因（可留空）", "");
-    if (reason == null) return;
-    await runAction(
-      () => withdrawWorkLog(selected.id, {
-        expectedRevision: selected.revision,
-        reason: reason.trim() || null,
-      }),
-      "工作日誌已撤回，可繼續修改。",
-    );
+    setMessage(null);
+    setReasonDraft({ record: selected, kind: "withdraw", reason: "" });
   }
 
-  async function review() {
+  function review() {
     if (!selected || selected.statusCode !== "pending_review") return;
-    const workDays = window.prompt("確認／更正工作日數", selected.workDays);
-    if (workDays == null || !workDays.trim()) return;
-    const overall = window.prompt("整體審核備註（可留空）", selected.reviewRemark ?? "");
-    if (overall == null) return;
+    setMessage(null);
+    setReviewDraft({ record: selected, workDays: selected.workDays, remark: selected.reviewRemark ?? "",
+      entries: selected.entries.map(entry => ({ entryId: entry.id, content: entry.content || `工作項目 ${entry.id}`,
+        score: entry.reviewScore ?? "", remark: entry.reviewRemark ?? "" })) });
+  }
 
-    const entries: { entryId: number; reviewRemark: string | null; reviewScore: string | null }[] = [];
-    for (const entry of selected.entries) {
-      const label = entry.content?.slice(0, 40) || `Entry #${entry.id}`;
-      const score = window.prompt(`「${label}」審核分數；留空代表不計分`, entry.reviewScore ?? "");
-      if (score == null) return;
-      const remark = window.prompt(`「${label}」審核備註（可留空）`, entry.reviewRemark ?? "");
-      if (remark == null) return;
-      entries.push({
-        entryId: entry.id,
-        reviewScore: score.trim() || null,
-        reviewRemark: remark.trim() || null,
-      });
-    }
-
-    await runAction(
-      () => reviewWorkLog(selected.id, {
-        expectedRevision: selected.revision,
-        workDays: workDays.trim(),
-        reviewRemark: overall.trim() || null,
-        entries,
+  async function saveReview(event: FormEvent) {
+    event.preventDefault();
+    if (!reviewDraft || busy) return;
+    const value = reviewDraft;
+    if (await runAction(
+      () => reviewWorkLog(value.record.id, {
+        expectedRevision: value.record.revision,
+        workDays: value.workDays.trim(),
+        reviewRemark: value.remark.trim() || null,
+        entries: value.entries.map(entry => ({ entryId: entry.entryId, reviewScore: entry.score.trim() || null,
+          reviewRemark: entry.remark.trim() || null })),
       }),
       "工作日誌審核完成。",
-    );
+    )) setReviewDraft(null);
   }
 
-  async function cancelReview() {
+  function cancelReview() {
     if (!selected || selected.statusCode !== "reviewed") return;
-    const reason = window.prompt("取消審核原因（可留空）", "");
-    if (reason == null) return;
-    await runAction(
-      () => cancelWorkLogReview(selected.id, {
-        expectedRevision: selected.revision,
-        reason: reason.trim() || null,
-      }),
-      "審核已取消，工作日誌回到待審核。",
-    );
+    setMessage(null);
+    setReasonDraft({ record: selected, kind: "cancel", reason: "" });
+  }
+
+  async function saveReason(event: FormEvent) {
+    event.preventDefault();
+    if (!reasonDraft || busy) return;
+    const value = reasonDraft, payload = { expectedRevision: value.record.revision, reason: value.reason.trim() || null };
+    if (await runAction(() => value.kind === "withdraw" ? withdrawWorkLog(value.record.id, payload)
+      : cancelWorkLogReview(value.record.id, payload), value.kind === "withdraw" ? "工作日誌已撤回，可繼續修改。"
+      : "審核已取消，工作日誌回到待審核。")) setReasonDraft(null);
   }
 
   async function deleteDraft() {
     if (!selected || selected.statusCode !== "created" || busy) return;
-    if (!window.confirm(`確定刪除 ${selected.workLogRef}？伺服器會依目前身分重新判斷 owner / admin 權限。`)) return;
+    if (!await confirm({ title: "刪除工作日誌？", description: `確定刪除 ${selected.workLogRef}？此操作無法復原。`,
+      confirmLabel: "刪除", confirmTone: "danger" })) return;
     setBusy(true);
     setMessage(null);
     try {
@@ -459,10 +478,48 @@ export function WorkLogOperationalPage() {
 
   return (
     <div className="cy-worklog-op">
+      {confirmationDialog}
+      <Dialog open={reviewDraft !== null} title="審核工作日誌" size="large" dismissible={!busy}
+        onClose={() => void closeReview()} footer={<div className="cy-dialog-action-row">
+          <button type="button" className="cy-op-button" disabled={busy} onClick={() => void closeReview()}>取消</button>
+          <button type="submit" form={reviewFormId} className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : "完成審核"}</button>
+        </div>}>
+        {reviewDraft ? <form id={reviewFormId} onSubmit={event => void saveReview(event)}>
+          <p>{reviewDraft.record.workLogRef}</p>
+          {message ? <p role="alert" className="cy-auth-error">{message}</p> : null}
+          <div className="cy-op-form-grid">
+            <label>工作日數<input className="cy-op-input" inputMode="decimal" required disabled={busy} value={reviewDraft.workDays}
+              onChange={event => setReviewDraft({ ...reviewDraft, workDays: event.target.value })} /></label>
+            <label className="wide">整體審核備註<textarea className="cy-op-input" disabled={busy} value={reviewDraft.remark}
+              onChange={event => setReviewDraft({ ...reviewDraft, remark: event.target.value })} /></label>
+          </div>
+          {reviewDraft.entries.map((entry, index) => <section className="cy-op-subsection" key={entry.entryId}>
+            <h3>工作項目 {index + 1}</h3><p>{entry.content}</p>
+            <div className="cy-op-form-grid">
+              <label>審核分數（留空不計分）<input className="cy-op-input" inputMode="decimal" disabled={busy} value={entry.score}
+                onChange={event => setReviewDraft({ ...reviewDraft, entries: reviewDraft.entries.map((row, i) => i === index ? { ...row, score: event.target.value } : row) })} /></label>
+              <label className="wide">項目審核備註<textarea className="cy-op-input" disabled={busy} value={entry.remark}
+                onChange={event => setReviewDraft({ ...reviewDraft, entries: reviewDraft.entries.map((row, i) => i === index ? { ...row, remark: event.target.value } : row) })} /></label>
+            </div>
+          </section>)}
+        </form> : null}
+      </Dialog>
+      <Dialog open={reasonDraft !== null} title={reasonDraft?.kind === "cancel" ? "取消審核" : "撤回審核"}
+        size="small" dismissible={!busy} onClose={() => void closeReason()} footer={<div className="cy-dialog-action-row">
+          <button type="button" className="cy-op-button" disabled={busy} onClick={() => void closeReason()}>取消</button>
+          <button type="submit" form={reasonFormId} className="cy-op-button primary" disabled={busy}>{busy ? "處理中…" : "確認"}</button>
+        </div>}>
+        {reasonDraft ? <form id={reasonFormId} onSubmit={event => void saveReason(event)}>
+          <p>{reasonDraft.record.workLogRef}</p>
+          {message ? <p role="alert" className="cy-auth-error">{message}</p> : null}
+          <label>原因（可留空）<textarea className="cy-op-input" disabled={busy} value={reasonDraft.reason}
+            onChange={event => setReasonDraft({ ...reasonDraft, reason: event.target.value })} /></label>
+        </form> : null}
+      </Dialog>
       <div className="cy-op-page-header">
         <div>
           <h1>工作日誌</h1>
-          <p>建立、送審、撤回、審核、取消審核與統計全部使用 CY Web Worker / D1；身分與跨人員權限由伺服器判斷。</p>
+          <p>建立工作日誌、送交審核及檢視評分統計。</p>
         </div>
         <div className="cy-op-page-actions">
           <button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增日誌</button>
@@ -501,7 +558,7 @@ export function WorkLogOperationalPage() {
         <section className="cy-op-panel cy-op-form-card">
           <form onSubmit={(event) => void save(event)}>
             <div className="cy-op-panel-header">
-              <div><h2>{creating ? "新增工作日誌" : `修改 ${selected?.workLogRef ?? "工作日誌"}`}</h2><p>類型代碼是通用資料欄位；分類／平台名稱由 D1 configuration 提供。</p></div>
+              <div><h2>{creating ? "新增工作日誌" : `修改 ${selected?.workLogRef ?? "工作日誌"}`}</h2><p>填寫日期、工作日數、類型及工作內容。</p></div>
               <button type="button" className="cy-op-button" disabled={busy} onClick={cancelEdit}>取消</button>
             </div>
             <div className="cy-op-form-grid">
@@ -513,7 +570,7 @@ export function WorkLogOperationalPage() {
             </div>
 
             <div className="cy-op-subsection">
-              <div className="cy-op-panel-header"><div><h3>工作內容</h3><p>每筆可帶平台與多個 configured category。</p></div><button type="button" className="cy-op-button" disabled={busy} onClick={addEntry}>增加工作項目</button></div>
+              <div className="cy-op-panel-header"><div><h3>工作內容</h3><p>每個工作項目可選擇平台及多個分類。</p></div><button type="button" className="cy-op-button" disabled={busy} onClick={addEntry}>增加工作項目</button></div>
               {draft.entries.map((entry, entryIndex) => (
                 <div className="cy-op-panel" key={entry.key}>
                   <div className="cy-op-form-grid">
@@ -561,7 +618,7 @@ export function WorkLogOperationalPage() {
             {Object.entries(statusText).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
           </select>
           <div className="cy-op-list">
-            {rows.map((row) => <button key={row.id} className={`cy-op-list-row ${selectedId === row.id ? "active" : ""}`} onClick={() => { if (!editing || window.confirm("放棄尚未儲存的修改？")) { setEditing(false); setCreating(false); setDraft(null); setSelectedId(row.id); } }}><strong>{row.workLogRef}</strong><span>{row.logDate} · {row.workDays} 日</span><small>{statusText[row.statusCode]} · Employee #{row.employeeId}</small></button>)}
+            {rows.map((row) => <button key={row.id} className={`cy-op-list-row ${selectedId === row.id ? "active" : ""}`} onClick={async () => { if (!busy && await canLeave()) { setEditing(false); setCreating(false); setDraft(null); setSelectedId(row.id); } }}><strong>{row.workLogRef}</strong><span>{row.logDate} · {row.workDays} 日</span><small>{statusText[row.statusCode]} · Employee #{row.employeeId}</small></button>)}
             {loadingList ? <div className="cy-op-empty">讀取工作日誌中…</div> : null}
             {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的工作日誌。</div> : null}
           </div>
