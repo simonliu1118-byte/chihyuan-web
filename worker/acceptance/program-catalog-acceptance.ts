@@ -1,7 +1,7 @@
 import { verifiedProgramCatalog } from "../../shared/program-catalog";
 import { handleProgramCatalogRoute } from "../http/program-catalog-routes";
 import type { IdentityRuntimeEnv } from "../http/auth-routes";
-import { readProgramCatalog, selectProgramRelease } from "../programs/release-catalog";
+import { createProgramCatalogLoader, readProgramCatalog, selectProgramRelease } from "../programs/release-catalog";
 
 export async function acceptProgramCatalog(): Promise<void> {
   function check(condition: unknown, code: string): asserts condition {
@@ -68,6 +68,36 @@ export async function acceptProgramCatalog(): Promise<void> {
   let limitedCalls = 0;
   const limited = await readProgramCatalog((async () => { limitedCalls++; return Response.json(Array(100).fill({})); }) as typeof fetch);
   check(!limited.current && limitedCalls === 4 && limited.refreshFailure?.code === "PAGE_LIMIT", "PAGE_LIMIT");
+
+  let clock = Date.parse("2026-10-03T01:00:00Z"), cacheCalls = 0;
+  let mode: "success" | "limited" = "success";
+  const load = createProgramCatalogLoader((async () => {
+    cacheCalls++;
+    return mode === "success" ? Response.json([...releases, newest]) : new Response("private body", {
+      status: 403, headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": String((clock + 600000) / 1000) },
+    });
+  }) as typeof fetch, () => clock);
+  const concurrent = await Promise.all([load(), load(), load()]);
+  check(cacheCalls === 1 && concurrent.every(v => v.current), "COALESCED_LOOKUP");
+  clock += 299999; await load();
+  check(cacheCalls === 1, "SUCCESS_CACHE_WINDOW");
+  clock += 1; mode = "limited";
+  const stale = await load();
+  check(Number(cacheCalls) === 2 && !stale.current && stale.programs[2].version === "2.10.0"
+    && stale.checkedAt === concurrent[0].checkedAt && stale.refreshFailure?.code === "RATE_LIMIT"
+    && !JSON.stringify(stale).includes("retryAt"), "LAST_SUCCESS_PRESERVED_WITHOUT_HEADERS");
+  mode = "success"; clock += 600000; await load();
+  check(Number(cacheCalls) === 2, "NO_LOOKUP_BEFORE_RESET");
+  clock += 1001;
+  check((await load()).current && Number(cacheCalls) === 3, "ON_DEMAND_RECOVERY_AFTER_RESET");
+  for (const headers of [{ "retry-after": "120" }, { "retry-after": "invalid", "x-ratelimit-reset": "Infinity" }] as Record<string, string>[]) {
+    let attempts = 0;
+    const retryLoad = createProgramCatalogLoader((async () => { attempts++; return new Response(null, { status: 429, headers }); }) as typeof fetch, () => clock);
+    await retryLoad(); clock += 59999; await retryLoad();
+    check(attempts === 1, "MINIMUM_RATE_COOLDOWN");
+    clock += headers["retry-after"] === "120" ? 60001 : 1;
+    await retryLoad(); check(Number(attempts) === 2, "RETRY_AFTER_OR_SAFE_DEFAULT");
+  }
 
   let role = "USER", provider = "ready", reads = 0;
   const env = { DB: { prepare() { throw new Error("PROGRAMS_MUST_NOT_REQUIRE_D1_ACCESS"); } },
