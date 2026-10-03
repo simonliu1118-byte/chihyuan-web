@@ -4,8 +4,8 @@
 
 ## 目前基準 — 2026-10-03（Asia/Tokyo）
 
-- 已接受並部署：**Development 0.7.17 Build 0**，source `cf33d1d46e41dc2a478bbd994f69afe0d2a5f722`，Development run `37113296429` attempt 1。兩入口首次觀察均符合版本／commit／consumer／D1，總計 294ms，無 redeploy。
-- Source **0.7.17 Build 0** 已依使用者要求移除 CY 程式頁「發版說明」連結並部署。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
+- 已接受並部署：**Development 0.7.19 Build 0**，source `cc1e510b843c0c110ae0c81b07071f67ca20f2e6`，Development run `37117553352` attempt 1。兩入口首次觀察均符合版本／commit／consumer／D1，總計 348ms，無 redeploy。
+- Source **0.7.19 Build 0** 修正共用 skip-link 意外切換模組；CY 程式頁仍依使用者要求不顯示「發版說明」連結。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
 - CYID source/development **0.3.5 Build 0**；shared Consumer **1.0.2**，minimum **1.0.0**。`docs/contracts/cyid/` 依 canonical manifest exact-sync，支援窗及同步 gate 保留。
 - 固定入口 `https://admin.chihyuancm.com` 目前仍為 CY Web Development；CYID production provider 已完成不代表 CY Web production 已上線。
 - 六個業務模組及 Settings/Audit 使用單一 React → protected Worker API → D1。舊 local business authority、Group proxy、activation 入口與重複 local pages 已退休；無另加版本殼。
@@ -26,8 +26,9 @@
 
 - [x] CY 程式頁工程驗收與 Development 部署：所有已登入使用者均可使用，不需 Module Access。四個正式程式提供版本／日期／功能／核准 ICON 與網頁或 compiled Release 入口；SMART 銷貨單格式轉換工具、CYEnvelope、CYWatermark 先保留功能介紹並標示尚未發版，不提供虛構下載。
 - [x] 既有 SUPER_ADMIN 的 Desktop `#programs` 導覽、七項介紹、圖示載入、已確認版本／日期、三個未發版無連結、更新 loading 及失敗標示已觀察。三個公開 compiled ZIP 經匿名 HTTP HEAD／redirect 回 200，網頁入口可到 CYAccountingWeb 登入頁；未下載執行桌面程式。
-- [ ] **CY 程式正式版本即時更新：GitHub quota 待處理／驗收**：初次載入及手動更新均回到已確認 snapshot；目前七項與已公開最新版本相符，但不能視為 live Release refresh 成功。Repository 確認為 public；Git connector 與 scratch 匿名 API 可讀八個 Release，0.7.18 診斷已確認 NETWORK；0.7.18 Build 1 修正 unsupported redirect:error 後，實際部署回 RATE_LIMIT 403（provider x-ratelimit-remaining=0）。現有已確認 snapshot 明示保留；仍不能視為 live refresh 成功，不重跑部署或增加版本殼。
-- 相同公開 API 實際 response（57426 bytes／八個 Release）輸入現行 reader 後回 `current=true`，四個正式版本選取正確，三個未發版保留 null；解析未重現失敗。0.7.18 部署診斷回 NETWORK；相同 compatibility date 的 actual workerd 最小重現確認 Request redirect:error 拋 TypeError（unsupportedRedirect=true）；改用 manual＋拒絕所有非 2xx（0.7.18 Build 1），補真實 Request construction 與 302 不跟隨 regression，local／remote 全套及部署通過；live readback 已由 NETWORK 轉為 provider RATE_LIMIT 403，首次更新仍未通過。診斷 source f42fa3bfd2d9eb319c0b02ff343bb71de5fd3938／run 37116571600；修正 source 0a0208ec4b0a39ef19cf560e11b35f50ff196380／run 37117059457 已部署。後者兩入口首次 ready，270ms。接續處理 unauthenticated public API quota 與合理 cooldown／cache；不盲目換來源、循環重試或注入憑證。
+- [x] **CY 程式正式版本即時更新實測通過**：0.7.19 部署後既有 SUPER_ADMIN 初次讀取顯示「最新正式版本」且無 snapshot warning；手動更新 loading → 正常按鈕，七項、版本／日期、網站／三個 compiled ZIP 與三個未發版狀態保持正確。成功讀取採既有五分鐘 process cache；手動按鈕不表示每次強制繞過 cache。
+- 根因／修正證據：0.7.18 診斷 actual NETWORK；相同 compatibility date 的 actual workerd 重現 Request `redirect:error` 拋 TypeError，舊純 fetch stub 未真正建立 Request，掩蓋執行環境問題。0.7.18 Build 1 改 `manual`，非 2xx／302 拒絕且不跟隨 Location，補 actual Request construction regression；local／remote Worker/D1、TypeScript／build 均通過。[PR #133](https://github.com/simonliu1118-byte/chihyuan-web/pull/133)／[PR #134](https://github.com/simonliu1118-byte/chihyuan-web/pull/134)；診斷 source f42fa3bfd2d9eb319c0b02ff343bb71de5fd3938／run 37116571600；修正 source 0a0208ec4b0a39ef19cf560e11b35f50ff196380／run 37117059457，兩入口首次 ready 270ms。
+- [ ] **GitHub quota／cache 穩定性後續**：修正參數後於 10:40Z actual provider 回 RATE_LIMIT 403（x-ratelimit-remaining=0），明示 snapshot fallback 正常；其後成功不能推論限流已根治或 quota 如何恢復。現有 success 5min／fallback 30sec process cache，後續評估依 provider reset 的 cooldown／跨 isolate cache，保留真實限流與恢復驗收。診斷只回 allowlisted code／HTTP status，不回 provider body、headers、exception text、IP／credential；不以循環重試、重部署或新增版本殼處理。
 - [ ] `#programs` Tablet/Mobile、USER/ADMIN（含無 Module Access）的真人畫面與實際下載使用尚待確認；既有 isolated 三 Role API 通過不代替這些結果。
 
 - [ ] 依統一人工清單收集實際操作與畫面問題，回寫本文件，不另建平行進度表。
@@ -39,7 +40,7 @@
 - [x] 既有 SUPER_ADMIN 合成 WorkLog Desktop 送審（rev.3）、審核（rev.4）、reload／統計 1 筆／1 日／2.5 分、取消審核（rev.5）統計歸零、撤回回草稿（rev.6）已觀察；未操作其他員工真實日誌。
 
 - [x] Desktop Audit 四筆 WorkLog 送審／審核／取消／撤回，entity work_log/1、actor 2、filter 與取消狀態／原因 readback 通過；WorkLog rev.6 返回頁面仍保留草稿，已審篩選空資料提示通過。Frequent Item 移除確認取消後既有合成品項保留，未 hard delete。
-- [x] 最後進行 Desktop 共用 UI／UX 檢查：1363×936 程式頁無 document 橫向溢出、七個可見 ICON 56px 載入、active navigation 與網站／ZIP rel 正確。Keyboard Tab 可到 skip link，但 Enter 將 hash 改成 cy-main-content 而切到 Identity，為實測 bug；0.7.19 共用 AppShell 改成只移焦點，待部署驗收。
+- [x] 最後進行 Desktop 共用 UI／UX 檢查：1363×936 程式頁無 document 橫向溢出、七個可見 ICON 56px 載入、active navigation 與網站／ZIP rel 正確。Keyboard Tab 可到 skip link，但 Enter 將 hash 改成 cy-main-content 而切到 Identity，為實測 bug；0.7.19 共用 AppShell 改成只移焦點，live Tab → Enter 確認 hash 保持 #programs、activeElement 為 cy-main-content、CY 程式內容不變。
 - [ ] UI 整理結果：WorkLog 審核仍以連續 browser prompts 收集工作日數／備註／逐列分數；Customer／WorkLog destructive/discard 仍有 native confirm，應後續採既有 Dialog／ConfirmDialog 與 dirty guard，不另建專用彈窗。各模組仍顯示 Worker/D1/authority 等工程描述，後續統一改使用者語言。這些是待調整項目，不代表已套用共用 UI。
 
 ## 已接受的工程與驗收範圍
@@ -47,7 +48,7 @@
 | 範圍 | 已通過 | 尚不能視為完成 |
 | --- | --- | --- |
 | Identity | 單一登入、first-login ticket 與 normal Session 分離、設定正式密碼後要求重新登入；consumer exact-sync；invalid provider Session fallback | 實際 Email 收信／完整首次登入、跨角色／撤權／Session 的真人瀏覽器驗收 |
-| CY 程式 | 七項清單與三個未發版；三 Role 無 Module Access API 自動驗收；SUPER_ADMIN Desktop 七個圖示／無橫向溢出／失敗標示已觀察，ZIP HEAD 200、網頁入口可到登入頁 | 部署端即時 Release refresh 仍失敗；其他真人角色／裝置與桌面程式實際下載使用未完成 |
+| CY 程式 | 七項清單與三個未發版；三 Role 無 Module Access API 自動驗收；SUPER_ADMIN Desktop 七個圖示／無橫向溢出／失敗標示已觀察，ZIP HEAD 200、網頁入口可到登入頁 | 部署端 Release refresh 已成功，另保留曾觀察的 RATE_LIMIT／cache 穩定性；其他真人角色／裝置與桌面程式實際下載使用未完成 |
 | 六模組 HTTP 權限 | 未登入、無 Module Access、grant revoke/restore、Role 不改 grants、inactive member、provider invalid/unavailable、body 權限偽造拒絕；實際 routes/services/D1 | provider 為 isolated stub，不等於真實 CYID／瀏覽器全流程 |
 | Customer / Quote | persistence／related schema、Contact retention、Visit snapshot；HTTP Visit/Frequent Item create/edit/delete、stale；Quote HTTP 新歷史／correct/stale／精確 price breaks／Audit、原子 rollback | 正式 Item／Quote 真人流程需合法 ERP 品項；完整畫面流程仍待人工確認 |
 | Item / Defect | Item HTTP create/edit/renumber/stale／number Audit、精確成本／單位換算；Defect HTTP processing/resolved/reopen/invalidate/stale／Audit，creator 與 ADMIN 刪除界線 | 真實正式 Item、完整 lifecycle 畫面及裝置驗收 |
@@ -64,13 +65,13 @@
 - Visit 建立／編輯／reload／兩頁籤 stale 拒絕；原生鍵盤日期 `2026-11-01` 保留；Contact 改名及 Visit 再編輯後仍保留原 snapshot。改名後新 Visit 已由既有 SUPER_ADMIN 儲存成功，取得改名後 snapshot；reload readback 通過，新舊 snapshot 各自保留。
 - Frequent Item 空白拒絕／自由文字新增／reload；WorkLog draft 建立／編輯／reload 通過。未建立正式 Item／Quote。
 - 以上只涵蓋已觀察的 Desktop 與既有帳號，不外推其他角色或 Tablet/Mobile。
-- CY 程式頁已由既有 SUPER_ADMIN 登入後觀察：Desktop 七列、七個 56×56 圖示完整載入，無頁面橫向溢出；三個尚未發版列各有零連結。初次及手動更新顯示 loading，最後保留明示「已確認正式版本」，live refresh 未通過。這取代先前「登入後清單未觀察」狀態；live API 401、其他真人角色／Tablet/Mobile 仍未驗收。
+- CY 程式頁已由既有 SUPER_ADMIN 登入後觀察：Desktop 七列、七個 56×56 圖示完整載入，無頁面橫向溢出；三個尚未發版列各有零連結。初次及手動更新在 0.7.19 已顯示「最新正式版本」並正常完成；先前 snapshot／RATE_LIMIT 的觀察仍作穩定性證據。這取代先前「登入後清單未觀察」與「live refresh 未通過」狀態；live API 401、其他真人角色／Tablet/Mobile 仍未驗收。
 
 ## 部署觀察保留事項
 
 - [ ] 持續保留 recurrent first-attempt health mismatch 診斷。0.7.10、0.7.12、0.7.14 與 0.7.15 曾觀察入口先回舊 source，於同一次部署後 13598ms／14586ms／20910ms／32620ms 轉為新 source，無再次 deploy；Cloudflare 內部原因仍未建立。
 - 現有 gate 在 90 秒內只讀觀察兩入口的 allowlisted version／commit／consumer／D1，無自動 redeploy。0.7.13 首次觀察成功不表示歷史問題已根治。
-- 0.7.16 兩入口首次觀察成功，391ms ready；不據此宣稱歷史 mismatch 原因已修復。
+- 0.7.16 兩入口首次觀察成功，391ms ready；0.7.18 診斷部署首次回 0.7.17，1296ms 於同一部署轉為新 source；Build 1／0.7.19 首次 ready 270ms／348ms。不據此宣稱歷史 mismatch 原因已修復。
 - acceptance runner 原二秒 timeout 會重送已成功 fixture 寫入的原因已修正：readiness 不寫入、正式 acceptance 單次執行與 60 秒 bound；不保留舊 replay 做法。
 
 ## 需要使用者完成及暫緩事項
@@ -126,6 +127,8 @@
 - 使用既有登入帳號，未建立驗收帳號；日後若新增受控帳號須補清單，不刪既有使用者／authority。此清單與 production 乾淨 schema provisioning 分離，目前未執行清理。
 
 ## CY 程式頁驗收證據
+
+- 0.7.19 [PR #135](https://github.com/simonliu1118-byte/chihyuan-web/pull/135)，accepted head `02f73d04b28179d6ec85baf0ca2340c0291bd472`，五 blobs exact-match；Governance 37117449546／Runtime 37117449543／deploy contract 37117449462 通過。[Development run 37117553352](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/37117553352) attempt 1，兩入口首次 source／consumer／D1 正確，348ms；live 初次／手動版本讀取及 skip-link route/focus 通過。Customer 新 Visit、WorkLog 狀態／統計／Audit 與 fixture 清單見上方，沒有依此推論其他角色／裝置／真實外部服務已驗收。
 
 - 0.7.17 移除 GitHub 發版說明連結：[PR #131](https://github.com/simonliu1118-byte/chihyuan-web/pull/131) accepted head `8181442e43c559bcb7a40c53a99e6c64d4b79fcf`，五個 source/docs blobs exact-match。共用 render 核對 Desktop／Mobile 無發版說明／releases-tag link，網站與三個 compiled ZIP、未發版狀態保留；TypeScript 與無 host shim 的 Vite build 通過。Governance `37113205038`、Runtime `37113205050`、deploy contract `37113205044` 均通過。[Development run 37113296429](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/37113296429) attempt 1 通過 source／consumer／D1、canonical 與 invalid Session fallback，兩入口首次 ready，294ms。版本更新 reader 未更改，live refresh 待修不因本輪部署而視為完成。
 
