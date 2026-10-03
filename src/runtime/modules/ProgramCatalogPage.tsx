@@ -56,7 +56,10 @@ export function ProgramCatalogPage() {
     const abort = new AbortController();
     setLoading(true); setError("");
     void apiRequest<ProgramCatalog>("/api/programs", { signal: abort.signal }).then(value => {
-      if (!abort.signal.aborted) setCatalog(value);
+      if (!abort.signal.aborted) {
+        setCatalog(value);
+        if (value.refreshFailure) console.warn("CYWEB_PROGRAM_REFRESH", value.refreshFailure.code, value.refreshFailure.httpStatus ?? "");
+      }
     }).catch(() => {
       if (!abort.signal.aborted) setError("無法讀取程式清單，請稍後重試。");
     }).finally(() => { if (!abort.signal.aborted) setLoading(false); });

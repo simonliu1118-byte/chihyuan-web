@@ -14,6 +14,10 @@ interface Release {
   assets?: { name?: unknown; browser_download_url?: unknown; state?: unknown; size?: unknown }[];
 }
 
+class CatalogFailure extends Error {
+  constructor(readonly detail: NonNullable<ProgramCatalog["refreshFailure"]>) { super(detail.code); }
+}
+
 /** A release is usable only when its known tag, published date and asset agree. */
 export function selectProgramRelease(program: ProgramEntry, values: readonly unknown[]): ProgramEntry | null {
   if (!prefixes[program.id]) return null;
@@ -44,7 +48,12 @@ export function selectProgramRelease(program: ProgramEntry, values: readonly unk
 }
 
 async function readPage(response: Response): Promise<unknown[]> {
-  if (!response.ok || !response.body) throw new Error("RELEASE_UNAVAILABLE");
+  if (!response.ok) {
+    const rateLimited = response.status === 429 || ((response.status === 403) && response.headers.get("x-ratelimit-remaining") === "0");
+    await response.body?.cancel().catch(() => undefined);
+    throw new CatalogFailure({ code: rateLimited ? "RATE_LIMIT" : "HTTP", httpStatus: response.status });
+  }
+  if (!response.body) throw new CatalogFailure({ code: "BODY" });
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let length = 0, text = "";
@@ -53,12 +62,13 @@ async function readPage(response: Response): Promise<unknown[]> {
       const result = await reader.read();
       if (result.done) break;
       length += result.value.byteLength;
-      if (length > 1048576) throw new Error("RELEASE_TOO_LARGE");
+      if (length > 1048576) throw new CatalogFailure({ code: "TOO_LARGE" });
       text += decoder.decode(result.value, { stream: true });
     }
     text += decoder.decode();
-    const value: unknown = JSON.parse(text);
-    if (!Array.isArray(value) || value.length > 100) throw new Error("RELEASE_INVALID");
+    let value: unknown;
+    try { value = JSON.parse(text); } catch { throw new CatalogFailure({ code: "INVALID" }); }
+    if (!Array.isArray(value) || value.length > 100) throw new CatalogFailure({ code: "INVALID" });
     return value;
   } finally { await reader.cancel().catch(() => undefined); }
 }
@@ -76,13 +86,18 @@ export async function readProgramCatalog(fetcher: typeof fetch = fetch, now = ne
       const rows = await readPage(response);
       releases.push(...rows);
       if (rows.length < 100) break;
-      if (page === 4) throw new Error("RELEASE_PAGE_LIMIT");
+      if (page === 4) throw new CatalogFailure({ code: "PAGE_LIMIT" });
     }
     const programs = verifiedProgramCatalog.programs.map(program =>
       prefixes[program.id] ? selectProgramRelease(program, releases) : program);
-    if (programs.some(program => program === null)) throw new Error("RELEASE_MISSING");
+    if (programs.some(program => program === null)) throw new CatalogFailure({ code: "MISSING" });
     return { programs: programs as ProgramEntry[], checkedAt: now, current: true };
-  } catch { return verifiedProgramCatalog; }
+  } catch (error) {
+    // Only an allowlisted classification/status crosses the authenticated API.
+    // Never return provider bodies, exception text, headers, credentials or IPs.
+    return { ...verifiedProgramCatalog, refreshFailure: error instanceof CatalogFailure ? error.detail
+      : { code: abort.signal.aborted ? "TIMEOUT" : "NETWORK" } };
+  }
   finally { clearTimeout(timer); }
 }
 
