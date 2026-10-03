@@ -267,7 +267,8 @@ export function CustomerOperationalPage() {
   const [refreshEpoch, setRefreshEpoch] = useState(0);
   const [relatedEpoch, setRelatedEpoch] = useState(0);
   const { confirm, confirmationDialog } = useConfirmation();
-  const unsavedGuard = useUnsavedChangesGuard({ active: editing, message: "目前有尚未儲存的客戶修改，確定放棄？" });
+  const unsavedGuard = useUnsavedChangesGuard({ active: editing, blocked: busy, message: "目前有尚未儲存的客戶修改，確定放棄？" });
+  useUnsavedChangesGuard({ active: visitDraft !== null || quoteDraft !== null || frequentText.trim() !== "" || frequentItemId !== null });
   const canLeave = async () => (await unsavedGuard.confirmNavigationAsync(description => confirm({
     title: "放棄尚未儲存的修改", description, confirmLabel: "放棄修改", confirmTone: "danger",
   }))).allowed;

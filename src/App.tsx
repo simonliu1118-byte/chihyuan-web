@@ -17,6 +17,8 @@ import { SalesOrderOperationalPage } from "./runtime/modules/SalesOrderOperation
 import { WorkLogOperationalPage } from "./runtime/modules/WorkLogOperationalPage";
 import { BackupOperationalPage } from "./runtime/modules/BackupOperationalPage";
 import { ProgramCatalogPage } from "./runtime/modules/ProgramCatalogPage";
+import { UnsavedChangesBoundary, useNavigationGuard } from "./ui/foundation/useUnsavedChangesGuard";
+import { createGuardedHashNavigation } from "./ui/foundation/guarded-hash-navigation";
 
 type AppRoute = "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "settings" | "audit" | "identity" | "backups" | "programs";
 
@@ -96,6 +98,15 @@ function OperationalApp({
   const [moduleAccess, setModuleAccess] = useState<CurrentModuleAccess | null>(null);
   const [moduleAccessError, setModuleAccessError] = useState<string | null>(null);
   const [routeAccess, setRouteAccess] = useState<"idle" | "checking" | "allowed" | "denied">("idle");
+  const [checkedRoute, setCheckedRoute] = useState<AppRoute | null>(null);
+  const { canLeave, cancel } = useNavigationGuard();
+  const guardedNavigation = useMemo(() => createGuardedHashNavigation<AppRoute>({
+    initial: currentRoute(), canLeave, commit: setRoute,
+    write: (next, replace) => {
+      if (replace) window.history.replaceState(null, "", `#${next}`);
+      else window.location.hash = next;
+    },
+  }), [canLeave]);
 
   useEffect(() => {
     let cancelled = false;
@@ -136,10 +147,10 @@ function OperationalApp({
   }, [allowedModules, session.user.workspaceRole]);
 
   useEffect(() => {
-    const handleHashChange = () => setRoute(currentRoute());
+    const handleHashChange = () => { void guardedNavigation.request(currentRoute(), "hash"); };
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
-  }, []);
+  }, [guardedNavigation]);
 
   useEffect(() => {
     if (!moduleAccess) return;
@@ -159,9 +170,10 @@ function OperationalApp({
 
     if ((moduleCode && !allowedModules.has(moduleCode)) || (adminOnly && !adminAllowed)
       || (routeNow === "backups" && session.user.workspaceRole !== "SUPER_ADMIN")) {
-      window.location.hash = "#identity";
+      cancel();
+      guardedNavigation.replace("identity");
     }
-  }, [moduleAccess, allowedModules, session.user.workspaceRole]);
+  }, [moduleAccess, allowedModules, session.user.workspaceRole, guardedNavigation, cancel]);
 
   useEffect(() => {
     const moduleCode = moduleCodeForRoute(route);
@@ -170,6 +182,7 @@ function OperationalApp({
       return;
     }
     let cancelled = false;
+    setCheckedRoute(route);
     setRouteAccess("checking");
     void checkModuleAccess(moduleCode)
       .then(() => {
@@ -179,14 +192,15 @@ function OperationalApp({
         if (cancelled) return;
         setRouteAccess("denied");
         setModuleAccessError(messageOf(error));
-        window.location.hash = "#identity";
+        cancel();
+        guardedNavigation.replace("identity");
       });
     return () => { cancelled = true; };
-  }, [route]);
+  }, [route, guardedNavigation, cancel]);
 
   let content: React.ReactNode;
   const moduleCode = moduleCodeForRoute(route);
-  if (moduleCode && routeAccess !== "allowed") {
+  if (moduleCode && (routeAccess !== "allowed" || checkedRoute !== route)) {
     content = <section className="cy-op-panel"><h2>{routeAccess === "denied" ? "無模組使用權" : "正在確認模組權限…"}</h2><p>{moduleAccessError ?? "正在確認目前的模組使用權限。"}</p></section>;
   } else if (route === "customers") content = <CustomerOperationalPage />;
   else if (route === "items") content = <ItemOperationalPage />;
@@ -206,6 +220,7 @@ function OperationalApp({
       subtitle="Chihyuan Enterprise Management System"
       navigation={navigation}
       activeNavigationKey={route}
+      onNavigate={item => { if (routes.has(item.key as AppRoute)) void guardedNavigation.request(item.key as AppRoute, "link"); }}
       headerActions={
         <>
           <div className="cy-auth-account-control">
@@ -235,7 +250,7 @@ export default function App() {
   return (
     <AuthGate>
       {(session, logout, signingOut) => (
-        <OperationalApp session={session} logout={logout} signingOut={signingOut} />
+        <UnsavedChangesBoundary><OperationalApp session={session} logout={logout} signingOut={signingOut} /></UnsavedChangesBoundary>
       )}
     </AuthGate>
   );

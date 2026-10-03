@@ -1,3 +1,4 @@
+import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { DefectModuleLookups } from "../../../shared/business-lookups";
 import type {
@@ -107,6 +108,7 @@ export function DefectOperationalPage() {
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<DefectDraft | null>(null);
   const [busy, setBusy] = useState(false);
+  useUnsavedChangesGuard({ active: editing, blocked: busy });
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [message, setMessage] = useState<string | null>(null);

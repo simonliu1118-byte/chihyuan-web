@@ -1,3 +1,4 @@
+import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { useEffect, useState, type FormEvent } from "react";
 import type { SettingsSnapshot, LookupSetting, WorkLogScoringRowSetting } from "../../../shared/settings";
 import { ApiClientError } from "../../api/client";
@@ -40,6 +41,7 @@ export function SettingsOperationalPage({ role }: { role: "ADMIN" | "SUPER_ADMIN
   const [target, setTarget] = useState("");
   const [minimum, setMinimum] = useState("");
   const [score, setScore] = useState<Partial<WorkLogScoringRowSetting> | null>(null);
+  useUnsavedChangesGuard({ active: draft !== null || score !== null || (!!snapshot && (target !== (snapshot.workLogScoringConfig?.targetAverageDailyScore ?? "") || minimum !== (snapshot.workLogScoringConfig?.minimumAverageDailyScore ?? ""))), blocked: busy });
   function install(data: SettingsSnapshot) {
     setSnapshot(data); setTarget(data.workLogScoringConfig?.targetAverageDailyScore ?? ""); setMinimum(data.workLogScoringConfig?.minimumAverageDailyScore ?? "");
   }
