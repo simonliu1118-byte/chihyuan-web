@@ -1,3 +1,4 @@
+import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { useEffect, useRef, useState } from "react";
 import type { BackupHistory, BackupHistoryEntry } from "../../../shared/backups";
 import { ApiClientError } from "../../api/client";
@@ -47,6 +48,7 @@ export function BackupOperationalPage() {
   const [history, setHistory] = useState<BackupHistory | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  useUnsavedChangesGuard({ active: false, blocked: busy });
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const mounted = useRef(false), lock = useRef(false), operation = useRef<AbortController | null>(null);

@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactNode } from "react";
-import type { NavigationGroup } from "../foundation/navigation";
+import type { NavigationGroup, NavigationItem } from "../foundation/navigation";
 
 export interface AppShellProps {
   appName: string;
@@ -8,6 +8,7 @@ export interface AppShellProps {
   activeNavigationKey?: string;
   headerActions?: ReactNode;
   footer?: ReactNode;
+  onNavigate?: (item: NavigationItem) => void;
 }
 
 export function AppShell({
@@ -17,6 +18,7 @@ export function AppShell({
   activeNavigationKey,
   headerActions,
   footer,
+  onNavigate,
   children,
 }: PropsWithChildren<AppShellProps>) {
   return (
@@ -58,6 +60,12 @@ export function AppShell({
                       aria-disabled={item.disabled || undefined}
                       data-disabled={item.disabled || undefined}
                       title={item.description}
+                      onClick={event => {
+                        if (item.disabled) { event.preventDefault(); return; }
+                        if (!onNavigate || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                        event.preventDefault();
+                        onNavigate(item);
+                      }}
                     >
                       <span>{item.label}</span>
                     </a>

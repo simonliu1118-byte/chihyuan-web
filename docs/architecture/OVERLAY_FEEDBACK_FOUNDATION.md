@@ -81,7 +81,11 @@ Data freshness is handled through API mutation results and targeted revalidation
 
 Drawer/Sheet/Dialog editors that can discard unsaved work must use the shared unsaved-change guard before closing.
 
-`useUnsavedChangesGuard.confirmNavigationAsync()` accepts the shared confirmation callback; the synchronous entry remains available to existing callers. Customer/WorkLog draft cancellation and modified dialog closing use the asynchronous path. The browser before-unload safeguard remains native. This adoption does not yet guard all cross-module hash navigation.
+`useUnsavedChangesGuard.confirmNavigationAsync()` accepts the shared confirmation callback; the synchronous entry remains available to existing callers. Customer/WorkLog draft cancellation and modified dialog closing use the asynchronous path. The browser before-unload safeguard remains native.
+
+`UnsavedChangesBoundary` collects the active module's shared guards. Shell links and hash/Back transitions ask exactly once with **確定切換** / **放棄切換，繼續編輯**. Confirming discards the local working copy by leaving the module; it does not save, stage an extra recovery copy or ask a second time. Declining retains the mounted module and fields. Concurrent transitions share one pending decision; cancellation restores the current hash through history replacement, without adding a history entry. Permission/session enforcement bypasses this UI decision and invalidates pending transitions.
+
+Six business editors and Settings register their edit state; Customer related forms and modified shared dialogs register separately but still produce only one switch prompt. Pending mutations, including Backup, register busy state so navigation does not abandon an already submitted operation. A destination business page mounts only after that destination's module-access check succeeds; the previous module's access result cannot authorize a temporary destination render.
 
 The overlay itself does not invent a page-local dirty flag. It consumes the existing shared record-editor/list dirty state through the calling workflow.
 

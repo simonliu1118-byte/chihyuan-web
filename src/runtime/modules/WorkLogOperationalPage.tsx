@@ -136,7 +136,7 @@ export function WorkLogOperationalPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [refreshEpoch, setRefreshEpoch] = useState(0);
   const { confirm, confirmationDialog } = useConfirmation();
-  const guard = useUnsavedChangesGuard({ active: editing });
+  const guard = useUnsavedChangesGuard({ active: editing, blocked: busy });
   const canLeave = async () => (await guard.confirmNavigationAsync(description => confirm({
     title: "放棄尚未儲存的修改？", description, confirmLabel: "放棄修改", confirmTone: "danger",
   }))).allowed;

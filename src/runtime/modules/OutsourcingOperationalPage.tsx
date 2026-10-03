@@ -1,3 +1,4 @@
+import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { OutsourcingModuleLookups, OutsourcingItemOption } from "../../../shared/business-lookups";
 import type {
@@ -141,6 +142,7 @@ export function OutsourcingOperationalPage() {
   const [receiptUnit, setReceiptUnit] = useState("");
 
   const [busy, setBusy] = useState(false);
+  useUnsavedChangesGuard({ active: editing, blocked: busy });
   const [message, setMessage] = useState<string | null>(null);
   const [refreshEpoch, setRefreshEpoch] = useState(0);
 

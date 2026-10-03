@@ -1,82 +1,28 @@
 # CY Web App Shell Foundation
 
-> Status: structural implementation baseline before production business screens.
->
-> This document defines reusable application-shell responsibilities. It does not freeze the final visual design.
+> Current authenticated operational shell; final visual dimensions remain subject to UI/UX acceptance.
 
-## 1. Purpose
+## Shared responsibilities
 
-CY Web uses one shared application shell around all authenticated business modules. The shell exists to prevent each module from recreating navigation, top-level layout, status/feedback areas, responsive framing and common account/context controls.
+One `AppShell` owns the brand, navigation, active module, account controls, main-content boundary and responsive framing. Modules provide domain content and actions; Desktop/Tablet/Mobile share the navigation model and permission semantics.
 
-The shell is part of the new Web architecture. It is not a recreation of the Legacy GAS menu/header.
+Navigation items carry a stable key, label and href. The runtime filters business items through Employee Module Access and administrative items through existing Role rules. Identity and CY Programs remain available to valid sessions without business Module Access. The shell is presentation; it does not grant access.
 
-## 2. Shared responsibilities
+## Module switching
 
-The App Shell owns:
+`onNavigate` delegates ordinary same-tab activation to the runtime's guarded hash transition. Modified clicks retain native new-tab behavior; disabled items cannot activate. The skip link only focuses main content and never changes the module hash.
 
-- application identity/brand area;
-- primary module navigation;
-- active-module indication;
-- responsive navigation presentation;
-- a consistent main-content boundary;
-- optional top-level account/workspace/status actions;
-- common skip-link/focus structure;
-- global feedback/notice mounting points;
-- layout adaptation for Desktop/Tablet/Mobile.
+The active editor remains mounted while the shared switch dialog asks once:
 
-Business modules provide their page content and domain actions. They do not create their own independent application frame.
+- **確定切換**: discard unsaved local edits and enter the selected module.
+- **放棄切換，繼續編輯**: remain in the original module with the fields intact.
 
-## 3. Navigation contract
+There is no mandatory save, automatic save, extra recovery draft or second discard prompt. Hash/Back cancellation replaces the current address without adding a history entry. Repeated attempts do not create another pending transition. Permission enforcement invalidates pending navigation and returns to Identity independently of discard consent.
 
-Navigation items are data/configuration, not hard-coded page-specific markup.
+`useUnsavedChangesGuard` registers editor/busy state with `UnsavedChangesBoundary`; the existing shared `ConfirmDialog` renders the decision. Navigation does not duplicate business state or API authority. See `OVERLAY_FEEDBACK_FOUNDATION.md` for form cancellation and busy behavior.
 
-Each item has a stable key, user-facing label and route target. Visibility/availability will later be filtered through the shared Identity/app-module authorization boundary.
+A destination business page mounts after its own module-access check, avoiding an initial mount authorized by the previous module's result.
 
-The initial shell does not implement the final production router or permission provider. It exposes a small navigation model so those dependencies can be connected without redesigning the shell.
+## Visual and acceptance boundary
 
-## 4. Responsive behavior
-
-One navigation model and one page tree serve all viewport sizes.
-
-- Desktop may present persistent side navigation.
-- Narrow layouts may collapse the same navigation into a temporary panel/drawer pattern.
-- Business pages remain responsible for their own task-specific Adaptive UI inside the shell.
-
-Responsive changes must not create separate Desktop and Mobile business implementations.
-
-## 5. Visual boundary
-
-Current CSS variables and layout styling are provisional foundation tokens only. They exist to exercise spacing, focus, responsive behavior and component states during development.
-
-Before production UI acceptance, a dedicated UI/UX review may change:
-
-- brand colors;
-- type scale;
-- spacing/radius/shadow tokens;
-- navigation density and composition;
-- iconography;
-- header/sidebar proportions;
-- visual hierarchy.
-
-A visual change must not require business modules to fork or rewrite shared shell logic.
-
-## 6. First implementation scope
-
-The initial implementation provides:
-
-- `AppShell` structural component;
-- data-driven `NavigationItem` model;
-- reusable `Button`, `StatusChip`, `Notice` and `Section` primitives;
-- responsive shell CSS using shared foundation variables;
-- current health-check diagnostic rendered inside the shell so the shared frame is exercised without inventing a production business screen.
-
-## 7. Explicit non-goals
-
-This phase does not implement:
-
-- final CY Web visual design;
-- final menu hierarchy;
-- production routing;
-- production authentication/session UX;
-- Customer/Order/Item/WorkLog business screens;
-- GAS-derived screen layouts.
+Shared layout/styles remain one codebase; no separate device router is introduced. Desktop browser checks and automated transition tests do not substitute for real Tablet/Mobile and multi-role acceptance. Current progress and remaining tests live only in root `TODO.md`.
