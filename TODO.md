@@ -41,7 +41,7 @@
 
 - [x] Desktop Audit 四筆 WorkLog 送審／審核／取消／撤回，entity work_log/1、actor 2、filter 與取消狀態／原因 readback 通過；WorkLog rev.6 返回頁面仍保留草稿，已審篩選空資料提示通過。Frequent Item 移除確認取消後既有合成品項保留，未 hard delete。
 - [x] 最後進行 Desktop 共用 UI／UX 檢查：1363×936 程式頁無 document 橫向溢出、七個可見 ICON 56px 載入、active navigation 與網站／ZIP rel 正確。Keyboard Tab 可到 skip link，但 Enter 將 hash 改成 cy-main-content 而切到 Identity，為實測 bug；0.7.19 共用 AppShell 改成只移焦點，live Tab → Enter 確認 hash 保持 #programs、activeElement 為 cy-main-content、CY 程式內容不變。
-- [ ] 0.7.21 共用 UI 整理：Customer／WorkLog 已改既有 Dialog／ConfirmDialog；WorkLog 一次填寫工作日數／整體備註／各項分數；客戶 ERP 編號與原因同一表單。編輯／已修改彈窗關閉採 shared async dirty guard，busy 鎖定，高風險 API 維持等伺服器成功才更新。六模組及 Shell 工程描述改使用者語言。待 required CI、Development 部署與既有帳號 Desktop 彈窗／取消／錯誤／stale／審核生命週期驗收；跨模組導覽及真實裝置仍未驗收。
+- [ ] 0.7.21 共用 UI 整理：Customer／WorkLog 已改既有 Dialog／ConfirmDialog；WorkLog 一次填寫工作日數／整體備註／各項分數；客戶 ERP 編號與原因同一表單。編輯／已修改彈窗關閉採 shared async dirty guard，busy 鎖定，高風險 API 維持等伺服器成功才更新。六模組及 Shell 工程描述改使用者語言。0.7.21 required CI／Development 部署通過，live 發現 shared Dialog unmount 時焦點落到 BODY；Build 1 以 layout cleanup 關閉並移回原觸發元素，待 CI／部署與 Desktop 完整驗收；跨模組導覽及真實裝置仍未驗收。
 
 ## 已接受的工程與驗收範圍
 
