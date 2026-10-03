@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type PropsWithChildren, type ReactNode } from "react";
+import { useLayoutEffect, useId, useRef, type PropsWithChildren, type ReactNode } from "react";
 
 export type DialogPresentation = "modal" | "drawer" | "sheet";
 export type DialogSize = "small" | "medium" | "large";
@@ -30,21 +30,28 @@ export function Dialog({
   children,
 }: PropsWithChildren<DialogProps>) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const descriptionId = useId();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
 
     if (open && !dialog.open) {
+      returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       dialog.showModal();
-      return;
     }
 
     if (!open && dialog.open) {
       dialog.close();
+      if (returnFocusRef.current?.isConnected) returnFocusRef.current.focus();
     }
+    return () => {
+      if (!dialog.open) return;
+      dialog.close();
+      if (returnFocusRef.current?.isConnected) returnFocusRef.current.focus();
+    };
   }, [open]);
 
   return (

@@ -36,6 +36,7 @@ Shared behavior includes:
 - controlled open/close state;
 - title/description/body/footer structure;
 - Escape handling;
+- restore focus to the connected invoking control on close/unmount, including nested confirmations;
 - optional backdrop dismissal;
 - explicit non-dismissible/busy mode;
 - common close affordance.
