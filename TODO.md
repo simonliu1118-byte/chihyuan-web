@@ -26,8 +26,8 @@
 
 - [x] CY 程式頁工程驗收與 Development 部署：所有已登入使用者均可使用，不需 Module Access。四個正式程式提供版本／日期／功能／核准 ICON 與網頁或 compiled Release 入口；SMART 銷貨單格式轉換工具、CYEnvelope、CYWatermark 先保留功能介紹並標示尚未發版，不提供虛構下載。
 - [x] 既有 SUPER_ADMIN 的 Desktop `#programs` 導覽、七項介紹、圖示載入、已確認版本／日期、三個未發版無連結、更新 loading 及失敗標示已觀察。三個公開 compiled ZIP 經匿名 HTTP HEAD／redirect 回 200，網頁入口可到 CYAccountingWeb 登入頁；未下載執行桌面程式。
-- [ ] **CY 程式正式版本即時更新待修／驗收**：初次載入及手動更新均回到已確認 snapshot；目前七項與已公開最新版本相符，但不能視為 live Release refresh 成功。Repository 確認為 public；Git connector 與 scratch 匿名 API 可讀八個 Release，尚未取得部署 Worker subrequest 的狀態／錯誤證據，不臆測為 rate limit，也不以重跑部署或新增版本殼處理。
-- 相同公開 API 實際 response（57426 bytes／八個 Release）輸入現行 reader 後回 `current=true`，四個正式版本選取正確，三個未發版保留 null；解析未重現失敗。0.7.18 部署診斷回 NETWORK；相同 compatibility date 的 actual workerd 最小重現確認 Request redirect:error 拋 TypeError（unsupportedRedirect=true）；改用 manual＋拒絕所有非 2xx（0.7.18 Build 1），補真實 Request construction 與 302 不跟隨 regression，local 全套／build 通過，待部署 readback。本輪先補部署端 subrequest 的安全錯誤分類／HTTP status 診斷（0.7.18 已部署，run 37116571600），再按取得的原因修正；不盲目換來源或注入憑證。
+- [ ] **CY 程式正式版本即時更新：GitHub quota 待處理／驗收**：初次載入及手動更新均回到已確認 snapshot；目前七項與已公開最新版本相符，但不能視為 live Release refresh 成功。Repository 確認為 public；Git connector 與 scratch 匿名 API 可讀八個 Release，0.7.18 診斷已確認 NETWORK；0.7.18 Build 1 修正 unsupported redirect:error 後，實際部署回 RATE_LIMIT 403（provider x-ratelimit-remaining=0）。現有已確認 snapshot 明示保留；仍不能視為 live refresh 成功，不重跑部署或增加版本殼。
+- 相同公開 API 實際 response（57426 bytes／八個 Release）輸入現行 reader 後回 `current=true`，四個正式版本選取正確，三個未發版保留 null；解析未重現失敗。0.7.18 部署診斷回 NETWORK；相同 compatibility date 的 actual workerd 最小重現確認 Request redirect:error 拋 TypeError（unsupportedRedirect=true）；改用 manual＋拒絕所有非 2xx（0.7.18 Build 1），補真實 Request construction 與 302 不跟隨 regression，local／remote 全套及部署通過；live readback 已由 NETWORK 轉為 provider RATE_LIMIT 403，首次更新仍未通過。診斷 source f42fa3bfd2d9eb319c0b02ff343bb71de5fd3938／run 37116571600；修正 source 0a0208ec4b0a39ef19cf560e11b35f50ff196380／run 37117059457 已部署。後者兩入口首次 ready，270ms。接續處理 unauthenticated public API quota 與合理 cooldown／cache；不盲目換來源、循環重試或注入憑證。
 - [ ] `#programs` Tablet/Mobile、USER/ADMIN（含無 Module Access）的真人畫面與實際下載使用尚待確認；既有 isolated 三 Role API 通過不代替這些結果。
 
 - [ ] 依統一人工清單收集實際操作與畫面問題，回寫本文件，不另建平行進度表。
@@ -37,6 +37,10 @@
 - [ ] 每批 UI／功能變更跑適用 automated regression，真人/裝置 checklist 仍須實際確認。
 
 - [x] 既有 SUPER_ADMIN 合成 WorkLog Desktop 送審（rev.3）、審核（rev.4）、reload／統計 1 筆／1 日／2.5 分、取消審核（rev.5）統計歸零、撤回回草稿（rev.6）已觀察；未操作其他員工真實日誌。
+
+- [x] Desktop Audit 四筆 WorkLog 送審／審核／取消／撤回，entity work_log/1、actor 2、filter 與取消狀態／原因 readback 通過；WorkLog rev.6 返回頁面仍保留草稿，已審篩選空資料提示通過。Frequent Item 移除確認取消後既有合成品項保留，未 hard delete。
+- [x] 最後進行 Desktop 共用 UI／UX 檢查：1363×936 程式頁無 document 橫向溢出、七個可見 ICON 56px 載入、active navigation 與網站／ZIP rel 正確。Keyboard Tab 可到 skip link，但 Enter 將 hash 改成 cy-main-content 而切到 Identity，為實測 bug；0.7.19 共用 AppShell 改成只移焦點，待部署驗收。
+- [ ] UI 整理結果：WorkLog 審核仍以連續 browser prompts 收集工作日數／備註／逐列分數；Customer／WorkLog destructive/discard 仍有 native confirm，應後續採既有 Dialog／ConfirmDialog 與 dirty guard，不另建專用彈窗。各模組仍顯示 Worker/D1/authority 等工程描述，後續統一改使用者語言。這些是待調整項目，不代表已套用共用 UI。
 
 ## 已接受的工程與驗收範圍
 

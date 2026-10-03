@@ -21,7 +21,11 @@ export function AppShell({
 }: PropsWithChildren<AppShellProps>) {
   return (
     <div className="cy-app-shell">
-      <a className="cy-skip-link" href="#cy-main-content">
+      <a className="cy-skip-link" href="#cy-main-content" onClick={(event) => {
+        // Hash identifies the current module; moving focus must not route away.
+        event.preventDefault();
+        document.getElementById("cy-main-content")?.focus();
+      }}>
         跳到主要內容
       </a>
 
