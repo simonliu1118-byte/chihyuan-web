@@ -7,6 +7,7 @@ import { handleIdentityManagementRoute } from "./http/identity-management-routes
 import { handleModuleAccessRoute } from "./http/module-access-routes";
 import { handleBusinessApiRoute } from "./http/business-api-routes";
 import { handleBusinessApiPhase2Route } from "./http/business-api-phase2-routes";
+import { handleProgramCatalogRoute } from "./http/program-catalog-routes";
 import { failure, success } from "./http/response";
 
 interface Env extends IdentityRuntimeEnv, BackupRuntimeEnv {}
@@ -54,6 +55,9 @@ export default {
 
     const moduleAccessResponse = await handleModuleAccessRoute(request, env, requestId);
     if (moduleAccessResponse) return moduleAccessResponse;
+
+    const programResponse = await handleProgramCatalogRoute(request, env, requestId);
+    if (programResponse) return programResponse;
 
     const backupResponse = await handleBackupRoute(request, env, requestId);
     if (backupResponse) return backupResponse;

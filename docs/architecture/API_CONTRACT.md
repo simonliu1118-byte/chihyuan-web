@@ -552,6 +552,12 @@ Lookup kind is one of department/customer_category/customer_status/item_category
 
 Detailed Audit accepts bounded `limit` 1–200 and optional entityType/entityKey/action/actorEmployeeId/occurredFrom/occurredTo. Codes, IDs and time ranges are validated before querying the single existing AuditService. Writes, user-scoped bypasses and browser-local audit lists are not provided.
 
+## Program catalog HTTP transport
+
+`GET /api/programs` requires only a provider-resolved valid CYID Session. USER, ADMIN and SUPER_ADMIN may read it without business Module Access or local D1 membership checks. Invalid Session returns 401; unavailable Identity returns 503; other methods return 405 after authentication. The route neither writes D1 nor grants application access.
+
+The usual success envelope contains `programs`, `checkedAt` and `current`. Entries contain ID/name/platform/icon/description, nullable version/publishedAt/releaseUrl/downloadUrl/websiteUrl. Unreleased entries keep all release/link fields null. `current=false` identifies the last verified public snapshot when bounded live GitHub lookups fail; callers must label its versions as confirmed rather than latest. A newest formal desktop release without a verified compiled ZIP has a null download URL. Only fixed public CYapps release families and exact known assets are accepted; external metadata cannot supply arbitrary links.
+
 ## Backup management HTTP transport
 
 SUPER_ADMIN with a provider-resolved current Session and active app membership may use:

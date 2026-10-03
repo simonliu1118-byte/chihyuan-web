@@ -1,0 +1,48 @@
+{
+  "sourceRepository": "simonliu1118-byte/AITeam",
+  "sourceRef": "main",
+  "icons": [
+    {
+      "source": "shared/cy-visual/icon-family/apps/accounting/ACC.svg",
+      "target": "src/assets/cy-apps/ACC.svg",
+      "bytes": 4975,
+      "sha256": "d693111517380fd0eee1a0165fd9c714e7995f4757f1716157f3bc9b09c2ffd6",
+      "git_blob_sha1": "aa858ae0988bc70726a10d1c258f491ceacd2e3f"
+    },
+    {
+      "source": "shared/cy-visual/icon-family/apps/invoice/INV.svg",
+      "target": "src/assets/cy-apps/INV.svg",
+      "bytes": 1744,
+      "sha256": "ba5363be44ced65a775589df7bb81c109d479ed3ccc3bd22f18bb930dc7fb1f0",
+      "git_blob_sha1": "1654f4d2e5cf6deb3b02f2dc3db6e3a43e88f1fc"
+    },
+    {
+      "source": "shared/cy-visual/icon-family/apps/tri-invoice-calc/CAL.svg",
+      "target": "src/assets/cy-apps/CAL.svg",
+      "bytes": 3704,
+      "sha256": "c68d15fa63a9779deef4ebc59e202f6dd493d2c64f0a0e5259274743c2997bd4",
+      "git_blob_sha1": "1be56774ebbac61e46f7d1861d3a9e2ee2e97218"
+    },
+    {
+      "source": "shared/cy-visual/icon-family/apps/envelope/ENV.svg",
+      "target": "src/assets/cy-apps/ENV.svg",
+      "bytes": 1778,
+      "sha256": "b82bdeeaf4ebde71cb1a125603dc0ee4100c35f66568c6cbb7081b8dc308cc47",
+      "git_blob_sha1": "ab6abd892818fef3e8bf004d9de74cff136516bb"
+    },
+    {
+      "source": "shared/cy-visual/icon-family/apps/watermark/WM.svg",
+      "target": "src/assets/cy-apps/WM.svg",
+      "bytes": 2160,
+      "sha256": "56abc6279699255ed455c1f92904bd69fe95a4726640bb58ababa8dbe53cb1ce",
+      "git_blob_sha1": "ddd4647f56c44cef98be3728ddf1c13a95a51907"
+    },
+    {
+      "source": "shared/cy-visual/icon-family/apps/converter/CVT.svg",
+      "target": "src/assets/cy-apps/CVT.svg",
+      "bytes": 3320,
+      "sha256": "e4979f6d1880f25d9c9bd963d5a30c1b155c3041e4ecb23d53b6aeff3312d41d",
+      "git_blob_sha1": "5b5d6c14c32733f2e7467b250bced25da23e49c0"
+    }
+  ]
+}
