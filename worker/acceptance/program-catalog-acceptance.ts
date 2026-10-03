@@ -32,7 +32,10 @@ export async function acceptProgramCatalog(): Promise<void> {
   const result = await readProgramCatalog((async (input, init) => {
     calls++;
     check(String(input) === "https://api.github.com/repos/simonliu1118-byte/CYapps/releases?per_page=100&page=1"
-      && init?.redirect === "error" && init.signal instanceof AbortSignal, "FIXED_SOURCE_AND_BOUND");
+      && init?.redirect === "manual" && init.signal instanceof AbortSignal, "FIXED_SOURCE_AND_BOUND");
+    // Construct a real workerd Request: a pure fetch stub missed the previous
+    // unsupported redirect option and falsely accepted the live reader.
+    check(new Request(input, init).redirect === "manual", "ACTUAL_RUNTIME_REQUEST");
     return Response.json([...releases, newest]);
   }) as typeof fetch, "2026-10-03T01:00:00Z");
   check(result.current && calls === 1 && result.programs.length === 7 && result.programs[2]?.version === "2.10.0", "LIVE_CATALOG");
@@ -50,6 +53,7 @@ export async function acceptProgramCatalog(): Promise<void> {
     [new Response("private provider body", { status: 403 }), "HTTP", 403],
     [new Response("private provider body", { status: 403, headers: { "x-ratelimit-remaining": "0" } }), "RATE_LIMIT", 403],
     [new Response("private provider body", { status: 429 }), "RATE_LIMIT", 429],
+    [new Response(null, { status: 302, headers: { Location: "https://untrusted.test/" } }), "HTTP", 302],
     [Response.json({}), "INVALID", undefined], [Response.json([]), "MISSING", undefined],
     [new Response("x".repeat(1048577)), "TOO_LARGE", undefined], [new Response("invalid JSON"), "INVALID", undefined],
   ] as const) {
