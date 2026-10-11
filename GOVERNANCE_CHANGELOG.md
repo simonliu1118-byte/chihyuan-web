@@ -1,5 +1,10 @@
 # CY Web Governance Changelog
 
+## 1.1.15 — 2026/10/11
+
+- Synchronize manifest-listed CYID Consumer Contract 1.0.3 read-only mirrors from CYapps main after PR #380. Existing exact-sync and compatibility checks are unchanged.
+- CY Web remains consumer 1.0.2 within minimum 1.0.0/current 1.0.3; the optional private invalidation entrypoint does not require Web runtime adoption. No product version, authority, deployment or Release change.
+
 ## 1.1.14 — 2026/10/02
 
 - Development health acceptance records allowlisted status/version/consumer/source-commit and failure categories for canonical and workers.dev independently. A bounded observation window performs GET reads only; it never redeploys or prints response bodies, credentials or resolved infrastructure config.
