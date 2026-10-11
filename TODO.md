@@ -6,7 +6,7 @@
 
 - 已接受並部署：**Development 0.7.22 Build 0**，source `f682a666afd1d37ef0ed276ca2e752118189114d`，Development run `37121550746` attempt 1。兩入口初次仍為 0.7.21，既有 health reader 下一次觀察兩入口符合版本／commit／consumer／D1，總計 1471ms，無 redeploy。
 - Source **0.7.22 Build 0** 已加入單次切換模組提醒，並沿用 Customer／WorkLog 共用 Dialog／ConfirmDialog，修正關閉焦點並移除六模組／Shell 工程描述；包含 quota cooldown／最近成功版本保留及 skip-link 修正；CY 程式頁仍依使用者要求不顯示「發版說明」連結。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
-- CYID source/development **0.3.5 Build 0**；shared Consumer **1.0.2**，minimum **1.0.0**。`docs/contracts/cyid/` 依 canonical manifest exact-sync，支援窗及同步 gate 保留。
+- CYID canonical source **0.3.6 Build 0／contract 1.0.3** 已由 CYapps PR #380 合併；development live 仍需其工作線驗證。2026-10-11 已依 manifest 同步七個 shared artifacts 並通過 canonical bytes／支援窗檢查。CY Web `CYID_CONSUMER_VERSION` 維持 **1.0.2**，位於 **1.0.0..1.0.3**；1.0.3 的 named invalidation RPC 是 optional，不需要改 CY Web runtime 或冒稱採用新能力。此批只同步鏡像及狀態，VERSION／BUILD、Session／business authority、部署皆不變。
 - 固定入口 `https://admin.chihyuancm.com` 目前仍為 CY Web Development；CYID production provider 已完成不代表 CY Web production 已上線。
 - 六個業務模組及 Settings/Audit 使用單一 React → protected Worker API → D1。舊 local business authority、Group proxy、activation 入口與重複 local pages 已退休；無另加版本殼。
 - 備份／isolated recovery 工程已實作；實際雲端備份及排程仍未啟用。Production 業務資料 cutover 尚未執行。
