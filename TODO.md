@@ -4,10 +4,10 @@
 
 ## 目前基準 — 2026-10-12（Asia/Taipei）
 
-- 已接受並部署：**Development 0.7.22 Build 0**，source `f682a666afd1d37ef0ed276ca2e752118189114d`，Development run `37121550746` attempt 1。兩入口初次仍為 0.7.21，既有 health reader 下一次觀察兩入口符合版本／commit／consumer／D1，總計 1471ms，無 redeploy。
+- 已接受並部署：**Development0.7.23 Build0／CYID consumer1.0.4**，#146 head8aad63d9／treea02fe9d4 通過Governance244／Runtime160（含四jobs）／deploy-contract137，合併2dfd374e。Actual development#138（38197908123）source5325ef77／同已測tree完成部署；canonical及workers.dev health／source／D1於512ms同時ready，invalid Session／cookie清除驗收通過。原0.7.22部署以Git歷史追溯。
 - 先前已部署 source **0.7.22 Build 0** 已加入單次切換模組提醒，並沿用 Customer／WorkLog 共用 Dialog／ConfirmDialog，修正關閉焦點並移除六模組／Shell 工程描述；包含 quota cooldown／最近成功版本保留及 skip-link 修正；CY 程式頁仍依使用者要求不顯示「發版說明」連結。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
-- 本輪 source **0.7.23 Build 0／CYID consumer 1.0.4** 在既有「帳號與權限 → 系統使用權」新增 Super Admin 的「登記系統」，由 CYID core Session 決定目前 Workspace；其他員工使用權仍在既有清單管理。共享 Dialog／Field／dirty guard／Toast，無 browser registry authority。Provider source 0.3.7／canonical 1.0.4 先完成 main／CI，再按 manifest 同步全部鏡像；目前 UI source／local TypeScript／build／proxy tests 已完成，Provider #416 已合併且開發部署 #158（38197480766）通過，原 authority／history／vars／Secrets／七 migrations 保留；Web remote CI、development deploy與真人登記仍待驗證。最新部署仍為上列 0.7.22，不能把 PR 的 deploy-validation 綠燈當成實際上線。
-- 固定入口 `https://admin.chihyuancm.com` 目前仍為 CY Web Development；CYID production provider 已完成不代表 CY Web production 已上線。
+- 本輪 source **0.7.23 Build 0／CYID consumer 1.0.4** 在既有「帳號與權限 → 系統使用權」新增 Super Admin 的「登記系統」，由 CYID core Session 決定目前 Workspace；其他員工使用權仍在既有清單管理。共享 Dialog／Field／dirty guard／Toast，無 browser registry authority。Provider source 0.3.7／canonical 1.0.4 先完成 main／CI，再按 manifest 同步全部鏡像；目前 UI source／local TypeScript／build／proxy tests 已完成，Provider #416 已合併且開發部署 #158（38197480766）通過，原 authority／history／vars／Secrets／七 migrations 保留；Web exact-head CI與actual development#138已通過；真人登記仍待驗證。實際 development#138 已驗證0.7.23／consumer1.0.4；真人中央登記與其他角色／裝置的表單驗收仍待完成。
+- 固定入口 `https://admin.chihyuancm.com` 目前為 CY Web Development0.7.23；CYID production provider 已完成不代表 CY Web production 已上線。
 - 六個業務模組及 Settings/Audit 使用單一 React → protected Worker API → D1。舊 local business authority、Group proxy、activation 入口與重複 local pages 已退休；無另加版本殼。
 - 備份／isolated recovery 工程已實作；實際雲端備份及排程仍未啟用。Production 業務資料 cutover 尚未執行。
 
@@ -25,7 +25,7 @@
 - [x] Super Admin 顯示操作；一般 ADMIN／Identity Admin 不提供登記入口，server authority 仍由 CYID 決定。
 - [x] Core Session proxy／unauthenticated denial／provider 403 原樣保留測試，以及 TypeScript、Vite 與 existing source contracts。
 - [x] Provider 0.3.7 開發部署 #158（38197480766）通過；本 repo 依既有 sync script 完成 canonical 1.0.4 七項鏡像，exact-sync／支援窗驗證通過。
-- [ ] PR exact-head checks／Web development deploy；不得以 PR validation 視為部署完成。
+- [x] #146 exact-head Governance244／Runtime160／deploy-contract137通過，actual development#138部署與雙入口版本／D1／invalid Session驗收通過。
 - [ ] 既有Super Admin真人登記、清單出現、取消／dirty guard／busy及行動裝置；不宣稱已完成live App／Employee grant。
 - [ ] 登記不改CYInvoice既有Workspace，不等同Service Binding、scope metadata或authority flag已切換；production仍另行確認。
 
