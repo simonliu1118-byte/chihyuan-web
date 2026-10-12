@@ -4,6 +4,8 @@
 
 ## 目前基準 — 2026-10-12（Asia/Taipei）
 
+- 本輪 source **0.7.24 Build 0**：「CY 程式」新增「價格觀測室（原型）」之外連，原型程式位於 CYapps `apps/CYPriceDesk/`，網站維持既有 Sites owner-private 與 ChatGPT 登入。網站入口改由共用 action selector 判定，不依賴正式 Release；原有桌面未發版下載閘門維持。既有七項程式圖示保留，無正式圖示的原型採通用網頁圖示；Desktop／Mobile 沿用同一 renderer。CI／部署結果以本輪 PR／Actions 為準，未觀察的真人操作仍待驗收。
+
 - 已接受並部署：**Development0.7.23 Build0／CYID consumer1.0.4**，#146 head8aad63d9／treea02fe9d4 通過Governance244／Runtime160（含四jobs）／deploy-contract137，合併2dfd374e。Actual development#138（38197908123）source5325ef77／同已測tree完成部署；canonical及workers.dev health／source／D1於512ms同時ready，invalid Session／cookie清除驗收通過。原0.7.22部署以Git歷史追溯。
 - 先前已部署 source **0.7.22 Build 0** 已加入單次切換模組提醒，並沿用 Customer／WorkLog 共用 Dialog／ConfirmDialog，修正關閉焦點並移除六模組／Shell 工程描述；包含 quota cooldown／最近成功版本保留及 skip-link 修正；CY 程式頁仍依使用者要求不顯示「發版說明」連結。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
 - 本輪 source **0.7.23 Build 0／CYID consumer 1.0.4** 在既有「帳號與權限 → 系統使用權」新增 Super Admin 的「登記系統」，由 CYID core Session 決定目前 Workspace；其他員工使用權仍在既有清單管理。共享 Dialog／Field／dirty guard／Toast，無 browser registry authority。Provider #416／development #158 與 Web #146／development #138 已通過 CI／部署；七個 canonical mirrors1.0.4 已同步。使用者在原 development portal 完成 CYInvoice 真人登記／目前 Workspace 啟用，畫面已出現 CYInvoice。一般員工 App Access、取消／dirty guard／busy／行動裝置仍待驗收，不因 Super Admin 永遠允許就視為其他員工已授權。

@@ -1,9 +1,9 @@
-export type ProgramId = "accounting-web" | "accounting" | "invoice" | "tri-invoice-calc" | "converter" | "envelope" | "watermark";
+export type ProgramId = "accounting-web" | "accounting" | "invoice" | "tri-invoice-calc" | "converter" | "envelope" | "watermark" | "price-desk";
 export interface ProgramEntry {
   id: ProgramId;
   name: string;
   platform: "web" | "windows";
-  icon: "ACC" | "INV" | "CAL" | "CVT" | "ENV" | "WM";
+  icon: "ACC" | "INV" | "CAL" | "CVT" | "ENV" | "WM" | null;
   description: string;
   version: string | null;
   publishedAt: string | null;
@@ -16,6 +16,17 @@ export interface ProgramCatalog {
   checkedAt: string;
   current: boolean;
   refreshFailure?: { code: "HTTP" | "RATE_LIMIT" | "TIMEOUT" | "NETWORK" | "BODY" | "TOO_LARGE" | "INVALID" | "PAGE_LIMIT" | "MISSING"; httpStatus?: number };
+}
+
+export type ProgramAction = { kind: "website"; url: string } | { kind: "download"; url: string }
+  | { kind: "pending" } | { kind: "unavailable" };
+
+/** Website availability is independent from formal desktop release availability. */
+export function getProgramAction(program: ProgramEntry): ProgramAction {
+  if (program.websiteUrl) return { kind: "website", url: program.websiteUrl };
+  if (!program.version) return { kind: "pending" };
+  if (program.downloadUrl) return { kind: "download", url: program.downloadUrl };
+  return { kind: "unavailable" };
 }
 
 /** Verified public release snapshot; live lookups only replace release fields. */
@@ -50,5 +61,9 @@ export const verifiedProgramCatalog: ProgramCatalog = {
     { id: "watermark", name: "CYWatermark 盲浮水印工具", platform: "windows", icon: "WM",
       description: "商品圖片盲浮水印工具，支援批次嵌入、圖片驗證與 PDF 驗證報告。",
       version: null, publishedAt: null, releaseUrl: null, downloadUrl: null, websiteUrl: null },
+    { id: "price-desk", name: "價格觀測室（原型）", platform: "web", icon: null,
+      description: "獨立查價原型，手動記錄商品與蝦皮、momo 等平台報價，比較最低價及價差。使用 ChatGPT 私有登入；資料儲存在目前瀏覽器。",
+      version: null, publishedAt: null, releaseUrl: null, downloadUrl: null,
+      websiteUrl: "https://price-desk-simon.workspace-110444.chatgpt.site/" },
   ],
 };
