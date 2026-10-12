@@ -1,5 +1,10 @@
 # CY Web Governance Changelog
 
+## 1.1.16 — 2026/10/12
+
+- Adopt CYID optional application-registration contract 1.0.4 and synchronize the complete canonical manifest package after Provider main acceptance. Minimum compatible remains 1.0.0.
+- CY Web 0.7.23 provides the core-account Super Admin registration UI through the existing Session proxy; canonical Workspace/App Access authority remains CYID, with no business Workspace merge or production rollout.
+
 ## 1.1.15 — 2026/10/11
 
 - Synchronize manifest-listed CYID Consumer Contract 1.0.3 read-only mirrors from CYapps main after PR #380. Existing exact-sync and compatibility checks are unchanged.
