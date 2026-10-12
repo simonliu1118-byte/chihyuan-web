@@ -76,3 +76,29 @@ test("bounded transport preserves a valid empty response", async () => {
   assert.equal(response.status, 204);
   assert.equal(await response.text(), "");
 });
+
+test("application registration proxies the core Session and preserves provider authority errors without local grants", async () => {
+  let calls = 0;
+  const env = { IDENTITY_APPLICATION_ID: "CORE_TEST", IDENTITY_WORKSPACE_ID: "workspace-test", IDENTITY: { async fetch(req) {
+    calls++;
+    assert.equal(new URL(req.url).pathname, "/v1/admin/identity/applications");
+    assert.equal(req.method, "POST");
+    assert.equal(req.headers.get("authorization"), `Bearer ${token}`);
+    assert.equal(req.headers.get("x-identity-application"), "CORE_TEST");
+    assert.deepEqual(await req.json(), { applicationId: "APP_NEW", displayName: "New App" });
+    return Response.json({ ok: false, error: { code: "CORE_SUPER_ADMIN_REQUIRED", message: "Super Admin required" } }, { status: 403 });
+  } } };
+  const response = await handleIdentityManagementRoute(new Request("https://web.test/api/identity/admin/applications", {
+    method: "POST", headers: { cookie: `cyweb_identity_session=${token}`, "content-type": "application/json" },
+    body: JSON.stringify({ applicationId: "APP_NEW", displayName: "New App" }),
+  }), env, "test");
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).error.code, "CORE_SUPER_ADMIN_REQUIRED");
+  assert.equal(calls, 1);
+});
+test("application registration without a normal Session never reaches the provider", async () => {
+  const response = await handleIdentityManagementRoute(new Request("https://web.test/api/identity/admin/applications", {
+    method: "POST", body: JSON.stringify({ applicationId: "APP_NEW", displayName: "New App" }),
+  }), { IDENTITY_APPLICATION_ID: "CORE_TEST", IDENTITY: { fetch() { throw new Error("unauthenticated proxy"); } } }, "test");
+  assert.equal(response.status, 401);
+});

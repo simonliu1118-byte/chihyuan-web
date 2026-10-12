@@ -1,6 +1,6 @@
 # CYCloud Identity Consumer Integration Standard
 
-> **Contract version:** `1.0.2`
+> **Contract version:** `1.0.4`
 >
 > **Minimum compatible consumer version:** `1.0.0`
 >
@@ -264,6 +264,16 @@ The consumer must accept current provider authority for:
 
 A stale browser page never preserves server authority after provider rejection.
 
+### 11.1 Optional private cache-invalidation capability (1.0.3)
+
+A trusted consumer gateway may bind the named `ConsumerAuthoritySync` Worker entrypoint using a private RPC Service Binding (consumer name `IDENTITY_AUTHORITY`). It supplements the existing `IDENTITY` Fetcher; it has no public HTTP endpoint. This optional capability is **BACKWARD_COMPATIBLE**, minimum compatible remains 1.0.0; existing login/resolve/logout consumers and bindings keep working.
+
+`invalidateCache({workspaceId, applicationId, authorities})` accepts at most 10,000 already-confirmed cache descriptions: `employeeId`, positive `credentialVersion` / `employeeRevision`, canonical `workspaceRole`, boolean `isIdentityAdmin` / `emailVerified`. The gateway derives Workspace/Application from deployment configuration and authenticates its own consumer Device; it must not expose arbitrary scope selection or a public provider proxy.
+
+The provider returns `{workspaceId, applicationId, available, invalidated}`. `available` reports Workspace/Application enablement; `invalidated` contains supplied IDs whose current Employee/enabled/Role/App Access/credential/revision/capability/Email state no longer matches (including deleted or foreign-scope IDs). It compares current indexed authority, so no cursor or missed event can preserve obsolete entries. No principal, Session, verifier, password, permission grant or authority mutation is returned. An unchanged entry is not authorization for a protected operation; normal Login → Resolve → Logout and app-local permission enforcement remain required.
+
+Temporary service failure retains only the consumer's separately approved offline semantics. Known denial invalidates subordinate authority; the capability cannot restore a cache entry or change an old password proof into a newly privileged principal. Polling cadence and offline exceptions are consumer-specific. Empty checks establish service/scope availability without creating Employee authority. Provider work is read-only: one scope lookup and one indexed cached-ID query, no Session/heartbeat writes. Measure real Worker/D1 usage before rollout; actual quotas are deployment data.
+
 ## 12. Immediate invalidation behavior
 
 At minimum, subsequent protected requests must stop authorizing after:
@@ -353,6 +363,39 @@ A normal consumer does not need to duplicate:
 - Workspace security policy.
 
 If a consumer exposes a subset of these operations later, it remains CYID-backed and must use the same authority contract.
+
+### 17.1 Optional application registration through the core account portal
+
+Contract 1.0.4 adds `POST /v1/admin/identity/applications`. It accepts only
+`{applicationId, displayName}`: the ID normalizes to uppercase and must contain
+2–64 ASCII letters, digits, underscores or hyphens; the trimmed name contains
+1–120 Unicode characters and no control characters. Only the current Workspace
+Super Admin's valid Session for the configured core account application may call
+it. Workspace scope comes exclusively from that Session, never from request
+body or consumer business Workspace IDs.
+
+The operation registers the global catalog entry if absent and enables that
+application for the actor's existing Workspace. An existing catalog ID is reused
+only with the exact same display name and active status; this route never renames
+or globally reactivates an existing application, changes another Workspace,
+changes the core application, or creates Employee App Access. Re-enabling an
+existing Workspace entry preserves its existing grants; eligible previous grants
+may therefore allow entry again. Existing revoked Sessions remain revoked.
+
+Registration, Workspace enablement and audit are one D1 transaction, with current
+core Session/credential/Workspace Super Admin authority checked again inside it.
+Repeating the same valid request does not duplicate catalog or Workspace entries;
+each accepted call is audited. Success returns
+`{workspaceId, application: {applicationId, displayName, enabled: true}}` in the
+normal provider envelope. Stable errors are `CORE_SUPER_ADMIN_REQUIRED` (403),
+`INVALID_APPLICATION_REGISTRATION` (400), `CORE_APPLICATION_ACCESS_LOCKED` (409)
+and `APPLICATION_REGISTRATION_CONFLICT` (409).
+
+CY Web exposes this as an explicit Super Admin registration action and refreshes
+the existing application-access snapshot. Ordinary consumers continue to use the
+existing login/resolve/logout and App Access contracts. Registering an application
+does not configure service bindings, enable a consumer's CYID flag, merge identity
+and business Workspaces, or authorize a production rollout.
 
 ## 18. Consumer adoption and update procedure
 

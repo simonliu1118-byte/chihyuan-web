@@ -224,3 +224,7 @@ CYInvoice-specific Device/local/offline behavior remains CYInvoice-owned unless 
 ## 15. Public-source boundary
 
 Public source may contain generic contracts, placeholders and synthetic fixtures only. Do not commit real Workspace IDs, Employee data, access matrices, Cloudflare resource IDs, passwords, first-login passwords, first-login tickets, session tokens, OTP/recovery material or provider secrets.
+
+## Core-portal application registration
+
+The existing account-management page exposes a Super Admin-only registration dialog through the canonical 1.0.4 endpoint (§17.1). The existing same-origin identity-management proxy forwards the HttpOnly Session and deployment-configured core Application; CYID derives the actor Workspace and performs all catalog/enablement/authority/audit mutations. CY Web stores no registry or grants locally. Shared Dialog, fields, dirty guard, confirmation and Toast provide presentation; the existing access snapshot refresh remains the single list owner. Consumer business Workspace IDs are not inputs to this operation.

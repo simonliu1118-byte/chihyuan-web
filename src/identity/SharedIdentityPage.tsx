@@ -1,4 +1,10 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
+import { Dialog } from "../ui/overlays/Dialog";
+import { useConfirmation } from "../ui/overlays/useConfirmation";
+import { useUnsavedChangesGuard } from "../ui/foundation/useUnsavedChangesGuard";
+import { TextInput } from "../ui/primitives/TextInput";
+import { ToastRegion } from "../ui/feedback/ToastRegion";
+import { useToastQueue } from "../ui/feedback/useToastQueue";
 import { ApiClientError } from "../api/client";
 import { loadModuleAccessAdminSnapshot, setEmployeeModuleAccess, type ModuleAccessAdminSnapshot } from "../access/module-access-client";
 import type { AuthSession } from "../auth/auth-client";
@@ -11,6 +17,7 @@ import {
   forceEmployeeEmailRecovery,
   loadIdentityAdminSnapshot,
   loadSecurityPolicy,
+  registerWorkspaceApplication,
   resendActivatedEmailVerification,
   resendEmployeeEmailVerification,
   setEmployeeApplicationAccess,
@@ -334,6 +341,17 @@ function ApplicationAccessPanel({ snapshot, session, refresh }: {
 }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [registration, setRegistration] = useState<{ applicationId: string; displayName: string } | null>(null);
+  const [registrationError, setRegistrationError] = useState<string | null>(null);
+  const formId = useId();
+  const isSuperAdmin = session.user.workspaceRole === "SUPER_ADMIN";
+  const { confirm, confirmationDialog } = useConfirmation();
+  const { toasts, pushToast, dismissToast } = useToastQueue();
+  const registrationGuard = useUnsavedChangesGuard({
+    active: !!registration && (registration.applicationId !== "" || registration.displayName !== ""),
+    blocked: busy, message: "尚有未完成的系統登記，確定放棄？",
+  });
+  useEffect(() => { if (!isSuperAdmin) setRegistration(null); }, [isSuperAdmin]);
   const direct = useMemo(() => new Set(snapshot.directAccess.filter((row) => row.enabled === 1).map((row) => `${row.employee_id}:${row.application_id}`)), [snapshot.directAccess]);
   const applications = useMemo(() => snapshot.applications.filter((app) => app.core_access_locked !== 1), [snapshot.applications]);
 
@@ -344,8 +362,53 @@ function ApplicationAccessPanel({ snapshot, session, refresh }: {
     finally { setBusy(false); }
   }
 
+  async function closeRegistration() {
+    if (busy) return;
+    const decision = await registrationGuard.confirmNavigationAsync(description => confirm({
+      title: "放棄系統登記", description, confirmLabel: "放棄", confirmTone: "danger",
+    }));
+    if (decision.allowed) { setRegistration(null); setRegistrationError(null); }
+  }
+
+  async function register(event: FormEvent) {
+    event.preventDefault();
+    if (busy || !registration || !isSuperAdmin) return;
+    const input = { applicationId: registration.applicationId.trim().toUpperCase(), displayName: registration.displayName.trim() };
+    if (!/^[A-Z0-9_-]{2,64}$/.test(input.applicationId) || !input.displayName) {
+      setRegistrationError("請填寫有效的系統識別碼與顯示名稱。"); return;
+    }
+    setBusy(true); setRegistrationError(null); setMessage(null);
+    try {
+      await registerWorkspaceApplication(input);
+      setRegistration(null);
+      pushToast({ message: "系統已登記並啟用，請在清單設定員工使用權。", tone: "success" });
+      try { await refresh(); }
+      catch { setMessage("系統已完成登記，但清單更新失敗；請重新整理此頁。"); }
+    } catch (error) {
+      const explanations: Record<string, string> = {
+        CORE_SUPER_ADMIN_REQUIRED: "只有目前 Workspace 的超級管理員能登記系統，請確認登入權限。",
+        CORE_APPLICATION_ACCESS_LOCKED: "CY Web 是固定啟用的核心帳號入口，不需要另外登記。",
+        APPLICATION_REGISTRATION_CONFLICT: "這個識別碼已使用不同名稱，或系統已由中央停用；原有設定已保留。",
+      };
+      setRegistrationError(error instanceof ApiClientError ? explanations[error.code] ?? messageOf(error) : messageOf(error));
+    } finally { setBusy(false); }
+  }
+
   return <section className="cy-op-panel">
-    <div className="cy-op-panel-header"><div><h3>系統使用權</h3><p>Identity Admin 與超級管理員設定各系統准入；CY Web 是所有有效使用者固定可使用的核心帳號入口，因此不列入此表。</p></div></div>
+    <div className="cy-op-panel-header"><div><h3>系統使用權</h3><p>Identity Admin 與超級管理員設定各系統准入；CY Web 是所有有效使用者固定可使用的核心帳號入口，因此不列入此表。</p></div>
+      {isSuperAdmin ? <button type="button" className="cy-op-button" disabled={busy} onClick={() => { setRegistration({ applicationId: "", displayName: "" }); setRegistrationError(null); }}>登記系統</button> : null}
+    </div>
+    {confirmationDialog}
+    <ToastRegion toasts={toasts} onDismiss={dismissToast} />
+    {isSuperAdmin && registration ? <Dialog open title="登記並啟用系統" size="small" dismissible={!busy} onClose={() => void closeRegistration()}
+      description="為目前 Workspace 加入系統。超級管理員可使用；其他員工仍須另外設定使用權。已停用的 Workspace 系統重新登記後會啟用，原有員工使用權會保留。"
+      footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void closeRegistration()}>取消</button><button type="submit" form={formId} className="cy-op-button primary" disabled={busy}>{busy ? "登記中…" : "登記並啟用"}</button></div>}>
+      <form id={formId} className="cy-form-grid" onSubmit={event => void register(event)}>
+        <div className="cy-form-grid-full"><TextInput label="系統識別碼" description="使用該系統核准的識別碼，由英文字母、數字、底線或連字號組成。" value={registration.applicationId} maxLength={64} required disabled={busy} autoFocus onChange={event => setRegistration({ ...registration, applicationId: event.target.value })} /></div>
+        <div className="cy-form-grid-full"><TextInput label="顯示名稱" value={registration.displayName} maxLength={120} required disabled={busy} onChange={event => setRegistration({ ...registration, displayName: event.target.value })} /></div>
+        {registrationError ? <p className="cy-form-grid-full" role="alert">{registrationError}</p> : null}
+      </form>
+    </Dialog> : null}
     {message ? <div className="cy-identity-message">{message}</div> : null}
     <div className="cy-identity-table-wrap"><table className="cy-op-table cy-identity-access-table"><thead><tr><th className="cy-access-user-col">使用者</th><th className="cy-access-permission-col">權限</th>{applications.map((app) => <th className="cy-access-app-col" key={app.application_id}>{app.display_name}</th>)}</tr></thead><tbody>{snapshot.employees.map((employee) => <tr key={employee.employee_id}><td>{employee.employee_no} {employee.name}</td><td>{permissionLabel(employee.workspace_role)}{employee.identity_admin === 1 ? <small className="cy-identity-subtext">Identity Admin</small> : null}</td>{applications.map((app) => {
       const sa = employee.workspace_role === "SUPER_ADMIN";
