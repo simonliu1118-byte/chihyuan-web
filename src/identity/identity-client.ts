@@ -81,6 +81,12 @@ export function loadIdentityAdminSnapshot(): Promise<IdentityAdminSnapshot> {
   return apiRequest<IdentityAdminSnapshot>("/api/identity/admin/snapshot", { method: "GET" });
 }
 
+export function registerWorkspaceApplication(input: { applicationId: string; displayName: string }) {
+  return apiRequest<{ workspaceId: string; application: { applicationId: string; displayName: string; enabled: boolean } }>(
+    "/api/identity/admin/applications", { method: "POST", json: input },
+  );
+}
+
 export function loadHighestAuthority(): Promise<HighestAuthorityView> {
   return apiRequest<HighestAuthorityView>("/api/identity/admin/authority", { method: "GET" });
 }
