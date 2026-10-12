@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ProgramCatalog, ProgramEntry } from "../../../shared/program-catalog";
+import { getProgramAction } from "../../../shared/program-catalog";
 import { apiRequest } from "../../api/client";
 import { DataView } from "../../ui/data/DataView";
 import { Section } from "../../ui/primitives/Section";
@@ -20,15 +21,17 @@ function date(value: string): string {
   return new Date(value).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit" });
 }
 function name(program: ProgramEntry) {
-  return <div className="cy-program-name"><img src={icons[program.icon]} width="56" height="56" alt="" />
+  return <div className="cy-program-name">{program.icon ? <img src={icons[program.icon]} width="56" height="56" alt="" />
+    : <svg width="56" height="56" viewBox="0 0 56 56" aria-hidden="true"><rect x="1" y="1" width="54" height="54" rx="10" fill="var(--cy-surface-muted, #edf2f0)" />
+      <g fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="28" cy="28" r="14" /><ellipse cx="28" cy="28" rx="6" ry="14" /><path d="M14 28h28M17 20h22M17 36h22" /></g></svg>}
     <div><strong>{program.name}</strong><span>{program.platform === "web" ? "網頁版" : "Windows 10／11 · x64"}</span></div></div>;
 }
 function links(program: ProgramEntry) {
-  if (!program.version) return <span>正式發版後提供下載</span>;
+  const action = getProgramAction(program);
+  if (action.kind === "pending") return <span>正式發版後提供下載</span>;
+  if (action.kind === "unavailable") return <span>尚無可下載檔案</span>;
   return <div className="cy-program-links">
-    {program.websiteUrl ? <a className="cy-op-button is-primary" href={program.websiteUrl} target="_blank" rel="noopener noreferrer">開啟網站</a>
-      : program.downloadUrl ? <a className="cy-op-button is-primary" href={program.downloadUrl} target="_blank" rel="noopener noreferrer">下載程式</a>
-      : <span>尚無可下載檔案</span>}
+    <a className="cy-op-button is-primary" href={action.url} target="_blank" rel="noopener noreferrer">{action.kind === "website" ? "開啟網站" : "下載程式"}</a>
   </div>;
 }
 export function ProgramCatalogView({ catalog }: { catalog: ProgramCatalog }) {

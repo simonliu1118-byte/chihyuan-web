@@ -1,4 +1,4 @@
-import { verifiedProgramCatalog } from "../../shared/program-catalog";
+import { getProgramAction, verifiedProgramCatalog } from "../../shared/program-catalog";
 import { handleProgramCatalogRoute } from "../http/program-catalog-routes";
 import type { IdentityRuntimeEnv } from "../http/auth-routes";
 import { createProgramCatalogLoader, readProgramCatalog, selectProgramRelease } from "../programs/release-catalog";
@@ -38,11 +38,16 @@ export async function acceptProgramCatalog(): Promise<void> {
     check(new Request(input, init).redirect === "manual", "ACTUAL_RUNTIME_REQUEST");
     return Response.json([...releases, newest]);
   }) as typeof fetch, "2026-10-03T01:00:00Z");
-  check(result.current && calls === 1 && result.programs.length === 7 && result.programs[2]?.version === "2.10.0", "LIVE_CATALOG");
-  const pending = result.programs.filter(program => !program.version);
+  check(result.current && calls === 1 && result.programs.length === 8 && result.programs[2]?.version === "2.10.0", "LIVE_CATALOG");
+  const pending = result.programs.filter(program => program.platform === "windows" && !program.version);
   check(pending.length === 3 && pending.every(program => program.publishedAt === null && program.releaseUrl === null
     && program.downloadUrl === null && program.websiteUrl === null), "UNRELEASED_NO_FABRICATED_LINKS");
   check(selectProgramRelease(pending[0], [newest]) === null, "PENDING_RELEASE_NOT_GUESSED");
+  const prototype = result.programs.find(program => program.id === "price-desk");
+  check(prototype?.version === null && prototype.publishedAt === null && prototype.releaseUrl === null && prototype.downloadUrl === null
+    && prototype.websiteUrl === "https://price-desk-simon.workspace-110444.chatgpt.site/"
+    && getProgramAction(prototype).kind === "website", "PROTOTYPE_WEBSITE_WITHOUT_RELEASE");
+  check(selectProgramRelease(prototype, [newest]) === null, "PROTOTYPE_RELEASE_NOT_GUESSED");
   let pages = 0;
   const paginated = await readProgramCatalog((async () => {
     pages++;
