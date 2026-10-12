@@ -28,7 +28,7 @@
 - [x] #146 exact-head Governance244／Runtime160／deploy-contract137通過，actual development#138部署與雙入口版本／D1／invalid Session驗收通過。
 - [x] 使用者以既有 Super Admin 完成 CYInvoice 真人中央登記／目前 Workspace 啟用，系統使用權清單出現 CYInvoice；一般員工 App Access 尚未確認。
 - [ ] 取消／dirty guard／busy、其他角色及行動裝置真人表單驗收。
-- [x] CYapps Invoice 唯讀 #38／prepare-cyid #39 完成 scope 與私有 binding 配置，原業務 Workspace／Device／資料保留、Built-in／CYID false；配置不代替 live transport／Employee 授權。Invoice Windows／切換驗收由其現行 TODO／RC 管理，production仍另行核准。
+- [x] CYapps Invoice 唯讀 #38／prepare-cyid #39 完成配置；使用者回報原 Windows continuity 後，#420 CI／actual activate-cyid #42（38206372325）確認 development CYID_ENABLED=true，原業務 Workspace／Device Token hashes／資料／history／FK 保留，Provider不變。原 Windows 中央當次驗證及其餘角色／transport／AA／AB／AC 仍待驗收，唯一進度入口為 CYapps Invoice 現行 TODO／RC；production仍另行核准。
 
 ## UI／UX 與小功能階段的工作範圍
 
