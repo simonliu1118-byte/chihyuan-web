@@ -32,6 +32,8 @@ const principal = {
 
 let providerCalls = 0;
 let issuerCalls = 0;
+let statusCalls = 0;
+let revokeCalls = 0;
 let issuerInput;
 let issuerResult = {status:"sent", invitationId:"inv_22222222-2222-4222-8222-222222222222", expiresAt:now};
 let issuerThrows = false;
@@ -55,11 +57,21 @@ const env = {
       if (issuerThrows) throw new Error("RPC_RESULT_LOST");
       return issuerResult;
     },
+    async getRecoveryInvitationStatus(input) {
+      statusCalls++;
+      issuerInput = input;
+      return issuerResult;
+    },
+    async revokeRecoveryInvitation(input) {
+      revokeCalls++;
+      issuerInput = input;
+      return {status:"failed"};
+    },
   },
 };
 
 function post(body = {password:"syntheticpass", operationId}, overrides = {}) {
-  return new Request(url, {
+  return new Request(overrides.url ?? url, {
     method:"POST",
     headers:{
       origin:"https://cyweb.example.test",
@@ -76,11 +88,12 @@ async function run(request, runtime = env) {
   return {status:response.status, payload:await response.json()};
 }
 async function denied(request, status, code, runtime = env) {
-  const prior = issuerCalls;
+  const prior = issuerCalls + statusCalls + revokeCalls;
   const result = await run(request, runtime);
   assert.equal(result.status, status);
   assert.equal(result.payload.error.code, code);
-  assert.equal(issuerCalls, prior, "Denied request must never invoke private issuer");
+  assert.equal(issuerCalls + statusCalls + revokeCalls, prior,
+    "Denied request must never invoke private recovery capability");
 }
 
 await denied(post(undefined, {headers:{origin:"https://evil.example.test"}}),403,"ORIGIN_NOT_ALLOWED");
@@ -123,6 +136,38 @@ const lost=await run(post());
 assert.equal(lost.status,503);
 assert.equal(lost.payload.error.code,"RECOVERY_RESULT_UNKNOWN");
 assert.equal(issuerCalls,3, "Never automatically replay a lost RPC result");
+issuerThrows=false;
+issuerResult={status:"pending"};
+const statusUrl=url+"/status";
+const revokeUrl=url+"/revoke";
+const status=await run(post(undefined,{url:statusUrl}));
+assert.equal(status.status,200);
+assert.equal(status.payload.data.status,"pending");
+assert.equal(statusCalls,1);
+const revoked=await run(post(undefined,{url:revokeUrl}));
+assert.equal(revoked.status,200);
+assert.equal(revoked.payload.data.status,"revoked");
+assert.equal(revokeCalls,1);
+issuerResult={status:"failed"};
+const unavailable=await run(post(undefined,{url:statusUrl}));
+assert.equal(unavailable.status,200);
+assert.equal(unavailable.payload.data.status,"unavailable");
+await denied(post(undefined,{url:revokeUrl,headers:{origin:"https://evil.example.test"}}),403,"ORIGIN_NOT_ALLOWED");
+resolved={...principal,workspaceRole:"USER",isWorkspaceSuperAdmin:false};
+await denied(post(undefined,{url:statusUrl}),403,"SUPER_ADMIN_REQUIRED");
+await denied(post(undefined,{url:revokeUrl}),403,"SUPER_ADMIN_REQUIRED");
+resolved=principal;
+await denied(post(undefined,{url:statusUrl}),503,"RECOVERY_NOT_CONFIGURED",{
+  ...env,CYINVOICE_RECOVERY:{issueRecoveryInvitation:env.CYINVOICE_RECOVERY.issueRecoveryInvitation},
+});
+assert.deepEqual(issuerInput,{
+  operationId,employeeNo:principal.employeeNo,password:"syntheticpass",
+  expectedEmployeeId:principal.employeeId,
+  expectedIdentityWorkspaceId:principal.workspaceId,
+  expectedCredentialVersion:principal.credentialVersion,
+  expectedEmployeeRevision:principal.employeeRevision,
+});
+
 assert.ok(providerCalls>0);
 const get=await handleCyInvoiceRecoveryRoute(new Request(url),env,"request_synthetic");
 assert.equal(get.status,405);
