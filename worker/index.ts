@@ -5,12 +5,13 @@ import { handleSettingsAuditRoute } from "./http/settings-audit-routes";
 import { handleAuthRoute, type IdentityRuntimeEnv } from "./http/auth-routes";
 import { handleIdentityManagementRoute } from "./http/identity-management-routes";
 import { handleModuleAccessRoute } from "./http/module-access-routes";
+import { handleCyInvoiceRecoveryRoute, type CyInvoiceRecoveryEnv } from "./http/cyinvoice-recovery-routes";
 import { handleBusinessApiRoute } from "./http/business-api-routes";
 import { handleBusinessApiPhase2Route } from "./http/business-api-phase2-routes";
 import { handleProgramCatalogRoute } from "./http/program-catalog-routes";
 import { failure, success } from "./http/response";
 
-interface Env extends IdentityRuntimeEnv, BackupRuntimeEnv {}
+interface Env extends IdentityRuntimeEnv, BackupRuntimeEnv, CyInvoiceRecoveryEnv {}
 
 async function health(env: Env, requestId: string): Promise<Response> {
   try {
@@ -52,6 +53,9 @@ export default {
 
     const identityResponse = await handleIdentityManagementRoute(request, env, requestId);
     if (identityResponse) return identityResponse;
+
+    const recoveryResponse = await handleCyInvoiceRecoveryRoute(request, env, requestId);
+    if (recoveryResponse) return recoveryResponse;
 
     const moduleAccessResponse = await handleModuleAccessRoute(request, env, requestId);
     if (moduleAccessResponse) return moduleAccessResponse;
