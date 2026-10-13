@@ -12,20 +12,24 @@ import { failure, success } from "./response";
  *
  * CY Web's core Session token is never forwarded across this boundary.
  */
+export interface CyInvoiceRecoveryInput {
+  operationId: string;
+  employeeNo: string;
+  password: string;
+  expectedEmployeeId: string;
+  expectedIdentityWorkspaceId: string;
+  expectedCredentialVersion: number;
+  expectedEmployeeRevision: number;
+}
+export interface CyInvoiceRecoveryResult {
+  status: "sent" | "pending" | "failed";
+  invitationId?: string;
+  expiresAt?: string;
+}
 export interface CyInvoiceRecoveryIssuer {
-  issueRecoveryInvitation(input: {
-    operationId: string;
-    employeeNo: string;
-    password: string;
-    expectedEmployeeId: string;
-    expectedIdentityWorkspaceId: string;
-    expectedCredentialVersion: number;
-    expectedEmployeeRevision: number;
-  }): Promise<{
-    status: "sent" | "pending" | "failed";
-    invitationId?: string;
-    expiresAt?: string;
-  }>;
+  issueRecoveryInvitation(input: CyInvoiceRecoveryInput): Promise<CyInvoiceRecoveryResult>;
+  getRecoveryInvitationStatus(input: CyInvoiceRecoveryInput): Promise<CyInvoiceRecoveryResult>;
+  revokeRecoveryInvitation(input: CyInvoiceRecoveryInput): Promise<CyInvoiceRecoveryResult>;
 }
 
 export interface CyInvoiceRecoveryEnv extends IdentityRuntimeEnv {
@@ -33,6 +37,8 @@ export interface CyInvoiceRecoveryEnv extends IdentityRuntimeEnv {
 }
 
 const recoveryPath = "/api/identity/admin/cyinvoice/device-recovery/invitations";
+const statusPath = recoveryPath + "/status";
+const revokePath = recoveryPath + "/revoke";
 const operationIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /**
@@ -52,13 +58,19 @@ export async function handleCyInvoiceRecoveryRoute(
   env: CyInvoiceRecoveryEnv,
   requestId: string,
 ): Promise<Response | null> {
-  if (new URL(request.url).pathname !== recoveryPath) return null;
+  const path = new URL(request.url).pathname;
+  const operation = path === recoveryPath ? "issue" : path === statusPath ? "status"
+    : path === revokePath ? "revoke" : null;
+  if (!operation) return null;
   if (request.method !== "POST")
     return failure({ code: "METHOD_NOT_ALLOWED", message: "Only POST is supported" }, requestId, 405);
 
   // Fail closed: this route never issues invitations by itself, and an
   // unconfigured deployment has no issuer side effect.
-  if (!env.CYINVOICE_RECOVERY || typeof env.CYINVOICE_RECOVERY.issueRecoveryInvitation !== "function")
+  const capability = env.CYINVOICE_RECOVERY;
+  const method = operation === "issue" ? "issueRecoveryInvitation"
+    : operation === "status" ? "getRecoveryInvitationStatus" : "revokeRecoveryInvitation";
+  if (!capability || typeof capability[method] !== "function")
     return failure({ code: "RECOVERY_NOT_CONFIGURED", message: "CYInvoice recovery is not configured" }, requestId, 503);
 
   if (!isSameOriginMutation(request))
@@ -98,7 +110,7 @@ export async function handleCyInvoiceRecoveryRoute(
     return failure({ code: "INVALID_REQUEST", message: "Invalid recovery confirmation" }, requestId, 400);
 
   try {
-    const result = await env.CYINVOICE_RECOVERY.issueRecoveryInvitation({
+    const result = await capability[method]({
       operationId,
       employeeNo: principal.employeeNo,
       password,
@@ -116,9 +128,13 @@ export async function handleCyInvoiceRecoveryRoute(
       return success({ status: "sent", invitationId: result.invitationId, expiresAt: result.expiresAt }, requestId);
     }
     if (result.status === "pending")
-      return success({ status: "pending", operationId }, requestId, { status: 202 });
-
-    return failure({ code: "RECOVERY_ISSUE_FAILED", message: "Recovery invitation was not issued" }, requestId, 409);
+      return success({ status: "pending", operationId }, requestId,
+        operation === "issue" ? { status: 202 } : {});
+    if (result.status === "failed" && operation === "revoke")
+      return success({ status: "revoked", operationId }, requestId);
+    if (result.status === "failed" && operation === "status")
+      return success({ status: "unavailable", operationId }, requestId);
+    return failure({ code: "RECOVERY_ISSUE_FAILED", message: "Recovery invitation is unavailable" }, requestId, 409);
   } catch {
     // A lost RPC response may mean that an invitation was already committed.
     // Never retry or create another operationId automatically.
