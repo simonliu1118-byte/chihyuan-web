@@ -175,6 +175,15 @@ CY Web is a multi-module exception:
 
 Protected Worker/API routes must enforce current Module Access server-side on each relevant request. Navigation visibility is not an authorization boundary.
 
+## CYInvoice V3 災難復原：CYWEB Core Session 與 Consumer App 分離（Draft，2026-10-14）
+
+CYWEB 作為 **Core CYID 帳號管理入口**，只替 CYInvoice 提供**操作入口**，不成為 CYInvoice 身分／Device／Invitation authority，也不能把 CYWEB 的 HttpOnly Core Session Bearer 或 `CYWEB` Application 認證結果直接當作 `CYINVOICE` Application Session。此流程不同於 CYID 的「已啟用帳號 Email 找回」，也不是 CYWEB 的 D1 備份／還原。
+
+- `src/identity/CyInvoiceRecoveryAdminPanel.tsx` 僅對已驗證 Email 的有效 SUPER_ADMIN 顯示；顯示確認「**復原邀請寄送不撤銷舊 Device；新 Device 兌換成功時才全數撤銷**」。同一 operationId 可查狀態／明確撤銷，不儲存密碼或復原碼。
+- `worker/http/cyinvoice-recovery-routes.ts` 的三個管理 POST route 具 CYWEB Core Session／first-login 拒絕／same-origin/CSRF／role+Email／size/field gate，轉送的是 opaque operationId、CYID 員編與當次輸入密碼、expected stable Employee/Identity Workspace/credential version/revision；不讓前端指定 role、business Workspace 或 app scope。
+- `CYINVOICE_RECOVERY` 是 **named private `CyInvoiceRecoveryEntrypoint`** Service Binding，只由受控 deploy environment opt-in 注入。CYInvoice 需在固定 Application `CYINVOICE` 對 CYID **再次 Login／Resolve／verifiedEmail／finally Logout**，重驗 Business D1 `CYID_ONLY`+optional `CYWEB_RECOVERY` profile，再由 CYInvoice 自己發信、記錄和處理 claim。缺 Binding 時 fail-closed（503），不能切到公開管理 API 或使用 CYWEB Core Session 冒名。
+- 真實 CYWEB Service Binding／CYInvoice D1 forward 0014／optional issuer、Email provider 與 Windows 裝置都**尚未部署／驗收**，目前僅 Draft [CYWEB #151](https://github.com/simonliu1118-byte/chihyuan-web/pull/151)、[CYInvoice #440](https://github.com/simonliu1118-byte/CYapps/pull/440)；進度和 CI 以根 `TODO.md` 為準，DR 驗收 owner 在 CYInvoice 文件。
+
 ## 11. Activated-account Email recovery
 
 Forced Email recovery is distinct from first Email verification.
