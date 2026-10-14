@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Dialog } from "../ui/overlays/Dialog";
+import { CyInvoiceRecoveryAdminPanel } from "./CyInvoiceRecoveryAdminPanel";
 import { useConfirmation } from "../ui/overlays/useConfirmation";
 import { useUnsavedChangesGuard } from "../ui/foundation/useUnsavedChangesGuard";
 import { TextInput } from "../ui/primitives/TextInput";
@@ -545,6 +546,7 @@ export function SharedIdentityPage({ session }: { session: AuthSession }) {
         {canManageAccess ? <ApplicationAccessPanel snapshot={snapshot} session={session} refresh={refresh} /> : null}
         {canManageAccess ? <ModuleAccessPanel snapshot={snapshot} session={session} /> : null}
         {session.user.workspaceRole === "SUPER_ADMIN" ? <SecurityPanel /> : null}
+        {session.user.workspaceRole === "SUPER_ADMIN" ? <CyInvoiceRecoveryAdminPanel session={session} /> : null}
       </div> : <section className="cy-op-panel"><p>{loading ? "正在讀取 Identity 資料…" : "尚未取得 Identity 管理資料。"}</p></section>}
     </> : null}
   </div>;
