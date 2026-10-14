@@ -34,6 +34,7 @@ let providerCalls = 0;
 let issuerCalls = 0;
 let statusCalls = 0;
 let revokeCalls = 0;
+let revokeResult = {status:"failed"};
 let issuerInput;
 let issuerResult = {status:"sent", invitationId:"inv_22222222-2222-4222-8222-222222222222", expiresAt:now};
 let issuerThrows = false;
@@ -65,7 +66,7 @@ const env = {
     async revokeRecoveryInvitation(input) {
       revokeCalls++;
       issuerInput = input;
-      return {status:"failed"};
+      return revokeResult;
     },
   },
 };
@@ -146,7 +147,7 @@ assert.equal(status.payload.data.status,"pending");
 assert.equal(statusCalls,1);
 const revoked=await run(post(undefined,{url:revokeUrl}));
 assert.equal(revoked.status,200);
-assert.equal(revoked.payload.data.status,"revoked");
+assert.equal(revoked.payload.data.status,"unavailable", "failed can mean already consumed; never claim revoked");
 assert.equal(revokeCalls,1);
 issuerResult={status:"failed"};
 const unavailable=await run(post(undefined,{url:statusUrl}));
@@ -173,3 +174,22 @@ const get=await handleCyInvoiceRecoveryRoute(new Request(url),env,"request_synth
 assert.equal(get.status,405);
 assert.equal(await handleCyInvoiceRecoveryRoute(new Request("https://cyweb.example.test/api/unrelated"),env,"request_synthetic"),null);
 console.log("CYWEB CYInvoice recovery boundary: auth, origin, payload, RPC scope and lost-result guards passed");
+
+revokeResult={status:"revoked", secretCode:"must-not-reflect"};
+const explicitRevoke=await run(post(undefined,{url:revokeUrl}));
+assert.equal(explicitRevoke.payload.data.status,"revoked");
+assert.equal(JSON.stringify(explicitRevoke).includes("must-not-reflect"),false);
+issuerResult={status:"revoked"};
+assert.equal((await run(post(undefined,{url:statusUrl}))).payload.data.status,"revoked");
+revokeResult={status:"sent", invitationId:"inv_22222222-2222-4222-8222-222222222222", expiresAt:now};
+assert.equal((await run(post(undefined,{url:revokeUrl}))).payload.error.code,"RECOVERY_RESULT_UNKNOWN");
+issuerResult={status:"unexpected", password:"must-not-reflect"};
+assert.equal((await run(post())).payload.error.code,"RECOVERY_RESULT_UNKNOWN");
+issuerResult=null;
+assert.equal((await run(post())).payload.error.code,"RECOVERY_RESULT_UNKNOWN");
+resolved={...principal,workspaceId:"other_workspace"};
+await denied(post(),401,"AUTH_INVALID");
+resolved=principal;
+await denied(post({password:"syntheticpass", operationId, applicationId:"CYINVOICE"}),400,"INVALID_REQUEST");
+await denied(post("x".repeat(513)),400,"REQUEST_TOO_LARGE");
+console.log("Explicit revoke proof, unknown response, scope/oversized input regression passed");

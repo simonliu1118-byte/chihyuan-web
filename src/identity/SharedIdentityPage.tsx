@@ -546,7 +546,7 @@ export function SharedIdentityPage({ session }: { session: AuthSession }) {
         {canManageAccess ? <ApplicationAccessPanel snapshot={snapshot} session={session} refresh={refresh} /> : null}
         {canManageAccess ? <ModuleAccessPanel snapshot={snapshot} session={session} /> : null}
         {session.user.workspaceRole === "SUPER_ADMIN" ? <SecurityPanel /> : null}
-        {session.user.workspaceRole === "SUPER_ADMIN" ? <CyInvoiceRecoveryAdminPanel session={session} /> : null}
+        {session.user.workspaceRole === "SUPER_ADMIN" ? <CyInvoiceRecoveryAdminPanel key={JSON.stringify([session.user.workspaceId, session.user.employeeId, session.user.workspaceRole, session.user.emailVerified, session.user.isWorkspaceSuperAdmin])} session={session} /> : null}
       </div> : <section className="cy-op-panel"><p>{loading ? "正在讀取 Identity 資料…" : "尚未取得 Identity 管理資料。"}</p></section>}
     </> : null}
   </div>;

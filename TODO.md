@@ -4,20 +4,19 @@
 
 ## 最新跨 Repo 工作交接：CYInvoice V3 災難復原（2026-10-14）
 
-> 此節只整理**CYWEB** 的管理頁與私有 Service Binding owner；CYInvoice D1／Windows／Device 原子交易 owner 在 [CYapps CYInvoice 的最新交接](https://github.com/simonliu1118-byte/CYapps/blob/cyinvoice/v3-recovery-invitation-schema/apps/CYInvoice/docs/CLOUD_WORK_HANDOFF.md) 和其唯一 TODO。CYWEB 原有 V0.7.24／development 基準不因 Draft 改變。
+本輪接手／交回文件：[CYWEB → CYInvoice 裝置災難復原交接](docs/development/CYINVOICE_RECOVERY_HANDOFF.md)。唯一待辦仍為本檔；授權與部署語意依既有 Identity／Cloudflare canonical 文件。CYInvoice D1／Windows／Device／在途業務寫入 owner 仍在 CYapps 的現行 TODO／CLOUD_WORK_HANDOFF。
 
-**Source／CI（未合併／未部署）：**
-- [CYWEB Draft #151](https://github.com/simonliu1118-byte/chihyuan-web/pull/151)（`cyweb/feat-cyinvoice-recovery-auth-gate`）在「帳號與權限」的**已驗證 Email SUPER_ADMIN** 管理區加入 `CyInvoiceRecoveryAdminPanel`：原 operationId 一次簽發／狀態查詢／明確撤銷；必須輸入當次 CYID 超管密碼；寄信前獨立確認「只有新裝置成功接管才會全撤銷舊 Device」。結果不明保留原 ID、不自動重寄或隱藏生成第二張邀請；Web 前端不保存邀請原碼／密碼。
-- Worker 的三個 `POST /api/identity/admin/cyinvoice/device-recovery/invitations[/status|/revoke]` 由 CYWEB Core Session＋Same-Origin/CSRF＋Email verified SUPER_ADMIN gate 控制；**CYInvoice 會在自己 `CYINVOICE` Application 上再次向 CYID 登入與驗證權限**，CYWEB 不把 Core Session Token 當 CYInvoice Session 用。
-- Renderer `scripts/render-deploy-config.mjs` 目前**預設沒有 `CYINVOICE_RECOVERY` binding**；只有受控 deploy environment 額外提供 `CF_CYINVOICE_RECOVERY_SERVICE` 時，才注入指向 `entrypoint=CyInvoiceRecoveryEntrypoint` 的 private named Service Binding，並拒絕 invalid/self/Identity 等不安全配置。**真實 Service Binding 尚未加入現有 Worker deployment**，缺 binding 的復原管理操作只回 503，不能簽發。
-- [CYWEB Runtime #38501284806](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/38501284806) Browser/Worker TypeScript、source-contract、Build 全成功；[Deploy contract #38501284789](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/38501284789) 驗證成功／實際 deploy skipped；[Governance #38501284984](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/38501284984) 成功。這些是**本次文件 commit 前**的程式 head `a0e5c06c0080ad4c8d26df6f1d110e2e3f2711a4`，文件 commit 自己的新 CI 須另驗。
-- [CYInvoice Draft #440](https://github.com/simonliu1118-byte/CYapps/pull/440) Windows 首次啟動**只提供「使用單機版／直接加入雲端」**；在「加入雲端」頁面內放「災難復原／繼續災難復原」按鈕，**不是首次啟動第三選項**。成功 claim 才會在一筆 D1 交易使所有舊 Device Token 失效；CYWEB 發信或查詢狀態不撤銷 Device。
-
-**未完成／下一輪（不勾）：**
-- [ ] 前後端跨 Repo 契約／真 CYID Application／Email sender／實際 Cloud binding 在**只讀**配置稽核後做安全 review；**未經使用者額外明確授權不可部署**，不可改真 CYInvoice D1／Worker／CYID D1，更不可新增 Cloudflare 測試 Worker／handler。
-- [ ] CYWEB UI 在 Desktop、Mobile、角色切換、刷新／結果不明／操作 ID 查回及寄送失敗時的人工 UX 驗收；注意 browser 不持久保存原密碼或復原碼，不能無意自動重簽。
-- [ ] CYInvoice 原 D1 forward migration 0014、CYID_ONLY optional recovery issuer maintenance、正式 binding／Worker upgrade、真 Email 和 Windows DR-01～DR-13 必須各自拿授權且由 CYInvoice owner 追蹤；不能將 CYWEB UI／自動 CI 綠燈當作真實災復驗收。
-- [ ] 舊 Device 在復原後的**in-flight Work Item／業務寫入 fencing/epoch**仍由 V3 協同交易 owner 實作；現有 D1 配對／邀請寫入時 guard 並不取消已跑出的跨服務副作用。
+- Source **0.7.25 Build 0**，既有 [Draft #151](https://github.com/simonliu1118-byte/chihyuan-web/pull/151) 接續審查；未合併／未部署，不改原已接受基準。latest CI 以 #151 exact-head checks 為準。
+- [x] Cross-repo source 授權核對：CYWEB Core Session 與 CYInvoice App scoped reauth 分離、不傳 bearer；Origin／first-login／verified SUPER_ADMIN／body／scope gates 保留。
+- [x] CYWEB 修正同頁籤 operation ID 保存／mutation 前 readback、儲存失敗停止簽發、結果不明不另簽、不持久保存密碼／碼／Session；共享 ConfirmDialog／TextInput／navigation busy guard，單一 action lock及 principal-keyed lifecycle。
+- [x] 移除 failed→revoked 誤報；僅 Invoice explicit revoked 解鎖新 ID。回應白名單與異常 fail-closed 補測；原 provider尚不回 explicit revoked，不宣稱完整復原可用。
+- [x] 原 development workflow 可選 recovery env 接到 renderer，沒有設定仍無 binding；未設定真值／新增 Worker／變更 deploy ref。
+- [x] 本輪 local source、Browser／Worker TypeScript、renderer、checkpoint／React render／actual client 五項及 Worker route 回歸通過。真人／真服務未觀察的項目不代替。
+- [ ] **CYInvoice owner：**補 explicit revoked contract／已使用不可誤報／同 ID lost-response readback／claim-revoke race，再共同跑契約整合。詳見交回文件具體狀態表；未修改其 source。
+- [ ] CYWEB Desktop／Mobile／role／shared confirmation／refresh／丟失結果／ID 查回／寄送失敗真人 UX；目前只合成 render/client，不能當實機。
+- [ ] 原 Cloud bindings／active versions／D1 profile／Email sender 的受控唯讀配置稽核；本環境未提供 Cloudflare 配置工具，尚未取得實際證據。
+- [ ] 具體核准後由各 owner 執行原服務 binding／Invoice 0014／optional issuer／真 Email／Windows DR-01～DR-13；**目前不部署，不改真 D1，不新增測試 Worker，不重跑已完成的 CYID_ONLY 帳戶退役。**
+- [ ] 舊 Device 的 in-flight Work Item／業務寫入 fencing/epoch 仍由 V3 協同交易 owner 完成；現有配對／邀請 SQL guard 不取消已啟動跨服務副作用。
 
 ## 目前基準 — 2026-10-12（Asia/Taipei）
 

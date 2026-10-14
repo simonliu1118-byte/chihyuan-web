@@ -46,6 +46,9 @@ try {
   if (config.services?.[0]?.service !== env.CF_IDENTITY_SERVICE) {
     throw new Error("IDENTITY service mismatch");
   }
+  const deploymentWorkflow = fs.readFileSync(new URL("../.github/workflows/development-deploy.yml", import.meta.url), "utf8");
+  if (!deploymentWorkflow.includes("CF_CYINVOICE_RECOVERY_SERVICE: ${{ vars.CF_CYINVOICE_RECOVERY_SERVICE }}"))
+    throw new Error("Optional recovery service is not passed to deployment renderer");
   const recoveryEnv = { ...env, CF_CYINVOICE_RECOVERY_SERVICE: "synthetic-cyinvoice-recovery" };
   renderDeployConfig({ env: recoveryEnv, outputPath: output });
   const recoveryConfig = JSON.parse(fs.readFileSync(output, "utf8"));

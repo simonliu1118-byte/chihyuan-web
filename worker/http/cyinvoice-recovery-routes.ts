@@ -22,7 +22,7 @@ export interface CyInvoiceRecoveryInput {
   expectedEmployeeRevision: number;
 }
 export interface CyInvoiceRecoveryResult {
-  status: "sent" | "pending" | "failed";
+  status: "sent" | "pending" | "failed" | "revoked";
   invitationId?: string;
   expiresAt?: string;
 }
@@ -121,20 +121,25 @@ export async function handleCyInvoiceRecoveryRoute(
     });
 
     // No invitation code or sensitive provider response can be reflected to the browser.
-    if (result.status === "sent" && typeof result.invitationId === "string"
+    if (operation !== "revoke" && result?.status === "sent" && typeof result.invitationId === "string"
         && /^inv_[0-9a-f-]{36}$/.test(result.invitationId)
         && typeof result.expiresAt === "string"
         && Number.isFinite(Date.parse(result.expiresAt))) {
       return success({ status: "sent", invitationId: result.invitationId, expiresAt: result.expiresAt }, requestId);
     }
-    if (result.status === "pending")
+    if (operation !== "revoke" && result?.status === "pending")
       return success({ status: "pending", operationId }, requestId,
         operation === "issue" ? { status: 202 } : {});
-    if (result.status === "failed" && operation === "revoke")
+    // The current Invoice issuer also uses "failed" for a consumed/expired
+    // invitation. It is NOT proof of revocation. Only an explicit provider
+    // revoked state can close the browser's outstanding operation.
+    if (result?.status === "revoked" && operation !== "issue")
       return success({ status: "revoked", operationId }, requestId);
-    if (result.status === "failed" && operation === "status")
+    if (result?.status === "failed" && operation !== "issue")
       return success({ status: "unavailable", operationId }, requestId);
-    return failure({ code: "RECOVERY_ISSUE_FAILED", message: "Recovery invitation is unavailable" }, requestId, 409);
+    if (result?.status === "failed")
+      return failure({ code: "RECOVERY_ISSUE_FAILED", message: "Recovery invitation is unavailable" }, requestId, 409);
+    return failure({ code: "RECOVERY_RESULT_UNKNOWN", message: "Check the original operation status" }, requestId, 503);
   } catch {
     // A lost RPC response may mean that an invitation was already committed.
     // Never retry or create another operationId automatically.
