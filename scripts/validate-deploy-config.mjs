@@ -40,10 +40,33 @@ try {
   if (config.d1_databases?.[0]?.database_id !== env.CF_D1_DATABASE_ID) {
     throw new Error("D1 database id mismatch");
   }
+  if (config.services?.length !== 1)
+    throw new Error("Recovery Service Binding must be disabled by default");
   if (config.services?.[0]?.binding !== "IDENTITY") throw new Error("IDENTITY binding missing");
   if (config.services?.[0]?.service !== env.CF_IDENTITY_SERVICE) {
     throw new Error("IDENTITY service mismatch");
   }
+  const recoveryEnv = { ...env, CF_CYINVOICE_RECOVERY_SERVICE: "synthetic-cyinvoice-recovery" };
+  renderDeployConfig({ env: recoveryEnv, outputPath: output });
+  const recoveryConfig = JSON.parse(fs.readFileSync(output, "utf8"));
+  if (recoveryConfig.services?.length !== 2 ||
+      recoveryConfig.services[0]?.binding !== "IDENTITY" ||
+      recoveryConfig.services[1]?.binding !== "CYINVOICE_RECOVERY" ||
+      recoveryConfig.services[1]?.service !== recoveryEnv.CF_CYINVOICE_RECOVERY_SERVICE ||
+      recoveryConfig.services[1]?.entrypoint !== "CyInvoiceRecoveryEntrypoint")
+    throw new Error("Private CYInvoice named RPC binding mismatch");
+  for (const badService of ["https://service.invalid", "../worker", env.CF_WORKER_NAME,
+    env.CF_IDENTITY_SERVICE]) {
+    let denied = false;
+    try {
+      renderDeployConfig({ env: { ...env, CF_CYINVOICE_RECOVERY_SERVICE: badService },
+        outputPath: output });
+    } catch (error) { denied = /Invalid CF_CYINVOICE_RECOVERY_SERVICE/.test(String(error)); }
+    if (!denied) throw new Error("Invalid recovery binding was accepted");
+  }
+  // Other config tests below must start again with the default no-recovery binding.
+  renderDeployConfig({ env, outputPath: output });
+
   if (config.vars?.IDENTITY_APPLICATION_ID !== env.CF_IDENTITY_APPLICATION_ID) {
     throw new Error("Identity application mismatch");
   }
