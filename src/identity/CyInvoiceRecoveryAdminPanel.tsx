@@ -29,7 +29,7 @@ function recoveryError(error: unknown): string {
  * No invitation code or plaintext password is kept in browser storage.
  */
 export function CyInvoiceRecoveryAdminPanel({ session }: { session: AuthSession }) {
-  const [operationId, setOperationId] = useState(() => crypto.randomUUID());
+  const [operationId, setOperationId] = useState<string>(() => crypto.randomUUID());
   const [password, setPassword] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
