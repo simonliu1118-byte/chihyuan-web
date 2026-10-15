@@ -1,6 +1,6 @@
 # CY Web CYCloud Identity Deployment
 
-> Scope: non-production CY Web deployment against the shared CYCloud Identity service.
+> Scope: the existing CY Web portal uses canonical production CYCloud Identity. The original business D1 and Module Access remain in place; this is not a clean business-data launch.
 
 ## Runtime shape
 
@@ -29,7 +29,7 @@ Secrets:
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 
-Development Environment variables:
+Variables in the existing protected `development` Environment (historical name):
 
 - `CF_WORKER_NAME`
 - `CF_D1_DATABASE_NAME`
@@ -40,7 +40,7 @@ Development Environment variables:
 
 Resolution:
 
-- `CF_IDENTITY_SERVICE` → private `IDENTITY` Service Binding target;
+- `CF_IDENTITY_SERVICE` → canonical development lookup seed; the verified production resolver output becomes the private `IDENTITY` Service Binding target on every real deployment;
 - `CF_IDENTITY_APPLICATION_ID` → Worker runtime `IDENTITY_APPLICATION_ID`;
 - `CF_IDENTITY_WORKSPACE_ID` → Worker runtime `IDENTITY_WORKSPACE_ID`.
 
@@ -49,6 +49,8 @@ Real Workspace IDs, service targets and Cloudflare resource IDs remain deploymen
 ## Deployment source path
 
 - `wrangler.deploy.template.jsonc`
+- `scripts/resolve-production-identity.mjs`
+- `scripts/audit-account-portal.mjs`
 - `scripts/render-deploy-config.mjs`
 - `scripts/validate-deploy-config.mjs`
 - `.github/workflows/development-deploy.yml`
@@ -66,28 +68,29 @@ Relevant pull requests:
 5. locate Vite's generated deployment `wrangler.json`;
 6. run `wrangler deploy --dry-run` against that output.
 
-CI never receives the real development Workspace ID or real Identity service target.
+Pull-request validation never receives real Workspace IDs, Identity service targets or protected deployment credentials. It also tests the production resolver/audit against the current canonical CYapps guard with synthetic provider responses.
 
-## Development deployment gate
+## Existing portal deployment gate
 
-Real development deployment uses the protected GitHub `development` Environment and may be started in either of two controlled ways:
+The existing portal deployment uses the protected GitHub `development` Environment and may be started in either of two controlled ways:
 
 1. advance the dedicated `deploy/cyweb-development` branch to an already-reviewed commit; or
 2. use `workflow_dispatch` manually as an operational fallback.
 
-Normal pushes to `main` never deploy development automatically. The deploy branch is an explicit release signal only; it must not be used as a development branch or receive unrelated commits.
+Normal pushes to `main` never deploy automatically. The deploy branch is an explicit release signal only; it must not be used as a development branch or receive unrelated commits.
 
 The workflow:
 
 1. validates required Cloudflare/Identity inputs;
-2. renders an ephemeral development config;
-3. applies remote development D1 migrations;
-4. builds the Worker/assets;
-5. deploys the development Worker;
-6. accepts invalid-provider-session behavior through the deployed CY Web Worker;
-7. removes generated input config.
+2. resolves canonical production Identity while verifying the original Worker/business D1, Workspace and core App;
+3. renders an ephemeral config for the existing Worker;
+4. applies only forward migrations to the original business D1;
+5. builds and deploys the original Worker/assets;
+6. verifies exact source/consumer/D1 health and invalid-session rejection with cookie clearing at both entry points;
+7. requires the original canonical strict production portal guard to pass;
+8. removes generated input config.
 
-There is no automatic production rollout.
+The explicit deploy signal updates the existing portal. It does not provision a second Worker, switch the business D1, change Module Access or authorize cleanup of existing business/test data.
 
 ## Browser acceptance
 
@@ -176,9 +179,9 @@ skipped. `mutationPerformed=false`.
 
 The configured production provider and isolated Identity D1 metadata verified.
 The managed portal domain resolves to the same Worker and business D1 used by
-CYWEB's existing development deployment. Its IDENTITY binding still points to the
+CYWEB's existing development deployment. At that audit time its IDENTITY binding pointed to the
 configured development provider. Workspace, core application, consumer 1.0.4 and
-health match; canonical strict readiness is **false**, with
+health matched; canonical strict readiness was **false**, with
 `CYWEB_PRODUCTION_AUTHORITY_MISMATCH`.
 
 ### Approved single-portal rollout — 2026-10-15 17:09 Asia/Taipei
@@ -214,6 +217,54 @@ partial/false success, unexpected Session, expired/missing ticket and outage.
 They do not replace the colleague's actual Email/new-password/browser readback.
 No real credential or Email is reissued during deployment.
 
-CYACC #435 must keep strict `--require-account-portal` blocked until a correction
-passes the original production guard. No actual Email/initial password/browser
-acceptance occurred in the audit, and existing CYACC production was not changed.
+### CYACCweb handback — verified 2026-10-15 17:24:39 Asia/Taipei
+
+The CYWEB correction is deployed and the original canonical strict portal guard
+passes. [PR #154](https://github.com/simonliu1118-byte/chihyuan-web/pull/154)
+accepted head `70e6e9862b60e290ce0e9fb4125a6827a1840fb5` passed Governance
+`38712073846`, Runtime `38712073567` (all four jobs), and deployment contract
+`38712073611`; PR deployment was skipped. Main merge:
+`9a76a1ac1337c82aa1db3c046edf48448feea64c`.
+
+[Actual deployment run 38712562070](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/38712562070)
+advanced the original deployment ref without force, using commit
+`0be73dd96d81421f54f11f1e177f7365128f1bfb` with the previous deployment and reviewed
+main as parents. Its tree `4ca0d9ba876f0acb9acc10d255469e7d7ca34f74` exactly matches
+reviewed main. No new migration was applied. Both entry points returned source
+0.7.26 / consumer 1.0.4 / this exact deployment commit / D1 ok within 1527ms.
+The fallback initially returned the prior source and became current on the next
+bounded observation; no redeployment was performed. Both invalid-session checks
+returned the expected rejection and cleared the Web cookie.
+
+The post-deployment audit at `2026-10-15T09:24:39.512Z` confirmed:
+
+| Check | Observed result |
+| --- | --- |
+| Original configured Worker / business D1 | Both retained and verified |
+| Development Identity binding | false |
+| Canonical production Identity binding | true |
+| Provider environment | production |
+| Production provider / separate Identity D1 metadata | Verified |
+| Workspace / core application / consumer / health | Match; consumer 1.0.4 |
+| Original canonical strict production portal guard | productionPortalReady=true; failureCode=null |
+
+The audit report's `mutationPerformed=false` describes the GET-only inspection,
+not the enclosing run: the existing Worker was deployed before that inspection.
+No provider authority, credentials, Module Access, IAM, business rows, accounting
+D1 or CYInvoice source were changed by this work. Existing business/test data were
+retained; a clean business-data release remains a separate pending step.
+
+CYACCweb can now rerun its unchanged canonical
+`resolve-cyid-production-runtime.mjs --require-account-portal` in its own protected
+runner. Reconcile Draft #435 with current CYapps main before proceeding; this
+CYWEB work does not merge that draft or deploy the accounting application. Do not
+relax the strict guard or switch CYACC to development Identity.
+
+Actual Email/initial-password/permanent-password/relogin/CYACC acceptance remains
+pending. The colleague's report is compatible with the previous authority
+mismatch, but no account-specific request/readback proves its entire root cause.
+Confirm the formal account state before deciding whether reissue is needed; the
+Web binding correction does not copy a password set in the old development
+provider into production. No real Email or password was reissued in this work.
+CYInvoice's separate provider/workline and other consumers' real logins were not
+changed or accepted by this deployment. Root TODO remains the only progress list.
