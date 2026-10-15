@@ -2,6 +2,19 @@
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
 
+## CYACCweb 首次登入入口交接 — 2026-10-15
+
+來源：使用者提供的 CYACCweb first-login handoff／Draft CYapps #435（81cc5fcc），既有 production #38675354003 曾回 `CYWEB_PRODUCTION_AUTHORITY_MISMATCH`。本輪專用 branch 與 CYInvoice Draft #151 分開；不修改帳務 D1、CYInvoice source 或已部署 provider authority。
+
+- [x] 核對 source：根 TODO 仍稱 admin portal 為 development；唯一 Web deploy owner 是既有 development workflow。不能只從 Worker 名字推定哪端該換綁定，亦不能直接將測試業務 D1 接到正式 Identity。
+- [x] 實作既有 workflow 的 `audit-identity` 唯讀操作：原受保護 environment、原憑證，GET-only 讀 domain → Worker → IDENTITY／D1 metadata／health；沿用 CYapps canonical production resolver 與 `requireProductionCoreConsumer`，不複製新 readiness authority。只輸出 boolean／正常化版本／stable code／時間，不輸出正式名稱、ID、token 或設定。
+- [x] 本地八項回歸通過：中央 actual resolver／guard、authority/workspace/health mismatch、Identity DB隔離／業務 DB collision、unsafe URL／多網域、audit期間 drift、GET-only與 credential 不外送、audit operation 不進 deploy job；workflow YAML parsed。
+- [ ] PR exact-head CI 與 protected live read-only audit；取得真實結果後決定設定 drift／正式核心帳號入口 rollout，尚未宣稱已修復。
+- [ ] 若需 production identity/core portal 切換，先核對既有 authority／中央部署契約及 business D1 隔離範圍，形成具體變更後按授權執行；不得重播 provider provisioning、擴大 IAM、搬動帳務或製造第二套帳號。
+- [ ] 同中央 authority/workspace、core App／consumer／D1 health通過後，回交 CYACCweb 在 protected runner 重跑 `--require-account-portal`。真 Email、一次性密碼→正式密碼→重新登入→CYACC一般登入尚未驗收，未新增帳號／寄信。
+
+操作與回交證據依既有 [Identity deployment](docs/development/IDENTITY_DEPLOYMENT.md#account-portal-authority-read-only-audit)；此 TODO 為唯一進度表。
+
 ## 目前基準 — 2026-10-12（Asia/Taipei）
 
 - 本輪 source **0.7.24 Build 0**：「CY 程式」新增「價格觀測室（原型）」之外連，原型程式位於 CYapps `apps/CYPriceDesk/`，網站維持既有 Sites owner-private 與 ChatGPT 登入。網站入口改由共用 action selector 判定，不依賴正式 Release；原有桌面未發版下載閘門維持。既有七項程式圖示保留，無正式圖示的原型採通用網頁圖示；Desktop／Mobile 沿用同一 renderer。CI／部署結果以本輪 PR／Actions 為準，未觀察的真人操作仍待驗收。
