@@ -2,6 +2,8 @@ import { FormEvent, type ReactNode, useCallback, useEffect, useState } from "rea
 import { useFeedback } from "../ui/feedback/FeedbackProvider";
 import { advanceFocusOnEnter } from "../ui/foundation/enter-advance";
 import { ApiClientError } from "../api/client";
+import { subscribeAuthorityRefresh } from "../api/authority-events";
+import { createAuthorityMonitor } from "./authority-monitor";
 import {
   confirmPasswordRecovery,
   startPasswordRecovery,
@@ -106,6 +108,55 @@ export function AuthGate({ children }: AuthGateProps) {
   }, [notify]);
 
   useEffect(() => { void checkSession(); }, [checkSession]);
+
+  const authenticated = state.status === "authenticated";
+  const sessionKey = authenticated ? `${state.session.user.workspaceId}:${state.session.user.employeeId}` : "";
+  useEffect(() => {
+    if (!authenticated) return;
+    let unavailable = false;
+    const monitor = createAuthorityMonitor({
+      load: loadCurrentSession,
+      visible: () => document.visibilityState !== "hidden",
+      onValue: (session) => {
+        unavailable = false;
+        if (`${session.user.workspaceId}:${session.user.employeeId}` !== sessionKey) {
+          expire("登入帳號已變更，請重新登入。");
+          monitor.stop();
+          return;
+        }
+        setState(current => current.status === "authenticated" ? { status: "authenticated", session } : current);
+      },
+      onError: (error) => {
+        if (error instanceof ApiClientError && ["AUTH_REQUIRED", "AUTH_INVALID", "ACCESS_DENIED", "FIRST_LOGIN_REQUIRED"].includes(error.code)) {
+          expire(error.code === "ACCESS_DENIED" ? "此帳號目前已無法使用系統，請聯絡管理員。" : "登入狀態已失效，請重新登入；若帳號已停用，請聯絡管理員。");
+          return true;
+        }
+        if (!unavailable) notify("目前無法更新登入與權限狀態，請確認網路連線。系統會於恢復連線後重新確認。", "連線提醒");
+        unavailable = true;
+        return false;
+      },
+    });
+    function expire(message: string) {
+      setMode("login"); setPassword(""); setNewPassword(""); setConfirmPassword("");
+      setFirstLogin(null); setChallengeId(null); setOtp(""); setFlowMessage(null);
+      setState({ status: "anonymous", message });
+      notify(message, "登入狀態變更", { replace: true });
+    }
+    const refresh = () => monitor.refresh();
+    const unsubscribe = subscribeAuthorityRefresh(() => monitor.refresh(true));
+    window.addEventListener("focus", refresh);
+    window.addEventListener("online", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    monitor.start(!state.session.moduleAccess);
+    return () => {
+      monitor.stop(); unsubscribe();
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("online", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  // The monitor owns freshness for one authenticated lifecycle; snapshot updates do not restart it.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authenticated, sessionKey, notify]);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -246,7 +297,6 @@ export function AuthGate({ children }: AuthGateProps) {
       setPassword("");
       setState({ status: "anonymous" });
     } catch (error) {
-      setState({ status: "authenticated", session: state.session });
       notify(errorMessage(error));
     } finally {
       setSigningOut(false);

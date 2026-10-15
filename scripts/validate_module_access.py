@@ -86,9 +86,13 @@ def validate_source_contract() -> None:
         if token not in browser_client:
             raise AssertionError(f"Module Access browser client missing: {token}")
 
-    for token in ("loadCurrentModuleAccess", "checkModuleAccess", "moduleCodeForRoute", "allowedModules"):
+    for token in ("session.moduleAccess", "checkModuleAccess", "moduleCodeForRoute", "allowedModules"):
         if token not in app:
             raise AssertionError(f"App shell Module Access filtering/check missing: {token}")
+    auth_gate = require("src/auth/AuthGate.tsx")
+    auth_client = require("src/auth/auth-client.ts")
+    if "createAuthorityMonitor" not in auth_gate or "/api/auth/me?include=module-access" not in auth_client:
+        raise AssertionError("AuthGate must own the combined identity/module freshness snapshot")
 
     for token in ("ModuleAccessPanel", "CY Web 模組使用權", "setEmployeeModuleAccess"):
         if token not in identity_ui:

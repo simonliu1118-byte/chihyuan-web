@@ -50,6 +50,8 @@ Do not put secrets, credentials, personal data or full request bodies into a req
 
 ## 4. Cache behavior
 
+Authenticated browsers may request `GET /api/auth/me?include=module-access` to receive the existing `user`/`expiresAt` plus `moduleAccess: { modules, allowedModules, implicitAll }`. The snapshot resolves the current CYID principal once and uses the existing app-local access service; it grants no additional access and accepts no browser authority input. Plain `GET /api/auth/me` retains its existing shape. Both use `no-store` and existing 401/503 and cookie-clearing semantics.
+
 Business/API responses are returned with `Cache-Control: no-store` unless a later endpoint has an explicit safe caching design.
 
 Static Web assets may use Cloudflare/Vite asset caching independently. Dynamic Customer, Order, WorkLog and other business data must not accidentally inherit static-asset caching behavior.
