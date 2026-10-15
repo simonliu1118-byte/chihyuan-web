@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiClientError } from "./api/client";
-import { checkModuleAccess, loadCurrentModuleAccess, type CurrentModuleAccess } from "./access/module-access-client";
+import { checkModuleAccess } from "./access/module-access-client";
 import { AuthGate } from "./auth/AuthGate";
 import type { AuthSession, WorkspaceRole } from "./auth/auth-client";
 import { SharedIdentityPage } from "./identity/SharedIdentityPage";
-import { moduleCodeForRoute, type CyWebModuleCode } from "../shared/modules";
+import { CYWEB_MODULES, moduleCodeForRoute, type CyWebModuleCode } from "../shared/modules";
 import type { NavigationGroup } from "./ui/foundation/navigation";
 import { AppShell } from "./ui/shell/AppShell";
 import { SettingsOperationalPage } from "./runtime/modules/SettingsOperationalPage";
@@ -19,7 +19,7 @@ import { BackupOperationalPage } from "./runtime/modules/BackupOperationalPage";
 import { ProgramCatalogPage } from "./runtime/modules/ProgramCatalogPage";
 import { UnsavedChangesBoundary, useNavigationGuard } from "./ui/foundation/useUnsavedChangesGuard";
 import { createGuardedHashNavigation } from "./ui/foundation/guarded-hash-navigation";
-import { FeedbackProvider, useFeedbackMessage } from "./ui/feedback/FeedbackProvider";
+import { FeedbackProvider, useFeedback, useFeedbackMessage } from "./ui/feedback/FeedbackProvider";
 
 type AppRoute = "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "settings" | "audit" | "identity" | "backups" | "programs";
 
@@ -96,7 +96,9 @@ function OperationalApp({
   signingOut: boolean;
 }) {
   const [route, setRoute] = useState<AppRoute>(currentRoute);
-  const [moduleAccess, setModuleAccess] = useState<CurrentModuleAccess | null>(null);
+  const moduleAccess = session.moduleAccess;
+  const notify = useFeedback();
+  const previousAccess = useRef(moduleAccess);
   const [moduleAccessError, , setModuleAccessError] = useFeedbackMessage<string | null>(null);
   const [routeAccess, setRouteAccess] = useState<"idle" | "checking" | "allowed" | "denied">("idle");
   const [checkedRoute, setCheckedRoute] = useState<AppRoute | null>(null);
@@ -108,22 +110,6 @@ function OperationalApp({
       else window.location.hash = next;
     },
   }), [canLeave]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setModuleAccess(null);
-    setModuleAccessError(null);
-    void loadCurrentModuleAccess()
-      .then((value) => {
-        if (cancelled) return;
-        setModuleAccess(value);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setModuleAccessError(messageOf(error));
-      });
-    return () => { cancelled = true; };
-  }, [session.user.employeeId, session.user.workspaceRole]);
 
   const allowedModules = useMemo(
     () => new Set<CyWebModuleCode>(moduleAccess?.allowedModules ?? []),
@@ -155,7 +141,9 @@ function OperationalApp({
 
   useEffect(() => {
     if (!moduleAccess) return;
-    const routeNow = currentRoute();
+    const previous = previousAccess.current;
+    previousAccess.current = moduleAccess;
+    const routeNow = route;
     const moduleCode = moduleCodeForRoute(routeNow);
     const adminOnly = routeNow === "settings" || routeNow === "audit";
     const adminAllowed = session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN";
@@ -173,15 +161,23 @@ function OperationalApp({
       || (routeNow === "backups" && session.user.workspaceRole !== "SUPER_ADMIN")) {
       cancel();
       guardedNavigation.replace("identity");
+      const label = CYWEB_MODULES.find(item => item.code === moduleCode)?.label;
+      const revoked = moduleCode && previous?.allowedModules.includes(moduleCode);
+      notify(label
+        ? revoked ? `「${label}」模組的使用權已被取消，已退出該模組並返回帳號頁。尚未儲存的內容不會自動送出。` : `你目前沒有「${label}」模組的使用權，已返回帳號頁。`
+        : "你的管理權限已變更，已返回帳號頁。尚未儲存的內容不會自動送出。", "權限變更", { replace: true });
     }
-  }, [moduleAccess, allowedModules, session.user.workspaceRole, guardedNavigation, cancel]);
+  }, [moduleAccess, allowedModules, session.user.workspaceRole, guardedNavigation, cancel, notify, route]);
 
+  const routeModuleCode = moduleCodeForRoute(route);
+  const routeAllowed = !routeModuleCode || allowedModules.has(routeModuleCode);
   useEffect(() => {
     const moduleCode = moduleCodeForRoute(route);
-    if (!moduleCode) {
+    if (!moduleCode || !routeAllowed) {
       setRouteAccess("idle");
       return;
     }
+    if (checkedRoute === route && routeAccess === "allowed") return;
     let cancelled = false;
     setCheckedRoute(route);
     setRouteAccess("checking");
@@ -193,16 +189,17 @@ function OperationalApp({
         if (cancelled) return;
         setRouteAccess("denied");
         setModuleAccessError(messageOf(error));
-        cancel();
-        guardedNavigation.replace("identity");
       });
     return () => { cancelled = true; };
-  }, [route, guardedNavigation, cancel]);
+  }, [route, routeAllowed, moduleAccess]);
 
   let content: React.ReactNode;
   const moduleCode = moduleCodeForRoute(route);
-  if (moduleCode && (routeAccess !== "allowed" || checkedRoute !== route)) {
-    content = <section className="cy-op-panel"><h2>{routeAccess === "denied" ? "無模組使用權" : "正在確認模組權限…"}</h2><p>{moduleAccessError ?? "正在確認目前的模組使用權限。"}</p></section>;
+  const adminAllowed = session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN";
+  if ((route === "settings" || route === "audit") && !adminAllowed) {
+    content = <section className="cy-op-panel">管理權限已變更，正在返回帳號頁…</section>;
+  } else if (moduleCode && (!routeAllowed || routeAccess !== "allowed" || checkedRoute !== route)) {
+    content = <section className="cy-op-panel"><h2>{routeAccess === "denied" ? "目前無法確認模組權限" : "正在確認模組權限…"}</h2><p>{moduleAccessError ?? "正在確認目前的模組使用權限。"}</p></section>;
   } else if (route === "customers") content = <CustomerOperationalPage />;
   else if (route === "items") content = <ItemOperationalPage />;
   else if (route === "defects") content = <DefectOperationalPage />;
@@ -251,7 +248,7 @@ export default function App() {
   return (
     <FeedbackProvider><AuthGate>
       {(session, logout, signingOut) => (
-        <UnsavedChangesBoundary><OperationalApp session={session} logout={logout} signingOut={signingOut} /></UnsavedChangesBoundary>
+        <UnsavedChangesBoundary key={`${session.user.workspaceId}:${session.user.employeeId}`}><OperationalApp session={session} logout={logout} signingOut={signingOut} /></UnsavedChangesBoundary>
       )}
     </AuthGate></FeedbackProvider>
   );

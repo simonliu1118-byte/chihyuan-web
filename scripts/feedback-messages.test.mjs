@@ -7,14 +7,15 @@ import { pathToFileURL } from "node:url";
 import { stripTypeScriptTypes } from "node:module";
 
 const directory = mkdtempSync(join(tmpdir(), "cyweb-feedback-"));
-let localizeApiError, chineseMessage, ApiClientError, apiRequest;
+let localizeApiError, chineseMessage, ApiClientError, apiRequest, subscribeAuthorityRefresh;
 try {
-  for (const name of ["error-messages", "client"]) {
+  for (const name of ["error-messages", "authority-events", "client"]) {
     const source = readFileSync(new URL(`../src/api/${name}.ts`, import.meta.url), "utf8");
-    writeFileSync(join(directory, `${name}.mjs`), stripTypeScriptTypes(source, { mode: "transform" }).replace('"./error-messages"', '"./error-messages.mjs"'));
+    writeFileSync(join(directory, `${name}.mjs`), stripTypeScriptTypes(source, { mode: "transform" }).replace('"./error-messages"', '"./error-messages.mjs"').replace('"./authority-events"', '"./authority-events.mjs"'));
   }
   ({ localizeApiError, chineseMessage } = await import(pathToFileURL(join(directory, "error-messages.mjs"))));
   ({ ApiClientError, apiRequest } = await import(pathToFileURL(join(directory, "client.mjs"))));
+  ({ subscribeAuthorityRefresh } = await import(pathToFileURL(join(directory, "authority-events.mjs"))));
 } finally { rmSync(directory, { recursive: true, force: true }); }
 
 test("duplicate identities, stale writes and domain conflicts remain distinct Chinese explanations", () => {
@@ -23,6 +24,19 @@ test("duplicate identities, stale writes and domain conflicts remain distinct Ch
   assert.match(localizeApiError("ITEM_NO_CONFLICT"), /商品編號已被使用/);
   assert.match(localizeApiError("OUTSOURCING_TRANSITION_NOT_ALLOWED"), /狀態及前後流程/);
   assert.match(localizeApiError("CURRENT_PASSWORD_INVALID"), /目前密碼不正確/);
+});
+test("protected authority denials signal one refresh, never retry mutations or recursively refresh auth/me", async () => {
+  const original=globalThis.fetch; let signals=0, requests=0;
+  const unsubscribe=subscribeAuthorityRefresh(() => { signals++; });
+  try {
+    for (const [path,status,code,expected] of [["/api/business/customers",403,"ACCESS_DENIED",1],["/api/business/items",401,"AUTH_INVALID",2],["/api/auth/me?include=module-access",401,"AUTH_INVALID",2],["/api/business/items",503,"IDENTITY_UNAVAILABLE",2],["/api/business/items",409,"EMPLOYEE_CONFLICT",2]]) {
+      globalThis.fetch=async () => { requests++; return Response.json({ok:false,requestId:"synthetic",error:{code,message:"Denied"}},{status}); };
+      await assert.rejects(apiRequest(path,{method:"POST",json:{synthetic:true}})); assert.equal(signals,expected);
+    }
+    assert.equal(requests,5);
+    unsubscribe(); globalThis.fetch=async () => Response.json({ok:false,requestId:"synthetic",error:{code:"AUTH_INVALID",message:"Denied"}},{status:401});
+    await assert.rejects(apiRequest("/api/business/items")); assert.equal(signals,2);
+  } finally { unsubscribe(); globalThis.fetch=original; }
 });
 test("all literal current Worker error codes have Chinese safe output, including unknown diagnostics", () => {
   const codes = new Set();

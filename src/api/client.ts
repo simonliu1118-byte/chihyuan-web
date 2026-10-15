@@ -1,5 +1,6 @@
 import type { ApiResponse } from "../../shared/api";
 import { chineseMessage, localizeApiError } from "./error-messages";
+import { requestAuthorityRefresh } from "./authority-events";
 
 export interface ApiRequestInit extends Omit<RequestInit, "body"> {
   json?: unknown;
@@ -95,6 +96,8 @@ export async function apiRequest<T>(
   const envelope = await readEnvelope<T>(response);
 
   if (!envelope.ok) {
+    if (!input.startsWith("/api/auth/me") && ((response.status === 401 && ["AUTH_REQUIRED", "AUTH_INVALID"].includes(envelope.error.code))
+      || (response.status === 403 && envelope.error.code === "ACCESS_DENIED"))) requestAuthorityRefresh();
     throw new ApiClientError({
       status: response.status,
       code: envelope.error.code,
