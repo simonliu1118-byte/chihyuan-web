@@ -11,6 +11,7 @@
 - Protected 401／403 只發出 authority refresh signal，不自動重送 mutation。503／斷線／不完整 snapshot 不視為撤權或登出，保留當前內容並一次提醒，恢復後重新確認；卸載頁面的延遲錯誤不蓋過撤權提醒。
 - [x] 本機 Browser／Worker TypeScript、完整 Worker+assets build、全部 source contracts、43 項 regression 通過；新增 monitor cadence／hidden／deadline／stale／logout fencing、combined route current grants／inactive member／SUPER_ADMIN／invalid Session／outage、API denial signal／no retry 測試。Windows 不適用的既有 backup schedule test 仍由 Linux CI 驗收。
 - [x] Chrome 合成 API 六情境：idle 撤權／dirty editor＋pending navigation取消、非 active module 撤權保留欄位、invalid Session 回登入且停止檢查、503 保留欄位並僅一次提醒／恢復後撤權、protected403 提早重新確認與精確彈窗、一般 action403 不誤撤權；零業務 mutation，無真實帳號操作。
+- [x] 中央契約更新先獨立同步：[治理 PR #160](https://github.com/simonliu1118-byte/chihyuan-web/pull/160) exact head `eaedc989ab73835350dd046bdb10972daef86341` Governance `38780595302`／deployment contract `38780595293` 通過並合併 `056abb96b9aeba14444b5159e6b52fe7b5e96fda`。七項 canonical package 鏡像更新至 1.0.6；本輪 consumer 仍 1.0.5，在 1.0.0–1.0.6 支援窗內，未引入私有通知功能或部署。
 - [ ] 本輪 PR exact-head 必要遠端檢查、合併與原網站部署；完成後記錄結果，真人驗收本輪主動偵測間隔與提示。
 
 ## 帳號介面與全站中文錯誤提醒 — 2026-10-15
