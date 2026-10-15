@@ -9,10 +9,11 @@
 - Source **0.7.25 Build 0**，既有 [Draft #151](https://github.com/simonliu1118-byte/chihyuan-web/pull/151) 接續審查；未合併／未部署，不改原已接受基準。latest CI 以 #151 exact-head checks 為準。
 - [x] Cross-repo source 授權核對：CYWEB Core Session 與 CYInvoice App scoped reauth 分離、不傳 bearer；Origin／first-login／verified SUPER_ADMIN／body／scope gates 保留。
 - [x] CYWEB 修正同頁籤 operation ID 保存／mutation 前 readback、儲存失敗停止簽發、結果不明不另簽、不持久保存密碼／碼／Session；共享 ConfirmDialog／TextInput／navigation busy guard，單一 action lock及 principal-keyed lifecycle。
-- [x] 移除 failed→revoked 誤報；僅 Invoice explicit revoked 解鎖新 ID。回應白名單與異常 fail-closed 補測；原 provider尚不回 explicit revoked，不宣稱完整復原可用。
+- [x] 移除 failed→revoked 誤報；僅 Invoice explicit revoked 解鎖新 ID。回應白名單與異常 fail-closed 補測；**2026-10-15 Invoice Draft #440 已完成 explicit revoked Source／回歸，原『provider 尚不回』阻塞已解除，但兩 repo 實機／部署仍未完成**。
 - [x] 原 development workflow 可選 recovery env 接到 renderer，沒有設定仍無 binding；未設定真值／新增 Worker／變更 deploy ref。
 - [x] 本輪 local source、Browser／Worker TypeScript、renderer、checkpoint／React render／actual client 五項及 Worker route 回歸通過。真人／真服務未觀察的項目不代替。
-- [ ] **CYInvoice owner：**補 explicit revoked contract／已使用不可誤報／同 ID lost-response readback／claim-revoke race，再共同跑契約整合。詳見交回文件具體狀態表；未修改其 source。
+- [x] **CYInvoice owner Source 已交回**：Draft #440 的 recovery-issuer.ts 已提供 explicit revoked contract、consumed／expired 不誤報、同 ID lost-response 查回、claim-revoke race rollback；相應 Node/SQLite 回歸與該 head Cloud／Windows／Governance CI 通過。仍為 Draft，未部署。
+- [ ] **CYWEB + CYInvoice 雙 Repo 同版本契約整合驗收**：確認正式 private Binding、Session/Email、真設備切換與 DR-01～DR-13；未驗收前禁止把 source success 當成災難復原可用。
 - [ ] CYWEB Desktop／Mobile／role／shared confirmation／refresh／丟失結果／ID 查回／寄送失敗真人 UX；目前只合成 render/client，不能當實機。
 - [ ] 原 Cloud bindings／active versions／D1 profile／Email sender 的受控唯讀配置稽核；本環境未提供 Cloudflare 配置工具，尚未取得實際證據。
 - [ ] 具體核准後由各 owner 執行原服務 binding／Invoice 0014／optional issuer／真 Email／Windows DR-01～DR-13；**目前不部署，不改真 D1，不新增測試 Worker，不重跑已完成的 CYID_ONLY 帳戶退役。**
