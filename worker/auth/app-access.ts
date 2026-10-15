@@ -110,6 +110,15 @@ export async function allowedModuleCodes(
     .filter(isCyWebModuleCode);
 }
 
+/** One app-local projection shape for the existing access route and auth refresh. */
+export async function currentModuleAccess(db: D1Database, principal: IdentityPrincipal) {
+  return {
+    modules: CYWEB_MODULES,
+    allowedModules: await allowedModuleCodes(db, principal),
+    implicitAll: principal.workspaceRole === "SUPER_ADMIN",
+  };
+}
+
 /**
  * CY Web module authorization. Super Admin always has every module. Other
  * Employees use direct CY Web-local Employee × Module grants; local state cannot

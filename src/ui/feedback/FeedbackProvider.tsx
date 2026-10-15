@@ -1,18 +1,20 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type PropsWithChildren, type InvalidEvent } from "react";
+import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type PropsWithChildren, type InvalidEvent } from "react";
 import { Dialog } from "../overlays/Dialog";
 import { Button } from "../primitives/Button";
 import { chineseMessage } from "../../api/error-messages";
 
 type Alert = { message: string; title: string };
-const FeedbackContext = createContext<((message: string, title?: string) => void) | null>(null);
+type Notify = (message: string, title?: string, options?: { replace?: boolean }) => void;
+const FeedbackContext = createContext<Notify | null>(null);
 
 /** One explicit feedback owner. No request interception or DOM observation. */
 export function FeedbackProvider({ children }: PropsWithChildren) {
   const [queue, setQueue] = useState<Alert[]>([]);
   const validationPending = useRef(false);
-  const notify = useCallback((message: string, title = "操作提醒") => {
+  const notify: Notify = useCallback((message, title = "操作提醒", options) => {
     const translated = chineseMessage(message);
-    setQueue(current => current.some(item => item.message === translated) ? current : [...current, { message: translated, title }]);
+    setQueue(current => options?.replace ? [{ message: translated, title }]
+      : current.some(item => item.message === translated) ? current : [...current, { message: translated, title }]);
   }, []);
   const close = useCallback(() => setQueue(current => current.slice(1)), []);
   const alert = queue[0];
@@ -51,8 +53,11 @@ export function useFeedback() {
 /** Keeps page feedback while making each reported failure explicit, including repeated attempts. */
 export function useFeedbackMessage<T extends string | null>(initial: T) {
   const [message, setMessage] = useState<T>(initial);
+  const mounted = useRef(true);
+  useLayoutEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const notify = useFeedback();
   const reportError = useCallback((value: T) => {
+    if (!mounted.current) return;
     const translated = value ? chineseMessage(value) as T : value;
     setMessage(translated);
     if (translated) notify(translated);

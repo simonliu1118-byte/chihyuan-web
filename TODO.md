@@ -2,6 +2,18 @@
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
 
+## 主動同步登入與撤權 — 2026-10-16
+
+- [x] 使用者確認「帳號與郵件完整驗收 OK」及「真實角色與權限驗收 OK」；作為本輪真人總體驗收結果，沒有另行推定未逐項記錄的裝置／故障組合或 CYACCweb 驗收。
+- 使用者回報撤權只能在下一次操作得知，已選定：**單一模組撤權 → 退出該模組並跳中文提醒；帳號停用／登入失效 → 返回登入頁**。
+- Source **0.7.29 Build 0／consumer 1.0.5**：AuthGate 統一持有 principal／Module Access snapshot，前景每 30 秒與 focus／visibility return／online 確認；每次只一筆、有十秒期限／一秒合併間隔、隱藏暫停排程、卸載 abort／stale fencing。沿用 `/auth/me` 的可選 Module Access expansion 與既有 app-local service；無新增 Session authority／heartbeat table／業務重試。
+- 確認 active module 撤權時先 render gate／unmount，取消未完成 dirty navigation，再強制返回仍可使用的帳號頁；共用中文 Dialog 指出模組及未儲存內容不會送出。其他模組撤權只更新導覽；管理角色失去必要權限時退出管理頁。保留 server 每次 protected operation 的即時拒絕。
+- Protected 401／403 只發出 authority refresh signal，不自動重送 mutation。503／斷線／不完整 snapshot 不視為撤權或登出，保留當前內容並一次提醒，恢復後重新確認；卸載頁面的延遲錯誤不蓋過撤權提醒。
+- [x] 本機 Browser／Worker TypeScript、完整 Worker+assets build、全部 source contracts、43 項 regression 通過；新增 monitor cadence／hidden／deadline／stale／logout fencing、combined route current grants／inactive member／SUPER_ADMIN／invalid Session／outage、API denial signal／no retry 測試。Windows 不適用的既有 backup schedule test 仍由 Linux CI 驗收。
+- [x] Chrome 合成 API 六情境：idle 撤權／dirty editor＋pending navigation取消、非 active module 撤權保留欄位、invalid Session 回登入且停止檢查、503 保留欄位並僅一次提醒／恢復後撤權、protected403 提早重新確認與精確彈窗、一般 action403 不誤撤權；零業務 mutation，無真實帳號操作。
+- [x] 中央契約更新先獨立同步：[治理 PR #160](https://github.com/simonliu1118-byte/chihyuan-web/pull/160) exact head `eaedc989ab73835350dd046bdb10972daef86341` Governance `38780595302`／deployment contract `38780595293` 通過並合併 `056abb96b9aeba14444b5159e6b52fe7b5e96fda`。七項 canonical package 鏡像更新至 1.0.6；本輪 consumer 仍 1.0.5，在 1.0.0–1.0.6 支援窗內，未引入私有通知功能或部署。
+- [ ] 本輪 PR exact-head 必要遠端檢查、合併與原網站部署；完成後記錄結果，真人驗收本輪主動偵測間隔與提示。
+
 ## 帳號介面與全站中文錯誤提醒 — 2026-10-15
 
 - Source **0.7.28 Build 0／consumer 1.0.5**：登入標題改「志遠企業管理系統」、員工編號 Enter 使用既有鍵盤 foundation 移至密碼、忘記密碼置中；右上帳號按 CYACCweb 相同 Workspace Role 與色值顯示金色超級管理員／銅色管理員。
@@ -11,15 +23,17 @@
 - 驗證信初寄／重寄／資料修改後的部分寄送失敗不再誤報已寄出；備份未完整驗證、程式版本 fallback 亦明確提醒。沒有真寄信或真實備份操作。
 - 本機 browser/Worker TypeScript、完整 Cloudflare Worker+assets build、目前 required source contracts、既有 31 項可在 Windows 執行的回歸，以及中文 message/API boundary tests通過；Desktop/Mobile 合成 API 瀏覽器測試涵蓋登入 Enter、重複錯誤、表單保留、dirty guard、刪除取消／確認與刷新、原生 required、角色顏色／ADMIN 限制、十個頁面載入錯誤及手機視窗。合成證據不等於真人帳號／收信驗收。
 - 為通過既有 Cloudflare plugin peer requirement，Wrangler 最小相容修正至 4.141.0；未改部署 owner／binding／D1／權限。
-- [ ] 遠端 PR exact-head checks 與原 Worker 受控部署／雙入口 health／正式 Identity strict gate；以本輪 PR、Actions 及 deployment ref 作可追蹤證據。
-- [ ] 使用者重新整理後確認本輪實際畫面／收信流程；首次業務上線前的 testing deletion/Audit 恢復 gate 維持下列既有項目。
+- [x] [PR #158](https://github.com/simonliu1118-byte/chihyuan-web/pull/158) exact head `25d907bb4137e236f185c591d433875e7d177a23`：Governance `38748796856`、Runtime `38748796855`（四 jobs，含 feedback suite／actual isolated Worker+D1 acceptance）、deployment contract `38748796781` 全通過，PR real deploy skipped；合併 `b67324a74dc1b176e0717188eb256891e0fc7688`。
+- [x] 使用者本對話明確批准部署後，[原網站部署 38749325020](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/38749325020) 於 **2026-10-15 22:13:51 Asia/Taipei** 完成。Deployment commit `810a29abd043421f946fa52fc874fe7ecd5c642d` 為原部署 ref 與已驗 main 的雙 parent，tree `67964154d7059bcc4875b0497ba2b4acf32e6562` 與已驗 main 完全相同；無 force update。原 Worker deploy、雙入口 exact version/consumer/source/D1 health、invalid Session cookie clearing、原 canonical production Identity strict gate全部通過；沒有新增 migration、Worker 或 identity authority。
+- [x] 部署後另以公開健康端點回讀 **0.7.28／consumer1.0.5／810a29ab／D1 ok**；正式網站無登入 browser 目視及自動確認中文標題、忘記密碼置中、員工編號 Enter 移至密碼，零登入 POST、未輸入真實密碼。登入後角色／帳號操作仍以本輪合成測試及待使用者實測清楚區分。
+- [x] 使用者已確認帳號與郵件完整驗收、真實角色與權限驗收 OK（2026-10-16）；本輪新增主動撤權處理另列上方。首次業務上線前的 testing deletion/Audit 恢復 gate 維持下列既有項目。
 
 ## 測試期帳號刪除與寄信入口 — 2026-10-15
 
 - 使用者批准測試期可刪除已驗證帳號，暫停新增／刪除Identity Audit；中央能力與恢復條件以CYID canonical consumer standard §17.2為準，不在Web另建帳號authority。
 - Source0.7.27／consumer1.0.5：沿用帳號列表與DELETE代理，僅在provider明確回傳testingAccountDeletionAllowed=true且目前為Super Admin時，顯示已驗證帳號刪除；缺少能力仍維持pending-only。使用共用ConfirmDialog「確定刪除帳號／保留帳號」，刪除結果確認後才刷新清單；新增提示明確寫從CYWEB用信中一次性密碼完成驗證；移除登入／首次驗證頁共用底部灰色技術說明。
 - [x] Web 0.7.27／consumer1.0.5：PR #156／#157 已合併，部署 `38717773511` 雙入口 health 與 production Identity strict gate通過；CYID0.3.9 production `38718039836` validate/deploy/version/session-rejection通過（2026-10-15 18:08 Asia/Taipei）。未刪任何真人帳號／重寄Email。
-- [ ] 實際Email HTML/text入口與新增→驗證→新密碼登入→刪除→同編號/Email重建待受控真人驗收。
+- [x] 使用者已回報帳號與郵件完整真人驗收 OK（2026-10-16）；本對話沒有逐項細節，不另宣稱所有刪除／重建／故障組合都有獨立證據。
 - [ ] **業務第一版前**依CYID TODO恢復已驗證不可刪及新增/刪除Audit，更新Web契約mirror並驗收刪除入口隨provider能力關閉；保留既有business history，不將舊projection或Module Access轉給重建帳號。
 
 ## CYACCweb 首次登入入口交接 — 2026-10-15
@@ -37,7 +51,7 @@
 - [x] [PR #154](https://github.com/simonliu1118-byte/chihyuan-web/pull/154) exact head `70e6e9862b60e290ce0e9fb4125a6827a1840fb5`：Governance `38712073846`、Runtime `38712073567`（四 jobs）、部署契約 `38712073611` 全通過，PR deploy skipped；合併 `9a76a1ac1337c82aa1db3c046edf48448feea64c`。
 - [x] [實際部署 38712562070](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/38712562070)：原 deployment ref 以雙 parent commit `0be73dd96d81421f54f11f1e177f7365128f1bfb` 向前推進，tree `4ca0d9ba876f0acb9acc10d255469e7d7ca34f74` 與已驗 main 完全一致，無 force update。既有 Worker 部署成功、無新 migration；canonical／workers.dev 於1527ms同為0.7.26／consumer1.0.4／exact source／D1 ok，雙入口 invalid Session與cookie清除通過。
 - [x] 2026-10-15 **17:24:39 Asia/Taipei** post-deploy 原canonical strict guard：同一 Worker／原business D1維持、`portalUsesConfiguredDevelopmentIdentity=false`、`portalUsesCanonicalProductionIdentity=true`、provider environment=production；Workspace／core App／consumer／health符合，**productionPortalReady=true、failureCode=null**。原唯讀 audit report 的 mutationPerformed=false只描述稽核本身；本 run確實已部署。
-- [ ] 同事回報「新使用者信件→CYWEB設定後 Email 未驗證／新密碼不能登入」：現象與已確認的authority mismatch相容，但尚無該次完成請求／真人回讀證據，不能斷定全部同一根因。修正後由受控使用者驗收，必要時管理員確認正式狀態再處理重寄；本輪不自行改密碼／重發信。
+- [x] 先前同事回報「新使用者信件→CYWEB設定後 Email 未驗證／新密碼不能登入」；authority 修正與 0.7.28 部署後，使用者於 2026-10-16 確認帳號與郵件完整驗收 OK。沒有該舊請求逐筆證據，仍不推定其唯一根因；本輪未代改密碼／重發信。
 - [x] 正式 Identity／core portal 切換的既有 authority、中央契約及原business D1已核對；按本次全部模組開放授權處理原Worker，沒有重播provider provisioning、擴大IAM、搬動帳務或製造第二套帳號。
 - [x] CYWEB端正式 authority／Workspace／core App／consumer／D1 gate已通過，回交證據收斂至既有 Identity deployment文件下方 CYACCweb handback。
 - [ ] CYACCweb接手於自己的 protected runner 重跑 `--require-account-portal`，核對其最新 main後再推進 Draft #435；CYWEB未代合併或部署帳務。真 Email、一次性密碼→正式密碼→重新登入→CYACC一般登入仍未驗收，本輪未新增帳號／寄信。
@@ -46,7 +60,7 @@
 
 ## 目前基準 — 2026-10-15（Asia/Taipei）
 
-- 目前 source **0.7.28 Build 0／CYID consumer 1.0.5**（本輪遠端驗證／部署見上方新項目），先前已部署 **0.7.27**：既有全部模組沿用原 Worker／business D1／Module Access，正式 Identity 切換結果見上方首次登入交接；不等於業務正式首版、乾淨 schema或所有真人驗收完成。
+- 目前已部署 **0.7.28 Build 0／CYID consumer 1.0.5**（本輪驗證／部署見上方新項目）：既有全部模組沿用原 Worker／business D1／Module Access，正式 Identity 切換結果見上方首次登入交接；不等於業務正式首版、乾淨 schema或所有真人驗收完成。
 - 已包含 0.7.24「CY 程式 → 價格觀測室（原型）」外連，原型程式位於 CYapps `apps/CYPriceDesk/`，維持 Sites owner-private 與 ChatGPT 登入；未發版桌面程式仍不提供下載。
 - 先前已部署 source **0.7.22 Build 0** 已加入單次切換模組提醒，並沿用 Customer／WorkLog 共用 Dialog／ConfirmDialog，修正關閉焦點並移除六模組／Shell 工程描述；包含 quota cooldown／最近成功版本保留及 skip-link 修正；CY 程式頁仍依使用者要求不顯示「發版說明」連結。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
 - 本輪 source **0.7.23 Build 0／CYID consumer 1.0.4** 在既有「帳號與權限 → 系統使用權」新增 Super Admin 的「登記系統」，由 CYID core Session 決定目前 Workspace；其他員工使用權仍在既有清單管理。共享 Dialog／Field／dirty guard／Toast，無 browser registry authority。Provider #416／development #158 與 Web #146／development #138 已通過 CI／部署；七個 canonical mirrors1.0.4 已同步。使用者在原 development portal 完成 CYInvoice 真人登記／目前 Workspace 啟用，畫面已出現 CYInvoice。一般員工 App Access、取消／dirty guard／busy／行動裝置仍待驗收，不因 Super Admin 永遠允許就視為其他員工已授權。
@@ -102,7 +116,7 @@
 
 | 範圍 | 已通過 | 尚不能視為完成 |
 | --- | --- | --- |
-| Identity | 單一登入、first-login ticket 與 normal Session 分離、設定正式密碼後要求重新登入；consumer exact-sync；invalid provider Session fallback | 實際 Email 收信／完整首次登入、跨角色／撤權／Session 的真人瀏覽器驗收 |
+| Identity | 單一登入、first-login ticket 與 normal Session 分離、設定正式密碼後要求重新登入；consumer exact-sync；invalid provider Session fallback；使用者 2026-10-16 確認帳號／郵件完整及真實角色／權限驗收 OK | 本輪主動撤權處理的部署與真人確認；未逐項留證的裝置及故障組合不外推 |
 | CY 程式 | 七項清單與三個未發版；三 Role 無 Module Access API 自動驗收；SUPER_ADMIN Desktop 七個圖示／無橫向溢出／失敗標示已觀察，ZIP HEAD 200、網頁入口可到登入頁 | 部署端 Release refresh 已成功，另保留曾觀察的 RATE_LIMIT／cache 穩定性；其他真人角色／裝置與桌面程式實際下載使用未完成 |
 | 六模組 HTTP 權限 | 未登入、無 Module Access、grant revoke/restore、Role 不改 grants、inactive member、provider invalid/unavailable、body 權限偽造拒絕；實際 routes/services/D1 | provider 為 isolated stub，不等於真實 CYID／瀏覽器全流程 |
 | Customer / Quote | persistence／related schema、Contact retention、Visit snapshot；HTTP Visit/Frequent Item create/edit/delete、stale；Quote HTTP 新歷史／correct/stale／精確 price breaks／Audit、原子 rollback | 正式 Item／Quote 真人流程需合法 ERP 品項；完整畫面流程仍待人工確認 |
@@ -131,7 +145,7 @@
 
 ## 需要使用者完成及暫緩事項
 
-- [ ] **Email（使用者明確延後）**：指定未被 Employee 使用的受控信箱及授權建立／寄信，再測首次密碼 → 正式密碼 → 返回登入 → 重新登入、逾期／重寄／pending Email edit／舊 ticket 失效、寄送失敗、activated recovery／forgot-password／own Email。密碼由使用者透過登入 handoff 輸入。
+- [x] **帳號與 Email 真人驗收**：使用者 2026-10-16 確認完整驗收 OK，取代先前延後狀態；不要求重做既有驗收。本輪不代建立帳號、寄信或改密碼，未留逐項紀錄的故障案例不推定已逐一執行。
 - [ ] **ERP**：使用者指定合法 SMART ERP 驗收品項及參考；不捏造 live 正式 Item／ERP 交易。
 - [ ] **雲端**：使用者將 development R2/GCS resource／bucket IAM／GitHub environment variables 與 secret 設定延至 **2026-10-05 起的一週**。完成後只回報完成，不提供憑證內容。
 - 雲端操作步驟沿用 [既有 deployment 文件](docs/architecture/CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md#development-backup-manual-setup-and-handback)。App-owned buckets／credentials 與 CYACC 分離；策略 R2 每日臺灣 03:30／30 天、GCS 臺灣週三／週日／182 天，同一份 portable bytes 複製兩邊。

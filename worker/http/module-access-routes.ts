@@ -1,5 +1,5 @@
 import { CYWEB_MODULES, isCyWebModuleCode, type CyWebModuleCode } from "../../shared/modules";
-import { allowedModuleCodes, ensureAppMemberProjection, resolveAppMember } from "../auth/app-access";
+import { currentModuleAccess, ensureAppMemberProjection, resolveAppMember } from "../auth/app-access";
 import { requireIdentity, requireModuleAccess } from "../auth/guard";
 import { CYWEB_IDENTITY_COOKIE, cookieValue, isSessionToken, normalizedApplicationId, fetchIdentityProvider } from "../identity/provider-transport";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
@@ -69,12 +69,7 @@ async function currentAccess(request: Request, env: IdentityRuntimeEnv, requestI
   const gate = await requireIdentity(provider, request);
   if (!gate.ok) return failure({ code: gate.code, message: gate.code === "ACCESS_DENIED" ? "Access denied" : "Authentication required" }, requestId, gate.status);
 
-  const allowed = await allowedModuleCodes(env.DB, gate.principal);
-  return success({
-    modules: CYWEB_MODULES,
-    allowedModules: allowed,
-    implicitAll: gate.principal.workspaceRole === "SUPER_ADMIN",
-  }, requestId);
+  return success(await currentModuleAccess(env.DB, gate.principal), requestId);
 }
 
 async function adminSnapshot(request: Request, env: IdentityRuntimeEnv, requestId: string): Promise<Response> {

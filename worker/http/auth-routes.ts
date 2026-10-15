@@ -1,5 +1,5 @@
 import { normalizedApplicationId, normalizedWorkspaceId } from "../identity/provider-transport";
-import { resolveAppMember } from "../auth/app-access";
+import { currentModuleAccess, resolveAppMember } from "../auth/app-access";
 import {
   clearFirstLoginCookie,
   clearIdentitySessionCookie,
@@ -174,8 +174,10 @@ async function me(request: Request, env: IdentityRuntimeEnv, requestId: string):
   const resolution = await provider.resolve(request);
   if (resolution.status === "authenticated") {
     await resolveAppMember(env.DB, resolution.principal);
+    const moduleAccess = new URL(request.url).searchParams.get("include") === "module-access"
+      ? await currentModuleAccess(env.DB, resolution.principal) : undefined;
     return success(
-      { user: user(resolution.principal), expiresAt: resolution.expiresAt },
+      { user: user(resolution.principal), expiresAt: resolution.expiresAt, ...(moduleAccess ? { moduleAccess } : {}) },
       requestId,
       { headers: { "set-cookie": clearFirstLoginCookie() } },
     );
