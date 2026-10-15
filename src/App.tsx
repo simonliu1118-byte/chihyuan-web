@@ -238,7 +238,7 @@ function OperationalApp({
           </div>
         </>
       }
-      footer={<span className="cy-shell-foundation-note">Development</span>}
+      footer={<span className="cy-shell-foundation-note">CY Web</span>}
     >
       {moduleAccessError && route === "identity" ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-title">模組權限狀態</div><div className="cy-notice-body">{moduleAccessError}</div></div> : null}
       {content}

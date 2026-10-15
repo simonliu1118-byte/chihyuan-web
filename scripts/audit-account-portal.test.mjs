@@ -105,3 +105,39 @@ test("audit workflow has no PR credentials or deployment path for audit operatio
   assert.match(audit,/refs\/heads\/audit\/cyweb-identity/);
   assert.doesNotMatch(audit,/wrangler|migrations apply|secrets put|deploy --|pull_request/);
 });
+
+const { resolveCyWebProductionIdentity } = await import("./resolve-production-identity.mjs");
+function productionOptions(f) {
+  return { env: {CLOUDFLARE_ACCOUNT_ID:"synthetic-account",CLOUDFLARE_API_TOKEN:"synthetic-token",
+    CF_IDENTITY_SERVICE:f.state.dev,CYID_LOOKUP_SERVICE:f.state.dev,CF_WORKER_NAME:f.state.web,CF_D1_DATABASE_ID:id(3),
+    CF_IDENTITY_APPLICATION_ID:"CYWEB",CF_IDENTITY_WORKSPACE_ID:"synthetic-workspace"},canonical,fetchImpl:f.options.fetchImpl };
+}
+test("approved full-module cutover resolves only canonical production Identity, retains resource/grant owners",async()=>{
+  const f=fixture({change:s=>{s.settings.result.bindings[0].service=s.dev;}});
+  const before=JSON.stringify(f.state.settings);
+  const result=await resolveCyWebProductionIdentity(productionOptions(f));
+  assert.deepEqual(result,{CF_IDENTITY_SERVICE:f.state.prod,CF_IDENTITY_APPLICATION_ID:"CYWEB",CF_IDENTITY_WORKSPACE_ID:"synthetic-workspace"});
+  assert.equal(JSON.stringify(f.state.settings),before);
+  assert.deepEqual(Object.keys(result).sort(),["CF_IDENTITY_APPLICATION_ID","CF_IDENTITY_SERVICE","CF_IDENTITY_WORKSPACE_ID"]);
+});
+test("future deploy resolves production again even when saved lookup seed remains development",async()=>{
+  const f=fixture();
+  assert.equal((await resolveCyWebProductionIdentity(productionOptions(f))).CF_IDENTITY_SERVICE,f.state.prod);
+});
+test("cutover refuses unrelated configured scopes/resources and arbitrary broken health",async()=>{
+  for(const field of ["CF_IDENTITY_APPLICATION_ID","CF_IDENTITY_WORKSPACE_ID","CF_WORKER_NAME","CF_D1_DATABASE_ID"]) {
+    const f=fixture();const options=productionOptions(f);
+    options.env[field]=field==="CF_D1_DATABASE_ID"?id(4):"other-scope";
+    await assert.rejects(resolveCyWebProductionIdentity(options),/CYWEB_PRODUCTION_TRANSITION_SCOPE_MISMATCH/);
+  }
+  const g=fixture({change:s=>{s.health.data.database="unavailable";}});
+  await assert.rejects(resolveCyWebProductionIdentity(productionOptions(g)),/CYWEB_PRODUCTION_TRANSITION_SCOPE_MISMATCH/);
+});
+test("real deployment resolves before render and performs strict canonical check after deploy",()=>{
+  const workflow=fs.readFileSync(".github/workflows/development-deploy.yml","utf8");
+  const deploy=workflow.slice(workflow.indexOf("\n  deploy-development:"),workflow.indexOf("\n  audit-identity:"));
+  assert.ok(deploy.indexOf("node scripts/resolve-production-identity.mjs") < deploy.indexOf("node scripts/render-deploy-config.mjs"));
+  assert.ok(deploy.indexOf("node scripts/audit-account-portal.mjs --require-production") > deploy.indexOf("npx wrangler deploy --config"));
+  assert.match(deploy,/CYID_LOOKUP_SERVICE:/);
+  assert.doesNotMatch(deploy,/account.only|identity.only|CF_D1_DATABASE_ID=.*prod/);
+});

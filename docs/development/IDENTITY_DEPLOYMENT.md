@@ -149,8 +149,8 @@ The report explicitly distinguishes (1) the current portal Worker equals the
 configured development deployment target, (2) its business D1 equals the configured
 development business D1, and (3) its Identity target equals the canonical production
 provider. This is a read-only observation, not permission to combine those scopes.
-If the formal account address currently serves development, prepare the single
-core account rollout and business data boundary before switching any binding.
+The formal account address previously served development. The later explicit
+full-module approval and existing-resource rollout are documented below.
 Keep the normal CYACC production authority untouched.
 
 Local regression (set the path to a current read-only CYapps checkout):
@@ -181,17 +181,38 @@ configured development provider. Workspace, core application, consumer 1.0.4 and
 health match; canonical strict readiness is **false**, with
 `CYWEB_PRODUCTION_AUTHORITY_MISMATCH`.
 
-The user prefers a single actual cloud environment and local/CI testing, without
-new test Workers. This observation does not authorize copying development
-Identity rows, exposing development business data to production users, or
-replaying provider provisioning. Because this same portal also serves business
-modules awaiting acceptance, establish the core-account rollout boundary before
-changing its binding. A core-account-only initial rollout should use the existing
-auth/identity lifecycle, block business APIs/projection writes at the canonical
-server dispatch, and use the same frontend's navigation/render boundary rather
-than a second login site. The normal deployment owner must persist the verified
-production binding so later deployment cannot silently restore development.
-No such rollout or live correction has been executed; progress remains in TODO.
+### Approved single-portal rollout — 2026-10-15 17:09 Asia/Taipei
+
+The user explicitly approved opening all existing modules and will restrict other
+employees with the existing Module Access. The earlier account-only proposal is
+not adopted: no mode flag, hidden module renderer, second login site or new Worker.
+The existing business D1, module grants and synthetic fixtures remain; no grants,
+Identity authority rows, credentials, business data or financial data are migrated
+or cleaned by this Identity binding correction.
+
+The same deployment workflow now runs `resolve-production-identity.mjs` before
+rendering every real deployment. It uses the current canonical production resolver
+and existing GET-only topology audit. The original protected `CF_IDENTITY_SERVICE`
+value remains the canonical lookup seed (`CYID_LOOKUP_SERVICE`), not the final
+binding authority. The resolver verifies the current domain is the configured
+Worker/business D1; Workspace/core App/health must match. Only the explicitly
+approved sole authority mismatch, or an already-correct production portal, can
+proceed. It injects only the verified production Identity service/core App/Workspace
+into this run's GITHUB_ENV. It never changes the Worker, D1, grants or provider.
+This happens on every later deployment, preventing a silent development rebind.
+
+The established GitHub environment/operation/ref names containing `development`
+are historical execution labels, not proof of the deployed Identity authority.
+They continue to use the same existing credentials and resource targets. No new
+production/test Worker or IAM is provisioned. The post-deployment
+`audit-account-portal.mjs --require-production` must pass the actual canonical
+strict portal guard. A log label alone is not readiness evidence.
+
+First-login completion still requires explicit verified/password-changed/relogin
+acknowledgments and no normal provider Session. Negative response tests cover
+partial/false success, unexpected Session, expired/missing ticket and outage.
+They do not replace the colleague's actual Email/new-password/browser readback.
+No real credential or Email is reissued during deployment.
 
 CYACC #435 must keep strict `--require-account-portal` blocked until a correction
 passes the original production guard. No actual Email/initial password/browser
