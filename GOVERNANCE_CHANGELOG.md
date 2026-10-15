@@ -1,5 +1,10 @@
 # CY Web Governance Changelog
 
+## 1.1.18 — 2026/10/16
+
+- Synchronize the complete canonical CYID consumer 1.0.6 manifest package after CYapps #459. Minimum compatible remains 1.0.0; Web continues to declare consumer 1.0.5 inside the support window.
+- The provider's private Super Admin backup exception notification capability does not require a Web runtime or authority change. No application version, deployment, resource provisioning or notification send is part of this governance synchronization.
+
 ## 1.1.17 — 2026/10/15
 
 - Adopt CYID backward-compatible consumer contract 1.0.5 and exact canonical mirrors after CYapps #458; minimum remains 1.0.0. Shared technical authority remains in CYID.
