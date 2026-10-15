@@ -2,6 +2,17 @@
 
 更新：2026-10-14（Asia/Taipei）。此檔是本輪 source review／接手快照；唯一可勾選待辦仍為根 `TODO.md`。不新增 Identity、裝置或治理規則。
 
+## 2026-10-15 CYInvoice 回報：原阻塞已解除，交接文件暫留至完整 DR 驗收
+
+**已由 CYInvoice V3 owner 檢查 Draft #440 exact head `cb67cae7346a9a5df26b5dc5627dd0357ef015fc` 原始碼及完整 CI**。原交接所列「CYInvoice `RecoveryIssueResult` 尚不回 explicit `revoked`」現已**完成**，以下 2026-10-14 的 blocker 敘述僅保留原始交接歷史，**不再是目前 source 阻塞**：
+- `apps/CYInvoice/cloud/src/recovery-issuer.ts`：`RecoveryIssueResult.status` 現有 `"revoked"`；`publicState()` 僅在 persisted `revoked_at` 回 `revoked`，consumed／expired 仍為 `failed`。成功 `revokeRecoveryInvitation()` 與已撤銷 readback 皆明確回 `revoked`，不存在與已使用不冒充撤銷。
+- `apps/CYInvoice/cloud/tests/recovery-issuer.test.mjs` 已包含成功 revoke、重複 revoke、consumed／expired、D1 已提交但回覆遺失後以原 operation 查回、claim/revoke 同交易競態 rollback 等合成證據；`recovery-cutover.test.mjs` 覆蓋 Device 全撤銷與未完成授權 fence。
+- CYInvoice #440 本 head：Cloud validate ×2、Windows Client、Windows x64、Governance 均 success；原 Cloud deployment skipped。CYWEB #151 head `c155baf4e0fda819d97fd950bff7cfeb55e1e0a5`：Governance、Browser／Worker TypeScript、build、source contract、deployment contract 成功，development deployment skipped。
+
+**剩餘未完成且仍是正式 DR 發布阻塞：**兩 repo 同版位契約整合、CYWEB 真 Session／Email／Binding 與 original Worker／D1 配置唯讀稽核、正式 D1／Worker 受控 rollout、實際 Windows 跨裝置 DR-01～DR-13、revoked Device 在途業務 Work Item fencing；在整體 V3 工作順序中依照 CYInvoice TODO 安排在正式折讓／跨機覆核／公司設定之後。**此文件只作已移交證據，暫不刪除；完成後再按文件收尾決定是否歸檔／移除。** 沒有執行任何部署、合併或正式 D1 mutation。
+
+---
+
 ## 接手基準與範圍
 
 - CYWEB 原 Draft [#151](https://github.com/simonliu1118-byte/chihyuan-web/pull/151)，branch `cyweb/feat-cyinvoice-recovery-auth-gate`；接手 head `83998147733682c2a785690178ba30e0760ad758`，原正式 main `971c51b7ab4787900b0a2fcb2f0a8199bbf563f4`。本輪將尚未發行的復原功能明確標為 **0.7.25 Build 0**，不改既有部署基準。
