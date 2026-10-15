@@ -165,3 +165,34 @@ canonical protected `resolve-cyid-production-runtime.mjs --require-account-porta
 after a verified correction. CI and a green read-only audit job do not mean that
 `productionPortalReady` is true: inspect the allowlisted result. Actual first-login
 Email/browser acceptance remains separate.
+
+
+### Observed account portal topology — 2026-10-15
+
+PR #152 (accepted source f13f4772, merge 9b3fbb51) added the GET-only audit.
+Protected push run `38693835413`, checked at `2026-10-15T06:41:22.615Z`
+(14:41:22 Asia/Taipei), completed validation and audit; deploy-development was
+skipped. `mutationPerformed=false`.
+
+The configured production provider and isolated Identity D1 metadata verified.
+The managed portal domain resolves to the same Worker and business D1 used by
+CYWEB's existing development deployment. Its IDENTITY binding still points to the
+configured development provider. Workspace, core application, consumer 1.0.4 and
+health match; canonical strict readiness is **false**, with
+`CYWEB_PRODUCTION_AUTHORITY_MISMATCH`.
+
+The user prefers a single actual cloud environment and local/CI testing, without
+new test Workers. This observation does not authorize copying development
+Identity rows, exposing development business data to production users, or
+replaying provider provisioning. Because this same portal also serves business
+modules awaiting acceptance, establish the core-account rollout boundary before
+changing its binding. A core-account-only initial rollout should use the existing
+auth/identity lifecycle, block business APIs/projection writes at the canonical
+server dispatch, and use the same frontend's navigation/render boundary rather
+than a second login site. The normal deployment owner must persist the verified
+production binding so later deployment cannot silently restore development.
+No such rollout or live correction has been executed; progress remains in TODO.
+
+CYACC #435 must keep strict `--require-account-portal` blocked until a correction
+passes the original production guard. No actual Email/initial password/browser
+acceptance occurred in the audit, and existing CYACC production was not changed.
