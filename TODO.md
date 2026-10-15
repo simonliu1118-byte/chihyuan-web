@@ -6,13 +6,17 @@
 
 來源：使用者提供的 CYACCweb first-login handoff／Draft CYapps #435（81cc5fcc），既有 production #38675354003 曾回 `CYWEB_PRODUCTION_AUTHORITY_MISMATCH`。本輪專用 branch 與 CYInvoice Draft #151 分開；不修改帳務 D1、CYInvoice source 或已部署 provider authority。
 
-- [x] 核對 source：根 TODO 仍稱 admin portal 為 development；唯一 Web deploy owner 是既有 development workflow。不能只從 Worker 名字推定哪端該換綁定，亦不能直接將測試業務 D1 接到正式 Identity。
+- [x] 核對 source：根 TODO 仍稱 admin portal 為 development；唯一 Web deploy owner 是既有 development workflow。不能只從 Worker 名字推定哪端該換綁定，當時尚未批准原系統完整切換；其後授權見下方。
 - [x] 實作既有 workflow 的 `audit-identity` 唯讀操作：原受保護 environment、原憑證，GET-only 讀 domain → Worker → IDENTITY／D1 metadata／health；沿用 CYapps canonical production resolver 與 `requireProductionCoreConsumer`，不複製新 readiness authority。只輸出 boolean／正常化版本／stable code／時間，不輸出正式名稱、ID、token 或設定。
 - [x] 本地八項回歸通過：中央 actual resolver／guard、authority/workspace/health mismatch、Identity DB隔離／業務 DB collision、unsafe URL／多網域、audit期間 drift、GET-only與 credential 不外送、audit operation 不進 deploy job；workflow YAML parsed。
 - [x] [PR #152](https://github.com/simonliu1118-byte/chihyuan-web/pull/152) exact head `f13f4772884a10b8ee4fc9ec6ac1027066b400b7`：Governance `38693643909`、Runtime `38693643966`、部署契約 `38693643912` 通過，合併 `9b3fbb514beba5393978bc1de8b1e51b3fb393de`。未部署。
 - [x] [唯讀稽核 run 38693835413](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/38693835413)，2026-10-15 **14:41:22 Asia/Taipei**：原受保護 environment 執行，audit success、deploy-development skipped、mutationPerformed=false。canonical production provider／獨立 Identity D1 metadata／portal managed domain與 business D1 metadata 都驗證；Workspace／core App／consumer1.0.4／health符合。**Portal Worker、business D1與 IDENTITY 全部仍為已設定 development；productionPortalReady=false、CYWEB_PRODUCTION_AUTHORITY_MISMATCH。** 不是 CYACC 應改用 development provider，亦不能將audit job綠燈視為修復。
-- [ ] 確認正式入口的切換範圍：使用者已偏好單一正式雲端、本機／CI 測試、不新增測試 Worker；現有 portal 同時承載尚在驗收的 Web 業務資料。先決定是否只正式啟用核心帳號入口（業務保持未上線）再準備 account-only presentation/server boundary與原 deployment owner 的永久設定。不能僅改 binding而混用正式身分和測試業務；尚未改任何 live binding／環境值，未取得正式回交通過證據。
-- [ ] 若需 production identity/core portal 切換，先核對既有 authority／中央部署契約及 business D1 隔離範圍，形成具體變更後按授權執行；不得重播 provider provisioning、擴大 IAM、搬動帳務或製造第二套帳號。
+- [x] **使用者 2026-10-15 17:09 明確批准：全部模組可直接開放，沿用既有 Module Access，由使用者限制其他員工。** 不新增 account-only 模式、UI／API 開關、另一 Worker 或第二登入。不自動新增／撤銷 grants、重播 Identity authority、清理測試資料或搬動帳務。
+- [x] Source **0.7.26 Build 0**：原 deploy owner 每次 render 前先以 canonical production resolver＋原唯讀 audit核對同一 Worker／同一 business D1／Workspace／core App／health，僅接受已批准的 authority mismatch或已修正狀態；注入正式 Identity target，後續部署不回退 development。原 CF_IDENTITY_SERVICE 值只作 canonical production lookup seed，實際輸出 Binding 一律經正式 runtime核對。部署後原 canonical strict gate 必須通過。歷史 GitHub environment／deploy ref 名稱仍保留，不另建部署 owner。
+- [x] 本地十二項 actual-canonical audit／runtime 回歸、四項首次登入 route/adapter regression、既有Identity tests、source contracts、Browser／Worker TypeScript及完整build通過。成功首次驗證必須明確回 emailVerified／passwordChanged／reloginRequired=true，無正常 Session；部分成功／expired／provider outage保持失敗。
+- [ ] 本輪 exact-head CI、既有 Worker 實際正式 Identity 部署、post-deploy strict gate／health與cookie拒絕，通過後回交 CYACCweb。
+- [ ] 同事回報「新使用者信件→CYWEB設定後 Email 未驗證／新密碼不能登入」：已證實authority mismatch可造成正式資料未更新，但尚無該次完成請求／真人回讀證據，不能斷定全部同一根因。修正後由受控使用者驗收，必要時管理員確認正式狀態再處理重寄；本輪不自行改密碼／重發信。
+- [x] 正式 Identity／core portal 切換的既有 authority、中央契約及原business D1已核對；按本次全部模組開放授權處理原Worker，沒有重播provider provisioning、擴大IAM、搬動帳務或製造第二套帳號。
 - [ ] 同中央 authority/workspace、core App／consumer／D1 health通過後，回交 CYACCweb 在 protected runner 重跑 `--require-account-portal`。真 Email、一次性密碼→正式密碼→重新登入→CYACC一般登入尚未驗收，未新增帳號／寄信。
 
 操作與回交證據依既有 [Identity deployment](docs/development/IDENTITY_DEPLOYMENT.md#account-portal-authority-read-only-audit)；此 TODO 為唯一進度表。

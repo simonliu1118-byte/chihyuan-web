@@ -10,7 +10,7 @@ const binding = (settings, name, type) => settings?.result?.bindings?.filter(b =
 function fail(code) { throw new Error(code); }
 
 /** Read-only topology audit. The CYID/CYACC canonical resolver owns readiness. */
-export async function auditAccountPortal({ accountId, apiToken, configuredIdentityService,
+export async function inspectAccountPortal({ accountId, apiToken, configuredIdentityService,
   configuredWorker, configuredDatabaseId, resolveProductionRuntime, verifyProductionPortal,
   fetchImpl = fetch }) {
   if (!accountId || !apiToken || !workerName.test(configuredIdentityService ?? "")
@@ -95,7 +95,7 @@ export async function auditAccountPortal({ accountId, apiToken, configuredIdenti
     if (/^(CYWEB_[A-Z_]+|PRODUCTION_CORE_CONSUMER_NOT_READY)$/.test(error?.message ?? "")) failureCode = error.message;
   }
   const consumerVersion = value(portalSettings, "IDENTITY_CONSUMER_VERSION");
-  return {
+  const report = {
     checkedAt: new Date().toISOString(), mutationPerformed: false,
     canonicalProductionProviderVerified: true, productionIdentityDatabaseMetadataVerified: true,
     identityDatabasesSeparated: true, portalDomainResolved: true, portalBusinessDatabaseMetadataVerified: true,
@@ -112,6 +112,13 @@ export async function auditAccountPortal({ accountId, apiToken, configuredIdenti
       && health.data?.database === "ok" && health.data?.identityConsumerVersion === consumerVersion,
     productionPortalReady: ready, failureCode,
   };
+  // Private deployment context is returned only to the resolver; CLI and audit
+  // consumers project report exclusively. No identifiers go to public evidence.
+  return { report, runtime, coreApplicationId: value(provider, "CORE_ACCOUNT_APPLICATION_ID") };
+}
+
+export async function auditAccountPortal(options) {
+  return (await inspectAccountPortal(options)).report;
 }
 
 async function cli() {
@@ -122,12 +129,14 @@ async function cli() {
     const canonical = await import(pathToFileURL(path.join(root,
       "apps/CYAccountingWeb/scripts/resolve-cyid-production-runtime.mjs")));
     const report = await auditAccountPortal({ accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
-      apiToken: process.env.CLOUDFLARE_API_TOKEN, configuredIdentityService: process.env.CF_IDENTITY_SERVICE,
+      apiToken: process.env.CLOUDFLARE_API_TOKEN, configuredIdentityService: process.env.CYID_LOOKUP_SERVICE ?? process.env.CF_IDENTITY_SERVICE,
       configuredWorker: process.env.CF_WORKER_NAME, configuredDatabaseId: process.env.CF_D1_DATABASE_ID,
       resolveProductionRuntime: canonical.resolveCyidProductionRuntime,
       verifyProductionPortal: canonical.verifyCyWebProductionPortal });
     // Report has only booleans, normalized version/environment, stable codes/time.
     console.log("CYWEB_IDENTITY_AUDIT " + JSON.stringify(report));
+    if (process.argv.includes("--require-production") && !report.productionPortalReady)
+      fail(report.failureCode ?? "CYWEB_PRODUCTION_PREFLIGHT_FAILED");
     if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
       "## CYWEB account portal read-only audit\n\n```json\n" + JSON.stringify(report, null, 2) + "\n```\n");
   } catch (error) {

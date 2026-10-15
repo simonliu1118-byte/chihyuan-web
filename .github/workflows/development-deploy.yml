@@ -1,4 +1,4 @@
-name: CY Web Development Deploy
+name: CY Web Deploy
 
 on:
   pull_request:
@@ -8,6 +8,9 @@ on:
       - "worker/**"
       - "migrations/**"
       - "scripts/render-deploy-config.mjs"
+      - "scripts/resolve-production-identity.mjs"
+      - "scripts/audit-account-portal.mjs"
+      - "scripts/audit-account-portal.test.mjs"
       - "scripts/render-backup-secrets.mjs"
       - "scripts/validate-deploy-config.mjs"
       - "scripts/verify-deployed-health.mjs"
@@ -123,6 +126,7 @@ jobs:
       CF_D1_DATABASE_NAME: ${{ vars.CF_D1_DATABASE_NAME }}
       CF_D1_DATABASE_ID: ${{ vars.CF_D1_DATABASE_ID }}
       CF_IDENTITY_SERVICE: ${{ vars.CF_IDENTITY_SERVICE }}
+      CYID_LOOKUP_SERVICE: ${{ vars.CF_IDENTITY_SERVICE }}
       CF_IDENTITY_APPLICATION_ID: ${{ vars.CF_IDENTITY_APPLICATION_ID }}
       CF_IDENTITY_WORKSPACE_ID: ${{ vars.CF_IDENTITY_WORKSPACE_ID }}
       CF_BACKUP_ENABLED: ${{ vars.CF_BACKUP_ENABLED }}
@@ -160,7 +164,18 @@ jobs:
             fi
           done
 
-      - name: Render development deployment config
+      - name: Checkout canonical production Identity resolver
+        uses: actions/checkout@v4
+        with:
+          repository: simonliu1118-byte/CYapps
+          ref: main
+          path: .tmp/canonical-cyapps
+          persist-credentials: false
+
+      - name: Resolve canonical production Identity without changing business D1
+        run: node scripts/resolve-production-identity.mjs
+
+      - name: Render existing Worker deployment config
         run: node scripts/render-deploy-config.mjs --output wrangler.development.generated.jsonc
 
       - name: Validate and prepare protected backup credential
@@ -296,6 +311,9 @@ jobs:
 
           echo "CY Web workers.dev fallback acceptance passed."
 
+      - name: Require canonical production portal authority after deployment
+        run: node scripts/audit-account-portal.mjs --require-production
+
       - name: Remove generated deployment config
         if: always()
         run: rm -f wrangler.development.generated.jsonc "$RUNNER_TEMP/cyweb-backup-secrets.json"
@@ -312,6 +330,7 @@ jobs:
       CF_WORKER_NAME: ${{ vars.CF_WORKER_NAME }}
       CF_D1_DATABASE_ID: ${{ vars.CF_D1_DATABASE_ID }}
       CF_IDENTITY_SERVICE: ${{ vars.CF_IDENTITY_SERVICE }}
+      CYID_LOOKUP_SERVICE: ${{ vars.CF_IDENTITY_SERVICE }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
