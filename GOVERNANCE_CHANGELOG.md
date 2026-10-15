@@ -1,5 +1,10 @@
 # CY Web Governance Changelog
 
+## 1.1.17 — 2026/10/15
+
+- Adopt CYID backward-compatible consumer contract 1.0.5 and exact canonical mirrors after CYapps #458; minimum remains 1.0.0. Shared technical authority remains in CYID.
+- The user-approved testing exception permits core Super Admin verified-account deletion and pauses only create/delete lifecycle audit. Restoration before the first business release is tracked in CYID/Web TODO, not promoted into permanent project rules. The separate Web feature PR owns UI and deployment.
+
 ## 1.1.16 — 2026/10/12
 
 - Adopt CYID optional application-registration contract 1.0.4 and synchronize the complete canonical manifest package after Provider main acceptance. Minimum compatible remains 1.0.0.
