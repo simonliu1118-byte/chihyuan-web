@@ -1,4 +1,5 @@
 import type { ApiResponse } from "../../shared/api";
+import { chineseMessage, localizeApiError } from "./error-messages";
 
 export interface ApiRequestInit extends Omit<RequestInit, "body"> {
   json?: unknown;
@@ -18,12 +19,12 @@ export class ApiClientError extends Error {
     requestId?: string | null;
     fields?: Record<string, string>;
   }) {
-    super(options.message);
+    super(localizeApiError(options.code, options.message));
     this.name = "ApiClientError";
     this.status = options.status;
     this.code = options.code;
     this.requestId = options.requestId ?? null;
-    this.fields = options.fields;
+    this.fields = options.fields && Object.fromEntries(Object.entries(options.fields).map(([key, message]) => [key, chineseMessage(message, "此欄位內容不符合要求，請檢查後重新輸入。") ]));
   }
 }
 
@@ -79,13 +80,17 @@ export async function apiRequest<T>(
     body = JSON.stringify(json);
   }
 
-  const response = await fetch(input, {
+  let response: Response;
+  try { response = await fetch(input, {
     ...requestInit,
     headers,
     body,
     credentials: requestInit.credentials ?? "same-origin",
     cache: "no-store",
-  });
+  }); } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    throw new ApiClientError({ status: 0, code: "NETWORK_ERROR", message: "無法連線至伺服器，請確認網路後再試。" });
+  }
 
   const envelope = await readEnvelope<T>(response);
 

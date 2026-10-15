@@ -2,11 +2,23 @@
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
 
+## 帳號介面與全站中文錯誤提醒 — 2026-10-15
+
+- Source **0.7.28 Build 0／consumer 1.0.5**：登入標題改「志遠企業管理系統」、員工編號 Enter 使用既有鍵盤 foundation 移至密碼、忘記密碼置中；右上帳號按 CYACCweb 相同 Workspace Role 與色值顯示金色超級管理員／銅色管理員。
+- 使用者帳號標題右側只保留「新增使用者」，既有共用 Dialog 內填寫編號／姓名／電子郵件／權限；一般 ADMIN 仍只能建立 USER。busy lock、dirty guard、錯誤保留輸入及關閉後焦點回復；刪除確認移除空 body，僅保留一條分隔線。
+- 使用者已確認截圖的新增失敗是 **3001 與既有超管編號重複**，不是 Workspace 殘留；不修改 CYID／Workspace／刪除語意，不刪真人帳號或清理資料。
+- 單一 FeedbackProvider 沿用共享 Dialog，涵蓋登入、帳號／權限、六業務模組、設定／Audit／備份／程式清單的失敗提醒；API browser boundary 統一中文錯誤與欄位訊息，未知英文／診斷碼只顯示安全中文。保留 status/code/requestId 供既有程式判斷，不把所有 409 都誤報為 stale。原生表單驗證亦改中文彈窗，無請求攔截、observer 或第二業務 authority。
+- 驗證信初寄／重寄／資料修改後的部分寄送失敗不再誤報已寄出；備份未完整驗證、程式版本 fallback 亦明確提醒。沒有真寄信或真實備份操作。
+- 本機 browser/Worker TypeScript、完整 Cloudflare Worker+assets build、目前 required source contracts、既有 31 項可在 Windows 執行的回歸，以及中文 message/API boundary tests通過；Desktop/Mobile 合成 API 瀏覽器測試涵蓋登入 Enter、重複錯誤、表單保留、dirty guard、刪除取消／確認與刷新、原生 required、角色顏色／ADMIN 限制、十個頁面載入錯誤及手機視窗。合成證據不等於真人帳號／收信驗收。
+- 為通過既有 Cloudflare plugin peer requirement，Wrangler 最小相容修正至 4.141.0；未改部署 owner／binding／D1／權限。
+- [ ] 遠端 PR exact-head checks 與原 Worker 受控部署／雙入口 health／正式 Identity strict gate；以本輪 PR、Actions 及 deployment ref 作可追蹤證據。
+- [ ] 使用者重新整理後確認本輪實際畫面／收信流程；首次業務上線前的 testing deletion/Audit 恢復 gate 維持下列既有項目。
+
 ## 測試期帳號刪除與寄信入口 — 2026-10-15
 
 - 使用者批准測試期可刪除已驗證帳號，暫停新增／刪除Identity Audit；中央能力與恢復條件以CYID canonical consumer standard §17.2為準，不在Web另建帳號authority。
 - Source0.7.27／consumer1.0.5：沿用帳號列表與DELETE代理，僅在provider明確回傳testingAccountDeletionAllowed=true且目前為Super Admin時，顯示已驗證帳號刪除；缺少能力仍維持pending-only。使用共用ConfirmDialog「確定刪除帳號／保留帳號」，刪除結果確認後才刷新清單；新增提示明確寫從CYWEB用信中一次性密碼完成驗證；移除登入／首次驗證頁共用底部灰色技術說明。
-- [ ] Provider／Web CI、正式部署與health/strict gate證據待補；未刪任何真人帳號／重寄Email。
+- [x] Web 0.7.27／consumer1.0.5：PR #156／#157 已合併，部署 `38717773511` 雙入口 health 與 production Identity strict gate通過；CYID0.3.9 production `38718039836` validate/deploy/version/session-rejection通過（2026-10-15 18:08 Asia/Taipei）。未刪任何真人帳號／重寄Email。
 - [ ] 實際Email HTML/text入口與新增→驗證→新密碼登入→刪除→同編號/Email重建待受控真人驗收。
 - [ ] **業務第一版前**依CYID TODO恢復已驗證不可刪及新增/刪除Audit，更新Web契約mirror並驗收刪除入口隨provider能力關閉；保留既有business history，不將舊projection或Module Access轉給重建帳號。
 
@@ -34,7 +46,7 @@
 
 ## 目前基準 — 2026-10-15（Asia/Taipei）
 
-- 目前 source **0.7.26 Build 0／CYID consumer 1.0.4**：既有全部模組沿用原 Worker／business D1／Module Access，正式 Identity 切換結果見上方首次登入交接；不等於業務正式首版、乾淨 schema或所有真人驗收完成。
+- 目前 source **0.7.28 Build 0／CYID consumer 1.0.5**（本輪遠端驗證／部署見上方新項目），先前已部署 **0.7.27**：既有全部模組沿用原 Worker／business D1／Module Access，正式 Identity 切換結果見上方首次登入交接；不等於業務正式首版、乾淨 schema或所有真人驗收完成。
 - 已包含 0.7.24「CY 程式 → 價格觀測室（原型）」外連，原型程式位於 CYapps `apps/CYPriceDesk/`，維持 Sites owner-private 與 ChatGPT 登入；未發版桌面程式仍不提供下載。
 - 先前已部署 source **0.7.22 Build 0** 已加入單次切換模組提醒，並沿用 Customer／WorkLog 共用 Dialog／ConfirmDialog，修正關閉焦點並移除六模組／Shell 工程描述；包含 quota cooldown／最近成功版本保留及 skip-link 修正；CY 程式頁仍依使用者要求不顯示「發版說明」連結。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
 - 本輪 source **0.7.23 Build 0／CYID consumer 1.0.4** 在既有「帳號與權限 → 系統使用權」新增 Super Admin 的「登記系統」，由 CYID core Session 決定目前 Workspace；其他員工使用權仍在既有清單管理。共享 Dialog／Field／dirty guard／Toast，無 browser registry authority。Provider #416／development #158 與 Web #146／development #138 已通過 CI／部署；七個 canonical mirrors1.0.4 已同步。使用者在原 development portal 完成 CYInvoice 真人登記／目前 Workspace 啟用，畫面已出現 CYInvoice。一般員工 App Access、取消／dirty guard／busy／行動裝置仍待驗收，不因 Super Admin 永遠允許就視為其他員工已授權。

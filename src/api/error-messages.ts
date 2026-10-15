@@ -1,0 +1,151 @@
+/** Browser-facing messages only; provider codes and authorization remain unchanged. */
+const messages: Record<string, string> = {
+  EMPLOYEE_CONFLICT: "員工編號或電子郵件已被使用，請確認後重新輸入。",
+  EMAIL_ALREADY_IN_USE: "此電子郵件已被其他帳號使用，請改用其他信箱。",
+  CURRENT_PASSWORD_INVALID: "目前密碼不正確，請重新輸入。",
+  PASSWORD_UNCHANGED: "新密碼不能與目前密碼相同。",
+  INVALID_PASSWORD_CHANGE: "請確認目前密碼，並輸入 8～16 字元的新密碼。",
+  INVALID_PASSWORD_RECOVERY: "請確認員工編號、驗證碼及新密碼。",
+  PASSWORD_RECOVERY_FAILED: "密碼重設驗證失敗，請確認驗證碼或重新取得。",
+  INVALID_LOGIN_REQUEST: "請輸入 4 碼員工編號與 8～16 字元密碼。",
+  LOGIN_FAILED: "員工編號或密碼不正確。",
+  AUTHENTICATION_FAILED: "員工編號或密碼不正確。",
+  AUTH_REQUIRED: "請先登入後再操作。",
+  AUTH_INVALID: "登入狀態已失效，請重新登入。",
+  SESSION_INVALID: "登入狀態已失效，請重新登入。",
+  ACCESS_DENIED: "您目前沒有此項操作的使用權。",
+  APPLICATION_ACCESS_DENIED: "此帳號尚未取得系統使用權，請聯絡管理員。",
+  APPLICATION_NOT_AVAILABLE: "此系統目前尚未開放使用。",
+  LOGIN_RATE_LIMITED: "登入嘗試過於頻繁，請稍後再試。",
+  AUTH_RATE_LIMITED: "操作過於頻繁，請稍後再試。",
+  AUTH_RATE_LIMITER_UNAVAILABLE: "登入服務暫時無法使用，請稍後再試。",
+  IDENTITY_UNAVAILABLE: "帳號服務暫時無法連線，請稍後再試。",
+  IDENTITY_REQUEST_FAILED: "帳號操作未完成，請確認資料後重試。",
+  INVALID_EMPLOYEE: "請確認員工編號為 4 碼數字，並填寫姓名與有效的電子郵件。",
+  EMPLOYEE_NOT_FOUND: "找不到此使用者帳號，請重新整理清單。",
+  EMPLOYEE_NOT_ACTIVATED: "此帳號尚未完成首次電子郵件驗證。",
+  EMPLOYEE_ALREADY_ACTIVATED: "此帳號已完成首次驗證，請使用密碼找回或變更電子郵件功能。",
+  EMPLOYEE_CREDENTIAL_MISSING: "此帳號的登入資料不完整，請聯絡管理員。",
+  EMPLOYEE_MANAGEMENT_NOT_ALLOWED: "您無權管理此帳號。",
+  EMPLOYEE_DELETE_NOT_ALLOWED: "此帳號目前不可刪除，請重新整理後確認帳號狀態及權限。",
+  EMPLOYEE_ROLE_CHANGE_NOT_ALLOWED: "您無權變更此帳號的角色。",
+  EMPLOYEE_ROLE_NOT_ALLOWED: "您只能建立或管理一般使用者。",
+  SUPER_ADMIN_PROTECTED: "超級管理員帳號受保護，請先完成管理權移交。",
+  SUPER_ADMIN_ACCESS_PROTECTED: "超級管理員的系統使用權不可取消。",
+  SELF_ACCESS_CHANGE_NOT_ALLOWED: "您不能變更自己的使用權。",
+  SUPER_ADMIN_REQUIRED: "此操作僅限超級管理員。",
+  WORKSPACE_SUPER_ADMIN_REQUIRED: "此操作僅限超級管理員。",
+  HIGHEST_AUTHORITY_REQUIRED: "此操作僅限超級管理員。",
+  CORE_SUPER_ADMIN_REQUIRED: "請由超級管理員登入本系統後操作。",
+  ADMIN_REQUIRED: "此操作需要管理員權限。",
+  WORKSPACE_ADMIN_REQUIRED: "此操作需要管理員權限。",
+  IDENTITY_ADMIN_REQUIRED: "此操作需要帳號管理權限。",
+  IDENTITY_ADMIN_REQUIRES_ADMIN: "必須先設為管理員，才能授予帳號管理權限。",
+  IDENTITY_ADMIN_REVOKE_REQUIRED: "請先撤銷帳號管理權限，再變更為一般使用者。",
+  INVALID_IDENTITY_ADMIN_UPDATE: "帳號管理權限設定無效，請重新確認。",
+  INVALID_APPLICATION_ACCESS: "系統使用權設定無效，請重新確認。",
+  INVALID_MODULE_ACCESS: "模組使用權設定無效，請重新確認。",
+  CORE_APPLICATION_ACCESS_LOCKED: "本系統是固定啟用的核心帳號入口，不需另行登記或取消使用權。",
+  INVALID_APPLICATION_REGISTRATION: "請填寫有效的系統識別碼與顯示名稱。",
+  APPLICATION_REGISTRATION_CONFLICT: "此系統識別碼已使用不同名稱，或系統已停用，請確認後重試。",
+  FIRST_LOGIN_REQUIRED: "請先完成電子郵件驗證並設定正式密碼。",
+  FIRST_LOGIN_EXPIRED: "首次驗證流程已逾期，請聯絡管理員重寄驗證信。",
+  FIRST_LOGIN_PASSWORD_EXPIRED: "首次登入密碼已逾期，請聯絡管理員重寄驗證信。",
+  FIRST_LOGIN_CONFLICT: "帳號驗證狀態已變更，請返回登入或聯絡管理員重寄驗證信。",
+  INVALID_FIRST_LOGIN: "首次登入資料無效，請確認信中的員工編號及一次性密碼。",
+  INVALID_FIRST_LOGIN_REQUEST: "請輸入 8～16 字元的正式密碼。",
+  INVALID_EMAIL_CHANGE: "請確認目前密碼及新的電子郵件地址。",
+  INVALID_EMAIL_RECOVERY: "請輸入有效的新電子郵件地址。",
+  INVALID_EMAIL_CONFIRMATION: "請輸入有效的 6 位數驗證碼。",
+  EMAIL_VERIFICATION_FAILED: "電子郵件驗證失敗，請確認驗證碼或重新取得。",
+  EMAIL_ALREADY_VERIFIED: "此電子郵件已完成驗證。",
+  EMAIL_VERIFICATION_NOT_AVAILABLE: "此帳號目前無法進行電子郵件驗證，請聯絡管理員。",
+  EMAIL_VERIFICATION_RESEND_NOT_ALLOWED: "此帳號目前不適用此重寄流程，請確認驗證狀態。",
+  EMAIL_CHANGE_REQUIRES_RECOVERY: "已驗證帳號請使用變更電子郵件流程。",
+  EMAIL_RECOVERY_NOT_ALLOWED: "此帳號須使用自己的電子郵件變更或受保護的驗證流程。",
+  EMAIL_UPDATE_CONFLICT: "電子郵件或帳號狀態已變更，請重新整理後再操作。",
+  AUTHORITY_TRANSFER_TARGET_NOT_READY: "接任者必須已啟用、完成電子郵件驗證並設定正式密碼。",
+  INVALID_AUTHORITY_TRANSFER: "管理權移交資料無效，請確認接任者與驗證資料。",
+  AUTHORITY_TRANSFER_VERIFICATION_FAILED: "管理權移交驗證失敗，請確認驗證碼或重新申請。",
+  AUTHORITY_TRANSFER_CONFLICT: "管理權已變更，請重新登入確認目前權限。",
+  HIGHEST_AUTHORITY_STATE_INVALID: "管理權狀態異常，請聯絡系統管理員。",
+  INVALID_SECURITY_POLICY: "安全設定超出允許範圍，請檢查各欄位。",
+  BACKUP_NOT_CONFIGURED: "備份儲存尚未設定，請先完成儲存設定。",
+  BACKUP_UNAVAILABLE: "備份服務暫時無法使用，請稍後再試。",
+  SETTINGS_AUDIT_UNAVAILABLE: "設定紀錄暫時無法儲存，請稍後再試。",
+  NOT_FOUND: "找不到指定資料，請重新整理後再試。",
+  SERVICE_UNAVAILABLE: "服務暫時無法使用，請稍後再試。",
+  INTERNAL_ERROR: "系統暫時無法完成操作，請稍後再試。",
+  NETWORK_ERROR: "無法連線至伺服器，請確認網路後再試。",
+  INVALID_API_RESPONSE: "伺服器回應格式異常，請稍後再試。",
+  HTTP_ENVELOPE_MISMATCH: "伺服器回應狀態異常，請稍後再試。",
+  METHOD_NOT_ALLOWED: "此操作目前不受支援。",
+  INVALID_REQUEST: "操作資料格式不正確，請檢查後再試。",
+  VALIDATION_ERROR: "輸入資料不符合要求，請檢查各欄位。",
+  CUSTOMER_NO_CONFLICT: "此客戶編號已被使用，請確認後重新輸入。",
+  CUSTOMER_NO_UNCHANGED: "新客戶編號與原編號相同，無需變更。",
+  CUSTOMER_NO_CONTROLLED_ACTION_REQUIRED: "請使用客戶編號變更功能修改編號。",
+  DUPLICATE_TAX_ID_CONFIRM_REQUIRED: "統一編號與其他客戶重複，請確認後再儲存。",
+  CUSTOMER_FREQUENT_ITEM_CONFLICT: "此常用商品已存在，請勿重複新增。",
+  ITEM_NO_CONFLICT: "此商品編號已被使用，請確認後重新輸入。",
+  ITEM_NO_UNCHANGED: "新商品編號與原編號相同，無需變更。",
+  DEFECT_INVALIDATED: "此瑕疵紀錄已作廢，無法再修改。",
+  DEFECT_REFERENCES_NOT_RESOLVED: "無法確認瑕疵紀錄的商品或相關資料，請重新選擇。",
+  CONTRACTOR_CONTACT_OWNERSHIP_INVALID: "此聯絡人不屬於選定的協力廠商，請重新選擇。",
+  CONTRACTOR_PRICE_CONFLICT: "此廠商與商品已有價格紀錄，請修改既有價格。",
+  CONTRACTOR_PRICE_UNIT_INVALID: "計價單位無法與商品單位換算，請檢查單位設定。",
+  CONTRACTOR_PRICE_REVISION_REQUIRED: "請重新載入廠商價格後再修改。",
+  BOM_REF_CONFLICT: "此物料表編號已存在，請使用其他編號。",
+  OUTSOURCING_PRICE_MISSING: "尚未設定適用的廠商價格，請先完成價格設定。",
+  OUTSOURCING_UNIT_CONVERSION_FAILED: "單位換算失敗，請檢查商品單位與換算設定。",
+  SALES_WORK_ORDER_CUSTOMER_UNRESOLVED: "無法確認工單的客戶資料，請重新選擇。",
+  SALES_WORK_ORDER_ERP_CUSTOMER_NOT_FOUND: "找不到對應的企業資源系統客戶編號，請先確認客戶主檔。",
+  WORK_LOG_ACCESS_DENIED: "您目前無權存取此工作日誌。",
+  WORK_LOG_REVIEW_ENTRY_INVALID: "審核項目與目前日誌不符，請重新載入後再審核。",
+  WORK_LOG_REVIEW_NOT_ALLOWED: "此日誌目前不可審核，請確認狀態與審核權限。",
+  UNIT_CONVERSION_CYCLE: "單位換算形成循環，請調整換算設定。",
+  UNIT_CONVERSION_PATH_MISSING: "找不到適用的單位換算方式，請先設定單位換算。",
+  UNIT_CONVERSION_FACTOR_INVALID: "單位換算係數無效，請輸入有效數值。",
+  UNIT_CONVERSION_QUANTITY_INVALID: "換算數量無效，請輸入有效數值。",
+  UNIT_CONVERSION_ZERO_FACTOR: "單位換算係數不能為零。",
+  UNIT_CONVERSION_PRECISION_EXCEEDED: "單位換算結果超出允許的小數精度，請調整數值。",
+  UNIT_CONVERSION_RESULT_OUT_OF_RANGE: "單位換算結果超出允許範圍。",
+  SCALED4_PRECISION_EXCEEDED: "數值最多允許四位小數，請調整後再試。",
+  MONEY2_PRECISION_EXCEEDED: "金額最多允許兩位小數，請調整後再試。",
+  SCALED4_RESULT_OUT_OF_RANGE: "計算結果超出允許的數值範圍。",
+  MONEY2_RESULT_OUT_OF_RANGE: "計算結果超出允許的金額範圍。",
+  WORK_LOG_SCORE_RESULT_OUT_OF_RANGE: "日誌分數超出允許範圍，請檢查各項分數。",
+  BACKUP_STORAGE_CAPACITY_EXCEEDED: "備份儲存容量不足，請聯絡管理員確認可用空間。",
+  BACKUP_NO_VERIFIED_COPY_AVAILABLE: "目前沒有通過驗證的備份副本可供使用。",
+  BACKUP_ISOLATED_RECOVERY_FAILED: "隔離還原未完成，請確認備份及目標環境後重試。",
+  REQUEST_TOO_LARGE: "送出的資料量過大，請減少內容後再試。",
+  UNSUPPORTED_CONTENT_TYPE: "不支援此資料格式，請重新載入後再試。",
+  INVALID_JSON: "送出的資料格式不正確，請重新載入後再試。",
+  INVALID_REQUEST_SHAPE: "送出的資料格式不正確，請檢查後再試。",
+};
+
+export function chineseMessage(message: string | undefined, fallback = "操作未完成，請稍後再試。"): string {
+  // Preserve human-readable Chinese explanations, never display raw English or diagnostic codes.
+  return message && /[\u3400-\u9fff]/u.test(message)
+    && !/\b[A-Z][A-Z0-9]*_[A-Z0-9_]+\b|\b(?:TypeError|ReferenceError|SyntaxError)\b/u.test(message) ? message : fallback;
+}
+
+export function localizeApiError(code: string, message?: string): string {
+  if (messages[code]) return messages[code];
+  if (code.includes("REVISION_CONFLICT") || code === "CREDENTIAL_VERSION_CONFLICT") return "資料已變更，請重新載入最新資料後再操作。";
+  if (code.includes("RATE_LIMIT") || code.includes("COOLDOWN") || code.includes("BUDGET") || code.includes("DAILY_LIMIT")) return "操作或寄信次數已達限制，請稍後再試。";
+  if (code.includes("EMAIL") && (code.includes("DELIVERY") || code.includes("SEND"))) return "驗證信未能寄出，請稍後重新寄送。";
+  const domain = Object.entries({ CUSTOMER_VISIT: "拜訪紀錄", CUSTOMER_QUOTE: "報價紀錄", CUSTOMER_FREQUENT_ITEM: "常用商品", CUSTOMER: "客戶", ITEM: "商品", DEFECT: "瑕疵紀錄", CONTRACTOR: "協力廠商", BOM: "物料表", OUTSOURCING: "代工單", SALES_WORK_ORDER: "銷售工單", WORK_LOG: "工作日誌", SETTINGS: "設定" }).find(([prefix]) => code.startsWith(prefix + "_"))?.[1];
+  if (domain) {
+    if (code.endsWith("_NOT_FOUND")) return `找不到此${domain}，請重新載入清單。`;
+    if (code.endsWith("_DELETE_NOT_ALLOWED")) return `此${domain}目前不可刪除，請確認狀態及是否已有相關紀錄。`;
+    if (code.endsWith("_EDIT_NOT_ALLOWED")) return `此${domain}目前不可直接編輯，請確認目前狀態與可用操作。`;
+    if (code.endsWith("_TRANSITION_NOT_ALLOWED")) return `此${domain}目前不允許這項操作，請確認權限、目前狀態及前後流程。`;
+    if (code.endsWith("_REFERENCE_INVALID")) return `${domain}的參照資料無效，請重新確認。`;
+    if (code.endsWith("_CONFLICT")) return `${domain}與現有資料衝突，請重新載入後確認。`;
+    if (code.endsWith("_ADMIN_REQUIRED")) return "此操作需要管理員權限。";
+    if (code.endsWith("_CREATE_FAILED") || code.endsWith("_READBACK_FAILED")) return `${domain}的操作結果尚未確認，請先重新整理清單，再決定是否重試。`;
+  }
+  if (code.startsWith("BACKUP_GCS_")) return "異地備份服務暫時無法使用，請確認儲存設定後重試。";
+  return chineseMessage(message);
+}

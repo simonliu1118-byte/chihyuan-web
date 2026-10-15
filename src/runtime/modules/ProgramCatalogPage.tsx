@@ -1,3 +1,4 @@
+import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useEffect, useState } from "react";
 import type { ProgramCatalog, ProgramEntry } from "../../../shared/program-catalog";
 import { getProgramAction } from "../../../shared/program-catalog";
@@ -53,7 +54,7 @@ export function ProgramCatalogView({ catalog }: { catalog: ProgramCatalog }) {
 export function ProgramCatalogPage() {
   const [catalog, setCatalog] = useState<ProgramCatalog | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, , setError] = useFeedbackMessage<string>("");
   const [refresh, setRefresh] = useState(0);
   useEffect(() => {
     const abort = new AbortController();
@@ -61,7 +62,10 @@ export function ProgramCatalogPage() {
     void apiRequest<ProgramCatalog>("/api/programs", { signal: abort.signal }).then(value => {
       if (!abort.signal.aborted) {
         setCatalog(value);
-        if (value.refreshFailure) console.warn("CYWEB_PROGRAM_REFRESH", value.refreshFailure.code, value.refreshFailure.httpStatus ?? "");
+        if (value.refreshFailure) {
+          console.warn("CYWEB_PROGRAM_REFRESH", value.refreshFailure.code, value.refreshFailure.httpStatus ?? "");
+          setError("版本資料暫時無法更新，目前顯示上次確認的正式版本。請稍後再試。");
+        }
       }
     }).catch(() => {
       if (!abort.signal.aborted) setError("無法讀取程式清單，請稍後重試。");

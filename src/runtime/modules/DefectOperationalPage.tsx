@@ -1,3 +1,4 @@
+import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { DefectModuleLookups } from "../../../shared/business-lookups";
@@ -42,7 +43,7 @@ function today(): string {
 
 function errorMessage(error: unknown): string {
   if (error instanceof ApiClientError) {
-    if (error.status === 409 || error.code.includes("REVISION_CONFLICT")) {
+    if (error.code.includes("REVISION_CONFLICT")) {
       return "資料已被其他人修改，請重新載入後再操作。";
     }
     if (error.status === 403) return "你目前沒有執行此瑕疵操作的權限。";
@@ -111,7 +112,7 @@ export function DefectOperationalPage() {
   useUnsavedChangesGuard({ active: editing, blocked: busy });
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
   const [refreshEpoch, setRefreshEpoch] = useState(0);
 
   useEffect(() => {
@@ -136,7 +137,7 @@ export function DefectOperationalPage() {
           }
         })
         .catch((error) => {
-          if (!cancelled) setMessage(errorMessage(error));
+          if (!cancelled) reportError(errorMessage(error));
         })
         .finally(() => {
           if (!cancelled) setLoadingList(false);
@@ -162,7 +163,7 @@ export function DefectOperationalPage() {
       .catch((error) => {
         if (!cancelled) {
           setSelected(null);
-          setMessage(errorMessage(error));
+          reportError(errorMessage(error));
         }
       })
       .finally(() => {
@@ -188,7 +189,7 @@ export function DefectOperationalPage() {
           if (!cancelled) setLookups(value);
         })
         .catch((error) => {
-          if (!cancelled) setMessage(errorMessage(error));
+          if (!cancelled) reportError(errorMessage(error));
         });
     }, 180);
     return () => {
@@ -288,7 +289,7 @@ export function DefectOperationalPage() {
       setMessage(creating ? "瑕疵紀錄已新增。" : "瑕疵紀錄已儲存。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
     } finally {
       setBusy(false);
@@ -317,7 +318,7 @@ export function DefectOperationalPage() {
       setMessage("瑕疵已完成處理。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
     } finally {
       setBusy(false);
@@ -364,7 +365,7 @@ export function DefectOperationalPage() {
       setMessage("尚未開始處理的瑕疵紀錄已刪除。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
     } finally {
       setBusy(false);
@@ -380,7 +381,7 @@ export function DefectOperationalPage() {
       setMessage(successMessage);
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
     } finally {
       setBusy(false);

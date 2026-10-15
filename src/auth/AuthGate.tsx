@@ -1,4 +1,6 @@
 import { FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
+import { useFeedback } from "../ui/feedback/FeedbackProvider";
+import { advanceFocusOnEnter } from "../ui/foundation/enter-advance";
 import { ApiClientError } from "../api/client";
 import {
   confirmPasswordRecovery,
@@ -45,6 +47,7 @@ function passwordLength(value: string): number {
 }
 
 export function AuthGate({ children }: AuthGateProps) {
+  const notify = useFeedback();
   const [state, setState] = useState<AuthState>({ status: "checking" });
   const [mode, setMode] = useState<LoginMode>("login");
   const [employeeNo, setEmployeeNo] = useState("");
@@ -92,13 +95,15 @@ export function AuthGate({ children }: AuthGateProps) {
         }
         if (error.code === "ACCESS_DENIED") {
           setMode("login");
-          setState({ status: "anonymous", message: "此帳號目前無法進入 CY Web。" });
+          notify("此帳號目前無法進入志遠企業管理系統。");
+          setState({ status: "anonymous", message: "此帳號目前無法進入志遠企業管理系統。" });
           return;
         }
       }
+      notify(errorMessage(error));
       setState({ status: "unavailable", message: errorMessage(error) });
     }
-  }, []);
+  }, [notify]);
 
   useEffect(() => { void checkSession(); }, [checkSession]);
 
@@ -108,6 +113,7 @@ export function AuthGate({ children }: AuthGateProps) {
     const normalizedEmployeeNo = employeeNo.trim();
     const length = passwordLength(password);
     if (!/^\d{4}$/.test(normalizedEmployeeNo) || length < 8 || length > 16) {
+      notify("請輸入 4 碼員工編號與 8～16 字元密碼。");
       setState({ status: "anonymous", message: "請輸入 4 碼員工編號與 8～16 字元密碼。" });
       return;
     }
@@ -131,6 +137,7 @@ export function AuthGate({ children }: AuthGateProps) {
       }
     } catch (error) {
       setMode("login");
+      notify(errorMessage(error));
       setState({ status: "anonymous", message: errorMessage(error) });
     } finally {
       setSubmitting(false);
@@ -141,6 +148,7 @@ export function AuthGate({ children }: AuthGateProps) {
     event.preventDefault();
     const normalizedEmployeeNo = employeeNo.trim();
     if (!/^\d{4}$/.test(normalizedEmployeeNo)) {
+      notify("請輸入 4 碼員工編號。");
       setFlowMessage("請輸入 4 碼員工編號。");
       return;
     }
@@ -151,6 +159,7 @@ export function AuthGate({ children }: AuthGateProps) {
       setChallengeId(result.recovery.challengeId);
       setFlowMessage("若帳號符合條件，驗證碼已寄至登記 Email。請輸入 6 位數驗證碼。");
     } catch (error) {
+      notify(errorMessage(error));
       setFlowMessage(errorMessage(error));
     } finally {
       setSubmitting(false);
@@ -162,10 +171,12 @@ export function AuthGate({ children }: AuthGateProps) {
     if (!challengeId || !/^\d{6}$/.test(otp)) return;
     const length = passwordLength(newPassword);
     if (length < 8 || length > 16) {
+      notify("新密碼必須為 8～16 字元。");
       setFlowMessage("新密碼必須為 8～16 字元。");
       return;
     }
     if (newPassword !== confirmPassword) {
+      notify("兩次新密碼不一致。");
       setFlowMessage("兩次新密碼不一致。");
       return;
     }
@@ -181,6 +192,7 @@ export function AuthGate({ children }: AuthGateProps) {
       setMode("login");
       setState({ status: "anonymous", message: "密碼已重設，請重新登入。" });
     } catch (error) {
+      notify(errorMessage(error));
       setFlowMessage(errorMessage(error));
     } finally {
       setSubmitting(false);
@@ -191,10 +203,12 @@ export function AuthGate({ children }: AuthGateProps) {
     event.preventDefault();
     const length = passwordLength(newPassword);
     if (length < 8 || length > 16) {
+      notify("正式密碼必須為 8～16 字元。");
       setFlowMessage("正式密碼必須為 8～16 字元。");
       return;
     }
     if (newPassword !== confirmPassword) {
+      notify("兩次新密碼不一致。");
       setFlowMessage("兩次新密碼不一致。");
       return;
     }
@@ -209,6 +223,7 @@ export function AuthGate({ children }: AuthGateProps) {
       setMode("login");
       setState({ status: "anonymous", message: "Email 驗證完成，請使用新密碼登入。" });
     } catch (error) {
+      notify(errorMessage(error));
       if (error instanceof ApiClientError && error.code === "FIRST_LOGIN_EXPIRED") {
         setNewPassword("");
         setConfirmPassword("");
@@ -232,22 +247,22 @@ export function AuthGate({ children }: AuthGateProps) {
       setState({ status: "anonymous" });
     } catch (error) {
       setState({ status: "authenticated", session: state.session });
-      throw error;
+      notify(errorMessage(error));
     } finally {
       setSigningOut(false);
     }
   }
 
   if (state.status === "authenticated") return <>{children(state.session, handleLogout, signingOut)}</>;
-  if (state.status === "checking") return <main className="cy-auth-screen" aria-busy="true"><section className="cy-auth-card cy-auth-status-card"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><h1>CY Web</h1><p>正在確認登入狀態…</p></section></main>;
-  if (state.status === "unavailable") return <main className="cy-auth-screen"><section className="cy-auth-card cy-auth-status-card"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><h1>CY Web</h1><p className="cy-auth-error" role="alert">{state.message}</p><button className="cy-auth-primary-button" type="button" onClick={() => void checkSession()}>重新連線</button></section></main>;
+  if (state.status === "checking") return <main className="cy-auth-screen" aria-busy="true"><section className="cy-auth-card cy-auth-status-card"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><h1>志遠企業管理系統</h1><p>正在確認登入狀態…</p></section></main>;
+  if (state.status === "unavailable") return <main className="cy-auth-screen"><section className="cy-auth-card cy-auth-status-card"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><h1>志遠企業管理系統</h1><p className="cy-auth-error" role="alert">{state.message}</p><button className="cy-auth-primary-button" type="button" onClick={() => void checkSession()}>重新連線</button></section></main>;
 
   return <main className="cy-auth-screen"><section className="cy-auth-card" aria-labelledby="cy-auth-title">
-    <div className="cy-auth-heading"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><div><h1 id="cy-auth-title">CY Web</h1><p>志遠企業管理系統</p></div></div>
+    <div className="cy-auth-heading"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><div><h1 id="cy-auth-title">志遠企業管理系統</h1></div></div>
 
-    {mode === "login" ? <form className="cy-auth-form" onSubmit={handleLogin} noValidate>
-      <label><span>員工編號</span><input autoComplete="username" inputMode="numeric" maxLength={4} pattern="[0-9]{4}" value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value.replace(/\D/g, "").slice(0, 4))} disabled={submitting} autoFocus required /></label>
-      <label><span>密碼</span><input type="password" autoComplete="current-password" maxLength={16} value={password} onChange={(e) => setPassword(e.target.value)} disabled={submitting} required /></label>
+    {mode === "login" ? <form className="cy-auth-form" onSubmit={handleLogin} onKeyDown={advanceFocusOnEnter} noValidate>
+      <label><span>員工編號</span><input data-enter-advance="true" autoComplete="username" inputMode="numeric" maxLength={4} pattern="[0-9]{4}" value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value.replace(/\D/g, "").slice(0, 4))} disabled={submitting} autoFocus required /></label>
+      <label><span>密碼</span><input data-enter-advance="true" type="password" autoComplete="current-password" maxLength={16} value={password} onChange={(e) => setPassword(e.target.value)} disabled={submitting} required /></label>
       {state.message ? <p className="cy-auth-error" role="alert">{state.message}</p> : null}
       <button className="cy-auth-primary-button" type="submit" disabled={submitting}>{submitting ? "登入中…" : "登入"}</button>
       <div className="cy-auth-secondary-actions"><button type="button" onClick={() => resetFlow("recover")}>忘記密碼</button></div>

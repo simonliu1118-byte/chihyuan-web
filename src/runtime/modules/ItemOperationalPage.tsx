@@ -1,3 +1,4 @@
+import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { ItemModuleLookups } from "../../../shared/business-lookups";
@@ -188,7 +189,7 @@ export function ItemOperationalPage() {
   useUnsavedChangesGuard({ active: editing, blocked: busy });
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
   const [refreshEpoch, setRefreshEpoch] = useState(0);
 
   useEffect(() => {
@@ -198,7 +199,7 @@ export function ItemOperationalPage() {
         if (!cancelled) setLookups(value);
       })
       .catch((error) => {
-        if (!cancelled) setMessage(errorMessage(error));
+        if (!cancelled) reportError(errorMessage(error));
       });
     return () => {
       cancelled = true;
@@ -229,7 +230,7 @@ export function ItemOperationalPage() {
           }
         })
         .catch((error) => {
-          if (!cancelled) setMessage(errorMessage(error));
+          if (!cancelled) reportError(errorMessage(error));
         })
         .finally(() => {
           if (!cancelled) setLoadingList(false);
@@ -264,7 +265,7 @@ export function ItemOperationalPage() {
         if (!cancelled) {
           setSelected(null);
           setNumberHistory([]);
-          setMessage(errorMessage(error));
+          reportError(errorMessage(error));
         }
       })
       .finally(() => {
@@ -329,7 +330,7 @@ export function ItemOperationalPage() {
     ));
     const conversionError = validateConversions(draft.baseUnit, conversions);
     if (conversionError) {
-      setMessage(conversionError);
+      reportError(conversionError);
       return;
     }
 
@@ -351,7 +352,7 @@ export function ItemOperationalPage() {
       setMessage(creating ? "商品已新增。" : "商品已儲存。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) {
         setRefreshEpoch((value) => value + 1);
       }
@@ -402,7 +403,7 @@ export function ItemOperationalPage() {
       setMessage("品號已更新，舊品號已保留於歷史。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
     } finally {
       setBusy(false);
@@ -425,7 +426,7 @@ export function ItemOperationalPage() {
       setMessage(`商品已${action}。`);
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
     } finally {
       setBusy(false);

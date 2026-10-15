@@ -19,6 +19,7 @@ import { BackupOperationalPage } from "./runtime/modules/BackupOperationalPage";
 import { ProgramCatalogPage } from "./runtime/modules/ProgramCatalogPage";
 import { UnsavedChangesBoundary, useNavigationGuard } from "./ui/foundation/useUnsavedChangesGuard";
 import { createGuardedHashNavigation } from "./ui/foundation/guarded-hash-navigation";
+import { FeedbackProvider, useFeedbackMessage } from "./ui/feedback/FeedbackProvider";
 
 type AppRoute = "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "settings" | "audit" | "identity" | "backups" | "programs";
 
@@ -71,7 +72,7 @@ function currentRoute(): AppRoute {
 }
 
 function accountPermissionLabel(role: WorkspaceRole): string {
-  if (role === "SUPER_ADMIN") return "超級使用者";
+  if (role === "SUPER_ADMIN") return "超級管理員";
   if (role === "ADMIN") return "管理員";
   return "一般使用者";
 }
@@ -96,7 +97,7 @@ function OperationalApp({
 }) {
   const [route, setRoute] = useState<AppRoute>(currentRoute);
   const [moduleAccess, setModuleAccess] = useState<CurrentModuleAccess | null>(null);
-  const [moduleAccessError, setModuleAccessError] = useState<string | null>(null);
+  const [moduleAccessError, , setModuleAccessError] = useFeedbackMessage<string | null>(null);
   const [routeAccess, setRouteAccess] = useState<"idle" | "checking" | "allowed" | "denied">("idle");
   const [checkedRoute, setCheckedRoute] = useState<AppRoute | null>(null);
   const { canLeave, cancel } = useNavigationGuard();
@@ -223,7 +224,7 @@ function OperationalApp({
       onNavigate={item => { if (routes.has(item.key as AppRoute)) void guardedNavigation.request(item.key as AppRoute, "link"); }}
       headerActions={
         <>
-          <div className="cy-auth-account-control">
+          <div className="cy-auth-account-control" data-role={session.user.workspaceRole}>
             <div className="cy-auth-user">
               <span><strong>{session.user.employeeNo}</strong> {session.user.displayName} <span className="cy-auth-permission-badge">[{accountPermissionLabel(session.user.workspaceRole)}]</span></span>
             </div>
@@ -248,10 +249,10 @@ function OperationalApp({
 
 export default function App() {
   return (
-    <AuthGate>
+    <FeedbackProvider><AuthGate>
       {(session, logout, signingOut) => (
         <UnsavedChangesBoundary><OperationalApp session={session} logout={logout} signingOut={signingOut} /></UnsavedChangesBoundary>
       )}
-    </AuthGate>
+    </AuthGate></FeedbackProvider>
   );
 }

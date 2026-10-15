@@ -64,7 +64,7 @@
 
 .cy-auth-secondary-actions {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   gap: 12px;
 }
 .cy-auth-secondary-actions button,
@@ -83,15 +83,20 @@
 .cy-auth-flow-title p { margin: 5px 0 0; color: #6b6257; line-height: 1.5; }
 
 .cy-auth-account-control {
+  --cy-account-border: #bdb6aa;
+  --cy-account-background: #fff;
+  --cy-account-color: #6b6257;
   display: inline-flex;
   align-items: stretch;
   overflow: hidden;
-  border: 1px solid #bdb6aa;
+  border: 1px solid var(--cy-account-border);
   border-radius: 9px;
   background: #fff;
 }
 
 .cy-auth-user {
+  background: var(--cy-account-background);
+  color: var(--cy-account-color);
   display: flex;
   align-items: center;
   min-width: 0;
@@ -102,13 +107,13 @@
 }
 .cy-auth-user strong { font-weight: 800; }
 .cy-auth-permission-badge {
-  color: #6b6257;
+  color: inherit;
   font-size: 12px;
 }
 .cy-auth-logout-button {
   min-width: 58px;
   border: 0;
-  border-left: 1px solid #d8d2c7;
+  border-left: 1px solid var(--cy-account-border);
   background: #fff;
   padding: 7px 11px;
   font: inherit;
@@ -117,3 +122,15 @@
 }
 .cy-auth-logout-button:hover:not(:disabled) { background: #f7f4ee; }
 .cy-auth-logout-button:disabled { opacity: 0.6; cursor: wait; }
+
+/* Same role palette as CYACCweb's canonical account cluster. */
+.cy-auth-account-control[data-role="SUPER_ADMIN"] {
+  --cy-account-border: #ddc789;
+  --cy-account-background: linear-gradient(180deg, #fffdf7, #fff4d6);
+  --cy-account-color: #6d5317;
+}
+.cy-auth-account-control[data-role="ADMIN"] {
+  --cy-account-border: #d7b79e;
+  --cy-account-background: linear-gradient(180deg, #fffaf6, #f7e8dc);
+  --cy-account-color: #70472f;
+}

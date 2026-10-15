@@ -220,8 +220,8 @@ Routine success must not require blocking acknowledgement.
 Default patterns:
 
 - save succeeded → Toast or equivalent non-blocking feedback;
-- field invalid → inline field error;
-- page/section request failed → recoverable error state with retry where useful;
+- field invalid → Chinese modal notice and contextual field error;
+- page/section request failed → Chinese modal notice with recoverable context/retry where useful;
 - destructive/irreversible action → confirmation dialog;
 - high-risk actions such as Restore → stronger confirmation defined by the applicable Business Decision;
 - loading → local skeleton/spinner/progress when possible rather than a full-screen overlay for every request.
