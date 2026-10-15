@@ -9,7 +9,9 @@
 - [x] 核對 source：根 TODO 仍稱 admin portal 為 development；唯一 Web deploy owner 是既有 development workflow。不能只從 Worker 名字推定哪端該換綁定，亦不能直接將測試業務 D1 接到正式 Identity。
 - [x] 實作既有 workflow 的 `audit-identity` 唯讀操作：原受保護 environment、原憑證，GET-only 讀 domain → Worker → IDENTITY／D1 metadata／health；沿用 CYapps canonical production resolver 與 `requireProductionCoreConsumer`，不複製新 readiness authority。只輸出 boolean／正常化版本／stable code／時間，不輸出正式名稱、ID、token 或設定。
 - [x] 本地八項回歸通過：中央 actual resolver／guard、authority/workspace/health mismatch、Identity DB隔離／業務 DB collision、unsafe URL／多網域、audit期間 drift、GET-only與 credential 不外送、audit operation 不進 deploy job；workflow YAML parsed。
-- [ ] PR exact-head CI 與 protected live read-only audit；取得真實結果後決定設定 drift／正式核心帳號入口 rollout，尚未宣稱已修復。
+- [x] [PR #152](https://github.com/simonliu1118-byte/chihyuan-web/pull/152) exact head `f13f4772884a10b8ee4fc9ec6ac1027066b400b7`：Governance `38693643909`、Runtime `38693643966`、部署契約 `38693643912` 通過，合併 `9b3fbb514beba5393978bc1de8b1e51b3fb393de`。未部署。
+- [x] [唯讀稽核 run 38693835413](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/38693835413)，2026-10-15 **14:41:22 Asia/Taipei**：原受保護 environment 執行，audit success、deploy-development skipped、mutationPerformed=false。canonical production provider／獨立 Identity D1 metadata／portal managed domain與 business D1 metadata 都驗證；Workspace／core App／consumer1.0.4／health符合。**Portal Worker、business D1與 IDENTITY 全部仍為已設定 development；productionPortalReady=false、CYWEB_PRODUCTION_AUTHORITY_MISMATCH。** 不是 CYACC 應改用 development provider，亦不能將audit job綠燈視為修復。
+- [ ] 確認正式入口的切換範圍：使用者已偏好單一正式雲端、本機／CI 測試、不新增測試 Worker；現有 portal 同時承載尚在驗收的 Web 業務資料。先決定是否只正式啟用核心帳號入口（業務保持未上線）再準備 account-only presentation/server boundary與原 deployment owner 的永久設定。不能僅改 binding而混用正式身分和測試業務；尚未改任何 live binding／環境值，未取得正式回交通過證據。
 - [ ] 若需 production identity/core portal 切換，先核對既有 authority／中央部署契約及 business D1 隔離範圍，形成具體變更後按授權執行；不得重播 provider provisioning、擴大 IAM、搬動帳務或製造第二套帳號。
 - [ ] 同中央 authority/workspace、core App／consumer／D1 health通過後，回交 CYACCweb 在 protected runner 重跑 `--require-account-portal`。真 Email、一次性密碼→正式密碼→重新登入→CYACC一般登入尚未驗收，未新增帳號／寄信。
 
