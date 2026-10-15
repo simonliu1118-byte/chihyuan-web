@@ -1,3 +1,4 @@
+import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { useEffect, useState, type FormEvent } from "react";
 import type { SettingsSnapshot, LookupSetting, WorkLogScoringRowSetting } from "../../../shared/settings";
@@ -35,7 +36,7 @@ export function SettingsOperationalPage({ role }: { role: "ADMIN" | "SUPER_ADMIN
   const [snapshot, setSnapshot] = useState<SettingsSnapshot | null>(null);
   const [section, setSection] = useState<Section>("department");
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [error, setError] = useState("");
+  const [error, , setError] = useFeedbackMessage<string>("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [target, setTarget] = useState("");

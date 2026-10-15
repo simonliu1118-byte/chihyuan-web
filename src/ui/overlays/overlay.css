@@ -48,6 +48,12 @@
   border-bottom: 1px solid var(--cy-border);
 }
 
+.cy-dialog-header:has(+ .cy-dialog-footer) {
+  border-bottom: 0;
+}
+
+.cy-feedback-message { margin: 0; line-height: 1.6; overflow-wrap: anywhere; }
+
 .cy-dialog-footer {
   align-items: center;
   border-top: 1px solid var(--cy-border);

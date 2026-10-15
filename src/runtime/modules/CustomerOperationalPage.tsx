@@ -1,3 +1,4 @@
+import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { FormEvent, useEffect, useId, useMemo, useState } from "react";
 import { Dialog } from "../../ui/overlays/Dialog";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
@@ -211,7 +212,7 @@ function profileFromDraft(
 
 function errorMessage(error: unknown): string {
   if (error instanceof ApiClientError) {
-    if (error.code.includes("REVISION_CONFLICT") || error.status === 409) {
+    if (error.code.includes("REVISION_CONFLICT")) {
       return "資料已被其他人修改，請重新載入後再操作。";
     }
     if (error.code === "ACCESS_DENIED") return "你目前沒有客戶模組使用權。";
@@ -263,7 +264,7 @@ export function CustomerOperationalPage() {
   const [busy, setBusy] = useState(false);
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
   const [refreshEpoch, setRefreshEpoch] = useState(0);
   const [relatedEpoch, setRelatedEpoch] = useState(0);
   const { confirm, confirmationDialog } = useConfirmation();
@@ -291,7 +292,7 @@ export function CustomerOperationalPage() {
         setItemOptions(items);
       })
       .catch((error) => {
-        if (!cancelled) setMessage(errorMessage(error));
+        if (!cancelled) reportError(errorMessage(error));
       });
     return () => {
       cancelled = true;
@@ -322,7 +323,7 @@ export function CustomerOperationalPage() {
           }
         })
         .catch((error) => {
-          if (!cancelled) setMessage(errorMessage(error));
+          if (!cancelled) reportError(errorMessage(error));
         })
         .finally(() => {
           if (!cancelled) setLoadingList(false);
@@ -364,7 +365,7 @@ export function CustomerOperationalPage() {
           setVisits([]);
           setQuotes([]);
           setFrequentItems([]);
-          setMessage(errorMessage(error));
+          reportError(errorMessage(error));
         }
       })
       .finally(() => {
@@ -456,7 +457,7 @@ export function CustomerOperationalPage() {
       setMessage(creating ? "客戶已新增。" : "客戶已儲存。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
     } finally {
       setBusy(false);
@@ -489,7 +490,7 @@ export function CustomerOperationalPage() {
       setMessage("ERP 客戶編號已更新。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
     } finally {
       setBusy(false);
@@ -549,7 +550,7 @@ export function CustomerOperationalPage() {
       setRelatedEpoch((value) => value + 1);
       setMessage("拜訪紀錄已儲存。");
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRelatedEpoch((value) => value + 1);
     } finally {
       setBusy(false);
@@ -576,7 +577,7 @@ export function CustomerOperationalPage() {
       setRelatedEpoch((value) => value + 1);
       setMessage("拜訪紀錄已刪除。");
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRelatedEpoch((value) => value + 1);
     } finally {
       setBusy(false);
@@ -605,7 +606,7 @@ export function CustomerOperationalPage() {
         correctionReason: "",
       });
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -645,7 +646,7 @@ export function CustomerOperationalPage() {
       setRelatedEpoch((value) => value + 1);
       setMessage("報價紀錄已儲存。");
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRelatedEpoch((value) => value + 1);
     } finally {
       setBusy(false);
@@ -657,7 +658,7 @@ export function CustomerOperationalPage() {
     if (!selected || busy) return;
     const custom = frequentText.trim();
     if ((frequentItemId == null) === !custom) {
-      setMessage("請選擇正式商品，或輸入未建檔品項；兩者擇一。");
+      reportError("請選擇正式商品，或輸入未建檔品項；兩者擇一。");
       return;
     }
 
@@ -675,7 +676,7 @@ export function CustomerOperationalPage() {
       setRelatedEpoch((value) => value + 1);
       setMessage("常用商品已加入。");
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -691,7 +692,7 @@ export function CustomerOperationalPage() {
       setRelatedEpoch((value) => value + 1);
       setMessage("常用商品已移除。");
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRelatedEpoch((value) => value + 1);
     } finally {
       setBusy(false);

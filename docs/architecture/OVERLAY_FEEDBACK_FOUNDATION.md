@@ -13,13 +13,17 @@ This foundation separates routine feedback from interactions that genuinely requ
 Default behavior:
 
 - routine save/create/update success → non-blocking Toast;
-- field validation failure → inline field error;
-- section/page request failure → local recoverable error state;
+- field validation failure → Chinese modal notice plus contextual field detail;
+- section/page request failure → Chinese modal notice plus local retry/context;
 - destructive or irreversible decision → `ConfirmDialog`;
 - contextual secondary editing/details → Dialog, Drawer or Bottom Sheet as appropriate;
 - high-risk administrative actions → the stronger flow required by the applicable Business Decision.
 
 A successful ordinary save should not force the user to dismiss a modal.
+
+The user selected explicit error notices on 2026-10-15 because inline status text was easily missed. `FeedbackProvider` is the single application-wide alert owner, composing the existing `Dialog`; screens report failures through `useFeedback`/`useFeedbackMessage`. It does not intercept requests, change mutation results or observe DOM changes. Concurrent equal notices are coalesced, while a later deliberate failed attempt can show again. Native invalid events receive Chinese feedback instead of browser-locale text. The API client translates provider codes and field errors at the browser boundary; codes/status/request identifiers remain available for program logic. Unknown English diagnostics are never used as user-facing fallback text.
+
+Account creation uses the existing shared Dialog/dirty guard, keeps entered values on failure and closes only after confirmed creation. An asynchronous error above a busy form returns focus to the containing form when its disabled submit control lost focus. Description-only confirmations omit the empty body and use one divider before actions.
 
 ## `Dialog`
 

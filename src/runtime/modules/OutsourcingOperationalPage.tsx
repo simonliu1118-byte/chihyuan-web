@@ -1,3 +1,4 @@
+import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { OutsourcingModuleLookups, OutsourcingItemOption } from "../../../shared/business-lookups";
@@ -84,7 +85,7 @@ function itemLine(item: OutsourcingItemOption | undefined): PartDraft {
 
 function errorMessage(error: unknown): string {
   if (error instanceof ApiClientError) {
-    if (error.status === 409 || error.code.includes("REVISION_CONFLICT")) return "資料已被其他人修改，請重新載入後再操作。";
+    if (error.code.includes("REVISION_CONFLICT")) return "資料已被其他人修改，請重新載入後再操作。";
     if (error.status === 403) return "你目前沒有執行此代工操作的權限。";
     if (error.code === "AUTH_REQUIRED" || error.code === "AUTH_INVALID") return "登入狀態已失效，請重新登入。";
     if (error.code === "IDENTITY_UNAVAILABLE") return "身分服務暫時無法使用，請稍後再試。";
@@ -143,7 +144,7 @@ export function OutsourcingOperationalPage() {
 
   const [busy, setBusy] = useState(false);
   useUnsavedChangesGuard({ active: editing, blocked: busy });
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
   const [refreshEpoch, setRefreshEpoch] = useState(0);
 
   const selectedItemIds = useMemo(() => {
@@ -168,7 +169,7 @@ export function OutsourcingOperationalPage() {
         limit: 100,
       })
         .then((value) => { if (!cancelled) setLookups(value); })
-        .catch((error) => { if (!cancelled) setMessage(errorMessage(error)); });
+        .catch((error) => { if (!cancelled) reportError(errorMessage(error)); });
     }, 160);
     return () => { cancelled = true; window.clearTimeout(timer); };
   }, [selectedItemKey, itemQuery]);
@@ -195,7 +196,7 @@ export function OutsourcingOperationalPage() {
           }
         }
       })
-      .catch((error) => { if (!cancelled) setMessage(errorMessage(error)); });
+      .catch((error) => { if (!cancelled) reportError(errorMessage(error)); });
     return () => { cancelled = true; };
   }, [refreshEpoch]);
 
@@ -218,7 +219,7 @@ export function OutsourcingOperationalPage() {
             ));
           }
         })
-        .catch((error) => { if (!cancelled) setMessage(errorMessage(error)); });
+        .catch((error) => { if (!cancelled) reportError(errorMessage(error)); });
     }, 160);
     return () => { cancelled = true; window.clearTimeout(timer); };
   }, [orderQuery, orderStatus, refreshEpoch, editing]);
@@ -231,7 +232,7 @@ export function OutsourcingOperationalPage() {
     let cancelled = false;
     void loadOutsourcingDetail(selectedOrderId)
       .then((detail) => { if (!cancelled) setSelectedOrder(detail); })
-      .catch((error) => { if (!cancelled) setMessage(errorMessage(error)); });
+      .catch((error) => { if (!cancelled) reportError(errorMessage(error)); });
     return () => { cancelled = true; };
   }, [selectedOrderId, creating, refreshEpoch]);
 
@@ -243,7 +244,7 @@ export function OutsourcingOperationalPage() {
     let cancelled = false;
     void loadContractorDetail(selectedContractorId)
       .then((detail) => { if (!cancelled) setSelectedContractor(detail); })
-      .catch((error) => { if (!cancelled) setMessage(errorMessage(error)); });
+      .catch((error) => { if (!cancelled) reportError(errorMessage(error)); });
     return () => { cancelled = true; };
   }, [selectedContractorId, refreshEpoch]);
 
@@ -255,7 +256,7 @@ export function OutsourcingOperationalPage() {
     let cancelled = false;
     void loadBomDetail(selectedBomId)
       .then((detail) => { if (!cancelled) setSelectedBom(detail); })
-      .catch((error) => { if (!cancelled) setMessage(errorMessage(error)); });
+      .catch((error) => { if (!cancelled) reportError(errorMessage(error)); });
     return () => { cancelled = true; };
   }, [selectedBomId, refreshEpoch]);
 
@@ -267,7 +268,7 @@ export function OutsourcingOperationalPage() {
     let cancelled = false;
     void loadContractorStock(stockContractorId)
       .then((rows) => { if (!cancelled) setStockRows(rows); })
-      .catch((error) => { if (!cancelled) setMessage(errorMessage(error)); });
+      .catch((error) => { if (!cancelled) reportError(errorMessage(error)); });
     return () => { cancelled = true; };
   }, [stockContractorId, tab, refreshEpoch]);
 
@@ -386,7 +387,7 @@ export function OutsourcingOperationalPage() {
       setMessage(success);
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
     } finally {
       setBusy(false);
@@ -403,7 +404,7 @@ export function OutsourcingOperationalPage() {
       setMessage(success);
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
     } finally {
       setBusy(false);
@@ -491,7 +492,7 @@ export function OutsourcingOperationalPage() {
       setMessage("待出庫代工單已刪除。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
     } finally {
       setBusy(false);
     }

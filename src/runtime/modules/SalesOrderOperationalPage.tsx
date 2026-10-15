@@ -1,3 +1,4 @@
+import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { SalesWorkOrderModuleLookups, SalesWorkOrderItemOption } from "../../../shared/business-lookups";
@@ -111,7 +112,7 @@ function draftFromDetail(detail: SalesWorkOrderDetail): SalesOrderDraft {
 
 function errorMessage(error: unknown): string {
   if (error instanceof ApiClientError) {
-    if (error.status === 409 || error.code.includes("REVISION_CONFLICT")) {
+    if (error.code.includes("REVISION_CONFLICT")) {
       return "工單已被其他人修改，請重新載入後再操作。";
     }
     if (error.status === 403) return "你目前沒有執行此工單操作的權限。";
@@ -139,7 +140,7 @@ export function SalesOrderOperationalPage() {
   useUnsavedChangesGuard({ active: editing, blocked: busy });
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
   const [refreshEpoch, setRefreshEpoch] = useState(0);
 
   useEffect(() => {
@@ -163,7 +164,7 @@ export function SalesOrderOperationalPage() {
           }
         })
         .catch((error) => {
-          if (!cancelled) setMessage(errorMessage(error));
+          if (!cancelled) reportError(errorMessage(error));
         })
         .finally(() => {
           if (!cancelled) setLoadingList(false);
@@ -189,7 +190,7 @@ export function SalesOrderOperationalPage() {
       .catch((error) => {
         if (!cancelled) {
           setSelected(null);
-          setMessage(errorMessage(error));
+          reportError(errorMessage(error));
         }
       })
       .finally(() => {
@@ -226,7 +227,7 @@ export function SalesOrderOperationalPage() {
           }
         })
         .catch((error) => {
-          if (!cancelled) setMessage(errorMessage(error));
+          if (!cancelled) reportError(errorMessage(error));
         });
     }, 180);
     return () => {
@@ -345,7 +346,7 @@ export function SalesOrderOperationalPage() {
       setMessage(wasCreating ? "銷售工單已建立。" : "銷售工單草稿已儲存。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
     } finally {
       setBusy(false);
@@ -402,7 +403,7 @@ export function SalesOrderOperationalPage() {
       setMessage("草稿工單已刪除。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
     } finally {
       setBusy(false);
@@ -419,7 +420,7 @@ export function SalesOrderOperationalPage() {
       setMessage(successMessage);
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
     } finally {
       setBusy(false);
