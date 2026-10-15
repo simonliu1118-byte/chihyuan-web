@@ -2,6 +2,23 @@
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
 
+## 最新跨 Repo 工作交接：CYInvoice V3 災難復原（2026-10-14）
+
+本輪接手／交回文件：[CYWEB → CYInvoice 裝置災難復原交接](docs/development/CYINVOICE_RECOVERY_HANDOFF.md)。唯一待辦仍為本檔；授權與部署語意依既有 Identity／Cloudflare canonical 文件。CYInvoice D1／Windows／Device／在途業務寫入 owner 仍在 CYapps 的現行 TODO／CLOUD_WORK_HANDOFF。
+
+- Source **0.7.25 Build 0**，既有 [Draft #151](https://github.com/simonliu1118-byte/chihyuan-web/pull/151) 接續審查；未合併／未部署，不改原已接受基準。latest CI 以 #151 exact-head checks 為準。
+- [x] Cross-repo source 授權核對：CYWEB Core Session 與 CYInvoice App scoped reauth 分離、不傳 bearer；Origin／first-login／verified SUPER_ADMIN／body／scope gates 保留。
+- [x] CYWEB 修正同頁籤 operation ID 保存／mutation 前 readback、儲存失敗停止簽發、結果不明不另簽、不持久保存密碼／碼／Session；共享 ConfirmDialog／TextInput／navigation busy guard，單一 action lock及 principal-keyed lifecycle。
+- [x] 移除 failed→revoked 誤報；僅 Invoice explicit revoked 解鎖新 ID。回應白名單與異常 fail-closed 補測；**2026-10-15 Invoice Draft #440 已完成 explicit revoked Source／回歸，原『provider 尚不回』阻塞已解除，但兩 repo 實機／部署仍未完成**。
+- [x] 原 development workflow 可選 recovery env 接到 renderer，沒有設定仍無 binding；未設定真值／新增 Worker／變更 deploy ref。
+- [x] 本輪 local source、Browser／Worker TypeScript、renderer、checkpoint／React render／actual client 五項及 Worker route 回歸通過。真人／真服務未觀察的項目不代替。
+- [x] **CYInvoice owner Source 已交回**：Draft #440 的 recovery-issuer.ts 已提供 explicit revoked contract、consumed／expired 不誤報、同 ID lost-response 查回、claim-revoke race rollback；相應 Node/SQLite 回歸與該 head Cloud／Windows／Governance CI 通過。仍為 Draft，未部署。
+- [ ] **CYWEB + CYInvoice 雙 Repo 同版本契約整合驗收**：確認正式 private Binding、Session/Email、真設備切換與 DR-01～DR-13；未驗收前禁止把 source success 當成災難復原可用。
+- [ ] CYWEB Desktop／Mobile／role／shared confirmation／refresh／丟失結果／ID 查回／寄送失敗真人 UX；目前只合成 render/client，不能當實機。
+- [ ] 原 Cloud bindings／active versions／D1 profile／Email sender 的受控唯讀配置稽核；本環境未提供 Cloudflare 配置工具，尚未取得實際證據。
+- [ ] 具體核准後由各 owner 執行原服務 binding／Invoice 0014／optional issuer／真 Email／Windows DR-01～DR-13；**目前不部署，不改真 D1，不新增測試 Worker，不重跑已完成的 CYID_ONLY 帳戶退役。**
+- [ ] 舊 Device 的 in-flight Work Item／業務寫入 fencing/epoch 仍由 V3 協同交易 owner 完成；現有配對／邀請 SQL guard 不取消已啟動跨服務副作用。
+
 ## 目前基準 — 2026-10-12（Asia/Taipei）
 
 - 本輪 source **0.7.24 Build 0**：「CY 程式」新增「價格觀測室（原型）」之外連，原型程式位於 CYapps `apps/CYPriceDesk/`，網站維持既有 Sites owner-private 與 ChatGPT 登入。網站入口改由共用 action selector 判定，不依賴正式 Release；原有桌面未發版下載閘門維持。既有七項程式圖示保留，無正式圖示的原型採通用網頁圖示；Desktop／Mobile 沿用同一 renderer。CI／部署結果以本輪 PR／Actions 為準，未觀察的真人操作仍待驗收。
@@ -20,7 +37,7 @@
 1. [x] 本輪獨立自動驗收準備完成：六模組 protected HTTP／service／D1 的規劃案例、實際欄位解析、重要計算、正反狀態、舊版本衝突、權限與精確 Audit 已通過 local 與 required GitHub checks。這不代表所有可能組合、真實服務／多角色／裝置已完成。
 2. [ ] **目前階段：使用者統一人工驗收、UI／UX 調整及小幅功能新增。** 本輪指定 CY 程式頁，採既有共用元件與單一 runtime；新增／調整後執行適用回歸驗收。
 3. [ ] 完成下方人工／Email／ERP／雲端項目後，核對第一版 readiness、測試資料清理及乾淨 production schema；使用者確認後才上線。這項順序確認不代表立即 production 部署批准。
-4. [ ] CYInvoice 接入工作已開始：本 repo 只完成 generic 中央登記 UI／代理與鏡像，實際既有 Workspace 登記及 App Access 由授權管理員操作；Invoice binding／Windows／cutover 由 CYapps 工作線完成，不在此修改其業務資料。
+4. [ ] CYInvoice 接入跨 Repo：原 CYID Workspace 登記／App Access 已另有完成基準；**本輪新增 V3 災難復原管理 UI／三項私有 RPC proxy／Service Binding 可選 renderer**（Draft #151，Source CI 通過）；實際 Binding 注入、Windows／Invoice D1 migration／Device cutover、真 Email／DR 驗收全部未做。詳細見本檔最上方交接，不在 CYWEB 複製 CYInvoice 業務資料權威。
 
 ## 中央系統登記（0.7.23）
 

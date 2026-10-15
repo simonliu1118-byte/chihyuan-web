@@ -4,6 +4,8 @@
 
 本 repository 為 **Public、source-visible proprietary**；原始碼可閱讀，但未授予開源使用、修改、散布或再授權權利，正式授權以根 `LICENSE` 為準。
 
+CYInvoice V3 災難復原的 CYWEB 管理介面與 private named RPC 對接目前只在 Draft PR，未部署；最新功能狀態、限制與跨 Repo 交接見 [TODO.md](TODO.md)，部署安全邊界見 [Cloudflare Public Deployment Principles](docs/architecture/CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md)。
+
 ## 產品方向
 
 - 單一 Web application，服務 Desktop／Tablet／Mobile。

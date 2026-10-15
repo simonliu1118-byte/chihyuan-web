@@ -280,3 +280,14 @@ Provider references (checked 2026-10-01):
 - [Google Cloud: Cloud Storage IAM roles](https://docs.cloud.google.com/storage/docs/access-control/iam-roles)
 - [Google Cloud: create service-account JSON keys](https://docs.cloud.google.com/iam/docs/keys-create-delete)
 - [GitHub: deployment environments, secrets and variables](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments)
+
+## CYInvoice Private Recovery Binding — opt-in 設定契約（Draft，2026-10-14）
+
+V3 CYInvoice 公司級裝置災難復原的 CYWEB 超管管理 UI 只呼叫 Worker 中的受保護 POST 路由。Worker 對外不公布 CYInvoice 管理 API，而是透過**私有 named Service Binding**，讓 CYInvoice 自己重新使用 `CYINVOICE` Application 的 CYID 身分驗證和 CYInvoice 原 D1 的授權 gate。
+
+- Public source 的 `scripts/render-deploy-config.mjs` 只認得**環境變數名稱** `CF_CYINVOICE_RECOVERY_SERVICE`，絕不將部署方的真 Worker 名稱／host／ID 寫入 Git。沒有配置時不增加 `CYINVOICE_RECOVERY` 綁定，管理 API 回 503 fail-closed。
+- 受控 deployment environment 明確指定合法的 `CF_CYINVOICE_RECOVERY_SERVICE` 後，renderer 在 `services` 加入 `{"binding":"CYINVOICE_RECOVERY","service":"<由受控部署環境注入>","entrypoint":"CyInvoiceRecoveryEntrypoint"}`；拒絕不合法、指回 CYWEB Worker 自己或誤指向 CYID Worker 的值。**此項僅建立 deployment 設定契約，不等於批准部署**。
+- CYInvoice 原 Worker 必須先具備對應 named `WorkerEntrypoint`，與既有 CYID／D1 bindings 相容；部署前須唯讀核對原始 active version、唯一實際 D1、CYID_ONLY profile、pending 0014 schema、optional issuer maintenance、Email provider 的受控 secret，以及 rollback/readback gate。**不得**為驗證而另建、上傳或部署 Cloudflare 測試 Worker／handler。
+- 本公司 CYInvoice 舊 Built-in 員工表的 **CYID_ONLY 退役已完成，不得重跑**；獨立 Built-in 公司用自己的 D1，不能被此私有復原設定隱性啟用。
+- 目前兩個跨 Repo PR 均 Draft；沒有真 Binding、CYInvoice 原 D1 migration／issuer maintenance、真 Email 或 DR-01～DR-13 多裝置實測。實際核准作業以 CYInvoice 的 [最新交接](https://github.com/simonliu1118-byte/CYapps/blob/cyinvoice/v3-recovery-invitation-schema/apps/CYInvoice/docs/CLOUD_WORK_HANDOFF.md) 和本 Repo `TODO.md` 為準。
+

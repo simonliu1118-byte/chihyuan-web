@@ -42,6 +42,8 @@ Archive、舊 preview、review backlog、readiness checkpoint、舊 handoff 或�
 
 最新 implementation status、尚未完成的 gate 與工作順序：讀根 `TODO.md`。
 
+- **CYInvoice V3 私有災難復原接線（尚未部署）**：CYWEB Core Session 與 CYInvoice Application 分離的安全邊界見 [IDENTITY_ADAPTER.md](IDENTITY_ADAPTER.md)；Service Binding opt-in 與 Public-safe 注入見 [CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md](CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md)；進度及現行 CI 見根 [TODO.md](../../TODO.md)。兩份跨 Repo Draft PR 不能當成正式實機 DR 驗收。
+
 ## Architecture map
 
 ### Decisions

@@ -336,3 +336,30 @@
     border-radius: 14px 14px 0 0;
   }
 }
+
+/* CYInvoice company-wide recovery is an explicit SUPER_ADMIN maintenance flow.
+   Reuse existing operational tokens and stack on mobile without a new shell. */
+.cy-invoice-recovery-panel .cy-op-form {
+  max-width: 660px;
+}
+
+.cy-invoice-recovery-panel .cy-invoice-recovery-ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  line-height: 1.5;
+}
+
+.cy-invoice-recovery-ack input[type="checkbox"] {
+  margin-top: 4px;
+  flex: 0 0 auto;
+}
+
+.cy-invoice-recovery-panel .cy-op-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.cy-invoice-recovery-panel .cy-identity-message {
+  overflow-wrap: anywhere;
+}
