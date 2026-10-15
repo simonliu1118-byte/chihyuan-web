@@ -102,3 +102,15 @@ test("application registration without a normal Session never reaches the provid
   }), { IDENTITY_APPLICATION_ID: "CORE_TEST", IDENTITY: { fetch() { throw new Error("unauthenticated proxy"); } } }, "test");
   assert.equal(response.status, 401);
 });
+
+
+test("account deletion forwards only the core cookie Session and preserves provider denial", async () => {
+  for (const [status,payload] of [[200,{deleted:true,employeeId:"employee-test",employeeNo:"0002"}], [403,{ok:false,error:{code:"EMPLOYEE_MANAGEMENT_NOT_ALLOWED",message:"Denied"}}], [409,{ok:false,error:{code:"EMPLOYEE_DELETE_NOT_ALLOWED",message:"Changed"}}]]) {
+    let calls=0;
+    const env={IDENTITY_APPLICATION_ID:"APP_TEST",IDENTITY:{async fetch(req){calls++;assert.equal(req.method,"DELETE");assert.equal(new URL(req.url).pathname,"/v1/admin/identity/employees/employee-test");assert.equal(req.headers.get("authorization"),`Bearer ${token}`);assert.equal(req.headers.get("x-identity-application"),"APP_TEST");assert.equal(await req.text(),"");return Response.json(payload,{status});}}};
+    const response=await handleIdentityManagementRoute(new Request("https://web.test/api/identity/admin/employees/employee-test",{method:"DELETE",headers:{cookie:`cyweb_identity_session=${token}`}}),env,"test");
+    assert.equal(response.status,status);const body=await response.json();assert.equal(body.ok,status===200);if(status===200)assert.equal(body.data.deleted,true);else assert.equal(body.error.code,payload.error.code);assert.equal(calls,1);
+  }
+  let calls=0;const env={IDENTITY_APPLICATION_ID:"APP_TEST",IDENTITY:{fetch(){calls++;throw Error("not called");}}};
+  assert.equal((await handleIdentityManagementRoute(new Request("https://web.test/api/identity/admin/employees/employee-test",{method:"DELETE"}),env,"test")).status,401);assert.equal(calls,0);
+});

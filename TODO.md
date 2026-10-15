@@ -2,6 +2,14 @@
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
 
+## 測試期帳號刪除與寄信入口 — 2026-10-15
+
+- 使用者批准測試期可刪除已驗證帳號，暫停新增／刪除Identity Audit；中央能力與恢復條件以CYID canonical consumer standard §17.2為準，不在Web另建帳號authority。
+- Source0.7.27／consumer1.0.5：沿用帳號列表與DELETE代理，僅在provider明確回傳testingAccountDeletionAllowed=true且目前為Super Admin時，顯示已驗證帳號刪除；缺少能力仍維持pending-only。使用共用ConfirmDialog「確定刪除帳號／保留帳號」，刪除結果確認後才刷新清單；新增提示明確寫從CYWEB用信中一次性密碼完成驗證；移除登入／首次驗證頁共用底部灰色技術說明。
+- [ ] Provider／Web CI、正式部署與health/strict gate證據待補；未刪任何真人帳號／重寄Email。
+- [ ] 實際Email HTML/text入口與新增→驗證→新密碼登入→刪除→同編號/Email重建待受控真人驗收。
+- [ ] **業務第一版前**依CYID TODO恢復已驗證不可刪及新增/刪除Audit，更新Web契約mirror並驗收刪除入口隨provider能力關閉；保留既有business history，不將舊projection或Module Access轉給重建帳號。
+
 ## CYACCweb 首次登入入口交接 — 2026-10-15
 
 來源：使用者提供的 CYACCweb first-login handoff／Draft CYapps #435（81cc5fcc），既有 production #38675354003 曾回 `CYWEB_PRODUCTION_AUTHORITY_MISMATCH`。本輪專用 branch 與 CYInvoice Draft #151 分開；不修改帳務 D1、CYInvoice source 或已部署 provider authority。
