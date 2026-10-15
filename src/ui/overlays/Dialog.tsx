@@ -37,6 +37,19 @@ export function Dialog({
   useLayoutEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
+    const restoreFocus = () => {
+      const target = returnFocusRef.current;
+      if (target?.isConnected && target !== document.body && !target.matches(":disabled")) {
+        target.focus();
+        return;
+      }
+      // A busy submit control can lose focus before an asynchronous error opens.
+      // Return to the containing form rather than the inert page behind its modal.
+      const parent = Array.from(document.querySelectorAll<HTMLDialogElement>("dialog[open]")).at(-1);
+      const fallback = parent?.querySelector<HTMLElement>("input:not(:disabled), select:not(:disabled), textarea:not(:disabled)")
+        ?? parent?.querySelector<HTMLElement>("button:not(:disabled)");
+      fallback?.focus();
+    };
 
     if (open && !dialog.open) {
       returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -45,12 +58,12 @@ export function Dialog({
 
     if (!open && dialog.open) {
       dialog.close();
-      if (returnFocusRef.current?.isConnected) returnFocusRef.current.focus();
+      restoreFocus();
     }
     return () => {
       if (!dialog.open) return;
       dialog.close();
-      if (returnFocusRef.current?.isConnected) returnFocusRef.current.focus();
+      restoreFocus();
     };
   }, [open]);
 
@@ -99,7 +112,7 @@ export function Dialog({
           ) : null}
         </header>
 
-        <div className="cy-dialog-body">{children}</div>
+        {children != null && children !== false ? <div className="cy-dialog-body">{children}</div> : null}
         {footer ? <footer className="cy-dialog-footer">{footer}</footer> : null}
       </div>
     </dialog>

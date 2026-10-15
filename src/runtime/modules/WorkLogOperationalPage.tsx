@@ -1,3 +1,4 @@
+import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { FormEvent, useEffect, useId, useMemo, useState } from "react";
 import { Dialog } from "../../ui/overlays/Dialog";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
@@ -108,7 +109,7 @@ function draftFromDetail(detail: WorkLogDetail): WorkLogDraft {
 
 function errorMessage(error: unknown): string {
   if (error instanceof ApiClientError) {
-    if (error.status === 409 || error.code.includes("REVISION_CONFLICT")) {
+    if (error.code.includes("REVISION_CONFLICT")) {
       return "工作日誌已被其他人修改，請重新載入後再操作。";
     }
     if (error.status === 403) return "你目前沒有執行此工作日誌操作的權限。";
@@ -133,7 +134,7 @@ export function WorkLogOperationalPage() {
   const [draft, setDraft] = useState<WorkLogDraft | null>(null);
   const [busy, setBusy] = useState(false);
   const [loadingList, setLoadingList] = useState(true);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
   const [refreshEpoch, setRefreshEpoch] = useState(0);
   const { confirm, confirmationDialog } = useConfirmation();
   const guard = useUnsavedChangesGuard({ active: editing, blocked: busy });
@@ -173,7 +174,7 @@ export function WorkLogOperationalPage() {
         setStatistics(stats);
       })
       .catch((error) => {
-        if (!cancelled) setMessage(errorMessage(error));
+        if (!cancelled) reportError(errorMessage(error));
       });
     return () => { cancelled = true; };
   }, [refreshEpoch]);
@@ -199,7 +200,7 @@ export function WorkLogOperationalPage() {
           }
         })
         .catch((error) => {
-          if (!cancelled) setMessage(errorMessage(error));
+          if (!cancelled) reportError(errorMessage(error));
         })
         .finally(() => {
           if (!cancelled) setLoadingList(false);
@@ -224,7 +225,7 @@ export function WorkLogOperationalPage() {
       .catch((error) => {
         if (!cancelled) {
           setSelected(null);
-          setMessage(errorMessage(error));
+          reportError(errorMessage(error));
         }
       });
     return () => { cancelled = true; };
@@ -306,7 +307,7 @@ export function WorkLogOperationalPage() {
     const used = new Set(entry.categories.flatMap((row) => row.workLogCategoryId == null ? [] : [row.workLogCategoryId]));
     const category = configuration?.categories.find((row) => row.isActive && !used.has(row.id));
     if (!category) {
-      setMessage("沒有其他可加入的工作分類。");
+      reportError("沒有其他可加入的工作分類。");
       return;
     }
     patchEntry(entryIndex, {
@@ -369,7 +370,7 @@ export function WorkLogOperationalPage() {
       setMessage(wasCreating ? "工作日誌已建立。" : "工作日誌草稿已儲存。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
     } finally {
       setBusy(false);
@@ -387,7 +388,7 @@ export function WorkLogOperationalPage() {
       setRefreshEpoch((value) => value + 1);
       return true;
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
       return false;
     } finally {
@@ -461,7 +462,7 @@ export function WorkLogOperationalPage() {
       setMessage("工作日誌草稿已刪除。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
-      setMessage(errorMessage(error));
+      reportError(errorMessage(error));
     } finally {
       setBusy(false);
     }

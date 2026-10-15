@@ -1,3 +1,4 @@
+import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { useEffect, useRef, useState } from "react";
 import type { BackupHistory, BackupHistoryEntry } from "../../../shared/backups";
@@ -49,7 +50,7 @@ export function BackupOperationalPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   useUnsavedChangesGuard({ active: false, blocked: busy });
-  const [error, setError] = useState("");
+  const [error, , setError] = useFeedbackMessage<string>("");
   const [notice, setNotice] = useState("");
   const mounted = useRef(false), lock = useRef(false), operation = useRef<AbortController | null>(null);
   useEffect(() => {
@@ -70,7 +71,13 @@ export function BackupOperationalPage() {
         : kind === "retry" ? await retryBackup(id!, controller.signal) : await loadBackups(controller.signal);
       if (!mounted.current) return;
       setHistory(result);
-      if (kind !== "refresh") setNotice(completion(result.sets.find(row => row.backupId === ("backupId" in result ? result.backupId : id))));
+      if (kind !== "refresh") {
+        const row = result.sets.find(row => row.backupId === ("backupId" in result ? result.backupId : id));
+        const message = completion(row);
+        if (row?.copies.some(copy => copy.provider === "r2" && copy.status === "verified")
+          && row.copies.some(copy => copy.provider === "gcs" && copy.status === "verified")) setNotice(message);
+        else setError(message);
+      }
     } catch (e) {
       if (mounted.current) setError(e instanceof ApiClientError ? e.message
         : kind === "refresh" ? "備份紀錄無法讀取，請稍後重新整理。" : "操作結果未能確認，請先更新紀錄後再決定是否重試。");

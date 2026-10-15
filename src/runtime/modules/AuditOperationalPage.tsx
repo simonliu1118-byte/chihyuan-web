@@ -1,3 +1,4 @@
+import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useEffect, useState, type FormEvent } from "react";
 import { loadAudit, type AuditEvent } from "../api/settings-audit-client";
 
@@ -6,7 +7,7 @@ export function AuditOperationalPage() {
   const [query, setQuery] = useState<Record<string, string>>({ entityType: "", entityKey: "", action: "", actorEmployeeId: "", occurredFrom: "", occurredTo: "", limit: "50" });
   const [selected, setSelected] = useState<AuditEvent | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, , setError] = useFeedbackMessage<string>("");
   useEffect(() => {
     let active = true;
     loadAudit({ limit: "50" }).then(data => { if (active) setEvents(data.events); }).catch(e => { if (active) setError(e instanceof Error ? e.message : "稽核資料無法讀取"); }).finally(() => { if (active) setLoading(false); });

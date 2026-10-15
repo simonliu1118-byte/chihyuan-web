@@ -6,6 +6,8 @@ import { TextInput } from "../ui/primitives/TextInput";
 import { ToastRegion } from "../ui/feedback/ToastRegion";
 import { useToastQueue } from "../ui/feedback/useToastQueue";
 import { ApiClientError } from "../api/client";
+import { chineseMessage } from "../api/error-messages";
+import { useFeedbackMessage } from "../ui/feedback/FeedbackProvider";
 import { loadModuleAccessAdminSnapshot, setEmployeeModuleAccess, type ModuleAccessAdminSnapshot } from "../access/module-access-client";
 import type { AuthSession } from "../auth/auth-client";
 import {
@@ -33,8 +35,8 @@ import {
 } from "./identity-client";
 
 function messageOf(error: unknown): string {
-  if (error instanceof ApiClientError) return error.message || error.code;
-  return error instanceof Error ? error.message : "操作失敗";
+  if (error instanceof ApiClientError) return error.message;
+  return chineseMessage(error instanceof Error ? error.message : undefined);
 }
 
 function permissionLabel(role: "SUPER_ADMIN" | "ADMIN" | "USER"): string {
@@ -57,19 +59,19 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
   const [otp, setOtp] = useState("");
   const [verifyingCurrentEmail, setVerifyingCurrentEmail] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
 
   async function submitPassword(event: FormEvent) {
     event.preventDefault();
-    if (newPassword !== confirmPassword) { setMessage("兩次新密碼不一致。"); return; }
+    if (newPassword !== confirmPassword) { reportError("兩次新密碼不一致。"); return; }
     const length = Array.from(newPassword).length;
-    if (length < 8 || length > 16) { setMessage("新密碼必須為 8～16 字元。"); return; }
+    if (length < 8 || length > 16) { reportError("新密碼必須為 8～16 字元。"); return; }
     setBusy(true); setMessage(null);
     try {
       await changeOwnPassword(currentPassword, newPassword);
       window.alert("密碼已變更，既有登入已撤銷，請重新登入。");
       window.location.reload();
-    } catch (error) { setMessage(messageOf(error)); }
+    } catch (error) { reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
@@ -79,7 +81,7 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
       const result = await startOwnEmailChange(emailPassword, newEmail);
       setChallengeId(result.verification.challengeId);
       setMessage("驗證碼已寄出，請輸入 Email 中的 6 位數驗證碼。");
-    } catch (error) { setMessage(messageOf(error)); }
+    } catch (error) { reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
@@ -89,7 +91,7 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
       const result = await startCurrentEmailVerification();
       setChallengeId(result.verification.challengeId);
       setMessage(result.reused ? "沿用已寄出的驗證碼，請輸入 6 位數驗證碼。" : "驗證碼已寄至目前 Email。");
-    } catch (error) { setVerifyingCurrentEmail(false); setMessage(messageOf(error)); }
+    } catch (error) { setVerifyingCurrentEmail(false); reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
@@ -101,7 +103,7 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
       await confirmOwnEmailChange(challengeId, otp);
       window.alert(verifyingCurrentEmail ? "Email 驗證完成，請重新登入。" : "Email 已更新，請重新登入。");
       window.location.reload();
-    } catch (error) { setMessage(messageOf(error)); }
+    } catch (error) { reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
@@ -151,8 +153,11 @@ function EmployeeManagement({ snapshot, session, refresh }: {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [roleKey, setRoleKey] = useState<"USER" | "ADMIN">("USER");
+  const [createOpen, setCreateOpen] = useState(false);
+  const createFormId = useId();
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const createGuard = useUnsavedChangesGuard({ active: createOpen && Boolean(employeeNo || displayName || email || roleKey !== "USER"), blocked: busy });
+  const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
   const [transferOpen, setTransferOpen] = useState(false);
   const [targetEmployeeId, setTargetEmployeeId] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -173,22 +178,33 @@ function EmployeeManagement({ snapshot, session, refresh }: {
   }
 
   async function create(event: FormEvent) {
-    event.preventDefault(); setBusy(true); setMessage(null);
+    event.preventDefault();
+    if (busy) return;
+    if (!/^\d{4}$/.test(employeeNo) || !displayName.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      reportError("請輸入 4 碼員工編號、姓名與有效的電子郵件。"); return;
+    }
+    setBusy(true); setMessage(null);
     try {
       const result = await createIdentityEmployee({ employeeNo, displayName, email, roleKey: canIdentityAdmin ? roleKey : "USER" });
       setEmployeeNo(""); setDisplayName(""); setEmail(""); setRoleKey("USER");
+      setCreateOpen(false);
       setMessage(result.emailVerificationDelivery.sent
         ? "使用者已建立，Email 驗證信已寄出。請開啟 CY Web，使用信中的一次性首次登入密碼完成 Email 驗證並設定正式密碼。"
-        : `使用者已建立，但驗證 Email 尚未寄出（${result.emailVerificationDelivery.errorCode ?? "寄送失敗"}）。可在下方按「重寄驗證 Email」。`);
+        : "使用者已建立，但驗證信未能寄出，請在清單按「重寄驗證 Email」。");
+      if (!result.emailVerificationDelivery.sent) reportError("使用者已建立，但驗證信未能寄出。請在清單按「重寄驗證 Email」，不需重複新增帳號。");
       await refresh();
-    } catch (error) { setMessage(messageOf(error)); }
+    } catch (error) { reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
   async function resend(row: IdentityEmployeeRow) {
     setBusy(true); setMessage(null);
-    try { await resendEmployeeEmailVerification(row.employee_id); setMessage("驗證 Email 已重新寄出，先前的首次登入密碼已失效。"); }
-    catch (error) { setMessage(messageOf(error)); }
+    try {
+      const result = await resendEmployeeEmailVerification(row.employee_id);
+      if (result.emailVerificationDelivery.sent) setMessage("驗證信已重新寄出，先前的首次登入密碼已失效。");
+      else reportError("驗證信未能寄出，請稍後重試；請勿繼續使用先前的首次登入密碼。");
+    }
+    catch (error) { reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
@@ -210,12 +226,22 @@ function EmployeeManagement({ snapshot, session, refresh }: {
       setMessage(result.emailVerificationDelivery?.sent
         ? "Email 未驗證資料已更新，新驗證 Email 已寄出；舊首次登入密碼已失效。"
         : "Email 未驗證資料已更新。若 Email 有變更，舊首次登入密碼已失效。");
+      if (result.emailVerificationDelivery?.sent === false) reportError("帳號資料已更新，但驗證信未能寄出，請稍後使用重寄驗證信功能。");
       await refresh();
-    } catch (error) { setMessage(messageOf(error)); }
+    } catch (error) { reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
   const { confirm: confirmDelete, confirmationDialog: deleteConfirmationDialog } = useConfirmation();
+  async function closeCreate() {
+    if (busy) return;
+    const decision = await createGuard.confirmNavigationAsync(description => confirmDelete({
+      title: "放棄新增使用者？", description, confirmLabel: "放棄新增", cancelLabel: "繼續填寫", confirmTone: "danger",
+    }));
+    if (decision.allowed) {
+      setCreateOpen(false); setEmployeeNo(""); setDisplayName(""); setEmail(""); setRoleKey("USER");
+    }
+  }
   async function deleteEmployee(row: IdentityEmployeeRow) {
     if (busy) return;
     if (!await confirmDelete({ title: "刪除使用者帳號", confirmTone: "danger",
@@ -223,7 +249,7 @@ function EmployeeManagement({ snapshot, session, refresh }: {
       confirmLabel: "確定刪除帳號", cancelLabel: "保留帳號" })) return;
     setBusy(true); setMessage(null);
     try { await deleteIdentityEmployee(row.employee_id); setMessage("使用者帳號已刪除。"); await refresh(); }
-    catch (error) { setMessage(messageOf(error)); }
+    catch (error) { reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
@@ -232,7 +258,7 @@ function EmployeeManagement({ snapshot, session, refresh }: {
     try {
       await updateIdentityEmployee(row.employee_id, { enabled: row.enabled !== 1, revision: row.revision });
       await refresh();
-    } catch (error) { setMessage(messageOf(error)); }
+    } catch (error) { reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
@@ -240,14 +266,14 @@ function EmployeeManagement({ snapshot, session, refresh }: {
     if (row.role_key === nextRole) return;
     setBusy(true); setMessage(null);
     try { await updateIdentityEmployee(row.employee_id, { roleKey: nextRole, revision: row.revision }); await refresh(); }
-    catch (error) { setMessage(messageOf(error)); }
+    catch (error) { reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
   async function identityAdmin(row: IdentityEmployeeRow, enabled: boolean) {
     setBusy(true); setMessage(null);
     try { await setEmployeeIdentityAdmin(row.employee_id, enabled); await refresh(); }
-    catch (error) { setMessage(messageOf(error)); }
+    catch (error) { reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
@@ -259,15 +285,20 @@ function EmployeeManagement({ snapshot, session, refresh }: {
     try {
       const result = await forceEmployeeEmailRecovery(row.employee_id, nextEmail);
       setMessage(result.verificationDelivery.sent ? "Email 已替換，新 Email 驗證信已寄出。" : "Email 已替換並撤銷既有登入，但驗證信寄送失敗；可使用「重寄 Email 驗證」。");
+      if (!result.verificationDelivery.sent) reportError("電子郵件已變更並撤銷原有登入，但驗證信未能寄出，請稍後重寄驗證信。");
       await refresh();
-    } catch (error) { setMessage(messageOf(error)); }
+    } catch (error) { reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
   async function resendEmailVerification(row: IdentityEmployeeRow) {
     setBusy(true); setMessage(null);
-    try { await resendActivatedEmailVerification(row.employee_id); setMessage("Email 驗證信已重新寄出。"); }
-    catch (error) { setMessage(messageOf(error)); }
+    try {
+      const result = await resendActivatedEmailVerification(row.employee_id);
+      if (result.verificationDelivery.sent) setMessage("電子郵件驗證信已重新寄出。");
+      else reportError("電子郵件驗證信未能寄出，請稍後重試。");
+    }
+    catch (error) { reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
@@ -278,7 +309,7 @@ function EmployeeManagement({ snapshot, session, refresh }: {
       const result = await startHighestAuthorityTransfer(targetEmployeeId, currentPassword);
       setTransferChallengeId(result.transfer.challengeId); setCurrentPassword("");
       setMessage("移交驗證碼已寄至目前超級管理員的已驗證 Email。");
-    } catch (error) { setMessage(messageOf(error)); }
+    } catch (error) { reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
@@ -289,22 +320,25 @@ function EmployeeManagement({ snapshot, session, refresh }: {
       await confirmHighestAuthorityTransfer(targetEmployeeId, transferChallengeId, transferOtp);
       window.alert("超級管理員已移交，目前登入已撤銷，請重新登入。");
       window.location.reload();
-    } catch (error) { setMessage(messageOf(error)); }
+    } catch (error) { reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
   return <section className="cy-op-panel">
-    <div className="cy-op-panel-header"><div><h3>使用者帳號</h3><p>新增時直接指定權限；系統會自動寄出 Email 驗證信與一次性首次登入密碼。一般管理員只能建立與管理一般使用者。</p></div></div>
+    <div className="cy-op-panel-header"><h3>使用者帳號</h3><button type="button" className="cy-op-button primary" disabled={busy} onClick={() => setCreateOpen(true)}>新增使用者</button></div>
     {deleteConfirmationDialog}
     {snapshot.testingAccountDeletionAllowed === true && isSuperAdmin ? <p>測試期間可刪除已驗證帳號；刪除後可重新新增測試。</p> : null}
     {message ? <div className="cy-identity-message" role="status">{message}</div> : null}
-    <form className="cy-identity-create-row" onSubmit={create}>
-      <input className="cy-op-input" inputMode="numeric" placeholder="4 碼使用者編號" maxLength={4} value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value.replace(/\D/g, "").slice(0, 4))} required />
-      <input className="cy-op-input" placeholder="姓名" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
-      <input className="cy-op-input" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-      {canIdentityAdmin ? <select className="cy-op-input" value={roleKey} onChange={(e) => setRoleKey(e.target.value as "USER" | "ADMIN")}><option value="USER">一般使用者</option><option value="ADMIN">管理員</option></select> : <div className="cy-identity-subtext">權限：一般使用者</div>}
-      <button className="cy-op-button primary" disabled={busy}>新增使用者</button>
-    </form>
+    {createOpen ? <Dialog open title="新增使用者" size="small" dismissible={!busy} onClose={() => void closeCreate()}
+      description="系統會寄出驗證信與一次性首次登入密碼。請從志遠企業管理系統完成驗證，再使用正式密碼重新登入。"
+      footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void closeCreate()}>取消</button><button type="submit" form={createFormId} className="cy-op-button primary" disabled={busy}>{busy ? "新增中…" : "新增使用者"}</button></div>}>
+      <form id={createFormId} className="cy-op-form" onSubmit={create} noValidate>
+        <TextInput label="員工編號" inputMode="numeric" autoComplete="off" maxLength={4} value={employeeNo} onChange={event => setEmployeeNo(event.target.value.replace(/\D/g, "").slice(0, 4))} disabled={busy} autoFocus required />
+        <TextInput label="姓名" autoComplete="off" value={displayName} onChange={event => setDisplayName(event.target.value)} disabled={busy} required />
+        <TextInput label="電子郵件" type="email" autoComplete="off" value={email} onChange={event => setEmail(event.target.value)} disabled={busy} required />
+        <label>權限<select className="cy-op-input" value={canIdentityAdmin ? roleKey : "USER"} disabled={busy || !canIdentityAdmin} onChange={event => setRoleKey(event.target.value as "USER" | "ADMIN")}><option value="USER">一般使用者</option>{canIdentityAdmin ? <option value="ADMIN">管理員</option> : null}</select></label>
+      </form>
+    </Dialog> : null}
     <div className="cy-identity-table-wrap"><table className="cy-op-table"><thead><tr><th>編號</th><th>姓名</th><th className="cy-identity-email-col">Email</th><th>權限</th><th>狀態</th><th>操作</th></tr></thead><tbody>{snapshot.employees.map((row) => {
       const pending = !row.activated_at;
       const rowManageable = manageable(row);
@@ -347,9 +381,9 @@ function ApplicationAccessPanel({ snapshot, session, refresh }: {
   refresh: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
   const [registration, setRegistration] = useState<{ applicationId: string; displayName: string } | null>(null);
-  const [registrationError, setRegistrationError] = useState<string | null>(null);
+  const [registrationError, , setRegistrationError] = useFeedbackMessage<string | null>(null);
   const formId = useId();
   const isSuperAdmin = session.user.workspaceRole === "SUPER_ADMIN";
   const { confirm, confirmationDialog } = useConfirmation();
@@ -365,7 +399,7 @@ function ApplicationAccessPanel({ snapshot, session, refresh }: {
   async function change(employeeId: string, applicationId: string, enabled: boolean) {
     setBusy(true); setMessage(null);
     try { await setEmployeeApplicationAccess(employeeId, applicationId, enabled); await refresh(); }
-    catch (error) { setMessage(messageOf(error)); }
+    catch (error) { reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
@@ -390,7 +424,7 @@ function ApplicationAccessPanel({ snapshot, session, refresh }: {
       setRegistration(null);
       pushToast({ message: "系統已登記並啟用，請在清單設定員工使用權。", tone: "success" });
       try { await refresh(); }
-      catch { setMessage("系統已完成登記，但清單更新失敗；請重新整理此頁。"); }
+      catch { reportError("系統已完成登記，但清單更新失敗；請重新整理此頁。"); }
     } catch (error) {
       const explanations: Record<string, string> = {
         CORE_SUPER_ADMIN_REQUIRED: "只有目前 Workspace 的超級管理員能登記系統，請確認登入權限。",
@@ -436,12 +470,12 @@ function ModuleAccessPanel({ snapshot, session }: {
 }) {
   const [view, setView] = useState<ModuleAccessAdminSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
 
   const load = useCallback(async () => {
     setMessage(null);
     try { setView(await loadModuleAccessAdminSnapshot()); }
-    catch (error) { setMessage(messageOf(error)); }
+    catch (error) { reportError(messageOf(error)); }
   }, []);
 
   useEffect(() => { void load(); }, [load]);
@@ -460,7 +494,7 @@ function ModuleAccessPanel({ snapshot, session }: {
         : `${moduleCode} 已取消；後續 request 立即生效。`);
       await load();
     } catch (error) {
-      setMessage(messageOf(error));
+      reportError(messageOf(error));
     } finally {
       setBusy(false);
     }
@@ -494,8 +528,8 @@ function ModuleAccessPanel({ snapshot, session }: {
 function SecurityPanel() {
   const [view, setView] = useState<SecurityPolicyView | null>(null);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  useEffect(() => { void loadSecurityPolicy().then(setView).catch((e) => setMessage(messageOf(e))); }, []);
+  const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
+  useEffect(() => { void loadSecurityPolicy().then(setView).catch((e) => reportError(messageOf(e))); }, []);
 
   async function save(event: FormEvent) {
     event.preventDefault(); if (!view) return; setBusy(true); setMessage(null);
@@ -507,7 +541,7 @@ function SecurityPanel() {
         emailDailyLimit: view.policy.emailDailyLimit,
       });
       setView({ ...view, policy: updated.policy }); setMessage("OTP 安全設定已更新。");
-    } catch (error) { setMessage(messageOf(error)); }
+    } catch (error) { reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
@@ -527,7 +561,7 @@ function SecurityPanel() {
 export function SharedIdentityPage({ session }: { session: AuthSession }) {
   const [snapshot, setSnapshot] = useState<IdentityAdminSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, , setError] = useFeedbackMessage<string | null>(null);
   const isWorkspaceAdmin = session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN";
   const canManageAccess = session.user.workspaceRole === "SUPER_ADMIN" || session.user.isIdentityAdmin;
 
