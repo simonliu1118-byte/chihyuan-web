@@ -277,6 +277,5 @@ export function AuthGate({ children }: AuthGateProps) {
       <button className="cy-auth-link-button" type="button" onClick={() => { setChallengeId(null); setOtp(""); setFlowMessage(null); }}>重新取得驗證碼</button>
     </form>}
 
-    <p className="cy-auth-note">帳號由 CYCloud Identity 驗證；CY Web 不保存密碼、OTP 或憑證雜湊。首次登入票證只透過 HttpOnly 安全 Cookie 傳遞。</p>
   </section></main>;
 }

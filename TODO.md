@@ -2,6 +2,14 @@
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
 
+## 測試期帳號刪除與寄信入口 — 2026-10-15
+
+- 使用者批准測試期可刪除已驗證帳號，暫停新增／刪除Identity Audit；中央能力與恢復條件以CYID canonical consumer standard §17.2為準，不在Web另建帳號authority。
+- Source0.7.27／consumer1.0.5：沿用帳號列表與DELETE代理，僅在provider明確回傳testingAccountDeletionAllowed=true且目前為Super Admin時，顯示已驗證帳號刪除；缺少能力仍維持pending-only。使用共用ConfirmDialog「確定刪除帳號／保留帳號」，刪除結果確認後才刷新清單；新增提示明確寫從CYWEB用信中一次性密碼完成驗證；移除登入／首次驗證頁共用底部灰色技術說明。
+- [ ] Provider／Web CI、正式部署與health/strict gate證據待補；未刪任何真人帳號／重寄Email。
+- [ ] 實際Email HTML/text入口與新增→驗證→新密碼登入→刪除→同編號/Email重建待受控真人驗收。
+- [ ] **業務第一版前**依CYID TODO恢復已驗證不可刪及新增/刪除Audit，更新Web契約mirror並驗收刪除入口隨provider能力關閉；保留既有business history，不將舊projection或Module Access轉給重建帳號。
+
 ## CYACCweb 首次登入入口交接 — 2026-10-15
 
 來源：使用者提供的 CYACCweb first-login handoff／Draft CYapps #435（81cc5fcc），既有 production #38675354003 曾回 `CYWEB_PRODUCTION_AUTHORITY_MISMATCH`。本輪專用 branch 與 CYInvoice Draft #151 分開；不修改帳務 D1、CYInvoice source 或已部署 provider authority。
@@ -14,23 +22,25 @@
 - [x] **使用者 2026-10-15 17:09 明確批准：全部模組可直接開放，沿用既有 Module Access，由使用者限制其他員工。** 不新增 account-only 模式、UI／API 開關、另一 Worker 或第二登入。不自動新增／撤銷 grants、重播 Identity authority、清理測試資料或搬動帳務。
 - [x] Source **0.7.26 Build 0**：原 deploy owner 每次 render 前先以 canonical production resolver＋原唯讀 audit核對同一 Worker／同一 business D1／Workspace／core App／health，僅接受已批准的 authority mismatch或已修正狀態；注入正式 Identity target，後續部署不回退 development。原 CF_IDENTITY_SERVICE 值只作 canonical production lookup seed，實際輸出 Binding 一律經正式 runtime核對。部署後原 canonical strict gate 必須通過。歷史 GitHub environment／deploy ref 名稱仍保留，不另建部署 owner。
 - [x] 本地十二項 actual-canonical audit／runtime 回歸、四項首次登入 route/adapter regression、既有Identity tests、source contracts、Browser／Worker TypeScript及完整build通過。成功首次驗證必須明確回 emailVerified／passwordChanged／reloginRequired=true，無正常 Session；部分成功／expired／provider outage保持失敗。
-- [ ] 本輪 exact-head CI、既有 Worker 實際正式 Identity 部署、post-deploy strict gate／health與cookie拒絕，通過後回交 CYACCweb。
-- [ ] 同事回報「新使用者信件→CYWEB設定後 Email 未驗證／新密碼不能登入」：已證實authority mismatch可造成正式資料未更新，但尚無該次完成請求／真人回讀證據，不能斷定全部同一根因。修正後由受控使用者驗收，必要時管理員確認正式狀態再處理重寄；本輪不自行改密碼／重發信。
+- [x] [PR #154](https://github.com/simonliu1118-byte/chihyuan-web/pull/154) exact head `70e6e9862b60e290ce0e9fb4125a6827a1840fb5`：Governance `38712073846`、Runtime `38712073567`（四 jobs）、部署契約 `38712073611` 全通過，PR deploy skipped；合併 `9a76a1ac1337c82aa1db3c046edf48448feea64c`。
+- [x] [實際部署 38712562070](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/38712562070)：原 deployment ref 以雙 parent commit `0be73dd96d81421f54f11f1e177f7365128f1bfb` 向前推進，tree `4ca0d9ba876f0acb9acc10d255469e7d7ca34f74` 與已驗 main 完全一致，無 force update。既有 Worker 部署成功、無新 migration；canonical／workers.dev 於1527ms同為0.7.26／consumer1.0.4／exact source／D1 ok，雙入口 invalid Session與cookie清除通過。
+- [x] 2026-10-15 **17:24:39 Asia/Taipei** post-deploy 原canonical strict guard：同一 Worker／原business D1維持、`portalUsesConfiguredDevelopmentIdentity=false`、`portalUsesCanonicalProductionIdentity=true`、provider environment=production；Workspace／core App／consumer／health符合，**productionPortalReady=true、failureCode=null**。原唯讀 audit report 的 mutationPerformed=false只描述稽核本身；本 run確實已部署。
+- [ ] 同事回報「新使用者信件→CYWEB設定後 Email 未驗證／新密碼不能登入」：現象與已確認的authority mismatch相容，但尚無該次完成請求／真人回讀證據，不能斷定全部同一根因。修正後由受控使用者驗收，必要時管理員確認正式狀態再處理重寄；本輪不自行改密碼／重發信。
 - [x] 正式 Identity／core portal 切換的既有 authority、中央契約及原business D1已核對；按本次全部模組開放授權處理原Worker，沒有重播provider provisioning、擴大IAM、搬動帳務或製造第二套帳號。
-- [ ] 同中央 authority/workspace、core App／consumer／D1 health通過後，回交 CYACCweb 在 protected runner 重跑 `--require-account-portal`。真 Email、一次性密碼→正式密碼→重新登入→CYACC一般登入尚未驗收，未新增帳號／寄信。
+- [x] CYWEB端正式 authority／Workspace／core App／consumer／D1 gate已通過，回交證據收斂至既有 Identity deployment文件下方 CYACCweb handback。
+- [ ] CYACCweb接手於自己的 protected runner 重跑 `--require-account-portal`，核對其最新 main後再推進 Draft #435；CYWEB未代合併或部署帳務。真 Email、一次性密碼→正式密碼→重新登入→CYACC一般登入仍未驗收，本輪未新增帳號／寄信。
 
 操作與回交證據依既有 [Identity deployment](docs/development/IDENTITY_DEPLOYMENT.md#account-portal-authority-read-only-audit)；此 TODO 為唯一進度表。
 
-## 目前基準 — 2026-10-12（Asia/Taipei）
+## 目前基準 — 2026-10-15（Asia/Taipei）
 
-- 本輪 source **0.7.24 Build 0**：「CY 程式」新增「價格觀測室（原型）」之外連，原型程式位於 CYapps `apps/CYPriceDesk/`，網站維持既有 Sites owner-private 與 ChatGPT 登入。網站入口改由共用 action selector 判定，不依賴正式 Release；原有桌面未發版下載閘門維持。既有七項程式圖示保留，無正式圖示的原型採通用網頁圖示；Desktop／Mobile 沿用同一 renderer。CI／部署結果以本輪 PR／Actions 為準，未觀察的真人操作仍待驗收。
-
-- 已接受並部署：**Development0.7.23 Build0／CYID consumer1.0.4**，#146 head8aad63d9／treea02fe9d4 通過Governance244／Runtime160（含四jobs）／deploy-contract137，合併2dfd374e。Actual development#138（38197908123）source5325ef77／同已測tree完成部署；canonical及workers.dev health／source／D1於512ms同時ready，invalid Session／cookie清除驗收通過。原0.7.22部署以Git歷史追溯。
+- 目前 source **0.7.26 Build 0／CYID consumer 1.0.4**：既有全部模組沿用原 Worker／business D1／Module Access，正式 Identity 切換結果見上方首次登入交接；不等於業務正式首版、乾淨 schema或所有真人驗收完成。
+- 已包含 0.7.24「CY 程式 → 價格觀測室（原型）」外連，原型程式位於 CYapps `apps/CYPriceDesk/`，維持 Sites owner-private 與 ChatGPT 登入；未發版桌面程式仍不提供下載。
 - 先前已部署 source **0.7.22 Build 0** 已加入單次切換模組提醒，並沿用 Customer／WorkLog 共用 Dialog／ConfirmDialog，修正關閉焦點並移除六模組／Shell 工程描述；包含 quota cooldown／最近成功版本保留及 skip-link 修正；CY 程式頁仍依使用者要求不顯示「發版說明」連結。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
 - 本輪 source **0.7.23 Build 0／CYID consumer 1.0.4** 在既有「帳號與權限 → 系統使用權」新增 Super Admin 的「登記系統」，由 CYID core Session 決定目前 Workspace；其他員工使用權仍在既有清單管理。共享 Dialog／Field／dirty guard／Toast，無 browser registry authority。Provider #416／development #158 與 Web #146／development #138 已通過 CI／部署；七個 canonical mirrors1.0.4 已同步。使用者在原 development portal 完成 CYInvoice 真人登記／目前 Workspace 啟用，畫面已出現 CYInvoice。一般員工 App Access、取消／dirty guard／busy／行動裝置仍待驗收，不因 Super Admin 永遠允許就視為其他員工已授權。
-- 固定入口 `https://admin.chihyuancm.com` 目前為 CY Web Development0.7.23；CYID production provider 已完成不代表 CY Web production 已上線。
+- 固定入口 `https://admin.chihyuancm.com` 沿用原 CYWEB Worker與business D1；Identity authority 切換以本輪 post-deploy strict gate為證據，GitHub environment／deploy ref 的 development 名稱保留作既有操作標籤。
 - 六個業務模組及 Settings/Audit 使用單一 React → protected Worker API → D1。舊 local business authority、Group proxy、activation 入口與重複 local pages 已退休；無另加版本殼。
-- 備份／isolated recovery 工程已實作；實際雲端備份及排程仍未啟用。Production 業務資料 cutover 尚未執行。
+- 備份／isolated recovery 工程已實作；實際雲端備份及排程仍未啟用。乾淨 production 業務資料 cutover 尚未執行，與本次正式 Identity綁定修正分開。
 
 - 本輪已完成單次切換模組提醒與既有 SUPER_ADMIN Desktop 驗收；後續依下方未勾選項目整理共用 UI／UX。
 

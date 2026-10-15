@@ -32,6 +32,7 @@ export interface IdentityDirectAccessRow {
 }
 
 export interface IdentityAdminSnapshot {
+  testingAccountDeletionAllowed?: boolean;
   workspaceId: string;
   actor: {
     employeeId: string;
@@ -131,11 +132,13 @@ export function updateIdentityEmployee(employeeId: string, input: {
   });
 }
 
-export function deletePendingIdentityEmployee(employeeId: string) {
-  return apiRequest<{ deleted: boolean; employeeId: string; employeeNo: string }>(
+export async function deleteIdentityEmployee(employeeId: string) {
+  const result = await apiRequest<{ deleted: boolean; employeeId: string; employeeNo: string }>(
     `/api/identity/admin/employees/${encodeURIComponent(employeeId)}`,
     { method: "DELETE" },
   );
+  if (result.deleted !== true || result.employeeId !== employeeId) throw new Error("刪除結果未確認，請重新整理帳號清單後再檢查。");
+  return result;
 }
 
 export function resendEmployeeEmailVerification(employeeId: string) {
