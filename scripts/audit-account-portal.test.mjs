@@ -31,7 +31,7 @@ function fixture(overrides = {}) {
     if(u.hostname==="portal.example.test") {
       assert.equal(new Headers(init.headers).has("authorization"),false);
       assert.equal(u.pathname,"/api/health");
-      return Response.json(health);
+      return Response.json({...health, requestId:`synthetic-${calls.length}`});
     }
     assert.equal(u.hostname,"api.cloudflare.com");
     assert.equal(new Headers(init.headers).get("authorization"),"Bearer synthetic-token");
@@ -39,7 +39,7 @@ function fixture(overrides = {}) {
     if(u.pathname.endsWith(`/scripts/${prod}/settings`)) return Response.json(provider);
     if(u.pathname.endsWith(`/scripts/${web}/settings`)) {
       if(overrides.drift && calls.filter(x=>new URL(x.url).pathname.endsWith(`/scripts/${web}/settings`)).length>1)
-        return Response.json({...settings, changed:true});
+        return Response.json({...settings, result:{...settings.result, bindings:[...settings.result.bindings, plain("SOURCE_VERSION","changed")]}});
       return Response.json(settings);
     }
     if(u.pathname.endsWith("/workers/domains")) return Response.json(domains);

@@ -28,7 +28,15 @@ export async function auditAccountPortal({ accountId, apiToken, configuredIdenti
     if (headers.has("authorization") && (!target.href.startsWith(api + "/")
         || target.origin !== "https://api.cloudflare.com")) fail("CYWEB_AUDIT_CREDENTIAL_TARGET_INVALID");
     const response = await fetchImpl(url, { ...init, method: "GET", redirect: "error", signal: AbortSignal.timeout(20000) });
-    const fingerprint = JSON.stringify(await response.clone().json().catch(() => null));
+    const payload = await response.clone().json().catch(() => null);
+    // Health envelopes have a fresh requestId per read; compare deployed
+    // provenance and health, not per-request tracing metadata.
+    const snapshot = target.origin === "https://api.cloudflare.com" ? payload?.result : {
+      ok: payload?.ok, service: payload?.data?.service, database: payload?.data?.database,
+      identityConsumerVersion: payload?.data?.identityConsumerVersion,
+      version: payload?.data?.version, sourceCommit: payload?.data?.sourceCommit,
+    };
+    const fingerprint = JSON.stringify(snapshot);
     if (observations.has(target.href) && observations.get(target.href) !== fingerprint)
       fail("CYWEB_AUDIT_SNAPSHOT_CHANGED");
     observations.set(target.href, fingerprint);
