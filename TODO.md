@@ -8,7 +8,9 @@
 - 維持每日03:00單一 producer；新增程式會以已確認 source snapshot 補入舊共用清單，現有成功版本保留，新清單等待每日排程，不因部署／開頁額外查詢 GitHub。不新增狀態 owner、render path 或資料表。
 - [x] 正式 ZIP HEAD 回200／156847952 bytes（未下載執行）；中央 Auto SVG byte/hash 記錄、共通規則與 CYID canonical byte 核對通過。Browser／Worker TypeScript、14項 catalog regression、完整 build、全部 source contracts 通過。新增正式產品 tag／asset 與 OCR 模型排除、舊清單補新程式與無當日重試驗收。
 - [x] 本機合成 USER Desktop：九項清單、新工具正式圖示／V0.2.9／日期／下載、CVT 說明與整頁無「鼎新」確認。未登入正式帳號或操作業務資料。
-- [ ] Exact-head CI、合併與原網站部署。
+- [x] [PR #167](https://github.com/simonliu1118-byte/chihyuan-web/pull/167) exact head `cd47e97fed42dd1a591db6fcd544fd7b309cc2dd`：Governance `38844904852`、Runtime `38844904920`（四jobs／actual isolated Worker+D1）、deployment contract `38844904854` 全通過；合併 `162d9d9887a57c230932566936916163e296033a`。PR未執行真部署。另於390px手機確認同一程式卡片／說明且無橫向溢出。
+- [x] [原網站部署 38845036800](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/38845036800) 於 **2026-10-16 11:22:00 Asia/Taipei** 完成。Deployment `6832a9a679a472f4af7f08027cca16cb8d39c5e8` 雙parent向前推進，tree `ed44bc34cf69549b2a2744901b7013e95e322d83` 與已驗main完全相同；原Worker、每日cron回讀、雙入口 exact source/consumer/D1、invalid Session與正式Identity strict gate 全通過。未新增 migration／binding／authority。
+- [x] 部署後獨立公開回讀 **0.7.32／consumer1.0.5／6832a9a6／D1 ok**，實際前端bundle含 Auto 正式圖示。名稱／說明／下載由 authenticated API 回傳，部署證據為 exact source＋actual Worker/D1 regression＋合成 Desktop/Mobile browser，未登入正式帳號。首個真實每日排程仍預定2026-10-17 03:00；本輪不額外觸發 GitHub 更新。
 
 ## CY 程式每日自動更新 — 2026-10-16
 
@@ -96,7 +98,7 @@
 
 ## 目前基準 — 2026-10-16（Asia/Taipei）
 
-- 目前已部署 **0.7.31 Build 0／CYID consumer 1.0.5**（本輪每日程式清單與既有主動撤權驗證／部署見上方；canonical contract mirror1.0.6）：既有全部模組沿用原 Worker／business D1／Module Access，正式 Identity 切換結果見上方首次登入交接；使用者已確認帳號／郵件與真實角色／權限驗收 OK。主動撤權體驗及業務首版、乾淨 schema、其他真人業務驗收仍分開追蹤。
+- 目前已部署 **0.7.32 Build 0／CYID consumer 1.0.5**（本輪程式補列／每日清單與既有主動撤權驗證／部署見上方；canonical contract mirror1.0.6）：既有全部模組沿用原 Worker／business D1／Module Access，正式 Identity 切換結果見上方首次登入交接；使用者已確認帳號／郵件與真實角色／權限驗收 OK。主動撤權體驗及業務首版、乾淨 schema、其他真人業務驗收仍分開追蹤。
 - 已包含 0.7.24「CY 程式 → 價格觀測室（原型）」外連，原型程式位於 CYapps `apps/CYPriceDesk/`，維持 Sites owner-private 與 ChatGPT 登入；未發版桌面程式仍不提供下載。
 - 先前已部署 source **0.7.22 Build 0** 已加入單次切換模組提醒，並沿用 Customer／WorkLog 共用 Dialog／ConfirmDialog，修正關閉焦點並移除六模組／Shell 工程描述；包含 quota cooldown／最近成功版本保留及 skip-link 修正；CY 程式頁仍依使用者要求不顯示「發版說明」連結。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
 - 本輪 source **0.7.23 Build 0／CYID consumer 1.0.4** 在既有「帳號與權限 → 系統使用權」新增 Super Admin 的「登記系統」，由 CYID core Session 決定目前 Workspace；其他員工使用權仍在既有清單管理。共享 Dialog／Field／dirty guard／Toast，無 browser registry authority。Provider #416／development #158 與 Web #146／development #138 已通過 CI／部署；七個 canonical mirrors1.0.4 已同步。使用者在原 development portal 完成 CYInvoice 真人登記／目前 Workspace 啟用，畫面已出現 CYInvoice。一般員工 App Access、取消／dirty guard／busy／行動裝置仍待驗收，不因 Super Admin 永遠允許就視為其他員工已授權。
