@@ -10,7 +10,9 @@
 - [x] 本機 Browser／Worker TypeScript、完整 build、全部 source contracts（8 migrations／49 tables）、60項 Node regression 通過，包含真實 SQLite 原子 claim／跨日恢復／stale completion fencing／讀取不查 GitHub、舊備份 fingerprint、排程分流與部署後 schedule 驗證器。
 - [x] 本機合成 USER browser 確認無「更新版本」按鈕、每日03:00說明、首次等待狀態與原版本／下載清單。未操作正式帳號或業務資料。
 - 本機 actual Wrangler+D1 runner 缺少 npx，完整隔離 Worker+D1 與 POSIX deployment-config 權限檢查交由 required Linux CI；本機 SQLite 回歸不代替 actual D1 驗收。
-- [ ] Exact-head required CI、合併、原網站部署與 protected runner 回讀實際已安裝 cron；第一個真實每日排程尚未發生，不宣稱已成功取得 GitHub 最新資料。
+- [x] [PR #165](https://github.com/simonliu1118-byte/chihyuan-web/pull/165) exact head `186a2b872df35131960c8c7534cf3b9b60560e74`：Governance `38844156966`、Runtime `38844156968`（四jobs／actual isolated Worker+D1／daily catalog regression）、deployment contract `38844156972` 全通過；合併 `81bbb488a31563ff125511ed2cf590bff81587df`。PR未執行真部署。
+- [x] [原網站部署 38844282570](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/38844282570) 於 **2026-10-16 11:13:10 Asia/Taipei** 完成。Deployment `0bb171bc8b5948c3fb9faa9eb097dbb6971c1264` 雙parent向前推進，tree `1709489059bc45663ba5828874c4c9587883b06f` 與已驗main完全相同；migration、原Worker部署、protected runner 回讀實際每日 cron、雙入口 exact source/consumer/D1、invalid Session與正式Identity strict gate 全通過。
+- [x] 部署後獨立公開回讀 **0.7.31／consumer1.0.5／0bb171bc／D1 ok**；實際載入的前端bundle包含每日03:00與首次等待說明。首次真實排程預定 **2026-10-17 03:00 Asia/Taipei**，尚未發生；不宣稱已成功取得 GitHub 最新資料或已根治外部 quota。
 
 ## CY 程式清單更新與名稱 — 2026-10-16
 
@@ -86,7 +88,7 @@
 
 ## 目前基準 — 2026-10-16（Asia/Taipei）
 
-- 目前已部署 **0.7.30 Build 0／CYID consumer 1.0.5**（本輪程式清單與既有主動撤權驗證／部署見上方；canonical contract mirror1.0.6）：既有全部模組沿用原 Worker／business D1／Module Access，正式 Identity 切換結果見上方首次登入交接；使用者已確認帳號／郵件與真實角色／權限驗收 OK。主動撤權體驗及業務首版、乾淨 schema、其他真人業務驗收仍分開追蹤。
+- 目前已部署 **0.7.31 Build 0／CYID consumer 1.0.5**（本輪每日程式清單與既有主動撤權驗證／部署見上方；canonical contract mirror1.0.6）：既有全部模組沿用原 Worker／business D1／Module Access，正式 Identity 切換結果見上方首次登入交接；使用者已確認帳號／郵件與真實角色／權限驗收 OK。主動撤權體驗及業務首版、乾淨 schema、其他真人業務驗收仍分開追蹤。
 - 已包含 0.7.24「CY 程式 → 價格觀測室（原型）」外連，原型程式位於 CYapps `apps/CYPriceDesk/`，維持 Sites owner-private 與 ChatGPT 登入；未發版桌面程式仍不提供下載。
 - 先前已部署 source **0.7.22 Build 0** 已加入單次切換模組提醒，並沿用 Customer／WorkLog 共用 Dialog／ConfirmDialog，修正關閉焦點並移除六模組／Shell 工程描述；包含 quota cooldown／最近成功版本保留及 skip-link 修正；CY 程式頁仍依使用者要求不顯示「發版說明」連結。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
 - 本輪 source **0.7.23 Build 0／CYID consumer 1.0.4** 在既有「帳號與權限 → 系統使用權」新增 Super Admin 的「登記系統」，由 CYID core Session 決定目前 Workspace；其他員工使用權仍在既有清單管理。共享 Dialog／Field／dirty guard／Toast，無 browser registry authority。Provider #416／development #158 與 Web #146／development #138 已通過 CI／部署；七個 canonical mirrors1.0.4 已同步。使用者在原 development portal 完成 CYInvoice 真人登記／目前 Workspace 啟用，畫面已出現 CYInvoice。一般員工 App Access、取消／dirty guard／busy／行動裝置仍待驗收，不因 Super Admin 永遠允許就視為其他員工已授權。
@@ -121,7 +123,7 @@
 - [x] 既有 SUPER_ADMIN 的 Desktop `#programs` 導覽、七項介紹、圖示載入、已確認版本／日期、三個未發版無連結、更新 loading 及失敗標示已觀察。三個公開 compiled ZIP 經匿名 HTTP HEAD／redirect 回 200，網頁入口可到 CYAccountingWeb 登入頁；未下載執行桌面程式。
 - [x] **CY 程式正式版本即時更新實測通過**：0.7.19 部署後既有 SUPER_ADMIN 初次讀取顯示「最新正式版本」且無 snapshot warning；手動更新 loading → 正常按鈕，七項、版本／日期、網站／三個 compiled ZIP 與三個未發版狀態保持正確。成功讀取採既有五分鐘 process cache；手動按鈕不表示每次強制繞過 cache。
 - 根因／修正證據：0.7.18 診斷 actual NETWORK；相同 compatibility date 的 actual workerd 重現 Request `redirect:error` 拋 TypeError，舊純 fetch stub 未真正建立 Request，掩蓋執行環境問題。0.7.18 Build 1 改 `manual`，非 2xx／302 拒絕且不跟隨 Location，補 actual Request construction regression；local／remote Worker/D1、TypeScript／build 均通過。[PR #133](https://github.com/simonliu1118-byte/chihyuan-web/pull/133)／[PR #134](https://github.com/simonliu1118-byte/chihyuan-web/pull/134)；診斷 source f42fa3bfd2d9eb319c0b02ff343bb71de5fd3938／run 37116571600；修正 source 0a0208ec4b0a39ef19cf560e11b35f50ff196380／run 37117059457，兩入口首次 ready 270ms。
-- [ ] **GitHub quota／cache 穩定性後續**：修正參數後於 10:40Z actual provider 回 RATE_LIMIT 403（x-ratelimit-remaining=0），明示 snapshot fallback 正常；其後成功不能推論限流已根治或 quota 如何恢復。現有 success 5min／fallback 30sec process cache，0.7.20 已補 provider reset／retry-after cooldown 與失敗保留最近成功版本，actual loader 隔離測試及 required CI／Development health 通過；live reload 仍顯示 fallback，不能視為實際 quota 已恢復；範圍為既有 process cache，跨 isolate 不宣稱全域抑制。保留真實限流與恢復驗收。診斷只回 allowlisted code／HTTP status，不回 provider body、headers、exception text、IP／credential；不以循環重試、重部署或新增版本殼處理。
+- [ ] **GitHub 真實每日排程與 quota 恢復驗收**：0.7.31 已以 D1 全域每日 claim 取代五分鐘／fallback process cache 與 provider cooldown；頁面不再查詢 GitHub，每排程日最多一批、失敗保留最近成功版本，跨 isolate SQL 與 actual Worker+D1 regression／實際已安裝 cron 驗證通過。首次真實每日執行與 provider quota 恢復仍待次日排程確認，不以此推論外部限流永久消除。診斷只回 allowlisted code／HTTP status，不回 provider body、headers、exception text、IP／credential。
 - [ ] `#programs` Tablet/Mobile、USER/ADMIN（含無 Module Access）的真人畫面與實際下載使用尚待確認；既有 isolated 三 Role API 通過不代替這些結果。
 
 - [ ] 依統一人工清單收集實際操作與畫面問題，回寫本文件，不另建平行進度表。
