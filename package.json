@@ -1,9 +1,10 @@
 {
   "name": "chihyuan-web",
-  "version": "0.7.35",
+  "version": "0.7.36",
   "private": true,
   "type": "module",
   "scripts": {
+    "test:erp-name": "node --test scripts/erp-name-search.test.mjs",
     "test:erp-history": "node --test scripts/erp-query-history.test.mjs",
     "test:feedback": "node --test scripts/feedback-messages.test.mjs",
     "dev": "vite dev",

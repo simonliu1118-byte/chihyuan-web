@@ -1,6 +1,7 @@
-import { ERP_ITEM_FIELDS, ERP_WAREHOUSE_FIELDS, ERP_BATCH_FIELDS, ERP_HISTORY_COLUMNS, type ErpQueryHistory, type ErpField, type ErpQueryErrorCode, type ErpQueryResult } from "../../shared/erp-item-query";
+import { ERP_ITEM_FIELDS, ERP_WAREHOUSE_FIELDS, ERP_BATCH_FIELDS, ERP_HISTORY_COLUMNS, ERP_SEARCH_FIELDS, type ErpQueryType, type ErpQueryHistory, type ErpField, type ErpQueryErrorCode, type ErpQueryResult } from "../../shared/erp-item-query";
 import { AuditService } from "../audit/audit-service";
 import { HistoryRangeError, resolveHistoryRange } from "../../shared/erp-query-history";
+import { erpNameContains, parseErpNameKeyword } from "../../shared/erp-name-search";
 import { resolveAppMember } from "../auth/app-access";
 import { requireIdentity, requireModuleAccess, type ModuleGateSuccess } from "../auth/guard";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
@@ -11,17 +12,18 @@ import { failure, success } from "./response";
 export interface ErpBridgeEnv extends IdentityRuntimeEnv {}
 
 type JobRow = {
-  id: string; owner_member_id: number; item_no: string; status: ErpQueryResult["status"];
+  id: string; owner_member_id: number; item_no: string; query_type: ErpQueryType; keyword: string | null; status: ErpQueryResult["status"];
   created_at: string; expires_at: string; started_at: string | null;
   completed_at: string | null; elapsed_ms: number | null;
   fields_json: string | null; warehouses_json: string | null;
   include_history: number; history_from: string | null; history_to: string | null;
-  batch_managed: number | null; batches_json: string | null; history_json: string | null;
+  batch_managed: number | null; batches_json: string | null; history_json: string | null; items_json: string | null;
   error_code: ErpQueryErrorCode | null; error_message: string | null;
 };
 const ITEM_FIELD_SET = new Set<string>(ERP_ITEM_FIELDS);
 const WAREHOUSE_FIELD_SET = new Set<string>(ERP_WAREHOUSE_FIELDS);
 const BATCH_FIELD_SET = new Set<string>(ERP_BATCH_FIELDS);
+const SEARCH_FIELD_SET = new Set<string>(ERP_SEARCH_FIELDS);
 const ERROR_TEXT: Record<ErpQueryErrorCode, string> = {
   ERP_NOT_OPEN: "ERP 尚未開啟", ERP_BUSY: "ERP 正在忙碌",
   ERP_STATE: "ERP 畫面狀態不符", EXPORT_FAILED: "ERP 匯出失敗",
@@ -39,8 +41,11 @@ function bad(code: string, message: string, status = 400): never {
   throw new RequestInputError(code, message, status);
 }
 function toJob(row: JobRow): ErpQueryResult {
+  const list = row.items_json ? JSON.parse(row.items_json) as {items:ErpField[][];total:number;truncated:boolean} : null;
   return {
-    id: row.id, itemNo: row.item_no, status: row.status, createdAt: row.created_at,
+    id: row.id, queryType:row.query_type, itemNo:row.query_type === "ITEM_NO" ? row.item_no : null,
+    keyword:row.keyword, items:list?.items ?? [], total:list?.total ?? 0, truncated:list?.truncated ?? false,
+    status: row.status, createdAt: row.created_at,
     startedAt: row.started_at, completedAt: row.completed_at, elapsedMs: row.elapsed_ms,
     fields: row.fields_json ? JSON.parse(row.fields_json) as ErpField[] : [],
     warehouses: row.warehouses_json ? JSON.parse(row.warehouses_json) as ErpField[][] : [],
@@ -49,7 +54,7 @@ function toJob(row: JobRow): ErpQueryResult {
     batches: row.batches_json ? JSON.parse(row.batches_json) as ErpField[][] : [],
     history: row.history_json ? JSON.parse(row.history_json) as ErpQueryHistory : null,
     errorCode: row.error_code, errorMessage: row.error_message,
-    resultCleared: row.status === "DONE" && row.fields_json === null,
+    resultCleared: row.status === "DONE" && (row.query_type === "ITEM_NAME" ? row.items_json === null : row.fields_json === null),
   };
 }
 function parseItemNo(value: unknown): string {
@@ -58,6 +63,11 @@ function parseItemNo(value: unknown): string {
   if (!trimmed || Array.from(trimmed).length > 40 || /\s|[\x00-\x1f\x7f]/u.test(trimmed))
     return bad("INVALID_ITEM_NO", "品號須為 1～40 字，不能含空白或控制字元");
   return trimmed;
+}
+function parseKeyword(value: unknown): string {
+  const keyword = parseErpNameKeyword(value);
+  if (!keyword) return bad("INVALID_KEYWORD", "品名關鍵字須為 1～40 字，不可含控制字元、單引號或萬用字元");
+  return keyword;
 }
 function limitedString(value: unknown, field: string, max: number): string {
   if (typeof value !== "string" || value.length > max || /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/u.test(value))
@@ -97,6 +107,30 @@ function parseHistory(raw: unknown, job: JobRow): ErpQueryHistory | null {
     return bad("INVALID_AGENT_RESULT", "歷史異動總筆數或截斷狀態錯誤");
   return {from:data.from as string,to:data.to as string,columns:[...ERP_HISTORY_COLUMNS],rows,total:data.total,truncated:data.truncated as boolean};
 }
+function parseNameSearch(body: Record<string, unknown>, job: JobRow) {
+  if (body.keyword !== job.keyword)
+    return bad("INVALID_AGENT_RESULT", "回報的品名關鍵字與查詢工作不同");
+  if (body.fields != null && (!Array.isArray(body.fields) || body.fields.length !== 0)
+    || body.warehouses != null && (!Array.isArray(body.warehouses) || body.warehouses.length !== 0)
+    || body.batches != null && (!Array.isArray(body.batches) || body.batches.length !== 0)
+    || body.history != null || body.batchManaged != null)
+    return bad("INVALID_AGENT_RESULT", "品名查詢不得附帶品號詳細資料");
+  if (!Array.isArray(body.items) || body.items.length > 500)
+    return bad("INVALID_AGENT_RESULT", "品名查詢結果不可超過 500 列");
+  const items = body.items.map((raw: unknown) => {
+    const fields = parseFields(raw, SEARCH_FIELD_SET, ERP_SEARCH_FIELDS.length);
+    if (!fields.find(field => field.name === "品號")?.value.trim())
+      return bad("INVALID_AGENT_RESULT", "品名查詢每筆都必須有品號");
+    const name = fields.find(field => field.name === "品名")?.value;
+    if (!name || !erpNameContains(name, job.keyword ?? ""))
+      return bad("INVALID_AGENT_RESULT", "品名查詢結果不符合關鍵字");
+    return fields;
+  });
+  if (typeof body.total !== "number" || !Number.isSafeInteger(body.total) || body.total < items.length
+    || typeof body.truncated !== "boolean")
+    return bad("INVALID_AGENT_RESULT", "品名查詢總筆數或截斷狀態不正確");
+  return { items, total: body.total, truncated: body.truncated };
+}
 function parseResult(body: Record<string, unknown>, job: JobRow) {
   if (!["FOUND", "NOT_FOUND", "FAILED"].includes(String(body.outcome)))
     return bad("INVALID_OUTCOME", "查詢結果狀態不正確");
@@ -104,6 +138,12 @@ function parseResult(body: Record<string, unknown>, job: JobRow) {
   const elapsedMs = body.elapsedMs;
   if (typeof elapsedMs !== "number" || !Number.isSafeInteger(elapsedMs) || elapsedMs < 0 || elapsedMs > 3600000)
     return bad("INVALID_AGENT_RESULT", "查詢耗時不正確");
+  const search = job.query_type === "ITEM_NAME" && body.outcome !== "FAILED" ? parseNameSearch(body, job) : null;
+  if (job.query_type === "ITEM_NO" && (body.items !== undefined || body.keyword !== undefined))
+    return bad("INVALID_AGENT_RESULT", "品號查詢不得附帶品名清單");
+  if (job.query_type === "ITEM_NAME" && body.outcome === "FAILED"
+    && (body.items != null && (!Array.isArray(body.items) || body.items.length !== 0)))
+    return bad("INVALID_AGENT_RESULT", "品名查詢失敗不得附帶清單");
   const fields = parseFields(body.fields ?? [], ITEM_FIELD_SET, ERP_ITEM_FIELDS.length);
   if (!Array.isArray(body.warehouses) || body.warehouses.length > 100)
     return bad("INVALID_AGENT_RESULT", "庫別資料格式不正確");
@@ -122,9 +162,12 @@ function parseResult(body: Record<string, unknown>, job: JobRow) {
     return bad("INVALID_AGENT_RESULT", "未要求歷史異動，不可回傳歷史資料");
   const history = parseHistory(body.history, job);
   if (outcome === "FOUND") {
-    if (fields.find(f => f.name === "品號")?.value !== job.item_no)
+    if (job.query_type === "ITEM_NO" && fields.find(f => f.name === "品號")?.value !== job.item_no)
       return bad("INVALID_AGENT_RESULT", "查詢結果品號與工作不一致");
-  } else if (fields.length || warehouses.length || batches.length || body.history != null) {
+    if (search && search.items.length === 0)
+      return bad("INVALID_AGENT_RESULT", "FOUND 的品名清單不可為空");
+  } else if (fields.length || warehouses.length || batches.length || body.history != null
+    || search && (search.items.length !== 0 || search.total !== 0 || search.truncated)) {
     return bad("INVALID_AGENT_RESULT", "非成功結果不得附帶 ERP 欄位");
   }
   let errorCode: ErpQueryErrorCode | null = null;
@@ -142,6 +185,9 @@ function parseResult(body: Record<string, unknown>, job: JobRow) {
     batchManaged: outcome === "FOUND" ? (batchManaged == null ? null : batchManaged ? 1 : 0) : null,
     batchesJson: outcome === "FOUND" ? JSON.stringify(batches) : null,
     historyJson: outcome === "FOUND" && history ? JSON.stringify(history) : null,
+    itemsJson: outcome === "FOUND" && search ? JSON.stringify(search) : null,
+    resultCount: outcome === "FOUND" ? search?.total ?? 0 : 0,
+    truncated: outcome === "FOUND" ? search?.truncated ?? false : false,
     errorCode, errorMessage: errorCode ? ERROR_TEXT[errorCode] : null,
     elapsedMs: elapsedMs as number,
   };
@@ -185,7 +231,7 @@ async function housekeeping(db: D1Database): Promise<void> {
     await audit.record({ entityType: "erp_item_query", entityKey: job.id, action: "erp_item_query.failed", actorEmployeeId: job.owner_member_id, statusFrom: "RUNNING", statusTo: "FAILED", metadata: { itemNo: job.item_no, outcome: "AGENT_TIMEOUT" } });
   }
   await db.prepare(
-    "UPDATE erp_item_queries SET fields_json=NULL,warehouses_json=NULL,batches_json=NULL,history_json=NULL WHERE completed_at<?1 AND (fields_json IS NOT NULL OR warehouses_json IS NOT NULL OR batches_json IS NOT NULL OR history_json IS NOT NULL)"
+    "UPDATE erp_item_queries SET fields_json=NULL,warehouses_json=NULL,batches_json=NULL,history_json=NULL,items_json=NULL WHERE completed_at<?1 AND (fields_json IS NOT NULL OR warehouses_json IS NOT NULL OR batches_json IS NOT NULL OR history_json IS NOT NULL OR items_json IS NOT NULL)"
   ).bind(new Date(now.getTime() - 300000).toISOString()).run();
   await db.prepare("DELETE FROM erp_item_queries WHERE completed_at<?1")
     .bind(new Date(now.getTime() - ISO_30_DAYS).toISOString()).run();
@@ -214,14 +260,27 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
   }
   if (pathname === "/api/erp/item-queries" && request.method === "POST") {
     const body = await readJsonObject(request, 2048);
-    const itemNo = parseItemNo(body.itemNo);
-    let historyRequest: ReturnType<typeof resolveHistoryRange>;
-    try {
-      historyRequest = resolveHistoryRange(body);
-    } catch (error) {
-      if (error instanceof HistoryRangeError)
-        return failure({code:"INVALID_HISTORY_RANGE",message:error.message},requestId,400);
-      throw error;
+    const queryType = body.queryType ?? "ITEM_NO";
+    if (queryType !== "ITEM_NO" && queryType !== "ITEM_NAME")
+      return failure({code:"INVALID_QUERY_TYPE",message:"查詢類型不正確"},requestId,400);
+    const itemNo = queryType === "ITEM_NO" ? parseItemNo(body.itemNo) : null;
+    const keyword = queryType === "ITEM_NAME" ? parseKeyword(body.keyword) : null;
+    if (queryType === "ITEM_NAME" && (body.itemNo !== undefined || body.includeHistory === true
+      || body.historyFrom != null || body.historyTo != null))
+      return failure({code:"INVALID_KEYWORD",message:"品名查詢不能同時提供品號或歷史異動"},requestId,400);
+    if (queryType === "ITEM_NO" && body.keyword !== undefined)
+      return failure({code:"INVALID_QUERY_TYPE",message:"品號查詢不可指定關鍵字"},requestId,400);
+    let historyRequest: ReturnType<typeof resolveHistoryRange> = {
+      includeHistory:false, historyFrom:null, historyTo:null,
+    };
+    if (queryType === "ITEM_NO") {
+      try {
+        historyRequest = resolveHistoryRange(body);
+      } catch (error) {
+        if (error instanceof HistoryRangeError)
+          return failure({code:"INVALID_HISTORY_RANGE",message:error.message},requestId,400);
+        throw error;
+      }
     }
     const active = await env.DB.prepare("SELECT 1 AS active FROM erp_item_queries WHERE owner_member_id=?1 AND status IN ('QUEUED','RUNNING') LIMIT 1")
       .bind(gate.member.id).first();
@@ -231,11 +290,12 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
     const expiresAt = new Date(Date.now() + 120000).toISOString();
     try {
       await env.DB.batch([
-        env.DB.prepare("INSERT INTO erp_item_queries(id,owner_member_id,item_no,status,created_at,expires_at,include_history,history_from,history_to) VALUES(?1,?2,?3,'QUEUED',?4,?5,?6,?7,?8)")
-          .bind(id, gate.member.id, itemNo, createdAt, expiresAt, historyRequest.includeHistory ? 1 : 0,historyRequest.historyFrom,historyRequest.historyTo),
+        env.DB.prepare("INSERT INTO erp_item_queries(id,owner_member_id,item_no,status,created_at,expires_at,include_history,history_from,history_to,query_type,keyword) VALUES(?1,?2,?3,'QUEUED',?4,?5,?6,?7,?8,?9,?10)")
+          .bind(id, gate.member.id, itemNo ?? "ITEM_NAME", createdAt, expiresAt,
+            historyRequest.includeHistory ? 1 : 0, historyRequest.historyFrom, historyRequest.historyTo, queryType, keyword),
         new AuditService(env.DB).prepareRecord({
           entityType: "erp_item_query", entityKey: id, action: "erp_item_query.created",
-          actorEmployeeId: gate.member.id, requestId, statusTo: "QUEUED", metadata: { itemNo, ...historyRequest },
+          actorEmployeeId: gate.member.id, requestId, statusTo: "QUEUED", metadata: { queryType, itemNo, keyword, ...historyRequest },
         }),
       ]);
     } catch (error) {
@@ -243,7 +303,7 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
         return failure({ code: "QUERY_ALREADY_ACTIVE", message: "你已有正在排隊或查詢中的工作" }, requestId, 409);
       throw error;
     }
-    return success({ id, itemNo, status: "QUEUED", createdAt, ...historyRequest }, requestId, { status: 202 });
+    return success({ id, queryType, itemNo, keyword, status: "QUEUED", createdAt, ...historyRequest }, requestId, { status: 202 });
   }
   const match = /^\/api\/erp\/item-queries\/([0-9a-f-]{36})$/.exec(pathname);
   if (match && request.method === "GET") {
@@ -317,9 +377,11 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
           SET status='RUNNING',started_at=?1,claim_hash=?2
         WHERE id=(SELECT id FROM erp_item_queries WHERE status='QUEUED' AND expires_at>?1 ORDER BY created_at,id LIMIT 1)
           AND NOT EXISTS(SELECT 1 FROM erp_item_queries WHERE status='RUNNING')
-        RETURNING id,item_no,expires_at,include_history,history_from,history_to`
-    ).bind(now, auth.digest).first<{ id: string; item_no: string; expires_at: string; include_history:number; history_from:string|null; history_to:string|null }>();
-    return success({ job: job ? { id: job.id, itemNo: job.item_no, expiresAt: job.expires_at,includeHistory:job.include_history===1,historyFrom:job.history_from,historyTo:job.history_to } : null }, requestId);
+        RETURNING id,item_no,query_type,keyword,expires_at,include_history,history_from,history_to`
+    ).bind(now, auth.digest).first<{ id: string; item_no: string; query_type:ErpQueryType; keyword:string|null; expires_at: string; include_history:number; history_from:string|null; history_to:string|null }>();
+    return success({ job: job ? { id:job.id, queryType:job.query_type,
+      ...(job.query_type === "ITEM_NAME" ? {keyword:job.keyword} : {itemNo:job.item_no}),
+      expiresAt:job.expires_at, includeHistory:job.include_history===1, historyFrom:job.history_from, historyTo:job.history_to } : null }, requestId);
   }
   const match = /^\/api\/erp-agent\/item-queries\/([0-9a-f-]{36})\/complete$/.exec(pathname);
   if (match && request.method === "POST") {
@@ -327,21 +389,24 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
     if (!row) return failure({ code: "QUERY_NOT_FOUND", message: "查無此查詢工作" }, requestId, 404);
     if (row.status !== "RUNNING" || row.claim_hash !== auth.digest)
       return failure({ code: "QUERY_NOT_RUNNING", message: "工作不在可回報狀態，或不是此 Agent 領取" }, requestId, 409);
-    const body = await readJsonObject(request, row.include_history ? 256 * 1024 : 96 * 1024);
+    const body = await readJsonObject(request, row.include_history || row.query_type === "ITEM_NAME" ? 256 * 1024 : 96 * 1024);
     const result = parseResult(body, row);
     const completedAt = new Date().toISOString();
     const statements = [
       env.DB.prepare(
         `UPDATE erp_item_queries SET status=?1,completed_at=?2,elapsed_ms=?3,
-          fields_json=?4,warehouses_json=?5,batch_managed=?6,batches_json=?7,history_json=?8,error_code=?9,error_message=?10
-        WHERE id=?11 AND status='RUNNING' AND claim_hash=?12`
+          fields_json=?4,warehouses_json=?5,batch_managed=?6,batches_json=?7,history_json=?8,items_json=?9,error_code=?10,error_message=?11
+        WHERE id=?12 AND status='RUNNING' AND claim_hash=?13`
       ).bind(result.status, completedAt, result.elapsedMs,
-        result.fieldsJson, result.warehousesJson,result.batchManaged,result.batchesJson,result.historyJson,result.errorCode,
+        result.fieldsJson, result.warehousesJson,result.batchManaged,result.batchesJson,result.historyJson,result.itemsJson,result.errorCode,
         result.errorMessage, row.id, auth.digest),
       new AuditService(env.DB).prepareRecord({
         entityType: "erp_item_query", entityKey: row.id, action: "erp_item_query.completed",
         actorEmployeeId: row.owner_member_id, requestId, statusFrom: "RUNNING", statusTo: result.status,
-        metadata: { itemNo: row.item_no, outcome: result.status, elapsedMs: result.elapsedMs,includeHistory:row.include_history===1,historyFrom:row.history_from,historyTo:row.history_to },
+        metadata: { queryType:row.query_type, itemNo:row.query_type === "ITEM_NO" ? row.item_no : null,
+          keyword:row.keyword, resultCount:result.resultCount, truncated:result.truncated,
+          outcome:result.status, elapsedMs:result.elapsedMs,
+          includeHistory:row.include_history===1,historyFrom:row.history_from,historyTo:row.history_to },
       }, {
         sql: "EXISTS (SELECT 1 FROM erp_item_queries WHERE id=? AND status=? AND completed_at=?)",
         values: [row.id, result.status, completedAt],

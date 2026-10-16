@@ -101,3 +101,16 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 - 保存規則：完成後 5 分鐘清除所有結果 JSON，30 天後刪除 metadata；`resultCleared` 保持可追蹤。一般 RUNNING 180 秒／歷史 RUNNING 300 秒逾時，QUEUE 120 秒不變。
 - 前端「查歷史異動」勾選後可用原生日期選擇器輸入起迄、保留空值取得預設範圍。結果自動展示批號庫存及（有要求時）歷史異動；小螢幕表格可水平捲動。
 - 正式 schema 新增 `migrations/0010_erp_item_query_invq01.sql`，不覆寫 0009；寫入 `include_history,history_from,history_to,batch_managed,batches_json,history_json`，與現有身分及 Agent 認證同源。
+
+## 品名包含查詢（V0.7.36）
+
+來源：`docs/handoff/ERP_ITEM_NAME_SEARCH_HANDOFF.md`，CYERPAutoQuery V0.4.0 Build 1。
+
+- 使用者 `POST /api/erp/item-queries` 新增 `{"queryType":"ITEM_NAME","keyword":"穴位貼"}`。品號模式固定 `{"queryType":"ITEM_NO","itemNo":"T0001",...history}`。品名查詢不接受 itemNo、歷史異動或起訖日期；兩種類型共用 `ERP_ITEM_QUERY` 權限、單人一筆未完成工作與全域單 Agent 佇列。
+- keyword 去頭尾空白後 1～40 字，可含內部空白，不可有控制字元、單引號、`%`、`_`、`[`、`]`；無效回 `400 INVALID_KEYWORD`。CYWEB 不得傳 ERP 欄名、SQL 或 LIKE 條件；條件固定由 CYERPAutoQuery 建立。
+- Agent `POST /api/erp-agent/item-queries/claim`：ITEM_NAME 回 `{job:{id,queryType:"ITEM_NAME",keyword,expiresAt,includeHistory:false,historyFrom:null,historyTo:null}}`。ITEM_NO 仍回 itemNo／history。測試階段不做舊 Agent 版本偵測或額外兼容分流；須使用可理解 ITEM_NAME 的 AUTOQUERY。
+- Agent ITEM_NAME complete body：`{outcome:"FOUND"|"NOT_FOUND"|"FAILED",keyword,fields:[],warehouses:[],items,total,truncated,elapsedMs,agentVersion}`。每列 items 是六欄 `品號、品名、規格、單位、庫存數量、標準售價` 的 `{name,value}` 陣列，最多 500 列、每個 value 最多 4,096 字；欄名唯一。必須有非空品號與品名，品名須包含關鍵字（Unicode NFKC 正規化、不分英文字母大小寫）。品名工作不得回傳單頭／庫別／批號／歷史詳細資料。
+- FOUND 的 items 不可為空；NOT_FOUND 的 items 必須空且 total 為 0；FAILED 不可夾帶清單，錯誤碼沿用現有白名單。total 為非負整數且不小於 items 列數；truncated 為布林值，即使 total=500 也可能 true（ERP 的總筆數上限）。品名 complete 最多 256 KiB。
+- GET 工作增加 `queryType`、`keyword`、`items`、`total`、`truncated`。清單經 D1 `items_json` 暫存，5 分鐘後清除，metadata 30 天；不寫入商品主檔、不快取成正式資料。Audit 記 queryType、keyword、筆數、elapsedMs，不記清單內容。
+- 前端在同一模組切換「品號／品名」，品名模式隱藏歷史異動。結果顯示六欄與超過上限提示；點選一筆品號會建立**新的 ITEM_NO** 工作並重新向 Agent 查完整單頭、庫別、批號與（若勾選）歷史異動。
+- 使用 forward migration `migrations/0011_erp_item_name_search.sql` 擴充 query_type、keyword、items_json，不重寫既有 migration。因底層既有 schema `item_no` 不可為空，ITEM_NAME 工作內部存固定占位代碼 `ITEM_NAME`；API 不對外回傳此占位。

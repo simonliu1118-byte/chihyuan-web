@@ -13,6 +13,9 @@ export const ERP_BATCH_FIELDS = ["批號", "庫存數量", "入庫日", "有效�
 export const ERP_HISTORY_COLUMNS = [
   "日期", "單別-單號-序號", "庫別", "庫別名稱", "入出別", "異動數量", "備註",
 ] as const;
+export const ERP_SEARCH_FIELDS = ["品號", "品名", "規格", "單位", "庫存數量", "標準售價"] as const;
+export type ErpQueryType = "ITEM_NO" | "ITEM_NAME";
+export interface ErpNameSearchRow extends Array<ErpField> {}
 export type ErpQueryStatus = "QUEUED" | "RUNNING" | "DONE" | "NOT_FOUND" | "FAILED" | "EXPIRED";
 export type ErpQueryOutcome = "FOUND" | "NOT_FOUND" | "FAILED";
 export type ErpQueryErrorCode =
@@ -34,7 +37,12 @@ export interface ErpHistoryRequest {
 }
 export interface ErpQueryResult extends ErpHistoryRequest {
   id: string;
-  itemNo: string;
+  queryType: ErpQueryType;
+  itemNo: string | null;
+  keyword: string | null;
+  items: ErpField[][];
+  total: number;
+  truncated: boolean;
   status: ErpQueryStatus;
   createdAt: string;
   startedAt: string | null;
