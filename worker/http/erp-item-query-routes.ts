@@ -1,7 +1,7 @@
 import { ERP_ITEM_FIELDS, ERP_WAREHOUSE_FIELDS, type ErpField, type ErpQueryErrorCode, type ErpQueryResult } from "../../shared/erp-item-query";
 import { AuditService } from "../audit/audit-service";
 import { resolveAppMember } from "../auth/app-access";
-import { requireIdentity, requireModuleAccess } from "../auth/guard";
+import { requireIdentity, requireModuleAccess, type ModuleGateSuccess } from "../auth/guard";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
 import { errorResponse } from "./errors";
 import { readJsonObject, RequestInputError } from "./request";
@@ -141,16 +141,17 @@ async function housekeeping(db: D1Database): Promise<void> {
   await db.prepare("DELETE FROM erp_item_queries WHERE completed_at<?1")
     .bind(new Date(now.getTime() - ISO_30_DAYS).toISOString()).run();
 }
-async function userGuard(request: Request, env: ErpBridgeEnv, requestId: string) {
+type UserGate = { kind: "error"; response: Response } | { kind: "ok"; gate: ModuleGateSuccess };
+async function userGuard(request: Request, env: ErpBridgeEnv, requestId: string): Promise<UserGate> {
   const provider = identityClient(env);
-  if (!provider) return { response: failure({ code: "IDENTITY_UNAVAILABLE", message: "帳號服務暫時無法使用" }, requestId, 503) };
+  if (!provider) return { kind: "error", response: failure({ code: "IDENTITY_UNAVAILABLE", message: "帳號服務暫時無法使用" }, requestId, 503) };
   const gate = await requireModuleAccess(provider, env.DB, request, "ERP_ITEM_QUERY");
-  if (!gate.ok) return { response: failure({ code: gate.code, message: "登入或 ERP 品號查詢權限不足" }, requestId, gate.status) };
-  return { gate };
+  if (!gate.ok) return { kind: "error", response: failure({ code: gate.code, message: "登入或 ERP 品號查詢權限不足" }, requestId, gate.status) };
+  return { kind: "ok", gate };
 }
 async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string, pathname: string): Promise<Response> {
   const guard = await userGuard(request, env, requestId);
-  if ("response" in guard) return guard.response;
+  if (guard.kind === "error") return guard.response;
   const { gate } = guard;
   await housekeeping(env.DB);
   if (pathname === "/api/erp/agent-status" && request.method === "GET") {

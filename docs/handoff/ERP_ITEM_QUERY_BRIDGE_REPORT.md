@@ -6,7 +6,7 @@
 ## 1. PR / Merge / Deploy
 
 - 實作分支：`cyweb/feat-erp-item-query-bridge`，以 `erp-item-query/handoff` 為起點（該 branch 已包含 main 同步的原始交接文件）。
-- PR：建立後以 GitHub PR 為準。
+- PR：#169（Draft，待原 CYWEB-4w 工作環境檢閱）。
 - Merge：未合併；production：未部署；development：未部署、不新建測試環境。
 - 核心驗證：forward migration、source/TypeScript、fake Agent acceptance；以 PR CI 結果為準。
 
@@ -49,6 +49,7 @@ Module code 固定 **`ERP_ITEM_QUERY`**，`#erp-item-query` 為專用模組頁�
 - **未知欄位直接拒收**，不悄悄丟棄；方便 Agent 偵測 contract drift。
 - errorMessage 只保存安全的固定中文代碼映射，不保存 Agent 傳入的可能含本機資訊字串。
 - 不建立獨立 Development/Production 環境或測試帳號，也不改主檔／正式 D1；如未來有雙環境，token 需分開產生。
+- ERP 查詢短期佇列、heartbeat 與可撤銷的 Agent hash **不進 durable backup**；災難復原後由超級管理員重發連線憑證。
 
 ## 7. Business Decision
 
