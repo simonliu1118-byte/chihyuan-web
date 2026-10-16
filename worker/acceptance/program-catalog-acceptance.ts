@@ -40,7 +40,7 @@ export async function acceptProgramCatalog(): Promise<void> {
   }) as typeof fetch, "2026-10-03T01:00:00Z");
   check(result.current && calls === 1 && result.programs.length === 8 && result.programs[2]?.version === "2.10.0", "LIVE_CATALOG");
   const pending = result.programs.filter(program => program.platform === "windows" && !program.version);
-  check(pending.length === 3 && pending.every(program => program.publishedAt === null && program.releaseUrl === null
+  check(pending.length === 2 && pending.every(program => program.publishedAt === null && program.releaseUrl === null
     && program.downloadUrl === null && program.websiteUrl === null), "UNRELEASED_NO_FABRICATED_LINKS");
   check(selectProgramRelease(pending[0], [newest]) === null, "PENDING_RELEASE_NOT_GUESSED");
   const prototype = result.programs.find(program => program.id === "price-desk");

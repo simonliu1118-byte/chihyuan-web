@@ -18,7 +18,7 @@ test("existing desktop release gates and website precedence are preserved", () =
     else if (!program.version) assert.deepEqual(getProgramAction(program), { kind: "pending" });
     else if (program.downloadUrl) assert.deepEqual(getProgramAction(program), { kind: "download", url: program.downloadUrl });
   }
-  const base = verifiedProgramCatalog.programs.find(p => p.id === "converter");
+  const base = verifiedProgramCatalog.programs.find(p => p.id === "envelope");
   assert.deepEqual(getProgramAction({ ...base, downloadUrl: "https://example.test/unreleased.zip" }), { kind: "pending" });
   assert.deepEqual(getProgramAction({ ...base, version: "0.1.0" }), { kind: "unavailable" });
   assert.equal(getProgramAction({ ...base, websiteUrl: "https://example.test/", downloadUrl: "https://example.test/file.zip", version: "0.1.0" }).kind, "website");
