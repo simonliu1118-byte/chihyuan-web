@@ -7,6 +7,7 @@
 - 以 main `e2d8e19`（已部署0.8.0）開始 **0.8.1 Build 0**：使用者實測未收款後要求金額加 `$`，並可點憑證在視窗查該張銷貨／銷退單（不離開未收款頁）。
 - 新 `ORDER` 類型（migration 0013）、`ErpOrderDialog` 自有短工作、`ErpQueryRows` 增加呼叫端自訂儲存格；`erpMoney` 統一金額格式。
 - [x] Worker／Browser TypeScript；ORDER 權限（客戶或未收款其一）、23x／24x 限制、單號歸屬與金額格式 regression；本機合成 browser 1280／390px 點憑證開視窗、關閉後未收款保留、無 runtime error。
+- [x] 手機頁首（使用者回報）：說明按鈕由 44px 縮為 32px，連線狀態按鈕只顯示「未連線／已連線」（aria-label 保留「連線憑證」），與標題同列；本機合成 320／390px 頁首單列、無橫向溢出。
 - [ ] PR CI、部署（含 0013）與真人驗收；需 CYERPAutoQuery V0.7.2。
 
 ## ERP 客戶、銷貨銷退單、未收款與商品成本權限 — 2026-10-17
