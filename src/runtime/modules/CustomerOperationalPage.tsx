@@ -712,10 +712,7 @@ export function CustomerOperationalPage() {
         </form>
       </Dialog> : null}
       <div className="cy-op-page-header cy-customer-page-header">
-        <div>
-          <h1>客戶</h1>
-          <p>管理客戶資料、聯絡人、拜訪紀錄、報價與常用商品。</p>
-        </div>
+        
         <div className="cy-op-page-actions">
           <button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增客戶</button>
         </div>

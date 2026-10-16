@@ -437,10 +437,7 @@ export function SalesOrderOperationalPage() {
   return (
     <div className="cy-order-op">
       <div className="cy-op-page-header">
-        <div>
-          <h1>銷售工單</h1>
-          <p>管理銷售工單、ERP 單號與出貨流程；正式單號由 SMART ERP 提供。</p>
-        </div>
+        
         <div className="cy-op-page-actions">
           <button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增工單</button>
         </div>

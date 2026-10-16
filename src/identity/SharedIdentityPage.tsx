@@ -576,7 +576,7 @@ export function SharedIdentityPage({ session }: { session: AuthSession }) {
   useEffect(() => { void refresh(); }, [refresh]);
 
   return <div className="cy-identity-page">
-    <div className="cy-op-page-header"><div><h1>帳號與權限</h1><p>CYID 身分、Email 與系統准入的管理入口。</p></div>{isWorkspaceAdmin ? <button className="cy-op-button" disabled={loading} onClick={() => void refresh()}>重新整理</button> : null}</div>
+    <div className="cy-op-page-header">{isWorkspaceAdmin ? <button className="cy-op-button" disabled={loading} onClick={() => void refresh()}>重新整理</button> : null}</div>
     <SelfServicePanel session={session} />
     {isWorkspaceAdmin ? <>
       <SectionTitle title="Workspace 管理" description={canManageAccess ? "管理使用者生命週期、權限與系統准入。" : "一般管理員可管理一般使用者帳號生命週期；Access 由 Identity Admin / 超級管理員管理。"} />
