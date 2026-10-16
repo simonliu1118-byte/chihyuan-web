@@ -1,4 +1,4 @@
-import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
+import { useFeedback } from "../../ui/feedback/FeedbackProvider";
 import { useEffect, useState } from "react";
 import type { ProgramCatalog, ProgramEntry } from "../../../shared/program-catalog";
 import { getProgramAction } from "../../../shared/program-catalog";
@@ -51,32 +51,37 @@ export function ProgramCatalogView({ catalog }: { catalog: ProgramCatalog }) {
     <p className="cy-program-checked">版本確認：{date(catalog.checkedAt)}。桌面版下載後解壓縮即可使用；網頁版開啟後依各程式登入規則操作。</p>
   </>;
 }
+export function programRefreshMessage(failure: ProgramCatalog["refreshFailure"]): string {
+  if (failure?.code === "RATE_LIMIT") return "GitHub 版本查詢暫時達到次數限制，已保留上次確認的正式版本與下載入口。請稍後再試。";
+  if (failure?.code === "NETWORK" || failure?.code === "TIMEOUT") return "目前無法連線至版本來源，已保留上次確認的正式版本與下載入口。請稍後再試。";
+  if (failure?.code === "HTTP" && failure.httpStatus === 403) return "GitHub 目前拒絕版本查詢，已保留上次確認的正式版本與下載入口。請稍後再試。";
+  return "目前無法取得完整的正式版本資料，已保留上次確認的版本與下載入口。請稍後再試。";
+}
 export function ProgramCatalogPage() {
   const [catalog, setCatalog] = useState<ProgramCatalog | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, , setError] = useFeedbackMessage<string>("");
+  const notify = useFeedback();
   const [refresh, setRefresh] = useState(0);
   useEffect(() => {
     const abort = new AbortController();
-    setLoading(true); setError("");
+    setLoading(true);
     void apiRequest<ProgramCatalog>("/api/programs", { signal: abort.signal }).then(value => {
       if (!abort.signal.aborted) {
         setCatalog(value);
         if (value.refreshFailure) {
           console.warn("CYWEB_PROGRAM_REFRESH", value.refreshFailure.code, value.refreshFailure.httpStatus ?? "");
-          setError("版本資料暫時無法更新，目前顯示上次確認的正式版本。請稍後再試。");
+          notify(programRefreshMessage(value.refreshFailure), "版本更新提醒");
         }
       }
     }).catch(() => {
-      if (!abort.signal.aborted) setError("無法讀取程式清單，請稍後重試。");
+      if (!abort.signal.aborted) notify("無法讀取程式清單，請稍後重試。", "版本更新提醒");
     }).finally(() => { if (!abort.signal.aborted) setLoading(false); });
     return () => abort.abort();
-  }, [refresh]);
+  }, [refresh, notify]);
   return <Section title="CY 程式" description="CY 程式功能、正式版本與使用入口；開發中的程式先提供功能介紹。"
     actions={<button type="button" className="cy-op-button" disabled={loading} onClick={() => setRefresh(value => value + 1)}>{loading ? "讀取中…" : "更新版本"}</button>}
     className="cy-program-catalog">
     {loading && !catalog ? <p role="status">正在讀取程式清單…</p> : null}
-    {error ? <div className="cy-notice cy-notice-danger" role="alert">{error}</div> : null}
     {catalog ? <ProgramCatalogView catalog={catalog} /> : null}
   </Section>;
 }
