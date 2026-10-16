@@ -26,6 +26,10 @@ const ERROR_TEXT: Record<ErpQueryErrorCode, string> = {
 };
 const VALID_AGENT_ERRORS = new Set(Object.keys(ERROR_TEXT).filter(v => v !== "AGENT_TIMEOUT"));
 const ISO_30_DAYS = 30 * 24 * 60 * 60 * 1000;
+// The Agent claims every 2-3 s; the heartbeat row is rewritten at most every 10 s (or when
+// version/ERP state change) so an idle Agent does not cost a D1 write per poll. 10 s keeps
+// the 15 s online window satisfied.
+const HEARTBEAT_WRITE_MS = 10000;
 
 function bad(code: string, message: string, status = 400): never {
   throw new RequestInputError(code, message, status);
@@ -251,8 +255,10 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
     const erpState = limitedString(body.erpState, "ERP 狀態", 40);
     const now = new Date().toISOString();
     await env.DB.prepare(
-      "INSERT INTO erp_item_agent_status(id,last_seen_at,agent_version,erp_state) VALUES(1,?1,?2,?3) ON CONFLICT(id) DO UPDATE SET last_seen_at=excluded.last_seen_at,agent_version=excluded.agent_version,erp_state=excluded.erp_state"
-    ).bind(now, agentVersion, erpState).run();
+      `INSERT INTO erp_item_agent_status(id,last_seen_at,agent_version,erp_state) VALUES(1,?1,?2,?3)
+       ON CONFLICT(id) DO UPDATE SET last_seen_at=excluded.last_seen_at,agent_version=excluded.agent_version,erp_state=excluded.erp_state
+       WHERE erp_item_agent_status.last_seen_at<=?4 OR erp_item_agent_status.agent_version<>excluded.agent_version OR erp_item_agent_status.erp_state<>excluded.erp_state`
+    ).bind(now, agentVersion, erpState, new Date(Date.now() - HEARTBEAT_WRITE_MS).toISOString()).run();
     const job = await env.DB.prepare(
       `UPDATE erp_item_queries
           SET status='RUNNING',started_at=?1,claim_hash=?2

@@ -51,6 +51,14 @@ Module code 固定 **`ERP_ITEM_QUERY`**，`#erp-item-query` 為專用模組頁�
 - 不建立獨立 Development/Production 環境或測試帳號，也不改主檔／正式 D1；如未來有雙環境，token 需分開產生。
 - ERP 查詢短期佇列、heartbeat 與可撤銷的 Agent hash **不進 durable backup**；災難復原後由超級管理員重發連線憑證。
 
+## 6.1 CYERPAutoQuery 審查後修正（2026-10-16）
+
+CYERPAutoQuery 工作線（Claude）審查 #169 後，經使用者同意直接在本 PR 補上：
+
+- **Super Admin 模組數測試**：`scripts/authority-refresh.test.mjs` 原把 Super Admin 隱含模組數寫死（6，新增 `ERP_ITEM_QUERY` 後 CI 失敗；中途曾改為 7）。改為比對 `shared/modules.ts` 的 `CYWEB_MODULES.length`，日後新增模組不必再改此測試。
+- **心跳寫入節流**：Agent 閒置時每 2～3 秒 claim，原本每次都 upsert `erp_item_agent_status`，一天約 3 萬筆 D1 寫入。改為距上次寫入未滿 10 秒且 Agent 版本／ERP 狀態不變時不重寫；`agent-status` 的 15 秒上線判定不變。
+- **品號大小寫**：審查時曾提議 FOUND 品號比對改為不分大小寫；使用者確認 SMART ERP 品號**區分大小寫**（小寫輸入查不到大寫品號），因此維持完全相同比對，並在 contract 註明。CYERPAutoQuery 端同步改為區分大小寫。
+
 ## 7. Business Decision
 
 沒有新增或改寫 BD-002、BD-003、BD-004。ERP 仍是品號權威、API 唯讀；Windows 畫面／Excel 讀取是現階段 Bridge 實作，不代表將 BD-003 的長期 DB 唯讀方向變更。
