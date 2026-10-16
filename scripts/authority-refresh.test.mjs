@@ -85,7 +85,7 @@ test("combined snapshot resolves CYID once, reads current app-local grants, pres
   let response=await (await f.read(true)).json(); assert.deepEqual(response.data.moduleAccess.allowedModules,["CUSTOMERS"]);
   f.grants=[]; response=await (await f.read(true)).json(); assert.deepEqual(response.data.moduleAccess.allowedModules,[]); assert.equal(response.data.user.employeeId,principal.employeeId);
   f.grants=["ITEMS"]; f.active=0; assert.deepEqual((await (await f.read(true)).json()).data.moduleAccess.allowedModules,[]);
-  f.role="SUPER_ADMIN"; response=await (await f.read(true)).json(); assert.equal(response.data.moduleAccess.allowedModules.length,6); assert.equal(response.data.moduleAccess.implicitAll,true);
+  f.role="SUPER_ADMIN"; response=await (await f.read(true)).json(); assert.equal(response.data.moduleAccess.allowedModules.length,7); assert.equal(response.data.moduleAccess.implicitAll,true);
   assert.equal(f.resolutions,5); assert.equal(f.writes,0);
 });
 test("invalid Session clears cookie; provider outage preserves cookie and never reads grants", async () => {
