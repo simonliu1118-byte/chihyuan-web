@@ -45,9 +45,34 @@ CY Web 頁面（已登入 + ERP_ITEM_QUERY Module Access）
 - **單身資料（庫別）**：每個庫別一列：`庫別、庫別名稱、庫性、儲位、安全存量、補貨點、經濟批量、庫存數量、庫存金額、上次盤點日、最近入庫日、最近出庫日、包裝數量`。
 - 值一律是字串：數字為 ERP 原值（例如 `12.3456`）；日期欄已轉為 `yyyy/MM/dd`；代碼欄保留 ERP 原樣（例如 `P:採購件`、`1.應稅`）；`商品描述` 可能含換行。
 
-**欄位白名單（待使用者決定）**：單頭含成本類欄位（`單位成本`、`庫存金額`、`標準進價`、`最近進價-原幣單價`、`單位標準*成本` 等）。建議：
-- 由 **CY Web 決定**要哪些欄位（server-side 白名單），在 claim 回應中告訴 Agent；Agent 只回傳這些欄位，成本資料不必離開公司電腦。
-- 預設白名單建議不含成本類欄位；最終清單請向使用者確認。
+**欄位（使用者 2026-10-16 已決定）**：Agent 只回傳下列欄位，名稱與順序固定；其他 ERP 匯出欄位（成本、庫存金額等）在公司電腦解析後即丟棄，不會送到 CY Web。
+
+`fields`（單頭，順序即顯示順序）：
+
+| name | 說明 |
+| --- | --- |
+| 品號 | |
+| 品名 | |
+| 規格 | |
+| 單位 | |
+| 庫存數量 | 全部庫別合計 |
+| 商品分類 | ERP「商品」分類代碼（料件分類三） |
+| 商品分類名稱 | 料件分類三名稱 |
+| 商品描述 | 可能含換行 |
+| 條碼編號 | |
+| 批號管理 | 例如 `N:不需要` |
+| 有效天數 | |
+| 主供應商 | 代號，可能空白 |
+| 主供應商名稱 | 可能空白 |
+| 標準進價 | |
+| 標準售價 | |
+| 售價定價一～售價定價六 | 六個欄位，名稱 `售價定價一`…`售價定價六` |
+
+`warehouses`（單身，每個庫別一列）：`庫別、庫別名稱、儲位、安全存量、經濟批量、上次盤點日、最近入庫日、最近出庫日`。
+
+- 這份清單的唯一來源是 CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`。CY Web 端以此作為 contract 欄位集合；日後要增減欄位，兩邊一起改並更新 contract。
+- CY Web 仍應在 complete 時驗證：只接受清單內的 name，其他丟棄或拒收。
+- 因欄位集合已固定，§5.2 claim 回應**不需要**再帶 `fields` 白名單。
 
 ## 5. API 提案（CY Web 端可依既有 API_CONTRACT 調整命名，但請在報告中寫明最終版）
 
@@ -83,8 +108,8 @@ CY Web 頁面（已登入 + ERP_ITEM_QUERY Module Access）
 
 | Method | Path | 說明 |
 | --- | --- | --- |
-| POST | `/api/erp-agent/item-queries/claim` | body `{ "agentVersion": "0.1.0", "erpState": "BROWSE" }`。有工作：200 `{ id, itemNo, fields: ["品號","品名",…白名單], expiresAt }`，並把該工作原子地改為 RUNNING（D1 單一 UPDATE … WHERE status='QUEUED' … RETURNING）。沒有工作：200 `{ job: null }`（或 204，請定一種）。每次呼叫都更新 agent lastSeen（兼心跳）。 |
-| POST | `/api/erp-agent/item-queries/:id/complete` | body 見下。只接受「由此 Agent claim、仍 RUNNING」的工作；白名單以外的欄位丟棄或拒收（請定一種）。 |
+| POST | `/api/erp-agent/item-queries/claim` | body `{ "agentVersion": "0.1.0", "erpState": "BROWSE" }`。有工作：200 `{ id, itemNo, expiresAt }`，並把該工作原子地改為 RUNNING（D1 單一 UPDATE … WHERE status='QUEUED' … RETURNING）。沒有工作：200 `{ job: null }`（或 204，請定一種）。每次呼叫都更新 agent lastSeen（兼心跳）。 |
+| POST | `/api/erp-agent/item-queries/:id/complete` | body 見下。只接受「由此 Agent claim、仍 RUNNING」的工作；§4 清單以外的欄位丟棄或拒收（請定一種）。 |
 
 complete body（`//` 為說明，實際 JSON 不含註解）：
 
@@ -124,7 +149,7 @@ Agent 輪詢節奏：閒置時每 2～3 秒 claim 一次；執行中不 claim。
 
 ## 8. 測試建議（不需要真的 ERP）
 
-- 請提供 development 環境，以及一個可重複的假 Agent 測試（例如 acceptance script／curl 範例）：claim → complete(FOUND／NOT_FOUND／FAILED)，驗證狀態轉換、白名單過濾、逾時、權限（無 Module Access → 403；Agent token 錯 → 401；Agent token 不能呼叫使用者 API）、結果 10 分鐘清除。
+- 請提供 development 環境，以及一個可重複的假 Agent 測試（例如 acceptance script／curl 範例）：claim → complete(FOUND／NOT_FOUND／FAILED)，驗證狀態轉換、欄位過濾、逾時、權限（無 Module Access → 403；Agent token 錯 → 401；Agent token 不能呼叫使用者 API）、結果 10 分鐘清除。
 - 測試資料只用假品號、假值（例如 `T0001`、`假品名`），不得使用真實 ERP 匯出內容（Public repo）。
 
 ## 9. 完成後請回報（交回 CYERPAutoQuery 工作線）
@@ -134,7 +159,7 @@ Agent 輪詢節奏：閒置時每 2～3 秒 claim 一次；執行中不 claim。
 1. PR 編號、merge／deploy 狀態（development／production）。
 2. 最終 endpoint 路徑、request／response 範例（含「沒有工作」的回應形式）、錯誤碼。
 3. 最終 Module code 名稱與授權方式。
-4. 最終欄位白名單（以及使用者確認的結果）。
+4. 最終欄位集合（若與 §4 不同，寫明差異與理由）。
 5. Agent token 如何發放、撤銷，development／production 的 base URL（只寫 placeholder 或使用者已同意公開的網址；token 不得寫進文件）。
 6. 與本交接不同的設計決定與理由。
 7. 是否新增／修改 Business Decision。
