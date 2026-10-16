@@ -33,6 +33,8 @@
 - 正式部署所需的 infrastructure metadata 與 deployment/runtime secrets 由核准的部署環境或平台 secret store 注入；程式只依賴抽象 binding／environment contract。
 - 正式部署可在受控 runner/workspace 動態產生 deployment-only config，但不得把該 production-resolved config 回寫 Public repo。
 - PR／一般 CI 不得取得 production deployment secrets，也不得部署 production；production deploy 只由核准 branch/environment 執行。
+- CY Web 合併 `main` 不自動發布；正式更新使用 `deploy/cyweb-development` push，或從 `main` dispatch `development-deploy.yml` 的 `deploy-development` operation。既有 branch、job 與 Environment 的 development 名稱是歷史標籤，不另建測試 Worker／D1。唯讀 `audit-identity` 與部署入口分離。
+- 同一正式目標的發布共用固定 concurrency group，進行中的 deploy 不因新 run 取消；驗證及唯讀 audit 使用獨立鎖。遠端 migration 前核對事件 SHA 等於 checkout，發布來源包含當前遠端 main 且 tracked tree 完全相同；main dispatch 另要求完整 SHA 相同。保留既有發布分支的 merge ancestry，不以 force-push 改寫歷史或繞過過期來源檢查。
 - 同一份 Public source 應可由其他 deployer 接到自己的 Cloudflare、D1、Identity、Storage、第三方 API 與 secret configuration，不預設共享志遠正式資源。
 - 後續新增任何外部服務前，必須先設計 Public-safe binding 與部署注入邊界，不得先把 production identifier 寫進 Public source 再事後清除。
 - 詳細實作參考 `docs/architecture/CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md`；若與本文件衝突，以本文件為準。

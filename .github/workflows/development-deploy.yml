@@ -14,6 +14,8 @@ on:
       - "scripts/render-backup-secrets.mjs"
       - "scripts/validate-deploy-config.mjs"
       - "scripts/verify-deployed-health.mjs"
+      - "scripts/verify-deployment-source.mjs"
+      - "scripts/deployment-source.test.mjs"
       - "scripts/verify-program-catalog-schedule.mjs"
       - "scripts/program-schedule-deployment.test.mjs"
       - "scripts/test-deployed-health.mjs"
@@ -41,14 +43,13 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: cyweb-development-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   validate-deployment-contract:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    concurrency:
+      group: cyweb-validate-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: true
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -67,7 +68,7 @@ jobs:
       - name: Validate deployment template contract
         run: |
           node scripts/validate-deploy-config.mjs
-          node --test scripts/test-deployed-health.mjs scripts/program-schedule-deployment.test.mjs
+          node --test scripts/test-deployed-health.mjs scripts/program-schedule-deployment.test.mjs scripts/deployment-source.test.mjs
 
       - name: Checkout canonical CYID production guard
         uses: actions/checkout@v4
@@ -114,11 +115,14 @@ jobs:
         run: rm -f wrangler.ci.generated.jsonc
 
   deploy-development:
-    if: (github.event_name == 'workflow_dispatch' && inputs.operation == 'deploy-development') || (github.event_name == 'push' && github.ref == 'refs/heads/deploy/cyweb-development')
+    if: (github.event_name == 'workflow_dispatch' && inputs.operation == 'deploy-development' && github.ref == 'refs/heads/main') || (github.event_name == 'push' && github.ref == 'refs/heads/deploy/cyweb-development')
     needs: validate-deployment-contract
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: development
+    concurrency:
+      group: cyweb-production
+      cancel-in-progress: false
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -139,6 +143,8 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -184,6 +190,9 @@ jobs:
         env:
           GCS_SERVICE_ACCOUNT_JSON: ${{ secrets.GCS_SERVICE_ACCOUNT_JSON }}
         run: node scripts/render-backup-secrets.mjs --output "$RUNNER_TEMP/cyweb-backup-secrets.json"
+
+      - name: Verify current reviewed main before remote changes
+        run: node scripts/verify-deployment-source.mjs
 
       - name: Apply development D1 migrations
         run: npx wrangler d1 migrations apply DB --remote --config wrangler.development.generated.jsonc
@@ -328,6 +337,9 @@ jobs:
     needs: validate-deployment-contract
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    concurrency:
+      group: cyweb-identity-audit-${{ github.ref }}
+      cancel-in-progress: true
     environment: development
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
