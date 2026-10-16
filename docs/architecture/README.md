@@ -84,6 +84,7 @@ Archive、舊 preview、review backlog、readiness checkpoint、舊 handoff 或�
 - `CUSTOMER_UI_COMPOSITION.md`
 - `CUSTOMER_EDIT_INTERACTION.md`
 - `CUSTOMER_RELATED_UI.md`
+- `ERP_ITEM_QUERY_BRIDGE_CONTRACT.md` — 單筆 ERP 品號只讀查詢、Agent 佇列、憑證與短期資料契約。
 - `ITEM_MODULE_CONTRACT.md`
 - `DEFECT_MODULE_CONTRACT.md`
 - `SALES_WORK_ORDER_MODULE_CONTRACT.md`

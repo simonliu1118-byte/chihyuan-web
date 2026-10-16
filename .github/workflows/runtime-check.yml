@@ -27,6 +27,7 @@ jobs:
       - name: Core contracts
         run: |
           python scripts/validate_schema.py
+          python scripts/validate_erp_item_query.py
           python scripts/validate_foundation.py
           python scripts/validate_identity_foundation.py
           python scripts/validate_module_access.py

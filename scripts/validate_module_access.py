@@ -15,6 +15,7 @@ EXPECTED_MODULES = {
     "ORDERS",
     "OUTSOURCING",
     "WORKLOGS",
+    "ERP_ITEM_QUERY",
 }
 
 

@@ -1,7 +1,10 @@
 // App-owned portable snapshot foundation. No public restore route or live overwrite.
 import { BACKUP_COLUMNS } from "./schema-columns";
 export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
-const ALL_TABLES = [...BACKUP_TABLES, "backup_copies", "backup_sets"].sort();
+// Operational queue, heartbeat and revocable credential hashes are intentionally
+// excluded from durable backup. After recovery the Super Admin reissues the Agent token.
+const EPHEMERAL_TABLES = ["erp_item_queries", "erp_item_agent_status", "erp_item_agent_credentials"] as const;
+const ALL_TABLES = [...BACKUP_TABLES, "backup_copies", "backup_sets", ...EPHEMERAL_TABLES].sort();
 const MAX_ROWS = 500;
 const MAX_BYTES = 5 * 1024 * 1024;
 const SCHEMA_VERSION = "0007_retired_entity_ids";
