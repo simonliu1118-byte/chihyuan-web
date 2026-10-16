@@ -37,5 +37,13 @@ conn.execute("UPDATE erp_item_queries SET include_history=1,history_from='2026-0
 assert conn.execute("SELECT batch_managed FROM erp_item_queries WHERE id='test-2'").fetchone() == (1,)
 conn.execute("UPDATE erp_item_queries SET fields_json=NULL,warehouses_json=NULL,batches_json=NULL,history_json=NULL WHERE id='test-2'")
 assert conn.execute("SELECT batches_json,history_json FROM erp_item_queries WHERE id='test-2'").fetchone() == (None,None)
+cols={row[1] for row in conn.execute("PRAGMA table_info(erp_item_queries)")}
+assert {"query_type","keyword","items_json"} <= cols
+assert conn.execute("SELECT query_type,keyword FROM erp_item_queries WHERE id='test-2'").fetchone()==("ITEM_NO",None)
+conn.execute("INSERT INTO erp_item_queries(id,owner_member_id,item_no,status,created_at,expires_at,query_type,keyword) VALUES('name-test',?,'ITEM_NAME','DONE',?,?, 'ITEM_NAME','假商品')",(member,now,now))
+conn.execute('UPDATE erp_item_queries SET items_json=? WHERE id=?',('{"items":[],"total":0,"truncated":false}', 'name-test'))
+assert conn.execute("SELECT json_extract(items_json,'$.total') FROM erp_item_queries WHERE id='name-test'").fetchone()==(0,)
+conn.execute("UPDATE erp_item_queries SET items_json=NULL WHERE id='name-test'")
+assert conn.execute("SELECT items_json FROM erp_item_queries WHERE id='name-test'").fetchone()==(None,)
 conn.close()
 print("PASS ERP item query migration, access, queue, JSON and retention schema")

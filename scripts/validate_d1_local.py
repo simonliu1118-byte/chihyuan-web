@@ -29,6 +29,7 @@ EXPECTED_MIGRATIONS = {
     "0008_program_catalog_state.sql",
     "0009_erp_item_query_bridge.sql",
     "0010_erp_item_query_invq01.sql",
+    "0011_erp_item_name_search.sql",
 }
 
 

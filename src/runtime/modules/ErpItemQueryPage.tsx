@@ -1,8 +1,9 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ApiClientError } from "../../api/client";
 import { HistoryRangeError, resolveHistoryRange } from "../../../shared/erp-query-history";
-import { ERP_ITEM_FIELDS, type ErpField, type ErpQueryHistory, type ErpQueryResult, type ErpQueryStatus } from "../../../shared/erp-item-query";
-import { createErpItemQuery, loadErpItemQuery } from "../api/erp-item-query-client";
+import { parseErpNameKeyword } from "../../../shared/erp-name-search";
+import { ERP_ITEM_FIELDS, type ErpField, type ErpQueryHistory, type ErpQueryResult, type ErpQueryStatus, type ErpQueryType } from "../../../shared/erp-item-query";
+import { createErpItemQuery, createErpNameSearch, loadErpItemQuery, type NewErpJob } from "../api/erp-item-query-client";
 import "./erp-item-query.css";
 
 const labels: Record<ErpQueryStatus,string> = {
@@ -15,6 +16,7 @@ function readableError(error:unknown):string {
     if(error.code==="QUERY_ALREADY_ACTIVE") return "已有一筆查詢尚未結束，請等候完成後再試。";
     if(error.code==="ACCESS_DENIED") return "你目前沒有 ERP 品號查詢的模組權限。";
     if(error.code==="INVALID_ITEM_NO") return "請輸入 1～40 字且沒有空白的品號。";
+    if(error.code==="INVALID_KEYWORD") return "請輸入 1～40 字品名，不可含單引號或 % _ [ ]。";
     return error.message||error.code;
   }
   return "連線失敗，請稍後再試。";
@@ -73,7 +75,9 @@ function HistoryTable({history}:{history:ErpQueryHistory}) {
   </table></div>;
 }
 export function ErpItemQueryPage() {
+  const [queryType,setQueryType]=useState<ErpQueryType>("ITEM_NO");
   const [itemNo,setItemNo]=useState("");
+  const [keyword,setKeyword]=useState("");
   const [includeHistory,setIncludeHistory]=useState(false);
   const [historyFrom,setHistoryFrom]=useState("");
   const [historyTo,setHistoryTo]=useState("");
@@ -99,46 +103,79 @@ export function ErpItemQueryPage() {
     const timer=window.setInterval(refresh,1500);
     return ()=>{cancelled=true;window.clearInterval(timer);};
   },[queryId]);
+  function selectedHistory() {
+    return resolveHistoryRange({
+      includeHistory, historyFrom: includeHistory ? historyFrom || null : null,
+      historyTo: includeHistory ? historyTo || null : null,
+    });
+  }
+  function acceptJob(job: NewErpJob) {
+    setResult({...job,fields:[],warehouses:[],elapsedMs:null,batchManaged:null,batches:[],
+      history:null,items:[],total:0,truncated:false,startedAt:null,completedAt:null,
+      errorCode:null,errorMessage:null,resultCleared:false});
+    setQueryId(job.id);
+  }
   async function submit(event:FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if(submitting||queryId)return;
+    if(queryType==="ITEM_NAME"){
+      const trimmed=parseErpNameKeyword(keyword);
+      if(!trimmed){setError("請輸入 1～40 字品名，不可含單引號或 % _ [ ]、控制字元。");return;}
+      setSubmitting(true);setResult(null);setError(null);
+      try{acceptJob(await createErpNameSearch(trimmed));}
+      catch(err){setError(readableError(err));}
+      finally{setSubmitting(false);}
+      return;
+    }
     const value=itemNo.trim();
     if(!value||Array.from(value).length>40||/\s|[\x00-\x1f\x7f]/u.test(value)){
       setError("請輸入 1～40 字且沒有空白的品號。");return;
     }
     let history;
-    try{history=resolveHistoryRange({
-      includeHistory,historyFrom:includeHistory?historyFrom||null:null,
-      historyTo:includeHistory?historyTo||null:null,
-    });}catch(err){
-      setError(err instanceof HistoryRangeError?err.message:"歷史異動日期範圍無效");return;
-    }
+    try{history=selectedHistory();}
+    catch(err){setError(err instanceof HistoryRangeError?err.message:"歷史異動日期範圍無效");return;}
     setSubmitting(true);setResult(null);setError(null);
+    try{acceptJob(await createErpItemQuery(value,history));}
+    catch(err){setError(readableError(err));}
+    finally{setSubmitting(false);}
+  }
+  // Clicking a name result is a NEW ITEM_NO job, never a reuse of the list.
+  async function chooseItem(item:string) {
+    if(submitting||queryId)return;
+    let history;
+    try{history=selectedHistory();}
+    catch(err){setError(err instanceof HistoryRangeError?err.message:"歷史異動日期範圍無效");return;}
+    setSubmitting(true);setError(null);
     try{
-      const job=await createErpItemQuery(value,history);
-      setResult({...job,status:"QUEUED",fields:[],warehouses:[],startedAt:null,completedAt:null,
-        elapsedMs:null,batchManaged:null,batches:[],history:null,errorCode:null,errorMessage:null,resultCleared:false});
-      setQueryId(job.id);
+      const job=await createErpItemQuery(item,history);
+      setItemNo(item);setQueryType("ITEM_NO");acceptJob(job);
     }catch(err){setError(readableError(err));}
     finally{setSubmitting(false);}
   }
   return <section className="cy-erp-page">
     <div className="cy-op-panel cy-erp-query-box">
       <form className="cy-erp-form" onSubmit={event=>void submit(event)}>
-        <label htmlFor="erp-item-no">ERP 品號</label>
+        <div className="cy-erp-mode-switch" role="group" aria-label="查詢方式">
+          <button type="button" aria-pressed={queryType==="ITEM_NO"} disabled={submitting||!!queryId}
+            className={queryType==="ITEM_NO"?"is-active":""} onClick={()=>{setQueryType("ITEM_NO");setError(null);}}>品號</button>
+          <button type="button" aria-pressed={queryType==="ITEM_NAME"} disabled={submitting||!!queryId}
+            className={queryType==="ITEM_NAME"?"is-active":""} onClick={()=>{setQueryType("ITEM_NAME");setError(null);}}>品名</button>
+        </div>
+        <label htmlFor="erp-search-term">ERP {queryType==="ITEM_NO"?"品號":"品名關鍵字"}</label>
         <div className="cy-erp-query-row">
-          <input id="erp-item-no" value={itemNo} maxLength={40} autoComplete="off"
-            placeholder="例如 T0001" onChange={e=>setItemNo(e.target.value)}
+          <input id="erp-search-term" value={queryType==="ITEM_NO"?itemNo:keyword} maxLength={40} autoComplete="off"
+            placeholder={queryType==="ITEM_NO"?"例如 T0001":"例如 穴位貼"}
+            onChange={e=>queryType==="ITEM_NO"?setItemNo(e.target.value):setKeyword(e.target.value)}
             disabled={submitting||!!queryId} required/>
           <button className="cy-op-button primary" type="submit" disabled={submitting||!!queryId}>
             {submitting?"送出中…":queryId?"等待查詢結果…":"查詢"}
           </button>
         </div>
-        <label className="cy-erp-history-check">
+        {queryType==="ITEM_NO"&&<label className="cy-erp-history-check">
           <input type="checkbox" checked={includeHistory} disabled={submitting||!!queryId}
             onChange={e=>setIncludeHistory(e.target.checked)}/> 查歷史異動
-        </label>
-        {includeHistory&&<div className="cy-erp-history-options">
+        </label>}
+        {queryType==="ITEM_NO"&&includeHistory&&<div className="cy-erp-history-options">
           <label>起 <input type="date" value={historyFrom} disabled={submitting||!!queryId}
             onChange={e=>setHistoryFrom(e.target.value)}/></label>
           <label>迄 <input type="date" value={historyTo} disabled={submitting||!!queryId}
@@ -150,14 +187,34 @@ export function ErpItemQueryPage() {
     </div>
     {result&&<div className="cy-op-panel cy-erp-results" aria-live="polite">
       <h2>{labels[result.status]}</h2>
-      <p>品號：<strong>{result.itemNo}</strong>{result.elapsedMs!==null?`　耗時 ${(result.elapsedMs/1000).toFixed(1)} 秒`:""}</p>
+      <p>{result.queryType==="ITEM_NAME"?"品名關鍵字：":"品號："}<strong>{result.queryType==="ITEM_NAME"?result.keyword:result.itemNo}</strong>{result.elapsedMs!==null?`　耗時 ${(result.elapsedMs/1000).toFixed(1)} 秒`:""}</p>
       {result.status==="QUEUED"&&<p>已加入查詢佇列，等待公司電腦處理。</p>}
-      {result.status==="RUNNING"&&<p>正在查詢 ERP；批號庫存及歷史異動可能需要較長時間。</p>}
+      {result.status==="RUNNING"&&<p>{result.queryType==="ITEM_NAME"?"正在 ERP 搜尋符合品名的品號…":"正在查詢 ERP；批號庫存及歷史異動可能需要較長時間。"}</p>}
       {result.errorMessage&&<p className="cy-erp-error">{result.errorMessage}</p>}
       {result.status==="EXPIRED"&&<p>排隊超過兩分鐘，請重新送出查詢。</p>}
+      {result.status==="NOT_FOUND"&&<p>{result.queryType==="ITEM_NAME"?"沒有符合的品名。":"找不到此品號。"}</p>}
       {result.status==="DONE"&&(result.resultCleared
         ? <p>結果已清除，請重新查詢。</p>
-        :<>
+        :result.queryType==="ITEM_NAME"
+          ? <><h3>符合的商品（{result.total} 筆）</h3>
+              {result.truncated&&<p className="cy-erp-error">結果已達 {result.items.length} 筆，可能有更多資料，請輸入更完整的品名。</p>}
+              <div className="cy-erp-table-scroller"><table className="cy-erp-warehouse cy-erp-search-table">
+                <thead><tr>{["品號","品名","規格","單位","庫存數量","標準售價"].map(name=>
+                  <th scope="col" key={name}>{name}</th>)}</tr></thead>
+                <tbody>{result.items.map((row,i)=>{
+                  const values=new Map(row.map(f=>[f.name,f.value]));
+                  const code=values.get("品號")??"";
+                  return <tr key={code+"-"+i}>
+                    <td><button type="button" className="cy-erp-item-link"
+                      disabled={submitting||!!queryId} onClick={()=>void chooseItem(code)}>
+                      {code}</button></td>
+                    {["品名","規格","單位","庫存數量","標準售價"].map(name=>
+                      <td key={name}>{values.get(name)||"—"}</td>)}
+                  </tr>;
+                })}</tbody>
+              </table></div><p className="cy-erp-search-hint">點選品號，重新向 ERP 查詢該商品完整資料。</p>
+            </>
+          :<>
           <h3>品號資料</h3><ItemFields fields={result.fields}/>
           <h3>庫別資料</h3>
           {result.warehouses.length===0?<p>無庫別資料。</p>

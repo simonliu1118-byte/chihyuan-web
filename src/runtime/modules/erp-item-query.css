@@ -40,3 +40,17 @@
   .cy-erp-query-row input{min-width:0;width:100%;max-width:none}
   .cy-erp-query-row button{flex:1}
 }
+
+/* One search module, two modes; no separate screens or duplicated input controls. */
+.cy-erp-mode-switch{display:inline-flex;gap:0;border:1px solid #bdcbd5;border-radius:9px;overflow:hidden;justify-self:start}
+.cy-erp-mode-switch button{font:inherit;appearance:none;background:#fff;color:#405869;border:0;
+  padding:.46rem 1.3rem;font-weight:650;cursor:pointer}
+.cy-erp-mode-switch button+button{border-left:1px solid #bdcbd5}
+.cy-erp-mode-switch button.is-active{color:#fff;background:#752638}
+.cy-erp-mode-switch button:disabled{opacity:.6;cursor:not-allowed}
+.cy-erp-item-link{font:inherit;border:0;background:none;color:#7c2034;font-weight:700;
+  padding:.18rem .1rem;text-align:left;text-decoration:underline;cursor:pointer}
+.cy-erp-item-link:focus-visible{outline:2px solid #7c2034;outline-offset:3px}
+.cy-erp-item-link:disabled{opacity:.55;cursor:not-allowed}
+.cy-erp-search-hint{font-size:.88rem;color:#5c707e}
+.cy-erp-search-table{min-width:760px}

@@ -29,6 +29,7 @@ jobs:
           python scripts/validate_schema.py
           python scripts/validate_erp_item_query.py
           node --test scripts/erp-query-history.test.mjs
+          node --test scripts/erp-name-search.test.mjs
           python scripts/validate_foundation.py
           python scripts/validate_identity_foundation.py
           python scripts/validate_module_access.py
