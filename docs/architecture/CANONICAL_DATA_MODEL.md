@@ -698,3 +698,7 @@ module implementation
 There is no Legacy-data importer/cutover gate under BD-047.
 
 The forward `0007_retired_entity_ids` model preserves a per-table retired-ID high-water mark for nine standalone deletable business entities. Canonical inserts allocate above existing and retired IDs; deletes record retirement atomically. The watermark survives Audit pruning and portable/tiered backup recovery. This implements immutable technical identities without rebuilding or renumbering current business tables; see `FINAL_DATA_DICTIONARY.md` and `AUDIT_CORE.md` for scope and historical-evidence limitations.
+
+## 21. Derived program-release metadata
+
+Forward migration `0008_program_catalog_state` adds one operational row for the public Release catalog and daily refresh coordination. A single Cloudflare cron at 03:00 Asia/Taipei claims that day's attempt atomically across instances before querying GitHub. The row retains the last successful snapshot, safe failure classification and attempt token; old completions cannot overwrite a newer day. Browser GETs only read this shared state, never fetch GitHub or mutate the row. This is derived public metadata, not business, Identity, credential or permission authority, and is excluded from portable business backup data and its schema fingerprint.

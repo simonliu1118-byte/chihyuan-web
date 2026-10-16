@@ -30,7 +30,8 @@ export async function acceptPortableRecovery(source: D1Database, target: D1Datab
   const bundle = await exportPortableBackup(source, scope);
   const verified = await verifyPortableBackup(bundle, scope.workspaceScope);
   assert(verified.manifest.totalRecordCount > 0 && verified.data.tables.customers.rows.length > 0, "ACCEPT_BACKUP_EMPTY_FIXTURE");
-  assert(!("backup_sets" in verified.data.tables) && !("web_sessions" in verified.data.tables), "ACCEPT_BACKUP_AUTH_OR_CATALOG_EXPORTED");
+  assert(!("backup_sets" in verified.data.tables) && !("web_sessions" in verified.data.tables)
+    && !("program_catalog_state" in verified.data.tables), "ACCEPT_BACKUP_AUTH_OR_CATALOG_EXPORTED");
   await rejects(() => verifyPortableBackup(bundle, "other-workspace"), "ACCEPT_BACKUP_CROSS_SCOPE");
   const corrupt = { manifestBytes: bundle.manifestBytes, dataBytes: bundle.dataBytes.slice() }; corrupt.dataBytes[0] ^= 1;
   await rejects(() => restoreIntoEmptyDatabase(target, corrupt, scope.workspaceScope), "ACCEPT_BACKUP_CORRUPTION");

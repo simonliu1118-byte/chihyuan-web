@@ -2,6 +2,16 @@
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
 
+## CY 程式每日自動更新 — 2026-10-16
+
+- Source **0.7.31 Build 0／consumer1.0.5**：依使用者要求移除「更新版本」按鈕，改為台灣時間每日凌晨 **03:00**（UTC `0 19 * * *`）由伺服器查詢正式 Release。頁面只讀取共用清單；持續開啟的頁面在下次排程後讀取一次結果，卸載會取消讀取與計時器。
+- Mutation owner 為 scheduled handler → catalog service；新增 `0008_program_catalog_state.sql` 單列 D1 公開 metadata cache，以原子每日 claim 與 completion token 防止跨執行個體重複查詢及舊結果覆寫。每個排程日最多一批有界查詢；失敗保留最近成功清單、不於當日重試。第一次排程前明示等待自動確認。
+- State owner 為 D1 cache，前端沿用單一 ProgramCatalogView／FeedbackProvider。此 cache 不含帳號／業務資料、不改 Identity authority，排除於 portable business backup 與 schema fingerprint，既有備份相容性維持。原選用備份排程仍獨立於每日清單排程，不會被清單排程觸發。
+- [x] 本機 Browser／Worker TypeScript、完整 build、全部 source contracts（8 migrations／49 tables）、60項 Node regression 通過，包含真實 SQLite 原子 claim／跨日恢復／stale completion fencing／讀取不查 GitHub、舊備份 fingerprint、排程分流與部署後 schedule 驗證器。
+- [x] 本機合成 USER browser 確認無「更新版本」按鈕、每日03:00說明、首次等待狀態與原版本／下載清單。未操作正式帳號或業務資料。
+- 本機 actual Wrangler+D1 runner 缺少 npx，完整隔離 Worker+D1 與 POSIX deployment-config 權限檢查交由 required Linux CI；本機 SQLite 回歸不代替 actual D1 驗收。
+- [ ] Exact-head required CI、合併、原網站部署與 protected runner 回讀實際已安裝 cron；第一個真實每日排程尚未發生，不宣稱已成功取得 GitHub 最新資料。
+
 ## CY 程式清單更新與名稱 — 2026-10-16
 
 - 使用者回報「更新版本」出現紅／黃重複提醒；程式以 `current=false` 明示保留已確認 snapshot，但頁面又將同一次 failure 顯示為紅條。移除 page-local error state／紅條，沿用單一 FeedbackProvider 中文 Dialog；關閉後只保留既有黃色 snapshot 狀態。提醒區分 RATE_LIMIT、一般 HTTP403、NETWORK/TIMEOUT 與不完整回應，不將所有403都稱為限流。

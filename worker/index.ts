@@ -9,6 +9,8 @@ import { handleBusinessApiRoute } from "./http/business-api-routes";
 import { handleBusinessApiPhase2Route } from "./http/business-api-phase2-routes";
 import { handleProgramCatalogRoute } from "./http/program-catalog-routes";
 import { failure, success } from "./http/response";
+import { PROGRAM_CATALOG_CRON } from "../shared/program-catalog";
+import { updateProgramCatalog } from "./programs/release-catalog";
 
 interface Env extends IdentityRuntimeEnv, BackupRuntimeEnv {}
 
@@ -35,6 +37,11 @@ async function health(env: Env, requestId: string): Promise<Response> {
 
 export default {
   async scheduled(controller: ScheduledController, env: Env): Promise<void> {
+    if (controller.cron === PROGRAM_CATALOG_CRON) {
+      await updateProgramCatalog(env.DB, new Date(controller.scheduledTime).toISOString());
+      return;
+    }
+    if (controller.cron !== "30 19 * * *") return;
     if (env.BACKUP_SCHEDULE_ENABLED !== "true") return;
     const service = backupService(env);
     if (service) await service.scheduled({ now: new Date(controller.scheduledTime).toISOString(), actorMemberId: null, requestId: crypto.randomUUID() });
