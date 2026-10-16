@@ -14,7 +14,41 @@ export const ERP_HISTORY_COLUMNS = [
   "日期", "單別-單號-序號", "庫別", "庫別名稱", "入出別", "異動數量", "備註",
 ] as const;
 export const ERP_SEARCH_FIELDS = ["品號", "品名", "規格", "單位", "庫存數量", "標準售價"] as const;
-export type ErpQueryType = "ITEM_NO" | "ITEM_NAME";
+/** Item fields only returned to members with ERP_ITEM_COST (user 2026-10-17: 標準進價). */
+export const ERP_ITEM_COST_FIELDS = ["標準進價"] as const;
+/** COPI01 customer fields, source CYapps apps/CYERPAutoQuery/CustomerQuery.cs CustomerFieldCatalog. */
+export const ERP_CUSTOMER_FIELDS = [
+  "客戶代號", "客戶簡稱", "客戶全名", "負責人", "連絡人", "TEL", "FAX", "統一編號", "行動電話",
+  "部門別", "業務人員", "登記地址", "送貨地址", "付款條件", "發票聯數", "課稅別", "通路別", "型態別", "客戶描述",
+] as const;
+export const ERP_CUSTOMER_SEARCH_FIELDS = ["客戶代號", "客戶簡稱", "客戶全名", "TEL", "統一編號", "業務人員"] as const;
+/**
+ * ITEM_NO／ITEM_NAME: ERP 商品查詢. CUSTOMER_NO／CUSTOMER_NAME／SALES (COPR15+COPR16): ERP 客戶查詢.
+ * RECEIVABLE (ACRR18): ERP 未收款查詢. One queue, one Agent, one job per member.
+ */
+export type ErpQueryType = "ITEM_NO" | "ITEM_NAME" | "CUSTOMER_NO" | "CUSTOMER_NAME" | "SALES" | "RECEIVABLE";
+export const ERP_QUERY_TYPES: readonly ErpQueryType[] = ["ITEM_NO", "ITEM_NAME", "CUSTOMER_NO", "CUSTOMER_NAME", "SALES", "RECEIVABLE"];
+export type ErpReceivableScope = "CUSTOMER" | "SALESPERSON" | "ALL";
+/** One line of a 銷貨單／銷退單; amounts and quantities are ERP display strings. */
+export interface ErpSalesLine {
+  seq: number; itemCode: string; itemName: string; specification: string; warehouse: string;
+  quantity: string; unit: string; unitPrice: string; amount: string;
+  giftType: string; giftQuantity: string; batch: string; note: string;
+  /** 銷退 line's 原銷貨單 「單號-序號」 as ERP gives it, or "". */
+  sourceOrder: string;
+}
+export interface ErpSalesOrder {
+  kind: "銷貨" | "銷退"; orderNo: string; date: string; customerCode: string; customerName: string;
+  salesperson: string; department: string; paymentTerm: string; taxType: string; invoiceType: string;
+  totalQuantity: string; amount: string; tax: string; total: string; note: string; reason: string;
+  lines: ErpSalesLine[];
+}
+export interface ErpReceivableVoucher { voucherNo: string; date: string; amount: string; tax: string; }
+export interface ErpReceivableBill {
+  customerCode: string; customerName: string; date: string; billNo: string;
+  salespersonCode: string; salespersonName: string; invoiceNo: string; currency: string;
+  receivable: string; receivableTax: string; unpaid: string; vouchers: ErpReceivableVoucher[];
+}
 export interface ErpNameSearchRow extends Array<ErpField> {}
 export type ErpQueryStatus = "QUEUED" | "RUNNING" | "DONE" | "NOT_FOUND" | "FAILED" | "EXPIRED";
 export type ErpQueryOutcome = "FOUND" | "NOT_FOUND" | "FAILED";
@@ -40,6 +74,14 @@ export interface ErpQueryResult extends ErpHistoryRequest {
   queryType: ErpQueryType;
   itemNo: string | null;
   keyword: string | null;
+  /** CUSTOMER_NO／SALES: the customer; RECEIVABLE: the customer or 業務員 code (null for ALL). */
+  code: string | null;
+  scope: ErpReceivableScope | null;
+  /** SALES 單據日期 range (YYYY-MM-DD). */
+  dateFrom: string | null;
+  dateTo: string | null;
+  orders: ErpSalesOrder[];
+  bills: ErpReceivableBill[];
   items: ErpField[][];
   total: number;
   truncated: boolean;

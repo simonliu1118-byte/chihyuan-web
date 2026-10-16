@@ -2,6 +2,16 @@
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
 
+## ERP 客戶、銷貨銷退單、未收款與商品成本權限 — 2026-10-17
+
+- 以 main `31812ea`（已部署0.7.37）開始 **0.8.0 Build 0**：使用者要求把 CYERPAutoQuery V0.5～V0.7 的客戶（COPI01）、銷貨銷退單（COPR15＋COPR16）與未收款（ACRR18）接上 CY Web；升 Y 因新增三類使用者明顯可感受的查詢能力與權限。
+- 單一「ERP 查詢」入口；桌機頁籤、手機下拉（使用者決定）。權限依資料敏感度分三個查詢權限＋「ERP 商品成本」（決定標準進價可見）；未收款有權限即可查客戶／業務員／全部，日後再細分；銷貨銷退單日期規則同歷史異動。
+- 一個 job owner（`useErpJob`）供三類共用；銷退↔原銷貨單連結、未收款分組小計在 CY Web（`shared/erp-sales-links.ts`）。協定見 `docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md` V0.8.0 節。
+- [x] Browser／Worker TypeScript、完整 build、validate:source（12 migrations）；新增 Worker／SQLite regression（各類型權限、欄位白名單、Agent queryTypes 派工、SALES／RECEIVABLE 歸屬檢查、標準進價儲存與讀取過濾）與連結／分組測試。
+- [x] 以 CYERPAutoQuery 實際產生的六種 complete body 回灌本 Worker 全部接受（跨 repo 契約核對，未提交 fixture）。
+- [x] 本機合成 browser：1280px 頁籤／銷退縮排連結、390px 下拉／未收款分組、客戶名稱清單，無橫向溢出與 runtime error；未操作正式帳號或真實 ERP。
+- [ ] PR CI、部署（含 0012 migration）與真人 ERP 驗收；需搭配 CYERPAutoQuery V0.7.1 以上（測試階段不做向下相容，舊版 Agent 無法領取工作）。
+
 ## 配色已確認，下一步討論版型 — 2026-10-16
 
 - [x] 使用者選定「石墨靛藍」作深色版，再補「霧白靛藍」淺色版，並確認「顏色改這樣比較好看，再來是版型」。色票與設計邊界記於既有 [App Shell 文件](docs/architecture/APP_SHELL_FOUNDATION.md#confirmed-colour-direction--2026-10-16)，兩版預覽 source 一併保存於 `docs/design/cyweb-indigo-light-dark.html`，合成資料且不進 runtime。
