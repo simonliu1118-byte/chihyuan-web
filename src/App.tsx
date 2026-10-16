@@ -11,6 +11,7 @@ import { SettingsOperationalPage } from "./runtime/modules/SettingsOperationalPa
 import { AuditOperationalPage } from "./runtime/modules/AuditOperationalPage";
 import { CustomerOperationalPage } from "./runtime/modules/CustomerOperationalPage";
 import { DefectOperationalPage } from "./runtime/modules/DefectOperationalPage";
+import { ErpItemQueryPage } from "./runtime/modules/ErpItemQueryPage";
 import { ItemOperationalPage } from "./runtime/modules/ItemOperationalPage";
 import { OutsourcingOperationalPage } from "./runtime/modules/OutsourcingOperationalPage";
 import { SalesOrderOperationalPage } from "./runtime/modules/SalesOrderOperationalPage";
@@ -21,7 +22,7 @@ import { UnsavedChangesBoundary, useNavigationGuard } from "./ui/foundation/useU
 import { createGuardedHashNavigation } from "./ui/foundation/guarded-hash-navigation";
 import { FeedbackProvider, useFeedback, useFeedbackMessage } from "./ui/feedback/FeedbackProvider";
 
-type AppRoute = "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "settings" | "audit" | "identity" | "backups" | "programs";
+type AppRoute = "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "erp-item-query" | "settings" | "audit" | "identity" | "backups" | "programs";
 
 const baseNavigation: readonly NavigationGroup[] = [
   {
@@ -34,6 +35,7 @@ const baseNavigation: readonly NavigationGroup[] = [
       { key: "orders", label: "銷售工單", href: "#orders" },
       { key: "outsourcing", label: "委外", href: "#outsourcing" },
       { key: "worklogs", label: "工作日誌", href: "#worklogs" },
+      { key: "erp-item-query", label: "ERP 品號查詢", href: "#erp-item-query" },
     ],
   },
   {
@@ -59,6 +61,7 @@ const routes = new Set<AppRoute>([
   "orders",
   "outsourcing",
   "worklogs",
+  "erp-item-query",
   "identity",
   "settings",
   "audit",
@@ -206,6 +209,7 @@ function OperationalApp({
   else if (route === "orders") content = <SalesOrderOperationalPage />;
   else if (route === "outsourcing") content = <OutsourcingOperationalPage />;
   else if (route === "worklogs") content = <WorkLogOperationalPage />;
+  else if (route === "erp-item-query") content = <ErpItemQueryPage isSuperAdmin={session.user.workspaceRole === "SUPER_ADMIN"} />;
   else if (route === "identity") content = <SharedIdentityPage session={session} />;
   else if (route === "programs") content = <ProgramCatalogPage />;
   else if (route === "settings") content = <SettingsOperationalPage role={session.user.workspaceRole} />;

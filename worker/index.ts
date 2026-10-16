@@ -8,11 +8,12 @@ import { handleModuleAccessRoute } from "./http/module-access-routes";
 import { handleBusinessApiRoute } from "./http/business-api-routes";
 import { handleBusinessApiPhase2Route } from "./http/business-api-phase2-routes";
 import { handleProgramCatalogRoute } from "./http/program-catalog-routes";
+import { handleErpItemQueryRoute, type ErpBridgeEnv } from "./http/erp-item-query-routes";
 import { failure, success } from "./http/response";
 import { PROGRAM_CATALOG_CRON } from "../shared/program-catalog";
 import { updateProgramCatalog } from "./programs/release-catalog";
 
-interface Env extends IdentityRuntimeEnv, BackupRuntimeEnv {}
+interface Env extends IdentityRuntimeEnv, BackupRuntimeEnv, ErpBridgeEnv {}
 
 async function health(env: Env, requestId: string): Promise<Response> {
   try {
@@ -71,6 +72,9 @@ export default {
 
     const settingsAuditResponse = await handleSettingsAuditRoute(request, env, requestId);
     if (settingsAuditResponse) return settingsAuditResponse;
+
+    const erpResponse = await handleErpItemQueryRoute(request, env, requestId);
+    if (erpResponse) return erpResponse;
 
     const businessResponse = await handleBusinessApiRoute(request, env, requestId);
     if (businessResponse) return businessResponse;
