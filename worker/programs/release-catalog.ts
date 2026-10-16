@@ -3,11 +3,13 @@ import { verifiedProgramCatalog, type ProgramCatalog, type ProgramEntry, type Pr
 const repository = "https://github.com/simonliu1118-byte/CYapps";
 const prefixes: Partial<Record<ProgramId, string>> = {
   "accounting-web": "cyaccountingweb", accounting: "cyaccounting", invoice: "cyinvoice", "tri-invoice-calc": "TriINVCalc",
+  converter: "smartcopiconverter",
 };
 const files: Partial<Record<ProgramId, (version: string) => string>> = {
   accounting: version => `CYAccounting_V${version}_Windows_x64.zip`,
   invoice: version => `CYInvoice_V${version}.zip`,
   "tri-invoice-calc": version => `TriINVCalc_V${version}.zip`,
+  converter: version => `SMARTCOPIConverter_V${version}_Windows_x64.zip`,
 };
 interface Release {
   draft?: unknown; prerelease?: unknown; tag_name?: unknown; published_at?: unknown;

@@ -2,6 +2,17 @@
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
 
+## CY 程式清單更新與名稱 — 2026-10-16
+
+- 使用者回報「更新版本」出現紅／黃重複提醒；程式以 `current=false` 明示保留已確認 snapshot，但頁面又將同一次 failure 顯示為紅條。移除 page-local error state／紅條，沿用單一 FeedbackProvider 中文 Dialog；關閉後只保留既有黃色 snapshot 狀態。提醒區分 RATE_LIMIT、一般 HTTP403、NETWORK/TIMEOUT 與不完整回應，不將所有403都稱為限流。
+- 截圖沒有顯示這次 `refreshFailure` 分類，不能僅從畫面斷定當次原因；先前線上 RATE_LIMIT 證據仍保留。既有五分鐘成功 cache、provider cooldown、最近成功版本保留與 no-retry 路徑不變，不宣稱永久消除外部限流。
+- Source **0.7.30 Build 0／consumer1.0.5**：加入已正式發版的 `smartcopiconverter-v1.0.1` tag／compiled ZIP 規則；原本沒有規則，即使 live lookup 成功也維持未發版。公開 Release metadata 確認非 draft／prerelease，ZIP HEAD 跟隨正式下載回200、2447073 bytes；未執行程式。
+- 公開 Release fallback snapshot 同步至本輪已確認的 Accounting Web0.22.15、Accounting1.3.0、Invoice2.6.19、TriINVCalc1.5.6、Converter1.0.1；同一 reader 從本機真實匿名 GitHub 取得 `current=true` 且正確版本。這不代表 Cloudflare 出口的 quota 永久恢復。
+- 顯示名稱改為「電子發票工具」「信封套印工具」「盲浮水印工具」；共用 catalog 同時供 table／card，維持內部穩定 ID 與圖示。信封／浮水印工具仍無公開正式 Release，不提供猜測的下載。
+- [x] Browser／Worker TypeScript、完整 build、全部 source contracts 與47項 Node regression通過。新增 converter exact tag/asset／缺新ZIP不得借用舊ZIP／draft/prerelease/untrusted link、table/card名稱與單一狀態、中文 failure分類；既有 actual catalog route／reader／cache cooldown/recovery regression一併執行。
+- [x] 本機合成 USER browser：更新成功→限流彈窗→關閉只一條黃狀態／無紅條→一般403不誤稱限流→恢復後清除警示；Desktop converter版本／日期／下載、三名稱與390px手機卡片無橫向溢出通過。沒有登入正式帳號、異動權限或正式資料。
+- [ ] 本輪 exact-head 遠端檢查、合併及原網站部署；完成後記錄證據。
+
 ## 主動同步登入與撤權 — 2026-10-16
 
 - [x] 使用者確認「帳號與郵件完整驗收 OK」及「真實角色與權限驗收 OK」；作為本輪真人總體驗收結果，沒有另行推定未逐項記錄的裝置／故障組合或 CYACCweb 驗收。
@@ -12,7 +23,10 @@
 - [x] 本機 Browser／Worker TypeScript、完整 Worker+assets build、全部 source contracts、43 項 regression 通過；新增 monitor cadence／hidden／deadline／stale／logout fencing、combined route current grants／inactive member／SUPER_ADMIN／invalid Session／outage、API denial signal／no retry 測試。Windows 不適用的既有 backup schedule test 仍由 Linux CI 驗收。
 - [x] Chrome 合成 API 六情境：idle 撤權／dirty editor＋pending navigation取消、非 active module 撤權保留欄位、invalid Session 回登入且停止檢查、503 保留欄位並僅一次提醒／恢復後撤權、protected403 提早重新確認與精確彈窗、一般 action403 不誤撤權；零業務 mutation，無真實帳號操作。
 - [x] 中央契約更新先獨立同步：[治理 PR #160](https://github.com/simonliu1118-byte/chihyuan-web/pull/160) exact head `eaedc989ab73835350dd046bdb10972daef86341` Governance `38780595302`／deployment contract `38780595293` 通過並合併 `056abb96b9aeba14444b5159e6b52fe7b5e96fda`。七項 canonical package 鏡像更新至 1.0.6；本輪 consumer 仍 1.0.5，在 1.0.0–1.0.6 支援窗內，未引入私有通知功能或部署。
-- [ ] 本輪 PR exact-head 必要遠端檢查、合併與原網站部署；完成後記錄結果，真人驗收本輪主動偵測間隔與提示。
+- [x] [功能 PR #161](https://github.com/simonliu1118-byte/chihyuan-web/pull/161) exact head `5eb11023380a34c90cf77ed5b1d966e0461e3faf`：Governance `38780977595`、Runtime `38780977593`（四 jobs，含新增回歸與 actual isolated Worker/D1）、deployment contract `38780977670` 全通過；合併 `c13c28f33c0e51a5941c68bec451cc42479cc985`。PR real deploy skipped。
+- [x] [原網站部署 38781263296](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/38781263296) 於 **2026-10-16 01:56:24 Asia/Taipei** 全部完成。Deployment commit `d242702c6e6989207c96793454a1e373f1a83c3b` 由前部署與已驗 main 雙 parent 向前推進，tree `61036e4574af292149566b3683e454fcdac6bcf8` 與已驗 main 完全相同。原 Worker deploy、雙入口 exact source／consumer／D1 health、invalid Session/cookie clearing及 canonical production Identity strict gate 全通過；沒有新增 migration、Worker 或 authority。
+- [x] 部署完成後獨立回讀正式入口 **0.7.29／consumer1.0.5／d242702c／D1 ok**，無登入 Chrome 確認原中文登入與 Enter 行為；零登入 POST。部署進行中獨立首次健康讀取仍為 0.7.28，於同一 run 完成後已轉新 source，未重新部署；不宣稱歷史 propagation 問題已根治。
+- [ ] 使用者重新整理後確認本輪主動撤權的間隔與中文提醒；既有帳號／郵件與角色／權限驗收維持已完成，不要求重做全部流程。
 
 ## 帳號介面與全站中文錯誤提醒 — 2026-10-15
 
@@ -58,9 +72,9 @@
 
 操作與回交證據依既有 [Identity deployment](docs/development/IDENTITY_DEPLOYMENT.md#account-portal-authority-read-only-audit)；此 TODO 為唯一進度表。
 
-## 目前基準 — 2026-10-15（Asia/Taipei）
+## 目前基準 — 2026-10-16（Asia/Taipei）
 
-- 目前已部署 **0.7.28 Build 0／CYID consumer 1.0.5**（本輪驗證／部署見上方新項目）：既有全部模組沿用原 Worker／business D1／Module Access，正式 Identity 切換結果見上方首次登入交接；不等於業務正式首版、乾淨 schema或所有真人驗收完成。
+- 目前已部署 **0.7.29 Build 0／CYID consumer 1.0.5**（本輪驗證／部署見上方主動撤權項目；canonical contract mirror1.0.6）：既有全部模組沿用原 Worker／business D1／Module Access，正式 Identity 切換結果見上方首次登入交接；使用者已確認帳號／郵件與真實角色／權限驗收 OK。本輪主動撤權體驗及業務首版、乾淨 schema、其他真人業務驗收仍分開追蹤。
 - 已包含 0.7.24「CY 程式 → 價格觀測室（原型）」外連，原型程式位於 CYapps `apps/CYPriceDesk/`，維持 Sites owner-private 與 ChatGPT 登入；未發版桌面程式仍不提供下載。
 - 先前已部署 source **0.7.22 Build 0** 已加入單次切換模組提醒，並沿用 Customer／WorkLog 共用 Dialog／ConfirmDialog，修正關閉焦點並移除六模組／Shell 工程描述；包含 quota cooldown／最近成功版本保留及 skip-link 修正；CY 程式頁仍依使用者要求不顯示「發版說明」連結。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
 - 本輪 source **0.7.23 Build 0／CYID consumer 1.0.4** 在既有「帳號與權限 → 系統使用權」新增 Super Admin 的「登記系統」，由 CYID core Session 決定目前 Workspace；其他員工使用權仍在既有清單管理。共享 Dialog／Field／dirty guard／Toast，無 browser registry authority。Provider #416／development #158 與 Web #146／development #138 已通過 CI／部署；七個 canonical mirrors1.0.4 已同步。使用者在原 development portal 完成 CYInvoice 真人登記／目前 Workspace 啟用，畫面已出現 CYInvoice。一般員工 App Access、取消／dirty guard／busy／行動裝置仍待驗收，不因 Super Admin 永遠允許就視為其他員工已授權。
