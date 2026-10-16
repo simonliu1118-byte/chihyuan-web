@@ -63,6 +63,22 @@ test("saved release fields cannot override current names or inject an untrusted 
   const invalid=await loadProgramCatalog(db,Date.parse(day));assert.equal(invalid.current,false);assert.equal(invalid.refreshFailure.code,"INVALID");assert(!JSON.stringify(invalid).includes("untrusted.test"));
   sqlite.close();
 });
+
+test("adding a program preserves older shared release results until the next daily update",async()=>{
+  const {db,sqlite}=database();await updateProgramCatalog(db,day,async()=>Response.json(releases));
+  const value=JSON.parse(sqlite.prepare("SELECT catalog_json FROM program_catalog_state").get().catalog_json);
+  value.programs=value.programs.filter(row=>row.id!=="erp-auto-input");
+  value.programs.find(row=>row.id==="converter").description="outdated description";
+  value.checkedAt="2026-10-16T18:00:00Z";
+  sqlite.prepare("UPDATE program_catalog_state SET catalog_json=?").run(JSON.stringify(value));
+  const catalog=await loadProgramCatalog(db,Date.parse(day));
+  assert.equal(catalog.programs.length,9);assert.equal(catalog.checkedAt,value.checkedAt);
+  assert.equal(catalog.programs.find(row=>row.id==="erp-auto-input").version,"0.2.9");
+  assert(!JSON.stringify(catalog).includes("outdated description"));assert(!JSON.stringify(catalog).includes("鼎新"));
+  assert.equal(catalog.current,false);assert.equal(catalog.automaticUpdate.status,"pending");assert.equal(catalog.refreshFailure,undefined);
+  assert.equal(await updateProgramCatalog(db,day,()=>{throw Error("must not query");}),false);
+  sqlite.close();
+});
 test("catalog cron runs with backup disabled; other schedules cannot trigger catalog fetching",async()=>{
   const {db,sqlite}=database();const original=globalThis.fetch;let calls=0;
   try{

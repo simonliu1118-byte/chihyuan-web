@@ -27,9 +27,20 @@ test("published converter uses its exact formal tag and compiled asset; latest w
   assert.equal(selectProgramRelease(converter,[{...release,draft:true}]),null);
   assert.equal(selectProgramRelease(converter,[{...release,assets:[{...release.assets[0],browser_download_url:"https://untrusted.test/file.zip"}]}]).downloadUrl,null);
 });
+
+test("ERP auto-input selects only the formal product ZIP, excluding OCR models and unrelated tags",()=>{
+  const program=verifiedProgramCatalog.programs.find(row=>row.id==="erp-auto-input");
+  const release={tag_name:"cyerp-auto-input-v0.2.9",draft:false,prerelease:false,published_at:program.publishedAt,assets:[{name:"CYERPAutoInput_V0.2.9.zip",browser_download_url:program.downloadUrl,state:"uploaded",size:100}]};
+  assert.equal(selectProgramRelease(program,[release]).downloadUrl,program.downloadUrl);
+  assert.equal(selectProgramRelease(program,[{...release,tag_name:"cyerp-auto-input-ocr-ppocrv5-mobile-a8814c3"}]),null);
+  assert.equal(selectProgramRelease(program,[{...release,prerelease:true}]),null);
+  assert.equal(selectProgramRelease(program,[release,{...release,tag_name:"cyerp-auto-input-v0.2.10",assets:[]}]).downloadUrl,null);
+});
 test("table and cards share the requested names and real converter download; unreleased tools remain pending",()=>{
   const html=renderToStaticMarkup(createElement(ProgramCatalogView,{catalog:verifiedProgramCatalog}));
   assert.match(html,/電子發票工具/);assert.match(html,/信封套印工具/);assert.match(html,/盲浮水印工具/);
+  assert.match(html,/SMART ERP 自動輸入工具/);assert.match(html,/CYERPAutoInput_V0\.2\.9\.zip/);
+  assert.doesNotMatch(html,/鼎新/);
   assert.doesNotMatch(html,/>CY 電子發票|>CYEnvelope|>CYWatermark/);
   assert.equal((html.match(/smartcopiconverter-v1\.0\.1\/SMARTCOPIConverter_V1\.0\.1_Windows_x64\.zip/g)??[]).length,2);
   assert.equal((html.match(/cy-notice-warning/g)??[]).length,1);
