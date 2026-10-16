@@ -1,8 +1,4 @@
 .cy-erp-page{min-width:0}
-.cy-erp-header{margin-bottom:1rem}
-.cy-erp-heading{display:flex;align-items:center;gap:.9rem;flex-wrap:wrap;margin-bottom:.35rem}
-.cy-erp-heading h1{margin:0}
-.cy-erp-heading .cy-erp-status-button{font-size:.83rem;min-height:34px;padding:.4rem .7rem}
 .cy-erp-status-button.is-online,.cy-erp-status-readonly.is-online{color:#17663e;border-color:#aed8c0}
 .cy-erp-status-button.is-offline,.cy-erp-status-readonly.is-offline{color:#9a2637;border-color:#deb2b9}
 .cy-erp-status-readonly{font-size:.85rem;font-weight:700}

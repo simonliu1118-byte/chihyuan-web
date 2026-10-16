@@ -1,9 +1,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ApiClientError } from "../../api/client";
-import { Dialog } from "../../ui/overlays/Dialog";
 import { HistoryRangeError, resolveHistoryRange } from "../../../shared/erp-query-history";
-import { ERP_ITEM_FIELDS, type ErpField, type ErpQueryHistory, type ErpQueryResult, type ErpQueryStatus, type ErpAgentStatus } from "../../../shared/erp-item-query";
-import { createErpItemQuery, issueErpAgentCredential, revokeErpAgentCredential, loadErpAgentCredentialStatus, loadErpAgentStatus, loadErpItemQuery, type ErpAgentCredentialStatus } from "../api/erp-item-query-client";
+import { ERP_ITEM_FIELDS, type ErpField, type ErpQueryHistory, type ErpQueryResult, type ErpQueryStatus } from "../../../shared/erp-item-query";
+import { createErpItemQuery, loadErpItemQuery } from "../api/erp-item-query-client";
 import "./erp-item-query.css";
 
 const labels: Record<ErpQueryStatus,string> = {
@@ -36,11 +35,18 @@ function ItemFields({fields}:{fields:readonly ErpField[]}) {
     {name:"商品分類",value:[map.get("商品分類"),map.get("商品分類名稱")].filter(Boolean).join(" ")},
   ];
   const details=map.get("商品描述")||"";
-  const moved=new Set(["品號","品名","規格","庫存數量","單位","商品分類","商品分類名稱","商品描述"]);
-  // Keep the existing paired rows starting at 條碼編號／批號管理.
-  const remaining=ERP_ITEM_FIELDS.filter(name=>!moved.has(name)).map(name=>({
-    name,value:map.get(name)??"",
-  }));
+  // Combine adjacent values for display without changing Agent/API payload fields.
+  const dayCount=map.get("有效天數");
+  const days=dayCount?(/天$/.test(dayCount)?dayCount:dayCount+"天"):"";
+  const remaining=[
+    {name:"條碼編號",value:map.get("條碼編號")??""},
+    {name:"批號管理及有效天數",value:[map.get("批號管理"),days].filter(Boolean).join(" / ")},
+    {name:"主供應商",value:[map.get("主供應商"),map.get("主供應商名稱")].filter(Boolean).join("  ")},
+    ...ERP_ITEM_FIELDS.filter(name=>!new Set([
+      "品號","品名","規格","庫存數量","單位","商品分類","商品分類名稱",
+      "商品描述","條碼編號","批號管理","有效天數","主供應商","主供應商名稱",
+    ]).has(name)).map(name=>({name,value:map.get(name)??""})),
+  ];
   return <>
     <div className="cy-erp-item-lead">
       <div className="cy-erp-lead-left"><Fields fields={main.map(f=>({...f,value:f.value??""}))}/></div>
@@ -66,7 +72,7 @@ function HistoryTable({history}:{history:ErpQueryHistory}) {
     <tbody>{history.rows.map((row,i)=><tr key={i}>{row.map((value,j)=><td key={j}>{value||"—"}</td>)}</tr>)}</tbody>
   </table></div>;
 }
-export function ErpItemQueryPage({isSuperAdmin=false}:{isSuperAdmin?:boolean}) {
+export function ErpItemQueryPage() {
   const [itemNo,setItemNo]=useState("");
   const [includeHistory,setIncludeHistory]=useState(false);
   const [historyFrom,setHistoryFrom]=useState("");
@@ -74,45 +80,7 @@ export function ErpItemQueryPage({isSuperAdmin=false}:{isSuperAdmin?:boolean}) {
   const [submitting,setSubmitting]=useState(false);
   const [result,setResult]=useState<ErpQueryResult|null>(null);
   const [queryId,setQueryId]=useState<string|null>(null);
-  const [agent,setAgent]=useState<ErpAgentStatus|null>(null);
-  const [agentError,setAgentError]=useState(false);
   const [error,setError]=useState<string|null>(null);
-  const [credentialsOpen,setCredentialsOpen]=useState(false);
-  const [credential,setCredential]=useState<ErpAgentCredentialStatus|null>(null);
-  const [newToken,setNewToken]=useState<string|null>(null);
-  const [credentialBusy,setCredentialBusy]=useState(false);
-  const [credentialError,setCredentialError]=useState<string|null>(null);
-  function closeCredentials() {if(!credentialBusy){setCredentialsOpen(false);setNewToken(null);setCredentialError(null);}}
-  useEffect(()=>{
-    if(!isSuperAdmin)return;
-    let cancelled=false;
-    void loadErpAgentCredentialStatus()
-      .then(value=>{if(!cancelled)setCredential(value);})
-      .catch(err=>{if(!cancelled)setCredentialError(readableError(err));});
-    return ()=>{cancelled=true;};
-  },[isSuperAdmin]);
-  async function manageCredential(op:"issue"|"revoke") {
-    if(credentialBusy)return;
-    if(!window.confirm(op==="issue"?"產生新憑證會使舊憑證立即失效，確定繼續？":"撤銷後公司查詢程式將無法再連線，確定撤銷？"))return;
-    setCredentialBusy(true);setCredentialError(null);setNewToken(null);
-    try {
-      if(op==="issue"){const value=await issueErpAgentCredential();setNewToken(value.token);}
-      else await revokeErpAgentCredential();
-      setCredential(await loadErpAgentCredentialStatus());
-    }catch(err){setCredentialError(readableError(err));}
-    finally{setCredentialBusy(false);}
-  }
-  useEffect(()=>{
-    let cancelled=false;
-    const refresh=()=>{
-      void loadErpAgentStatus().then(value=>{
-        if(!cancelled){setAgent(value);setAgentError(false);}
-      }).catch(()=>{if(!cancelled){setAgent(null);setAgentError(true);}});
-    };
-    refresh();
-    const timer=window.setInterval(refresh,5000);
-    return ()=>{cancelled=true;window.clearInterval(timer);};
-  },[]);
   useEffect(()=>{
     if(!queryId)return;
     let cancelled=false;let pending=false;
@@ -154,18 +122,7 @@ export function ErpItemQueryPage({isSuperAdmin=false}:{isSuperAdmin?:boolean}) {
     }catch(err){setError(readableError(err));}
     finally{setSubmitting(false);}
   }
-  const connected=!agentError&&agent?.online===true;
-  const connectionLabel=agentError?"狀態未知":connected?"已連線":"未連線";
   return <section className="cy-erp-page">
-    <header className="cy-op-page-header cy-erp-header">
-      <div><div className="cy-erp-heading">
-        <h1>ERP 品號查詢</h1>
-        {isSuperAdmin?<button type="button" className={"cy-op-button cy-erp-status-button "+(connected?"is-online":"is-offline")}
-          onClick={()=>setCredentialsOpen(true)} aria-label={"連線憑證："+connectionLabel}>
-          連線憑證 · {connectionLabel}
-        </button>:<span className={"cy-erp-status-readonly "+(connected?"is-online":"is-offline")}>查詢程式 · {connectionLabel}</span>}
-      </div><p>僅供查閱 SMART ERP 現有品號，不會新增或修改 ERP 或 CY Web 商品資料。</p></div>
-    </header>
     <div className="cy-op-panel cy-erp-query-box">
       <form className="cy-erp-form" onSubmit={event=>void submit(event)}>
         <label htmlFor="erp-item-no">ERP 品號</label>
@@ -229,24 +186,6 @@ export function ErpItemQueryPage({isSuperAdmin=false}:{isSuperAdmin?:boolean}) {
           </>}
         </>)}
     </div>}
-    {isSuperAdmin&&<Dialog open={credentialsOpen} title={"公司查詢程式連線憑證 · "+connectionLabel}
-      size="medium" onClose={closeCredentials} dismissible={!credentialBusy}>
-      <p>只有超級管理員能產生或撤銷憑證。每次產生的原文只顯示一次，請立即複製到公司電腦的安全設定。</p>
-      <p>目前憑證：{credential===null?"讀取中或無法取得":credential.configured?"已啟用":"尚未設定或已撤銷"}</p>
-      <div className="cy-op-page-actions">
-        <button type="button" className="cy-op-button" disabled={credentialBusy}
-          onClick={()=>void manageCredential("issue")}>{credentialBusy?"處理中…":"產生／更換憑證"}</button>
-        <button type="button" className="cy-op-button danger" disabled={credentialBusy||!credential?.configured}
-          onClick={()=>void manageCredential("revoke")}>撤銷憑證</button>
-      </div>
-      {newToken&&<div className="cy-erp-token" role="status">
-        <strong>請立即複製；關閉後無法再次查看：</strong>
-        <code>{newToken}</code>
-        <button type="button" className="cy-op-button"
-          onClick={()=>void navigator.clipboard.writeText(newToken).catch(()=>setCredentialError("無法自動複製，請手動選取憑證。"))}>複製憑證</button>
-        <button type="button" className="cy-op-button" onClick={()=>setNewToken(null)}>已保存，隱藏憑證</button>
-      </div>}
-      {credentialError&&<p className="cy-erp-error" role="alert">{credentialError}</p>}
-    </Dialog>}
+
   </section>;
 }

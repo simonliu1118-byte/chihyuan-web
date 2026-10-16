@@ -91,8 +91,7 @@ export function ProgramCatalogPage() {
     void load();
     return () => { abort.abort(); clearTimeout(timer); };
   }, [notify]);
-  return <Section title="CY 程式" description="CY 程式功能、正式版本與使用入口；開發中的程式先提供功能介紹。"
-    className="cy-program-catalog">
+  return <Section className="cy-program-catalog">
     {loading && !catalog ? <p role="status">正在讀取程式清單…</p> : null}
     {!loading && !catalog ? <p role="status">目前無法讀取程式清單，請稍後重新開啟此頁。</p> : null}
     {catalog ? <ProgramCatalogView catalog={catalog} /> : null}

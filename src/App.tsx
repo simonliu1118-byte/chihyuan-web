@@ -12,6 +12,7 @@ import { AuditOperationalPage } from "./runtime/modules/AuditOperationalPage";
 import { CustomerOperationalPage } from "./runtime/modules/CustomerOperationalPage";
 import { DefectOperationalPage } from "./runtime/modules/DefectOperationalPage";
 import { ErpItemQueryPage } from "./runtime/modules/ErpItemQueryPage";
+import { ErpAgentCredentialControl } from "./runtime/modules/ErpAgentCredentialControl";
 import { ItemOperationalPage } from "./runtime/modules/ItemOperationalPage";
 import { OutsourcingOperationalPage } from "./runtime/modules/OutsourcingOperationalPage";
 import { SalesOrderOperationalPage } from "./runtime/modules/SalesOrderOperationalPage";
@@ -23,6 +24,22 @@ import { createGuardedHashNavigation } from "./ui/foundation/guarded-hash-naviga
 import { FeedbackProvider, useFeedback, useFeedbackMessage } from "./ui/feedback/FeedbackProvider";
 
 type AppRoute = "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "erp-item-query" | "settings" | "audit" | "identity" | "backups" | "programs";
+
+// One source of truth for the topbar titles and on-demand module descriptions.
+const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
+  customers: { title:"客戶", description:"管理客戶資料、聯絡人、拜訪紀錄、報價與常用商品。" },
+  items: { title:"商品", description:"管理商品資料、品號、價格及單位換算。" },
+  defects: { title:"瑕疵", description:"管理瑕疵紀錄、處理進度及作廢。" },
+  orders: { title:"銷售工單", description:"管理銷售工單、ERP 單號與出貨流程；正式單號由 SMART ERP 提供。" },
+  outsourcing: { title:"委外／代工", description:"管理代工單、材料清單、代工單價與庫存。" },
+  worklogs: { title:"工作日誌", description:"建立工作日誌、送交審核及檢視評分統計。" },
+  "erp-item-query": { title:"ERP 品號查詢", description:"僅供查閱 SMART ERP 現有品號，不會新增或修改 ERP 或 CY Web 商品資料。" },
+  identity: { title:"帳號與權限", description:"CYID 身分、Email 與系統准入的管理入口。" },
+  settings: { title:"設定／管理", description:"結構設定由超級管理員維護；管理員可維護工作日誌與計分設定。" },
+  audit: { title:"稽核紀錄", description:"檢視重要業務操作與設定變更；只有管理員與超級管理員可讀取詳細內容。" },
+  backups: { title:"備份管理", description:"查看備份與副本狀態，建立手動備份或重試未完成的 GCS 副本。" },
+  programs: { title:"CY 程式", description:"CY 程式功能、正式版本與使用入口；開發中的程式先提供功能介紹。" },
+};
 
 const baseNavigation: readonly NavigationGroup[] = [
   {
@@ -209,7 +226,7 @@ function OperationalApp({
   else if (route === "orders") content = <SalesOrderOperationalPage />;
   else if (route === "outsourcing") content = <OutsourcingOperationalPage />;
   else if (route === "worklogs") content = <WorkLogOperationalPage />;
-  else if (route === "erp-item-query") content = <ErpItemQueryPage isSuperAdmin={session.user.workspaceRole === "SUPER_ADMIN"} />;
+  else if (route === "erp-item-query") content = <ErpItemQueryPage />;
   else if (route === "identity") content = <SharedIdentityPage session={session} />;
   else if (route === "programs") content = <ProgramCatalogPage />;
   else if (route === "settings") content = <SettingsOperationalPage role={session.user.workspaceRole} />;
@@ -219,6 +236,11 @@ function OperationalApp({
   return (
     <AppShell
       appName="CY Web"
+      pageTitle={PAGE_META[route].title}
+      pageDescription={PAGE_META[route].description}
+      pageTools={route === "erp-item-query"
+        ? <ErpAgentCredentialControl isSuperAdmin={session.user.workspaceRole === "SUPER_ADMIN"} />
+        : undefined}
       subtitle="Chihyuan Enterprise Management System"
       navigation={navigation}
       activeNavigationKey={route}

@@ -1,8 +1,12 @@
-import type { PropsWithChildren, ReactNode } from "react";
+import { useEffect, useState, type PropsWithChildren, type ReactNode } from "react";
+import { Dialog } from "../overlays/Dialog";
 import type { NavigationGroup, NavigationItem } from "../foundation/navigation";
 
 export interface AppShellProps {
   appName: string;
+  pageTitle: string;
+  pageDescription?: string;
+  pageTools?: ReactNode;
   subtitle?: string;
   navigation: readonly NavigationGroup[];
   activeNavigationKey?: string;
@@ -13,6 +17,9 @@ export interface AppShellProps {
 
 export function AppShell({
   appName,
+  pageTitle,
+  pageDescription,
+  pageTools,
   subtitle,
   navigation,
   activeNavigationKey,
@@ -21,6 +28,9 @@ export function AppShell({
   onNavigate,
   children,
 }: PropsWithChildren<AppShellProps>) {
+  const [helpOpen, setHelpOpen] = useState(false);
+  // A route change never leaves the previous module's help text open.
+  useEffect(() => { setHelpOpen(false); }, [pageTitle]);
   return (
     <div className="cy-app-shell">
       <a className="cy-skip-link" href="#cy-main-content" onClick={(event) => {
@@ -81,7 +91,14 @@ export function AppShell({
 
       <div className="cy-shell-workspace">
         <header className="cy-shell-topbar">
-          <div className="cy-shell-topbar-title">{appName}</div>
+          <div className="cy-shell-topbar-heading">
+            <h1 className="cy-shell-topbar-title">{pageTitle}</h1>
+            {pageDescription ? <button type="button" className="cy-shell-help-button"
+              aria-label={`查看${pageTitle}說明`} onClick={() => setHelpOpen(true)}>
+              <span aria-hidden="true">ⓘ</span> 說明
+            </button> : null}
+            {pageTools}
+          </div>
           {headerActions ? <div className="cy-shell-topbar-actions">{headerActions}</div> : null}
         </header>
 
@@ -89,6 +106,10 @@ export function AppShell({
           {children}
         </main>
       </div>
+      {pageDescription && <Dialog open={helpOpen} title={pageTitle + "說明"}
+        onClose={() => setHelpOpen(false)} size="small">
+        <p>{pageDescription}</p>
+      </Dialog>}
     </div>
   );
 }

@@ -435,10 +435,7 @@ export function ItemOperationalPage() {
 
   return <div className="cy-item-op">
     <div className="cy-op-page-header">
-      <div>
-        <h1>商品</h1>
-        <p>管理商品資料、品號、價格及單位換算。</p>
-      </div>
+      
       <div className="cy-op-page-actions"><button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增商品</button></div>
     </div>
 
