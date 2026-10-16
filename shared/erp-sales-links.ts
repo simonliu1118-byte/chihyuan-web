@@ -46,6 +46,13 @@ export function erpNumber(text: string): number {
   return Number.isFinite(value) ? value : 0;
 }
 
+/** ERP money for display (user 2026-10-17: with $): 「1420」→「$1,420」, 「-3250」→「-$3,250」; "" stays "". */
+export function erpMoney(text: string | number): string {
+  if (typeof text === "string" && !text.trim()) return "";
+  const value = typeof text === "number" ? text : erpNumber(text);
+  return (value < 0 ? "-$" : "$") + Math.abs(value).toLocaleString("zh-TW", { maximumFractionDigits: 3 });
+}
+
 /** 未收款 by customer, in ERP's order, with CY Web's per-customer 未收 subtotal. */
 export function groupBills(bills: readonly ErpReceivableBill[]) {
   const groups = new Map<string, { customerCode: string; customerName: string; bills: ErpReceivableBill[]; unpaid: number }>();

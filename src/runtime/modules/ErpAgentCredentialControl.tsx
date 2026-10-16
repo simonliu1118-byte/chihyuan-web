@@ -84,8 +84,8 @@ export function ErpAgentCredentialControl({ isSuperAdmin }: { isSuperAdmin: bool
   return <>
     {isSuperAdmin
       ? <button type="button" className={"cy-op-button cy-erp-status-button " + stateClass}
-          aria-label={"連線憑證：" + label} onClick={() => setOpen(true)}>
-          連線憑證 · {label}
+          aria-label={"連線憑證：" + label} title="連線憑證" onClick={() => setOpen(true)}>
+          {label}
         </button>
       : <span className={"cy-erp-status-readonly " + stateClass} role="status">
           查詢程式 · {label}

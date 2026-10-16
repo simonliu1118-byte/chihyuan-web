@@ -16,3 +16,9 @@ test("case and width insensitive matching, without interpreting wildcard",()=>{
   assert.equal(erpNameContains("ABC健康","ａｂｃ"),true);
   assert.equal(erpNameContains("測試商品","其他"),false);
 });
+test("order numbers: 23x 銷貨 and 24x 銷退 only", async () => {
+  const { parseErpOrderNo } = await import("../shared/erp-name-search.ts");
+  assert.equal(parseErpOrderNo(" 232a-20260804003 "), "232A-20260804003");
+  assert.equal(parseErpOrderNo("241A-20260910001"), "241A-20260910001");
+  for (const no of ["631A-20260422002", "232A20260804003", "232A-2026080400X", ""]) assert.equal(parseErpOrderNo(no), null, no);
+});
