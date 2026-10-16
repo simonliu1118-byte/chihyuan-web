@@ -44,7 +44,8 @@ async function sha256(bytes: Uint8Array): Promise<string> {
   return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, "0")).join("");
 }
 const SCHEMA_SQL = `SELECT type, name, tbl_name, sql FROM sqlite_master
-  WHERE tbl_name != 'd1_migrations' AND tbl_name NOT GLOB 'sqlite_*' AND tbl_name NOT GLOB '_cf_*' ORDER BY type, name`;
+  WHERE tbl_name != 'd1_migrations' AND tbl_name != 'program_catalog_state'
+    AND tbl_name NOT GLOB 'sqlite_*' AND tbl_name NOT GLOB '_cf_*' ORDER BY type, name`;
 async function layout(db: D1Database): Promise<{ schema: string; columns: Record<string, string[]> }> {
   const result = await db.prepare(SCHEMA_SQL).all<{ type: string; name: string }>();
   const tables = result.results.filter(row => row.type === "table").map(row => row.name).sort();

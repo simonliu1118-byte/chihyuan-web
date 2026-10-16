@@ -716,7 +716,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
 
   await acceptSettingsAuditHttp(db);
   await acceptBusinessHttpAuthority(db, componentItem.id, finishedItem.id);
-  await acceptProgramCatalog();
+  await acceptProgramCatalog(db);
   await acceptRetiredIdentitySource(db);
   await acceptPortableRecovery(db, restoreDb);
   await acceptRetiredIdentityRestore(db, restoreDb);

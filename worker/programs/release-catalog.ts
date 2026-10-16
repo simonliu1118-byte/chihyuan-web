@@ -1,4 +1,4 @@
-import { verifiedProgramCatalog, type ProgramCatalog, type ProgramEntry, type ProgramId } from "../../shared/program-catalog";
+import { verifiedProgramCatalog, programCatalogDay, nextProgramCatalogUpdate, type ProgramCatalog, type ProgramEntry, type ProgramId } from "../../shared/program-catalog";
 
 const repository = "https://github.com/simonliu1118-byte/CYapps";
 const prefixes: Partial<Record<ProgramId, string>> = {
@@ -17,15 +17,7 @@ interface Release {
 }
 
 class CatalogFailure extends Error {
-  constructor(readonly detail: NonNullable<ProgramCatalog["refreshFailure"]>, readonly retryAt?: number) { super(detail.code); }
-}
-
-function rateLimitDeadline(response: Response, now: number): number {
-  const seconds = (value: string | null) => value && /^\d{1,12}$/.test(value) ? Number(value) : 0;
-  const retry = seconds(response.headers.get("retry-after"));
-  const reset = seconds(response.headers.get("x-ratelimit-reset"));
-  // Headers stay inside the reader. Never sleep/retry in the HTTP request.
-  return Math.min(now + 86400000, Math.max(now + 60000, now + retry * 1000, reset * 1000 + 1000));
+  constructor(readonly detail: NonNullable<ProgramCatalog["refreshFailure"]>) { super(detail.code); }
 }
 
 /** A release is usable only when its known tag, published date and asset agree. */
@@ -57,13 +49,12 @@ export function selectProgramRelease(program: ProgramEntry, values: readonly unk
     releaseUrl: `${repository}/releases/tag/${tag}`, downloadUrl: asset ? expectedUrl : null };
 }
 
-async function readPage(response: Response, now: number): Promise<unknown[]> {
+async function readPage(response: Response): Promise<unknown[]> {
   if (!response.ok) {
     const rateLimited = response.status === 429 || ((response.status === 403)
       && (response.headers.get("x-ratelimit-remaining") === "0" || response.headers.has("retry-after")));
     await response.body?.cancel().catch(() => undefined);
-    throw new CatalogFailure({ code: rateLimited ? "RATE_LIMIT" : "HTTP", httpStatus: response.status },
-      rateLimited ? rateLimitDeadline(response, now) : undefined);
+    throw new CatalogFailure({ code: rateLimited ? "RATE_LIMIT" : "HTTP", httpStatus: response.status });
   }
   if (!response.body) throw new CatalogFailure({ code: "BODY" });
   const reader = response.body.getReader();
@@ -86,8 +77,7 @@ async function readPage(response: Response, now: number): Promise<unknown[]> {
 }
 
 /** Fixed public source; no user URL, credential, request retry or DB mutation. */
-export async function readProgramCatalog(fetcher: typeof fetch = fetch, now = new Date().toISOString(),
-  onCooldown?: (retryAt: number) => void, clock: () => number = Date.now): Promise<ProgramCatalog> {
+export async function readProgramCatalog(fetcher: typeof fetch = fetch, now = new Date().toISOString()): Promise<ProgramCatalog> {
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), 8000);
   try {
@@ -98,7 +88,7 @@ export async function readProgramCatalog(fetcher: typeof fetch = fetch, now = ne
         // returns 3xx to readPage, which rejects it without following Location.
         signal: abort.signal, redirect: "manual", headers: { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "CYWeb-ProgramCatalog" },
       });
-      const rows = await readPage(response, clock());
+      const rows = await readPage(response);
       releases.push(...rows);
       if (rows.length < 100) break;
       if (page === 4) throw new CatalogFailure({ code: "PAGE_LIMIT" });
@@ -108,7 +98,6 @@ export async function readProgramCatalog(fetcher: typeof fetch = fetch, now = ne
     if (programs.some(program => program === null)) throw new CatalogFailure({ code: "MISSING" });
     return { programs: programs as ProgramEntry[], checkedAt: now, current: true };
   } catch (error) {
-    if (error instanceof CatalogFailure && error.retryAt !== undefined) onCooldown?.(error.retryAt);
     // Only an allowlisted classification/status crosses the authenticated API.
     // Never return provider bodies, exception text, headers, credentials or IPs.
     return { ...verifiedProgramCatalog, refreshFailure: error instanceof CatalogFailure ? error.detail
@@ -117,21 +106,60 @@ export async function readProgramCatalog(fetcher: typeof fetch = fetch, now = ne
   finally { clearTimeout(timer); }
 }
 
-export function createProgramCatalogLoader(fetcher: typeof fetch = fetch, clock: () => number = Date.now): () => Promise<ProgramCatalog> {
-  let cached: { value: ProgramCatalog; expires: number } | undefined;
-  let pending: Promise<ProgramCatalog> | undefined;
-  let lastSuccess: ProgramCatalog | undefined;
-  return () => {
-    if (cached && cached.expires > clock()) return Promise.resolve(cached.value);
-    if (pending) return pending;
-    let retryAt: number | undefined;
-    pending = readProgramCatalog(fetcher, new Date(clock()).toISOString(), until => { retryAt = until; }, clock).then(value => {
-      if (value.current) lastSuccess = value;
-      else if (lastSuccess) value = { ...lastSuccess, current: false, refreshFailure: value.refreshFailure };
-      cached = { value, expires: value.current ? clock() + 300000 : retryAt ?? clock() + 30000 };
-      return value;
-    }).finally(() => { pending = undefined; });
-    return pending;
-  };
+interface CatalogState {
+  attempted_day: string;
+  attempted_at: string;
+  completed_at: string | null;
+  catalog_json: string | null;
+  failure_json: string | null;
 }
-export const loadProgramCatalog = createProgramCatalogLoader();
+
+/** One durable daily claim across Worker instances; no browser or retry producer. */
+export async function updateProgramCatalog(db: D1Database, now = new Date().toISOString(), fetcher: typeof fetch = fetch): Promise<boolean> {
+  const token = crypto.randomUUID();
+  const claimed = await db.prepare(`INSERT INTO program_catalog_state (id, attempted_day, attempted_at, attempt_token)
+    VALUES (1, ?1, ?2, ?3) ON CONFLICT(id) DO UPDATE SET attempted_day=excluded.attempted_day,
+      attempted_at=excluded.attempted_at, attempt_token=excluded.attempt_token, completed_at=NULL, failure_json=NULL
+    WHERE program_catalog_state.attempted_day < excluded.attempted_day RETURNING id`)
+    .bind(programCatalogDay(Date.parse(now)), now, token).first<{ id: number }>();
+  if (!claimed) return false;
+  const value = await readProgramCatalog(fetcher, now);
+  await db.prepare(`UPDATE program_catalog_state SET completed_at=?1,
+    catalog_json=COALESCE(?2, catalog_json), failure_json=?3 WHERE id=1 AND attempt_token=?4`)
+    .bind(now, value.current ? JSON.stringify(value) : null, value.refreshFailure ? JSON.stringify(value.refreshFailure) : null, token).run();
+  return true;
+}
+
+/** Reads public metadata only; permissions remain in the authenticated route. */
+export async function loadProgramCatalog(db: D1Database, now = Date.now()): Promise<ProgramCatalog> {
+  const row = await db.prepare("SELECT attempted_day, attempted_at, completed_at, catalog_json, failure_json FROM program_catalog_state WHERE id=1").first<CatalogState>();
+  let value = verifiedProgramCatalog;
+  let failure: ProgramCatalog["refreshFailure"];
+  try {
+    if (row?.catalog_json) {
+      const stored = JSON.parse(row.catalog_json) as ProgramCatalog;
+      if (!Array.isArray(stored.programs) || !Number.isFinite(Date.parse(stored.checkedAt))) throw new Error("INVALID");
+      const programs = verifiedProgramCatalog.programs.map(base => {
+        if (!prefixes[base.id]) return base;
+        const release = stored.programs.find(item => item.id === base.id);
+        if (!release || !/^\d+\.\d+\.\d+$/.test(release.version ?? "") || !Number.isFinite(Date.parse(release.publishedAt ?? ""))) throw new Error("INVALID");
+        const tag = `${prefixes[base.id]}-v${release.version}`;
+        const filename = files[base.id]?.(release.version!);
+        const download = filename ? `${repository}/releases/download/${tag}/${filename}` : null;
+        if (release.releaseUrl !== `${repository}/releases/tag/${tag}` || (release.downloadUrl !== null && release.downloadUrl !== download)) throw new Error("INVALID");
+        return { ...base, version: release.version, publishedAt: release.publishedAt, releaseUrl: release.releaseUrl, downloadUrl: release.downloadUrl };
+      });
+      value = { programs, checkedAt: stored.checkedAt, current: true };
+    }
+    if (row?.failure_json) {
+      const detail = JSON.parse(row.failure_json) as NonNullable<ProgramCatalog["refreshFailure"]>;
+      if (!["HTTP", "RATE_LIMIT", "TIMEOUT", "NETWORK", "BODY", "TOO_LARGE", "INVALID", "PAGE_LIMIT", "MISSING"].includes(detail.code)) throw new Error("INVALID");
+      failure = { code: detail.code, ...(Number.isInteger(detail.httpStatus) && detail.httpStatus! >= 100 && detail.httpStatus! <= 599 ? { httpStatus: detail.httpStatus } : {}) };
+    }
+  } catch { value = verifiedProgramCatalog; failure = { code: "INVALID" }; }
+  const current = Boolean(value.current && row?.completed_at && !failure && row.attempted_day === programCatalogDay(now));
+  const status = failure ? "failed" : !row?.completed_at ? "pending" : current ? "ready" : "overdue";
+  return { ...value, current, ...(failure ? { refreshFailure: failure } : {}), automaticUpdate: {
+    status, lastAttemptAt: row?.attempted_at ?? null, nextUpdateAt: nextProgramCatalogUpdate(now),
+  } };
+}

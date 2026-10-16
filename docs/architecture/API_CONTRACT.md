@@ -50,6 +50,8 @@ Do not put secrets, credentials, personal data or full request bodies into a req
 
 ## 4. Cache behavior
 
+`GET /api/programs` authenticates the existing CYID Session, then reads the D1 singleton catalog shared by all Worker instances. It never contacts GitHub or initiates a refresh. A separate 03:00 Asia/Taipei cron performs at most one claimed refresh batch per scheduled day, retaining the last successful snapshot on failure. The response adds `automaticUpdate: { status: "pending" | "ready" | "failed" | "overdue", lastAttemptAt: string | null, nextUpdateAt: string }`; `checkedAt` remains the last successful confirmation (or the verified source snapshot before the first run). No browser refresh endpoint exists. The page reads once on entry and once after the next daily run when left open, with no manual update button. Before the first cron it shows the verified snapshot as pending; it does not invent a successful run.
+
 Authenticated browsers may request `GET /api/auth/me?include=module-access` to receive the existing `user`/`expiresAt` plus `moduleAccess: { modules, allowedModules, implicitAll }`. The snapshot resolves the current CYID principal once and uses the existing app-local access service; it grants no additional access and accepts no browser authority input. Plain `GET /api/auth/me` retains its existing shape. Both use `no-store` and existing 401/503 and cookie-clearing semantics.
 
 Business/API responses are returned with `Cache-Control: no-store` unless a later endpoint has an explicit safe caching design.

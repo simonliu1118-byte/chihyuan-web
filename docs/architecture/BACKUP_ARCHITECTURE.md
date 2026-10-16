@@ -18,6 +18,8 @@ CY Backup storage orchestration
 
 D1 remains the live authoritative database after application cutover. R2 and GCS are backup targets, not live synchronization stores.
 
+The derived public `program_catalog_state` singleton is explicitly excluded from portable business data and schema fingerprints. Its migration does not change the `0007_retired_entity_ids` portable business schema; adding or populating this cache leaves existing business snapshots compatible. Other unknown tables still fail schema coverage checks. Program-catalog cron (03:00 Taiwan) is dispatched independently of the opt-in backup cron (03:30 Taiwan); enabling daily catalog updates does not enable backup or backup schedules.
+
 ## 2. Recovery tiers
 
 ### R2 — operational tier
