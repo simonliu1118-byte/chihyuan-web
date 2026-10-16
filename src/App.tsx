@@ -44,7 +44,6 @@ const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
 const baseNavigation: readonly NavigationGroup[] = [
   {
     key: "business",
-    label: "業務",
     items: [
       { key: "customers", label: "客戶", href: "#customers" },
       { key: "items", label: "商品", href: "#items" },
@@ -57,7 +56,7 @@ const baseNavigation: readonly NavigationGroup[] = [
   },
   {
     key: "administration",
-    label: "管理",
+    dividerBefore: true,
     items: [
       { key: "identity", label: "帳號與權限", href: "#identity" },
       { key: "settings", label: "設定", href: "#settings" },
@@ -238,6 +237,8 @@ function OperationalApp({
       appName="CY Web"
       pageTitle={PAGE_META[route].title}
       pageDescription={PAGE_META[route].description}
+      accountLabel={`帳號：${session.user.employeeNo} ${session.user.displayName} ${accountPermissionLabel(session.user.workspaceRole)}`}
+      accountRole={session.user.workspaceRole}
       pageTools={route === "erp-item-query"
         ? <ErpAgentCredentialControl isSuperAdmin={session.user.workspaceRole === "SUPER_ADMIN"} />
         : undefined}

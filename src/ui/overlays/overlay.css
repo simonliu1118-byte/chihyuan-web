@@ -142,6 +142,12 @@
   border-radius: 18px 18px 0 0;
 }
 
+.cy-dialog-plain .cy-dialog-surface { position: relative; width: min(400px,calc(100vw - 32px)); max-height: inherit; }
+.cy-dialog-plain .cy-dialog-body { padding: 20px 52px 20px 20px; line-height: 1.6; }
+.cy-dialog-plain .cy-dialog-body p { margin: 0; }
+.cy-dialog-floating-close { position: absolute; top: 8px; right: 8px; z-index: 1; }
+.cy-dialog-drawer.cy-shell-navigation-drawer .cy-dialog-surface { width: min(320px,88vw); margin: 0 auto 0 0; border-left: 0; border-right: 1px solid var(--cy-border); }
+
 @media (max-width: 680px) {
   .cy-dialog-modal .cy-dialog-surface {
     width: calc(100vw - 20px);
@@ -166,4 +172,7 @@
   .cy-dialog-drawer .cy-dialog-surface {
     width: 100vw;
   }
+
+  .cy-dialog-plain .cy-dialog-surface { width: min(400px,calc(100vw - 32px)); }
+  .cy-dialog-floating-close { width: 44px; height: 44px; top: 4px; right: 4px; }
 }

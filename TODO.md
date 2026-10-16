@@ -2,6 +2,18 @@
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
 
+## 共用頁首／手機導覽／ERP 搜尋與歷史日期 — 2026-10-16
+
+- 以最新 main `b5de6b3`（已部署0.7.36、PR169～173）開始本輪 **0.7.37 Build0**；舊本機ERP橋接草稿不併入。現有品號／品名、批號／歷史、Agent與Module Access owner沿用。
+- 原六業務模組及ERP入口與管理區以分隔線區分，移除「業務／管理」小標、保留「工具」。共用頁首標題由16px加大至20px；說明沿用Dialog的無可見標題變體，只顯示文字與關閉控制，仍保有accessible name／Esc／焦點復歸。
+- 共用AppShell以820px的presentation條件，單一導覽內容選擇桌機sidebar或手機Drawer；同一headerActions選擇桌機帳號區或手機帳號Modal，非雙DOM複製。保留原navigation guard及角色金／銅色；手機明確block外殼取代滿版auto-grid導覽空白。
+- ERP搜尋類別下拉目前提供已支援「商品」；下方品號／品名切換，輸入欄上方不重複label，placeholder隨模式變化；所有寬度維持右側查詢按鈕。原生日期欄位位於歷史開關下面；額外類別待其正式能力加入，不提供假客戶查詢。
+- 同一shared date owner涵蓋全介面與Worker：三個曆年周年當天允許、下一天拒絕；去年同月同日至臺北今天為空日期預設，修正舊+1天與閏年反向比較問題。ERP清單統一一個table/card presenter，每頁25筆；手機歷史摘要可展開，無第二業務資料流／observer／retry。
+- [x] Browser／Worker TypeScript；shared日期與actual Worker/SQLite regression（超三年400且零工作、周年202與預設日期持久化）通過。
+- [x] 完整source contracts（11 migrations／52 tables）、Worker/assets build、68項Node regression；AITeam共通檔與CYID canonical Git blob、consumer window核對通過。
+- [x] 本機合成browser：Desktop標題20px／說明無可見header、超三年中文Modal；390px收合導覽／Esc／帳號Modal、品名25筆card分頁與點品號新工作；320px修正原生日期造成的grid min-content撐寬，320／768px無表單內或頁面橫向溢出。原生日期與空白最近一年結果確認，未操作正式帳號或真實ERP。
+- [ ] exact-head required CI、合併與原網站部署。
+
 ## CY 程式補列 ERP 自動輸入工具 — 2026-10-16
 
 - Source **0.7.32 Build 0／consumer1.0.5**：補列 CYERPAutoInput，顯示「SMART ERP 自動輸入工具」，沿用中央正式 Auto SVG、正式 `cyerp-auto-input-v0.2.9` 與 `CYERPAutoInput_V0.2.9.zip`。程式說明依上游 README 描述平台訂單匯入、銷貨單自動輸入與依設定儲存／列印；此工具與 CVT 說明均不使用「鼎新」。
