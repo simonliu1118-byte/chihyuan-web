@@ -5,6 +5,7 @@ import { ErpQueryRows } from "./ErpQueryRows";
 import { parseErpCode, parseErpNameKeyword } from "../../../shared/erp-name-search";
 import { ERP_ITEM_FIELDS, type ErpField, type ErpQueryHistory } from "../../../shared/erp-item-query";
 import { ErpJobStatus, Fields, showsData } from "./ErpJobStatus";
+import { erpMoney } from "../../../shared/erp-sales-links";
 import type { CyWebModuleCode } from "../../../shared/modules";
 import { useErpJob, type ErpJob } from "./useErpJob";
 import { ErpCustomerQuery } from "./ErpCustomerQuery";
@@ -41,7 +42,7 @@ function ItemFields({ fields }: { fields: readonly ErpField[] }) {
     ...ERP_ITEM_FIELDS.filter(name => !new Set([
       "品號", "品名", "規格", "庫存數量", "單位", "商品分類", "商品分類名稱",
       "商品描述", "條碼編號", "批號管理", "有效天數", "主供應商", "主供應商名稱",
-    ]).has(name) && map.has(name)).map(name => ({ name, value: map.get(name) ?? "" })),
+    ]).has(name) && map.has(name)).map(name => ({ name, value: shown(name, map.get(name) ?? "") })),
   ];
   return <>
     <div className="cy-erp-item-lead">
@@ -52,8 +53,11 @@ function ItemFields({ fields }: { fields: readonly ErpField[] }) {
     <Fields fields={remaining} />
   </>;
 }
+/** Item money fields shown with $ (user 2026-10-17); the API values stay ERP strings. */
+const MONEY_FIELDS = new Set(["標準進價", "標準售價", "售價定價一", "售價定價二", "售價定價三", "售價定價四", "售價定價五", "售價定價六"]);
+const shown = (name: string, value: string) => MONEY_FIELDS.has(name) ? erpMoney(value) : value;
 const rowsOf = (rows: readonly ErpField[][], columns: readonly string[]) =>
-  rows.map(row => { const values = new Map(row.map(f => [f.name, f.value])); return columns.map(name => values.get(name) || ""); });
+  rows.map(row => { const values = new Map(row.map(f => [f.name, f.value])); return columns.map(name => shown(name, values.get(name) || "")); });
 function HistoryTable({ history }: { history: ErpQueryHistory }) {
   return <ErpQueryRows label="歷史異動" columns={history.columns} rows={history.rows} summaryColumns={[0, 4, 5]} />;
 }

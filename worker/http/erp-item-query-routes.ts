@@ -6,7 +6,7 @@ import {
 } from "../../shared/erp-item-query";
 import { AuditService } from "../audit/audit-service";
 import { HistoryRangeError, resolveDateRange, resolveHistoryRange } from "../../shared/erp-query-history";
-import { erpNameContains, parseErpCode, parseErpNameKeyword } from "../../shared/erp-name-search";
+import { erpNameContains, parseErpCode, parseErpNameKeyword, parseErpOrderNo } from "../../shared/erp-name-search";
 import { checkModuleAccess, resolveAppMember, type AppMemberRecord } from "../auth/app-access";
 import { requireIdentity } from "../auth/guard";
 import type { IdentityPrincipal } from "../identity/contract";
@@ -28,15 +28,18 @@ type JobRow = {
   target_code: string | null; receivable_scope: ErpReceivableScope | null; include_cost: number; result_json: string | null;
   error_code: ErpQueryErrorCode | null; error_message: string | null;
 };
-/** Each query type is opened by one Module Access grant (user 2026-10-17: by data sensitivity). */
-const MODULE_FOR_TYPE: Record<ErpQueryType, CyWebModuleCode> = {
-  ITEM_NO: "ERP_ITEM_QUERY", ITEM_NAME: "ERP_ITEM_QUERY",
-  CUSTOMER_NO: "ERP_CUSTOMER_QUERY", CUSTOMER_NAME: "ERP_CUSTOMER_QUERY", SALES: "ERP_CUSTOMER_QUERY",
-  RECEIVABLE: "ERP_RECEIVABLE_QUERY",
+/**
+ * The Module Access grants that open each query type, any one is enough (user 2026-10-17: by data
+ * sensitivity). ORDER opens a 未收款 憑證, so either the customer or the receivable grant opens it.
+ */
+const MODULES_FOR_TYPE: Record<ErpQueryType, readonly CyWebModuleCode[]> = {
+  ITEM_NO: ["ERP_ITEM_QUERY"], ITEM_NAME: ["ERP_ITEM_QUERY"],
+  CUSTOMER_NO: ["ERP_CUSTOMER_QUERY"], CUSTOMER_NAME: ["ERP_CUSTOMER_QUERY"], SALES: ["ERP_CUSTOMER_QUERY"],
+  RECEIVABLE: ["ERP_RECEIVABLE_QUERY"], ORDER: ["ERP_CUSTOMER_QUERY", "ERP_RECEIVABLE_QUERY"],
 };
 const ERP_QUERY_MODULES: readonly CyWebModuleCode[] = ["ERP_ITEM_QUERY", "ERP_CUSTOMER_QUERY", "ERP_RECEIVABLE_QUERY"];
 /** Report types run whole ERP reports (COPR15+COPR16, ACRR18) and may take minutes. */
-const REPORT_TYPES = new Set<ErpQueryType>(["SALES", "RECEIVABLE"]);
+const REPORT_TYPES = new Set<ErpQueryType>(["SALES", "RECEIVABLE", "ORDER"]);
 const NAME_TYPES = new Set<ErpQueryType>(["ITEM_NAME", "CUSTOMER_NAME"]);
 const ITEM_FIELD_SET = new Set<string>(ERP_ITEM_FIELDS);
 const COST_FIELD_SET = new Set<string>(ERP_ITEM_COST_FIELDS);
@@ -66,7 +69,7 @@ const parsedJson = <T,>(text: string | null): T | null => text ? JSON.parse(text
 function toJob(row: JobRow, showCost: boolean): ErpQueryResult {
   const list = parsedJson<{items:ErpField[][];total:number;truncated:boolean}>(row.items_json);
   const report = parsedJson<{orders?:ErpSalesOrder[];bills?:ErpReceivableBill[];total:number;truncated:boolean}>(row.result_json);
-  const sales = row.query_type === "SALES";
+  const sales = row.query_type === "SALES";  // ORDER keeps its number in code and has no dates
   const fields = parsedJson<ErpField[]>(row.fields_json) ?? [];
   return {
     id: row.id, queryType:row.query_type, itemNo:row.query_type === "ITEM_NO" ? row.item_no : null,
@@ -192,21 +195,27 @@ function parseSalesLine(raw: unknown): ErpSalesLine {
     note: s("note", 4096), sourceOrder: s("sourceOrder", 60),
   };
 }
-/** 銷貨／銷退單: every order is the job's customer and inside its 單據日期 range. */
+/**
+ * 銷貨／銷退單: SALES orders are the job's customer inside its 單據日期 range; an ORDER job's orders
+ * are that one number.
+ */
 function parseSales(body: Record<string, unknown>, job: JobRow) {
-  if (body.customerCode !== job.target_code || body.dateFrom !== job.history_from || body.dateTo !== job.history_to)
-    return bad("INVALID_AGENT_RESULT", "回報的客戶或日期範圍與查詢工作不同");
+  const one = job.query_type === "ORDER";
+  if (one ? body.orderNo !== job.target_code
+    : body.customerCode !== job.target_code || body.dateFrom !== job.history_from || body.dateTo !== job.history_to)
+    return bad("INVALID_AGENT_RESULT", "回報的客戶、單號或日期範圍與查詢工作不同");
   const orders = list(body.orders, "銷貨銷退單", MAX_ORDERS).map((raw: unknown): ErpSalesOrder => {
     const order = object(raw, "銷貨銷退單");
     const s = (name: string, max = 200) => limitedString(order[name], "銷貨銷退單" + name, max);
     if (order.kind !== "銷貨" && order.kind !== "銷退") return bad("INVALID_AGENT_RESULT", "單據類別只能是銷貨或銷退");
     const date = isoDay(order.date, "單據日期");
-    if (date < (job.history_from ?? "") || date > (job.history_to ?? ""))
+    if (!one && (date < (job.history_from ?? "") || date > (job.history_to ?? "")))
       return bad("INVALID_AGENT_RESULT", "單據日期不在查詢範圍內");
     const customerCode = s("customerCode", 40);
-    if (customerCode !== job.target_code) return bad("INVALID_AGENT_RESULT", "單據客戶與查詢客戶不同");
+    if (!one && customerCode !== job.target_code) return bad("INVALID_AGENT_RESULT", "單據客戶與查詢客戶不同");
     const orderNo = s("orderNo", 60);
     if (!orderNo.trim()) return bad("INVALID_AGENT_RESULT", "單據必須有單號");
+    if (one && orderNo !== job.target_code) return bad("INVALID_AGENT_RESULT", "單據單號與查詢單號不同");
     const lines = list(order.lines, "銷貨明細", MAX_ORDER_LINES).map(parseSalesLine);
     if (!lines.length) return bad("INVALID_AGENT_RESULT", "單據必須有明細");
     return {
@@ -311,7 +320,7 @@ function parseItemResult(body: Record<string, unknown>, job: JobRow, outcome: "F
 function parseBusinessResult(body: Record<string, unknown>, job: JobRow, outcome: "FOUND" | "NOT_FOUND" | "FAILED") {
   for (const key of ["warehouses", "batches", "items", "orders", "bills"] as const)
     if (body[key] != null && (!Array.isArray(body[key]) || (body[key] as unknown[]).length !== 0)
-      && !(key === "items" && job.query_type === "CUSTOMER_NAME" || key === "orders" && job.query_type === "SALES"
+      && !(key === "items" && job.query_type === "CUSTOMER_NAME" || key === "orders" && (job.query_type === "SALES" || job.query_type === "ORDER")
         || key === "bills" && job.query_type === "RECEIVABLE"))
       return bad("INVALID_AGENT_RESULT", "查詢結果附帶了其他類型的資料");
   if (body.history != null || body.batchManaged != null
@@ -332,7 +341,7 @@ function parseBusinessResult(body: Record<string, unknown>, job: JobRow, outcome
     return { ...EMPTY, fieldsJson: found ? JSON.stringify(fields) : null, resultCount: found ? 1 : 0, truncated: false };
   }
   const result = job.query_type === "CUSTOMER_NAME" ? parseNameList(body, job)
-    : job.query_type === "SALES" ? parseSales(body, job) : parseReceivables(body, job);
+    : job.query_type === "SALES" || job.query_type === "ORDER" ? parseSales(body, job) : parseReceivables(body, job);
   const count = "items" in result ? result.items.length : "orders" in result ? result.orders.length : result.bills.length;
   if (found && count === 0) return bad("INVALID_AGENT_RESULT", "FOUND 的結果不可為空");
   if (!found && (count !== 0 || result.total !== 0 || result.truncated)) return bad("INVALID_AGENT_RESULT", "非成功結果不得附帶 ERP 資料");
@@ -396,13 +405,13 @@ async function housekeeping(db: D1Database): Promise<void> {
   const expired = await db.prepare(
     "UPDATE erp_item_queries SET status='EXPIRED', completed_at=?1 WHERE status='QUEUED' AND expires_at<=?1 RETURNING id,owner_member_id,item_no"
   ).bind(nowIso).all<{ id: string; owner_member_id: number; item_no: string }>();
-  // RUNNING limits: 180 s a plain query, 300 s with 歷史異動, 600 s an ERP report (SALES runs two).
+  // RUNNING limits: 180 s a plain query, 300 s with 歷史異動, 600 s an ERP report (SALES runs two, ORDER one).
   const timedOut = await db.prepare(
     `UPDATE erp_item_queries SET status='FAILED', completed_at=?1, error_code='AGENT_TIMEOUT', error_message=?2
       WHERE status='RUNNING' AND (
-        (query_type IN ('SALES','RECEIVABLE') AND started_at<=?5)
-        OR (query_type NOT IN ('SALES','RECEIVABLE') AND include_history=0 AND started_at<=?3)
-        OR (query_type NOT IN ('SALES','RECEIVABLE') AND include_history=1 AND started_at<=?4))
+        (query_type IN ('SALES','RECEIVABLE','ORDER') AND started_at<=?5)
+        OR (query_type NOT IN ('SALES','RECEIVABLE','ORDER') AND include_history=0 AND started_at<=?3)
+        OR (query_type NOT IN ('SALES','RECEIVABLE','ORDER') AND include_history=1 AND started_at<=?4))
       RETURNING id,owner_member_id,item_no`
   ).bind(nowIso, ERROR_TEXT.AGENT_TIMEOUT, ago(180), ago(300), ago(600)).all<{ id: string; owner_member_id: number; item_no: string }>();
   const audit = new AuditService(db);
@@ -422,7 +431,15 @@ async function allowed(db: D1Database, principal: IdentityPrincipal, code: CyWeb
   const access = await checkModuleAccess(db, principal, code);
   return access.allowed ? access.member : null;
 }
-/** The request's member when one of <paramref name="codes"/> is granted now; else the error response. */
+/** The member when any of the grants is held now, else null. */
+async function allowedAny(db: D1Database, principal: IdentityPrincipal, codes: readonly CyWebModuleCode[]): Promise<AppMemberRecord | null> {
+  for (const code of codes) {
+    const member = await allowed(db, principal, code);
+    if (member) return member;
+  }
+  return null;
+}
+/** The signed-in principal, else the error response. */
 async function userGuard(request: Request, env: ErpBridgeEnv, requestId: string): Promise<IdentityPrincipal | Response> {
   const provider = identityClient(env);
   if (!provider) return failure({ code: "IDENTITY_UNAVAILABLE", message: "帳號服務暫時無法使用" }, requestId, 503);
@@ -438,6 +455,7 @@ const KEYS: Record<ErpQueryType, readonly string[]> = {
   CUSTOMER_NAME: ["queryType", "keyword"],
   SALES: ["queryType", "customerCode", "dateFrom", "dateTo"],
   RECEIVABLE: ["queryType", "scope", "code"],
+  ORDER: ["queryType", "orderNo"],
 };
 type NewJob = {
   itemNo: string; keyword: string | null; targetCode: string | null; scope: ErpReceivableScope | null;
@@ -461,6 +479,8 @@ function parseRequest(queryType: ErpQueryType, body: Record<string, unknown>): N
         const range = resolveDateRange(body.dateFrom, body.dateTo, "單據日期");
         return { ...base, targetCode: parseCode(body.customerCode, "客戶代號"), from: range.from, to: range.to };
       }
+      case "ORDER":
+        return { ...base, targetCode: parseErpOrderNo(body.orderNo) ?? bad("INVALID_CODE", "單號必須是銷貨單（23 開頭）或銷退單（24 開頭），例如 232A-20260804003") };
       case "RECEIVABLE": {
         const scope = body.scope;
         if (scope !== "CUSTOMER" && scope !== "SALESPERSON" && scope !== "ALL") return bad("INVALID_QUERY", "未收款查詢範圍不正確");
@@ -481,9 +501,7 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
   if (principal instanceof Response) return principal;
   await housekeeping(env.DB);
   if (pathname === "/api/erp/agent-status" && request.method === "GET") {
-    let member: AppMemberRecord | null = null;
-    for (const code of ERP_QUERY_MODULES) if (!member) member = await allowed(env.DB, principal, code);
-    if (!member) return denied(requestId);
+    if (!await allowedAny(env.DB, principal, ERP_QUERY_MODULES)) return denied(requestId);
     const heartbeat = await env.DB.prepare("SELECT last_seen_at,agent_version,erp_state FROM erp_item_agent_status WHERE id=1")
       .first<{ last_seen_at: string; agent_version: string; erp_state: string }>();
     const lastSeenAt = heartbeat?.last_seen_at ?? null;
@@ -497,7 +515,7 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
     const queryType = (body.queryType ?? "ITEM_NO") as ErpQueryType;
     if (!ERP_QUERY_TYPES.includes(queryType))
       return failure({code:"INVALID_QUERY_TYPE",message:"查詢類型不正確"},requestId,400);
-    const member = await allowed(env.DB, principal, MODULE_FOR_TYPE[queryType]);
+    const member = await allowedAny(env.DB, principal, MODULES_FOR_TYPE[queryType]);
     if (!member) return denied(requestId);
     const job = parseRequest(queryType, body);
     const includeCost = queryType === "ITEM_NO" && !!await allowed(env.DB, principal, "ERP_ITEM_COST");
@@ -543,7 +561,7 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
     if (!row || (row.owner_member_id !== member.id && principal.workspaceRole !== "SUPER_ADMIN"))
       return failure({ code: "QUERY_NOT_FOUND", message: "查無此查詢工作" }, requestId, 404);
     // Results follow the reader's grants at this moment (a revoked grant hides them at once).
-    if (!await allowed(env.DB, principal, MODULE_FOR_TYPE[row.query_type])) return denied(requestId);
+    if (!await allowedAny(env.DB, principal, MODULES_FOR_TYPE[row.query_type])) return denied(requestId);
     const showCost = row.query_type === "ITEM_NO" && !!await allowed(env.DB, principal, "ERP_ITEM_COST");
     return success(toJob(row, showCost), requestId);
   }
@@ -616,6 +634,7 @@ function claimedJob(job: ClaimRow) {
     case "CUSTOMER_NAME": return { ...base, keyword: job.keyword };
     case "SALES": return { ...base, customerCode: job.target_code, dateFrom: job.history_from, dateTo: job.history_to };
     case "RECEIVABLE": return { ...base, scope: job.receivable_scope, code: job.target_code };
+    case "ORDER": return { ...base, orderNo: job.target_code };
   }
 }
 async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: string, pathname: string): Promise<Response> {
