@@ -5,6 +5,7 @@ export const CYWEB_MODULES = [
   { code: "ORDERS", route: "orders", label: "銷售工單" },
   { code: "OUTSOURCING", route: "outsourcing", label: "委外" },
   { code: "WORKLOGS", route: "worklogs", label: "工作日誌" },
+  { code: "ERP_ITEM_QUERY", route: "erp-item-query", label: "ERP 品號查詢" },
 ] as const;
 
 export type CyWebModuleCode = (typeof CYWEB_MODULES)[number]["code"];
