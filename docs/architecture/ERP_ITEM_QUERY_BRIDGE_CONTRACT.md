@@ -92,7 +92,7 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 補充來源：`docs/handoff/ERP_ITEM_QUERY_INVQ01_HANDOFF.md`；CYERPAutoQuery Agent V0.3.0 Build 1。現有 `ITEMS` 主檔與權限邊界不變。
 
 - `POST /api/erp/item-queries` 保留原 `{itemNo}` 語意，可加 `includeHistory:boolean`（預設 false）、`historyFrom`、`historyTo`（`YYYY-MM-DD` 或 null）。未勾選不能帶非 null 日期。
-- 後端使用**臺北當日**，迄未填取今天、起未填取迄往前一年再加一天；迄不可晚於今天，起不可晚於迄、不能早於迄往前三年。同日三年前可用。錯誤 400 `INVALID_HISTORY_RANGE`。
+- 全介面與後端共用 `resolveHistoryRange`，使用**臺北當日**。迄未填取今天、起未填取迄往前一年同月同日（不再加一天）；起訖都未填即最近一年。閏日遇平年收斂至二月底。迄不可晚於今天、起不可晚於迄；迄日不得超過起日往後三個曆年，三年周年當天可用、下一天拒絕。例如 `2023-01-01..2026-01-01` 允許、`..2026-01-02` 拒絕；`2021-02-28..2024-02-29` 亦拒絕。錯誤 400 `INVALID_HISTORY_RANGE`，不建立工作。此規則適用桌機、平板、手機及直接 API 請求。
 - 建立工作將補齊後 `includeHistory/historyFrom/historyTo` 存在 D1，傳給 Agent claim 並由 GET 回傳；未查歷史則兩日期為 null，前 migration 工作使用預設 false。
 - Agent FOUND 可傳 `batchManaged:boolean` 與 `batches`（最多 100 列）；每列是白名單 `批號、庫存數量、入庫日、有效日期` 的 `{name,value}` 陣列，欄位不可重複。false 時必須空陣列。缺少 batchManaged 視為舊版 Agent，不顯示批號區。
 - 若要求歷史異動，FOUND `history` 可為物件 `{from,to,columns,rows,total,truncated}`：日期須等於工作起迄；`columns` 須按 `日期、單別-單號-序號、庫別、庫別名稱、入出別、異動數量、備註` 精確排序。每列 7 個字串、每格最多 1,024 字、最多 2,000 列、`total>=rows.length`、`truncated=(total>rows.length)`；Agent 依 ERP 順序返回最新 2,000 列。若舊 Agent 無 history，工作 DONE 但顯示版本不支援提醒。

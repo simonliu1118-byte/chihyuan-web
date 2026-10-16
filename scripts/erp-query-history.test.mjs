@@ -13,10 +13,20 @@ test("optional history off cannot carry dates",()=>{
   invalid({includeHistory:0});
 });
 test("recent year and explicitly chosen ends",()=>{
-  assert.deepEqual(ok({includeHistory:true}),{includeHistory:true,historyFrom:"2025-10-17",historyTo:day});
+  assert.deepEqual(ok({includeHistory:true}),{includeHistory:true,historyFrom:"2025-10-16",historyTo:day});
   assert.deepEqual(ok({includeHistory:true,historyFrom:"2026-01-01"}),{includeHistory:true,historyFrom:"2026-01-01",historyTo:day});
-  assert.deepEqual(ok({includeHistory:true,historyTo:"2026-09-30"}),{includeHistory:true,historyFrom:"2025-10-01",historyTo:"2026-09-30"});
+  assert.deepEqual(ok({includeHistory:true,historyTo:"2026-09-30"}),{includeHistory:true,historyFrom:"2025-09-30",historyTo:"2026-09-30"});
   assert.deepEqual(ok({includeHistory:true,historyFrom:"2023-10-16",historyTo:day}).historyFrom,"2023-10-16");
+});
+
+test("three calendar years includes the anniversary and rejects the next day on every client/server",()=>{
+  assert.equal(ok({includeHistory:true,historyFrom:"2023-01-01",historyTo:"2026-01-01"}).historyTo,"2026-01-01");
+  invalid({includeHistory:true,historyFrom:"2023-01-01",historyTo:"2026-01-02"});
+  invalid({includeHistory:true,historyFrom:"2021-02-28",historyTo:"2024-02-29"});
+  assert.equal(ok({includeHistory:true,historyFrom:"2020-02-29",historyTo:"2023-02-28"}).historyTo,"2023-02-28");
+  invalid({includeHistory:true,historyFrom:"2020-02-29",historyTo:"2023-03-01"});
+  assert.deepEqual(ok({includeHistory:true,historyFrom:"",historyTo:""}),ok({includeHistory:true}));
+  assert.equal(resolveHistoryRange({includeHistory:true},"2024-02-29").historyFrom,"2023-02-28");
 });
 test("future, reversed, >3yr and invalid calendar are rejected",()=>{
   invalid({includeHistory:true,historyFrom:"2023-10-15"});

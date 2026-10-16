@@ -4,7 +4,7 @@ export class HistoryRangeError extends Error {
   constructor(message: string) { super(message); this.name = "HistoryRangeError"; }
 }
 function isoDate(value: unknown): string | null {
-  if (value == null) return null;
+  if (value == null || value === "") return null;
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new HistoryRangeError("歷史異動日期格式必須為 YYYY-MM-DD");
   const [year,month,day] = value.split("-").map(Number);
   const date = new Date(Date.UTC(year,month-1,day));
@@ -23,11 +23,6 @@ function shiftYear(date: string, years: number): string {
   source.setUTCMonth(month,Math.min(day,last));
   return source.toISOString().slice(0,10);
 }
-function plusDays(date:string,days:number):string {
-  const day=new Date(date+"T00:00:00Z");
-  day.setUTCDate(day.getUTCDate()+days);
-  return day.toISOString().slice(0,10);
-}
 export function taipeiToday(now=new Date()):string {
   const parts=new Intl.DateTimeFormat("en-US",{timeZone:"Asia/Taipei",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(now);
   const get=(type:string)=>parts.find(part=>part.type===type)?.value ?? "";
@@ -41,9 +36,9 @@ export function resolveHistoryRange(input:HistoryInput,today=taipeiToday()):{inc
     return {includeHistory:false,historyFrom:null,historyTo:null};
   }
   const to=isoDate(input.historyTo)??today;
-  const from=isoDate(input.historyFrom)??plusDays(shiftYear(to,-1),1);
+  const from=isoDate(input.historyFrom)??shiftYear(to,-1);
   if(to>today) throw new HistoryRangeError("歷史異動迄日不可晚於今天");
   if(from>to) throw new HistoryRangeError("歷史異動起日不可晚於迄日");
-  if(from<shiftYear(to,-3)) throw new HistoryRangeError("歷史異動日期範圍最多 3 年");
+  if(to>shiftYear(from,3)) throw new HistoryRangeError("歷史異動日期範圍不可超過三年。");
   return {includeHistory:true,historyFrom:from,historyTo:to};
 }

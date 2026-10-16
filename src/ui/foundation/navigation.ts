@@ -9,6 +9,7 @@ export interface NavigationItem {
 export interface NavigationGroup {
   key: string;
   label?: string;
+  dividerBefore?: boolean;
   items: readonly NavigationItem[];
 }
 
