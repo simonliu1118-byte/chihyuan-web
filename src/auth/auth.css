@@ -124,12 +124,12 @@
 .cy-auth-logout-button:disabled { opacity: 0.6; cursor: wait; }
 
 /* Same role palette as CYACCweb's canonical account cluster. */
-.cy-auth-account-control[data-role="SUPER_ADMIN"] {
+.cy-auth-account-control[data-role="SUPER_ADMIN"], .cy-shell-account-toggle[data-role="SUPER_ADMIN"] {
   --cy-account-border: #ddc789;
   --cy-account-background: linear-gradient(180deg, #fffdf7, #fff4d6);
   --cy-account-color: #6d5317;
 }
-.cy-auth-account-control[data-role="ADMIN"] {
+.cy-auth-account-control[data-role="ADMIN"], .cy-shell-account-toggle[data-role="ADMIN"] {
   --cy-account-border: #d7b79e;
   --cy-account-background: linear-gradient(180deg, #fffaf6, #f7e8dc);
   --cy-account-color: #70472f;

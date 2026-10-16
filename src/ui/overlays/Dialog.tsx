@@ -1,4 +1,4 @@
-import { useLayoutEffect, useId, useRef, type PropsWithChildren, type ReactNode } from "react";
+import { useLayoutEffect, useId, useRef, type PropsWithChildren, type ReactNode, type CSSProperties } from "react";
 
 export type DialogPresentation = "modal" | "drawer" | "sheet";
 export type DialogSize = "small" | "medium" | "large";
@@ -14,6 +14,8 @@ export interface DialogProps {
   size?: DialogSize;
   closeLabel?: string;
   className?: string;
+  hideHeader?: boolean;
+  style?: CSSProperties;
 }
 
 export function Dialog({
@@ -27,6 +29,8 @@ export function Dialog({
   size = "medium",
   closeLabel = "關閉",
   className = "",
+  hideHeader = false,
+  style,
   children,
 }: PropsWithChildren<DialogProps>) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -75,10 +79,12 @@ export function Dialog({
         `cy-dialog-${presentation}`,
         `cy-dialog-${size}`,
         className,
+        hideHeader ? "cy-dialog-plain" : "",
       ]
         .filter(Boolean)
         .join(" ")}
       aria-labelledby={titleId}
+      style={style}
       aria-describedby={description ? descriptionId : undefined}
       onCancel={(event) => {
         if (!dismissible) {
@@ -94,7 +100,10 @@ export function Dialog({
       }}
     >
       <div className="cy-dialog-surface">
-        <header className="cy-dialog-header">
+        {hideHeader ? <>
+          <h2 id={titleId} className="cy-visually-hidden">{title}</h2>
+          {dismissible ? <button type="button" className="cy-dialog-close cy-dialog-floating-close" onClick={onClose} aria-label={closeLabel}>×</button> : null}
+        </> : <header className="cy-dialog-header">
           <div className="cy-dialog-heading">
             <h2 className="cy-dialog-title" id={titleId}>
               {title}
@@ -110,7 +119,7 @@ export function Dialog({
               ×
             </button>
           ) : null}
-        </header>
+        </header>}
 
         {children != null && children !== false ? <div className="cy-dialog-body">{children}</div> : null}
         {footer ? <footer className="cy-dialog-footer">{footer}</footer> : null}
