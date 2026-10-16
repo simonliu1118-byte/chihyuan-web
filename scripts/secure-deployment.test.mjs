@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { verifySecureEntry } from "./verify-secure-entry.mjs";
 
 const targets = [{ url: "https://portal.example.test" }, { url: "https://worker.example.workers.dev" }];
-function fixture({ redirectHost, hsts = true, assetHsts = true, script = "/assets/app.js", oldUntil = 0, fail } = {}) {
+function fixture({ redirectHost, hsts = true, assetHsts = true, rootType = "text/html; charset=utf-8",
+  assetType = "text/javascript; charset=utf-8", script = "/assets/app.js", oldUntil = 0, fail } = {}) {
   let clock = 0;
   const calls = [];
   return { calls, run: () => verifySecureEntry({ targets, timeoutMs: 2000, intervalMs: 1000,
@@ -19,9 +20,9 @@ function fixture({ redirectHost, hsts = true, assetHsts = true, script = "/asset
         return new Response(null, { status: 308, headers: { location: url.href } });
       }
       if (url.pathname.startsWith("/assets/")) return new Response("fixture JS", {
-        headers: assetHsts ? { "strict-transport-security": "max-age=31536000" } : {} });
+        headers: { "content-type": assetType, ...(assetHsts ? { "strict-transport-security": "max-age=31536000" } : {}) } });
       return new Response(`<script type="module" src="${script}"></script>`, {
-        headers: hsts ? { "strict-transport-security": "max-age=31536000" } : {} });
+        headers: { "content-type": rootType, ...(hsts ? { "strict-transport-security": "max-age=31536000" } : {}) } });
     } }) };
 }
 
@@ -50,4 +51,11 @@ test("network failures expose only stable codes and invalid target URLs never fe
   for (const url of ["http://portal.example.test", "https://user:credential@portal.example.test", "https://portal.example.test/api"]) {
     await assert.rejects(verifySecureEntry({ targets: [{ url }, targets[1]], fetchImpl: () => { throw Error("must not fetch"); } }), /TARGET_INVALID/);
   }
+});
+
+test("SPA HTML returned for a missing JS asset and non-HTML entry both fail", async () => {
+  for (const options of [{ assetType: "text/html" }, { rootType: "text/plain" }, { assetType: "" }]) {
+    await assert.rejects(fixture(options).run(), { message: "DEPLOYED_HTTPS_ENTRY_NOT_READY" });
+  }
+  await fixture({ assetType: "Application/JavaScript; charset=UTF-8" }).run();
 });

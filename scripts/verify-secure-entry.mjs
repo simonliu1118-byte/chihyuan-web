@@ -20,6 +20,8 @@ const hasHsts = response => {
   const match = /(?:^|;)\s*max-age=(\d+)\s*(?:;|$)/i.exec(response.headers.get("strict-transport-security") ?? "");
   return match && Number(match[1]) >= 31536000;
 };
+const mediaType = response => (response.headers.get("content-type") ?? "").split(";", 1)[0].trim().toLowerCase();
+const javascriptTypes = new Set(["text/javascript", "application/javascript", "text/ecmascript", "application/ecmascript"]);
 
 export async function verifySecureEntry({ targets, fetchImpl = fetch, timeoutMs = 60000,
   intervalMs = 5000, now = Date.now, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) }) {
@@ -47,7 +49,7 @@ export async function verifySecureEntry({ targets, fetchImpl = fetch, timeoutMs 
     const entry = origin + "/?secure-entry-check=1";
     await redirectToHttps(entry);
     const response = await get(entry);
-    if (response.status !== 200 || !hasHsts(response)) { await response.body?.cancel(); throw Error(); }
+    if (response.status !== 200 || !hasHsts(response) || mediaType(response) !== "text/html") { await response.body?.cancel(); throw Error(); }
     const html = await smallHtml(response);
     const script = /<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/i.exec(html)?.[1];
     if (!script) throw Error();
@@ -56,7 +58,7 @@ export async function verifySecureEntry({ targets, fetchImpl = fetch, timeoutMs 
     await redirectToHttps(asset.href);
     const builtAsset = await get(asset.href);
     await builtAsset.body?.cancel();
-    if (builtAsset.status !== 200 || !hasHsts(builtAsset)) throw Error();
+    if (builtAsset.status !== 200 || !hasHsts(builtAsset) || !javascriptTypes.has(mediaType(builtAsset))) throw Error();
   }
   do {
     const checks = await Promise.allSettled(origins.map(probe));
