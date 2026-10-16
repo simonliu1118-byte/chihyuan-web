@@ -12,3 +12,12 @@ export function parseErpNameKeyword(value: unknown): string | null {
 export function erpNameContains(name: string, keyword: string): boolean {
   return name.normalize("NFKC").toLocaleLowerCase().includes(keyword.normalize("NFKC").toLocaleLowerCase());
 }
+/**
+ * ERP codes (品號, 客戶代號, 業務員代號) are ASCII letters and digits only, 1～40 characters, the
+ * same rule as CYERPAutoQuery (user 2026-10-16). Case is kept: ERP codes are case sensitive.
+ */
+export function parseErpCode(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const code = value.trim();
+  return /^[A-Za-z0-9]{1,40}$/.test(code) ? code : null;
+}

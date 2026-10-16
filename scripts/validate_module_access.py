@@ -16,6 +16,9 @@ EXPECTED_MODULES = {
     "OUTSOURCING",
     "WORKLOGS",
     "ERP_ITEM_QUERY",
+    "ERP_CUSTOMER_QUERY",
+    "ERP_RECEIVABLE_QUERY",
+    "ERP_ITEM_COST",
 }
 
 
@@ -87,7 +90,7 @@ def validate_source_contract() -> None:
         if token not in browser_client:
             raise AssertionError(f"Module Access browser client missing: {token}")
 
-    for token in ("session.moduleAccess", "checkModuleAccess", "moduleCodeForRoute", "allowedModules"):
+    for token in ("session.moduleAccess", "checkModuleAccess", "moduleCodesForRoute", "allowedModules"):
         if token not in app:
             raise AssertionError(f"App shell Module Access filtering/check missing: {token}")
     auth_gate = require("src/auth/AuthGate.tsx")
