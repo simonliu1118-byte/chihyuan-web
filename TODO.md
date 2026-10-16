@@ -11,7 +11,9 @@
 - 顯示名稱改為「電子發票工具」「信封套印工具」「盲浮水印工具」；共用 catalog 同時供 table／card，維持內部穩定 ID 與圖示。信封／浮水印工具仍無公開正式 Release，不提供猜測的下載。
 - [x] Browser／Worker TypeScript、完整 build、全部 source contracts 與47項 Node regression通過。新增 converter exact tag/asset／缺新ZIP不得借用舊ZIP／draft/prerelease/untrusted link、table/card名稱與單一狀態、中文 failure分類；既有 actual catalog route／reader／cache cooldown/recovery regression一併執行。
 - [x] 本機合成 USER browser：更新成功→限流彈窗→關閉只一條黃狀態／無紅條→一般403不誤稱限流→恢復後清除警示；Desktop converter版本／日期／下載、三名稱與390px手機卡片無橫向溢出通過。沒有登入正式帳號、異動權限或正式資料。
-- [ ] 本輪 exact-head 遠端檢查、合併及原網站部署；完成後記錄證據。
+- [x] [PR #163](https://github.com/simonliu1118-byte/chihyuan-web/pull/163) exact head `22a0e9c319f825137b1e161a37807cb46dcb9d8f`：Governance `38841551777`、Runtime `38841551769`（四jobs／actual isolated Worker+D1／新增catalog regression）、deployment contract `38841551742` 全通過；合併 `0d5f4e2f8fdad700de634f4ac22d4d25f3cd5ea2`。PR未執行真部署。
+- [x] [原網站部署 38841704073](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/38841704073) 於 **2026-10-16 10:42:45 Asia/Taipei** 完成。Deployment commit `107dda04936975b457cd196d3d1d5138ed52c0df` 雙parent向前推進，tree `b08b0ccc9c8dc65786492cae9728c649615d982c` 與已驗main完全相同。原Worker部署、雙入口 exact source/consumer/D1、invalid Session與cookie clearing、正式Identity strict gate 全通過；未新增 migration／binding／authority。
+- [x] 部署後獨立公開回讀 **0.7.30／consumer1.0.5／107dda04／D1 ok**，正式頁面載入的前端bundle包含新分類提醒。程式名稱／下載由已登入API回傳，不內嵌在前端bundle；其部署證據為 exact source＋Worker/catalog regression＋合成 browser，未登入正式帳號或宣稱已驗收 Cloudflare 真實 quota 恢復。
 
 ## 主動同步登入與撤權 — 2026-10-16
 
@@ -74,7 +76,7 @@
 
 ## 目前基準 — 2026-10-16（Asia/Taipei）
 
-- 目前已部署 **0.7.29 Build 0／CYID consumer 1.0.5**（本輪驗證／部署見上方主動撤權項目；canonical contract mirror1.0.6）：既有全部模組沿用原 Worker／business D1／Module Access，正式 Identity 切換結果見上方首次登入交接；使用者已確認帳號／郵件與真實角色／權限驗收 OK。本輪主動撤權體驗及業務首版、乾淨 schema、其他真人業務驗收仍分開追蹤。
+- 目前已部署 **0.7.30 Build 0／CYID consumer 1.0.5**（本輪程式清單與既有主動撤權驗證／部署見上方；canonical contract mirror1.0.6）：既有全部模組沿用原 Worker／business D1／Module Access，正式 Identity 切換結果見上方首次登入交接；使用者已確認帳號／郵件與真實角色／權限驗收 OK。主動撤權體驗及業務首版、乾淨 schema、其他真人業務驗收仍分開追蹤。
 - 已包含 0.7.24「CY 程式 → 價格觀測室（原型）」外連，原型程式位於 CYapps `apps/CYPriceDesk/`，維持 Sites owner-private 與 ChatGPT 登入；未發版桌面程式仍不提供下載。
 - 先前已部署 source **0.7.22 Build 0** 已加入單次切換模組提醒，並沿用 Customer／WorkLog 共用 Dialog／ConfirmDialog，修正關閉焦點並移除六模組／Shell 工程描述；包含 quota cooldown／最近成功版本保留及 skip-link 修正；CY 程式頁仍依使用者要求不顯示「發版說明」連結。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
 - 本輪 source **0.7.23 Build 0／CYID consumer 1.0.4** 在既有「帳號與權限 → 系統使用權」新增 Super Admin 的「登記系統」，由 CYID core Session 決定目前 Workspace；其他員工使用權仍在既有清單管理。共享 Dialog／Field／dirty guard／Toast，無 browser registry authority。Provider #416／development #158 與 Web #146／development #138 已通過 CI／部署；七個 canonical mirrors1.0.4 已同步。使用者在原 development portal 完成 CYInvoice 真人登記／目前 Workspace 啟用，畫面已出現 CYInvoice。一般員工 App Access、取消／dirty guard／busy／行動裝置仍待驗收，不因 Super Admin 永遠允許就視為其他員工已授權。
