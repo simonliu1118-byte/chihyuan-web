@@ -4,12 +4,14 @@ const repository = "https://github.com/simonliu1118-byte/CYapps";
 const prefixes: Partial<Record<ProgramId, string>> = {
   "accounting-web": "cyaccountingweb", accounting: "cyaccounting", invoice: "cyinvoice", "tri-invoice-calc": "TriINVCalc",
   converter: "smartcopiconverter",
+  "erp-auto-input": "cyerp-auto-input",
 };
 const files: Partial<Record<ProgramId, (version: string) => string>> = {
   accounting: version => `CYAccounting_V${version}_Windows_x64.zip`,
   invoice: version => `CYInvoice_V${version}.zip`,
   "tri-invoice-calc": version => `TriINVCalc_V${version}.zip`,
   converter: version => `SMARTCOPIConverter_V${version}_Windows_x64.zip`,
+  "erp-auto-input": version => `CYERPAutoInput_V${version}.zip`,
 };
 interface Release {
   draft?: unknown; prerelease?: unknown; tag_name?: unknown; published_at?: unknown;
@@ -134,6 +136,7 @@ export async function updateProgramCatalog(db: D1Database, now = new Date().toIS
 export async function loadProgramCatalog(db: D1Database, now = Date.now()): Promise<ProgramCatalog> {
   const row = await db.prepare("SELECT attempted_day, attempted_at, completed_at, catalog_json, failure_json FROM program_catalog_state WHERE id=1").first<CatalogState>();
   let value = verifiedProgramCatalog;
+  let completeSnapshot = true;
   let failure: ProgramCatalog["refreshFailure"];
   try {
     if (row?.catalog_json) {
@@ -142,7 +145,9 @@ export async function loadProgramCatalog(db: D1Database, now = Date.now()): Prom
       const programs = verifiedProgramCatalog.programs.map(base => {
         if (!prefixes[base.id]) return base;
         const release = stored.programs.find(item => item.id === base.id);
-        if (!release || !/^\d+\.\d+\.\d+$/.test(release.version ?? "") || !Number.isFinite(Date.parse(release.publishedAt ?? ""))) throw new Error("INVALID");
+        // A newly listed program can use its verified source snapshot until the next daily run.
+        if (!release) { completeSnapshot = false; return base; }
+        if (!/^\d+\.\d+\.\d+$/.test(release.version ?? "") || !Number.isFinite(Date.parse(release.publishedAt ?? ""))) throw new Error("INVALID");
         const tag = `${prefixes[base.id]}-v${release.version}`;
         const filename = files[base.id]?.(release.version!);
         const download = filename ? `${repository}/releases/download/${tag}/${filename}` : null;
@@ -157,8 +162,8 @@ export async function loadProgramCatalog(db: D1Database, now = Date.now()): Prom
       failure = { code: detail.code, ...(Number.isInteger(detail.httpStatus) && detail.httpStatus! >= 100 && detail.httpStatus! <= 599 ? { httpStatus: detail.httpStatus } : {}) };
     }
   } catch { value = verifiedProgramCatalog; failure = { code: "INVALID" }; }
-  const current = Boolean(value.current && row?.completed_at && !failure && row.attempted_day === programCatalogDay(now));
-  const status = failure ? "failed" : !row?.completed_at ? "pending" : current ? "ready" : "overdue";
+  const current = Boolean(value.current && completeSnapshot && row?.completed_at && !failure && row.attempted_day === programCatalogDay(now));
+  const status = failure ? "failed" : !row?.completed_at || !completeSnapshot ? "pending" : current ? "ready" : "overdue";
   return { ...value, current, ...(failure ? { refreshFailure: failure } : {}), automaticUpdate: {
     status, lastAttemptAt: row?.attempted_at ?? null, nextUpdateAt: nextProgramCatalogUpdate(now),
   } };

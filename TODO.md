@@ -2,6 +2,14 @@
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
 
+## CY 程式補列 ERP 自動輸入工具 — 2026-10-16
+
+- Source **0.7.32 Build 0／consumer1.0.5**：補列 CYERPAutoInput，顯示「SMART ERP 自動輸入工具」，沿用中央正式 Auto SVG、正式 `cyerp-auto-input-v0.2.9` 與 `CYERPAutoInput_V0.2.9.zip`。程式說明依上游 README 描述平台訂單匯入、銷貨單自動輸入與依設定儲存／列印；此工具與 CVT 說明均不使用「鼎新」。
+- 維持每日03:00單一 producer；新增程式會以已確認 source snapshot 補入舊共用清單，現有成功版本保留，新清單等待每日排程，不因部署／開頁額外查詢 GitHub。不新增狀態 owner、render path 或資料表。
+- [x] 正式 ZIP HEAD 回200／156847952 bytes（未下載執行）；中央 Auto SVG byte/hash 記錄、共通規則與 CYID canonical byte 核對通過。Browser／Worker TypeScript、14項 catalog regression、完整 build、全部 source contracts 通過。新增正式產品 tag／asset 與 OCR 模型排除、舊清單補新程式與無當日重試驗收。
+- [x] 本機合成 USER Desktop：九項清單、新工具正式圖示／V0.2.9／日期／下載、CVT 說明與整頁無「鼎新」確認。未登入正式帳號或操作業務資料。
+- [ ] Exact-head CI、合併與原網站部署。
+
 ## CY 程式每日自動更新 — 2026-10-16
 
 - Source **0.7.31 Build 0／consumer1.0.5**：依使用者要求移除「更新版本」按鈕，改為台灣時間每日凌晨 **03:00**（UTC `0 19 * * *`）由伺服器查詢正式 Release。頁面只讀取共用清單；持續開啟的頁面在下次排程後讀取一次結果，卸載會取消讀取與計時器。

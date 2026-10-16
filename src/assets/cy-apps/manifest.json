@@ -43,6 +43,13 @@
       "bytes": 3320,
       "sha256": "e4979f6d1880f25d9c9bd963d5a30c1b155c3041e4ecb23d53b6aeff3312d41d",
       "git_blob_sha1": "5b5d6c14c32733f2e7467b250bced25da23e49c0"
+    },
+    {
+      "source": "shared/cy-visual/icon-family/apps/erp-autoinput/Auto.svg",
+      "target": "src/assets/cy-apps/Auto.svg",
+      "bytes": 4068,
+      "sha256": "e0e3faf5d2689142f0108d2af3cea3c0d8a4d3c7687376d65fbf5862a57ff0d9",
+      "git_blob_sha1": "7e1928c5692d10137118184905b625bb9763026f"
     }
   ]
 }
