@@ -84,3 +84,5 @@
 .cy-erp-order-links{display:flex;flex-wrap:wrap;gap:.3rem .8rem;margin:.4rem 0}
 .cy-erp-order-links a{color:#7c2034;font-weight:700}
 @media(max-width:820px){.cy-erp-order.is-linked{margin-left:.8rem}}
+.cy-erp-vouchers{display:grid;gap:.15rem}
+.cy-erp-order-dialog{margin-top:0}

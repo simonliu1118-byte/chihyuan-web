@@ -42,7 +42,7 @@ function fixture(role = "USER") {
   };
   return { sql, user, agent, grant };
 }
-const ALL_TYPES = ["ITEM_NO", "ITEM_NAME", "CUSTOMER_NO", "CUSTOMER_NAME", "SALES", "RECEIVABLE"];
+const ALL_TYPES = ["ITEM_NO", "ITEM_NAME", "CUSTOMER_NO", "CUSTOMER_NAME", "SALES", "RECEIVABLE", "ORDER"];
 const line = (seq, extra = {}) => ({ seq, itemCode: "X0001", itemName: "假品名", specification: "", warehouse: "W01 假倉", quantity: "1", unit: "包", unitPrice: "100", amount: "100", giftType: "", giftQuantity: "0", batch: "", note: "", sourceOrder: "", ...extra });
 const order = (extra = {}) => ({ kind: "銷貨", orderNo: "901A-20260101001", date: taipeiToday(), customerCode: "CU0001", customerName: "假客戶", salesperson: "假業務", department: "", paymentTerm: "", taxType: "", invoiceType: "", totalQuantity: "1", amount: "100", tax: "0", total: "100", note: "", reason: "", lines: [line(1)], ...extra });
 const bill = (extra = {}) => ({ customerCode: "CU0001", customerName: "假客戶", date: taipeiToday(), billNo: "903A-20260101001", salespersonCode: "SP01", salespersonName: "假業務", invoiceNo: "", currency: "NTD", receivable: "100", receivableTax: "0", unpaid: "100", vouchers: [{ voucherNo: "901A-20260101001", date: taipeiToday(), amount: "100", tax: "0" }], ...extra });
@@ -153,4 +153,24 @@ test("標準進價 is only claimed, stored and shown with ERP_ITEM_COST", async 
       assert.equal((await user.load(id)).body.data.fields.some(f => f.name === "標準進價"), withCost);
     } finally { sql.close(); }
   }
+});
+
+test("ORDER opens one 23x／24x order with either the customer or the receivable grant", async () => {
+  const { sql, user, agent, grant } = fixture();
+  try {
+    assert.equal((await user.create({ queryType: "ORDER", orderNo: "901A-20260101001" })).status, 403);
+    grant("ERP_RECEIVABLE_QUERY");
+    assert.equal((await user.create({ queryType: "ORDER", orderNo: "631A-20260101001" })).status, 400);
+    const created = await user.create({ queryType: "ORDER", orderNo: " 232a-20260101001 " });
+    assert.equal(created.status, 202, JSON.stringify(created.body));
+    assert.equal(created.body.data.code, "232A-20260101001");
+    const job = (await agent.claim(ALL_TYPES)).body.data.job;
+    assert.equal(job.orderNo, "232A-20260101001");
+    const base = { outcome: "FOUND", orderNo: "232A-20260101001", total: 1, truncated: false };
+    assert.equal((await agent.complete(job.id, { ...base, orders: [order({ orderNo: "232A-20260101002" })] })).status, 400);
+    // A single order may be any customer and any date.
+    const done = await agent.complete(job.id, { ...base, orders: [order({ orderNo: "232A-20260101001", customerCode: "CU0777", date: "2020-01-01" })] });
+    assert.equal(done.status, 200, JSON.stringify(done.body));
+    assert.equal((await user.load(job.id)).body.data.orders[0].customerCode, "CU0777");
+  } finally { sql.close(); }
 });

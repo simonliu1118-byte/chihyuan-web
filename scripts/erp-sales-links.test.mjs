@@ -30,3 +30,12 @@ test("bills group by customer with CY Web's subtotal", () => {
   const groups = groupBills([bill("CU1", "100"), bill("CU2", "-30"), bill("CU1", "1,200.5")]);
   assert.deepEqual(groups.map(g => [g.customerCode, g.bills.length, g.unpaid]), [["CU1", 2, 1300.5], ["CU2", 1, -30]]);
 });
+
+test("money shows with $ and keeps negatives readable", async () => {
+  const { erpMoney } = await import("../shared/erp-sales-links.ts");
+  assert.equal(erpMoney("1420"), "$1,420");
+  assert.equal(erpMoney("-3250"), "-$3,250");
+  assert.equal(erpMoney("4266.667"), "$4,266.667");
+  assert.equal(erpMoney(0), "$0");
+  assert.equal(erpMoney(""), "");
+});
