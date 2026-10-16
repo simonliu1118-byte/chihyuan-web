@@ -6,9 +6,10 @@
 ## 1. PR / Merge / Deploy
 
 - 實作分支：`cyweb/feat-erp-item-query-bridge`，以 `erp-item-query/handoff` 為起點（該 branch 已包含 main 同步的原始交接文件）。
-- PR：#169（Draft，待原 CYWEB-4w 工作環境檢閱）。
-- Merge：未合併；production：未部署；development：未部署、不新建測試環境。
-- 核心驗證：forward migration、source/TypeScript、fake Agent acceptance；以 PR CI 結果為準。
+- PR：#169，已通過 Governance／Runtime／Deploy CI，2026-10-16 合併至 main（merge commit `05e3cf56895e908b01a37e3027809b01522b9541`）。
+- Merge：已完成；2026-10-16 經既有部署分支 `deploy/cyweb-development` 部署到原 CY Web 網站（歷史 `development` 環境名稱並不代表另一套網站）。部署 commit `85ac21d538150f71b278e572e42a401737822cbb`。
+- 正式部署 GitHub Actions：[38851754742](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/38851754742)，結果 `success`。既有正式 D1 已套用 forward migration `0009_erp_item_query_bridge.sql`；Worker／前端部署、執行版本／D1 health、正式網域與 CYID production authority checks 均通過。未建立第二個 Worker 或第二套 D1。
+- 核心驗證：forward migration、source/TypeScript、D1 local acceptance、部署 dry-run 均通過；`scripts/erp-item-query-acceptance.mjs` 留供隔離環境假 Agent 測試，**不代表已對實際 ERP 完成端到端驗收**。
 
 ## 2. API 摘要
 
@@ -39,7 +40,7 @@ Module code 固定 **`ERP_ITEM_QUERY`**，`#erp-item-query` 為專用模組頁�
 - 只有最新的一組 token 有效；撤銷／輪換立即使舊 token 失效。請在公司電腦以 DPAPI 保存。
 - Admin API：`GET/POST/DELETE /api/erp/agent-credentials`，非 Super Admin 不可使用。
 - Development base URL：`https://<CYWEB-DEVELOPMENT-HOST>`（目前不另建環境）。
-- Production base URL：`https://<CYWEB-PRODUCTION-HOST>`（未部署）。
+- Production base URL：`https://<CYWEB-PRODUCTION-HOST>`（已部署於現有核准網域；實際網址仍由既有正式部署設定決定）。
 - 公開文件不含真實 token、正式執行環境 URL 或秘密。
 
 ## 6. 與來源交接不同的決策
@@ -48,7 +49,7 @@ Module code 固定 **`ERP_ITEM_QUERY`**，`#erp-item-query` 為專用模組頁�
 - **超時與結果清理**使用使用者讀取／Agent claim 時順便執行，不加 cron；QUEUE 120 秒、RUNNING 120 秒、結果 10 分鐘、metadata 30 天。
 - **未知欄位直接拒收**，不悄悄丟棄；方便 Agent 偵測 contract drift。
 - errorMessage 只保存安全的固定中文代碼映射，不保存 Agent 傳入的可能含本機資訊字串。
-- 不建立獨立 Development/Production 環境或測試帳號，也不改主檔／正式 D1；如未來有雙環境，token 需分開產生。
+- 不建立獨立 Development/Production 環境或測試帳號；不更動既有商品主檔，但已在原 D1 套用 forward migration 新增查詢工作、狀態、Agent 憑證資料表。未來若採雙環境，token 必須分開產生。
 - ERP 查詢短期佇列、heartbeat 與可撤銷的 Agent hash **不進 durable backup**；災難復原後由超級管理員重發連線憑證。
 
 ## 6.1 CYERPAutoQuery 審查後修正（2026-10-16）
@@ -65,7 +66,7 @@ CYERPAutoQuery 工作線（Claude）審查 #169 後，經使用者同意直接�
 
 ## 8. 限制與待辦
 
-- 需原 CYWEB-4w Work 協助審核／合併／受控部署與實際 CYID/Cloudflare 授權驗收；本 PR 不直接部署。
+- CY Web 程式碼已合併且既有 Worker／D1 正式部署完成；待 CYWEB-4w 工作線回收此部署紀錄與原工作區剩餘進度。實際使用者 Module Access 與 Agent 連線仍須實機操作驗收。
 - CYERPAutoQuery 必須依 contract 串接 Agent、設定 DPAPI 憑證並實機確認 INVI02 匯出欄位。
 - 測試腳本需有效的 CYID 測試 Session cookie 與 Super Admin 產生的測試 token，請只對假資料／隔離 D1 使用，不能使用真實 ERP 匯出內容。
 - 尚未完成與實際 Windows ERP 的端到端實機驗收；工作中的其他 CYWEB-4w 項目不在本 PR 範圍內。
