@@ -1,1 +1,46 @@
-.cy-erp-page{min-width:0}.cy-erp-query-box{max-width:900px}.cy-erp-form{display:flex;gap:.7rem;align-items:end;flex-wrap:wrap;margin-top:1rem}.cy-erp-form label{font-weight:700;width:100%}.cy-erp-form input{font:inherit;min-height:42px;border:1px solid #b9c9d4;border-radius:8px;padding:.55rem .75rem;flex:1;min-width:180px;max-width:480px}.cy-erp-form button{min-height:42px}.cy-erp-agent-online{color:#17663e;margin:0}.cy-erp-agent-offline,.cy-erp-error{color:#a52a3e;margin:0}.cy-erp-error{margin-top:.9rem}.cy-erp-results{margin-top:1rem}.cy-erp-results h2{margin:0 0 .65rem}.cy-erp-results h3{margin:1.4rem 0 .65rem;font-size:1.1rem}.cy-erp-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 1.2rem;margin:0}.cy-erp-fields>div{display:grid;grid-template-columns:minmax(90px,35%) minmax(0,1fr);border-bottom:1px solid #e1e6ea;padding:.65rem 0;gap:.5rem}.cy-erp-fields dt{color:#617380;font-weight:600}.cy-erp-fields dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}.cy-erp-table-scroller{max-width:100%;overflow-x:auto}.cy-erp-warehouse{border-collapse:collapse;width:100%;min-width:810px;text-align:left}.cy-erp-warehouse th,.cy-erp-warehouse td{border-bottom:1px solid #e1e6ea;padding:.6rem;vertical-align:top;white-space:pre-wrap;overflow-wrap:anywhere}.cy-erp-warehouse th{color:#566c7c;background:#f7f9fa}@media(max-width:720px){.cy-erp-fields{grid-template-columns:minmax(0,1fr)}.cy-erp-fields>div{grid-template-columns:110px minmax(0,1fr)}.cy-erp-form button{width:100%}.cy-erp-results{overflow:hidden}}.cy-erp-credentials{margin-top:1rem}.cy-erp-credentials>h2{margin:0 0 .7rem}.cy-erp-token{display:grid;gap:.65rem;margin-top:1rem;border:1px solid #d8e0e6;border-radius:8px;padding:1rem;min-width:0}.cy-erp-token code{overflow-wrap:anywhere;user-select:all;background:#f7f9fa;padding:.6rem}.cy-erp-token button{justify-self:start}
+.cy-erp-page{min-width:0}
+.cy-erp-header{margin-bottom:1rem}
+.cy-erp-heading{display:flex;align-items:center;gap:.9rem;flex-wrap:wrap;margin-bottom:.35rem}
+.cy-erp-heading h1{margin:0}
+.cy-erp-heading .cy-erp-status-button{font-size:.83rem;min-height:34px;padding:.4rem .7rem}
+.cy-erp-status-button.is-online,.cy-erp-status-readonly.is-online{color:#17663e;border-color:#aed8c0}
+.cy-erp-status-button.is-offline,.cy-erp-status-readonly.is-offline{color:#9a2637;border-color:#deb2b9}
+.cy-erp-status-readonly{font-size:.85rem;font-weight:700}
+.cy-erp-query-box{max-width:900px}
+.cy-erp-form{display:grid;gap:.75rem}
+.cy-erp-form>label:first-child{font-weight:700}
+.cy-erp-query-row{display:flex;gap:.7rem;align-items:center}
+.cy-erp-query-row input{font:inherit;min-height:42px;border:1px solid #b9c9d4;border-radius:8px;padding:.55rem .75rem;flex:1;min-width:140px;max-width:480px}
+.cy-erp-query-row button{min-height:42px}
+.cy-erp-history-check{display:flex;align-items:center;gap:.55rem;font-weight:600;cursor:pointer}
+.cy-erp-history-check input{width:18px;height:18px}
+.cy-erp-history-options{display:flex;gap:.75rem;align-items:end;flex-wrap:wrap;padding:.75rem;border-radius:9px;background:#f7f9fb}
+.cy-erp-history-options label{display:grid;gap:.3rem;font-weight:600}
+.cy-erp-history-options input{font:inherit;border:1px solid #b9c9d4;border-radius:7px;padding:.45rem .6rem;min-height:38px}
+.cy-erp-history-options p{font-size:.85rem;color:#617380;margin:0;width:100%}
+.cy-erp-error{color:#a52a3e;margin:.75rem 0}
+.cy-erp-results{margin-top:1rem}
+.cy-erp-results h2{margin:0 0 .65rem}
+.cy-erp-results h3{margin:1.4rem 0 .65rem;font-size:1.1rem}
+.cy-erp-item-lead{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1.2rem;margin-bottom:.6rem}
+.cy-erp-item-lead .cy-erp-fields{grid-template-columns:minmax(0,1fr)}
+.cy-erp-description{border-bottom:1px solid #e1e6ea;padding:.65rem 0;min-width:0}
+.cy-erp-description-label{color:#617380;font-weight:600;margin-bottom:.65rem}
+.cy-erp-description-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65}
+.cy-erp-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 1.2rem;margin:0}
+.cy-erp-fields>div{display:grid;grid-template-columns:minmax(90px,35%) minmax(0,1fr);border-bottom:1px solid #e1e6ea;padding:.65rem 0;gap:.5rem;align-items:start}
+.cy-erp-fields dt{color:#617380;font-weight:600}
+.cy-erp-fields dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.cy-erp-table-scroller{max-width:100%;overflow-x:auto}
+.cy-erp-warehouse{border-collapse:collapse;width:100%;min-width:810px;text-align:left}
+.cy-erp-warehouse th,.cy-erp-warehouse td{border-bottom:1px solid #e1e6ea;padding:.6rem;vertical-align:top;white-space:pre-wrap;overflow-wrap:anywhere}
+.cy-erp-warehouse th{color:#566c7c;background:#f7f9fa}
+.cy-erp-token{display:grid;gap:.65rem;margin-top:1rem;border:1px solid #d8e0e6;border-radius:8px;padding:1rem;min-width:0}
+.cy-erp-token code{overflow-wrap:anywhere;user-select:all;background:#f7f9fa;padding:.6rem}
+.cy-erp-token button{justify-self:start}
+@media(max-width:800px){
+  .cy-erp-item-lead,.cy-erp-fields{grid-template-columns:minmax(0,1fr)}
+  .cy-erp-query-row{align-items:stretch;flex-wrap:wrap}
+  .cy-erp-query-row input{min-width:0;width:100%;max-width:none}
+  .cy-erp-query-row button{flex:1}
+}

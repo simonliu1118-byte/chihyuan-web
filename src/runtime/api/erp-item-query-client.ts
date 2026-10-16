@@ -1,8 +1,8 @@
 import { apiRequest } from "../../api/client";
-import type { ErpAgentStatus, ErpQueryResult } from "../../../shared/erp-item-query";
+import type { ErpAgentStatus, ErpHistoryRequest, ErpQueryResult } from "../../../shared/erp-item-query";
 
-export function createErpItemQuery(itemNo: string): Promise<Pick<ErpQueryResult, "id" | "itemNo" | "status" | "createdAt">> {
-  return apiRequest("/api/erp/item-queries", { method: "POST", json: { itemNo } });
+export function createErpItemQuery(itemNo: string, history: ErpHistoryRequest): Promise<Pick<ErpQueryResult, "id" | "itemNo" | "status" | "createdAt" | "includeHistory" | "historyFrom" | "historyTo">> {
+  return apiRequest("/api/erp/item-queries", { method: "POST", json: { itemNo, ...history } });
 }
 export function loadErpItemQuery(id: string): Promise<ErpQueryResult> {
   return apiRequest(`/api/erp/item-queries/${encodeURIComponent(id)}`, { method: "GET" });
