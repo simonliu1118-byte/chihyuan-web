@@ -1,9 +1,9 @@
-export type ProgramId = "accounting-web" | "accounting" | "invoice" | "tri-invoice-calc" | "converter" | "envelope" | "watermark" | "price-desk";
+export type ProgramId = "accounting-web" | "accounting" | "invoice" | "tri-invoice-calc" | "converter" | "erp-auto-input" | "envelope" | "watermark" | "price-desk";
 export interface ProgramEntry {
   id: ProgramId;
   name: string;
   platform: "web" | "windows";
-  icon: "ACC" | "INV" | "CAL" | "CVT" | "ENV" | "WM" | null;
+  icon: "ACC" | "INV" | "CAL" | "CVT" | "Auto" | "ENV" | "WM" | null;
   description: string;
   version: string | null;
   publishedAt: string | null;
@@ -68,10 +68,15 @@ export const verifiedProgramCatalog: ProgramCatalog = {
       releaseUrl: "https://github.com/simonliu1118-byte/CYapps/releases/tag/TriINVCalc-v1.5.6",
       downloadUrl: "https://github.com/simonliu1118-byte/CYapps/releases/download/TriINVCalc-v1.5.6/TriINVCalc_V1.5.6.zip" },
     { id: "converter", name: "SMART 銷貨單格式轉換工具", platform: "windows", icon: "CVT",
-      description: "將鼎新 ERP COPI08 匯出的 Excel 交易資料轉換為 SMART 銷貨單匯入格式，檢查必要欄位並避免覆蓋同名輸出檔案。",
+      description: "將 ERP COPI08 匯出的 Excel 交易資料轉換為 SMART 銷貨單匯入格式，檢查必要欄位並避免覆蓋同名輸出檔案。",
       version: "1.0.1", publishedAt: "2026-10-15T17:13:11Z", websiteUrl: null,
       releaseUrl: "https://github.com/simonliu1118-byte/CYapps/releases/tag/smartcopiconverter-v1.0.1",
       downloadUrl: "https://github.com/simonliu1118-byte/CYapps/releases/download/smartcopiconverter-v1.0.1/SMARTCOPIConverter_V1.0.1_Windows_x64.zip" },
+    { id: "erp-auto-input", name: "SMART ERP 自動輸入工具", platform: "windows", icon: "Auto",
+      description: "支援蝦皮、MO店+與酷澎訂單匯入，將銷貨單表頭與商品明細自動輸入 SMART ERP，並可依設定儲存及列印。",
+      version: "0.2.9", publishedAt: "2026-10-12T08:56:08Z", websiteUrl: null,
+      releaseUrl: "https://github.com/simonliu1118-byte/CYapps/releases/tag/cyerp-auto-input-v0.2.9",
+      downloadUrl: "https://github.com/simonliu1118-byte/CYapps/releases/download/cyerp-auto-input-v0.2.9/CYERPAutoInput_V0.2.9.zip" },
     { id: "envelope", name: "信封套印工具", platform: "windows", icon: "ENV",
       description: "支援收件人與地址管理、臺灣郵遞區號查詢、信封版面位置與字型設定，以及 Windows 印表機套印。",
       version: null, publishedAt: null, releaseUrl: null, downloadUrl: null, websiteUrl: null },
