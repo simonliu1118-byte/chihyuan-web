@@ -2,6 +2,23 @@
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
 
+## ERP 客戶、銷貨銷退單、未收款與商品成本權限 — 2026-10-17
+
+- 以 main `31812ea`（已部署0.7.37）開始 **0.8.0 Build 0**：使用者要求把 CYERPAutoQuery V0.5～V0.7 的客戶（COPI01）、銷貨銷退單（COPR15＋COPR16）與未收款（ACRR18）接上 CY Web；升 Y 因新增三類使用者明顯可感受的查詢能力與權限。
+- 單一「ERP 查詢」入口；桌機頁籤、手機下拉（使用者決定）。權限依資料敏感度分三個查詢權限＋「ERP 商品成本」（決定標準進價可見）；未收款有權限即可查客戶／業務員／全部，日後再細分；銷貨銷退單日期規則同歷史異動。
+- 一個 job owner（`useErpJob`）供三類共用；銷退↔原銷貨單連結、未收款分組小計在 CY Web（`shared/erp-sales-links.ts`）。協定見 `docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md` V0.8.0 節。
+- [x] Browser／Worker TypeScript、完整 build、validate:source（12 migrations）；新增 Worker／SQLite regression（各類型權限、欄位白名單、Agent queryTypes 派工、SALES／RECEIVABLE 歸屬檢查、標準進價儲存與讀取過濾）與連結／分組測試。
+- [x] 以 CYERPAutoQuery 實際產生的六種 complete body 回灌本 Worker 全部接受（跨 repo 契約核對，未提交 fixture）。
+- [x] 本機合成 browser：1280px 頁籤／銷退縮排連結、390px 下拉／未收款分組、客戶名稱清單，無橫向溢出與 runtime error；未操作正式帳號或真實 ERP。
+- [ ] PR CI、部署（含 0012 migration）與真人 ERP 驗收；需搭配 CYERPAutoQuery V0.7.1 以上（測試階段不做向下相容，舊版 Agent 無法領取工作）。
+
+## 配色已確認，下一步討論版型 — 2026-10-16
+
+- [x] 使用者選定「石墨靛藍」作深色版，再補「霧白靛藍」淺色版，並確認「顏色改這樣比較好看，再來是版型」。色票與設計邊界記於既有 [App Shell 文件](docs/architecture/APP_SHELL_FOUNDATION.md#confirmed-colour-direction--2026-10-16)，兩版預覽 source 一併保存於 `docs/design/cyweb-indigo-light-dark.html`，合成資料且不進 runtime。
+- [x] 釐清先前說法：酒紅色不是已確認的 CY 家族品牌色，只是現行 Web 暫定配色。金色／銅色角色識別及狀態色保留；不因本輪 Web 選色修改 family-wide canonical。
+- [ ] **下一步：先給版型設計方案。** 桌機／平板／手機、導覽與頁首、表單及資料區配置仍待討論；預覽橫式導覽不代表定案，不能遺漏管理／工具入口。主題切換／預設／偏好保存方式也待定。
+- 正式程式及網站仍為已部署 **0.7.37**，PR174／175已合併；新配色目前只完成設計，尚未實作、合併產品程式或部署。本輪依使用者要求先保存文件，不開始版型或配色實作，也不重做舊 ERP 橋接草稿。
+
 ## 共用頁首／手機導覽／ERP 搜尋與歷史日期 — 2026-10-16
 
 - 以最新 main `b5de6b3`（已部署0.7.36、PR169～173）開始本輪 **0.7.37 Build0**；舊本機ERP橋接草稿不併入。現有品號／品名、批號／歷史、Agent與Module Access owner沿用。
@@ -12,7 +29,9 @@
 - [x] Browser／Worker TypeScript；shared日期與actual Worker/SQLite regression（超三年400且零工作、周年202與預設日期持久化）通過。
 - [x] 完整source contracts（11 migrations／52 tables）、Worker/assets build、68項Node regression；AITeam共通檔與CYID canonical Git blob、consumer window核對通過。
 - [x] 本機合成browser：Desktop標題20px／說明無可見header、超三年中文Modal；390px收合導覽／Esc／帳號Modal、品名25筆card分頁與點品號新工作；320px修正原生日期造成的grid min-content撐寬，320／768px無表單內或頁面橫向溢出。原生日期與空白最近一年結果確認，未操作正式帳號或真實ERP。
-- [ ] exact-head required CI、合併與原網站部署。
+- [x] [PR #174](https://github.com/simonliu1118-byte/chihyuan-web/pull/174) exact head `dd62e704cb71238ce896423db0c27fb2e98a05f8`：Governance `38910610889`、Runtime `38910611048`（四jobs／actual isolated Worker+D1）、deployment contract `38910611136` 全通過；合併 `c33a74aa57d8277fc6629be061e668c8eabefccc`。PR未執行真部署。
+- [x] [原網站部署 38910827315](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/38910827315) attempt2於 **2026-10-16 21:52:13 Asia/Taipei** 完成。Deployment `9dfede0054fb76ad16a9102a8d660e529373663b` 雙parent向前推進，tree `c034d620b18543f7a49ee8a5dc5885a05842b1bf` 與已驗main完全相同；原Worker、每日cron、雙入口 exact source/consumer/D1、invalid Session及正式Identity strict gate全通過。attempt1最後唯讀稽核回報 `CYWEB_AUDIT_SNAPSHOT_CHANGED`；未改動或略過guard，原提交重跑後通過，不推定第一次變動來源。
+- [x] 獨立公開回讀 **0.7.37／consumer1.0.5／9dfede00／D1 ok**；正式HTML載入bundle包含搜尋類別、收合模組選單及三年中文限制。未新增migration／binding／authority；真實ERP與新增介面的真人操作仍由既有人工驗收追蹤。
 
 ## CY 程式補列 ERP 自動輸入工具 — 2026-10-16
 
@@ -110,7 +129,7 @@
 
 ## 目前基準 — 2026-10-16（Asia/Taipei）
 
-- 目前已部署 **0.7.32 Build 0／CYID consumer 1.0.5**（本輪程式補列／每日清單與既有主動撤權驗證／部署見上方；canonical contract mirror1.0.6）：既有全部模組沿用原 Worker／business D1／Module Access，正式 Identity 切換結果見上方首次登入交接；使用者已確認帳號／郵件與真實角色／權限驗收 OK。主動撤權體驗及業務首版、乾淨 schema、其他真人業務驗收仍分開追蹤。
+- 目前已部署 **0.7.37 Build 0／CYID consumer 1.0.5**（本輪共用頁首／手機搜尋／全介面日期驗證與部署見上方；canonical contract mirror1.0.6）。已包含PR169～173的ERP獨立Module Access入口、Agent連線、批號／歷史及品名搜尋；現行contract與既有handoff report為介接依據。既有全部模組沿用原Worker／business D1／Module Access；使用者已確認帳號／郵件與真實角色／權限驗收OK。新增ERP能力的真人驗收、業務首版及乾淨schema仍分開追蹤。
 - 已包含 0.7.24「CY 程式 → 價格觀測室（原型）」外連，原型程式位於 CYapps `apps/CYPriceDesk/`，維持 Sites owner-private 與 ChatGPT 登入；未發版桌面程式仍不提供下載。
 - 先前已部署 source **0.7.22 Build 0** 已加入單次切換模組提醒，並沿用 Customer／WorkLog 共用 Dialog／ConfirmDialog，修正關閉焦點並移除六模組／Shell 工程描述；包含 quota cooldown／最近成功版本保留及 skip-link 修正；CY 程式頁仍依使用者要求不顯示「發版說明」連結。六模組獨立自動驗收準備完成，目前為 UI／UX 與小功能整理階段。
 - 本輪 source **0.7.23 Build 0／CYID consumer 1.0.4** 在既有「帳號與權限 → 系統使用權」新增 Super Admin 的「登記系統」，由 CYID core Session 決定目前 Workspace；其他員工使用權仍在既有清單管理。共享 Dialog／Field／dirty guard／Toast，無 browser registry authority。Provider #416／development #158 與 Web #146／development #138 已通過 CI／部署；七個 canonical mirrors1.0.4 已同步。使用者在原 development portal 完成 CYInvoice 真人登記／目前 Workspace 啟用，畫面已出現 CYInvoice。一般員工 App Access、取消／dirty guard／busy／行動裝置仍待驗收，不因 Super Admin 永遠允許就視為其他員工已授權。

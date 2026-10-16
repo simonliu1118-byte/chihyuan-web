@@ -114,3 +114,25 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 - GET 工作增加 `queryType`、`keyword`、`items`、`total`、`truncated`。清單經 D1 `items_json` 暫存，5 分鐘後清除，metadata 30 天；不寫入商品主檔、不快取成正式資料。Audit 記 queryType、keyword、筆數、elapsedMs，不記清單內容。
 - 前端在同一模組切換「品號／品名」，品名模式隱藏歷史異動。結果顯示六欄與超過上限提示；點選一筆品號會建立**新的 ITEM_NO** 工作並重新向 Agent 查完整單頭、庫別、批號與（若勾選）歷史異動。
 - 使用 forward migration `migrations/0011_erp_item_name_search.sql` 擴充 query_type、keyword、items_json，不重寫既有 migration。因底層既有 schema `item_no` 不可為空，ITEM_NAME 工作內部存固定占位代碼 `ITEM_NAME`；API 不對外回傳此占位。
+
+## 客戶、銷貨銷退單、未收款與商品成本權限（V0.8.0）
+
+來源：使用者 2026-10-17 決定；CYERPAutoQuery V0.7.1（COPI01、COPR15＋COPR16、ACRR18）。本節不改 CY Web Customer 主檔權威，ERP 結果只短期暫存。
+
+- **單一入口**：導覽只有「ERP 查詢」一個頁面（route `erp-item-query`），桌機以頁籤、手機以下拉切換「商品／客戶／未收款」（同一 category state，只是 presentation 不同）。只顯示使用者有權限的類別。
+- **Module Access**（`migrations/0012_erp_customer_sales_receivable.sql`）：`ERP_ITEM_QUERY`「ERP 商品查詢」（原權限）、`ERP_CUSTOMER_QUERY`「ERP 客戶查詢」（客戶資料＋銷貨銷退單）、`ERP_RECEIVABLE_QUERY`「ERP 未收款查詢」，任一即可進入頁面；`ERP_ITEM_COST`「ERP 商品成本」不是頁面，只決定是否可見「標準進價」。Super Admin 自動全有。`shared/modules.ts` 以 `moduleCodesForRoute` 表達「一頁可由多個權限其一開啟」。
+- **標準進價**：建立 ITEM_NO 工作時依當下 `ERP_ITEM_COST` 記 `include_cost` 並在 claim 傳 `includeCost`；Agent 只在 true 時送出。Worker 在 include_cost=0 時一律不儲存，GET 再依讀取者當下權限過濾。測試階段不做向下相容（使用者 2026-10-17）。
+- **使用者 API**（同 `POST /api/erp/item-queries`，每種類型只接受自己的欄位，其他欄位 400 `INVALID_QUERY`）：
+  - `{"queryType":"CUSTOMER_NO","customerCode":"CU0001"}`、`{"queryType":"CUSTOMER_NAME","keyword":"假"}`（關鍵字規則同品名）。
+  - `{"queryType":"SALES","customerCode":"CU0001","dateFrom":null,"dateTo":null}`：單據日期與歷史異動共用 `resolveDateRange`（未填＝去年同月同日至臺北今天、最多三個曆年），錯誤 400 `INVALID_DATE_RANGE`。
+  - `{"queryType":"RECEIVABLE","scope":"CUSTOMER"|"SALESPERSON"|"ALL","code":"…"}`；ALL 不可帶 code。
+  - 品號、客戶代號、業務員代號一律 1～40 個英文字母或數字（與 Agent 相同），否則 400 `INVALID_ITEM_NO`／`INVALID_CODE`。
+  - GET 增加 `code`、`scope`、`dateFrom`、`dateTo`、`orders`、`bills`；讀取時再次即時檢查該類型的 Module Access。
+- **Agent claim**：body 必須帶 `queryTypes`（Agent 支援的類型），缺少或含未知類型回 400 `INVALID_AGENT_REQUEST`；只派這些類型的工作。回傳依類型只含所需欄位：CUSTOMER_NO `customerCode`、CUSTOMER_NAME `keyword`、SALES `customerCode,dateFrom,dateTo`、RECEIVABLE `scope,code`、ITEM_NO 另加 `includeCost`。
+- **Agent complete**（非 FAILED 時都要回聲工作識別，Worker 逐一比對）：
+  - CUSTOMER_NO：`customerCode`＋`fields`（19 欄白名單 `ERP_CUSTOMER_FIELDS`）；FOUND 的「客戶代號」須與工作完全相同。
+  - CUSTOMER_NAME：同品名清單格式，欄位為 `客戶代號、客戶簡稱、客戶全名、TEL、統一編號、業務人員`，每列簡稱或全名須含關鍵字。
+  - SALES：`customerCode,dateFrom,dateTo,orders,total,truncated`；最多 1,000 張單、每張 500 行。單據 `kind` 為「銷貨」或「銷退」，客戶須為工作客戶、日期須在範圍內；金額數量為 ERP 顯示字串。銷退行 `sourceOrder` 為 ERP 原樣「單號-序號」或空字串。
+  - RECEIVABLE：`scope,code,bills,total,truncated`；最多 3,000 張結帳單、每張 500 憑證；CUSTOMER／SALESPERSON 範圍的每張結帳單客戶／業務員代號須相符。
+  - 報表類（SALES、RECEIVABLE）complete 上限 900 KiB；RUNNING 逾 600 秒視為 `AGENT_TIMEOUT`（品號 180 秒、含歷史 300 秒不變）。結果存 `result_json`，與其他結果同樣 5 分鐘清除。
+- **呈現與分析屬 CY Web**（使用者 2026-10-17：Agent 只當中介層）：銷退單有原銷貨單時排在該銷貨單下並互相連結，原銷貨單不在查詢範圍時標示；沒有原銷貨單者依日期獨立排列（`shared/erp-sales-links.ts`）。未收款依客戶分組並由 CY Web 加總小計。客戶名稱查詢只有一筆時自動接續查該客戶（客戶資料、銷貨銷退單或未收款）。

@@ -26,3 +26,26 @@ A destination business page mounts after its own module-access check, avoiding a
 ## Visual and acceptance boundary
 
 Shared layout/styles remain one codebase; no separate device router is introduced. Desktop browser checks and automated transition tests do not substitute for real Tablet/Mobile and multi-role acceptance. Current progress and remaining tests live only in root `TODO.md`.
+
+## Confirmed colour direction — 2026-10-16
+
+使用者已確認這組配色優於現況，採同一系列的兩種外觀：**石墨靛藍為深色版，霧白靛藍為淺色版**。目標是現代、簡潔、適合長時間操作的商務網頁系統。現行酒紅色只是 Web 暫定基礎配色，不能將它描述成 CY 系列品牌色；本次選色也不建立新的家族品牌規範。
+
+以下為已檢視設計的色票，供後續沿用共用樣式時對照；不代表已套入正式程式。
+
+| 用途 | 淺色：霧白靛藍 | 深色：石墨靛藍 |
+| --- | --- | --- |
+| 網頁背景 | `#F6F6F9` | `#17171F` |
+| 內容／表單表面 | `#FFFFFF` | `#23232F` |
+| 主要文字 | `#282A3A` | `#EFEDF8` |
+| 次要文字 | `#676B7E` | `#B6B4CB` |
+| 邊界 | `#E3E3EC` | `#414052` |
+| 主要按鈕／操作重點 | `#5552CD` | `#B6ADFF` |
+| 主要按鈕文字 | `#FFFFFF` | `#2B2454` |
+| 選取區底色 | `#EEEDFA` | `#36304E` |
+
+兩版保持相同功能、操作及權限語意，以留白、文字層次、細分隔及少量重點色呈現。超級管理員金色／一般管理員銅色仍保留角色辨識，成功／警告／錯誤仍保留各自狀態語意，不一律改成靛藍。
+
+可編輯設計預覽保存在 [深淺配色預覽 source](../design/cyweb-indigo-light-dark.html)，為對話預覽用 HTML fragment，使用合成資料；需搭配原 visualize renderer，並非部署頁面或可直接匯入產品的元件。既有本機預覽仍位於本對話的 visualization 目錄。
+
+**版型尚未確認。** 預覽中的橫式導覽、間距、字級、表單／結果排列只作示意，不能因為配色獲接受，就視為整個版型已定案。下一步先提出桌機／平板／手機的版型方案，再依使用者選定的配置整理共用 AppShell 與元件；特別保留管理／工具入口、guard 與手機可用性。主題切換位置、預設外觀、跟隨系統及偏好保存方式也尚未決定。

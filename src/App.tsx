@@ -4,7 +4,7 @@ import { checkModuleAccess } from "./access/module-access-client";
 import { AuthGate } from "./auth/AuthGate";
 import type { AuthSession, WorkspaceRole } from "./auth/auth-client";
 import { SharedIdentityPage } from "./identity/SharedIdentityPage";
-import { CYWEB_MODULES, moduleCodeForRoute, type CyWebModuleCode } from "../shared/modules";
+import { CYWEB_MODULES, moduleCodesForRoute, type CyWebModuleCode } from "../shared/modules";
 import type { NavigationGroup } from "./ui/foundation/navigation";
 import { AppShell } from "./ui/shell/AppShell";
 import { SettingsOperationalPage } from "./runtime/modules/SettingsOperationalPage";
@@ -33,7 +33,7 @@ const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
   orders: { title:"銷售工單", description:"管理銷售工單、ERP 單號與出貨流程；正式單號由 SMART ERP 提供。" },
   outsourcing: { title:"委外／代工", description:"管理代工單、材料清單、代工單價與庫存。" },
   worklogs: { title:"工作日誌", description:"建立工作日誌、送交審核及檢視評分統計。" },
-  "erp-item-query": { title:"ERP 品號查詢", description:"僅供查閱 SMART ERP 現有品號，不會新增或修改 ERP 或 CY Web 商品資料。" },
+  "erp-item-query": { title:"ERP 查詢", description:"查閱 SMART ERP 的商品、客戶、銷貨銷退單與未收款；只讀取，不會新增或修改 ERP 或 CY Web 資料。" },
   identity: { title:"帳號與權限", description:"CYID 身分、Email 與系統准入的管理入口。" },
   settings: { title:"設定／管理", description:"結構設定由超級管理員維護；管理員可維護工作日誌與計分設定。" },
   audit: { title:"稽核紀錄", description:"檢視重要業務操作與設定變更；只有管理員與超級管理員可讀取詳細內容。" },
@@ -51,7 +51,7 @@ const baseNavigation: readonly NavigationGroup[] = [
       { key: "orders", label: "銷售工單", href: "#orders" },
       { key: "outsourcing", label: "委外", href: "#outsourcing" },
       { key: "worklogs", label: "工作日誌", href: "#worklogs" },
-      { key: "erp-item-query", label: "ERP 品號查詢", href: "#erp-item-query" },
+      { key: "erp-item-query", label: "ERP 查詢", href: "#erp-item-query" },
     ],
   },
   {
@@ -136,10 +136,8 @@ function OperationalApp({
   );
 
   const navigation = useMemo<readonly NavigationGroup[]>(() => {
-    const business = baseNavigation[0].items.filter((item) => {
-      const moduleCode = moduleCodeForRoute(item.key);
-      return moduleCode ? allowedModules.has(moduleCode) : false;
-    });
+    const business = baseNavigation[0].items.filter((item) =>
+      moduleCodesForRoute(item.key).some((code) => allowedModules.has(code)));
     const administration = baseNavigation[1].items.filter((item) => {
       if (item.key === "identity") return true;
       if (item.key === "backups") return session.user.workspaceRole === "SUPER_ADMIN";
@@ -163,35 +161,37 @@ function OperationalApp({
     const previous = previousAccess.current;
     previousAccess.current = moduleAccess;
     const routeNow = route;
-    const moduleCode = moduleCodeForRoute(routeNow);
+    const routeCodes = moduleCodesForRoute(routeNow);
     const adminOnly = routeNow === "settings" || routeNow === "audit";
     const adminAllowed = session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN";
 
     if (!window.location.hash) {
-      const firstBusiness = baseNavigation[0].items.find((item) => {
-        const code = moduleCodeForRoute(item.key);
-        return code ? allowedModules.has(code) : false;
-      });
+      const firstBusiness = baseNavigation[0].items.find((item) =>
+        moduleCodesForRoute(item.key).some((code) => allowedModules.has(code)));
       window.location.hash = firstBusiness?.href ?? "#identity";
       return;
     }
 
-    if ((moduleCode && !allowedModules.has(moduleCode)) || (adminOnly && !adminAllowed)
+    if ((routeCodes.length && !routeCodes.some((code) => allowedModules.has(code))) || (adminOnly && !adminAllowed)
       || (routeNow === "backups" && session.user.workspaceRole !== "SUPER_ADMIN")) {
       cancel();
       guardedNavigation.replace("identity");
-      const label = CYWEB_MODULES.find(item => item.code === moduleCode)?.label;
-      const revoked = moduleCode && previous?.allowedModules.includes(moduleCode);
+      // A page opened by several grants (ERP 查詢) is named by its page title.
+      const label = routeCodes.length > 1 ? PAGE_META[routeNow].title
+        : CYWEB_MODULES.find(item => item.code === routeCodes[0])?.label;
+      const revoked = routeCodes.some((code) => previous?.allowedModules.includes(code));
       notify(label
         ? revoked ? `「${label}」模組的使用權已被取消，已退出該模組並返回帳號頁。尚未儲存的內容不會自動送出。` : `你目前沒有「${label}」模組的使用權，已返回帳號頁。`
         : "你的管理權限已變更，已返回帳號頁。尚未儲存的內容不會自動送出。", "權限變更", { replace: true });
     }
   }, [moduleAccess, allowedModules, session.user.workspaceRole, guardedNavigation, cancel, notify, route]);
 
-  const routeModuleCode = moduleCodeForRoute(route);
+  // The grant this page is checked with: one the member holds (any of the page's grants opens it).
+  const routeCodes = moduleCodesForRoute(route);
+  const routeModuleCode = routeCodes.find((code) => allowedModules.has(code)) ?? routeCodes[0] ?? null;
   const routeAllowed = !routeModuleCode || allowedModules.has(routeModuleCode);
   useEffect(() => {
-    const moduleCode = moduleCodeForRoute(route);
+    const moduleCode = routeModuleCode;
     if (!moduleCode || !routeAllowed) {
       setRouteAccess("idle");
       return;
@@ -210,10 +210,10 @@ function OperationalApp({
         setModuleAccessError(messageOf(error));
       });
     return () => { cancelled = true; };
-  }, [route, routeAllowed, moduleAccess]);
+  }, [route, routeAllowed, routeModuleCode, moduleAccess]);
 
   let content: React.ReactNode;
-  const moduleCode = moduleCodeForRoute(route);
+  const moduleCode = routeModuleCode;
   const adminAllowed = session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN";
   if ((route === "settings" || route === "audit") && !adminAllowed) {
     content = <section className="cy-op-panel">管理權限已變更，正在返回帳號頁…</section>;
@@ -225,7 +225,7 @@ function OperationalApp({
   else if (route === "orders") content = <SalesOrderOperationalPage />;
   else if (route === "outsourcing") content = <OutsourcingOperationalPage />;
   else if (route === "worklogs") content = <WorkLogOperationalPage />;
-  else if (route === "erp-item-query") content = <ErpItemQueryPage />;
+  else if (route === "erp-item-query") content = <ErpItemQueryPage allowedModules={allowedModules} />;
   else if (route === "identity") content = <SharedIdentityPage session={session} />;
   else if (route === "programs") content = <ProgramCatalogPage />;
   else if (route === "settings") content = <SettingsOperationalPage role={session.user.workspaceRole} />;

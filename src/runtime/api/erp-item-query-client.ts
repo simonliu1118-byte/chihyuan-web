@@ -1,13 +1,20 @@
 import { apiRequest } from "../../api/client";
-import type { ErpAgentStatus, ErpHistoryRequest, ErpQueryResult } from "../../../shared/erp-item-query";
+import type { ErpAgentStatus, ErpHistoryRequest, ErpQueryResult, ErpReceivableScope } from "../../../shared/erp-item-query";
 
 export type NewErpJob = Pick<ErpQueryResult,
-  "id" | "queryType" | "itemNo" | "keyword" | "status" | "createdAt" | "includeHistory" | "historyFrom" | "historyTo">;
-export function createErpItemQuery(itemNo: string, history: ErpHistoryRequest): Promise<NewErpJob> {
-  return apiRequest("/api/erp/item-queries", { method: "POST", json: { queryType:"ITEM_NO", itemNo, ...history } });
-}
-export function createErpNameSearch(keyword: string): Promise<NewErpJob> {
-  return apiRequest("/api/erp/item-queries", { method: "POST", json: { queryType:"ITEM_NAME", keyword } });
+  "id" | "queryType" | "itemNo" | "keyword" | "code" | "scope" | "dateFrom" | "dateTo"
+  | "status" | "createdAt" | "includeHistory" | "historyFrom" | "historyTo">;
+/** Every ERP query request, one per query type (see worker/http/erp-item-query-routes.ts). */
+export type ErpQueryRequest =
+  | ({ queryType: "ITEM_NO"; itemNo: string } & ErpHistoryRequest)
+  | { queryType: "ITEM_NAME" | "CUSTOMER_NAME"; keyword: string }
+  | { queryType: "CUSTOMER_NO"; customerCode: string }
+  | { queryType: "SALES"; customerCode: string; dateFrom: string | null; dateTo: string | null }
+  | { queryType: "RECEIVABLE"; scope: ErpReceivableScope; code: string | null };
+export function createErpQuery(request: ErpQueryRequest): Promise<NewErpJob> {
+  // A RECEIVABLE ALL request carries no code at all.
+  const json = request.queryType === "RECEIVABLE" && request.scope === "ALL" ? { queryType: request.queryType, scope: request.scope } : request;
+  return apiRequest("/api/erp/item-queries", { method: "POST", json });
 }
 export function loadErpItemQuery(id: string): Promise<ErpQueryResult> {
   return apiRequest(`/api/erp/item-queries/${encodeURIComponent(id)}`, { method: "GET" });

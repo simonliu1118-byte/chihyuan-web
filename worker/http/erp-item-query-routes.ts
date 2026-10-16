@@ -1,9 +1,16 @@
-import { ERP_ITEM_FIELDS, ERP_WAREHOUSE_FIELDS, ERP_BATCH_FIELDS, ERP_HISTORY_COLUMNS, ERP_SEARCH_FIELDS, type ErpQueryType, type ErpQueryHistory, type ErpField, type ErpQueryErrorCode, type ErpQueryResult } from "../../shared/erp-item-query";
+import {
+  ERP_ITEM_FIELDS, ERP_WAREHOUSE_FIELDS, ERP_BATCH_FIELDS, ERP_HISTORY_COLUMNS, ERP_SEARCH_FIELDS,
+  ERP_ITEM_COST_FIELDS, ERP_CUSTOMER_FIELDS, ERP_CUSTOMER_SEARCH_FIELDS, ERP_QUERY_TYPES,
+  type ErpQueryType, type ErpQueryHistory, type ErpField, type ErpQueryErrorCode, type ErpQueryResult,
+  type ErpReceivableScope, type ErpSalesOrder, type ErpSalesLine, type ErpReceivableBill, type ErpReceivableVoucher,
+} from "../../shared/erp-item-query";
 import { AuditService } from "../audit/audit-service";
-import { HistoryRangeError, resolveHistoryRange } from "../../shared/erp-query-history";
-import { erpNameContains, parseErpNameKeyword } from "../../shared/erp-name-search";
-import { resolveAppMember } from "../auth/app-access";
-import { requireIdentity, requireModuleAccess, type ModuleGateSuccess } from "../auth/guard";
+import { HistoryRangeError, resolveDateRange, resolveHistoryRange } from "../../shared/erp-query-history";
+import { erpNameContains, parseErpCode, parseErpNameKeyword } from "../../shared/erp-name-search";
+import { checkModuleAccess, resolveAppMember, type AppMemberRecord } from "../auth/app-access";
+import { requireIdentity } from "../auth/guard";
+import type { IdentityPrincipal } from "../identity/contract";
+import type { CyWebModuleCode } from "../../shared/modules";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
 import { errorResponse } from "./errors";
 import { readJsonObject, RequestInputError } from "./request";
@@ -18,12 +25,26 @@ type JobRow = {
   fields_json: string | null; warehouses_json: string | null;
   include_history: number; history_from: string | null; history_to: string | null;
   batch_managed: number | null; batches_json: string | null; history_json: string | null; items_json: string | null;
+  target_code: string | null; receivable_scope: ErpReceivableScope | null; include_cost: number; result_json: string | null;
   error_code: ErpQueryErrorCode | null; error_message: string | null;
 };
+/** Each query type is opened by one Module Access grant (user 2026-10-17: by data sensitivity). */
+const MODULE_FOR_TYPE: Record<ErpQueryType, CyWebModuleCode> = {
+  ITEM_NO: "ERP_ITEM_QUERY", ITEM_NAME: "ERP_ITEM_QUERY",
+  CUSTOMER_NO: "ERP_CUSTOMER_QUERY", CUSTOMER_NAME: "ERP_CUSTOMER_QUERY", SALES: "ERP_CUSTOMER_QUERY",
+  RECEIVABLE: "ERP_RECEIVABLE_QUERY",
+};
+const ERP_QUERY_MODULES: readonly CyWebModuleCode[] = ["ERP_ITEM_QUERY", "ERP_CUSTOMER_QUERY", "ERP_RECEIVABLE_QUERY"];
+/** Report types run whole ERP reports (COPR15+COPR16, ACRR18) and may take minutes. */
+const REPORT_TYPES = new Set<ErpQueryType>(["SALES", "RECEIVABLE"]);
+const NAME_TYPES = new Set<ErpQueryType>(["ITEM_NAME", "CUSTOMER_NAME"]);
 const ITEM_FIELD_SET = new Set<string>(ERP_ITEM_FIELDS);
+const COST_FIELD_SET = new Set<string>(ERP_ITEM_COST_FIELDS);
 const WAREHOUSE_FIELD_SET = new Set<string>(ERP_WAREHOUSE_FIELDS);
 const BATCH_FIELD_SET = new Set<string>(ERP_BATCH_FIELDS);
 const SEARCH_FIELD_SET = new Set<string>(ERP_SEARCH_FIELDS);
+const CUSTOMER_FIELD_SET = new Set<string>(ERP_CUSTOMER_FIELDS);
+const CUSTOMER_SEARCH_FIELD_SET = new Set<string>(ERP_CUSTOMER_SEARCH_FIELDS);
 const ERROR_TEXT: Record<ErpQueryErrorCode, string> = {
   ERP_NOT_OPEN: "ERP 尚未開啟", ERP_BUSY: "ERP 正在忙碌",
   ERP_STATE: "ERP 畫面狀態不符", EXPORT_FAILED: "ERP 匯出失敗",
@@ -36,37 +57,51 @@ const ISO_30_DAYS = 30 * 24 * 60 * 60 * 1000;
 // version/ERP state change) so an idle Agent does not cost a D1 write per poll. 10 s keeps
 // the 15 s online window satisfied.
 const HEARTBEAT_WRITE_MS = 10000;
+const MAX_ORDERS = 1000, MAX_ORDER_LINES = 500, MAX_BILLS = 3000, MAX_VOUCHERS = 500;
 
 function bad(code: string, message: string, status = 400): never {
   throw new RequestInputError(code, message, status);
 }
-function toJob(row: JobRow): ErpQueryResult {
-  const list = row.items_json ? JSON.parse(row.items_json) as {items:ErpField[][];total:number;truncated:boolean} : null;
+const parsedJson = <T,>(text: string | null): T | null => text ? JSON.parse(text) as T : null;
+function toJob(row: JobRow, showCost: boolean): ErpQueryResult {
+  const list = parsedJson<{items:ErpField[][];total:number;truncated:boolean}>(row.items_json);
+  const report = parsedJson<{orders?:ErpSalesOrder[];bills?:ErpReceivableBill[];total:number;truncated:boolean}>(row.result_json);
+  const sales = row.query_type === "SALES";
+  const fields = parsedJson<ErpField[]>(row.fields_json) ?? [];
   return {
     id: row.id, queryType:row.query_type, itemNo:row.query_type === "ITEM_NO" ? row.item_no : null,
-    keyword:row.keyword, items:list?.items ?? [], total:list?.total ?? 0, truncated:list?.truncated ?? false,
+    keyword:row.keyword, items:list?.items ?? [], total:list?.total ?? report?.total ?? 0, truncated:list?.truncated ?? report?.truncated ?? false,
+    code: row.target_code, scope: row.receivable_scope,
+    dateFrom: sales ? row.history_from : null, dateTo: sales ? row.history_to : null,
+    orders: report?.orders ?? [], bills: report?.bills ?? [],
     status: row.status, createdAt: row.created_at,
     startedAt: row.started_at, completedAt: row.completed_at, elapsedMs: row.elapsed_ms,
-    fields: row.fields_json ? JSON.parse(row.fields_json) as ErpField[] : [],
-    warehouses: row.warehouses_json ? JSON.parse(row.warehouses_json) as ErpField[][] : [],
-    includeHistory: row.include_history === 1, historyFrom: row.history_from, historyTo: row.history_to,
+    // 標準進價 also follows the reader's current grant, not only the one at creation.
+    fields: showCost ? fields : fields.filter(field => !COST_FIELD_SET.has(field.name)),
+    warehouses: parsedJson<ErpField[][]>(row.warehouses_json) ?? [],
+    includeHistory: row.include_history === 1, historyFrom: sales ? null : row.history_from, historyTo: sales ? null : row.history_to,
     batchManaged: row.batch_managed == null ? null : row.batch_managed === 1,
-    batches: row.batches_json ? JSON.parse(row.batches_json) as ErpField[][] : [],
-    history: row.history_json ? JSON.parse(row.history_json) as ErpQueryHistory : null,
+    batches: parsedJson<ErpField[][]>(row.batches_json) ?? [],
+    history: parsedJson<ErpQueryHistory>(row.history_json),
     errorCode: row.error_code, errorMessage: row.error_message,
-    resultCleared: row.status === "DONE" && (row.query_type === "ITEM_NAME" ? row.items_json === null : row.fields_json === null),
+    resultCleared: row.status === "DONE" && resultColumn(row) === null,
   };
 }
-function parseItemNo(value: unknown): string {
-  if (typeof value !== "string") return bad("INVALID_ITEM_NO", "品號必須是文字");
-  const trimmed = value.trim();
-  if (!trimmed || Array.from(trimmed).length > 40 || /\s|[\x00-\x1f\x7f]/u.test(trimmed))
-    return bad("INVALID_ITEM_NO", "品號須為 1～40 字，不能含空白或控制字元");
-  return trimmed;
+function resultColumn(row: JobRow): string | null {
+  if (NAME_TYPES.has(row.query_type)) return row.items_json;
+  if (REPORT_TYPES.has(row.query_type)) return row.result_json;
+  return row.fields_json;
 }
-function parseKeyword(value: unknown): string {
+function parseItemNo(value: unknown): string {
+  // Item numbers are ASCII letters and digits only (user 2026-10-16), the same rule as the Agent.
+  return parseErpCode(value) ?? bad("INVALID_ITEM_NO", "品號只能輸入 1～40 個英文字母或數字");
+}
+function parseCode(value: unknown, what: string): string {
+  return parseErpCode(value) ?? bad("INVALID_CODE", what + "只能輸入 1～40 個英文字母或數字");
+}
+function parseKeyword(value: unknown, what = "品名"): string {
   const keyword = parseErpNameKeyword(value);
-  if (!keyword) return bad("INVALID_KEYWORD", "品名關鍵字須為 1～40 字，不可含控制字元、單引號或萬用字元");
+  if (!keyword) return bad("INVALID_KEYWORD", what + "關鍵字須為 1～40 字，不可含控制字元、單引號或萬用字元");
   return keyword;
 }
 function limitedString(value: unknown, field: string, max: number): string {
@@ -85,6 +120,24 @@ function parseFields(raw: unknown, allowed: Set<string>, maxFields: number): Erp
     found.add(name);
     return { name, value: limitedString(value.value, "欄位內容", 4096) };
   });
+}
+function object(raw: unknown, what: string): Record<string, unknown> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return bad("INVALID_AGENT_RESULT", what + "格式不正確");
+  return raw as Record<string, unknown>;
+}
+function list(raw: unknown, what: string, max: number): unknown[] {
+  if (!Array.isArray(raw) || raw.length > max) return bad("INVALID_AGENT_RESULT", what + "列數不正確");
+  return raw;
+}
+function isoDay(value: unknown, what: string): string {
+  const text = limitedString(value, what, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return bad("INVALID_AGENT_RESULT", what + "必須為 YYYY-MM-DD");
+  return text;
+}
+function totals(body: Record<string, unknown>, count: number, what: string): { total: number; truncated: boolean } {
+  if (typeof body.total !== "number" || !Number.isSafeInteger(body.total) || body.total < count || typeof body.truncated !== "boolean")
+    return bad("INVALID_AGENT_RESULT", what + "總筆數或截斷狀態不正確");
+  return { total: body.total, truncated: body.truncated };
 }
 function parseHistory(raw: unknown, job: JobRow): ErpQueryHistory | null {
   if (raw == null) return null; // Older Agent may not support requested history.
@@ -107,44 +160,115 @@ function parseHistory(raw: unknown, job: JobRow): ErpQueryHistory | null {
     return bad("INVALID_AGENT_RESULT", "歷史異動總筆數或截斷狀態錯誤");
   return {from:data.from as string,to:data.to as string,columns:[...ERP_HISTORY_COLUMNS],rows,total:data.total,truncated:data.truncated as boolean};
 }
-function parseNameSearch(body: Record<string, unknown>, job: JobRow) {
+/** A name-search list (品名 or 客戶簡稱／全名): every row has its code and contains the keyword. */
+function parseNameList(body: Record<string, unknown>, job: JobRow) {
+  const customer = job.query_type === "CUSTOMER_NAME";
   if (body.keyword !== job.keyword)
-    return bad("INVALID_AGENT_RESULT", "回報的品名關鍵字與查詢工作不同");
-  if (body.fields != null && (!Array.isArray(body.fields) || body.fields.length !== 0)
-    || body.warehouses != null && (!Array.isArray(body.warehouses) || body.warehouses.length !== 0)
-    || body.batches != null && (!Array.isArray(body.batches) || body.batches.length !== 0)
-    || body.history != null || body.batchManaged != null)
-    return bad("INVALID_AGENT_RESULT", "品名查詢不得附帶品號詳細資料");
-  if (!Array.isArray(body.items) || body.items.length > 500)
-    return bad("INVALID_AGENT_RESULT", "品名查詢結果不可超過 500 列");
-  const items = body.items.map((raw: unknown) => {
-    const fields = parseFields(raw, SEARCH_FIELD_SET, ERP_SEARCH_FIELDS.length);
-    if (!fields.find(field => field.name === "品號")?.value.trim())
-      return bad("INVALID_AGENT_RESULT", "品名查詢每筆都必須有品號");
-    const name = fields.find(field => field.name === "品名")?.value;
-    if (!name || !erpNameContains(name, job.keyword ?? ""))
-      return bad("INVALID_AGENT_RESULT", "品名查詢結果不符合關鍵字");
+    return bad("INVALID_AGENT_RESULT", "回報的關鍵字與查詢工作不同");
+  const items = list(body.items, "名稱查詢結果", 500).map((raw: unknown) => {
+    const fields = parseFields(raw, customer ? CUSTOMER_SEARCH_FIELD_SET : SEARCH_FIELD_SET,
+      customer ? ERP_CUSTOMER_SEARCH_FIELDS.length : ERP_SEARCH_FIELDS.length);
+    const value = (name: string) => fields.find(field => field.name === name)?.value ?? "";
+    if (!value(customer ? "客戶代號" : "品號").trim())
+      return bad("INVALID_AGENT_RESULT", customer ? "客戶名稱查詢每筆都必須有客戶代號" : "品名查詢每筆都必須有品號");
+    const keyword = job.keyword ?? "";
+    const matches = customer
+      ? erpNameContains(value("客戶簡稱"), keyword) || erpNameContains(value("客戶全名"), keyword)
+      : !!value("品名") && erpNameContains(value("品名"), keyword);
+    if (!matches) return bad("INVALID_AGENT_RESULT", "名稱查詢結果不符合關鍵字");
     return fields;
   });
-  if (typeof body.total !== "number" || !Number.isSafeInteger(body.total) || body.total < items.length
-    || typeof body.truncated !== "boolean")
-    return bad("INVALID_AGENT_RESULT", "品名查詢總筆數或截斷狀態不正確");
-  return { items, total: body.total, truncated: body.truncated };
+  return { items, ...totals(body, items.length, "名稱查詢") };
 }
-function parseResult(body: Record<string, unknown>, job: JobRow) {
-  if (!["FOUND", "NOT_FOUND", "FAILED"].includes(String(body.outcome)))
-    return bad("INVALID_OUTCOME", "查詢結果狀態不正確");
-  const outcome = body.outcome as "FOUND" | "NOT_FOUND" | "FAILED";
-  const elapsedMs = body.elapsedMs;
-  if (typeof elapsedMs !== "number" || !Number.isSafeInteger(elapsedMs) || elapsedMs < 0 || elapsedMs > 3600000)
-    return bad("INVALID_AGENT_RESULT", "查詢耗時不正確");
-  const search = job.query_type === "ITEM_NAME" && body.outcome !== "FAILED" ? parseNameSearch(body, job) : null;
+function parseSalesLine(raw: unknown): ErpSalesLine {
+  const line = object(raw, "銷貨明細");
+  if (typeof line.seq !== "number" || !Number.isSafeInteger(line.seq) || line.seq < 1)
+    return bad("INVALID_AGENT_RESULT", "銷貨明細序號不正確");
+  const s = (name: string, max = 200) => limitedString(line[name], "銷貨明細" + name, max);
+  return {
+    seq: line.seq, itemCode: s("itemCode", 40), itemName: s("itemName"), specification: s("specification"),
+    warehouse: s("warehouse"), quantity: s("quantity", 40), unit: s("unit", 40), unitPrice: s("unitPrice", 40),
+    amount: s("amount", 40), giftType: s("giftType", 40), giftQuantity: s("giftQuantity", 40), batch: s("batch", 60),
+    note: s("note", 4096), sourceOrder: s("sourceOrder", 60),
+  };
+}
+/** 銷貨／銷退單: every order is the job's customer and inside its 單據日期 range. */
+function parseSales(body: Record<string, unknown>, job: JobRow) {
+  if (body.customerCode !== job.target_code || body.dateFrom !== job.history_from || body.dateTo !== job.history_to)
+    return bad("INVALID_AGENT_RESULT", "回報的客戶或日期範圍與查詢工作不同");
+  const orders = list(body.orders, "銷貨銷退單", MAX_ORDERS).map((raw: unknown): ErpSalesOrder => {
+    const order = object(raw, "銷貨銷退單");
+    const s = (name: string, max = 200) => limitedString(order[name], "銷貨銷退單" + name, max);
+    if (order.kind !== "銷貨" && order.kind !== "銷退") return bad("INVALID_AGENT_RESULT", "單據類別只能是銷貨或銷退");
+    const date = isoDay(order.date, "單據日期");
+    if (date < (job.history_from ?? "") || date > (job.history_to ?? ""))
+      return bad("INVALID_AGENT_RESULT", "單據日期不在查詢範圍內");
+    const customerCode = s("customerCode", 40);
+    if (customerCode !== job.target_code) return bad("INVALID_AGENT_RESULT", "單據客戶與查詢客戶不同");
+    const orderNo = s("orderNo", 60);
+    if (!orderNo.trim()) return bad("INVALID_AGENT_RESULT", "單據必須有單號");
+    const lines = list(order.lines, "銷貨明細", MAX_ORDER_LINES).map(parseSalesLine);
+    if (!lines.length) return bad("INVALID_AGENT_RESULT", "單據必須有明細");
+    return {
+      kind: order.kind, orderNo, date, customerCode, customerName: s("customerName"), salesperson: s("salesperson"),
+      department: s("department"), paymentTerm: s("paymentTerm"), taxType: s("taxType", 40), invoiceType: s("invoiceType", 40),
+      totalQuantity: s("totalQuantity", 40), amount: s("amount", 40), tax: s("tax", 40), total: s("total", 40),
+      note: s("note", 4096), reason: s("reason"), lines,
+    };
+  });
+  return { orders, ...totals(body, orders.length, "銷貨銷退單") };
+}
+/** 未收款 結帳單: one customer／業務員 jobs only hold that code's bills. */
+function parseReceivables(body: Record<string, unknown>, job: JobRow) {
+  if (body.scope !== job.receivable_scope || (body.code ?? null) !== job.target_code)
+    return bad("INVALID_AGENT_RESULT", "回報的未收款範圍與查詢工作不同");
+  const bills = list(body.bills, "結帳單", MAX_BILLS).map((raw: unknown): ErpReceivableBill => {
+    const bill = object(raw, "結帳單");
+    const s = (name: string, max = 200) => limitedString(bill[name], "結帳單" + name, max);
+    const bill_: ErpReceivableBill = {
+      customerCode: s("customerCode", 40), customerName: s("customerName"), date: isoDay(bill.date, "結帳日期"),
+      billNo: s("billNo", 60), salespersonCode: s("salespersonCode", 40), salespersonName: s("salespersonName"),
+      invoiceNo: s("invoiceNo", 40), currency: s("currency", 10), receivable: s("receivable", 40),
+      receivableTax: s("receivableTax", 40), unpaid: s("unpaid", 40),
+      vouchers: list(bill.vouchers, "憑證", MAX_VOUCHERS).map((entry: unknown): ErpReceivableVoucher => {
+        const voucher = object(entry, "憑證");
+        const v = (name: string, max = 60) => limitedString(voucher[name], "憑證" + name, max);
+        const date = v("date", 10);
+        if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return bad("INVALID_AGENT_RESULT", "憑證日期必須為 YYYY-MM-DD");
+        return { voucherNo: v("voucherNo"), date, amount: v("amount", 40), tax: v("tax", 40) };
+      }),
+    };
+    if (!bill_.billNo.trim() || !bill_.customerCode.trim()) return bad("INVALID_AGENT_RESULT", "結帳單必須有結帳單號與客戶代號");
+    if (job.receivable_scope === "CUSTOMER" && bill_.customerCode !== job.target_code
+      || job.receivable_scope === "SALESPERSON" && bill_.salespersonCode !== job.target_code)
+      return bad("INVALID_AGENT_RESULT", "結帳單不屬於查詢的客戶或業務員");
+    return bill_;
+  });
+  return { bills, ...totals(body, bills.length, "結帳單") };
+}
+type ParsedResult = {
+  status: "DONE" | "NOT_FOUND" | "FAILED";
+  fieldsJson: string | null; warehousesJson: string | null; batchManaged: number | null; batchesJson: string | null;
+  historyJson: string | null; itemsJson: string | null; resultJson: string | null;
+  resultCount: number; truncated: boolean; errorCode: ErpQueryErrorCode | null; errorMessage: string | null; elapsedMs: number;
+};
+const EMPTY = { fieldsJson: null, warehousesJson: null, batchManaged: null, batchesJson: null, historyJson: null, itemsJson: null, resultJson: null };
+/** Item details (ITEM_NO) or an item-name list (ITEM_NAME), the original contract. */
+function parseItemResult(body: Record<string, unknown>, job: JobRow, outcome: "FOUND" | "NOT_FOUND" | "FAILED") {
+  const search = job.query_type === "ITEM_NAME" && outcome !== "FAILED" ? parseNameList(body, job) : null;
+  if (job.query_type === "ITEM_NAME" && (body.fields != null && (!Array.isArray(body.fields) || body.fields.length !== 0)
+    || body.warehouses != null && (!Array.isArray(body.warehouses) || body.warehouses.length !== 0)
+    || body.batches != null && (!Array.isArray(body.batches) || body.batches.length !== 0)
+    || body.history != null || body.batchManaged != null))
+    return bad("INVALID_AGENT_RESULT", "品名查詢不得附帶品號詳細資料");
   if (job.query_type === "ITEM_NO" && (body.items !== undefined || body.keyword !== undefined))
     return bad("INVALID_AGENT_RESULT", "品號查詢不得附帶品名清單");
-  if (job.query_type === "ITEM_NAME" && body.outcome === "FAILED"
+  if (job.query_type === "ITEM_NAME" && outcome === "FAILED"
     && (body.items != null && (!Array.isArray(body.items) || body.items.length !== 0)))
     return bad("INVALID_AGENT_RESULT", "品名查詢失敗不得附帶清單");
-  const fields = parseFields(body.fields ?? [], ITEM_FIELD_SET, ERP_ITEM_FIELDS.length);
+  const parsed = parseFields(body.fields ?? [], ITEM_FIELD_SET, ERP_ITEM_FIELDS.length);
+  // 標準進價 is not even stored for a member without ERP_ITEM_COST, whatever the Agent sends.
+  const fields = job.include_cost === 1 ? parsed : parsed.filter(field => !COST_FIELD_SET.has(field.name));
   if (!Array.isArray(body.warehouses) || body.warehouses.length > 100)
     return bad("INVALID_AGENT_RESULT", "庫別資料格式不正確");
   const warehouses = body.warehouses.map(row => parseFields(row, WAREHOUSE_FIELD_SET, ERP_WAREHOUSE_FIELDS.length));
@@ -166,10 +290,68 @@ function parseResult(body: Record<string, unknown>, job: JobRow) {
       return bad("INVALID_AGENT_RESULT", "查詢結果品號與工作不一致");
     if (search && search.items.length === 0)
       return bad("INVALID_AGENT_RESULT", "FOUND 的品名清單不可為空");
-  } else if (fields.length || warehouses.length || batches.length || body.history != null
+  } else if (parsed.length || warehouses.length || batches.length || body.history != null
     || search && (search.items.length !== 0 || search.total !== 0 || search.truncated)) {
     return bad("INVALID_AGENT_RESULT", "非成功結果不得附帶 ERP 欄位");
   }
+  const found = outcome === "FOUND";
+  return {
+    ...EMPTY,
+    fieldsJson: found ? JSON.stringify(fields) : null,
+    warehousesJson: found ? JSON.stringify(warehouses) : null,
+    batchManaged: found ? (batchManaged == null ? null : batchManaged ? 1 : 0) : null,
+    batchesJson: found ? JSON.stringify(batches) : null,
+    historyJson: found && history ? JSON.stringify(history) : null,
+    itemsJson: found && search ? JSON.stringify(search) : null,
+    resultCount: found ? search?.total ?? 0 : 0,
+    truncated: found ? search?.truncated ?? false : false,
+  };
+}
+/** Customer, 銷貨銷退 and 未收款 results: no item detail, one result shape per type. */
+function parseBusinessResult(body: Record<string, unknown>, job: JobRow, outcome: "FOUND" | "NOT_FOUND" | "FAILED") {
+  for (const key of ["warehouses", "batches", "items", "orders", "bills"] as const)
+    if (body[key] != null && (!Array.isArray(body[key]) || (body[key] as unknown[]).length !== 0)
+      && !(key === "items" && job.query_type === "CUSTOMER_NAME" || key === "orders" && job.query_type === "SALES"
+        || key === "bills" && job.query_type === "RECEIVABLE"))
+      return bad("INVALID_AGENT_RESULT", "查詢結果附帶了其他類型的資料");
+  if (body.history != null || body.batchManaged != null
+    || job.query_type !== "CUSTOMER_NO" && body.fields != null && (!Array.isArray(body.fields) || body.fields.length !== 0))
+    return bad("INVALID_AGENT_RESULT", "查詢結果附帶了其他類型的資料");
+  if (outcome === "FAILED") {
+    if (["fields", "items", "orders", "bills"].some(key => Array.isArray(body[key]) && (body[key] as unknown[]).length))
+      return bad("INVALID_AGENT_RESULT", "查詢失敗不得附帶資料");
+    return { ...EMPTY, resultCount: 0, truncated: false };
+  }
+  const found = outcome === "FOUND";
+  if (job.query_type === "CUSTOMER_NO") {
+    if (body.customerCode !== job.target_code) return bad("INVALID_AGENT_RESULT", "回報的客戶代號與查詢工作不同");
+    const fields = parseFields(body.fields ?? [], CUSTOMER_FIELD_SET, ERP_CUSTOMER_FIELDS.length);
+    if (found && fields.find(f => f.name === "客戶代號")?.value !== job.target_code)
+      return bad("INVALID_AGENT_RESULT", "查詢結果客戶代號與工作不一致");
+    if (!found && fields.length) return bad("INVALID_AGENT_RESULT", "非成功結果不得附帶 ERP 欄位");
+    return { ...EMPTY, fieldsJson: found ? JSON.stringify(fields) : null, resultCount: found ? 1 : 0, truncated: false };
+  }
+  const result = job.query_type === "CUSTOMER_NAME" ? parseNameList(body, job)
+    : job.query_type === "SALES" ? parseSales(body, job) : parseReceivables(body, job);
+  const count = "items" in result ? result.items.length : "orders" in result ? result.orders.length : result.bills.length;
+  if (found && count === 0) return bad("INVALID_AGENT_RESULT", "FOUND 的結果不可為空");
+  if (!found && (count !== 0 || result.total !== 0 || result.truncated)) return bad("INVALID_AGENT_RESULT", "非成功結果不得附帶 ERP 資料");
+  return {
+    ...EMPTY,
+    itemsJson: found && "items" in result ? JSON.stringify(result) : null,
+    resultJson: found && !("items" in result) ? JSON.stringify(result) : null,
+    resultCount: found ? result.total : 0, truncated: found && result.truncated,
+  };
+}
+function parseResult(body: Record<string, unknown>, job: JobRow): ParsedResult {
+  if (!["FOUND", "NOT_FOUND", "FAILED"].includes(String(body.outcome)))
+    return bad("INVALID_OUTCOME", "查詢結果狀態不正確");
+  const outcome = body.outcome as "FOUND" | "NOT_FOUND" | "FAILED";
+  const elapsedMs = body.elapsedMs;
+  if (typeof elapsedMs !== "number" || !Number.isSafeInteger(elapsedMs) || elapsedMs < 0 || elapsedMs > 3600000)
+    return bad("INVALID_AGENT_RESULT", "查詢耗時不正確");
+  const parsed = job.query_type === "ITEM_NO" || job.query_type === "ITEM_NAME"
+    ? parseItemResult(body, job, outcome) : parseBusinessResult(body, job, outcome);
   let errorCode: ErpQueryErrorCode | null = null;
   if (outcome === "FAILED") {
     if (typeof body.errorCode !== "string" || !VALID_AGENT_ERRORS.has(body.errorCode))
@@ -179,15 +361,8 @@ function parseResult(body: Record<string, unknown>, job: JobRow) {
   if (body.agentVersion !== undefined) limitedString(body.agentVersion, "程式版本", 40);
   // Never persist arbitrary agent error strings: they may contain file paths or ERP secrets.
   return {
+    ...parsed,
     status: outcome === "FOUND" ? "DONE" : outcome,
-    fieldsJson: outcome === "FOUND" ? JSON.stringify(fields) : null,
-    warehousesJson: outcome === "FOUND" ? JSON.stringify(warehouses) : null,
-    batchManaged: outcome === "FOUND" ? (batchManaged == null ? null : batchManaged ? 1 : 0) : null,
-    batchesJson: outcome === "FOUND" ? JSON.stringify(batches) : null,
-    historyJson: outcome === "FOUND" && history ? JSON.stringify(history) : null,
-    itemsJson: outcome === "FOUND" && search ? JSON.stringify(search) : null,
-    resultCount: outcome === "FOUND" ? search?.total ?? 0 : 0,
-    truncated: outcome === "FOUND" ? search?.truncated ?? false : false,
     errorCode, errorMessage: errorCode ? ERROR_TEXT[errorCode] : null,
     elapsedMs: elapsedMs as number,
   };
@@ -217,12 +392,19 @@ async function agentGuard(request: Request, env: ErpBridgeEnv, requestId: string
 async function housekeeping(db: D1Database): Promise<void> {
   const now = new Date();
   const nowIso = now.toISOString();
+  const ago = (seconds: number) => new Date(now.getTime() - seconds * 1000).toISOString();
   const expired = await db.prepare(
     "UPDATE erp_item_queries SET status='EXPIRED', completed_at=?1 WHERE status='QUEUED' AND expires_at<=?1 RETURNING id,owner_member_id,item_no"
   ).bind(nowIso).all<{ id: string; owner_member_id: number; item_no: string }>();
+  // RUNNING limits: 180 s a plain query, 300 s with 歷史異動, 600 s an ERP report (SALES runs two).
   const timedOut = await db.prepare(
-    "UPDATE erp_item_queries SET status='FAILED', completed_at=?1, error_code='AGENT_TIMEOUT', error_message=?2 WHERE status='RUNNING' AND ((include_history=0 AND started_at<=?3) OR (include_history=1 AND started_at<=?4)) RETURNING id,owner_member_id,item_no"
-  ).bind(nowIso, ERROR_TEXT.AGENT_TIMEOUT, new Date(now.getTime() - 180000).toISOString(), new Date(now.getTime() - 300000).toISOString()).all<{ id: string; owner_member_id: number; item_no: string }>();
+    `UPDATE erp_item_queries SET status='FAILED', completed_at=?1, error_code='AGENT_TIMEOUT', error_message=?2
+      WHERE status='RUNNING' AND (
+        (query_type IN ('SALES','RECEIVABLE') AND started_at<=?5)
+        OR (query_type NOT IN ('SALES','RECEIVABLE') AND include_history=0 AND started_at<=?3)
+        OR (query_type NOT IN ('SALES','RECEIVABLE') AND include_history=1 AND started_at<=?4))
+      RETURNING id,owner_member_id,item_no`
+  ).bind(nowIso, ERROR_TEXT.AGENT_TIMEOUT, ago(180), ago(300), ago(600)).all<{ id: string; owner_member_id: number; item_no: string }>();
   const audit = new AuditService(db);
   for (const job of expired.results ?? []) {
     await audit.record({ entityType: "erp_item_query", entityKey: job.id, action: "erp_item_query.expired", actorEmployeeId: job.owner_member_id, statusFrom: "QUEUED", statusTo: "EXPIRED", metadata: { itemNo: job.item_no } });
@@ -231,25 +413,77 @@ async function housekeeping(db: D1Database): Promise<void> {
     await audit.record({ entityType: "erp_item_query", entityKey: job.id, action: "erp_item_query.failed", actorEmployeeId: job.owner_member_id, statusFrom: "RUNNING", statusTo: "FAILED", metadata: { itemNo: job.item_no, outcome: "AGENT_TIMEOUT" } });
   }
   await db.prepare(
-    "UPDATE erp_item_queries SET fields_json=NULL,warehouses_json=NULL,batches_json=NULL,history_json=NULL,items_json=NULL WHERE completed_at<?1 AND (fields_json IS NOT NULL OR warehouses_json IS NOT NULL OR batches_json IS NOT NULL OR history_json IS NOT NULL OR items_json IS NOT NULL)"
-  ).bind(new Date(now.getTime() - 300000).toISOString()).run();
+    "UPDATE erp_item_queries SET fields_json=NULL,warehouses_json=NULL,batches_json=NULL,history_json=NULL,items_json=NULL,result_json=NULL WHERE completed_at<?1 AND (fields_json IS NOT NULL OR warehouses_json IS NOT NULL OR batches_json IS NOT NULL OR history_json IS NOT NULL OR items_json IS NOT NULL OR result_json IS NOT NULL)"
+  ).bind(ago(300)).run();
   await db.prepare("DELETE FROM erp_item_queries WHERE completed_at<?1")
     .bind(new Date(now.getTime() - ISO_30_DAYS).toISOString()).run();
 }
-type UserGate = { kind: "error"; response: Response } | { kind: "ok"; gate: ModuleGateSuccess };
-async function userGuard(request: Request, env: ErpBridgeEnv, requestId: string): Promise<UserGate> {
+async function allowed(db: D1Database, principal: IdentityPrincipal, code: CyWebModuleCode): Promise<AppMemberRecord | null> {
+  const access = await checkModuleAccess(db, principal, code);
+  return access.allowed ? access.member : null;
+}
+/** The request's member when one of <paramref name="codes"/> is granted now; else the error response. */
+async function userGuard(request: Request, env: ErpBridgeEnv, requestId: string): Promise<IdentityPrincipal | Response> {
   const provider = identityClient(env);
-  if (!provider) return { kind: "error", response: failure({ code: "IDENTITY_UNAVAILABLE", message: "帳號服務暫時無法使用" }, requestId, 503) };
-  const gate = await requireModuleAccess(provider, env.DB, request, "ERP_ITEM_QUERY");
-  if (!gate.ok) return { kind: "error", response: failure({ code: gate.code, message: "登入或 ERP 品號查詢權限不足" }, requestId, gate.status) };
-  return { kind: "ok", gate };
+  if (!provider) return failure({ code: "IDENTITY_UNAVAILABLE", message: "帳號服務暫時無法使用" }, requestId, 503);
+  const gate = await requireIdentity(provider, request);
+  if (!gate.ok) return failure({ code: gate.code, message: "需要有效登入" }, requestId, gate.status);
+  return gate.principal;
+}
+const denied = (requestId: string) => failure({ code: "ACCESS_DENIED", message: "沒有這項 ERP 查詢的模組權限" }, requestId, 403);
+const KEYS: Record<ErpQueryType, readonly string[]> = {
+  ITEM_NO: ["queryType", "itemNo", "includeHistory", "historyFrom", "historyTo"],
+  ITEM_NAME: ["queryType", "keyword"],
+  CUSTOMER_NO: ["queryType", "customerCode"],
+  CUSTOMER_NAME: ["queryType", "keyword"],
+  SALES: ["queryType", "customerCode", "dateFrom", "dateTo"],
+  RECEIVABLE: ["queryType", "scope", "code"],
+};
+type NewJob = {
+  itemNo: string; keyword: string | null; targetCode: string | null; scope: ErpReceivableScope | null;
+  includeHistory: boolean; from: string | null; to: string | null;
+};
+/** One validated request per type; anything else in the body is refused. */
+function parseRequest(queryType: ErpQueryType, body: Record<string, unknown>): NewJob {
+  const extra = Object.keys(body).find(key => !KEYS[queryType].includes(key));
+  if (extra) return bad("INVALID_QUERY", "此查詢類型不接受欄位：" + extra);
+  const base: NewJob = { itemNo: queryType, keyword: null, targetCode: null, scope: null, includeHistory: false, from: null, to: null };
+  try {
+    switch (queryType) {
+      case "ITEM_NO": {
+        const history = resolveHistoryRange(body);
+        return { ...base, itemNo: parseItemNo(body.itemNo), includeHistory: history.includeHistory, from: history.historyFrom, to: history.historyTo };
+      }
+      case "ITEM_NAME": return { ...base, keyword: parseKeyword(body.keyword) };
+      case "CUSTOMER_NO": return { ...base, targetCode: parseCode(body.customerCode, "客戶代號") };
+      case "CUSTOMER_NAME": return { ...base, keyword: parseKeyword(body.keyword, "客戶名稱") };
+      case "SALES": {
+        const range = resolveDateRange(body.dateFrom, body.dateTo, "單據日期");
+        return { ...base, targetCode: parseCode(body.customerCode, "客戶代號"), from: range.from, to: range.to };
+      }
+      case "RECEIVABLE": {
+        const scope = body.scope;
+        if (scope !== "CUSTOMER" && scope !== "SALESPERSON" && scope !== "ALL") return bad("INVALID_QUERY", "未收款查詢範圍不正確");
+        if (scope === "ALL") {
+          if (body.code != null) return bad("INVALID_QUERY", "查全部未收款不可指定代號");
+          return { ...base, scope };
+        }
+        return { ...base, scope, targetCode: parseCode(body.code, scope === "CUSTOMER" ? "客戶代號" : "業務員代號") };
+      }
+    }
+  } catch (error) {
+    if (error instanceof HistoryRangeError) return bad(queryType === "SALES" ? "INVALID_DATE_RANGE" : "INVALID_HISTORY_RANGE", error.message);
+    throw error;
+  }
 }
 async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string, pathname: string): Promise<Response> {
-  const guard = await userGuard(request, env, requestId);
-  if (guard.kind === "error") return guard.response;
-  const { gate } = guard;
+  const principal = await userGuard(request, env, requestId);
+  if (principal instanceof Response) return principal;
   await housekeeping(env.DB);
   if (pathname === "/api/erp/agent-status" && request.method === "GET") {
+    let member: AppMemberRecord | null = null;
+    for (const code of ERP_QUERY_MODULES) if (!member) member = await allowed(env.DB, principal, code);
+    if (!member) return denied(requestId);
     const heartbeat = await env.DB.prepare("SELECT last_seen_at,agent_version,erp_state FROM erp_item_agent_status WHERE id=1")
       .first<{ last_seen_at: string; agent_version: string; erp_state: string }>();
     const lastSeenAt = heartbeat?.last_seen_at ?? null;
@@ -260,42 +494,39 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
   }
   if (pathname === "/api/erp/item-queries" && request.method === "POST") {
     const body = await readJsonObject(request, 2048);
-    const queryType = body.queryType ?? "ITEM_NO";
-    if (queryType !== "ITEM_NO" && queryType !== "ITEM_NAME")
+    const queryType = (body.queryType ?? "ITEM_NO") as ErpQueryType;
+    if (!ERP_QUERY_TYPES.includes(queryType))
       return failure({code:"INVALID_QUERY_TYPE",message:"查詢類型不正確"},requestId,400);
-    const itemNo = queryType === "ITEM_NO" ? parseItemNo(body.itemNo) : null;
-    const keyword = queryType === "ITEM_NAME" ? parseKeyword(body.keyword) : null;
-    if (queryType === "ITEM_NAME" && (body.itemNo !== undefined || body.includeHistory === true
-      || body.historyFrom != null || body.historyTo != null))
-      return failure({code:"INVALID_KEYWORD",message:"品名查詢不能同時提供品號或歷史異動"},requestId,400);
-    if (queryType === "ITEM_NO" && body.keyword !== undefined)
-      return failure({code:"INVALID_QUERY_TYPE",message:"品號查詢不可指定關鍵字"},requestId,400);
-    let historyRequest: ReturnType<typeof resolveHistoryRange> = {
-      includeHistory:false, historyFrom:null, historyTo:null,
-    };
-    if (queryType === "ITEM_NO") {
-      try {
-        historyRequest = resolveHistoryRange(body);
-      } catch (error) {
-        if (error instanceof HistoryRangeError)
-          return failure({code:"INVALID_HISTORY_RANGE",message:error.message},requestId,400);
-        throw error;
-      }
-    }
+    const member = await allowed(env.DB, principal, MODULE_FOR_TYPE[queryType]);
+    if (!member) return denied(requestId);
+    const job = parseRequest(queryType, body);
+    const includeCost = queryType === "ITEM_NO" && !!await allowed(env.DB, principal, "ERP_ITEM_COST");
     const active = await env.DB.prepare("SELECT 1 AS active FROM erp_item_queries WHERE owner_member_id=?1 AND status IN ('QUEUED','RUNNING') LIMIT 1")
-      .bind(gate.member.id).first();
+      .bind(member.id).first();
     if (active) return failure({ code: "QUERY_ALREADY_ACTIVE", message: "你已有正在排隊或查詢中的工作" }, requestId, 409);
     const id = crypto.randomUUID();
     const createdAt = new Date().toISOString();
     const expiresAt = new Date(Date.now() + 120000).toISOString();
+    const historyRequest = queryType === "ITEM_NO"
+      ? { includeHistory: job.includeHistory, historyFrom: job.from, historyTo: job.to }
+      : { includeHistory: false, historyFrom: null, historyTo: null };
+    const created = {
+      id, queryType, itemNo: queryType === "ITEM_NO" ? job.itemNo : null, keyword: job.keyword,
+      code: job.targetCode, scope: job.scope,
+      dateFrom: queryType === "SALES" ? job.from : null, dateTo: queryType === "SALES" ? job.to : null,
+      status: "QUEUED" as const, createdAt, ...historyRequest,
+    };
     try {
       await env.DB.batch([
-        env.DB.prepare("INSERT INTO erp_item_queries(id,owner_member_id,item_no,status,created_at,expires_at,include_history,history_from,history_to,query_type,keyword) VALUES(?1,?2,?3,'QUEUED',?4,?5,?6,?7,?8,?9,?10)")
-          .bind(id, gate.member.id, itemNo ?? "ITEM_NAME", createdAt, expiresAt,
-            historyRequest.includeHistory ? 1 : 0, historyRequest.historyFrom, historyRequest.historyTo, queryType, keyword),
+        env.DB.prepare(`INSERT INTO erp_item_queries(id,owner_member_id,item_no,status,created_at,expires_at,include_history,history_from,history_to,
+            query_type,keyword,target_code,receivable_scope,include_cost) VALUES(?1,?2,?3,'QUEUED',?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)`)
+          .bind(id, member.id, job.itemNo, createdAt, expiresAt, job.includeHistory ? 1 : 0, job.from, job.to,
+            queryType, job.keyword, job.targetCode, job.scope, includeCost ? 1 : 0),
         new AuditService(env.DB).prepareRecord({
           entityType: "erp_item_query", entityKey: id, action: "erp_item_query.created",
-          actorEmployeeId: gate.member.id, requestId, statusTo: "QUEUED", metadata: { queryType, itemNo, keyword, ...historyRequest },
+          actorEmployeeId: member.id, requestId, statusTo: "QUEUED",
+          metadata: { queryType, itemNo: created.itemNo, keyword: job.keyword, code: job.targetCode, scope: job.scope,
+            dateFrom: created.dateFrom, dateTo: created.dateTo, includeCost, ...historyRequest },
         }),
       ]);
     } catch (error) {
@@ -303,14 +534,18 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
         return failure({ code: "QUERY_ALREADY_ACTIVE", message: "你已有正在排隊或查詢中的工作" }, requestId, 409);
       throw error;
     }
-    return success({ id, queryType, itemNo, keyword, status: "QUEUED", createdAt, ...historyRequest }, requestId, { status: 202 });
+    return success(created, requestId, { status: 202 });
   }
   const match = /^\/api\/erp\/item-queries\/([0-9a-f-]{36})$/.exec(pathname);
   if (match && request.method === "GET") {
     const row = await env.DB.prepare("SELECT * FROM erp_item_queries WHERE id=?1").bind(match[1]).first<JobRow>();
-    if (!row || (row.owner_member_id !== gate.member.id && gate.principal.workspaceRole !== "SUPER_ADMIN"))
+    const member = await resolveAppMember(env.DB, principal);
+    if (!row || (row.owner_member_id !== member.id && principal.workspaceRole !== "SUPER_ADMIN"))
       return failure({ code: "QUERY_NOT_FOUND", message: "查無此查詢工作" }, requestId, 404);
-    return success(toJob(row), requestId);
+    // Results follow the reader's grants at this moment (a revoked grant hides them at once).
+    if (!await allowed(env.DB, principal, MODULE_FOR_TYPE[row.query_type])) return denied(requestId);
+    const showCost = row.query_type === "ITEM_NO" && !!await allowed(env.DB, principal, "ERP_ITEM_COST");
+    return success(toJob(row, showCost), requestId);
   }
   return failure({ code: "METHOD_NOT_ALLOWED", message: "ERP 查詢路徑或方法不支援" }, requestId, 405);
 }
@@ -358,6 +593,31 @@ async function credentialRoutes(request: Request, env: ErpBridgeEnv, requestId: 
   }
   return failure({ code: "METHOD_NOT_ALLOWED", message: "不支援此操作" }, requestId, 405);
 }
+/** The query types the Agent runs, listed in every claim. */
+function agentTypes(raw: unknown): ErpQueryType[] {
+  if (!Array.isArray(raw) || !raw.length || raw.length > ERP_QUERY_TYPES.length
+    || raw.some(type => !ERP_QUERY_TYPES.includes(type as ErpQueryType)))
+    return bad("INVALID_AGENT_REQUEST", "Agent 支援的查詢類型不正確");
+  return [...new Set(raw as ErpQueryType[])];
+}
+type ClaimRow = {
+  id: string; item_no: string; query_type: ErpQueryType; keyword: string | null; expires_at: string;
+  include_history: number; history_from: string | null; history_to: string | null;
+  target_code: string | null; receivable_scope: ErpReceivableScope | null; include_cost: number;
+};
+/** The claimed job as the Agent sees it: only what its query type needs. */
+function claimedJob(job: ClaimRow) {
+  const base = { id: job.id, queryType: job.query_type, expiresAt: job.expires_at };
+  switch (job.query_type) {
+    case "ITEM_NO": return { ...base, itemNo: job.item_no, includeHistory: job.include_history === 1,
+      historyFrom: job.history_from, historyTo: job.history_to, includeCost: job.include_cost === 1 };
+    case "ITEM_NAME": return { ...base, keyword: job.keyword, includeHistory: false, historyFrom: null, historyTo: null };
+    case "CUSTOMER_NO": return { ...base, customerCode: job.target_code };
+    case "CUSTOMER_NAME": return { ...base, keyword: job.keyword };
+    case "SALES": return { ...base, customerCode: job.target_code, dateFrom: job.history_from, dateTo: job.history_to };
+    case "RECEIVABLE": return { ...base, scope: job.receivable_scope, code: job.target_code };
+  }
+}
 async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: string, pathname: string): Promise<Response> {
   const auth = await agentGuard(request, env, requestId);
   if (auth instanceof Response) return auth;
@@ -366,6 +626,7 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
     const body = await readJsonObject(request, 2048);
     const agentVersion = limitedString(body.agentVersion, "程式版本", 40);
     const erpState = limitedString(body.erpState, "ERP 狀態", 40);
+    const types = agentTypes(body.queryTypes);
     const now = new Date().toISOString();
     await env.DB.prepare(
       `INSERT INTO erp_item_agent_status(id,last_seen_at,agent_version,erp_state) VALUES(1,?1,?2,?3)
@@ -375,13 +636,12 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
     const job = await env.DB.prepare(
       `UPDATE erp_item_queries
           SET status='RUNNING',started_at=?1,claim_hash=?2
-        WHERE id=(SELECT id FROM erp_item_queries WHERE status='QUEUED' AND expires_at>?1 ORDER BY created_at,id LIMIT 1)
+        WHERE id=(SELECT id FROM erp_item_queries WHERE status='QUEUED' AND expires_at>?1
+                    AND query_type IN (SELECT value FROM json_each(?3)) ORDER BY created_at,id LIMIT 1)
           AND NOT EXISTS(SELECT 1 FROM erp_item_queries WHERE status='RUNNING')
-        RETURNING id,item_no,query_type,keyword,expires_at,include_history,history_from,history_to`
-    ).bind(now, auth.digest).first<{ id: string; item_no: string; query_type:ErpQueryType; keyword:string|null; expires_at: string; include_history:number; history_from:string|null; history_to:string|null }>();
-    return success({ job: job ? { id:job.id, queryType:job.query_type,
-      ...(job.query_type === "ITEM_NAME" ? {keyword:job.keyword} : {itemNo:job.item_no}),
-      expiresAt:job.expires_at, includeHistory:job.include_history===1, historyFrom:job.history_from, historyTo:job.history_to } : null }, requestId);
+        RETURNING id,item_no,query_type,keyword,expires_at,include_history,history_from,history_to,target_code,receivable_scope,include_cost`
+    ).bind(now, auth.digest, JSON.stringify(types)).first<ClaimRow>();
+    return success({ job: job ? claimedJob(job) : null }, requestId);
   }
   const match = /^\/api\/erp-agent\/item-queries\/([0-9a-f-]{36})\/complete$/.exec(pathname);
   if (match && request.method === "POST") {
@@ -389,22 +649,25 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
     if (!row) return failure({ code: "QUERY_NOT_FOUND", message: "查無此查詢工作" }, requestId, 404);
     if (row.status !== "RUNNING" || row.claim_hash !== auth.digest)
       return failure({ code: "QUERY_NOT_RUNNING", message: "工作不在可回報狀態，或不是此 Agent 領取" }, requestId, 409);
-    const body = await readJsonObject(request, row.include_history || row.query_type === "ITEM_NAME" ? 256 * 1024 : 96 * 1024);
+    const limit = REPORT_TYPES.has(row.query_type) ? 900 * 1024
+      : row.include_history || NAME_TYPES.has(row.query_type) ? 256 * 1024 : 96 * 1024;
+    const body = await readJsonObject(request, limit);
     const result = parseResult(body, row);
     const completedAt = new Date().toISOString();
     const statements = [
       env.DB.prepare(
         `UPDATE erp_item_queries SET status=?1,completed_at=?2,elapsed_ms=?3,
-          fields_json=?4,warehouses_json=?5,batch_managed=?6,batches_json=?7,history_json=?8,items_json=?9,error_code=?10,error_message=?11
-        WHERE id=?12 AND status='RUNNING' AND claim_hash=?13`
+          fields_json=?4,warehouses_json=?5,batch_managed=?6,batches_json=?7,history_json=?8,items_json=?9,result_json=?10,error_code=?11,error_message=?12
+        WHERE id=?13 AND status='RUNNING' AND claim_hash=?14`
       ).bind(result.status, completedAt, result.elapsedMs,
-        result.fieldsJson, result.warehousesJson,result.batchManaged,result.batchesJson,result.historyJson,result.itemsJson,result.errorCode,
-        result.errorMessage, row.id, auth.digest),
+        result.fieldsJson, result.warehousesJson,result.batchManaged,result.batchesJson,result.historyJson,result.itemsJson,result.resultJson,
+        result.errorCode, result.errorMessage, row.id, auth.digest),
       new AuditService(env.DB).prepareRecord({
         entityType: "erp_item_query", entityKey: row.id, action: "erp_item_query.completed",
         actorEmployeeId: row.owner_member_id, requestId, statusFrom: "RUNNING", statusTo: result.status,
         metadata: { queryType:row.query_type, itemNo:row.query_type === "ITEM_NO" ? row.item_no : null,
-          keyword:row.keyword, resultCount:result.resultCount, truncated:result.truncated,
+          keyword:row.keyword, code:row.target_code, scope:row.receivable_scope,
+          resultCount:result.resultCount, truncated:result.truncated,
           outcome:result.status, elapsedMs:result.elapsedMs,
           includeHistory:row.include_history===1,historyFrom:row.history_from,historyTo:row.history_to },
       }, {

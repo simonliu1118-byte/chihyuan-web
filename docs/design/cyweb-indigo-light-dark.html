@@ -1,0 +1,137 @@
+<div id="cy-business-colors" class="viz-carousel" aria-label="石墨靛藍淺色與深色設計" data-previous-label="上一版" data-next-label="下一版">
+  <section data-variant="霧白靛藍・淺色版" aria-label="霧白靛藍淺色版"><div id="cy-color-indigo-light" class="cy-design-stage"></div></section>
+  <section data-variant="石墨靛藍・深色版" aria-label="石墨靛藍深色版" hidden><div id="cy-color-indigo-dark" class="cy-design-stage"></div></section>
+</div>
+<style>
+#cy-business-colors{font-family:Inter,"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;color-scheme:light dark}
+#cy-business-colors *{box-sizing:border-box}
+#cy-business-colors .cy-design-stage{min-height:752px;padding-bottom:12px}
+#cy-business-colors .cy-product{--p-bg:light-dark(#f5f7fa,#101721);--p-surface:light-dark(#fff,#18222f);--p-ink:light-dark(#172436,#e7edf6);--p-muted:light-dark(#5e6e82,#a8b7ca);--p-line:light-dark(#e2e8f0,#354357);--p-accent:light-dark(#2563eb,#8bb1ff);--p-on-accent:light-dark(#fff,#102348);--p-soft:light-dark(#edf3ff,#243b60);--p-nav:var(--p-surface);--p-nav-ink:var(--p-ink);--p-nav-muted:var(--p-muted);--p-nav-line:var(--p-line);--p-good:light-dark(#137357,#8bdfbd);--p-good-bg:light-dark(#eef9f3,#183b30);--p-gold:light-dark(#795b16,#e7c46d);--p-gold-bg:light-dark(#fbf6e8,#3b321f);--p-gold-line:light-dark(#e9d8a4,#685a34);--p-bad:light-dark(#b83a47,#ffabb3);--p-bad-bg:light-dark(#fff0f1,#41262d);--p-copper:light-dark(#8a583e,#dfac8a);--p-copper-bg:light-dark(#f6eee8,#3a2d27);--p-radius:12px;display:grid;grid-template-columns:190px minmax(0,1fr);min-height:720px;background:var(--p-bg);color:var(--p-ink);border:1px solid var(--p-line);border-radius:16px;overflow:hidden;font-size:14px;line-height:1.55}
+#cy-business-colors .cy-product[data-palette="teal"]{--p-bg:light-dark(#f2f6f6,#101b1e);--p-surface:light-dark(#fff,#19282c);--p-ink:light-dark(#1c3036,#e1efed);--p-muted:light-dark(#597078,#a7c0c2);--p-line:light-dark(#dce7e7,#354a4e);--p-accent:light-dark(#0f766e,#7ad7c8);--p-on-accent:light-dark(#fff,#113832);--p-soft:light-dark(#e7f4f0,#21443f);--p-nav:light-dark(#152d36,#101e25);--p-nav-ink:light-dark(#eef6f5,#e1efed);--p-nav-muted:light-dark(#b5c8ce,#9fb9c1);--p-nav-line:light-dark(#35515b,#354a4e)}
+#cy-business-colors .cy-product[data-palette="indigo"]{--p-bg:light-dark(#f6f6f9,#17171f);--p-surface:light-dark(#fff,#23232f);--p-ink:light-dark(#282a3a,#efedf8);--p-muted:light-dark(#676b7e,#b6b4cb);--p-line:light-dark(#e3e3ec,#414052);--p-accent:light-dark(#5552cd,#b6adff);--p-on-accent:light-dark(#fff,#2b2454);--p-soft:light-dark(#eeedfa,#36304e);grid-template-columns:minmax(0,1fr)}
+#cy-business-colors button,#cy-business-colors input,#cy-business-colors select{font:inherit}
+#cy-business-colors button{color:inherit}
+#cy-business-colors button:focus-visible,#cy-business-colors input:focus-visible,#cy-business-colors select:focus-visible{outline:3px solid var(--p-accent);outline-offset:3px}
+#cy-business-colors .cy-side{background:var(--p-nav);color:var(--p-nav-ink);border-right:1px solid var(--p-nav-line);padding:24px 14px;display:flex;flex-direction:column;gap:26px}
+#cy-business-colors .cy-brand{display:flex;gap:10px;align-items:center;font-weight:600;letter-spacing:.02em;white-space:nowrap}
+#cy-business-colors .cy-monogram{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--p-accent);color:var(--p-on-accent);font-size:13px;font-weight:700}
+#cy-business-colors .cy-brand small{display:block;color:var(--p-nav-muted);font-size:11px;letter-spacing:.02em;font-weight:400}
+#cy-business-colors .cy-nav{display:grid;gap:4px}
+#cy-business-colors .cy-nav-entry{padding:9px 12px;display:flex;align-items:center;gap:10px;border-radius:8px;color:var(--p-nav-muted);white-space:nowrap}
+#cy-business-colors .cy-nav-entry svg{width:17px;height:17px;flex:none}
+#cy-business-colors .cy-nav-entry.current{color:var(--p-accent);background:var(--p-soft);font-weight:600}
+#cy-business-colors .cy-side-sep{height:1px;background:var(--p-nav-line);margin:12px 8px}
+#cy-business-colors .cy-tools-label{padding:8px 12px 4px;color:var(--p-nav-muted);font-size:11px;letter-spacing:.06em}
+#cy-business-colors .cy-side-bottom{margin-top:auto;padding:12px 10px 0;color:var(--p-nav-muted);font-size:11px}
+#cy-business-colors .cy-work{min-width:0}
+#cy-business-colors .cy-header{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:76px;padding:18px 26px;background:var(--p-surface);border-bottom:1px solid var(--p-line)}
+#cy-business-colors .cy-heading{display:flex;align-items:center;gap:10px;min-width:0}
+#cy-business-colors h1{font-size:20px;font-weight:650;line-height:1.35;margin:0}
+#cy-business-colors h2{font-size:16px;font-weight:600;margin:0}
+#cy-business-colors .cy-icon-button{border:1px solid var(--p-line);background:var(--p-surface);border-radius:8px;min-width:32px;height:32px;display:grid;place-items:center;color:var(--p-muted);padding:0}
+#cy-business-colors .cy-icon-button svg{width:16px;height:16px}
+#cy-business-colors .cy-account{display:flex;align-items:center;gap:8px;color:var(--p-muted);font-size:12px;white-space:nowrap}
+#cy-business-colors .cy-role{padding:4px 8px;border-radius:6px;background:var(--p-gold-bg);color:var(--p-gold);border:1px solid var(--p-gold-line);font-size:11px}
+#cy-business-colors .cy-main{padding:24px 26px;display:grid;gap:18px;align-content:start}
+#cy-business-colors .cy-overline{display:flex;justify-content:space-between;gap:12px;align-items:center;color:var(--p-muted);font-size:12px;flex-wrap:wrap}
+#cy-business-colors .cy-online{color:var(--p-good);display:inline-flex;align-items:center;gap:6px}
+#cy-business-colors .cy-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+#cy-business-colors .cy-panel{padding:22px;background:var(--p-surface);border:1px solid var(--p-line);border-radius:var(--p-radius)}
+#cy-business-colors .cy-form{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+#cy-business-colors .cy-form-top{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+#cy-business-colors .cy-category{min-width:120px;min-height:38px;border:1px solid var(--p-line);border-radius:7px;padding:6px 10px;background:var(--p-surface);color:var(--p-ink)}
+#cy-business-colors .cy-modes{display:inline-flex;padding:3px;border-radius:8px;background:var(--p-bg);gap:3px}
+#cy-business-colors .cy-modes button{border:0;background:transparent;border-radius:6px;padding:6px 19px;color:var(--p-muted);font-size:13px}
+#cy-business-colors .cy-modes button[aria-pressed="true"]{background:var(--p-soft);color:var(--p-accent);font-weight:600}
+#cy-business-colors .cy-search{display:flex;align-items:center;gap:10px;min-width:0}
+#cy-business-colors .cy-search-field{position:relative;min-width:0;flex:1}
+#cy-business-colors .cy-search-field svg{position:absolute;left:13px;top:14px;width:16px;height:16px;color:var(--p-muted)}
+#cy-business-colors input[type="text"]{width:100%;min-width:0;height:44px;background:var(--p-surface);color:var(--p-ink);border:1px solid var(--p-line);border-radius:8px;padding:10px 12px 10px 38px}
+#cy-business-colors input::placeholder{color:var(--p-muted);opacity:1}
+#cy-business-colors .cy-primary{height:44px;padding:0 23px;border:0;border-radius:8px;background:var(--p-accent);color:var(--p-on-accent);font-weight:600;white-space:nowrap}
+#cy-business-colors .cy-check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--p-muted);min-height:28px}
+#cy-business-colors input[type="checkbox"]{accent-color:var(--p-accent);width:16px;height:16px}
+#cy-business-colors .cy-dates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#cy-business-colors .cy-dates label{color:var(--p-muted);font-size:12px;min-width:0}
+#cy-business-colors input[type="date"]{display:block;margin-top:5px;min-width:0;width:100%;height:40px;border:1px solid var(--p-line);border-radius:7px;color:var(--p-ink);background:var(--p-surface);padding:6px 9px}
+#cy-business-colors .cy-form-hint{font-size:12px;color:var(--p-muted)}
+#cy-business-colors .cy-result-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+#cy-business-colors .cy-status{font-size:11px;color:var(--p-good);background:var(--p-good-bg);padding:4px 9px;border-radius:6px}
+#cy-business-colors .cy-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 24px;margin:0}
+#cy-business-colors .cy-fields>div{min-width:0}
+#cy-business-colors .cy-fields dt{font-size:12px;color:var(--p-muted);margin-bottom:5px}
+#cy-business-colors .cy-fields dd{margin:0;font-weight:500;overflow-wrap:anywhere}
+#cy-business-colors .cy-fields .cy-wide{grid-column:1/-1}
+#cy-business-colors .cy-result-footer{margin-top:20px;border-top:1px solid var(--p-line);padding-top:14px;font-size:12px;color:var(--p-muted);display:flex;justify-content:space-between;gap:10px}
+#cy-business-colors .cy-link{color:var(--p-accent);border:0;background:none;padding:0;font-size:12px}
+#cy-business-colors .cy-palette-footer{display:flex;gap:12px;flex-wrap:wrap;align-items:center;color:var(--p-muted);font-size:11px;padding:0 2px}
+#cy-business-colors .cy-chip{display:inline-flex;gap:6px;align-items:center}
+#cy-business-colors .cy-swatch{width:12px;height:12px;border:1px solid var(--p-line);border-radius:4px;background:var(--p-accent)}
+#cy-business-colors .cy-swatch.bg{background:var(--p-bg)}
+#cy-business-colors .cy-swatch.text{background:var(--p-ink)}
+#cy-business-colors .cy-swatch.copper{background:var(--p-copper-bg);border-color:var(--p-copper)}
+#cy-business-colors .cy-help-text{padding:13px 16px;border:1px solid var(--p-line);border-radius:8px;background:var(--p-surface);color:var(--p-muted);font-size:13px}
+#cy-business-colors .cy-alert{padding:10px 12px;background:var(--p-bad-bg);color:var(--p-bad);border-radius:7px;font-size:13px}
+#cy-business-colors [hidden]{display:none!important}
+#cy-business-colors .cy-mobile-menu{display:none}
+#cy-business-colors .cy-product[data-palette="teal"] .cy-panel{border-radius:8px}
+#cy-business-colors .cy-product[data-palette="teal"] .cy-form-top{justify-content:flex-start}
+#cy-business-colors .cy-product[data-palette="teal"] .cy-main{gap:16px}
+#cy-business-colors .cy-product[data-palette="indigo"] .cy-side{padding:16px 24px;flex-direction:row;align-items:center;gap:26px;border-right:0;border-bottom:1px solid var(--p-line)}
+#cy-business-colors .cy-product[data-palette="indigo"] .cy-side .cy-nav{display:flex;gap:2px;flex-wrap:wrap}
+#cy-business-colors .cy-product[data-palette="indigo"] .cy-nav-entry{padding:7px 10px;font-size:12px}
+#cy-business-colors .cy-product[data-palette="indigo"] .cy-nav-entry svg,#cy-business-colors .cy-product[data-palette="indigo"] .cy-management,#cy-business-colors .cy-product[data-palette="indigo"] .cy-side-bottom{display:none}
+#cy-business-colors .cy-product[data-palette="indigo"] .cy-brand small{display:none}
+#cy-business-colors .cy-product[data-palette="indigo"] .cy-main{max-width:850px;margin:0 auto}
+#cy-business-colors .cy-product[data-palette="indigo"] .cy-panel{border-radius:10px}
+#cy-business-colors .cy-product[data-mobile="true"]{max-width:390px;margin:0 auto;grid-template-columns:minmax(0,1fr)}
+#cy-business-colors .cy-product[data-mobile="true"] .cy-side{display:none}
+#cy-business-colors .cy-product[data-mobile="true"] .cy-header{padding:14px;gap:8px;min-height:64px}
+#cy-business-colors .cy-product[data-mobile="true"] .cy-mobile-menu{display:grid}
+#cy-business-colors .cy-product[data-mobile="true"] .cy-header h1{font-size:18px}
+#cy-business-colors .cy-product[data-mobile="true"] .cy-account-name{display:none}
+#cy-business-colors .cy-product[data-mobile="true"] .cy-main{padding:16px 14px;gap:14px}
+#cy-business-colors .cy-product[data-mobile="true"] .cy-panel{padding:18px}
+#cy-business-colors .cy-product[data-mobile="true"] .cy-primary{padding:0 18px}
+@media(max-width:620px){
+ #cy-business-colors .cy-product{grid-template-columns:minmax(0,1fr)}
+ #cy-business-colors .cy-side{display:none!important}
+ #cy-business-colors .cy-header{padding:14px;gap:8px;min-height:64px}
+ #cy-business-colors .cy-mobile-menu{display:grid}
+ #cy-business-colors h1{font-size:18px}
+ #cy-business-colors .cy-account-name{display:none}
+ #cy-business-colors .cy-main{padding:16px 14px;gap:14px}
+ #cy-business-colors .cy-panel{padding:18px}
+ #cy-business-colors .cy-primary{padding:0 18px}
+ #cy-business-colors .cy-design-stage{min-height:840px}
+}
+</style>
+<script>
+(function(){
+ const root=document.getElementById('cy-business-colors');
+ const palettes=[{id:'indigo-light',name:'霧白靛藍淺色版',scheme:'light'},{id:'indigo-dark',name:'石墨靛藍深色版',scheme:'dark'}];
+ const business=[['users','客戶'],['package','商品'],['clipboard-check','瑕疵'],['receipt-text','銷售工單'],['truck','委外'],['notebook-pen','工作日誌'],['search','ERP 查詢']];
+ const management=[['shield-check','帳號與權限'],['settings-2','設定'],['history','稽核紀錄'],['database-backup','備份管理']];
+ const nav=rows=>rows.map(([icon,label])=>'<div class="cy-nav-entry '+(label==='ERP 查詢'?'current':'')+'"><i data-lucide="'+icon+'" aria-hidden="true"></i><span>'+label+'</span></div>').join('');
+ palettes.forEach(p=>{
+  const mount=root.querySelector('#cy-color-'+p.id);
+  mount.innerHTML=`<div class="cy-product" data-palette="indigo" style="color-scheme:${p.scheme}" aria-label="${p.name}介面">
+   <aside class="cy-side"><div class="cy-brand"><span class="cy-monogram">CY</span><div>志遠企業<small>企業管理系統</small></div></div><div><nav class="cy-nav" aria-label="業務模組">${nav(business)}</nav><div class="cy-management"><div class="cy-side-sep"></div><nav class="cy-nav" aria-label="管理功能">${nav(management)}</nav><div class="cy-tools-label">工具</div><div class="cy-nav-entry"><i data-lucide="app-window" aria-hidden="true"></i>CY 程式</div></div></div><div class="cy-side-bottom">志遠企業管理系統</div></aside>
+   <div class="cy-work"><header class="cy-header"><div class="cy-heading"><span class="cy-icon-button cy-mobile-menu" aria-hidden="true"><i data-lucide="menu"></i></span><h1>ERP 品號查詢</h1><button type="button" class="cy-icon-button cursor-interaction" aria-label="說明" aria-expanded="false"><i data-lucide="circle-help" aria-hidden="true"></i></button></div><div class="cy-account"><span class="cy-account-name">示範管理員</span><span class="cy-role">超級管理員</span></div></header>
+    <main class="cy-main"><div class="cy-overline"><span>商品資料查詢</span><span class="cy-online"><span class="cy-dot"></span>ERP 已連線</span></div>
+    <div class="cy-help-text" hidden>僅供查閱 ERP 現有商品，不會新增或修改資料。</div>
+    <section class="cy-panel"><form class="cy-form" novalidate><div class="cy-form-top"><select class="cy-category" aria-label="搜尋類別"><option>商品</option></select><div class="cy-modes" aria-label="查詢方式"><button type="button" class="cursor-interaction" aria-pressed="true" data-mode="品號">品號</button><button type="button" class="cursor-interaction" aria-pressed="false" data-mode="品名">品名</button></div></div><div class="cy-search"><div class="cy-search-field"><i data-lucide="search" aria-hidden="true"></i><input type="text" aria-label="品號" placeholder="請輸入品號" value="T0001"></div><button type="submit" class="cy-primary cursor-interaction">查詢</button></div><label class="cy-check"><input type="checkbox">查歷史異動</label><div class="cy-dates" hidden><label>起日<input type="date"></label><label>迄日<input type="date"></label></div><div class="cy-form-hint" hidden>起訖都未填：最近一年；範圍最多三年。</div><div class="cy-alert" role="alert" hidden>請輸入查詢內容。</div></form></section>
+    <section class="cy-panel"><div class="cy-result-head"><h2>商品資料</h2><span class="cy-status" role="status">查詢完成</span></div><dl class="cy-fields"><div><dt>品號</dt><dd class="cy-result-code">T0001</dd></div><div><dt>庫存數量</dt><dd>128 件</dd></div><div class="cy-wide"><dt>品名</dt><dd>範例商品</dd></div><div><dt>商品分類</dt><dd>一般商品</dd></div><div><dt>標準售價</dt><dd>NT$ 1,200</dd></div></dl><div class="cy-result-footer"><span>示意資料</span><button type="button" class="cy-link cursor-interaction">查看庫別資料</button></div><dl class="cy-fields cy-stock" hidden><div><dt>庫別</dt><dd>示範倉庫</dd></div><div><dt>可用數量</dt><dd>128 件</dd></div></dl></section>
+    <footer class="cy-palette-footer"><span class="cy-chip"><span class="cy-swatch"></span>主色</span><span class="cy-chip"><span class="cy-swatch bg"></span>背景</span><span class="cy-chip"><span class="cy-swatch text"></span>文字</span><span class="cy-chip"><span class="cy-swatch copper"></span>一般管理員銅色</span></footer></main></div></div>`;
+  const app=mount.querySelector('.cy-product'),form=app.querySelector('form'),field=app.querySelector('input[type=text]'),help=app.querySelector('.cy-help-text'),helpButton=app.querySelector('button[aria-label="說明"]'),history=app.querySelector('input[type=checkbox]'),state={mobile:false};
+  helpButton.addEventListener('click',()=>{help.hidden=!help.hidden;helpButton.setAttribute('aria-expanded',String(!help.hidden));});
+  app.querySelectorAll('[data-mode]').forEach(button=>button.addEventListener('click',()=>{app.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));field.placeholder='請輸入'+button.dataset.mode;field.setAttribute('aria-label',button.dataset.mode);field.value='';const nameMode=button.dataset.mode==='品名';app.querySelector('.cy-check').hidden=nameMode;app.querySelector('.cy-dates').hidden=nameMode||!history.checked;app.querySelector('.cy-form-hint').hidden=nameMode||!history.checked;}));
+  history.addEventListener('change',()=>{app.querySelector('.cy-dates').hidden=!history.checked;app.querySelector('.cy-form-hint').hidden=!history.checked;});
+  form.addEventListener('submit',event=>{event.preventDefault();const blank=!field.value.trim();app.querySelector('.cy-alert').hidden=!blank;if(!blank){app.querySelector('.cy-result-code').textContent=field.getAttribute('aria-label')==='品號'?field.value:'T0001';app.querySelector('[role=status]').textContent='示意查詢完成';}});
+  app.querySelector('.cy-link').addEventListener('click',event=>{const stock=app.querySelector('.cy-stock');stock.hidden=!stock.hidden;event.currentTarget.textContent=stock.hidden?'查看庫別資料':'收合庫別資料';});
+  const render=()=>{app.dataset.mobile=String(state.mobile);};
+  if(globalThis.Tweak){const tweak=new Tweak({container:app,onChange:render});tweak.addToggle(state,'mobile',{label:'預覽手機排版'});}
+ });
+ if(globalThis.lucide)lucide.createIcons({attrs:{width:16,height:16}});
+})();
+</script>
