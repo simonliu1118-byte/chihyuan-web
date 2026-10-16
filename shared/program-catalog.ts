@@ -15,7 +15,22 @@ export interface ProgramCatalog {
   programs: readonly ProgramEntry[];
   checkedAt: string;
   current: boolean;
+  automaticUpdate?: {
+    status: "pending" | "ready" | "failed" | "overdue";
+    lastAttemptAt: string | null;
+    nextUpdateAt: string;
+  };
   refreshFailure?: { code: "HTTP" | "RATE_LIMIT" | "TIMEOUT" | "NETWORK" | "BODY" | "TOO_LARGE" | "INVALID" | "PAGE_LIMIT" | "MISSING"; httpStatus?: number };
+}
+
+/** Daily 03:00 Asia/Taipei (UTC+8), independent of the backup schedule. */
+export const PROGRAM_CATALOG_CRON = "0 19 * * *";
+export function programCatalogDay(now: number): string {
+  return new Date(now + 5 * 3600000).toISOString().slice(0, 10);
+}
+export function nextProgramCatalogUpdate(now: number): string {
+  const day = new Date(now + 5 * 3600000);
+  return new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate() + 1) - 5 * 3600000).toISOString();
 }
 
 export type ProgramAction = { kind: "website"; url: string } | { kind: "download"; url: string }

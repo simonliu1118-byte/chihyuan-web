@@ -1,9 +1,9 @@
 import { getProgramAction, verifiedProgramCatalog } from "../../shared/program-catalog";
 import { handleProgramCatalogRoute } from "../http/program-catalog-routes";
 import type { IdentityRuntimeEnv } from "../http/auth-routes";
-import { createProgramCatalogLoader, readProgramCatalog, selectProgramRelease } from "../programs/release-catalog";
+import { loadProgramCatalog, updateProgramCatalog, readProgramCatalog, selectProgramRelease } from "../programs/release-catalog";
 
-export async function acceptProgramCatalog(): Promise<void> {
+export async function acceptProgramCatalog(db?: D1Database): Promise<void> {
   function check(condition: unknown, code: string): asserts condition {
     if (!condition) throw new Error("ACCEPT_PROGRAMS_" + code);
   }
@@ -74,34 +74,22 @@ export async function acceptProgramCatalog(): Promise<void> {
   const limited = await readProgramCatalog((async () => { limitedCalls++; return Response.json(Array(100).fill({})); }) as typeof fetch);
   check(!limited.current && limitedCalls === 4 && limited.refreshFailure?.code === "PAGE_LIMIT", "PAGE_LIMIT");
 
-  let clock = Date.parse("2026-10-03T01:00:00Z"), cacheCalls = 0;
-  let mode: "success" | "limited" = "success";
-  const load = createProgramCatalogLoader((async () => {
-    cacheCalls++;
-    return mode === "success" ? Response.json([...releases, newest]) : new Response("private body", {
-      status: 403, headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": String((clock + 600000) / 1000) },
-    });
-  }) as typeof fetch, () => clock);
-  const concurrent = await Promise.all([load(), load(), load()]);
-  check(cacheCalls === 1 && concurrent.every(v => v.current), "COALESCED_LOOKUP");
-  clock += 299999; await load();
-  check(cacheCalls === 1, "SUCCESS_CACHE_WINDOW");
-  clock += 1; mode = "limited";
-  const stale = await load();
-  check(Number(cacheCalls) === 2 && !stale.current && stale.programs[2].version === "2.10.0"
-    && stale.checkedAt === concurrent[0].checkedAt && stale.refreshFailure?.code === "RATE_LIMIT"
-    && !JSON.stringify(stale).includes("retryAt"), "LAST_SUCCESS_PRESERVED_WITHOUT_HEADERS");
-  mode = "success"; clock += 600000; await load();
-  check(Number(cacheCalls) === 2, "NO_LOOKUP_BEFORE_RESET");
-  clock += 1001;
-  check((await load()).current && Number(cacheCalls) === 3, "ON_DEMAND_RECOVERY_AFTER_RESET");
-  for (const headers of [{ "retry-after": "120" }, { "retry-after": "invalid", "x-ratelimit-reset": "Infinity" }] as Record<string, string>[]) {
+  if (db) {
+    const now = Date.parse("2026-10-03T19:00:00Z");
     let attempts = 0;
-    const retryLoad = createProgramCatalogLoader((async () => { attempts++; return new Response(null, { status: 429, headers }); }) as typeof fetch, () => clock);
-    await retryLoad(); clock += 59999; await retryLoad();
-    check(attempts === 1, "MINIMUM_RATE_COOLDOWN");
-    clock += headers["retry-after"] === "120" ? 60001 : 1;
-    await retryLoad(); check(Number(attempts) === 2, "RETRY_AFTER_OR_SAFE_DEFAULT");
+    const fetcher = (async () => { attempts++; return Response.json([...releases, newest]); }) as typeof fetch;
+    const initial = await loadProgramCatalog(db, now);
+    check(initial.automaticUpdate?.status === "pending" && attempts === 0, "GET_NEVER_REFRESHES_GITHUB");
+    const claims = await Promise.all([updateProgramCatalog(db, new Date(now).toISOString(), fetcher), updateProgramCatalog(db, new Date(now).toISOString(), fetcher)]);
+    check(claims.filter(Boolean).length === 1 && Number(attempts) === 1, "DURABLE_DAILY_CLAIM");
+    const ready = await loadProgramCatalog(db, now);
+    check(ready.current && ready.programs[2].version === "2.10.0", "PERSISTED_SHARED_SUCCESS");
+    await updateProgramCatalog(db, new Date(now + 86400000).toISOString(), (async () => { attempts++; return new Response(null, { status: 429 }); }) as typeof fetch);
+    const failed = await loadProgramCatalog(db, now + 86400000);
+    check(!failed.current && failed.programs[2].version === "2.10.0" && failed.checkedAt === ready.checkedAt && failed.refreshFailure?.code === "RATE_LIMIT", "FAILED_DAY_RETAINS_SUCCESS");
+    check(!await updateProgramCatalog(db, new Date(now + 86400001).toISOString(), fetcher) && Number(attempts) === 2, "NO_SAME_DAY_RETRY");
+    await updateProgramCatalog(db, new Date(now + 172800000).toISOString(), fetcher);
+    check((await loadProgramCatalog(db, now + 172800000)).current && Number(attempts) === 3, "NEXT_DAY_RECOVERY");
   }
 
   let role = "USER", provider = "ready", reads = 0;

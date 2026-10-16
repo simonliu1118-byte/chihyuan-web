@@ -8,13 +8,13 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { verifiedProgramCatalog } from "../shared/program-catalog.ts";
 const directory=mkdtempSync(fileURLToPath(new URL("../node_modules/.cyweb-programs-",import.meta.url)));
-let ProgramCatalogView, programRefreshMessage, selectProgramRelease, acceptProgramCatalog;
+let ProgramCatalogView, ProgramCatalogPage, FeedbackProvider, programRefreshMessage, selectProgramRelease, acceptProgramCatalog;
 try {
   for (const [entry,name] of [["src/runtime/modules/ProgramCatalogPage.tsx","view"],["worker/programs/release-catalog.ts","reader"],["worker/acceptance/program-catalog-acceptance.ts","acceptance"]]) {
     const outfile=join(directory,name+".mjs");
-    await build({entryPoints:[entry],outfile,bundle:true,platform:"node",format:"esm",jsx:"automatic",packages:"external",loader:{".css":"empty",".svg":"text"}});
+    await build({...(name==="view"?{stdin:{contents:'export * from "./src/runtime/modules/ProgramCatalogPage"; export {FeedbackProvider} from "./src/ui/feedback/FeedbackProvider";',resolveDir:fileURLToPath(new URL("../",import.meta.url)),loader:"ts"}}:{entryPoints:[entry]}),outfile,bundle:true,platform:"node",format:"esm",jsx:"automatic",packages:"external",loader:{".css":"empty",".svg":"text"}});
   }
-  ({ProgramCatalogView,programRefreshMessage}=await import(pathToFileURL(join(directory,"view.mjs"))));
+  ({ProgramCatalogView,ProgramCatalogPage,FeedbackProvider,programRefreshMessage}=await import(pathToFileURL(join(directory,"view.mjs"))));
   ({selectProgramRelease}=await import(pathToFileURL(join(directory,"reader.mjs"))));
   ({acceptProgramCatalog}=await import(pathToFileURL(join(directory,"acceptance.mjs"))));
 } finally { rmSync(directory,{recursive:true,force:true}); }
@@ -42,4 +42,11 @@ test("refresh explains known causes in Chinese without falsely calling every 403
   assert.doesNotMatch(programRefreshMessage({code:"HTTP",httpStatus:403}),/次數限制/);
   for(const code of ["HTTP","TIMEOUT","NETWORK","BODY","TOO_LARGE","INVALID","PAGE_LIMIT","MISSING"]) assert.match(programRefreshMessage({code}),/已保留/);
 });
-test("actual catalog route/reader regressions preserve authority, trusted assets, cache cooldown and recovery",acceptProgramCatalog);
+test("catalog page has no manual update button and explains the daily schedule",()=>{
+  const page=renderToStaticMarkup(createElement(FeedbackProvider,null,createElement(ProgramCatalogPage)));
+  assert.doesNotMatch(page,/<button|更新版本/);
+  const list=renderToStaticMarkup(createElement(ProgramCatalogView,{catalog:verifiedProgramCatalog}));
+  assert.match(list,/每日台灣時間凌晨 3 點自動確認/);
+  assert.match(programRefreshMessage({code:"RATE_LIMIT"}),/下次每日排程/);
+});
+test("actual catalog route/reader regressions preserve authority and trusted releases",()=>acceptProgramCatalog());

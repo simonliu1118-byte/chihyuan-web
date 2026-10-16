@@ -23,6 +23,8 @@ This table is application data included in backup/recovery. It must remain even 
 
 ### 1.2 Dates and timestamps
 
+Forward migration `0008_program_catalog_state.sql` adds the operational singleton `program_catalog_state`: `id INTEGER PRIMARY KEY CHECK(id=1)`, `attempted_day TEXT NOT NULL` (scheduled Taiwan day, YYYY-MM-DD, boundary 03:00), `attempted_at TEXT NOT NULL`, `attempt_token TEXT NOT NULL`, nullable `completed_at TEXT`, `catalog_json TEXT`, `failure_json TEXT` (the latter two constrained to valid JSON when present). A conditional upsert claims only a newer day; completion updates require the same token. Successful public Release snapshots survive a failed day. The catalog reader overlays only trusted release fields on current source-owned names/descriptions/links. GET never writes this table. It contains no account or business data and is excluded from portable business backup data/schema fingerprints; the business portable schema stays `0007_retired_entity_ids` and its old snapshots remain compatible.
+
 - Date-only business fields: `TEXT`, canonical `YYYY-MM-DD`.
 - Timestamps: `TEXT`, UTC RFC3339 / ISO-8601; UI converts for display.
 

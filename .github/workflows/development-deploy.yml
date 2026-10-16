@@ -14,6 +14,8 @@ on:
       - "scripts/render-backup-secrets.mjs"
       - "scripts/validate-deploy-config.mjs"
       - "scripts/verify-deployed-health.mjs"
+      - "scripts/verify-program-catalog-schedule.mjs"
+      - "scripts/program-schedule-deployment.test.mjs"
       - "scripts/test-deployed-health.mjs"
       - "wrangler.deploy.template.jsonc"
       - "vite.config.ts"
@@ -65,7 +67,7 @@ jobs:
       - name: Validate deployment template contract
         run: |
           node scripts/validate-deploy-config.mjs
-          node --test scripts/test-deployed-health.mjs
+          node --test scripts/test-deployed-health.mjs scripts/program-schedule-deployment.test.mjs
 
       - name: Checkout canonical CYID production guard
         uses: actions/checkout@v4
@@ -210,6 +212,9 @@ jobs:
             exit 1
           fi
           echo "worker_url=$WORKER_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Verify daily program catalog schedule
+        run: node scripts/verify-program-catalog-schedule.mjs
 
       - name: Verify deployed source consumer declaration and D1 health
         shell: bash

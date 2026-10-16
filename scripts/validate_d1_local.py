@@ -26,6 +26,7 @@ EXPECTED_MIGRATIONS = {
     "0005_direct_module_access.sql",
     "0006_backup_catalog.sql",
     "0007_retired_entity_ids.sql",
+    "0008_program_catalog_state.sql",
 }
 
 
