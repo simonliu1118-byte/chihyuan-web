@@ -74,7 +74,7 @@ export function SettingsOperationalPage({ role }: { role: "ADMIN" | "SUPER_ADMIN
   const editable = !structural || role === "SUPER_ADMIN";
   const rows = snapshot ? rowsFor(snapshot, section) : [];
   return <>
-    <div className="cy-op-page-header"><div><h1>設定／管理</h1><p>結構設定由超級管理員維護；管理員可維護工作日誌與計分設定。</p></div></div>
+    
     {error ? <div className="cy-op-notice danger" role="alert">{error}<button className="cy-op-button" disabled={busy} onClick={() => loadSettings().then(install).then(() => setError("")).catch(e => setError(message(e)))}>重新讀取</button></div> : null}
     {notice ? <div className="cy-op-notice" role="status">{notice}</div> : null}
     <div className="cy-op-action-bar">{sections.map(row => <button key={row.key} className={`cy-op-button ${section === row.key ? "primary" : ""}`} disabled={busy} onClick={() => { setSection(row.key); setDraft(null); setScore(null); }}>{row.label}</button>)}</div>

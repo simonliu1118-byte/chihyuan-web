@@ -518,10 +518,7 @@ export function WorkLogOperationalPage() {
         </form> : null}
       </Dialog>
       <div className="cy-op-page-header">
-        <div>
-          <h1>工作日誌</h1>
-          <p>建立工作日誌、送交審核及檢視評分統計。</p>
-        </div>
+        
         <div className="cy-op-page-actions">
           <button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增日誌</button>
         </div>

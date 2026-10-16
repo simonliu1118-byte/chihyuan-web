@@ -398,10 +398,7 @@ export function DefectOperationalPage() {
   return (
     <div className="cy-defect-op">
       <div className="cy-op-page-header">
-        <div>
-          <h1>瑕疵</h1>
-          <p>管理瑕疵紀錄、處理進度及作廢。</p>
-        </div>
+        
         <div className="cy-op-page-actions">
           <button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增瑕疵</button>
         </div>

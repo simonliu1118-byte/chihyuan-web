@@ -504,8 +504,13 @@ textarea:focus-visible,
   }
 
   .cy-shell-topbar {
-    display: none;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 10px 14px;
   }
+  .cy-shell-topbar-actions { margin-left: auto; }
+  .cy-shell-topbar-heading { flex-wrap: wrap; }
 
   .cy-shell-main {
     padding: 18px 14px 28px;
@@ -546,3 +551,14 @@ textarea:focus-visible,
     align-items: flex-start;
   }
 }
+
+/* Shared module topbar: replaces duplicate H1/description in individual pages. */
+.cy-shell-topbar-heading{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;min-width:0}
+.cy-shell-topbar-title{font-size:1.2rem;line-height:1.35;margin:0;font-weight:750}
+.cy-shell-help-button{appearance:none;border:1px solid #ccd6dd;border-radius:7px;background:#fff;color:#435669;
+  padding:.28rem .6rem;min-height:30px;font:inherit;font-size:.79rem;font-weight:650;cursor:pointer;white-space:nowrap}
+.cy-shell-help-button:hover{background:#f3f6f8}
+.cy-shell-help-button:focus-visible{outline:2px solid #8d2132;outline-offset:2px}
+.cy-shell-topbar .cy-erp-status-button{font-size:.79rem;padding:.35rem .65rem;min-height:32px;white-space:nowrap}
+.cy-shell-topbar .cy-erp-status-readonly{white-space:nowrap}
+@media(max-width:520px){.cy-shell-topbar{gap:.6rem}.cy-shell-topbar-actions{max-width:100%}}
