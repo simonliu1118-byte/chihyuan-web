@@ -28,6 +28,7 @@ EXPECTED_MIGRATIONS = {
     "0007_retired_entity_ids.sql",
     "0008_program_catalog_state.sql",
     "0009_erp_item_query_bridge.sql",
+    "0010_erp_item_query_invq01.sql",
 }
 
 

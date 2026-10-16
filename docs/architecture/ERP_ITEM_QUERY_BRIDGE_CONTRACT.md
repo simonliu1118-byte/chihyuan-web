@@ -22,7 +22,7 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 
 `庫別、庫別名稱、儲位、安全存量、經濟批量、上次盤點日、最近入庫日、最近出庫日`。
 
-兩者皆為 `{name:string,value:string}` 陣列；庫別型態為二維陣列。服務端拒收未知或重複欄名，單個 value 最大 4,096 字，最多 100 庫別且整份 complete JSON 不超過 96 KiB。成本、庫存金額等其他 ERP 欄位禁止傳送。所有日期、數字、代碼由 Agent 按 ERP 顯示語意轉成字串，服務端不做價格或庫存計算；商品描述可包含換行。
+兩者皆為 `{name:string,value:string}` 陣列；庫別型態為二維陣列。服務端拒收未知或重複欄名，單個 value 最大 4,096 字，最多 100 庫別；一般 complete JSON 不超過 96 KiB，含歷史異動工作不超過 256 KiB。成本、庫存金額等其他 ERP 欄位禁止傳送。所有日期、數字、代碼由 Agent 按 ERP 顯示語意轉成字串，服務端不做價格或庫存計算；商品描述可包含換行。
 
 ## 使用者 API
 
@@ -39,7 +39,7 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 
 `itemNo` 去前後空白後長 1～40 字，不可含空白／控制字元。同使用者同時最多一筆 QUEUED／RUNNING；衝突 HTTP 409。讀取工作時使用 CYID session 與**每次即時** Module Access 驗證；Agent token 無權使用使用者 API。
 
-工作狀態：`QUEUED → RUNNING → DONE | NOT_FOUND | FAILED`，`QUEUED → EXPIRED`；建立後排隊 120 秒過期、RUNNING 逾 120 秒未回報視為 `FAILED/AGENT_TIMEOUT`。前端每 1.5 秒輪詢直到結束，離線顯示提示。狀態清理於讀取／claim 順便執行，不依賴新 cron。完成後 10 分鐘清除 fields／warehouses，metadata 保留 30 天；清除後 DONE 仍有 `resultCleared:true`。ERP 短期佇列、heartbeat、Agent 憑證 hash 不納入長期備份，復原後須由超級管理員重新產生憑證。Audit 僅記員工、查詢品號、結果與耗時，不記欄位值。
+工作狀態：`QUEUED → RUNNING → DONE | NOT_FOUND | FAILED`，`QUEUED → EXPIRED`；建立後排隊 120 秒過期、RUNNING 一般工作逾 180 秒、含歷史異動逾 300 秒未回報視為 `FAILED/AGENT_TIMEOUT`。前端每 1.5 秒輪詢直到結束，離線顯示提示。狀態清理於讀取／claim 順便執行，不依賴新 cron。完成後 5 分鐘清除 fields／warehouses／batches／history，metadata 保留 30 天；清除後 DONE 仍有 `resultCleared:true`。ERP 短期佇列、heartbeat、Agent 憑證 hash 不納入長期備份，復原後須由超級管理員重新產生憑證。Audit 僅記員工、查詢品號、結果與耗時，不記欄位值。
 
 ## Agent API
 
@@ -86,3 +86,18 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 ## 驗收邊界
 
 資料表 forward migration 為 `migrations/0009_erp_item_query_bridge.sql`，不重寫既有 migration。使用者經既有帳號頁 Module Access 發放 `ERP_ITEM_QUERY`，Super Admin 自動擁有。測試使用假品號／假 ERP 值，不使用真實 ERP export。公司端 Agent 可依 `scripts/erp-item-query-acceptance.mjs` 對同一 API 契約測試。CY Web V0.7.33 已於 2026-10-16 經既有受控部署流程套用 migration 並上線（[部署 Run #38851754742](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/38851754742)）。這僅代表 CY Web Worker／D1 與正式網域的部署驗證通過，不代表 Agent 已連線實際 SMART ERP；後者需 CYERPAutoQuery 實機驗收。
+
+## INVQ01 批號庫存與歷史異動（V0.7.34）
+
+補充來源：`docs/handoff/ERP_ITEM_QUERY_INVQ01_HANDOFF.md`；CYERPAutoQuery Agent V0.3.0 Build 1。現有 `ITEMS` 主檔與權限邊界不變。
+
+- `POST /api/erp/item-queries` 保留原 `{itemNo}` 語意，可加 `includeHistory:boolean`（預設 false）、`historyFrom`、`historyTo`（`YYYY-MM-DD` 或 null）。未勾選不能帶非 null 日期。
+- 後端使用**臺北當日**，迄未填取今天、起未填取迄往前一年再加一天；迄不可晚於今天，起不可晚於迄、不能早於迄往前三年。同日三年前可用。錯誤 400 `INVALID_HISTORY_RANGE`。
+- 建立工作將補齊後 `includeHistory/historyFrom/historyTo` 存在 D1，傳給 Agent claim 並由 GET 回傳；未查歷史則兩日期為 null，前 migration 工作使用預設 false。
+- Agent FOUND 可傳 `batchManaged:boolean` 與 `batches`（最多 100 列）；每列是白名單 `批號、庫存數量、入庫日、有效日期` 的 `{name,value}` 陣列，欄位不可重複。false 時必須空陣列。缺少 batchManaged 視為舊版 Agent，不顯示批號區。
+- 若要求歷史異動，FOUND `history` 可為物件 `{from,to,columns,rows,total,truncated}`：日期須等於工作起迄；`columns` 須按 `日期、單別-單號-序號、庫別、庫別名稱、入出別、異動數量、備註` 精確排序。每列 7 個字串、每格最多 1,024 字、最多 2,000 列、`total>=rows.length`、`truncated=(total>rows.length)`；Agent 依 ERP 順序返回最新 2,000 列。若舊 Agent 無 history，工作 DONE 但顯示版本不支援提醒。
+- 未要求歷史時不允許附 history；NOT_FOUND／FAILED 不允許帶非空 batches 或 history。批號管理非空但 `batchManaged:false` 也拒收。
+- **每次 POST 都建立新工作並重新執行 ERP**（仍受單人一筆未完成工作限制）；不從舊工作結果作快取。
+- 保存規則：完成後 5 分鐘清除所有結果 JSON，30 天後刪除 metadata；`resultCleared` 保持可追蹤。一般 RUNNING 180 秒／歷史 RUNNING 300 秒逾時，QUEUE 120 秒不變。
+- 前端「查歷史異動」勾選後可用原生日期選擇器輸入起迄、保留空值取得預設範圍。結果自動展示批號庫存及（有要求時）歷史異動；小螢幕表格可水平捲動。
+- 正式 schema 新增 `migrations/0010_erp_item_query_invq01.sql`，不覆寫 0009；寫入 `include_history,history_from,history_to,batch_managed,batches_json,history_json`，與現有身分及 Agent 認證同源。

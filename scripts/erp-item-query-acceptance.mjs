@@ -28,8 +28,8 @@ async function api(path, method = "GET", body, headers = {}) {
 }
 const user = (path, method, body) => api(path, method, body, { cookie });
 const agent = (path, body, bearer = token) => api(path, "POST", body, { authorization: `Bearer ${bearer}` });
-async function newJob(itemNo) {
-  const response = await user("/api/erp/item-queries", "POST", { itemNo });
+async function newJob(itemNo, options={}) {
+  const response = await user("/api/erp/item-queries", "POST", { itemNo, ...options });
   assert.equal(response.status, 202);
   assert.equal(response.payload.data.status, "QUEUED");
   return response.payload.data.id;
@@ -38,6 +38,7 @@ async function claim(id) {
   const response = await agent("/api/erp-agent/item-queries/claim", { agentVersion: "acceptance", erpState: "BROWSE" });
   assert.equal(response.status, 200);
   assert.equal(response.payload.data.job.id, id);
+  return response.payload.data.job;
 }
 async function complete(id, outcome, extra) {
   const response = await agent(`/api/erp-agent/item-queries/${id}/complete`, {
@@ -78,6 +79,33 @@ const third = await newJob("T0003");
 await claim(third);
 const failure = await complete(third, "FAILED", { errorCode: "ERP_BUSY", errorMessage: "Should never be persisted" });
 assert.equal(failure.errorMessage, "ERP 正在忙碌");
+// All test data here is synthetic and must be used only with an isolated CY Web D1.
+assert.equal((await user("/api/erp/item-queries","POST",{itemNo:"T9999",includeHistory:true,historyTo:"2999-01-01"})).status,400);
+assert.equal((await user("/api/erp/item-queries","POST",{itemNo:"T9999",includeHistory:false,historyFrom:"2026-01-01"})).status,400);
+const fourth=await newJob("T0004",{includeHistory:true});
+const request=await user(`/api/erp/item-queries/${fourth}`);
+assert.equal(request.payload.data.includeHistory,true);
+const fourthClaim=await claim(fourth);
+assert.equal(fourthClaim.includeHistory,true);
+assert.equal(fourthClaim.historyFrom,request.payload.data.historyFrom);
+assert.equal(fourthClaim.historyTo,request.payload.data.historyTo);
+const fakeHistory={from:fourthClaim.historyFrom,to:fourthClaim.historyTo,
+  columns:["日期","單別-單號-序號","庫別","庫別名稱","入出別","異動數量","備註"],
+  rows:[["2026/01/05","231A-20260105001-0001","W01","測試倉","出庫","1","假備註"]],
+  total:1,truncated:false};
+const badHistory=await agent(`/api/erp-agent/item-queries/${fourth}/complete`,{
+  outcome:"FOUND",fields:[{name:"品號",value:"T0004"}],warehouses:[],
+  batchManaged:true,batches:[[{name:"批號",value:"B001"}]],
+  history:{...fakeHistory,columns:["wrong"]},elapsedMs:42,agentVersion:"acceptance",
+});
+assert.equal(badHistory.status,400);
+const withHistory=await complete(fourth,"FOUND",{
+  fields:[{name:"品號",value:"T0004"}],batchManaged:true,
+  batches:[[{name:"批號",value:"B001"},{name:"庫存數量",value:"42"}]],
+  history:fakeHistory,
+});
+assert.equal(withHistory.batches[0][0].value,"B001");
+assert.equal(withHistory.history.total,1);
 const noAccess = process.env.CYWEB_ACCEPTANCE_NO_ACCESS_COOKIE;
 if (noAccess) {
   const denied = await api("/api/erp/agent-status", "GET", undefined, { cookie: noAccess });

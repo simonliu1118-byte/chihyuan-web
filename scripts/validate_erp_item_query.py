@@ -31,5 +31,11 @@ conn.execute("INSERT INTO erp_item_agent_credentials(id,token_hash,created_at,up
 assert conn.execute("SELECT token_hash FROM erp_item_agent_credentials WHERE id=1").fetchone()==("a"*64,)
 conn.execute("UPDATE erp_item_agent_credentials SET token_hash=NULL,revoked_at=? WHERE id=1",(now,))
 assert conn.execute("SELECT token_hash FROM erp_item_agent_credentials WHERE id=1").fetchone()==(None,)
+assert {row[1] for row in conn.execute("PRAGMA table_info(erp_item_queries)")} >= {"include_history","history_from","history_to","batch_managed","batches_json","history_json"}
+assert conn.execute("SELECT include_history,history_from,history_to,batch_managed FROM erp_item_queries WHERE id='test-2'").fetchone() == (0,None,None,None)
+conn.execute("UPDATE erp_item_queries SET include_history=1,history_from='2026-01-01',history_to='2026-10-16',batch_managed=1,batches_json='[]',history_json='{}' WHERE id='test-2'")
+assert conn.execute("SELECT batch_managed FROM erp_item_queries WHERE id='test-2'").fetchone() == (1,)
+conn.execute("UPDATE erp_item_queries SET fields_json=NULL,warehouses_json=NULL,batches_json=NULL,history_json=NULL WHERE id='test-2'")
+assert conn.execute("SELECT batches_json,history_json FROM erp_item_queries WHERE id='test-2'").fetchone() == (None,None)
 conn.close()
 print("PASS ERP item query migration, access, queue, JSON and retention schema")
