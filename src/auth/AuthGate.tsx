@@ -320,7 +320,7 @@ export function AuthGate({ children }: AuthGateProps) {
       <div className="cy-auth-hero-bars"><span /><span /><span /></div>
     </aside>
     <section className="cy-auth-card" aria-labelledby="cy-auth-title">
-      <div className="cy-auth-heading"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><div><h1 id="cy-auth-title">登入 CY Web</h1><p>請使用員工編號及密碼登入</p></div></div>
+      <div className="cy-auth-heading"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><div><h1 id="cy-auth-title">{mode === "login" ? "登入 CY Web" : mode === "first_login" ? "完成 Email 驗證" : "帳號協助"}</h1><p>{mode === "login" ? "請使用員工編號及密碼登入" : "依照畫面指示完成帳號驗證"}</p></div></div>
 
     {mode === "login" ? <form className="cy-auth-form" onSubmit={handleLogin} onKeyDown={advanceFocusOnEnter} noValidate>
       <label><span>員工編號</span><input data-enter-advance="true" autoComplete="username" inputMode="numeric" maxLength={4} pattern="[0-9]{4}" value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value.replace(/\D/g, "").slice(0, 4))} disabled={submitting} autoFocus required /></label>
