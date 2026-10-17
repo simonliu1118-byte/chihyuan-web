@@ -339,11 +339,12 @@ manual backup operation after an authorized publication to verify one logical
 backup with matching, read-back-verified R2 and GCS copies. Do not reuse another
 App's backup objects or assume a similarly named empty bucket has the right owner.
 
-The runtime's public backup API currently supports list/create/retry. The existing
-`BackupService.isolatedRecovery` and portable restore are exercised by the local
-acceptance runner; they are not a published production recovery endpoint. Before
-formal recovery acceptance, prepare a reviewed operational entrypoint and an
-isolated empty D1 target with matching schema/Workspace. Keep the existing
+The normal Super Admin backup page now exposes **驗證隔離還原** when the server
+has a fixed `RECOVERY_DB` binding and the selected event has a verified provider.
+Choose **GCS** for the off-cloud recovery acceptance, review time/version/count,
+check the source-review checkbox and type the displayed confirmation phrase.
+The production route accepts only this fixed isolated empty target, never a
+client database ID or primary-database replacement. It uses the existing
 SUPER_ADMIN checks, explicit source/target confirmation, verified safety backup,
 integrity/reconciliation and Audit; never deploy the acceptance Worker as a
 production shortcut or point the target at the live D1.

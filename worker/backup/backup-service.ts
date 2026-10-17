@@ -4,6 +4,9 @@ import { exportPortableBackup, restoreIntoEmptyDatabase, validateEmptyBackupTarg
 import { BACKUP_ID, storageCheck } from "./storage-guard";
 
 type ProviderCode = "r2" | "gcs";
+const COPY_ERROR_CODES = new Set(["BACKUP_GCS_AUTH_FAILED", "BACKUP_GCS_REQUEST_FAILED", "BACKUP_GCS_UPLOAD_DENIED",
+  "BACKUP_GCS_UPLOAD_BILLING_REQUIRED", "BACKUP_GCS_BUCKET_UNAVAILABLE", "BACKUP_GCS_UPLOAD_FAILED", "BACKUP_GCS_READ_FAILED",
+  "BACKUP_READBACK_MISSING", "BACKUP_COPY_BYTES_CHANGED", "BACKUP_STORAGE_COLLISION", "BACKUP_STORAGE_CAPACITY_EXCEEDED"]);
 export interface BackupContext { now: string; actorMemberId: number | null; requestId: string }
 type Context = BackupContext;
 interface SetRow { backup_id: string; created_at: string; data_sha256: string; data_byte_length: number; total_record_count: number; status_code: string }
@@ -73,11 +76,12 @@ export class BackupService {
     throw new Error("BACKUP_NO_VERIFIED_COPY_AVAILABLE");
   }
   async isolatedRecovery(target: D1Database, input: { backupId: string; selectionConfirmation: string;
-    targetConfirmation: "isolated_empty_database"; role: string; isActive: boolean }, context: Context): Promise<{ safetyBackupId: string; provider: ProviderCode }> {
+    targetConfirmation: "isolated_empty_database"; role: string; isActive: boolean; provider?: ProviderCode }, context: Context): Promise<{ safetyBackupId: string; provider: ProviderCode }> {
     storageCheck(input.role === "SUPER_ADMIN" && input.isActive && context.actorMemberId !== null, "BACKUP_RECOVERY_AUTHORITY_REQUIRED");
     storageCheck(input.selectionConfirmation === input.backupId && input.targetConfirmation === "isolated_empty_database", "BACKUP_RECOVERY_CONFIRMATION_REQUIRED");
     storageCheck(target !== this.db, "BACKUP_RECOVERY_TARGET_NOT_ISOLATED");
-    const selected = await this.loadVerified(input.backupId);
+    storageCheck(input.provider === undefined || input.provider === "r2" || input.provider === "gcs", "BACKUP_PROVIDER_INVALID");
+    const selected = await this.loadVerified(input.backupId, input.provider);
     await validateEmptyBackupTarget(target, selected.bundle, this.workspace);
     // Resolve immutable selected bytes first. Safety export then captures current
     // source data, requires both verified providers, and never clears a target.
@@ -146,12 +150,13 @@ export class BackupService {
       AND EXISTS(SELECT 1 FROM backup_sets WHERE backup_id=? AND workspace_scope=?)`)
       .bind(lease, id, provider, context.now, id, this.workspace).run();
     if (!claimed.meta.changes) return false;
-    let ok = false;
-    try { await storeVerifiedCopy(this.providers[provider], bundle, this.workspace); ok = true; } catch {}
+    let ok = false, errorCode = "BACKUP_COPY_FAILED";
+    try { await storeVerifiedCopy(this.providers[provider], bundle, this.workspace); ok = true; }
+    catch (error) { if (error instanceof Error && COPY_ERROR_CODES.has(error.message)) errorCode = error.message; }
     await this.db.batch([
       this.db.prepare(`UPDATE backup_copies SET status_code=?,verified_at=?,last_error_code=?,updated_at=?,lease_until=NULL
         WHERE backup_id=? AND provider_code=? AND lease_until=?`)
-        .bind(ok ? "verified" : "failed", ok ? context.now : null, ok ? null : "BACKUP_COPY_FAILED", context.now, id, provider, lease),
+        .bind(ok ? "verified" : "failed", ok ? context.now : null, ok ? null : errorCode, context.now, id, provider, lease),
       this.db.prepare(`UPDATE backup_sets SET status_code=CASE WHEN EXISTS
         (SELECT 1 FROM backup_copies WHERE backup_id=? AND status_code='verified') THEN 'verified' ELSE 'failed' END
         WHERE backup_id=? AND workspace_scope=?`).bind(id, id, this.workspace),

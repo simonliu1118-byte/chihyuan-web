@@ -18,5 +18,7 @@ export interface BackupHistoryEntry {
   copies: BackupCopy[];
   canRetry: boolean;
 }
-export interface BackupHistory { configured: boolean; sets: BackupHistoryEntry[] }
+export interface BackupHistory { configured: boolean; recoveryConfigured?: boolean; scheduleEnabled?: boolean; sets: BackupHistoryEntry[] }
 export interface BackupCreated extends BackupHistory { backupId: string }
+export interface BackupRehearsal { verified: true; backupId: string; safetyBackupId: string; provider: BackupProvider }
+export const BACKUP_REHEARSAL_CONFIRMATION = "驗證隔離還原";

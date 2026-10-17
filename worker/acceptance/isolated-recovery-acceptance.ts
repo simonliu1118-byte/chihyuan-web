@@ -31,6 +31,7 @@ export async function acceptIsolatedRecovery(db: D1Database, target: D1Database,
   assert(before?.n === after?.n, "ACCEPT_RECOVERY_DENIAL_STARTED_BACKUP");
   const preferred = await service.loadVerified(id);
   assert(preferred.provider === "r2", "ACCEPT_RECOVERY_R2_PREFERENCE");
+  assert((await service.loadVerified(id, "gcs")).provider === "gcs", "ACCEPT_RECOVERY_EXPLICIT_GCS_SELECTION");
   unavailablePrefix = `cyweb/${id}/`;
   assert((await service.loadVerified(id)).provider === "gcs", "ACCEPT_RECOVERY_GCS_FALLBACK");
   // Digest-valid portable bytes still need catalog agreement.
@@ -50,7 +51,9 @@ export async function acceptIsolatedRecovery(db: D1Database, target: D1Database,
     "ACCEPT_RECOVERY_GCS_ONLY_SAFETY_CHANGED_TARGET");
   failR2Write = false;
   const liveCustomers = await db.prepare("SELECT * FROM customers ORDER BY id").all();
-  const result = await service.isolatedRecovery(target, input, { ...context, requestId: "synthetic-rehearsal-success" });
+  // R2 is healthy: explicit GCS must still exercise actual GCS bytes, not preference fallback.
+  unavailablePrefix = "";
+  const result = await service.isolatedRecovery(target, { ...input, provider: "gcs" }, { ...context, requestId: "synthetic-rehearsal-success" });
   assert(result.provider === "gcs" && result.safetyBackupId !== id, "ACCEPT_RECOVERY_SOURCE_OR_SAFETY_ID");
   const recovered = await exportPortableBackup(target, { workspaceScope, appVersion: "0.7.3" });
   assert(recovered.dataBytes.length === preferred.bundle.dataBytes.length && recovered.dataBytes.every((v, i) => v === preferred.bundle.dataBytes[i]), "ACCEPT_RECOVERY_DATA_RECONCILIATION");

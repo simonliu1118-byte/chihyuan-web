@@ -18,8 +18,8 @@ const row = { backupId: "00000000-0000-4000-8000-000000000001", createdAt: "2026
   schemaVersion: "0006_backup_catalog", dataSha256: "a".repeat(64), byteLength: 1200, recordCount: 3, status: "verified", triggerKind: "manual",
   copies: [{ provider: "r2", status: "verified", verifiedAt: "2026-10-01T19:30:01.000Z", errorCode: null },
     { provider: "gcs", status: "failed", verifiedAt: null, errorCode: "BACKUP_COPY_FAILED" }], canRetry: true };
-function render(entry = row, busy = false, configured = true) {
-  return renderToStaticMarkup(createElement(BackupHistoryView, { history: { configured, sets: entry ? [entry] : [] }, busy, retry() {} }));
+function render(entry = row, busy = false, configured = true, recoveryConfigured = false) {
+  return renderToStaticMarkup(createElement(BackupHistoryView, { history: { configured, recoveryConfigured, sets: entry ? [entry] : [] }, busy, retry() {}, rehearse() {} }));
 }
 test("backup history groups both provider states under one table event and uses Taiwan time", () => {
   const html = render();
@@ -38,4 +38,10 @@ test("server retry capability and busy state gate both desktop and mobile contro
 test("empty and unknown-state history gives bounded explanatory text", () => {
   assert.match(render(null, false, false), /儲存設定完成後才能建立備份/);
   assert.match(render({ ...row, status: "unexpected" }), /狀態待確認/);
+});
+test("rehearsal control requires server capability and a verified copy; busy disables both presentations", () => {
+  assert.doesNotMatch(render(), /驗證隔離還原/);
+  assert.doesNotMatch(render({ ...row, copies: [] }, false, true, true), /驗證隔離還原/);
+  assert.match(render(row, false, true, true), /驗證隔離還原/);
+  assert.match(render(row, true, true, true), /button[^>]*disabled=""[^>]*>驗證隔離還原/);
 });
