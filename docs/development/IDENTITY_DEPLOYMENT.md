@@ -353,3 +353,27 @@ separate backup schedule. The independent `0 19 * * *` catalog schedule remains;
 the opt-in backup cron is `30 19 * * *`. Application retention remains R2 30 days
 and GCS 182 days, with GCS scheduled Wednesday/Sunday Taiwan time. Current rollout
 state and missing inputs belong in root TODO.
+
+
+## HTTPS release checkpoint — 2026-10-17
+
+HTTPS [#180](https://github.com/simonliu1118-byte/chihyuan-web/pull/180) and
+publication guard [#178](https://github.com/simonliu1118-byte/chihyuan-web/pull/178)
+are merged. After explicit user authorization, main dispatch operation
+`deploy-development` [39008172352](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39008172352)
+completed successfully at **2026-10-17 13:59:43 Asia/Taipei**. Deployed source:
+`f70cc561d1f373a93381eb93a0ab59103371af9b`, app **0.8.2**, consumer **1.0.5**.
+
+The run passed the current-main source guard, schedule, both exact health checks,
+HTTP redirect and HTTPS HTML/built JS MIME/HSTS checks, both invalid-session
+rejection/cookie-clearing checks, and the canonical production portal authority
+gate. Cloudflare metadata read-back confirmed one active version at 100% traffic
+with the original business D1 and Identity bindings. No new migration or backup
+activation was introduced.
+
+Independent HTTPS checks also passed for both origins, including real frontend
+assets, API JSON404 and invalid-session rejection. The cloud workspace proxy
+closed plain HTTP sockets; its additional full transport probe failed at that
+network boundary. HTTP redirect acceptance uses the successful GitHub runner
+step above; repository checks were kept intact. Real-account Email verification,
+recovery and backup/restore acceptance remain separate pending work in TODO.
