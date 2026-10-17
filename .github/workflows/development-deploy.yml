@@ -33,6 +33,7 @@ on:
       - "scripts/sync-cyid-consumer-contract.sh"
       - "docs/contracts/cyid/**"
       - ".github/workflows/development-deploy.yml"
+      - ".github/workflows/backup-configuration-audit.yml"
   push:
     branches:
       - deploy/cyweb-development
@@ -379,30 +380,25 @@ jobs:
       - name: Read-only account portal and production authority audit
         run: node scripts/audit-account-portal.mjs
 
+  backup-audit-inputs:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.operation == 'audit-backup'
+    runs-on: ubuntu-latest
+    environment: development
+    outputs:
+      gcs-bucket: ${{ vars.GCS_BUCKET }}
+      r2-bucket: ${{ vars.CF_BACKUP_R2_BUCKET }}
+      backup-enabled: ${{ vars.CF_BACKUP_ENABLED }}
+      schedule-enabled: ${{ vars.CF_BACKUP_SCHEDULE_ENABLED }}
+    steps:
+      - run: echo "Protected configuration context resolved without logging values."
+
   audit-backup:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.operation == 'audit-backup'
-    needs: validate-deployment-contract
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    environment: development
-    concurrency:
-      group: cyweb-backup-audit
-      cancel-in-progress: true
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-      - run: npm install --no-audit --no-fund
-      - name: Verify current reviewed main
-        run: node scripts/verify-deployment-source.mjs
-      - name: Check GCS credential and bucket permissions without object access
-        env:
-          GCS_SERVICE_ACCOUNT_JSON: ${{ secrets.GCS_SERVICE_ACCOUNT_JSON }}
-          GCS_BUCKET: ${{ vars.GCS_BUCKET }}
-          CF_BACKUP_R2_BUCKET: ${{ vars.CF_BACKUP_R2_BUCKET }}
-          CF_BACKUP_ENABLED: ${{ vars.CF_BACKUP_ENABLED }}
-          CF_BACKUP_SCHEDULE_ENABLED: ${{ vars.CF_BACKUP_SCHEDULE_ENABLED }}
-        run: node scripts/audit-backup-configuration.mjs
+    needs: [validate-deployment-contract, backup-audit-inputs]
+    uses: ./.github/workflows/backup-configuration-audit.yml
+    secrets:
+      GCS_BUCKET: ${{ needs.backup-audit-inputs.outputs.gcs-bucket }}
+      CF_BACKUP_R2_BUCKET: ${{ needs.backup-audit-inputs.outputs.r2-bucket }}
+    with:
+      backup-enabled: ${{ needs.backup-audit-inputs.outputs.backup-enabled }}
+      schedule-enabled: ${{ needs.backup-audit-inputs.outputs.schedule-enabled }}

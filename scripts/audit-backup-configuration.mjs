@@ -17,13 +17,14 @@ export async function auditBackupConfiguration({ env, providerFactory }) {
     const provider = await providerFactory(env.GCS_BUCKET, env.GCS_SERVICE_ACCOUNT_JSON);
     await provider.verifyAccess();
     result.gcsAccessVerified = true;
-    result.manualConfigurationReady = fields.CF_BACKUP_R2_BUCKET && result.backupEnabled;
+    result.manualConfigurationReady = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(env.CF_BACKUP_R2_BUCKET ?? "") && result.backupEnabled;
     result.code = "BACKUP_GCS_ACCESS_VERIFIED";
   } catch (error) {
     const codes = new Set(["BACKUP_GCS_INPUTS_MISSING", "BACKUP_GCS_CONFIG_INVALID", "BACKUP_GCS_AUTH_FAILED",
       "BACKUP_GCS_REQUEST_FAILED", "BACKUP_GCS_PERMISSION_CHECK_FAILED", "BACKUP_GCS_PERMISSIONS_MISSING"]);
-    result.code = error.message === "Missing or invalid GCS_SERVICE_ACCOUNT_JSON" ? "BACKUP_GCS_CREDENTIAL_INVALID"
-      : codes.has(error.message) ? error.message : "BACKUP_GCS_AUDIT_FAILED";
+    const message = error instanceof Error ? error.message : "";
+    result.code = message === "Missing or invalid GCS_SERVICE_ACCOUNT_JSON" ? "BACKUP_GCS_CREDENTIAL_INVALID"
+      : codes.has(message) ? message : "BACKUP_GCS_AUDIT_FAILED";
   } finally { fs.rmSync(directory, { recursive: true, force: true }); }
   return result;
 }

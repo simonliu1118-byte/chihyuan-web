@@ -1,0 +1,53 @@
+name: Protected backup configuration audit
+
+on:
+  workflow_call:
+    inputs:
+      backup-enabled:
+        type: string
+        required: false
+        default: ""
+      schedule-enabled:
+        type: string
+        required: false
+        default: ""
+    secrets:
+      GCS_SERVICE_ACCOUNT_JSON:
+        required: false
+      GCS_BUCKET:
+        required: false
+      CF_BACKUP_R2_BUCKET:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: development
+    concurrency:
+      group: cyweb-backup-audit
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm install --no-audit --no-fund
+      - name: Verify current reviewed main
+        run: node scripts/verify-deployment-source.mjs
+      # Treat resolved resource identifiers as secrets at this call boundary so
+      # runner-generated env log blocks also mask them, before JavaScript starts.
+      - name: Check GCS credential and bucket permissions without object access
+        env:
+          GCS_SERVICE_ACCOUNT_JSON: ${{ secrets.GCS_SERVICE_ACCOUNT_JSON }}
+          GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
+          CF_BACKUP_R2_BUCKET: ${{ secrets.CF_BACKUP_R2_BUCKET }}
+          CF_BACKUP_ENABLED: ${{ inputs.backup-enabled }}
+          CF_BACKUP_SCHEDULE_ENABLED: ${{ inputs.schedule-enabled }}
+        run: node scripts/audit-backup-configuration.mjs

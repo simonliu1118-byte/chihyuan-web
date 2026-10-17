@@ -387,7 +387,7 @@ CYACC's accepted Phase D rollout is the operational reference: R2 daily at
 CY Web already implements this schedule and retention in its own BackupService;
 its backups, catalog and restore mappings remain application-specific.
 
-Version 0.8.4 removes the R2 failure short-circuit: a failed R2 write is recorded
+Version 0.8.5 removes the R2 failure short-circuit: a failed R2 write is recorded
 without suppressing the GCS attempt when GCS is due. Both providers still use the
 same single-export bytes and independently verify their copies. A GCS-only
 success is available to the existing verified-reader fallback; it does not satisfy
@@ -427,3 +427,7 @@ The report contains binding-presence booleans, `gcsAccessVerified`,
 it does not prove a paired backup, restore or enabled schedule. Missing R2 or
 manual-backup inputs remain visible even when the GCS check passes. Protected
 credential files are mode0600 in a private temporary folder and removed in finally.
+
+Resolved bucket inputs cross a reusable-workflow Secret boundary before use, so
+GitHub runner env summaries mask resource identifiers as well as the JSON Secret.
+The input-resolution job emits no values into shell scripts or logs.
