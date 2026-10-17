@@ -5,9 +5,9 @@ function assert(value: unknown, code: string): asserts value { if (!value) throw
 async function rejects(action: () => Promise<unknown>, code: string) { let failed = false; try { await action(); } catch { failed = true; } assert(failed, code); }
 export async function acceptIsolatedRecovery(db: D1Database, target: D1Database, bucket: R2Bucket): Promise<void> {
   const stored = new Map<string, Uint8Array>(), binding = new R2BackupProvider(bucket);
-  let unavailablePrefix = "", failGcs = false;
+  let unavailablePrefix = "", failGcs = false, failR2Write = false;
   const r2: BackupStorageProvider = {
-    putObject: (key, bytes) => binding.putObject(key, bytes),
+    putObject: (key, bytes) => { if (failR2Write) throw new Error("Synthetic R2 outage"); return binding.putObject(key, bytes); },
     getObject: key => { if (key.startsWith(unavailablePrefix) && unavailablePrefix) throw new Error("Synthetic R2 outage"); return binding.getObject(key); },
     listObjects: prefix => binding.listObjects(prefix), deleteObject: (key, version) => binding.deleteObject(key, version),
   };
@@ -44,6 +44,11 @@ export async function acceptIsolatedRecovery(db: D1Database, target: D1Database,
   assert(JSON.parse(new TextDecoder().decode((await exportPortableBackup(target, { workspaceScope, appVersion: "0.7.3" })).manifestBytes)).totalRecordCount === 0,
     "ACCEPT_RECOVERY_TARGET_CHANGED_BEFORE_SAFETY");
   failGcs = false;
+  failR2Write = true;
+  await rejects(() => service.isolatedRecovery(target, input, { ...context, requestId: "synthetic-rehearsal-r2-safety-failed" }), "ACCEPT_RECOVERY_GCS_ONLY_SAFETY_ACCEPTED");
+  assert(JSON.parse(new TextDecoder().decode((await exportPortableBackup(target, { workspaceScope, appVersion: "0.7.3" })).manifestBytes)).totalRecordCount === 0,
+    "ACCEPT_RECOVERY_GCS_ONLY_SAFETY_CHANGED_TARGET");
+  failR2Write = false;
   const liveCustomers = await db.prepare("SELECT * FROM customers ORDER BY id").all();
   const result = await service.isolatedRecovery(target, input, { ...context, requestId: "synthetic-rehearsal-success" });
   assert(result.provider === "gcs" && result.safetyBackupId !== id, "ACCEPT_RECOVERY_SOURCE_OR_SAFETY_ID");
