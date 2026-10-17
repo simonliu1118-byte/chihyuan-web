@@ -2,6 +2,13 @@
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
 
+## Cloudflare 發布流程整理 — 2026-10-17
+
+- 初始以 0.8.0 準備流程 PR，現已同步含 HTTPS 修正的 0.8.2 main：合併不部署、手動 deploy 限 main、同正式目標固定鎖且不取消進行中的 deploy；驗證／audit 分鎖。migration 前檢查當前 main ancestry 與完整 tracked tree，保留發布分支歷史 merge。產品 VERSION／BUILD 不變。
+- 操作、非 fast-forward／相同 SHA 的處理方式與成功判定見 [既有網站發布操作](docs/development/IDENTITY_DEPLOYMENT.md#existing-portal-deployment-gate)。不把 PR validate 成功視為已部署。
+- [ ] PR 合併後，在下一次已授權發布時回讀新模式的 source guard、deploy／health／portal／schedule 成功。本批不觸發部署、migration、備份啟用或資料／authority 切換。
+- [ ] 補齊 GitHub 設定名稱／scope 的現行 read-back，才搬移 metadata；目前 API 403 不等於設定不存在。CY Web 備份的既有 bucket owner、GCS 配置與隔離回復另批驗收；Invoice 相關修改等待 D1 新基準。
+
 ## HTTPS 入口與備份配置 — 2026-10-17
 
 - Source **0.8.2 Build 0**：正式 HTTP 頁面、靜態檔與 API 在任何 binding／body 處理前轉同 host/path/query 的 HTTPS；HTTPS 回應加入一年、僅限目前 host 的 HSTS。localhost／127.0.0.1／[::1] 保留原 HTTP 開發。

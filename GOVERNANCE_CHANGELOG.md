@@ -1,5 +1,10 @@
 # CY Web Governance Changelog
 
+## 1.1.19 — 2026/10/17
+
+- 整理既有正式網站的發布入口：保留受控發布分支，手動 deploy 限 main；validate、deploy、read-only audit 分鎖，正式 deploy 使用固定鎖且不取消進行中的執行。
+- 遠端 migration 前驗證事件／checkout SHA、當前 main ancestry 與相同 tracked tree，保留歷史發布 merge；補齊操作與成功判定。未搬移 Environment／metadata、變更業務／Identity／備份配置或發布產品；VERSION／BUILD 不變。
+
 ## 1.1.18 — 2026/10/16
 
 - Synchronize the complete canonical CYID consumer 1.0.6 manifest package after CYapps #459. Minimum compatible remains 1.0.0; Web continues to declare consumer 1.0.5 inside the support window.

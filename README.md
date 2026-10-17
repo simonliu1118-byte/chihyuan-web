@@ -35,6 +35,7 @@
 - `docs/architecture/IDENTITY_ADAPTER.md` — CY Web-specific Identity adapter／Module Access 邊界；不得取代 shared CYID contract。
 - `TODO.md` — 唯一 current implementation status / next-work tracker。
 - `docs/development/LOCAL_DEVELOPMENT.md` — 本機開發流程。
+- `docs/development/IDENTITY_DEPLOYMENT.md#existing-portal-deployment-gate` — Work 發布指令、main-only 手動入口、來源檢查與部署成功判定；main 合併本身不部署。
 - `docs/DOMAIN_STRATEGY.md` — Chihyuan Web systems 的 domain namespace／rollout architecture。
 - `docs/architecture/BACKUP_ARCHITECTURE.md` — R2 + GCS backup/recovery architecture。
 
