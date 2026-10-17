@@ -1,4 +1,8 @@
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import { useConfirmation } from "../../ui/overlays/useConfirmation";
+import { useFormPrompt } from "../../ui/overlays/useFormPrompt";
+import { EntityPicker } from "../../ui/pickers/EntityPicker";
+import type { SalesWorkOrderCustomerOption } from "../../../shared/business-lookups";
 import "./sales-order-operational.css";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
@@ -155,14 +159,19 @@ export function SalesOrderOperationalPage() {
   const [lookups, setLookups] = useState<SalesWorkOrderModuleLookups | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [customerSearch, setCustomerSearch] = useState("");
+  const [pickedCustomer, setPickedCustomer] = useState<SalesWorkOrderCustomerOption | null>(null);
   const [itemSearch, setItemSearch] = useState("");
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<SalesOrderDraft | null>(null);
   const [busy, setBusy] = useState(false);
-  useUnsavedChangesGuard({ active: editing, blocked: busy });
+  const unsavedGuard = useUnsavedChangesGuard({ active: editing, blocked: busy, message: "目前有尚未儲存的工單修改，確定放棄？" });
   const pane = useMasterDetailPane();
+  const { confirm, confirmationDialog } = useConfirmation();
+  const { ask, promptDialog } = useFormPrompt();
+  const canLeave = async () => (await unsavedGuard.confirmNavigationAsync(description => confirm({
+    title: "放棄尚未儲存的修改", description, confirmLabel: "放棄修改", cancelLabel: "繼續編輯", confirmTone: "danger",
+  }))).allowed;
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
@@ -237,7 +246,6 @@ export function SalesOrderOperationalPage() {
         customerId: draft?.customerId ?? selected?.customerId ?? null,
         itemIds: selectedItemKey ? selectedItemKey.split(",").map(Number) : [],
         operatorId: draft?.operatorEmployeeId ?? selected?.operator.id ?? null,
-        customerQuery: customerSearch,
         itemQuery: itemSearch,
         limit: 100,
       })
@@ -265,13 +273,12 @@ export function SalesOrderOperationalPage() {
     selected?.customerId,
     selected?.operator.id,
     selectedItemKey,
-    customerSearch,
     itemSearch,
     creating,
   ]);
 
-  function selectOrder(id: number) {
-    if (editing && !window.confirm("放棄尚未儲存的工單修改？")) return;
+  async function selectOrder(id: number) {
+    if (busy || !(await canLeave())) return;
     pane.open();
     setSelectedId(id);
     setEditing(false);
@@ -280,15 +287,14 @@ export function SalesOrderOperationalPage() {
     setMessage(null);
   }
 
-  function startCreate() {
-    if (editing && !window.confirm("放棄目前尚未儲存的修改？")) return;
+  async function startCreate() {
+    if (busy || !(await canLeave())) return;
     pane.open();
     setSelectedId(null);
     setSelected(null);
     setCreating(true);
     setEditing(true);
     setDraft(newDraft(lookups));
-    setCustomerSearch("");
     setItemSearch("");
     setMessage(null);
   }
@@ -301,7 +307,8 @@ export function SalesOrderOperationalPage() {
     setMessage(null);
   }
 
-  function cancelEdit() {
+  async function cancelEdit() {
+    if (busy || !(await canLeave())) return;
     if (creating) pane.close();
     setEditing(false);
     setCreating(false);
@@ -383,13 +390,20 @@ export function SalesOrderOperationalPage() {
 
   async function fillOrCorrectErp() {
     if (!selected || selected.statusCode === "voided" || busy) return;
-    const customerNo = window.prompt("輸入 ERP 客戶編號（必須完全符合 CY Web 客戶主檔）", selected.customerNoSnapshot ?? "");
-    if (customerNo == null || !customerNo.trim()) return;
-    const erpNo = window.prompt("輸入 SMART ERP 銷售單號", selected.erpNo ?? "");
-    if (erpNo == null || !erpNo.trim()) return;
     const correction = selected.erpNo != null;
-    const reason = correction ? window.prompt("請輸入 ERP 資料更正原因", "ERP 資料更正") : null;
-    if (correction && reason == null) return;
+    const answer = await ask({
+      title: correction ? "更正 ERP 資料" : "ERP 回填／開單",
+      description: correction ? "修改已回填的 ERP 客戶編號或銷售單號，並保留更正紀錄。" : "填入 SMART ERP 開單後的資料，工單會改為「已開單」。",
+      fields: [
+        { name: "customerNo", label: "ERP 客戶編號", defaultValue: selected.customerNoSnapshot ?? "", required: true, description: "必須與 CY Web 客戶資料中的 ERP 客戶編號相同。" },
+        { name: "erpNo", label: "SMART ERP 銷售單號", defaultValue: selected.erpNo ?? "", required: true },
+        ...(correction ? [{ name: "reason", label: "更正原因", defaultValue: "ERP 資料更正" }] : []),
+      ],
+      confirmLabel: correction ? "儲存更正" : "回填並開單",
+    });
+    if (!answer) return;
+    const { customerNo, erpNo } = answer;
+    const reason = correction ? answer.reason : null;
     await runAction(
       () => fillOrCorrectSalesOrderErp(selected.id, {
         customerNo: customerNo.trim(),
@@ -407,9 +421,14 @@ export function SalesOrderOperationalPage() {
     if (!selected || busy) return;
     let reason: string | null = null;
     if (action === "reverse" || action === "void") {
-      const prompt = window.prompt(action === "reverse" ? "請輸入撤銷出貨原因" : "請輸入作廢原因", "");
-      if (prompt == null || !prompt.trim()) return;
-      reason = prompt.trim();
+      const answer = await ask({
+        title: action === "reverse" ? "撤銷出貨" : "作廢工單",
+        description: action === "reverse" ? "撤銷後工單會回到「已撿貨」。" : "作廢後工單保留紀錄，但不能再繼續流程。",
+        fields: [{ name: "reason", label: action === "reverse" ? "撤銷原因" : "作廢原因", required: true }],
+        confirmLabel: action === "reverse" ? "撤銷出貨" : "作廢", confirmTone: "danger",
+      });
+      if (!answer?.reason) return;
+      reason = answer.reason;
     }
     const input = { expectedRevision: selected.revision, reason };
     if (action === "waiting") await runAction(() => markSalesOrderWaitingStock(selected.id, input), "工單已轉待貨。");
@@ -421,7 +440,7 @@ export function SalesOrderOperationalPage() {
 
   async function deleteDraft() {
     if (!selected || selected.statusCode !== "created" || selected.erpNo != null || busy) return;
-    if (!window.confirm(`確定永久刪除草稿 ${selected.workOrderRef}？伺服器仍會重新確認目前角色權限。`)) return;
+    if (!(await confirm({ title: "刪除工單草稿", description: `草稿 ${selected.workOrderRef} 刪除後無法復原。`, confirmLabel: "刪除", confirmTone: "danger" }))) return;
     setBusy(true);
     setMessage(null);
     try {
@@ -464,8 +483,10 @@ export function SalesOrderOperationalPage() {
 
   return (
     <div className="cy-order-op">
+      {confirmationDialog}
+      {promptDialog}
       <PagePrimaryActions>
-        <button type="button" className="cy-op-button primary" disabled={busy} onClick={startCreate}>＋ 新增工單</button>
+        <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增工單</button>
       </PagePrimaryActions>
 
       {message ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-body">{message}</div></div> : null}
@@ -482,7 +503,7 @@ export function SalesOrderOperationalPage() {
           </div>
           <div className="cy-op-list">
             {rows.map((row) => (
-              <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={() => selectOrder(row.id)}>
+              <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={() => void selectOrder(row.id)}>
                 <strong>{row.customerNameSnapshot}</strong>
                 <span><span className="cy-mono">{row.erpNo ? `ERP ${row.erpNo}` : row.workOrderRef}</span> · {row.orderDate}</span>
                 <small className="cy-flow-status" data-tone={orderTone[row.statusCode]}>{statusText[row.statusCode]}</small>
@@ -493,7 +514,7 @@ export function SalesOrderOperationalPage() {
         </section>
 
         <section className="cy-op-panel cy-md-detail">
-          <MasterDetailBack label="工單清單" disabled={busy} onBack={() => { if (editing) { if (!window.confirm("放棄目前尚未儲存的修改？")) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
+          <MasterDetailBack label="工單清單" disabled={busy} onBack={async () => { if (editing) { if (!(await canLeave())) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
           {editing && draft ? (
             <form className="cy-op-form" onSubmit={(event) => void save(event)}>
               <div className="cy-record-header">
@@ -501,13 +522,12 @@ export function SalesOrderOperationalPage() {
               </div>
 
               <div className="cy-op-form-grid cy-form-grid-spaced">
-                <label>客戶搜尋<input className="cy-op-input" value={customerSearch} disabled={busy} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="客戶編號／名稱" /></label>
-                <label>客戶
-                  <select className="cy-op-input" value={draft.customerId ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, customerId: event.target.value ? Number(event.target.value) : null })}>
-                    <option value="">現場客戶（未建檔）</option>
-                    {(lookups?.customers ?? []).map((row) => <option key={row.id} value={row.id}>{row.customerNo ? `${row.customerNo} · ` : ""}{row.shortName}</option>)}
-                  </select>
-                </label>
+                <EntityPicker<SalesWorkOrderCustomerOption> label="客戶" disabled={busy}
+                  value={pickedCustomer?.id === draft.customerId ? pickedCustomer : (lookups?.customers ?? []).find((row) => row.id === draft.customerId) ?? null}
+                  onSelect={(row) => { setPickedCustomer(row); setDraft({ ...draft, customerId: row?.id ?? null }); }}
+                  search={async (query) => (await loadSalesOrderLookups({ customerQuery: query, limit: 20 })).customers}
+                  getKey={(row) => row.id} getLabel={(row) => `${row.customerNo ? `${row.customerNo} · ` : ""}${row.shortName}`}
+                  placeholder="輸入客戶編號或名稱" description="未建檔的現場客戶可留空，改填下方名稱。" />
                 {draft.customerId == null ? <label>現場客戶名稱<input className="cy-op-input" value={draft.customerName} disabled={busy} onChange={(event) => setDraft({ ...draft, customerName: event.target.value })} required /></label> : null}
                 <label>工單日期<input className="cy-op-input" type="date" value={draft.orderDate} disabled={busy} onChange={(event) => setDraft({ ...draft, orderDate: event.target.value })} /></label>
                 <label>操作人員
@@ -557,7 +577,7 @@ export function SalesOrderOperationalPage() {
                 </div>
               </section>
 
-              <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={cancelEdit}>取消</button><button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立工單" : "儲存修改"}</button></div>
+              <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立工單" : "儲存修改"}</button></div>
             </form>
           ) : selected ? (
             <div>

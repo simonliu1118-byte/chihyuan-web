@@ -1,4 +1,6 @@
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import { useConfirmation } from "../../ui/overlays/useConfirmation";
+import { useFormPrompt } from "../../ui/overlays/useFormPrompt";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import "./outsourcing-operational.css";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
@@ -163,7 +165,17 @@ export function OutsourcingOperationalPage() {
   const [receiptUnit, setReceiptUnit] = useState("");
 
   const [busy, setBusy] = useState(false);
-  useUnsavedChangesGuard({ active: editing, blocked: busy });
+  const unsavedGuard = useUnsavedChangesGuard({ active: editing, blocked: busy, message: "目前有尚未儲存的代工單修改，確定放棄？" });
+  const { confirm, confirmationDialog } = useConfirmation();
+  const { ask, promptDialog } = useFormPrompt();
+  const canLeave = async () => (await unsavedGuard.confirmNavigationAsync(description => confirm({
+    title: "放棄尚未儲存的修改", description, confirmLabel: "放棄修改", cancelLabel: "繼續編輯", confirmTone: "danger",
+  }))).allowed;
+  async function discardEditing() {
+    if (busy || !(await canLeave())) return false;
+    setEditing(false); setCreating(false); setCorrectingOutbound(false); setDraft(null);
+    return true;
+  }
   const pane = useMasterDetailPane();
   const partnerPane = useMasterDetailPane();
   const bomPane = useMasterDetailPane();
@@ -299,8 +311,8 @@ export function OutsourcingOperationalPage() {
     return lookups?.items.find((row) => row.id === itemId);
   }
 
-  function startCreate() {
-    if (editing && !window.confirm("放棄目前尚未儲存的修改？")) return;
+  async function startCreate() {
+    if (busy || !(await canLeave())) return;
     pane.open();
     const contractor = contractors.find((row) => row.isActive) ?? contractors[0];
     const item = lookups?.items.find((row) => row.isActive) ?? lookups?.items[0];
@@ -326,7 +338,8 @@ export function OutsourcingOperationalPage() {
     setMessage(null);
   }
 
-  function cancelEdit() {
+  async function cancelEdit() {
+    if (busy || !(await canLeave())) return;
     if (creating) pane.close();
     setEditing(false);
     setCreating(false);
@@ -378,6 +391,14 @@ export function OutsourcingOperationalPage() {
       })),
     };
 
+    let correctionReason = "";
+    if (!creating && selectedOrder && correctingOutbound) {
+      const answer = await ask({ title: "更正已確認的出庫", description: "儲存後以新的出庫資料取代原本的出庫，並保留更正紀錄。",
+        fields: [{ name: "reason", label: "更正原因", defaultValue: "出庫資料更正", required: true }], confirmLabel: "儲存更正" });
+      if (!answer?.reason) return;
+      correctionReason = answer.reason;
+    }
+
     setBusy(true);
     setMessage(null);
     try {
@@ -387,12 +408,10 @@ export function OutsourcingOperationalPage() {
         saved = await createOutsourcingOrder(profile);
         success = "代工單已建立。";
       } else if (selectedOrder && correctingOutbound) {
-        const reason = window.prompt("請輸入此次出庫更正原因", "出庫資料更正");
-        if (reason == null || !reason.trim()) return;
         saved = await correctOutsourcingOutbound(selectedOrder.id, {
           ...profile,
           expectedRevision: selectedOrder.revision,
-          reason: reason.trim(),
+          reason: correctionReason,
         });
         success = "已完成受控出庫更正。";
       } else if (selectedOrder) {
@@ -489,13 +508,15 @@ export function OutsourcingOperationalPage() {
 
   async function reverse(action: "payment" | "pricing" | "receipt" | "outbound") {
     if (!selectedOrder) return;
-    const reason = window.prompt("請輸入取消／反向操作原因", "");
-    if (reason == null || !reason.trim()) return;
-    const input = { expectedRevision: selectedOrder.revision, reason: reason.trim() };
+    const label = { payment: "取消付款", pricing: "取消計價", receipt: "取消入庫", outbound: "取消出庫" }[action];
+    const answer = await ask({ title: label, description: action === "outbound" ? "取消出庫後代工單會作廢，相關庫存異動會反轉。" : "取消後會回到上一個步驟，相關庫存異動會反轉。",
+      fields: [{ name: "reason", label: "原因", required: true }], confirmLabel: label, confirmTone: "danger" });
+    if (!answer?.reason) return;
+    const input = { expectedRevision: selectedOrder.revision, reason: answer.reason };
     if (action === "payment") await runAction(() => cancelOutsourcingPayment(selectedOrder.id, input), "付款狀態已取消。");
     if (action === "pricing") await runAction(() => cancelOutsourcingPricing(selectedOrder.id, input), "計價已取消，回到已入庫。");
-    if (action === "receipt") await runAction(() => cancelOutsourcingReceipt(selectedOrder.id, input), "入庫已取消，相關消耗 movement 已反轉。");
-    if (action === "outbound") await runAction(() => cancelOutsourcingOutbound(selectedOrder.id, input), "出庫已取消並作廢，相關 movement 已反轉。");
+    if (action === "receipt") await runAction(() => cancelOutsourcingReceipt(selectedOrder.id, input), "入庫已取消，相關料件消耗已反轉。");
+    if (action === "outbound") await runAction(() => cancelOutsourcingOutbound(selectedOrder.id, input), "出庫已取消並作廢，相關庫存異動已反轉。");
   }
 
   async function pay() {
@@ -508,7 +529,7 @@ export function OutsourcingOperationalPage() {
 
   async function deletePending() {
     if (!selectedOrder || selectedOrder.statusCode !== "pending_outbound") return;
-    if (!window.confirm(`確定永久刪除尚未出庫的 ${selectedOrder.outsourcingRef}？伺服器仍會重新確認目前角色權限。`)) return;
+    if (!(await confirm({ title: "刪除代工單", description: `尚未出庫的 ${selectedOrder.outsourcingRef} 刪除後無法復原。`, confirmLabel: "刪除", confirmTone: "danger" }))) return;
     setBusy(true);
     setMessage(null);
     try {
@@ -528,12 +549,14 @@ export function OutsourcingOperationalPage() {
 
   return (
     <div className="cy-outsourcing-op">
-      {tab === "orders" ? <PagePrimaryActions><button type="button" className="cy-op-button primary" disabled={busy} onClick={startCreate}>＋ 新增代工單</button></PagePrimaryActions> : null}
+      {confirmationDialog}
+      {promptDialog}
+      {tab === "orders" ? <PagePrimaryActions><button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增代工單</button></PagePrimaryActions> : null}
       {message ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-body">{message}</div></div> : null}
 
       <div className="cy-op-tabs">
         {(["orders", "contractors", "boms", "stock"] as Tab[]).map((value) => (
-          <button type="button" className={tab === value ? "active" : ""} key={value} onClick={() => { if (value !== tab && editing && !window.confirm("放棄目前尚未儲存的修改？")) return; if (value !== tab) { setEditing(false); setCreating(false); setDraft(null); } setTab(value); }}>
+          <button type="button" className={tab === value ? "active" : ""} key={value} onClick={async () => { if (value !== tab && editing && !(await discardEditing())) return; setTab(value); }}>
             {value === "orders" ? "代工單" : value === "contractors" ? "代工對象／單價" : value === "boms" ? "BOM" : "代工庫存"}
           </button>
         ))}
@@ -552,13 +575,13 @@ export function OutsourcingOperationalPage() {
                 <div className="cy-md-count">共 {orders.length} 筆</div>
               </div>
               <div className="cy-op-list">
-                {orders.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedOrderId === row.id ? "active" : ""}`} aria-current={selectedOrderId === row.id ? "true" : undefined} onClick={() => { if (!editing || window.confirm("放棄尚未儲存的修改？")) { setEditing(false); setCreating(false); setDraft(null); setSelectedOrderId(row.id); pane.open(); } }}><strong>{row.contractorNameSnapshot}</strong><span><span className="cy-mono">{row.outsourcingRef}</span> · {row.orderDate}</span><small className="cy-flow-status" data-tone={row.statusCode === "pending_outbound" ? "warning" : row.statusCode === "paid" ? "success" : row.statusCode === "voided" ? "danger" : "info"}>{statusText[row.statusCode]}</small></button>)}
+                {orders.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedOrderId === row.id ? "active" : ""}`} aria-current={selectedOrderId === row.id ? "true" : undefined} onClick={async () => { if (editing && !(await discardEditing())) return; setSelectedOrderId(row.id); pane.open(); }}><strong>{row.contractorNameSnapshot}</strong><span><span className="cy-mono">{row.outsourcingRef}</span> · {row.orderDate}</span><small className="cy-flow-status" data-tone={row.statusCode === "pending_outbound" ? "warning" : row.statusCode === "paid" ? "success" : row.statusCode === "voided" ? "danger" : "info"}>{statusText[row.statusCode]}</small></button>)}
                 {orders.length === 0 ? <div className="cy-op-empty">尚無代工單。</div> : null}
               </div>
             </section>
 
             <section className="cy-op-panel cy-md-detail">
-              <MasterDetailBack label="代工單清單" disabled={busy} onBack={() => { if (editing) { if (!window.confirm("放棄目前尚未儲存的修改？")) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
+              <MasterDetailBack label="代工單清單" disabled={busy} onBack={async () => { if (editing && !(await discardEditing())) return; pane.close(); }} />
               {editing && draft ? (
               <form className="cy-op-form" onSubmit={(event) => void saveOrder(event)}>
                 <div className="cy-record-header">
@@ -602,7 +625,7 @@ export function OutsourcingOperationalPage() {
                   })}
                   </div>
                 </section>
-                <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={cancelEdit}>取消</button><button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立代工單" : "儲存修改"}</button></div>
+                <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立代工單" : "儲存修改"}</button></div>
               </form>
               ) : selectedOrder ? <div>
                 <div className="cy-record-header"><div><h2>{selectedOrder.contractorNameSnapshot}</h2><p><span className="cy-mono">{selectedOrder.outsourcingRef}</span> · {selectedOrder.orderDate}</p></div>

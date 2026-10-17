@@ -177,3 +177,9 @@
   .cy-dialog-plain .cy-dialog-surface { width: min(400px,calc(100vw - 32px)); }
   .cy-dialog-floating-close { width: 44px; height: 44px; top: 4px; right: 4px; }
 }
+
+/* Form prompt dialog (shared replacement for window.prompt). */
+.cy-prompt-form { display: grid; gap: 12px; }
+.cy-prompt-form label { display: grid; gap: 4px; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 500; }
+.cy-prompt-form label > :is(input, textarea) { color: var(--cy-text); font-weight: 400; }
+.cy-prompt-form small { color: var(--cy-text-subtle); font-size: var(--cy-fs-xs); }

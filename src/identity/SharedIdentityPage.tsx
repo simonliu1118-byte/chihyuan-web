@@ -1,6 +1,8 @@
 import { FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Dialog } from "../ui/overlays/Dialog";
 import { useConfirmation } from "../ui/overlays/useConfirmation";
+import { PagePrimaryActions } from "../ui/shell/PagePrimaryActions";
+import { useFormPrompt } from "../ui/overlays/useFormPrompt";
 import { useUnsavedChangesGuard } from "../ui/foundation/useUnsavedChangesGuard";
 import { TextInput } from "../ui/primitives/TextInput";
 import { ToastRegion } from "../ui/feedback/ToastRegion";
@@ -109,7 +111,7 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
   }
 
   return <>
-    <SectionTitle title="我的帳號" description="所有 CYID 使用者都可進入 CY Web 管理自己的帳號；CY Web 不保存密碼或驗證碼。" />
+    <SectionTitle title="我的帳號" description="變更自己的密碼與 Email。密碼與驗證碼由 CYID 帳號服務保管，CY Web 不會保存。" />
     {!session.user.emailVerified ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-title">Email 待重新驗證</div><div className="cy-notice-body">帳號已啟用，原密碼仍有效。請完成目前 Email 驗證，密碼找回等 Email 安全功能才會恢復正常。</div><button className="cy-op-button" type="button" disabled={busy} onClick={() => void verifyCurrentEmail()}>寄送 Email 驗證碼</button></div> : null}
     {message ? <div className="cy-identity-message" role="status">{message}</div> : null}
     <div className="cy-op-grid-two">
@@ -210,12 +212,14 @@ function EmployeeManagement({ snapshot, session, refresh }: {
   }
 
   async function editPending(row: IdentityEmployeeRow) {
-    const nextNo = window.prompt("使用者編號", row.employee_no)?.trim();
-    if (!nextNo) return;
-    const nextName = window.prompt("姓名", row.name)?.trim();
-    if (!nextName) return;
-    const nextEmail = window.prompt("Email", row.email_normalized)?.trim();
-    if (!nextEmail) return;
+    const answer = await ask({ title: "修改未驗證帳號", description: "Email 變更後會寄出新的驗證信，先前的首次登入密碼會失效。",
+      fields: [
+        { name: "employeeNo", label: "使用者編號", defaultValue: row.employee_no, required: true },
+        { name: "name", label: "姓名", defaultValue: row.name, required: true },
+        { name: "email", label: "Email", defaultValue: row.email_normalized, required: true },
+      ], confirmLabel: "儲存" });
+    if (!answer) return;
+    const nextNo = answer.employeeNo, nextName = answer.name, nextEmail = answer.email;
     setBusy(true); setMessage(null);
     try {
       const result = await updateIdentityEmployee(row.employee_id, {
@@ -234,6 +238,7 @@ function EmployeeManagement({ snapshot, session, refresh }: {
   }
 
   const { confirm: confirmDelete, confirmationDialog: deleteConfirmationDialog } = useConfirmation();
+  const { ask, promptDialog } = useFormPrompt();
   async function closeCreate() {
     if (busy) return;
     const decision = await createGuard.confirmNavigationAsync(description => confirmDelete({
@@ -279,9 +284,11 @@ function EmployeeManagement({ snapshot, session, refresh }: {
   }
 
   async function recoverEmail(row: IdentityEmployeeRow) {
-    const nextEmail = window.prompt(`替 ${row.employee_no} ${row.name} 設定新的 Email`, row.email_normalized)?.trim();
+    const answer = await ask({ title: `替 ${row.employee_no} ${row.name} 更換 Email`,
+      description: "變更後會立即登出此使用者，並要求以新 Email 重新驗證。",
+      fields: [{ name: "email", label: "新的 Email", defaultValue: row.email_normalized, required: true }], confirmLabel: "更換並登出", confirmTone: "danger" });
+    const nextEmail = answer?.email ?? "";
     if (!nextEmail || nextEmail === row.email_normalized) return;
-    if (!window.confirm("變更後會立即撤銷此使用者現有登入，並要求新 Email 重新驗證。確定繼續？")) return;
     setBusy(true); setMessage(null);
     try {
       const result = await forceEmployeeEmailRecovery(row.employee_id, nextEmail);
@@ -328,6 +335,7 @@ function EmployeeManagement({ snapshot, session, refresh }: {
   return <section className="cy-op-panel">
     <div className="cy-op-panel-header"><h3>使用者帳號</h3><button type="button" className="cy-op-button primary" disabled={busy} onClick={() => setCreateOpen(true)}>新增使用者</button></div>
     {deleteConfirmationDialog}
+    {promptDialog}
     {snapshot.testingAccountDeletionAllowed === true && isSuperAdmin ? <p>測試期間可刪除已驗證帳號；刪除後可重新新增測試。</p> : null}
     {message ? <div className="cy-identity-message" role="status">{message}</div> : null}
     {createOpen ? <Dialog open title="新增使用者" size="small" dismissible={!busy} onClose={() => void closeCreate()}
@@ -346,7 +354,7 @@ function EmployeeManagement({ snapshot, session, refresh }: {
       const canRecover = canIdentityAdmin && row.workspace_role !== "SUPER_ADMIN" && row.employee_id !== session.user.employeeId && Boolean(row.activated_at);
       return <tr key={row.employee_id}>
         <td>{row.employee_no}</td>
-        <td>{row.name}{row.identity_admin === 1 ? <small className="cy-identity-subtext">Identity Admin</small> : null}</td>
+        <td>{row.name}{row.identity_admin === 1 ? <small className="cy-identity-subtext">帳號管理員</small> : null}</td>
         <td className="cy-identity-email-col"><div className="cy-identity-email-line"><span className="cy-identity-email-value">{row.email_normalized}</span><span className={`cy-identity-email-tag ${row.email_verified_at ? "verified" : "unverified"}`}>{row.email_verified_at ? "已驗證" : "尚未驗證"}</span></div></td>
         <td>{row.workspace_role === "SUPER_ADMIN" ? "超級管理員" : canIdentityAdmin && rowManageable && row.identity_admin !== 1 ? <select className="cy-op-input compact" value={row.role_key} disabled={busy} onChange={(e) => void changeRole(row, e.target.value as "USER" | "ADMIN")}><option value="USER">一般使用者</option><option value="ADMIN">管理員</option></select> : permissionLabel(row.workspace_role)}</td>
         <td>{lifecycleStatus(row)}</td>
@@ -357,7 +365,7 @@ function EmployeeManagement({ snapshot, session, refresh }: {
           {!pending && rowManageable ? <button type="button" className="cy-op-button" disabled={busy} onClick={() => void toggle(row)}>{row.enabled === 1 ? "停用" : "啟用"}</button> : null}
           {canRecover ? <button type="button" className="cy-op-button" disabled={busy} onClick={() => void recoverEmail(row)}>變更 Email</button> : null}
           {canRecover && !row.email_verified_at ? <button type="button" className="cy-op-button" disabled={busy} onClick={() => void resendEmailVerification(row)}>重寄 Email 驗證</button> : null}
-          {isSuperAdmin && row.workspace_role === "ADMIN" && row.employee_id !== session.user.employeeId ? <button type="button" className="cy-op-button" disabled={busy} onClick={() => void identityAdmin(row, row.identity_admin !== 1)}>{row.identity_admin === 1 ? "撤銷 Identity Admin" : "設為 Identity Admin"}</button> : null}
+          {isSuperAdmin && row.workspace_role === "ADMIN" && row.employee_id !== session.user.employeeId ? <button type="button" className="cy-op-button" disabled={busy} onClick={() => void identityAdmin(row, row.identity_admin !== 1)}>{row.identity_admin === 1 ? "撤銷帳號管理員" : "設為帳號管理員"}</button> : null}
         </div></td>
       </tr>;
     })}</tbody></table></div>
@@ -437,7 +445,7 @@ function ApplicationAccessPanel({ snapshot, session, refresh }: {
   }
 
   return <section className="cy-op-panel">
-    <div className="cy-op-panel-header"><div><h3>系統使用權</h3><p>Identity Admin 與超級管理員設定各系統准入；CY Web 是所有有效使用者固定可使用的核心帳號入口，因此不列入此表。</p></div>
+    <div className="cy-op-panel-header"><div><h3>系統使用權</h3><p>帳號管理員與超級管理員設定各系統准入；CY Web 是所有有效使用者固定可使用的核心帳號入口，因此不列入此表。</p></div>
       {isSuperAdmin ? <button type="button" className="cy-op-button" disabled={busy} onClick={() => { setRegistration({ applicationId: "", displayName: "" }); setRegistrationError(null); }}>登記系統</button> : null}
     </div>
     {confirmationDialog}
@@ -452,16 +460,16 @@ function ApplicationAccessPanel({ snapshot, session, refresh }: {
       </form>
     </Dialog> : null}
     {message ? <div className="cy-identity-message">{message}</div> : null}
-    <div className="cy-identity-table-wrap"><table className="cy-op-table cy-identity-access-table"><thead><tr><th className="cy-access-user-col">使用者</th><th className="cy-access-permission-col">權限</th>{applications.map((app) => <th className="cy-access-app-col" key={app.application_id}>{app.display_name}</th>)}</tr></thead><tbody>{snapshot.employees.map((employee) => <tr key={employee.employee_id}><td>{employee.employee_no} {employee.name}</td><td>{permissionLabel(employee.workspace_role)}{employee.identity_admin === 1 ? <small className="cy-identity-subtext">Identity Admin</small> : null}</td>{applications.map((app) => {
+    <div className="cy-identity-table-wrap"><table className="cy-op-table cy-identity-access-table"><thead><tr><th className="cy-access-user-col">使用者</th><th className="cy-access-permission-col">權限</th>{applications.map((app) => <th className="cy-access-app-col" key={app.application_id}>{app.display_name}</th>)}</tr></thead><tbody>{snapshot.employees.map((employee) => <tr key={employee.employee_id}><td>{employee.employee_no} {employee.name}</td><td>{permissionLabel(employee.workspace_role)}{employee.identity_admin === 1 ? <small className="cy-identity-subtext">帳號管理員</small> : null}</td>{applications.map((app) => {
       const sa = employee.workspace_role === "SUPER_ADMIN";
       if (sa) return <td key={app.application_id}><span className="cy-identity-access-fixed">永遠允許</span></td>;
       const own = employee.employee_id === session.user.employeeId;
       const checked = direct.has(`${employee.employee_id}:${app.application_id}`);
       const disabled = busy || app.enabled !== 1 || own;
-      const title = own ? "Identity Admin 不可修改自己的 Access" : undefined;
+      const title = own ? "帳號管理員不能修改自己的系統准入" : undefined;
       return <td key={app.application_id}><label title={title}><input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => void change(employee.employee_id, app.application_id, e.target.checked)} /></label></td>;
     })}</tr>)}</tbody></table></div>
-    <p className="cy-identity-subtext">CY Web 各業務 Module Access 由 CY Web 自己管理；本階段先完成 Identity/App Access 切換，不在 CYID 建立細部模組權限。</p>
+    <p className="cy-identity-subtext">各業務模組的使用權在下方「CY Web 模組使用權」設定。</p>
   </section>;
 }
 
@@ -502,7 +510,7 @@ function ModuleAccessPanel({ snapshot, session }: {
   }
 
   return <section className="cy-op-panel">
-    <div className="cy-op-panel-header"><div><h3>CY Web 模組使用權</h3><p>這裡只管理 CY Web 內的業務模組。Identity Admin／超級管理員可設定他人的 Module Access；一般管理員沒有此管理權。</p></div><button type="button" className="cy-op-button" disabled={busy} onClick={() => void load()}>重新整理</button></div>
+    <div className="cy-op-panel-header"><div><h3>CY Web 模組使用權</h3><p>這裡只管理 CY Web 內的業務模組。帳號管理員與超級管理員可設定他人的模組使用權；一般管理員沒有此管理權。</p></div><button type="button" className="cy-op-button" disabled={busy} onClick={() => void load()}>重新整理</button></div>
     {message ? <div className="cy-identity-message" role="status">{message}</div> : null}
     {view ? <div className="cy-identity-table-wrap"><table className="cy-op-table cy-identity-access-table">
       <thead><tr><th className="cy-access-user-col">使用者</th><th className="cy-access-permission-col">權限</th>{view.modules.map((module) => <th className="cy-access-app-col" key={module.code}>{module.label}</th>)}</tr></thead>
@@ -511,17 +519,17 @@ function ModuleAccessPanel({ snapshot, session }: {
         const superAdmin = employee.workspace_role === "SUPER_ADMIN";
         return <tr key={employee.employee_id}>
           <td>{employee.employee_no} {employee.name}</td>
-          <td>{permissionLabel(employee.workspace_role)}{employee.identity_admin === 1 ? <small className="cy-identity-subtext">Identity Admin</small> : null}</td>
+          <td>{permissionLabel(employee.workspace_role)}{employee.identity_admin === 1 ? <small className="cy-identity-subtext">帳號管理員</small> : null}</td>
           {view.modules.map((module) => {
             if (superAdmin) return <td key={module.code}><span className="cy-identity-access-fixed">永遠允許</span></td>;
             const checked = enabled.has(`${employee.employee_id}:${module.code}`);
             const disabled = busy || own;
-            const title = own ? "Identity Admin 不可修改自己的 Module Access" : `${module.label} Module Access`;
+            const title = own ? "帳號管理員不能修改自己的模組使用權" : `${module.label}使用權`;
             return <td key={module.code}><label title={title}><input type="checkbox" checked={checked} disabled={disabled} onChange={(event) => void change(employee.employee_id, module.code, event.target.checked)} /></label></td>;
           })}
         </tr>;
       })}</tbody>
-    </table></div> : <p>{message ? "Module Access 尚未載入。" : "正在讀取 Module Access…"}</p>}
+    </table></div> : <p>{message ? "模組使用權尚未載入。" : "正在讀取模組使用權…"}</p>}
     <p className="cy-identity-subtext">模組權限與 Workspace Role、CYID App Access 是獨立維度；Role 升降不會自動重算這張表。Super Admin 全模組固定允許。</p>
   </section>;
 }
@@ -577,10 +585,10 @@ export function SharedIdentityPage({ session }: { session: AuthSession }) {
   useEffect(() => { void refresh(); }, [refresh]);
 
   return <div className="cy-identity-page">
-    <div className="cy-op-page-header">{isWorkspaceAdmin ? <button className="cy-op-button" disabled={loading} onClick={() => void refresh()}>重新整理</button> : null}</div>
+    {isWorkspaceAdmin ? <PagePrimaryActions><button type="button" className="cy-op-button" disabled={loading} onClick={() => void refresh()}>{loading ? "讀取中…" : "重新整理"}</button></PagePrimaryActions> : null}
     <SelfServicePanel session={session} />
     {isWorkspaceAdmin ? <>
-      <SectionTitle title="Workspace 管理" description={canManageAccess ? "管理使用者生命週期、權限與系統准入。" : "一般管理員可管理一般使用者帳號生命週期；Access 由 Identity Admin / 超級管理員管理。"} />
+      <SectionTitle title="使用者與權限管理" description={canManageAccess ? "新增與停用使用者、調整權限與系統准入。" : "一般管理員可以管理一般使用者帳號；系統准入由帳號管理員或超級管理員設定。"} />
       {error ? <div className="cy-identity-message error">{error}</div> : null}
       {snapshot ? <div className="cy-identity-admin-stack">
         <EmployeeManagement snapshot={snapshot} session={session} refresh={refresh} />
