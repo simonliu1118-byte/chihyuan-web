@@ -41,9 +41,16 @@ const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
   programs: { title:"CY 程式", description:"CY 程式功能、正式版本與使用入口；開發中的程式先提供功能介紹。" },
 };
 
+const COMPACT_PAGE_TITLES: Record<AppRoute, string> = {
+  customers: "客戶管理", items: "商品管理", defects: "瑕疵紀錄",
+  orders: "銷售工單", outsourcing: "委外／代工", worklogs: "工作日誌",
+  "erp-item-query": "ERP 查詢", identity: "帳號與權限",
+  settings: "系統設定", audit: "稽核紀錄", backups: "備份管理", programs: "CY 程式",
+};
+
 const baseNavigation: readonly NavigationGroup[] = [
   {
-    key: "business",
+    key: "business", label: "業務模組",
     items: [
       { key: "customers", label: "客戶", href: "#customers" },
       { key: "items", label: "商品", href: "#items" },
@@ -55,7 +62,7 @@ const baseNavigation: readonly NavigationGroup[] = [
     ],
   },
   {
-    key: "administration",
+    key: "administration", label: "系統管理",
     dividerBefore: true,
     items: [
       { key: "identity", label: "帳號與權限", href: "#identity" },
@@ -242,7 +249,7 @@ function OperationalApp({
       pageTools={route === "erp-item-query"
         ? <ErpAgentCredentialControl isSuperAdmin={session.user.workspaceRole === "SUPER_ADMIN"} />
         : undefined}
-      subtitle="Chihyuan Enterprise Management System"
+      subtitle="志遠企業管理系統"
       navigation={navigation}
       activeNavigationKey={route}
       onNavigate={item => { if (routes.has(item.key as AppRoute)) void guardedNavigation.request(item.key as AppRoute, "link"); }}
@@ -266,6 +273,10 @@ function OperationalApp({
       footer={<span className="cy-shell-foundation-note">CY Web</span>}
     >
       {moduleAccessError && route === "identity" ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-title">模組權限狀態</div><div className="cy-notice-body">{moduleAccessError}</div></div> : null}
+      <div className="cy-workspace-intro">
+        <h2>{COMPACT_PAGE_TITLES[route]}</h2>
+        <p>{PAGE_META[route].description}</p>
+      </div>
       {content}
     </AppShell>
   );

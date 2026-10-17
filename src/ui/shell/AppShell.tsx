@@ -1,6 +1,7 @@
 import { useEffect, useState, type PropsWithChildren, type ReactNode, type CSSProperties, type MouseEvent } from "react";
 import { Dialog, Drawer } from "../overlays/Dialog";
 import { useCompactLayout } from "../foundation/useCompactLayout";
+import { ThemeToggle } from "../foundation/ThemeToggle";
 import type { NavigationGroup, NavigationItem } from "../foundation/navigation";
 
 export interface AppShellProps {
@@ -16,6 +17,27 @@ export interface AppShellProps {
   accountRole?: string;
   footer?: ReactNode;
   onNavigate?: (item: NavigationItem) => void;
+}
+
+const navIconPaths: Record<string, string[]> = {
+  customers: ["M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2","M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8","M22 21v-2a4 4 0 0 0-3-3.87","M16 3.13a4 4 0 0 1 0 7.75"],
+  items: ["m12 2 9 5-9 5-9-5 9-5Z","m3 7 9 5 9-5","M3 7v10l9 5 9-5V7","M12 12v10"],
+  defects: ["m10.3 3.9-8.4 14.6A2 2 0 0 0 3.6 21h16.8a2 2 0 0 0 1.7-2.5L13.7 3.9a2 2 0 0 0-3.4 0Z","M12 9v4","M12 17h.01"],
+  orders: ["M8 2v4","M16 2v4","M4 6h16","M4 4h16v18H4z","M8 11h8","M8 15h6"],
+  outsourcing: ["M10 17h4V5H2v12h3","M14 9h4l4 4v4h-3","M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0","M15 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0","M14 17V9"],
+  worklogs: ["M8 2v4","M16 2v4","M4 6h16","M4 4h16v18H4z","m8 14 2 2 5-5"],
+  "erp-item-query": ["M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16","m21 21-4.4-4.4"],
+  identity: ["M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z","M9 12l2 2 4-4"],
+  settings: ["M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8","M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2 2-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-3v-.8a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-2-2 .1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 5.6 14H5v-3h.6A1.7 1.7 0 0 0 7.2 10a1.7 1.7 0 0 0-.3-1.9l-.1-.1 2-2 .1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V4h3v.8a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 2 2-.1.1a1.7 1.7 0 0 0-.3 1.9A1.7 1.7 0 0 0 21 11h.5v3H21a1.7 1.7 0 0 0-1.6 1Z"],
+  audit: ["M3 12a9 9 0 1 0 3-6.7","M3 3v6h6","M12 7v5l3 2"],
+  backups: ["M3 5h18v6H3z","M3 13h18v6H3z","M7 8h.01","M7 16h.01"],
+  programs: ["M3 3h7v7H3z","M14 3h7v7h-7z","M3 14h7v7H3z","M14 14h7v7h-7z"]
+};
+function NavIcon({ name }: { name: string }) {
+  const paths = navIconPaths[name] ?? navIconPaths.programs;
+  return <svg className="cy-shell-nav-icon" viewBox="0 0 24 24" width="16" height="16"
+    fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"
+    strokeLinejoin="round" aria-hidden="true">{paths.map((d, i) => <path key={i} d={d} />)}</svg>;
 }
 
 export function AppShell({
@@ -68,7 +90,7 @@ export function AppShell({
             event.preventDefault();
             if (item.key === activeNavigationKey) setNavigationOpen(false);
             onNavigate(item);
-          }}><span>{item.label}</span></a>)}</div>
+          }}><NavIcon name={item.key} /><span>{item.label}</span></a>)}</div>
       </div>)}
     </nav>
     {footer ? <div className="cy-shell-nav-footer">{footer}</div> : null}
@@ -89,7 +111,7 @@ export function AppShell({
         <header className={["cy-shell-topbar", pageTools ? "has-tools" : ""].filter(Boolean).join(" ")}>
           {compact ? <button type="button" className="cy-shell-menu-toggle" aria-label="開啟模組選單" aria-expanded={navigationOpen} onClick={() => setNavigationOpen(true)}>☰</button> : null}
           <div className="cy-shell-topbar-heading">
-            <h1 className="cy-shell-topbar-title">{pageTitle}</h1>
+            <h1 className="cy-shell-topbar-title">{pageTitle}</h1><span className="cy-shell-topbar-context">／ 工作模組</span>
             {pageDescription ? <button type="button" className="cy-shell-help-button"
               aria-label={`查看${pageTitle}說明`} onClick={openHelp}>
               <span aria-hidden="true">ⓘ</span><span className="cy-shell-help-label"> 說明</span>
@@ -97,7 +119,7 @@ export function AppShell({
           </div>
           {headerActions ? compact
             ? <button type="button" className="cy-shell-account-toggle" data-role={accountRole} aria-label={accountLabel} onClick={() => setAccountOpen(true)}>帳號</button>
-            : <div className="cy-shell-topbar-actions">{headerActions}</div> : null}
+            : <div className="cy-shell-topbar-actions"><ThemeToggle />{headerActions}</div> : null}
           {pageTools ? <div className="cy-shell-page-tools">{pageTools}</div> : null}
         </header>
 
@@ -111,7 +133,7 @@ export function AppShell({
       </Dialog>}
       {compact ? <>
         <Drawer open={navigationOpen} title="模組選單" onClose={() => setNavigationOpen(false)} className="cy-shell-navigation-drawer">{navigationContent}</Drawer>
-        {headerActions ? <Dialog open={accountOpen} title="帳號" onClose={() => setAccountOpen(false)} size="small"><div className="cy-shell-account-panel">{headerActions}</div></Dialog> : null}
+        {headerActions ? <Dialog open={accountOpen} title="帳號" onClose={() => setAccountOpen(false)} size="small"><div className="cy-shell-account-panel"><ThemeToggle />{headerActions}</div></Dialog> : null}
       </> : null}
     </div>
   );
