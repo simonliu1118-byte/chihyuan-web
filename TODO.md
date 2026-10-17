@@ -2,17 +2,26 @@
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
 
+## 上線前提醒：啟用自動備份排程（使用者暫緩）
+
+- [ ] **整體功能測試完成、準備正式上線前，提醒使用者啟用 CY Web 自動備份排程。** 使用者於2026-10-18明確要求在其他測試完成前先維持 `CF_BACKUP_SCHEDULE_ENABLED=false`；目前手動雙副本與GCS隔離還原已通過，排程尚未啟用。
+- [ ] 屆時將 GitHub `development` Environment 的 `CF_BACKUP_SCHEDULE_ENABLED` 改為 `true`，保留既有Worker／主D1／Identity／R2／GCS及已使用的隔離驗證副本，從當前main受控部署；GitHub變數寫入API目前403，須由有權限的設定介面操作。
+- [ ] 部署後核對 backup flag與UTC `30 19 * * *`（台灣每日03:30），並保留獨立catalog `0 19 * * *`；確認R2每日30天、GCS台灣週三／週日182天，manual／pre_restore雙副本。
+- [ ] 觀察第一筆真實scheduled事件與provider verification／Audit；配置存在或手動成功不等於排程已執行。已使用的隔離副本不得清空重做。
+
 ## 新 GCS 憑證驗證 — 2026-10-18
 
 - 使用者已回報在既有 development Environment 新增Web專用GCS JSON Secret與bucket變數；以main-only `audit-backup` dispatch實際驗證，不能只看設定存在。
 - 新增只讀JSON／JWT／bucket IAM驗證：不讀寫object、不執行SQL、不部署、不開排程；僅輸出綁定存在boolean／required permission結果與stable code。GCS驗證成功與manual inputs／schedule是否啟用分開。
-- [ ] PR CI及main合併後執行protected audit，確認新key／GCS權限；再接續Web自己的雙副本與隔離還原驗收。
+- [x] PR／CI合併後protected audit39056878172已驗新key及GCS所需四項object權限；真實雙副本與GCS隔離還原亦已通過，詳Build1驗收。
 
 ## GCS 真實 Worker 傳輸返修 — 0.8.7 Build1
 
 - 真實manual R2已verified、GCS failed後，以actual workerd重現兩個Node mock看不到的原因：儲存bare fetch再以this.send()呼叫，native fetch的this錯誤，在送出Google請求前Illegal invocation；修正receiver後另重現workerd只支援manual/follow，不支援redirect=error。
 - 改預設sender以globalThis.fetch呼叫；redirect=manual且顯式拒絕全部3xx，固定JWT／GCS端點、credentials不跟址、逾時／bytes界線保持。新增actual workerd default nativefetch／WebCrypto regression，模擬Google JWT→IAM→immutable upload→exact readback，另驗OAuth轉址只發一次、不送第二站；兩個CI都執行。合成key僅process memory，未使用正式key或資料。
-- [ ] 本機／review／遠端CI與授權發布後，原事件「重試GCS」必須實測雙verified，才執行真人隔離還原；排程維持false。本次是同一未成功備份項目的返修，依規則不再升Z。
+- [x] 本機131 Node／typecheck／build／actionlint／Governance及獨立review通過；[#189](https://github.com/simonliu1118-byte/chihyuan-web/pull/189) CI全success，合併 `b8bcc57524466c085f3642be67b816c7d0e9bd9c`。授權發布 [39058825249](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39058825249) success，live **0.8.7 Build1／active72／100%**，原主D1／Identity／隔離目標不變。兩入口exact health／HTTPS／實際JS／HSTS／invalid Session獨立驗證通過，catalog cron回讀僅`0 19 * * *`。同項目返修，BUILD=1不另升Z。
+- [x] 真人同事件GCS retry於台灣02:38:23成功，原manual仍97筆／33,064 bytes，雙端verified且errorCode=null；未重匯出。
+- [x] 真人明確選GCS隔離還原，台灣02:39:55先建立104筆／34,359 bytes的雙端verified安全備份，再於固定獨立D1還原97筆。structured Audit started／verified有authenticated actor、provider=gcs、固定空目標與安全事件關聯，aggregate durable count=97；主D1binding保持，驗證副本保留。正式資料與實際資源識別值不進Public Git。
 
 ## 隔離還原入口與手動備份部署 — 2026-10-18（Asia/Taipei）
 
@@ -22,7 +31,7 @@
 - [x] 舊source發布 [39057334816](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39057334816) 被 current-main guard 攔下，無遠端變更；改採最新main `b474f046073461a189aecc6fd8f150bb62a29875` 的 [39057509990](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39057509990) **success**，live **0.8.6／consumer1.0.5／active69／100%**。原主D1／正式Identity保持，R2與GCS Secret已綁定，`BACKUP_ENABLED=true`、`BACKUP_SCHEDULE_ENABLED=false`，全部部署health／HTTPS／portal gates通過。
 - [x] 本機128 Node、14 migrations／17 actual Worker＋D1 checks（含chunked限量、GCS明確選取、同事件安全診斷／未知機密錯誤泛化）、Browser／Worker TypeScript、source、build、deploy config、actionlint／Governance及獨立source review通過；Chromium1280／390雙確認、預設GCS、busy不能關閉、單次執行／成功後refresh驗收無錯誤。
 - [x] [#187](https://github.com/simonliu1118-byte/chihyuan-web/pull/187) head `8837348025e80d26ec71dc19cea04c2b673de7e6` 的遠端Runtime／部署合約／Governance均success，合併 `8cca0379a13b7392a1af6bcd0e3b91c3c4ab442a`；[39058390526](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39058390526) 發布success。live **0.8.7／active70／100%**，固定獨立RECOVERY_DB已建立／遷移／綁定，與主D1不同ID；主D1／Identity相同，manual=true、schedule=false。
-- [ ] 真人 SUPER_ADMIN 建立真實雙端verified備份，再從GCS完成隔離還原與安全備份／reconciliation／Audit核對；成功後才設定schedule=true並另行部署、觀察真實排程。使用者已於台灣02:23:27建立真實manual事件：97筆／33,064 bytes，R2 verified、GCS failed；aggregate catalog回讀一致，舊碼僅記BACKUP_COPY_FAILED。保留同一事件與R2副本，補安全診斷後走既有GCS retry，不建立第二筆來掩蓋失敗。
+- [x] 真實雙端副本／GCS隔離還原／雙端安全備份／reconciliation／Audit已通過，詳上節Build1驗收；原02:23:27事件的初始GCS失敗已在同事件retry補齊。
 
 ## Phase D 備份上線準備 — 2026-10-17（歷史準備；目前狀態見上節）
 
