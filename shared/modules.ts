@@ -9,6 +9,7 @@ export const CYWEB_MODULES = [
   // One ERP 查詢 page (user 2026-10-17: one entry); each category has its own grant.
   { code: "ERP_CUSTOMER_QUERY", route: "erp-item-query", label: "ERP 客戶查詢" },
   { code: "ERP_RECEIVABLE_QUERY", route: "erp-item-query", label: "ERP 未收款查詢" },
+  { code: "ERP_SUPPLIER_QUERY", route: "erp-item-query", label: "ERP 供應商查詢" },
   // A permission inside ERP 商品查詢 (標準進價), not a page of its own.
   { code: "ERP_ITEM_COST", route: null, label: "ERP 商品成本" },
 ] as const;
@@ -24,7 +25,7 @@ export function isCyWebModuleRoute(value: unknown): value is CyWebModuleRoute {
   return typeof value === "string" && CYWEB_MODULES.some((module) => module.route === value);
 }
 
-/** The grants that open a page; any one of them is enough (ERP 查詢 has three). */
+/** The grants that open a page; any one of them is enough (ERP 查詢 has four). */
 export function moduleCodesForRoute(route: string): CyWebModuleCode[] {
   return CYWEB_MODULES.filter((module) => module.route === route).map((module) => module.code);
 }

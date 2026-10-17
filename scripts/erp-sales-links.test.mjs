@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { arrangeSales, groupBills, sourceOrderNo } from "../shared/erp-sales-links.ts";
+import { arrangePurchases, arrangeSales, groupBills, sourceOrderNo } from "../shared/erp-sales-links.ts";
 
 const line = (sourceOrder = "") => ({ seq: 1, itemCode: "X1", itemName: "", specification: "", warehouse: "", quantity: "1", unit: "", unitPrice: "1", amount: "1", giftType: "", giftQuantity: "0", batch: "", note: "", sourceOrder });
 const order = (kind, orderNo, date, sources = [""]) => ({ kind, orderNo, date, customerCode: "CU1", customerName: "", salesperson: "", department: "", paymentTerm: "", taxType: "", invoiceType: "", totalQuantity: "1", amount: "1", tax: "0", total: "1", note: "", reason: "", lines: sources.map(line) });
@@ -38,4 +38,16 @@ test("money shows with $ and keeps negatives readable", async () => {
   assert.equal(erpMoney("4266.667"), "$4,266.667");
   assert.equal(erpMoney(0), "$0");
   assert.equal(erpMoney(""), "");
+});
+
+test("a 退貨單 sits under its 進貨單 the same way", () => {
+  const purchase = (kind, orderNo, date, sources = [""]) => ({ kind, orderNo, date, lines: sources.map(sourceOrder => ({ sourceOrder })) });
+  const entries = arrangePurchases([
+    purchase("進貨", "341A-20260212001", "2026-02-12"),
+    purchase("退貨", "351A-20260301001", "2026-03-01", ["341A-20260212001-0002"]),
+    purchase("退貨", "351A-20260302001", "2026-03-02", ["--"]),
+  ]);
+  assert.deepEqual(entries.map(e => [e.order.orderNo, e.under]), [
+    ["351A-20260302001", null], ["341A-20260212001", null], ["351A-20260301001", "341A-20260212001"],
+  ]);
 });

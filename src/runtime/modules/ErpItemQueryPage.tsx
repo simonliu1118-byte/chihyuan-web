@@ -10,12 +10,14 @@ import type { CyWebModuleCode } from "../../../shared/modules";
 import { useErpJob, type ErpJob } from "./useErpJob";
 import { ErpCustomerQuery } from "./ErpCustomerQuery";
 import { ErpReceivableQuery } from "./ErpReceivableQuery";
+import { ErpSupplierQuery } from "./ErpSupplierQuery";
 import "./erp-item-query.css";
 
 /** The ERP 查詢 categories, each opened by its own grant (user 2026-10-17). */
 const CATEGORIES = [
   { key: "ITEM", label: "商品", module: "ERP_ITEM_QUERY" },
   { key: "CUSTOMER", label: "客戶", module: "ERP_CUSTOMER_QUERY" },
+  { key: "SUPPLIER", label: "廠商", module: "ERP_SUPPLIER_QUERY" },
   { key: "RECEIVABLE", label: "未收款", module: "ERP_RECEIVABLE_QUERY" },
 ] as const;
 type Category = (typeof CATEGORIES)[number]["key"];
@@ -193,6 +195,7 @@ export function ErpItemQueryPage({ allowedModules }: { allowedModules: ReadonlyS
       </div>)}
     {category === "ITEM" && <ErpItemQuery job={job} />}
     {category === "CUSTOMER" && <ErpCustomerQuery job={job} />}
+    {category === "SUPPLIER" && <ErpSupplierQuery job={job} />}
     {category === "RECEIVABLE" && <ErpReceivableQuery job={job} canSearchCustomers={allowedModules.has("ERP_CUSTOMER_QUERY")} />}
   </section>;
 }
