@@ -274,8 +274,11 @@ function OperationalApp({
     >
       {moduleAccessError && route === "identity" ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-title">模組權限狀態</div><div className="cy-notice-body">{moduleAccessError}</div></div> : null}
       <div className="cy-workspace-intro">
-        <h2>{COMPACT_PAGE_TITLES[route]}</h2>
-        <p>{PAGE_META[route].description}</p>
+        <div className="cy-workspace-heading-copy">
+          <h2>{COMPACT_PAGE_TITLES[route]}</h2>
+          <p>{PAGE_META[route].description}</p>
+        </div>
+        <div id="cy-page-primary-actions" className="cy-page-primary-actions" aria-label="頁面主要操作" />
       </div>
       {content}
     </AppShell>
