@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 
 type Theme = "light" | "dark";
-const key = "cyweb-theme";
+const key = "cyweb-ui-theme";
 
 function initialTheme(): Theme {
-  try { return window.localStorage.getItem(key) === "dark" ? "dark" : "light"; }
+  try { return document.cookie.split("; ").some(entry => entry === `${key}=dark`) ? "dark" : "light"; }
   catch { return "light"; }
 }
 
@@ -14,7 +14,8 @@ export function ThemeToggle() {
   useEffect(() => {
     document.documentElement.dataset.cyTheme = theme;
     document.documentElement.style.colorScheme = theme;
-    try { window.localStorage.setItem(key, theme); } catch { /* Private mode may disable storage. */ }
+    try { document.cookie = `${key}=${theme}; Path=/; Max-Age=31536000; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`; }
+    catch { /* Cookie storage may be disabled. */ }
   }, [theme]);
 
   return (
