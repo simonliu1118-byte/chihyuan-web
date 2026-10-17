@@ -16,19 +16,29 @@ export const ERP_HISTORY_COLUMNS = [
 export const ERP_SEARCH_FIELDS = ["品號", "品名", "規格", "單位", "庫存數量", "標準售價"] as const;
 /** Item fields only returned to members with ERP_ITEM_COST (user 2026-10-17: 標準進價). */
 export const ERP_ITEM_COST_FIELDS = ["標準進價"] as const;
-/** COPI01 customer fields, source CYapps apps/CYERPAutoQuery/CustomerQuery.cs CustomerFieldCatalog. */
+/** COPI01 customer fields, source CYapps apps/CYERPAutoQuery/PartyQuery.cs PartyFieldCatalog.Customer. */
 export const ERP_CUSTOMER_FIELDS = [
   "客戶代號", "客戶簡稱", "客戶全名", "負責人", "連絡人", "TEL", "FAX", "統一編號", "行動電話",
   "部門別", "業務人員", "登記地址", "送貨地址", "付款條件", "發票聯數", "課稅別", "通路別", "型態別", "客戶描述",
 ] as const;
 export const ERP_CUSTOMER_SEARCH_FIELDS = ["客戶代號", "客戶簡稱", "客戶全名", "TEL", "統一編號", "業務人員"] as const;
+/** PURI01 supplier fields (user 2026-10-17), source CYapps PartyQuery.cs PartyFieldCatalog.Supplier. */
+export const ERP_SUPPLIER_FIELDS = [
+  "廠商代號", "廠商簡稱", "廠商全名", "版次", "統一編號", "TEL", "FAX", "E-MAIL", "負責人", "聯絡人", "行動電話",
+  "採購人員", "備註", "廠商分類", "付款方式", "付款條件", "匯款銀行", "匯款帳號", "發票聯數", "課稅別", "結帳日期",
+  "聯絡地址", "帳單地址", "廠商描述",
+] as const;
+export const ERP_SUPPLIER_SEARCH_FIELDS = ["廠商代號", "廠商簡稱", "廠商全名", "TEL", "FAX", "統一編號"] as const;
 /**
  * ITEM_NO／ITEM_NAME: ERP 商品查詢. CUSTOMER_NO／CUSTOMER_NAME／SALES (COPR15+COPR16): ERP 客戶查詢.
- * RECEIVABLE (ACRR18): ERP 未收款查詢. ORDER: one 銷貨單／銷退單 by number (a 未收款 憑證), opened by
+ * SUPPLIER_NO／SUPPLIER_NAME (PURI01): ERP 供應商查詢. RECEIVABLE (ACRR18): ERP 未收款查詢. ORDER: one 銷貨單／銷退單 by number (a 未收款 憑證), opened by
  * either grant. One queue, one Agent, one job per member.
  */
-export type ErpQueryType = "ITEM_NO" | "ITEM_NAME" | "CUSTOMER_NO" | "CUSTOMER_NAME" | "SALES" | "RECEIVABLE" | "ORDER";
-export const ERP_QUERY_TYPES: readonly ErpQueryType[] = ["ITEM_NO", "ITEM_NAME", "CUSTOMER_NO", "CUSTOMER_NAME", "SALES", "RECEIVABLE", "ORDER"];
+export type ErpQueryType = "ITEM_NO" | "ITEM_NAME" | "CUSTOMER_NO" | "CUSTOMER_NAME" | "SUPPLIER_NO" | "SUPPLIER_NAME"
+  | "SALES" | "RECEIVABLE" | "ORDER";
+export const ERP_QUERY_TYPES: readonly ErpQueryType[] = [
+  "ITEM_NO", "ITEM_NAME", "CUSTOMER_NO", "CUSTOMER_NAME", "SUPPLIER_NO", "SUPPLIER_NAME", "SALES", "RECEIVABLE", "ORDER",
+];
 export type ErpReceivableScope = "CUSTOMER" | "SALESPERSON" | "ALL";
 /** One line of a 銷貨單／銷退單; amounts and quantities are ERP display strings. */
 export interface ErpSalesLine {
@@ -75,7 +85,7 @@ export interface ErpQueryResult extends ErpHistoryRequest {
   queryType: ErpQueryType;
   itemNo: string | null;
   keyword: string | null;
-  /** CUSTOMER_NO／SALES: the customer; RECEIVABLE: the customer or 業務員 code (null for ALL); ORDER: the number. */
+  /** CUSTOMER_NO／SALES: the customer; SUPPLIER_NO: the supplier; RECEIVABLE: the customer or 業務員 code (null for ALL); ORDER: the number. */
   code: string | null;
   scope: ErpReceivableScope | null;
   /** SALES 單據日期 range (YYYY-MM-DD). */

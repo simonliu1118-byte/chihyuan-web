@@ -6,11 +6,13 @@ const statusLabel: Record<ErpQueryStatus, string> = {
 };
 const subject: Record<ErpQueryType, string> = {
   ITEM_NO: "品號", ITEM_NAME: "品名關鍵字", CUSTOMER_NO: "客戶代號", CUSTOMER_NAME: "客戶名稱關鍵字",
+  SUPPLIER_NO: "廠商代號", SUPPLIER_NAME: "廠商名稱關鍵字",
   SALES: "客戶代號", RECEIVABLE: "範圍", ORDER: "單號",
 };
 const notFound: Record<ErpQueryType, string> = {
   ITEM_NO: "找不到此品號。", ITEM_NAME: "沒有符合的品名。", CUSTOMER_NO: "找不到此客戶代號。",
-  CUSTOMER_NAME: "沒有符合的客戶簡稱或全名。", SALES: "此期間沒有銷貨單或銷退單。", RECEIVABLE: "沒有未收款。", ORDER: "ERP 查無此單號。",
+  CUSTOMER_NAME: "沒有符合的客戶簡稱或全名。", SUPPLIER_NO: "找不到此廠商代號。", SUPPLIER_NAME: "沒有符合的廠商簡稱或全名。",
+  SALES: "此期間沒有銷貨單或銷退單。", RECEIVABLE: "沒有未收款。", ORDER: "ERP 查無此單號。",
 };
 function describe(result: ErpQueryResult): string {
   if (result.queryType === "RECEIVABLE")

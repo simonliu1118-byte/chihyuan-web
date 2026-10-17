@@ -7,7 +7,8 @@ export type NewErpJob = Pick<ErpQueryResult,
 /** Every ERP query request, one per query type (see worker/http/erp-item-query-routes.ts). */
 export type ErpQueryRequest =
   | ({ queryType: "ITEM_NO"; itemNo: string } & ErpHistoryRequest)
-  | { queryType: "ITEM_NAME" | "CUSTOMER_NAME"; keyword: string }
+  | { queryType: "ITEM_NAME" | "CUSTOMER_NAME" | "SUPPLIER_NAME"; keyword: string }
+  | { queryType: "SUPPLIER_NO"; supplierCode: string }
   | { queryType: "CUSTOMER_NO"; customerCode: string }
   | { queryType: "SALES"; customerCode: string; dateFrom: string | null; dateTo: string | null }
   | { queryType: "RECEIVABLE"; scope: ErpReceivableScope; code: string | null }

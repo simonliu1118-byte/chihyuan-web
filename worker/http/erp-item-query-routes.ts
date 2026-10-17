@@ -1,6 +1,6 @@
 import {
   ERP_ITEM_FIELDS, ERP_WAREHOUSE_FIELDS, ERP_BATCH_FIELDS, ERP_HISTORY_COLUMNS, ERP_SEARCH_FIELDS,
-  ERP_ITEM_COST_FIELDS, ERP_CUSTOMER_FIELDS, ERP_CUSTOMER_SEARCH_FIELDS, ERP_QUERY_TYPES,
+  ERP_ITEM_COST_FIELDS, ERP_CUSTOMER_FIELDS, ERP_CUSTOMER_SEARCH_FIELDS, ERP_SUPPLIER_FIELDS, ERP_SUPPLIER_SEARCH_FIELDS, ERP_QUERY_TYPES,
   type ErpQueryType, type ErpQueryHistory, type ErpField, type ErpQueryErrorCode, type ErpQueryResult,
   type ErpReceivableScope, type ErpSalesOrder, type ErpSalesLine, type ErpReceivableBill, type ErpReceivableVoucher,
 } from "../../shared/erp-item-query";
@@ -35,19 +35,31 @@ type JobRow = {
 const MODULES_FOR_TYPE: Record<ErpQueryType, readonly CyWebModuleCode[]> = {
   ITEM_NO: ["ERP_ITEM_QUERY"], ITEM_NAME: ["ERP_ITEM_QUERY"],
   CUSTOMER_NO: ["ERP_CUSTOMER_QUERY"], CUSTOMER_NAME: ["ERP_CUSTOMER_QUERY"], SALES: ["ERP_CUSTOMER_QUERY"],
+  SUPPLIER_NO: ["ERP_SUPPLIER_QUERY"], SUPPLIER_NAME: ["ERP_SUPPLIER_QUERY"],
   RECEIVABLE: ["ERP_RECEIVABLE_QUERY"], ORDER: ["ERP_CUSTOMER_QUERY", "ERP_RECEIVABLE_QUERY"],
 };
-const ERP_QUERY_MODULES: readonly CyWebModuleCode[] = ["ERP_ITEM_QUERY", "ERP_CUSTOMER_QUERY", "ERP_RECEIVABLE_QUERY"];
+const ERP_QUERY_MODULES: readonly CyWebModuleCode[] = ["ERP_ITEM_QUERY", "ERP_CUSTOMER_QUERY", "ERP_RECEIVABLE_QUERY", "ERP_SUPPLIER_QUERY"];
 /** Report types run whole ERP reports (COPR15+COPR16, ACRR18) and may take minutes. */
 const REPORT_TYPES = new Set<ErpQueryType>(["SALES", "RECEIVABLE", "ORDER"]);
-const NAME_TYPES = new Set<ErpQueryType>(["ITEM_NAME", "CUSTOMER_NAME"]);
+const NAME_TYPES = new Set<ErpQueryType>(["ITEM_NAME", "CUSTOMER_NAME", "SUPPLIER_NAME"]);
 const ITEM_FIELD_SET = new Set<string>(ERP_ITEM_FIELDS);
 const COST_FIELD_SET = new Set<string>(ERP_ITEM_COST_FIELDS);
 const WAREHOUSE_FIELD_SET = new Set<string>(ERP_WAREHOUSE_FIELDS);
 const BATCH_FIELD_SET = new Set<string>(ERP_BATCH_FIELDS);
 const SEARCH_FIELD_SET = new Set<string>(ERP_SEARCH_FIELDS);
-const CUSTOMER_FIELD_SET = new Set<string>(ERP_CUSTOMER_FIELDS);
 const CUSTOMER_SEARCH_FIELD_SET = new Set<string>(ERP_CUSTOMER_SEARCH_FIELDS);
+/**
+ * 客戶 and 廠商 (COPI01／PURI01) are queried the same way: one record by code, or a list by
+ * 簡稱／全名 where every row must contain the keyword.
+ */
+const PARTIES = {
+  CUSTOMER: { kind: "客戶", fields: ERP_CUSTOMER_FIELDS, fieldSet: new Set<string>(ERP_CUSTOMER_FIELDS),
+    search: ERP_CUSTOMER_SEARCH_FIELDS, searchSet: CUSTOMER_SEARCH_FIELD_SET, codeKey: "customerCode" },
+  SUPPLIER: { kind: "廠商", fields: ERP_SUPPLIER_FIELDS, fieldSet: new Set<string>(ERP_SUPPLIER_FIELDS),
+    search: ERP_SUPPLIER_SEARCH_FIELDS, searchSet: new Set<string>(ERP_SUPPLIER_SEARCH_FIELDS), codeKey: "supplierCode" },
+} as const;
+const partyOf = (type: ErpQueryType) => type === "CUSTOMER_NO" || type === "CUSTOMER_NAME" ? PARTIES.CUSTOMER
+  : type === "SUPPLIER_NO" || type === "SUPPLIER_NAME" ? PARTIES.SUPPLIER : null;
 const ERROR_TEXT: Record<ErpQueryErrorCode, string> = {
   ERP_NOT_OPEN: "ERP 尚未開啟", ERP_BUSY: "ERP 正在忙碌",
   ERP_STATE: "ERP 畫面狀態不符", EXPORT_FAILED: "ERP 匯出失敗",
@@ -163,20 +175,20 @@ function parseHistory(raw: unknown, job: JobRow): ErpQueryHistory | null {
     return bad("INVALID_AGENT_RESULT", "歷史異動總筆數或截斷狀態錯誤");
   return {from:data.from as string,to:data.to as string,columns:[...ERP_HISTORY_COLUMNS],rows,total:data.total,truncated:data.truncated as boolean};
 }
-/** A name-search list (品名 or 客戶簡稱／全名): every row has its code and contains the keyword. */
+/** A name-search list (品名, or 客戶／廠商 簡稱／全名): every row has its code and contains the keyword. */
 function parseNameList(body: Record<string, unknown>, job: JobRow) {
-  const customer = job.query_type === "CUSTOMER_NAME";
+  const party = partyOf(job.query_type);
   if (body.keyword !== job.keyword)
     return bad("INVALID_AGENT_RESULT", "回報的關鍵字與查詢工作不同");
   const items = list(body.items, "名稱查詢結果", 500).map((raw: unknown) => {
-    const fields = parseFields(raw, customer ? CUSTOMER_SEARCH_FIELD_SET : SEARCH_FIELD_SET,
-      customer ? ERP_CUSTOMER_SEARCH_FIELDS.length : ERP_SEARCH_FIELDS.length);
+    const fields = parseFields(raw, party ? party.searchSet : SEARCH_FIELD_SET,
+      party ? party.search.length : ERP_SEARCH_FIELDS.length);
     const value = (name: string) => fields.find(field => field.name === name)?.value ?? "";
-    if (!value(customer ? "客戶代號" : "品號").trim())
-      return bad("INVALID_AGENT_RESULT", customer ? "客戶名稱查詢每筆都必須有客戶代號" : "品名查詢每筆都必須有品號");
+    if (!value(party ? party.kind + "代號" : "品號").trim())
+      return bad("INVALID_AGENT_RESULT", party ? `${party.kind}名稱查詢每筆都必須有${party.kind}代號` : "品名查詢每筆都必須有品號");
     const keyword = job.keyword ?? "";
-    const matches = customer
-      ? erpNameContains(value("客戶簡稱"), keyword) || erpNameContains(value("客戶全名"), keyword)
+    const matches = party
+      ? erpNameContains(value(party.kind + "簡稱"), keyword) || erpNameContains(value(party.kind + "全名"), keyword)
       : !!value("品名") && erpNameContains(value("品名"), keyword);
     if (!matches) return bad("INVALID_AGENT_RESULT", "名稱查詢結果不符合關鍵字");
     return fields;
@@ -316,15 +328,15 @@ function parseItemResult(body: Record<string, unknown>, job: JobRow, outcome: "F
     truncated: found ? search?.truncated ?? false : false,
   };
 }
-/** Customer, 銷貨銷退 and 未收款 results: no item detail, one result shape per type. */
+/** Customer, supplier, 銷貨銷退 and 未收款 results: no item detail, one result shape per type. */
 function parseBusinessResult(body: Record<string, unknown>, job: JobRow, outcome: "FOUND" | "NOT_FOUND" | "FAILED") {
   for (const key of ["warehouses", "batches", "items", "orders", "bills"] as const)
     if (body[key] != null && (!Array.isArray(body[key]) || (body[key] as unknown[]).length !== 0)
-      && !(key === "items" && job.query_type === "CUSTOMER_NAME" || key === "orders" && (job.query_type === "SALES" || job.query_type === "ORDER")
+      && !(key === "items" && NAME_TYPES.has(job.query_type) || key === "orders" && (job.query_type === "SALES" || job.query_type === "ORDER")
         || key === "bills" && job.query_type === "RECEIVABLE"))
       return bad("INVALID_AGENT_RESULT", "查詢結果附帶了其他類型的資料");
   if (body.history != null || body.batchManaged != null
-    || job.query_type !== "CUSTOMER_NO" && body.fields != null && (!Array.isArray(body.fields) || body.fields.length !== 0))
+    || job.query_type !== "CUSTOMER_NO" && job.query_type !== "SUPPLIER_NO" && body.fields != null && (!Array.isArray(body.fields) || body.fields.length !== 0))
     return bad("INVALID_AGENT_RESULT", "查詢結果附帶了其他類型的資料");
   if (outcome === "FAILED") {
     if (["fields", "items", "orders", "bills"].some(key => Array.isArray(body[key]) && (body[key] as unknown[]).length))
@@ -332,15 +344,16 @@ function parseBusinessResult(body: Record<string, unknown>, job: JobRow, outcome
     return { ...EMPTY, resultCount: 0, truncated: false };
   }
   const found = outcome === "FOUND";
-  if (job.query_type === "CUSTOMER_NO") {
-    if (body.customerCode !== job.target_code) return bad("INVALID_AGENT_RESULT", "回報的客戶代號與查詢工作不同");
-    const fields = parseFields(body.fields ?? [], CUSTOMER_FIELD_SET, ERP_CUSTOMER_FIELDS.length);
-    if (found && fields.find(f => f.name === "客戶代號")?.value !== job.target_code)
-      return bad("INVALID_AGENT_RESULT", "查詢結果客戶代號與工作不一致");
+  const party = job.query_type === "CUSTOMER_NO" || job.query_type === "SUPPLIER_NO" ? partyOf(job.query_type) : null;
+  if (party) {
+    if (body[party.codeKey] !== job.target_code) return bad("INVALID_AGENT_RESULT", `回報的${party.kind}代號與查詢工作不同`);
+    const fields = parseFields(body.fields ?? [], party.fieldSet, party.fields.length);
+    if (found && fields.find(f => f.name === party.kind + "代號")?.value !== job.target_code)
+      return bad("INVALID_AGENT_RESULT", `查詢結果${party.kind}代號與工作不一致`);
     if (!found && fields.length) return bad("INVALID_AGENT_RESULT", "非成功結果不得附帶 ERP 欄位");
     return { ...EMPTY, fieldsJson: found ? JSON.stringify(fields) : null, resultCount: found ? 1 : 0, truncated: false };
   }
-  const result = job.query_type === "CUSTOMER_NAME" ? parseNameList(body, job)
+  const result = NAME_TYPES.has(job.query_type) ? parseNameList(body, job)
     : job.query_type === "SALES" || job.query_type === "ORDER" ? parseSales(body, job) : parseReceivables(body, job);
   const count = "items" in result ? result.items.length : "orders" in result ? result.orders.length : result.bills.length;
   if (found && count === 0) return bad("INVALID_AGENT_RESULT", "FOUND 的結果不可為空");
@@ -453,6 +466,8 @@ const KEYS: Record<ErpQueryType, readonly string[]> = {
   ITEM_NAME: ["queryType", "keyword"],
   CUSTOMER_NO: ["queryType", "customerCode"],
   CUSTOMER_NAME: ["queryType", "keyword"],
+  SUPPLIER_NO: ["queryType", "supplierCode"],
+  SUPPLIER_NAME: ["queryType", "keyword"],
   SALES: ["queryType", "customerCode", "dateFrom", "dateTo"],
   RECEIVABLE: ["queryType", "scope", "code"],
   ORDER: ["queryType", "orderNo"],
@@ -475,6 +490,8 @@ function parseRequest(queryType: ErpQueryType, body: Record<string, unknown>): N
       case "ITEM_NAME": return { ...base, keyword: parseKeyword(body.keyword) };
       case "CUSTOMER_NO": return { ...base, targetCode: parseCode(body.customerCode, "客戶代號") };
       case "CUSTOMER_NAME": return { ...base, keyword: parseKeyword(body.keyword, "客戶名稱") };
+      case "SUPPLIER_NO": return { ...base, targetCode: parseCode(body.supplierCode, "廠商代號") };
+      case "SUPPLIER_NAME": return { ...base, keyword: parseKeyword(body.keyword, "廠商名稱") };
       case "SALES": {
         const range = resolveDateRange(body.dateFrom, body.dateTo, "單據日期");
         return { ...base, targetCode: parseCode(body.customerCode, "客戶代號"), from: range.from, to: range.to };
@@ -632,6 +649,8 @@ function claimedJob(job: ClaimRow) {
     case "ITEM_NAME": return { ...base, keyword: job.keyword, includeHistory: false, historyFrom: null, historyTo: null };
     case "CUSTOMER_NO": return { ...base, customerCode: job.target_code };
     case "CUSTOMER_NAME": return { ...base, keyword: job.keyword };
+    case "SUPPLIER_NO": return { ...base, supplierCode: job.target_code };
+    case "SUPPLIER_NAME": return { ...base, keyword: job.keyword };
     case "SALES": return { ...base, customerCode: job.target_code, dateFrom: job.history_from, dateTo: job.history_to };
     case "RECEIVABLE": return { ...base, scope: job.receivable_scope, code: job.target_code };
     case "ORDER": return { ...base, orderNo: job.target_code };
