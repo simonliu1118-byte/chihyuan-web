@@ -1,6 +1,6 @@
 /*
  * CY Web design system — the single styling path for the application.
- * Colours: confirmed 霧白靛藍 (light) / 石墨靛藍 (dark), see APP_SHELL_FOUNDATION.md.
+ * Colours: 霧白／石墨 neutrals with the 商務藍 accent chosen 2026-10-17, see APP_SHELL_FOUNDATION.md.
  * Type: 14px body, 13px secondary, 12px minimum. Controls: 32px pointer, 44px touch.
  * Theme: follows the system unless the user chose light or dark (data-cy-theme).
  * Module stylesheets use these tokens only; they never redefine shared components.
@@ -17,11 +17,11 @@
   --cy-text: #282a3a;
   --cy-text-muted: #676b7e;
   --cy-text-subtle: #8a8ea2;
-  --cy-accent: #5552cd;
-  --cy-accent-hover: #4845b8;
-  --cy-accent-soft: #eeedfa;
+  --cy-accent: #3d63d2;
+  --cy-accent-hover: #3354bc;
+  --cy-accent-soft: #eaf0fc;
   --cy-on-accent: #ffffff;
-  --cy-focus: rgba(85, 82, 205, 0.32);
+  --cy-focus: rgba(61, 99, 210, 0.32);
   --cy-success: #1f7a4d;
   --cy-success-soft: #e8f5ee;
   --cy-warning: #8a5300;
@@ -77,11 +77,11 @@
     --cy-text: #efedf8;
     --cy-text-muted: #b6b4cb;
     --cy-text-subtle: #8f8da6;
-    --cy-accent: #b6adff;
-    --cy-accent-hover: #c8c1ff;
-    --cy-accent-soft: #36304e;
-    --cy-on-accent: #2b2454;
-    --cy-focus: rgba(182, 173, 255, 0.4);
+    --cy-accent: #9dbbff;
+    --cy-accent-hover: #b5cbff;
+    --cy-accent-soft: #2a3550;
+    --cy-on-accent: #172446;
+    --cy-focus: rgba(157, 187, 255, 0.4);
     --cy-success: #6fd3a0;
     --cy-success-soft: #1e3a2e;
     --cy-warning: #f2b866;
@@ -113,11 +113,11 @@
   --cy-text: #efedf8;
   --cy-text-muted: #b6b4cb;
   --cy-text-subtle: #8f8da6;
-  --cy-accent: #b6adff;
-  --cy-accent-hover: #c8c1ff;
-  --cy-accent-soft: #36304e;
-  --cy-on-accent: #2b2454;
-  --cy-focus: rgba(182, 173, 255, 0.4);
+  --cy-accent: #9dbbff;
+  --cy-accent-hover: #b5cbff;
+  --cy-accent-soft: #2a3550;
+  --cy-on-accent: #172446;
+  --cy-focus: rgba(157, 187, 255, 0.4);
   --cy-success: #6fd3a0;
   --cy-success-soft: #1e3a2e;
   --cy-warning: #f2b866;
