@@ -351,7 +351,7 @@ function EmployeeManagement({ snapshot, session, refresh }: {
         <td>{lifecycleStatus(row)}</td>
         <td><div className="cy-identity-actions">
           {row.workspace_role === "SUPER_ADMIN" && isSuperAdmin ? <button type="button" className="cy-op-button" disabled={busy || eligibleTransferEmployees.length === 0} onClick={() => { setTargetEmployeeId(eligibleTransferEmployees[0]?.employee_id ?? ""); setTransferOpen(true); }}>移交</button> : null}
-          {pending && rowManageable ? <><button type="button" className="cy-op-button" disabled={busy} onClick={() => void editPending(row)}>編輯</button><button type="button" className="cy-op-button" disabled={busy} onClick={() => void resend(row)}>重寄驗證 Email</button></> : null}
+          {pending && rowManageable ? <><button type="button" className="cy-op-button" disabled={busy} onClick={() => void editPending(row)}>修改</button><button type="button" className="cy-op-button" disabled={busy} onClick={() => void resend(row)}>重寄驗證 Email</button></> : null}
           {rowManageable && (pending || (isSuperAdmin && snapshot.testingAccountDeletionAllowed === true)) ? <button type="button" className="cy-op-button danger" disabled={busy} onClick={() => void deleteEmployee(row)}>刪除</button> : null}
           {!pending && rowManageable ? <button type="button" className="cy-op-button" disabled={busy} onClick={() => void toggle(row)}>{row.enabled === 1 ? "停用" : "啟用"}</button> : null}
           {canRecover ? <button type="button" className="cy-op-button" disabled={busy} onClick={() => void recoverEmail(row)}>變更 Email</button> : null}

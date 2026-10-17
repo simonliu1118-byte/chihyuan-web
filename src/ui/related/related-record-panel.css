@@ -4,7 +4,7 @@
 }
 
 .cy-related-panel-header {
-  min-height: 48px;
+  min-height: 40px;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -21,7 +21,7 @@
 }
 
 .cy-related-panel-tabs button {
-  min-height: 47px;
+  min-height: 40px;
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -32,8 +32,8 @@
   background: transparent;
   color: var(--cy-text-muted);
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 750;
+  font-size: var(--cy-fs-md);
+  font-weight: 500;
 }
 
 .cy-related-panel-tabs button:hover,
@@ -55,8 +55,8 @@
   border-radius: 999px;
   background: var(--cy-surface-muted);
   color: var(--cy-text-muted);
-  font-size: 10px;
-  font-weight: 800;
+  font-size: var(--cy-fs-xs);
+  font-weight: 600;
 }
 
 .cy-related-panel-tabs button.is-active .cy-related-panel-badge {

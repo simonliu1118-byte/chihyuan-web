@@ -1,4 +1,6 @@
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
+import "./outsourcing-operational.css";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -63,6 +65,23 @@ const statusText: Record<OutsourcingStatusCode, string> = {
   paid: "已付款",
   voided: "已作廢",
 };
+
+const progressSteps: readonly { code: OutsourcingStatusCode; label: string }[] = [
+  { code: "pending_outbound", label: "建立" },
+  { code: "outbound", label: "出庫" },
+  { code: "received", label: "入庫" },
+  { code: "priced", label: "計價" },
+  { code: "paid", label: "付款" },
+];
+
+function OutsourcingProgress({ status }: { status: OutsourcingStatusCode }) {
+  if (status === "voided") return <p className="cy-progress-voided">此代工單已作廢。</p>;
+  const current = progressSteps.findIndex(step => step.code === status);
+  return <ol className="cy-progress" aria-label="代工進度">
+    {progressSteps.map((step, index) => <li key={step.code} data-state={index < current ? "done" : index === current ? "current" : "todo"}
+      aria-current={index === current ? "step" : undefined}>{step.label}</li>)}
+  </ol>;
+}
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -145,6 +164,9 @@ export function OutsourcingOperationalPage() {
 
   const [busy, setBusy] = useState(false);
   useUnsavedChangesGuard({ active: editing, blocked: busy });
+  const pane = useMasterDetailPane();
+  const partnerPane = useMasterDetailPane();
+  const bomPane = useMasterDetailPane();
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
   const [refreshEpoch, setRefreshEpoch] = useState(0);
 
@@ -278,6 +300,8 @@ export function OutsourcingOperationalPage() {
   }
 
   function startCreate() {
+    if (editing && !window.confirm("放棄目前尚未儲存的修改？")) return;
+    pane.open();
     const contractor = contractors.find((row) => row.isActive) ?? contractors[0];
     const item = lookups?.items.find((row) => row.isActive) ?? lookups?.items[0];
     setCreating(true);
@@ -303,6 +327,7 @@ export function OutsourcingOperationalPage() {
   }
 
   function cancelEdit() {
+    if (creating) pane.close();
     setEditing(false);
     setCreating(false);
     setCorrectingOutbound(false);
@@ -503,12 +528,12 @@ export function OutsourcingOperationalPage() {
 
   return (
     <div className="cy-outsourcing-op">
-      {tab === "orders" ? <PagePrimaryActions><button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增代工單</button></PagePrimaryActions> : null}
+      {tab === "orders" ? <PagePrimaryActions><button type="button" className="cy-op-button primary" disabled={busy} onClick={startCreate}>＋ 新增代工單</button></PagePrimaryActions> : null}
       {message ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-body">{message}</div></div> : null}
 
       <div className="cy-op-tabs">
         {(["orders", "contractors", "boms", "stock"] as Tab[]).map((value) => (
-          <button className={tab === value ? "active" : ""} key={value} onClick={() => setTab(value)}>
+          <button type="button" className={tab === value ? "active" : ""} key={value} onClick={() => { if (value !== tab && editing && !window.confirm("放棄目前尚未儲存的修改？")) return; if (value !== tab) { setEditing(false); setCreating(false); setDraft(null); } setTab(value); }}>
             {value === "orders" ? "代工單" : value === "contractors" ? "代工對象／單價" : value === "boms" ? "BOM" : "代工庫存"}
           </button>
         ))}
@@ -516,14 +541,30 @@ export function OutsourcingOperationalPage() {
 
       {tab === "orders" ? (
         <>
-          {editing && draft ? (
-            <section className="cy-op-panel cy-op-form-card">
-              <form onSubmit={(event) => void saveOrder(event)}>
-                <div className="cy-op-panel-header">
-                  <div><h2>{creating ? "新增代工單" : correctingOutbound ? "更正已確認出庫" : "修改待出庫代工單"}</h2><p>{correctingOutbound ? "伺服器會反轉舊 movement 並建立新 movement。" : "確認出庫前才是一般可編輯資料。"}</p></div>
-                  <button type="button" className="cy-op-button" disabled={busy} onClick={cancelEdit}>取消</button>
+          <div className="cy-md" data-pane={pane.pane}>
+            <section className="cy-op-panel cy-md-list" aria-label="代工單清單">
+              <div className="cy-md-toolbar">
+                <input className="cy-op-input" type="search" aria-label="搜尋代工單" value={orderQuery} onChange={(event) => setOrderQuery(event.target.value)} placeholder="搜尋代工單、代工對象" />
+                <select className="cy-op-input" aria-label="代工單狀態" value={orderStatus} onChange={(event) => setOrderStatus(event.target.value)}>
+                  <option value="">全部狀態</option>
+                  {Object.entries(statusText).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+                </select>
+                <div className="cy-md-count">共 {orders.length} 筆</div>
+              </div>
+              <div className="cy-op-list">
+                {orders.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedOrderId === row.id ? "active" : ""}`} aria-current={selectedOrderId === row.id ? "true" : undefined} onClick={() => { if (!editing || window.confirm("放棄尚未儲存的修改？")) { setEditing(false); setCreating(false); setDraft(null); setSelectedOrderId(row.id); pane.open(); } }}><strong>{row.contractorNameSnapshot}</strong><span><span className="cy-mono">{row.outsourcingRef}</span> · {row.orderDate}</span><small className="cy-flow-status" data-tone={row.statusCode === "pending_outbound" ? "warning" : row.statusCode === "paid" ? "success" : row.statusCode === "voided" ? "danger" : "info"}>{statusText[row.statusCode]}</small></button>)}
+                {orders.length === 0 ? <div className="cy-op-empty">尚無代工單。</div> : null}
+              </div>
+            </section>
+
+            <section className="cy-op-panel cy-md-detail">
+              <MasterDetailBack label="代工單清單" disabled={busy} onBack={() => { if (editing) { if (!window.confirm("放棄目前尚未儲存的修改？")) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
+              {editing && draft ? (
+              <form className="cy-op-form" onSubmit={(event) => void saveOrder(event)}>
+                <div className="cy-record-header">
+                  <div><h2>{creating ? "新增代工單" : correctingOutbound ? "更正已確認的出庫" : "修改代工單"}</h2><p>{correctingOutbound ? "儲存後會以新的出庫資料取代原本的出庫，並保留更正紀錄。" : "確認出庫前可以修改內容。"}</p></div>
                 </div>
-                <div className="cy-op-form-grid">
+                <div className="cy-op-form-grid cy-form-grid-spaced">
                   <label>代工對象
                     <select className="cy-op-input" value={draft.contractorId ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, contractorId: Number(event.target.value) || null })}>
                       <option value="">請選擇</option>
@@ -531,17 +572,19 @@ export function OutsourcingOperationalPage() {
                     </select>
                   </label>
                   <label>工單日期<input className="cy-op-input" type="date" value={draft.orderDate} disabled={busy} onChange={(event) => setDraft({ ...draft, orderDate: event.target.value })} /></label>
-                  <label>商品搜尋<input className="cy-op-input" value={itemQuery} disabled={busy} onChange={(event) => setItemQuery(event.target.value)} placeholder="品號／品名／規格" /></label>
+                  <label className="wide">篩選商品選單<input className="cy-op-input" type="search" value={itemQuery} disabled={busy} onChange={(event) => setItemQuery(event.target.value)} placeholder="品號／品名／規格" /></label>
                 </div>
 
-                <div className="cy-op-subsection">
-                  <div className="cy-op-panel-header"><h3>預計出庫料件</h3><button type="button" className="cy-op-button" disabled={busy} onClick={addPart}>增加料件</button></div>
+                <section className="cy-form-block">
+                  <div className="cy-form-block-head"><div><h3>出庫料件</h3><p>交給代工對象的料件；可註明預計做成的成品與 BOM。</p></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={addPart}>＋ 增加料件</button></div>
+                  <div className="cy-form-block-body">
+                  <div className="cy-out-part cy-out-part-head" aria-hidden="true"><span>料件</span><span>數量</span><span>單位</span><span>預計成品</span><span>BOM</span><span /></div>
                   {draft.parts.map((part, index) => {
                     const component = activeItem(part.componentItemId);
                     const units = component?.allowedUnits?.length ? component.allowedUnits : (part.unit ? [part.unit] : []);
-                    return <div className="cy-op-inline-row" key={part.key}>
+                    return <div className="cy-out-part" key={part.key}>
                       <select className="cy-op-input" value={part.componentItemId ?? ""} disabled={busy} onChange={(event) => changeComponent(index, Number(event.target.value) || null)}>
-                        <option value="">料件商品</option>
+                        <option value="">選擇料件</option>
                         {(lookups?.items ?? []).map((row) => <option key={row.id} value={row.id}>{row.itemNo} · {row.name}{row.isActive ? "" : "（已停用）"}</option>)}
                       </select>
                       <input className="cy-op-input" value={part.quantity} inputMode="decimal" disabled={busy} onChange={(event) => patchPart(index, { quantity: event.target.value })} placeholder="數量" />
@@ -554,53 +597,16 @@ export function OutsourcingOperationalPage() {
                         <option value="">未指定 BOM</option>
                         {boms.filter((row) => row.finishedItemId === part.finishedItemId).map((row) => <option key={row.id} value={row.id}>{row.recipeRef}</option>)}
                       </select>
-                      <button type="button" className="cy-op-button danger" disabled={busy || draft.parts.length <= 1} onClick={() => removePart(index)}>移除</button>
+                      <button type="button" className="cy-op-button compact quiet cy-row-remove" disabled={busy || draft.parts.length <= 1} onClick={() => removePart(index)}>移除</button>
                     </div>;
                   })}
-                </div>
-                <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={cancelEdit}>取消</button><button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : "儲存"}</button></div>
-              </form>
-            </section>
-          ) : null}
-
-          <div className="cy-op-split">
-            <section className="cy-op-panel cy-op-list-panel">
-              <input className="cy-op-input" value={orderQuery} onChange={(event) => setOrderQuery(event.target.value)} placeholder="搜尋代工單／代工對象" />
-              <select className="cy-op-input" value={orderStatus} onChange={(event) => setOrderStatus(event.target.value)}>
-                <option value="">全部狀態</option>
-                {Object.entries(statusText).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
-              </select>
-              <div className="cy-op-list">
-                {orders.map((row) => <button key={row.id} className={`cy-op-list-row ${selectedOrderId === row.id ? "active" : ""}`} onClick={() => { if (!editing || window.confirm("放棄尚未儲存的修改？")) { setEditing(false); setCreating(false); setDraft(null); setSelectedOrderId(row.id); } }}><strong>{row.outsourcingRef}</strong><span>{row.contractorNameSnapshot}</span><small>{statusText[row.statusCode]} · {row.orderDate}</small></button>)}
-                {orders.length === 0 ? <div className="cy-op-empty">尚無代工單。</div> : null}
-              </div>
-            </section>
-
-            <section className="cy-op-panel">
-              {selectedOrder ? <div>
-                <div className="cy-op-panel-header"><div><h2>{selectedOrder.outsourcingRef}</h2><p>{selectedOrder.contractorNameSnapshot} · rev.{selectedOrder.revision}</p></div><span className="cy-op-badge">{statusText[selectedOrder.statusCode]}</span></div>
-                <div className="cy-op-detail-grid"><div><span>工單日期</span><strong>{selectedOrder.orderDate}</strong></div><div><span>出庫日期</span><strong>{selectedOrder.outboundDate ?? "—"}</strong></div><div><span>付款時間</span><strong>{selectedOrder.paidAt ?? "—"}</strong></div><div><span>操作人員 ID</span><strong>{selectedOrder.operatorEmployeeId}</strong></div></div>
-                <div className="cy-op-subsection"><h3>出庫料件</h3><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th>數量</th><th>單位</th></tr></thead><tbody>{selectedOrder.parts.map((part) => <tr key={part.id}><td>{part.componentItemNoSnapshot}</td><td>{part.componentItemNameSnapshot}</td><td>{part.quantity}</td><td>{part.unitSnapshot}</td></tr>)}</tbody></table></div>
-                {selectedOrder.receipt ? <div className="cy-op-subsection"><h3>入庫</h3>{selectedOrder.receipt.items.map((item) => <div className="cy-op-read-row" key={item.id}>{item.itemNoSnapshot} · {item.itemNameSnapshot} · {item.quantity} {item.unitSnapshot}{item.bomRecipeId ? ` · BOM #${item.bomRecipeId}` : ""}</div>)}</div> : null}
-                {selectedOrder.pricing ? <div className="cy-op-subsection"><h3>計價</h3>{selectedOrder.pricing.items.map((item) => <div className="cy-op-read-row" key={item.id}>{item.itemNoSnapshot} · {item.quantity} {item.unitSnapshot} × {item.unitPrice} = {item.subtotal}</div>)}<div className="cy-op-total">總額：NT$ {selectedOrder.pricing.totalAmount}</div></div> : null}
-
-                {selectedOrder.statusCode === "outbound" ? <div className="cy-op-subsection">
-                  <h3>入庫資料</h3>
-                  <div className="cy-op-inline-row">
-                    <select className="cy-op-input" value={receiptItemId ?? ""} disabled={busy} onChange={(event) => changeReceiptItem(Number(event.target.value) || null)}>
-                      <option value="">選擇入庫成品</option>
-                      {(lookups?.items ?? []).map((row) => <option key={row.id} value={row.id}>{row.itemNo} · {row.name}</option>)}
-                    </select>
-                    <select className="cy-op-input" value={receiptBomId ?? ""} disabled={busy} onChange={(event) => setReceiptBomId(Number(event.target.value) || null)}>
-                      <option value="">不指定 BOM</option>
-                      {receiptBoms.map((row) => <option key={row.id} value={row.id}>{row.recipeRef}</option>)}
-                    </select>
-                    <input className="cy-op-input" value={receiptQuantity} inputMode="decimal" disabled={busy} onChange={(event) => setReceiptQuantity(event.target.value)} placeholder="入庫數量" />
-                    <input className="cy-op-input" value={receiptUnit} disabled={busy} onChange={(event) => setReceiptUnit(event.target.value)} placeholder="單位" />
                   </div>
-                </div> : null}
-
-                <div className="cy-op-action-bar">
+                </section>
+                <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={cancelEdit}>取消</button><button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立代工單" : "儲存修改"}</button></div>
+              </form>
+              ) : selectedOrder ? <div>
+                <div className="cy-record-header"><div><h2>{selectedOrder.contractorNameSnapshot}</h2><p><span className="cy-mono">{selectedOrder.outsourcingRef}</span> · {selectedOrder.orderDate}</p></div>
+                <div className="cy-record-actions">
                   {selectedOrder.statusCode === "pending_outbound" ? <>
                     <button className="cy-op-button" disabled={busy} onClick={() => startEdit("pending")}>修改</button>
                     <button className="cy-op-button primary" disabled={busy} onClick={() => void confirmOutbound()}>確認出庫</button>
@@ -620,26 +626,49 @@ export function OutsourcingOperationalPage() {
                     <button className="cy-op-button danger" disabled={busy} onClick={() => void reverse("pricing")}>取消計價</button>
                   </> : null}
                   {selectedOrder.statusCode === "paid" ? <button className="cy-op-button danger" disabled={busy} onClick={() => void reverse("payment")}>取消付款</button> : null}
-                </div>
-              </div> : <div className="cy-op-empty">請選擇代工單。</div>}
+                </div></div>
+                <OutsourcingProgress status={selectedOrder.statusCode} />
+                <div className="cy-op-detail-grid"><div><span>工單日期</span><strong>{selectedOrder.orderDate}</strong></div><div><span>出庫日期</span><strong>{selectedOrder.outboundDate ?? "—"}</strong></div><div><span>付款時間</span><strong>{selectedOrder.paidAt ? new Date(selectedOrder.paidAt).toLocaleString() : "—"}</strong></div></div>
+                <div className="cy-op-subsection"><h3>出庫料件</h3><div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">數量</th><th>單位</th></tr></thead><tbody>{selectedOrder.parts.map((part) => <tr key={part.id}><td className="cy-mono">{part.componentItemNoSnapshot}</td><td>{part.componentItemNameSnapshot}</td><td className="num">{part.quantity}</td><td>{part.unitSnapshot}</td></tr>)}</tbody></table></div></div>
+                {selectedOrder.receipt ? <div className="cy-op-subsection"><h3>入庫</h3>{selectedOrder.receipt.items.map((item) => <div className="cy-op-read-row" key={item.id}>{item.itemNoSnapshot} · {item.itemNameSnapshot} · {item.quantity} {item.unitSnapshot}{item.bomRecipeId ? ` · BOM #${item.bomRecipeId}` : ""}</div>)}</div> : null}
+                {selectedOrder.pricing ? <div className="cy-op-subsection"><h3>計價</h3>{selectedOrder.pricing.items.map((item) => <div className="cy-op-read-row" key={item.id}>{item.itemNoSnapshot} · {item.quantity} {item.unitSnapshot} × {item.unitPrice} = {item.subtotal}</div>)}<div className="cy-op-total">總額 NT$ {selectedOrder.pricing.totalAmount}</div></div> : null}
+
+                {selectedOrder.statusCode === "outbound" ? <div className="cy-op-subsection">
+                  <h3>入庫資料</h3>
+                  <p className="cy-out-hint">填好後按上方「確認入庫」。</p>
+                  <div className="cy-out-receipt">
+                    <select className="cy-op-input" value={receiptItemId ?? ""} disabled={busy} onChange={(event) => changeReceiptItem(Number(event.target.value) || null)}>
+                      <option value="">選擇入庫成品</option>
+                      {(lookups?.items ?? []).map((row) => <option key={row.id} value={row.id}>{row.itemNo} · {row.name}</option>)}
+                    </select>
+                    <select className="cy-op-input" value={receiptBomId ?? ""} disabled={busy} onChange={(event) => setReceiptBomId(Number(event.target.value) || null)}>
+                      <option value="">不指定 BOM</option>
+                      {receiptBoms.map((row) => <option key={row.id} value={row.id}>{row.recipeRef}</option>)}
+                    </select>
+                    <input className="cy-op-input" value={receiptQuantity} inputMode="decimal" disabled={busy} onChange={(event) => setReceiptQuantity(event.target.value)} placeholder="入庫數量" />
+                    <input className="cy-op-input" value={receiptUnit} disabled={busy} onChange={(event) => setReceiptUnit(event.target.value)} placeholder="單位" />
+                  </div>
+                </div> : null}
+
+              </div> : <MasterDetailEmpty title="尚未選擇代工單" hint="從左側清單選一張代工單，或按右上角「新增代工單」。" />}
             </section>
           </div>
         </>
       ) : null}
 
-      {tab === "contractors" ? <div className="cy-op-split">
-        <section className="cy-op-panel cy-op-list-panel"><div className="cy-op-list">{contractors.map((row) => <button className={`cy-op-list-row ${selectedContractorId === row.id ? "active" : ""}`} key={row.id} onClick={() => setSelectedContractorId(row.id)}><strong>{row.displayName}</strong><span>{row.phone ?? "—"}</span><small>{row.isActive ? "使用中" : "停用"} · rev.{row.revision}</small></button>)}</div></section>
-        <section className="cy-op-panel">{selectedContractor ? <div><div className="cy-op-panel-header"><div><h2>{selectedContractor.displayName}</h2><p>{selectedContractor.legalName ?? selectedContractor.entityType}</p></div><span className="cy-op-badge">{selectedContractor.isActive ? "使用中" : "停用"}</span></div><div className="cy-op-detail-grid"><div><span>統編</span><strong>{selectedContractor.taxId ?? "—"}</strong></div><div><span>電話</span><strong>{selectedContractor.phone ?? "—"}</strong></div><div><span>地址</span><strong>{selectedContractor.address ?? "—"}</strong></div></div><div className="cy-op-subsection"><h3>現行代工單價</h3><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th>單價</th><th>單位</th></tr></thead><tbody>{selectedContractor.pricing.map((row) => <tr key={row.id}><td>{row.itemNo}</td><td>{row.itemName}</td><td>{row.unitPrice}</td><td>{row.pricingUnit}</td></tr>)}</tbody></table>{selectedContractor.pricing.length === 0 ? <p>尚未設定現行單價。</p> : null}</div></div> : <div className="cy-op-empty">請選擇代工對象。</div>}</section>
+      {tab === "contractors" ? <div className="cy-md" data-pane={partnerPane.pane}>
+        <section className="cy-op-panel cy-md-list" aria-label="代工對象清單"><div className="cy-op-list">{contractors.map((row) => <button type="button" className={`cy-op-list-row ${selectedContractorId === row.id ? "active" : ""}`} key={row.id} onClick={() => { setSelectedContractorId(row.id); partnerPane.open(); }}><strong>{row.displayName}</strong><span>{row.phone ?? "—"}{row.isActive ? "" : " · 停用"}</span></button>)}</div></section>
+        <section className="cy-op-panel cy-md-detail"><MasterDetailBack label="代工對象清單" onBack={partnerPane.close} />{selectedContractor ? <div><div className="cy-record-header"><div><h2>{selectedContractor.displayName}</h2><p>{selectedContractor.legalName ?? selectedContractor.entityType}</p></div><div className="cy-record-actions"><span className={`cy-status-chip ${selectedContractor.isActive ? "cy-status-chip-success" : ""}`}>{selectedContractor.isActive ? "使用中" : "停用"}</span></div></div><div className="cy-op-detail-grid"><div><span>統編</span><strong>{selectedContractor.taxId ?? "—"}</strong></div><div><span>電話</span><strong>{selectedContractor.phone ?? "—"}</strong></div><div><span>地址</span><strong>{selectedContractor.address ?? "—"}</strong></div></div><div className="cy-op-subsection"><h3>現行代工單價</h3><div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">單價</th><th>單位</th></tr></thead><tbody>{selectedContractor.pricing.map((row) => <tr key={row.id}><td className="cy-mono">{row.itemNo}</td><td>{row.itemName}</td><td className="num">{row.unitPrice}</td><td>{row.pricingUnit}</td></tr>)}</tbody></table></div>{selectedContractor.pricing.length === 0 ? <p>尚未設定現行單價。</p> : null}</div></div> : <MasterDetailEmpty title="尚未選擇代工對象" />}</section>
       </div> : null}
 
-      {tab === "boms" ? <div className="cy-op-split">
-        <section className="cy-op-panel cy-op-list-panel"><div className="cy-op-list">{boms.map((row) => <button className={`cy-op-list-row ${selectedBomId === row.id ? "active" : ""}`} key={row.id} onClick={() => setSelectedBomId(row.id)}><strong>{row.recipeRef}</strong><span>{row.finishedItemNo} · {row.finishedItemName}</span><small>{row.isActive ? "使用中" : "停用"} · rev.{row.revision}</small></button>)}</div></section>
-        <section className="cy-op-panel">{selectedBom ? <div><div className="cy-op-panel-header"><div><h2>{selectedBom.recipeRef}</h2><p>{selectedBom.finishedItemNo} · {selectedBom.finishedItemName}</p></div><span className="cy-op-badge">{selectedBom.isActive ? "使用中" : "停用"}</span></div><div className="cy-op-detail-grid"><div><span>產出</span><strong>{selectedBom.outputQuantity} {selectedBom.outputUnit}</strong></div></div><div className="cy-op-subsection"><h3>BOM 組成</h3><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th>數量</th><th>單位</th></tr></thead><tbody>{selectedBom.components.map((row) => <tr key={row.id}><td>{row.itemNo}</td><td>{row.itemName}</td><td>{row.quantity}</td><td>{row.unit}</td></tr>)}</tbody></table></div></div> : <div className="cy-op-empty">請選擇 BOM。</div>}</section>
+      {tab === "boms" ? <div className="cy-md" data-pane={bomPane.pane}>
+        <section className="cy-op-panel cy-md-list" aria-label="BOM 清單"><div className="cy-op-list">{boms.map((row) => <button type="button" className={`cy-op-list-row ${selectedBomId === row.id ? "active" : ""}`} key={row.id} onClick={() => { setSelectedBomId(row.id); bomPane.open(); }}><strong>{row.finishedItemName}</strong><span><span className="cy-mono">{row.recipeRef}</span> · {row.finishedItemNo}{row.isActive ? "" : " · 停用"}</span></button>)}</div></section>
+        <section className="cy-op-panel cy-md-detail"><MasterDetailBack label="BOM 清單" onBack={bomPane.close} />{selectedBom ? <div><div className="cy-record-header"><div><h2>{selectedBom.finishedItemName}</h2><p><span className="cy-mono">{selectedBom.recipeRef}</span> · {selectedBom.finishedItemNo}</p></div><div className="cy-record-actions"><span className={`cy-status-chip ${selectedBom.isActive ? "cy-status-chip-success" : ""}`}>{selectedBom.isActive ? "使用中" : "停用"}</span></div></div><div className="cy-op-detail-grid"><div><span>產出</span><strong>{selectedBom.outputQuantity} {selectedBom.outputUnit}</strong></div></div><div className="cy-op-subsection"><h3>BOM 組成</h3><div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">數量</th><th>單位</th></tr></thead><tbody>{selectedBom.components.map((row) => <tr key={row.id}><td className="cy-mono">{row.itemNo}</td><td>{row.itemName}</td><td className="num">{row.quantity}</td><td>{row.unit}</td></tr>)}</tbody></table></div></div></div> : <MasterDetailEmpty title="尚未選擇 BOM" />}</section>
       </div> : null}
 
       {tab === "stock" ? <section className="cy-op-panel">
-        <div className="cy-op-panel-header"><div><h2>代工庫存</h2><p>由 contractor_stock_movements 即時計算，不保存第二份可變餘額。</p></div><select className="cy-op-input" value={stockContractorId ?? ""} onChange={(event) => setStockContractorId(Number(event.target.value) || null)}><option value="">選擇代工對象</option>{contractors.map((row) => <option key={row.id} value={row.id}>{row.displayName}</option>)}</select></div>
-        <table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th>目前庫存</th></tr></thead><tbody>{stockRows.map((row) => <tr key={row.itemId}><td>{row.itemNo}</td><td>{row.itemName}</td><td>{row.quantity}</td></tr>)}</tbody></table>
+        <div className="cy-op-panel-header"><div><h2>代工庫存</h2><p>依出庫、入庫紀錄即時計算的代工對象手上庫存。</p></div><select className="cy-op-input cy-out-stock-select" aria-label="代工對象" value={stockContractorId ?? ""} onChange={(event) => setStockContractorId(Number(event.target.value) || null)}><option value="">選擇代工對象</option>{contractors.map((row) => <option key={row.id} value={row.id}>{row.displayName}</option>)}</select></div>
+        <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">目前庫存</th></tr></thead><tbody>{stockRows.map((row) => <tr key={row.itemId}><td className="cy-mono">{row.itemNo}</td><td>{row.itemName}</td><td className="num">{row.quantity}</td></tr>)}</tbody></table></div>
         {stockRows.length === 0 ? <p>目前沒有非零代工庫存。</p> : null}
       </section> : null}
     </div>

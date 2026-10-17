@@ -1,0 +1,33 @@
+/* Work log: summary strip and entry editor. Everything else uses the shared design system. */
+.cy-worklog-summary {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 1px; align-items: stretch;
+  margin-bottom: 16px; border: 1px solid var(--cy-border); border-radius: var(--cy-radius-lg); overflow: hidden; background: var(--cy-border);
+}
+.cy-worklog-summary > div, .cy-worklog-summary > details { display: grid; align-content: center; gap: 2px; padding: 10px 14px; background: var(--cy-surface); }
+.cy-worklog-summary span { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
+.cy-worklog-summary strong { font-size: var(--cy-fs-xl); font-weight: 700; font-variant-numeric: tabular-nums; }
+.cy-worklog-summary small { color: var(--cy-text-subtle); font-size: var(--cy-fs-xs); }
+.cy-worklog-scoring summary { color: var(--cy-accent); font-size: var(--cy-fs-sm); font-weight: 600; cursor: pointer; white-space: nowrap; }
+.cy-worklog-scoring .cy-op-chip-list { max-width: 360px; }
+
+.cy-worklog-head-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.cy-worklog-head-grid > label:last-child { grid-column: span 2; }
+.cy-worklog-entry { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--cy-border); border-radius: var(--cy-radius-md); background: var(--cy-surface); }
+.cy-worklog-entry + .cy-worklog-entry { margin-top: 4px; }
+.cy-worklog-entry p { margin: 0; white-space: pre-wrap; }
+.cy-worklog-entry-head, .cy-worklog-categories-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cy-worklog-entry-head strong { font-size: var(--cy-fs-sm); color: var(--cy-text-muted); font-weight: 600; }
+.cy-worklog-categories { display: grid; gap: 6px; padding-top: 8px; border-top: 1px dashed var(--cy-border); }
+.cy-worklog-categories-head span { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
+.cy-worklog-category { display: grid; grid-template-columns: minmax(0, 1fr) 140px auto; gap: 8px; align-items: center; }
+
+@media (max-width: 1180px) {
+  .cy-worklog-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cy-worklog-summary > details { grid-column: 1 / -1; }
+  .cy-worklog-head-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .cy-worklog-head-grid { grid-template-columns: 1fr; }
+  .cy-worklog-head-grid > label:last-child { grid-column: auto; }
+  .cy-worklog-category { grid-template-columns: 1fr 100px auto; }
+}

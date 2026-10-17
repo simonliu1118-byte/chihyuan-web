@@ -2,6 +2,14 @@
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
 
+## UI／UX 重整 — 0.9.0 Build 0（2026-10-17）
+
+- 使用者對 0.8.3～0.8.6 的精簡介面不滿意（字太小、元件仍大、流程不順），要求重新順過含 UX 流程。升 Y：全站版型、字級、操作流程都有明顯變化。設計重點與邊界記於 [App Shell 文件](docs/architecture/APP_SHELL_FOUNDATION.md)。
+- 只改呈現與前端操作流程；API、權限、Module Access、guard、業務規則與資料不變。
+- [x] Browser／Worker TypeScript、`validate:source`、build、Node regression（`audit-account-portal` 需外部 cyapps 檢出，main 上同樣失敗）；本機模擬資料 Chromium 1440／1024／390、淺色／深色截圖。
+- [ ] 使用者驗收版型與流程，PR CI，授權後合併部署。
+- [ ] 下一批：商品／瑕疵／工單／委外仍有原生 `window.confirm`／`prompt`，改用共用確認視窗；瑕疵與工單的「客戶搜尋＋下拉」改用共用 EntityPicker；帳號與權限、稽核、備份、ERP 查詢頁的版面細修。
+
 ## 新 GCS 憑證驗證 — 2026-10-18
 
 - 使用者已回報在既有 development Environment 新增Web專用GCS JSON Secret與bucket變數；以main-only `audit-backup` dispatch實際驗證，不能只看設定存在。
