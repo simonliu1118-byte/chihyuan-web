@@ -312,13 +312,7 @@ export function AuthGate({ children }: AuthGateProps) {
   if (state.status === "unavailable") return <main className="cy-auth-screen"><section className="cy-auth-card cy-auth-status-card"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><h1>志遠企業管理系統</h1><p className="cy-auth-error" role="alert">{state.message}</p><button className="cy-auth-primary-button" type="button" onClick={() => void checkSession()}>重新連線</button></section></main>;
 
   return <main className="cy-auth-screen cy-auth-login-screen">
-    <div className="cy-auth-login-brand"><span className="cy-auth-brand-mark" aria-hidden="true">CY</span><span><strong>CY Web</strong><small>志遠企業管理系統</small></span></div>
     <div className="cy-auth-theme-position"><ThemeToggle /></div>
-    <aside className="cy-auth-login-hero" aria-hidden="true">
-      <h2>清楚、有序，<strong>專注每個工作流程。</strong></h2>
-      <p>一致的工作介面，讓資料查詢、紀錄與作業管理更簡單。</p>
-      <div className="cy-auth-hero-bars"><span /><span /><span /></div>
-    </aside>
     <section className="cy-auth-card" aria-labelledby="cy-auth-title">
       <div className="cy-auth-heading"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><div><h1 id="cy-auth-title">{mode === "login" ? "登入 CY Web" : mode === "first_login" ? "完成 Email 驗證" : "帳號協助"}</h1><p>{mode === "login" ? "請使用員工編號及密碼登入" : "依照畫面指示完成帳號驗證"}</p></div></div>
 
@@ -361,6 +355,5 @@ export function AuthGate({ children }: AuthGateProps) {
     </form>}
 
     </section>
-    <div className="cy-auth-login-footer">CY Web · 精簡商務介面</div>
   </main>;
 }
