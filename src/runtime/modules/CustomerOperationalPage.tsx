@@ -720,6 +720,7 @@ export function CustomerOperationalPage() {
 
       <div className="cy-customer-workspace">
         <section className="cy-op-panel cy-customer-search-pane">
+          <div className="cy-customer-list-heading"><strong>客戶列表</strong><span>共 {rows.length} 筆</span></div>
           <div className="cy-customer-search-controls">
             <input
               className="cy-op-input"
@@ -810,8 +811,8 @@ export function CustomerOperationalPage() {
           ) : selected ? (
             <div>
               <div className="cy-op-panel-header cy-customer-detail-header">
-                <div><h2>{selected.shortName}</h2><p>{selected.customerNo ?? "尚未建立 ERP 客戶編號"} · rev.{selected.revision}</p></div>
-                <div className="cy-customer-action-stack"><button className="cy-op-button primary" disabled={busy} onClick={startEdit}>修改</button></div>
+                <div><h2>{selected.shortName}</h2><p>{selected.customerNo ?? "尚未建立 ERP 客戶編號"} · {selected.status?.name ?? "未設定"} · rev.{selected.revision}</p></div>
+                <div className="cy-customer-action-stack"><button className="cy-op-button" disabled={busy} onClick={startEdit}>編輯</button></div>
               </div>
 
               <div className="cy-customer-detail-body">
