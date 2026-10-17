@@ -1,99 +1,59 @@
-.cy-field {
-  display: grid;
-  gap: 7px;
-}
+/* Form controls and field layout. Sizes and colours come from the tokens in app.css. */
+.cy-field { display: grid; gap: 4px; }
+.cy-field-label { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 500; line-height: 1.4; }
+.cy-field-required { color: var(--cy-danger); }
 
-.cy-field-label {
-  color: var(--cy-text);
-  font-size: 13px;
-  font-weight: 750;
-  line-height: 1.4;
-}
-
-.cy-field-required {
-  color: var(--cy-danger);
-}
-
-.cy-input {
+.cy-input, .cy-op-input, .cy-select, .cy-textarea, .cy-data-search input {
   width: 100%;
-  min-height: 40px;
-  border: 1px solid var(--cy-border-strong);
-  border-radius: 9px;
-  padding: 8px 10px;
+  min-height: var(--cy-control-h);
+  padding: 4px 10px;
+  border: 1px solid var(--cy-border-input);
+  border-radius: var(--cy-radius-md);
   background: var(--cy-surface);
   color: var(--cy-text);
+  font-size: var(--cy-fs-input);
   line-height: 1.45;
-  transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
 }
-
-.cy-input:hover:not(:disabled):not([readonly]) {
-  border-color: #aeb9c2;
-}
-
-.cy-input:focus {
-  border-color: var(--cy-info);
-  box-shadow: 0 0 0 3px rgba(52, 95, 138, 0.12);
+.cy-input::placeholder, .cy-op-input::placeholder { color: var(--cy-text-subtle); opacity: 1; }
+.cy-input:hover:not(:disabled):not([readonly]), .cy-op-input:hover:not(:disabled):not([readonly]) { border-color: var(--cy-text-muted); }
+.cy-input:focus, .cy-op-input:focus, .cy-select:focus, .cy-textarea:focus, .cy-data-search input:focus {
+  border-color: var(--cy-accent);
+  box-shadow: 0 0 0 3px var(--cy-focus);
   outline: none;
 }
+.cy-input:disabled, .cy-op-input:disabled { cursor: not-allowed; background: var(--cy-surface-sunken); color: var(--cy-text-muted); border-color: var(--cy-border-strong); }
+.cy-input[readonly], .cy-op-input[readonly] { background: var(--cy-surface-muted); }
+select.cy-op-input, select.cy-input, .cy-select { padding-right: 28px; }
+textarea.cy-op-input, textarea.cy-input, .cy-textarea { min-height: 80px; padding-block: 6px; resize: vertical; }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--cy-accent); width: 16px; height: 16px; }
+.cy-op-input.compact { width: auto; min-width: 120px; }
 
-.cy-input:disabled {
-  cursor: not-allowed;
-  background: #f0f2f4;
-  color: #8a949d;
-}
+.cy-field.has-error .cy-input { border-color: var(--cy-danger); }
+.cy-field.has-error .cy-input:focus { box-shadow: 0 0 0 3px var(--cy-danger-soft); }
+.cy-field-description, .cy-field-error { font-size: var(--cy-fs-xs); line-height: 1.5; }
+.cy-field-description { color: var(--cy-text-muted); }
+.cy-field-error { color: var(--cy-danger); font-weight: 600; }
 
-.cy-input[readonly] {
-  background: var(--cy-surface-muted);
-}
+/* Label-wrapped controls used by the operational modules. */
+.cy-form-grid, .cy-op-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+.cy-op-form-grid label { display: grid; gap: 4px; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 500; min-width: 0; }
+.cy-op-form-grid label > :is(input, select, textarea) { color: var(--cy-text); font-weight: 400; }
+.cy-form-grid-full, .cy-op-form-grid .wide { grid-column: 1 / -1; }
+.cy-op-form-grid label:has(> input[type="checkbox"]) { display: flex; align-items: center; gap: 8px; color: var(--cy-text); }
+.cy-op-inline-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.cy-op-inline-row .cy-op-input { max-width: 200px; }
 
-.cy-field.has-error .cy-input {
-  border-color: var(--cy-danger);
-}
-
-.cy-field.has-error .cy-input:focus {
-  box-shadow: 0 0 0 3px rgba(155, 49, 49, 0.12);
-}
-
-.cy-field-description,
-.cy-field-error {
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.cy-field-description {
-  color: var(--cy-text-muted);
-}
-
-.cy-field-error {
-  color: var(--cy-danger);
-  font-weight: 650;
-}
-
-.cy-textarea {
-  min-height: 96px;
-  resize: vertical;
-}
-
-.cy-select {
-  appearance: auto;
-}
-
-.cy-form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px 18px;
-}
-
-.cy-form-grid-full {
-  grid-column: 1 / -1;
-}
+/* Repeating rows inside an editor (phones, lines, conversions). */
+.cy-form-block { margin-top: 16px; border: 1px solid var(--cy-border); border-radius: var(--cy-radius-lg); }
+.cy-form-block-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--cy-border); background: var(--cy-surface-muted); border-radius: var(--cy-radius-lg) var(--cy-radius-lg) 0 0; }
+.cy-form-block-head h3 { margin: 0; font-size: var(--cy-fs-md); font-weight: 600; }
+.cy-form-block-head p { margin: 2px 0 0; color: var(--cy-text-muted); font-size: var(--cy-fs-xs); }
+.cy-form-block-body { display: grid; gap: 8px; padding: 10px 12px; }
+.cy-form-block-empty { margin: 0; color: var(--cy-text-subtle); font-size: var(--cy-fs-sm); }
 
 @media (max-width: 720px) {
-  .cy-form-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .cy-form-grid-full {
-    grid-column: auto;
-  }
+  .cy-form-grid, .cy-op-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .cy-form-grid-full, .cy-op-form-grid .wide { grid-column: auto; }
+  .cy-op-inline-row { flex-wrap: wrap; }
 }

@@ -1,136 +1,68 @@
+/* Sign-in, first login and account recovery: one centred card on the app background. */
 .cy-auth-screen {
-  min-height: 100vh;
+  position: relative;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
-  padding: 32px;
-  background: #f4f1ea;
+  padding: 24px 16px;
+  background: var(--cy-bg);
 }
-
+.cy-auth-theme-position { position: absolute; top: 16px; right: 16px; }
 .cy-auth-card {
-  width: min(100%, 430px);
-  background: #fff;
-  border: 1px solid #d8d2c7;
-  border-radius: 18px;
-  box-shadow: 0 18px 48px rgba(49, 43, 34, 0.12);
-  padding: 30px;
+  width: min(400px, 100%);
+  padding: 32px;
+  border: 1px solid var(--cy-border);
+  border-radius: 14px;
+  background: var(--cy-surface);
+  color: var(--cy-text);
 }
-
 .cy-auth-status-card { text-align: center; }
-.cy-auth-heading { display: flex; align-items: center; gap: 14px; margin-bottom: 26px; }
-.cy-auth-heading h1, .cy-auth-status-card h1 { margin: 0; font-size: 28px; }
-.cy-auth-heading p, .cy-auth-status-card p { margin: 4px 0 0; color: #6b6257; }
-
+.cy-auth-heading { display: grid; gap: 14px; margin-bottom: 20px; }
+.cy-auth-heading h1, .cy-auth-status-card h1 { margin: 0; font-size: 22px; font-weight: 700; }
+.cy-auth-heading p, .cy-auth-status-card p { margin: 4px 0 0; color: var(--cy-text-muted); }
 .cy-auth-brand-mark {
-  display: inline-grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: #7a1f1f;
-  color: #fff;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  width: 40px; height: 40px; display: inline-grid; place-items: center;
+  border-radius: var(--cy-radius-lg); background: var(--cy-accent); color: var(--cy-on-accent);
+  font-size: 14px; font-weight: 700; letter-spacing: .03em;
 }
+.cy-auth-status-card .cy-auth-brand-mark { margin: 0 auto 12px; }
 
-.cy-auth-form { display: grid; gap: 18px; }
-.cy-auth-form label { display: grid; gap: 7px; font-weight: 700; }
-.cy-auth-form input {
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 44px;
-  padding: 10px 12px;
-  border: 1px solid #bdb6aa;
-  border-radius: 9px;
-  font: inherit;
-  background: #fff;
+.cy-auth-form { display: grid; gap: 14px; }
+.cy-auth-form label:not(.cy-auth-remember) { display: grid; gap: 6px; color: var(--cy-text); font-size: var(--cy-fs-md); font-weight: 600; }
+.cy-auth-form input:not([type="checkbox"]) {
+  width: 100%; min-height: 40px; padding: 6px 12px;
+  border: 1px solid var(--cy-border-input); border-radius: var(--cy-radius-md);
+  background: var(--cy-surface); color: var(--cy-text); font-size: max(var(--cy-fs-input), 15px); font-weight: 400;
 }
-.cy-auth-form input:focus { outline: 3px solid rgba(122, 31, 31, 0.16); border-color: #7a1f1f; }
+.cy-auth-form input:focus { outline: none; border-color: var(--cy-accent); box-shadow: 0 0 0 3px var(--cy-focus); }
 
 .cy-auth-primary-button {
-  min-height: 44px;
-  border: 0;
-  border-radius: 9px;
-  padding: 10px 18px;
-  background: #7a1f1f;
-  color: #fff;
-  font: inherit;
-  font-weight: 800;
-  cursor: pointer;
+  width: 100%; min-height: 42px; padding: 8px 16px;
+  border: 0; border-radius: var(--cy-radius-md);
+  background: var(--cy-accent); color: var(--cy-on-accent);
+  font-size: var(--cy-fs-lg); font-weight: 600;
 }
-.cy-auth-primary-button:disabled { opacity: 0.6; cursor: wait; }
-.cy-auth-error { margin: 0; color: #a02020; font-weight: 700; }
-.cy-auth-note-inline { margin: 0; color: #6b6257; font-size: 13px; line-height: 1.55; }
-.cy-auth-note { margin: 22px 0 0; color: #6b6257; font-size: 13px; line-height: 1.55; }
+.cy-auth-primary-button:hover:not(:disabled) { background: var(--cy-accent-hover); }
+.cy-auth-primary-button:disabled { opacity: .6; cursor: wait; }
 
-.cy-auth-secondary-actions {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-}
-.cy-auth-secondary-actions button,
-.cy-auth-link-button {
-  border: 0;
-  padding: 5px 0;
-  background: transparent;
-  color: #7a1f1f;
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.cy-auth-flow-title h2 { margin: 0; font-size: 21px; }
-.cy-auth-flow-title p { margin: 5px 0 0; color: #6b6257; line-height: 1.5; }
+.cy-auth-login-options { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cy-auth-remember { display: inline-flex; align-items: center; gap: 8px; color: var(--cy-text-muted); font-size: var(--cy-fs-md); cursor: pointer; }
+.cy-auth-login-footnote { margin: 0; color: var(--cy-text-subtle); font-size: var(--cy-fs-xs); text-align: center; }
 
-.cy-auth-account-control {
-  --cy-account-border: #bdb6aa;
-  --cy-account-background: #fff;
-  --cy-account-color: #6b6257;
-  display: inline-flex;
-  align-items: stretch;
-  overflow: hidden;
-  border: 1px solid var(--cy-account-border);
-  border-radius: 9px;
-  background: #fff;
-}
+.cy-auth-error { margin: 0; padding: 8px 10px; border-radius: var(--cy-radius-md); background: var(--cy-danger-soft); color: var(--cy-danger); font-weight: 600; }
+.cy-auth-note-inline, .cy-auth-note { margin: 0; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); line-height: 1.6; }
+.cy-auth-note { margin-top: 20px; }
 
-.cy-auth-user {
-  background: var(--cy-account-background);
-  color: var(--cy-account-color);
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  padding: 7px 11px;
-  font-size: 13px;
-  line-height: 1.25;
-  white-space: nowrap;
+.cy-auth-secondary-actions { display: flex; justify-content: flex-end; gap: 12px; }
+.cy-auth-secondary-actions button, .cy-auth-link-button {
+  border: 0; padding: 4px 0; background: transparent; color: var(--cy-accent);
+  font-size: var(--cy-fs-md); font-weight: 500; text-decoration: none;
 }
-.cy-auth-user strong { font-weight: 800; }
-.cy-auth-permission-badge {
-  color: inherit;
-  font-size: 12px;
-}
-.cy-auth-logout-button {
-  min-width: 58px;
-  border: 0;
-  border-left: 1px solid var(--cy-account-border);
-  background: #fff;
-  padding: 7px 11px;
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-}
-.cy-auth-logout-button:hover:not(:disabled) { background: #f7f4ee; }
-.cy-auth-logout-button:disabled { opacity: 0.6; cursor: wait; }
+.cy-auth-secondary-actions button:hover, .cy-auth-link-button:hover { text-decoration: underline; text-underline-offset: 3px; }
+.cy-auth-flow-title h2 { margin: 0; font-size: var(--cy-fs-xl); }
+.cy-auth-flow-title p { margin: 4px 0 0; color: var(--cy-text-muted); line-height: 1.55; }
 
-/* Same role palette as CYACCweb's canonical account cluster. */
-.cy-auth-account-control[data-role="SUPER_ADMIN"], .cy-shell-account-toggle[data-role="SUPER_ADMIN"] {
-  --cy-account-border: #ddc789;
-  --cy-account-background: linear-gradient(180deg, #fffdf7, #fff4d6);
-  --cy-account-color: #6d5317;
-}
-.cy-auth-account-control[data-role="ADMIN"], .cy-shell-account-toggle[data-role="ADMIN"] {
-  --cy-account-border: #d7b79e;
-  --cy-account-background: linear-gradient(180deg, #fffaf6, #f7e8dc);
-  --cy-account-color: #70472f;
+@media (max-width: 420px) {
+  .cy-auth-card { padding: 24px 20px; border: 0; background: transparent; }
+  .cy-auth-screen { place-items: start center; padding-top: 72px; }
 }

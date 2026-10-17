@@ -7,6 +7,7 @@ import { SharedIdentityPage } from "./identity/SharedIdentityPage";
 import { CYWEB_MODULES, moduleCodesForRoute, type CyWebModuleCode } from "../shared/modules";
 import type { NavigationGroup } from "./ui/foundation/navigation";
 import { AppShell } from "./ui/shell/AppShell";
+import { ThemeSwitch } from "./ui/foundation/ThemeToggle";
 import { SettingsOperationalPage } from "./runtime/modules/SettingsOperationalPage";
 import { AuditOperationalPage } from "./runtime/modules/AuditOperationalPage";
 import { CustomerOperationalPage } from "./runtime/modules/CustomerOperationalPage";
@@ -39,13 +40,6 @@ const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
   audit: { title:"稽核紀錄", description:"檢視重要業務操作與設定變更；只有管理員與超級管理員可讀取詳細內容。" },
   backups: { title:"備份管理", description:"查看備份與副本狀態，建立手動備份或重試未完成的 GCS 副本。" },
   programs: { title:"CY 程式", description:"CY 程式功能、正式版本與使用入口；開發中的程式先提供功能介紹。" },
-};
-
-const COMPACT_PAGE_TITLES: Record<AppRoute, string> = {
-  customers: "客戶管理", items: "商品管理", defects: "瑕疵紀錄",
-  orders: "銷售工單", outsourcing: "委外／代工", worklogs: "工作日誌",
-  "erp-item-query": "ERP 查詢", identity: "帳號與權限",
-  settings: "系統設定", audit: "稽核紀錄", backups: "備份管理", programs: "CY 程式",
 };
 
 const baseNavigation: readonly NavigationGroup[] = [
@@ -244,8 +238,6 @@ function OperationalApp({
       appName="CY Web"
       pageTitle={PAGE_META[route].title}
       pageDescription={PAGE_META[route].description}
-      accountLabel={`帳號：${session.user.employeeNo} ${session.user.displayName} ${accountPermissionLabel(session.user.workspaceRole)}`}
-      accountRole={session.user.workspaceRole}
       pageTools={route === "erp-item-query"
         ? <ErpAgentCredentialControl isSuperAdmin={session.user.workspaceRole === "SUPER_ADMIN"} />
         : undefined}
@@ -253,33 +245,25 @@ function OperationalApp({
       navigation={navigation}
       activeNavigationKey={route}
       onNavigate={item => { if (routes.has(item.key as AppRoute)) void guardedNavigation.request(item.key as AppRoute, "link"); }}
-      headerActions={
-        <>
-          <div className="cy-auth-account-control" data-role={session.user.workspaceRole}>
-            <div className="cy-auth-user">
-              <span><strong>{session.user.employeeNo}</strong> {session.user.displayName} <span className="cy-auth-permission-badge">[{accountPermissionLabel(session.user.workspaceRole)}]</span></span>
-            </div>
-            <button
-              className="cy-auth-logout-button"
-              type="button"
-              disabled={signingOut}
-              onClick={() => void logout()}
-            >
+      account={
+        <div className="cy-account" data-role={session.user.workspaceRole}>
+          <div className="cy-account-person">
+            <span className="cy-account-avatar" aria-hidden="true">{session.user.displayName.slice(0, 1) || session.user.employeeNo.slice(0, 1)}</span>
+            <span className="cy-account-name">
+              <strong>{session.user.displayName}</strong>
+              <span>{session.user.employeeNo} · <span className="cy-account-role">{accountPermissionLabel(session.user.workspaceRole)}</span></span>
+            </span>
+          </div>
+          <div className="cy-account-actions">
+            <ThemeSwitch />
+            <button className="cy-op-button compact" type="button" disabled={signingOut} onClick={() => void logout()}>
               {signingOut ? "登出中…" : "登出"}
             </button>
           </div>
-        </>
+        </div>
       }
-      footer={<span className="cy-shell-foundation-note">CY Web</span>}
     >
       {moduleAccessError && route === "identity" ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-title">模組權限狀態</div><div className="cy-notice-body">{moduleAccessError}</div></div> : null}
-      <div className="cy-workspace-intro">
-        <div className="cy-workspace-heading-copy">
-          <h2>{COMPACT_PAGE_TITLES[route]}</h2>
-          <p>{PAGE_META[route].description}</p>
-        </div>
-        <div id="cy-page-primary-actions" className="cy-page-primary-actions" aria-label="頁面主要操作" />
-      </div>
       {content}
     </AppShell>
   );

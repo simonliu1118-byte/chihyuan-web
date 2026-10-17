@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import { applyStoredTheme } from "./ui/foundation/ThemeToggle";
 import "./app.css";
 import "./auth/auth.css";
 import "./identity/identity.css";
@@ -10,9 +11,8 @@ import "./ui/pickers/entity-picker.css";
 import "./ui/overlays/overlay.css";
 import "./ui/feedback/toast.css";
 import "./ui/related/related-record-panel.css";
-import "./ui/readability.css";
-import "./runtime/operational.css";
-import "./ui/foundation/compact-business.css";
+
+applyStoredTheme();
 
 const root = document.getElementById("root");
 

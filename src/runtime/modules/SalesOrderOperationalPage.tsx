@@ -1,4 +1,6 @@
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import "./sales-order-operational.css";
+import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -55,6 +57,27 @@ const statusText: Record<SalesWorkOrderStatusCode, string> = {
   shipped: "已出貨",
   voided: "已作廢",
 };
+
+const orderTone: Record<SalesWorkOrderStatusCode, string> = { created: "warning", issued: "info", waiting_stock: "info", picked: "info", shipped: "success", voided: "danger" };
+const invoiceText: Record<string, string> = { two_copy: "二聯式", three_copy: "三聯式" };
+const receiptText: Record<string, string> = { with_receipt: "附收據", without_receipt: "不附收據" };
+/** The normal path of a work order; 作廢 is shown separately. */
+const progressSteps: readonly { code: SalesWorkOrderStatusCode; label: string }[] = [
+  { code: "created", label: "建立" },
+  { code: "issued", label: "ERP 開單" },
+  { code: "waiting_stock", label: "待貨" },
+  { code: "picked", label: "撿貨" },
+  { code: "shipped", label: "出貨" },
+];
+
+function OrderProgress({ status }: { status: SalesWorkOrderStatusCode }) {
+  if (status === "voided") return <p className="cy-progress-voided">此工單已作廢。</p>;
+  const current = progressSteps.findIndex(step => step.code === status);
+  return <ol className="cy-progress" aria-label="工單進度">
+    {progressSteps.map((step, index) => <li key={step.code} data-state={index < current ? "done" : index === current ? "current" : "todo"}
+      aria-current={index === current ? "step" : undefined}>{step.label}</li>)}
+  </ol>;
+}
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -139,6 +162,7 @@ export function SalesOrderOperationalPage() {
   const [draft, setDraft] = useState<SalesOrderDraft | null>(null);
   const [busy, setBusy] = useState(false);
   useUnsavedChangesGuard({ active: editing, blocked: busy });
+  const pane = useMasterDetailPane();
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
@@ -248,6 +272,7 @@ export function SalesOrderOperationalPage() {
 
   function selectOrder(id: number) {
     if (editing && !window.confirm("放棄尚未儲存的工單修改？")) return;
+    pane.open();
     setSelectedId(id);
     setEditing(false);
     setCreating(false);
@@ -257,6 +282,7 @@ export function SalesOrderOperationalPage() {
 
   function startCreate() {
     if (editing && !window.confirm("放棄目前尚未儲存的修改？")) return;
+    pane.open();
     setSelectedId(null);
     setSelected(null);
     setCreating(true);
@@ -276,6 +302,7 @@ export function SalesOrderOperationalPage() {
   }
 
   function cancelEdit() {
+    if (creating) pane.close();
     setEditing(false);
     setCreating(false);
     setDraft(null);
@@ -438,45 +465,46 @@ export function SalesOrderOperationalPage() {
   return (
     <div className="cy-order-op">
       <PagePrimaryActions>
-          <button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增工單</button>
-        </PagePrimaryActions>
+        <button type="button" className="cy-op-button primary" disabled={busy} onClick={startCreate}>＋ 新增工單</button>
+      </PagePrimaryActions>
 
       {message ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-body">{message}</div></div> : null}
 
-      <div className="cy-op-split">
-        <section className="cy-op-panel cy-op-list-panel cy-order-list-panel">
-          <div className="cy-order-list-title"><strong>工單列表</strong><span>共 {rows.length} 筆</span></div>
-          <input className="cy-op-input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋工單、ERP 單號、客戶" />
-          <select className="cy-op-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-            <option value="">全部狀態</option>
-            {Object.entries(statusText).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
-          </select>
+      <div className="cy-md cy-order-workspace" data-pane={pane.pane}>
+        <section className="cy-op-panel cy-md-list" aria-label="工單清單">
+          <div className="cy-md-toolbar">
+            <input className="cy-op-input" type="search" aria-label="搜尋工單" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋工單、ERP 單號、客戶" />
+            <select className="cy-op-input" aria-label="工單狀態" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option value="">全部狀態</option>
+              {Object.entries(statusText).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+            </select>
+            <div className="cy-md-count">{loadingList ? "讀取工單中…" : `共 ${rows.length} 筆`}</div>
+          </div>
           <div className="cy-op-list">
             {rows.map((row) => (
-              <button key={row.id} className={`cy-op-list-row ${selectedId === row.id ? "active" : ""}`} onClick={() => selectOrder(row.id)}>
-                <strong>{row.workOrderRef}</strong>
-                <span>{row.customerNameSnapshot}{row.erpNo ? ` · ERP ${row.erpNo}` : ""}</span>
-                <small>{statusText[row.statusCode]} · {row.orderDate}</small>
+              <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={() => selectOrder(row.id)}>
+                <strong>{row.customerNameSnapshot}</strong>
+                <span><span className="cy-mono">{row.erpNo ? `ERP ${row.erpNo}` : row.workOrderRef}</span> · {row.orderDate}</span>
+                <small className="cy-flow-status" data-tone={orderTone[row.statusCode]}>{statusText[row.statusCode]}</small>
               </button>
             ))}
-            {loadingList ? <div className="cy-op-empty">讀取工單資料中…</div> : null}
             {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的工單。</div> : null}
           </div>
         </section>
 
-        <section className="cy-op-panel">
+        <section className="cy-op-panel cy-md-detail">
+          <MasterDetailBack label="工單清單" disabled={busy} onBack={() => { if (editing) { if (!window.confirm("放棄目前尚未儲存的修改？")) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
           {editing && draft ? (
             <form className="cy-op-form" onSubmit={(event) => void save(event)}>
-              <div className="cy-op-panel-header">
-                <div><h2>{creating ? "新增銷售工單" : `修改 ${selected?.workOrderRef ?? "工單"}`}</h2><p>一般內容只可在 ERP 回填前修改。</p></div>
-                <div><button type="button" className="cy-op-button" disabled={busy} onClick={cancelEdit}>取消</button> <button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : "儲存"}</button></div>
+              <div className="cy-record-header">
+                <div><h2>{creating ? "新增銷售工單" : `修改 ${selected?.workOrderRef ?? "工單"}`}</h2><p>ERP 開單前可以修改；開單後只能更正 ERP 資料。</p></div>
               </div>
 
-              <div className="cy-op-form-grid">
+              <div className="cy-op-form-grid cy-form-grid-spaced">
                 <label>客戶搜尋<input className="cy-op-input" value={customerSearch} disabled={busy} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="客戶編號／名稱" /></label>
                 <label>客戶
                   <select className="cy-op-input" value={draft.customerId ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, customerId: event.target.value ? Number(event.target.value) : null })}>
-                    <option value="">名稱-only 現場客戶</option>
+                    <option value="">現場客戶（未建檔）</option>
                     {(lookups?.customers ?? []).map((row) => <option key={row.id} value={row.id}>{row.customerNo ? `${row.customerNo} · ` : ""}{row.shortName}</option>)}
                   </select>
                 </label>
@@ -502,58 +530,40 @@ export function SalesOrderOperationalPage() {
                 <label className="wide">備註<textarea className="cy-op-input" rows={2} value={draft.note} disabled={busy} onChange={(event) => setDraft({ ...draft, note: event.target.value })} /></label>
               </div>
 
-              <div className="cy-op-subsection">
-                <div className="cy-op-panel-header"><div><h3>工單明細</h3><p>數量與單價最多四位小數。</p></div><button type="button" className="cy-op-button" disabled={busy} onClick={addLine}>增加明細</button></div>
-                <input className="cy-op-input" value={itemSearch} disabled={busy} onChange={(event) => setItemSearch(event.target.value)} placeholder="搜尋品號／品名／規格" />
+              <section className="cy-form-block">
+                <div className="cy-form-block-head"><div><h3>工單明細</h3><p>數量與單價最多四位小數。</p></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={addLine}>＋ 增加明細</button></div>
+                <div className="cy-form-block-body">
+                <input className="cy-op-input" type="search" aria-label="篩選商品選單" value={itemSearch} disabled={busy} onChange={(event) => setItemSearch(event.target.value)} placeholder="篩選商品選單：品號／品名／規格" />
+                <div className="cy-order-line cy-order-line-head" aria-hidden="true"><span>商品</span><span>數量</span><span>單位</span><span>單價</span><span>備註</span><span /></div>
                 {draft.lines.map((line, index) => {
                   const item = lookups?.items.find((row) => row.id === line.itemId);
                   const units = item?.allowedUnits?.length ? item.allowedUnits : (line.unit ? [line.unit] : []);
                   return (
-                    <div className="cy-op-inline-row" key={line.key}>
-                      <select className="cy-op-input" value={line.itemId ?? ""} disabled={busy} onChange={(event) => changeLineItem(index, Number(event.target.value) || null)}>
+                    <div className="cy-order-line" key={line.key}>
+                      <select className="cy-op-input" aria-label={`第 ${index + 1} 列商品`} value={line.itemId ?? ""} disabled={busy} onChange={(event) => changeLineItem(index, Number(event.target.value) || null)}>
                         <option value="">請選擇商品</option>
                         {(lookups?.items ?? []).map((row) => <option key={row.id} value={row.id}>{row.itemNo} · {row.name}{row.isActive ? "" : "（已停用）"}</option>)}
                       </select>
-                      <input className="cy-op-input" value={line.quantity} inputMode="decimal" disabled={busy} onChange={(event) => patchLine(index, { quantity: event.target.value })} placeholder="數量" />
-                      <select className="cy-op-input" value={line.unit} disabled={busy} onChange={(event) => patchLine(index, { unit: event.target.value })}>
+                      <input className="cy-op-input" value={line.quantity} inputMode="decimal" disabled={busy} aria-label="數量" onChange={(event) => patchLine(index, { quantity: event.target.value })} placeholder="數量" />
+                      <select className="cy-op-input" aria-label="單位" value={line.unit} disabled={busy} onChange={(event) => patchLine(index, { unit: event.target.value })}>
                         {units.map((unit) => <option key={unit}>{unit}</option>)}
                       </select>
-                      <input className="cy-op-input" value={line.unitPrice} inputMode="decimal" disabled={busy} onChange={(event) => patchLine(index, { unitPrice: event.target.value })} placeholder="單價" />
-                      <input className="cy-op-input" value={line.note} disabled={busy} onChange={(event) => patchLine(index, { note: event.target.value })} placeholder="明細備註" />
-                      <button type="button" className="cy-op-button danger" disabled={busy || draft.lines.length <= 1} onClick={() => removeLine(index)}>移除</button>
+                      <input className="cy-op-input" value={line.unitPrice} inputMode="decimal" disabled={busy} aria-label="單價" onChange={(event) => patchLine(index, { unitPrice: event.target.value })} placeholder="單價" />
+                      <input className="cy-op-input" value={line.note} disabled={busy} aria-label="明細備註" onChange={(event) => patchLine(index, { note: event.target.value })} placeholder="備註" />
+                      <button type="button" className="cy-op-button compact quiet cy-row-remove" disabled={busy || draft.lines.length <= 1} onClick={() => removeLine(index)}>移除</button>
                     </div>
                   );
                 })}
-              </div>
+                </div>
+              </section>
 
-              <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={cancelEdit}>取消</button><button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : "儲存"}</button></div>
+              <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={cancelEdit}>取消</button><button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立工單" : "儲存修改"}</button></div>
             </form>
           ) : selected ? (
             <div>
-              <div className="cy-op-panel-header">
-                <div><h2>{selected.workOrderRef}</h2><p>{selected.customerNameSnapshot} · rev.{selected.revision}</p></div>
-                <span className="cy-op-badge">{statusText[selected.statusCode]}</span>
-              </div>
-              {loadingDetail ? <p>更新工單資料中…</p> : null}
-              <div className="cy-op-detail-grid">
-                <div><span>ERP 單號</span><strong>{selected.erpNo ?? "尚未回填"}</strong></div>
-                <div><span>ERP 客戶編號</span><strong>{selected.customerNoSnapshot ?? "—"}</strong></div>
-                <div><span>日期</span><strong>{selected.orderDate}</strong></div>
-                <div><span>操作人員</span><strong>{selected.operator.displayName ?? selected.operator.employeeNo ?? `Employee #${selected.operator.id}`}</strong></div>
-                <div><span>發票</span><strong>{selected.invoiceTypeCode ?? "—"}</strong></div>
-                <div><span>收據</span><strong>{selected.receiptOptionCode ?? "—"}</strong></div>
-                <div className="wide"><span>備註</span><strong>{selected.note ?? "—"}</strong></div>
-              </div>
-
-              <div className="cy-op-subsection">
-                <h3>明細</h3>
-                <table className="cy-op-table">
-                  <thead><tr><th>品號</th><th>商品</th><th>數量</th><th>單位</th><th>單價</th></tr></thead>
-                  <tbody>{selected.lines.map((line) => <tr key={line.id}><td>{line.itemNoSnapshot}</td><td>{line.itemNameSnapshot}</td><td>{line.quantity}</td><td>{line.unitSnapshot}</td><td>{line.unitPrice}</td></tr>)}</tbody>
-                </table>
-              </div>
-
-              <div className="cy-op-action-bar">
+              <div className="cy-record-header">
+                <div><h2>{selected.customerNameSnapshot}</h2><p><span className="cy-mono">{selected.workOrderRef}</span>{selected.erpNo ? <> · ERP <span className="cy-mono">{selected.erpNo}</span></> : null} · {selected.orderDate}</p></div>
+                <div className="cy-record-actions">
                 {selected.statusCode === "created" && selected.erpNo == null ? <>
                   <button className="cy-op-button" disabled={busy} onClick={startEdit}>修改草稿</button>
                   <button className="cy-op-button primary" disabled={busy} onClick={() => void fillOrCorrectErp()}>ERP 回填／開單</button>
@@ -568,9 +578,30 @@ export function SalesOrderOperationalPage() {
                 {selected.statusCode === "picked" ? <button className="cy-op-button primary" disabled={busy} onClick={() => void transition("shipped")}>確認出貨</button> : null}
                 {selected.statusCode === "shipped" ? <button className="cy-op-button" disabled={busy} onClick={() => void transition("reverse")}>撤銷出貨</button> : null}
                 {["issued", "waiting_stock", "picked", "shipped"].includes(selected.statusCode) ? <button className="cy-op-button danger" disabled={busy} onClick={() => void transition("void")}>作廢</button> : null}
+                </div>
               </div>
+              <OrderProgress status={selected.statusCode} />
+              {loadingDetail ? <p>更新工單資料中…</p> : null}
+              <div className="cy-op-detail-grid">
+                <div><span>ERP 單號</span><strong>{selected.erpNo ?? "尚未回填"}</strong></div>
+                <div><span>ERP 客戶編號</span><strong>{selected.customerNoSnapshot ?? "—"}</strong></div>
+                <div><span>日期</span><strong>{selected.orderDate}</strong></div>
+                <div><span>操作人員</span><strong>{selected.operator.displayName ?? selected.operator.employeeNo ?? `員工 #${selected.operator.id}`}</strong></div>
+                <div><span>發票</span><strong>{selected.invoiceTypeCode ? invoiceText[selected.invoiceTypeCode] ?? selected.invoiceTypeCode : "—"}</strong></div>
+                <div><span>收據</span><strong>{selected.receiptOptionCode ? receiptText[selected.receiptOptionCode] ?? selected.receiptOptionCode : "—"}</strong></div>
+                <div className="wide"><span>備註</span><strong>{selected.note ?? "—"}</strong></div>
+              </div>
+
+              <div className="cy-op-subsection">
+                <h3>明細</h3>
+                <div className="cy-op-table-wrap"><table className="cy-op-table">
+                  <thead><tr><th>品號</th><th>商品</th><th className="num">數量</th><th>單位</th><th className="num">單價</th></tr></thead>
+                  <tbody>{selected.lines.map((line) => <tr key={line.id}><td className="cy-mono">{line.itemNoSnapshot}</td><td>{line.itemNameSnapshot}</td><td className="num">{line.quantity}</td><td>{line.unitSnapshot}</td><td className="num">{line.unitPrice}</td></tr>)}</tbody>
+                </table></div>
+              </div>
+
             </div>
-          ) : loadingDetail ? <div className="cy-op-empty">讀取工單資料中…</div> : <div className="cy-op-empty">請選擇工單，或新增一筆。</div>}
+          ) : loadingDetail ? <div className="cy-op-empty">讀取工單資料中…</div> : <MasterDetailEmpty title="尚未選擇工單" hint="從左側清單選一張工單，或按右上角「新增工單」。" />}
         </section>
       </div>
     </div>

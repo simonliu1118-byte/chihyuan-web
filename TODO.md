@@ -2,6 +2,15 @@
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
 
+## UI／UX 重整 — 0.9.0 Build 1（2026-10-17）
+
+- 使用者對 0.8.3～0.8.6 的精簡介面不滿意（字太小、元件仍大、流程不順），要求重新順過含 UX 流程。升 Y：全站版型、字級、操作流程都有明顯變化。設計重點與邊界記於 [App Shell 文件](docs/architecture/APP_SHELL_FOUNDATION.md)。
+- 只改呈現與前端操作流程；API、權限、Module Access、guard、業務規則與資料不變。
+- Build 1：使用者看過 Build 0 後比較三組主色，選定「商務藍」（淺 `#3D63D2`／深 `#9DBBFF`），只改主色 token。
+- [x] Browser／Worker TypeScript、`validate:source`、build、Node regression（`audit-account-portal` 需外部 cyapps 檢出，main 上同樣失敗）；本機模擬資料 Chromium 1440／1024／390、淺色／深色截圖。
+- [ ] 使用者驗收版型與流程，PR CI，授權後合併部署。
+- [ ] 下一批：商品／瑕疵／工單／委外仍有原生 `window.confirm`／`prompt`，改用共用確認視窗；瑕疵與工單的「客戶搜尋＋下拉」改用共用 EntityPicker；帳號與權限、稽核、備份、ERP 查詢頁的版面細修。
+
 ## 上線前提醒：啟用自動備份排程（使用者暫緩）
 
 - [ ] **整體功能測試完成、準備正式上線前，提醒使用者啟用 CY Web 自動備份排程。** 使用者於2026-10-18明確要求在其他測試完成前先維持 `CF_BACKUP_SCHEDULE_ENABLED=false`；目前手動雙副本與GCS隔離還原已通過，排程尚未啟用。

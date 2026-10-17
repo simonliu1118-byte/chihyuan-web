@@ -1,4 +1,5 @@
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -111,6 +112,7 @@ export function DefectOperationalPage() {
   const [draft, setDraft] = useState<DefectDraft | null>(null);
   const [busy, setBusy] = useState(false);
   useUnsavedChangesGuard({ active: editing, blocked: busy });
+  const pane = useMasterDetailPane();
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
@@ -214,6 +216,7 @@ export function DefectOperationalPage() {
 
   function selectDefect(id: number) {
     if (editing && !window.confirm("放棄尚未儲存的修改？")) return;
+    pane.open();
     setSelectedId(id);
     setEditing(false);
     setCreating(false);
@@ -225,6 +228,7 @@ export function DefectOperationalPage() {
 
   function startCreate() {
     if (editing && !window.confirm("放棄目前尚未儲存的修改？")) return;
+    pane.open();
     setSelectedId(null);
     setSelected(null);
     setCreating(true);
@@ -246,6 +250,7 @@ export function DefectOperationalPage() {
   }
 
   function cancelEdit() {
+    if (creating) pane.close();
     setEditing(false);
     setCreating(false);
     setDraft(null);
@@ -399,16 +404,16 @@ export function DefectOperationalPage() {
   return (
     <div className="cy-defect-op">
       <PagePrimaryActions>
-          <button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增瑕疵</button>
-        </PagePrimaryActions>
+        <button type="button" className="cy-op-button primary" disabled={busy} onClick={startCreate}>＋ 新增瑕疵</button>
+      </PagePrimaryActions>
 
       {message ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-body">{message}</div></div> : null}
 
-      <div className="cy-defect-workspace">
-        <section className="cy-op-panel cy-defect-list-pane">
-          <div className="cy-defect-search">
-            <input className="cy-op-input" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜尋客戶、商品、內容" />
-            <div className="cy-defect-filters">
+      <div className="cy-md cy-defect-workspace" data-pane={pane.pane}>
+        <section className="cy-op-panel cy-md-list" aria-label="瑕疵清單">
+          <div className="cy-md-toolbar">
+            <input className="cy-op-input" type="search" aria-label="搜尋瑕疵" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜尋客戶、商品、內容" />
+            <div className="cy-md-toolbar-row cy-defect-filters">
               <select className="cy-op-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 <option value="">全部狀態</option>
                 <option value="created">已建檔</option>
@@ -419,18 +424,18 @@ export function DefectOperationalPage() {
             </div>
           </div>
           <div className="cy-op-list">
-            {rows.map((row) => <button key={row.id} className={`cy-op-list-row ${selectedId === row.id ? "active" : ""}`} onClick={() => selectDefect(row.id)}><strong>瑕疵 #{row.id} · {row.customerNameSnapshot}</strong><span>{row.itemNoSnapshot} · {row.itemNameSnapshot}</span><small>{row.invalidatedAt ? `已作廢 · ${statusText[row.statusCode]}` : statusText[row.statusCode]}</small></button>)}
+            {rows.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-defect-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={() => selectDefect(row.id)}><strong>{row.customerNameSnapshot}</strong><span>#{row.id} · {row.itemNoSnapshot} {row.itemNameSnapshot}</span><small className={`cy-defect-status ${row.invalidatedAt ? "invalid" : row.statusCode}`}>{row.invalidatedAt ? "已作廢" : statusText[row.statusCode]}</small></button>)}
             {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的瑕疵紀錄。</div> : null}
             {loadingList ? <div className="cy-op-empty">讀取瑕疵資料中…</div> : null}
           </div>
         </section>
 
-        <section className="cy-op-panel cy-defect-detail-pane">
+        <section className="cy-op-panel cy-md-detail">
+          <MasterDetailBack label="瑕疵清單" disabled={busy} onBack={() => { if (editing) { if (!window.confirm("放棄目前尚未儲存的修改？")) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
           {editing && draft ? (
             <form className="cy-op-form" onSubmit={(event) => void save(event)}>
-              <div className="cy-op-panel-header">
-                <div><h2>{creating ? "新增瑕疵" : `修改瑕疵 #${selected?.id ?? ""}`}</h2><p>已建檔與處理中可一般修改；已完成需先重新開啟。</p></div>
-                <div className="cy-defect-inline-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={cancelEdit}>取消</button><button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : "儲存"}</button></div>
+              <div className="cy-record-header">
+                <div><h2>{creating ? "新增瑕疵" : `修改瑕疵 #${selected?.id ?? ""}`}</h2><p>已建檔與處理中的瑕疵可以修改；已處理的需先「重新開啟」。</p></div>
               </div>
 
               <div className="cy-defect-form-body">
@@ -450,13 +455,29 @@ export function DefectOperationalPage() {
                 </div>
               </div>
 
-              <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={cancelEdit}>取消</button><button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : "儲存"}</button></div>
+              <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={cancelEdit}>取消</button><button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立瑕疵" : "儲存修改"}</button></div>
             </form>
           ) : selected ? (
             <div>
-              <div className="cy-op-panel-header cy-defect-detail-header">
-                <div><h2>瑕疵 #{selected.id}</h2><p>{selected.customerNameSnapshot} · rev.{selected.revision}</p></div>
-                <div className="cy-defect-status-group"><span className={`cy-defect-status ${selected.statusCode}`}>{statusText[selected.statusCode]}</span>{selected.invalidatedAt ? <span className="cy-defect-status invalid">已作廢</span> : null}</div>
+              <div className="cy-record-header">
+                <div><h2>{selected.customerNameSnapshot}</h2><p>瑕疵 #{selected.id} · 回報 {selected.reportedDate}</p></div>
+                  <div className="cy-record-actions">
+                    <span className={`cy-defect-status ${selected.invalidatedAt ? "invalid" : selected.statusCode}`}>{selected.invalidatedAt ? "已作廢" : statusText[selected.statusCode]}</span>
+                    {!selected.invalidatedAt && selected.statusCode === "created" ? <>
+                      <button className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
+                      <button className="cy-op-button primary" disabled={busy} onClick={() => void startProcessing()}>開始處理</button>
+                      <button className="cy-op-button danger" disabled={busy} onClick={() => void deleteCreated()}>刪除</button>
+                    </> : null}
+                    {!selected.invalidatedAt && selected.statusCode === "processing" ? <>
+                      <button className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
+                      <button className="cy-op-button primary" disabled={busy} onClick={() => void resolve()}>完成處理</button>
+                      <button className="cy-op-button danger" disabled={busy} onClick={() => void invalidate()}>作廢</button>
+                    </> : null}
+                    {!selected.invalidatedAt && selected.statusCode === "resolved" ? <>
+                      <button className="cy-op-button" disabled={busy} onClick={() => void reopen()}>重新開啟</button>
+                      <button className="cy-op-button danger" disabled={busy} onClick={() => void invalidate()}>作廢</button>
+                    </> : null}
+                </div>
               </div>
 
               <div className="cy-defect-body">
@@ -471,25 +492,9 @@ export function DefectOperationalPage() {
                   {selected.invalidatedAt ? <div className="wide cy-defect-invalid-note"><span>作廢資訊</span><strong>{new Date(selected.invalidatedAt).toLocaleString()} · 原工作狀態 {statusText[selected.statusCode]}</strong></div> : null}
                 </div>
 
-                <div className="cy-defect-action-bar">
-                  {!selected.invalidatedAt && selected.statusCode === "created" ? <>
-                    <button className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
-                    <button className="cy-op-button primary" disabled={busy} onClick={() => void startProcessing()}>開始處理</button>
-                    <button className="cy-op-button danger" disabled={busy} onClick={() => void deleteCreated()}>刪除</button>
-                  </> : null}
-                  {!selected.invalidatedAt && selected.statusCode === "processing" ? <>
-                    <button className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
-                    <button className="cy-op-button primary" disabled={busy} onClick={() => void resolve()}>完成處理</button>
-                    <button className="cy-op-button danger" disabled={busy} onClick={() => void invalidate()}>作廢</button>
-                  </> : null}
-                  {!selected.invalidatedAt && selected.statusCode === "resolved" ? <>
-                    <button className="cy-op-button" disabled={busy} onClick={() => void reopen()}>重新開啟</button>
-                    <button className="cy-op-button danger" disabled={busy} onClick={() => void invalidate()}>作廢</button>
-                  </> : null}
-                </div>
               </div>
             </div>
-          ) : loadingDetail ? <div className="cy-op-empty">讀取瑕疵資料中…</div> : <div className="cy-op-empty">請選擇瑕疵紀錄，或新增一筆。</div>}
+          ) : loadingDetail ? <div className="cy-op-empty">讀取瑕疵資料中…</div> : <MasterDetailEmpty title="尚未選擇瑕疵紀錄" hint="從左側清單選一筆，或按右上角「新增瑕疵」。" />}
         </section>
       </div>
     </div>

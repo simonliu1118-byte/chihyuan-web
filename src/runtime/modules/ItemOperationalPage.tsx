@@ -1,4 +1,5 @@
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -188,6 +189,7 @@ export function ItemOperationalPage() {
   const [draft, setDraft] = useState<ItemDraft | null>(null);
   const [busy, setBusy] = useState(false);
   useUnsavedChangesGuard({ active: editing, blocked: busy });
+  const pane = useMasterDetailPane();
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
@@ -285,6 +287,7 @@ export function ItemOperationalPage() {
 
   function selectItem(id: number) {
     if (editing && !window.confirm("目前商品有尚未儲存修改，確定放棄？")) return;
+    pane.open();
     setSelectedId(id);
     setEditing(false);
     setCreating(false);
@@ -294,6 +297,7 @@ export function ItemOperationalPage() {
 
   function startCreate() {
     if (editing && !window.confirm("放棄目前尚未儲存的修改？")) return;
+    pane.open();
     setSelectedId(null);
     setSelected(null);
     setCreating(true);
@@ -315,6 +319,7 @@ export function ItemOperationalPage() {
   }
 
   function cancelEdit() {
+    if (creating) pane.close();
     setEditing(false);
     setCreating(false);
     setDraft(null);
@@ -435,15 +440,15 @@ export function ItemOperationalPage() {
   }
 
   return <div className="cy-item-op">
-    <PagePrimaryActions><button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增商品</button></PagePrimaryActions>
+    <PagePrimaryActions><button type="button" className="cy-op-button primary" disabled={busy} onClick={startCreate}>＋ 新增商品</button></PagePrimaryActions>
 
     {message ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-body">{message}</div></div> : null}
 
-    <div className="cy-item-workspace">
-      <section className="cy-op-panel cy-item-list-pane">
-        <div className="cy-item-search">
-          <input className="cy-op-input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋現行／歷史品號、名稱、規格" />
-          <div className="cy-item-filters">
+    <div className="cy-md cy-item-workspace" data-pane={pane.pane}>
+      <section className="cy-op-panel cy-md-list" aria-label="商品清單">
+        <div className="cy-md-toolbar">
+          <input className="cy-op-input" type="search" aria-label="搜尋商品" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋現行／歷史品號、名稱、規格" />
+          <div className="cy-md-toolbar-row">
             <select className="cy-op-input" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
               <option value="">全部分類</option>
               {categories.map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}
@@ -454,31 +459,28 @@ export function ItemOperationalPage() {
               <option value="inactive">已停用</option>
             </select>
           </div>
-          <div className="cy-item-count">{loadingList ? "讀取商品中…" : `搜尋結果 ${rows.length} 筆`}</div>
+          <div className="cy-md-count">{loadingList ? "讀取商品中…" : `共 ${rows.length} 筆`}</div>
         </div>
         <div className="cy-op-list">
           {rows.map((row) => (
-            <button key={row.id} className={`cy-op-list-row ${selectedId === row.id ? "active" : ""}`} onClick={() => selectItem(row.id)}>
-              <strong>{row.itemNo} · {row.name}</strong>
-              <span>{row.spec ?? "無規格"} · {row.baseUnit}</span>
-              <small>{row.isActive ? categoryName(row) : "已停用"}</small>
+            <button key={row.id} type="button" className={`cy-op-list-row cy-item-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={() => selectItem(row.id)}>
+              <strong>{row.name}</strong>
+              <span><span className="cy-mono">{row.itemNo}</span>{row.spec ? ` · ${row.spec}` : ""} · {row.baseUnit}</span>
+              {row.isActive ? <small>{categoryName(row)}</small> : <small className="cy-status-chip">已停用</small>}
             </button>
           ))}
           {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的商品。</div> : null}
         </div>
       </section>
 
-      <section className="cy-op-panel cy-item-detail-pane">
+      <section className="cy-op-panel cy-md-detail">
+        <MasterDetailBack label="商品清單" disabled={busy} onBack={() => { if (editing) { if (!window.confirm("放棄目前尚未儲存的修改？")) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
         {editing && draft ? (
           <form className="cy-op-form" onSubmit={(event) => void save(event)}>
-            <div className="cy-op-panel-header">
+            <div className="cy-record-header">
               <div>
                 <h2>{creating ? "新增商品" : `修改 ${selected?.itemNo ?? "商品"}`}</h2>
-                <p>{creating ? "品號必須是既有 SMART ERP 品號" : "既有品號需使用「更改品號」受控動作"}</p>
-              </div>
-              <div className="cy-item-inline-actions">
-                <button type="button" className="cy-op-button" disabled={busy} onClick={cancelEdit}>取消</button>
-                <button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : "儲存"}</button>
+                <p>{creating ? "品號必須是 SMART ERP 中已存在的品號。" : "品號請用「更改品號」修改，會保留歷史品號。"}</p>
               </div>
             </div>
             <div className="cy-item-form-body">
@@ -495,11 +497,12 @@ export function ItemOperationalPage() {
                 <label className="wide">備註<textarea className="cy-op-input" rows={3} value={draft.notes} disabled={busy} onChange={(event) => patch({ notes: event.target.value })} /></label>
               </div>
 
-              <section className="cy-item-conversions">
-                <div className="cy-item-section-head">
-                  <div><h3>單位換算</h3><p>規則：1 來源單位 = 數量 × 目標單位；每條路徑最後必須到基準單位。</p></div>
-                  <button type="button" className="cy-op-button" disabled={busy} onClick={addConversion}>＋ 增加換算</button>
+              <section className="cy-form-block">
+                <div className="cy-form-block-head">
+                  <div><h3>單位換算</h3><p>1 來源單位 = 數量 × 目標單位；每條換算最後都要換到基準單位。</p></div>
+                  <button type="button" className="cy-op-button compact" disabled={busy} onClick={addConversion}>＋ 增加換算</button>
                 </div>
+                <div className="cy-form-block-body">
                 {draft.unitConversions.map((row, index) => (
                   <div className="cy-item-conversion-row" key={`${index}-${row.fromUnit}`}>
                     <span>1</span>
@@ -507,27 +510,29 @@ export function ItemOperationalPage() {
                     <span>=</span>
                     <input className="cy-op-input" inputMode="decimal" value={row.quantity} disabled={busy} onChange={(event) => updateConversion(index, "quantity", event.target.value)} />
                     <input className="cy-op-input" value={row.toUnit} disabled={busy} onChange={(event) => updateConversion(index, "toUnit", event.target.value)} />
-                    <button type="button" className="cy-op-button danger" disabled={busy} onClick={() => patch({ unitConversions: draft.unitConversions.filter((_, rowIndex) => rowIndex !== index) })}>移除</button>
+                    <button type="button" className="cy-op-button compact quiet cy-row-remove" disabled={busy} onClick={() => patch({ unitConversions: draft.unitConversions.filter((_, rowIndex) => rowIndex !== index) })}>移除</button>
                   </div>
                 ))}
-                {draft.unitConversions.length === 0 ? <p className="cy-item-muted">目前僅使用基準單位。</p> : null}
+                {draft.unitConversions.length === 0 ? <p className="cy-form-block-empty">目前只使用基準單位。</p> : null}
+                </div>
               </section>
             </div>
             <div className="cy-op-form-footer">
               <button type="button" className="cy-op-button" disabled={busy} onClick={cancelEdit}>取消</button>
-              <button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : "儲存"}</button>
+              <button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立商品" : "儲存修改"}</button>
             </div>
           </form>
         ) : loadingDetail ? (
           <div className="cy-op-empty">正在讀取商品明細…</div>
         ) : selected ? (
           <div>
-            <div className="cy-op-panel-header cy-item-detail-header">
-              <div><h2>{selected.itemNo} · {selected.name}</h2><p>{selected.spec ?? "無規格"} · rev.{selected.revision}</p></div>
-              <div className="cy-item-action-stack">
-                <button className="cy-op-button primary" disabled={busy} onClick={startEdit}>修改</button>
-                <button className="cy-op-button" disabled={busy} onClick={() => void changeItemNumber()}>更改品號</button>
-                <button className={`cy-op-button ${selected.isActive ? "danger" : ""}`} disabled={busy} onClick={() => void toggleActive()}>{selected.isActive ? "停用" : "啟用"}</button>
+            <div className="cy-record-header">
+              <div><h2>{selected.name}</h2><p><span className="cy-mono">{selected.itemNo}</span>{selected.spec ? ` · ${selected.spec}` : ""}</p></div>
+              <div className="cy-record-actions">
+                {selected.isActive ? null : <span className="cy-status-chip">已停用</span>}
+                <button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
+                <button type="button" className="cy-op-button" disabled={busy} onClick={() => void changeItemNumber()}>更改品號</button>
+                <button type="button" className={`cy-op-button ${selected.isActive ? "danger" : ""}`} disabled={busy} onClick={() => void toggleActive()}>{selected.isActive ? "停用" : "啟用"}</button>
               </div>
             </div>
             <div className="cy-item-detail-body">
@@ -556,7 +561,7 @@ export function ItemOperationalPage() {
             </div>
           </div>
         ) : (
-          <div className="cy-op-empty">請選擇商品，或新增一筆。</div>
+          <MasterDetailEmpty title="尚未選擇商品" hint="從左側清單選一項商品，或按右上角「新增商品」。" />
         )}
       </section>
     </div>

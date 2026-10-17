@@ -1,8 +1,8 @@
 .cy-program-catalog { max-width: 1440px; margin-inline: auto; }
 .cy-program-name { display: flex; align-items: center; gap: 12px; min-width: 230px; }
-.cy-program-name img { flex: 0 0 56px; object-fit: contain; }
+.cy-program-name img { flex: 0 0 40px; width: 40px; height: 40px; object-fit: contain; }
 .cy-program-name > div { display: grid; gap: 4px; }
-.cy-program-name span, .cy-program-checked { color: var(--cy-text-secondary, #526174); font-size: .875rem; }
+.cy-program-name span, .cy-program-checked { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
 .cy-program-description { margin: 0; max-width: 440px; line-height: 1.65; }
 .cy-program-links { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-width: 160px; }
 .cy-program-links a { white-space: nowrap; }

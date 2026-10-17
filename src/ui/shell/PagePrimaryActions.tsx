@@ -1,11 +1,11 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-/** Render existing module action in the shared module heading without changing its behavior. */
+/** The shell's page-title row; modules place their primary action there. */
+export const PageActionsTargetContext = createContext<HTMLElement | null>(null);
+
+/** Render a module's primary action beside the page title without changing its behaviour. */
 export function PagePrimaryActions({ children }: { children: ReactNode }) {
-  const [target, setTarget] = useState<HTMLElement | null>(null);
-  useEffect(() => {
-    setTarget(document.getElementById("cy-page-primary-actions"));
-  }, []);
+  const target = useContext(PageActionsTargetContext);
   return target ? createPortal(<div className="cy-op-page-actions">{children}</div>, target) : null;
 }

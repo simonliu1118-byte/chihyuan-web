@@ -1,7 +1,7 @@
 import { useEffect, useState, type PropsWithChildren, type ReactNode, type CSSProperties, type MouseEvent } from "react";
 import { Dialog, Drawer } from "../overlays/Dialog";
 import { useCompactLayout } from "../foundation/useCompactLayout";
-import { ThemeToggle } from "../foundation/ThemeToggle";
+import { PageActionsTargetContext } from "./PagePrimaryActions";
 import type { NavigationGroup, NavigationItem } from "../foundation/navigation";
 
 export interface AppShellProps {
@@ -12,10 +12,8 @@ export interface AppShellProps {
   subtitle?: string;
   navigation: readonly NavigationGroup[];
   activeNavigationKey?: string;
-  headerActions?: ReactNode;
-  accountLabel?: string;
-  accountRole?: string;
-  footer?: ReactNode;
+  /** Signed-in person, appearance and sign-out; shown at the foot of the navigation. */
+  account?: ReactNode;
   onNavigate?: (item: NavigationItem) => void;
 }
 
@@ -48,21 +46,18 @@ export function AppShell({
   subtitle,
   navigation,
   activeNavigationKey,
-  headerActions,
-  accountLabel = "帳號",
-  accountRole,
-  footer,
+  account,
   onNavigate,
   children,
 }: PropsWithChildren<AppShellProps>) {
   const [helpOpen, setHelpOpen] = useState(false);
   const [navigationOpen, setNavigationOpen] = useState(false);
-  const [accountOpen, setAccountOpen] = useState(false);
   const [helpPosition, setHelpPosition] = useState<CSSProperties>();
+  const [actionsTarget, setActionsTarget] = useState<HTMLElement | null>(null);
   const compact = useCompactLayout();
-  // A route change never leaves the previous module's help text open.
-  useEffect(() => { setHelpOpen(false); setNavigationOpen(false); setAccountOpen(false); }, [pageTitle]);
-  useEffect(() => { setNavigationOpen(false); setAccountOpen(false); setHelpOpen(false); }, [compact]);
+  // A route change never leaves the previous module's help text or menu open.
+  useEffect(() => { setHelpOpen(false); setNavigationOpen(false); }, [pageTitle]);
+  useEffect(() => { setNavigationOpen(false); setHelpOpen(false); }, [compact]);
   function openHelp(event: MouseEvent<HTMLButtonElement>) {
     const rect = event.currentTarget.getBoundingClientRect(), width = Math.min(400, window.innerWidth - 32);
     const top = Math.min(rect.bottom + 8, window.innerHeight - 120);
@@ -93,7 +88,7 @@ export function AppShell({
           }}><NavIcon name={item.key} /><span>{item.label}</span></a>)}</div>
       </div>)}
     </nav>
-    {footer ? <div className="cy-shell-nav-footer">{footer}</div> : null}
+    {account ? <div className="cy-shell-nav-footer">{account}</div> : null}
   </>;
   return (
     <div className="cy-app-shell">
@@ -108,33 +103,28 @@ export function AppShell({
       {!compact ? <aside className="cy-shell-nav" aria-label="主要導覽">{navigationContent}</aside> : null}
 
       <div className="cy-shell-workspace">
-        <header className={["cy-shell-topbar", pageTools ? "has-tools" : ""].filter(Boolean).join(" ")}>
-          {compact ? <button type="button" className="cy-shell-menu-toggle" aria-label="開啟模組選單" aria-expanded={navigationOpen} onClick={() => setNavigationOpen(true)}>☰</button> : null}
+        <header className="cy-shell-topbar">
+          {compact ? <button type="button" className="cy-shell-menu-toggle" aria-label="開啟模組選單" aria-expanded={navigationOpen} onClick={() => setNavigationOpen(true)}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+          </button> : null}
           <div className="cy-shell-topbar-heading">
-            <h1 className="cy-shell-topbar-title">{pageTitle}</h1><span className="cy-shell-topbar-context">／ 工作模組</span>
-            {pageDescription ? <button type="button" className="cy-shell-help-button"
-              aria-label={`查看${pageTitle}說明`} onClick={openHelp}>
-              <span aria-hidden="true">ⓘ</span><span className="cy-shell-help-label"> 說明</span>
-            </button> : null}
+            <h1 className="cy-shell-topbar-title">{pageTitle}</h1>
+            {pageDescription ? <button type="button" className="cy-shell-help-button" title="說明"
+              aria-label={`查看${pageTitle}說明`} onClick={openHelp}><span aria-hidden="true">ⓘ</span></button> : null}
           </div>
-          {headerActions ? compact
-            ? <button type="button" className="cy-shell-account-toggle" data-role={accountRole} aria-label={accountLabel} onClick={() => setAccountOpen(true)}>帳號</button>
-            : <div className="cy-shell-topbar-actions"><ThemeToggle />{headerActions}</div> : null}
           {pageTools ? <div className="cy-shell-page-tools">{pageTools}</div> : null}
+          <div className="cy-shell-page-actions" ref={setActionsTarget} />
         </header>
 
         <main className="cy-shell-main" id="cy-main-content" tabIndex={-1}>
-          {children}
+          <PageActionsTargetContext.Provider value={actionsTarget}>{children}</PageActionsTargetContext.Provider>
         </main>
       </div>
       {pageDescription && <Dialog open={helpOpen} title={pageTitle + "說明"}
         onClose={() => setHelpOpen(false)} size="small" hideHeader className="cy-shell-help" style={compact ? undefined : helpPosition}>
         <p>{pageDescription}</p>
       </Dialog>}
-      {compact ? <>
-        <Drawer open={navigationOpen} title="模組選單" onClose={() => setNavigationOpen(false)} className="cy-shell-navigation-drawer">{navigationContent}</Drawer>
-        {headerActions ? <Dialog open={accountOpen} title="帳號" onClose={() => setAccountOpen(false)} size="small"><div className="cy-shell-account-panel"><ThemeToggle />{headerActions}</div></Dialog> : null}
-      </> : null}
+      {compact ? <Drawer open={navigationOpen} title="模組選單" onClose={() => setNavigationOpen(false)} className="cy-shell-navigation-drawer">{navigationContent}</Drawer> : null}
     </div>
   );
 }
