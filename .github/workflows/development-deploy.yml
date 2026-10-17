@@ -16,6 +16,7 @@ on:
       - "scripts/render-backup-secrets.mjs"
       - "scripts/audit-backup-configuration.mjs"
       - "scripts/backup-configuration.test.mjs"
+      - "scripts/backup-provider-worker.test.mjs"
       - "scripts/validate-deploy-config.mjs"
       - "scripts/verify-deployed-health.mjs"
       - "scripts/verify-deployment-source.mjs"
@@ -83,7 +84,7 @@ jobs:
         run: node --test scripts/secure-entry.test.mjs scripts/secure-deployment.test.mjs
 
       - name: Test read-only backup configuration audit
-        run: node --test scripts/backup-providers.test.mjs scripts/backup-configuration.test.mjs
+        run: node --test scripts/backup-providers.test.mjs scripts/backup-provider-worker.test.mjs scripts/backup-configuration.test.mjs
 
       - name: Checkout canonical CYID production guard
         uses: actions/checkout@v4
