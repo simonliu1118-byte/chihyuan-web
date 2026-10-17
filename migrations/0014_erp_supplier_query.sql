@@ -1,5 +1,6 @@
 -- ERP 供應商查詢 (PURI01, user 2026-10-17): Module Access code ERP_SUPPLIER_QUERY and the query
--- types SUPPLIER_NO (target_code holds the 廠商代號) and SUPPLIER_NAME (keyword). SQLite cannot
+-- types SUPPLIER_NO (target_code holds the 廠商代號), SUPPLIER_NAME (keyword) and PURCHASES (PURR18+PURR22,
+-- user 2026-10-18: target_code the 廠商代號, history_from／history_to the 單據日期 range). SQLite cannot
 -- widen a CHECK in place, so both tables are rebuilt with every row.
 ALTER TABLE app_member_module_access RENAME TO app_member_module_access_previous;
 CREATE TABLE app_member_module_access (
@@ -43,7 +44,7 @@ CREATE TABLE erp_item_queries_next (
     batches_json TEXT CHECK(batches_json IS NULL OR json_valid(batches_json)),
     history_json TEXT CHECK(history_json IS NULL OR json_valid(history_json)),
     query_type TEXT NOT NULL DEFAULT 'ITEM_NO'
-      CHECK(query_type IN ('ITEM_NO','ITEM_NAME','CUSTOMER_NO','CUSTOMER_NAME','SUPPLIER_NO','SUPPLIER_NAME',
+      CHECK(query_type IN ('ITEM_NO','ITEM_NAME','CUSTOMER_NO','CUSTOMER_NAME','SUPPLIER_NO','SUPPLIER_NAME','PURCHASES',
                          'SALES','RECEIVABLE','ORDER')),
     keyword TEXT,
     items_json TEXT CHECK(items_json IS NULL OR json_valid(items_json)),

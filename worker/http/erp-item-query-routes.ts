@@ -2,7 +2,7 @@ import {
   ERP_ITEM_FIELDS, ERP_WAREHOUSE_FIELDS, ERP_BATCH_FIELDS, ERP_HISTORY_COLUMNS, ERP_SEARCH_FIELDS,
   ERP_ITEM_COST_FIELDS, ERP_CUSTOMER_FIELDS, ERP_CUSTOMER_SEARCH_FIELDS, ERP_SUPPLIER_FIELDS, ERP_SUPPLIER_SEARCH_FIELDS, ERP_QUERY_TYPES,
   type ErpQueryType, type ErpQueryHistory, type ErpField, type ErpQueryErrorCode, type ErpQueryResult,
-  type ErpReceivableScope, type ErpSalesOrder, type ErpSalesLine, type ErpReceivableBill, type ErpReceivableVoucher,
+  type ErpReceivableScope, type ErpSalesOrder, type ErpSalesLine, type ErpPurchaseOrder, type ErpPurchaseLine, type ErpReceivableBill, type ErpReceivableVoucher,
 } from "../../shared/erp-item-query";
 import { AuditService } from "../audit/audit-service";
 import { HistoryRangeError, resolveDateRange, resolveHistoryRange } from "../../shared/erp-query-history";
@@ -35,12 +35,14 @@ type JobRow = {
 const MODULES_FOR_TYPE: Record<ErpQueryType, readonly CyWebModuleCode[]> = {
   ITEM_NO: ["ERP_ITEM_QUERY"], ITEM_NAME: ["ERP_ITEM_QUERY"],
   CUSTOMER_NO: ["ERP_CUSTOMER_QUERY"], CUSTOMER_NAME: ["ERP_CUSTOMER_QUERY"], SALES: ["ERP_CUSTOMER_QUERY"],
-  SUPPLIER_NO: ["ERP_SUPPLIER_QUERY"], SUPPLIER_NAME: ["ERP_SUPPLIER_QUERY"],
+  SUPPLIER_NO: ["ERP_SUPPLIER_QUERY"], SUPPLIER_NAME: ["ERP_SUPPLIER_QUERY"], PURCHASES: ["ERP_SUPPLIER_QUERY"],
   RECEIVABLE: ["ERP_RECEIVABLE_QUERY"], ORDER: ["ERP_CUSTOMER_QUERY", "ERP_RECEIVABLE_QUERY"],
 };
 const ERP_QUERY_MODULES: readonly CyWebModuleCode[] = ["ERP_ITEM_QUERY", "ERP_CUSTOMER_QUERY", "ERP_RECEIVABLE_QUERY", "ERP_SUPPLIER_QUERY"];
-/** Report types run whole ERP reports (COPR15+COPR16, ACRR18) and may take minutes. */
-const REPORT_TYPES = new Set<ErpQueryType>(["SALES", "RECEIVABLE", "ORDER"]);
+/** Report types run whole ERP reports (COPR15+COPR16, PURR18+PURR22, ACRR18) and may take minutes. */
+const REPORT_TYPES = new Set<ErpQueryType>(["SALES", "PURCHASES", "RECEIVABLE", "ORDER"]);
+/** Types with a 單據日期 range in history_from／history_to. */
+const DATED_TYPES = new Set<ErpQueryType>(["SALES", "PURCHASES"]);
 const NAME_TYPES = new Set<ErpQueryType>(["ITEM_NAME", "CUSTOMER_NAME", "SUPPLIER_NAME"]);
 const ITEM_FIELD_SET = new Set<string>(ERP_ITEM_FIELDS);
 const COST_FIELD_SET = new Set<string>(ERP_ITEM_COST_FIELDS);
@@ -80,15 +82,15 @@ function bad(code: string, message: string, status = 400): never {
 const parsedJson = <T,>(text: string | null): T | null => text ? JSON.parse(text) as T : null;
 function toJob(row: JobRow, showCost: boolean): ErpQueryResult {
   const list = parsedJson<{items:ErpField[][];total:number;truncated:boolean}>(row.items_json);
-  const report = parsedJson<{orders?:ErpSalesOrder[];bills?:ErpReceivableBill[];total:number;truncated:boolean}>(row.result_json);
-  const sales = row.query_type === "SALES";  // ORDER keeps its number in code and has no dates
+  const report = parsedJson<{orders?:ErpSalesOrder[];purchases?:ErpPurchaseOrder[];bills?:ErpReceivableBill[];total:number;truncated:boolean}>(row.result_json);
+  const sales = DATED_TYPES.has(row.query_type);  // ORDER keeps its number in code and has no dates
   const fields = parsedJson<ErpField[]>(row.fields_json) ?? [];
   return {
     id: row.id, queryType:row.query_type, itemNo:row.query_type === "ITEM_NO" ? row.item_no : null,
     keyword:row.keyword, items:list?.items ?? [], total:list?.total ?? report?.total ?? 0, truncated:list?.truncated ?? report?.truncated ?? false,
     code: row.target_code, scope: row.receivable_scope,
     dateFrom: sales ? row.history_from : null, dateTo: sales ? row.history_to : null,
-    orders: report?.orders ?? [], bills: report?.bills ?? [],
+    orders: report?.orders ?? [], purchases: report?.purchases ?? [], bills: report?.bills ?? [],
     status: row.status, createdAt: row.created_at,
     startedAt: row.started_at, completedAt: row.completed_at, elapsedMs: row.elapsed_ms,
     // 標準進價 also follows the reader's current grant, not only the one at creation.
@@ -239,6 +241,45 @@ function parseSales(body: Record<string, unknown>, job: JobRow) {
   });
   return { orders, ...totals(body, orders.length, "銷貨銷退單") };
 }
+function parsePurchaseLine(raw: unknown): ErpPurchaseLine {
+  const line = object(raw, "進貨明細");
+  if (typeof line.seq !== "number" || !Number.isSafeInteger(line.seq) || line.seq < 1)
+    return bad("INVALID_AGENT_RESULT", "進貨明細序號不正確");
+  const s = (name: string, max = 200) => limitedString(line[name], "進貨明細" + name, max);
+  const acceptDate = s("acceptDate", 10);
+  return {
+    seq: line.seq, itemCode: s("itemCode", 40), itemName: s("itemName"), specification: s("specification"),
+    acceptDate: acceptDate ? isoDay(acceptDate, "驗收日期") : "", warehouse: s("warehouse"),
+    quantity: s("quantity", 40), acceptedQuantity: s("acceptedQuantity", 40), returnedQuantity: s("returnedQuantity", 40),
+    unit: s("unit", 40), unitPrice: s("unitPrice", 40), amount: s("amount", 40), tax: s("tax", 40), batch: s("batch", 60),
+    purchaseOrderNo: s("purchaseOrderNo", 60), note: s("note", 4096), sourceOrder: s("sourceOrder", 60),
+  };
+}
+/** 進貨／退貨單 (PURR18+PURR22): every order is the job's supplier inside its 單據日期 range. */
+function parsePurchases(body: Record<string, unknown>, job: JobRow) {
+  if (body.supplierCode !== job.target_code || body.dateFrom !== job.history_from || body.dateTo !== job.history_to)
+    return bad("INVALID_AGENT_RESULT", "回報的廠商或日期範圍與查詢工作不同");
+  const purchases = list(body.orders, "進貨退貨單", MAX_ORDERS).map((raw: unknown): ErpPurchaseOrder => {
+    const order = object(raw, "進貨退貨單");
+    const s = (name: string, max = 200) => limitedString(order[name], "進貨退貨單" + name, max);
+    if (order.kind !== "進貨" && order.kind !== "退貨") return bad("INVALID_AGENT_RESULT", "單據類別只能是進貨或退貨");
+    const date = isoDay(order.date, "單據日期");
+    if (date < (job.history_from ?? "") || date > (job.history_to ?? "")) return bad("INVALID_AGENT_RESULT", "單據日期不在查詢範圍內");
+    const supplierCode = s("supplierCode", 40);
+    if (supplierCode !== job.target_code) return bad("INVALID_AGENT_RESULT", "單據廠商與查詢廠商不同");
+    const orderNo = s("orderNo", 60);
+    if (!orderNo.trim()) return bad("INVALID_AGENT_RESULT", "單據必須有單號");
+    const lines = list(order.lines, "進貨明細", MAX_ORDER_LINES).map(parsePurchaseLine);
+    if (!lines.length) return bad("INVALID_AGENT_RESULT", "單據必須有明細");
+    return {
+      kind: order.kind, orderNo, date, supplierCode, supplierName: s("supplierName"), supplierOrderNo: s("supplierOrderNo", 60),
+      invoiceNo: s("invoiceNo", 40), invoiceType: s("invoiceType", 40), taxType: s("taxType", 40), currency: s("currency", 10),
+      totalQuantity: s("totalQuantity", 40), amount: s("amount", 40), deduction: s("deduction", 40), tax: s("tax", 40),
+      total: s("total", 40), settled: s("settled", 10), lines,
+    };
+  });
+  return { purchases, ...totals(body, purchases.length, "進貨退貨單") };
+}
 /** 未收款 結帳單: one customer／業務員 jobs only hold that code's bills. */
 function parseReceivables(body: Record<string, unknown>, job: JobRow) {
   if (body.scope !== job.receivable_scope || (body.code ?? null) !== job.target_code)
@@ -332,7 +373,7 @@ function parseItemResult(body: Record<string, unknown>, job: JobRow, outcome: "F
 function parseBusinessResult(body: Record<string, unknown>, job: JobRow, outcome: "FOUND" | "NOT_FOUND" | "FAILED") {
   for (const key of ["warehouses", "batches", "items", "orders", "bills"] as const)
     if (body[key] != null && (!Array.isArray(body[key]) || (body[key] as unknown[]).length !== 0)
-      && !(key === "items" && NAME_TYPES.has(job.query_type) || key === "orders" && (job.query_type === "SALES" || job.query_type === "ORDER")
+      && !(key === "items" && NAME_TYPES.has(job.query_type) || key === "orders" && (job.query_type === "SALES" || job.query_type === "ORDER" || job.query_type === "PURCHASES")
         || key === "bills" && job.query_type === "RECEIVABLE"))
       return bad("INVALID_AGENT_RESULT", "查詢結果附帶了其他類型的資料");
   if (body.history != null || body.batchManaged != null
@@ -354,8 +395,10 @@ function parseBusinessResult(body: Record<string, unknown>, job: JobRow, outcome
     return { ...EMPTY, fieldsJson: found ? JSON.stringify(fields) : null, resultCount: found ? 1 : 0, truncated: false };
   }
   const result = NAME_TYPES.has(job.query_type) ? parseNameList(body, job)
-    : job.query_type === "SALES" || job.query_type === "ORDER" ? parseSales(body, job) : parseReceivables(body, job);
-  const count = "items" in result ? result.items.length : "orders" in result ? result.orders.length : result.bills.length;
+    : job.query_type === "SALES" || job.query_type === "ORDER" ? parseSales(body, job)
+    : job.query_type === "PURCHASES" ? parsePurchases(body, job) : parseReceivables(body, job);
+  const count = "items" in result ? result.items.length : "orders" in result ? result.orders.length
+    : "purchases" in result ? result.purchases.length : result.bills.length;
   if (found && count === 0) return bad("INVALID_AGENT_RESULT", "FOUND 的結果不可為空");
   if (!found && (count !== 0 || result.total !== 0 || result.truncated)) return bad("INVALID_AGENT_RESULT", "非成功結果不得附帶 ERP 資料");
   return {
@@ -468,6 +511,7 @@ const KEYS: Record<ErpQueryType, readonly string[]> = {
   CUSTOMER_NAME: ["queryType", "keyword"],
   SUPPLIER_NO: ["queryType", "supplierCode"],
   SUPPLIER_NAME: ["queryType", "keyword"],
+  PURCHASES: ["queryType", "supplierCode", "dateFrom", "dateTo"],
   SALES: ["queryType", "customerCode", "dateFrom", "dateTo"],
   RECEIVABLE: ["queryType", "scope", "code"],
   ORDER: ["queryType", "orderNo"],
@@ -492,6 +536,10 @@ function parseRequest(queryType: ErpQueryType, body: Record<string, unknown>): N
       case "CUSTOMER_NAME": return { ...base, keyword: parseKeyword(body.keyword, "客戶名稱") };
       case "SUPPLIER_NO": return { ...base, targetCode: parseCode(body.supplierCode, "廠商代號") };
       case "SUPPLIER_NAME": return { ...base, keyword: parseKeyword(body.keyword, "廠商名稱") };
+      case "PURCHASES": {
+        const range = resolveDateRange(body.dateFrom, body.dateTo, "單據日期");
+        return { ...base, targetCode: parseCode(body.supplierCode, "廠商代號"), from: range.from, to: range.to };
+      }
       case "SALES": {
         const range = resolveDateRange(body.dateFrom, body.dateTo, "單據日期");
         return { ...base, targetCode: parseCode(body.customerCode, "客戶代號"), from: range.from, to: range.to };
@@ -509,7 +557,7 @@ function parseRequest(queryType: ErpQueryType, body: Record<string, unknown>): N
       }
     }
   } catch (error) {
-    if (error instanceof HistoryRangeError) return bad(queryType === "SALES" ? "INVALID_DATE_RANGE" : "INVALID_HISTORY_RANGE", error.message);
+    if (error instanceof HistoryRangeError) return bad(DATED_TYPES.has(queryType) ? "INVALID_DATE_RANGE" : "INVALID_HISTORY_RANGE", error.message);
     throw error;
   }
 }
@@ -651,6 +699,7 @@ function claimedJob(job: ClaimRow) {
     case "CUSTOMER_NAME": return { ...base, keyword: job.keyword };
     case "SUPPLIER_NO": return { ...base, supplierCode: job.target_code };
     case "SUPPLIER_NAME": return { ...base, keyword: job.keyword };
+    case "PURCHASES": return { ...base, supplierCode: job.target_code, dateFrom: job.history_from, dateTo: job.history_to };
     case "SALES": return { ...base, customerCode: job.target_code, dateFrom: job.history_from, dateTo: job.history_to };
     case "RECEIVABLE": return { ...base, scope: job.receivable_scope, code: job.target_code };
     case "ORDER": return { ...base, orderNo: job.target_code };

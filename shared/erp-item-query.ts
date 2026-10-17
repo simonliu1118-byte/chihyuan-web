@@ -31,13 +31,13 @@ export const ERP_SUPPLIER_FIELDS = [
 export const ERP_SUPPLIER_SEARCH_FIELDS = ["廠商代號", "廠商簡稱", "廠商全名", "TEL", "FAX", "統一編號"] as const;
 /**
  * ITEM_NO／ITEM_NAME: ERP 商品查詢. CUSTOMER_NO／CUSTOMER_NAME／SALES (COPR15+COPR16): ERP 客戶查詢.
- * SUPPLIER_NO／SUPPLIER_NAME (PURI01): ERP 供應商查詢. RECEIVABLE (ACRR18): ERP 未收款查詢. ORDER: one 銷貨單／銷退單 by number (a 未收款 憑證), opened by
+ * SUPPLIER_NO／SUPPLIER_NAME (PURI01)／PURCHASES (PURR18+PURR22): ERP 供應商查詢. RECEIVABLE (ACRR18): ERP 未收款查詢. ORDER: one 銷貨單／銷退單 by number (a 未收款 憑證), opened by
  * either grant. One queue, one Agent, one job per member.
  */
 export type ErpQueryType = "ITEM_NO" | "ITEM_NAME" | "CUSTOMER_NO" | "CUSTOMER_NAME" | "SUPPLIER_NO" | "SUPPLIER_NAME"
-  | "SALES" | "RECEIVABLE" | "ORDER";
+  | "PURCHASES" | "SALES" | "RECEIVABLE" | "ORDER";
 export const ERP_QUERY_TYPES: readonly ErpQueryType[] = [
-  "ITEM_NO", "ITEM_NAME", "CUSTOMER_NO", "CUSTOMER_NAME", "SUPPLIER_NO", "SUPPLIER_NAME", "SALES", "RECEIVABLE", "ORDER",
+  "ITEM_NO", "ITEM_NAME", "CUSTOMER_NO", "CUSTOMER_NAME", "SUPPLIER_NO", "SUPPLIER_NAME", "PURCHASES", "SALES", "RECEIVABLE", "ORDER",
 ];
 export type ErpReceivableScope = "CUSTOMER" | "SALESPERSON" | "ALL";
 /** One line of a 銷貨單／銷退單; amounts and quantities are ERP display strings. */
@@ -53,6 +53,20 @@ export interface ErpSalesOrder {
   salesperson: string; department: string; paymentTerm: string; taxType: string; invoiceType: string;
   totalQuantity: string; amount: string; tax: string; total: string; note: string; reason: string;
   lines: ErpSalesLine[];
+}
+/** One line of a 進貨單／退貨單; amounts and quantities are ERP display strings (原幣). */
+export interface ErpPurchaseLine {
+  seq: number; itemCode: string; itemName: string; specification: string; acceptDate: string; warehouse: string;
+  quantity: string; acceptedQuantity: string; returnedQuantity: string; unit: string; unitPrice: string;
+  amount: string; tax: string; batch: string; purchaseOrderNo: string; note: string;
+  /** 退貨 line's 原進貨單 「單號-序號」 as ERP gives it, or "". */
+  sourceOrder: string;
+}
+export interface ErpPurchaseOrder {
+  kind: "進貨" | "退貨"; orderNo: string; date: string; supplierCode: string; supplierName: string;
+  supplierOrderNo: string; invoiceNo: string; invoiceType: string; taxType: string; currency: string;
+  totalQuantity: string; amount: string; deduction: string; tax: string; total: string; settled: string;
+  lines: ErpPurchaseLine[];
 }
 export interface ErpReceivableVoucher { voucherNo: string; date: string; amount: string; tax: string; }
 export interface ErpReceivableBill {
@@ -85,13 +99,14 @@ export interface ErpQueryResult extends ErpHistoryRequest {
   queryType: ErpQueryType;
   itemNo: string | null;
   keyword: string | null;
-  /** CUSTOMER_NO／SALES: the customer; SUPPLIER_NO: the supplier; RECEIVABLE: the customer or 業務員 code (null for ALL); ORDER: the number. */
+  /** CUSTOMER_NO／SALES: the customer; SUPPLIER_NO／PURCHASES: the supplier; RECEIVABLE: the customer or 業務員 code (null for ALL); ORDER: the number. */
   code: string | null;
   scope: ErpReceivableScope | null;
-  /** SALES 單據日期 range (YYYY-MM-DD). */
+  /** SALES／PURCHASES 單據日期 range (YYYY-MM-DD). */
   dateFrom: string | null;
   dateTo: string | null;
   orders: ErpSalesOrder[];
+  purchases: ErpPurchaseOrder[];
   bills: ErpReceivableBill[];
   items: ErpField[][];
   total: number;
