@@ -10,6 +10,7 @@
 - [x] Browser／Worker TypeScript、`validate:source`、build、Node regression（`audit-account-portal` 需外部 cyapps 檢出，main 上同樣失敗）；本機模擬資料 Chromium 1440／1024／390、淺色／深色截圖。
 - [ ] 使用者驗收版型與流程，PR CI，授權後合併部署。
 - [ ] 下一批：商品／瑕疵／工單／委外仍有原生 `window.confirm`／`prompt`，改用共用確認視窗；瑕疵與工單的「客戶搜尋＋下拉」改用共用 EntityPicker；帳號與權限、稽核、備份、ERP 查詢頁的版面細修。
+
 ## 上線前提醒：啟用自動備份排程（使用者暫緩）
 
 - [ ] **整體功能測試完成、準備正式上線前，提醒使用者啟用 CY Web 自動備份排程。** 使用者於2026-10-18明確要求在其他測試完成前先維持 `CF_BACKUP_SCHEDULE_ENABLED=false`；目前手動雙副本與GCS隔離還原已通過，排程尚未啟用。
