@@ -12,6 +12,7 @@ import "./ui/feedback/toast.css";
 import "./ui/related/related-record-panel.css";
 import "./ui/readability.css";
 import "./runtime/operational.css";
+import "./ui/foundation/compact-business.css";
 
 const root = document.getElementById("root");
 

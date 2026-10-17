@@ -1,6 +1,7 @@
 import { FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
 import { useFeedback } from "../ui/feedback/FeedbackProvider";
 import { advanceFocusOnEnter } from "../ui/foundation/enter-advance";
+import { ThemeToggle } from "../ui/foundation/ThemeToggle";
 import { ApiClientError } from "../api/client";
 import { subscribeAuthorityRefresh } from "../api/authority-events";
 import { createAuthorityMonitor } from "./authority-monitor";
@@ -307,7 +308,7 @@ export function AuthGate({ children }: AuthGateProps) {
   if (state.status === "checking") return <main className="cy-auth-screen" aria-busy="true"><section className="cy-auth-card cy-auth-status-card"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><h1>志遠企業管理系統</h1><p>正在確認登入狀態…</p></section></main>;
   if (state.status === "unavailable") return <main className="cy-auth-screen"><section className="cy-auth-card cy-auth-status-card"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><h1>志遠企業管理系統</h1><p className="cy-auth-error" role="alert">{state.message}</p><button className="cy-auth-primary-button" type="button" onClick={() => void checkSession()}>重新連線</button></section></main>;
 
-  return <main className="cy-auth-screen"><section className="cy-auth-card" aria-labelledby="cy-auth-title">
+  return <main className="cy-auth-screen"><div className="cy-auth-theme-position"><ThemeToggle /></div><section className="cy-auth-card" aria-labelledby="cy-auth-title">
     <div className="cy-auth-heading"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><div><h1 id="cy-auth-title">志遠企業管理系統</h1></div></div>
 
     {mode === "login" ? <form className="cy-auth-form" onSubmit={handleLogin} onKeyDown={advanceFocusOnEnter} noValidate>
