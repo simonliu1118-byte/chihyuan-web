@@ -1,3 +1,13 @@
+## 2026-10-18 CYInvoice 3.0 Recovery × CYWEB V0.9.0 介面重整後接線
+
+- [x] 以 CYWEB `main` 的最新 V0.9.0 Build 1（`a46f5666`，#191）為唯一基準，選取 #151 的復原 UI／Worker／測試與配置程式移植，不 merge 舊 V0.7.25 分支以免覆寫 Claude 已部署的介面、ERP、備份、Program Catalog 等功能。
+- [x] 接回 SUPER_ADMIN／Email 驗證門檻的 `CyInvoiceRecoveryAdminPanel`、當次密碼、操作 ID checkpoint、防重送／狀態／明確撤銷 readback；User/ADMIN 不出現介面，瀏覽器不儲存密碼／復原碼。
+- [x] 接回同源 + Origin／Fetch Metadata／CYID session 檢查、`CYINVOICE` Application 再驗證、固定 Workspace／Device 授權，以及非預設的 named `CyInvoiceRecoveryEntrypoint` 私有 RPC Service Binding，未接線回 503 而不會簽發；原 CYWEB/Identity D1 不增加第二權威。
+- [x] 已有 #151 的 source API／UI 單元測試納入現行 Runtime Check、Deployment Config 測試，確認 0.9 UI 不需另一套 Desktop/Mobile renderer。
+- [ ] 新 CYWEB PR 的最新 head Governance／Runtime Check／Build 與自動測試、Desktop／Mobile 真實 UI 操作驗收。
+- [ ] CYInvoice PR #476 在原 D1 完成備份＋回復演練與 schema 0014／0015、Issuer gate 維護配置、Worker feature flag 後，再將 CYWEB `CF_CYINVOICE_RECOVERY_SERVICE` 實際接到正確命名入口並進行受控部署、真 Email／雙 Windows／DR-01～13。
+- 來源舊 PR #151 保留作參照，不直接合併；本輪不變更正式 D1／Worker／CYWEB `main`，不發布正式新功能。CI 綠燈不代替真裝置驗收。
+
 # CY Web TODO
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。

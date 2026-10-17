@@ -118,6 +118,27 @@ export function renderDeployConfig({
     rendered = JSON.stringify(config, null, 2) + "\n";
   }
 
+  // Optional private named CYInvoice Worker RPC. Keep absent until the
+  // original Invoice D1 is migrated, the issuer profile is approved and
+  // the runtime recovery feature is deliberately enabled.
+  const recoveryService = String(env.CF_CYINVOICE_RECOVERY_SERVICE ?? "").trim();
+  if (recoveryService) {
+    const workerLike = /^[a-z0-9][a-z0-9._-]{1,62}$/i;
+    if (!workerLike.test(recoveryService)
+        || recoveryService === values.CF_IDENTITY_SERVICE
+        || recoveryService === values.CF_WORKER_NAME)
+      throw new Error("Invalid CF_CYINVOICE_RECOVERY_SERVICE");
+    const config = JSON.parse(rendered);
+    if (config.services?.some(binding => binding.binding === "CYINVOICE_RECOVERY"))
+      throw new Error("Duplicate CYINVOICE_RECOVERY binding");
+    config.services.push({
+      binding: "CYINVOICE_RECOVERY",
+      service: recoveryService,
+      entrypoint: "CyInvoiceRecoveryEntrypoint",
+    });
+    rendered = JSON.stringify(config, null, 2) + "\n";
+  }
+
   const absoluteOutput = path.resolve(outputPath);
   fs.writeFileSync(absoluteOutput, rendered, { encoding: "utf8", mode: 0o600 });
   return absoluteOutput;

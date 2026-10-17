@@ -5,6 +5,7 @@ import { handleSettingsAuditRoute } from "./http/settings-audit-routes";
 import { handleAuthRoute, type IdentityRuntimeEnv } from "./http/auth-routes";
 import { handleIdentityManagementRoute } from "./http/identity-management-routes";
 import { handleModuleAccessRoute } from "./http/module-access-routes";
+import { handleCyInvoiceRecoveryRoute, type CyInvoiceRecoveryEnv } from "./http/cyinvoice-recovery-routes";
 import { handleBusinessApiRoute } from "./http/business-api-routes";
 import { handleBusinessApiPhase2Route } from "./http/business-api-phase2-routes";
 import { handleProgramCatalogRoute } from "./http/program-catalog-routes";
@@ -13,7 +14,7 @@ import { failure, success } from "./http/response";
 import { PROGRAM_CATALOG_CRON } from "../shared/program-catalog";
 import { updateProgramCatalog } from "./programs/release-catalog";
 
-interface Env extends IdentityRuntimeEnv, BackupRuntimeEnv, ErpBridgeEnv {
+interface Env extends IdentityRuntimeEnv, BackupRuntimeEnv, ErpBridgeEnv, CyInvoiceRecoveryEnv {
   ASSETS?: Fetcher;
 }
 
@@ -50,6 +51,9 @@ async function routeRequest(request: Request, env: Env, url: URL): Promise<Respo
 
   const identityResponse = await handleIdentityManagementRoute(request, env, requestId);
   if (identityResponse) return identityResponse;
+
+  const recoveryResponse = await handleCyInvoiceRecoveryRoute(request, env, requestId);
+  if (recoveryResponse) return recoveryResponse;
 
   const moduleAccessResponse = await handleModuleAccessRoute(request, env, requestId);
   if (moduleAccessResponse) return moduleAccessResponse;
