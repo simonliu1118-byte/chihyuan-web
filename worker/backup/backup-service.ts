@@ -124,7 +124,9 @@ export class BackupService {
           (backup_id,provider_code,status_code,object_prefix,updated_at) VALUES (?,?,?,?,?)`)
           .bind(id, provider, provider === "r2" || both ? "pending" : "absent", `cyweb/${id}/`, context.now)),
       ]);
-      if (!await this.copy(id, "r2", bundle, context)) return id;
+      // Each provider verifies the same immutable export independently. An R2
+      // outage must still allow the scheduled/manual cross-cloud copy to run.
+      await this.copy(id, "r2", bundle, context);
       if (both) await this.copy(id, "gcs", bundle, context);
       await this.retain("r2", id, context);
       if (both) await this.retain("gcs", id, context);

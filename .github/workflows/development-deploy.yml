@@ -12,6 +12,8 @@ on:
       - "scripts/audit-account-portal.mjs"
       - "scripts/audit-account-portal.test.mjs"
       - "scripts/render-backup-secrets.mjs"
+      - "scripts/audit-backup-configuration.mjs"
+      - "scripts/backup-configuration.test.mjs"
       - "scripts/validate-deploy-config.mjs"
       - "scripts/verify-deployed-health.mjs"
       - "scripts/verify-deployment-source.mjs"
@@ -31,6 +33,7 @@ on:
       - "scripts/sync-cyid-consumer-contract.sh"
       - "docs/contracts/cyid/**"
       - ".github/workflows/development-deploy.yml"
+      - ".github/workflows/backup-configuration-audit.yml"
   push:
     branches:
       - deploy/cyweb-development
@@ -40,7 +43,7 @@ on:
       operation:
         description: Existing development deploy or read-only account portal audit
         type: choice
-        options: [deploy-development, audit-identity]
+        options: [deploy-development, audit-identity, audit-backup]
         default: deploy-development
 
 permissions:
@@ -75,6 +78,9 @@ jobs:
 
       - name: Test HTTPS entry and deployed transport checks
         run: node --test scripts/secure-entry.test.mjs scripts/secure-deployment.test.mjs
+
+      - name: Test read-only backup configuration audit
+        run: node --test scripts/backup-providers.test.mjs scripts/backup-configuration.test.mjs
 
       - name: Checkout canonical CYID production guard
         uses: actions/checkout@v4
@@ -373,3 +379,26 @@ jobs:
           persist-credentials: false
       - name: Read-only account portal and production authority audit
         run: node scripts/audit-account-portal.mjs
+
+  backup-audit-inputs:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.operation == 'audit-backup'
+    runs-on: ubuntu-latest
+    environment: development
+    outputs:
+      gcs-bucket: ${{ vars.GCS_BUCKET }}
+      r2-bucket: ${{ vars.CF_BACKUP_R2_BUCKET }}
+      backup-enabled: ${{ vars.CF_BACKUP_ENABLED }}
+      schedule-enabled: ${{ vars.CF_BACKUP_SCHEDULE_ENABLED }}
+    steps:
+      - run: echo "Protected configuration context resolved without logging values."
+
+  audit-backup:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.operation == 'audit-backup'
+    needs: [validate-deployment-contract, backup-audit-inputs]
+    uses: ./.github/workflows/backup-configuration-audit.yml
+    secrets:
+      GCS_BUCKET: ${{ needs.backup-audit-inputs.outputs.gcs-bucket }}
+      CF_BACKUP_R2_BUCKET: ${{ needs.backup-audit-inputs.outputs.r2-bucket }}
+    with:
+      backup-enabled: ${{ needs.backup-audit-inputs.outputs.backup-enabled }}
+      schedule-enabled: ${{ needs.backup-audit-inputs.outputs.schedule-enabled }}

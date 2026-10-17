@@ -28,6 +28,7 @@ function completion(row: BackupHistoryEntry | undefined): string {
   const gcs = row.copies.find(copy => copy.provider === "gcs")?.status;
   if (r2 === "verified" && gcs === "verified") return "R2 與 GCS 備份皆已驗證。";
   if (r2 === "verified") return "R2 備份已驗證，GCS 副本尚未完成；可依紀錄狀態重試。";
+  if (gcs === "verified") return "GCS 備份已驗證，R2 副本尚未完成；請確認 R2 儲存服務狀態。";
   return "備份尚未成功，請查看紀錄並確認儲存服務狀態。";
 }
 export function BackupHistoryView({ history, busy, retry }: { history: BackupHistory; busy: boolean; retry: (id: string) => void }) {

@@ -54,4 +54,30 @@ export async function acceptTieredBackup(db: D1Database, bucket: R2Bucket): Prom
   assert(rejected, "ACCEPT_BACKUP_CROSS_SCOPE_RETRY");
   const live = await exportPortableBackup(db, { workspaceScope: scope, appVersion: "0.7.2" });
   assert(live.dataBytes.length > 0, "ACCEPT_BACKUP_BUSINESS_DATA_DELETED");
+
+  // A Cloudflare storage outage must not suppress the cross-cloud copy.
+  const unavailableR2: BackupStorageProvider = {
+    async putObject() { throw new Error("Synthetic R2 outage"); },
+    getObject: key => r2.getObject(key), listObjects: prefix => r2.listObjects(prefix),
+    deleteObject: (key, token) => r2.deleteObject(key, token),
+  };
+  const isolated = new BackupService(db, scope, "0.7.2", { r2: unavailableR2, gcs });
+  for (const kind of ["manual", "pre_restore", "scheduled"] as const) {
+    const now = kind === "scheduled" ? "2026-10-06T19:30:00.000Z" : "2026-10-05T04:00:00.000Z";
+    const id = await isolated.create(kind, { ...context, now, requestId: `synthetic-r2-outage-${kind}` });
+    const entry = (await isolated.list()).sets.find(row => row.backupId === id);
+    assert(entry?.copies.some(copy => copy.provider === "r2" && copy.status === "failed")
+      && entry.copies.some(copy => copy.provider === "gcs" && copy.status === "verified")
+      && entry.status === "verified", "ACCEPT_BACKUP_R2_OUTAGE_BLOCKED_GCS");
+    assert((await isolated.loadVerified(id)).provider === "gcs", "ACCEPT_BACKUP_GCS_ONLY_NOT_RECOVERABLE");
+  }
+  const count = objects.size;
+  const monday = await isolated.create("scheduled", { ...context, now: "2026-10-11T19:30:00.000Z", requestId: "synthetic-r2-only-outage" });
+  const absent = (await isolated.list()).sets.find(row => row.backupId === monday);
+  assert(objects.size === count && absent?.copies.some(copy => copy.provider === "gcs" && copy.status === "absent"),
+    "ACCEPT_BACKUP_R2_OUTAGE_CHANGED_GCS_SCHEDULE");
+  fail = true;
+  const failedId = await isolated.create("manual", { ...context, now: "2026-10-12T04:00:00.000Z", requestId: "synthetic-both-outage" });
+  const failed = (await isolated.list()).sets.find(row => row.backupId === failedId);
+  assert(failed?.status === "failed" && failed.copies.every(copy => copy.status === "failed"), "ACCEPT_BACKUP_BOTH_FAILURES_MASKED");
 }

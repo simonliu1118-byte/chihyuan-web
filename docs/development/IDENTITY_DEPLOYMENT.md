@@ -377,3 +377,57 @@ closed plain HTTP sockets; its additional full transport probe failed at that
 network boundary. HTTP redirect acceptance uses the successful GitHub runner
 step above; repository checks were kept intact. Real-account Email verification,
 recovery and backup/restore acceptance remain separate pending work in TODO.
+
+
+## Phase D schedule comparison with CYACC
+
+CYACC's accepted Phase D rollout is the operational reference: R2 daily at
+03:30 Asia/Taipei with 30-day application retention; GCS Wednesday/Sunday at
+03:30 with 182-day retention; manual and pre-restore backups request both copies.
+CY Web already implements this schedule and retention in its own BackupService;
+its backups, catalog and restore mappings remain application-specific.
+
+Version 0.8.5 removes the R2 failure short-circuit: a failed R2 write is recorded
+without suppressing the GCS attempt when GCS is due. Both providers still use the
+same single-export bytes and independently verify their copies. A GCS-only
+success is available to the existing verified-reader fallback; it does not satisfy
+the double-provider pre-restore safety requirement. On an ordinary R2-only day,
+an R2 failure does not create an unplanned GCS copy.
+
+Before activation, confirm the dedicated CY Web GCS bucket, bucket-scoped service
+account and protected inputs above. An existing non-public bucket screenshot is
+useful ownership evidence, not an IAM, lifecycle or credential test. Keep GCS
+lifecycle deletion longer than 182 days, including any earlier-matching rule;
+keep R2 lifecycle longer than 30 days. The 45-day R2 lifecycle previously read
+back meets that condition. Soft-delete settings alone do not establish retention.
+
+The current portable exporter is bounded to 500 total durable rows and 5 MiB.
+Exceeding either limit fails closed; check capacity against the actual source
+before scheduling and do not truncate data or remove Audit rows to fit. Initial
+paired copy verification and isolated restore remain activation prerequisites.
+CYACC's prior 14-run Phase C proof and production GCS restore are its own evidence;
+they do not constitute CY Web backup/restore acceptance. The production recovery
+entrypoint gap above remains explicit.
+
+
+### Read-only protected GCS configuration check
+
+After adding the Web service-account JSON Secret and GCS bucket variable to the
+existing deployment Environment, Work can test them without deploying or enabling
+backup: dispatch `development-deploy.yml` from **main**, operation **audit-backup**.
+The audit is a separate main-only job; it cannot enter the deployment job or access
+Cloudflare credentials. It validates the JSON/RSA format and uses the existing
+GCS provider JWT flow to call bucket `iam/testPermissions` for object create/get/
+list/delete. No object content is read, no object is written/deleted, no SQL runs,
+and no schedules or Worker settings change.
+
+The report contains binding-presence booleans, `gcsAccessVerified`,
+`manualConfigurationReady`, backup/schedule opt-in booleans and stable codes only.
+`gcsAccessVerified=true` confirms this credential's required bucket permissions;
+it does not prove a paired backup, restore or enabled schedule. Missing R2 or
+manual-backup inputs remain visible even when the GCS check passes. Protected
+credential files are mode0600 in a private temporary folder and removed in finally.
+
+Resolved bucket inputs cross a reusable-workflow Secret boundary before use, so
+GitHub runner env summaries mask resource identifiers as well as the JSON Secret.
+The input-resolution job emits no values into shell scripts or logs.
