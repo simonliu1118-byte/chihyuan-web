@@ -100,6 +100,10 @@ export function renderDeployConfig({
     const gcsBucket = requireValue(env, "GCS_BUCKET");
     if (!/^[a-z0-9][a-z0-9_-]{1,61}[a-z0-9]$/.test(gcsBucket)) throw new Error("Invalid backup GCS bucket");
     const config = JSON.parse(rendered);
+    const recoveryId = requireValue(env, "CF_RECOVERY_D1_DATABASE_ID"), recoveryName = requireValue(env, "CF_RECOVERY_D1_DATABASE_NAME");
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(recoveryId)
+      || recoveryId.toLowerCase() === values.CF_D1_DATABASE_ID.toLowerCase() || !/^[a-z0-9][a-z0-9_-]{1,62}$/i.test(recoveryName)) throw new Error("Invalid isolated recovery target");
+    config.d1_databases.push({ binding: "RECOVERY_DB", database_id: recoveryId, database_name: recoveryName, migrations_dir: "migrations" });
     config.r2_buckets = [{ binding: "BACKUP_R2", bucket_name: bucket }];
     config.vars.BACKUP_ENABLED = "true";
     config.vars.GCS_BUCKET = gcsBucket;

@@ -4,9 +4,9 @@ import { exportPortableBackup, storeVerifiedCopy, type BackupStorageProvider } f
 function assert(value: unknown, code: string): asserts value { if (!value) throw new Error(code); }
 export async function acceptTieredBackup(db: D1Database, bucket: R2Bucket): Promise<void> {
   const r2 = new R2BackupProvider(bucket), objects = new Map<string, Uint8Array>();
-  let fail = true;
+  let fail = true, failureCode = "Synthetic private provider detail";
   const gcs: BackupStorageProvider = {
-    async putObject(key, bytes) { if (fail) throw new Error("Synthetic outage"); objects.set(key, bytes.slice()); },
+    async putObject(key, bytes) { if (fail) throw new Error(failureCode); objects.set(key, bytes.slice()); },
     async getObject(key) { return objects.get(key)?.slice() ?? null; },
     async listObjects(prefix) { return [...objects].filter(([key]) => key.startsWith(prefix)).map(([key, bytes]) => ({ key, byteSize: bytes.length, versionToken: "synthetic" })); },
     async deleteObject(key) { objects.delete(key); },
@@ -22,6 +22,11 @@ export async function acceptTieredBackup(db: D1Database, bucket: R2Bucket): Prom
     && rows.results.some(r => r.provider_code === "gcs" && r.status_code === "failed"), "ACCEPT_BACKUP_PARTIAL_PROVIDER_STATE");
   const partial = (await service.list()).sets.find(row => row.backupId === oldId);
   assert(partial?.copies.length === 2 && partial.canRetry && partial.status === "verified", "ACCEPT_BACKUP_GROUPED_PARTIAL_HISTORY");
+  assert(partial.copies.find(copy => copy.provider === "gcs")?.errorCode === "BACKUP_COPY_FAILED", "ACCEPT_BACKUP_PROVIDER_DETAIL_LEAKED");
+  failureCode = "BACKUP_GCS_UPLOAD_DENIED";
+  await service.retry(oldId, { ...context, requestId: "synthetic-diagnostic-retry" });
+  assert((await service.list()).sets.find(row => row.backupId === oldId)?.copies.find(copy => copy.provider === "gcs")?.errorCode === failureCode,
+    "ACCEPT_BACKUP_STABLE_DIAGNOSTIC_LOST");
   const oldPrefix = `cyweb/${oldId}/`, original = await r2.getObject(oldPrefix + "data.json");
   assert(original, "ACCEPT_BACKUP_R2_READBACK");
   // Exercise actual R2 conditional create/read-back and collision rejection.

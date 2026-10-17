@@ -1,4 +1,4 @@
-// App-owned portable snapshot foundation. No public restore route or live overwrite.
+// App-owned portable snapshot foundation. Guarded isolated rehearsal only; no live overwrite.
 import { BACKUP_COLUMNS } from "./schema-columns";
 export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
 // Operational queue, heartbeat and revocable credential hashes are intentionally
@@ -148,7 +148,7 @@ export async function storeVerifiedCopy(provider: BackupStorageProvider, bundle:
   await verifyPortableBackup({ manifestBytes, dataBytes }, workspaceScope);
 }
 // Internal fresh-database recovery primitive. Caller owns authorization, target isolation
-// and confirmation. This module is deliberately absent from production HTTP routes.
+// and confirmation. Production access is through the guarded backup rehearsal route.
 export async function validateEmptyBackupTarget(db: D1Database, bundle: PortableBackup, workspaceScope: string): Promise<{ manifest: Manifest; data: Data }> {
   const { manifest, data } = await verifyPortableBackup(bundle, workspaceScope);
   const target = await layout(db);

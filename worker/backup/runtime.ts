@@ -8,6 +8,7 @@ export interface BackupRuntimeEnv extends IdentityRuntimeEnv {
   BACKUP_R2?: R2Bucket;
   GCS_BUCKET?: string;
   GCS_SERVICE_ACCOUNT_JSON?: string;
+  RECOVERY_DB?: D1Database;
 }
 export function backupService(env: BackupRuntimeEnv): BackupService | null {
   if (env.BACKUP_ENABLED !== "true" || !env.BACKUP_R2 || !env.GCS_BUCKET || !env.GCS_SERVICE_ACCOUNT_JSON

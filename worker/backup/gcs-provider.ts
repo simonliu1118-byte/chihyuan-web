@@ -81,7 +81,18 @@ export class GCSBackupProvider implements BackupStorageProvider {
     const response = await this.api(`/upload/storage/v1/b/${encodeURIComponent(this.bucket)}/o?${query}`, {
       method: "POST", headers: { "content-type": "application/json" }, body: bytes });
     if (response.status === 412) storageCheck(equalBytes(await this.getObject(key), bytes), "BACKUP_STORAGE_COLLISION");
-    else storageCheck(response.status >= 200 && response.status < 300, "BACKUP_GCS_UPLOAD_FAILED");
+    else if (response.status < 200 || response.status >= 300) {
+      // Persist only a fixed diagnostic vocabulary, never provider messages,
+      // URLs, bucket names, account metadata or credential material.
+      let reason = "";
+      try {
+        const payload = JSON.parse(new TextDecoder().decode(response.bytes));
+        const reasons = payload?.error?.errors;
+        if (Array.isArray(reasons) && reasons.some(error => ["accountDisabled", "billingNotEnabled", "userProjectMissing"].includes(error?.reason))) reason = "BILLING";
+      } catch {}
+      throw new Error(reason === "BILLING" ? "BACKUP_GCS_UPLOAD_BILLING_REQUIRED" : response.status === 403
+        ? "BACKUP_GCS_UPLOAD_DENIED" : response.status === 404 ? "BACKUP_GCS_BUCKET_UNAVAILABLE" : "BACKUP_GCS_UPLOAD_FAILED");
+    }
   }
   async getObject(key: string): Promise<Uint8Array | null> {
     const response = await this.api(this.objectPath(key) + "?alt=media", { method: "GET" }, MAX_OBJECT_BYTES);

@@ -93,6 +93,13 @@ test("GCS deadline covers stalled body and errors reveal no credential/provider 
   const authFailure = new GCSBackupProvider("synthetic-test-bucket", account, async () => new Response("PRIVATE-PROVIDER-DETAIL", { status: 401 }));
   await assert.rejects(authFailure.getObject(key), /^Error: BACKUP_GCS_AUTH_FAILED$/);
 });
+test("GCS upload diagnostics allow only stable billing/denied/missing codes and discard provider details", async () => {
+  for (const [status, reason, expected] of [[403, "billingNotEnabled", "BILLING_REQUIRED"], [403, "forbidden", "DENIED"],
+    [404, "notFound", "BUCKET_UNAVAILABLE"], [500, "secret-provider-detail", "UPLOAD_FAILED"]]) {
+    const provider = gcs(() => Response.json({ error: { message: "PRIVATE-PROVIDER-DETAIL", errors: [{ reason }] } }, { status })).provider;
+    await assert.rejects(provider.putObject(key, bytes), error => error.message === (expected === "BUCKET_UNAVAILABLE" ? "BACKUP_GCS_BUCKET_UNAVAILABLE" : `BACKUP_GCS_UPLOAD_${expected.replace("UPLOAD_", "")}`));
+  }
+});
 test("read-only GCS readiness requires all object permissions without touching objects", async () => {
   const required = ["storage.objects.create", "storage.objects.get", "storage.objects.list", "storage.objects.delete"];
   for (const granted of [required, required.slice(0, 3)]) {

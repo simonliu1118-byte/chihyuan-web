@@ -8,6 +8,8 @@ on:
       - "worker/**"
       - "migrations/**"
       - "scripts/render-deploy-config.mjs"
+      - "scripts/provision-backup-recovery.mjs"
+      - "scripts/provision-backup-recovery.test.mjs"
       - "scripts/resolve-production-identity.mjs"
       - "scripts/audit-account-portal.mjs"
       - "scripts/audit-account-portal.test.mjs"
@@ -74,6 +76,7 @@ jobs:
       - name: Validate deployment template contract
         run: |
           node scripts/validate-deploy-config.mjs
+          node --test scripts/provision-backup-recovery.test.mjs
           node --test scripts/test-deployed-health.mjs scripts/program-schedule-deployment.test.mjs scripts/deployment-source.test.mjs
 
       - name: Test HTTPS entry and deployed transport checks
@@ -195,9 +198,6 @@ jobs:
       - name: Resolve canonical production Identity without changing business D1
         run: node scripts/resolve-production-identity.mjs
 
-      - name: Render existing Worker deployment config
-        run: node scripts/render-deploy-config.mjs --output wrangler.development.generated.jsonc
-
       - name: Validate and prepare protected backup credential
         env:
           GCS_SERVICE_ACCOUNT_JSON: ${{ secrets.GCS_SERVICE_ACCOUNT_JSON }}
@@ -205,6 +205,12 @@ jobs:
 
       - name: Verify current reviewed main before remote changes
         run: node scripts/verify-deployment-source.mjs
+
+      - name: Prepare fixed isolated recovery target without overwriting data
+        run: node scripts/provision-backup-recovery.mjs
+
+      - name: Render existing Worker deployment config
+        run: node scripts/render-deploy-config.mjs --output wrangler.development.generated.jsonc
 
       - name: Apply development D1 migrations
         run: npx wrangler d1 migrations apply DB --remote --config wrangler.development.generated.jsonc

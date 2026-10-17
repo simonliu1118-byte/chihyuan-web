@@ -56,8 +56,9 @@ try {
   if (config.vars?.IDENTITY_CONSUMER_VERSION !== fs.readFileSync(new URL("../CYID_CONSUMER_VERSION", import.meta.url), "utf8").trim()) throw new Error("consumer declaration missing from deployed health marker");
   if (/__CF_[A-Z0-9_]+__/.test(raw)) throw new Error("unresolved placeholder remains");
   if (config.triggers?.crons?.join() !== "0 19 * * *" || config.r2_buckets || config.vars.BACKUP_ENABLED) throw new Error("catalog schedule or backup opt-in mismatch");
-  renderDeployConfig({ env: { ...env, CF_BACKUP_ENABLED: "true", CF_BACKUP_R2_BUCKET: "cyweb-ci-backup", GCS_BUCKET: "cyweb-ci-gcs" }, outputPath: output });
+  renderDeployConfig({ env: { ...env, CF_BACKUP_ENABLED: "true", CF_BACKUP_R2_BUCKET: "cyweb-ci-backup", GCS_BUCKET: "cyweb-ci-gcs", CF_RECOVERY_D1_DATABASE_ID: "22222222-2222-4222-8222-222222222222", CF_RECOVERY_D1_DATABASE_NAME: "cyweb-ci-recovery" }, outputPath: output });
   const enabled = JSON.parse(fs.readFileSync(output, "utf8"));
+  if (enabled.d1_databases?.[1]?.binding !== "RECOVERY_DB" || enabled.d1_databases[1].database_id === env.CF_D1_DATABASE_ID) throw new Error("recovery isolation mismatch");
   if (enabled.r2_buckets?.[0]?.binding !== "BACKUP_R2" || enabled.vars.BACKUP_ENABLED !== "true"
     || enabled.vars.GCS_BUCKET !== "cyweb-ci-gcs" || enabled.vars.BACKUP_SCHEDULE_ENABLED !== "false"
     || enabled.triggers?.crons?.join() !== "0 19 * * *") throw new Error("backup opt-in contract mismatch");
@@ -65,13 +66,16 @@ try {
   try { renderDeployConfig({ env: { ...env, CF_BACKUP_ENABLED: "true" }, outputPath: output }); } catch { backupRejected = true; }
   if (!backupRejected) throw new Error("backup enabled without bucket");
 
-  const manualEnv = { ...env, CF_BACKUP_ENABLED: "true", CF_BACKUP_R2_BUCKET: "cyweb-ci-backup", GCS_BUCKET: "cyweb-ci-gcs" };
+  const manualEnv = { ...env, CF_BACKUP_ENABLED: "true", CF_BACKUP_R2_BUCKET: "cyweb-ci-backup", GCS_BUCKET: "cyweb-ci-gcs", CF_RECOVERY_D1_DATABASE_ID: "22222222-2222-4222-8222-222222222222", CF_RECOVERY_D1_DATABASE_NAME: "cyweb-ci-recovery" };
   renderDeployConfig({ env: { ...manualEnv, CF_BACKUP_SCHEDULE_ENABLED: "true" }, outputPath: output });
   const scheduled = JSON.parse(fs.readFileSync(output, "utf8"));
   if (scheduled.vars.BACKUP_SCHEDULE_ENABLED !== "true" || scheduled.triggers.crons.join() !== "0 19 * * *,30 19 * * *") throw new Error("schedule opt-in mismatch");
   for (const invalid of [
     { ...env, CF_BACKUP_SCHEDULE_ENABLED: "true" },
     { ...manualEnv, CF_BACKUP_SCHEDULE_ENABLED: "yes" },
+    { ...manualEnv, CF_RECOVERY_D1_DATABASE_ID: env.CF_D1_DATABASE_ID },
+    { ...manualEnv, CF_RECOVERY_D1_DATABASE_ID: "" },
+    { ...manualEnv, CF_RECOVERY_D1_DATABASE_NAME: "invalid\nINJECT=true" },
     { ...manualEnv, GCS_BUCKET: "" },
     { ...manualEnv, GCS_BUCKET: "https://invalid" },
   ]) {

@@ -14,3 +14,11 @@
 @media(max-width:640px){.cy-backup-policy{display:grid;gap:.55rem}.cy-backup-history .cy-data-card{display:grid;gap:.7rem}.cy-backup-card-footer{flex-wrap:wrap}}
 
 .cy-backup-actions .cy-op-button:disabled,.cy-backup-history .cy-op-button:disabled{background:#eef1f4;border-color:#d7dfe5;color:#7a8893;cursor:not-allowed}
+.cy-backup-rehearsal { display: grid; gap: 1rem; }
+.cy-backup-rehearsal p { margin: 0; }
+.cy-backup-rehearsal label { display: grid; gap: .5rem; }
+.cy-backup-rehearsal label:has(input[type="checkbox"]) { display: flex; align-items: center; }
+.cy-backup-rehearsal input:not([type="checkbox"]), .cy-backup-rehearsal select {
+  font: inherit; color: var(--cy-text, inherit); background: var(--cy-surface, inherit);
+  padding: .6rem; border: 1px solid var(--cy-border, currentColor); border-radius: .4rem;
+}
