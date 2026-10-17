@@ -1,3 +1,4 @@
+import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { FormEvent, useEffect, useId, useMemo, useState } from "react";
 import { Dialog } from "../../ui/overlays/Dialog";
@@ -517,12 +518,9 @@ export function WorkLogOperationalPage() {
             onChange={event => setReasonDraft({ ...reasonDraft, reason: event.target.value })} /></label>
         </form> : null}
       </Dialog>
-      <div className="cy-op-page-header">
-        
-        <div className="cy-op-page-actions">
+      <PagePrimaryActions>
           <button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增日誌</button>
-        </div>
-      </div>
+        </PagePrimaryActions>
 
       {message ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-body">{message}</div></div> : null}
 
