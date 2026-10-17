@@ -93,6 +93,19 @@ test("GCS deadline covers stalled body and errors reveal no credential/provider 
   const authFailure = new GCSBackupProvider("synthetic-test-bucket", account, async () => new Response("PRIVATE-PROVIDER-DETAIL", { status: 401 }));
   await assert.rejects(authFailure.getObject(key), /^Error: BACKUP_GCS_AUTH_FAILED$/);
 });
+test("read-only GCS readiness requires all object permissions without touching objects", async () => {
+  const required = ["storage.objects.create", "storage.objects.get", "storage.objects.list", "storage.objects.delete"];
+  for (const granted of [required, required.slice(0, 3)]) {
+    const { provider } = gcs((url, init) => {
+      assert.equal(init.method, "GET");
+      assert.ok(url.pathname.endsWith("/iam/testPermissions"));
+      assert.deepEqual(url.searchParams.getAll("permissions"), required);
+      return Response.json({ permissions: granted });
+    });
+    if (granted.length === required.length) await provider.verifyAccess();
+    else await assert.rejects(provider.verifyAccess(), /BACKUP_GCS_PERMISSIONS_MISSING/);
+  }
+});
 test("R2 conditional create, byte collision and immutable generation guard", async () => {
   let content = null, deletes = 0;
   const provider = new R2BackupProvider({

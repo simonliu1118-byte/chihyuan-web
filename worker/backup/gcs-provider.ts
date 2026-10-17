@@ -63,6 +63,17 @@ export class GCSBackupProvider implements BackupStorageProvider {
     return this.request(API + path, { ...init, headers: { ...init.headers, authorization: `Bearer ${token}` } }, limit);
   }
   private objectPath(key: string): string { objectKey(key); return `/storage/v1/b/${encodeURIComponent(this.bucket)}/o/${encodeURIComponent(key)}`; }
+  /** Read-only IAM probe. This does not create, read or delete backup objects. */
+  async verifyAccess(): Promise<void> {
+    const required = ["storage.objects.create", "storage.objects.get", "storage.objects.list", "storage.objects.delete"];
+    const query = new URLSearchParams(required.map(permission => ["permissions", permission]));
+    const response = await this.api(`/storage/v1/b/${encodeURIComponent(this.bucket)}/iam/testPermissions?${query}`, { method: "GET" });
+    storageCheck(response.status === 200, "BACKUP_GCS_PERMISSION_CHECK_FAILED");
+    let body: { permissions?: unknown };
+    try { body = JSON.parse(new TextDecoder().decode(response.bytes)); } catch { throw new Error("BACKUP_GCS_PERMISSION_CHECK_FAILED"); }
+    const permissions = body?.permissions;
+    storageCheck(Array.isArray(permissions) && required.every(permission => permissions.includes(permission)), "BACKUP_GCS_PERMISSIONS_MISSING");
+  }
   async putObject(key: string, bytes: Uint8Array): Promise<void> {
     objectKey(key);
     storageCheck(bytes.byteLength <= MAX_OBJECT_BYTES, "BACKUP_STORAGE_CAPACITY_EXCEEDED");

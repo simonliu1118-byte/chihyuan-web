@@ -2,9 +2,15 @@
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
 
+## 新 GCS 憑證驗證 — 2026-10-18
+
+- 使用者已回報在既有 development Environment 新增Web專用GCS JSON Secret與bucket變數；以main-only `audit-backup` dispatch實際驗證，不能只看設定存在。
+- 新增只讀JSON／JWT／bucket IAM驗證：不讀寫object、不執行SQL、不部署、不開排程；僅輸出綁定存在boolean／required permission結果與stable code。GCS驗證成功與manual inputs／schedule是否啟用分開。
+- [ ] PR CI及main合併後執行protected audit，確認新key／GCS權限；再接續Web自己的雙副本與隔離還原驗收。
+
 ## Phase D 備份上線準備 — 2026-10-17
 
-- Source **0.8.3 Build 0**：參考 CYACC 已啟用的 Phase D；原排程維持台灣 03:30、R2 每日30天／GCS週三週日182天，手動及還原前雙副本。移除 R2 複製失敗便停止的短路，讓跨雲副本獨立嘗試並保留原單次匯出／驗證／失敗稽核；補 GCS-only 成功提示。
+- Source **0.8.4 Build 0**（同步 main 的獨立0.8.3介面工作後，避免重複版本）：參考 CYACC 已啟用的 Phase D；原排程維持台灣 03:30、R2 每日30天／GCS週三週日182天，手動及還原前雙副本。移除 R2 複製失敗便停止的短路，讓跨雲副本獨立嘗試並保留原單次匯出／驗證／失敗稽核；補 GCS-only 成功提示。
 - [x] 新增 actual Worker＋D1 故障回歸先在舊 source 重現 `ACCEPT_BACKUP_R2_OUTAGE_BLOCKED_GCS`；修正後17組驗收通過，含手動／還原前／週三排程的 R2 故障仍完成 GCS、R2-only 日不多跑 GCS，以及雙 provider 失敗不誤報成功。
 - [x] 使用者已提供專用 Web GCS bucket 畫面；資源真名僅保留於受保護工作區。CYACC 目前 active240，具有 R2／GCS／RECOVERY_DB／通知 bindings；其已完成 Phase D 及正式 GCS 還原證據沿用原交接，不重新驗收或改動 CYACC。
 - [ ] 受保護部署輸入：確認 Web GCS service-account Secret 設定位置、bucket IAM／lifecycle、既有 Web R2 owner。GitHub Secret 名稱API仍403，不能據此斷言 Secret 不存在或讀出其他 App 憑證。

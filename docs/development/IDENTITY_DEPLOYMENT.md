@@ -387,7 +387,7 @@ CYACC's accepted Phase D rollout is the operational reference: R2 daily at
 CY Web already implements this schedule and retention in its own BackupService;
 its backups, catalog and restore mappings remain application-specific.
 
-Version 0.8.3 removes the R2 failure short-circuit: a failed R2 write is recorded
+Version 0.8.4 removes the R2 failure short-circuit: a failed R2 write is recorded
 without suppressing the GCS attempt when GCS is due. Both providers still use the
 same single-export bytes and independently verify their copies. A GCS-only
 success is available to the existing verified-reader fallback; it does not satisfy
@@ -408,3 +408,22 @@ paired copy verification and isolated restore remain activation prerequisites.
 CYACC's prior 14-run Phase C proof and production GCS restore are its own evidence;
 they do not constitute CY Web backup/restore acceptance. The production recovery
 entrypoint gap above remains explicit.
+
+
+### Read-only protected GCS configuration check
+
+After adding the Web service-account JSON Secret and GCS bucket variable to the
+existing deployment Environment, Work can test them without deploying or enabling
+backup: dispatch `development-deploy.yml` from **main**, operation **audit-backup**.
+The audit is a separate main-only job; it cannot enter the deployment job or access
+Cloudflare credentials. It validates the JSON/RSA format and uses the existing
+GCS provider JWT flow to call bucket `iam/testPermissions` for object create/get/
+list/delete. No object content is read, no object is written/deleted, no SQL runs,
+and no schedules or Worker settings change.
+
+The report contains binding-presence booleans, `gcsAccessVerified`,
+`manualConfigurationReady`, backup/schedule opt-in booleans and stable codes only.
+`gcsAccessVerified=true` confirms this credential's required bucket permissions;
+it does not prove a paired backup, restore or enabled schedule. Missing R2 or
+manual-backup inputs remain visible even when the GCS check passes. Protected
+credential files are mode0600 in a private temporary folder and removed in finally.
