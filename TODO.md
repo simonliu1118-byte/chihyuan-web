@@ -8,6 +8,12 @@
 - 新增只讀JSON／JWT／bucket IAM驗證：不讀寫object、不執行SQL、不部署、不開排程；僅輸出綁定存在boolean／required permission結果與stable code。GCS驗證成功與manual inputs／schedule是否啟用分開。
 - [ ] PR CI及main合併後執行protected audit，確認新key／GCS權限；再接續Web自己的雙副本與隔離還原驗收。
 
+## GCS 真實 Worker 傳輸返修 — 0.8.7 Build1
+
+- 真實manual R2已verified、GCS failed後，以actual workerd重現兩個Node mock看不到的原因：儲存bare fetch再以this.send()呼叫，native fetch的this錯誤，在送出Google請求前Illegal invocation；修正receiver後另重現workerd只支援manual/follow，不支援redirect=error。
+- 改預設sender以globalThis.fetch呼叫；redirect=manual且顯式拒絕全部3xx，固定JWT／GCS端點、credentials不跟址、逾時／bytes界線保持。新增actual workerd default nativefetch／WebCrypto regression，模擬Google JWT→IAM→immutable upload→exact readback，另驗OAuth轉址只發一次、不送第二站；兩個CI都執行。合成key僅process memory，未使用正式key或資料。
+- [ ] 本機／review／遠端CI與授權發布後，原事件「重試GCS」必須實測雙verified，才執行真人隔離還原；排程維持false。本次是同一未成功備份項目的返修，依規則不再升Z。
+
 ## 隔離還原入口與手動備份部署 — 2026-10-18（Asia/Taipei）
 
 - Source **0.8.7 Build0**：基於 Claude 已合併的0.8.6畫面／記住我修正，補既有 SUPER_ADMIN 備份頁的隔離還原確認視窗、同源／嚴格JSON API與固定 `RECOVERY_DB`；可明確指定 GCS，不以健康 R2 的讀取代替 GCS 還原。GCS失敗只持久化固定allowlist診斷（auth／request／upload billing或denied／read／integrity），未知例外一律泛化；不保存provider原文。沿用單一 BackupService／portable restore／Audit owner，既有雙端安全副本、空白與同批次寫入再檢查、schema／Workspace／bytes核對不變。
@@ -15,7 +21,7 @@
 - [x] GCS只讀audit [39056878172](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39056878172) 通過真實新key與四項object權限驗證；沒有存取備份內容。使用者已設定R2、手動啟用true、排程false三變數。
 - [x] 舊source發布 [39057334816](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39057334816) 被 current-main guard 攔下，無遠端變更；改採最新main `b474f046073461a189aecc6fd8f150bb62a29875` 的 [39057509990](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39057509990) **success**，live **0.8.6／consumer1.0.5／active69／100%**。原主D1／正式Identity保持，R2與GCS Secret已綁定，`BACKUP_ENABLED=true`、`BACKUP_SCHEDULE_ENABLED=false`，全部部署health／HTTPS／portal gates通過。
 - [x] 本機128 Node、14 migrations／17 actual Worker＋D1 checks（含chunked限量、GCS明確選取、同事件安全診斷／未知機密錯誤泛化）、Browser／Worker TypeScript、source、build、deploy config、actionlint／Governance及獨立source review通過；Chromium1280／390雙確認、預設GCS、busy不能關閉、單次執行／成功後refresh驗收無錯誤。
-- [ ] 0.8.7遠端CI／受控發布；目前live仍為上列0.8.6手動模式，尚未有production隔離還原入口。
+- [x] [#187](https://github.com/simonliu1118-byte/chihyuan-web/pull/187) head `8837348025e80d26ec71dc19cea04c2b673de7e6` 的遠端Runtime／部署合約／Governance均success，合併 `8cca0379a13b7392a1af6bcd0e3b91c3c4ab442a`；[39058390526](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39058390526) 發布success。live **0.8.7／active70／100%**，固定獨立RECOVERY_DB已建立／遷移／綁定，與主D1不同ID；主D1／Identity相同，manual=true、schedule=false。
 - [ ] 真人 SUPER_ADMIN 建立真實雙端verified備份，再從GCS完成隔離還原與安全備份／reconciliation／Audit核對；成功後才設定schedule=true並另行部署、觀察真實排程。使用者已於台灣02:23:27建立真實manual事件：97筆／33,064 bytes，R2 verified、GCS failed；aggregate catalog回讀一致，舊碼僅記BACKUP_COPY_FAILED。保留同一事件與R2副本，補安全診斷後走既有GCS retry，不建立第二筆來掩蓋失敗。
 
 ## Phase D 備份上線準備 — 2026-10-17（歷史準備；目前狀態見上節）

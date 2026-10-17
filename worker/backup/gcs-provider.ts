@@ -13,7 +13,9 @@ function base64url(bytes: Uint8Array): string {
 export class GCSBackupProvider implements BackupStorageProvider {
   private token: { value: string; expires: number } | null = null;
   constructor(private readonly bucket: string, private readonly serviceAccountJson: string,
-    private readonly send: typeof fetch = fetch, private readonly timeoutMs = 10000) {
+    // Workers' native fetch requires the global receiver. A stored bare fetch
+    // called as this.send() throws before any outbound request in workerd.
+    private readonly send: typeof fetch = (input, init) => globalThis.fetch(input, init), private readonly timeoutMs = 10000) {
     storageCheck(/^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$/.test(bucket), "BACKUP_GCS_CONFIG_INVALID");
   }
   /** One attempt, bounded headers + body, fixed endpoints and no redirects. */
@@ -23,7 +25,12 @@ export class GCSBackupProvider implements BackupStorageProvider {
     try {
       return await Promise.race([
         (async () => {
-          const response = await this.send(url, { ...init, redirect: "error", signal: controller.signal });
+          // workerd accepts manual/follow only. Refuse redirects explicitly so
+          // neither JWT assertions nor bearer tokens reach another endpoint.
+          const response = await this.send(url, { ...init, redirect: "manual", signal: controller.signal });
+          if (response.status >= 300 && response.status < 400) {
+            await response.body?.cancel(); throw new Error("BACKUP_GCS_REDIRECT_REJECTED");
+          }
           return { status: response.status, bytes: await boundedBytes(response.body, limit) };
         })(),
         new Promise<never>((_, reject) => { timer = setTimeout(() => {
