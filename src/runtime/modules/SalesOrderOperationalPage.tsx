@@ -1,3 +1,4 @@
+import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -436,17 +437,15 @@ export function SalesOrderOperationalPage() {
 
   return (
     <div className="cy-order-op">
-      <div className="cy-op-page-header">
-        
-        <div className="cy-op-page-actions">
+      <PagePrimaryActions>
           <button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增工單</button>
-        </div>
-      </div>
+        </PagePrimaryActions>
 
       {message ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-body">{message}</div></div> : null}
 
       <div className="cy-op-split">
-        <section className="cy-op-panel cy-op-list-panel">
+        <section className="cy-op-panel cy-op-list-panel cy-order-list-panel">
+          <div className="cy-order-list-title"><strong>工單列表</strong><span>共 {rows.length} 筆</span></div>
           <input className="cy-op-input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋工單、ERP 單號、客戶" />
           <select className="cy-op-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
             <option value="">全部狀態</option>

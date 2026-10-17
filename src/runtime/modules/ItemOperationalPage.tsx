@@ -1,3 +1,4 @@
+import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -434,10 +435,7 @@ export function ItemOperationalPage() {
   }
 
   return <div className="cy-item-op">
-    <div className="cy-op-page-header">
-      
-      <div className="cy-op-page-actions"><button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增商品</button></div>
-    </div>
+    <PagePrimaryActions><button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增商品</button></PagePrimaryActions>
 
     {message ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-body">{message}</div></div> : null}
 

@@ -1,3 +1,4 @@
+import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -502,10 +503,7 @@ export function OutsourcingOperationalPage() {
 
   return (
     <div className="cy-outsourcing-op">
-      <div className="cy-op-page-header">
-        
-        {tab === "orders" ? <div className="cy-op-page-actions"><button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增代工單</button></div> : null}
-      </div>
+      {tab === "orders" ? <PagePrimaryActions><button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增代工單</button></PagePrimaryActions> : null}
       {message ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-body">{message}</div></div> : null}
 
       <div className="cy-op-tabs">

@@ -1,3 +1,4 @@
+import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -397,12 +398,9 @@ export function DefectOperationalPage() {
 
   return (
     <div className="cy-defect-op">
-      <div className="cy-op-page-header">
-        
-        <div className="cy-op-page-actions">
+      <PagePrimaryActions>
           <button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增瑕疵</button>
-        </div>
-      </div>
+        </PagePrimaryActions>
 
       {message ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-body">{message}</div></div> : null}
 

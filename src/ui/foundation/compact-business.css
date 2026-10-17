@@ -389,3 +389,121 @@ button:disabled, a[aria-disabled="true"] { cursor: not-allowed; }
   .cy-op-panel, .cy-section-content { padding: 11px; }
   .cy-dialog-body { padding: 12px; }
 }
+
+
+/* UI acceptance correction: module actions belong to the shared page title row. */
+.cy-workspace-intro{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:56px;margin-bottom:12px}
+.cy-workspace-heading-copy{min-width:0}
+.cy-page-primary-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto}
+.cy-page-primary-actions:empty{display:none}
+.cy-page-primary-actions .cy-op-page-actions{display:flex;align-items:center;gap:7px;margin:0}
+.cy-page-primary-actions .cy-op-button{min-height:33px;padding:5px 12px;white-space:nowrap}
+.cy-page-primary-actions .cy-op-button.primary::before{content:"+";font-size:15px;font-weight:500;margin-right:5px}
+.cy-shell-main{padding-top:14px}
+.cy-op-split{gap:12px}
+.cy-op-list-panel .cy-op-input{margin-bottom:6px}
+.cy-op-panel h2{font-size:14px}
+
+/* Customer workspace: reduce vertical voids; keep the existing CRUD and related-record flows. */
+.cy-customer-list-heading{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--cy-border);background:var(--cy-surface);font-size:13px;color:var(--cy-text)}
+.cy-customer-list-heading span{font-size:11px;color:var(--cy-text-muted)}
+.cy-customer-search-controls{padding:12px 14px}
+.cy-customer-workspace{gap:12px;grid-template-columns:minmax(280px,350px) minmax(0,1fr)}
+.cy-customer-search-pane,.cy-customer-detail-pane{min-height:0}
+.cy-customer-detail-header{padding:13px 14px 11px;margin:0;align-items:center}
+.cy-customer-detail-header h2{font-size:17px}
+.cy-customer-detail-header p{margin-top:4px}
+.cy-customer-action-stack{display:flex;width:auto}
+.cy-customer-action-stack .cy-op-button{min-height:32px}
+.cy-customer-detail-body{display:flex;flex-direction:column;padding:0}
+.cy-customer-related{display:contents}
+.cy-customer-related-tabs{order:-1;background:var(--cy-surface);padding:0 9px;border-bottom:1px solid var(--cy-border)}
+.cy-customer-related-tabs button{padding:9px 12px;border:0;font-weight:650}
+.cy-customer-profile-grid{order:0;padding:12px;gap:10px;align-items:start}
+.cy-customer-info-card{min-height:0;padding:11px 12px}
+.cy-customer-info-list{gap:9px}
+.cy-customer-info-card:first-child .cy-customer-info-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 12px}
+.cy-customer-info>span{font-size:11px;margin-bottom:2px}
+.cy-customer-info>strong{font-size:12px}
+.cy-customer-related-content{order:1;margin:0 12px 12px;padding:12px;border:1px solid var(--cy-border);border-radius:9px;background:var(--cy-surface)}
+.cy-customer-result-list{max-height:min(65vh,760px)}
+.cy-customer-result-row{grid-template-columns:minmax(0,1fr) 56px 68px}
+.cy-customer-number-row{align-items:center}
+.cy-customer-info-card,.cy-customer-related-content{box-shadow:none}
+
+/* Split login layout from the approved preview, with account-only remember-me. */
+.cy-auth-login-screen{display:grid;position:relative;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;gap:0;padding:0;min-height:100dvh;background:linear-gradient(90deg,var(--cy-surface-muted) 50%,var(--cy-bg) 50%)}
+.cy-auth-login-brand{grid-column:1;grid-row:1;display:flex;align-items:center;gap:10px;justify-self:start;padding:30px 0 0 clamp(25px,4.5vw,66px);color:var(--cy-text)}
+.cy-auth-login-brand .cy-auth-brand-mark{width:33px;height:33px;border-radius:9px;font-size:11px}
+.cy-auth-login-brand span:last-child{display:grid;gap:2px}
+.cy-auth-login-brand strong{font-size:14px}
+.cy-auth-login-brand small{font-size:11px;color:var(--cy-text-muted)}
+.cy-auth-login-hero{grid-column:1;grid-row:2;align-self:center;justify-self:center;width:min(78%,500px);color:var(--cy-text)}
+.cy-auth-login-hero h2{font-size:clamp(27px,3.4vw,42px);line-height:1.26;font-weight:800;margin:0 0 20px;letter-spacing:-.025em}
+.cy-auth-login-hero h2 strong{display:block;color:#5552cd}
+:root[data-cy-theme="dark"] .cy-auth-login-hero h2 strong{color:var(--cy-accent)}
+.cy-auth-login-hero p{font-size:14px;line-height:1.7;color:var(--cy-text-muted);margin:0}
+.cy-auth-hero-bars{margin-top:44px;display:grid;gap:8px}
+.cy-auth-hero-bars span{display:block;background:var(--cy-border);height:9px;border-radius:20px;width:78%}
+.cy-auth-hero-bars span:nth-child(2){background:var(--cy-accent-soft);width:66%}
+.cy-auth-hero-bars span:nth-child(3){width:48%}
+.cy-auth-login-screen>.cy-auth-card{grid-column:2;grid-row:2;align-self:center;justify-self:center;width:min(400px,calc(100% - 64px));padding:33px 35px;box-shadow:none}
+.cy-auth-login-screen .cy-auth-heading{display:grid;gap:13px;margin-bottom:18px}
+.cy-auth-login-screen .cy-auth-heading .cy-auth-brand-mark{width:39px;height:39px}
+.cy-auth-login-screen .cy-auth-heading h1{font-size:23px;line-height:1.25}
+.cy-auth-login-screen .cy-auth-heading p{margin-top:5px;color:var(--cy-text-muted);font-size:12px}
+.cy-auth-login-screen .cy-auth-form{gap:13px}
+.cy-auth-login-screen .cy-auth-form label:not(.cy-auth-remember){font-size:12px;font-weight:650}
+.cy-auth-login-screen .cy-auth-form input:not([type="checkbox"]){min-height:36px;font-size:13px}
+.cy-auth-login-options{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:-3px}
+.cy-auth-login-options .cy-auth-remember{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;color:var(--cy-text-muted);cursor:pointer}
+.cy-auth-login-options .cy-auth-remember input[type="checkbox"]{width:14px;height:14px;margin:0;min-height:0;accent-color:#5552cd;cursor:pointer}
+.cy-auth-login-options .cy-auth-link-button{font-size:12px}
+.cy-auth-login-screen .cy-auth-primary-button{width:100%}
+.cy-auth-login-footnote{margin:-1px 0 0;color:var(--cy-text-muted);font-size:11px;text-align:center}
+.cy-auth-login-footer{grid-column:1;grid-row:3;justify-self:start;margin:0 0 30px clamp(25px,4.5vw,66px);color:var(--cy-text-muted);font-size:11px}
+.cy-auth-login-screen .cy-auth-theme-position{right:22px;top:22px;z-index:1}
+@media(max-width:980px){.cy-auth-login-hero{width:82%}.cy-auth-login-hero h2{font-size:30px}}
+@media(max-width:820px){
+ .cy-page-primary-actions .cy-op-button{min-height:44px}
+ .cy-customer-workspace{grid-template-columns:1fr}
+ .cy-customer-profile-grid{padding:10px;grid-template-columns:1fr}
+ .cy-customer-info-card:first-child .cy-customer-info-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .cy-auth-login-screen{display:flex;flex-direction:column;justify-content:center;padding:74px 16px 28px;background:var(--cy-bg)}
+ .cy-auth-login-brand{position:absolute;top:16px;left:18px;padding:0}
+ .cy-auth-login-hero,.cy-auth-login-footer{display:none}
+ .cy-auth-login-screen>.cy-auth-card{width:min(400px,100%);padding:25px}
+}
+@media(max-width:520px){
+ .cy-workspace-intro{flex-wrap:wrap;align-items:flex-start;gap:10px}
+ .cy-page-primary-actions{margin-left:auto}
+ .cy-customer-info-card:first-child .cy-customer-info-list{grid-template-columns:1fr 1fr}
+ .cy-auth-login-screen>.cy-auth-card{padding:21px}
+ .cy-auth-login-screen .cy-auth-heading h1{font-size:21px}
+}
+
+
+/* Order layout: compact full-width directory above selected detail, as in preview. */
+@media (min-width: 821px) {
+  .cy-order-op > .cy-op-split { display: grid; grid-template-columns: minmax(0,1fr); gap: 12px; }
+  .cy-order-op .cy-order-list-panel { display: grid; grid-template-columns: minmax(0,1fr) 180px;
+    align-items: center; gap: 9px; position: static; }
+  .cy-order-list-title { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between;
+    padding: 1px 0 9px; border-bottom: 1px solid var(--cy-border); font-size: 13px; }
+  .cy-order-list-title span { color: var(--cy-text-muted); font-size: 11px; font-weight: 400; }
+  .cy-order-op .cy-order-list-panel > .cy-op-input { margin: 0; width: 100%; }
+  .cy-order-op .cy-order-list-panel > .cy-op-list { grid-column: 1 / -1; margin: 0;
+    gap: 0; max-height: 400px; border: 1px solid var(--cy-border); border-radius: 8px; overflow: auto; }
+  .cy-order-op .cy-op-list-row { display: grid; grid-template-columns: minmax(140px,.8fr) minmax(0,1.7fr) minmax(150px,.8fr);
+    align-items: center; gap: 10px; min-height: 39px; padding: 8px 11px;
+    border-bottom: 1px solid var(--cy-border); border-radius: 0; }
+  .cy-order-op .cy-op-list-row strong, .cy-order-op .cy-op-list-row span, .cy-order-op .cy-op-list-row small {
+    font-size: 12px; min-width: 0; overflow-wrap: anywhere; }
+  .cy-order-op .cy-op-list-row small { text-align: right; }
+  .cy-order-op .cy-op-list-row:last-child { border-bottom: 0; }
+}
+@media (max-width: 820px) {
+  .cy-order-list-title { display: flex; justify-content: space-between; padding: 0 0 9px;
+    border-bottom: 1px solid var(--cy-border); font-size: 13px; }
+  .cy-order-list-title span { color: var(--cy-text-muted); font-size: 11px; }
+}
