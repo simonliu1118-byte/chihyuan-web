@@ -42,10 +42,33 @@ try {
   if (config.d1_databases?.[0]?.database_id !== env.CF_D1_DATABASE_ID) {
     throw new Error("D1 database id mismatch");
   }
+  if (config.services?.length !== 1) throw new Error("CYInvoice recovery binding must remain disabled by default");
   if (config.services?.[0]?.binding !== "IDENTITY") throw new Error("IDENTITY binding missing");
   if (config.services?.[0]?.service !== env.CF_IDENTITY_SERVICE) {
     throw new Error("IDENTITY service mismatch");
   }
+  // Opt-in must preserve the canonical CYID binding and resolve only
+  // the private exported Invoice RPC, never its default public fetch.
+  const workflow = fs.readFileSync(new URL("../.github/workflows/development-deploy.yml", import.meta.url), "utf8");
+  if (!workflow.includes("CF_CYINVOICE_RECOVERY_SERVICE: ${{ vars.CF_CYINVOICE_RECOVERY_SERVICE }}"))
+    throw new Error("Optional recovery service not passed to deployment renderer");
+  const recoveryEnv = {...env, CF_CYINVOICE_RECOVERY_SERVICE:"synthetic-cyinvoice-recovery"};
+  renderDeployConfig({env:recoveryEnv,outputPath:output});
+  const recoveryConfig=JSON.parse(fs.readFileSync(output,"utf8"));
+  if (recoveryConfig.services?.length!==2
+      || recoveryConfig.services[0]?.binding!=="IDENTITY"
+      || recoveryConfig.services[1]?.binding!=="CYINVOICE_RECOVERY"
+      || recoveryConfig.services[1]?.entrypoint!=="CyInvoiceRecoveryEntrypoint"
+      || recoveryConfig.services[1]?.service!==recoveryEnv.CF_CYINVOICE_RECOVERY_SERVICE)
+    throw new Error("Private Invoice RPC binding did not resolve");
+  for(const bad of ["https://invalid.test","../worker",env.CF_IDENTITY_SERVICE,env.CF_WORKER_NAME]) {
+    let rejected=false;
+    try {renderDeployConfig({env:{...env,CF_CYINVOICE_RECOVERY_SERVICE:bad},outputPath:output});}
+    catch(error){rejected=/Invalid CF_CYINVOICE_RECOVERY_SERVICE/.test(String(error));}
+    if(!rejected)throw new Error("Unsafe Invoice binding accepted");
+  }
+  renderDeployConfig({env,outputPath:output});
+
   if (config.vars?.IDENTITY_APPLICATION_ID !== env.CF_IDENTITY_APPLICATION_ID) {
     throw new Error("Identity application mismatch");
   }
