@@ -2,6 +2,15 @@
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
 
+## HTTPS 入口與備份配置 — 2026-10-17
+
+- Source **0.8.2 Build 0**：正式 HTTP 頁面、靜態檔與 API 在任何 binding／body 處理前轉同 host/path/query 的 HTTPS；HTTPS 回應加入一年、僅限目前 host 的 HSTS。localhost／127.0.0.1／[::1] 保留原 HTTP 開發。
+- 根因是原本只有 `/api/*` 先經 Worker；部署／本機設定改為所有請求先經同一入口，再由 ASSETS 提供原 SPA／檔案，API 不回退 HTML。所有靜態請求因此增加 Worker invocation，未改共用 Zone、Identity authority、業務 schema 或備份啟用狀態。
+- 已補正式網域及 workers.dev 的部署後 HTTPS／HSTS／實際 JS 資產驗證；使用同一 run 的有界 propagation 觀察。操作與配置步驟見 [IDENTITY_DEPLOYMENT](docs/development/IDENTITY_DEPLOYMENT.md)。
+- [ ] PR CI、合併與當次授權發布後回讀 HTTP→HTTPS、主頁／靜態檔／API HSTS，以及原 Session／Email 驗證／recovery／localhost 流程。
+- [ ] 備份：確認核准的 R2 owner、GCS bucket 與受保護 credential 設定位置；目前此雲端沒有 GCS 綁定，GitHub 設定清單 API 仍受 integration 403 限制，未將缺讀取權限當成不存在。
+- [ ] 正式隔離還原：已有 `BackupService.isolatedRecovery` 與 local runner 驗收，production API 目前僅 list/create/retry；需受控操作入口與隔離空 D1 目標接線，再驗證真實雙 provider 備份／還原，最後啟用備份排程。既有 03:00 catalog cron 不代表備份已啟用。
+
 ## ERP 單筆憑證視窗與金額 $ — 2026-10-17
 
 - 以 main `e2d8e19`（已部署0.8.0）開始 **0.8.1 Build 0**：使用者實測未收款後要求金額加 `$`，並可點憑證在視窗查該張銷貨／銷退單（不離開未收款頁）。
