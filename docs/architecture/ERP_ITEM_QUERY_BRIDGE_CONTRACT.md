@@ -145,3 +145,18 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 - claim：`{id,queryType:"ORDER",orderNo,expiresAt}`。complete：`{outcome,orderNo,orders,total,truncated,…}`，orders 結構同 SALES，每張的 `orderNo` 須等於工作單號（客戶與日期不限）。屬報表類：600 秒逾時、900 KiB 上限、`result_json` 5 分鐘清除。
 - 畫面：未收款的憑證號碼（23x／24x）可點，開 `ErpOrderDialog` 以自己的短工作查詢該單並展開明細；頁面原本的未收款結果不變。
 - CY Web 顯示的 ERP 金額一律加 `$`（`erpMoney`：`1420`→`$1,420`、`-3250`→`-$3,250`），包括未收款、銷貨銷退單與商品價格欄位；API 值仍為 ERP 字串。
+
+## 供應廠商查詢（V0.8.4）
+
+來源：使用者 2026-10-17（供應廠商 PURI01，頁面／流程／作法同客戶資料）。CYERPAutoQuery V0.9.0。
+
+- 新 Module Access `ERP_SUPPLIER_QUERY`「ERP 供應商查詢」（同一個 ERP 查詢入口的「廠商」頁籤；之後的進貨單也歸此權限，因含進貨價格）。`migrations/0014_erp_supplier_query.sql` 擴充 module_code 與 query_type CHECK。
+- 新類型 `SUPPLIER_NO`：`{"queryType":"SUPPLIER_NO","supplierCode":"B0009"}`（英數，存於 `target_code`）；`SUPPLIER_NAME`：`{"queryType":"SUPPLIER_NAME","keyword":"假"}`（規則同品名）。
+- claim：`{id,queryType:"SUPPLIER_NO",supplierCode,expiresAt}`／`{id,queryType:"SUPPLIER_NAME",keyword,expiresAt}`。
+- complete：SUPPLIER_NO 回聲 `supplierCode`＋`fields`（24 欄白名單 `ERP_SUPPLIER_FIELDS`，FOUND 的「廠商代號」須與工作相同）；SUPPLIER_NAME 同名稱清單格式，欄位 `廠商代號、廠商簡稱、廠商全名、TEL、FAX、統一編號`，每筆簡稱或全名須含關鍵字。客戶與廠商在 Worker 共用 `PARTIES` 驗證。
+- 新類型 `PURCHASES`（使用者 2026-10-18，進貨退貨單，同客戶的銷貨銷退單）：`{"queryType":"PURCHASES","supplierCode":"B0055","dateFrom":null,"dateTo":null}`，日期規則同 SALES（都未填為去年同日至今天、最多三年），存於 `target_code`／`history_from`／`history_to`。屬報表類（600 秒、900 KiB）。
+  - claim：`{id,queryType:"PURCHASES",supplierCode,dateFrom,dateTo,expiresAt}`。
+  - complete：回聲 `supplierCode`、`dateFrom`、`dateTo`＋`orders`（最多 1,000 張、每張 500 行）。每張 `kind` 進貨／退貨、`orderNo`、`date`（須在範圍內）、`supplierCode`（須等於工作）、`supplierName`、`supplierOrderNo`、`invoiceNo`、`invoiceType`、`taxType`、`currency`、`totalQuantity`、`amount`、`deduction`、`tax`、`total`、`settled`、`lines`；每行 `seq`、`itemCode`、`itemName`、`specification`、`acceptDate`（yyyy-MM-dd 或空）、`warehouse`、`quantity`、`acceptedQuantity`、`returnedQuantity`、`unit`、`unitPrice`、`amount`、`tax`、`batch`、`purchaseOrderNo`、`note`、`sourceOrder`（退貨的原進貨單「單號-序號」）。金額為原幣 ERP 字串。存於 `result_json.purchases`，讀取回 `purchases`。
+  - AUTO：PURR18 依廠商與日期；PURR22 沒有廠商條件，同日期整份轉出後在 AUTO 只留該廠商（小計以全部退貨單核對）。退貨↔原進貨單的連結在 CY Web（`arrangePurchases`，與銷貨銷退共用）。
+- Agent claim 的 `queryTypes` 含未知類型會回 400：AUTO V0.9.0 會送出 SUPPLIER／PURCHASES 類型，必須在 CY Web 0.8.4 部署後才能連線。
+

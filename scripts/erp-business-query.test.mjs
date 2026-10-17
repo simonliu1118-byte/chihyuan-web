@@ -42,7 +42,7 @@ function fixture(role = "USER") {
   };
   return { sql, user, agent, grant };
 }
-const ALL_TYPES = ["ITEM_NO", "ITEM_NAME", "CUSTOMER_NO", "CUSTOMER_NAME", "SALES", "RECEIVABLE", "ORDER"];
+const ALL_TYPES = ["ITEM_NO", "ITEM_NAME", "CUSTOMER_NO", "CUSTOMER_NAME", "SUPPLIER_NO", "SUPPLIER_NAME", "PURCHASES", "SALES", "RECEIVABLE", "ORDER"];
 const line = (seq, extra = {}) => ({ seq, itemCode: "X0001", itemName: "假品名", specification: "", warehouse: "W01 假倉", quantity: "1", unit: "包", unitPrice: "100", amount: "100", giftType: "", giftQuantity: "0", batch: "", note: "", sourceOrder: "", ...extra });
 const order = (extra = {}) => ({ kind: "銷貨", orderNo: "901A-20260101001", date: taipeiToday(), customerCode: "CU0001", customerName: "假客戶", salesperson: "假業務", department: "", paymentTerm: "", taxType: "", invoiceType: "", totalQuantity: "1", amount: "100", tax: "0", total: "100", note: "", reason: "", lines: [line(1)], ...extra });
 const bill = (extra = {}) => ({ customerCode: "CU0001", customerName: "假客戶", date: taipeiToday(), billNo: "903A-20260101001", salespersonCode: "SP01", salespersonName: "假業務", invoiceNo: "", currency: "NTD", receivable: "100", receivableTax: "0", unpaid: "100", vouchers: [{ voucherNo: "901A-20260101001", date: taipeiToday(), amount: "100", tax: "0" }], ...extra });
@@ -133,6 +133,63 @@ test("customer lists must contain the keyword in 簡稱 or 全名; NOT_FOUND car
     await agent.claim(ALL_TYPES);
     assert.equal((await agent.complete(second.id, { outcome: "NOT_FOUND", customerCode: "CU0009", fields: [] })).status, 200);
     assert.equal((await user.load(second.id)).body.data.status, "NOT_FOUND");
+  } finally { sql.close(); }
+});
+
+test("suppliers need ERP_SUPPLIER_QUERY; the Agent echoes supplierCode and the 廠商代號 must match", async () => {
+  const { sql, user, agent, grant } = fixture();
+  try {
+    grant("ERP_CUSTOMER_QUERY");
+    assert.equal((await user.create({ queryType: "SUPPLIER_NO", supplierCode: "SU0001" })).status, 403);
+    grant("ERP_SUPPLIER_QUERY");
+    assert.equal((await user.create({ queryType: "SUPPLIER_NO", customerCode: "SU0001" })).status, 400);
+    assert.equal((await user.create({ queryType: "SUPPLIER_NO", supplierCode: "SU-01" })).status, 400);
+    const { id } = (await user.create({ queryType: "SUPPLIER_NO", supplierCode: " SU0001 " })).body.data;
+    // An Agent without the supplier types does not get the job.
+    assert.equal((await agent.claim(["ITEM_NO", "CUSTOMER_NO"])).body.data.job, null);
+    const job = (await agent.claim(ALL_TYPES)).body.data.job;
+    assert.deepEqual([job.queryType, job.supplierCode, job.customerCode], ["SUPPLIER_NO", "SU0001", undefined]);
+    const fields = code => [{ name: "廠商代號", value: code }, { name: "廠商簡稱", value: "假廠商" }, { name: "結帳日期", value: "驗收後 0 個月逢 25 日" }];
+    assert.equal((await agent.complete(id, { outcome: "FOUND", customerCode: "SU0001", fields: fields("SU0001") })).status, 400);
+    assert.equal((await agent.complete(id, { outcome: "FOUND", supplierCode: "SU0001", fields: fields("SU0002") })).status, 400);
+    assert.equal((await agent.complete(id, { outcome: "FOUND", supplierCode: "SU0001", fields: [{ name: "客戶代號", value: "SU0001" }] })).status, 400);
+    const done = await agent.complete(id, { outcome: "FOUND", supplierCode: "SU0001", fields: fields("SU0001") });
+    assert.equal(done.status, 200, JSON.stringify(done.body));
+    const result = (await user.load(id)).body.data;
+    assert.deepEqual([result.status, result.code, result.fields[2].value], ["DONE", "SU0001", "驗收後 0 個月逢 25 日"]);
+
+    const list = (await user.create({ queryType: "SUPPLIER_NAME", keyword: "假" })).body.data;
+    assert.equal((await agent.claim(ALL_TYPES)).body.data.job.keyword, "假");
+    const row = (code, short, full) => [["廠商代號", code], ["廠商簡稱", short], ["廠商全名", full], ["TEL", ""], ["FAX", ""], ["統一編號", ""]].map(([name, value]) => ({ name, value }));
+    assert.equal((await agent.complete(list.id, { outcome: "FOUND", keyword: "假", items: [row("SU0003", "別家", "別家公司")], total: 1, truncated: false })).status, 400);
+    assert.equal((await agent.complete(list.id, { outcome: "FOUND", keyword: "假", items: [row("SU0001", "某廠", "假材料行")], total: 1, truncated: false })).status, 200);
+    assert.equal((await user.load(list.id)).body.data.items[0][0].value, "SU0001");
+  } finally { sql.close(); }
+});
+
+test("PURCHASES are the job's supplier inside the range, under ERP_SUPPLIER_QUERY", async () => {
+  const { sql, user, agent, grant } = fixture();
+  try {
+    grant("ERP_CUSTOMER_QUERY");
+    assert.equal((await user.create({ queryType: "PURCHASES", supplierCode: "SU0001" })).status, 403);
+    grant("ERP_SUPPLIER_QUERY");
+    assert.equal((await user.create({ queryType: "PURCHASES", supplierCode: "SU0001", dateFrom: "2020-01-01", dateTo: "2024-01-02" })).body.error.code, "INVALID_DATE_RANGE");
+    const { id } = (await user.create({ queryType: "PURCHASES", supplierCode: "SU0001" })).body.data;
+    const job = (await agent.claim(ALL_TYPES)).body.data.job;
+    assert.deepEqual([job.queryType, job.supplierCode, job.dateTo], ["PURCHASES", "SU0001", taipeiToday()]);
+    const pline = (extra = {}) => ({ seq: 1, itemCode: "X0001", itemName: "假品名", specification: "", acceptDate: taipeiToday(), warehouse: "假倉", quantity: "10", acceptedQuantity: "10", returnedQuantity: "0", unit: "個", unitPrice: "23", amount: "230", tax: "11.5", batch: "", purchaseOrderNo: "", note: "", sourceOrder: "", ...extra });
+    const porder = (extra = {}) => ({ kind: "進貨", orderNo: "341A-20260212001", date: taipeiToday(), supplierCode: "SU0001", supplierName: "假廠商", supplierOrderNo: "FAKE01", invoiceNo: "", invoiceType: "三聯式發票", taxType: "應稅外加", currency: "NTD", totalQuantity: "10", amount: "230", deduction: "0", tax: "11.5", total: "241.5", settled: "N", lines: [pline()], ...extra });
+    const base = { outcome: "FOUND", supplierCode: "SU0001", dateFrom: job.dateFrom, dateTo: job.dateTo, total: 1, truncated: false };
+    assert.equal((await agent.complete(id, { ...base, orders: [porder({ supplierCode: "SU0002" })] })).status, 400);
+    assert.equal((await agent.complete(id, { ...base, orders: [porder({ kind: "銷貨" })] })).status, 400);
+    assert.equal((await agent.complete(id, { ...base, supplierCode: "SU0002", orders: [porder()] })).status, 400);
+    const returned = porder({ kind: "退貨", orderNo: "351A-20260301001", lines: [pline({ acceptDate: "", sourceOrder: "341A-20260212001-0001" })] });
+    const done = await agent.complete(id, { ...base, total: 2, orders: [porder(), returned] });
+    assert.equal(done.status, 200, JSON.stringify(done.body));
+    const result = (await user.load(id)).body.data;
+    assert.equal(result.status, "DONE");
+    assert.deepEqual([result.purchases.length, result.orders.length, result.dateTo], [2, 0, taipeiToday()]);
+    assert.equal(result.purchases[1].lines[0].sourceOrder, "341A-20260212001-0001");
   } finally { sql.close(); }
 });
 

@@ -51,7 +51,7 @@ export function useErpJob() {
     try {
       const job = await createErpQuery(request);
       setResult({ ...job, fields: [], warehouses: [], elapsedMs: null, batchManaged: null, batches: [], history: null,
-        items: [], orders: [], bills: [], total: 0, truncated: false, startedAt: null, completedAt: null,
+        items: [], orders: [], purchases: [], bills: [], total: 0, truncated: false, startedAt: null, completedAt: null,
         errorCode: null, errorMessage: null, resultCleared: false });
       setQueryId(job.id);
       return true;

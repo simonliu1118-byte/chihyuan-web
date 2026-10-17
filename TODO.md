@@ -10,13 +10,18 @@
 
 ## Phase D 備份上線準備 — 2026-10-17
 
-- Source **0.8.4 Build 0**（同步 main 的獨立0.8.3介面工作後，避免重複版本）：參考 CYACC 已啟用的 Phase D；原排程維持台灣 03:30、R2 每日30天／GCS週三週日182天，手動及還原前雙副本。移除 R2 複製失敗便停止的短路，讓跨雲副本獨立嘗試並保留原單次匯出／驗證／失敗稽核；補 GCS-only 成功提示。
+- Source **0.8.5 Build 0**（同步 Claude 已部署的0.8.4供應商／進貨介面後採下一個版號）：參考 CYACC 已啟用的 Phase D；原排程維持台灣 03:30、R2 每日30天／GCS週三週日182天，手動及還原前雙副本。移除 R2 複製失敗便停止的短路，讓跨雲副本獨立嘗試並保留原單次匯出／驗證／失敗稽核；補 GCS-only 成功提示。
 - [x] 新增 actual Worker＋D1 故障回歸先在舊 source 重現 `ACCEPT_BACKUP_R2_OUTAGE_BLOCKED_GCS`；修正後17組驗收通過，含手動／還原前／週三排程的 R2 故障仍完成 GCS、R2-only 日不多跑 GCS，以及雙 provider 失敗不誤報成功。
 - [x] 使用者已提供專用 Web GCS bucket 畫面；資源真名僅保留於受保護工作區。CYACC 目前 active240，具有 R2／GCS／RECOVERY_DB／通知 bindings；其已完成 Phase D 及正式 GCS 還原證據沿用原交接，不重新驗收或改動 CYACC。
 - [ ] 受保護部署輸入：確認 Web GCS service-account Secret 設定位置、bucket IAM／lifecycle、既有 Web R2 owner。GitHub Secret 名稱API仍403，不能據此斷言 Secret 不存在或讀出其他 App 憑證。
 - [x] 正式 D1 僅執行 aggregate SELECT，確認目前 durable rows 未超過500筆；0列寫入、不讀取業務內容。5MiB上限仍由真實匯出驗證。
 - [ ] paired copy／隔離還原驗收及 production recovery 操作入口就緒後，再開啟備份排程；目前未啟用。500總筆數／5MiB exporter限制不得靠裁資料或清Audit規避。
 - [ ] 本輪 source PR／CI／審查與符合啟用條件後的同目標發布。
+## ERP 供應商查詢 — 2026-10-17
+
+- 以 main `6c33b13`（0.8.3）開始 **0.8.4 Build 0**：使用者要求新增供應廠商（PURI01），頁面與流程同客戶。ERP 查詢入口新增「廠商」頁籤（廠商代號／廠商名稱／進貨退貨單，名稱只有一筆時直接查），新權限「ERP 供應商查詢」，migration 0014。進貨退貨單（PURCHASES，PURR18＋PURR22）版面同銷貨銷退單，退貨單接在原進貨單下並互相連結。ERP 查詢樣式改用 0.8.3 主題變數（原本模組 CSS 後載入、寫死淺色，深色模式按鈕與日期欄白底、連結深紅）；淺色也因此改為主題紫色。協定見 [ERP_ITEM_QUERY_BRIDGE_CONTRACT](docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md#供應廠商查詢v084)。
+- [ ] PR CI、使用者授權後合併與部署（含 migration 0014）；部署後才發 AUTO V0.9.0 測試包（舊 CY Web 會拒絕含 SUPPLIER 類型的 claim）。
+- [ ] 實機：PURI01 代號與名稱、進貨退貨單經 Web 驗收。
 
 ## Cloudflare 發布流程整理 — 2026-10-17
 
