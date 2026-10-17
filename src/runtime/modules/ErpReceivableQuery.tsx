@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { parseErpCode, parseErpNameKeyword } from "../../../shared/erp-name-search";
+import { parseErpCode, parseErpNameKeyword, parseErpOrderNo } from "../../../shared/erp-name-search";
 import { ERP_CUSTOMER_SEARCH_FIELDS, type ErpReceivableScope } from "../../../shared/erp-item-query";
-import { erpNumber, groupBills } from "../../../shared/erp-sales-links";
+import { erpMoney, erpNumber, groupBills } from "../../../shared/erp-sales-links";
+import { ErpOrderDialog } from "./ErpOrderDialog";
 import { ErpQueryRows } from "./ErpQueryRows";
 import { ErpJobStatus, showsData } from "./ErpJobStatus";
 import type { ErpJob } from "./useErpJob";
@@ -10,7 +11,6 @@ const SCOPES: { key: ErpReceivableScope; label: string }[] = [
   { key: "CUSTOMER", label: "客戶" }, { key: "SALESPERSON", label: "業務員" }, { key: "ALL", label: "全部" },
 ];
 const BILL_COLUMNS = ["結帳單號", "日期", "業務員", "發票號碼", "應收帳款", "應收稅額", "未收帳款", "憑證"];
-const money = (value: number) => value.toLocaleString("zh-TW", { maximumFractionDigits: 3 });
 
 /**
  * 未收款 (ACRR18, user 2026-10-17): one customer (at the customer's), one 業務員 (what that person has
@@ -19,6 +19,8 @@ const money = (value: number) => value.toLocaleString("zh-TW", { maximumFraction
 export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; canSearchCustomers: boolean }) {
   const [scope, setScope] = useState<ErpReceivableScope>("CUSTOMER");
   const [text, setText] = useState("");
+  // The 憑證 opened in its own dialog; the 未收款 result above stays as it is.
+  const [openOrder, setOpenOrder] = useState<string | null>(null);
   const autoFollowed = useRef<string | null>(null);
   const { result, busy, submitting, setError } = job;
   const queryCustomer = (code: string) => job.start({ queryType: "RECEIVABLE", scope: "CUSTOMER", code });
@@ -71,24 +73,33 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
         <p className="cy-erp-search-hint">點選客戶代號，查詢該客戶的未收款。</p>
       </>}
       {showsData(mine) && mine.queryType === "RECEIVABLE" && <>
-        <h3>未收合計 {money(totalUnpaid)}（{groups.length} 位客戶、{mine.bills.length} 張結帳單）</h3>
+        <h3>未收合計 {erpMoney(totalUnpaid)}（{groups.length} 位客戶、{mine.bills.length} 張結帳單）</h3>
         {mine.truncated && <p className="cy-erp-error">共 {mine.total} 張，只顯示 {mine.bills.length} 張。</p>}
         <div className="cy-erp-orders">
           {groups.map(group => <details key={group.customerCode} className="cy-erp-order" open={groups.length === 1}>
             <summary>
               <strong>{group.customerCode}</strong><span>{group.customerName}</span>
-              <span>{group.bills.length} 張</span><span className="cy-erp-order-total">{money(group.unpaid)}</span>
+              <span>{group.bills.length} 張</span><span className="cy-erp-order-total">{erpMoney(group.unpaid)}</span>
             </summary>
             <div className="cy-erp-order-body">
               <ErpQueryRows label={group.customerCode + " 結帳單"} columns={BILL_COLUMNS} summaryColumns={[0, 1, 6]}
                 rows={group.bills.map(b => [b.billNo, b.date, [b.salespersonCode, b.salespersonName].filter(Boolean).join(" "),
-                  b.invoiceNo, b.receivable, b.receivableTax, b.unpaid,
-                  b.vouchers.map(v => `${v.voucherNo}（${v.date} ${v.amount}）`).join("\n")])} />
+                  b.invoiceNo, erpMoney(b.receivable), erpMoney(b.receivableTax), erpMoney(b.unpaid),
+                  b.vouchers.map(v => `${v.voucherNo}（${v.date} ${erpMoney(v.amount)}）`).join("\n")])}
+                cell={(row, column) => column !== 7 ? undefined : <span className="cy-erp-vouchers">
+                  {group.bills[row].vouchers.map(v => {
+                    const orderNo = parseErpOrderNo(v.voucherNo);
+                    return <span key={v.voucherNo}>
+                      {orderNo ? <button type="button" className="cy-erp-item-link" disabled={busy}
+                        onClick={() => setOpenOrder(orderNo)}>{v.voucherNo}</button> : v.voucherNo}
+                      （{v.date} {erpMoney(v.amount)}）</span>;
+                  })}</span>} />
             </div>
           </details>)}
         </div>
-        <p className="cy-erp-search-hint">金額為 ERP 原幣；未收合計由各結帳單未收帳款相加（{money(mine.bills.reduce((a, b) => a + erpNumber(b.unpaid), 0))}）。</p>
+        <p className="cy-erp-search-hint">點選憑證號碼可在視窗中查看該張銷貨單或銷退單，未收款清單會保留。金額為 ERP 原幣；未收合計由各結帳單未收帳款相加（{erpMoney(mine.bills.reduce((a, b) => a + erpNumber(b.unpaid), 0))}）。</p>
       </>}
     </div>}
+    {openOrder && <ErpOrderDialog key={openOrder} orderNo={openOrder} onClose={() => setOpenOrder(null)} />}
   </>;
 }

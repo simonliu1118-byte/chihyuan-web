@@ -16,6 +16,9 @@ on:
       - "scripts/verify-deployed-health.mjs"
       - "scripts/verify-deployment-source.mjs"
       - "scripts/deployment-source.test.mjs"
+      - "scripts/verify-secure-entry.mjs"
+      - "scripts/secure-entry.test.mjs"
+      - "scripts/secure-deployment.test.mjs"
       - "scripts/verify-program-catalog-schedule.mjs"
       - "scripts/program-schedule-deployment.test.mjs"
       - "scripts/test-deployed-health.mjs"
@@ -69,6 +72,9 @@ jobs:
         run: |
           node scripts/validate-deploy-config.mjs
           node --test scripts/test-deployed-health.mjs scripts/program-schedule-deployment.test.mjs scripts/deployment-source.test.mjs
+
+      - name: Test HTTPS entry and deployed transport checks
+        run: node --test scripts/secure-entry.test.mjs scripts/secure-deployment.test.mjs
 
       - name: Checkout canonical CYID production guard
         uses: actions/checkout@v4
@@ -230,6 +236,11 @@ jobs:
         env:
           CYWEB_WORKER_URL: ${{ steps.deploy.outputs.worker_url }}
         run: node scripts/verify-deployed-health.mjs
+
+      - name: Verify HTTPS entry and static asset transport
+        env:
+          CYWEB_WORKER_URL: ${{ steps.deploy.outputs.worker_url }}
+        run: node scripts/verify-secure-entry.mjs
 
       - name: Accept canonical Custom Domain
         shell: bash

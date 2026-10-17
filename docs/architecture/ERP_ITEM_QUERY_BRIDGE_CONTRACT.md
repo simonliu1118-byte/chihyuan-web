@@ -136,3 +136,12 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
   - RECEIVABLE：`scope,code,bills,total,truncated`；最多 3,000 張結帳單、每張 500 憑證；CUSTOMER／SALESPERSON 範圍的每張結帳單客戶／業務員代號須相符。
   - 報表類（SALES、RECEIVABLE）complete 上限 900 KiB；RUNNING 逾 600 秒視為 `AGENT_TIMEOUT`（品號 180 秒、含歷史 300 秒不變）。結果存 `result_json`，與其他結果同樣 5 分鐘清除。
 - **呈現與分析屬 CY Web**（使用者 2026-10-17：Agent 只當中介層）：銷退單有原銷貨單時排在該銷貨單下並互相連結，原銷貨單不在查詢範圍時標示；沒有原銷貨單者依日期獨立排列（`shared/erp-sales-links.ts`）。未收款依客戶分組並由 CY Web 加總小計。客戶名稱查詢只有一筆時自動接續查該客戶（客戶資料、銷貨銷退單或未收款）。
+
+## 單筆銷貨／銷退單與金額顯示（V0.8.1）
+
+來源：使用者 2026-10-17（查看未收款憑證「賣了什麼」，但不離開已查好的未收款頁）。CYERPAutoQuery V0.7.2。
+
+- 新類型 `ORDER`：`{"queryType":"ORDER","orderNo":"232A-20260804003"}`。單號格式為單別、`-`、數字；只接受 23 開頭（銷貨單，COPR15）與 24 開頭（銷退單，COPR16），其他（如 631A）回 400 `INVALID_CODE`。`ERP_CUSTOMER_QUERY` 或 `ERP_RECEIVABLE_QUERY` 任一即可（`MODULES_FOR_TYPE`，讀取時同樣即時檢查）。單號存於 `target_code`（`migrations/0013_erp_order_query.sql` 擴充 query_type CHECK）。
+- claim：`{id,queryType:"ORDER",orderNo,expiresAt}`。complete：`{outcome,orderNo,orders,total,truncated,…}`，orders 結構同 SALES，每張的 `orderNo` 須等於工作單號（客戶與日期不限）。屬報表類：600 秒逾時、900 KiB 上限、`result_json` 5 分鐘清除。
+- 畫面：未收款的憑證號碼（23x／24x）可點，開 `ErpOrderDialog` 以自己的短工作查詢該單並展開明細；頁面原本的未收款結果不變。
+- CY Web 顯示的 ERP 金額一律加 `$`（`erpMoney`：`1420`→`$1,420`、`-3250`→`-$3,250`），包括未收款、銷貨銷退單與商品價格欄位；API 值仍為 ERP 字串。

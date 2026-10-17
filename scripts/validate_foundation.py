@@ -29,8 +29,8 @@ def main() -> int:
     assets = wrangler.get("assets") or {}
     if assets.get("not_found_handling") != "single-page-application":
         raise AssertionError("SPA asset fallback is not configured")
-    if "/api/*" not in (assets.get("run_worker_first") or []):
-        raise AssertionError("/api/* must run through the Worker first")
+    if assets.get("run_worker_first") is not True or assets.get("binding") != "ASSETS":
+        raise AssertionError("all requests must enter the Worker before the ASSETS binding")
 
     d1 = wrangler.get("d1_databases") or []
     if len(d1) != 1 or d1[0].get("binding") != "DB":

@@ -24,10 +24,11 @@ export const ERP_CUSTOMER_FIELDS = [
 export const ERP_CUSTOMER_SEARCH_FIELDS = ["客戶代號", "客戶簡稱", "客戶全名", "TEL", "統一編號", "業務人員"] as const;
 /**
  * ITEM_NO／ITEM_NAME: ERP 商品查詢. CUSTOMER_NO／CUSTOMER_NAME／SALES (COPR15+COPR16): ERP 客戶查詢.
- * RECEIVABLE (ACRR18): ERP 未收款查詢. One queue, one Agent, one job per member.
+ * RECEIVABLE (ACRR18): ERP 未收款查詢. ORDER: one 銷貨單／銷退單 by number (a 未收款 憑證), opened by
+ * either grant. One queue, one Agent, one job per member.
  */
-export type ErpQueryType = "ITEM_NO" | "ITEM_NAME" | "CUSTOMER_NO" | "CUSTOMER_NAME" | "SALES" | "RECEIVABLE";
-export const ERP_QUERY_TYPES: readonly ErpQueryType[] = ["ITEM_NO", "ITEM_NAME", "CUSTOMER_NO", "CUSTOMER_NAME", "SALES", "RECEIVABLE"];
+export type ErpQueryType = "ITEM_NO" | "ITEM_NAME" | "CUSTOMER_NO" | "CUSTOMER_NAME" | "SALES" | "RECEIVABLE" | "ORDER";
+export const ERP_QUERY_TYPES: readonly ErpQueryType[] = ["ITEM_NO", "ITEM_NAME", "CUSTOMER_NO", "CUSTOMER_NAME", "SALES", "RECEIVABLE", "ORDER"];
 export type ErpReceivableScope = "CUSTOMER" | "SALESPERSON" | "ALL";
 /** One line of a 銷貨單／銷退單; amounts and quantities are ERP display strings. */
 export interface ErpSalesLine {
@@ -74,7 +75,7 @@ export interface ErpQueryResult extends ErpHistoryRequest {
   queryType: ErpQueryType;
   itemNo: string | null;
   keyword: string | null;
-  /** CUSTOMER_NO／SALES: the customer; RECEIVABLE: the customer or 業務員 code (null for ALL). */
+  /** CUSTOMER_NO／SALES: the customer; RECEIVABLE: the customer or 業務員 code (null for ALL); ORDER: the number. */
   code: string | null;
   scope: ErpReceivableScope | null;
   /** SALES 單據日期 range (YYYY-MM-DD). */

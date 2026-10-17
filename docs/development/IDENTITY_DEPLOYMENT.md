@@ -120,6 +120,29 @@ The explicit deploy signal updates the existing portal. It does not provision a 
 
 ## Browser acceptance
 
+### HTTPS entry and static assets
+
+Public HTTP requests receive a 308 redirect to the same host, path and query over
+HTTPS before any request body, Identity, D1 or assets binding is accessed.
+HTTPS responses from the Worker receive `Strict-Transport-Security:
+max-age=31536000`, without `includeSubDomains` or `preload`. The loopback hosts
+`localhost`, `127.0.0.1` and `[::1]` retain local HTTP development and do not set HSTS.
+Forwarded headers do not override the request URL's transport or redirect host.
+
+Both the deployment template and local configuration route **all** requests
+through the Worker, then serve frontend files and SPA routes with the `ASSETS`
+binding. `/api/*` retains JSON routing and never falls through to SPA HTML.
+This closes the previous static-asset bypass; static requests now invoke the
+Worker before asset delivery, while asset response headers/cache behavior remain.
+Account for those Worker invocations when reviewing usage.
+
+After the exact source/consumer/D1 health gate, deployment runs
+`scripts/verify-secure-entry.mjs` against the canonical host and workers.dev. It
+checks HTTP-to-HTTPS redirects, HTTPS HTML HSTS and a real same-origin built JS
+asset's redirects/HSTS. The bounded observation accepts propagation within the
+same run; a failed check stops the run without automatically redeploying. The
+check sends no credentials and does not change the parent Zone's HTTPS/TLS settings.
+
 After deployment verify:
 
 ```text
@@ -294,3 +317,39 @@ Web binding correction does not copy a password set in the old development
 provider into production. No real Email or password was reissued in this work.
 CYInvoice's separate provider/workline and other consumers' real logins were not
 changed or accepted by this deployment. Root TODO remains the only progress list.
+
+## Backup configuration and activation procedure
+
+Use the original business D1 and the existing tiered backup implementation. These
+inputs belong to the protected deployment Environment; actual bucket names and
+credentials stay outside Public source:
+
+| Input | Scope | Initial activation |
+| --- | --- | --- |
+| `CF_BACKUP_R2_BUCKET` | Environment variable | Confirm CY Web ownership and lifecycle of the selected existing bucket |
+| `GCS_BUCKET` | Environment variable | Confirm the approved GCS bucket and retention/IAM configuration |
+| `GCS_SERVICE_ACCOUNT_JSON` | Environment Secret | Bucket-scoped object create/get/list/delete access; passed to the runtime through the existing protected secrets-file step |
+| `CF_BACKUP_ENABLED` | Environment variable | `true` only when the targets and credential are ready |
+| `CF_BACKUP_SCHEDULE_ENABLED` | Environment variable | Keep `false` for initial manual backup/recovery acceptance |
+
+The deploy renderer validates required targets; the credential renderer validates
+the service-account key structure and writes only a protected temporary file.
+These checks do not prove real GCS IAM access. Use the existing SUPER_ADMIN
+manual backup operation after an authorized publication to verify one logical
+backup with matching, read-back-verified R2 and GCS copies. Do not reuse another
+App's backup objects or assume a similarly named empty bucket has the right owner.
+
+The runtime's public backup API currently supports list/create/retry. The existing
+`BackupService.isolatedRecovery` and portable restore are exercised by the local
+acceptance runner; they are not a published production recovery endpoint. Before
+formal recovery acceptance, prepare a reviewed operational entrypoint and an
+isolated empty D1 target with matching schema/Workspace. Keep the existing
+SUPER_ADMIN checks, explicit source/target confirmation, verified safety backup,
+integrity/reconciliation and Audit; never deploy the acceptance Worker as a
+production shortcut or point the target at the live D1.
+
+After the real provider and isolated recovery evidence is recorded, enable the
+separate backup schedule. The independent `0 19 * * *` catalog schedule remains;
+the opt-in backup cron is `30 19 * * *`. Application retention remains R2 30 days
+and GCS 182 days, with GCS scheduled Wednesday/Sunday Taiwan time. Current rollout
+state and missing inputs belong in root TODO.

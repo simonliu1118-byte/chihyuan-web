@@ -21,3 +21,13 @@ export function parseErpCode(value: unknown): string | null {
   const code = value.trim();
   return /^[A-Za-z0-9]{1,40}$/.test(code) ? code : null;
 }
+
+/**
+ * A 銷貨單／銷退單 number 「232A-20260804003」 (單別, dash, number), or null. Only 單別 23x (銷貨,
+ * COPR15) and 24x (銷退, COPR16) are orders the Agent can open (user 2026-10-17).
+ */
+export function parseErpOrderNo(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const no = value.trim().toUpperCase();
+  return /^(23|24)[A-Z0-9]{0,4}-[0-9]{6,20}$/.test(no) ? no : null;
+}
