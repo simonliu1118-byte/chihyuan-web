@@ -1,4 +1,5 @@
 name: WO-0.9.12 Evidence (PR only)
+# Final acceptance rerun after format-date test correction.
 on:
   pull_request:
     paths:
