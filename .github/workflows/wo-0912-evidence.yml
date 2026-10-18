@@ -32,3 +32,30 @@ jobs:
           name: WO-0.9.12-mock-screenshots
           path: evidence/WO-0.9.12/*.png
           if-no-files-found: warn
+
+  source-acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR source
+        uses: actions/checkout@v4
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install dev dependencies
+        run: npm install --no-audit --no-fund
+      - name: Prepare canonical CYapps snapshot for audit-account-portal
+        shell: bash
+        run: |
+          mkdir -p .tmp
+          git clone --depth 1 https://github.com/simonliu1118-byte/cyapps .tmp/canonical-cyapps
+      - name: npm run typecheck
+        run: npm run typecheck
+      - name: npm run validate:source
+        run: npm run validate:source
+      - name: npm run build
+        run: npm run build
+      - name: npm run validate:d1:local
+        run: npm run validate:d1:local
+      - name: node --test scripts/*.test.mjs
+        run: node --test scripts/*.test.mjs
