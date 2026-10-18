@@ -2,18 +2,7 @@
 .cy-defect-op { min-width: 0; }
 .cy-defect-filters { grid-template-columns: 1fr auto; align-items: center; }
 .cy-defect-check { display: flex; gap: 6px; align-items: center; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); white-space: nowrap; }
-.cy-defect-row { grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; }
-.cy-defect-row > strong, .cy-defect-row > span { grid-column: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cy-defect-row > small { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
 .cy-defect-form-body, .cy-defect-body { padding-top: 16px; }
-.cy-defect-status {
-  display: inline-flex; align-items: center; min-height: 22px; padding: 1px 8px; border-radius: 999px;
-  background: var(--cy-surface-sunken); color: var(--cy-text-muted); font-size: var(--cy-fs-xs); font-weight: 600; white-space: nowrap;
-}
-.cy-op-list-row small.cy-defect-status { font-size: var(--cy-fs-xs); }
-.cy-defect-status.processing, .cy-op-list-row small.cy-defect-status.processing { background: var(--cy-warning-soft); color: var(--cy-warning); }
-.cy-defect-status.resolved, .cy-op-list-row small.cy-defect-status.resolved { background: var(--cy-success-soft); color: var(--cy-success); }
-.cy-defect-status.invalid, .cy-op-list-row small.cy-defect-status.invalid { background: var(--cy-danger-soft); color: var(--cy-danger); }
 .cy-defect-invalid-note { padding: 10px 12px; border-radius: var(--cy-radius-md); background: var(--cy-danger-soft); }
 .cy-defect-invalid-note strong { color: var(--cy-danger); }
 @media (max-width: 520px) { .cy-defect-filters { grid-template-columns: 1fr; } }

@@ -431,10 +431,15 @@ h1, h2, h3, h4, h5 { line-height: 1.35; }
   border-radius: 999px; background: var(--cy-surface-sunken); color: var(--cy-text-muted);
   font-size: var(--cy-fs-xs); font-weight: 600; white-space: nowrap;
 }
-.cy-status-chip-success { background: var(--cy-success-soft); color: var(--cy-success); }
-.cy-status-chip-warning { background: var(--cy-warning-soft); color: var(--cy-warning); }
-.cy-status-chip-danger { background: var(--cy-danger-soft); color: var(--cy-danger); }
-.cy-status-chip-info { background: var(--cy-info-soft); color: var(--cy-info); }
+/* Doubled class so list-row text colours never override a status colour. */
+.cy-status-chip.cy-status-chip-success { background: var(--cy-success-soft); color: var(--cy-success); }
+.cy-status-chip.cy-status-chip-warning { background: var(--cy-warning-soft); color: var(--cy-warning); }
+.cy-status-chip.cy-status-chip-danger { background: var(--cy-danger-soft); color: var(--cy-danger); }
+.cy-status-chip.cy-status-chip-info { background: var(--cy-info-soft); color: var(--cy-info); }
+.cy-op-list-row .cy-status-chip { font-size: var(--cy-fs-xs); }
+.cy-next-step { display: flex; gap: 8px; align-items: baseline; margin: 0 0 16px; padding: 8px 12px; border-radius: var(--cy-radius-md); background: var(--cy-info-soft); color: var(--cy-text); font-size: var(--cy-fs-sm); }
+.cy-next-step strong { flex: none; color: var(--cy-info); font-weight: 600; }
+.cy-next-step.finished { background: var(--cy-surface-muted); color: var(--cy-text-muted); }
 .cy-op-chip-list { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
 .cy-op-chip { padding: 2px 10px; border-radius: 999px; background: var(--cy-surface-sunken); color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
 
@@ -524,15 +529,7 @@ a.cy-op-button, a.cy-button { text-decoration: none; }
 /* ---------- Workflow status and progress (shared by work-order style modules) ---------- */
 .cy-status-row { grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; }
 .cy-status-row > strong, .cy-status-row > span { grid-column: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cy-status-row > small { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
-.cy-flow-status, .cy-op-list-row small.cy-flow-status {
-  display: inline-flex; align-items: center; min-height: 22px; padding: 1px 8px; border-radius: 999px;
-  background: var(--cy-surface-sunken); color: var(--cy-text-muted); font-size: var(--cy-fs-xs); font-weight: 600; white-space: nowrap;
-}
-.cy-op-list-row small.cy-flow-status[data-tone="warning"], .cy-flow-status[data-tone="warning"] { background: var(--cy-warning-soft); color: var(--cy-warning); }
-.cy-op-list-row small.cy-flow-status[data-tone="info"], .cy-flow-status[data-tone="info"] { background: var(--cy-info-soft); color: var(--cy-info); }
-.cy-op-list-row small.cy-flow-status[data-tone="success"], .cy-flow-status[data-tone="success"] { background: var(--cy-success-soft); color: var(--cy-success); }
-.cy-op-list-row small.cy-flow-status[data-tone="danger"], .cy-flow-status[data-tone="danger"] { background: var(--cy-danger-soft); color: var(--cy-danger); }
+.cy-status-row > .cy-status-chip { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
 .cy-progress { display: flex; gap: 4px; margin: 12px 0 16px; padding: 0; list-style: none; }
 .cy-progress li {
   flex: 1 1 0; min-width: 0; padding: 6px 4px 0; border-top: 3px solid var(--cy-border);
