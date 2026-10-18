@@ -1,3 +1,4 @@
+import { formatDate } from "../../ui/foundation/format";
 import { StatusChip } from "../../ui/primitives/StatusChip";
 import { arrangePurchases, erpMoney, erpNumber } from "../../../shared/erp-sales-links";
 import type { ErpPurchaseOrder } from "../../../shared/erp-item-query";
@@ -22,7 +23,7 @@ export function ErpPurchaseOrders({ orders, total, truncated }: { orders: readon
         className={"cy-erp-order" + (order.kind === "退貨" ? " is-return" : "") + (under ? " is-linked" : "")}>
         <summary>
           <StatusChip tone={order.kind === "退貨" ? "danger" : "neutral"}>{order.kind}</StatusChip>
-          <span>{order.date}</span>
+          <span>{formatDate(order.date)}</span>
           <strong>{order.orderNo}</strong>
           <span>{order.lines.length} 項</span>
           <span className="cy-erp-order-total">{erpMoney(order.total)}</span>
