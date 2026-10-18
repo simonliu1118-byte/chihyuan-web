@@ -5,7 +5,7 @@ import { taipeiToday } from "../../../shared/erp-query-history";
 import { useEffect, useState, type FormEvent } from "react";
 import { loadAudit, loadSettings, type AuditEvent, type AuditActor } from "../api/settings-audit-client";
 import { Drawer } from "../../ui/overlays/Dialog";
-import { actionLabel, auditChanges, auditSentence, entityLabel, recordName, type FieldLookup } from "./change-log-labels";
+import { auditChanges, auditSentence, type FieldLookup } from "./change-log-labels";
 
 const moduleOptions: readonly { value:string; label:string }[] = [
   {value:"",label:"全部模組"},
