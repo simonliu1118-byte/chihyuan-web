@@ -127,6 +127,7 @@ def validate_schema_shape(schema: str) -> None:
         raise AssertionError(f"table-set mismatch; missing={sorted(missing)}, unexpected={sorted(unexpected)}")
     assert "display_name" in {row[1] for row in conn.execute("PRAGMA table_info(app_members)")}
     # cache is nullable but cannot be blank or exceed 120 Unicode characters
+    seed_member(conn)
     conn.execute("UPDATE app_members SET display_name='測試人員' WHERE id=1")
     assert conn.execute("SELECT display_name FROM app_members WHERE id=1").fetchone()[0] == "測試人員"
     assert_integrity_error(conn, "UPDATE app_members SET display_name='' WHERE id=1")
