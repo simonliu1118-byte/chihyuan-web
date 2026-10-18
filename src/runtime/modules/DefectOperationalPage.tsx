@@ -487,7 +487,7 @@ export function DefectOperationalPage() {
           ) : loadingDetail ? <Loading /> : selected ? (
             <div>
               <div className="cy-record-header">
-                <div><h2>{selected.customerNameSnapshot}</h2><p>瑕疵 #{selected.id} · 回報 {selected.reportedDate}</p></div>
+                <div><h2>{selected.customerNameSnapshot}</h2><p>瑕疵 #{selected.id} · 回報 {formatDate(selected.reportedDate)}</p></div>
                   <div className="cy-record-actions">
                     <StatusChip tone={defectTone[selected.invalidatedAt ? "voided" : selected.statusCode]}>{selected.invalidatedAt ? "已作廢" : statusText[selected.statusCode]}</StatusChip>
                     {!selected.invalidatedAt && selected.statusCode === "created" ? <>
@@ -510,7 +510,7 @@ export function DefectOperationalPage() {
               <div className="cy-defect-body">
                 <NextStep tone={defectTone[selected.invalidatedAt ? "voided" : selected.statusCode]}>{defectNextStep[selected.invalidatedAt ? "voided" : selected.statusCode]}</NextStep>
                 <div className="cy-op-detail-grid">
-                  <div><span>回報日期</span><strong>{selected.reportedDate}</strong></div>
+                  <div><span>回報日期</span><strong>{formatDate(selected.reportedDate)}</strong></div>
                   <div><span>負責人</span><strong>{ownerLabel(selected.ownerEmployee.id, selected.ownerEmployee.employeeNo)}</strong></div>
                   <div><span>客戶</span><strong>{selected.customerNoSnapshot ? `${selected.customerNoSnapshot} · ` : ""}{selected.customerNameSnapshot}</strong></div>
                   <div><span>商品</span><strong>{selected.itemNoSnapshot} · {selected.itemNameSnapshot}</strong></div>
