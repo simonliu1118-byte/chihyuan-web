@@ -5,6 +5,7 @@ import { ERP_SUPPLIER_SEARCH_FIELDS, type ErpField } from "../../../shared/erp-i
 import { ErpQueryRows } from "./ErpQueryRows";
 import { ErpJobStatus, Fields, showsData } from "./ErpJobStatus";
 import { ErpPurchaseOrders } from "./ErpPurchaseOrders";
+import { ErpPartyOrdersDialog } from "./ErpPartyOrdersDialog";
 import type { ErpJob } from "./useErpJob";
 
 type Mode = "CODE" | "NAME" | "PURCHASES";
@@ -27,6 +28,8 @@ export function ErpSupplierQuery({ job }: { job: ErpJob }) {
   // What a picked supplier is queried for: its data, or its 進貨退貨單 (with the range it was asked with).
   const [follow, setFollow] = useState<{ purchases: boolean; from: string | null; to: string | null }>({ purchases: false, from: null, to: null });
   const autoFollowed = useRef<string | null>(null);
+  // The orders opened from the 資料 view, in a window (user 2026-10-18: keep the 資料 on the page).
+  const [ordersOf, setOrdersOf] = useState<{ code: string; name: string } | null>(null);
   const { result, busy, submitting, setError } = job;
 
   function range(from: string | null, to: string | null) {
@@ -102,10 +105,12 @@ export function ErpSupplierQuery({ job }: { job: ErpJob }) {
         <h3>廠商資料</h3>
         <Fields fields={mine.fields} />
         {supplierCode && <button className="cy-op-button cy-erp-follow" type="button" disabled={busy}
-          onClick={() => { setMode("PURCHASES"); setText(supplierCode); void querySupplier(supplierCode, true, dateFrom || null, dateTo || null); }}>
+          onClick={() => setOrdersOf({ code: supplierCode, name: mine.fields.find(f => f.name === "廠商簡稱")?.value ?? "" })}>
           查此廠商的進貨退貨單</button>}
       </>}
       {showsData(mine) && mine.queryType === "PURCHASES" && <ErpPurchaseOrders key={mine.id} orders={mine.purchases} truncated={mine.truncated} total={mine.total} />}
     </div>}
+    {ordersOf && <ErpPartyOrdersDialog key={ordersOf.code} kind="PURCHASES" code={ordersOf.code} name={ordersOf.name}
+      from={dateFrom || null} to={dateTo || null} onClose={() => setOrdersOf(null)} />}
   </>;
 }
