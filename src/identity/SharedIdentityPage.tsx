@@ -195,7 +195,6 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
   const [drawerId, setDrawerId] = useState<string | null>(null);
   const [moduleView, setModuleView] = useState<ModuleAccessAdminSnapshot | null>(null);
   const [saving, setSaving] = useState<ReadonlySet<string>>(new Set());
-  const [bulkColumn, setBulkColumn] = useState<AccessColumn | null>(null);
   const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   // A newly created account opens once the refreshed snapshot contains it.
@@ -286,12 +285,6 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
     else reportError(`${what}：${changes.length} 項中有 ${changes.length - done} 項未完成，請檢查後再試。`);
   }
 
-  async function bulk(column: AccessColumn, next: boolean) {
-    setBulkColumn(null);
-    const changes = rows.filter((employee) => !lockReason(employee, column) && allowed(employee, column) !== next).map((employee) => ({ employee, column, next }));
-    await applyChanges(changes, `「${column.label}」${next ? "全部允許" : "全部取消"}`);
-  }
-
   async function copyFrom(target: IdentityEmployeeRow, source: IdentityEmployeeRow) {
     const changes = columns.filter((column) => !lockReason(target, column) && allowed(target, column) !== allowed(source, column))
       .map((column) => ({ employee: target, column, next: allowed(source, column) }));
@@ -299,19 +292,11 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
   }
 
   const busyAny = saving.size > 0;
-  const bulkTargets = bulkColumn ? rows.filter((employee) => !lockReason(employee, bulkColumn)) : [];
   return <>
     <PagePrimaryActions><button type="button" className="cy-op-button primary" onClick={() => setCreateOpen(true)}>＋ 新增使用者</button></PagePrimaryActions>
     {createOpen ? <CreateUserDialog canIdentityAdmin={canIdentityAdmin} onClose={() => setCreateOpen(false)}
       onCreated={async (employeeNo, done) => { setCreateOpen(false); setMessage(done); setOpenNo(employeeNo); await refresh(); }}
       reportError={reportError} /> : null}
-    {bulkColumn ? <Dialog open title={`整欄設定：${bulkColumn.label}`} size="small" onClose={() => setBulkColumn(null)}
-      description={`套用到目前清單中可以變更的 ${bulkTargets.length} 人（超級管理員與你自己不受影響）。搜尋或狀態篩選會縮小範圍。`}
-      footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" onClick={() => setBulkColumn(null)}>取消</button>
-        <button type="button" className="cy-op-button danger" disabled={!bulkTargets.length} onClick={() => void bulk(bulkColumn, false)}>全部取消</button>
-        <button type="button" className="cy-op-button primary" disabled={!bulkTargets.length} onClick={() => void bulk(bulkColumn, true)}>全部允許</button></div>}>
-      <p className="cy-identity-intro">{bulkTargets.map((employee) => employee.name).join("、") || "目前清單中沒有可以變更的人。"}</p>
-    </Dialog> : null}
     {drawerEmployee ? <UserDrawer key={drawerEmployee.employee_id} employee={drawerEmployee} snapshot={snapshot} session={session} refresh={refresh}
       columns={columns} allowed={allowed} lockReason={lockReason} saving={saving} onToggle={toggleCell} onCopy={copyFrom}
       onClose={() => setDrawerId(null)} onDeleted={() => setDrawerId(null)} /> : null}
@@ -334,7 +319,7 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
               {groups.map((group) => <th key={group.group} colSpan={group.span} className="cy-access-group">{group.group}</th>)}
             </tr>
             {columns.length ? <tr>{columns.map((column) => <th key={column.key} className="cy-access-col">
-              <button type="button" className="cy-access-col-button" title={`整欄設定「${column.label}」`} disabled={busyAny || !!column.disabledReason} onClick={() => setBulkColumn(column)}>{column.label}</button>
+              {column.label}
             </th>)}</tr> : null}
           </thead>
           <tbody>{rows.map((employee) => {
@@ -363,7 +348,7 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
         </table>
         {rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的使用者。</div> : null}
       </div>}
-      {canIdentityAdmin ? <p className="cy-identity-intro cy-identity-table-hint">勾選立即生效。點欄名可整欄設定；點姓名可處理帳號（停用、更換 Email、從某人複製使用權等）。CY Web 本身所有啟用的使用者都能登入。</p> : null}
+      {canIdentityAdmin ? <p className="cy-identity-intro cy-identity-table-hint">勾選立即生效。點姓名可處理帳號（停用、更換 Email、從某人複製使用權等）。CY Web 本身所有啟用的使用者都能登入。</p> : null}
     </section>
   </>;
 }

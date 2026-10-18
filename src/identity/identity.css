@@ -26,9 +26,6 @@
 .cy-identity-access-table .cy-access-cell input { width: 18px; height: 18px; cursor: pointer; }
 .cy-identity-access-table .cy-access-cell input:disabled { cursor: not-allowed; }
 .cy-identity-access-table .cy-access-cell .cy-loading-spinner { display: inline-block; width: 14px; height: 14px; }
-.cy-access-col-button { padding: 4px 6px; border: 0; border-radius: var(--cy-radius-sm); background: transparent; color: var(--cy-text); font-size: var(--cy-fs-sm); font-weight: 600; white-space: nowrap; cursor: pointer; }
-.cy-access-col-button:hover:not(:disabled) { background: var(--cy-accent-soft); color: var(--cy-accent); }
-.cy-access-col-button:disabled { color: var(--cy-text-muted); cursor: default; }
 .cy-access-person-button { display: grid; gap: 2px; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
 .cy-access-person-button strong { color: var(--cy-accent); font-weight: 600; }
 .cy-access-person-button span { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 400; }
