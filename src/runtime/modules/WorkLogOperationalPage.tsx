@@ -1,4 +1,6 @@
+import { enterAdvancesFields, enterAdvancesThenSubmits } from "../../ui/foundation/enter-advance";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import "./worklog-operational.css";
@@ -147,6 +149,7 @@ export function WorkLogOperationalPage() {
   const [busy, setBusy] = useState(false);
   const [loadingList, setLoadingList] = useState(true);
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
+  const paging = useLoadMore(searchWorkLogs, setRows, (error) => reportError(errorMessage(error)));
   const [refreshEpoch, setRefreshEpoch] = useState(0);
   const { confirm, confirmationDialog } = useConfirmation();
   const guard = useUnsavedChangesGuard({ active: editing, blocked: busy });
@@ -196,14 +199,16 @@ export function WorkLogOperationalPage() {
     let cancelled = false;
     const timer = window.setTimeout(() => {
       setLoadingList(true);
-      void searchWorkLogs({
+      const listQuery = {
         q: query.trim() || undefined,
         statusCode: statusFilter ? statusFilter as WorkLogStatusCode : undefined,
         limit: 100,
-      })
+      };
+      void searchWorkLogs(listQuery)
         .then((result) => {
           if (cancelled) return;
           setRows(result.items);
+          paging.reset(listQuery, result.nextCursor);
           if (!editing && !creating) {
             setSelectedId((current) => (
               current != null && result.items.some((row) => row.id === current)
@@ -502,7 +507,7 @@ export function WorkLogOperationalPage() {
           <button type="button" className="cy-op-button" disabled={busy} onClick={() => void closeReview()}>取消</button>
           <button type="submit" form={reviewFormId} className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : "完成審核"}</button>
         </div>}>
-        {reviewDraft ? <form id={reviewFormId} onSubmit={event => void saveReview(event)}>
+        {reviewDraft ? <form onKeyDown={enterAdvancesFields} id={reviewFormId} onSubmit={event => void saveReview(event)}>
           <p>{reviewDraft.record.workLogRef}</p>
           {message ? <p role="alert" className="cy-auth-error">{message}</p> : null}
           <div className="cy-op-form-grid">
@@ -527,7 +532,7 @@ export function WorkLogOperationalPage() {
           <button type="button" className="cy-op-button" disabled={busy} onClick={() => void closeReason()}>取消</button>
           <button type="submit" form={reasonFormId} className="cy-op-button primary" disabled={busy}>{busy ? "處理中…" : "確認"}</button>
         </div>}>
-        {reasonDraft ? <form id={reasonFormId} onSubmit={event => void saveReason(event)}>
+        {reasonDraft ? <form onKeyDown={enterAdvancesThenSubmits} id={reasonFormId} onSubmit={event => void saveReason(event)}>
           <p>{reasonDraft.record.workLogRef}</p>
           {message ? <p role="alert" className="cy-auth-error">{message}</p> : null}
           <label>原因（可留空）<textarea className="cy-op-input" disabled={busy} value={reasonDraft.reason}
@@ -566,18 +571,19 @@ export function WorkLogOperationalPage() {
               <option value="">全部狀態</option>
               {Object.entries(statusText).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
             </select>
-            <div className="cy-md-count">{loadingList ? "讀取工作日誌中…" : `共 ${rows.length} 筆`}</div>
+            <div className="cy-md-count">{loadingList ? "讀取工作日誌中…" : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
           </div>
           <div className="cy-op-list">
             {rows.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={async () => { if (!busy && await canLeave()) { setEditing(false); setCreating(false); setDraft(null); setSelectedId(row.id); pane.open(); } }}><strong>{row.logDate} · {row.workDays} 日</strong><span><span className="cy-mono">{row.workLogRef}</span> · 員工 #{row.employeeId}</span><small className="cy-flow-status" data-tone={statusTone[row.statusCode]}>{statusText[row.statusCode]}</small></button>)}
             {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的工作日誌。</div> : null}
+            <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
           </div>
         </section>
 
         <section className="cy-op-panel cy-md-detail">
           <MasterDetailBack label="工作日誌清單" disabled={busy} onBack={async () => { if (editing) { if (busy || !await canLeave()) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
           {editing && draft ? (
-          <form className="cy-op-form" onSubmit={(event) => void save(event)}>
+          <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void save(event)}>
             <div className="cy-record-header">
               <div><h2>{creating ? "新增工作日誌" : `修改 ${selected?.workLogRef ?? "工作日誌"}`}</h2><p>填寫日期與工作內容；儲存後可在明細按「送出審核」。</p></div>
             </div>

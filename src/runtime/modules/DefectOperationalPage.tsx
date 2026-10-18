@@ -1,4 +1,6 @@
+import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
 import { formatDateTime } from "../../ui/foundation/format";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
@@ -128,21 +130,24 @@ export function DefectOperationalPage() {
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
+  const paging = useLoadMore(searchDefects, setRows, (error) => reportError(errorMessage(error)));
   const [refreshEpoch, setRefreshEpoch] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     const timer = window.setTimeout(() => {
       setLoadingList(true);
-      void searchDefects({
+      const listQuery = {
         q: query.trim() || undefined,
         statusCode: statusFilter ? statusFilter as DefectStatusCode : undefined,
         includeInvalid,
         limit: 100,
-      })
+      };
+      void searchDefects(listQuery)
         .then((result) => {
           if (cancelled) return;
           setRows(result.items);
+          paging.reset(listQuery, result.nextCursor);
           if (!editing && !creating) {
             setSelectedId((current) => (
               current != null && result.items.some((row) => row.id === current)
@@ -431,6 +436,7 @@ export function DefectOperationalPage() {
           <div className="cy-op-list">
             {rows.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-defect-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={() => void selectDefect(row.id)}><strong>{row.customerNameSnapshot}</strong><span>#{row.id} · {row.itemNoSnapshot} {row.itemNameSnapshot}</span><small className={`cy-defect-status ${row.invalidatedAt ? "invalid" : row.statusCode}`}>{row.invalidatedAt ? "已作廢" : statusText[row.statusCode]}</small></button>)}
             {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的瑕疵紀錄。</div> : null}
+            <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
             {loadingList ? <div className="cy-op-empty">讀取瑕疵資料中…</div> : null}
           </div>
         </section>
@@ -438,7 +444,7 @@ export function DefectOperationalPage() {
         <section className="cy-op-panel cy-md-detail">
           <MasterDetailBack label="瑕疵清單" disabled={busy} onBack={async () => { if (editing) { if (!(await canLeave())) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
           {editing && draft ? (
-            <form className="cy-op-form" onSubmit={(event) => void save(event)}>
+            <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void save(event)}>
               <div className="cy-record-header">
                 <div><h2>{creating ? "新增瑕疵" : `修改瑕疵 #${selected?.id ?? ""}`}</h2><p>已建檔與處理中的瑕疵可以修改；已處理的需先「重新開啟」。</p></div>
               </div>

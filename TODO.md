@@ -21,7 +21,11 @@
   - 五個模組的預設日期原用 `toISOString()`（UTC），台灣 00:00–08:00 會變成前一天；改用既有 `taipeiToday()`。
   - 時間顯示原依瀏覽器語系（英文瀏覽器顯示 10/17/2026, 3:00:00 AM），改用共用 `formatDateTime`（台灣時區 2026/10/17 03:00）。
   - 手機刪除瑕疵／工單／代工單／日誌後自動回到清單；商品、瑕疵篩選與帳號頁權限選單補上可讀名稱；稽核篩選列的日期欄在 1440px 溢出 6px 已修正；帳號頁說明文字不再小於 12px。
-- 已知但本次未處理：`src/modules/customer/*` 與 `preview/` 為早期預覽程式，未被正式頁面使用；`scripts/audit-account-portal.test.mjs` 需外部 cyapps 檢出，本機與 main 皆失敗；備份管理頁版面待備份工作結束後整理。
+- 使用者要求 Enter 不要直接儲存：紀錄編輯表單 Enter 依序跳到下一欄，最後停在儲存按鈕，再按一次才儲存；簡短視窗（原因、密碼、驗證碼）最後一欄 Enter 送出；多行文字保留換行；邊打邊選清單打開時 Enter 用來選取；Ctrl／⌘＋Enter 任何欄位直接儲存；查詢表單維持 Enter＝查詢。規則記於 [KEYBOARD_ENTRY_FOUNDATION](docs/architecture/KEYBOARD_ENTRY_FOUNDATION.md#data-entry-forms-092-user-decision-2026-10-18)。
+- 整體檢視（前後端）另修：六個清單原本只顯示後端第一頁 100 筆、從未使用 nextCursor，超過 100 筆就看不到；新增共用 `useLoadMore`／「載入更多」，切換篩選時丟棄過期頁。
+- 後端審查：API 入口與各路由均經 Identity／Module Access 或管理員角色檢查；寫入要求 JSON content-type、限制 64KiB，Session cookie 為 HttpOnly＋Secure＋SameSite=Strict；ERP 代理憑證以 SHA-256 雜湊保存並固定時間比對；金額數量全用定點整數；更新均帶 revision 檢查。`validate:d1:local` 17 組實際 Worker＋D1 驗收全數通過，未發現需修正的後端缺陷。
+- 使用者同意刪除早期預覽：移除 `src/modules/customer/*`（未被正式頁面使用）、`preview/*` 與 9 支只檢查它們的驗證腳本（皆不在 `validate:source`／CI）。
+- 已知但本次未處理：`scripts/audit-account-portal.test.mjs` 需外部 cyapps 檢出，本機與 main 皆失敗；備份管理頁版面待備份工作結束後整理。
 - [ ] 使用者驗收、PR CI、授權後合併部署。
 
 ## UI／UX 重整第二批 — 0.9.1 Build 0（2026-10-18）

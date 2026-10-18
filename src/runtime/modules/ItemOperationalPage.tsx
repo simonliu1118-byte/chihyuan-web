@@ -1,4 +1,6 @@
+import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
 import { formatDateTime } from "../../ui/foundation/format";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { useFormPrompt } from "../../ui/overlays/useFormPrompt";
@@ -201,6 +203,7 @@ export function ItemOperationalPage() {
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
+  const paging = useLoadMore(searchItems, setRows, (error) => reportError(errorMessage(error)));
   const [refreshEpoch, setRefreshEpoch] = useState(0);
 
   useEffect(() => {
@@ -223,15 +226,17 @@ export function ItemOperationalPage() {
       setLoadingList(true);
       const itemCategoryId = categoryFilter ? Number(categoryFilter) : undefined;
       const isActive = activeFilter === "active" ? true : activeFilter === "inactive" ? false : undefined;
-      void searchItems({
+      const listQuery = {
         q: query.trim() || undefined,
         itemCategoryId: Number.isSafeInteger(itemCategoryId) && (itemCategoryId ?? 0) > 0 ? itemCategoryId : undefined,
         isActive,
         limit: 100,
-      })
+      };
+      void searchItems(listQuery)
         .then((result) => {
           if (cancelled) return;
           setRows(result.items);
+          paging.reset(listQuery, result.nextCursor);
           if (!editing && !creating) {
             setSelectedId((current) => (
               current != null && result.items.some((row) => row.id === current)
@@ -480,7 +485,7 @@ export function ItemOperationalPage() {
               <option value="inactive">已停用</option>
             </select>
           </div>
-          <div className="cy-md-count">{loadingList ? "讀取商品中…" : `共 ${rows.length} 筆`}</div>
+          <div className="cy-md-count">{loadingList ? "讀取商品中…" : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
         </div>
         <div className="cy-op-list">
           {rows.map((row) => (
@@ -491,13 +496,14 @@ export function ItemOperationalPage() {
             </button>
           ))}
           {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的商品。</div> : null}
+          <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
         </div>
       </section>
 
       <section className="cy-op-panel cy-md-detail">
         <MasterDetailBack label="商品清單" disabled={busy} onBack={async () => { if (editing) { if (!(await canLeave())) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
         {editing && draft ? (
-          <form className="cy-op-form" onSubmit={(event) => void save(event)}>
+          <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void save(event)}>
             <div className="cy-record-header">
               <div>
                 <h2>{creating ? "新增商品" : `修改 ${selected?.itemNo ?? "商品"}`}</h2>

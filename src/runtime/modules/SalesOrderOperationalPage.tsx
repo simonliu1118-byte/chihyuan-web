@@ -1,4 +1,6 @@
+import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { useFormPrompt } from "../../ui/overlays/useFormPrompt";
@@ -176,20 +178,23 @@ export function SalesOrderOperationalPage() {
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
+  const paging = useLoadMore(searchSalesOrders, setRows, (error) => reportError(errorMessage(error)));
   const [refreshEpoch, setRefreshEpoch] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     const timer = window.setTimeout(() => {
       setLoadingList(true);
-      void searchSalesOrders({
+      const listQuery = {
         q: query.trim() || undefined,
         statusCode: statusFilter ? statusFilter as SalesWorkOrderStatusCode : undefined,
         limit: 100,
-      })
+      };
+      void searchSalesOrders(listQuery)
         .then((result) => {
           if (cancelled) return;
           setRows(result.items);
+          paging.reset(listQuery, result.nextCursor);
           if (!editing && !creating) {
             setSelectedId((current) => (
               current != null && result.items.some((row) => row.id === current)
@@ -512,7 +517,7 @@ export function SalesOrderOperationalPage() {
               <option value="">全部狀態</option>
               {Object.entries(statusText).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
             </select>
-            <div className="cy-md-count">{loadingList ? "讀取工單中…" : `共 ${rows.length} 筆`}</div>
+            <div className="cy-md-count">{loadingList ? "讀取工單中…" : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
           </div>
           <div className="cy-op-list">
             {rows.map((row) => (
@@ -523,13 +528,14 @@ export function SalesOrderOperationalPage() {
               </button>
             ))}
             {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的工單。</div> : null}
+            <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
           </div>
         </section>
 
         <section className="cy-op-panel cy-md-detail">
           <MasterDetailBack label="工單清單" disabled={busy} onBack={async () => { if (editing) { if (!(await canLeave())) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
           {editing && draft ? (
-            <form className="cy-op-form" onSubmit={(event) => void save(event)}>
+            <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void save(event)}>
               <div className="cy-record-header">
                 <div><h2>{creating ? "新增銷售工單" : `修改 ${selected?.workOrderRef ?? "工單"}`}</h2><p>ERP 開單前可以修改；開單後只能更正 ERP 資料。</p></div>
               </div>

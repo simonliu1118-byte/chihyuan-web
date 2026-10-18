@@ -1,4 +1,6 @@
+import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
 import { formatDateTime } from "../../ui/foundation/format";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
@@ -183,6 +185,7 @@ export function OutsourcingOperationalPage() {
   const partnerPane = useMasterDetailPane();
   const bomPane = useMasterDetailPane();
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
+  const paging = useLoadMore(searchOutsourcingOrders, setOrders, (error) => reportError(errorMessage(error)));
   const [refreshEpoch, setRefreshEpoch] = useState(0);
 
   const selectedItemIds = useMemo(() => {
@@ -241,14 +244,16 @@ export function OutsourcingOperationalPage() {
   useEffect(() => {
     let cancelled = false;
     const timer = window.setTimeout(() => {
-      void searchOutsourcingOrders({
+      const listQuery = {
         q: orderQuery.trim() || undefined,
         statusCode: orderStatus ? orderStatus as OutsourcingStatusCode : undefined,
         limit: 100,
-      })
+      };
+      void searchOutsourcingOrders(listQuery)
         .then((result) => {
           if (cancelled) return;
           setOrders(result.items);
+          paging.reset(listQuery, result.nextCursor);
           if (!editing) {
             setSelectedOrderId((current) => (
               current != null && result.items.some((row) => row.id === current)
@@ -578,18 +583,19 @@ export function OutsourcingOperationalPage() {
                   <option value="">全部狀態</option>
                   {Object.entries(statusText).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
                 </select>
-                <div className="cy-md-count">共 {orders.length} 筆</div>
+                <div className="cy-md-count">{paging.hasMore ? `已載入 ${orders.length} 筆，還有更多` : `共 ${orders.length} 筆`}</div>
               </div>
               <div className="cy-op-list">
                 {orders.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedOrderId === row.id ? "active" : ""}`} aria-current={selectedOrderId === row.id ? "true" : undefined} onClick={async () => { if (editing && !(await discardEditing())) return; setSelectedOrderId(row.id); pane.open(); }}><strong>{row.contractorNameSnapshot}</strong><span><span className="cy-mono">{row.outsourcingRef}</span> · {row.orderDate}</span><small className="cy-flow-status" data-tone={row.statusCode === "pending_outbound" ? "warning" : row.statusCode === "paid" ? "success" : row.statusCode === "voided" ? "danger" : "info"}>{statusText[row.statusCode]}</small></button>)}
                 {orders.length === 0 ? <div className="cy-op-empty">尚無代工單。</div> : null}
+                <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
               </div>
             </section>
 
             <section className="cy-op-panel cy-md-detail">
               <MasterDetailBack label="代工單清單" disabled={busy} onBack={async () => { if (editing && !(await discardEditing())) return; pane.close(); }} />
               {editing && draft ? (
-              <form className="cy-op-form" onSubmit={(event) => void saveOrder(event)}>
+              <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void saveOrder(event)}>
                 <div className="cy-record-header">
                   <div><h2>{creating ? "新增代工單" : correctingOutbound ? "更正已確認的出庫" : "修改代工單"}</h2><p>{correctingOutbound ? "儲存後會以新的出庫資料取代原本的出庫，並保留更正紀錄。" : "確認出庫前可以修改內容。"}</p></div>
                 </div>

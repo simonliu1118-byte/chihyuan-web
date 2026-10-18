@@ -50,3 +50,67 @@ export function advanceFocusOnEnter(event: KeyboardEvent<HTMLElement>): boolean 
   }
   return true;
 }
+
+const FIELD_SELECTOR = [
+  'input:not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"])',
+  "select",
+  "textarea",
+].join(", ");
+
+function submitButtonOf(form: HTMLFormElement): HTMLButtonElement | null {
+  const inside = form.querySelector<HTMLButtonElement>('button[type="submit"], button:not([type])');
+  if (inside && isFocusableCandidate(inside)) return inside;
+  if (!form.id) return null;
+  const outside = document.querySelector<HTMLButtonElement>(`button[type="submit"][form="${CSS.escape(form.id)}"]`);
+  return outside && isFocusableCandidate(outside) ? outside : null;
+}
+
+/**
+ * Data-entry forms: Enter moves to the next field instead of saving.
+ * - Textareas keep Enter for new lines; buttons keep their own Enter.
+ * - An open autocomplete list keeps Enter for picking a result.
+ * - After the last field, Enter moves to the save button (a second Enter on it saves),
+ *   or saves directly when `submitOnLast` is set (short dialogs such as a reason prompt).
+ * - Ctrl/⌘+Enter saves from any field.
+ */
+function enterToNextField(event: KeyboardEvent<HTMLFormElement>, submitOnLast: boolean) {
+  if (event.key !== "Enter" || event.defaultPrevented || event.nativeEvent.isComposing) return;
+  const form = event.currentTarget;
+  const target = event.target;
+  if (!(target instanceof HTMLElement) || !form.contains(target)) return;
+
+  if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey) {
+    event.preventDefault();
+    form.requestSubmit(submitButtonOf(form) ?? undefined);
+    return;
+  }
+  if (event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return;
+  if (!target.matches(FIELD_SELECTOR) || target.matches("textarea")) return;
+  if (target.getAttribute("aria-expanded") === "true") {
+    event.preventDefault();
+    return;
+  }
+
+  event.preventDefault();
+  const fields = Array.from(form.querySelectorAll<HTMLElement>(FIELD_SELECTOR))
+    .filter(element => isFocusableCandidate(element) && !(element as HTMLInputElement).readOnly);
+  const next = fields[fields.indexOf(target) + 1];
+  if (next) {
+    next.focus();
+    if (next instanceof HTMLInputElement && SELECTABLE_INPUT_TYPES.has(next.type)) next.select();
+    return;
+  }
+  const submit = submitButtonOf(form);
+  if (submitOnLast) form.requestSubmit(submit ?? undefined);
+  else submit?.focus();
+}
+
+/** Record editors: Enter walks through the fields and stops on the save button. */
+export function enterAdvancesFields(event: KeyboardEvent<HTMLFormElement>) {
+  enterToNextField(event, false);
+}
+
+/** Short dialogs (a reason, a code, a password change): Enter on the last field submits. */
+export function enterAdvancesThenSubmits(event: KeyboardEvent<HTMLFormElement>) {
+  enterToNextField(event, true);
+}

@@ -538,3 +538,4 @@ a.cy-op-button, a.cy-button { text-decoration: none; }
 .cy-code-block { margin: 4px 0 0; padding: 10px 12px; border-radius: var(--cy-radius-md); background: var(--cy-surface-sunken); font-family: var(--cy-font-mono); font-size: var(--cy-fs-xs); line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
 .cy-audit-detail { display: grid; gap: 16px; }
 .cy-audit-detail h3 { margin: 0; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 600; }
+.cy-load-more { display: flex; justify-content: center; padding: 8px 0 4px; }
