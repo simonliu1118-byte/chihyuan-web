@@ -46,7 +46,7 @@ export function ErpPurchaseOrders({ orders, total, truncated }: { orders: readon
           </dl>
           <ErpQueryRows label={order.orderNo + " 明細"} columns={LINE_COLUMNS} summaryColumns={[1, 2, 4, 9]}
             rows={order.lines.map(l => [String(l.seq), l.itemCode, l.itemName, l.specification, l.quantity, l.acceptedQuantity,
-              l.returnedQuantity, l.unit, erpMoney(l.unitPrice), erpMoney(l.amount), l.warehouse, l.batch, l.acceptDate,
+              l.returnedQuantity, l.unit, erpMoney(l.unitPrice), erpMoney(l.amount), l.warehouse, l.batch, formatDate(l.acceptDate),
               l.purchaseOrderNo, l.note, l.sourceOrder])} />
         </div>
       </details>)}
