@@ -135,6 +135,7 @@ export function ChangeLogList({role,customerId}:{
     <Drawer open={selected!==null} title="異動明細" onClose={()=>setSelected(null)}>
       {selected?<div className="cy-audit-detail">
         <p className="cy-change-log-summary">{auditSentence(selected,lookups)}</p>
+        {selected.statusFrom !== selected.statusTo && (selected.statusFrom || selected.statusTo) ? <p>狀態：{auditChanges(selected,lookups).find(row=>row.key==="status")?.before ?? "—"} → {auditChanges(selected,lookups).find(row=>row.key==="status")?.after ?? "—"}</p> : null}
         <table className="cy-op-table"><thead><tr><th>欄位</th><th>改前</th><th>改後</th></tr></thead>
           <tbody>{auditChanges(selected,lookups).map(row=><tr key={row.key}>
             <td>{row.label}</td><td>{row.before}</td><td>{row.after}</td>
