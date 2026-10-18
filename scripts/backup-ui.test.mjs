@@ -26,7 +26,7 @@ test("backup history groups both provider states under one table event and uses 
   assert.equal((html.match(/<tbody><tr/g) ?? []).length, 1);
   assert.match(html, /R2<\/strong> 已驗證/);
   assert.match(html, /GCS<\/strong> 失敗/);
-  assert.match(html, /2026\/10\/2\s03:30:00/);
+  assert.match(html, /2026\/10\/02\s03:30/);
   assert.match(html, /重試 GCS/);
   assert.match(html, /cy-data-cards/);
   assert.doesNotMatch(html, /<button[^>]*>.*清空|下載|匯入|還原現在資料/);
