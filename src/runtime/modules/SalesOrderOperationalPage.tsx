@@ -1,3 +1,4 @@
+import { StatusFilter } from "../../ui/data/StatusFilter";
 import { orderNextStep, orderTone } from "./status-flow";
 import { NextStep } from "../../ui/feedback/NextStep";
 import { StatusChip } from "../../ui/primitives/StatusChip";
@@ -166,6 +167,7 @@ export function SalesOrderOperationalPage() {
   const [lookups, setLookups] = useState<SalesWorkOrderModuleLookups | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [statusCounts, setStatusCounts] = useState<Partial<Record<string, number>> | null>(null);
   const [pickedCustomer, setPickedCustomer] = useState<SalesWorkOrderCustomerOption | null>(null);
   const [pickedItems, setPickedItems] = useState<Record<string, LineItemOption>>({});
   const [editing, setEditing] = useState(false);
@@ -201,6 +203,7 @@ export function SalesOrderOperationalPage() {
         .then((result) => {
           if (cancelled) return;
           setRows(result.items);
+          setStatusCounts(result.statusCounts ?? null);
           paging.reset(listQuery, result.nextCursor);
           if (!editing && !creating) {
             setSelectedId((current) => (
@@ -522,10 +525,8 @@ export function SalesOrderOperationalPage() {
         <section className="cy-op-panel cy-md-list" aria-label="工單清單">
           <div className="cy-md-toolbar">
             <input className="cy-op-input" type="search" aria-label="搜尋工單" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋工單、ERP 單號、客戶" />
-            <select className="cy-op-input" aria-label="工單狀態" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-              <option value="">全部狀態</option>
-              {Object.entries(statusText).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
-            </select>
+            <StatusFilter label="工單狀態" value={statusFilter} onChange={setStatusFilter} counts={statusCounts}
+              options={(Object.keys(statusText) as (keyof typeof statusText)[]).map((code) => ({ code, label: statusText[code], tone: orderTone[code] }))} />
             <div className="cy-md-count">{loadingList ? <Loading inline /> : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
           </div>
           <div className="cy-op-list">

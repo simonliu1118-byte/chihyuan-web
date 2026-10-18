@@ -1,3 +1,4 @@
+import { countByStatus } from "../persistence/status-counts";
 import type {
   SalesWorkOrderDetail,
   SalesWorkOrderLine,
@@ -166,10 +167,6 @@ export class SalesWorkOrderRepository {
       )`);
       params.push(like, like, like, like);
     }
-    if (query.statusCode) {
-      where.push("o.status_code = ?");
-      params.push(query.statusCode);
-    }
     if (query.customerId != null && Number.isInteger(query.customerId) && query.customerId > 0) {
       where.push("o.customer_id = ?");
       params.push(query.customerId);
@@ -185,6 +182,14 @@ export class SalesWorkOrderRepository {
     if (query.orderDateTo) {
       where.push("o.order_date <= ?");
       params.push(query.orderDateTo);
+    }
+
+    // Counts cover the same filters except status; only the first page carries them.
+    const statusCounts = query.cursor ? undefined
+      : await countByStatus<SalesWorkOrderStatusCode>(this.db, "FROM sales_work_orders AS o", "o.status_code", where, params);
+    if (query.statusCode) {
+      where.push("o.status_code = ?");
+      params.push(query.statusCode);
     }
 
     const cursorId = decodeCursor(query.cursor);
@@ -211,6 +216,7 @@ export class SalesWorkOrderRepository {
     return {
       items: visible.map(toSummary),
       nextCursor: hasMore && last ? encodeCursor(last.id) : null,
+      ...(statusCounts ? { statusCounts } : {}),
     };
   }
 

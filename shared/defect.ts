@@ -47,6 +47,8 @@ export interface DefectSearchQuery {
 export interface DefectListResult {
   items: readonly DefectSummary[];
   nextCursor: string | null;
+  /** Per-status totals for the same filters, on the first page only. */
+  statusCounts?: Partial<Record<DefectStatusCode, number>>;
 }
 
 export interface DefectProfileInput {

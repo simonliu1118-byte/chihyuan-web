@@ -1,3 +1,4 @@
+import { StatusFilter } from "../../ui/data/StatusFilter";
 import { workLogNextStep, workLogTone } from "./status-flow";
 import { NextStep } from "../../ui/feedback/NextStep";
 import { StatusChip } from "../../ui/primitives/StatusChip";
@@ -147,6 +148,7 @@ export function WorkLogOperationalPage() {
   const [selected, setSelected] = useState<WorkLogDetail | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [statusCounts, setStatusCounts] = useState<Partial<Record<string, number>> | null>(null);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<WorkLogDraft | null>(null);
@@ -215,6 +217,7 @@ export function WorkLogOperationalPage() {
         .then((result) => {
           if (cancelled) return;
           setRows(result.items);
+          setStatusCounts(result.statusCounts ?? null);
           paging.reset(listQuery, result.nextCursor);
           if (!editing && !creating) {
             setSelectedId((current) => (
@@ -576,10 +579,8 @@ export function WorkLogOperationalPage() {
         <section className="cy-op-panel cy-md-list" aria-label="工作日誌清單">
           <div className="cy-md-toolbar">
             <input className="cy-op-input" type="search" aria-label="搜尋工作日誌" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋日誌編號、類型、內容" />
-            <select className="cy-op-input" aria-label="日誌狀態" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-              <option value="">全部狀態</option>
-              {Object.entries(statusText).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
-            </select>
+            <StatusFilter label="日誌狀態" value={statusFilter} onChange={setStatusFilter} counts={statusCounts}
+              options={(Object.keys(statusText) as (keyof typeof statusText)[]).map((code) => ({ code, label: statusText[code], tone: workLogTone[code] }))} />
             <div className="cy-md-count">{loadingList ? <Loading inline /> : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
           </div>
           <div className="cy-op-list">

@@ -1,8 +1,7 @@
 /* Defect workspace. Shared layout, buttons and inputs come from app.css / forms.css. */
 .cy-defect-op { min-width: 0; }
-.cy-defect-filters { grid-template-columns: 1fr auto; align-items: center; }
+.cy-md-toolbar-row.cy-defect-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .cy-defect-check { display: flex; gap: 6px; align-items: center; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); white-space: nowrap; }
 .cy-defect-form-body, .cy-defect-body { padding-top: 16px; }
 .cy-defect-invalid-note { padding: 10px 12px; border-radius: var(--cy-radius-md); background: var(--cy-danger-soft); }
 .cy-defect-invalid-note strong { color: var(--cy-danger); }
-@media (max-width: 520px) { .cy-defect-filters { grid-template-columns: 1fr; } }
