@@ -32,7 +32,7 @@ def main() -> int:
     worklog_client = read("src/runtime/api/work-log-runtime-client.ts")
     doc = read("docs/architecture/OPERATIONAL_RUNTIME.md")
 
-    for token in ["#customers", "#items", "#defects", "#orders", "#outsourcing", "#worklogs", "#settings", "#audit"]:
+    for token in ["#customers", "#items", "#defects", "#orders", "#outsourcing", "#worklogs", "#audit"]:
         if token not in app:
             raise AssertionError(f"missing operational navigation: {token}")
 
@@ -42,10 +42,13 @@ def main() -> int:
     for page in ROOT.glob("src/**/*.tsx"):
         if "local-database" in page.read_text() or re.search(r"\blocalStorage\s*(?:\.|\[)", page.read_text()):
             raise AssertionError(f"browser-local authority returned: {page}")
-    for page, token in [("SettingsOperationalPage", "loadSettings"), ("AuditOperationalPage", "loadAudit")]:
+    # Settings live inside their modules (客戶、商品、工作日誌) rather than a shared 系統管理 page.
+    for page, used_as, token in [("ModuleSettingsPanel", "WithModuleSettings", "loadSettings"), ("AuditOperationalPage", "AuditOperationalPage", "loadAudit")]:
         source = read(f"src/runtime/modules/{page}.tsx")
-        if page not in app or token not in source:
+        if used_as not in app or token not in source:
             raise AssertionError(f"missing protected admin page: {page}")
+    if "#settings" in app:
+        raise AssertionError("shared settings entry returned; settings belong to their modules")
 
     for token in [
         "新增拜訪",

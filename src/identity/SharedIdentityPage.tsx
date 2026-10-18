@@ -994,7 +994,12 @@ function SecurityPanel() {
 
 // ---------- Page ----------
 
-type Tab = "users" | "self" | "system";
+type Tab = "users" | "system";
+
+/** 我的帳號: opened from the top-right person menu, for everyone. */
+export function MyAccountPage({ session }: { session: AuthSession }) {
+  return <div className="cy-identity-page"><SelfServicePanel session={session} /></div>;
+}
 
 export function SharedIdentityPage({ session }: { session: AuthSession }) {
   const [snapshot, setSnapshot] = useState<IdentityAdminSnapshot | null>(null);
@@ -1002,7 +1007,7 @@ export function SharedIdentityPage({ session }: { session: AuthSession }) {
   const [error, , setError] = useFeedbackMessage<string | null>(null);
   const isWorkspaceAdmin = session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN";
   const isSuperAdmin = session.user.workspaceRole === "SUPER_ADMIN";
-  const [tab, setTab] = useState<Tab>("self");
+  const [tab, setTab] = useState<Tab>("users");
 
   const refresh = useCallback(async () => {
     if (!isWorkspaceAdmin) return;
@@ -1013,9 +1018,8 @@ export function SharedIdentityPage({ session }: { session: AuthSession }) {
   }, [isWorkspaceAdmin]);
   useEffect(() => { void refresh(); }, [refresh]);
 
-  if (!isWorkspaceAdmin) return <div className="cy-identity-page"><SelfServicePanel session={session} /></div>;
+  if (!isWorkspaceAdmin) return <MyAccountPage session={session} />;
   const tabs: readonly { key: Tab; label: string }[] = [
-    { key: "self", label: "我的帳號" },
     { key: "users", label: "使用者" },
     ...(isSuperAdmin ? [{ key: "system" as const, label: "系統與安全" }] : []),
   ];
@@ -1023,7 +1027,7 @@ export function SharedIdentityPage({ session }: { session: AuthSession }) {
     <div className="cy-op-tabs" role="tablist" aria-label="帳號與權限">
       {tabs.map((item) => <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} className={tab === item.key ? "active" : ""} onClick={() => setTab(item.key)}>{item.label}</button>)}
     </div>
-    {tab === "self" ? <SelfServicePanel session={session} /> : !snapshot ? (error
+    {!snapshot ? (error
       ? <section className="cy-op-panel"><p className="cy-notice cy-notice-danger" role="alert">{error}</p><button type="button" className="cy-op-button" disabled={loading} aria-busy={loading || undefined} onClick={() => void refresh()}>重新讀取</button></section>
       : <Loading />)
       : tab === "users" ? <UserWorkspace snapshot={snapshot} session={session} refresh={refresh} />

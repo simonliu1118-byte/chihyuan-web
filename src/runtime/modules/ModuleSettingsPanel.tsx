@@ -1,19 +1,23 @@
 import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
-import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
-import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
-import { useEffect, useState, type FormEvent } from "react";
+import { useNavigationGuard, useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import type { SettingsSnapshot, LookupSetting, WorkLogScoringRowSetting } from "../../../shared/settings";
 import { ApiClientError } from "../../api/client";
 import { loadSettings, saveSetting } from "../api/settings-audit-client";
 
-type Section = "department" | "customer_category" | "customer_status" | "item_category" | "worklog-categories" | "worklog-platforms" | "scoring" | "tags";
-const sections: { key: Section; label: string; structural?: boolean }[] = [
-  { key: "department", label: "部門", structural: true }, { key: "customer_category", label: "客戶分類", structural: true },
-  { key: "customer_status", label: "客戶狀態", structural: true }, { key: "item_category", label: "商品分類", structural: true },
+/**
+ * A module's own settings (BD-043 authority unchanged): structural lookups are Super Admin-only,
+ * WorkLog configuration is Admin or Super Admin. Each module opens only its own sections.
+ */
+export type SettingsSection = "department" | "customer_category" | "customer_status" | "item_category" | "worklog-categories" | "worklog-platforms" | "scoring";
+type Section = SettingsSection;
+const allSections: { key: Section; label: string; structural?: boolean }[] = [
+  { key: "customer_category", label: "客戶分類", structural: true }, { key: "customer_status", label: "客戶狀態", structural: true },
+  { key: "department", label: "負責部門", structural: true }, { key: "item_category", label: "商品分類", structural: true },
   { key: "worklog-categories", label: "日誌類別" }, { key: "worklog-platforms", label: "日誌平台" },
-  { key: "scoring", label: "計分設定" }, { key: "tags", label: "分類標籤" },
+  { key: "scoring", label: "計分設定" },
 ];
 interface Draft {
   id?: number; code: string; name: string; sortOrder: number; isActive: boolean; expectedUpdatedAt?: string;
@@ -35,9 +39,10 @@ function rowsFor(snapshot: SettingsSnapshot, section: Section): readonly LookupS
     default: return [];
   }
 }
-export function SettingsOperationalPage({ role }: { role: "ADMIN" | "SUPER_ADMIN" | "USER" }) {
+export function ModuleSettingsPanel({ role, only }: { role: "ADMIN" | "SUPER_ADMIN" | "USER"; only: readonly SettingsSection[] }) {
+  const sections = allSections.filter((row) => only.includes(row.key));
   const [snapshot, setSnapshot] = useState<SettingsSnapshot | null>(null);
-  const [section, setSection] = useState<Section>("department");
+  const [section, setSection] = useState<Section>(sections[0].key);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, , setError] = useFeedbackMessage<string>("");
   const [busy, setBusy] = useState(false);
@@ -77,17 +82,17 @@ export function SettingsOperationalPage({ role }: { role: "ADMIN" | "SUPER_ADMIN
   const editable = !structural || role === "SUPER_ADMIN";
   const rows = snapshot ? rowsFor(snapshot, section) : [];
   return <>
-    {snapshot && section !== "tags" && (section === "scoring" || editable) ? (
-      <PagePrimaryActions>
-        {section === "scoring"
-          ? <button className="cy-op-button primary" type="button" disabled={busy} onClick={() => setScore({ workLogCategoryId: null, customName: "", scoreValue: "", description: "", note: "", sortOrder: 0, isActive: true })}>＋ 新增參考列</button>
-          : <button className="cy-op-button primary" type="button" disabled={busy} onClick={() => setDraft(blank())}>＋ 新增設定</button>}
-      </PagePrimaryActions>
-    ) : null}
     {error ? <div className="cy-op-notice danger" role="alert">{error}<button className="cy-op-button" disabled={busy} onClick={() => loadSettings().then(install).then(() => setError("")).catch(e => setError(message(e)))}>重新讀取</button></div> : null}
     {notice ? <div className="cy-op-notice" role="status">{notice}</div> : null}
-    <div className="cy-op-tabs" role="tablist" aria-label="設定項目">{sections.map(row => <button key={row.key} type="button" role="tab" aria-selected={section === row.key} className={section === row.key ? "active" : ""} disabled={busy} onClick={() => { setSection(row.key); setDraft(null); setScore(null); }}>{row.label}</button>)}</div>
-    {!snapshot ? <section className="cy-op-panel"><Loading /></section> : section === "tags" ? <section className="cy-op-panel"><p>分類標籤保留作資料分類；帳號與業務模組權限請於帳號管理維護。</p><table className="cy-op-table"><thead><tr><th>代碼</th><th>名稱</th><th>狀態</th></tr></thead><tbody>{snapshot.appTags.map(row => <tr key={row.id}><td>{row.code}</td><td>{row.name}</td><td>{row.isActive ? "啟用" : "停用"}</td></tr>)}</tbody></table></section> : section === "scoring" ? <>
+    <div className="cy-page-toolbar">
+      {snapshot && (section === "scoring" || editable)
+        ? section === "scoring"
+          ? <button className="cy-op-button primary" type="button" disabled={busy} onClick={() => setScore({ workLogCategoryId: null, customName: "", scoreValue: "", description: "", note: "", sortOrder: 0, isActive: true })}>＋ 新增參考列</button>
+          : <button className="cy-op-button primary" type="button" disabled={busy} onClick={() => setDraft(blank())}>＋ 新增{sections.find(row => row.key === section)?.label}</button>
+        : null}
+      {sections.length > 1 ? <div className="cy-segmented" role="group" aria-label="設定項目">{sections.map(row => <button key={row.key} type="button" aria-pressed={section === row.key} disabled={busy} onClick={() => { setSection(row.key); setDraft(null); setScore(null); }}>{row.label}</button>)}</div> : null}
+    </div>
+    {!snapshot ? <section className="cy-op-panel"><Loading /></section> : section === "scoring" ? <>
       <form onKeyDown={enterAdvancesFields} className="cy-op-panel cy-op-form-card" onSubmit={event => { event.preventDefault(); void save("worklog-scoring-config", "PUT", { targetAverageDailyScore: target || null, minimumAverageDailyScore: minimum || null, expectedRevision: snapshot.workLogScoringConfig?.revision ?? null }); }}>
         <h2>每日平均分數</h2><p>已審核日誌的結果保留，不因設定變更重新計分。</p><div className="cy-op-grid-two"><label>目標<input className="cy-op-input" inputMode="decimal" value={target} onChange={e => setTarget(e.target.value)} /></label><label>最低<input className="cy-op-input" inputMode="decimal" value={minimum} onChange={e => setMinimum(e.target.value)} /></label></div><button className="cy-op-button primary" disabled={busy}>儲存門檻</button>
       </form>
@@ -97,5 +102,25 @@ export function SettingsOperationalPage({ role }: { role: "ADMIN" | "SUPER_ADMIN
       <section className="cy-op-panel"><div className="cy-op-panel-header"><h2>{sections.find(row => row.key === section)?.label}</h2>{!editable ? <span>僅超級管理員可修改</span> : null}</div><table className="cy-op-table"><thead><tr><th>代碼</th><th>名稱</th><th>排序</th><th>狀態</th><th></th></tr></thead><tbody>{rows.map(row => <tr key={row.id}><td>{row.code}</td><td>{row.name}</td><td>{row.sortOrder}</td><td>{row.isActive ? "啟用" : "停用"}</td><td>{editable ? <button className="cy-op-button" disabled={busy} onClick={() => edit(row)}>修改</button> : null}</td></tr>)}</tbody></table>{!rows.length ? <p>尚無設定資料。</p> : null}</section>
       {draft ? <form onKeyDown={enterAdvancesFields} className="cy-op-panel cy-op-form-card" onSubmit={submit}><h2>{draft.id ? "編輯" : "新增"}設定</h2><div className="cy-op-grid-two"><label>代碼<input className="cy-op-input" required maxLength={80} disabled={draft.id != null || busy} value={draft.code} onChange={e => setDraft({ ...draft, code: e.target.value })} /></label><label>名稱<input className="cy-op-input" required maxLength={200} value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} /></label><label>排序<input className="cy-op-input" type="number" min="0" step="1" value={draft.sortOrder} onChange={e => setDraft({ ...draft, sortOrder: Number(e.target.value) })} /></label>{section === "item_category" ? <label>上層分類<select className="cy-op-input" value={draft.parentId ?? ""} onChange={e => setDraft({ ...draft, parentId: e.target.value ? Number(e.target.value) : null })}><option value="">無</option>{snapshot.itemCategories.filter(c => c.id !== draft.id).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label> : null}{section === "worklog-categories" ? <><label>輸入方式<select className="cy-op-input" value={draft.inputMode} onChange={e => setDraft({ ...draft, inputMode: e.target.value as "boolean" | "quantity" })}><option value="boolean">是否完成</option><option value="quantity">數量</option></select></label><label>數量單位<input className="cy-op-input" value={draft.unitLabel} onChange={e => setDraft({ ...draft, unitLabel: e.target.value })} /></label></> : null}{draft.id ? <label><input type="checkbox" checked={draft.isActive} onChange={e => setDraft({ ...draft, isActive: e.target.checked })} />啟用</label> : null}</div><div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => setDraft(null)}>取消</button><button className="cy-op-button primary" disabled={busy}>儲存</button></div></form> : null}
     </>}
+  </>;
+}
+
+/**
+ * A module with its own 設定 view (user 2026-10-18: settings belong to their module, not a shared
+ * 系統管理 entry). Only ADMIN / SUPER_ADMIN see the switch; leaving an unsaved editor asks first.
+ */
+export function WithModuleSettings({ role, label, only, children }: {
+  role: "ADMIN" | "SUPER_ADMIN" | "USER"; label: string; only: readonly SettingsSection[]; children: ReactNode;
+}) {
+  const [view, setView] = useState<"main" | "settings">("main");
+  const { canLeave } = useNavigationGuard();
+  if (role === "USER") return <>{children}</>;
+  async function go(next: "main" | "settings") { if (next !== view && await canLeave()) setView(next); }
+  return <>
+    <div className="cy-op-tabs" role="tablist" aria-label={`${label}頁籤`}>
+      <button type="button" role="tab" aria-selected={view === "main"} className={view === "main" ? "active" : ""} onClick={() => void go("main")}>{label}</button>
+      <button type="button" role="tab" aria-selected={view === "settings"} className={view === "settings" ? "active" : ""} onClick={() => void go("settings")}>設定</button>
+    </div>
+    {view === "main" ? children : <ModuleSettingsPanel role={role} only={only} />}
   </>;
 }

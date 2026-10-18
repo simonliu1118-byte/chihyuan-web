@@ -137,17 +137,18 @@
 
 ## 4.1 外框（App Shell）
 
-- **側欄**（`--cy-sidebar-w` 216px）：品牌、依群組排列的模組（業務模組／系統管理／工具）、底部帳號與外觀切換、登出。
-- **頂端列**（`--cy-topbar-h` 56px）：頁面標題、說明圖示、頁面主要動作（例如「＋ 新增客戶」，用 `PagePrimaryActions` 放到右側）。
+- **側欄**（`--cy-sidebar-w` 216px）：品牌、依群組排列的模組（業務模組／系統管理／工具）。
+- **頂端列**（`--cy-topbar-h` 56px）：左邊是頁面標題與說明圖示；右邊從左到右是外觀切換（系統／淺色／深色，獨立按鈕）與個人選單（頭像、姓名、角色；選單內為「我的帳號」「登出」）。日後的「使用說明」與個人設定也做成右上角的獨立按鈕，不塞進個人選單。
+- **頁面主要動作不放頂端列**（使用者 2026-10-18：電腦上右上角太遠）：「＋ 新增…」放在清單工具列最左邊、搜尋框前面；沒有清單工具列的頁面（備份、設定）放在內容最上方的 `.cy-page-toolbar`，主要動作在最左邊。
 - **內容區**：左右留白 `--cy-gutter`（桌面 20px、觸控 14px）。
-- 手機（≤ 820px）：側欄收成抽屜，頂端列保留標題與主要動作。
+- 手機（≤ 820px）：側欄收成抽屜；頂端列保留標題、外觀切換（單一圖示按鈕）與頭像。
 
 ## 4.2 左清單、右明細 — `CORE`（清單型模組）
 
 - 寬螢幕同時顯示清單（280–340px）與明細；清單固定在畫面內捲動。
-- 清單上方是工具列：搜尋框、狀態按鈕列、筆數（「共 N 筆」或「已載入 N 筆，還有更多」）。
+- 清單上方是工具列：第一列是「＋ 新增…」與搜尋框（`.cy-md-toolbar-lead`），接著是篩選、狀態按鈕列、筆數（「共 N 筆」或「已載入 N 筆，還有更多」）。
 - 手機一次只顯示一邊：點清單進明細，明細頂端有「‹ 返回清單」。
-- 明細未選擇時顯示空狀態：一句話說明下一步（「從左側清單選一位客戶，或按右上角『新增客戶』」）。
+- 明細未選擇時顯示空狀態：一句話說明下一步（「從左側清單選一位客戶，或按清單上方的『＋ 新增客戶』」）。
 
 ## 4.3 間距
 
@@ -190,6 +191,8 @@
 - 欄位標籤在上方（13px 次要色），必填加紅色 `*`。
 - 停用：凹陷底色、次要文字；唯讀：次面板底色。
 - 表單在寬螢幕兩欄、手機一欄；長欄位（地址、備註）跨整列。
+- 紀錄修改表單（清單右側明細）：「取消」「儲存」放在表單標題列右側，也就是原本「修改」按鈕的位置，標題列捲動時固定在畫面上方（`.cy-edit-header`），不另在底部放一組（使用者 2026-10-18）。彈出視窗維持底部動作列。
+- 各模組的設定放在模組內的「設定」頁籤（只對管理員與超級管理員顯示，權限依 BD-043），不做共用的「系統管理／設定」入口：客戶（客戶分類、客戶狀態、負責部門）、商品（商品分類）、工作日誌（日誌類別、日誌平台、計分設定）。
 
 ## 5.3 邊打邊選（EntityPicker）
 
@@ -307,7 +310,7 @@
 
 - 單一樣式來源：`src/app.css`（tokens、外框、共用元件）＋`src/ui/forms.css`（表單）。模組 CSS 只能使用 tokens，不得自訂顏色值、字級、按鈕或輸入框樣式。
 - 不使用 `!important`；需要提高優先序時用正確的選擇器。
-- 共用元件：`Loading`、`StatusChip`、`StatusFilter`、`NextStep`、`FeedbackBanner`、`Dialog`、`useConfirmation`、`useFormPrompt`、`EntityPicker`、`useMasterDetailPane`／`MasterDetailBack`／`MasterDetailEmpty`、`useLoadMore`／`LoadMoreRow`、`PagePrimaryActions`、`usePendingAction`、`enterAdvancesFields`。
+- 共用元件：`Loading`、`StatusChip`、`StatusFilter`、`NextStep`、`FeedbackBanner`、`Dialog`、`useConfirmation`、`useFormPrompt`、`EntityPicker`、`useMasterDetailPane`／`MasterDetailBack`／`MasterDetailEmpty`、`useLoadMore`／`LoadMoreRow`、`AccountMenu`、`usePendingAction`、`enterAdvancesFields`。
 - 新模組先延伸共用元件；真的需要新的共用樣式，加在共用層並更新本文件，不在模組內做第二套。
 - 不得在瀏覽器保存業務資料；外觀偏好以 cookie 保存。
 

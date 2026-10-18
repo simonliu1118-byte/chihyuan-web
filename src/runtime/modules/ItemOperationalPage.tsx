@@ -2,7 +2,6 @@ import { StatusChip } from "../../ui/primitives/StatusChip";
 import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
-import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
 import { formatDateTime } from "../../ui/foundation/format";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
@@ -474,14 +473,16 @@ export function ItemOperationalPage() {
   return <div className="cy-item-op">
     {confirmationDialog}
     {promptDialog}
-    <PagePrimaryActions><button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增商品</button></PagePrimaryActions>
-
+    
     <FeedbackBanner message={message} tone={messageTone} />
 
     <div className="cy-md cy-item-workspace" data-pane={pane.pane}>
       <section className="cy-op-panel cy-md-list" aria-label="商品清單">
         <div className="cy-md-toolbar">
-          <input className="cy-op-input" type="search" aria-label="搜尋商品" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋現行／歷史品號、名稱、規格" />
+          <div className="cy-md-toolbar-lead">
+            <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增商品</button>
+            <input className="cy-op-input" type="search" aria-label="搜尋商品" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋現行／歷史品號、名稱、規格" />
+          </div>
           <div className="cy-md-toolbar-row">
             <select className="cy-op-input" aria-label="商品分類" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
               <option value="">全部分類</option>
@@ -513,12 +514,13 @@ export function ItemOperationalPage() {
         <MasterDetailBack label="商品清單" disabled={busy} onBack={async () => { if (editing) { if (!(await canLeave())) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
         {editing && draft ? (
           <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void save(event)}>
-            <div className="cy-record-header">
+            <div className="cy-record-header cy-edit-header">
               <div>
                 <h2>{creating ? "新增商品" : `修改 ${selected?.itemNo ?? "商品"}`}</h2>
                 <p>{creating ? "品號必須是 SMART ERP 中已存在的品號。" : "品號請用「更改品號」修改，會保留歷史品號。"}</p>
               </div>
-            </div>
+            <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
+              <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立商品" : "儲存修改"}</button></div></div>
             <div className="cy-item-form-body">
               <div className="cy-op-form-grid">
                 <label>品號<input className="cy-op-input" value={creating ? draft.itemNo : selected?.itemNo ?? draft.itemNo} disabled={!creating || busy} onChange={(event) => creating && patch({ itemNo: event.target.value })} required /></label>
@@ -552,10 +554,6 @@ export function ItemOperationalPage() {
                 {draft.unitConversions.length === 0 ? <p className="cy-form-block-empty">目前只使用基準單位。</p> : null}
                 </div>
               </section>
-            </div>
-            <div className="cy-op-form-footer">
-              <button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
-              <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立商品" : "儲存修改"}</button>
             </div>
           </form>
         ) : loadingDetail ? (
@@ -597,7 +595,7 @@ export function ItemOperationalPage() {
             </div>
           </div>
         ) : (
-          <MasterDetailEmpty title="尚未選擇商品" hint="從左側清單選一項商品，或按右上角「新增商品」。" />
+          <MasterDetailEmpty title="尚未選擇商品" hint="從左側清單選一項商品，或按清單上方的「＋ 新增商品」。" />
         )}
       </section>
     </div>

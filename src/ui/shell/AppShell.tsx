@@ -1,7 +1,6 @@
 import { useEffect, useState, type PropsWithChildren, type ReactNode, type CSSProperties, type MouseEvent } from "react";
 import { Dialog, Drawer } from "../overlays/Dialog";
 import { useCompactLayout } from "../foundation/useCompactLayout";
-import { PageActionsTargetContext } from "./PagePrimaryActions";
 import type { NavigationGroup, NavigationItem } from "../foundation/navigation";
 
 export interface AppShellProps {
@@ -12,7 +11,8 @@ export interface AppShellProps {
   subtitle?: string;
   navigation: readonly NavigationGroup[];
   activeNavigationKey?: string;
-  /** Signed-in person, appearance and sign-out; shown at the foot of the navigation. */
+  /** Top-right controls, left to right: appearance switch, then the person's menu. */
+  appearance?: ReactNode;
   account?: ReactNode;
   onNavigate?: (item: NavigationItem) => void;
 }
@@ -46,6 +46,7 @@ export function AppShell({
   subtitle,
   navigation,
   activeNavigationKey,
+  appearance,
   account,
   onNavigate,
   children,
@@ -53,7 +54,6 @@ export function AppShell({
   const [helpOpen, setHelpOpen] = useState(false);
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [helpPosition, setHelpPosition] = useState<CSSProperties>();
-  const [actionsTarget, setActionsTarget] = useState<HTMLElement | null>(null);
   const compact = useCompactLayout();
   // A route change never leaves the previous module's help text or menu open.
   useEffect(() => { setHelpOpen(false); setNavigationOpen(false); }, [pageTitle]);
@@ -88,7 +88,6 @@ export function AppShell({
           }}><NavIcon name={item.key} /><span>{item.label}</span></a>)}</div>
       </div>)}
     </nav>
-    {account ? <div className="cy-shell-nav-footer">{account}</div> : null}
   </>;
   return (
     <div className="cy-app-shell">
@@ -113,11 +112,11 @@ export function AppShell({
               aria-label={`查看${pageTitle}說明`} onClick={openHelp}><span aria-hidden="true">ⓘ</span></button> : null}
           </div>
           {pageTools ? <div className="cy-shell-page-tools">{pageTools}</div> : null}
-          <div className="cy-shell-page-actions" ref={setActionsTarget} />
+          <div className="cy-shell-topbar-end">{appearance}{account}</div>
         </header>
 
         <main className="cy-shell-main" id="cy-main-content" tabIndex={-1}>
-          <PageActionsTargetContext.Provider value={actionsTarget}>{children}</PageActionsTargetContext.Provider>
+          {children}
         </main>
       </div>
       {pageDescription && <Dialog open={helpOpen} title={pageTitle + "說明"}

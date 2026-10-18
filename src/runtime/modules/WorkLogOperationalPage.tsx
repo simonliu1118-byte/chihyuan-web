@@ -5,7 +5,6 @@ import { StatusChip } from "../../ui/primitives/StatusChip";
 import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields, enterAdvancesThenSubmits } from "../../ui/foundation/enter-advance";
-import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
@@ -551,10 +550,7 @@ export function WorkLogOperationalPage() {
             onChange={event => setReasonDraft({ ...reasonDraft, reason: event.target.value })} /></label>
         </form> : null}
       </Dialog>
-      <PagePrimaryActions>
-        <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增日誌</button>
-      </PagePrimaryActions>
-
+      
       <FeedbackBanner message={message} tone={messageTone} />
 
       <section className="cy-worklog-summary" aria-label="已審核統計">
@@ -578,7 +574,10 @@ export function WorkLogOperationalPage() {
       <div className="cy-md" data-pane={pane.pane}>
         <section className="cy-op-panel cy-md-list" aria-label="工作日誌清單">
           <div className="cy-md-toolbar">
-            <input className="cy-op-input" type="search" aria-label="搜尋工作日誌" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋日誌編號、類型、內容" />
+            <div className="cy-md-toolbar-lead">
+              <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增日誌</button>
+              <input className="cy-op-input" type="search" aria-label="搜尋工作日誌" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋日誌編號、類型、內容" />
+            </div>
             <StatusFilter label="日誌狀態" value={statusFilter} onChange={setStatusFilter} counts={statusCounts}
               options={(Object.keys(statusText) as (keyof typeof statusText)[]).map((code) => ({ code, label: statusText[code], tone: workLogTone[code] }))} />
             <div className="cy-md-count">{loadingList ? <Loading inline /> : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
@@ -595,9 +594,10 @@ export function WorkLogOperationalPage() {
           <MasterDetailBack label="工作日誌清單" disabled={busy} onBack={async () => { if (editing) { if (busy || !await canLeave()) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
           {editing && draft ? (
           <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void save(event)}>
-            <div className="cy-record-header">
+            <div className="cy-record-header cy-edit-header">
               <div><h2>{creating ? "新增工作日誌" : `修改 ${selected?.workLogRef ?? "工作日誌"}`}</h2><p>填寫日期與工作內容；儲存後可在明細按「送出審核」。</p></div>
-            </div>
+            <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
+              <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立日誌" : "儲存修改"}</button></div></div>
             <div className="cy-op-form-grid cy-worklog-head-grid cy-form-grid-spaced">
               <label>日誌日期<input className="cy-op-input" type="date" value={draft.logDate} disabled={busy} onChange={(event) => setDraft({ ...draft, logDate: event.target.value })} /></label>
               <label>期間起<input className="cy-op-input" type="date" value={draft.dateFrom} disabled={busy} onChange={(event) => setDraft({ ...draft, dateFrom: event.target.value })} /></label>
@@ -641,10 +641,6 @@ export function WorkLogOperationalPage() {
               </div>
             </section>
 
-            <div className="cy-op-form-footer">
-              <button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
-              <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立日誌" : "儲存修改"}</button>
-            </div>
           </form>
           ) : selected ? <div>
             <div className="cy-record-header"><div><h2>{selected.logDate} 工作日誌</h2><p><span className="cy-mono">{selected.workLogRef}</span> · 員工 #{selected.employeeId}</p></div>
@@ -680,7 +676,7 @@ export function WorkLogOperationalPage() {
                 {entry.reviewScore != null || entry.reviewRemark ? <div className="cy-op-read-row">審核：{entry.reviewScore ?? "未計分"}{entry.reviewRemark ? ` · ${entry.reviewRemark}` : ""}</div> : null}
               </div>)}
             </div>
-          </div> : <MasterDetailEmpty title="尚未選擇工作日誌" hint="從左側清單選一筆，或按右上角「新增日誌」。" />}
+          </div> : <MasterDetailEmpty title="尚未選擇工作日誌" hint="從左側清單選一筆，或按清單上方的「＋ 新增日誌」。" />}
         </section>
       </div>
     </div>

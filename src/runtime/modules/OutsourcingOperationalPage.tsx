@@ -6,7 +6,6 @@ import { BomWorkspace, ContractorWorkspace, outsourcingErrorMessage } from "./Ou
 import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
-import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
 import { formatDateTime } from "../../ui/foundation/format";
 import { taipeiToday } from "../../../shared/erp-query-history";
@@ -533,8 +532,7 @@ export function OutsourcingOperationalPage() {
     <div className="cy-outsourcing-op">
       {confirmationDialog}
       {promptDialog}
-      {tab === "orders" ? <PagePrimaryActions><button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增代工單</button></PagePrimaryActions> : null}
-      <FeedbackBanner message={message} tone={messageTone} />
+            <FeedbackBanner message={message} tone={messageTone} />
 
       <div className="cy-op-tabs">
         {(["orders", "contractors", "boms", "stock"] as Tab[]).map((value) => (
@@ -549,7 +547,10 @@ export function OutsourcingOperationalPage() {
           <div className="cy-md" data-pane={pane.pane}>
             <section className="cy-op-panel cy-md-list" aria-label="代工單清單">
               <div className="cy-md-toolbar">
-                <input className="cy-op-input" type="search" aria-label="搜尋代工單" value={orderQuery} onChange={(event) => setOrderQuery(event.target.value)} placeholder="搜尋代工單、代工對象" />
+                <div className="cy-md-toolbar-lead">
+                  <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增代工單</button>
+                  <input className="cy-op-input" type="search" aria-label="搜尋代工單" value={orderQuery} onChange={(event) => setOrderQuery(event.target.value)} placeholder="搜尋代工單、代工對象" />
+                </div>
                 <StatusFilter label="代工單狀態" value={orderStatus} onChange={setOrderStatus} counts={statusCounts}
                   options={(Object.keys(statusText) as (keyof typeof statusText)[]).map((code) => ({ code, label: statusText[code], tone: outsourcingTone[code] }))} />
                 <div className="cy-md-count">{loadingOrders ? <Loading inline /> : paging.hasMore ? `已載入 ${orders.length} 筆，還有更多` : `共 ${orders.length} 筆`}</div>
@@ -565,9 +566,9 @@ export function OutsourcingOperationalPage() {
               <MasterDetailBack label="代工單清單" disabled={busy} onBack={async () => { if (editing && !(await discardEditing())) return; pane.close(); }} />
               {editing && draft ? (
               <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void saveOrder(event)}>
-                <div className="cy-record-header">
+                <div className="cy-record-header cy-edit-header">
                   <div><h2>{creating ? "新增代工單" : correctingOutbound ? "更正已確認的出庫" : "修改代工單"}</h2><p>{correctingOutbound ? "儲存後會以新的出庫資料取代原本的出庫，並保留更正紀錄。" : "確認出庫前可以修改內容。"}</p></div>
-                </div>
+                <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立代工單" : "儲存修改"}</button></div></div>
                 <div className="cy-op-form-grid cy-form-grid-spaced">
                   <label>代工對象
                     <select className="cy-op-input" value={draft.contractorId ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, contractorId: Number(event.target.value) || null })}>
@@ -606,7 +607,6 @@ export function OutsourcingOperationalPage() {
                   })}
                   </div>
                 </section>
-                <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立代工單" : "儲存修改"}</button></div>
               </form>
               ) : selectedOrder ? <div>
                 <div className="cy-record-header"><div><h2>{selectedOrder.contractorNameSnapshot}</h2><p><span className="cy-mono">{selectedOrder.outsourcingRef}</span> · {selectedOrder.orderDate}</p></div>
@@ -655,7 +655,7 @@ export function OutsourcingOperationalPage() {
                   </div>
                 </div> : null}
 
-              </div> : <MasterDetailEmpty title="尚未選擇代工單" hint="從左側清單選一張代工單，或按右上角「新增代工單」。" />}
+              </div> : <MasterDetailEmpty title="尚未選擇代工單" hint="從左側清單選一張代工單，或按清單上方的「＋ 新增代工單」。" />}
             </section>
           </div>
         </>

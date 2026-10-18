@@ -5,7 +5,6 @@ import { StatusChip } from "../../ui/primitives/StatusChip";
 import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
-import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
 import { formatDateTime } from "../../ui/foundation/format";
 import { taipeiToday } from "../../../shared/erp-query-history";
@@ -426,16 +425,16 @@ export function DefectOperationalPage() {
     <div className="cy-defect-op">
       {confirmationDialog}
       {promptDialog}
-      <PagePrimaryActions>
-        <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增瑕疵</button>
-      </PagePrimaryActions>
-
+      
       <FeedbackBanner message={message} tone={messageTone} />
 
       <div className="cy-md cy-defect-workspace" data-pane={pane.pane}>
         <section className="cy-op-panel cy-md-list" aria-label="瑕疵清單">
           <div className="cy-md-toolbar">
-            <input className="cy-op-input" type="search" aria-label="搜尋瑕疵" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜尋客戶、商品、內容" />
+            <div className="cy-md-toolbar-lead">
+              <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增瑕疵</button>
+              <input className="cy-op-input" type="search" aria-label="搜尋瑕疵" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜尋客戶、商品、內容" />
+            </div>
             <div className="cy-md-toolbar-row cy-defect-filters">
               <StatusFilter label="瑕疵狀態" value={statusFilter} onChange={setStatusFilter} counts={statusCounts}
                 options={(Object.keys(statusText) as (keyof typeof statusText)[]).map((code) => ({ code, label: statusText[code], tone: defectTone[code] }))} />
@@ -454,9 +453,9 @@ export function DefectOperationalPage() {
           <MasterDetailBack label="瑕疵清單" disabled={busy} onBack={async () => { if (editing) { if (!(await canLeave())) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
           {editing && draft ? (
             <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void save(event)}>
-              <div className="cy-record-header">
+              <div className="cy-record-header cy-edit-header">
                 <div><h2>{creating ? "新增瑕疵" : `修改瑕疵 #${selected?.id ?? ""}`}</h2><p>已建檔與處理中的瑕疵可以修改；已處理的需先「重新開啟」。</p></div>
-              </div>
+              <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立瑕疵" : "儲存修改"}</button></div></div>
 
               <div className="cy-defect-form-body">
                 <div className="cy-op-form-grid">
@@ -484,7 +483,6 @@ export function DefectOperationalPage() {
                 </div>
               </div>
 
-              <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立瑕疵" : "儲存修改"}</button></div>
             </form>
           ) : loadingDetail ? <Loading /> : selected ? (
             <div>
@@ -523,7 +521,7 @@ export function DefectOperationalPage() {
 
               </div>
             </div>
-          ) : <MasterDetailEmpty title="尚未選擇瑕疵紀錄" hint="從左側清單選一筆，或按右上角「新增瑕疵」。" />}
+          ) : <MasterDetailEmpty title="尚未選擇瑕疵紀錄" hint="從左側清單選一筆，或按清單上方的「＋ 新增瑕疵」。" />}
         </section>
       </div>
     </div>
