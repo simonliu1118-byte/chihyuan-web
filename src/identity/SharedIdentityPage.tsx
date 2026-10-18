@@ -1,7 +1,7 @@
 import { Loading } from "../ui/feedback/Loading";
 import { enterAdvancesFields, enterAdvancesThenSubmits } from "../ui/foundation/enter-advance";
 import { FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
-import { Dialog } from "../ui/overlays/Dialog";
+import { Dialog, Drawer } from "../ui/overlays/Dialog";
 import { useConfirmation } from "../ui/overlays/useConfirmation";
 import { PagePrimaryActions } from "../ui/shell/PagePrimaryActions";
 import { useFormPrompt } from "../ui/overlays/useFormPrompt";
@@ -10,7 +10,6 @@ import { TextInput } from "../ui/primitives/TextInput";
 import { StatusChip } from "../ui/primitives/StatusChip";
 import { StatusFilter } from "../ui/data/StatusFilter";
 import { NextStep } from "../ui/feedback/NextStep";
-import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../ui/layout/MasterDetail";
 import { ApiClientError } from "../api/client";
 import { chineseMessage } from "../api/error-messages";
 import { FeedbackBanner, useFeedbackMessage } from "../ui/feedback/FeedbackProvider";
@@ -168,7 +167,7 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
   </>;
 }
 
-// ---------- 使用者：左清單、右明細 ----------
+// ---------- 使用者：可編輯的使用權總表＋個人抽屜 ----------
 
 interface UserWorkspaceProps {
   snapshot: IdentityAdminSnapshot;
@@ -176,27 +175,94 @@ interface UserWorkspaceProps {
   refresh: () => Promise<void>;
 }
 
+/** One column of the access table: another CY system, or a CY Web module. */
+interface AccessColumn {
+  key: string;
+  label: string;
+  group: "系統使用權" | "業務模組" | "ERP 查詢";
+  kind: "app" | "module";
+  code: string;
+  disabledReason?: string;
+}
+
+type ModuleCode = Parameters<typeof setEmployeeModuleAccess>[1];
+
 function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
   const isSuperAdmin = session.user.workspaceRole === "SUPER_ADMIN";
   const canIdentityAdmin = isSuperAdmin || session.user.isIdentityAdmin;
-  const pane = useMasterDetailPane();
   const [query, setQuery] = useState("");
   const [stateFilter, setStateFilter] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(snapshot.employees[0]?.employee_id ?? null);
-  const [busy, setBusy] = useState(false);
-  const { pending, track } = usePendingAction();
+  const [drawerId, setDrawerId] = useState<string | null>(null);
+  const [moduleView, setModuleView] = useState<ModuleAccessAdminSnapshot | null>(null);
+  const [saving, setSaving] = useState<ReadonlySet<string>>(new Set());
   const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
-  const { confirm, confirmationDialog } = useConfirmation();
-  const { ask, promptDialog } = useFormPrompt();
   const [createOpen, setCreateOpen] = useState(false);
-  const [transferOpen, setTransferOpen] = useState(false);
-  // A newly created account is selected once the refreshed snapshot contains it.
-  const [selectNo, setSelectNo] = useState<string | null>(null);
+  // A newly created account opens once the refreshed snapshot contains it.
+  const [openNo, setOpenNo] = useState<string | null>(null);
   useEffect(() => {
-    if (!selectNo) return;
-    const row = snapshot.employees.find((item) => item.employee_no === selectNo);
-    if (row) { setSelectedId(row.employee_id); setSelectNo(null); }
-  }, [snapshot, selectNo]);
+    if (!openNo) return;
+    const row = snapshot.employees.find((item) => item.employee_no === openNo);
+    if (row) { setDrawerId(row.employee_id); setOpenNo(null); }
+  }, [snapshot, openNo]);
+
+  const loadModules = useCallback(async () => {
+    if (!canIdentityAdmin) return;
+    try { setModuleView(await loadModuleAccessAdminSnapshot()); }
+    catch (error) { reportError(messageOf(error)); }
+  }, [canIdentityAdmin, reportError]);
+  useEffect(() => { void loadModules(); }, [loadModules]);
+
+  const columns = useMemo<AccessColumn[]>(() => {
+    if (!canIdentityAdmin) return [];
+    const apps = snapshot.applications.filter((app) => app.core_access_locked !== 1).map((app): AccessColumn => ({
+      key: `app:${app.application_id}`, label: app.display_name, group: "系統使用權", kind: "app", code: app.application_id,
+      disabledReason: app.enabled === 1 ? undefined : "系統已停用",
+    }));
+    const modules = (moduleView?.modules ?? []).map((module): AccessColumn => ({
+      key: `module:${module.code}`, label: module.label, group: module.code.startsWith("ERP_") ? "ERP 查詢" : "業務模組", kind: "module", code: module.code,
+    }));
+    return [...apps, ...modules.filter((column) => column.group === "業務模組"), ...modules.filter((column) => column.group === "ERP 查詢")];
+  }, [canIdentityAdmin, snapshot.applications, moduleView]);
+  const groups = useMemo(() => {
+    const result: { group: AccessColumn["group"]; span: number }[] = [];
+    for (const column of columns) {
+      const last = result[result.length - 1];
+      if (last?.group === column.group) last.span++; else result.push({ group: column.group, span: 1 });
+    }
+    return result;
+  }, [columns]);
+
+  const appAccess = useMemo(() => new Set(snapshot.directAccess.filter((row) => row.enabled === 1).map((row) => `${row.employee_id}:${row.application_id}`)), [snapshot.directAccess]);
+  const moduleAccess = useMemo(() => new Set((moduleView?.grants ?? []).filter((row) => row.enabled === 1).map((row) => `${row.employee_id}:${row.module_code}`)), [moduleView]);
+  const allowed = (employee: IdentityEmployeeRow, column: AccessColumn) => employee.workspace_role === "SUPER_ADMIN"
+    || (column.kind === "app" ? appAccess : moduleAccess).has(`${employee.employee_id}:${column.code}`);
+  /** Why a cell is read-only, or null when it can be changed. */
+  const lockReason = (employee: IdentityEmployeeRow, column: AccessColumn) => employee.workspace_role === "SUPER_ADMIN" ? "超級管理員固定可用"
+    : employee.employee_id === session.user.employeeId ? "自己的使用權由其他管理員設定" : column.disabledReason ?? null;
+
+  /** Sets one access cell; module grants update in place, system access reloads the snapshot. */
+  const setAccess = useCallback(async (employee: IdentityEmployeeRow, column: AccessColumn, next: boolean) => {
+    const cell = `${employee.employee_id}:${column.key}`;
+    setSaving((current) => new Set(current).add(cell));
+    try {
+      if (column.kind === "app") { await setEmployeeApplicationAccess(employee.employee_id, column.code, next); await refresh(); }
+      else {
+        await setEmployeeModuleAccess(employee.employee_id, column.code as ModuleCode, next);
+        setModuleView((view) => view && {
+          ...view,
+          grants: [...view.grants.filter((row) => !(row.employee_id === employee.employee_id && row.module_code === column.code)),
+            { employee_id: employee.employee_id, module_code: column.code as ModuleCode, enabled: next ? 1 : 0, updated_at: new Date().toISOString() }],
+        });
+      }
+      return true;
+    } catch (error) { reportError(`${employee.name}「${column.label}」：${messageOf(error)}`); return false; }
+    finally { setSaving((current) => { const copy = new Set(current); copy.delete(cell); return copy; }); }
+  }, [refresh, reportError]);
+
+  async function toggleCell(employee: IdentityEmployeeRow, column: AccessColumn, next: boolean) {
+    setMessage(null);
+    if (await setAccess(employee, column, next)) setMessage(`${employee.name}「${column.label}」${next ? "已允許" : "已取消"}，立即生效。`);
+  }
 
   const counts = useMemo(() => {
     const result: Partial<Record<string, number>> = {};
@@ -208,166 +274,305 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
     return snapshot.employees.filter((row) => (!stateFilter || accountState(row) === stateFilter)
       && (!keyword || [row.employee_no, row.name, row.email_normalized].some((value) => value.toLowerCase().includes(keyword))));
   }, [snapshot.employees, query, stateFilter]);
-  const selected = snapshot.employees.find((row) => row.employee_id === selectedId) ?? null;
+  const drawerEmployee = snapshot.employees.find((row) => row.employee_id === drawerId) ?? null;
 
-  function manageable(row: IdentityEmployeeRow): boolean {
-    if (row.workspace_role === "SUPER_ADMIN" || row.employee_id === session.user.employeeId) return false;
-    if (isSuperAdmin) return true;
-    if (session.user.isIdentityAdmin) return row.identity_admin !== 1;
-    return row.workspace_role === "USER" && row.identity_admin !== 1;
+  /** Applies several cell changes one by one and reports how many succeeded. */
+  async function applyChanges(changes: readonly { employee: IdentityEmployeeRow; column: AccessColumn; next: boolean }[], what: string) {
+    setMessage(null);
+    let done = 0;
+    for (const change of changes) if (await setAccess(change.employee, change.column, change.next)) done++;
+    if (done === changes.length) setMessage(changes.length ? `${what}：已更新 ${done} 項。` : `${what}：沒有需要變更的項目。`);
+    else reportError(`${what}：${changes.length} 項中有 ${changes.length - done} 項未完成，請檢查後再試。`);
   }
 
-  /** Every account action: one busy flag, a result line, and a fresh snapshot. */
-  async function act(work: () => Promise<string | null>) {
-    setBusy(true); setMessage(null);
-    try {
-      const done = await work();
-      if (done) setMessage(done);
-      await refresh();
-    } catch (error) { reportError(messageOf(error)); }
+  async function copyFrom(target: IdentityEmployeeRow, source: IdentityEmployeeRow) {
+    const changes = columns.filter((column) => !lockReason(target, column) && allowed(target, column) !== allowed(source, column))
+      .map((column) => ({ employee: target, column, next: allowed(source, column) }));
+    await applyChanges(changes, `${target.name} 套用 ${source.name} 的使用權`);
+  }
+
+  const busyAny = saving.size > 0;
+  return <>
+    <PagePrimaryActions><button type="button" className="cy-op-button primary" onClick={() => setCreateOpen(true)}>＋ 新增使用者</button></PagePrimaryActions>
+    {createOpen ? <CreateUserDialog canIdentityAdmin={canIdentityAdmin} onClose={() => setCreateOpen(false)}
+      onCreated={async (employeeNo, done) => { setCreateOpen(false); setMessage(done); setOpenNo(employeeNo); await refresh(); }}
+      reportError={reportError} /> : null}
+    {drawerEmployee ? <UserDrawer key={drawerEmployee.employee_id} employee={drawerEmployee} snapshot={snapshot} session={session} refresh={refresh}
+      columns={columns} allowed={allowed} lockReason={lockReason} saving={saving} onToggle={toggleCell} onCopy={copyFrom}
+      onClose={() => setDrawerId(null)} onDeleted={() => setDrawerId(null)} /> : null}
+
+    <FeedbackBanner message={message} tone={messageTone} />
+    <section className="cy-op-panel cy-identity-table-panel">
+      <div className="cy-identity-table-toolbar">
+        <input className="cy-op-input" type="search" aria-label="搜尋使用者" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋編號、姓名、Email" />
+        <StatusFilter label="帳號狀態" options={accountStates} counts={counts} value={stateFilter} onChange={setStateFilter} />
+        <span className="cy-md-count">{busyAny ? <Loading inline /> : `共 ${rows.length} 位`}</span>
+      </div>
+      {!canIdentityAdmin ? <p className="cy-identity-intro">系統與模組使用權由帳號管理員或超級管理員設定；你可以管理一般使用者的帳號，點姓名開啟。</p> : null}
+      {canIdentityAdmin && !moduleView ? <Loading /> : <div className="cy-identity-access-scroll">
+        <table className="cy-op-table cy-identity-access-table">
+          <thead>
+            <tr>
+              <th rowSpan={columns.length ? 2 : 1} className="cy-access-person">使用者</th>
+              <th rowSpan={columns.length ? 2 : 1}>狀態</th>
+              <th rowSpan={columns.length ? 2 : 1} className="cy-access-role">權限</th>
+              {groups.map((group) => <th key={group.group} colSpan={group.span} className="cy-access-group">{group.group}</th>)}
+            </tr>
+            {columns.length ? <tr>{columns.map((column) => <th key={column.key} className="cy-access-col">
+              {column.label}
+            </th>)}</tr> : null}
+          </thead>
+          <tbody>{rows.map((employee) => {
+            const state = stateOf(employee);
+            const own = employee.employee_id === session.user.employeeId;
+            return <tr key={employee.employee_id}>
+              <th scope="row" className="cy-access-person">
+                <button type="button" className="cy-access-person-button" onClick={() => setDrawerId(employee.employee_id)}>
+                  <strong>{employee.name}{own ? "（你）" : ""}</strong>
+                  <span><span className="cy-mono">{employee.employee_no}</span>{employee.identity_admin === 1 ? " · 帳號管理員" : ""}</span>
+                </button>
+              </th>
+              <td><StatusChip tone={state.tone}>{state.label}</StatusChip></td>
+              <td className="cy-access-role"><RoleCell employee={employee} session={session} refresh={refresh} onError={reportError} onSaved={setMessage} /></td>
+              {columns.map((column) => {
+                const reason = lockReason(employee, column);
+                const cell = `${employee.employee_id}:${column.key}`;
+                return <td key={column.key} className="cy-access-cell">
+                  {saving.has(cell) ? <span className="cy-loading-spinner" role="status" aria-label="儲存中" />
+                    : <input type="checkbox" checked={allowed(employee, column)} disabled={!!reason} title={reason ?? `${employee.name}「${column.label}」`}
+                        aria-label={`${employee.name}「${column.label}」`} onChange={(event) => void toggleCell(employee, column, event.target.checked)} />}
+                </td>;
+              })}
+            </tr>;
+          })}</tbody>
+        </table>
+        {rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的使用者。</div> : null}
+      </div>}
+      {canIdentityAdmin ? <p className="cy-identity-intro cy-identity-table-hint">勾選立即生效。點姓名可處理帳號（停用、更換 Email、從某人複製使用權等）。CY Web 本身所有啟用的使用者都能登入。</p> : null}
+    </section>
+  </>;
+}
+
+/** Role select in the table; only where the current admin may change it. */
+function RoleCell({ employee, session, refresh, onError, onSaved }: {
+  employee: IdentityEmployeeRow; session: AuthSession; refresh: () => Promise<void>;
+  onError: (message: string) => void; onSaved: (message: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const isSuperAdmin = session.user.workspaceRole === "SUPER_ADMIN";
+  const canIdentityAdmin = isSuperAdmin || session.user.isIdentityAdmin;
+  const editable = canIdentityAdmin && manageableBy(session, employee) && employee.identity_admin !== 1;
+  if (!editable) return <span>{permissionLabel(employee.workspace_role)}</span>;
+  async function change(next: "USER" | "ADMIN") {
+    setBusy(true);
+    try { await updateIdentityEmployee(employee.employee_id, { roleKey: next, revision: employee.revision }); await refresh(); onSaved(`${employee.name} 已改為${permissionLabel(next)}。`); }
+    catch (error) { onError(messageOf(error)); }
     finally { setBusy(false); }
   }
+  return <select className="cy-op-input compact" aria-label={`${employee.name} 的權限`} value={employee.role_key} disabled={busy}
+    aria-busy={busy || undefined} onChange={(event) => void change(event.target.value as "USER" | "ADMIN")}>
+    <option value="USER">一般使用者</option><option value="ADMIN">管理員</option></select>;
+}
 
-  async function editPending(row: IdentityEmployeeRow) {
+function manageableBy(session: AuthSession, row: IdentityEmployeeRow): boolean {
+  if (row.workspace_role === "SUPER_ADMIN" || row.employee_id === session.user.employeeId) return false;
+  if (session.user.workspaceRole === "SUPER_ADMIN") return true;
+  if (session.user.isIdentityAdmin) return row.identity_admin !== 1;
+  return row.workspace_role === "USER" && row.identity_admin !== 1;
+}
+
+/** One person's account actions and access, opened from the table (and the way to edit on a phone). */
+function UserDrawer({ employee, snapshot, session, refresh, columns, allowed, lockReason, saving, onToggle, onCopy, onClose, onDeleted }: {
+  employee: IdentityEmployeeRow;
+  snapshot: IdentityAdminSnapshot;
+  session: AuthSession;
+  refresh: () => Promise<void>;
+  columns: readonly AccessColumn[];
+  allowed: (employee: IdentityEmployeeRow, column: AccessColumn) => boolean;
+  lockReason: (employee: IdentityEmployeeRow, column: AccessColumn) => string | null;
+  saving: ReadonlySet<string>;
+  onToggle: (employee: IdentityEmployeeRow, column: AccessColumn, next: boolean) => Promise<void>;
+  onCopy: (target: IdentityEmployeeRow, source: IdentityEmployeeRow) => Promise<void>;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const isSuperAdmin = session.user.workspaceRole === "SUPER_ADMIN";
+  const canIdentityAdmin = isSuperAdmin || session.user.isIdentityAdmin;
+  const [busy, setBusy] = useState(false);
+  const { pending, track } = usePendingAction();
+  const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
+  const { confirm, confirmationDialog } = useConfirmation();
+  const { ask, promptDialog } = useFormPrompt();
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [copySource, setCopySource] = useState("");
+
+  const own = employee.employee_id === session.user.employeeId;
+  const rowManageable = manageableBy(session, employee);
+  const isPending = !employee.activated_at;
+  const state = stateOf(employee);
+  const canRecover = canIdentityAdmin && employee.workspace_role !== "SUPER_ADMIN" && !own && !isPending;
+  const canEditAccess = canIdentityAdmin && employee.workspace_role !== "SUPER_ADMIN" && !own;
+  const copyCandidates = snapshot.employees.filter((row) => row.employee_id !== employee.employee_id && row.workspace_role !== "SUPER_ADMIN");
+
+  async function act(work: () => Promise<string | null>) {
+    setBusy(true); setMessage(null);
+    try { const done = await work(); if (done) setMessage(done); await refresh(); }
+    catch (error) { reportError(messageOf(error)); }
+    finally { setBusy(false); }
+  }
+  async function editPending() {
     const answer = await ask({ title: "修改尚未啟用的帳號", description: "Email 變更後會寄出新的驗證信，先前的首次登入密碼會失效。",
       fields: [
-        { name: "employeeNo", label: "員工編號", defaultValue: row.employee_no, required: true, inputMode: "numeric" },
-        { name: "name", label: "姓名", defaultValue: row.name, required: true },
-        { name: "email", label: "Email", defaultValue: row.email_normalized, required: true },
+        { name: "employeeNo", label: "員工編號", defaultValue: employee.employee_no, required: true, inputMode: "numeric" },
+        { name: "name", label: "姓名", defaultValue: employee.name, required: true },
+        { name: "email", label: "Email", defaultValue: employee.email_normalized, required: true },
       ], confirmLabel: "儲存" });
     if (!answer) return;
     await act(async () => {
-      const result = await updateIdentityEmployee(row.employee_id, { employeeNo: answer.employeeNo, displayName: answer.name, email: answer.email, revision: row.revision });
+      const result = await updateIdentityEmployee(employee.employee_id, { employeeNo: answer.employeeNo, displayName: answer.name, email: answer.email, revision: employee.revision });
       if (result.emailVerificationDelivery?.sent === false) reportError("帳號資料已更新，但驗證信未能寄出，請稍後按「重寄驗證 Email」。");
       return result.emailVerificationDelivery?.sent ? "資料已更新，新的驗證信已寄出；舊的首次登入密碼已失效。" : "資料已更新。";
     });
   }
-  const resendInvite = (row: IdentityEmployeeRow) => act(async () => {
-    const result = await resendEmployeeEmailVerification(row.employee_id);
+  const resendInvite = () => act(async () => {
+    const result = await resendEmployeeEmailVerification(employee.employee_id);
     if (!result.emailVerificationDelivery.sent) { reportError("驗證信未能寄出，請稍後重試；請勿繼續使用先前的首次登入密碼。"); return null; }
     return "驗證信已重新寄出，先前的首次登入密碼已失效。";
   });
-  async function deleteEmployee(row: IdentityEmployeeRow) {
+  async function deleteEmployee() {
     if (!await confirm({ title: "刪除使用者帳號", confirmTone: "danger",
-      description: `確定刪除「${row.employee_no} ${row.name}」？刪除後將無法登入；重新新增會是全新帳號，不會繼承原有使用權。`,
+      description: `確定刪除「${employee.employee_no} ${employee.name}」？刪除後將無法登入；重新新增會是全新帳號，不會繼承原有使用權。`,
       confirmLabel: "刪除帳號", cancelLabel: "保留帳號" })) return;
-    await act(async () => { await deleteIdentityEmployee(row.employee_id); setSelectedId(null); pane.close(); return "使用者帳號已刪除。"; });
+    setBusy(true);
+    try { await deleteIdentityEmployee(employee.employee_id); onDeleted(); await refresh(); }
+    catch (error) { reportError(messageOf(error)); }
+    finally { setBusy(false); }
   }
-  async function toggleEnabled(row: IdentityEmployeeRow) {
-    if (row.enabled === 1 && !await confirm({ title: `停用 ${row.name}`, description: "停用後立即無法登入，所有使用權保留；之後可以再啟用。",
+  async function toggleEnabled() {
+    if (employee.enabled === 1 && !await confirm({ title: `停用 ${employee.name}`, description: "停用後立即無法登入，所有使用權保留；之後可以再啟用。",
       confirmLabel: "停用帳號", confirmTone: "danger" })) return;
-    await act(async () => { await updateIdentityEmployee(row.employee_id, { enabled: row.enabled !== 1, revision: row.revision }); return row.enabled === 1 ? "帳號已停用。" : "帳號已啟用。"; });
+    await act(async () => { await updateIdentityEmployee(employee.employee_id, { enabled: employee.enabled !== 1, revision: employee.revision }); return employee.enabled === 1 ? "帳號已停用。" : "帳號已啟用。"; });
   }
-  const changeRole = (row: IdentityEmployeeRow, nextRole: "USER" | "ADMIN") => act(async () => {
-    await updateIdentityEmployee(row.employee_id, { roleKey: nextRole, revision: row.revision });
-    return `已改為${permissionLabel(nextRole)}。`;
-  });
-  const setIdentityAdmin = (row: IdentityEmployeeRow, enabled: boolean) => act(async () => {
-    await setEmployeeIdentityAdmin(row.employee_id, enabled);
+  const setIdentityAdmin = (enabled: boolean) => act(async () => {
+    await setEmployeeIdentityAdmin(employee.employee_id, enabled);
     return enabled ? "已設為帳號管理員。" : "已撤銷帳號管理員。";
   });
-  async function recoverEmail(row: IdentityEmployeeRow) {
-    const answer = await ask({ title: `替 ${row.employee_no} ${row.name} 更換 Email`,
+  async function recoverEmail() {
+    const answer = await ask({ title: `替 ${employee.employee_no} ${employee.name} 更換 Email`,
       description: "變更後會立即登出此使用者，並要求以新 Email 重新驗證。",
-      fields: [{ name: "email", label: "新的 Email", defaultValue: row.email_normalized, required: true }], confirmLabel: "更換並登出", confirmTone: "danger" });
+      fields: [{ name: "email", label: "新的 Email", defaultValue: employee.email_normalized, required: true }], confirmLabel: "更換並登出", confirmTone: "danger" });
     const nextEmail = answer?.email ?? "";
-    if (!nextEmail || nextEmail === row.email_normalized) return;
+    if (!nextEmail || nextEmail === employee.email_normalized) return;
     await act(async () => {
-      const result = await forceEmployeeEmailRecovery(row.employee_id, nextEmail);
+      const result = await forceEmployeeEmailRecovery(employee.employee_id, nextEmail);
       if (!result.verificationDelivery.sent) { reportError("Email 已變更並撤銷原有登入，但驗證信未能寄出，請稍後按「重寄 Email 驗證」。"); return null; }
       return "Email 已更換，新 Email 驗證信已寄出。";
     });
   }
-  const resendVerification = (row: IdentityEmployeeRow) => act(async () => {
-    const result = await resendActivatedEmailVerification(row.employee_id);
+  const resendVerification = () => act(async () => {
+    const result = await resendActivatedEmailVerification(employee.employee_id);
     if (!result.verificationDelivery.sent) { reportError("Email 驗證信未能寄出，請稍後重試。"); return null; }
     return "Email 驗證信已重新寄出。";
   });
+  async function copy() {
+    const source = snapshot.employees.find((row) => row.employee_id === copySource);
+    if (!source) return;
+    if (!await confirm({ title: `套用 ${source.name} 的使用權`, description: `${employee.name} 的系統與模組使用權會改成和 ${source.name} 一樣。帳號權限（管理員／一般使用者）不變。`,
+      confirmLabel: "套用" })) return;
+    setBusy(true);
+    try { await onCopy(employee, source); setCopySource(""); setMessage(`已套用 ${source.name} 的使用權。`); }
+    finally { setBusy(false); }
+  }
 
-  function select(row: IdentityEmployeeRow) { setSelectedId(row.employee_id); setMessage(null); pane.open(); }
-
-  const selectedState = selected ? stateOf(selected) : null;
-  const own = selected?.employee_id === session.user.employeeId;
-  const rowManageable = selected ? manageable(selected) : false;
-  const isPending = selected ? !selected.activated_at : false;
-  const canRecover = !!selected && canIdentityAdmin && selected.workspace_role !== "SUPER_ADMIN" && !own && !isPending;
-  const canChangeRole = !!selected && canIdentityAdmin && rowManageable && selected.identity_admin !== 1;
-  const nextStep = !selected || own ? null : isPending ? "等待本人用驗證信完成首次登入；沒收到可以「重寄驗證 Email」。"
-    : accountState(selected) === "unverified" ? "Email 尚未驗證，密碼找回等功能暫停；可以「重寄 Email 驗證」。"
-    : accountState(selected) === "disabled" ? "已停用，無法登入；使用權仍保留，需要時按「啟用」。" : null;
+  const nextStep = own ? null : isPending ? "等待本人用驗證信完成首次登入；沒收到可以「重寄驗證 Email」。"
+    : accountState(employee) === "unverified" ? "Email 尚未驗證，密碼找回等功能暫停；可以「重寄 Email 驗證」。"
+    : accountState(employee) === "disabled" ? "已停用，無法登入；使用權仍保留，需要時按「啟用」。" : null;
   const button = (key: string, label: string, onClick: () => Promise<void>, tone = "") =>
     <button type="button" className={`cy-op-button ${tone}`} disabled={busy} aria-busy={(busy && pending === key) || undefined}
       onClick={() => track(key, onClick())}>{label}</button>;
+  const accessGroups = (["系統使用權", "業務模組", "ERP 查詢"] as const).map((group) => ({ group, columns: columns.filter((column) => column.group === group) })).filter((item) => item.columns.length);
 
-  return <>
+  return <Drawer open title={employee.name} description={`${employee.employee_no} · ${employee.email_normalized}`} dismissible={!busy} onClose={onClose}>
     {confirmationDialog}
     {promptDialog}
-    <PagePrimaryActions><button type="button" className="cy-op-button primary" disabled={busy} onClick={() => setCreateOpen(true)}>＋ 新增使用者</button></PagePrimaryActions>
-    {createOpen ? <CreateUserDialog canIdentityAdmin={canIdentityAdmin} onClose={() => setCreateOpen(false)}
-      onCreated={async (employeeNo, done) => { setCreateOpen(false); setMessage(done); setSelectNo(employeeNo); await refresh(); }}
-      reportError={reportError} /> : null}
     {transferOpen ? <TransferDialog employees={snapshot.employees} onClose={() => setTransferOpen(false)} /> : null}
-    <FeedbackBanner message={message} tone={messageTone} />
-    {snapshot.testingAccountDeletionAllowed === true && isSuperAdmin ? <p className="cy-identity-intro">測試期間可刪除已啟用的帳號；刪除後可重新新增。</p> : null}
-    <div className="cy-md" data-pane={pane.pane}>
-      <section className="cy-op-panel cy-md-list" aria-label="使用者清單">
-        <div className="cy-md-toolbar">
-          <input className="cy-op-input" type="search" aria-label="搜尋使用者" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋編號、姓名、Email" />
-          <StatusFilter label="帳號狀態" options={accountStates} counts={counts} value={stateFilter} onChange={setStateFilter} />
-          <div className="cy-md-count">共 {rows.length} 位</div>
-        </div>
-        <div className="cy-op-list">
-          {rows.map((row) => <button key={row.employee_id} type="button" className={`cy-op-list-row cy-status-row ${selectedId === row.employee_id ? "active" : ""}`}
-            aria-current={selectedId === row.employee_id ? "true" : undefined} onClick={() => select(row)}>
-            <strong>{row.name}{row.employee_id === session.user.employeeId ? "（你）" : ""}</strong>
-            <span><span className="cy-mono">{row.employee_no}</span> · {permissionLabel(row.workspace_role)}{row.identity_admin === 1 ? " · 帳號管理員" : ""}</span>
-            <StatusChip tone={stateOf(row).tone}>{stateOf(row).label}</StatusChip>
-          </button>)}
-          {rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的使用者。</div> : null}
-        </div>
-      </section>
-      <section className="cy-op-panel cy-md-detail">
-        <MasterDetailBack label="使用者清單" disabled={busy} onBack={pane.close} />
-        {selected && selectedState ? <div>
-          <div className="cy-record-header">
-            <div><h2>{selected.name}</h2><p><span className="cy-mono">{selected.employee_no}</span> · {selected.email_normalized}</p></div>
-            <div className="cy-record-actions">
-              <StatusChip tone={selectedState.tone}>{selectedState.label}</StatusChip>
-              {selected.workspace_role === "SUPER_ADMIN" && isSuperAdmin ? <button type="button" className="cy-op-button" disabled={busy || !snapshot.employees.some(eligibleForTransfer)} onClick={() => setTransferOpen(true)}>移交超級管理員</button> : null}
-              {isPending && rowManageable ? <>
-                <button type="button" className="cy-op-button" disabled={busy} onClick={() => void editPending(selected)}>修改</button>
-                {button("resendInvite", "重寄驗證 Email", () => resendInvite(selected))}
-              </> : null}
-              {!isPending && rowManageable ? button("toggle", selected.enabled === 1 ? "停用" : "啟用", () => toggleEnabled(selected), selected.enabled === 1 ? "danger" : "primary") : null}
-              {rowManageable && (isPending || (isSuperAdmin && snapshot.testingAccountDeletionAllowed === true)) ? button("delete", "刪除", () => deleteEmployee(selected), "danger") : null}
-            </div>
-          </div>
-          {own ? <p className="cy-next-step finished">這是你的帳號；密碼與 Email 請到「我的帳號」變更，自己的權限與使用權由其他管理員設定。</p>
-            : nextStep ? <NextStep tone={selectedState.tone}>{nextStep}</NextStep> : null}
+    <div className="cy-identity-drawer">
+      <div className="cy-identity-drawer-status">
+        <StatusChip tone={state.tone}>{state.label}</StatusChip>
+        <RoleCell employee={employee} session={session} refresh={refresh} onError={reportError} onSaved={setMessage} />
+        {employee.identity_admin === 1 ? <span>帳號管理員</span> : null}
+      </div>
+      <FeedbackBanner message={message} tone={messageTone} />
+      {own ? <p className="cy-next-step finished">這是你的帳號；密碼與 Email 請到「我的帳號」變更，自己的權限與使用權由其他管理員設定。</p>
+        : nextStep ? <NextStep tone={state.tone}>{nextStep}</NextStep> : null}
 
-          <div className="cy-op-detail-grid">
-            <div><span>權限</span>{canChangeRole
-              ? <select className="cy-op-input compact" aria-label={`${selected.name} 的權限`} value={selected.role_key} disabled={busy}
-                  onChange={(event) => void changeRole(selected, event.target.value as "USER" | "ADMIN")}><option value="USER">一般使用者</option><option value="ADMIN">管理員</option></select>
-              : <strong>{permissionLabel(selected.workspace_role)}</strong>}</div>
-            <div><span>帳號管理員</span><strong>{selected.workspace_role === "SUPER_ADMIN" ? "—" : selected.identity_admin === 1 ? "是" : "否"}</strong>
-              {isSuperAdmin && selected.workspace_role === "ADMIN" && !own
-                ? button("identityAdmin", selected.identity_admin === 1 ? "撤銷" : "設為帳號管理員", () => setIdentityAdmin(selected, selected.identity_admin !== 1), "compact quiet") : null}</div>
-            <div><span>Email</span><strong>{selected.email_verified_at ? "已驗證" : "尚未驗證"}</strong>
-              <span className="cy-identity-inline-actions">
-                {canRecover ? <button type="button" className="cy-op-button compact quiet" disabled={busy} onClick={() => void recoverEmail(selected)}>更換 Email</button> : null}
-                {canRecover && !selected.email_verified_at ? button("resendVerification", "重寄 Email 驗證", () => resendVerification(selected), "compact quiet") : null}
-              </span></div>
-          </div>
+      <div className="cy-identity-drawer-actions">
+        {employee.workspace_role === "SUPER_ADMIN" && isSuperAdmin ? <button type="button" className="cy-op-button" disabled={busy || !snapshot.employees.some(eligibleForTransfer)} onClick={() => setTransferOpen(true)}>移交超級管理員</button> : null}
+        {isPending && rowManageable ? <>
+          <button type="button" className="cy-op-button" disabled={busy} onClick={() => void editPending()}>修改資料</button>
+          {button("resendInvite", "重寄驗證 Email", resendInvite)}
+        </> : null}
+        {!isPending && rowManageable ? button("toggle", employee.enabled === 1 ? "停用帳號" : "啟用帳號", toggleEnabled, employee.enabled === 1 ? "danger" : "primary") : null}
+        {canRecover ? <button type="button" className="cy-op-button" disabled={busy} onClick={() => void recoverEmail()}>更換 Email</button> : null}
+        {canRecover && !employee.email_verified_at ? button("resendVerification", "重寄 Email 驗證", resendVerification) : null}
+        {isSuperAdmin && employee.workspace_role === "ADMIN" && !own ? button("identityAdmin", employee.identity_admin === 1 ? "撤銷帳號管理員" : "設為帳號管理員", () => setIdentityAdmin(employee.identity_admin !== 1)) : null}
+        {rowManageable && (isPending || (isSuperAdmin && snapshot.testingAccountDeletionAllowed === true)) ? button("delete", "刪除帳號", deleteEmployee, "danger") : null}
+      </div>
 
-          {isSuperAdmin || session.user.isIdentityAdmin ? <>
-            <ApplicationAccessSection snapshot={snapshot} employee={selected} own={own} onChange={act} />
-            <ModuleAccessPanel employee={selected} own={own} onError={reportError} onSaved={setMessage} />
-          </> : <p className="cy-identity-intro">系統與模組使用權由帳號管理員或超級管理員設定。</p>}
-        </div> : <MasterDetailEmpty title="尚未選擇使用者" hint="從左側清單選一位，或按右上角「新增使用者」。" />}
-      </section>
+      {canEditAccess && copyCandidates.length ? <div className="cy-op-subsection">
+        <h3>從某人複製使用權</h3>
+        <p className="cy-identity-intro">新同事可以直接套用同職位同事的系統與模組使用權。</p>
+        <div className="cy-identity-copy-row">
+          <select className="cy-op-input" aria-label="複製來源" value={copySource} disabled={busy} onChange={(event) => setCopySource(event.target.value)}>
+            <option value="">選擇同事</option>
+            {copyCandidates.map((row) => <option key={row.employee_id} value={row.employee_id}>{row.employee_no} · {row.name}</option>)}
+          </select>
+          <button type="button" className="cy-op-button" disabled={busy || !copySource} aria-busy={busy || undefined} onClick={() => void copy()}>套用</button>
+        </div>
+      </div> : null}
+
+      {canIdentityAdmin ? accessGroups.map((item) => item.group === "系統使用權"
+        ? <ApplicationAccessSection key={item.group} employee={employee} columns={item.columns} allowed={allowed} lockReason={lockReason} saving={saving} onToggle={onToggle} />
+        : null) : null}
+      {canIdentityAdmin ? <ModuleAccessPanel employee={employee} groups={accessGroups.filter((item) => item.group !== "系統使用權")}
+        allowed={allowed} lockReason={lockReason} saving={saving} onToggle={onToggle} /> : null}
     </div>
-  </>;
+  </Drawer>;
+}
+
+function AccessChecks({ employee, columns, allowed, lockReason, saving, onToggle }: {
+  employee: IdentityEmployeeRow;
+  columns: readonly AccessColumn[];
+  allowed: (employee: IdentityEmployeeRow, column: AccessColumn) => boolean;
+  lockReason: (employee: IdentityEmployeeRow, column: AccessColumn) => string | null;
+  saving: ReadonlySet<string>;
+  onToggle: (employee: IdentityEmployeeRow, column: AccessColumn, next: boolean) => Promise<void>;
+}) {
+  return <div className="cy-identity-access-list">
+    {columns.map((column) => {
+      const reason = lockReason(employee, column);
+      return <label key={column.key} className="cy-identity-access-item" title={reason ?? undefined}>
+        <input type="checkbox" checked={allowed(employee, column)} disabled={!!reason || saving.has(`${employee.employee_id}:${column.key}`)}
+          onChange={(event) => void onToggle(employee, column, event.target.checked)} />
+        <span>{column.label}</span>
+        {saving.has(`${employee.employee_id}:${column.key}`) ? <span className="cy-loading-spinner" aria-hidden="true" /> : reason ? <small>{reason}</small> : null}
+      </label>;
+    })}
+  </div>;
+}
+
+/** The person's access to other CY systems (CY Web itself is always available). */
+function ApplicationAccessSection(props: Omit<Parameters<typeof AccessChecks>[0], "columns"> & { columns: readonly AccessColumn[] }) {
+  return <div className="cy-op-subsection"><h3>系統使用權</h3><AccessChecks {...props} /></div>;
+}
+
+/** CY Web 模組使用權 for one person, grouped so 業務模組 and ERP 查詢 read separately (writes via setEmployeeModuleAccess). */
+function ModuleAccessPanel({ groups, ...props }: Omit<Parameters<typeof AccessChecks>[0], "columns"> & { groups: readonly { group: string; columns: readonly AccessColumn[] }[] }) {
+  return <div className="cy-op-subsection">
+    <h3>CY Web 模組使用權</h3>
+    <p className="cy-identity-intro">勾選立即生效。模組使用權與權限（管理員／一般使用者）各自獨立，改權限不會改這裡。</p>
+    {groups.map((item) => <fieldset key={item.group} className="cy-identity-module-group"><legend>{item.group}</legend><AccessChecks {...props} columns={item.columns} /></fieldset>)}
+  </div>;
 }
 
 function eligibleForTransfer(row: IdentityEmployeeRow): boolean {
@@ -475,88 +680,6 @@ function TransferDialog({ employees, onClose }: { employees: readonly IdentityEm
   </>;
 }
 
-/** The selected person's access to other CY systems (CY Web itself is always available). */
-function ApplicationAccessSection({ snapshot, employee, own, onChange }: {
-  snapshot: IdentityAdminSnapshot;
-  employee: IdentityEmployeeRow;
-  own: boolean;
-  onChange: (work: () => Promise<string | null>) => Promise<void>;
-}) {
-  const [saving, setSaving] = useState<string | null>(null);
-  const applications = snapshot.applications.filter((app) => app.core_access_locked !== 1);
-  const allowed = new Set(snapshot.directAccess.filter((row) => row.enabled === 1 && row.employee_id === employee.employee_id).map((row) => row.application_id));
-  const superAdmin = employee.workspace_role === "SUPER_ADMIN";
-  async function change(applicationId: string, name: string, enabled: boolean) {
-    setSaving(applicationId);
-    await onChange(async () => { await setEmployeeApplicationAccess(employee.employee_id, applicationId, enabled); return `${name}${enabled ? "已允許" : "已取消"}。`; });
-    setSaving(null);
-  }
-  return <div className="cy-op-subsection">
-    <h3>系統使用權</h3>
-    <p className="cy-identity-intro">CY Web 所有啟用的使用者都能登入；其他志遠系統在這裡逐一開放。</p>
-    {applications.length === 0 ? <p className="cy-identity-intro">目前沒有其他已登記的系統。</p> : <div className="cy-identity-access-list">
-      {applications.map((app) => {
-        const checked = superAdmin || allowed.has(app.application_id);
-        return <label key={app.application_id} className="cy-identity-access-item">
-          <input type="checkbox" checked={checked} disabled={superAdmin || own || saving !== null || app.enabled !== 1}
-            onChange={(event) => void change(app.application_id, app.display_name, event.target.checked)} />
-          <span>{app.display_name}</span>
-          {saving === app.application_id ? <span className="cy-loading-spinner" aria-hidden="true" /> : null}
-          {superAdmin ? <small>超級管理員永遠可用</small> : app.enabled !== 1 ? <small>系統已停用</small> : null}
-        </label>;
-      })}
-    </div>}
-  </div>;
-}
-
-/** CY Web 模組使用權 for the selected person, grouped so 業務模組 and ERP 查詢 read separately. */
-function ModuleAccessPanel({ employee, own, onError, onSaved }: {
-  employee: IdentityEmployeeRow;
-  own: boolean;
-  onError: (message: string) => void;
-  onSaved: (message: string) => void;
-}) {
-  const [view, setView] = useState<ModuleAccessAdminSnapshot | null>(null);
-  const [saving, setSaving] = useState<string | null>(null);
-  const load = useCallback(async () => {
-    try { setView(await loadModuleAccessAdminSnapshot()); }
-    catch (error) { onError(messageOf(error)); }
-  }, [onError]);
-  useEffect(() => { void load(); }, [load]);
-
-  const superAdmin = employee.workspace_role === "SUPER_ADMIN";
-  const enabled = new Set((view?.grants ?? []).filter((row) => row.enabled === 1 && row.employee_id === employee.employee_id).map((row) => row.module_code));
-  async function change(moduleCode: Parameters<typeof setEmployeeModuleAccess>[1], label: string, next: boolean) {
-    setSaving(moduleCode);
-    try {
-      await setEmployeeModuleAccess(employee.employee_id, moduleCode, next);
-      onSaved(`${label}${next ? "已允許" : "已取消"}，立即生效。`);
-      await load();
-    } catch (error) { onError(messageOf(error)); }
-    finally { setSaving(null); }
-  }
-  const groups = view ? [
-    { title: "業務模組", modules: view.modules.filter((module) => !module.code.startsWith("ERP_")) },
-    { title: "ERP 查詢", modules: view.modules.filter((module) => module.code.startsWith("ERP_")) },
-  ].filter((group) => group.modules.length) : [];
-
-  return <div className="cy-op-subsection">
-    <h3>CY Web 模組使用權</h3>
-    <p className="cy-identity-intro">{superAdmin ? "超級管理員固定可用所有模組。" : own ? "自己的模組使用權由其他帳號管理員設定。" : "勾選後立即生效。模組使用權與權限（管理員／一般使用者）各自獨立，改權限不會改這裡。"}</p>
-    {!view ? <Loading inline /> : groups.map((group) => <fieldset key={group.title} className="cy-identity-module-group">
-      <legend>{group.title}</legend>
-      <div className="cy-identity-access-list">
-        {group.modules.map((module) => <label key={module.code} className="cy-identity-access-item">
-          <input type="checkbox" checked={superAdmin || enabled.has(module.code)} disabled={superAdmin || own || saving !== null}
-            onChange={(event) => void change(module.code, module.label, event.target.checked)} />
-          <span>{module.label}</span>
-          {saving === module.code ? <span className="cy-loading-spinner" aria-hidden="true" /> : null}
-        </label>)}
-      </div>
-    </fieldset>)}
-  </div>;
-}
-
 // ---------- 系統與安全（超級管理員） ----------
 
 function ApplicationRegistryPanel({ snapshot, refresh }: { snapshot: IdentityAdminSnapshot; refresh: () => Promise<void> }) {
@@ -660,7 +783,7 @@ export function SharedIdentityPage({ session }: { session: AuthSession }) {
   const [error, , setError] = useFeedbackMessage<string | null>(null);
   const isWorkspaceAdmin = session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN";
   const isSuperAdmin = session.user.workspaceRole === "SUPER_ADMIN";
-  const [tab, setTab] = useState<Tab>(isWorkspaceAdmin ? "users" : "self");
+  const [tab, setTab] = useState<Tab>("self");
 
   const refresh = useCallback(async () => {
     if (!isWorkspaceAdmin) return;
@@ -673,8 +796,8 @@ export function SharedIdentityPage({ session }: { session: AuthSession }) {
 
   if (!isWorkspaceAdmin) return <div className="cy-identity-page"><SelfServicePanel session={session} /></div>;
   const tabs: readonly { key: Tab; label: string }[] = [
-    { key: "users", label: "使用者" },
     { key: "self", label: "我的帳號" },
+    { key: "users", label: "使用者" },
     ...(isSuperAdmin ? [{ key: "system" as const, label: "系統與安全" }] : []),
   ];
   return <div className="cy-identity-page">
