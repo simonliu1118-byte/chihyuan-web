@@ -453,9 +453,9 @@ export function DefectOperationalPage() {
           <MasterDetailBack label="瑕疵清單" disabled={busy} onBack={async () => { if (editing) { if (!(await canLeave())) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
           {editing && draft ? (
             <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void save(event)}>
-              <div className="cy-record-header">
+              <div className="cy-record-header cy-edit-header">
                 <div><h2>{creating ? "新增瑕疵" : `修改瑕疵 #${selected?.id ?? ""}`}</h2><p>已建檔與處理中的瑕疵可以修改；已處理的需先「重新開啟」。</p></div>
-              </div>
+              <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立瑕疵" : "儲存修改"}</button></div></div>
 
               <div className="cy-defect-form-body">
                 <div className="cy-op-form-grid">
@@ -483,7 +483,6 @@ export function DefectOperationalPage() {
                 </div>
               </div>
 
-              <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立瑕疵" : "儲存修改"}</button></div>
             </form>
           ) : loadingDetail ? <Loading /> : selected ? (
             <div>

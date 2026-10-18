@@ -196,7 +196,8 @@ export function ContractorWorkspace({ contractors, onChanged, onEditingChange, n
       <section className="cy-op-panel cy-md-detail">
         <MasterDetailBack label="代工對象清單" disabled={busy} onBack={async () => { if (draft && !(await canLeave())) return; setDraft(null); setCreating(false); pane.close(); }} />
         {draft ? <form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={(event) => void save(event)}>
-          <div className="cy-record-header"><div><h2>{creating ? "新增代工對象" : `修改 ${detail?.displayName ?? "代工對象"}`}</h2></div></div>
+          <div className="cy-record-header cy-edit-header"><div><h2>{creating ? "新增代工對象" : `修改 ${detail?.displayName ?? "代工對象"}`}</h2></div><div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
+            <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立代工對象" : "儲存修改"}</button></div></div>
           <div className="cy-op-form-grid">
             <label>名稱<input className="cy-op-input" value={draft.displayName} disabled={busy} onChange={(event) => patch({ displayName: event.target.value })} required /></label>
             <label>類型<select className="cy-op-input" value={draft.entityType} disabled={busy} onChange={(event) => patch({ entityType: event.target.value as ContractorEntityType })}>
@@ -220,8 +221,6 @@ export function ContractorWorkspace({ contractors, onChanged, onEditingChange, n
               </div>)}
             </div>
           </section>
-          <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
-            <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立代工對象" : "儲存修改"}</button></div>
         </form> : loadingDetail ? <Loading /> : detail ? <div>
           <div className="cy-record-header"><div><h2>{detail.displayName}</h2><p>{[detail.legalName, detail.entityType === "person" ? "個人" : "公司／工廠"].filter(Boolean).join(" · ")}</p></div>
             <div className="cy-record-actions"><StatusChip tone={detail.isActive ? "success" : "neutral"}>{detail.isActive ? "使用中" : "停用"}</StatusChip>
@@ -338,7 +337,8 @@ export function BomWorkspace({ boms, onChanged, onEditingChange, notify, reportE
       <section className="cy-op-panel cy-md-detail">
         <MasterDetailBack label="BOM 清單" disabled={busy} onBack={async () => { if (draft && !(await canLeave())) return; setDraft(null); setCreating(false); pane.close(); }} />
         {draft ? <form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={(event) => void save(event)}>
-          <div className="cy-record-header"><div><h2>{creating ? "新增 BOM" : `修改 ${detail?.recipeRef ?? "BOM"}`}</h2><p>一個成品可以有多個 BOM；入庫時若有多個使用中的 BOM，需要選擇實際用的那一個。</p></div></div>
+          <div className="cy-record-header cy-edit-header"><div><h2>{creating ? "新增 BOM" : `修改 ${detail?.recipeRef ?? "BOM"}`}</h2><p>一個成品可以有多個 BOM；入庫時若有多個使用中的 BOM，需要選擇實際用的那一個。</p></div><div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
+            <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立 BOM" : "儲存修改"}</button></div></div>
           <div className="cy-op-form-grid">
             <label>BOM 代號<input className="cy-op-input" value={draft.recipeRef} disabled={busy} onChange={(event) => patch({ recipeRef: event.target.value })} placeholder="例如：紙袋-標準" required /></label>
             <EntityPicker<OutsourcingItemOption> label="成品" required disabled={busy} value={draft.finished}
@@ -363,8 +363,6 @@ export function BomWorkspace({ boms, onChanged, onEditingChange, notify, reportE
               </div>)}
             </div>
           </section>
-          <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
-            <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立 BOM" : "儲存修改"}</button></div>
         </form> : loadingDetail ? <Loading /> : detail ? <div>
           <div className="cy-record-header"><div><h2>{detail.finishedItemName}</h2><p><span className="cy-mono">{detail.recipeRef}</span> · {detail.finishedItemNo}</p></div>
             <div className="cy-record-actions"><StatusChip tone={detail.isActive ? "success" : "neutral"}>{detail.isActive ? "使用中" : "停用"}</StatusChip>

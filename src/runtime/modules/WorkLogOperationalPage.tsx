@@ -594,9 +594,10 @@ export function WorkLogOperationalPage() {
           <MasterDetailBack label="工作日誌清單" disabled={busy} onBack={async () => { if (editing) { if (busy || !await canLeave()) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
           {editing && draft ? (
           <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void save(event)}>
-            <div className="cy-record-header">
+            <div className="cy-record-header cy-edit-header">
               <div><h2>{creating ? "新增工作日誌" : `修改 ${selected?.workLogRef ?? "工作日誌"}`}</h2><p>填寫日期與工作內容；儲存後可在明細按「送出審核」。</p></div>
-            </div>
+            <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
+              <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立日誌" : "儲存修改"}</button></div></div>
             <div className="cy-op-form-grid cy-worklog-head-grid cy-form-grid-spaced">
               <label>日誌日期<input className="cy-op-input" type="date" value={draft.logDate} disabled={busy} onChange={(event) => setDraft({ ...draft, logDate: event.target.value })} /></label>
               <label>期間起<input className="cy-op-input" type="date" value={draft.dateFrom} disabled={busy} onChange={(event) => setDraft({ ...draft, dateFrom: event.target.value })} /></label>
@@ -640,10 +641,6 @@ export function WorkLogOperationalPage() {
               </div>
             </section>
 
-            <div className="cy-op-form-footer">
-              <button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
-              <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立日誌" : "儲存修改"}</button>
-            </div>
           </form>
           ) : selected ? <div>
             <div className="cy-record-header"><div><h2>{selected.logDate} 工作日誌</h2><p><span className="cy-mono">{selected.workLogRef}</span> · 員工 #{selected.employeeId}</p></div>

@@ -546,9 +546,9 @@ export function SalesOrderOperationalPage() {
           <MasterDetailBack label="工單清單" disabled={busy} onBack={async () => { if (editing) { if (!(await canLeave())) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
           {editing && draft ? (
             <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void save(event)}>
-              <div className="cy-record-header">
+              <div className="cy-record-header cy-edit-header">
                 <div><h2>{creating ? "新增銷售工單" : `修改 ${selected?.workOrderRef ?? "工單"}`}</h2><p>ERP 開單前可以修改；開單後只能更正 ERP 資料。</p></div>
-              </div>
+              <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立工單" : "儲存修改"}</button></div></div>
 
               <div className="cy-op-form-grid cy-form-grid-spaced">
                 <EntityPicker<SalesWorkOrderCustomerOption> label="客戶" disabled={busy}
@@ -607,7 +607,6 @@ export function SalesOrderOperationalPage() {
                 </div>
               </section>
 
-              <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立工單" : "儲存修改"}</button></div>
             </form>
           ) : loadingDetail ? <Loading /> : selected ? (
             <div>

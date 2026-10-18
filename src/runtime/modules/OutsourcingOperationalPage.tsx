@@ -566,9 +566,9 @@ export function OutsourcingOperationalPage() {
               <MasterDetailBack label="代工單清單" disabled={busy} onBack={async () => { if (editing && !(await discardEditing())) return; pane.close(); }} />
               {editing && draft ? (
               <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void saveOrder(event)}>
-                <div className="cy-record-header">
+                <div className="cy-record-header cy-edit-header">
                   <div><h2>{creating ? "新增代工單" : correctingOutbound ? "更正已確認的出庫" : "修改代工單"}</h2><p>{correctingOutbound ? "儲存後會以新的出庫資料取代原本的出庫，並保留更正紀錄。" : "確認出庫前可以修改內容。"}</p></div>
-                </div>
+                <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立代工單" : "儲存修改"}</button></div></div>
                 <div className="cy-op-form-grid cy-form-grid-spaced">
                   <label>代工對象
                     <select className="cy-op-input" value={draft.contractorId ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, contractorId: Number(event.target.value) || null })}>
@@ -607,7 +607,6 @@ export function OutsourcingOperationalPage() {
                   })}
                   </div>
                 </section>
-                <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立代工單" : "儲存修改"}</button></div>
               </form>
               ) : selectedOrder ? <div>
                 <div className="cy-record-header"><div><h2>{selectedOrder.contractorNameSnapshot}</h2><p><span className="cy-mono">{selectedOrder.outsourcingRef}</span> · {selectedOrder.orderDate}</p></div>

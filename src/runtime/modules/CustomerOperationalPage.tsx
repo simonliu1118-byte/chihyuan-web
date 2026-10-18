@@ -748,12 +748,13 @@ export function CustomerOperationalPage() {
           <MasterDetailBack label="客戶清單" onBack={() => void backToList()} disabled={busy} />
           {editing && draft ? (
             <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void saveCustomer(event)}>
-              <div className="cy-record-header">
+              <div className="cy-record-header cy-edit-header">
                 <div>
                   <h2>{creating ? "新增客戶" : `修改 ${selected?.shortName ?? "客戶"}`}</h2>
                   <p>ERP 客戶編號可先留空，之後在「修改」補填。</p>
                 </div>
-              </div>
+              <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
+                <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立客戶" : "儲存修改"}</button></div></div>
 
               <div className="cy-customer-form-body">
                 <div className="cy-op-form-grid">
@@ -784,10 +785,6 @@ export function CustomerOperationalPage() {
                 </EditableRows>
               </div>
 
-              <div className="cy-op-form-footer">
-                <button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
-                <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立客戶" : "儲存修改"}</button>
-              </div>
             </form>
           ) : loadingDetail ? <Loading /> : selected ? (
             <div>

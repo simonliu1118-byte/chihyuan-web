@@ -525,6 +525,13 @@ a.cy-op-button, a.cy-button { text-decoration: none; }
 .cy-record-header h2 { margin: 0; font-size: var(--cy-fs-xl); font-weight: 700; overflow-wrap: anywhere; }
 .cy-record-header p { margin: 2px 0 0; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
 .cy-record-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+/* Edit forms: 取消／儲存 sit where 修改 was, and the header stays in view while scrolling (user 2026-10-18). */
+.cy-md-detail .cy-edit-header {
+  position: sticky; top: var(--cy-topbar-h); z-index: 3;
+  margin: -16px -16px 4px; padding: 16px 16px 12px;
+  background: var(--cy-surface); border-radius: var(--cy-radius-lg) var(--cy-radius-lg) 0 0;
+}
+.cy-edit-header .cy-record-actions { flex: 0 0 auto; }
 
 @media (max-width: 1180px) {
   :root { --cy-sidebar-w: 200px; }
@@ -554,6 +561,7 @@ a.cy-op-button, a.cy-button { text-decoration: none; }
   }
   .cy-md-detail { padding: 12px; }
   .cy-md-list .cy-op-list-row, .cy-op-list-row { padding: 10px 12px; }
+  .cy-md-detail .cy-edit-header { margin: 0 -12px 4px; padding: 12px 12px 10px; border-radius: 0; }
   .cy-md-detail .cy-op-form-footer { margin: 16px -12px -12px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)); }
   .cy-md-detail .cy-op-form-footer .cy-op-button { flex: 1 1 0; }
   .cy-record-header { flex-wrap: wrap; }
