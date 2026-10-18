@@ -146,7 +146,12 @@ Endpoints:
 | GET | `/api/module-access` | any authenticated CY Web Employee | return current effective business modules; Super Admin receives implicit all |
 | GET | `/api/module-access/check/:moduleCode` | authenticated + requested module grant | authoritative module-entry check; returns 403 `ACCESS_DENIED` when absent |
 | GET | `/api/module-access/admin` | Identity Admin / Super Admin | return direct Employee × Module grants for account-management UI |
-| PUT | `/api/module-access/admin/employees/:employeeId/modules/:moduleCode` | Identity Admin / Super Admin | enable/disable one direct Module Access grant |
+| PUT | `/api/module-access/admin/employees/:employeeId/modules/:moduleCode` | Identity Admin / Super Admin | enable/disable one direct Module Access grant; 409 `MODULE_ACCESS_GROUP_MANAGED` for a group member |
+| PUT | `/api/module-access/admin/employees/:employeeId/group` | Identity Admin / Super Admin | `{ groupId: number \| null }`: join one 權限群組 (its systems and modules replace the person's) or leave (current access kept); returns `applicationSyncFailed` |
+| POST | `/api/module-access/admin/groups` | Identity Admin / Super Admin | create a group `{ name, modules, applications }` (201; `MODULE_ACCESS_GROUP_NAME_TAKEN`; the core application is refused) |
+| PATCH | `/api/module-access/admin/groups/:groupId` | Identity Admin / Super Admin | `{ name, modules, applications, expectedRevision }`; materializes every member's grants and syncs CYID system access (`MODULE_ACCESS_GROUP_REVISION_CONFLICT` on a stale revision); returns `applicationSyncFailed` |
+| DELETE | `/api/module-access/admin/groups/:groupId` | Identity Admin / Super Admin | `{ expectedRevision }`; members leave the group and keep their current access |
+| POST | `/api/module-access/admin/groups/:groupId/sync` | Identity Admin / Super Admin | re-apply the group's systems in CYID for every member; returns `applicationSyncFailed` |
 
 Mutation rules:
 
@@ -157,6 +162,8 @@ Mutation rules:
 - grant mutation and CY Web audit event are written in one D1 batch;
 - changes affect subsequent module checks immediately and do not require re-login;
 - browser navigation filtering is convenience only; protected Worker/business routes must call the server-side Module Access guard before reading or mutating protected data.
+
+The admin snapshot also returns `groups` (`id, name, modules, applications, revision, memberCount`) and `memberships` (`employee_id, group_id`). 權限群組 (BD-057) is administration state only: group writes update the members' `app_member_module_access` rows in the same batch, so the runtime checks above are unchanged. System access stays in CYID: the Worker syncs it after the D1 write (`applicationSyncFailed` lists members CYID did not update), and `PUT /api/identity/admin/employees/:id/applications/:applicationId` answers 409 `MODULE_ACCESS_GROUP_MANAGED` to an access admin for a group member.
 
 `app_tags / app_tag_modules / app_member_tags` are not forward authorization sources. The authoritative store is `app_member_module_access`.
 
