@@ -219,7 +219,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
 
   // CYID name projection must hydrate on session read and surface in Customer references.
   const projected = await resolveAppMember(db, {
-    workspaceId: "acceptance", employeeId: "member-1", employeeNo: "0001",
+    workspaceId: "acceptance", employeeId: "acceptance-employee-1", employeeNo: "T0001",
     displayName: "驗收姓名", workspaceRole: "SUPER_ADMIN", isIdentityAdmin: false,
     emailVerified: true, isWorkspaceSuperAdmin: true, credentialVersion: 1, employeeRevision: 1,
   });
@@ -229,7 +229,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
   await db.prepare("UPDATE customers SET owner_employee_id = ? WHERE id = ?").bind(projected.id,created.id).run();
   const populated = await new CustomerRepository(db).getDetail(created.id);
   assertAcceptance(populated?.ownerEmployee?.displayName === "驗收姓名", "ACCEPT_CUSTOMER_OWNER_NAME_MISSING");
-  await ensureAppMemberProjection(db, "member-1", "0001", new Date().toISOString(), "驗收姓名");
+  await ensureAppMemberProjection(db, "acceptance-employee-1", "T0001", new Date().toISOString(), "驗收姓名");
     const afterStale = await customerService.getDetail(created.id);
   assertAcceptance(afterStale.revision === 2, "ACCEPT_STALE_REVISION_MUTATED");
   assertAcceptance(afterStale.shortName === "D1 Acceptance Updated", "ACCEPT_STALE_WRITE_MUTATED");
