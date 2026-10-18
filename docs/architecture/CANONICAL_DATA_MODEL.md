@@ -48,7 +48,7 @@ Candidate local application structures:
 
 - `id`
 - `identity_employee_id` — stable shared Identity subject/reference
-- current display metadata/cache needed by CY Web, such as employee number/name and CY Web department where applicable
+- `employee_no` and nullable `display_name` (1–120 字) are local **CYID-owned** member display projections; CYID remains the sole source of employee names and identities. The cache is refreshed from signed-in principals or authorized CYID admin snapshots; it is not a second identity authority. CY Web department metadata remains app-local where applicable.
 - `is_active`
 - `created_at`, `updated_at`
 
