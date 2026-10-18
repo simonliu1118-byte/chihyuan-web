@@ -1,336 +1,44 @@
-.cy-identity-page {
-  display: grid;
-  gap: 16px;
-}
+/* Account & access workspace (SharedIdentityPage). Shared layout comes from app.css. */
+.cy-identity-page { display: grid; gap: 16px; min-width: 0; }
+.cy-identity-page > .cy-op-tabs { margin-bottom: 0; }
+.cy-identity-page .cy-op-panel > h3 { margin: 0 0 8px; font-size: var(--cy-fs-lg); }
+.cy-identity-page .cy-op-panel-header p, .cy-identity-intro { margin: 0 0 12px; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); line-height: 1.55; }
+.cy-identity-admin-stack { display: grid; gap: 16px; }
 
-.cy-identity-section-title {
-  margin-top: 8px;
-}
-.cy-identity-section-title h2 {
-  margin: 0;
-  font-size: var(--cy-fs-xl);
-}
-.cy-identity-section-title p {
-  margin: 4px 0 0;
-  font-size: var(--cy-fs-sm);
-}
-.cy-identity-page .cy-op-panel > h3 {
-  margin: 0 0 12px;
-  font-size: var(--cy-fs-lg);
-}
+/* Detail: inline secondary actions next to a value. */
+.cy-identity-inline-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.cy-op-detail-grid > div > .cy-op-button.compact { justify-self: start; margin-top: 4px; }
+.cy-op-detail-grid select.cy-op-input.compact { max-width: 180px; align-self: start; }
 
-.cy-identity-section-title h2,
-.cy-identity-section-title p,
-.cy-identity-page h3,
-.cy-identity-page h4,
-.cy-identity-page h5 {
-  margin-top: 0;
+/* Per-person access: one checkbox per system / module, grouped. */
+.cy-identity-module-group { margin: 0 0 12px; padding: 0; border: 0; }
+.cy-identity-module-group legend { margin-bottom: 6px; padding: 0; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 600; }
+.cy-identity-access-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
+.cy-identity-access-item {
+  display: flex; align-items: center; gap: 8px; min-height: var(--cy-control-h); padding: 4px 10px;
+  border: 1px solid var(--cy-border); border-radius: var(--cy-radius-md); background: var(--cy-surface); cursor: pointer;
 }
+.cy-identity-access-item:has(input:checked) { border-color: var(--cy-accent); background: var(--cy-accent-soft); }
+.cy-identity-access-item:has(input:disabled) { cursor: default; }
+.cy-identity-access-item small { margin-left: auto; color: var(--cy-text-muted); font-size: var(--cy-fs-xs); }
+.cy-identity-access-item .cy-loading-spinner { width: 12px; height: 12px; margin-left: auto; }
 
-.cy-identity-section-title p,
-.cy-identity-page .cy-op-panel-header p,
-.cy-identity-direct-access > p,
-.cy-identity-page section > p {
-  color: var(--cy-text-muted);
-  line-height: 1.55;
-}
+.cy-identity-policy-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 8px; }
+.cy-identity-policy-grid label { display: grid; gap: 6px; align-content: start; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 500; }
+.cy-identity-policy-grid small { color: var(--cy-text-muted); font-size: var(--cy-fs-xs); font-weight: 400; }
+.cy-identity-policy-grid .wide { grid-column: 1 / -1; }
+@media (max-width: 980px) { .cy-identity-policy-grid { grid-template-columns: 1fr; } .cy-identity-policy-grid .wide { grid-column: auto; } }
 
-.cy-identity-message {
-  margin: 10px 0;
-  padding: 10px 12px;
-  border: 1px solid var(--cy-border);
-  border-radius: var(--cy-radius-md);
-  background: var(--cy-surface-muted);
-  line-height: 1.5;
-}
-
-.cy-identity-message.error {
-  border-color: transparent;
-  background: var(--cy-danger-soft);
-  color: var(--cy-danger);
-}
-
-.cy-identity-admin-stack {
-  display: grid;
-  gap: 18px;
-}
-
-.cy-identity-table-wrap {
-  width: 100%;
-  overflow-x: auto;
-}
-
-.cy-identity-subtext {
-  display: block;
-  margin-top: 3px;
-  color: var(--cy-text-muted);
-  font-size: var(--cy-fs-xs);
-}
-
-.cy-identity-email-col {
-  width: 320px;
-  max-width: 320px;
-}
-
-.cy-identity-email-line {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  max-width: 320px;
-}
-
-.cy-identity-email-value {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.cy-identity-email-tag {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  min-height: 22px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: var(--cy-fs-xs);
-  font-weight: 600;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.cy-identity-email-tag.verified {
-  background: var(--cy-success-soft);
-  color: var(--cy-success);
-}
-
-.cy-identity-email-tag.unverified {
-  background: var(--cy-surface-sunken);
-  color: var(--cy-text-muted);
-}
-
+/* Used by the CYInvoice recovery panel. */
+.cy-identity-message { margin: 10px 0; padding: 10px 12px; border: 1px solid var(--cy-border); border-radius: var(--cy-radius-md); background: var(--cy-surface-muted); line-height: 1.5; }
+.cy-identity-message.error { border-color: transparent; background: var(--cy-danger-soft); color: var(--cy-danger); }
+.cy-identity-subtext { display: block; margin-top: 3px; color: var(--cy-text-muted); font-size: var(--cy-fs-xs); }
 .cy-identity-actions {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
-
-.cy-op-table.cy-identity-access-table {
-  width: max-content;
-  min-width: 0;
-  table-layout: auto;
-}
-
-.cy-identity-access-table th,
-.cy-identity-access-table td {
-  white-space: nowrap;
-}
-
-.cy-identity-access-table .cy-access-user-col {
-  width: 220px;
-  min-width: 220px;
-}
-
-.cy-identity-access-table .cy-access-permission-col {
-  width: 150px;
-  min-width: 150px;
-}
-
-.cy-identity-access-table .cy-access-app-col {
-  width: 150px;
-  min-width: 150px;
-}
-
-.cy-identity-access-fixed {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 4px 9px;
-  border-radius: 999px;
-  background: var(--cy-success-soft);
-  color: var(--cy-success);
-  font-size: var(--cy-fs-xs);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.cy-identity-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1200;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  background: var(--cy-backdrop);
-}
-
-.cy-identity-modal {
-  width: min(600px, 100%);
-  max-height: calc(100vh - 40px);
-  overflow-y: auto;
-  padding: 22px;
-  border: 1px solid var(--cy-border);
-  border-radius: var(--cy-radius-lg);
-  background: var(--cy-surface);
-  color: var(--cy-text);
-  box-shadow: var(--cy-shadow-lg);
-}
-
-.cy-identity-modal-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 14px;
-}
-
-.cy-identity-modal-header h3 {
-  margin-bottom: 6px;
-}
-
-.cy-identity-modal-header p {
-  margin: 0;
-  color: var(--cy-text-muted);
-  line-height: 1.55;
-}
-
-.cy-identity-modal-close {
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
-  border: 1px solid var(--cy-border);
-  border-radius: var(--cy-radius-md);
-  background: var(--cy-surface);
-  color: var(--cy-text);
-  font: inherit;
-  font-size: 22px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.cy-identity-modal-close:disabled {
-  cursor: not-allowed;
-  opacity: .55;
-}
-
-.cy-identity-group-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.cy-identity-group-card {
-  border: 1px solid var(--cy-border);
-  border-radius: var(--cy-radius-lg);
-  padding: 14px;
-  background: var(--cy-surface-muted);
-}
-
-.cy-identity-group-card h5 {
-  margin: 16px 0 8px;
-  color: var(--cy-text-muted);
-  font-size: var(--cy-fs-xs);
-  text-transform: uppercase;
-  letter-spacing: .04em;
-}
-
-.cy-identity-toggle-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--cy-border);
-  border-radius: 999px;
-  padding: 6px 9px;
-  background: var(--cy-surface);
-  color: var(--cy-text);
-  font-size: var(--cy-fs-sm);
-  cursor: pointer;
-}
-
-.cy-identity-toggle-chip.active {
-  border-color: var(--cy-accent);
-  background: var(--cy-accent-soft);
-  color: var(--cy-accent);
-}
-
-.cy-identity-access-row {
-  min-height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--cy-border);
-}
-
-.cy-identity-access-row:last-child {
-  border-bottom: 0;
-}
-
-.cy-identity-access-row label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-
-.cy-identity-direct-access,
-.cy-identity-role-modes {
-  margin-top: 22px;
-  padding-top: 18px;
-  border-top: 1px solid var(--cy-border);
-}
-
-.cy-identity-policy-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.cy-identity-policy-grid label {
-  display: grid;
-  gap: 6px;
-  font-weight: 500;
-  color: var(--cy-text-muted);
-  font-size: var(--cy-fs-sm);
-}
-
-.cy-identity-policy-grid small {
-  color: var(--cy-text-muted);
-  font-size: var(--cy-fs-xs);
-  font-weight: 400;
-}
-
-.cy-identity-policy-grid .wide {
-  grid-column: 1 / -1;
-}
-
-@media (max-width: 980px) {
-  .cy-identity-group-grid,
-  .cy-identity-policy-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .cy-identity-policy-grid .wide {
-    grid-column: auto;
-  }
-}
-
-@media (max-width: 640px) {
-  .cy-identity-modal-backdrop {
-    padding: 10px;
-    place-items: end center;
-  }
-
-  .cy-identity-modal {
-    width: 100%;
-    max-height: calc(100vh - 20px);
-    border-radius: 14px 14px 0 0;
-  }
-}
-
 
 /* CYInvoice company-wide recovery is an explicit SUPER_ADMIN maintenance flow.
    Reuse existing operational tokens and stack on mobile without a new shell. */
