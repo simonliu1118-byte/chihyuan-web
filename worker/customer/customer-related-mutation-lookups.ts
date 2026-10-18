@@ -14,6 +14,7 @@ type VisitRow = {
   person_snapshot: string | null;
   employee_id: number;
   employee_no: string | null;
+  display_name: string | null;
   content: string | null;
   created_at: string;
   updated_at: string;
@@ -33,6 +34,7 @@ export class CustomerRelatedMutationLookups {
         v.person_snapshot,
         v.employee_id,
         m.employee_no,
+        m.display_name,
         v.content,
         v.created_at,
         v.updated_at,
@@ -53,7 +55,7 @@ export class CustomerRelatedMutationLookups {
       employee: {
         id: row.employee_id,
         employeeNo: row.employee_no,
-        displayName: null,
+        displayName: row.display_name,
       },
       content: row.content,
       createdAt: row.created_at,
