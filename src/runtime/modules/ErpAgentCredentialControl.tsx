@@ -1,3 +1,4 @@
+import { StatusChip } from "../../ui/primitives/StatusChip";
 import { useEffect, useState } from "react";
 import { Dialog } from "../../ui/overlays/Dialog";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
@@ -82,17 +83,15 @@ export function ErpAgentCredentialControl({ isSuperAdmin }: { isSuperAdmin: bool
 
   const connected = !agentError && agent?.online === true;
   const label = agentError ? "狀態未知" : connected ? "已連線" : "未連線";
-  const stateClass = connected ? "is-online" : "is-offline";
+  const tone = agentError ? "neutral" : connected ? "success" : "danger";
   return <>
     {confirmationDialog}
     {isSuperAdmin
-      ? <button type="button" className={"cy-op-button cy-erp-status-button " + stateClass}
+      ? <button type="button" className="cy-op-button compact"
           aria-label={"連線憑證：" + label} title="連線憑證" onClick={() => setOpen(true)}>
-          {label}
+          <span className="cy-status-dot" data-tone={tone} aria-hidden="true" />{label}
         </button>
-      : <span className={"cy-erp-status-readonly " + stateClass} role="status">
-          查詢程式 · {label}
-        </span>}
+      : <StatusChip tone={tone}>查詢程式 · {label}</StatusChip>}
     {isSuperAdmin && <Dialog open={open} title={"公司查詢程式連線憑證 · " + label}
       size="medium" onClose={close} dismissible={!busy}>
       <p>只有超級管理員能產生或撤銷憑證。每次產生的原文只顯示一次，請立即複製到公司電腦的安全設定。</p>
@@ -114,7 +113,7 @@ export function ErpAgentCredentialControl({ isSuperAdmin }: { isSuperAdmin: bool
             .catch(() => setError("無法自動複製，請手動選取憑證。"))}>複製憑證</button>
         <button type="button" className="cy-op-button" onClick={() => setNewToken(null)}>已保存，隱藏憑證</button>
       </div>}
-      {error && <p className="cy-erp-error" role="alert">{error}</p>}
+      {error && <p className="cy-notice cy-notice-danger" role="alert">{error}</p>}
     </Dialog>}
   </>;
 }

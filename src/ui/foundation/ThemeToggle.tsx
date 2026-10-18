@@ -53,7 +53,7 @@ const options: readonly { value: ThemePreference; label: string }[] = [
 /** Segmented 系統／淺色／深色 control (account area). */
 export function ThemeSwitch() {
   const current = useThemePreference();
-  return <div className="cy-theme-switch" role="group" aria-label="外觀">
+  return <div className="cy-segmented compact" role="group" aria-label="外觀">
     {options.map(option => <button key={option.value} type="button" aria-pressed={current === option.value}
       onClick={() => setPreference(option.value)}>{option.label}</button>)}
   </div>;

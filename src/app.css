@@ -237,16 +237,19 @@ h1, h2, h3, h4, h5 { line-height: 1.35; }
 .cy-account[data-role="ADMIN"] .cy-account-role { color: var(--cy-copper); font-weight: 600; }
 .cy-account-actions { display: flex; gap: 6px; }
 .cy-account-actions { align-items: center; }
-.cy-account-actions .cy-theme-switch { flex: 1 1 auto; }
+.cy-account-actions .cy-segmented { flex: 1 1 auto; }
 .cy-account-actions .cy-op-button { flex: 0 0 auto; }
 
-/* Theme segmented control: 系統／淺色／深色. */
-.cy-theme-switch { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--cy-radius-md); background: var(--cy-surface-sunken); border: 1px solid var(--cy-border); }
-.cy-theme-switch button {
-  flex: 1 1 0; min-height: calc(var(--cy-control-h-sm) - 4px); padding: 1px 6px; border: 0; border-radius: var(--cy-radius-sm);
-  background: transparent; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); white-space: nowrap;
+/* Segmented control: one choice among a few modes (查詢方式, 外觀). aria-pressed marks the choice. */
+.cy-segmented { display: inline-flex; gap: 2px; padding: 2px; justify-self: start; border-radius: var(--cy-radius-md); background: var(--cy-surface-sunken); border: 1px solid var(--cy-border); }
+.cy-segmented button {
+  flex: 1 1 0; min-height: calc(var(--cy-control-h) - 6px); padding: 1px 14px; border: 0; border-radius: var(--cy-radius-sm);
+  background: transparent; color: var(--cy-text-muted); font-size: var(--cy-fs-md); white-space: nowrap;
 }
-.cy-theme-switch button[aria-pressed="true"] { background: var(--cy-surface); color: var(--cy-text); font-weight: 600; box-shadow: var(--cy-shadow-sm); }
+.cy-segmented button:hover:not(:disabled) { color: var(--cy-text); }
+.cy-segmented button[aria-pressed="true"] { background: var(--cy-surface); color: var(--cy-text); font-weight: 600; box-shadow: var(--cy-shadow-sm); }
+.cy-segmented button:disabled { opacity: .55; cursor: not-allowed; }
+.cy-segmented.compact button { min-height: calc(var(--cy-control-h-sm) - 4px); padding: 1px 6px; font-size: var(--cy-fs-sm); }
 
 .cy-shell-workspace { min-width: 0; display: flex; flex-direction: column; }
 .cy-shell-topbar {
@@ -424,6 +427,7 @@ h1, h2, h3, h4, h5 { line-height: 1.35; }
 }
 .cy-op-tabs button:hover { color: var(--cy-text); }
 .cy-op-tabs button.active { border-bottom-color: var(--cy-accent); color: var(--cy-accent); font-weight: 600; }
+.cy-op-tabs button:disabled { opacity: .55; cursor: not-allowed; }
 
 /* ---------- Status, chips, notices ---------- */
 .cy-status-chip, .cy-op-badge {
@@ -437,6 +441,12 @@ h1, h2, h3, h4, h5 { line-height: 1.35; }
 .cy-status-chip.cy-status-chip-danger { background: var(--cy-danger-soft); color: var(--cy-danger); }
 .cy-status-chip.cy-status-chip-info { background: var(--cy-info-soft); color: var(--cy-info); }
 .cy-op-list-row .cy-status-chip { font-size: var(--cy-fs-xs); }
+/* A status colour on a control that is not itself a status chip (e.g. a connection button). */
+.cy-status-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--cy-text-subtle); }
+.cy-status-dot[data-tone="success"] { background: var(--cy-success); }
+.cy-status-dot[data-tone="warning"] { background: var(--cy-warning); }
+.cy-status-dot[data-tone="danger"] { background: var(--cy-danger); }
+.cy-status-dot[data-tone="info"] { background: var(--cy-info); }
 .cy-next-step { display: flex; gap: 8px; align-items: baseline; margin: 0 0 16px; padding: 8px 12px; border-radius: var(--cy-radius-md); background: var(--cy-info-soft); color: var(--cy-text); font-size: var(--cy-fs-sm); }
 .cy-next-step strong { flex: none; color: var(--cy-info); font-weight: 600; }
 .cy-next-step.finished { background: var(--cy-surface-muted); color: var(--cy-text-muted); }

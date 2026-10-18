@@ -72,12 +72,12 @@ export function ErpCustomerQuery({ job }: { job: ErpJob }) {
   return <>
     <div className="cy-op-panel cy-erp-query-box">
       <form className="cy-erp-form" onSubmit={event => void submit(event)} noValidate>
-        <div className="cy-erp-mode-switch" role="group" aria-label="查詢方式">
+        <div className="cy-segmented" role="group" aria-label="查詢方式">
           {MODES.map(m => <button key={m.key} type="button" aria-pressed={mode === m.key} disabled={busy}
-            className={mode === m.key ? "is-active" : ""} onClick={() => { setMode(m.key); setError(null); }}>{m.label}</button>)}
+            onClick={() => { setMode(m.key); setError(null); }}>{m.label}</button>)}
         </div>
         <div className="cy-erp-query-row">
-          <input value={text} maxLength={40} autoComplete="off" disabled={busy} required
+          <input className="cy-op-input" value={text} maxLength={40} autoComplete="off" disabled={busy} required
             aria-label={mode === "CODE" ? "客戶代號" : mode === "NAME" ? "客戶名稱" : "客戶代號或名稱"}
             placeholder={mode === "CODE" ? "請輸入客戶代號" : mode === "NAME" ? "請輸入客戶簡稱或全名" : "請輸入客戶代號或名稱"}
             onChange={e => setText(e.target.value)} />
@@ -86,8 +86,8 @@ export function ErpCustomerQuery({ job }: { job: ErpJob }) {
           </button>
         </div>
         {mode === "SALES" && <div className="cy-erp-history-options">
-          <label>起日 <input type="date" max={taipeiToday()} value={dateFrom} disabled={busy} onChange={e => setDateFrom(e.target.value)} /></label>
-          <label>迄日 <input type="date" max={taipeiToday()} value={dateTo} disabled={busy} onChange={e => setDateTo(e.target.value)} /></label>
+          <label>起日 <input className="cy-op-input" type="date" max={taipeiToday()} value={dateFrom} disabled={busy} onChange={e => setDateFrom(e.target.value)} /></label>
+          <label>迄日 <input className="cy-op-input" type="date" max={taipeiToday()} value={dateTo} disabled={busy} onChange={e => setDateTo(e.target.value)} /></label>
           <p>單據日期起訖都未填：去年同月同日至今天；範圍最多三年。輸入名稱時先列出客戶。</p>
         </div>}
       </form>
@@ -96,7 +96,7 @@ export function ErpCustomerQuery({ job }: { job: ErpJob }) {
       <ErpJobStatus result={mine} />
       {showsData(mine) && mine.queryType === "CUSTOMER_NAME" && <>
         <h3>符合的客戶（{mine.total} 筆）</h3>
-        {mine.truncated && <p className="cy-erp-error">結果已達 {mine.items.length} 筆，可能有更多資料，請輸入更完整的名稱。</p>}
+        {mine.truncated && <p className="cy-notice cy-notice-warning">結果已達 {mine.items.length} 筆，可能有更多資料，請輸入更完整的名稱。</p>}
         <ErpQueryRows key={mine.id} label="客戶搜尋結果" columns={ERP_CUSTOMER_SEARCH_FIELDS} rows={rowsOf(mine.items)}
           disabled={busy} onItemSelect={code => void queryCustomer(code, follow.sales, follow.from, follow.to)} />
         <p className="cy-erp-search-hint">{follow.sales ? "點選客戶代號，查詢該客戶的銷貨銷退單。" : "點選客戶代號，重新向 ERP 查詢該客戶完整資料。"}</p>

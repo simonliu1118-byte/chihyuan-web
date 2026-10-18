@@ -17,7 +17,8 @@ const notFound: Record<ErpQueryType, string> = {
 function describe(result: ErpQueryResult): string {
   if (result.queryType === "RECEIVABLE")
     return result.scope === "ALL" ? "全部客戶" : `${result.scope === "CUSTOMER" ? "客戶" : "業務員"} ${result.code}`;
-  if (result.queryType === "SALES" || result.queryType === "PURCHASES") return `${result.code}（${result.dateFrom} ～ ${result.dateTo}）`;
+  if (result.queryType === "SALES" || result.queryType === "PURCHASES")
+    return result.dateFrom && result.dateTo ? `${result.code}（${result.dateFrom} ～ ${result.dateTo}）` : result.code ?? "";
   return result.itemNo ?? result.keyword ?? result.code ?? "";
 }
 
@@ -29,7 +30,7 @@ export function ErpJobStatus({ result }: { result: ErpQueryResult }) {
     {result.status === "QUEUED" && <p className="cy-erp-waiting"><span className="cy-loading-spinner" aria-hidden="true" />已加入查詢佇列，等待公司電腦處理。</p>}
     {result.status === "RUNNING" && <p className="cy-erp-waiting"><span className="cy-loading-spinner" aria-hidden="true" />{["SALES", "PURCHASES", "RECEIVABLE", "ORDER"].includes(result.queryType)
       ? "正在產生 ERP 報表並轉出，可能需要一到數分鐘。" : "正在查詢 ERP。"}</p>}
-    {result.errorMessage && <p className="cy-erp-error">{result.errorMessage}</p>}
+    {result.errorMessage && <p className="cy-notice cy-notice-danger">{result.errorMessage}</p>}
     {result.status === "EXPIRED" && <p>排隊超過兩分鐘，請重新送出查詢。</p>}
     {result.status === "NOT_FOUND" && <p>{notFound[result.queryType]}</p>}
     {result.status === "DONE" && result.resultCleared && <p>結果已清除，請重新查詢。</p>}

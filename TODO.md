@@ -12,6 +12,18 @@
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
 
+## ERP 查詢介面對齊與網頁標準視覺規範 — 0.9.7 Build 0（2026-10-18）
+
+- 使用者要求確保 ERP 自動查詢工作線部署的 0.9.6 與新版介面一致。0.9.6 新增的單據視窗已使用共用 `Dialog`／`Loading`／按鈕轉圈；ERP 查詢頁仍有自訂的一套，本次改用共用元件並移除 `erp-item-query.css` 中的重複樣式：
+  - 輸入框、日期、類別下拉改用 `.cy-op-input`；類別頁籤改用 `.cy-op-tabs`。
+  - 查詢方式（品號／品名、客戶代號／名稱／銷貨銷退單、未收款範圍）改用新的共用分段按鈕 `.cy-segmented`；側欄外觀切換也改用它（`.compact`），取代 `.cy-theme-switch` 與 `.cy-erp-mode-switch`。
+  - 連線狀態原為外框按鈕樣式，改為 `cy-status-dot`＋文字（超級管理員按鈕）或 `StatusChip`（唯讀）。
+  - 銷貨／銷退、進貨／退貨類別改用 `StatusChip`；「結果已達上限」類提示改為黃色提醒框，ERP 錯誤訊息改為紅色訊息框（原本全部是紅字）。
+  - 固定圓角數字改用 radius tokens。
+- 新增 `docs/architecture/CY_WEB_VISUAL_GUIDE.md`（志遠網頁程式標準視覺規範），結構比照 AITeam CY Desktop Visual Guide：規範強度、字型字級、顏色與狀態語意、版面、元件、清單、載入、鍵盤、響應式、無障礙、用語、圖示、實作規則、與 Windows 規範的關係及驗收清單。依 `PROJECT_RULES.md` §5 為 canonical 候選，經使用者確認後應升格至 AITeam `shared/cy-visual/web/`（本工作階段對 AITeam 只有讀取權限）。
+- [x] PR #197 已部署：CY Web Deploy #235（run 39104398791）以合併 commit `a316b9b` 部署成功。
+- [ ] PR CI、合併與部署；使用者確認視覺規範後升格至 AITeam。
+
 ## ERP 客戶／廠商的銷貨銷退、進貨退貨改開視窗 — 0.9.6 Build 0（2026-10-18）
 
 - 使用者實測：從客戶／廠商資料按「查此客戶的銷貨銷退單」「查此廠商的進貨退貨單」會換掉頁面上的資料，要再查一次。改為開視窗（`ErpPartyOrdersDialog`，自己的查詢工作，帶入頁面日期、可在視窗內改日期重查），頁面上的客戶／廠商資料保留。直接選「銷貨銷退單」「進貨退貨單」模式查詢的方式不變。
@@ -23,7 +35,8 @@
 - 依使用者核可的改版順序第 3 項（GPT 預覽的統計卡改為可點的篩選）：瑕疵、工單、委外、工作日誌的「全部狀態」下拉改為共用 `ui/data/StatusFilter` 狀態按鈕列，每顆顯示筆數與狀態色點，按一下篩選、再按一次或按「全部」取消。
 - 後端：四個清單查詢在沒有 `cursor` 的第一頁回傳 `statusCounts`（共用 `worker/persistence/status-counts.ts` 的 `GROUP BY`），條件與清單相同（含工作日誌一般使用者只看自己），只排除狀態篩選；未新增路由、資料表或權限。`API_CONTRACT.md` 已記錄。
 - Worker + D1 acceptance 新增瑕疵計數檢查（含作廢顯示切換、狀態篩選不影響計數、下一頁不帶計數），並確認改錯時會失敗。
-- [ ] PR CI、合併與部署。
+- [x] [PR #197](https://github.com/simonliu1118-byte/chihyuan-web/pull/197) CI 全綠後合併 `a316b9b`，CY Web Deploy #235 部署成功。
+- [ ] 使用者實機驗收。
 
 ## 狀態顏色統一與「下一步」提示 — 0.9.4 Build 0（2026-10-18）
 

@@ -1,3 +1,4 @@
+import { StatusChip } from "../../ui/primitives/StatusChip";
 import { arrangePurchases, erpMoney, erpNumber } from "../../../shared/erp-sales-links";
 import type { ErpPurchaseOrder } from "../../../shared/erp-item-query";
 import { ErpQueryRows } from "./ErpQueryRows";
@@ -15,12 +16,12 @@ export function ErpPurchaseOrders({ orders, total, truncated }: { orders: readon
   const count = (kind: ErpPurchaseOrder["kind"]) => orders.filter(o => o.kind === kind).length;
   return <>
     <h3>進貨 {count("進貨")} 張（合計 {erpMoney(sum("進貨"))}）、退貨 {count("退貨")} 張（合計 {erpMoney(sum("退貨"))}）</h3>
-    {truncated && <p className="cy-erp-error">共 {total} 張，只顯示最新 {orders.length} 張，請縮小日期範圍。</p>}
+    {truncated && <p className="cy-notice cy-notice-warning">共 {total} 張，只顯示最新 {orders.length} 張，請縮小日期範圍。</p>}
     <div className="cy-erp-orders">
       {entries.map(({ order, under, related }) => <details key={order.kind + order.orderNo} id={anchor(order.orderNo)}
         className={"cy-erp-order" + (order.kind === "退貨" ? " is-return" : "") + (under ? " is-linked" : "")}>
         <summary>
-          <span className="cy-erp-order-kind">{order.kind}</span>
+          <StatusChip tone={order.kind === "退貨" ? "danger" : "neutral"}>{order.kind}</StatusChip>
           <span>{order.date}</span>
           <strong>{order.orderNo}</strong>
           <span>{order.lines.length} 項</span>
