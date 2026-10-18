@@ -1,5 +1,10 @@
 # CY Web Governance Changelog
 
+## 1.1.20 — 2026/10/18
+
+- 使用者決定採工作單交接：Claude 與使用者討論定案後撰寫 `docs/development/work-orders/WO-<版本>.md`，使用者轉交 GPT 依工作單實作並填完成報告，Claude 對照工作單審查後才合併部署（`PROJECT_RULES.md` §9）。
+- 工作單格式見 `docs/development/work-orders/README.md`；工作單是需求與狀態文件，不是規則來源。產品 VERSION／BUILD、業務規則、權限與部署配置不變。
+
 ## 1.1.19 — 2026/10/17
 
 - 整理既有正式網站的發布入口：保留受控發布分支，手動 deploy 限 main；validate、deploy、read-only audit 分鎖，正式 deploy 使用固定鎖且不取消進行中的執行。
