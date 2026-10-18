@@ -661,7 +661,7 @@ export function WorkLogOperationalPage() {
             <NextStep tone={workLogTone[selected.statusCode]}>{workLogNextStep[selected.statusCode]}</NextStep>
             <div className="cy-op-detail-grid">
               <div><span>日誌日期</span><strong>{formatDate(selected.logDate)}</strong></div>
-              <div><span>期間</span><strong>{selected.dateFrom} ～ {selected.dateTo}</strong></div>
+              <div><span>期間</span><strong>{formatDate(selected.dateFrom)} ～ {formatDate(selected.dateTo)}</strong></div>
               <div><span>工作日數</span><strong>{selected.workDays}</strong></div>
               <div><span>類型</span><strong>{selected.typeCode}</strong></div>
               <div><span>總分</span><strong>{selected.finalScore ?? "—"}</strong></div>
