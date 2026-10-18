@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { build } from "esbuild";
@@ -45,10 +44,4 @@ test("rehearsal control requires server capability and a verified copy; busy dis
   assert.doesNotMatch(render({ ...row, copies: [] }, false, true, true), /驗證隔離還原/);
   assert.match(render(row, false, true, true), /驗證隔離還原/);
   assert.match(render(row, true, true, true), /button[^>]*disabled=""[^>]*>驗證隔離還原/);
-});
-
-/* WO temporary type diagnostics — remove after errors are resolved. */
-test("WO temporary type diagnostics", () => {
-  const r = spawnSync(process.execPath, ["node_modules/typescript/bin/tsc", "--noEmit", "-p", "tsconfig.json", "--pretty", "false"], { encoding: "utf8", timeout: 120000 });
-  assert.equal(r.status, 0, [r.stdout, r.stderr].join("\n"));
 });
