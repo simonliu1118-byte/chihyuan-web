@@ -60,6 +60,7 @@ export interface CustomerNote {
 }
 
 export interface CustomerDetail extends CustomerSummary {
+  updatedBy: CustomerEmployeeRef | null;
   fax: string | null;
   phones: readonly CustomerPhone[];
   contacts: readonly CustomerContact[];

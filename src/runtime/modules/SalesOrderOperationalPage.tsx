@@ -1,3 +1,4 @@
+import { formatDate } from "../../ui/foundation/format";
 import { StatusFilter } from "../../ui/data/StatusFilter";
 import { orderNextStep, orderTone } from "./status-flow";
 import { NextStep } from "../../ui/feedback/NextStep";
@@ -532,7 +533,7 @@ export function SalesOrderOperationalPage() {
             {rows.map((row) => (
               <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={() => void selectOrder(row.id)}>
                 <strong>{row.customerNameSnapshot}</strong>
-                <span><span className="cy-mono">{row.erpNo ? `ERP ${row.erpNo}` : row.workOrderRef}</span> · {row.orderDate}</span>
+                <span><span className="cy-mono">{row.erpNo ? `ERP ${row.erpNo}` : row.workOrderRef}</span> · {formatDate(row.orderDate)}</span>
                 <StatusChip tone={orderTone[row.statusCode]}>{statusText[row.statusCode]}</StatusChip>
               </button>
             ))}
@@ -611,7 +612,7 @@ export function SalesOrderOperationalPage() {
           ) : loadingDetail ? <Loading /> : selected ? (
             <div>
               <div className="cy-record-header">
-                <div><h2>{selected.customerNameSnapshot}</h2><p><span className="cy-mono">{selected.workOrderRef}</span>{selected.erpNo ? <> · ERP <span className="cy-mono">{selected.erpNo}</span></> : null} · {selected.orderDate}</p></div>
+                <div><h2>{selected.customerNameSnapshot}</h2><p><span className="cy-mono">{selected.workOrderRef}</span>{selected.erpNo ? <> · ERP <span className="cy-mono">{selected.erpNo}</span></> : null} · {formatDate(selected.orderDate)}</p></div>
                 <div className="cy-record-actions">
                 {selected.statusCode === "created" && selected.erpNo == null ? <>
                   <button className="cy-op-button" disabled={busy} onClick={startEdit}>修改草稿</button>
@@ -634,7 +635,7 @@ export function SalesOrderOperationalPage() {
               <div className="cy-op-detail-grid">
                 <div><span>ERP 單號</span><strong>{selected.erpNo ?? "尚未回填"}</strong></div>
                 <div><span>ERP 客戶編號</span><strong>{selected.customerNoSnapshot ?? "—"}</strong></div>
-                <div><span>日期</span><strong>{selected.orderDate}</strong></div>
+                <div><span>日期</span><strong>{formatDate(selected.orderDate)}</strong></div>
                 <div><span>操作人員</span><strong>{selected.operator.displayName ?? selected.operator.employeeNo ?? `員工 #${selected.operator.id}`}</strong></div>
                 <div><span>發票</span><strong>{selected.invoiceTypeCode ? invoiceText[selected.invoiceTypeCode] ?? selected.invoiceTypeCode : "—"}</strong></div>
                 <div><span>收據</span><strong>{selected.receiptOptionCode ? receiptText[selected.receiptOptionCode] ?? selected.receiptOptionCode : "—"}</strong></div>

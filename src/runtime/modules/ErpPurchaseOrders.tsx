@@ -1,3 +1,4 @@
+import { formatDate } from "../../ui/foundation/format";
 import { StatusChip } from "../../ui/primitives/StatusChip";
 import { arrangePurchases, erpMoney, erpNumber } from "../../../shared/erp-sales-links";
 import type { ErpPurchaseOrder } from "../../../shared/erp-item-query";
@@ -22,7 +23,7 @@ export function ErpPurchaseOrders({ orders, total, truncated }: { orders: readon
         className={"cy-erp-order" + (order.kind === "退貨" ? " is-return" : "") + (under ? " is-linked" : "")}>
         <summary>
           <StatusChip tone={order.kind === "退貨" ? "danger" : "neutral"}>{order.kind}</StatusChip>
-          <span>{order.date}</span>
+          <span>{formatDate(order.date)}</span>
           <strong>{order.orderNo}</strong>
           <span>{order.lines.length} 項</span>
           <span className="cy-erp-order-total">{erpMoney(order.total)}</span>
@@ -45,7 +46,7 @@ export function ErpPurchaseOrders({ orders, total, truncated }: { orders: readon
           </dl>
           <ErpQueryRows label={order.orderNo + " 明細"} columns={LINE_COLUMNS} summaryColumns={[1, 2, 4, 9]}
             rows={order.lines.map(l => [String(l.seq), l.itemCode, l.itemName, l.specification, l.quantity, l.acceptedQuantity,
-              l.returnedQuantity, l.unit, erpMoney(l.unitPrice), erpMoney(l.amount), l.warehouse, l.batch, l.acceptDate,
+              l.returnedQuantity, l.unit, erpMoney(l.unitPrice), erpMoney(l.amount), l.warehouse, l.batch, formatDate(l.acceptDate),
               l.purchaseOrderNo, l.note, l.sourceOrder])} />
         </div>
       </details>)}

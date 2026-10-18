@@ -1,3 +1,4 @@
+import { formatDate } from "../../ui/foundation/format";
 import type { ErpField, ErpQueryResult, ErpQueryStatus, ErpQueryType } from "../../../shared/erp-item-query";
 
 const statusLabel: Record<ErpQueryStatus, string> = {
@@ -18,7 +19,7 @@ function describe(result: ErpQueryResult): string {
   if (result.queryType === "RECEIVABLE")
     return result.scope === "ALL" ? "全部客戶" : `${result.scope === "CUSTOMER" ? "客戶" : "業務員"} ${result.code}`;
   if (result.queryType === "SALES" || result.queryType === "PURCHASES")
-    return result.dateFrom && result.dateTo ? `${result.code}（${result.dateFrom} ～ ${result.dateTo}）` : result.code ?? "";
+    return result.dateFrom && result.dateTo ? `${result.code}（${formatDate(result.dateFrom)} ～ ${formatDate(result.dateTo)}）` : result.code ?? "";
   return result.itemNo ?? result.keyword ?? result.code ?? "";
 }
 

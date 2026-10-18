@@ -1,8 +1,9 @@
 import { Loading } from "../../ui/feedback/Loading";
+import { Dialog } from "../../ui/overlays/Dialog";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useNavigationGuard, useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import type { SettingsSnapshot, LookupSetting, WorkLogScoringRowSetting } from "../../../shared/settings";
 import { ApiClientError } from "../../api/client";
 import { loadSettings, saveSetting } from "../api/settings-audit-client";
@@ -105,22 +106,26 @@ export function ModuleSettingsPanel({ role, only }: { role: "ADMIN" | "SUPER_ADM
   </>;
 }
 
-/**
- * A module with its own 設定 view (user 2026-10-18: settings belong to their module, not a shared
- * 系統管理 entry). Only ADMIN / SUPER_ADMIN see the switch; leaving an unsaved editor asks first.
- */
-export function WithModuleSettings({ role, label, only, children }: {
-  role: "ADMIN" | "SUPER_ADMIN" | "USER"; label: string; only: readonly SettingsSection[]; children: ReactNode;
+/** Open module-specific settings in a large dialog, preserving existing permissions and forms. */
+export function ModuleSettingsButton({ role, label, only }: {
+  role: "ADMIN" | "SUPER_ADMIN" | "USER"; label: string; only: readonly SettingsSection[];
 }) {
-  const [view, setView] = useState<"main" | "settings">("main");
+  const [open, setOpen] = useState(false);
   const { canLeave } = useNavigationGuard();
-  if (role === "USER") return <>{children}</>;
-  async function go(next: "main" | "settings") { if (next !== view && await canLeave()) setView(next); }
+  async function close() {
+    if (await canLeave()) setOpen(false);
+  }
+  if (role === "USER") return null;
   return <>
-    <div className="cy-op-tabs" role="tablist" aria-label={`${label}頁籤`}>
-      <button type="button" role="tab" aria-selected={view === "main"} className={view === "main" ? "active" : ""} onClick={() => void go("main")}>{label}</button>
-      <button type="button" role="tab" aria-selected={view === "settings"} className={view === "settings" ? "active" : ""} onClick={() => void go("settings")}>設定</button>
-    </div>
-    {view === "main" ? children : <ModuleSettingsPanel role={role} only={only} />}
+    <button className="cy-op-button cy-module-settings-trigger" type="button" onClick={() => setOpen(true)}>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+        strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8" />
+        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2 2-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-3v-.8a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-2-2 .1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 5.6 14H5v-3h.6A1.7 1.7 0 0 0 7.2 10a1.7 1.7 0 0 0-.3-1.9l-.1-.1 2-2 .1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V4h3v.8a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 2 2-.1.1a1.7 1.7 0 0 0-.3 1.9A1.7 1.7 0 0 0 21 11h.5v3H21a1.7 1.7 0 0 0-1.6 1Z" />
+      </svg>設定
+    </button>
+    {open ? <Dialog open title={label + "設定"} size="large" onClose={() => void close()}>
+      <ModuleSettingsPanel role={role} only={only} />
+    </Dialog> : null}
   </>;
 }

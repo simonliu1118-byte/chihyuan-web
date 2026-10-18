@@ -7,7 +7,7 @@ import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
-import { formatDateTime } from "../../ui/foundation/format";
+import { formatDate, formatDateTime } from "../../ui/foundation/format";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { useFormPrompt } from "../../ui/overlays/useFormPrompt";
@@ -556,7 +556,7 @@ export function OutsourcingOperationalPage() {
                 <div className="cy-md-count">{loadingOrders ? <Loading inline /> : paging.hasMore ? `已載入 ${orders.length} 筆，還有更多` : `共 ${orders.length} 筆`}</div>
               </div>
               <div className="cy-op-list">
-                {orders.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedOrderId === row.id ? "active" : ""}`} aria-current={selectedOrderId === row.id ? "true" : undefined} onClick={async () => { if (editing && !(await discardEditing())) return; setSelectedOrderId(row.id); pane.open(); }}><strong>{row.contractorNameSnapshot}</strong><span><span className="cy-mono">{row.outsourcingRef}</span> · {row.orderDate}</span><StatusChip tone={outsourcingTone[row.statusCode]}>{statusText[row.statusCode]}</StatusChip></button>)}
+                {orders.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedOrderId === row.id ? "active" : ""}`} aria-current={selectedOrderId === row.id ? "true" : undefined} onClick={async () => { if (editing && !(await discardEditing())) return; setSelectedOrderId(row.id); pane.open(); }}><strong>{row.contractorNameSnapshot}</strong><span><span className="cy-mono">{row.outsourcingRef}</span> · {formatDate(row.orderDate)}</span><StatusChip tone={outsourcingTone[row.statusCode]}>{statusText[row.statusCode]}</StatusChip></button>)}
                 {orders.length === 0 ? loadingOrders ? <Loading /> : <div className="cy-op-empty">尚無代工單。</div> : null}
                 <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
               </div>
@@ -609,7 +609,7 @@ export function OutsourcingOperationalPage() {
                 </section>
               </form>
               ) : selectedOrder ? <div>
-                <div className="cy-record-header"><div><h2>{selectedOrder.contractorNameSnapshot}</h2><p><span className="cy-mono">{selectedOrder.outsourcingRef}</span> · {selectedOrder.orderDate}</p></div>
+                <div className="cy-record-header"><div><h2>{selectedOrder.contractorNameSnapshot}</h2><p><span className="cy-mono">{selectedOrder.outsourcingRef}</span> · {formatDate(selectedOrder.orderDate)}</p></div>
                 <div className="cy-record-actions">
                   {selectedOrder.statusCode === "pending_outbound" ? <>
                     <button className="cy-op-button" disabled={busy} onClick={() => startEdit("pending")}>修改</button>
@@ -633,7 +633,7 @@ export function OutsourcingOperationalPage() {
                 </div></div>
                 <OutsourcingProgress status={selectedOrder.statusCode} />
                 {selectedOrder.statusCode !== "voided" ? <NextStep tone={outsourcingTone[selectedOrder.statusCode]}>{outsourcingNextStep[selectedOrder.statusCode]}</NextStep> : null}
-                <div className="cy-op-detail-grid"><div><span>工單日期</span><strong>{selectedOrder.orderDate}</strong></div><div><span>出庫日期</span><strong>{selectedOrder.outboundDate ?? "—"}</strong></div><div><span>付款時間</span><strong>{selectedOrder.paidAt ? formatDateTime(selectedOrder.paidAt) : "—"}</strong></div></div>
+                <div className="cy-op-detail-grid"><div><span>工單日期</span><strong>{formatDate(selectedOrder.orderDate)}</strong></div><div><span>出庫日期</span><strong>{formatDate(selectedOrder.outboundDate)}</strong></div><div><span>付款時間</span><strong>{selectedOrder.paidAt ? formatDateTime(selectedOrder.paidAt) : "—"}</strong></div></div>
                 <div className="cy-op-subsection"><h3>出庫料件</h3><div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">數量</th><th>單位</th></tr></thead><tbody>{selectedOrder.parts.map((part) => <tr key={part.id}><td className="cy-mono">{part.componentItemNoSnapshot}</td><td>{part.componentItemNameSnapshot}</td><td className="num">{part.quantity}</td><td>{part.unitSnapshot}</td></tr>)}</tbody></table></div></div>
                 {selectedOrder.receipt ? <div className="cy-op-subsection"><h3>入庫</h3>{selectedOrder.receipt.items.map((item) => <div className="cy-op-read-row" key={item.id}>{item.itemNoSnapshot} · {item.itemNameSnapshot} · {item.quantity} {item.unitSnapshot}{item.bomRecipeId ? ` · BOM #${item.bomRecipeId}` : ""}</div>)}</div> : null}
                 {selectedOrder.pricing ? <div className="cy-op-subsection"><h3>計價</h3>{selectedOrder.pricing.items.map((item) => <div className="cy-op-read-row" key={item.id}>{item.itemNoSnapshot} · {item.quantity} {item.unitSnapshot} × {item.unitPrice} = {item.subtotal}</div>)}<div className="cy-op-total">總額 NT$ {selectedOrder.pricing.totalAmount}</div></div> : null}

@@ -1,3 +1,4 @@
+import { formatDate } from "../../ui/foundation/format";
 import { Loading } from "../../ui/feedback/Loading";
 import { useFeedback } from "../../ui/feedback/FeedbackProvider";
 import { useEffect, useState } from "react";
@@ -22,7 +23,7 @@ function published(program: ProgramEntry) {
   return program.publishedAt ? <time dateTime={program.publishedAt}>{date(program.publishedAt)}</time> : <span>—</span>;
 }
 function date(value: string): string {
-  return new Date(value).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit" });
+  return formatDate(value);
 }
 function name(program: ProgramEntry) {
   return <div className="cy-program-name">{program.icon ? <img src={icons[program.icon]} width="56" height="56" alt="" />

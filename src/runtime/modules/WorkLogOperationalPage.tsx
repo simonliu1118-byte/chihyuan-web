@@ -1,3 +1,4 @@
+import { formatDate } from "../../ui/foundation/format";
 import { StatusFilter } from "../../ui/data/StatusFilter";
 import { workLogNextStep, workLogTone } from "./status-flow";
 import { NextStep } from "../../ui/feedback/NextStep";
@@ -583,7 +584,7 @@ export function WorkLogOperationalPage() {
             <div className="cy-md-count">{loadingList ? <Loading inline /> : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
           </div>
           <div className="cy-op-list">
-            {rows.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={async () => { if (!busy && await canLeave()) { setEditing(false); setCreating(false); setDraft(null); setSelectedId(row.id); pane.open(); } }}><strong>{row.logDate} · {row.workDays} 日</strong><span><span className="cy-mono">{row.workLogRef}</span> · 員工 #{row.employeeId}</span><StatusChip tone={workLogTone[row.statusCode]}>{statusText[row.statusCode]}</StatusChip></button>)}
+            {rows.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={async () => { if (!busy && await canLeave()) { setEditing(false); setCreating(false); setDraft(null); setSelectedId(row.id); pane.open(); } }}><strong>{formatDate(row.logDate)} · {row.workDays} 日</strong><span><span className="cy-mono">{row.workLogRef}</span> · 員工 #{row.employeeId}</span><StatusChip tone={workLogTone[row.statusCode]}>{statusText[row.statusCode]}</StatusChip></button>)}
             {loadingList && rows.length === 0 ? <Loading /> : null}
             {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的工作日誌。</div> : null}
             <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
@@ -643,7 +644,7 @@ export function WorkLogOperationalPage() {
 
           </form>
           ) : selected ? <div>
-            <div className="cy-record-header"><div><h2>{selected.logDate} 工作日誌</h2><p><span className="cy-mono">{selected.workLogRef}</span> · 員工 #{selected.employeeId}</p></div>
+            <div className="cy-record-header"><div><h2>{formatDate(selected.logDate)} 工作日誌</h2><p><span className="cy-mono">{selected.workLogRef}</span> · 員工 #{selected.employeeId}</p></div>
               <div className="cy-record-actions">
                 {selected.statusCode === "created" ? <>
                 <button className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
@@ -659,8 +660,8 @@ export function WorkLogOperationalPage() {
             <ol className="cy-progress" aria-label="日誌進度">{progressSteps.map((step, index) => { const current = progressSteps.findIndex(item => item.code === selected.statusCode); return <li key={step.code} data-state={index < current ? "done" : index === current ? "current" : "todo"} aria-current={index === current ? "step" : undefined}>{step.label}</li>; })}</ol>
             <NextStep tone={workLogTone[selected.statusCode]}>{workLogNextStep[selected.statusCode]}</NextStep>
             <div className="cy-op-detail-grid">
-              <div><span>日誌日期</span><strong>{selected.logDate}</strong></div>
-              <div><span>期間</span><strong>{selected.dateFrom} ～ {selected.dateTo}</strong></div>
+              <div><span>日誌日期</span><strong>{formatDate(selected.logDate)}</strong></div>
+              <div><span>期間</span><strong>{formatDate(selected.dateFrom)} ～ {formatDate(selected.dateTo)}</strong></div>
               <div><span>工作日數</span><strong>{selected.workDays}</strong></div>
               <div><span>類型</span><strong>{selected.typeCode}</strong></div>
               <div><span>總分</span><strong>{selected.finalScore ?? "—"}</strong></div>

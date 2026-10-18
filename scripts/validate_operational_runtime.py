@@ -43,7 +43,7 @@ def main() -> int:
         if "local-database" in page.read_text() or re.search(r"\blocalStorage\s*(?:\.|\[)", page.read_text()):
             raise AssertionError(f"browser-local authority returned: {page}")
     # Settings live inside their modules (客戶、商品、工作日誌) rather than a shared 系統管理 page.
-    for page, used_as, token in [("ModuleSettingsPanel", "WithModuleSettings", "loadSettings"), ("AuditOperationalPage", "AuditOperationalPage", "loadAudit")]:
+    for page, used_as, token in [("ModuleSettingsPanel", "ModuleSettingsButton", "loadSettings"), ("AuditOperationalPage", "AuditOperationalPage", "loadAudit")]:
         source = read(f"src/runtime/modules/{page}.tsx")
         if used_as not in app or token not in source:
             raise AssertionError(f"missing protected admin page: {page}")
