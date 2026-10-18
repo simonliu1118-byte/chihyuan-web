@@ -22,6 +22,7 @@ type VisitRow = {
   person_snapshot: string | null;
   employee_id: number;
   employee_no: string | null;
+  display_name: string | null;
   content: string | null;
   created_at: string;
   updated_at: string;
@@ -49,6 +50,7 @@ type QuoteRow = {
   quote_date: string;
   employee_id: number;
   employee_no: string | null;
+  display_name: string | null;
   item_no_snapshot: string;
   item_name_snapshot: string;
   spec_snapshot: string | null;
@@ -103,7 +105,7 @@ function toVisit(row: VisitRow): CustomerVisitRecord {
     employee: {
       id: row.employee_id,
       employeeNo: row.employee_no,
-      displayName: null,
+      displayName: row.display_name,
     },
     content: row.content,
     createdAt: row.created_at,
@@ -121,7 +123,7 @@ function toQuote(row: QuoteRow): CustomerItemQuoteSummary {
     employee: {
       id: row.employee_id,
       employeeNo: row.employee_no,
-      displayName: null,
+      displayName: row.display_name,
     },
     itemNoSnapshot: row.item_no_snapshot,
     itemNameSnapshot: row.item_name_snapshot,
@@ -171,6 +173,7 @@ export class CustomerRelatedRepository {
         v.person_snapshot,
         v.employee_id,
         m.employee_no,
+        m.display_name,
         v.content,
         v.created_at,
         v.updated_at,
@@ -258,6 +261,7 @@ export class CustomerRelatedRepository {
         q.quote_date,
         q.employee_id,
         m.employee_no,
+        m.display_name,
         q.item_no_snapshot,
         q.item_name_snapshot,
         q.spec_snapshot,
@@ -292,6 +296,8 @@ export class CustomerRelatedRepository {
           q.quote_date,
           q.employee_id,
           m.employee_no,
+          m.display_name,
+        m.display_name,
           q.item_no_snapshot,
           q.item_name_snapshot,
           q.spec_snapshot,
