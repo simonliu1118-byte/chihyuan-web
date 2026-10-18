@@ -1,6 +1,7 @@
 import { acceptSalesOrderStaleAudit } from "./sales-order-stale-acceptance";
 import { acceptCustomerQuoteStaleMutation } from "./customer-quote-stale-acceptance";
 import { acceptBusinessHttpAuthority } from "./business-http-acceptance";
+import { acceptModuleAccessGroups } from "./module-access-group-acceptance";
 import { acceptProgramCatalog } from "./program-catalog-acceptance";
 import { acceptRetiredIdentitySource, acceptRetiredIdentityRestore } from "./retired-identity-acceptance";
 import { acceptDefectStaleAudit } from "./defect-stale-acceptance";
@@ -45,6 +46,7 @@ interface AcceptanceChecks {
   workLogReviewLifecycle: boolean;
   settingsAuditHttpAuthority: boolean;
   businessHttpAuthority: boolean;
+  moduleAccessGroups: boolean;
   retiredEntityIds: boolean;
   programCatalog: boolean;
 }
@@ -716,6 +718,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
 
   await acceptSettingsAuditHttp(db);
   await acceptBusinessHttpAuthority(db, componentItem.id, finishedItem.id);
+  await acceptModuleAccessGroups(db);
   await acceptProgramCatalog(db);
   await acceptRetiredIdentitySource(db);
   await acceptPortableRecovery(db, restoreDb);
@@ -729,6 +732,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
     isolatedRecovery: true,
     settingsAuditHttpAuthority: true,
     businessHttpAuthority: true,
+    moduleAccessGroups: true,
     retiredEntityIds: true,
     programCatalog: true,
     customerBatchCreate: true,

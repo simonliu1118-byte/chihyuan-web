@@ -11,6 +11,7 @@ This index records the current interpretation of confirmed CY Web Business Decis
 - BD-053 and BD-054 define the CY Web audit boundary: ordinary edits retain last-modified metadata, meaningful business actions use structured audit, and all CY Web modules use one shared in-App Audit Core with cost-conscious payloads.
 - BD-055 confirms that Legacy GAS UX is reference evidence rather than a replication target: useful proven behavior may be retained/adapted, while the new UI and implementation follow the new Web architecture and shared-component model.
 - BD-056 confirms `chihyuancm.com` as the shared parent domain for the future official website and internal/business CY Web systems, with separate hostnames/origins and security boundaries.
+- BD-057 adds CY Web 權限群組: one group per person, group members use exactly the group's CY Web modules without individual edits, other systems stay per person, and leaving keeps the current modules; grants are materialized into `app_member_module_access`, which stays the runtime authority.
 
 ## Decision index
 
@@ -72,6 +73,7 @@ This index records the current interpretation of confirmed CY Web Business Decis
 | BD-054 | CY Web uses one shared in-App Audit Core with cost-conscious storage | CONFIRMED; scoped to CY Web only |
 | BD-055 | Legacy UX is reference evidence, not a replication target; retain/adapt good proven behavior under the new architecture | CONFIRMED |
 | BD-056 | `chihyuancm.com` is the shared parent domain for the public website and internal/business CY Web systems | CONFIRMED |
+| BD-057 | 權限群組 presets CY Web module access for members; one group per person; leaving keeps current modules | CONFIRMED; refines BD-037 |
 
 ## Cross-decision supersession / refinement notes
 

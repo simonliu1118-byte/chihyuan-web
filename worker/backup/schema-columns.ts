@@ -7,6 +7,12 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "updated_at",
     "updated_by"
   ],
+  "app_member_module_groups": [
+    "assigned_at",
+    "assigned_by",
+    "group_id",
+    "member_id"
+  ],
   "app_member_tags": [
     "member_id",
     "tag_id"
@@ -318,6 +324,19 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "revision",
     "spec",
     "store_price",
+    "updated_at",
+    "updated_by"
+  ],
+  "module_access_group_modules": [
+    "group_id",
+    "module_code"
+  ],
+  "module_access_groups": [
+    "created_at",
+    "created_by",
+    "id",
+    "name",
+    "revision",
     "updated_at",
     "updated_by"
   ],

@@ -281,6 +281,7 @@ def main() -> int:
             "workLogReviewLifecycle",
             "settingsAuditHttpAuthority",
             "businessHttpAuthority",
+            "moduleAccessGroups",
             "programCatalog",
             "retiredEntityIds",
             "portableBackupRecovery",

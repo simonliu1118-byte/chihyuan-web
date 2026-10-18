@@ -4,6 +4,7 @@ import { requireIdentity, requireModuleAccess } from "../auth/guard";
 import { CYWEB_IDENTITY_COOKIE, cookieValue, isSessionToken, normalizedApplicationId, fetchIdentityProvider } from "../identity/provider-transport";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
 import { failure, success } from "./response";
+import { createGroup, deleteGroup, groupConflictResponse, loadModuleAccessGroups, memberGroupId, setEmployeeGroup, updateGroup } from "./module-access-group-routes";
 
 interface IdentitySnapshotEmployee {
   employee_id: string;
@@ -17,11 +18,11 @@ interface IdentitySnapshotPayload {
   employees?: unknown;
 }
 
-function canManageModuleAccess(role: "SUPER_ADMIN" | "ADMIN" | "USER", isIdentityAdmin: boolean): boolean {
+export function canManageModuleAccess(role: "SUPER_ADMIN" | "ADMIN" | "USER", isIdentityAdmin: boolean): boolean {
   return role === "SUPER_ADMIN" || (role === "ADMIN" && isIdentityAdmin);
 }
 
-async function identityTarget(
+export async function identityTarget(
   request: Request,
   env: IdentityRuntimeEnv,
   employeeId: string,
@@ -94,6 +95,7 @@ async function adminSnapshot(request: Request, env: IdentityRuntimeEnv, requestI
   return success({
     modules: CYWEB_MODULES,
     grants: (rows.results ?? []).filter((row) => isCyWebModuleCode(row.module_code)),
+    ...await loadModuleAccessGroups(env.DB),
   }, requestId);
 }
 
@@ -136,6 +138,10 @@ async function putEmployeeModule(
     resolveAppMember(env.DB, gate.principal, now),
     ensureAppMemberProjection(env.DB, target.employee_id, target.employee_no, now),
   ]);
+
+  if (await memberGroupId(env.DB, targetMember.id) !== null) {
+    return failure({ code: "MODULE_ACCESS_GROUP_MANAGED", message: "此人的模組使用權由權限群組決定，請改群組設定或先移出群組。" }, requestId, 409);
+  }
 
   const previous = await env.DB.prepare(
     `SELECT enabled
@@ -217,6 +223,19 @@ export async function handleModuleAccessRoute(
   let match = /^\/api\/module-access\/admin\/employees\/([^/]+)\/modules\/([^/]+)$/.exec(path);
   if (request.method === "PUT" && match) {
     return putEmployeeModule(request, env, requestId, decodeURIComponent(match[1]), decodeURIComponent(match[2]));
+  }
+
+  match = /^\/api\/module-access\/admin\/employees\/([^/]+)\/group$/.exec(path);
+  if (request.method === "PUT" && match) return setEmployeeGroup(request, env, requestId, decodeURIComponent(match[1]));
+  try {
+    if (request.method === "POST" && path === "/api/module-access/admin/groups") return await createGroup(request, env, requestId);
+    match = /^\/api\/module-access\/admin\/groups\/(\d+)$/.exec(path);
+    if (match && request.method === "PATCH") return await updateGroup(request, env, requestId, match[1]);
+    if (match && request.method === "DELETE") return await deleteGroup(request, env, requestId, match[1]);
+  } catch (error) {
+    const conflict = groupConflictResponse(error, requestId);
+    if (conflict) return conflict;
+    throw error;
   }
 
   match = /^\/api\/module-access\/check\/([^/]+)$/.exec(path);
