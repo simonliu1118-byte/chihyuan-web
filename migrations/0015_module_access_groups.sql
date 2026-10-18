@@ -1,7 +1,10 @@
--- CY Web 權限群組 (BD-057, user 2026-10-18): a group holds a set of CY Web modules; a person
--- belongs to at most one group and then uses exactly that set, without individual edits.
+-- CY Web 權限群組 (BD-057, user 2026-10-18): a group holds a set of CY Web modules and of other
+-- CY systems (CYID application access); a person belongs to at most one group and then uses
+-- exactly that set, without individual edits.
 -- Runtime authority stays app_member_module_access: group writes materialize every member's
 -- grants in the same batch, so checkModuleAccess and requireModuleAccess are unchanged.
+-- System access lives in CYID, so the Worker syncs it to CYID after the D1 write; a member
+-- whose CYID access differs from the group is shown as not yet applied and can be re-synced.
 -- Leaving a group keeps the current grants as the person's own settings.
 -- module_code has no CHECK list here: the catalog grows with new modules (ERP queries), and the
 -- service accepts only isCyWebModuleCode values, so this table never needs a rebuild.
@@ -22,6 +25,13 @@ CREATE TABLE module_access_group_modules (
     group_id INTEGER NOT NULL,
     module_code TEXT NOT NULL CHECK (length(module_code) BETWEEN 1 AND 64),
     PRIMARY KEY (group_id, module_code),
+    FOREIGN KEY (group_id) REFERENCES module_access_groups(id) ON UPDATE RESTRICT ON DELETE CASCADE
+);
+
+CREATE TABLE module_access_group_applications (
+    group_id INTEGER NOT NULL,
+    application_id TEXT NOT NULL CHECK (length(application_id) BETWEEN 2 AND 64),
+    PRIMARY KEY (group_id, application_id),
     FOREIGN KEY (group_id) REFERENCES module_access_groups(id) ON UPDATE RESTRICT ON DELETE CASCADE
 );
 

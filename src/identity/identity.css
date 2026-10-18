@@ -51,6 +51,8 @@
   .cy-identity-group-panel .cy-identity-table-hint { display: block; }
 }
 .cy-identity-group-panel .cy-identity-access-scroll { min-height: 0; }
+.cy-notice.cy-identity-sync-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 12px 12px 0; }
+.cy-notice.cy-identity-sync-notice > .cy-op-button { margin-left: auto; }
 
 /* Person drawer. */
 .cy-identity-drawer { display: grid; gap: 12px; }

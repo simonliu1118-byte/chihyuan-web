@@ -5,6 +5,7 @@ import { handleSettingsAuditRoute } from "./http/settings-audit-routes";
 import { handleAuthRoute, type IdentityRuntimeEnv } from "./http/auth-routes";
 import { handleIdentityManagementRoute } from "./http/identity-management-routes";
 import { handleModuleAccessRoute } from "./http/module-access-routes";
+import { groupManagedSystemAccess } from "./http/module-access-group-routes";
 import { handleCyInvoiceRecoveryRoute, type CyInvoiceRecoveryEnv } from "./http/cyinvoice-recovery-routes";
 import { handleBusinessApiRoute } from "./http/business-api-routes";
 import { handleBusinessApiPhase2Route } from "./http/business-api-phase2-routes";
@@ -48,6 +49,9 @@ async function routeRequest(request: Request, env: Env, url: URL): Promise<Respo
 
   const authResponse = await handleAuthRoute(request, env, requestId);
   if (authResponse) return authResponse;
+
+  const groupManaged = await groupManagedSystemAccess(request, env, requestId);
+  if (groupManaged) return groupManaged;
 
   const identityResponse = await handleIdentityManagementRoute(request, env, requestId);
   if (identityResponse) return identityResponse;

@@ -26,6 +26,7 @@ EXPECTED_TABLES = {
     "app_member_module_groups",
     "module_access_groups",
     "module_access_group_modules",
+    "module_access_group_applications",
     "app_member_tags",
     "app_members",
     "app_tag_modules",

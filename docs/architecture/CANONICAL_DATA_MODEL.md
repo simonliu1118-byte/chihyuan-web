@@ -63,9 +63,9 @@ Direct CY Web-local Employee × Module grants are the forward authorization sour
 
 Workspace Role and Module Access are independent. Super Admin receives all modules implicitly and does not depend on stored grant rows. Identity Admin / Super Admin manage eligible Employee grants under the anti-self-escalation rules in the Identity contract.
 
-### 權限群組 (`module_access_groups`, `module_access_group_modules`, `app_member_module_groups`)
+### 權限群組 (`module_access_groups`, `module_access_group_modules`, `module_access_group_applications`, `app_member_module_groups`)
 
-BD-057: a named set of CY Web modules; a member belongs to at most one group and has exactly the group's modules. Group changes are materialized into `app_member_module_access` for every member, which stays the only runtime authority. Leaving a group, or deleting it, keeps the member's current grants. Other CY systems' access is not group-managed.
+BD-057: a named set of CY Web modules and other CY systems; a member belongs to at most one group and has exactly the group's set. Module changes are materialized into `app_member_module_access` for every member, which stays the only runtime module authority; system access is owned by CYID and synced there after each write. Leaving a group, or deleting it, keeps the member's current access.
 
 ### Legacy App tags
 

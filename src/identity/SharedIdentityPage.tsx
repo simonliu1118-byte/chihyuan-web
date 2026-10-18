@@ -3,7 +3,6 @@ import { enterAdvancesFields, enterAdvancesThenSubmits } from "../ui/foundation/
 import { FormEvent, type ReactNode, useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Dialog, Drawer } from "../ui/overlays/Dialog";
 import { useConfirmation } from "../ui/overlays/useConfirmation";
-import { PagePrimaryActions } from "../ui/shell/PagePrimaryActions";
 import { useFormPrompt } from "../ui/overlays/useFormPrompt";
 import { useUnsavedChangesGuard } from "../ui/foundation/useUnsavedChangesGuard";
 import { TextInput } from "../ui/primitives/TextInput";
@@ -20,6 +19,7 @@ import {
   loadModuleAccessAdminSnapshot,
   setEmployeeModuleAccess,
   setEmployeeModuleGroup,
+  syncModuleAccessGroup,
   updateModuleAccessGroup,
   type ModuleAccessAdminSnapshot,
   type ModuleAccessGroup,
@@ -202,6 +202,7 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
   const [query, setQuery] = useState("");
   const [stateFilter, setStateFilter] = useState("");
   const [drawerId, setDrawerId] = useState<string | null>(null);
+  const [view, setView] = useState<"people" | "groups">("people");
   const [moduleView, setModuleView] = useState<ModuleAccessAdminSnapshot | null>(null);
   const [saving, setSaving] = useState<ReadonlySet<string>>(new Set());
   const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
@@ -253,9 +254,9 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
   /** Read-only reasons that do not depend on 權限群組. */
   const baseLock = (employee: IdentityEmployeeRow, column: AccessColumn) => employee.workspace_role === "SUPER_ADMIN" ? "超級管理員固定可用"
     : employee.employee_id === session.user.employeeId ? "自己的使用權由其他管理員設定" : column.disabledReason ?? null;
-  /** Why a cell is read-only, or null when it can be changed; a group decides its members' modules. */
+  /** Why a cell is read-only, or null when it can be changed; a group decides all of its members' access. */
   const lockReason = (employee: IdentityEmployeeRow, column: AccessColumn) => baseLock(employee, column)
-    ?? (column.kind === "module" && groupOf.has(employee.employee_id) ? `由群組「${groupOf.get(employee.employee_id)!.name}」設定` : null);
+    ?? (groupOf.has(employee.employee_id) ? `由群組「${groupOf.get(employee.employee_id)!.name}」設定` : null);
 
   /** Sets one access cell; module grants update in place, system access reloads the snapshot. */
   const setAccess = useCallback(async (employee: IdentityEmployeeRow, column: AccessColumn, next: boolean) => {
@@ -276,17 +277,21 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
     finally { setSaving((current) => { const copy = new Set(current); copy.delete(cell); return copy; }); }
   }, [refresh, reportError]);
 
-  /** Joins a group (its modules replace the person's) or leaves it (current modules stay as personal settings). */
+  /** Both snapshots: a group change touches CY Web modules and CYID system access. */
+  const reloadAll = useCallback(async () => { await Promise.all([loadModules(), refresh()]); }, [loadModules, refresh]);
+
+  /** Joins a group (its systems and modules replace the person's) or leaves it (current access stays as personal settings). */
   async function setGroup(employee: IdentityEmployeeRow, groupId: number | null, ask = true) {
     const group = groupId === null ? null : moduleView?.groups.find((item) => item.id === groupId) ?? null;
     if (ask && group && !await confirm({ title: `${employee.name} 加入「${group.name}」`, confirmLabel: "加入群組",
-      description: "加入後 CY Web 模組使用權改成群組的設定，不能個別修改；之後移出群組，會保留當時的設定成為個人設定。系統使用權不受影響。" })) return false;
+      description: "加入後系統使用權與 CY Web 模組使用權都改成群組的設定，不能個別修改；之後移出群組，會保留當時的設定成為個人設定。" })) return false;
     const cell = `${employee.employee_id}:group`;
     setSaving((current) => new Set(current).add(cell)); setMessage(null);
     try {
-      await setEmployeeModuleGroup(employee.employee_id, groupId);
-      await loadModules();
-      setMessage(group ? `${employee.name} 已加入「${group.name}」，模組使用權已套用。` : `${employee.name} 已移出群組，目前的模組使用權保留為個人設定。`);
+      const result = await setEmployeeModuleGroup(employee.employee_id, groupId);
+      await reloadAll();
+      if (result.applicationSyncFailed.length) reportError(`${employee.name} 已加入「${group?.name}」，模組已套用，但系統使用權未能套用；請到「權限群組」按「重新套用」。`);
+      else setMessage(group ? `${employee.name} 已加入「${group.name}」，使用權已套用。` : `${employee.name} 已移出群組，目前的使用權保留為個人設定。`);
       return true;
     } catch (error) { reportError(`${employee.name}：${messageOf(error)}`); return false; }
     finally { setSaving((current) => { const copy = new Set(current); copy.delete(cell); return copy; }); }
@@ -318,15 +323,20 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
     else reportError(`${what}：${changes.length} 項中有 ${changes.length - done} 項未完成，請檢查後再試。`);
   }
 
-  /** Copies system access cell by cell; modules follow the source's group, or its personal settings. */
+  /** A source in a group means joining that group; otherwise its personal settings are copied cell by cell. */
   async function copyFrom(target: IdentityEmployeeRow, source: IdentityEmployeeRow) {
     const sourceGroup = groupOf.get(source.employee_id) ?? null;
-    if ((groupOf.get(target.employee_id)?.id ?? null) !== (sourceGroup?.id ?? null)
-      && !await setGroup(target, sourceGroup?.id ?? null, false)) return;
-    // Leaving a group keeps the target's grants, so the current view still describes them.
-    const changes = columns.filter((column) => (column.kind === "app" || !sourceGroup) && !baseLock(target, column)
-      && allowed(target, column) !== allowed(source, column)).map((column) => ({ employee: target, column, next: allowed(source, column) }));
-    await applyChanges(changes, `${target.name} 套用 ${source.name} 的使用權${sourceGroup ? `（模組依群組「${sourceGroup.name}」）` : ""}`);
+    const targetGroup = groupOf.get(target.employee_id) ?? null;
+    if (sourceGroup) {
+      if (targetGroup?.id === sourceGroup.id) setMessage(`${target.name} 已經在「${sourceGroup.name}」。`);
+      else await setGroup(target, sourceGroup.id, false);
+      return;
+    }
+    // Leaving a group keeps the target's access, so the current view still describes it.
+    if (targetGroup && !await setGroup(target, null, false)) return;
+    const changes = columns.filter((column) => !baseLock(target, column) && allowed(target, column) !== allowed(source, column))
+      .map((column) => ({ employee: target, column, next: allowed(source, column) }));
+    await applyChanges(changes, `${target.name} 套用 ${source.name} 的使用權`);
   }
 
   const busyAny = saving.size > 0;
@@ -337,9 +347,13 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
     if (employee.employee_id === session.user.employeeId || !moduleGroups.length) return <span className="cy-access-muted">{current?.name ?? "個人設定"}</span>;
     return <GroupSelect employee={employee} groups={moduleGroups} current={current} saving={saving.has(`${employee.employee_id}:group`)} onChange={setGroup} />;
   };
+  const switcher = canIdentityAdmin ? <div className="cy-segmented" role="group" aria-label="檢視">
+    <button type="button" aria-pressed={view === "people"} onClick={() => setView("people")}>人員</button>
+    <button type="button" aria-pressed={view === "groups"} onClick={() => setView("groups")}>權限群組</button>
+  </div> : null;
+  if (view === "groups" && moduleView) return <GroupWorkspace snapshot={snapshot} session={session} view={moduleView} columns={columns} reload={reloadAll} switcher={switcher} />;
   return <>
     {confirmationDialog}
-    <PagePrimaryActions><button type="button" className="cy-op-button primary" onClick={() => setCreateOpen(true)}>＋ 新增使用者</button></PagePrimaryActions>
     {createOpen ? <CreateUserDialog canIdentityAdmin={canIdentityAdmin} onClose={() => setCreateOpen(false)}
       onCreated={async (employeeNo, done) => { setCreateOpen(false); setMessage(done); setOpenNo(employeeNo); await refresh(); }}
       reportError={reportError} /> : null}
@@ -351,6 +365,8 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
     <FeedbackBanner message={message} tone={messageTone} />
     <section className="cy-op-panel cy-identity-table-panel">
       <div className="cy-identity-table-toolbar">
+        {switcher}
+        <button type="button" className="cy-op-button primary" onClick={() => setCreateOpen(true)}>＋ 新增使用者</button>
         <input className="cy-op-input" type="search" aria-label="搜尋使用者" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋編號、姓名、Email" />
         <StatusFilter label="帳號狀態" options={accountStates} counts={counts} value={stateFilter} onChange={setStateFilter} />
         <span className="cy-md-count">{busyAny ? <Loading inline /> : `共 ${rows.length} 位`}</span>
@@ -397,7 +413,7 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
         </table>
         {rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的使用者。</div> : null}
       </div>}
-      {canIdentityAdmin ? <p className="cy-identity-intro cy-identity-table-hint">勾選立即生效。加入權限群組的人，模組使用權由群組決定（到「權限群組」修改）。點姓名可處理帳號（停用、更換 Email、從某人複製使用權等）。CY Web 本身所有啟用的使用者都能登入。</p> : null}
+      {canIdentityAdmin ? <p className="cy-identity-intro cy-identity-table-hint">勾選立即生效。加入權限群組的人，系統與模組使用權都由群組決定（切到「權限群組」修改）。點姓名可處理帳號（停用、更換 Email、從某人複製使用權等）。CY Web 本身所有啟用的使用者都能登入。</p> : null}
     </section>
   </>;
 }
@@ -594,10 +610,16 @@ function UserDrawer({ employee, snapshot, session, refresh, columns, allowed, lo
         </div>
       </div> : null}
 
+      {canIdentityAdmin ? <div className="cy-op-subsection">
+        <h3>權限群組</h3>
+        <label className="cy-identity-group-row">群組{groupControl}</label>
+        <p className="cy-identity-intro">{group ? `系統與模組使用權由群組「${group.name}」決定，不能個別修改；要調整請到「權限群組」，或改回「個人設定」（保留目前的勾選）。`
+          : "個人設定：下面逐項勾選，立即生效。加入群組後改由群組決定。"}</p>
+      </div> : null}
       {canIdentityAdmin ? accessGroups.map((item) => item.group === "系統使用權"
-        ? <ApplicationAccessSection key={item.group} employee={employee} columns={item.columns} allowed={allowed} lockReason={lockReason} saving={saving} onToggle={onToggle} />
+        ? <ApplicationAccessSection key={item.group} employee={employee} columns={item.columns} allowed={allowed} lockReason={lockReason} saving={saving} onToggle={onToggle} quiet={!!group} />
         : null) : null}
-      {canIdentityAdmin ? <ModuleAccessPanel employee={employee} group={group} groupControl={groupControl} groups={accessGroups.filter((item) => item.group !== "系統使用權")}
+      {canIdentityAdmin ? <ModuleAccessPanel employee={employee} group={group} groups={accessGroups.filter((item) => item.group !== "系統使用權")}
         allowed={allowed} lockReason={lockReason} saving={saving} onToggle={onToggle} /> : null}
     </div>
   </Drawer>;
@@ -632,14 +654,12 @@ function ApplicationAccessSection(props: Omit<Parameters<typeof AccessChecks>[0]
 }
 
 /** CY Web 模組使用權 for one person, grouped so 業務模組 and ERP 查詢 read separately (writes via setEmployeeModuleAccess). */
-function ModuleAccessPanel({ groups, group, groupControl, ...props }: Omit<Parameters<typeof AccessChecks>[0], "columns"> & {
-  groups: readonly { group: string; columns: readonly AccessColumn[] }[]; group: ModuleAccessGroup | null; groupControl: ReactNode;
+function ModuleAccessPanel({ groups, group, ...props }: Omit<Parameters<typeof AccessChecks>[0], "columns"> & {
+  groups: readonly { group: string; columns: readonly AccessColumn[] }[]; group: ModuleAccessGroup | null;
 }) {
   return <div className="cy-op-subsection">
     <h3>CY Web 模組使用權</h3>
-    <label className="cy-identity-group-row">權限群組{groupControl}</label>
-    <p className="cy-identity-intro">{group ? `由群組「${group.name}」決定，不能個別修改；要調整請到「權限群組」，或改回「個人設定」（保留目前的勾選）。`
-      : "勾選立即生效。模組使用權與權限（管理員／一般使用者）各自獨立，改權限不會改這裡。"}</p>
+    <p className="cy-identity-intro">模組使用權與權限（管理員／一般使用者）各自獨立，改權限不會改這裡。</p>
     {groups.map((item) => <fieldset key={item.group} className="cy-identity-module-group"><legend>{item.group}</legend><AccessChecks {...props} columns={item.columns} quiet={!!group} /></fieldset>)}
   </div>;
 }
@@ -751,66 +771,97 @@ function TransferDialog({ employees, onClose }: { employees: readonly IdentityEm
 
 // ---------- 權限群組 ----------
 
-/** 權限群組 (BD-057): each group is a set of CY Web modules that its members use exactly. */
-function GroupWorkspace({ snapshot }: { snapshot: IdentityAdminSnapshot }) {
-  const [view, setView] = useState<ModuleAccessAdminSnapshot | null>(null);
+/** 權限群組 (BD-057): each group is a set of systems and CY Web modules that its members use exactly. */
+function GroupWorkspace({ snapshot, session, view, columns, reload, switcher }: {
+  snapshot: IdentityAdminSnapshot;
+  session: AuthSession;
+  view: ModuleAccessAdminSnapshot;
+  columns: readonly AccessColumn[];
+  reload: () => Promise<void>;
+  switcher: ReactNode;
+}) {
   const [savingId, setSavingId] = useState<number | null>(null);
   const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
   const { confirm, confirmationDialog } = useConfirmation();
   const { ask, promptDialog } = useFormPrompt();
 
-  const load = useCallback(async () => {
-    try { setView(await loadModuleAccessAdminSnapshot()); }
-    catch (error) { reportError(messageOf(error)); }
-  }, [reportError]);
-  useEffect(() => { void load(); }, [load]);
+  const headerGroups = useMemo(() => (["系統使用權", "業務模組", "ERP 查詢"] as const)
+    .map((group) => ({ group, span: columns.filter((column) => column.group === group).length })).filter((item) => item.span), [columns]);
+  const nameOf = (employeeId: string) => snapshot.employees.find((employee) => employee.employee_id === employeeId)?.name;
+  const memberIds = (groupId: number) => view.memberships.filter((row) => row.group_id === groupId).map((row) => row.employee_id);
+  const included = (group: ModuleAccessGroup, column: AccessColumn) => column.kind === "app"
+    ? group.applications.includes(column.code) : group.modules.includes(column.code as ModuleCode);
+  /** Members whose CYID system access differs from the group (a failed sync or a change made outside CY Web). */
+  const pending = useMemo(() => {
+    const access = new Set(snapshot.directAccess.filter((row) => row.enabled === 1).map((row) => `${row.employee_id}:${row.application_id}`));
+    const apps = columns.filter((column) => column.kind === "app" && !column.disabledReason);
+    return new Map(view.groups.map((group) => [group.id, memberIds(group.id).filter((employeeId) => employeeId !== session.user.employeeId
+      && apps.some((column) => access.has(`${employeeId}:${column.code}`) !== group.applications.includes(column.code)))]));
+  }, [snapshot.directAccess, columns, view, session.user.employeeId]);
 
-  const modules = useMemo(() => {
-    const all = (view?.modules ?? []).map((module) => ({ ...module, group: module.code.startsWith("ERP_") ? "ERP 查詢" : "業務模組" }));
-    return [...all.filter((module) => module.group === "業務模組"), ...all.filter((module) => module.group === "ERP 查詢")];
-  }, [view]);
-  const headerGroups = useMemo(() => ["業務模組", "ERP 查詢"].map((group) => ({ group, span: modules.filter((module) => module.group === group).length })).filter((item) => item.span), [modules]);
-  const memberNames = (groupId: number) => (view?.memberships ?? []).filter((row) => row.group_id === groupId)
-    .map((row) => snapshot.employees.find((employee) => employee.employee_id === row.employee_id)?.name).filter((name): name is string => !!name);
-
-  async function save(group: ModuleAccessGroup, name: string, next: ModuleAccessGroup["modules"], done: string) {
+  const inputOf = (group: ModuleAccessGroup) => ({ name: group.name, modules: group.modules, applications: group.applications });
+  async function save(group: ModuleAccessGroup, input: ReturnType<typeof inputOf>, done: string) {
     setSavingId(group.id); setMessage(null);
-    try { await updateModuleAccessGroup(group.id, name, next, group.revision); await load(); setMessage(done); }
-    catch (error) { reportError(messageOf(error)); await load(); }
+    try {
+      const result = await updateModuleAccessGroup(group.id, input, group.revision);
+      await reload();
+      if (result.applicationSyncFailed.length) reportError(`${done}但 ${result.applicationSyncFailed.length} 人的系統使用權未能套用，請按「重新套用」。`);
+      else setMessage(done);
+    } catch (error) { reportError(messageOf(error)); await reload(); }
     finally { setSavingId(null); }
   }
-  function toggle(group: ModuleAccessGroup, module: (typeof modules)[number], enabled: boolean) {
-    const next = enabled ? [...group.modules, module.code] : group.modules.filter((code) => code !== module.code);
-    void save(group, group.name, next, `「${group.name}」${enabled ? "已開放" : "已取消"}「${module.label}」，已套用到 ${group.memberCount} 位成員。`);
+  function toggle(group: ModuleAccessGroup, column: AccessColumn, enabled: boolean) {
+    const input = inputOf(group);
+    if (column.kind === "app") input.applications = enabled ? [...group.applications, column.code] : group.applications.filter((code) => code !== column.code);
+    else input.modules = enabled ? [...group.modules, column.code as ModuleCode] : group.modules.filter((code) => code !== column.code);
+    void save(group, input, `「${group.name}」${enabled ? "已開放" : "已取消"}「${column.label}」，已套用到 ${group.memberCount} 位成員。`);
+  }
+  async function resync(group: ModuleAccessGroup) {
+    setSavingId(group.id); setMessage(null);
+    try {
+      const result = await syncModuleAccessGroup(group.id);
+      await reload();
+      if (result.applicationSyncFailed.length) reportError(`仍有 ${result.applicationSyncFailed.length} 人未能套用，請稍後再試。`);
+      else setMessage(`「${group.name}」的系統使用權已重新套用。`);
+    } catch (error) { reportError(messageOf(error)); }
+    finally { setSavingId(null); }
   }
   async function rename(group: ModuleAccessGroup) {
     const answer = await ask({ title: "重新命名群組", fields: [{ name: "name", label: "群組名稱", defaultValue: group.name, required: true }], confirmLabel: "儲存" });
     if (!answer || answer.name === group.name) return;
-    await save(group, answer.name, group.modules, `群組已改名為「${answer.name}」。`);
+    await save(group, { ...inputOf(group), name: answer.name }, `群組已改名為「${answer.name}」。`);
   }
   async function remove(group: ModuleAccessGroup) {
     if (!await confirm({ title: `刪除群組「${group.name}」`, confirmLabel: "刪除群組", confirmTone: "danger",
-      description: group.memberCount ? `${group.memberCount} 位成員會移出群組，目前的模組使用權保留為個人設定。` : "這個群組沒有成員。" })) return;
+      description: group.memberCount ? `${group.memberCount} 位成員會移出群組，目前的系統與模組使用權保留為個人設定。` : "這個群組沒有成員。" })) return;
     setSavingId(group.id); setMessage(null);
-    try { await deleteModuleAccessGroup(group.id, group.revision); await load(); setMessage(`群組「${group.name}」已刪除。`); }
-    catch (error) { reportError(messageOf(error)); await load(); }
+    try { await deleteModuleAccessGroup(group.id, group.revision); await reload(); setMessage(`群組「${group.name}」已刪除。`); }
+    catch (error) { reportError(messageOf(error)); await reload(); }
     finally { setSavingId(null); }
   }
   async function create() {
-    const answer = await ask({ title: "新增權限群組", description: "例如「業務」「倉管」。建立後勾選要開放的模組，再到「使用者」把人加入群組。",
+    const answer = await ask({ title: "新增權限群組", description: "例如「業務」「倉管」。建立後勾選要開放的系統與模組，再到「人員」把人加入群組。",
       fields: [{ name: "name", label: "群組名稱", required: true }], confirmLabel: "建立" });
     if (!answer) return;
     setMessage(null);
-    try { await createModuleAccessGroup(answer.name, []); await load(); setMessage(`已建立「${answer.name}」，請勾選要開放的模組。`); }
+    try { await createModuleAccessGroup({ name: answer.name, modules: [], applications: [] }); await reload(); setMessage(`已建立「${answer.name}」，請勾選要開放的系統與模組。`); }
     catch (error) { reportError(messageOf(error)); }
   }
 
   return <>
     {confirmationDialog}
     {promptDialog}
-    <PagePrimaryActions><button type="button" className="cy-op-button primary" disabled={!view} onClick={() => void create()}>＋ 新增群組</button></PagePrimaryActions>
     <FeedbackBanner message={message} tone={messageTone} />
-    {!view ? <Loading /> : <section className="cy-op-panel cy-identity-table-panel cy-identity-group-panel">
+    <section className="cy-op-panel cy-identity-table-panel cy-identity-group-panel">
+      <div className="cy-identity-table-toolbar">
+        {switcher}
+        <button type="button" className="cy-op-button primary" disabled={savingId !== null} onClick={() => void create()}>＋ 新增群組</button>
+        <span className="cy-md-count">{savingId !== null ? <Loading inline /> : `共 ${view.groups.length} 個群組`}</span>
+      </div>
+      {view.groups.filter((group) => pending.get(group.id)?.length).map((group) => <div key={group.id} className="cy-notice cy-notice-warning cy-identity-sync-notice" role="status">
+        <span><strong>「{group.name}」有 {pending.get(group.id)!.length} 人的系統使用權尚未套用：</strong>{pending.get(group.id)!.map(nameOf).filter(Boolean).join("、")}。</span>
+        <button type="button" className="cy-op-button" disabled={savingId !== null} aria-busy={savingId === group.id || undefined} onClick={() => void resync(group)}>重新套用</button>
+      </div>)}
       <div className="cy-identity-access-scroll">
         <table className="cy-op-table cy-identity-access-table cy-identity-group-table">
           <thead>
@@ -819,11 +870,10 @@ function GroupWorkspace({ snapshot }: { snapshot: IdentityAdminSnapshot }) {
               {headerGroups.map((item) => <th key={item.group} colSpan={item.span} className="cy-access-group">{item.group}</th>)}
               <th rowSpan={2}>操作</th>
             </tr>
-            <tr>{modules.map((module) => <th key={module.code} className="cy-access-col">{module.label}</th>)}</tr>
+            <tr>{columns.map((column) => <th key={column.key} className="cy-access-col">{column.label}</th>)}</tr>
           </thead>
           <tbody>{view.groups.map((group) => {
-            const names = memberNames(group.id);
-            const busy = savingId === group.id;
+            const names = memberIds(group.id).map(nameOf).filter((name): name is string => !!name);
             return <tr key={group.id}>
               <th scope="row" className="cy-access-person">
                 <div className="cy-access-person-text">
@@ -831,12 +881,11 @@ function GroupWorkspace({ snapshot }: { snapshot: IdentityAdminSnapshot }) {
                   <span title={names.join("、")}>{names.length ? `${names.length} 位：${names.slice(0, 3).join("、")}${names.length > 3 ? "…" : ""}` : "尚無成員"}</span>
                 </div>
               </th>
-              {modules.map((module) => <td key={module.code} className="cy-access-cell">
-                <input type="checkbox" checked={group.modules.includes(module.code)} disabled={savingId !== null} aria-label={`${group.name}「${module.label}」`}
-                  onChange={(event) => toggle(group, module, event.target.checked)} />
+              {columns.map((column) => <td key={column.key} className="cy-access-cell">
+                <input type="checkbox" checked={included(group, column)} disabled={savingId !== null || !!column.disabledReason}
+                  title={column.disabledReason} aria-label={`${group.name}「${column.label}」`} onChange={(event) => toggle(group, column, event.target.checked)} />
               </td>)}
               <td><div className="cy-identity-row-actions">
-                {busy ? <Loading inline /> : null}
                 <button type="button" className="cy-op-button compact" disabled={savingId !== null} onClick={() => void rename(group)}>重新命名</button>
                 <button type="button" className="cy-op-button compact danger" disabled={savingId !== null} onClick={() => void remove(group)}>刪除</button>
               </div></td>
@@ -845,8 +894,8 @@ function GroupWorkspace({ snapshot }: { snapshot: IdentityAdminSnapshot }) {
         </table>
         {view.groups.length === 0 ? <div className="cy-op-empty">尚未建立權限群組。按「＋ 新增群組」建立，例如「業務」「倉管」。</div> : null}
       </div>
-      <p className="cy-identity-intro cy-identity-table-hint">勾選立即套用到群組所有成員；成員不能個別修改模組使用權。每人最多一個群組，到「使用者」設定；移出群組會保留當時的設定。系統使用權不由群組管理。</p>
-    </section>}
+      <p className="cy-identity-intro cy-identity-table-hint">勾選立即套用到群組所有成員，成員不能個別修改。每人最多一個群組，在「人員」設定；移出群組或刪除群組時，當時的系統與模組使用權保留為個人設定。</p>
+    </section>
   </>;
 }
 
@@ -945,7 +994,7 @@ function SecurityPanel() {
 
 // ---------- Page ----------
 
-type Tab = "users" | "self" | "groups" | "system";
+type Tab = "users" | "self" | "system";
 
 export function SharedIdentityPage({ session }: { session: AuthSession }) {
   const [snapshot, setSnapshot] = useState<IdentityAdminSnapshot | null>(null);
@@ -968,7 +1017,6 @@ export function SharedIdentityPage({ session }: { session: AuthSession }) {
   const tabs: readonly { key: Tab; label: string }[] = [
     { key: "self", label: "我的帳號" },
     { key: "users", label: "使用者" },
-    ...(isSuperAdmin || session.user.isIdentityAdmin ? [{ key: "groups" as const, label: "權限群組" }] : []),
     ...(isSuperAdmin ? [{ key: "system" as const, label: "系統與安全" }] : []),
   ];
   return <div className="cy-identity-page">
@@ -979,7 +1027,6 @@ export function SharedIdentityPage({ session }: { session: AuthSession }) {
       ? <section className="cy-op-panel"><p className="cy-notice cy-notice-danger" role="alert">{error}</p><button type="button" className="cy-op-button" disabled={loading} aria-busy={loading || undefined} onClick={() => void refresh()}>重新讀取</button></section>
       : <Loading />)
       : tab === "users" ? <UserWorkspace snapshot={snapshot} session={session} refresh={refresh} />
-      : tab === "groups" ? <GroupWorkspace snapshot={snapshot} />
       : <div className="cy-identity-admin-stack">
         <ApplicationRegistryPanel snapshot={snapshot} refresh={refresh} />
         <SecurityPanel />

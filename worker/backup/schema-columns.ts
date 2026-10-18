@@ -327,6 +327,10 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "updated_at",
     "updated_by"
   ],
+  "module_access_group_applications": [
+    "application_id",
+    "group_id"
+  ],
   "module_access_group_modules": [
     "group_id",
     "module_code"

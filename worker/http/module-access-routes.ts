@@ -4,7 +4,7 @@ import { requireIdentity, requireModuleAccess } from "../auth/guard";
 import { CYWEB_IDENTITY_COOKIE, cookieValue, isSessionToken, normalizedApplicationId, fetchIdentityProvider } from "../identity/provider-transport";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
 import { failure, success } from "./response";
-import { createGroup, deleteGroup, groupConflictResponse, loadModuleAccessGroups, memberGroupId, setEmployeeGroup, updateGroup } from "./module-access-group-routes";
+import { createGroup, deleteGroup, groupConflictResponse, loadModuleAccessGroups, memberGroupId, setEmployeeGroup, syncGroup, updateGroup } from "./module-access-group-routes";
 
 interface IdentitySnapshotEmployee {
   employee_id: string;
@@ -22,15 +22,14 @@ export function canManageModuleAccess(role: "SUPER_ADMIN" | "ADMIN" | "USER", is
   return role === "SUPER_ADMIN" || (role === "ADMIN" && isIdentityAdmin);
 }
 
-export async function identityTarget(
-  request: Request,
-  env: IdentityRuntimeEnv,
-  employeeId: string,
-): Promise<
-  | { status: "ok"; employee: IdentitySnapshotEmployee }
+interface IdentitySnapshotApplication { application_id: string; enabled: number; core_access_locked: number }
+interface IdentitySnapshotAccess { employee_id: string; application_id: string; enabled: number }
+
+/** The CYID admin snapshot read with the caller's session: people, applications and direct application access. */
+export async function identitySnapshot(request: Request, env: IdentityRuntimeEnv): Promise<
+  | { status: "ok"; employees: unknown[]; applications: IdentitySnapshotApplication[]; directAccess: IdentitySnapshotAccess[] }
   | { status: "unauthorized" }
   | { status: "unavailable" }
-  | { status: "missing" }
 > {
   const applicationId = normalizedApplicationId(env);
   const token = cookieValue(request, CYWEB_IDENTITY_COOKIE);
@@ -45,10 +44,29 @@ export async function identityTarget(
 
   if (response.status === 401 || response.status === 403) return { status: "unauthorized" };
   if (!response.ok) return { status: "unavailable" };
-  const payload = await response.json().catch(() => null) as IdentitySnapshotPayload | null;
+  const payload = await response.json().catch(() => null) as (IdentitySnapshotPayload & { applications?: unknown; directAccess?: unknown }) | null;
   if (!payload || payload.ok === false || !Array.isArray(payload.employees)) return { status: "unavailable" };
+  return {
+    status: "ok",
+    employees: payload.employees,
+    applications: Array.isArray(payload.applications) ? payload.applications as IdentitySnapshotApplication[] : [],
+    directAccess: Array.isArray(payload.directAccess) ? payload.directAccess as IdentitySnapshotAccess[] : [],
+  };
+}
 
-  const employee = payload.employees.find((raw): raw is IdentitySnapshotEmployee => {
+export async function identityTarget(
+  request: Request,
+  env: IdentityRuntimeEnv,
+  employeeId: string,
+): Promise<
+  | { status: "ok"; employee: IdentitySnapshotEmployee }
+  | { status: "unauthorized" }
+  | { status: "unavailable" }
+  | { status: "missing" }
+> {
+  const snapshot = await identitySnapshot(request, env);
+  if (snapshot.status !== "ok") return snapshot;
+  const employee = snapshot.employees.find((raw): raw is IdentitySnapshotEmployee => {
     if (!raw || typeof raw !== "object") return false;
     const row = raw as Partial<IdentitySnapshotEmployee>;
     return row.employee_id === employeeId
@@ -232,6 +250,8 @@ export async function handleModuleAccessRoute(
     match = /^\/api\/module-access\/admin\/groups\/(\d+)$/.exec(path);
     if (match && request.method === "PATCH") return await updateGroup(request, env, requestId, match[1]);
     if (match && request.method === "DELETE") return await deleteGroup(request, env, requestId, match[1]);
+    match = /^\/api\/module-access\/admin\/groups\/(\d+)\/sync$/.exec(path);
+    if (match && request.method === "POST") return await syncGroup(request, env, requestId, match[1]);
   } catch (error) {
     const conflict = groupConflictResponse(error, requestId);
     if (conflict) return conflict;
