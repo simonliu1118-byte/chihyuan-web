@@ -1,8 +1,9 @@
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import { taipeiToday } from "../../../shared/erp-query-history";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { useFormPrompt } from "../../ui/overlays/useFormPrompt";
 import { EntityPicker } from "../../ui/pickers/EntityPicker";
-import type { SalesWorkOrderCustomerOption } from "../../../shared/business-lookups";
+import type { SalesWorkOrderCustomerOption, SalesWorkOrderItemOption as LineItemOption } from "../../../shared/business-lookups";
 import "./sales-order-operational.css";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
@@ -83,8 +84,9 @@ function OrderProgress({ status }: { status: SalesWorkOrderStatusCode }) {
   </ol>;
 }
 
+/** Business dates follow Taiwan time; toISOString() would give yesterday before 08:00. */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return taipeiToday();
 }
 
 function lineKey(): string {
@@ -103,9 +105,8 @@ function lineFromItem(item: SalesWorkOrderItemOption | undefined): DraftLine {
 }
 
 function newDraft(lookups: SalesWorkOrderModuleLookups | null): SalesOrderDraft {
-  const item = lookups?.items.find((row) => row.isActive) ?? lookups?.items[0];
   return {
-    customerId: lookups?.customers[0]?.id ?? null,
+    customerId: null,
     customerName: "",
     orderDate: today(),
     operatorEmployeeId: lookups?.actor.appMemberId ?? null,
@@ -113,7 +114,7 @@ function newDraft(lookups: SalesWorkOrderModuleLookups | null): SalesOrderDraft 
     hidePriceOnSalesDocument: false,
     invoiceTypeCode: null,
     receiptOptionCode: null,
-    lines: [lineFromItem(item)],
+    lines: [lineFromItem(undefined)],
   };
 }
 
@@ -160,7 +161,7 @@ export function SalesOrderOperationalPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [pickedCustomer, setPickedCustomer] = useState<SalesWorkOrderCustomerOption | null>(null);
-  const [itemSearch, setItemSearch] = useState("");
+  const [pickedItems, setPickedItems] = useState<Record<string, LineItemOption>>({});
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<SalesOrderDraft | null>(null);
@@ -246,7 +247,6 @@ export function SalesOrderOperationalPage() {
         customerId: draft?.customerId ?? selected?.customerId ?? null,
         itemIds: selectedItemKey ? selectedItemKey.split(",").map(Number) : [],
         operatorId: draft?.operatorEmployeeId ?? selected?.operator.id ?? null,
-        itemQuery: itemSearch,
         limit: 100,
       })
         .then((value) => {
@@ -273,7 +273,6 @@ export function SalesOrderOperationalPage() {
     selected?.customerId,
     selected?.operator.id,
     selectedItemKey,
-    itemSearch,
     creating,
   ]);
 
@@ -295,7 +294,6 @@ export function SalesOrderOperationalPage() {
     setCreating(true);
     setEditing(true);
     setDraft(newDraft(lookups));
-    setItemSearch("");
     setMessage(null);
   }
 
@@ -323,15 +321,24 @@ export function SalesOrderOperationalPage() {
     } : current);
   }
 
-  function changeLineItem(index: number, itemId: number | null) {
-    const item = lookups?.items.find((row) => row.id === itemId);
-    patchLine(index, { itemId, unit: item?.baseUnit ?? "" });
+  function changeLineItem(index: number, key: string, item: LineItemOption | null) {
+    setPickedItems((current) => {
+      const next = { ...current };
+      if (item) next[key] = item; else delete next[key];
+      return next;
+    });
+    patchLine(index, { itemId: item?.id ?? null, unit: item?.baseUnit ?? "" });
+  }
+
+  function lineItem(line: DraftLine): LineItemOption | null {
+    const picked = pickedItems[line.key];
+    if (picked && picked.id === line.itemId) return picked;
+    return lookups?.items.find((row) => row.id === line.itemId) ?? null;
   }
 
   function addLine() {
     if (!draft) return;
-    const item = lookups?.items.find((row) => row.isActive) ?? lookups?.items[0];
-    setDraft({ ...draft, lines: [...draft.lines, lineFromItem(item)] });
+    setDraft({ ...draft, lines: [...draft.lines, lineFromItem(undefined)] });
   }
 
   function removeLine(index: number) {
@@ -341,9 +348,14 @@ export function SalesOrderOperationalPage() {
 
   async function save(event: FormEvent) {
     event.preventDefault();
-    if (!draft || busy || !draft.operatorEmployeeId || draft.lines.length === 0) return;
-    if (draft.customerId == null && !draft.customerName.trim()) return;
-    if (draft.lines.some((line) => !line.itemId || !line.quantity.trim() || !line.unit.trim() || !line.unitPrice.trim())) return;
+    if (!draft || busy) return;
+    const lineIssue = draft.lines.findIndex((line) => !line.itemId || !line.quantity.trim() || !line.unit.trim() || !line.unitPrice.trim());
+    const missing = draft.customerId == null && !draft.customerName.trim() ? "請選擇客戶，或填寫現場客戶名稱。"
+      : !draft.operatorEmployeeId ? "請選擇操作人員。"
+      : draft.lines.length === 0 ? "請至少加入一筆明細。"
+      : lineIssue >= 0 ? `第 ${lineIssue + 1} 列明細請填寫商品、數量、單位與單價。` : null;
+    const operatorEmployeeId = draft.operatorEmployeeId;
+    if (missing || !operatorEmployeeId) { reportError(missing ?? "請選擇操作人員。"); return; }
 
     setBusy(true);
     setMessage(null);
@@ -352,7 +364,7 @@ export function SalesOrderOperationalPage() {
         customerId: draft.customerId,
         customerName: draft.customerId == null ? draft.customerName.trim() : null,
         orderDate: draft.orderDate,
-        operatorEmployeeId: draft.operatorEmployeeId,
+        operatorEmployeeId,
         note: draft.note.trim() || null,
         hidePriceOnSalesDocument: draft.hidePriceOnSalesDocument,
         invoiceTypeCode: draft.invoiceTypeCode,
@@ -447,6 +459,7 @@ export function SalesOrderOperationalPage() {
       await deleteSalesOrderDraft(selected.id, { expectedRevision: selected.revision });
       setSelected(null);
       setSelectedId(null);
+      pane.close();
       setMessage("草稿工單已刪除。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
@@ -553,17 +566,18 @@ export function SalesOrderOperationalPage() {
               <section className="cy-form-block">
                 <div className="cy-form-block-head"><div><h3>工單明細</h3><p>數量與單價最多四位小數。</p></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={addLine}>＋ 增加明細</button></div>
                 <div className="cy-form-block-body">
-                <input className="cy-op-input" type="search" aria-label="篩選商品選單" value={itemSearch} disabled={busy} onChange={(event) => setItemSearch(event.target.value)} placeholder="篩選商品選單：品號／品名／規格" />
                 <div className="cy-order-line cy-order-line-head" aria-hidden="true"><span>商品</span><span>數量</span><span>單位</span><span>單價</span><span>備註</span><span /></div>
                 {draft.lines.map((line, index) => {
-                  const item = lookups?.items.find((row) => row.id === line.itemId);
+                  const item = lineItem(line);
                   const units = item?.allowedUnits?.length ? item.allowedUnits : (line.unit ? [line.unit] : []);
                   return (
                     <div className="cy-order-line" key={line.key}>
-                      <select className="cy-op-input" aria-label={`第 ${index + 1} 列商品`} value={line.itemId ?? ""} disabled={busy} onChange={(event) => changeLineItem(index, Number(event.target.value) || null)}>
-                        <option value="">請選擇商品</option>
-                        {(lookups?.items ?? []).map((row) => <option key={row.id} value={row.id}>{row.itemNo} · {row.name}{row.isActive ? "" : "（已停用）"}</option>)}
-                      </select>
+                      <EntityPicker<LineItemOption> label={<span className="cy-visually-hidden">第 {index + 1} 列商品</span>} disabled={busy}
+                        className="cy-order-line-item" value={item} onSelect={(row) => changeLineItem(index, line.key, row)}
+                        search={async (query) => (await loadSalesOrderLookups({ itemQuery: query, limit: 20 })).items}
+                        getKey={(row) => row.id} getLabel={(row) => `${row.itemNo} · ${row.name}`}
+                        getDescription={(row) => [row.spec, row.isActive ? null : "已停用"].filter(Boolean).join(" · ") || null}
+                        placeholder="輸入品號、品名或規格" />
                       <input className="cy-op-input" value={line.quantity} inputMode="decimal" disabled={busy} aria-label="數量" onChange={(event) => patchLine(index, { quantity: event.target.value })} placeholder="數量" />
                       <select className="cy-op-input" aria-label="單位" value={line.unit} disabled={busy} onChange={(event) => patchLine(index, { unit: event.target.value })}>
                         {units.map((unit) => <option key={unit}>{unit}</option>)}

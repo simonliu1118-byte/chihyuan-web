@@ -356,7 +356,7 @@ function EmployeeManagement({ snapshot, session, refresh }: {
         <td>{row.employee_no}</td>
         <td>{row.name}{row.identity_admin === 1 ? <small className="cy-identity-subtext">帳號管理員</small> : null}</td>
         <td className="cy-identity-email-col"><div className="cy-identity-email-line"><span className="cy-identity-email-value">{row.email_normalized}</span><span className={`cy-identity-email-tag ${row.email_verified_at ? "verified" : "unverified"}`}>{row.email_verified_at ? "已驗證" : "尚未驗證"}</span></div></td>
-        <td>{row.workspace_role === "SUPER_ADMIN" ? "超級管理員" : canIdentityAdmin && rowManageable && row.identity_admin !== 1 ? <select className="cy-op-input compact" value={row.role_key} disabled={busy} onChange={(e) => void changeRole(row, e.target.value as "USER" | "ADMIN")}><option value="USER">一般使用者</option><option value="ADMIN">管理員</option></select> : permissionLabel(row.workspace_role)}</td>
+        <td>{row.workspace_role === "SUPER_ADMIN" ? "超級管理員" : canIdentityAdmin && rowManageable && row.identity_admin !== 1 ? <select className="cy-op-input compact" aria-label={`${row.name} 的權限`} value={row.role_key} disabled={busy} onChange={(e) => void changeRole(row, e.target.value as "USER" | "ADMIN")}><option value="USER">一般使用者</option><option value="ADMIN">管理員</option></select> : permissionLabel(row.workspace_role)}</td>
         <td>{lifecycleStatus(row)}</td>
         <td><div className="cy-identity-actions">
           {row.workspace_role === "SUPER_ADMIN" && isSuperAdmin ? <button type="button" className="cy-op-button" disabled={busy || eligibleTransferEmployees.length === 0} onClick={() => { setTargetEmployeeId(eligibleTransferEmployees[0]?.employee_id ?? ""); setTransferOpen(true); }}>移交</button> : null}
@@ -561,7 +561,7 @@ function SecurityPanel() {
       <label>OTP 重寄冷卻（秒）<input className="cy-op-input" type="number" min={30} max={600} value={view.policy.otpResendCooldownSeconds} onChange={(e) => setView({ ...view, policy: { ...view.policy, otpResendCooldownSeconds: Number(e.target.value) } })} /></label>
       <label>OTP 最大嘗試次數<input className="cy-op-input" type="number" min={3} max={10} value={view.policy.otpMaxAttempts} onChange={(e) => setView({ ...view, policy: { ...view.policy, otpMaxAttempts: Number(e.target.value) } })} /></label>
       <label>同 Email／用途每小時上限<input className="cy-op-input" type="number" min={1} max={20} value={view.policy.otpMaxSentPerEmailPurposeHour} onChange={(e) => setView({ ...view, policy: { ...view.policy, otpMaxSentPerEmailPurposeHour: Number(e.target.value) } })} /></label>
-      <label>Workspace 每日 Email 上限<input className="cy-op-input" type="number" min={1} max={view.systemEmailDailyCeiling} value={view.policy.emailDailyLimit} onChange={(e) => setView({ ...view, policy: { ...view.policy, emailDailyLimit: Number(e.target.value) } })} /><small>系統上限：{view.systemEmailDailyCeiling}</small></label>
+      <label>每日 Email 上限<input className="cy-op-input" type="number" min={1} max={view.systemEmailDailyCeiling} value={view.policy.emailDailyLimit} onChange={(e) => setView({ ...view, policy: { ...view.policy, emailDailyLimit: Number(e.target.value) } })} /><small>系統上限：{view.systemEmailDailyCeiling}</small></label>
       <div className="cy-op-form-footer wide"><button className="cy-op-button primary" disabled={busy}>儲存 OTP 設定</button></div>
     </form> : <p>讀取中…</p>}
   </section>;

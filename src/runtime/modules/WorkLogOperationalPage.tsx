@@ -1,4 +1,5 @@
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import { taipeiToday } from "../../../shared/erp-query-history";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import "./worklog-operational.css";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
@@ -66,8 +67,9 @@ const progressSteps: readonly { code: WorkLogStatusCode; label: string }[] = [
   { code: "reviewed", label: "已審核" },
 ];
 
+/** Business dates follow Taiwan time; toISOString() would give yesterday before 08:00. */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return taipeiToday();
 }
 
 function key(prefix: string): string {
@@ -343,8 +345,9 @@ export function WorkLogOperationalPage() {
   async function save(event: FormEvent) {
     event.preventDefault();
     if (!draft || busy) return;
-    if (!draft.typeCode.trim() || draft.entries.length === 0) return;
-    if (draft.entries.some((entry) => !entry.entryTypeCode.trim() || (!entry.content.trim() && entry.categories.length === 0))) return;
+    const entryIssue = draft.entries.findIndex((entry) => !entry.entryTypeCode.trim() || (!entry.content.trim() && entry.categories.length === 0));
+    if (!draft.typeCode.trim() || draft.entries.length === 0) { reportError("請填寫日誌類型，並至少加入一個工作項目。"); return; }
+    if (entryIssue >= 0) { reportError(`工作項目 ${entryIssue + 1} 請填寫項目類型，以及工作內容或計分分類。`); return; }
 
     const profile = {
       logDate: draft.logDate,
@@ -472,6 +475,7 @@ export function WorkLogOperationalPage() {
       await deleteWorkLogCreated(selected.id, selected.revision);
       setSelected(null);
       setSelectedId(null);
+      pane.close();
       setMessage("工作日誌草稿已刪除。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {

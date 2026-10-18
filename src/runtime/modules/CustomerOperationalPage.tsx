@@ -1,4 +1,5 @@
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import { taipeiToday } from "../../../shared/erp-query-history";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { FormEvent, useEffect, useId, useMemo, useState } from "react";
@@ -83,8 +84,9 @@ interface QuoteDraft {
   correctionReason: string;
 }
 
+/** Business dates follow Taiwan time; toISOString() would give yesterday before 08:00. */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return taipeiToday();
 }
 
 function activeLookupId(rows: readonly { id: number; isActive: boolean }[]): number | null {

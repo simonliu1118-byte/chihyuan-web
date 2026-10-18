@@ -530,7 +530,7 @@ a.cy-op-button, a.cy-button { text-decoration: none; }
 @media (max-width: 560px) { .cy-progress li { font-size: var(--cy-fs-xs); } }
 
 /* ---------- Filter bar, clickable tables, code blocks ---------- */
-.cy-filter-bar { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 12px; align-items: end; margin-bottom: 16px; }
+.cy-filter-bar { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px 12px; align-items: end; margin-bottom: 16px; }
 .cy-filter-bar label { display: grid; gap: 4px; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 500; min-width: 0; }
 .cy-filter-bar-actions { display: flex; gap: 8px; }
 .cy-table-clickable tbody tr { cursor: pointer; }

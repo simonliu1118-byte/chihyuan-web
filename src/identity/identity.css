@@ -299,6 +299,7 @@
 
 .cy-identity-policy-grid small {
   color: var(--cy-text-muted);
+  font-size: var(--cy-fs-xs);
   font-weight: 400;
 }
 

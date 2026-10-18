@@ -1,4 +1,5 @@
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import { formatDateTime } from "../../ui/foundation/format";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { useFormPrompt } from "../../ui/overlays/useFormPrompt";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
@@ -469,11 +470,11 @@ export function ItemOperationalPage() {
         <div className="cy-md-toolbar">
           <input className="cy-op-input" type="search" aria-label="搜尋商品" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋現行／歷史品號、名稱、規格" />
           <div className="cy-md-toolbar-row">
-            <select className="cy-op-input" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+            <select className="cy-op-input" aria-label="商品分類" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
               <option value="">全部分類</option>
               {categories.map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}
             </select>
-            <select className="cy-op-input" value={activeFilter} onChange={(event) => setActiveFilter(event.target.value)}>
+            <select className="cy-op-input" aria-label="商品狀態" value={activeFilter} onChange={(event) => setActiveFilter(event.target.value)}>
               <option value="">全部狀態</option>
               <option value="active">使用中</option>
               <option value="inactive">已停用</option>
@@ -575,7 +576,7 @@ export function ItemOperationalPage() {
               <section className="cy-item-section">
                 <h3>歷史品號</h3>
                 {numberHistory.length
-                  ? numberHistory.map((row) => <div className="cy-item-history-row" key={row.id}><strong>{row.itemNo}</strong><span>{row.changeSource ?? "未註明原因"} · 至 {new Date(row.validTo ?? row.createdAt).toLocaleString()}</span></div>)
+                  ? numberHistory.map((row) => <div className="cy-item-history-row" key={row.id}><strong>{row.itemNo}</strong><span>{row.changeSource ?? "未註明原因"} · 至 {formatDateTime(row.validTo ?? row.createdAt)}</span></div>)
                   : <p className="cy-item-muted">尚無品號變更紀錄。</p>}
               </section>
             </div>

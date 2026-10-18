@@ -1,4 +1,6 @@
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import { formatDateTime } from "../../ui/foundation/format";
+import { taipeiToday } from "../../../shared/erp-query-history";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { useFormPrompt } from "../../ui/overlays/useFormPrompt";
 import { EntityPicker } from "../../ui/pickers/EntityPicker";
@@ -43,8 +45,9 @@ const statusText: Record<DefectStatusCode, string> = {
   resolved: "已處理",
 };
 
+/** Business dates follow Taiwan time; toISOString() would give yesterday before 08:00. */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return taipeiToday();
 }
 
 function errorMessage(error: unknown): string {
@@ -64,8 +67,8 @@ function errorMessage(error: unknown): string {
 function newDraft(lookups: DefectModuleLookups | null): DefectDraft {
   return {
     reportedDate: today(),
-    customerId: lookups?.customers[0]?.id ?? null,
-    itemId: lookups?.items.find((row) => row.isActive)?.id ?? lookups?.items[0]?.id ?? null,
+    customerId: null,
+    itemId: null,
     ownerEmployeeId: lookups?.actor.appMemberId ?? lookups?.owners.find((row) => row.isActive)?.id ?? null,
     defectDescription: "",
     handling: "",
@@ -259,23 +262,20 @@ export function DefectOperationalPage() {
 
   async function save(event: FormEvent) {
     event.preventDefault();
-    if (
-      !draft?.customerId ||
-      !draft.itemId ||
-      !draft.ownerEmployeeId ||
-      !draft.reportedDate ||
-      !draft.defectDescription.trim() ||
-      busy
-    ) return;
+    if (!draft || busy) return;
+    const missing = !draft.customerId ? "客戶" : !draft.itemId ? "商品" : !draft.ownerEmployeeId ? "負責人"
+      : !draft.reportedDate ? "回報日期" : !draft.defectDescription.trim() ? "瑕疵內容" : null;
+    const { customerId, itemId, ownerEmployeeId } = draft;
+    if (missing || !customerId || !itemId || !ownerEmployeeId) { reportError(`請填寫${missing ?? "必填欄位"}。`); return; }
 
     setBusy(true);
     setMessage(null);
     try {
       const profile = {
         reportedDate: draft.reportedDate,
-        customerId: draft.customerId,
-        itemId: draft.itemId,
-        ownerEmployeeId: draft.ownerEmployeeId,
+        customerId,
+        itemId,
+        ownerEmployeeId,
         defectDescription: draft.defectDescription.trim(),
         handling: draft.handling.trim() || null,
       };
@@ -370,6 +370,7 @@ export function DefectOperationalPage() {
       await deleteDefect(selected.id, { expectedRevision: selected.revision });
       setSelected(null);
       setSelectedId(null);
+      pane.close();
       setMessage("尚未開始處理的瑕疵紀錄已刪除。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
@@ -418,7 +419,7 @@ export function DefectOperationalPage() {
           <div className="cy-md-toolbar">
             <input className="cy-op-input" type="search" aria-label="搜尋瑕疵" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜尋客戶、商品、內容" />
             <div className="cy-md-toolbar-row cy-defect-filters">
-              <select className="cy-op-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <select className="cy-op-input" aria-label="瑕疵狀態" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 <option value="">全部狀態</option>
                 <option value="created">已建檔</option>
                 <option value="processing">處理中</option>
@@ -502,7 +503,7 @@ export function DefectOperationalPage() {
                   <div><span>商品</span><strong>{selected.itemNoSnapshot} · {selected.itemNameSnapshot}</strong></div>
                   <div className="wide"><span>瑕疵內容</span><strong>{selected.defectDescription}</strong></div>
                   <div className="wide"><span>處理結果</span><strong>{selected.handling ?? "—"}</strong></div>
-                  {selected.invalidatedAt ? <div className="wide cy-defect-invalid-note"><span>作廢資訊</span><strong>{new Date(selected.invalidatedAt).toLocaleString()} · 原工作狀態 {statusText[selected.statusCode]}</strong></div> : null}
+                  {selected.invalidatedAt ? <div className="wide cy-defect-invalid-note"><span>作廢資訊</span><strong>{formatDateTime(selected.invalidatedAt)} · 原工作狀態 {statusText[selected.statusCode]}</strong></div> : null}
                 </div>
 
               </div>

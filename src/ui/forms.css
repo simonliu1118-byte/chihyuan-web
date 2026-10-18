@@ -5,6 +5,7 @@
 
 .cy-input, .cy-op-input, .cy-select, .cy-textarea, .cy-data-search input {
   width: 100%;
+  min-width: 0;
   min-height: var(--cy-control-h);
   padding: 4px 10px;
   border: 1px solid var(--cy-border-input);
