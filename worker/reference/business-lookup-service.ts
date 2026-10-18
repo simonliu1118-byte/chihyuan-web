@@ -129,7 +129,7 @@ export class BusinessLookupService {
          LIMIT ?4
       `).bind(itemQuery, itemId, itemLike, limit),
       this.db.prepare(`
-        SELECT id, employee_no, is_active
+        SELECT id, employee_no, display_name, is_active
           FROM app_members
          WHERE is_active = 1 OR id = ?1
          ORDER BY CASE WHEN id = ?1 THEN 0 ELSE 1 END, COALESCE(employee_no, ''), id
@@ -155,10 +155,11 @@ export class BusinessLookupService {
         isActive: row.is_active === 1,
       })),
       owners: ((results[2]?.results ?? []) as {
-        id: number; employee_no: string | null; is_active: number;
+        id: number; employee_no: string | null; display_name: string | null; is_active: number;
       }[]).map((row) => ({
         id: row.id,
         employeeNo: row.employee_no,
+        displayName: row.display_name,
         isActive: row.is_active === 1,
       })),
     };
@@ -217,13 +218,13 @@ export class BusinessLookupService {
         id: number; item_no: string; name: string; spec: string | null; base_unit: string; is_active: number;
       }>(),
       this.db.prepare(`
-        SELECT id, employee_no, is_active
+        SELECT id, employee_no, display_name, is_active
           FROM app_members
          WHERE is_active = 1 OR id = ?1
          ORDER BY CASE WHEN id = ?1 THEN 0 ELSE 1 END, COALESCE(employee_no, ''), id
          LIMIT ?2
       `).bind(operatorId, limit).all<{
-        id: number; employee_no: string | null; is_active: number;
+        id: number; employee_no: string | null; display_name: string | null; is_active: number;
       }>(),
     ]);
 
@@ -264,6 +265,7 @@ export class BusinessLookupService {
       operators: (operatorResult.results ?? []).map((row) => ({
         id: row.id,
         employeeNo: row.employee_no,
+        displayName: row.display_name,
         isActive: row.is_active === 1,
       })),
     };
