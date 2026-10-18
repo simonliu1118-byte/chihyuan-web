@@ -44,6 +44,7 @@ export interface DefectItemOption {
 export interface DefectOwnerOption {
   id: number;
   employeeNo: string | null;
+  displayName: string | null;
   isActive: boolean;
 }
 
@@ -73,6 +74,7 @@ export interface SalesWorkOrderItemOption {
 export interface SalesWorkOrderOperatorOption {
   id: number;
   employeeNo: string | null;
+  displayName: string | null;
   isActive: boolean;
 }
 
