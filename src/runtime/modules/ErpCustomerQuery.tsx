@@ -5,6 +5,7 @@ import { ERP_CUSTOMER_SEARCH_FIELDS, type ErpField } from "../../../shared/erp-i
 import { ErpQueryRows } from "./ErpQueryRows";
 import { ErpJobStatus, Fields, showsData } from "./ErpJobStatus";
 import { ErpSalesOrders } from "./ErpSalesOrders";
+import { ErpPartyOrdersDialog } from "./ErpPartyOrdersDialog";
 import type { ErpJob } from "./useErpJob";
 
 type Mode = "CODE" | "NAME" | "SALES";
@@ -27,6 +28,8 @@ export function ErpCustomerQuery({ job }: { job: ErpJob }) {
   // What a picked customer is queried for: its data, or its 銷貨銷退單 (with the range it was asked with).
   const [follow, setFollow] = useState<{ sales: boolean; from: string | null; to: string | null }>({ sales: false, from: null, to: null });
   const autoFollowed = useRef<string | null>(null);
+  // The orders opened from the 資料 view, in a window (user 2026-10-18: keep the 資料 on the page).
+  const [ordersOf, setOrdersOf] = useState<{ code: string; name: string } | null>(null);
   const { result, busy, submitting, setError } = job;
 
   function range(from: string | null, to: string | null) {
@@ -102,10 +105,12 @@ export function ErpCustomerQuery({ job }: { job: ErpJob }) {
         <h3>客戶資料</h3>
         <Fields fields={mine.fields} />
         {customerCode && <button className="cy-op-button cy-erp-follow" type="button" disabled={busy}
-          onClick={() => { setMode("SALES"); setText(customerCode); void queryCustomer(customerCode, true, dateFrom || null, dateTo || null); }}>
+          onClick={() => setOrdersOf({ code: customerCode, name: mine.fields.find(f => f.name === "客戶簡稱")?.value ?? "" })}>
           查此客戶的銷貨銷退單</button>}
       </>}
       {showsData(mine) && mine.queryType === "SALES" && <ErpSalesOrders key={mine.id} orders={mine.orders} truncated={mine.truncated} total={mine.total} />}
     </div>}
+    {ordersOf && <ErpPartyOrdersDialog key={ordersOf.code} kind="SALES" code={ordersOf.code} name={ordersOf.name}
+      from={dateFrom || null} to={dateTo || null} onClose={() => setOrdersOf(null)} />}
   </>;
 }

@@ -86,3 +86,5 @@
 @media(max-width:820px){.cy-erp-order.is-linked{margin-left:.8rem}}
 .cy-erp-vouchers{display:grid;gap:.15rem}
 .cy-erp-order-dialog{margin-top:0}
+.cy-erp-dialog-dates{margin-bottom:.75rem}
+.cy-erp-dialog-dates button{grid-column:1/-1;justify-self:start}
