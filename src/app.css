@@ -598,7 +598,11 @@ a.cy-op-button, a.cy-button { text-decoration: none; }
 /* Phone top bar: the appearance toggle is a square icon button beside the avatar. */
 .cy-shell-topbar-end .cy-theme-toggle { width: 40px; height: 40px; padding: 0; justify-content: center; border-color: var(--cy-border); }
 
-/* WO-0.9.12: single-line topbar description, hidden on compact view. */
-.cy-shell-topbar-heading{min-width:0;flex:0 1 auto}
-.cy-shell-topbar-description{font-size:var(--cy-fs-sm);font-weight:400;color:var(--cy-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;max-width:min(44vw,620px);margin:0 0 0 10px}
-@media(max-width:820px){.cy-shell-topbar-description{display:none}}
+/* Topbar: one line of page description beside the title (hidden on compact screens). */
+.cy-shell-topbar-heading { flex: 0 1 auto; }
+.cy-shell-topbar-description {
+  min-width: 0; max-width: min(44vw, 620px); margin: 0 0 0 10px;
+  color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 400;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+@media (max-width: 820px) { .cy-shell-topbar-description { display: none; } }

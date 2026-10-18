@@ -1,6 +1,6 @@
 # WO-0.9.12 客戶相關紀錄改卡片、標題列說明與設定按鈕、日期格式、個人選單精簡
 
-- 狀態：待審查
+- 狀態：已完成（審查通過）
 - 分支：`cyweb/customer-cards`　PR：[#207](https://github.com/simonliu1118-byte/chihyuan-web/pull/207)（開啟中，未合併）
 - 依據：`PROJECT_RULES.md` §9；視覺規範 `docs/architecture/CY_WEB_VISUAL_GUIDE.md`
 - 基準：`main` 於 V0.9.11（PR #203 已部署，CY Web Deploy #250）
@@ -197,10 +197,18 @@
 6. `account-menu.png` — 個人選單只有兩項。
 7. `date-list.png` — 瑕疵清單 `YYYY/MM/DD`。
 
-- 可重現的 mock HTML 來源：[`assets/WO-0.9.12-preview.html`](assets/WO-0.9.12-preview.html)。
-- PR-only 擷取與驗收 workflow：[`.github/workflows/wo-0912-evidence.yml`](../../../.github/workflows/wo-0912-evidence.yml)。
+- （審查時已移除 mock HTML 與 PR-only workflow，見 §9。）
 
 
 ## 9. 審查紀錄（審查者填）
 
-- （待審查）
+- **2026-10-18 · Claude · 結論：通過**（含下列審查者直接修正）。
+- 驗證：本機以審查後的 head 重跑 `typecheck`、`validate:source`、`build`、`validate:d1:local` 全部通過；`node --test scripts/*.test.mjs` 140／140 通過（含 `audit-account-portal`）。
+- 實機畫面：以登入後的實際 React 畫面加 mock API（5 筆拜訪、4 筆報價、2 筆常用商品）擷取 1440 淺／深色、拜訪視窗、報價新增與關閉確認、設定視窗、個人選單、390 手機，行為符合 §6。執行者的 mock HTML 截圖不能代替實際畫面，以審查者擷取為準。
+- 審查者直接修正（§9 小項）：
+  1. 移除範圍外新增的 `.github/workflows/wo-0912-evidence.yml`、`docs/development/work-orders/assets/WO-0.9.12-preview.html`、`scripts/wo0912-typecheck.test.mjs`（工作單未要求新增 CI workflow；typecheck 已由 `npm run typecheck` 與 Runtime Check 涵蓋）。
+  2. 補上漏改的日期顯示：委外代工單清單 `orderDate`、工作日誌清單 `logDate`、刪除拜訪確認訊息 `visitDate`。
+  3. 卡片最小寬度 260px → 230px：1440 寬時明細區只有約 800px，原設定會變成兩欄加一欄，未達「1440 寬三張並排」。
+  4. 專屬視窗內的拜訪／報價清單改為與卡片相同的「由新到舊」排序。
+  5. 新增的 CSS 改回本 repo 的多行寫法並移除重複的 `.cy-shell-topbar-heading` 規則。
+- 已知限制（不阻擋）：「最後修改 · 姓名」目前顯示員工編號，姓名由 WO-0.9.13 的人名快取補上。

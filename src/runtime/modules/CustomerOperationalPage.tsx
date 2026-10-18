@@ -565,7 +565,7 @@ export function CustomerOperationalPage() {
 
   async function removeVisit(visit: CustomerVisitRecord) {
     if (!selected || busy) return;
-    if (!(await confirm({ title: "刪除拜訪紀錄", description: `確定刪除 ${visit.visitDate} 的拜訪紀錄？此操作無法復原。`, confirmLabel: "刪除", confirmTone: "danger" }))) return;
+    if (!(await confirm({ title: "刪除拜訪紀錄", description: `確定刪除 ${formatDate(visit.visitDate)} 的拜訪紀錄？此操作無法復原。`, confirmLabel: "刪除", confirmTone: "danger" }))) return;
     setBusy(true);
     setMessage(null);
     try {
@@ -695,6 +695,10 @@ export function CustomerOperationalPage() {
     }
   }
 
+  // Cards and their dialogs list the same records in the same order: newest first.
+  const visitsNewestFirst = useMemo(() => [...visits].sort((a, b) => b.visitDate.localeCompare(a.visitDate)), [visits]);
+  const quotesNewestFirst = useMemo(() => [...quotes].sort((a, b) => b.quoteDate.localeCompare(a.quoteDate)), [quotes]);
+
   function openRelated(view: RelatedView, create = false) {
     if (busy) return;
     setVisitDraft(null);
@@ -738,9 +742,9 @@ export function CustomerOperationalPage() {
       {selected && relatedView ? <Dialog open size="large"
         title={`${relatedView === "visits" ? "拜訪紀錄" : relatedView === "quotes" ? "報價紀錄" : "常用商品"} — ${selected.shortName}`}
         onClose={() => void closeRelated()}>
-        {relatedView === "visits" ? <VisitsPanel selected={selected} rows={visits} draft={visitDraft} setDraft={setVisitDraft}
+        {relatedView === "visits" ? <VisitsPanel selected={selected} rows={visitsNewestFirst} draft={visitDraft} setDraft={setVisitDraft}
           save={saveVisit} edit={editVisit} remove={removeVisit} busy={busy} /> : null}
-        {relatedView === "quotes" ? <QuotesPanel items={itemOptions} rows={quotes} draft={quoteDraft} setDraft={setQuoteDraft}
+        {relatedView === "quotes" ? <QuotesPanel items={itemOptions} rows={quotesNewestFirst} draft={quoteDraft} setDraft={setQuoteDraft}
           startNew={startQuote} save={saveQuote} correct={startQuoteCorrection} busy={busy} /> : null}
         {relatedView === "frequent" ? <FrequentPanel items={itemOptions} rows={frequentItems} itemId={frequentItemId}
           setItemId={setFrequentItemId} freeText={frequentText} setFreeText={setFrequentText}
@@ -890,11 +894,11 @@ export function CustomerOperationalPage() {
               <section className="cy-customer-cards" aria-label="客戶相關紀錄">
                 <RelatedCard title="拜訪紀錄" count={visits.length} empty="尚無拜訪紀錄。"
                   onView={() => openRelated("visits")} onAdd={() => openRelated("visits", true)}
-                  rows={[...visits].sort((a, b) => b.visitDate.localeCompare(a.visitDate)).slice(0, 3).map(row =>
+                  rows={visitsNewestFirst.slice(0, 3).map(row =>
                     <span key={row.id} title={row.content ?? ""}>{formatDate(row.visitDate)} · {row.personSnapshot || selected.contacts.find(c => c.id === row.contactId)?.name || "未指定對象"} · {row.content?.split("\n")[0] || "—"}</span>)} />
                 <RelatedCard title="報價紀錄" count={quotes.length} empty="尚無報價紀錄。"
                   onView={() => openRelated("quotes")} onAdd={() => openRelated("quotes", true)}
-                  rows={[...quotes].sort((a, b) => b.quoteDate.localeCompare(a.quoteDate)).slice(0, 3).map(row =>
+                  rows={quotesNewestFirst.slice(0, 3).map(row =>
                     <span key={row.id}>{formatDate(row.quoteDate)} · {row.itemNoSnapshot} {row.itemNameSnapshot}</span>)} />
                 <RelatedCard title="常用商品" count={frequentItems.length} empty="尚無常用商品。"
                   onView={() => openRelated("frequent")} onAdd={() => openRelated("frequent", true)}
