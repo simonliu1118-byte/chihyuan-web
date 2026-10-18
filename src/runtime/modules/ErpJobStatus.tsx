@@ -17,7 +17,8 @@ const notFound: Record<ErpQueryType, string> = {
 function describe(result: ErpQueryResult): string {
   if (result.queryType === "RECEIVABLE")
     return result.scope === "ALL" ? "全部客戶" : `${result.scope === "CUSTOMER" ? "客戶" : "業務員"} ${result.code}`;
-  if (result.queryType === "SALES" || result.queryType === "PURCHASES") return `${result.code}（${result.dateFrom} ～ ${result.dateTo}）`;
+  if (result.queryType === "SALES" || result.queryType === "PURCHASES")
+    return result.dateFrom && result.dateTo ? `${result.code}（${result.dateFrom} ～ ${result.dateTo}）` : result.code ?? "";
   return result.itemNo ?? result.keyword ?? result.code ?? "";
 }
 
