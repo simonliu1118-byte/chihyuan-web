@@ -46,6 +46,7 @@ export const actionLabels: Record<string,string> = {
   "bom.changed":"修改材料清單","bom_recipe.created":"新增材料清單","bom_recipe.changed":"修改材料清單",
   "work_log.created":"新增工作日誌","work_log.updated":"修改工作日誌",
   "work_log.submitted":"送審工作日誌","work_log.withdrawn":"撤回送審",
+  "work_log.review.submitted":"送出工作日誌審核","work_log.review.withdrawn":"撤回工作日誌審核",
   "work_log.reviewed":"審核工作日誌","work_log.review.cancelled":"取消工作日誌審核",
   "work_log.deleted":"刪除工作日誌",
   "setting.created":"新增設定","setting.changed":"修改設定",
@@ -94,6 +95,13 @@ const fields:Record<string,string> = {
 };
 export function fieldLabel(_entityType:string,key:string):string { return fields[key] ?? key; }
 export type FieldLookup = Record<string,Record<string,string>>;
+const statusText:Record<string,string> = {
+  created:"已建檔",processing:"處理中",resolved:"已完成",voided:"已作廢",
+  issued:"已開單",waiting_stock:"待貨",picked:"已撿貨",shipped:"已出貨",
+  pending_outbound:"待出庫",outbound:"已出庫",received:"已入庫",priced:"已計價",paid:"已付款",
+  pending_review:"待審核",reviewed:"已審核",QUEUED:"排隊中",RUNNING:"查詢中",DONE:"已完成",
+  FAILED:"失敗",EXPIRED:"逾時",NOT_FOUND:"查無資料",
+};
 const lookupKey:Record<string,string> = {
   categoryId:"customerCategories",customerCategoryId:"customerCategories",
   customerStatusId:"customerStatuses",regionId:"regions",departmentId:"departments",
@@ -105,6 +113,7 @@ export function fieldValue(type:string,key:string,value:unknown,lookups:FieldLoo
   if(value===null || value===undefined || value==="")return "—";
   if(typeof value==="boolean")return value?"是":"否";
   if(key==="inputMode")return value==="quantity"?"數量":"是否完成";
+  if((key==="status"||key==="statusCode") && typeof value==="string")return statusText[value] ?? value;
   const category=lookupKey[key];
   if(category && (typeof value==="number"||typeof value==="string"))return lookups[category]?.[String(value)] ?? String(value);
   if(/(?:At|Time)$/.test(key) && typeof value==="string")return formatDateTime(value);
