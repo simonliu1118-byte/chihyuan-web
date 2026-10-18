@@ -1,3 +1,4 @@
+import { formatDateTime } from "../../ui/foundation/format";
 import { Loading } from "../../ui/feedback/Loading";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
@@ -13,7 +14,7 @@ const statuses: Record<string, string> = { creating: "建立中", verified: "已
   absent: "本次未排定", deleting: "到期處理中", deleted: "已到期移除", expired: "已到期" };
 function label(status: string): string { return statuses[status] ?? "狀態待確認"; }
 function time(value: string): string {
-  return new Date(value).toLocaleString("zh-TW", { timeZone: "Asia/Taipei", hour12: false });
+  return formatDateTime(value);
 }
 function size(value: number): string { return value < 1024 ? `${value} B` : value < 1048576 ? `${(value / 1024).toFixed(1)} KB` : `${(value / 1048576).toFixed(1)} MB`; }
 function providerStatus(row: BackupHistoryEntry) {
