@@ -2,7 +2,6 @@ import { useEffect, useId, useRef, useState } from "react";
 
 export interface AccountMenuProps {
   displayName: string;
-  employeeNo: string;
   roleLabel: string;
   /** SUPER_ADMIN / ADMIN tint the avatar like the role label. */
   role: string;
@@ -14,11 +13,11 @@ export interface AccountMenuProps {
 }
 
 /** Top-right person button; its menu holds 我的帳號 and 登出 (appearance has its own switch). */
-export function AccountMenu({ displayName, employeeNo, roleLabel, role, compact, signingOut, onAccount, onLogout }: AccountMenuProps) {
+export function AccountMenu({ displayName, roleLabel, role, compact, signingOut, onAccount, onLogout }: AccountMenuProps) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const menuId = useId();
-  const initial = displayName.slice(0, 1) || employeeNo.slice(0, 1);
+  const initial = displayName.slice(0, 1) || "人";
 
   useEffect(() => {
     if (!open) return;
@@ -39,7 +38,6 @@ export function AccountMenu({ displayName, employeeNo, roleLabel, role, compact,
       {compact ? null : <svg className="cy-account-caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>}
     </button>
     {open ? <div className="cy-account-popover" id={menuId} role="menu" aria-label="個人選單">
-      <div className="cy-account-popover-head"><strong>{displayName}</strong><span>{employeeNo} · {roleLabel}</span></div>
       <button type="button" role="menuitem" onClick={() => pick(onAccount)}>我的帳號（密碼、Email）</button>
       <button type="button" role="menuitem" className="danger" disabled={signingOut} aria-busy={signingOut || undefined} onClick={() => pick(onLogout)}>登出</button>
     </div> : null}
