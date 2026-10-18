@@ -1,3 +1,4 @@
+import { formatDate } from "../../ui/foundation/format";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { parseErpCode, parseErpNameKeyword, parseErpOrderNo } from "../../../shared/erp-name-search";
 import { ERP_CUSTOMER_SEARCH_FIELDS, type ErpReceivableScope } from "../../../shared/erp-item-query";
@@ -83,16 +84,16 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
             </summary>
             <div className="cy-erp-order-body">
               <ErpQueryRows label={group.customerCode + " 結帳單"} columns={BILL_COLUMNS} summaryColumns={[0, 1, 6]}
-                rows={group.bills.map(b => [b.billNo, b.date, [b.salespersonCode, b.salespersonName].filter(Boolean).join(" "),
+                rows={group.bills.map(b => [b.billNo, formatDate(b.date), [b.salespersonCode, b.salespersonName].filter(Boolean).join(" "),
                   b.invoiceNo, erpMoney(b.receivable), erpMoney(b.receivableTax), erpMoney(b.unpaid),
-                  b.vouchers.map(v => `${v.voucherNo}（${v.date} ${erpMoney(v.amount)}）`).join("\n")])}
+                  b.vouchers.map(v => `${v.voucherNo}（${formatDate(v.date)} ${erpMoney(v.amount)}）`).join("\n")])}
                 cell={(row, column) => column !== 7 ? undefined : <span className="cy-erp-vouchers">
                   {group.bills[row].vouchers.map(v => {
                     const orderNo = parseErpOrderNo(v.voucherNo);
                     return <span key={v.voucherNo}>
                       {orderNo ? <button type="button" className="cy-erp-item-link" disabled={busy}
                         onClick={() => setOpenOrder(orderNo)}>{v.voucherNo}</button> : v.voucherNo}
-                      （{v.date} {erpMoney(v.amount)}）</span>;
+                      （{formatDate(v.date)} {erpMoney(v.amount)}）</span>;
                   })}</span>} />
             </div>
           </details>)}
