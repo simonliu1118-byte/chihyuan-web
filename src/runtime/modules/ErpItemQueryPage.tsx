@@ -119,8 +119,8 @@ function ErpItemQuery({ job }: { job: ErpJob }) {
             aria-label={queryType === "ITEM_NO" ? "品號" : "品名"} placeholder={queryType === "ITEM_NO" ? "請輸入品號" : "請輸入品名"}
             onChange={e => queryType === "ITEM_NO" ? setItemNo(e.target.value) : setKeyword(e.target.value)}
             disabled={busy} required />
-          <button className="cy-op-button primary" type="submit" disabled={busy}>
-            {submitting ? "送出中…" : busy ? "查詢中…" : "查詢"}
+          <button className="cy-op-button primary" type="submit" disabled={busy} aria-busy={submitting || busy || undefined}>
+            查詢
           </button>
         </div>
         {queryType === "ITEM_NO" && <label className="cy-erp-history-check">

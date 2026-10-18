@@ -99,9 +99,9 @@ export function ErpAgentCredentialControl({ isSuperAdmin }: { isSuperAdmin: bool
       <p>目前憑證：{credential === null ? "讀取中或無法取得"
         : credential.configured ? "已啟用" : "尚未設定或已撤銷"}</p>
       <div className="cy-op-page-actions">
-        <button type="button" className="cy-op-button" disabled={busy}
+        <button type="button" className="cy-op-button" disabled={busy} aria-busy={busy || undefined}
           onClick={() => void manageCredential("issue")}>
-          {busy ? "處理中…" : "產生／更換憑證"}
+          產生／更換憑證
         </button>
         <button type="button" className="cy-op-button danger" disabled={busy || !credential?.configured}
           onClick={() => void manageCredential("revoke")}>撤銷憑證</button>

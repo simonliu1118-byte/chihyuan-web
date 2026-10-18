@@ -1,3 +1,4 @@
+import { Loading } from "../feedback/Loading";
 import {
   useEffect,
   useId,
@@ -270,8 +271,8 @@ export function EntityPicker<T>({
               ) : null}
 
               {debouncedQuery.length >= minQueryLength && status === "loading" ? (
-                <div className="cy-entity-picker-message" role="status">
-                  搜尋中…
+                <div className="cy-entity-picker-message">
+                  <Loading inline />
                 </div>
               ) : null}
 

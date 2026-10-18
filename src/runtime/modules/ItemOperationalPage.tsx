@@ -1,3 +1,4 @@
+import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
@@ -194,6 +195,7 @@ export function ItemOperationalPage() {
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<ItemDraft | null>(null);
   const [busy, setBusy] = useState(false);
+  const { pending, track } = usePendingAction();
   const unsavedGuard = useUnsavedChangesGuard({ active: editing, blocked: busy, message: "目前有尚未儲存的商品修改，確定放棄？" });
   const pane = useMasterDetailPane();
   const { confirm, confirmationDialog } = useConfirmation();
@@ -552,7 +554,7 @@ export function ItemOperationalPage() {
             </div>
             <div className="cy-op-form-footer">
               <button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
-              <button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立商品" : "儲存修改"}</button>
+              <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立商品" : "儲存修改"}</button>
             </div>
           </form>
         ) : loadingDetail ? (
@@ -564,8 +566,8 @@ export function ItemOperationalPage() {
               <div className="cy-record-actions">
                 {selected.isActive ? null : <span className="cy-status-chip">已停用</span>}
                 <button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
-                <button type="button" className="cy-op-button" disabled={busy} onClick={() => void changeItemNumber()}>更改品號</button>
-                <button type="button" className={`cy-op-button ${selected.isActive ? "danger" : ""}`} disabled={busy} onClick={() => void toggleActive()}>{selected.isActive ? "停用" : "啟用"}</button>
+                <button type="button" className="cy-op-button" disabled={busy} aria-busy={(busy && pending === "changeItemNumber") || undefined} onClick={() => track("changeItemNumber", changeItemNumber())}>更改品號</button>
+                <button type="button" className={`cy-op-button ${selected.isActive ? "danger" : ""}`} disabled={busy} aria-busy={(busy && pending === "toggleActive") || undefined} onClick={() => track("toggleActive", toggleActive())}>{selected.isActive ? "停用" : "啟用"}</button>
               </div>
             </div>
             <div className="cy-item-detail-body">

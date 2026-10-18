@@ -1,3 +1,4 @@
+import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
@@ -121,6 +122,7 @@ export function DefectOperationalPage() {
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<DefectDraft | null>(null);
   const [busy, setBusy] = useState(false);
+  const { pending, track } = usePendingAction();
   const unsavedGuard = useUnsavedChangesGuard({ active: editing, blocked: busy, message: "目前有尚未儲存的瑕疵修改，確定放棄？" });
   const pane = useMasterDetailPane();
   const { confirm, confirmationDialog } = useConfirmation();
@@ -480,7 +482,7 @@ export function DefectOperationalPage() {
                 </div>
               </div>
 
-              <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立瑕疵" : "儲存修改"}</button></div>
+              <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立瑕疵" : "儲存修改"}</button></div>
             </form>
           ) : loadingDetail ? <Loading /> : selected ? (
             <div>
@@ -490,17 +492,17 @@ export function DefectOperationalPage() {
                     <span className={`cy-defect-status ${selected.invalidatedAt ? "invalid" : selected.statusCode}`}>{selected.invalidatedAt ? "已作廢" : statusText[selected.statusCode]}</span>
                     {!selected.invalidatedAt && selected.statusCode === "created" ? <>
                       <button className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
-                      <button className="cy-op-button primary" disabled={busy} onClick={() => void startProcessing()}>開始處理</button>
-                      <button className="cy-op-button danger" disabled={busy} onClick={() => void deleteCreated()}>刪除</button>
+                      <button className="cy-op-button primary" disabled={busy} aria-busy={(busy && pending === "startProcessing") || undefined} onClick={() => track("startProcessing", startProcessing())}>開始處理</button>
+                      <button className="cy-op-button danger" disabled={busy} aria-busy={(busy && pending === "deleteCreated") || undefined} onClick={() => track("deleteCreated", deleteCreated())}>刪除</button>
                     </> : null}
                     {!selected.invalidatedAt && selected.statusCode === "processing" ? <>
                       <button className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
-                      <button className="cy-op-button primary" disabled={busy} onClick={() => void resolve()}>完成處理</button>
-                      <button className="cy-op-button danger" disabled={busy} onClick={() => void invalidate()}>作廢</button>
+                      <button className="cy-op-button primary" disabled={busy} aria-busy={(busy && pending === "resolve") || undefined} onClick={() => track("resolve", resolve())}>完成處理</button>
+                      <button className="cy-op-button danger" disabled={busy} aria-busy={(busy && pending === "invalidate") || undefined} onClick={() => track("invalidate", invalidate())}>作廢</button>
                     </> : null}
                     {!selected.invalidatedAt && selected.statusCode === "resolved" ? <>
-                      <button className="cy-op-button" disabled={busy} onClick={() => void reopen()}>重新開啟</button>
-                      <button className="cy-op-button danger" disabled={busy} onClick={() => void invalidate()}>作廢</button>
+                      <button className="cy-op-button" disabled={busy} aria-busy={(busy && pending === "reopen") || undefined} onClick={() => track("reopen", reopen())}>重新開啟</button>
+                      <button className="cy-op-button danger" disabled={busy} aria-busy={(busy && pending === "invalidate") || undefined} onClick={() => track("invalidate", invalidate())}>作廢</button>
                     </> : null}
                 </div>
               </div>

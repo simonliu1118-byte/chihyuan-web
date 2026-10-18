@@ -26,9 +26,9 @@ export function ErpJobStatus({ result }: { result: ErpQueryResult }) {
   return <>
     <h2>{statusLabel[result.status]}</h2>
     <p>{subject[result.queryType]}：<strong>{describe(result)}</strong>{result.elapsedMs !== null ? `　耗時 ${(result.elapsedMs / 1000).toFixed(1)} 秒` : ""}</p>
-    {result.status === "QUEUED" && <p>已加入查詢佇列，等待公司電腦處理。</p>}
-    {result.status === "RUNNING" && <p>{["SALES", "PURCHASES", "RECEIVABLE", "ORDER"].includes(result.queryType)
-      ? "正在產生 ERP 報表並轉出，可能需要一到數分鐘。" : "正在查詢 ERP…"}</p>}
+    {result.status === "QUEUED" && <p className="cy-erp-waiting"><span className="cy-loading-spinner" aria-hidden="true" />已加入查詢佇列，等待公司電腦處理。</p>}
+    {result.status === "RUNNING" && <p className="cy-erp-waiting"><span className="cy-loading-spinner" aria-hidden="true" />{["SALES", "PURCHASES", "RECEIVABLE", "ORDER"].includes(result.queryType)
+      ? "正在產生 ERP 報表並轉出，可能需要一到數分鐘。" : "正在查詢 ERP。"}</p>}
     {result.errorMessage && <p className="cy-erp-error">{result.errorMessage}</p>}
     {result.status === "EXPIRED" && <p>排隊超過兩分鐘，請重新送出查詢。</p>}
     {result.status === "NOT_FOUND" && <p>{notFound[result.queryType]}</p>}
