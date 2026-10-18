@@ -1,13 +1,6 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import ts from "typescript";
-
-const source = readFileSync(new URL("../src/ui/foundation/format.ts", import.meta.url), "utf8");
-const transpiled = ts.transpileModule(source, {
-  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
-}).outputText;
-const { formatDate, formatDateTime } = await import("data:text/javascript;base64," + Buffer.from(transpiled).toString("base64"));
+import { formatDate, formatDateTime } from "../src/ui/foundation/format.ts";
 
 test("date-only strings do not shift across time zones", () => {
   assert.equal(formatDate("2026-01-05"), "2026/01/05");
