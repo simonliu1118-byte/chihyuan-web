@@ -1,0 +1,34 @@
+name: WO-0.9.12 Evidence (PR only)
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/wo-0912-evidence.yml"
+      - "docs/development/work-orders/assets/WO-0.9.12-preview.html"
+permissions:
+  contents: read
+jobs:
+  mock-screenshots:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR source
+        uses: actions/checkout@v4
+      - name: Capture eight mock screenshots (no login / no deploy)
+        shell: bash
+        run: |
+          set -euo pipefail
+          BROWSER="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$BROWSER" ]; then echo "No installed Chromium available"; exit 1; fi
+          mkdir -p evidence/WO-0.9.12
+          HTML="$(realpath docs/development/work-orders/assets/WO-0.9.12-preview.html)"
+          for name in desktop-light desktop-dark visits-all visits-new settings account-menu date-list; do
+            "$BROWSER" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --hide-scrollbars --allow-file-access-from-files --window-size=1440,900 --screenshot="$(pwd)/evidence/WO-0.9.12/$name.png" "file://$HTML?screen=$name"
+          done
+          "$BROWSER" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --hide-scrollbars --allow-file-access-from-files --window-size=390,844 --screenshot="$(pwd)/evidence/WO-0.9.12/mobile.png" "file://$HTML?screen=mobile"
+          file evidence/WO-0.9.12/*.png
+      - name: Upload evidence (mock only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WO-0.9.12-mock-screenshots
+          path: evidence/WO-0.9.12/*.png
+          if-no-files-found: warn
