@@ -4,7 +4,19 @@
 }
 
 .cy-identity-section-title {
-  margin-top: 4px;
+  margin-top: 8px;
+}
+.cy-identity-section-title h2 {
+  margin: 0;
+  font-size: var(--cy-fs-xl);
+}
+.cy-identity-section-title p {
+  margin: 4px 0 0;
+  font-size: var(--cy-fs-sm);
+}
+.cy-identity-page .cy-op-panel > h3 {
+  margin: 0 0 12px;
+  font-size: var(--cy-fs-lg);
 }
 
 .cy-identity-section-title h2,

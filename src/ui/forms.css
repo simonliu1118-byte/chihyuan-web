@@ -37,12 +37,19 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--cy-accent); wi
 
 /* Label-wrapped controls used by the operational modules. */
 .cy-form-grid, .cy-op-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
-.cy-op-form-grid label { display: grid; gap: 4px; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 500; min-width: 0; }
+.cy-op-form-grid label { display: grid; gap: 4px; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 500; min-width: 0; align-content: start; }
+.cy-op-form-grid label.cy-field-label { display: block; }
+.cy-op-form-grid > .cy-field { align-content: start; }
 .cy-op-form-grid label > :is(input, select, textarea) { color: var(--cy-text); font-weight: 400; }
 .cy-form-grid-full, .cy-op-form-grid .wide { grid-column: 1 / -1; }
 .cy-op-form-grid label:has(> input[type="checkbox"]) { display: flex; align-items: center; gap: 8px; color: var(--cy-text); }
 .cy-op-inline-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .cy-op-inline-row .cy-op-input { max-width: 200px; }
+
+/* Simple stacked forms (self-service, settings). */
+.cy-op-form > label { display: grid; gap: 4px; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 500; }
+.cy-op-form > label > :is(input, select, textarea) { color: var(--cy-text); font-weight: 400; }
+.cy-op-form > label + label { margin-top: 12px; }
 
 /* Repeating rows inside an editor (phones, lines, conversions). */
 .cy-form-block { margin-top: 16px; border: 1px solid var(--cy-border); border-radius: var(--cy-radius-lg); }

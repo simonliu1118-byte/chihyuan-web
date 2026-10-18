@@ -12,14 +12,23 @@
 
 > 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
 
+## UI／UX 重整第二批 — 0.9.1 Build 0（2026-10-18）
+
+- 原生 `window.confirm`／`window.prompt` 全部改用共用確認視窗與新的 `useFormPrompt` 表單視窗（商品、瑕疵、銷售工單、委外、ERP 連線憑證、帳號與權限）；多步 prompt 合併成一個表單，需填原因的動作寫明後果。商品、瑕疵、工單、委外的「放棄未儲存修改」改走共用 unsaved-change guard，與客戶、日誌一致。
+- 瑕疵的客戶／商品、銷售工單的客戶改用共用 `EntityPicker`（邊打邊搜尋），移除「搜尋欄＋下拉」兩段式選擇。
+- 稽核紀錄：查詢條件改為單列篩選列，點一列從右側抽屜看詳細內容。帳號與權限：「重新整理」移到頂欄、表單間距統一、畫面上的 Identity Admin／Module Access 改中文用語。
+- 備份管理頁維持原樣，避免與進行中的備份工作衝突。
+- [ ] 使用者驗收、PR CI、授權後合併部署。
+
 ## UI／UX 重整 — 0.9.0 Build 1（2026-10-17）
 
 - 使用者對 0.8.3～0.8.6 的精簡介面不滿意（字太小、元件仍大、流程不順），要求重新順過含 UX 流程。升 Y：全站版型、字級、操作流程都有明顯變化。設計重點與邊界記於 [App Shell 文件](docs/architecture/APP_SHELL_FOUNDATION.md)。
 - 只改呈現與前端操作流程；API、權限、Module Access、guard、業務規則與資料不變。
 - Build 1：使用者看過 Build 0 後比較三組主色，選定「商務藍」（淺 `#3D63D2`／深 `#9DBBFF`），只改主色 token。
 - [x] Browser／Worker TypeScript、`validate:source`、build、Node regression（`audit-account-portal` 需外部 cyapps 檢出，main 上同樣失敗）；本機模擬資料 Chromium 1440／1024／390、淺色／深色截圖。
-- [ ] 使用者驗收版型與流程，PR CI，授權後合併部署。
-- [ ] 下一批：商品／瑕疵／工單／委外仍有原生 `window.confirm`／`prompt`，改用共用確認視窗；瑕疵與工單的「客戶搜尋＋下拉」改用共用 EntityPicker；帳號與權限、稽核、備份、ERP 查詢頁的版面細修。
+- [x] [#191](https://github.com/simonliu1118-byte/chihyuan-web/pull/191) CI 全綠後合併；使用者授權後以 main 執行 [部署 39062483770](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39062483770) **success**（deploy、health、HTTPS、Custom Domain、正式帳號入口 gates 全過），live **0.9.0 Build 1**。
+- [ ] 使用者以真實帳號於桌機／手機驗收。
+- 下一批見 0.9.1。
 
 ## 上線前提醒：啟用自動備份排程（使用者暫緩）
 

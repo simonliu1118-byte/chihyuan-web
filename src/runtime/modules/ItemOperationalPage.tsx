@@ -1,4 +1,6 @@
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import { useConfirmation } from "../../ui/overlays/useConfirmation";
+import { useFormPrompt } from "../../ui/overlays/useFormPrompt";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
@@ -188,8 +190,13 @@ export function ItemOperationalPage() {
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<ItemDraft | null>(null);
   const [busy, setBusy] = useState(false);
-  useUnsavedChangesGuard({ active: editing, blocked: busy });
+  const unsavedGuard = useUnsavedChangesGuard({ active: editing, blocked: busy, message: "目前有尚未儲存的商品修改，確定放棄？" });
   const pane = useMasterDetailPane();
+  const { confirm, confirmationDialog } = useConfirmation();
+  const { ask, promptDialog } = useFormPrompt();
+  const canLeave = async () => (await unsavedGuard.confirmNavigationAsync(description => confirm({
+    title: "放棄尚未儲存的修改", description, confirmLabel: "放棄修改", cancelLabel: "繼續編輯", confirmTone: "danger",
+  }))).allowed;
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
@@ -285,8 +292,8 @@ export function ItemOperationalPage() {
     [lookups],
   );
 
-  function selectItem(id: number) {
-    if (editing && !window.confirm("目前商品有尚未儲存修改，確定放棄？")) return;
+  async function selectItem(id: number) {
+    if (busy || !(await canLeave())) return;
     pane.open();
     setSelectedId(id);
     setEditing(false);
@@ -295,8 +302,8 @@ export function ItemOperationalPage() {
     setMessage(null);
   }
 
-  function startCreate() {
-    if (editing && !window.confirm("放棄目前尚未儲存的修改？")) return;
+  async function startCreate() {
+    if (busy || !(await canLeave())) return;
     pane.open();
     setSelectedId(null);
     setSelected(null);
@@ -318,7 +325,8 @@ export function ItemOperationalPage() {
     setDraft((current) => current ? { ...current, ...patchValue } : current);
   }
 
-  function cancelEdit() {
+  async function cancelEdit() {
+    if (busy || !(await canLeave())) return;
     if (creating) pane.close();
     setEditing(false);
     setCreating(false);
@@ -389,13 +397,19 @@ export function ItemOperationalPage() {
 
   async function changeItemNumber() {
     if (!selected || busy) return;
-    const raw = window.prompt("輸入新的 SMART ERP 品號", selected.itemNo);
-    if (raw == null) return;
-    const next = raw.trim();
+    const answer = await ask({
+      title: "更改品號",
+      description: `目前品號 ${selected.itemNo}。舊品號會保留在歷史品號中，仍可搜尋。`,
+      fields: [
+        { name: "itemNo", label: "新的 SMART ERP 品號", defaultValue: selected.itemNo, required: true },
+        { name: "reason", label: "變更原因", defaultValue: "SMART ERP 品號更正" },
+      ],
+      confirmLabel: "更改品號",
+    });
+    if (!answer) return;
+    const next = answer.itemNo;
+    const reason = answer.reason;
     if (!next || next === selected.itemNo) return;
-    const reason = window.prompt("品號更正／變更來源", "SMART ERP 品號更正");
-    if (reason == null) return;
-    if (!window.confirm(`確定將 ${selected.itemNo} 改為 ${next}？舊品號會保留並可搜尋。`)) return;
 
     setBusy(true);
     setMessage(null);
@@ -419,7 +433,11 @@ export function ItemOperationalPage() {
   async function toggleActive() {
     if (!selected || busy) return;
     const action = selected.isActive ? "停用" : "啟用";
-    if (!window.confirm(`確定${action}商品「${selected.itemNo} · ${selected.name}」？`)) return;
+    if (!(await confirm({
+      title: `${action}商品`,
+      description: `確定${action}「${selected.itemNo} · ${selected.name}」？${selected.isActive ? "停用後不會出現在新單據的商品選單，既有紀錄不受影響。" : ""}`,
+      confirmLabel: action, confirmTone: selected.isActive ? "danger" : "primary",
+    }))) return;
 
     setBusy(true);
     setMessage(null);
@@ -440,7 +458,9 @@ export function ItemOperationalPage() {
   }
 
   return <div className="cy-item-op">
-    <PagePrimaryActions><button type="button" className="cy-op-button primary" disabled={busy} onClick={startCreate}>＋ 新增商品</button></PagePrimaryActions>
+    {confirmationDialog}
+    {promptDialog}
+    <PagePrimaryActions><button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增商品</button></PagePrimaryActions>
 
     {message ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-body">{message}</div></div> : null}
 
@@ -463,7 +483,7 @@ export function ItemOperationalPage() {
         </div>
         <div className="cy-op-list">
           {rows.map((row) => (
-            <button key={row.id} type="button" className={`cy-op-list-row cy-item-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={() => selectItem(row.id)}>
+            <button key={row.id} type="button" className={`cy-op-list-row cy-item-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={() => void selectItem(row.id)}>
               <strong>{row.name}</strong>
               <span><span className="cy-mono">{row.itemNo}</span>{row.spec ? ` · ${row.spec}` : ""} · {row.baseUnit}</span>
               {row.isActive ? <small>{categoryName(row)}</small> : <small className="cy-status-chip">已停用</small>}
@@ -474,7 +494,7 @@ export function ItemOperationalPage() {
       </section>
 
       <section className="cy-op-panel cy-md-detail">
-        <MasterDetailBack label="商品清單" disabled={busy} onBack={() => { if (editing) { if (!window.confirm("放棄目前尚未儲存的修改？")) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
+        <MasterDetailBack label="商品清單" disabled={busy} onBack={async () => { if (editing) { if (!(await canLeave())) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
         {editing && draft ? (
           <form className="cy-op-form" onSubmit={(event) => void save(event)}>
             <div className="cy-record-header">
@@ -518,7 +538,7 @@ export function ItemOperationalPage() {
               </section>
             </div>
             <div className="cy-op-form-footer">
-              <button type="button" className="cy-op-button" disabled={busy} onClick={cancelEdit}>取消</button>
+              <button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
               <button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立商品" : "儲存修改"}</button>
             </div>
           </form>

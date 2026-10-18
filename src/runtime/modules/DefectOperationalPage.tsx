@@ -1,4 +1,8 @@
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import { useConfirmation } from "../../ui/overlays/useConfirmation";
+import { useFormPrompt } from "../../ui/overlays/useFormPrompt";
+import { EntityPicker } from "../../ui/pickers/EntityPicker";
+import type { DefectCustomerOption, DefectItemOption } from "../../../shared/business-lookups";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
@@ -105,14 +109,19 @@ export function DefectOperationalPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [includeInvalid, setIncludeInvalid] = useState(false);
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [itemSearch, setItemSearch] = useState("");
+  const [pickedCustomer, setPickedCustomer] = useState<DefectCustomerOption | null>(null);
+  const [pickedItem, setPickedItem] = useState<DefectItemOption | null>(null);
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<DefectDraft | null>(null);
   const [busy, setBusy] = useState(false);
-  useUnsavedChangesGuard({ active: editing, blocked: busy });
+  const unsavedGuard = useUnsavedChangesGuard({ active: editing, blocked: busy, message: "目前有尚未儲存的瑕疵修改，確定放棄？" });
   const pane = useMasterDetailPane();
+  const { confirm, confirmationDialog } = useConfirmation();
+  const { ask, promptDialog } = useFormPrompt();
+  const canLeave = async () => (await unsavedGuard.confirmNavigationAsync(description => confirm({
+    title: "放棄尚未儲存的修改", description, confirmLabel: "放棄修改", cancelLabel: "繼續編輯", confirmTone: "danger",
+  }))).allowed;
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
@@ -184,8 +193,6 @@ export function DefectOperationalPage() {
         customerId: selected?.customerId ?? draft?.customerId ?? null,
         itemId: selected?.itemId ?? draft?.itemId ?? null,
         ownerId: selected?.ownerEmployee.id ?? draft?.ownerEmployeeId ?? null,
-        customerQuery: customerSearch,
-        itemQuery: itemSearch,
         limit: 100,
       })
         .then((value) => {
@@ -206,36 +213,30 @@ export function DefectOperationalPage() {
     draft?.customerId,
     draft?.itemId,
     draft?.ownerEmployeeId,
-    customerSearch,
-    itemSearch,
   ]);
 
   const customerOptions = useMemo(() => lookups?.customers ?? [], [lookups]);
   const itemOptions = useMemo(() => lookups?.items ?? [], [lookups]);
   const ownerOptions = useMemo(() => lookups?.owners ?? [], [lookups]);
 
-  function selectDefect(id: number) {
-    if (editing && !window.confirm("放棄尚未儲存的修改？")) return;
+  async function selectDefect(id: number) {
+    if (busy || !(await canLeave())) return;
     pane.open();
     setSelectedId(id);
     setEditing(false);
     setCreating(false);
     setDraft(null);
-    setCustomerSearch("");
-    setItemSearch("");
     setMessage(null);
   }
 
-  function startCreate() {
-    if (editing && !window.confirm("放棄目前尚未儲存的修改？")) return;
+  async function startCreate() {
+    if (busy || !(await canLeave())) return;
     pane.open();
     setSelectedId(null);
     setSelected(null);
     setCreating(true);
     setEditing(true);
     setDraft(newDraft(lookups));
-    setCustomerSearch("");
-    setItemSearch("");
     setMessage(null);
   }
 
@@ -244,18 +245,15 @@ export function DefectOperationalPage() {
     setCreating(false);
     setEditing(true);
     setDraft(draftFromDetail(selected));
-    setCustomerSearch("");
-    setItemSearch("");
     setMessage(null);
   }
 
-  function cancelEdit() {
+  async function cancelEdit() {
+    if (busy || !(await canLeave())) return;
     if (creating) pane.close();
     setEditing(false);
     setCreating(false);
     setDraft(null);
-    setCustomerSearch("");
-    setItemSearch("");
     setSelectedId((current) => current ?? rows[0]?.id ?? null);
   }
 
@@ -309,8 +307,10 @@ export function DefectOperationalPage() {
 
   async function resolve() {
     if (!selected || selected.statusCode !== "processing" || selected.invalidatedAt || busy) return;
-    const note = window.prompt("請輸入處理結果／備註", selected.handling ?? "");
-    if (note == null || !note.trim()) return;
+    const answer = await ask({ title: "完成處理", description: "填寫處理結果後，瑕疵會標記為已處理。",
+      fields: [{ name: "note", label: "處理結果", defaultValue: selected.handling ?? "", required: true, multiline: true }], confirmLabel: "完成處理" });
+    const note = answer?.note ?? "";
+    if (!note) return;
 
     setBusy(true);
     setMessage(null);
@@ -333,8 +333,9 @@ export function DefectOperationalPage() {
 
   async function reopen() {
     if (!selected || selected.statusCode !== "resolved" || selected.invalidatedAt || busy) return;
-    const reason = window.prompt("重新開啟原因", "需要補充處理");
-    if (reason == null) return;
+    const answer = await ask({ title: "重新開啟瑕疵", fields: [{ name: "reason", label: "重新開啟原因", defaultValue: "需要補充處理" }], confirmLabel: "重新開啟" });
+    if (!answer) return;
+    const reason = answer.reason;
     await runAction(
       async () => reopenDefect(selected.id, {
         expectedRevision: selected.revision,
@@ -346,9 +347,10 @@ export function DefectOperationalPage() {
 
   async function invalidate() {
     if (!selected || selected.statusCode === "created" || selected.invalidatedAt || busy) return;
-    const reason = window.prompt("請輸入作廢原因", "整筆瑕疵資料建立錯誤");
-    if (reason == null || !reason.trim()) return;
-    if (!window.confirm("作廢後會保留紀錄與原工作狀態，不會硬刪。確定作廢？")) return;
+    const answer = await ask({ title: "作廢瑕疵紀錄", description: "作廢後紀錄與原處理狀態都會保留，不會刪除。",
+      fields: [{ name: "reason", label: "作廢原因", defaultValue: "整筆瑕疵資料建立錯誤", required: true }], confirmLabel: "作廢", confirmTone: "danger" });
+    const reason = answer?.reason ?? "";
+    if (!reason) return;
     await runAction(
       async () => invalidateDefect(selected.id, {
         expectedRevision: selected.revision,
@@ -360,7 +362,7 @@ export function DefectOperationalPage() {
 
   async function deleteCreated() {
     if (!selected || selected.statusCode !== "created" || selected.invalidatedAt || busy) return;
-    if (!window.confirm(`確定永久刪除尚未開始處理的瑕疵 #${selected.id}？此動作仍由伺服器檢查建立者／管理權限。`)) return;
+    if (!(await confirm({ title: "刪除瑕疵紀錄", description: `瑕疵 #${selected.id} 尚未開始處理，刪除後無法復原。`, confirmLabel: "刪除", confirmTone: "danger" }))) return;
 
     setBusy(true);
     setMessage(null);
@@ -403,8 +405,10 @@ export function DefectOperationalPage() {
 
   return (
     <div className="cy-defect-op">
+      {confirmationDialog}
+      {promptDialog}
       <PagePrimaryActions>
-        <button type="button" className="cy-op-button primary" disabled={busy} onClick={startCreate}>＋ 新增瑕疵</button>
+        <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增瑕疵</button>
       </PagePrimaryActions>
 
       {message ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-body">{message}</div></div> : null}
@@ -424,14 +428,14 @@ export function DefectOperationalPage() {
             </div>
           </div>
           <div className="cy-op-list">
-            {rows.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-defect-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={() => selectDefect(row.id)}><strong>{row.customerNameSnapshot}</strong><span>#{row.id} · {row.itemNoSnapshot} {row.itemNameSnapshot}</span><small className={`cy-defect-status ${row.invalidatedAt ? "invalid" : row.statusCode}`}>{row.invalidatedAt ? "已作廢" : statusText[row.statusCode]}</small></button>)}
+            {rows.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-defect-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={() => void selectDefect(row.id)}><strong>{row.customerNameSnapshot}</strong><span>#{row.id} · {row.itemNoSnapshot} {row.itemNameSnapshot}</span><small className={`cy-defect-status ${row.invalidatedAt ? "invalid" : row.statusCode}`}>{row.invalidatedAt ? "已作廢" : statusText[row.statusCode]}</small></button>)}
             {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的瑕疵紀錄。</div> : null}
             {loadingList ? <div className="cy-op-empty">讀取瑕疵資料中…</div> : null}
           </div>
         </section>
 
         <section className="cy-op-panel cy-md-detail">
-          <MasterDetailBack label="瑕疵清單" disabled={busy} onBack={() => { if (editing) { if (!window.confirm("放棄目前尚未儲存的修改？")) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
+          <MasterDetailBack label="瑕疵清單" disabled={busy} onBack={async () => { if (editing) { if (!(await canLeave())) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
           {editing && draft ? (
             <form className="cy-op-form" onSubmit={(event) => void save(event)}>
               <div className="cy-record-header">
@@ -442,11 +446,20 @@ export function DefectOperationalPage() {
                 <div className="cy-op-form-grid">
                   <label>回報日期<input className="cy-op-input" type="date" value={draft.reportedDate} disabled={busy} onChange={(e) => setDraft({ ...draft, reportedDate: e.target.value })} /></label>
 
-                  <label>客戶搜尋<input className="cy-op-input" value={customerSearch} disabled={busy} onChange={(e) => setCustomerSearch(e.target.value)} placeholder="客戶編號／名稱" /></label>
-                  <label>客戶<select className="cy-op-input" value={draft.customerId ?? ""} disabled={busy} onChange={(e) => setDraft({ ...draft, customerId: Number(e.target.value) || null })}><option value="">請選擇</option>{customerOptions.map((row) => <option key={row.id} value={row.id}>{row.customerNo ? `${row.customerNo} · ` : ""}{row.shortName}</option>)}</select></label>
+                  <EntityPicker<DefectCustomerOption> label="客戶" required disabled={busy}
+                    value={pickedCustomer?.id === draft.customerId ? pickedCustomer : customerOptions.find((row) => row.id === draft.customerId) ?? null}
+                    onSelect={(row) => { setPickedCustomer(row); setDraft({ ...draft, customerId: row?.id ?? null }); }}
+                    search={async (query) => (await loadDefectLookups({ customerQuery: query, limit: 20 })).customers}
+                    getKey={(row) => row.id} getLabel={(row) => `${row.customerNo ? `${row.customerNo} · ` : ""}${row.shortName}`}
+                    placeholder="輸入客戶編號或名稱" />
 
-                  <label>商品搜尋<input className="cy-op-input" value={itemSearch} disabled={busy} onChange={(e) => setItemSearch(e.target.value)} placeholder="品號／品名／規格" /></label>
-                  <label>商品<select className="cy-op-input" value={draft.itemId ?? ""} disabled={busy} onChange={(e) => setDraft({ ...draft, itemId: Number(e.target.value) || null })}><option value="">請選擇</option>{itemOptions.map((row) => <option key={row.id} value={row.id}>{row.itemNo} · {row.name}{row.isActive ? "" : "（已停用）"}</option>)}</select></label>
+                  <EntityPicker<DefectItemOption> label="商品" required disabled={busy}
+                    value={pickedItem?.id === draft.itemId ? pickedItem : itemOptions.find((row) => row.id === draft.itemId) ?? null}
+                    onSelect={(row) => { setPickedItem(row); setDraft({ ...draft, itemId: row?.id ?? null }); }}
+                    search={async (query) => (await loadDefectLookups({ itemQuery: query, limit: 20 })).items}
+                    getKey={(row) => row.id} getLabel={(row) => `${row.itemNo} · ${row.name}`}
+                    getDescription={(row) => [row.spec, row.isActive ? null : "已停用"].filter(Boolean).join(" · ") || null}
+                    placeholder="輸入品號、品名或規格" />
 
                   <label>負責人<select className="cy-op-input" value={draft.ownerEmployeeId ?? ""} disabled={busy} onChange={(e) => setDraft({ ...draft, ownerEmployeeId: Number(e.target.value) || null })}><option value="">請選擇</option>{ownerOptions.map((row) => <option key={row.id} value={row.id}>{ownerLabel(row.id, row.employeeNo)}{row.isActive ? "" : "（已停用）"}</option>)}</select></label>
 
@@ -455,7 +468,7 @@ export function DefectOperationalPage() {
                 </div>
               </div>
 
-              <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={cancelEdit}>取消</button><button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立瑕疵" : "儲存修改"}</button></div>
+              <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立瑕疵" : "儲存修改"}</button></div>
             </form>
           ) : selected ? (
             <div>

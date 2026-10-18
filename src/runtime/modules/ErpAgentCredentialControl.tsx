@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Dialog } from "../../ui/overlays/Dialog";
+import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { ApiClientError } from "../../api/client";
 import type { ErpAgentStatus } from "../../../shared/erp-item-query";
 import {
@@ -23,6 +24,7 @@ export function ErpAgentCredentialControl({ isSuperAdmin }: { isSuperAdmin: bool
   const [newToken, setNewToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirm, confirmationDialog } = useConfirmation();
 
   useEffect(() => {
     let cancelled = false;
@@ -51,9 +53,9 @@ export function ErpAgentCredentialControl({ isSuperAdmin }: { isSuperAdmin: bool
 
   async function manageCredential(operation: "issue" | "revoke") {
     if (busy) return;
-    if (!window.confirm(operation === "issue"
-      ? "產生新憑證會使舊憑證立即失效，確定繼續？"
-      : "撤銷後公司查詢程式將無法再連線，確定撤銷？")) return;
+    if (!(await confirm(operation === "issue"
+      ? { title: "產生新憑證", description: "產生新憑證後，舊憑證會立即失效。", confirmLabel: "產生新憑證", confirmTone: "danger" }
+      : { title: "撤銷憑證", description: "撤銷後公司的 ERP 查詢程式將無法再連線。", confirmLabel: "撤銷", confirmTone: "danger" }))) return;
     setBusy(true);
     setError(null);
     setNewToken(null);
@@ -82,6 +84,7 @@ export function ErpAgentCredentialControl({ isSuperAdmin }: { isSuperAdmin: bool
   const label = agentError ? "狀態未知" : connected ? "已連線" : "未連線";
   const stateClass = connected ? "is-online" : "is-offline";
   return <>
+    {confirmationDialog}
     {isSuperAdmin
       ? <button type="button" className={"cy-op-button cy-erp-status-button " + stateClass}
           aria-label={"連線憑證：" + label} title="連線憑證" onClick={() => setOpen(true)}>
