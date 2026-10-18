@@ -1,9 +1,9 @@
-export type ProgramId = "accounting-web" | "accounting" | "invoice" | "tri-invoice-calc" | "converter" | "erp-auto-input" | "envelope" | "watermark" | "price-desk";
+export type ProgramId = "accounting-web" | "accounting" | "invoice" | "tri-invoice-calc" | "converter" | "erp-auto-input" | "erp-auto-query" | "envelope" | "watermark" | "price-desk";
 export interface ProgramEntry {
   id: ProgramId;
   name: string;
   platform: "web" | "windows";
-  icon: "ACC" | "INV" | "CAL" | "CVT" | "Auto" | "ENV" | "WM" | null;
+  icon: "ACC" | "INV" | "CAL" | "CVT" | "Auto" | "AutoQ" | "ENV" | "WM" | null;
   description: string;
   version: string | null;
   publishedAt: string | null;
@@ -77,6 +77,9 @@ export const verifiedProgramCatalog: ProgramCatalog = {
       version: "0.2.9", publishedAt: "2026-10-12T08:56:08Z", websiteUrl: null,
       releaseUrl: "https://github.com/simonliu1118-byte/CYapps/releases/tag/cyerp-auto-input-v0.2.9",
       downloadUrl: "https://github.com/simonliu1118-byte/CYapps/releases/download/cyerp-auto-input-v0.2.9/CYERPAutoInput_V0.2.9.zip" },
+    { id: "erp-auto-query", name: "SMART ERP 自動查詢工具", platform: "windows", icon: "AutoQ",
+      description: "在公司內網電腦接收 CY Web 的查詢，自動到 SMART ERP 查品號、批號庫存與歷史異動、客戶、廠商、銷貨銷退單、進貨退貨單及未收款，只查詢不修改 ERP 資料。",
+      version: null, publishedAt: null, releaseUrl: null, downloadUrl: null, websiteUrl: null },
     { id: "envelope", name: "信封套印工具", platform: "windows", icon: "ENV",
       description: "支援收件人與地址管理、臺灣郵遞區號查詢、信封版面位置與字型設定，以及 Windows 印表機套印。",
       version: null, publishedAt: null, releaseUrl: null, downloadUrl: null, websiteUrl: null },

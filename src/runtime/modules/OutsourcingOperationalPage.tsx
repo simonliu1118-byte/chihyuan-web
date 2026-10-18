@@ -1,4 +1,9 @@
+import { Loading } from "../../ui/feedback/Loading";
+import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
+import { formatDateTime } from "../../ui/foundation/format";
+import { taipeiToday } from "../../../shared/erp-query-history";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { useFormPrompt } from "../../ui/overlays/useFormPrompt";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
@@ -85,8 +90,9 @@ function OutsourcingProgress({ status }: { status: OutsourcingStatusCode }) {
   </ol>;
 }
 
+/** Business dates follow Taiwan time; toISOString() would give yesterday before 08:00. */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return taipeiToday();
 }
 
 function draftKey(): string {
@@ -139,6 +145,9 @@ export function OutsourcingOperationalPage() {
   const [itemQuery, setItemQuery] = useState("");
 
   const [orders, setOrders] = useState<readonly OutsourcingSummary[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(true);
+  // The page appears once its first list page is in; until then only the shared spinner shows.
+  const [listReady, setListReady] = useState(false);
   const [orderQuery, setOrderQuery] = useState("");
   const [orderStatus, setOrderStatus] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
@@ -180,6 +189,7 @@ export function OutsourcingOperationalPage() {
   const partnerPane = useMasterDetailPane();
   const bomPane = useMasterDetailPane();
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
+  const paging = useLoadMore(searchOutsourcingOrders, setOrders, (error) => reportError(errorMessage(error)));
   const [refreshEpoch, setRefreshEpoch] = useState(0);
 
   const selectedItemIds = useMemo(() => {
@@ -237,15 +247,18 @@ export function OutsourcingOperationalPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoadingOrders(true);
     const timer = window.setTimeout(() => {
-      void searchOutsourcingOrders({
+      const listQuery = {
         q: orderQuery.trim() || undefined,
         statusCode: orderStatus ? orderStatus as OutsourcingStatusCode : undefined,
         limit: 100,
-      })
+      };
+      void searchOutsourcingOrders(listQuery)
         .then((result) => {
           if (cancelled) return;
           setOrders(result.items);
+          paging.reset(listQuery, result.nextCursor);
           if (!editing) {
             setSelectedOrderId((current) => (
               current != null && result.items.some((row) => row.id === current)
@@ -254,7 +267,8 @@ export function OutsourcingOperationalPage() {
             ));
           }
         })
-        .catch((error) => { if (!cancelled) reportError(errorMessage(error)); });
+        .catch((error) => { if (!cancelled) reportError(errorMessage(error)); })
+        .finally(() => { if (!cancelled) { setLoadingOrders(false); setListReady(true); } });
     }, 160);
     return () => { cancelled = true; window.clearTimeout(timer); };
   }, [orderQuery, orderStatus, refreshEpoch, editing]);
@@ -373,8 +387,10 @@ export function OutsourcingOperationalPage() {
 
   async function saveOrder(event: FormEvent) {
     event.preventDefault();
-    if (!draft || !lookups || !draft.contractorId || busy) return;
-    if (draft.parts.some((part) => !part.componentItemId || !part.quantity.trim() || !part.unit.trim())) return;
+    if (!draft || !lookups || busy) return;
+    const partIssue = draft.parts.findIndex((part) => !part.componentItemId || !part.quantity.trim() || !part.unit.trim());
+    if (!draft.contractorId) { reportError("請選擇代工對象。"); return; }
+    if (partIssue >= 0) { reportError(`第 ${partIssue + 1} 列料件請填寫商品、數量與單位。`); return; }
 
     const profile = {
       contractorId: draft.contractorId,
@@ -536,6 +552,7 @@ export function OutsourcingOperationalPage() {
       await deleteOutsourcingPending(selectedOrder.id, selectedOrder.revision);
       setSelectedOrder(null);
       setSelectedOrderId(null);
+      pane.close();
       setMessage("待出庫代工單已刪除。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
@@ -546,6 +563,8 @@ export function OutsourcingOperationalPage() {
   }
 
   const receiptBoms = boms.filter((row) => row.isActive && row.finishedItemId === receiptItemId);
+
+  if (!listReady) return <Loading />;
 
   return (
     <div className="cy-outsourcing-op">
@@ -572,18 +591,19 @@ export function OutsourcingOperationalPage() {
                   <option value="">全部狀態</option>
                   {Object.entries(statusText).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
                 </select>
-                <div className="cy-md-count">共 {orders.length} 筆</div>
+                <div className="cy-md-count">{loadingOrders ? <Loading inline /> : paging.hasMore ? `已載入 ${orders.length} 筆，還有更多` : `共 ${orders.length} 筆`}</div>
               </div>
               <div className="cy-op-list">
                 {orders.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedOrderId === row.id ? "active" : ""}`} aria-current={selectedOrderId === row.id ? "true" : undefined} onClick={async () => { if (editing && !(await discardEditing())) return; setSelectedOrderId(row.id); pane.open(); }}><strong>{row.contractorNameSnapshot}</strong><span><span className="cy-mono">{row.outsourcingRef}</span> · {row.orderDate}</span><small className="cy-flow-status" data-tone={row.statusCode === "pending_outbound" ? "warning" : row.statusCode === "paid" ? "success" : row.statusCode === "voided" ? "danger" : "info"}>{statusText[row.statusCode]}</small></button>)}
-                {orders.length === 0 ? <div className="cy-op-empty">尚無代工單。</div> : null}
+                {orders.length === 0 ? loadingOrders ? <Loading /> : <div className="cy-op-empty">尚無代工單。</div> : null}
+                <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
               </div>
             </section>
 
             <section className="cy-op-panel cy-md-detail">
               <MasterDetailBack label="代工單清單" disabled={busy} onBack={async () => { if (editing && !(await discardEditing())) return; pane.close(); }} />
               {editing && draft ? (
-              <form className="cy-op-form" onSubmit={(event) => void saveOrder(event)}>
+              <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void saveOrder(event)}>
                 <div className="cy-record-header">
                   <div><h2>{creating ? "新增代工單" : correctingOutbound ? "更正已確認的出庫" : "修改代工單"}</h2><p>{correctingOutbound ? "儲存後會以新的出庫資料取代原本的出庫，並保留更正紀錄。" : "確認出庫前可以修改內容。"}</p></div>
                 </div>
@@ -651,7 +671,7 @@ export function OutsourcingOperationalPage() {
                   {selectedOrder.statusCode === "paid" ? <button className="cy-op-button danger" disabled={busy} onClick={() => void reverse("payment")}>取消付款</button> : null}
                 </div></div>
                 <OutsourcingProgress status={selectedOrder.statusCode} />
-                <div className="cy-op-detail-grid"><div><span>工單日期</span><strong>{selectedOrder.orderDate}</strong></div><div><span>出庫日期</span><strong>{selectedOrder.outboundDate ?? "—"}</strong></div><div><span>付款時間</span><strong>{selectedOrder.paidAt ? new Date(selectedOrder.paidAt).toLocaleString() : "—"}</strong></div></div>
+                <div className="cy-op-detail-grid"><div><span>工單日期</span><strong>{selectedOrder.orderDate}</strong></div><div><span>出庫日期</span><strong>{selectedOrder.outboundDate ?? "—"}</strong></div><div><span>付款時間</span><strong>{selectedOrder.paidAt ? formatDateTime(selectedOrder.paidAt) : "—"}</strong></div></div>
                 <div className="cy-op-subsection"><h3>出庫料件</h3><div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">數量</th><th>單位</th></tr></thead><tbody>{selectedOrder.parts.map((part) => <tr key={part.id}><td className="cy-mono">{part.componentItemNoSnapshot}</td><td>{part.componentItemNameSnapshot}</td><td className="num">{part.quantity}</td><td>{part.unitSnapshot}</td></tr>)}</tbody></table></div></div>
                 {selectedOrder.receipt ? <div className="cy-op-subsection"><h3>入庫</h3>{selectedOrder.receipt.items.map((item) => <div className="cy-op-read-row" key={item.id}>{item.itemNoSnapshot} · {item.itemNameSnapshot} · {item.quantity} {item.unitSnapshot}{item.bomRecipeId ? ` · BOM #${item.bomRecipeId}` : ""}</div>)}</div> : null}
                 {selectedOrder.pricing ? <div className="cy-op-subsection"><h3>計價</h3>{selectedOrder.pricing.items.map((item) => <div className="cy-op-read-row" key={item.id}>{item.itemNoSnapshot} · {item.quantity} {item.unitSnapshot} × {item.unitPrice} = {item.subtotal}</div>)}<div className="cy-op-total">總額 NT$ {selectedOrder.pricing.totalAmount}</div></div> : null}

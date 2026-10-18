@@ -1,3 +1,4 @@
+import { enterAdvancesThenSubmits } from "../foundation/enter-advance";
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { Dialog } from "./Dialog";
 
@@ -61,7 +62,7 @@ export function useFormPrompt() {
       <button type="button" className="cy-op-button" onClick={() => finish(null)}>{request.cancelLabel ?? "取消"}</button>
       <button type="submit" form={formId} className={`cy-op-button ${request.confirmTone === "danger" ? "danger-solid" : "primary"}`}>{request.confirmLabel ?? "確認"}</button>
     </div>}>
-    <form id={formId} className="cy-prompt-form" onSubmit={submit}>
+    <form onKeyDown={enterAdvancesThenSubmits} id={formId} className="cy-prompt-form" onSubmit={submit}>
       {request.fields.map((field, index) => <label key={field.name}>
         <span>{field.label}{field.required ? <span className="cy-field-required"> *</span> : null}</span>
         {field.multiline

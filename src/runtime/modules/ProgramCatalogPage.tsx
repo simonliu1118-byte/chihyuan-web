@@ -1,3 +1,4 @@
+import { Loading } from "../../ui/feedback/Loading";
 import { useFeedback } from "../../ui/feedback/FeedbackProvider";
 import { useEffect, useState } from "react";
 import type { ProgramCatalog, ProgramEntry } from "../../../shared/program-catalog";
@@ -10,11 +11,12 @@ import invoiceIcon from "../../assets/cy-apps/INV.svg";
 import calculatorIcon from "../../assets/cy-apps/CAL.svg";
 import converterIcon from "../../assets/cy-apps/CVT.svg";
 import autoInputIcon from "../../assets/cy-apps/Auto.svg";
+import autoQueryIcon from "../../assets/cy-apps/AutoQ.svg";
 import envelopeIcon from "../../assets/cy-apps/ENV.svg";
 import watermarkIcon from "../../assets/cy-apps/WM.svg";
 import "./program-catalog.css";
 
-const icons = { ACC: accountingIcon, INV: invoiceIcon, CAL: calculatorIcon, CVT: converterIcon, Auto: autoInputIcon, ENV: envelopeIcon, WM: watermarkIcon };
+const icons = { ACC: accountingIcon, INV: invoiceIcon, CAL: calculatorIcon, CVT: converterIcon, Auto: autoInputIcon, AutoQ: autoQueryIcon, ENV: envelopeIcon, WM: watermarkIcon };
 function version(program: ProgramEntry) { return <strong>{program.version ? "V" + program.version : "尚未發版"}</strong>; }
 function published(program: ProgramEntry) {
   return program.publishedAt ? <time dateTime={program.publishedAt}>{date(program.publishedAt)}</time> : <span>—</span>;
@@ -92,7 +94,7 @@ export function ProgramCatalogPage() {
     return () => { abort.abort(); clearTimeout(timer); };
   }, [notify]);
   return <Section className="cy-program-catalog">
-    {loading && !catalog ? <p role="status">正在讀取程式清單…</p> : null}
+    {loading && !catalog ? <Loading /> : null}
     {!loading && !catalog ? <p role="status">目前無法讀取程式清單，請稍後重新開啟此頁。</p> : null}
     {catalog ? <ProgramCatalogView catalog={catalog} /> : null}
   </Section>;

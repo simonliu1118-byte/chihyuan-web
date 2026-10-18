@@ -5,6 +5,7 @@ const prefixes: Partial<Record<ProgramId, string>> = {
   "accounting-web": "cyaccountingweb", accounting: "cyaccounting", invoice: "cyinvoice", "tri-invoice-calc": "TriINVCalc",
   converter: "smartcopiconverter",
   "erp-auto-input": "cyerp-auto-input",
+  "erp-auto-query": "cyerp-auto-query",
 };
 const files: Partial<Record<ProgramId, (version: string) => string>> = {
   accounting: version => `CYAccounting_V${version}_Windows_x64.zip`,
@@ -12,6 +13,7 @@ const files: Partial<Record<ProgramId, (version: string) => string>> = {
   "tri-invoice-calc": version => `TriINVCalc_V${version}.zip`,
   converter: version => `SMARTCOPIConverter_V${version}_Windows_x64.zip`,
   "erp-auto-input": version => `CYERPAutoInput_V${version}.zip`,
+  "erp-auto-query": version => `CYERPAutoQuery_V${version}.zip`,
 };
 interface Release {
   draft?: unknown; prerelease?: unknown; tag_name?: unknown; published_at?: unknown;
@@ -95,8 +97,9 @@ export async function readProgramCatalog(fetcher: typeof fetch = fetch, now = ne
       if (rows.length < 100) break;
       if (page === 4) throw new CatalogFailure({ code: "PAGE_LIMIT" });
     }
+    // A program not yet formally released stays pending until its first release appears.
     const programs = verifiedProgramCatalog.programs.map(program =>
-      prefixes[program.id] ? selectProgramRelease(program, releases) : program);
+      prefixes[program.id] ? selectProgramRelease(program, releases) ?? (program.version ? null : program) : program);
     if (programs.some(program => program === null)) throw new CatalogFailure({ code: "MISSING" });
     return { programs: programs as ProgramEntry[], checkedAt: now, current: true };
   } catch (error) {
@@ -147,6 +150,7 @@ export async function loadProgramCatalog(db: D1Database, now = Date.now()): Prom
         const release = stored.programs.find(item => item.id === base.id);
         // A newly listed program can use its verified source snapshot until the next daily run.
         if (!release) { completeSnapshot = false; return base; }
+        if (release.version === null && !base.version) return base;
         if (!/^\d+\.\d+\.\d+$/.test(release.version ?? "") || !Number.isFinite(Date.parse(release.publishedAt ?? ""))) throw new Error("INVALID");
         const tag = `${prefixes[base.id]}-v${release.version}`;
         const filename = files[base.id]?.(release.version!);

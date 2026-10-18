@@ -6,7 +6,7 @@ The single React application reads and mutates business data through the same-or
 
 `OperationalWorkspace.tsx`, `local-database.ts` and `advanced-local-types.ts` are retired. No active React page imports a browser-local business store or falls back to one after API errors. Settings use server concurrency tokens and preserve deactivated historical references. Audit is read-only; its detailed before/after projection is admin-only.
 
-The static operational build contains the same React application and requires a same-origin Worker API host. It does not provide a separate storage authority. Historical standalone `preview/*` surfaces remain isolated examples and are not App entry points. The former operational static-publication workflow is retired.
+The static operational build contains the same React application and requires a same-origin Worker API host. It does not provide a separate storage authority. Historical standalone `preview/*` surfaces and the unused `src/modules/customer` preview components were removed in 0.9.2; Git history keeps them. The former operational static-publication workflow is retired.
 
 Current source/runtime versions, deployment evidence and remaining non-business gates are tracked only in root `TODO.md`.
 

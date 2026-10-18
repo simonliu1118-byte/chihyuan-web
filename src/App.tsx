@@ -1,3 +1,4 @@
+import { Loading } from "./ui/feedback/Loading";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiClientError } from "./api/client";
 import { checkModuleAccess } from "./access/module-access-client";
@@ -217,9 +218,11 @@ function OperationalApp({
   const moduleCode = routeModuleCode;
   const adminAllowed = session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN";
   if ((route === "settings" || route === "audit") && !adminAllowed) {
-    content = <section className="cy-op-panel">管理權限已變更，正在返回帳號頁…</section>;
+    content = <Loading />;
   } else if (moduleCode && (!routeAllowed || routeAccess !== "allowed" || checkedRoute !== route)) {
-    content = <section className="cy-op-panel"><h2>{routeAccess === "denied" ? "目前無法確認模組權限" : "正在確認模組權限…"}</h2><p>{moduleAccessError ?? "正在確認目前的模組使用權限。"}</p></section>;
+    content = routeAccess === "denied"
+      ? <section className="cy-op-panel"><h2>目前無法確認模組權限</h2><p>{moduleAccessError ?? "請重新整理頁面後再試。"}</p></section>
+      : <Loading />;
   } else if (route === "customers") content = <CustomerOperationalPage />;
   else if (route === "items") content = <ItemOperationalPage />;
   else if (route === "defects") content = <DefectOperationalPage />;

@@ -72,11 +72,19 @@ test("adding a program preserves older shared release results until the next dai
   value.checkedAt="2026-10-16T18:00:00Z";
   sqlite.prepare("UPDATE program_catalog_state SET catalog_json=?").run(JSON.stringify(value));
   const catalog=await loadProgramCatalog(db,Date.parse(day));
-  assert.equal(catalog.programs.length,9);assert.equal(catalog.checkedAt,value.checkedAt);
+  assert.equal(catalog.programs.length,10);assert.equal(catalog.checkedAt,value.checkedAt);
   assert.equal(catalog.programs.find(row=>row.id==="erp-auto-input").version,"0.2.9");
   assert(!JSON.stringify(catalog).includes("outdated description"));assert(!JSON.stringify(catalog).includes("鼎新"));
   assert.equal(catalog.current,false);assert.equal(catalog.automaticUpdate.status,"pending");assert.equal(catalog.refreshFailure,undefined);
   assert.equal(await updateProgramCatalog(db,day,()=>{throw Error("must not query");}),false);
+  sqlite.close();
+});
+test("an unreleased listed program stays pending without failing the daily update",async()=>{
+  const {db,sqlite}=database();await updateProgramCatalog(db,day,async()=>Response.json(releases));
+  const catalog=await loadProgramCatalog(db,Date.parse(day));
+  assert.equal(catalog.current,true);assert.equal(catalog.refreshFailure,undefined);
+  const pending=catalog.programs.find(row=>row.id==="erp-auto-query");
+  assert.equal(pending.version,null);assert.equal(pending.downloadUrl,null);assert.equal(pending.releaseUrl,null);
   sqlite.close();
 });
 test("catalog cron runs with backup disabled; other schedules cannot trigger catalog fetching",async()=>{

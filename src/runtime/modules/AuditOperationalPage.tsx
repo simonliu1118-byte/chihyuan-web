@@ -1,4 +1,6 @@
+import { Loading } from "../../ui/feedback/Loading";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
+import { formatDateTime } from "../../ui/foundation/format";
 import { useEffect, useState, type FormEvent } from "react";
 import { loadAudit, type AuditEvent } from "../api/settings-audit-client";
 import { Drawer } from "../../ui/overlays/Dialog";
@@ -32,17 +34,17 @@ export function AuditOperationalPage() {
     </form>
     {error ? <div className="cy-op-notice danger" role="alert">{error}</div> : null}
     <section className="cy-op-panel">
-      {loading ? <p className="cy-md-count">讀取稽核紀錄中…</p> : <>
+      {loading ? <Loading /> : <>
         <div className="cy-op-table-wrap"><table className="cy-op-table cy-table-clickable">
           <thead><tr><th>時間</th><th>資料</th><th>動作</th><th>操作者</th></tr></thead>
           <tbody>{events.map(row => <tr key={row.id} tabIndex={0} aria-label={`${row.action} 詳細內容`} onClick={() => setSelected(row)} onKeyDown={e => { if (e.key === "Enter") setSelected(row); }}>
-            <td className="cy-mono">{new Date(row.occurredAt).toLocaleString()}</td><td>{row.entityType} · <span className="cy-mono">{row.entityKey}</span></td><td>{row.action}</td><td>{row.actorEmployeeId ?? "—"}</td>
+            <td className="cy-mono">{formatDateTime(row.occurredAt)}</td><td>{row.entityType} · <span className="cy-mono">{row.entityKey}</span></td><td>{row.action}</td><td>{row.actorEmployeeId ?? "—"}</td>
           </tr>)}</tbody>
         </table></div>
         <p className="cy-md-count">{events.length ? `顯示最新 ${events.length} 筆；點一列看詳細內容，可用時間範圍查詢較早紀錄。` : "查詢範圍內沒有稽核紀錄。"}</p>
       </>}
     </section>
-    <Drawer open={selected !== null} title={selected?.action ?? "稽核紀錄"} description={selected ? `${new Date(selected.occurredAt).toLocaleString()} · ${selected.entityType} ${selected.entityKey}` : undefined} onClose={() => setSelected(null)}>
+    <Drawer open={selected !== null} title={selected?.action ?? "稽核紀錄"} description={selected ? `${formatDateTime(selected.occurredAt)} · ${selected.entityType} ${selected.entityKey}` : undefined} onClose={() => setSelected(null)}>
       {selected ? <div className="cy-audit-detail">
         <dl className="cy-op-detail-grid">
           <div><span>狀態變化</span><strong>{selected.statusFrom ?? "—"} → {selected.statusTo ?? "—"}</strong></div>

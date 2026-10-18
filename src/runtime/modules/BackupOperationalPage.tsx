@@ -1,3 +1,4 @@
+import { Loading } from "../../ui/feedback/Loading";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
@@ -122,7 +123,7 @@ export function BackupOperationalPage() {
     {history?.configured && history.scheduleEnabled === false ? <div className="cy-op-notice" role="status">目前僅啟用手動備份；上述排程尚未開啟。</div> : null}
     {error ? <div className="cy-op-notice danger" role="alert">{error}</div> : null}
     {notice ? <div className="cy-op-notice" role="status">{notice}</div> : null}
-    <section className="cy-op-panel cy-backup-history" aria-busy={loading || busy}>{loading ? <p role="status">讀取備份紀錄中…</p>
+    <section className="cy-op-panel cy-backup-history" aria-busy={loading || busy}>{loading ? <Loading />
       : history ? <><BackupHistoryView history={history} busy={busy} retry={id => void run("retry", id)} rehearse={selectRehearsal} /><p className="cy-backup-history-note">顯示最新 50 筆備份；每次備份只列一次，副本驗證結果分開顯示。</p></>
         : <p>尚未取得備份紀錄，請使用「更新紀錄」。</p>}</section>
     <Dialog open={selected !== null} title="驗證隔離還原" dismissible={!busy} onClose={() => { if (!busy) setSelected(null); }}

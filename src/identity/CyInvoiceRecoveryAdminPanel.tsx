@@ -1,3 +1,4 @@
+import { enterAdvancesThenSubmits } from "../ui/foundation/enter-advance";
 import { FormEvent, useRef, useState } from "react";
 import { ApiClientError } from "../api/client";
 import type { AuthSession } from "../auth/auth-client";
@@ -127,7 +128,7 @@ export function CyInvoiceRecoveryAdminPanel({ session }: { session: AuthSession 
       <div className="cy-notice-title">公司級接管提醒</div>
       <div className="cy-notice-body">寄信、查詢與撤銷邀請不會撤銷裝置。只有新電腦成功復原後，原公司的全部舊裝置才會失效。</div>
     </div>
-    <form className="cy-op-form" onSubmit={e => void act("issue", e)} noValidate>
+    <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={e => void act("issue", e)} noValidate>
       <TextInput label="復原操作 ID" value={operationId} maxLength={36}
         onChange={e => {
           setOperationId(e.target.value.trim()); setState(null); setMessage(null); setError(null);

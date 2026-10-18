@@ -1,4 +1,9 @@
+import { Loading } from "../../ui/feedback/Loading";
+import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
+import { formatDateTime } from "../../ui/foundation/format";
+import { taipeiToday } from "../../../shared/erp-query-history";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { useFormPrompt } from "../../ui/overlays/useFormPrompt";
 import { EntityPicker } from "../../ui/pickers/EntityPicker";
@@ -43,8 +48,9 @@ const statusText: Record<DefectStatusCode, string> = {
   resolved: "已處理",
 };
 
+/** Business dates follow Taiwan time; toISOString() would give yesterday before 08:00. */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return taipeiToday();
 }
 
 function errorMessage(error: unknown): string {
@@ -64,8 +70,8 @@ function errorMessage(error: unknown): string {
 function newDraft(lookups: DefectModuleLookups | null): DefectDraft {
   return {
     reportedDate: today(),
-    customerId: lookups?.customers[0]?.id ?? null,
-    itemId: lookups?.items.find((row) => row.isActive)?.id ?? lookups?.items[0]?.id ?? null,
+    customerId: null,
+    itemId: null,
     ownerEmployeeId: lookups?.actor.appMemberId ?? lookups?.owners.find((row) => row.isActive)?.id ?? null,
     defectDescription: "",
     handling: "",
@@ -123,23 +129,28 @@ export function DefectOperationalPage() {
     title: "放棄尚未儲存的修改", description, confirmLabel: "放棄修改", cancelLabel: "繼續編輯", confirmTone: "danger",
   }))).allowed;
   const [loadingList, setLoadingList] = useState(true);
+  // The page appears once its first list page is in; until then only the shared spinner shows.
+  const [listReady, setListReady] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
+  const paging = useLoadMore(searchDefects, setRows, (error) => reportError(errorMessage(error)));
   const [refreshEpoch, setRefreshEpoch] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     const timer = window.setTimeout(() => {
       setLoadingList(true);
-      void searchDefects({
+      const listQuery = {
         q: query.trim() || undefined,
         statusCode: statusFilter ? statusFilter as DefectStatusCode : undefined,
         includeInvalid,
         limit: 100,
-      })
+      };
+      void searchDefects(listQuery)
         .then((result) => {
           if (cancelled) return;
           setRows(result.items);
+          paging.reset(listQuery, result.nextCursor);
           if (!editing && !creating) {
             setSelectedId((current) => (
               current != null && result.items.some((row) => row.id === current)
@@ -152,7 +163,7 @@ export function DefectOperationalPage() {
           if (!cancelled) reportError(errorMessage(error));
         })
         .finally(() => {
-          if (!cancelled) setLoadingList(false);
+          if (!cancelled) { setLoadingList(false); setListReady(true); }
         });
     }, 180);
     return () => {
@@ -259,23 +270,20 @@ export function DefectOperationalPage() {
 
   async function save(event: FormEvent) {
     event.preventDefault();
-    if (
-      !draft?.customerId ||
-      !draft.itemId ||
-      !draft.ownerEmployeeId ||
-      !draft.reportedDate ||
-      !draft.defectDescription.trim() ||
-      busy
-    ) return;
+    if (!draft || busy) return;
+    const missing = !draft.customerId ? "客戶" : !draft.itemId ? "商品" : !draft.ownerEmployeeId ? "負責人"
+      : !draft.reportedDate ? "回報日期" : !draft.defectDescription.trim() ? "瑕疵內容" : null;
+    const { customerId, itemId, ownerEmployeeId } = draft;
+    if (missing || !customerId || !itemId || !ownerEmployeeId) { reportError(`請填寫${missing ?? "必填欄位"}。`); return; }
 
     setBusy(true);
     setMessage(null);
     try {
       const profile = {
         reportedDate: draft.reportedDate,
-        customerId: draft.customerId,
-        itemId: draft.itemId,
-        ownerEmployeeId: draft.ownerEmployeeId,
+        customerId,
+        itemId,
+        ownerEmployeeId,
         defectDescription: draft.defectDescription.trim(),
         handling: draft.handling.trim() || null,
       };
@@ -370,6 +378,7 @@ export function DefectOperationalPage() {
       await deleteDefect(selected.id, { expectedRevision: selected.revision });
       setSelected(null);
       setSelectedId(null);
+      pane.close();
       setMessage("尚未開始處理的瑕疵紀錄已刪除。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
@@ -403,6 +412,8 @@ export function DefectOperationalPage() {
     return employeeNo ?? `Employee #${id}`;
   }
 
+  if (!listReady) return <Loading />;
+
   return (
     <div className="cy-defect-op">
       {confirmationDialog}
@@ -418,7 +429,7 @@ export function DefectOperationalPage() {
           <div className="cy-md-toolbar">
             <input className="cy-op-input" type="search" aria-label="搜尋瑕疵" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜尋客戶、商品、內容" />
             <div className="cy-md-toolbar-row cy-defect-filters">
-              <select className="cy-op-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <select className="cy-op-input" aria-label="瑕疵狀態" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 <option value="">全部狀態</option>
                 <option value="created">已建檔</option>
                 <option value="processing">處理中</option>
@@ -430,14 +441,15 @@ export function DefectOperationalPage() {
           <div className="cy-op-list">
             {rows.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-defect-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={() => void selectDefect(row.id)}><strong>{row.customerNameSnapshot}</strong><span>#{row.id} · {row.itemNoSnapshot} {row.itemNameSnapshot}</span><small className={`cy-defect-status ${row.invalidatedAt ? "invalid" : row.statusCode}`}>{row.invalidatedAt ? "已作廢" : statusText[row.statusCode]}</small></button>)}
             {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的瑕疵紀錄。</div> : null}
-            {loadingList ? <div className="cy-op-empty">讀取瑕疵資料中…</div> : null}
+            <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
+            {loadingList ? <Loading /> : null}
           </div>
         </section>
 
         <section className="cy-op-panel cy-md-detail">
           <MasterDetailBack label="瑕疵清單" disabled={busy} onBack={async () => { if (editing) { if (!(await canLeave())) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
           {editing && draft ? (
-            <form className="cy-op-form" onSubmit={(event) => void save(event)}>
+            <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void save(event)}>
               <div className="cy-record-header">
                 <div><h2>{creating ? "新增瑕疵" : `修改瑕疵 #${selected?.id ?? ""}`}</h2><p>已建檔與處理中的瑕疵可以修改；已處理的需先「重新開啟」。</p></div>
               </div>
@@ -470,7 +482,7 @@ export function DefectOperationalPage() {
 
               <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立瑕疵" : "儲存修改"}</button></div>
             </form>
-          ) : selected ? (
+          ) : loadingDetail ? <Loading /> : selected ? (
             <div>
               <div className="cy-record-header">
                 <div><h2>{selected.customerNameSnapshot}</h2><p>瑕疵 #{selected.id} · 回報 {selected.reportedDate}</p></div>
@@ -494,7 +506,6 @@ export function DefectOperationalPage() {
               </div>
 
               <div className="cy-defect-body">
-                {loadingDetail ? <p>更新瑕疵資料中…</p> : null}
                 <div className="cy-op-detail-grid">
                   <div><span>回報日期</span><strong>{selected.reportedDate}</strong></div>
                   <div><span>負責人</span><strong>{ownerLabel(selected.ownerEmployee.id, selected.ownerEmployee.employeeNo)}</strong></div>
@@ -502,12 +513,12 @@ export function DefectOperationalPage() {
                   <div><span>商品</span><strong>{selected.itemNoSnapshot} · {selected.itemNameSnapshot}</strong></div>
                   <div className="wide"><span>瑕疵內容</span><strong>{selected.defectDescription}</strong></div>
                   <div className="wide"><span>處理結果</span><strong>{selected.handling ?? "—"}</strong></div>
-                  {selected.invalidatedAt ? <div className="wide cy-defect-invalid-note"><span>作廢資訊</span><strong>{new Date(selected.invalidatedAt).toLocaleString()} · 原工作狀態 {statusText[selected.statusCode]}</strong></div> : null}
+                  {selected.invalidatedAt ? <div className="wide cy-defect-invalid-note"><span>作廢資訊</span><strong>{formatDateTime(selected.invalidatedAt)} · 原工作狀態 {statusText[selected.statusCode]}</strong></div> : null}
                 </div>
 
               </div>
             </div>
-          ) : loadingDetail ? <div className="cy-op-empty">讀取瑕疵資料中…</div> : <MasterDetailEmpty title="尚未選擇瑕疵紀錄" hint="從左側清單選一筆，或按右上角「新增瑕疵」。" />}
+          ) : <MasterDetailEmpty title="尚未選擇瑕疵紀錄" hint="從左側清單選一筆，或按右上角「新增瑕疵」。" />}
         </section>
       </div>
     </div>

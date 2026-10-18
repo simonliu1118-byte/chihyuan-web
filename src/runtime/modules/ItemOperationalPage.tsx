@@ -1,4 +1,8 @@
+import { Loading } from "../../ui/feedback/Loading";
+import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
+import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
+import { formatDateTime } from "../../ui/foundation/format";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { useFormPrompt } from "../../ui/overlays/useFormPrompt";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
@@ -198,8 +202,11 @@ export function ItemOperationalPage() {
     title: "放棄尚未儲存的修改", description, confirmLabel: "放棄修改", cancelLabel: "繼續編輯", confirmTone: "danger",
   }))).allowed;
   const [loadingList, setLoadingList] = useState(true);
+  // The page appears once its first list page is in; until then only the shared spinner shows.
+  const [listReady, setListReady] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
+  const paging = useLoadMore(searchItems, setRows, (error) => reportError(errorMessage(error)));
   const [refreshEpoch, setRefreshEpoch] = useState(0);
 
   useEffect(() => {
@@ -222,15 +229,17 @@ export function ItemOperationalPage() {
       setLoadingList(true);
       const itemCategoryId = categoryFilter ? Number(categoryFilter) : undefined;
       const isActive = activeFilter === "active" ? true : activeFilter === "inactive" ? false : undefined;
-      void searchItems({
+      const listQuery = {
         q: query.trim() || undefined,
         itemCategoryId: Number.isSafeInteger(itemCategoryId) && (itemCategoryId ?? 0) > 0 ? itemCategoryId : undefined,
         isActive,
         limit: 100,
-      })
+      };
+      void searchItems(listQuery)
         .then((result) => {
           if (cancelled) return;
           setRows(result.items);
+          paging.reset(listQuery, result.nextCursor);
           if (!editing && !creating) {
             setSelectedId((current) => (
               current != null && result.items.some((row) => row.id === current)
@@ -243,7 +252,7 @@ export function ItemOperationalPage() {
           if (!cancelled) reportError(errorMessage(error));
         })
         .finally(() => {
-          if (!cancelled) setLoadingList(false);
+          if (!cancelled) { setLoadingList(false); setListReady(true); }
         });
     }, 180);
 
@@ -457,6 +466,8 @@ export function ItemOperationalPage() {
     }
   }
 
+  if (!listReady) return <Loading />;
+
   return <div className="cy-item-op">
     {confirmationDialog}
     {promptDialog}
@@ -469,17 +480,17 @@ export function ItemOperationalPage() {
         <div className="cy-md-toolbar">
           <input className="cy-op-input" type="search" aria-label="搜尋商品" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋現行／歷史品號、名稱、規格" />
           <div className="cy-md-toolbar-row">
-            <select className="cy-op-input" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+            <select className="cy-op-input" aria-label="商品分類" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
               <option value="">全部分類</option>
               {categories.map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}
             </select>
-            <select className="cy-op-input" value={activeFilter} onChange={(event) => setActiveFilter(event.target.value)}>
+            <select className="cy-op-input" aria-label="商品狀態" value={activeFilter} onChange={(event) => setActiveFilter(event.target.value)}>
               <option value="">全部狀態</option>
               <option value="active">使用中</option>
               <option value="inactive">已停用</option>
             </select>
           </div>
-          <div className="cy-md-count">{loadingList ? "讀取商品中…" : `共 ${rows.length} 筆`}</div>
+          <div className="cy-md-count">{loadingList ? <Loading inline /> : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
         </div>
         <div className="cy-op-list">
           {rows.map((row) => (
@@ -489,14 +500,16 @@ export function ItemOperationalPage() {
               {row.isActive ? <small>{categoryName(row)}</small> : <small className="cy-status-chip">已停用</small>}
             </button>
           ))}
+          {loadingList && rows.length === 0 ? <Loading /> : null}
           {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的商品。</div> : null}
+          <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
         </div>
       </section>
 
       <section className="cy-op-panel cy-md-detail">
         <MasterDetailBack label="商品清單" disabled={busy} onBack={async () => { if (editing) { if (!(await canLeave())) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
         {editing && draft ? (
-          <form className="cy-op-form" onSubmit={(event) => void save(event)}>
+          <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void save(event)}>
             <div className="cy-record-header">
               <div>
                 <h2>{creating ? "新增商品" : `修改 ${selected?.itemNo ?? "商品"}`}</h2>
@@ -543,7 +556,7 @@ export function ItemOperationalPage() {
             </div>
           </form>
         ) : loadingDetail ? (
-          <div className="cy-op-empty">正在讀取商品明細…</div>
+          <Loading />
         ) : selected ? (
           <div>
             <div className="cy-record-header">
@@ -575,7 +588,7 @@ export function ItemOperationalPage() {
               <section className="cy-item-section">
                 <h3>歷史品號</h3>
                 {numberHistory.length
-                  ? numberHistory.map((row) => <div className="cy-item-history-row" key={row.id}><strong>{row.itemNo}</strong><span>{row.changeSource ?? "未註明原因"} · 至 {new Date(row.validTo ?? row.createdAt).toLocaleString()}</span></div>)
+                  ? numberHistory.map((row) => <div className="cy-item-history-row" key={row.id}><strong>{row.itemNo}</strong><span>{row.changeSource ?? "未註明原因"} · 至 {formatDateTime(row.validTo ?? row.createdAt)}</span></div>)
                   : <p className="cy-item-muted">尚無品號變更紀錄。</p>}
               </section>
             </div>
