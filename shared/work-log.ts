@@ -81,6 +81,7 @@ export interface WorkLogSummary {
 }
 
 export interface WorkLogDetail extends WorkLogSummary {
+  employee: { employeeNo: string | null; displayName: string | null };
   reviewRemark: string | null;
   createdAt: string;
   entries: readonly WorkLogEntry[];
