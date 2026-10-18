@@ -259,8 +259,8 @@ function OperationalApp({
           </div>
           <div className="cy-account-actions">
             <ThemeSwitch />
-            <button className="cy-op-button compact" type="button" disabled={signingOut} onClick={() => void logout()}>
-              {signingOut ? "登出中…" : "登出"}
+            <button className="cy-op-button compact" type="button" disabled={signingOut} aria-busy={signingOut || undefined} onClick={() => void logout()}>
+              登出
             </button>
           </div>
         </div>

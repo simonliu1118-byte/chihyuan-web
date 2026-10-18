@@ -342,7 +342,7 @@ function EmployeeManagement({ snapshot, session, refresh }: {
     {message ? <div className="cy-identity-message" role="status">{message}</div> : null}
     {createOpen ? <Dialog open title="新增使用者" size="small" dismissible={!busy} onClose={() => void closeCreate()}
       description="系統會寄出驗證信與一次性首次登入密碼。請從志遠企業管理系統完成驗證，再使用正式密碼重新登入。"
-      footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void closeCreate()}>取消</button><button type="submit" form={createFormId} className="cy-op-button primary" disabled={busy}>{busy ? "新增中…" : "新增使用者"}</button></div>}>
+      footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void closeCreate()}>取消</button><button type="submit" form={createFormId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>新增使用者</button></div>}>
       <form onKeyDown={enterAdvancesFields} id={createFormId} className="cy-op-form" onSubmit={create} noValidate>
         <TextInput label="員工編號" inputMode="numeric" autoComplete="off" maxLength={4} value={employeeNo} onChange={event => setEmployeeNo(event.target.value.replace(/\D/g, "").slice(0, 4))} disabled={busy} autoFocus required />
         <TextInput label="姓名" autoComplete="off" value={displayName} onChange={event => setDisplayName(event.target.value)} disabled={busy} required />
@@ -454,7 +454,7 @@ function ApplicationAccessPanel({ snapshot, session, refresh }: {
     <ToastRegion toasts={toasts} onDismiss={dismissToast} />
     {isSuperAdmin && registration ? <Dialog open title="登記並啟用系統" size="small" dismissible={!busy} onClose={() => void closeRegistration()}
       description="為目前 Workspace 加入系統。超級管理員可使用；其他員工仍須另外設定使用權。已停用的 Workspace 系統重新登記後會啟用，原有員工使用權會保留。"
-      footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void closeRegistration()}>取消</button><button type="submit" form={formId} className="cy-op-button primary" disabled={busy}>{busy ? "登記中…" : "登記並啟用"}</button></div>}>
+      footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void closeRegistration()}>取消</button><button type="submit" form={formId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>登記並啟用</button></div>}>
       <form onKeyDown={enterAdvancesFields} id={formId} className="cy-form-grid" onSubmit={event => void register(event)}>
         <div className="cy-form-grid-full"><TextInput label="系統識別碼" description="使用該系統核准的識別碼，由英文字母、數字、底線或連字號組成。" value={registration.applicationId} maxLength={64} required disabled={busy} autoFocus onChange={event => setRegistration({ ...registration, applicationId: event.target.value })} /></div>
         <div className="cy-form-grid-full"><TextInput label="顯示名稱" value={registration.displayName} maxLength={120} required disabled={busy} onChange={event => setRegistration({ ...registration, displayName: event.target.value })} /></div>
@@ -587,7 +587,7 @@ export function SharedIdentityPage({ session }: { session: AuthSession }) {
   useEffect(() => { void refresh(); }, [refresh]);
 
   return <div className="cy-identity-page">
-    {isWorkspaceAdmin ? <PagePrimaryActions><button type="button" className="cy-op-button" disabled={loading} onClick={() => void refresh()}>{loading ? "讀取中…" : "重新整理"}</button></PagePrimaryActions> : null}
+    {isWorkspaceAdmin ? <PagePrimaryActions><button type="button" className="cy-op-button" disabled={loading} aria-busy={loading || undefined} onClick={() => void refresh()}>重新整理</button></PagePrimaryActions> : null}
     <SelfServicePanel session={session} />
     {isWorkspaceAdmin ? <>
       <SectionTitle title="使用者與權限管理" description={canManageAccess ? "新增與停用使用者、調整權限與系統准入。" : "一般管理員可以管理一般使用者帳號；系統准入由帳號管理員或超級管理員設定。"} />

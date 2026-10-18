@@ -78,8 +78,8 @@ export function ErpCustomerQuery({ job }: { job: ErpJob }) {
             aria-label={mode === "CODE" ? "客戶代號" : mode === "NAME" ? "客戶名稱" : "客戶代號或名稱"}
             placeholder={mode === "CODE" ? "請輸入客戶代號" : mode === "NAME" ? "請輸入客戶簡稱或全名" : "請輸入客戶代號或名稱"}
             onChange={e => setText(e.target.value)} />
-          <button className="cy-op-button primary" type="submit" disabled={busy}>
-            {submitting ? "送出中…" : busy ? "查詢中…" : "查詢"}
+          <button className="cy-op-button primary" type="submit" disabled={busy} aria-busy={submitting || busy || undefined}>
+            查詢
           </button>
         </div>
         {mode === "SALES" && <div className="cy-erp-history-options">

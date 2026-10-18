@@ -44,6 +44,6 @@ export function useLoadMore<Q extends object, T extends { id: number }>(
 export function LoadMoreRow({ hasMore, loading, onMore }: { hasMore: boolean; loading: boolean; onMore: () => void }) {
   if (!hasMore) return null;
   return <div className="cy-load-more">
-    <button type="button" className="cy-op-button compact" disabled={loading} onClick={onMore}>{loading ? "載入中…" : "載入更多"}</button>
+    <button type="button" className="cy-op-button compact" disabled={loading} onClick={onMore} aria-busy={loading || undefined}>載入更多</button>
   </div>;
 }

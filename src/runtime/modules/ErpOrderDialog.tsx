@@ -1,3 +1,4 @@
+import { Loading } from "../../ui/feedback/Loading";
 import { useEffect, useRef } from "react";
 import { Dialog } from "../../ui/overlays/Dialog";
 import { ErpJobStatus, showsData } from "./ErpJobStatus";
@@ -19,7 +20,7 @@ export function ErpOrderDialog({ orderNo, onClose }: { orderNo: string; onClose:
   const result = job.result;
   return <Dialog open title={`單號 ${orderNo}`} size="large" onClose={onClose}>
     <div className="cy-erp-results cy-erp-order-dialog" aria-live="polite">
-      {!result ? <p>{job.submitting ? "送出中…" : "無法送出查詢，請關閉後再試。"}</p> : <>
+      {!result ? job.submitting ? <Loading /> : <p>無法送出查詢，請關閉後再試。</p> : <>
         <ErpJobStatus result={result} />
         {showsData(result) && <ErpSalesOrders orders={result.orders} total={result.total} truncated={result.truncated} defaultOpen />}
       </>}

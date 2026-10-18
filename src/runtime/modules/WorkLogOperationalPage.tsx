@@ -1,3 +1,4 @@
+import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields, enterAdvancesThenSubmits } from "../../ui/foundation/enter-advance";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
@@ -148,6 +149,7 @@ export function WorkLogOperationalPage() {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<WorkLogDraft | null>(null);
   const [busy, setBusy] = useState(false);
+  const { pending, track } = usePendingAction();
   const [loadingList, setLoadingList] = useState(true);
   // The page appears once its first list page is in; until then only the shared spinner shows.
   const [listReady, setListReady] = useState(false);
@@ -510,7 +512,7 @@ export function WorkLogOperationalPage() {
       <Dialog open={reviewDraft !== null} title="審核工作日誌" size="large" dismissible={!busy}
         onClose={() => void closeReview()} footer={<div className="cy-dialog-action-row">
           <button type="button" className="cy-op-button" disabled={busy} onClick={() => void closeReview()}>取消</button>
-          <button type="submit" form={reviewFormId} className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : "完成審核"}</button>
+          <button type="submit" form={reviewFormId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>完成審核</button>
         </div>}>
         {reviewDraft ? <form onKeyDown={enterAdvancesFields} id={reviewFormId} onSubmit={event => void saveReview(event)}>
           <p>{reviewDraft.record.workLogRef}</p>
@@ -535,7 +537,7 @@ export function WorkLogOperationalPage() {
       <Dialog open={reasonDraft !== null} title={reasonDraft?.kind === "cancel" ? "取消審核" : "撤回審核"}
         size="small" dismissible={!busy} onClose={() => void closeReason()} footer={<div className="cy-dialog-action-row">
           <button type="button" className="cy-op-button" disabled={busy} onClick={() => void closeReason()}>取消</button>
-          <button type="submit" form={reasonFormId} className="cy-op-button primary" disabled={busy}>{busy ? "處理中…" : "確認"}</button>
+          <button type="submit" form={reasonFormId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>確認</button>
         </div>}>
         {reasonDraft ? <form onKeyDown={enterAdvancesThenSubmits} id={reasonFormId} onSubmit={event => void saveReason(event)}>
           <p>{reasonDraft.record.workLogRef}</p>
@@ -638,7 +640,7 @@ export function WorkLogOperationalPage() {
 
             <div className="cy-op-form-footer">
               <button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
-              <button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立日誌" : "儲存修改"}</button>
+              <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立日誌" : "儲存修改"}</button>
             </div>
           </form>
           ) : selected ? <div>
@@ -646,14 +648,14 @@ export function WorkLogOperationalPage() {
               <div className="cy-record-actions">
                 {selected.statusCode === "created" ? <>
                 <button className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
-                <button className="cy-op-button primary" disabled={busy} onClick={() => void submit()}>送出審核</button>
-                <button className="cy-op-button danger" disabled={busy} onClick={() => void deleteDraft()}>刪除</button>
+                <button className="cy-op-button primary" disabled={busy} aria-busy={(busy && pending === "submit") || undefined} onClick={() => track("submit", submit())}>送出審核</button>
+                <button className="cy-op-button danger" disabled={busy} aria-busy={(busy && pending === "deleteDraft") || undefined} onClick={() => track("deleteDraft", deleteDraft())}>刪除</button>
               </> : null}
               {selected.statusCode === "pending_review" ? <>
-                <button className="cy-op-button" disabled={busy} onClick={() => void withdraw()}>撤回審核</button>
-                <button className="cy-op-button primary" disabled={busy} onClick={() => void review()}>審核計分</button>
+                <button className="cy-op-button" disabled={busy} onClick={() => withdraw()}>撤回審核</button>
+                <button className="cy-op-button primary" disabled={busy} onClick={() => review()}>審核計分</button>
               </> : null}
-              {selected.statusCode === "reviewed" ? <button className="cy-op-button danger" disabled={busy} onClick={() => void cancelReview()}>取消審核</button> : null}
+              {selected.statusCode === "reviewed" ? <button className="cy-op-button danger" disabled={busy} onClick={() => cancelReview()}>取消審核</button> : null}
               </div></div>
             <ol className="cy-progress" aria-label="日誌進度">{progressSteps.map((step, index) => { const current = progressSteps.findIndex(item => item.code === selected.statusCode); return <li key={step.code} data-state={index < current ? "done" : index === current ? "current" : "todo"} aria-current={index === current ? "step" : undefined}>{step.label}</li>; })}</ol>
             <div className="cy-op-detail-grid">

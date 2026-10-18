@@ -365,7 +365,6 @@ h1, h2, h3, h4, h5 { line-height: 1.35; }
 .cy-button-quiet:hover:not(:disabled), .cy-op-button.quiet:hover:not(:disabled) { background: var(--cy-surface-muted); color: var(--cy-text); border-color: transparent; }
 .cy-button-small, .cy-op-button.compact { min-height: var(--cy-control-h-sm); padding: 2px 10px; font-size: var(--cy-fs-sm); }
 .cy-button:disabled, .cy-op-button:disabled { opacity: .5; }
-.cy-op-button[aria-busy="true"] { cursor: progress; }
 
 /* ---------- Lists (record pickers in list panes) ---------- */
 .cy-op-list { display: grid; align-content: start; gap: 2px; margin-top: 8px; max-height: 72vh; overflow: auto; }
@@ -387,6 +386,14 @@ h1, h2, h3, h4, h5 { line-height: 1.35; }
 .cy-loading-spinner { width: 20px; height: 20px; flex: none; border: 2px solid var(--cy-border-strong); border-top-color: var(--cy-accent); border-radius: 50%; animation: cy-spin 0.8s linear infinite; }
 .cy-loading.inline .cy-loading-spinner { width: 12px; height: 12px; }
 @keyframes cy-spin { to { transform: rotate(360deg); } }
+.cy-erp-waiting { display: flex; align-items: center; gap: 8px; }
+.cy-erp-waiting .cy-loading-spinner { width: 14px; height: 14px; }
+/* A busy button keeps its label and shows the same spinner in front of it. */
+:is(.cy-button, .cy-op-button, .cy-auth-primary-button)[aria-busy="true"] { cursor: progress; opacity: 1; }
+:is(.cy-button, .cy-op-button, .cy-auth-primary-button)[aria-busy="true"]::before {
+  content: ""; display: inline-block; width: 12px; height: 12px; flex: none; border: 2px solid currentColor; border-right-color: transparent;
+  border-radius: 50%; animation: cy-spin 0.8s linear infinite;
+}
 @media (prefers-reduced-motion: reduce) { .cy-loading-spinner { animation-duration: 2.4s; } }
 
 /* Detail values: label above value, three columns on wide panes. */

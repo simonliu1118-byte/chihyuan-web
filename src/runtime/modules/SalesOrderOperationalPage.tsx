@@ -1,3 +1,4 @@
+import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
@@ -169,6 +170,7 @@ export function SalesOrderOperationalPage() {
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<SalesOrderDraft | null>(null);
   const [busy, setBusy] = useState(false);
+  const { pending, track } = usePendingAction();
   const unsavedGuard = useUnsavedChangesGuard({ active: editing, blocked: busy, message: "目前有尚未儲存的工單修改，確定放棄？" });
   const pane = useMasterDetailPane();
   const { confirm, confirmationDialog } = useConfirmation();
@@ -603,7 +605,7 @@ export function SalesOrderOperationalPage() {
                 </div>
               </section>
 
-              <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立工單" : "儲存修改"}</button></div>
+              <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立工單" : "儲存修改"}</button></div>
             </form>
           ) : loadingDetail ? <Loading /> : selected ? (
             <div>
@@ -612,18 +614,18 @@ export function SalesOrderOperationalPage() {
                 <div className="cy-record-actions">
                 {selected.statusCode === "created" && selected.erpNo == null ? <>
                   <button className="cy-op-button" disabled={busy} onClick={startEdit}>修改草稿</button>
-                  <button className="cy-op-button primary" disabled={busy} onClick={() => void fillOrCorrectErp()}>ERP 回填／開單</button>
-                  <button className="cy-op-button danger" disabled={busy} onClick={() => void deleteDraft()}>刪除草稿</button>
+                  <button className="cy-op-button primary" disabled={busy} aria-busy={(busy && pending === "fillOrCorrectErp") || undefined} onClick={() => track("fillOrCorrectErp", fillOrCorrectErp())}>ERP 回填／開單</button>
+                  <button className="cy-op-button danger" disabled={busy} aria-busy={(busy && pending === "deleteDraft") || undefined} onClick={() => track("deleteDraft", deleteDraft())}>刪除草稿</button>
                 </> : null}
-                {selected.statusCode !== "created" && selected.statusCode !== "voided" ? <button className="cy-op-button" disabled={busy} onClick={() => void fillOrCorrectErp()}>更正 ERP 資料</button> : null}
+                {selected.statusCode !== "created" && selected.statusCode !== "voided" ? <button className="cy-op-button" disabled={busy} aria-busy={(busy && pending === "fillOrCorrectErp") || undefined} onClick={() => track("fillOrCorrectErp", fillOrCorrectErp())}>更正 ERP 資料</button> : null}
                 {selected.statusCode === "issued" ? <>
-                  <button className="cy-op-button" disabled={busy} onClick={() => void transition("waiting")}>轉待貨</button>
-                  <button className="cy-op-button primary" disabled={busy} onClick={() => void transition("picked")}>直接撿貨</button>
+                  <button className="cy-op-button" disabled={busy} aria-busy={(busy && pending === "transition:waiting") || undefined} onClick={() => track("transition:waiting", transition("waiting"))}>轉待貨</button>
+                  <button className="cy-op-button primary" disabled={busy} aria-busy={(busy && pending === "transition:picked") || undefined} onClick={() => track("transition:picked", transition("picked"))}>直接撿貨</button>
                 </> : null}
-                {selected.statusCode === "waiting_stock" ? <button className="cy-op-button primary" disabled={busy} onClick={() => void transition("picked")}>完成撿貨</button> : null}
-                {selected.statusCode === "picked" ? <button className="cy-op-button primary" disabled={busy} onClick={() => void transition("shipped")}>確認出貨</button> : null}
-                {selected.statusCode === "shipped" ? <button className="cy-op-button" disabled={busy} onClick={() => void transition("reverse")}>撤銷出貨</button> : null}
-                {["issued", "waiting_stock", "picked", "shipped"].includes(selected.statusCode) ? <button className="cy-op-button danger" disabled={busy} onClick={() => void transition("void")}>作廢</button> : null}
+                {selected.statusCode === "waiting_stock" ? <button className="cy-op-button primary" disabled={busy} aria-busy={(busy && pending === "transition:picked") || undefined} onClick={() => track("transition:picked", transition("picked"))}>完成撿貨</button> : null}
+                {selected.statusCode === "picked" ? <button className="cy-op-button primary" disabled={busy} aria-busy={(busy && pending === "transition:shipped") || undefined} onClick={() => track("transition:shipped", transition("shipped"))}>確認出貨</button> : null}
+                {selected.statusCode === "shipped" ? <button className="cy-op-button" disabled={busy} aria-busy={(busy && pending === "transition:reverse") || undefined} onClick={() => track("transition:reverse", transition("reverse"))}>撤銷出貨</button> : null}
+                {["issued", "waiting_stock", "picked", "shipped"].includes(selected.statusCode) ? <button className="cy-op-button danger" disabled={busy} aria-busy={(busy && pending === "transition:void") || undefined} onClick={() => track("transition:void", transition("void"))}>作廢</button> : null}
                 </div>
               </div>
               <OrderProgress status={selected.statusCode} />

@@ -787,7 +787,7 @@ export function CustomerOperationalPage() {
 
               <div className="cy-op-form-footer">
                 <button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
-                <button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立客戶" : "儲存修改"}</button>
+                <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立客戶" : "儲存修改"}</button>
               </div>
             </form>
           ) : loadingDetail ? <Loading /> : selected ? (

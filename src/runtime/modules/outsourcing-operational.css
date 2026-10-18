@@ -5,6 +5,10 @@
 .cy-out-receipt { display: grid; grid-template-columns: minmax(180px, 2fr) minmax(120px, 1fr) 110px 90px; gap: 8px; }
 .cy-out-hint { margin: 0 0 8px; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
 .cy-out-stock-select { width: auto; min-width: 200px; }
+.cy-out-contact { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(90px, .8fr) minmax(110px, 1fr) minmax(110px, 1fr) auto; gap: 8px; align-items: center; }
+.cy-out-component { display: grid; grid-template-columns: minmax(200px, 2fr) 100px 100px auto; gap: 8px; align-items: start; }
+.cy-out-subsection-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.cy-out-subsection-head h3 { margin: 0; }
 @media (max-width: 1180px) {
   .cy-out-part { grid-template-columns: minmax(0, 1fr) 80px 80px; }
   .cy-out-part > :nth-child(4) { grid-column: 1 / 2; }
@@ -17,4 +21,7 @@
   .cy-out-part { grid-template-columns: 1fr 1fr; }
   .cy-out-part > :first-child, .cy-out-part > :nth-child(4), .cy-out-part > :nth-child(5) { grid-column: 1 / -1; }
   .cy-out-receipt { grid-template-columns: 1fr; }
+  .cy-out-contact { grid-template-columns: 1fr 1fr; padding-bottom: 8px; border-bottom: 1px dashed var(--cy-border); }
+  .cy-out-component { grid-template-columns: 1fr 1fr; padding-bottom: 8px; border-bottom: 1px dashed var(--cy-border); }
+  .cy-out-component > :first-child { grid-column: 1 / -1; }
 }

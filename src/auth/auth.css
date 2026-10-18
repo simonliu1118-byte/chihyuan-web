@@ -38,6 +38,7 @@
 
 .cy-auth-primary-button {
   width: 100%; min-height: 42px; padding: 8px 16px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   border: 0; border-radius: var(--cy-radius-md);
   background: var(--cy-accent); color: var(--cy-on-accent);
   font-size: var(--cy-fs-lg); font-weight: 600;

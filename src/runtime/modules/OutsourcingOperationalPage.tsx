@@ -1,3 +1,5 @@
+import { BomWorkspace, ContractorWorkspace, outsourcingErrorMessage } from "./OutsourcingMasterData";
+import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
@@ -13,9 +15,7 @@ import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGua
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { OutsourcingModuleLookups, OutsourcingItemOption } from "../../../shared/business-lookups";
 import type {
-  BomDetail,
   BomSummary,
-  ContractorDetail,
   ContractorStockBalance,
   ContractorSummary,
   OutsourcingDetail,
@@ -32,8 +32,6 @@ import {
   correctOutsourcingOutbound,
   createOutsourcingOrder,
   deleteOutsourcingPending,
-  loadBomDetail,
-  loadContractorDetail,
   loadContractorStock,
   loadOutsourcingDetail,
   loadOutsourcingLookups,
@@ -111,18 +109,6 @@ function itemLine(item: OutsourcingItemOption | undefined): PartDraft {
   };
 }
 
-function errorMessage(error: unknown): string {
-  if (error instanceof ApiClientError) {
-    if (error.code.includes("REVISION_CONFLICT")) return "資料已被其他人修改，請重新載入後再操作。";
-    if (error.status === 403) return "你目前沒有執行此代工操作的權限。";
-    if (error.code === "AUTH_REQUIRED" || error.code === "AUTH_INVALID") return "登入狀態已失效，請重新登入。";
-    if (error.code === "IDENTITY_UNAVAILABLE") return "身分服務暫時無法使用，請稍後再試。";
-    const field = error.fields ? Object.values(error.fields)[0] : null;
-    return field || error.message || error.code;
-  }
-  return "目前無法完成委外／代工操作。";
-}
-
 function draftFromDetail(detail: OutsourcingDetail): OrderDraft {
   return {
     contractorId: detail.contractorId,
@@ -158,12 +144,8 @@ export function OutsourcingOperationalPage() {
   const [draft, setDraft] = useState<OrderDraft | null>(null);
 
   const [contractors, setContractors] = useState<readonly ContractorSummary[]>([]);
-  const [selectedContractorId, setSelectedContractorId] = useState<number | null>(null);
-  const [selectedContractor, setSelectedContractor] = useState<ContractorDetail | null>(null);
 
   const [boms, setBoms] = useState<readonly BomSummary[]>([]);
-  const [selectedBomId, setSelectedBomId] = useState<number | null>(null);
-  const [selectedBom, setSelectedBom] = useState<BomDetail | null>(null);
 
   const [stockContractorId, setStockContractorId] = useState<number | null>(null);
   const [stockRows, setStockRows] = useState<readonly ContractorStockBalance[]>([]);
@@ -174,6 +156,7 @@ export function OutsourcingOperationalPage() {
   const [receiptUnit, setReceiptUnit] = useState("");
 
   const [busy, setBusy] = useState(false);
+  const { pending, track } = usePendingAction();
   const unsavedGuard = useUnsavedChangesGuard({ active: editing, blocked: busy, message: "目前有尚未儲存的代工單修改，確定放棄？" });
   const { confirm, confirmationDialog } = useConfirmation();
   const { ask, promptDialog } = useFormPrompt();
@@ -186,10 +169,10 @@ export function OutsourcingOperationalPage() {
     return true;
   }
   const pane = useMasterDetailPane();
-  const partnerPane = useMasterDetailPane();
-  const bomPane = useMasterDetailPane();
+  // Contractor/BOM editors live in OutsourcingMasterData; their open editor also guards tab switches.
+  const [masterEditing, setMasterEditing] = useState(false);
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
-  const paging = useLoadMore(searchOutsourcingOrders, setOrders, (error) => reportError(errorMessage(error)));
+  const paging = useLoadMore(searchOutsourcingOrders, setOrders, (error) => reportError(outsourcingErrorMessage(error)));
   const [refreshEpoch, setRefreshEpoch] = useState(0);
 
   const selectedItemIds = useMemo(() => {
@@ -214,7 +197,7 @@ export function OutsourcingOperationalPage() {
         limit: 100,
       })
         .then((value) => { if (!cancelled) setLookups(value); })
-        .catch((error) => { if (!cancelled) reportError(errorMessage(error)); });
+        .catch((error) => { if (!cancelled) reportError(outsourcingErrorMessage(error)); });
     }, 160);
     return () => { cancelled = true; window.clearTimeout(timer); };
   }, [selectedItemKey, itemQuery]);
@@ -229,9 +212,7 @@ export function OutsourcingOperationalPage() {
         if (cancelled) return;
         setContractors(contractorResult.items);
         setBoms(bomResult.items);
-        setSelectedContractorId((current) => current ?? contractorResult.items[0]?.id ?? null);
         setStockContractorId((current) => current ?? contractorResult.items[0]?.id ?? null);
-        setSelectedBomId((current) => current ?? bomResult.items[0]?.id ?? null);
         if (receiptItemId == null) {
           const activeBom = bomResult.items.find((row) => row.isActive);
           if (activeBom) {
@@ -241,7 +222,7 @@ export function OutsourcingOperationalPage() {
           }
         }
       })
-      .catch((error) => { if (!cancelled) reportError(errorMessage(error)); });
+      .catch((error) => { if (!cancelled) reportError(outsourcingErrorMessage(error)); });
     return () => { cancelled = true; };
   }, [refreshEpoch]);
 
@@ -267,7 +248,7 @@ export function OutsourcingOperationalPage() {
             ));
           }
         })
-        .catch((error) => { if (!cancelled) reportError(errorMessage(error)); })
+        .catch((error) => { if (!cancelled) reportError(outsourcingErrorMessage(error)); })
         .finally(() => { if (!cancelled) { setLoadingOrders(false); setListReady(true); } });
     }, 160);
     return () => { cancelled = true; window.clearTimeout(timer); };
@@ -281,33 +262,9 @@ export function OutsourcingOperationalPage() {
     let cancelled = false;
     void loadOutsourcingDetail(selectedOrderId)
       .then((detail) => { if (!cancelled) setSelectedOrder(detail); })
-      .catch((error) => { if (!cancelled) reportError(errorMessage(error)); });
+      .catch((error) => { if (!cancelled) reportError(outsourcingErrorMessage(error)); });
     return () => { cancelled = true; };
   }, [selectedOrderId, creating, refreshEpoch]);
-
-  useEffect(() => {
-    if (selectedContractorId == null) {
-      setSelectedContractor(null);
-      return;
-    }
-    let cancelled = false;
-    void loadContractorDetail(selectedContractorId)
-      .then((detail) => { if (!cancelled) setSelectedContractor(detail); })
-      .catch((error) => { if (!cancelled) reportError(errorMessage(error)); });
-    return () => { cancelled = true; };
-  }, [selectedContractorId, refreshEpoch]);
-
-  useEffect(() => {
-    if (selectedBomId == null) {
-      setSelectedBom(null);
-      return;
-    }
-    let cancelled = false;
-    void loadBomDetail(selectedBomId)
-      .then((detail) => { if (!cancelled) setSelectedBom(detail); })
-      .catch((error) => { if (!cancelled) reportError(errorMessage(error)); });
-    return () => { cancelled = true; };
-  }, [selectedBomId, refreshEpoch]);
 
   useEffect(() => {
     if (stockContractorId == null || tab !== "stock") {
@@ -317,7 +274,7 @@ export function OutsourcingOperationalPage() {
     let cancelled = false;
     void loadContractorStock(stockContractorId)
       .then((rows) => { if (!cancelled) setStockRows(rows); })
-      .catch((error) => { if (!cancelled) reportError(errorMessage(error)); });
+      .catch((error) => { if (!cancelled) reportError(outsourcingErrorMessage(error)); });
     return () => { cancelled = true; };
   }, [stockContractorId, tab, refreshEpoch]);
 
@@ -448,7 +405,7 @@ export function OutsourcingOperationalPage() {
       setMessage(success);
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
-      reportError(errorMessage(error));
+      reportError(outsourcingErrorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
     } finally {
       setBusy(false);
@@ -465,7 +422,7 @@ export function OutsourcingOperationalPage() {
       setMessage(success);
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
-      reportError(errorMessage(error));
+      reportError(outsourcingErrorMessage(error));
       if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
     } finally {
       setBusy(false);
@@ -556,7 +513,7 @@ export function OutsourcingOperationalPage() {
       setMessage("待出庫代工單已刪除。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
-      reportError(errorMessage(error));
+      reportError(outsourcingErrorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -575,7 +532,7 @@ export function OutsourcingOperationalPage() {
 
       <div className="cy-op-tabs">
         {(["orders", "contractors", "boms", "stock"] as Tab[]).map((value) => (
-          <button type="button" className={tab === value ? "active" : ""} key={value} onClick={async () => { if (value !== tab && editing && !(await discardEditing())) return; setTab(value); }}>
+          <button type="button" className={tab === value ? "active" : ""} key={value} onClick={async () => { if (value === tab) return; if (editing && !(await discardEditing())) return; if (masterEditing && !(await confirm({ title: "放棄尚未儲存的修改", description: "切換頁籤會放棄目前尚未儲存的修改。", confirmLabel: "放棄修改", confirmTone: "danger" }))) return; setTab(value); }}>
             {value === "orders" ? "代工單" : value === "contractors" ? "代工對象／單價" : value === "boms" ? "BOM" : "代工庫存"}
           </button>
         ))}
@@ -645,30 +602,30 @@ export function OutsourcingOperationalPage() {
                   })}
                   </div>
                 </section>
-                <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立代工單" : "儲存修改"}</button></div>
+                <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立代工單" : "儲存修改"}</button></div>
               </form>
               ) : selectedOrder ? <div>
                 <div className="cy-record-header"><div><h2>{selectedOrder.contractorNameSnapshot}</h2><p><span className="cy-mono">{selectedOrder.outsourcingRef}</span> · {selectedOrder.orderDate}</p></div>
                 <div className="cy-record-actions">
                   {selectedOrder.statusCode === "pending_outbound" ? <>
                     <button className="cy-op-button" disabled={busy} onClick={() => startEdit("pending")}>修改</button>
-                    <button className="cy-op-button primary" disabled={busy} onClick={() => void confirmOutbound()}>確認出庫</button>
-                    <button className="cy-op-button danger" disabled={busy} onClick={() => void deletePending()}>刪除</button>
+                    <button className="cy-op-button primary" disabled={busy} aria-busy={(busy && pending === "confirmOutbound") || undefined} onClick={() => track("confirmOutbound", confirmOutbound())}>確認出庫</button>
+                    <button className="cy-op-button danger" disabled={busy} aria-busy={(busy && pending === "deletePending") || undefined} onClick={() => track("deletePending", deletePending())}>刪除</button>
                   </> : null}
                   {selectedOrder.statusCode === "outbound" ? <>
                     <button className="cy-op-button" disabled={busy} onClick={() => startEdit("correct-outbound")}>更正出庫</button>
-                    <button className="cy-op-button primary" disabled={busy} onClick={() => void receive()}>確認入庫</button>
-                    <button className="cy-op-button danger" disabled={busy} onClick={() => void reverse("outbound")}>取消出庫</button>
+                    <button className="cy-op-button primary" disabled={busy} aria-busy={(busy && pending === "receive") || undefined} onClick={() => track("receive", receive())}>確認入庫</button>
+                    <button className="cy-op-button danger" disabled={busy} aria-busy={(busy && pending === "reverse:outbound") || undefined} onClick={() => track("reverse:outbound", reverse("outbound"))}>取消出庫</button>
                   </> : null}
                   {selectedOrder.statusCode === "received" ? <>
-                    <button className="cy-op-button primary" disabled={busy} onClick={() => void price()}>計價</button>
-                    <button className="cy-op-button danger" disabled={busy} onClick={() => void reverse("receipt")}>取消入庫</button>
+                    <button className="cy-op-button primary" disabled={busy} aria-busy={(busy && pending === "price") || undefined} onClick={() => track("price", price())}>計價</button>
+                    <button className="cy-op-button danger" disabled={busy} aria-busy={(busy && pending === "reverse:receipt") || undefined} onClick={() => track("reverse:receipt", reverse("receipt"))}>取消入庫</button>
                   </> : null}
                   {selectedOrder.statusCode === "priced" ? <>
-                    <button className="cy-op-button primary" disabled={busy} onClick={() => void pay()}>確認付款</button>
-                    <button className="cy-op-button danger" disabled={busy} onClick={() => void reverse("pricing")}>取消計價</button>
+                    <button className="cy-op-button primary" disabled={busy} aria-busy={(busy && pending === "pay") || undefined} onClick={() => track("pay", pay())}>確認付款</button>
+                    <button className="cy-op-button danger" disabled={busy} aria-busy={(busy && pending === "reverse:pricing") || undefined} onClick={() => track("reverse:pricing", reverse("pricing"))}>取消計價</button>
                   </> : null}
-                  {selectedOrder.statusCode === "paid" ? <button className="cy-op-button danger" disabled={busy} onClick={() => void reverse("payment")}>取消付款</button> : null}
+                  {selectedOrder.statusCode === "paid" ? <button className="cy-op-button danger" disabled={busy} aria-busy={(busy && pending === "reverse:payment") || undefined} onClick={() => track("reverse:payment", reverse("payment"))}>取消付款</button> : null}
                 </div></div>
                 <OutsourcingProgress status={selectedOrder.statusCode} />
                 <div className="cy-op-detail-grid"><div><span>工單日期</span><strong>{selectedOrder.orderDate}</strong></div><div><span>出庫日期</span><strong>{selectedOrder.outboundDate ?? "—"}</strong></div><div><span>付款時間</span><strong>{selectedOrder.paidAt ? formatDateTime(selectedOrder.paidAt) : "—"}</strong></div></div>
@@ -699,15 +656,11 @@ export function OutsourcingOperationalPage() {
         </>
       ) : null}
 
-      {tab === "contractors" ? <div className="cy-md" data-pane={partnerPane.pane}>
-        <section className="cy-op-panel cy-md-list" aria-label="代工對象清單"><div className="cy-op-list">{contractors.map((row) => <button type="button" className={`cy-op-list-row ${selectedContractorId === row.id ? "active" : ""}`} key={row.id} onClick={() => { setSelectedContractorId(row.id); partnerPane.open(); }}><strong>{row.displayName}</strong><span>{row.phone ?? "—"}{row.isActive ? "" : " · 停用"}</span></button>)}</div></section>
-        <section className="cy-op-panel cy-md-detail"><MasterDetailBack label="代工對象清單" onBack={partnerPane.close} />{selectedContractor ? <div><div className="cy-record-header"><div><h2>{selectedContractor.displayName}</h2><p>{selectedContractor.legalName ?? selectedContractor.entityType}</p></div><div className="cy-record-actions"><span className={`cy-status-chip ${selectedContractor.isActive ? "cy-status-chip-success" : ""}`}>{selectedContractor.isActive ? "使用中" : "停用"}</span></div></div><div className="cy-op-detail-grid"><div><span>統編</span><strong>{selectedContractor.taxId ?? "—"}</strong></div><div><span>電話</span><strong>{selectedContractor.phone ?? "—"}</strong></div><div><span>地址</span><strong>{selectedContractor.address ?? "—"}</strong></div></div><div className="cy-op-subsection"><h3>現行代工單價</h3><div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">單價</th><th>單位</th></tr></thead><tbody>{selectedContractor.pricing.map((row) => <tr key={row.id}><td className="cy-mono">{row.itemNo}</td><td>{row.itemName}</td><td className="num">{row.unitPrice}</td><td>{row.pricingUnit}</td></tr>)}</tbody></table></div>{selectedContractor.pricing.length === 0 ? <p>尚未設定現行單價。</p> : null}</div></div> : <MasterDetailEmpty title="尚未選擇代工對象" />}</section>
-      </div> : null}
+      {tab === "contractors" ? <ContractorWorkspace contractors={contractors} onChanged={() => setRefreshEpoch((value) => value + 1)}
+        onEditingChange={setMasterEditing} notify={setMessage} reportError={reportError} /> : null}
 
-      {tab === "boms" ? <div className="cy-md" data-pane={bomPane.pane}>
-        <section className="cy-op-panel cy-md-list" aria-label="BOM 清單"><div className="cy-op-list">{boms.map((row) => <button type="button" className={`cy-op-list-row ${selectedBomId === row.id ? "active" : ""}`} key={row.id} onClick={() => { setSelectedBomId(row.id); bomPane.open(); }}><strong>{row.finishedItemName}</strong><span><span className="cy-mono">{row.recipeRef}</span> · {row.finishedItemNo}{row.isActive ? "" : " · 停用"}</span></button>)}</div></section>
-        <section className="cy-op-panel cy-md-detail"><MasterDetailBack label="BOM 清單" onBack={bomPane.close} />{selectedBom ? <div><div className="cy-record-header"><div><h2>{selectedBom.finishedItemName}</h2><p><span className="cy-mono">{selectedBom.recipeRef}</span> · {selectedBom.finishedItemNo}</p></div><div className="cy-record-actions"><span className={`cy-status-chip ${selectedBom.isActive ? "cy-status-chip-success" : ""}`}>{selectedBom.isActive ? "使用中" : "停用"}</span></div></div><div className="cy-op-detail-grid"><div><span>產出</span><strong>{selectedBom.outputQuantity} {selectedBom.outputUnit}</strong></div></div><div className="cy-op-subsection"><h3>BOM 組成</h3><div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">數量</th><th>單位</th></tr></thead><tbody>{selectedBom.components.map((row) => <tr key={row.id}><td className="cy-mono">{row.itemNo}</td><td>{row.itemName}</td><td className="num">{row.quantity}</td><td>{row.unit}</td></tr>)}</tbody></table></div></div></div> : <MasterDetailEmpty title="尚未選擇 BOM" />}</section>
-      </div> : null}
+      {tab === "boms" ? <BomWorkspace boms={boms} onChanged={() => setRefreshEpoch((value) => value + 1)}
+        onEditingChange={setMasterEditing} notify={setMessage} reportError={reportError} /> : null}
 
       {tab === "stock" ? <section className="cy-op-panel">
         <div className="cy-op-panel-header"><div><h2>代工庫存</h2><p>依出庫、入庫紀錄即時計算的代工對象手上庫存。</p></div><select className="cy-op-input cy-out-stock-select" aria-label="代工對象" value={stockContractorId ?? ""} onChange={(event) => setStockContractorId(Number(event.target.value) || null)}><option value="">選擇代工對象</option>{contractors.map((row) => <option key={row.id} value={row.id}>{row.displayName}</option>)}</select></div>

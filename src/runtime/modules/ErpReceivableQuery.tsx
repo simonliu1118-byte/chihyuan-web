@@ -57,8 +57,8 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
             aria-label={scope === "CUSTOMER" ? "客戶" : "業務員代號"}
             placeholder={scope === "CUSTOMER" ? (canSearchCustomers ? "請輸入客戶代號或名稱" : "請輸入客戶代號") : "請輸入業務員代號"}
             onChange={e => setText(e.target.value)} />}
-          <button className="cy-op-button primary" type="submit" disabled={busy}>
-            {submitting ? "送出中…" : busy ? "查詢中…" : scope === "ALL" ? "查詢全部未收款" : "查詢"}
+          <button className="cy-op-button primary" type="submit" disabled={busy} aria-busy={submitting || busy || undefined}>
+            {scope === "ALL" ? "查詢全部未收款" : "查詢"}
           </button>
         </div>
       </form>

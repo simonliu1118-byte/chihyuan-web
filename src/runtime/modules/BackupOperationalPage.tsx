@@ -117,7 +117,7 @@ export function BackupOperationalPage() {
   }
   const enabled = !loading && !busy && history?.configured === true;
   return <><PagePrimaryActions><button className="cy-op-button" type="button" disabled={loading || busy} onClick={() => void run("refresh")}>更新紀錄</button>
-      <button className="cy-op-button primary" type="button" disabled={!enabled} onClick={() => void run("create")}>{busy ? "處理中…" : "建立手動備份"}</button></PagePrimaryActions>
+      <button className="cy-op-button primary" type="button" disabled={!enabled} aria-busy={busy || undefined} onClick={() => void run("create")}>建立手動備份</button></PagePrimaryActions>
     <div className="cy-op-panel cy-backup-policy"><span><strong>R2</strong> 每日 03:30 · 保留 30 天</span><span><strong>GCS</strong> 週三、週日 · 保留 182 天</span><span>時間皆為台灣時間；手動備份會建立兩端副本。</span></div>
     {history && !history.configured ? <div className="cy-op-notice" role="status">備份儲存尚未設定，建立與重試暫停使用。</div> : null}
     {history?.configured && history.scheduleEnabled === false ? <div className="cy-op-notice" role="status">目前僅啟用手動備份；上述排程尚未開啟。</div> : null}
@@ -129,7 +129,7 @@ export function BackupOperationalPage() {
     <Dialog open={selected !== null} title="驗證隔離還原" dismissible={!busy} onClose={() => { if (!busy) setSelected(null); }}
       footer={<><button className="cy-op-button" type="button" disabled={busy} onClick={() => setSelected(null)}>取消</button>
         <button className="cy-op-button primary" type="button" disabled={busy || !reviewed || confirmation !== BACKUP_REHEARSAL_CONFIRMATION}
-          onClick={() => void rehearse()}>{busy ? "驗證中…" : "開始驗證"}</button></>}>
+          aria-busy={busy || undefined} onClick={() => void rehearse()}>開始驗證</button></>}>
       {selected ? <div className="cy-backup-rehearsal">
         <p>將所選備份還原至獨立的空白驗證副本，並核對資料。正式系統繼續使用目前資料。</p>
         <p>驗證前會另建 R2、GCS 安全備份；兩端皆驗證成功才繼續。驗證副本成功使用後會保留，重做須另行準備核准的空白副本。</p>
