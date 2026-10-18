@@ -218,27 +218,38 @@ h1, h2, h3, h4, h5 { line-height: 1.35; }
 .cy-shell-nav-item:hover:not([data-disabled="true"]) { background: var(--cy-surface-muted); color: var(--cy-text); }
 .cy-shell-nav-item.is-active { background: var(--cy-accent-soft); color: var(--cy-accent); font-weight: 600; }
 .cy-shell-nav-item[data-disabled="true"] { cursor: default; opacity: .42; pointer-events: none; }
-.cy-shell-nav-footer { border-top: 1px solid var(--cy-border); padding-top: 10px; }
-
-/* Account card (sidebar footer and compact drawer). */
-.cy-account { display: grid; gap: 8px; }
-.cy-account-person { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 2px 4px; }
+/* Top-right person menu: avatar + name; the menu holds 我的帳號 and 登出. */
+.cy-account-menu { position: relative; flex: 0 0 auto; }
+.cy-account-trigger {
+  display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 3px 10px 3px 4px;
+  border: 1px solid var(--cy-border-strong); border-radius: 999px; background: var(--cy-surface); color: var(--cy-text); text-align: left;
+}
+.cy-account-trigger:hover { border-color: var(--cy-accent); }
 .cy-account-avatar {
   width: 32px; height: 32px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%;
   background: var(--cy-surface-sunken); color: var(--cy-text-muted); border: 1px solid var(--cy-border);
   font-weight: 700; font-size: var(--cy-fs-sm);
 }
-.cy-account[data-role="SUPER_ADMIN"] .cy-account-avatar { background: var(--cy-gold-soft); color: var(--cy-gold); border-color: var(--cy-gold-line); }
-.cy-account[data-role="ADMIN"] .cy-account-avatar { background: var(--cy-copper-soft); color: var(--cy-copper); border-color: var(--cy-copper-line); }
-.cy-account-name { min-width: 0; display: grid; line-height: 1.35; }
-.cy-account-name strong { font-size: var(--cy-fs-md); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cy-account-name span { font-size: var(--cy-fs-xs); color: var(--cy-text-muted); }
-.cy-account[data-role="SUPER_ADMIN"] .cy-account-role { color: var(--cy-gold); font-weight: 600; }
-.cy-account[data-role="ADMIN"] .cy-account-role { color: var(--cy-copper); font-weight: 600; }
-.cy-account-actions { display: flex; gap: 6px; }
-.cy-account-actions { align-items: center; }
-.cy-account-actions .cy-segmented { flex: 1 1 auto; }
-.cy-account-actions .cy-op-button { flex: 0 0 auto; }
+.cy-account-menu[data-role="SUPER_ADMIN"] .cy-account-avatar { background: var(--cy-gold-soft); color: var(--cy-gold); border-color: var(--cy-gold-line); }
+.cy-account-menu[data-role="ADMIN"] .cy-account-avatar { background: var(--cy-copper-soft); color: var(--cy-copper); border-color: var(--cy-copper-line); }
+.cy-account-name { min-width: 0; display: grid; line-height: 1.3; }
+.cy-account-name strong { font-size: var(--cy-fs-md); font-weight: 600; white-space: nowrap; }
+.cy-account-role { font-size: var(--cy-fs-xs); color: var(--cy-text-muted); }
+.cy-account-menu[data-role="SUPER_ADMIN"] .cy-account-role { color: var(--cy-gold); font-weight: 600; }
+.cy-account-menu[data-role="ADMIN"] .cy-account-role { color: var(--cy-copper); font-weight: 600; }
+.cy-account-caret { color: var(--cy-text-muted); }
+.cy-account-popover {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; width: 260px; display: grid; padding: 6px;
+  border: 1px solid var(--cy-border); border-radius: var(--cy-radius-lg); background: var(--cy-surface); box-shadow: var(--cy-shadow-lg);
+}
+.cy-account-popover-head { display: grid; gap: 2px; padding: 8px 10px 10px; border-bottom: 1px solid var(--cy-border); margin-bottom: 4px; }
+.cy-account-popover-head span { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
+.cy-account-popover button {
+  min-height: 40px; padding: 0 10px; border: 0; border-radius: var(--cy-radius-sm); background: transparent;
+  color: var(--cy-text); font-size: var(--cy-fs-md); text-align: left;
+}
+.cy-account-popover button:hover:not(:disabled) { background: var(--cy-surface-muted); }
+.cy-account-popover button.danger { color: var(--cy-danger); }
 
 /* Segmented control: one choice among a few modes (查詢方式, 外觀). aria-pressed marks the choice. */
 .cy-segmented { display: inline-flex; gap: 2px; padding: 2px; justify-self: start; border-radius: var(--cy-radius-md); background: var(--cy-surface-sunken); border: 1px solid var(--cy-border); }
@@ -268,9 +279,7 @@ h1, h2, h3, h4, h5 { line-height: 1.35; }
 }
 .cy-shell-help-button:hover { background: var(--cy-surface-muted); color: var(--cy-accent); }
 .cy-shell-page-tools { min-width: 0; display: flex; align-items: center; gap: 8px; }
-.cy-shell-page-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
-.cy-shell-page-actions:empty { display: none; }
-.cy-shell-page-actions .cy-op-page-actions { display: flex; gap: 8px; margin: 0; }
+.cy-shell-topbar-end { margin-left: auto; display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
 .cy-shell-menu-toggle {
   width: 40px; height: 40px; flex: 0 0 40px; display: grid; place-items: center; padding: 0;
   border: 1px solid var(--cy-border); border-radius: var(--cy-radius-md); background: var(--cy-surface); color: var(--cy-text);
@@ -484,6 +493,12 @@ a.cy-op-button, a.cy-button { text-decoration: none; }
 .cy-md-detail { padding: 16px; }
 .cy-md-toolbar { display: grid; gap: 8px; padding: 12px; border-bottom: 1px solid var(--cy-border); }
 .cy-md-toolbar-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* The list's primary action (＋ 新增…) sits first, beside the search, where the eye already is. */
+.cy-md-toolbar-lead { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cy-md-toolbar-lead > .cy-op-input { flex: 1 1 auto; min-width: 0; }
+.cy-md-toolbar-lead > .cy-op-button { flex: 0 0 auto; }
+/* Pages without a list toolbar keep their actions in one row above the content. */
+.cy-page-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
 /* Status filter buttons with totals (ui/data/StatusFilter). The dot carries the status colour. */
 .cy-status-filter { display: flex; flex-wrap: wrap; gap: 6px; }
 .cy-status-filter button {
@@ -523,7 +538,8 @@ a.cy-op-button, a.cy-button { text-decoration: none; }
   .cy-shell-topbar { padding: 6px 10px; gap: 8px; min-height: 56px; }
   .cy-shell-topbar-title { font-size: var(--cy-fs-xl); overflow: hidden; text-overflow: ellipsis; }
   .cy-shell-topbar-heading { flex: 1 1 auto; }
-  .cy-shell-page-actions { margin-left: 0; }
+  .cy-shell-topbar-end { gap: 6px; }
+  .cy-account-trigger { padding: 3px; border-color: transparent; }
   .cy-shell-nav-item { min-height: 44px; }
   .cy-shell-main { padding: 12px var(--cy-gutter) 28px; }
 
@@ -577,3 +593,6 @@ a.cy-op-button, a.cy-button { text-decoration: none; }
 .cy-audit-detail { display: grid; gap: 16px; }
 .cy-audit-detail h3 { margin: 0; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 600; }
 .cy-load-more { display: flex; justify-content: center; padding: 8px 0 4px; }
+
+/* Phone top bar: the appearance toggle is a square icon button beside the avatar. */
+.cy-shell-topbar-end .cy-theme-toggle { width: 40px; height: 40px; padding: 0; justify-content: center; border-color: var(--cy-border); }

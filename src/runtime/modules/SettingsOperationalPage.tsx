@@ -1,6 +1,5 @@
 import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
-import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { useEffect, useState, type FormEvent } from "react";
@@ -77,16 +76,16 @@ export function SettingsOperationalPage({ role }: { role: "ADMIN" | "SUPER_ADMIN
   const editable = !structural || role === "SUPER_ADMIN";
   const rows = snapshot ? rowsFor(snapshot, section) : [];
   return <>
-    {snapshot && section !== "tags" && (section === "scoring" || editable) ? (
-      <PagePrimaryActions>
-        {section === "scoring"
-          ? <button className="cy-op-button primary" type="button" disabled={busy} onClick={() => setScore({ workLogCategoryId: null, customName: "", scoreValue: "", description: "", note: "", sortOrder: 0, isActive: true })}>＋ 新增參考列</button>
-          : <button className="cy-op-button primary" type="button" disabled={busy} onClick={() => setDraft(blank())}>＋ 新增設定</button>}
-      </PagePrimaryActions>
-    ) : null}
     {error ? <div className="cy-op-notice danger" role="alert">{error}<button className="cy-op-button" disabled={busy} onClick={() => loadSettings().then(install).then(() => setError("")).catch(e => setError(message(e)))}>重新讀取</button></div> : null}
     {notice ? <div className="cy-op-notice" role="status">{notice}</div> : null}
     <div className="cy-op-tabs" role="tablist" aria-label="設定項目">{sections.map(row => <button key={row.key} type="button" role="tab" aria-selected={section === row.key} className={section === row.key ? "active" : ""} disabled={busy} onClick={() => { setSection(row.key); setDraft(null); setScore(null); }}>{row.label}</button>)}</div>
+    {snapshot && section !== "tags" && (section === "scoring" || editable) ? (
+      <div className="cy-page-toolbar">
+        {section === "scoring"
+          ? <button className="cy-op-button primary" type="button" disabled={busy} onClick={() => setScore({ workLogCategoryId: null, customName: "", scoreValue: "", description: "", note: "", sortOrder: 0, isActive: true })}>＋ 新增參考列</button>
+          : <button className="cy-op-button primary" type="button" disabled={busy} onClick={() => setDraft(blank())}>＋ 新增設定</button>}
+      </div>
+    ) : null}
     {!snapshot ? <section className="cy-op-panel"><Loading /></section> : section === "tags" ? <section className="cy-op-panel"><p>分類標籤保留作資料分類；帳號與業務模組權限請於帳號管理維護。</p><table className="cy-op-table"><thead><tr><th>代碼</th><th>名稱</th><th>狀態</th></tr></thead><tbody>{snapshot.appTags.map(row => <tr key={row.id}><td>{row.code}</td><td>{row.name}</td><td>{row.isActive ? "啟用" : "停用"}</td></tr>)}</tbody></table></section> : section === "scoring" ? <>
       <form onKeyDown={enterAdvancesFields} className="cy-op-panel cy-op-form-card" onSubmit={event => { event.preventDefault(); void save("worklog-scoring-config", "PUT", { targetAverageDailyScore: target || null, minimumAverageDailyScore: minimum || null, expectedRevision: snapshot.workLogScoringConfig?.revision ?? null }); }}>
         <h2>每日平均分數</h2><p>已審核日誌的結果保留，不因設定變更重新計分。</p><div className="cy-op-grid-two"><label>目標<input className="cy-op-input" inputMode="decimal" value={target} onChange={e => setTarget(e.target.value)} /></label><label>最低<input className="cy-op-input" inputMode="decimal" value={minimum} onChange={e => setMinimum(e.target.value)} /></label></div><button className="cy-op-button primary" disabled={busy}>儲存門檻</button>

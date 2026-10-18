@@ -1,6 +1,5 @@
 import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
-import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
@@ -693,23 +692,23 @@ export function CustomerOperationalPage() {
   return (
     <div className="cy-customer-op">
       {confirmationDialog}
-      <PagePrimaryActions>
-        <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增客戶</button>
-      </PagePrimaryActions>
-
+      
       <FeedbackBanner message={message} tone={messageTone} />
 
       <div className="cy-md cy-customer-workspace" data-pane={pane.pane}>
         <section className="cy-op-panel cy-md-list" aria-label="客戶清單">
           <div className="cy-md-toolbar">
-            <input
-              className="cy-op-input"
-              type="search"
-              aria-label="搜尋客戶"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜尋編號、名稱、統編"
-            />
+            <div className="cy-md-toolbar-lead">
+              <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增客戶</button>
+              <input
+                className="cy-op-input"
+                type="search"
+                aria-label="搜尋客戶"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="搜尋編號、名稱、統編"
+              />
+            </div>
             <div className="cy-md-toolbar-row">
               <select className="cy-op-input" aria-label="客戶分類" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
                 <option value="">全部分類</option>
@@ -846,7 +845,7 @@ export function CustomerOperationalPage() {
                 {relatedTab === "activity" ? <div className="cy-customer-related-content"><p className="cy-customer-muted">重要異動都保存在稽核紀錄；管理員可在「稽核紀錄」依客戶與操作類型查詢。</p></div> : null}
               </section>
             </div>
-          ) : <MasterDetailEmpty title="尚未選擇客戶" hint="從左側清單選一位客戶，或按右上角「新增客戶」。" />}
+          ) : <MasterDetailEmpty title="尚未選擇客戶" hint="從左側清單選一位客戶，或按清單上方的「＋ 新增客戶」。" />}
         </section>
       </div>
     </div>

@@ -5,7 +5,6 @@ import { StatusChip } from "../../ui/primitives/StatusChip";
 import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields, enterAdvancesThenSubmits } from "../../ui/foundation/enter-advance";
-import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
@@ -551,10 +550,7 @@ export function WorkLogOperationalPage() {
             onChange={event => setReasonDraft({ ...reasonDraft, reason: event.target.value })} /></label>
         </form> : null}
       </Dialog>
-      <PagePrimaryActions>
-        <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增日誌</button>
-      </PagePrimaryActions>
-
+      
       <FeedbackBanner message={message} tone={messageTone} />
 
       <section className="cy-worklog-summary" aria-label="已審核統計">
@@ -578,7 +574,10 @@ export function WorkLogOperationalPage() {
       <div className="cy-md" data-pane={pane.pane}>
         <section className="cy-op-panel cy-md-list" aria-label="工作日誌清單">
           <div className="cy-md-toolbar">
-            <input className="cy-op-input" type="search" aria-label="搜尋工作日誌" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋日誌編號、類型、內容" />
+            <div className="cy-md-toolbar-lead">
+              <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增日誌</button>
+              <input className="cy-op-input" type="search" aria-label="搜尋工作日誌" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋日誌編號、類型、內容" />
+            </div>
             <StatusFilter label="日誌狀態" value={statusFilter} onChange={setStatusFilter} counts={statusCounts}
               options={(Object.keys(statusText) as (keyof typeof statusText)[]).map((code) => ({ code, label: statusText[code], tone: workLogTone[code] }))} />
             <div className="cy-md-count">{loadingList ? <Loading inline /> : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
@@ -680,7 +679,7 @@ export function WorkLogOperationalPage() {
                 {entry.reviewScore != null || entry.reviewRemark ? <div className="cy-op-read-row">審核：{entry.reviewScore ?? "未計分"}{entry.reviewRemark ? ` · ${entry.reviewRemark}` : ""}</div> : null}
               </div>)}
             </div>
-          </div> : <MasterDetailEmpty title="尚未選擇工作日誌" hint="從左側清單選一筆，或按右上角「新增日誌」。" />}
+          </div> : <MasterDetailEmpty title="尚未選擇工作日誌" hint="從左側清單選一筆，或按清單上方的「＋ 新增日誌」。" />}
         </section>
       </div>
     </div>
