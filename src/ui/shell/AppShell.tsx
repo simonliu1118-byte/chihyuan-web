@@ -1,5 +1,5 @@
-import { useEffect, useState, type PropsWithChildren, type ReactNode, type CSSProperties, type MouseEvent } from "react";
-import { Dialog, Drawer } from "../overlays/Dialog";
+import { useEffect, useState, type PropsWithChildren, type ReactNode } from "react";
+import { Drawer } from "../overlays/Dialog";
 import { useCompactLayout } from "../foundation/useCompactLayout";
 import type { NavigationGroup, NavigationItem } from "../foundation/navigation";
 
@@ -51,21 +51,10 @@ export function AppShell({
   onNavigate,
   children,
 }: PropsWithChildren<AppShellProps>) {
-  const [helpOpen, setHelpOpen] = useState(false);
   const [navigationOpen, setNavigationOpen] = useState(false);
-  const [helpPosition, setHelpPosition] = useState<CSSProperties>();
   const compact = useCompactLayout();
-  // A route change never leaves the previous module's help text or menu open.
-  useEffect(() => { setHelpOpen(false); setNavigationOpen(false); }, [pageTitle]);
-  useEffect(() => { setNavigationOpen(false); setHelpOpen(false); }, [compact]);
-  function openHelp(event: MouseEvent<HTMLButtonElement>) {
-    const rect = event.currentTarget.getBoundingClientRect(), width = Math.min(400, window.innerWidth - 32);
-    const top = Math.min(rect.bottom + 8, window.innerHeight - 120);
-    setHelpPosition({ position: "fixed", inset: "auto", margin: 0, width,
-      left: Math.max(16, Math.min(rect.left, window.innerWidth - width - 16)), top,
-      maxHeight: Math.min(window.innerHeight * 0.6, window.innerHeight - top - 16) });
-    setHelpOpen(true);
-  }
+
+  useEffect(() => { setNavigationOpen(false); }, [pageTitle, compact]);
   // The same list is mounted once: sidebar on desktop, modal drawer on compact screens.
   const navigationContent = <>
     <div className="cy-shell-brand"><span className="cy-shell-brand-mark" aria-hidden="true">CY</span>
@@ -108,8 +97,7 @@ export function AppShell({
           </button> : null}
           <div className="cy-shell-topbar-heading">
             <h1 className="cy-shell-topbar-title">{pageTitle}</h1>
-            {pageDescription ? <button type="button" className="cy-shell-help-button" title="說明"
-              aria-label={`查看${pageTitle}說明`} onClick={openHelp}><span aria-hidden="true">ⓘ</span></button> : null}
+            {!compact && pageDescription ? <p className="cy-shell-topbar-description">{pageDescription}</p> : null}
           </div>
           {pageTools ? <div className="cy-shell-page-tools">{pageTools}</div> : null}
           <div className="cy-shell-topbar-end">{appearance}{account}</div>
@@ -119,10 +107,6 @@ export function AppShell({
           {children}
         </main>
       </div>
-      {pageDescription && <Dialog open={helpOpen} title={pageTitle + "說明"}
-        onClose={() => setHelpOpen(false)} size="small" hideHeader className="cy-shell-help" style={compact ? undefined : helpPosition}>
-        <p>{pageDescription}</p>
-      </Dialog>}
       {compact ? <Drawer open={navigationOpen} title="模組選單" onClose={() => setNavigationOpen(false)} className="cy-shell-navigation-drawer">{navigationContent}</Drawer> : null}
     </div>
   );
