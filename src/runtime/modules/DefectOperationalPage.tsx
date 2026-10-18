@@ -1,3 +1,4 @@
+import { StatusFilter } from "../../ui/data/StatusFilter";
 import { defectNextStep, defectTone } from "./status-flow";
 import { NextStep } from "../../ui/feedback/NextStep";
 import { StatusChip } from "../../ui/primitives/StatusChip";
@@ -118,6 +119,7 @@ export function DefectOperationalPage() {
   const [lookups, setLookups] = useState<DefectModuleLookups | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [statusCounts, setStatusCounts] = useState<Partial<Record<string, number>> | null>(null);
   const [includeInvalid, setIncludeInvalid] = useState(false);
   const [pickedCustomer, setPickedCustomer] = useState<DefectCustomerOption | null>(null);
   const [pickedItem, setPickedItem] = useState<DefectItemOption | null>(null);
@@ -155,6 +157,7 @@ export function DefectOperationalPage() {
         .then((result) => {
           if (cancelled) return;
           setRows(result.items);
+          setStatusCounts(result.statusCounts ?? null);
           paging.reset(listQuery, result.nextCursor);
           if (!editing && !creating) {
             setSelectedId((current) => (
@@ -434,12 +437,8 @@ export function DefectOperationalPage() {
           <div className="cy-md-toolbar">
             <input className="cy-op-input" type="search" aria-label="搜尋瑕疵" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜尋客戶、商品、內容" />
             <div className="cy-md-toolbar-row cy-defect-filters">
-              <select className="cy-op-input" aria-label="瑕疵狀態" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                <option value="">全部狀態</option>
-                <option value="created">已建檔</option>
-                <option value="processing">處理中</option>
-                <option value="resolved">已處理</option>
-              </select>
+              <StatusFilter label="瑕疵狀態" value={statusFilter} onChange={setStatusFilter} counts={statusCounts}
+                options={(Object.keys(statusText) as (keyof typeof statusText)[]).map((code) => ({ code, label: statusText[code], tone: defectTone[code] }))} />
               <label className="cy-defect-check"><input type="checkbox" checked={includeInvalid} onChange={(e) => setIncludeInvalid(e.target.checked)} /> 顯示作廢</label>
             </div>
           </div>

@@ -304,6 +304,8 @@ export interface OutsourcingSearchQuery {
 export interface OutsourcingListResult {
   items: readonly OutsourcingSummary[];
   nextCursor: string | null;
+  /** Per-status totals for the same filters, on the first page only. */
+  statusCounts?: Partial<Record<OutsourcingStatusCode, number>>;
 }
 
 export interface ContractorStockBalance {

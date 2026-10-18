@@ -62,6 +62,8 @@ export interface SalesWorkOrderSearchQuery {
 export interface SalesWorkOrderListResult {
   items: readonly SalesWorkOrderSummary[];
   nextCursor: string | null;
+  /** Per-status totals for the same filters, on the first page only. */
+  statusCounts?: Partial<Record<SalesWorkOrderStatusCode, number>>;
 }
 
 export interface SalesWorkOrderLineInput {

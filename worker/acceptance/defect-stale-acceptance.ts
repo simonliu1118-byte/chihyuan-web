@@ -68,6 +68,11 @@ export async function acceptDefectStaleAudit(db:D1Database,customerId:number,ite
   const visible=await service.search({customerId,itemId,limit:100});
   const includingInvalid=await service.search({customerId,itemId,includeInvalid:true,limit:100});
   if(visible.items.some(row=>row.id===record.id)||!includingInvalid.items.some(row=>row.id===record.id))throw new Error("ACCEPT_DEFECT_INVALID_VISIBILITY");
+  // Status totals follow the list filters except status, and only on the first page.
+  const onlyResolved=await service.search({customerId,itemId,includeInvalid:true,statusCode:"resolved",limit:100});
+  const nextPage=await service.search({customerId,itemId,includeInvalid:true,limit:1,cursor:includingInvalid.nextCursor??"MQ"});
+  if(includingInvalid.statusCounts?.processing!==1||visible.statusCounts?.processing!==undefined||onlyResolved.items.length!==0
+    ||onlyResolved.statusCounts?.processing!==1||nextPage.statusCounts!==undefined)throw new Error("ACCEPT_DEFECT_STATUS_COUNTS");
 
   const resolvedRecord=await service.create(profile,context);
   const processing=await service.startProcessing(resolvedRecord.id,{expectedRevision:resolvedRecord.revision},context);

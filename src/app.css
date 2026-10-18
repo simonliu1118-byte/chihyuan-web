@@ -474,6 +474,22 @@ a.cy-op-button, a.cy-button { text-decoration: none; }
 .cy-md-detail { padding: 16px; }
 .cy-md-toolbar { display: grid; gap: 8px; padding: 12px; border-bottom: 1px solid var(--cy-border); }
 .cy-md-toolbar-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* Status filter buttons with totals (ui/data/StatusFilter). The dot carries the status colour. */
+.cy-status-filter { display: flex; flex-wrap: wrap; gap: 6px; }
+.cy-status-filter button {
+  display: inline-flex; align-items: center; gap: 6px; min-height: var(--cy-control-h-sm); padding: 2px 10px;
+  border: 1px solid var(--cy-border-strong); border-radius: 999px; background: var(--cy-surface); color: var(--cy-text);
+  font-size: var(--cy-fs-sm); white-space: nowrap;
+}
+.cy-status-filter button:hover { background: var(--cy-surface-muted); }
+.cy-status-filter button[data-tone]::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--cy-text-subtle); }
+.cy-status-filter button[data-tone="warning"]::before { background: var(--cy-warning); }
+.cy-status-filter button[data-tone="info"]::before { background: var(--cy-info); }
+.cy-status-filter button[data-tone="success"]::before { background: var(--cy-success); }
+.cy-status-filter button[data-tone="danger"]::before { background: var(--cy-danger); }
+.cy-status-filter button[aria-pressed="true"] { border-color: var(--cy-accent); background: var(--cy-accent-soft); color: var(--cy-accent); font-weight: 600; }
+.cy-status-filter-count { color: var(--cy-text-muted); font-variant-numeric: tabular-nums; }
+.cy-status-filter button[aria-pressed="true"] .cy-status-filter-count { color: inherit; }
 .cy-md-count { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
 .cy-md-back { display: none; }
 .cy-md-empty { display: grid; place-items: center; gap: 4px; min-height: 240px; text-align: center; color: var(--cy-text-muted); }

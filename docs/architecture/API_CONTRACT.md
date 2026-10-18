@@ -189,11 +189,13 @@ Every route below resolves the current CYID session and requires the matching **
 | GET | `/api/business/items/:itemId/number-history` | Item number history |
 | POST | `/api/business/items/:itemId/number` | controlled Item number change |
 
+Workflow lists (Defect, Sales Work Order, Outsourcing order, WorkLog) return optional `statusCounts` on a request without `cursor`: an object of status code → record count for the same filters and authority scope, ignoring only the status filter. Statuses with no records are omitted. Later pages never repeat it, so the counts stay those of the query that started the list.
+
 ### Defect — `DEFECTS`
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/api/business/defects` | bounded search/list |
+| GET | `/api/business/defects` | bounded search/list; first page adds `statusCounts` |
 | GET | `/api/business/defects/lookups` | bounded Customer / Item / owner picker data under DEFECTS authority |
 | POST | `/api/business/defects` | create Defect report |
 | GET | `/api/business/defects/:defectId` | detail |
@@ -230,7 +232,7 @@ Every route below resolves the current CYID session and requires the matching cu
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/api/business/orders` | bounded search/list |
+| GET | `/api/business/orders` | bounded search/list; first page adds `statusCounts` |
 | POST | `/api/business/orders` | create draft order |
 | GET | `/api/business/orders/:orderId` | detail |
 | PATCH | `/api/business/orders/:orderId` | revision-gated draft update |
@@ -275,7 +277,7 @@ Outsourcing order:
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/api/business/outsourcing/orders` | bounded search/list |
+| GET | `/api/business/outsourcing/orders` | bounded search/list; first page adds `statusCounts` |
 | POST | `/api/business/outsourcing/orders` | create pending order |
 | GET | `/api/business/outsourcing/orders/:orderId` | detail |
 | PATCH | `/api/business/outsourcing/orders/:orderId` | update pending order |
@@ -294,7 +296,7 @@ Outsourcing order:
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/api/business/worklogs` | bounded search/list; ordinary users are scoped to self |
+| GET | `/api/business/worklogs` | bounded search/list; ordinary users are scoped to self; first page adds `statusCounts` |
 | POST | `/api/business/worklogs` | create own WorkLog |
 | GET | `/api/business/worklogs/:workLogId` | detail under current access context |
 | PATCH | `/api/business/worklogs/:workLogId` | update own created WorkLog |

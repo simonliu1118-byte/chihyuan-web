@@ -1,3 +1,4 @@
+import { countByStatus } from "../persistence/status-counts";
 import type {
   WorkLogConfiguration,
   WorkLogDetail,
@@ -114,10 +115,6 @@ export class WorkLogRepository {
       where.push("l.employee_id = ?");
       params.push(query.employeeId);
     }
-    if (query.statusCode) {
-      where.push("l.status_code = ?");
-      params.push(query.statusCode);
-    }
     if (query.typeCode?.trim()) {
       where.push("l.type_code = ?");
       params.push(query.typeCode.trim());
@@ -129,6 +126,13 @@ export class WorkLogRepository {
     if (query.dateTo) {
       where.push("l.log_date <= ?");
       params.push(query.dateTo);
+    }
+    // Counts cover the same filters except status; only the first page carries them.
+    const statusCounts = query.cursor ? undefined
+      : await countByStatus<WorkLogStatusCode>(this.db, "FROM work_logs l", "l.status_code", where, params);
+    if (query.statusCode) {
+      where.push("l.status_code = ?");
+      params.push(query.statusCode);
     }
     const cursor = decodeCursor(query.cursor);
     if (query.cursor && cursor == null) return { items: [], nextCursor: null };
@@ -153,7 +157,7 @@ export class WorkLogRepository {
     const hasMore = rows.length > limit;
     const visible = hasMore ? rows.slice(0, limit) : rows;
     const last = visible[visible.length - 1];
-    return { items: visible.map(toSummary), nextCursor: hasMore && last ? encodeCursor(last.id) : null };
+    return { items: visible.map(toSummary), nextCursor: hasMore && last ? encodeCursor(last.id) : null, ...(statusCounts ? { statusCounts } : {}) };
   }
 
   async getDetail(workLogId: number): Promise<WorkLogDetail | null> {

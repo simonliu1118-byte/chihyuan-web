@@ -1,3 +1,4 @@
+import { countByStatus } from "../persistence/status-counts";
 import type {
   ContractorStockBalance,
   OutsourcingDetail,
@@ -69,15 +70,17 @@ export class OutsourcingRepository {
     const where:string[]=[];const params:D1Scalar[]=[];
     const keyword=query.q?.trim()??"";
     if(keyword){const like=`%${escapeLike(keyword)}%`;where.push("(o.outsourcing_ref LIKE ? ESCAPE '\\' OR o.contractor_name_snapshot LIKE ? ESCAPE '\\' OR EXISTS(SELECT 1 FROM outsourcing_order_parts p WHERE p.outsourcing_order_id=o.id AND (p.component_item_no_snapshot LIKE ? ESCAPE '\\' OR p.component_item_name_snapshot LIKE ? ESCAPE '\\' OR p.finished_item_no_snapshot LIKE ? ESCAPE '\\' OR p.finished_item_name_snapshot LIKE ? ESCAPE '\\')))" );params.push(like,like,like,like,like,like)}
-    if(query.statusCode){where.push("o.status_code=?");params.push(query.statusCode)}
     if(query.contractorId!=null&&Number.isInteger(query.contractorId)&&query.contractorId>0){where.push("o.contractor_id=?");params.push(query.contractorId)}
     if(query.orderDateFrom){where.push("o.order_date>=?");params.push(query.orderDateFrom)}
     if(query.orderDateTo){where.push("o.order_date<=?");params.push(query.orderDateTo)}
+    // Counts cover the same filters except status; only the first page carries them.
+    const statusCounts=query.cursor?undefined:await countByStatus<OutsourcingStatusCode>(this.db,"FROM outsourcing_orders o","o.status_code",where,params);
+    if(query.statusCode){where.push("o.status_code=?");params.push(query.statusCode)}
     const cursor=decodeCursor(query.cursor);if(query.cursor&&cursor==null)return{items:[],nextCursor:null};if(cursor!=null){where.push("o.id<?");params.push(cursor)}
     const limit=query.limit!=null&&Number.isInteger(query.limit)&&query.limit>0?Math.min(query.limit,100):30;params.push(limit+1);
     const result=await this.db.prepare(`SELECT o.id,o.outsourcing_ref,o.status_code,o.operator_employee_id,o.contractor_id,o.contractor_name_snapshot,o.order_date,o.outbound_date,o.paid_at,o.voided_at,o.updated_at,o.revision FROM outsourcing_orders o ${where.length?`WHERE ${where.join(" AND ")}`:""} ORDER BY o.id DESC LIMIT ?`).bind(...params).all<OrderRow>();
     const rows=result.results??[];const hasMore=rows.length>limit;const visible=hasMore?rows.slice(0,limit):rows;const last=visible[visible.length-1];
-    return{items:visible.map(toSummary),nextCursor:hasMore&&last?encodeCursor(last.id):null};
+    return{items:visible.map(toSummary),nextCursor:hasMore&&last?encodeCursor(last.id):null,...(statusCounts?{statusCounts}:{})};
   }
 
   async getDetail(orderId:number):Promise<OutsourcingDetail|null>{
