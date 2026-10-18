@@ -1,3 +1,4 @@
+import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
@@ -144,6 +145,9 @@ export function OutsourcingOperationalPage() {
   const [itemQuery, setItemQuery] = useState("");
 
   const [orders, setOrders] = useState<readonly OutsourcingSummary[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(true);
+  // The page appears once its first list page is in; until then only the shared spinner shows.
+  const [listReady, setListReady] = useState(false);
   const [orderQuery, setOrderQuery] = useState("");
   const [orderStatus, setOrderStatus] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
@@ -243,6 +247,7 @@ export function OutsourcingOperationalPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoadingOrders(true);
     const timer = window.setTimeout(() => {
       const listQuery = {
         q: orderQuery.trim() || undefined,
@@ -262,7 +267,8 @@ export function OutsourcingOperationalPage() {
             ));
           }
         })
-        .catch((error) => { if (!cancelled) reportError(errorMessage(error)); });
+        .catch((error) => { if (!cancelled) reportError(errorMessage(error)); })
+        .finally(() => { if (!cancelled) { setLoadingOrders(false); setListReady(true); } });
     }, 160);
     return () => { cancelled = true; window.clearTimeout(timer); };
   }, [orderQuery, orderStatus, refreshEpoch, editing]);
@@ -558,6 +564,8 @@ export function OutsourcingOperationalPage() {
 
   const receiptBoms = boms.filter((row) => row.isActive && row.finishedItemId === receiptItemId);
 
+  if (!listReady) return <Loading />;
+
   return (
     <div className="cy-outsourcing-op">
       {confirmationDialog}
@@ -583,11 +591,11 @@ export function OutsourcingOperationalPage() {
                   <option value="">全部狀態</option>
                   {Object.entries(statusText).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
                 </select>
-                <div className="cy-md-count">{paging.hasMore ? `已載入 ${orders.length} 筆，還有更多` : `共 ${orders.length} 筆`}</div>
+                <div className="cy-md-count">{loadingOrders ? <Loading inline /> : paging.hasMore ? `已載入 ${orders.length} 筆，還有更多` : `共 ${orders.length} 筆`}</div>
               </div>
               <div className="cy-op-list">
                 {orders.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedOrderId === row.id ? "active" : ""}`} aria-current={selectedOrderId === row.id ? "true" : undefined} onClick={async () => { if (editing && !(await discardEditing())) return; setSelectedOrderId(row.id); pane.open(); }}><strong>{row.contractorNameSnapshot}</strong><span><span className="cy-mono">{row.outsourcingRef}</span> · {row.orderDate}</span><small className="cy-flow-status" data-tone={row.statusCode === "pending_outbound" ? "warning" : row.statusCode === "paid" ? "success" : row.statusCode === "voided" ? "danger" : "info"}>{statusText[row.statusCode]}</small></button>)}
-                {orders.length === 0 ? <div className="cy-op-empty">尚無代工單。</div> : null}
+                {orders.length === 0 ? loadingOrders ? <Loading /> : <div className="cy-op-empty">尚無代工單。</div> : null}
                 <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
               </div>
             </section>

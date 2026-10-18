@@ -25,6 +25,9 @@
 - 整體檢視（前後端）另修：六個清單原本只顯示後端第一頁 100 筆、從未使用 nextCursor，超過 100 筆就看不到；新增共用 `useLoadMore`／「載入更多」，切換篩選時丟棄過期頁。
 - 後端審查：API 入口與各路由均經 Identity／Module Access 或管理員角色檢查；寫入要求 JSON content-type、限制 64KiB，Session cookie 為 HttpOnly＋Secure＋SameSite=Strict；ERP 代理憑證以 SHA-256 雜湊保存並固定時間比對；金額數量全用定點整數；更新均帶 revision 檢查。`validate:d1:local` 17 組實際 Worker＋D1 驗收全數通過，未發現需修正的後端缺陷。
 - 使用者同意刪除早期預覽：移除 `src/modules/customer/*`（未被正式頁面使用）、`preview/*` 與 9 支只檢查它們的驗證腳本（皆不在 `validate:source`／CI）。
+- 使用者要求載入一律顯示轉圈：新增共用 `ui/feedback/Loading`（轉圈＋「載入中…」）。切換模組時的權限確認、六個模組首次進入（等第一頁清單讀完才整頁一次顯示）、點選清單讀明細（整個明細區改為轉圈，不再在舊資料上方顯示「更新客戶資料中…」）、設定／帳號／稽核／備份／CY 程式頁的讀取都改用它；清單重新查詢時筆數處顯示小轉圈。按鈕上的「儲存中…」等動作狀態維持不變。
+- 使用者回報 ERP 客戶編號填不回去、找不到「更正」：移除客戶明細的「回填／更正」按鈕與獨立對話框，ERP 客戶編號改在「修改」表單直接填寫；儲存時先存基本資料，編號有變再以既有的編號變更 API（保留稽核與重複檢查）寫入，原因自動帶「ERP 建檔後回填」或「ERP 編號更正」。
+- 使用者要求 CY 程式頁補上 CYERPAutoQuery：新增「SMART ERP 自動查詢工具」，圖示取自 AITeam 中央 `erp-autoquery/AutoQ.svg`（manifest 記錄 hash）；只接受 `cyerp-auto-query-vX.Y.Z` 與 `CYERPAutoQuery_VX.Y.Z.zip`。CYapps 目前尚未發正式版，先顯示「尚未發版」；尚無已確認版本的程式查不到 Release 時維持待發版、不算 `MISSING`，正式發版後每日 03:00 排程自動帶出版本與下載。
 - 已知但本次未處理：`scripts/audit-account-portal.test.mjs` 需外部 cyapps 檢出，本機與 main 皆失敗；備份管理頁版面待備份工作結束後整理。
 - [ ] 使用者驗收、PR CI、授權後合併部署。
 

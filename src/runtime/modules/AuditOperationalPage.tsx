@@ -1,3 +1,4 @@
+import { Loading } from "../../ui/feedback/Loading";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { formatDateTime } from "../../ui/foundation/format";
 import { useEffect, useState, type FormEvent } from "react";
@@ -33,7 +34,7 @@ export function AuditOperationalPage() {
     </form>
     {error ? <div className="cy-op-notice danger" role="alert">{error}</div> : null}
     <section className="cy-op-panel">
-      {loading ? <p className="cy-md-count">讀取稽核紀錄中…</p> : <>
+      {loading ? <Loading /> : <>
         <div className="cy-op-table-wrap"><table className="cy-op-table cy-table-clickable">
           <thead><tr><th>時間</th><th>資料</th><th>動作</th><th>操作者</th></tr></thead>
           <tbody>{events.map(row => <tr key={row.id} tabIndex={0} aria-label={`${row.action} 詳細內容`} onClick={() => setSelected(row)} onKeyDown={e => { if (e.key === "Enter") setSelected(row); }}>

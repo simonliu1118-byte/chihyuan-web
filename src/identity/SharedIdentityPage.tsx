@@ -1,3 +1,4 @@
+import { Loading } from "../ui/feedback/Loading";
 import { enterAdvancesFields, enterAdvancesThenSubmits } from "../ui/foundation/enter-advance";
 import { FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Dialog } from "../ui/overlays/Dialog";
@@ -530,7 +531,7 @@ function ModuleAccessPanel({ snapshot, session }: {
           })}
         </tr>;
       })}</tbody>
-    </table></div> : <p>{message ? "模組使用權尚未載入。" : "正在讀取模組使用權…"}</p>}
+    </table></div> : message ? <p>模組使用權尚未載入。</p> : <Loading />}
     <p className="cy-identity-subtext">模組權限與 Workspace Role、CYID App Access 是獨立維度；Role 升降不會自動重算這張表。Super Admin 全模組固定允許。</p>
   </section>;
 }
@@ -564,7 +565,7 @@ function SecurityPanel() {
       <label>同 Email／用途每小時上限<input className="cy-op-input" type="number" min={1} max={20} value={view.policy.otpMaxSentPerEmailPurposeHour} onChange={(e) => setView({ ...view, policy: { ...view.policy, otpMaxSentPerEmailPurposeHour: Number(e.target.value) } })} /></label>
       <label>每日 Email 上限<input className="cy-op-input" type="number" min={1} max={view.systemEmailDailyCeiling} value={view.policy.emailDailyLimit} onChange={(e) => setView({ ...view, policy: { ...view.policy, emailDailyLimit: Number(e.target.value) } })} /><small>系統上限：{view.systemEmailDailyCeiling}</small></label>
       <div className="cy-op-form-footer wide"><button className="cy-op-button primary" disabled={busy}>儲存 OTP 設定</button></div>
-    </form> : <p>讀取中…</p>}
+    </form> : <Loading />}
   </section>;
 }
 
@@ -597,7 +598,7 @@ export function SharedIdentityPage({ session }: { session: AuthSession }) {
         {canManageAccess ? <ModuleAccessPanel snapshot={snapshot} session={session} /> : null}
         {session.user.workspaceRole === "SUPER_ADMIN" ? <SecurityPanel /> : null}
         {session.user.workspaceRole === "SUPER_ADMIN" ? <CyInvoiceRecoveryAdminPanel key={JSON.stringify([session.user.workspaceId, session.user.employeeId, session.user.workspaceRole, session.user.emailVerified, session.user.isWorkspaceSuperAdmin])} session={session} /> : null}
-      </div> : <section className="cy-op-panel"><p>{loading ? "正在讀取 Identity 資料…" : "尚未取得 Identity 管理資料。"}</p></section>}
+      </div> : <section className="cy-op-panel">{loading ? <Loading /> : <p>尚未取得帳號管理資料。</p>}</section>}
     </> : null}
   </div>;
 }

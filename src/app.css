@@ -381,6 +381,14 @@ h1, h2, h3, h4, h5 { line-height: 1.35; }
 .cy-op-read-row small { color: var(--cy-text-muted); }
 .cy-op-empty { padding: 32px 16px; text-align: center; color: var(--cy-text-muted); }
 
+/* Shared loading state (ui/feedback/Loading.tsx): one spinner for every wait. */
+.cy-loading { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 160px; padding: 32px 16px; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
+.cy-loading.inline { min-height: 0; padding: 0; justify-content: flex-start; gap: 6px; font-size: inherit; }
+.cy-loading-spinner { width: 20px; height: 20px; flex: none; border: 2px solid var(--cy-border-strong); border-top-color: var(--cy-accent); border-radius: 50%; animation: cy-spin 0.8s linear infinite; }
+.cy-loading.inline .cy-loading-spinner { width: 12px; height: 12px; }
+@keyframes cy-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .cy-loading-spinner { animation-duration: 2.4s; } }
+
 /* Detail values: label above value, three columns on wide panes. */
 .cy-op-detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px 20px; }
 .cy-op-detail-grid > div { display: grid; gap: 2px; min-width: 0; }

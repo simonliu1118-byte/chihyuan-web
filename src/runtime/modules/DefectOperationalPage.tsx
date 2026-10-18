@@ -1,3 +1,4 @@
+import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
@@ -128,6 +129,8 @@ export function DefectOperationalPage() {
     title: "放棄尚未儲存的修改", description, confirmLabel: "放棄修改", cancelLabel: "繼續編輯", confirmTone: "danger",
   }))).allowed;
   const [loadingList, setLoadingList] = useState(true);
+  // The page appears once its first list page is in; until then only the shared spinner shows.
+  const [listReady, setListReady] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
   const paging = useLoadMore(searchDefects, setRows, (error) => reportError(errorMessage(error)));
@@ -160,7 +163,7 @@ export function DefectOperationalPage() {
           if (!cancelled) reportError(errorMessage(error));
         })
         .finally(() => {
-          if (!cancelled) setLoadingList(false);
+          if (!cancelled) { setLoadingList(false); setListReady(true); }
         });
     }, 180);
     return () => {
@@ -409,6 +412,8 @@ export function DefectOperationalPage() {
     return employeeNo ?? `Employee #${id}`;
   }
 
+  if (!listReady) return <Loading />;
+
   return (
     <div className="cy-defect-op">
       {confirmationDialog}
@@ -437,7 +442,7 @@ export function DefectOperationalPage() {
             {rows.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-defect-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={() => void selectDefect(row.id)}><strong>{row.customerNameSnapshot}</strong><span>#{row.id} · {row.itemNoSnapshot} {row.itemNameSnapshot}</span><small className={`cy-defect-status ${row.invalidatedAt ? "invalid" : row.statusCode}`}>{row.invalidatedAt ? "已作廢" : statusText[row.statusCode]}</small></button>)}
             {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的瑕疵紀錄。</div> : null}
             <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
-            {loadingList ? <div className="cy-op-empty">讀取瑕疵資料中…</div> : null}
+            {loadingList ? <Loading /> : null}
           </div>
         </section>
 
@@ -477,7 +482,7 @@ export function DefectOperationalPage() {
 
               <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立瑕疵" : "儲存修改"}</button></div>
             </form>
-          ) : selected ? (
+          ) : loadingDetail ? <Loading /> : selected ? (
             <div>
               <div className="cy-record-header">
                 <div><h2>{selected.customerNameSnapshot}</h2><p>瑕疵 #{selected.id} · 回報 {selected.reportedDate}</p></div>
@@ -501,7 +506,6 @@ export function DefectOperationalPage() {
               </div>
 
               <div className="cy-defect-body">
-                {loadingDetail ? <p>更新瑕疵資料中…</p> : null}
                 <div className="cy-op-detail-grid">
                   <div><span>回報日期</span><strong>{selected.reportedDate}</strong></div>
                   <div><span>負責人</span><strong>{ownerLabel(selected.ownerEmployee.id, selected.ownerEmployee.employeeNo)}</strong></div>
@@ -514,7 +518,7 @@ export function DefectOperationalPage() {
 
               </div>
             </div>
-          ) : loadingDetail ? <div className="cy-op-empty">讀取瑕疵資料中…</div> : <MasterDetailEmpty title="尚未選擇瑕疵紀錄" hint="從左側清單選一筆，或按右上角「新增瑕疵」。" />}
+          ) : <MasterDetailEmpty title="尚未選擇瑕疵紀錄" hint="從左側清單選一筆，或按右上角「新增瑕疵」。" />}
         </section>
       </div>
     </div>

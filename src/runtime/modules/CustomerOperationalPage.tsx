@@ -1,11 +1,11 @@
-import { enterAdvancesFields, enterAdvancesThenSubmits } from "../../ui/foundation/enter-advance";
+import { Loading } from "../../ui/feedback/Loading";
+import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
-import { FormEvent, useEffect, useId, useMemo, useState } from "react";
-import { Dialog } from "../../ui/overlays/Dialog";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import type { CustomerItemOption, CustomerModuleLookups } from "../../../shared/business-lookups";
@@ -270,6 +270,8 @@ export function CustomerOperationalPage() {
   const [frequentText, setFrequentText] = useState("");
   const [busy, setBusy] = useState(false);
   const [loadingList, setLoadingList] = useState(true);
+  // The page appears once its first list page is in; until then only the shared spinner shows.
+  const [listReady, setListReady] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
   const paging = useLoadMore(searchCustomers, setRows, (error) => reportError(errorMessage(error)));
@@ -281,10 +283,6 @@ export function CustomerOperationalPage() {
   const canLeave = async () => (await unsavedGuard.confirmNavigationAsync(description => confirm({
     title: "放棄尚未儲存的修改", description, confirmLabel: "放棄修改", confirmTone: "danger",
   }))).allowed;
-  const [numberDraft, setNumberDraft] = useState<{ record: CustomerDetail; number: string; reason: string } | null>(null);
-  const numberFormId = useId();
-  const numberGuard = useUnsavedChangesGuard({ active: !!numberDraft &&
-    (numberDraft.number !== (numberDraft.record.customerNo ?? "") || numberDraft.reason !== (numberDraft.record.customerNo ? "ERP 編號更正" : "ERP 建檔後回填")) });
   async function backToList() {
     if (editing) {
       if (busy || !(await canLeave())) return;
@@ -293,12 +291,6 @@ export function CustomerOperationalPage() {
       setDraft(null);
     }
     pane.close();
-  }
-
-  async function closeNumber() {
-    if (busy) return;
-    if ((await numberGuard.confirmNavigationAsync(description => confirm({ title: "放棄客戶編號修改", description,
-      confirmLabel: "放棄修改", confirmTone: "danger" }))).allowed) setNumberDraft(null);
   }
 
   useEffect(() => {
@@ -346,7 +338,7 @@ export function CustomerOperationalPage() {
           if (!cancelled) reportError(errorMessage(error));
         })
         .finally(() => {
-          if (!cancelled) setLoadingList(false);
+          if (!cancelled) { setLoadingList(false); setListReady(true); }
         });
     }, 180);
     return () => {
@@ -466,51 +458,25 @@ export function CustomerOperationalPage() {
 
       const customerNo = creating ? draft.customerNo.trim() || null : selected?.customerNo ?? null;
       const profile = profileFromDraft(draft, customerNo, confirmDuplicateTaxId);
-      const saved = creating
+      let saved = creating
         ? await createCustomer(profile)
         : selected
           ? await updateCustomer(selected.id, { ...profile, expectedRevision: selected.revision })
           : null;
       if (!saved) return;
+      // The ERP number has its own audited change; it follows the profile save with the new revision.
+      const nextCustomerNo = draft.customerNo.trim() || null;
+      if (!creating && nextCustomerNo !== saved.customerNo) {
+        setSelected(saved);
+        saved = await changeCustomerNumber(saved.id, { newCustomerNo: nextCustomerNo, expectedRevision: saved.revision,
+          changeReason: saved.customerNo ? "ERP 編號更正" : "ERP 建檔後回填" });
+      }
       setSelectedId(saved.id);
       setSelected(saved);
       setEditing(false);
       setCreating(false);
       setDraft(null);
       setMessage(creating ? "客戶已新增。" : "客戶已儲存。");
-      setRefreshEpoch((value) => value + 1);
-    } catch (error) {
-      reportError(errorMessage(error));
-      if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function setCustomerNumber() {
-    if (!selected || busy) return;
-    setMessage(null);
-    setNumberDraft({ record: selected, number: selected.customerNo ?? "", reason: selected.customerNo ? "ERP 編號更正" : "ERP 建檔後回填" });
-  }
-
-  async function saveCustomerNumber(event: FormEvent) {
-    event.preventDefault();
-    if (!numberDraft || busy) return;
-    const { record, number, reason } = numberDraft;
-    const next = number.trim() || null;
-    if (next === record.customerNo) { setNumberDraft(null); return; }
-
-    setBusy(true);
-    setMessage(null);
-    try {
-      const saved = await changeCustomerNumber(record.id, {
-        newCustomerNo: next,
-        expectedRevision: record.revision,
-        changeReason: reason.trim() || null,
-      });
-      setSelected(saved);
-      setNumberDraft(null);
-      setMessage("ERP 客戶編號已更新。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
       reportError(errorMessage(error));
@@ -722,18 +688,11 @@ export function CustomerOperationalPage() {
     }
   }
 
+  if (!listReady) return <Loading />;
+
   return (
     <div className="cy-customer-op">
       {confirmationDialog}
-      {numberDraft ? <Dialog open title="ERP 客戶編號" size="small" dismissible={!busy} onClose={() => void closeNumber()}
-        description="輸入 ERP 客戶編號；留空代表清除目前編號。"
-        footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void closeNumber()}>取消</button><button type="submit" form={numberFormId} className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : "儲存"}</button></div>}>
-        <form onKeyDown={enterAdvancesThenSubmits} id={numberFormId} className="cy-op-form-grid" onSubmit={event => void saveCustomerNumber(event)}>
-          <label className="wide">ERP 客戶編號<input className="cy-op-input" disabled={busy} value={numberDraft.number} onChange={event => setNumberDraft({ ...numberDraft, number: event.target.value })} /></label>
-          <label className="wide">指派／更正原因<textarea className="cy-op-input" disabled={busy} value={numberDraft.reason} onChange={event => setNumberDraft({ ...numberDraft, reason: event.target.value })} /></label>
-          {message ? <p role="alert">{message}</p> : null}
-        </form>
-      </Dialog> : null}
       <PagePrimaryActions>
         <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增客戶</button>
       </PagePrimaryActions>
@@ -761,7 +720,7 @@ export function CustomerOperationalPage() {
                 {statuses.map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}
               </select>
             </div>
-            <div className="cy-md-count">{loadingList ? "讀取客戶中…" : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
+            <div className="cy-md-count">{loadingList ? <Loading inline /> : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
           </div>
 
           <div className="cy-op-list cy-customer-result-list">
@@ -780,6 +739,7 @@ export function CustomerOperationalPage() {
                 <span className={`cy-status-chip ${customer.status ? "cy-status-chip-success" : ""}`}>{customer.status?.name ?? "未設定"}</span>
               </button>
             ))}
+            {loadingList && rows.length === 0 ? <Loading /> : null}
             {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的客戶。</div> : null}
             <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
           </div>
@@ -792,7 +752,7 @@ export function CustomerOperationalPage() {
               <div className="cy-record-header">
                 <div>
                   <h2>{creating ? "新增客戶" : `修改 ${selected?.shortName ?? "客戶"}`}</h2>
-                  <p>{creating ? "ERP 客戶編號可先留空，建檔後再回填。" : "ERP 客戶編號請用基本資料中的「更正」修改。"}</p>
+                  <p>ERP 客戶編號可先留空，之後在「修改」補填。</p>
                 </div>
               </div>
 
@@ -800,7 +760,7 @@ export function CustomerOperationalPage() {
                 <div className="cy-op-form-grid">
                   <label>客戶名稱／簡稱<input className="cy-op-input" value={draft.shortName} disabled={busy} onChange={(e) => patchDraft({ shortName: e.target.value })} required /></label>
                   <label>完整名稱<input className="cy-op-input" value={draft.fullName} disabled={busy} onChange={(e) => patchDraft({ fullName: e.target.value })} /></label>
-                  <label>ERP 客戶編號<input className="cy-op-input" value={creating ? draft.customerNo : selected?.customerNo ?? ""} disabled={!creating || busy} onChange={(e) => creating && patchDraft({ customerNo: e.target.value })} placeholder="可稍後回填" /></label>
+                  <label>ERP 客戶編號<input className="cy-op-input" value={draft.customerNo} disabled={busy} onChange={(e) => patchDraft({ customerNo: e.target.value })} placeholder="可稍後補填" /></label>
                   <label>統編<input className="cy-op-input" inputMode="numeric" value={draft.taxId} disabled={busy} onChange={(e) => patchDraft({ taxId: e.target.value })} /></label>
                   <label>地區<select className="cy-op-input" value={draft.regionId ?? ""} disabled={busy} onChange={(e) => patchDraft({ regionId: e.target.value ? Number(e.target.value) : null })}><option value="">未設定</option>{regions.filter((row) => row.isActive || row.id === draft.regionId).map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}</select></label>
                   <label>分類<select className="cy-op-input" value={draft.customerCategoryId ?? ""} disabled={busy} onChange={(e) => patchDraft({ customerCategoryId: e.target.value ? Number(e.target.value) : null })}><option value="">未分類</option>{categories.filter((row) => row.isActive || row.id === draft.customerCategoryId).map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}</select></label>
@@ -830,7 +790,7 @@ export function CustomerOperationalPage() {
                 <button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立客戶" : "儲存修改"}</button>
               </div>
             </form>
-          ) : selected ? (
+          ) : loadingDetail ? <Loading /> : selected ? (
             <div>
               <div className="cy-record-header">
                 <div>
@@ -843,7 +803,6 @@ export function CustomerOperationalPage() {
                 </div>
               </div>
 
-              {loadingDetail ? <p className="cy-customer-muted" role="status">更新客戶資料中…</p> : null}
               {selected.notes.length ? <div className="cy-customer-alert" role="note">
                 <strong>重要備註</strong>
                 {selected.notes.map((row) => <p key={row.id}>{row.content}</p>)}
@@ -858,7 +817,7 @@ export function CustomerOperationalPage() {
                   <Info label="傳真" value={selected.fax} mono />
                   <div className="cy-customer-info">
                     <dt>ERP 客戶編號</dt>
-                    <dd><span className="cy-mono">{selected.customerNo || "—"}</span> <button type="button" className="cy-op-button compact quiet" disabled={busy} onClick={() => void setCustomerNumber()}>{selected.customerNo ? "更正" : "回填"}</button></dd>
+                    <dd><span className="cy-mono">{selected.customerNo || "—"}</span></dd>
                   </div>
                 </dl>
                 <div className="cy-customer-contact-grid">
@@ -887,7 +846,7 @@ export function CustomerOperationalPage() {
                 {relatedTab === "activity" ? <div className="cy-customer-related-content"><p className="cy-customer-muted">重要異動都保存在稽核紀錄；管理員可在「稽核紀錄」依客戶與操作類型查詢。</p></div> : null}
               </section>
             </div>
-          ) : loadingDetail ? <div className="cy-op-empty">讀取客戶資料中…</div> : <MasterDetailEmpty title="尚未選擇客戶" hint="從左側清單選一位客戶，或按右上角「新增客戶」。" />}
+          ) : <MasterDetailEmpty title="尚未選擇客戶" hint="從左側清單選一位客戶，或按右上角「新增客戶」。" />}
         </section>
       </div>
     </div>

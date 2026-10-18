@@ -1,3 +1,4 @@
+import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields, enterAdvancesThenSubmits } from "../../ui/foundation/enter-advance";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
@@ -148,6 +149,8 @@ export function WorkLogOperationalPage() {
   const [draft, setDraft] = useState<WorkLogDraft | null>(null);
   const [busy, setBusy] = useState(false);
   const [loadingList, setLoadingList] = useState(true);
+  // The page appears once its first list page is in; until then only the shared spinner shows.
+  const [listReady, setListReady] = useState(false);
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
   const paging = useLoadMore(searchWorkLogs, setRows, (error) => reportError(errorMessage(error)));
   const [refreshEpoch, setRefreshEpoch] = useState(0);
@@ -221,7 +224,7 @@ export function WorkLogOperationalPage() {
           if (!cancelled) reportError(errorMessage(error));
         })
         .finally(() => {
-          if (!cancelled) setLoadingList(false);
+          if (!cancelled) { setLoadingList(false); setListReady(true); }
         });
     }, 180);
     return () => {
@@ -499,6 +502,8 @@ export function WorkLogOperationalPage() {
     return platformById.get(platformId)?.name ?? `Platform #${platformId}`;
   }
 
+  if (!listReady) return <Loading />;
+
   return (
     <div className="cy-worklog-op">
       {confirmationDialog}
@@ -571,10 +576,11 @@ export function WorkLogOperationalPage() {
               <option value="">全部狀態</option>
               {Object.entries(statusText).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
             </select>
-            <div className="cy-md-count">{loadingList ? "讀取工作日誌中…" : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
+            <div className="cy-md-count">{loadingList ? <Loading inline /> : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
           </div>
           <div className="cy-op-list">
             {rows.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={async () => { if (!busy && await canLeave()) { setEditing(false); setCreating(false); setDraft(null); setSelectedId(row.id); pane.open(); } }}><strong>{row.logDate} · {row.workDays} 日</strong><span><span className="cy-mono">{row.workLogRef}</span> · 員工 #{row.employeeId}</span><small className="cy-flow-status" data-tone={statusTone[row.statusCode]}>{statusText[row.statusCode]}</small></button>)}
+            {loadingList && rows.length === 0 ? <Loading /> : null}
             {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的工作日誌。</div> : null}
             <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
           </div>

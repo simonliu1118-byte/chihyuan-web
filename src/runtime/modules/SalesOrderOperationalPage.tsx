@@ -1,3 +1,4 @@
+import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
@@ -176,6 +177,8 @@ export function SalesOrderOperationalPage() {
     title: "放棄尚未儲存的修改", description, confirmLabel: "放棄修改", cancelLabel: "繼續編輯", confirmTone: "danger",
   }))).allowed;
   const [loadingList, setLoadingList] = useState(true);
+  // The page appears once its first list page is in; until then only the shared spinner shows.
+  const [listReady, setListReady] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
   const paging = useLoadMore(searchSalesOrders, setRows, (error) => reportError(errorMessage(error)));
@@ -207,7 +210,7 @@ export function SalesOrderOperationalPage() {
           if (!cancelled) reportError(errorMessage(error));
         })
         .finally(() => {
-          if (!cancelled) setLoadingList(false);
+          if (!cancelled) { setLoadingList(false); setListReady(true); }
         });
     }, 180);
     return () => {
@@ -499,6 +502,8 @@ export function SalesOrderOperationalPage() {
     return employeeNo ?? `Employee #${id}`;
   }
 
+  if (!listReady) return <Loading />;
+
   return (
     <div className="cy-order-op">
       {confirmationDialog}
@@ -517,7 +522,7 @@ export function SalesOrderOperationalPage() {
               <option value="">全部狀態</option>
               {Object.entries(statusText).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
             </select>
-            <div className="cy-md-count">{loadingList ? "讀取工單中…" : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
+            <div className="cy-md-count">{loadingList ? <Loading inline /> : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
           </div>
           <div className="cy-op-list">
             {rows.map((row) => (
@@ -527,6 +532,7 @@ export function SalesOrderOperationalPage() {
                 <small className="cy-flow-status" data-tone={orderTone[row.statusCode]}>{statusText[row.statusCode]}</small>
               </button>
             ))}
+            {loadingList && rows.length === 0 ? <Loading /> : null}
             {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的工單。</div> : null}
             <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
           </div>
@@ -599,7 +605,7 @@ export function SalesOrderOperationalPage() {
 
               <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : creating ? "建立工單" : "儲存修改"}</button></div>
             </form>
-          ) : selected ? (
+          ) : loadingDetail ? <Loading /> : selected ? (
             <div>
               <div className="cy-record-header">
                 <div><h2>{selected.customerNameSnapshot}</h2><p><span className="cy-mono">{selected.workOrderRef}</span>{selected.erpNo ? <> · ERP <span className="cy-mono">{selected.erpNo}</span></> : null} · {selected.orderDate}</p></div>
@@ -621,7 +627,6 @@ export function SalesOrderOperationalPage() {
                 </div>
               </div>
               <OrderProgress status={selected.statusCode} />
-              {loadingDetail ? <p>更新工單資料中…</p> : null}
               <div className="cy-op-detail-grid">
                 <div><span>ERP 單號</span><strong>{selected.erpNo ?? "尚未回填"}</strong></div>
                 <div><span>ERP 客戶編號</span><strong>{selected.customerNoSnapshot ?? "—"}</strong></div>
@@ -641,7 +646,7 @@ export function SalesOrderOperationalPage() {
               </div>
 
             </div>
-          ) : loadingDetail ? <div className="cy-op-empty">讀取工單資料中…</div> : <MasterDetailEmpty title="尚未選擇工單" hint="從左側清單選一張工單，或按右上角「新增工單」。" />}
+          ) : <MasterDetailEmpty title="尚未選擇工單" hint="從左側清單選一張工單，或按右上角「新增工單」。" />}
         </section>
       </div>
     </div>

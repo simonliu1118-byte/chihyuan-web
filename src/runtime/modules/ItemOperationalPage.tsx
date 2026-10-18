@@ -1,3 +1,4 @@
+import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
@@ -201,6 +202,8 @@ export function ItemOperationalPage() {
     title: "放棄尚未儲存的修改", description, confirmLabel: "放棄修改", cancelLabel: "繼續編輯", confirmTone: "danger",
   }))).allowed;
   const [loadingList, setLoadingList] = useState(true);
+  // The page appears once its first list page is in; until then only the shared spinner shows.
+  const [listReady, setListReady] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
   const paging = useLoadMore(searchItems, setRows, (error) => reportError(errorMessage(error)));
@@ -249,7 +252,7 @@ export function ItemOperationalPage() {
           if (!cancelled) reportError(errorMessage(error));
         })
         .finally(() => {
-          if (!cancelled) setLoadingList(false);
+          if (!cancelled) { setLoadingList(false); setListReady(true); }
         });
     }, 180);
 
@@ -463,6 +466,8 @@ export function ItemOperationalPage() {
     }
   }
 
+  if (!listReady) return <Loading />;
+
   return <div className="cy-item-op">
     {confirmationDialog}
     {promptDialog}
@@ -485,7 +490,7 @@ export function ItemOperationalPage() {
               <option value="inactive">已停用</option>
             </select>
           </div>
-          <div className="cy-md-count">{loadingList ? "讀取商品中…" : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
+          <div className="cy-md-count">{loadingList ? <Loading inline /> : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
         </div>
         <div className="cy-op-list">
           {rows.map((row) => (
@@ -495,6 +500,7 @@ export function ItemOperationalPage() {
               {row.isActive ? <small>{categoryName(row)}</small> : <small className="cy-status-chip">已停用</small>}
             </button>
           ))}
+          {loadingList && rows.length === 0 ? <Loading /> : null}
           {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的商品。</div> : null}
           <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
         </div>
@@ -550,7 +556,7 @@ export function ItemOperationalPage() {
             </div>
           </form>
         ) : loadingDetail ? (
-          <div className="cy-op-empty">正在讀取商品明細…</div>
+          <Loading />
         ) : selected ? (
           <div>
             <div className="cy-record-header">
