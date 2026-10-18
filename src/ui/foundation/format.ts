@@ -29,3 +29,8 @@ export function formatDateTime(value: string | number | Date | null | undefined)
   const p = parts(taipeiDateTime, date);
   return `${p.year}/${p.month}/${p.day} ${p.hour}:${p.minute}`;
 }
+
+/** Shared display-only member label. CYID remains the source of identity and names. */
+export function formatPerson(person: { displayName?: string | null; employeeNo?: string | null } | null | undefined): string {
+  return person?.displayName?.trim() || person?.employeeNo?.trim() || "使用者";
+}
