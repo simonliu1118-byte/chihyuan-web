@@ -735,6 +735,18 @@ export function CustomerOperationalPage() {
   return (
     <div className="cy-customer-op">
       {confirmationDialog}
+      {selected && relatedView ? <Dialog open size="large"
+        title={`${relatedView === "visits" ? "拜訪紀錄" : relatedView === "quotes" ? "報價紀錄" : "常用商品"} — ${selected.shortName}`}
+        onClose={() => void closeRelated()}>
+        {relatedView === "visits" ? <VisitsPanel selected={selected} rows={visits} draft={visitDraft} setDraft={setVisitDraft}
+          save={saveVisit} edit={editVisit} remove={removeVisit} busy={busy} /> : null}
+        {relatedView === "quotes" ? <QuotesPanel items={itemOptions} rows={quotes} draft={quoteDraft} setDraft={setQuoteDraft}
+          startNew={startQuote} save={saveQuote} correct={startQuoteCorrection} busy={busy} /> : null}
+        {relatedView === "frequent" ? <FrequentPanel items={itemOptions} rows={frequentItems} itemId={frequentItemId}
+          setItemId={setFrequentItemId} freeText={frequentText} setFreeText={setFrequentText}
+          add={addFrequentItem} remove={removeFrequent} busy={busy} /> : null}
+      </Dialog> : null}
+
       
       <FeedbackBanner message={message} tone={messageTone} />
 
@@ -875,15 +887,19 @@ export function CustomerOperationalPage() {
                 </div>
               </section>
 
-              <section className="cy-customer-related">
-                <div className="cy-op-tabs" role="tablist" aria-label="客戶相關紀錄">
-                  {(["visits", "quotes", "frequent", "activity"] as RelatedTab[]).map((tab) => <button key={tab} type="button" role="tab" aria-selected={relatedTab === tab} className={relatedTab === tab ? "active" : ""} onClick={() => { setRelatedTab(tab); setVisitDraft(null); setQuoteDraft(null); }}>{tab === "visits" ? `拜訪紀錄${visits.length ? ` ${visits.length}` : ""}` : tab === "quotes" ? `報價紀錄${quotes.length ? ` ${quotes.length}` : ""}` : tab === "frequent" ? "常用商品" : "動態"}</button>)}
-                </div>
-
-                {relatedTab === "visits" ? <VisitsPanel selected={selected} rows={visits} draft={visitDraft} setDraft={setVisitDraft} save={saveVisit} edit={editVisit} remove={removeVisit} busy={busy} /> : null}
-                {relatedTab === "quotes" ? <QuotesPanel items={itemOptions} rows={quotes} draft={quoteDraft} setDraft={setQuoteDraft} startNew={startQuote} save={saveQuote} correct={startQuoteCorrection} busy={busy} /> : null}
-                {relatedTab === "frequent" ? <FrequentPanel items={itemOptions} rows={frequentItems} itemId={frequentItemId} setItemId={setFrequentItemId} freeText={frequentText} setFreeText={setFrequentText} add={addFrequentItem} remove={removeFrequent} busy={busy} /> : null}
-                {relatedTab === "activity" ? <div className="cy-customer-related-content"><p className="cy-customer-muted">重要異動都保存在稽核紀錄；管理員可在「稽核紀錄」依客戶與操作類型查詢。</p></div> : null}
+              <section className="cy-customer-cards" aria-label="客戶相關紀錄">
+                <RelatedCard title="拜訪紀錄" count={visits.length} empty="尚無拜訪紀錄。"
+                  onView={() => openRelated("visits")} onAdd={() => openRelated("visits", true)}
+                  rows={[...visits].sort((a, b) => b.visitDate.localeCompare(a.visitDate)).slice(0, 3).map(row =>
+                    <span key={row.id} title={row.content ?? ""}>{formatDate(row.visitDate)} · {row.personSnapshot || selected.contacts.find(c => c.id === row.contactId)?.name || "未指定對象"} · {row.content?.split("\n")[0] || "—"}</span>)} />
+                <RelatedCard title="報價紀錄" count={quotes.length} empty="尚無報價紀錄。"
+                  onView={() => openRelated("quotes")} onAdd={() => openRelated("quotes", true)}
+                  rows={[...quotes].sort((a, b) => b.quoteDate.localeCompare(a.quoteDate)).slice(0, 3).map(row =>
+                    <span key={row.id}>{formatDate(row.quoteDate)} · {row.itemNoSnapshot} {row.itemNameSnapshot}</span>)} />
+                <RelatedCard title="常用商品" count={frequentItems.length} empty="尚無常用商品。"
+                  onView={() => openRelated("frequent")} onAdd={() => openRelated("frequent", true)}
+                  rows={[...frequentItems].sort((a,b) => a.sortOrder-b.sortOrder).slice(0,3).map(row =>
+                    <span key={row.id}>{row.item ? `${row.item.itemNo} · ${row.item.name}` : row.customItemName || "未命名品項"}</span>)} />
               </section>
             </div>
           ) : <MasterDetailEmpty title="尚未選擇客戶" hint="從左側清單選一位客戶，或按清單上方的「＋ 新增客戶」。" />}
@@ -891,6 +907,24 @@ export function CustomerOperationalPage() {
       </div>
     </div>
   );
+}
+
+
+function RelatedCard({ title, count, empty, rows, onAdd, onView }: {
+  title: string; count: number; empty: string; rows: readonly React.ReactNode[];
+  onAdd: () => void; onView: () => void;
+}) {
+  return <article className="cy-op-panel cy-customer-related-card">
+    <header className="cy-customer-related-card-header">
+      <h3>{title} <span className="cy-customer-card-count">{count}</span></h3>
+      <button className="cy-op-button compact" type="button" onClick={onAdd}>＋ 新增</button>
+    </header>
+    <div className="cy-customer-related-card-rows">
+      {rows.length ? rows.map((row, index) => <div key={index} className="cy-customer-card-row">{row}</div>)
+        : <p className="cy-customer-muted">{empty}</p>}
+    </div>
+    <button className="cy-customer-card-view-all" type="button" onClick={onView}>查看全部（{count}）›</button>
+  </article>;
 }
 
 function EditableRows({ title, hint, addLabel, onAdd, empty, busy, children }: { title: string; hint?: string; addLabel: string; onAdd: () => void; empty: boolean; busy: boolean; children: React.ReactNode }) {
