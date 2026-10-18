@@ -125,6 +125,11 @@ def validate_schema_shape(schema: str) -> None:
     unexpected = tables - EXPECTED_TABLES
     if missing or unexpected:
         raise AssertionError(f"table-set mismatch; missing={sorted(missing)}, unexpected={sorted(unexpected)}")
+    assert "display_name" in {row[1] for row in conn.execute("PRAGMA table_info(app_members)")}
+    # cache is nullable but cannot be blank or exceed 120 Unicode characters
+    conn.execute("UPDATE app_members SET display_name='測試人員' WHERE id=1")
+    assert conn.execute("SELECT display_name FROM app_members WHERE id=1").fetchone()[0] == "測試人員"
+    assert_integrity_error(conn, "UPDATE app_members SET display_name='' WHERE id=1")
     source = (ROOT / "worker/backup/schema-columns.ts").read_text()
     declared = json.loads(source.split(" = ", 1)[1].rstrip().removesuffix(";"))
     actual = {table: sorted(row[1] for row in conn.execute(f'PRAGMA table_info("{table}")'))
