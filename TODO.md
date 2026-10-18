@@ -20,7 +20,8 @@
   - 「人員」總表與個人抽屜有「權限群組」下拉（個人設定／群組，加入前確認）；群組成員整列鎖定並註明由哪個群組設定。「從某人複製使用權」：來源在群組就加入同群組，否則先移出群組再複製個人設定。
   - 系統使用權存在 CYID，無法和 D1 一起寫入：Worker 寫完 D1 後逐人同步到 CYID，只改不同的格；失敗或在 CY Web 以外被改動的成員，群組頁顯示黃色提示並可「重新套用」。
   - 後端：migration `0015_module_access_groups.sql` 四張表；模組變更在同一個 D1 batch 改寫成員的 `app_member_module_access`，執行期授權不變；個人模組 API 與系統使用權代理對群組成員回 409 `MODULE_ACCESS_GROUP_MANAGED`；revision 樂觀鎖與稽核事件。`validate:d1:local` 的 `moduleAccessGroups` 驗收涵蓋 CYID 同步、失敗回報與重新套用。
-- [ ] PR #202 CI、合併與部署（含正式 D1 migration 0015）；使用者實機驗收。
+- [x] PR #202 CI 全綠後合併 `deaffa6`，CY Web Deploy #248（run 39137792479）以同一 commit 部署成功，含「Apply development D1 migrations」（0015）。
+- [ ] 使用者實機驗收。
 
 ## 待辦：介面外框與使用說明（使用者 2026-10-18 確認方向）
 
