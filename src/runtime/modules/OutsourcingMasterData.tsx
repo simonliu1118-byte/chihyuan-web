@@ -12,6 +12,7 @@ import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../
 import { Dialog } from "../../ui/overlays/Dialog";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { EntityPicker } from "../../ui/pickers/EntityPicker";
+import { StatusChip } from "../../ui/primitives/StatusChip";
 import { PagePrimaryActions } from "../../ui/shell/PagePrimaryActions";
 
 export function outsourcingErrorMessage(error: unknown): string {
@@ -223,7 +224,7 @@ export function ContractorWorkspace({ contractors, onChanged, onEditingChange, n
             <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立代工對象" : "儲存修改"}</button></div>
         </form> : loadingDetail ? <Loading /> : detail ? <div>
           <div className="cy-record-header"><div><h2>{detail.displayName}</h2><p>{[detail.legalName, detail.entityType === "person" ? "個人" : "公司／工廠"].filter(Boolean).join(" · ")}</p></div>
-            <div className="cy-record-actions"><span className={`cy-status-chip ${detail.isActive ? "cy-status-chip-success" : ""}`}>{detail.isActive ? "使用中" : "停用"}</span>
+            <div className="cy-record-actions"><StatusChip tone={detail.isActive ? "success" : "neutral"}>{detail.isActive ? "使用中" : "停用"}</StatusChip>
               <button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button></div></div>
           <div className="cy-op-detail-grid">
             <div><span>統編</span><strong>{detail.taxId ?? "—"}</strong></div>
@@ -365,7 +366,7 @@ export function BomWorkspace({ boms, onChanged, onEditingChange, notify, reportE
             <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立 BOM" : "儲存修改"}</button></div>
         </form> : loadingDetail ? <Loading /> : detail ? <div>
           <div className="cy-record-header"><div><h2>{detail.finishedItemName}</h2><p><span className="cy-mono">{detail.recipeRef}</span> · {detail.finishedItemNo}</p></div>
-            <div className="cy-record-actions"><span className={`cy-status-chip ${detail.isActive ? "cy-status-chip-success" : ""}`}>{detail.isActive ? "使用中" : "停用"}</span>
+            <div className="cy-record-actions"><StatusChip tone={detail.isActive ? "success" : "neutral"}>{detail.isActive ? "使用中" : "停用"}</StatusChip>
               <button type="button" className="cy-op-button" disabled={busy} aria-busy={busy || undefined} onClick={() => void startEdit()}>修改</button></div></div>
           <div className="cy-op-detail-grid"><div><span>產出</span><strong>{detail.outputQuantity} {detail.outputUnit}</strong></div></div>
           <div className="cy-op-subsection"><h3>料件</h3><div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">數量</th><th>單位</th></tr></thead>

@@ -1,3 +1,6 @@
+import { workLogNextStep, workLogTone } from "./status-flow";
+import { NextStep } from "../../ui/feedback/NextStep";
+import { StatusChip } from "../../ui/primitives/StatusChip";
 import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields, enterAdvancesThenSubmits } from "../../ui/foundation/enter-advance";
@@ -6,7 +9,7 @@ import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import "./worklog-operational.css";
-import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
+import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { FormEvent, useEffect, useId, useMemo, useState } from "react";
 import { Dialog } from "../../ui/overlays/Dialog";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
@@ -64,7 +67,6 @@ const statusText: Record<WorkLogStatusCode, string> = {
   reviewed: "已審核",
 };
 
-const statusTone: Record<WorkLogStatusCode, string> = { created: "warning", pending_review: "info", reviewed: "success" };
 const progressSteps: readonly { code: WorkLogStatusCode; label: string }[] = [
   { code: "created", label: "填寫" },
   { code: "pending_review", label: "待審核" },
@@ -153,7 +155,7 @@ export function WorkLogOperationalPage() {
   const [loadingList, setLoadingList] = useState(true);
   // The page appears once its first list page is in; until then only the shared spinner shows.
   const [listReady, setListReady] = useState(false);
-  const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
+  const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
   const paging = useLoadMore(searchWorkLogs, setRows, (error) => reportError(errorMessage(error)));
   const [refreshEpoch, setRefreshEpoch] = useState(0);
   const { confirm, confirmationDialog } = useConfirmation();
@@ -550,7 +552,7 @@ export function WorkLogOperationalPage() {
         <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增日誌</button>
       </PagePrimaryActions>
 
-      {message ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-body">{message}</div></div> : null}
+      <FeedbackBanner message={message} tone={messageTone} />
 
       <section className="cy-worklog-summary" aria-label="已審核統計">
         <div><span>已審核筆數</span><strong>{statistics?.reviewedCount ?? "—"}</strong></div>
@@ -581,7 +583,7 @@ export function WorkLogOperationalPage() {
             <div className="cy-md-count">{loadingList ? <Loading inline /> : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
           </div>
           <div className="cy-op-list">
-            {rows.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={async () => { if (!busy && await canLeave()) { setEditing(false); setCreating(false); setDraft(null); setSelectedId(row.id); pane.open(); } }}><strong>{row.logDate} · {row.workDays} 日</strong><span><span className="cy-mono">{row.workLogRef}</span> · 員工 #{row.employeeId}</span><small className="cy-flow-status" data-tone={statusTone[row.statusCode]}>{statusText[row.statusCode]}</small></button>)}
+            {rows.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={async () => { if (!busy && await canLeave()) { setEditing(false); setCreating(false); setDraft(null); setSelectedId(row.id); pane.open(); } }}><strong>{row.logDate} · {row.workDays} 日</strong><span><span className="cy-mono">{row.workLogRef}</span> · 員工 #{row.employeeId}</span><StatusChip tone={workLogTone[row.statusCode]}>{statusText[row.statusCode]}</StatusChip></button>)}
             {loadingList && rows.length === 0 ? <Loading /> : null}
             {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的工作日誌。</div> : null}
             <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
@@ -658,6 +660,7 @@ export function WorkLogOperationalPage() {
               {selected.statusCode === "reviewed" ? <button className="cy-op-button danger" disabled={busy} onClick={() => cancelReview()}>取消審核</button> : null}
               </div></div>
             <ol className="cy-progress" aria-label="日誌進度">{progressSteps.map((step, index) => { const current = progressSteps.findIndex(item => item.code === selected.statusCode); return <li key={step.code} data-state={index < current ? "done" : index === current ? "current" : "todo"} aria-current={index === current ? "step" : undefined}>{step.label}</li>; })}</ol>
+            <NextStep tone={workLogTone[selected.statusCode]}>{workLogNextStep[selected.statusCode]}</NextStep>
             <div className="cy-op-detail-grid">
               <div><span>日誌日期</span><strong>{selected.logDate}</strong></div>
               <div><span>期間</span><strong>{selected.dateFrom} ～ {selected.dateTo}</strong></div>

@@ -1,3 +1,6 @@
+import { orderNextStep, orderTone } from "./status-flow";
+import { NextStep } from "../../ui/feedback/NextStep";
+import { StatusChip } from "../../ui/primitives/StatusChip";
 import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
@@ -10,7 +13,7 @@ import { EntityPicker } from "../../ui/pickers/EntityPicker";
 import type { SalesWorkOrderCustomerOption, SalesWorkOrderItemOption as LineItemOption } from "../../../shared/business-lookups";
 import "./sales-order-operational.css";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
-import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
+import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { SalesWorkOrderModuleLookups, SalesWorkOrderItemOption } from "../../../shared/business-lookups";
@@ -67,7 +70,6 @@ const statusText: Record<SalesWorkOrderStatusCode, string> = {
   voided: "已作廢",
 };
 
-const orderTone: Record<SalesWorkOrderStatusCode, string> = { created: "warning", issued: "info", waiting_stock: "info", picked: "info", shipped: "success", voided: "danger" };
 const invoiceText: Record<string, string> = { two_copy: "二聯式", three_copy: "三聯式" };
 const receiptText: Record<string, string> = { with_receipt: "附收據", without_receipt: "不附收據" };
 /** The normal path of a work order; 作廢 is shown separately. */
@@ -182,7 +184,7 @@ export function SalesOrderOperationalPage() {
   // The page appears once its first list page is in; until then only the shared spinner shows.
   const [listReady, setListReady] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
+  const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
   const paging = useLoadMore(searchSalesOrders, setRows, (error) => reportError(errorMessage(error)));
   const [refreshEpoch, setRefreshEpoch] = useState(0);
 
@@ -514,7 +516,7 @@ export function SalesOrderOperationalPage() {
         <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增工單</button>
       </PagePrimaryActions>
 
-      {message ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-body">{message}</div></div> : null}
+      <FeedbackBanner message={message} tone={messageTone} />
 
       <div className="cy-md cy-order-workspace" data-pane={pane.pane}>
         <section className="cy-op-panel cy-md-list" aria-label="工單清單">
@@ -531,7 +533,7 @@ export function SalesOrderOperationalPage() {
               <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={() => void selectOrder(row.id)}>
                 <strong>{row.customerNameSnapshot}</strong>
                 <span><span className="cy-mono">{row.erpNo ? `ERP ${row.erpNo}` : row.workOrderRef}</span> · {row.orderDate}</span>
-                <small className="cy-flow-status" data-tone={orderTone[row.statusCode]}>{statusText[row.statusCode]}</small>
+                <StatusChip tone={orderTone[row.statusCode]}>{statusText[row.statusCode]}</StatusChip>
               </button>
             ))}
             {loadingList && rows.length === 0 ? <Loading /> : null}
@@ -629,6 +631,7 @@ export function SalesOrderOperationalPage() {
                 </div>
               </div>
               <OrderProgress status={selected.statusCode} />
+              {selected.statusCode !== "voided" ? <NextStep tone={orderTone[selected.statusCode]}>{orderNextStep[selected.statusCode]}</NextStep> : null}
               <div className="cy-op-detail-grid">
                 <div><span>ERP 單號</span><strong>{selected.erpNo ?? "尚未回填"}</strong></div>
                 <div><span>ERP 客戶編號</span><strong>{selected.customerNoSnapshot ?? "—"}</strong></div>

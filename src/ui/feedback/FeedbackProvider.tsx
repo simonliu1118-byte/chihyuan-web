@@ -51,16 +51,30 @@ export function useFeedback() {
 }
 
 /** Keeps page feedback while making each reported failure explicit, including repeated attempts. */
+/**
+ * Page message plus its tone: setMessage reports a result (green), reportError a failure (red,
+ * also raised as an alert). Render it with FeedbackBanner so every page uses the same colours.
+ */
 export function useFeedbackMessage<T extends string | null>(initial: T) {
-  const [message, setMessage] = useState<T>(initial);
+  const [message, setRawMessage] = useState<T>(initial);
+  const [tone, setTone] = useState<FeedbackTone>("success");
   const mounted = useRef(true);
   useLayoutEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const notify = useFeedback();
+  const setMessage = useCallback((value: T) => { setTone("success"); setRawMessage(value); }, []);
   const reportError = useCallback((value: T) => {
     if (!mounted.current) return;
     const translated = value ? chineseMessage(value) as T : value;
-    setMessage(translated);
+    setTone("danger");
+    setRawMessage(translated);
     if (translated) notify(translated);
   }, [notify]);
-  return useMemo(() => [message, setMessage, reportError] as const, [message, reportError]);
+  return useMemo(() => [message, setMessage, reportError, tone] as const, [message, setMessage, reportError, tone]);
+}
+
+export type FeedbackTone = "success" | "danger";
+
+export function FeedbackBanner({ message, tone }: { message: string | null; tone: FeedbackTone }) {
+  return message ? <div className={`cy-notice cy-notice-${tone}`} role={tone === "danger" ? "alert" : "status"}>
+    <div className="cy-notice-body">{message}</div></div> : null;
 }

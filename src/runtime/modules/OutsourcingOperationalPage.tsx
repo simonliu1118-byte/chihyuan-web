@@ -1,3 +1,6 @@
+import { outsourcingNextStep, outsourcingTone } from "./status-flow";
+import { NextStep } from "../../ui/feedback/NextStep";
+import { StatusChip } from "../../ui/primitives/StatusChip";
 import { BomWorkspace, ContractorWorkspace, outsourcingErrorMessage } from "./OutsourcingMasterData";
 import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
@@ -10,7 +13,7 @@ import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { useFormPrompt } from "../../ui/overlays/useFormPrompt";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import "./outsourcing-operational.css";
-import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
+import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { OutsourcingModuleLookups, OutsourcingItemOption } from "../../../shared/business-lookups";
@@ -171,7 +174,7 @@ export function OutsourcingOperationalPage() {
   const pane = useMasterDetailPane();
   // Contractor/BOM editors live in OutsourcingMasterData; their open editor also guards tab switches.
   const [masterEditing, setMasterEditing] = useState(false);
-  const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
+  const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
   const paging = useLoadMore(searchOutsourcingOrders, setOrders, (error) => reportError(outsourcingErrorMessage(error)));
   const [refreshEpoch, setRefreshEpoch] = useState(0);
 
@@ -528,7 +531,7 @@ export function OutsourcingOperationalPage() {
       {confirmationDialog}
       {promptDialog}
       {tab === "orders" ? <PagePrimaryActions><button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增代工單</button></PagePrimaryActions> : null}
-      {message ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-body">{message}</div></div> : null}
+      <FeedbackBanner message={message} tone={messageTone} />
 
       <div className="cy-op-tabs">
         {(["orders", "contractors", "boms", "stock"] as Tab[]).map((value) => (
@@ -551,7 +554,7 @@ export function OutsourcingOperationalPage() {
                 <div className="cy-md-count">{loadingOrders ? <Loading inline /> : paging.hasMore ? `已載入 ${orders.length} 筆，還有更多` : `共 ${orders.length} 筆`}</div>
               </div>
               <div className="cy-op-list">
-                {orders.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedOrderId === row.id ? "active" : ""}`} aria-current={selectedOrderId === row.id ? "true" : undefined} onClick={async () => { if (editing && !(await discardEditing())) return; setSelectedOrderId(row.id); pane.open(); }}><strong>{row.contractorNameSnapshot}</strong><span><span className="cy-mono">{row.outsourcingRef}</span> · {row.orderDate}</span><small className="cy-flow-status" data-tone={row.statusCode === "pending_outbound" ? "warning" : row.statusCode === "paid" ? "success" : row.statusCode === "voided" ? "danger" : "info"}>{statusText[row.statusCode]}</small></button>)}
+                {orders.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedOrderId === row.id ? "active" : ""}`} aria-current={selectedOrderId === row.id ? "true" : undefined} onClick={async () => { if (editing && !(await discardEditing())) return; setSelectedOrderId(row.id); pane.open(); }}><strong>{row.contractorNameSnapshot}</strong><span><span className="cy-mono">{row.outsourcingRef}</span> · {row.orderDate}</span><StatusChip tone={outsourcingTone[row.statusCode]}>{statusText[row.statusCode]}</StatusChip></button>)}
                 {orders.length === 0 ? loadingOrders ? <Loading /> : <div className="cy-op-empty">尚無代工單。</div> : null}
                 <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
               </div>
@@ -628,6 +631,7 @@ export function OutsourcingOperationalPage() {
                   {selectedOrder.statusCode === "paid" ? <button className="cy-op-button danger" disabled={busy} aria-busy={(busy && pending === "reverse:payment") || undefined} onClick={() => track("reverse:payment", reverse("payment"))}>取消付款</button> : null}
                 </div></div>
                 <OutsourcingProgress status={selectedOrder.statusCode} />
+                {selectedOrder.statusCode !== "voided" ? <NextStep tone={outsourcingTone[selectedOrder.statusCode]}>{outsourcingNextStep[selectedOrder.statusCode]}</NextStep> : null}
                 <div className="cy-op-detail-grid"><div><span>工單日期</span><strong>{selectedOrder.orderDate}</strong></div><div><span>出庫日期</span><strong>{selectedOrder.outboundDate ?? "—"}</strong></div><div><span>付款時間</span><strong>{selectedOrder.paidAt ? formatDateTime(selectedOrder.paidAt) : "—"}</strong></div></div>
                 <div className="cy-op-subsection"><h3>出庫料件</h3><div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">數量</th><th>單位</th></tr></thead><tbody>{selectedOrder.parts.map((part) => <tr key={part.id}><td className="cy-mono">{part.componentItemNoSnapshot}</td><td>{part.componentItemNameSnapshot}</td><td className="num">{part.quantity}</td><td>{part.unitSnapshot}</td></tr>)}</tbody></table></div></div>
                 {selectedOrder.receipt ? <div className="cy-op-subsection"><h3>入庫</h3>{selectedOrder.receipt.items.map((item) => <div className="cy-op-read-row" key={item.id}>{item.itemNoSnapshot} · {item.itemNameSnapshot} · {item.quantity} {item.unitSnapshot}{item.bomRecipeId ? ` · BOM #${item.bomRecipeId}` : ""}</div>)}</div> : null}
