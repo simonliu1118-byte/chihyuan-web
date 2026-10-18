@@ -1,7 +1,7 @@
 # WO-0.9.12 客戶相關紀錄改卡片、標題列說明與設定按鈕、日期格式、個人選單精簡
 
-- 狀態：待執行
-- 分支：`cyweb/customer-cards`（建議）　PR：（執行者填）
+- 狀態：待審查
+- 分支：`cyweb/customer-cards`　PR：[#207](https://github.com/simonliu1118-byte/chihyuan-web/pull/207)（開啟中，未合併）
 - 依據：`PROJECT_RULES.md` §9；視覺規範 `docs/architecture/CY_WEB_VISUAL_GUIDE.md`
 - 基準：`main` 於 V0.9.11（PR #203 已部署，CY Web Deploy #250）
 
@@ -146,10 +146,60 @@
 
 ## 8. 完成報告（執行者填）
 
-- 驗收清單逐項結果：
-- 與工作單不同之處與原因：
-- 驗證指令輸出摘要：
-- 截圖位置：
+**執行結果（2026-10-18）**：依 §2～§5 的工作單範圍提交到 `cyweb/customer-cards` 的 [PR #207](https://github.com/simonliu1118-byte/chihyuan-web/pull/207)，待 Claude 審查；**未合併、未部署、未修改正式 D1**。以下逐項區分程式／CI 驗證與尚待審查者的實機 UI 驗收。
+
+### 8.1 驗收清單逐項結果
+
+1. **已實作／來源檢查通過**：客戶明細相關紀錄改成拜訪／報價／常用商品三張卡片；移除原頁籤與「動態」。
+2. **已實作／mock 視覺證據**：卡片各顯示最多 3 筆、總筆數、空狀態；拜訪和報價依紀錄日期倒序、常用商品依原排序。若 API 只提供首批紀錄，筆數為已載入筆數，非另外取得的資料庫總數。
+3. **已實作／實機互動待複驗**：「＋ 新增」和「查看全部」共用各自的 large Dialog；新增直接打開既有新增表單或聚焦常用品項；沿用原拜訪新增／修改／刪除、報價新增／修正、常用商品加入／移除 API，儲存後重載清單／卡片。
+4. **已實作／實機互動待複驗**：有尚未儲存的拜訪、報價或常用商品輸入時，關閉專屬視窗先確認「放棄尚未儲存的內容？」；切換客戶關閉視窗並清除草稿。
+5. **版面規則與 mock 截圖**：1440 寬三卡並排，約 900 寬由 `auto-fit/minmax(260px,1fr)` 自動換行；390 寬手機改單欄。仍待實際 React 畫面目視驗收。
+6. **已實作／來源檢查通過**：客戶標題下顯示最後修改 `formatDateTime(updatedAt)` 及更新者；CustomerDetail API 新增 `updatedBy`（以 `customers.updated_by` join `app_members`，無 schema 變更）。
+7. **已實作**：個人選單只保留「我的帳號（密碼、Email）」與「登出」，去掉選單內重複的姓名／編號／權限。
+8. **已實作**：各頁採 §2(9) 的完整定稿說明、緊鄰標題一行，去除 ⓘ 說明按鈕與 Dialog；≤820px 不呈現說明。
+9. **已實作／權限來源不變**：客戶、商品、工作日誌標題工具改為 ADMIN／SUPER_ADMIN 專屬「設定」按鈕；移除原設定頁籤；USER 不顯示設定按鈕。
+10. **已實作／實機互動待複驗**：設定視窗重用 `ModuleSettingsPanel`（large Dialog）和原有結構／計分設定權限；視窗關閉使用 `useNavigationGuard().canLeave()` 檢查未儲存內容，API 不變。
+11. **程式與自動測試通過**：共用 `formatDate` 與 `formatDateTime`，涵蓋客戶、商品、瑕疵、工單、委外、日誌、ERP、備份與程式日期顯示；原生日期輸入值、API 與 D1 ISO 儲存格式未改。純日期 `2026-01-05` 和台北時區跨日等測試通過。
+12. **CI 通過**：`npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local`。
+13. **CI 通過**：先 clone `cyapps` 至 `.tmp/canonical-cyapps` 後，`node --test scripts/*.test.mjs`：141 個測試通過、0 個失敗。
+14. **文件核對通過**：`VERSION` 與 `package.json` 為 0.9.12，`BUILD` 保持 0；`TODO.md` 連結工作單並記載 0.9.11 的合併／部署紀錄；視覺規範已反映本次定案。
+
+### 8.2 與工作單不同之處、原因及影響
+
+- 本 repo 的 `app_members` 僅有員工編號、沒有使用者姓名。為維持 CYID 身分權威及不擴張資料層，本輪 `updatedBy.displayName` 先為 null，顯示依工作單規定以 `displayName ?? employeeNo` 回退到員工編號；要呈現真實姓名須由審查確認合法的 CYID 資料來源，不能假造姓名。
+- 截圖為 repo 內公開安全的 mock HTML 設計資料（5 筆拜訪、4 筆報價、2 筆常用商品），由 PR-only GitHub Actions 真正截圖產生；**不是實際登入 React 正式系統的 E2E 截圖**。按照「不部署」的交付界線，保留實機操作、對比及管理員／一般使用者權限顯示待 Claude 審查。不以示意截圖宣稱已通過真實 UI 操作驗收。
+- 舊備份顯示測試期待秒數，因已定案格式精確到「分鐘」，一併將其斷言調為 `YYYY/MM/DD HH:mm`；顯示改動不影響備份作業或資料格式。
+
+### 8.3 驗證指令輸出摘要（有證據）
+
+**PR-only 完整驗收**：[Actions Run #39142813073](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39142813073)（`source-acceptance` success）：
+
+- `npm run typecheck` — PASS。
+- `npm run validate:source` — PASS（Customer、身份、設定與所有六個業務模組 source contracts）。
+- `npm run build` — PASS（Vite build）。
+- `npm run validate:d1:local` — PASS（Wrangler local D1 migrations 0001～0015；Worker+D1 acceptance 群組全部通過；未連 production D1）。
+- `git clone --depth 1 https://github.com/simonliu1118-byte/cyapps .tmp/canonical-cyapps` — PASS（測試前置）。
+- `node --test scripts/*.test.mjs` — PASS，**141 tests, 141 pass, 0 fail**。
+- 新增 `scripts/format-date.test.mjs` 驗證日期、台北跨日及補零；`scripts/backup-ui.test.mjs` 同步改為分鐘格式斷言。
+- PR Runtime Check / Governance Check 應以 PR 最新 head 的 GitHub Actions 結果為審查基準；先前修正途中失敗的測試已在完整驗收 run 排除。
+
+### 8.4 截圖位置（全部 mock，公開安全資料）
+
+**[下載 8 張截圖：GitHub Actions Artifact — WO-0.9.12-mock-screenshots](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39142813073/artifacts/12142013251)**
+
+檔名及對應工作單 §7：
+1. `desktop-light.png` — 1440 桌面淺色，標題說明＋設定、最後修改與三卡。
+2. `desktop-dark.png` — 1440 桌面深色。
+3. `visits-all.png`、`visits-new.png` — 拜訪紀錄大視窗／直接新增。
+4. `mobile.png` — 390 寬，卡片單欄、標題無說明。
+5. `settings.png` — 超級管理員客戶設定大視窗。
+6. `account-menu.png` — 個人選單只有兩項。
+7. `date-list.png` — 瑕疵清單 `YYYY/MM/DD`。
+
+- 可重現的 mock HTML 來源：[`assets/WO-0.9.12-preview.html`](assets/WO-0.9.12-preview.html)。
+- PR-only 擷取與驗收 workflow：[`.github/workflows/wo-0912-evidence.yml`](../../../.github/workflows/wo-0912-evidence.yml)。
+
 
 ## 9. 審查紀錄（審查者填）
 
