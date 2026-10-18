@@ -319,11 +319,10 @@ export class AuditService {
       where.push(`ae.entity_type IN (${types.map(type => bind(type)).join(",")})`);
     }
     if (query.q?.trim()) {
-      const q = query.q.trim().slice(0, 100).replace(/[\\%_]/g, "\\    if (query.occurredTo) where.push(`occurred_at <= ${bind(query.occurredTo.trim())}`);");
-      const term = bind(`%${q}%`);
-      where.push(`(ae.entity_key LIKE ${term} ESCAPE '\\' OR
-        COALESCE(ae.before_json,'') LIKE ${term} ESCAPE '\\' OR
-        COALESCE(ae.after_json,'') LIKE ${term} ESCAPE '\\')`);
+      const term = bind(query.q.trim().slice(0, 100));
+      where.push(`(instr(ae.entity_key, ${term}) > 0 OR
+        instr(COALESCE(ae.before_json,''), ${term}) > 0 OR
+        instr(COALESCE(ae.after_json,''), ${term}) > 0)`);
     }
     if (query.relatedCustomerId != null) {
       if (!Number.isSafeInteger(query.relatedCustomerId) || query.relatedCustomerId < 1) throw new Error("INVALID_CUSTOMER_ID");
