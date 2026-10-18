@@ -879,7 +879,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
                   <Info label="統編" value={selected.taxId} mono />
                   <Info label="分類" value={selected.category?.name} />
                   <Info label="地區" value={selected.region?.name} />
-                  <Info label="負責業務" value={selected.ownerEmployee?.displayName ?? null} />
+                  <Info label="負責業務" value={selected.ownerEmployee ? formatPerson(selected.ownerEmployee) : null} />
                   <Info label="傳真" value={selected.fax} mono />
                   <div className="cy-customer-info">
                     <dt>ERP 客戶編號</dt>
