@@ -43,6 +43,8 @@ type CustomerSummaryRow = {
 };
 
 type CustomerDetailRow = CustomerSummaryRow & {
+  updated_by_id: number | null;
+  updated_by_employee_no: string | null;
   fax: string | null;
   created_at: string;
 };
@@ -169,7 +171,9 @@ const CUSTOMER_FROM = `
 `;
 
 const CUSTOMER_SUMMARY_SELECT = `SELECT ${CUSTOMER_SELECT_FIELDS} ${CUSTOMER_FROM}`;
-const CUSTOMER_DETAIL_SELECT = `SELECT ${CUSTOMER_SELECT_FIELDS}, c.fax, c.created_at ${CUSTOMER_FROM}`;
+const CUSTOMER_DETAIL_SELECT = `SELECT ${CUSTOMER_SELECT_FIELDS},
+  c.fax, c.created_at, ub.id AS updated_by_id, ub.employee_no AS updated_by_employee_no
+  ${CUSTOMER_FROM} LEFT JOIN app_members AS ub ON ub.id = c.updated_by`;
 
 function toLookup(
   id: number | null,
@@ -346,6 +350,7 @@ export class CustomerRepository {
       ...toSummary(master),
       fax: master.fax,
       createdAt: master.created_at,
+      updatedBy: master.updated_by_id == null ? null : { id: master.updated_by_id, employeeNo: master.updated_by_employee_no, displayName: null },
       phones: phones.map<CustomerPhone>((row) => ({
         id: row.id,
         phoneNumber: row.phone_number,
