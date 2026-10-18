@@ -4,6 +4,7 @@ export interface NavigationItem {
   href: string;
   description?: string;
   disabled?: boolean;
+  external?: boolean;
 }
 
 export interface NavigationGroup {
