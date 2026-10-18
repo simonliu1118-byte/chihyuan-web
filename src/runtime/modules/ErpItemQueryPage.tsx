@@ -108,14 +108,13 @@ function ErpItemQuery({ job }: { job: ErpJob }) {
   return <>
     <div className="cy-op-panel cy-erp-query-box">
       <form className="cy-erp-form" onSubmit={event => void submit(event)} noValidate>
-        <div className="cy-erp-mode-switch" role="group" aria-label="查詢方式">
+        <div className="cy-segmented" role="group" aria-label="查詢方式">
           {(["ITEM_NO", "ITEM_NAME"] as const).map(type =>
-            <button key={type} type="button" aria-pressed={queryType === type} disabled={busy}
-              className={queryType === type ? "is-active" : ""} onClick={() => { setQueryType(type); setError(null); }}>
+            <button key={type} type="button" aria-pressed={queryType === type} disabled={busy}  onClick={() => { setQueryType(type); setError(null); }}>
               {type === "ITEM_NO" ? "品號" : "品名"}</button>)}
         </div>
         <div className="cy-erp-query-row">
-          <input id="erp-search-term" value={queryType === "ITEM_NO" ? itemNo : keyword} maxLength={40} autoComplete="off"
+          <input className="cy-op-input" id="erp-search-term" value={queryType === "ITEM_NO" ? itemNo : keyword} maxLength={40} autoComplete="off"
             aria-label={queryType === "ITEM_NO" ? "品號" : "品名"} placeholder={queryType === "ITEM_NO" ? "請輸入品號" : "請輸入品名"}
             onChange={e => queryType === "ITEM_NO" ? setItemNo(e.target.value) : setKeyword(e.target.value)}
             disabled={busy} required />
@@ -128,9 +127,9 @@ function ErpItemQuery({ job }: { job: ErpJob }) {
             onChange={e => setIncludeHistory(e.target.checked)} /> 查歷史異動
         </label>}
         {queryType === "ITEM_NO" && includeHistory && <div className="cy-erp-history-options">
-          <label>起日 <input type="date" max={taipeiToday()} value={historyFrom} disabled={busy}
+          <label>起日 <input className="cy-op-input" type="date" max={taipeiToday()} value={historyFrom} disabled={busy}
             onChange={e => setHistoryFrom(e.target.value)} /></label>
-          <label>迄日 <input type="date" max={taipeiToday()} value={historyTo} disabled={busy}
+          <label>迄日 <input className="cy-op-input" type="date" max={taipeiToday()} value={historyTo} disabled={busy}
             onChange={e => setHistoryTo(e.target.value)} /></label>
           <p>起訖都未填：去年同月同日至今天；範圍最多三年。</p>
         </div>}
@@ -140,7 +139,7 @@ function ErpItemQuery({ job }: { job: ErpJob }) {
       <ErpJobStatus result={mine} />
       {showsData(mine) && (mine.queryType === "ITEM_NAME"
         ? <><h3>符合的商品（{mine.total} 筆）</h3>
-          {mine.truncated && <p className="cy-erp-error">結果已達 {mine.items.length} 筆，可能有更多資料，請輸入更完整的品名。</p>}
+          {mine.truncated && <p className="cy-notice cy-notice-warning">結果已達 {mine.items.length} 筆，可能有更多資料，請輸入更完整的品名。</p>}
           <ErpQueryRows key={mine.id} label="品名搜尋結果" columns={SEARCH_COLUMNS} rows={rowsOf(mine.items, SEARCH_COLUMNS)}
             disabled={busy} onItemSelect={code => void queryItem(code)} />
           <p className="cy-erp-search-hint">點選品號，重新向 ERP 查詢該商品完整資料。</p>
@@ -160,7 +159,7 @@ function ErpItemQuery({ job }: { job: ErpJob }) {
             <h3>歷史異動（{mine.historyFrom} ～ {mine.historyTo}）</h3>
             {mine.history
               ? <><p>共 {mine.history.total} 筆異動。</p>
-                {mine.history.truncated && <p className="cy-erp-error">共 {mine.history.total} 筆，只顯示最新 2,000 筆，請縮小日期範圍。</p>}
+                {mine.history.truncated && <p className="cy-notice cy-notice-warning">共 {mine.history.total} 筆，只顯示最新 2,000 筆，請縮小日期範圍。</p>}
                 <HistoryTable history={mine.history} /></>
               : <p>此版本 CYERPAutoQuery 不支援歷史異動，請更新。</p>}
           </>}
@@ -184,13 +183,13 @@ export function ErpItemQueryPage({ allowedModules }: { allowedModules: ReadonlyS
   if (!category) return <section className="cy-op-panel">你目前沒有任何 ERP 查詢的模組權限。</section>;
   return <section className="cy-erp-page">
     {categories.length > 1 && (compact
-      ? <select className="cy-erp-category" aria-label="查詢類別" value={category} disabled={job.busy}
+      ? <select className="cy-op-input cy-erp-category" aria-label="查詢類別" value={category} disabled={job.busy}
         onChange={e => choose(e.target.value as Category)}>
         {categories.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
       </select>
-      : <div className="cy-erp-tabs" role="tablist" aria-label="查詢類別">
+      : <div className="cy-op-tabs" role="tablist" aria-label="查詢類別">
         {categories.map(c => <button key={c.key} type="button" role="tab" aria-selected={category === c.key}
-          className={category === c.key ? "is-active" : ""} disabled={job.busy && category !== c.key}
+          className={category === c.key ? "active" : ""} disabled={job.busy && category !== c.key}
           onClick={() => choose(c.key)}>{c.label}</button>)}
       </div>)}
     {category === "ITEM" && <ErpItemQuery job={job} />}

@@ -65,6 +65,7 @@ Archive、舊 preview、review backlog、readiness checkpoint、舊 handoff 或�
 
 ### Shared Web UI foundations
 
+- `CY_WEB_VISUAL_GUIDE.md` — 志遠網頁程式標準視覺規範（字型、顏色、狀態語意、元件、載入、鍵盤、響應式、驗收）；canonical 候選，確認後升格至 AITeam `shared/cy-visual/web/`。
 - `UI_FOUNDATION.md`
 - `APP_SHELL_FOUNDATION.md`
 - `FORM_FOUNDATION.md`

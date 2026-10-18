@@ -48,12 +48,12 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
   return <>
     <div className="cy-op-panel cy-erp-query-box">
       <form className="cy-erp-form" onSubmit={event => void submit(event)} noValidate>
-        <div className="cy-erp-mode-switch" role="group" aria-label="查詢範圍">
+        <div className="cy-segmented" role="group" aria-label="查詢範圍">
           {SCOPES.map(s => <button key={s.key} type="button" aria-pressed={scope === s.key} disabled={busy}
-            className={scope === s.key ? "is-active" : ""} onClick={() => { setScope(s.key); setError(null); }}>{s.label}</button>)}
+            onClick={() => { setScope(s.key); setError(null); }}>{s.label}</button>)}
         </div>
         <div className="cy-erp-query-row">
-          {scope !== "ALL" && <input value={text} maxLength={40} autoComplete="off" disabled={busy} required
+          {scope !== "ALL" && <input className="cy-op-input" value={text} maxLength={40} autoComplete="off" disabled={busy} required
             aria-label={scope === "CUSTOMER" ? "客戶" : "業務員代號"}
             placeholder={scope === "CUSTOMER" ? (canSearchCustomers ? "請輸入客戶代號或名稱" : "請輸入客戶代號") : "請輸入業務員代號"}
             onChange={e => setText(e.target.value)} />}
@@ -74,7 +74,7 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
       </>}
       {showsData(mine) && mine.queryType === "RECEIVABLE" && <>
         <h3>未收合計 {erpMoney(totalUnpaid)}（{groups.length} 位客戶、{mine.bills.length} 張結帳單）</h3>
-        {mine.truncated && <p className="cy-erp-error">共 {mine.total} 張，只顯示 {mine.bills.length} 張。</p>}
+        {mine.truncated && <p className="cy-notice cy-notice-warning">共 {mine.total} 張，只顯示 {mine.bills.length} 張。</p>}
         <div className="cy-erp-orders">
           {groups.map(group => <details key={group.customerCode} className="cy-erp-order" open={groups.length === 1}>
             <summary>
