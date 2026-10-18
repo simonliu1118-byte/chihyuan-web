@@ -11,7 +11,7 @@ import { AppShell } from "./ui/shell/AppShell";
 import { ThemeSwitch, ThemeToggle } from "./ui/foundation/ThemeToggle";
 import { AccountMenu } from "./ui/shell/AccountMenu";
 import { useCompactLayout } from "./ui/foundation/useCompactLayout";
-import { WithModuleSettings } from "./runtime/modules/ModuleSettingsPanel";
+import { ModuleSettingsButton } from "./runtime/modules/ModuleSettingsPanel";
 import { AuditOperationalPage } from "./runtime/modules/AuditOperationalPage";
 import { CustomerOperationalPage } from "./runtime/modules/CustomerOperationalPage";
 import { DefectOperationalPage } from "./runtime/modules/DefectOperationalPage";
@@ -31,18 +31,18 @@ type AppRoute = "customers" | "items" | "defects" | "orders" | "outsourcing" | "
 
 // One source of truth for the topbar titles and on-demand module descriptions.
 const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
-  customers: { title:"客戶", description:"管理客戶資料、聯絡人、拜訪紀錄、報價與常用商品。" },
-  items: { title:"商品", description:"管理商品資料、品號、價格及單位換算。" },
-  defects: { title:"瑕疵", description:"管理瑕疵紀錄、處理進度及作廢。" },
-  orders: { title:"銷售工單", description:"管理銷售工單、ERP 單號與出貨流程；正式單號由 SMART ERP 提供。" },
-  outsourcing: { title:"委外／代工", description:"管理代工單、材料清單、代工單價與庫存。" },
-  worklogs: { title:"工作日誌", description:"建立工作日誌、送交審核及檢視評分統計。" },
-  "erp-item-query": { title:"ERP 查詢", description:"查閱 SMART ERP 的商品、客戶、銷貨銷退單與未收款；只讀取，不會新增或修改 ERP 或 CY Web 資料。" },
-  identity: { title:"帳號與權限", description:"管理使用者、權限群組與系統使用權；系統與安全設定由超級管理員維護。" },
-  account: { title:"我的帳號", description:"變更自己的密碼與 Email；密碼與驗證碼由 CYID 帳號服務保管。" },
-  audit: { title:"稽核紀錄", description:"檢視重要業務操作與設定變更；只有管理員與超級管理員可讀取詳細內容。" },
-  backups: { title:"備份管理", description:"查看備份與副本狀態，建立手動備份或重試未完成的 GCS 副本。" },
-  programs: { title:"CY 程式", description:"CY 程式功能、正式版本與使用入口；開發中的程式先提供功能介紹。" },
+  customers: { title:"客戶", description:"客戶資料、聯絡人、拜訪與報價紀錄" },
+  items: { title:"商品", description:"商品資料、品號、價格與單位換算" },
+  defects: { title:"瑕疵", description:"瑕疵回報、處理進度與作廢" },
+  orders: { title:"銷售工單", description:"銷售工單與出貨流程，正式單號由 ERP 提供" },
+  outsourcing: { title:"委外／代工", description:"代工單、代工對象、單價、BOM 與庫存" },
+  worklogs: { title:"工作日誌", description:"填寫日誌、送審與評分統計" },
+  "erp-item-query": { title:"ERP 查詢", description:"查閱 SMART ERP 資料，只讀不改" },
+  identity: { title:"帳號與權限", description:"使用者、權限群組與系統安全" },
+  account: { title:"我的帳號", description:"變更自己的密碼與 Email" },
+  audit: { title:"稽核紀錄", description:"重要操作與設定變更的紀錄" },
+  backups: { title:"備份管理", description:"備份狀態、手動備份與重試副本" },
+  programs: { title:"CY 程式", description:"CY 程式的功能、版本與使用入口" },
 };
 
 const baseNavigation: readonly NavigationGroup[] = [
@@ -225,12 +225,12 @@ function OperationalApp({
     content = routeAccess === "denied"
       ? <section className="cy-op-panel"><h2>目前無法確認模組權限</h2><p>{moduleAccessError ?? "請重新整理頁面後再試。"}</p></section>
       : <Loading />;
-  } else if (route === "customers") content = <WithModuleSettings key={route} role={role} label="客戶" only={["customer_category", "customer_status", "department"]}><CustomerOperationalPage /></WithModuleSettings>;
-  else if (route === "items") content = <WithModuleSettings key={route} role={role} label="商品" only={["item_category"]}><ItemOperationalPage /></WithModuleSettings>;
+  } else if (route === "customers") content = <CustomerOperationalPage />;
+  else if (route === "items") content = <ItemOperationalPage />;
   else if (route === "defects") content = <DefectOperationalPage />;
   else if (route === "orders") content = <SalesOrderOperationalPage />;
   else if (route === "outsourcing") content = <OutsourcingOperationalPage />;
-  else if (route === "worklogs") content = <WithModuleSettings key={route} role={role} label="工作日誌" only={["worklog-categories", "worklog-platforms", "scoring"]}><WorkLogOperationalPage /></WithModuleSettings>;
+  else if (route === "worklogs") content = <WorkLogOperationalPage />;
   else if (route === "erp-item-query") content = <ErpItemQueryPage allowedModules={allowedModules} />;
   else if (route === "identity") content = <SharedIdentityPage session={session} />;
   else if (route === "account") content = <MyAccountPage session={session} />;
@@ -245,13 +245,16 @@ function OperationalApp({
       pageDescription={PAGE_META[route].description}
       pageTools={route === "erp-item-query"
         ? <ErpAgentCredentialControl isSuperAdmin={session.user.workspaceRole === "SUPER_ADMIN"} />
+        : route === "customers" ? <ModuleSettingsButton key={route} role={role} label="客戶" only={["customer_category","customer_status","department"]} />
+        : route === "items" ? <ModuleSettingsButton key={route} role={role} label="商品" only={["item_category"]} />
+        : route === "worklogs" ? <ModuleSettingsButton key={route} role={role} label="工作日誌" only={["worklog-categories","worklog-platforms","scoring"]} />
         : undefined}
       subtitle="志遠企業管理系統"
       navigation={navigation}
       activeNavigationKey={route}
       onNavigate={item => { if (routes.has(item.key as AppRoute)) void guardedNavigation.request(item.key as AppRoute, "link"); }}
       appearance={compact ? <ThemeToggle iconOnly /> : <ThemeSwitch />}
-      account={<AccountMenu displayName={session.user.displayName} employeeNo={session.user.employeeNo}
+      account={<AccountMenu displayName={session.user.displayName}
         role={session.user.workspaceRole} roleLabel={accountPermissionLabel(session.user.workspaceRole)} compact={compact}
         signingOut={signingOut} onAccount={() => void guardedNavigation.request("account", "link")} onLogout={() => void logout()} />}
     >
