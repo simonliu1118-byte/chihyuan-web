@@ -1,3 +1,4 @@
+import { formatDate } from "../../ui/foundation/format";
 import { StatusFilter } from "../../ui/data/StatusFilter";
 import { workLogNextStep, workLogTone } from "./status-flow";
 import { NextStep } from "../../ui/feedback/NextStep";
@@ -643,7 +644,7 @@ export function WorkLogOperationalPage() {
 
           </form>
           ) : selected ? <div>
-            <div className="cy-record-header"><div><h2>{selected.logDate} 工作日誌</h2><p><span className="cy-mono">{selected.workLogRef}</span> · 員工 #{selected.employeeId}</p></div>
+            <div className="cy-record-header"><div><h2>{formatDate(selected.logDate)} 工作日誌</h2><p><span className="cy-mono">{selected.workLogRef}</span> · 員工 #{selected.employeeId}</p></div>
               <div className="cy-record-actions">
                 {selected.statusCode === "created" ? <>
                 <button className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
@@ -659,7 +660,7 @@ export function WorkLogOperationalPage() {
             <ol className="cy-progress" aria-label="日誌進度">{progressSteps.map((step, index) => { const current = progressSteps.findIndex(item => item.code === selected.statusCode); return <li key={step.code} data-state={index < current ? "done" : index === current ? "current" : "todo"} aria-current={index === current ? "step" : undefined}>{step.label}</li>; })}</ol>
             <NextStep tone={workLogTone[selected.statusCode]}>{workLogNextStep[selected.statusCode]}</NextStep>
             <div className="cy-op-detail-grid">
-              <div><span>日誌日期</span><strong>{selected.logDate}</strong></div>
+              <div><span>日誌日期</span><strong>{formatDate(selected.logDate)}</strong></div>
               <div><span>期間</span><strong>{selected.dateFrom} ～ {selected.dateTo}</strong></div>
               <div><span>工作日數</span><strong>{selected.workDays}</strong></div>
               <div><span>類型</span><strong>{selected.typeCode}</strong></div>
