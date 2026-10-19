@@ -582,7 +582,7 @@ export function OutsourcingOperationalPage() {
                 </div>
 
                 <section className="cy-form-block">
-                  <div className="cy-form-block-head"><div><h3>出庫料件</h3><p>交給協力廠商的料件；可註明預計做成的成品與 BOM。</p></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={addPart}>＋ 增加料件</button></div>
+                  <div className="cy-form-block-head"><div><h3>出庫料件</h3></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={addPart}>＋ 增加料件</button></div>
                   <div className="cy-form-block-body">
                   <div className="cy-out-part cy-out-part-head" aria-hidden="true"><span>料件</span><span>數量</span><span>單位</span><span>預計成品</span><span>BOM</span><span /></div>
                   {draft.parts.map((part, index) => {
@@ -641,7 +641,7 @@ export function OutsourcingOperationalPage() {
 
                 {selectedOrder.statusCode === "outbound" ? <div className="cy-op-subsection">
                   <h3>入庫資料</h3>
-                  <p className="cy-out-hint">填好後按上方「確認入庫」。</p>
+                  
                   <div className="cy-out-receipt">
                     <select className="cy-op-input" value={receiptItemId ?? ""} disabled={busy} onChange={(event) => changeReceiptItem(Number(event.target.value) || null)}>
                       <option value="">選擇入庫成品</option>
@@ -669,7 +669,7 @@ export function OutsourcingOperationalPage() {
         onEditingChange={setMasterEditing} notify={setMessage} reportError={reportError} /> : null}
 
       {tab === "stock" ? <section className="cy-op-panel">
-        <div className="cy-op-panel-header"><div><h2>代工庫存</h2><p>依出庫、入庫紀錄即時計算的協力廠商手上庫存。</p></div><select className="cy-op-input cy-out-stock-select" aria-label="協力廠商" value={stockContractorId ?? ""} onChange={(event) => setStockContractorId(Number(event.target.value) || null)}><option value="">選擇協力廠商</option>{contractors.map((row) => <option key={row.id} value={row.id}>{row.displayName}</option>)}</select></div>
+        <div className="cy-op-panel-header"><div><h2>代工庫存</h2></div><select className="cy-op-input cy-out-stock-select" aria-label="協力廠商" value={stockContractorId ?? ""} onChange={(event) => setStockContractorId(Number(event.target.value) || null)}><option value="">選擇協力廠商</option>{contractors.map((row) => <option key={row.id} value={row.id}>{row.displayName}</option>)}</select></div>
         <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">目前庫存</th></tr></thead><tbody>{stockRows.map((row) => <tr key={row.itemId}><td className="cy-mono">{row.itemNo}</td><td>{row.itemName}</td><td className="num">{row.quantity}</td></tr>)}</tbody></table></div>
         {stockRows.length === 0 ? <p>目前沒有非零代工庫存。</p> : null}
       </section> : null}
