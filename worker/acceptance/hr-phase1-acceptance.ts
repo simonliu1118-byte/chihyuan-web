@@ -71,6 +71,10 @@ export async function acceptHrPhase1(db:D1Database):Promise<void>{
  const updated=await svc.get(id) as Record<string,unknown>;
  check(updated.status==="leave","ACCEPT_HR_STATUS_CHANGE");
  check(Array.isArray(updated.statusChanges)&&updated.statusChanges.length>=2,"ACCEPT_HR_STATUS_HISTORY");
+ await svc.statusChange(id,{effectiveDate:"2099-05-01",nextStatus:"terminated",terminationDate:"2099-05-01",terminationReason:"預定離職",reason:"未來生效離職測試"},ctx);
+ const future=await svc.get(id) as Record<string,unknown>;
+ check(future.status==="leave","ACCEPT_HR_FUTURE_TERMINATION_DOES_NOT_PREMATURELY_APPLY");
+ check(future.termination_date==="2099-05-01" && future.termination_reason==="預定離職","ACCEPT_HR_FUTURE_TERMINATION_DETAILS_SAVED");
  await svc.addExclusion(id,{startDate:"2025-04-01",endDate:"2025-04-10",reason:"測試不計年資"},ctx);
  const leave=await svc.leave(id,"2026-10-19");
  check(leave.length>=1&&leave[0].periodStart==="2025-07-11","ACCEPT_HR_LEAVE_EXCLUSION");
