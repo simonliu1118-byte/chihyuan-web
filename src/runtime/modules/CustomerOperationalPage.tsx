@@ -4,7 +4,7 @@ import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { Dialog } from "../../ui/overlays/Dialog";
 import { ChangeLogList } from "./AuditOperationalPage";
@@ -266,7 +266,6 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
   const [relatedFilter, setRelatedFilter] = useState("");
   const [frequentAdding, setFrequentAdding] = useState(false);
   const [historyOpen,setHistoryOpen] = useState(false);
-  const focusFrequentOnOpen = useRef(false);
   const pane = useMasterDetailPane();
   const [visitDraft, setVisitDraft] = useState<VisitDraft | null>(null);
   const [quoteDraft, setQuoteDraft] = useState<QuoteDraft | null>(null);
@@ -718,18 +717,10 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
     setFrequentText("");
     setFrequentAdding(view === "frequent" && create);
     setRelatedFilter("");
-    focusFrequentOnOpen.current = view === "frequent" && create;
     if (view === "visits" && create) setVisitDraft(emptyVisit());
     if (view === "quotes" && create) startQuote();
     setRelatedView({ view, mode: create ? "create" : "browse" });
   }
-
-  useEffect(() => {
-    if (relatedView?.view === "frequent" && focusFrequentOnOpen.current) {
-      document.getElementById("cy-frequent-add-select")?.focus();
-      focusFrequentOnOpen.current = false;
-    }
-  }, [relatedView]);
 
   async function closeRelated() {
     if (busy) return;
