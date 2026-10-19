@@ -44,7 +44,7 @@ export function ProgramCatalogView({ catalog }: { catalog: ProgramCatalog }) {
     {!catalog.current ? <div className="cy-notice cy-notice-warning" role="status">{catalog.automaticUpdate?.status === "pending"
       ? "版本清單將於每日排程自動確認，目前顯示已確認的正式版本。"
       : "本次自動更新尚未成功，目前顯示上次確認的正式版本，系統將於下次排程再確認。"}</div> : null}
-    <DataView ariaLabel="CY 程式清單" items={catalog.programs} getKey={program => program.id}
+    <DataView ariaLabel="CY 程式清單" items={catalog.programs.filter(program => !(program.platform === "web" && program.websiteUrl))} getKey={program => program.id}
       columns={[{ key: "name", header: "程式", render: name },
         { key: "version", header: "已確認正式版本", render: version },
         { key: "date", header: "發版日", render: published },
@@ -54,7 +54,7 @@ export function ProgramCatalogView({ catalog }: { catalog: ProgramCatalog }) {
         <span>發版日 {published(program)}</span></div>
         <p className="cy-program-description">{program.description}</p>{links(program)}</>}
       emptyTitle="尚無程式" />
-    <p className="cy-program-checked">每日台灣時間凌晨 3 點自動確認版本；最近確認：{date(catalog.checkedAt)}。桌面版下載後解壓縮即可使用；網頁版開啟後依各程式登入規則操作。</p>
+    <p className="cy-program-checked">每日台灣時間凌晨 3 點自動確認版本；最近確認：{date(catalog.checkedAt)}。桌面版下載後解壓縮即可使用；網頁程式由側欄「工具」直接開啟。</p>
   </>;
 }
 export function programRefreshMessage(failure: ProgramCatalog["refreshFailure"]): string {

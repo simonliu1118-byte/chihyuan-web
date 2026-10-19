@@ -29,10 +29,11 @@ const navIconPaths: Record<string, string[]> = {
   settings: ["M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8","M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2 2-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-3v-.8a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-2-2 .1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 5.6 14H5v-3h.6A1.7 1.7 0 0 0 7.2 10a1.7 1.7 0 0 0-.3-1.9l-.1-.1 2-2 .1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V4h3v.8a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 2 2-.1.1a1.7 1.7 0 0 0-.3 1.9A1.7 1.7 0 0 0 21 11h.5v3H21a1.7 1.7 0 0 0-1.6 1Z"],
   audit: ["M3 12a9 9 0 1 0 3-6.7","M3 3v6h6","M12 7v5l3 2"],
   backups: ["M3 5h18v6H3z","M3 13h18v6H3z","M7 8h.01","M7 16h.01"],
-  programs: ["M3 3h7v7H3z","M14 3h7v7h-7z","M3 14h7v7H3z","M14 14h7v7h-7z"]
+  programs: ["M3 3h7v7H3z","M14 3h7v7h-7z","M3 14h7v7h-7z","M14 14h7v7h-7z"],
+  external: ["M14 3h7v7","M10 14 21 3","M21 13v7a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h7"]
 };
 function NavIcon({ name }: { name: string }) {
-  const paths = navIconPaths[name] ?? navIconPaths.programs;
+  const paths = navIconPaths[name] ?? (name.startsWith("web-") ? navIconPaths.external : navIconPaths.programs);
   return <svg className="cy-shell-nav-icon" viewBox="0 0 24 24" width="16" height="16"
     fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"
     strokeLinejoin="round" aria-hidden="true">{paths.map((d, i) => <path key={i} d={d} />)}</svg>;
@@ -66,15 +67,18 @@ export function AppShell({
         {group.label ? <div className="cy-shell-nav-label">{group.label}</div> : null}
         <div className="cy-shell-nav-items">{group.items.map(item => <a key={item.key}
           className={["cy-shell-nav-item", item.key === activeNavigationKey ? "is-active" : ""].filter(Boolean).join(" ")}
-          href={item.href} aria-current={item.key === activeNavigationKey ? "page" : undefined}
+          href={item.href} target={item.external ? "_blank" : undefined} rel={item.external ? "noopener noreferrer" : undefined}
+          aria-label={item.external ? item.label+"（另開新分頁）" : undefined}
+          aria-current={item.key === activeNavigationKey ? "page" : undefined}
           aria-disabled={item.disabled || undefined} data-disabled={item.disabled || undefined} title={item.description}
           onClick={event => {
             if (item.disabled) { event.preventDefault(); return; }
+            if (item.external) { setNavigationOpen(false); return; }
             if (!onNavigate || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
             event.preventDefault();
             if (item.key === activeNavigationKey) setNavigationOpen(false);
             onNavigate(item);
-          }}><NavIcon name={item.key} /><span>{item.label}</span></a>)}</div>
+          }}><NavIcon name={item.key} /><span>{item.label}</span>{item.external ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M21 13v7H3V3h8" /></svg> : null}</a>)}</div>
       </div>)}
     </nav>
   </>;

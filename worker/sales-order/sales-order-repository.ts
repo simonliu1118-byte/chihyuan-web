@@ -20,6 +20,7 @@ type OrderRow = {
   order_date: string;
   operator_employee_id: number;
   operator_employee_no: string | null;
+  operator_display_name: string | null;
   note?: string | null;
   status_code: SalesWorkOrderStatusCode;
   erp_no: string | null;
@@ -85,6 +86,7 @@ const SELECT_FIELDS = `
   o.order_date,
   o.operator_employee_id,
   m.employee_no AS operator_employee_no,
+  m.display_name AS operator_display_name,
   o.status_code,
   o.erp_no,
   o.hide_price_on_sales_document,
@@ -111,7 +113,7 @@ function toSummary(row: OrderRow): SalesWorkOrderSummary {
     operator: {
       id: row.operator_employee_id,
       employeeNo: row.operator_employee_no,
-      displayName: null,
+      displayName: row.operator_display_name,
     },
     statusCode: row.status_code,
     erpNo: row.erp_no,

@@ -19,6 +19,7 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
   ],
   "app_members": [
     "created_at",
+    "display_name",
     "employee_no",
     "id",
     "identity_employee_id",

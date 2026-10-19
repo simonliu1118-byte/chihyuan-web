@@ -416,7 +416,7 @@ export function DefectOperationalPage() {
     if (lookups?.actor.appMemberId === id) {
       return `${lookups.actor.displayName}（${employeeNo ?? lookups.actor.employeeNo ?? "目前使用者"}）`;
     }
-    return employeeNo ?? `Employee #${id}`;
+    return lookups?.owners.find(row => row.id === id)?.displayName || employeeNo || `員工 #${id}`;
   }
 
   if (!listReady) return <Loading />;
@@ -511,7 +511,7 @@ export function DefectOperationalPage() {
                 <NextStep tone={defectTone[selected.invalidatedAt ? "voided" : selected.statusCode]}>{defectNextStep[selected.invalidatedAt ? "voided" : selected.statusCode]}</NextStep>
                 <div className="cy-op-detail-grid">
                   <div><span>回報日期</span><strong>{formatDate(selected.reportedDate)}</strong></div>
-                  <div><span>負責人</span><strong>{ownerLabel(selected.ownerEmployee.id, selected.ownerEmployee.employeeNo)}</strong></div>
+                  <div><span>負責人</span><strong>{selected.ownerEmployee.displayName || ownerLabel(selected.ownerEmployee.id, selected.ownerEmployee.employeeNo)}</strong></div>
                   <div><span>客戶</span><strong>{selected.customerNoSnapshot ? `${selected.customerNoSnapshot} · ` : ""}{selected.customerNameSnapshot}</strong></div>
                   <div><span>商品</span><strong>{selected.itemNoSnapshot} · {selected.itemNameSnapshot}</strong></div>
                   <div className="wide"><span>瑕疵內容</span><strong>{selected.defectDescription}</strong></div>

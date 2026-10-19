@@ -20,7 +20,7 @@ const valid = { selectionConfirmation: id, reviewed: true, confirmation: "驗證
 function fixture({ role = "SUPER_ADMIN", active = true, authenticated = true, bound = true, failure } = {}) {
   const calls = [], target = {};
   const env = { RECOVERY_DB: bound ? target : undefined, IDENTITY_APPLICATION_ID: "APP_TEST", IDENTITY_WORKSPACE_ID: "workspace-test",
-    DB: { prepare() { return { bind() { return this; }, async first() { return { id: 7, identity_employee_id: "synthetic", employee_no: "0098", is_active: active ? 1 : 0 }; } }; } },
+    DB: { prepare() { return { bind() { return this; }, async first() { return { id: 7, identity_employee_id: "synthetic", employee_no: "0098", display_name: "Synthetic", is_active: active ? 1 : 0 }; } }; } },
     IDENTITY: { async fetch() {
       if (!authenticated) return Response.json({ error: { code: "SESSION_INVALID" } }, { status: 401 });
       return Response.json({ ok: true, principal: { workspaceId: "workspace-test", employeeId: "synthetic", employeeNo: "0098", displayName: "Synthetic",

@@ -644,7 +644,7 @@ export function WorkLogOperationalPage() {
 
           </form>
           ) : selected ? <div>
-            <div className="cy-record-header"><div><h2>{formatDate(selected.logDate)} 工作日誌</h2><p><span className="cy-mono">{selected.workLogRef}</span> · 員工 #{selected.employeeId}</p></div>
+            <div className="cy-record-header"><div><h2>{formatDate(selected.logDate)} 工作日誌</h2><p><span className="cy-mono">{selected.workLogRef}</span> · {selected.employee.displayName || selected.employee.employeeNo || `員工 #${selected.employeeId}`}</p></div>
               <div className="cy-record-actions">
                 {selected.statusCode === "created" ? <>
                 <button className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>

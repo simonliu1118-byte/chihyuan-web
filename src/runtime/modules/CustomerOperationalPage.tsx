@@ -7,7 +7,8 @@ import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackPr
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { Dialog } from "../../ui/overlays/Dialog";
-import { formatDate, formatDateTime } from "../../ui/foundation/format";
+import { ChangeLogList } from "./AuditOperationalPage";
+import { formatDate, formatDateTime, formatPerson } from "../../ui/foundation/format";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import type { CustomerItemOption, CustomerModuleLookups } from "../../../shared/business-lookups";
 import type {
@@ -248,7 +249,7 @@ function emptyQuote(item: CustomerItemOption | null): QuoteDraft {
   };
 }
 
-export function CustomerOperationalPage() {
+export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"USER"}) {
   const [lookups, setLookups] = useState<CustomerModuleLookups | null>(null);
   const [itemOptions, setItemOptions] = useState<readonly CustomerItemOption[]>([]);
   const [rows, setRows] = useState<readonly CustomerSummary[]>([]);
@@ -264,6 +265,7 @@ export function CustomerOperationalPage() {
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<CustomerDraft | null>(null);
   const [relatedView, setRelatedView] = useState<RelatedView | null>(null);
+  const [historyOpen,setHistoryOpen] = useState(false);
   const focusFrequentOnOpen = useRef(false);
   const pane = useMasterDetailPane();
   const [visitDraft, setVisitDraft] = useState<VisitDraft | null>(null);
@@ -399,6 +401,7 @@ export function CustomerOperationalPage() {
     pane.open();
     setSelectedId(id);
     setRelatedView(null);
+    setHistoryOpen(false);
     setFrequentItemId(null);
     setFrequentText("");
     setEditing(false);
@@ -739,6 +742,11 @@ export function CustomerOperationalPage() {
   return (
     <div className="cy-customer-op">
       {confirmationDialog}
+      {selected && (role === "ADMIN" || role === "SUPER_ADMIN") && historyOpen ?
+        <Dialog open size="large" title={`修改紀錄 — ${selected.shortName}`}
+          onClose={()=>setHistoryOpen(false)}>
+          <ChangeLogList role={role} customerId={selected.id}/>
+        </Dialog> : null}
       {selected && relatedView ? <Dialog open size="large"
         title={`${relatedView === "visits" ? "拜訪紀錄" : relatedView === "quotes" ? "報價紀錄" : "常用商品"} — ${selected.shortName}`}
         onClose={() => void closeRelated()}>
@@ -851,11 +859,12 @@ export function CustomerOperationalPage() {
                 <div>
                   <h2>{selected.shortName}</h2>
                   <p>{[selected.fullName, selected.customerNo ? `ERP ${selected.customerNo}` : "尚無 ERP 客戶編號"].filter(Boolean).join(" · ")}</p>
-                  <p className="cy-record-meta">最後修改：{formatDateTime(selected.updatedAt)}{selected.updatedBy ? ` · ${selected.updatedBy.displayName ?? selected.updatedBy.employeeNo ?? "—"}` : ""}</p>
+                  <p className="cy-record-meta">最後修改：{formatDateTime(selected.updatedAt)}{selected.updatedBy ? ` · ${formatPerson(selected.updatedBy)}` : ""}</p>
                 </div>
                 <div className="cy-record-actions">
                   {selected.status ? <span className="cy-status-chip cy-status-chip-success">{selected.status.name}</span> : null}
                   <button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
+                  {role !== "USER" ? <button type="button" className="cy-op-button compact" onClick={()=>setHistoryOpen(true)}>修改紀錄</button> : null}
                 </div>
               </div>
 
@@ -869,7 +878,7 @@ export function CustomerOperationalPage() {
                   <Info label="統編" value={selected.taxId} mono />
                   <Info label="分類" value={selected.category?.name} />
                   <Info label="地區" value={selected.region?.name} />
-                  <Info label="負責業務" value={selected.ownerEmployee?.displayName ?? null} />
+                  <Info label="負責業務" value={selected.ownerEmployee ? formatPerson(selected.ownerEmployee) : null} />
                   <Info label="傳真" value={selected.fax} mono />
                   <div className="cy-customer-info">
                     <dt>ERP 客戶編號</dt>

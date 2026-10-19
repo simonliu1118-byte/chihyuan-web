@@ -6,6 +6,7 @@ import { AuthGate } from "./auth/AuthGate";
 import type { AuthSession, WorkspaceRole } from "./auth/auth-client";
 import { MyAccountPage, SharedIdentityPage } from "./identity/SharedIdentityPage";
 import { CYWEB_MODULES, moduleCodesForRoute, type CyWebModuleCode } from "../shared/modules";
+import { verifiedProgramCatalog } from "../shared/program-catalog";
 import type { NavigationGroup } from "./ui/foundation/navigation";
 import { AppShell } from "./ui/shell/AppShell";
 import { ThemeSwitch, ThemeToggle } from "./ui/foundation/ThemeToggle";
@@ -40,7 +41,7 @@ const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
   "erp-item-query": { title:"ERP 查詢", description:"查閱 SMART ERP 資料，只讀不改" },
   identity: { title:"帳號與權限", description:"使用者、權限群組與系統安全" },
   account: { title:"我的帳號", description:"變更自己的密碼與 Email" },
-  audit: { title:"稽核紀錄", description:"重要操作與設定變更的紀錄" },
+  audit: { title:"異動紀錄", description:"誰在什麼時候改了什麼" },
   backups: { title:"備份管理", description:"備份狀態、手動備份與重試副本" },
   programs: { title:"CY 程式", description:"CY 程式的功能、版本與使用入口" },
 };
@@ -63,14 +64,18 @@ const baseNavigation: readonly NavigationGroup[] = [
     dividerBefore: true,
     items: [
       { key: "identity", label: "帳號與權限", href: "#identity" },
-      { key: "audit", label: "稽核紀錄", href: "#audit" },
+      { key: "audit", label: "異動紀錄", href: "#audit" },
       { key: "backups", label: "備份管理", href: "#backups" },
     ],
   },
 ];
 
 const programsNavigation: NavigationGroup = {
-  key: "tools", label: "工具", items: [{ key: "programs", label: "CY 程式", href: "#programs" }],
+  key: "tools", label: "工具", items: [
+    { key:"programs",label:"CY 程式",href:"#programs" },
+    ...verifiedProgramCatalog.programs.filter(program => program.platform === "web" && !!program.websiteUrl)
+      .map(program => ({ key:"web-"+program.id,label:program.name,href:program.websiteUrl!,external:true })),
+  ],
 };
 
 const routes = new Set<AppRoute>([
@@ -225,7 +230,7 @@ function OperationalApp({
     content = routeAccess === "denied"
       ? <section className="cy-op-panel"><h2>目前無法確認模組權限</h2><p>{moduleAccessError ?? "請重新整理頁面後再試。"}</p></section>
       : <Loading />;
-  } else if (route === "customers") content = <CustomerOperationalPage />;
+  } else if (route === "customers") content = <CustomerOperationalPage role={role} />;
   else if (route === "items") content = <ItemOperationalPage />;
   else if (route === "defects") content = <DefectOperationalPage />;
   else if (route === "orders") content = <SalesOrderOperationalPage />;
@@ -236,7 +241,7 @@ function OperationalApp({
   else if (route === "account") content = <MyAccountPage session={session} />;
   else if (route === "programs") content = <ProgramCatalogPage />;
   else if (route === "backups") content = session.user.workspaceRole === "SUPER_ADMIN" ? <BackupOperationalPage /> : <section className="cy-op-panel">需要最高管理員權限。</section>;
-  else content = <AuditOperationalPage />;
+  else content = <AuditOperationalPage role={role === "SUPER_ADMIN" ? "SUPER_ADMIN" : "ADMIN"} />;
 
   return (
     <AppShell

@@ -77,6 +77,7 @@ CY Web reuses the shared Identity authority. It does not recreate passwords, PIN
 | `id` | INTEGER PK | no | local immutable key |
 | `identity_employee_id` | TEXT | no | UNIQUE shared Identity subject |
 | `employee_no` | TEXT | yes | optional company reference |
+| `display_name` | TEXT | yes | 1–120 字元；CYID 姓名唯讀快取，權威仍為 CYID；不得以本地欄位更改身分 |
 | `is_active` | INTEGER bool | no | default 1 |
 | `created_at` | TEXT utc_ts | no | |
 | `updated_at` | TEXT utc_ts | no | |

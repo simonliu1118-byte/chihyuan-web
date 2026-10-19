@@ -1,7 +1,7 @@
 # WO-0.9.13 異動紀錄改寫、人名顯示、客戶修改紀錄、網頁程式放到工具
 
-- 狀態：待執行（**WO-0.9.12 合併後**才從最新 `main` 開分支；兩張單都會改 `App.tsx` 與客戶頁）
-- 分支：`cyweb/change-log`（建議）　PR：（執行者填）
+- 狀態：已完成（審查通過）
+- 分支：`cyweb/change-log`　PR：[#208](https://github.com/simonliu1118-byte/chihyuan-web/pull/208)（開啟中、未合併）
 - 依據：`PROJECT_RULES.md` §9；BD-053（一般修改只保留最後修改資訊，詳細稽核僅管理員）、BD-054（共用 Audit Core）
 - 視覺規範：`docs/architecture/CY_WEB_VISUAL_GUIDE.md`
 
@@ -110,11 +110,55 @@
 
 ## 8. 完成報告（執行者填）
 
-- 驗收清單逐項結果：
-- 與工作單不同之處與原因：
-- 驗證指令輸出摘要：
-- 截圖位置：
+執行：2026-10-19；基準為 WO-0.9.12 合併後的最新 main `101de079d8d421c3d1f18bf04207600e72538036`，實作分支 `cyweb/change-log`，審查 PR [#208](https://github.com/simonliu1118-byte/chihyuan-web/pull/208)。**執行者未合併、未部署、未修改遠端 D1、未新增 GitHub Actions workflow。**
+
+### 8.1 驗收清單逐項結果
+
+1. **來源實作通過；實機待驗**：側欄及頁名改「異動紀錄」，說明改「誰在什麼時候改了什麼」；原 USER／ADMIN／SUPER_ADMIN 的路由與 Worker 權限邊界維持不變。
+2. **來源實作通過；實機待驗**：紀錄清單改為 `auditSentence` 中文人性化句子，顯示台北時間、姓名優先、中文動作、資料名稱與差異欄位；不顯示 raw JSON／動作或資料型別代碼。
+3. **來源實作通過；實機待驗**：模組、期間（預設近七天、今日、近 30 日、自訂）、操作者姓名、關鍵字篩選；`GET /api/admin/audit` 增加 server-side 條件、`nextCursor` 與穩定倒序分頁，底部「載入更多」。
+4. **來源實作通過；實機待驗**：共用抽屜顯示中文欄位差異（布林、日期、常見分類／部門 ID 經 lookup 轉換）與獨立狀態變化；原始 JSON 只在 SUPER_ADMIN 的「技術細節」展開項呈現。
+5. **自動來源測試通過**：`scripts/change-log-labels.test.mjs` 掃描 Worker 靜態 action 寫入詞彙和已知動態選項，與中文對照核對；此測試已納入 `npm run validate:source`。未知 action 有保守的人類可讀 fallback。
+6. **來源實作通過；實機待驗**：客戶明細「修改」旁有 ADMIN／SUPER_ADMIN 專屬「修改紀錄」按鈕與大視窗，重用 `ChangeLogList`；後端以客戶主紀錄 `customer + entity_key=id` 及相關紀錄 `metadata.customerId` 判定歸屬，沒有可核對歸屬的事件不混入。
+7. **來源實作通過；實機待驗**：`app_members.display_name` 支援 CYID 姓名投影；更新客戶業務／最後修改者、拜訪、報價、瑕疵、工單與工作日誌等 API 和畫面的人名顯示，沒有姓名才退回員工編號。
+8. **既有 Runtime Check 的本機 D1 驗證通過**：新 migration 0016 新增 nullable `display_name`（1–120 字），備份欄位清單與資料字典同步；`validate_schema` 及 D1 acceptance 檢查姓名投影寫入與客戶 owner 顯示名稱。
+9. **來源實作通過；外連點擊待實機驗**：CY 程式 + catalog `platform=web` 且有網址的外部站點直接出現在工具側欄；`target="_blank" rel="noopener noreferrer"`，不經 app-local navigation guard；CY 程式頁過濾相同 web 項目。
+10. **既有 CI 通過**：`npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local` 已在 Runtime Check 分別驗證；以最新 PR head CI 為最終準據。
+11. **部分通過／完整命令待補驗**：既有 Runtime Check 的 Node 子集（身份、權限、備份、ERP、程式目錄等）及新增 `change-log-labels.test.mjs` 通過；執行環境無法透過 DNS checkout GitHub 倉庫及 `.tmp/canonical-cyapps`，因此**未直接執行 `node --test scripts/*.test.mjs` 全檔測試**。此項必須由審查者在可取得 CYapps checkout 的環境補跑，不能標示全數通過。
+12. **文件核對完成**：`VERSION` 與 `package.json` = 0.9.13；`BUILD` 維持 0；`TODO.md`、`CY_WEB_VISUAL_GUIDE.md`、`API_CONTRACT.md`、`FINAL_DATA_DICTIONARY.md`、`CANONICAL_DATA_MODEL.md` 更新。
+
+### 8.2 與工作單不同之處及限制
+
+- 本輪沒有存取真實員工／客戶資料、正式 D1 或 production secrets。CYID snapshot 姓名回填失敗時視為非必要增益，原 Audit 查詢仍可使用；姓名顯示 fallback 為員工編號。
+- 新增 `relatedCustomerId` 作為後端明確的客戶歸屬篩選，確保相關拜訪／報價等事件只在 `metadata.customerId` 足以識別時加入。既有事件寫入格式與 `audit_events` schema **完全不變**。
+- 為避免擴大成測試部署，§7 提供的是**靜態 SVG mock 視覺稿，而非執行中 React UI 的真實瀏覽器截圖**；最終桌面／手機、外連新分頁、權限與實際資料的互動仍須審查者補驗，不能把 SVG 稱作已驗證的實機截圖。
+- 篩選與 cursor、姓名回填程式的 source／TypeScript／D1 smoke tests 已核對；真實 CYID 管理員 snapshot 聯動與完整 E2E 驗收因不部署而不在執行者環境操作。
+
+### 8.3 驗證指令／CI 摘要
+
+- [Runtime Check #39146773143](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39146773143)：**success**，`source-contracts`、`browser-typecheck`、`worker-typecheck`、`build` 全部成功；source validation 包含新的 action 中文詞彙測試。
+- [Runtime Check #39146892326](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39146892326)：**success**（同樣四個 Jobs；包含新 WorkLog 姓名回填後的回歸驗證）。
+- `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local` 在既有 CI Job 中通過，含 migrations 0016 與新的 `display_name` local acceptance。
+- `node --test scripts/*.test.mjs`：**未執行全檔**；須先 `git clone --depth 1 https://github.com/simonliu1118-byte/cyapps .tmp/canonical-cyapps`。不能拿 Node 子集成功代替全檔成功。
+- 本次沒有新增或修改 `.github/workflows/*`。GitHub 預設顯示的「CY Web Deploy」在 PR 分支僅驗證部署合約，`deploy-development` Job 為 **skipped**；沒有啟動實際 deploy。
+
+### 8.4 視覺稿位置（§7，mock、非實際 React 截圖）
+
+以下檔案均為 Public-safe 靜態 SVG mock，示意資料共 10 筆、跨客戶／瑕疵／工單／權限／代工等模組，**不能代替瀏覽器 E2E 截圖與操作測試**：
+
+- （執行者提交的 SVG 示意稿已於審查時移除，實際畫面以審查者截圖為準，見 §9。）
+
+**待審查補驗**：實際 React 渲染截圖、真實互動與 `node --test scripts/*.test.mjs` 全檔成功證據。
+
+
 
 ## 9. 審查紀錄（審查者填）
 
-- （待審查）
+- **2026-10-19 · Claude · 結論：通過**（含下列審查者直接修正）。
+- 驗證：本機以審查後的 head 執行 `typecheck`、`validate:source`、`build`、`validate:d1:local`（16 個 migration）全部通過；`node --test scripts/*.test.mjs` 142／142 通過（含 `audit-account-portal`，已備妥 `.tmp/canonical-cyapps`）。
+- 實機畫面：以實際 React 畫面加 mock API 擷取異動紀錄頁（日期分組、一句話摘要、篩選列）、欄位變更抽屜（中文欄位、改前／改後、技術細節收合）、客戶「修改紀錄」視窗、側欄「工具」外部網站項目，行為符合 §6。
+- 審查者直接修正（§9 小項）：
+  1. `scripts/change-log-labels.test.mjs` 判斷「已翻譯」的正規式只抓每行第一個鍵，導致同一行的其他翻譯被誤判為缺漏、測試失敗（18 個動作其實都已有中文）；改為比對所有鍵後通過。
+  2. 移除範圍外的 8 個 SVG 示意稿（`docs/development/work-orders/assets/WO-0.9.13-*.svg`）。
+  3. `CustomerOperationalPage.tsx` 合併重複的 `format` import。
+- 已知限制（不阻擋）：側欄外部網站名稱較長時會換成兩行（例如「志遠記帳系統 Web 版」）；若要縮短，日後在程式目錄加可選的側欄短名稱。

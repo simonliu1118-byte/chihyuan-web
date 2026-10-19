@@ -194,8 +194,11 @@ export class WorkLogRepository {
       list.push(category);
       byEntry.set(category.work_log_entry_id, list);
     });
+    const owner = await this.db.prepare("SELECT employee_no, display_name FROM app_members WHERE id=?")
+      .bind(row.employee_id).first<{employee_no:string|null;display_name:string|null}>();
     return {
       ...toSummary(row),
+      employee: { employeeNo: owner?.employee_no ?? null, displayName: owner?.display_name ?? null },
       reviewRemark: row.review_remark ?? null,
       createdAt: row.created_at ?? row.updated_at,
       entries: entries.map((entry) => ({

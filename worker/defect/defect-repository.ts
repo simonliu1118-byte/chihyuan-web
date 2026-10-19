@@ -21,6 +21,7 @@ type DefectRow = {
   spec_snapshot: string | null;
   owner_employee_id: number;
   owner_employee_no: string | null;
+  owner_display_name: string | null;
   defect_description: string;
   handling: string | null;
   status_code: DefectStatusCode;
@@ -70,6 +71,7 @@ const DEFECT_SELECT = `
          d.spec_snapshot,
          d.owner_employee_id,
          am.employee_no AS owner_employee_no,
+         am.display_name AS owner_display_name,
          d.defect_description,
          d.handling,
          d.status_code,
@@ -97,7 +99,7 @@ function toSummary(row: DefectRow): DefectSummary {
     ownerEmployee: {
       id: row.owner_employee_id,
       employeeNo: row.owner_employee_no,
-      displayName: null,
+      displayName: row.owner_display_name,
     },
     defectDescription: row.defect_description,
     handling: row.handling,

@@ -44,6 +44,7 @@ export interface AuditEventRecord {
   entityKey: string;
   action: string;
   actorEmployeeId: number | null;
+  actor: { id: number; employeeNo: string | null; displayName: string | null } | null;
   occurredAt: string;
   statusFrom: string | null;
   statusTo: string | null;
@@ -70,6 +71,10 @@ export interface AuditQuery {
   actorEmployeeId?: number;
   occurredFrom?: string;
   occurredTo?: string;
+  entityTypes?: string[];
+  q?: string;
+  cursor?: string;
+  relatedCustomerId?: number;
   limit?: number;
 }
 
@@ -279,6 +284,17 @@ export class AuditService {
   }
 
   async listDetailed(query: AuditQuery): Promise<AuditEventRecord[]> {
+    return (await this.listDetailedPage(query)).events;
+  }
+
+  async listActors(): Promise<{ id: number; employeeNo: string | null; displayName: string | null }[]> {
+    const rows = await this.db.prepare(`SELECT DISTINCT m.id, m.employee_no, m.display_name FROM app_members m
+      JOIN audit_events ae ON ae.actor_employee_id = m.id ORDER BY COALESCE(m.display_name,m.employee_no),m.id`)
+      .all<{ id: number; employee_no: string | null; display_name: string | null }>();
+    return (rows.results ?? []).map(r => ({ id:r.id, employeeNo:r.employee_no, displayName:r.display_name }));
+  }
+
+  async listDetailedPage(query: AuditQuery): Promise<{ events: AuditEventRecord[]; nextCursor: string | null }> {
     const where: string[] = [];
     const values: AuditSqlScalar[] = [];
 
@@ -287,35 +303,52 @@ export class AuditService {
       return `?${values.length}`;
     };
 
-    if (query.entityType) where.push(`entity_type = ${bind(normalizeCode(query.entityType, "entityType"))}`);
-    if (query.entityKey) where.push(`entity_key = ${bind(normalizeEntityKey(query.entityKey))}`);
-    if (query.action) where.push(`action = ${bind(normalizeCode(query.action, "action"))}`);
+    if (query.entityType) where.push(`ae.entity_type = ${bind(normalizeCode(query.entityType, "entityType"))}`);
+    if (query.entityKey) where.push(`ae.entity_key = ${bind(normalizeEntityKey(query.entityKey))}`);
+    if (query.action) where.push(`ae.action = ${bind(normalizeCode(query.action, "action"))}`);
     if (query.actorEmployeeId != null) {
       if (!Number.isInteger(query.actorEmployeeId) || query.actorEmployeeId <= 0) {
         throw new Error("INVALID_AUDIT_ACTOR_ID");
       }
-      where.push(`actor_employee_id = ${bind(query.actorEmployeeId)}`);
+      where.push(`ae.actor_employee_id = ${bind(query.actorEmployeeId)}`);
     }
-    if (query.occurredFrom) where.push(`occurred_at >= ${bind(query.occurredFrom.trim())}`);
-    if (query.occurredTo) where.push(`occurred_at <= ${bind(query.occurredTo.trim())}`);
+    if (query.occurredFrom) where.push(`ae.occurred_at >= ${bind(query.occurredFrom.trim())}`);
+    if (query.occurredTo) where.push(`ae.occurred_at <= ${bind(query.occurredTo.trim())}`);
+    if (query.entityTypes?.length) {
+      const types = [...new Set(query.entityTypes.map(type => normalizeCode(type, "entityType")))];
+      where.push(`ae.entity_type IN (${types.map(type => bind(type)).join(",")})`);
+    }
+    if (query.q?.trim()) {
+      const term = bind(query.q.trim().slice(0, 100));
+      where.push(`(instr(ae.entity_key, ${term}) > 0 OR
+        instr(COALESCE(ae.before_json,''), ${term}) > 0 OR
+        instr(COALESCE(ae.after_json,''), ${term}) > 0)`);
+    }
+    if (query.relatedCustomerId != null) {
+      if (!Number.isSafeInteger(query.relatedCustomerId) || query.relatedCustomerId < 1) throw new Error("INVALID_CUSTOMER_ID");
+      const cid = String(query.relatedCustomerId);
+      where.push(`((ae.entity_type = 'customer' AND ae.entity_key = ${bind(cid)}) OR
+        (ae.entity_type IN ('customer_visit','customer_item_quote','customer_frequent_item')
+          AND json_valid(COALESCE(ae.metadata_json,'{}'))
+          AND CAST(json_extract(ae.metadata_json,'$.customerId') AS TEXT) = ${bind(cid)}))`);
+    }
+    if (query.cursor) {
+      let stamp: string, id: number;
+      try {
+        const decoded = atob(query.cursor.replace(/-/g,"+").replace(/_/g,"/"));
+        [stamp, id] = JSON.parse(decoded) as [string, number];
+      } catch { throw new Error("INVALID_AUDIT_CURSOR"); }
+      if (typeof stamp !== "string" || stamp.length > 50 || !Number.isSafeInteger(id) || id < 1) throw new Error("INVALID_AUDIT_CURSOR");
+      where.push(`(ae.occurred_at < ${bind(stamp)} OR (ae.occurred_at = ${bind(stamp)} AND ae.id < ${bind(id)}))`);
+    }
 
     const limit = normalizeLimit(query.limit);
-    const sql = `SELECT id,
-                        entity_type,
-                        entity_key,
-                        action,
-                        actor_employee_id,
-                        occurred_at,
-                        status_from,
-                        status_to,
-                        request_id,
-                        before_json,
-                        after_json,
-                        metadata_json
-                   FROM audit_events
+    const sql = `SELECT ae.*, m.employee_no AS actor_employee_no, m.display_name AS actor_display_name
+                   FROM audit_events ae
+                   LEFT JOIN app_members m ON m.id = ae.actor_employee_id
                   ${where.length > 0 ? `WHERE ${where.join(" AND ")}` : ""}
-                  ORDER BY occurred_at DESC, id DESC
-                  LIMIT ${bind(limit)}`;
+                  ORDER BY ae.occurred_at DESC, ae.id DESC
+                  LIMIT ${bind(limit + 1)}`;
 
     const statement = this.db.prepare(sql);
     const result = await statement.bind(...values).all<{
@@ -324,6 +357,8 @@ export class AuditService {
       entity_key: string;
       action: string;
       actor_employee_id: number | null;
+      actor_employee_no: string | null;
+      actor_display_name: string | null;
       occurred_at: string;
       status_from: string | null;
       status_to: string | null;
@@ -333,12 +368,17 @@ export class AuditService {
       metadata_json: string | null;
     }>();
 
-    return (result.results ?? []).map((row) => ({
+    const page = result.results ?? [];
+    const visible = page.slice(0, limit);
+    const last = visible.at(-1);
+    const nextCursor = page.length > limit && last ? btoa(JSON.stringify([last.occurred_at,last.id])).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"") : null;
+    return { events: visible.map((row) => ({
       id: row.id,
       entityType: row.entity_type,
       entityKey: row.entity_key,
       action: row.action,
       actorEmployeeId: row.actor_employee_id,
+      actor: row.actor_employee_id == null ? null : { id: row.actor_employee_id, employeeNo: row.actor_employee_no, displayName: row.actor_display_name },
       occurredAt: row.occurred_at,
       statusFrom: row.status_from,
       statusTo: row.status_to,
@@ -346,6 +386,6 @@ export class AuditService {
       before: parsePayload(row.before_json),
       after: parsePayload(row.after_json),
       metadata: parsePayload(row.metadata_json),
-    }));
+    })), nextCursor };
   }
 }
