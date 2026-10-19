@@ -131,7 +131,7 @@ export class HrService {
     const allowanceRows=rows(v.allowances,"allowances",30).map(x=>({itemTypeId:integer(x.itemTypeId,"itemTypeId",true),amount:integer(x.amount,"amount"),isRegular:x.isRegular===true}));
     const minimum=await this.db.prepare("SELECT * FROM hr_minimum_wages WHERE effective_date<=? ORDER BY effective_date DESC,id DESC LIMIT 1").bind(effective).first<{monthly_amount:number;hourly_amount:number;effective_date:string}>();
     const total=base+allowanceRows.filter(x=>x.isRegular).reduce((n,x)=>n+x.amount,0);
-    if(minimum&&total<(type==="monthly"?minimum.monthly_amount:minimum.hourly_amount))throw new HrValidationError("baseAmount",\`本薪＋經常性津貼 \${total} 元低於 \${minimum.effective_date} 最低工資 \${type==="monthly"?minimum.monthly_amount:minimum.hourly_amount} 元\`);
+    if(minimum&&total<(type==="monthly"?minimum.monthly_amount:minimum.hourly_amount))throw new HrValidationError("baseAmount", "本薪＋經常性津貼 "+total+" 元低於 "+minimum.effective_date+" 最低工資 "+(type==="monthly"?minimum.monthly_amount:minimum.hourly_amount)+" 元");
     const member=await this.employeeRow(id);
     const statements:D1PreparedStatement[]=[
       this.db.prepare("INSERT INTO hr_salary_records(employee_id,effective_date,payment_type,base_amount,reason,created_at,created_by) VALUES(?,?,?,?,?,?,?)").bind(id,effective,type,base,reason,ctx.now,ctx.actor),
