@@ -1,6 +1,6 @@
 # WO-0.9.20 人事模組第一期：人事主檔、年資與特休、薪資異動
 
-- 狀態：待執行（**WO-0.9.18（版本 0.9.19）合併後**才從最新 `main` 開分支；原編號 WO-0.9.19，因版本號 0.9.18 已被 PR #218 使用而順延）
+- 狀態：**需修正**（第一次審查 2026-10-19，見 §9；修正後在同一 PR 推送並更新 §8）
 - 分支：`cyweb/hr-phase1`（建議）　PR：（執行者填）
 - 依據：`PROJECT_RULES.md` §9；**BD-059**；設計 `docs/architecture/HR_MODULE_DESIGN.md`（本單以該文件第 2～4 節為準）；BD-053／054（稽核）
 - 視覺規範：`docs/architecture/CY_WEB_VISUAL_GUIDE.md`
@@ -142,4 +142,28 @@
 
 ## 9. 審查紀錄（審查者填）
 
-- （待審查）
+### 第一次審查（2026-10-19）：需修正
+
+本機 `typecheck`、`validate:source`、`build`、`validate:d1:local`、`node --test scripts/*.test.mjs` 全部通過。後端權限（全部 API 限超管、異動紀錄非超管看不到 `hr_*`）、身分證遮罩與 reveal 稽核、最低工資檢查方向正確。以下問題請在**同一個 PR** 修正後推送，並在 §8 補充「第二次完成報告」逐條回覆。
+
+**A. 必須修正（後端／計算）**
+
+1. **週年日在月底不存在時差一天**（`shared/hr-annual-leave.ts` `anniversary()`）：依民法第 121 條，期間末日為該月末日，新特休年度應從**下個月 1 日**起算；目前算成該月最後一天。例：2024-02-29 到職，滿 1 年應從 2025-03-01 起；2025-08-31 到職，滿 6 個月應從 2026-03-01 起。修正並把 `scripts/hr-annual-leave.test.mjs` 的 2/29 測試改為期望 `2025-03-01`，另加 8/31 滿 6 個月的測試。
+2. **未來生效的離職會遺失離職日與原因**（`hr-service.ts` `statusChange`）：只有生效日 ≤ 今天才寫入 `termination_date`／`termination_reason`。離職日與原因要一律寫入（狀態欄仍依生效日）。驗收測試加「未來生效離職」案例。
+3. **狀態異動的 `nextStatus` 沒有預設值**：前端下拉預設顯示「在職」但 `fields.nextStatus` 是 undefined，直接送出會被後端拒絕。開啟視窗時設定初始值。
+4. **修改人事資料的稽核沒有欄位內容**：before／after 只有 revision，異動紀錄只能顯示「修改人事資料」看不出改了什麼。before／after 放入變更前後的主檔欄位（身分證只放遮罩值），子表以「緊急聯絡人」「學歷」「工作經歷」整體標示有變更即可；`change-log-labels.ts` 補上這些欄位的中文標籤。
+
+**B. 必須修正（畫面，§5.3 未達成）**
+
+5. **版型要比照客戶頁的清單＋明細共用元件**（`MasterDetail`、`cy-op-list-row`、`useMasterDetailPane`、手機返回鍵），不要用 `cy-op-grid-two`＋按鈕列表；清單列上行小字員工編號、下行姓名、右側狀態 chip。
+6. **新增／修改員工改用共用編輯頭**（`cy-record-header cy-edit-header`，取消／儲存在上方、sticky），在右側明細區編輯，不要用大對話框。
+7. **子表輸入欄位標籤是英文 key**（`name`、`relationship`、`graduationMonth`、`jobTitle`…）。改為中文標籤並用共用可編輯清單（`EDITABLE_LIST_FOUNDATION`）；年月欄位用 `type="month"`。
+8. **「綁定使用者」顯示成內部 id 數字**，改顯示「3001 劉建昌」；未綁定顯示「未綁定」。
+9. **明細改為卡片版面**（比照客戶頁 `RelatedCard`）：特休、薪資、狀態異動、年資不計期間各一張卡（最近幾筆＋「查看全部」），基本資料用欄位格（`cy-op-info-grid` 類同客戶頁）。不要用一連串 `<p>`。
+10. **刪除無用與殘留**：`<Dialog title="人事設定">` 只有一句說明的殘留對話框刪除；`strong style={{display:"block"}}` 等 inline style 改用 CSS；年資不計期間刪除改用共用 `useConfirmation`，不要 `window.confirm`；`HrSettingsPanel` 檔名與匯出名稱一致（`HrSettingsButton` → 放在 `HrSettingsButton.tsx` 或改名）。
+11. 金額顯示依 §6 千分位整數元；日期 `YYYY/MM/DD`、年月 `YYYY/MM`（目前學歷／經歷直接輸出 `2020-06` 原字串）。
+12. 錯誤與成功訊息改用共用 `FeedbackBanner`／`useFeedbackMessage`，不要自寫 `cy-notice` 區塊。
+
+**C. 完成報告**
+
+13. §8 依 §6 驗收清單逐項回覆；修正後審查者會再擷取畫面驗收（清單、明細各卡片、新增／修改、三種對話框、設定、手機 390）。
