@@ -119,6 +119,42 @@
 
 **未完成之全站掃描需於 PR 正式交審前補齊；本報告不得視為全部驗收通過。**
 
+
+
+### §8 補充：已逐項判斷的說明文字（位置為檢查前行號）
+
+| 檔案／行號 | 原文或原文摘要 | 留／刪 | 理由 |
+| --- | --- | --- | --- |
+| 客戶 CustomerOperationalPage:849 | 客戶編號可先留空，之後在「修改」補填。 | 刪 | 重複操作教學 |
+| ERP ErpItemQueryPage:145 | 點選品號，重新向 ERP 查詢該商品完整資料。 | 刪 | 重複操作教學 |
+| 委外 OutsourcingOperationalPage:585 | 交給協力廠商的料件；可註明預計做成的成品與 BOM。 | 刪 | 非輸入限制的描述 |
+| 委外 OutsourcingOperationalPage:644 | 填好後按上方「確認入庫」。 | 刪 | 操作教學 |
+| 委外 OutsourcingOperationalPage:672 | 依出庫、入庫紀錄即時計算的協力廠商手上庫存。 | 刪 | 系統運作解釋 |
+| 工作日誌 WorkLogOperationalPage:599 | 填寫日期與工作內容；儲存後可在明細按「送出審核」。 | 刪 | 操作教學 |
+| 工作日誌 WorkLogOperationalPage:611 | 每個工作項目可選平台，並加上多個計分分類。 | 刪 | 重複表單操作描述 |
+| 身分 SharedIdentityPage:457 | 勾選立即生效。加入權限群組…點姓名可處理帳號… | 刪 | 過長操作教學與系統原理 |
+| 身分 SharedIdentityPage:938 | 勾選立即套用到群組所有成員…每人最多一個群組… | 刪 | 長篇操作教學；權限規則由實際控制與後端保障 |
+| ERP ErpItemQueryPage:134 | 起訖都未填：去年同月同日至今天；範圍最多三年。 | 留 | 影響查詢結果的日期規則 |
+| ERP ErpItemQueryPage:142 | 結果已達上限，可能有更多資料，請輸入更完整的品名。 | 留 | 截斷警告，影響結果解讀 |
+| ERP ErpItemQueryPage:150-155 | 無庫別資料／非批號管理／沒有批號庫存。 | 留 | 空狀態提示 |
+| ERP ErpItemQueryPage:162 | 只顯示最新 2,000 筆，請縮小日期範圍。 | 留 | 限制及資料截斷警告 |
+| 商品 ItemOperationalPage:659 | 品號必須在 ERP 存在／更改品號會保留歷史品號。 | 留 | 實際輸入規則與安全影響 |
+| 客戶 CustomerOperationalPage:916/921 | 尚無電話或聯絡人／尚無地址。 | 留 | 空狀態 |
+| 客戶 CustomerOperationalPage:1011/1099/1144 | 沒有符合條件的拜訪／報價／常用商品。 | 留 | 搜尋空狀態 |
+| 銷售 SalesOrderOperationalPage:552 | ERP 開單前可以修改；開單後只能更正 ERP 資料。 | 留 | 影響是否能修改的業務限制 |
+| 銷售 SalesOrderOperationalPage:585 | 數量與單價最多四位小數。 | 留 | 輸入精度限制 |
+| 委外 OutsourcingOperationalPage:571 | 更正出庫會取代舊資料並保留更正紀錄。 | 留 | 重要資料變動警告 |
+| 委外 OutsourcingOperationalPage:674 | 目前沒有非零代工庫存。 | 留 | 空狀態 |
+| 稽核 AuditOperationalPage:142/155 | 此範圍尚無異動紀錄／此筆未提供欄位差異。 | 留 | 空狀態 |
+| 工作日誌 WorkLogOperationalPage:524/549 | 錯誤訊息。 | 留 | 錯誤回饋 |
+| 身分 SharedIdentityPage:626 | 這是你的帳號，密碼與 Email 需於我的帳號變更。 | 留 | 避免在管理他人帳號頁更動自己憑證的安全提示 |
+| 身分 SharedIdentityPage:657 | 權限由群組決定，不可個別修改。 | 留 | 影響權限編輯結果的限制 |
+| 身分 SharedIdentityPage:686 | 停用控制項原因。 | 留 | 不可操作原因 |
+| 身分 SharedIdentityPage:1024 | 驗證碼與 Email 次數限制。 | 留 | 安全與輸入限制 |
+| 身分 SharedIdentityPage:1030 | 每日 Email 系統上限。 | 留 | 設定數值限制 |
+
+仍需掃描未列於本表的全部 `src/` 檔案；此表並非所有候選項目。
+
 ## 9. 審查紀錄（審查者填）
 
 - （待審查）
