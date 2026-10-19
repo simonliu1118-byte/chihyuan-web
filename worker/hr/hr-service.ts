@@ -72,6 +72,7 @@ export class HrService {
   async create(raw:unknown,ctx:HrContext) {
     const v=object(raw);const profile=normalizeProfile(raw);
     const initial=status(v.status??"probation");
+    if(initial==="terminated")throw new HrValidationError("status","離職須透過狀態異動記錄離職日與原因");
     const no=String(profile.vals[0]);
     const statements:D1PreparedStatement[]=[
       this.db.prepare("INSERT INTO hr_employees ("+fields.join(",")+",status,created_at,updated_at,created_by,updated_by) VALUES ("+fields.map(()=>"?").join(",")+",?,?,?,?,?)")
@@ -95,10 +96,10 @@ export class HrService {
     const assignments=fields.map(x=>x+"=?").join(",");
     const stmts:D1PreparedStatement[]=[this.db.prepare("UPDATE hr_employees SET "+assignments+",revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?").bind(...profile.vals,ctx.now,ctx.actor,id,revision)];
     for(const g of profile.children){
-      stmts.push(this.db.prepare("DELETE FROM "+g.table+" WHERE employee_id=?").bind(id));
-      for(const [index,values] of g.values.entries())stmts.push(this.db.prepare("INSERT INTO "+g.table+" (employee_id,"+g.columns.join(",")+",sort_order) VALUES (?,"+g.columns.map(()=>"?").join(",")+",?)").bind(id,...values,index));
+      stmts.push(this.db.prepare("DELETE FROM "+g.table+" WHERE employee_id=? AND EXISTS(SELECT 1 FROM hr_employees WHERE id=? AND revision=? AND updated_at=? AND updated_by=?)").bind(id,id,revision+1,ctx.now,ctx.actor));
+      for(const [index,values] of g.values.entries())stmts.push(this.db.prepare("INSERT INTO "+g.table+" (employee_id,"+g.columns.join(",")+",sort_order) SELECT id,"+g.columns.map(()=>"?").join(",")+",? FROM hr_employees WHERE id=? AND revision=? AND updated_at=? AND updated_by=?").bind(...values,index,id,revision+1,ctx.now,ctx.actor));
     }
-    stmts.push(audit(this.db,ctx,"hr_employee",String(before.employee_no),"hr_employee.updated",{revision,nationalIdMasked:maskTaiwanId(before.national_id as string|null)},{revision:revision+1,nationalIdMasked:maskTaiwanId(profile.vals[3] as string|null)}));
+    stmts.push(new AuditService(this.db).prepareRecord({entityType:"hr_employee",entityKey:String(before.employee_no),action:"hr_employee.updated",actorEmployeeId:ctx.actor,requestId:ctx.requestId,before:{revision,nationalIdMasked:maskTaiwanId(before.national_id as string|null)},after:{revision:revision+1,nationalIdMasked:maskTaiwanId(profile.vals[3] as string|null)}},{sql:"EXISTS(SELECT 1 FROM hr_employees WHERE id=? AND revision=? AND updated_at=? AND updated_by=?)",values:[id,revision+1,ctx.now,ctx.actor]}));
     const results=await this.db.batch(stmts);
     if(!results[0]?.meta?.changes)throw new HrValidationError("revision","資料已由其他人修改，請重新整理",409);
     return this.get(id);
