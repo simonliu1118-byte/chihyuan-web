@@ -1,10 +1,20 @@
 import { HrService } from "../hr/hr-service";
 import { handleHrRoute } from "../http/hr-routes";
 import { AuditService } from "../audit/audit-service";
-import { maskTaiwanId } from "../../shared/national-id";
+import { maskTaiwanId, isValidTaiwanId } from "../../shared/national-id";
+import { annualLeaveSchedule } from "../../shared/hr-annual-leave";
 
 function check(condition:unknown,code:string):asserts condition { if(!condition)throw Error(code); }
 export async function acceptHrPhase1(db:D1Database):Promise<void>{
+ check(isValidTaiwanId("A123456789") && !isValidTaiwanId("A123456780") && maskTaiwanId("A123456789")==="A12****789","ACCEPT_HR_ID_CHECKSUM");
+ check(annualLeaveSchedule("2026-01-01",[],"2026-06-30").length===0,"ACCEPT_HR_LEAVE_BEFORE_HALF_YEAR");
+ const first=annualLeaveSchedule("2026-01-01",[],"2027-01-01");
+ check(first[0]?.days===3 && first[1]?.days===7,"ACCEPT_HR_HALF_YEAR_AND_ONE_YEAR");
+ for (const [years,days] of [[2,10],[3,14],[4,14],[5,15],[10,16],[24,30],[30,30]]) {
+  const rows=annualLeaveSchedule("2026-01-01",[],"2057-01-01");
+  check(rows.find(x=>x.serviceYearsLabel==="滿 "+years+" 年")?.days===days,"ACCEPT_HR_LEAVE_YEAR_"+years);
+ }
+ check(annualLeaveSchedule("2024-02-29",[],"2025-02-28").at(-1)?.periodStart==="2025-02-28","ACCEPT_HR_LEAP_DAY");
  const svc=new HrService(db), now="2026-10-19T00:00:00.000Z";
  const ctx={actor:1,requestId:"accept-hr-phase1",now};
  let role:"USER"|"ADMIN"|"SUPER_ADMIN"="USER";
