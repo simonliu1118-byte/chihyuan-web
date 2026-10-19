@@ -104,9 +104,7 @@ export function HrOperationalPage(){
     {next?<button className="cy-op-button" onClick={()=>void loadList(true,next).catch(x=>setError(err(x)))}>載入更多</button>:null}
    </section>
    <section className="cy-op-panel cy-md-detail"><MasterDetailBack label="人事清單" onBack={()=>{setDialog(null);pane.close();}} disabled={busy}/>
-   {dialog==="employee" ? <>  <Dialog open={dialog==="employee"} title={create?"新增員工":"修改員工"} onClose={()=>setDialog(null)} size="large">
-   {error?<div className="cy-notice cy-notice-danger" role="alert">{error}</div>:null}
-   <form className="cy-op-form" onSubmit={submitEmployee}><div className="cy-record-header cy-edit-header"><h2>{create?"新增員工":"修改員工"}</h2><div className="cy-record-actions"><button type="button" className="cy-op-button" onClick={()=>setDialog(null)}>取消</button><button className="cy-op-button primary" disabled={busy}>儲存</button></div></div>
+   {dialog==="employee" ? <>   <form className="cy-op-form" onSubmit={submitEmployee}><div className="cy-record-header cy-edit-header"><h2>{create?"新增員工":"修改員工"}</h2><div className="cy-record-actions"><button type="button" className="cy-op-button" onClick={()=>setDialog(null)}>取消</button><button className="cy-op-button primary" disabled={busy}>儲存</button></div></div>
      {field("員工編號","employeeNo","text",true)}{field("姓名","name","text",true)}<label>綁定使用者（選填）<select className={inputClass} value={fields.memberId??""} onChange={e=>set("memberId",e.target.value)}><option value="">不綁定</option>{members.map(x=><option key={x.id} value={x.id}>{x.employee_no}　{x.display_name??""}</option>)}</select></label>
      {field(create?"身分證字號（選填）":"新身分證字號（留空維持原值）","nationalId")}<label>性別<select className={inputClass} value={fields.gender??""} onChange={e=>set("gender",e.target.value)}><option value="">未設定</option><option value="男">男</option><option value="女">女</option><option value="其他">其他</option></select></label>
      {field("到職日","hireDate","date",true)}{field("年資起算日","seniorityStartDate","date")}
