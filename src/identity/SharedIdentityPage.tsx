@@ -154,7 +154,7 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
       setChallengeId(result.verification.challengeId);
       setNow(Date.now()); setResendAt(Date.now() + 60000);
       setMessage(result.reused ? "沿用已寄出的驗證碼，請輸入 6 位數驗證碼。" : "驗證碼已寄至目前 Email。");
-    } catch (error) { setChallengeId(null); setVerifyingCurrentEmail(false); setDialog(null); reportError(messageOf(error)); }
+    } catch (error) { setChallengeId(null); reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
