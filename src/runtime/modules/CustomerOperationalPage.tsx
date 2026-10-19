@@ -1,3 +1,4 @@
+import { RelatedCard } from "../../ui/records/RelatedCard";
 import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
@@ -937,23 +938,6 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
   );
 }
 
-
-function RelatedCard({ title, count, empty, rows, onAdd, onView }: {
-  title: string; count: number; empty: string; rows: readonly React.ReactNode[];
-  onAdd: () => void; onView: () => void;
-}) {
-  return <article className="cy-op-panel cy-customer-related-card">
-    <header className="cy-customer-related-card-header">
-      <h3>{title} <span className="cy-customer-card-count">{count}</span></h3>
-      <button className="cy-op-button compact" type="button" onClick={onAdd}>＋ 新增</button>
-    </header>
-    <div className="cy-customer-related-card-rows">
-      {rows.length ? rows.map((row, index) => <div key={index} className="cy-customer-card-row">{row}</div>)
-        : <p className="cy-customer-muted">{empty}</p>}
-    </div>
-    <button className="cy-customer-card-view-all" type="button" onClick={onView}>查看全部（{count}）›</button>
-  </article>;
-}
 
 function EditableRows({ title, hint, addLabel, onAdd, empty, busy, children }: { title: string; hint?: string; addLabel: string; onAdd: () => void; empty: boolean; busy: boolean; children: React.ReactNode }) {
   return <section className="cy-form-block"><div className="cy-form-block-head"><div><h3>{title}</h3>{hint ? <p>{hint}</p> : null}</div><button type="button" className="cy-op-button compact" disabled={busy} onClick={onAdd}>＋ {addLabel}</button></div><div className="cy-form-block-body">{empty ? <p className="cy-form-block-empty">尚未填寫。</p> : children}</div></section>;
