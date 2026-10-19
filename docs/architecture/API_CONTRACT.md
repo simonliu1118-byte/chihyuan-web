@@ -621,3 +621,8 @@ The program reader retains the shared D1 catalog during failures, with `current=
 ```
 
 Each customer's latest quote for the Item is selected by `quote_date DESC, id DESC`. All price tiers (unit, exact scaled quantity, exact scaled unit price) are sorted and compared as a complete schedule: only exactly identical schedules are grouped, without comparing or converting prices across units. Each group sorts customers by latest quote date (and quote ID) descending, groups by latest date descending. This is read-only; no quote correction, ERP quote number, migration or total calculation is added.
+
+
+## WO-0.9.16 — ERP 查詢稽核顯示
+
+異動紀錄查詢接受選填 `includeErpQueries`，預設 `false`，不回傳 `entity_type = 'erp_item_query'`。僅 `SUPER_ADMIN` 可要求 `true`；其他角色傳入 `true` 仍視為 `false`。啟用後 ERP 查詢僅顯示完成／失敗／逾時事件，不顯示送出（`created`）事件。`erp_item_agent.*` 管理事件維持顯示；此篩選不修改稽核資料寫入或資料表。
