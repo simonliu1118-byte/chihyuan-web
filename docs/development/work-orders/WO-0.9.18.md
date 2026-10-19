@@ -85,41 +85,54 @@
 
 ## 8. 完成報告（執行者填）
 
-**執行狀態：部分實作，尚未達工作單全部驗收；PR #220 維持 Draft，禁止合併或部署。**
-
+- PR：[#220](https://github.com/simonliu1118-byte/chihyuan-web/pull/220)；工作分支 `cyweb/account-hints-wo-0.9.18`，從 `main` commit `461eca2c` 建立，不合併、不部署。
 - 驗收清單逐項結果：
-  1. 全站說明文字逐項對照：**部分完成**，已檢查十個主要 TSX 頁面並列出部分逐項決議，仍缺少完整 `src/` 逐檔候選清單與逐條人工裁決；不能宣稱全站完成。
-  2. 我的帳號單一卡片：**已提交**。顯示姓名、員工編號、角色、Email 驗證狀態及遮蔽密碼。現有 `AuthUser` 未提供 Email 地址，依工作單僅顯示驗證狀態；刪除 CYID 技術說明及重複介紹。
-  3. 變更密碼 Dialog：**已提交，未執行互動測試**。目前／新／確認密碼使用共用 `PasswordInput`，提供 👁 顯示切換、8～16 字元與一致性即時標示，條件不符時無法提交，沿用 `changeOwnPassword` 與重新登入提示。
-  4. 變更 Email Dialog：**已提交，未執行互動測試**。沿用現有 API，分為輸入與驗證兩步，設 60 秒倒數、返回及重新寄送。
-  5. 待驗證 Email：**已接入原 `startCurrentEmailVerification`，失敗時關閉驗證 Dialog 並恢復狀態，讓使用者可重新操作；未做實機驗證**。
-  6. 手機 390px：**已有響應式樣式，未在真實畫面驗證**。
-  7. `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local`：**未執行，不能宣稱通過**。
-  8. `node --test scripts/*.test.mjs`：**未執行**；canonical cyapps clone 未成功。
-  9. 工作單範圍與 workflow：GitHub Compare 目前顯示 10 個範圍內檔案（新增 `PasswordInput`、身份頁、客戶、ERP、委外、工作日誌、TODO、視覺規範及本工作單），**無 `.github/workflows/*` 變更**。
-  10. `VERSION`／`package.json`：目前 `main` 已是 `0.9.18`，未重複修改；TODO 與視覺規範已更新，`BUILD` 未動。
-- 與工作單不同之處與原因：因無法取得完整儲存庫 checkout，全站文字掃描及必要測試未能執行。依 §2-2，AuthUser 沒有目前 Email，故只顯示驗證狀態，未更動後端。
+  1. **全站說明文字：已完成原始碼盤點及刪改，待實際畫面複核。** 使用 GitHub Git Tree 取得 `src/` 全部 60 個 TSX 檔案，逐檔檢視 `<p>`、`<small>`、`<span>` 長文；本節後方列出逐項留刪及理由（含刪除前位置與目前分支候選索引），60 個 TSX 均已納入盤點。保留輸入規則、安全警示、空狀態及資料內容；刪除操作教學、重複副標與實作原理說明；`PAGE_META.description` 未動。刪掉已不用的樣式。
+  2. **我的帳號：實作完成／實機待驗。** 一張卡片呈現姓名、員工編號、角色、Email 驗證狀態與遮蔽密碼，兩項各自進入變更對話框；移除自我介紹與 CYID 技術說明。現有 `AuthUser` 沒有 Email 地址，遵守 §2-2 僅顯示驗證狀態，不新增 API。
+  3. **密碼 Dialog：實作完成／實機待驗。** 三組共用 `PasswordInput`，各自有 👁 切換與可及名稱，顯示「8～16 字元／兩次輸入相同」即時勾選，未符合不可提交；沿用 `changeOwnPassword` 及重新登入流程。
+  4. **Email Dialog：實作完成／實機待驗。** 新 Email 與目前密碼 → 六碼驗證，倒數 60 秒、重新寄送、返回；即使返回或重新開啟 Dialog，冷卻期間也不可重新寄送；沿用原 `startOwnEmailChange`／`confirmOwnEmailChange`；寄送失敗會顯示錯誤並可重新操作。
+  5. **待驗證 Email：實作完成／實機待驗。** 從帳號 Email 列呼叫 `startCurrentEmailVerification`，成功取得 challenge 後六碼確認。
+  6. **390px 手機：樣式已實作／實機待驗。** 使用單卡片、同一套小型 Dialog、響應式列排版；尚未取得實際畫面。
+  7. **型別／來源／建置／D1：GitHub Actions 既有 Runtime Check 已通過。** 於 [run 39257042924](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39257042924) 的 Worker TypeScript、Browser TypeScript、source-contracts、Local D1 runtime acceptance、Vite build 均為 success。該檢查使用既有 workflow，非新增。
+  8. **完整 Node 測試：既有 CI 涵蓋多組測試並通過，但未執行一次完整 `node --test scripts/*.test.mjs`。** 工作單所要求的 canonical cyapps clone 與完整集合命令尚無執行證據，不能宣稱該項完全通過。
+  9. **範圍／workflow：以 GitHub Compare 核對變更全部是指定 `src/` 程式及樣式、`TODO.md`、視覺規範、工作單；無 `.github/workflows/*` 差異、沒有示意圖／mock／新測試 runner。**
+  10. **版本與文件：`VERSION` 0.9.18、`package.json` 0.9.18、`BUILD` 0；TODO 已新增本單並補記 V0.9.17 合併與部署，視覺規範已更新。**
+- 與工作單不同之處與原因：
+  - `AuthUser` 不回傳 Email，因此只顯示驗證狀態（工作單明示的允許情境）；未修改 CYID 或後端 API。
+  - 本地環境執行 `git ls-remote`／`git clone` 曾顯示 `Could not resolve host: github.com`。改由 GitHub Connector 的 Git Tree 和 Contents 讀完整 `src/`，且**直接採用既有 GitHub Actions 的實際驗證結果**，不新增工作流程。獨立完整 Node 命令及實機 UI 截圖仍須審查者驗證。
+  - 為確保現有程式目錄更新契約測試通過，保留「每日台灣時間凌晨 3 點自動確認版本」及最近確認時間；僅刪除操作教學。
 - 驗證指令輸出摘要：
-  - `git clone --depth 1 --branch cyweb/account-hints-wo-0.9.18 https://github.com/simonliu1118-byte/chihyuan-web.git`：失敗，`Could not resolve host: github.com`。
-  - GitHub Compare `main...cyweb/account-hints-wo-0.9.18`：10 個變更檔案，無 workflow，無範圍外檔案。
-  - `npm run typecheck`／`npm run validate:source`／`npm run build`／`npm run validate:d1:local`／`node --test scripts/*.test.mjs`：未執行，無輸出。
-- 操作驗證步驟：以已驗證帳號開啟我的帳號，檢查卡片、密碼三欄切換與即時驗證；執行密碼變更後驗證重新登入；以已驗證 Email 執行 Email 變更、輸入六位碼、確認返回與 60 秒冷卻；以待驗證帳號測試寄送驗證碼；於 390px 檢查視窗、按鈕，最後執行 §6 全部測試。
-- 說明文字對照表（**僅已核對項目，非全站完整表**）：
+  - Runtime Check [#39257042924](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39257042924)：**success**，包含 TypeScript browser／Worker、source-contracts、Local D1、Vite build、身份及 ERP 等回歸測試。
+  - Governance Check [#39257042800](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39257042800)：**success**。
+  - Connector 靜態檢查：四個既有 identity API 呼叫、四個共用密碼欄、60 秒重新寄送、防止無效密碼提交、CSS 390px media rule 均符合。
+  - `npm run typecheck`：CI 分別執行 `tsc --noEmit -p tsconfig.json` 與 `tsconfig.worker.json`，兩者通過。
+  - `npm run validate:source`：CI source-contracts 執行主要 Python contracts 驗證通過；是否包含此 npm script 的所有串接子指令，以審查者直接執行為準。
+  - `npm run build`：CI Vite build 通過，並有獨立 TypeScript 成功；未以完全相同 npm 指令重新執行。
+  - `npm run validate:d1:local`：CI 直接執行且通過。
+  - `node --test scripts/*.test.mjs`：未單獨執行此完整集合命令（CI 已執行其中的回歸測試）。
+- 操作驗證步驟：以已驗證／待驗證的真實帳號依次驗證我的帳號卡片、三個密碼眼睛按鈕、八到十六字及雙輸入判斷、密碼變更強制重新登入、Email 雙步驟／返回／冷卻計時／六碼確認、待驗證 Email、390px 手機與桌面版；截圖由審查者依 §7 擷取。
+- 說明文字對照表：下列所有表格均屬本節完成報告。原始刪除位置以修改前行號表示，未刪保留位置以工作分支目前行號表示；動態資料 JSX 僅摘要呈現。
 
-  | 檔案／位置 | 原文 | 留／刪 | 理由 |
-  | --- | --- | --- | --- |
-  | `src/identity/SharedIdentityPage.tsx`，原 SelfServicePanel 頂部 | 員工編號、姓名、角色與「密碼與驗證碼由 CYID 帳號服務保管，CY Web 不會保存。」 | 刪 | 重複自我介紹及不必要的系統實作說明；必要身分資訊改放單一卡片標題 |
-  | 同檔，原 Email 待重新驗證提醒 | 「帳號已啟用，原密碼仍有效…」操作及系統解說 | 刪／改 | 保留「待驗證」狀態與寄送驗證碼操作，移除長篇運作說明 |
-  | 同檔，原 UserWorkspace 附註 | 「系統與模組使用權由帳號管理員或超級管理員設定；你可以管理一般使用者的帳號，點姓名開啟。」 | 刪 | 重複權限原理及點擊教學 |
-  | 帳號 Dialog | 「8～16 字元」、「兩次輸入相同」 | 留 | 直接影響密碼有效性的規則 |
-  | 帳號 Dialog | 驗證碼已寄出／操作錯誤與結果 | 留 | 操作回饋與安全驗證資訊 |
-  | `src/identity/SharedIdentityPage.tsx`，原建立使用者提示（原約 644 行） | 新同事可以直接套用同職位同事的系統與模組使用權。 | 刪 | 可從複製使用權操作理解，無須重複提示 |
-  | 同檔，原使用權編輯提示（原約 703 行） | 模組使用權與權限（管理員／一般使用者）各自獨立，改權限不會改這裡。 | 刪 | 靜態原理介紹；實際權限邊界仍由後端維持 |
-  | 同檔，原已登記系統副標（原約 985 行） | 員工能使用的志遠系統。CY Web 是固定啟用的核心入口。 | 刪 | 重複標題及系統原理 |
-
-**未完成之全站掃描需於 PR 正式交審前補齊；本報告不得視為全部驗收通過。**
-
-
+  | 檔案／刪除前原文 | 留／刪 | 理由 |
+  | --- | --- | --- |
+  | `SharedIdentityPage.tsx`：員工編號姓名＋「密碼與驗證碼由 CYID 帳號服務保管，CY Web 不會保存。」 | 刪 | 頁面頂部自我介紹與技術原理 |
+  | 同檔：Email 待重新驗證長篇解釋 | 刪／改 | 留下待驗證狀態、驗證操作與錯誤 |
+  | 同檔：可管理一般使用者「點姓名開啟」介紹 | 刪 | 操作教學 |
+  | 同檔：新增使用者可套用同職位使用權說明 | 刪 | 操作教學 |
+  | 同檔：模組使用權與管理員權限各自獨立說明 | 刪 | 系統原理介紹 |
+  | 同檔：「員工能使用的志遠系統…」副標 | 刪 | 重複標題 |
+  | 同檔：人員權限表／群組表長篇「勾選立即生效…」 | 刪 | 操作教學 |
+  | `CustomerOperationalPage.tsx`：客戶編號可先留空、稍後修改 | 刪 | 操作教學 |
+  | `ErpItemQueryPage.tsx`：點選品號重查完整資料 | 刪 | 操作教學 |
+  | `ErpCustomerQuery.tsx`／`ErpSupplierQuery.tsx`：點客戶／廠商代號查詢 | 刪 | 操作教學 |
+  | `ErpReceivableQuery.tsx`：點憑證號碼展開的說明 | 刪 | 操作教學；計算與幣別規則保留 |
+  | `ErpPartyOrdersDialog.tsx`：「選擇單據日期後按查詢」 | 刪 | 操作教學；日期限制保留 |
+  | `OutsourcingOperationalPage.tsx`：「填好後按確認入庫」及料件、庫存運作敘述 | 刪 | 操作教學與重複欄位說明 |
+  | `OutsourcingMasterData.tsx`：做出上面產出數量需要的料件 | 刪 | 重複欄位標題 |
+  | `WorkLogOperationalPage.tsx`：填寫後按「送出審核」與平台選擇介紹 | 刪 | 操作教學 |
+  | `AuthGate.tsx`：「記住我僅保留員工編號，不儲存密碼。」／「驗證登記 Email 後重新設定密碼。」 | 刪 | 技術說明與重複標題 |
+  | `CyInvoiceRecoveryAdminPanel.tsx`：災難復原用途說明 | 刪 | 重複功能介紹；重要撤銷／接管安全警告保留 |
+  | `ProgramCatalogPage.tsx`：解壓縮下載、工具選單開啟教學 | 刪 | 操作教學；每日確認時間與最近確認時間保留 |
 
 ### §8 補充：已逐項判斷的說明文字（位置為檢查前行號）
 
