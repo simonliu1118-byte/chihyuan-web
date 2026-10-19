@@ -46,10 +46,11 @@ export class HrService {
   constructor(private db:D1Database) {}
   private employeeRow(id:number) { return this.db.prepare("SELECT e.*,COALESCE((SELECT c.next_status FROM hr_status_changes c WHERE c.employee_id=e.id AND c.effective_date<=date('now','+8 hours') ORDER BY c.effective_date DESC,c.id DESC LIMIT 1),e.status) AS status FROM hr_employees e WHERE e.id=?").bind(id).first<Record<string,unknown>>(); }
   async list(q:string,statusFilter:string|undefined,cursor:number,limit=40) {
-    const terms=["id>?"],values:(string|number)[]=[cursor];
-    if(q){terms.push("(employee_no LIKE ? OR name LIKE ?)");values.push("%"+q.slice(0,80)+"%","%"+q.slice(0,80)+"%");}
-    if(statusFilter){status(statusFilter);terms.push("status=?");values.push(statusFilter);}
-    const found=await this.db.prepare("SELECT * FROM hr_employees WHERE "+terms.join(" AND ")+" ORDER BY id LIMIT ?").bind(...values,Math.min(limit,100)+1).all<Record<string,unknown>>();
+    const todayStatus="COALESCE((SELECT c.next_status FROM hr_status_changes c WHERE c.employee_id=e.id AND c.effective_date<=date('now','+8 hours') ORDER BY c.effective_date DESC,c.id DESC LIMIT 1),e.status)";
+    const terms=["e.id>?"],values:(string|number)[]=[cursor];
+    if(q){terms.push("(e.employee_no LIKE ? OR e.name LIKE ?)");values.push("%"+q.slice(0,80)+"%","%"+q.slice(0,80)+"%");}
+    if(statusFilter){status(statusFilter);terms.push(todayStatus+"=?");values.push(statusFilter);}
+    const found=await this.db.prepare("SELECT e.*,"+todayStatus+" AS status FROM hr_employees e WHERE "+terms.join(" AND ")+" ORDER BY e.id LIMIT ?").bind(...values,Math.min(limit,100)+1).all<Record<string,unknown>>();
     const all=found.results??[];return {items:all.slice(0,limit).map(sanitized),nextCursor:all.length>limit?Number(all[limit-1].id):null};
   }
   async get(id:number) {
