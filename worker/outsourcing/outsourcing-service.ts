@@ -9,7 +9,7 @@ import { FieldValidationError } from "../validation/fields";
 import {
   convertScaled4Exact,
   scaled4ProductToMoney2Exact,
-} from "../item/unit-conversion";
+} from "../../shared/unit-conversion";
 import {
   OutsourcingPersistence,
   type OutsourcingMutationContext,

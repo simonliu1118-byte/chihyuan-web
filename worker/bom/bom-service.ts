@@ -7,7 +7,7 @@ import type {
 } from "../../shared/contractor-outsourcing";
 import { formatScaled4, parseScaled4 } from "../../shared/fixed-point";
 import { FieldValidationError, ValidationBag } from "../validation/fields";
-import { allowedUnits, type UnitConversionEdge } from "../item/unit-conversion";
+import { allowedUnits, type UnitConversionEdge } from "../../shared/unit-conversion";
 
 export interface BomMutationContext {
   actorMemberId: number;

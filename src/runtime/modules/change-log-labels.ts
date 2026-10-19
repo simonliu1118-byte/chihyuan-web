@@ -1,5 +1,5 @@
 import { ERP_QUERY_TYPES, ERP_QUERY_TYPE_LABELS, type ErpQueryType } from "../../../shared/erp-item-query";
-import { formatDate, formatDateTime } from "../../ui/foundation/format";
+import { formatDate, formatDateTime, formatItem } from "../../ui/foundation/format";
 import type { AuditEvent } from "../api/settings-audit-client";
 
 const entityNames: Record<string,string> = {
@@ -137,13 +137,18 @@ const internalToken = /^(?:[A-Z]+(?:_[A-Z0-9]+)+|#?\d+)$/;
 function safeDisplay(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const text = value.trim();
-  if (!text || uuidPattern.test(text) || internalToken.test(text) || /#\d+/.test(text)) return null;
+  if (!text || uuidPattern.test(text) || internalToken.test(text)) return null;
   return text;
 }
 /** Names must be real business labels, never database keys or internal UUIDs. */
 export function recordName(event: AuditEvent): string {
   for (const payload of [event.after, event.before, event.metadata]) {
     if (!payload) continue;
+    // Items read as 「A00001 志遠拔罐杯#1」, the same label as everywhere else.
+    const itemNo = safeDisplay(payload.itemNo ?? payload.itemNoSnapshot);
+    const itemName = safeDisplay(payload.itemNameSnapshot ?? (payload.itemNo ? payload.name : undefined));
+    // Records that also carry a customer (defects, orders) keep the customer as their name.
+    if (itemNo && itemName && !payload.customerNameSnapshot) return formatItem(itemNo, itemName);
     for (const name of names) {
       const value = safeDisplay(payload[name]);
       if (value) return value;

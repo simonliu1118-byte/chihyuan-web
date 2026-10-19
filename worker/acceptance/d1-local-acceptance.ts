@@ -16,7 +16,7 @@ import { CustomerService } from "../customer/customer-service";
 import { ensureAppMemberProjection, resolveAppMember } from "../auth/app-access";
 import { ItemService } from "../item/item-service";
 import { CustomerRepository } from "../customer/customer-repository";
-import { convertScaled4Exact, scaled4ProductToMoney2Exact } from "../item/unit-conversion";
+import { convertScaled4Exact, scaled4ProductToMoney2Exact } from "../../shared/unit-conversion";
 import { OutsourcingService } from "../outsourcing/outsourcing-service";
 import { BusinessLookupService } from "../reference/business-lookup-service";
 import { handleSettingsAuditRoute } from "../http/settings-audit-routes";
