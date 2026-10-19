@@ -753,7 +753,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
         title={`${relatedView.view === "visits" ? "拜訪紀錄" : relatedView.view === "quotes" ? "報價紀錄" : "常用商品"} — ${selected.shortName}`}
         onClose={() => void closeRelated()}>
         {relatedView.mode === "browse" ? <div className="cy-related-toolbar">
-          <button className="cy-op-button primary compact" type="button" disabled={busy || visitDraft !== null || quoteDraft !== null || frequentAdding} onClick={() => {
+          <button className="cy-op-button primary compact" type="button" aria-label={relatedView.view === "visits" ? "新增拜訪" : relatedView.view === "quotes" ? "新增報價" : "新增常用商品"} disabled={busy || visitDraft !== null || quoteDraft !== null || frequentAdding} onClick={() => {
             if (relatedView.view === "visits") setVisitDraft(emptyVisit());
             if (relatedView.view === "quotes") startQuote();
             if (relatedView.view === "frequent") setFrequentAdding(true);
