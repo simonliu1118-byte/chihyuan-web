@@ -19,6 +19,7 @@ def read(path: str) -> str:
 def main() -> int:
     app = read("src/App.tsx")
     customer = read("src/runtime/modules/CustomerOperationalPage.tsx")
+    quote_form = read("src/runtime/modules/customer/QuoteCreateForm.tsx")
     item = read("src/runtime/modules/ItemOperationalPage.tsx")
     item_client = read("src/runtime/api/item-runtime-client.ts")
     customer_client = read("src/runtime/api/customer-runtime-client.ts")
@@ -61,7 +62,7 @@ def main() -> int:
         "createCustomerQuote",
         "createCustomerFrequentItem",
     ]:
-        if token not in customer:
+        if token not in (customer + quote_form):
             raise AssertionError(f"missing D1 Customer operational behavior: {token}")
 
     for forbidden in [
