@@ -107,3 +107,109 @@
   .cy-customer-cards { grid-template-columns: 1fr; }
   .cy-customer-related-card-rows { min-height: 0; }
 }
+
+/* WO-0.9.14: customer identity, related modal modes and quote line editor. */
+.cy-record-title-note {
+  margin-left: 4px;
+  color: var(--cy-text-muted);
+  font-size: var(--cy-fs-md);
+  font-weight: 400;
+}
+.cy-related-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.cy-related-toolbar .cy-op-input {
+  width: min(420px, 100%);
+  margin-left: auto;
+}
+.cy-customer-quote-form {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--cy-border);
+  border-radius: var(--cy-radius-lg);
+  background: var(--cy-surface-muted);
+  margin-bottom: 12px;
+}
+.cy-customer-quote-header-fields {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 12px;
+}
+.cy-customer-quote-lines {
+  display: grid;
+  gap: 10px;
+}
+.cy-customer-quote-line {
+  display: grid;
+  grid-template-columns: minmax(180px, 2fr) minmax(75px, 1fr) minmax(75px, .75fr) minmax(90px, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+  min-width: 0;
+}
+.cy-customer-quote-header-fields label,
+.cy-customer-quote-line > label,
+.cy-customer-quote-reason,
+.cy-customer-frequent-form > label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: var(--cy-text-muted);
+  font-size: var(--cy-fs-sm);
+  font-weight: 500;
+}
+.cy-customer-quote-line .cy-op-input {
+  min-width: 0;
+}
+.cy-customer-quote-group {
+  display: grid;
+}
+.cy-customer-quote-group h3 {
+  padding: 9px 0 5px;
+  border-bottom: 1px solid var(--cy-border);
+  color: var(--cy-text-muted);
+  font-size: var(--cy-fs-sm);
+  font-weight: 600;
+}
+.cy-customer-quote-group .cy-customer-quote p {
+  margin: 4px 0 0;
+}
+.cy-customer-quote-form .cy-customer-related-form-actions,
+.cy-customer-frequent-form .cy-customer-related-form-actions {
+  grid-column: 1 / -1;
+}
+@media (max-width: 820px) {
+  .cy-related-toolbar {
+    flex-wrap: wrap;
+  }
+  .cy-customer-quote-line {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cy-customer-quote-line > :first-child {
+    grid-column: 1 / -1;
+  }
+  .cy-customer-quote-header-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 520px) {
+  .cy-customer-quote-header-fields,
+  .cy-customer-quote-line {
+    grid-template-columns: 1fr;
+  }
+  .cy-customer-quote-line {
+    padding: 10px;
+    border: 1px solid var(--cy-border);
+    border-radius: var(--cy-radius-md);
+  }
+  .cy-customer-quote-line > :first-child {
+    grid-column: auto;
+  }
+  .cy-related-toolbar .cy-op-input {
+    flex: 1 1 100%;
+  }
+}

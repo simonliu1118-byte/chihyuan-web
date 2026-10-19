@@ -1,3 +1,4 @@
+import { formatItem } from "../../ui/foundation/format";
 import { StatusChip } from "../../ui/primitives/StatusChip";
 import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
@@ -446,7 +447,7 @@ export function ItemOperationalPage() {
     const action = selected.isActive ? "停用" : "啟用";
     if (!(await confirm({
       title: `${action}商品`,
-      description: `確定${action}「${selected.itemNo} · ${selected.name}」？${selected.isActive ? "停用後不會出現在新單據的商品選單，既有紀錄不受影響。" : ""}`,
+      description: `確定${action}「${formatItem(selected.itemNo, selected.name)}」？${selected.isActive ? "停用後不會出現在新單據的商品選單，既有紀錄不受影響。" : ""}`,
       confirmLabel: action, confirmTone: selected.isActive ? "danger" : "primary",
     }))) return;
 
@@ -500,7 +501,7 @@ export function ItemOperationalPage() {
           {rows.map((row) => (
             <button key={row.id} type="button" className={`cy-op-list-row cy-item-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={() => void selectItem(row.id)}>
               <strong>{row.name}</strong>
-              <span><span className="cy-mono">{row.itemNo}</span>{row.spec ? ` · ${row.spec}` : ""} · {row.baseUnit}</span>
+              <span><span className="cy-mono">{row.itemNo}</span>{row.spec ? `　${row.spec}` : ""} · {row.baseUnit}</span>
               {row.isActive ? <small>{categoryName(row)}</small> : <StatusChip>已停用</StatusChip>}
             </button>
           ))}
@@ -561,7 +562,7 @@ export function ItemOperationalPage() {
         ) : selected ? (
           <div>
             <div className="cy-record-header">
-              <div><h2>{selected.name}</h2><p><span className="cy-mono">{selected.itemNo}</span>{selected.spec ? ` · ${selected.spec}` : ""}</p></div>
+              <div><h2>{selected.name}</h2><p><span className="cy-mono">{selected.itemNo}</span>{selected.spec ? `　${selected.spec}` : ""}</p></div>
               <div className="cy-record-actions">
                 {selected.isActive ? null : <StatusChip>已停用</StatusChip>}
                 <button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>

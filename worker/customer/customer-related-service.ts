@@ -18,6 +18,7 @@ import {
   normalizeCorrectQuoteRequest,
   normalizeCreateFrequentItemRequest,
   normalizeCreateQuoteRequest,
+  normalizeCreateQuoteBatchRequest,
   normalizeCreateVisitRequest,
   normalizeDeleteFrequentItemRequest,
   normalizeDeleteVisitRequest,
@@ -280,6 +281,23 @@ export class CustomerRelatedService {
     const employeeId = await this.resolveEmployee(input.employeeId, context, null);
     const quoteId = await this.mutations.createQuote(customer, input, item, employeeId, context);
     return this.requireQuote(customer, quoteId);
+  }
+
+  async createQuoteBatch(
+    customerId: number,
+    raw: unknown,
+    context: CustomerRelatedMutationContext,
+  ): Promise<readonly CustomerItemQuoteDetail[]> {
+    const customer = await this.requireCustomer(customerId);
+    const inputs = normalizeCreateQuoteBatchRequest(raw);
+    const entries = await Promise.all(inputs.map(async input => ({
+      input,
+      item: await this.requireActiveItem(input.itemId),
+      employeeId: await this.resolveEmployee(input.employeeId, context, null),
+    })));
+    const ids = await this.mutations.createQuoteBatch(customer, entries, context);
+    // Readback only occurs after the single transaction commits.
+    return Promise.all(ids.map(id => this.requireQuote(customer, id)));
   }
 
   async correctQuote(

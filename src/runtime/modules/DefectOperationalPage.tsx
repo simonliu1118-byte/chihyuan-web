@@ -1,3 +1,4 @@
+import { formatItem } from "../../ui/foundation/format";
 import { StatusFilter } from "../../ui/data/StatusFilter";
 import { defectNextStep, defectTone } from "./status-flow";
 import { NextStep } from "../../ui/feedback/NextStep";
@@ -472,7 +473,7 @@ export function DefectOperationalPage() {
                     value={pickedItem?.id === draft.itemId ? pickedItem : itemOptions.find((row) => row.id === draft.itemId) ?? null}
                     onSelect={(row) => { setPickedItem(row); setDraft({ ...draft, itemId: row?.id ?? null }); }}
                     search={async (query) => (await loadDefectLookups({ itemQuery: query, limit: 20 })).items}
-                    getKey={(row) => row.id} getLabel={(row) => `${row.itemNo} · ${row.name}`}
+                    getKey={(row) => row.id} getLabel={(row) => formatItem(row.itemNo, row.name)}
                     getDescription={(row) => [row.spec, row.isActive ? null : "已停用"].filter(Boolean).join(" · ") || null}
                     placeholder="輸入品號、品名或規格" />
 
@@ -513,7 +514,7 @@ export function DefectOperationalPage() {
                   <div><span>回報日期</span><strong>{formatDate(selected.reportedDate)}</strong></div>
                   <div><span>負責人</span><strong>{selected.ownerEmployee.displayName || ownerLabel(selected.ownerEmployee.id, selected.ownerEmployee.employeeNo)}</strong></div>
                   <div><span>客戶</span><strong>{selected.customerNoSnapshot ? `${selected.customerNoSnapshot} · ` : ""}{selected.customerNameSnapshot}</strong></div>
-                  <div><span>商品</span><strong>{selected.itemNoSnapshot} · {selected.itemNameSnapshot}</strong></div>
+                  <div><span>商品</span><strong>{formatItem(selected.itemNoSnapshot, selected.itemNameSnapshot)}</strong></div>
                   <div className="wide"><span>瑕疵內容</span><strong>{selected.defectDescription}</strong></div>
                   <div className="wide"><span>處理結果</span><strong>{selected.handling ?? "—"}</strong></div>
                   {selected.invalidatedAt ? <div className="wide cy-defect-invalid-note"><span>作廢資訊</span><strong>{formatDateTime(selected.invalidatedAt)} · 原工作狀態 {statusText[selected.statusCode]}</strong></div> : null}

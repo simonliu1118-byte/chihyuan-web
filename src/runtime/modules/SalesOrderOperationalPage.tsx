@@ -1,3 +1,4 @@
+import { formatItem } from "../../ui/foundation/format";
 import { formatDate } from "../../ui/foundation/format";
 import { StatusFilter } from "../../ui/data/StatusFilter";
 import { orderNextStep, orderTone } from "./status-flow";
@@ -420,9 +421,9 @@ export function SalesOrderOperationalPage() {
     const correction = selected.erpNo != null;
     const answer = await ask({
       title: correction ? "更正 ERP 資料" : "ERP 回填／開單",
-      description: correction ? "修改已回填的 ERP 客戶編號或銷售單號，並保留更正紀錄。" : "填入 SMART ERP 開單後的資料，工單會改為「已開單」。",
+      description: correction ? "修改已回填的 客戶編號或銷售單號，並保留更正紀錄。" : "填入 SMART ERP 開單後的資料，工單會改為「已開單」。",
       fields: [
-        { name: "customerNo", label: "ERP 客戶編號", defaultValue: selected.customerNoSnapshot ?? "", required: true, description: "必須與 CY Web 客戶資料中的 ERP 客戶編號相同。" },
+        { name: "customerNo", label: "客戶編號", defaultValue: selected.customerNoSnapshot ?? "", required: true, description: "必須與 CY Web 客戶資料中的 客戶編號相同。" },
         { name: "erpNo", label: "SMART ERP 銷售單號", defaultValue: selected.erpNo ?? "", required: true },
         ...(correction ? [{ name: "reason", label: "更正原因", defaultValue: "ERP 資料更正" }] : []),
       ],
@@ -592,7 +593,7 @@ export function SalesOrderOperationalPage() {
                       <EntityPicker<LineItemOption> label={<span className="cy-visually-hidden">第 {index + 1} 列商品</span>} disabled={busy}
                         className="cy-order-line-item" value={item} onSelect={(row) => changeLineItem(index, line.key, row)}
                         search={async (query) => (await loadSalesOrderLookups({ itemQuery: query, limit: 20 })).items}
-                        getKey={(row) => row.id} getLabel={(row) => `${row.itemNo} · ${row.name}`}
+                        getKey={(row) => row.id} getLabel={(row) => formatItem(row.itemNo, row.name)}
                         getDescription={(row) => [row.spec, row.isActive ? null : "已停用"].filter(Boolean).join(" · ") || null}
                         placeholder="輸入品號、品名或規格" />
                       <input className="cy-op-input" value={line.quantity} inputMode="decimal" disabled={busy} aria-label="數量" onChange={(event) => patchLine(index, { quantity: event.target.value })} placeholder="數量" />
@@ -634,7 +635,7 @@ export function SalesOrderOperationalPage() {
               {selected.statusCode !== "voided" ? <NextStep tone={orderTone[selected.statusCode]}>{orderNextStep[selected.statusCode]}</NextStep> : null}
               <div className="cy-op-detail-grid">
                 <div><span>ERP 單號</span><strong>{selected.erpNo ?? "尚未回填"}</strong></div>
-                <div><span>ERP 客戶編號</span><strong>{selected.customerNoSnapshot ?? "—"}</strong></div>
+                <div><span>客戶編號</span><strong>{selected.customerNoSnapshot ?? "—"}</strong></div>
                 <div><span>日期</span><strong>{formatDate(selected.orderDate)}</strong></div>
                 <div><span>操作人員</span><strong>{selected.operator.displayName ?? selected.operator.employeeNo ?? `員工 #${selected.operator.id}`}</strong></div>
                 <div><span>發票</span><strong>{selected.invoiceTypeCode ? invoiceText[selected.invoiceTypeCode] ?? selected.invoiceTypeCode : "—"}</strong></div>

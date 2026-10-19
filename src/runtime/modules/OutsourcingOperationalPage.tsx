@@ -1,3 +1,4 @@
+import { formatItem } from "../../ui/foundation/format";
 import { StatusFilter } from "../../ui/data/StatusFilter";
 import { outsourcingNextStep, outsourcingTone } from "./status-flow";
 import { NextStep } from "../../ui/feedback/NextStep";
@@ -590,13 +591,13 @@ export function OutsourcingOperationalPage() {
                     return <div className="cy-out-part" key={part.key}>
                       <select className="cy-op-input" value={part.componentItemId ?? ""} disabled={busy} onChange={(event) => changeComponent(index, Number(event.target.value) || null)}>
                         <option value="">選擇料件</option>
-                        {(lookups?.items ?? []).map((row) => <option key={row.id} value={row.id}>{row.itemNo} · {row.name}{row.isActive ? "" : "（已停用）"}</option>)}
+                        {(lookups?.items ?? []).map((row) => <option key={row.id} value={row.id}>{formatItem(row.itemNo, row.name)}{row.isActive ? "" : "（已停用）"}</option>)}
                       </select>
                       <input className="cy-op-input" value={part.quantity} inputMode="decimal" disabled={busy} onChange={(event) => patchPart(index, { quantity: event.target.value })} placeholder="數量" />
                       <select className="cy-op-input" value={part.unit} disabled={busy} onChange={(event) => patchPart(index, { unit: event.target.value })}>{units.map((unit) => <option key={unit}>{unit}</option>)}</select>
                       <select className="cy-op-input" value={part.finishedItemId ?? ""} disabled={busy} onChange={(event) => patchPart(index, { finishedItemId: Number(event.target.value) || null, bomRecipeId: null })}>
                         <option value="">未指定對應成品</option>
-                        {(lookups?.items ?? []).map((row) => <option key={row.id} value={row.id}>{row.itemNo} · {row.name}</option>)}
+                        {(lookups?.items ?? []).map((row) => <option key={row.id} value={row.id}>{formatItem(row.itemNo, row.name)}</option>)}
                       </select>
                       <select className="cy-op-input" value={part.bomRecipeId ?? ""} disabled={busy || part.finishedItemId == null} onChange={(event) => patchPart(index, { bomRecipeId: Number(event.target.value) || null })}>
                         <option value="">未指定 BOM</option>
@@ -635,8 +636,8 @@ export function OutsourcingOperationalPage() {
                 {selectedOrder.statusCode !== "voided" ? <NextStep tone={outsourcingTone[selectedOrder.statusCode]}>{outsourcingNextStep[selectedOrder.statusCode]}</NextStep> : null}
                 <div className="cy-op-detail-grid"><div><span>工單日期</span><strong>{formatDate(selectedOrder.orderDate)}</strong></div><div><span>出庫日期</span><strong>{formatDate(selectedOrder.outboundDate)}</strong></div><div><span>付款時間</span><strong>{selectedOrder.paidAt ? formatDateTime(selectedOrder.paidAt) : "—"}</strong></div></div>
                 <div className="cy-op-subsection"><h3>出庫料件</h3><div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">數量</th><th>單位</th></tr></thead><tbody>{selectedOrder.parts.map((part) => <tr key={part.id}><td className="cy-mono">{part.componentItemNoSnapshot}</td><td>{part.componentItemNameSnapshot}</td><td className="num">{part.quantity}</td><td>{part.unitSnapshot}</td></tr>)}</tbody></table></div></div>
-                {selectedOrder.receipt ? <div className="cy-op-subsection"><h3>入庫</h3>{selectedOrder.receipt.items.map((item) => <div className="cy-op-read-row" key={item.id}>{item.itemNoSnapshot} · {item.itemNameSnapshot} · {item.quantity} {item.unitSnapshot}{item.bomRecipeId ? ` · BOM #${item.bomRecipeId}` : ""}</div>)}</div> : null}
-                {selectedOrder.pricing ? <div className="cy-op-subsection"><h3>計價</h3>{selectedOrder.pricing.items.map((item) => <div className="cy-op-read-row" key={item.id}>{item.itemNoSnapshot} · {item.quantity} {item.unitSnapshot} × {item.unitPrice} = {item.subtotal}</div>)}<div className="cy-op-total">總額 NT$ {selectedOrder.pricing.totalAmount}</div></div> : null}
+                {selectedOrder.receipt ? <div className="cy-op-subsection"><h3>入庫</h3>{selectedOrder.receipt.items.map((item) => <div className="cy-op-read-row" key={item.id}>{formatItem(item.itemNoSnapshot, item.itemNameSnapshot)} · {item.quantity} {item.unitSnapshot}{item.bomRecipeId ? ` · BOM #${item.bomRecipeId}` : ""}</div>)}</div> : null}
+                {selectedOrder.pricing ? <div className="cy-op-subsection"><h3>計價</h3>{selectedOrder.pricing.items.map((item) => <div className="cy-op-read-row" key={item.id}>{item.itemNoSnapshot}　{item.quantity} {item.unitSnapshot} × {item.unitPrice} = {item.subtotal}</div>)}<div className="cy-op-total">總額 NT$ {selectedOrder.pricing.totalAmount}</div></div> : null}
 
                 {selectedOrder.statusCode === "outbound" ? <div className="cy-op-subsection">
                   <h3>入庫資料</h3>
@@ -644,7 +645,7 @@ export function OutsourcingOperationalPage() {
                   <div className="cy-out-receipt">
                     <select className="cy-op-input" value={receiptItemId ?? ""} disabled={busy} onChange={(event) => changeReceiptItem(Number(event.target.value) || null)}>
                       <option value="">選擇入庫成品</option>
-                      {(lookups?.items ?? []).map((row) => <option key={row.id} value={row.id}>{row.itemNo} · {row.name}</option>)}
+                      {(lookups?.items ?? []).map((row) => <option key={row.id} value={row.id}>{formatItem(row.itemNo, row.name)}</option>)}
                     </select>
                     <select className="cy-op-input" value={receiptBomId ?? ""} disabled={busy} onChange={(event) => setReceiptBomId(Number(event.target.value) || null)}>
                       <option value="">不指定 BOM</option>

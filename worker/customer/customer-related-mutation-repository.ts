@@ -356,6 +356,66 @@ export class CustomerRelatedMutationRepository {
     return quoteId;
   }
 
+  /** One D1 batch for every new quote, every tier, and every audit event.
+   * Explicit contiguous IDs let audit rows identify their quote before the batch starts.
+   * A concurrent writer taking the same ID causes a PK failure and rolls back all rows.
+   */
+  async createQuoteBatch(
+    customerId: number,
+    entries: readonly { input: NormalizedCreateQuoteRequest; item: ActiveItemSnapshot; employeeId: number }[],
+    context: CustomerRelatedMutationContext,
+  ): Promise<readonly number[]> {
+    assertContext(context);
+    const last = await this.db.prepare("SELECT COALESCE(MAX(id), 0) AS last_id FROM customer_item_quotes")
+      .first<{ last_id: number }>();
+    const previous = Number(last?.last_id ?? 0);
+    if (!Number.isSafeInteger(previous) || previous + entries.length > Number.MAX_SAFE_INTEGER) {
+      throw new Error("CUSTOMER_QUOTE_ID_EXHAUSTED");
+    }
+    const ids = entries.map((_, index) => previous + index + 1);
+    const statements: D1PreparedStatement[] = [];
+    for (const [index, entry] of entries.entries()) {
+      const { input, item, employeeId } = entry;
+      const id = ids[index];
+      statements.push(this.db.prepare(`
+        INSERT INTO customer_item_quotes (
+          id, customer_id, item_id, quote_date, employee_id,
+          item_no_snapshot, item_name_snapshot, spec_snapshot,
+          created_at, created_by, updated_at, updated_by, revision
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?9, ?10, 1)
+      `).bind(id, customerId, item.id, input.quoteDate, employeeId,
+        item.itemNo, item.name, item.spec, context.now, context.actorMemberId));
+      for (const tier of input.priceBreaks) {
+        statements.push(this.db.prepare(`
+          INSERT INTO quote_price_breaks (quote_id, quantity, unit, unit_price, note, sort_order)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).bind(id, tier.quantity, tier.unit, tier.unitPrice, tier.note, tier.sortOrder));
+      }
+      statements.push(this.audit.prepareRecord({
+        entityType: "customer_item_quote",
+        entityKey: String(id),
+        action: "created",
+        actorEmployeeId: context.actorMemberId,
+        occurredAt: context.now,
+        requestId: context.requestId,
+        before: null,
+        after: {
+          customerId, itemId: item.id, quoteDate: input.quoteDate, employeeId,
+          itemNoSnapshot: item.itemNo, itemNameSnapshot: item.name,
+          specSnapshot: item.spec, revision: 1,
+          priceBreaks: input.priceBreaks.map(tier => ({
+            quantity: formatScaled4(tier.quantity), unit: tier.unit,
+            unitPrice: formatScaled4(tier.unitPrice),
+            note: tier.note, sortOrder: tier.sortOrder,
+          })),
+        },
+        metadata: { customerId },
+      }));
+    }
+    await this.db.batch(statements);
+    return ids;
+  }
+
   async correctQuote(
     before: CustomerItemQuoteDetail,
     input: NormalizedCorrectQuoteRequest,
