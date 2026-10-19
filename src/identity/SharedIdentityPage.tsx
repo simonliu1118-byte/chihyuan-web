@@ -641,7 +641,7 @@ function UserDrawer({ employee, snapshot, session, refresh, columns, allowed, lo
 
       {canEditAccess && copyCandidates.length ? <div className="cy-op-subsection">
         <h3>從某人複製使用權</h3>
-        <p className="cy-identity-intro">新同事可以直接套用同職位同事的系統與模組使用權。</p>
+        
         <div className="cy-identity-copy-row">
           <select className="cy-op-input" aria-label="複製來源" value={copySource} disabled={busy} onChange={(event) => setCopySource(event.target.value)}>
             <option value="">選擇同事</option>
@@ -700,7 +700,7 @@ function ModuleAccessPanel({ groups, group, ...props }: Omit<Parameters<typeof A
 }) {
   return <div className="cy-op-subsection">
     <h3>CY Web 模組使用權</h3>
-    <p className="cy-identity-intro">模組使用權與權限（管理員／一般使用者）各自獨立，改權限不會改這裡。</p>
+    
     {groups.map((item) => <fieldset key={item.group} className="cy-identity-module-group"><legend>{item.group}</legend><AccessChecks {...props} columns={item.columns} quiet={!!group} /></fieldset>)}
   </div>;
 }
@@ -982,7 +982,7 @@ function ApplicationRegistryPanel({ snapshot, refresh }: { snapshot: IdentityAdm
 
   return <section className="cy-op-panel">
     {confirmationDialog}
-    <div className="cy-op-panel-header"><div><h3>已登記的系統</h3><p>員工能使用的志遠系統。CY Web 是固定啟用的核心入口。</p></div>
+    <div className="cy-op-panel-header"><div><h3>已登記的系統</h3></div>
       <button type="button" className="cy-op-button" disabled={busy} onClick={() => { setRegistration({ applicationId: "", displayName: "" }); setRegistrationError(null); }}>＋ 登記系統</button></div>
     <FeedbackBanner message={message} tone={messageTone} />
     <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>系統</th><th>識別碼</th><th>狀態</th></tr></thead>
