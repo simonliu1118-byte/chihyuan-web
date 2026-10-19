@@ -1,3 +1,4 @@
+import { recordIdFromHash, replaceRouteParams } from "../navigation/route-params";
 import { DefectForm } from "./defect/DefectForm";
 import { formatItem } from "../../ui/foundation/format";
 import { StatusFilter } from "../../ui/data/StatusFilter";
@@ -111,7 +112,7 @@ function detailProfile(detail: DefectDetail, handling = detail.handling): {
 
 export function DefectOperationalPage() {
   const [rows, setRows] = useState<readonly DefectSummary[]>([]);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(() => recordIdFromHash());
   const [selected, setSelected] = useState<DefectDetail | null>(null);
   const [lookups, setLookups] = useState<DefectModuleLookups | null>(null);
   const [query, setQuery] = useState("");
@@ -137,6 +138,17 @@ export function DefectOperationalPage() {
   const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
   const paging = useLoadMore(searchDefects, setRows, (error) => reportError(errorMessage(error)));
   const [refreshEpoch, setRefreshEpoch] = useState(0);
+  useEffect(() => {
+    const receiveRecordLink = () => {
+      if (!window.location.hash.startsWith("#defects?")) return;
+      const id = recordIdFromHash();
+      if (id) { setSelectedId(id); pane.open(); }
+    };
+    receiveRecordLink();
+    window.addEventListener("hashchange", receiveRecordLink);
+    return () => window.removeEventListener("hashchange", receiveRecordLink);
+  }, []);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -156,7 +168,7 @@ export function DefectOperationalPage() {
           paging.reset(listQuery, result.nextCursor);
           if (!editing && !creating) {
             setSelectedId((current) => (
-              current != null && result.items.some((row) => row.id === current)
+              current != null && (result.items.some((row) => row.id === current) || recordIdFromHash() === current)
                 ? current
                 : result.items[0]?.id ?? null
             ));
@@ -233,6 +245,7 @@ export function DefectOperationalPage() {
   async function selectDefect(id: number) {
     if (busy || !(await canLeave())) return;
     pane.open();
+    replaceRouteParams({});
     setSelectedId(id);
     setEditing(false);
     setCreating(false);
