@@ -219,6 +219,11 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
   const [refreshEpoch, setRefreshEpoch] = useState(0);
   const [relatedEpoch, setRelatedEpoch] = useState(0);
   const [relatedDialog, setRelatedDialog] = useState<"defectBrowse" | "defectCreate" | "quoteBrowse" | "quoteCreate" | null>(null);
+  useUnsavedChangesGuard({
+    active: relatedDialog === "defectCreate" || relatedDialog === "quoteCreate",
+    blocked: busy,
+    message: "商品相關紀錄表單尚未儲存。",
+  });
   const [defectRecent, setDefectRecent] = useState<readonly DefectSummary[]>([]);
   const [defectCounts, setDefectCounts] = useState<Partial<Record<"created" | "processing" | "resolved", number>>>({});
   const [defectRows, setDefectRows] = useState<readonly DefectSummary[]>([]);
