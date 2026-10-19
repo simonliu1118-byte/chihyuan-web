@@ -2,6 +2,7 @@ export type ProgramId = "accounting-web" | "accounting" | "invoice" | "tri-invoi
 export interface ProgramEntry {
   id: ProgramId;
   name: string;
+  navLabel?: string;
   platform: "web" | "windows";
   icon: "ACC" | "INV" | "CAL" | "CVT" | "Auto" | "AutoQ" | "ENV" | "WM" | null;
   description: string;
@@ -48,7 +49,7 @@ export function getProgramAction(program: ProgramEntry): ProgramAction {
 export const verifiedProgramCatalog: ProgramCatalog = {
   checkedAt: "2026-10-16T02:30:36Z", current: false,
   programs: [
-    { id: "accounting-web", name: "志遠記帳系統 Web 版", platform: "web", icon: "ACC",
+    { id: "accounting-web", name: "志遠記帳系統 Web 版", navLabel: "志遠記帳 Web", platform: "web", icon: "ACC",
       description: "多人網頁記帳，支援帳戶與科目管理、收支查詢、自動期初餘額及 Excel 匯出，可於電腦與手機使用。",
       version: "0.22.15", publishedAt: "2026-10-05T02:11:38Z", websiteUrl: "https://acc.chihyuancm.com",
       releaseUrl: "https://github.com/simonliu1118-byte/CYapps/releases/tag/cyaccountingweb-v0.22.15", downloadUrl: null },
