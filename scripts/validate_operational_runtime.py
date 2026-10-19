@@ -23,6 +23,7 @@ def main() -> int:
     item_client = read("src/runtime/api/item-runtime-client.ts")
     customer_client = read("src/runtime/api/customer-runtime-client.ts")
     defect = read("src/runtime/modules/DefectOperationalPage.tsx")
+    defect_form = read("src/runtime/modules/defect/DefectForm.tsx")
     defect_client = read("src/runtime/api/defect-runtime-client.ts")
     order = read("src/runtime/modules/SalesOrderOperationalPage.tsx")
     order_client = read("src/runtime/api/sales-order-runtime-client.ts")
@@ -135,7 +136,7 @@ def main() -> int:
         "deleteDefect",
         "顯示作廢",
     ]:
-        if token not in defect:
+        if token not in (defect + defect_form):
             raise AssertionError(f"missing D1 Defect operational behavior: {token}")
 
     for forbidden in [
