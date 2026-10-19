@@ -13,6 +13,7 @@ This index records the current interpretation of confirmed CY Web Business Decis
 - BD-056 confirms `chihyuancm.com` as the shared parent domain for the future official website and internal/business CY Web systems, with separate hostnames/origins and security boundaries.
 - BD-057 adds CY Web 權限群組: one group per person, group members use exactly the group's systems and CY Web modules without individual edits, and leaving keeps the current access; module grants are materialized into `app_member_module_access` (still the runtime authority) and system access is synced to CYID with a visible re-sync for members not yet applied.
 - BD-058 makes Item unit conversions single-level: every row converts directly to the base unit (`1 盒 = 30 包`, `1 箱 = 180 包`); existing chained rows stay readable and are rewritten on the next save.
+- BD-059 adds the 人事 module: three phases (主檔／假勤／薪資), Super Admin only until visibility is split after phase 3, 週年制 特休 per 勞基法第 38 條, masked 身分證字號 with audited reveal, and no deletion of HR records.
 
 ## Decision index
 
@@ -76,6 +77,7 @@ This index records the current interpretation of confirmed CY Web Business Decis
 | BD-056 | `chihyuancm.com` is the shared parent domain for the public website and internal/business CY Web systems | CONFIRMED |
 | BD-057 | 權限群組 presets system and module access for members; one group per person; leaving keeps current access | CONFIRMED; refines BD-037 |
 | BD-058 | Item unit conversions are single-level: every conversion goes directly to the base unit | CONFIRMED |
+| BD-059 | 人事模組 in three phases, Super Admin only, 週年制 特休, 身分證字號 stored masked, records never deleted | CONFIRMED |
 
 ## Cross-decision supersession / refinement notes
 
