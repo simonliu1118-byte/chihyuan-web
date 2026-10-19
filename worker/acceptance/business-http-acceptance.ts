@@ -202,8 +202,11 @@ export async function acceptBusinessHttpAuthority(db: D1Database, componentId: n
       { itemId: item.id, quantity: "20", unit: "EA", unitPrice: "3.0000" },
     ],
   };
-  const batchQuotes = (await (await expect(customerPath + "/quotes/batch", 201, "POST", batchRequest)).json()
-    as { data: { id: number; priceBreaks: { quantity: string; unitPrice: string }[] }[] }).data;
+  const batchResponse = await expect(customerPath + "/quotes/batch", 201, "POST", batchRequest);
+  const batchPayload = await batchResponse.json() as {
+    data: { id: number; priceBreaks: { quantity: string; unitPrice: string }[] }[];
+  };
+  const batchQuotes = batchPayload.data;
   check(batchQuotes.length === 2 && batchQuotes[0].priceBreaks.length === 2
     && batchQuotes[1].priceBreaks.length === 1, "BATCH_QUOTE_GROUPED_TIERS");
   const batchAudit = await db.prepare("SELECT entity_key,action,metadata_json FROM audit_events WHERE entity_type='customer_item_quote' AND action='created' AND entity_key IN (?,?)")
@@ -212,8 +215,11 @@ export async function acceptBusinessHttpAuthority(db: D1Database, componentId: n
   check(batchAudit.results.length === 2
     && batchAudit.results.every(row => JSON.parse(row.metadata_json).customerId === created.id),
     "BATCH_QUOTE_INDEPENDENT_AUDIT");
-  const listQuotes = (await (await expect(customerPath + "/quotes", 200)).json()
-    as { data: { items: { id: number; priceBreaks: unknown[] }[] } }).data.items;
+  const listResponse = await expect(customerPath + "/quotes", 200);
+  const listPayload = await listResponse.json() as {
+    data: { items: { id: number; priceBreaks: unknown[] }[] };
+  };
+  const listQuotes = listPayload.data.items;
   check(listQuotes.some(row => row.id === batchQuotes[0].id && row.priceBreaks.length === 2),
     "BATCH_QUOTE_LIST_TIERS");
   const atomicSnapshot = await snapshot();
