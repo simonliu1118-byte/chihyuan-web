@@ -1,3 +1,4 @@
+import { QuoteCreateForm } from "./customer/QuoteCreateForm";
 import { RelatedCard } from "../../ui/records/RelatedCard";
 import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
@@ -35,7 +36,6 @@ import {
   correctCustomerQuote,
   createCustomer,
   createCustomerFrequentItem,
-  createCustomerQuoteBatch,
   createCustomerVisit,
   deleteCustomerFrequentItem,
   deleteCustomerVisit,
@@ -622,30 +622,22 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
     setBusy(true);
     setMessage(null);
     try {
-      if (quoteDraft.corrected) {
-        const itemId = lines[0].item!.id;
-        if (lines.some(row => row.item?.id !== itemId)) {
-          reportError("單筆修正只能包含同一個商品的數量級距。");
-          return;
-        }
-        await correctCustomerQuote(selected.id, quoteDraft.corrected.id, {
-          itemId, quoteDate: quoteDraft.quoteDate,
-          priceBreaks: lines.map((row, index) => ({
-            quantity: row.quantity.trim(), unit: row.unit.trim(), unitPrice: row.unitPrice.trim(),
-            note: quoteDraft.note.trim() || null, sortOrder: index,
-          })),
-          expectedRevision: quoteDraft.corrected.revision,
-          correctionReason: quoteDraft.correctionReason.trim() || null,
-        });
-      } else {
-        await createCustomerQuoteBatch(selected.id, {
-          quoteDate: quoteDraft.quoteDate, note: quoteDraft.note.trim() || null,
-          lines: lines.map(row => ({
-            itemId: row.item!.id, quantity: row.quantity.trim(),
-            unit: row.unit.trim(), unitPrice: row.unitPrice.trim(),
-          })),
-        });
+      const correction = quoteDraft.corrected;
+      if (!correction) return;
+      const itemId = lines[0].item!.id;
+      if (lines.some(row => row.item?.id !== itemId)) {
+        reportError("單筆修正只能包含同一個商品的數量級距。");
+        return;
       }
+      await correctCustomerQuote(selected.id, correction.id, {
+        itemId, quoteDate: quoteDraft.quoteDate,
+        priceBreaks: lines.map((row, index) => ({
+          quantity: row.quantity.trim(), unit: row.unit.trim(), unitPrice: row.unitPrice.trim(),
+          note: quoteDraft.note.trim() || null, sortOrder: index,
+        })),
+        expectedRevision: correction.revision,
+        correctionReason: quoteDraft.correctionReason.trim() || null,
+      });
       setQuoteDraft(null);
       if (relatedView?.mode === "create") setRelatedView(null);
       setRelatedEpoch(value => value + 1);
@@ -768,8 +760,9 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
           filter={relatedFilter} mode={relatedView.mode} onCancel={() => {
             setVisitDraft(null); if (relatedView.mode === "create") setRelatedView(null);
           }} /> : null}
-        {relatedView.view === "quotes" ? <QuotesPanel rows={quotesNewestFirst} draft={quoteDraft} setDraft={setQuoteDraft}
+        {relatedView.view === "quotes" ? <QuotesPanel customerId={selected.id} rows={quotesNewestFirst} draft={quoteDraft} setDraft={setQuoteDraft}
           save={saveQuote} correct={startQuoteCorrection} busy={busy} filter={relatedFilter} mode={relatedView.mode}
+          onCreated={() => { setQuoteDraft(null); if (relatedView.mode === "create") setRelatedView(null); setRelatedEpoch(v => v + 1); setMessage("報價紀錄已儲存。"); }}
           onCancel={() => { setQuoteDraft(null); if (relatedView.mode === "create") setRelatedView(null); }} /> : null}
         {relatedView.view === "frequent" ? <FrequentPanel rows={frequentItems} itemId={frequentItemId}
           setItemId={setFrequentItemId} freeText={frequentText} setFreeText={setFrequentText}
@@ -1009,7 +1002,9 @@ function VisitsPanel({ selected, rows, draft, setDraft, save, edit, remove, busy
 const searchQuoteItem = async (query: string) => searchCustomerItemOptions(query, 20);
 const quoteItemLabel = (row: CustomerItemOption) => formatItem(row.itemNo, row.name);
 
-function QuotesPanel({ rows, draft, setDraft, save, correct, busy, mode, filter, onCancel }: {
+function QuotesPanel({ customerId, rows, draft, setDraft, save, correct, busy, mode, filter, onCancel, onCreated }: {
+  customerId: number;
+  onCreated: () => void;
   rows: readonly CustomerItemQuoteSummary[];
   draft: QuoteDraft | null;
   setDraft: (value: QuoteDraft | null) => void;
@@ -1033,7 +1028,8 @@ function QuotesPanel({ rows, draft, setDraft, save, correct, busy, mode, filter,
     if (draft) setDraft({ ...draft, lines: draft.lines.map((row, i) => i === index ? { ...row, ...patch } : row) });
   };
   return <div className="cy-customer-related-content">
-    {draft ? <form className="cy-customer-quote-form" onSubmit={save}>
+    {draft && !draft.corrected ? <QuoteCreateForm customerId={customerId} onSaved={onCreated} onCancel={onCancel} /> : null}
+    {draft?.corrected ? <form className="cy-customer-quote-form" onSubmit={save}>
       <div className="cy-customer-quote-header-fields">
         <label>日期<input type="date" className="cy-op-input" value={draft.quoteDate} disabled={busy}
           required onChange={event => setDraft({ ...draft, quoteDate: event.target.value })} /></label>
