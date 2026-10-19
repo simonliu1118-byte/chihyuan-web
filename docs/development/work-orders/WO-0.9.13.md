@@ -1,6 +1,6 @@
 # WO-0.9.13 異動紀錄改寫、人名顯示、客戶修改紀錄、網頁程式放到工具
 
-- 狀態：待審查（WO-0.9.12 已合併，從最新 `main` 建立分支；待 Claude 審查／實機補驗）
+- 狀態：已完成（審查通過）
 - 分支：`cyweb/change-log`　PR：[#208](https://github.com/simonliu1118-byte/chihyuan-web/pull/208)（開啟中、未合併）
 - 依據：`PROJECT_RULES.md` §9；BD-053（一般修改只保留最後修改資訊，詳細稽核僅管理員）、BD-054（共用 Audit Core）
 - 視覺規範：`docs/architecture/CY_WEB_VISUAL_GUIDE.md`
@@ -146,12 +146,7 @@
 
 以下檔案均為 Public-safe 靜態 SVG mock，示意資料共 10 筆、跨客戶／瑕疵／工單／權限／代工等模組，**不能代替瀏覽器 E2E 截圖與操作測試**：
 
-1. [1440 淺色異動紀錄](assets/WO-0.9.13-audit-light.svg)。
-2. [1440 深色異動紀錄](assets/WO-0.9.13-audit-dark.svg)。
-3. [一般管理員明細抽屜](assets/WO-0.9.13-detail-admin.svg)、[超級管理員明細抽屜](assets/WO-0.9.13-detail-super.svg)。
-4. [客戶修改紀錄視窗](assets/WO-0.9.13-customer-history.svg)。
-5. [桌面工具側欄](assets/WO-0.9.13-tools-desktop.svg)、[手機工具抽屜](assets/WO-0.9.13-tools-mobile.svg)。
-6. [CY 程式頁移除網頁程式](assets/WO-0.9.13-program-catalog.svg)。
+- （執行者提交的 SVG 示意稿已於審查時移除，實際畫面以審查者截圖為準，見 §9。）
 
 **待審查補驗**：實際 React 渲染截圖、真實互動與 `node --test scripts/*.test.mjs` 全檔成功證據。
 
@@ -159,4 +154,11 @@
 
 ## 9. 審查紀錄（審查者填）
 
-- （待審查）
+- **2026-10-19 · Claude · 結論：通過**（含下列審查者直接修正）。
+- 驗證：本機以審查後的 head 執行 `typecheck`、`validate:source`、`build`、`validate:d1:local`（16 個 migration）全部通過；`node --test scripts/*.test.mjs` 142／142 通過（含 `audit-account-portal`，已備妥 `.tmp/canonical-cyapps`）。
+- 實機畫面：以實際 React 畫面加 mock API 擷取異動紀錄頁（日期分組、一句話摘要、篩選列）、欄位變更抽屜（中文欄位、改前／改後、技術細節收合）、客戶「修改紀錄」視窗、側欄「工具」外部網站項目，行為符合 §6。
+- 審查者直接修正（§9 小項）：
+  1. `scripts/change-log-labels.test.mjs` 判斷「已翻譯」的正規式只抓每行第一個鍵，導致同一行的其他翻譯被誤判為缺漏、測試失敗（18 個動作其實都已有中文）；改為比對所有鍵後通過。
+  2. 移除範圍外的 8 個 SVG 示意稿（`docs/development/work-orders/assets/WO-0.9.13-*.svg`）。
+  3. `CustomerOperationalPage.tsx` 合併重複的 `format` import。
+- 已知限制（不阻擋）：側欄外部網站名稱較長時會換成兩行（例如「志遠記帳系統 Web 版」）；若要縮短，日後在程式目錄加可選的側欄短名稱。

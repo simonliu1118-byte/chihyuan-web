@@ -4,7 +4,8 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 const root=new URL("../",import.meta.url);
 const source=readFileSync(new URL("../src/runtime/modules/change-log-labels.ts",import.meta.url),"utf8");
-const vocabulary=new Set([...source.matchAll(/^\s*"([^"]+)"\s*:/gm)].map(m=>m[1]));
+// Several labels share a line in the map, so match every quoted key, not only the first per line.
+const vocabulary=new Set([...source.matchAll(/"([a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+)"\s*:/g)].map(m=>m[1]));
 const actions=new Set();
 function walk(relative){
  for(const item of readdirSync(new URL(relative,root),{withFileTypes:true})){

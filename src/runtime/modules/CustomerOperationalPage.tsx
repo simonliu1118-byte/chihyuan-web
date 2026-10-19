@@ -8,8 +8,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { Dialog } from "../../ui/overlays/Dialog";
 import { ChangeLogList } from "./AuditOperationalPage";
-import { formatPerson } from "../../ui/foundation/format";
-import { formatDate, formatDateTime } from "../../ui/foundation/format";
+import { formatDate, formatDateTime, formatPerson } from "../../ui/foundation/format";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import type { CustomerItemOption, CustomerModuleLookups } from "../../../shared/business-lookups";
 import type {
