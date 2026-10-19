@@ -71,7 +71,7 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
         <ErpQueryRows key={mine.id} label="客戶搜尋結果" columns={ERP_CUSTOMER_SEARCH_FIELDS} disabled={busy}
           rows={mine.items.map(row => { const v = new Map(row.map(f => [f.name, f.value])); return ERP_CUSTOMER_SEARCH_FIELDS.map(n => v.get(n) || ""); })}
           onItemSelect={code => void queryCustomer(code)} />
-        <p className="cy-erp-search-hint">點選客戶代號，查詢該客戶的未收款。</p>
+        
       </>}
       {showsData(mine) && mine.queryType === "RECEIVABLE" && <>
         <h3>未收合計 {erpMoney(totalUnpaid)}（{groups.length} 位客戶、{mine.bills.length} 張結帳單）</h3>
