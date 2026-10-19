@@ -25,7 +25,7 @@ export function HrOperationalPage(){
  const [selectedId,setSelectedId]=useState<number|null>(null);
  const [detail,setDetail]=useState<Employee|null>(null);
  const [leave,setLeave]=useState<AnnualLeavePeriod[]>([]);
- const [dialog,setDialog]=useState<"employee"|"status"|"salary"|"exclusion"|"settings"|"nationalId"|null>(null);
+ const [dialog,setDialog]=useState<"employee"|"status"|"salary"|"exclusion"|"nationalId"|null>(null);
  const [create,setCreate]=useState(false);
  const [fields,setFields]=useState<Record<string,string>>({});
  const [contacts,setContacts]=useState<Record<string,string>[]>([]);
@@ -79,8 +79,9 @@ export function HrOperationalPage(){
   }catch(x){setError(err(x));}finally{setBusy(false);}
  }
  function startAction(name:"status"|"salary"|"exclusion"){if(name==="salary"){setSalaryAllowances([]);void Promise.all([apiRequest<{id:number;name:string;is_active:number}[]>(ROOT+"/settings/salary-item-types"),apiRequest<{effective_date:string;monthly_amount:number;hourly_amount:number}[]>(ROOT+"/settings/minimum-wages")]).then(([i,w])=>{setSalaryItems(i.filter(x=>x.is_active===1));setMinimumWages(w);}).catch(e=>setError(err(e)));}setDialog(name);setError("");setFields(name==="status"?{effectiveDate:taipeiToday(),nextStatus:detail?.status??"active"}:name==="salary"?{effectiveDate:taipeiToday(),paymentType:"monthly"}:{startDate:"",endDate:""});}
+ const fieldLabels:Record<string,string>={name:"姓名",relationship:"關係",phone:"電話",school:"學校",department:"科系",degree:"學位",graduationMonth:"畢業年月",company:"公司",jobTitle:"職稱",startMonth:"開始年月",endMonth:"結束年月",note:"備註"};
  const editable=(rows:Record<string,string>[],setter:(x:Record<string,string>[])=>void,keys:string[],title:string)=><div className="cy-op-panel">
-  <h3>{title}</h3>{rows.map((r,i)=><div key={i} className="cy-op-form">{keys.map(k=><label key={k}>{k}<input className={inputClass} value={r[k]??""} onChange={e=>setter(rows.map((x,j)=>i===j?{...x,[k]:e.target.value}:x))}/></label>)}<button type="button" className="cy-op-button" onClick={()=>setter(rows.filter((_,j)=>j!==i))}>移除</button></div>)}
+  <h3>{title}</h3>{rows.map((r,i)=><div key={i} className="cy-op-form">{keys.map(k=><label key={k}>{fieldLabels[k]??k}<input type={["graduationMonth","startMonth","endMonth"].includes(k)?"month":"text"} className={inputClass} value={r[k]??""} onChange={e=>setter(rows.map((x,j)=>i===j?{...x,[k]:e.target.value}:x))}/></label>)}<button type="button" className="cy-op-button" onClick={()=>setter(rows.filter((_,j)=>j!==i))}>移除</button></div>)}
   <button className="cy-op-button" type="button" onClick={()=>setter([...rows,{}])}>＋ 新增</button>
  </div>;
  const changeRows=(d:Record<string,unknown>[],formatter:(x:Record<string,unknown>)=>string)=>d.map((row,i)=><div key={i} className="cy-customer-line">{formatter(row)}</div>);
@@ -92,7 +93,7 @@ export function HrOperationalPage(){
     <div className="cy-op-panel-header"><h2>人事清單</h2><button className="cy-op-button primary" onClick={()=>openEmployee(false)}>＋ 新增員工</button></div>
     <div className="cy-op-form"><input className={inputClass} placeholder="搜尋員工編號、姓名" aria-label="搜尋員工" value={query} onChange={e=>setQuery(e.target.value)}/>
     <select className={inputClass} aria-label="人事狀態" value={filter} onChange={e=>setFilter(e.target.value)}><option value="">全部狀態</option>{Object.entries(labels).map(([v,t])=><option key={v} value={v}>{t}</option>)}</select></div>
-    {list.map(x=><button key={x.id} type="button" className="cy-op-button cy-hr-list-item" onClick={()=>setSelectedId(x.id)}><span><small>{x.employee_no}</small><strong style={{display:"block"}}>{x.name}</strong></span><StatusChip tone={statusTone(x.status)}>{labels[x.status]}</StatusChip></button>)}
+    {list.map(x=><button key={x.id} type="button" className="cy-op-button cy-hr-list-item" onClick={()=>setSelectedId(x.id)}><span><small>{x.employee_no}</small><strong>{x.name}</strong></span><StatusChip tone={statusTone(x.status)}>{labels[x.status]}</StatusChip></button>)}
     {!list.length?<p>尚無員工資料</p>:null}
     {next?<button className="cy-op-button" onClick={()=>void loadList(true,next).catch(x=>setError(err(x)))}>載入更多</button>:null}
    </section>
@@ -138,6 +139,6 @@ export function HrOperationalPage(){
     <div className="cy-op-form-footer"><button className="cy-op-button" type="button" onClick={()=>setDialog(null)}>取消</button><button className="cy-op-button primary" disabled={busy}>新增</button></div>
    </form>
   </Dialog>
-  <Dialog open={dialog==="settings"} title="人事設定" onClose={()=>setDialog(null)}><p>最低工資及津貼項目由超級管理員維護。</p></Dialog>
+
  </div>;
 }
