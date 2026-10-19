@@ -1,3 +1,4 @@
+import { recordIdFromHash, replaceRouteParams } from "../navigation/route-params";
 import { QuoteCreateForm } from "./customer/QuoteCreateForm";
 import { RelatedCard } from "../../ui/records/RelatedCard";
 import { Loading } from "../../ui/feedback/Loading";
@@ -252,7 +253,7 @@ function emptyQuoteLine(): QuoteLineDraft {
 export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"USER"}) {
   const [lookups, setLookups] = useState<CustomerModuleLookups | null>(null);
   const [rows, setRows] = useState<readonly CustomerSummary[]>([]);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(() => recordIdFromHash());
   const [selected, setSelected] = useState<CustomerDetail | null>(null);
   const [visits, setVisits] = useState<readonly CustomerVisitRecord[]>([]);
   const [quotes, setQuotes] = useState<readonly CustomerItemQuoteSummary[]>([]);
@@ -280,6 +281,17 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
   const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
   const paging = useLoadMore(searchCustomers, setRows, (error) => reportError(errorMessage(error)));
   const [refreshEpoch, setRefreshEpoch] = useState(0);
+  useEffect(() => {
+    const receiveRecordLink = () => {
+      if (!window.location.hash.startsWith("#customers?")) return;
+      const id = recordIdFromHash();
+      if (id) { setSelectedId(id); pane.open(); }
+    };
+    receiveRecordLink();
+    window.addEventListener("hashchange", receiveRecordLink);
+    return () => window.removeEventListener("hashchange", receiveRecordLink);
+  }, []);
+
   const [relatedEpoch, setRelatedEpoch] = useState(0);
   const { confirm, confirmationDialog } = useConfirmation();
   const unsavedGuard = useUnsavedChangesGuard({ active: editing || visitDraft !== null || quoteDraft !== null || frequentText.trim() !== "" || frequentItemId !== null, blocked: busy, message: "放棄尚未儲存的內容？" });
@@ -330,7 +342,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
           paging.reset(listQuery, result.nextCursor);
           if (!editing && !creating) {
             setSelectedId((current) => (
-              current != null && result.items.some((row) => row.id === current)
+              current != null && (result.items.some((row) => row.id === current) || recordIdFromHash() === current)
                 ? current
                 : result.items[0]?.id ?? null
             ));
@@ -398,6 +410,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
   async function selectCustomer(id: number) {
     if (busy || !(await canLeave())) return;
     pane.open();
+    replaceRouteParams({});
     setSelectedId(id);
     setRelatedView(null);
     setHistoryOpen(false);
