@@ -10,10 +10,15 @@ const entityNames: Record<string,string> = {
   department:"部門",item_category:"商品分類",work_log_category:"日誌類別",
   work_log_platform:"日誌平台",work_log_scoring_row:"計分參考列",work_log_scoring_config:"計分門檻",
   module_access:"使用權",module_access_group:"權限群組",app_tag:"標籤",
+  hr_employee:"人事員工",hr_status_change:"人事狀態異動",hr_salary_record:"薪資異動",hr_seniority_exclusion:"年資不計期間",hr_setting:"人事設定",
   backup:"備份",erp_item_query:"ERP 查詢",erp_item_agent:"ERP 連線服務",
 };
 export const entityLabel = (type: string): string => entityNames[type] ?? "資料";
 export const actionLabels: Record<string,string> = {
+  "hr_employee.created":"新增人事資料","hr_employee.updated":"修改人事資料",
+  "hr_employee.status_changed":"異動人事狀態","hr_employee.national_id.viewed":"查看完整身分證字號",
+  "hr_salary_record.created":"新增薪資異動","hr_seniority_exclusion.created":"新增年資不計期間",
+  "hr_seniority_exclusion.deleted":"刪除年資不計期間","hr_setting.updated":"修改人事設定",
   "customer.created":"新增客戶","customer.updated":"修改客戶","customer.deleted":"刪除客戶",
   "customer.number.changed":"更改客戶編號",
   "customer_visit.created":"新增拜訪紀錄","customer_visit.updated":"修改拜訪紀錄",
@@ -73,6 +78,7 @@ export function actionLabel(action: string, type = ""): string {
   return verb + entityLabel(type || action.split(".")[0]);
 }
 const fields:Record<string,string> = {
+  nationalIdMasked:"身分證字號（遮罩）",baseAmount:"本薪",allowanceTotal:"津貼合計",paymentType:"計薪方式",effectiveDate:"生效日",nextStatus:"新狀態",startDate:"起日",endDate:"迄日",
   name:"名稱",shortName:"簡稱",fullName:"完整名稱",displayName:"姓名",employeeNo:"員工編號",
   code:"代碼",customerNo:"客戶編號",itemNo:"品號",workOrderRef:"工單編號",
   outsourcingRef:"代工單號",customerNameSnapshot:"客戶名稱",itemNameSnapshot:"商品名稱",
@@ -101,6 +107,7 @@ const fields:Record<string,string> = {
 export function fieldLabel(_entityType:string,key:string):string { return fields[key] ?? "其他欄位"; }
 export type FieldLookup = Record<string,Record<string,string>>;
 const statusText:Record<string,string> = {
+  probation:"試用",active:"在職",leave:"留職停薪",terminated:"離職",
   created:"已建檔",processing:"處理中",resolved:"已完成",voided:"已作廢",
   issued:"已開單",waiting_stock:"待貨",picked:"已撿貨",shipped:"已出貨",
   pending_outbound:"待出庫",outbound:"已出庫",received:"已入庫",priced:"已計價",paid:"已付款",
