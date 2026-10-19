@@ -119,7 +119,7 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
     if (busy) return;
     setDialog(null); setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
     setNewEmail(""); setEmailPassword(""); setChallengeId(null); setOtp("");
-    setVerifyingCurrentEmail(false); setResendAt(0); setMessage(null);
+    setVerifyingCurrentEmail(false); setMessage(null);
   };
 
   async function submitPassword(event: FormEvent) {
@@ -135,7 +135,7 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
 
   async function startEmail(event?: FormEvent) {
     event?.preventDefault();
-    if (busy) return;
+    if (busy || countdown > 0) return;
     setBusy(true); setMessage(null);
     try {
       const result = await startOwnEmailChange(emailPassword, newEmail);
@@ -147,7 +147,7 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
   }
 
   async function verifyCurrentEmail() {
-    if (busy) return;
+    if (busy || countdown > 0) return;
     setDialog("email"); setBusy(true); setMessage(null); setVerifyingCurrentEmail(true);
     try {
       const result = await startCurrentEmailVerification();
