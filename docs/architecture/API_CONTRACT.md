@@ -626,3 +626,8 @@ Each customer's latest quote for the Item is selected by `quote_date DESC, id DE
 ## WO-0.9.16 — ERP 查詢稽核顯示
 
 異動紀錄查詢接受選填 `includeErpQueries`，預設 `false`，不回傳 `entity_type = 'erp_item_query'`。僅 `SUPER_ADMIN` 可要求 `true`；其他角色傳入 `true` 仍視為 `false`。啟用後 ERP 查詢僅顯示完成／失敗／逾時事件，不顯示送出（`created`）事件。`erp_item_agent.*` 管理事件維持顯示；此篩選不修改稽核資料寫入或資料表。
+
+
+## WO-0.9.20 人事模組第一期 API
+
+僅限已驗證的 CYID `SUPER_ADMIN`，所有 `/api/business/hr/*` 路徑不參與模組授權。提供員工主檔／子表、狀態異動、年資不計期間、薪資異動、週年制特休年度查詢、可綁定使用者、津貼類型與最低工資設定；完整方法／路徑／隱私契約詳見 [HR_MODULE_CONTRACT.md](HR_MODULE_CONTRACT.md)。一般員工 GET 只回遮罩證號；完整證號須額外 POST reveal 並寫稽核，稽核不記原文。非超管不得檢視人事事件。
