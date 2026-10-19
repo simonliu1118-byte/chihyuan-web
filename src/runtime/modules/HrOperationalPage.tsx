@@ -1,6 +1,9 @@
 import { useCallback,useEffect,useState,type FormEvent } from "react";
 import { Dialog } from "../../ui/overlays/Dialog";
 import { StatusChip } from "../../ui/primitives/StatusChip";
+import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
+import { useConfirmation } from "../../ui/overlays/useConfirmation";
+import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import "./hr-operational.css";
 import { formatDate } from "../../ui/foundation/format";
 import { apiRequest } from "../../api/client";
@@ -19,6 +22,9 @@ const inputClass="cy-op-input";
 function dateDisplay(x:unknown){return typeof x==="string"?formatDate(x):"—";}
 function Card({title,children}:{title:string;children:React.ReactNode}){return <section className="cy-op-panel"><h3>{title}</h3>{children}</section>;}
 export function HrOperationalPage(){
+ const pane=useMasterDetailPane();
+ const {confirm,confirmationDialog}=useConfirmation();
+ const [feedback,setFeedback,reportError,feedbackTone]=useFeedbackMessage<string|null>(null);
  const [list,setList]=useState<StaffRow[]>([]);
  const [query,setQuery]=useState(""),[filter,setFilter]=useState("");
  const [next,setNext]=useState<number|null>(null);
@@ -56,7 +62,7 @@ export function HrOperationalPage(){
   setContacts(edit&&detail?detail.contacts.map(x=>({name:String(x.name??""),relationship:String(x.relationship??""),phone:String(x.phone??"")})):[]);
   setEducation(edit&&detail?detail.education.map(x=>({school:String(x.school??""),department:String(x.department??""),degree:String(x.degree??""),graduationMonth:String(x.graduation_month??"")})):[]);
   setHistory(edit&&detail?detail.workHistory.map(x=>({company:String(x.company??""),jobTitle:String(x.job_title??""),startMonth:String(x.start_month??""),endMonth:String(x.end_month??""),note:String(x.note??"")})):[]);
-  setDialog("employee");
+  setDialog("employee");pane.open();
  }
  function set(key:string,v:string){setFields(old=>({...old,[key]:v}));}
  const field=(label:string,key:string,type="text",required=false)=> <label key={key}>{label}<input className={inputClass} type={type} required={required} value={fields[key]??""} onChange={e=>set(key,e.target.value)} /></label>;
@@ -66,7 +72,7 @@ export function HrOperationalPage(){
       seniorityStartDate:fields.seniorityStartDate||fields.hireDate,contacts,education,workHistory:history};
     if(!create&&detail){data.revision=detail.revision;if(!fields.nationalId?.trim())delete data.nationalId;}
     const x=await apiRequest<Employee>(ROOT+"/employees"+(create?"":"/"+detail!.id),{method:create?"POST":"PATCH",json:data});
-    setDialog(null);setSelectedId(x.id);await loadList();await loadDetail(x.id);setNotice(create?"已新增員工":"已更新人事資料");
+    setDialog(null);setSelectedId(x.id);pane.open();await loadList();await loadDetail(x.id);setNotice(create?"已新增員工":"已更新人事資料");
   }catch(x){setError(err(x));}finally{setBusy(false);}
  }
  async function action(e:FormEvent){e.preventDefault();if(!detail||!dialog)return;setBusy(true);setError("");
@@ -86,18 +92,32 @@ export function HrOperationalPage(){
  </div>;
  const changeRows=(d:Record<string,unknown>[],formatter:(x:Record<string,unknown>)=>string)=>d.map((row,i)=><div key={i} className="cy-customer-line">{formatter(row)}</div>);
  return <div className="cy-op-module cy-hr-layout">
-  {error&&!dialog?<div className="cy-notice cy-notice-danger" role="alert">{error}</div>:null}
-  {notice?<div className="cy-notice" role="status">{notice}</div>:null}
-  <div className="cy-op-grid-two">
-   <section className="cy-op-panel">
+  <FeedbackBanner message={error||feedback||notice||null} tone={error?"danger":feedbackTone}/>
+  {confirmationDialog}
+  <div className="cy-md cy-hr-workspace" data-pane={pane.pane}>
+   <section className="cy-op-panel cy-md-list">
     <div className="cy-op-panel-header"><h2>人事清單</h2><button className="cy-op-button primary" onClick={()=>openEmployee(false)}>＋ 新增員工</button></div>
     <div className="cy-op-form"><input className={inputClass} placeholder="搜尋員工編號、姓名" aria-label="搜尋員工" value={query} onChange={e=>setQuery(e.target.value)}/>
     <select className={inputClass} aria-label="人事狀態" value={filter} onChange={e=>setFilter(e.target.value)}><option value="">全部狀態</option>{Object.entries(labels).map(([v,t])=><option key={v} value={v}>{t}</option>)}</select></div>
-    {list.map(x=><button key={x.id} type="button" className="cy-op-button cy-hr-list-item" onClick={()=>setSelectedId(x.id)}><span><small>{x.employee_no}</small><strong>{x.name}</strong></span><StatusChip tone={statusTone(x.status)}>{labels[x.status]}</StatusChip></button>)}
+    {list.map(x=><button key={x.id} type="button" className="cy-op-list-row cy-hr-list-item" onClick={()=>{setSelectedId(x.id);pane.open();}}><span><small>{x.employee_no}</small><strong>{x.name}</strong></span><StatusChip tone={statusTone(x.status)}>{labels[x.status]}</StatusChip></button>)}
     {!list.length?<p>尚無員工資料</p>:null}
     {next?<button className="cy-op-button" onClick={()=>void loadList(true,next).catch(x=>setError(err(x)))}>載入更多</button>:null}
    </section>
-   {detail?<section className="cy-op-panel">
+   <section className="cy-op-panel cy-md-detail"><MasterDetailBack label="人事清單" onBack={()=>{setDialog(null);pane.close();}} disabled={busy}/>
+   {dialog==="employee" ? <>  <Dialog open={dialog==="employee"} title={create?"新增員工":"修改員工"} onClose={()=>setDialog(null)} size="large">
+   {error?<div className="cy-notice cy-notice-danger" role="alert">{error}</div>:null}
+   <form className="cy-op-form" onSubmit={submitEmployee}><div className="cy-record-header cy-edit-header"><h2>{create?"新增員工":"修改員工"}</h2><div className="cy-record-actions"><button type="button" className="cy-op-button" onClick={()=>setDialog(null)}>取消</button><button className="cy-op-button primary" disabled={busy}>儲存</button></div></div>
+     {field("員工編號","employeeNo","text",true)}{field("姓名","name","text",true)}<label>綁定使用者（選填）<select className={inputClass} value={fields.memberId??""} onChange={e=>set("memberId",e.target.value)}><option value="">不綁定</option>{members.map(x=><option key={x.id} value={x.id}>{x.employee_no}　{x.display_name??""}</option>)}</select></label>
+     {field(create?"身分證字號（選填）":"新身分證字號（留空維持原值）","nationalId")}<label>性別<select className={inputClass} value={fields.gender??""} onChange={e=>set("gender",e.target.value)}><option value="">未設定</option><option value="男">男</option><option value="女">女</option><option value="其他">其他</option></select></label>
+     {field("到職日","hireDate","date",true)}{field("年資起算日","seniorityStartDate","date")}
+     {field("出生年月日","birthDate","date")}{field("手機","mobile")}{field("市話","phone")}
+     {field("通訊地址","mailingAddress")}<label><input type="checkbox" checked={(fields.registeredAddress??"")!=="" && fields.registeredAddress===fields.mailingAddress} onChange={e=>set("registeredAddress",e.target.checked?fields.mailingAddress??"":"")}/> 戶籍地址同通訊地址</label>{field("戶籍地址","registeredAddress")}{field("備註","note")}
+     {editable(contacts,setContacts,["name","relationship","phone"],"緊急聯絡人")}
+     {editable(education,setEducation,["school","department","degree","graduationMonth"],"學歷")}
+     {editable(history,setHistory,["company","jobTitle","startMonth","endMonth","note"],"工作經歷")}
+
+   </form>
+</> : detail ? <>
     <div className="cy-op-panel-header"><h2>{detail.employee_no} {detail.name}　<StatusChip tone={statusTone(detail.status)}>{labels[detail.status]}</StatusChip></h2><button className="cy-op-button" onClick={()=>openEmployee(true)}>修改</button></div>
     <Card title="基本資料"><p>到職：{dateDisplay(detail.hire_date)}　年資起算：{dateDisplay(detail.seniority_start_date)}</p><p>電話：{detail.mobile??detail.phone??"—"}</p><p>通訊地址：{detail.mailing_address??"—"}</p>
      <p>身分證：{detail.nationalIdMasked??"未填寫"}　<button className="cy-op-button compact" onClick={async()=>{try{const r=await apiRequest<{nationalId:string|null}>(ROOT+"/employees/"+detail.id+"/national-id/reveal",{method:"POST",json:{}});setNationalId(r.nationalId);setDialog("nationalId");}catch(x){setError(err(x));}}}>顯示</button></p>
@@ -109,26 +129,13 @@ export function HrOperationalPage(){
     </Card>
     <Card title="薪資"><button className="cy-op-button" onClick={()=>startAction("salary")}>＋ 薪資異動</button><p>目前薪資：{money((detail.salaryRecords.find(x=>String(x.effective_date??"")<=taipeiToday())??{}).base_amount)}</p>{detail.salaryRecords.length===0?<p>尚無薪資異動</p>:null}{detail.salaryRecords.map((x,i)=><div key={i} className="cy-customer-line">{dateDisplay(x.effective_date)}　{x.payment_type==="hourly"?"時薪":"月薪"}　{money(x.base_amount)}　{String(x.reason??"")}{Array.isArray(x.allowances)?x.allowances.map((a:any,j:number)=><div key={j}>{String(a.item_name??"津貼")}　{money(a.amount)}　{a.is_regular===1?"經常性":"非經常性"}</div>):null}</div>)}</Card>
     <Card title="狀態異動"><button className="cy-op-button" onClick={()=>startAction("status")}>＋ 異動</button>{changeRows(detail.statusChanges,x=>dateDisplay(x.effective_date)+"　"+(labels[String(x.next_status) as HrStatus]??"—")+"　"+String(x.reason??""))}</Card>
-    <Card title="年資不計期間"><button className="cy-op-button" onClick={()=>startAction("exclusion")}>＋ 新增</button>{detail.seniorityExclusions.map((x,i)=><div key={i} className="cy-customer-line">{dateDisplay(x.start_date)}～{dateDisplay(x.end_date)}　{String(x.reason??"")}<button className="cy-op-button compact" type="button" onClick={async()=>{if(!window.confirm("確定刪除此年資不計期間？將留下稽核紀錄。"))return;try{await apiRequest(ROOT+"/employees/"+detail.id+"/seniority-exclusions/"+x.id,{method:"DELETE"});await loadDetail(detail.id);}catch(e){setError(err(e));}}}>刪除</button></div>)}</Card>
+    <Card title="年資不計期間"><button className="cy-op-button" onClick={()=>startAction("exclusion")}>＋ 新增</button>{detail.seniorityExclusions.map((x,i)=><div key={i} className="cy-customer-line">{dateDisplay(x.start_date)}～{dateDisplay(x.end_date)}　{String(x.reason??"")}<button className="cy-op-button compact" type="button" onClick={async()=>{if(!await confirm({title:"刪除年資不計期間",description:"確定刪除此年資不計期間？將留下稽核紀錄。",confirmTone:"danger",confirmLabel:"刪除"}))return;try{await apiRequest(ROOT+"/employees/"+detail.id+"/seniority-exclusions/"+x.id,{method:"DELETE"});await loadDetail(detail.id);}catch(e){setError(err(e));}}}>刪除</button></div>)}</Card>
     <Card title="緊急聯絡人">{changeRows(detail.contacts,x=>String(x.name??"")+"　"+String(x.phone??""))}</Card>
     <Card title="學歷">{changeRows(detail.education,x=>String(x.school??"")+"　"+String(x.department??"")+"　"+String(x.degree??"")+"　"+String(x.graduation_month??""))}</Card>
     <Card title="工作經歷">{changeRows(detail.workHistory,x=>String(x.company??"")+"　"+String(x.job_title??"")+"　"+String(x.start_month??"")+"～"+String(x.end_month??""))}</Card>
-   </section>:<section className="cy-op-panel"><p>請選擇員工查看明細</p></section>}
+   </>:dialog==="employee"?null:<MasterDetailEmpty title="尚未選擇員工" hint="請從左側清單選擇員工或新增。"/>}
+   </section>
   </div>
-  <Dialog open={dialog==="employee"} title={create?"新增員工":"修改員工"} onClose={()=>setDialog(null)} size="large">
-   {error?<div className="cy-notice cy-notice-danger" role="alert">{error}</div>:null}
-   <form className="cy-op-form" onSubmit={submitEmployee}>
-     {field("員工編號","employeeNo","text",true)}{field("姓名","name","text",true)}<label>綁定使用者（選填）<select className={inputClass} value={fields.memberId??""} onChange={e=>set("memberId",e.target.value)}><option value="">不綁定</option>{members.map(x=><option key={x.id} value={x.id}>{x.employee_no}　{x.display_name??""}</option>)}</select></label>
-     {field(create?"身分證字號（選填）":"新身分證字號（留空維持原值）","nationalId")}<label>性別<select className={inputClass} value={fields.gender??""} onChange={e=>set("gender",e.target.value)}><option value="">未設定</option><option value="男">男</option><option value="女">女</option><option value="其他">其他</option></select></label>
-     {field("到職日","hireDate","date",true)}{field("年資起算日","seniorityStartDate","date")}
-     {field("出生年月日","birthDate","date")}{field("手機","mobile")}{field("市話","phone")}
-     {field("通訊地址","mailingAddress")}<label><input type="checkbox" checked={(fields.registeredAddress??"")!=="" && fields.registeredAddress===fields.mailingAddress} onChange={e=>set("registeredAddress",e.target.checked?fields.mailingAddress??"":"")}/> 戶籍地址同通訊地址</label>{field("戶籍地址","registeredAddress")}{field("備註","note")}
-     {editable(contacts,setContacts,["name","relationship","phone"],"緊急聯絡人")}
-     {editable(education,setEducation,["school","department","degree","graduationMonth"],"學歷")}
-     {editable(history,setHistory,["company","jobTitle","startMonth","endMonth","note"],"工作經歷")}
-     <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setDialog(null)}>取消</button><button className="cy-op-button primary" disabled={busy}>儲存</button></div>
-   </form>
-  </Dialog>
   <Dialog open={dialog==="nationalId"} title="身分證字號" size="small" onClose={()=>{setNationalId(null);setDialog(null)}}><p>{nationalId??"未填寫"}</p><button className="cy-op-button" onClick={()=>{setNationalId(null);setDialog(null)}}>關閉</button></Dialog>
   <Dialog open={["status","salary","exclusion"].includes(dialog??"")} title={dialog==="status"?"新增狀態異動":dialog==="salary"?"新增薪資異動":"新增年資不計期間"} size="medium" onClose={()=>setDialog(null)}>
    {error?<div className="cy-notice cy-notice-danger" role="alert">{error}</div>:null}
