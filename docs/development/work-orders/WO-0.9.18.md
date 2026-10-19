@@ -410,6 +410,22 @@
 | `src/ui/foundation/ThemeToggle.tsx:78` | {iconOnly ? null : <span>{options[index].label}</span>} | 留 | UI 狀態、結果訊息或動態資料 |
 | `src/ui/layout/MasterDetail.tsx:28` | return <div className="cy-md-empty"><div><strong>{title}</strong>{hint ? <p>{hint}</p> : null}</div></div>; | 留 | UI 狀態、結果訊息或動態資料 |
 
+### §8 原始碼候選盤點（第 5 組：共用元件 B）
+
+| 檔案:行號 | 候選 JSX 內容摘要 | 留／刪 | 理由 |
+| --- | --- | --- | --- |
+| `src/ui/primitives/FieldFrame.tsx:25` | {required ? <span className="cy-field-required" aria-hidden="true"> *</span> : null} | 留 | UI 狀態、結果訊息或動態資料；頁面標題描述按 §2 保留 |
+| `src/ui/primitives/Section.tsx:23` | {description ? <p className="cy-section-description">{description}</p> : null} | 留 | UI 狀態、結果訊息或動態資料；頁面標題描述按 §2 保留 |
+| `src/ui/primitives/StatusChip.tsx:16` | <span className={["cy-status-chip", 'cy-status-chip-${tone}', className].filter(Boolean).join(" ")}> | 留 | UI 狀態、結果訊息或動態資料；頁面標題描述按 §2 保留 |
+| `src/ui/records/RelatedCard.tsx:10` | <h3>{title} <span className="cy-customer-card-count">{count}</span></h3> | 留 | UI 狀態、結果訊息或動態資料；頁面標題描述按 §2 保留 |
+| `src/ui/records/RelatedCard.tsx:16` | : <p className="cy-customer-muted">{empty}</p>} | 留 | UI 狀態、結果訊息或動態資料；頁面標題描述按 §2 保留 |
+| `src/ui/related/RelatedRecordPanel.tsx:42` | {tab.badge != null ? <span className="cy-related-panel-badge">{tab.badge}</span> : null} | 留 | UI 狀態、結果訊息或動態資料；頁面標題描述按 §2 保留 |
+| `src/ui/shell/AccountMenu.tsx:36` | <span className="cy-account-avatar" aria-hidden="true">{initial}</span> | 留 | UI 狀態、結果訊息或動態資料；頁面標題描述按 §2 保留 |
+| `src/ui/shell/AccountMenu.tsx:37` | {compact ? null : <span className="cy-account-name"><strong>{displayName}</strong><span className="cy-account-ro | 留 | UI 狀態、結果訊息或動態資料；頁面標題描述按 §2 保留 |
+| `src/ui/shell/AppShell.tsx:61` | <div className="cy-shell-brand"><span className="cy-shell-brand-mark" aria-hidden="true">CY</span> | 留 | UI 狀態、結果訊息或動態資料；頁面標題描述按 §2 保留 |
+| `src/ui/shell/AppShell.tsx:81` | }}><NavIcon name={item.key} /><span>{item.label}</span>{item.external ? <svg width="13" height="13" viewBox="0 0 | 留 | UI 狀態、結果訊息或動態資料；頁面標題描述按 §2 保留 |
+| `src/ui/shell/AppShell.tsx:104` | {!compact && pageDescription ? <p className="cy-shell-topbar-description">{pageDescription}</p> : null} | 留 | UI 狀態、結果訊息或動態資料；頁面標題描述按 §2 保留 |
+
 ## 9. 審查紀錄（審查者填）
 
 - （待審查）
