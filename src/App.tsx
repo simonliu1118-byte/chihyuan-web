@@ -25,14 +25,16 @@ import { SalesOrderOperationalPage } from "./runtime/modules/SalesOrderOperation
 import { WorkLogOperationalPage } from "./runtime/modules/WorkLogOperationalPage";
 import { BackupOperationalPage } from "./runtime/modules/BackupOperationalPage";
 import { ProgramCatalogPage } from "./runtime/modules/ProgramCatalogPage";
+import { HrOperationalPage } from "./runtime/modules/HrOperationalPage";
 import { UnsavedChangesBoundary, useNavigationGuard } from "./ui/foundation/useUnsavedChangesGuard";
 import { createGuardedHashNavigation } from "./ui/foundation/guarded-hash-navigation";
 import { FeedbackProvider, useFeedback, useFeedbackMessage } from "./ui/feedback/FeedbackProvider";
 
-type AppRoute = "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "erp-item-query" | "audit" | "identity" | "account" | "backups" | "programs";
+type AppRoute = "hr" | "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "erp-item-query" | "audit" | "identity" | "account" | "backups" | "programs";
 
 // One source of truth for the topbar titles and on-demand module descriptions.
 const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
+  hr: { title:"人事", description:"人事資料、年資特休與薪資紀錄" },
   customers: { title:"客戶", description:"客戶資料、聯絡人、拜訪與報價紀錄" },
   items: { title:"商品", description:"商品資料、品號、價格與單位換算" },
   defects: { title:"瑕疵", description:"瑕疵回報、處理進度與作廢" },
@@ -60,6 +62,7 @@ const baseNavigation: readonly NavigationGroup[] = [
       { key: "orders", label: "銷售工單", href: "#orders" },
       { key: "outsourcing", label: "委外/代工", href: "#outsourcing" },
       { key: "worklogs", label: "工作日誌", href: "#worklogs" },
+      { key: "hr", label: "人事", href: "#hr" },
     ],
   },
   {
@@ -82,6 +85,7 @@ const programsNavigation: NavigationGroup = {
 };
 
 const routes = new Set<AppRoute>([
+  "hr",
   "customers",
   "items",
   "defects",
@@ -156,8 +160,9 @@ function OperationalApp({
     const administration = baseNavigation.find(group => group.key === "administration")!;
     const erpItems = erp.items.filter(item =>
       moduleCodesForRoute(item.key).some(code => allowedModules.has(code)));
-    const businessItems = business.items.filter(item =>
-      moduleCodesForRoute(item.key).some(code => allowedModules.has(code)));
+    const businessItems = business.items.filter(item => item.key === "hr"
+      ? session.user.workspaceRole === "SUPER_ADMIN"
+      : moduleCodesForRoute(item.key).some(code => allowedModules.has(code)));
     const adminItems = administration.items.filter(item =>
       item.key === "backups" ? session.user.workspaceRole === "SUPER_ADMIN"
         : session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN");
@@ -196,7 +201,7 @@ function OperationalApp({
     }
 
     if ((routeCodes.length && !routeCodes.some((code) => allowedModules.has(code))) || (adminOnly && !adminAllowed)
-      || (routeNow === "backups" && session.user.workspaceRole !== "SUPER_ADMIN")) {
+      || ((routeNow === "backups" || routeNow === "hr") && session.user.workspaceRole !== "SUPER_ADMIN")) {
       cancel();
       guardedNavigation.replace("account");
       // A page opened by several grants (ERP 查詢) is named by its page title.
@@ -239,13 +244,14 @@ function OperationalApp({
   const role = session.user.workspaceRole;
   const moduleCode = routeModuleCode;
   const adminAllowed = session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN";
-  if ((route === "audit" || route === "identity") && !adminAllowed) {
+  if ((route === "audit" || route === "identity") && !adminAllowed || (route === "hr" && role !== "SUPER_ADMIN")) {
     content = <Loading />;
   } else if (moduleCode && (!routeAllowed || routeAccess !== "allowed" || checkedRoute !== route)) {
     content = routeAccess === "denied"
       ? <section className="cy-op-panel"><h2>目前無法確認模組權限</h2><p>{moduleAccessError ?? "請重新整理頁面後再試。"}</p></section>
       : <Loading />;
-  } else if (route === "customers") content = <CustomerOperationalPage role={role} />;
+  } else if (route === "hr") content = <HrOperationalPage />;
+  else if (route === "customers") content = <CustomerOperationalPage role={role} />;
   else if (route === "items") content = <ItemOperationalPage canViewDefects={allowedModules.has("DEFECTS")} canViewCustomers={allowedModules.has("CUSTOMERS")} />;
   else if (route === "defects") content = <DefectOperationalPage />;
   else if (route === "orders") content = <SalesOrderOperationalPage />;
