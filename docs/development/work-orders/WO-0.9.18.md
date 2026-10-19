@@ -257,6 +257,52 @@
 | `src/runtime/modules/ErpCustomerQuery.tsx:91` | <p>單據日期起訖都未填：去年同月同日至今天；範圍最多三年。輸入名稱時先列出客戶。</p> | 留 | 安全／限制／結果提示 |
 | `src/runtime/modules/ErpCustomerQuery.tsx:99` | {mine.truncated && <p className="cy-notice cy-notice-warning">結果已達 {mine.items.length} 筆，可能有更多資料，請輸入更完整的名稱。</p>} | 留 | 安全／限制／結果提示 |
 
+### §8 原始碼候選盤點（第 2 組，ERP 查詢，行號為目前分支）
+
+| 檔案:行號 | 候選 JSX 內容摘要 | 留／刪 | 理由 |
+| --- | --- | --- | --- |
+| `src/runtime/modules/ErpItemQueryPage.tsx:134` | <p>起訖都未填：去年同月同日至今天；範圍最多三年。</p> | 留 | 查詢限制、狀態或錯誤訊息 |
+| `src/runtime/modules/ErpItemQueryPage.tsx:142` | {mine.truncated && <p className="cy-notice cy-notice-warning">結果已達 {mine.items.length} 筆，可能有更多資料，請輸入更完整的品名。</p>} | 留 | 查詢限制、狀態或錯誤訊息 |
+| `src/runtime/modules/ErpItemQueryPage.tsx:150` | {mine.warehouses.length === 0 ? <p>無庫別資料。</p> | 留 | 空狀態／無結果訊息 |
+| `src/runtime/modules/ErpItemQueryPage.tsx:154` | {!mine.batchManaged ? <p>非批號管理。</p> | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpItemQueryPage.tsx:155` | : mine.batches.length === 0 ? <p>目前沒有批號庫存。</p> | 留 | 空狀態／無結果訊息 |
+| `src/runtime/modules/ErpItemQueryPage.tsx:161` | ? <><p>共 {mine.history.total} 筆異動。</p> | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpItemQueryPage.tsx:162` | {mine.history.truncated && <p className="cy-notice cy-notice-warning">共 {mine.history.total} 筆，只顯示最新 2,000 筆，請縮小 | 留 | 查詢限制、狀態或錯誤訊息 |
+| `src/runtime/modules/ErpItemQueryPage.tsx:164` | : <p>此版本 CYERPAutoQuery 不支援歷史異動，請更新。</p>} | 留 | 空狀態／無結果訊息 |
+| `src/runtime/modules/ErpJobStatus.tsx:30` | <p>{subject[result.queryType]}：<strong>{describe(result)}</strong>{result.elapsedMs !== null ? '　耗時 ${(result.el | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpJobStatus.tsx:31` | {result.status === "QUEUED" && <p className="cy-erp-waiting"><span className="cy-loading-spinner" aria-hidden="t | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpJobStatus.tsx:32` | {result.status === "RUNNING" && <p className="cy-erp-waiting"><span className="cy-loading-spinner" aria-hidden=" | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpJobStatus.tsx:34` | {result.errorMessage && <p className="cy-notice cy-notice-danger">{result.errorMessage}</p>} | 留 | 查詢限制、狀態或錯誤訊息 |
+| `src/runtime/modules/ErpJobStatus.tsx:35` | {result.status === "EXPIRED" && <p>排隊超過兩分鐘，請重新送出查詢。</p>} | 留 | 查詢限制、狀態或錯誤訊息 |
+| `src/runtime/modules/ErpJobStatus.tsx:36` | {result.status === "NOT_FOUND" && <p>{notFound[result.queryType]}</p>} | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpJobStatus.tsx:37` | {result.status === "DONE" && result.resultCleared && <p>結果已清除，請重新查詢。</p>} | 留 | 查詢限制、狀態或錯誤訊息 |
+| `src/runtime/modules/ErpOrderDialog.tsx:23` | {!result ? job.submitting ? <Loading /> : <p>無法送出查詢，請關閉後再試。</p> : <> | 留 | 空狀態／無結果訊息 |
+| `src/runtime/modules/ErpOrderList.tsx:18` | <div className="cy-erp-orders-head" aria-hidden="true">{columns.map(c => <span key={c}>{c}</span>)}</div> | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpPartyOrdersDialog.tsx:44` | <p>單據日期起訖都未填：去年同月同日至今天；範圍最多三年。</p> | 留 | 查詢限制、狀態或錯誤訊息 |
+| `src/runtime/modules/ErpPurchaseOrders.tsx:21` | {truncated && <p className="cy-notice cy-notice-warning">共 {total} 張，只顯示最新 {orders.length} 張，請縮小日期範圍。</p>} | 留 | 查詢限制、狀態或錯誤訊息 |
+| `src/runtime/modules/ErpPurchaseOrders.tsx:27` | <span>{formatDate(order.date)}</span> | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpPurchaseOrders.tsx:29` | <span>{order.lines.length} 項</span> | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpPurchaseOrders.tsx:30` | <span className="cy-erp-order-extra">{order.supplierOrderNo}</span> | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpPurchaseOrders.tsx:31` | <span className="cy-erp-order-total">{erpMoney(order.total)}</span> | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpPurchaseOrders.tsx:34` | {related.length > 0 && <p className="cy-erp-order-links">{order.kind === "進貨" ? "退貨單：" : "原進貨單："} | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpPurchaseOrders.tsx:41` | : <span key={link.orderNo}>{link.orderNo}（不在查詢範圍）</span>)} | 留 | 查詢限制、狀態或錯誤訊息 |
+| `src/runtime/modules/ErpQueryRows.tsx:31` | <span role="status">{start+1}～{Math.min(start+size,rows.length)}／{rows.length} 筆</span> | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpReceivableQuery.tsx:78` | {mine.truncated && <p className="cy-notice cy-notice-warning">共 {mine.total} 張，只顯示 {mine.bills.length} 張。</p>} | 留 | 查詢限制、狀態或錯誤訊息 |
+| `src/runtime/modules/ErpReceivableQuery.tsx:82` | <strong>{group.customerCode}</strong><span>{group.customerName}</span> | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpReceivableQuery.tsx:83` | <span>{group.bills.length} 張</span><span className="cy-erp-order-total">{erpMoney(group.unpaid)}</span> | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpReceivableQuery.tsx:90` | cell={(row, column) => column !== 7 ? undefined : <span className="cy-erp-vouchers"> | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpReceivableQuery.tsx:93` | return <span key={v.voucherNo}> | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpReceivableQuery.tsx:101` | <p className="cy-erp-search-hint">金額為 ERP 原幣；未收合計由各結帳單未收帳款相加（{erpMoney(mine.bills.reduce((a, b) => a + erpNumber | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpSalesOrders.tsx:21` | {truncated && <p className="cy-notice cy-notice-warning">共 {total} 張，只顯示最新 {orders.length} 張，請縮小日期範圍。</p>} | 留 | 查詢限制、狀態或錯誤訊息 |
+| `src/runtime/modules/ErpSalesOrders.tsx:27` | <span>{formatDate(order.date)}</span> | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpSalesOrders.tsx:29` | <span>{order.lines.length} 項</span> | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpSalesOrders.tsx:30` | <span className="cy-erp-order-extra">{order.salesperson}</span> | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpSalesOrders.tsx:31` | <span className="cy-erp-order-total">{erpMoney(order.total)}</span> | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpSalesOrders.tsx:34` | {related.length > 0 && <p className="cy-erp-order-links">{order.kind === "銷貨" ? "銷退單：" : "原銷貨單："} | 留 | 業務資料欄位或查詢結果 |
+| `src/runtime/modules/ErpSalesOrders.tsx:41` | : <span key={link.orderNo}>{link.orderNo}（不在查詢範圍）</span>)} | 留 | 查詢限制、狀態或錯誤訊息 |
+| `src/runtime/modules/ErpSupplierQuery.tsx:91` | <p>單據日期起訖都未填：去年同月同日至今天；範圍最多三年。輸入名稱時先列出廠商。</p> | 留 | 查詢限制、狀態或錯誤訊息 |
+| `src/runtime/modules/ErpSupplierQuery.tsx:99` | {mine.truncated && <p className="cy-notice cy-notice-warning">結果已達 {mine.items.length} 筆，可能有更多資料，請輸入更完整的名稱。</p>} | 留 | 查詢限制、狀態或錯誤訊息 |
+
 ## 9. 審查紀錄（審查者填）
 
 - （待審查）
