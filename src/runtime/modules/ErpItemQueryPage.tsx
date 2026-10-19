@@ -142,7 +142,7 @@ function ErpItemQuery({ job }: { job: ErpJob }) {
           {mine.truncated && <p className="cy-notice cy-notice-warning">結果已達 {mine.items.length} 筆，可能有更多資料，請輸入更完整的品名。</p>}
           <ErpQueryRows key={mine.id} label="品名搜尋結果" columns={SEARCH_COLUMNS} rows={rowsOf(mine.items, SEARCH_COLUMNS)}
             disabled={busy} onItemSelect={code => void queryItem(code)} />
-          <p className="cy-erp-search-hint">點選品號，重新向 ERP 查詢該商品完整資料。</p>
+          
         </>
         : <>
           <h3>品號資料</h3><ItemFields fields={mine.fields} />
