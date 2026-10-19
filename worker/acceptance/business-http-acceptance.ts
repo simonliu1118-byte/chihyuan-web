@@ -190,6 +190,40 @@ export async function acceptBusinessHttpAuthority(db: D1Database, componentId: n
     && JSON.parse(quoteEvent.before_json).priceBreaks[0]?.unitPrice === "2.3456"
     && JSON.parse(quoteEvent.after_json).priceBreaks[0]?.unitPrice === "2.1234"
     && JSON.parse(quoteEvent.metadata_json).correctionReason === quoteCorrection.correctionReason, "QUOTE_HTTP_AUDIT_PAYLOAD");
+  // WO-0.9.14: multi-line input groups by item; invalid row rolls back the whole batch.
+  const otherItem = (await (await expect("items", 201, "POST", {
+    ...itemProfile, itemNo: "ACC-HTTP-ITEM-BATCH-2", name: "Batch Second Item",
+  })).json() as { data: { id: number } }).data;
+  const batchRequest = {
+    quoteDate: "2026-10-04", note: "one atomic request",
+    lines: [
+      { itemId: item.id, quantity: "10", unit: "EA", unitPrice: "3.5000" },
+      { itemId: otherItem.id, quantity: "5", unit: "EA", unitPrice: "2.0000" },
+      { itemId: item.id, quantity: "20", unit: "EA", unitPrice: "3.0000" },
+    ],
+  };
+  const batchQuotes = (await (await expect(customerPath + "/quotes/batch", 201, "POST", batchRequest)).json()
+    as { data: { id: number; priceBreaks: { quantity: string; unitPrice: string }[] }[] }).data;
+  check(batchQuotes.length === 2 && batchQuotes[0].priceBreaks.length === 2
+    && batchQuotes[1].priceBreaks.length === 1, "BATCH_QUOTE_GROUPED_TIERS");
+  const batchAudit = await db.prepare("SELECT entity_key,action,metadata_json FROM audit_events WHERE entity_type='customer_item_quote' AND action='created' AND entity_key IN (?,?)")
+    .bind(String(batchQuotes[0].id), String(batchQuotes[1].id))
+    .all<{ entity_key: string; action: string; metadata_json: string }>();
+  check(batchAudit.results.length === 2
+    && batchAudit.results.every(row => JSON.parse(row.metadata_json).customerId === created.id),
+    "BATCH_QUOTE_INDEPENDENT_AUDIT");
+  const listQuotes = (await (await expect(customerPath + "/quotes", 200)).json()
+    as { data: { items: { id: number; priceBreaks: unknown[] }[] } }).data.items;
+  check(listQuotes.some(row => row.id === batchQuotes[0].id && row.priceBreaks.length === 2),
+    "BATCH_QUOTE_LIST_TIERS");
+  const atomicSnapshot = await snapshot();
+  await expect(customerPath + "/quotes/batch", 422, "POST", {
+    ...batchRequest, lines: [...batchRequest.lines, {
+      itemId: otherItem.id, quantity: "-1", unit: "EA", unitPrice: "2.0000",
+    }],
+  });
+  check(await snapshot() === atomicSnapshot, "BATCH_QUOTE_INVALID_ATOMIC_ROLLBACK");
+
   const visitProfile = { visitDate: "2026-11-01", employeeId: await memberId(), personSnapshot: "Isolated visitor", content: "HTTP Visit" };
   const visit = (await (await expect(customerPath + "/visits", 201, "POST", visitProfile)).json() as { data: { id: number; revision: number } }).data;
   const visitPath = customerPath + "/visits/" + visit.id;
