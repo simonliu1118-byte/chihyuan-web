@@ -123,7 +123,8 @@
 - 與工作單不同之處與原因：`GET /api/business/hr/members` 為自選綁定使用者提供現有本地使用者清單，仍在指定 HR API 範圍內；沒有更改 CYID authority。為便於響應式版面，新增 `src/runtime/modules/hr-operational.css`，內容僅人事樣式。第一期不加入休假扣抵與薪資計算。
 - 驗證指令輸出摘要：
   - GitHub [Runtime Check 39271323832](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39271323832)：**success**（型別、來源契約、D1 local、Vite build）。
-  - [Governance Check 39271324010](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39271324010)：**success**。\n  - 既有「CY Web Deploy」workflow 於 PR 僅執行驗證，部署 job 未執行；不等於已部署。
+  - [Governance Check 39271324010](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39271324010)：**success**。
+  - 既有「CY Web Deploy」workflow 於 PR 僅執行驗證，部署 job 未執行；不等於已部署。
   - `npm run typecheck`：由 CI browser／worker TypeScript 個別執行且通過。
   - `npm run validate:source`：CI source-contracts 檢查通過；未以完全相同 npm 指令單獨執行。
   - `npm run build`：CI Vite build 與型別檢查個別通過；未以完全相同 npm 指令單獨執行。
