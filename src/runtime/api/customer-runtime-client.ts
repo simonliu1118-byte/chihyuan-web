@@ -15,6 +15,7 @@ import type {
   CorrectCustomerItemQuoteRequest,
   CreateCustomerFrequentItemRequest,
   CreateCustomerItemQuoteRequest,
+  CreateCustomerQuoteBatchRequest,
   CreateCustomerVisitRequest,
   CustomerFrequentItemRecord,
   CustomerItemQuoteDetail,
@@ -193,6 +194,16 @@ export function createCustomerQuote(
 ): Promise<CustomerItemQuoteDetail> {
   return apiRequest<CustomerItemQuoteDetail>(
     `/api/business/customers/${encodeURIComponent(String(customerId))}/quotes`,
+    { method: "POST", json: input },
+  );
+}
+
+export function createCustomerQuoteBatch(
+  customerId: number,
+  input: CreateCustomerQuoteBatchRequest,
+): Promise<readonly CustomerItemQuoteDetail[]> {
+  return apiRequest<readonly CustomerItemQuoteDetail[]>(
+    `/api/business/customers/${encodeURIComponent(String(customerId))}/quotes/batch`,
     { method: "POST", json: input },
   );
 }
