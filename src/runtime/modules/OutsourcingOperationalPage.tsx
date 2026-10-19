@@ -352,7 +352,7 @@ export function OutsourcingOperationalPage() {
     event.preventDefault();
     if (!draft || !lookups || busy) return;
     const partIssue = draft.parts.findIndex((part) => !part.componentItemId || !part.quantity.trim() || !part.unit.trim());
-    if (!draft.contractorId) { reportError("請選擇代工對象。"); return; }
+    if (!draft.contractorId) { reportError("請選擇協力廠商。"); return; }
     if (partIssue >= 0) { reportError(`第 ${partIssue + 1} 列料件請填寫商品、數量與單位。`); return; }
 
     const profile = {
@@ -538,7 +538,7 @@ export function OutsourcingOperationalPage() {
       <div className="cy-op-tabs">
         {(["orders", "contractors", "boms", "stock"] as Tab[]).map((value) => (
           <button type="button" className={tab === value ? "active" : ""} key={value} onClick={async () => { if (value === tab) return; if (editing && !(await discardEditing())) return; if (masterEditing && !(await confirm({ title: "放棄尚未儲存的修改", description: "切換頁籤會放棄目前尚未儲存的修改。", confirmLabel: "放棄修改", confirmTone: "danger" }))) return; setTab(value); }}>
-            {value === "orders" ? "代工單" : value === "contractors" ? "代工對象／單價" : value === "boms" ? "BOM" : "代工庫存"}
+            {value === "orders" ? "代工單" : value === "contractors" ? "協力廠商／單價" : value === "boms" ? "BOM" : "代工庫存"}
           </button>
         ))}
       </div>
@@ -550,7 +550,7 @@ export function OutsourcingOperationalPage() {
               <div className="cy-md-toolbar">
                 <div className="cy-md-toolbar-lead">
                   <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增代工單</button>
-                  <input className="cy-op-input" type="search" aria-label="搜尋代工單" value={orderQuery} onChange={(event) => setOrderQuery(event.target.value)} placeholder="搜尋代工單、代工對象" />
+                  <input className="cy-op-input" type="search" aria-label="搜尋代工單" value={orderQuery} onChange={(event) => setOrderQuery(event.target.value)} placeholder="搜尋代工單、協力廠商" />
                 </div>
                 <StatusFilter label="代工單狀態" value={orderStatus} onChange={setOrderStatus} counts={statusCounts}
                   options={(Object.keys(statusText) as (keyof typeof statusText)[]).map((code) => ({ code, label: statusText[code], tone: outsourcingTone[code] }))} />
@@ -571,7 +571,7 @@ export function OutsourcingOperationalPage() {
                   <div><h2>{creating ? "新增代工單" : correctingOutbound ? "更正已確認的出庫" : "修改代工單"}</h2><p>{correctingOutbound ? "儲存後會以新的出庫資料取代原本的出庫，並保留更正紀錄。" : "確認出庫前可以修改內容。"}</p></div>
                 <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立代工單" : "儲存修改"}</button></div></div>
                 <div className="cy-op-form-grid cy-form-grid-spaced">
-                  <label>代工對象
+                  <label>協力廠商
                     <select className="cy-op-input" value={draft.contractorId ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, contractorId: Number(event.target.value) || null })}>
                       <option value="">請選擇</option>
                       {contractors.map((row) => <option key={row.id} value={row.id}>{row.displayName}{row.isActive ? "" : "（已停用）"}</option>)}
@@ -582,7 +582,7 @@ export function OutsourcingOperationalPage() {
                 </div>
 
                 <section className="cy-form-block">
-                  <div className="cy-form-block-head"><div><h3>出庫料件</h3><p>交給代工對象的料件；可註明預計做成的成品與 BOM。</p></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={addPart}>＋ 增加料件</button></div>
+                  <div className="cy-form-block-head"><div><h3>出庫料件</h3><p>交給協力廠商的料件；可註明預計做成的成品與 BOM。</p></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={addPart}>＋ 增加料件</button></div>
                   <div className="cy-form-block-body">
                   <div className="cy-out-part cy-out-part-head" aria-hidden="true"><span>料件</span><span>數量</span><span>單位</span><span>預計成品</span><span>BOM</span><span /></div>
                   {draft.parts.map((part, index) => {
@@ -669,7 +669,7 @@ export function OutsourcingOperationalPage() {
         onEditingChange={setMasterEditing} notify={setMessage} reportError={reportError} /> : null}
 
       {tab === "stock" ? <section className="cy-op-panel">
-        <div className="cy-op-panel-header"><div><h2>代工庫存</h2><p>依出庫、入庫紀錄即時計算的代工對象手上庫存。</p></div><select className="cy-op-input cy-out-stock-select" aria-label="代工對象" value={stockContractorId ?? ""} onChange={(event) => setStockContractorId(Number(event.target.value) || null)}><option value="">選擇代工對象</option>{contractors.map((row) => <option key={row.id} value={row.id}>{row.displayName}</option>)}</select></div>
+        <div className="cy-op-panel-header"><div><h2>代工庫存</h2><p>依出庫、入庫紀錄即時計算的協力廠商手上庫存。</p></div><select className="cy-op-input cy-out-stock-select" aria-label="協力廠商" value={stockContractorId ?? ""} onChange={(event) => setStockContractorId(Number(event.target.value) || null)}><option value="">選擇協力廠商</option>{contractors.map((row) => <option key={row.id} value={row.id}>{row.displayName}</option>)}</select></div>
         <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">目前庫存</th></tr></thead><tbody>{stockRows.map((row) => <tr key={row.itemId}><td className="cy-mono">{row.itemNo}</td><td>{row.itemName}</td><td className="num">{row.quantity}</td></tr>)}</tbody></table></div>
         {stockRows.length === 0 ? <p>目前沒有非零代工庫存。</p> : null}
       </section> : null}
