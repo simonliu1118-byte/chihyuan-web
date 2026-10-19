@@ -36,21 +36,21 @@ function normalizeProfile(raw: unknown) {
   return { vals, children };
 }
 function sanitized(row: Record<string, unknown>) {
-  const { national_id, ...rest } = row;
-  return { ...rest, nationalIdMasked: maskTaiwanId(typeof national_id==="string" ? national_id : null) };
+  const { national_id, effective_status, ...rest } = row;
+  return { ...rest, status:effective_status ?? row.status, nationalIdMasked: maskTaiwanId(typeof national_id==="string" ? national_id : null) };
 }
 function audit(db:D1Database, ctx:HrContext, type:string, key:string, action:string, before: Record<string, unknown> | null, after:Record<string,unknown>|null) {
   return new AuditService(db).prepareRecord({entityType:type,entityKey:key,action,actorEmployeeId:ctx.actor,requestId:ctx.requestId,before,after});
 }
 export class HrService {
   constructor(private db:D1Database) {}
-  private employeeRow(id:number) { return this.db.prepare("SELECT e.*,COALESCE((SELECT c.next_status FROM hr_status_changes c WHERE c.employee_id=e.id AND c.effective_date<=date('now','+8 hours') ORDER BY c.effective_date DESC,c.id DESC LIMIT 1),e.status) AS status FROM hr_employees e WHERE e.id=?").bind(id).first<Record<string,unknown>>(); }
+  private employeeRow(id:number) { return this.db.prepare("SELECT e.*,COALESCE((SELECT c.next_status FROM hr_status_changes c WHERE c.employee_id=e.id AND c.effective_date<=date('now','+8 hours') ORDER BY c.effective_date DESC,c.id DESC LIMIT 1),e.status) AS effective_status FROM hr_employees e WHERE e.id=?").bind(id).first<Record<string,unknown>>(); }
   async list(q:string,statusFilter:string|undefined,cursor:number,limit=40) {
     const todayStatus="COALESCE((SELECT c.next_status FROM hr_status_changes c WHERE c.employee_id=e.id AND c.effective_date<=date('now','+8 hours') ORDER BY c.effective_date DESC,c.id DESC LIMIT 1),e.status)";
     const terms=["e.id>?"],values:(string|number)[]=[cursor];
     if(q){terms.push("(e.employee_no LIKE ? OR e.name LIKE ?)");values.push("%"+q.slice(0,80)+"%","%"+q.slice(0,80)+"%");}
     if(statusFilter){status(statusFilter);terms.push(todayStatus+"=?");values.push(statusFilter);}
-    const found=await this.db.prepare("SELECT e.*,"+todayStatus+" AS status FROM hr_employees e WHERE "+terms.join(" AND ")+" ORDER BY e.id LIMIT ?").bind(...values,Math.min(limit,100)+1).all<Record<string,unknown>>();
+    const found=await this.db.prepare("SELECT e.*,"+todayStatus+" AS effective_status FROM hr_employees e WHERE "+terms.join(" AND ")+" ORDER BY e.id LIMIT ?").bind(...values,Math.min(limit,100)+1).all<Record<string,unknown>>();
     const all=found.results??[];return {items:all.slice(0,limit).map(sanitized),nextCursor:all.length>limit?Number(all[limit-1].id):null};
   }
   async get(id:number) {
