@@ -10,8 +10,6 @@
 .cy-identity-table-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px; border-bottom: 1px solid var(--cy-border); }
 .cy-identity-table-toolbar > input { flex: 0 1 260px; }
 .cy-identity-table-toolbar .cy-md-count { margin-left: auto; }
-.cy-identity-table-panel > .cy-identity-intro { margin: 12px; }
-.cy-identity-table-hint { margin: 0; padding: 10px 12px; border-top: 1px solid var(--cy-border); }
 .cy-identity-access-scroll { overflow: auto; max-height: calc(100dvh - var(--cy-topbar-h) - 250px); min-height: 240px; }
 .cy-identity-access-table { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; }
 .cy-identity-access-table thead th { position: sticky; top: 0; z-index: 2; background: var(--cy-surface-muted); white-space: nowrap; }
@@ -36,7 +34,6 @@
   .cy-identity-access-table .cy-access-role, .cy-identity-access-table .cy-access-group,
   .cy-identity-access-table .cy-access-col, .cy-identity-access-table .cy-access-cell { display: none; }
   .cy-identity-access-table { width: 100%; }
-  .cy-identity-table-hint { display: none; }
 }
 
 /* 權限群組 column / drawer row and the group table (editable on phones too: there is no group drawer). */
@@ -48,7 +45,6 @@
 @media (max-width: 820px) {
   .cy-identity-group-table .cy-access-group, .cy-identity-group-table .cy-access-col, .cy-identity-group-table .cy-access-cell { display: table-cell; }
   .cy-identity-access-table.cy-identity-group-table { width: max-content; }
-  .cy-identity-group-panel .cy-identity-table-hint { display: block; }
 }
 .cy-identity-group-panel .cy-identity-access-scroll { min-height: 0; }
 .cy-notice.cy-identity-sync-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 12px 12px 0; }
