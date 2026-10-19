@@ -11,8 +11,8 @@ test("end dates precede next entitlement",()=>{
  const rows=annualLeaveSchedule("2026-01-01",[],"2027-01-01");
  assert.deepEqual(rows.slice(0,2).map(x=>[x.periodStart,x.periodEnd]),[["2026-07-01","2026-12-31"],["2027-01-01","2027-12-31"]]);
 });
-test("Feb 29 is clamped for non-leap anniversary",()=>{
- const rows=annualLeaveSchedule("2024-02-29",[],"2025-02-28");
+test("Feb 29 anniversary starts on Mar 1 in a non-leap year (Civil Code 121)",()=>{
+ const rows=annualLeaveSchedule("2024-02-29",[],"2025-03-01");
  assert.equal(rows.at(-1).periodStart,"2025-03-01");
 });
 test("Aug 31 reaches six months on March 1",()=>{

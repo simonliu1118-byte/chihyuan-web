@@ -26,7 +26,7 @@ import { WorkLogOperationalPage } from "./runtime/modules/WorkLogOperationalPage
 import { BackupOperationalPage } from "./runtime/modules/BackupOperationalPage";
 import { ProgramCatalogPage } from "./runtime/modules/ProgramCatalogPage";
 import { HrOperationalPage } from "./runtime/modules/HrOperationalPage";
-import { HrSettingsButton } from "./runtime/modules/HrSettingsPanel";
+import { HrSettingsButton } from "./runtime/modules/HrSettingsButton";
 import { UnsavedChangesBoundary, useNavigationGuard } from "./ui/foundation/useUnsavedChangesGuard";
 import { createGuardedHashNavigation } from "./ui/foundation/guarded-hash-navigation";
 import { FeedbackProvider, useFeedback, useFeedbackMessage } from "./ui/feedback/FeedbackProvider";

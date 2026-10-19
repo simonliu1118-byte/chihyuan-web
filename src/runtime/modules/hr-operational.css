@@ -1,30 +1,113 @@
-/* HR Phase 1: compact personnel list and readable details across desktop and mobile. */
-.cy-hr-layout { min-width: 0; }
-.cy-hr-layout > .cy-op-grid-two {
+/* HR: list rows, detail facts, edit rows and browse lists; layout itself is the shared master-detail. */
+.cy-hr-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 8px;
+}
+.cy-hr-row > span,
+.cy-hr-row > strong {
+  grid-column: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cy-hr-row > span {
+  color: var(--cy-text-muted);
+  font-size: var(--cy-fs-sm);
+}
+.cy-hr-row > .cy-status-chip {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+.cy-hr-detail-body {
   display: grid;
-  grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
-  align-items: start;
   gap: 16px;
+  padding-top: 16px;
 }
-.cy-hr-layout .cy-op-panel { min-width: 0; }
-.cy-hr-layout .cy-op-panel > .cy-op-panel { margin-top: 12px; }
-.cy-hr-layout .cy-hr-list-item {
-  display: flex;
-  justify-content: space-between;
+.cy-hr-detail-body .cy-customer-cards {
+  /* HR rows carry date ranges, so two wide cards per row instead of three. */
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+}
+.cy-hr-fact-wide {
+  grid-column: 1 / -1;
+}
+.cy-hr-id {
+  display: inline-flex;
   align-items: center;
-  width: 100%;
-  height: auto;
-  margin-top: 6px;
-  gap: 12px;
-  text-align: left;
+  gap: 8px;
 }
-.cy-hr-layout .cy-hr-list-item small { display: block; color: var(--cy-text-muted); }
-.cy-hr-layout .cy-hr-list-item strong { display: block; }
-.cy-hr-layout .cy-customer-line { padding: 8px 0; border-bottom: 1px solid var(--cy-border); }
-.cy-hr-layout .cy-op-form { min-width: 0; }
-.cy-hr-layout .cy-op-form label { min-width: 0; }
-.cy-hr-layout .cy-op-form input, .cy-hr-layout .cy-op-form select { max-width: 100%; }
+.cy-hr-form-body {
+  display: grid;
+  gap: 16px;
+  padding-top: 16px;
+}
+.cy-hr-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cy-hr-edit-row,
+.cy-hr-allowance-row {
+  display: grid;
+  gap: 8px;
+  align-items: center;
+}
+.cy-hr-edit-row.contact {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 1fr) auto;
+}
+.cy-hr-edit-row.education,
+.cy-hr-edit-row.work {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+.cy-hr-allowance-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) auto auto;
+}
+.cy-hr-edit-row + .cy-hr-edit-row,
+.cy-hr-allowance-row + .cy-hr-allowance-row {
+  margin-top: 8px;
+}
+.cy-hr-browse {
+  display: grid;
+}
+.cy-hr-browse-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--cy-border);
+}
+.cy-hr-browse-row small {
+  flex-basis: 100%;
+  color: var(--cy-text-muted);
+}
+.cy-hr-browse-row .cy-row-remove {
+  margin-left: auto;
+}
+.cy-hr-revealed {
+  margin: 0;
+  font-size: var(--cy-fs-lg);
+  letter-spacing: 0.08em;
+}
+.cy-hr-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--cy-border);
+}
 @media (max-width: 720px) {
-  .cy-hr-layout > .cy-op-grid-two { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-  .cy-hr-layout .cy-op-panel { max-width: 100%; }
+  .cy-hr-edit-row.contact,
+  .cy-hr-edit-row.education,
+  .cy-hr-edit-row.work,
+  .cy-hr-allowance-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .cy-hr-edit-row .cy-row-remove,
+  .cy-hr-allowance-row .cy-row-remove {
+    justify-self: start;
+  }
 }
