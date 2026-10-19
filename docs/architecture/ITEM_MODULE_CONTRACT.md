@@ -69,16 +69,14 @@ Each conversion means:
 1 <fromUnit> = <quantity> <toUnit>
 ```
 
-A conversion may point directly to the Item base unit or to another defined conversion unit. The entire graph must resolve to the base unit.
+Historical Item rows may contain chained definitions, where the entire graph must resolve to the base unit. The existing rational conversion reader keeps those records usable. Under BD-058, all **new or updated** conversion rows must be direct: `toUnit == baseUnit`; a later save writes flattened rows.
 
-Server validation rejects:
+Server validation of new mutations rejects:
 
 - zero/negative quantity;
 - duplicate `fromUnit` definitions;
 - `fromUnit == baseUnit`;
-- `fromUnit == toUnit`;
-- target units with no definition unless the target is the base unit;
-- cycles that cannot resolve to the base unit.
+- `toUnit != baseUnit` (single-layer rule, no new conversion chains).
 
 The old Legacy UI limit of five rows is not treated as a business rule. The service uses a bounded safety limit while the final UI may choose an appropriate interaction design.
 
