@@ -134,6 +134,30 @@ async function acceptSettingsAuditHttp(db: D1Database): Promise<void> {
   assertAcceptance(references.regions.some(value => value.code === "ACCEPT_REGION_HTTP" && value.groupCode === "TEST" && !("updatedAt" in value)), "ACCEPT_REGION_LOOKUP_SCHEMA");
   role = "ADMIN";
   assertAcceptance((await call("/api/admin/settings/worklog-categories", "POST", { code: "ACCEPT_HTTP_LOG", name: "HTTP WorkLog", inputMode: "boolean" })).status === 200, "ACCEPT_SETTINGS_ADMIN_WORKLOG");
+  const timeline = new AuditService(db);
+  for (const action of ["erp_item_query.created", "erp_item_query.completed", "erp_item_query.failed", "erp_item_query.expired"]) {
+    await timeline.record({ entityType: "erp_item_query", entityKey: "accept-query",
+      action, metadata: { queryType: "CUSTOMER_NO", code: "AC0016" } });
+  }
+  await timeline.record({ entityType: "erp_item_agent", entityKey: "primary",
+    action: "erp_item_agent.credential_rotated" });
+  const erpEvents = async (include = false) => {
+    const response = await call("/api/admin/audit?entityTypes=erp_item_query,erp_item_agent&limit=100"
+      + (include ? "&includeErpQueries=true" : ""));
+    assertAcceptance(response.status === 200, "ACCEPT_AUDIT_ERP_FILTER_REQUEST");
+    return (await response.json() as { data: { events: { entityType: string; action: string }[] } }).data.events;
+  };
+  const defaultErp = await erpEvents();
+  assertAcceptance(defaultErp.every(event => event.entityType !== "erp_item_query")
+    && defaultErp.some(event => event.entityType === "erp_item_agent"), "ACCEPT_AUDIT_ERP_DEFAULT_HIDDEN_AGENT_VISIBLE");
+  const adminErp = await erpEvents(true);
+  assertAcceptance(adminErp.every(event => event.entityType !== "erp_item_query"), "ACCEPT_AUDIT_ADMIN_CANNOT_OVERRIDE_ERP");
+  role = "SUPER_ADMIN";
+  const superErp = await erpEvents(true);
+  assertAcceptance(superErp.filter(event => event.entityType === "erp_item_query").length === 3
+    && superErp.every(event => event.action !== "erp_item_query.created")
+    && superErp.some(event => event.entityType === "erp_item_agent"), "ACCEPT_AUDIT_SUPER_VISIBLE_NO_SUBMISSIONS");
+  role = "ADMIN";
   const audit = await (await call("/api/admin/audit?entityType=setting.department&limit=100")).json() as { data: { events: { actorEmployeeId: number }[] } };
   const member = await db.prepare("SELECT id FROM app_members WHERE identity_employee_id = ?1").bind("settings-acceptance").first<{ id: number }>();
   assertAcceptance(audit.data.events.length >= 2 && audit.data.events.every(event => event.actorEmployeeId === member?.id), "ACCEPT_SETTINGS_AUDIT_SERVER_ACTOR");

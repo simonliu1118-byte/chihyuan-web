@@ -1,10 +1,11 @@
-import { formatDate, formatDateTime, formatPerson } from "../../ui/foundation/format";
+import { ERP_QUERY_TYPES, ERP_QUERY_TYPE_LABELS, type ErpQueryType } from "../../../shared/erp-item-query";
+import { formatDate, formatDateTime } from "../../ui/foundation/format";
 import type { AuditEvent } from "../api/settings-audit-client";
 
 const entityNames: Record<string,string> = {
   customer:"客戶",customer_visit:"拜訪紀錄",customer_item_quote:"報價紀錄",customer_frequent_item:"常用商品",
   item:"商品",defect:"瑕疵",sales_work_order:"銷售工單",outsourcing_order:"代工單",
-  outsourcing:"代工單",contractor:"代工對象",contractor_price:"代工單價",bom_recipe:"材料清單",
+  outsourcing:"代工單",contractor:"協力廠商",contractor_price:"代工單價",bom_recipe:"材料清單",
   work_log:"工作日誌",setting:"設定",customer_category:"客戶分類",customer_status:"客戶狀態",
   department:"部門",item_category:"商品分類",work_log_category:"日誌類別",
   work_log_platform:"日誌平台",work_log_scoring_row:"計分參考列",work_log_scoring_config:"計分門檻",
@@ -40,8 +41,8 @@ export const actionLabels: Record<string,string> = {
   "outsourcing.receipt.cancelled":"取消入庫","outsourcing.priced":"完成計價",
   "outsourcing.pricing.cancelled":"取消計價","outsourcing.paid":"確認付款",
   "outsourcing.payment.cancelled":"取消付款","outsourcing.deleted":"刪除代工單",
-  "contractor.created":"新增代工對象","contractor.updated":"修改代工對象",
-  "contractor.deleted":"刪除代工對象","contractor_price.created":"新增代工單價",
+  "contractor.created":"新增協力廠商","contractor.updated":"修改協力廠商",
+  "contractor.deleted":"刪除協力廠商","contractor_price.created":"新增代工單價",
   "contractor_price.changed":"修改代工單價","bom.created":"新增材料清單",
   "bom.changed":"修改材料清單","bom_recipe.created":"新增材料清單","bom_recipe.changed":"修改材料清單",
   "work_log.created":"新增工作日誌","work_log.updated":"修改工作日誌",
@@ -92,8 +93,12 @@ const fields:Record<string,string> = {
   inputMode:"輸入方式",unitLabel:"數量單位",minimumAverageDailyScore:"最低日平均分數",
   targetAverageDailyScore:"目標日平均分數",priceBreaks:"報價級距",
   phones:"電話",contacts:"聯絡人",addresses:"地址",notes:"備註",parts:"出庫料件",
+  spec:"規格",baseUnit:"基準單位",cost:"成本",costTaxMode:"成本稅別",storePrice:"門市價",
+  clinicPrice:"診所價",unitConversions:"單位換算",defectDescription:"瑕疵內容",handling:"處理方式",
+  employeeId:"人員",contractorId:"協力廠商",pricingUnit:"計價單位",
 };
-export function fieldLabel(_entityType:string,key:string):string { return fields[key] ?? key; }
+// An unmapped key is never shown raw (BD-054 readability); add it to the map above instead.
+export function fieldLabel(_entityType:string,key:string):string { return fields[key] ?? "其他欄位"; }
 export type FieldLookup = Record<string,Record<string,string>>;
 const statusText:Record<string,string> = {
   created:"已建檔",processing:"處理中",resolved:"已完成",voided:"已作廢",
@@ -113,7 +118,7 @@ export function fieldValue(type:string,key:string,value:unknown,lookups:FieldLoo
   if(value===null || value===undefined || value==="")return "—";
   if(typeof value==="boolean")return value?"是":"否";
   if(key==="inputMode")return value==="quantity"?"數量":"是否完成";
-  if((key==="status"||key==="statusCode") && typeof value==="string")return statusText[value] ?? value;
+  if((key==="status"||key==="statusCode") && typeof value==="string")return statusText[value] ?? "未定義狀態";
   const category=lookupKey[key];
   if(category && (typeof value==="number"||typeof value==="string"))return lookups[category]?.[String(value)] ?? String(value);
   if(/(?:At|Time)$/.test(key) && typeof value==="string")return formatDateTime(value);
@@ -124,14 +129,40 @@ export function fieldValue(type:string,key:string,value:unknown,lookups:FieldLoo
   if(typeof value==="object")return "資料內容";
   return String(value);
 }
-const names=["shortName","name","displayName","customerNameSnapshot","itemNameSnapshot",
- "fullName","workOrderRef","outsourcingRef","itemNo","customerNo","code"];
-export function recordName(event:AuditEvent):string {
-  for(const payload of [event.after,event.before,event.metadata]){
-    if(!payload)continue;
-    for(const key of names){const v=payload[key];if(typeof v==="string" && v.trim())return v;}
+const names = ["shortName", "name", "displayName", "customerNameSnapshot", "itemNameSnapshot",
+  "fullName", "workOrderRef", "outsourcingRef", "itemNo", "customerNo", "code"];
+const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i;
+// UPPER_SNAKE enum codes and bare ids are internal; business numbers such as AC0001 are not.
+const internalToken = /^(?:[A-Z]+(?:_[A-Z0-9]+)+|#?\d+)$/;
+function safeDisplay(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  if (!text || uuidPattern.test(text) || internalToken.test(text) || /#\d+/.test(text)) return null;
+  return text;
+}
+/** Names must be real business labels, never database keys or internal UUIDs. */
+export function recordName(event: AuditEvent): string {
+  for (const payload of [event.after, event.before, event.metadata]) {
+    if (!payload) continue;
+    for (const name of names) {
+      const value = safeDisplay(payload[name]);
+      if (value) return value;
+    }
   }
-  return entityLabel(event.entityType) + " #" + event.entityKey;
+  return entityLabel(event.entityType);
+}
+function erpQuerySentence(event: AuditEvent): string {
+  const meta = event.metadata ?? event.after ?? event.before ?? {};
+  const code = meta.queryType;
+  const kind = typeof code === "string" && ERP_QUERY_TYPES.some(type => type === code)
+    ? ERP_QUERY_TYPE_LABELS[code as ErpQueryType] : "資料";
+  const query = [meta.itemNo, meta.keyword, meta.code, meta.targetCode, meta.orderNo]
+    .find(value => typeof value === "string" && value.trim() && !uuidPattern.test(value));
+  const safeQuery = typeof query === "string" ? query.trim().replace(/[「」]/g, "") : "查詢內容未保留";
+  const status = event.statusTo === "EXPIRED" || event.action.endsWith(".expired")
+    ? "逾時" : event.statusTo === "FAILED" || event.action.endsWith(".failed")
+      ? "失敗" : "成功";
+  return `查詢 ERP ${kind}「${safeQuery}」：${status}`;
 }
 export function auditChanges(event:AuditEvent, lookups:FieldLookup={}):
   {key:string;label:string;before:string;after:string}[] {
@@ -148,9 +179,16 @@ export function auditChanges(event:AuditEvent, lookups:FieldLookup={}):
   }
   return results;
 }
-export function auditSentence(event:AuditEvent,lookups:FieldLookup={}):string {
-  const change=auditChanges(event,lookups).map(row=>row.label).slice(0,5).join("、");
-  return [formatDateTime(event.occurredAt),formatPerson(event.actor),
-    actionLabel(event.action,event.entityType)+"「"+recordName(event)+"」"+
-      (change?"："+change:"")].join("　");
+/** Sentence only: the shared list supplies its own time and actor prefix. */
+export function auditSentence(event: AuditEvent, lookups: FieldLookup = {}): string {
+  if (event.entityType === "erp_item_query") return erpQuerySentence(event);
+  const label = actionLabel(event.action, event.entityType);
+  const name = recordName(event);
+  const target = name === entityLabel(event.entityType) ? "" : `「${name}」`;
+  const changes = auditChanges(event, lookups);
+  // Name the changed fields; a status change also shows its old and new value.
+  const fields = changes.slice(0, 5).map(row => row.key === "status" || row.key === "statusCode"
+    ? `${row.label}：${row.before} → ${row.after}` : row.label);
+  const shown = fields.length ? "：" + [...new Set(fields)].join("、") : "";
+  return label + target + shown;
 }

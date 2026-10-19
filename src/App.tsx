@@ -37,7 +37,7 @@ const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
   items: { title:"商品", description:"商品資料、品號、價格與單位換算" },
   defects: { title:"瑕疵", description:"瑕疵回報、處理進度與作廢" },
   orders: { title:"銷售工單", description:"銷售工單與出貨流程，正式單號由 ERP 提供" },
-  outsourcing: { title:"委外／代工", description:"代工單、代工對象、單價、BOM 與庫存" },
+  outsourcing: { title:"委外/代工", description:"代工單、協力廠商、單價、BOM 與庫存" },
   worklogs: { title:"工作日誌", description:"填寫日誌、送審與評分統計" },
   "erp-item-query": { title:"ERP 查詢", description:"查閱 SMART ERP 資料，只讀不改" },
   identity: { title:"帳號與權限", description:"使用者、權限群組與系統安全" },
@@ -49,15 +49,17 @@ const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
 
 const baseNavigation: readonly NavigationGroup[] = [
   {
+    key: "erp-query", items: [{ key: "erp-item-query", label: "ERP 查詢", href: "#erp-item-query" }],
+  },
+  {
     key: "business", label: "業務模組",
     items: [
       { key: "customers", label: "客戶", href: "#customers" },
       { key: "items", label: "商品", href: "#items" },
       { key: "defects", label: "瑕疵", href: "#defects" },
       { key: "orders", label: "銷售工單", href: "#orders" },
-      { key: "outsourcing", label: "委外", href: "#outsourcing" },
+      { key: "outsourcing", label: "委外/代工", href: "#outsourcing" },
       { key: "worklogs", label: "工作日誌", href: "#worklogs" },
-      { key: "erp-item-query", label: "ERP 查詢", href: "#erp-item-query" },
     ],
   },
   {
@@ -75,7 +77,7 @@ const programsNavigation: NavigationGroup = {
   key: "tools", label: "工具", items: [
     { key:"programs",label:"CY 程式",href:"#programs" },
     ...verifiedProgramCatalog.programs.filter(program => program.platform === "web" && !!program.websiteUrl)
-      .map(program => ({ key:"web-"+program.id,label:program.name,href:program.websiteUrl!,external:true })),
+      .map(program => ({ key:"web-"+program.id,label:program.navLabel ?? program.name,href:program.websiteUrl!,external:true })),
   ],
 };
 
@@ -149,15 +151,20 @@ function OperationalApp({
   );
 
   const navigation = useMemo<readonly NavigationGroup[]>(() => {
-    const business = baseNavigation[0].items.filter((item) =>
-      moduleCodesForRoute(item.key).some((code) => allowedModules.has(code)));
-    const administration = baseNavigation[1].items.filter((item) => {
-      if (item.key === "backups") return session.user.workspaceRole === "SUPER_ADMIN";
-      return session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN";
-    });
+    const erp = baseNavigation.find(group => group.key === "erp-query")!;
+    const business = baseNavigation.find(group => group.key === "business")!;
+    const administration = baseNavigation.find(group => group.key === "administration")!;
+    const erpItems = erp.items.filter(item =>
+      moduleCodesForRoute(item.key).some(code => allowedModules.has(code)));
+    const businessItems = business.items.filter(item =>
+      moduleCodesForRoute(item.key).some(code => allowedModules.has(code)));
+    const adminItems = administration.items.filter(item =>
+      item.key === "backups" ? session.user.workspaceRole === "SUPER_ADMIN"
+        : session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN");
     return [
-      { ...baseNavigation[0], items: business },
-      { ...baseNavigation[1], items: administration },
+      { ...erp, items: erpItems },
+      { ...business, items: businessItems },
+      { ...administration, items: adminItems },
       programsNavigation,
     ];
   }, [allowedModules, session.user.workspaceRole]);
@@ -181,9 +188,10 @@ function OperationalApp({
     const adminAllowed = session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN";
 
     if (!window.location.hash) {
-      const firstBusiness = baseNavigation[0].items.find((item) =>
-        moduleCodesForRoute(item.key).some((code) => allowedModules.has(code)));
-      window.location.hash = firstBusiness?.href ?? "#account";
+      const erpAllowed = moduleCodesForRoute("erp-item-query").some(code => allowedModules.has(code));
+      const firstBusiness = baseNavigation.find(group => group.key === "business")?.items.find(item =>
+        moduleCodesForRoute(item.key).some(code => allowedModules.has(code)));
+      window.location.hash = erpAllowed ? "#erp-item-query" : firstBusiness?.href ?? "#account";
       return;
     }
 

@@ -1,3 +1,4 @@
+import { IconButton } from "../../ui/actions/IconButton";
 import { recordIdFromHash, replaceRouteParams } from "../navigation/route-params";
 import { QuoteCreateForm } from "./customer/QuoteCreateForm";
 import { RelatedCard } from "../../ui/records/RelatedCard";
@@ -890,7 +891,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
                 <div className="cy-record-actions">
                   {selected.status ? <span className="cy-status-chip cy-status-chip-success">{selected.status.name}</span> : null}
                   <button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
-                  {role !== "USER" ? <button type="button" className="cy-op-button compact" onClick={()=>setHistoryOpen(true)}>修改紀錄</button> : null}
+                  {role !== "USER" ? <IconButton icon="🕘" label="修改紀錄" onClick={() => setHistoryOpen(true)} disabled={busy} /> : null}
                 </div>
               </div>
 

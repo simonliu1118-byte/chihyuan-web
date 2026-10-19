@@ -118,11 +118,7 @@ export function ModuleSettingsButton({ role, label, only }: {
   if (role === "USER") return null;
   return <>
     <button className="cy-op-button cy-module-settings-trigger" type="button" onClick={() => setOpen(true)}>
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
-        strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8" />
-        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2 2-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-3v-.8a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-2-2 .1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 5.6 14H5v-3h.6A1.7 1.7 0 0 0 7.2 10a1.7 1.7 0 0 0-.3-1.9l-.1-.1 2-2 .1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V4h3v.8a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 2 2-.1.1a1.7 1.7 0 0 0-.3 1.9A1.7 1.7 0 0 0 21 11h.5v3H21a1.7 1.7 0 0 0-1.6 1Z" />
-      </svg>設定
+      <span aria-hidden="true">⚙️</span> 設定
     </button>
     {open ? <Dialog open title={label + "設定"} size="large" onClose={() => void close()}>
       <ModuleSettingsPanel role={role} only={only} />

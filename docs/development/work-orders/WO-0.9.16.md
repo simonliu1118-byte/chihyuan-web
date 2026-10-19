@@ -1,7 +1,7 @@
 # WO-0.9.16 介面細修：設定與修改紀錄按鈕、異動紀錄可讀性與密度、選單與用詞
 
-- 狀態：待執行（**WO-0.9.15 合併後**才從最新 `main` 開分支；兩單都會改 VERSION／TODO）
-- 分支：`cyweb/ui-polish`（建議）　PR：（執行者填）
+- 狀態：已完成（審查通過 2026-10-19）
+- 分支：`cyweb/ui-polish-0.9.16`　PR：[ #216 ](https://github.com/simonliu1118-byte/chihyuan-web/pull/216)（Draft，未合併／未部署）
 - 依據：`PROJECT_RULES.md` §9；BD-053／054（稽核）
 - 視覺規範：`docs/architecture/CY_WEB_VISUAL_GUIDE.md`
 
@@ -108,12 +108,61 @@
 
 ## 8. 完成報告（執行者填）
 
+- 執行分支：`cyweb/ui-polish-0.9.16`（以 `main` commit `a8352fed` 為基準）。
 - 驗收清單逐項結果：
-- 與工作單不同之處與原因：
+  1. 設定「⚙️ 設定」：**程式碼已修改，待實機視覺驗收**。
+  2. 客戶修改紀錄 🕘 共用 IconButton、同尺寸及可及名稱：**程式碼已修改，待實機驗收**。
+  3. ERP 查詢預設隱藏、SUPER_ADMIN 才可包含：**前後端已修改，後端角色判斷與測試原始碼已檢視；未實跑 D1 測試**。
+  4. 所有事件不得出現內部代碼：**已調整摘要產生器，但尚未以全部實際稽核資料逐類核對，待驗收**。
+  5. 單行約 30px 密集清單及客戶共用：**程式碼已修改，待瀏覽器實測**。
+  6. ERP 查詢置頂且依權限顯示：**程式碼已修改，待互動驗收**。
+  7. 委外/代工選單、標題與權限名稱：**程式碼已修改，待畫面驗收**。
+  8. 志遠記帳 Web 選單短名、正式名稱不變：**程式碼已修改，待畫面驗收**。
+  9. 無網址指定時依 ERP 權限決定預設頁：**程式碼已修改，待權限情境驗收**。
+  10. 「代工對象」字串清除：**目標原始碼已有替換；未執行指定 grep，不能宣稱通過**。
+  11. `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local`：**未執行**。
+  12. `node --test scripts/*.test.mjs`（含 canonical cyapps clone）：**未執行**。
+  13. 未新增或修改 `.github/workflows/*`：**依 main...分支差異檔案清單核對，通過**；新增檔案只有工作單指定的 `src/ui/actions/IconButton.tsx`。
+  14. VERSION/package.json 0.9.16、TODO、視覺規範、API 合約：**已更新**；BUILD 維持原值，待驗證。
+- 與工作單不同之處與原因：因本次只能直接透過 GitHub Connector 修改遠端檔案，無本機可執行之 repo checkout／Node/D1 環境，未執行指定驗證指令、未收集實機截圖；不得將上述項目視為已驗收。沒有變更資料庫 schema、API 欄位名稱、稽核寫入方式或 workflow。
 - 驗證指令輸出摘要：
-- 操作驗證步驟：
-- 事件 → 顯示句子對照表：
+  - `git diff --name-only main...cyweb/ui-polish-0.9.16` 的 GitHub Compare 等效檢查：原分支 18 個檔案，沒有 `.github/workflows/*`；文件補完後額外修改 VERSION、package.json、TODO、API 合約及視覺規範。
+  - `npm run typecheck`：未執行／無輸出。
+  - `npm run validate:source`：未執行／無輸出。
+  - `npm run build`：未執行／無輸出。
+  - `npm run validate:d1:local`：未執行／無輸出。
+  - `node --test scripts/*.test.mjs`：未執行／無輸出；canonical cyapps 尚未 clone。
+  - `grep -rn "代工對象" src worker shared docs/architecture`：未執行／無輸出。
+- 操作驗證步驟（供審查者實測）：
+  1. 使用 SUPER_ADMIN 登入，確認頂部「⚙️ 設定」，客戶明細「修改／🕘」按鈕尺寸、title 與 aria-label。
+  2. 進異動紀錄確認預設不顯示 ERP 查詢；勾「顯示 ERP 查詢」後確認只顯示完成、失敗、逾時，點開明細，測試長文字省略與客戶修改紀錄共用清單。
+  3. 以 ADMIN／USER 對 audit API 直接附 `includeErpQueries=true`，確認仍不回傳 ERP 查詢事件（具權限的管理員角色依既有路由規則測試）。
+  4. 在桌面及手機確認 ERP 置頂、委外/代工、志遠記帳 Web；以有／無 ERP 權限帳號測試無 hash 初始頁。
+  5. 檢查委外/代工頁所有「協力廠商」用詞；執行工作單列出的全部驗證指令。
+- 事件 → 顯示句子對照表（依實作預期，尚未由實際事件資料逐項驗證）：
+
+  | 事件 | 修正前問題 | 修正後預期句子 |
+  | --- | --- | --- |
+  | `erp_item_query.created` | 送出 ERP 查詢、只列「狀態」 | 不顯示 |
+  | `erp_item_query.completed` | ERP 查詢 #UUID：狀態 | 查詢 ERP 客戶「AC0016」：成功 |
+  | `erp_item_query.failed` | ERP 查詢「PURCHASES」：狀態 | 查詢 ERP 進貨「B0009」：失敗 |
+  | `erp_item_query.timed_out` | 內部 ID 或英文代碼 | 查詢 ERP〔中文類別〕「查詢內容」：逾時 |
+  | `customer.updated`（含狀態變更） | 僅顯示欄位名「狀態」 | 修改客戶「業務名稱」：狀態：舊值 → 新值 |
+  | 無可讀業務編號之事件 | 類別 #內部編號 | 僅使用中文類別（例如「備份」） |
+  | `erp_item_agent.*` | 管理動作 | 保持顯示中文管理動作 |
+
+  其餘 `entityType/action` 組合尚未逐筆比對實際稽核資料；本表不可視為完整驗收證據。
 
 ## 9. 審查紀錄（審查者填）
 
-- （待審查）
+- 日期：2026-10-19　結論：**通過**（審查者直接修正下列小問題後合併）。
+- 審查者在本機執行：`npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local` 全部通過；`node --test scripts/*.test.mjs` 144/144 通過；`grep -rn "代工對象" src worker shared docs/architecture` 無結果。
+- 實際畫面（桌面 1440、手機 390，模擬 API）：「⚙️ 設定」；客戶明細 🕘 圖示按鈕與「修改」同高；異動紀錄單行 `HH:mm　姓名　句子`、ERP 查詢句子 `查詢 ERP 客戶「AC0016」：成功`、超級管理員勾選；選單最上方 ERP 查詢、「委外/代工」、「志遠記帳 Web」單行。
+- 審查者直接修正：
+  1. `recordName` 過濾內部代碼的規則 `^[A-Z][A-Z_0-9]{2,}$` 會把真正的業務編號（AC0001、A00001）也當成內部代碼濾掉；且 regex 寫成 `\\d`，「#數字」的判斷從未生效。改為只濾 UPPER_SNAKE 代碼與純數字 id，並修正 `\d`。
+  2. 修改事件不再列出改了哪些欄位（只剩狀態），與 §2-5 範例 `修改客戶「…」：電話、地址` 不符；恢復欄位清單（最多 5 個），狀態欄位附「舊 → 新」。
+  3. 商品欄位（門市價、診所價、成本、規格、基準單位、單位換算…）與瑕疵欄位沒有中文標籤，畫面出現 `storePrice`；補上標籤，並讓未對應的欄位顯示「其他欄位」而不是英文欄位名。
+  4. 「顯示 ERP 查詢」勾選框與文字上下錯開，改為同一行。
+- 意見（不阻擋）：
+  - 商品事件的名稱目前只顯示品號（「A00001」），之後可統一用 `formatItem` 顯示「A00001 志遠拔罐杯#1」。
+  - 外部工具「價格觀測室（原型）」在選單也會折行，可比照給短名稱。

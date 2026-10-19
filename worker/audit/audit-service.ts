@@ -75,6 +75,7 @@ export interface AuditQuery {
   q?: string;
   cursor?: string;
   relatedCustomerId?: number;
+  includeErpQueries?: boolean;
   limit?: number;
 }
 
@@ -303,6 +304,11 @@ export class AuditService {
       return `?${values.length}`;
     };
 
+    // ERP query lifecycle events are operational noise, except for a Super Admin
+    // who explicitly opts in. Submission events remain hidden even then.
+    where.push(query.includeErpQueries
+      ? "(ae.entity_type <> 'erp_item_query' OR ae.action <> 'erp_item_query.created')"
+      : "ae.entity_type <> 'erp_item_query'");
     if (query.entityType) where.push(`ae.entity_type = ${bind(normalizeCode(query.entityType, "entityType"))}`);
     if (query.entityKey) where.push(`ae.entity_key = ${bind(normalizeEntityKey(query.entityKey))}`);
     if (query.action) where.push(`ae.action = ${bind(normalizeCode(query.action, "action"))}`);

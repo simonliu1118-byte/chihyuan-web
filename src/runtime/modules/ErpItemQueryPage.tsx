@@ -3,7 +3,7 @@ import { HistoryRangeError, resolveHistoryRange, taipeiToday } from "../../../sh
 import { useCompactLayout } from "../../ui/foundation/useCompactLayout";
 import { ErpQueryRows } from "./ErpQueryRows";
 import { parseErpCode, parseErpNameKeyword } from "../../../shared/erp-name-search";
-import { ERP_ITEM_FIELDS, type ErpField, type ErpQueryHistory } from "../../../shared/erp-item-query";
+import { ERP_ITEM_FIELDS, ERP_QUERY_TYPE_LABELS, type ErpField, type ErpQueryHistory } from "../../../shared/erp-item-query";
 import { ErpJobStatus, Fields, showsData } from "./ErpJobStatus";
 import { erpMoney } from "../../../shared/erp-sales-links";
 import type { CyWebModuleCode } from "../../../shared/modules";
@@ -15,10 +15,10 @@ import "./erp-item-query.css";
 
 /** The ERP 查詢 categories, each opened by its own grant (user 2026-10-17). */
 const CATEGORIES = [
-  { key: "ITEM", label: "商品", module: "ERP_ITEM_QUERY" },
-  { key: "CUSTOMER", label: "客戶", module: "ERP_CUSTOMER_QUERY" },
-  { key: "SUPPLIER", label: "廠商", module: "ERP_SUPPLIER_QUERY" },
-  { key: "RECEIVABLE", label: "未收款", module: "ERP_RECEIVABLE_QUERY" },
+  { key: "ITEM", label: ERP_QUERY_TYPE_LABELS.ITEM_NO, module: "ERP_ITEM_QUERY" },
+  { key: "CUSTOMER", label: ERP_QUERY_TYPE_LABELS.CUSTOMER_NO, module: "ERP_CUSTOMER_QUERY" },
+  { key: "SUPPLIER", label: ERP_QUERY_TYPE_LABELS.SUPPLIER_NO, module: "ERP_SUPPLIER_QUERY" },
+  { key: "RECEIVABLE", label: ERP_QUERY_TYPE_LABELS.RECEIVABLE, module: "ERP_RECEIVABLE_QUERY" },
 ] as const;
 type Category = (typeof CATEGORIES)[number]["key"];
 

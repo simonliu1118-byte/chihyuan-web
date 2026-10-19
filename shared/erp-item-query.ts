@@ -39,6 +39,14 @@ export type ErpQueryType = "ITEM_NO" | "ITEM_NAME" | "CUSTOMER_NO" | "CUSTOMER_N
 export const ERP_QUERY_TYPES: readonly ErpQueryType[] = [
   "ITEM_NO", "ITEM_NAME", "CUSTOMER_NO", "CUSTOMER_NAME", "SUPPLIER_NO", "SUPPLIER_NAME", "PURCHASES", "SALES", "RECEIVABLE", "ORDER",
 ];
+
+/** Shared localized ERP query names; the UI and audit timeline use the same names. */
+export const ERP_QUERY_TYPE_LABELS: Readonly<Record<ErpQueryType, string>> = {
+  ITEM_NO: "商品", ITEM_NAME: "商品",
+  CUSTOMER_NO: "客戶", CUSTOMER_NAME: "客戶",
+  SUPPLIER_NO: "供應商", SUPPLIER_NAME: "供應商",
+  PURCHASES: "進貨", SALES: "銷貨", RECEIVABLE: "未收款", ORDER: "單據",
+};
 export type ErpReceivableScope = "CUSTOMER" | "SALESPERSON" | "ALL";
 /** One line of a 銷貨單／銷退單; amounts and quantities are ERP display strings. */
 export interface ErpSalesLine {

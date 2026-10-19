@@ -1,6 +1,6 @@
 import { Loading } from "../../ui/feedback/Loading";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
-import { formatDate, formatPerson } from "../../ui/foundation/format";
+import { formatDate, formatDateTime, formatPerson } from "../../ui/foundation/format";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import { useEffect, useState, type FormEvent } from "react";
 import { loadAudit, loadSettings, type AuditEvent, type AuditActor } from "../api/settings-audit-client";
@@ -12,15 +12,15 @@ const moduleOptions: readonly { value:string; label:string }[] = [
   {value:"customer,customer_visit,customer_item_quote,customer_frequent_item",label:"客戶"},
   {value:"item",label:"商品"},{value:"defect",label:"瑕疵"},
   {value:"sales_work_order",label:"銷售工單"},
-  {value:"outsourcing_order,contractor,contractor_price,bom_recipe",label:"委外代工"},
+  {value:"outsourcing_order,contractor,contractor_price,bom_recipe",label:"委外/代工"},
   {value:"work_log",label:"工作日誌"},
   {value:"customer_category,customer_status,department,item_category,work_log_category,work_log_platform,work_log_scoring_row,work_log_scoring_config,setting",label:"設定"},
   {value:"module_access,module_access_group,app_tag",label:"使用權"},
   {value:"backup",label:"備份"},{value:"erp_item_query,erp_item_agent",label:"ERP 查詢"},
 ];
 type Period = "today" | "7" | "30" | "custom";
-type Filters = {entityTypes:string;period:Period;from:string;to:string;actorEmployeeId:string;q:string};
-const initialFilters:Filters = {entityTypes:"",period:"7",from:"",to:"",actorEmployeeId:"",q:""};
+type Filters = {entityTypes:string;period:Period;from:string;to:string;actorEmployeeId:string;q:string;includeErpQueries:boolean};
+const initialFilters:Filters = {entityTypes:"",period:"7",from:"",to:"",actorEmployeeId:"",q:"",includeErpQueries:false};
 function isoWindow(filters:Filters):{occurredFrom:string;occurredTo:string} {
   const today = taipeiToday();
   const day = new Date(today+"T00:00:00+08:00");
@@ -63,6 +63,7 @@ export function ChangeLogList({role,customerId}:{
     if(applied.entityTypes)params.entityTypes=applied.entityTypes;
     if(applied.actorEmployeeId)params.actorEmployeeId=applied.actorEmployeeId;
     if(applied.q.trim())params.q=applied.q.trim();
+    if(role==="SUPER_ADMIN" && applied.includeErpQueries)params.includeErpQueries="true";
   }
   const key=JSON.stringify(params);
   useEffect(()=>{
@@ -115,6 +116,11 @@ export function ChangeLogList({role,customerId}:{
       </select></label>
       <label>關鍵字<input className="cy-op-input" type="search" maxLength={100}
         placeholder="資料名稱或編號" value={filters.q} onChange={e=>setFilters(v=>({...v,q:e.target.value}))}/></label>
+      {role === "SUPER_ADMIN" ? <label className="cy-change-log-erp-toggle">
+        <input type="checkbox" checked={filters.includeErpQueries}
+          onChange={event => setFilters(prev => ({...prev, includeErpQueries:event.target.checked}))} />
+        顯示 ERP 查詢
+      </label> : null}
       <button className="cy-op-button primary" type="submit" disabled={loading}>查詢</button>
     </form>:null}
     {error?<div role="alert" className="cy-op-notice danger">{error}</div>:null}
@@ -122,10 +128,16 @@ export function ChangeLogList({role,customerId}:{
       {loading?<Loading/>:<>
         {[...groups.entries()].map(([date,items])=><div key={date} className="cy-change-log-day">
           <h3>{date}{date===today?"（今天）":""}</h3>
-          {items.map(item=><button type="button" key={item.id} className="cy-change-log-row"
-            onClick={()=>setSelected(item)} aria-label={auditSentence(item,lookups)+"，查看明細"}>
-            {auditSentence(item,lookups)}
-          </button>)}
+          {items.map(item => {
+            const sentence = auditSentence(item, lookups);
+            const time = formatDateTime(item.occurredAt).split(" ").at(-1) ?? "—";
+            const person = formatPerson(item.actor);
+            return <button type="button" key={item.id} className="cy-change-log-row"
+              onClick={() => setSelected(item)} title={`${time}　${person}　${sentence}`}
+              aria-label={`${time}　${person}　${sentence}，查看明細`}>
+              <span>{time}　{person}　{sentence}</span>
+            </button>;
+          })}
         </div>)}
         {!events.length?<p className="cy-customer-muted">此範圍尚無異動紀錄。</p>:null}
         {nextCursor?<button type="button" className="cy-op-button" disabled={moreLoading}
@@ -134,13 +146,13 @@ export function ChangeLogList({role,customerId}:{
     </section>
     <Drawer open={selected!==null} title="異動明細" onClose={()=>setSelected(null)}>
       {selected?<div className="cy-audit-detail">
-        <p className="cy-change-log-summary">{auditSentence(selected,lookups)}</p>
-        {selected.statusFrom !== selected.statusTo && (selected.statusFrom || selected.statusTo) ? <p>狀態：{auditChanges(selected,lookups).find(row=>row.key==="status")?.before ?? "—"} → {auditChanges(selected,lookups).find(row=>row.key==="status")?.after ?? "—"}</p> : null}
-        <table className="cy-op-table"><thead><tr><th>欄位</th><th>改前</th><th>改後</th></tr></thead>
+        <p className="cy-change-log-summary">{formatDateTime(selected.occurredAt)}　{formatPerson(selected.actor)}　{auditSentence(selected,lookups)}</p>
+        {selected.entityType !== "erp_item_query" && selected.statusFrom !== selected.statusTo && (selected.statusFrom || selected.statusTo) ? <p>狀態：{auditChanges(selected,lookups).find(row=>row.key==="status")?.before ?? "—"} → {auditChanges(selected,lookups).find(row=>row.key==="status")?.after ?? "—"}</p> : null}
+        {selected.entityType !== "erp_item_query" ? <table className="cy-op-table"><thead><tr><th>欄位</th><th>改前</th><th>改後</th></tr></thead>
           <tbody>{auditChanges(selected,lookups).map(row=><tr key={row.key}>
             <td>{row.label}</td><td>{row.before}</td><td>{row.after}</td>
-          </tr>)}</tbody></table>
-        {!auditChanges(selected,lookups).length?<p className="cy-customer-muted">此筆未提供欄位差異。</p>:null}
+          </tr>)}</tbody></table> : null}
+        {selected.entityType !== "erp_item_query" && !auditChanges(selected,lookups).length?<p className="cy-customer-muted">此筆未提供欄位差異。</p>:null}
         {role==="SUPER_ADMIN"?<details className="cy-change-log-technical"><summary>技術細節</summary>
           <pre className="cy-code-block">{JSON.stringify({id:selected.id,entityType:selected.entityType,
             entityKey:selected.entityKey,action:selected.action,requestId:selected.requestId,

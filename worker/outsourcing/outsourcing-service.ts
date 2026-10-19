@@ -182,7 +182,7 @@ export class OutsourcingService {
 
   private async resolveProfile(input:NormalizedOutsourcingProfile,requireActiveContractor:boolean):Promise<ResolvedOutsourcingProfile>{
     const [contractor,operator,items]=await Promise.all([this.repository.resolveContractor(input.contractorId),this.repository.resolveOperator(input.operatorEmployeeId),this.repository.resolveItems(input.parts.flatMap(p=>[p.componentItemId,...(p.finishedItemId?[p.finishedItemId]:[])]))]);
-    const errors:Record<string,string>={};if(!contractor)errors.contractorId="代工對象不存在";else if(requireActiveContractor&&!contractor.isActive)errors.contractorId="代工對象已停用";if(!operator)errors.operatorEmployeeId="操作人員不存在或已停用";
+    const errors:Record<string,string>={};if(!contractor)errors.contractorId="協力廠商不存在";else if(requireActiveContractor&&!contractor.isActive)errors.contractorId="協力廠商已停用";if(!operator)errors.operatorEmployeeId="操作人員不存在或已停用";
     const parts:ResolvedOutsourcingPart[]=input.parts.map((part,index)=>{
       const component=items.get(part.componentItemId);const finished=part.finishedItemId?items.get(part.finishedItemId)??null:null;
       if(!component)errors[`parts.${index}.componentItemId`]="料件商品不存在";else if(!component.allowedUnits.has(part.unit))errors[`parts.${index}.unit`]=`單位必須是 ${[...component.allowedUnits].join(" / ")}`;
@@ -229,7 +229,7 @@ export class OutsourcingService {
   private async buildPricingPlan(state:OutsourcingRecordState,detail:OutsourcingDetail,input:ReturnType<typeof normalizePriceRequest>):Promise<ResolvedPricingPlan>{
     const receipt=detail.receipt!;const ids=receipt.items.map(i=>i.itemId);const[itemMap,priceMap]=await Promise.all([this.repository.resolveItems(ids),this.repository.listContractorPrices(state.contractorId,ids)]);const errors:Record<string,string>={};const planItems:PricingPlanItem[]=[];let totalMoney2=0;
     const { parseScaled4 } = await import("../../shared/fixed-point");
-    for(let index=0;index<receipt.items.length;index++){const row=receipt.items[index];const item=itemMap.get(row.itemId);const price=priceMap.get(row.itemId);if(!item){errors[`items.${index}.itemId`]="成品不存在";continue}if(!price){errors[`items.${index}.price`]="此代工對象尚未設定該商品的現行代工價";continue}
+    for(let index=0;index<receipt.items.length;index++){const row=receipt.items[index];const item=itemMap.get(row.itemId);const price=priceMap.get(row.itemId);if(!item){errors[`items.${index}.itemId`]="成品不存在";continue}if(!price){errors[`items.${index}.price`]="此協力廠商尚未設定該商品的現行代工價";continue}
       let pricingQty:number;try{pricingQty=convertScaled4Exact(parseScaled4(row.quantity),row.unitSnapshot,price.pricingUnit,item.baseUnit,item.conversions)}catch{errors[`items.${index}.unit`]="入庫單位無法換算至代工計價單位";continue}
       let subtotal:number;try{subtotal=scaled4ProductToMoney2Exact(pricingQty,price.unitPriceScaled4)}catch{errors[`items.${index}.subtotal`]="計價結果超過 TWD 兩位小數精度；請修正數量、換算或單價";continue}
       totalMoney2+=subtotal;if(!Number.isSafeInteger(totalMoney2)){errors._total="計價總額超出可處理範圍";continue}
