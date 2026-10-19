@@ -924,7 +924,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
                 <RelatedCard title="報價紀錄" count={quotes.length} empty="尚無報價紀錄。"
                   onView={() => openRelated("quotes")} onAdd={() => openRelated("quotes", true)}
                   rows={quotesNewestFirst.slice(0, 3).map(row =>
-                    <span key={row.id}>{formatDate(row.quoteDate)} · {row.itemNoSnapshot} {row.itemNameSnapshot}</span>)} />
+                    <span key={row.id}>{formatDate(row.quoteDate)} {formatItem(row.itemNoSnapshot, row.itemNameSnapshot)}</span>)} />
                 <RelatedCard title="常用商品" count={frequentItems.length} empty="尚無常用商品。"
                   onView={() => openRelated("frequent")} onAdd={() => openRelated("frequent", true)}
                   rows={[...frequentItems].sort((a,b) => a.sortOrder-b.sortOrder).slice(0,3).map(row =>
@@ -1095,7 +1095,7 @@ function QuotesPanel({ rows, draft, setDraft, save, correct, busy, mode, filter,
         {group.map(quote => <div className="cy-customer-quote" key={quote.id}>
           <div><strong>{formatItem(quote.itemNoSnapshot, quote.itemNameSnapshot)}</strong>
             {quote.priceBreaks.map(tier => <p key={tier.id}>
-              {tier.quantity} {tier.unit}　${tier.unitPrice} 元
+              {tier.quantity} {tier.unit}　${tier.unitPrice}
             </p>)}
             <span>rev.{quote.revision}</span>
           </div>
