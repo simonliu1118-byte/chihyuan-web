@@ -1,5 +1,6 @@
 import { useCallback,useEffect,useState,type FormEvent } from "react";
 import { Dialog } from "../../ui/overlays/Dialog";
+import { StatusChip } from "../../ui/primitives/StatusChip";
 import "./hr-operational.css";
 import { formatDate } from "../../ui/foundation/format";
 import { apiRequest } from "../../api/client";
@@ -10,6 +11,7 @@ const ROOT="/api/business/hr";
 const labels:Record<HrStatus,string>={probation:"試用",active:"在職",leave:"留職停薪",terminated:"離職"};
 type Employee={id:number;employee_no:string;name:string;status:HrStatus;member_id:number|null;nationalIdMasked:string|null;hire_date:string;seniority_start_date:string;revision:number;mobile:string|null;phone:string|null;gender:string|null;birth_date:string|null;mailing_address:string|null;registered_address:string|null;note:string|null;contacts:Record<string,unknown>[];education:Record<string,unknown>[];workHistory:Record<string,unknown>[];salaryRecords:Record<string,unknown>[];statusChanges:Record<string,unknown>[];seniorityExclusions:Record<string,unknown>[]};
 type StaffRow=Pick<Employee,"id"|"employee_no"|"name"|"status">;
+const statusTone=(s:HrStatus)=>s==="active"?"success" as const:s==="probation"?"info" as const:s==="leave"?"warning" as const:"neutral" as const;
 const money=(n:unknown)=>typeof n==="number"?n.toLocaleString("zh-TW",{maximumFractionDigits:0})+" 元":"—";
 function err(x:unknown){return x instanceof Error?x.message:"操作失敗";}
 const inputClass="cy-op-input";
@@ -89,12 +91,12 @@ export function HrOperationalPage(){
     <div className="cy-op-panel-header"><h2>人事清單</h2><button className="cy-op-button primary" onClick={()=>openEmployee(false)}>＋ 新增員工</button></div>
     <div className="cy-op-form"><input className={inputClass} placeholder="搜尋員工編號、姓名" aria-label="搜尋員工" value={query} onChange={e=>setQuery(e.target.value)}/>
     <select className={inputClass} aria-label="人事狀態" value={filter} onChange={e=>setFilter(e.target.value)}><option value="">全部狀態</option>{Object.entries(labels).map(([v,t])=><option key={v} value={v}>{t}</option>)}</select></div>
-    {list.map(x=><button key={x.id} type="button" className="cy-op-button cy-hr-list-item" onClick={()=>setSelectedId(x.id)}><span><small>{x.employee_no}</small><strong style={{display:"block"}}>{x.name}</strong></span><span>{labels[x.status]}</span></button>)}
+    {list.map(x=><button key={x.id} type="button" className="cy-op-button cy-hr-list-item" onClick={()=>setSelectedId(x.id)}><span><small>{x.employee_no}</small><strong style={{display:"block"}}>{x.name}</strong></span><StatusChip tone={statusTone(x.status)}>{labels[x.status]}</StatusChip></button>)}
     {!list.length?<p>尚無員工資料</p>:null}
     {next?<button className="cy-op-button" onClick={()=>void loadList(true,next).catch(x=>setError(err(x)))}>載入更多</button>:null}
    </section>
    {detail?<section className="cy-op-panel">
-    <div className="cy-op-panel-header"><h2>{detail.employee_no} {detail.name}　{labels[detail.status]}</h2><button className="cy-op-button" onClick={()=>openEmployee(true)}>修改</button></div>
+    <div className="cy-op-panel-header"><h2>{detail.employee_no} {detail.name}　<StatusChip tone={statusTone(detail.status)}>{labels[detail.status]}</StatusChip></h2><button className="cy-op-button" onClick={()=>openEmployee(true)}>修改</button></div>
     <Card title="基本資料"><p>到職：{dateDisplay(detail.hire_date)}　年資起算：{dateDisplay(detail.seniority_start_date)}</p><p>電話：{detail.mobile??detail.phone??"—"}</p><p>通訊地址：{detail.mailing_address??"—"}</p>
      <p>身分證：{detail.nationalIdMasked??"未填寫"}　<button className="cy-op-button compact" onClick={async()=>{try{const r=await apiRequest<{nationalId:string|null}>(ROOT+"/employees/"+detail.id+"/national-id/reveal",{method:"POST",json:{}});setNationalId(r.nationalId);setDialog("nationalId");}catch(x){setError(err(x));}}}>顯示</button></p>
      <p>綁定使用者：{detail.member_id??"未綁定"}</p><p>出生日期：{dateDisplay(detail.birth_date)}　性別：{detail.gender??"—"}</p><p>戶籍地址：{detail.registered_address??"—"}</p>
