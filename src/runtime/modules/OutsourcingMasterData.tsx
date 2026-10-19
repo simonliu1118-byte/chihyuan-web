@@ -1,3 +1,4 @@
+import { formatItem } from "../../ui/foundation/format";
 import { FormEvent, useEffect, useId, useState } from "react";
 import type { BomDetail, BomSummary, ContractorDetail, ContractorEntityType, ContractorPrice, ContractorSummary } from "../../../shared/contractor-outsourcing";
 import type { OutsourcingItemOption } from "../../../shared/business-lookups";
@@ -35,7 +36,7 @@ interface MasterDataProps {
   reportError: (message: string) => void;
 }
 
-const itemLabel = (row: { itemNo: string; name: string }) => `${row.itemNo} · ${row.name}`;
+const itemLabel = (row: { itemNo: string; name: string }) => formatItem(row.itemNo, row.name);
 const searchItems = async (query: string) => (await loadOutsourcingLookups({ itemQuery: query, limit: 20 })).items;
 async function itemsById(ids: readonly number[]): Promise<Map<number, OutsourcingItemOption>> {
   if (!ids.length) return new Map();
