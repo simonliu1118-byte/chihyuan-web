@@ -1,3 +1,4 @@
+import { formatItem } from "../../ui/foundation/format";
 import { StatusChip } from "../../ui/primitives/StatusChip";
 import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
@@ -446,7 +447,7 @@ export function ItemOperationalPage() {
     const action = selected.isActive ? "停用" : "啟用";
     if (!(await confirm({
       title: `${action}商品`,
-      description: `確定${action}「${selected.itemNo} · ${selected.name}」？${selected.isActive ? "停用後不會出現在新單據的商品選單，既有紀錄不受影響。" : ""}`,
+      description: `確定${action}「${formatItem(selected.itemNo, selected.name)}」？${selected.isActive ? "停用後不會出現在新單據的商品選單，既有紀錄不受影響。" : ""}`,
       confirmLabel: action, confirmTone: selected.isActive ? "danger" : "primary",
     }))) return;
 
