@@ -27,6 +27,10 @@ export async function handleHrRoute(request:Request,env:IdentityRuntimeEnv,reque
  const idPath=/^\/api\/business\/hr\/employees\/(\d+)(?:\/(.*))?$/.exec(url.pathname);
  const employeeId=idPath?Number(idPath[1]):null;
  try{
+  if(url.pathname==="/api/business/hr/members" && request.method==="GET") {
+    const result=await env.DB.prepare("SELECT id,employee_no,display_name FROM app_members WHERE is_active=1 ORDER BY employee_no").all();
+    return success(result.results??[],requestId);
+  }
   if(url.pathname==="/api/business/hr/employees"){
     if(request.method==="GET"){
       const q=url.searchParams.get("q")?.trim()??"";
