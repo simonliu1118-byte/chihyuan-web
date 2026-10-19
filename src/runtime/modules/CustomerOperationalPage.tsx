@@ -759,15 +759,33 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
           <ChangeLogList role={role} customerId={selected.id}/>
         </Dialog> : null}
       {selected && relatedView ? <Dialog open size="large"
-        title={`${relatedView === "visits" ? "拜訪紀錄" : relatedView === "quotes" ? "報價紀錄" : "常用商品"} — ${selected.shortName}`}
+        title={`${relatedView.view === "visits" ? "拜訪紀錄" : relatedView.view === "quotes" ? "報價紀錄" : "常用商品"} — ${selected.shortName}`}
         onClose={() => void closeRelated()}>
-        {relatedView === "visits" ? <VisitsPanel selected={selected} rows={visitsNewestFirst} draft={visitDraft} setDraft={setVisitDraft}
-          save={saveVisit} edit={editVisit} remove={removeVisit} busy={busy} /> : null}
-        {relatedView === "quotes" ? <QuotesPanel items={itemOptions} rows={quotesNewestFirst} draft={quoteDraft} setDraft={setQuoteDraft}
-          startNew={startQuote} save={saveQuote} correct={startQuoteCorrection} busy={busy} /> : null}
-        {relatedView === "frequent" ? <FrequentPanel items={itemOptions} rows={frequentItems} itemId={frequentItemId}
+        {relatedView.mode === "browse" ? <div className="cy-related-toolbar">
+          <button className="cy-op-button primary compact" type="button" disabled={busy || visitDraft !== null || quoteDraft !== null || frequentAdding} onClick={() => {
+            if (relatedView.view === "visits") setVisitDraft(emptyVisit());
+            if (relatedView.view === "quotes") startQuote();
+            if (relatedView.view === "frequent") setFrequentAdding(true);
+          }}>＋ 新增</button>
+          <input type="search" className="cy-op-input" aria-label="搜尋相關紀錄" value={relatedFilter}
+            onChange={event => setRelatedFilter(event.target.value)}
+            placeholder={relatedView.view === "visits" ? "搜尋內容、拜訪對象、聯絡人" : "搜尋品號、品名或自訂名稱"} />
+        </div> : null}
+        {relatedView.view === "visits" ? <VisitsPanel selected={selected} rows={visitsNewestFirst} draft={visitDraft}
+          setDraft={setVisitDraft} save={saveVisit} edit={editVisit} remove={removeVisit} busy={busy}
+          filter={relatedFilter} mode={relatedView.mode} onCancel={() => {
+            setVisitDraft(null); if (relatedView.mode === "create") setRelatedView(null);
+          }} /> : null}
+        {relatedView.view === "quotes" ? <QuotesPanel rows={quotesNewestFirst} draft={quoteDraft} setDraft={setQuoteDraft}
+          save={saveQuote} correct={startQuoteCorrection} busy={busy} filter={relatedFilter} mode={relatedView.mode}
+          onCancel={() => { setQuoteDraft(null); if (relatedView.mode === "create") setRelatedView(null); }} /> : null}
+        {relatedView.view === "frequent" ? <FrequentPanel rows={frequentItems} itemId={frequentItemId}
           setItemId={setFrequentItemId} freeText={frequentText} setFreeText={setFrequentText}
-          add={addFrequentItem} remove={removeFrequent} busy={busy} /> : null}
+          add={addFrequentItem} remove={removeFrequent} busy={busy} filter={relatedFilter}
+          mode={relatedView.mode} adding={frequentAdding} onCancel={() => {
+            setFrequentAdding(false); setFrequentItemId(null); setFrequentText("");
+            if (relatedView.mode === "create") setRelatedView(null);
+          }} /> : null}
       </Dialog> : null}
 
       
@@ -810,8 +828,8 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
                 onClick={() => void selectCustomer(customer.id)}
               >
                 <span className="cy-customer-result-main">
+                  <span>{customer.customerNo ?? "未設定編號"}</span>
                   <strong>{customer.shortName}</strong>
-                  <span>{[customer.customerNo ?? "尚無 ERP 編號", customer.region?.name].filter(Boolean).join(" · ")}</span>
                 </span>
                 <span className={`cy-status-chip ${customer.status ? "cy-status-chip-success" : ""}`}>{customer.status?.name ?? "未設定"}</span>
               </button>
@@ -829,7 +847,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
               <div className="cy-record-header cy-edit-header">
                 <div>
                   <h2>{creating ? "新增客戶" : `修改 ${selected?.shortName ?? "客戶"}`}</h2>
-                  <p>ERP 客戶編號可先留空，之後在「修改」補填。</p>
+                  <p>客戶編號可先留空，之後在「修改」補填。</p>
                 </div>
               <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
                 <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立客戶" : "儲存修改"}</button></div></div>
@@ -838,7 +856,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
                 <div className="cy-op-form-grid">
                   <label>客戶名稱／簡稱<input className="cy-op-input" value={draft.shortName} disabled={busy} onChange={(e) => patchDraft({ shortName: e.target.value })} required /></label>
                   <label>完整名稱<input className="cy-op-input" value={draft.fullName} disabled={busy} onChange={(e) => patchDraft({ fullName: e.target.value })} /></label>
-                  <label>ERP 客戶編號<input className="cy-op-input" value={draft.customerNo} disabled={busy} onChange={(e) => patchDraft({ customerNo: e.target.value })} placeholder="可稍後補填" /></label>
+                  <label>客戶編號<input className="cy-op-input" value={draft.customerNo} disabled={busy} onChange={(e) => patchDraft({ customerNo: e.target.value })} placeholder="可稍後補填" /></label>
                   <label>統編<input className="cy-op-input" inputMode="numeric" value={draft.taxId} disabled={busy} onChange={(e) => patchDraft({ taxId: e.target.value })} /></label>
                   <label>地區<select className="cy-op-input" value={draft.regionId ?? ""} disabled={busy} onChange={(e) => patchDraft({ regionId: e.target.value ? Number(e.target.value) : null })}><option value="">未設定</option>{regions.filter((row) => row.isActive || row.id === draft.regionId).map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}</select></label>
                   <label>分類<select className="cy-op-input" value={draft.customerCategoryId ?? ""} disabled={busy} onChange={(e) => patchDraft({ customerCategoryId: e.target.value ? Number(e.target.value) : null })}><option value="">未分類</option>{categories.filter((row) => row.isActive || row.id === draft.customerCategoryId).map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}</select></label>
@@ -868,8 +886,8 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
             <div>
               <div className="cy-record-header">
                 <div>
-                  <h2>{selected.shortName}</h2>
-                  <p>{[selected.fullName, selected.customerNo ? `ERP ${selected.customerNo}` : "尚無 ERP 客戶編號"].filter(Boolean).join(" · ")}</p>
+                  <h2>{selected.customerNo ? `${selected.customerNo} ` : ""}{selected.shortName}{selected.fullName ? <small className="cy-record-title-note">（{selected.fullName}）</small> : null}</h2>
+                  <p>{[selected.fullName, selected.customerNo ? selected.customerNo : "尚無 客戶編號"].filter(Boolean).join(" · ")}</p>
                   <p className="cy-record-meta">最後修改：{formatDateTime(selected.updatedAt)}{selected.updatedBy ? ` · ${formatPerson(selected.updatedBy)}` : ""}</p>
                 </div>
                 <div className="cy-record-actions">
@@ -891,10 +909,6 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
                   <Info label="地區" value={selected.region?.name} />
                   <Info label="負責業務" value={selected.ownerEmployee ? formatPerson(selected.ownerEmployee) : null} />
                   <Info label="傳真" value={selected.fax} mono />
-                  <div className="cy-customer-info">
-                    <dt>ERP 客戶編號</dt>
-                    <dd><span className="cy-mono">{selected.customerNo || "—"}</span></dd>
-                  </div>
                 </dl>
                 <div className="cy-customer-contact-grid">
                   <div>
@@ -923,7 +937,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
                 <RelatedCard title="常用商品" count={frequentItems.length} empty="尚無常用商品。"
                   onView={() => openRelated("frequent")} onAdd={() => openRelated("frequent", true)}
                   rows={[...frequentItems].sort((a,b) => a.sortOrder-b.sortOrder).slice(0,3).map(row =>
-                    <span key={row.id}>{row.item ? `${row.item.itemNo} · ${row.item.name}` : row.customItemName || "未命名品項"}</span>)} />
+                    <span key={row.id}>{row.item ? formatItem(row.item.itemNo, row.item.name) : row.customItemName || "未命名品項"}</span>)} />
               </section>
             </div>
           ) : <MasterDetailEmpty title="尚未選擇客戶" hint="從左側清單選一位客戶，或按清單上方的「＋ 新增客戶」。" />}
