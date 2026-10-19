@@ -303,6 +303,97 @@
 | `src/runtime/modules/ErpSupplierQuery.tsx:91` | <p>單據日期起訖都未填：去年同月同日至今天；範圍最多三年。輸入名稱時先列出廠商。</p> | 留 | 查詢限制、狀態或錯誤訊息 |
 | `src/runtime/modules/ErpSupplierQuery.tsx:99` | {mine.truncated && <p className="cy-notice cy-notice-warning">結果已達 {mine.items.length} 筆，可能有更多資料，請輸入更完整的名稱。</p>} | 留 | 查詢限制、狀態或錯誤訊息 |
 
+### §8 原始碼候選盤點（第 3 組，業務模組，行號為目前分支）
+
+| 檔案:行號 | 候選 JSX 內容摘要 | 留／刪 | 理由 |
+| --- | --- | --- | --- |
+| `src/runtime/modules/ItemOperationalPage.tsx:571` | <span>{formatDate(row.reportedDate)}　{row.customerNameSnapshot}　{row.defectDescription}</span> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/ItemOperationalPage.tsx:641` | <span className="cy-mono">{row.itemNo}</span> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/ItemOperationalPage.tsx:643` | {row.isActive ? <small>{categoryName(row)}</small> : <StatusChip>已停用</StatusChip>} | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/ItemOperationalPage.tsx:659` | <p>{creating ? "品號必須是 SMART ERP 中已存在的品號。" : "品號請用「更改品號」修改，會保留歷史品號。"}</p> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/ItemOperationalPage.tsx:679` | <span>{draft.baseUnit}</span> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/ItemOperationalPage.tsx:702` | <p>{[selected.spec, selected.category?.name, selected.isActive ? "使用中" : null].filter(Boolean).join("　")} | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/ItemOperationalPage.tsx:718` | {baseConversions(selected).map((row, index) => <span key={index}>　·　1 {row.fromUnit} = {row.quantity} {selected. | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/ItemOperationalPage.tsx:722` | <span>　門市價 {selected.storePrice ? '${selected.storePrice}' : "—"}</span> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/ItemOperationalPage.tsx:723` | <span>　診所價 {selected.clinicPrice ? '${selected.clinicPrice}' : "—"}</span> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/ItemOperationalPage.tsx:726` | {previousNumbers.length ? <small>曾用品號：{previousNumbers.map(row => | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/ItemOperationalPage.tsx:732` | summary={<small>{(["created", "processing", "resolved"] as const).filter(code => defectCounts[code]) | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/ItemOperationalPage.tsx:737` | <span>{formatDate(row.reportedDate)}　{row.customerNameSnapshot}　{row.defectDescription}</span> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/ItemOperationalPage.tsx:746` | rows={(quoteSummary?.groups ?? []).slice(0, 3).map((group, index) => <span key={index}> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/ItemOperationalPage.tsx:761` | return <div className="cy-item-info"><span>{label}</span><strong>{value ／／ "—"}</strong></div>; | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/ModuleSettingsPanel.tsx:98` | <h2>每日平均分數</h2><p>已審核日誌的結果保留，不因設定變更重新計分。</p><div className="cy-op-grid-two"><label>目標<input className="cy-op-inp | 留 | 限制／安全提醒／結果狀態 |
+| `src/runtime/modules/ModuleSettingsPanel.tsx:103` | <section className="cy-op-panel"><div className="cy-op-panel-header"><h2>{sections.find(row => row.key === secti | 留 | 空狀態提示 |
+| `src/runtime/modules/ModuleSettingsPanel.tsx:121` | <span aria-hidden="true">⚙️</span> 設定 | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/OutsourcingMasterData.tsx:194` | <strong>{row.displayName}</strong><span>{row.phone ?? "—"}{row.isActive ? "" : " · 停用"}</span></button>)} | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/OutsourcingMasterData.tsx:216` | {draft.contacts.length === 0 ? <p className="cy-form-block-empty">尚未填寫。</p> : draft.contacts.map((row, index) => | 留 | 空狀態提示 |
+| `src/runtime/modules/OutsourcingMasterData.tsx:226` | <div className="cy-record-header"><div><h2>{detail.displayName}</h2><p>{[detail.legalName, detail.entityType === | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/OutsourcingMasterData.tsx:230` | <div><span>統編</span><strong>{detail.taxId ?? "—"}</strong></div> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/OutsourcingMasterData.tsx:231` | <div><span>電話</span><strong>{detail.phone ?? "—"}</strong></div> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/OutsourcingMasterData.tsx:232` | <div><span>地址</span><strong>{detail.address ?? "—"}</strong></div> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/OutsourcingMasterData.tsx:233` | {detail.contacts.some((row) => row.isActive) ? <div className="wide"><span>聯絡人</span><strong>{detail.contacts.fi | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/OutsourcingMasterData.tsx:234` | {detail.note ? <div className="wide"><span>備註</span><strong>{detail.note}</strong></div> : null} | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/OutsourcingMasterData.tsx:241` | : <p className="cy-out-hint">尚未設定現行單價。計價時會依這裡的單價計算。</p>} | 留 | 限制／安全提醒／結果狀態 |
+| `src/runtime/modules/OutsourcingMasterData.tsx:335` | <strong>{row.finishedItemName}</strong><span><span className="cy-mono">{row.recipeRef}</span> · {row.finishedIte | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/OutsourcingMasterData.tsx:341` | <div className="cy-record-header cy-edit-header"><div><h2>{creating ? "新增 BOM" : '修改 ${detail?.recipeRef ?? "BOM | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/OutsourcingMasterData.tsx:357` | <EntityPicker<OutsourcingItemOption> label={<span className="cy-visually-hidden">第 {index + 1} 項料件</span>} disab | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/OutsourcingMasterData.tsx:368` | <div className="cy-record-header"><div><h2>{detail.finishedItemName}</h2><p><span className="cy-mono">{detail.re | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/OutsourcingMasterData.tsx:371` | <div className="cy-op-detail-grid"><div><span>產出</span><strong>{detail.outputQuantity} {detail.outputUnit}</stro | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/OutsourcingOperationalPage.tsx:87` | if (status === "voided") return <p className="cy-progress-voided">此代工單已作廢。</p>; | 留 | 限制／安全提醒／結果狀態 |
+| `src/runtime/modules/OutsourcingOperationalPage.tsx:560` | {orders.map((row) => <button key={row.id} type="button" className={'cy-op-list-row cy-status-row ${selectedOrder | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/OutsourcingOperationalPage.tsx:571` | <div><h2>{creating ? "新增代工單" : correctingOutbound ? "更正已確認的出庫" : "修改代工單"}</h2><p>{correctingOutbound ? "儲存後會以新的出 | 留 | 限制／安全提醒／結果狀態 |
+| `src/runtime/modules/OutsourcingOperationalPage.tsx:587` | <div className="cy-out-part cy-out-part-head" aria-hidden="true"><span>料件</span><span>數量</span><span>單位</span><s | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/OutsourcingOperationalPage.tsx:613` | <div className="cy-record-header"><div><h2>{selectedOrder.contractorNameSnapshot}</h2><p><span className="cy-mon | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/OutsourcingOperationalPage.tsx:637` | <div className="cy-op-detail-grid"><div><span>工單日期</span><strong>{formatDate(selectedOrder.orderDate)}</strong>< | 留 | 限制／安全提醒／結果狀態 |
+| `src/runtime/modules/OutsourcingOperationalPage.tsx:674` | {stockRows.length === 0 ? <p>目前沒有非零代工庫存。</p> : null} | 留 | 空狀態提示 |
+| `src/runtime/modules/ProgramCatalogPage.tsx:23` | return program.publishedAt ? <time dateTime={program.publishedAt}>{date(program.publishedAt)}</time> : <span>—</ | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/ProgramCatalogPage.tsx:32` | <div><strong>{program.name}</strong><span>{program.platform === "web" ? "網頁版" : "Windows 10／11 · x64"}</span></d | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/ProgramCatalogPage.tsx:36` | if (action.kind === "pending") return <span>正式發版後提供下載</span>; | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/ProgramCatalogPage.tsx:37` | if (action.kind === "unavailable") return <span>尚無可下載檔案</span>; | 留 | 空狀態提示 |
+| `src/runtime/modules/ProgramCatalogPage.tsx:51` | { key: "description", header: "功能簡介", render: program => <p className="cy-program-description">{program.descript | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/ProgramCatalogPage.tsx:54` | <span>發版日 {published(program)}</span></div> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/ProgramCatalogPage.tsx:55` | <p className="cy-program-description">{program.description}</p>{links(program)}</>} | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/ProgramCatalogPage.tsx:99` | {!loading && !catalog ? <p role="status">目前無法讀取程式清單，請稍後重新開啟此頁。</p> : null} | 留 | 空狀態提示 |
+| `src/runtime/modules/SalesOrderOperationalPage.tsx:87` | if (status === "voided") return <p className="cy-progress-voided">此工單已作廢。</p>; | 留 | 限制／安全提醒／結果狀態 |
+| `src/runtime/modules/SalesOrderOperationalPage.tsx:537` | <span><span className="cy-mono">{row.erpNo ? 'ERP ${row.erpNo}' : row.workOrderRef}</span> · {formatDate(row.ord | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/SalesOrderOperationalPage.tsx:552` | <div><h2>{creating ? "新增銷售工單" : '修改 ${selected?.workOrderRef ?? "工單"}'}</h2><p>ERP 開單前可以修改；開單後只能更正 ERP 資料。</p></ | 留 | 限制／安全提醒／結果狀態 |
+| `src/runtime/modules/SalesOrderOperationalPage.tsx:585` | <div className="cy-form-block-head"><div><h3>工單明細</h3><p>數量與單價最多四位小數。</p></div><button type="button" className=" | 留 | 限制／安全提醒／結果狀態 |
+| `src/runtime/modules/SalesOrderOperationalPage.tsx:587` | <div className="cy-order-line cy-order-line-head" aria-hidden="true"><span>商品</span><span>數量</span><span>單位</spa | 留 | 限制／安全提醒／結果狀態 |
+| `src/runtime/modules/SalesOrderOperationalPage.tsx:593` | <EntityPicker<LineItemOption> label={<span className="cy-visually-hidden">第 {index + 1} 列商品</span>} disabled={bu | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/SalesOrderOperationalPage.tsx:616` | <div><h2>{selected.customerNameSnapshot}</h2><p><span className="cy-mono">{selected.workOrderRef}</span>{selecte | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/SalesOrderOperationalPage.tsx:637` | <div><span>ERP 單號</span><strong>{selected.erpNo ?? "尚未回填"}</strong></div> | 留 | 空狀態提示 |
+| `src/runtime/modules/SalesOrderOperationalPage.tsx:638` | <div><span>客戶編號</span><strong>{selected.customerNoSnapshot ?? "—"}</strong></div> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/SalesOrderOperationalPage.tsx:639` | <div><span>日期</span><strong>{formatDate(selected.orderDate)}</strong></div> | 留 | 限制／安全提醒／結果狀態 |
+| `src/runtime/modules/SalesOrderOperationalPage.tsx:640` | <div><span>操作人員</span><strong>{selected.operator.displayName ?? selected.operator.employeeNo ?? '員工 #${selected. | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/SalesOrderOperationalPage.tsx:641` | <div><span>發票</span><strong>{selected.invoiceTypeCode ? invoiceText[selected.invoiceTypeCode] ?? selected.invoic | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/SalesOrderOperationalPage.tsx:642` | <div><span>收據</span><strong>{selected.receiptOptionCode ? receiptText[selected.receiptOptionCode] ?? selected.re | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/SalesOrderOperationalPage.tsx:643` | <div className="wide"><span>備註</span><strong>{selected.note ?? "—"}</strong></div> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:523` | <p>{reviewDraft.record.workLogRef}</p> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:524` | {message ? <p role="alert" className="cy-auth-error">{message}</p> : null} | 留 | 限制／安全提醒／結果狀態 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:532` | <h3>工作項目 {index + 1}</h3><p>{entry.content}</p> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:548` | <p>{reasonDraft.record.workLogRef}</p> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:549` | {message ? <p role="alert" className="cy-auth-error">{message}</p> : null} | 留 | 限制／安全提醒／結果狀態 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:558` | <div><span>已審核筆數</span><strong>{statistics?.reviewedCount ?? "—"}</strong></div> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:559` | <div><span>工作日數</span><strong>{statistics?.totalWorkDays ?? "—"}</strong></div> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:560` | <div><span>總分</span><strong>{statistics?.totalFinalScore ?? "—"}</strong></div> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:561` | <div><span>加權平均日分</span><strong>{statistics?.weightedAverageDailyScore ?? "—"}</strong> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:562` | <small>目標 {configuration?.scoringConfig?.targetAverageDailyScore ?? "—"} · 最低 {configuration?.scoringConfig?.min | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:567` | <span className="cy-op-chip" key={row.id}> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:587` | {rows.map((row) => <button key={row.id} type="button" className={'cy-op-list-row cy-status-row ${selectedId ===  | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:627` | <div className="cy-worklog-categories-head"><span>計分分類</span><button type="button" className="cy-op-button compa | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:647` | <div className="cy-record-header"><div><h2>{formatDate(selected.logDate)} 工作日誌</h2><p><span className="cy-mono"> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:663` | <div><span>日誌日期</span><strong>{formatDate(selected.logDate)}</strong></div> | 留 | 限制／安全提醒／結果狀態 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:664` | <div><span>期間</span><strong>{formatDate(selected.dateFrom)} ～ {formatDate(selected.dateTo)}</strong></div> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:665` | <div><span>工作日數</span><strong>{selected.workDays}</strong></div> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:666` | <div><span>類型</span><strong>{selected.typeCode}</strong></div> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:667` | <div><span>總分</span><strong>{selected.finalScore ?? "—"}</strong></div> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:668` | <div><span>平均日分</span><strong>{selected.averageDailyScore ?? "—"}</strong></div> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:669` | <div className="wide"><span>審核備註</span><strong>{selected.reviewRemark ?? "—"}</strong></div> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:675` | <p>{entry.content ?? "—"}</p> | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/WorkLogOperationalPage.tsx:676` | <div className="cy-op-chip-list">{entry.categories.map((category) => <span className="cy-op-chip" key={category. | 留 | 動態業務資料或表單欄位 |
+| `src/runtime/modules/customer/QuoteCreateForm.tsx:91` | {error ? <p role="alert" className="cy-notice cy-notice-error">{error}</p> : null} | 留 | 限制／安全提醒／結果狀態 |
+| `src/runtime/modules/defect/DefectForm.tsx:81` | <p>已建檔與處理中的瑕疵可以修改；已處理的需先重新開啟。</p></div> | 留 | 限制／安全提醒／結果狀態 |
+| `src/runtime/modules/defect/DefectForm.tsx:112` | {error ? <p className="cy-notice cy-notice-error" role="alert">{error}</p> : null} | 留 | 限制／安全提醒／結果狀態 |
+
 ## 9. 審查紀錄（審查者填）
 
 - （待審查）
