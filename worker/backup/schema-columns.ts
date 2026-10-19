@@ -281,6 +281,78 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "last_id",
     "table_name"
   ],
+  "hr_education": [
+    "id",
+    "school",
+    "sort_order"
+  ],
+  "hr_emergency_contacts": [
+    "id",
+    "name"
+  ],
+  "hr_employees": [
+    "birth_date",
+    "created_at",
+    "created_by",
+    "employee_no",
+    "gender",
+    "hire_date",
+    "id",
+    "mailing_address",
+    "member_id",
+    "mobile",
+    "name",
+    "national_id",
+    "note",
+    "phone",
+    "registered_address",
+    "revision",
+    "seniority_start_date",
+    "status",
+    "termination_date",
+    "termination_reason",
+    "updated_at",
+    "updated_by"
+  ],
+  "hr_minimum_wages": [
+    "created_at",
+    "hourly_amount",
+    "id",
+    "monthly_amount"
+  ],
+  "hr_salary_allowances": [
+    "amount",
+    "id",
+    "is_regular",
+    "item_type_id",
+    "salary_record_id"
+  ],
+  "hr_salary_item_types": [
+    "created_at",
+    "id",
+    "is_active"
+  ],
+  "hr_salary_records": [
+    "base_amount",
+    "effective_date",
+    "id",
+    "reason"
+  ],
+  "hr_seniority_exclusions": [
+    "created_at",
+    "id",
+    "start_date"
+  ],
+  "hr_status_changes": [
+    "effective_date",
+    "id",
+    "reason"
+  ],
+  "hr_work_history": [
+    "company",
+    "id",
+    "sort_order"
+  ],
   "item_categories": [
     "code",
     "id",
