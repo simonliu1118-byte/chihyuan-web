@@ -110,10 +110,10 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
   const countdown = Math.max(0, Math.ceil((resendAt - now) / 1000));
 
   useEffect(() => {
-    if (!resendAt || Date.now() >= resendAt) return;
+    if (!resendAt || now >= resendAt) return;
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, [resendAt]);
+  }, [resendAt, now >= resendAt]);
 
   const closeDialog = () => {
     if (busy) return;
