@@ -4,6 +4,7 @@ import { StatusChip } from "../../ui/primitives/StatusChip";
 import "./hr-operational.css";
 import { formatDate } from "../../ui/foundation/format";
 import { apiRequest } from "../../api/client";
+import { taipeiToday } from "../../../shared/erp-query-history";
 import type { HrStatus } from "../../../shared/hr";
 import type { AnnualLeavePeriod } from "../../../shared/hr-annual-leave";
 
