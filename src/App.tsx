@@ -26,6 +26,7 @@ import { WorkLogOperationalPage } from "./runtime/modules/WorkLogOperationalPage
 import { BackupOperationalPage } from "./runtime/modules/BackupOperationalPage";
 import { ProgramCatalogPage } from "./runtime/modules/ProgramCatalogPage";
 import { HrOperationalPage } from "./runtime/modules/HrOperationalPage";
+import { HrSettingsButton } from "./runtime/modules/HrSettingsPanel";
 import { UnsavedChangesBoundary, useNavigationGuard } from "./ui/foundation/useUnsavedChangesGuard";
 import { createGuardedHashNavigation } from "./ui/foundation/guarded-hash-navigation";
 import { FeedbackProvider, useFeedback, useFeedbackMessage } from "./ui/feedback/FeedbackProvider";
@@ -269,7 +270,8 @@ function OperationalApp({
       appName="CY Web"
       pageTitle={PAGE_META[route].title}
       pageDescription={PAGE_META[route].description}
-      pageTools={route === "erp-item-query"
+      pageTools={route === "hr" ? <HrSettingsButton />
+        : route === "erp-item-query"
         ? <ErpAgentCredentialControl isSuperAdmin={session.user.workspaceRole === "SUPER_ADMIN"} />
         : route === "customers" ? <ModuleSettingsButton key={route} role={role} label="客戶" only={["customer_category","customer_status","department"]} />
         : route === "items" ? <ModuleSettingsButton key={route} role={role} label="商品" only={["item_category"]} />
