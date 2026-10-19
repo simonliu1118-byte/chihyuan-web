@@ -394,6 +394,22 @@
 | `src/runtime/modules/defect/DefectForm.tsx:81` | <p>已建檔與處理中的瑕疵可以修改；已處理的需先重新開啟。</p></div> | 留 | 限制／安全提醒／結果狀態 |
 | `src/runtime/modules/defect/DefectForm.tsx:112` | {error ? <p className="cy-notice cy-notice-error" role="alert">{error}</p> : null} | 留 | 限制／安全提醒／結果狀態 |
 
+### §8 原始碼候選盤點（第 4 組：共用元件 A）
+
+| 檔案:行號 | 候選 JSX 內容摘要 | 留／刪 | 理由 |
+| --- | --- | --- | --- |
+| `src/ui/actions/IconButton.tsx:12` | <span aria-hidden="true">{icon}</span> | 留 | UI 狀態、結果訊息或動態資料 |
+| `src/ui/data/DataPagination.tsx:23` | {label ? <span className="cy-data-pagination-label">{label}</span> : null} | 留 | UI 狀態、結果訊息或動態資料 |
+| `src/ui/data/DataView.tsx:59` | <span className="cy-visually-hidden">資料讀取中</span> | 留 | UI 狀態、結果訊息或動態資料 |
+| `src/ui/data/DataViewToolbar.tsx:26` | <span className="cy-visually-hidden">{searchLabel}</span> | 留 | UI 狀態、結果訊息或動態資料 |
+| `src/ui/data/StatusFilter.tsx:17` | const count = (value: number ／ null ／ undefined) => counts ? <span className="cy-status-filter-count">{value ??  | 留 | UI 狀態、結果訊息或動態資料 |
+| `src/ui/feedback/FeedbackProvider.tsx:42` | <p className="cy-feedback-message" role="alert">{alert.message}</p> | 留 | UI 狀態、結果訊息或動態資料 |
+| `src/ui/feedback/Loading.tsx:7` | <span className="cy-loading-spinner" aria-hidden="true" /> | 留 | UI 狀態、結果訊息或動態資料 |
+| `src/ui/feedback/NextStep.tsx:6` | return <p className={finished ? "cy-next-step finished" : "cy-next-step"}>{finished ? null : <strong>下一步</strong | 留 | UI 狀態、結果訊息或動態資料 |
+| `src/ui/forms/PasswordInput.tsx:7` | return <span className="cy-password-input"> | 留 | UI 狀態、結果訊息或動態資料 |
+| `src/ui/foundation/ThemeToggle.tsx:78` | {iconOnly ? null : <span>{options[index].label}</span>} | 留 | UI 狀態、結果訊息或動態資料 |
+| `src/ui/layout/MasterDetail.tsx:28` | return <div className="cy-md-empty"><div><strong>{title}</strong>{hint ? <p>{hint}</p> : null}</div></div>; | 留 | UI 狀態、結果訊息或動態資料 |
+
 ## 9. 審查紀錄（審查者填）
 
 - （待審查）
