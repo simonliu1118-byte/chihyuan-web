@@ -454,7 +454,6 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
         </table>
         {rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的使用者。</div> : null}
       </div>}
-      {canIdentityAdmin ?  : null}
     </section>
   </>;
 }
