@@ -1,4 +1,6 @@
-import { formatItem } from "../../ui/foundation/format";
+import { formatDate, formatItem } from "../../ui/foundation/format";
+import { unitFactorToBase } from "../../../worker/item/unit-conversion";
+import { parseScaled4, formatScaled4 } from "../../../shared/fixed-point";
 import { StatusChip } from "../../ui/primitives/StatusChip";
 import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
@@ -73,6 +75,24 @@ function newDraft(lookups: ItemModuleLookups | null): ItemDraft {
   };
 }
 
+/** Legacy chained conversions are flattened using the canonical rational calculator. */
+function baseConversions(item: ItemDetail): ItemUnitConversionInput[] {
+  const edges = item.unitConversions.map(row => ({
+    fromUnit: row.fromUnit, toUnit: row.toUnit, quantityScaled4: parseScaled4(row.quantity),
+  }));
+  return item.unitConversions.map(row => {
+    const factor = unitFactorToBase(item.baseUnit, edges, row.fromUnit);
+    const scaled = factor.numerator * 10000n;
+    if (scaled % factor.denominator !== 0n) {
+      throw new Error(`換算「${row.fromUnit}」無法精確表示為四位小數的基準單位，請確認舊資料。`);
+    }
+    const value = Number(scaled / factor.denominator);
+    if (!Number.isSafeInteger(value)) throw new Error("基準單位換算數量超出安全範圍");
+    return { fromUnit: row.fromUnit, quantity: formatScaled4(value),
+      toUnit: item.baseUnit, sortOrder: row.sortOrder };
+  });
+}
+
 function draftFromDetail(item: ItemDetail): ItemDraft {
   return {
     itemNo: item.itemNo,
@@ -86,12 +106,7 @@ function draftFromDetail(item: ItemDetail): ItemDraft {
     storePrice: item.storePrice ?? "",
     clinicPrice: item.clinicPrice ?? "",
     notes: item.notes ?? "",
-    unitConversions: item.unitConversions.map((row) => ({
-      fromUnit: row.fromUnit,
-      quantity: row.quantity,
-      toUnit: row.toUnit,
-      sortOrder: row.sortOrder,
-    })),
+    unitConversions: baseConversions(item),
   };
 }
 
@@ -110,7 +125,7 @@ function profileFromDraft(draft: ItemDraft): ItemProfileInput {
     unitConversions: draft.unitConversions.map((row, index) => ({
       fromUnit: row.fromUnit.trim(),
       quantity: row.quantity.trim(),
-      toUnit: row.toUnit.trim(),
+      toUnit: draft.baseUnit.trim(),
       sortOrder: row.sortOrder ?? index,
     })),
   };
@@ -128,43 +143,21 @@ function profileFromDetail(item: ItemDetail, isActive = item.isActive): ItemProf
     clinicPrice: item.clinicPrice,
     notes: item.notes,
     isActive,
-    unitConversions: item.unitConversions.map((row) => ({
-      fromUnit: row.fromUnit,
-      quantity: row.quantity,
-      toUnit: row.toUnit,
-      sortOrder: row.sortOrder,
-    })),
+    unitConversions: baseConversions(item),
   };
 }
 
 function validateConversions(baseUnit: string, conversions: readonly ItemUnitConversionInput[]): string | null {
   const base = baseUnit.trim();
-  const byFrom = new Map<string, ItemUnitConversionInput>();
-
+  const seen = new Set<string>();
   for (const row of conversions) {
     const from = row.fromUnit.trim();
-    const to = row.toUnit.trim();
     const quantity = Number(row.quantity);
-    if (!from || !to || !Number.isFinite(quantity) || quantity <= 0) {
-      return "每筆換算都必須有來源單位、正數數量與目標單位。";
-    }
-    if (from === base) return `基準單位「${base}」不能再作為換算來源。`;
-    if (byFrom.has(from)) return `來源單位「${from}」不可重複設定。`;
-    byFrom.set(from, { ...row, fromUnit: from, toUnit: to });
+    if (!from || !Number.isFinite(quantity) || quantity <= 0) return "換算來源及正數數量為必填。";
+    if (from === base) return "來源不可等於基準單位";
+    if (seen.has(from)) return "此單位已有換算";
+    seen.add(from);
   }
-
-  for (const start of byFrom.keys()) {
-    const seen = new Set<string>();
-    let current = start;
-    while (current !== base) {
-      if (seen.has(current)) return `單位換算形成循環：${start}`;
-      seen.add(current);
-      const edge = byFrom.get(current);
-      if (!edge) return `單位「${start}」的換算路徑無法到達基準單位「${base}」。`;
-      current = edge.toUnit;
-    }
-  }
-
   return null;
 }
 
@@ -352,7 +345,7 @@ export function ItemOperationalPage() {
     if (!draft?.itemNo.trim() || !draft.name.trim() || !draft.baseUnit.trim()) return;
 
     const conversions = draft.unitConversions.filter((row) => (
-      row.fromUnit.trim() || row.toUnit.trim() || row.quantity.trim()
+      row.fromUnit.trim() || row.quantity.trim()
     ));
     const conversionError = validateConversions(draft.baseUnit, conversions);
     if (conversionError) {
@@ -398,7 +391,7 @@ export function ItemOperationalPage() {
     });
   }
 
-  function updateConversion(index: number, field: "fromUnit" | "quantity" | "toUnit", value: string) {
+  function updateConversion(index: number, field: "fromUnit" | "quantity", value: string) {
     if (!draft) return;
     patch({
       unitConversions: draft.unitConversions.map((row, rowIndex) => (
@@ -536,25 +529,22 @@ export function ItemOperationalPage() {
                 <label className="wide">備註<textarea className="cy-op-input" rows={3} value={draft.notes} disabled={busy} onChange={(event) => patch({ notes: event.target.value })} /></label>
               </div>
 
-              <section className="cy-form-block">
-                <div className="cy-form-block-head">
-                  <div><h3>單位換算</h3><p>1 來源單位 = 數量 × 目標單位；每條換算最後都要換到基準單位。</p></div>
-                  <button type="button" className="cy-op-button compact" disabled={busy} onClick={addConversion}>＋ 增加換算</button>
-                </div>
-                <div className="cy-form-block-body">
+              <div className="cy-item-conversions-inline">
                 {draft.unitConversions.map((row, index) => (
-                  <div className="cy-item-conversion-row" key={`${index}-${row.fromUnit}`}>
+                  <div className="cy-item-conversion-row" key={index}>
                     <span>1</span>
-                    <input className="cy-op-input" value={row.fromUnit} disabled={busy} onChange={(event) => updateConversion(index, "fromUnit", event.target.value)} />
+                    <input className="cy-op-input" aria-label="換算來源單位" value={row.fromUnit} disabled={busy}
+                      onChange={event => updateConversion(index, "fromUnit", event.target.value)} />
                     <span>=</span>
-                    <input className="cy-op-input" inputMode="decimal" value={row.quantity} disabled={busy} onChange={(event) => updateConversion(index, "quantity", event.target.value)} />
-                    <input className="cy-op-input" value={row.toUnit} disabled={busy} onChange={(event) => updateConversion(index, "toUnit", event.target.value)} />
-                    <button type="button" className="cy-op-button compact quiet cy-row-remove" disabled={busy} onClick={() => patch({ unitConversions: draft.unitConversions.filter((_, rowIndex) => rowIndex !== index) })}>移除</button>
+                    <input className="cy-op-input" aria-label="換算數量" inputMode="decimal" value={row.quantity} disabled={busy}
+                      onChange={event => updateConversion(index, "quantity", event.target.value)} />
+                    <span>{draft.baseUnit}</span>
+                    <button type="button" className="cy-op-button compact quiet" disabled={busy}
+                      aria-label="移除換算" onClick={() => patch({ unitConversions: draft.unitConversions.filter((_, n) => n !== index) })}>✕</button>
                   </div>
                 ))}
-                {draft.unitConversions.length === 0 ? <p className="cy-form-block-empty">目前只使用基準單位。</p> : null}
-                </div>
-              </section>
+                <button type="button" className="cy-item-add-conversion" disabled={busy} onClick={addConversion}>＋ 換算</button>
+              </div>
             </div>
           </form>
         ) : loadingDetail ? (
@@ -562,37 +552,36 @@ export function ItemOperationalPage() {
         ) : selected ? (
           <div>
             <div className="cy-record-header">
-              <div><h2>{selected.name}</h2><p><span className="cy-mono">{selected.itemNo}</span>{selected.spec ? `　${selected.spec}` : ""}</p></div>
+              <div>
+                <h2>{formatItem(selected.itemNo, selected.name)}</h2>
+                <p>{[selected.spec, selected.category?.name, selected.isActive ? "使用中" : null].filter(Boolean).join("　")}
+                  {!selected.isActive ? <StatusChip>已停用</StatusChip> : null}</p>
+              </div>
               <div className="cy-record-actions">
-                {selected.isActive ? null : <StatusChip>已停用</StatusChip>}
                 <button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
-                <button type="button" className="cy-op-button" disabled={busy} aria-busy={(busy && pending === "changeItemNumber") || undefined} onClick={() => track("changeItemNumber", changeItemNumber())}>更改品號</button>
-                <button type="button" className={`cy-op-button ${selected.isActive ? "danger" : ""}`} disabled={busy} aria-busy={(busy && pending === "toggleActive") || undefined} onClick={() => track("toggleActive", toggleActive())}>{selected.isActive ? "停用" : "啟用"}</button>
+                <button type="button" className="cy-op-button" disabled={busy} aria-busy={(busy && pending === "changeItemNumber") || undefined}
+                  onClick={() => track("changeItemNumber", changeItemNumber())}>更改品號</button>
+                <button type="button" className={`cy-op-button ${selected.isActive ? "danger" : ""}`} disabled={busy}
+                  aria-busy={(busy && pending === "toggleActive") || undefined} onClick={() => track("toggleActive", toggleActive())}>
+                  {selected.isActive ? "停用" : "啟用"}</button>
               </div>
             </div>
             <div className="cy-item-detail-body">
-              <div className="cy-item-info-grid">
-                <Info label="分類" value={selected.category?.name ?? null} />
-                <Info label="基準單位" value={selected.baseUnit} />
-                <Info label="成本" value={selected.cost} />
-                <Info label="成本稅別" value={selected.costTaxMode ? taxModeText[selected.costTaxMode] : null} />
-                <Info label="門市價" value={selected.storePrice} />
-                <Info label="診所價" value={selected.clinicPrice} />
-                <Info label="狀態" value={selected.isActive ? "使用中" : "已停用"} />
-                <div className="wide"><Info label="備註" value={selected.notes} /></div>
-              </div>
-              <section className="cy-item-section">
-                <h3>單位換算</h3>
-                {selected.unitConversions.length
-                  ? selected.unitConversions.map((row) => <div className="cy-item-read-row" key={row.id}>1 {row.fromUnit} = {row.quantity} {row.toUnit}</div>)
-                  : <p className="cy-item-muted">目前僅使用基準單位。</p>}
+              <section className="cy-op-panel cy-item-basic-card" aria-label="基本資料">
+                <h3>基本資料</h3>
+                <div><strong>基準單位</strong> {selected.baseUnit}
+                  {baseConversions(selected).map((row, index) => <span key={index}>　·　1 {row.fromUnit} = {row.quantity} {selected.baseUnit}</span>)}
+                </div>
+                <div><strong>成本</strong> {selected.cost ? `$${selected.cost}` : "—"}
+                  {selected.costTaxMode ? `（${taxModeText[selected.costTaxMode]}）` : ""}
+                  <span>　門市價 ${selected.storePrice ? `$${selected.storePrice}` : "—"}</span>
+                  <span>　診所價 ${selected.clinicPrice ? `$${selected.clinicPrice}` : "—"}</span>
+                </div>
+                {selected.notes ? <div><strong>備註</strong> {selected.notes}</div> : null}
+                {numberHistory.length ? <small>曾用品號：{numberHistory.map(row =>
+                  `${row.itemNo}（${formatDate(row.validTo ?? row.createdAt)} 更改）`).join("、")}</small> : null}
               </section>
-              <section className="cy-item-section">
-                <h3>歷史品號</h3>
-                {numberHistory.length
-                  ? numberHistory.map((row) => <div className="cy-item-history-row" key={row.id}><strong>{row.itemNo}</strong><span>{row.changeSource ?? "未註明原因"} · 至 {formatDateTime(row.validTo ?? row.createdAt)}</span></div>)
-                  : <p className="cy-item-muted">尚無品號變更紀錄。</p>}
-              </section>
+              {/* Related record cards are rendered below, subject to module grants. */}
             </div>
           </div>
         ) : (
