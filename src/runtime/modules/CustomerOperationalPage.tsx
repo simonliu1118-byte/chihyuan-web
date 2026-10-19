@@ -8,7 +8,8 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { Dialog } from "../../ui/overlays/Dialog";
 import { ChangeLogList } from "./AuditOperationalPage";
-import { formatDate, formatDateTime, formatPerson } from "../../ui/foundation/format";
+import { formatDate, formatDateTime, formatPerson, formatItem } from "../../ui/foundation/format";
+import { EntityPicker } from "../../ui/pickers/EntityPicker";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import type { CustomerItemOption, CustomerModuleLookups } from "../../../shared/business-lookups";
 import type {
@@ -33,7 +34,7 @@ import {
   correctCustomerQuote,
   createCustomer,
   createCustomerFrequentItem,
-  createCustomerQuote,
+  createCustomerQuoteBatch,
   createCustomerVisit,
   deleteCustomerFrequentItem,
   deleteCustomerVisit,
@@ -51,6 +52,7 @@ import {
 import "./customer-operational.css";
 
 type RelatedView = "visits" | "quotes" | "frequent";
+type RelatedDialog = { view: RelatedView; mode: "create" | "browse" };
 
 interface CustomerDraft {
   customerNo: string;
@@ -77,13 +79,16 @@ interface VisitDraft {
   content: string;
 }
 
-interface QuoteDraft {
-  corrected: CustomerItemQuoteDetail | null;
-  itemId: number | null;
-  quoteDate: string;
+interface QuoteLineDraft {
+  item: CustomerItemOption | null;
   quantity: string;
   unit: string;
   unitPrice: string;
+}
+interface QuoteDraft {
+  corrected: CustomerItemQuoteDetail | null;
+  quoteDate: string;
+  lines: QuoteLineDraft[];
   note: string;
   correctionReason: string;
 }
@@ -236,22 +241,15 @@ function emptyVisit(): VisitDraft {
   return { record: null, visitDate: today(), contactId: null, personSnapshot: "", content: "" };
 }
 
-function emptyQuote(item: CustomerItemOption | null): QuoteDraft {
-  return {
-    corrected: null,
-    itemId: item?.id ?? null,
-    quoteDate: today(),
-    quantity: "1",
-    unit: item?.baseUnit ?? "個",
-    unitPrice: "0",
-    note: "",
-    correctionReason: "",
-  };
+function emptyQuote(): QuoteDraft {
+  return { corrected: null, quoteDate: today(), lines: [emptyQuoteLine()], note: "", correctionReason: "" };
+}
+function emptyQuoteLine(): QuoteLineDraft {
+  return { item: null, quantity: "1", unit: "個", unitPrice: "0" };
 }
 
 export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"USER"}) {
   const [lookups, setLookups] = useState<CustomerModuleLookups | null>(null);
-  const [itemOptions, setItemOptions] = useState<readonly CustomerItemOption[]>([]);
   const [rows, setRows] = useState<readonly CustomerSummary[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [selected, setSelected] = useState<CustomerDetail | null>(null);
@@ -264,7 +262,9 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<CustomerDraft | null>(null);
-  const [relatedView, setRelatedView] = useState<RelatedView | null>(null);
+  const [relatedView, setRelatedView] = useState<RelatedDialog | null>(null);
+  const [relatedFilter, setRelatedFilter] = useState("");
+  const [frequentAdding, setFrequentAdding] = useState(false);
   const [historyOpen,setHistoryOpen] = useState(false);
   const focusFrequentOnOpen = useRef(false);
   const pane = useMasterDetailPane();
@@ -298,11 +298,10 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all([loadCustomerLookups(), searchCustomerItemOptions("", 100)])
-      .then(([lookupValue, items]) => {
+    void loadCustomerLookups()
+      .then((lookupValue) => {
         if (cancelled) return;
         setLookups(lookupValue);
-        setItemOptions(items);
       })
       .catch((error) => {
         if (!cancelled) reportError(errorMessage(error));
@@ -479,7 +478,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
       if (!creating && nextCustomerNo !== saved.customerNo) {
         setSelected(saved);
         saved = await changeCustomerNumber(saved.id, { newCustomerNo: nextCustomerNo, expectedRevision: saved.revision,
-          changeReason: saved.customerNo ? "ERP 編號更正" : "ERP 建檔後回填" });
+          changeReason: saved.customerNo ? "客戶編號更正" : "客戶編號建檔後回填" });
       }
       setSelectedId(saved.id);
       setSelected(saved);
@@ -546,6 +545,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
         await createCustomerVisit(selected.id, payload);
       }
       setVisitDraft(null);
+      if (relatedView?.mode === "create") setRelatedView(null);
       setRelatedEpoch((value) => value + 1);
       setMessage("拜訪紀錄已儲存。");
     } catch (error) {
@@ -584,7 +584,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
   }
 
   function startQuote() {
-    setQuoteDraft(emptyQuote(itemOptions[0] ?? null));
+    setQuoteDraft(emptyQuote());
   }
 
   async function startQuoteCorrection(summary: CustomerItemQuoteSummary) {
@@ -593,16 +593,16 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
     setMessage(null);
     try {
       const detail = await loadCustomerQuote(selected.id, summary.id);
-      const first = detail.priceBreaks[0];
+      const item: CustomerItemOption = {
+        id: detail.itemId, itemNo: detail.itemNoSnapshot, name: detail.itemNameSnapshot,
+        spec: detail.specSnapshot, baseUnit: detail.priceBreaks[0]?.unit ?? "個",
+      };
       setQuoteDraft({
-        corrected: detail,
-        itemId: detail.itemId,
-        quoteDate: detail.quoteDate,
-        quantity: first?.quantity ?? "1",
-        unit: first?.unit ?? itemOptions.find((row) => row.id === detail.itemId)?.baseUnit ?? "個",
-        unitPrice: first?.unitPrice ?? "0",
-        note: first?.note ?? "",
-        correctionReason: "",
+        corrected: detail, quoteDate: detail.quoteDate,
+        lines: detail.priceBreaks.map(tier => ({
+          item, quantity: tier.quantity, unit: tier.unit, unitPrice: tier.unitPrice,
+        })),
+        note: detail.priceBreaks[0]?.note ?? "", correctionReason: "",
       });
     } catch (error) {
       reportError(errorMessage(error));
@@ -613,40 +613,46 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
 
   async function saveQuote(event: FormEvent) {
     event.preventDefault();
-    if (!selected || !quoteDraft?.itemId || busy) return;
-    const quantity = quoteDraft.quantity.trim();
-    const unitPrice = quoteDraft.unitPrice.trim();
-    if (!quantity || !unitPrice || !quoteDraft.unit.trim()) return;
-
+    if (!selected || !quoteDraft || busy) return;
+    const lines = quoteDraft.lines;
+    if (!quoteDraft.quoteDate || !lines.length || lines.some(row => !row.item || !row.quantity.trim() || !row.unit.trim() || !row.unitPrice.trim())) {
+      reportError("每列請選擇商品並填寫數量、單位及單價。");
+      return;
+    }
     setBusy(true);
     setMessage(null);
     try {
-      const base = {
-        itemId: quoteDraft.itemId,
-        quoteDate: quoteDraft.quoteDate,
-        priceBreaks: [{
-          quantity,
-          unit: quoteDraft.unit.trim(),
-          unitPrice,
-          note: quoteDraft.note.trim() || null,
-          sortOrder: 0,
-        }],
-      };
       if (quoteDraft.corrected) {
+        const itemId = lines[0].item!.id;
+        if (lines.some(row => row.item?.id !== itemId)) {
+          reportError("單筆修正只能包含同一個商品的數量級距。");
+          return;
+        }
         await correctCustomerQuote(selected.id, quoteDraft.corrected.id, {
-          ...base,
+          itemId, quoteDate: quoteDraft.quoteDate,
+          priceBreaks: lines.map((row, index) => ({
+            quantity: row.quantity.trim(), unit: row.unit.trim(), unitPrice: row.unitPrice.trim(),
+            note: quoteDraft.note.trim() || null, sortOrder: index,
+          })),
           expectedRevision: quoteDraft.corrected.revision,
           correctionReason: quoteDraft.correctionReason.trim() || null,
         });
       } else {
-        await createCustomerQuote(selected.id, base);
+        await createCustomerQuoteBatch(selected.id, {
+          quoteDate: quoteDraft.quoteDate, note: quoteDraft.note.trim() || null,
+          lines: lines.map(row => ({
+            itemId: row.item!.id, quantity: row.quantity.trim(),
+            unit: row.unit.trim(), unitPrice: row.unitPrice.trim(),
+          })),
+        });
       }
       setQuoteDraft(null);
-      setRelatedEpoch((value) => value + 1);
+      if (relatedView?.mode === "create") setRelatedView(null);
+      setRelatedEpoch(value => value + 1);
       setMessage("報價紀錄已儲存。");
     } catch (error) {
       reportError(errorMessage(error));
-      if (error instanceof ApiClientError && error.status === 409) setRelatedEpoch((value) => value + 1);
+      if (error instanceof ApiClientError && error.status === 409) setRelatedEpoch(value => value + 1);
     } finally {
       setBusy(false);
     }
@@ -672,6 +678,8 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
       });
       setFrequentItemId(null);
       setFrequentText("");
+      setFrequentAdding(false);
+      if (relatedView?.mode === "create") setRelatedView(null);
       setRelatedEpoch((value) => value + 1);
       setMessage("常用商品已加入。");
     } catch (error) {
@@ -708,14 +716,16 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
     setQuoteDraft(null);
     setFrequentItemId(null);
     setFrequentText("");
+    setFrequentAdding(view === "frequent" && create);
+    setRelatedFilter("");
     focusFrequentOnOpen.current = view === "frequent" && create;
     if (view === "visits" && create) setVisitDraft(emptyVisit());
     if (view === "quotes" && create) startQuote();
-    setRelatedView(view);
+    setRelatedView({ view, mode: create ? "create" : "browse" });
   }
 
   useEffect(() => {
-    if (relatedView === "frequent" && focusFrequentOnOpen.current) {
+    if (relatedView?.view === "frequent" && focusFrequentOnOpen.current) {
       document.getElementById("cy-frequent-add-select")?.focus();
       focusFrequentOnOpen.current = false;
     }
@@ -734,6 +744,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
     setQuoteDraft(null);
     setFrequentItemId(null);
     setFrequentText("");
+    setFrequentAdding(false);
     setRelatedView(null);
   }
 
