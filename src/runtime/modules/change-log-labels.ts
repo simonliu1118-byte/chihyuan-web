@@ -79,6 +79,7 @@ export function actionLabel(action: string, type = ""): string {
 }
 const fields:Record<string,string> = {
   nationalIdMasked:"身分證字號（遮罩）",baseAmount:"本薪",allowanceTotal:"津貼合計",paymentType:"計薪方式",effectiveDate:"生效日",nextStatus:"新狀態",startDate:"起日",endDate:"迄日",
+  employeeNo:"員工編號",memberId:"綁定使用者",nationalIdMasked:"身分證字號（遮罩）",birthDate:"出生日期",gender:"性別",mailingAddress:"通訊地址",registeredAddress:"戶籍地址",hireDate:"到職日",seniorityStartDate:"年資起算日",contacts:"緊急聯絡人",education:"學歷",workHistory:"工作經歷",relationship:"關係",graduationMonth:"畢業年月",jobTitle:"職稱",startMonth:"開始年月",endMonth:"結束年月",
   name:"名稱",shortName:"簡稱",fullName:"完整名稱",displayName:"姓名",employeeNo:"員工編號",
   code:"代碼",customerNo:"客戶編號",itemNo:"品號",workOrderRef:"工單編號",
   outsourcingRef:"代工單號",customerNameSnapshot:"客戶名稱",itemNameSnapshot:"商品名稱",
