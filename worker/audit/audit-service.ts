@@ -76,6 +76,7 @@ export interface AuditQuery {
   cursor?: string;
   relatedCustomerId?: number;
   includeErpQueries?: boolean;
+  includeHrEvents?: boolean;
   limit?: number;
 }
 
@@ -309,6 +310,7 @@ export class AuditService {
     where.push(query.includeErpQueries
       ? "(ae.entity_type <> 'erp_item_query' OR ae.action <> 'erp_item_query.created')"
       : "ae.entity_type <> 'erp_item_query'");
+    if (!query.includeHrEvents) where.push("ae.entity_type NOT LIKE 'hr_%'");
     if (query.entityType) where.push(`ae.entity_type = ${bind(normalizeCode(query.entityType, "entityType"))}`);
     if (query.entityKey) where.push(`ae.entity_key = ${bind(normalizeEntityKey(query.entityKey))}`);
     if (query.action) where.push(`ae.action = ${bind(normalizeCode(query.action, "action"))}`);
