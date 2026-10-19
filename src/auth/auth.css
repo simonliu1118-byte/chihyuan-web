@@ -48,7 +48,6 @@
 
 .cy-auth-login-options { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .cy-auth-remember { display: inline-flex; align-items: center; gap: 8px; color: var(--cy-text-muted); font-size: var(--cy-fs-md); cursor: pointer; }
-.cy-auth-login-footnote { margin: 0; color: var(--cy-text-subtle); font-size: var(--cy-fs-xs); text-align: center; }
 
 .cy-auth-error { margin: 0; padding: 8px 10px; border-radius: var(--cy-radius-md); background: var(--cy-danger-soft); color: var(--cy-danger); font-weight: 600; }
 .cy-auth-note-inline, .cy-auth-note { margin: 0; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); line-height: 1.6; }
