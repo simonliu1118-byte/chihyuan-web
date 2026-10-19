@@ -34,3 +34,8 @@ export function formatDateTime(value: string | number | Date | null | undefined)
 export function formatPerson(person: { displayName?: string | null; employeeNo?: string | null } | null | undefined): string {
   return person?.displayName?.trim() || person?.employeeNo?.trim() || "使用者";
 }
+
+/** Canonical item number/name label: one ordinary space, no middle dot. */
+export function formatItem(itemNo: string | null | undefined, name: string | null | undefined): string {
+  return [itemNo?.trim(), name?.trim()].filter(Boolean).join(" ");
+}
