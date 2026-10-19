@@ -12,6 +12,7 @@ This index records the current interpretation of confirmed CY Web Business Decis
 - BD-055 confirms that Legacy GAS UX is reference evidence rather than a replication target: useful proven behavior may be retained/adapted, while the new UI and implementation follow the new Web architecture and shared-component model.
 - BD-056 confirms `chihyuancm.com` as the shared parent domain for the future official website and internal/business CY Web systems, with separate hostnames/origins and security boundaries.
 - BD-057 adds CY Web 權限群組: one group per person, group members use exactly the group's systems and CY Web modules without individual edits, and leaving keeps the current access; module grants are materialized into `app_member_module_access` (still the runtime authority) and system access is synced to CYID with a visible re-sync for members not yet applied.
+- BD-058 makes Item unit conversions single-level: every row converts directly to the base unit (`1 盒 = 30 包`, `1 箱 = 180 包`); existing chained rows stay readable and are rewritten on the next save.
 
 ## Decision index
 
@@ -74,6 +75,7 @@ This index records the current interpretation of confirmed CY Web Business Decis
 | BD-055 | Legacy UX is reference evidence, not a replication target; retain/adapt good proven behavior under the new architecture | CONFIRMED |
 | BD-056 | `chihyuancm.com` is the shared parent domain for the public website and internal/business CY Web systems | CONFIRMED |
 | BD-057 | 權限群組 presets system and module access for members; one group per person; leaving keeps current access | CONFIRMED; refines BD-037 |
+| BD-058 | Item unit conversions are single-level: every conversion goes directly to the base unit | CONFIRMED |
 
 ## Cross-decision supersession / refinement notes
 
