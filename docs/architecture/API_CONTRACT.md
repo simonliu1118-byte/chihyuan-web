@@ -603,3 +603,21 @@ The program reader retains the shared D1 catalog during failures, with `current=
 `POST /api/business/customers/:customerId/quotes/batch` accepts `{ quoteDate: "YYYY-MM-DD", note?: string, lines: [{ itemId, quantity, unit, unitPrice, note? }] }` (1–100 lines). Quantities and prices are canonical four-decimal strings; unit must be present. All rows are validated against active Items and the existing quote rules before writing. Rows are grouped by Item: one customer quote per Item, with multiple quantity/price breaks when the same Item occurs more than once (up to 10 breaks per Item). All quote rows, price breaks and one `customer_item_quote / created` audit per quote (metadata includes `customerId`) are written in **one D1 batch**, atomically; on any validation or database error no partial success is returned. The response contains the created quote details. The pre-existing single-create and correction APIs remain supported.
 
 `GET /api/business/customers/:customerId/quotes` includes `priceBreaks` for each summary row (quantity, unit, unitPrice, note, sortOrder) so the UI can group by quote date and render every price tier.
+
+### Item-scoped quote history summary (V0.9.15)
+
+`GET /api/business/customers/item-quote-summary?itemId=<positive item id>` requires the existing **CUSTOMERS** module grant. The Item page must not call this endpoint without that grant. Returns:
+
+```ts
+{ customerCount: number; groups: Array<{
+  unit: string;
+  breaks: Array<{ quantity: number; unitPrice: number }>;
+  latestQuoteDate: string;
+  customers: Array<{
+    customerId: number; customerNo: string | null; shortName: string;
+    quoteDate: string; quoteId: number;
+  }>;
+}> }
+```
+
+Each customer's latest quote for the Item is selected by `quote_date DESC, id DESC`. All price tiers (unit, exact scaled quantity, exact scaled unit price) are sorted and compared as a complete schedule: only exactly identical schedules are grouped, without comparing or converting prices across units. Each group sorts customers by latest quote date (and quote ID) descending, groups by latest date descending. This is read-only; no quote correction, ERP quote number, migration or total calculation is added.

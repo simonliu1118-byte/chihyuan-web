@@ -352,9 +352,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
   await acceptSalesOrderStaleAudit(db,created.id,1001);
   await acceptCustomerQuoteStaleMutation(db, created.id, 1001);
 
-  // Item domain: persist a chained conversion graph through ItemService, then
-  // prove exact scaled4 conversion and exact money2 multiplication from the
-  // database-backed conversion values.
+  // BD-058: persist direct-to-base conversion rows and test legacy chain read compatibility.
   const itemService = new ItemService(db);
   const componentItem = await itemService.create(
     {
@@ -367,7 +365,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
       clinicPrice: "3.75",
       unitConversions: [
         { fromUnit: "BOX", quantity: "12", toUnit: "EA", sortOrder: 0 },
-        { fromUnit: "CASE", quantity: "2", toUnit: "BOX", sortOrder: 1 },
+        { fromUnit: "CASE", quantity: "24", toUnit: "EA", sortOrder: 1 },
       ],
     },
     { actorMemberId: 1, now: t3 },
@@ -396,9 +394,15 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
   }));
   assertAcceptance(edges.length === 2, "ACCEPT_ITEM_CONVERSION_DB_ROWS_MISSING");
   assertAcceptance(edges[0]?.quantityScaled4 === 120000, "ACCEPT_ITEM_BOX_FACTOR_MISMATCH");
-  assertAcceptance(edges[1]?.quantityScaled4 === 20000, "ACCEPT_ITEM_CASE_FACTOR_MISMATCH");
+  assertAcceptance(edges[1]?.quantityScaled4 === 240000, "ACCEPT_ITEM_CASE_FACTOR_MISMATCH");
   const convertedCase = convertScaled4Exact(15000, "CASE", "EA", "EA", edges);
   assertAcceptance(convertedCase === 360000, "ACCEPT_ITEM_CHAINED_CONVERSION_MISMATCH");
+  const legacyChainedEdges = [
+    { fromUnit: "BOX", quantityScaled4: 120000, toUnit: "EA" },
+    { fromUnit: "CASE", quantityScaled4: 20000, toUnit: "BOX" },
+  ];
+  assertAcceptance(convertScaled4Exact(15000, "CASE", "EA", "EA", legacyChainedEdges) === convertedCase,
+    "ACCEPT_ITEM_LEGACY_CHAIN_FLATTEN_COMPAT");
   assertAcceptance(
     scaled4ProductToMoney2Exact(convertedCase, 12500) === 4500,
     "ACCEPT_ITEM_EXACT_MONEY_MISMATCH",

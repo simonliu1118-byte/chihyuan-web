@@ -3,6 +3,7 @@ import type {
   CustomerItemQuoteDetail,
   CustomerItemQuotePriceBreak,
   CustomerItemQuoteSummary,
+  ItemQuoteSummary,
   CustomerRelatedPage,
   CustomerRelatedQuery,
   CustomerVisitRecord,
@@ -236,6 +237,74 @@ export class CustomerRelatedRepository {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }));
+  }
+
+  /** One current quote per customer; no unit conversion or price averaging. */
+  async itemQuoteSummary(itemId: number): Promise<ItemQuoteSummary> {
+    const result = await this.db.prepare(`
+      SELECT q.id AS quote_id, q.customer_id, q.quote_date,
+             c.customer_no, c.short_name,
+             b.quantity, b.unit, b.unit_price
+        FROM (
+          SELECT id, customer_id, quote_date,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY customer_id ORDER BY quote_date DESC, id DESC
+                 ) AS rn
+            FROM customer_item_quotes WHERE item_id = ?
+        ) AS q
+        JOIN customers AS c ON c.id = q.customer_id
+        JOIN quote_price_breaks AS b ON b.quote_id = q.id
+       WHERE q.rn = 1
+       ORDER BY q.quote_date DESC, q.id DESC, b.quantity ASC, b.unit ASC, b.unit_price ASC
+    `).bind(itemId).all<{
+      quote_id: number;
+      customer_id: number;
+      quote_date: string;
+      customer_no: string | null;
+      short_name: string;
+      quantity: number;
+      unit: string;
+      unit_price: number;
+    }>();
+    type Row = (typeof result.results)[number];
+    const perCustomer = new Map<number, { customer: ItemQuoteSummary["groups"][number]["customers"][number]; tiers: Row[] }>();
+    for (const row of result.results ?? []) {
+      const current = perCustomer.get(row.customer_id);
+      if (current) current.tiers.push(row);
+      else perCustomer.set(row.customer_id, {
+        customer: {
+          customerId: row.customer_id, customerNo: row.customer_no,
+          shortName: row.short_name, quoteDate: row.quote_date, quoteId: row.quote_id,
+        },
+        tiers: [row],
+      });
+    }
+    const groups = new Map<string, ItemQuoteSummary["groups"][number]>();
+    for (const { customer, tiers } of perCustomer.values()) {
+      const ordered = tiers.sort((a, b) => a.quantity - b.quantity || a.unit.localeCompare(b.unit) || a.unit_price - b.unit_price);
+      // Key uses original exact scaled integers, never floating-point comparisons.
+      const key = JSON.stringify(ordered.map(row => [row.unit, row.quantity, row.unit_price]));
+      const existing = groups.get(key);
+      if (existing) {
+        existing.customers.push(customer);
+        if (customer.quoteDate > existing.latestQuoteDate) existing.latestQuoteDate = customer.quoteDate;
+      } else {
+        groups.set(key, {
+          unit: ordered[0].unit,
+          breaks: ordered.map(row => ({
+            quantity: Number(formatScaled4(row.quantity)),
+            unitPrice: Number(formatScaled4(row.unit_price)),
+          })),
+          latestQuoteDate: customer.quoteDate,
+          customers: [customer],
+        });
+      }
+    }
+    const orderedGroups = Array.from(groups.values()).sort((a, b) =>
+      b.latestQuoteDate.localeCompare(a.latestQuoteDate) || b.customers.length - a.customers.length);
+    orderedGroups.forEach(group => group.customers.sort((a, b) =>
+      b.quoteDate.localeCompare(a.quoteDate) || b.quoteId - a.quoteId));
+    return { customerCount: perCustomer.size, groups: orderedGroups };
   }
 
   async listQuotes(

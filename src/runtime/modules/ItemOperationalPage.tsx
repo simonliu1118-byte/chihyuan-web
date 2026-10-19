@@ -1,4 +1,19 @@
-import { formatItem } from "../../ui/foundation/format";
+import { Dialog } from "../../ui/overlays/Dialog";
+import { RelatedCard } from "../../ui/records/RelatedCard";
+import { EntityPicker } from "../../ui/pickers/EntityPicker";
+import { DefectForm } from "./defect/DefectForm";
+import { QuoteCreateForm } from "./customer/QuoteCreateForm";
+import { searchDefects } from "../api/defect-runtime-client";
+import { loadItemQuoteSummary, searchCustomers } from "../api/customer-runtime-client";
+import { routeHref } from "../navigation/route-params";
+import { defectTone } from "./status-flow";
+import type { DefectSummary } from "../../../shared/defect";
+import type { ItemQuoteSummary } from "../../../shared/customer-related";
+import type { CustomerSummary } from "../../../shared/customer";
+import type { CustomerItemOption } from "../../../shared/business-lookups";
+import { formatDate, formatItem } from "../../ui/foundation/format";
+import { unitFactorToBase } from "../../../worker/item/unit-conversion";
+import { parseScaled4, formatScaled4 } from "../../../shared/fixed-point";
 import { StatusChip } from "../../ui/primitives/StatusChip";
 import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
@@ -73,6 +88,24 @@ function newDraft(lookups: ItemModuleLookups | null): ItemDraft {
   };
 }
 
+/** Legacy chained conversions are flattened using the canonical rational calculator. */
+function baseConversions(item: ItemDetail): ItemUnitConversionInput[] {
+  const edges = item.unitConversions.map(row => ({
+    fromUnit: row.fromUnit, toUnit: row.toUnit, quantityScaled4: parseScaled4(row.quantity),
+  }));
+  return item.unitConversions.map(row => {
+    const factor = unitFactorToBase(item.baseUnit, edges, row.fromUnit);
+    const scaled = factor.numerator * 10000n;
+    if (scaled % factor.denominator !== 0n) {
+      throw new Error(`換算「${row.fromUnit}」無法精確表示為四位小數的基準單位，請確認舊資料。`);
+    }
+    const value = Number(scaled / factor.denominator);
+    if (!Number.isSafeInteger(value)) throw new Error("基準單位換算數量超出安全範圍");
+    return { fromUnit: row.fromUnit, quantity: formatScaled4(value),
+      toUnit: item.baseUnit, sortOrder: row.sortOrder };
+  });
+}
+
 function draftFromDetail(item: ItemDetail): ItemDraft {
   return {
     itemNo: item.itemNo,
@@ -86,12 +119,7 @@ function draftFromDetail(item: ItemDetail): ItemDraft {
     storePrice: item.storePrice ?? "",
     clinicPrice: item.clinicPrice ?? "",
     notes: item.notes ?? "",
-    unitConversions: item.unitConversions.map((row) => ({
-      fromUnit: row.fromUnit,
-      quantity: row.quantity,
-      toUnit: row.toUnit,
-      sortOrder: row.sortOrder,
-    })),
+    unitConversions: baseConversions(item),
   };
 }
 
@@ -110,7 +138,7 @@ function profileFromDraft(draft: ItemDraft): ItemProfileInput {
     unitConversions: draft.unitConversions.map((row, index) => ({
       fromUnit: row.fromUnit.trim(),
       quantity: row.quantity.trim(),
-      toUnit: row.toUnit.trim(),
+      toUnit: draft.baseUnit.trim(),
       sortOrder: row.sortOrder ?? index,
     })),
   };
@@ -128,43 +156,21 @@ function profileFromDetail(item: ItemDetail, isActive = item.isActive): ItemProf
     clinicPrice: item.clinicPrice,
     notes: item.notes,
     isActive,
-    unitConversions: item.unitConversions.map((row) => ({
-      fromUnit: row.fromUnit,
-      quantity: row.quantity,
-      toUnit: row.toUnit,
-      sortOrder: row.sortOrder,
-    })),
+    unitConversions: baseConversions(item),
   };
 }
 
 function validateConversions(baseUnit: string, conversions: readonly ItemUnitConversionInput[]): string | null {
   const base = baseUnit.trim();
-  const byFrom = new Map<string, ItemUnitConversionInput>();
-
+  const seen = new Set<string>();
   for (const row of conversions) {
     const from = row.fromUnit.trim();
-    const to = row.toUnit.trim();
     const quantity = Number(row.quantity);
-    if (!from || !to || !Number.isFinite(quantity) || quantity <= 0) {
-      return "每筆換算都必須有來源單位、正數數量與目標單位。";
-    }
-    if (from === base) return `基準單位「${base}」不能再作為換算來源。`;
-    if (byFrom.has(from)) return `來源單位「${from}」不可重複設定。`;
-    byFrom.set(from, { ...row, fromUnit: from, toUnit: to });
+    if (!from || !Number.isFinite(quantity) || quantity <= 0) return "換算來源及正數數量為必填。";
+    if (from === base) return "來源不可等於基準單位";
+    if (seen.has(from)) return "此單位已有換算";
+    seen.add(from);
   }
-
-  for (const start of byFrom.keys()) {
-    const seen = new Set<string>();
-    let current = start;
-    while (current !== base) {
-      if (seen.has(current)) return `單位換算形成循環：${start}`;
-      seen.add(current);
-      const edge = byFrom.get(current);
-      if (!edge) return `單位「${start}」的換算路徑無法到達基準單位「${base}」。`;
-      current = edge.toUnit;
-    }
-  }
-
   return null;
 }
 
@@ -179,11 +185,17 @@ function errorMessage(error: unknown): string {
   return "目前無法完成商品資料操作。";
 }
 
+/** 盒　1+ $80 · 100+ $70　2 位客戶　最近 2026/10/12 */
+function quoteGroupText(group: ItemQuoteSummary["groups"][number]): string {
+  const tiers = group.breaks.map(tier => `${tier.quantity}+ $${tier.unitPrice}`).join(" · ");
+  return `${group.unit}　${tiers}　${group.customers.length} 位客戶　最近 ${formatDate(group.latestQuoteDate)}`;
+}
+
 function categoryName(item: ItemSummary): string {
   return item.category?.name ?? "未分類";
 }
 
-export function ItemOperationalPage() {
+export function ItemOperationalPage({ canViewDefects = false, canViewCustomers = false }: { canViewDefects?: boolean; canViewCustomers?: boolean }) {
   const [lookups, setLookups] = useState<ItemModuleLookups | null>(null);
   const [rows, setRows] = useState<readonly ItemSummary[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -211,6 +223,69 @@ export function ItemOperationalPage() {
   const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
   const paging = useLoadMore(searchItems, setRows, (error) => reportError(errorMessage(error)));
   const [refreshEpoch, setRefreshEpoch] = useState(0);
+  const [relatedEpoch, setRelatedEpoch] = useState(0);
+  const [relatedDialog, setRelatedDialog] = useState<"defectBrowse" | "defectCreate" | "quoteBrowse" | "quoteCreate" | null>(null);
+  useUnsavedChangesGuard({
+    active: relatedDialog === "defectCreate" || relatedDialog === "quoteCreate",
+    blocked: busy,
+    message: "商品相關紀錄表單尚未儲存。",
+  });
+  const [defectRecent, setDefectRecent] = useState<readonly DefectSummary[]>([]);
+  const [defectCounts, setDefectCounts] = useState<Partial<Record<"created" | "processing" | "resolved", number>>>({});
+  const [defectRows, setDefectRows] = useState<readonly DefectSummary[]>([]);
+  const [defectCursor, setDefectCursor] = useState<string | null>(null);
+  const [defectQuery, setDefectQuery] = useState("");
+  const [showInvalid, setShowInvalid] = useState(false);
+  const [defectLoading, setDefectLoading] = useState(false);
+  const [quoteSummary, setQuoteSummary] = useState<ItemQuoteSummary | null>(null);
+  // The current number has no validTo; only retired numbers are listed as 曾用品號.
+  const previousNumbers = numberHistory.filter(row => row.validTo);
+  const [quoteQuery, setQuoteQuery] = useState("");
+  const [quoteCustomer, setQuoteCustomer] = useState<CustomerSummary | null>(null);
+
+  useEffect(() => {
+    if (!canViewDefects || !selectedId) { setDefectRecent([]); setDefectCounts({}); return; }
+    let cancelled = false;
+    void searchDefects({ itemId: selectedId, limit: 3 }).then(result => {
+      if (!cancelled) { setDefectRecent(result.items); setDefectCounts(result.statusCounts ?? {}); }
+    }).catch(error => { if (!cancelled) reportError(errorMessage(error)); });
+    return () => { cancelled = true; };
+  }, [selectedId, canViewDefects, relatedEpoch]);
+
+  useEffect(() => {
+    if (!canViewCustomers || !selectedId) { setQuoteSummary(null); return; }
+    let cancelled = false;
+    void loadItemQuoteSummary(selectedId).then(result => {
+      if (!cancelled) setQuoteSummary(result);
+    }).catch(error => { if (!cancelled) reportError(errorMessage(error)); });
+    return () => { cancelled = true; };
+  }, [selectedId, canViewCustomers, relatedEpoch]);
+
+  useEffect(() => {
+    if (relatedDialog !== "defectBrowse" || !selectedId || !canViewDefects) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setDefectLoading(true);
+      void searchDefects({ itemId: selectedId, includeInvalid: showInvalid, q: defectQuery.trim() || undefined, limit: 100 })
+        .then(result => { if (!cancelled) { setDefectRows(result.items); setDefectCursor(result.nextCursor); } })
+        .catch(error => { if (!cancelled) reportError(errorMessage(error)); })
+        .finally(() => { if (!cancelled) setDefectLoading(false); });
+    }, 180);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [relatedDialog, selectedId, canViewDefects, showInvalid, defectQuery, relatedEpoch]);
+
+  async function moreDefects() {
+    if (!selectedId || !defectCursor || defectLoading || !canViewDefects) return;
+    setDefectLoading(true);
+    try {
+      const page = await searchDefects({ itemId: selectedId, includeInvalid: showInvalid,
+        q: defectQuery.trim() || undefined, limit: 100, cursor: defectCursor });
+      setDefectRows(current => [...current, ...page.items]);
+      setDefectCursor(page.nextCursor);
+    } catch (error) { reportError(errorMessage(error)); }
+    finally { setDefectLoading(false); }
+  }
+
 
   useEffect(() => {
     let cancelled = false;
@@ -308,6 +383,7 @@ export function ItemOperationalPage() {
     if (busy || !(await canLeave())) return;
     pane.open();
     setSelectedId(id);
+    setRelatedDialog(null);
     setEditing(false);
     setCreating(false);
     setDraft(null);
@@ -352,7 +428,7 @@ export function ItemOperationalPage() {
     if (!draft?.itemNo.trim() || !draft.name.trim() || !draft.baseUnit.trim()) return;
 
     const conversions = draft.unitConversions.filter((row) => (
-      row.fromUnit.trim() || row.toUnit.trim() || row.quantity.trim()
+      row.fromUnit.trim() || row.quantity.trim()
     ));
     const conversionError = validateConversions(draft.baseUnit, conversions);
     if (conversionError) {
@@ -398,7 +474,7 @@ export function ItemOperationalPage() {
     });
   }
 
-  function updateConversion(index: number, field: "fromUnit" | "quantity" | "toUnit", value: string) {
+  function updateConversion(index: number, field: "fromUnit" | "quantity", value: string) {
     if (!draft) return;
     patch({
       unitConversions: draft.unitConversions.map((row, rowIndex) => (
@@ -474,6 +550,68 @@ export function ItemOperationalPage() {
   return <div className="cy-item-op">
     {confirmationDialog}
     {promptDialog}
+    {selected && relatedDialog?.startsWith("defect") && canViewDefects ? <Dialog open size="large"
+      title={relatedDialog === "defectCreate" ? "新增瑕疵紀錄" : "瑕疵紀錄 — " + formatItem(selected.itemNo, selected.name)}
+      onClose={() => setRelatedDialog(null)}>
+      {relatedDialog === "defectCreate" ? <DefectForm key={selected.id} mode="create"
+        fixedItem={{ id: selected.id, itemNo: selected.itemNo, name: selected.name }}
+        onCancel={() => setRelatedDialog(null)}
+        onSaved={() => { setRelatedDialog(null); setRelatedEpoch(v => v + 1); setMessage("瑕疵紀錄已新增。"); }} /> :
+        <div className="cy-item-related-dialog">
+          <div className="cy-related-toolbar">
+            <button className="cy-op-button primary compact" type="button" onClick={() => setRelatedDialog("defectCreate")}>＋ 新增</button>
+            <input className="cy-op-input" type="search" aria-label="搜尋瑕疵" placeholder="搜尋描述或客戶" value={defectQuery}
+              onChange={event => setDefectQuery(event.target.value)} />
+            <label className="cy-item-show-invalid"><input type="checkbox" checked={showInvalid}
+              onChange={event => setShowInvalid(event.target.checked)} /> 顯示已作廢</label>
+          </div>
+          {defectRows.map(row => <button key={row.id} type="button"
+            className={`cy-item-related-row ${row.invalidatedAt ? "voided" : ""}`}
+            onClick={() => { window.location.hash = routeHref("defects", { id: row.id }); }}>
+            <span>{formatDate(row.reportedDate)}　{row.customerNameSnapshot}　{row.defectDescription}</span>
+            <StatusChip tone={row.invalidatedAt ? undefined : defectTone[row.statusCode]}>
+              {row.invalidatedAt ? "已作廢" : row.statusCode === "created" ? "建立" : row.statusCode === "processing" ? "處理中" : "已解決"}
+            </StatusChip>
+          </button>)}
+          {defectLoading ? <Loading inline /> : null}
+          {defectCursor ? <button className="cy-op-button compact" type="button" disabled={defectLoading}
+            onClick={() => void moreDefects()}>載入更多</button> : null}
+        </div>}
+    </Dialog> : null}
+    {selected && relatedDialog?.startsWith("quote") && canViewCustomers ? <Dialog open size="large"
+      title={relatedDialog === "quoteCreate" ? "新增商品報價" : "報價紀錄 — " + formatItem(selected.itemNo, selected.name)}
+      onClose={() => setRelatedDialog(null)}>
+      {relatedDialog === "quoteCreate" ? <div className="cy-item-related-dialog">
+        <EntityPicker<CustomerSummary> label="客戶" required value={quoteCustomer} onSelect={setQuoteCustomer}
+          search={async q => (await searchCustomers({ q, limit: 20 })).items}
+          getKey={row => row.id} getLabel={row => [row.customerNo, row.shortName].filter(Boolean).join(" ")}
+          placeholder="輸入客戶編號或名稱" />
+        <QuoteCreateForm key={selected.id} customerId={quoteCustomer?.id ?? null}
+          initialLines={[{ item: { id: selected.id, itemNo: selected.itemNo, name: selected.name,
+            spec: selected.spec, baseUnit: selected.baseUnit } as CustomerItemOption, unit: selected.baseUnit }]}
+          onCancel={() => setRelatedDialog(null)}
+          onSaved={() => { setRelatedDialog(null); setRelatedEpoch(v => v + 1); setMessage("報價紀錄已新增。"); }} />
+      </div> : <div className="cy-item-related-dialog">
+        <div className="cy-related-toolbar">
+          <button className="cy-op-button primary compact" type="button" onClick={() => {
+            setQuoteCustomer(null); setRelatedDialog("quoteCreate");
+          }}>＋ 新增</button>
+          <input type="search" className="cy-op-input" aria-label="搜尋報價客戶" value={quoteQuery}
+            onChange={event => setQuoteQuery(event.target.value)} placeholder="搜尋客戶編號或名稱" />
+        </div>
+        {quoteSummary?.groups.filter(group => !quoteQuery.trim() || group.customers.some(row =>
+          `${row.customerNo ?? ""} ${row.shortName}`.toLowerCase().includes(quoteQuery.trim().toLowerCase())))
+          .map((group, index) => <details key={index} className="cy-item-quote-group" open={quoteQuery.trim() ? true : undefined}>
+            <summary>{quoteGroupText(group)}</summary>
+            {group.customers.filter(row => !quoteQuery.trim() ||
+              `${row.customerNo ?? ""} ${row.shortName}`.toLowerCase().includes(quoteQuery.trim().toLowerCase()))
+              .map(customer => <button type="button" className="cy-item-related-row" key={customer.quoteId}
+                onClick={() => { window.location.hash = routeHref("customers", { id: customer.customerId }); }}>
+                {[customer.customerNo, customer.shortName].filter(Boolean).join(" ")}　{formatDate(customer.quoteDate)}
+              </button>)}
+          </details>)}
+      </div>}
+    </Dialog> : null}
     
     <FeedbackBanner message={message} tone={messageTone} />
 
@@ -500,8 +638,8 @@ export function ItemOperationalPage() {
         <div className="cy-op-list">
           {rows.map((row) => (
             <button key={row.id} type="button" className={`cy-op-list-row cy-item-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={() => void selectItem(row.id)}>
-              <strong>{row.name}</strong>
-              <span><span className="cy-mono">{row.itemNo}</span>{row.spec ? `　${row.spec}` : ""} · {row.baseUnit}</span>
+              <span className="cy-mono">{row.itemNo}</span>
+              <strong>{row.name}{row.spec ? `　${row.spec}` : ""}</strong>
               {row.isActive ? <small>{categoryName(row)}</small> : <StatusChip>已停用</StatusChip>}
             </button>
           ))}
@@ -529,6 +667,22 @@ export function ItemOperationalPage() {
                 <label>規格<input className="cy-op-input" value={draft.spec} disabled={busy} onChange={(event) => patch({ spec: event.target.value })} /></label>
                 <label>分類<select className="cy-op-input" value={draft.itemCategoryId ?? ""} disabled={busy} onChange={(event) => patch({ itemCategoryId: event.target.value ? Number(event.target.value) : null })}><option value="">未分類</option>{categories.filter((row) => row.isActive || row.id === draft.itemCategoryId).map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}</select></label>
                 <label>基準單位<input className="cy-op-input" value={draft.baseUnit} disabled={busy} onChange={(event) => patch({ baseUnit: event.target.value })} required /></label>
+              <div className="cy-item-conversions-inline wide">
+                {draft.unitConversions.map((row, index) => (
+                  <div className="cy-item-conversion-row" key={index}>
+                    <span>1</span>
+                    <input className="cy-op-input" aria-label="換算來源單位" value={row.fromUnit} disabled={busy}
+                      onChange={event => updateConversion(index, "fromUnit", event.target.value)} />
+                    <span>=</span>
+                    <input className="cy-op-input" aria-label="換算數量" inputMode="decimal" value={row.quantity} disabled={busy}
+                      onChange={event => updateConversion(index, "quantity", event.target.value)} />
+                    <span>{draft.baseUnit}</span>
+                    <button type="button" className="cy-op-button compact quiet" disabled={busy}
+                      aria-label="移除換算" onClick={() => patch({ unitConversions: draft.unitConversions.filter((_, n) => n !== index) })}>✕</button>
+                  </div>
+                ))}
+                <button type="button" className="cy-item-add-conversion" disabled={busy} onClick={addConversion}>＋ 換算</button>
+              </div>
                 <label>成本<input className="cy-op-input" inputMode="decimal" value={draft.cost} disabled={busy} onChange={(event) => patch({ cost: event.target.value })} /></label>
                 <label>成本稅別<select className="cy-op-input" value={draft.costTaxMode ?? ""} disabled={busy} onChange={(event) => patch({ costTaxMode: (event.target.value || null) as ItemCostTaxMode | null })}><option value="">未指定</option><option value="inclusive">含稅</option><option value="exclusive">未稅</option><option value="none">無稅別</option></select></label>
                 <label>門市價<input className="cy-op-input" inputMode="decimal" value={draft.storePrice} disabled={busy} onChange={(event) => patch({ storePrice: event.target.value })} /></label>
@@ -536,25 +690,6 @@ export function ItemOperationalPage() {
                 <label className="wide">備註<textarea className="cy-op-input" rows={3} value={draft.notes} disabled={busy} onChange={(event) => patch({ notes: event.target.value })} /></label>
               </div>
 
-              <section className="cy-form-block">
-                <div className="cy-form-block-head">
-                  <div><h3>單位換算</h3><p>1 來源單位 = 數量 × 目標單位；每條換算最後都要換到基準單位。</p></div>
-                  <button type="button" className="cy-op-button compact" disabled={busy} onClick={addConversion}>＋ 增加換算</button>
-                </div>
-                <div className="cy-form-block-body">
-                {draft.unitConversions.map((row, index) => (
-                  <div className="cy-item-conversion-row" key={`${index}-${row.fromUnit}`}>
-                    <span>1</span>
-                    <input className="cy-op-input" value={row.fromUnit} disabled={busy} onChange={(event) => updateConversion(index, "fromUnit", event.target.value)} />
-                    <span>=</span>
-                    <input className="cy-op-input" inputMode="decimal" value={row.quantity} disabled={busy} onChange={(event) => updateConversion(index, "quantity", event.target.value)} />
-                    <input className="cy-op-input" value={row.toUnit} disabled={busy} onChange={(event) => updateConversion(index, "toUnit", event.target.value)} />
-                    <button type="button" className="cy-op-button compact quiet cy-row-remove" disabled={busy} onClick={() => patch({ unitConversions: draft.unitConversions.filter((_, rowIndex) => rowIndex !== index) })}>移除</button>
-                  </div>
-                ))}
-                {draft.unitConversions.length === 0 ? <p className="cy-form-block-empty">目前只使用基準單位。</p> : null}
-                </div>
-              </section>
             </div>
           </form>
         ) : loadingDetail ? (
@@ -562,37 +697,56 @@ export function ItemOperationalPage() {
         ) : selected ? (
           <div>
             <div className="cy-record-header">
-              <div><h2>{selected.name}</h2><p><span className="cy-mono">{selected.itemNo}</span>{selected.spec ? `　${selected.spec}` : ""}</p></div>
+              <div>
+                <h2>{formatItem(selected.itemNo, selected.name)}</h2>
+                <p>{[selected.spec, selected.category?.name, selected.isActive ? "使用中" : null].filter(Boolean).join("　")}
+                  {!selected.isActive ? <StatusChip>已停用</StatusChip> : null}</p>
+              </div>
               <div className="cy-record-actions">
-                {selected.isActive ? null : <StatusChip>已停用</StatusChip>}
                 <button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
-                <button type="button" className="cy-op-button" disabled={busy} aria-busy={(busy && pending === "changeItemNumber") || undefined} onClick={() => track("changeItemNumber", changeItemNumber())}>更改品號</button>
-                <button type="button" className={`cy-op-button ${selected.isActive ? "danger" : ""}`} disabled={busy} aria-busy={(busy && pending === "toggleActive") || undefined} onClick={() => track("toggleActive", toggleActive())}>{selected.isActive ? "停用" : "啟用"}</button>
+                <button type="button" className="cy-op-button" disabled={busy} aria-busy={(busy && pending === "changeItemNumber") || undefined}
+                  onClick={() => track("changeItemNumber", changeItemNumber())}>更改品號</button>
+                <button type="button" className={`cy-op-button ${selected.isActive ? "danger" : ""}`} disabled={busy}
+                  aria-busy={(busy && pending === "toggleActive") || undefined} onClick={() => track("toggleActive", toggleActive())}>
+                  {selected.isActive ? "停用" : "啟用"}</button>
               </div>
             </div>
             <div className="cy-item-detail-body">
-              <div className="cy-item-info-grid">
-                <Info label="分類" value={selected.category?.name ?? null} />
-                <Info label="基準單位" value={selected.baseUnit} />
-                <Info label="成本" value={selected.cost} />
-                <Info label="成本稅別" value={selected.costTaxMode ? taxModeText[selected.costTaxMode] : null} />
-                <Info label="門市價" value={selected.storePrice} />
-                <Info label="診所價" value={selected.clinicPrice} />
-                <Info label="狀態" value={selected.isActive ? "使用中" : "已停用"} />
-                <div className="wide"><Info label="備註" value={selected.notes} /></div>
-              </div>
-              <section className="cy-item-section">
-                <h3>單位換算</h3>
-                {selected.unitConversions.length
-                  ? selected.unitConversions.map((row) => <div className="cy-item-read-row" key={row.id}>1 {row.fromUnit} = {row.quantity} {row.toUnit}</div>)
-                  : <p className="cy-item-muted">目前僅使用基準單位。</p>}
+              <section className="cy-op-panel cy-item-basic-card" aria-label="基本資料">
+                <h3>基本資料</h3>
+                <div><strong>基準單位</strong> {selected.baseUnit}
+                  {baseConversions(selected).map((row, index) => <span key={index}>　·　1 {row.fromUnit} = {row.quantity} {selected.baseUnit}</span>)}
+                </div>
+                <div><strong>成本</strong> {selected.cost ? `$${selected.cost}` : "—"}
+                  {selected.costTaxMode ? `（${taxModeText[selected.costTaxMode]}）` : ""}
+                  <span>　門市價 {selected.storePrice ? `$${selected.storePrice}` : "—"}</span>
+                  <span>　診所價 {selected.clinicPrice ? `$${selected.clinicPrice}` : "—"}</span>
+                </div>
+                {selected.notes ? <div><strong>備註</strong> {selected.notes}</div> : null}
+                {previousNumbers.length ? <small>曾用品號：{previousNumbers.map(row =>
+                  `${row.itemNo}（${formatDate(row.validTo)} 更改）`).join("、")}</small> : null}
               </section>
-              <section className="cy-item-section">
-                <h3>歷史品號</h3>
-                {numberHistory.length
-                  ? numberHistory.map((row) => <div className="cy-item-history-row" key={row.id}><strong>{row.itemNo}</strong><span>{row.changeSource ?? "未註明原因"} · 至 {formatDateTime(row.validTo ?? row.createdAt)}</span></div>)
-                  : <p className="cy-item-muted">尚無品號變更紀錄。</p>}
-              </section>
+              {canViewDefects || canViewCustomers ? <section className="cy-customer-cards" aria-label="商品相關紀錄">
+                {canViewDefects ? <RelatedCard title="瑕疵紀錄"
+                  count={Object.values(defectCounts).reduce((total, count) => total + (count ?? 0), 0)}
+                  summary={<small>{(["created", "processing", "resolved"] as const).filter(code => defectCounts[code])
+                    .map(code => `${code === "created" ? "建立" : code === "processing" ? "處理中" : "已解決"} ${defectCounts[code]}`).join(" · ")}</small>}
+                  empty="尚無瑕疵紀錄。" onAdd={() => setRelatedDialog("defectCreate")} onView={() => setRelatedDialog("defectBrowse")}
+                  rows={defectRecent.map(row => <button key={row.id} type="button" className="cy-item-card-entry"
+                    onClick={() => { window.location.hash = routeHref("defects", { id: row.id }); }}>
+                    <span>{formatDate(row.reportedDate)}　{row.customerNameSnapshot}　{row.defectDescription}</span>
+                    <StatusChip tone={defectTone[row.statusCode]}>
+                      {row.statusCode === "created" ? "建立" : row.statusCode === "processing" ? "處理中" : "已解決"}
+                    </StatusChip>
+                  </button>)} /> : null}
+                {canViewCustomers ? <RelatedCard title="報價紀錄"
+                  count={`${quoteSummary?.customerCount ?? 0} 位客戶 · ${quoteSummary?.groups.length ?? 0} 種價格`}
+                  empty="尚無報價紀錄。" onAdd={() => { setQuoteCustomer(null); setRelatedDialog("quoteCreate"); }}
+                  onView={() => setRelatedDialog("quoteBrowse")}
+                  rows={(quoteSummary?.groups ?? []).slice(0, 3).map((group, index) => <span key={index}>
+                    {quoteGroupText(group)}
+                  </span>)} /> : null}
+              </section> : null}
             </div>
           </div>
         ) : (

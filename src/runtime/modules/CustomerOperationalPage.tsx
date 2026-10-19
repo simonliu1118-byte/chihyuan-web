@@ -1,3 +1,6 @@
+import { recordIdFromHash, replaceRouteParams } from "../navigation/route-params";
+import { QuoteCreateForm } from "./customer/QuoteCreateForm";
+import { RelatedCard } from "../../ui/records/RelatedCard";
 import { Loading } from "../../ui/feedback/Loading";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
@@ -34,7 +37,6 @@ import {
   correctCustomerQuote,
   createCustomer,
   createCustomerFrequentItem,
-  createCustomerQuoteBatch,
   createCustomerVisit,
   deleteCustomerFrequentItem,
   deleteCustomerVisit,
@@ -251,7 +253,7 @@ function emptyQuoteLine(): QuoteLineDraft {
 export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"USER"}) {
   const [lookups, setLookups] = useState<CustomerModuleLookups | null>(null);
   const [rows, setRows] = useState<readonly CustomerSummary[]>([]);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(() => recordIdFromHash());
   const [selected, setSelected] = useState<CustomerDetail | null>(null);
   const [visits, setVisits] = useState<readonly CustomerVisitRecord[]>([]);
   const [quotes, setQuotes] = useState<readonly CustomerItemQuoteSummary[]>([]);
@@ -279,6 +281,17 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
   const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
   const paging = useLoadMore(searchCustomers, setRows, (error) => reportError(errorMessage(error)));
   const [refreshEpoch, setRefreshEpoch] = useState(0);
+  useEffect(() => {
+    const receiveRecordLink = () => {
+      if (!window.location.hash.startsWith("#customers?")) return;
+      const id = recordIdFromHash();
+      if (id) { setSelectedId(id); pane.open(); }
+    };
+    receiveRecordLink();
+    window.addEventListener("hashchange", receiveRecordLink);
+    return () => window.removeEventListener("hashchange", receiveRecordLink);
+  }, []);
+
   const [relatedEpoch, setRelatedEpoch] = useState(0);
   const { confirm, confirmationDialog } = useConfirmation();
   const unsavedGuard = useUnsavedChangesGuard({ active: editing || visitDraft !== null || quoteDraft !== null || frequentText.trim() !== "" || frequentItemId !== null, blocked: busy, message: "放棄尚未儲存的內容？" });
@@ -329,7 +342,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
           paging.reset(listQuery, result.nextCursor);
           if (!editing && !creating) {
             setSelectedId((current) => (
-              current != null && result.items.some((row) => row.id === current)
+              current != null && (result.items.some((row) => row.id === current) || recordIdFromHash() === current)
                 ? current
                 : result.items[0]?.id ?? null
             ));
@@ -397,6 +410,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
   async function selectCustomer(id: number) {
     if (busy || !(await canLeave())) return;
     pane.open();
+    replaceRouteParams({});
     setSelectedId(id);
     setRelatedView(null);
     setHistoryOpen(false);
@@ -621,30 +635,22 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
     setBusy(true);
     setMessage(null);
     try {
-      if (quoteDraft.corrected) {
-        const itemId = lines[0].item!.id;
-        if (lines.some(row => row.item?.id !== itemId)) {
-          reportError("單筆修正只能包含同一個商品的數量級距。");
-          return;
-        }
-        await correctCustomerQuote(selected.id, quoteDraft.corrected.id, {
-          itemId, quoteDate: quoteDraft.quoteDate,
-          priceBreaks: lines.map((row, index) => ({
-            quantity: row.quantity.trim(), unit: row.unit.trim(), unitPrice: row.unitPrice.trim(),
-            note: quoteDraft.note.trim() || null, sortOrder: index,
-          })),
-          expectedRevision: quoteDraft.corrected.revision,
-          correctionReason: quoteDraft.correctionReason.trim() || null,
-        });
-      } else {
-        await createCustomerQuoteBatch(selected.id, {
-          quoteDate: quoteDraft.quoteDate, note: quoteDraft.note.trim() || null,
-          lines: lines.map(row => ({
-            itemId: row.item!.id, quantity: row.quantity.trim(),
-            unit: row.unit.trim(), unitPrice: row.unitPrice.trim(),
-          })),
-        });
+      const correction = quoteDraft.corrected;
+      if (!correction) return;
+      const itemId = lines[0].item!.id;
+      if (lines.some(row => row.item?.id !== itemId)) {
+        reportError("單筆修正只能包含同一個商品的數量級距。");
+        return;
       }
+      await correctCustomerQuote(selected.id, correction.id, {
+        itemId, quoteDate: quoteDraft.quoteDate,
+        priceBreaks: lines.map((row, index) => ({
+          quantity: row.quantity.trim(), unit: row.unit.trim(), unitPrice: row.unitPrice.trim(),
+          note: quoteDraft.note.trim() || null, sortOrder: index,
+        })),
+        expectedRevision: correction.revision,
+        correctionReason: quoteDraft.correctionReason.trim() || null,
+      });
       setQuoteDraft(null);
       if (relatedView?.mode === "create") setRelatedView(null);
       setRelatedEpoch(value => value + 1);
@@ -767,8 +773,9 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
           filter={relatedFilter} mode={relatedView.mode} onCancel={() => {
             setVisitDraft(null); if (relatedView.mode === "create") setRelatedView(null);
           }} /> : null}
-        {relatedView.view === "quotes" ? <QuotesPanel rows={quotesNewestFirst} draft={quoteDraft} setDraft={setQuoteDraft}
+        {relatedView.view === "quotes" ? <QuotesPanel customerId={selected.id} rows={quotesNewestFirst} draft={quoteDraft} setDraft={setQuoteDraft}
           save={saveQuote} correct={startQuoteCorrection} busy={busy} filter={relatedFilter} mode={relatedView.mode}
+          onCreated={() => { setQuoteDraft(null); if (relatedView.mode === "create") setRelatedView(null); setRelatedEpoch(v => v + 1); setMessage("報價紀錄已儲存。"); }}
           onCancel={() => { setQuoteDraft(null); if (relatedView.mode === "create") setRelatedView(null); }} /> : null}
         {relatedView.view === "frequent" ? <FrequentPanel rows={frequentItems} itemId={frequentItemId}
           setItemId={setFrequentItemId} freeText={frequentText} setFreeText={setFrequentText}
@@ -938,23 +945,6 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
 }
 
 
-function RelatedCard({ title, count, empty, rows, onAdd, onView }: {
-  title: string; count: number; empty: string; rows: readonly React.ReactNode[];
-  onAdd: () => void; onView: () => void;
-}) {
-  return <article className="cy-op-panel cy-customer-related-card">
-    <header className="cy-customer-related-card-header">
-      <h3>{title} <span className="cy-customer-card-count">{count}</span></h3>
-      <button className="cy-op-button compact" type="button" onClick={onAdd}>＋ 新增</button>
-    </header>
-    <div className="cy-customer-related-card-rows">
-      {rows.length ? rows.map((row, index) => <div key={index} className="cy-customer-card-row">{row}</div>)
-        : <p className="cy-customer-muted">{empty}</p>}
-    </div>
-    <button className="cy-customer-card-view-all" type="button" onClick={onView}>查看全部（{count}）›</button>
-  </article>;
-}
-
 function EditableRows({ title, hint, addLabel, onAdd, empty, busy, children }: { title: string; hint?: string; addLabel: string; onAdd: () => void; empty: boolean; busy: boolean; children: React.ReactNode }) {
   return <section className="cy-form-block"><div className="cy-form-block-head"><div><h3>{title}</h3>{hint ? <p>{hint}</p> : null}</div><button type="button" className="cy-op-button compact" disabled={busy} onClick={onAdd}>＋ {addLabel}</button></div><div className="cy-form-block-body">{empty ? <p className="cy-form-block-empty">尚未填寫。</p> : children}</div></section>;
 }
@@ -1025,7 +1015,9 @@ function VisitsPanel({ selected, rows, draft, setDraft, save, edit, remove, busy
 const searchQuoteItem = async (query: string) => searchCustomerItemOptions(query, 20);
 const quoteItemLabel = (row: CustomerItemOption) => formatItem(row.itemNo, row.name);
 
-function QuotesPanel({ rows, draft, setDraft, save, correct, busy, mode, filter, onCancel }: {
+function QuotesPanel({ customerId, rows, draft, setDraft, save, correct, busy, mode, filter, onCancel, onCreated }: {
+  customerId: number;
+  onCreated: () => void;
   rows: readonly CustomerItemQuoteSummary[];
   draft: QuoteDraft | null;
   setDraft: (value: QuoteDraft | null) => void;
@@ -1049,7 +1041,8 @@ function QuotesPanel({ rows, draft, setDraft, save, correct, busy, mode, filter,
     if (draft) setDraft({ ...draft, lines: draft.lines.map((row, i) => i === index ? { ...row, ...patch } : row) });
   };
   return <div className="cy-customer-related-content">
-    {draft ? <form className="cy-customer-quote-form" onSubmit={save}>
+    {draft && !draft.corrected ? <QuoteCreateForm customerId={customerId} onSaved={onCreated} onCancel={onCancel} /> : null}
+    {draft?.corrected ? <form className="cy-customer-quote-form" onSubmit={save}>
       <div className="cy-customer-quote-header-fields">
         <label>日期<input type="date" className="cy-op-input" value={draft.quoteDate} disabled={busy}
           required onChange={event => setDraft({ ...draft, quoteDate: event.target.value })} /></label>

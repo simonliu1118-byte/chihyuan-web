@@ -138,3 +138,20 @@ export interface CreateCustomerQuoteBatchRequest {
     note?: string | null;
   }[];
 }
+
+/** Item-scoped latest quotes: one latest record per customer, identical unit/tier schedules grouped. */
+export interface ItemQuoteSummary {
+  customerCount: number;
+  groups: {
+    unit: string;
+    breaks: { quantity: number; unitPrice: number }[];
+    latestQuoteDate: string;
+    customers: {
+      customerId: number;
+      customerNo: string | null;
+      shortName: string;
+      quoteDate: string;
+      quoteId: number;
+    }[];
+  }[];
+}

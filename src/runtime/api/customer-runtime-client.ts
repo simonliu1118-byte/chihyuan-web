@@ -20,6 +20,7 @@ import type {
   CustomerFrequentItemRecord,
   CustomerItemQuoteDetail,
   CustomerItemQuoteSummary,
+  ItemQuoteSummary,
   CustomerRelatedPage,
   CustomerVisitRecord,
   DeleteCustomerFrequentItemRequest,
@@ -167,6 +168,13 @@ export function deleteCustomerFrequentItem(
   return apiRequest(
     `/api/business/customers/${encodeURIComponent(String(customerId))}/frequent-items/${encodeURIComponent(String(frequentItemId))}`,
     { method: "DELETE", json: input },
+  );
+}
+
+export function loadItemQuoteSummary(itemId: number): Promise<ItemQuoteSummary> {
+  return apiRequest<ItemQuoteSummary>(
+    `/api/business/customers/item-quote-summary?itemId=${encodeURIComponent(String(itemId))}`,
+    { method: "GET" },
   );
 }
 

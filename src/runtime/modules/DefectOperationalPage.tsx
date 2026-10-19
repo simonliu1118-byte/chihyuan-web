@@ -1,3 +1,5 @@
+import { recordIdFromHash, replaceRouteParams } from "../navigation/route-params";
+import { DefectForm } from "./defect/DefectForm";
 import { formatItem } from "../../ui/foundation/format";
 import { StatusFilter } from "../../ui/data/StatusFilter";
 import { defectNextStep, defectTone } from "./status-flow";
@@ -5,18 +7,15 @@ import { NextStep } from "../../ui/feedback/NextStep";
 import { StatusChip } from "../../ui/primitives/StatusChip";
 import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
-import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
 import { formatDate, formatDateTime } from "../../ui/foundation/format";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { useFormPrompt } from "../../ui/overlays/useFormPrompt";
-import { EntityPicker } from "../../ui/pickers/EntityPicker";
-import type { DefectCustomerOption, DefectItemOption } from "../../../shared/business-lookups";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { DefectModuleLookups } from "../../../shared/business-lookups";
 import type {
   DefectDetail,
@@ -25,7 +24,6 @@ import type {
 } from "../../../shared/defect";
 import { ApiClientError } from "../../api/client";
 import {
-  createDefect,
   deleteDefect,
   invalidateDefect,
   loadDefectDetail,
@@ -114,15 +112,13 @@ function detailProfile(detail: DefectDetail, handling = detail.handling): {
 
 export function DefectOperationalPage() {
   const [rows, setRows] = useState<readonly DefectSummary[]>([]);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(() => recordIdFromHash());
   const [selected, setSelected] = useState<DefectDetail | null>(null);
   const [lookups, setLookups] = useState<DefectModuleLookups | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [statusCounts, setStatusCounts] = useState<Partial<Record<string, number>> | null>(null);
   const [includeInvalid, setIncludeInvalid] = useState(false);
-  const [pickedCustomer, setPickedCustomer] = useState<DefectCustomerOption | null>(null);
-  const [pickedItem, setPickedItem] = useState<DefectItemOption | null>(null);
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<DefectDraft | null>(null);
@@ -142,6 +138,17 @@ export function DefectOperationalPage() {
   const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
   const paging = useLoadMore(searchDefects, setRows, (error) => reportError(errorMessage(error)));
   const [refreshEpoch, setRefreshEpoch] = useState(0);
+  useEffect(() => {
+    const receiveRecordLink = () => {
+      if (!window.location.hash.startsWith("#defects?")) return;
+      const id = recordIdFromHash();
+      if (id) { setSelectedId(id); pane.open(); }
+    };
+    receiveRecordLink();
+    window.addEventListener("hashchange", receiveRecordLink);
+    return () => window.removeEventListener("hashchange", receiveRecordLink);
+  }, []);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -161,7 +168,7 @@ export function DefectOperationalPage() {
           paging.reset(listQuery, result.nextCursor);
           if (!editing && !creating) {
             setSelectedId((current) => (
-              current != null && result.items.some((row) => row.id === current)
+              current != null && (result.items.some((row) => row.id === current) || recordIdFromHash() === current)
                 ? current
                 : result.items[0]?.id ?? null
             ));
@@ -234,13 +241,11 @@ export function DefectOperationalPage() {
     draft?.ownerEmployeeId,
   ]);
 
-  const customerOptions = useMemo(() => lookups?.customers ?? [], [lookups]);
-  const itemOptions = useMemo(() => lookups?.items ?? [], [lookups]);
-  const ownerOptions = useMemo(() => lookups?.owners ?? [], [lookups]);
 
   async function selectDefect(id: number) {
     if (busy || !(await canLeave())) return;
     pane.open();
+    replaceRouteParams({});
     setSelectedId(id);
     setEditing(false);
     setCreating(false);
@@ -274,46 +279,6 @@ export function DefectOperationalPage() {
     setCreating(false);
     setDraft(null);
     setSelectedId((current) => current ?? rows[0]?.id ?? null);
-  }
-
-  async function save(event: FormEvent) {
-    event.preventDefault();
-    if (!draft || busy) return;
-    const missing = !draft.customerId ? "客戶" : !draft.itemId ? "商品" : !draft.ownerEmployeeId ? "負責人"
-      : !draft.reportedDate ? "回報日期" : !draft.defectDescription.trim() ? "瑕疵內容" : null;
-    const { customerId, itemId, ownerEmployeeId } = draft;
-    if (missing || !customerId || !itemId || !ownerEmployeeId) { reportError(`請填寫${missing ?? "必填欄位"}。`); return; }
-
-    setBusy(true);
-    setMessage(null);
-    try {
-      const profile = {
-        reportedDate: draft.reportedDate,
-        customerId,
-        itemId,
-        ownerEmployeeId,
-        defectDescription: draft.defectDescription.trim(),
-        handling: draft.handling.trim() || null,
-      };
-      const saved = creating
-        ? await createDefect(profile)
-        : selected
-          ? await updateDefect(selected.id, { ...profile, expectedRevision: selected.revision })
-          : null;
-      if (!saved) return;
-      setSelected(saved);
-      setSelectedId(saved.id);
-      setEditing(false);
-      setCreating(false);
-      setDraft(null);
-      setMessage(creating ? "瑕疵紀錄已新增。" : "瑕疵紀錄已儲存。");
-      setRefreshEpoch((value) => value + 1);
-    } catch (error) {
-      reportError(errorMessage(error));
-      if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function startProcessing() {
@@ -453,38 +418,16 @@ export function DefectOperationalPage() {
         <section className="cy-op-panel cy-md-detail">
           <MasterDetailBack label="瑕疵清單" disabled={busy} onBack={async () => { if (editing) { if (!(await canLeave())) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
           {editing && draft ? (
-            <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void save(event)}>
-              <div className="cy-record-header cy-edit-header">
-                <div><h2>{creating ? "新增瑕疵" : `修改瑕疵 #${selected?.id ?? ""}`}</h2><p>已建檔與處理中的瑕疵可以修改；已處理的需先「重新開啟」。</p></div>
-              <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立瑕疵" : "儲存修改"}</button></div></div>
-
-              <div className="cy-defect-form-body">
-                <div className="cy-op-form-grid">
-                  <label>回報日期<input className="cy-op-input" type="date" value={draft.reportedDate} disabled={busy} onChange={(e) => setDraft({ ...draft, reportedDate: e.target.value })} /></label>
-
-                  <EntityPicker<DefectCustomerOption> label="客戶" required disabled={busy}
-                    value={pickedCustomer?.id === draft.customerId ? pickedCustomer : customerOptions.find((row) => row.id === draft.customerId) ?? null}
-                    onSelect={(row) => { setPickedCustomer(row); setDraft({ ...draft, customerId: row?.id ?? null }); }}
-                    search={async (query) => (await loadDefectLookups({ customerQuery: query, limit: 20 })).customers}
-                    getKey={(row) => row.id} getLabel={(row) => `${row.customerNo ? `${row.customerNo} · ` : ""}${row.shortName}`}
-                    placeholder="輸入客戶編號或名稱" />
-
-                  <EntityPicker<DefectItemOption> label="商品" required disabled={busy}
-                    value={pickedItem?.id === draft.itemId ? pickedItem : itemOptions.find((row) => row.id === draft.itemId) ?? null}
-                    onSelect={(row) => { setPickedItem(row); setDraft({ ...draft, itemId: row?.id ?? null }); }}
-                    search={async (query) => (await loadDefectLookups({ itemQuery: query, limit: 20 })).items}
-                    getKey={(row) => row.id} getLabel={(row) => formatItem(row.itemNo, row.name)}
-                    getDescription={(row) => [row.spec, row.isActive ? null : "已停用"].filter(Boolean).join(" · ") || null}
-                    placeholder="輸入品號、品名或規格" />
-
-                  <label>負責人<select className="cy-op-input" value={draft.ownerEmployeeId ?? ""} disabled={busy} onChange={(e) => setDraft({ ...draft, ownerEmployeeId: Number(e.target.value) || null })}><option value="">請選擇</option>{ownerOptions.map((row) => <option key={row.id} value={row.id}>{ownerLabel(row.id, row.employeeNo)}{row.isActive ? "" : "（已停用）"}</option>)}</select></label>
-
-                  <label className="wide">瑕疵內容<textarea className="cy-op-input" rows={5} value={draft.defectDescription} disabled={busy} onChange={(e) => setDraft({ ...draft, defectDescription: e.target.value })} required /></label>
-                  {!creating && selected?.statusCode === "processing" ? <label className="wide">處理中備註<textarea className="cy-op-input" rows={4} value={draft.handling} disabled={busy} onChange={(e) => setDraft({ ...draft, handling: e.target.value })} /></label> : null}
-                </div>
-              </div>
-
-            </form>
+            <DefectForm mode={creating ? "create" : "edit"} initial={creating ? null : selected}
+              onCancel={() => void cancelEdit()} onSaved={detail => {
+                setSelected(detail);
+                setSelectedId(detail.id);
+                setEditing(false);
+                setCreating(false);
+                setDraft(null);
+                setMessage(creating ? "瑕疵紀錄已新增。" : "瑕疵紀錄已儲存。");
+                setRefreshEpoch(value => value + 1);
+              }} />
           ) : loadingDetail ? <Loading /> : selected ? (
             <div>
               <div className="cy-record-header">
