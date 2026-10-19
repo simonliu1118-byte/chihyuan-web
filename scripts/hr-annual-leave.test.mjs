@@ -13,7 +13,11 @@ test("end dates precede next entitlement",()=>{
 });
 test("Feb 29 is clamped for non-leap anniversary",()=>{
  const rows=annualLeaveSchedule("2024-02-29",[],"2025-02-28");
- assert.equal(rows.at(-1).periodStart,"2025-02-28");
+ assert.equal(rows.at(-1).periodStart,"2025-03-01");
+});
+test("Aug 31 reaches six months on March 1",()=>{
+ const rows=annualLeaveSchedule("2025-08-31",[],"2026-03-01");
+ assert.equal(rows[0]?.periodStart,"2026-03-01");
 });
 test("excluded seniority days push anniversary forward",()=>{
  const rows=annualLeaveSchedule("2026-01-01",[{startDate:"2026-03-01",endDate:"2026-03-10"}],"2027-01-11");
