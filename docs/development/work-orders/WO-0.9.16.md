@@ -108,37 +108,34 @@
 
 ## 8. 完成報告（執行者填）
 
-- **分支**：`cyweb/ui-polish-0.9.16`；以合併 WO-0.9.15 後的 `main` 為基準。
-- **驗收清單逐項結果**：
-  1. 設定「⚙️ 設定」：已修改程式碼；待實機驗收。
-  2. 🕘 共用 IconButton：已修改程式碼及樣式；待實機比對同高同框。
-  3. ERP 查詢預設隱藏、超級管理員例外：已修改前後端及 D1 驗收程式碼；待實際執行驗證。
-  4. 稽核事件可讀性與對照：已修改文字轉換與相關測試；**全事件實際資料逐項檢查尚未完成**。
-  5. 清單密度／客戶對話框：已修改共用介面樣式；待畫面驗收。
-  6. ERP 查詢置頂、權限隱藏：已修改導覽程式碼；待實機驗收。
-  7. 委外/代工名稱：已修改選單、頁面與模組標籤；待畫面驗收。
-  8. 志遠記帳 Web 短名：已修改目錄資料及導覽讀取；待畫面驗收。
-  9. 無網址時預設路由：已修改程式碼；待各權限帳號操作驗證。
-  10. 「代工對象」檢索：已修改範圍內相關字串；**未執行完整 grep**。
-  11. `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local`：**未執行**。
-  12. `node --test scripts/*.test.mjs`：**未執行**（當前環境無法解析 github.com，無法完成先行 clone）。
-  13. .github/workflows 禁止變更：與 main 的差異清單未見 workflow；未見工作單外新增檔案。
-  14. VERSION／package.json／TODO／視覺規範／API 合約：已更新為本工作單內容。
-- **與工作單不同之處與原因**：因目前執行環境無法從 GitHub 網域取得完整本機 checkout，無法執行指定 npm/node/grep 命令，也無法提供真實 UI 截圖；實機驗證與全事件資料掃描均留待審查，**不得視為通過**。
-- **驗證指令輸出摘要**：`git ls-remote https://github.com/simonliu1118-byte/chihyuan-web.git HEAD` → `Could not resolve host: github.com`。GitHub Connector 的 main/head 差異查核成功：無 `.github/workflows/*` 變更。其餘指令未執行。
-- **操作驗證步驟**：登入具 ERP 查詢權限帳號，確認預設頁及置頂導覽；登入無 ERP 權限帳號，確認第一個授權業務模組；使用 SUPER_ADMIN 在異動紀錄切換「顯示 ERP 查詢」，以 ADMIN/USER 驗證勾選隱藏及直接 API 參數無效；進入客戶明細比對 🕘 與修改按鈕、滑鼠提示及 aria-label；逐筆展開稽核明細，核對文字與單行密度；桌面/手機檢視選單及協力廠商用詞。
-- **事件 → 顯示句子對照表（程式碼預期，非實際資料驗證）**：
+- 驗收清單逐項結果：
+  1. 設定 emoji：已修改 `ModuleSettingsPanel.tsx`；尚待實機視覺驗收。
+  2. 🕘 修改紀錄共用圖示按鈕：已新增 `IconButton.tsx` 並套用客戶頁；尺寸與可及性尚待實機驗收。
+  3. ERP 查詢預設隱藏／SUPER_ADMIN 限制：已修改 Worker 查詢、路由、前端及 D1 acceptance；測試未在本回合執行。
+  4. 事件可讀性：已修改 `change-log-labels.ts` 及現有測試；未完成實際全事件／真實資料逐筆驗收。
+  5. 單行密集列表：已修改前端與樣式；30px 高度尚待實機驗收。
+  6. ERP 查詢移至最上方：已修改 `App.tsx`；權限與手機畫面尚待實機驗收。
+  7. 委外/代工：已修改導覽、模組標籤；需審查完整畫面。
+  8. 志遠記帳 Web：已加入 `navLabel`；不折行須實機驗收。
+  9. 預設登入頁：已修改 `App.tsx`；不同角色路由尚待驗收。
+  10. 舊稱搜尋：相關 source 有修改；未執行指定 grep，不能宣稱零結果。
+  11. `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local`：未執行（本回合使用 GitHub Connector，無本機原始碼建置／D1 驗證環境）。
+  12. `node --test scripts/*.test.mjs`：未執行；亦未完成 canonical CYapps 暫存 clone。
+  13. 變更範圍：對 `main` 比較未見 `.github/workflows/*`，唯一新增的原始碼檔案為工作單明列的 `src/ui/actions/IconButton.tsx`。
+  14. `VERSION` 與 `package.json` 已改為 0.9.16；`BUILD` 未修改；`TODO.md`、API 合約、視覺規範已更新。
+- 與工作單不同之處與原因：原要求完成所有指令驗證及逐事件真實資料對照，但目前未有可執行建置／D1 測試的環境，故尚未能宣稱全部驗收通過。未修改 workflow、未合併、未部署。
+- 驗證指令輸出摘要：GitHub 比較 `main...cyweb/ui-polish-0.9.16`：ahead 24、behind 0；未見 workflow 異動。其餘指定 shell/npm 測試均未執行，無輸出可附。
+- 操作驗證步驟：登入 SUPER_ADMIN → 查看設定按鈕及客戶明細圖示 → 異動紀錄先看預設隱藏，再勾選「顯示 ERP 查詢」核對完成／失敗／逾時及無送出事件 → ADMIN／USER 直接呼叫 audit API 帶 `includeErpQueries=true`，確認仍不回傳查詢事件 → 測量稽核列高及截斷明細 → 比對桌面與手機側欄及登入預設路由 → 開啟委外/代工確認「協力廠商」，並檢查 CY 程式頁仍呈現完整程式名稱。
+- 事件 → 顯示句子對照表（程式預期格式，未經實際資料逐筆確認）：
 
-  | 事件 | 原顯示問題 | 預期顯示 |
+  | 事件 | 修正前問題 | 預期顯示句子 |
   | --- | --- | --- |
-  | ERP 查詢送出 | 送出 ERP 查詢：狀態 | 預設及勾選後皆不顯示 |
+  | ERP 查詢送出 | 送出 ERP 查詢及內部狀態 | 預設及勾選後都不顯示 |
   | ERP 客戶查詢完成 | 完成 ERP 查詢「ERP 查詢 #UUID」：狀態 | 查詢 ERP 客戶「AC0016」：成功 |
   | ERP 進貨查詢失敗 | ERP 查詢失敗「PURCHASES」：狀態 | 查詢 ERP 進貨「B0009」：失敗 |
-  | ERP 查詢逾時 | 技術代碼或不完整狀態 | 查詢 ERP〔中文類別〕「查詢內容」：逾時 |
-  | 一般事件無業務名稱 | 類別 #內部識別碼 | 中文類別（有業務編號時顯示編號） |
-  | 僅狀態欄位變更 | 只有「狀態」 | 狀態：改前 → 改後 |
-  | erp_item_agent 管理事件 | 既有管理事件 | 維持顯示，不受 ERP 查詢事件隱藏影響 |
-
+  | ERP 查詢逾時 | 內部查詢 ID 或英文代碼 | 查詢 ERP〔中文類別〕「查詢內容」：逾時 |
+  | 狀態變更 | 只有「狀態」 | 〔中文動作〕「〔業務名稱〕」：狀態：〔原值〕 → 〔新值〕 |
+  | 找不到業務編號 | 類別 #內部 ID | 〔中文動作〕〔類別〕 |
 
 ## 9. 審查紀錄（審查者填）
 
