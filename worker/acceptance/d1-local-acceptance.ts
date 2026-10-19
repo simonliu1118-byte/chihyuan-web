@@ -3,6 +3,7 @@ import { acceptCustomerQuoteStaleMutation } from "./customer-quote-stale-accepta
 import { acceptBusinessHttpAuthority } from "./business-http-acceptance";
 import { acceptModuleAccessGroups } from "./module-access-group-acceptance";
 import { acceptProgramCatalog } from "./program-catalog-acceptance";
+import { acceptHrPhase1 } from "./hr-phase1-acceptance";
 import { acceptRetiredIdentitySource, acceptRetiredIdentityRestore } from "./retired-identity-acceptance";
 import { acceptDefectStaleAudit } from "./defect-stale-acceptance";
 import { acceptOutsourcingStaleEffects } from "./outsourcing-stale-acceptance";
@@ -51,6 +52,7 @@ interface AcceptanceChecks {
   moduleAccessGroups: boolean;
   retiredEntityIds: boolean;
   programCatalog: boolean;
+  hrPhase1: boolean;
 }
 
 function assertAcceptance(condition: unknown, code: string): asserts condition {
@@ -759,6 +761,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
   await assertWorkLogRejected(() => workLogService.withdrawReview(workLogCreated.id,
     { expectedRevision: withdrawn.revision }, { actorMemberId: 1, now: t9 }), "WORK_LOG_TRANSITION_NOT_ALLOWED");
 
+  await acceptHrPhase1(db);
   await acceptSettingsAuditHttp(db);
   await acceptBusinessHttpAuthority(db, componentItem.id, finishedItem.id);
   await acceptModuleAccessGroups(db);
@@ -778,6 +781,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
     moduleAccessGroups: true,
     retiredEntityIds: true,
     programCatalog: true,
+    hrPhase1: true,
     customerBatchCreate: true,
     optimisticRevision: true,
     batchRollback: true,
