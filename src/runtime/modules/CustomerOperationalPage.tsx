@@ -1,6 +1,4 @@
 import { recordIdFromHash, replaceRouteParams } from "../navigation/route-params";
-// createCustomerQuoteBatch is called by QuoteCreateForm, the shared create form.
-// The legacy source contract checks for createCustomerQuote in this module.
 import { QuoteCreateForm } from "./customer/QuoteCreateForm";
 import { RelatedCard } from "../../ui/records/RelatedCard";
 import { Loading } from "../../ui/feedback/Loading";
