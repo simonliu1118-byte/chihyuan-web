@@ -155,6 +155,108 @@
 
 另外複核 `ItemOperationalPage.tsx`、`SalesOrderOperationalPage.tsx`、`DefectOperationalPage.tsx`：既有顯示多屬輸入限制、狀態或業務資料，沒有刪除。仍需掃描未列於本表的全部 `src/` 檔案；此表並非所有候選項目。
 
+### §8 原始碼候選盤點（第 1 組，行號為目前分支）
+
+| 檔案:行號 | 候選 JSX 內容摘要 | 留／刪 | 理由 |
+| --- | --- | --- | --- |
+| `src/App.tsx:246` | ? <section className="cy-op-panel"><h2>目前無法確認模組權限</h2><p>{moduleAccessError ?? "請重新整理頁面後再試。"}</p></section> | 留 | 空狀態或資料缺失提示 |
+| `src/auth/AuthGate.tsx:311` | if (state.status === "checking") return <main className="cy-auth-screen" aria-busy="true"><section className="cy | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/auth/AuthGate.tsx:312` | if (state.status === "unavailable") return <main className="cy-auth-screen"><section className="cy-auth-card cy- | 留 | 安全／限制／結果提示 |
+| `src/auth/AuthGate.tsx:317` | <div className="cy-auth-heading"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><div><h1 id="cy- | 留 | 安全／限制／結果提示 |
+| `src/auth/AuthGate.tsx:320` | <label><span>員工編號</span><input data-enter-advance="true" autoComplete="username" inputMode="numeric" maxLength={ | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/auth/AuthGate.tsx:321` | <label><span>密碼</span><input data-enter-advance="true" type="password" autoComplete="current-password" maxLength | 留 | 安全／限制／結果提示 |
+| `src/auth/AuthGate.tsx:328` | {state.message ? <p className="cy-auth-error" role="alert">{state.message}</p> : null} | 留 | 安全／限制／結果提示 |
+| `src/auth/AuthGate.tsx:334` | <p>{firstLogin?.displayName ? '${firstLogin.displayName} · ${firstLogin.employeeNo ?? employeeNo}' : employeeNo  | 留 | 安全／限制／結果提示 |
+| `src/auth/AuthGate.tsx:336` | <p className="cy-auth-note-inline">首次登入密碼已完成一次性驗證。請在驗證時效內設定正式密碼；設定成功後會回到登入頁，並需使用新密碼重新登入。</p> | 留 | 安全／限制／結果提示 |
+| `src/auth/AuthGate.tsx:337` | <label><span>正式密碼</span><input type="password" autoComplete="new-password" maxLength={16} value={newPassword} on | 留 | 安全／限制／結果提示 |
+| `src/auth/AuthGate.tsx:338` | <label><span>確認正式密碼</span><input type="password" autoComplete="new-password" maxLength={16} value={confirmPasswo | 留 | 安全／限制／結果提示 |
+| `src/auth/AuthGate.tsx:339` | {flowMessage ? <p className="cy-auth-error" role="status">{flowMessage}</p> : null} | 留 | 安全／限制／結果提示 |
+| `src/auth/AuthGate.tsx:343` | <label><span>員工編號</span><input inputMode="numeric" maxLength={4} value={employeeNo} onChange={(e) => setEmployee | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/auth/AuthGate.tsx:344` | {flowMessage ? <p className="cy-auth-error" role="status">{flowMessage}</p> : null} | 留 | 安全／限制／結果提示 |
+| `src/auth/AuthGate.tsx:348` | <div className="cy-auth-flow-title"><h2>重設密碼</h2><p>員工編號 {employeeNo}</p></div> | 留 | 安全／限制／結果提示 |
+| `src/auth/AuthGate.tsx:349` | <label><span>6 位數驗證碼</span><input inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target | 留 | 安全／限制／結果提示 |
+| `src/auth/AuthGate.tsx:350` | <label><span>新密碼</span><input type="password" autoComplete="new-password" maxLength={16} value={newPassword} onC | 留 | 安全／限制／結果提示 |
+| `src/auth/AuthGate.tsx:351` | <label><span>確認新密碼</span><input type="password" autoComplete="new-password" maxLength={16} value={confirmPasswor | 留 | 安全／限制／結果提示 |
+| `src/auth/AuthGate.tsx:352` | {flowMessage ? <p className="cy-auth-error" role="status">{flowMessage}</p> : null} | 留 | 安全／限制／結果提示 |
+| `src/identity/CyInvoiceRecoveryAdminPanel.tsx:153` | {outstanding ? <p className="cy-identity-subtext">原操作尚未取得明確撤銷結果。請先查詢／撤銷，暫不建立其他操作 ID。</p> : null} | 留 | 安全／限制／結果提示 |
+| `src/identity/CyInvoiceRecoveryAdminPanel.tsx:154` | {storageError ? <p role="alert">瀏覽器無法讀寫原操作紀錄，簽發已停用。請保留原 ID；可貼入已自行保存的 ID 查詢。</p> : null} | 留 | 安全／限制／結果提示 |
+| `src/identity/SharedIdentityPage.tsx:175` | <h2>{session.user.displayName} <span>{session.user.employeeNo}</span> <span>{permissionLabel(session.user.worksp | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/identity/SharedIdentityPage.tsx:177` | <strong>Email</strong><span>{session.user.emailVerified ? "已驗證" : "待驗證"}</span> | 留 | 安全／限制／結果提示 |
+| `src/identity/SharedIdentityPage.tsx:183` | <strong>密碼</strong><span>••••••••</span> | 留 | 安全／限制／結果提示 |
+| `src/identity/SharedIdentityPage.tsx:194` | <span className={validLength ? "valid" : ""}>{validLength ? "✓" : "○"} 8～16 字元</span> | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/identity/SharedIdentityPage.tsx:195` | <span className={matching ? "valid" : ""}>{matching ? "✓" : "○"} 兩次輸入相同</span> | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/identity/SharedIdentityPage.tsx:387` | if (employee.workspace_role === "SUPER_ADMIN") return <span className="cy-access-muted">—</span>; | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/identity/SharedIdentityPage.tsx:389` | if (employee.employee_id === session.user.employeeId ／／ !moduleGroups.length) return <span className="cy-access- | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/identity/SharedIdentityPage.tsx:414` | <span className="cy-md-count">{busyAny ? <Loading inline /> : '共 ${rows.length} 位'}</span> | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/identity/SharedIdentityPage.tsx:437` | <span><span className="cy-mono">{employee.employee_no}</span>{employee.identity_admin === 1 ? " · 帳號管理員" : ""}</ | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/identity/SharedIdentityPage.tsx:447` | {saving.has(cell) ? <span className="cy-loading-spinner" role="status" aria-label="儲存中" /> | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/identity/SharedIdentityPage.tsx:471` | if (!editable) return <span>{permissionLabel(employee.workspace_role)}</span>; | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/identity/SharedIdentityPage.tsx:623` | {employee.identity_admin === 1 ? <span>帳號管理員</span> : null} | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/identity/SharedIdentityPage.tsx:626` | {own ? <p className="cy-next-step finished">這是你的帳號；密碼與 Email 請到「我的帳號」變更，自己的權限與使用權由其他管理員設定。</p> | 留 | 安全／限制／結果提示 |
+| `src/identity/SharedIdentityPage.tsx:657` | <p className="cy-identity-intro">{group ? '系統與模組使用權由群組「${group.name}」決定，不能個別修改；要調整請到「權限群組」，或改回「個人設定」（保留目前的勾選）。' | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/identity/SharedIdentityPage.tsx:686` | {saving.has('${employee.employee_id}:${column.key}') ? <span className="cy-loading-spinner" aria-hidden="true" / | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/identity/SharedIdentityPage.tsx:900` | <span className="cy-md-count">{savingId !== null ? <Loading inline /> : '共 ${view.groups.length} 個群組'}</span> | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/identity/SharedIdentityPage.tsx:903` | <span><strong>「{group.name}」有 {pending.get(group.id)!.length} 人的系統使用權尚未套用：</strong>{pending.get(group.id)!.map(n | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/identity/SharedIdentityPage.tsx:922` | <span title={names.join("、")}>{names.length ? '${names.length} 位：${names.slice(0, 3).join("、")}${names.length >  | 留 | 空狀態或資料缺失提示 |
+| `src/identity/SharedIdentityPage.tsx:997` | {registrationError ? <p className="cy-form-grid-full cy-notice cy-notice-danger" role="alert">{registrationError | 留 | 安全／限制／結果提示 |
+| `src/identity/SharedIdentityPage.tsx:1024` | <h3>驗證碼與 Email 安全設定</h3><p className="cy-identity-intro">限制驗證碼重寄與 Email 寄送次數，避免被濫用。每日 Email 不能超過系統上限。</p> | 留 | 安全／限制／結果提示 |
+| `src/identity/SharedIdentityPage.tsx:1030` | <label>每日 Email 上限<input className="cy-op-input" type="number" min={1} max={view.systemEmailDailyCeiling} value= | 留 | 安全／限制／結果提示 |
+| `src/identity/SharedIdentityPage.tsx:1072` | ? <section className="cy-op-panel"><p className="cy-notice cy-notice-danger" role="alert">{error}</p><button typ | 留 | 安全／限制／結果提示 |
+| `src/runtime/modules/AuditOperationalPage.tsx:138` | <span>{time}　{person}　{sentence}</span> | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/AuditOperationalPage.tsx:142` | {!events.length?<p className="cy-customer-muted">此範圍尚無異動紀錄。</p>:null} | 留 | 安全／限制／結果提示 |
+| `src/runtime/modules/AuditOperationalPage.tsx:149` | <p className="cy-change-log-summary">{formatDateTime(selected.occurredAt)}　{formatPerson(selected.actor)}　{audit | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/AuditOperationalPage.tsx:150` | {selected.entityType !== "erp_item_query" && selected.statusFrom !== selected.statusTo && (selected.statusFrom ／ | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/AuditOperationalPage.tsx:155` | {selected.entityType !== "erp_item_query" && !auditChanges(selected,lookups).length?<p className="cy-customer-mu | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/BackupOperationalPage.tsx:23` | return <span key={provider} className="cy-backup-copy" data-status={copy?.status ?? "unknown"}> | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/BackupOperationalPage.tsx:43` | {!row.canRetry && !(history.recoveryConfigured && rehearse && row.copies.some(copy => copy.status === "verified" | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/BackupOperationalPage.tsx:46` | <span>{row.triggerKind === "scheduled" ? "排程備份" : row.triggerKind === "pre_restore" ? "還原前安全備份" : "手動備份"} · {lab | 留 | 安全／限制／結果提示 |
+| `src/runtime/modules/BackupOperationalPage.tsx:54` | renderCard={row => <>{event(row)}{providerStatus(row)}<div className="cy-backup-card-footer"><span>{row.recordCo | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/BackupOperationalPage.tsx:122` | <div className="cy-op-panel cy-backup-policy"><span><strong>R2</strong> 每日 03:30 · 保留 30 天</span><span><strong>G | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/BackupOperationalPage.tsx:128` | : history ? <><BackupHistoryView history={history} busy={busy} retry={id => void run("retry", id)} rehearse={sel | 留 | 安全／限制／結果提示 |
+| `src/runtime/modules/BackupOperationalPage.tsx:129` | : <p>尚未取得備份紀錄，請使用「更新紀錄」。</p>}</section> | 留 | 空狀態或資料缺失提示 |
+| `src/runtime/modules/BackupOperationalPage.tsx:135` | <p>將所選備份還原至獨立的空白驗證副本，並核對資料。正式系統繼續使用目前資料。</p> | 留 | 安全／限制／結果提示 |
+| `src/runtime/modules/BackupOperationalPage.tsx:136` | <p>驗證前會另建 R2、GCS 安全備份；兩端皆驗證成功才繼續。驗證副本成功使用後會保留，重做須另行準備核准的空白副本。</p> | 留 | 安全／限制／結果提示 |
+| `src/runtime/modules/BackupOperationalPage.tsx:137` | <p><strong>{time(selected.createdAt)}</strong> · V{selected.appVersion} · {selected.recordCount.toLocaleString() | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:829` | <span className="cy-customer-result-main"> | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:830` | <span>{customer.customerNo ?? "未設定編號"}</span> | 留 | 空狀態或資料缺失提示 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:833` | <span className={'cy-status-chip ${customer.status ? "cy-status-chip-success" : ""}'}>{customer.status?.name ??  | 留 | 空狀態或資料缺失提示 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:888` | <h2>{selected.customerNo ? '${selected.customerNo} ' : ""}{selected.shortName}{selected.fullName ? <small classN | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:889` | <p className="cy-record-meta">最後修改：{formatDateTime(selected.updatedAt)}{selected.updatedBy ? ' · ${formatPerson( | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:892` | {selected.status ? <span className="cy-status-chip cy-status-chip-success">{selected.status.name}</span> : null} | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:900` | {selected.notes.map((row) => <p key={row.id}>{row.content}</p>)} | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:914` | {selected.phones.map((row) => <p key={'p${row.id}'} className="cy-customer-line"><span className="cy-mono">{row. | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:915` | {selected.contacts.filter((row) => row.isActive).map((row) => <p key={'c${row.id}'} className="cy-customer-line" | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:916` | {!selected.phones.length && !selected.contacts.some((row) => row.isActive) ? <p className="cy-customer-muted">尚無 | 留 | 空狀態或資料缺失提示 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:920` | {selected.addresses.map((row) => <p key={row.id} className="cy-customer-line"><span>{'${row.postalCode ? '${row. | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:921` | {!selected.addresses.length ? <p className="cy-customer-muted">尚無地址</p> : null} | 留 | 空狀態或資料缺失提示 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:930` | <span key={row.id} title={row.content ?? ""}>{formatDate(row.visitDate)} · {row.personSnapshot ／／ selected.conta | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:934` | <span key={row.id}>{formatDate(row.quoteDate)} {formatItem(row.itemNoSnapshot, row.itemNameSnapshot)}</span>)} / | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:938` | <span key={row.id}>{row.item ? formatItem(row.item.itemNo, row.item.name) : row.customItemName ／／ "未命名品項"}</span | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:950` | return <section className="cy-form-block"><div className="cy-form-block-head"><div><h3>{title}</h3>{hint ? <p>{h | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:1003` | <p>{visit.content ／／ "—"}</p> | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:1004` | <span>{formatPerson(visit.employee)} · rev.{visit.revision}</span> | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:1011` | {!visible.length ? <p className="cy-customer-muted">沒有符合條件的拜訪紀錄。</p> : null} | 留 | 空狀態或資料缺失提示 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:1090` | {quote.priceBreaks.map(tier => <p key={tier.id}> | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:1093` | <span>rev.{quote.revision}</span> | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:1099` | {!groups.size ? <p className="cy-customer-muted">沒有符合條件的報價紀錄。</p> : null} | 留 | 空狀態或資料缺失提示 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:1140` | <span>{row.item ? "正式商品" : "未建檔自由文字"}</span></div> | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/CustomerOperationalPage.tsx:1144` | {!visible.length ? <p className="cy-customer-muted">沒有符合條件的常用商品。</p> : null} | 留 | 空狀態或資料缺失提示 |
+| `src/runtime/modules/DefectOperationalPage.tsx:411` | {rows.map((row) => <button key={row.id} type="button" className={'cy-op-list-row cy-status-row ${selectedId ===  | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/DefectOperationalPage.tsx:434` | <div><h2>{selected.customerNameSnapshot}</h2><p>瑕疵 #{selected.id} · 回報 {formatDate(selected.reportedDate)}</p></ | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/DefectOperationalPage.tsx:457` | <div><span>回報日期</span><strong>{formatDate(selected.reportedDate)}</strong></div> | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/DefectOperationalPage.tsx:458` | <div><span>負責人</span><strong>{selected.ownerEmployee.displayName ／／ ownerLabel(selected.ownerEmployee.id, select | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/DefectOperationalPage.tsx:459` | <div><span>客戶</span><strong>{selected.customerNoSnapshot ? '${selected.customerNoSnapshot} · ' : ""}{selected.cu | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/DefectOperationalPage.tsx:460` | <div><span>商品</span><strong>{formatItem(selected.itemNoSnapshot, selected.itemNameSnapshot)}</strong></div> | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/DefectOperationalPage.tsx:461` | <div className="wide"><span>瑕疵內容</span><strong>{selected.defectDescription}</strong></div> | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/DefectOperationalPage.tsx:462` | <div className="wide"><span>處理結果</span><strong>{selected.handling ?? "—"}</strong></div> | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/DefectOperationalPage.tsx:463` | {selected.invalidatedAt ? <div className="wide cy-defect-invalid-note"><span>作廢資訊</span><strong>{formatDateTime( | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/ErpAgentCredentialControl.tsx:92` | <span className="cy-status-dot" data-tone={tone} aria-hidden="true" />{label} | 留 | 動態業務資料或操作狀態，不屬多餘說明 |
+| `src/runtime/modules/ErpAgentCredentialControl.tsx:97` | <p>只有超級管理員能產生或撤銷憑證。每次產生的原文只顯示一次，請立即複製到公司電腦的安全設定。</p> | 留 | 安全／限制／結果提示 |
+| `src/runtime/modules/ErpAgentCredentialControl.tsx:98` | <p>目前憑證：{credential === null ? "讀取中或無法取得" | 留 | 空狀態或資料缺失提示 |
+| `src/runtime/modules/ErpAgentCredentialControl.tsx:116` | {error && <p className="cy-notice cy-notice-danger" role="alert">{error}</p>} | 留 | 安全／限制／結果提示 |
+| `src/runtime/modules/ErpCustomerQuery.tsx:91` | <p>單據日期起訖都未填：去年同月同日至今天；範圍最多三年。輸入名稱時先列出客戶。</p> | 留 | 安全／限制／結果提示 |
+| `src/runtime/modules/ErpCustomerQuery.tsx:99` | {mine.truncated && <p className="cy-notice cy-notice-warning">結果已達 {mine.items.length} 筆，可能有更多資料，請輸入更完整的名稱。</p>} | 留 | 安全／限制／結果提示 |
+
 ## 9. 審查紀錄（審查者填）
 
 - （待審查）
