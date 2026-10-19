@@ -574,8 +574,8 @@ export function ItemOperationalPage() {
                 </div>
                 <div><strong>成本</strong> {selected.cost ? `$${selected.cost}` : "—"}
                   {selected.costTaxMode ? `（${taxModeText[selected.costTaxMode]}）` : ""}
-                  <span>　門市價 ${selected.storePrice ? `$${selected.storePrice}` : "—"}</span>
-                  <span>　診所價 ${selected.clinicPrice ? `$${selected.clinicPrice}` : "—"}</span>
+                  <span>　門市價 {selected.storePrice ? `$${selected.storePrice}` : "—"}</span>
+                  <span>　診所價 {selected.clinicPrice ? `$${selected.clinicPrice}` : "—"}</span>
                 </div>
                 {selected.notes ? <div><strong>備註</strong> {selected.notes}</div> : null}
                 {numberHistory.length ? <small>曾用品號：{numberHistory.map(row =>
