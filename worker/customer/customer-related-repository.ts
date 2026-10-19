@@ -131,6 +131,7 @@ function toQuote(row: QuoteRow): CustomerItemQuoteSummary {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     revision: row.revision,
+    priceBreaks: [],
   };
 }
 
@@ -280,8 +281,22 @@ export class CustomerRelatedRepository {
     const hasMore = rows.length > limit;
     const visible = hasMore ? rows.slice(0, limit) : rows;
     const last = visible[visible.length - 1];
+    if (visible.length === 0) return { items: [], nextCursor: null };
+    const ids = visible.map(row => row.id);
+    const placeholders = ids.map(() => "?").join(",");
+    const tierResult = await this.db.prepare(`
+      SELECT id, quote_id, quantity, unit, unit_price, note, sort_order
+        FROM quote_price_breaks WHERE quote_id IN (${placeholders})
+       ORDER BY sort_order ASC, id ASC
+    `).bind(...ids).all<QuoteBreakRow & { quote_id: number }>();
+    const breaksById = new Map<number, CustomerItemQuotePriceBreak[]>();
+    for (const row of tierResult.results ?? []) {
+      const items = breaksById.get(row.quote_id) ?? [];
+      items.push(toQuoteBreak(row));
+      breaksById.set(row.quote_id, items);
+    }
     return {
-      items: visible.map(toQuote),
+      items: visible.map(row => ({ ...toQuote(row), priceBreaks: breaksById.get(row.id) ?? [] })),
       nextCursor: hasMore && last ? encodeCursor({ date: last.quote_date, id: last.id }) : null,
     };
   }
