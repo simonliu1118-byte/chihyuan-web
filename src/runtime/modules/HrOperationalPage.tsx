@@ -96,18 +96,18 @@ export function HrOperationalPage(){
     <div className="cy-op-panel-header"><h2>{detail.employee_no} {detail.name}　{labels[detail.status]}</h2><button className="cy-op-button" onClick={()=>openEmployee(true)}>修改</button></div>
     <Card title="基本資料"><p>到職：{dateDisplay(detail.hire_date)}　年資起算：{dateDisplay(detail.seniority_start_date)}</p><p>電話：{detail.mobile??detail.phone??"—"}</p><p>通訊地址：{detail.mailing_address??"—"}</p>
      <p>身分證：{detail.nationalIdMasked??"未填寫"}　<button className="cy-op-button compact" onClick={async()=>{try{const r=await apiRequest<{nationalId:string|null}>(ROOT+"/employees/"+detail.id+"/national-id/reveal",{method:"POST",json:{}});setNationalId(r.nationalId);setDialog("nationalId");}catch(x){setError(err(x));}}}>顯示</button></p>
-     <p>綁定使用者：{detail.member_id??"未綁定"}</p>
+     <p>綁定使用者：{detail.member_id??"未綁定"}</p><p>出生日期：{dateDisplay(detail.birth_date)}　性別：{detail.gender??"—"}</p><p>戶籍地址：{detail.registered_address??"—"}</p>
     </Card>
     <Card title="特休"><p>{leave.length?leave.at(-1)!.days+" 日（"+dateDisplay(leave.at(-1)!.periodStart)+"～"+dateDisplay(leave.at(-1)!.periodEnd)+"）":"未達給假年資"}</p>
       <button className="cy-op-button" onClick={()=>setAllLeave(x=>!x)}>{allLeave?"收起":"查看全部年度"}</button>
       {allLeave?leave.map((x,i)=><p key={i}>{x.serviceYearsLabel}：{x.days} 日　{dateDisplay(x.periodStart)}～{dateDisplay(x.periodEnd)}</p>):null}
     </Card>
-    <Card title="薪資"><button className="cy-op-button" onClick={()=>startAction("salary")}>＋ 薪資異動</button>{detail.salaryRecords.length===0?<p>尚無薪資異動</p>:null}{detail.salaryRecords.map((x,i)=><div key={i} className="cy-customer-line">{dateDisplay(x.effective_date)}　{x.payment_type==="hourly"?"時薪":"月薪"}　{money(x.base_amount)}　{String(x.reason??"")}{Array.isArray(x.allowances)?x.allowances.map((a:any,j:number)=><div key={j}>{String(a.item_name??"津貼")}　{money(a.amount)}　{a.is_regular===1?"經常性":"非經常性"}</div>):null}</div>)}</Card>
-    <Card title="狀態異動"><button className="cy-op-button" onClick={()=>startAction("status")}>＋ 異動</button>{changeRows(detail.statusChanges,x=>dateDisplay(x.effective_date)+"　"+String(x.next_status)+"　"+String(x.reason??""))}</Card>
+    <Card title="薪資"><button className="cy-op-button" onClick={()=>startAction("salary")}>＋ 薪資異動</button><p>目前薪資：{money((detail.salaryRecords.find(x=>String(x.effective_date??"")<=new Date().toISOString().slice(0,10))??{}).base_amount)}</p>{detail.salaryRecords.length===0?<p>尚無薪資異動</p>:null}{detail.salaryRecords.map((x,i)=><div key={i} className="cy-customer-line">{dateDisplay(x.effective_date)}　{x.payment_type==="hourly"?"時薪":"月薪"}　{money(x.base_amount)}　{String(x.reason??"")}{Array.isArray(x.allowances)?x.allowances.map((a:any,j:number)=><div key={j}>{String(a.item_name??"津貼")}　{money(a.amount)}　{a.is_regular===1?"經常性":"非經常性"}</div>):null}</div>)}</Card>
+    <Card title="狀態異動"><button className="cy-op-button" onClick={()=>startAction("status")}>＋ 異動</button>{changeRows(detail.statusChanges,x=>dateDisplay(x.effective_date)+"　"+(labels[String(x.next_status) as HrStatus]??"—")+"　"+String(x.reason??""))}</Card>
     <Card title="年資不計期間"><button className="cy-op-button" onClick={()=>startAction("exclusion")}>＋ 新增</button>{detail.seniorityExclusions.map((x,i)=><div key={i} className="cy-customer-line">{dateDisplay(x.start_date)}～{dateDisplay(x.end_date)}　{String(x.reason??"")}<button className="cy-op-button compact" type="button" onClick={async()=>{if(!window.confirm("確定刪除此年資不計期間？將留下稽核紀錄。"))return;try{await apiRequest(ROOT+"/employees/"+detail.id+"/seniority-exclusions/"+x.id,{method:"DELETE"});await loadDetail(detail.id);}catch(e){setError(err(e));}}}>刪除</button></div>)}</Card>
     <Card title="緊急聯絡人">{changeRows(detail.contacts,x=>String(x.name??"")+"　"+String(x.phone??""))}</Card>
-    <Card title="學歷">{changeRows(detail.education,x=>String(x.school??"")+"　"+String(x.department??""))}</Card>
-    <Card title="工作經歷">{changeRows(detail.workHistory,x=>String(x.company??"")+"　"+String(x.job_title??""))}</Card>
+    <Card title="學歷">{changeRows(detail.education,x=>String(x.school??"")+"　"+String(x.department??"")+"　"+String(x.degree??"")+"　"+String(x.graduation_month??""))}</Card>
+    <Card title="工作經歷">{changeRows(detail.workHistory,x=>String(x.company??"")+"　"+String(x.job_title??"")+"　"+String(x.start_month??"")+"～"+String(x.end_month??""))}</Card>
    </section>:<section className="cy-op-panel"><p>請選擇員工查看明細</p></section>}
   </div>
   <Dialog open={dialog==="employee"} title={create?"新增員工":"修改員工"} onClose={()=>setDialog(null)} size="large">
