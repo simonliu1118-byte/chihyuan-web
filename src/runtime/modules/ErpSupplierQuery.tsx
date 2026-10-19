@@ -99,7 +99,6 @@ export function ErpSupplierQuery({ job }: { job: ErpJob }) {
         {mine.truncated && <p className="cy-notice cy-notice-warning">結果已達 {mine.items.length} 筆，可能有更多資料，請輸入更完整的名稱。</p>}
         <ErpQueryRows key={mine.id} label="廠商搜尋結果" columns={ERP_SUPPLIER_SEARCH_FIELDS} rows={rowsOf(mine.items)}
           disabled={busy} onItemSelect={code => void querySupplier(code, follow.purchases, follow.from, follow.to)} />
-        
       </>}
       {showsData(mine) && mine.queryType === "SUPPLIER_NO" && <>
         <h3>廠商資料</h3>

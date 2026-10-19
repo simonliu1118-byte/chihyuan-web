@@ -1,6 +1,6 @@
-# WO-0.9.19 人事模組第一期：人事主檔、年資與特休、薪資異動
+# WO-0.9.20 人事模組第一期：人事主檔、年資與特休、薪資異動
 
-- 狀態：待執行（**WO-0.9.18 合併後**才從最新 `main` 開分支）
+- 狀態：待執行（**WO-0.9.18（版本 0.9.19）合併後**才從最新 `main` 開分支；原編號 WO-0.9.19，因版本號 0.9.18 已被 PR #218 使用而順延）
 - 分支：`cyweb/hr-phase1`（建議）　PR：（執行者填）
 - 依據：`PROJECT_RULES.md` §9；**BD-059**；設計 `docs/architecture/HR_MODULE_DESIGN.md`（本單以該文件第 2～4 節為準）；BD-053／054（稽核）
 - 視覺規範：`docs/architecture/CY_WEB_VISUAL_GUIDE.md`
@@ -79,8 +79,8 @@
 - `change-log-labels.ts` 補所有人事 action 與欄位中文標籤（`scripts/change-log-labels.test.mjs` 會檢查）。
 
 ### 5.4 文件、版本、TODO
-- `VERSION`／`package.json` → `0.9.19`；`BUILD` 維持 `0`。
-- 新增 `docs/architecture/HR_MODULE_CONTRACT.md`（API 與資料合約）；`API_CONTRACT.md`、`CANONICAL_DATA_MODEL.md` 補人事；`TODO.md` 最上方新增 0.9.19 段落。
+- `VERSION`／`package.json` → `0.9.20`；`BUILD` 維持 `0`。
+- 新增 `docs/architecture/HR_MODULE_CONTRACT.md`（API 與資料合約）；`API_CONTRACT.md`、`CANONICAL_DATA_MODEL.md` 補人事；`TODO.md` 最上方新增 0.9.20 段落。
 
 ## 6. 驗收清單
 
@@ -96,7 +96,7 @@
 - [ ] `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local` 全部通過。
 - [ ] `node --test scripts/*.test.mjs` 全部通過（需先 `git clone --depth 1 https://github.com/simonliu1118-byte/cyapps .tmp/canonical-cyapps`；無法取得時在完成報告寫明，**不得**另寫 workflow 代替）。
 - [ ] 沒有新增或修改 `.github/workflows/*`，沒有範圍外檔案。
-- [ ] VERSION／package.json 為 0.9.19；TODO、合約文件已更新。
+- [ ] VERSION／package.json 為 0.9.20；TODO、合約文件已更新。
 
 ## 7. 截圖要求
 

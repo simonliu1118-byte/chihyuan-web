@@ -183,12 +183,9 @@
   color: var(--cy-success);
 }
 @media (max-width: 430px) {
+  /* Keep 變更 on the same line as its value; the button is narrow enough at 390px. */
   .cy-my-account-row {
-    grid-template-columns: 56px minmax(0, 1fr);
-  }
-  .cy-my-account-row .cy-op-button {
-    grid-column: 2;
-    justify-self: start;
+    grid-template-columns: 56px minmax(0, 1fr) auto;
   }
   .cy-identity-page .cy-dialog-small {
     max-width: calc(100vw - 16px);

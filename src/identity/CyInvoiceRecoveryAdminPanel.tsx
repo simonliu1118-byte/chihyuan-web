@@ -121,7 +121,6 @@ export function CyInvoiceRecoveryAdminPanel({ session }: { session: AuthSession 
   return <section className="cy-op-panel cy-invoice-recovery-panel" aria-label="CYInvoice 公司級災難復原" aria-busy={busy}>
     <div className="cy-op-panel-header"><div>
       <h3>CYInvoice 裝置災難復原</h3>
-      
     </div></div>
     {confirmationDialog}
     <div className="cy-notice cy-notice-warning">

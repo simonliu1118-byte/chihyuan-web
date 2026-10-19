@@ -1,6 +1,6 @@
-## CY Web V0.9.18 Build 0 — 我的帳號與說明文字細修（WO-0.9.18；待審查）
+## CY Web V0.9.19 Build 0 — 我的帳號與說明文字細修（WO-0.9.18；已審查，待合併部署）
 
-- [ ] [WO-0.9.18 工作單](docs/development/work-orders/WO-0.9.18.md)：我的帳號設定卡、密碼與 Email 視窗、全站說明文字清理；PR #220 待驗證與審查。
+- [x] [WO-0.9.18 工作單](docs/development/work-orders/WO-0.9.18.md)：我的帳號設定卡、密碼與 Email 視窗、全站說明文字清理；PR #220 已審查。版本號改為 0.9.19（0.9.18 已由 PR #218 使用）。
 
 ## CY Web V0.9.18 Build 0 — ERP 銷貨銷退／進貨退貨清單與視窗
 

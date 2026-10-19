@@ -641,7 +641,6 @@ export function OutsourcingOperationalPage() {
 
                 {selectedOrder.statusCode === "outbound" ? <div className="cy-op-subsection">
                   <h3>入庫資料</h3>
-                  
                   <div className="cy-out-receipt">
                     <select className="cy-op-input" value={receiptItemId ?? ""} disabled={busy} onChange={(event) => changeReceiptItem(Number(event.target.value) || null)}>
                       <option value="">選擇入庫成品</option>

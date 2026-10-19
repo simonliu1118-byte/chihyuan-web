@@ -640,7 +640,6 @@ function UserDrawer({ employee, snapshot, session, refresh, columns, allowed, lo
 
       {canEditAccess && copyCandidates.length ? <div className="cy-op-subsection">
         <h3>從某人複製使用權</h3>
-        
         <div className="cy-identity-copy-row">
           <select className="cy-op-input" aria-label="複製來源" value={copySource} disabled={busy} onChange={(event) => setCopySource(event.target.value)}>
             <option value="">選擇同事</option>
@@ -699,7 +698,6 @@ function ModuleAccessPanel({ groups, group, ...props }: Omit<Parameters<typeof A
 }) {
   return <div className="cy-op-subsection">
     <h3>CY Web 模組使用權</h3>
-    
     {groups.map((item) => <fieldset key={item.group} className="cy-identity-module-group"><legend>{item.group}</legend><AccessChecks {...props} columns={item.columns} quiet={!!group} /></fieldset>)}
   </div>;
 }
@@ -934,7 +932,6 @@ function GroupWorkspace({ snapshot, session, view, columns, reload, switcher }: 
         </table>
         {view.groups.length === 0 ? <div className="cy-op-empty">尚未建立權限群組。按「＋ 新增群組」建立，例如「業務」「倉管」。</div> : null}
       </div>
-      
     </section>
   </>;
 }

@@ -327,7 +327,6 @@ export function AuthGate({ children }: AuthGateProps) {
       </div>
       {state.message ? <p className="cy-auth-error" role="alert">{state.message}</p> : null}
       <button className="cy-auth-primary-button" type="submit" disabled={submitting} aria-busy={submitting || undefined}>登入</button>
-      
     </form> : mode === "first_login" ? <form className="cy-auth-form" onSubmit={submitFirstLogin} noValidate>
       <div className="cy-auth-flow-title">
         <h2>完成 Email 驗證</h2>
@@ -339,7 +338,6 @@ export function AuthGate({ children }: AuthGateProps) {
       {flowMessage ? <p className="cy-auth-error" role="status">{flowMessage}</p> : null}
       <button className="cy-auth-primary-button" disabled={submitting} aria-busy={submitting || undefined}>設定正式密碼</button>
     </form> : !challengeId ? <form className="cy-auth-form" onSubmit={startRecovery}>
-      
       <label><span>員工編號</span><input inputMode="numeric" maxLength={4} value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value.replace(/\D/g, "").slice(0, 4))} required /></label>
       {flowMessage ? <p className="cy-auth-error" role="status">{flowMessage}</p> : null}
       <button className="cy-auth-primary-button" disabled={submitting} aria-busy={submitting || undefined}>取得驗證碼</button>
