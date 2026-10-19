@@ -1,0 +1,30 @@
+/* HR Phase 1: compact personnel list and readable details across desktop and mobile. */
+.cy-hr-layout { min-width: 0; }
+.cy-hr-layout > .cy-op-grid-two {
+  display: grid;
+  grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+.cy-hr-layout .cy-op-panel { min-width: 0; }
+.cy-hr-layout .cy-op-panel > .cy-op-panel { margin-top: 12px; }
+.cy-hr-layout .cy-hr-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  height: auto;
+  margin-top: 6px;
+  gap: 12px;
+  text-align: left;
+}
+.cy-hr-layout .cy-hr-list-item small { display: block; color: var(--cy-text-muted); }
+.cy-hr-layout .cy-hr-list-item strong { display: block; }
+.cy-hr-layout .cy-customer-line { padding: 8px 0; border-bottom: 1px solid var(--cy-border); }
+.cy-hr-layout .cy-op-form { min-width: 0; }
+.cy-hr-layout .cy-op-form label { min-width: 0; }
+.cy-hr-layout .cy-op-form input, .cy-hr-layout .cy-op-form select { max-width: 100%; }
+@media (max-width: 720px) {
+  .cy-hr-layout > .cy-op-grid-two { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .cy-hr-layout .cy-op-panel { max-width: 100%; }
+}
