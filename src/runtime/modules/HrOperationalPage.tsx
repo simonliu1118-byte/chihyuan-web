@@ -1,5 +1,6 @@
 import { useCallback,useEffect,useState,type FormEvent } from "react";
 import { Dialog } from "../../ui/overlays/Dialog";
+import "./hr-operational.css";
 import { formatDate } from "../../ui/foundation/format";
 import { apiRequest } from "../../api/client";
 import type { HrStatus } from "../../../shared/hr";
@@ -80,7 +81,7 @@ export function HrOperationalPage(){
   <button className="cy-op-button" type="button" onClick={()=>setter([...rows,{}])}>＋ 新增</button>
  </div>;
  const changeRows=(d:Record<string,unknown>[],formatter:(x:Record<string,unknown>)=>string)=>d.map((row,i)=><div key={i} className="cy-customer-line">{formatter(row)}</div>);
- return <div className="cy-op-module">
+ return <div className="cy-op-module cy-hr-layout">
   {error&&!dialog?<div className="cy-notice cy-notice-danger" role="alert">{error}</div>:null}
   {notice?<div className="cy-notice" role="status">{notice}</div>:null}
   <div className="cy-op-grid-two">
@@ -88,7 +89,7 @@ export function HrOperationalPage(){
     <div className="cy-op-panel-header"><h2>人事清單</h2><button className="cy-op-button primary" onClick={()=>openEmployee(false)}>＋ 新增員工</button></div>
     <div className="cy-op-form"><input className={inputClass} placeholder="搜尋員工編號、姓名" aria-label="搜尋員工" value={query} onChange={e=>setQuery(e.target.value)}/>
     <select className={inputClass} aria-label="人事狀態" value={filter} onChange={e=>setFilter(e.target.value)}><option value="">全部狀態</option>{Object.entries(labels).map(([v,t])=><option key={v} value={v}>{t}</option>)}</select></div>
-    {list.map(x=><button key={x.id} type="button" className="cy-op-button" style={{display:"flex",justifyContent:"space-between",width:"100%",height:"auto",marginTop:6}} onClick={()=>setSelectedId(x.id)}><span><small>{x.employee_no}</small><strong style={{display:"block"}}>{x.name}</strong></span><span>{labels[x.status]}</span></button>)}
+    {list.map(x=><button key={x.id} type="button" className="cy-op-button cy-hr-list-item" onClick={()=>setSelectedId(x.id)}><span><small>{x.employee_no}</small><strong style={{display:"block"}}>{x.name}</strong></span><span>{labels[x.status]}</span></button>)}
     {!list.length?<p>尚無員工資料</p>:null}
     {next?<button className="cy-op-button" onClick={()=>void loadList(true,next).catch(x=>setError(err(x)))}>載入更多</button>:null}
    </section>
