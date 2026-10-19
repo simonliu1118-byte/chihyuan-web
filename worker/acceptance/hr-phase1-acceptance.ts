@@ -42,6 +42,13 @@ export async function acceptHrPhase1(db:D1Database):Promise<void>{
  check(Array.isArray(created.workHistory)&&created.workHistory.length===1,"ACCEPT_HR_WORK_HISTORY");
  const id=created.id as number;
  check((await call("employees","POST",input)).status===409,"ACCEPT_HR_EMPLOYEE_NO_UNIQUE");
+ const owner=await db.prepare("SELECT id FROM app_members ORDER BY id LIMIT 1").first<{id:number}>();
+ if(owner){
+   const linked=await svc.create({...input,employeeNo:"HRTEST002",nationalId:null,memberId:owner.id},ctx) as Record<string,unknown>;
+   check(linked.member_id===owner.id,"ACCEPT_HR_MEMBER_LINK");
+   check((await call("employees","POST",{...input,employeeNo:"HRTEST003",nationalId:null,memberId:owner.id})).status===409,"ACCEPT_HR_MEMBER_UNIQUE");
+ }
+ check((await call("employees","POST",{...input,employeeNo:"HRTEST004",status:"terminated"})).status===422,"ACCEPT_HR_TERMINATION_REQUIRES_EVENT");
  check((await call("employees/"+id+"/national-id/reveal","POST")).status===200,"ACCEPT_HR_REVEAL_ALLOWED");
  const audit=await db.prepare("SELECT before_json,after_json,metadata_json FROM audit_events WHERE entity_type LIKE 'hr_%'").all<Record<string,string|null>>();
  check(!(audit.results??[]).some(x=>JSON.stringify(x).includes(input.nationalId)),"ACCEPT_HR_AUDIT_NO_FULL_ID");
