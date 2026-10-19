@@ -7,7 +7,7 @@ import type { AnnualLeavePeriod } from "../../../shared/hr-annual-leave";
 
 const ROOT="/api/business/hr";
 const labels:Record<HrStatus,string>={probation:"試用",active:"在職",leave:"留職停薪",terminated:"離職"};
-type Employee={id:number;employee_no:string;name:string;status:HrStatus;member_id:number|null;nationalIdMasked:string|null;hire_date:string;seniority_start_date:string;revision:number;mobile:string|null;phone:string|null;birth_date:string|null;mailing_address:string|null;registered_address:string|null;note:string|null;contacts:Record<string,unknown>[];education:Record<string,unknown>[];workHistory:Record<string,unknown>[];salaryRecords:Record<string,unknown>[];statusChanges:Record<string,unknown>[];seniorityExclusions:Record<string,unknown>[]};
+type Employee={id:number;employee_no:string;name:string;status:HrStatus;member_id:number|null;nationalIdMasked:string|null;hire_date:string;seniority_start_date:string;revision:number;mobile:string|null;phone:string|null;gender:string|null;birth_date:string|null;mailing_address:string|null;registered_address:string|null;note:string|null;contacts:Record<string,unknown>[];education:Record<string,unknown>[];workHistory:Record<string,unknown>[];salaryRecords:Record<string,unknown>[];statusChanges:Record<string,unknown>[];seniorityExclusions:Record<string,unknown>[]};
 type StaffRow=Pick<Employee,"id"|"employee_no"|"name"|"status">;
 const money=(n:unknown)=>typeof n==="number"?n.toLocaleString("zh-TW",{maximumFractionDigits:0})+" 元":"—";
 function err(x:unknown){return x instanceof Error?x.message:"操作失敗";}
@@ -30,6 +30,7 @@ export function HrOperationalPage(){
  const [error,setError]=useState(""),[notice,setNotice]=useState(""),[busy,setBusy]=useState(false);
  const [nationalId,setNationalId]=useState<string|null>(null);
  const [allLeave,setAllLeave]=useState(false);
+ const [members,setMembers]=useState<{id:number;employee_no:string;display_name:string|null}[]>([]);
  const [salaryItems,setSalaryItems]=useState<{id:number;name:string;is_active:number}[]>([]);
  const [minimumWages,setMinimumWages]=useState<{effective_date:string;monthly_amount:number;hourly_amount:number}[]>([]);
  const [salaryAllowances,setSalaryAllowances]=useState<{itemTypeId:number;amount:number;isRegular:boolean}[]>([]);
@@ -45,8 +46,9 @@ export function HrOperationalPage(){
  useEffect(()=>{void loadList().catch(x=>setError(err(x)));},[loadList]);
  useEffect(()=>{if(selectedId)void loadDetail(selectedId).catch(x=>setError(err(x)));},[selectedId,loadDetail]);
  function openEmployee(edit:boolean){
+  void apiRequest<{id:number;employee_no:string;display_name:string|null}[]>(ROOT+"/members").then(setMembers).catch(e=>setError(err(e)));
   setCreate(!edit);setError("");
-  setFields(edit&&detail?{employeeNo:detail.employee_no,name:detail.name,memberId:detail.member_id?String(detail.member_id):"",hireDate:detail.hire_date,seniorityStartDate:detail.seniority_start_date,mobile:detail.mobile??"",phone:detail.phone??"",birthDate:detail.birth_date??"",mailingAddress:detail.mailing_address??"",registeredAddress:detail.registered_address??"",note:detail.note??"",nationalId:""}:{employeeNo:"",name:"",hireDate:"",seniorityStartDate:""});
+  setFields(edit&&detail?{employeeNo:detail.employee_no,name:detail.name,memberId:detail.member_id?String(detail.member_id):"",hireDate:detail.hire_date,seniorityStartDate:detail.seniority_start_date,mobile:detail.mobile??"",phone:detail.phone??"",birthDate:detail.birth_date??"",mailingAddress:detail.mailing_address??"",registeredAddress:detail.registered_address??"",note:detail.note??"",nationalId:"",gender:detail.gender??""}:{employeeNo:"",name:"",hireDate:"",seniorityStartDate:""});
   setContacts(edit&&detail?detail.contacts.map(x=>({name:String(x.name??""),relationship:String(x.relationship??""),phone:String(x.phone??"")})):[]);
   setEducation(edit&&detail?detail.education.map(x=>({school:String(x.school??""),department:String(x.department??""),degree:String(x.degree??""),graduationMonth:String(x.graduation_month??"")})):[]);
   setHistory(edit&&detail?detail.workHistory.map(x=>({company:String(x.company??""),jobTitle:String(x.job_title??""),startMonth:String(x.start_month??""),endMonth:String(x.end_month??""),note:String(x.note??"")})):[]);
@@ -58,7 +60,7 @@ export function HrOperationalPage(){
   try {
     const data:Record<string,unknown>={...fields,memberId:fields.memberId?Number(fields.memberId):null,
       seniorityStartDate:fields.seniorityStartDate||fields.hireDate,contacts,education,workHistory:history};
-    if(!create&&detail){data.revision=detail.revision;delete data.nationalId;}
+    if(!create&&detail){data.revision=detail.revision;if(!fields.nationalId?.trim())delete data.nationalId;}
     const x=await apiRequest<Employee>(ROOT+"/employees"+(create?"":"/"+detail!.id),{method:create?"POST":"PATCH",json:data});
     setDialog(null);setSelectedId(x.id);await loadList();await loadDetail(x.id);setNotice(create?"已新增員工":"已更新人事資料");
   }catch(x){setError(err(x));}finally{setBusy(false);}
@@ -111,11 +113,11 @@ export function HrOperationalPage(){
   <Dialog open={dialog==="employee"} title={create?"新增員工":"修改員工"} onClose={()=>setDialog(null)} size="large">
    {error?<div className="cy-notice cy-notice-danger" role="alert">{error}</div>:null}
    <form className="cy-op-form" onSubmit={submitEmployee}>
-     {field("員工編號","employeeNo","text",true)}{field("姓名","name","text",true)}{field("綁定使用者 ID（選填）","memberId")}
-     {create?field("身分證字號（選填）","nationalId"):null}
+     {field("員工編號","employeeNo","text",true)}{field("姓名","name","text",true)}<label>綁定使用者（選填）<select className={inputClass} value={fields.memberId??""} onChange={e=>set("memberId",e.target.value)}><option value="">不綁定</option>{members.map(x=><option key={x.id} value={x.id}>{x.employee_no}　{x.display_name??""}</option>)}</select></label>
+     {field(create?"身分證字號（選填）":"新身分證字號（留空維持原值）","nationalId")}<label>性別<select className={inputClass} value={fields.gender??""} onChange={e=>set("gender",e.target.value)}><option value="">未設定</option><option value="男">男</option><option value="女">女</option><option value="其他">其他</option></select></label>
      {field("到職日","hireDate","date",true)}{field("年資起算日","seniorityStartDate","date")}
      {field("出生年月日","birthDate","date")}{field("手機","mobile")}{field("市話","phone")}
-     {field("通訊地址","mailingAddress")}{field("戶籍地址","registeredAddress")}{field("備註","note")}
+     {field("通訊地址","mailingAddress")}<label><input type="checkbox" checked={(fields.registeredAddress??"")!=="" && fields.registeredAddress===fields.mailingAddress} onChange={e=>set("registeredAddress",e.target.checked?fields.mailingAddress??"":"")}/> 戶籍地址同通訊地址</label>{field("戶籍地址","registeredAddress")}{field("備註","note")}
      {editable(contacts,setContacts,["name","relationship","phone"],"緊急聯絡人")}
      {editable(education,setEducation,["school","department","degree","graduationMonth"],"學歷")}
      {editable(history,setHistory,["company","jobTitle","startMonth","endMonth","note"],"工作經歷")}
