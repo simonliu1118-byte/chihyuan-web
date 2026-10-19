@@ -99,7 +99,7 @@ export function ErpCustomerQuery({ job }: { job: ErpJob }) {
         {mine.truncated && <p className="cy-notice cy-notice-warning">結果已達 {mine.items.length} 筆，可能有更多資料，請輸入更完整的名稱。</p>}
         <ErpQueryRows key={mine.id} label="客戶搜尋結果" columns={ERP_CUSTOMER_SEARCH_FIELDS} rows={rowsOf(mine.items)}
           disabled={busy} onItemSelect={code => void queryCustomer(code, follow.sales, follow.from, follow.to)} />
-        <p className="cy-erp-search-hint">{follow.sales ? "點選客戶代號，查詢該客戶的銷貨銷退單。" : "點選客戶代號，重新向 ERP 查詢該客戶完整資料。"}</p>
+        
       </>}
       {showsData(mine) && mine.queryType === "CUSTOMER_NO" && <>
         <h3>客戶資料</h3>
