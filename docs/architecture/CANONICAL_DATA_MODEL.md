@@ -706,3 +706,8 @@ The forward `0007_retired_entity_ids` model preserves a per-table retired-ID hig
 ## 21. Derived program-release metadata
 
 Forward migration `0008_program_catalog_state` adds one operational row for the public Release catalog and daily refresh coordination. A single Cloudflare cron at 03:00 Asia/Taipei claims that day's attempt atomically across instances before querying GitHub. The row retains the last successful snapshot, safe failure classification and attempt token; old completions cannot overwrite a newer day. Browser GETs only read this shared state, never fetch GitHub or mutate the row. This is derived public metadata, not business, Identity, credential or permission authority, and is excluded from portable business backup data and its schema fingerprint.
+
+
+## WO-0.9.20 人事資料（第一期）
+
+D1 migration `0017_hr_phase1.sql` 新增 `hr_employees`、`hr_emergency_contacts`、`hr_education`、`hr_work_history`、`hr_status_changes`、`hr_seniority_exclusions`、`hr_salary_records`、`hr_salary_allowances`、`hr_salary_item_types`、`hr_minimum_wages`；全部為人事資料範疇，不改既有 CYID Authority。每一名人事員工可選填唯一的本地 `app_members.id` 綁定；人事狀態由追加式生效異動決定，薪資異動不可修改或刪除，主檔不得刪除。證號預設遮罩且 reveal 稽核留存遮罩值。詳見 [HR_MODULE_DESIGN.md](HR_MODULE_DESIGN.md) 及 [HR_MODULE_CONTRACT.md](HR_MODULE_CONTRACT.md)。

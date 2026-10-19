@@ -17,6 +17,16 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS_DIR = ROOT / "migrations"
 
 EXPECTED_TABLES = {
+    "hr_employees",
+    "hr_emergency_contacts",
+    "hr_education",
+    "hr_work_history",
+    "hr_status_changes",
+    "hr_seniority_exclusions",
+    "hr_salary_records",
+    "hr_salary_allowances",
+    "hr_salary_item_types",
+    "hr_minimum_wages",
     "program_catalog_state",
     "erp_item_queries",
     "erp_item_agent_status",

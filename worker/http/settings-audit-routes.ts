@@ -83,6 +83,7 @@ export async function handleSettingsAuditRoute(request: Request, env: IdentityRu
       const query = auditQuery(url);
       // Client flag can never elevate ADMIN or USER to query-visibility.
       query.includeErpQueries = role === "SUPER_ADMIN" && query.includeErpQueries === true;
+      query.includeHrEvents = role === "SUPER_ADMIN";
       const result = await audit.listDetailedPage(query);
       return success({ ...result, actors: await audit.listActors() }, requestId);
     }

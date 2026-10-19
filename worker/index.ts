@@ -8,6 +8,7 @@ import { handleModuleAccessRoute } from "./http/module-access-routes";
 import { groupManagedSystemAccess } from "./http/module-access-group-routes";
 import { handleCyInvoiceRecoveryRoute, type CyInvoiceRecoveryEnv } from "./http/cyinvoice-recovery-routes";
 import { handleBusinessApiRoute } from "./http/business-api-routes";
+import { handleHrRoute } from "./http/hr-routes";
 import { handleBusinessApiPhase2Route } from "./http/business-api-phase2-routes";
 import { handleProgramCatalogRoute } from "./http/program-catalog-routes";
 import { handleErpItemQueryRoute, type ErpBridgeEnv } from "./http/erp-item-query-routes";
@@ -73,6 +74,9 @@ async function routeRequest(request: Request, env: Env, url: URL): Promise<Respo
 
   const erpResponse = await handleErpItemQueryRoute(request, env, requestId);
   if (erpResponse) return erpResponse;
+
+  const hrResponse = await handleHrRoute(request, env, requestId);
+  if (hrResponse) return hrResponse;
 
   const businessResponse = await handleBusinessApiRoute(request, env, requestId);
   if (businessResponse) return businessResponse;
