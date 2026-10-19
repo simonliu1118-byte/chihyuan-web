@@ -6,7 +6,7 @@
 ## CY Web V0.9.13 Build 0 — 異動紀錄人性化與工具連結
 
 - [x] [WO-0.9.13 工作單](docs/development/work-orders/WO-0.9.13.md)：CYID 姓名顯示快取、異動紀錄中文摘要與篩選／欄位變更抽屜、客戶管理員專屬修改紀錄，以及網頁程式外部工具入口。PR #208 審查通過（2026-10-19，紀錄見工作單 §9）。
-- [x] PR #208 已於 2026-10-19 合併（commit `6c490196`）；後續正式部署 run 編號待審查者確認，使用者實機驗收仍待完成。
+- [x] PR #208 已於 2026-10-19 合併（commit `6c490196`）；CY Web Deploy [run 39183836960](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39183836960) 同提交正式部署成功；使用者實機驗收仍待完成。
 
 ## CY Web V0.9.12 Build 0 — 客戶紀錄卡片與介面一致性
 
