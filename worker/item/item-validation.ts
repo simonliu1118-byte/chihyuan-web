@@ -175,47 +175,19 @@ function normalizeUnitConversions(
     if (fromUnit && fromUnit === baseUnit) {
       errors[`${path}.fromUnit`] = "換算來源單位不可與基準單位相同";
     }
-    if (fromUnit && toUnit && fromUnit === toUnit) {
-      errors[`${path}.toUnit`] = "來源與目標單位不可相同";
+    if (toUnit && toUnit !== baseUnit) {
+      errors[`${path}.toUnit`] = "換算單位必須換成基準單位";
     }
-
     return { fromUnit, quantityScaled4, toUnit, sortOrder };
   });
 
-  const fromUnitIndex = new Map<string, number>();
+  const seen = new Set<string>();
   rows.forEach((row, index) => {
     if (!row.fromUnit) return;
-    const previous = fromUnitIndex.get(row.fromUnit);
-    if (previous != null) {
-      errors[`unitConversions.${index}.fromUnit`] = `換算單位重複；已在第 ${previous + 1} 列定義`;
-    } else {
-      fromUnitIndex.set(row.fromUnit, index);
+    if (seen.has(row.fromUnit)) {
+      errors[`unitConversions.${index}.fromUnit`] = "此單位已有換算";
     }
-  });
-
-  const definedUnits = new Set(rows.map((row) => row.fromUnit).filter(Boolean));
-  rows.forEach((row, index) => {
-    if (!row.toUnit || row.toUnit === baseUnit) return;
-    if (!definedUnits.has(row.toUnit)) {
-      errors[`unitConversions.${index}.toUnit`] = `目標單位「${row.toUnit}」沒有換算定義`;
-    }
-  });
-
-  const nextByUnit = new Map(rows.map((row) => [row.fromUnit, row.toUnit] as const));
-  rows.forEach((row, index) => {
-    if (!row.fromUnit || !row.toUnit) return;
-    const visited = new Set<string>();
-    let current = row.fromUnit;
-    while (current !== baseUnit) {
-      if (visited.has(current)) {
-        errors[`unitConversions.${index}.toUnit`] = "換算路徑存在循環，無法解析至基準單位";
-        break;
-      }
-      visited.add(current);
-      const next = nextByUnit.get(current);
-      if (!next) break;
-      current = next;
-    }
+    seen.add(row.fromUnit);
   });
 
   return rows;
