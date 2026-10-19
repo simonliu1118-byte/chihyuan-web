@@ -71,7 +71,6 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
         <ErpQueryRows key={mine.id} label="客戶搜尋結果" columns={ERP_CUSTOMER_SEARCH_FIELDS} disabled={busy}
           rows={mine.items.map(row => { const v = new Map(row.map(f => [f.name, f.value])); return ERP_CUSTOMER_SEARCH_FIELDS.map(n => v.get(n) || ""); })}
           onItemSelect={code => void queryCustomer(code)} />
-        <p className="cy-erp-search-hint">點選客戶代號，查詢該客戶的未收款。</p>
       </>}
       {showsData(mine) && mine.queryType === "RECEIVABLE" && <>
         <h3>未收合計 {erpMoney(totalUnpaid)}（{groups.length} 位客戶、{mine.bills.length} 張結帳單）</h3>
@@ -98,7 +97,7 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
             </div>
           </details>)}
         </div>
-        <p className="cy-erp-search-hint">點選憑證號碼可在視窗中查看該張銷貨單或銷退單，未收款清單會保留。金額為 ERP 原幣；未收合計由各結帳單未收帳款相加（{erpMoney(mine.bills.reduce((a, b) => a + erpNumber(b.unpaid), 0))}）。</p>
+        <p className="cy-erp-search-hint">金額為 ERP 原幣；未收合計由各結帳單未收帳款相加（{erpMoney(mine.bills.reduce((a, b) => a + erpNumber(b.unpaid), 0))}）。</p>
       </>}
     </div>}
     {openOrder && <ErpOrderDialog key={openOrder} orderNo={openOrder} onClose={() => setOpenOrder(null)} />}

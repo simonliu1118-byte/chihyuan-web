@@ -121,7 +121,6 @@ export function CyInvoiceRecoveryAdminPanel({ session }: { session: AuthSession 
   return <section className="cy-op-panel cy-invoice-recovery-panel" aria-label="CYInvoice 公司級災難復原" aria-busy={busy}>
     <div className="cy-op-panel-header"><div>
       <h3>CYInvoice 裝置災難復原</h3>
-      <p>所有裝置憑證均遺失時，由超管簽發復原邀請，再於新電腦接管原公司。</p>
     </div></div>
     {confirmationDialog}
     <div className="cy-notice cy-notice-warning">

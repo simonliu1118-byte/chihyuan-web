@@ -6,6 +6,7 @@ import { useConfirmation } from "../ui/overlays/useConfirmation";
 import { useFormPrompt } from "../ui/overlays/useFormPrompt";
 import { useUnsavedChangesGuard } from "../ui/foundation/useUnsavedChangesGuard";
 import { TextInput } from "../ui/primitives/TextInput";
+import { PasswordInput } from "../ui/forms/PasswordInput";
 import { StatusChip } from "../ui/primitives/StatusChip";
 import { StatusFilter } from "../ui/data/StatusFilter";
 import { NextStep } from "../ui/feedback/NextStep";
@@ -90,6 +91,7 @@ function useReloadNotice() {
 // ---------- 我的帳號 ----------
 
 function SelfServicePanel({ session }: { session: AuthSession }) {
+  const [dialog, setDialog] = useState<"password" | "email" | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -98,15 +100,31 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
   const [verifyingCurrentEmail, setVerifyingCurrentEmail] = useState(false);
+  const [resendAt, setResendAt] = useState(0);
+  const [now, setNow] = useState(Date.now());
   const [busy, setBusy] = useState(false);
   const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
   const { reloadAfter, reloadDialog } = useReloadNotice();
+  const validLength = Array.from(newPassword).length >= 8 && Array.from(newPassword).length <= 16;
+  const matching = newPassword.length > 0 && newPassword === confirmPassword;
+  const countdown = Math.max(0, Math.ceil((resendAt - now) / 1000));
+
+  useEffect(() => {
+    if (!resendAt || now >= resendAt) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [resendAt, now >= resendAt]);
+
+  const closeDialog = () => {
+    if (busy) return;
+    setDialog(null); setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
+    setNewEmail(""); setEmailPassword(""); setChallengeId(null); setOtp("");
+    setVerifyingCurrentEmail(false); setMessage(null);
+  };
 
   async function submitPassword(event: FormEvent) {
     event.preventDefault();
-    if (newPassword !== confirmPassword) { reportError("兩次新密碼不一致。"); return; }
-    const length = Array.from(newPassword).length;
-    if (length < 8 || length > 16) { reportError("新密碼必須為 8～16 字元。"); return; }
+    if (!validLength || !matching || !currentPassword) return;
     setBusy(true); setMessage(null);
     try {
       await changeOwnPassword(currentPassword, newPassword);
@@ -115,23 +133,28 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
     finally { setBusy(false); }
   }
 
-  async function startEmail(event: FormEvent) {
-    event.preventDefault(); setBusy(true); setMessage(null); setVerifyingCurrentEmail(false);
+  async function startEmail(event?: FormEvent) {
+    event?.preventDefault();
+    if (busy || countdown > 0) return;
+    setBusy(true); setMessage(null);
     try {
       const result = await startOwnEmailChange(emailPassword, newEmail);
       setChallengeId(result.verification.challengeId);
+      setNow(Date.now()); setResendAt(Date.now() + 60000);
       setMessage("驗證碼已寄出，請輸入 Email 中的 6 位數驗證碼。");
     } catch (error) { reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
   async function verifyCurrentEmail() {
-    setBusy(true); setMessage(null); setVerifyingCurrentEmail(true);
+    if (busy || countdown > 0) return;
+    setDialog("email"); setBusy(true); setMessage(null); setVerifyingCurrentEmail(true);
     try {
       const result = await startCurrentEmailVerification();
       setChallengeId(result.verification.challengeId);
+      setNow(Date.now()); setResendAt(Date.now() + 60000);
       setMessage(result.reused ? "沿用已寄出的驗證碼，請輸入 6 位數驗證碼。" : "驗證碼已寄至目前 Email。");
-    } catch (error) { setVerifyingCurrentEmail(false); reportError(messageOf(error)); }
+    } catch (error) { setChallengeId(null); reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
@@ -148,31 +171,50 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
 
   return <>
     {reloadDialog}
-    <p className="cy-identity-intro">{session.user.employeeNo} {session.user.displayName} · {permissionLabel(session.user.workspaceRole)}。密碼與驗證碼由 CYID 帳號服務保管，CY Web 不會保存。</p>
-    {!session.user.emailVerified ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-title">Email 待重新驗證</div><div className="cy-notice-body">帳號已啟用，原密碼仍有效。請完成目前 Email 驗證，密碼找回等 Email 安全功能才會恢復正常。</div><button className="cy-op-button" type="button" disabled={busy} aria-busy={(busy && verifyingCurrentEmail) || undefined} onClick={() => void verifyCurrentEmail()}>寄送 Email 驗證碼</button></div> : null}
-    <FeedbackBanner message={message} tone={messageTone} />
-    <div className="cy-op-grid-two">
-      <section className="cy-op-panel">
-        <h3>變更密碼</h3>
-        <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={submitPassword} noValidate>
-          <label>目前密碼<input className="cy-op-input" type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required /></label>
-          <label>新密碼（8～16 字元）<input className="cy-op-input" type="password" autoComplete="new-password" maxLength={16} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required /></label>
-          <label>確認新密碼<input className="cy-op-input" type="password" autoComplete="new-password" maxLength={16} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required /></label>
-          <div className="cy-op-form-footer"><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>變更密碼</button></div>
-        </form>
-      </section>
-      <section className="cy-op-panel">
-        <h3>{verifyingCurrentEmail ? "驗證目前 Email" : "變更 Email"}</h3>
-        {!challengeId ? <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={startEmail}>
-          <label>新 Email<input className="cy-op-input" type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required /></label>
-          <label>目前密碼<input className="cy-op-input" type="password" value={emailPassword} onChange={(e) => setEmailPassword(e.target.value)} required /></label>
-          <div className="cy-op-form-footer"><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>寄送驗證碼</button></div>
-        </form> : <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={confirmEmail}>
-          <label>6 位數驗證碼<input className="cy-op-input" inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} required /></label>
-          <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={() => { setChallengeId(null); setOtp(""); setVerifyingCurrentEmail(false); }}>返回</button><button className="cy-op-button primary" disabled={busy || otp.length !== 6} aria-busy={busy || undefined}>確認驗證</button></div>
-        </form>}
-      </section>
-    </div>
+    <section className="cy-op-panel cy-my-account">
+      <h2>{session.user.displayName} <span>{session.user.employeeNo}</span> <span>{permissionLabel(session.user.workspaceRole)}</span></h2>
+      <div className="cy-my-account-row">
+        <strong>Email</strong><span>{session.user.emailVerified ? "已驗證" : "待驗證"}</span>
+        {session.user.emailVerified
+          ? <button type="button" className="cy-op-button" onClick={() => setDialog("email")}>變更</button>
+          : <button type="button" className="cy-op-button" disabled={busy} onClick={() => void verifyCurrentEmail()}>寄送驗證碼</button>}
+      </div>
+      <div className="cy-my-account-row">
+        <strong>密碼</strong><span>••••••••</span>
+        <button type="button" className="cy-op-button" onClick={() => setDialog("password")}>變更</button>
+      </div>
+    </section>
+    <Dialog open={dialog === "password"} title="變更密碼" size="small" dismissible={!busy} onClose={closeDialog}>
+      <FeedbackBanner message={message} tone={messageTone} />
+      <form className="cy-op-form" onSubmit={submitPassword} noValidate>
+        <label>目前密碼<PasswordInput value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} autoComplete="current-password" required /></label>
+        <label>新密碼<PasswordInput value={newPassword} onChange={event => setNewPassword(event.target.value)} autoComplete="new-password" required /></label>
+        <label>確認新密碼<PasswordInput value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} autoComplete="new-password" required /></label>
+        <div className="cy-password-checks" aria-live="polite">
+          <span className={validLength ? "valid" : ""}>{validLength ? "✓" : "○"} 8～16 字元</span>
+          <span className={matching ? "valid" : ""}>{matching ? "✓" : "○"} 兩次輸入相同</span>
+        </div>
+        <div className="cy-op-form-footer">
+          <button type="button" className="cy-op-button" onClick={closeDialog} disabled={busy}>取消</button>
+          <button className="cy-op-button primary" disabled={busy || !currentPassword || !validLength || !matching}>變更密碼</button>
+        </div>
+      </form>
+    </Dialog>
+    <Dialog open={dialog === "email"} title={verifyingCurrentEmail ? "驗證目前 Email" : "變更 Email"} size="small" dismissible={!busy} onClose={closeDialog}>
+      <FeedbackBanner message={message} tone={messageTone} />
+      {!challengeId && verifyingCurrentEmail ? <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={closeDialog}>取消</button><button type="button" className="cy-op-button primary" disabled={busy || countdown > 0} onClick={() => void verifyCurrentEmail()}>{countdown > 0 ? String(countdown) + " 秒後可重新寄送" : "重新寄送驗證碼"}</button></div> : !challengeId ? <form className="cy-op-form" onSubmit={startEmail}>
+        <label>新 Email<input className="cy-op-input" type="email" value={newEmail} onChange={event => setNewEmail(event.target.value)} required /></label>
+        <label>目前密碼<PasswordInput value={emailPassword} onChange={event => setEmailPassword(event.target.value)} autoComplete="current-password" required /></label>
+        <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={closeDialog}>取消</button><button className="cy-op-button primary" disabled={busy || countdown > 0}>{countdown > 0 ? `${countdown} 秒後可重新寄送` : "寄送驗證碼"}</button></div>
+      </form> : <form className="cy-op-form" onSubmit={confirmEmail}>
+        <label>6 位數驗證碼<input className="cy-op-input" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otp} onChange={event => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} required /></label>
+        <div className="cy-op-form-footer">
+          <button type="button" className="cy-op-button" disabled={busy} onClick={() => { if (verifyingCurrentEmail) { closeDialog(); } else { setChallengeId(null); setOtp(""); setMessage(null); } }}>{verifyingCurrentEmail ? "關閉" : "返回"}</button>
+          <button type="button" className="cy-op-button" disabled={busy || countdown > 0} onClick={() => void (verifyingCurrentEmail ? verifyCurrentEmail() : startEmail())}>{countdown > 0 ? String(countdown) + " 秒後可重新寄送" : "重新寄送"}</button>
+          <button className="cy-op-button primary" disabled={busy || otp.length !== 6}>確認</button>
+        </div>
+      </form>}
+    </Dialog>
   </>;
 }
 
@@ -371,7 +413,6 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
         <StatusFilter label="帳號狀態" options={accountStates} counts={counts} value={stateFilter} onChange={setStateFilter} />
         <span className="cy-md-count">{busyAny ? <Loading inline /> : `共 ${rows.length} 位`}</span>
       </div>
-      {!canIdentityAdmin ? <p className="cy-identity-intro">系統與模組使用權由帳號管理員或超級管理員設定；你可以管理一般使用者的帳號，點姓名開啟。</p> : null}
       {canIdentityAdmin && !moduleView ? <Loading /> : <div className="cy-identity-access-scroll">
         <table className="cy-op-table cy-identity-access-table">
           <thead>
@@ -413,7 +454,6 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
         </table>
         {rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的使用者。</div> : null}
       </div>}
-      {canIdentityAdmin ? <p className="cy-identity-intro cy-identity-table-hint">勾選立即生效。加入權限群組的人，系統與模組使用權都由群組決定（切到「權限群組」修改）。點姓名可處理帳號（停用、更換 Email、從某人複製使用權等）。CY Web 本身所有啟用的使用者都能登入。</p> : null}
     </section>
   </>;
 }
@@ -600,7 +640,6 @@ function UserDrawer({ employee, snapshot, session, refresh, columns, allowed, lo
 
       {canEditAccess && copyCandidates.length ? <div className="cy-op-subsection">
         <h3>從某人複製使用權</h3>
-        <p className="cy-identity-intro">新同事可以直接套用同職位同事的系統與模組使用權。</p>
         <div className="cy-identity-copy-row">
           <select className="cy-op-input" aria-label="複製來源" value={copySource} disabled={busy} onChange={(event) => setCopySource(event.target.value)}>
             <option value="">選擇同事</option>
@@ -659,7 +698,6 @@ function ModuleAccessPanel({ groups, group, ...props }: Omit<Parameters<typeof A
 }) {
   return <div className="cy-op-subsection">
     <h3>CY Web 模組使用權</h3>
-    <p className="cy-identity-intro">模組使用權與權限（管理員／一般使用者）各自獨立，改權限不會改這裡。</p>
     {groups.map((item) => <fieldset key={item.group} className="cy-identity-module-group"><legend>{item.group}</legend><AccessChecks {...props} columns={item.columns} quiet={!!group} /></fieldset>)}
   </div>;
 }
@@ -894,7 +932,6 @@ function GroupWorkspace({ snapshot, session, view, columns, reload, switcher }: 
         </table>
         {view.groups.length === 0 ? <div className="cy-op-empty">尚未建立權限群組。按「＋ 新增群組」建立，例如「業務」「倉管」。</div> : null}
       </div>
-      <p className="cy-identity-intro cy-identity-table-hint">勾選立即套用到群組所有成員，成員不能個別修改。每人最多一個群組，在「人員」設定；移出群組或刪除群組時，當時的系統與模組使用權保留為個人設定。</p>
     </section>
   </>;
 }
@@ -941,7 +978,7 @@ function ApplicationRegistryPanel({ snapshot, refresh }: { snapshot: IdentityAdm
 
   return <section className="cy-op-panel">
     {confirmationDialog}
-    <div className="cy-op-panel-header"><div><h3>已登記的系統</h3><p>員工能使用的志遠系統。CY Web 是固定啟用的核心入口。</p></div>
+    <div className="cy-op-panel-header"><div><h3>已登記的系統</h3></div>
       <button type="button" className="cy-op-button" disabled={busy} onClick={() => { setRegistration({ applicationId: "", displayName: "" }); setRegistrationError(null); }}>＋ 登記系統</button></div>
     <FeedbackBanner message={message} tone={messageTone} />
     <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>系統</th><th>識別碼</th><th>狀態</th></tr></thead>

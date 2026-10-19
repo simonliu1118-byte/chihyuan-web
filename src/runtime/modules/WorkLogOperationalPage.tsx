@@ -596,7 +596,7 @@ export function WorkLogOperationalPage() {
           {editing && draft ? (
           <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void save(event)}>
             <div className="cy-record-header cy-edit-header">
-              <div><h2>{creating ? "新增工作日誌" : `修改 ${selected?.workLogRef ?? "工作日誌"}`}</h2><p>填寫日期與工作內容；儲存後可在明細按「送出審核」。</p></div>
+              <div><h2>{creating ? "新增工作日誌" : `修改 ${selected?.workLogRef ?? "工作日誌"}`}</h2></div>
             <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
               <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立日誌" : "儲存修改"}</button></div></div>
             <div className="cy-op-form-grid cy-worklog-head-grid cy-form-grid-spaced">
@@ -608,7 +608,7 @@ export function WorkLogOperationalPage() {
             </div>
 
             <section className="cy-form-block">
-              <div className="cy-form-block-head"><div><h3>工作內容</h3><p>每個工作項目可選平台，並加上多個計分分類。</p></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={addEntry}>＋ 增加工作項目</button></div>
+              <div className="cy-form-block-head"><div><h3>工作內容</h3></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={addEntry}>＋ 增加工作項目</button></div>
               <div className="cy-form-block-body">
               {draft.entries.map((entry, entryIndex) => (
                 <div className="cy-worklog-entry" key={entry.key}>

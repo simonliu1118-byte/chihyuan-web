@@ -351,7 +351,7 @@ export function BomWorkspace({ boms, onChanged, onEditingChange, notify, reportE
             <label className="wide"><input type="checkbox" checked={draft.isActive} disabled={busy} onChange={(event) => patch({ isActive: event.target.checked })} />使用中</label>
           </div>
           <section className="cy-form-block">
-            <div className="cy-form-block-head"><div><h3>料件</h3><p>做出上面的產出數量需要的料件與數量。</p></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={() => patch({ components: [...draft.components, newComponent()] })}>＋ 增加料件</button></div>
+            <div className="cy-form-block-head"><div><h3>料件</h3></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={() => patch({ components: [...draft.components, newComponent()] })}>＋ 增加料件</button></div>
             <div className="cy-form-block-body">
               {draft.components.map((row, index) => <div className="cy-out-component" key={row.key}>
                 <EntityPicker<OutsourcingItemOption> label={<span className="cy-visually-hidden">第 {index + 1} 項料件</span>} disabled={busy} value={row.item}
