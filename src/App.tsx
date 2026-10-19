@@ -1,3 +1,4 @@
+import { routeHref } from "./runtime/navigation/route-params";
 import { Loading } from "./ui/feedback/Loading";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiClientError } from "./api/client";
@@ -94,7 +95,7 @@ const routes = new Set<AppRoute>([
 ]);
 
 function currentRoute(): AppRoute {
-  const value = window.location.hash.replace(/^#/, "") as AppRoute;
+  const value = window.location.hash.replace(/^#/, "").split("?")[0] as AppRoute;
   return routes.has(value) ? value : "account";
 }
 
@@ -131,11 +132,14 @@ function OperationalApp({
   const [checkedRoute, setCheckedRoute] = useState<AppRoute | null>(null);
   const { canLeave, cancel } = useNavigationGuard();
   const compact = useCompactLayout();
+  const pendingRecordHash = useRef<string | null>(null);
   const guardedNavigation = useMemo(() => createGuardedHashNavigation<AppRoute>({
     initial: currentRoute(), canLeave, commit: setRoute,
     write: (next, replace) => {
-      if (replace) window.history.replaceState(null, "", `#${next}`);
-      else window.location.hash = next;
+      const requested = pendingRecordHash.current;
+      const href = requested && requested.slice(1).split("?")[0] === next ? requested : routeHref(next);
+      if (replace) window.history.replaceState(null, "", href);
+      else window.location.hash = href;
     },
   }), [canLeave]);
 
@@ -159,7 +163,10 @@ function OperationalApp({
   }, [allowedModules, session.user.workspaceRole]);
 
   useEffect(() => {
-    const handleHashChange = () => { void guardedNavigation.request(currentRoute(), "hash"); };
+    const handleHashChange = () => {
+      pendingRecordHash.current = window.location.hash;
+      void guardedNavigation.request(currentRoute(), "hash").finally(() => { pendingRecordHash.current = null; });
+    };
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, [guardedNavigation]);
@@ -231,7 +238,7 @@ function OperationalApp({
       ? <section className="cy-op-panel"><h2>目前無法確認模組權限</h2><p>{moduleAccessError ?? "請重新整理頁面後再試。"}</p></section>
       : <Loading />;
   } else if (route === "customers") content = <CustomerOperationalPage role={role} />;
-  else if (route === "items") content = <ItemOperationalPage />;
+  else if (route === "items") content = <ItemOperationalPage canViewDefects={allowedModules.has("DEFECTS")} canViewCustomers={allowedModules.has("CUSTOMERS")} />;
   else if (route === "defects") content = <DefectOperationalPage />;
   else if (route === "orders") content = <SalesOrderOperationalPage />;
   else if (route === "outsourcing") content = <OutsourcingOperationalPage />;
