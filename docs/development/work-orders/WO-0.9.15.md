@@ -1,7 +1,7 @@
 # WO-0.9.15 商品頁改版：精簡基本資料、單層換算、瑕疵與報價卡片
 
-- 狀態：待執行（**WO-0.9.14 合併後**才從最新 `main` 開分支；本單依賴 0.9.14 的報價「新增模式」視窗、多品項輸入與 `formatItem`）
-- 分支：`cyweb/item-page`（建議）　PR：（執行者填）
+- 狀態：待審查（WO-0.9.14／PR #212 已合併，自當時最新 `main` `85e20f00` 開分支）
+- 分支：`cyweb/item-page-0.9.15`　PR：[ #214 ](https://github.com/simonliu1118-byte/chihyuan-web/pull/214)（未合併／未部署）
 - 依據：`PROJECT_RULES.md` §9；**BD-058**（單位換算單層、一律換成基準單位）；BD-020／021／022（報價語意不變）；BD-043（模組權限）
 - 視覺規範：`docs/architecture/CY_WEB_VISUAL_GUIDE.md`
 
@@ -150,10 +150,56 @@
 
 ## 8. 完成報告（執行者填）
 
-- 驗收清單逐項結果：
-- 與工作單不同之處與原因：
-- 驗證指令輸出摘要：
-- 操作驗證步驟：
+- 基準：`main` `85e20f0013a306217e9e444c62f5f725fc6b24e2`（WO-0.9.14／PR #212 已合併）。
+- 執行分支：`cyweb/item-page-0.9.15`；[PR #214](https://github.com/simonliu1118-byte/chihyuan-web/pull/214)。僅供審查，**未合併、未部署**。
+- 版本：`VERSION`、`package.json` 均為 `0.9.15`；`BUILD` 保持 `0`。
+
+### 8.1 驗收清單逐項回報
+
+| §6 驗收項目 | 結果及驗證證據 |
+|---|---|
+| 商品明細標題／副標／基本資料 | **已實作，待審查者實機截圖**。標題以 `formatItem` 顯示品號＋品名；副行規格／分類／狀態；單一基本資料卡列出基準單位與換算、成本稅別與兩種價格、非空備註、歷史品號一行小字；已移除獨立換算／品號歷史區塊。 |
+| 舊串接換算顯示成基準單位 | **已實作，D1 回歸測試通過**。前端直接重用 `worker/item/unit-conversion.ts` 中純函式 `unitFactorToBase`（未複製演算法）；舊鏈路可用有理數精確算到基準單位，編輯送出會改成直接轉換。若精度超過 4 位小數而不能精確存回，明確報錯，避免無聲四捨五入。 |
+| 編輯時精簡換算列、Server 驗證 | **已實作，Local D1 Acceptance 通過**。在「基準單位」欄位下方輸入來源與數量；目標顯示目前基準單位，API 一律帶入該值；`toUnit` 非基準或來源重複時後端拒絕；驗收含保留資料快照不變。 |
+| 清單編號上、名稱／規格下 | **已實作，待 UI 截圖**。原小字位置顯示品號，原粗體位置顯示品名與全形空白分隔的規格；無中點。 |
+| 瑕疵摘要／搜尋／作廢／跳轉／新增 | **已實作，待實機操作**。`DEFECTS` 授權才載入；最近三筆，總筆數／狀態數不含已作廢；查看全部有搜尋、作廢勾選、分頁載入更多；已作廢採中性色 chip 與淡化列；點紀錄跳 `#defects?id=<id>`；新增在商品頁對話框帶入唯讀商品，儲存後刷新卡。 |
+| 共用瑕疵表單（建立／修改） | **已實作，需實機回歸**。`src/runtime/modules/defect/DefectForm.tsx` 統一載入選項、欄位、驗證、建立與修改 API；瑕疵模組及商品頁皆使用此元件，不存在第二套新增表單。 |
+| 報價相同單位／級距彙整、最新一筆 | **已實作，Local D1 驗收通過**。`ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY quote_date DESC, id DESC)` 挑出每客戶此品項最新報價；以原始 scaled4 精確值、單位及完整級距分組，群組日期新到舊；驗收涵蓋不同客戶完全相同級距併組、較新報價覆蓋舊報價。 |
+| 報價查看全部、搜尋、展開、跳客戶 | **已實作，待 UI 截圖**。卡片顯示 N 位客戶、M 種價格及最近三組；查看全部可搜尋客戶編號／名稱，篩選有命中客戶的群組並展開；點客戶跳 `#customers?id=<id>`。 |
+| 商品頁報價新增／預設商品 | **已實作，待實機驗收**。開對話框先以 `EntityPicker` 搜尋必填客戶；報價表單首列已有當前商品與基準單位，可再加列；未選客戶禁用儲存；成功後刷新卡。 |
+| 共用報價新增表單 | **已實作，需實機回歸**。`src/runtime/modules/customer/QuoteCreateForm.tsx` 由客戶頁與商品頁共同使用，內部驗證與 `POST .../quotes/batch` 為唯一新增流程；客戶頁單筆「修正紀錄」仍獨立，BD-020／021／022 不變。 |
+| 模組無權限時不顯示且不打 API | **已實作，待 Session 實機權限測試**。`App.tsx` 依 `session.moduleAccess.allowedModules` 傳 `DEFECTS`、`CUSTOMERS` 布林值；卡片渲染與 API 讀取均以此條件阻擋。 |
+| Hash 帶 id 可重整／分享、離頁確認 | **已實作，待瀏覽器驗證**。`route-params.ts` 建構／讀取 `?id=`；App 路由以 `?` 前段判斷，跨模組透過既有 `createGuardedHashNavigation`／`useNavigationGuard` 檢查未儲存表單；客戶／瑕疵頁可直接用 ID 載入即使不在目前清單。 |
+| 共用 RelatedCard 回歸 | **已實作，待實機回歸**。抽至 `src/ui/records/RelatedCard.tsx`，客戶頁與商品頁共用；客戶卡原動作／清單不更動；新增可選的 summary 欄位供商品卡。 |
+| 四項必要檢查：TypeScript／Source／Build／D1 | **對應 GitHub CI 全部通過**。前端＋Worker TypeScript、各 Source Contracts、Vite build、Local D1 runtime acceptance 皆 success。參見 §8.2；本環境未直接執行四條本機 npm 指令。 |
+| `node --test scripts/*.test.mjs` | **未執行完整集合**。`git ls-remote https://github.com/simonliu1118-byte/chihyuan-web.git HEAD` 顯示 `Could not resolve host: github.com`；無法在此工作環境 clone `cyapps` 至 `.tmp/canonical-cyapps`。既有 CI 中的單獨 ERP／Identity tests 已通過，但不可取代本項完整測試。交審查者在可 clone 環境執行。 |
+| 未新增 workflow／範圍外檔案 | **PR changed-files 已確認**：沒有任何 `.github/workflows/*`；新增檔案僅本單核准的 `DefectForm`、`QuoteCreateForm`、`RelatedCard`、`route-params`。既有的三支來源契約驗證腳本為配合本單抽出共用表單、BD-058 的檢查而同步更新，沒有增加另一個 runner 或 CI workflow。 |
+| VERSION／TODO／視覺／API 合約 | **已更新**。另同步修訂既有 `ITEM_MODULE_CONTRACT.md` 的直接換算描述（不另建永久規則），沒有 migration。 |
+
+### 8.2 驗證指令／CI 證據
+
+- [Runtime Check run 39213694556](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39213694556)，在功能提交 `0bdb84d1ad20b64697a143a7a08996fe8919da59` **success**：`browser-typecheck`、`worker-typecheck`、`source-contracts`、`build` 全通過；其中 `Local D1 runtime acceptance`、`Vite build` 均 success。
+- [Governance Check run 39213694552](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39213694552)：**success**。
+- [CY Web Deploy PR 檢查 run 39213694636](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39213694636)：`validate-deployment-contract` success、**`deploy-development` skipped**。這是 PR 驗證而非發布，沒有正式部署。
+- 本單新增或擴充既有本機 D1 驗收：`BD058_REJECT_INDIRECT_CONVERSION`、`BD058_REJECT_DUPLICATE_SOURCE`、`ACCEPT_ITEM_LEGACY_CHAIN_FLATTEN_COMPAT`、`ITEM_QUOTE_GROUP_IDENTICAL_TIERS`、`ITEM_QUOTE_LATEST_PER_CUSTOMER`。詳細測試程式在 `worker/acceptance/`，CI success 為驗證依據。
+- 執行環境 `git ls-remote`：`fatal: unable to access 'https://github.com/...': Could not resolve host: github.com`。因此無法直接執行完整 `node --test scripts/*.test.mjs` 或本機 npm 四條驗證指令，沒有新增 workflow 取代。
+
+### 8.3 實機操作與截圖指引（審查者執行）
+
+1. 在正式授權的測試資料中打開商品清單，檢查品號在上／品名＋規格在下；選有歷史品號、兩種換算、成本稅別的商品，桌面 1440px 截基本資料及雙相關卡；另以手機 390px 截圖確認雙卡直向排列。
+2. 商品按「修改」，在基準單位下方新增／移除換算、修改基準單位，確認目標單位同步。以既有串接換算資料核對 (1 盒 = 30 包、1 箱 = 180 包) 換成基準單位；資料異動須經核准且不使用正式營運資料作破壞性測試。
+3. 有 `DEFECTS` 權限時在商品卡查看最近三筆／狀態數；查看全部搜尋、勾選顯示已作廢、載入更多，點一筆驗證跳瑕疵明細；以商品頁＋新增，確認商品不可更改，成功後刷新卡。瑕疵模組本身新增與修改再重測一次。
+4. 有 `CUSTOMERS` 權限時確認報價同單位同完整級距彙整、不同級距／單位分開；查看全部展開、按客戶編號／名稱搜尋；點客戶跳到客戶頁。商品頁＋新增選客戶，確認第一列商品已帶入，新增第二商品列再儲存，確認重新整理卡片及客戶頁。
+5. 分別以只有 `ITEMS`、`ITEMS+DEFECTS`、`ITEMS+CUSTOMERS` 權限的 Session 驗證對應卡是否完全不渲染且沒有不必要的 403 API。
+6. 直接瀏覽 `#defects?id=<id>`／`#customers?id=<id>`，重新整理並分享連結；從有未儲存的商品或相關新增表單跨模組點選紀錄，確認有離頁保護。
+7. 按 §7 取得桌面／390px 實際畫面；本執行者未偽造或提交示意截圖。
+
+### 8.4 與工作單差異／交審風險
+
+- 純函式 `unitFactorToBase` 在前端可以直接引用 Worker 原有純 TypeScript，因此依 §5.1「若無法直接引用才搬到 shared」保留原位置，**沒有複製算法**。
+- 除工作單列舉的主要檔案外，為使既有來源契約測試理解表單搬移與 BD-058 規則，調整既有 `scripts/validate_customer_runtime_transport.py`、`scripts/validate_operational_runtime.py`、`scripts/validate_item_foundation.py`。這是維持原驗收有效性，未新增 runner 或 workflow。
+- BD-058 對「需要超過四位小數才能精確回存」的舊鏈路，前端拒絕無聲近似，交審查者確認該案例的產品處理方式。一般可精確表達的舊鏈路按原定案轉換。
+- 目前僅有靜態、TypeScript、資料庫與 CI 建置驗證；桌面／手機、權限 Session、操作流程與 hash 重整實測仍需審查者完成，**不得把 CI success 視作視覺或正式站驗收**。不合併、不部署。
 
 ## 9. 審查紀錄（審查者填）
 
