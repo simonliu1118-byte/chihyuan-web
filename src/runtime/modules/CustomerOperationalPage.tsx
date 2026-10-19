@@ -878,7 +878,6 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
               <div className="cy-record-header">
                 <div>
                   <h2>{selected.customerNo ? `${selected.customerNo} ` : ""}{selected.shortName}{selected.fullName ? <small className="cy-record-title-note">（{selected.fullName}）</small> : null}</h2>
-                  <p>{[selected.fullName, selected.customerNo ? selected.customerNo : "尚無 客戶編號"].filter(Boolean).join(" · ")}</p>
                   <p className="cy-record-meta">最後修改：{formatDateTime(selected.updatedAt)}{selected.updatedBy ? ` · ${formatPerson(selected.updatedBy)}` : ""}</p>
                 </div>
                 <div className="cy-record-actions">
