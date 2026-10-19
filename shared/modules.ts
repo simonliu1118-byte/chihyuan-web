@@ -3,7 +3,7 @@ export const CYWEB_MODULES = [
   { code: "ITEMS", route: "items", label: "商品" },
   { code: "DEFECTS", route: "defects", label: "瑕疵" },
   { code: "ORDERS", route: "orders", label: "銷售工單" },
-  { code: "OUTSOURCING", route: "outsourcing", label: "委外" },
+  { code: "OUTSOURCING", route: "outsourcing", label: "委外/代工" },
   { code: "WORKLOGS", route: "worklogs", label: "工作日誌" },
   { code: "ERP_ITEM_QUERY", route: "erp-item-query", label: "ERP 商品查詢" },
   // One ERP 查詢 page (user 2026-10-17: one entry); each category has its own grant.
