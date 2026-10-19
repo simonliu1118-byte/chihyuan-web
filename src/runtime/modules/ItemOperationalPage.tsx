@@ -561,7 +561,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
             className={`cy-item-related-row ${row.invalidatedAt ? "voided" : ""}`}
             onClick={() => { window.location.hash = routeHref("defects", { id: row.id }); }}>
             <span>{formatDate(row.reportedDate)}　{row.customerNameSnapshot}　{row.defectDescription}</span>
-            <StatusChip tone={defectTone[row.invalidatedAt ? "voided" : row.statusCode]}>
+            <StatusChip tone={row.invalidatedAt ? undefined : defectTone[row.statusCode]}>
               {row.invalidatedAt ? "已作廢" : row.statusCode === "created" ? "建立" : row.statusCode === "processing" ? "處理中" : "已解決"}
             </StatusChip>
           </button>)}
