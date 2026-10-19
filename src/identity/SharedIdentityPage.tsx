@@ -205,7 +205,7 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
       {!challengeId && verifyingCurrentEmail ? <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={closeDialog}>取消</button><button type="button" className="cy-op-button primary" disabled={busy || countdown > 0} onClick={() => void verifyCurrentEmail()}>{countdown > 0 ? String(countdown) + " 秒後可重新寄送" : "重新寄送驗證碼"}</button></div> : !challengeId ? <form className="cy-op-form" onSubmit={startEmail}>
         <label>新 Email<input className="cy-op-input" type="email" value={newEmail} onChange={event => setNewEmail(event.target.value)} required /></label>
         <label>目前密碼<PasswordInput value={emailPassword} onChange={event => setEmailPassword(event.target.value)} autoComplete="current-password" required /></label>
-        <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={closeDialog}>取消</button><button className="cy-op-button primary" disabled={busy}>寄送驗證碼</button></div>
+        <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={closeDialog}>取消</button><button className="cy-op-button primary" disabled={busy || countdown > 0}>{countdown > 0 ? `${countdown} 秒後可重新寄送` : "寄送驗證碼"}</button></div>
       </form> : <form className="cy-op-form" onSubmit={confirmEmail}>
         <label>6 位數驗證碼<input className="cy-op-input" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otp} onChange={event => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} required /></label>
         <div className="cy-op-form-footer">
