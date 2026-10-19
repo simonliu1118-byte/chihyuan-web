@@ -1,5 +1,6 @@
 // Generated from canonical forward migrations; validate_schema.py checks exact equality.
-export const BACKUP_COLUMNS: Record<string, string[]> = {
+export const BACKUP_COLUMNS: Record<string, string[]> =
+{
   "app_member_module_access": [
     "enabled",
     "member_id",
@@ -282,13 +283,21 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "table_name"
   ],
   "hr_education": [
+    "degree",
+    "department",
+    "employee_id",
+    "graduation_month",
     "id",
     "school",
     "sort_order"
   ],
   "hr_emergency_contacts": [
+    "employee_id",
     "id",
-    "name"
+    "name",
+    "phone",
+    "relationship",
+    "sort_order"
   ],
   "hr_employees": [
     "birth_date",
@@ -316,6 +325,8 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
   ],
   "hr_minimum_wages": [
     "created_at",
+    "created_by",
+    "effective_date",
     "hourly_amount",
     "id",
     "monthly_amount"
@@ -330,28 +341,48 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
   "hr_salary_item_types": [
     "created_at",
     "id",
-    "is_active"
+    "is_active",
+    "name",
+    "updated_at"
   ],
   "hr_salary_records": [
     "base_amount",
+    "created_at",
+    "created_by",
     "effective_date",
+    "employee_id",
     "id",
+    "payment_type",
     "reason"
   ],
   "hr_seniority_exclusions": [
     "created_at",
+    "created_by",
+    "employee_id",
+    "end_date",
     "id",
+    "reason",
     "start_date"
   ],
   "hr_status_changes": [
+    "created_at",
     "effective_date",
+    "employee_id",
+    "handled_by",
     "id",
+    "next_status",
+    "previous_status",
     "reason"
   ],
   "hr_work_history": [
     "company",
+    "employee_id",
+    "end_month",
     "id",
-    "sort_order"
+    "job_title",
+    "note",
+    "sort_order",
+    "start_month"
   ],
   "item_categories": [
     "code",
