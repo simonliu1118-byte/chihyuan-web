@@ -2,6 +2,7 @@ import { formatDate } from "../../ui/foundation/format";
 import { StatusChip } from "../../ui/primitives/StatusChip";
 import { arrangePurchases, erpMoney, erpNumber } from "../../../shared/erp-sales-links";
 import type { ErpPurchaseOrder } from "../../../shared/erp-item-query";
+import { ErpOrderList } from "./ErpOrderList";
 import { ErpQueryRows } from "./ErpQueryRows";
 
 const LINE_COLUMNS = ["序號", "品號", "品名", "規格", "數量", "驗收數量", "驗退數量", "單位", "單價", "金額", "庫別", "批號", "驗收日期", "採購單號", "備註", "原進貨單"];
@@ -18,7 +19,7 @@ export function ErpPurchaseOrders({ orders, total, truncated }: { orders: readon
   return <>
     <h3>進貨 {count("進貨")} 張（合計 {erpMoney(sum("進貨"))}）、退貨 {count("退貨")} 張（合計 {erpMoney(sum("退貨"))}）</h3>
     {truncated && <p className="cy-notice cy-notice-warning">共 {total} 張，只顯示最新 {orders.length} 張，請縮小日期範圍。</p>}
-    <div className="cy-erp-orders">
+    <ErpOrderList columns={["類別", "日期", "單號", "品項", "廠商單號", "合計"]}>
       {entries.map(({ order, under, related }) => <details key={order.kind + order.orderNo} id={anchor(order.orderNo)}
         className={"cy-erp-order" + (order.kind === "退貨" ? " is-return" : "") + (under ? " is-linked" : "")}>
         <summary>
@@ -26,6 +27,7 @@ export function ErpPurchaseOrders({ orders, total, truncated }: { orders: readon
           <span>{formatDate(order.date)}</span>
           <strong>{order.orderNo}</strong>
           <span>{order.lines.length} 項</span>
+          <span className="cy-erp-order-extra">{order.supplierOrderNo}</span>
           <span className="cy-erp-order-total">{erpMoney(order.total)}</span>
         </summary>
         <div className="cy-erp-order-body">
@@ -50,6 +52,6 @@ export function ErpPurchaseOrders({ orders, total, truncated }: { orders: readon
               l.purchaseOrderNo, l.note, l.sourceOrder])} />
         </div>
       </details>)}
-    </div>
+    </ErpOrderList>
   </>;
 }
