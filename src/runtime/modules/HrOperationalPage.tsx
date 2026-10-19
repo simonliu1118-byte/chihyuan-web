@@ -30,6 +30,9 @@ export function HrOperationalPage(){
  const [error,setError]=useState(""),[notice,setNotice]=useState(""),[busy,setBusy]=useState(false);
  const [nationalId,setNationalId]=useState<string|null>(null);
  const [allLeave,setAllLeave]=useState(false);
+ const [salaryItems,setSalaryItems]=useState<{id:number;name:string;is_active:number}[]>([]);
+ const [minimumWages,setMinimumWages]=useState<{effective_date:string;monthly_amount:number;hourly_amount:number}[]>([]);
+ const [salaryAllowances,setSalaryAllowances]=useState<{itemTypeId:number;amount:number;isRegular:boolean}[]>([]);
  const loadList=useCallback(async (append=false,cursor:number|null=null)=>{
   const p=new URLSearchParams({q:query,status:filter,limit:"40"});if(append&&cursor)p.set("cursor",String(cursor));
   const x=await apiRequest<{items:StaffRow[];nextCursor:number|null}>(ROOT+"/employees?"+p);
@@ -64,12 +67,12 @@ export function HrOperationalPage(){
   try{
     const endpoint=dialog==="status"?"status-changes":dialog==="salary"?"salary-records":"seniority-exclusions";
     const data:Record<string,unknown>={...fields};
-    if(dialog==="salary"){data.baseAmount=Number(fields.baseAmount);data.allowances=[];}
+    if(dialog==="salary"){data.baseAmount=Number(fields.baseAmount);data.allowances=salaryAllowances;}
     await apiRequest(ROOT+"/employees/"+detail.id+"/"+endpoint,{method:"POST",json:data});
     setDialog(null);await loadDetail(detail.id);await loadList();setNotice("紀錄已新增");
   }catch(x){setError(err(x));}finally{setBusy(false);}
  }
- function startAction(name:"status"|"salary"|"exclusion"){setDialog(name);setError("");setFields(name==="status"?{effectiveDate:new Date().toISOString().slice(0,10),nextStatus:detail?.status??"active"}:name==="salary"?{effectiveDate:new Date().toISOString().slice(0,10),paymentType:"monthly"}:{startDate:"",endDate:""});}
+ function startAction(name:"status"|"salary"|"exclusion"){if(name==="salary"){setSalaryAllowances([]);void Promise.all([apiRequest<{id:number;name:string;is_active:number}[]>(ROOT+"/settings/salary-item-types"),apiRequest<{effective_date:string;monthly_amount:number;hourly_amount:number}[]>(ROOT+"/settings/minimum-wages")]).then(([i,w])=>{setSalaryItems(i.filter(x=>x.is_active===1));setMinimumWages(w);}).catch(e=>setError(err(e)));}setDialog(name);setError("");setFields(name==="status"?{effectiveDate:new Date().toISOString().slice(0,10),nextStatus:detail?.status??"active"}:name==="salary"?{effectiveDate:new Date().toISOString().slice(0,10),paymentType:"monthly"}:{startDate:"",endDate:""});}
  const editable=(rows:Record<string,string>[],setter:(x:Record<string,string>[])=>void,keys:string[],title:string)=><div className="cy-op-panel">
   <h3>{title}</h3>{rows.map((r,i)=><div key={i} className="cy-op-form">{keys.map(k=><label key={k}>{k}<input className={inputClass} value={r[k]??""} onChange={e=>setter(rows.map((x,j)=>i===j?{...x,[k]:e.target.value}:x))}/></label>)}<button type="button" className="cy-op-button" onClick={()=>setter(rows.filter((_,j)=>j!==i))}>移除</button></div>)}
   <button className="cy-op-button" type="button" onClick={()=>setter([...rows,{}])}>＋ 新增</button>
@@ -97,9 +100,9 @@ export function HrOperationalPage(){
       <button className="cy-op-button" onClick={()=>setAllLeave(x=>!x)}>{allLeave?"收起":"查看全部年度"}</button>
       {allLeave?leave.map((x,i)=><p key={i}>{x.serviceYearsLabel}：{x.days} 日　{dateDisplay(x.periodStart)}～{dateDisplay(x.periodEnd)}</p>):null}
     </Card>
-    <Card title="薪資"><button className="cy-op-button" onClick={()=>startAction("salary")}>＋ 薪資異動</button>{changeRows(detail.salaryRecords,x=>dateDisplay(x.effective_date)+"　"+money(x.base_amount))}</Card>
+    <Card title="薪資"><button className="cy-op-button" onClick={()=>startAction("salary")}>＋ 薪資異動</button>{detail.salaryRecords.length===0?<p>尚無薪資異動</p>:null}{detail.salaryRecords.map((x,i)=><div key={i} className="cy-customer-line">{dateDisplay(x.effective_date)}　{x.payment_type==="hourly"?"時薪":"月薪"}　{money(x.base_amount)}　{String(x.reason??"")}{Array.isArray(x.allowances)?x.allowances.map((a:any,j:number)=><div key={j}>{String(a.item_name??"津貼")}　{money(a.amount)}　{a.is_regular===1?"經常性":"非經常性"}</div>):null}</div>)}</Card>
     <Card title="狀態異動"><button className="cy-op-button" onClick={()=>startAction("status")}>＋ 異動</button>{changeRows(detail.statusChanges,x=>dateDisplay(x.effective_date)+"　"+String(x.next_status)+"　"+String(x.reason??""))}</Card>
-    <Card title="年資不計期間"><button className="cy-op-button" onClick={()=>startAction("exclusion")}>＋ 新增</button>{changeRows(detail.seniorityExclusions,x=>dateDisplay(x.start_date)+"～"+dateDisplay(x.end_date)+"　"+String(x.reason??""))}</Card>
+    <Card title="年資不計期間"><button className="cy-op-button" onClick={()=>startAction("exclusion")}>＋ 新增</button>{detail.seniorityExclusions.map((x,i)=><div key={i} className="cy-customer-line">{dateDisplay(x.start_date)}～{dateDisplay(x.end_date)}　{String(x.reason??"")}<button className="cy-op-button compact" type="button" onClick={async()=>{if(!window.confirm("確定刪除此年資不計期間？將留下稽核紀錄。"))return;try{await apiRequest(ROOT+"/employees/"+detail.id+"/seniority-exclusions/"+x.id,{method:"DELETE"});await loadDetail(detail.id);}catch(e){setError(err(e));}}}>刪除</button></div>)}</Card>
     <Card title="緊急聯絡人">{changeRows(detail.contacts,x=>String(x.name??"")+"　"+String(x.phone??""))}</Card>
     <Card title="學歷">{changeRows(detail.education,x=>String(x.school??"")+"　"+String(x.department??""))}</Card>
     <Card title="工作經歷">{changeRows(detail.workHistory,x=>String(x.company??"")+"　"+String(x.job_title??""))}</Card>
@@ -124,7 +127,7 @@ export function HrOperationalPage(){
    {error?<div className="cy-notice cy-notice-danger" role="alert">{error}</div>:null}
    <form className="cy-op-form" onSubmit={action}>
     {dialog==="status"?<>{field("生效日","effectiveDate","date",true)}<label>新狀態<select className={inputClass} value={fields.nextStatus??"active"} onChange={e=>set("nextStatus",e.target.value)}>{Object.entries(labels).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>{field("原因","reason","text",true)}{fields.nextStatus==="terminated"?<>{field("離職日","terminationDate","date",true)}{field("離職原因","terminationReason","text",true)}</>:null}</>:null}
-    {dialog==="salary"?<>{field("生效日","effectiveDate","date",true)}<label>計薪方式<select className={inputClass} value={fields.paymentType??"monthly"} onChange={e=>set("paymentType",e.target.value)}><option value="monthly">月薪</option><option value="hourly">時薪</option></select></label>{field("本薪（整數元）","baseAmount","number",true)}{field("異動原因","reason","text",true)}</>:null}
+    {dialog==="salary"?<>{field("生效日","effectiveDate","date",true)}{minimumWages.length===0?<p className="cy-notice cy-notice-warning">尚未設定最低工資，仍可新增薪資異動，請先核對勞動部公告。</p>:null}<label>計薪方式<select className={inputClass} value={fields.paymentType??"monthly"} onChange={e=>set("paymentType",e.target.value)}><option value="monthly">月薪</option><option value="hourly">時薪</option></select></label>{field("本薪（整數元）","baseAmount","number",true)}{field("異動原因","reason","text",true)}</>:null}
     {dialog==="exclusion"?<>{field("起日","startDate","date",true)}{field("迄日","endDate","date",true)}{field("原因","reason","text",true)}</>:null}
     <div className="cy-op-form-footer"><button className="cy-op-button" type="button" onClick={()=>setDialog(null)}>取消</button><button className="cy-op-button primary" disabled={busy}>新增</button></div>
    </form>
