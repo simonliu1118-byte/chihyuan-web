@@ -57,3 +57,6 @@
   .cy-item-op .cy-related-toolbar { flex-wrap: wrap; }
   .cy-item-op .cy-related-toolbar .cy-op-input { flex: 1 1 100%; }
 }
+
+.cy-item-row > span { font-size: var(--cy-fs-sm); color: var(--cy-text-muted); }
+.cy-item-row > strong { font-size: var(--cy-fs-md); font-weight: 600; }
