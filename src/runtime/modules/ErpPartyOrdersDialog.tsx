@@ -45,7 +45,7 @@ export function ErpPartyOrdersDialog({ kind, code, name, from, to, onClose }: {
       <button className="cy-op-button primary" type="submit" disabled={busy} aria-busy={submitting || busy || undefined}>{result ? "重新查詢" : "查詢"}</button>
     </form>
     <div className="cy-erp-results cy-erp-order-dialog" aria-live="polite">
-      {!result ? submitting ? <Loading /> : <p className="cy-erp-search-hint">選擇單據日期後按「查詢」。</p> : <>
+      {!result ? submitting ? <Loading /> :  : <>
         <ErpJobStatus result={result} />
         {showsData(result) && (kind === "SALES"
           ? <ErpSalesOrders key={result.id} orders={result.orders} total={result.total} truncated={result.truncated} />
