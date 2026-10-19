@@ -1,7 +1,7 @@
 # WO-0.9.14 客戶編號呈現、相關紀錄視窗、報價多品項輸入、品號顯示統一
 
-- 狀態：待執行（**WO-0.9.13／PR #208 合併後**才從最新 `main` 開分支）
-- 分支：`cyweb/customer-quotes`（建議）　PR：（執行者填）
+- 狀態：待審查（已依 WO-0.9.13／PR #208 合併後最新 `main` `e2884e86` 開分支）
+- 分支：`cyweb/customer-quotes-0.9.14`　PR：[ #212 ](https://github.com/simonliu1118-byte/chihyuan-web/pull/212)（未合併、未部署）
 - 依據：`PROJECT_RULES.md` §9；BD-020／BD-021／BD-022（報價＝一個客戶＋一個商品＋數量級距，本單**不改**）
 - 視覺規範：`docs/architecture/CY_WEB_VISUAL_GUIDE.md`
 
@@ -118,10 +118,50 @@
 
 ## 8. 完成報告（執行者填）
 
-- 驗收清單逐項結果：
-- 與工作單不同之處與原因：
-- 驗證指令輸出摘要：
-- 操作驗證步驟：
+- 執行基準：從 PR #208 已合併後的 `main` `e2884e86d9e7de5750f1f4b0ffd1bdebb2558443` 建立 `cyweb/customer-quotes-0.9.14`。
+- 交付：**[PR #212](https://github.com/simonliu1118-byte/chihyuan-web/pull/212)**（待審查；**未合併、未部署**）。只變更本工作單涵蓋之既有檔案；`BUILD` 維持 `0`。
+
+### 8.1 驗收清單逐項結果
+
+| §6 項目 | 執行者結果／證據 |
+|---|---|
+| 客戶清單編號上、名稱下 | **已實作，待 UI 截圖**：先渲染沿用小字的編號 `span`（空值為「未設定編號」），再渲染原本的名稱 `strong`；地區不再混入兩行。 |
+| 客戶明細標題與移除重複欄位 | **已實作，待 UI 截圖**：`客戶編號 空格 簡稱（全名）`；全名為次要小字、無值不顯示；刪除重複客戶編號資訊格，保留最後修改者／時間。 |
+| 全站「ERP 客戶編號／ERP 編號／尚無 ERP」用語 | **已修正並以 GitHub 原始碼檢視**：客戶及銷售工單業務介面、客戶相關 Worker/shared 檔案改稱「客戶編號」；ERP 來源欄位仍保留原有業務語意。因本執行環境無法 clone，未能直接執行工作單指定的完整 `grep -rn`，請審查者覆核。 |
+| 「＋ 新增」專屬視窗 | **已實作，待實機**：採 `create` 模式，只顯示該紀錄新增表單；成功儲存或取消後關閉，不出現第二個新增按鈕。 |
+| 「查看全部」工具列與三種搜尋 | **已實作，待實機**：`browse` 模式上方左「＋ 新增」、右搜尋，按新增在清單上方顯示表單；拜訪比對內容、對象、聯絡人，報價比對品號／品名，常用商品比對品號／品名／自由名稱，不區分大小寫。 |
+| 報價多列、依商品分組、D1 原子性 | **通過 CI D1 驗收**：2 商品＋其中 1 商品兩級距→建立 2 筆，第一筆 2 級距；無效列回 `422` 且資料庫快照未變。單筆 quote、級距及每筆 `created` 稽核含 `customerId` 在一次 `db.batch()` 內。 |
+| 報價按日期／建立者分組、逐級距、單筆修正 | **已實作，待 UI 實機**：清單依日期由新至舊，標題為日期與建立者；每個級距逐列顯示數量、單位、價格。每次修正仍針對單一 quote ID（沿用既有 revision gate）。 |
+| 報價與常用商品改用 `EntityPicker` | **已實作，待實機**：均以品號／品名即時搜尋既有 `/customers/item-options?q=`；已移除初載 100 商品選單及兩處商品下拉。 |
+| 品號＋品名一個空格；`formatItem` 測試 | **已實作，待完整單元測試**：建立共用 `formatItem`，並修改客戶、商品、瑕疵、銷售工單、委外及委外主檔中識別格式；`scripts/format-date.test.mjs` 新增 `formatItem` 案例。完整 `node --test scripts/*.test.mjs` 尚未執行，原因見 §8.2。 |
+| `npm run typecheck`／`npm run validate:source`／`npm run build`／`npm run validate:d1:local` | **對應 GitHub CI 工作全部通過**：Browser TS、Worker TS、來源契約、Local D1 runtime acceptance、Vite build；詳 §8.2。上述四條命令並未由執行者在本機逐一直接執行。 |
+| `node --test scripts/*.test.mjs`，需 canonical CYapps checkout | **未執行**：本執行環境對 github.com DNS 無法解析（`git ls-remote https://github.com/simonliu1118-byte/cyapps HEAD` → `Could not resolve host: github.com`），無法建立指定 `.tmp/canonical-cyapps`；未新增 workflow 作替代。請審查者在可 clone 的工作機執行完整命令。 |
+| 不新增 workflow／範圍外檔案 | **通過 PR changed-files 清單檢查**：修改均落在客戶相關前後端、既有相關模組品號顯示、既有驗收與格式測試、既有合約／TODO／VERSION／package.json 及本工作單；未修改／新增 `.github/workflows/*`，未新增其他程式或 mock 圖檔。 |
+| VERSION、package.json、TODO、視覺與 API 文件 | **已完成**：VERSION／package.json `0.9.14`、BUILD `0`；TODO 加本單並紀錄 PR #208 合併 `6c490196` 與正式部署 [run 39183836960](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39183836960)（此為**先前版本**的紀錄，本次未部署）；視覺規範與 batch API 合約已更新。 |
+
+### 8.2 驗證指令輸出摘要
+
+- [Runtime Check #39207160188](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39207160188)：**success**（對應提交 `23304d4279a604c6e8a84f0f98da15881b8e8d48`），`browser-typecheck`、`worker-typecheck`、`source-contracts`、`build` 均通過；`build` 工作中 `Local D1 runtime acceptance` 與 `Vite build` 都為 success，包含新增 `BATCH_QUOTE_GROUPED_TIERS`／`BATCH_QUOTE_INDEPENDENT_AUDIT`／`BATCH_QUOTE_LIST_TIERS`／`BATCH_QUOTE_INVALID_ATOMIC_ROLLBACK` 驗收。
+- [Governance Check #39207160192](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39207160192)：**success**。
+- [CY Web Deploy PR 檢查 #39207160049](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39207160049)：`validate-deployment-contract` **success**，`deploy-development` **skipped**；僅為 PR 檢查，**沒有正式部署**。
+- CI 的 `source-contracts` 執行各項 `python scripts/validate_*.py`（結果皆 `PASS`），及指定 ERP 子集 `node --test`（`# fail 0`）。這**不等於**執行完整 `node --test scripts/*.test.mjs`。
+- 執行環境限制：`git ls-remote https://github.com/simonliu1118-byte/cyapps HEAD` → `fatal: unable to access ... Could not resolve host: github.com`。GitHub 原始碼操作及 CI 檢查透過已授權 GitHub 連接執行，未藉新增 workflow 補救。
+
+### 8.3 操作驗證步驟（交審查者實機與截圖）
+
+1. 在可登入的 CY Web 開啟「客戶」；桌面寬 1440、手機寬 390 各拍清單：編號在上、名稱在下；選擇有編號／全名及無編號／全名客戶，檢查標題和最後修改者。
+2. 客戶相關卡片的「＋ 新增拜訪／報價／常用商品」各按一次：確認直接只有新增表單；取消返回客戶頁，不應有額外「＋ 新增…」。
+3. 各卡片按「查看全部」：工具列左新增右搜尋，分別以內容／對象、品號／品名、自訂品名測試大小寫、零結果與新增後仍保持搜尋內容。
+4. 報價新增，選商品 A（兩列不同數量與單價）、商品 B（一列），送出後核對資料為兩筆報價、A 具兩個級距；清單按日期分組逐級距顯示；針對其中一筆執行「修正紀錄」確認只改該筆。
+5. 在報價與常用商品輸入欄搜尋大量品號／品名，驗證非下拉、選取後保留基本單位並可改、刪除列；檢查其他模組的品號與品名僅以一個半形空格連接。
+6. 將視窗切換深淺主題並檢查 390px 檢視，依 §7 擷取真實畫面；資料異動僅在經核准的測試資料或隔離驗收環境進行。
+
+### 8.4 與工作單不同之處、限制及交審事項
+
+- **沒有修改定案業務語意、沒有新增資料表或 migration。** 舊單筆建立與 BD-022 單筆修正仍保留。
+- 同一 batch 的 quote IDs 由資料庫目前最大 ID 預配置後一次寫入；若有競爭寫入碰撞，資料庫主鍵約束會使 batch 失敗／整批回滾，不會形成部分成功。
+- 工作單指定的完整本機 `grep`／`node --test scripts/*.test.mjs` 與登入後實機截圖未執行，原因分別為原始碼只可透過 GitHub 連接存取、環境無法 clone canonical CYapps、截圖明訂由審查者執行。這些**仍屬待審查驗收項目**，不可視為全部通過。
+- PR 與本分支僅供審查，沒有合併或正式部署；後續合併、部署決策依 §9 交審查者。
 
 ## 9. 審查紀錄（審查者填）
 
