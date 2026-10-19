@@ -104,10 +104,40 @@
 
 ## 8. 完成報告（執行者填）
 
+- 實作分支：`cyweb/hr-phase1`（由 `main` commit `fce11c54` 建立）。
+- PR：[＃221](https://github.com/simonliu1118-byte/chihyuan-web/pull/221)，不合併、不部署。
 - 驗收清單逐項結果：
-- 與工作單不同之處與原因：
+  1. **超管權限**：已實作。選單 `#hr` 只對 SUPER_ADMIN 顯示；所有 HR API 先執行 CYID 身分與超管角色檢查，非超管 403 `SUPER_ADMIN_REQUIRED`；非超管稽核查詢後端排除 `hr_%`，加入 D1 權限測試。
+  2. **員工／子表／唯一限制**：已實作。可新增主檔及緊急聯絡人、學歷、工作經歷；員編、非 NULL 使用者綁定資料庫唯一。新增使用者綁定與重複衝突測試。
+  3. **狀態異動**：已實作追加式狀態歷史，主檔不得刪除，不提供舊紀錄更新／刪除端點。狀態以有效日期最後一筆為準；離職須由狀態異動填寫日期與原因。
+  4. **週年制特休**：已實作 `annualLeaveSchedule`；測試檔包含未滿六月、六個月、1、2、3、4、5、10、24、30 年、2/29 與不計年資順延。前端含當年度與全部年度卡片；完整測試指令待另跑。
+  5. **年資不計期間**：已實作新增及刪除、刪除稽核；排除期間順延週年日。
+  6. **薪資／最低工資**：已實作只能新增的薪資異動（含津貼）、最低工資有效日設定、低於當日適用額擋下；未設定最低工資可存且 UI 顯示警告。薪資一律整數元。設定亦提供津貼類型。
+  7. **證號與隱私**：已實作身分證／新式統一證號檢查碼、遮罩 `A12****789`、獨立 reveal API 與 reveal 稽核；一般 GET 不含原文證號，稽核 before/after 均只有遮罩值。加入 D1 隱私測試。
+  8. **稽核中文化**：已補人事 entity、action、欄位及狀態中文詞彙；API 限制非超管無法查人事事件。審查者仍需對實際畫面全文查核。
+  9. **日期與金額**：日期使用現有 `formatDate`（YYYY/MM/DD），年月表單採 YYYY/MM，金額卡片採千分位整數元；手機 390px 實機驗收待審查者操作。
+  10. **型別／來源／建置／D1**：GitHub 原有 Runtime Check 已在 [run 39270149831](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39270149831) 全部通過（Worker/browser TypeScript、source-contracts、local D1、Vite build）；新增唯一性測試後的最新執行見 PR Checks，應以最新成功結果為準。
+  11. **完整 Node 測試**：新增 `scripts/hr-annual-leave.test.mjs` 及 `scripts/national-id.test.mjs`；既有 CI 不能證明執行過 `node --test scripts/*.test.mjs` 所有測試，且未取得 canonical cyapps clone，**本項不得宣稱完全通過**。
+  12. **workflow 與範圍**：未新增或修改 `.github/workflows/*`，新增檔案均在 §3/§5 指定的 SQL、shared、worker、src、scripts、文件範圍內。
+  13. **版本／文件**：`VERSION`、`package.json` 均為 `0.9.20`，`BUILD` 維持 `0`；更新 `TODO.md`、`API_CONTRACT.md`、`CANONICAL_DATA_MODEL.md`，新增 `HR_MODULE_CONTRACT.md`。
+- 與工作單不同之處與原因：`GET /api/business/hr/members` 為自選綁定使用者提供現有本地使用者清單，仍在指定 HR API 範圍內；沒有更改 CYID authority。為便於響應式版面，新增 `src/runtime/modules/hr-operational.css`，內容僅人事樣式。第一期不加入休假扣抵與薪資計算。
 - 驗證指令輸出摘要：
+  - GitHub [Runtime Check 39270149831](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39270149831)：**success**（型別、來源契約、D1 local、Vite build）。
+  - 最新 HR 驗收補充與其他後續 commit 以 PR 最新 Runtime/Governance Checks 為準，勿拿舊 run 代替最新完整驗證。
+  - `npm run typecheck`：由 CI browser／worker TypeScript 個別執行且通過。
+  - `npm run validate:source`：CI source-contracts 檢查通過；未以完全相同 npm 指令單獨執行。
+  - `npm run build`：CI Vite build 與型別檢查個別通過；未以完全相同 npm 指令單獨執行。
+  - `npm run validate:d1:local`：CI 明確執行且通過。
+  - `node --test scripts/*.test.mjs`：未完整獨立執行，canonical cyapps checkout 未取得。
 - 操作驗證步驟：
+  1. 使用 SUPER_ADMIN／ADMIN／USER 分別進入側欄及直接 `#hr`、呼叫 GET／POST/PATCH/DELETE HR API；確認只有 SUPER_ADMIN 可用、非超管收到 403。
+  2. 用明顯虛構資料新增員工及三個子表，測員編與 memberId 唯一限制；修改主檔及舊 revision 衝突，確認不能直接改狀態或刪主檔。
+  3. 新增當日／未來生效狀態與離職，確認離職日期原因必填、現況按生效日、完整異動歷史。
+  4. 查看週年制特休、2/29、排除年資期間、全部年度起訖；比對法規與測試。
+  5. 設定最低工資與津貼，測低於最低額拒絕、無最低工資警告可存、追加式薪資歷史及千分位金額。
+  6. 確認列表與稽核皆不含完整身分證，點「顯示」後才可看原文，稽核只記遮罩值；ADMIN 稽核不含 `hr_%`。
+  7. 390px 手機、桌面、設定、明細各卡及對話框由審查者依 §7 實際截圖。
+  8. 取得 canonical cyapps 後執行 §6 全部 npm／Node 命令，記錄成功或具體失敗原因。
 
 ## 9. 審查紀錄（審查者填）
 
