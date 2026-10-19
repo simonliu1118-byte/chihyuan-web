@@ -377,6 +377,7 @@ Customer lifecycle in D1 uses `customer_status_id`. The temporary localStorage-o
 | DELETE | `/api/business/customers/:customerId/frequent-items/:frequentItemId` | updated-at-gated delete |
 | GET | `/api/business/customers/:customerId/quotes` | bounded quote history |
 | POST | `/api/business/customers/:customerId/quotes` | create quote |
+| POST | `/api/business/customers/:customerId/quotes/batch` | atomic multi-item quote creation |
 | GET | `/api/business/customers/:customerId/quotes/:quoteId` | quote detail |
 | POST | `/api/business/customers/:customerId/quotes/:quoteId/correct` | correction preserving quote history |
 
@@ -596,3 +597,9 @@ The program reader retains the shared D1 catalog during failures, with `current=
 - Response `{ events: AuditEvent[], nextCursor: string|null, actors: { id, employeeNo, displayName }[] }`; each event adds `actor:{ id,employeeNo,displayName }|null`. UI never uses actor numeric ID as a label. `limit` maximum 200; exact actor, entity and date filters still supported.
 - Admin or Super Admin only; USER remains 403. Each authorized audit read may refresh existing `app_members.display_name` from the caller's CYID snapshot; failure to retrieve snapshot is non-fatal. No CYID mutation, and no change to audit event writes or schema.
 - Human-readable frontend view uses `change-log-labels.ts`; raw technical JSON is visible in the UI only to SUPER_ADMIN.
+
+### Customer Quote Batch V0.9.14
+
+`POST /api/business/customers/:customerId/quotes/batch` accepts `{ quoteDate: "YYYY-MM-DD", note?: string, lines: [{ itemId, quantity, unit, unitPrice, note? }] }` (1–100 lines). Quantities and prices are canonical four-decimal strings; unit must be present. All rows are validated against active Items and the existing quote rules before writing. Rows are grouped by Item: one customer quote per Item, with multiple quantity/price breaks when the same Item occurs more than once (up to 10 breaks per Item). All quote rows, price breaks and one `customer_item_quote / created` audit per quote (metadata includes `customerId`) are written in **one D1 batch**, atomically; on any validation or database error no partial success is returned. The response contains the created quote details. The pre-existing single-create and correction APIs remain supported.
+
+`GET /api/business/customers/:customerId/quotes` includes `priceBreaks` for each summary row (quantity, unit, unitPrice, note, sortOrder) so the UI can group by quote date and render every price tier.
