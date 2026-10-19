@@ -111,7 +111,7 @@ export class HrService {
     const today=ctx.now.slice(0,10);
     if(next==="terminated"&&(!nullableDate(v.terminationDate,"terminationDate")||!required(v.terminationReason,"terminationReason",500)))throw new HrValidationError("terminationDate","離職日與原因必填");
     const statements=[this.db.prepare("INSERT INTO hr_status_changes (employee_id,effective_date,previous_status,next_status,reason,handled_by,created_at) VALUES (?,?,?,?,?,?,?)").bind(id,effective,employee.status,next,reason,ctx.actor,ctx.now)];
-    if(effective<=today)statements.push(this.db.prepare("UPDATE hr_employees SET status=?,termination_date=?,termination_reason=?,revision=revision+1,updated_at=? WHERE id=?").bind(next,next==="terminated"?date(v.terminationDate,"terminationDate"):null,next==="terminated"?required(v.terminationReason,"terminationReason",500):null,ctx.now,id));
+    if(next==="terminated" || effective<=today)statements.push(this.db.prepare("UPDATE hr_employees SET status=CASE WHEN ? THEN ? ELSE status END,termination_date=?,termination_reason=?,revision=revision+1,updated_at=? WHERE id=?").bind(effective<=today?1:0,next,next==="terminated"?date(v.terminationDate,"terminationDate"):null,next==="terminated"?required(v.terminationReason,"terminationReason",500):null,ctx.now,id));
     statements.push(audit(this.db,ctx,"hr_status_change",String(employee.employee_no),"hr_employee.status_changed",{status:employee.status},{status:next,effectiveDate:effective}));
     await this.db.batch(statements);return this.get(id);
   }
