@@ -39,7 +39,9 @@ function auditQuery(url: URL): AuditQuery {
   if (q && q.length > 100) throw new FieldValidationError({ q: "關鍵字最多 100 字" });
   const cursor = params.get("cursor") || undefined;
   if (cursor && (cursor.length > 256 || !/^[A-Za-z0-9_-]+$/.test(cursor))) throw new FieldValidationError({ cursor: "分頁游標無效" });
-  return { entityTypes: types, q, cursor, relatedCustomerId: integer(params.get("relatedCustomerId"), "relatedCustomerId"),
+  return { entityTypes: types, q, cursor,
+    includeErpQueries: params.get("includeErpQueries") === "true",
+    relatedCustomerId: integer(params.get("relatedCustomerId"), "relatedCustomerId"),
     entityType: codes.entityType, action: codes.action, entityKey: entityKey || undefined,
     actorEmployeeId: integer(params.get("actorEmployeeId"), "actorEmployeeId"),
     occurredFrom: from, occurredTo: to, limit: integer(params.get("limit"), "limit", 200) };
@@ -78,7 +80,10 @@ export async function handleSettingsAuditRoute(request: Request, env: IdentityRu
         }
       } catch { /* Snapshot is optional enrichment. */ }
       const audit = new AuditService(env.DB);
-      const result = await audit.listDetailedPage(auditQuery(url));
+      const query = auditQuery(url);
+      // Client flag can never elevate ADMIN or USER to query-visibility.
+      query.includeErpQueries = role === "SUPER_ADMIN" && query.includeErpQueries === true;
+      const result = await audit.listDetailedPage(query);
       return success({ ...result, actors: await audit.listActors() }, requestId);
     }
     const service = new SettingsService(env.DB);
