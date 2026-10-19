@@ -14,7 +14,8 @@ export async function acceptHrPhase1(db:D1Database):Promise<void>{
   const rows=annualLeaveSchedule("2026-01-01",[],"2057-01-01");
   check(rows.find(x=>x.serviceYearsLabel==="滿 "+years+" 年")?.days===days,"ACCEPT_HR_LEAVE_YEAR_"+years);
  }
- check(annualLeaveSchedule("2024-02-29",[],"2025-02-28").at(-1)?.periodStart==="2025-02-28","ACCEPT_HR_LEAP_DAY");
+ check(annualLeaveSchedule("2025-08-31",[],"2026-03-01")[0]?.periodStart==="2026-03-01","ACCEPT_HR_AUGUST_31");
+ check(annualLeaveSchedule("2024-02-29",[],"2025-02-28").at(-1)?.periodStart==="2025-03-01","ACCEPT_HR_LEAP_DAY");
  const svc=new HrService(db), now="2026-10-19T00:00:00.000Z";
  const ctx={actor:1,requestId:"accept-hr-phase1",now};
  let role:"USER"|"ADMIN"|"SUPER_ADMIN"="USER";
