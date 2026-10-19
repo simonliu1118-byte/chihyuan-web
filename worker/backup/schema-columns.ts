@@ -1,5 +1,5 @@
 // Generated from canonical forward migrations; validate_schema.py checks exact equality.
-export const BACKUP_COLUMNS: Record<string, string[]> =
+export const BACKUP_COLUMNS: Record<string, string[]> = 
 {
   "app_member_module_access": [
     "enabled",
