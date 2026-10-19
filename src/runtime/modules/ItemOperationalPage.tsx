@@ -1,3 +1,16 @@
+import { Dialog } from "../../ui/overlays/Dialog";
+import { RelatedCard } from "../../ui/records/RelatedCard";
+import { EntityPicker } from "../../ui/pickers/EntityPicker";
+import { DefectForm } from "./defect/DefectForm";
+import { QuoteCreateForm } from "./customer/QuoteCreateForm";
+import { searchDefects } from "../api/defect-runtime-client";
+import { loadItemQuoteSummary, searchCustomers } from "../api/customer-runtime-client";
+import { routeHref } from "../navigation/route-params";
+import { defectTone } from "./status-flow";
+import type { DefectSummary } from "../../../shared/defect";
+import type { ItemQuoteSummary } from "../../../shared/customer-related";
+import type { CustomerSummary } from "../../../shared/customer";
+import type { CustomerItemOption } from "../../../shared/business-lookups";
 import { formatDate, formatItem } from "../../ui/foundation/format";
 import { unitFactorToBase } from "../../../worker/item/unit-conversion";
 import { parseScaled4, formatScaled4 } from "../../../shared/fixed-point";
@@ -176,7 +189,7 @@ function categoryName(item: ItemSummary): string {
   return item.category?.name ?? "未分類";
 }
 
-export function ItemOperationalPage() {
+export function ItemOperationalPage({ canViewDefects = false, canViewCustomers = false }: { canViewDefects?: boolean; canViewCustomers?: boolean }) {
   const [lookups, setLookups] = useState<ItemModuleLookups | null>(null);
   const [rows, setRows] = useState<readonly ItemSummary[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -204,6 +217,62 @@ export function ItemOperationalPage() {
   const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
   const paging = useLoadMore(searchItems, setRows, (error) => reportError(errorMessage(error)));
   const [refreshEpoch, setRefreshEpoch] = useState(0);
+  const [relatedEpoch, setRelatedEpoch] = useState(0);
+  const [relatedDialog, setRelatedDialog] = useState<"defectBrowse" | "defectCreate" | "quoteBrowse" | "quoteCreate" | null>(null);
+  const [defectRecent, setDefectRecent] = useState<readonly DefectSummary[]>([]);
+  const [defectCounts, setDefectCounts] = useState<Partial<Record<"created" | "processing" | "resolved", number>>>({});
+  const [defectRows, setDefectRows] = useState<readonly DefectSummary[]>([]);
+  const [defectCursor, setDefectCursor] = useState<string | null>(null);
+  const [defectQuery, setDefectQuery] = useState("");
+  const [showInvalid, setShowInvalid] = useState(false);
+  const [defectLoading, setDefectLoading] = useState(false);
+  const [quoteSummary, setQuoteSummary] = useState<ItemQuoteSummary | null>(null);
+  const [quoteQuery, setQuoteQuery] = useState("");
+  const [quoteCustomer, setQuoteCustomer] = useState<CustomerSummary | null>(null);
+
+  useEffect(() => {
+    if (!canViewDefects || !selectedId) { setDefectRecent([]); setDefectCounts({}); return; }
+    let cancelled = false;
+    void searchDefects({ itemId: selectedId, limit: 3 }).then(result => {
+      if (!cancelled) { setDefectRecent(result.items); setDefectCounts(result.statusCounts ?? {}); }
+    }).catch(error => { if (!cancelled) reportError(errorMessage(error)); });
+    return () => { cancelled = true; };
+  }, [selectedId, canViewDefects, relatedEpoch]);
+
+  useEffect(() => {
+    if (!canViewCustomers || !selectedId) { setQuoteSummary(null); return; }
+    let cancelled = false;
+    void loadItemQuoteSummary(selectedId).then(result => {
+      if (!cancelled) setQuoteSummary(result);
+    }).catch(error => { if (!cancelled) reportError(errorMessage(error)); });
+    return () => { cancelled = true; };
+  }, [selectedId, canViewCustomers, relatedEpoch]);
+
+  useEffect(() => {
+    if (relatedDialog !== "defectBrowse" || !selectedId || !canViewDefects) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setDefectLoading(true);
+      void searchDefects({ itemId: selectedId, includeInvalid: showInvalid, q: defectQuery.trim() || undefined, limit: 100 })
+        .then(result => { if (!cancelled) { setDefectRows(result.items); setDefectCursor(result.nextCursor); } })
+        .catch(error => { if (!cancelled) reportError(errorMessage(error)); })
+        .finally(() => { if (!cancelled) setDefectLoading(false); });
+    }, 180);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [relatedDialog, selectedId, canViewDefects, showInvalid, defectQuery, relatedEpoch]);
+
+  async function moreDefects() {
+    if (!selectedId || !defectCursor || defectLoading || !canViewDefects) return;
+    setDefectLoading(true);
+    try {
+      const page = await searchDefects({ itemId: selectedId, includeInvalid: showInvalid,
+        q: defectQuery.trim() || undefined, limit: 100, cursor: defectCursor });
+      setDefectRows(current => [...current, ...page.items]);
+      setDefectCursor(page.nextCursor);
+    } catch (error) { reportError(errorMessage(error)); }
+    finally { setDefectLoading(false); }
+  }
+
 
   useEffect(() => {
     let cancelled = false;
@@ -301,6 +370,7 @@ export function ItemOperationalPage() {
     if (busy || !(await canLeave())) return;
     pane.open();
     setSelectedId(id);
+    setRelatedDialog(null);
     setEditing(false);
     setCreating(false);
     setDraft(null);
@@ -467,6 +537,69 @@ export function ItemOperationalPage() {
   return <div className="cy-item-op">
     {confirmationDialog}
     {promptDialog}
+    {selected && relatedDialog?.startsWith("defect") && canViewDefects ? <Dialog open size="large"
+      title={relatedDialog === "defectCreate" ? "新增瑕疵紀錄" : "瑕疵紀錄 — " + formatItem(selected.itemNo, selected.name)}
+      onClose={() => setRelatedDialog(null)}>
+      {relatedDialog === "defectCreate" ? <DefectForm key={selected.id} mode="create"
+        fixedItem={{ id: selected.id, itemNo: selected.itemNo, name: selected.name }}
+        onCancel={() => setRelatedDialog(null)}
+        onSaved={() => { setRelatedDialog(null); setRelatedEpoch(v => v + 1); setMessage("瑕疵紀錄已新增。"); }} /> :
+        <div className="cy-item-related-dialog">
+          <div className="cy-related-toolbar">
+            <button className="cy-op-button primary compact" type="button" onClick={() => setRelatedDialog("defectCreate")}>＋ 新增</button>
+            <input className="cy-op-input" type="search" aria-label="搜尋瑕疵" placeholder="搜尋描述或客戶" value={defectQuery}
+              onChange={event => setDefectQuery(event.target.value)} />
+            <label className="cy-item-show-invalid"><input type="checkbox" checked={showInvalid}
+              onChange={event => setShowInvalid(event.target.checked)} /> 顯示已作廢</label>
+          </div>
+          {defectRows.map(row => <button key={row.id} type="button"
+            className={`cy-item-related-row ${row.invalidatedAt ? "voided" : ""}`}
+            onClick={() => { window.location.hash = routeHref("defects", { id: row.id }); }}>
+            <span>{formatDate(row.reportedDate)}　{row.customerNameSnapshot}　{row.defectDescription}</span>
+            <StatusChip tone={defectTone[row.invalidatedAt ? "voided" : row.statusCode]}>
+              {row.invalidatedAt ? "已作廢" : row.statusCode === "created" ? "建立" : row.statusCode === "processing" ? "處理中" : "已解決"}
+            </StatusChip>
+          </button>)}
+          {defectLoading ? <Loading inline /> : null}
+          {defectCursor ? <button className="cy-op-button compact" type="button" disabled={defectLoading}
+            onClick={() => void moreDefects()}>載入更多</button> : null}
+        </div>}
+    </Dialog> : null}
+    {selected && relatedDialog?.startsWith("quote") && canViewCustomers ? <Dialog open size="large"
+      title={relatedDialog === "quoteCreate" ? "新增商品報價" : "報價紀錄 — " + formatItem(selected.itemNo, selected.name)}
+      onClose={() => setRelatedDialog(null)}>
+      {relatedDialog === "quoteCreate" ? <div className="cy-item-related-dialog">
+        <EntityPicker<CustomerSummary> label="客戶" required value={quoteCustomer} onSelect={setQuoteCustomer}
+          search={async q => (await searchCustomers({ q, limit: 20 })).items}
+          getKey={row => row.id} getLabel={row => [row.customerNo, row.shortName].filter(Boolean).join(" ")}
+          placeholder="輸入客戶編號或名稱" />
+        <QuoteCreateForm key={selected.id} customerId={quoteCustomer?.id ?? null}
+          initialLines={[{ item: { id: selected.id, itemNo: selected.itemNo, name: selected.name,
+            spec: selected.spec, baseUnit: selected.baseUnit } as CustomerItemOption, unit: selected.baseUnit }]}
+          onCancel={() => setRelatedDialog(null)}
+          onSaved={() => { setRelatedDialog(null); setRelatedEpoch(v => v + 1); setMessage("報價紀錄已新增。"); }} />
+      </div> : <div className="cy-item-related-dialog">
+        <div className="cy-related-toolbar">
+          <button className="cy-op-button primary compact" type="button" onClick={() => {
+            setQuoteCustomer(null); setRelatedDialog("quoteCreate");
+          }}>＋ 新增</button>
+          <input type="search" className="cy-op-input" aria-label="搜尋報價客戶" value={quoteQuery}
+            onChange={event => setQuoteQuery(event.target.value)} placeholder="搜尋客戶編號或名稱" />
+        </div>
+        {quoteSummary?.groups.filter(group => !quoteQuery.trim() || group.customers.some(row =>
+          `${row.customerNo ?? ""} ${row.shortName}`.toLowerCase().includes(quoteQuery.trim().toLowerCase())))
+          .map((group, index) => <details key={index} className="cy-item-quote-group" open={quoteQuery.trim() ? true : undefined}>
+            <summary>{group.unit}　{group.breaks.map(tier => `${tier.quantity}+ ${tier.unitPrice}`).join(" · ")}
+             　{group.customers.length} 位客戶　最近 {formatDate(group.latestQuoteDate)}</summary>
+            {group.customers.filter(row => !quoteQuery.trim() ||
+              `${row.customerNo ?? ""} ${row.shortName}`.toLowerCase().includes(quoteQuery.trim().toLowerCase()))
+              .map(customer => <button type="button" className="cy-item-related-row" key={customer.quoteId}
+                onClick={() => { window.location.hash = routeHref("customers", { id: customer.customerId }); }}>
+                {[customer.customerNo, customer.shortName].filter(Boolean).join(" ")}　{formatDate(customer.quoteDate)}
+              </button>)}
+          </details>)}
+      </div>}
+    </Dialog> : null}
     
     <FeedbackBanner message={message} tone={messageTone} />
 
@@ -581,7 +714,28 @@ export function ItemOperationalPage() {
                 {numberHistory.length ? <small>曾用品號：{numberHistory.map(row =>
                   `${row.itemNo}（${formatDate(row.validTo ?? row.createdAt)} 更改）`).join("、")}</small> : null}
               </section>
-              {/* Related record cards are rendered below, subject to module grants. */}
+              {canViewDefects || canViewCustomers ? <section className="cy-customer-cards" aria-label="商品相關紀錄">
+                {canViewDefects ? <RelatedCard title="瑕疵紀錄"
+                  count={Object.values(defectCounts).reduce((total, count) => total + (count ?? 0), 0)}
+                  summary={<small>{(["created", "processing", "resolved"] as const).filter(code => defectCounts[code])
+                    .map(code => `${code === "created" ? "建立" : code === "processing" ? "處理中" : "已解決"} ${defectCounts[code]}`).join(" · ")}</small>}
+                  empty="尚無瑕疵紀錄。" onAdd={() => setRelatedDialog("defectCreate")} onView={() => setRelatedDialog("defectBrowse")}
+                  rows={defectRecent.map(row => <button key={row.id} type="button" className="cy-item-card-entry"
+                    onClick={() => { window.location.hash = routeHref("defects", { id: row.id }); }}>
+                    <span>{formatDate(row.reportedDate)}　{row.customerNameSnapshot}　{row.defectDescription}</span>
+                    <StatusChip tone={defectTone[row.statusCode]}>
+                      {row.statusCode === "created" ? "建立" : row.statusCode === "processing" ? "處理中" : "已解決"}
+                    </StatusChip>
+                  </button>)} /> : null}
+                {canViewCustomers ? <RelatedCard title="報價紀錄"
+                  count={`${quoteSummary?.customerCount ?? 0} 位客戶 · ${quoteSummary?.groups.length ?? 0} 種價格`}
+                  empty="尚無報價紀錄。" onAdd={() => { setQuoteCustomer(null); setRelatedDialog("quoteCreate"); }}
+                  onView={() => setRelatedDialog("quoteBrowse")}
+                  rows={(quoteSummary?.groups ?? []).slice(0, 3).map((group, index) => <span key={index}>
+                    {group.unit}　{group.breaks.map(tier => `${tier.quantity}+ ${tier.unitPrice}`).join(" · ")}
+                    　{group.customers.length} 位客戶　最近 {formatDate(group.latestQuoteDate)}
+                  </span>)} /> : null}
+              </section> : null}
             </div>
           </div>
         ) : (
