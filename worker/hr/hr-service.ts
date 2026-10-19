@@ -44,7 +44,7 @@ function audit(db:D1Database, ctx:HrContext, type:string, key:string, action:str
 }
 export class HrService {
   constructor(private db:D1Database) {}
-  private employeeRow(id:number) { return this.db.prepare("SELECT * FROM hr_employees WHERE id=?").bind(id).first<Record<string,unknown>>(); }
+  private employeeRow(id:number) { return this.db.prepare("SELECT e.*,COALESCE((SELECT c.next_status FROM hr_status_changes c WHERE c.employee_id=e.id AND c.effective_date<=date('now','+8 hours') ORDER BY c.effective_date DESC,c.id DESC LIMIT 1),e.status) AS status FROM hr_employees e WHERE e.id=?").bind(id).first<Record<string,unknown>>(); }
   async list(q:string,statusFilter:string|undefined,cursor:number,limit=40) {
     const terms=["id>?"],values:(string|number)[]=[cursor];
     if(q){terms.push("(employee_no LIKE ? OR name LIKE ?)");values.push("%"+q.slice(0,80)+"%","%"+q.slice(0,80)+"%");}
@@ -60,6 +60,11 @@ export class HrService {
     for(const [key,table] of [["statusChanges","hr_status_changes"],["salaryRecords","hr_salary_records"],["seniorityExclusions","hr_seniority_exclusions"]] as const){
       const data=await this.db.prepare("SELECT * FROM "+table+" WHERE employee_id=? ORDER BY effective_date DESC,id DESC".replace("effective_date",key==="seniorityExclusions"?"start_date":"effective_date")).bind(id).all();
       result[key]=data.results??[];
+    }
+    const salary=result.salaryRecords as Record<string,unknown>[];
+    for (const item of salary) {
+      const allowance=await this.db.prepare("SELECT a.*,t.name AS item_name FROM hr_salary_allowances a JOIN hr_salary_item_types t ON t.id=a.item_type_id WHERE a.salary_record_id=? ORDER BY a.id").bind(item.id).all();
+      item.allowances=allowance.results??[];
     }
     return result;
   }
