@@ -6,8 +6,12 @@ function addDays(d: Date, n: number): Date { const x = new Date(d); x.setUTCDate
 function anniversary(start: Date, months: number): Date {
   const year = start.getUTCFullYear() + Math.floor((start.getUTCMonth() + months) / 12);
   const month = (start.getUTCMonth() + months) % 12;
-  const day = Math.min(start.getUTCDate(), new Date(Date.UTC(year, month + 1, 0)).getUTCDate());
-  return new Date(Date.UTC(year, month, day));
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  // Civil Code Article 121: a missing anniversary date ends at month-end;
+  // entitlement starts on the following day, not the truncated date.
+  return start.getUTCDate() > lastDay
+    ? new Date(Date.UTC(year, month + 1, 1))
+    : new Date(Date.UTC(year, month, start.getUTCDate()));
 }
 function excludedDays(start: Date, end: Date, exclusions: readonly SeniorityExclusion[]): number {
   const intervals = exclusions.map(x => [Math.max(start.getTime(), parse(x.startDate).getTime()), Math.min(end.getTime(), parse(x.endDate).getTime())] as const).filter(([a,b]) => a <= b).sort((a,b)=>a[0]-b[0]);
