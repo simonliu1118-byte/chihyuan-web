@@ -36,7 +36,7 @@
    - 「ERP 查詢」移到選單最上方，在「業務模組」分組之前，單獨一項、不加分組標題；權限規則不變（沒有任何 ERP 查詢權限就不顯示）。
    - 「委外」改為「委外/代工」（選單、頁面標題、權限群組與模組權限中的模組名稱一致）。
    - 外部工具「志遠記帳系統 Web 版」在選單顯示短名稱「**志遠記帳 Web**」；CY 程式頁等其他地方仍顯示正式名稱。
-   - **登入後預設頁不變**：網址沒有指定頁面時，仍進入「業務模組」中第一個有權限的模組（不因 ERP 查詢移到最上方而改成預設進 ERP 查詢）。
+   - **登入後預設頁**：網址沒有指定頁面時，有任何 ERP 查詢權限的人進入「ERP 查詢」；沒有 ERP 權限的人進入「業務模組」中第一個有權限的模組（使用者 2026-10-19：「有 ERP 權限的人登入後先看到 ERP 查詢」）。
 7. **「代工對象」全部改為「協力廠商」**（畫面文字、欄位標籤、提示與錯誤訊息、異動紀錄用詞、視覺規範文件）。資料表與 API 欄位名稱不改。
 
 ## 3. 範圍
@@ -75,7 +75,7 @@
 - 以實際稽核資料逐一檢查所有 `entityType`／`action` 組合（可從 `worker` 內所有 `action:` 常值列出），在完成報告附「事件 → 顯示句子」對照表，列出修正前後。
 
 ### 5.4 選單與用詞
-- `src/App.tsx`：`baseNavigation` 最前面新增一個無標題群組只含 `erp-item-query`（`NavigationGroup` 若不支援無標題，加 `label?: string` 並讓側欄不渲染空標題）；從「業務模組」移除 ERP 查詢；預設頁的 `firstBusiness` 改為明確找 `key === "business"` 的群組（不要用 `baseNavigation[0]`）。
+- `src/App.tsx`：`baseNavigation` 最前面新增一個無標題群組只含 `erp-item-query`（`NavigationGroup` 若不支援無標題，加 `label?: string` 並讓側欄不渲染空標題）；從「業務模組」移除 ERP 查詢；預設頁改為：先看 ERP 查詢（`moduleCodesForRoute("erp-item-query")` 任一有權限），沒有再找 `key === "business"` 群組中第一個有權限的模組（不要用 `baseNavigation[0]`）。
 - 「委外」→「委外/代工」：`App.tsx` 選單與 `PAGE_META` 標題、`shared/modules.ts` 的 `label`。
 - 外部工具短名稱：`shared/program-catalog.ts` 的程式資料加選填欄位 `navLabel`，`accounting-web` 設為「志遠記帳 Web」；`programsNavigation` 使用 `program.navLabel ?? program.name`。
 - `grep -rn "代工對象" src worker shared docs/architecture` 全部改為「協力廠商」（約 22 處）；不改識別字與資料欄位名。
@@ -95,7 +95,7 @@
 - [ ] 選單最上方是「ERP 查詢」（無分組標題），業務模組內不再有 ERP 查詢；沒有 ERP 權限時不顯示。
 - [ ] 選單、頁面標題、權限設定中都是「委外/代工」。
 - [ ] 選單中外部工具顯示「志遠記帳 Web」且不折行；CY 程式頁仍為正式名稱。
-- [ ] 開啟網站不帶網址時，仍進入業務模組第一個有權限的模組。
+- [ ] 開啟網站不帶網址時：有 ERP 查詢權限 → 進 ERP 查詢；沒有 → 進業務模組第一個有權限的模組。
 - [ ] `grep -rn "代工對象" src worker shared docs/architecture` 沒有結果。
 - [ ] `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local` 全部通過。
 - [ ] `node --test scripts/*.test.mjs` 全部通過（需先 `git clone --depth 1 https://github.com/simonliu1118-byte/cyapps .tmp/canonical-cyapps`；無法取得時在完成報告寫明，**不得**另寫 workflow 代替）。

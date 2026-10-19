@@ -4,6 +4,7 @@
 .cy-item-row { grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; }
 .cy-item-row > strong, .cy-item-row > span { grid-column: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cy-item-row > small { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+.cy-item-row > .cy-status-chip { grid-column: 2; grid-row: 1 / span 2; align-self: center; white-space: nowrap; }
 
 .cy-item-form-body { padding-top: 16px; }
 .cy-item-detail-body { display: grid; gap: 16px; padding-top: 16px; }

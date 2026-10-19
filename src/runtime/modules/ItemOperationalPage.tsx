@@ -185,6 +185,12 @@ function errorMessage(error: unknown): string {
   return "目前無法完成商品資料操作。";
 }
 
+/** 盒　1+ $80 · 100+ $70　2 位客戶　最近 2026/10/12 */
+function quoteGroupText(group: ItemQuoteSummary["groups"][number]): string {
+  const tiers = group.breaks.map(tier => `${tier.quantity}+ $${tier.unitPrice}`).join(" · ");
+  return `${group.unit}　${tiers}　${group.customers.length} 位客戶　最近 ${formatDate(group.latestQuoteDate)}`;
+}
+
 function categoryName(item: ItemSummary): string {
   return item.category?.name ?? "未分類";
 }
@@ -232,6 +238,8 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
   const [showInvalid, setShowInvalid] = useState(false);
   const [defectLoading, setDefectLoading] = useState(false);
   const [quoteSummary, setQuoteSummary] = useState<ItemQuoteSummary | null>(null);
+  // The current number has no validTo; only retired numbers are listed as 曾用品號.
+  const previousNumbers = numberHistory.filter(row => row.validTo);
   const [quoteQuery, setQuoteQuery] = useState("");
   const [quoteCustomer, setQuoteCustomer] = useState<CustomerSummary | null>(null);
 
@@ -594,8 +602,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
         {quoteSummary?.groups.filter(group => !quoteQuery.trim() || group.customers.some(row =>
           `${row.customerNo ?? ""} ${row.shortName}`.toLowerCase().includes(quoteQuery.trim().toLowerCase())))
           .map((group, index) => <details key={index} className="cy-item-quote-group" open={quoteQuery.trim() ? true : undefined}>
-            <summary>{group.unit}　{group.breaks.map(tier => `${tier.quantity}+ ${tier.unitPrice}`).join(" · ")}
-             　{group.customers.length} 位客戶　最近 {formatDate(group.latestQuoteDate)}</summary>
+            <summary>{quoteGroupText(group)}</summary>
             {group.customers.filter(row => !quoteQuery.trim() ||
               `${row.customerNo ?? ""} ${row.shortName}`.toLowerCase().includes(quoteQuery.trim().toLowerCase()))
               .map(customer => <button type="button" className="cy-item-related-row" key={customer.quoteId}
@@ -716,8 +723,8 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
                   <span>　診所價 {selected.clinicPrice ? `$${selected.clinicPrice}` : "—"}</span>
                 </div>
                 {selected.notes ? <div><strong>備註</strong> {selected.notes}</div> : null}
-                {numberHistory.length ? <small>曾用品號：{numberHistory.map(row =>
-                  `${row.itemNo}（${formatDate(row.validTo ?? row.createdAt)} 更改）`).join("、")}</small> : null}
+                {previousNumbers.length ? <small>曾用品號：{previousNumbers.map(row =>
+                  `${row.itemNo}（${formatDate(row.validTo)} 更改）`).join("、")}</small> : null}
               </section>
               {canViewDefects || canViewCustomers ? <section className="cy-customer-cards" aria-label="商品相關紀錄">
                 {canViewDefects ? <RelatedCard title="瑕疵紀錄"
@@ -737,8 +744,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
                   empty="尚無報價紀錄。" onAdd={() => { setQuoteCustomer(null); setRelatedDialog("quoteCreate"); }}
                   onView={() => setRelatedDialog("quoteBrowse")}
                   rows={(quoteSummary?.groups ?? []).slice(0, 3).map((group, index) => <span key={index}>
-                    {group.unit}　{group.breaks.map(tier => `${tier.quantity}+ ${tier.unitPrice}`).join(" · ")}
-                    　{group.customers.length} 位客戶　最近 {formatDate(group.latestQuoteDate)}
+                    {quoteGroupText(group)}
                   </span>)} /> : null}
               </section> : null}
             </div>

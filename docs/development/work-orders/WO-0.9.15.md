@@ -1,6 +1,6 @@
 # WO-0.9.15 商品頁改版：精簡基本資料、單層換算、瑕疵與報價卡片
 
-- 狀態：待審查（WO-0.9.14／PR #212 已合併，自當時最新 `main` `85e20f00` 開分支）
+- 狀態：已完成（審查通過 2026-10-19）
 - 分支：`cyweb/item-page-0.9.15`　PR：[ #214 ](https://github.com/simonliu1118-byte/chihyuan-web/pull/214)（未合併／未部署）
 - 依據：`PROJECT_RULES.md` §9；**BD-058**（單位換算單層、一律換成基準單位）；BD-020／021／022（報價語意不變）；BD-043（模組權限）
 - 視覺規範：`docs/architecture/CY_WEB_VISUAL_GUIDE.md`
@@ -203,4 +203,14 @@
 
 ## 9. 審查紀錄（審查者填）
 
-- （待審查）
+- 日期：2026-10-19　結論：**通過**（審查者直接修正下列小問題後合併）。
+- 審查者在本機執行：`npm run typecheck`、`npm run build`、`npm run validate:d1:local` 通過；`node --test scripts/*.test.mjs` 143/143 通過；`npm run validate:source` 修正後通過（見下）。
+- 實際畫面（桌面 1440、手機 390，模擬 API）：基本資料卡三列與曾用品號、舊接串換算顯示成「1 箱 = 180 包」、修改表單精簡換算列、瑕疵卡（最近 3 筆、狀態筆數）、商品頁瑕疵新增對話框（商品唯讀帶入）、報價卡彙整、報價查看全部（展開與搜尋）、商品頁報價新增對話框（客戶＋第一列帶入商品）。
+- 審查者直接修正：
+  1. `npm run validate:source` 失敗：`validate_defect_runtime_transport.py` 仍只在 `DefectOperationalPage.tsx` 找 `createDefect`／`updateDefect`，表單抽到 `DefectForm.tsx` 後找不到。改為頁面與共用表單一起檢查（CI 的 source-contracts 未跑這支，所以 CI 是綠的）。
+  2. 報價卡與「查看全部」的價格少了「$」，且 JSX 換行吃掉全形空白，顯示成「100+ 702 位客戶」；改用 `quoteGroupText()` 一處組字串：`盒　1+ $80 · 100+ $70　2 位客戶　最近 2026/10/12`。
+  3. 「曾用品號」把目前品號也列進去（`validTo` 為空的那筆）；只列已停用的舊品號。
+  4. 商品清單「已停用」chip 被 `.cy-item-row > span` 樣式拉成整列寬；改為放在右側欄位。
+- 意見（不阻擋）：
+  - `ItemOperationalPage.tsx` 直接從 `worker/item/unit-conversion.ts` 引用 `unitFactorToBase`（純函式、無 Worker 相依，build 正常）；日後若再有前端共用，應搬到 `shared/`。
+  - 商品頁瑕疵新增對話框有兩層標題（對話框「新增瑕疵紀錄」與表單「新增瑕疵」），可接受，之後統一對話框表單樣式時一併處理。
