@@ -378,6 +378,13 @@ export function DefectOperationalPage() {
     }
   }
 
+  function ownerLabel(id: number, employeeNo: string | null): string {
+    if (lookups?.actor.appMemberId === id) {
+      return `${lookups.actor.displayName}（${employeeNo ?? lookups.actor.employeeNo ?? "目前使用者"}）`;
+    }
+    return lookups?.owners.find(row => row.id === id)?.displayName || employeeNo || `員工 #${id}`;
+  }
+
   if (!listReady) return <Loading />;
 
   return (
