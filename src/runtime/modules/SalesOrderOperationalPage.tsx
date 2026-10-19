@@ -1,3 +1,4 @@
+import { formatItem } from "../../ui/foundation/format";
 import { formatDate } from "../../ui/foundation/format";
 import { StatusFilter } from "../../ui/data/StatusFilter";
 import { orderNextStep, orderTone } from "./status-flow";
@@ -592,7 +593,7 @@ export function SalesOrderOperationalPage() {
                       <EntityPicker<LineItemOption> label={<span className="cy-visually-hidden">第 {index + 1} 列商品</span>} disabled={busy}
                         className="cy-order-line-item" value={item} onSelect={(row) => changeLineItem(index, line.key, row)}
                         search={async (query) => (await loadSalesOrderLookups({ itemQuery: query, limit: 20 })).items}
-                        getKey={(row) => row.id} getLabel={(row) => `${row.itemNo} · ${row.name}`}
+                        getKey={(row) => row.id} getLabel={(row) => formatItem(row.itemNo, row.name)}
                         getDescription={(row) => [row.spec, row.isActive ? null : "已停用"].filter(Boolean).join(" · ") || null}
                         placeholder="輸入品號、品名或規格" />
                       <input className="cy-op-input" value={line.quantity} inputMode="decimal" disabled={busy} aria-label="數量" onChange={(event) => patchLine(index, { quantity: event.target.value })} placeholder="數量" />
