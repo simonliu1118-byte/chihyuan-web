@@ -158,3 +158,10 @@ Edit/delete rules follow BD-028/033. Defect list/mutations will be added as an o
 ## 11. Runtime boundary
 
 This foundation does not yet expose protected Item HTTP routes and does not write production D1. Route wiring remains behind the established Shared Identity browser-session and local/dev Worker+D1 acceptance gates.
+
+### BD-058: Direct-to-base unit conversions (V0.9.15)
+
+- Every newly created/updated conversion is exactly `1 fromUnit = quantity baseUnit`.
+- `toUnit` must equal the Item's current `baseUnit`; duplicate `fromUnit` and a base unit reused as `fromUnit` are rejected server-side.
+- Older chained conversion rows are still **readable** using the existing exact rational `unitFactorToBase` traversal; the Item UI flattens every visible source to the base unit and submits only canonical direct-to-base entries on the next edit.
+- These rules are a forward validation change only; there is no data migration or change to inventory transaction semantics.
