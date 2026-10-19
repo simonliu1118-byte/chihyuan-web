@@ -188,9 +188,10 @@ function OperationalApp({
     const adminAllowed = session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN";
 
     if (!window.location.hash) {
-      const firstBusiness = baseNavigation.find(group => group.key === "business")?.items.find((item) =>
-        moduleCodesForRoute(item.key).some((code) => allowedModules.has(code)));
-      window.location.hash = firstBusiness?.href ?? "#account";
+      const erpAllowed = moduleCodesForRoute("erp-item-query").some(code => allowedModules.has(code));
+      const firstBusiness = baseNavigation.find(group => group.key === "business")?.items.find(item =>
+        moduleCodesForRoute(item.key).some(code => allowedModules.has(code)));
+      window.location.hash = erpAllowed ? "#erp-item-query" : firstBusiness?.href ?? "#account";
       return;
     }
 
