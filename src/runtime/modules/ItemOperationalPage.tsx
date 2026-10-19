@@ -631,8 +631,8 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
         <div className="cy-op-list">
           {rows.map((row) => (
             <button key={row.id} type="button" className={`cy-op-list-row cy-item-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={() => void selectItem(row.id)}>
-              <strong>{row.name}</strong>
-              <span><span className="cy-mono">{row.itemNo}</span>{row.spec ? `　${row.spec}` : ""} · {row.baseUnit}</span>
+              <span className="cy-mono">{row.itemNo}</span>
+              <strong>{row.name}{row.spec ? `　${row.spec}` : ""}</strong>
               {row.isActive ? <small>{categoryName(row)}</small> : <StatusChip>已停用</StatusChip>}
             </button>
           ))}
