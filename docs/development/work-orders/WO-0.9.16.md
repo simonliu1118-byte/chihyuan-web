@@ -1,7 +1,7 @@
 # WO-0.9.16 介面細修：設定與修改紀錄按鈕、異動紀錄可讀性與密度、選單與用詞
 
-- 狀態：待執行（**WO-0.9.15 合併後**才從最新 `main` 開分支；兩單都會改 VERSION／TODO）
-- 分支：`cyweb/ui-polish`（建議）　PR：（執行者填）
+- 狀態：已實作，待驗證與審查（完整驗證限制見第 8 節）
+- 分支：`cyweb/ui-polish-0.9.16`　PR：[ #216 ](https://github.com/simonliu1118-byte/chihyuan-web/pull/216)（Draft，未合併／未部署）
 - 依據：`PROJECT_RULES.md` §9；BD-053／054（稽核）
 - 視覺規範：`docs/architecture/CY_WEB_VISUAL_GUIDE.md`
 
