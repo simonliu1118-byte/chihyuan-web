@@ -108,34 +108,50 @@
 
 ## 8. 完成報告（執行者填）
 
+- 執行分支：`cyweb/ui-polish-0.9.16`（以 `main` commit `a8352fed` 為基準）。
 - 驗收清單逐項結果：
-  1. 設定 emoji：已修改 `ModuleSettingsPanel.tsx`；尚待實機視覺驗收。
-  2. 🕘 修改紀錄共用圖示按鈕：已新增 `IconButton.tsx` 並套用客戶頁；尺寸與可及性尚待實機驗收。
-  3. ERP 查詢預設隱藏／SUPER_ADMIN 限制：已修改 Worker 查詢、路由、前端及 D1 acceptance；測試未在本回合執行。
-  4. 事件可讀性：已修改 `change-log-labels.ts` 及現有測試；未完成實際全事件／真實資料逐筆驗收。
-  5. 單行密集列表：已修改前端與樣式；30px 高度尚待實機驗收。
-  6. ERP 查詢移至最上方：已修改 `App.tsx`；權限與手機畫面尚待實機驗收。
-  7. 委外/代工：已修改導覽、模組標籤；需審查完整畫面。
-  8. 志遠記帳 Web：已加入 `navLabel`；不折行須實機驗收。
-  9. 預設登入頁：已修改 `App.tsx`；不同角色路由尚待驗收。
-  10. 舊稱搜尋：相關 source 有修改；未執行指定 grep，不能宣稱零結果。
-  11. `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local`：未執行（本回合使用 GitHub Connector，無本機原始碼建置／D1 驗證環境）。
-  12. `node --test scripts/*.test.mjs`：未執行；亦未完成 canonical CYapps 暫存 clone。
-  13. 變更範圍：對 `main` 比較未見 `.github/workflows/*`，唯一新增的原始碼檔案為工作單明列的 `src/ui/actions/IconButton.tsx`。
-  14. `VERSION` 與 `package.json` 已改為 0.9.16；`BUILD` 未修改；`TODO.md`、API 合約、視覺規範已更新。
-- 與工作單不同之處與原因：原要求完成所有指令驗證及逐事件真實資料對照，但目前未有可執行建置／D1 測試的環境，故尚未能宣稱全部驗收通過。未修改 workflow、未合併、未部署。
-- 驗證指令輸出摘要：GitHub 比較 `main...cyweb/ui-polish-0.9.16`：ahead 24、behind 0；未見 workflow 異動。其餘指定 shell/npm 測試均未執行，無輸出可附。
-- 操作驗證步驟：登入 SUPER_ADMIN → 查看設定按鈕及客戶明細圖示 → 異動紀錄先看預設隱藏，再勾選「顯示 ERP 查詢」核對完成／失敗／逾時及無送出事件 → ADMIN／USER 直接呼叫 audit API 帶 `includeErpQueries=true`，確認仍不回傳查詢事件 → 測量稽核列高及截斷明細 → 比對桌面與手機側欄及登入預設路由 → 開啟委外/代工確認「協力廠商」，並檢查 CY 程式頁仍呈現完整程式名稱。
-- 事件 → 顯示句子對照表（程式預期格式，未經實際資料逐筆確認）：
+  1. 設定「⚙️ 設定」：**程式碼已修改，待實機視覺驗收**。
+  2. 客戶修改紀錄 🕘 共用 IconButton、同尺寸及可及名稱：**程式碼已修改，待實機驗收**。
+  3. ERP 查詢預設隱藏、SUPER_ADMIN 才可包含：**前後端已修改，後端角色判斷與測試原始碼已檢視；未實跑 D1 測試**。
+  4. 所有事件不得出現內部代碼：**已調整摘要產生器，但尚未以全部實際稽核資料逐類核對，待驗收**。
+  5. 單行約 30px 密集清單及客戶共用：**程式碼已修改，待瀏覽器實測**。
+  6. ERP 查詢置頂且依權限顯示：**程式碼已修改，待互動驗收**。
+  7. 委外/代工選單、標題與權限名稱：**程式碼已修改，待畫面驗收**。
+  8. 志遠記帳 Web 選單短名、正式名稱不變：**程式碼已修改，待畫面驗收**。
+  9. 無網址指定時依 ERP 權限決定預設頁：**程式碼已修改，待權限情境驗收**。
+  10. 「代工對象」字串清除：**目標原始碼已有替換；未執行指定 grep，不能宣稱通過**。
+  11. `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local`：**未執行**。
+  12. `node --test scripts/*.test.mjs`（含 canonical cyapps clone）：**未執行**。
+  13. 未新增或修改 `.github/workflows/*`：**依 main...分支差異檔案清單核對，通過**；新增檔案只有工作單指定的 `src/ui/actions/IconButton.tsx`。
+  14. VERSION/package.json 0.9.16、TODO、視覺規範、API 合約：**已更新**；BUILD 維持原值，待驗證。
+- 與工作單不同之處與原因：因本次只能直接透過 GitHub Connector 修改遠端檔案，無本機可執行之 repo checkout／Node/D1 環境，未執行指定驗證指令、未收集實機截圖；不得將上述項目視為已驗收。沒有變更資料庫 schema、API 欄位名稱、稽核寫入方式或 workflow。
+- 驗證指令輸出摘要：
+  - `git diff --name-only main...cyweb/ui-polish-0.9.16` 的 GitHub Compare 等效檢查：原分支 18 個檔案，沒有 `.github/workflows/*`；文件補完後額外修改 VERSION、package.json、TODO、API 合約及視覺規範。
+  - `npm run typecheck`：未執行／無輸出。
+  - `npm run validate:source`：未執行／無輸出。
+  - `npm run build`：未執行／無輸出。
+  - `npm run validate:d1:local`：未執行／無輸出。
+  - `node --test scripts/*.test.mjs`：未執行／無輸出；canonical cyapps 尚未 clone。
+  - `grep -rn "代工對象" src worker shared docs/architecture`：未執行／無輸出。
+- 操作驗證步驟（供審查者實測）：
+  1. 使用 SUPER_ADMIN 登入，確認頂部「⚙️ 設定」，客戶明細「修改／🕘」按鈕尺寸、title 與 aria-label。
+  2. 進異動紀錄確認預設不顯示 ERP 查詢；勾「顯示 ERP 查詢」後確認只顯示完成、失敗、逾時，點開明細，測試長文字省略與客戶修改紀錄共用清單。
+  3. 以 ADMIN／USER 對 audit API 直接附 `includeErpQueries=true`，確認仍不回傳 ERP 查詢事件（具權限的管理員角色依既有路由規則測試）。
+  4. 在桌面及手機確認 ERP 置頂、委外/代工、志遠記帳 Web；以有／無 ERP 權限帳號測試無 hash 初始頁。
+  5. 檢查委外/代工頁所有「協力廠商」用詞；執行工作單列出的全部驗證指令。
+- 事件 → 顯示句子對照表（依實作預期，尚未由實際事件資料逐項驗證）：
 
-  | 事件 | 修正前問題 | 預期顯示句子 |
+  | 事件 | 修正前問題 | 修正後預期句子 |
   | --- | --- | --- |
-  | ERP 查詢送出 | 送出 ERP 查詢及內部狀態 | 預設及勾選後都不顯示 |
-  | ERP 客戶查詢完成 | 完成 ERP 查詢「ERP 查詢 #UUID」：狀態 | 查詢 ERP 客戶「AC0016」：成功 |
-  | ERP 進貨查詢失敗 | ERP 查詢失敗「PURCHASES」：狀態 | 查詢 ERP 進貨「B0009」：失敗 |
-  | ERP 查詢逾時 | 內部查詢 ID 或英文代碼 | 查詢 ERP〔中文類別〕「查詢內容」：逾時 |
-  | 狀態變更 | 只有「狀態」 | 〔中文動作〕「〔業務名稱〕」：狀態：〔原值〕 → 〔新值〕 |
-  | 找不到業務編號 | 類別 #內部 ID | 〔中文動作〕〔類別〕 |
+  | `erp_item_query.created` | 送出 ERP 查詢、只列「狀態」 | 不顯示 |
+  | `erp_item_query.completed` | ERP 查詢 #UUID：狀態 | 查詢 ERP 客戶「AC0016」：成功 |
+  | `erp_item_query.failed` | ERP 查詢「PURCHASES」：狀態 | 查詢 ERP 進貨「B0009」：失敗 |
+  | `erp_item_query.timed_out` | 內部 ID 或英文代碼 | 查詢 ERP〔中文類別〕「查詢內容」：逾時 |
+  | `customer.updated`（含狀態變更） | 僅顯示欄位名「狀態」 | 修改客戶「業務名稱」：狀態：舊值 → 新值 |
+  | 無可讀業務編號之事件 | 類別 #內部編號 | 僅使用中文類別（例如「備份」） |
+  | `erp_item_agent.*` | 管理動作 | 保持顯示中文管理動作 |
+
+  其餘 `entityType/action` 組合尚未逐筆比對實際稽核資料；本表不可視為完整驗收證據。
 
 ## 9. 審查紀錄（審查者填）
 
