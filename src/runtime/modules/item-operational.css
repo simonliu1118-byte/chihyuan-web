@@ -1,3 +1,4 @@
+/* Compact single-layer conversions and customer-style item detail cards. */
 /* Item workspace. Shared layout, buttons, inputs and blocks come from app.css / forms.css. */
 .cy-item-op { min-width: 0; }
 .cy-item-row { grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; }
@@ -6,19 +7,12 @@
 
 .cy-item-form-body { padding-top: 16px; }
 .cy-item-detail-body { display: grid; gap: 16px; padding-top: 16px; }
-.cy-item-info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px 20px; }
-.cy-item-info-grid .wide { grid-column: 1 / -1; }
-.cy-item-info span { display: block; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
-.cy-item-info strong { display: block; margin-top: 2px; font-weight: 400; font-variant-numeric: tabular-nums; white-space: pre-wrap; overflow-wrap: anywhere; }
-.cy-item-section { padding-top: 12px; border-top: 1px solid var(--cy-border); }
-.cy-item-section h3 { margin: 0 0 6px; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 500; }
-.cy-item-read-row { padding: 4px 0; font-variant-numeric: tabular-nums; }
-.cy-item-history-row { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--cy-border); }
-.cy-item-history-row:last-child { border-bottom: 0; }
-.cy-item-history-row strong { font-weight: 600; font-variant-numeric: tabular-nums; }
-.cy-item-history-row span { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); text-align: right; }
-.cy-item-muted { margin: 4px 0; color: var(--cy-text-subtle); }
-.cy-item-conversion-row { display: grid; grid-template-columns: 16px minmax(80px, 1fr) 16px 100px minmax(80px, 1fr) auto; gap: 8px; align-items: center; }
+.cy-item-conversion-row {
+  display: grid;
+  grid-template-columns: auto minmax(90px, 1fr) auto minmax(90px, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
 .cy-item-conversion-row > span { color: var(--cy-text-muted); text-align: center; }
 
 @media (max-width: 560px) {
@@ -28,3 +22,13 @@
   .cy-item-history-row { display: block; }
   .cy-item-history-row span { display: block; text-align: left; margin-top: 2px; }
 }
+
+.cy-item-basic-card { display: grid; gap: 10px; padding: 12px; min-width: 0; }
+.cy-item-basic-card h3 { margin: 0; font-size: var(--cy-fs-md); }
+.cy-item-basic-card > div { padding-top: 8px; border-top: 1px solid var(--cy-border); line-height: 1.7; }
+.cy-item-basic-card > div > strong { font-weight: 600; margin-right: 8px; }
+.cy-item-basic-card small { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
+.cy-item-conversions-inline { display: grid; gap: 8px; margin: 6px 0 0; }
+.cy-item-conversion-row span { color: var(--cy-text-muted); }
+.cy-item-add-conversion { justify-self: start; background: transparent; border: 0; padding: 5px 0; color: var(--cy-accent); font: inherit; cursor: pointer; }
+.cy-item-add-conversion:hover { text-decoration: underline; }
