@@ -92,7 +92,7 @@
   2. 我的帳號單一卡片：**已提交**。顯示姓名、員工編號、角色、Email 驗證狀態及遮蔽密碼。現有 `AuthUser` 未提供 Email 地址，依工作單僅顯示驗證狀態；刪除 CYID 技術說明及重複介紹。
   3. 變更密碼 Dialog：**已提交，未執行互動測試**。目前／新／確認密碼使用共用 `PasswordInput`，提供 👁 顯示切換、8～16 字元與一致性即時標示，條件不符時無法提交，沿用 `changeOwnPassword` 與重新登入提示。
   4. 變更 Email Dialog：**已提交，未執行互動測試**。沿用現有 API，分為輸入與驗證兩步，設 60 秒倒數、返回及重新寄送。
-  5. 待驗證 Email：**已接入原 `startCurrentEmailVerification`，並加入失敗後可重試狀態；未做實機驗證**。
+  5. 待驗證 Email：**已接入原 `startCurrentEmailVerification`，失敗時關閉驗證 Dialog 並恢復狀態，讓使用者可重新操作；未做實機驗證**。
   6. 手機 390px：**已有響應式樣式，未在真實畫面驗證**。
   7. `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local`：**未執行，不能宣稱通過**。
   8. `node --test scripts/*.test.mjs`：**未執行**；canonical cyapps clone 未成功。
@@ -153,7 +153,7 @@
 | 身分 SharedIdentityPage:1024 | 驗證碼與 Email 次數限制。 | 留 | 安全與輸入限制 |
 | 身分 SharedIdentityPage:1030 | 每日 Email 系統上限。 | 留 | 設定數值限制 |
 
-仍需掃描未列於本表的全部 `src/` 檔案；此表並非所有候選項目。
+另外複核 `ItemOperationalPage.tsx`、`SalesOrderOperationalPage.tsx`、`DefectOperationalPage.tsx`：既有顯示多屬輸入限制、狀態或業務資料，沒有刪除。仍需掃描未列於本表的全部 `src/` 檔案；此表並非所有候選項目。
 
 ## 9. 審查紀錄（審查者填）
 
