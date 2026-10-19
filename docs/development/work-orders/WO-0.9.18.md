@@ -85,23 +85,36 @@
 
 ## 8. 完成報告（執行者填）
 
-**目前狀態：部分實作，未完成；不可合併或部署。**
+**執行狀態：部分實作，尚未達工作單全部驗收；PR #220 維持 Draft，禁止合併或部署。**
 
 - 驗收清單逐項結果：
-  - 全站說明文字完整候選與逐項留／刪對照：**未完成**。
-  - 我的帳號頁卡片與兩個變更視窗：**未完成**。
-  - 密碼共用顯示／隱藏元件：**已新增 `src/ui/forms/PasswordInput.tsx`，尚未接入及驗證**。
-  - 密碼即時條件與成功後重新登入：**未完成**。
-  - Email 二步驟、60 秒倒數、返回及待驗證流程：**未完成**。
-  - 手機 390px：**未驗證**。
-  - `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local`：**未執行**。
-  - `node --test scripts/*.test.mjs`：**未執行**；未 clone canonical cyapps。
-  - 未新增或修改 workflow：**目前未涉及**；後續須以 PR diff 再確認。
-  - VERSION/package.json 0.9.18：**main 原已為 0.9.18**；TODO 與視覺規範：**未完成**。
-- 與工作單不同之處與原因：執行期間嘗試產生新版帳號頁程式碼，提交前因組字錯誤中斷；未提交該頁修改。不得將此狀態視為已完成實作。
-- 驗證指令輸出摘要：上述測試指令均未執行，無合格結果；沒有執行畫面驗證。
-- 操作驗證步驟：完成帳號頁後應使用已驗證與待驗證帳號分別確認 Email、更改密碼及重新登入流程；手機 390px 檢查 Dialog；執行 §6 全部測試。
-- 說明文字對照表：**未完成；尚未逐檔掃描 src 全部候選文字**。不得聲稱通過對應驗收項。
+  1. 全站說明文字逐項對照：**未完成**，缺少完整 `src/` 逐檔候選清單與逐條人工裁決；不能宣稱全站完成。
+  2. 我的帳號單一卡片：**已提交**。顯示姓名、員工編號、角色、Email 驗證狀態及遮蔽密碼。現有 `AuthUser` 未提供 Email 地址，依工作單僅顯示驗證狀態；刪除 CYID 技術說明及重複介紹。
+  3. 變更密碼 Dialog：**已提交，未執行互動測試**。目前／新／確認密碼使用共用 `PasswordInput`，提供 👁 顯示切換、8～16 字元與一致性即時標示，條件不符時無法提交，沿用 `changeOwnPassword` 與重新登入提示。
+  4. 變更 Email Dialog：**已提交，未執行互動測試**。沿用現有 API，分為輸入與驗證兩步，設 60 秒倒數、返回及重新寄送。
+  5. 待驗證 Email：**已接入原 `startCurrentEmailVerification`，未做實機驗證**。
+  6. 手機 390px：**已有響應式樣式，未在真實畫面驗證**。
+  7. `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local`：**未執行，不能宣稱通過**。
+  8. `node --test scripts/*.test.mjs`：**未執行**；canonical cyapps clone 未成功。
+  9. 工作單範圍與 workflow：以 GitHub Compare 核對只有 `TODO.md`、`CY_WEB_VISUAL_GUIDE.md`、本工作單、`SharedIdentityPage.tsx`、`identity.css`、新 `PasswordInput.tsx`；**無 `.github/workflows/*` 變更**。
+  10. `VERSION`／`package.json`：目前 `main` 已是 `0.9.18`，未重複修改；TODO 與視覺規範已更新，`BUILD` 未動。
+- 與工作單不同之處與原因：因無法取得完整儲存庫 checkout，全站文字掃描及必要測試未能執行。依 §2-2，AuthUser 沒有目前 Email，故只顯示驗證狀態，未更動後端。
+- 驗證指令輸出摘要：
+  - `git clone --depth 1 --branch cyweb/account-hints-wo-0.9.18 https://github.com/simonliu1118-byte/chihyuan-web.git`：失敗，`Could not resolve host: github.com`。
+  - GitHub Compare `main...cyweb/account-hints-wo-0.9.18`：6 個變更檔案，無 workflow，無範圍外檔案。
+  - `npm run typecheck`／`npm run validate:source`／`npm run build`／`npm run validate:d1:local`／`node --test scripts/*.test.mjs`：未執行，無輸出。
+- 操作驗證步驟：以已驗證帳號開啟我的帳號，檢查卡片、密碼三欄切換與即時驗證；執行密碼變更後驗證重新登入；以已驗證 Email 執行 Email 變更、輸入六位碼、確認返回與 60 秒冷卻；以待驗證帳號測試寄送驗證碼；於 390px 檢查視窗、按鈕，最後執行 §6 全部測試。
+- 說明文字對照表（**僅已核對項目，非全站完整表**）：
+
+  | 檔案／位置 | 原文 | 留／刪 | 理由 |
+  | --- | --- | --- | --- |
+  | `src/identity/SharedIdentityPage.tsx`，原 SelfServicePanel 頂部 | 員工編號、姓名、角色與「密碼與驗證碼由 CYID 帳號服務保管，CY Web 不會保存。」 | 刪 | 重複自我介紹及不必要的系統實作說明；必要身分資訊改放單一卡片標題 |
+  | 同檔，原 Email 待重新驗證提醒 | 「帳號已啟用，原密碼仍有效…」操作及系統解說 | 刪／改 | 保留「待驗證」狀態與寄送驗證碼操作，移除長篇運作說明 |
+  | 同檔，原 UserWorkspace 附註 | 「系統與模組使用權由帳號管理員或超級管理員設定；你可以管理一般使用者的帳號，點姓名開啟。」 | 刪 | 重複權限原理及點擊教學 |
+  | 帳號 Dialog | 「8～16 字元」、「兩次輸入相同」 | 留 | 直接影響密碼有效性的規則 |
+  | 帳號 Dialog | 驗證碼已寄出／操作錯誤與結果 | 留 | 操作回饋與安全驗證資訊 |
+
+**未完成之全站掃描需於 PR 正式交審前補齊；本報告不得視為全部驗收通過。**
 
 ## 9. 審查紀錄（審查者填）
 
