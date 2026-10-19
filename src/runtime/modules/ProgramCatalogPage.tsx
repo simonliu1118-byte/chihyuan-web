@@ -54,7 +54,7 @@ export function ProgramCatalogView({ catalog }: { catalog: ProgramCatalog }) {
         <span>發版日 {published(program)}</span></div>
         <p className="cy-program-description">{program.description}</p>{links(program)}</>}
       emptyTitle="尚無程式" />
-    
+    <p className="cy-program-checked">每日台灣時間凌晨 3 點自動確認版本；最近確認：{date(catalog.checkedAt)}。</p>
   </>;
 }
 export function programRefreshMessage(failure: ProgramCatalog["refreshFailure"]): string {
