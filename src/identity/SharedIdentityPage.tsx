@@ -454,7 +454,7 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
         </table>
         {rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的使用者。</div> : null}
       </div>}
-      {canIdentityAdmin ? <p className="cy-identity-intro cy-identity-table-hint">勾選立即生效。加入權限群組的人，系統與模組使用權都由群組決定（切到「權限群組」修改）。點姓名可處理帳號（停用、更換 Email、從某人複製使用權等）。CY Web 本身所有啟用的使用者都能登入。</p> : null}
+      {canIdentityAdmin ?  : null}
     </section>
   </>;
 }
@@ -935,7 +935,7 @@ function GroupWorkspace({ snapshot, session, view, columns, reload, switcher }: 
         </table>
         {view.groups.length === 0 ? <div className="cy-op-empty">尚未建立權限群組。按「＋ 新增群組」建立，例如「業務」「倉管」。</div> : null}
       </div>
-      <p className="cy-identity-intro cy-identity-table-hint">勾選立即套用到群組所有成員，成員不能個別修改。每人最多一個群組，在「人員」設定；移出群組或刪除群組時，當時的系統與模組使用權保留為個人設定。</p>
+      
     </section>
   </>;
 }
