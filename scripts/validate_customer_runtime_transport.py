@@ -18,6 +18,7 @@ def read(path: str) -> str:
 
 def main() -> int:
     page = read("src/runtime/modules/CustomerOperationalPage.tsx")
+    quote_create = read("src/runtime/modules/customer/QuoteCreateForm.tsx")
     client = read("src/runtime/api/customer-runtime-client.ts")
     routes = read("worker/http/business-api-routes.ts")
     service = read("worker/customer/customer-service.ts")
@@ -56,7 +57,7 @@ def main() -> int:
         "createCustomerFrequentItem",
         "deleteCustomerFrequentItem",
     ):
-        if token not in page or token not in client:
+        if token not in (page + quote_create) or token not in client:
             raise AssertionError(f"Customer transport cutover missing runtime client operation: {token}")
 
     for endpoint in (
