@@ -8,7 +8,7 @@ import type {
   OutsourcingSummary,
 } from "../../shared/contractor-outsourcing";
 import { formatMoney2, formatScaled4 } from "../../shared/fixed-point";
-import { allowedUnits, type UnitConversionEdge } from "../item/unit-conversion";
+import { allowedUnits, type UnitConversionEdge } from "../../shared/unit-conversion";
 
 type D1Scalar = string | number | null;
 

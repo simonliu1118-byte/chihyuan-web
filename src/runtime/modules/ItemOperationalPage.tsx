@@ -12,7 +12,7 @@ import type { ItemQuoteSummary } from "../../../shared/customer-related";
 import type { CustomerSummary } from "../../../shared/customer";
 import type { CustomerItemOption } from "../../../shared/business-lookups";
 import { formatDate, formatItem } from "../../ui/foundation/format";
-import { unitFactorToBase } from "../../../worker/item/unit-conversion";
+import { unitFactorToBase } from "../../../shared/unit-conversion";
 import { parseScaled4, formatScaled4 } from "../../../shared/fixed-point";
 import { StatusChip } from "../../ui/primitives/StatusChip";
 import { usePendingAction } from "../../ui/feedback/usePendingAction";

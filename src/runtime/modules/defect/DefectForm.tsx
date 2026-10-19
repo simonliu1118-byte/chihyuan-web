@@ -67,16 +67,20 @@ export function DefectForm({ mode, initial, fixedItem, onSaved, onCancel }: Defe
       setBusy(false);
     }
   }
+  const actions = <>
+    <button className="cy-op-button" type="button" disabled={busy} onClick={onCancel}>取消</button>
+    <button className="cy-op-button primary" disabled={busy || !lookups} aria-busy={busy || undefined}>
+      {mode === "create" ? "建立瑕疵" : "儲存修改"}</button>
+  </>;
+  // With a fixed item the form sits in the item page's dialog, whose title already names it;
+  // there the actions sit at the bottom like the other dialog forms.
+  const inDialog = Boolean(fixedItem);
   return <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={event => void submit(event)}>
-    <div className="cy-record-header cy-edit-header">
+    {inDialog ? null : <div className="cy-record-header cy-edit-header">
       <div><h2>{mode === "create" ? "新增瑕疵" : `修改瑕疵 #${initial?.id ?? ""}`}</h2>
         <p>已建檔與處理中的瑕疵可以修改；已處理的需先重新開啟。</p></div>
-      <div className="cy-record-actions">
-        <button className="cy-op-button" type="button" disabled={busy} onClick={onCancel}>取消</button>
-        <button className="cy-op-button primary" disabled={busy || !lookups} aria-busy={busy || undefined}>
-          {mode === "create" ? "建立瑕疵" : "儲存修改"}</button>
-      </div>
-    </div>
+      <div className="cy-record-actions">{actions}</div>
+    </div>}
     <div className="cy-defect-form-body"><div className="cy-op-form-grid">
       <label>回報日期<input className="cy-op-input" type="date" required value={reportedDate}
         disabled={busy} onChange={event => setReportedDate(event.target.value)} /></label>
@@ -106,5 +110,6 @@ export function DefectForm({ mode, initial, fixedItem, onSaved, onCancel }: Defe
           onChange={event => setHandling(event.target.value)} /></label> : null}
     </div></div>
     {error ? <p className="cy-notice cy-notice-error" role="alert">{error}</p> : null}
+    {inDialog ? <div className="cy-customer-related-form-actions">{actions}</div> : null}
   </form>;
 }
