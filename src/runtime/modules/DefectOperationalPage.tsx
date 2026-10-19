@@ -420,7 +420,7 @@ export function DefectOperationalPage() {
                 setDraft(null);
                 setMessage(creating ? "瑕疵紀錄已新增。" : "瑕疵紀錄已儲存。");
                 setRefreshEpoch(value => value + 1);
-              }} />     </form>
+              }} />
           ) : loadingDetail ? <Loading /> : selected ? (
             <div>
               <div className="cy-record-header">
