@@ -93,8 +93,12 @@ const fields:Record<string,string> = {
   inputMode:"輸入方式",unitLabel:"數量單位",minimumAverageDailyScore:"最低日平均分數",
   targetAverageDailyScore:"目標日平均分數",priceBreaks:"報價級距",
   phones:"電話",contacts:"聯絡人",addresses:"地址",notes:"備註",parts:"出庫料件",
+  spec:"規格",baseUnit:"基準單位",cost:"成本",costTaxMode:"成本稅別",storePrice:"門市價",
+  clinicPrice:"診所價",unitConversions:"單位換算",defectDescription:"瑕疵內容",handling:"處理方式",
+  employeeId:"人員",contractorId:"協力廠商",pricingUnit:"計價單位",
 };
-export function fieldLabel(_entityType:string,key:string):string { return fields[key] ?? key; }
+// An unmapped key is never shown raw (BD-054 readability); add it to the map above instead.
+export function fieldLabel(_entityType:string,key:string):string { return fields[key] ?? "其他欄位"; }
 export type FieldLookup = Record<string,Record<string,string>>;
 const statusText:Record<string,string> = {
   created:"已建檔",processing:"處理中",resolved:"已完成",voided:"已作廢",
@@ -128,11 +132,12 @@ export function fieldValue(type:string,key:string,value:unknown,lookups:FieldLoo
 const names = ["shortName", "name", "displayName", "customerNameSnapshot", "itemNameSnapshot",
   "fullName", "workOrderRef", "outsourcingRef", "itemNo", "customerNo", "code"];
 const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i;
-const internalToken = /^(?:[A-Z][A-Z_0-9]{2,}|#?\\d+)$/;
+// UPPER_SNAKE enum codes and bare ids are internal; business numbers such as AC0001 are not.
+const internalToken = /^(?:[A-Z]+(?:_[A-Z0-9]+)+|#?\d+)$/;
 function safeDisplay(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const text = value.trim();
-  if (!text || uuidPattern.test(text) || internalToken.test(text) || /#\\d+/.test(text)) return null;
+  if (!text || uuidPattern.test(text) || internalToken.test(text) || /#\d+/.test(text)) return null;
   return text;
 }
 /** Names must be real business labels, never database keys or internal UUIDs. */
@@ -181,8 +186,9 @@ export function auditSentence(event: AuditEvent, lookups: FieldLookup = {}): str
   const name = recordName(event);
   const target = name === entityLabel(event.entityType) ? "" : `「${name}」`;
   const changes = auditChanges(event, lookups);
-  const status = changes.find(row => row.key === "status" || row.key === "statusCode");
-  const shown = status && (status.before !== "—" || status.after !== "—")
-    ? `：狀態：${status.before} → ${status.after}` : "";
+  // Name the changed fields; a status change also shows its old and new value.
+  const fields = changes.slice(0, 5).map(row => row.key === "status" || row.key === "statusCode"
+    ? `${row.label}：${row.before} → ${row.after}` : row.label);
+  const shown = fields.length ? "：" + [...new Set(fields)].join("、") : "";
   return label + target + shown;
 }

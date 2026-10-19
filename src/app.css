@@ -615,6 +615,7 @@ a.cy-op-button, a.cy-button { text-decoration: none; }
 .cy-change-log-filters>fieldset{margin:0;padding:0;border:0;min-width:0;color:var(--cy-text-muted)}
 .cy-change-log-filters legend{font-size:var(--cy-fs-sm);margin-bottom:5px}
 .cy-change-log-filters .cy-op-input{min-width:120px}
+.cy-change-log-filters>label.cy-change-log-erp-toggle{display:flex;align-items:center;gap:6px;min-height:32px}
 .cy-change-log-day+.cy-change-log-day{border-top:1px solid var(--cy-border);margin-top:12px;padding-top:12px}
 .cy-change-log-day h3{margin:0 0 8px;color:var(--cy-text-muted);font-size:var(--cy-fs-sm);font-weight:600}
 .cy-change-log-row{display:block;appearance:none;border:0;border-bottom:1px solid var(--cy-border);
