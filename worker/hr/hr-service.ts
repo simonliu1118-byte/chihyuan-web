@@ -74,6 +74,7 @@ export class HrService {
     for(const child of profile.children)for(const [idx,values] of child.values.entries()){
       statements.push(this.db.prepare("INSERT INTO "+child.table+" (employee_id,"+child.columns.join(",")+",sort_order) SELECT id,"+child.columns.map(()=>"?").join(",")+",? FROM hr_employees WHERE employee_no=?").bind(...values,idx,no));
     }
+    statements.push(this.db.prepare("INSERT INTO hr_status_changes(employee_id,effective_date,previous_status,next_status,reason,handled_by,created_at) SELECT id,?,?,?,?,?,? FROM hr_employees WHERE employee_no=?").bind(String(profile.vals[10]),initial,initial,"建檔",ctx.actor,ctx.now,no));
     statements.push(audit(this.db,ctx,"hr_employee",no,"hr_employee.created",null,{employeeNo:no,name:profile.vals[1],status:initial,nationalIdMasked:maskTaiwanId(profile.vals[3] as string|null)}));
     await this.db.batch(statements);
     const row=await this.db.prepare("SELECT id FROM hr_employees WHERE employee_no=?").bind(no).first<{id:number}>();
@@ -84,7 +85,7 @@ export class HrService {
     if(!before) throw new HrValidationError("id","人事資料不存在",404);
     const revision=integer(v.revision,"revision",true);
     if(revision!==before.revision)throw new HrValidationError("revision","資料已由其他人修改，請重新整理",409);
-    const profile=normalizeProfile({...v,status:before.status});
+    const profile=normalizeProfile({...v,status:before.status,nationalId:v.nationalId===undefined?before.national_id:v.nationalId});
     const assignments=fields.map(x=>x+"=?").join(",");
     const stmts:D1PreparedStatement[]=[this.db.prepare("UPDATE hr_employees SET "+assignments+",revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?").bind(...profile.vals,ctx.now,ctx.actor,id,revision)];
     for(const g of profile.children){
@@ -92,7 +93,8 @@ export class HrService {
       for(const [index,values] of g.values.entries())stmts.push(this.db.prepare("INSERT INTO "+g.table+" (employee_id,"+g.columns.join(",")+",sort_order) VALUES (?,"+g.columns.map(()=>"?").join(",")+",?)").bind(id,...values,index));
     }
     stmts.push(audit(this.db,ctx,"hr_employee",String(before.employee_no),"hr_employee.updated",{revision,nationalIdMasked:maskTaiwanId(before.national_id as string|null)},{revision:revision+1,nationalIdMasked:maskTaiwanId(profile.vals[3] as string|null)}));
-    await this.db.batch(stmts);
+    const results=await this.db.batch(stmts);
+    if(!results[0]?.meta?.changes)throw new HrValidationError("revision","資料已由其他人修改，請重新整理",409);
     return this.get(id);
   }
   async statusChange(id:number,raw:unknown,ctx:HrContext) {
