@@ -118,3 +118,83 @@
 .cy-invoice-recovery-panel .cy-identity-message {
   overflow-wrap: anywhere;
 }
+
+/* WO-0.9.18: account details and shared password visibility. */
+.cy-my-account {
+  display: grid;
+  gap: 0;
+}
+.cy-my-account h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--cy-border);
+  font-size: var(--cy-fs-lg);
+}
+.cy-my-account h2 span {
+  font-size: var(--cy-fs-sm);
+  color: var(--cy-text-muted);
+  font-weight: 400;
+}
+.cy-my-account-row {
+  display: grid;
+  grid-template-columns: minmax(64px, 100px) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--cy-border);
+}
+.cy-my-account-row:last-child {
+  border-bottom: 0;
+}
+.cy-my-account-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cy-password-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.cy-password-input input {
+  width: 100%;
+  padding-right: 48px;
+}
+.cy-password-visibility {
+  position: absolute;
+  right: 4px;
+  height: 32px;
+  min-width: 38px;
+  border: 0;
+  border-radius: var(--cy-radius-sm);
+  background: transparent;
+  cursor: pointer;
+}
+.cy-password-visibility:focus-visible {
+  outline: 2px solid var(--cy-accent);
+}
+.cy-password-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  color: var(--cy-text-muted);
+  font-size: var(--cy-fs-sm);
+}
+.cy-password-checks .valid {
+  color: var(--cy-success);
+}
+@media (max-width: 430px) {
+  .cy-my-account-row {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+  .cy-my-account-row .cy-op-button {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .cy-identity-page .cy-dialog-small {
+    max-width: calc(100vw - 16px);
+  }
+}
