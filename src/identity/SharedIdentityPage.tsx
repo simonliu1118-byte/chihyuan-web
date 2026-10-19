@@ -110,10 +110,10 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
   const countdown = Math.max(0, Math.ceil((resendAt - now) / 1000));
 
   useEffect(() => {
-    if (!resendAt || now >= resendAt) return;
+    if (!resendAt || Date.now() >= resendAt) return;
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, [resendAt, now >= resendAt]);
+  }, [resendAt]);
 
   const closeDialog = () => {
     if (busy) return;
@@ -154,7 +154,7 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
       setChallengeId(result.verification.challengeId);
       setNow(Date.now()); setResendAt(Date.now() + 60000);
       setMessage(result.reused ? "沿用已寄出的驗證碼，請輸入 6 位數驗證碼。" : "驗證碼已寄至目前 Email。");
-    } catch (error) { setChallengeId(null); reportError(messageOf(error)); }
+    } catch (error) { setChallengeId(null); setVerifyingCurrentEmail(false); setDialog(null); reportError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
