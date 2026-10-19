@@ -88,7 +88,7 @@
 **執行狀態：部分實作，尚未達工作單全部驗收；PR #220 維持 Draft，禁止合併或部署。**
 
 - 驗收清單逐項結果：
-  1. 全站說明文字逐項對照：**未完成**，缺少完整 `src/` 逐檔候選清單與逐條人工裁決；不能宣稱全站完成。
+  1. 全站說明文字逐項對照：**部分完成**，已檢查十個主要 TSX 頁面並列出部分逐項決議，仍缺少完整 `src/` 逐檔候選清單與逐條人工裁決；不能宣稱全站完成。
   2. 我的帳號單一卡片：**已提交**。顯示姓名、員工編號、角色、Email 驗證狀態及遮蔽密碼。現有 `AuthUser` 未提供 Email 地址，依工作單僅顯示驗證狀態；刪除 CYID 技術說明及重複介紹。
   3. 變更密碼 Dialog：**已提交，未執行互動測試**。目前／新／確認密碼使用共用 `PasswordInput`，提供 👁 顯示切換、8～16 字元與一致性即時標示，條件不符時無法提交，沿用 `changeOwnPassword` 與重新登入提示。
   4. 變更 Email Dialog：**已提交，未執行互動測試**。沿用現有 API，分為輸入與驗證兩步，設 60 秒倒數、返回及重新寄送。
@@ -96,12 +96,12 @@
   6. 手機 390px：**已有響應式樣式，未在真實畫面驗證**。
   7. `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local`：**未執行，不能宣稱通過**。
   8. `node --test scripts/*.test.mjs`：**未執行**；canonical cyapps clone 未成功。
-  9. 工作單範圍與 workflow：以 GitHub Compare 核對只有 `TODO.md`、`CY_WEB_VISUAL_GUIDE.md`、本工作單、`SharedIdentityPage.tsx`、`identity.css`、新 `PasswordInput.tsx`；**無 `.github/workflows/*` 變更**。
+  9. 工作單範圍與 workflow：GitHub Compare 目前顯示 10 個範圍內檔案（新增 `PasswordInput`、身份頁、客戶、ERP、委外、工作日誌、TODO、視覺規範及本工作單），**無 `.github/workflows/*` 變更**。
   10. `VERSION`／`package.json`：目前 `main` 已是 `0.9.18`，未重複修改；TODO 與視覺規範已更新，`BUILD` 未動。
 - 與工作單不同之處與原因：因無法取得完整儲存庫 checkout，全站文字掃描及必要測試未能執行。依 §2-2，AuthUser 沒有目前 Email，故只顯示驗證狀態，未更動後端。
 - 驗證指令輸出摘要：
   - `git clone --depth 1 --branch cyweb/account-hints-wo-0.9.18 https://github.com/simonliu1118-byte/chihyuan-web.git`：失敗，`Could not resolve host: github.com`。
-  - GitHub Compare `main...cyweb/account-hints-wo-0.9.18`：6 個變更檔案，無 workflow，無範圍外檔案。
+  - GitHub Compare `main...cyweb/account-hints-wo-0.9.18`：10 個變更檔案，無 workflow，無範圍外檔案。
   - `npm run typecheck`／`npm run validate:source`／`npm run build`／`npm run validate:d1:local`／`node --test scripts/*.test.mjs`：未執行，無輸出。
 - 操作驗證步驟：以已驗證帳號開啟我的帳號，檢查卡片、密碼三欄切換與即時驗證；執行密碼變更後驗證重新登入；以已驗證 Email 執行 Email 變更、輸入六位碼、確認返回與 60 秒冷卻；以待驗證帳號測試寄送驗證碼；於 390px 檢查視窗、按鈕，最後執行 §6 全部測試。
 - 說明文字對照表（**僅已核對項目，非全站完整表**）：
