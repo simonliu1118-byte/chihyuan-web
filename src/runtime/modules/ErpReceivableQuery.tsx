@@ -98,7 +98,7 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
             </div>
           </details>)}
         </div>
-        <p className="cy-erp-search-hint">點選憑證號碼可在視窗中查看該張銷貨單或銷退單，未收款清單會保留。金額為 ERP 原幣；未收合計由各結帳單未收帳款相加（{erpMoney(mine.bills.reduce((a, b) => a + erpNumber(b.unpaid), 0))}）。</p>
+        <p className="cy-erp-search-hint">金額為 ERP 原幣；未收合計由各結帳單未收帳款相加（{erpMoney(mine.bills.reduce((a, b) => a + erpNumber(b.unpaid), 0))}）。</p>
       </>}
     </div>}
     {openOrder && <ErpOrderDialog key={openOrder} orderNo={openOrder} onClose={() => setOpenOrder(null)} />}
