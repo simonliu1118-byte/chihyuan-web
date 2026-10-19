@@ -116,14 +116,14 @@
   7. **證號與隱私**：已實作身分證／新式統一證號檢查碼、遮罩 `A12****789`、獨立 reveal API 與 reveal 稽核；一般 GET 不含原文證號，稽核 before/after 均只有遮罩值。加入 D1 隱私測試。
   8. **稽核中文化**：已補人事 entity、action、欄位及狀態中文詞彙；API 限制非超管無法查人事事件。審查者仍需對實際畫面全文查核。
   9. **日期與金額**：日期使用現有 `formatDate`（YYYY/MM/DD），年月表單採 YYYY/MM，金額卡片採千分位整數元；手機 390px 實機驗收待審查者操作。
-  10. **型別／來源／建置／D1**：GitHub 原有 Runtime Check 已在 [run 39270149831](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39270149831) 全部通過（Worker/browser TypeScript、source-contracts、local D1、Vite build）；新增唯一性測試後的最新執行見 PR Checks，應以最新成功結果為準。
+  10. **型別／來源／建置／D1**：GitHub 原有 Runtime Check 已在 [run 39271323832](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39271323832) 全部通過（Worker/browser TypeScript、source-contracts、local D1，含新增身分證、年資、使用者唯一性驗收，以及 Vite build）。
   11. **完整 Node 測試**：新增 `scripts/hr-annual-leave.test.mjs` 及 `scripts/national-id.test.mjs`；既有 CI 不能證明執行過 `node --test scripts/*.test.mjs` 所有測試，且未取得 canonical cyapps clone，**本項不得宣稱完全通過**。
   12. **workflow 與範圍**：未新增或修改 `.github/workflows/*`，新增檔案均在 §3/§5 指定的 SQL、shared、worker、src、scripts、文件範圍內。
   13. **版本／文件**：`VERSION`、`package.json` 均為 `0.9.20`，`BUILD` 維持 `0`；更新 `TODO.md`、`API_CONTRACT.md`、`CANONICAL_DATA_MODEL.md`，新增 `HR_MODULE_CONTRACT.md`。
 - 與工作單不同之處與原因：`GET /api/business/hr/members` 為自選綁定使用者提供現有本地使用者清單，仍在指定 HR API 範圍內；沒有更改 CYID authority。為便於響應式版面，新增 `src/runtime/modules/hr-operational.css`，內容僅人事樣式。第一期不加入休假扣抵與薪資計算。
 - 驗證指令輸出摘要：
-  - GitHub [Runtime Check 39270149831](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39270149831)：**success**（型別、來源契約、D1 local、Vite build）。
-  - 最新 HR 驗收補充與其他後續 commit 以 PR 最新 Runtime/Governance Checks 為準，勿拿舊 run 代替最新完整驗證。
+  - GitHub [Runtime Check 39271323832](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39271323832)：**success**（型別、來源契約、D1 local、Vite build）。
+  - [Governance Check 39271324010](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39271324010)：**success**。\n  - 既有「CY Web Deploy」workflow 於 PR 僅執行驗證，部署 job 未執行；不等於已部署。
   - `npm run typecheck`：由 CI browser／worker TypeScript 個別執行且通過。
   - `npm run validate:source`：CI source-contracts 檢查通過；未以完全相同 npm 指令單獨執行。
   - `npm run build`：CI Vite build 與型別檢查個別通過；未以完全相同 npm 指令單獨執行。
