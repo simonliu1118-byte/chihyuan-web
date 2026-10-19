@@ -2,6 +2,7 @@ import type {
   CustomerFrequentItemRecord,
   CustomerItemQuoteDetail,
   CustomerItemQuoteSummary,
+  ItemQuoteSummary,
   CustomerRelatedPage,
   CustomerRelatedQuery,
   CustomerVisitRecord,
@@ -81,6 +82,10 @@ export class CustomerRelatedService {
   ): Promise<readonly CustomerFrequentItemRecord[]> {
     const id = await this.requireCustomer(customerId);
     return this.related.listFrequentItems(id, limit);
+  }
+
+  async itemQuoteSummary(itemId: number): Promise<ItemQuoteSummary> {
+    return this.related.itemQuoteSummary(positiveId(itemId, "itemId"));
   }
 
   async listQuotes(
