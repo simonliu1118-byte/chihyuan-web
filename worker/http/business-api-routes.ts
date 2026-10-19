@@ -276,7 +276,7 @@ async function handleCustomers(
     }
   }
 
-  match = /^\\/api\\/business\\/customers\\/(\\d+)\\/quotes\\/batch$/.exec(url.pathname);
+  match = /^\/api\/business\/customers\/(\d+)\/quotes\/batch$/.exec(url.pathname);
   if (match && request.method === "POST") {
     const customerId = routeId(match[1], "customerId");
     return success(await related.createQuoteBatch(customerId, await jsonBody(request), context), requestId, { status: 201 });
