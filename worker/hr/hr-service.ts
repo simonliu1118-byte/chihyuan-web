@@ -99,7 +99,26 @@ export class HrService {
       stmts.push(this.db.prepare("DELETE FROM "+g.table+" WHERE employee_id=? AND EXISTS(SELECT 1 FROM hr_employees WHERE id=? AND revision=? AND updated_at=? AND updated_by=?)").bind(id,id,revision+1,ctx.now,ctx.actor));
       for(const [index,values] of g.values.entries())stmts.push(this.db.prepare("INSERT INTO "+g.table+" (employee_id,"+g.columns.join(",")+",sort_order) SELECT id,"+g.columns.map(()=>"?").join(",")+",? FROM hr_employees WHERE id=? AND revision=? AND updated_at=? AND updated_by=?").bind(...values,index,id,revision+1,ctx.now,ctx.actor));
     }
-    stmts.push(new AuditService(this.db).prepareRecord({entityType:"hr_employee",entityKey:String(before.employee_no),action:"hr_employee.updated",actorEmployeeId:ctx.actor,requestId:ctx.requestId,before:{revision,nationalIdMasked:maskTaiwanId(before.national_id as string|null)},after:{revision:revision+1,nationalIdMasked:maskTaiwanId(profile.vals[3] as string|null)}},{sql:"EXISTS(SELECT 1 FROM hr_employees WHERE id=? AND revision=? AND updated_at=? AND updated_by=?)",values:[id,revision+1,ctx.now,ctx.actor]}));
+    const previousChildren: Record<string, Scalar[][]> = {};
+    for(const g of profile.children){
+      const saved=await this.db.prepare("SELECT "+g.columns.join(",")+" FROM "+g.table+" WHERE employee_id=? ORDER BY sort_order,id").bind(id).all<Record<string,Scalar>>();
+      previousChildren[g.field]=(saved.results??[]).map(row=>g.columns.map(c=>row[c]??null));
+    }
+    const beforeAudit:Record<string,unknown>={revision}, afterAudit:Record<string,unknown>={revision:revision+1};
+    for(let i=0;i<fields.length;i++){
+      const key=bodyFields[i],col=fields[i];
+      const previous=col==="national_id"?maskTaiwanId(before[col] as string|null):before[col]??null;
+      const updated=col==="national_id"?maskTaiwanId(profile.vals[i] as string|null):profile.vals[i];
+      if(previous!==updated){beforeAudit[key]=previous;afterAudit[key]=updated;}
+    }
+    for(const g of profile.children){
+      if(JSON.stringify(previousChildren[g.field])!==JSON.stringify(g.values)){
+        const name=g.field==="contacts"?"緊急聯絡人":g.field==="education"?"學歷":"工作經歷";
+        beforeAudit[g.field]=name+"（異動前 "+previousChildren[g.field].length+" 筆）";
+        afterAudit[g.field]=name+"（異動後 "+g.values.length+" 筆）";
+      }
+    }
+    stmts.push(new AuditService(this.db).prepareRecord({entityType:"hr_employee",entityKey:String(before.employee_no),action:"hr_employee.updated",actorEmployeeId:ctx.actor,requestId:ctx.requestId,before:beforeAudit,after:afterAudit},{sql:"EXISTS(SELECT 1 FROM hr_employees WHERE id=? AND revision=? AND updated_at=? AND updated_by=?)",values:[id,revision+1,ctx.now,ctx.actor]}));
     const results=await this.db.batch(stmts);
     if(!results[0]?.meta?.changes)throw new HrValidationError("revision","資料已由其他人修改，請重新整理",409);
     return this.get(id);
