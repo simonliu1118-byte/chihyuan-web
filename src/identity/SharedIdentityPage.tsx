@@ -413,7 +413,6 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
         <StatusFilter label="帳號狀態" options={accountStates} counts={counts} value={stateFilter} onChange={setStateFilter} />
         <span className="cy-md-count">{busyAny ? <Loading inline /> : `共 ${rows.length} 位`}</span>
       </div>
-      {!canIdentityAdmin ? <p className="cy-identity-intro">系統與模組使用權由帳號管理員或超級管理員設定；你可以管理一般使用者的帳號，點姓名開啟。</p> : null}
       {canIdentityAdmin && !moduleView ? <Loading /> : <div className="cy-identity-access-scroll">
         <table className="cy-op-table cy-identity-access-table">
           <thead>
