@@ -28,7 +28,7 @@ export function HrSettingsButton(){
    <section className="cy-op-panel"><h3>最低工資</h3>
     {wages.map(x=><p key={x.id} className="cy-hr-setting-row">{formatDate(x.effective_date)}　月薪 {x.monthly_amount.toLocaleString("zh-TW")} 元　時薪 {x.hourly_amount.toLocaleString("zh-TW")} 元</p>)}
     <form className="cy-op-form" onSubmit={addWage}>
-      <label>生效日<input className="cy-op-input" type="date" required value={date} onChange={e=>setDate(e.target.value)}/></label>
+      <label>生效日<input className="cy-op-input" type="date" max="9999-12-31" required value={date} onChange={e=>setDate(e.target.value)}/></label>
       <label>每月最低工資（整數元）<input className="cy-op-input" type="number" min="0" step="1" required value={monthly} onChange={e=>setMonthly(e.target.value)}/></label>
       <label>每小時最低工資（整數元）<input className="cy-op-input" type="number" min="0" step="1" required value={hourly} onChange={e=>setHourly(e.target.value)}/></label>
       <div className="cy-op-form-footer"><button className="cy-op-button primary" disabled={busy}>＋ 新增最低工資</button></div>

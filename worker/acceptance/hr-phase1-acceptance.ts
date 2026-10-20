@@ -6,7 +6,7 @@ import { annualLeaveSchedule } from "../../shared/hr-annual-leave";
 
 function check(condition:unknown,code:string):asserts condition { if(!condition)throw Error(code); }
 export async function acceptHrPhase1(db:D1Database):Promise<void>{
- check(isValidTaiwanId("A123456789") && !isValidTaiwanId("A123456780") && maskTaiwanId("A123456789")==="A12****789","ACCEPT_HR_ID_CHECKSUM");
+ check(isValidTaiwanId("A123456789") && !isValidTaiwanId("A123456780") && maskTaiwanId("A123456789")==="A******789","ACCEPT_HR_ID_CHECKSUM");
  check(annualLeaveSchedule("2026-01-01",[],"2026-06-30").length===0,"ACCEPT_HR_LEAVE_BEFORE_HALF_YEAR");
  const first=annualLeaveSchedule("2026-01-01",[],"2027-01-01");
  check(first[0]?.days===3 && first[1]?.days===7,"ACCEPT_HR_HALF_YEAR_AND_ONE_YEAR");

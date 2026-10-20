@@ -82,7 +82,7 @@ export function DefectForm({ mode, initial, fixedItem, onSaved, onCancel }: Defe
       <div className="cy-record-actions">{actions}</div>
     </div>}
     <div className="cy-defect-form-body"><div className="cy-op-form-grid">
-      <label>回報日期<input className="cy-op-input" type="date" required value={reportedDate}
+      <label>回報日期<input className="cy-op-input" type="date" max="9999-12-31" required value={reportedDate}
         disabled={busy} onChange={event => setReportedDate(event.target.value)} /></label>
       <EntityPicker<DefectCustomerOption> label="客戶" required disabled={busy}
         value={customer} onSelect={setCustomer}

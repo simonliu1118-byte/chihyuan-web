@@ -977,7 +977,7 @@ function VisitsPanel({ selected, rows, draft, setDraft, save, edit, remove, busy
   ].some(text => text?.toLowerCase().includes(q)));
   return <div className="cy-customer-related-content">
     {draft ? <form onKeyDown={enterAdvancesFields} className="cy-customer-related-form" onSubmit={save}>
-      <label>日期<input className="cy-op-input" type="date" value={draft.visitDate} disabled={busy}
+      <label>日期<input className="cy-op-input" type="date" max="9999-12-31" value={draft.visitDate} disabled={busy}
         onChange={event => setDraft({ ...draft, visitDate: event.target.value })} required /></label>
       <label>聯絡人<select className="cy-op-input" value={draft.contactId ?? ""} disabled={busy}
         onChange={event => setDraft({ ...draft, contactId: event.target.value ? Number(event.target.value) : null,
@@ -1043,7 +1043,7 @@ function QuotesPanel({ customerId, rows, draft, setDraft, save, correct, busy, m
     {draft && !draft.corrected ? <QuoteCreateForm customerId={customerId} onSaved={onCreated} onCancel={onCancel} /> : null}
     {draft?.corrected ? <form className="cy-customer-quote-form" onSubmit={save}>
       <div className="cy-customer-quote-header-fields">
-        <label>日期<input type="date" className="cy-op-input" value={draft.quoteDate} disabled={busy}
+        <label>日期<input type="date" max="9999-12-31" className="cy-op-input" value={draft.quoteDate} disabled={busy}
           required onChange={event => setDraft({ ...draft, quoteDate: event.target.value })} /></label>
         <label>備註<input className="cy-op-input" value={draft.note} disabled={busy} maxLength={120}
           onChange={event => setDraft({ ...draft, note: event.target.value })} /></label>

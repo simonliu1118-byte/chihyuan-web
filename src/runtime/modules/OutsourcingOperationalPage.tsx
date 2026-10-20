@@ -577,7 +577,7 @@ export function OutsourcingOperationalPage() {
                       {contractors.map((row) => <option key={row.id} value={row.id}>{row.displayName}{row.isActive ? "" : "（已停用）"}</option>)}
                     </select>
                   </label>
-                  <label>工單日期<input className="cy-op-input" type="date" value={draft.orderDate} disabled={busy} onChange={(event) => setDraft({ ...draft, orderDate: event.target.value })} /></label>
+                  <label>工單日期<input className="cy-op-input" type="date" max="9999-12-31" value={draft.orderDate} disabled={busy} onChange={(event) => setDraft({ ...draft, orderDate: event.target.value })} /></label>
                   <label className="wide">篩選商品選單<input className="cy-op-input" type="search" value={itemQuery} disabled={busy} onChange={(event) => setItemQuery(event.target.value)} placeholder="品號／品名／規格" /></label>
                 </div>
 

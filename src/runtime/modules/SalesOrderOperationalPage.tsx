@@ -560,7 +560,7 @@ export function SalesOrderOperationalPage() {
                   getKey={(row) => row.id} getLabel={(row) => `${row.customerNo ? `${row.customerNo} · ` : ""}${row.shortName}`}
                   placeholder="輸入客戶編號或名稱" description="未建檔的現場客戶可留空，改填下方名稱。" />
                 {draft.customerId == null ? <label>現場客戶名稱<input className="cy-op-input" value={draft.customerName} disabled={busy} onChange={(event) => setDraft({ ...draft, customerName: event.target.value })} required /></label> : null}
-                <label>工單日期<input className="cy-op-input" type="date" value={draft.orderDate} disabled={busy} onChange={(event) => setDraft({ ...draft, orderDate: event.target.value })} /></label>
+                <label>工單日期<input className="cy-op-input" type="date" max="9999-12-31" value={draft.orderDate} disabled={busy} onChange={(event) => setDraft({ ...draft, orderDate: event.target.value })} /></label>
                 <label>操作人員
                   <select className="cy-op-input" value={draft.operatorEmployeeId ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, operatorEmployeeId: Number(event.target.value) || null })}>
                     <option value="">請選擇</option>

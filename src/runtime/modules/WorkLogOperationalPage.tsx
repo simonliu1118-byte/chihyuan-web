@@ -600,9 +600,9 @@ export function WorkLogOperationalPage() {
             <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
               <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立日誌" : "儲存修改"}</button></div></div>
             <div className="cy-op-form-grid cy-worklog-head-grid cy-form-grid-spaced">
-              <label>日誌日期<input className="cy-op-input" type="date" value={draft.logDate} disabled={busy} onChange={(event) => setDraft({ ...draft, logDate: event.target.value })} /></label>
-              <label>期間起<input className="cy-op-input" type="date" value={draft.dateFrom} disabled={busy} onChange={(event) => setDraft({ ...draft, dateFrom: event.target.value })} /></label>
-              <label>期間迄<input className="cy-op-input" type="date" value={draft.dateTo} disabled={busy} onChange={(event) => setDraft({ ...draft, dateTo: event.target.value })} /></label>
+              <label>日誌日期<input className="cy-op-input" type="date" max="9999-12-31" value={draft.logDate} disabled={busy} onChange={(event) => setDraft({ ...draft, logDate: event.target.value })} /></label>
+              <label>期間起<input className="cy-op-input" type="date" max="9999-12-31" value={draft.dateFrom} disabled={busy} onChange={(event) => setDraft({ ...draft, dateFrom: event.target.value })} /></label>
+              <label>期間迄<input className="cy-op-input" type="date" max="9999-12-31" value={draft.dateTo} disabled={busy} onChange={(event) => setDraft({ ...draft, dateTo: event.target.value })} /></label>
               <label>工作日數<input className="cy-op-input" value={draft.workDays} inputMode="decimal" disabled={busy} onChange={(event) => setDraft({ ...draft, workDays: event.target.value })} required /></label>
               <label>日誌類型<input className="cy-op-input" value={draft.typeCode} disabled={busy} onChange={(event) => setDraft({ ...draft, typeCode: event.target.value })} placeholder="輸入日誌類型" required /></label>
             </div>
