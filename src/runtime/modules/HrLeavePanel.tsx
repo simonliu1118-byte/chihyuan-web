@@ -6,7 +6,7 @@ import {HrLeaveDialog,type LeaveTypeOption,type LeavePerson} from "./HrLeaveDial
 import {Dialog} from "../../ui/overlays/Dialog";
 import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import "./hr-phase2b.css";
-type Sum={employeeNo:string;name:string;id:number;storeId:number;employmentType:"full"|"half"|"casual";used:Record<string,number>;pending:number;comp:{overtimeMinutes:number;holidayMinutes:number}};
+type Sum={employeeNo:string;name:string;id:number;storeId:number;employmentType:"full"|"half"|"casual";annualRemainingDays:number;used:Record<string,number>;pending:number;comp:{overtimeMinutes:number;holidayMinutes:number}};
 type Summary={year:number;types:LeaveTypeOption[];employees:Sum[]};
 type Entry={id:number;batch_id:string;work_date:string;minutes:number;whole_day:number;reason:string;cancelled_at:string|null;cancel_reason:string|null;leave_type_id:number;attachmentCount:number};
 type Credit={id:number;kind:string;remainingMinutes:number;expiresOn:string;expired:boolean;expiringSoon:boolean};
@@ -16,6 +16,7 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
  const [year,setYear]=useState(Number(taipeiToday().slice(0,4))),[store,setStore]=useState(""),[summary,setSummary]=useState<Summary|null>(null);
  const [person,setPerson]=useState<LeavePerson|null>(null),[detail,setDetail]=useState<Detail|null>(null);
  const [request,setRequest]=useState<LeavePerson|null>(null),[initialDate,setInitialDate]=useState<string|undefined>(undefined);
+ const [otherExpanded,setOtherExpanded]=useState<number|null>(null);
  const [error,setError]=useState(""),[loading,setLoading]=useState(false),[noteDate,setNoteDate]=useState(taipeiToday());
  const [cancelTarget,setCancelTarget]=useState<{batchId:string;dates?:string[]}|null>(null),[cancelReason,setCancelReason]=useState("");
  const [grantOpen,setGrantOpen]=useState(false),[grantKind,setGrantKind]=useState<"holiday"|"grant">("grant"),[grantHours,setGrantHours]=useState("8"),[holidayDate,setHolidayDate]=useState(""),[holidayName,setHolidayName]=useState("");
@@ -49,11 +50,18 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
   {error?<p role="alert" className="cy-notice cy-notice-danger">{error}</p>:null}
   <div className="cy-md cy-hr-leave-md" data-pane={person?"detail":"list"}>
    <div className="cy-op-panel cy-md-list"><h3>請假總表　{year}</h3>
-    <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>員工</th><th>特</th><th>事</th><th>病</th><th>補</th><th>換</th><th>其他</th><th>待補</th><th>補休餘額</th></tr></thead><tbody>
+    <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>員工</th><th>特</th><th>事</th><th>病</th><th>補</th><th>換</th><th>特休餘</th><th>其他</th><th>待補</th><th>補休餘額</th></tr></thead><tbody>
      {summary?.employees.map(e=><tr key={e.id} onClick={()=>openPerson(e)} className="hr-leave-row">
       <th scope="row"><button className="cy-op-button" onClick={()=>openPerson(e)}>{e.employeeNo} {e.name}</button></th>
       {["特","事","病","補","換"].map(c=><td key={c}>{hrs(e.used[c]??0)}h</td>)}
-      <td>{hrs(Object.entries(e.used).filter(([k])=>!["特","事","病","補","換"].includes(k)).reduce((n,[,v])=>n+v,0))}h</td>
+      <td>{e.annualRemainingDays.toFixed(1)} 天</td>
+      <td><button type="button" className="cy-op-button compact quiet" aria-expanded={otherExpanded===e.id}
+       onClick={event=>{event.stopPropagation();setOtherExpanded(id=>id===e.id?null:e.id)}}>
+       {hrs(Object.entries(e.used).filter(([k])=>!["特","事","病","補","換"].includes(k)).reduce((n,[,v])=>n+v,0))}h
+      </button>{otherExpanded===e.id?<div className="cy-hr-other-leave">
+       {summary.types.filter(t=>!["特","事","病","補","換"].includes(t.code)&&(e.used[t.code]??0)>0).map(t=>
+        <small key={t.id}>{t.code} {t.name}：{hrs(e.used[t.code])}h</small>)}
+      </div>:null}</td>
       <td>{e.pending?<strong className="hr-leave-pending">{e.pending}</strong>:"—"}</td>
       <td>{hrs(e.comp.overtimeMinutes+e.comp.holidayMinutes)}h{e.comp.holidayMinutes<0?<small>預支</small>:null}</td>
      </tr>)}</tbody></table></div>
