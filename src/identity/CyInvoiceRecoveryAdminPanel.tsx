@@ -5,6 +5,7 @@ import type { AuthSession } from "../auth/auth-client";
 import { useUnsavedChangesGuard } from "../ui/foundation/useUnsavedChangesGuard";
 import { useConfirmation } from "../ui/overlays/useConfirmation";
 import { TextInput } from "../ui/primitives/TextInput";
+import { Dialog } from "../ui/overlays/Dialog";
 import { readRecoveryCheckpoint, recoveryCheckpointKey, writeRecoveryCheckpoint,
   type RecoveryCheckpoint } from "./cyinvoice-recovery-checkpoint";
 import { executeCyInvoiceRecoveryAction, recoveryOperationIdPattern,
@@ -47,6 +48,7 @@ export function CyInvoiceRecoveryAdminPanel({ session }: { session: AuthSession 
   const [state, setState] = useState<RecoveryOperationState | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
   const { confirm, confirmationDialog } = useConfirmation();
   useUnsavedChangesGuard({ active: password !== "", blocked: busy });
 
@@ -118,11 +120,24 @@ export function CyInvoiceRecoveryAdminPanel({ session }: { session: AuthSession 
     finally { setPassword(""); setAcknowledged(false); actionLock.current = false; setBusy(false); }
   }
 
+  function close() {
+    if (busy) return;
+    setOpen(false); setPassword(""); setAcknowledged(false);
+  }
+
+  // The panel stays a one-line entry; the credential form only lives in the dialog.
   return <section className="cy-op-panel cy-invoice-recovery-panel" aria-label="CYInvoice 公司級災難復原" aria-busy={busy}>
     <div className="cy-op-panel-header"><div>
       <h3>CYInvoice 裝置災難復原</h3>
-    </div></div>
+    </div>
+      <button type="button" className={"cy-op-button" + (outstanding ? " primary" : "")} onClick={() => setOpen(true)}>
+        {outstanding ? "繼續處理復原操作" : "開始災難復原"}</button>
+    </div>
+    <p className="cy-identity-intro">{outstanding
+      ? "有一筆復原操作尚未取得明確結果，請查詢狀態或撤銷邀請。"
+      : "公司電腦全部遺失或損毀時，寄送復原邀請給新電腦接管 CYInvoice。"}</p>
     {confirmationDialog}
+    <Dialog open={open} title="CYInvoice 裝置災難復原" size="medium" dismissible={!busy} onClose={close}>
     <div className="cy-notice cy-notice-warning">
       <div className="cy-notice-title">公司級接管提醒</div>
       <div className="cy-notice-body">寄信、查詢與撤銷邀請不會撤銷裝置。只有新電腦成功復原後，原公司的全部舊裝置才會失效。</div>
@@ -157,5 +172,6 @@ export function CyInvoiceRecoveryAdminPanel({ session }: { session: AuthSession 
     </div> : null}
     {message ? <div className="cy-identity-message" role="status">{message}</div> : null}
     {error ? <div className="cy-identity-message error" role="alert">{error}</div> : null}
+    </Dialog>
   </section>;
 }
