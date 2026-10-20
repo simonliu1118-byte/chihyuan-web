@@ -79,7 +79,7 @@ export class HrAttendanceService {
    if(!d.startsWith(month+"-")||minutes<0||minutes%30||minutes>1440||!(settlement==="pay"||settlement==="comp"))throw new HrValidationError("overtime","加班分鐘及結算方式錯誤");
    if(overtimeDates.has(d))throw new HrValidationError("overtime","加班日期重複");
    overtimeDates.add(d);
-   const before=await this.db.prepare("SELECT id,revision,minutes,settlement,comp_expires_on FROM hr_overtime_days WHERE employee_id=? AND work_date=?").bind(id,d).first<{id:number;revision:number;minutes:number;settlement:string;comp_expires_on:string|null}>();
+   const before=await this.db.prepare("SELECT id,revision,minutes,settlement,comp_expires_on,note FROM hr_overtime_days WHERE employee_id=? AND work_date=?").bind(id,d).first<{id:number;revision:number;minutes:number;settlement:string;comp_expires_on:string|null;note:string}>();
    if(Number(x.revision??0)!==(before?.revision??0))throw new HrValidationError("revision","加班紀錄已異動",409);
    if(before?.settlement==="comp"&&(settlement!=="comp"||minutes<before.minutes)){
     compAccount??=await new HrCompService(this.db).get(id,"9999-12-31");
@@ -89,9 +89,10 @@ export class HrAttendanceService {
      throw new HrValidationError("minutes","此筆補休已有使用或結清，不得取消或減至已使用時數以下",409);
    }
    if(!before&&minutes===0)continue;
-   if(before?.minutes===minutes&&before.settlement===settlement)continue;
+   const note=x.note===undefined?before?.note??"":optional(x.note,"note",500)??"";
+   if(before?.minutes===minutes&&before.settlement===settlement&&before.note===note)continue;
    const expiresOn=settlement==="comp"?(before?.settlement==="comp"?before.comp_expires_on??nextMonthEnd(d):nextMonthEnd(d)):null;
-   overtimeUpdates.push({date:d,minutes,settlement,note:String(x.note??"").slice(0,500),expiresOn,before:before??null});
+   overtimeUpdates.push({date:d,minutes,settlement,note,expiresOn,before:before??null});
   }
   if(updates.length||overtimeUpdates.length){
    const stmts:D1PreparedStatement[]=[];
