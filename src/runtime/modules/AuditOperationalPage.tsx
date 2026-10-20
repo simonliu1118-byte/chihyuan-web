@@ -107,8 +107,8 @@ export function ChangeLogList({role,customerId}:{
       ] as const).map(([value,label])=><button key={value} type="button" aria-pressed={filters.period===value}
         onClick={()=>setFilters(v=>({...v,period:value}))}>{label}</button>)}</div></fieldset>
       {filters.period==="custom" ? <>
-        <label>開始日期<input type="date" className="cy-op-input" value={filters.from} onChange={e=>setFilters(v=>({...v,from:e.target.value}))}/></label>
-        <label>結束日期<input type="date" className="cy-op-input" value={filters.to} onChange={e=>setFilters(v=>({...v,to:e.target.value}))}/></label>
+        <label>開始日期<input type="date" max="9999-12-31" className="cy-op-input" value={filters.from} onChange={e=>setFilters(v=>({...v,from:e.target.value}))}/></label>
+        <label>結束日期<input type="date" max="9999-12-31" className="cy-op-input" value={filters.to} onChange={e=>setFilters(v=>({...v,to:e.target.value}))}/></label>
       </>:null}
       <label>操作者<select className="cy-op-input" value={filters.actorEmployeeId}
         onChange={e=>setFilters(v=>({...v,actorEmployeeId:e.target.value}))}>

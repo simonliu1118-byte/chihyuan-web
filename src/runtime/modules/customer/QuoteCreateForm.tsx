@@ -1,3 +1,4 @@
+import { enterAdvancesFields } from "../../../ui/foundation/enter-advance";
 import { FormEvent, useState } from "react";
 import type { CustomerItemOption } from "../../../../shared/business-lookups";
 import { taipeiToday } from "../../../../shared/erp-query-history";
@@ -63,9 +64,9 @@ export function QuoteCreateForm({ customerId, initialLines, onSaved, onCancel }:
       setBusy(false);
     }
   }
-  return <form className="cy-customer-quote-form" onSubmit={event => void save(event)}>
+  return <form onKeyDown={enterAdvancesFields} className="cy-customer-quote-form" onSubmit={event => void save(event)}>
     <div className="cy-customer-quote-header-fields">
-      <label>日期<input type="date" className="cy-op-input" required value={quoteDate} disabled={busy}
+      <label>日期<input type="date" max="9999-12-31" className="cy-op-input" required value={quoteDate} disabled={busy}
         onChange={event => setQuoteDate(event.target.value)} /></label>
       <label>備註<input className="cy-op-input" value={note} disabled={busy} maxLength={120}
         onChange={event => setNote(event.target.value)} /></label>
