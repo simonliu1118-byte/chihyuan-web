@@ -1,5 +1,6 @@
 import {useCallback,useEffect,useState,type FormEvent} from "react";
 import {apiRequest} from "../../api/client";
+import {enterAdvancesFields,enterAdvancesThenSubmits} from "../../ui/foundation/enter-advance";
 import {taipeiToday} from "../../../shared/erp-query-history";
 type Kind="stores"|"job-titles"|"shift-types";
 type Item={id:number;name:string;code?:string;is_active:number;sort_order:number;cycle_anchor_date?:string;rules_template?:string;
@@ -19,7 +20,7 @@ export function HrPhase2aSettings(){
  },[kind,year]);
  useEffect(()=>{void refresh().catch(e=>setError(String(e)))},[refresh]);
  const change=(key:string,val:string)=>setValue(x=>({...x,[key]:val}));
- const field=(label:string,key:string,type="text",required=false)=><label key={key}>{label}<input className="cy-op-input" type={type} required={required} value={value[key]??""} onChange={e=>change(key,e.target.value)}/></label>;
+ const field=(label:string,key:string,type="text",required=false)=><label key={key}>{label}<input className="cy-op-input" type={type} max={type==="date"?"9999-12-31":undefined} required={required} value={value[key]??""} onChange={e=>change(key,e.target.value)}/></label>;
  function edit(row?:Item){
   setId(row?.id??null);setValue(row?{name:row.name,code:row.code??"",sortOrder:String(row.sort_order),isActive:String(row.is_active===1),
    cycleAnchorDate:row.cycle_anchor_date??"",rulesTemplate:row.rules_template??"",startTime:row.start_time??"",
@@ -52,7 +53,7 @@ export function HrPhase2aSettings(){
    {kind==="shift-types"?<small>{row.start_time}～{row.end_time}（{row.normal_minutes} 分鐘）</small>:null}
    <button type="button" className="cy-op-button" onClick={()=>edit(row)}>編輯</button></div>)}
   <button type="button" className="cy-op-button" onClick={()=>edit()}>＋ 新增{kindLabels[kind]}</button>
-  {value.name!==undefined?<form className="cy-op-form" onSubmit={e=>void save(e)}>
+  {value.name!==undefined?<form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>void save(e)}>
    {field("名稱","name","text",true)}
    {kind==="shift-types"?field("班別代號（1～2 字）","code","text",true):null}
    {field("排序","sortOrder","number")}
@@ -64,8 +65,8 @@ export function HrPhase2aSettings(){
   </form>:null}
   <h4>國定假日（人工維護）</h4><label>年份<select className="cy-op-input" value={year} onChange={e=>setYear(Number(e.target.value))}>{[year-1,year,year+1].map(y=><option key={y} value={y}>{y}</option>)}</select></label>
   {holidays.map(h=><div className="hr-staff-setting" key={h.date}><span>{h.date.replaceAll("-","/")}　{h.name}</span><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void deleteHoliday(h.date)}>刪除</button></div>)}
-  <form className="cy-op-form" onSubmit={e=>void saveHoliday(e)}>
-   <label>假日日期<input type="date" className="cy-op-input" required value={holidayDate} onChange={e=>setHolidayDate(e.target.value)}/></label>
+  <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={e=>void saveHoliday(e)}>
+   <label>假日日期<input type="date" max="9999-12-31" className="cy-op-input" required value={holidayDate} onChange={e=>setHolidayDate(e.target.value)}/></label>
    <label>假日名稱<input className="cy-op-input" required value={holidayName} onChange={e=>setHolidayName(e.target.value)}/></label>
    <button className="cy-op-button primary" disabled={busy}>新增國定假日</button>
   </form>

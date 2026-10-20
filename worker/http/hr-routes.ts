@@ -1,5 +1,6 @@
 import { requireIdentity } from "../auth/guard";
-import { resolveAppMember } from "../auth/app-access";
+import { ensureAppMemberProjection, resolveAppMember } from "../auth/app-access";
+import { identitySnapshot, identityTarget } from "./module-access-routes";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
 import { HrService } from "../hr/hr-service";
 import { handleHrPhase2aRoute } from "./hr-phase2a-routes";
@@ -27,12 +28,33 @@ export async function handleHrRoute(request:Request,env:IdentityRuntimeEnv,reque
  const phase2a=await handleHrPhase2aRoute(request,env.DB,ctx);
  if(phase2a)return phase2a;
  const body=async()=>object(await request.json().catch(()=>null));
+ // memberIdentityId (a CYID employee id, or null to unbind) is turned into the local member the HR row stores.
+ const withMember=async(v:Record<string,unknown>)=>{
+   if(!("memberIdentityId" in v))return v;
+   const {memberIdentityId,...rest}=v;
+   if(memberIdentityId===null||memberIdentityId==="")return {...rest,memberId:null};
+   if(typeof memberIdentityId!=="string"||memberIdentityId.length>128)throw new HrValidationError("memberIdentityId","綁定使用者不正確");
+   const target=await identityTarget(request,env,memberIdentityId);
+   if(target.status==="missing")throw new HrValidationError("memberIdentityId","找不到這個使用者，可能已被刪除或停用");
+   if(target.status!=="ok")throw new HrValidationError("memberIdentityId","帳號服務暫時無法使用",503);
+   const name=(target.employee as unknown as {name?:unknown}).name;
+   const bound=await ensureAppMemberProjection(env.DB,target.employee.employee_id,target.employee.employee_no,ctx.now,typeof name==="string"?name:null);
+   return {...rest,memberId:bound.id};
+ };
  const idPath=/^\/api\/business\/hr\/employees\/(\d+)(?:\/(.*))?$/.exec(url.pathname);
  const employeeId=idPath?Number(idPath[1]):null;
  try{
   if(url.pathname==="/api/business/hr/members" && request.method==="GET") {
-    const result=await env.DB.prepare("SELECT id,employee_no,display_name FROM app_members WHERE is_active=1 ORDER BY employee_no").all();
-    return success(result.results??[],requestId);
+    // Live CYID accounts only: deleted or disabled accounts never appear, even if CY Web kept a local record of them.
+    const snapshot=await identitySnapshot(request,env);
+    if(snapshot.status==="unauthorized")return failure({code:"ACCESS_DENIED",message:"帳號服務授權失敗"},requestId,403);
+    if(snapshot.status!=="ok")return failure({code:"IDENTITY_UNAVAILABLE",message:"帳號服務暫時無法使用"},requestId,503);
+    const local=new Map(((await env.DB.prepare("SELECT id,identity_employee_id FROM app_members").all<{id:number;identity_employee_id:string}>()).results??[]).map(x=>[x.identity_employee_id,x.id]));
+    const items=(snapshot.employees as Record<string,unknown>[])
+      .filter(x=>x&&typeof x.employee_id==="string"&&typeof x.employee_no==="string"&&x.enabled!==0)
+      .map(x=>({employeeId:x.employee_id as string,employeeNo:x.employee_no as string,name:typeof x.name==="string"?x.name:"",memberId:local.get(x.employee_id as string)??null}))
+      .sort((a,b)=>a.employeeNo.localeCompare(b.employeeNo));
+    return success(items,requestId);
   }
   if(url.pathname==="/api/business/hr/employees"){
     if(request.method==="GET"){
@@ -43,12 +65,13 @@ export async function handleHrRoute(request:Request,env:IdentityRuntimeEnv,reque
       if(!Number.isSafeInteger(cursor)||cursor<0||!Number.isSafeInteger(limit)||limit<1||limit>100)return bad("分頁參數錯誤",requestId);
       return success(await service.list(q,status,cursor,limit),requestId);
     }
-    if(request.method==="POST")return success(await service.create(await body(),ctx),requestId);
+    if(request.method==="POST")return success(await service.create(await withMember(await body()),ctx),requestId);
   }
   if(employeeId && Number.isSafeInteger(employeeId)){
     const path=idPath?.[2]??"";
     if(!path && request.method==="GET")return success(await service.get(employeeId),requestId);
-    if(!path && request.method==="PATCH")return success(await service.update(employeeId,await body(),ctx),requestId);
+    if(!path && request.method==="DELETE"){await service.remove(employeeId,await body(),ctx);return success({deleted:true},requestId);}
+    if(!path && request.method==="PATCH")return success(await service.update(employeeId,await withMember(await body()),ctx),requestId);
     if(path==="status-changes" && request.method==="POST")return success(await service.statusChange(employeeId,await body(),ctx),requestId);
     if(path==="seniority-exclusions" && request.method==="POST")return success(await service.addExclusion(employeeId,await body(),ctx),requestId);
     const exclusion=/^seniority-exclusions\/(\d+)$/.exec(path);

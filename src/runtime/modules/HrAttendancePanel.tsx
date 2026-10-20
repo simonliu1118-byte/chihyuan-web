@@ -4,10 +4,11 @@ import {taipeiToday} from "../../../shared/erp-query-history";
 import {normalizePunchTime} from "../../../shared/hr-attendance";
 import {useUnsavedChangesGuard} from "../../ui/foundation/useUnsavedChangesGuard";
 import {Dialog} from "../../ui/overlays/Dialog";
+import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import "./hr-phase2a.css";
 type Employee={id:number;employee_no:string;name:string;store_id:number|null};
 type Punch={in1:string|null;out1:string|null;in2:string|null;out2:string|null;revision:number;note:string};
-type Day={date:string;schedule:{kind:string;off_mark:string|null;rest_label:string|null;hours:number|null}|null;punches:Punch|null;workedMinutes:number;lateMinutes:number;earlyMinutes:number;anomalies:string[]};
+type Day={date:string;schedule:{kind:string;code:string|null;off_mark:string|null;rest_label:string|null;hours:number|null}|null;punches:Punch|null;workedMinutes:number;lateMinutes:number;earlyMinutes:number;anomalies:string[]};
 type Report={employeeId:number;storeId:number|null;days:Day[];totals:{workedMinutes:number;lateCount:number;lateMinutes:number;missingCard:number;absent:number}};
 type Change=Punch&{date:string};
 type Exception={employeeId:number;employeeNo:string;name:string;date:string;anomalies:string[]};
@@ -20,6 +21,8 @@ export function HrAttendancePanel(){
  const [error,setError]=useState(""),[notice,setNotice]=useState(""),[busy,setBusy]=useState(false);
  const [exceptions,setExceptions]=useState<Exception[]|null>(null),[filter,setFilter]=useState("");
  const dirty=Object.keys(changes).length>0;
+ const {confirm,confirmationDialog}=useConfirmation();
+ const discard=async()=>!dirty||await confirm({title:"放棄未儲存的打卡",description:"切換後，尚未儲存的打卡輸入會遺失。",confirmLabel:"放棄",cancelLabel:"繼續編輯",confirmTone:"danger"});
  useUnsavedChangesGuard({active:dirty,blocked:busy,message:"出勤輸入尚未儲存，確定離開？"});
  useEffect(()=>{void apiRequest<{items:Employee[]}>(ROOT+"/employees?limit=100").then(x=>{setEmployees(x.items);setSelected(x.items[0]?.id??0)}).catch(e=>setError(String(e)))},[]);
  const reload=useCallback(async()=>{
@@ -46,12 +49,12 @@ export function HrAttendancePanel(){
   setBusy(true);try{setExceptions(await apiRequest<Exception[]>(ROOT+"/attendance/anomalies?storeId="+storeId+"&month="+month))}
   catch(e){setError(e instanceof Error?e.message:"無法取得異常清單")}finally{setBusy(false)}
  }
- function switchMonth(n:number){if(dirty&&!window.confirm("放棄未儲存打卡？"))return;setMonth(x=>adjacent(x,n))}
- function switchEmployee(id:number){if(dirty&&!window.confirm("放棄未儲存打卡？"))return;setSelected(id)}
+ async function switchMonth(n:number){if(await discard())setMonth(x=>adjacent(x,n))}
+ async function switchEmployee(id:number){if(await discard())setSelected(id)}
  return <section className="cy-op-module cy-hr-phase2a" aria-label="出勤輸入">
   <div className="cy-op-panel hr-roster-toolbar">
-   <label>員工<select className="cy-op-input" value={selected} onChange={e=>switchEmployee(Number(e.target.value))}>{employees.map(e=><option key={e.id} value={e.id}>{e.employee_no} {e.name}</option>)}</select></label>
-   <button type="button" className="cy-op-button" onClick={()=>switchMonth(-1)}>上個月</button><strong>{month.replace("-"," 年 ")} 月</strong><button type="button" className="cy-op-button" onClick={()=>switchMonth(1)}>下個月</button>
+   <label>員工<select className="cy-op-input" value={selected} onChange={e=>void switchEmployee(Number(e.target.value))}>{employees.map(e=><option key={e.id} value={e.id}>{e.employee_no} {e.name}</option>)}</select></label>
+   <button type="button" className="cy-op-button" onClick={()=>void switchMonth(-1)}>上個月</button><strong>{month.replace("-"," 年 ")} 月</strong><button type="button" className="cy-op-button" onClick={()=>void switchMonth(1)}>下個月</button>
    <button type="button" className="cy-op-button" onClick={()=>void anomalyList()}>異常清單</button>
    {dirty?<><button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void save()}>儲存</button><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void reload()}>取消</button></>:null}
   </div>
@@ -59,7 +62,7 @@ export function HrAttendancePanel(){
   <div className="hr-roster-scroll"><table className="cy-op-table hr-attendance-table"><thead><tr><th>日期</th><th>星期</th><th>排定</th><th>上班 1</th><th>下班 1</th><th>上班 2</th><th>下班 2</th><th>工時</th><th>遲到</th><th>早退</th><th>異常</th><th>備註</th></tr></thead>
    <tbody>{data?.days.map(row=>{const punch=changes[row.date]??row.punches;return <tr key={row.date}>
     <th scope="row">{row.date.replaceAll("-","/")}</th><td>{weekdays[new Date(row.date+"T00:00:00Z").getUTCDay()]}</td>
-    <td>{row.schedule?.kind==="off"?row.schedule.off_mark==="x"?"X":row.schedule.rest_label==="regular"?"例":"/":row.schedule?.kind==="shift"?"班":row.schedule?.kind==="hours"?String(row.schedule.hours)+"h":row.schedule?.kind==="leave"?"假":"—"}</td>
+    <td>{row.schedule?.kind==="off"?row.schedule.off_mark==="x"?"X":row.schedule.rest_label==="regular"?"例":"/":row.schedule?.kind==="shift"?row.schedule.code??"班":row.schedule?.kind==="hours"?String(row.schedule.hours)+"h":row.schedule?.kind==="leave"?row.schedule.code??"假":"—"}</td>
     {punchFields.map(k=><td key={k}><input data-clock={k} className="cy-op-input hr-attendance-clock" placeholder="HH:mm" aria-label={row.date+" "+k} value={punch?.[k]??""}
       onChange={e=>change(row,k,e.target.value)} onBlur={e=>{if(e.target.value.trim())try{change(row,k,normalizePunchTime(e.target.value))}catch{/* Preserve invalid entry for correction */}}} onKeyDown={enter}/></td>)}
     <td>{hrs(row.workedMinutes)}h</td><td>{row.lateMinutes||"—"}</td><td>{row.earlyMinutes||"—"}</td><td>{row.anomalies.join("、")||"—"}</td>
@@ -71,5 +74,6 @@ export function HrAttendancePanel(){
    {exceptions?.filter(x=>!filter||String(x.employeeId)===filter).map((x,i)=><p key={i}>{x.date.replaceAll("-","/")}　{x.name}　{x.anomalies.join("、")}</p>)}
    {exceptions?.length===0?<p>目前沒有異常紀錄</p>:null}
   </Dialog>
+  {confirmationDialog}
  </section>;
 }

@@ -68,7 +68,7 @@ function rosterDay(d:string,row:Cell|undefined,shifts:Map<number,Record<string,u
  if(row.kind==="off")return {date:d,kind:"off",offMark:row.off_mark==="x"?"x":"slash",minutes:0};
  if(row.kind==="shift"){const data=shifts.get(row.shift_type_id??0);return {date:d,kind:"shift",minutes:Number(data?.normal_minutes??0),shiftCode:String(data?.code??"")};}
  if(row.kind==="hours")return {date:d,kind:"hours",minutes:Math.round((row.hours??0)*60)};
- return {date:d,kind:"leave",leaveCode:String(leaves.get(row.leave_type_id??0)?.code??""),minutes:480};
+ return {date:d,kind:"leave",leaveCode:String(leaves.get(row.leave_type_id??0)?.code??""),minutes:0};
 }
 export class HrRosterError extends Error {
  constructor(readonly code:"HR_ROSTER_VIOLATION"|"HR_ROSTER_CONSECUTIVE",readonly items:unknown[]){super(code)}
@@ -79,27 +79,36 @@ export class HrRosterService {
   const store=await this.db.prepare("SELECT * FROM hr_stores WHERE id=?").bind(storeId).first<Record<string,unknown>>();
   if(!store)throw new HrValidationError("storeId","門市不存在",404);
   const bounds=monthBounds(month,String(store.cycle_anchor_date));
-  const [e,d,s,l,h,m,a]=await Promise.all([
+  // One extra fortnight before and week after, so runs and 例假 continue across the loaded range.
+  const lookStart=day(millis(bounds.start)-14*DAY),lookEnd=day(millis(bounds.finish)+7*DAY);
+  const [e,d,s,l,h,m,a,p]=await Promise.all([
    this.db.prepare("SELECT e.id,e.employee_no,e.name,e.employment_type,e.schedule_mode,e.skip_roster_checks,e.roster_sort,e.job_title_id,j.name AS job_title_name FROM hr_employees e LEFT JOIN hr_job_titles j ON j.id=e.job_title_id WHERE e.store_id=? AND e.status<>'terminated' ORDER BY j.sort_order,e.roster_sort,e.id LIMIT 101").bind(storeId).all<Emp>(),
-   this.db.prepare("SELECT * FROM hr_schedule_days WHERE store_id=? AND work_date BETWEEN ? AND ? ORDER BY employee_id,work_date LIMIT 10001").bind(storeId,bounds.start,bounds.finish).all<Cell>(),
+   this.db.prepare("SELECT * FROM hr_schedule_days WHERE store_id=? AND work_date BETWEEN ? AND ? ORDER BY employee_id,work_date LIMIT 10001").bind(storeId,lookStart,lookEnd).all<Cell>(),
    this.db.prepare("SELECT * FROM hr_shift_types ORDER BY sort_order,id LIMIT 100").all<Record<string,unknown>>(),
    this.db.prepare("SELECT * FROM hr_leave_types ORDER BY sort_order,id LIMIT 100").all<Record<string,unknown>>(),
    this.db.prepare("SELECT date,name FROM hr_holidays WHERE date BETWEEN ? AND ? LIMIT 100").bind(bounds.first,bounds.end).all(),
    this.db.prepare("SELECT notes,rules FROM hr_schedule_months WHERE store_id=? AND month=?").bind(storeId,month).first<{notes:string;rules:string}>(),
-   this.db.prepare("SELECT employee_id,kind,start_date,end_date FROM hr_roster_approvals WHERE start_date<=? AND end_date>=? LIMIT 1000").bind(bounds.finish,bounds.start).all<{employee_id:number;kind:string;start_date:string;end_date:string}>()
+   this.db.prepare("SELECT employee_id,kind,start_date,end_date FROM hr_roster_approvals WHERE start_date<=? AND end_date>=? LIMIT 1000").bind(lookEnd,lookStart).all<{employee_id:number;kind:string;start_date:string;end_date:string}>(),
+   this.db.prepare("SELECT employee_id,MAX(work_date) AS work_date FROM hr_schedule_days WHERE store_id=? AND rest_label='regular' AND work_date<? GROUP BY employee_id").bind(storeId,lookStart).all<{employee_id:number;work_date:string}>()
   ]);
   const employees=e.results??[],days=d.results??[],shifts=s.results??[],leaveTypes=l.results??[];
   if(employees.length>100||days.length>10000)throw new HrValidationError("limit","門市排班超過 100 人或 10,000 列安全上限");
   const byKey=new Map(days.map(x=>[x.employee_id+"|"+x.work_date,x]));
-  return {store,bounds,month,employees,days,shifts,leaveTypes,holidays:h.results??[],notes:m?.notes??"",rules:m?.rules??String(store.rules_template??""),approvals:a.results??[],byKey};
+  const previousRegular=new Map((p.results??[]).map(x=>[x.employee_id,x.work_date]));
+  return {store,bounds,lookStart,lookEnd,month,employees,days,shifts,leaveTypes,holidays:h.results??[],notes:m?.notes??"",rules:m?.rules??String(store.rules_template??""),approvals:a.results??[],byKey,previousRegular};
  }
- private evaluate(b:Awaited<ReturnType<HrRosterService["read"]>>,rows:Map<string,Cell>){
-  const start=millis(b.bounds.start),end=millis(b.bounds.finish),dates=Array.from({length:Math.round((end-start)/DAY)+1},(_,i)=>day(start+i*DAY));
+ private evaluate(b:Awaited<ReturnType<HrRosterService["read"]>>,rows:Map<string,Cell>,today:string){
+  const start=millis(b.lookStart),end=millis(b.lookEnd),dates=Array.from({length:Math.round((end-start)/DAY)+1},(_,i)=>day(start+i*DAY));
+  const inRange=(from:string,to:string)=>to>=b.bounds.start&&from<=b.bounds.finish;
   const shifts=new Map(b.shifts.map(x=>[Number(x.id),x])),leaves=new Map(b.leaveTypes.map(x=>[Number(x.id),x]));
   const classification:Record<string,RosterResult>={},staffing:Record<string,Record<string,number>>={};
   for(const e of b.employees){
    const input=dates.map(d=>rosterDay(d,rows.get(e.id+"|"+d),shifts,leaves));
-   const result=classifyRoster(input,null,{anchorMonday:String(b.store.cycle_anchor_date),employmentType:e.employment_type,skipChecks:e.skip_roster_checks===1,scheduleMode:e.schedule_mode});
+   const fixedRegularOff=new Set(dates.filter(d=>d<today&&rows.get(e.id+"|"+d)?.rest_label==="regular"));
+   const full=classifyRoster(input,b.previousRegular.get(e.id)??null,{anchorMonday:String(b.store.cycle_anchor_date),employmentType:e.employment_type,skipChecks:e.skip_roster_checks===1,scheduleMode:e.schedule_mode,fixedRegularOff});
+   // Report only what touches the loaded fortnights; the look-around days only give context.
+   const result:RosterResult={...full,violations:full.violations.filter(v=>inRange(v.from,v.to)),
+    consecutive:full.consecutive.filter(x=>inRange(x.startDate,x.endDate)),sixthDays:full.sixthDays.filter(d=>inRange(d,d)),overEight:full.overEight.filter(d=>inRange(d,d))};
    classification[String(e.id)]=result;
    for(const x of input)if(x.date>=b.bounds.first&&x.date<=b.bounds.end&&x.shiftCode){
     const count=staffing[x.date]??(staffing[x.date]={});count[x.shiftCode]=(count[x.shiftCode]??0)+1;
@@ -122,7 +131,7 @@ export class HrRosterService {
   return {saved:true};
  }
  async get(storeId:number,month:string){
-  const b=await this.read(storeId,month),checked=this.evaluate(b,b.byKey);
+  const b=await this.read(storeId,month),checked=this.evaluate(b,b.byKey,currentDate(new Date().toISOString()));
   const casualNone=new Set(b.employees.filter(x=>x.employment_type==="casual"&&x.schedule_mode==="none").map(x=>x.id));
   const actualHours:Record<string,Record<string,number>>={};
   if(casualNone.size){
@@ -149,7 +158,7 @@ export class HrRosterService {
   const staged=new Map(b.byKey);for(const c of changed){const key=c.employeeId+"|"+c.date;
    if(c.kind===null)staged.delete(key);else staged.set(key,asCell(c,storeId));
   }
-  const checked=this.evaluate(b,staged),at=currentDate(ctx.now);
+  const at=currentDate(ctx.now),checked=this.evaluate(b,staged,at);
   const violations:(RosterViolation&{employeeId:number})[]=[],pending:Approval[]=[],granted:Approval[]=[];
   const saved=new Set(b.approvals.map(x=>x.employee_id+"|"+x.kind+"|"+x.start_date+"|"+x.end_date));
   const approvals=Array.isArray(payload.approve)?payload.approve.map(object):[];
@@ -178,7 +187,7 @@ export class HrRosterService {
    stmts.push(this.db.prepare("INSERT INTO hr_schedule_days(employee_id,store_id,work_date,kind,off_mark,leave_type_id,shift_type_id,hours,start_time,end_time,marker,rest_label,note,updated_at,updated_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(employee_id,work_date) DO UPDATE SET store_id=excluded.store_id,kind=excluded.kind,off_mark=excluded.off_mark,leave_type_id=excluded.leave_type_id,shift_type_id=excluded.shift_type_id,hours=excluded.hours,start_time=excluded.start_time,end_time=excluded.end_time,marker=excluded.marker,rest_label=excluded.rest_label,note=excluded.note,updated_at=excluded.updated_at,updated_by=excluded.updated_by").bind(c.employeeId,storeId,c.date,c.kind,c.offMark??null,c.leaveTypeId??null,c.shiftTypeId??null,c.hours??null,c.startTime??null,c.endTime??null,c.marker??null,rest,c.note??"",ctx.now,ctx.actor));
   }
   for(const row of b.days){const key=row.employee_id+"|"+row.work_date;
-   if(keys.has(key)||row.kind!=="off")continue;
+   if(keys.has(key)||row.kind!=="off"||row.work_date<at)continue;
    const label=checked.classification[String(row.employee_id)]?.labels[row.work_date];
    const desired=label==="regular_off"?"regular":label==="rest_day"?"rest":null;
    if(row.rest_label!==desired)stmts.push(this.db.prepare("UPDATE hr_schedule_days SET rest_label=?,updated_at=?,updated_by=? WHERE employee_id=? AND work_date=?").bind(desired,ctx.now,ctx.actor,row.employee_id,row.work_date));

@@ -111,3 +111,6 @@
     justify-self: start;
   }
 }
+.cy-hr-picker { display: flex; gap: 8px; align-items: center; }
+.cy-hr-picker .cy-op-input { flex: 1; min-width: 0; }
+.cy-hr-picker .cy-op-button { flex: none; }

@@ -28,8 +28,8 @@ function normalizeProfile(raw: unknown) {
     required(v.mailingAddress,"mailingAddress",300),required(v.registeredAddress,"registeredAddress",300),
     hireDate, v.seniorityStartDate ? date(v.seniorityStartDate,"seniorityStartDate") : hireDate,
     optional(v.note,"note",2000),
-    v.storeId==null||v.storeId===""?null:integer(v.storeId,"storeId",true),
-    v.jobTitleId==null||v.jobTitleId===""?null:integer(v.jobTitleId,"jobTitleId",true),
+    integer(v.storeId,"storeId",true),
+    integer(v.jobTitleId,"jobTitleId",true),
     integer(v.rosterSort??0,"rosterSort"),
     String(v.employmentType??"full"),
     v.skipRosterChecks===true||v.skipRosterChecks===1?1:0,
@@ -73,6 +73,8 @@ export class HrService {
     const employee=await this.employeeRow(id);
     if(!employee) throw new HrValidationError("id","人事資料不存在",404);
     const result:Record<string,unknown>={...sanitized(employee)};
+    if(employee.member_id){const m=await this.db.prepare("SELECT employee_no,display_name FROM app_members WHERE id=?").bind(employee.member_id).first<{employee_no:string|null;display_name:string|null}>();
+      result.memberLabel=m?[m.employee_no,m.display_name].filter(Boolean).join(" ")||null:null;}
     for(const child of CHILDREN){const data=await this.db.prepare("SELECT * FROM "+child.table+" WHERE employee_id=? ORDER BY sort_order,id").bind(id).all();result[child.field]=data.results??[];}
     for(const [key,table] of [["statusChanges","hr_status_changes"],["salaryRecords","hr_salary_records"],["seniorityExclusions","hr_seniority_exclusions"]] as const){
       const data=await this.db.prepare("SELECT * FROM "+table+" WHERE employee_id=? ORDER BY effective_date DESC,id DESC".replace("effective_date",key==="seniorityExclusions"?"start_date":"effective_date")).bind(id).all();
@@ -164,6 +166,19 @@ export class HrService {
     if(a>b)throw new HrValidationError("endDate","不得早於起日");
     await this.db.batch([this.db.prepare("INSERT INTO hr_seniority_exclusions(employee_id,start_date,end_date,reason,created_at,created_by) VALUES(?,?,?,?,?,?)").bind(id,a,b,reason,ctx.now,ctx.actor),audit(this.db,ctx,"hr_seniority_exclusion",String(id),"hr_seniority_exclusion.created",null,{startDate:a,endDate:b,reason})]);
     return this.exclusions(id);
+  }
+  // Temporary for testing (BD-059): super admin removes an employee and every HR row under it. Removed before launch.
+  async remove(id:number,raw:unknown,ctx:HrContext) {
+    const row=await this.db.prepare("SELECT employee_no,name FROM hr_employees WHERE id=?").bind(id).first<{employee_no:string;name:string}>();
+    if(!row)throw new HrValidationError("id","員工不存在",404);
+    if(object(raw).confirmEmployeeNo!==row.employee_no)throw new HrValidationError("confirmEmployeeNo","請輸入正確的員工編號確認刪除");
+    const del=(sql:string)=>this.db.prepare(sql).bind(id);
+    await this.db.batch([
+      del("DELETE FROM hr_salary_allowances WHERE salary_record_id IN (SELECT id FROM hr_salary_records WHERE employee_id=?)"),
+      ...["hr_salary_records","hr_emergency_contacts","hr_education","hr_work_history","hr_status_changes","hr_seniority_exclusions","hr_schedule_days","hr_roster_approvals","hr_attendance_days"].map(t=>del(`DELETE FROM ${t} WHERE employee_id=?`)),
+      del("DELETE FROM hr_employees WHERE id=?"),
+      audit(this.db,ctx,"hr_employee",row.employee_no,"hr_employee.deleted",{employeeNo:row.employee_no,name:row.name},null),
+    ]);
   }
   async removeExclusion(id:number,exclusionId:number,ctx:HrContext) {
     const row=await this.db.prepare("SELECT * FROM hr_seniority_exclusions WHERE id=? AND employee_id=?").bind(exclusionId,id).first();

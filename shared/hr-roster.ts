@@ -3,7 +3,9 @@ export type RosterKind="shift"|"hours"|"off"|"leave"|"unscheduled";
 export type RosterLabel="regular_off"|"rest_day"|"off"|"work"|"unscheduled";
 export type EmploymentType="full"|"half"|"casual";
 export interface RosterDay { date:string;kind:RosterKind;offMark?:"slash"|"x"|null;minutes?:number;leaveCode?:string|null;shiftCode?:string|null }
-export interface RosterOptions {anchorMonday:string;employmentType?:EmploymentType;partTime?:boolean;skipChecks?:boolean;scheduleMode?:"shift"|"hours"|"none"}
+export interface RosterOptions {anchorMonday:string;employmentType?:EmploymentType;partTime?:boolean;skipChecks?:boolean;scheduleMode?:"shift"|"hours"|"none";
+ /** Saved 例假 dates of past weeks: such a week keeps its saved 例假 instead of being relabelled. */
+ fixedRegularOff?:ReadonlySet<string>}
 export interface RosterViolation {code:string;from:string;to:string;dates:string[];message:string}
 export interface ConsecutiveSegment {startDate:string;endDate:string;days:number;suggestion:string}
 export interface RosterResult {labels:Record<string,RosterLabel>;violations:RosterViolation[];consecutive:ConsecutiveSegment[];sixthDays:string[];overEight:string[]}
@@ -49,15 +51,16 @@ export function classifyRoster(days:readonly RosterDay[],previousRegularOff:stri
    const offs=dates.filter(d=>labels[d]==="rest_day");
    if(!offs.length)violations.push({code:"WEEK_NO_REGULAR",from:dates[0],to:dates[6],dates,message:"每週至少要有一天例假"});
    else {
+    // Past weeks keep their saved 例假; otherwise prefer the latest 例休日 within 7 days of the previous 例假.
     const preceding=previous;
     const suitable=preceding===null?[]:offs.filter(d=>time(d)>preceding&&time(d)-preceding<=7*DAY);
-    const chosen=(suitable.length?suitable:offs).at(-1)!;
+    const chosen=offs.find(d=>options.fixedRegularOff?.has(d))??(suitable.length?suitable:offs).at(-1)!;
     labels[chosen]="regular_off";previous=time(chosen);
    }
   }
   if(!casual){
-   const total=dates.reduce((n,d)=>n+(labels[d]==="work"?(byDate.get(d)?.kind==="leave"?480:byDate.get(d)?.minutes??0):0),0);
-   for(const d of dates){const cell=byDate.get(d),mins=labels[d]==="work"?(cell?.kind==="leave"?480:cell?.minutes??0):0;
+   const total=dates.reduce((n,d)=>n+(labels[d]==="work"?(byDate.get(d)?.kind==="leave"?0:byDate.get(d)?.minutes??0):0),0);
+   for(const d of dates){const cell=byDate.get(d),mins=labels[d]==="work"?(cell?.kind==="leave"?0:cell?.minutes??0):0;
     if(mins>600)violations.push({code:"DAY_HOURS",from:d,to:d,dates:[d],message:d+" 正常工時超過 10 小時"});
    }
    if(total>2880)violations.push({code:"WEEK_HOURS",from:dates[0],to:dates[6],dates,message:"一週正常工時超過 48 小時"});
@@ -68,7 +71,7 @@ export function classifyRoster(days:readonly RosterDay[],previousRegularOff:stri
   if(!dates.every(d=>labels[d]&&labels[d]!=="unscheduled"))continue;
   const rests=dates.filter(d=>labels[d]==="rest_day"||labels[d]==="regular_off").length;
   if(rests<4)violations.push({code:"CYCLE_OFF",from:cycle.start,to:cycle.end,dates,message:"雙週只有 "+rests+" 天例休日（應至少 4 天）"});
-  const mins=dates.reduce((n,d)=>n+(labels[d]==="work"?(byDate.get(d)?.kind==="leave"?480:byDate.get(d)?.minutes??0):0),0);
+  const mins=dates.reduce((n,d)=>n+(labels[d]==="work"?(byDate.get(d)?.kind==="leave"?0:byDate.get(d)?.minutes??0):0),0);
   if(mins>4800)violations.push({code:"CYCLE_HOURS",from:cycle.start,to:cycle.end,dates,message:"雙週正常工時超過 80 小時"});
  }
  if(casual)for(const cell of sorted)if(labels[cell.date]==="work"&&(cell.minutes??0)>480)overEight.push(cell.date);

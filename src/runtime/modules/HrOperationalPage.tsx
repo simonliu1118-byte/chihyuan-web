@@ -6,6 +6,7 @@ import type { AnnualLeavePeriod } from "../../../shared/hr-annual-leave";
 import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { Loading } from "../../ui/feedback/Loading";
 import { formatDate } from "../../ui/foundation/format";
+import { enterAdvancesFields, enterAdvancesThenSubmits } from "../../ui/foundation/enter-advance";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import { Dialog } from "../../ui/overlays/Dialog";
@@ -31,7 +32,7 @@ interface SalaryRow { id: number; effective_date: string; payment_type: HrPaymen
   allowances: { item_name: string; amount: number; is_regular: number }[] }
 interface ExclusionRow { id: number; start_date: string; end_date: string; reason: string }
 interface EmployeeDetail extends EmployeeRow {
-  member_id: number | null; nationalIdMasked: string | null; birth_date: string | null; gender: string | null;
+  member_id: number | null; memberLabel?: string | null; nationalIdMasked: string | null; birth_date: string | null; gender: string | null;
   mobile: string | null; phone: string | null; mailing_address: string | null; registered_address: string | null;
   hire_date: string; seniority_start_date: string; termination_date: string | null; termination_reason: string | null;
   note: string | null; revision: number;
@@ -39,11 +40,14 @@ interface EmployeeDetail extends EmployeeRow {
   contacts: ContactRow[]; education: EducationRow[]; workHistory: WorkRow[];
   statusChanges: StatusChangeRow[]; salaryRecords: SalaryRow[]; seniorityExclusions: ExclusionRow[];
 }
-interface MemberOption { id: number; employee_no: string; display_name: string | null }
+/** A live CYID account; memberId is the local CY Web record when one exists. */
+interface MemberOption { employeeId: string; employeeNo: string; name: string; memberId: number | null }
 interface SalaryItem { id: number; name: string; is_active: number }
 
 interface Draft {
-  employeeNo: string; name: string; memberId: string; nationalId: string; gender: string; birthDate: string;
+  employeeNo: string; name: string; nationalId: string; gender: string; birthDate: string;
+  /** Binding: memberIdentityId is set only when the user picks or clears it in this edit. */
+  memberIdentityId?: string | null; memberLabel: string; changeNationalId: boolean;
   mobile: string; phone: string; mailingAddress: string; registeredAddress: string;
   hireDate: string; seniorityStartDate: string; note: string; status: HrStatus;
   storeId:string;jobTitleId:string;rosterSort:string;employmentType:"full"|"half"|"casual";skipRosterChecks:boolean;scheduleMode:"shift"|"hours"|"none";
@@ -59,7 +63,7 @@ const date = (value: string | null | undefined) => value ? formatDate(value) : "
 // Months are stored as YYYY/MM; <input type="month"> works in YYYY-MM.
 const toMonthInput = (value: string | null) => value ? value.replace("/", "-") : "";
 const fromMonthInput = (value: string) => value ? value.replace("-", "/") : "";
-const memberLabel = (member: MemberOption | undefined) => member ? `${member.employee_no} ${member.display_name ?? ""}`.trim() : null;
+const memberText = (member: MemberOption) => `${member.employeeNo} ${member.name}`.trim();
 const errorText = (error: unknown) => error instanceof Error && error.message ? error.message : "人事資料處理失敗，請稍後再試。";
 
 function salaryText(row: SalaryRow): string {
@@ -69,7 +73,7 @@ function salaryText(row: SalaryRow): string {
 }
 
 function emptyDraft(): Draft {
-  return { employeeNo: "", name: "", memberId: "", nationalId: "", gender: "", birthDate: "", mobile: "", phone: "",
+  return { employeeNo: "", name: "", memberLabel: "", changeNationalId: true, nationalId: "", gender: "", birthDate: "", mobile: "", phone: "",
     mailingAddress: "", registeredAddress: "", hireDate: taipeiToday(), seniorityStartDate: "", note: "", status: "probation",
     storeId:"",jobTitleId:"",rosterSort:"0",employmentType:"full",skipRosterChecks:false,scheduleMode:"shift",
     contacts: [], education: [], workHistory: [] };
@@ -77,8 +81,8 @@ function emptyDraft(): Draft {
 
 function draftFrom(detail: EmployeeDetail): Draft {
   return {
-    employeeNo: detail.employee_no, name: detail.name, memberId: detail.member_id ? String(detail.member_id) : "",
-    nationalId: "", gender: detail.gender ?? "", birthDate: detail.birth_date ?? "", mobile: detail.mobile ?? "",
+    employeeNo: detail.employee_no, name: detail.name, memberLabel: detail.member_id ? detail.memberLabel ?? "已綁定" : "", changeNationalId: !detail.nationalIdMasked,
+    nationalId: detail.nationalIdMasked ?? "", gender: detail.gender ?? "", birthDate: detail.birth_date ?? "", mobile: detail.mobile ?? "",
     phone: detail.phone ?? "", mailingAddress: detail.mailing_address ?? "", registeredAddress: detail.registered_address ?? "",
     hireDate: detail.hire_date, seniorityStartDate: detail.seniority_start_date, note: detail.note ?? "", status: detail.status,
     storeId:detail.store_id?String(detail.store_id):"",jobTitleId:detail.job_title_id?String(detail.job_title_id):"",
@@ -123,6 +127,7 @@ export function HrOperationalPage() {
   const [minimumWageSet, setMinimumWageSet] = useState(true);
   const [browse, setBrowse] = useState<BrowseKind | null>(null);
   const [revealed, setRevealed] = useState<string | null>(null);
+  const [deleteNo, setDeleteNo] = useState<string | null>(null);
   const editing = draft !== null;
   const unsavedGuard = useUnsavedChangesGuard({ active: editing || action !== null, blocked: busy, message: "人事資料尚未儲存，確定放棄？" });
   const canLeave = async () => (await unsavedGuard.confirmNavigationAsync(description => confirm({
@@ -188,7 +193,7 @@ export function HrOperationalPage() {
     if (!draft) return;
     setBusy(true); setMessage(null);
     const body: Record<string, unknown> = {
-      employeeNo: draft.employeeNo, name: draft.name, memberId: draft.memberId ? Number(draft.memberId) : null,
+      employeeNo: draft.employeeNo, name: draft.name,
       gender: draft.gender, birthDate: draft.birthDate, mobile: draft.mobile, phone: draft.phone,
       mailingAddress: draft.mailingAddress, registeredAddress: draft.registeredAddress, hireDate: draft.hireDate,
       seniorityStartDate: draft.seniorityStartDate || draft.hireDate, note: draft.note,
@@ -198,8 +203,12 @@ export function HrOperationalPage() {
       education: draft.education.map(row => ({ ...row, graduationMonth: fromMonthInput(row.graduationMonth) })),
       workHistory: draft.workHistory.map(row => ({ ...row, startMonth: fromMonthInput(row.startMonth), endMonth: fromMonthInput(row.endMonth) })),
     };
-    // Editing leaves the stored 身分證字號 alone unless a new one is typed.
-    if (creating || draft.nationalId.trim()) body.nationalId = draft.nationalId.trim();
+    if (draft.memberIdentityId !== undefined) body.memberIdentityId = draft.memberIdentityId;
+    else if (!creating) body.memberId = detail?.member_id ?? null;
+    // Editing leaves the stored 身分證字號 alone unless 變更 was pressed.
+    if (creating || draft.changeNationalId) body.nationalId = draft.nationalId.trim().toUpperCase();
+    const missing = missingFields(draft);
+    if (missing.length) { setBusy(false); reportError(`請填寫：${missing.join("、")}`); return; }
     if (creating) body.status = draft.status; else body.revision = detail?.revision;
     try {
       const saved = await apiRequest<EmployeeDetail>(creating ? `${ROOT}/employees` : `${ROOT}/employees/${detail!.id}`,
@@ -247,6 +256,20 @@ export function HrOperationalPage() {
     finally { setBusy(false); }
   }
 
+  // Temporary for testing (BD-059): removed before launch.
+  async function removeEmployee(event: FormEvent) {
+    event.preventDefault();
+    if (!detail || deleteNo === null) return;
+    setBusy(true);
+    try {
+      await apiRequest(`${ROOT}/employees/${detail.id}`, { method: "DELETE", json: { confirmEmployeeNo: deleteNo.trim() } });
+      setDeleteNo(null); setDetail(null); setSelectedId(null);
+      await loadList(false);
+      setMessage(`已刪除 ${detail.employee_no} ${detail.name} 的人事資料。`);
+    } catch (error) { reportError(errorText(error)); }
+    finally { setBusy(false); }
+  }
+
   async function removeExclusion(row: ExclusionRow) {
     if (!detail) return;
     const ok = await confirm({ title: "刪除年資不計期間", description: `${date(row.start_date)}～${date(row.end_date)}，刪除後特休會重新計算。`,
@@ -272,7 +295,6 @@ export function HrOperationalPage() {
   const today = taipeiToday();
   const currentLeave = [...leave].reverse().find(period => period.periodStart <= today) ?? null;
   const currentSalary = detail?.salaryRecords.find(row => row.effective_date <= today) ?? null;
-  const member = detail?.member_id ? members.find(row => row.id === detail.member_id) : undefined;
 
   return <>
     <nav className="cy-op-tabs cy-hr-top-tabs" aria-label="人事頁籤">
@@ -322,6 +344,7 @@ export function HrOperationalPage() {
               </div>
               <div className="cy-record-actions">
                 <button type="button" className="cy-op-button" disabled={busy} onClick={() => { setCreating(false); setDraft(draftFrom(detail)); }}>修改</button>
+                <button type="button" className="cy-op-button danger" disabled={busy} onClick={() => setDeleteNo("")}>刪除</button>
               </div>
             </div>
             <div className="cy-hr-detail-body">
@@ -336,13 +359,13 @@ export function HrOperationalPage() {
                 <Fact label="年資起算日" value={date(detail.seniority_start_date)} />
                 <Fact label="身分證字號" value={detail.nationalIdMasked ? <span className="cy-hr-id">{detail.nationalIdMasked}
                   <button type="button" className="cy-op-button compact quiet" onClick={() => void reveal()}>顯示</button></span> : null} />
-                <Fact label="綁定使用者" value={detail.member_id ? memberLabel(member) ?? "已綁定" : "未綁定"} />
+                <Fact label="綁定使用者" value={detail.member_id ? detail.memberLabel ?? "已綁定" : "未綁定"} />
                 <Fact label="出生日期" value={date(detail.birth_date)} />
                 <Fact label="性別" value={detail.gender} />
                 <Fact label="手機" value={detail.mobile} />
                 <Fact label="市話" value={detail.phone} />
-                <Fact label="通訊地址" value={detail.mailing_address} wide />
                 <Fact label="戶籍地址" value={detail.registered_address} wide />
+                <Fact label="通訊地址" value={detail.mailing_address} wide />
                 {detail.termination_date ? <Fact label="離職" value={`${date(detail.termination_date)}　${detail.termination_reason ?? ""}`} wide /> : null}
                 {detail.note ? <Fact label="備註" value={detail.note} wide /> : null}
               </dl>
@@ -378,7 +401,7 @@ export function HrOperationalPage() {
     {detail && action ? <Dialog open size="medium" dismissible={!busy}
       title={action === "status" ? "新增狀態異動" : action === "salary" ? "新增薪資異動" : "新增年資不計期間"}
       onClose={() => { setAction(null); }}>
-      <form className="cy-op-form" onSubmit={event => void submitAction(event)}>
+      <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={event => void submitAction(event)}>
         <div className="cy-op-form-grid">
           {action === "exclusion" ? <>
             <FormField label="起日" type="date" required value={form.startDate} onChange={value => setForm({ ...form, startDate: value })} />
@@ -445,6 +468,16 @@ export function HrOperationalPage() {
       <p className="cy-hr-revealed">{revealed}</p>
       <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={() => setRevealed(null)}>關閉</button></div>
     </Dialog> : null}
+    {deleteNo !== null && detail ? <Dialog open size="small" title="刪除人事資料（測試用）" onClose={() => setDeleteNo(null)}>
+      <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={event => void removeEmployee(event)}>
+        <p>會一併刪除 {detail.employee_no} {detail.name} 的學經歷、聯絡人、異動、薪資、班表與出勤，無法復原。請輸入員工編號確認。</p>
+        <label className="cy-field"><span>員工編號</span><input className="cy-op-input" autoFocus value={deleteNo} onChange={e => setDeleteNo(e.target.value)} /></label>
+        <div className="cy-op-form-footer">
+          <button type="button" className="cy-op-button" disabled={busy} onClick={() => setDeleteNo(null)}>取消</button>
+          <button className="cy-op-button danger" disabled={busy || deleteNo.trim() !== detail.employee_no} aria-busy={busy || undefined}>刪除</button>
+        </div>
+      </form>
+    </Dialog> : null}
   </div>:tab==="roster"?<HrRosterPanel/>:<HrAttendancePanel/>}</>;
 }
 
@@ -456,18 +489,33 @@ function FormField({ label, value, onChange, type = "text", required, wide }: {
   label: string; value: string | undefined; onChange: (value: string) => void; type?: string; required?: boolean; wide?: boolean;
 }) {
   return <label className={wide ? "wide" : undefined}>{label}
-    <input className="cy-op-input" type={type} required={required} min={type === "number" ? 0 : undefined} step={type === "number" ? 1 : undefined}
+    <input className="cy-op-input" type={type} required={required} max={type === "date" ? "9999-12-31" : undefined} min={type === "number" ? 0 : undefined} step={type === "number" ? 1 : undefined}
       value={value ?? ""} onChange={event => onChange(event.target.value)} /></label>;
 }
 
+/** Every field except 備註 and 學經歷 is required; one of 手機／市話 is enough. */
+function missingFields(draft: Draft): string[] {
+  const missing: string[] = [];
+  const need = (label: string, value: string) => { if (!value.trim()) missing.push(label); };
+  need("員工編號", draft.employeeNo); need("姓名", draft.name);
+  if (draft.changeNationalId) need("身分證字號", draft.nationalId);
+  need("性別", draft.gender); need("出生日期", draft.birthDate); need("到職日", draft.hireDate);
+  if (!draft.mobile.trim() && !draft.phone.trim()) missing.push("手機或市話");
+  need("門市", draft.storeId); need("職稱", draft.jobTitleId);
+  need("戶籍地址", draft.registeredAddress); need("通訊地址", draft.mailingAddress);
+  if (!draft.contacts.length) missing.push("緊急聯絡人");
+  return missing;
+}
+
 function EmployeeForm({ draft, creating, busy, members, stores, jobTitles, patch, onCancel, onSubmit }: {
-  draft: Draft; creating: boolean; busy: boolean; members: MemberOption[];stores:{id:number;name:string}[];jobTitles:{id:number;name:string}[];
+  draft: Draft; creating: boolean; busy: boolean; members: MemberOption[]; stores: { id: number; name: string }[]; jobTitles: { id: number; name: string }[];
   patch: (value: Partial<Draft>) => void; onCancel: () => void; onSubmit: (event: FormEvent) => Promise<void>;
 }) {
+  const [picking, setPicking] = useState(false);
   const field = (label: string, key: keyof Draft, type = "text", required = false) =>
     <FormField label={label} type={type} required={required} value={draft[key] as string} onChange={value => patch({ [key]: value } as Partial<Draft>)} />;
-  const sameAddress = draft.registeredAddress !== "" && draft.registeredAddress === draft.mailingAddress;
-  return <form className="cy-op-form" onSubmit={event => void onSubmit(event)}>
+  const sameAddress = draft.mailingAddress !== "" && draft.registeredAddress === draft.mailingAddress;
+  return <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={event => void onSubmit(event)}>
     <div className="cy-record-header cy-edit-header">
       <div><h2>{creating ? "新增員工" : `修改 ${draft.employeeNo} ${draft.name}`}</h2></div>
       <div className="cy-record-actions">
@@ -478,38 +526,46 @@ function EmployeeForm({ draft, creating, busy, members, stores, jobTitles, patch
     <div className="cy-hr-form-body">
       <div className="cy-op-form-grid">
         {field("員工編號", "employeeNo", "text", true)}
-        <label>門市<select className="cy-op-input" value={draft.storeId} onChange={e=>patch({storeId:e.target.value})}><option value="">未設定</option>{stores.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-        <label>職稱<select className="cy-op-input" value={draft.jobTitleId} onChange={e=>patch({jobTitleId:e.target.value})}><option value="">未設定</option>{jobTitles.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-        <label>僱用型態<select className="cy-op-input" value={draft.employmentType} onChange={e=>{const employmentType=e.target.value as Draft["employmentType"];patch({employmentType,scheduleMode:employmentType==="full"?"shift":employmentType!=="casual"&&draft.scheduleMode==="none"?"shift":draft.scheduleMode})}}>
-         <option value="full">正職</option><option value="half">半職</option><option value="casual">兼職</option></select></label>
-        <label>排班方式<select className="cy-op-input" value={draft.scheduleMode} onChange={e=>patch({scheduleMode:e.target.value as Draft["scheduleMode"]})}>
-         <option value="shift">班別</option>{draft.employmentType!=="full"?<option value="hours">時段或時數</option>:null}{draft.employmentType==="casual"?<option value="none">不排班</option>:null}</select></label>
-        <label>班表排序<input className="cy-op-input" type="number" step="1" value={draft.rosterSort} onChange={e=>patch({rosterSort:e.target.value})}/></label>
-        <label className="cy-hr-check"><input type="checkbox" checked={draft.skipRosterChecks} onChange={e=>patch({skipRosterChecks:e.target.checked})}/>不須檢核</label>
         {field("姓名", "name", "text", true)}
-        <label>綁定使用者<select className="cy-op-input" value={draft.memberId} disabled={busy} onChange={event => patch({ memberId: event.target.value })}>
-          <option value="">不綁定</option>
-          {members.map(row => <option key={row.id} value={row.id}>{memberLabel(row)}</option>)}</select></label>
+        <label>綁定使用者<span className="cy-hr-picker">
+          <input className="cy-op-input" readOnly value={draft.memberLabel || "不綁定"} aria-label="綁定使用者" />
+          <button type="button" className="cy-op-button" disabled={busy} onClick={() => setPicking(true)}>選擇</button>
+        </span></label>
         {creating ? <label>人事狀態<select className="cy-op-input" value={draft.status} disabled={busy} onChange={event => patch({ status: event.target.value as HrStatus })}>
           <option value="probation">試用</option><option value="active">在職</option></select></label> : null}
-        {field(creating ? "身分證字號" : "身分證字號（留空不變更）", "nationalId")}
-        <label>性別<select className="cy-op-input" value={draft.gender} disabled={busy} onChange={event => patch({ gender: event.target.value })}>
-          <option value="">未填寫</option><option value="男">男</option><option value="女">女</option><option value="其他">其他</option></select></label>
-        {field("出生日期", "birthDate", "date")}
+        {draft.changeNationalId ? field("身分證字號", "nationalId", "text", true)
+          : <label>身分證字號<span className="cy-hr-picker">
+            <input className="cy-op-input" readOnly value={draft.nationalId} aria-label="身分證字號" />
+            <button type="button" className="cy-op-button" disabled={busy} onClick={() => patch({ changeNationalId: true, nationalId: "" })}>變更</button>
+          </span></label>}
+        <label>性別<select className="cy-op-input" required value={draft.gender} disabled={busy} onChange={event => patch({ gender: event.target.value })}>
+          <option value="">請選擇</option><option value="男">男</option><option value="女">女</option><option value="其他">其他</option></select></label>
+        {field("出生日期", "birthDate", "date", true)}
         {field("到職日", "hireDate", "date", true)}
         {field("年資起算日（空白＝到職日）", "seniorityStartDate", "date")}
         {field("手機", "mobile")}
         {field("市話", "phone")}
-        <label className="wide">通訊地址<input className="cy-op-input" value={draft.mailingAddress} disabled={busy}
-          onChange={event => patch(sameAddress ? { mailingAddress: event.target.value, registeredAddress: event.target.value } : { mailingAddress: event.target.value })} /></label>
-        <label className="wide">戶籍地址<input className="cy-op-input" value={draft.registeredAddress} disabled={busy || sameAddress}
-          onChange={event => patch({ registeredAddress: event.target.value })} /></label>
-        <label className="cy-hr-check wide"><input type="checkbox" checked={sameAddress} disabled={busy || !draft.mailingAddress}
-          onChange={event => patch({ registeredAddress: event.target.checked ? draft.mailingAddress : "" })} />戶籍地址同通訊地址</label>
+        <label>門市<select className="cy-op-input" required value={draft.storeId} disabled={busy} onChange={e => patch({ storeId: e.target.value })}>
+          <option value="">請選擇</option>{stores.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+        <label>職稱<select className="cy-op-input" required value={draft.jobTitleId} disabled={busy} onChange={e => patch({ jobTitleId: e.target.value })}>
+          <option value="">請選擇</option>{jobTitles.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+        <label>僱用型態<select className="cy-op-input" value={draft.employmentType} disabled={busy} onChange={e => { const employmentType = e.target.value as Draft["employmentType"];
+          patch({ employmentType, scheduleMode: employmentType === "full" ? "shift" : employmentType !== "casual" && draft.scheduleMode === "none" ? "shift" : draft.scheduleMode }); }}>
+          <option value="full">正職</option><option value="half">半職</option><option value="casual">兼職</option></select></label>
+        <label>排班方式<select className="cy-op-input" value={draft.scheduleMode} disabled={busy} onChange={e => patch({ scheduleMode: e.target.value as Draft["scheduleMode"] })}>
+          <option value="shift">班別</option>{draft.employmentType !== "full" ? <option value="hours">時段或時數</option> : null}{draft.employmentType === "casual" ? <option value="none">不排班</option> : null}</select></label>
+        <label>班表排序<input className="cy-op-input" type="number" step="1" value={draft.rosterSort} disabled={busy} onChange={e => patch({ rosterSort: e.target.value })} /></label>
+        <label className="cy-hr-check"><input type="checkbox" checked={draft.skipRosterChecks} disabled={busy} onChange={e => patch({ skipRosterChecks: e.target.checked })} />不須檢核</label>
+        <label className="wide">戶籍地址<input className="cy-op-input" required value={draft.registeredAddress} disabled={busy}
+          onChange={event => patch(sameAddress ? { registeredAddress: event.target.value, mailingAddress: event.target.value } : { registeredAddress: event.target.value })} /></label>
+        <label className="wide">通訊地址<input className="cy-op-input" required value={draft.mailingAddress} disabled={busy || sameAddress}
+          onChange={event => patch({ mailingAddress: event.target.value })} /></label>
+        <label className="cy-hr-check wide"><input type="checkbox" checked={sameAddress} disabled={busy || !draft.registeredAddress}
+          onChange={event => patch({ mailingAddress: event.target.checked ? draft.registeredAddress : "" })} />通訊地址同戶籍地址</label>
         <label className="wide">備註<textarea className="cy-op-input" rows={2} value={draft.note} disabled={busy} onChange={event => patch({ note: event.target.value })} /></label>
       </div>
 
-      <RowsBlock title="緊急聯絡人" addLabel="增加聯絡人" busy={busy} empty={!draft.contacts.length}
+      <RowsBlock title="緊急聯絡人（至少一位）" addLabel="增加聯絡人" busy={busy} empty={!draft.contacts.length}
         onAdd={() => patch({ contacts: [...draft.contacts, { name: "", relationship: "", phone: "" }] })}>
         {draft.contacts.map((row, index) => <div className="cy-hr-edit-row contact" key={index}>
           <RowInput label="姓名" value={row.name} required onChange={name => patch({ contacts: draft.contacts.map((item, n) => n === index ? { ...item, name } : item) })} />
@@ -541,7 +597,30 @@ function EmployeeForm({ draft, creating, busy, members, stores, jobTitles, patch
         </div>)}
       </RowsBlock>
     </div>
+    {picking ? <MemberPicker members={members} employeeNo={draft.employeeNo} onClose={() => setPicking(false)}
+      onPick={member => { patch(member ? { memberIdentityId: member.employeeId, memberLabel: memberText(member) } : { memberIdentityId: null, memberLabel: "" }); setPicking(false); }} /> : null}
   </form>;
+}
+
+/** Searchable list of live CYID accounts; the account with the same 員工編號 comes first. */
+function MemberPicker({ members, employeeNo, onPick, onClose }: {
+  members: MemberOption[]; employeeNo: string; onPick: (member: MemberOption | null) => void; onClose: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const rows = members.filter(row => !q || row.employeeNo.toLowerCase().includes(q) || row.name.toLowerCase().includes(q))
+    .sort((a, b) => Number(b.employeeNo === employeeNo) - Number(a.employeeNo === employeeNo) || a.employeeNo.localeCompare(b.employeeNo));
+  return <Dialog open size="small" title="選擇綁定使用者" onClose={onClose}>
+    <input className="cy-op-input" type="search" autoFocus placeholder="搜尋員工編號、姓名" aria-label="搜尋使用者" value={query} onChange={event => setQuery(event.target.value)} />
+    <div className="cy-hr-member-list">
+      <button type="button" className="cy-op-list-row" onClick={() => onPick(null)}><strong>不綁定</strong></button>
+      {rows.map(row => <button key={row.employeeId} type="button" className="cy-op-list-row" onClick={() => onPick(row)}>
+        <span className="cy-mono">{row.employeeNo}</span><strong>{row.name || "（未命名）"}</strong>
+        {row.employeeNo === employeeNo ? <StatusChip tone="info">員工編號相同</StatusChip> : null}
+      </button>)}
+      {!rows.length ? <p className="cy-op-empty">沒有符合的使用者。</p> : null}
+    </div>
+  </Dialog>;
 }
 
 function RowsBlock({ title, addLabel, onAdd, empty, busy, children }: {
@@ -557,7 +636,7 @@ function RowsBlock({ title, addLabel, onAdd, empty, busy, children }: {
 function RowInput({ label, value, onChange, type = "text", required }: {
   label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean;
 }) {
-  return <input className="cy-op-input" aria-label={label} placeholder={label} type={type} required={required}
+  return <input className="cy-op-input" aria-label={label} placeholder={label} type={type} required={required} max={type === "month" ? "9999-12" : undefined}
     value={value} onChange={event => onChange(event.target.value)} />;
 }
 

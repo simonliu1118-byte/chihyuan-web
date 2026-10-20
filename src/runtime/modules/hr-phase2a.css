@@ -1,7 +1,7 @@
 /* WO-0.9.24 HR roster, compact Excel-style grid and landscape print */
 .cy-hr-phase2a{min-width:0;overflow:hidden}
 .hr-roster-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:9px}
-.hr-roster-toolbar label{display:flex;align-items:center;gap:8px}
+.hr-roster-toolbar label{display:flex;align-items:center;gap:8px;white-space:nowrap}
 .hr-roster-toolbar select{max-width:210px}
 .hr-roster-print-title{text-align:center;margin:10px 0 8px;font-weight:700}
 .hr-roster-scroll{max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain;border:1px solid var(--cy-border)}
@@ -29,6 +29,8 @@
 @media(max-width:640px){.hr-roster-table th,.hr-roster-table td{font-size:10px}.hr-roster-cell{min-height:38px}.hr-roster-toolbar{gap:6px}}
 @page{size:A4 landscape;margin:5mm}
 @media print {
+ .hr-roster-table .hr-invalid{outline:none}
+ .hr-roster-table .hr-sixth:after{display:none}
  body *{visibility:hidden!important}
  .cy-hr-phase2a,.cy-hr-phase2a *{visibility:visible!important}
  .cy-hr-phase2a{position:absolute!important;left:0!important;top:0!important;width:100%!important;overflow:visible!important}

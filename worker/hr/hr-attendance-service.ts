@@ -31,7 +31,7 @@ export class HrAttendanceService {
    const schedule:AttendanceSchedule|null=r?{kind:r.kind,offMark:r.off_mark==="x"?"x":"slash",restLabel:r.rest_label as "regular"|"rest"|null,
      marker:r.marker as "home"|"booth"|null,leaveCode:r.leave_type_id?leave.get(r.leave_type_id):null}:null;
    const shiftData:AttendanceShift|null=shift?{startTime:String(shift.start_time),endTime:String(shift.end_time),breakStart:shift.break_start?String(shift.break_start):null,breakEnd:shift.break_end?String(shift.break_end):null,normalMinutes:Number(shift.normal_minutes)}:null;
-   return {date:d,schedule:r??null,punches:p??null,...evaluateAttendance(schedule,shiftData,p??{},
+   return {date:d,schedule:r?{...r,code:shift?String(shift.code):r.leave_type_id?leave.get(r.leave_type_id)??null:null}:null,punches:p??null,...evaluateAttendance(schedule,shiftData,p??{},
      {noRosterPartTime:staff.employment_type==="casual"&&staff.schedule_mode==="none"})};
   });
   const totals={workedMinutes:days.reduce((n,x)=>n+x.workedMinutes,0),lateCount:days.filter(x=>x.lateMinutes>0).length,
