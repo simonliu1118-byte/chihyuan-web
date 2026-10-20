@@ -100,7 +100,7 @@ export function ChangeLogList({role,customerId}:{
   for(const event of events){const date=formatDate(event.occurredAt);groups.set(date,[...(groups.get(date)??[]),event]);}
   const today=formatDate(new Date());
   return <div className="cy-change-log">
-    {!customerId ? <form className="cy-op-panel cy-change-log-filters" onSubmit={search} aria-label="異動紀錄查詢">
+    {!customerId ? <form role="search" className="cy-op-panel cy-change-log-filters" onSubmit={search} aria-label="異動紀錄查詢">
       <label>模組<select className="cy-op-input" value={filters.entityTypes} onChange={e=>setFilters(v=>({...v,entityTypes:e.target.value}))}>{moduleOptions.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select></label>
       <fieldset><legend>期間</legend><div className="cy-segmented" role="group" aria-label="期間">{([
         ["today","今天"],["7","近 7 天"],["30","近 30 天"],["custom","自訂起訖"],

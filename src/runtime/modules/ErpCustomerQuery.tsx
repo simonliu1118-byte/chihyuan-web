@@ -71,7 +71,7 @@ export function ErpCustomerQuery({ job }: { job: ErpJob }) {
   const customerCode = mine?.queryType === "CUSTOMER_NO" ? mine.code : null;
   return <>
     <div className="cy-op-panel cy-erp-query-box">
-      <form className="cy-erp-form" onSubmit={event => void submit(event)} noValidate>
+      <form role="search" className="cy-erp-form" onSubmit={event => void submit(event)} noValidate>
         <div className="cy-segmented" role="group" aria-label="查詢方式">
           {MODES.map(m => <button key={m.key} type="button" aria-pressed={mode === m.key} disabled={busy}
             onClick={() => { setMode(m.key); setError(null); }}>{m.label}</button>)}

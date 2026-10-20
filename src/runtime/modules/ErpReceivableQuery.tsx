@@ -48,7 +48,7 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
   const totalUnpaid = groups.reduce((acc, g) => acc + g.unpaid, 0);
   return <>
     <div className="cy-op-panel cy-erp-query-box">
-      <form className="cy-erp-form" onSubmit={event => void submit(event)} noValidate>
+      <form role="search" className="cy-erp-form" onSubmit={event => void submit(event)} noValidate>
         <div className="cy-segmented" role="group" aria-label="查詢範圍">
           {SCOPES.map(s => <button key={s.key} type="button" aria-pressed={scope === s.key} disabled={busy}
             onClick={() => { setScope(s.key); setError(null); }}>{s.label}</button>)}
