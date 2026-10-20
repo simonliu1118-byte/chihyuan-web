@@ -40,10 +40,10 @@ export function overtimeWarnings(days:readonly OvertimeDay[]):string[]{
 }
 export function compBalances(credits:readonly CompCredit[],uses:readonly CompUse[],settlements:readonly CompSettlement[],asOf:string):CompBalances{
  let holidayAdvance=0,overtimeDeficit=0;
- const rows=credits.map(c=>({...c,remainingMinutes:c.minutes,expired:c.expiresOn<asOf,expiringSoon:c.expiresOn>=asOf&&c.expiresOn<=new Date(day(asOf)+7*86400000).toISOString().slice(0,10)}));
+ const rows=credits.filter(c=>c.issuedOn<=asOf).map(c=>({...c,remainingMinutes:c.minutes,expired:c.expiresOn<asOf,expiringSoon:c.expiresOn>=asOf&&c.expiresOn<=new Date(day(asOf)+7*86400000).toISOString().slice(0,10)}));
  const settled=new Map<number,number>();for(const s of settlements)settled.set(s.creditId,(settled.get(s.creditId)??0)+s.minutes);
  for(const row of rows)row.remainingMinutes=Math.max(0,row.remainingMinutes-(settled.get(row.id)??0));
- for(const u of [...uses].sort((a,b)=>a.workDate.localeCompare(b.workDate))){
+ for(const u of uses.filter(x=>x.workDate<=asOf).sort((a,b)=>a.workDate.localeCompare(b.workDate))){
   let need=u.minutes;
   const group=rows.filter(x=>u.kind==="holiday"?x.kind==="holiday":x.kind==="overtime"||x.kind==="grant")
    .filter(x=>x.issuedOn<=u.workDate && x.expiresOn>=u.workDate)
