@@ -26,16 +26,20 @@ export class HrLeaveService{
  }
  async types():Promise<TypeRow[]> {return (await this.db.prepare("SELECT * FROM hr_leave_types ORDER BY sort_order,id LIMIT 100").all<TypeRow>()).results??[];}
  private async records(id:number,from:string,to:string):Promise<RecordRow[]>{
-  return (await this.db.prepare("SELECT * FROM hr_leave_records WHERE employee_id=? AND work_date BETWEEN ? AND ? ORDER BY work_date,id LIMIT 1500").bind(id,from,to).all<RecordRow>()).results??[];
+  const records=(await this.db.prepare("SELECT * FROM hr_leave_records WHERE employee_id=? AND work_date BETWEEN ? AND ? ORDER BY work_date,id LIMIT 1501").bind(id,from,to).all<RecordRow>()).results??[];
+  if(records.length>1500)throw new HrValidationError("limit","假單歷史資料超過單次安全上限，請縮小期間");
+  return records;
  }
  private async comp(id:number,at:string) {
   const [o,g,settle,used,types]=await Promise.all([
-   this.db.prepare("SELECT id,minutes,settlement,work_date,comp_expires_on FROM hr_overtime_days WHERE employee_id=? AND work_date<=? LIMIT 500").bind(id,at).all<{id:number;minutes:number;settlement:string;work_date:string;comp_expires_on:string}>(),
-   this.db.prepare("SELECT id,minutes,kind,created_at,expires_on FROM hr_comp_time_grants WHERE employee_id=? LIMIT 500").bind(id).all<{id:number;minutes:number;kind:string;created_at:string;expires_on:string}>(),
-   this.db.prepare("SELECT overtime_day_id,minutes FROM hr_comp_time_settlements WHERE employee_id=? LIMIT 500").bind(id).all<{overtime_day_id:number;minutes:number}>(),
-   this.db.prepare("SELECT r.minutes,r.work_date,t.comp_kind FROM hr_leave_records r JOIN hr_leave_types t ON t.id=r.leave_type_id WHERE r.employee_id=? AND t.comp_kind IS NOT NULL AND r.cancelled_at IS NULL AND r.work_date<=? LIMIT 1500").bind(id,at).all<{minutes:number;work_date:string;comp_kind:string}>(),
+   this.db.prepare("SELECT id,minutes,settlement,work_date,comp_expires_on FROM hr_overtime_days WHERE employee_id=? AND work_date<=? LIMIT 501").bind(id,at).all<{id:number;minutes:number;settlement:string;work_date:string;comp_expires_on:string}>(),
+   this.db.prepare("SELECT id,minutes,kind,created_at,expires_on FROM hr_comp_time_grants WHERE employee_id=? LIMIT 501").bind(id).all<{id:number;minutes:number;kind:string;created_at:string;expires_on:string}>(),
+   this.db.prepare("SELECT overtime_day_id,minutes FROM hr_comp_time_settlements WHERE employee_id=? LIMIT 501").bind(id).all<{overtime_day_id:number;minutes:number}>(),
+   this.db.prepare("SELECT r.minutes,r.work_date,t.comp_kind FROM hr_leave_records r JOIN hr_leave_types t ON t.id=r.leave_type_id WHERE r.employee_id=? AND t.comp_kind IS NOT NULL AND r.cancelled_at IS NULL AND r.work_date<=? LIMIT 1501").bind(id,at).all<{minutes:number;work_date:string;comp_kind:string}>(),
    this.types()
   ]);
+  if([o,g,settle].some(x=>(x.results??[]).length>500)||(used.results??[]).length>1500)
+   throw new HrValidationError("limit","補休歷史資料超過單次安全上限");
   const credits:CompCredit[]=[
    ...(o.results??[]).filter(x=>x.settlement==="comp").map(x=>({id:x.id,kind:"overtime" as const,minutes:x.minutes,issuedOn:x.work_date,expiresOn:x.comp_expires_on??x.work_date})),
    ...(g.results??[]).map(x=>({id:x.id+100000000,kind:x.kind as "grant"|"holiday",minutes:x.minutes,issuedOn:x.created_at.slice(0,10),expiresOn:x.expires_on}))
