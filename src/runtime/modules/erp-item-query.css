@@ -85,3 +85,19 @@
 .cy-erp-order-dialog{margin-top:0}
 .cy-erp-dialog-dates{margin-bottom:.75rem}
 .cy-erp-dialog-dates button{grid-column:1/-1;justify-self:start}
+/* 進貨輔助: 品號 rows × days (銷／退), the 品號 column stays in view while scrolling sideways. */
+.cy-restock-scroller{border:1px solid var(--cy-border);border-radius:var(--cy-radius-md);max-height:70vh;overflow:auto}
+.cy-restock-table{border-collapse:separate;border-spacing:0;font-size:var(--cy-fs-sm);font-variant-numeric:tabular-nums}
+.cy-restock-table th,.cy-restock-table td{border-bottom:1px solid var(--cy-border);padding:.35rem .5rem;text-align:right;white-space:nowrap;background:var(--cy-surface)}
+.cy-restock-table thead th{position:sticky;top:0;z-index:2;background:var(--cy-surface-muted);color:var(--cy-text-muted);font-weight:650;text-align:center}
+.cy-restock-table thead tr:nth-child(2) th{top:1.9rem}
+.cy-restock-table .cy-restock-item{position:sticky;left:0;z-index:1;text-align:left;min-width:180px;max-width:260px;white-space:normal;border-right:1px solid var(--cy-border)}
+.cy-restock-table thead .cy-restock-item{z-index:3}
+.cy-restock-table tbody .cy-restock-item{display:table-cell;font-weight:400}
+.cy-restock-table tbody .cy-restock-item strong{display:block}
+.cy-restock-table tbody .cy-restock-item span{display:block;color:var(--cy-text-muted);overflow-wrap:anywhere}
+.cy-restock-table .cy-restock-day{border-left:1px solid var(--cy-border)}
+.cy-restock-table .cy-restock-sub{font-weight:600}
+.cy-restock-table .cy-restock-returned{color:var(--cy-danger)}
+.cy-restock-table .cy-restock-strong{font-weight:700}
+.cy-restock-table tbody tr:hover td,.cy-restock-table tbody tr:hover th{background:var(--cy-surface-muted)}

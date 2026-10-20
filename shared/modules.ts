@@ -10,6 +10,8 @@ export const CYWEB_MODULES = [
   { code: "ERP_CUSTOMER_QUERY", route: "erp-item-query", label: "ERP 客戶查詢" },
   { code: "ERP_RECEIVABLE_QUERY", route: "erp-item-query", label: "ERP 未收款查詢" },
   { code: "ERP_SUPPLIER_QUERY", route: "erp-item-query", label: "ERP 供應商查詢" },
+  // 進貨輔助 (user 2026-10-20): a page of its own, every customer's 銷貨／銷退 per 品號 with 庫存.
+  { code: "ERP_RESTOCK_ASSIST", route: "restock-assist", label: "進貨輔助" },
   // A permission inside ERP 商品查詢 (標準進價), not a page of its own.
   { code: "ERP_ITEM_COST", route: null, label: "ERP 商品成本" },
 ] as const;
