@@ -3,6 +3,7 @@ import {leaveDates,leaveMinutes,checkLeaveQuota,type LeaveTypeRule,type LeaveEnt
 import {compBalances,type CompCredit,type CompUse,type CompSettlement} from "../../shared/hr-overtime";
 import {classifyRoster,type RosterDay} from "../../shared/hr-roster";
 import {AuditService} from "../audit/audit-service";
+import {HrRosterService} from "./hr-roster-service";
 import {HrValidationError,date,integer,object,required} from "./hr-validation";
 import type {HrContext} from "./hr-service";
 
@@ -140,7 +141,12 @@ export class HrLeaveService{
    const comp=await this.comp(employeeId,end);
    if(comp.balances.overtimeMinutes<minutes.reduce((a,b)=>a+b,0))throw new HrLeaveError("HR_COMP_INSUFFICIENT",[{available:comp.balances.overtimeMinutes,required:minutes.reduce((a,b)=>a+b,0)}]);
   }
-  const batchId=crypto.randomUUID(),statements:D1PreparedStatement[]=[];
+  // Validate the final schedule before any write; insert required approvals,
+  // formal records and schedule changes atomically in the same D1 batch.
+  const rosterStatements=wholeDay?await new HrRosterService(this.db).planFormalLeave(
+   employee.store_id,employeeId,list,typeId,ctx,v.approve
+  ):[];
+  const batchId=crypto.randomUUID(),statements:D1PreparedStatement[]=[...rosterStatements];
   for(let i=0;i<list.length;i++){
    const d=list[i];
    statements.push(this.db.prepare("INSERT INTO hr_leave_records(batch_id,employee_id,leave_type_id,work_date,start_time,end_time,minutes,whole_day,reason,event_date,event_quota_days,created_at,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)")
