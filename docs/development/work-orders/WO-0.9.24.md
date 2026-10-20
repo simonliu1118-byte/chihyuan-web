@@ -272,10 +272,38 @@
 
 ## 8. 完成報告（執行者填）
 
-- PR：
-- 變更檔案：
-- 驗證結果（§6 逐項）：
-- 讀寫列數估計：
-- 已知限制：
+- **PR：** [#245](https://github.com/simonliu1118-byte/chihyuan-web/pull/245)，分支 `cyweb/hr-phase2a`（基於當時最新 `main` `e8b7061`）。實作未合併、未手動部署，未新增或修改 `.github/workflows/*`；PR 原先為 Draft，待審查者驗證實際畫面。
+- **變更檔案：** 31 個，詳見 PR Files changed：
+  - Migration `migrations/0018_hr_phase2a.sql`；員工欄位與出勤、排班、設定等九張表。
+  - `shared/hr-roster.ts`、`shared/hr-attendance.ts`；`scripts/hr-roster.test.mjs`、`scripts/hr-attendance.test.mjs`。
+  - `worker/hr/hr-service.ts`、`hr-settings-service.ts`、`hr-roster-service.ts`、`hr-attendance-service.ts`；`worker/http/hr-routes.ts`、`hr-phase2a-routes.ts`。
+  - `src/runtime/modules/HrOperationalPage.tsx`、`HrRosterPanel.tsx`、`HrAttendancePanel.tsx`、`HrPhase2aSettings.tsx`、`HrSettingsButton.tsx`、`hr-phase2a.css`、`change-log-labels.ts`。
+  - `worker/backup/schema-columns.ts`、`worker/backup/portable-backup.ts`、`worker/acceptance/d1-local-acceptance.ts`、`hr-phase2a-acceptance.ts`、`portable-recovery-acceptance.ts`、`isolated-recovery-acceptance.ts`、`scripts/validate_schema.py`。
+  - `docs/architecture/HR_MODULE_CONTRACT.md`、`API_CONTRACT.md`、`CANONICAL_DATA_MODEL.md`；`TODO.md`、`VERSION`、`package.json`、本工作單。
+- **驗證結果（§6 逐項）：**
+  1. **權限／稽核：部分驗證。** 新路由沿用 `handleHrRoute` 原有 CYID `SUPER_ADMIN` 與啟用成員閘門，D1 acceptance 含非超管 403 及相關稽核檢查；未獨立跑實際 CYID 帳號 E2E。
+  2. **預設資料／班別／週一：通過自動驗收。** D1 acceptance 驗證預設門市、職稱、班別與假別；純函式驗證班別正常工時及起算週一。
+  3. **10 月跨月雙週：程式與驗收已涵蓋。** 起算 `2026-09-28`，10 月查詢向外補齊至 `2026-11-08`；實際畫面雙線位置仍需審查者確認。
+  4. **例休／雙週／工時／連六連七：部分通過。** 新純函式與 D1 acceptance 包含跨月、連六、連七、工時及空白格，具備獨立單元測試檔；`node --test scripts/*.test.mjs` 並未在所查 CI 流程完整執行，故不能宣稱 §5.3 全套通過。
+  5. **409 阻擋／核准／不自動改排班：通過核心 D1 驗收。** `HR_ROSTER_VIOLATION`、`HR_ROSTER_CONSECUTIVE`、核准留存及重複存檔驗收成功；過去日期回報及跨多週標記仍請審查者確認。
+  6. **出勤工時／遲到／早退／異常：通過核心 D1 驗收。** 已驗證打卡建立、遲到及 revision 衝突；完整 `scripts/hr-attendance.test.mjs` 未在本次 CI 以指定指令單獨執行。
+  7. **／、X、請假、居家、擺攤：純函式與畫面已實作，未做完整瀏覽器 E2E。** 國定假日只顯示；不會自動排假或建立換休。
+  8. **列印：有 `@media print` A4 橫式版型，尚無實際列印 PDF 對照。** 截圖依 §7 交審查者。
+  9. **手機：設計為左右可捲動表格，尚未取得 390px 實機畫面驗證。**
+  10. **稽核中文：新增 `hr_roster.updated`、`hr_attendance.updated` 的中文標籤；仍請審查者檢查事件在實際異動紀錄畫面呈現。**
+  11. **讀寫列數估計：** 見下段。
+  12. **自動化：最新 commit `229e1450d082` 的 GitHub Actions `Runtime Check` #39402606998 成功：browser TypeScript、Worker TypeScript、source contracts、Local D1 runtime acceptance、Vite build。** `Governance Check` #39402606983 成功。`CY Web Deploy` #39402607007 的 `validate-deployment-contract` 成功，**`deploy-development` skipped**，非實際部署。CI 並非逐字執行工單全部五個指定命令；`npm run typecheck`、`timeout 300 npm run validate:source`、`node --test scripts/*.test.mjs` 的完整指令未獨立執行，不能宣稱全數通過。
+  13. **變更範圍：已比對 PR 差異，無 `.github/workflows/*`。** 只改本單人事功能、既有 D1 備份／還原驗收的必要相容路徑與合約、版本、TODO。
+  14. **版本／文件：已更新。** `VERSION` 及 `package.json` 均為 `0.9.24`；`TODO.md` 已連至本單；三份合約文件及 `worker/backup/schema-columns.ts` 已同步。
+- **讀寫列數估計（§11.3）：**
+  - 單門市至多 100 名員工，單月最多 31 日，**最多 3,100 個當月排班格**。讀取依雙週補齊前後區間；2026 年 10 月為 9/28～11/8，42 日，排班最多約 100 × 42 = **4,200 列**（另讀員工 ≤100、班別 ≤100、假別 ≤100、國定假日 ≤100、核准 ≤1,000 及備註 1 列）；資料查詢有索引與 10,000 列排班安全上限。
+  - 排班 PUT 一次最多提交 **3,100 個異動格**，只對實際變動格 INSERT／UPSERT／DELETE；若例休標籤被前週改動，額外更新受影響的既存非異動 `rest_label`；核准、備註、整批一筆 Audit 都在 `db.batch`。
+  - 單人單月出勤 GET 約 **31 打卡＋31 排班**，另有班別／假別設定讀取；PUT 逐日查當前 revision（最多 31 次），只更新變動的 ≤31 日並同批寫一筆 Audit。門市整月異常按門市與月一次批次讀 3,100 打卡 + 3,100 排班上限、≤100 員工、班別與假別各 ≤100，避免每位員工 N+1。
+- **已知限制與審查注意：**
+  - 尚未完成實際瀏覽器桌面／手機／列印 PDF 視覺驗收；§7 截圖由審查者擷取。
+  - 兩個新 `.test.mjs` 已納入 PR，但完整 `node --test scripts/*.test.mjs` 仍須執行，請審查者驗證具體測試覆蓋（含多週例假重算、核准區段變更）。
+  - migration 增加初始設定資料，故一併調整 portable backup 的全新 D1 還原安全檢查及失敗前後驗收：**僅允許未修改的 migration 預設種子作為新目標**；有使用者資料不可覆寫。GitHub D1 驗收已通過。
+  - 未作 2b 的請假附檔、假額扣抵、加班與換休帳戶、薪資與計薪功能。
+  - 此 PR 尚未合併或部署；審查與後續部署交由 §9 審查者決定。
 
 ## 9. 審查紀錄（審查者填）
