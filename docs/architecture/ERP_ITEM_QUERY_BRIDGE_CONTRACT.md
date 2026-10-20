@@ -160,3 +160,12 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
   - AUTO：PURR18 依廠商與日期；PURR22 沒有廠商條件，同日期整份轉出後在 AUTO 只留該廠商（小計以全部退貨單核對）。退貨↔原進貨單的連結在 CY Web（`arrangePurchases`，與銷貨銷退共用）。
 - Agent claim 的 `queryTypes` 含未知類型會回 400：AUTO V0.9.0 會送出 SUPPLIER／PURCHASES 類型，必須在 CY Web 0.8.4 部署後才能連線。
 
+## 進貨輔助（V0.9.24 Build 3）
+
+- 新 Module Access `ERP_RESTOCK_ASSIST`「進貨輔助」，獨立頁面 `#restock-assist`（左邊導覽在「ERP 查詢」下方）。`migrations/0019_erp_restock_assist.sql` 擴充 module_code 與 query_type CHECK。
+- 查詢類型 `RESTOCK`：`POST /api/erp/item-queries` `{ queryType:"RESTOCK", dateFrom, dateTo }`，兩者必填（YYYY-MM-DD），起 ≤ 迄 ≤ 台北今天，最多 31 天（含頭尾）；存在 `history_from／history_to`。
+- Claim：`{ id, queryType:"RESTOCK", dateFrom, dateTo, expiresAt }`。Agent 查這段期間**所有客戶**的 COPR15 銷貨單與 COPR16 銷退單，依品號與單據日期加總數量，再逐一以 INVI02 查各品號的庫存數量。
+- Complete（outcome FOUND／NOT_FOUND，共通欄位同其他類型）：`dateFrom`、`dateTo` 必須與工作相同；`items` 最多 500 個品號，每個 `{ itemCode, itemName, unit, days:[{date,sold,returned}], sold, returned, stock, stockNote }`。`days` 只列有異動的日期且必須在範圍內、不重複；數量為數字字串；`stock` 為數字字串或 null（`stockNote` 說明原因，例如查無品號）。品號不可空白或重複；其他欄位一律不保存。結果存在 `result_json`（`{ restock, total, truncated }`），讀取時以 `restock` 回傳。NOT_FOUND 表示期間沒有銷貨／銷退單，不得附帶品號。
+- RUNNING 逾時：RESTOCK 1800 秒（兩份報表再加逐一查庫存）。PURCHASES 與 SALES、RECEIVABLE、ORDER 同為 600 秒（原本漏列，曾以一般查詢的 180 秒計算）。
+- Agent 狀態 `GET /api/erp/agent-status` 也開放給只有 `ERP_RESTOCK_ASSIST` 的成員。
+
