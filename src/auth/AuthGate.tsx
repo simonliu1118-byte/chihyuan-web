@@ -1,6 +1,6 @@
 import { FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
 import { useFeedback } from "../ui/feedback/FeedbackProvider";
-import { advanceFocusOnEnter } from "../ui/foundation/enter-advance";
+import { advanceFocusOnEnter, enterAdvancesThenSubmits } from "../ui/foundation/enter-advance";
 import { getRememberedEmployee, saveRememberedEmployee } from "./remember-employee";
 import { ThemeToggle } from "../ui/foundation/ThemeToggle";
 import { ApiClientError } from "../api/client";
@@ -327,7 +327,7 @@ export function AuthGate({ children }: AuthGateProps) {
       </div>
       {state.message ? <p className="cy-auth-error" role="alert">{state.message}</p> : null}
       <button className="cy-auth-primary-button" type="submit" disabled={submitting} aria-busy={submitting || undefined}>登入</button>
-    </form> : mode === "first_login" ? <form className="cy-auth-form" onSubmit={submitFirstLogin} noValidate>
+    </form> : mode === "first_login" ? <form className="cy-auth-form" onSubmit={submitFirstLogin} onKeyDown={enterAdvancesThenSubmits} noValidate>
       <div className="cy-auth-flow-title">
         <h2>完成 Email 驗證</h2>
         <p>{firstLogin?.displayName ? `${firstLogin.displayName} · ${firstLogin.employeeNo ?? employeeNo}` : employeeNo ? `員工編號 ${employeeNo}` : "請設定您的正式登入密碼。"}</p>
@@ -337,12 +337,12 @@ export function AuthGate({ children }: AuthGateProps) {
       <label><span>確認正式密碼</span><input type="password" autoComplete="new-password" maxLength={16} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={submitting} required /></label>
       {flowMessage ? <p className="cy-auth-error" role="status">{flowMessage}</p> : null}
       <button className="cy-auth-primary-button" disabled={submitting} aria-busy={submitting || undefined}>設定正式密碼</button>
-    </form> : !challengeId ? <form className="cy-auth-form" onSubmit={startRecovery}>
+    </form> : !challengeId ? <form className="cy-auth-form" onSubmit={startRecovery} onKeyDown={enterAdvancesThenSubmits}>
       <label><span>員工編號</span><input inputMode="numeric" maxLength={4} value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value.replace(/\D/g, "").slice(0, 4))} required /></label>
       {flowMessage ? <p className="cy-auth-error" role="status">{flowMessage}</p> : null}
       <button className="cy-auth-primary-button" disabled={submitting} aria-busy={submitting || undefined}>取得驗證碼</button>
       <button className="cy-auth-link-button" type="button" onClick={() => resetFlow("login")}>返回登入</button>
-    </form> : <form className="cy-auth-form" onSubmit={confirmRecovery} noValidate>
+    </form> : <form className="cy-auth-form" onSubmit={confirmRecovery} onKeyDown={enterAdvancesThenSubmits} noValidate>
       <div className="cy-auth-flow-title"><h2>重設密碼</h2><p>員工編號 {employeeNo}</p></div>
       <label><span>6 位數驗證碼</span><input inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} required /></label>
       <label><span>新密碼</span><input type="password" autoComplete="new-password" maxLength={16} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required /></label>

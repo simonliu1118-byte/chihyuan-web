@@ -54,6 +54,14 @@
 - 可建立適合企業 Web App 的獨立 Web Design System，包括 color tokens、spacing、typography、form、table/list、dialog/sheet、navigation、responsive pattern、interaction states 與 accessibility。
 - Desktop 與 Mobile 應屬同一產品視覺語言；Mobile 專用元件變體與 layout 不視為第二套網站。
 - AITeam `shared/cy-visual/` 是 family-wide visual canonical source；未來若建立正式 Web canonical package，本專案依治理鏈採用並保留必要 project-specific 例外。
+- **表單鍵盤操作是每個功能的必要條件**（使用者 2026-10-20）：
+  - 所有資料輸入表單，按 Enter 要跳到下一個欄位，不可直接存檔：
+    - 紀錄表單用 `enterAdvancesFields`，最後停在儲存按鈕；
+    - 簡短視窗（原因、密碼、驗證碼）用 `enterAdvancesThenSubmits`；
+    - Ctrl／⌘＋Enter 直接儲存。
+  - 只有查詢表單（標示 `role="search"`）可以按 Enter 直接查詢。
+  - 日期欄位一律限制為四碼年份。
+  - 這兩項由 `scripts/form-keyboard.test.mjs` 自動檢查（`npm run validate:source`）。新功能未通過時，不得以加入例外清單代替實作。
 
 ## 6. 共用模板與一致性
 

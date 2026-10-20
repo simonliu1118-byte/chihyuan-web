@@ -107,7 +107,7 @@ function ErpItemQuery({ job }: { job: ErpJob }) {
   const mine = result && (result.queryType === "ITEM_NO" || result.queryType === "ITEM_NAME") ? result : null;
   return <>
     <div className="cy-op-panel cy-erp-query-box">
-      <form className="cy-erp-form" onSubmit={event => void submit(event)} noValidate>
+      <form role="search" className="cy-erp-form" onSubmit={event => void submit(event)} noValidate>
         <div className="cy-segmented" role="group" aria-label="查詢方式">
           {(["ITEM_NO", "ITEM_NAME"] as const).map(type =>
             <button key={type} type="button" aria-pressed={queryType === type} disabled={busy}  onClick={() => { setQueryType(type); setError(null); }}>

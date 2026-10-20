@@ -1,5 +1,10 @@
 # CY Web Governance Changelog
 
+## 1.1.21 — 2026/10/20
+
+- `PROJECT_RULES.md` §5 新增表單鍵盤規則：所有資料輸入表單按 Enter 跳到下一欄，查詢表單（`role="search"`）按 Enter 查詢；日期欄位限制四碼年份。由新增的 `scripts/form-keyboard.test.mjs` 納入 `validate:source` 自動檢查。使用者要求寫成必要功能，避免新功能漏做。
+- 人事頁（WO-0.9.24 進行中）暫列例外，於該單審查時補齊並移除例外。工作單範本加入固定驗收項目。
+
 ## 1.1.20 — 2026/10/18
 
 - 使用者決定採工作單交接：Claude 與使用者討論定案後撰寫 `docs/development/work-orders/WO-<版本>.md`，使用者轉交 GPT 依工作單實作並填完成報告，Claude 對照工作單審查後才合併部署（`PROJECT_RULES.md` §9）。

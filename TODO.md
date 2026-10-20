@@ -1,3 +1,8 @@
+## CY Web V0.9.23 Build 2 — 表單鍵盤規則與自動檢查（Claude 直接處理）
+
+- [x] PROJECT_RULES §5：Enter 跳下一欄、日期四碼年份列為必要功能；`scripts/form-keyboard.test.mjs` 納入 validate:source。
+- [x] 登入流程的首次設定密碼、忘記密碼補上 Enter 跳欄；查詢表單標示 role="search"。
+
 ## CY Web V0.9.23 Build 1 — 日期年份與 Enter 跳欄（Claude 直接處理）
 
 - [x] 全系統日期欄位加上年份上限（四碼），避免手動輸入時年份變成六碼。

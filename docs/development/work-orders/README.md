@@ -27,6 +27,7 @@
 
 ## 6. 驗收清單
 - [ ] 每一項都可具體檢查（畫面位置、行為、權限、資料）。
+- [ ] 固定項目：新表單按 Enter 跳下一欄、日期欄位四碼年份（`PROJECT_RULES.md` §5，`form-keyboard.test.mjs` 會檢查）。
 - [ ] `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local` 通過。
 - [ ] `node --test scripts/*.test.mjs` 通過（`audit-account-portal` 需 `.tmp/canonical-cyapps` 的 CYapps checkout）。
 - [ ] VERSION／package.json 版本、TODO 段落已更新。
