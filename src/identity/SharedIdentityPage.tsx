@@ -28,7 +28,6 @@ import {
 } from "../access/module-access-client";
 import type { AuthSession } from "../auth/auth-client";
 import type { StatusTone } from "../runtime/modules/status-flow";
-import { CyInvoiceRecoveryAdminPanel } from "./CyInvoiceRecoveryAdminPanel";
 import {
   changeOwnPassword,
   confirmHighestAuthorityTransfer,
@@ -999,34 +998,52 @@ function ApplicationRegistryPanel({ snapshot, refresh }: { snapshot: IdentityAdm
 
 function SecurityPanel() {
   const [view, setView] = useState<SecurityPolicyView | null>(null);
+  const [draft, setDraft] = useState<SecurityPolicyView["policy"] | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
+  const [dialogError, , setDialogError] = useFeedbackMessage<string | null>(null);
+  const formId = useId();
   useEffect(() => { void loadSecurityPolicy().then(setView).catch((e) => reportError(messageOf(e))); }, []);
 
+  function close() { if (!busy) { setDraft(null); setDialogError(null); } }
   async function save(event: FormEvent) {
-    event.preventDefault(); if (!view) return; setBusy(true); setMessage(null);
+    event.preventDefault(); if (!view || !draft) return; setBusy(true); setMessage(null); setDialogError(null);
     try {
       const updated = await updateSecurityPolicy({
-        otpResendCooldownSeconds: view.policy.otpResendCooldownSeconds,
-        otpMaxAttempts: view.policy.otpMaxAttempts,
-        otpMaxSentPerEmailPurposeHour: view.policy.otpMaxSentPerEmailPurposeHour,
-        emailDailyLimit: view.policy.emailDailyLimit,
+        otpResendCooldownSeconds: draft.otpResendCooldownSeconds,
+        otpMaxAttempts: draft.otpMaxAttempts,
+        otpMaxSentPerEmailPurposeHour: draft.otpMaxSentPerEmailPurposeHour,
+        emailDailyLimit: draft.emailDailyLimit,
       });
-      setView({ ...view, policy: updated.policy }); setMessage("驗證碼與 Email 安全設定已更新。");
-    } catch (error) { reportError(messageOf(error)); }
+      setView({ ...view, policy: updated.policy }); setDraft(null); setMessage("驗證碼與 Email 安全設定已更新。");
+    } catch (error) { setDialogError(messageOf(error)); }
     finally { setBusy(false); }
   }
 
+  const policy = view?.policy;
+  const field = (key: keyof SecurityPolicyView["policy"]) => (event: { target: { value: string } }) =>
+    draft && setDraft({ ...draft, [key]: Number(event.target.value) });
   return <section className="cy-op-panel">
-    <h3>驗證碼與 Email 安全設定</h3><p className="cy-identity-intro">限制驗證碼重寄與 Email 寄送次數，避免被濫用。每日 Email 不能超過系統上限。</p>
+    <div className="cy-op-panel-header"><h3>驗證碼與 Email 安全設定</h3>
+      <button type="button" className="cy-op-button" disabled={!view} onClick={() => view && setDraft({ ...view.policy })}>變更</button></div>
     <FeedbackBanner message={message} tone={messageTone} />
-    {view ? <form onKeyDown={enterAdvancesFields} className="cy-identity-policy-grid" onSubmit={save}>
-      <label>驗證碼重寄間隔（秒）<input className="cy-op-input" type="number" min={30} max={600} value={view.policy.otpResendCooldownSeconds} onChange={(e) => setView({ ...view, policy: { ...view.policy, otpResendCooldownSeconds: Number(e.target.value) } })} /></label>
-      <label>驗證碼最多嘗試次數<input className="cy-op-input" type="number" min={3} max={10} value={view.policy.otpMaxAttempts} onChange={(e) => setView({ ...view, policy: { ...view.policy, otpMaxAttempts: Number(e.target.value) } })} /></label>
-      <label>同一 Email、同一用途每小時最多<input className="cy-op-input" type="number" min={1} max={20} value={view.policy.otpMaxSentPerEmailPurposeHour} onChange={(e) => setView({ ...view, policy: { ...view.policy, otpMaxSentPerEmailPurposeHour: Number(e.target.value) } })} /></label>
-      <label>每日 Email 上限<input className="cy-op-input" type="number" min={1} max={view.systemEmailDailyCeiling} value={view.policy.emailDailyLimit} onChange={(e) => setView({ ...view, policy: { ...view.policy, emailDailyLimit: Number(e.target.value) } })} /><small>系統上限：{view.systemEmailDailyCeiling}</small></label>
-      <div className="cy-op-form-footer wide"><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>儲存安全設定</button></div>
-    </form> : <Loading />}
+    {policy && view ? <dl className="cy-identity-policy-summary">
+      <dt>驗證碼重寄間隔</dt><dd>{policy.otpResendCooldownSeconds} 秒</dd>
+      <dt>驗證碼最多嘗試</dt><dd>{policy.otpMaxAttempts} 次</dd>
+      <dt>同一 Email 同用途</dt><dd>每小時 {policy.otpMaxSentPerEmailPurposeHour} 封</dd>
+      <dt>每日 Email 上限</dt><dd>{policy.emailDailyLimit} 封（系統上限 {view.systemEmailDailyCeiling}）</dd>
+    </dl> : <Loading />}
+    {draft && view ? <Dialog open title="變更驗證碼與 Email 安全設定" size="small" dismissible={!busy} onClose={close}
+      description="限制驗證碼重寄與 Email 寄送次數，避免被濫用。"
+      footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={close}>取消</button><button type="submit" form={formId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>儲存</button></div>}>
+      <form onKeyDown={enterAdvancesFields} id={formId} className="cy-identity-policy-grid" onSubmit={(event) => void save(event)}>
+        <label>驗證碼重寄間隔（秒）<input className="cy-op-input" type="number" min={30} max={600} value={draft.otpResendCooldownSeconds} onChange={field("otpResendCooldownSeconds")} /></label>
+        <label>驗證碼最多嘗試次數<input className="cy-op-input" type="number" min={3} max={10} value={draft.otpMaxAttempts} onChange={field("otpMaxAttempts")} /></label>
+        <label>同一 Email、同一用途每小時最多<input className="cy-op-input" type="number" min={1} max={20} value={draft.otpMaxSentPerEmailPurposeHour} onChange={field("otpMaxSentPerEmailPurposeHour")} /></label>
+        <label>每日 Email 上限<input className="cy-op-input" type="number" min={1} max={view.systemEmailDailyCeiling} value={draft.emailDailyLimit} onChange={field("emailDailyLimit")} /><small>系統上限：{view.systemEmailDailyCeiling}</small></label>
+        {dialogError ? <p className="wide cy-notice cy-notice-danger" role="alert">{dialogError}</p> : null}
+      </form>
+    </Dialog> : null}
   </section>;
 }
 
@@ -1071,11 +1088,12 @@ export function SharedIdentityPage({ session, usage, showUsage = false }: { sess
       ? <section className="cy-op-panel"><p className="cy-notice cy-notice-danger" role="alert">{error}</p><button type="button" className="cy-op-button" disabled={loading} aria-busy={loading || undefined} onClick={() => void refresh()}>重新讀取</button></section>
       : <Loading />)
       : tab === "users" ? <UserWorkspace snapshot={snapshot} session={session} refresh={refresh} />
-      : <div className="cy-identity-admin-stack">
-        <ApplicationRegistryPanel snapshot={snapshot} refresh={refresh} />
-        <SecurityPanel />
+      : <div className="cy-identity-admin-stack cy-system-security">
+        <div className="cy-system-security-pair">
+          <ApplicationRegistryPanel snapshot={snapshot} refresh={refresh} />
+          <SecurityPanel />
+        </div>
         {isSuperAdmin && usage ? <CloudflareUsagePanel {...usage} /> : null}
-        <CyInvoiceRecoveryAdminPanel key={JSON.stringify([session.user.workspaceId, session.user.employeeId, session.user.workspaceRole, session.user.emailVerified, session.user.isWorkspaceSuperAdmin])} session={session} />
       </div>}
   </div>;
 }

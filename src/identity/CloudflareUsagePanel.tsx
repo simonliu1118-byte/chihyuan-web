@@ -27,6 +27,8 @@ export function CloudflareUsagePanel({report,error,loading,onRefresh}:Cloudflare
    setRefreshing(true);
    try { await onRefresh(); } finally { setRefreshing(false); }
  }
+ const used=report?.today.databases.filter(db=>db.rowsRead>0||db.rowsWritten>0)??[];
+ const idle=report?.today.databases.filter(db=>db.rowsRead===0&&db.rowsWritten===0)??[];
  return <section className="cy-op-panel cy-usage-panel" id="cy-cloudflare-usage" aria-label="Cloudflare D1 用量">
    <div className="cy-op-panel-header"><h3>D1 用量巡檢</h3>
      <button type="button" className="cy-op-button" disabled={loading||refreshing}
@@ -45,9 +47,10 @@ export function CloudflareUsagePanel({report,error,loading,onRefresh}:Cloudflare
      <h4>各資料庫今日用量</h4>
      <div className="cy-op-table-wrap"><table className="cy-op-table">
        <thead><tr><th>資料庫</th><th>讀取列數</th><th>寫入列數</th><th>全帳號讀取占比</th></tr></thead>
-       <tbody>{report.today.databases.map(db=><tr key={db.id}><td>{db.name}</td>
+       <tbody>{used.map(db=><tr key={db.id}><td>{db.name}</td>
          <td>{number(db.rowsRead)}</td><td>{number(db.rowsWritten)}</td><td>{percent(db.rowsRead,report.today.rowsRead)}</td></tr>)}</tbody>
      </table></div>
+     {idle.length?<p className="cy-identity-intro" title={idle.map(db=>db.name).join("、")}>其他 {idle.length} 個資料庫今日無用量。</p>:null}
      <h4>最近 {report.days.length} 天（UTC）</h4>
      <div className="cy-op-table-wrap"><table className="cy-op-table">
        <thead><tr><th>日期（UTC）</th><th>讀取列數</th><th>寫入列數</th></tr></thead>

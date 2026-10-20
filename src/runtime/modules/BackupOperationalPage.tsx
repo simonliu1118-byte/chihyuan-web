@@ -8,6 +8,8 @@ import { ApiClientError } from "../../api/client";
 import { DataView } from "../../ui/data/DataView";
 import { createBackup, loadBackups, retryBackup, rehearseBackup } from "../api/backup-client";
 import { Dialog } from "../../ui/overlays/Dialog";
+import { CyInvoiceRecoveryAdminPanel } from "../../identity/CyInvoiceRecoveryAdminPanel";
+import type { AuthSession } from "../../auth/auth-client";
 import "./backup-operational.css";
 
 const statuses: Record<string, string> = { creating: "建立中", verified: "已驗證", failed: "失敗", pending: "待完成",
@@ -54,7 +56,7 @@ export function BackupHistoryView({ history, busy, retry, rehearse }: { history:
     renderCard={row => <>{event(row)}{providerStatus(row)}<div className="cy-backup-card-footer"><span>{row.recordCount.toLocaleString()} 筆 · {size(row.byteLength)}</span>{action(row)}</div></>}
     emptyTitle="尚無備份紀錄" emptyDescription={history.configured ? "建立手動備份後，這裡會顯示各儲存副本的驗證結果。" : "儲存設定完成後才能建立備份。"} />;
 }
-export function BackupOperationalPage() {
+export function BackupOperationalPage({ session }: { session: AuthSession }) {
   const [history, setHistory] = useState<BackupHistory | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -127,6 +129,7 @@ export function BackupOperationalPage() {
     <section className="cy-op-panel cy-backup-history" aria-busy={loading || busy}>{loading ? <Loading />
       : history ? <><BackupHistoryView history={history} busy={busy} retry={id => void run("retry", id)} rehearse={selectRehearsal} /><p className="cy-backup-history-note">顯示最新 50 筆備份；每次備份只列一次，副本驗證結果分開顯示。</p></>
         : <p>尚未取得備份紀錄，請使用「更新紀錄」。</p>}</section>
+    <CyInvoiceRecoveryAdminPanel key={JSON.stringify([session.user.workspaceId, session.user.employeeId, session.user.workspaceRole, session.user.emailVerified, session.user.isWorkspaceSuperAdmin])} session={session} />
     <Dialog open={selected !== null} title="驗證隔離還原" dismissible={!busy} onClose={() => { if (!busy) setSelected(null); }}
       footer={<><button className="cy-op-button" type="button" disabled={busy} onClick={() => setSelected(null)}>取消</button>
         <button className="cy-op-button primary" type="button" disabled={busy || !reviewed || confirmation !== BACKUP_REHEARSAL_CONFIRMATION}

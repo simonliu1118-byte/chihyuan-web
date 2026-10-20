@@ -213,3 +213,12 @@
   .cy-usage-alert > span { flex-basis: 100%; }
   .cy-usage-panel .cy-op-table-wrap { overflow-x: auto; }
 }
+
+/* 系統與安全: bounded width; registry and security summary side by side on wide screens. */
+.cy-system-security { max-width: 1080px; }
+.cy-system-security-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.cy-identity-policy-summary { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 16px; margin: 4px 0 0; }
+.cy-identity-policy-summary dt { color: var(--cy-text-muted); }
+.cy-identity-policy-summary dd { margin: 0; }
+.cy-usage-panel .cy-op-table-wrap { max-width: 720px; }
+@media (max-width: 980px) { .cy-system-security-pair { grid-template-columns: minmax(0, 1fr); } }
