@@ -47,7 +47,7 @@ export async function fetchD1Usage(env: UsageCloudflareEnv, days: number, option
   if(!Number.isInteger(days) || days<1 || days>31)throw new CloudflareUsageError("USAGE_UNAVAILABLE");
   const now=options.now??new Date();
   const cache=options.cache === undefined ? (typeof caches !== "undefined" ? caches.default : null) : options.cache;
-  const key=new Request("https://usage-cache.invalid/d1?days="+days);
+  const key=new Request("https://usage-cache.invalid/d1?days="+days+"&utcDate="+now.toISOString().slice(0,10));
   if(cache) {
     try {const hit=await cache.match(key);if(hit?.ok)return await hit.json() as D1UsageReport;} catch { /* Cache is best-effort. */ }
   }

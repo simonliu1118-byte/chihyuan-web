@@ -1,7 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { D1_DAILY_LIMITS, usageLevel, usageRatio, aggregateD1Usage } from "../shared/cloudflare-usage.ts";
-import { fetchD1Usage, CloudflareUsageError } from "../worker/usage/cloudflare-usage.ts";
+import { build } from "esbuild";
+import { fileURLToPath } from "node:url";
+async function importWorkerBundle(relativePath){
+  const entry=fileURLToPath(new URL(relativePath,import.meta.url));
+  const result=await build({entryPoints:[entry],bundle:true,format:"esm",platform:"node",write:false,logLevel:"silent"});
+  const url="data:text/javascript;base64,"+Buffer.from(result.outputFiles[0].contents).toString("base64");
+  return import(url);
+}
+const {fetchD1Usage,CloudflareUsageError}=await importWorkerBundle("../worker/usage/cloudflare-usage.ts");
 
 test("thresholds are inclusive and the worse quota wins",()=>{
   assert.equal(usageLevel(3_495_000,0),"ok");
@@ -125,7 +133,7 @@ test("optional usage secret is written to protected output even without backup",
 });
 
 test("read-only HR-independent usage route enforces CYID SUPER_ADMIN before Cloudflare or D1",async()=>{
- const {handleUsageRoute}=await import("../worker/http/usage-routes.ts");
+ const {handleUsageRoute}=await importWorkerBundle("../worker/http/usage-routes.ts");
  let role="USER",remoteCalls=0;
  const runtime={IDENTITY_APPLICATION_ID:"APP_TEST",IDENTITY_WORKSPACE_ID:"workspace-test",
    CF_ACCOUNT_ID:"synthetic-account",CF_USAGE_API_TOKEN:"synthetic-private-token",
