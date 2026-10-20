@@ -43,3 +43,30 @@ export function annualLeaveSchedule(seniorityStart: string, exclusions: readonly
   }
   return result;
 }
+
+export interface AnnualLeaveUse {workDate:string;minutes:number;cancelledAt?:string|null}
+export interface AnnualLeaveLedgerRow {
+ periodStart:string;periodEnd:string;entitledDays:number;carriedInDays:number;
+ usedCarriedDays:number;usedCurrentDays:number;remainingDays:number;carriedOutDays:number;expiredUnpaidDays:number;
+}
+export function annualLeaveLedger(
+ periods:readonly AnnualLeavePeriod[],records:readonly AnnualLeaveUse[],asOf:string,
+):AnnualLeaveLedgerRow[] {
+ const ordered=[...periods].sort((a,b)=>a.periodStart.localeCompare(b.periodStart));
+ const paid=records.filter(x=>!x.cancelledAt).sort((a,b)=>a.workDate.localeCompare(b.workDate));
+ const result:AnnualLeaveLedgerRow[]=[];let carry=0;
+ for(let i=0;i<ordered.length;i++){
+  const p=ordered[i],closed=p.periodEnd<asOf,entitled=p.days;
+  const minutes=paid.filter(x=>x.workDate>=p.periodStart&&x.workDate<=p.periodEnd&&x.workDate<=asOf).reduce((n,x)=>n+x.minutes,0);
+  const used=minutes/480,usedCarried=Math.min(carry,used),usedCurrent=Math.max(0,used-usedCarried);
+  const currentRemaining=Math.max(0,entitled-usedCurrent);
+  const remaining=Math.max(0,carry+entitled-used);
+  const expiredUnpaid=closed?Math.max(0,carry-usedCarried):0;
+  const carryNext=closed?currentRemaining:0;
+  result.push({periodStart:p.periodStart,periodEnd:p.periodEnd,entitledDays:entitled,carriedInDays:carry,
+   usedCarriedDays:usedCarried,usedCurrentDays:usedCurrent,remainingDays:remaining,
+   carriedOutDays:carryNext,expiredUnpaidDays:expiredUnpaid});
+  carry=carryNext;
+ }
+ return result;
+}
