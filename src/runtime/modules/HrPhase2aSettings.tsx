@@ -2,6 +2,7 @@ import {useCallback,useEffect,useState,type FormEvent} from "react";
 import {apiRequest} from "../../api/client";
 import {enterAdvancesFields,enterAdvancesThenSubmits} from "../../ui/foundation/enter-advance";
 import {taipeiToday} from "../../../shared/erp-query-history";
+import {HrLeaveTypeSettings} from "./HrLeaveTypeSettings";
 type Kind="stores"|"job-titles"|"shift-types";
 type Item={id:number;name:string;code?:string;is_active:number;sort_order:number;cycle_anchor_date?:string;rules_template?:string;
  start_time?:string;end_time?:string;break_start?:string|null;break_end?:string|null;normal_minutes?:number};
@@ -70,5 +71,6 @@ export function HrPhase2aSettings(){
    <label>假日名稱<input className="cy-op-input" required value={holidayName} onChange={e=>setHolidayName(e.target.value)}/></label>
    <button className="cy-op-button primary" disabled={busy}>新增國定假日</button>
   </form>
+ <HrLeaveTypeSettings/>
  </section>;
 }

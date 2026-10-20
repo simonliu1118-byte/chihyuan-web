@@ -38,6 +38,17 @@ try {
   if (config.routes?.length !== 1) throw new Error("canonical Custom Domain route missing");
   if (config.routes[0]?.pattern !== env.CF_PUBLIC_HOSTNAME) throw new Error("public hostname mismatch");
   if (config.routes[0]?.custom_domain !== true) throw new Error("public hostname must be a Custom Domain");
+  // HR leave attachments are opt-in: missing bucket must not affect any other deployment.
+  if((config.r2_buckets??[]).some(x=>x.binding==="HR_FILES"))throw new Error("HR_FILES must be absent unless configured");
+  const hrConfigPath=path.join(temporary,"hr-files.jsonc");
+  renderDeployConfig({env:{...env,CF_HR_FILES_R2_BUCKET:"synthetic-hr-files"},outputPath:hrConfigPath});
+  const hrConfig=JSON.parse(fs.readFileSync(hrConfigPath,"utf8"));
+  if(hrConfig.r2_buckets?.filter(x=>x.binding==="HR_FILES"&&x.bucket_name==="synthetic-hr-files").length!==1)
+    throw new Error("HR_FILES binding missing when configured");
+  let invalidBucketRejected=false;
+  try{renderDeployConfig({env:{...env,CF_HR_FILES_R2_BUCKET:"INVALID!"},outputPath:hrConfigPath})}
+  catch{invalidBucketRejected=true}
+  if(!invalidBucketRejected)throw new Error("invalid HR_FILES bucket accepted");
   if (config.d1_databases?.[0]?.binding !== "DB") throw new Error("DB binding missing");
   if (config.d1_databases?.[0]?.database_id !== env.CF_D1_DATABASE_ID) {
     throw new Error("D1 database id mismatch");

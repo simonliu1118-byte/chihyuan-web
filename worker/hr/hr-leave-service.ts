@@ -47,10 +47,16 @@ export class HrLeaveService{
   const employee=await this.employee(id);
   const exceptions=(await this.db.prepare("SELECT start_date,end_date FROM hr_seniority_exclusions WHERE employee_id=? ORDER BY start_date LIMIT 100").bind(id).all<{start_date:string;end_date:string}>()).results??[];
   const periods=annualLeaveSchedule(employee.seniority_start_date,exceptions.map(x=>({startDate:x.start_date,endDate:x.end_date})),now);
+  if(periods.length){
+   const statements=periods.map(p=>this.db.prepare("INSERT OR IGNORE INTO hr_annual_leave_years(employee_id,period_start,period_end,entitled_days) VALUES(?,?,?,?)").bind(id,p.periodStart,p.periodEnd,p.days));
+   await this.db.batch(statements);
+  }
+  const notices=(await this.db.prepare("SELECT id,period_start,notified_on FROM hr_annual_leave_years WHERE employee_id=? ORDER BY period_start LIMIT 80").bind(id).all<{id:number;period_start:string;notified_on:string|null}>()).results??[];
+  const byStart=new Map(notices.map(x=>[x.period_start,x]));
   const recent=await this.records(id,employee.seniority_start_date,now);
   const types=await this.types(),annual=types.find(x=>x.code==="特");
   const active=recent.filter(x=>x.leave_type_id===annual?.id&&!x.cancelled_at).map(x=>({workDate:x.work_date,minutes:x.minutes}));
-  return {periods,ledger:annualLeaveLedger(periods,active,now)};
+  return {periods,ledger:annualLeaveLedger(periods,active,now).map(x=>({...x,id:byStart.get(x.periodStart)?.id??0,notifiedOn:byStart.get(x.periodStart)?.notified_on??null}))};
  }
  async detail(id:number,year:number,asOf:string){
   await this.employee(id);
@@ -124,6 +130,12 @@ export class HrLeaveService{
    types.map(t=>({id:t.id,code:t.code,quotaDays:t.quota_days,quotaPeriod:t.quota_period,mergeIntoTypeId:t.merge_into_type_id,mergeAfterDays:t.merge_after_days,eventQuotaOptions:t.event_quota_options})),
    prior.map(x=>({leaveTypeId:x.leave_type_id,workDate:x.work_date,minutes:x.minutes,eventDate:x.event_date,cancelledAt:x.cancelled_at})),candidate);
   if(errors.length)throw new HrLeaveError("HR_LEAVE_QUOTA",errors);
+  if(type.code==="特"){
+   const annual=await this.computeYears(employeeId,end);
+   const available=annual.ledger.filter(x=>x.periodStart<=end&&x.periodEnd>=start).reduce((n,x)=>n+x.remainingDays*480,0);
+   const requiredMinutes=minutes.reduce((a,b)=>a+b,0);
+   if(available<requiredMinutes)throw new HrLeaveError("HR_LEAVE_QUOTA",[{code:"特",usedMinutes:requiredMinutes,limitMinutes:available,message:"特休剩餘額度不足"}]);
+  }
   if(type.comp_kind==="overtime"){
    const comp=await this.comp(employeeId,end);
    if(comp.balances.overtimeMinutes<minutes.reduce((a,b)=>a+b,0))throw new HrLeaveError("HR_COMP_INSUFFICIENT",[{available:comp.balances.overtimeMinutes,required:minutes.reduce((a,b)=>a+b,0)}]);

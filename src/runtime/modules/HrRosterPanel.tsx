@@ -120,7 +120,7 @@ export function HrRosterPanel() {
   </>:<p>正在讀取排班…</p>}
   <Dialog open={cell!==null} title={emp?emp.name+"　"+cell?.date:"排班格"} size="medium" onClose={()=>setCell(null)}>
    {cell&&emp&&data?<div className="cy-op-form">
-    {staged.get(cell.employeeId+"|"+cell.date)?.kind==="leave"?<button type="button" className="cy-op-button primary" onClick={()=>{setLeaveDialogPerson({id:emp.id,name:emp.name,employee_no:emp.employee_no,employment_type:emp.employment_type});setCell(null)}}>{data.leaveForms.some(x=>x.employee_id===cell.employeeId&&x.work_date===cell.date)?"查看／補填假單":"補假單"}</button>:null}
+    {staged.get(cell.employeeId+"|"+cell.date)?.kind==="leave"?<button type="button" className="cy-op-button primary" onClick={()=>{setLeaveInitialDate(cell.date);setLeaveDialogPerson({id:emp.id,name:emp.name,employee_no:emp.employee_no,employment_type:emp.employment_type});setCell(null)}}>{data.leaveForms.some(x=>x.employee_id===cell.employeeId&&x.work_date===cell.date)?"查看／補填假單":"補假單"}</button>:null}
     {emp.schedule_mode==="shift"?<div className="hr-cell-choices">{data.shifts.filter(x=>x.is_active).map(x=><button type="button" key={x.id} className="cy-op-button" onClick={()=>setChoice("shift",{shiftTypeId:x.id})}>{x.code} {x.name}</button>)}</div>:null}
     {emp.schedule_mode==="hours"?<><label>排定時數<input className="cy-op-input" type="number" step=".25" min=".25" max="24" value={hours} onChange={e=>setHours(e.target.value)}/></label><button type="button" className="cy-op-button" onClick={()=>setChoice("hours",{hours:Number(hours)})}>套用時數</button></>:null}
     <div className="hr-cell-choices">{emp.schedule_mode!=="none"?<button type="button" className="cy-op-button" onClick={()=>setChoice("off",{offMark:"slash"})}>/　例休日</button>:null}

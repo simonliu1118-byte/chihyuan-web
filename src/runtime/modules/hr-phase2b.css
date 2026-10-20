@@ -6,3 +6,4 @@
 @media(max-width:700px){.cy-hr-leave-md{display:block}.hr-leave-toolbar{gap:6px}}
 @page{size:A4 portrait;margin:12mm}
 @media print{body *{visibility:hidden!important}.hr-leave-notice,.hr-leave-notice *{visibility:visible!important}.hr-leave-notice{position:absolute;inset:0;width:100%!important;max-width:none!important}}
+.hr-roster-cell.hr-leave-pending::after{content:'';position:absolute;right:2px;top:2px;width:0;height:0;border-top:7px solid #eaa52a;border-left:7px solid transparent}@media print{.hr-roster-cell.hr-leave-pending::after{display:none!important}}

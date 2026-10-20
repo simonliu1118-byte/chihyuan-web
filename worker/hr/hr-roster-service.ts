@@ -71,7 +71,7 @@ function rosterDay(d:string,row:Cell|undefined,shifts:Map<number,Record<string,u
  return {date:d,kind:"leave",leaveCode:String(leaves.get(row.leave_type_id??0)?.code??""),minutes:0};
 }
 export class HrRosterError extends Error {
- constructor(readonly code:"HR_ROSTER_VIOLATION"|"HR_ROSTER_CONSECUTIVE",readonly items:unknown[]){super(code)}
+ constructor(readonly code:"HR_ROSTER_VIOLATION"|"HR_ROSTER_CONSECUTIVE"|"HR_LEAVE_FORM_EXISTS",readonly items:unknown[]){super(code)}
 }
 export class HrRosterService {
  constructor(private db:D1Database){}
@@ -158,7 +158,7 @@ export class HrRosterService {
   const changed=changes.filter(c=>!equal(b.byKey.get(c.employeeId+"|"+c.date),c));
   for(const c of changed){
    const done=await this.db.prepare("SELECT r.id FROM hr_leave_records r WHERE r.employee_id=? AND r.work_date=? AND r.cancelled_at IS NULL AND r.whole_day=1 LIMIT 1").bind(c.employeeId,c.date).first<{id:number}>();
-   if(done)throw new HrRosterError("HR_LEAVE_FORM_EXISTS" as "HR_ROSTER_VIOLATION",[{employeeId:c.employeeId,date:c.date,message:"已完成假單，請先到假單銷假"}]);
+   if(done)throw new HrRosterError("HR_LEAVE_FORM_EXISTS",[{employeeId:c.employeeId,date:c.date,message:"已完成假單，請先到假單銷假"}]);
   }
   const staged=new Map(b.byKey);for(const c of changed){const key=c.employeeId+"|"+c.date;
    if(c.kind===null)staged.delete(key);else staged.set(key,asCell(c,storeId));

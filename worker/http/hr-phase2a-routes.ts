@@ -48,7 +48,7 @@ export async function handleHrPhase2aRoute(request:Request,db:D1Database,ctx:HrC
   return failure({code:"METHOD_NOT_ALLOWED",message:"不支援此操作"},id,405);
  }catch(err){
   if(err instanceof HrRosterError)
-   return json({ok:false,error:{code:err.code,message:err.code==="HR_ROSTER_VIOLATION"?"未來排班違規":"此排班須主管核准",items:err.items},requestId:id},{status:409});
+   return json({ok:false,error:{code:err.code,message:err.code==="HR_ROSTER_VIOLATION"?"未來排班違規":err.code==="HR_LEAVE_FORM_EXISTS"?"已有正式假單，請先銷假":"此排班須主管核准",items:err.items},requestId:id},{status:409});
   if(err instanceof HrValidationError)
    return failure({code:err.status===409?"HR_CONFLICT":"HR_VALIDATION_ERROR",message:err.message,fields:{[err.field]:err.message}},id,err.status);
   if(err instanceof Error&&/UNIQUE constraint failed|FOREIGN KEY constraint failed/.test(err.message))
