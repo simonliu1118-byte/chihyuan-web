@@ -7,7 +7,14 @@ import { fileURLToPath } from "node:url";
 export function renderBackupSecrets({ env = process.env, outputPath }) {
   if (!outputPath) throw new Error("Backup secret output path required");
   if (![undefined, "", "false", "true"].includes(env.CF_BACKUP_ENABLED)) throw new Error("Invalid CF_BACKUP_ENABLED");
-  if (env.CF_BACKUP_ENABLED !== "true") return false;
+  const usageToken = String(env.CF_USAGE_API_TOKEN ?? "").trim();
+  if (env.CF_BACKUP_ENABLED !== "true") {
+    if (!usageToken) return false;
+    const fd = fs.openSync(outputPath, "wx", 0o600);
+    try { fs.writeFileSync(fd, JSON.stringify({ CF_USAGE_API_TOKEN: usageToken })); }
+    finally { fs.closeSync(fd); }
+    return true;
+  }
   let account;
   try {
     account = JSON.parse(env.GCS_SERVICE_ACCOUNT_JSON ?? "");
@@ -24,7 +31,7 @@ export function renderBackupSecrets({ env = process.env, outputPath }) {
   try {
     fs.writeFileSync(fd, JSON.stringify({ GCS_SERVICE_ACCOUNT_JSON: JSON.stringify({
       type: "service_account", client_email: account.client_email, private_key: account.private_key,
-    }) }));
+    }), ...(usageToken ? { CF_USAGE_API_TOKEN: usageToken } : {}) }));
   } finally { fs.closeSync(fd); }
   return true;
 }

@@ -191,3 +191,24 @@
     max-width: calc(100vw - 16px);
   }
 }
+
+/* Cloudflare account-wide D1 usage: compact, responsive, no extra chart dependency. */
+.cy-usage-panel h4 { margin: 18px 0 8px; }
+.cy-usage-meters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.cy-usage-meter { min-width: 0; }
+.cy-usage-meter-label { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 7px; }
+.cy-usage-progress { width: 100%; height: 12px; accent-color: var(--cy-accent); }
+.cy-usage-progress-warning { accent-color: var(--cy-warning); }
+.cy-usage-progress-danger { accent-color: var(--cy-danger); }
+.cy-usage-progress-warning::-webkit-progress-value { background: var(--cy-warning); }
+.cy-usage-progress-danger::-webkit-progress-value { background: var(--cy-danger); }
+.cy-usage-progress-warning::-moz-progress-bar { background: var(--cy-warning); }
+.cy-usage-progress-danger::-moz-progress-bar { background: var(--cy-danger); }
+.cy-shell-global-notice { padding: 8px var(--cy-gutter) 0; }
+.cy-usage-alert { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cy-usage-alert > span { flex: 1 1 240px; }
+@media (max-width: 640px) {
+  .cy-usage-meters { grid-template-columns: minmax(0, 1fr); }
+  .cy-shell-global-notice { padding: 8px 12px 0; }
+  .cy-usage-panel .cy-op-table-wrap { overflow-x: auto; }
+}

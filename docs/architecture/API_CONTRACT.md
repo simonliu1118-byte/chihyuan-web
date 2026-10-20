@@ -631,3 +631,14 @@ Each customer's latest quote for the Item is selected by `quote_date DESC, id DE
 ## WO-0.9.20 人事模組第一期 API
 
 僅限已驗證的 CYID `SUPER_ADMIN`，所有 `/api/business/hr/*` 路徑不參與模組授權。提供員工主檔／子表、狀態異動、年資不計期間、薪資異動、週年制特休年度查詢、可綁定使用者、津貼類型與最低工資設定；完整方法／路徑／隱私契約詳見 [HR_MODULE_CONTRACT.md](HR_MODULE_CONTRACT.md)。一般員工 GET 只回遮罩證號；完整證號須額外 POST reveal 並寫稽核，稽核不記原文。非超管不得檢視人事事件。
+
+
+## WO-0.9.21 — Cloudflare D1 帳號用量（只讀）
+
+`GET /api/business/usage/d1?days=7`：只允許 CYID `SUPER_ADMIN`；未登入 401、其他角色 403。days 僅接受 1–31，預設 7；超出回 422 `USAGE_INVALID_DAYS`。
+
+回傳既有 `{ ok, data, requestId }` envelope；`data` 包含 `fetchedAt`、`limits`、`today {date,rowsRead,rowsWritten,level,databases[]}` 及 `days[]`。每日日期為 UTC，台灣時間 08:00 重置；資料庫依今日讀取量排序，資料庫 UUID 無名稱時只顯示前八碼；每日無資料補零。
+
+Worker 以 `CF_ACCOUNT_ID`（var）及 `CF_USAGE_API_TOKEN`（secret）只讀呼叫 Cloudflare GraphQL Analytics 及帳號 D1 database list，不進 D1；每個 days 組合於 Cache API 快取十分鐘。缺乏設定 503 `USAGE_NOT_CONFIGURED`；上游失敗、逾時 503 `USAGE_UNAVAILABLE`，不回傳 token 或上游內文。前端只有超管可載入及查看，不存歷史、不寄通知。
+
+GraphQL 結構以 [Cloudflare 官方 D1 Metrics and Analytics](https://developers.cloudflare.com/d1/observability/metrics-analytics/) 為準：`d1AnalyticsAdaptiveGroups`、`sum.rowsRead`、`sum.rowsWritten`、`sum.readQueries`、`sum.writeQueries`，`dimensions.date`、`dimensions.databaseId`。
