@@ -49,7 +49,7 @@
 
 1. **Migration `0018_hr_phase2a.sql`：**
    - 新增資料表 `hr_stores`、`hr_job_titles`、`hr_shift_types`、`hr_leave_types`、`hr_holidays`、`hr_schedule_days`、`hr_schedule_months`、`hr_attendance_days`；
-   - `hr_employees` 新增欄位：`store_id`、`job_title_id`、`roster_sort`、`employment_type`（full／part）、`skip_roster_checks`（0／1，不須檢核）、`schedule_mode`（shift／hours／none／flexible）；
+   - `hr_employees` 新增欄位：`store_id`、`job_title_id`、`roster_sort`、`employment_type`（full／part）、`skip_roster_checks`（0／1，不須檢核）、`schedule_mode`（shift／hours／none）；
    - 預設資料：門市「志遠高雄門市」（起算週一 `2026-09-28`）、職稱（店長、門市、業務、美編、兼職，依此排序）、班別（早、晚、日、A、B、C，見設計 §5.2）、假別清單（2a 只有代號、名稱、排序、是否啟用、是否為法定假別；法定假別不可刪除；預設：特 特休、事 事假、病 普通傷病假、生 生理假、婚 婚假、喪 喪假、產 產假、檢 產檢假、陪 陪產檢及陪產假、家 家庭照顧假、公 公假、傷 公傷病假、颱 颱風假、補 補休、換 國定假日換休、獎 獎勵假）。
 2. **共用純函式** `shared/hr-roster.ts`：雙週切分、例假與休息日標示、合法性檢查、國定假日換休天數，算法見設計 §5.4；以及出勤計算 `shared/hr-attendance.ts`，見設計 §5.5。兩者都要附單元測試。
 3. **Worker：** `worker/hr/` 擴充，API 見 §5.2。
@@ -165,7 +165,7 @@
 - 整天請假的格子（特、事、病…）算上班日；
 - 雙週內兩個國定假日的情況；
 - 兼職不自動計算換休、不檢查工時上限，但仍檢查例假；
-- 勾選「不須檢核」的人不做任何例休、連續、工時檢查，也不產生換休；彈性班的人不出現在排班表；
+- 勾選「不須檢核」的人照常出現在排班表，但不做任何例休、連續、工時檢查，也不產生換休；
 - 「換（國慶）」排在 9/29：國慶當天上班 → 成立；改成國慶當天畫 /，而且雙週已有 4 天 / → 提醒「國慶應上沒上」；10/10 尚未排班 → 顯示「待確認」；
 - 同一國定假日的換休排兩次 → 提醒；
 - 颱風假（假別「颱」）算上班日，不算例休日。
