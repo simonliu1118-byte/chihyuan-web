@@ -75,8 +75,8 @@ export class HrLeaveService{
  }
  async summary(year:number,storeId:number|undefined,asOf:string){
   if(!Number.isInteger(year)||year<2000||year>2200)throw new HrValidationError("year","年度錯誤");
-  const employees=(await this.db.prepare("SELECT e.id,e.employee_no,e.name,e.store_id,e.employment_type FROM hr_employees e WHERE e.status<>'terminated' AND (? IS NULL OR e.store_id=?) ORDER BY e.employee_no LIMIT 101")
-    .bind(storeId??null,storeId??null).all<{id:number;employee_no:string;name:string;store_id:number;employment_type:"full"|"half"|"casual"}>()).results??[];
+  const employees=(await this.db.prepare("SELECT e.id,e.employee_no,e.name,e.store_id,e.employment_type,e.seniority_start_date FROM hr_employees e WHERE e.status<>'terminated' AND (? IS NULL OR e.store_id=?) ORDER BY e.employee_no LIMIT 101")
+    .bind(storeId??null,storeId??null).all<{id:number;employee_no:string;name:string;store_id:number;employment_type:"full"|"half"|"casual";seniority_start_date:string}>()).results??[];
   if(employees.length>100)throw new HrValidationError("limit","最多 100 人",422);
   const [leaves,staged,grants,ot,settlements,types]=await Promise.all([
    this.db.prepare("SELECT r.employee_id,r.leave_type_id,r.work_date,r.minutes,r.cancelled_at,t.comp_kind,t.code FROM hr_leave_records r JOIN hr_leave_types t ON t.id=r.leave_type_id WHERE r.work_date BETWEEN ? AND ? LIMIT 10000").bind(String(year)+"-01-01",monthEnd(year)).all<Record<string,unknown>>(),
@@ -85,6 +85,16 @@ export class HrLeaveService{
    this.db.prepare("SELECT * FROM hr_overtime_days WHERE settlement='comp' LIMIT 2000").all<Record<string,unknown>>(),
    this.db.prepare("SELECT * FROM hr_comp_time_settlements LIMIT 2000").all<Record<string,unknown>>(),this.types()
   ]);
+  // One bounded query per data family for the entire selected team (no per-employee SQL).
+  // Annual entitlement and comp balances need history *before* the selected year.
+  const cutoff=year<Number(asOf.slice(0,4))?String(year)+"-12-31":asOf;
+  const [annualHistory,excludedHistory,compHistory]=await Promise.all([
+   this.db.prepare("SELECT r.employee_id,r.work_date,r.minutes,r.cancelled_at FROM hr_leave_records r JOIN hr_leave_types t ON t.id=r.leave_type_id WHERE t.code='特' AND r.work_date<=? ORDER BY r.employee_id,r.work_date LIMIT 20000").bind(cutoff).all<{employee_id:number;work_date:string;minutes:number;cancelled_at:string|null}>(),
+   this.db.prepare("SELECT employee_id,start_date,end_date FROM hr_seniority_exclusions ORDER BY employee_id,start_date LIMIT 4000").all<{employee_id:number;start_date:string;end_date:string}>(),
+   this.db.prepare("SELECT r.employee_id,r.work_date,r.minutes,t.comp_kind FROM hr_leave_records r JOIN hr_leave_types t ON t.id=r.leave_type_id WHERE t.comp_kind IS NOT NULL AND r.cancelled_at IS NULL AND r.work_date<=? ORDER BY r.employee_id,r.work_date LIMIT 10000").bind(cutoff).all<{employee_id:number;work_date:string;minutes:number;comp_kind:string}>()
+  ]);
+  if((annualHistory.results??[]).length>=20000||(excludedHistory.results??[]).length>=4000||(compHistory.results??[]).length>=10000)
+   throw new HrValidationError("limit","人事歷史資料超過單次查詢安全上限");
   const ids=new Set(employees.map(x=>x.id));
   const each=employees.map(e=>{
    const records=(leaves.results??[]).filter(x=>x.employee_id===e.id&&!x.cancelled_at);
@@ -94,10 +104,15 @@ export class HrLeaveService{
     ...(ot.results??[]).filter(x=>x.employee_id===e.id).map(x=>({id:Number(x.id),kind:"overtime" as const,minutes:Number(x.minutes),expiresOn:String(x.comp_expires_on),issuedOn:String(x.work_date)})),
     ...(grants.results??[]).filter(x=>x.employee_id===e.id).map(x=>({id:Number(x.id)+100000000,kind:String(x.kind) as "holiday"|"grant",minutes:Number(x.minutes),expiresOn:String(x.expires_on),issuedOn:String(x.created_at).slice(0,10)}))
    ];
-   const uses:CompUse[]=records.filter(x=>x.comp_kind).map(x=>({kind:x.comp_kind==="holiday"?"holiday":"overtime",workDate:String(x.work_date),minutes:Number(x.minutes)}));
+   const periods=annualLeaveSchedule(e.seniority_start_date,
+    (excludedHistory.results??[]).filter(x=>x.employee_id===e.id).map(x=>({startDate:x.start_date,endDate:x.end_date})),cutoff);
+   const annual=annualLeaveLedger(periods,
+    (annualHistory.results??[]).filter(x=>x.employee_id===e.id).map(x=>({workDate:x.work_date,minutes:x.minutes,cancelledAt:x.cancelled_at})),cutoff);
+   const annualRemainingDays=annual.at(-1)?.remainingDays??0;
+   const uses:CompUse[]=(compHistory.results??[]).filter(x=>x.employee_id===e.id).map(x=>({kind:x.comp_kind==="holiday"?"holiday":"overtime",workDate:x.work_date,minutes:x.minutes}));
    const payments:CompSettlement[]=(settlements.results??[]).filter(x=>x.employee_id===e.id).map(x=>({creditId:Number(x.overtime_day_id),minutes:Number(x.minutes)}));
-   return {id:e.id,employeeNo:e.employee_no,name:e.name,storeId:e.store_id,employmentType:e.employment_type,used,pending,
-    comp:compBalances(credits,uses,payments,asOf)};
+   return {id:e.id,employeeNo:e.employee_no,name:e.name,storeId:e.store_id,employmentType:e.employment_type,used,pending,annualRemainingDays,
+    comp:compBalances(credits,uses,payments,cutoff)};
   });
   return {year,types,employees:each,total:ids.size};
  }
