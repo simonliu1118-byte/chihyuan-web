@@ -115,6 +115,61 @@ export class HrRosterService {
    }
   }return {classification,staffing};
  }
+
+ /**
+  * Preflight whole-day formal leave against the same classification as roster PUT.
+  * The returned statements are deliberately not executed here: the caller puts
+  * them in the very same D1 batch as leave records, schedule edits and audit.
+  */
+ async planFormalLeave(storeId:number,employeeId:number,dates:readonly string[],typeId:number,ctx:HrContext,approvals:unknown):Promise<D1PreparedStatement[]>{
+  const at=currentDate(ctx.now),requested=new Set(dates),out:D1PreparedStatement[]=[];
+  if(!requested.size)return out;
+  const months=[...new Set(dates.map(x=>x.slice(0,7)))].sort();
+  const granted=new Set<string>(),seen=new Set<string>(),updatedOff=new Set<string>();
+  const provided=Array.isArray(approvals)?approvals.map(object):[];
+  if(provided.length>100)throw new HrValidationError("approve","核准筆數超過上限");
+  const allow=new Set(provided.map(x=>String(x.employeeId)+"|"+String(x.kind)+"|"+String(x.startDate)+"|"+String(x.endDate)));
+  const missing:{employeeId:number;kind:string;startDate:string;endDate:string;suggestion:string}[]=[];
+  const violations:(RosterViolation&{employeeId:number})[]=[];
+  for(const month of months){
+   const b=await this.read(storeId,month);
+   if(!b.employees.some(x=>x.id===employeeId))throw new HrValidationError("employeeId","員工不在指定門市");
+   const staged=new Map(b.byKey);
+   for(const date of dates){
+    if(date<b.lookStart||date>b.lookEnd)continue;
+    const key=employeeId+"|"+date,current=staged.get(key);
+    staged.set(key,{employee_id:employeeId,store_id:storeId,work_date:date,kind:"leave",off_mark:null,shift_type_id:null,leave_type_id:typeId,
+     hours:null,start_time:null,end_time:null,marker:null,rest_label:null,note:current?.note??""});
+   }
+   const result=this.evaluate(b,staged,at).classification[String(employeeId)];
+   for(const v of result.violations)if(v.dates.some(d=>d>=at) && !violations.some(x=>x.code===v.code&&x.from===v.from&&x.to===v.to))
+     violations.push({...v,employeeId});
+   const currentApprovals=new Set(b.approvals.map(x=>x.employee_id+"|"+x.kind+"|"+x.start_date+"|"+x.end_date));
+   const needed=[
+    ...result.consecutive.filter(x=>x.days===6&&x.endDate>=at).map(x=>({employeeId,kind:"consecutive",startDate:x.startDate,endDate:x.endDate,suggestion:x.suggestion})),
+    ...result.overEight.filter(x=>x>=at).map(x=>({employeeId,kind:"over_eight",startDate:x,endDate:x,suggestion:"兼職單日超過八小時須核准"}))
+   ];
+   for(const x of needed){
+    const key=x.employeeId+"|"+x.kind+"|"+x.startDate+"|"+x.endDate;
+    if(seen.has(key)||currentApprovals.has(key))continue;
+    seen.add(key);
+    if(allow.has(key)){
+     if(!granted.has(key))out.push(this.db.prepare("INSERT OR IGNORE INTO hr_roster_approvals(employee_id,kind,start_date,end_date,approved_by,approved_at) VALUES(?,?,?,?,?,?)").bind(x.employeeId,x.kind,x.startDate,x.endDate,ctx.actor,ctx.now));
+     granted.add(key);
+    }else missing.push(x);
+   }
+   for(const row of b.days){
+    if(row.employee_id!==employeeId||row.kind!=="off"||row.work_date<at||requested.has(row.work_date))continue;
+    const label=result.labels[row.work_date],rest=label==="regular_off"?"regular":label==="rest_day"?"rest":null;
+    const key=employeeId+"|"+row.work_date;
+    if(row.rest_label!==rest&&!updatedOff.has(key)){updatedOff.add(key);out.push(this.db.prepare("UPDATE hr_schedule_days SET rest_label=?,updated_at=?,updated_by=? WHERE employee_id=? AND work_date=?").bind(rest,ctx.now,ctx.actor,employeeId,row.work_date));}
+   }
+  }
+  if(violations.length)throw new HrRosterError("HR_ROSTER_VIOLATION",violations);
+  if(missing.length)throw new HrRosterError("HR_ROSTER_CONSECUTIVE",missing);
+  return out;
+ }
+
  async updateStaff(storeId:number,raw:unknown,ctx:HrContext){
   const v=object(raw),id=integer(v.employeeId,"employeeId",true),sort=integer(v.rosterSort,"rosterSort");
   if(typeof v.skipRosterChecks!=="boolean")throw new HrValidationError("skipRosterChecks","須選擇是否檢核");
