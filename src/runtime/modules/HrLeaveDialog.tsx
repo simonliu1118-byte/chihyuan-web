@@ -10,7 +10,7 @@ export interface LeavePerson{id:number;name:string;employee_no:string;employment
 export interface CompletedLeaveInfo{batchId:string;date:string;code:string;minutes:number}
 export function HrLeaveDialog({person,types,initialDate,completed,onClose,onSaved}:{person:LeavePerson|null;types:LeaveTypeOption[];initialDate?:string;completed?:CompletedLeaveInfo|null;onClose:()=>void;onSaved:()=>void}){
  const [typeId,setTypeId]=useState(0),[from,setFrom]=useState(taipeiToday()),[to,setTo]=useState(taipeiToday());
- const [wholeDay,setWholeDay]=useState(true),[startTime,setStartTime]=useState("09:00"),[endTime,setEndTime]=useState("17:00"),[minutes,setMinutes]=useState("120");
+ const [wholeDay,setWholeDay]=useState(true),[manualMinutes,setManualMinutes]=useState(false),[startTime,setStartTime]=useState("09:00"),[endTime,setEndTime]=useState("17:00"),[minutes,setMinutes]=useState("120");
  const [reason,setReason]=useState(""),[eventDate,setEventDate]=useState(""),[eventDays,setEventDays]=useState("8"),[files,setFiles]=useState<File[]>([]),[gray,setGray]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState("");
  const [cancelReason,setCancelReason]=useState("");
@@ -19,7 +19,7 @@ export function HrLeaveDialog({person,types,initialDate,completed,onClose,onSave
  const [previews,setPreviews]=useState<string[]>([]);
  const {confirm,confirmationDialog}=useConfirmation();
  useEffect(()=>{const urls=files.map(file=>URL.createObjectURL(file));setPreviews(urls);return()=>urls.forEach(url=>URL.revokeObjectURL(url));},[files]);
- useEffect(()=>{if(person){setFrom(initialDate??taipeiToday());setTo(initialDate??taipeiToday());setWholeDay(person.employment_type==="full");setTypeId(types[0]?.id??0);setError("");setApprovalItems([]);setFiles([]);setCreatedBatchId(null);setUploadedCount(0);setCancelReason("")}},[person,initialDate,types]);
+ useEffect(()=>{if(person){setFrom(initialDate??taipeiToday());setTo(initialDate??taipeiToday());setWholeDay(person.employment_type==="full");setManualMinutes(false);setTypeId(types[0]?.id??0);setError("");setApprovalItems([]);setFiles([]);setCreatedBatchId(null);setUploadedCount(0);setCancelReason("")}},[person,initialDate,types]);
  const type=types.find(x=>x.id===typeId);
  async function cancelCompleted(e:FormEvent){
   e.preventDefault();if(!completed||!cancelReason.trim())return;
@@ -46,12 +46,14 @@ export function HrLeaveDialog({person,types,initialDate,completed,onClose,onSave
   e?.preventDefault();if(!person)return;setBusy(true);setError("");
   try{
    if(type?.requires_reason&&!reason.trim())throw Error("事假請填事由");
+   if(!wholeDay&&manualMinutes&&(!Number.isInteger(Number(minutes))||Number(minutes)<=0||Number(minutes)%30!==0))throw Error("時數請假須填正的 30 分鐘倍數");
    let batchId=createdBatchId;
    if(!batchId){
     const response=await fetch("/api/business/hr/leave-requests",{method:"POST",credentials:"same-origin",
      headers:{"content-type":"application/json","accept":"application/json"},
      body:JSON.stringify({employeeId:person.id,leaveTypeId:typeId,from,date:from,to:wholeDay?to:from,wholeDay,
-       startTime:wholeDay?undefined:startTime,endTime:wholeDay?undefined:endTime,minutes:wholeDay?undefined:Number(minutes),
+       startTime:wholeDay||manualMinutes?undefined:startTime,endTime:wholeDay||manualMinutes?undefined:endTime,
+       minutes:!wholeDay&&manualMinutes?Number(minutes):undefined,
        reason,eventDate:type?.quota_period==="event"?eventDate:undefined,
        eventQuotaDays:type?.event_quota_options?Number(eventDays):undefined,approve})});
     const envelope=await response.json() as {ok:boolean;data?:{batchId:string};error?:{code:string;message:string;items?:unknown[]}};
@@ -99,15 +101,17 @@ export function HrLeaveDialog({person,types,initialDate,completed,onClose,onSave
    <label>請假日期<input className="cy-op-input" type="date" max="9999-12-31" required value={from} onChange={e=>{setFrom(e.target.value);if(!wholeDay)setTo(e.target.value)}}/></label>
    {person.employment_type==="full"?<label><input type="checkbox" checked={wholeDay} onChange={e=>setWholeDay(e.target.checked)}/>整天請假（8 小時）</label>:null}
    {wholeDay?<label>結束日期<input className="cy-op-input" type="date" min={from} max="9999-12-31" required value={to} onChange={e=>setTo(e.target.value)}/></label>:
-    <><label>起始時間<input className="cy-op-input" type="time" value={startTime} onChange={e=>setStartTime(e.target.value)}/></label>
-    <label>結束時間<input className="cy-op-input" type="time" value={endTime} onChange={e=>setEndTime(e.target.value)}/></label>
-    {person.employment_type!=="full"?<label>沒有班別時的時數（分鐘，30 的倍數）<input className="cy-op-input" type="number" min="30" step="30" value={minutes} onChange={e=>setMinutes(e.target.value)}/></label>:null}</>}
+    <>{person.employment_type!=="full"?<label><input type="checkbox" checked={manualMinutes} onChange={e=>setManualMinutes(e.target.checked)}/>當天沒有班別，直接輸入請假分鐘數</label>:null}
+    {manualMinutes&&person.employment_type!=="full"?<label>請假時數（分鐘，30 的倍數）<input className="cy-op-input" type="number" min="30" step="30" required value={minutes} onChange={e=>setMinutes(e.target.value)}/></label>:<>
+     <label>起始時間<input className="cy-op-input" type="time" value={startTime} onChange={e=>setStartTime(e.target.value)}/></label>
+     <label>結束時間<input className="cy-op-input" type="time" value={endTime} onChange={e=>setEndTime(e.target.value)}/></label>
+    </>}</>}
    {type?.requires_reason?<label>事由（必填）<textarea className="cy-op-input" required value={reason} onChange={e=>setReason(e.target.value)}/></label>:null}
    {type?.quota_period==="event"?<label>事件日期<input type="date" className="cy-op-input" max="9999-12-31" required value={eventDate} onChange={e=>setEventDate(e.target.value)}/></label>:null}
    {type?.event_quota_options?<label>本次天數<select className="cy-op-input" value={eventDays} onChange={e=>setEventDays(e.target.value)}>{type.event_quota_options.split(",").map(x=><option key={x}>{x}</option>)}</select></label>:null}
    {type?.accepts_proof?<><label>證明照片（最多 3 張，非必填）<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>setFiles(Array.from(e.target.files??[]).slice(0,3))}/></label>
     <label><input type="checkbox" checked={gray} onChange={e=>setGray(e.target.checked)}/>黑白縮圖</label>{files.map(f=><small key={f.name}>{f.name}</small>)}</>:null}
-   <p>預計請假 {wholeDay?from+"～"+to:from}，假別：{type?.name??"尚未選擇"}。{wholeDay?"所選有效日期的排班格會同步改為假別，例休日及國定假日依規則跳過。":"部分時數的班別維持不變。"}送出會檢查假額、補休與排班規則。</p>
+   <p>預計請假 {wholeDay?from+"～"+to:from}，假別：{type?.name??"尚未選擇"}。{wholeDay?"所選有效日期的排班格會同步改為假別，例休日及國定假日依規則跳過。" :manualMinutes?"無班別日期依填寫的分鐘數請假；已有班別的日期須改用起訖時間。":"部分時數的班別維持不變。"}送出會檢查假額、補休與排班規則。</p>
    {type?.accepts_proof&&previews.length?<div className="hr-cell-choices" aria-label="證明照片預覽">{previews.map((url,i)=><img key={url} src={url} alt={"證明照片 "+(i+1)} width={96} height={96} style={{objectFit:"cover"}}/>)}</div>:null}
    {createdBatchId?<p role="status">正式假單已建立。若附件上傳失敗，可以重試上傳，或略過附件完成。</p>:null}
    {approvalItems.length?<div className="cy-op-panel" role="alert"><h4>排班需要主管核准</h4>
