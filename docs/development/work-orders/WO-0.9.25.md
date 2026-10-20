@@ -329,4 +329,26 @@ GitHub Actions：最後能查到的 `Runtime Check` 是舊 SHA `51fa258` 的失�
 - **治理及驗證限制：** 未變動任何 workflow、未部署、未連線 Cloudflare 正式 D1／R2；正式環境讀寫／R2 寫入量都是 0。GitHub 仍無新 HEAD 的 Actions runs，且當前獨立容器不能透過 DNS clone GitHub 原始碼，因此 §6 五條指定指令目前尚無對最新 HEAD 有效的完整執行結果。**不得據此宣告本工單驗收合格**；須由有完整 checkout 的執行環境實際跑通並回填輸出。
 - BD-060 #27～29 仍按已交付工作單規則由審查者套用；新規格未整合前不得正式發布。
 
+### 8.7 GitHub Actions 最新實際驗證結果（此節優先於先前暫時阻擋）
+
+**驗證基準：** `0f60fc9ead0a5b5996d9be99bab227410c67c436`（2026-10-21，Asia/Taipei）。先前 §8.1～8.6 的「最新 HEAD 無 CI」與「D1 驗收未執行」是排查歷程，已被本段最新實測取代。**這是實測的 GitHub-hosted runner，不是先前空目錄中以 npm ENOENT 的結果。**
+
+| GitHub Actions | Run | 結果／實際執行 |
+|---|---|---|
+| [Runtime Check](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39468383866) | 39468383866 | **SUCCESS**；`source-contracts`、`browser-typecheck`、`worker-typecheck`、`build` 四個 jobs 全部成功 |
+| [Governance Check](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39468384083) | 39468384083 | **SUCCESS** |
+| [CY Web Deploy](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39468384027) | 39468384027 | PR 檢查 **SUCCESS**，並非 production deploy |
+
+`build` job 的真實日誌記錄：
+- `python scripts/test_d1_runner.py`：`Ran 1 test`，`OK`。
+- `npm run validate:d1:local`：`PASS Wrangler local D1 migrations`（0001～0019）；`PASS Worker + D1 acceptance`；`PASS retired local Identity session table removed`。`worker/acceptance/d1-local-acceptance.ts` 在這個流程中依序執行 `acceptHrPhase1`、`acceptHrPhase2a`、`acceptHrPhase2b(db,hrFiles)`，包括新增的重疊假單、補休不允許已用後反轉、R2 JPEG 上傳與讀取／清理等驗收。
+- `npx vite build`：Worker、Client 均 `✓ built`；只有現有 chunk size 與 dynamic import 警告，未導致失敗。
+- Browser、Worker `npx tsc --noEmit` 均通過；`source-contracts` 成功。
+
+**實際找到並修正的 CI 問題：** 先前 Runtime Check #39467899422、#39468024342、#39468191266 因 `ACCEPT_HR2B_JPEG_UPLOAD` 失敗；驗收用 JPEG Base64 測試資料不完整。改用完整驗證過的 1×1 JPEG（有合法 SOF0，285 bytes），最終在上述 CI 取得實際通過結果。
+
+**尚未符合 §6 指令逐條執行的部分：** GitHub CI 使用 `npx tsc` 分別檢查、source contract 子集合、`npx vite build`，而非逐字 `npm run typecheck`、`timeout 300 npm run validate:source`、`npm run build`；`node --test scripts/*.test.mjs` 全量仍未在具備完整 repo 的環境單獨執行。依工作單不得宣稱這四條已逐條通過。請審查者補跑，並依 §7 完成桌面／手機及實際列印截圖。最新 BD-060 #27～29（由審查者套用）仍必須在正式合併與發布之前完成。
+
+**部署／用量：** 未觸碰正式 Cloudflare D1、R2，正式環境讀寫仍為 0；GitHub Actions 所跑的是暫時 Local D1 + ephemeral HR_FILES 測試 bucket。PR 維持 Draft，沒有合併或部署。
+
 ## 9. 審查紀錄（審查者填）
