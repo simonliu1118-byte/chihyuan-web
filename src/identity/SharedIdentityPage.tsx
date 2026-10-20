@@ -186,7 +186,7 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
     </section>
     <Dialog open={dialog === "password"} title="變更密碼" size="small" dismissible={!busy} onClose={closeDialog}>
       <FeedbackBanner message={message} tone={messageTone} />
-      <form className="cy-op-form" onSubmit={submitPassword} noValidate>
+      <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={submitPassword} noValidate>
         <label>目前密碼<PasswordInput value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} autoComplete="current-password" required /></label>
         <label>新密碼<PasswordInput value={newPassword} onChange={event => setNewPassword(event.target.value)} autoComplete="new-password" required /></label>
         <label>確認新密碼<PasswordInput value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} autoComplete="new-password" required /></label>
@@ -202,11 +202,11 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
     </Dialog>
     <Dialog open={dialog === "email"} title={verifyingCurrentEmail ? "驗證目前 Email" : "變更 Email"} size="small" dismissible={!busy} onClose={closeDialog}>
       <FeedbackBanner message={message} tone={messageTone} />
-      {!challengeId && verifyingCurrentEmail ? <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={closeDialog}>取消</button><button type="button" className="cy-op-button primary" disabled={busy || countdown > 0} onClick={() => void verifyCurrentEmail()}>{countdown > 0 ? String(countdown) + " 秒後可重新寄送" : "重新寄送驗證碼"}</button></div> : !challengeId ? <form className="cy-op-form" onSubmit={startEmail}>
+      {!challengeId && verifyingCurrentEmail ? <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={closeDialog}>取消</button><button type="button" className="cy-op-button primary" disabled={busy || countdown > 0} onClick={() => void verifyCurrentEmail()}>{countdown > 0 ? String(countdown) + " 秒後可重新寄送" : "重新寄送驗證碼"}</button></div> : !challengeId ? <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={startEmail}>
         <label>新 Email<input className="cy-op-input" type="email" value={newEmail} onChange={event => setNewEmail(event.target.value)} required /></label>
         <label>目前密碼<PasswordInput value={emailPassword} onChange={event => setEmailPassword(event.target.value)} autoComplete="current-password" required /></label>
         <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={closeDialog}>取消</button><button className="cy-op-button primary" disabled={busy || countdown > 0}>{countdown > 0 ? `${countdown} 秒後可重新寄送` : "寄送驗證碼"}</button></div>
-      </form> : <form className="cy-op-form" onSubmit={confirmEmail}>
+      </form> : <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={confirmEmail}>
         <label>6 位數驗證碼<input className="cy-op-input" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otp} onChange={event => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} required /></label>
         <div className="cy-op-form-footer">
           <button type="button" className="cy-op-button" disabled={busy} onClick={() => { if (verifyingCurrentEmail) { closeDialog(); } else { setChallengeId(null); setOtp(""); setMessage(null); } }}>{verifyingCurrentEmail ? "關閉" : "返回"}</button>
