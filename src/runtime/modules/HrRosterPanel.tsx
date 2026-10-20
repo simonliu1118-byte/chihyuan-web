@@ -149,7 +149,7 @@ export function HrRosterPanel() {
      await apiRequest(ROOT+"/rosters/"+storeId+"/"+month+"/staff",{method:"PATCH",json:{employeeId:x.id,rosterSort:Number(v.sort||0),skipRosterChecks:v.skip}});await reload();setNotice("已更新 "+x.name+" 的排班設定");
     }catch(e){setError(e instanceof Error?e.message:"儲存失敗")}}}>儲存</button></div>}):null}
   </Dialog>
-  <HrLeaveDialog person={leaveDialogPerson} types={formalLeaveTypes.length?formalLeaveTypes:data?.leaveTypes??[]} initialDate={leaveInitialDate} completed={completedLeave} onClose={()=>{setLeaveDialogPerson(null);setCompletedLeave(null)}} onSaved={()=>{void reload()}}/>
+  <HrLeaveDialog person={leaveDialogPerson} types={formalLeaveTypes.length?formalLeaveTypes:data?.leaveTypes??[]} initialDate={leaveInitialDate} initialTypeId={leaveDialogPerson&&leaveInitialDate?data?.days.find(x=>x.employee_id===leaveDialogPerson.id&&x.work_date===leaveInitialDate)?.leave_type_id??undefined:undefined} completed={completedLeave} onClose={()=>{setLeaveDialogPerson(null);setCompletedLeave(null)}} onSaved={()=>{void reload()}}/>
   {confirmationDialog}
  </section>;
 }
