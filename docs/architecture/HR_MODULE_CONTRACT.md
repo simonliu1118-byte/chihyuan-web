@@ -60,3 +60,13 @@
 雙週以固定週一為起點，跨月補齊週次；對正職與半職，空白週不做例休或雙週檢查。完整週每週至少一例假、完整雙週至少四例休日；正常工時單日 10h、單週 48h、雙週 80h；連七禁止、連六須核准。兼職不檢查例休，但連續上班 7 日禁止及單日超 8h 需核准；不排班兼職只可註 X，實際工時由打卡唯讀顯示。公司標記在 `hr_roster_approvals`，同區段不重複核准。系統不自動調整排班內容。
 
 居家工作依排定班別出勤、擺攤不算遲到早退、颱風假不算曠職。異常整月依門市、員工與日期範圍批次讀取，避免 N+1。備份還原只能接受符合 migration 預設資料的全新 D1 作為目標，且於單一 transaction 刪除預設資料後還原；任何非預設資料仍禁止覆蓋。
+
+## WO-0.9.25 人事第二期 2b（請假、特休、加班、補休）
+- 新表：hr_leave_records、hr_leave_attachments、hr_annual_leave_years、hr_overtime_days、hr_comp_time_grants、hr_comp_time_settlements；hr_leave_types 擴充額度期間、併入假別與附檔需求。
+- Worker 路由經原 CYID SUPER_ADMIN gate；管理員可以新增／銷假、查員工請假總表與明細、確認出勤加班、給予補休換休、延長有效期限、到期轉加班費。有效假單不得 DELETE；取消記 cancelled_at/by/reason。
+- POST /api/business/hr/leave-requests 建立 batch_id，一天一列，整天與對應排班格同一 db.batch；補休不足 409 HR_COMP_INSUFFICIENT；假額上限 409 HR_LEAVE_QUOTA。
+- POST /api/business/hr/leave-requests/:batchId/cancel 取消所選日期，整天假清空格子並附稽核；GET /api/business/hr/rosters/:storeId/:month 返回 leaveForms。
+- GET /api/business/hr/leave/summary?year=&storeId=／GET /api/business/hr/employees/:id/leave?year= 批次查詢。
+- GET/PATCH/POST /api/business/hr/settings/leave-types 法定額度不可修改，公司假別可新增修改。
+- R2 選擇性綁定 HR_FILES（環境變數 CF_HR_FILES_R2_BUCKET），JPEG 1.5MB、2000px、每單 3 張，上傳寫稽核，查看不寫。
+- 特休依服務年度先扣上年度遞延，未休可遞延一年度；未休工資金額留待第三期。加班費與換休金額不計算。

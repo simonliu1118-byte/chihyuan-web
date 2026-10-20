@@ -714,3 +714,6 @@ D1 migration `0017_hr_phase1.sql` 新增 `hr_employees`、`hr_emergency_contacts
 
 ## WO-0.9.24 人事第二期 2a
 `0018_hr_phase2a.sql` 增設 `hr_stores`、`hr_job_titles`、`hr_shift_types`、`hr_leave_types`、`hr_holidays`、`hr_schedule_days`、`hr_schedule_months`、`hr_roster_approvals`、`hr_attendance_days`，以及員工所屬門市／職稱、班表排序、僱用型態、排班方式及不須檢核欄位。格子唯一鍵 `(employee_id,work_date)`；備註唯一鍵 `(store_id,month)`；出勤唯一鍵 `(employee_id,work_date)`，不得直接刪除出勤資料。各格排班修改在 `db.batch` 加一筆 `hr_roster.updated` 稽核，出勤修改在同一批寫 `hr_attendance.updated`；自動例休標記保留在 `rest_label`。詳見 [HR_MODULE_DESIGN.md](HR_MODULE_DESIGN.md) §5 及 [HR_MODULE_CONTRACT.md](HR_MODULE_CONTRACT.md)。
+
+## WO-0.9.25 2b 資料模型
+0019_hr_phase2b.sql 新增 hr_leave_records（batch_id 聚合同次申請、取消不刪除）、hr_leave_attachments（metadata only，R2 實體備份未納入）、hr_annual_leave_years（員工／服務年度唯一）、hr_overtime_days（員工／日期唯一與 revision）、hr_comp_time_grants（補休與國定假日換休）、hr_comp_time_settlements（轉加班費結清）。hr_leave_types 增加額度、合併、附件及法規資訊並新增「院」；查詢期間即時計算遞延與到期，不使用排程。

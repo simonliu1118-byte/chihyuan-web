@@ -14,13 +14,19 @@ const MIGRATION_SEEDS: Record<string,{count:number;predicate:string}> = {
   hr_shift_types:{count:6,predicate:"(id=1 AND code='早' AND start_time='09:00' AND end_time='17:30' AND normal_minutes=480) OR (id=2 AND code='晚' AND start_time='12:30' AND end_time='21:00' AND normal_minutes=480) OR (id=3 AND code='日' AND start_time='10:30' AND end_time='19:00' AND normal_minutes=480) OR (id=4 AND code='A' AND normal_minutes=240) OR (id=5 AND code='B' AND normal_minutes=240) OR (id=6 AND code='C' AND normal_minutes=240)"},
   hr_leave_types:{count:18,predicate:["特","事","病","生","婚","喪","產","檢","陪","家","公","傷","颱","國","補","換","獎","院"].map((code,i)=>"(id="+(i+1)+" AND code='"+code+"' AND sort_order="+(i+1)+" AND is_active=1 AND is_statutory="+(i<12?1:0)+")").join(" OR ")}
 };
+function balancedAnd(items:string[]):string {
+  if(items.length===0)return "1=1";
+  if(items.length===1)return items[0];
+  const mid=Math.floor(items.length/2);
+  return "("+balancedAnd(items.slice(0,mid))+" AND "+balancedAnd(items.slice(mid))+")";
+}
 function emptyTargetGuard() {
-  return ALL_TABLES.map(table=>{
+  return balancedAnd(ALL_TABLES.map(table=>{
     const identifierTable=identifier(table),seed=MIGRATION_SEEDS[table];
     return seed
       ? "((SELECT COUNT(*) FROM "+identifierTable+")="+seed.count+" AND NOT EXISTS(SELECT 1 FROM "+identifierTable+" WHERE NOT ("+seed.predicate+")))"
       : "NOT EXISTS(SELECT 1 FROM "+identifierTable+")";
-  }).join(" AND ");
+  }));
 }
 
 const MAX_ROWS = 500;

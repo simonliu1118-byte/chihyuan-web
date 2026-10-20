@@ -1,0 +1,8 @@
+.cy-hr-leave{min-width:0}.hr-leave-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.hr-leave-toolbar label{display:flex;align-items:center;gap:6px}.hr-leave-toolbar input{max-width:140px}
+.cy-hr-leave-md{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px}.hr-leave-row{cursor:pointer}.hr-leave-item{display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--cy-border);padding:8px 0;flex-wrap:wrap}
+.hr-leave-pending{color:#c27820;background:#fff4df;border-radius:5px;padding:1px 7px}.hr-leave-roster-pending::after{content:"";position:absolute;right:2px;top:2px;width:0;height:0;border-top:7px solid #eaa52a;border-left:7px solid transparent}
+.hr-leave-pending-title{border:1px dashed #d79b37}.hr-expired{border-left:3px solid #c83232;padding-left:10px}.hr-expiring{border-left:3px solid #dc9a32;padding-left:10px}
+.hr-leave-notice{max-width:210mm;margin:auto;padding:16mm;font-family:serif;background:white;color:#111}.hr-leave-notice h1{text-align:center;font-size:19pt;margin-bottom:15mm}.hr-leave-signature{margin-top:20mm}
+@media(max-width:700px){.cy-hr-leave-md{display:block}.hr-leave-toolbar{gap:6px}}
+@page{size:A4 portrait;margin:12mm}
+@media print{body *{visibility:hidden!important}.hr-leave-notice,.hr-leave-notice *{visibility:visible!important}.hr-leave-notice{position:absolute;inset:0;width:100%!important;max-width:none!important}}

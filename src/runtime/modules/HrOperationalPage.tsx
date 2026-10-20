@@ -16,6 +16,7 @@ import { RelatedCard } from "../../ui/records/RelatedCard";
 import "./hr-operational.css";
 import {HrRosterPanel} from "./HrRosterPanel";
 import {HrAttendancePanel} from "./HrAttendancePanel";
+import {HrLeavePanel} from "./HrLeavePanel";
 
 const ROOT = "/api/business/hr";
 const statusLabels: Record<HrStatus, string> = { probation: "試用", active: "在職", leave: "留職停薪", terminated: "離職" };
@@ -97,7 +98,7 @@ function draftFrom(detail: EmployeeDetail): Draft {
 }
 
 export function HrOperationalPage() {
-  const [tab,setTab]=useState<"people"|"roster"|"attendance">("people");
+  const [tab,setTab]=useState<"people"|"roster"|"attendance"|"leave">("people");
   const [stores,setStores]=useState<{id:number;name:string}[]>([]);
   const [jobTitles,setJobTitles]=useState<{id:number;name:string}[]>([]);
   useEffect(()=>{void Promise.all([
@@ -301,6 +302,7 @@ export function HrOperationalPage() {
       <button type="button" className={tab==="people"?"active":""} onClick={()=>setTab("people")}>人員</button>
       <button type="button" className={tab==="roster"?"active":""} onClick={()=>setTab("roster")}>排班</button>
       <button type="button" className={tab==="attendance"?"active":""} onClick={()=>setTab("attendance")}>出勤</button>
+      <button type="button" className={tab==="leave"?"active":""} onClick={()=>setTab("leave")}>請假</button>
     </nav>
     {tab==="people"?<div className="cy-op-module">
     {confirmationDialog}
@@ -478,7 +480,7 @@ export function HrOperationalPage() {
         </div>
       </form>
     </Dialog> : null}
-  </div>:tab==="roster"?<HrRosterPanel/>:<HrAttendancePanel/>}</>;
+  </div>:tab==="roster"?<HrRosterPanel/>:tab==="attendance"?<HrAttendancePanel/>:<HrLeavePanel/>}</>;
 }
 
 function Fact({ label, value, wide }: { label: string; value: ReactNode; wide?: boolean }) {

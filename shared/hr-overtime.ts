@@ -54,6 +54,10 @@ export function compBalances(credits:readonly CompCredit[],uses:readonly CompUse
    else overtimeDeficit+=need;
   }
  }
+ // Newly granted holiday credit repays any previously advanced swap leave before it creates a positive balance.
+ for(const row of rows.filter(x=>x.kind==="holiday"&&x.remainingMinutes>0).sort((a,b)=>a.expiresOn.localeCompare(b.expiresOn))){
+   const settled=Math.min(holidayAdvance,row.remainingMinutes);row.remainingMinutes-=settled;holidayAdvance-=settled;
+ }
  const totals={overtimeMinutes:0,holidayMinutes:0,grantMinutes:0};
  for(const x of rows)if(!x.expired)totals[x.kind==="overtime"?"overtimeMinutes":x.kind==="holiday"?"holidayMinutes":"grantMinutes"]+=x.remainingMinutes;
  return {...totals,overtimeMinutes:totals.overtimeMinutes+totals.grantMinutes-overtimeDeficit,

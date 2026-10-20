@@ -142,7 +142,8 @@ export class HrRosterService {
     group[row.work_date]=evaluateAttendance(null,null,row,{noRosterPartTime:true}).workedMinutes/60;
    }
   }
-  return {actualHours,store:b.store,month,bounds:b.bounds,employees:b.employees,shifts:b.shifts,leaveTypes:b.leaveTypes,
+  const leaveForms=(await this.db.prepare("SELECT r.employee_id,r.work_date,r.batch_id,r.whole_day,r.minutes,t.code FROM hr_leave_records r JOIN hr_leave_types t ON t.id=r.leave_type_id WHERE r.cancelled_at IS NULL AND r.work_date BETWEEN ? AND ? AND r.employee_id IN (SELECT id FROM hr_employees WHERE store_id=?) ORDER BY r.id LIMIT 10000").bind(b.bounds.start,b.bounds.finish,storeId).all<{employee_id:number;work_date:string;batch_id:string;whole_day:number;minutes:number;code:string}>()).results??[];
+  return {leaveForms,actualHours,store:b.store,month,bounds:b.bounds,employees:b.employees,shifts:b.shifts,leaveTypes:b.leaveTypes,
    holidays:b.holidays,notes:b.notes,rules:b.rules,days:b.days,approvals:b.approvals,...checked};
  }
  async put(storeId:number,month:string,raw:unknown,ctx:HrContext){
@@ -155,6 +156,10 @@ export class HrRosterService {
   const keys=new Set<string>();
   for(const c of changes){const key=c.employeeId+"|"+c.date;if(keys.has(key))throw new HrValidationError("changes","日期重複");keys.add(key)}
   const changed=changes.filter(c=>!equal(b.byKey.get(c.employeeId+"|"+c.date),c));
+  for(const c of changed){
+   const done=await this.db.prepare("SELECT r.id FROM hr_leave_records r WHERE r.employee_id=? AND r.work_date=? AND r.cancelled_at IS NULL AND r.whole_day=1 LIMIT 1").bind(c.employeeId,c.date).first<{id:number}>();
+   if(done)throw new HrRosterError("HR_LEAVE_FORM_EXISTS" as "HR_ROSTER_VIOLATION",[{employeeId:c.employeeId,date:c.date,message:"已完成假單，請先到假單銷假"}]);
+  }
   const staged=new Map(b.byKey);for(const c of changed){const key=c.employeeId+"|"+c.date;
    if(c.kind===null)staged.delete(key);else staged.set(key,asCell(c,storeId));
   }

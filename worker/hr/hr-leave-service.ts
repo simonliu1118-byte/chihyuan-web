@@ -68,8 +68,8 @@ export class HrLeaveService{
  }
  async summary(year:number,storeId:number|undefined,asOf:string){
   if(!Number.isInteger(year)||year<2000||year>2200)throw new HrValidationError("year","年度錯誤");
-  const employees=(await this.db.prepare("SELECT e.id,e.employee_no,e.name,e.store_id FROM hr_employees e WHERE e.status<>'terminated' AND (? IS NULL OR e.store_id=?) ORDER BY e.employee_no LIMIT 101")
-    .bind(storeId??null,storeId??null).all<{id:number;employee_no:string;name:string;store_id:number}>()).results??[];
+  const employees=(await this.db.prepare("SELECT e.id,e.employee_no,e.name,e.store_id,e.employment_type FROM hr_employees e WHERE e.status<>'terminated' AND (? IS NULL OR e.store_id=?) ORDER BY e.employee_no LIMIT 101")
+    .bind(storeId??null,storeId??null).all<{id:number;employee_no:string;name:string;store_id:number;employment_type:"full"|"half"|"casual"}>()).results??[];
   if(employees.length>100)throw new HrValidationError("limit","最多 100 人",422);
   const [leaves,staged,grants,ot,settlements,types]=await Promise.all([
    this.db.prepare("SELECT r.employee_id,r.leave_type_id,r.work_date,r.minutes,r.cancelled_at,t.comp_kind,t.code FROM hr_leave_records r JOIN hr_leave_types t ON t.id=r.leave_type_id WHERE r.work_date BETWEEN ? AND ? LIMIT 10000").bind(String(year)+"-01-01",monthEnd(year)).all<Record<string,unknown>>(),
@@ -89,7 +89,7 @@ export class HrLeaveService{
    ];
    const uses:CompUse[]=records.filter(x=>x.comp_kind).map(x=>({kind:x.comp_kind==="holiday"?"holiday":"overtime",workDate:String(x.work_date),minutes:Number(x.minutes)}));
    const payments:CompSettlement[]=(settlements.results??[]).filter(x=>x.employee_id===e.id).map(x=>({creditId:Number(x.overtime_day_id),minutes:Number(x.minutes)}));
-   return {id:e.id,employeeNo:e.employee_no,name:e.name,storeId:e.store_id,used,pending,
+   return {id:e.id,employeeNo:e.employee_no,name:e.name,storeId:e.store_id,employmentType:e.employment_type,used,pending,
     comp:compBalances(credits,uses,payments,asOf)};
   });
   return {year,types,employees:each,total:ids.size};
