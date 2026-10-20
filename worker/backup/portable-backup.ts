@@ -5,6 +5,24 @@ export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
 // excluded from durable backup. After recovery the Super Admin reissues the Agent token.
 const EPHEMERAL_TABLES = ["erp_item_queries", "erp_item_agent_status", "erp_item_agent_credentials"] as const;
 const ALL_TABLES = [...BACKUP_TABLES, "backup_copies", "backup_sets", ...EPHEMERAL_TABLES].sort();
+// Newly migrated D1 has canonical HR reference rows before any operator data.
+// Allow only these *unaltered* migration fixtures as a fresh restore destination.
+// All other tables still must be empty. Predicates are fixed source strings, never user input.
+const MIGRATION_SEEDS: Record<string,{count:number;predicate:string}> = {
+  hr_stores:{count:1,predicate:"id=1 AND name='志遠高雄門市' AND sort_order=0 AND is_active=1 AND cycle_anchor_date='2026-09-28' AND rules_template=''"},
+  hr_job_titles:{count:5,predicate:"(id=1 AND name='店長' AND sort_order=1) OR (id=2 AND name='門市' AND sort_order=2) OR (id=3 AND name='業務' AND sort_order=3) OR (id=4 AND name='美編' AND sort_order=4) OR (id=5 AND name='兼職' AND sort_order=5)"},
+  hr_shift_types:{count:6,predicate:"(id=1 AND code='早' AND start_time='09:00' AND end_time='17:30' AND normal_minutes=480) OR (id=2 AND code='晚' AND start_time='12:30' AND end_time='21:00' AND normal_minutes=480) OR (id=3 AND code='日' AND start_time='10:30' AND end_time='19:00' AND normal_minutes=480) OR (id=4 AND code='A' AND normal_minutes=240) OR (id=5 AND code='B' AND normal_minutes=240) OR (id=6 AND code='C' AND normal_minutes=240)"},
+  hr_leave_types:{count:17,predicate:["特","事","病","生","婚","喪","產","檢","陪","家","公","傷","颱","國","補","換","獎"].map((code,i)=>"(id="+(i+1)+" AND code='"+code+"' AND sort_order="+(i+1)+" AND is_active=1 AND is_statutory="+(i<12?1:0)+")").join(" OR ")}
+};
+function emptyTargetGuard() {
+  return ALL_TABLES.map(table=>{
+    const identifierTable=identifier(table),seed=MIGRATION_SEEDS[table];
+    return seed
+      ? "((SELECT COUNT(*) FROM "+identifierTable+")="+seed.count+" AND NOT EXISTS(SELECT 1 FROM "+identifierTable+" WHERE NOT ("+seed.predicate+")))"
+      : "NOT EXISTS(SELECT 1 FROM "+identifierTable+")";
+  }).join(" AND ");
+}
+
 const MAX_ROWS = 500;
 const MAX_BYTES = 5 * 1024 * 1024;
 const SCHEMA_VERSION = "0007_retired_entity_ids";
@@ -154,7 +172,7 @@ export async function validateEmptyBackupTarget(db: D1Database, bundle: Portable
   const target = await layout(db);
   check(manifest.schemaSha256 === await sha256(encoder.encode(target.schema)), "BACKUP_SCHEMA_MISMATCH");
   for (const table of BACKUP_TABLES) check(same(data.tables[table].columns, target.columns[table]), "BACKUP_COLUMNS_MISMATCH");
-  const guard = ALL_TABLES.map(table => `NOT EXISTS(SELECT 1 FROM ${identifier(table)})`).join(" AND ");
+  const guard = emptyTargetGuard();
   const empty = await db.prepare(`SELECT CASE WHEN ${guard} THEN 1 ELSE 0 END AS empty_target`).first<{ empty_target: number }>();
   check(empty?.empty_target === 1, "BACKUP_TARGET_NOT_EMPTY");
   return { manifest, data };
@@ -163,9 +181,11 @@ export async function restoreIntoEmptyDatabase(db: D1Database, bundle: PortableB
   const { manifest, data } = await validateEmptyBackupTarget(db, bundle, workspaceScope);
   // Recheck emptiness inside the same transaction as all inserts to close the race.
   // Malformed JSON makes a failed guard abort the entire batch without deleting data.
-  const emptyGuard = ALL_TABLES.map(table => `NOT EXISTS(SELECT 1 FROM ${identifier(table)})`).join(" AND ");
+  const emptyGuard = emptyTargetGuard();
   const statements = [db.prepare(`SELECT CASE WHEN ${emptyGuard} THEN 1 ELSE json('') END AS empty_target`),
     db.prepare("PRAGMA defer_foreign_keys = ON")];
+  for(const table of ["hr_leave_types","hr_shift_types","hr_job_titles","hr_stores"])
+    statements.push(db.prepare(`DELETE FROM ${identifier(table)}`));
   for (const table of BACKUP_TABLES) {
     const value = data.tables[table];
     const insert = db.prepare(`INSERT INTO ${identifier(table)} (${value.columns.map(identifier).join(",")}) VALUES (${value.columns.map(() => "?").join(",")})`);
