@@ -8,7 +8,7 @@ type LeaveApproval={employeeId:number;kind:"consecutive"|"over_eight";startDate:
 export interface LeaveTypeOption{id:number;code:string;name:string;quota_days?:number|null;requires_reason?:number;accepts_proof?:number;quota_period?:string|null;event_quota_options?:string|null;is_active?:number}
 export interface LeavePerson{id:number;name:string;employee_no:string;employment_type:"full"|"half"|"casual"}
 export interface CompletedLeaveInfo{batchId:string;date:string;code:string;minutes:number}
-export function HrLeaveDialog({person,types,initialDate,completed,onClose,onSaved}:{person:LeavePerson|null;types:LeaveTypeOption[];initialDate?:string;completed?:CompletedLeaveInfo|null;onClose:()=>void;onSaved:()=>void}){
+export function HrLeaveDialog({person,types,initialDate,initialTypeId,completed,onClose,onSaved}:{person:LeavePerson|null;types:LeaveTypeOption[];initialDate?:string;initialTypeId?:number;completed?:CompletedLeaveInfo|null;onClose:()=>void;onSaved:()=>void}){
  const [typeId,setTypeId]=useState(0),[from,setFrom]=useState(taipeiToday()),[to,setTo]=useState(taipeiToday());
  const [wholeDay,setWholeDay]=useState(true),[manualMinutes,setManualMinutes]=useState(false),[startTime,setStartTime]=useState("09:00"),[endTime,setEndTime]=useState("17:00"),[minutes,setMinutes]=useState("120");
  const [reason,setReason]=useState(""),[eventDate,setEventDate]=useState(""),[eventDays,setEventDays]=useState("8"),[files,setFiles]=useState<File[]>([]),[gray,setGray]=useState(false);
@@ -19,7 +19,7 @@ export function HrLeaveDialog({person,types,initialDate,completed,onClose,onSave
  const [previews,setPreviews]=useState<string[]>([]);
  const {confirm,confirmationDialog}=useConfirmation();
  useEffect(()=>{const urls=files.map(file=>URL.createObjectURL(file));setPreviews(urls);return()=>urls.forEach(url=>URL.revokeObjectURL(url));},[files]);
- useEffect(()=>{if(person){setFrom(initialDate??taipeiToday());setTo(initialDate??taipeiToday());setWholeDay(person.employment_type==="full");setManualMinutes(false);setTypeId(types[0]?.id??0);setError("");setApprovalItems([]);setFiles([]);setCreatedBatchId(null);setUploadedCount(0);setCancelReason("")}},[person,initialDate,types]);
+ useEffect(()=>{if(person){setFrom(initialDate??taipeiToday());setTo(initialDate??taipeiToday());setWholeDay(person.employment_type==="full");setManualMinutes(false);setTypeId(types.find(x=>x.id===initialTypeId&&x.is_active!==0)?.id??types.find(x=>x.is_active!==0&&x.code!=="國")?.id??0);setError("");setApprovalItems([]);setFiles([]);setCreatedBatchId(null);setUploadedCount(0);setCancelReason("")}},[person,initialDate,initialTypeId,types]);
  const type=types.find(x=>x.id===typeId);
  async function cancelCompleted(e:FormEvent){
   e.preventDefault();if(!completed||!cancelReason.trim())return;
