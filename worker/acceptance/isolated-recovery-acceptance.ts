@@ -19,6 +19,7 @@ export async function acceptIsolatedRecovery(db: D1Database, target: D1Database,
   };
   const workspaceScope = "acceptance-workspace", service = new BackupService(db, workspaceScope, "0.7.3", { r2, gcs });
   const context = { now: "2026-10-01T11:00:00.000Z", actorMemberId: 1, requestId: "synthetic-rehearsal-select" };
+  const pristineCount = JSON.parse(new TextDecoder().decode((await exportPortableBackup(target, { workspaceScope, appVersion: "0.7.3" })).manifestBytes)).totalRecordCount;
   const id = await service.create("manual", context);
   const input = { backupId: id, selectionConfirmation: id, targetConfirmation: "isolated_empty_database" as const, role: "SUPER_ADMIN", isActive: true };
   const before = await db.prepare("SELECT COUNT(*) AS n FROM backup_sets").first<{ n: number }>();
@@ -42,12 +43,12 @@ export async function acceptIsolatedRecovery(db: D1Database, target: D1Database,
   stored.set(unavailablePrefix + "manifest.json", original);
   failGcs = true;
   await rejects(() => service.isolatedRecovery(target, input, { ...context, requestId: "synthetic-rehearsal-safety-failed" }), "ACCEPT_RECOVERY_UNVERIFIED_SAFETY_COPY");
-  assert(JSON.parse(new TextDecoder().decode((await exportPortableBackup(target, { workspaceScope, appVersion: "0.7.3" })).manifestBytes)).totalRecordCount === 0,
+  assert(JSON.parse(new TextDecoder().decode((await exportPortableBackup(target, { workspaceScope, appVersion: "0.7.3" })).manifestBytes)).totalRecordCount === pristineCount,
     "ACCEPT_RECOVERY_TARGET_CHANGED_BEFORE_SAFETY");
   failGcs = false;
   failR2Write = true;
   await rejects(() => service.isolatedRecovery(target, input, { ...context, requestId: "synthetic-rehearsal-r2-safety-failed" }), "ACCEPT_RECOVERY_GCS_ONLY_SAFETY_ACCEPTED");
-  assert(JSON.parse(new TextDecoder().decode((await exportPortableBackup(target, { workspaceScope, appVersion: "0.7.3" })).manifestBytes)).totalRecordCount === 0,
+  assert(JSON.parse(new TextDecoder().decode((await exportPortableBackup(target, { workspaceScope, appVersion: "0.7.3" })).manifestBytes)).totalRecordCount === pristineCount,
     "ACCEPT_RECOVERY_GCS_ONLY_SAFETY_CHANGED_TARGET");
   failR2Write = false;
   const liveCustomers = await db.prepare("SELECT * FROM customers ORDER BY id").all();
