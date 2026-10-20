@@ -8,7 +8,7 @@ import {HrValidationError,date,integer,object,required} from "./hr-validation";
 import type {HrContext} from "./hr-service";
 
 interface Employee {id:number;employee_no:string;name:string;employment_type:"full"|"half"|"casual";store_id:number;seniority_start_date:string}
-interface TypeRow {id:number;code:string;name:string;quota_days:number|null;quota_period:string|null;merge_into_type_id:number|null;merge_after_days:number;counts_calendar_days:number;event_quota_options:string|null;requires_reason:number;accepts_proof:number;needs_form:number;comp_kind:string|null}
+interface TypeRow {id:number;code:string;name:string;is_active:number;quota_days:number|null;quota_period:string|null;merge_into_type_id:number|null;merge_after_days:number;counts_calendar_days:number;event_quota_options:string|null;requires_reason:number;accepts_proof:number;needs_form:number;comp_kind:string|null}
 interface RecordRow {id:number;batch_id:string;employee_id:number;leave_type_id:number;work_date:string;start_time:string|null;end_time:string|null;minutes:number;whole_day:number;reason:string;event_date:string|null;event_quota_days:number|null;cancelled_at:string|null;cancel_reason:string|null}
 interface Cell {employee_id:number;work_date:string;kind:string;off_mark:string|null;leave_type_id:number|null;shift_type_id:number|null;store_id:number;hours:number|null}
 const iso=(d:Date)=>d.toISOString().slice(0,10);
@@ -124,7 +124,7 @@ export class HrLeaveService{
   const v=object(raw),employeeId=integer(v.employeeId,"employeeId",true),employee=await this.employee(employeeId);
   if(!employee.store_id)throw new HrValidationError("employeeId","員工未設定門市");
   const typeId=integer(v.leaveTypeId,"leaveTypeId",true),types=await this.types(),type=types.find(t=>t.id===typeId);
-  if(!type||type.needs_form===0||(type as TypeRow&{is_active?:number}).is_active===0)throw new HrValidationError("leaveTypeId","假別不存在、停用或不需建立假單");
+  if(!type||type.needs_form===0||type.is_active===0)throw new HrValidationError("leaveTypeId","假別不存在、停用或不需建立假單");
   const wholeDay=v.wholeDay===true;
   if(wholeDay&&employee.employment_type!=="full")throw new HrValidationError("wholeDay","半職與兼職僅能請時數");
   const start=ymd(v.from??v.date),end=ymd(v.to??v.date??start);
@@ -152,7 +152,7 @@ export class HrLeaveService{
   if(errors.length)throw new HrLeaveError("HR_LEAVE_QUOTA",errors);
   if(type.code==="特"){
    const annual=await this.computeYears(employeeId,end,false);
-   // Keep anniversary periods independent; never spend the next period\'s quota early.
+   // Keep anniversary periods independent; never spend the next period's quota early.
    const byPeriod=new Map<string,{available:number;requested:number}>();
    for(let i=0;i<list.length;i++){
     const period=annual.ledger.find(x=>x.periodStart<=list[i]&&x.periodEnd>=list[i]);
