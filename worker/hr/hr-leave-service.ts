@@ -44,11 +44,11 @@ export class HrLeaveService{
   const settles:CompSettlement[]=(settle.results??[]).map(x=>({creditId:x.overtime_day_id,minutes:x.minutes}));
   return {balances:compBalances(credits,uses,settles,at),credits,uses,settles,types};
  }
- private async computeYears(id:number,now:string){
+ private async computeYears(id:number,now:string,persist=true){
   const employee=await this.employee(id);
   const exceptions=(await this.db.prepare("SELECT start_date,end_date FROM hr_seniority_exclusions WHERE employee_id=? ORDER BY start_date LIMIT 100").bind(id).all<{start_date:string;end_date:string}>()).results??[];
   const periods=annualLeaveSchedule(employee.seniority_start_date,exceptions.map(x=>({startDate:x.start_date,endDate:x.end_date})),now);
-  if(periods.length){
+  if(persist&&periods.length){
    const statements=periods.map(p=>this.db.prepare("INSERT OR IGNORE INTO hr_annual_leave_years(employee_id,period_start,period_end,entitled_days) VALUES(?,?,?,?)").bind(id,p.periodStart,p.periodEnd,p.days));
    await this.db.batch(statements);
   }
@@ -132,7 +132,7 @@ export class HrLeaveService{
    prior.map(x=>({leaveTypeId:x.leave_type_id,workDate:x.work_date,minutes:x.minutes,eventDate:x.event_date,cancelledAt:x.cancelled_at})),candidate);
   if(errors.length)throw new HrLeaveError("HR_LEAVE_QUOTA",errors);
   if(type.code==="特"){
-   const annual=await this.computeYears(employeeId,end);
+   const annual=await this.computeYears(employeeId,end,false);
    const available=annual.ledger.filter(x=>x.periodStart<=end&&x.periodEnd>=start).reduce((n,x)=>n+x.remainingDays*480,0);
    const requiredMinutes=minutes.reduce((a,b)=>a+b,0);
    if(available<requiredMinutes)throw new HrLeaveError("HR_LEAVE_QUOTA",[{code:"特",usedMinutes:requiredMinutes,limitMinutes:available,message:"特休剩餘額度不足"}]);
