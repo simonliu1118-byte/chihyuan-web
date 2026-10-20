@@ -15,7 +15,10 @@
 
 - [ ] GPT 依 WO-0.9.25 實作並開 PR；審查者審查、截圖、合併部署。
 - [ ] 使用者測試 2a 時發現的問題，記在這裡，於 2b 審查時一併修正（使用者 2026-10-20：「修的弄完一起修」）。
-- [ ] 部署前：使用者在 Cloudflare 建立 R2 bucket（建議名稱 `cyweb-hr-files`），在 GitHub 新增 variable `CF_HR_FILES_R2_BUCKET`；審查者在 deploy workflow 傳遞該變數。未設定前附檔功能顯示「尚未設定」，其他功能正常。
+- [x] 使用者已在 Cloudflare 建立人事附檔用的 R2 bucket（2026-10-20）。
+- [ ] 部署前：確認 bucket 名稱並在 GitHub 新增 variable `CF_HR_FILES_R2_BUCKET`；審查者在 deploy workflow 傳遞該變數。
+- [x] 2026-10-20 依使用者回饋改寫 2b：請假頁籤、排班預填與假單分開（待補／已完成記號）、加班改在出勤頁標記、換休可預支、不設每日正常工時（BD-060 第 17～25 點）。
+- [ ] 每月 1 日排程檢查人事法規（`docs/architecture/HR_LEGAL_WATCH.md`）。部分工時（半職、兼職）的請假額度與特休比例待確認。
 - [ ] 人事附檔的備份另案處理。
 
 ## CY Web V0.9.24 Build 0 — 人事第二期 2a：排班與出勤（WO-0.9.24；已審查）
