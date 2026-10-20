@@ -74,13 +74,33 @@ export class HrAttendanceService {
   return {saved:true,changedDays:updates.length,attendance:await this.get(id,month)};
  }
  async anomalies(storeId:number,month:string){
-  monthDates(month);
-  const data=await this.db.prepare("SELECT id,employee_no,name FROM hr_employees WHERE store_id=? AND status<>'terminated' ORDER BY id LIMIT 101").bind(storeId).all<{id:number;employee_no:string;name:string}>();
-  if((data.results??[]).length>100)throw new HrValidationError("limit","超過單門市 100 人安全上限");
-  const output:{employeeId:number;employeeNo:string;name:string;date:string;anomalies:string[]}[]=[];
-  for(const e of data.results??[]){
-   const r=await this.get(e.id,month);
-   for(const item of r.days)if(item.anomalies.length)output.push({employeeId:e.id,employeeNo:e.employee_no,name:e.name,date:item.date,anomalies:item.anomalies});
-  }return output;
+  const dates=monthDates(month),from=dates[0],to=dates.at(-1)!;
+  const [employees,attendance,schedules,types,leaveTypes]=await Promise.all([
+   this.db.prepare("SELECT id,employee_no,name,employment_type,schedule_mode FROM hr_employees WHERE store_id=? AND status<>'terminated' ORDER BY id LIMIT 101").bind(storeId).all<{id:number;employee_no:string;name:string;employment_type:string;schedule_mode:string}>(),
+   this.db.prepare("SELECT a.*,e.store_id FROM hr_attendance_days a JOIN hr_employees e ON e.id=a.employee_id WHERE e.store_id=? AND a.work_date BETWEEN ? AND ? LIMIT 3101").bind(storeId,from,to).all<Punch&{employee_id:number}>(),
+   this.db.prepare("SELECT * FROM hr_schedule_days WHERE store_id=? AND work_date BETWEEN ? AND ? LIMIT 3101").bind(storeId,from,to).all<Schedule&{employee_id:number}>(),
+   this.db.prepare("SELECT * FROM hr_shift_types LIMIT 100").all<Record<string,unknown>>(),
+   this.db.prepare("SELECT id,code FROM hr_leave_types LIMIT 100").all<{id:number;code:string}>()
+  ]);
+  if((employees.results??[]).length>100||(attendance.results??[]).length>3100||(schedules.results??[]).length>3100)
+   throw new HrValidationError("limit","門市員工或出勤超過安全查詢上限");
+  const punches=new Map((attendance.results??[]).map(x=>[x.employee_id+"|"+x.work_date,x]));
+  const rosters=new Map((schedules.results??[]).map(x=>[x.employee_id+"|"+x.work_date,x]));
+  const shifts=new Map((types.results??[]).map(x=>[Number(x.id),x]));
+  const leave=new Map((leaveTypes.results??[]).map(x=>[x.id,x.code]));
+  const result:{employeeId:number;employeeNo:string;name:string;date:string;anomalies:string[]}[]=[];
+  for(const employee of employees.results??[])for(const day of dates){
+   const p=punches.get(employee.id+"|"+day),r=rosters.get(employee.id+"|"+day);
+   const row=r?.shift_type_id?shifts.get(r.shift_type_id):null;
+   const scheduled:AttendanceSchedule|null=r?{kind:r.kind,offMark:r.off_mark==="x"?"x":"slash",
+    restLabel:r.rest_label as "regular"|"rest"|null,marker:r.marker as "home"|"booth"|null,
+    leaveCode:r.leave_type_id?leave.get(r.leave_type_id):null}:null;
+   const shift:AttendanceShift|null=row?{startTime:String(row.start_time),endTime:String(row.end_time),
+    breakStart:row.break_start?String(row.break_start):null,breakEnd:row.break_end?String(row.break_end):null,
+    normalMinutes:Number(row.normal_minutes)}:null;
+   const anomalies=evaluateAttendance(scheduled,shift,p??{},{noRosterPartTime:employee.employment_type==="casual"&&employee.schedule_mode==="none"}).anomalies;
+   if(anomalies.length)result.push({employeeId:employee.id,employeeNo:employee.employee_no,name:employee.name,date:day,anomalies});
+  }
+  return result;
  }
 }
