@@ -12,6 +12,11 @@ type Entry={id:number;batch_id:string;work_date:string;minutes:number;whole_day:
 type Credit={id:number;kind:string;remainingMinutes:number;expiresOn:string;expired:boolean;expiringSoon:boolean};
 type Detail={records:Entry[];pending:{work_date:string;leave_type_id:number}[];types:LeaveTypeOption[];metrics:{code:string;usedMinutes:number;limitMinutes:number|null}[];annual:{id:number;periodStart:string;periodEnd:string;entitledDays:number;carriedInDays:number;remainingDays:number;expiredUnpaidDays:number;notifiedOn:string|null}[];comp:{overtimeMinutes:number;holidayMinutes:number;holidayAdvanceMinutes:number;credits:Credit[]}};
 const hrs=(minutes:number)=>(minutes/60).toFixed(1);
+const usedWithLimit=(minutes:number,code:string,types:LeaveTypeOption[])=>{
+ const type=types.find(x=>x.code===code),limit=type?.quota_days;
+ const period=type?.quota_period==="calendar_year"?"年":type?.quota_period==="month"?"月":type?.quota_period==="event"?"次":type?.quota_period==="two_years"?"兩年":"";
+ return hrs(minutes)+"h"+(limit!=null?" / "+(limit*8).toFixed(1)+"h"+(period?"（"+period+"）":""):"");
+};
 export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null}={}){
  const [year,setYear]=useState(Number(taipeiToday().slice(0,4))),[store,setStore]=useState(""),[summary,setSummary]=useState<Summary|null>(null);
  const [person,setPerson]=useState<LeavePerson|null>(null),[detail,setDetail]=useState<Detail|null>(null);
@@ -54,7 +59,7 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
     <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>員工</th><th>特</th><th>事</th><th>病</th><th>補</th><th>換</th><th>特休餘</th><th>其他</th><th>待補</th><th>補休餘額</th></tr></thead><tbody>
      {summary?.employees.map(e=><tr key={e.id} onClick={()=>openPerson(e)} className="hr-leave-row">
       <th scope="row"><button className="cy-op-button" onClick={()=>openPerson(e)}>{e.employeeNo} {e.name}</button></th>
-      {["特","事","病","補","換"].map(c=><td key={c}>{hrs(e.used[c]??0)}h</td>)}
+      {["特","事","病","補","換"].map(c=><td key={c}>{usedWithLimit(e.used[c]??0,c,summary.types)}</td>)}
       <td>{e.annualRemainingDays.toFixed(1)} 天</td>
       <td><button type="button" className="cy-op-button compact quiet" aria-expanded={otherExpanded===e.id}
        onClick={event=>{event.stopPropagation();setOtherExpanded(id=>id===e.id?null:e.id)}}>
