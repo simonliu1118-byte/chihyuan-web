@@ -36,7 +36,7 @@ export function HrAttendancePanel(){
   const before=changes[day.date]??{date:day.date,in1:day.punches?.in1??null,out1:day.punches?.out1??null,in2:day.punches?.in2??null,out2:day.punches?.out2??null,revision:day.punches?.revision??0,note:day.punches?.note??""};
   setChanges(old=>({...old,[day.date]:{...before,[key]:value}}));
  }
- function changeOvertime(day:Day,patch:Partial<OvertimeEdit>){setOtChanges(prev=>({...prev,[day.date]:{date:day.date,minutes:day.overtime?.minutes??0,settlement:day.overtime?.settlement??"pay",revision:day.overtime?.revision??0,...prev[day.date],...patch}}))}
+ function changeOvertime(day:Day,patch:Partial<OvertimeEdit>){setOtChanges(prev=>{const original:OvertimeEdit=prev[day.date]??{date:day.date,minutes:day.overtime?.minutes??0,settlement:day.overtime?.settlement??"pay",revision:day.overtime?.revision??0};return {...prev,[day.date]:{...original,...patch}}})}
  function enter(e:KeyboardEvent<HTMLInputElement>){if(e.key!=="Enter")return;e.preventDefault();const inputs=[...document.querySelectorAll<HTMLInputElement>(".hr-attendance-table input[data-clock]")];inputs[inputs.indexOf(e.currentTarget)+1]?.focus()}
  async function save(){
   setBusy(true);setError("");
