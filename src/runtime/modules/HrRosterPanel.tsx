@@ -27,6 +27,8 @@ export function HrRosterPanel() {
  const [pending,setPending]=useState<Approval[]>([]);
  const [cell,setCell]=useState<{employeeId:number;date:string}|null>(null),[hours,setHours]=useState(""),[marker,setMarker]=useState(""),[note,setNote]=useState(""),[showAllLeave,setShowAllLeave]=useState(false);
  const [staff,setStaff]=useState<Record<number,{sort:string;skip:boolean}>|null>(null);
+ const [leaveDialogPerson,setLeaveDialogPerson]=useState<LeavePerson|null>(null);
+ const [leaveInitialDate,setLeaveInitialDate]=useState<string|undefined>(undefined);
  const {confirm,confirmationDialog}=useConfirmation();
  const dirty=Object.keys(changes).length>0||!!data&&(notes!==data.notes||rules!==data.rules);
  useUnsavedChangesGuard({active:dirty,blocked:loading,message:"排班尚未儲存，確定離開？"});
@@ -141,6 +143,7 @@ export function HrRosterPanel() {
      await apiRequest(ROOT+"/rosters/"+storeId+"/"+month+"/staff",{method:"PATCH",json:{employeeId:x.id,rosterSort:Number(v.sort||0),skipRosterChecks:v.skip}});await reload();setNotice("已更新 "+x.name+" 的排班設定");
     }catch(e){setError(e instanceof Error?e.message:"儲存失敗")}}}>儲存</button></div>}):null}
   </Dialog>
+  <HrLeaveDialog person={leaveDialogPerson} types={data?.leaveTypes??[]} initialDate={leaveInitialDate} onClose={()=>setLeaveDialogPerson(null)} onSaved={()=>{void reload()}}/>
   {confirmationDialog}
  </section>;
 }
