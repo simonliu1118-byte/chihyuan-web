@@ -24,7 +24,9 @@ UPDATE hr_leave_types SET quota_days=7,quota_period='event' WHERE code IN('檢',
 UPDATE hr_leave_types SET accepts_proof=1 WHERE code IN('病','公');
 UPDATE hr_leave_types SET needs_form=0 WHERE code='國';
 UPDATE hr_leave_types SET comp_kind='overtime' WHERE code='補';
-UPDATE hr_leave_types SET comp_kind='holiday' WHERE code='換';
+-- BD-060 #27: one kind of comp time. 換 is retired; roster cells already using it become 補.
+UPDATE hr_leave_types SET comp_kind='overtime',is_active=0 WHERE code='換';
+UPDATE hr_schedule_days SET leave_type_id=(SELECT id FROM hr_leave_types WHERE code='補') WHERE leave_type_id=(SELECT id FROM hr_leave_types WHERE code='換');
 
 CREATE TABLE hr_leave_records(
  id INTEGER PRIMARY KEY AUTOINCREMENT,batch_id TEXT NOT NULL,
@@ -33,6 +35,7 @@ CREATE TABLE hr_leave_records(
  work_date TEXT NOT NULL,start_time TEXT,end_time TEXT,minutes INTEGER NOT NULL CHECK(minutes>0 AND minutes%30=0),
  whole_day INTEGER NOT NULL DEFAULT 0 CHECK(whole_day IN(0,1)),
  reason TEXT NOT NULL DEFAULT '',event_date TEXT,event_quota_days REAL,
+ advance_holiday_date TEXT,advance_holiday_name TEXT,
  created_at TEXT NOT NULL,created_by INTEGER NOT NULL,
  cancelled_at TEXT,cancelled_by INTEGER,cancel_reason TEXT,
  CHECK((whole_day=1 AND start_time IS NULL AND end_time IS NULL) OR (whole_day=0))
@@ -52,6 +55,7 @@ CREATE INDEX idx_hr_leave_attachments_batch ON hr_leave_attachments(batch_id);
 CREATE TABLE hr_annual_leave_years(
  id INTEGER PRIMARY KEY AUTOINCREMENT,employee_id INTEGER NOT NULL REFERENCES hr_employees(id),
  period_start TEXT NOT NULL,period_end TEXT NOT NULL,entitled_days REAL NOT NULL,
+ entitled_minutes INTEGER,entitled_minutes_override INTEGER,basis TEXT,
  notified_on TEXT,notified_by INTEGER,UNIQUE(employee_id,period_start)
 );
 CREATE TABLE hr_overtime_days(

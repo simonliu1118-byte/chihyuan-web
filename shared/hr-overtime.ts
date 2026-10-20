@@ -2,11 +2,13 @@
 export interface OvertimeDay {date:string;workedMinutes:number;overtimeMinutes:number;normalMinutes:number}
 export interface OvertimeShift {endTime:string;normalMinutes:number}
 export interface SuggestionDay {workDate:string;out1?:string|null;out2?:string|null;workedMinutes:number;employmentType:"full"|"half"|"casual";marker?:string|null;hasPunch?:boolean}
-export interface CompCredit {id:number;kind:"overtime"|"holiday"|"grant";minutes:number;expiresOn:string;issuedOn:string}
-export interface CompUse {kind:"overtime"|"holiday";minutes:number;workDate:string}
+export interface CompCredit {id:number;kind:"overtime"|"holiday"|"grant";minutes:number;expiresOn:string;issuedOn:string;holidayDate?:string|null;holidayName?:string|null}
+/** A 補 leave. With advanceHolidayDate it is an advance on that holiday's comp time (BD-060 #29), kept apart from the balance. */
+export interface CompUse {minutes:number;workDate:string;advanceHolidayDate?:string|null;advanceHolidayName?:string|null}
 export interface CompSettlement {creditId:number;minutes:number}
 export interface CompBalanceRow extends CompCredit {remainingMinutes:number;expired:boolean;expiringSoon:boolean}
-export interface CompBalances {overtimeMinutes:number;holidayMinutes:number;grantMinutes:number;holidayAdvanceMinutes:number;credits:CompBalanceRow[]}
+export interface CompAdvance {holidayDate:string;holidayName:string;advancedMinutes:number;repaidMinutes:number;outstandingMinutes:number}
+export interface CompBalances {balanceMinutes:number;deficitMinutes:number;advanceMinutes:number;advances:CompAdvance[];credits:CompBalanceRow[]}
 function time(x:string){if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(x))throw Error("INVALID_TIME");return Number(x.slice(0,2))*60+Number(x.slice(3))}
 function day(x:string){if(!/^\d{4}-\d{2}-\d{2}$/.test(x))throw Error("INVALID_DATE");const t=Date.parse(x+"T00:00:00Z");if(!Number.isFinite(t))throw Error("INVALID_DATE");return t}
 export function nextMonthEnd(value:string):string{
@@ -38,28 +40,35 @@ export function overtimeWarnings(days:readonly OvertimeDay[]):string[]{
  for(const [key,minutes] of month)if(minutes>46*60)result.push(key+" 延長工時超過 46 小時");
  return result;
 }
+/**
+ * One kind of comp time (BD-060 #27). Ordinary 補 uses take the earliest-expiring credit valid on the leave date.
+ * An advance is owed to one named holiday: only that holiday's comp credit repays it, never the ordinary balance (#29).
+ * Every use counts whatever its date, so booking future leave cannot spend the same credit twice; asOf only sets expiry flags.
+ */
 export function compBalances(credits:readonly CompCredit[],uses:readonly CompUse[],settlements:readonly CompSettlement[],asOf:string):CompBalances{
- let holidayAdvance=0,overtimeDeficit=0;
- const rows=credits.filter(c=>c.issuedOn<=asOf).map(c=>({...c,remainingMinutes:c.minutes,expired:c.expiresOn<asOf,expiringSoon:c.expiresOn>=asOf&&c.expiresOn<=new Date(day(asOf)+7*86400000).toISOString().slice(0,10)}));
- const settled=new Map<number,number>();for(const s of settlements)settled.set(s.creditId,(settled.get(s.creditId)??0)+s.minutes);
- for(const row of rows)row.remainingMinutes=Math.max(0,row.remainingMinutes-(settled.get(row.id)??0));
- for(const u of uses.filter(x=>x.workDate<=asOf).sort((a,b)=>a.workDate.localeCompare(b.workDate))){
+ const soon=new Date(day(asOf)+7*86400000).toISOString().slice(0,10);
+ const rows:CompBalanceRow[]=credits.map(c=>({...c,remainingMinutes:c.minutes,expired:c.expiresOn<asOf,expiringSoon:c.expiresOn>=asOf&&c.expiresOn<=soon}));
+ const advances=new Map<string,CompAdvance>();
+ for(const u of uses)if(u.advanceHolidayDate){
+  const a=advances.get(u.advanceHolidayDate)??{holidayDate:u.advanceHolidayDate,holidayName:u.advanceHolidayName??"",advancedMinutes:0,repaidMinutes:0,outstandingMinutes:0};
+  a.advancedMinutes+=u.minutes;advances.set(u.advanceHolidayDate,a);
+ }
+ for(const row of rows.filter(x=>x.kind==="holiday"&&x.holidayDate&&advances.has(x.holidayDate)).sort((a,b)=>a.id-b.id)){
+  const a=advances.get(row.holidayDate!)!,repay=Math.min(row.remainingMinutes,a.advancedMinutes-a.repaidMinutes);
+  row.remainingMinutes-=repay;a.repaidMinutes+=repay;
+ }
+ let deficit=0;
+ for(const u of uses.filter(x=>!x.advanceHolidayDate).sort((a,b)=>a.workDate.localeCompare(b.workDate))){
   let need=u.minutes;
-  const group=rows.filter(x=>u.kind==="holiday"?x.kind==="holiday":x.kind==="overtime"||x.kind==="grant")
-   .filter(x=>x.issuedOn<=u.workDate && x.expiresOn>=u.workDate)
-   .sort((a,b)=>a.expiresOn.localeCompare(b.expiresOn)||a.id-b.id);
-  for(const c of group){const taken=Math.min(need,c.remainingMinutes);c.remainingMinutes-=taken;need-=taken;if(!need)break}
-  if(need) {
-   if(u.kind==="holiday")holidayAdvance+=need;
-   else overtimeDeficit+=need;
+  for(const c of rows.filter(x=>x.remainingMinutes>0&&x.issuedOn<=u.workDate&&x.expiresOn>=u.workDate).sort((a,b)=>a.expiresOn.localeCompare(b.expiresOn)||a.id-b.id)){
+   const taken=Math.min(need,c.remainingMinutes);c.remainingMinutes-=taken;need-=taken;if(!need)break;
   }
+  deficit+=need;
  }
- // Newly granted holiday credit repays any previously advanced swap leave before it creates a positive balance.
- for(const row of rows.filter(x=>x.kind==="holiday"&&x.remainingMinutes>0).sort((a,b)=>a.expiresOn.localeCompare(b.expiresOn))){
-   const settled=Math.min(holidayAdvance,row.remainingMinutes);row.remainingMinutes-=settled;holidayAdvance-=settled;
- }
- const totals={overtimeMinutes:0,holidayMinutes:0,grantMinutes:0};
- for(const x of rows)if(!x.expired)totals[x.kind==="overtime"?"overtimeMinutes":x.kind==="holiday"?"holidayMinutes":"grantMinutes"]+=x.remainingMinutes;
- return {...totals,overtimeMinutes:totals.overtimeMinutes+totals.grantMinutes-overtimeDeficit,
-  holidayMinutes:totals.holidayMinutes-holidayAdvance,holidayAdvanceMinutes:holidayAdvance,credits:rows};
+ // Settlement pays out what was left after expiry, so it comes after every use the credit could have covered.
+ const settled=new Map<number,number>();for(const x of settlements)settled.set(x.creditId,(settled.get(x.creditId)??0)+x.minutes);
+ for(const row of rows)if(row.kind==="overtime")row.remainingMinutes=Math.max(0,row.remainingMinutes-(settled.get(row.id)??0));
+ const list=[...advances.values()].map(a=>({...a,outstandingMinutes:a.advancedMinutes-a.repaidMinutes})).sort((a,b)=>a.holidayDate.localeCompare(b.holidayDate));
+ const balance=rows.filter(x=>!x.expired&&x.issuedOn<=asOf).reduce((n,x)=>n+x.remainingMinutes,0)-deficit;
+ return {balanceMinutes:balance,deficitMinutes:deficit,advanceMinutes:list.reduce((n,a)=>n+a.outstandingMinutes,0),advances:list,credits:rows};
 }

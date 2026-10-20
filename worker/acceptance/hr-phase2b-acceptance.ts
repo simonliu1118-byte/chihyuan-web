@@ -24,7 +24,9 @@ export async function acceptHrPhase2b(db:D1Database,hrFiles?:R2Bucket){
   Array.from({length:14},(_,i)=>({leaveTypeId:personal.id,workDate:"2026-02-"+String(i+1).padStart(2,"0"),minutes:480})),
   [{leaveTypeId:personal.id,workDate:"2026-10-21",minutes:480}]);
  check(failures.some(x=>x.code==="事"),"QUOTA_BLOCK");
- check(compBalances([], [{kind:"holiday",workDate:"2026-10-02",minutes:480}],[],"2026-10-21").holidayMinutes===-480,"HOLIDAY_ADVANCE");
+ const advanced=compBalances([{id:1,kind:"overtime",minutes:1440,issuedOn:"2026-10-01",expiresOn:"2026-11-30"}],
+  [{workDate:"2026-10-02",minutes:480,advanceHolidayDate:"2026-10-10",advanceHolidayName:"國慶日"},{workDate:"2026-10-03",minutes:480}],[],"2026-10-05");
+ check(advanced.advanceMinutes===480&&advanced.balanceMinutes===960,"ADVANCE_KEPT_APART");
  const inserted=await db.prepare("INSERT INTO hr_employees(employee_no,name,status,hire_date,seniority_start_date,store_id,employment_type,schedule_mode,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
   .bind("HR2BTEST001","測試員工乙","active","2025-01-01","2025-01-01",1,"full","shift",ctx.now,ctx.now).run();
  const employeeId=Number(inserted.meta.last_row_id);
@@ -78,11 +80,16 @@ export async function acceptHrPhase2b(db:D1Database,hrFiles?:R2Bucket){
  await attendance.put(employeeId,"2026-11",{days:[],overtime:[{date:"2026-11-25",minutes:120,settlement:"comp",note:"延長補休期限後修改備註",revision:1}]},ctx);
  const keptExpiry=await db.prepare("SELECT comp_expires_on,note,revision FROM hr_overtime_days WHERE id=?").bind(credit.id).first<{comp_expires_on:string;note:string;revision:number}>();
  check(keptExpiry?.comp_expires_on==="2027-01-31"&&keptExpiry.note==="延長補休期限後修改備註"&&keptExpiry.revision===2,"EXTENDED_EXPIRY_PRESERVED_ON_EDIT");
- await comp.grant(employeeId,{kind:"holiday",minutes:240,holidayDate:"2026-11-01",holidayName:"測試節日"},ctx);
- const swap=types.find(x=>x.code==="換");check(swap,"SWAP_TYPE");
- await leave.create({employeeId,leaveTypeId:swap.id,date:"2026-11-26",wholeDay:true},ctx);
- const balance=await comp.get(employeeId,"2026-11-28");
- check(balance.balances.holidayMinutes===-240,"HOLIDAY_ADVANCE_OFFSET");
+ check(types.find(x=>x.code==="換")?.is_active===0,"SWAP_RETIRED");
+ try{await leave.create({employeeId,leaveTypeId:compType.id,date:"2026-11-26",wholeDay:true},ctx);throw Error("COMP_OVERDRAWN")}
+ catch(e){check(e instanceof HrLeaveError&&e.code==="HR_COMP_INSUFFICIENT","COMP_INSUFFICIENT");}
+ await db.prepare("INSERT OR IGNORE INTO hr_holidays(date,name) VALUES('2026-12-25','測試節日')").run();
+ await leave.create({employeeId,leaveTypeId:compType.id,date:"2026-11-26",wholeDay:true,advanceHolidayDate:"2026-12-25"},ctx);
+ const owed=await comp.get(employeeId,"2026-11-28");
+ check(owed.balances.advanceMinutes===480&&owed.balances.balanceMinutes===60,"HOLIDAY_ADVANCE_APART");
+ await comp.grant(employeeId,{kind:"holiday",minutes:480,holidayDate:"2026-12-25"},ctx);
+ const repaid=await comp.get(employeeId,"2026-12-26");
+ check(repaid.balances.advanceMinutes===0&&repaid.balances.credits.some(x=>x.kind==="holiday"&&x.remainingMinutes===0),"HOLIDAY_ADVANCE_REPAID");
  const settled=await comp.settle(credit.id,{...ctx,now:"2027-03-01T00:00:00.000Z"});
  check(settled.settledMinutes===60,"OVERTIME_SETTLEMENT");
  const forbiddenEnv={DB:db,IDENTITY_APPLICATION_ID:"APP_TEST",IDENTITY_WORKSPACE_ID:"workspace-test",IDENTITY:{

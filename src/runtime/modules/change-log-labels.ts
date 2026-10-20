@@ -16,7 +16,7 @@ const entityNames: Record<string,string> = {
 export const entityLabel = (type: string): string => entityNames[type] ?? "資料";
 export const actionLabels: Record<string,string> = {
   "hr_leave.created":"新增正式假單","hr_leave.cancelled":"銷假",
-  "hr_leave_attachment.uploaded":"上傳請假證明","hr_annual_leave.notified":"記錄特休書面通知",
+  "hr_leave_attachment.uploaded":"上傳請假證明","hr_annual_leave.notified":"記錄特休書面通知","hr_annual_leave.adjusted":"調整特休應給時數",
   "hr_overtime.updated":"修改加班標記","hr_comp_time.granted":"給予補休或換休",
   "hr_comp_time.extended":"延長補休到期日","hr_comp_time.settled":"到期補休轉加班費",
   "hr_roster.updated":"更新月排班表","hr_attendance.updated":"更新打卡紀錄",

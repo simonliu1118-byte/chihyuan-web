@@ -13,12 +13,13 @@ export async function handleHrPhase2bRoute(request:Request,db:D1Database,ctx:HrC
  const mUpload=/^\/api\/business\/hr\/leave-requests\/([0-9a-f-]{36})\/attachments$/.exec(path);
  const mAttachment=/^\/api\/business\/hr\/leave-attachments\/(\d+)$/.exec(path);
  const mNotice=/^\/api\/business\/hr\/annual-leave-years\/(\d+)\/notice$/.exec(path);
+ const mEntitlement=/^\/api\/business\/hr\/annual-leave-years\/(\d+)\/entitlement$/.exec(path);
  const mGrant=/^\/api\/business\/hr\/employees\/(\d+)\/comp-time$/.exec(path);
  const mExtend=/^\/api\/business\/hr\/comp-time\/(overtime|grant)\/(\d+)\/extend$/.exec(path);
  const mSettle=/^\/api\/business\/hr\/comp-time\/overtime\/(\d+)\/settle$/.exec(path);
  const isSummary=path==="/api/business/hr/leave/summary",isCreate=path==="/api/business/hr/leave-requests";
  const setting=path==="/api/business/hr/settings/leave-types";
- if(!mLeave&&!mCancel&&!mUpload&&!mAttachment&&!mNotice&&!mGrant&&!mExtend&&!mSettle&&!isSummary&&!isCreate&&!setting)return null;
+ if(!mLeave&&!mCancel&&!mUpload&&!mAttachment&&!mNotice&&!mEntitlement&&!mGrant&&!mExtend&&!mSettle&&!isSummary&&!isCreate&&!setting)return null;
  const body=async()=>object(await request.json().catch(()=>null));
  const leave=new HrLeaveService(db);
  try {
@@ -48,6 +49,17 @@ export async function handleHrPhase2bRoute(request:Request,db:D1Database,ctx:HrC
    if(!row)throw new HrValidationError("id","找不到特休年度",404);
    await db.batch([db.prepare("UPDATE hr_annual_leave_years SET notified_on=?,notified_by=? WHERE id=?").bind(notifiedOn,ctx.actor,rowId),
     new AuditService(db).prepareRecord({entityType:"hr_annual_leave",entityKey:String(rowId),action:"hr_annual_leave.notified",actorEmployeeId:ctx.actor,requestId:id,after:{notifiedOn}})]);
+   return success({saved:true},id);
+  }
+  if(mEntitlement&&request.method==="PATCH"){
+   // Super admin correction of a part-time entitlement (e.g. hours worked before CY Web); null returns to the computed value.
+   const v=await body(),rowId=Number(mEntitlement[1]);
+   const minutes=v.minutes===null?null:integer(v.minutes,"minutes",true);
+   if(minutes!==null&&(minutes%30||minutes>30*480))throw new HrValidationError("minutes","應給時數須為 30 分鐘倍數，且不超過 30 天");
+   const row=await db.prepare("SELECT id,entitled_minutes_override FROM hr_annual_leave_years WHERE id=?").bind(rowId).first<{id:number;entitled_minutes_override:number|null}>();
+   if(!row)throw new HrValidationError("id","找不到特休年度",404);
+   await db.batch([db.prepare("UPDATE hr_annual_leave_years SET entitled_minutes_override=? WHERE id=?").bind(minutes,rowId),
+    new AuditService(db).prepareRecord({entityType:"hr_annual_leave",entityKey:String(rowId),action:"hr_annual_leave.adjusted",actorEmployeeId:ctx.actor,requestId:id,before:{minutes:row.entitled_minutes_override},after:{minutes}})]);
    return success({saved:true},id);
   }
   const comp=new HrCompService(db);

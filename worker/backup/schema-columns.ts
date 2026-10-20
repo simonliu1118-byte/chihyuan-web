@@ -1,6 +1,5 @@
 // Generated from canonical forward migrations; validate_schema.py checks exact equality.
-export const BACKUP_COLUMNS: Record<string, string[]> = 
-{
+export const BACKUP_COLUMNS: Record<string, string[]> = {
   "app_member_module_access": [
     "enabled",
     "member_id",
@@ -283,8 +282,11 @@ export const BACKUP_COLUMNS: Record<string, string[]> =
     "table_name"
   ],
   "hr_annual_leave_years": [
+    "basis",
     "employee_id",
     "entitled_days",
+    "entitled_minutes",
+    "entitled_minutes_override",
     "id",
     "notified_by",
     "notified_on",
@@ -397,6 +399,8 @@ export const BACKUP_COLUMNS: Record<string, string[]> =
     "width"
   ],
   "hr_leave_records": [
+    "advance_holiday_date",
+    "advance_holiday_name",
     "batch_id",
     "cancel_reason",
     "cancelled_at",

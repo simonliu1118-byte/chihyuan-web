@@ -35,7 +35,8 @@ test("family leave merges into personal quota",()=>{
 test("menstrual leave limits one per month and 4th joins ordinary sick",()=>{
  assert.ok(checkLeaveQuota(period,types,[entry(5,"2026-10-01")],[entry(5,"2026-10-02")]).some(x=>x.code==="生"));
  const first=Array.from({length:3},(_,i)=>entry(5,"2026-0"+(i+1)+"-01"));
- const ordinaryPrior=Array.from({length:29},(_,i)=>entry(3,"2026-07-"+String(i+1).padStart(2,"0")));
+ // 30 sick days already used; a fourth menstrual day of the year counts toward sick leave and exceeds it.
+ const ordinaryPrior=Array.from({length:30},(_,i)=>entry(3,"2026-07-"+String(i+1).padStart(2,"0")));
  assert.ok(checkLeaveQuota(period,types,[...first,...ordinaryPrior],[entry(5,"2026-10-02")]).some(x=>x.code==="病"));
 });
 test("ordinary leave 30 and hospital rolling two years",()=>{

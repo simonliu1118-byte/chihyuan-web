@@ -39,6 +39,13 @@ export function HrRosterPanel() {
  const saved=useMemo(()=>Object.entries(data?.classification??{}).flatMap(([id,r])=>r.violations.map(v=>({...v,employeeId:Number(id)}))),[data]);
  const shown=violations.length?violations:dirty?[]:saved;
  useEffect(()=>{void apiRequest<LeaveTypeOption[]>(ROOT+"/settings/leave-types").then(setFormalLeaveTypes).catch(()=>{});},[]);
+ // Comp time reminders (BD-060 #27): credits about to expire or expired with hours left, and advances still owed.
+ const [compAlerts,setCompAlerts]=useState<string[]>([]);
+ useEffect(()=>{if(!storeId)return;void apiRequest<{employees:{name:string;comp:{advances:{holidayName:string;outstandingMinutes:number}[];credits:{remainingMinutes:number;expiresOn:string;expired:boolean;expiringSoon:boolean}[]}}[]}>(ROOT+"/leave/summary?year="+month.slice(0,4)+"&storeId="+storeId)
+  .then(x=>setCompAlerts(x.employees.flatMap(e=>[
+   ...e.comp.credits.filter(c=>c.remainingMinutes>0&&(c.expired||c.expiringSoon)).map(c=>e.name+"：補休 "+(c.remainingMinutes/60).toFixed(1)+" 小時"+(c.expired?"已於 ":"將於 ")+c.expiresOn.replaceAll("-","/")+" 到期"),
+   ...e.comp.advances.filter(a=>a.outstandingMinutes>0).map(a=>e.name+"：預支 "+a.holidayName+" 補休 "+(a.outstandingMinutes/60).toFixed(1)+" 小時，尚未抵銷")
+  ]))).catch(()=>setCompAlerts([]))},[storeId,month]);
  useEffect(()=>{void apiRequest<Store[]>(ROOT+"/settings/stores").then(x=>{setStores(x);setStoreId(x[0]?.id??0)}).catch(e=>setError(String(e)))},[]);
  const reload=useCallback(async()=>{
   if(!storeId)return;setLoading(true);
@@ -119,6 +126,7 @@ export function HrRosterPanel() {
     <tr className="hr-staffing"><th colSpan={2}>每日人力</th>{dates.map(d=><td key={d}>{Object.entries(data.staffing[d]??{}).map(([k,v])=>k+v).join(" ")}</td>)}<td/></tr>
     <tr><th colSpan={2}>備註</th><td colSpan={dates.length+1}><textarea className="cy-op-input no-print" value={notes} onChange={e=>setNotes(e.target.value)}/><span className="print-only">{notes}</span></td></tr>
     <tr><th colSpan={2}>注意事項</th><td colSpan={dates.length+1}><textarea className="cy-op-input no-print" value={rules} onChange={e=>setRules(e.target.value)}/><span className="print-only">{rules}</span></td></tr></tbody></table></div>
+   {compAlerts.length?<div className="cy-op-panel no-print hr-comp-alerts"><h3>補休提醒</h3>{compAlerts.map(x=><p key={x}>{x}</p>)}</div>:null}
    {shown.length?<div className="cy-op-panel no-print"><h3>違規清單</h3>{shown.map((x,i)=><p key={i}>{data.employees.find(e=>e.id===x.employeeId)?.name??""}　{x.from}～{x.to}：{x.message}</p>)}</div>:null}
    {pending.length?<div className="cy-op-panel no-print"><h3>主管核准</h3>{pending.map((x,i)=><p key={i}>{data.employees.find(e=>e.id===x.employeeId)?.name??x.employeeId}　{x.startDate}～{x.endDate}　{x.kind==="over_eight"?"兼職超過八小時":"連六"}。{x.suggestion}</p>)}
     <button type="button" className="cy-op-button primary" onClick={()=>void submit(pending)}>核准並儲存</button></div>:null}
@@ -134,7 +142,7 @@ export function HrRosterPanel() {
     <div className="hr-cell-choices">{emp.schedule_mode!=="none"?<button type="button" className="cy-op-button" onClick={()=>setChoice("off",{offMark:"slash"})}>/　例休日</button>:null}
      {emp.employment_type==="casual"?<button type="button" className="cy-op-button" onClick={()=>setChoice("off",{offMark:"x"})}>X　不用來</button>:null}
      <button type="button" className="cy-op-button" onClick={()=>setChoice(null)}>清除</button></div>
-    {emp.schedule_mode!=="none"?<><div className="hr-cell-choices">{data.leaveTypes.filter(x=>x.is_active&&(showAllLeave||["特","事","病","補","換"].includes(x.code))).map(x=><button type="button" key={x.id} className="cy-op-button" onClick={()=>setChoice("leave",{leaveTypeId:x.id})}>{x.code} {x.name}</button>)}</div>
+    {emp.schedule_mode!=="none"?<><div className="hr-cell-choices">{data.leaveTypes.filter(x=>x.is_active&&(showAllLeave||["特","事","病","補"].includes(x.code))).map(x=><button type="button" key={x.id} className="cy-op-button" onClick={()=>setChoice("leave",{leaveTypeId:x.id})}>{x.code} {x.name}</button>)}</div>
      <button type="button" className="cy-op-button" onClick={()=>setShowAllLeave(x=>!x)}>更多假別</button>
      <label>註記<select className="cy-op-input" value={marker} onChange={e=>setMarker(e.target.value)}><option value="">無</option><option value="home">居家工作</option><option value="booth">擺攤</option></select></label>
      <label>備註<input className="cy-op-input" value={note} onChange={e=>setNote(e.target.value)}/></label></>:null}

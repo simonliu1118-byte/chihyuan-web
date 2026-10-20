@@ -6,6 +6,7 @@ import {useUnsavedChangesGuard} from "../../ui/foundation/useUnsavedChangesGuard
 import {Dialog} from "../../ui/overlays/Dialog";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import "./hr-phase2a.css";
+import "./hr-phase2b.css";
 type Employee={id:number;employee_no:string;name:string;store_id:number|null};
 type Punch={in1:string|null;out1:string|null;in2:string|null;out2:string|null;revision:number;note:string};
 type Day={overtimeSuggestion:{minutes:number;reason:string};overtime:{minutes:number;settlement:"pay"|"comp";revision:number}|null;date:string;schedule:{kind:string;code:string|null;off_mark:string|null;rest_label:string|null;hours:number|null}|null;punches:Punch|null;workedMinutes:number;lateMinutes:number;earlyMinutes:number;anomalies:string[]};
@@ -61,17 +62,19 @@ export function HrAttendancePanel(){
    {dirty?<><button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void save()}>儲存</button><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void reload()}>取消</button></>:null}
   </div>
   {error?<p role="alert" className="cy-notice cy-notice-danger">{error}</p>:null}{notice?<p role="status" className="cy-notice">{notice}</p>:null}
-  <div className="hr-roster-scroll"><table className="cy-op-table hr-attendance-table"><thead><tr><th>日期</th><th>星期</th><th>排定</th><th>上班 1</th><th>下班 1</th><th>上班 2</th><th>下班 2</th><th>工時</th><th>加班</th><th>結算</th><th>遲到</th><th>早退</th><th>異常</th><th>備註</th></tr></thead>
+  <div className="hr-roster-scroll"><table className="cy-op-table hr-attendance-table"><thead><tr><th>日期</th><th>星期</th><th>排定</th><th>上班 1</th><th>下班 1</th><th>上班 2</th><th>下班 2</th><th>工時</th><th>加班／結算</th><th>遲到</th><th>早退</th><th>異常</th><th>備註</th></tr></thead>
    <tbody>{data?.days.map(row=>{const punch=changes[row.date]??row.punches;return <tr key={row.date}>
     <th scope="row">{row.date.replaceAll("-","/")}</th><td>{weekdays[new Date(row.date+"T00:00:00Z").getUTCDay()]}</td>
     <td>{row.schedule?.kind==="off"?row.schedule.off_mark==="x"?"X":row.schedule.rest_label==="regular"?"例":"/":row.schedule?.kind==="shift"?row.schedule.code??"班":row.schedule?.kind==="hours"?String(row.schedule.hours)+"h":row.schedule?.kind==="leave"?row.schedule.code??"假":"—"}</td>
     {punchFields.map(k=><td key={k}><input data-clock={k} className="cy-op-input hr-attendance-clock" placeholder="HH:mm" aria-label={row.date+" "+k} value={punch?.[k]??""}
       onChange={e=>change(row,k,e.target.value)} onBlur={e=>{if(e.target.value.trim())try{change(row,k,normalizePunchTime(e.target.value))}catch{/* Preserve invalid entry for correction */}}} onKeyDown={enter}/></td>)}
     <td>{hrs(row.workedMinutes)}h</td>
-    <td><select className="cy-op-input" aria-label={row.date+" 加班時數"} value={otChanges[row.date]?.minutes??row.overtime?.minutes??0} onChange={e=>changeOvertime(row,{minutes:Number(e.target.value)})}>
-     {Array.from({length:25},(_,i)=><option value={i*30} key={i}>{hrs(i*30)}h</option>)}</select>
-     {row.overtimeSuggestion.minutes>0?<button type="button" title={row.overtimeSuggestion.reason} className="cy-op-button" onClick={()=>changeOvertime(row,{minutes:row.overtimeSuggestion.minutes})}>建議 {hrs(row.overtimeSuggestion.minutes)}h</button>:null}</td>
-    <td><select className="cy-op-input" aria-label={row.date+" 加班結算"} value={otChanges[row.date]?.settlement??row.overtime?.settlement??"pay"} onChange={e=>changeOvertime(row,{settlement:e.target.value as "pay"|"comp"})}><option value="pay">加班費</option><option value="comp">補休</option></select></td>
+    <td className="hr-overtime-cell">{(()=>{const minutes=otChanges[row.date]?.minutes??row.overtime?.minutes??0;return <>
+     <select className="cy-op-input" aria-label={row.date+" 加班時數"} value={minutes} onChange={e=>changeOvertime(row,{minutes:Number(e.target.value)})}>
+      {Array.from({length:25},(_,i)=><option value={i*30} key={i}>{i?hrs(i*30)+"h":"—"}</option>)}</select>
+     {minutes>0?<select className="cy-op-input" aria-label={row.date+" 加班結算"} value={otChanges[row.date]?.settlement??row.overtime?.settlement??"pay"} onChange={e=>changeOvertime(row,{settlement:e.target.value as "pay"|"comp"})}><option value="pay">加班費</option><option value="comp">補休</option></select>:null}
+     {row.overtimeSuggestion.minutes>0&&minutes!==row.overtimeSuggestion.minutes?<button type="button" title={row.overtimeSuggestion.reason} className="cy-op-button compact quiet" onClick={()=>changeOvertime(row,{minutes:row.overtimeSuggestion.minutes})}>建議 {hrs(row.overtimeSuggestion.minutes)}h</button>:null}
+    </>})()}</td>
     <td>{row.lateMinutes||"—"}</td><td>{row.earlyMinutes||"—"}</td><td>{row.anomalies.join("、")||"—"}</td>
     <td><input className="cy-op-input" aria-label={row.date+" 備註"} value={punch?.note??""} onChange={e=>change(row,"note",e.target.value)}/></td>
    </tr>})}</tbody></table></div>

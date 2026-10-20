@@ -142,7 +142,9 @@ export class HrRosterService {
      hours:null,start_time:null,end_time:null,marker:null,rest_label:null,note:current?.note??""});
    }
    const result=this.evaluate(b,staged,at).classification[String(employeeId)];
-   for(const v of result.violations)if(v.dates.some(d=>d>=at) && !violations.some(x=>x.code===v.code&&x.from===v.from&&x.to===v.to))
+   // A leave form is blocked only by violations it creates, not by problems already in the saved roster.
+   const existing=new Set(this.evaluate(b,b.byKey,at).classification[String(employeeId)].violations.map(v=>v.code+"|"+v.from+"|"+v.to));
+   for(const v of result.violations)if(v.dates.some(d=>d>=at)&&!existing.has(v.code+"|"+v.from+"|"+v.to)&&!violations.some(x=>x.code===v.code&&x.from===v.from&&x.to===v.to))
      violations.push({...v,employeeId});
    const currentApprovals=new Set(b.approvals.map(x=>x.employee_id+"|"+x.kind+"|"+x.start_date+"|"+x.end_date));
    const needed=[
@@ -211,10 +213,10 @@ export class HrRosterService {
   const keys=new Set<string>();
   for(const c of changes){const key=c.employeeId+"|"+c.date;if(keys.has(key))throw new HrValidationError("changes","日期重複");keys.add(key)}
   const changed=changes.filter(c=>!equal(b.byKey.get(c.employeeId+"|"+c.date),c));
-  for(const c of changed){
-   const done=await this.db.prepare("SELECT r.id FROM hr_leave_records r WHERE r.employee_id=? AND r.work_date=? AND r.cancelled_at IS NULL AND r.whole_day=1 LIMIT 1").bind(c.employeeId,c.date).first<{id:number}>();
-   if(done)throw new HrRosterError("HR_LEAVE_FORM_EXISTS",[{employeeId:c.employeeId,date:c.date,message:"已完成假單，請先到假單銷假"}]);
-  }
+  // Cells with a completed whole-day leave form change only through 銷假 (one query for the month, not per cell).
+  const formed=new Set(((await this.db.prepare("SELECT r.employee_id,r.work_date FROM hr_leave_records r JOIN hr_employees e ON e.id=r.employee_id WHERE e.store_id=? AND r.cancelled_at IS NULL AND r.whole_day=1 AND r.work_date BETWEEN ? AND ? LIMIT 10001").bind(storeId,b.bounds.first,b.bounds.end).all<{employee_id:number;work_date:string}>()).results??[]).map(x=>x.employee_id+"|"+x.work_date));
+  const locked=changed.filter(c=>formed.has(c.employeeId+"|"+c.date));
+  if(locked.length)throw new HrRosterError("HR_LEAVE_FORM_EXISTS",locked.map(c=>({employeeId:c.employeeId,date:c.date,message:"已完成假單，請先在假單銷假"})));
   const staged=new Map(b.byKey);for(const c of changed){const key=c.employeeId+"|"+c.date;
    if(c.kind===null)staged.delete(key);else staged.set(key,asCell(c,storeId));
   }

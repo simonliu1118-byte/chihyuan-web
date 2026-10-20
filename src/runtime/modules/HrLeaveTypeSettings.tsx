@@ -17,7 +17,7 @@ export function HrLeaveTypeSettings(){
   <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>代號</th><th>假別</th><th>上限（天）</th><th>類型</th><th>狀態</th><th>操作</th></tr></thead><tbody>
    {rows.map(x=><tr key={x.id}><td>{x.code}</td><td>{x.name}</td><td>{x.quota_days??"不限"}</td><td>{x.is_statutory?"法定":"公司"}</td><td>{x.is_active?"啟用":"停用"}</td><td><button type="button" className="cy-op-button" onClick={()=>edit(x)}>編輯</button></td></tr>)}</tbody></table></div>
   <button type="button" className="cy-op-button" onClick={()=>edit(null)}>＋新增公司假別</button>
-  {selected!==null||name?<form className="cy-op-form" onSubmit={e=>void save(e)} onKeyDown={enterAdvancesFields}>
+  {selected!==null||name?<form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>void save(e)}>
    <label>代號<input className="cy-op-input" value={code} onChange={e=>setCode(e.target.value)} disabled={!!selected} required maxLength={2}/></label>
    <label>名稱<input className="cy-op-input" value={name} onChange={e=>setName(e.target.value)} disabled={selected?.is_statutory===1} required/></label>
    <label>排序<input className="cy-op-input" type="number" value={sort} onChange={e=>setSort(e.target.value)}/></label>

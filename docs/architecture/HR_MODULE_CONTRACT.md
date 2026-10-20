@@ -70,3 +70,6 @@
 - GET/PATCH/POST /api/business/hr/settings/leave-types 法定額度不可修改，公司假別可新增修改。
 - R2 選擇性綁定 HR_FILES（環境變數 CF_HR_FILES_R2_BUCKET），JPEG 1.5MB、2000px、每單 3 張，上傳寫稽核，查看不寫。
 - 特休依服務年度先扣上年度遞延，未休可遞延一年度；未休工資金額留待第三期。加班費與換休金額不計算。
+- 審查修正（BD-060 第 26～29 點）：補休只有一種，「換」停用、既有排班格改為「補」；補休請假可帶 `advanceHolidayDate` 預支某個國定假日（存 `advance_holiday_date`／`advance_holiday_name`），預支不扣現有餘額，只有該國定假日的補休（`hr_comp_time_grants.kind='holiday'`、`holiday_date` 相同）給予時才抵銷。國定假日補休自該日起可用，於該月的次月底到期。
+- 半職、兼職特休依基準期間打卡工時占全時每週 40 小時的比例計算（`entitled_minutes`、`basis`），特休年度開始後固定；`PATCH /api/business/hr/annual-leave-years/:id/entitlement`（`minutes` 或 `null`）由超管調整，稽核 `hr_annual_leave.adjusted`。
+
