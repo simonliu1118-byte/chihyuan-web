@@ -1,7 +1,8 @@
 import { routeHref } from "./runtime/navigation/route-params";
 import { Loading } from "./ui/feedback/Loading";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ApiClientError } from "./api/client";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ApiClientError, apiRequest } from "./api/client";
+import { usageRatio, type D1UsageReport } from "../shared/cloudflare-usage";
 import { checkModuleAccess } from "./access/module-access-client";
 import { AuthGate } from "./auth/AuthGate";
 import type { AuthSession, WorkspaceRole } from "./auth/auth-client";
@@ -133,6 +134,28 @@ function OperationalApp({
   const [route, setRoute] = useState<AppRoute>(currentRoute);
   const moduleAccess = session.moduleAccess;
   const notify = useFeedback();
+  const [usageReport, setUsageReport] = useState<D1UsageReport | null>(null);
+  const [usageError, setUsageError] = useState<string | null>(null);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [usageRequested, setUsageRequested] = useState(false);
+  const [dismissedUsageDay, setDismissedUsageDay] = useState<string | null>(null);
+  const refreshUsage = useCallback(async () => {
+    setUsageLoading(true);
+    try {
+      const report = await apiRequest<D1UsageReport>("/api/business/usage/d1?days=7");
+      setUsageReport(report); setUsageError(null);
+    } catch (error) {
+      setUsageError(error instanceof ApiClientError ? error.code : "USAGE_UNAVAILABLE");
+      setUsageReport(null);
+    } finally { setUsageLoading(false); }
+  }, []);
+  useEffect(() => { if (route !== "identity") setUsageRequested(false); }, [route]);
+  useEffect(() => {
+    if (session.user.workspaceRole !== "SUPER_ADMIN") return;
+    void refreshUsage();
+    const timer = window.setInterval(() => { void refreshUsage(); }, 30 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [session.user.workspaceRole, refreshUsage]);
   const previousAccess = useRef(moduleAccess);
   const [moduleAccessError, , setModuleAccessError] = useFeedbackMessage<string | null>(null);
   const [routeAccess, setRouteAccess] = useState<"idle" | "checking" | "allowed" | "denied">("idle");
@@ -259,14 +282,48 @@ function OperationalApp({
   else if (route === "outsourcing") content = <OutsourcingOperationalPage />;
   else if (route === "worklogs") content = <WorkLogOperationalPage />;
   else if (route === "erp-item-query") content = <ErpItemQueryPage allowedModules={allowedModules} />;
-  else if (route === "identity") content = <SharedIdentityPage session={session} />;
+  else if (route === "identity") content = <SharedIdentityPage session={session}
+    showUsage={usageRequested && role === "SUPER_ADMIN"}
+    usage={role === "SUPER_ADMIN" ? {report:usageReport,error:usageError,loading:usageLoading,onRefresh:refreshUsage} : undefined} />;
   else if (route === "account") content = <MyAccountPage session={session} />;
   else if (route === "programs") content = <ProgramCatalogPage />;
   else if (route === "backups") content = session.user.workspaceRole === "SUPER_ADMIN" ? <BackupOperationalPage /> : <section className="cy-op-panel">需要最高管理員權限。</section>;
   else content = <AuditOperationalPage role={role === "SUPER_ADMIN" ? "SUPER_ADMIN" : "ADMIN"} />;
 
+  const usageToday = usageReport?.today;
+  const usageDate = usageToday?.date ?? "";
+  const dismissKey = "cyweb:d1-usage-dismissed:" + usageDate;
+  let dismissedInSession = false;
+  if (usageDate) {
+    try { dismissedInSession = window.sessionStorage.getItem(dismissKey) === "1"; } catch { /* blocked storage */ }
+  }
+  const readRatio = usageReport ? usageRatio(usageToday!.rowsRead, usageReport.limits.rowsReadPerDay) : 0;
+  const writeRatio = usageReport ? usageRatio(usageToday!.rowsWritten, usageReport.limits.rowsWrittenPerDay) : 0;
+  const isReadPrimary = readRatio >= writeRatio;
+  const primaryKey = isReadPrimary ? "rowsRead" : "rowsWritten";
+  const topDatabase = usageToday?.databases.reduce<typeof usageToday.databases[number] | undefined>(
+    (top, db) => !top || db[primaryKey] > top[primaryKey] ? db : top, undefined);
+  const databaseShare = topDatabase && usageToday?.[primaryKey]
+    ? Math.round(topDatabase[primaryKey] / usageToday[primaryKey] * 100) : 0;
+  const showUsageAlert = role === "SUPER_ADMIN" && !usageError && usageToday
+    && usageToday.level !== "ok" && dismissedUsageDay !== usageDate && !dismissedInSession;
+  const usageBanner = showUsageAlert
+    ? <div role="status" className={"cy-notice cy-usage-alert " + (usageToday.level === "danger" ? "cy-notice-danger" : "cy-notice-warning")}>
+      <span>今日 D1 {isReadPrimary ? "讀取" : "寫入"}已用 {Math.round(Math.max(readRatio,writeRatio)*100)}%
+        {topDatabase && databaseShare ? "（" + topDatabase.name + " 占 " + databaseShare + "%）" : ""}
+        ，每日 08:00（台灣時間）重置</span>
+      <button className="cy-op-button compact" type="button" onClick={() => {
+        setUsageRequested(true); void guardedNavigation.request("identity", "link");
+      }}>查看</button>
+      <button className="cy-op-button compact" type="button" aria-label="關閉用量警示" onClick={() => {
+        try { window.sessionStorage.setItem(dismissKey, "1"); } catch { /* still dismiss in memory */ }
+        setDismissedUsageDay(usageDate);
+      }}>關閉</button>
+    </div> : null;
+
   return (
     <AppShell
+      systemNotice={usageBanner}
       appName="CY Web"
       pageTitle={PAGE_META[route].title}
       pageDescription={PAGE_META[route].description}

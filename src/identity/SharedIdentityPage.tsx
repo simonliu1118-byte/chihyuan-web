@@ -1,4 +1,5 @@
 import { Loading } from "../ui/feedback/Loading";
+import { CloudflareUsagePanel, type CloudflareUsagePanelProps } from "./CloudflareUsagePanel";
 import { enterAdvancesFields, enterAdvancesThenSubmits } from "../ui/foundation/enter-advance";
 import { FormEvent, type ReactNode, useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Dialog, Drawer } from "../ui/overlays/Dialog";
@@ -1038,13 +1039,15 @@ export function MyAccountPage({ session }: { session: AuthSession }) {
   return <div className="cy-identity-page"><SelfServicePanel session={session} /></div>;
 }
 
-export function SharedIdentityPage({ session }: { session: AuthSession }) {
+export function SharedIdentityPage({ session, usage, showUsage = false }: { session: AuthSession; usage?: CloudflareUsagePanelProps; showUsage?: boolean }) {
   const [snapshot, setSnapshot] = useState<IdentityAdminSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, , setError] = useFeedbackMessage<string | null>(null);
   const isWorkspaceAdmin = session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN";
   const isSuperAdmin = session.user.workspaceRole === "SUPER_ADMIN";
-  const [tab, setTab] = useState<Tab>("users");
+  const [tab, setTab] = useState<Tab>(showUsage && isSuperAdmin ? "system" : "users");
+  useEffect(() => { if (showUsage && isSuperAdmin) setTab("system"); }, [showUsage, isSuperAdmin]);
+  useEffect(() => { if (showUsage && tab === "system" && snapshot) document.getElementById("cy-cloudflare-usage")?.scrollIntoView({ block: "start" }); }, [showUsage, tab, snapshot]);
 
   const refresh = useCallback(async () => {
     if (!isWorkspaceAdmin) return;
@@ -1071,6 +1074,7 @@ export function SharedIdentityPage({ session }: { session: AuthSession }) {
       : <div className="cy-identity-admin-stack">
         <ApplicationRegistryPanel snapshot={snapshot} refresh={refresh} />
         <SecurityPanel />
+        {isSuperAdmin && usage ? <CloudflareUsagePanel {...usage} /> : null}
         <CyInvoiceRecoveryAdminPanel key={JSON.stringify([session.user.workspaceId, session.user.employeeId, session.user.workspaceRole, session.user.emailVerified, session.user.isWorkspaceSuperAdmin])} session={session} />
       </div>}
   </div>;

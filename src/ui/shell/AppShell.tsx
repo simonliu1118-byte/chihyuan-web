@@ -8,6 +8,7 @@ export interface AppShellProps {
   pageTitle: string;
   pageDescription?: string;
   pageTools?: ReactNode;
+  systemNotice?: ReactNode;
   subtitle?: string;
   navigation: readonly NavigationGroup[];
   activeNavigationKey?: string;
@@ -45,6 +46,7 @@ export function AppShell({
   pageTitle,
   pageDescription,
   pageTools,
+  systemNotice,
   subtitle,
   navigation,
   activeNavigationKey,
@@ -108,6 +110,7 @@ export function AppShell({
           <div className="cy-shell-topbar-end">{appearance}{account}</div>
         </header>
 
+        {systemNotice ? <div className="cy-shell-global-notice">{systemNotice}</div> : null}
         <main className="cy-shell-main" id="cy-main-content" tabIndex={-1}>
           {children}
         </main>

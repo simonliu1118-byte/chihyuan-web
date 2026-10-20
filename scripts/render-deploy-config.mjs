@@ -89,6 +89,8 @@ export function renderDeployConfig({
   if (!/^[0-9a-f]{40}$/.test(sourceCommit)) throw new Error("Invalid or missing CF_SOURCE_COMMIT");
   const provenanceConfig = JSON.parse(rendered);
   provenanceConfig.vars.SOURCE_COMMIT = sourceCommit;
+  const usageAccount = String(env.CLOUDFLARE_ACCOUNT_ID ?? "").trim();
+  if (usageAccount) provenanceConfig.vars.CF_ACCOUNT_ID = usageAccount;
   rendered = JSON.stringify(provenanceConfig, null, 2) + "\n";
 
   if (env.CF_BACKUP_ENABLED !== undefined && !["true", "false", ""].includes(env.CF_BACKUP_ENABLED)) throw new Error("Invalid CF_BACKUP_ENABLED");

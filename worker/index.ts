@@ -9,6 +9,7 @@ import { groupManagedSystemAccess } from "./http/module-access-group-routes";
 import { handleCyInvoiceRecoveryRoute, type CyInvoiceRecoveryEnv } from "./http/cyinvoice-recovery-routes";
 import { handleBusinessApiRoute } from "./http/business-api-routes";
 import { handleHrRoute } from "./http/hr-routes";
+import { handleUsageRoute } from "./http/usage-routes";
 import { handleBusinessApiPhase2Route } from "./http/business-api-phase2-routes";
 import { handleProgramCatalogRoute } from "./http/program-catalog-routes";
 import { handleErpItemQueryRoute, type ErpBridgeEnv } from "./http/erp-item-query-routes";
@@ -18,6 +19,8 @@ import { updateProgramCatalog } from "./programs/release-catalog";
 
 interface Env extends IdentityRuntimeEnv, BackupRuntimeEnv, ErpBridgeEnv, CyInvoiceRecoveryEnv {
   ASSETS?: Fetcher;
+  CF_ACCOUNT_ID?: string;
+  CF_USAGE_API_TOKEN?: string;
 }
 
 async function health(env: Env, requestId: string): Promise<Response> {
@@ -74,6 +77,9 @@ async function routeRequest(request: Request, env: Env, url: URL): Promise<Respo
 
   const erpResponse = await handleErpItemQueryRoute(request, env, requestId);
   if (erpResponse) return erpResponse;
+
+  const usageResponse = await handleUsageRoute(request, env, requestId);
+  if (usageResponse) return usageResponse;
 
   const hrResponse = await handleHrRoute(request, env, requestId);
   if (hrResponse) return hrResponse;
