@@ -12,10 +12,11 @@ export function HrLeaveDialog({person,types,initialDate,onClose,onSaved}:{person
  const [reason,setReason]=useState(""),[eventDate,setEventDate]=useState(""),[eventDays,setEventDays]=useState("8"),[files,setFiles]=useState<File[]>([]),[gray,setGray]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState("");
  const [approvalItems,setApprovalItems]=useState<LeaveApproval[]>([]);
+ const [createdBatchId,setCreatedBatchId]=useState<string|null>(null),[uploadedCount,setUploadedCount]=useState(0);
  const [previews,setPreviews]=useState<string[]>([]);
  const {confirm,confirmationDialog}=useConfirmation();
  useEffect(()=>{const urls=files.map(file=>URL.createObjectURL(file));setPreviews(urls);return()=>urls.forEach(url=>URL.revokeObjectURL(url));},[files]);
- useEffect(()=>{if(person){setFrom(initialDate??taipeiToday());setTo(initialDate??taipeiToday());setWholeDay(person.employment_type==="full");setTypeId(types[0]?.id??0);setError("");setApprovalItems([]);setFiles([])}},[person,initialDate,types]);
+ useEffect(()=>{if(person){setFrom(initialDate??taipeiToday());setTo(initialDate??taipeiToday());setWholeDay(person.employment_type==="full");setTypeId(types[0]?.id??0);setError("");setApprovalItems([]);setFiles([]);setCreatedBatchId(null);setUploadedCount(0)}},[person,initialDate,types]);
  const type=types.find(x=>x.id===typeId);
  async function resized(file:File):Promise<Blob>{
   const image=await createImageBitmap(file);const ratio=Math.min(1,1600/Math.max(image.width,image.height));
@@ -31,32 +32,38 @@ export function HrLeaveDialog({person,types,initialDate,onClose,onSaved}:{person
   e?.preventDefault();if(!person)return;setBusy(true);setError("");
   try{
    if(type?.requires_reason&&!reason.trim())throw Error("事假請填事由");
-   const response=await fetch("/api/business/hr/leave-requests",{method:"POST",credentials:"same-origin",
-    headers:{"content-type":"application/json","accept":"application/json"},
-    body:JSON.stringify({employeeId:person.id,leaveTypeId:typeId,from,date:from,to:wholeDay?to:from,wholeDay,
-      startTime:wholeDay?undefined:startTime,endTime:wholeDay?undefined:endTime,minutes:wholeDay?undefined:Number(minutes),
-      reason,eventDate:type?.quota_period==="event"?eventDate:undefined,
-      eventQuotaDays:type?.event_quota_options?Number(eventDays):undefined,approve})});
-   const envelope=await response.json() as {ok:boolean;data?:{batchId:string};error?:{code:string;message:string;items?:unknown[]}};
-   if(!response.ok||!envelope.ok){
-    const details=envelope.error?.items??[],code=envelope.error?.code;
-    if(code==="HR_ROSTER_CONSECUTIVE"){
-     setApprovalItems(details as LeaveApproval[]);
-     setError("新增假單會形成連六或兼職超時排班，請明確核准後重送。");return;
+   let batchId=createdBatchId;
+   if(!batchId){
+    const response=await fetch("/api/business/hr/leave-requests",{method:"POST",credentials:"same-origin",
+     headers:{"content-type":"application/json","accept":"application/json"},
+     body:JSON.stringify({employeeId:person.id,leaveTypeId:typeId,from,date:from,to:wholeDay?to:from,wholeDay,
+       startTime:wholeDay?undefined:startTime,endTime:wholeDay?undefined:endTime,minutes:wholeDay?undefined:Number(minutes),
+       reason,eventDate:type?.quota_period==="event"?eventDate:undefined,
+       eventQuotaDays:type?.event_quota_options?Number(eventDays):undefined,approve})});
+    const envelope=await response.json() as {ok:boolean;data?:{batchId:string};error?:{code:string;message:string;items?:unknown[]}};
+    if(!response.ok||!envelope.ok){
+     const details=envelope.error?.items??[],code=envelope.error?.code;
+     if(code==="HR_ROSTER_CONSECUTIVE"){
+      setApprovalItems(details as LeaveApproval[]);
+      setError("新增假單會形成連六或兼職超時排班，請明確核准後重送。");return;
+     }
+     if(code==="HR_ROSTER_VIOLATION"||code==="HR_LEAVE_QUOTA"){
+      const messages=details.map(x=>typeof x==="object"&&x!==null&&"message" in x?String(x.message):"").filter(Boolean);
+      throw Error((code==="HR_LEAVE_QUOTA"?"假額度超限":"排班違反不可核准的規則")+": "+messages.join("；"));
+     }
+     throw Error(envelope.error?.message??"假單儲存失敗");
     }
-    if(code==="HR_ROSTER_VIOLATION"||code==="HR_LEAVE_QUOTA"){
-     const messages=details.map(x=>typeof x==="object"&&x!==null&&"message" in x?String(x.message):"").filter(Boolean);
-     throw Error((code==="HR_LEAVE_QUOTA"?"假額度超限":"排班違反不可核准的規則")+": "+messages.join("；"));
-    }
-    throw Error(envelope.error?.message??"假單儲存失敗");
+    const result=envelope.data;if(!result?.batchId)throw Error("伺服器沒有回傳假單編號");
+    batchId=result.batchId;
+    setCreatedBatchId(batchId);
+    setApprovalItems([]);
    }
-   const result=envelope.data;if(!result?.batchId)throw Error("伺服器沒有回傳假單編號");
-   setApprovalItems([]);
-   for(const file of files){
-    const blob=await resized(file);if(blob.size>1572864)throw Error("照片縮圖後仍超過 1.5 MB");
-    const response=await fetch("/api/business/hr/leave-requests/"+result.batchId+"/attachments",{method:"POST",credentials:"same-origin",
+   for(let i=uploadedCount;i<files.length;i++){
+    const blob=await resized(files[i]);if(blob.size>1572864)throw Error("照片縮圖後仍超過 1.5 MB");
+    const response=await fetch("/api/business/hr/leave-requests/"+batchId+"/attachments",{method:"POST",credentials:"same-origin",
       headers:{"content-type":"image/jpeg","x-grayscale":gray?"1":"0"},body:blob});
     if(!response.ok){const json=await response.json().catch(()=>({error:{message:"附檔儲存未設定"}}));throw Error(json?.error?.message??"附件上傳失敗")}
+    setUploadedCount(i+1);
    }
    onSaved();onClose();
   }catch(e){setError(e instanceof Error?e.message:"假單儲存失敗")}finally{setBusy(false)}
@@ -80,6 +87,7 @@ export function HrLeaveDialog({person,types,initialDate,onClose,onSaved}:{person
     <label><input type="checkbox" checked={gray} onChange={e=>setGray(e.target.checked)}/>黑白縮圖</label>{files.map(f=><small key={f.name}>{f.name}</small>)}</>:null}
    <p>預計請假 {wholeDay?from+"～"+to:from}，假別：{type?.name??"尚未選擇"}。{wholeDay?"所選有效日期的排班格會同步改為假別，例休日及國定假日依規則跳過。":"部分時數的班別維持不變。"}送出會檢查假額、補休與排班規則。</p>
    {type?.accepts_proof&&previews.length?<div className="hr-cell-choices" aria-label="證明照片預覽">{previews.map((url,i)=><img key={url} src={url} alt={"證明照片 "+(i+1)} width={96} height={96} style={{objectFit:"cover"}}/>)}</div>:null}
+   {createdBatchId?<p role="status">正式假單已建立。若附件上傳失敗，可以重試上傳，或略過附件完成。</p>:null}
    {approvalItems.length?<div className="cy-op-panel" role="alert"><h4>排班需要主管核准</h4>
     {approvalItems.map((x,i)=><p key={i}>{x.startDate}～{x.endDate}：{x.suggestion}</p>)}
     <button type="button" className="cy-op-button primary" disabled={busy} onClick={async()=>{
@@ -87,7 +95,7 @@ export function HrLeaveDialog({person,types,initialDate,onClose,onSaved}:{person
       if(accepted)void submit(undefined,approvalItems);
     }}>核准並送出假單</button></div>:null}
    {error?<p role="alert" className="cy-notice cy-notice-danger">{error}</p>:null}
-   <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={onClose}>取消</button><button className="cy-op-button primary" disabled={busy}>送出假單</button></div>
+   <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>{if(createdBatchId)onSaved();onClose()}}>{createdBatchId?"略過附件並完成":"取消"}</button><button className="cy-op-button primary" disabled={busy}>{createdBatchId?"重試上傳剩餘附件":"送出假單"}</button></div>
   </form>:null}
  </Dialog>;
 }
