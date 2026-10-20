@@ -4,7 +4,7 @@ import {taipeiToday} from "../../../shared/erp-query-history";
 import {useUnsavedChangesGuard} from "../../ui/foundation/useUnsavedChangesGuard";
 import {Dialog} from "../../ui/overlays/Dialog";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
-import {HrLeaveDialog,type LeavePerson} from "./HrLeaveDialog";
+import {HrLeaveDialog,type LeavePerson,type LeaveTypeOption} from "./HrLeaveDialog";
 import type {RosterResult,RosterViolation} from "../../../shared/hr-roster";
 import "./hr-phase2a.css";
 type Store={id:number;name:string;cycle_anchor_date:string;rules_template:string};
@@ -28,6 +28,7 @@ export function HrRosterPanel() {
  const [cell,setCell]=useState<{employeeId:number;date:string}|null>(null),[hours,setHours]=useState(""),[marker,setMarker]=useState(""),[note,setNote]=useState(""),[showAllLeave,setShowAllLeave]=useState(false);
  const [staff,setStaff]=useState<Record<number,{sort:string;skip:boolean}>|null>(null);
  const [leaveDialogPerson,setLeaveDialogPerson]=useState<LeavePerson|null>(null);
+ const [formalLeaveTypes,setFormalLeaveTypes]=useState<LeaveTypeOption[]>([]);
  const [leaveInitialDate,setLeaveInitialDate]=useState<string|undefined>(undefined);
  const {confirm,confirmationDialog}=useConfirmation();
  const dirty=Object.keys(changes).length>0||!!data&&(notes!==data.notes||rules!==data.rules);
@@ -36,6 +37,7 @@ export function HrRosterPanel() {
  // Saved-roster violations show on load; a rejected save replaces them with what the server found in the edit.
  const saved=useMemo(()=>Object.entries(data?.classification??{}).flatMap(([id,r])=>r.violations.map(v=>({...v,employeeId:Number(id)}))),[data]);
  const shown=violations.length?violations:dirty?[]:saved;
+ useEffect(()=>{void apiRequest<LeaveTypeOption[]>(ROOT+"/settings/leave-types").then(setFormalLeaveTypes).catch(()=>{});},[]);
  useEffect(()=>{void apiRequest<Store[]>(ROOT+"/settings/stores").then(x=>{setStores(x);setStoreId(x[0]?.id??0)}).catch(e=>setError(String(e)))},[]);
  const reload=useCallback(async()=>{
   if(!storeId)return;setLoading(true);
@@ -109,7 +111,7 @@ export function HrRosterPanel() {
      <td>{staff.job_title_name??"未設定"}</td><th scope="row">{staff.name}</th>
      {dates.map(d=>{const value=staged.get(staff.id+"|"+d),form=data.leaveForms.find(x=>x.employee_id===staff.id&&x.work_date===d&&x.whole_day===1),partial=data.leaveForms.filter(x=>x.employee_id===staff.id&&x.work_date===d&&x.whole_day===0),bad=shown.some(x=>x.employeeId===staff.id&&x.dates.includes(d)),sixth=data.classification[String(staff.id)]?.sixthDays.includes(d);
       return <td key={d} className={(holidays.has(d)||[0,6].includes(new Date(d+"T00:00:00Z").getUTCDay())?"hr-holiday ":"")+(bad?"hr-invalid ":"")+(sixth?"hr-sixth ":"")}>
-       <button type="button" title={value?.kind==="leave"&&!form?"尚未補假單":form?"已完成假單":""} id={"hr-roster-"+staff.id+"-"+d} className={"hr-roster-cell no-print "+(value?.kind==="leave"&&!form?"hr-leave-pending":"")} onClick={()=>open(staff.id,d)} onKeyDown={e=>keyDown(e,staff,d)} aria-label={staff.name+" "+d}>{staff.schedule_mode==="none"&&value?.kind!=="off"?(data.actualHours[String(staff.id)]?.[d]?.toFixed(1)??""):label(value,staff,d)}{value?.marker?<small>{value.marker==="home"?"居":"擺攤"}</small>:null}{partial.map(x=><small key={x.batch_id}>{x.code+(x.minutes/60)}</small>)}</button>
+       <button type="button" title={value?.kind==="leave"&&!form&&data.leaveTypes.find(x=>x.id===value.leave_type_id)?.code!=="國"?"尚未補假單":form?"已完成假單":""} id={"hr-roster-"+staff.id+"-"+d} className={"hr-roster-cell no-print "+(value?.kind==="leave"&&!form&&data.leaveTypes.find(x=>x.id===value.leave_type_id)?.code!=="國"?"hr-leave-pending":"")} onClick={()=>open(staff.id,d)} onKeyDown={e=>keyDown(e,staff,d)} aria-label={staff.name+" "+d}>{staff.schedule_mode==="none"&&value?.kind!=="off"?(data.actualHours[String(staff.id)]?.[d]?.toFixed(1)??""):label(value,staff,d)}{value?.marker?<small>{value.marker==="home"?"居":"擺攤"}</small>:null}{partial.map(x=><small key={x.batch_id}>{x.code+(x.minutes/60)}</small>)}</button>
        <span className="print-only">{partial.map(x=>x.code+(x.minutes/60)).join(" ")}{staff.schedule_mode==="none"&&value?.kind!=="off"?(data.actualHours[String(staff.id)]?.[d]?.toFixed(1)??""):label(value,staff,d)}</span></td>})}
      <td>{staff.schedule_mode==="hours"||staff.schedule_mode==="none"?"合計 "+dates.reduce((sum,d)=>sum+(staff.schedule_mode==="none"?(data.actualHours[String(staff.id)]?.[d]??0):(staged.get(staff.id+"|"+d)?.hours??0)),0).toFixed(1)+"h":""}</td>
     </tr>)}
@@ -143,7 +145,7 @@ export function HrRosterPanel() {
      await apiRequest(ROOT+"/rosters/"+storeId+"/"+month+"/staff",{method:"PATCH",json:{employeeId:x.id,rosterSort:Number(v.sort||0),skipRosterChecks:v.skip}});await reload();setNotice("已更新 "+x.name+" 的排班設定");
     }catch(e){setError(e instanceof Error?e.message:"儲存失敗")}}}>儲存</button></div>}):null}
   </Dialog>
-  <HrLeaveDialog person={leaveDialogPerson} types={data?.leaveTypes??[]} initialDate={leaveInitialDate} onClose={()=>setLeaveDialogPerson(null)} onSaved={()=>{void reload()}}/>
+  <HrLeaveDialog person={leaveDialogPerson} types={formalLeaveTypes.length?formalLeaveTypes:data?.leaveTypes??[]} initialDate={leaveInitialDate} onClose={()=>setLeaveDialogPerson(null)} onSaved={()=>{void reload()}}/>
   {confirmationDialog}
  </section>;
 }
