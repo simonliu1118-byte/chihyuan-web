@@ -1,6 +1,7 @@
 import {HrLeaveService,HrLeaveError} from "../hr/hr-leave-service";
 import {HrRosterService,HrRosterError} from "../hr/hr-roster-service";
 import {HrCompService} from "../hr/hr-comp-service";
+import {HrAttendanceService} from "../hr/hr-attendance-service";
 import {handleHrPhase2bRoute} from "../http/hr-phase2b-routes";
 import {handleHrRoute} from "../http/hr-routes";
 import {checkLeaveQuota,leaveMinutes,leaveDates} from "../../shared/hr-leave";
@@ -41,6 +42,21 @@ export async function acceptHrPhase2b(db:D1Database,hrFiles?:R2Bucket){
  check(remaining?.n===1,"CANCEL_PRESERVES_OTHER_DAY");
  const sickForm=await leave.create({employeeId,leaveTypeId:sick.id,date:"2026-11-25",wholeDay:true},ctx);
  check(sickForm.days===1,"SICK_FORM");
+ const attendance=new HrAttendanceService(db);
+ await attendance.put(employeeId,"2026-11",{days:[],overtime:[{date:"2026-11-25",minutes:60,settlement:"comp",revision:0}]},ctx);
+ const clock=await attendance.get(employeeId,"2026-11");
+ check(clock.days.find(x=>x.date==="2026-11-25")?.overtime?.minutes===60,"OVERTIME_WRITTEN");
+ const credit=await db.prepare("SELECT id,comp_expires_on FROM hr_overtime_days WHERE employee_id=? AND work_date=?").bind(employeeId,"2026-11-25").first<{id:number;comp_expires_on:string}>();
+ check(credit?.comp_expires_on==="2026-12-31","COMP_EXPIRY_NEXT_MONTH");
+ const extended=await comp.extend("overtime",credit.id,ctx);
+ check(extended.expiresOn==="2027-01-31","OVERTIME_EXTENSION");
+ await comp.grant(employeeId,{kind:"holiday",minutes:240,holidayDate:"2026-11-01",holidayName:"測試節日"},ctx);
+ const swap=types.find(x=>x.code==="換");check(swap,"SWAP_TYPE");
+ await leave.create({employeeId,leaveTypeId:swap.id,date:"2026-11-26",wholeDay:true},ctx);
+ const balance=await comp.get(employeeId,"2026-11-28");
+ check(balance.balances.holidayMinutes===-240,"HOLIDAY_ADVANCE_OFFSET");
+ const settled=await comp.settle(credit.id,{...ctx,now:"2027-03-01T00:00:00.000Z"});
+ check(settled.settledMinutes===60,"OVERTIME_SETTLEMENT");
  const forbiddenEnv={DB:db,IDENTITY_APPLICATION_ID:"APP_TEST",IDENTITY_WORKSPACE_ID:"workspace-test",IDENTITY:{
   async fetch(){return Response.json({ok:true,principal:{workspaceId:"workspace-test",employeeId:"fake",employeeNo:"9901",displayName:"測試員工甲",
   workspaceRole:"ADMIN",isIdentityAdmin:false,emailVerified:true,isWorkspaceSuperAdmin:false,credentialVersion:1,employeeRevision:1},
