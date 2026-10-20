@@ -50,3 +50,20 @@ export function resolveHistoryRange(input:HistoryInput,today=taipeiToday()):{inc
   const {from,to}=resolveDateRange(input.historyFrom,input.historyTo,"歷史異動",today);
   return {includeHistory:true,historyFrom:from,historyTo:to};
 }
+/** Days from one YYYY-MM-DD to another, both included. */
+export function daysInclusive(from:string,to:string):number {
+  return Math.round((Date.parse(to+"T00:00:00Z")-Date.parse(from+"T00:00:00Z"))/86400000)+1;
+}
+/**
+ * 進貨輔助 (RESTOCK, user 2026-10-20): both 單據日期 ends are required, 起 not after 迄, 迄 not after
+ * today, and at most <maxDays> days with both ends included.
+ */
+export function resolveRestockRange(fromInput:unknown,toInput:unknown,maxDays:number,today=taipeiToday()):{from:string;to:string} {
+  const from=isoDate(fromInput,"單據日期");
+  const to=isoDate(toInput,"單據日期");
+  if(!from||!to) throw new HistoryRangeError("請填寫單據日期的起日與迄日");
+  if(to>today) throw new HistoryRangeError("單據日期迄日不可晚於今天");
+  if(from>to) throw new HistoryRangeError("單據日期起日不可晚於迄日");
+  if(daysInclusive(from,to)>maxDays) throw new HistoryRangeError(`單據日期範圍最多 ${maxDays} 天`);
+  return {from,to};
+}

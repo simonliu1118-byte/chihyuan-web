@@ -30,10 +30,12 @@ function fixture(role = "USER") {
   const user = {
     create: async body => json(await call("/api/erp/item-queries", "POST", body)),
     load: async id => json(await call("/api/erp/item-queries/" + id, "GET")),
+    agentStatus: async () => json(await call("/api/erp/agent-status", "GET")),
   };
   const agent = {
     claim: async queryTypes => json(await call("/api/erp-agent/item-queries/claim", "POST", { agentVersion: "test", erpState: "BROWSE", ...(queryTypes ? { queryTypes } : {}) }, true)),
     complete: async (id, body) => json(await call(`/api/erp-agent/item-queries/${id}/complete`, "POST", { elapsedMs: 1000, agentVersion: "test", ...body }, true)),
+    progress: async (id, body) => json(await call(`/api/erp-agent/item-queries/${id}/progress`, "POST", body, true)),
   };
   const grant = code => {
     sql.prepare("INSERT OR IGNORE INTO app_members(identity_employee_id,employee_no,is_active,created_at,updated_at) VALUES('erp-business-synthetic','0097',1,?,?)").run(now, now);
@@ -42,7 +44,7 @@ function fixture(role = "USER") {
   };
   return { sql, user, agent, grant };
 }
-const ALL_TYPES = ["ITEM_NO", "ITEM_NAME", "CUSTOMER_NO", "CUSTOMER_NAME", "SUPPLIER_NO", "SUPPLIER_NAME", "PURCHASES", "SALES", "RECEIVABLE", "ORDER"];
+const ALL_TYPES = ["ITEM_NO", "ITEM_NAME", "CUSTOMER_NO", "CUSTOMER_NAME", "SUPPLIER_NO", "SUPPLIER_NAME", "PURCHASES", "SALES", "RECEIVABLE", "ORDER", "RESTOCK"];
 const line = (seq, extra = {}) => ({ seq, itemCode: "X0001", itemName: "假品名", specification: "", warehouse: "W01 假倉", quantity: "1", unit: "包", unitPrice: "100", amount: "100", giftType: "", giftQuantity: "0", batch: "", note: "", sourceOrder: "", ...extra });
 const order = (extra = {}) => ({ kind: "銷貨", orderNo: "901A-20260101001", date: taipeiToday(), customerCode: "CU0001", customerName: "假客戶", salesperson: "假業務", department: "", paymentTerm: "", taxType: "", invoiceType: "", totalQuantity: "1", amount: "100", tax: "0", total: "100", note: "", reason: "", lines: [line(1)], ...extra });
 const bill = (extra = {}) => ({ customerCode: "CU0001", customerName: "假客戶", date: taipeiToday(), billNo: "903A-20260101001", salespersonCode: "SP01", salespersonName: "假業務", invoiceNo: "", currency: "NTD", receivable: "100", receivableTax: "0", unpaid: "100", vouchers: [{ voucherNo: "901A-20260101001", date: taipeiToday(), amount: "100", tax: "0" }], ...extra });
@@ -229,5 +231,114 @@ test("ORDER opens one 23x／24x order with either the customer or the receivable
     const done = await agent.complete(job.id, { ...base, orders: [order({ orderNo: "232A-20260101001", customerCode: "CU0777", date: "2020-01-01" })] });
     assert.equal(done.status, 200, JSON.stringify(done.body));
     assert.equal((await user.load(job.id)).body.data.orders[0].customerCode, "CU0777");
+  } finally { sql.close(); }
+});
+
+const shiftDay = (date, days) => new Date(Date.parse(date + "T00:00:00Z") + days * 86400000).toISOString().slice(0, 10);
+
+test("RESTOCK needs ERP_RESTOCK_ASSIST, both dates and at most 31 days", async () => {
+  const { sql, user, agent, grant } = fixture();
+  try {
+    const today = taipeiToday();
+    const from = shiftDay(today, -8);
+    grant("ERP_CUSTOMER_QUERY");
+    assert.equal((await user.create({ queryType: "RESTOCK", dateFrom: from, dateTo: today })).status, 403);
+    grant("ERP_RESTOCK_ASSIST");
+    for (const body of [{ queryType: "RESTOCK", dateFrom: from }, { queryType: "RESTOCK", dateTo: today },
+      { queryType: "RESTOCK", dateFrom: shiftDay(today, -31), dateTo: today }, { queryType: "RESTOCK", dateFrom: today, dateTo: shiftDay(today, 1) },
+      { queryType: "RESTOCK", dateFrom: today, dateTo: from }, { queryType: "RESTOCK", dateFrom: from, dateTo: today, customerCode: "CU0001" }]) {
+      const response = await user.create(body);
+      assert.equal(response.status, 400, JSON.stringify(body));
+    }
+    const created = await user.create({ queryType: "RESTOCK", dateFrom: shiftDay(today, -30), dateTo: today });
+    assert.equal(created.status, 202, JSON.stringify(created.body));
+    assert.deepEqual([created.body.data.dateFrom, created.body.data.dateTo], [shiftDay(today, -30), today]);
+    assert.equal((await agent.claim(ALL_TYPES.filter(type => type !== "RESTOCK"))).body.data.job, null);
+    const job = (await agent.claim(ALL_TYPES)).body.data.job;
+    assert.deepEqual([job.queryType, job.dateFrom, job.dateTo, job.customerCode, job.itemNo], ["RESTOCK", shiftDay(today, -30), today, undefined, undefined]);
+  } finally { sql.close(); }
+});
+
+test("RESTOCK results are per 品號 inside the range and keep only the summary fields", async () => {
+  const { sql, user, agent, grant } = fixture();
+  try {
+    grant("ERP_RESTOCK_ASSIST");
+    // The Agent status is open to a member who only has 進貨輔助.
+    assert.equal((await user.agentStatus()).status, 200);
+    const today = taipeiToday();
+    const from = shiftDay(today, -2);
+    const { id } = (await user.create({ queryType: "RESTOCK", dateFrom: from, dateTo: today })).body.data;
+    await agent.claim(ALL_TYPES);
+    const item = (extra = {}) => ({ itemCode: "X0001", itemName: "假品名", unit: "盒", days: [{ date: today, sold: "3", returned: "1" }], sold: "3", returned: "1", stock: "45", stockNote: "", ...extra });
+    const base = { outcome: "FOUND", dateFrom: from, dateTo: today, total: 1, truncated: false };
+    for (const bad of [{ ...base, dateFrom: shiftDay(today, -3), items: [item()] },
+      { ...base, items: [item({ days: [{ date: shiftDay(today, -5), sold: "1", returned: "0" }] })] },
+      { ...base, items: [item({ sold: "三" })] },
+      { ...base, total: 2, items: [item(), item()] },
+      { ...base, items: [item()], orders: [order()] }]) {
+      assert.equal((await agent.complete(id, bad)).status, 400, JSON.stringify(bad));
+    }
+    const done = await agent.complete(id, { ...base, total: 2, items: [
+      item({ secret: "dropped" }),
+      item({ itemCode: "X0002-1", days: [{ date: today, sold: "0", returned: "2" }, { date: from, sold: "5.5", returned: "0" }], sold: "5.5", returned: "2", stock: null, stockNote: "查無品號" }),
+    ] });
+    assert.equal(done.status, 200, JSON.stringify(done.body));
+    const result = (await user.load(id)).body.data;
+    assert.deepEqual([result.status, result.total, result.dateFrom, result.dateTo], ["DONE", 2, from, today]);
+    assert.equal(result.restock.length, 2);
+    assert.equal(result.restock[0].secret, undefined);
+    assert.deepEqual(result.restock[1].days.map(d => d.date), [from, today]);
+    assert.deepEqual([result.restock[1].stock, result.restock[1].stockNote], [null, "查無品號"]);
+    // NOT_FOUND carries nothing.
+    const second = (await user.create({ queryType: "RESTOCK", dateFrom: from, dateTo: today })).body.data;
+    await agent.claim(ALL_TYPES);
+    assert.equal((await agent.complete(second.id, { outcome: "NOT_FOUND", dateFrom: from, dateTo: today, items: [item()], total: 1, truncated: false })).status, 400);
+    assert.equal((await agent.complete(second.id, { outcome: "NOT_FOUND", dateFrom: from, dateTo: today, items: [], total: 0, truncated: false })).status, 200);
+    assert.equal((await user.load(second.id)).body.data.status, "NOT_FOUND");
+  } finally { sql.close(); }
+});
+
+test("RESTOCK may run 30 minutes and PURCHASES 10 before the Agent is timed out", async () => {
+  const { sql, user, agent } = fixture("SUPER_ADMIN");
+  try {
+    const today = taipeiToday();
+    const restock = (await user.create({ queryType: "RESTOCK", dateFrom: today, dateTo: today })).body.data;
+    await agent.claim(ALL_TYPES);
+    const ago = minutes => new Date(Date.now() - minutes * 60000).toISOString();
+    sql.prepare("UPDATE erp_item_queries SET started_at=? WHERE id=?").run(ago(20), restock.id);
+    assert.equal((await user.load(restock.id)).body.data.status, "RUNNING");
+    sql.prepare("UPDATE erp_item_queries SET started_at=? WHERE id=?").run(ago(31), restock.id);
+    assert.equal((await user.load(restock.id)).body.data.status, "FAILED");
+    const purchases = (await user.create({ queryType: "PURCHASES", supplierCode: "SU0001" })).body.data;
+    await agent.claim(ALL_TYPES);
+    sql.prepare("UPDATE erp_item_queries SET started_at=? WHERE id=?").run(ago(5), purchases.id);
+    assert.equal((await user.load(purchases.id)).body.data.status, "RUNNING");
+    sql.prepare("UPDATE erp_item_queries SET started_at=? WHERE id=?").run(ago(11), purchases.id);
+    assert.equal((await user.load(purchases.id)).body.data.status, "FAILED");
+  } finally { sql.close(); }
+});
+
+test("RESTOCK shows the progress the Agent reports while it runs", async () => {
+  const { sql, user, agent } = fixture("SUPER_ADMIN");
+  try {
+    const today = taipeiToday();
+    const { id } = (await user.create({ queryType: "RESTOCK", dateFrom: today, dateTo: today })).body.data;
+    assert.equal((await agent.progress(id, { stage: "REPORT", done: 0, total: 2 })).status, 409, "not claimed yet");
+    await agent.claim(ALL_TYPES);
+    assert.equal((await user.load(id)).body.data.progress, null);
+    assert.equal((await agent.progress(id, { stage: "REPORT", done: 1, total: 2 })).status, 200);
+    assert.deepEqual((await user.load(id)).body.data.progress, { stage: "REPORT", done: 1, total: 2 });
+    assert.equal((await agent.progress(id, { stage: "STOCK", done: 7, total: 40 })).status, 200);
+    assert.equal((await agent.progress(id, { stage: "STOCK", done: 5, total: 40 })).status, 200, "an older report is ignored");
+    assert.deepEqual((await user.load(id)).body.data.progress, { stage: "STOCK", done: 7, total: 40 });
+    for (const body of [{ stage: "OTHER", done: 1, total: 2 }, { stage: "STOCK", done: 3, total: 2 }, { stage: "STOCK", done: -1, total: 2 }, { stage: "STOCK", done: "1", total: 2 }])
+      assert.equal((await agent.progress(id, body)).status, 400, JSON.stringify(body));
+    await agent.complete(id, { outcome: "NOT_FOUND", dateFrom: today, dateTo: today, items: [], total: 0, truncated: false });
+    const done = (await user.load(id)).body.data;
+    assert.equal(done.progress, null);
+    assert.equal((await agent.progress(id, { stage: "STOCK", done: 8, total: 40 })).status, 409);
+    const sales = (await user.create({ queryType: "SALES", customerCode: "CU0001" })).body.data;
+    await agent.claim(ALL_TYPES);
+    assert.equal((await agent.progress(sales.id, { stage: "STOCK", done: 1, total: 2 })).status, 409, "only RESTOCK reports progress");
   } finally { sql.close(); }
 });

@@ -32,20 +32,25 @@ export const ERP_SUPPLIER_SEARCH_FIELDS = ["廠商代號", "廠商簡稱", "廠�
 /**
  * ITEM_NO／ITEM_NAME: ERP 商品查詢. CUSTOMER_NO／CUSTOMER_NAME／SALES (COPR15+COPR16): ERP 客戶查詢.
  * SUPPLIER_NO／SUPPLIER_NAME (PURI01)／PURCHASES (PURR18+PURR22): ERP 供應商查詢. RECEIVABLE (ACRR18): ERP 未收款查詢. ORDER: one 銷貨單／銷退單 by number (a 未收款 憑證), opened by
- * either grant. One queue, one Agent, one job per member.
+ * either grant. RESTOCK (COPR15+COPR16 for every customer, then INVI02 per 品號): 進貨輔助.
+ * One queue, one Agent, one job per member.
  */
 export type ErpQueryType = "ITEM_NO" | "ITEM_NAME" | "CUSTOMER_NO" | "CUSTOMER_NAME" | "SUPPLIER_NO" | "SUPPLIER_NAME"
-  | "PURCHASES" | "SALES" | "RECEIVABLE" | "ORDER";
+  | "PURCHASES" | "SALES" | "RECEIVABLE" | "ORDER" | "RESTOCK";
 export const ERP_QUERY_TYPES: readonly ErpQueryType[] = [
-  "ITEM_NO", "ITEM_NAME", "CUSTOMER_NO", "CUSTOMER_NAME", "SUPPLIER_NO", "SUPPLIER_NAME", "PURCHASES", "SALES", "RECEIVABLE", "ORDER",
+  "ITEM_NO", "ITEM_NAME", "CUSTOMER_NO", "CUSTOMER_NAME", "SUPPLIER_NO", "SUPPLIER_NAME", "PURCHASES", "SALES", "RECEIVABLE", "ORDER", "RESTOCK",
 ];
+/** 進貨輔助 range limit: at most 31 days, both ends included (user 2026-10-20: a simple first version). */
+export const ERP_RESTOCK_MAX_DAYS = 31;
+/** 進貨輔助 rows at most (one per 品號). */
+export const ERP_RESTOCK_MAX_ITEMS = 500;
 
 /** Shared localized ERP query names; the UI and audit timeline use the same names. */
 export const ERP_QUERY_TYPE_LABELS: Readonly<Record<ErpQueryType, string>> = {
   ITEM_NO: "商品", ITEM_NAME: "商品",
   CUSTOMER_NO: "客戶", CUSTOMER_NAME: "客戶",
   SUPPLIER_NO: "供應商", SUPPLIER_NAME: "供應商",
-  PURCHASES: "進貨", SALES: "銷貨", RECEIVABLE: "未收款", ORDER: "單據",
+  PURCHASES: "進貨", SALES: "銷貨", RECEIVABLE: "未收款", ORDER: "單據", RESTOCK: "進貨輔助",
 };
 export type ErpReceivableScope = "CUSTOMER" | "SALESPERSON" | "ALL";
 /** One line of a 銷貨單／銷退單; amounts and quantities are ERP display strings. */
@@ -76,6 +81,16 @@ export interface ErpPurchaseOrder {
   totalQuantity: string; amount: string; deduction: string; tax: string; total: string; settled: string;
   lines: ErpPurchaseLine[];
 }
+/** One 品號's 銷貨／銷退 on one day of a RESTOCK range; quantities are ERP display strings. */
+export interface ErpRestockDay { date: string; sold: string; returned: string; }
+/**
+ * One 品號 of a RESTOCK result: the days it moved, the range's subtotals and its INVI02 庫存數量
+ * (null when not read; stockNote says why).
+ */
+export interface ErpRestockItem {
+  itemCode: string; itemName: string; unit: string; days: ErpRestockDay[];
+  sold: string; returned: string; stock: string | null; stockNote: string;
+}
 export interface ErpReceivableVoucher { voucherNo: string; date: string; amount: string; tax: string; }
 export interface ErpReceivableBill {
   customerCode: string; customerName: string; date: string; billNo: string;
@@ -102,6 +117,8 @@ export interface ErpHistoryRequest {
   historyFrom: string | null;
   historyTo: string | null;
 }
+/** How far a running RESTOCK is: REPORT counts the two 明細表 run, STOCK the 品號 whose 庫存 was looked up. */
+export interface ErpQueryProgress { stage: "REPORT" | "STOCK"; done: number; total: number }
 export interface ErpQueryResult extends ErpHistoryRequest {
   id: string;
   queryType: ErpQueryType;
@@ -110,18 +127,22 @@ export interface ErpQueryResult extends ErpHistoryRequest {
   /** CUSTOMER_NO／SALES: the customer; SUPPLIER_NO／PURCHASES: the supplier; RECEIVABLE: the customer or 業務員 code (null for ALL); ORDER: the number. */
   code: string | null;
   scope: ErpReceivableScope | null;
-  /** SALES／PURCHASES 單據日期 range (YYYY-MM-DD). */
+  /** SALES／PURCHASES／RESTOCK 單據日期 range (YYYY-MM-DD). */
   dateFrom: string | null;
   dateTo: string | null;
   orders: ErpSalesOrder[];
   purchases: ErpPurchaseOrder[];
   bills: ErpReceivableBill[];
+  /** RESTOCK: one row per 品號, in 品號 order. */
+  restock: ErpRestockItem[];
   items: ErpField[][];
   total: number;
   truncated: boolean;
   status: ErpQueryStatus;
   createdAt: string;
   startedAt: string | null;
+  /** While RUNNING: what the Agent last reported, or null. */
+  progress: ErpQueryProgress | null;
   completedAt: string | null;
   elapsedMs: number | null;
   fields: ErpField[];

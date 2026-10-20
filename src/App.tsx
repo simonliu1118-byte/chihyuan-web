@@ -19,6 +19,7 @@ import { AuditOperationalPage } from "./runtime/modules/AuditOperationalPage";
 import { CustomerOperationalPage } from "./runtime/modules/CustomerOperationalPage";
 import { DefectOperationalPage } from "./runtime/modules/DefectOperationalPage";
 import { ErpItemQueryPage } from "./runtime/modules/ErpItemQueryPage";
+import { RestockAssistPage } from "./runtime/modules/RestockAssistPage";
 import { ErpAgentCredentialControl } from "./runtime/modules/ErpAgentCredentialControl";
 import { ItemOperationalPage } from "./runtime/modules/ItemOperationalPage";
 import { OutsourcingOperationalPage } from "./runtime/modules/OutsourcingOperationalPage";
@@ -32,7 +33,7 @@ import { UnsavedChangesBoundary, useNavigationGuard } from "./ui/foundation/useU
 import { createGuardedHashNavigation } from "./ui/foundation/guarded-hash-navigation";
 import { FeedbackProvider, useFeedback, useFeedbackMessage } from "./ui/feedback/FeedbackProvider";
 
-type AppRoute = "hr" | "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "erp-item-query" | "audit" | "identity" | "account" | "backups" | "programs";
+type AppRoute = "hr" | "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "erp-item-query" | "restock-assist" | "audit" | "identity" | "account" | "backups" | "programs";
 
 // One source of truth for the topbar titles and on-demand module descriptions.
 const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
@@ -44,6 +45,7 @@ const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
   outsourcing: { title:"委外/代工", description:"代工單、協力廠商、單價、BOM 與庫存" },
   worklogs: { title:"工作日誌", description:"填寫日誌、送審與評分統計" },
   "erp-item-query": { title:"ERP 查詢", description:"查閱 SMART ERP 資料，只讀不改" },
+  "restock-assist": { title:"進貨輔助", description:"期間內各品號每日銷貨、銷退與目前庫存（SMART ERP，只讀不改）" },
   identity: { title:"帳號與權限", description:"使用者、權限群組與系統安全" },
   account: { title:"我的帳號", description:"變更自己的密碼與 Email" },
   audit: { title:"異動紀錄", description:"誰在什麼時候改了什麼" },
@@ -53,7 +55,10 @@ const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
 
 const baseNavigation: readonly NavigationGroup[] = [
   {
-    key: "erp-query", items: [{ key: "erp-item-query", label: "ERP 查詢", href: "#erp-item-query" }],
+    key: "erp-query", items: [
+      { key: "erp-item-query", label: "ERP 查詢", href: "#erp-item-query" },
+      { key: "restock-assist", label: "進貨輔助", href: "#restock-assist" },
+    ],
   },
   {
     key: "business", label: "業務模組",
@@ -95,6 +100,7 @@ const routes = new Set<AppRoute>([
   "outsourcing",
   "worklogs",
   "erp-item-query",
+  "restock-assist",
   "identity",
   "account",
   "audit",
@@ -220,7 +226,8 @@ function OperationalApp({
       const erpAllowed = moduleCodesForRoute("erp-item-query").some(code => allowedModules.has(code));
       const firstBusiness = baseNavigation.find(group => group.key === "business")?.items.find(item =>
         moduleCodesForRoute(item.key).some(code => allowedModules.has(code)));
-      window.location.hash = erpAllowed ? "#erp-item-query" : firstBusiness?.href ?? "#account";
+      const restockAllowed = moduleCodesForRoute("restock-assist").some(code => allowedModules.has(code));
+      window.location.hash = erpAllowed ? "#erp-item-query" : restockAllowed ? "#restock-assist" : firstBusiness?.href ?? "#account";
       return;
     }
 
@@ -282,6 +289,7 @@ function OperationalApp({
   else if (route === "outsourcing") content = <OutsourcingOperationalPage />;
   else if (route === "worklogs") content = <WorkLogOperationalPage />;
   else if (route === "erp-item-query") content = <ErpItemQueryPage allowedModules={allowedModules} />;
+  else if (route === "restock-assist") content = <RestockAssistPage />;
   else if (route === "identity") content = <SharedIdentityPage session={session}
     showUsage={usageRequested && role === "SUPER_ADMIN"}
     usage={role === "SUPER_ADMIN" ? {report:usageReport,error:usageError,loading:usageLoading,onRefresh:refreshUsage} : undefined} />;
@@ -328,7 +336,7 @@ function OperationalApp({
       pageTitle={PAGE_META[route].title}
       pageDescription={PAGE_META[route].description}
       pageTools={route === "hr" ? <HrSettingsButton />
-        : route === "erp-item-query"
+        : route === "erp-item-query" || route === "restock-assist"
         ? <ErpAgentCredentialControl isSuperAdmin={session.user.workspaceRole === "SUPER_ADMIN"} />
         : route === "customers" ? <ModuleSettingsButton key={route} role={role} label="客戶" only={["customer_category","customer_status","department"]} />
         : route === "items" ? <ModuleSettingsButton key={route} role={role} label="商品" only={["item_category"]} />

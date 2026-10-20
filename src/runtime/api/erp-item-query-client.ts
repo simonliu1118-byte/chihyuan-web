@@ -13,7 +13,8 @@ export type ErpQueryRequest =
   | { queryType: "CUSTOMER_NO"; customerCode: string }
   | { queryType: "SALES"; customerCode: string; dateFrom: string | null; dateTo: string | null }
   | { queryType: "RECEIVABLE"; scope: ErpReceivableScope; code: string | null }
-  | { queryType: "ORDER"; orderNo: string };
+  | { queryType: "ORDER"; orderNo: string }
+  | { queryType: "RESTOCK"; dateFrom: string; dateTo: string };
 export function createErpQuery(request: ErpQueryRequest): Promise<NewErpJob> {
   // A RECEIVABLE ALL request carries no code at all.
   const json = request.queryType === "RECEIVABLE" && request.scope === "ALL" ? { queryType: request.queryType, scope: request.scope } : request;
