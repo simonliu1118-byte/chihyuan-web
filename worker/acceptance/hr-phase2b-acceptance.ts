@@ -1,4 +1,5 @@
 import {HrLeaveService,HrLeaveError} from "../hr/hr-leave-service";
+import {HrValidationError} from "../hr/hr-validation";
 import {HrService} from "../hr/hr-service";
 import {HrRosterService,HrRosterError} from "../hr/hr-roster-service";
 import {HrCompService} from "../hr/hr-comp-service";
@@ -49,11 +50,20 @@ export async function acceptHrPhase2b(db:D1Database,hrFiles?:R2Bucket){
  const manual=await leave.create({employeeId:casualId,leaveTypeId:sick.id,date:"2026-11-26",minutes:120},ctx);
  check(manual.days===1&&manual.minutes===120,"CASUAL_MANUAL_MINUTES");
  const attendance=new HrAttendanceService(db);
- await attendance.put(employeeId,"2026-11",{days:[],overtime:[{date:"2026-11-25",minutes:60,settlement:"comp",revision:0}]},ctx);
+ await attendance.put(employeeId,"2026-11",{days:[],overtime:[{date:"2026-11-25",minutes:120,settlement:"comp",revision:0}]},ctx);
  const clock=await attendance.get(employeeId,"2026-11");
  check(clock.days.find(x=>x.date==="2026-11-25")?.overtime?.minutes===60,"OVERTIME_WRITTEN");
  const credit=await db.prepare("SELECT id,comp_expires_on FROM hr_overtime_days WHERE employee_id=? AND work_date=?").bind(employeeId,"2026-11-25").first<{id:number;comp_expires_on:string}>();
  check(credit?.comp_expires_on==="2026-12-31","COMP_EXPIRY_NEXT_MONTH");
+ const compType=types.find(x=>x.code==="補");check(compType,"COMP_TYPE");
+ const compLeave=await leave.create({employeeId,leaveTypeId:compType.id,date:"2026-11-27",startTime:"09:00",endTime:"10:00"},ctx);
+ check(compLeave.minutes===60,"COMP_USAGE_CREATED");
+ try{
+  await attendance.put(employeeId,"2026-11",{days:[],overtime:[{date:"2026-11-25",minutes:120,settlement:"pay",revision:1}]},ctx);
+  throw Error("COMP_USED_SWITCH_TO_PAY_ALLOWED");
+ }catch(e){check(e instanceof HrValidationError&&e.status===409,"COMP_USED_CANNOT_SWITCH_TO_PAY");}
+ const unchanged=await db.prepare("SELECT settlement,minutes,revision FROM hr_overtime_days WHERE id=?").bind(credit.id).first<{settlement:string;minutes:number;revision:number}>();
+ check(unchanged?.settlement==="comp"&&unchanged.minutes===120&&unchanged.revision===1,"COMP_REVERSAL_NO_MUTATION");
  const extended=await comp.extend("overtime",credit.id,ctx);
  check(extended.expiresOn==="2027-01-31","OVERTIME_EXTENSION");
  await comp.grant(employeeId,{kind:"holiday",minutes:240,holidayDate:"2026-11-01",holidayName:"測試節日"},ctx);
