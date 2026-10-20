@@ -203,6 +203,7 @@ jobs:
       - name: Validate and prepare protected backup credential
         env:
           GCS_SERVICE_ACCOUNT_JSON: ${{ secrets.GCS_SERVICE_ACCOUNT_JSON }}
+          CF_USAGE_API_TOKEN: ${{ secrets.CF_USAGE_API_TOKEN }}
         run: node scripts/render-backup-secrets.mjs --output "$RUNNER_TEMP/cyweb-backup-secrets.json"
 
       - name: Verify current reviewed main before remote changes

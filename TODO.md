@@ -1,7 +1,8 @@
-## CY Web V0.9.21 Build 0 — Cloudflare 用量巡檢（WO-0.9.21；待審查）
+## CY Web V0.9.21 Build 0 — Cloudflare 用量巡檢（WO-0.9.21；已審查）
 
 - [x] [WO-0.9.21 工作單](docs/development/work-orders/WO-0.9.21.md)：超級管理員查看全帳號 D1 今日與近 7 天讀寫量，70%／90% 警示列；不做 Email。
-- [ ] 使用者在 Cloudflare 建立只讀 token（Account Analytics: Read、D1: Read），存為 GitHub secret `CF_USAGE_API_TOKEN`；審查者補 deploy workflow 傳遞。
+- [ ] 使用者在 Cloudflare 建立只讀 token（Account Analytics: Read、D1: Read），存為 GitHub secret `CF_USAGE_API_TOKEN`（deploy workflow 傳遞已由審查者補上）；設定後重新部署並實機確認。
+- [x] 審查通過，審查者修正 5 項（見工作單 §9）。
 
 ## CY Web V0.9.20 Build 0 — 人事模組第一期（WO-0.9.20；已部署）
 

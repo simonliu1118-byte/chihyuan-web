@@ -149,6 +149,7 @@ function OperationalApp({
       setUsageReport(null);
     } finally { setUsageLoading(false); }
   }, []);
+  useEffect(() => { if (route !== "identity") setUsageRequested(false); }, [route]);
   useEffect(() => {
     if (session.user.workspaceRole !== "SUPER_ADMIN") return;
     void refreshUsage();
@@ -299,15 +300,17 @@ function OperationalApp({
   const readRatio = usageReport ? usageRatio(usageToday!.rowsRead, usageReport.limits.rowsReadPerDay) : 0;
   const writeRatio = usageReport ? usageRatio(usageToday!.rowsWritten, usageReport.limits.rowsWrittenPerDay) : 0;
   const isReadPrimary = readRatio >= writeRatio;
-  const topDatabase = usageToday?.databases[0];
-  const databaseShare = topDatabase && usageToday?.rowsRead
-    ? Math.round(topDatabase.rowsRead / usageToday.rowsRead * 100) : 0;
+  const primaryKey = isReadPrimary ? "rowsRead" : "rowsWritten";
+  const topDatabase = usageToday?.databases.reduce<typeof usageToday.databases[number] | undefined>(
+    (top, db) => !top || db[primaryKey] > top[primaryKey] ? db : top, undefined);
+  const databaseShare = topDatabase && usageToday?.[primaryKey]
+    ? Math.round(topDatabase[primaryKey] / usageToday[primaryKey] * 100) : 0;
   const showUsageAlert = role === "SUPER_ADMIN" && !usageError && usageToday
     && usageToday.level !== "ok" && dismissedUsageDay !== usageDate && !dismissedInSession;
   const usageBanner = showUsageAlert
     ? <div role="status" className={"cy-notice cy-usage-alert " + (usageToday.level === "danger" ? "cy-notice-danger" : "cy-notice-warning")}>
       <span>今日 D1 {isReadPrimary ? "讀取" : "寫入"}已用 {Math.round(Math.max(readRatio,writeRatio)*100)}%
-        {topDatabase ? "（" + topDatabase.name + " 占全帳號讀取 " + databaseShare + "%）" : ""}
+        {topDatabase && databaseShare ? "（" + topDatabase.name + " 占 " + databaseShare + "%）" : ""}
         ，每日 08:00（台灣時間）重置</span>
       <button className="cy-op-button compact" type="button" onClick={() => {
         setUsageRequested(true); void guardedNavigation.request("identity", "link");

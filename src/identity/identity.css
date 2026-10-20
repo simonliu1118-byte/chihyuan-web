@@ -210,5 +210,6 @@
 @media (max-width: 640px) {
   .cy-usage-meters { grid-template-columns: minmax(0, 1fr); }
   .cy-shell-global-notice { padding: 8px 12px 0; }
+  .cy-usage-alert > span { flex-basis: 100%; }
   .cy-usage-panel .cy-op-table-wrap { overflow-x: auto; }
 }

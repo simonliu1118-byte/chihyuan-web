@@ -1,6 +1,6 @@
 # WO-0.9.21 Cloudflare 用量巡檢
 
-- 狀態：已實作，待 PR 驗證與審查
+- 狀態：已完成（審查通過 2026-10-20）
 - 分支：`cyweb/usage-monitor`　PR：[#225](https://github.com/simonliu1118-byte/chihyuan-web/pull/225)
 - 依據：`PROJECT_RULES.md` §9；共通規則 `REPOSITORY_RULES.md` §11.3（計量資源與大量資料作業）
 - 視覺規範：`docs/architecture/CY_WEB_VISUAL_GUIDE.md`
@@ -144,3 +144,15 @@
 - 已知限制：需要部署者於 Cloudflare 提供 `CF_USAGE_API_TOKEN`（僅 Account Analytics: Read 與 D1: Read）及 `CLOUDFLARE_ACCOUNT_ID`，並由審查者**另行**於原 workflow 安全傳入 token；本 PR 不修改 workflow。Cloudflare 連線尚未使用真實帳號驗證；UI 桌面／手機與黃色／紅色警示截圖交由審查者驗收。無 Email、其他產品用量或任何 Cloudflare 寫入。
 
 ## 9. 審查紀錄（審查者填）
+
+### 審查（2026-10-20）：通過，審查者修正 5 項
+
+- 本機驗證：`npm run typecheck`、`timeout 300 npm run validate:source`、`node --test scripts/*.test.mjs`（163/163）、`npm run build` 全部通過。
+- 以模擬資料截圖驗收：黃色、紅色警示列，以及用量區塊的桌面與 390px 版本。
+- 審查者修正：
+  1. 讀取、寫入兩條進度條原本共用合計警示等級（例如寫入超標時讀取條也變紅），改為各自依該項比例上色。
+  2. 警示列原本固定寫「占全帳號讀取」；由寫入觸發時，改為依觸發的那一項找占比最高的資料庫。
+  3. 從警示列按「查看」後，`showUsage` 一直保留，之後每次進帳號與權限都會被切到系統與安全；改為離開頁面就重設。
+  4. 手機版警示列的「關閉」按鈕會被擠到下一行；改為文字獨佔一行、按鈕並排。
+  5. `development-deploy.yml` 的 secrets 步驟加入 `CF_USAGE_API_TOKEN` 傳遞（工作單 5.4 指定由審查者處理）。
+- 尚未驗證：真實 Cloudflare token 連線。等使用者建立 GitHub secret `CF_USAGE_API_TOKEN` 並部署後實機確認；未設定前畫面顯示「尚未設定用量查詢憑證」，不顯示警示列。
