@@ -11,7 +11,7 @@ interface TypeRow {id:number;code:string;name:string;quota_days:number|null;quot
 interface RecordRow {id:number;batch_id:string;employee_id:number;leave_type_id:number;work_date:string;start_time:string|null;end_time:string|null;minutes:number;whole_day:number;reason:string;event_date:string|null;event_quota_days:number|null;cancelled_at:string|null;cancel_reason:string|null}
 interface Cell {employee_id:number;work_date:string;kind:string;off_mark:string|null;leave_type_id:number|null;shift_type_id:number|null;store_id:number;hours:number|null}
 const iso=(d:Date)=>d.toISOString().slice(0,10);
-const ymd=(s:string)=>date(s,"date");
+const ymd=(s:unknown)=>date(s,"date");
 const monthEnd=(y:number)=>String(y)+"-12-31";
 export class HrLeaveError extends Error{
  constructor(readonly code:"HR_LEAVE_QUOTA"|"HR_COMP_INSUFFICIENT"|"HR_LEAVE_FORM_EXISTS"|"HR_ROSTER_VIOLATION"|"HR_ROSTER_CONSECUTIVE",readonly items:unknown[]){super(code)}
