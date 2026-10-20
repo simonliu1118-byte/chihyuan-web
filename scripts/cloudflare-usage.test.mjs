@@ -160,7 +160,11 @@ test("read-only HR-independent usage route enforces CYID SUPER_ADMIN before Clou
  assert.equal((await call("32")).status,422);
  assert.equal((await call("1.5")).status,422);
  assert.equal(remoteCalls,0);
- const {CF_USAGE_API_TOKEN,...missingToken}=runtime;
+ const missingToken={
+   IDENTITY_APPLICATION_ID:runtime.IDENTITY_APPLICATION_ID,
+   IDENTITY_WORKSPACE_ID:runtime.IDENTITY_WORKSPACE_ID,
+   IDENTITY:runtime.IDENTITY,CF_ACCOUNT_ID:runtime.CF_ACCOUNT_ID,
+ };
  const notConfigured=await call("7",true,missingToken);
  assert.equal(notConfigured.status,503);
  assert.equal((await notConfigured.json()).error.code,"USAGE_NOT_CONFIGURED");
