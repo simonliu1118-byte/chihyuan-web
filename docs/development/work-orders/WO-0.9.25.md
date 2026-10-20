@@ -319,4 +319,14 @@ GitHub Actions：最後能查到的 `Runtime Check` 是舊 SHA `51fa258` 的失�
 - **必做：** 審查者依 BD-060 #27～29 以新規格取代本單原「補／換」模型、釐清部分工時特休計算，#29 國定假日預支獨立顯示與沖銷的資料模型確認後才可合併。
 - **發布：** 尚未合併，尚未部署，也未建立正式發行；PR 目前仍為 Draft。這是誠實的**未驗收完成報告**，不是放行聲明。
 
+### 8.6 2026-10-21 GitHub 實作續作與阻擋排除
+
+- **實際 CI 失敗診斷已取回：** 下載 PR #249 舊提交 `51fa258` 的 GitHub Actions artifact：`worker-tsc-diagnostics`（artifact #12276559199），`browser-tsc-diagnostics`（artifact #12276833514）。該次 Worker TypeScript 在 `hr-leave-service.ts` 日期 `unknown` 參數報三處錯誤；前端在 `HrAttendancePanel.tsx` 加班欄位重複宣告四處、`HrRosterPanel.tsx` 假單視窗 state 名稱缺失兩處。**這是舊 SHA 的診斷，不是最新提交驗證結果。** 後續程式碼已有針對型別及欄位的修正，但須重新執行 CI 驗證。
+- **補休來源反轉與併發安全：** `hr-attendance-service.ts` 改為依個別加班補休額度計算已使用／結清，禁止已使用額度被改回加班費或減至不足；重複加班日期拒絕、更新以 revision 保護。延長補休期限後修改備註不再把到期日重設；新增 D1 acceptance：`COMP_USED_CANNOT_SWITCH_TO_PAY`、`COMP_REVERSAL_NO_MUTATION`、`EXTENDED_EXPIRY_PRESERVED_ON_EDIT`。
+- **正式請假防重複：** `hr-leave-service.ts` 在單日部分時數與已完成整天假之間檢查衝突；已有部分假單的時段重疊即回 `HR_LEAVE_FORM_EXISTS`。新增 D1 acceptance：`OVERLAPPING_PARTIAL_BLOCKED`、`WHOLE_DAY_CONFLICT_BLOCKED`。
+- **資料截斷安全：** `hr-leave-service.ts` 的個人假單歷史、補休歷史與年度總表，`hr-comp-service.ts` 的來源、結清及請假使用資料改採 `LIMIT+1` 並 fail closed，避免使用截斷資料少算額度。程式碼已提交，尚未取得完整 DB 驗收通過證據。
+- **合併衝突已解除：** 將 `main` 最新 BD-060、`HR_LEGAL_WATCH` 文件同步回分支並建立 **main → feature branch** 整合提交 `fbeb21ae`；GitHub 確認 PR #249 由 `dirty` 變成 `mergeable_state: clean`，相較 main `behind_by: 0`。這不是把 PR 合併到 main。
+- **治理及驗證限制：** 未變動任何 workflow、未部署、未連線 Cloudflare 正式 D1／R2；正式環境讀寫／R2 寫入量都是 0。GitHub 仍無新 HEAD 的 Actions runs，且當前獨立容器不能透過 DNS clone GitHub 原始碼，因此 §6 五條指定指令目前尚無對最新 HEAD 有效的完整執行結果。**不得據此宣告本工單驗收合格**；須由有完整 checkout 的執行環境實際跑通並回填輸出。
+- BD-060 #27～29 仍按已交付工作單規則由審查者套用；新規格未整合前不得正式發布。
+
 ## 9. 審查紀錄（審查者填）
