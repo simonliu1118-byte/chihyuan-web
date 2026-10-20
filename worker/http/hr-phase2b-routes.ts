@@ -1,4 +1,5 @@
 import {HrLeaveService,HrLeaveError} from "../hr/hr-leave-service";
+import {HrRosterError} from "../hr/hr-roster-service";
 import {HrCompService} from "../hr/hr-comp-service";
 import {AuditService} from "../audit/audit-service";
 import {HrValidationError,date,integer,object,required} from "../hr/hr-validation";
@@ -81,6 +82,7 @@ export async function handleHrPhase2bRoute(request:Request,db:D1Database,ctx:HrC
   }
   return failure({code:"METHOD_NOT_ALLOWED",message:"不支援此方法"},id,405);
  }catch(e){
+  if(e instanceof HrRosterError)return json({ok:false,error:{code:e.code,message:e.code==="HR_ROSTER_VIOLATION"?"新增請假後的排班違反規則":"排班需主管核准",items:e.items},requestId:id},{status:409});
   if(e instanceof HrLeaveError)return json({ok:false,error:{code:e.code,message:"額度不足或班表需要調整",items:e.items},requestId:id},{status:409});
   if(e instanceof HrValidationError)return failure({code:e.status===409?"HR_CONFLICT":"HR_VALIDATION_ERROR",message:e.message,fields:{[e.field]:e.message}},id,e.status);
   return failure({code:"HR_UNAVAILABLE",message:"人事資料處理失敗"},id,500);
