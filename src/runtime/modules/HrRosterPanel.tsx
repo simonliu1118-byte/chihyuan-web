@@ -4,7 +4,7 @@ import {taipeiToday} from "../../../shared/erp-query-history";
 import {useUnsavedChangesGuard} from "../../ui/foundation/useUnsavedChangesGuard";
 import {Dialog} from "../../ui/overlays/Dialog";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
-import {HrLeaveDialog,type LeavePerson,type LeaveTypeOption} from "./HrLeaveDialog";
+import {HrLeaveDialog,type LeavePerson,type LeaveTypeOption,type CompletedLeaveInfo} from "./HrLeaveDialog";
 import type {RosterResult,RosterViolation} from "../../../shared/hr-roster";
 import "./hr-phase2a.css";
 type Store={id:number;name:string;cycle_anchor_date:string;rules_template:string};
@@ -30,6 +30,7 @@ export function HrRosterPanel() {
  const [leaveDialogPerson,setLeaveDialogPerson]=useState<LeavePerson|null>(null);
  const [formalLeaveTypes,setFormalLeaveTypes]=useState<LeaveTypeOption[]>([]);
  const [leaveInitialDate,setLeaveInitialDate]=useState<string|undefined>(undefined);
+ const [completedLeave,setCompletedLeave]=useState<CompletedLeaveInfo|null>(null);
  const {confirm,confirmationDialog}=useConfirmation();
  const dirty=Object.keys(changes).length>0||!!data&&(notes!==data.notes||rules!==data.rules);
  useUnsavedChangesGuard({active:dirty,blocked:loading,message:"排班尚未儲存，確定離開？"});
@@ -124,7 +125,10 @@ export function HrRosterPanel() {
   </>:<p>正在讀取排班…</p>}
   <Dialog open={cell!==null} title={emp?emp.name+"　"+cell?.date:"排班格"} size="medium" onClose={()=>setCell(null)}>
    {cell&&emp&&data?<div className="cy-op-form">
-    {staged.get(cell.employeeId+"|"+cell.date)?.kind==="leave"?<button type="button" className="cy-op-button primary" onClick={()=>{setLeaveInitialDate(cell.date);setLeaveDialogPerson({id:emp.id,name:emp.name,employee_no:emp.employee_no,employment_type:emp.employment_type});setCell(null)}}>{data.leaveForms.some(x=>x.employee_id===cell.employeeId&&x.work_date===cell.date)?"查看／補填假單":"補假單"}</button>:null}
+    {staged.get(cell.employeeId+"|"+cell.date)?.kind==="leave"?<button type="button" className="cy-op-button primary" onClick={()=>{setLeaveInitialDate(cell.date);
+      const existing=data.leaveForms.find(x=>x.employee_id===cell.employeeId&&x.work_date===cell.date&&x.whole_day===1);
+      setCompletedLeave(existing?{batchId:existing.batch_id,date:existing.work_date,code:existing.code,minutes:existing.minutes}:null);
+      setLeaveDialogPerson({id:emp.id,name:emp.name,employee_no:emp.employee_no,employment_type:emp.employment_type});setCell(null)}}>{data.leaveForms.some(x=>x.employee_id===cell.employeeId&&x.work_date===cell.date)?"查看／補填假單":"補假單"}</button>:null}
     {emp.schedule_mode==="shift"?<div className="hr-cell-choices">{data.shifts.filter(x=>x.is_active).map(x=><button type="button" key={x.id} className="cy-op-button" onClick={()=>setChoice("shift",{shiftTypeId:x.id})}>{x.code} {x.name}</button>)}</div>:null}
     {emp.schedule_mode==="hours"?<><label>排定時數<input className="cy-op-input" type="number" step=".25" min=".25" max="24" value={hours} onChange={e=>setHours(e.target.value)}/></label><button type="button" className="cy-op-button" onClick={()=>setChoice("hours",{hours:Number(hours)})}>套用時數</button></>:null}
     <div className="hr-cell-choices">{emp.schedule_mode!=="none"?<button type="button" className="cy-op-button" onClick={()=>setChoice("off",{offMark:"slash"})}>/　例休日</button>:null}
@@ -145,7 +149,7 @@ export function HrRosterPanel() {
      await apiRequest(ROOT+"/rosters/"+storeId+"/"+month+"/staff",{method:"PATCH",json:{employeeId:x.id,rosterSort:Number(v.sort||0),skipRosterChecks:v.skip}});await reload();setNotice("已更新 "+x.name+" 的排班設定");
     }catch(e){setError(e instanceof Error?e.message:"儲存失敗")}}}>儲存</button></div>}):null}
   </Dialog>
-  <HrLeaveDialog person={leaveDialogPerson} types={formalLeaveTypes.length?formalLeaveTypes:data?.leaveTypes??[]} initialDate={leaveInitialDate} onClose={()=>setLeaveDialogPerson(null)} onSaved={()=>{void reload()}}/>
+  <HrLeaveDialog person={leaveDialogPerson} types={formalLeaveTypes.length?formalLeaveTypes:data?.leaveTypes??[]} initialDate={leaveInitialDate} completed={completedLeave} onClose={()=>{setLeaveDialogPerson(null);setCompletedLeave(null)}} onSaved={()=>{void reload()}}/>
   {confirmationDialog}
  </section>;
 }
