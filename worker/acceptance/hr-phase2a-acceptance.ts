@@ -12,7 +12,7 @@ export async function acceptHrPhase2a(db:D1Database){
  check((await db.prepare("SELECT COUNT(*) AS n FROM hr_job_titles").first<{n:number}>())!.n>=5,"JOB_TITLES");
  check((await db.prepare("SELECT COUNT(*) AS n FROM hr_shift_types").first<{n:number}>())!.n>=6,"SHIFTS");
  check((await db.prepare("SELECT COUNT(*) AS n FROM hr_leave_types").first<{n:number}>())!.n>=17,"LEAVES");
- try{mondayAnchor("2026-09-29");throw Error("INVALID_ANCHOR_NOT_REJECTED")}catch(e){check(String(e).includes("cycleAnchorDate"),"MONDAY_ONLY")}
+ try{mondayAnchor("2026-09-29");throw Error("INVALID_ANCHOR_NOT_REJECTED")}catch(e){check(e instanceof Error && e.message.includes("星期一"),"MONDAY_ONLY")}
  check(shiftPayload({code:"早",name:"早",startTime:"09:00",endTime:"17:30",breakStart:"13:00",breakEnd:"13:30"}).normalMinutes===480,"SHIFT_MINUTES");
  check(cyclesFor("2026-09-28","2026-10-01","2026-10-31")[0].start==="2026-09-28","CYCLE_CROSS_MONTH");
  const dates=Array.from({length:7},(_,i)=>new Date(Date.UTC(2026,10,2+i)).toISOString().slice(0,10));
