@@ -131,8 +131,14 @@ export class HrLeaveService{
   const cells=(await this.db.prepare("SELECT s.*,t.code AS leave_code FROM hr_schedule_days s LEFT JOIN hr_leave_types t ON t.id=s.leave_type_id WHERE s.employee_id=? AND s.work_date BETWEEN ? AND ? ORDER BY s.work_date LIMIT 370").bind(employeeId,start,end).all<Cell&{leave_code:string|null}>()).results??[];
   const list=wholeDay?leaveDates({from:start,to:end},cells.map(x=>({date:x.work_date,kind:x.kind,offMark:x.off_mark,leaveCode:x.leave_code})),{countsCalendarDays:!!type.counts_calendar_days}):[start];
   if(!list.length||list.length>120)throw new HrValidationError("dates","沒有可申請日期或範圍太大");
-  const existing=(await this.db.prepare("SELECT id,work_date FROM hr_leave_records WHERE employee_id=? AND cancelled_at IS NULL AND work_date BETWEEN ? AND ? LIMIT 400").bind(employeeId,start,end).all<{id:number;work_date:string}>()).results??[];
+  const existing=(await this.db.prepare("SELECT id,work_date,whole_day,start_time,end_time FROM hr_leave_records WHERE employee_id=? AND cancelled_at IS NULL AND work_date BETWEEN ? AND ? LIMIT 401").bind(employeeId,start,end).all<{id:number;work_date:string;whole_day:number;start_time:string|null;end_time:string|null}>()).results??[];
+  if(existing.length>400)throw new HrValidationError("dates","單次檢查既有假單超過安全上限");
   if(wholeDay&&list.some(d=>existing.some(x=>x.work_date===d)))throw new HrLeaveError("HR_LEAVE_FORM_EXISTS",list);
+  if(!wholeDay){
+   const startTime=typeof v.startTime==="string"?v.startTime:null,endTime=typeof v.endTime==="string"?v.endTime:null;
+   const conflict=existing.some(x=>x.work_date===start&&(x.whole_day===1||!startTime||!endTime||!x.start_time||!x.end_time||startTime<x.end_time&&endTime>x.start_time));
+   if(conflict)throw new HrLeaveError("HR_LEAVE_FORM_EXISTS",[{date:start,message:"請假時段與既有正式假單重疊"}]);
+  }
   const shifts=(await this.db.prepare("SELECT id,start_time,end_time,break_start,break_end FROM hr_shift_types LIMIT 100").all<{id:number;start_time:string;end_time:string;break_start:string|null;break_end:string|null}>()).results??[];
   const minutes=list.map(d=>{
    const cell=cells.find(x=>x.work_date===d),shift=shifts.find(x=>x.id===cell?.shift_type_id);
