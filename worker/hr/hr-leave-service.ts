@@ -91,7 +91,7 @@ export class HrLeaveService{
   ]);
   // One bounded query per data family for the entire selected team (no per-employee SQL).
   // Annual entitlement and comp balances need history *before* the selected year.
-  const cutoff=year<Number(asOf.slice(0,4))?String(year)+"-12-31":asOf;
+  const cutoff=year===Number(asOf.slice(0,4))?asOf:String(year)+"-12-31";
   const [annualHistory,excludedHistory,compHistory]=await Promise.all([
    this.db.prepare("SELECT r.employee_id,r.work_date,r.minutes,r.cancelled_at FROM hr_leave_records r JOIN hr_leave_types t ON t.id=r.leave_type_id WHERE t.code='特' AND r.employee_id IN ("+placeholders+") AND r.work_date<=? ORDER BY r.employee_id,r.work_date LIMIT 20000").bind(...employeeIds,cutoff).all<{employee_id:number;work_date:string;minutes:number;cancelled_at:string|null}>(),
    this.db.prepare("SELECT employee_id,start_date,end_date FROM hr_seniority_exclusions WHERE employee_id IN ("+placeholders+") ORDER BY employee_id,start_date LIMIT 4000").bind(...employeeIds).all<{employee_id:number;start_date:string;end_date:string}>(),
