@@ -12,15 +12,20 @@ const CHILDREN = [
 const fields = ["employee_no","name","member_id","national_id","birth_date","gender","mobile","phone","mailing_address","registered_address","hire_date","seniority_start_date","note","store_id","job_title_id","roster_sort","employment_type","skip_roster_checks","schedule_mode"] as const;
 const bodyFields = ["employeeNo","name","memberId","nationalId","birthDate","gender","mobile","phone","mailingAddress","registeredAddress","hireDate","seniorityStartDate","note","storeId","jobTitleId","rosterSort","employmentType","skipRosterChecks","scheduleMode"] as const;
 type Scalar = string | number | null;
+function requiredNationalId(value: unknown): string {
+  const id = nationalId(value);
+  if (!id) throw new HrValidationError("nationalId","身分證字號必填");
+  return id;
+}
 function normalizeProfile(raw: unknown) {
   const v = object(raw);
   const hireDate = date(v.hireDate,"hireDate");
   const memberId = v.memberId == null || v.memberId === "" ? null : integer(v.memberId,"memberId",true);
   const vals: Scalar[] = [
-    employeeNumber(v.employeeNo), required(v.name,"name",120), memberId, nationalId(v.nationalId),
-    nullableDate(v.birthDate,"birthDate"), optional(v.gender,"gender",20),
+    employeeNumber(v.employeeNo), required(v.name,"name",120), memberId, requiredNationalId(v.nationalId),
+    date(v.birthDate,"birthDate"), required(v.gender,"gender",20),
     optional(v.mobile,"mobile",30),optional(v.phone,"phone",30),
-    optional(v.mailingAddress,"mailingAddress",300),optional(v.registeredAddress,"registeredAddress",300),
+    required(v.mailingAddress,"mailingAddress",300),required(v.registeredAddress,"registeredAddress",300),
     hireDate, v.seniorityStartDate ? date(v.seniorityStartDate,"seniorityStartDate") : hireDate,
     optional(v.note,"note",2000),
     v.storeId==null||v.storeId===""?null:integer(v.storeId,"storeId",true),
@@ -42,6 +47,8 @@ function normalizeProfile(raw: unknown) {
     if (index>49) throw new HrValidationError(g.field,"過多子表紀錄");
     return record;
   })}));
+  if (!vals[6] && !vals[7]) throw new HrValidationError("mobile","手機、市話至少填一個");
+  if (!children.find(g=>g.field==="contacts")?.values.length) throw new HrValidationError("contacts","至少要有一位緊急聯絡人");
   return { vals, children };
 }
 function sanitized(row: Record<string, unknown>) {
