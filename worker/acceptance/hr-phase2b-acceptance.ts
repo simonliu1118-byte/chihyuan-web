@@ -10,7 +10,8 @@ import {checkLeaveQuota,leaveMinutes,leaveDates} from "../../shared/hr-leave";
 import {compBalances} from "../../shared/hr-overtime";
 
 function check(value:unknown,code:string):asserts value{if(!value)throw Error("ACCEPT_HR2B_"+code);}
-const jpeg="/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//2wBDAQ4ODhMREyYVFSZPNS01T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0//wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AKcAD//Z";
+// Deterministic 1x1 JPEG generated from a synthetic pixel; a real SOF0 segment is required by jpegSize().
+const jpeg="/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAsICAoIBwsKCQoNDAsNERwSEQ8PESIZGhQcKSQrKigkJyctMkA3LTA9MCcnOEw5PUNFSElIKzZPVU5GVEBHSEX/2wBDAQwNDREPESESEiFFLicuRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUX/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AKGAD//Z";
 export async function acceptHrPhase2b(db:D1Database,hrFiles?:R2Bucket){
  const ctx={actor:1,now:"2026-10-21T01:00:00.000Z",requestId:"accept-hr2b"};
  const leave=new HrLeaveService(db),roster=new HrRosterService(db),comp=new HrCompService(db);
