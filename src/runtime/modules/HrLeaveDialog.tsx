@@ -1,8 +1,9 @@
 import {useEffect,useState,type FormEvent} from "react";
-import {apiRequest} from "../../api/client";
+import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import {Dialog} from "../../ui/overlays/Dialog";
 import {taipeiToday} from "../../../shared/erp-query-history";
+type LeaveApproval={employeeId:number;kind:"consecutive"|"over_eight";startDate:string;endDate:string;suggestion:string};
 export interface LeaveTypeOption{id:number;code:string;name:string;quota_days?:number|null;requires_reason?:number;accepts_proof?:number;quota_period?:string|null;event_quota_options?:string|null;is_active?:number}
 export interface LeavePerson{id:number;name:string;employee_no:string;employment_type:"full"|"half"|"casual"}
 export function HrLeaveDialog({person,types,initialDate,onClose,onSaved}:{person:LeavePerson|null;types:LeaveTypeOption[];initialDate?:string;onClose:()=>void;onSaved:()=>void}){
@@ -10,7 +11,11 @@ export function HrLeaveDialog({person,types,initialDate,onClose,onSaved}:{person
  const [wholeDay,setWholeDay]=useState(true),[startTime,setStartTime]=useState("09:00"),[endTime,setEndTime]=useState("17:00"),[minutes,setMinutes]=useState("120");
  const [reason,setReason]=useState(""),[eventDate,setEventDate]=useState(""),[eventDays,setEventDays]=useState("8"),[files,setFiles]=useState<File[]>([]),[gray,setGray]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState("");
- useEffect(()=>{if(person){setFrom(initialDate??taipeiToday());setTo(initialDate??taipeiToday());setWholeDay(person.employment_type==="full");setTypeId(types[0]?.id??0);setError("")}},[person,initialDate,types]);
+ const [approvalItems,setApprovalItems]=useState<LeaveApproval[]>([]);
+ const [previews,setPreviews]=useState<string[]>([]);
+ const {confirm,confirmationDialog}=useConfirmation();
+ useEffect(()=>{const urls=files.map(file=>URL.createObjectURL(file));setPreviews(urls);return()=>urls.forEach(url=>URL.revokeObjectURL(url));},[files]);
+ useEffect(()=>{if(person){setFrom(initialDate??taipeiToday());setTo(initialDate??taipeiToday());setWholeDay(person.employment_type==="full");setTypeId(types[0]?.id??0);setError("");setApprovalItems([]);setFiles([])}},[person,initialDate,types]);
  const type=types.find(x=>x.id===typeId);
  async function resized(file:File):Promise<Blob>{
   const image=await createImageBitmap(file);const ratio=Math.min(1,1600/Math.max(image.width,image.height));
@@ -22,14 +27,31 @@ export function HrLeaveDialog({person,types,initialDate,onClose,onSaved}:{person
   }ctx.putImageData(data,0,0)}
   return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(Error("照片轉換失敗")),"image/jpeg",.8));
  }
- async function submit(e:FormEvent){e.preventDefault();if(!person)return;setBusy(true);setError("");
+ async function submit(e?:FormEvent,approve:LeaveApproval[]=[]){
+  e?.preventDefault();if(!person)return;setBusy(true);setError("");
   try{
    if(type?.requires_reason&&!reason.trim())throw Error("事假請填事由");
-   const result=await apiRequest<{batchId:string}>("/api/business/hr/leave-requests",{method:"POST",json:{
-    employeeId:person.id,leaveTypeId:typeId,from,date:from,to:wholeDay?to:from,wholeDay,
-    startTime:wholeDay?undefined:startTime,endTime:wholeDay?undefined:endTime,minutes:wholeDay?undefined:Number(minutes),
-    reason,eventDate:type?.quota_period==="event"?eventDate:undefined,eventQuotaDays:type?.event_quota_options?Number(eventDays):undefined
-   }});
+   const response=await fetch("/api/business/hr/leave-requests",{method:"POST",credentials:"same-origin",
+    headers:{"content-type":"application/json","accept":"application/json"},
+    body:JSON.stringify({employeeId:person.id,leaveTypeId:typeId,from,date:from,to:wholeDay?to:from,wholeDay,
+      startTime:wholeDay?undefined:startTime,endTime:wholeDay?undefined:endTime,minutes:wholeDay?undefined:Number(minutes),
+      reason,eventDate:type?.quota_period==="event"?eventDate:undefined,
+      eventQuotaDays:type?.event_quota_options?Number(eventDays):undefined,approve})});
+   const envelope=await response.json() as {ok:boolean;data?:{batchId:string};error?:{code:string;message:string;items?:unknown[]}};
+   if(!response.ok||!envelope.ok){
+    const details=envelope.error?.items??[],code=envelope.error?.code;
+    if(code==="HR_ROSTER_CONSECUTIVE"){
+     setApprovalItems(details as LeaveApproval[]);
+     setError("新增假單會形成連六或兼職超時排班，請明確核准後重送。");return;
+    }
+    if(code==="HR_ROSTER_VIOLATION"||code==="HR_LEAVE_QUOTA"){
+     const messages=details.map(x=>typeof x==="object"&&x!==null&&"message" in x?String(x.message):"").filter(Boolean);
+     throw Error((code==="HR_LEAVE_QUOTA"?"假額度超限":"排班違反不可核准的規則")+": "+messages.join("；"));
+    }
+    throw Error(envelope.error?.message??"假單儲存失敗");
+   }
+   const result=envelope.data;if(!result?.batchId)throw Error("伺服器沒有回傳假單編號");
+   setApprovalItems([]);
    for(const file of files){
     const blob=await resized(file);if(blob.size>1572864)throw Error("照片縮圖後仍超過 1.5 MB");
     const response=await fetch("/api/business/hr/leave-requests/"+result.batchId+"/attachments",{method:"POST",credentials:"same-origin",
@@ -40,6 +62,7 @@ export function HrLeaveDialog({person,types,initialDate,onClose,onSaved}:{person
   }catch(e){setError(e instanceof Error?e.message:"假單儲存失敗")}finally{setBusy(false)}
  }
  return <Dialog open={person!==null} title="新增請假單" onClose={onClose} size="medium">
+  {confirmationDialog}
   {person?<form className="cy-op-form" onSubmit={e=>void submit(e)} onKeyDown={enterAdvancesFields}>
    <p>{person.employee_no}　{person.name}（{person.employment_type==="full"?"正職":person.employment_type==="half"?"半職":"兼職"}）</p>
    <label>假別<select className="cy-op-input" value={typeId} onChange={e=>setTypeId(Number(e.target.value))} required>
@@ -55,7 +78,14 @@ export function HrLeaveDialog({person,types,initialDate,onClose,onSaved}:{person
    {type?.event_quota_options?<label>本次天數<select className="cy-op-input" value={eventDays} onChange={e=>setEventDays(e.target.value)}>{type.event_quota_options.split(",").map(x=><option key={x}>{x}</option>)}</select></label>:null}
    {type?.accepts_proof?<><label>證明照片（最多 3 張，非必填）<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>setFiles(Array.from(e.target.files??[]).slice(0,3))}/></label>
     <label><input type="checkbox" checked={gray} onChange={e=>setGray(e.target.checked)}/>黑白縮圖</label>{files.map(f=><small key={f.name}>{f.name}</small>)}</>:null}
-   <p>送出時將檢查假額及補休帳戶；整天假同步更新排班。部分時數則保留原班別。</p>
+   <p>預計請假 {wholeDay?from+"～"+to:from}，假別：{type?.name??"尚未選擇"}。{wholeDay?"所選有效日期的排班格會同步改為假別，例休日及國定假日依規則跳過。":"部分時數的班別維持不變。"}送出會檢查假額、補休與排班規則。</p>
+   {type?.accepts_proof&&previews.length?<div className="hr-cell-choices" aria-label="證明照片預覽">{previews.map((url,i)=><img key={url} src={url} alt={"證明照片 "+(i+1)} width={96} height={96} style={{objectFit:"cover"}}/>)}</div>:null}
+   {approvalItems.length?<div className="cy-op-panel" role="alert"><h4>排班需要主管核准</h4>
+    {approvalItems.map((x,i)=><p key={i}>{x.startDate}～{x.endDate}：{x.suggestion}</p>)}
+    <button type="button" className="cy-op-button primary" disabled={busy} onClick={async()=>{
+      const accepted=await confirm({title:"核准連六／兼職超時",description:"確認以主管身分核准以上排班，並建立正式假單？",confirmLabel:"核准並送出",confirmTone:"danger"});
+      if(accepted)void submit(undefined,approvalItems);
+    }}>核准並送出假單</button></div>:null}
    {error?<p role="alert" className="cy-notice cy-notice-danger">{error}</p>:null}
    <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={onClose}>取消</button><button className="cy-op-button primary" disabled={busy}>送出假單</button></div>
   </form>:null}
