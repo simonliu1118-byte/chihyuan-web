@@ -1,7 +1,13 @@
-## CY Web V0.9.20 Build 0 — 人事模組第一期（WO-0.9.20；已審查，待合併部署）
+## CY Web V0.9.21 Build 0 — Cloudflare 用量巡檢（WO-0.9.21；待執行）
+
+- [ ] [WO-0.9.21 工作單](docs/development/work-orders/WO-0.9.21.md)：超級管理員查看全帳號 D1 今日與近 7 天讀寫量，70%／90% 警示列；不做 Email。
+- [ ] 使用者在 Cloudflare 建立只讀 token（Account Analytics: Read、D1: Read），存為 GitHub secret `CF_USAGE_API_TOKEN`；審查者補 deploy workflow 傳遞。
+
+## CY Web V0.9.20 Build 0 — 人事模組第一期（WO-0.9.20；已部署）
 
 - [x] [WO-0.9.20 工作單](docs/development/work-orders/WO-0.9.20.md)：人事主檔、使用者綁定、狀態異動、週年制年資特休、薪資異動、津貼與最低工資設定、證號保護及稽核。
 - [x] 第二次審查通過：Node 測試 153/153、畫面依 §9 B 區由審查者改寫並截圖驗收。
+- [x] PR #221 合併 `c342e21`；部署 run 39347135492（#370，success）。2026-10-19 首次部署（run 39281112381）因 Cloudflare 帳號 D1 每日讀取額度被 CYACC 作業用盡而在遠端變更前失敗，額度重置後重新部署。
 
 ## CY Web V0.9.19 Build 0 — 我的帳號與說明文字細修（WO-0.9.18；已部署）
 

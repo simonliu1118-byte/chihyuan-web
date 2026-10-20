@@ -1,0 +1,137 @@
+# WO-0.9.21 Cloudflare 用量巡檢
+
+- 狀態：待執行
+- 分支：`cyweb/usage-monitor`（建議）　PR：（執行者填）
+- 依據：`PROJECT_RULES.md` §9；共通規則 `REPOSITORY_RULES.md` §11.3（計量資源與大量資料作業）
+- 視覺規範：`docs/architecture/CY_WEB_VISUAL_GUIDE.md`
+
+## 0. 執行限制（必讀）
+
+- **不得新增或修改 `.github/workflows/*`**。部署流程要傳入的新 secret 由審查者處理（見 5.4）。不得新增工作單未列出的檔案類型。
+- 不合併、不部署。
+- 本功能只**讀取** Cloudflare 用量，不得呼叫任何會修改 Cloudflare 設定或資料的 API。
+
+## 1. 背景
+
+- 2026/10/19 一次 CYACC 科目整理作業用盡了 Cloudflare 帳號共用的 D1 每日讀取額度（免費方案每天 500 萬列）。同帳號的 CYID 與 CY Web 因此一起無法登入，部署也失敗了。
+- 使用者決定：
+  - 在 CY Web 加用量巡檢，**監控整個帳號**的所有 D1 資料庫，不只 CY Web；
+  - 只有超級管理員看得到；
+  - 70% 黃色警示、90% 紅色警示；
+  - 這期不做 Email 通知；
+  - 排在人事第二期之前。
+
+## 2. 已定案事項（不得更改）
+
+1. 範圍是整個 Cloudflare 帳號的 D1：每個資料庫各自的讀取列數、寫入列數，以及全帳號合計。
+2. 「今天」以 **UTC 日**計算，與 Cloudflare 額度重置時間一致（台灣時間早上 8:00）。畫面要註明「每日 08:00（台灣時間）重置」。
+3. 額度上限寫成 `shared/` 的常數（免費方案：讀取 5,000,000 列／日、寫入 100,000 列／日），註解註明來源與日後升級付費方案時要改。
+4. 警示門檻：任一項（讀取或寫入）合計達上限 **70% 黃色**、**90% 紅色**。
+5. 用量**不存進 D1**。每次即時向 Cloudflare 查詢，可用 Cache API 快取 10 分鐘，避免反覆查詢。
+6. 只有 `SUPER_ADMIN` 可呼叫 API 與看到畫面。不加入模組授權與權限群組（同 HR 的做法）。
+7. 本功能本身每次查詢對 D1 的讀寫，只能有身分驗證必要的讀取，不得額外查 D1。
+
+## 3. 範圍
+
+1. **Worker**：`worker/usage/`，負責查 Cloudflare GraphQL Analytics 與 D1 資料庫清單，並整理成摘要。路由 `GET /api/business/usage/d1?days=7`。
+2. **共用**：`shared/cloudflare-usage.ts`，內容為額度常數、門檻、型別，以及「依用量算出警示等級」的純函式。附單元測試。
+3. **前端**：
+   - 「帳號與權限 → 系統與安全」頁籤加一個「用量」區塊，只有超級管理員看得到。
+   - 超級管理員登入後，若今日用量達門檻，畫面上方顯示警示列。
+4. **部署設定**：`scripts/render-deploy-config.mjs` 把帳號 ID 帶入 Worker 的 vars；`scripts/render-backup-secrets.mjs` 把用量 token 帶入 secrets（見 5.4）。
+5. 文件、版本、TODO。
+
+## 4. 不做
+
+- Email 或推播通知（之後再議）。
+- R2、Workers 請求數、KV 等其他用量（這期只做 D1）。
+- 自動停止任何服務或作業。
+- 歷史用量存檔、圖表套件；7 天資料用簡單表格或長條即可。
+
+## 5. 實作指引
+
+### 5.1 Cloudflare 查詢
+
+- **用量**：GraphQL `https://api.cloudflare.com/client/v4/graphql`，查 `viewer.accounts(filter:{accountTag}).d1AnalyticsAdaptiveGroups`。
+  - 篩選：`date_geq`／`date_leq`。
+  - 取 `sum { rowsRead rowsWritten readQueries writeQueries }` 與 `dimensions { date databaseId }`。
+  - 執行前請以官方文件確認欄位名稱。
+- **資料庫名稱**：`GET /client/v4/accounts/{account_id}/d1/database`（分頁）取得 uuid → 名稱對照。對照不到的顯示 uuid 前 8 碼。
+- **認證**：Worker secret `CF_USAGE_API_TOKEN`；帳號 ID 用 Worker var `CF_ACCOUNT_ID`。
+  - token 由使用者在 Cloudflare 建立，只給 **Account Analytics: Read** 與 **D1: Read** 兩個權限。
+  - 任何回應、log、錯誤訊息都不得帶出 token。
+- **未設定 token 或帳號 ID**：API 回 `USAGE_NOT_CONFIGURED`（503），畫面顯示「尚未設定用量查詢憑證」。
+- **Cloudflare 回錯或逾時**：逾時上限 10 秒，回 `USAGE_UNAVAILABLE`（503），不重試。
+- **快取**：以 Cache API 快取 10 分鐘。key 含 `days`，不含使用者資訊。回應附上資料時間 `fetchedAt`。
+
+### 5.2 API 回應（摘要）
+
+```ts
+{
+  fetchedAt: string;                  // ISO
+  limits: { rowsReadPerDay: number; rowsWrittenPerDay: number };
+  today: {
+    date: string;                     // UTC YYYY-MM-DD
+    rowsRead: number; rowsWritten: number;
+    level: "ok" | "warning" | "danger";   // 依 shared 純函式
+    databases: { id: string; name: string; rowsRead: number; rowsWritten: number }[]; // 依 rowsRead 由大到小
+  };
+  days: { date: string; rowsRead: number; rowsWritten: number }[]; // 由舊到新，含今天，無資料的日子補 0
+}
+```
+
+`days` 參數只接受 1～31，預設 7。
+
+### 5.3 前端
+
+- **用量區塊**（放在「系統與安全」既有區塊之後，沿用 `cy-op-panel` 與現有樣式）：
+  - 今日讀取、寫入：數字、占上限百分比，以及一條進度條，顏色依警示等級。
+  - 註明「每日 08:00（台灣時間）重置」與「資料時間 HH:mm」，並有「重新整理」按鈕。
+  - 各資料庫今日用量清單：名稱、讀取、寫入、占全帳號讀取的百分比。
+  - 近 7 天每日讀寫合計表格。
+  - 數字用千分位。
+- **警示列**：
+  - 超級管理員登入後讀一次 API，之後每 30 分鐘再讀一次；切換頁面不另外查。
+  - `warning` 或 `danger` 時，在頁面頂端（外框內容區上方）顯示一行，例如「今日 D1 讀取已用 72%（cyacc-db 占 90%），每日 08:00 重置」，並附「查看」連結到用量區塊。
+  - 黃色、紅色沿用既有 notice 色票，可以關閉，關閉後當天不再顯示，可用 `sessionStorage`。
+  - API 失敗時不顯示警示列，也不跳錯誤。
+- **非超級管理員**：不呼叫 API，也不顯示任何相關介面。
+
+### 5.4 部署設定
+
+- `render-deploy-config.mjs`：若環境變數 `CLOUDFLARE_ACCOUNT_ID` 存在，寫入 `config.vars.CF_ACCOUNT_ID`。帳號 ID 不屬機密，但仍不得印到 log。
+- `render-backup-secrets.mjs`：若環境變數 `CF_USAGE_API_TOKEN` 存在，加入輸出的 secrets 檔；不存在則略過，不得失敗。
+- 補上上述兩項的既有單元測試。
+- **workflow 改動不在本單**：把 GitHub secret `CF_USAGE_API_TOKEN` 傳給該步驟的 env，由審查者在合併前處理。
+
+### 5.5 文件、版本、TODO
+
+- 版本 0.9.21，依既有方式更新版本來源。
+- `docs/architecture/API_CONTRACT.md` 加入新路由。
+- `TODO.md` 新增 V0.9.21 段落。
+
+## 6. 驗收清單
+
+- [ ] 非超級管理員呼叫 `/api/business/usage/d1` 回 403；未登入回 401。
+- [ ] 未設定 token 回 `USAGE_NOT_CONFIGURED`；Cloudflare 回錯或逾時回 `USAGE_UNAVAILABLE`。兩種情況都不洩漏 token。
+- [ ] 警示等級純函式有單元測試：69.9% → ok、70% → warning、90% → danger；讀取與寫入取較嚴重的一項；上限為 0 或資料缺漏時不出錯。
+- [ ] GraphQL 回應轉換有單元測試：多資料庫、多日期合計，名稱對照，無資料的日子補 0，依讀取量排序。
+- [ ] `days` 超出 1～31 回 422。
+- [ ] 同一 `days` 10 分鐘內重複呼叫只查 Cloudflare 一次，以測試驗證快取。
+- [ ] 本功能沒有額外的 D1 查詢（審查時檢查程式）。
+- [ ] 前端：用量區塊與警示列只有超級管理員出現；關閉警示列後同一工作階段不再出現。
+- [ ] `npm run typecheck`、`timeout 300 npm run validate:source`、`node --test scripts/*.test.mjs`、`npm run build` 全部通過。
+
+## 7. 截圖要求
+
+由審查者以實際畫面擷取：用量區塊（桌面、手機）、黃色與紅色警示列各一。審查者會用測試資料模擬。
+
+## 8. 完成報告（執行者填）
+
+- PR：
+- 變更檔案：
+- 驗證結果：
+- GraphQL 欄位確認來源：
+- 已知限制：
+
+## 9. 審查紀錄（審查者填）
