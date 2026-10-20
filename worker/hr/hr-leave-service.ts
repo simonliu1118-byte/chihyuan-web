@@ -87,19 +87,22 @@ export class HrLeaveService{
   if(!employeeIds.length)return {year,types:await this.types(),employees:[],total:0};
   const placeholders=employeeIds.map(()=>"?").join(",");
   const [leaves,staged,grants,ot,settlements,types]=await Promise.all([
-   this.db.prepare("SELECT r.employee_id,r.leave_type_id,r.work_date,r.minutes,r.cancelled_at,t.comp_kind,t.code FROM hr_leave_records r JOIN hr_leave_types t ON t.id=r.leave_type_id WHERE r.employee_id IN ("+placeholders+") AND r.work_date BETWEEN ? AND ? LIMIT 10000").bind(...employeeIds,String(year)+"-01-01",monthEnd(year)).all<Record<string,unknown>>(),
-   this.db.prepare("SELECT s.employee_id,s.work_date FROM hr_schedule_days s LEFT JOIN hr_leave_records l ON l.employee_id=s.employee_id AND l.work_date=s.work_date AND l.whole_day=1 AND l.cancelled_at IS NULL WHERE s.employee_id IN ("+placeholders+") AND s.work_date BETWEEN ? AND ? AND s.kind='leave' AND l.id IS NULL LIMIT 5000").bind(...employeeIds,String(year)+"-01-01",monthEnd(year)).all<{employee_id:number;work_date:string}>(),
-   this.db.prepare("SELECT * FROM hr_comp_time_grants WHERE employee_id IN ("+placeholders+") LIMIT 2000").bind(...employeeIds).all<Record<string,unknown>>(),
-   this.db.prepare("SELECT * FROM hr_overtime_days WHERE settlement='comp' AND employee_id IN ("+placeholders+") LIMIT 2000").bind(...employeeIds).all<Record<string,unknown>>(),
-   this.db.prepare("SELECT * FROM hr_comp_time_settlements WHERE employee_id IN ("+placeholders+") LIMIT 2000").bind(...employeeIds).all<Record<string,unknown>>(),this.types()
+   this.db.prepare("SELECT r.employee_id,r.leave_type_id,r.work_date,r.minutes,r.cancelled_at,t.comp_kind,t.code FROM hr_leave_records r JOIN hr_leave_types t ON t.id=r.leave_type_id WHERE r.employee_id IN ("+placeholders+") AND r.work_date BETWEEN ? AND ? LIMIT 10001").bind(...employeeIds,String(year)+"-01-01",monthEnd(year)).all<Record<string,unknown>>(),
+   this.db.prepare("SELECT s.employee_id,s.work_date FROM hr_schedule_days s LEFT JOIN hr_leave_records l ON l.employee_id=s.employee_id AND l.work_date=s.work_date AND l.whole_day=1 AND l.cancelled_at IS NULL WHERE s.employee_id IN ("+placeholders+") AND s.work_date BETWEEN ? AND ? AND s.kind='leave' AND l.id IS NULL LIMIT 5001").bind(...employeeIds,String(year)+"-01-01",monthEnd(year)).all<{employee_id:number;work_date:string}>(),
+   this.db.prepare("SELECT * FROM hr_comp_time_grants WHERE employee_id IN ("+placeholders+") LIMIT 2001").bind(...employeeIds).all<Record<string,unknown>>(),
+   this.db.prepare("SELECT * FROM hr_overtime_days WHERE settlement='comp' AND employee_id IN ("+placeholders+") LIMIT 2001").bind(...employeeIds).all<Record<string,unknown>>(),
+   this.db.prepare("SELECT * FROM hr_comp_time_settlements WHERE employee_id IN ("+placeholders+") LIMIT 2001").bind(...employeeIds).all<Record<string,unknown>>(),this.types()
   ]);
+  if((leaves.results??[]).length>10000||(staged.results??[]).length>5000||
+     [grants,ot,settlements].some(x=>(x.results??[]).length>2000))
+    throw new HrValidationError("limit","請假總表資料超過單次安全上限，不能以截斷資料計算");
   // One bounded query per data family for the entire selected team (no per-employee SQL).
   // Annual entitlement and comp balances need history *before* the selected year.
   const cutoff=year===Number(asOf.slice(0,4))?asOf:String(year)+"-12-31";
   const [annualHistory,excludedHistory,compHistory]=await Promise.all([
-   this.db.prepare("SELECT r.employee_id,r.work_date,r.minutes,r.cancelled_at FROM hr_leave_records r JOIN hr_leave_types t ON t.id=r.leave_type_id WHERE t.code='特' AND r.employee_id IN ("+placeholders+") AND r.work_date<=? ORDER BY r.employee_id,r.work_date LIMIT 20000").bind(...employeeIds,cutoff).all<{employee_id:number;work_date:string;minutes:number;cancelled_at:string|null}>(),
+   this.db.prepare("SELECT r.employee_id,r.work_date,r.minutes,r.cancelled_at FROM hr_leave_records r JOIN hr_leave_types t ON t.id=r.leave_type_id WHERE t.code='特' AND r.employee_id IN ("+placeholders+") AND r.work_date<=? ORDER BY r.employee_id,r.work_date LIMIT 20010").bind(...employeeIds,cutoff).all<{employee_id:number;work_date:string;minutes:number;cancelled_at:string|null}>(),
    this.db.prepare("SELECT employee_id,start_date,end_date FROM hr_seniority_exclusions WHERE employee_id IN ("+placeholders+") ORDER BY employee_id,start_date LIMIT 4000").bind(...employeeIds).all<{employee_id:number;start_date:string;end_date:string}>(),
-   this.db.prepare("SELECT r.employee_id,r.work_date,r.minutes,t.comp_kind FROM hr_leave_records r JOIN hr_leave_types t ON t.id=r.leave_type_id WHERE t.comp_kind IS NOT NULL AND r.employee_id IN ("+placeholders+") AND r.cancelled_at IS NULL AND r.work_date<=? ORDER BY r.employee_id,r.work_date LIMIT 10000").bind(...employeeIds,cutoff).all<{employee_id:number;work_date:string;minutes:number;comp_kind:string}>()
+   this.db.prepare("SELECT r.employee_id,r.work_date,r.minutes,t.comp_kind FROM hr_leave_records r JOIN hr_leave_types t ON t.id=r.leave_type_id WHERE t.comp_kind IS NOT NULL AND r.employee_id IN ("+placeholders+") AND r.cancelled_at IS NULL AND r.work_date<=? ORDER BY r.employee_id,r.work_date LIMIT 10001").bind(...employeeIds,cutoff).all<{employee_id:number;work_date:string;minutes:number;comp_kind:string}>()
   ]);
   if((annualHistory.results??[]).length>=20000||(excludedHistory.results??[]).length>=4000||(compHistory.results??[]).length>=10000)
    throw new HrValidationError("limit","人事歷史資料超過單次查詢安全上限");
