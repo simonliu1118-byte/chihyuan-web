@@ -139,7 +139,7 @@
   6. 快取 key 包含 days 與 UTC 日期（不含任何使用者資訊），600 秒，跨 UTC 午夜不會使用前一日快取；附測試驗證同 key 遠端只查一次。
   7. 功能完全不執行 D1 SQL，僅 CYID 身分授權；附無 D1 可用的路由測試。
   8. 前端只有超管可見與呼叫，登入後讀取一次、30 分鐘輪詢；錯誤時靜默不顯示警示，`sessionStorage` 記錄當天關閉。
-  9. 驗證：既有 [Runtime Check #39363706348](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39363706348) **success**（worker/browser TypeScript、source contracts、D1 local、Vite build），[Governance Check #39363706460](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39363706460) **success**。本批含跨 UTC 日期快取邊界與 esbuild bundled Node 測試，完整單檔測試尚待另行執行；**完整 `node --test scripts/*.test.mjs` 尚未獨立執行，不能宣稱通過**。本地容器 DNS 無法解析 github.com，無法完整 checkout。
+  9. 驗證：既有 [Runtime Check #39363931290](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39363931290) **success**（worker/browser TypeScript、source contracts、D1 local、Vite build），[Governance Check #39363931282](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39363931282) **success**。本批含跨 UTC 日期快取邊界與 esbuild bundled Node 測試，完整單檔測試尚待另行執行；**完整 `node --test scripts/*.test.mjs` 尚未獨立執行，不能宣稱通過**。本地容器 DNS 無法解析 github.com，無法完整 checkout。
 - GraphQL 欄位確認來源：[Cloudflare D1 Metrics and Analytics](https://developers.cloudflare.com/d1/observability/metrics-analytics/)：`viewer.accounts(filter:{accountTag})`、`d1AnalyticsAdaptiveGroups`、`date_geq/date_leq`、`sum.rowsRead/rowsWritten/readQueries/writeQueries`、`dimensions.date/databaseId`；官方 D1 Analytics API 支援最多近 31 天資料。DB 名稱使用只讀 D1 database list API。
 - 已知限制：需要部署者於 Cloudflare 提供 `CF_USAGE_API_TOKEN`（僅 Account Analytics: Read 與 D1: Read）及 `CLOUDFLARE_ACCOUNT_ID`，並由審查者**另行**於原 workflow 安全傳入 token；本 PR 不修改 workflow。Cloudflare 連線尚未使用真實帳號驗證；UI 桌面／手機與黃色／紅色警示截圖交由審查者驗收。無 Email、其他產品用量或任何 Cloudflare 寫入。
 
