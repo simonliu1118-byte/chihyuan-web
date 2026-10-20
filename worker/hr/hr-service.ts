@@ -9,21 +9,35 @@ const CHILDREN = [
   { field: "education", table: "hr_education", columns: ["school","department","degree","graduation_month"], names: ["school","department","degree","graduationMonth"] },
   { field: "workHistory", table: "hr_work_history", columns: ["company","job_title","start_month","end_month","note"], names: ["company","jobTitle","startMonth","endMonth","note"] },
 ] as const;
-const fields = ["employee_no","name","member_id","national_id","birth_date","gender","mobile","phone","mailing_address","registered_address","hire_date","seniority_start_date","note"] as const;
-const bodyFields = ["employeeNo","name","memberId","nationalId","birthDate","gender","mobile","phone","mailingAddress","registeredAddress","hireDate","seniorityStartDate","note"] as const;
+const fields = ["employee_no","name","member_id","national_id","birth_date","gender","mobile","phone","mailing_address","registered_address","hire_date","seniority_start_date","note","store_id","job_title_id","roster_sort","employment_type","skip_roster_checks","schedule_mode"] as const;
+const bodyFields = ["employeeNo","name","memberId","nationalId","birthDate","gender","mobile","phone","mailingAddress","registeredAddress","hireDate","seniorityStartDate","note","storeId","jobTitleId","rosterSort","employmentType","skipRosterChecks","scheduleMode"] as const;
 type Scalar = string | number | null;
+function requiredNationalId(value: unknown): string {
+  const id = nationalId(value);
+  if (!id) throw new HrValidationError("nationalId","身分證字號必填");
+  return id;
+}
 function normalizeProfile(raw: unknown) {
   const v = object(raw);
   const hireDate = date(v.hireDate,"hireDate");
   const memberId = v.memberId == null || v.memberId === "" ? null : integer(v.memberId,"memberId",true);
   const vals: Scalar[] = [
-    employeeNumber(v.employeeNo), required(v.name,"name",120), memberId, nationalId(v.nationalId),
-    nullableDate(v.birthDate,"birthDate"), optional(v.gender,"gender",20),
+    employeeNumber(v.employeeNo), required(v.name,"name",120), memberId, requiredNationalId(v.nationalId),
+    date(v.birthDate,"birthDate"), required(v.gender,"gender",20),
     optional(v.mobile,"mobile",30),optional(v.phone,"phone",30),
-    optional(v.mailingAddress,"mailingAddress",300),optional(v.registeredAddress,"registeredAddress",300),
+    required(v.mailingAddress,"mailingAddress",300),required(v.registeredAddress,"registeredAddress",300),
     hireDate, v.seniorityStartDate ? date(v.seniorityStartDate,"seniorityStartDate") : hireDate,
     optional(v.note,"note",2000),
+    integer(v.storeId,"storeId",true),
+    integer(v.jobTitleId,"jobTitleId",true),
+    integer(v.rosterSort??0,"rosterSort"),
+    String(v.employmentType??"full"),
+    v.skipRosterChecks===true||v.skipRosterChecks===1?1:0,
+    String(v.scheduleMode??"shift"),
   ];
+  if(!["full","half","casual"].includes(String(vals[16])))throw new HrValidationError("employmentType","僱用型態錯誤");
+  const employment=String(vals[16]),mode=String(vals[18]);
+  if(!["shift","hours","none"].includes(mode)||employment==="full"&&mode!=="shift"||employment==="half"&&mode==="none")throw new HrValidationError("scheduleMode","排班方式與僱用型態不符");
   const children = CHILDREN.map(g=>({ ...g, values: rows(v[g.field],g.field).map((row,index)=>{
     const record: Scalar[] = g.names.map((key)=>{
       const value = row[key]; if (key === "graduationMonth" || key === "startMonth" || key === "endMonth") return month(value,key);
@@ -33,6 +47,8 @@ function normalizeProfile(raw: unknown) {
     if (index>49) throw new HrValidationError(g.field,"過多子表紀錄");
     return record;
   })}));
+  if (!vals[6] && !vals[7]) throw new HrValidationError("mobile","手機、市話至少填一個");
+  if (!children.find(g=>g.field==="contacts")?.values.length) throw new HrValidationError("contacts","至少要有一位緊急聯絡人");
   return { vals, children };
 }
 function sanitized(row: Record<string, unknown>) {
@@ -57,6 +73,8 @@ export class HrService {
     const employee=await this.employeeRow(id);
     if(!employee) throw new HrValidationError("id","人事資料不存在",404);
     const result:Record<string,unknown>={...sanitized(employee)};
+    if(employee.member_id){const m=await this.db.prepare("SELECT employee_no,display_name FROM app_members WHERE id=?").bind(employee.member_id).first<{employee_no:string|null;display_name:string|null}>();
+      result.memberLabel=m?[m.employee_no,m.display_name].filter(Boolean).join(" ")||null:null;}
     for(const child of CHILDREN){const data=await this.db.prepare("SELECT * FROM "+child.table+" WHERE employee_id=? ORDER BY sort_order,id").bind(id).all();result[child.field]=data.results??[];}
     for(const [key,table] of [["statusChanges","hr_status_changes"],["salaryRecords","hr_salary_records"],["seniorityExclusions","hr_seniority_exclusions"]] as const){
       const data=await this.db.prepare("SELECT * FROM "+table+" WHERE employee_id=? ORDER BY effective_date DESC,id DESC".replace("effective_date",key==="seniorityExclusions"?"start_date":"effective_date")).bind(id).all();
@@ -92,7 +110,10 @@ export class HrService {
     if(!before) throw new HrValidationError("id","人事資料不存在",404);
     const revision=integer(v.revision,"revision",true);
     if(revision!==before.revision)throw new HrValidationError("revision","資料已由其他人修改，請重新整理",409);
-    const profile=normalizeProfile({...v,status:before.status,nationalId:v.nationalId===undefined?before.national_id:v.nationalId});
+    const profile=normalizeProfile({...v,status:before.status,nationalId:v.nationalId===undefined?before.national_id:v.nationalId,
+    storeId:v.storeId===undefined?before.store_id:v.storeId,jobTitleId:v.jobTitleId===undefined?before.job_title_id:v.jobTitleId,
+    rosterSort:v.rosterSort===undefined?before.roster_sort:v.rosterSort,employmentType:v.employmentType===undefined?before.employment_type:v.employmentType,
+    skipRosterChecks:v.skipRosterChecks===undefined?before.skip_roster_checks:v.skipRosterChecks,scheduleMode:v.scheduleMode===undefined?before.schedule_mode:v.scheduleMode});
     const assignments=fields.map(x=>x+"=?").join(",");
     const stmts:D1PreparedStatement[]=[this.db.prepare("UPDATE hr_employees SET "+assignments+",revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?").bind(...profile.vals,ctx.now,ctx.actor,id,revision)];
     for(const g of profile.children){
@@ -145,6 +166,19 @@ export class HrService {
     if(a>b)throw new HrValidationError("endDate","不得早於起日");
     await this.db.batch([this.db.prepare("INSERT INTO hr_seniority_exclusions(employee_id,start_date,end_date,reason,created_at,created_by) VALUES(?,?,?,?,?,?)").bind(id,a,b,reason,ctx.now,ctx.actor),audit(this.db,ctx,"hr_seniority_exclusion",String(id),"hr_seniority_exclusion.created",null,{startDate:a,endDate:b,reason})]);
     return this.exclusions(id);
+  }
+  // Temporary for testing (BD-059): super admin removes an employee and every HR row under it. Removed before launch.
+  async remove(id:number,raw:unknown,ctx:HrContext) {
+    const row=await this.db.prepare("SELECT employee_no,name FROM hr_employees WHERE id=?").bind(id).first<{employee_no:string;name:string}>();
+    if(!row)throw new HrValidationError("id","員工不存在",404);
+    if(object(raw).confirmEmployeeNo!==row.employee_no)throw new HrValidationError("confirmEmployeeNo","請輸入正確的員工編號確認刪除");
+    const del=(sql:string)=>this.db.prepare(sql).bind(id);
+    await this.db.batch([
+      del("DELETE FROM hr_salary_allowances WHERE salary_record_id IN (SELECT id FROM hr_salary_records WHERE employee_id=?)"),
+      ...["hr_salary_records","hr_emergency_contacts","hr_education","hr_work_history","hr_status_changes","hr_seniority_exclusions","hr_schedule_days","hr_roster_approvals","hr_attendance_days"].map(t=>del(`DELETE FROM ${t} WHERE employee_id=?`)),
+      del("DELETE FROM hr_employees WHERE id=?"),
+      audit(this.db,ctx,"hr_employee",row.employee_no,"hr_employee.deleted",{employeeNo:row.employee_no,name:row.name},null),
+    ]);
   }
   async removeExclusion(id:number,exclusionId:number,ctx:HrContext) {
     const row=await this.db.prepare("SELECT * FROM hr_seniority_exclusions WHERE id=? AND employee_id=?").bind(exclusionId,id).first();

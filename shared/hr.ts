@@ -16,3 +16,7 @@ export interface HrSalaryAllowance { itemTypeId: number; amount: number; isRegul
 export interface HrSalaryRecord { id: number; effectiveDate: string; paymentType: HrPaymentType; baseAmount: number; reason: string; allowances: HrSalaryAllowance[] }
 export interface HrStatusChange { id: number; effectiveDate: string; previousStatus: HrStatus; nextStatus: HrStatus; reason: string }
 export interface HrMinimumWage { effectiveDate: string; monthlyAmount: number; hourlyAmount: number }
+// After the first save, HR staff may only edit the volatile fields; fixed fields stay with the super admin
+// (user, 2026-10-20). Today only the super admin uses HR, so the split is recorded here for when HR roles open.
+export const HR_VOLATILE_FIELDS = ["mobile", "phone", "mailingAddress", "memberId", "storeId", "jobTitleId", "rosterSort", "employmentType", "scheduleMode", "skipRosterChecks", "contacts", "education", "workHistory", "note"] as const;
+export const HR_FIXED_FIELDS = ["employeeNo", "name", "nationalId", "birthDate", "gender", "registeredAddress", "hireDate", "seniorityStartDate"] as const;

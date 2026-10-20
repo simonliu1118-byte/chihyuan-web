@@ -12,5 +12,5 @@ export function isValidTaiwanId(value: string): boolean {
 export function maskTaiwanId(value: string | null | undefined): string | null {
   if (!value) return null;
   const id = value.trim().toUpperCase();
-  return id.length === 10 ? id.slice(0, 3) + "****" + id.slice(7) : null;
+  return id.length === 10 ? id.slice(0, 1) + "******" + id.slice(7) : null;
 }

@@ -711,3 +711,6 @@ Forward migration `0008_program_catalog_state` adds one operational row for the 
 ## WO-0.9.20 人事資料（第一期）
 
 D1 migration `0017_hr_phase1.sql` 新增 `hr_employees`、`hr_emergency_contacts`、`hr_education`、`hr_work_history`、`hr_status_changes`、`hr_seniority_exclusions`、`hr_salary_records`、`hr_salary_allowances`、`hr_salary_item_types`、`hr_minimum_wages`；全部為人事資料範疇，不改既有 CYID Authority。每一名人事員工可選填唯一的本地 `app_members.id` 綁定；人事狀態由追加式生效異動決定，薪資異動不可修改或刪除，主檔不得刪除。證號預設遮罩且 reveal 稽核留存遮罩值。詳見 [HR_MODULE_DESIGN.md](HR_MODULE_DESIGN.md) 及 [HR_MODULE_CONTRACT.md](HR_MODULE_CONTRACT.md)。
+
+## WO-0.9.24 人事第二期 2a
+`0018_hr_phase2a.sql` 增設 `hr_stores`、`hr_job_titles`、`hr_shift_types`、`hr_leave_types`、`hr_holidays`、`hr_schedule_days`、`hr_schedule_months`、`hr_roster_approvals`、`hr_attendance_days`，以及員工所屬門市／職稱、班表排序、僱用型態、排班方式及不須檢核欄位。格子唯一鍵 `(employee_id,work_date)`；備註唯一鍵 `(store_id,month)`；出勤唯一鍵 `(employee_id,work_date)`，不得直接刪除出勤資料。各格排班修改在 `db.batch` 加一筆 `hr_roster.updated` 稽核，出勤修改在同一批寫 `hr_attendance.updated`；自動例休標記保留在 `rest_label`。詳見 [HR_MODULE_DESIGN.md](HR_MODULE_DESIGN.md) §5 及 [HR_MODULE_CONTRACT.md](HR_MODULE_CONTRACT.md)。

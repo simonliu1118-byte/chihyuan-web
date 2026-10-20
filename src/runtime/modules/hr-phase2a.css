@@ -1,0 +1,48 @@
+/* WO-0.9.24 HR roster, compact Excel-style grid and landscape print */
+.cy-hr-phase2a{min-width:0;overflow:hidden}
+.hr-roster-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:9px}
+.hr-roster-toolbar label{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.hr-roster-toolbar select{max-width:210px}
+.hr-roster-print-title{text-align:center;margin:10px 0 8px;font-weight:700}
+.hr-roster-scroll{max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain;border:1px solid var(--cy-border)}
+.hr-roster-table{border-collapse:collapse;table-layout:fixed;min-width:100%;width:max-content;font-variant-numeric:tabular-nums}
+.hr-roster-table th,.hr-roster-table td{border:1px solid var(--cy-border);padding:2px;text-align:center;min-width:30px;font-size:11px;position:relative}
+.hr-roster-table th:first-child,.hr-roster-table td:first-child{min-width:62px;background:var(--cy-surface);position:sticky;left:0;z-index:2}
+.hr-roster-table th:nth-child(2){min-width:80px;position:sticky;left:62px;z-index:2;background:var(--cy-surface)}
+.hr-roster-table thead th{background:var(--cy-surface)}
+.hr-roster-table th small{display:block;font-size:8px;max-width:35px;overflow-wrap:anywhere}
+.hr-roster-table .hr-holiday{background:#e7eaed;color:#25313d}
+.hr-roster-table .hr-cycle{border-left:3px double #465461}
+.hr-roster-table .hr-invalid{outline:2px solid #c62828;outline-offset:-2px}
+.hr-roster-table .hr-sixth:after{content:"連六";font-size:7px;color:#a44800;position:absolute;right:0;top:0}
+.hr-roster-table .hr-group-start th,.hr-roster-table .hr-group-start td{border-top:6px solid var(--cy-surface)}
+.hr-roster-table .hr-staffing{font-weight:700;background:var(--cy-surface)}
+.hr-roster-cell{display:block;background:transparent;color:inherit;border:0;width:100%;min-height:28px;font:inherit;cursor:pointer}
+.hr-roster-cell small{display:block;font-size:8px}
+.hr-roster-cell:focus-visible{outline:2px solid var(--cy-accent)}
+.hr-cell-choices{display:flex;flex-wrap:wrap;gap:6px}
+.hr-staff-setting{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px;border-bottom:1px solid var(--cy-border)}
+.hr-staff-setting label{display:flex;gap:4px;align-items:center}.hr-staff-setting input[type=number]{max-width:100px}
+.hr-attendance-table{min-width:950px;white-space:nowrap}.hr-attendance-clock{width:78px;padding:5px}
+.hr-attendance-totals{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
+.print-only{display:none}
+@media(max-width:640px){.hr-roster-table th,.hr-roster-table td{font-size:10px}.hr-roster-cell{min-height:38px}.hr-roster-toolbar{gap:6px}}
+@page{size:A4 landscape;margin:5mm}
+@media print {
+ .hr-roster-table .hr-invalid{outline:none}
+ .hr-roster-table .hr-sixth:after{display:none}
+ body *{visibility:hidden!important}
+ .cy-hr-phase2a,.cy-hr-phase2a *{visibility:visible!important}
+ .cy-hr-phase2a{position:absolute!important;left:0!important;top:0!important;width:100%!important;overflow:visible!important}
+ .hr-roster-scroll{border:0!important;overflow:visible!important}
+ .hr-roster-table{width:100%!important;min-width:0!important;table-layout:fixed!important;border:2px solid #333}
+ .hr-roster-table th,.hr-roster-table td{font-size:7px!important;min-width:0!important;padding:1px!important;position:static!important;border:1px solid #777}
+ .hr-roster-table th:first-child,.hr-roster-table td:first-child,.hr-roster-table th:nth-child(2){width:16mm!important;min-width:0!important;position:static!important}
+ .hr-roster-table tr{break-inside:avoid}
+ .hr-roster-table .hr-holiday{background:#e6e6e6!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+ .hr-roster-table .hr-cycle{border-left:3px double #333!important}
+ .hr-roster-table .hr-group-start th,.hr-roster-table .hr-group-start td{border-top:4px solid white!important}
+ .hr-roster-print-title{font-size:15px;margin:0 0 4mm}
+ .print-only{display:inline!important}
+ .no-print,.hr-roster-cell,.hr-roster-toolbar,button,textarea{display:none!important;visibility:hidden!important}
+}

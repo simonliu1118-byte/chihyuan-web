@@ -642,3 +642,6 @@ Each customer's latest quote for the Item is selected by `quote_date DESC, id DE
 Worker 以 `CF_ACCOUNT_ID`（var）及 `CF_USAGE_API_TOKEN`（secret）只讀呼叫 Cloudflare GraphQL Analytics 及帳號 D1 database list，不進 D1；每個 days 組合於 Cache API 快取十分鐘。缺乏設定 503 `USAGE_NOT_CONFIGURED`；上游失敗、逾時 503 `USAGE_UNAVAILABLE`，不回傳 token 或上游內文。前端只有超管可載入及查看，不存歷史、不寄通知。
 
 GraphQL 結構以 [Cloudflare 官方 D1 Metrics and Analytics](https://developers.cloudflare.com/d1/observability/metrics-analytics/) 為準：`d1AnalyticsAdaptiveGroups`、`sum.rowsRead`、`sum.rowsWritten`、`sum.readQueries`、`sum.writeQueries`，`dimensions.date`、`dimensions.databaseId`。
+
+## WO-0.9.24 — 人事第二期 2a API
+僅限 CYID `SUPER_ADMIN`，不經模組授權。新增門市／職稱／班別／國定假日維護、`GET/PUT /api/business/hr/rosters/:storeId/:month`、`PATCH .../staff`、`GET/PUT /api/business/hr/employees/:id/attendance?month=`、`GET /api/business/hr/attendance/anomalies?storeId=&month=`。一般回應沿用 `{ok,data,requestId}`，違規或待核准 409，`error.code` 為 `HR_ROSTER_VIOLATION`／`HR_ROSTER_CONSECUTIVE` 並含 `error.items[]`。核准重送 `approve:[{employeeId,kind,startDate,endDate}]`。所有儲存與稽核同批交易；無薪資、請假、加班計算或員工自助入口。詳見 [HR_MODULE_CONTRACT.md](HR_MODULE_CONTRACT.md)。

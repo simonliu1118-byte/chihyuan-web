@@ -6,7 +6,7 @@ import { annualLeaveSchedule } from "../../shared/hr-annual-leave";
 
 function check(condition:unknown,code:string):asserts condition { if(!condition)throw Error(code); }
 export async function acceptHrPhase1(db:D1Database):Promise<void>{
- check(isValidTaiwanId("A123456789") && !isValidTaiwanId("A123456780") && maskTaiwanId("A123456789")==="A12****789","ACCEPT_HR_ID_CHECKSUM");
+ check(isValidTaiwanId("A123456789") && !isValidTaiwanId("A123456780") && maskTaiwanId("A123456789")==="A******789","ACCEPT_HR_ID_CHECKSUM");
  check(annualLeaveSchedule("2026-01-01",[],"2026-06-30").length===0,"ACCEPT_HR_LEAVE_BEFORE_HALF_YEAR");
  const first=annualLeaveSchedule("2026-01-01",[],"2027-01-01");
  check(first[0]?.days===3 && first[1]?.days===7,"ACCEPT_HR_HALF_YEAR_AND_ONE_YEAR");
@@ -41,6 +41,7 @@ export async function acceptHrPhase1(db:D1Database):Promise<void>{
  }
  role="SUPER_ADMIN";
  const input={employeeNo:"HRTEST001",name:"測試員工甲",hireDate:"2025-01-01",seniorityStartDate:"2025-01-01",status:"active",nationalId:"A123456789",
+  birthDate:"1990-01-01",gender:"女",mobile:"0900000001",registeredAddress:"虛構縣測試路1號",mailingAddress:"虛構縣測試路1號",storeId:1,jobTitleId:1,
   contacts:[{name:"測試聯絡甲",relationship:"家人",phone:"0900000000"}],
   education:[{school:"虛構學校",department:"測試科",degree:"學士",graduationMonth:"2024/06"}],
   workHistory:[{company:"測試公司",jobTitle:"測試職務",startMonth:"2024/07",endMonth:"2024/12",note:"測試"}]};
@@ -55,12 +56,16 @@ export async function acceptHrPhase1(db:D1Database):Promise<void>{
  check((await call("employees","POST",input)).status===409,"ACCEPT_HR_EMPLOYEE_NO_UNIQUE");
  const owner=await db.prepare("SELECT id FROM app_members ORDER BY id LIMIT 1").first<{id:number}>();
  if(owner){
-   const linked=await svc.create({...input,employeeNo:"HRTEST002",nationalId:null,memberId:owner.id},ctx) as Record<string,unknown>;
+   const linked=await svc.create({...input,employeeNo:"HRTEST002",memberId:owner.id},ctx) as Record<string,unknown>;
    check(linked.member_id===owner.id,"ACCEPT_HR_MEMBER_LINK");
-   check((await call("employees","POST",{...input,employeeNo:"HRTEST003",nationalId:null,memberId:owner.id})).status===409,"ACCEPT_HR_MEMBER_UNIQUE");
+   check((await call("employees","POST",{...input,employeeNo:"HRTEST003",memberId:owner.id})).status===409,"ACCEPT_HR_MEMBER_UNIQUE");
  }
  check((await call("employees","POST",{...input,employeeNo:"HRTEST004",status:"terminated"})).status===422,"ACCEPT_HR_TERMINATION_REQUIRES_EVENT");
  check((await call("employees/"+id+"/national-id/reveal","POST")).status===200,"ACCEPT_HR_REVEAL_ALLOWED");
+ const removable=await svc.create({...input,employeeNo:"HRTEST005"},ctx) as Record<string,unknown>;
+ check((await call("employees/"+removable.id,"DELETE",{confirmEmployeeNo:"HRTEST001"})).status===422,"ACCEPT_HR_DELETE_CONFIRMS_NUMBER");
+ check((await call("employees/"+removable.id,"DELETE",{confirmEmployeeNo:"HRTEST005"})).status===200,"ACCEPT_HR_DELETE");
+ check(!(await db.prepare("SELECT 1 FROM hr_employees WHERE id=?").bind(removable.id).first())&&!(await db.prepare("SELECT 1 FROM hr_emergency_contacts WHERE employee_id=?").bind(removable.id).first()),"ACCEPT_HR_DELETE_CASCADE");
  const audit=await db.prepare("SELECT before_json,after_json,metadata_json FROM audit_events WHERE entity_type LIKE 'hr_%'").all<Record<string,string|null>>();
  check(!(audit.results??[]).some(x=>JSON.stringify(x).includes(input.nationalId)),"ACCEPT_HR_AUDIT_NO_FULL_ID");
  const adminEvents=await new AuditService(db).listDetailedPage({includeHrEvents:false});

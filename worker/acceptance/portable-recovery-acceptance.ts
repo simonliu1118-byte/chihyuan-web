@@ -33,6 +33,8 @@ export async function acceptPortableRecovery(source: D1Database, target: D1Datab
   assert(!("backup_sets" in verified.data.tables) && !("web_sessions" in verified.data.tables)
     && !("program_catalog_state" in verified.data.tables), "ACCEPT_BACKUP_AUTH_OR_CATALOG_EXPORTED");
   await rejects(() => verifyPortableBackup(bundle, "other-workspace"), "ACCEPT_BACKUP_CROSS_SCOPE");
+  const fresh = await verifyPortableBackup(await exportPortableBackup(target,scope),scope.workspaceScope);
+  const freshSeedCounts = JSON.stringify(fresh.manifest.recordCounts);
   const corrupt = { manifestBytes: bundle.manifestBytes, dataBytes: bundle.dataBytes.slice() }; corrupt.dataBytes[0] ^= 1;
   await rejects(() => restoreIntoEmptyDatabase(target, corrupt, scope.workspaceScope), "ACCEPT_BACKUP_CORRUPTION");
   for (const edit of [
@@ -53,13 +55,13 @@ export async function acceptPortableRecovery(source: D1Database, target: D1Datab
   });
   await rejects(() => restoreIntoEmptyDatabase(target, badForeignKey, scope.workspaceScope), "ACCEPT_BACKUP_FOREIGN_KEY_FAILURE");
   const afterFailure = await exportPortableBackup(target, scope);
-  assert((await verifyPortableBackup(afterFailure, scope.workspaceScope)).manifest.totalRecordCount === 0, "ACCEPT_BACKUP_PARTIAL_RESTORE");
+  assert(JSON.stringify((await verifyPortableBackup(afterFailure, scope.workspaceScope)).manifest.recordCounts) === freshSeedCounts, "ACCEPT_BACKUP_PARTIAL_RESTORE");
   const duplicate = await change(bundle, (d, m) => {
     d.tables.customers.rows.push(d.tables.customers.rows[0]); m.recordCounts.customers += 1; m.totalRecordCount += 1;
   });
   await rejects(() => restoreIntoEmptyDatabase(target, duplicate, scope.workspaceScope), "ACCEPT_BACKUP_DUPLICATE_KEY");
   const afterDuplicate = await exportPortableBackup(target, scope);
-  assert((await verifyPortableBackup(afterDuplicate, scope.workspaceScope)).manifest.totalRecordCount === 0, "ACCEPT_BACKUP_DUPLICATE_PARTIAL_RESTORE");
+  assert(JSON.stringify((await verifyPortableBackup(afterDuplicate, scope.workspaceScope)).manifest.recordCounts) === freshSeedCounts, "ACCEPT_BACKUP_DUPLICATE_PARTIAL_RESTORE");
   const r2 = memoryProvider(), gcs = memoryProvider();
   await storeVerifiedCopy(r2, bundle, scope.workspaceScope);
   gcs.fail = true;
