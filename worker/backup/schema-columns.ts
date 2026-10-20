@@ -282,6 +282,20 @@ export const BACKUP_COLUMNS: Record<string, string[]> =
     "last_id",
     "table_name"
   ],
+  "hr_attendance_days": [
+    "employee_id",
+    "id",
+    "in1",
+    "in2",
+    "note",
+    "out1",
+    "out2",
+    "revision",
+    "source",
+    "updated_at",
+    "updated_by",
+    "work_date"
+  ],
   "hr_education": [
     "degree",
     "department",
@@ -323,6 +337,26 @@ export const BACKUP_COLUMNS: Record<string, string[]> =
     "updated_at",
     "updated_by"
   ],
+  "hr_holidays": [
+    "date",
+    "name"
+  ],
+  "hr_job_titles": [
+    "id",
+    "is_active",
+    "name",
+    "sort_order",
+    "updated_at"
+  ],
+  "hr_leave_types": [
+    "code",
+    "id",
+    "is_active",
+    "is_statutory",
+    "name",
+    "sort_order",
+    "updated_at"
+  ],
   "hr_minimum_wages": [
     "created_at",
     "created_by",
@@ -330,6 +364,15 @@ export const BACKUP_COLUMNS: Record<string, string[]> =
     "hourly_amount",
     "id",
     "monthly_amount"
+  ],
+  "hr_roster_approvals": [
+    "approved_at",
+    "approved_by",
+    "employee_id",
+    "end_date",
+    "id",
+    "kind",
+    "start_date"
   ],
   "hr_salary_allowances": [
     "amount",
@@ -355,6 +398,33 @@ export const BACKUP_COLUMNS: Record<string, string[]> =
     "payment_type",
     "reason"
   ],
+  "hr_schedule_days": [
+    "employee_id",
+    "end_time",
+    "hours",
+    "id",
+    "kind",
+    "leave_type_id",
+    "marker",
+    "note",
+    "off_mark",
+    "rest_label",
+    "shift_type_id",
+    "start_time",
+    "store_id",
+    "updated_at",
+    "updated_by",
+    "work_date"
+  ],
+  "hr_schedule_months": [
+    "id",
+    "month",
+    "notes",
+    "rules",
+    "store_id",
+    "updated_at",
+    "updated_by"
+  ],
   "hr_seniority_exclusions": [
     "created_at",
     "created_by",
@@ -363,6 +433,19 @@ export const BACKUP_COLUMNS: Record<string, string[]> =
     "id",
     "reason",
     "start_date"
+  ],
+  "hr_shift_types": [
+    "break_end",
+    "break_start",
+    "code",
+    "end_time",
+    "id",
+    "is_active",
+    "name",
+    "normal_minutes",
+    "sort_order",
+    "start_time",
+    "updated_at"
   ],
   "hr_status_changes": [
     "created_at",
@@ -373,6 +456,16 @@ export const BACKUP_COLUMNS: Record<string, string[]> =
     "next_status",
     "previous_status",
     "reason"
+  ],
+  "hr_stores": [
+    "created_at",
+    "cycle_anchor_date",
+    "id",
+    "is_active",
+    "name",
+    "rules_template",
+    "sort_order",
+    "updated_at"
   ],
   "hr_work_history": [
     "company",

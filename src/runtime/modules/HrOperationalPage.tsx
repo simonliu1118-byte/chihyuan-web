@@ -13,6 +13,8 @@ import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { StatusChip } from "../../ui/primitives/StatusChip";
 import { RelatedCard } from "../../ui/records/RelatedCard";
 import "./hr-operational.css";
+import {HrRosterPanel} from "./HrRosterPanel";
+import {HrAttendancePanel} from "./HrAttendancePanel";
 
 const ROOT = "/api/business/hr";
 const statusLabels: Record<HrStatus, string> = { probation: "試用", active: "在職", leave: "留職停薪", terminated: "離職" };
@@ -33,6 +35,7 @@ interface EmployeeDetail extends EmployeeRow {
   mobile: string | null; phone: string | null; mailing_address: string | null; registered_address: string | null;
   hire_date: string; seniority_start_date: string; termination_date: string | null; termination_reason: string | null;
   note: string | null; revision: number;
+  store_id:number|null;job_title_id:number|null;roster_sort:number;employment_type:"full"|"half"|"casual";skip_roster_checks:number;schedule_mode:"shift"|"hours"|"none";
   contacts: ContactRow[]; education: EducationRow[]; workHistory: WorkRow[];
   statusChanges: StatusChangeRow[]; salaryRecords: SalaryRow[]; seniorityExclusions: ExclusionRow[];
 }
@@ -43,6 +46,7 @@ interface Draft {
   employeeNo: string; name: string; memberId: string; nationalId: string; gender: string; birthDate: string;
   mobile: string; phone: string; mailingAddress: string; registeredAddress: string;
   hireDate: string; seniorityStartDate: string; note: string; status: HrStatus;
+  storeId:string;jobTitleId:string;rosterSort:string;employmentType:"full"|"half"|"casual";skipRosterChecks:boolean;scheduleMode:"shift"|"hours"|"none";
   contacts: { name: string; relationship: string; phone: string }[];
   education: { school: string; department: string; degree: string; graduationMonth: string }[];
   workHistory: { company: string; jobTitle: string; startMonth: string; endMonth: string; note: string }[];
@@ -67,6 +71,7 @@ function salaryText(row: SalaryRow): string {
 function emptyDraft(): Draft {
   return { employeeNo: "", name: "", memberId: "", nationalId: "", gender: "", birthDate: "", mobile: "", phone: "",
     mailingAddress: "", registeredAddress: "", hireDate: taipeiToday(), seniorityStartDate: "", note: "", status: "probation",
+    storeId:"",jobTitleId:"",rosterSort:"0",employmentType:"full",skipRosterChecks:false,scheduleMode:"shift",
     contacts: [], education: [], workHistory: [] };
 }
 
@@ -76,6 +81,9 @@ function draftFrom(detail: EmployeeDetail): Draft {
     nationalId: "", gender: detail.gender ?? "", birthDate: detail.birth_date ?? "", mobile: detail.mobile ?? "",
     phone: detail.phone ?? "", mailingAddress: detail.mailing_address ?? "", registeredAddress: detail.registered_address ?? "",
     hireDate: detail.hire_date, seniorityStartDate: detail.seniority_start_date, note: detail.note ?? "", status: detail.status,
+    storeId:detail.store_id?String(detail.store_id):"",jobTitleId:detail.job_title_id?String(detail.job_title_id):"",
+    rosterSort:String(detail.roster_sort??0),employmentType:detail.employment_type??"full",
+    skipRosterChecks:detail.skip_roster_checks===1,scheduleMode:detail.schedule_mode??"shift",
     contacts: detail.contacts.map(row => ({ name: row.name, relationship: row.relationship ?? "", phone: row.phone })),
     education: detail.education.map(row => ({ school: row.school, department: row.department ?? "", degree: row.degree ?? "",
       graduationMonth: toMonthInput(row.graduation_month) })),
@@ -85,6 +93,13 @@ function draftFrom(detail: EmployeeDetail): Draft {
 }
 
 export function HrOperationalPage() {
+  const [tab,setTab]=useState<"people"|"roster"|"attendance">("people");
+  const [stores,setStores]=useState<{id:number;name:string}[]>([]);
+  const [jobTitles,setJobTitles]=useState<{id:number;name:string}[]>([]);
+  useEffect(()=>{void Promise.all([
+    apiRequest<{id:number;name:string}[]>(ROOT+"/settings/stores"),
+    apiRequest<{id:number;name:string}[]>(ROOT+"/settings/job-titles")
+  ]).then(([a,b])=>{setStores(a);setJobTitles(b)}).catch(()=>{});},[]);
   const pane = useMasterDetailPane();
   const { confirm, confirmationDialog } = useConfirmation();
   const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
@@ -177,6 +192,8 @@ export function HrOperationalPage() {
       gender: draft.gender, birthDate: draft.birthDate, mobile: draft.mobile, phone: draft.phone,
       mailingAddress: draft.mailingAddress, registeredAddress: draft.registeredAddress, hireDate: draft.hireDate,
       seniorityStartDate: draft.seniorityStartDate || draft.hireDate, note: draft.note,
+      storeId:draft.storeId?Number(draft.storeId):null,jobTitleId:draft.jobTitleId?Number(draft.jobTitleId):null,
+      rosterSort:Number(draft.rosterSort),employmentType:draft.employmentType,skipRosterChecks:draft.skipRosterChecks,scheduleMode:draft.scheduleMode,
       contacts: draft.contacts,
       education: draft.education.map(row => ({ ...row, graduationMonth: fromMonthInput(row.graduationMonth) })),
       workHistory: draft.workHistory.map(row => ({ ...row, startMonth: fromMonthInput(row.startMonth), endMonth: fromMonthInput(row.endMonth) })),
@@ -257,7 +274,13 @@ export function HrOperationalPage() {
   const currentSalary = detail?.salaryRecords.find(row => row.effective_date <= today) ?? null;
   const member = detail?.member_id ? members.find(row => row.id === detail.member_id) : undefined;
 
-  return <div className="cy-op-module">
+  return <>
+    <nav className="cy-op-tabs cy-hr-top-tabs" aria-label="人事頁籤">
+      <button type="button" className={tab==="people"?"active":""} onClick={()=>setTab("people")}>人員</button>
+      <button type="button" className={tab==="roster"?"active":""} onClick={()=>setTab("roster")}>排班</button>
+      <button type="button" className={tab==="attendance"?"active":""} onClick={()=>setTab("attendance")}>出勤</button>
+    </nav>
+    {tab==="people"?<div className="cy-op-module">
     {confirmationDialog}
     <FeedbackBanner message={message} tone={messageTone} />
     <div className="cy-md cy-hr-workspace" data-pane={pane.pane}>
@@ -289,7 +312,7 @@ export function HrOperationalPage() {
 
       <section className="cy-op-panel cy-md-detail">
         <MasterDetailBack label="人事清單" disabled={busy} onBack={async () => { if (editing && !(await canLeave())) return; setDraft(null); setCreating(false); pane.close(); }} />
-        {draft ? <EmployeeForm draft={draft} creating={creating} busy={busy} members={members} patch={patch}
+        {draft ? <EmployeeForm draft={draft} creating={creating} busy={busy} members={members} stores={stores} jobTitles={jobTitles} patch={patch}
           onCancel={() => void cancelEdit()} onSubmit={saveEmployee} />
           : loadingDetail ? <Loading />
           : detail ? <div>
@@ -303,7 +326,13 @@ export function HrOperationalPage() {
             </div>
             <div className="cy-hr-detail-body">
               <dl className="cy-customer-facts">
-                <Fact label="到職日" value={date(detail.hire_date)} />
+                <Fact label="門市" value={stores.find(x=>x.id===detail.store_id)?.name??"未設定"} />
+              <Fact label="職稱" value={jobTitles.find(x=>x.id===detail.job_title_id)?.name??"未設定"} />
+              <Fact label="僱用型態" value={{full:"正職",half:"半職",casual:"兼職"}[detail.employment_type]??"—"} />
+              <Fact label="排班方式" value={{shift:"班別",hours:"時段或時數",none:"不排班"}[detail.schedule_mode]??"—"} />
+              <Fact label="排序" value={String(detail.roster_sort)} />
+              <Fact label="不須檢核" value={detail.skip_roster_checks?"是":"否"} />
+              <Fact label="到職日" value={date(detail.hire_date)} />
                 <Fact label="年資起算日" value={date(detail.seniority_start_date)} />
                 <Fact label="身分證字號" value={detail.nationalIdMasked ? <span className="cy-hr-id">{detail.nationalIdMasked}
                   <button type="button" className="cy-op-button compact quiet" onClick={() => void reveal()}>顯示</button></span> : null} />
@@ -416,7 +445,7 @@ export function HrOperationalPage() {
       <p className="cy-hr-revealed">{revealed}</p>
       <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={() => setRevealed(null)}>關閉</button></div>
     </Dialog> : null}
-  </div>;
+  </div>:tab==="roster"?<HrRosterPanel/>:<HrAttendancePanel/>}</>;
 }
 
 function Fact({ label, value, wide }: { label: string; value: ReactNode; wide?: boolean }) {
@@ -431,8 +460,8 @@ function FormField({ label, value, onChange, type = "text", required, wide }: {
       value={value ?? ""} onChange={event => onChange(event.target.value)} /></label>;
 }
 
-function EmployeeForm({ draft, creating, busy, members, patch, onCancel, onSubmit }: {
-  draft: Draft; creating: boolean; busy: boolean; members: MemberOption[];
+function EmployeeForm({ draft, creating, busy, members, stores, jobTitles, patch, onCancel, onSubmit }: {
+  draft: Draft; creating: boolean; busy: boolean; members: MemberOption[];stores:{id:number;name:string}[];jobTitles:{id:number;name:string}[];
   patch: (value: Partial<Draft>) => void; onCancel: () => void; onSubmit: (event: FormEvent) => Promise<void>;
 }) {
   const field = (label: string, key: keyof Draft, type = "text", required = false) =>
@@ -449,6 +478,14 @@ function EmployeeForm({ draft, creating, busy, members, patch, onCancel, onSubmi
     <div className="cy-hr-form-body">
       <div className="cy-op-form-grid">
         {field("員工編號", "employeeNo", "text", true)}
+        <label>門市<select className="cy-op-input" value={draft.storeId} onChange={e=>patch({storeId:e.target.value})}><option value="">未設定</option>{stores.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+        <label>職稱<select className="cy-op-input" value={draft.jobTitleId} onChange={e=>patch({jobTitleId:e.target.value})}><option value="">未設定</option>{jobTitles.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+        <label>僱用型態<select className="cy-op-input" value={draft.employmentType} onChange={e=>{const employmentType=e.target.value as Draft["employmentType"];patch({employmentType,scheduleMode:employmentType==="full"?"shift":employmentType!=="casual"&&draft.scheduleMode==="none"?"shift":draft.scheduleMode})}}>
+         <option value="full">正職</option><option value="half">半職</option><option value="casual">兼職</option></select></label>
+        <label>排班方式<select className="cy-op-input" value={draft.scheduleMode} onChange={e=>patch({scheduleMode:e.target.value as Draft["scheduleMode"]})}>
+         <option value="shift">班別</option>{draft.employmentType!=="full"?<option value="hours">時段或時數</option>:null}{draft.employmentType==="casual"?<option value="none">不排班</option>:null}</select></label>
+        <label>班表排序<input className="cy-op-input" type="number" step="1" value={draft.rosterSort} onChange={e=>patch({rosterSort:e.target.value})}/></label>
+        <label className="cy-hr-check"><input type="checkbox" checked={draft.skipRosterChecks} onChange={e=>patch({skipRosterChecks:e.target.checked})}/>不須檢核</label>
         {field("姓名", "name", "text", true)}
         <label>綁定使用者<select className="cy-op-input" value={draft.memberId} disabled={busy} onChange={event => patch({ memberId: event.target.value })}>
           <option value="">不綁定</option>

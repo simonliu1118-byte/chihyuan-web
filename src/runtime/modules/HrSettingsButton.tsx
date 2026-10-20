@@ -3,6 +3,7 @@ import {Dialog} from "../../ui/overlays/Dialog";
 import {apiRequest} from "../../api/client";
 import {FeedbackBanner} from "../../ui/feedback/FeedbackProvider";
 import {formatDate} from "../../ui/foundation/format";
+import {HrPhase2aSettings} from "./HrPhase2aSettings";
 type Item={id:number;name:string;is_active:number};
 type Wage={id:number;effective_date:string;monthly_amount:number;hourly_amount:number};
 const ROOT="/api/business/hr/settings";
@@ -19,6 +20,7 @@ export function HrSettingsButton(){
   <button className="cy-op-button" type="button" onClick={()=>setOpen(true)}><span aria-hidden="true">⚙️</span> 設定</button>
   <Dialog open={open} title="人事設定" size="large" onClose={()=>setOpen(false)}>
    <FeedbackBanner message={error||null} tone="danger" />
+   <HrPhase2aSettings />
    <section className="cy-op-panel"><h3>津貼項目</h3>
     {items.map(x=><div key={x.id} className="cy-hr-setting-row"><span>{x.name}{x.is_active===1?"":"（已停用）"}</span>
       <button className="cy-op-button" disabled={busy} onClick={()=>void run(()=>apiRequest(ROOT+"/salary-item-types",{method:"PATCH",json:{id:x.id,name:x.name,isActive:x.is_active!==1}}))}>{x.is_active===1?"停用":"啟用"}</button>

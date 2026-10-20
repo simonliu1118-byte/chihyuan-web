@@ -9,8 +9,8 @@ const CHILDREN = [
   { field: "education", table: "hr_education", columns: ["school","department","degree","graduation_month"], names: ["school","department","degree","graduationMonth"] },
   { field: "workHistory", table: "hr_work_history", columns: ["company","job_title","start_month","end_month","note"], names: ["company","jobTitle","startMonth","endMonth","note"] },
 ] as const;
-const fields = ["employee_no","name","member_id","national_id","birth_date","gender","mobile","phone","mailing_address","registered_address","hire_date","seniority_start_date","note"] as const;
-const bodyFields = ["employeeNo","name","memberId","nationalId","birthDate","gender","mobile","phone","mailingAddress","registeredAddress","hireDate","seniorityStartDate","note"] as const;
+const fields = ["employee_no","name","member_id","national_id","birth_date","gender","mobile","phone","mailing_address","registered_address","hire_date","seniority_start_date","note","store_id","job_title_id","roster_sort","employment_type","skip_roster_checks","schedule_mode"] as const;
+const bodyFields = ["employeeNo","name","memberId","nationalId","birthDate","gender","mobile","phone","mailingAddress","registeredAddress","hireDate","seniorityStartDate","note","storeId","jobTitleId","rosterSort","employmentType","skipRosterChecks","scheduleMode"] as const;
 type Scalar = string | number | null;
 function normalizeProfile(raw: unknown) {
   const v = object(raw);
@@ -23,7 +23,16 @@ function normalizeProfile(raw: unknown) {
     optional(v.mailingAddress,"mailingAddress",300),optional(v.registeredAddress,"registeredAddress",300),
     hireDate, v.seniorityStartDate ? date(v.seniorityStartDate,"seniorityStartDate") : hireDate,
     optional(v.note,"note",2000),
+    v.storeId==null||v.storeId===""?null:integer(v.storeId,"storeId",true),
+    v.jobTitleId==null||v.jobTitleId===""?null:integer(v.jobTitleId,"jobTitleId",true),
+    integer(v.rosterSort??0,"rosterSort"),
+    String(v.employmentType??"full"),
+    v.skipRosterChecks===true||v.skipRosterChecks===1?1:0,
+    String(v.scheduleMode??"shift"),
   ];
+  if(!["full","half","casual"].includes(String(vals[16])))throw new HrValidationError("employmentType","僱用型態錯誤");
+  const employment=String(vals[16]),mode=String(vals[18]);
+  if(!["shift","hours","none"].includes(mode)||employment==="full"&&mode!=="shift"||employment==="half"&&mode==="none")throw new HrValidationError("scheduleMode","排班方式與僱用型態不符");
   const children = CHILDREN.map(g=>({ ...g, values: rows(v[g.field],g.field).map((row,index)=>{
     const record: Scalar[] = g.names.map((key)=>{
       const value = row[key]; if (key === "graduationMonth" || key === "startMonth" || key === "endMonth") return month(value,key);
@@ -92,7 +101,10 @@ export class HrService {
     if(!before) throw new HrValidationError("id","人事資料不存在",404);
     const revision=integer(v.revision,"revision",true);
     if(revision!==before.revision)throw new HrValidationError("revision","資料已由其他人修改，請重新整理",409);
-    const profile=normalizeProfile({...v,status:before.status,nationalId:v.nationalId===undefined?before.national_id:v.nationalId});
+    const profile=normalizeProfile({...v,status:before.status,nationalId:v.nationalId===undefined?before.national_id:v.nationalId,
+    storeId:v.storeId===undefined?before.store_id:v.storeId,jobTitleId:v.jobTitleId===undefined?before.job_title_id:v.jobTitleId,
+    rosterSort:v.rosterSort===undefined?before.roster_sort:v.rosterSort,employmentType:v.employmentType===undefined?before.employment_type:v.employmentType,
+    skipRosterChecks:v.skipRosterChecks===undefined?before.skip_roster_checks:v.skipRosterChecks,scheduleMode:v.scheduleMode===undefined?before.schedule_mode:v.scheduleMode});
     const assignments=fields.map(x=>x+"=?").join(",");
     const stmts:D1PreparedStatement[]=[this.db.prepare("UPDATE hr_employees SET "+assignments+",revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?").bind(...profile.vals,ctx.now,ctx.actor,id,revision)];
     for(const g of profile.children){

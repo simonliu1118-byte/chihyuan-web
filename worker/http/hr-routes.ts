@@ -2,6 +2,7 @@ import { requireIdentity } from "../auth/guard";
 import { resolveAppMember } from "../auth/app-access";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
 import { HrService } from "../hr/hr-service";
+import { handleHrPhase2aRoute } from "./hr-phase2a-routes";
 import { HrValidationError, date, integer, object, required } from "../hr/hr-validation";
 import { AuditService } from "../audit/audit-service";
 import { failure, success } from "./response";
@@ -23,6 +24,8 @@ export async function handleHrRoute(request:Request,env:IdentityRuntimeEnv,reque
  if(!member.isActive)return failure({code:"ACCESS_DENIED",message:"使用者已停用"},requestId,403);
  const service=new HrService(env.DB);
  const ctx={actor:member.id,requestId,now:new Date().toISOString()};
+ const phase2a=await handleHrPhase2aRoute(request,env.DB,ctx);
+ if(phase2a)return phase2a;
  const body=async()=>object(await request.json().catch(()=>null));
  const idPath=/^\/api\/business\/hr\/employees\/(\d+)(?:\/(.*))?$/.exec(url.pathname);
  const employeeId=idPath?Number(idPath[1]):null;
