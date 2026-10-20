@@ -30,7 +30,7 @@
 
 1. 每週**固定**為週一到週日，不能調換；雙週由門市設定的**起算週一**往後每 14 天一組，**會跨月**。
 2. **排班填法：** 格子只填班別、「/」（例休日；兼職的 X 也算「/」）、或整天請假的假別代號。系統只從「/」中標出哪天是例假，不能手動指定。**國定假日由使用者手動處理**：要算例休就畫「/」，不算例休就填假別「國」；系統不自動判斷國定假日，也不產生換休。
-3. **合法性檢查**（未來日期擋下）：
+3. **合法性檢查**（未來日期擋下；空白格視為「未排」，包含未排日子的週次與雙週不檢查，連續天數遇到未排就結束；「不排班」的人存檔時不檢查，見設計 §5.4 第 1 點）：
    - 連續上班 7 天以上（全時、兼職都適用）；
    - 每週（週一到週日）至少一天例休日，作為該週期的例假；
    - 每雙週例休日至少 4 天；
@@ -48,7 +48,7 @@
 ## 3. 範圍
 
 1. **Migration `0018_hr_phase2a.sql`：**
-   - 新增資料表 `hr_stores`、`hr_job_titles`、`hr_shift_types`、`hr_leave_types`、`hr_holidays`、`hr_schedule_days`、`hr_schedule_months`、`hr_attendance_days`；
+   - 新增資料表 `hr_stores`、`hr_job_titles`、`hr_shift_types`、`hr_leave_types`、`hr_holidays`、`hr_schedule_days`、`hr_schedule_months`、`hr_roster_approvals`、`hr_attendance_days`；
    - `hr_employees` 新增欄位：`store_id`、`job_title_id`、`roster_sort`、`employment_type`（full／part）、`skip_roster_checks`（0／1，不須檢核）、`schedule_mode`（shift／hours／none）；
    - 預設資料：門市「志遠高雄門市」（起算週一 `2026-09-28`）、職稱（店長、門市、業務、美編、兼職，依此排序）、班別（早、晚、日、A、B、C，見設計 §5.2）、假別清單（2a 只有代號、名稱、排序、是否啟用、是否為法定假別；法定假別不可刪除；預設：特 特休、事 事假、病 普通傷病假、生 生理假、婚 婚假、喪 喪假、產 產假、檢 產檢假、陪 陪產檢及陪產假、家 家庭照顧假、公 公假、傷 公傷病假、颱 颱風假、國 國定假日休、補 補休、換 國定假日換休、獎 獎勵假）。
 2. **共用純函式** `shared/hr-roster.ts`：雙週切分、例假與休息日標示、合法性檢查，算法見設計 §5.4；以及出勤計算 `shared/hr-attendance.ts`，見設計 §5.5。兩者都要附單元測試。
@@ -88,6 +88,7 @@
   - `note`；
   - `updated_at`、`updated_by`。
 - `hr_schedule_months`：`(store_id, month)` 唯一，`month` 存成 `YYYY-MM`；另有 `notes`、`rules`。
+- `hr_roster_approvals`：連六核准紀錄，欄位為 `employee_id`、`start_date`、`end_date`、`approved_by`、`approved_at`。之後存檔時同一區段不再詢問；區段起訖改變才重新核准。
 - `hr_attendance_days`：
   - `(employee_id, work_date)` 唯一；
   - `in1`、`out1`、`in2`、`out2`，格式 `HH:mm`，可空；
@@ -108,7 +109,7 @@
 - `GET/POST/DELETE /api/business/hr/settings/holidays?year=`：國定假日可以刪，例如輸入錯誤；刪除寫稽核。
 - `GET /api/business/hr/rosters/:storeId/:month`：
   - 回傳該月加前後補齊雙週的日期範圍、門市人員（依職稱順序、班表排序）、每日排班、國定假日、每月備註與注意事項；
-  - 以及 `shared/hr-roster.ts` 算出的每人每日標示（例、休息日、休）、違規清單、每日人力。
+  - 以及 `shared/hr-roster.ts` 算出的每人每日標示（例假、休息日、上班、未排）、連六區段與核准狀態、違規清單、每日人力。
 - `PUT /api/business/hr/rosters/:storeId/:month`：
   - 傳入變動的日子與每月備註；
   - 回傳重新計算後的結果。
@@ -132,10 +133,10 @@
 
 **`shared/hr-roster.ts`**
 - `cyclesFor(anchorMonday, from, to)`：回傳 `[{ start, end, weeks: [[週一..週日],[...]] }]`。
-- `classifyDays(days, holidays, employmentType)`：
-  - 輸入一個雙週內每天的排班；
-  - 回傳每天的標示：`regular_off`（例）、`rest_day`（休息日）、`off`（休）或 `work`；
-  - 同時回傳違規清單。
+- `classifyRoster(days, previousRegularOff, options)`：
+  - 輸入一個人連續日期的排班（可跨多個雙週與月份），以及前一週已保存的例假日期；`options` 包含起算週一、是否兼職、是否不須檢核、排班方式；
+  - 回傳每天的標示：`regular_off`（例）、`rest_day`（休息日）、`work`（上班，含請假）或 `unscheduled`（未排）；
+  - 同時回傳連續上班區段（含天數與文字建議）與違規清單。
 - `rosterViolations(...)`：檢查工時上限。
 - 規則見設計 §5.4，不得自行改變。
 
@@ -159,7 +160,10 @@
 - 整天請假的格子（特、事、病…）算上班日；
 - 兼職不檢查工時上限，但仍檢查例假與連續上班；
 - 勾選「不須檢核」的人照常出現在排班表，但不做任何例休、連續、工時檢查；
-- 颱風假（假別「颱」）算上班日，不算例休日。
+- 颱風假（假別「颱」）算上班日，不算例休日；
+- 月份只排前半、後半空白 → 可以存，空白部分不檢查；
+- 「不排班」的人存檔不檢查；
+- 已核准的連六區段，再次存檔不重複詢問；區段變長或移動 → 重新詢問。
 
 **`scripts/hr-attendance.test.mjs`** 至少涵蓋：
 - 正常出勤扣休息時間；
@@ -186,7 +190,7 @@
     - 週末與國定假日整欄淡灰底；國定假日在表頭顯示名稱（hover 或小字）。
   - **格子：**
     - 顯示班別代號；
-    - 「/」顯示 /；系統判定的例假改顯示「例」（淡色）；國定假日整欄淡灰底；
+    - 「/」顯示 /；系統判定的例假改顯示「例」（淡色）；國定假日整欄淡灰底；空白格（未排）維持空白；
     - 整天請假顯示假別代號，例如「特」「事」；
     - 註記顯示小字，例如「居」「擺攤」；
     - 兼職的 X 顯示 X；
