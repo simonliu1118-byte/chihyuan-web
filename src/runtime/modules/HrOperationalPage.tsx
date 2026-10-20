@@ -17,6 +17,7 @@ import "./hr-operational.css";
 import {HrRosterPanel} from "./HrRosterPanel";
 import {HrAttendancePanel} from "./HrAttendancePanel";
 import {HrLeavePanel} from "./HrLeavePanel";
+import {HrEmployeeLeaveOverview} from "./HrEmployeeLeaveOverview";
 
 const ROOT = "/api/business/hr";
 const statusLabels: Record<HrStatus, string> = { probation: "試用", active: "在職", leave: "留職停薪", terminated: "離職" };
@@ -99,6 +100,7 @@ function draftFrom(detail: EmployeeDetail): Draft {
 
 export function HrOperationalPage() {
   const [tab,setTab]=useState<"people"|"roster"|"attendance"|"leave">("people");
+ const [initialLeaveEmployeeId,setInitialLeaveEmployeeId]=useState<number|null>(null);
   const [stores,setStores]=useState<{id:number;name:string}[]>([]);
   const [jobTitles,setJobTitles]=useState<{id:number;name:string}[]>([]);
   useEffect(()=>{void Promise.all([
@@ -372,11 +374,7 @@ export function HrOperationalPage() {
                 {detail.note ? <Fact label="備註" value={detail.note} wide /> : null}
               </dl>
               <section className="cy-customer-cards" aria-label="人事紀錄">
-                <RelatedCard title="特休" count={leave.length ? `${leave.length} 個年度` : "0"} empty="尚未滿 6 個月，尚無特休。"
-                  summary={currentLeave ? <strong>本年度 {currentLeave.days} 日</strong> : null}
-                  rows={[...leave].reverse().slice(0, 3).map(period => <span key={period.periodStart}>
-                    {period.serviceYearsLabel}　{period.days} 日　{date(period.periodStart)}～{date(period.periodEnd)}</span>)}
-                  onView={() => setBrowse("leave")} />
+                <HrEmployeeLeaveOverview employeeId={detail.id} onManage={()=>{setInitialLeaveEmployeeId(detail.id);setTab("leave")}} />
                 <RelatedCard title="薪資" count={detail.salaryRecords.length} empty="尚無薪資異動。"
                   summary={currentSalary ? <strong>目前 {salaryText(currentSalary)}</strong> : null}
                   rows={detail.salaryRecords.slice(0, 3).map(row => <span key={row.id}>{date(row.effective_date)}　{salaryText(row)}　{row.reason}</span>)}
@@ -480,7 +478,7 @@ export function HrOperationalPage() {
         </div>
       </form>
     </Dialog> : null}
-  </div>:tab==="roster"?<HrRosterPanel/>:tab==="attendance"?<HrAttendancePanel/>:<HrLeavePanel/>}</>;
+  </div>:tab==="roster"?<HrRosterPanel/>:tab==="attendance"?<HrAttendancePanel/>:<HrLeavePanel initialEmployeeId={initialLeaveEmployeeId}/>}</>;
 }
 
 function Fact({ label, value, wide }: { label: string; value: ReactNode; wide?: boolean }) {
