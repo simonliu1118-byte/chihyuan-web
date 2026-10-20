@@ -124,7 +124,7 @@ export class HrLeaveService{
   const v=object(raw),employeeId=integer(v.employeeId,"employeeId",true),employee=await this.employee(employeeId);
   if(!employee.store_id)throw new HrValidationError("employeeId","員工未設定門市");
   const typeId=integer(v.leaveTypeId,"leaveTypeId",true),types=await this.types(),type=types.find(t=>t.id===typeId);
-  if(!type||type.needs_form===0)throw new HrValidationError("leaveTypeId","此假別不需或不能建立假單");
+  if(!type||type.needs_form===0||(type as TypeRow&{is_active?:number}).is_active===0)throw new HrValidationError("leaveTypeId","假別不存在、停用或不需建立假單");
   const wholeDay=v.wholeDay===true;
   if(wholeDay&&employee.employment_type!=="full")throw new HrValidationError("wholeDay","半職與兼職僅能請時數");
   const start=ymd(v.from??v.date),end=ymd(v.to??v.date??start);
@@ -152,9 +152,16 @@ export class HrLeaveService{
   if(errors.length)throw new HrLeaveError("HR_LEAVE_QUOTA",errors);
   if(type.code==="特"){
    const annual=await this.computeYears(employeeId,end,false);
-   const available=annual.ledger.filter(x=>x.periodStart<=end&&x.periodEnd>=start).reduce((n,x)=>n+x.remainingDays*480,0);
-   const requiredMinutes=minutes.reduce((a,b)=>a+b,0);
-   if(available<requiredMinutes)throw new HrLeaveError("HR_LEAVE_QUOTA",[{code:"特",usedMinutes:requiredMinutes,limitMinutes:available,message:"特休剩餘額度不足"}]);
+   // Keep anniversary periods independent; never spend the next period\'s quota early.
+   const byPeriod=new Map<string,{available:number;requested:number}>();
+   for(let i=0;i<list.length;i++){
+    const period=annual.ledger.find(x=>x.periodStart<=list[i]&&x.periodEnd>=list[i]);
+    const key=period?.periodStart??"unavailable";
+    const quota=byPeriod.get(key)??{available:period?Math.round(period.remainingDays*480):0,requested:0};
+    quota.requested+=minutes[i];byPeriod.set(key,quota);
+   }
+   const failures=[...byPeriod].filter(([,v])=>v.requested>v.available).map(([period,v])=>({code:"特",period,usedMinutes:v.requested,limitMinutes:v.available,message:period+" 特休剩餘額度不足"}));
+   if(failures.length)throw new HrLeaveError("HR_LEAVE_QUOTA",failures);
   }
   if(type.comp_kind==="overtime"){
    const comp=await this.comp(employeeId,end);
