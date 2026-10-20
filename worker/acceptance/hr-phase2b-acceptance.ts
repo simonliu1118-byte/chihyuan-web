@@ -74,6 +74,9 @@ export async function acceptHrPhase2b(db:D1Database,hrFiles?:R2Bucket){
  check(unchanged?.settlement==="comp"&&unchanged.minutes===120&&unchanged.revision===1,"COMP_REVERSAL_NO_MUTATION");
  const extended=await comp.extend("overtime",credit.id,ctx);
  check(extended.expiresOn==="2027-01-31","OVERTIME_EXTENSION");
+ await attendance.put(employeeId,"2026-11",{days:[],overtime:[{date:"2026-11-25",minutes:120,settlement:"comp",note:"延長補休期限後修改備註",revision:1}]},ctx);
+ const keptExpiry=await db.prepare("SELECT comp_expires_on,note,revision FROM hr_overtime_days WHERE id=?").bind(credit.id).first<{comp_expires_on:string;note:string;revision:number}>();
+ check(keptExpiry?.comp_expires_on==="2027-01-31"&&keptExpiry.note==="延長補休期限後修改備註"&&keptExpiry.revision===2,"EXTENDED_EXPIRY_PRESERVED_ON_EDIT");
  await comp.grant(employeeId,{kind:"holiday",minutes:240,holidayDate:"2026-11-01",holidayName:"測試節日"},ctx);
  const swap=types.find(x=>x.code==="換");check(swap,"SWAP_TYPE");
  await leave.create({employeeId,leaveTypeId:swap.id,date:"2026-11-26",wholeDay:true},ctx);
