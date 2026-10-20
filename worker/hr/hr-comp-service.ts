@@ -6,11 +6,13 @@ export class HrCompService{
  constructor(private db:D1Database){}
  async get(id:number,asOf:string){
   const [ot,grants,settles,used]=await Promise.all([
-   this.db.prepare("SELECT * FROM hr_overtime_days WHERE employee_id=? ORDER BY work_date LIMIT 500").bind(id).all<Record<string,unknown>>(),
-   this.db.prepare("SELECT * FROM hr_comp_time_grants WHERE employee_id=? ORDER BY expires_on LIMIT 500").bind(id).all<Record<string,unknown>>(),
-   this.db.prepare("SELECT * FROM hr_comp_time_settlements WHERE employee_id=? LIMIT 500").bind(id).all<Record<string,unknown>>(),
-   this.db.prepare("SELECT r.work_date,r.minutes,t.comp_kind FROM hr_leave_records r JOIN hr_leave_types t ON t.id=r.leave_type_id WHERE r.employee_id=? AND r.cancelled_at IS NULL AND t.comp_kind IS NOT NULL LIMIT 2000").bind(id).all<Record<string,unknown>>()
+   this.db.prepare("SELECT * FROM hr_overtime_days WHERE employee_id=? ORDER BY work_date LIMIT 501").bind(id).all<Record<string,unknown>>(),
+   this.db.prepare("SELECT * FROM hr_comp_time_grants WHERE employee_id=? ORDER BY expires_on LIMIT 501").bind(id).all<Record<string,unknown>>(),
+   this.db.prepare("SELECT * FROM hr_comp_time_settlements WHERE employee_id=? LIMIT 501").bind(id).all<Record<string,unknown>>(),
+   this.db.prepare("SELECT r.work_date,r.minutes,t.comp_kind FROM hr_leave_records r JOIN hr_leave_types t ON t.id=r.leave_type_id WHERE r.employee_id=? AND r.cancelled_at IS NULL AND t.comp_kind IS NOT NULL LIMIT 2001").bind(id).all<Record<string,unknown>>()
   ]);
+  if([ot,grants,settles].some(x=>(x.results??[]).length>500)||(used.results??[]).length>2000)
+   throw new HrValidationError("limit","補休帳戶超過單次安全上限，不能以不完整資料計算");
   const credits:CompCredit[]=[
    ...(ot.results??[]).filter(x=>x.settlement==="comp").map(x=>({id:Number(x.id),kind:"overtime" as const,minutes:Number(x.minutes),issuedOn:String(x.work_date),expiresOn:String(x.comp_expires_on)})),
    ...(grants.results??[]).map(x=>({id:Number(x.id)+100000000,kind:x.kind as "holiday"|"grant",minutes:Number(x.minutes),issuedOn:String(x.created_at).slice(0,10),expiresOn:String(x.expires_on)}))
