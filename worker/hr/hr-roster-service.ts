@@ -1,5 +1,6 @@
 import {cyclesFor,classifyRoster,type RosterDay,type RosterResult,type RosterViolation} from "../../shared/hr-roster";
 import {AuditService} from "../audit/audit-service";
+import {evaluateAttendance} from "../../shared/hr-attendance";
 import {HrValidationError,date,integer,object,optional} from "./hr-validation";
 import type {HrContext} from "./hr-service";
 type Emp={id:number;name:string;employee_no:string;employment_type:"full"|"half"|"casual";schedule_mode:"shift"|"hours"|"none";skip_roster_checks:number;roster_sort:number;job_title_id:number|null;job_title_name:string|null};
@@ -122,7 +123,17 @@ export class HrRosterService {
  }
  async get(storeId:number,month:string){
   const b=await this.read(storeId,month),checked=this.evaluate(b,b.byKey);
-  return {store:b.store,month,bounds:b.bounds,employees:b.employees,shifts:b.shifts,leaveTypes:b.leaveTypes,
+  const casualNone=new Set(b.employees.filter(x=>x.employment_type==="casual"&&x.schedule_mode==="none").map(x=>x.id));
+  const actualHours:Record<string,Record<string,number>>={};
+  if(casualNone.size){
+   const rows=await this.db.prepare("SELECT a.employee_id,a.work_date,a.in1,a.out1,a.in2,a.out2 FROM hr_attendance_days a JOIN hr_employees e ON e.id=a.employee_id WHERE e.store_id=? AND a.work_date BETWEEN ? AND ? ORDER BY a.employee_id,a.work_date LIMIT 3101").bind(storeId,b.bounds.first,b.bounds.end).all<{employee_id:number;work_date:string;in1:string|null;out1:string|null;in2:string|null;out2:string|null}>();
+   if((rows.results??[]).length>3100)throw new HrValidationError("limit","出勤資料超過安全查詢上限");
+   for(const row of rows.results??[])if(casualNone.has(row.employee_id)){
+    const group=actualHours[String(row.employee_id)]??(actualHours[String(row.employee_id)]={});
+    group[row.work_date]=evaluateAttendance(null,null,row,{noRosterPartTime:true}).workedMinutes/60;
+   }
+  }
+  return {actualHours,store:b.store,month,bounds:b.bounds,employees:b.employees,shifts:b.shifts,leaveTypes:b.leaveTypes,
    holidays:b.holidays,notes:b.notes,rules:b.rules,days:b.days,approvals:b.approvals,...checked};
  }
  async put(storeId:number,month:string,raw:unknown,ctx:HrContext){
