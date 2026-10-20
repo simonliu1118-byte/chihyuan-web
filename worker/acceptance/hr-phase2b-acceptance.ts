@@ -1,4 +1,5 @@
 import {HrLeaveService,HrLeaveError} from "../hr/hr-leave-service";
+import {HrService} from "../hr/hr-service";
 import {HrRosterService,HrRosterError} from "../hr/hr-roster-service";
 import {HrCompService} from "../hr/hr-comp-service";
 import {HrAttendanceService} from "../hr/hr-attendance-service";
@@ -42,6 +43,11 @@ export async function acceptHrPhase2b(db:D1Database,hrFiles?:R2Bucket){
  check(remaining?.n===1,"CANCEL_PRESERVES_OTHER_DAY");
  const sickForm=await leave.create({employeeId,leaveTypeId:sick.id,date:"2026-11-25",wholeDay:true},ctx);
  check(sickForm.days===1,"SICK_FORM");
+ const casualRow=await db.prepare("INSERT INTO hr_employees(employee_no,name,status,hire_date,seniority_start_date,store_id,employment_type,schedule_mode,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
+  .bind("HR2BTEST002","測試員工丙","active","2025-01-01","2025-01-01",1,"casual","none",ctx.now,ctx.now).run();
+ const casualId=Number(casualRow.meta.last_row_id);
+ const manual=await leave.create({employeeId:casualId,leaveTypeId:sick.id,date:"2026-11-26",minutes:120},ctx);
+ check(manual.days===1&&manual.minutes===120,"CASUAL_MANUAL_MINUTES");
  const attendance=new HrAttendanceService(db);
  await attendance.put(employeeId,"2026-11",{days:[],overtime:[{date:"2026-11-25",minutes:60,settlement:"comp",revision:0}]},ctx);
  const clock=await attendance.get(employeeId,"2026-11");
@@ -76,6 +82,9 @@ export async function acceptHrPhase2b(db:D1Database,hrFiles?:R2Bucket){
   check(view?.status===200&&view.headers.get("cache-control")==="private, no-store","JPEG_VIEW");
   const after=await db.prepare("SELECT COUNT(*) AS n FROM audit_events WHERE entity_type='hr_leave_attachment'").first<{n:number}>();
   check(before?.n===after?.n,"VIEW_NO_AUDIT");
+  await new HrService(db).remove(employeeId,{confirmEmployeeNo:"HR2BTEST001"},ctx,hrFiles);
+  const remainingFiles=await db.prepare("SELECT COUNT(*) AS n FROM hr_leave_attachments WHERE batch_id=?").bind(sickForm.batchId).first<{n:number}>();
+  check(remainingFiles?.n===0&&await hrFiles.get(ref.object_key)===null,"DELETE_R2_AND_METADATA");
  }
  const events=await db.prepare("SELECT COUNT(*) AS n FROM audit_events WHERE entity_type='hr_leave'").first<{n:number}>();
  check((events?.n??0)>=3,"LEAVE_AUDIT");
