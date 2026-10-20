@@ -62,14 +62,18 @@ export class HrAttendanceService {
    const stmts:D1PreparedStatement[]=[];
    for(const item of updates){
     const r=item.after;
-    if(item.before)stmts.push(this.db.prepare("UPDATE hr_attendance_days SET in1=?,out1=?,in2=?,out2=?,note=?,revision=revision+1,updated_at=?,updated_by=? WHERE employee_id=? AND work_date=? AND revision=?").bind(r.in1,r.out1,r.in2,r.out2,r.note,ctx.now,ctx.actor,id,item.date,item.before.revision));
+    if(item.before){
+     // The guard runs inside the same D1 batch transaction. A revision conflict
+     // aborts the *whole* batch, including the audit record and other edits.
+     stmts.push(this.db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM hr_attendance_days WHERE employee_id=? AND work_date=? AND revision=?) THEN 1 ELSE json('') END AS valid_revision").bind(id,item.date,item.before.revision));
+     stmts.push(this.db.prepare("UPDATE hr_attendance_days SET in1=?,out1=?,in2=?,out2=?,note=?,revision=revision+1,updated_at=?,updated_by=? WHERE employee_id=? AND work_date=? AND revision=?").bind(r.in1,r.out1,r.in2,r.out2,r.note,ctx.now,ctx.actor,id,item.date,item.before.revision));
+    }
     else stmts.push(this.db.prepare("INSERT INTO hr_attendance_days(employee_id,work_date,in1,out1,in2,out2,source,note,revision,updated_at,updated_by) VALUES(?,?,?,?,?,?,?,?,?,?,?)").bind(id,item.date,r.in1,r.out1,r.in2,r.out2,"manual",r.note,1,ctx.now,ctx.actor));
    }
    stmts.push(new AuditService(this.db).prepareRecord({entityType:"hr_attendance",entityKey:id+"|"+month,action:"hr_attendance.updated",
      actorEmployeeId:ctx.actor,requestId:ctx.requestId,after:{days:updates.map(x=>({date:x.date,before:x.before?{in1:x.before.in1,out1:x.before.out1,in2:x.before.in2,out2:x.before.out2}:null,
        after:{in1:x.after.in1,out1:x.after.out1,in2:x.after.in2,out2:x.after.out2}}))}}));
-   const results=await this.db.batch(stmts);
-   if(results.slice(0,-1).some(r=>r.meta?.changes!==1))throw new HrValidationError("revision","更新版本衝突",409);
+   await this.db.batch(stmts);
   }
   return {saved:true,changedDays:updates.length,attendance:await this.get(id,month)};
  }
