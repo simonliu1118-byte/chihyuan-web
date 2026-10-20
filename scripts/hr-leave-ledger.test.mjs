@@ -43,3 +43,12 @@ test("earliest expiry spent first, settlements subtract credits",()=>{
  assert.equal(rows.credits.find(x=>x.id===1)?.remainingMinutes,0);
  assert.equal(rows.credits.find(x=>x.id===2)?.remainingMinutes,300);
 });
+
+test("future credits and future leave do not affect a current balance",()=>{
+ const credits=[{id:10,kind:"overtime",minutes:480,issuedOn:"2026-10-06",expiresOn:"2026-11-30"}];
+ const uses=[{kind:"overtime",minutes:240,workDate:"2026-10-07"}];
+ assert.equal(compBalances(credits,uses,[],"2026-10-05").overtimeMinutes,0);
+ assert.equal(compBalances(credits,uses,[],"2026-10-06").overtimeMinutes,480);
+ assert.equal(compBalances(credits,uses,[],"2026-10-08").overtimeMinutes,240);
+ assert.equal(compBalances(credits,uses,[],"2026-12-01").overtimeMinutes,0);
+});
