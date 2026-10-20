@@ -34,12 +34,12 @@ export class HrCompService{
   return {saved:true};
  }
  async extend(kind:"overtime"|"grant",id:number,ctx:HrContext){
-  const table=kind==="overtime"?"hr_overtime_days":"hr_comp_time_grants",field=kind==="overtime"?"comp_expires_on":"expires_on";
-  const row=await this.db.prepare("SELECT id,employee_id,"+field+" AS expiry,extended_count FROM "+table+" WHERE id=?").bind(id).first<{id:number;employee_id:number;expiry:string;extended_count:number}>();
+  const table=kind==="overtime"?"hr_overtime_days":"hr_comp_time_grants",field=kind==="overtime"?"comp_expires_on":"expires_on",counter=kind==="overtime"?"comp_extended_count":"extended_count";
+  const row=await this.db.prepare("SELECT id,employee_id,"+field+" AS expiry,"+counter+" AS extended_count FROM "+table+" WHERE id=?").bind(id).first<{id:number;employee_id:number;expiry:string;extended_count:number}>();
   if(!row)throw new HrValidationError("id","補休項目不存在",404);
   const to=extendMonth(row.expiry);
   await this.db.batch([
-   this.db.prepare("UPDATE "+table+" SET "+field+"=?,extended_count=extended_count+1 WHERE id=?").bind(to,id),
+   this.db.prepare("UPDATE "+table+" SET "+field+"=?,"+counter+"="+counter+"+1 WHERE id=?").bind(to,id),
    new AuditService(this.db).prepareRecord({entityType:"hr_comp_time",entityKey:String(id),action:"hr_comp_time.extended",actorEmployeeId:ctx.actor,requestId:ctx.requestId,after:{kind,from:row.expiry,to}})
   ]);
   return {expiresOn:to};
