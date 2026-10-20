@@ -1,23 +1,37 @@
 import {useEffect,useState,type FormEvent} from "react";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
+import {apiRequest} from "../../api/client";
 import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import {Dialog} from "../../ui/overlays/Dialog";
 import {taipeiToday} from "../../../shared/erp-query-history";
 type LeaveApproval={employeeId:number;kind:"consecutive"|"over_eight";startDate:string;endDate:string;suggestion:string};
 export interface LeaveTypeOption{id:number;code:string;name:string;quota_days?:number|null;requires_reason?:number;accepts_proof?:number;quota_period?:string|null;event_quota_options?:string|null;is_active?:number}
 export interface LeavePerson{id:number;name:string;employee_no:string;employment_type:"full"|"half"|"casual"}
-export function HrLeaveDialog({person,types,initialDate,onClose,onSaved}:{person:LeavePerson|null;types:LeaveTypeOption[];initialDate?:string;onClose:()=>void;onSaved:()=>void}){
+export interface CompletedLeaveInfo{batchId:string;date:string;code:string;minutes:number}
+export function HrLeaveDialog({person,types,initialDate,completed,onClose,onSaved}:{person:LeavePerson|null;types:LeaveTypeOption[];initialDate?:string;completed?:CompletedLeaveInfo|null;onClose:()=>void;onSaved:()=>void}){
  const [typeId,setTypeId]=useState(0),[from,setFrom]=useState(taipeiToday()),[to,setTo]=useState(taipeiToday());
  const [wholeDay,setWholeDay]=useState(true),[startTime,setStartTime]=useState("09:00"),[endTime,setEndTime]=useState("17:00"),[minutes,setMinutes]=useState("120");
  const [reason,setReason]=useState(""),[eventDate,setEventDate]=useState(""),[eventDays,setEventDays]=useState("8"),[files,setFiles]=useState<File[]>([]),[gray,setGray]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState("");
+ const [cancelReason,setCancelReason]=useState("");
  const [approvalItems,setApprovalItems]=useState<LeaveApproval[]>([]);
  const [createdBatchId,setCreatedBatchId]=useState<string|null>(null),[uploadedCount,setUploadedCount]=useState(0);
  const [previews,setPreviews]=useState<string[]>([]);
  const {confirm,confirmationDialog}=useConfirmation();
  useEffect(()=>{const urls=files.map(file=>URL.createObjectURL(file));setPreviews(urls);return()=>urls.forEach(url=>URL.revokeObjectURL(url));},[files]);
- useEffect(()=>{if(person){setFrom(initialDate??taipeiToday());setTo(initialDate??taipeiToday());setWholeDay(person.employment_type==="full");setTypeId(types[0]?.id??0);setError("");setApprovalItems([]);setFiles([]);setCreatedBatchId(null);setUploadedCount(0)}},[person,initialDate,types]);
+ useEffect(()=>{if(person){setFrom(initialDate??taipeiToday());setTo(initialDate??taipeiToday());setWholeDay(person.employment_type==="full");setTypeId(types[0]?.id??0);setError("");setApprovalItems([]);setFiles([]);setCreatedBatchId(null);setUploadedCount(0);setCancelReason("")}},[person,initialDate,types]);
  const type=types.find(x=>x.id===typeId);
+ async function cancelCompleted(e:FormEvent){
+  e.preventDefault();if(!completed||!cancelReason.trim())return;
+  const approved=await confirm({title:"確認銷假",description:completed.date+" 的正式假單將保留銷假紀錄，整天排班格會清空。",confirmLabel:"確認銷假",confirmTone:"danger"});
+  if(!approved)return;
+  setBusy(true);setError("");
+  try{
+   await apiRequest("/api/business/hr/leave-requests/"+completed.batchId+"/cancel",{method:"POST",json:{dates:[completed.date],reason:cancelReason.trim()}});
+   onSaved();onClose();
+  }catch(err){setError(err instanceof Error?err.message:"銷假失敗")}
+  finally{setBusy(false)}
+ }
  async function resized(file:File):Promise<Blob>{
   const image=await createImageBitmap(file);const ratio=Math.min(1,1600/Math.max(image.width,image.height));
   const canvas=document.createElement("canvas");canvas.width=Math.round(image.width*ratio);canvas.height=Math.round(image.height*ratio);
@@ -68,9 +82,17 @@ export function HrLeaveDialog({person,types,initialDate,onClose,onSaved}:{person
    onSaved();onClose();
   }catch(e){setError(e instanceof Error?e.message:"假單儲存失敗")}finally{setBusy(false)}
  }
- return <Dialog open={person!==null} title="新增請假單" onClose={onClose} size="medium">
+ return <Dialog open={person!==null} title={completed?"查看正式假單／銷假":"新增請假單"} onClose={onClose} size="medium">
   {confirmationDialog}
-  {person?<form className="cy-op-form" onSubmit={e=>void submit(e)} onKeyDown={enterAdvancesFields}>
+  {person&&completed?<form className="cy-op-form" onSubmit={e=>void cancelCompleted(e)} onKeyDown={enterAdvancesFields}>
+   <p>員工：{person.employee_no}　{person.name}</p>
+   <p>日期：{completed.date.replaceAll("-","/")}；假別：{completed.code}；時數：{(completed.minutes/60).toFixed(1)} 小時。</p>
+   <p>此日已有正式假單，不能直接從排班格更改。若要調整，須先銷假並留下原因。</p>
+   <label>銷假原因（必填）<textarea className="cy-op-input" required value={cancelReason} onChange={e=>setCancelReason(e.target.value)}/></label>
+   {error?<p role="alert" className="cy-notice cy-notice-danger">{error}</p>:null}
+   <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={onClose}>返回排班</button>
+    <button className="cy-op-button primary" disabled={busy||!cancelReason.trim()}>銷假</button></div>
+  </form>:person?<form className="cy-op-form" onSubmit={e=>void submit(e)} onKeyDown={enterAdvancesFields}>
    <p>{person.employee_no}　{person.name}（{person.employment_type==="full"?"正職":person.employment_type==="half"?"半職":"兼職"}）</p>
    <label>假別<select className="cy-op-input" value={typeId} onChange={e=>setTypeId(Number(e.target.value))} required>
     {types.filter(x=>x.is_active!==0&&x.code!=="國").map(x=><option key={x.id} value={x.id}>{x.code} {x.name}</option>)}</select></label>
