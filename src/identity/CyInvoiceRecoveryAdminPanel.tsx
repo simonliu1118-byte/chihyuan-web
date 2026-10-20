@@ -129,13 +129,12 @@ export function CyInvoiceRecoveryAdminPanel({ session }: { session: AuthSession 
   return <section className="cy-op-panel cy-invoice-recovery-panel" aria-label="CYInvoice 公司級災難復原" aria-busy={busy}>
     <div className="cy-op-panel-header"><div>
       <h3>CYInvoice 裝置災難復原</h3>
-    </div>
-      <button type="button" className={"cy-op-button" + (outstanding ? " primary" : "")} onClick={() => setOpen(true)}>
-        {outstanding ? "繼續處理復原操作" : "開始災難復原"}</button>
-    </div>
+    </div></div>
     <p className="cy-identity-intro">{outstanding
       ? "有一筆復原操作尚未取得明確結果，請查詢狀態或撤銷邀請。"
       : "公司電腦全部遺失或損毀時，寄送復原邀請給新電腦接管 CYInvoice。"}</p>
+    <div><button type="button" className={"cy-op-button" + (outstanding ? " primary" : "")} onClick={() => setOpen(true)}>
+      {outstanding ? "繼續處理復原操作" : "開始災難復原"}</button></div>
     {confirmationDialog}
     <Dialog open={open} title="CYInvoice 裝置災難復原" size="medium" dismissible={!busy} onClose={close}>
     <div className="cy-notice cy-notice-warning">
