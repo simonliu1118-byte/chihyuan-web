@@ -981,8 +981,8 @@ function ApplicationRegistryPanel({ snapshot, refresh }: { snapshot: IdentityAdm
     <div className="cy-op-panel-header"><div><h3>已登記的系統</h3></div>
       <button type="button" className="cy-op-button" disabled={busy} onClick={() => { setRegistration({ applicationId: "", displayName: "" }); setRegistrationError(null); }}>＋ 登記系統</button></div>
     <FeedbackBanner message={message} tone={messageTone} />
-    <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>系統</th><th>識別碼</th><th>狀態</th></tr></thead>
-      <tbody>{snapshot.applications.map((app) => <tr key={app.application_id}><td>{app.display_name}</td><td className="cy-mono">{app.application_id}</td>
+    <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>系統</th><th>狀態</th></tr></thead>
+      <tbody>{snapshot.applications.map((app) => <tr key={app.application_id}><td title={"識別碼：" + app.application_id}>{app.display_name}</td>
         <td><StatusChip tone={app.enabled === 1 ? "success" : "neutral"}>{app.core_access_locked === 1 ? "核心・固定啟用" : app.enabled === 1 ? "啟用" : "停用"}</StatusChip></td></tr>)}</tbody></table></div>
     {registration ? <Dialog open title="登記並啟用系統" size="small" dismissible={!busy} onClose={() => void close()}
       description="為目前 Workspace 加入系統。超級管理員可直接使用；其他員工仍須另外開放使用權。已停用的系統重新登記後會啟用，原有使用權會保留。"
