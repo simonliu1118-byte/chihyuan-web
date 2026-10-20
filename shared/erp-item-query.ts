@@ -117,6 +117,8 @@ export interface ErpHistoryRequest {
   historyFrom: string | null;
   historyTo: string | null;
 }
+/** How far a running RESTOCK is: REPORT counts the two 明細表 run, STOCK the 品號 whose 庫存 was looked up. */
+export interface ErpQueryProgress { stage: "REPORT" | "STOCK"; done: number; total: number }
 export interface ErpQueryResult extends ErpHistoryRequest {
   id: string;
   queryType: ErpQueryType;
@@ -139,6 +141,8 @@ export interface ErpQueryResult extends ErpHistoryRequest {
   status: ErpQueryStatus;
   createdAt: string;
   startedAt: string | null;
+  /** While RUNNING: what the Agent last reported, or null. */
+  progress: ErpQueryProgress | null;
   completedAt: string | null;
   elapsedMs: number | null;
   fields: ErpField[];

@@ -53,6 +53,10 @@ CREATE TABLE erp_item_queries_next (
     receivable_scope TEXT CHECK(receivable_scope IS NULL OR receivable_scope IN ('CUSTOMER','SALESPERSON','ALL')),
     include_cost INTEGER NOT NULL DEFAULT 0 CHECK(include_cost IN (0,1)),
     result_json TEXT CHECK(result_json IS NULL OR json_valid(result_json)),
+    -- A running job's progress the Agent reports (進貨輔助, user 2026-10-20: show 已查／總數).
+    progress_stage TEXT CHECK(progress_stage IS NULL OR progress_stage IN ('REPORT','STOCK')),
+    progress_done INTEGER CHECK(progress_done IS NULL OR progress_done >= 0),
+    progress_total INTEGER CHECK(progress_total IS NULL OR progress_total >= 0),
     FOREIGN KEY (owner_member_id) REFERENCES app_members(id) ON UPDATE RESTRICT ON DELETE RESTRICT
 );
 INSERT INTO erp_item_queries_next(id,owner_member_id,item_no,status,created_at,expires_at,started_at,completed_at,elapsed_ms,claim_hash,fields_json,warehouses_json,error_code,error_message,include_history,history_from,history_to,batch_managed,batches_json,history_json,query_type,keyword,items_json,target_code,receivable_scope,include_cost,result_json)

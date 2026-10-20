@@ -168,4 +168,5 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 - Complete（outcome FOUND／NOT_FOUND，共通欄位同其他類型）：`dateFrom`、`dateTo` 必須與工作相同；`items` 最多 500 個品號，每個 `{ itemCode, itemName, unit, days:[{date,sold,returned}], sold, returned, stock, stockNote }`。`days` 只列有異動的日期且必須在範圍內、不重複；數量為數字字串；`stock` 為數字字串或 null（`stockNote` 說明原因，例如查無品號）。品號不可空白或重複；其他欄位一律不保存。結果存在 `result_json`（`{ restock, total, truncated }`），讀取時以 `restock` 回傳。NOT_FOUND 表示期間沒有銷貨／銷退單，不得附帶品號。
 - RUNNING 逾時：RESTOCK 1800 秒（兩份報表再加逐一查庫存）。PURCHASES 與 SALES、RECEIVABLE、ORDER 同為 600 秒（原本漏列，曾以一般查詢的 180 秒計算）。
 - Agent 狀態 `GET /api/erp/agent-status` 也開放給只有 `ERP_RESTOCK_ASSIST` 的成員。
+- 進度（使用者 2026-10-20：查詢中至少顯示已查／總數）：Agent 在 RUNNING 期間 `POST /api/erp-agent/item-queries/{id}/progress` `{ stage:"REPORT"|"STOCK", done, total }`（整數，done ≤ total；REPORT 為兩張明細表完成數，STOCK 為已查庫存品號數），只接受此 Agent 領取、RUNNING 中的 RESTOCK；同一階段較舊（done 較小）的回報忽略。存在 `progress_stage／progress_done／progress_total`，讀取 API 於 RUNNING 時回 `progress`，其餘為 null。Agent 至多每 2 秒回報一次，失敗不影響查詢。
 

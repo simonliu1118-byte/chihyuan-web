@@ -27,13 +27,22 @@ function describe(result: ErpQueryResult): string {
 }
 
 /** Status, timing and the outcomes without data, the same for every category. */
+/** 進貨輔助 while RUNNING (user 2026-10-20: at least 已查／總數, to see how far it is). */
+function restockProgress(result: ErpQueryResult): string {
+  const p = result.progress;
+  if (p?.stage === "STOCK")
+    return `已查庫存 ${p.done} / ${p.total} 個品號${p.done < p.total ? "，每個品號約需數秒" : "，整理結果中"}。`;
+  if (p?.stage === "REPORT") return `正在產生銷貨、銷退報表（已完成 ${p.done} / ${p.total} 張），之後逐一查詢各品號庫存。`;
+  return "正在產生銷貨、銷退報表，再逐一查詢各品號庫存，品號多時可能需要十幾分鐘。";
+}
+
 export function ErpJobStatus({ result }: { result: ErpQueryResult }) {
   return <>
     <h2>{statusLabel[result.status]}</h2>
     <p>{subject[result.queryType]}：<strong>{describe(result)}</strong>{result.elapsedMs !== null ? `　耗時 ${(result.elapsedMs / 1000).toFixed(1)} 秒` : ""}</p>
     {result.status === "QUEUED" && <p className="cy-erp-waiting"><span className="cy-loading-spinner" aria-hidden="true" />已加入查詢佇列，等待公司電腦處理。</p>}
     {result.status === "RUNNING" && <p className="cy-erp-waiting"><span className="cy-loading-spinner" aria-hidden="true" />{result.queryType === "RESTOCK"
-      ? "正在產生銷貨、銷退報表，再逐一查詢各品號庫存，品號多時可能需要十幾分鐘。"
+      ? restockProgress(result)
       : ["SALES", "PURCHASES", "RECEIVABLE", "ORDER"].includes(result.queryType)
       ? "正在產生 ERP 報表並轉出，可能需要一到數分鐘。" : "正在查詢 ERP。"}</p>}
     {result.errorMessage && <p className="cy-notice cy-notice-danger">{result.errorMessage}</p>}

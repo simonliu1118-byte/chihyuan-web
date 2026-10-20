@@ -28,6 +28,7 @@ type JobRow = {
   batch_managed: number | null; batches_json: string | null; history_json: string | null; items_json: string | null;
   target_code: string | null; receivable_scope: ErpReceivableScope | null; include_cost: number; result_json: string | null;
   error_code: ErpQueryErrorCode | null; error_message: string | null;
+  progress_stage: "REPORT" | "STOCK" | null; progress_done: number | null; progress_total: number | null;
 };
 /**
  * The Module Access grants that open each query type, any one is enough (user 2026-10-17: by data
@@ -99,6 +100,8 @@ function toJob(row: JobRow, showCost: boolean): ErpQueryResult {
     orders: report?.orders ?? [], purchases: report?.purchases ?? [], bills: report?.bills ?? [], restock: report?.restock ?? [],
     status: row.status, createdAt: row.created_at,
     startedAt: row.started_at, completedAt: row.completed_at, elapsedMs: row.elapsed_ms,
+    progress: row.status === "RUNNING" && row.progress_stage && row.progress_done != null && row.progress_total != null
+      ? { stage: row.progress_stage, done: row.progress_done, total: row.progress_total } : null,
     // 標準進價 also follows the reader's current grant, not only the one at creation.
     fields: showCost ? fields : fields.filter(field => !COST_FIELD_SET.has(field.name)),
     warehouses: parsedJson<ErpField[][]>(row.warehouses_json) ?? [],
@@ -782,6 +785,29 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
         RETURNING id,item_no,query_type,keyword,expires_at,include_history,history_from,history_to,target_code,receivable_scope,include_cost`
     ).bind(now, auth.digest, JSON.stringify(types)).first<ClaimRow>();
     return success({ job: job ? claimedJob(job) : null }, requestId);
+  }
+  // 進貨輔助 progress (user 2026-10-20): what the Agent has done so far, for the page while RUNNING.
+  // A report older than the stored one (same stage, fewer done) is ignored.
+  const progress = /^\/api\/erp-agent\/item-queries\/([0-9a-f-]{36})\/progress$/.exec(pathname);
+  if (progress && request.method === "POST") {
+    const body = await readJsonObject(request, 512);
+    const stage = body.stage === "REPORT" || body.stage === "STOCK" ? body.stage : bad("INVALID_AGENT_RESULT", "進度階段不正確");
+    const count = (value: unknown, what: string) =>
+      Number.isInteger(value) && (value as number) >= 0 && (value as number) <= 100000 ? value as number : bad("INVALID_AGENT_RESULT", what + "不正確");
+    const done = count(body.done, "進度完成數"), total = count(body.total, "進度總數");
+    if (done > total) bad("INVALID_AGENT_RESULT", "進度完成數大於總數");
+    const updated = await env.DB.prepare(
+      `UPDATE erp_item_queries SET progress_stage=?1,progress_done=?2,progress_total=?3
+        WHERE id=?4 AND status='RUNNING' AND claim_hash=?5 AND query_type='RESTOCK'
+          AND NOT (progress_stage IS ?1 AND progress_done>?2)`
+    ).bind(stage, done, total, progress[1], auth.digest).run();
+    if (updated.meta.changes !== 1) {
+      const row = await env.DB.prepare("SELECT status,claim_hash,query_type FROM erp_item_queries WHERE id=?1").bind(progress[1]).first<{ status: string; claim_hash: string | null; query_type: string }>();
+      if (!row) return failure({ code: "QUERY_NOT_FOUND", message: "查無此查詢工作" }, requestId, 404);
+      if (row.status !== "RUNNING" || row.claim_hash !== auth.digest || row.query_type !== "RESTOCK")
+        return failure({ code: "QUERY_NOT_RUNNING", message: "工作不在可回報狀態，或不是此 Agent 領取" }, requestId, 409);
+    }
+    return success({ id: progress[1] }, requestId);
   }
   const match = /^\/api\/erp-agent\/item-queries\/([0-9a-f-]{36})\/complete$/.exec(pathname);
   if (match && request.method === "POST") {

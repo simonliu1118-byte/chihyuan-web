@@ -35,6 +35,7 @@ function fixture(role = "USER") {
   const agent = {
     claim: async queryTypes => json(await call("/api/erp-agent/item-queries/claim", "POST", { agentVersion: "test", erpState: "BROWSE", ...(queryTypes ? { queryTypes } : {}) }, true)),
     complete: async (id, body) => json(await call(`/api/erp-agent/item-queries/${id}/complete`, "POST", { elapsedMs: 1000, agentVersion: "test", ...body }, true)),
+    progress: async (id, body) => json(await call(`/api/erp-agent/item-queries/${id}/progress`, "POST", body, true)),
   };
   const grant = code => {
     sql.prepare("INSERT OR IGNORE INTO app_members(identity_employee_id,employee_no,is_active,created_at,updated_at) VALUES('erp-business-synthetic','0097',1,?,?)").run(now, now);
@@ -314,5 +315,30 @@ test("RESTOCK may run 30 minutes and PURCHASES 10 before the Agent is timed out"
     assert.equal((await user.load(purchases.id)).body.data.status, "RUNNING");
     sql.prepare("UPDATE erp_item_queries SET started_at=? WHERE id=?").run(ago(11), purchases.id);
     assert.equal((await user.load(purchases.id)).body.data.status, "FAILED");
+  } finally { sql.close(); }
+});
+
+test("RESTOCK shows the progress the Agent reports while it runs", async () => {
+  const { sql, user, agent } = fixture("SUPER_ADMIN");
+  try {
+    const today = taipeiToday();
+    const { id } = (await user.create({ queryType: "RESTOCK", dateFrom: today, dateTo: today })).body.data;
+    assert.equal((await agent.progress(id, { stage: "REPORT", done: 0, total: 2 })).status, 409, "not claimed yet");
+    await agent.claim(ALL_TYPES);
+    assert.equal((await user.load(id)).body.data.progress, null);
+    assert.equal((await agent.progress(id, { stage: "REPORT", done: 1, total: 2 })).status, 200);
+    assert.deepEqual((await user.load(id)).body.data.progress, { stage: "REPORT", done: 1, total: 2 });
+    assert.equal((await agent.progress(id, { stage: "STOCK", done: 7, total: 40 })).status, 200);
+    assert.equal((await agent.progress(id, { stage: "STOCK", done: 5, total: 40 })).status, 200, "an older report is ignored");
+    assert.deepEqual((await user.load(id)).body.data.progress, { stage: "STOCK", done: 7, total: 40 });
+    for (const body of [{ stage: "OTHER", done: 1, total: 2 }, { stage: "STOCK", done: 3, total: 2 }, { stage: "STOCK", done: -1, total: 2 }, { stage: "STOCK", done: "1", total: 2 }])
+      assert.equal((await agent.progress(id, body)).status, 400, JSON.stringify(body));
+    await agent.complete(id, { outcome: "NOT_FOUND", dateFrom: today, dateTo: today, items: [], total: 0, truncated: false });
+    const done = (await user.load(id)).body.data;
+    assert.equal(done.progress, null);
+    assert.equal((await agent.progress(id, { stage: "STOCK", done: 8, total: 40 })).status, 409);
+    const sales = (await user.create({ queryType: "SALES", customerCode: "CU0001" })).body.data;
+    await agent.claim(ALL_TYPES);
+    assert.equal((await agent.progress(sales.id, { stage: "STOCK", done: 1, total: 2 })).status, 409, "only RESTOCK reports progress");
   } finally { sql.close(); }
 });
