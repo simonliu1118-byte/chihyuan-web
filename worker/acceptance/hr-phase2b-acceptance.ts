@@ -59,6 +59,14 @@ export async function acceptHrPhase2b(db:D1Database,hrFiles?:R2Bucket){
  const compLeave=await leave.create({employeeId,leaveTypeId:compType.id,date:"2026-11-27",startTime:"09:00",endTime:"10:00"},ctx);
  check(compLeave.minutes===60,"COMP_USAGE_CREATED");
  try{
+  await leave.create({employeeId,leaveTypeId:compType.id,date:"2026-11-27",startTime:"09:30",endTime:"10:30"},ctx);
+  throw Error("OVERLAPPING_PARTIAL_ALLOWED");
+ }catch(e){check(e instanceof HrLeaveError&&e.code==="HR_LEAVE_FORM_EXISTS","OVERLAPPING_PARTIAL_BLOCKED");}
+ try{
+  await leave.create({employeeId,leaveTypeId:personal.id,date:"2026-11-25",startTime:"09:00",endTime:"10:00",reason:"測試重疊"},ctx);
+  throw Error("WHOLE_DAY_CONFLICT_ALLOWED");
+ }catch(e){check(e instanceof HrLeaveError&&e.code==="HR_LEAVE_FORM_EXISTS","WHOLE_DAY_CONFLICT_BLOCKED");}
+ try{
   await attendance.put(employeeId,"2026-11",{days:[],overtime:[{date:"2026-11-25",minutes:120,settlement:"pay",revision:1}]},ctx);
   throw Error("COMP_USED_SWITCH_TO_PAY_ALLOWED");
  }catch(e){check(e instanceof HrValidationError&&e.status===409,"COMP_USED_CANNOT_SWITCH_TO_PAY");}
