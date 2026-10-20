@@ -8,7 +8,7 @@ import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import "./hr-phase2b.css";
 type Sum={employeeNo:string;name:string;id:number;storeId:number;employmentType:"full"|"half"|"casual";annualRemainingDays:number;used:Record<string,number>;pending:number;comp:{overtimeMinutes:number;holidayMinutes:number}};
 type Summary={year:number;types:LeaveTypeOption[];employees:Sum[]};
-type Entry={id:number;batch_id:string;work_date:string;minutes:number;whole_day:number;reason:string;cancelled_at:string|null;cancel_reason:string|null;leave_type_id:number;attachmentCount:number};
+type Entry={id:number;batch_id:string;work_date:string;minutes:number;whole_day:number;reason:string;cancelled_at:string|null;cancel_reason:string|null;leave_type_id:number;attachmentCount:number;attachmentIds:number[]};
 type Credit={id:number;kind:string;remainingMinutes:number;expiresOn:string;expired:boolean;expiringSoon:boolean};
 type Detail={records:Entry[];pending:{work_date:string;leave_type_id:number}[];types:LeaveTypeOption[];metrics:{code:string;usedMinutes:number;limitMinutes:number|null}[];annual:{id:number;periodStart:string;periodEnd:string;entitledDays:number;carriedInDays:number;remainingDays:number;expiredUnpaidDays:number;notifiedOn:string|null}[];comp:{overtimeMinutes:number;holidayMinutes:number;holidayAdvanceMinutes:number;credits:Credit[]}};
 const hrs=(minutes:number)=>(minutes/60).toFixed(1);
@@ -17,6 +17,7 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
  const [person,setPerson]=useState<LeavePerson|null>(null),[detail,setDetail]=useState<Detail|null>(null);
  const [request,setRequest]=useState<LeavePerson|null>(null),[initialDate,setInitialDate]=useState<string|undefined>(undefined);
  const [otherExpanded,setOtherExpanded]=useState<number|null>(null);
+ const [viewAttachmentIds,setViewAttachmentIds]=useState<number[]|null>(null);
  const [error,setError]=useState(""),[loading,setLoading]=useState(false),[noteDate,setNoteDate]=useState(taipeiToday());
  const [cancelTarget,setCancelTarget]=useState<{batchId:string;dates?:string[]}|null>(null),[cancelReason,setCancelReason]=useState("");
  const [grantOpen,setGrantOpen]=useState(false),[grantKind,setGrantKind]=useState<"holiday"|"grant">("grant"),[grantHours,setGrantHours]=useState("8"),[holidayDate,setHolidayDate]=useState(""),[holidayName,setHolidayName]=useState("");
@@ -73,7 +74,7 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
       <h4>假單紀錄</h4>
       {detail?.records.map(x=><div key={x.id} className="hr-leave-item">
        <span>{x.work_date.replaceAll("-","/")}　{detail.types.find(t=>t.id===x.leave_type_id)?.name}　{hrs(x.minutes)}h
-        {x.cancelled_at?<small>（已銷假）</small>:null}{x.attachmentCount?<small>（附件 {x.attachmentCount} 張）</small>:null}</span>
+        {x.cancelled_at?<small>（已銷假）</small>:null}{x.attachmentCount?<button type="button" className="cy-op-button compact quiet" onClick={()=>setViewAttachmentIds(x.attachmentIds)}>查看附件 {x.attachmentCount} 張</button>:null}</span>
        {!x.cancelled_at?<button className="cy-op-button" onClick={()=>setCancelTarget({batchId:x.batch_id,dates:[x.work_date]})}>銷假</button>:null}
       </div>)}
       <h4>待補假單</h4>{detail?.pending.map(x=><div key={x.work_date}><button className="cy-op-button" onClick={()=>{setRequest(person);setInitialDate(x.work_date)}}>{x.work_date}　補填假單</button></div>)}
@@ -116,6 +117,11 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
      <button className="cy-op-button" onClick={()=>window.print()}>列印 A4</button>
      <button className="cy-op-button primary" onClick={async()=>{try{await apiRequest("/api/business/hr/annual-leave-years/"+printYear?.id+"/notice",{method:"PATCH",json:{notifiedOn:noteDate}});setPrintYear(null);await detailRefresh()}catch(e){setError(String(e))}}}>記錄已通知</button>
    </div>
+  </Dialog>
+  <Dialog open={viewAttachmentIds!==null} title="請假證明照片" size="large" onClose={()=>setViewAttachmentIds(null)}>
+   <div className="hr-leave-attachments">{viewAttachmentIds?.map((id,index)=>
+    <img src={"/api/business/hr/leave-attachments/"+id} alt={"請假證明 "+(index+1)} key={id}
+      style={{maxWidth:"100%",height:"auto",objectFit:"contain"}} loading="lazy"/>)}</div>
   </Dialog>
   <HrLeaveDialog person={request} types={summary?.types??[]} initialDate={initialDate} onClose={()=>setRequest(null)} onSaved={()=>{void refresh();void detailRefresh()}}/>
  </section>;
