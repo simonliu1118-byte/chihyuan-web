@@ -52,7 +52,7 @@ export async function acceptHrPhase2b(db:D1Database,hrFiles?:R2Bucket){
  const attendance=new HrAttendanceService(db);
  await attendance.put(employeeId,"2026-11",{days:[],overtime:[{date:"2026-11-25",minutes:120,settlement:"comp",revision:0}]},ctx);
  const clock=await attendance.get(employeeId,"2026-11");
- check(clock.days.find(x=>x.date==="2026-11-25")?.overtime?.minutes===60,"OVERTIME_WRITTEN");
+ check(clock.days.find(x=>x.date==="2026-11-25")?.overtime?.minutes===120,"OVERTIME_WRITTEN");
  const credit=await db.prepare("SELECT id,comp_expires_on FROM hr_overtime_days WHERE employee_id=? AND work_date=?").bind(employeeId,"2026-11-25").first<{id:number;comp_expires_on:string}>();
  check(credit?.comp_expires_on==="2026-12-31","COMP_EXPIRY_NEXT_MONTH");
  const compType=types.find(x=>x.code==="補");check(compType,"COMP_TYPE");
