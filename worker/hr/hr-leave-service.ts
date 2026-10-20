@@ -66,11 +66,12 @@ export class HrLeaveService{
   const [annual,comp,staged,attachments]=await Promise.all([
    this.computeYears(id,asOf),this.comp(id,asOf),
    this.db.prepare("SELECT s.work_date,s.leave_type_id FROM hr_schedule_days s LEFT JOIN hr_leave_records l ON l.employee_id=s.employee_id AND l.work_date=s.work_date AND l.cancelled_at IS NULL AND l.whole_day=1 WHERE s.employee_id=? AND s.work_date BETWEEN ? AND ? AND s.kind='leave' AND l.id IS NULL LIMIT 400").bind(id,String(year)+"-01-01",monthEnd(year)).all<{work_date:string;leave_type_id:number}>(),
-   this.db.prepare("SELECT batch_id,COUNT(*) AS count FROM hr_leave_attachments WHERE batch_id IN (SELECT batch_id FROM hr_leave_records WHERE employee_id=? AND work_date BETWEEN ? AND ?) GROUP BY batch_id LIMIT 200").bind(id,String(year)+"-01-01",monthEnd(year)).all<{batch_id:string;count:number}>()
+   this.db.prepare("SELECT id,batch_id FROM hr_leave_attachments WHERE batch_id IN (SELECT batch_id FROM hr_leave_records WHERE employee_id=? AND work_date BETWEEN ? AND ?) ORDER BY batch_id,id LIMIT 600").bind(id,String(year)+"-01-01",monthEnd(year)).all<{id:number;batch_id:string}>()
   ]);
-  const counts=new Map((attachments.results??[]).map(x=>[x.batch_id,x.count]));
+  const attachmentIds=new Map<string,number[]>();
+  for(const item of attachments.results??[])attachmentIds.set(item.batch_id,[...(attachmentIds.get(item.batch_id)??[]),item.id]);
   const metrics=types.map(t=>({id:t.id,code:t.code,name:t.name,usedMinutes:rows.filter(x=>!x.cancelled_at&&x.leave_type_id===t.id).reduce((n,x)=>n+x.minutes,0),limitMinutes:t.quota_days==null?null:t.quota_days*480}));
-  return {employeeId:id,year,records:rows.map(x=>({...x,attachmentCount:counts.get(x.batch_id)??0})),
+  return {employeeId:id,year,records:rows.map(x=>({...x,attachmentCount:attachmentIds.get(x.batch_id)?.length??0,attachmentIds:attachmentIds.get(x.batch_id)??[]})),
    pending:staged.results??[],types,metrics,annual:annual.ledger,comp:comp.balances,compCredits:comp.credits};
  }
  async summary(year:number,storeId:number|undefined,asOf:string){
