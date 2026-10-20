@@ -46,7 +46,7 @@ export class HrAttendanceService {
    lateMinutes:days.reduce((n,x)=>n+x.lateMinutes,0),missingCard:days.filter(x=>x.anomalies.includes("缺卡")).length,
    absent:days.filter(x=>x.anomalies.includes("曠職")).length};
   const overtimeMinutes=days.reduce((n,d)=>n+(d.overtime?.minutes??0),0);
-  const warnings=overtimeWarnings(days.map(d=>({date:d.date,workedMinutes:d.workedMinutes,normalMinutes:d.workedMinutes,overtimeMinutes:d.overtime?.minutes??0})));
+  const warnings=overtimeWarnings(days.map(d=>({date:d.date,workedMinutes:d.workedMinutes,normalMinutes:Math.max(0,d.workedMinutes-(d.overtime?.minutes??0)),overtimeMinutes:d.overtime?.minutes??0})));
   return {employeeId:id,storeId:staff.store_id,month,days,totals:{...totals,overtimeMinutes},overtimeWarnings:warnings};
  }
  async put(id:number,month:string,input:unknown,ctx:HrContext){
