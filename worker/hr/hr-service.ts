@@ -172,7 +172,8 @@ export class HrService {
     const row=await this.db.prepare("SELECT employee_no,name FROM hr_employees WHERE id=?").bind(id).first<{employee_no:string;name:string}>();
     if(!row)throw new HrValidationError("id","員工不存在",404);
     if(object(raw).confirmEmployeeNo!==row.employee_no)throw new HrValidationError("confirmEmployeeNo","請輸入正確的員工編號確認刪除");
-    const filesToDelete=(await this.db.prepare("SELECT object_key FROM hr_leave_attachments WHERE batch_id IN (SELECT batch_id FROM hr_leave_records WHERE employee_id=?) LIMIT 1000").bind(id).all<{object_key:string}>()).results??[];
+    const filesToDelete=(await this.db.prepare("SELECT object_key FROM hr_leave_attachments WHERE batch_id IN (SELECT batch_id FROM hr_leave_records WHERE employee_id=?) LIMIT 1001").bind(id).all<{object_key:string}>()).results??[];
+    if(filesToDelete.length>1000)throw new HrValidationError("files","附件超過單次刪除安全上限 1,000 筆；已中止，避免留下無主檔案",422);
     const del=(sql:string)=>this.db.prepare(sql).bind(id);
     await this.db.batch([
       del("DELETE FROM hr_salary_allowances WHERE salary_record_id IN (SELECT id FROM hr_salary_records WHERE employee_id=?)"),
