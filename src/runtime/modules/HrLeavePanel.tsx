@@ -12,7 +12,7 @@ type Entry={id:number;batch_id:string;work_date:string;minutes:number;whole_day:
 type Credit={id:number;kind:string;remainingMinutes:number;expiresOn:string;expired:boolean;expiringSoon:boolean};
 type Detail={records:Entry[];pending:{work_date:string;leave_type_id:number}[];types:LeaveTypeOption[];metrics:{code:string;usedMinutes:number;limitMinutes:number|null}[];annual:{id:number;periodStart:string;periodEnd:string;entitledDays:number;carriedInDays:number;remainingDays:number;expiredUnpaidDays:number;notifiedOn:string|null}[];comp:{overtimeMinutes:number;holidayMinutes:number;holidayAdvanceMinutes:number;credits:Credit[]}};
 const hrs=(minutes:number)=>(minutes/60).toFixed(1);
-export function HrLeavePanel(){
+export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null}={}){
  const [year,setYear]=useState(Number(taipeiToday().slice(0,4))),[store,setStore]=useState(""),[summary,setSummary]=useState<Summary|null>(null);
  const [person,setPerson]=useState<LeavePerson|null>(null),[detail,setDetail]=useState<Detail|null>(null);
  const [request,setRequest]=useState<LeavePerson|null>(null),[initialDate,setInitialDate]=useState<string|undefined>(undefined);
@@ -25,6 +25,7 @@ export function HrLeavePanel(){
   catch(e){setError(e instanceof Error?e.message:"無法讀取請假總表")}finally{setLoading(false)}},[year,store]);
  const detailRefresh=useCallback(async()=>{if(!person)return;try{setDetail(await apiRequest<Detail>("/api/business/hr/employees/"+person.id+"/leave?year="+year));setError("")}catch(e){setError(String(e))}},[person,year]);
  useEffect(()=>{void refresh()},[refresh]);useEffect(()=>{void detailRefresh()},[detailRefresh]);
+ useEffect(()=>{if(initialEmployeeId==null||!summary)return;const match=summary.employees.find(x=>x.id===initialEmployeeId);if(match)setPerson({id:match.id,employee_no:match.employeeNo,name:match.name,employment_type:match.employmentType})},[initialEmployeeId,summary]);
  const present=summary?.employees.find(e=>e.id===person?.id);
  function openPerson(x:Sum){setPerson({id:x.id,name:x.name,employee_no:x.employeeNo,employment_type:x.employmentType});setDetail(null)}
  async function submitCancel(){
