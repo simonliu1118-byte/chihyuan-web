@@ -5,6 +5,7 @@ import { acceptModuleAccessGroups } from "./module-access-group-acceptance";
 import { acceptProgramCatalog } from "./program-catalog-acceptance";
 import { acceptHrPhase1 } from "./hr-phase1-acceptance";
 import { acceptHrPhase2a } from "./hr-phase2a-acceptance";
+import { acceptHrPhase2b } from "./hr-phase2b-acceptance";
 import { acceptRetiredIdentitySource, acceptRetiredIdentityRestore } from "./retired-identity-acceptance";
 import { acceptDefectStaleAudit } from "./defect-stale-acceptance";
 import { acceptOutsourcingStaleEffects } from "./outsourcing-stale-acceptance";
@@ -32,6 +33,7 @@ interface Env {
   RESTORE_DB: D1Database;
   REHEARSAL_DB: D1Database;
   BACKUP_R2: R2Bucket;
+  HR_FILES?: R2Bucket;
 }
 
 interface AcceptanceChecks {
@@ -55,6 +57,7 @@ interface AcceptanceChecks {
   programCatalog: boolean;
   hrPhase1: boolean;
   hrPhase2a: boolean;
+  hrPhase2b: boolean;
 }
 
 function assertAcceptance(condition: unknown, code: string): asserts condition {
@@ -173,7 +176,7 @@ async function acceptSettingsAuditHttp(db: D1Database): Promise<void> {
   assertAcceptance((await backupCall()).status === 403, "ACCEPT_BACKUP_INACTIVE_MEMBER");
 }
 
-async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bucket, rehearsalDb: D1Database): Promise<AcceptanceChecks> {
+async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bucket, rehearsalDb: D1Database, hrFiles?: R2Bucket): Promise<AcceptanceChecks> {
   const t0 = "2026-09-28T00:00:00.000Z";
   const t1 = "2026-09-28T00:01:00.000Z";
   const t2 = "2026-09-28T00:02:00.000Z";
@@ -765,6 +768,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
 
   await acceptHrPhase1(db);
   await acceptHrPhase2a(db);
+  await acceptHrPhase2b(db,hrFiles);
   await acceptSettingsAuditHttp(db);
   await acceptBusinessHttpAuthority(db, componentItem.id, finishedItem.id);
   await acceptModuleAccessGroups(db);
@@ -786,6 +790,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
     programCatalog: true,
     hrPhase1: true,
     hrPhase2a: true,
+    hrPhase2b: true,
     customerBatchCreate: true,
     optimisticRevision: true,
     batchRollback: true,
@@ -814,7 +819,7 @@ export default {
     }
 
     try {
-      const checks = await runAcceptance(env.DB, env.RESTORE_DB, env.BACKUP_R2, env.REHEARSAL_DB);
+      const checks = await runAcceptance(env.DB, env.RESTORE_DB, env.BACKUP_R2, env.REHEARSAL_DB, env.HR_FILES);
       return jsonResponse({ ok: true, checks });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
