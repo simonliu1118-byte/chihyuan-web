@@ -35,3 +35,28 @@
 
 ## 後續
 請假、假勤、薪資計算、勞健保、扣繳、員工自助查詢及資料匯入都不屬第一期。
+
+## WO-0.9.24 第二期 2a — 月排班、出勤及門市設定
+
+### D1 / 權限
+前向 migration `0018_hr_phase2a.sql` 新增 `hr_stores`、`hr_job_titles`、`hr_shift_types`、`hr_leave_types`、`hr_holidays`、`hr_schedule_days`、`hr_schedule_months`、`hr_roster_approvals`、`hr_attendance_days`，並在 `hr_employees` 加入門市、職稱、班表排序、`full/half/casual` 僱用型態、`skip_roster_checks`、`shift/hours/none` 排班方式。所有 API 沿用 CYID SUPER_ADMIN gate；不得由模組授權繞過，稽核 `hr_*` 只對超管顯示。
+
+### API（根路徑 `/api/business/hr`）
+| 方法 | 路徑 | 用途 |
+| --- | --- | --- |
+| GET／POST／PATCH | `/settings/stores` | 門市設定：名稱、排序、啟用、起算週一與注意事項範本 |
+| GET／POST／PATCH | `/settings/job-titles` | 職稱設定：名稱、排序、停用不刪除 |
+| GET／POST／PATCH | `/settings/shift-types` | 班別設定：開始／結束／休息時間驗證及正常工時 |
+| GET／POST／DELETE | `/settings/holidays?year=2026` | 人工維護國定假日，刪除稽核 |
+| GET | `/rosters/:storeId/:month` | 單月及前後補齊雙週（日期由門市起算週一），員工、格子、標籤、核准、國定假日、每日人力、備註 |
+| PUT | `/rosters/:storeId/:month` | 只傳變動格及備註，`db.batch` + 一筆稽核，違規 409 `HR_ROSTER_VIOLATION`；連六及兼職超 8 小時 409 `HR_ROSTER_CONSECUTIVE`，附 `items[]`，核准再帶 `approve[]` |
+| PATCH | `/rosters/:storeId/:month/staff` | 本門市員工 `rosterSort` 與 `skipRosterChecks`，保留其他個資與子表 |
+| GET／PUT | `/employees/:id/attendance?month=YYYY-MM` | 一次讀／寫整月打卡（上、下各兩組）、revision 樂觀鎖、不可刪除及稽核 |
+| GET | `/attendance/anomalies?storeId=1&month=YYYY-MM` | 門市按月批次計算缺卡、遲到、早退、曠職及例休日打卡 |
+
+`month` 儲存 `YYYY-MM`，日期 `YYYY-MM-DD`，時間 `HH:mm`；顯示日 `YYYY/MM/DD`。備註與規則為純文字。只有排班格可刪除，打卡紀錄無 DELETE。國定假日只供顯示，不自動排假或產生換休；請假及扣抵屬 2b。
+
+### 計算與交易
+雙週以固定週一為起點，跨月補齊週次；對正職與半職，空白週不做例休或雙週檢查。完整週每週至少一例假、完整雙週至少四例休日；正常工時單日 10h、單週 48h、雙週 80h；連七禁止、連六須核准。兼職不檢查例休，但連續上班 7 日禁止及單日超 8h 需核准；不排班兼職只可註 X，實際工時由打卡唯讀顯示。公司標記在 `hr_roster_approvals`，同區段不重複核准。系統不自動調整排班內容。
+
+居家工作依排定班別出勤、擺攤不算遲到早退、颱風假不算曠職。異常整月依門市、員工與日期範圍批次讀取，避免 N+1。備份還原只能接受符合 migration 預設資料的全新 D1 作為目標，且於單一 transaction 刪除預設資料後還原；任何非預設資料仍禁止覆蓋。
