@@ -645,3 +645,6 @@ GraphQL 結構以 [Cloudflare 官方 D1 Metrics and Analytics](https://developer
 
 ## WO-0.9.24 — 人事第二期 2a API
 僅限 CYID `SUPER_ADMIN`，不經模組授權。新增門市／職稱／班別／國定假日維護、`GET/PUT /api/business/hr/rosters/:storeId/:month`、`PATCH .../staff`、`GET/PUT /api/business/hr/employees/:id/attendance?month=`、`GET /api/business/hr/attendance/anomalies?storeId=&month=`。一般回應沿用 `{ok,data,requestId}`，違規或待核准 409，`error.code` 為 `HR_ROSTER_VIOLATION`／`HR_ROSTER_CONSECUTIVE` 並含 `error.items[]`。核准重送 `approve:[{employeeId,kind,startDate,endDate}]`。所有儲存與稽核同批交易；無薪資、請假、加班計算或員工自助入口。詳見 [HR_MODULE_CONTRACT.md](HR_MODULE_CONTRACT.md)。
+
+## WO-0.9.25 人事第二期 2b
+全部須 CYID SUPER_ADMIN。GET /api/business/hr/leave/summary?year=&storeId=；GET /api/business/hr/employees/:id/leave?year=；POST /api/business/hr/leave-requests；POST /api/business/hr/leave-requests/:batchId/cancel；POST /api/business/hr/leave-requests/:batchId/attachments；GET /api/business/hr/leave-attachments/:id；GET/POST/PATCH /api/business/hr/settings/leave-types；PATCH /api/business/hr/annual-leave-years/:id/notice；POST /api/business/hr/employees/:id/comp-time；POST /api/business/hr/comp-time/:kind/:id/extend；POST /api/business/hr/comp-time/overtime/:id/settle。補休不足 409 HR_COMP_INSUFFICIENT、假額不足 409 HR_LEAVE_QUOTA、已有正式假單擋 409 HR_LEAVE_FORM_EXISTS。R2 缺少綁定 503 HR_FILES_UNAVAILABLE。詳見 HR_MODULE_CONTRACT.md。

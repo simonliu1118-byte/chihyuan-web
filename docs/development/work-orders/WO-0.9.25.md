@@ -256,4 +256,125 @@
 
 ## 8. 完成報告（執行者填）
 
+### 8.1 提交與結論（2026-10-21）
+
+- **PR：** [#249](https://github.com/simonliu1118-byte/chihyuan-web/pull/249)，Draft；分支 `cyweb/hr-phase2b`，不合併、不部署。
+- **執行狀態：原工單功能已在分支提交，但「正式完成／通過驗收」**尚不能宣告。原因是五組指定命令無法在具備完整 repo 的環境執行，最新提交尚無 CI；D1／R2 整合及手機／列印畫面均未取得可核對結果。
+- **範圍：** Migration `0019_hr_phase2b.sql`；`shared/hr-leave.ts`、`shared/hr-annual-leave.ts`、`shared/hr-overtime.ts`；Worker 正式假單／銷假／配額／排班同批驗證與寫入、出勤加班、補休、R2 證明；人事請假、排班、出勤、設定、特休通知 UI；備份 schema、D1 acceptance、中文異動標籤、合約、VERSION、TODO。
+- **本次接續修正：** 半職／兼職無班別日期可明確切換手動分鐘，避免前端仍送起訖時間；排班預填假別補假單時帶入原假別；停用假別不可再申請；跨特休週年期間逐期驗證額度；未掛載可用檔案清理超過 1,000 筆時拒絕測試用刪除而非靜默漏刪；年度總表未來年度用所選年度截止日計算；總表呈現法定上限及期間；D1 acceptance 增補兼職 120 分鐘請假與刪除後 R2／metadata 清理驗證。
+- **與最新 main 的規格差異：** BD-060 第 26～29 點明訂「工單交付後由審查者套用」。#26 排班已完成假單直接查看／銷假已在本分支；#27 取消「換」為單一補休、#28 半職／兼職特休比例、#29 綁定特定國定假日的預支互不抵銷，仍採原工單實作，**不得依此舊規格核准正式上線**。#28 換算公式尚在 `HR_LEGAL_WATCH.md` 列為待確認。依 PROJECT_RULES §9，不由執行者擅自改寫已交付工單；須於審查階段處理。
+- 本 PR 沒有修改 `.github/workflows/*`；仍保留正式上線前要由審查者確認的 R2 variable 傳遞，不在此改 workflow。
+
+### 8.2 §6 驗收清單逐項結果
+
+1. **SUPER_ADMIN／稽核：程式碼已對照，未執行 E2E。** 新 API 經 `handleHrRoute` 身分與 SUPER_ADMIN 閘門；D1 acceptance 有非超管 403 情境。人事異動紀錄實際畫面待驗。
+2. **預填假別／兩種記號：已實作，待 UI 驗證。** 未建假單時為待補，正式假單存在時為已完成，列印版排除記號。
+3. **待補格改班：已實作，未跑 D1 驗證。** 走原排班寫入與稽核，不寫銷假。
+4. **已完成假單保護與銷假：已實作，未跑 D1 驗證。** 排班擋 `HR_LEAVE_FORM_EXISTS`；銷假保留原記錄並清格。
+5. **整天／部分時數與排班：已實作，未跑 E2E。** 整天與預設日、區間、跳過「/」「國」、同批排班及稽核；部分時數不覆蓋班表。
+6. **半職／兼職分鐘及扣休息：已實作，局部煙霧測試通過。** 沒有整天選項；手動時數限定無班別情境，工時計算與 30 分鐘單位以來源純函式隔離測試通過。
+7. **事假事由／證明：已實作，未跑 E2E。** 事假必填；病、院、婚、喪、公才有可選 0～3 張圖的上傳。
+8. **假額全部情境／409 原子性：已有純函式及驗收測試原始碼，未跑完整套件。** 局部 14 天檢核通過；其它 §5.3 情境與 DB rollback 必須以完整 suite 覆核。
+9. **特休年度與書面通知：已實作，未列印驗證。** 加上跨週年期間分別檢核；紙本通知需實際列印截圖驗收。
+10. **加班標記／第 32 條警示：已實作，局部煙霧測試通過。** 實際出勤整合與異動稽核未跑 D1 驗收。
+11. **補／換與到期：依原工作單已實作，局部煙霧測試通過。** 但已被 BD-060 #27～29 修訂，審查者須套用新決議後才可驗收。
+12. **R2 附檔：已實作，D1＋R2 未執行。** 選用 HR_FILES，沒設定回 503；JPEG 長邊與大小限制，上傳寫稽核、查看不寫；驗收程式新增刪除後 bucket/metadata 檢查。
+13. **年度請假總表：已實作，未跑資料情境驗收。** 有年度及門市篩選；跨年歷史資料使用批次查詢，修正未來年份截止日。
+14. **測試用員工刪除：已實作，未跑 D1＋R2。** 同批移除資料、資料成功後清 R2；超過附件上限拒絕以避免遺漏。
+15. **表單 Enter、日期 max、共用確認視窗：檢查新增元件原始碼符合，完整鍵盤檢查未執行。**
+16. **手機、A4 列印：尚未進行實際畫面與 PDF 驗收，依 §7 留給審查者截圖。**
+17. **稽核中文標籤：已提交，未跑完整標籤測試。**
+18. **讀寫列數與費用：見 §8.4。**
+19. **五組指定命令：未通過；真實執行結果見 §8.3。**
+20. **範圍／版本文件：** 變更檔案已比對，無 workflow；`VERSION` 及 `package.json` 均 `0.9.25`，三份合約與 TODO 已提交。仍請審查者對照最新 main 差異。
+
+### 8.3 測試指令與證據（禁止誤報）
+
+執行環境只具備 GitHub connector 操作原始碼；`/mnt/data/cyweb-wo-0925-validation` 沒有完整 repo，且無法 DNS 連到 `github.com` 進行 git clone。**以下是該容器的實際輸出，不是針對完整 CYWEB checkout 成功的測試：**
+
+| 指令 | exit | 實際結果 |
+|---|---:|---|
+| `npm run typecheck` | 254 | ENOENT：找不到此目錄 `package.json` |
+| `timeout 300 npm run validate:source` | 254 | ENOENT：找不到 `package.json` |
+| `npm run build` | 254 | ENOENT：找不到 `package.json` |
+| `npm run validate:d1:local` | 254 | ENOENT：找不到 `package.json` |
+| `node --test scripts/*.test.mjs` | 0 | `tests 0 / pass 0 / fail 0`，並非通過測試 |
+
+另由 GitHub connector 擷取最新 `shared/hr-leave.ts`、`shared/hr-overtime.ts`，剔除純型別宣告後在 JS 隔離環境進行 **12 項純函式煙霧檢查，12/12 成功**（480 分鐘整天假、兼職手動 120 分鐘、休息時間扣除、「/」與「國」跳過、事假額度、補休期限／延期、加班建議／警示、預支、未來來源不可提前入帳）。這不是原始 `node --test`，也不代表 Worker TypeScript／D1 驗收成功。
+
+GitHub Actions：最後能查到的 `Runtime Check` 是舊 SHA `51fa258` 的失敗執行 [#39448800104](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39448800104)；同 SHA 的 Governance 與部署合約驗證有成功執行，**不能拿來證明最新 head 合格**。最新提交目前沒有新的 Actions runs。
+
+### 8.4 §11.3 讀寫列數估算與實際用量
+
+- **年度請假總表**：一次最多 100 名非離職員工；至多約 10 條查詢。單次回傳上限約 55,201 列（員工 101、年度假單 10,000、待補 5,000、補休給予 2,000、加班 2,000、結清 2,000、特休歷史 20,000、年資不計 4,000、歷史補休使用 10,000、假別 100；有些查詢可提前少於上限）。這是**應用回傳筆數上限**，非 Cloudflare 計費的實際掃描列數；不逐人 N+1。總表無寫入。
+- **單次假單**：申請期間不超過 120 有效天，日別最多 120 列假單、120 格排班異動，另有審批、例休重標與稽核；同 `db.batch`。讀取限制為員工兩年前起的假單（目前每次最多 1,500）、申請日期排班最多 370、既存正式假最多 400，及跨月份的排班檢核，每個月各有限額。實際掃描可能高於回傳列數。
+- **個人詳情**：相關假單 1,500、待補格 400、附檔 metadata 600、補休來源及使用各最多約 500～1,500，另有年資、特休年度讀取；特休年度尚未初始化時可能寫入週年列。
+- **附件與清理**：單假單 0～3 個 JPEG，每個不超過 1.5 MiB；單員工刪除讀取最多 1,001 個檔案鍵，超過 1,000 即不刪；未超過則先 D1 刪除後依鍵刪 R2。
+- **實際 Cloudflare D1／R2 用量**：本輪未觸碰正式 D1 或 R2，新增的**正式環境操作**為 0；本地整合測試未完成，故沒有可信的實際 D1 讀寫列數，不能把上列程式 LIMIT 視為計費實測。部署前依實際使用量、索引查詢計畫、R2 刪除與 100 人／多年度壓測再核對費用及安全界限。
+
+### 8.5 待審查與不得放行項目
+
+- **必做：** 使用具備完整 repo 與 Node／Wrangler 的工作機，逐條重跑 §6 五組指令，保存輸出；修正任何失敗，完整 D1／R2、本單所有配額案例、權限及資料原子性驗收均通過後，才可標示本工單完成。
+- **必做：** 依 §7 審查者拍攝桌面、手機與列印實際截圖；審查 2a 測試遺留問題、R2 deploy variable 傳遞與復原路徑。
+- **必做：** 審查者依 BD-060 #27～29 以新規格取代本單原「補／換」模型、釐清部分工時特休計算，#29 國定假日預支獨立顯示與沖銷的資料模型確認後才可合併。
+- **發布：** 尚未合併，尚未部署，也未建立正式發行；PR 目前仍為 Draft。這是誠實的**未驗收完成報告**，不是放行聲明。
+
+### 8.6 2026-10-21 GitHub 實作續作與阻擋排除
+
+- **實際 CI 失敗診斷已取回：** 下載 PR #249 舊提交 `51fa258` 的 GitHub Actions artifact：`worker-tsc-diagnostics`（artifact #12276559199），`browser-tsc-diagnostics`（artifact #12276833514）。該次 Worker TypeScript 在 `hr-leave-service.ts` 日期 `unknown` 參數報三處錯誤；前端在 `HrAttendancePanel.tsx` 加班欄位重複宣告四處、`HrRosterPanel.tsx` 假單視窗 state 名稱缺失兩處。**這是舊 SHA 的診斷，不是最新提交驗證結果。** 後續程式碼已有針對型別及欄位的修正，但須重新執行 CI 驗證。
+- **補休來源反轉與併發安全：** `hr-attendance-service.ts` 改為依個別加班補休額度計算已使用／結清，禁止已使用額度被改回加班費或減至不足；重複加班日期拒絕、更新以 revision 保護。延長補休期限後修改備註不再把到期日重設；新增 D1 acceptance：`COMP_USED_CANNOT_SWITCH_TO_PAY`、`COMP_REVERSAL_NO_MUTATION`、`EXTENDED_EXPIRY_PRESERVED_ON_EDIT`。
+- **正式請假防重複：** `hr-leave-service.ts` 在單日部分時數與已完成整天假之間檢查衝突；已有部分假單的時段重疊即回 `HR_LEAVE_FORM_EXISTS`。新增 D1 acceptance：`OVERLAPPING_PARTIAL_BLOCKED`、`WHOLE_DAY_CONFLICT_BLOCKED`。
+- **資料截斷安全：** `hr-leave-service.ts` 的個人假單歷史、補休歷史與年度總表，`hr-comp-service.ts` 的來源、結清及請假使用資料改採 `LIMIT+1` 並 fail closed，避免使用截斷資料少算額度。程式碼已提交，尚未取得完整 DB 驗收通過證據。
+- **合併衝突已解除：** 將 `main` 最新 BD-060、`HR_LEGAL_WATCH` 文件同步回分支並建立 **main → feature branch** 整合提交 `fbeb21ae`；GitHub 確認 PR #249 由 `dirty` 變成 `mergeable_state: clean`，相較 main `behind_by: 0`。這不是把 PR 合併到 main。
+- **治理及驗證限制：** 未變動任何 workflow、未部署、未連線 Cloudflare 正式 D1／R2；正式環境讀寫／R2 寫入量都是 0。GitHub 仍無新 HEAD 的 Actions runs，且當前獨立容器不能透過 DNS clone GitHub 原始碼，因此 §6 五條指定指令目前尚無對最新 HEAD 有效的完整執行結果。**不得據此宣告本工單驗收合格**；須由有完整 checkout 的執行環境實際跑通並回填輸出。
+- BD-060 #27～29 仍按已交付工作單規則由審查者套用；新規格未整合前不得正式發布。
+
+### 8.7 GitHub Actions 最新實際驗證結果（此節優先於先前暫時阻擋）
+
+**驗證基準：** `0f60fc9ead0a5b5996d9be99bab227410c67c436`（2026-10-21，Asia/Taipei）。先前 §8.1～8.6 的「最新 HEAD 無 CI」與「D1 驗收未執行」是排查歷程，已被本段最新實測取代。**這是實測的 GitHub-hosted runner，不是先前空目錄中以 npm ENOENT 的結果。**
+
+| GitHub Actions | Run | 結果／實際執行 |
+|---|---|---|
+| [Runtime Check](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39468383866) | 39468383866 | **SUCCESS**；`source-contracts`、`browser-typecheck`、`worker-typecheck`、`build` 四個 jobs 全部成功 |
+| [Governance Check](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39468384083) | 39468384083 | **SUCCESS** |
+| [CY Web Deploy](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39468384027) | 39468384027 | PR 檢查 **SUCCESS**，並非 production deploy |
+
+`build` job 的真實日誌記錄：
+- `python scripts/test_d1_runner.py`：`Ran 1 test`，`OK`。
+- `npm run validate:d1:local`：`PASS Wrangler local D1 migrations`（0001～0019）；`PASS Worker + D1 acceptance`；`PASS retired local Identity session table removed`。`worker/acceptance/d1-local-acceptance.ts` 在這個流程中依序執行 `acceptHrPhase1`、`acceptHrPhase2a`、`acceptHrPhase2b(db,hrFiles)`，包括新增的重疊假單、補休不允許已用後反轉、R2 JPEG 上傳與讀取／清理等驗收。
+- `npx vite build`：Worker、Client 均 `✓ built`；只有現有 chunk size 與 dynamic import 警告，未導致失敗。
+- Browser、Worker `npx tsc --noEmit` 均通過；`source-contracts` 成功。
+
+**實際找到並修正的 CI 問題：** 先前 Runtime Check #39467899422、#39468024342、#39468191266 因 `ACCEPT_HR2B_JPEG_UPLOAD` 失敗；驗收用 JPEG Base64 測試資料不完整。改用完整驗證過的 1×1 JPEG（有合法 SOF0，285 bytes），最終在上述 CI 取得實際通過結果。
+
+**尚未符合 §6 指令逐條執行的部分：** GitHub CI 使用 `npx tsc` 分別檢查、source contract 子集合、`npx vite build`，而非逐字 `npm run typecheck`、`timeout 300 npm run validate:source`、`npm run build`；`node --test scripts/*.test.mjs` 全量仍未在具備完整 repo 的環境單獨執行。依工作單不得宣稱這四條已逐條通過。請審查者補跑，並依 §7 完成桌面／手機及實際列印截圖。最新 BD-060 #27～29（由審查者套用）仍必須在正式合併與發布之前完成。
+
+**部署／用量：** 未觸碰正式 Cloudflare D1、R2，正式環境讀寫仍為 0；GitHub Actions 所跑的是暫時 Local D1 + ephemeral HR_FILES 測試 bucket。PR 維持 Draft，沒有合併或部署。
+
 ## 9. 審查紀錄（審查者填）
+
+審查者：Claude（2026-10-21）。結論：**修正後通過**，並套用工作單交付後的 BD-060 第 26～29 點。
+
+**套用 BD-060 第 26～29 點**
+
+1. **第 26 點**：排班表點已完成假單的格子，打開同一個請假視窗並可直接銷假（GPT 已做，確認可用）。
+2. **第 27 點，補休只有一種**：migration 停用「換」，既有排班格的「換」改成「補」；`compBalances` 改寫，加班補休、國定假日補休、管理員給予都在同一個餘額，依到期日最早先扣。國定假日補休自該日起可用，於該月的次月底到期；給予時要選國定假日設定中的日期。
+3. **第 29 點，預支綁定國定假日**：假單新增 `advance_holiday_date`／`advance_holiday_name`。預支不扣現有餘額，帳戶另外列「預支 −8 小時（10/10 國慶日）」；只有同一個國定假日的補休給予時才抵銷，多出的部分才進入餘額。該國定假日的補休已給予時不能再預支。純函式測試含使用者舉的例子（3 天餘額、預支國慶 8 小時、用掉 1 天後餘額 2 天且預支仍在）。
+4. **第 28 點，半職、兼職特休依比例**：基準期間為特休年度開始前一年（第一個年度為到職後的六個月），以打卡工時占全時每週 40 小時的比例乘上全時天數 × 8 小時，無條件進位到 30 分鐘；特休年度開始後固定（存 `entitled_minutes`、`basis`）。CY Web 上線前沒有打卡紀錄的期間，由超管用「調整應給時數」修正（`PATCH …/entitlement`，寫稽核）。公式列入每月法規檢查待確認。
+5. 補休可用餘額會先扣掉已排好的未來補休假，避免同一筆補休被重複請。
+
+**其他修正**
+
+- 純函式測試：生理假第 4 天併入病假的測試資料錯誤（29 天病假加 1 天不超過 30 天），改為 30 天。
+- `form-keyboard`：新表單的 `onKeyDown` 放在 `onSubmit` 之前（檢查器遇到 `=>` 會提早結束），5 個表單全部通過。
+- 排班存檔原本逐格查詢是否已有假單（最多 3,100 次），改為整月一次查詢。
+- 假單原本會被排班中**既有**的違規擋下（例如別週早就缺例假），改為只擋這張假單新造成的違規。
+- 書面通知列印原本設定全域 `@page` A4 直式，會讓月班表也印成直式；改為具名頁面 `hr-notice`，只在列印通知時套用。補上雇主蓋章欄。
+- 請假頁籤重做：門市改下拉選單、年度用上一年／下一年、總表在沒選人時全寬、明細不再擠成一欄；請假視窗從工具列開啟時可選員工；顯示預支與補休來源（加班日期、國定假日名稱、管理員給予）；半職、兼職的特休以小時顯示；顏色改用主題色（深色模式正確）。
+- 排班表新增「補休提醒」：快到期、已到期但還有餘額的補休，以及尚未抵銷的預支。
+- 出勤頁加班欄改為一格：時數＞0 才出現「加班費／補休」，建議時數在旁邊以小按鈕顯示，不再蓋住結算欄。
+- 人員頁的特休卡改為摘要（特休剩餘、補休餘額、預支、待補假單），詳細操作在請假頁籤。
+- Migration 改名為 `0020_hr_phase2b.sql`（ERP 進貨輔助已使用 0019）；備份欄位清單、還原時的預設假別檢查（「換」為停用）同步更新。
+- Deploy workflow 傳遞 `CF_HR_FILES_R2_BUCKET`（使用者已建立 `cyweb-hr-files`）。
+
+**驗證**：`npm run typecheck`、`timeout 300 npm run validate:source`、`node --test scripts/*.test.mjs`、`npm run build`、`npm run validate:d1:local`（含人事 1、2a、2b 驗收與 R2 附檔）全部通過。截圖：請假總表與明細（桌面、手機）、請假視窗（正職整天、補休預支、事假事由、待補假單、手機）、銷假、給予補休、特休書面通知、兼職特休比例與調整、排班表記號與補休提醒、排班格開啟假單銷假、出勤加班欄。

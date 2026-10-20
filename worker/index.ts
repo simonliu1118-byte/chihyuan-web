@@ -19,6 +19,7 @@ import { updateProgramCatalog } from "./programs/release-catalog";
 
 interface Env extends IdentityRuntimeEnv, BackupRuntimeEnv, ErpBridgeEnv, CyInvoiceRecoveryEnv {
   ASSETS?: Fetcher;
+  HR_FILES?: R2Bucket;
   CF_ACCOUNT_ID?: string;
   CF_USAGE_API_TOKEN?: string;
 }

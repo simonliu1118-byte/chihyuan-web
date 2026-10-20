@@ -10,11 +10,15 @@ const entityNames: Record<string,string> = {
   department:"部門",item_category:"商品分類",work_log_category:"日誌類別",
   work_log_platform:"日誌平台",work_log_scoring_row:"計分參考列",work_log_scoring_config:"計分門檻",
   module_access:"使用權",module_access_group:"權限群組",app_tag:"標籤",
-  hr_employee:"人事員工",hr_roster:"人事排班",hr_attendance:"出勤紀錄",hr_status_change:"人事狀態異動",hr_salary_record:"薪資異動",hr_seniority_exclusion:"年資不計期間",hr_setting:"人事設定",
+  hr_leave:"請假紀錄",hr_leave_attachment:"請假證明",hr_annual_leave:"特休通知",hr_overtime:"加班紀錄",hr_comp_time:"補休帳戶",hr_employee:"人事員工",hr_roster:"人事排班",hr_attendance:"出勤紀錄",hr_status_change:"人事狀態異動",hr_salary_record:"薪資異動",hr_seniority_exclusion:"年資不計期間",hr_setting:"人事設定",
   backup:"備份",erp_item_query:"ERP 查詢",erp_item_agent:"ERP 連線服務",
 };
 export const entityLabel = (type: string): string => entityNames[type] ?? "資料";
 export const actionLabels: Record<string,string> = {
+  "hr_leave.created":"新增正式假單","hr_leave.cancelled":"銷假",
+  "hr_leave_attachment.uploaded":"上傳請假證明","hr_annual_leave.notified":"記錄特休書面通知","hr_annual_leave.adjusted":"調整特休應給時數",
+  "hr_overtime.updated":"修改加班標記","hr_comp_time.granted":"給予補休或換休",
+  "hr_comp_time.extended":"延長補休到期日","hr_comp_time.settled":"到期補休轉加班費",
   "hr_roster.updated":"更新月排班表","hr_attendance.updated":"更新打卡紀錄",
   "hr_employee.created":"新增人事資料","hr_employee.updated":"修改人事資料",
   "hr_employee.status_changed":"異動人事狀態","hr_employee.national_id.viewed":"查看完整身分證字號",

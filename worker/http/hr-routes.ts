@@ -4,6 +4,7 @@ import { identitySnapshot, identityTarget } from "./module-access-routes";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
 import { HrService } from "../hr/hr-service";
 import { handleHrPhase2aRoute } from "./hr-phase2a-routes";
+import {handleHrPhase2bRoute,type HrFilesEnv} from "./hr-phase2b-routes";
 import { HrValidationError, date, integer, object, required } from "../hr/hr-validation";
 import { AuditService } from "../audit/audit-service";
 import { failure, success } from "./response";
@@ -11,7 +12,7 @@ import { failure, success } from "./response";
 function bad(message:string,requestId:string,status=422,code="HR_VALIDATION_ERROR"):Response {
  return failure({code,message},requestId,status);
 }
-export async function handleHrRoute(request:Request,env:IdentityRuntimeEnv,requestId:string):Promise<Response|null>{
+export async function handleHrRoute(request:Request,env:IdentityRuntimeEnv & HrFilesEnv,requestId:string):Promise<Response|null>{
  const url=new URL(request.url);
  if(!url.pathname.startsWith("/api/business/hr/"))return null;
  // The identity gate is authoritative. HR never participates in CYWEB_MODULES or role-projected UI permissions.
@@ -25,6 +26,8 @@ export async function handleHrRoute(request:Request,env:IdentityRuntimeEnv,reque
  if(!member.isActive)return failure({code:"ACCESS_DENIED",message:"使用者已停用"},requestId,403);
  const service=new HrService(env.DB);
  const ctx={actor:member.id,requestId,now:new Date().toISOString()};
+ const phase2b=await handleHrPhase2bRoute(request,env.DB,ctx,env);
+ if(phase2b)return phase2b;
  const phase2a=await handleHrPhase2aRoute(request,env.DB,ctx);
  if(phase2a)return phase2a;
  const body=async()=>object(await request.json().catch(()=>null));
@@ -70,7 +73,7 @@ export async function handleHrRoute(request:Request,env:IdentityRuntimeEnv,reque
   if(employeeId && Number.isSafeInteger(employeeId)){
     const path=idPath?.[2]??"";
     if(!path && request.method==="GET")return success(await service.get(employeeId),requestId);
-    if(!path && request.method==="DELETE"){await service.remove(employeeId,await body(),ctx);return success({deleted:true},requestId);}
+    if(!path && request.method==="DELETE"){await service.remove(employeeId,await body(),ctx,env.HR_FILES);return success({deleted:true},requestId);}
     if(!path && request.method==="PATCH")return success(await service.update(employeeId,await withMember(await body()),ctx),requestId);
     if(path==="status-changes" && request.method==="POST")return success(await service.statusChange(employeeId,await body(),ctx),requestId);
     if(path==="seniority-exclusions" && request.method==="POST")return success(await service.addExclusion(employeeId,await body(),ctx),requestId);

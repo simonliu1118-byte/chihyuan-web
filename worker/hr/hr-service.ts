@@ -168,17 +168,23 @@ export class HrService {
     return this.exclusions(id);
   }
   // Temporary for testing (BD-059): super admin removes an employee and every HR row under it. Removed before launch.
-  async remove(id:number,raw:unknown,ctx:HrContext) {
+  async remove(id:number,raw:unknown,ctx:HrContext,files?:R2Bucket) {
     const row=await this.db.prepare("SELECT employee_no,name FROM hr_employees WHERE id=?").bind(id).first<{employee_no:string;name:string}>();
     if(!row)throw new HrValidationError("id","員工不存在",404);
     if(object(raw).confirmEmployeeNo!==row.employee_no)throw new HrValidationError("confirmEmployeeNo","請輸入正確的員工編號確認刪除");
+    const filesToDelete=(await this.db.prepare("SELECT object_key FROM hr_leave_attachments WHERE batch_id IN (SELECT batch_id FROM hr_leave_records WHERE employee_id=?) LIMIT 1001").bind(id).all<{object_key:string}>()).results??[];
+    if(filesToDelete.length>1000)throw new HrValidationError("files","附件超過單次刪除安全上限 1,000 筆；已中止，避免留下無主檔案",422);
     const del=(sql:string)=>this.db.prepare(sql).bind(id);
     await this.db.batch([
       del("DELETE FROM hr_salary_allowances WHERE salary_record_id IN (SELECT id FROM hr_salary_records WHERE employee_id=?)"),
+      del("DELETE FROM hr_leave_attachments WHERE batch_id IN (SELECT batch_id FROM hr_leave_records WHERE employee_id=?)"),
+      del("DELETE FROM hr_comp_time_settlements WHERE employee_id=?"),
+      ...["hr_leave_records","hr_annual_leave_years","hr_overtime_days","hr_comp_time_grants"].map(t=>del("DELETE FROM "+t+" WHERE employee_id=?")),
       ...["hr_salary_records","hr_emergency_contacts","hr_education","hr_work_history","hr_status_changes","hr_seniority_exclusions","hr_schedule_days","hr_roster_approvals","hr_attendance_days"].map(t=>del(`DELETE FROM ${t} WHERE employee_id=?`)),
       del("DELETE FROM hr_employees WHERE id=?"),
       audit(this.db,ctx,"hr_employee",row.employee_no,"hr_employee.deleted",{employeeNo:row.employee_no,name:row.name},null),
     ]);
+    if(files)await Promise.all(filesToDelete.map(f=>files.delete(f.object_key)));
   }
   async removeExclusion(id:number,exclusionId:number,ctx:HrContext) {
     const row=await this.db.prepare("SELECT * FROM hr_seniority_exclusions WHERE id=? AND employee_id=?").bind(exclusionId,id).first();

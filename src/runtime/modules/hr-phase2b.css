@@ -1,0 +1,24 @@
+.cy-hr-leave{min-width:0}.hr-leave-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.hr-leave-toolbar label{display:flex;align-items:center;gap:6px}.hr-leave-toolbar input{max-width:140px}
+.cy-hr-leave-md{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px}.hr-leave-row{cursor:pointer}.hr-leave-item{display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--cy-border);padding:8px 0;flex-wrap:wrap}
+.hr-leave-pending{color:var(--cy-warning);background:var(--cy-warning-soft);border-radius:5px;padding:1px 7px}.hr-leave-roster-pending::after{content:"";position:absolute;right:2px;top:2px;width:0;height:0;border-top:7px solid #eaa52a;border-left:7px solid transparent}
+.hr-leave-pending-title{border:1px dashed #d79b37}.hr-expired{border-left:3px solid var(--cy-danger);padding-left:10px}.hr-expiring{border-left:3px solid var(--cy-warning);padding-left:10px}
+.hr-leave-notice{max-width:210mm;margin:auto;padding:16mm;font-family:serif;background:white;color:#111}.hr-leave-notice h1{text-align:center;font-size:19pt;margin-bottom:15mm}.hr-leave-signature{margin-top:20mm}
+@media(max-width:700px){.cy-hr-leave-md{display:block}.hr-leave-toolbar{gap:6px}}
+/* The notice prints on its own named A4 portrait page; the roster keeps its landscape @page. */
+@page hr-notice{size:A4 portrait;margin:12mm}
+@media print{body.hr-printing-notice *{visibility:hidden!important}body.hr-printing-notice .hr-leave-notice,body.hr-printing-notice .hr-leave-notice *{visibility:visible!important}
+ body.hr-printing-notice .hr-leave-notice{page:hr-notice;position:absolute;inset:0;width:100%!important;max-width:none!important}}
+.hr-roster-cell.hr-leave-pending::after{content:'';position:absolute;right:2px;top:2px;width:0;height:0;border-top:7px solid #eaa52a;border-left:7px solid transparent}@media print{.hr-roster-cell.hr-leave-pending::after{display:none!important}}
+
+.hr-leave-advance{margin-left:6px;color:var(--cy-warning);background:var(--cy-warning-soft);border-radius:5px;padding:0 6px;font-size:.85em}
+.hr-leave-owed{color:var(--cy-warning);border-left:3px solid var(--cy-warning);padding-left:10px}
+.hr-leave-item.cancelled{color:var(--cy-text-muted);text-decoration:line-through}.hr-leave-item.cancelled small{text-decoration:none}
+.hr-leave-summary td,.hr-leave-summary th{white-space:nowrap}.hr-leave-row.active{background:var(--cy-accent-soft)}
+.hr-leave-attachments{display:grid;gap:12px}.hr-leave-attachments img{max-width:100%;height:auto}
+.hr-comp-alerts{border-left:3px solid var(--cy-warning)}
+.hr-overtime-cell{white-space:nowrap}.hr-overtime-cell .cy-op-input{width:auto;min-width:0;display:inline-block;margin-right:4px}
+.hr-leave-toolbar label{white-space:nowrap}
+@media(min-width:701px){.cy-hr-leave-md[data-pane="list"]{grid-template-columns:minmax(0,1fr)}.cy-hr-leave-md[data-pane="list"] .cy-md-detail{display:none}
+ .cy-hr-leave-md[data-pane="detail"]{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr)}}
+.cy-hr-leave .cy-md-list h3{padding:12px 14px 0}
+.cy-op-form > label.cy-hr-check{display:flex;align-items:center;gap:8px;color:var(--cy-text)}

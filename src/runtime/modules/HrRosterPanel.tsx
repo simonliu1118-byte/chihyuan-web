@@ -4,6 +4,7 @@ import {taipeiToday} from "../../../shared/erp-query-history";
 import {useUnsavedChangesGuard} from "../../ui/foundation/useUnsavedChangesGuard";
 import {Dialog} from "../../ui/overlays/Dialog";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
+import {HrLeaveDialog,type LeavePerson,type LeaveTypeOption,type CompletedLeaveInfo} from "./HrLeaveDialog";
 import type {RosterResult,RosterViolation} from "../../../shared/hr-roster";
 import "./hr-phase2a.css";
 type Store={id:number;name:string;cycle_anchor_date:string;rules_template:string};
@@ -13,7 +14,7 @@ type Leave={id:number;code:string;name:string;is_active:number};
 type Cell={employee_id:number;work_date:string;kind:string;shift_type_id:number|null;leave_type_id:number|null;off_mark:string|null;hours:number|null;marker:string|null;note:string};
 type Change={employeeId:number;date:string;kind:"shift"|"hours"|"off"|"leave"|null;offMark?:string;shiftTypeId?:number;leaveTypeId?:number;hours?:number;startTime?:string;endTime?:string;marker?:string;note?:string};
 type Approval={employeeId:number;kind:"consecutive"|"over_eight";startDate:string;endDate:string;suggestion:string};
-type Ro={store:Store;month:string;bounds:{start:string;finish:string;first:string;end:string};employees:Staff[];shifts:Shift[];leaveTypes:Leave[];
+type Ro={leaveForms:{employee_id:number;work_date:string;whole_day:number;minutes:number;code:string;batch_id:string}[];store:Store;month:string;bounds:{start:string;finish:string;first:string;end:string};employees:Staff[];shifts:Shift[];leaveTypes:Leave[];
  holidays:{date:string;name:string}[];days:Cell[];classification:Record<string,RosterResult>;staffing:Record<string,Record<string,number>>;actualHours:Record<string,Record<string,number>>;notes:string;rules:string;approvals:unknown[]};
 const ROOT="/api/business/hr",dayMs=86400000,weekdays=["日","一","二","三","四","五","六"];
 const monthDates=(m:string)=>{const [y,n]=m.split("-").map(Number);return Array.from({length:new Date(Date.UTC(y,n,0)).getUTCDate()},(_,i)=>m+"-"+String(i+1).padStart(2,"0"))};
@@ -26,6 +27,10 @@ export function HrRosterPanel() {
  const [pending,setPending]=useState<Approval[]>([]);
  const [cell,setCell]=useState<{employeeId:number;date:string}|null>(null),[hours,setHours]=useState(""),[marker,setMarker]=useState(""),[note,setNote]=useState(""),[showAllLeave,setShowAllLeave]=useState(false);
  const [staff,setStaff]=useState<Record<number,{sort:string;skip:boolean}>|null>(null);
+ const [leaveDialogPerson,setLeaveDialogPerson]=useState<LeavePerson|null>(null);
+ const [formalLeaveTypes,setFormalLeaveTypes]=useState<LeaveTypeOption[]>([]);
+ const [leaveInitialDate,setLeaveInitialDate]=useState<string|undefined>(undefined);
+ const [completedLeave,setCompletedLeave]=useState<CompletedLeaveInfo|null>(null);
  const {confirm,confirmationDialog}=useConfirmation();
  const dirty=Object.keys(changes).length>0||!!data&&(notes!==data.notes||rules!==data.rules);
  useUnsavedChangesGuard({active:dirty,blocked:loading,message:"排班尚未儲存，確定離開？"});
@@ -33,6 +38,14 @@ export function HrRosterPanel() {
  // Saved-roster violations show on load; a rejected save replaces them with what the server found in the edit.
  const saved=useMemo(()=>Object.entries(data?.classification??{}).flatMap(([id,r])=>r.violations.map(v=>({...v,employeeId:Number(id)}))),[data]);
  const shown=violations.length?violations:dirty?[]:saved;
+ useEffect(()=>{void apiRequest<LeaveTypeOption[]>(ROOT+"/settings/leave-types").then(setFormalLeaveTypes).catch(()=>{});},[]);
+ // Comp time reminders (BD-060 #27): credits about to expire or expired with hours left, and advances still owed.
+ const [compAlerts,setCompAlerts]=useState<string[]>([]);
+ useEffect(()=>{if(!storeId)return;void apiRequest<{employees:{name:string;comp:{advances:{holidayName:string;outstandingMinutes:number}[];credits:{remainingMinutes:number;expiresOn:string;expired:boolean;expiringSoon:boolean}[]}}[]}>(ROOT+"/leave/summary?year="+month.slice(0,4)+"&storeId="+storeId)
+  .then(x=>setCompAlerts(x.employees.flatMap(e=>[
+   ...e.comp.credits.filter(c=>c.remainingMinutes>0&&(c.expired||c.expiringSoon)).map(c=>e.name+"：補休 "+(c.remainingMinutes/60).toFixed(1)+" 小時"+(c.expired?"已於 ":"將於 ")+c.expiresOn.replaceAll("-","/")+" 到期"),
+   ...e.comp.advances.filter(a=>a.outstandingMinutes>0).map(a=>e.name+"：預支 "+a.holidayName+" 補休 "+(a.outstandingMinutes/60).toFixed(1)+" 小時，尚未抵銷")
+  ]))).catch(()=>setCompAlerts([]))},[storeId,month]);
  useEffect(()=>{void apiRequest<Store[]>(ROOT+"/settings/stores").then(x=>{setStores(x);setStoreId(x[0]?.id??0)}).catch(e=>setError(String(e)))},[]);
  const reload=useCallback(async()=>{
   if(!storeId)return;setLoading(true);
@@ -104,27 +117,32 @@ export function HrRosterPanel() {
     <th rowSpan={2}>備註</th></tr><tr>{dates.map(d=><th key={d}>{weekdays[new Date(d+"T00:00:00Z").getUTCDay()]}</th>)}</tr></thead>
     <tbody>{data.employees.map((staff,i)=><tr key={staff.id} className={i>0&&data.employees[i-1].job_title_id!==staff.job_title_id?"hr-group-start":""}>
      <td>{staff.job_title_name??"未設定"}</td><th scope="row">{staff.name}</th>
-     {dates.map(d=>{const value=staged.get(staff.id+"|"+d),bad=shown.some(x=>x.employeeId===staff.id&&x.dates.includes(d)),sixth=data.classification[String(staff.id)]?.sixthDays.includes(d);
+     {dates.map(d=>{const value=staged.get(staff.id+"|"+d),form=data.leaveForms.find(x=>x.employee_id===staff.id&&x.work_date===d&&x.whole_day===1),partial=data.leaveForms.filter(x=>x.employee_id===staff.id&&x.work_date===d&&x.whole_day===0),bad=shown.some(x=>x.employeeId===staff.id&&x.dates.includes(d)),sixth=data.classification[String(staff.id)]?.sixthDays.includes(d);
       return <td key={d} className={(holidays.has(d)||[0,6].includes(new Date(d+"T00:00:00Z").getUTCDay())?"hr-holiday ":"")+(bad?"hr-invalid ":"")+(sixth?"hr-sixth ":"")}>
-       <button type="button" id={"hr-roster-"+staff.id+"-"+d} className="hr-roster-cell no-print" onClick={()=>open(staff.id,d)} onKeyDown={e=>keyDown(e,staff,d)} aria-label={staff.name+" "+d}>{staff.schedule_mode==="none"&&value?.kind!=="off"?(data.actualHours[String(staff.id)]?.[d]?.toFixed(1)??""):label(value,staff,d)}{value?.marker?<small>{value.marker==="home"?"居":"擺攤"}</small>:null}</button>
-       <span className="print-only">{staff.schedule_mode==="none"&&value?.kind!=="off"?(data.actualHours[String(staff.id)]?.[d]?.toFixed(1)??""):label(value,staff,d)}</span></td>})}
+       <button type="button" title={value?.kind==="leave"&&!form&&data.leaveTypes.find(x=>x.id===value.leave_type_id)?.code!=="國"?"尚未補假單":form?"已完成假單":""} id={"hr-roster-"+staff.id+"-"+d} className={"hr-roster-cell no-print "+(value?.kind==="leave"&&!form&&data.leaveTypes.find(x=>x.id===value.leave_type_id)?.code!=="國"?"hr-leave-pending":"")} onClick={()=>open(staff.id,d)} onKeyDown={e=>keyDown(e,staff,d)} aria-label={staff.name+" "+d}>{staff.schedule_mode==="none"&&value?.kind!=="off"?(data.actualHours[String(staff.id)]?.[d]?.toFixed(1)??""):label(value,staff,d)}{value?.marker?<small>{value.marker==="home"?"居":"擺攤"}</small>:null}{partial.map(x=><small key={x.batch_id}>{x.code+(x.minutes/60)}</small>)}</button>
+       <span className="print-only">{partial.map(x=>x.code+(x.minutes/60)).join(" ")}{staff.schedule_mode==="none"&&value?.kind!=="off"?(data.actualHours[String(staff.id)]?.[d]?.toFixed(1)??""):label(value,staff,d)}</span></td>})}
      <td>{staff.schedule_mode==="hours"||staff.schedule_mode==="none"?"合計 "+dates.reduce((sum,d)=>sum+(staff.schedule_mode==="none"?(data.actualHours[String(staff.id)]?.[d]??0):(staged.get(staff.id+"|"+d)?.hours??0)),0).toFixed(1)+"h":""}</td>
     </tr>)}
     <tr className="hr-staffing"><th colSpan={2}>每日人力</th>{dates.map(d=><td key={d}>{Object.entries(data.staffing[d]??{}).map(([k,v])=>k+v).join(" ")}</td>)}<td/></tr>
     <tr><th colSpan={2}>備註</th><td colSpan={dates.length+1}><textarea className="cy-op-input no-print" value={notes} onChange={e=>setNotes(e.target.value)}/><span className="print-only">{notes}</span></td></tr>
     <tr><th colSpan={2}>注意事項</th><td colSpan={dates.length+1}><textarea className="cy-op-input no-print" value={rules} onChange={e=>setRules(e.target.value)}/><span className="print-only">{rules}</span></td></tr></tbody></table></div>
+   {compAlerts.length?<div className="cy-op-panel no-print hr-comp-alerts"><h3>補休提醒</h3>{compAlerts.map(x=><p key={x}>{x}</p>)}</div>:null}
    {shown.length?<div className="cy-op-panel no-print"><h3>違規清單</h3>{shown.map((x,i)=><p key={i}>{data.employees.find(e=>e.id===x.employeeId)?.name??""}　{x.from}～{x.to}：{x.message}</p>)}</div>:null}
    {pending.length?<div className="cy-op-panel no-print"><h3>主管核准</h3>{pending.map((x,i)=><p key={i}>{data.employees.find(e=>e.id===x.employeeId)?.name??x.employeeId}　{x.startDate}～{x.endDate}　{x.kind==="over_eight"?"兼職超過八小時":"連六"}。{x.suggestion}</p>)}
     <button type="button" className="cy-op-button primary" onClick={()=>void submit(pending)}>核准並儲存</button></div>:null}
   </>:<p>正在讀取排班…</p>}
   <Dialog open={cell!==null} title={emp?emp.name+"　"+cell?.date:"排班格"} size="medium" onClose={()=>setCell(null)}>
    {cell&&emp&&data?<div className="cy-op-form">
+    {staged.get(cell.employeeId+"|"+cell.date)?.kind==="leave"?<button type="button" className="cy-op-button primary" onClick={()=>{setLeaveInitialDate(cell.date);
+      const existing=data.leaveForms.find(x=>x.employee_id===cell.employeeId&&x.work_date===cell.date&&x.whole_day===1);
+      setCompletedLeave(existing?{batchId:existing.batch_id,date:existing.work_date,code:existing.code,minutes:existing.minutes}:null);
+      setLeaveDialogPerson({id:emp.id,name:emp.name,employee_no:emp.employee_no,employment_type:emp.employment_type});setCell(null)}}>{data.leaveForms.some(x=>x.employee_id===cell.employeeId&&x.work_date===cell.date)?"查看／補填假單":"補假單"}</button>:null}
     {emp.schedule_mode==="shift"?<div className="hr-cell-choices">{data.shifts.filter(x=>x.is_active).map(x=><button type="button" key={x.id} className="cy-op-button" onClick={()=>setChoice("shift",{shiftTypeId:x.id})}>{x.code} {x.name}</button>)}</div>:null}
     {emp.schedule_mode==="hours"?<><label>排定時數<input className="cy-op-input" type="number" step=".25" min=".25" max="24" value={hours} onChange={e=>setHours(e.target.value)}/></label><button type="button" className="cy-op-button" onClick={()=>setChoice("hours",{hours:Number(hours)})}>套用時數</button></>:null}
     <div className="hr-cell-choices">{emp.schedule_mode!=="none"?<button type="button" className="cy-op-button" onClick={()=>setChoice("off",{offMark:"slash"})}>/　例休日</button>:null}
      {emp.employment_type==="casual"?<button type="button" className="cy-op-button" onClick={()=>setChoice("off",{offMark:"x"})}>X　不用來</button>:null}
      <button type="button" className="cy-op-button" onClick={()=>setChoice(null)}>清除</button></div>
-    {emp.schedule_mode!=="none"?<><div className="hr-cell-choices">{data.leaveTypes.filter(x=>x.is_active&&(showAllLeave||["特","事","病","補","換"].includes(x.code))).map(x=><button type="button" key={x.id} className="cy-op-button" onClick={()=>setChoice("leave",{leaveTypeId:x.id})}>{x.code} {x.name}</button>)}</div>
+    {emp.schedule_mode!=="none"?<><div className="hr-cell-choices">{data.leaveTypes.filter(x=>x.is_active&&(showAllLeave||["特","事","病","補"].includes(x.code))).map(x=><button type="button" key={x.id} className="cy-op-button" onClick={()=>setChoice("leave",{leaveTypeId:x.id})}>{x.code} {x.name}</button>)}</div>
      <button type="button" className="cy-op-button" onClick={()=>setShowAllLeave(x=>!x)}>更多假別</button>
      <label>註記<select className="cy-op-input" value={marker} onChange={e=>setMarker(e.target.value)}><option value="">無</option><option value="home">居家工作</option><option value="booth">擺攤</option></select></label>
      <label>備註<input className="cy-op-input" value={note} onChange={e=>setNote(e.target.value)}/></label></>:null}
@@ -139,6 +157,7 @@ export function HrRosterPanel() {
      await apiRequest(ROOT+"/rosters/"+storeId+"/"+month+"/staff",{method:"PATCH",json:{employeeId:x.id,rosterSort:Number(v.sort||0),skipRosterChecks:v.skip}});await reload();setNotice("已更新 "+x.name+" 的排班設定");
     }catch(e){setError(e instanceof Error?e.message:"儲存失敗")}}}>儲存</button></div>}):null}
   </Dialog>
+  <HrLeaveDialog person={leaveDialogPerson} types={formalLeaveTypes.length?formalLeaveTypes:data?.leaveTypes??[]} initialDate={leaveInitialDate} initialTypeId={leaveDialogPerson&&leaveInitialDate?data?.days.find(x=>x.employee_id===leaveDialogPerson.id&&x.work_date===leaveInitialDate)?.leave_type_id??undefined:undefined} completed={completedLeave} onClose={()=>{setLeaveDialogPerson(null);setCompletedLeave(null)}} onSaved={()=>{void reload()}}/>
   {confirmationDialog}
  </section>;
 }

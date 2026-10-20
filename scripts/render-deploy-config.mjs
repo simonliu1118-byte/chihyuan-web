@@ -141,6 +141,13 @@ export function renderDeployConfig({
     rendered = JSON.stringify(config, null, 2) + "\n";
   }
 
+  const hrFilesBucket = String(env.CF_HR_FILES_R2_BUCKET ?? "").trim();
+  if(hrFilesBucket){
+    if(!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(hrFilesBucket))throw new Error("Invalid CF_HR_FILES_R2_BUCKET");
+    const config = JSON.parse(rendered);
+    config.r2_buckets = [...(config.r2_buckets ?? []), {binding:"HR_FILES",bucket_name:hrFilesBucket}];
+    rendered = JSON.stringify(config,null,2)+"\n";
+  }
   const absoluteOutput = path.resolve(outputPath);
   fs.writeFileSync(absoluteOutput, rendered, { encoding: "utf8", mode: 0o600 });
   return absoluteOutput;

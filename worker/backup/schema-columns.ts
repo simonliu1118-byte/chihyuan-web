@@ -1,6 +1,5 @@
 // Generated from canonical forward migrations; validate_schema.py checks exact equality.
-export const BACKUP_COLUMNS: Record<string, string[]> = 
-{
+export const BACKUP_COLUMNS: Record<string, string[]> = {
   "app_member_module_access": [
     "enabled",
     "member_id",
@@ -282,6 +281,18 @@ export const BACKUP_COLUMNS: Record<string, string[]> =
     "last_id",
     "table_name"
   ],
+  "hr_annual_leave_years": [
+    "basis",
+    "employee_id",
+    "entitled_days",
+    "entitled_minutes",
+    "entitled_minutes_override",
+    "id",
+    "notified_by",
+    "notified_on",
+    "period_end",
+    "period_start"
+  ],
   "hr_attendance_days": [
     "employee_id",
     "id",
@@ -295,6 +306,27 @@ export const BACKUP_COLUMNS: Record<string, string[]> =
     "updated_at",
     "updated_by",
     "work_date"
+  ],
+  "hr_comp_time_grants": [
+    "created_at",
+    "created_by",
+    "employee_id",
+    "expires_on",
+    "extended_count",
+    "holiday_date",
+    "holiday_name",
+    "id",
+    "kind",
+    "minutes",
+    "note"
+  ],
+  "hr_comp_time_settlements": [
+    "created_at",
+    "created_by",
+    "employee_id",
+    "id",
+    "minutes",
+    "overtime_day_id"
   ],
   "hr_education": [
     "degree",
@@ -354,12 +386,57 @@ export const BACKUP_COLUMNS: Record<string, string[]> =
     "sort_order",
     "updated_at"
   ],
+  "hr_leave_attachments": [
+    "batch_id",
+    "bytes",
+    "content_type",
+    "created_at",
+    "created_by",
+    "grayscale",
+    "height",
+    "id",
+    "object_key",
+    "width"
+  ],
+  "hr_leave_records": [
+    "advance_holiday_date",
+    "advance_holiday_name",
+    "batch_id",
+    "cancel_reason",
+    "cancelled_at",
+    "cancelled_by",
+    "created_at",
+    "created_by",
+    "employee_id",
+    "end_time",
+    "event_date",
+    "event_quota_days",
+    "id",
+    "leave_type_id",
+    "minutes",
+    "reason",
+    "start_time",
+    "whole_day",
+    "work_date"
+  ],
   "hr_leave_types": [
+    "accepts_proof",
     "code",
+    "comp_kind",
+    "counts_calendar_days",
+    "event_quota_options",
     "id",
     "is_active",
     "is_statutory",
+    "legal_basis",
+    "merge_after_days",
+    "merge_into_type_id",
     "name",
+    "needs_form",
+    "pay_ratio",
+    "quota_days",
+    "quota_period",
+    "requires_reason",
     "sort_order",
     "updated_at"
   ],
@@ -370,6 +447,19 @@ export const BACKUP_COLUMNS: Record<string, string[]> =
     "hourly_amount",
     "id",
     "monthly_amount"
+  ],
+  "hr_overtime_days": [
+    "comp_expires_on",
+    "comp_extended_count",
+    "employee_id",
+    "id",
+    "minutes",
+    "note",
+    "revision",
+    "settlement",
+    "updated_at",
+    "updated_by",
+    "work_date"
   ],
   "hr_roster_approvals": [
     "approved_at",

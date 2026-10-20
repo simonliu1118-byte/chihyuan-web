@@ -155,6 +155,7 @@ jobs:
       CF_BACKUP_ENABLED: ${{ vars.CF_BACKUP_ENABLED }}
       CF_BACKUP_SCHEDULE_ENABLED: ${{ vars.CF_BACKUP_SCHEDULE_ENABLED }}
       CF_BACKUP_R2_BUCKET: ${{ vars.CF_BACKUP_R2_BUCKET }}
+      CF_HR_FILES_R2_BUCKET: ${{ vars.CF_HR_FILES_R2_BUCKET }}
       GCS_BUCKET: ${{ vars.GCS_BUCKET }}
 
     steps:

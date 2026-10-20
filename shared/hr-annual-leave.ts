@@ -43,3 +43,46 @@ export function annualLeaveSchedule(seniorityStart: string, exclusions: readonly
   }
   return result;
 }
+
+export interface AnnualLeaveUse {workDate:string;minutes:number;cancelledAt?:string|null}
+export interface AnnualLeaveLedgerRow {
+ periodStart:string;periodEnd:string;entitledDays:number;carriedInDays:number;
+ usedCarriedDays:number;usedCurrentDays:number;remainingDays:number;carriedOutDays:number;expiredUnpaidDays:number;
+ entitledMinutes:number;remainingMinutes:number;expiredUnpaidMinutes:number;
+}
+/** A period may carry its own entitlement in minutes (part-time proration); otherwise days × 480. */
+export type LedgerPeriod=AnnualLeavePeriod&{entitledMinutes?:number|null};
+export function annualLeaveLedger(periods:readonly LedgerPeriod[],records:readonly AnnualLeaveUse[],asOf:string):AnnualLeaveLedgerRow[] {
+ const ordered=[...periods].sort((a,b)=>a.periodStart.localeCompare(b.periodStart));
+ const paid=records.filter(x=>!x.cancelledAt);
+ const result:AnnualLeaveLedgerRow[]=[];let carry=0;
+ for(const p of ordered){
+  const closed=p.periodEnd<asOf,entitled=p.entitledMinutes??p.days*480;
+  const used=paid.filter(x=>x.workDate>=p.periodStart&&x.workDate<=p.periodEnd&&x.workDate<=asOf).reduce((n,x)=>n+x.minutes,0);
+  const usedCarried=Math.min(carry,used),usedCurrent=used-usedCarried;
+  const currentRemaining=Math.max(0,entitled-usedCurrent),remaining=Math.max(0,carry+entitled-used);
+  const expired=closed?carry-usedCarried:0,carryNext=closed?currentRemaining:0;
+  result.push({periodStart:p.periodStart,periodEnd:p.periodEnd,entitledDays:entitled/480,carriedInDays:carry/480,
+   usedCarriedDays:usedCarried/480,usedCurrentDays:usedCurrent/480,remainingDays:remaining/480,
+   carriedOutDays:carryNext/480,expiredUnpaidDays:expired/480,
+   entitledMinutes:entitled,remainingMinutes:remaining,expiredUnpaidMinutes:expired});
+  carry=carryNext;
+ }
+ return result;
+}
+
+/**
+ * Part-time annual leave (勞動部「僱用部分時間工作勞工應行注意事項」): the full-time days × 8 hours,
+ * scaled by hours worked in the base period over a full-time 40-hour week for the same span; rounded up to 30 minutes.
+ * The base period is the year before the period starts (the first six months for the first period).
+ */
+export function partTimeBase(periodStart:string,seniorityStart:string):{from:string;to:string}{
+ const start=new Date(periodStart+"T00:00:00Z");start.setUTCFullYear(start.getUTCFullYear()-1);
+ const from=start.toISOString().slice(0,10)<seniorityStart?seniorityStart:start.toISOString().slice(0,10);
+ return {from,to:new Date(Date.parse(periodStart+"T00:00:00Z")-86400000).toISOString().slice(0,10)};
+}
+export function partTimeEntitlementMinutes(days:number,workedMinutes:number,from:string,to:string):{minutes:number;fullMinutes:number;ratio:number}{
+ const span=Math.round((Date.parse(to+"T00:00:00Z")-Date.parse(from+"T00:00:00Z"))/86400000)+1;
+ const fullMinutes=Math.round(span*2400/7),ratio=fullMinutes>0?Math.min(1,workedMinutes/fullMinutes):0;
+ return {minutes:Math.ceil(days*480*ratio/30)*30,fullMinutes,ratio};
+}

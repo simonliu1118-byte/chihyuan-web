@@ -17,6 +17,12 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS_DIR = ROOT / "migrations"
 
 EXPECTED_TABLES = {
+    "hr_leave_records",
+    "hr_leave_attachments",
+    "hr_annual_leave_years",
+    "hr_overtime_days",
+    "hr_comp_time_grants",
+    "hr_comp_time_settlements",
     "hr_stores",
     "hr_job_titles",
     "hr_shift_types",
