@@ -15,6 +15,7 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete}:Props){
  const [drafts,setDrafts]=useState<GridLine[]>(()=>[empty(section,-1)]);
  const draftsRef=useRef(drafts);
  const inFlight=useRef(new Set<number>());
+ const skipBlur=useRef(new Set<string>());
  const [editing,setEditing]=useState<Record<string,string>>({});
  useEffect(()=>{draftsRef.current=[empty(section,-1)];setDrafts(draftsRef.current);nextTemp.current=-2;inFlight.current.clear();setEditing({})},[section,kind]);
  const fields=columns[kind];
@@ -53,6 +54,7 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete}:Props){
   e.preventDefault();
   const field=fields[col][0];
   const target=e.currentTarget;
+  if(row.id>0)skipBlur.current.add(row.id+"|"+field);
   commitCell(row,field,target.value);
   if(row.id<0&&((field==="quantityText"||col===fields.length-1)&& (draftsRef.current.find(d=>d.id===row.id)?.itemName||draftsRef.current.find(d=>d.id===row.id)?.itemCode)&&draftsRef.current.find(d=>d.id===row.id)?.quantityText)){
    const next=draftsRef.current[draftsRef.current.findIndex(d=>d.id===row.id)+1];
@@ -71,10 +73,14 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete}:Props){
      const key=row.id+"|"+field,value=editing[key]??getValue(row,field);
      return <td key={field}><input data-order-row={row.id} data-order-field={field} className="cy-op-input"
        aria-label={title+" 第"+(i+1)+"列"} title={title} value={value}
-       disabled={busy&&row.id>0&&false} aria-busy={inFlight.current.has(row.id)||undefined}
+       aria-busy={inFlight.current.has(row.id)||undefined}
        required={field==="itemName"||field==="quantityText"}
        onChange={e=>{setEditing(prev=>({...prev,[key]:e.target.value}));if(row.id<0)setDraftValue(row,field,e.target.value)}}
-       onBlur={e=>commitCell(row,field as keyof GridLine,e.currentTarget.value)}
+       onBlur={e=>{
+        const id=row.id+"|"+field;
+        if(skipBlur.current.delete(id))return;
+        commitCell(row,field as keyof GridLine,e.currentTarget.value);
+       }}
        onKeyDown={e=>enter(e,row,col)} /></td>
     })}
     <td>{row.id>0?<><button type="button" className="cy-op-button quiet" onClick={()=>void onDelete(row)}>刪除</button>
