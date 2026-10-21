@@ -58,7 +58,7 @@ function ErpItemQuery({ job }: { job: ErpJob }) {
       return;
     }
     const value = parseErpCode(itemNo);
-    if (!value) { setError("品號只能輸入 1～40 個英文字母或數字。"); return; }
+    if (!value) { setError("品號只能輸入 1～40 個英文字母、數字或「-」。"); return; }
     await queryItem(value);
   }
   const mine = result && (result.queryType === "ITEM_NO" || result.queryType === "ITEM_NAME") ? result : null;

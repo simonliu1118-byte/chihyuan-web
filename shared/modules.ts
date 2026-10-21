@@ -69,16 +69,26 @@ export function modulesRequiring(code: CyWebModuleCode): CyWebModuleCode[] {
 }
 
 /**
- * Turning one grant on or off for someone who holds <paramref name="held"/>: why it may not be
- * saved, or null. On needs every required grant held; off may not take away what a held grant needs.
+ * Turning one grant on for someone who holds <paramref name="held"/>: why it may not be saved (a
+ * required grant is missing), or null. Turning one off is always allowed: the grants that need it
+ * go off with it (<see cref="modulesDroppedWith"/>; user 2026-10-21).
  */
 export function moduleChangeProblem(held: ReadonlySet<string>, code: CyWebModuleCode, enabled: boolean): string | null {
+  if (!enabled) return null;
+  const needs = MODULE_REQUIREMENTS[code] ?? [];
+  const missing = needs.filter((need) => !held.has(need));
   const names = (codes: readonly CyWebModuleCode[]) => codes.map((c) => `「${moduleLabel(c)}」`).join("、");
-  if (enabled) {
-    const needs = MODULE_REQUIREMENTS[code] ?? [];
-    const missing = needs.filter((need) => !held.has(need));
-    return missing.length ? `「${moduleLabel(code)}」需同時開啟${names(needs)}，請先開啟${names(missing)}。` : null;
-  }
-  const dependents = modulesRequiring(code).filter((dependent) => held.has(dependent));
-  return dependents.length ? `${names(dependents)}需要「${moduleLabel(code)}」，請先關閉${names(dependents)}。` : null;
+  return missing.length ? `「${moduleLabel(code)}」需同時開啟${names(needs)}，請先開啟${names(missing)}。` : null;
+}
+
+/** The held grants that go off when <paramref name="code"/> goes off (進貨輔助 with ERP 商品／客戶查詢). */
+export function modulesDroppedWith(held: ReadonlySet<string>, code: CyWebModuleCode): CyWebModuleCode[] {
+  return modulesRequiring(code).filter((dependent) => held.has(dependent));
+}
+
+/** Why a grant that is off cannot be ticked yet (its required grants are not all on), or null. */
+export function moduleLockReason(held: ReadonlySet<string>, code: CyWebModuleCode): string | null {
+  const needs = MODULE_REQUIREMENTS[code] ?? [];
+  const missing = needs.filter((need) => !held.has(need));
+  return held.has(code) || !missing.length ? null : `需先開啟${missing.map((need) => `「${moduleLabel(need)}」`).join("、")}`;
 }

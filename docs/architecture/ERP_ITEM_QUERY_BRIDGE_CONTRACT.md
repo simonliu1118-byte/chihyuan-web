@@ -126,7 +126,7 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
   - `{"queryType":"CUSTOMER_NO","customerCode":"CU0001"}`、`{"queryType":"CUSTOMER_NAME","keyword":"假"}`（關鍵字規則同品名）。
   - `{"queryType":"SALES","customerCode":"CU0001","dateFrom":null,"dateTo":null}`：單據日期與歷史異動共用 `resolveDateRange`（未填＝去年同月同日至臺北今天、最多三個曆年），錯誤 400 `INVALID_DATE_RANGE`。
   - `{"queryType":"RECEIVABLE","scope":"CUSTOMER"|"SALESPERSON"|"ALL","code":"…"}`；ALL 不可帶 code。
-  - 品號、客戶代號、業務員代號一律 1～40 個英文字母或數字（與 Agent 相同），否則 400 `INVALID_ITEM_NO`／`INVALID_CODE`。
+  - 品號、客戶代號、業務員代號一律 1～40 個英文字母、數字或「-」，第一個字須為英文字母或數字（使用者 2026-10-21；與 Agent V0.10.2 Build 4 相同），否則 400 `INVALID_ITEM_NO`／`INVALID_CODE`。
   - GET 增加 `code`、`scope`、`dateFrom`、`dateTo`、`orders`、`bills`；讀取時再次即時檢查該類型的 Module Access。
 - **Agent claim**：body 必須帶 `queryTypes`（Agent 支援的類型），缺少或含未知類型回 400 `INVALID_AGENT_REQUEST`；只派這些類型的工作。回傳依類型只含所需欄位：CUSTOMER_NO `customerCode`、CUSTOMER_NAME `keyword`、SALES `customerCode,dateFrom,dateTo`、RECEIVABLE `scope,code`、ITEM_NO 另加 `includeCost`。
 - **Agent complete**（非 FAILED 時都要回聲工作識別，Worker 逐一比對）：
@@ -163,7 +163,7 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 ## 進貨輔助（V0.9.24 Build 3）
 
 - 新 Module Access `ERP_RESTOCK_ASSIST`「進貨輔助」，獨立頁面 `#restock-assist`（左邊導覽在「ERP 查詢」下方）。`migrations/0019_erp_restock_assist.sql` 擴充 module_code 與 query_type CHECK。
-- 前提權限（使用者 2026-10-21）：`ERP_RESTOCK_ASSIST` 只在同時具備 `ERP_ITEM_QUERY`、`ERP_CUSTOMER_QUERY` 時有效（`shared/modules.ts` 的 `MODULE_REQUIREMENTS`，`checkModuleAccess`／`allowedModuleCodes` 依此計算）；缺前提時建立或讀取 RESTOCK 回 403，訊息列出需要的權限。Module Access 個人設定開啟它而缺前提、或關閉它仍需要的前提，回 409 `MODULE_REQUIREMENT_MISSING`；權限群組的模組組合缺前提同樣 409。
+- 前提權限（使用者 2026-10-21）：`ERP_RESTOCK_ASSIST` 只在同時具備 `ERP_ITEM_QUERY`、`ERP_CUSTOMER_QUERY` 時有效（`shared/modules.ts` 的 `MODULE_REQUIREMENTS`，`checkModuleAccess`／`allowedModuleCodes` 依此計算）；缺前提時建立或讀取 RESTOCK 回 403，訊息列出需要的權限。Module Access 個人設定開啟它而缺前提回 409 `MODULE_REQUIREMENT_MISSING`；關閉它需要的前提時，它在同一批一併關閉（回應 `alsoDisabled`，各記一筆稽核；使用者 2026-10-21）。權限群組送出的模組組合缺前提回 409（畫面在取消前提時會一併移除進貨輔助再送出）。
 - 查詢類型 `RESTOCK`：`POST /api/erp/item-queries` `{ queryType:"RESTOCK", dateFrom, dateTo }`，兩者必填（YYYY-MM-DD），起 ≤ 迄 ≤ 台北今天，最多 31 天（含頭尾）；存在 `history_from／history_to`。
 - Claim：`{ id, queryType:"RESTOCK", dateFrom, dateTo, expiresAt }`。Agent 查這段期間**所有客戶**的 COPR15 銷貨單與 COPR16 銷退單，依品號與單據日期加總數量，再逐一以 INVI02 查各品號的庫存數量。
 - Complete（outcome FOUND／NOT_FOUND，共通欄位同其他類型）：`dateFrom`、`dateTo` 必須與工作相同；`items` 最多 500 個品號，每個 `{ itemCode, itemName, unit, days:[{date,sold,returned}], sold, returned, stock, stockNote }`。`days` 只列有異動的日期且必須在範圍內、不重複；數量為數字字串；`stock` 為數字字串或 null（`stockNote` 說明原因，例如查無品號）。品號不可空白或重複；其他欄位一律不保存。結果存在 `result_json`（`{ restock, total, truncated }`），讀取時以 `restock` 回傳。NOT_FOUND 表示期間沒有銷貨／銷退單，不得附帶品號。

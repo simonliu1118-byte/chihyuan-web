@@ -3,7 +3,7 @@ import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync, readdirSync } from "node:fs";
 import { build } from "esbuild";
-import { effectiveModules, moduleChangeProblem, moduleRequirementProblem } from "../shared/modules.ts";
+import { effectiveModules, moduleChangeProblem, moduleLockReason, moduleRequirementProblem, modulesDroppedWith } from "../shared/modules.ts";
 
 // 進貨輔助 needs ERP 商品查詢 and ERP 客戶查詢 (user 2026-10-21): the shared rule and the Module
 // Access routes that enforce it, with synthetic employees only.
@@ -17,7 +17,13 @@ test("a grant counts only with the grants it requires", () => {
   assert.equal(moduleRequirementProblem(["ERP_ITEM_QUERY"]), null);
   assert.match(moduleChangeProblem(new Set(["ERP_ITEM_QUERY"]), "ERP_RESTOCK_ASSIST", true), /請先開啟「ERP 客戶查詢」/);
   assert.equal(moduleChangeProblem(new Set(["ERP_ITEM_QUERY", "ERP_CUSTOMER_QUERY"]), "ERP_RESTOCK_ASSIST", true), null);
-  assert.match(moduleChangeProblem(new Set(["ERP_RESTOCK_ASSIST", "ERP_ITEM_QUERY", "ERP_CUSTOMER_QUERY"]), "ERP_ITEM_QUERY", false), /請先關閉「進貨輔助」/);
+  // Off is always allowed; what needs it goes off too (user 2026-10-21).
+  assert.equal(moduleChangeProblem(new Set(["ERP_RESTOCK_ASSIST", "ERP_ITEM_QUERY", "ERP_CUSTOMER_QUERY"]), "ERP_ITEM_QUERY", false), null);
+  assert.deepEqual(modulesDroppedWith(new Set(["ERP_RESTOCK_ASSIST", "ERP_ITEM_QUERY", "ERP_CUSTOMER_QUERY"]), "ERP_ITEM_QUERY"), ["ERP_RESTOCK_ASSIST"]);
+  assert.deepEqual(modulesDroppedWith(new Set(["ERP_ITEM_QUERY"]), "ERP_ITEM_QUERY"), []);
+  assert.match(moduleLockReason(new Set(["ERP_ITEM_QUERY"]), "ERP_RESTOCK_ASSIST"), /需先開啟「ERP 客戶查詢」/);
+  assert.equal(moduleLockReason(new Set(["ERP_ITEM_QUERY", "ERP_CUSTOMER_QUERY"]), "ERP_RESTOCK_ASSIST"), null);
+  assert.equal(moduleLockReason(new Set(["ERP_RESTOCK_ASSIST"]), "ERP_RESTOCK_ASSIST"), null, "a held grant can always be turned off");
   assert.equal(moduleChangeProblem(new Set(["ERP_ITEM_QUERY"]), "ERP_ITEM_QUERY", false), null);
 });
 
@@ -44,7 +50,7 @@ function fixture() {
   return { sql, call, set };
 }
 
-test("saving 進貨輔助 without its requirements, or removing one under it, is refused", async () => {
+test("進貨輔助 needs its requirements, and goes off when one of them does", async () => {
   const { sql, set } = fixture();
   try {
     const refused = await set("ERP_RESTOCK_ASSIST", true);
@@ -56,10 +62,13 @@ test("saving 進貨輔助 without its requirements, or removing one under it, is
     assert.equal((await set("ERP_CUSTOMER_QUERY", true)).status, 200);
     assert.equal((await set("ERP_RESTOCK_ASSIST", true)).status, 200);
     const removing = await set("ERP_CUSTOMER_QUERY", false);
-    assert.equal(removing.status, 409);
-    assert.match(removing.body.error.message, /請先關閉「進貨輔助」/);
-    assert.equal((await set("ERP_RESTOCK_ASSIST", false)).status, 200);
-    assert.equal((await set("ERP_CUSTOMER_QUERY", false)).status, 200);
+    assert.equal(removing.status, 200, JSON.stringify(removing.body));
+    assert.deepEqual(removing.body.data.alsoDisabled, ["ERP_RESTOCK_ASSIST"]);
+    const rows = sql.prepare("SELECT module_code, enabled FROM app_member_module_access ORDER BY module_code").all();
+    assert.deepEqual(rows.map(r => [r.module_code, r.enabled]), [["ERP_CUSTOMER_QUERY", 0], ["ERP_ITEM_QUERY", 1], ["ERP_RESTOCK_ASSIST", 0]]);
+    const audits = sql.prepare("SELECT entity_key FROM audit_events WHERE action='module_access.updated' AND entity_key LIKE '%ERP_RESTOCK_ASSIST' ORDER BY id").all();
+    assert.equal(audits.length, 2, "on, then off with its requirement");
+    assert.equal((await set("ERP_ITEM_QUERY", false)).body.data.alsoDisabled.length, 0);
   } finally { sql.close(); }
 });
 

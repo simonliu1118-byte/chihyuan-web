@@ -46,7 +46,8 @@ export function loadModuleAccessAdminSnapshot(): Promise<ModuleAccessAdminSnapsh
 }
 
 export function setEmployeeModuleAccess(employeeId: string, moduleCode: CyWebModuleCode, enabled: boolean) {
-  return apiRequest<{ access: { employeeId: string; moduleCode: CyWebModuleCode; enabled: boolean; effectiveImmediately: boolean } }>(
+  // alsoDisabled: grants that needed this one and went off with it (進貨輔助, user 2026-10-21).
+  return apiRequest<{ access: { employeeId: string; moduleCode: CyWebModuleCode; enabled: boolean; effectiveImmediately: boolean }; alsoDisabled?: CyWebModuleCode[] }>(
     `/api/module-access/admin/employees/${encodeURIComponent(employeeId)}/modules/${encodeURIComponent(moduleCode)}`,
     { method: "PUT", json: { enabled } },
   );

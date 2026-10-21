@@ -19,7 +19,8 @@ export function erpNameContains(name: string, keyword: string): boolean {
 export function parseErpCode(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const code = value.trim();
-  return /^[A-Za-z0-9]{1,40}$/.test(code) ? code : null;
+  // Letters, digits and 「-」 (user 2026-10-21: 品號 such as K1807003-1), starting with a letter or digit.
+  return /^[A-Za-z0-9][A-Za-z0-9-]{0,39}$/.test(code) ? code : null;
 }
 
 /**

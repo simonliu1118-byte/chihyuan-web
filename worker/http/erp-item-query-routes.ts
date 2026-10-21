@@ -121,10 +121,10 @@ function resultColumn(row: JobRow): string | null {
 }
 function parseItemNo(value: unknown): string {
   // Item numbers are ASCII letters and digits only (user 2026-10-16), the same rule as the Agent.
-  return parseErpCode(value) ?? bad("INVALID_ITEM_NO", "品號只能輸入 1～40 個英文字母或數字");
+  return parseErpCode(value) ?? bad("INVALID_ITEM_NO", "品號只能輸入 1～40 個英文字母、數字或「-」");
 }
 function parseCode(value: unknown, what: string): string {
-  return parseErpCode(value) ?? bad("INVALID_CODE", what + "只能輸入 1～40 個英文字母或數字");
+  return parseErpCode(value) ?? bad("INVALID_CODE", what + "只能輸入 1～40 個英文字母、數字或「-」");
 }
 function parseKeyword(value: unknown, what = "品名"): string {
   const keyword = parseErpNameKeyword(value);

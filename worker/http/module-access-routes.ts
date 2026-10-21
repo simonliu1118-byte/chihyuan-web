@@ -1,4 +1,4 @@
-import { CYWEB_MODULES, isCyWebModuleCode, moduleChangeProblem, type CyWebModuleCode } from "../../shared/modules";
+import { CYWEB_MODULES, isCyWebModuleCode, moduleChangeProblem, modulesDroppedWith, type CyWebModuleCode } from "../../shared/modules";
 import { currentModuleAccess, ensureAppMemberProjection, resolveAppMember } from "../auth/app-access";
 import { requireIdentity, requireModuleAccess } from "../auth/guard";
 import { CYWEB_IDENTITY_COOKIE, cookieValue, isSessionToken, normalizedApplicationId, fetchIdentityProvider } from "../identity/provider-transport";
@@ -170,25 +170,26 @@ async function putEmployeeModule(
   const before = previous?.enabled === 1;
 
   // Required grants (進貨輔助 needs ERP 商品查詢 and ERP 客戶查詢, user 2026-10-21): turning one on
-  // without them, or one of them off under it, is refused rather than widened or narrowed silently.
+  // without them is refused; turning one of them off turns the grants that need it off too.
   const held = await env.DB.prepare(
     "SELECT module_code FROM app_member_module_access WHERE member_id = ?1 AND enabled = 1",
   ).bind(targetMember.id).all<{ module_code: string }>();
-  const problem = moduleChangeProblem(new Set((held.results ?? []).map((row) => row.module_code)), moduleCode, enabled);
+  const heldCodes = new Set((held.results ?? []).map((row) => row.module_code));
+  const problem = moduleChangeProblem(heldCodes, moduleCode, enabled);
   if (problem) return failure({ code: "MODULE_REQUIREMENT_MISSING", message: problem }, requestId, 409);
+  const alsoDisabled = enabled ? [] : modulesDroppedWith(heldCodes, moduleCode);
 
-  const statements: D1PreparedStatement[] = [
-    env.DB.prepare(
+  const statements: D1PreparedStatement[] = [];
+  const write = (code: CyWebModuleCode, on: boolean, was: boolean, cause?: CyWebModuleCode) => {
+    statements.push(env.DB.prepare(
       `INSERT INTO app_member_module_access(member_id, module_code, enabled, updated_at, updated_by)
        VALUES(?1, ?2, ?3, ?4, ?5)
        ON CONFLICT(member_id, module_code) DO UPDATE SET
          enabled = excluded.enabled,
          updated_at = excluded.updated_at,
          updated_by = excluded.updated_by`,
-    ).bind(targetMember.id, moduleCode, enabled ? 1 : 0, now, actorMember.id),
-  ];
-
-  if (before !== enabled) {
+    ).bind(targetMember.id, code, on ? 1 : 0, now, actorMember.id));
+    if (was === on) return;
     statements.push(
       env.DB.prepare(
         `INSERT INTO audit_events(
@@ -198,16 +199,18 @@ async function putEmployeeModule(
            'module_access', ?1, 'module_access.updated', ?2, ?3, ?4, ?5, ?6, ?7
          )`,
       ).bind(
-        `${target.employee_id}:${moduleCode}`,
+        `${target.employee_id}:${code}`,
         actorMember.id,
         now,
         requestId,
-        JSON.stringify({ enabled: before }),
-        JSON.stringify({ enabled }),
-        JSON.stringify({ targetEmployeeId: target.employee_id, moduleCode }),
+        JSON.stringify({ enabled: was }),
+        JSON.stringify({ enabled: on }),
+        JSON.stringify({ targetEmployeeId: target.employee_id, moduleCode: code, ...(cause ? { requiredModuleOff: cause } : {}) }),
       ),
     );
-  }
+  };
+  write(moduleCode, enabled, before);
+  for (const dependent of alsoDisabled) write(dependent, false, true, moduleCode);
   await env.DB.batch(statements);
 
   return success({
@@ -217,6 +220,7 @@ async function putEmployeeModule(
       enabled,
       effectiveImmediately: true,
     },
+    alsoDisabled,
   }, requestId);
 }
 

@@ -49,7 +49,7 @@ export function ErpSupplierQuery({ job }: { job: ErpJob }) {
     }
     const code = parseErpCode(text);
     if (mode === "CODE" || (mode === "PURCHASES" && code)) {
-      if (!code) { setError("廠商代號只能輸入 1～40 個英文字母或數字。"); return; }
+      if (!code) { setError("廠商代號只能輸入 1～40 個英文字母、數字或「-」。"); return; }
       await querySupplier(code, mode === "PURCHASES", dateFrom || null, dateTo || null);
       return;
     }

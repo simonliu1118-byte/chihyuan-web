@@ -62,10 +62,10 @@ test("each query type needs its own ERP grant", async () => {
   } finally { sql.close(); }
 });
 
-test("codes are letters and digits; requests refuse fields of other types", async () => {
+test("codes are letters, digits and a dash; requests refuse fields of other types", async () => {
   const { sql, user } = fixture("SUPER_ADMIN");
   try {
-    for (const body of [{ queryType: "CUSTOMER_NO", customerCode: "CU-01" }, { queryType: "ITEM_NO", itemNo: "A 1" },
+    for (const body of [{ queryType: "CUSTOMER_NO", customerCode: "-CU01" }, { queryType: "ITEM_NO", itemNo: "A 1" },
       { queryType: "RECEIVABLE", scope: "ALL", code: "CU0001" }, { queryType: "RECEIVABLE", scope: "SALESPERSON" },
       { queryType: "CUSTOMER_NAME", keyword: "ÂÅá%" }, { queryType: "SALES", customerCode: "CU0001", itemNo: "X1" }]) {
       const response = await user.create(body);
@@ -145,7 +145,7 @@ test("suppliers need ERP_SUPPLIER_QUERY; the Agent echoes supplierCode and the Â
     assert.equal((await user.create({ queryType: "SUPPLIER_NO", supplierCode: "SU0001" })).status, 403);
     grant("ERP_SUPPLIER_QUERY");
     assert.equal((await user.create({ queryType: "SUPPLIER_NO", customerCode: "SU0001" })).status, 400);
-    assert.equal((await user.create({ queryType: "SUPPLIER_NO", supplierCode: "SU-01" })).status, 400);
+    assert.equal((await user.create({ queryType: "SUPPLIER_NO", supplierCode: "SU_01" })).status, 400);
     const { id } = (await user.create({ queryType: "SUPPLIER_NO", supplierCode: " SU0001 " })).body.data;
     // An Agent without the supplier types does not get the job.
     assert.equal((await agent.claim(["ITEM_NO", "CUSTOMER_NO"])).body.data.job, null);
