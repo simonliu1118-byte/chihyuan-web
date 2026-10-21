@@ -201,9 +201,9 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     if(!finalName)throw new Bad("ORDERING_INVALID","品名與數量必填");
     // Empty draft fields are never treated as manually-entered vendor names.
     const manuallyNamed="vendorItemName" in raw&&String(raw.vendorItemName??"").trim().length>0;
-    const vendorNameFollows=manuallyNamed?false:old?old.vendor_name_follows!==0:!memory?.vendor_item_name;
     const remembered=vendorItemKey(itemCode,finalName);
     const memory=remembered?await one<{vendor_item_code:string;vendor_item_name:string}>(ctx.db,"SELECT vendor_item_code,vendor_item_name FROM ordering_vendor_items WHERE source_id=? AND key_type=? AND item_key=?",o.source_id,remembered.type,remembered.key):null;
+    const vendorNameFollows=manuallyNamed?false:old?old.vendor_name_follows!==0:!memory?.vendor_item_name;
     const manualVendorCode="vendorItemCode" in raw&&String(raw.vendorItemCode??"").trim().length>0;
     const vendorItemName=vendorNameFollows?finalName:manuallyNamed?must(raw.vendorItemName,"vendorItemName",200):old?.vendor_item_name||memory?.vendor_item_name||finalName;
     const vendorCode=manualVendorCode?must(raw.vendorItemCode,"vendorItemCode",200):old?.vendor_item_code||memory?.vendor_item_code||"";
