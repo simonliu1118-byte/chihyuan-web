@@ -1,3 +1,4 @@
+import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import {useEffect,useMemo,useRef,useState,type FormEvent} from "react";
 import {apiRequest,ApiClientError} from "../../api/client";
 import {MasterDetailBack,MasterDetailEmpty,useMasterDetailPane} from "../../ui/layout/MasterDetail";
@@ -232,10 +233,13 @@ export function OrderingPage(){
       <button type="button" className="cy-op-button" onClick={()=>void exportOrder(current)}>匯出 Excel</button></div>
       {sources.find(x=>x.id===current.sourceId)?.kind==="VENDOR"?<p>廠商條件：{sources.find(x=>x.id===current.sourceId)?.conditions} <button type="button" className="cy-op-button" onClick={()=>{const s=sources.find(x=>x.id===current.sourceId);if(s)setSourceForm({id:s.id,kind:"VENDOR",name:s.name,conditions:s.conditions,sortOrder:s.sortOrder,isActive:s.isActive})}}>修改</button></p>:null}
       <form onKeyDown={enterAdvancesFields} onSubmit={e=>e.preventDefault()}>
-       <label>預計送出日期<input type="date" className="cy-op-input" max="9999-12-31" disabled={!editable} value={current.plannedSendDate??""} onChange={e=>{headerDirtyRef.current={...headerDirtyRef.current,date:true};setHeaderDirty(v=>({...v,date:true}));setSelected(v=>v?{...v,plannedSendDate:e.target.value||null}:v)}} onBlur={()=>void saveHeader("date")}/></label>
-       <label>單據備註<input className="cy-op-input" disabled={!editable} value={current.note} onChange={e=>{headerDirtyRef.current={...headerDirtyRef.current,note:true};setHeaderDirty(v=>({...v,note:true}));setSelected(v=>v?{...v,note:e.target.value}:v)}} onBlur={()=>void saveHeader("note")}/></label>
+    <FormSection>
+       <Field  label="預計送出日期" size="s"><input type="date" className="cy-op-input" max="9999-12-31" disabled={!editable} value={current.plannedSendDate??""} onChange={e=>{headerDirtyRef.current={...headerDirtyRef.current,date:true};setHeaderDirty(v=>({...v,date:true}));setSelected(v=>v?{...v,plannedSendDate:e.target.value||null}:v)}} onBlur={()=>void saveHeader("date")}/></Field>
+       <Field  label="單據備註" size="l"><input className="cy-op-input" disabled={!editable} value={current.note} onChange={e=>{headerDirtyRef.current={...headerDirtyRef.current,note:true};setHeaderDirty(v=>({...v,note:true}));setSelected(v=>v?{...v,note:e.target.value}:v)}} onBlur={()=>void saveHeader("note")}/></Field>
        <button type="submit" className="cy-op-button" onClick={()=>{if(headerDirty.date)void saveHeader("date");if(headerDirty.note)void saveHeader("note")}}>儲存</button>
-      </form>
+      
+    </FormSection>
+  </form>
       {(current.sourceKind==="CN_REGULAR"?CN_REGULAR_SECTIONS:[{key:"" as const,label:"叫貨明細"}]).map(group=><div key={group.key}><h4>{group.label}</h4><OrderingGrid kind={current.sourceKind} section={group.key as OrderingSection} key={current.id+"-"+group.key} lines={current.lines} busy={!editable} onCommit={lineCommit} onDelete={removeLine}/></div>)}
       <div className="cy-page-toolbar">{current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button primary" onClick={()=>void sent()}>送出</button>:null}
       {current.storedStatus==="SENT"?<button type="button" className="cy-op-button" onClick={()=>setReceipt({id:current.id,no:"",date:nowDate(),quantities:Object.fromEntries(current.lines.filter(l=>l.quantity!==null&&l.received<l.quantity&&!l.closedAs).map(l=>[l.id,String((l.quantity??0)-l.received)])),selectedLineIds:[]})}>登記到貨</button>:null}
@@ -259,18 +263,27 @@ export function OrderingPage(){
     <button type="button" className="cy-op-button" onClick={()=>setManageSources(false)}>關閉</button>
    </div>
   </Dialog>:null}
-  {sourceForm?<Dialog open title={sourceForm.id?"修改叫貨來源":"新增叫貨來源"} onClose={()=>setSourceForm(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void saveSource(e)}><label>名稱<input className="cy-op-input" required maxLength={40} value={sourceForm.name} onChange={e=>setSourceForm(s=>s?{...s,name:e.target.value}:s)}/></label>
-   <label>條件<input className="cy-op-input" maxLength={500} value={sourceForm.conditions} onChange={e=>setSourceForm(s=>s?{...s,conditions:e.target.value}:s)}/></label>
-   {sourceForm.id?<><label>排序<input type="number" className="cy-op-input" value={sourceForm.sortOrder??0} onChange={e=>setSourceForm(s=>s?{...s,sortOrder:Number(e.target.value)}:s)}/></label>
-   <label><input type="checkbox" checked={sourceForm.isActive??true} onChange={e=>setSourceForm(s=>s?{...s,isActive:e.target.checked}:s)}/>啟用（停用保留歷史單）</label></>:null}
-   <button type="submit" className="cy-op-button primary">儲存</button><button type="button" className="cy-op-button" onClick={()=>setSourceForm(null)}>取消</button></form></Dialog>:null}
+  {sourceForm?<Dialog open title={sourceForm.id?"修改叫貨來源":"新增叫貨來源"} onClose={()=>setSourceForm(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void saveSource(e)}>
+    <FormSection><Field  label="名稱" size="m" required><input className="cy-op-input" maxLength={40} value={sourceForm.name} onChange={e=>setSourceForm(s=>s?{...s,name:e.target.value}:s)}/></Field>
+   <Field  label="條件" size="m"><input className="cy-op-input" maxLength={500} value={sourceForm.conditions} onChange={e=>setSourceForm(s=>s?{...s,conditions:e.target.value}:s)}/></Field>
+   {sourceForm.id?<><Field  label="排序" size="m"><input type="number" className="cy-op-input" value={sourceForm.sortOrder??0} onChange={e=>setSourceForm(s=>s?{...s,sortOrder:Number(e.target.value)}:s)}/></Field>
+   <CheckField  label="啟用（停用保留歷史單）" size="s"  checked={sourceForm.isActive??true} onChange={e=>setSourceForm(s=>s?{...s,isActive:e.target.checked}:s)}/></>:null}
+   <button type="submit" className="cy-op-button primary">儲存</button><button type="button" className="cy-op-button" onClick={()=>setSourceForm(null)}>取消</button>
+    </FormSection>
+  </form></Dialog>:null}
   {receipt&&selected?<Dialog open title="登記到貨" onClose={()=>setReceipt(null)} size="large"><form onKeyDown={enterAdvancesFields} onSubmit={e=>void receive(e)}>
-   <label>ERP 進貨單號 341A-<input className="cy-op-input" required inputMode="numeric" pattern="[0-9]{11}" maxLength={11} value={receipt.no} onChange={e=>setReceipt(v=>v?{...v,no:e.target.value}:v)}/></label>
-   <label>到貨日期<input className="cy-op-input" type="date" max="9999-12-31" required value={receipt.date} onChange={e=>setReceipt(v=>v?{...v,date:e.target.value}:v)}/></label>
-   {selected.lines.filter(l=>l.quantity!==null&&l.received<l.quantity&&!l.closedAs).map(l=><label key={l.id}><input type="checkbox" checked={receipt.selectedLineIds.includes(l.id)} onChange={e=>setReceipt(v=>v?{...v,selectedLineIds:e.target.checked?[...v.selectedLineIds,l.id]:v.selectedLineIds.filter(id=>id!==l.id)}:v)}/>{l.itemName} 剩餘 {(l.quantity??0)-l.received}<input className="cy-op-input" type="number" min="0" max={(l.quantity??0)-l.received} step="any" disabled={!receipt.selectedLineIds.includes(l.id)} value={receipt.quantities[l.id]??String((l.quantity??0)-l.received)} onChange={e=>setReceipt(v=>v?{...v,quantities:{...v.quantities,[l.id]:e.target.value}}:v)}/></label>)}
-   <button type="submit" className="cy-op-button primary">儲存到貨</button><button type="button" className="cy-op-button" onClick={()=>setReceipt(null)}>取消</button></form></Dialog>:null}
-  {closing?<Dialog open title="結掉剩餘量" onClose={()=>setClosing(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void closeRemaining(e)}><label>處理方式<select className="cy-op-input" value={closing.kind} onChange={e=>setClosing(v=>v?{...v,kind:e.target.value as typeof v.kind}:v)}><option value="SHORTAGE">缺貨</option><option value="CANCELLED">取消</option><option value="OTHER">其他</option></select></label>
-   <label>原因<input className="cy-op-input" required={closing.kind==="OTHER"} value={closing.reason} onChange={e=>setClosing(v=>v?{...v,reason:e.target.value}:v)}/></label><button type="submit" className="cy-op-button primary">確認</button><button type="button" className="cy-op-button" onClick={()=>setClosing(null)}>取消</button></form></Dialog>:null}
+    <FormSection>
+   <Field  label="ERP 進貨單號 341A-" size="m" required><input className="cy-op-input" inputMode="numeric" pattern="[0-9]{11}" maxLength={11} value={receipt.no} onChange={e=>setReceipt(v=>v?{...v,no:e.target.value}:v)}/></Field>
+   <Field  label="到貨日期" size="s" required><input className="cy-op-input" type="date" max="9999-12-31" value={receipt.date} onChange={e=>setReceipt(v=>v?{...v,date:e.target.value}:v)}/></Field>
+   {selected.lines.filter(l=>l.quantity!==null&&l.received<l.quantity&&!l.closedAs).map(l=><CheckField key={l.id} label={<>{l.itemName} 剩餘 {(l.quantity??0)-l.received}<input className="cy-op-input" type="number" min="0" max={(l.quantity??0)-l.received} step="any" disabled={!receipt.selectedLineIds.includes(l.id)} value={receipt.quantities[l.id]??String((l.quantity??0)-l.received)} onChange={e=>setReceipt(v=>v?{...v,quantities:{...v.quantities,[l.id]:e.target.value}}:v)}/></>} size="s"  checked={receipt.selectedLineIds.includes(l.id)} onChange={e=>setReceipt(v=>v?{...v,selectedLineIds:e.target.checked?[...v.selectedLineIds,l.id]:v.selectedLineIds.filter(id=>id!==l.id)}:v)}/>)}
+   <button type="submit" className="cy-op-button primary">儲存到貨</button><button type="button" className="cy-op-button" onClick={()=>setReceipt(null)}>取消</button>
+    </FormSection>
+  </form></Dialog>:null}
+  {closing?<Dialog open title="結掉剩餘量" onClose={()=>setClosing(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void closeRemaining(e)}>
+    <FormSection><Field  label="處理方式" size="m"><select className="cy-op-input" value={closing.kind} onChange={e=>setClosing(v=>v?{...v,kind:e.target.value as typeof v.kind}:v)}><option value="SHORTAGE">缺貨</option><option value="CANCELLED">取消</option><option value="OTHER">其他</option></select></Field>
+   <Field  label="原因" size="l" required={closing.kind==="OTHER"}><input className="cy-op-input" value={closing.reason} onChange={e=>setClosing(v=>v?{...v,reason:e.target.value}:v)}/></Field><button type="submit" className="cy-op-button primary">確認</button><button type="button" className="cy-op-button" onClick={()=>setClosing(null)}>取消</button>
+    </FormSection>
+  </form></Dialog>:null}
   {confirmationDialog}
  </section>;
 }
