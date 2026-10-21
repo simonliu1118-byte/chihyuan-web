@@ -48,6 +48,14 @@ test("draft saves one row, conflicts on stale version, send and revise",async()=
   save=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,lineId:o.lines[0].id,operation:"save",line:{quantityText:"3"}});
   assert.equal(save.status,200,JSON.stringify(save.body));o=save.body.data;assert.equal(o.revision,2);assert.equal(o.revisions[0].revision,2);assert.equal(o.revisions[0].by,"測試員工甲");
   assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_revisions").get().n,1);
+  const unchanged=await call("/orders/"+o.id,"PATCH",{expectedVersion:o.version,note:o.note,plannedSendDate:o.plannedSendDate});
+  assert.equal(unchanged.status,200);assert.equal(unchanged.body.data.version,o.version,"no-op must not change version");
+  assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_revisions").get().n,1,"no-op must not audit a revision");
+  const changed=await call("/orders/"+o.id,"PATCH",{expectedVersion:o.version,plannedSendDate:"2026-10-29"});
+  assert.equal(changed.status,200,JSON.stringify(changed.body));
+  assert.equal(changed.body.data.revision,o.revision+1);
+  assert.match(changed.body.data.revisions[0].summary,/預計送出日期 2026-10-22 → 2026-10-29/);
+  assert.equal(changed.body.data.revisions[0].by,"測試員工甲");
  }finally{sql.close()}
 });
 test("manual vendor memory is reused, ERP sales item fills blanks and source disable preserves history",async()=>{
