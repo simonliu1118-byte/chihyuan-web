@@ -7,6 +7,7 @@ import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackPr
 import { Loading } from "../../ui/feedback/Loading";
 import { formatDate } from "../../ui/foundation/format";
 import { enterAdvancesFields, enterAdvancesThenSubmits } from "../../ui/foundation/enter-advance";
+import { CheckField, Field, FormSection, RequiredRows } from "../../ui/forms/Field";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import { Dialog } from "../../ui/overlays/Dialog";
@@ -512,9 +513,12 @@ function EmployeeForm({ draft, creating, busy, members, stores, jobTitles, patch
   patch: (value: Partial<Draft>) => void; onCancel: () => void; onSubmit: (event: FormEvent) => Promise<void>;
 }) {
   const [picking, setPicking] = useState(false);
-  const field = (label: string, key: keyof Draft, type = "text", required = false) =>
-    <FormField label={label} type={type} required={required} value={draft[key] as string} onChange={value => patch({ [key]: value } as Partial<Draft>)} />;
+  const text = (key: keyof Draft, type = "text") => <input className="cy-op-input" type={type} max={type === "date" ? "9999-12-31" : undefined} disabled={busy}
+    value={draft[key] as string ?? ""} onChange={event => patch({ [key]: event.target.value } as Partial<Draft>)} />;
+  const select = (key: keyof Draft, options: ReactNode) => <select className="cy-op-input" disabled={busy} value={draft[key] as string}
+    onChange={event => patch({ [key]: event.target.value } as Partial<Draft>)}><option value="">請選擇</option>{options}</select>;
   const sameAddress = draft.mailingAddress !== "" && draft.registeredAddress === draft.mailingAddress;
+  const noPhone = !draft.mobile.trim() && !draft.phone.trim();
   return <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={event => void onSubmit(event)}>
     <div className="cy-record-header cy-edit-header">
       <div><h2>{creating ? "新增員工" : `修改 ${draft.employeeNo} ${draft.name}`}</h2></div>
@@ -524,48 +528,50 @@ function EmployeeForm({ draft, creating, busy, members, stores, jobTitles, patch
       </div>
     </div>
     <div className="cy-hr-form-body">
-      <div className="cy-op-form-grid">
-        {field("員工編號", "employeeNo", "text", true)}
-        {field("姓名", "name", "text", true)}
-        <label>綁定使用者<span className="cy-hr-picker">
-          <input className="cy-op-input" readOnly value={draft.memberLabel || "不綁定"} aria-label="綁定使用者" />
-          <button type="button" className="cy-op-button" disabled={busy} onClick={() => setPicking(true)}>選擇</button>
-        </span></label>
-        {creating ? <label>人事狀態<select className="cy-op-input" value={draft.status} disabled={busy} onChange={event => patch({ status: event.target.value as HrStatus })}>
-          <option value="probation">試用</option><option value="active">在職</option></select></label> : null}
-        {draft.changeNationalId ? field("身分證字號", "nationalId", "text", true)
-          : <label>身分證字號<span className="cy-hr-picker">
+      <FormSection title="基本資料">
+        <Field label="員工編號" required size="s">{text("employeeNo")}</Field>
+        <Field label="姓名" required size="s">{text("name")}</Field>
+        {draft.changeNationalId ? <Field label="身分證字號" required size="s">{text("nationalId")}</Field>
+          : <Field label="身分證字號" size="s"><span className="cy-hr-picker">
             <input className="cy-op-input" readOnly value={draft.nationalId} aria-label="身分證字號" />
             <button type="button" className="cy-op-button" disabled={busy} onClick={() => patch({ changeNationalId: true, nationalId: "" })}>變更</button>
-          </span></label>}
-        <label>性別<select className="cy-op-input" required value={draft.gender} disabled={busy} onChange={event => patch({ gender: event.target.value })}>
-          <option value="">請選擇</option><option value="男">男</option><option value="女">女</option><option value="其他">其他</option></select></label>
-        {field("出生日期", "birthDate", "date", true)}
-        {field("到職日", "hireDate", "date", true)}
-        {field("年資起算日（空白＝到職日）", "seniorityStartDate", "date")}
-        {field("手機", "mobile")}
-        {field("市話", "phone")}
-        <label>門市<select className="cy-op-input" required value={draft.storeId} disabled={busy} onChange={e => patch({ storeId: e.target.value })}>
-          <option value="">請選擇</option>{stores.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-        <label>職稱<select className="cy-op-input" required value={draft.jobTitleId} disabled={busy} onChange={e => patch({ jobTitleId: e.target.value })}>
-          <option value="">請選擇</option>{jobTitles.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-        <label>僱用型態<select className="cy-op-input" value={draft.employmentType} disabled={busy} onChange={e => { const employmentType = e.target.value as Draft["employmentType"];
+          </span></Field>}
+        <Field label="性別" required size="s">{select("gender", <><option value="男">男</option><option value="女">女</option><option value="其他">其他</option></>)}</Field>
+        <Field label="出生日期" required size="s">{text("birthDate", "date")}</Field>
+        <Field label="綁定使用者" size="m"><span className="cy-hr-picker">
+          <input className="cy-op-input" readOnly value={draft.memberLabel || "不綁定"} aria-label="綁定使用者" />
+          <button type="button" className="cy-op-button" disabled={busy} onClick={() => setPicking(true)}>選擇</button>
+        </span></Field>
+      </FormSection>
+      <FormSection title="聯絡方式">
+        <Field label="手機" required={noPhone} oneOf="與市話擇一" reportAs="手機或市話" size="s">{text("mobile")}</Field>
+        <Field label="市話" required={noPhone} oneOf="與手機擇一" reportAs="手機或市話" size="s">{text("phone")}</Field>
+        <Field label="戶籍地址" required size="l"><input className="cy-op-input" value={draft.registeredAddress} disabled={busy}
+          onChange={event => patch(sameAddress ? { registeredAddress: event.target.value, mailingAddress: event.target.value } : { registeredAddress: event.target.value })} /></Field>
+        <Field label="通訊地址" required size="l"><input className="cy-op-input" value={draft.mailingAddress} disabled={busy || sameAddress}
+          onChange={event => patch({ mailingAddress: event.target.value })} /></Field>
+        <CheckField label="通訊地址同戶籍地址" size="l" checked={sameAddress} disabled={busy || !draft.registeredAddress}
+          onChange={event => patch({ mailingAddress: event.target.checked ? draft.registeredAddress : "" })} />
+      </FormSection>
+      <FormSection title="任職與排班">
+        {creating ? <Field label="人事狀態" required size="s"><select className="cy-op-input" value={draft.status} disabled={busy} onChange={event => patch({ status: event.target.value as HrStatus })}>
+          <option value="probation">試用</option><option value="active">在職</option></select></Field> : null}
+        <Field label="到職日" required size="s">{text("hireDate", "date")}</Field>
+        <Field label="年資起算日" size="s" hint="空白＝到職日">{text("seniorityStartDate", "date")}</Field>
+        <Field label="門市" required size="s">{select("storeId", stores.map(x => <option key={x.id} value={x.id}>{x.name}</option>))}</Field>
+        <Field label="職稱" required size="s">{select("jobTitleId", jobTitles.map(x => <option key={x.id} value={x.id}>{x.name}</option>))}</Field>
+        <Field label="僱用型態" required size="s"><select className="cy-op-input" value={draft.employmentType} disabled={busy} onChange={e => { const employmentType = e.target.value as Draft["employmentType"];
           patch({ employmentType, scheduleMode: employmentType === "full" ? "shift" : employmentType !== "casual" && draft.scheduleMode === "none" ? "shift" : draft.scheduleMode }); }}>
-          <option value="full">正職</option><option value="half">半職</option><option value="casual">兼職</option></select></label>
-        <label>排班方式<select className="cy-op-input" value={draft.scheduleMode} disabled={busy} onChange={e => patch({ scheduleMode: e.target.value as Draft["scheduleMode"] })}>
-          <option value="shift">班別</option>{draft.employmentType !== "full" ? <option value="hours">時段或時數</option> : null}{draft.employmentType === "casual" ? <option value="none">不排班</option> : null}</select></label>
-        <label>班表排序<input className="cy-op-input" type="number" step="1" value={draft.rosterSort} disabled={busy} onChange={e => patch({ rosterSort: e.target.value })} /></label>
-        <label className="cy-hr-check"><input type="checkbox" checked={draft.skipRosterChecks} disabled={busy} onChange={e => patch({ skipRosterChecks: e.target.checked })} />不須檢核</label>
-        <label className="wide">戶籍地址<input className="cy-op-input" required value={draft.registeredAddress} disabled={busy}
-          onChange={event => patch(sameAddress ? { registeredAddress: event.target.value, mailingAddress: event.target.value } : { registeredAddress: event.target.value })} /></label>
-        <label className="wide">通訊地址<input className="cy-op-input" required value={draft.mailingAddress} disabled={busy || sameAddress}
-          onChange={event => patch({ mailingAddress: event.target.value })} /></label>
-        <label className="cy-hr-check wide"><input type="checkbox" checked={sameAddress} disabled={busy || !draft.registeredAddress}
-          onChange={event => patch({ mailingAddress: event.target.checked ? draft.registeredAddress : "" })} />通訊地址同戶籍地址</label>
-        <label className="wide">備註<textarea className="cy-op-input" rows={2} value={draft.note} disabled={busy} onChange={event => patch({ note: event.target.value })} /></label>
-      </div>
+          <option value="full">正職</option><option value="half">半職</option><option value="casual">兼職</option></select></Field>
+        <Field label="排班方式" required size="s"><select className="cy-op-input" value={draft.scheduleMode} disabled={busy} onChange={e => patch({ scheduleMode: e.target.value as Draft["scheduleMode"] })}>
+          <option value="shift">班別</option>{draft.employmentType !== "full" ? <option value="hours">時段或時數</option> : null}{draft.employmentType === "casual" ? <option value="none">不排班</option> : null}</select></Field>
+        <Field label="班表排序" size="s"><input className="cy-op-input" type="number" step="1" value={draft.rosterSort} disabled={busy} onChange={e => patch({ rosterSort: e.target.value })} /></Field>
+        <CheckField label="不須檢核" checked={draft.skipRosterChecks} disabled={busy} onChange={e => patch({ skipRosterChecks: e.target.checked })} />
+        <Field label="備註" size="l"><textarea className="cy-op-input" rows={2} value={draft.note} disabled={busy} onChange={event => patch({ note: event.target.value })} /></Field>
+      </FormSection>
 
-      <RowsBlock title="緊急聯絡人（至少一位）" addLabel="增加聯絡人" busy={busy} empty={!draft.contacts.length}
+      <RequiredRows label="緊急聯絡人" satisfied={draft.contacts.length > 0} />
+      <RowsBlock title={<>緊急聯絡人<span className="cy-field-required" aria-hidden="true">＊</span><small>至少一位</small></>} addLabel="增加聯絡人" busy={busy} empty={!draft.contacts.length}
         onAdd={() => patch({ contacts: [...draft.contacts, { name: "", relationship: "", phone: "" }] })}>
         {draft.contacts.map((row, index) => <div className="cy-hr-edit-row contact" key={index}>
           <RowInput label="姓名" value={row.name} required onChange={name => patch({ contacts: draft.contacts.map((item, n) => n === index ? { ...item, name } : item) })} />
@@ -624,7 +630,7 @@ function MemberPicker({ members, employeeNo, onPick, onClose }: {
 }
 
 function RowsBlock({ title, addLabel, onAdd, empty, busy, children }: {
-  title: string; addLabel: string; onAdd: () => void; empty: boolean; busy: boolean; children: ReactNode;
+  title: ReactNode; addLabel: string; onAdd: () => void; empty: boolean; busy: boolean; children: ReactNode;
 }) {
   return <section className="cy-form-block">
     <div className="cy-form-block-head"><div><h3>{title}</h3></div>

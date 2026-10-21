@@ -65,3 +65,26 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--cy-accent); wi
   .cy-form-grid-full, .cy-op-form-grid .wide { grid-column: auto; }
   .cy-op-inline-row { flex-wrap: wrap; }
 }
+
+/* Shared fields on a 12-column grid sized by content (PROJECT_RULES §5). The section is the container,
+   so a form in a narrow detail pane or dialog collapses the same way as on a phone. */
+.cy-f-section { container-type: inline-size; max-width: 960px; }
+.cy-f-section + .cy-f-section { margin-top: 20px; }
+.cy-f-section-title { margin: 0 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--cy-border); color: var(--cy-text); font-size: var(--cy-fs-md); font-weight: 600; }
+.cy-f-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 12px 16px; }
+.cy-f { display: grid; gap: 4px; align-content: start; min-width: 0; }
+.cy-f > :is(input, select, textarea) { color: var(--cy-text); font-weight: 400; }
+.cy-f-s { grid-column: span 3; }
+.cy-f-m { grid-column: span 6; }
+.cy-f-l { grid-column: 1 / -1; }
+.cy-f-label { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 500; line-height: 1.4; }
+.cy-f-label .cy-field-required { margin-left: 2px; }
+.cy-f-oneof { margin-left: 6px; color: var(--cy-text-subtle); font-size: var(--cy-fs-xs); font-weight: 400; }
+.cy-f-hint { color: var(--cy-text-muted); font-size: var(--cy-fs-xs); line-height: 1.5; }
+.cy-f-check { display: flex; align-items: center; gap: 8px; align-self: end; min-height: var(--cy-control-h); color: var(--cy-text); font-size: var(--cy-fs-sm); }
+.cy-f-rows-required { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+@container (max-width: 640px) { .cy-f-s { grid-column: span 6; } .cy-f-m { grid-column: 1 / -1; } }
+@container (max-width: 300px) { .cy-f-s { grid-column: 1 / -1; } }
+/* Fields the last submit reported; cleared as soon as they are edited. */
+:is(.cy-op-input, .cy-input)[aria-invalid="true"] { border-color: var(--cy-danger); }
+.cy-form-block-head h3 small { margin-left: 6px; color: var(--cy-text-muted); font-size: var(--cy-fs-xs); font-weight: 400; }
