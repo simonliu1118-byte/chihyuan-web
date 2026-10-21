@@ -41,6 +41,7 @@ export function OrderingPage(){
  const [headerDirty,setHeaderDirty]=useState({date:false,note:false});
  const [sourceForm,setSourceForm]=useState<{id?:number;kind:"GENERAL"|"VENDOR";name:string;conditions:string;sortOrder?:number;isActive?:boolean}|null>(null);
  const [sourceFilter,setSourceFilter]=useState("");
+ const [manageSources,setManageSources]=useState(false);
  const [receipt,setReceipt]=useState<{id:number;no:string;date:string;quantities:Record<number,string>;selectedLineIds:number[]}|null>(null);
  const [closing,setClosing]=useState<{id:number;kind:"SHORTAGE"|"CANCELLED"|"OTHER";reason:string}|null>(null);
  const [viewPending,setViewPending]=useState(false),[showHistory,setShowHistory]=useState(false),[drafts,setDrafts]=useState<OrderingListRow[]>([]);
@@ -180,23 +181,46 @@ export function OrderingPage(){
      <label>迄日<input type="date" className="cy-op-input" max="9999-12-31" value={to} onChange={e=>setTo(e.target.value)}/></label>
      <button type="submit" className="cy-op-button">搜尋</button>
     </form>
-    <div>{list.map(o=><button type="button" key={o.id} className={"cy-op-button "+(current?.id===o.id?"primary":"")} style={{display:"block",width:"100%",textAlign:"left",margin:"4px 0"}} onClick={()=>{setViewPending(false);pane.open();void reloadOrder(o.id).catch(e=>setError(errorOf(e)))}}>{o.sourceName}　{ORDERING_STATUS_LABELS[o.status]??o.status}　{displayDate(o.plannedSendDate??o.sentAt??o.createdAt)}</button>)}</div>
+    <div className="cy-md-count">共 {list.length} 筆</div>
+     <div className="cy-op-list cy-ordering-result-list">
+      {list.map(o=><button type="button" key={o.id} className={"cy-op-list-row cy-ordering-result-row "+(current?.id===o.id?"active":"")}
+       aria-current={current?.id===o.id?"true":undefined}
+       onClick={()=>{setViewPending(false);pane.open();void reloadOrder(o.id).catch(e=>setError(errorOf(e)))}}>
+       <span className="cy-ordering-list-primary"><strong>{o.sourceName}</strong><small>{displayDate(o.plannedSendDate??o.sentAt??o.createdAt)}</small></span>
+       <span className={"cy-status-chip cy-status-chip-"+({DRAFT:"neutral",SENT:"info",PARTIAL:"warning",CLOSED:"success",VOID:"danger"}[o.status]??"neutral")}>{ORDERING_STATUS_LABELS[o.status]??o.status}</span>
+      </button>)}
+      {!list.length?<div className="cy-op-empty">沒有符合條件的叫貨單。</div>:null}
+     </div>
    </section>
    <section className="cy-op-panel cy-md-detail">
     <MasterDetailBack label="叫貨紀錄" onBack={pane.close} disabled={busy}/>
-    <div className="cy-page-toolbar" style={{flexWrap:"wrap"}}>
-     {visibleSources.map(s=><span key={s.id}><button className={"cy-op-button "+(tab===s.id&&!vendorAll?"primary":"")} type="button" disabled={busy} onClick={()=>void selectSource(s)}>{s.name}</button><button type="button" className="cy-op-button" title={"編輯"+s.name} onClick={()=>setSourceForm({id:s.id,kind:"GENERAL",name:s.name,conditions:s.conditions,sortOrder:s.sortOrder,isActive:s.isActive})}>⋯</button></span>)}
-     <button className={"cy-op-button "+(vendorAll?"primary":"")} type="button" onClick={()=>void showVendorOverview()}>廠商</button>
-     <button className="cy-op-button" type="button" onClick={()=>setSourceForm({kind:"GENERAL",name:"",conditions:""})}>＋</button>
+    <div className="cy-ordering-tabbar">
+      <div className="cy-op-tabs" role="tablist" aria-label="叫貨來源">
+       {visibleSources.map(s=><button key={s.id} type="button" role="tab"
+         className={tab===s.id&&!vendorAll?"active":""} aria-selected={tab===s.id&&!vendorAll}
+         onClick={()=>void selectSource(s)}>{s.name}</button>)}
+       <button type="button" role="tab" className={vendorAll?"active":""} aria-selected={vendorAll} onClick={()=>void showVendorOverview()}>廠商</button>
+      </div>
+      <button type="button" className="cy-op-button quiet" onClick={()=>setManageSources(true)}>管理來源</button>
+      <button type="button" className="cy-op-button" onClick={()=>setSourceForm({kind:"GENERAL",name:"",conditions:""})}>＋</button>
     </div>
     {viewPending?<><h3>未到貨明細（{pending.length}）</h3>{pending.map(l=><p key={l.lineId}>{l.sourceName}　{displayDate(l.orderDate)}　{l.itemName}　叫貨 {l.quantity}{l.unit}　已到 {l.received}　剩餘 {l.remaining} <button className="cy-op-button" type="button" onClick={()=>void reloadOrder(l.orderId).then(()=>setReceipt({id:l.orderId,no:"",date:nowDate(),quantities:{[l.lineId]:String(l.remaining)},selectedLineIds:[l.lineId]}))}>登記到貨</button><button type="button" className="cy-op-button" onClick={()=>void reloadOrder(l.orderId).then(()=>setClosing({id:l.lineId,kind:"SHORTAGE",reason:""}))}>結掉</button></p>)}</>
     :vendorAll?<><h3>廠商草稿</h3><p>預設依廠商分段；進入個別廠商頁面後才能送出。</p>
       <button type="button" className="cy-op-button" onClick={()=>setSourceForm({kind:"VENDOR",name:"",conditions:""})}>＋ 新增廠商</button>
       <button type="button" className="cy-op-button" onClick={()=>void exportVendors().catch(e=>setError(errorOf(e)))}>匯出廠商合併 Excel</button>
-      {vendorOverview.map(v=><div key={v.sourceId} className="cy-op-panel"><h4>{v.sourceName}</h4><p>{v.conditions}</p>
-        <OrderingGrid kind="VENDOR" section="" lines={v.lines} busy={busy} onCommit={async(row,patch)=>{await commitVendorRow(v,row,patch)}} onDelete={async row=>{await deleteVendorRow(v,row)}}/>
-        <button type="button" className="cy-op-button" onClick={()=>{const s=vendors.find(x=>x.id===v.sourceId);if(s)void selectSource(s)}}>進入廠商／編輯草稿</button>
-        <button type="button" className="cy-op-button" onClick={()=>{const s=vendors.find(x=>x.id===v.sourceId);if(s)setSourceForm({id:s.id,kind:"VENDOR",name:s.name,conditions:s.conditions})}}>編輯條件</button></div>)}</>
+      {vendorOverview.slice().sort((a,b)=>Number(b.lines.length>0)-Number(a.lines.length>0)).map(v=>
+        <div key={v.sourceId} className={"cy-ordering-vendor-group "+(v.lines.length?"has-lines":"is-empty")}>
+         <div className="cy-ordering-vendor-heading">
+          <button type="button" className="cy-op-button quiet" aria-expanded={expanded(v)}
+           onClick={()=>setExpandedVendors(ids=>ids.includes(v.sourceId)?ids.filter(id=>id!==v.sourceId):[...ids,v.sourceId])}>
+           {expanded(v)?"▾":"▸"} {v.sourceName}（{v.lines.length} 項）
+          </button>
+          {v.conditions?<strong className="cy-ordering-vendor-condition">{v.conditions}</strong>:null}
+          <button type="button" className="cy-op-button quiet compact" onClick={()=>{const s=vendors.find(x=>x.id===v.sourceId);if(s)void selectSource(s)}}>進入廠商</button>
+         </div>
+         {expanded(v)?<OrderingGrid kind="VENDOR" section="" lines={v.lines} busy={false}
+          onCommit={async(row,patch)=>{await commitVendorRow(v,row,patch)}} onDelete={async row=>{await deleteVendorRow(v,row)}}/>:null}
+        </div>)}
     :current?<><div className="cy-page-toolbar"><h3>{current.sourceName}　{ORDERING_STATUS_LABELS[current.status]}</h3>
       <button type="button" className="cy-op-button" onClick={()=>void openDraft(current.sourceId)}>回到草稿</button>
       <select className="cy-op-input" value={current.storedStatus==="DRAFT"?String(current.id):""} aria-label="切換草稿" onChange={e=>{if(e.target.value)void reloadOrder(Number(e.target.value))}}><option value="">選擇草稿</option>{drafts.map(d=><option key={d.id} value={d.id}>{d.plannedSendDate?displayDate(d.plannedSendDate).slice(5):"無預計日"}{current.storedStatus==="DRAFT"&&d.id===current.id?"（目前）":""}</option>)}</select>
@@ -220,6 +244,17 @@ export function OrderingPage(){
     </>:<MasterDetailEmpty title="選擇叫貨來源" hint="從上方頁籤選擇來源，或從左側開啟歷史單。"/>}
    </section>
   </div>
+  {manageSources?<Dialog open title="管理叫貨來源" onClose={()=>setManageSources(false)} size="large">
+    <div className="cy-ordering-source-management">
+    {sources.map(s=><div className="cy-ordering-source-row" key={s.id}>
+     <span><strong>{s.name}</strong> <small>{s.kind==="VENDOR"?"廠商":s.kind==="CN_REGULAR"?"定期中國貨":s.kind==="CN_CUSTOM"?"自訂中國貨":"一般"}　{!s.isActive?"已停用":""}</small></span>
+     <span className="cy-ordering-vendor-condition">{s.conditions}</span>
+     <button type="button" className="cy-op-button quiet" onClick={()=>setSourceForm({id:s.id,kind:s.kind==="VENDOR"?"VENDOR":"GENERAL",name:s.name,conditions:s.conditions,sortOrder:s.sortOrder,isActive:s.isActive})}>修改／排序／停用</button>
+    </div>)}
+    <button type="button" className="cy-op-button primary" onClick={()=>setSourceForm({kind:"GENERAL",name:"",conditions:""})}>＋ 新增來源</button>
+    <button type="button" className="cy-op-button" onClick={()=>setManageSources(false)}>關閉</button>
+   </div>
+  </Dialog>:null}
   {sourceForm?<Dialog open title={sourceForm.id?"修改叫貨來源":"新增叫貨來源"} onClose={()=>setSourceForm(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void saveSource(e)}><label>名稱<input className="cy-op-input" required maxLength={40} value={sourceForm.name} onChange={e=>setSourceForm(s=>s?{...s,name:e.target.value}:s)}/></label>
    <label>條件<input className="cy-op-input" maxLength={500} value={sourceForm.conditions} onChange={e=>setSourceForm(s=>s?{...s,conditions:e.target.value}:s)}/></label>
    {sourceForm.id?<><label>排序<input type="number" className="cy-op-input" value={sourceForm.sortOrder??0} onChange={e=>setSourceForm(s=>s?{...s,sortOrder:Number(e.target.value)}:s)}/></label>
