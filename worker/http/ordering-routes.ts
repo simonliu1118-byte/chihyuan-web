@@ -159,7 +159,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     const field=(key:string,fallback:string,max:number)=>key in raw?must(raw[key],key,max):fallback;
     const itemCode=field("itemCode",old?.item_code??"",40),itemName=field("itemName",old?.item_name??"",200);
     const qt=field("quantityText",old?.quantity_text??"",40);
-    if(!itemName||!qt)throw new Bad("ORDERING_INVALID","品名與數量必填");
+    if(!qt)throw new Bad("ORDERING_INVALID","品名與數量必填");
     if(!old){const total=await one<{n:number}>(ctx.db,"SELECT COUNT(*) n FROM ordering_lines WHERE order_id=?",id);
      if((total?.n??0)>=500)throw new Bad("ORDERING_LIMIT","單張叫貨單最多 500 列",409);
     }
@@ -173,7 +173,10 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     const source=await one<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE id=?",o.source_id);
     const section=source?.kind==="CN_REGULAR"?String(raw.section??old?.section??"OTHER"):"";
     if(!["","SINGLE","BAG","OTHER"].includes(section))throw new Bad("ORDERING_INVALID","區段不正確");
-    const vendorNameFollows="vendorItemName" in raw?false:old?.vendor_name_follows!==0;
+    if(!finalName)throw new Bad("ORDERING_INVALID","品名與數量必填");
+    // Empty draft fields are never treated as manually-entered vendor names.
+    const manuallyNamed="vendorItemName" in raw&&String(raw.vendorItemName??"").trim().length>0;
+    const vendorNameFollows=manuallyNamed?false:old?.vendor_name_follows!==0;
     const remembered=vendorItemKey(itemCode,finalName);
     const memory=remembered?await one<{vendor_item_code:string;vendor_item_name:string}>(ctx.db,"SELECT vendor_item_code,vendor_item_name FROM ordering_vendor_items WHERE source_id=? AND key_type=? AND item_key=?",o.source_id,remembered.type,remembered.key):null;
     const vendorItemName=vendorNameFollows?finalName:field("vendorItemName",old?.vendor_item_name??memory?.vendor_item_name??"",200);
@@ -186,9 +189,9 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     const updates=Object.entries(raw).filter(([key,value])=>key in (old??{})||["itemCode","itemName","quantityText","unit","vendorItemCode","vendorItemName","sortOrder","spec","section","note"].includes(key));
     const summary=(old?.item_name??finalName)+" "+(!old?"新增":updates.map(([key,value])=>key+" "+String((old as unknown as Record<string,unknown>|null)?.[key]??"")+" → "+String(value)).join("、"));
     const stmts:D1PreparedStatement[]=[stmt];
-    if(("vendorItemCode" in raw||"vendorItemName" in raw)&&vendorItemKey(itemCode,itemName)){
-     const key=vendorItemKey(itemCode,itemName)!;
-     stmts.push(ctx.db.prepare("INSERT INTO ordering_vendor_items(source_id,key_type,item_key,vendor_item_code,vendor_item_name,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(source_id,key_type,item_key) DO UPDATE SET vendor_item_code=excluded.vendor_item_code,vendor_item_name=excluded.vendor_item_name,updated_at=excluded.updated_at").bind(o.source_id,key.type,key.key,"vendorItemCode" in raw?vendorCode:old?.vendor_item_code??"", "vendorItemName" in raw?vendorItemName:old?.vendor_item_name??"",ctx.now));
+    if((String(raw.vendorItemCode??"").trim()||manuallyNamed)&&vendorItemKey(itemCode,finalName)){
+     const key=vendorItemKey(itemCode,finalName)!;
+     stmts.push(ctx.db.prepare("INSERT INTO ordering_vendor_items(source_id,key_type,item_key,vendor_item_code,vendor_item_name,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(source_id,key_type,item_key) DO UPDATE SET vendor_item_code=excluded.vendor_item_code,vendor_item_name=excluded.vendor_item_name,updated_at=excluded.updated_at").bind(o.source_id,key.type,key.key,String(raw.vendorItemCode??"").trim()?vendorCode:old?.vendor_item_code??"", manuallyNamed?vendorItemName:old?.vendor_item_name??"",ctx.now));
     }
     return success(await mutate(ctx,o,expected,stmts,summary,"line_saved"),requestId);
    }
