@@ -1096,7 +1096,7 @@ function SecurityPanel() {
         <Field  label="驗證碼重寄間隔（秒）" size="s"><input className="cy-op-input" type="number" min={30} max={600} value={draft.otpResendCooldownSeconds} onChange={field("otpResendCooldownSeconds")} /></Field>
         <Field  label="驗證碼最多嘗試次數" size="m"><input className="cy-op-input" type="number" min={3} max={10} value={draft.otpMaxAttempts} onChange={field("otpMaxAttempts")} /></Field>
         <Field  label="同一 Email、同一用途每小時最多" size="m"><input className="cy-op-input" type="number" min={1} max={20} value={draft.otpMaxSentPerEmailPurposeHour} onChange={field("otpMaxSentPerEmailPurposeHour")} /></Field>
-        <Field  label="每日 Email 上限" size="m"><input className="cy-op-input" type="number" min={1} max={view.systemEmailDailyCeiling} value={draft.emailDailyLimit} onChange={field("emailDailyLimit")} /><small>系統上限：{view.systemEmailDailyCeiling}</small></Field>
+        <Field label="每日 Email 上限" size="m" hint={<>系統上限：{view.systemEmailDailyCeiling}</>}><input className="cy-op-input" type="number" min={1} max={view.systemEmailDailyCeiling} value={draft.emailDailyLimit} onChange={field("emailDailyLimit")} /></Field>
         {dialogError ? <p className="wide cy-notice cy-notice-danger" role="alert">{dialogError}</p> : null}
       
     </FormSection>
