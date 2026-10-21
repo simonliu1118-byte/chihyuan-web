@@ -60,13 +60,18 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete}:Props){
   const target=e.currentTarget;
   if(row.id>0)skipBlur.current.add(row.id+"|"+field);
   commitCell(row,field,target.value);
-  if(row.id<0&&((field==="quantityText"||col===fields.length-1)&& (draftsRef.current.find(d=>d.id===row.id)?.itemName||draftsRef.current.find(d=>d.id===row.id)?.itemCode)&&draftsRef.current.find(d=>d.id===row.id)?.quantityText)){
+  if(row.id<0&&(field==="quantityText"&& (draftsRef.current.find(d=>d.id===row.id)?.itemName||draftsRef.current.find(d=>d.id===row.id)?.itemCode)&&draftsRef.current.find(d=>d.id===row.id)?.quantityText)){
    const next=draftsRef.current[draftsRef.current.findIndex(d=>d.id===row.id)+1];
    if(next)focus(next.id,"itemName");
   }else if(col<fields.length-1)focus(row.id,fields[col+1][0]);
   else{
-   const index=visible.findIndex(r=>r.id===row.id);
-   const next=visible[index+1]??draftsRef.current.at(-1);
+   const currentRows=[...lines.filter(x=>x.section===section),...draftsRef.current];
+   const index=currentRows.findIndex(r=>r.id===row.id);
+   let next=currentRows[index+1];
+   if(!next&&row.id<0){
+    next=empty(section,nextTemp.current--);
+    draftsRef.current=[...draftsRef.current,next];setDrafts(draftsRef.current);
+   }
    if(next)focus(next.id,fields[0][0]);
   }
  }
