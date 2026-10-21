@@ -9,7 +9,7 @@ import {OrderingGrid,type GridLine} from "../../ui/OrderingGrid";
 import {orderSheet} from "../../../shared/ordering-export";
 import "./erp-item-query.css";
 import {buildXlsx} from "../../../shared/xlsx-writer";
-import {orderingTaipeiDateTime,exportFileName,pickDraft,lineState,LINE_STATE_LABELS,CLOSED_AS_LABELS,ORDERING_STATUS_LABELS,CN_REGULAR_SECTIONS,type OrderingOrder,type OrderingSource,type OrderingPendingLine,type OrderingListRow,type OrderingSection} from "../../../shared/ordering";
+import {createOrderingWriteQueue,orderingTaipeiDateTime,exportFileName,pickDraft,lineState,LINE_STATE_LABELS,CLOSED_AS_LABELS,ORDERING_STATUS_LABELS,CN_REGULAR_SECTIONS,type OrderingOrder,type OrderingSource,type OrderingPendingLine,type OrderingListRow,type OrderingSection} from "../../../shared/ordering";
 const ROOT="/api/business/ordering";
 const nowDate=()=>new Date(Date.now()+8*3600000).toISOString().slice(0,10);
 const displayDate=(value:string|null|undefined)=>orderingTaipeiDateTime(value)?.date??"";
@@ -27,7 +27,7 @@ export function OrderingPage(){
  const [message,setMessage,reportError,messageTone]=useFeedbackMessage<string|null>(null);
  const setError=(value:string)=>{if(value)reportError(value);else setMessage(null)};
  const setNotice=(value:string)=>setMessage(value);
- const queueRef=useRef(new Map<string,Promise<unknown>>());
+ const queueRef=useRef(createOrderingWriteQueue());
  const cached=useRef(new Map<number,DisplayOrder>());
  const savedHeader=useRef(new Map<number,{date:string|null;note:string}>());
  const [headerDirty,setHeaderDirty]=useState({date:false,note:false});
@@ -48,13 +48,7 @@ export function OrderingPage(){
  const remember=(x:DisplayOrder)=>{
    cached.current.set(x.id,x);savedHeader.current.set(x.id,{date:x.plannedSendDate,note:x.note});return x;
  };
- const enqueue=<T,>(key:string,job:()=>Promise<T>):Promise<T>=>{
-   const earlier=queueRef.current.get(key)??Promise.resolve();
-   const task=earlier.catch(()=>{}).then(job);
-   queueRef.current.set(key,task);
-   void task.finally(()=>{if(queueRef.current.get(key)===task)queueRef.current.delete(key)}).catch(()=>{});
-   return task;
- };
+ const enqueue=<T,>(key:string,job:()=>Promise<T>):Promise<T>=>queueRef.current.enqueue(key,job);
  async function reloadOrder(id:number){const x=remember(await call<DisplayOrder>("/orders/"+id));setSelected(x);setHeaderDirty({date:false,note:false});headerDirtyRef.current={date:false,note:false};return x}
  async function openDraft(sourceId:number){
   setBusy(true);setError("");try{
