@@ -96,6 +96,9 @@ export function OrderingPage(){
      {...data,plannedSendDate:headerDirtyRef.current.date?previous.plannedSendDate:data.plannedSendDate,note:headerDirtyRef.current.note?previous.note:data.note}:previous);
     // A row commit never disables any editor or steals focus while the network is pending.
     setNotice("已儲存");
+    if(path.endsWith("/send")||path.endsWith("/void")){
+     void call<OrderingListRow[]>("/orders?sourceId="+data.sourceId+"&status=DRAFT").then(setDrafts).catch(e=>setError(errorOf(e)));
+    }
     void refresh().catch(e=>setError(errorOf(e)));
     return data;
    }catch(e){setError(errorOf(e));throw e}
