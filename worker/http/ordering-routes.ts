@@ -101,7 +101,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
    const sources=await rows<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE kind='VENDOR' AND is_active=1 ORDER BY sort_order,id LIMIT 101");
    if(sources.length>100)throw new Bad("ORDERING_LIMIT","廠商數量超過上限",409);
    const orders=await rows<{id:number;source_id:number;planned_send_date:string|null;created_at:string;version:number}>(ctx.db,
-    "SELECT o.id,o.source_id,o.planned_send_date,o.created_at FROM ordering_orders o JOIN ordering_sources s ON s.id=o.source_id WHERE o.status='DRAFT' AND s.kind='VENDOR' AND s.is_active=1 ORDER BY o.id DESC LIMIT 501");
+    "SELECT o.id,o.source_id,o.planned_send_date,o.created_at,o.version FROM ordering_orders o JOIN ordering_sources s ON s.id=o.source_id WHERE o.status='DRAFT' AND s.kind='VENDOR' AND s.is_active=1 ORDER BY o.id DESC LIMIT 501");
    if(orders.length>500)throw new Bad("ORDERING_LIMIT","廠商草稿超過500張",409);
    const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);
    const selection=sources.map(s=>({source:s,order:pickDraft(orders.filter(o=>o.source_id===s.id).map(o=>({id:o.id,plannedSendDate:o.planned_send_date,createdAt:o.created_at})),today)}));
