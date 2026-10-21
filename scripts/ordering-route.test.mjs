@@ -90,6 +90,26 @@ test("combined vendor overview groups draft lines without sending vendors",async
   assert.equal((await call("/orders/"+first.orderId)).body.data.status,"DRAFT");
  }finally{sql.close()}
 });
+test("multiple receipts per order, repeated ERP number allowed, pending search and final status",async()=>{
+ const {sql,call}=fixture();try{
+  const sourceId=(await call("/sources")).body.data.find(s=>s.name==="台中").id;
+  let order=(await call("/orders","POST",{sourceId})).body.data;
+  order=(await call("/orders/"+order.id+"/lines","POST",{expectedVersion:order.version,line:{itemCode:"SKU001",itemName:"測試品名甲",quantityText:"3箱"}})).body.data;
+  order=(await call("/orders/"+order.id+"/send","POST",{expectedVersion:order.version})).body.data;
+  assert.equal((await call("/pending")).body.data.find(l=>l.orderId===order.id).remaining,3);
+  for(const amount of [1,2]){
+   const reply=await call("/orders/"+order.id+"/receipts","POST",{expectedVersion:order.version,erpPurchaseNo:"20261021001",receivedDate:"2026-10-21",lines:[{lineId:order.lines[0].id,quantity:amount}]});
+   assert.equal(reply.status,200,JSON.stringify(reply.body));order=reply.body.data;
+  }
+  assert.equal(order.status,"CLOSED");assert.equal(order.lines[0].received,3);
+  assert.equal(order.receipts.length,2);
+  assert.ok(order.receipts.every(r=>r.erpPurchaseNo==="341A-20261021001"));
+  assert.equal(order.receipts.reduce((n,r)=>n+r.lines[0].quantity,0),3);
+  assert.equal((await call("/pending")).body.data.some(l=>l.orderId===order.id),false);
+  const filtered=await call("/orders?q=20261021001&status=CLOSED&sourceId="+sourceId);
+  assert.equal(filtered.status,200,JSON.stringify(filtered.body));assert.equal(filtered.body.data[0].id,order.id);
+ }finally{sql.close()}
+});
 test("receipt performs multi-line update and settles shortages with correct status",async()=>{
  const {sql,call}=fixture();try{
   const id=(await call("/sources")).body.data.find(x=>x.name==="台北").id;
