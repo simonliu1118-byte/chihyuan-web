@@ -1,8 +1,9 @@
-import {useEffect,useMemo,useState,type FormEvent} from "react";
+import {useEffect,useMemo,useRef,useState,type FormEvent} from "react";
 import {apiRequest,ApiClientError} from "../../api/client";
 import {MasterDetailBack,MasterDetailEmpty,useMasterDetailPane} from "../../ui/layout/MasterDetail";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {Dialog} from "../../ui/overlays/Dialog";
+import {FeedbackBanner,useFeedbackMessage} from "../../ui/feedback/FeedbackProvider";
 import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import {OrderingGrid,type GridLine} from "../../ui/OrderingGrid";
 import {orderSheet} from "../../../shared/ordering-export";
@@ -11,7 +12,16 @@ import {buildXlsx} from "../../../shared/xlsx-writer";
 import {exportFileName,pickDraft,lineState,ORDERING_STATUS_LABELS,CN_REGULAR_SECTIONS,type OrderingOrder,type OrderingSource,type OrderingPendingLine,type OrderingListRow,type OrderingSection} from "../../../shared/ordering";
 const ROOT="/api/business/ordering";
 const nowDate=()=>new Date(Date.now()+8*3600000).toISOString().slice(0,10);
-const displayDate=(value:string|null|undefined)=>value?.slice(0,10).replaceAll("-","/")??"";
+const taipeiParts=(value:string|null|undefined)=>{
+ if(!value)return null;
+ if(!value.includes("T"))return {date:value.slice(0,10).replaceAll("-","/"),time:""};
+ const d=new Date(value);if(!Number.isFinite(d.getTime()))return {date:value.slice(0,10).replaceAll("-","/"),time:""};
+ const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Taipei",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(d);
+ const get=(key:string)=>parts.find(p=>p.type===key)?.value??"";
+ return {date:get("year")+"/"+get("month")+"/"+get("day"),time:get("hour")+":"+get("minute")};
+};
+const displayDate=(value:string|null|undefined)=>taipeiParts(value)?.date??"";
+const displayTime=(value:string|null|undefined)=>{const p=taipeiParts(value);return p?p.date+" "+p.time:""};
 const errorOf=(e:unknown)=>e instanceof ApiClientError&&e.code==="ORDERING_VERSION_CONFLICT"?"已被其他人修改，請重新載入":e instanceof Error?e.message:"叫貨操作失敗";
 type DisplayOrder=OrderingOrder&{storedStatus:"DRAFT"|"SENT"|"VOID"};
 type DisplayLine=GridLine&{quantity:number|null;received:number;state:string;closedAs:string|null};
@@ -21,7 +31,14 @@ export function OrderingPage(){
  const [sources,setSources]=useState<OrderingSource[]>([]),[list,setList]=useState<OrderingListRow[]>([]),[pending,setPending]=useState<OrderingPendingLine[]>([]);
  const [tab,setTab]=useState<number|null>(null),[vendorAll,setVendorAll]=useState(false),[selected,setSelected]=useState<DisplayOrder|null>(null);
  const [search,setSearch]=useState(""),[status,setStatus]=useState(""),[from,setFrom]=useState(""),[to,setTo]=useState("");
- const [busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
+ const [busy,setBusy]=useState(false);
+ const [message,setMessage,reportError,messageTone]=useFeedbackMessage<string|null>(null);
+ const setError=(value:string)=>{if(value)reportError(value);else setMessage(null)};
+ const setNotice=(value:string)=>setMessage(value);
+ const queueRef=useRef(new Map<string,Promise<unknown>>());
+ const cached=useRef(new Map<number,DisplayOrder>());
+ const savedHeader=useRef(new Map<number,{date:string|null;note:string}>());
+ const [headerDirty,setHeaderDirty]=useState({date:false,note:false});
  const [sourceForm,setSourceForm]=useState<{id?:number;kind:"GENERAL"|"VENDOR";name:string;conditions:string;sortOrder?:number;isActive?:boolean}|null>(null);
  const [sourceFilter,setSourceFilter]=useState("");
  const [receipt,setReceipt]=useState<{id:number;no:string;date:string;quantities:Record<number,string>;selectedLineIds:number[]}|null>(null);
@@ -33,13 +50,23 @@ export function OrderingPage(){
  const active=sources.filter(x=>x.isActive),vendors=active.filter(x=>x.kind==="VENDOR");
  async function refresh(){const [a,b,c]=await Promise.all([call<OrderingSource[]>("/sources"),call<OrderingListRow[]>("/orders"),call<OrderingPendingLine[]>("/pending")]);setSources(a);setList(b);setPending(c);setTab(t=>t??a.find(x=>x.isActive&&x.kind==="GENERAL")?.id??null)}
  useEffect(()=>{void refresh().catch(e=>setError(errorOf(e)))},[]);
- async function reloadOrder(id:number){const x=await call<DisplayOrder>("/orders/"+id);setSelected(x);return x}
+ const remember=(x:DisplayOrder)=>{
+   cached.current.set(x.id,x);savedHeader.current.set(x.id,{date:x.plannedSendDate,note:x.note});return x;
+ };
+ const enqueue=<T,>(key:string,job:()=>Promise<T>):Promise<T>=>{
+   const earlier=queueRef.current.get(key)??Promise.resolve();
+   const task=earlier.catch(()=>{}).then(job);
+   queueRef.current.set(key,task);
+   void task.finally(()=>{if(queueRef.current.get(key)===task)queueRef.current.delete(key)}).catch(()=>{});
+   return task;
+ };
+ async function reloadOrder(id:number){const x=remember(await call<DisplayOrder>("/orders/"+id));setSelected(x);setHeaderDirty({date:false,note:false});return x}
  async function openDraft(sourceId:number){
   setBusy(true);setError("");try{
    const all=await call<OrderingListRow[]>("/orders?sourceId="+sourceId+"&status=DRAFT");setDrafts(all);
    const chosen=pickDraft(all.map(x=>({id:x.id,plannedSendDate:x.plannedSendDate,createdAt:x.createdAt})),nowDate());
    const x=chosen?await reloadOrder(chosen.id):await call<DisplayOrder>("/orders","POST",{sourceId});
-   if(!chosen)setSelected(x);setViewPending(false);pane.open();await refresh();
+   if(!chosen){setSelected(remember(x));setHeaderDirty({date:false,note:false});setDrafts(all)}setViewPending(false);pane.open();await refresh();
   }catch(e){setError(errorOf(e))}finally{setBusy(false)}
  }
  async function selectSource(s:OrderingSource){setTab(s.id);setVendorAll(false);setSelected(null);await openDraft(s.id)}
@@ -47,17 +74,35 @@ export function OrderingPage(){
   try{setVendorOverview(await call<VendorGroup[]>("/vendors/overview"))}catch(e){setError(errorOf(e))}
  }
  async function write(path:string,method:string,input:Record<string,unknown>,refreshId=selected?.id){
-  if(busy)return;setBusy(true);setError("");try{
-   const data=await call<DisplayOrder>(path,method,{...input,expectedVersion:selected?.version});
-   if(data?.id)setSelected(data);else if(refreshId)await reloadOrder(refreshId);
-   await refresh();setNotice("已儲存");return data;
-  }catch(e){setError(errorOf(e));return undefined}finally{setBusy(false)}
+  const id=Number(/^\/orders\/(\d+)/.exec(path)?.[1]??refreshId);
+  if(!Number.isSafeInteger(id))throw new Error("請先選擇單據");
+  return enqueue("order:"+id,async()=>{
+   const version=cached.current.get(id)?.version??selected?.version;
+   try{
+    const data=remember(await call<DisplayOrder>(path,method,{...input,expectedVersion:version}));
+    setSelected(previous=>previous?.id===id?
+     {...data,plannedSendDate:headerDirty.date?previous.plannedSendDate:data.plannedSendDate,note:headerDirty.note?previous.note:data.note}:previous);
+    // A row commit never disables any editor or steals focus while the network is pending.
+    setNotice("已儲存");
+    void refresh().catch(e=>setError(errorOf(e)));
+    return data;
+   }catch(e){setError(errorOf(e));throw e}
+  });
+ }
+ async function saveHeader(field:"date"|"note"){
+  const current=selected;if(!current)return;
+  const value=field==="date"?current.plannedSendDate:current.note;
+  const saved=savedHeader.current.get(current.id);
+  if(value===(field==="date"?saved?.date:saved?.note)){setHeaderDirty(prev=>({...prev,[field]:false}));return}
+  try{
+   await write("/orders/"+current.id,"PATCH",field==="date"?{plannedSendDate:value}:{note:value});
+   setHeaderDirty(prev=>({...prev,[field]:false}));
+  }catch{/* Banner and modal explain the error; leave the typed value intact. */}
  }
  async function lineCommit(row:GridLine,patch:Partial<GridLine>){
   if(!selected)return;
   const line={...patch,...(!row.id?{...row,...patch}:{}),...(!row.id?{sortOrder:Date.now()}:{} )};
-  const saved=await write("/orders/"+selected.id+"/lines","POST",{operation:"save",lineId:row.id||undefined,line});
-  if(!saved)throw new Error("叫貨明細未成功儲存");
+  await write("/orders/"+selected.id+"/lines","POST",{operation:"save",lineId:row.id||undefined,line});
  }
  async function removeLine(row:GridLine){if(!selected||!await confirm({title:"刪除叫貨品項",description:"確定刪除「"+row.itemName+"」？"}))return;
   await write("/orders/"+selected.id+"/lines","POST",{operation:"delete",lineId:row.id})}
