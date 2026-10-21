@@ -10,7 +10,8 @@ const FeedbackContext = createContext<Notify | null>(null);
 /** One explicit feedback owner. No request interception or DOM observation. */
 export function FeedbackProvider({ children }: PropsWithChildren) {
   const [queue, setQueue] = useState<Alert[]>([]);
-  const validationPending = useRef(false);
+  // Every control the browser rejects in one submit, reported together in a single alert.
+  const invalidBatch = useRef<{ input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement; label: string; problem: string | null }[]>([]);
   const notify: Notify = useCallback((message, title = "操作提醒", options) => {
     const translated = chineseMessage(message);
     setQueue(current => options?.replace ? [{ message: translated, title }]
@@ -21,19 +22,33 @@ export function FeedbackProvider({ children }: PropsWithChildren) {
   function invalid(event: InvalidEvent<HTMLDivElement>) {
     event.preventDefault();
     const input = event.target;
-    if (!(input instanceof HTMLInputElement || input instanceof HTMLSelectElement || input instanceof HTMLTextAreaElement) || validationPending.current) return;
-    validationPending.current = true;
-    queueMicrotask(() => { validationPending.current = false; });
-    const label = input.labels?.[0]?.textContent?.replace(/\*/g, "").trim() || "此欄位";
+    if (!(input instanceof HTMLInputElement || input instanceof HTMLSelectElement || input instanceof HTMLTextAreaElement)) return;
+    const label = fieldName(input);
     const validity = input.validity;
-    const detail = validity.valueMissing ? `請填寫${label}。`
-      : validity.typeMismatch && input instanceof HTMLInputElement && input.type === "email" ? "請輸入有效的電子郵件地址。"
-      : validity.rangeUnderflow || validity.rangeOverflow ? `${label}超出允許範圍，請確認最小值與最大值。`
-      : validity.tooLong || validity.tooShort ? `${label}的字數不符合要求。`
-      : validity.badInput || validity.stepMismatch ? `${label}的數值格式不正確。`
-      : `${label}的格式不正確，請檢查後重新輸入。`;
-    input.focus();
-    notify(detail, "請檢查輸入內容");
+    const problem = validity.valueMissing ? null
+      : validity.typeMismatch && input instanceof HTMLInputElement && input.type === "email" ? `${label}不是有效的電子郵件地址`
+      : validity.rangeUnderflow || validity.rangeOverflow ? `${label}超出允許範圍`
+      : validity.tooLong || validity.tooShort ? `${label}的字數不符合要求`
+      : validity.badInput || validity.stepMismatch ? `${label}的數值格式不正確`
+      : `${label}的格式不正確`;
+    // The browser fires one invalid event per field; gather them and speak once after the last.
+    if (!invalidBatch.current.length) setTimeout(flushInvalid, 0);
+    invalidBatch.current.push({ input, label, problem });
+  }
+  function flushInvalid() {
+    const batch = invalidBatch.current;
+    invalidBatch.current = [];
+    if (!batch.length) return;
+    const missing = [...new Set(batch.filter(x => x.problem === null).map(x => x.label))];
+    const lines = [missing.length ? `請填寫：${missing.join("、")}。` : "", ...batch.filter(x => x.problem).map(x => x.problem + "。")].filter(Boolean);
+    for (const { input } of batch) {
+      input.setAttribute("aria-invalid", "true");
+      input.addEventListener("input", () => input.removeAttribute("aria-invalid"), { once: true });
+      input.addEventListener("change", () => input.removeAttribute("aria-invalid"), { once: true });
+    }
+    const first = batch.find(x => !x.input.classList.contains("cy-f-rows-required"))?.input;
+    first?.focus();
+    notify(lines.join("\n"), "請檢查輸入內容", { replace: true });
   }
   return <FeedbackContext.Provider value={notify}>
     <div style={{ display: "contents" }} onInvalidCapture={invalid}>{children}</div>
@@ -78,3 +93,13 @@ export function FeedbackBanner({ message, tone }: { message: string | null; tone
   return message ? <div className={`cy-notice cy-notice-${tone}`} role={tone === "danger" ? "alert" : "status"}>
     <div className="cy-notice-body">{message}</div></div> : null;
 }
+
+/** The name a user sees for a control: the shared field's label, else the wrapping label's own text. */
+function fieldName(input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): string {
+  const named = input.dataset.label ?? input.closest<HTMLElement>("[data-label]")?.dataset.label;
+  if (named) return named;
+  const label = input.labels?.[0];
+  const own = label ? Array.from(label.childNodes).filter(node => node.nodeType === Node.TEXT_NODE).map(node => node.textContent ?? "").join("").replace(/[*＊]/g, "").trim() : "";
+  return own || input.getAttribute("aria-label") || input.getAttribute("placeholder") || "此欄位";
+}
+
