@@ -24,7 +24,10 @@
 - [x] 本機瀏覽器以實際 OrderingPage／OrderingGrid 與合成 transport 操作：完整七欄 Enter 到下一列、轉圈儲存中、失敗紅字＋輸入保留、重試完成、重開模組預設未到貨、再開來源仍保留新增整列及補填備註；已查看淺／深色畫面。這是本機 UI smoke，後端 persistence 另由 in-memory SQLite 路由測試負責，不宣稱正式帳號驗收。
 - [x] 最終 `node --test scripts/ordering.test.mjs scripts/ordering-route.test.mjs scripts/form-keyboard.test.mjs`：43 項通過；`npm run build`、`npm run validate:source` 通過（build 僅既有 bundle 大小／動態 import 提示）。
 - 本機實際畫面：[預設未到貨](images/ordering-compact-table/default-pending.png)、[緊湊表格與焦點](images/ordering-compact-table/compact-table.png)、[儲存失敗紅字](images/ordering-compact-table/save-failed.png)。皆為合成資料；非 AI 預覽，也非正式站資料。
-- [ ] PR／必要 CI／合併與原站部署，完成後補精確證據。
+- [x] [PR #265](https://github.com/simonliu1118-byte/chihyuan-web/pull/265) 已合併：修正提交 `3f05a8c6d167faf6399bf91228d0471520a7b56d`，主線來源 `b75b9ac941f0cc7b167918226d8ace77142a87a9`。
+- [x] [Runtime Check #39631359103](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39631359103)、[Governance #39631359027](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39631359027)、[部署契約 #39631359047](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39631359047) 必要檢查全部成功。
+- [x] 原網站 [部署 #39631658692](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39631658692) 成功，來源 `main` 的 `b75b9ac941f0cc7b167918226d8ace77142a87a9`。已部署版本／consumer 宣告與 D1 健康、HTTPS／靜態資源、正式網域、無效 session 及 Identity 權威檢查全部成功。未建立 GitHub Release。
+- 部署後僅補交接／TODO 證據，不修改功能、版本或部署設定，不需為本文件重部署。Claude 後續可直接閱讀此最新交付段落與根 TODO。
 - 正式業務資料讀寫 **0 列**；本機合成請求與圖片均不含真實業務帳號／交易資料。無 migration 或遠端批次資料作業。
 
 ## 使用者確認的範圍

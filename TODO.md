@@ -6,7 +6,8 @@
 - [x] 右側標題下原自動儲存位置顯示轉圈儲存中、已儲存、紅字儲存失敗；明細與表頭均納入，失敗保留輸入。
 - [x] [Claude handoff](docs/handoff/CYWEB_ORDERING_AUTOSAVE_HANDOFF.md) 更新本輪範圍、檔案責任及取代的舊行為。
 - [x] 最終本機 43 項叫貨／路由／鍵盤測試、build、validate:source 通過；本機瀏覽器完成輸入／失敗重試／重開驗證，畫面見 handoff。
-- [ ] CI、合併及部署證據。
+- [x] [PR #265](https://github.com/simonliu1118-byte/chihyuan-web/pull/265) 必要 CI 全數通過並合併，主線 `b75b9ac`。
+- [x] 原 CYWEB [部署 #39631658692](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39631658692) 成功，來源 `b75b9ac`；版本／D1 健康、HTTPS／靜態資源、正式網域與 Identity 權威檢查通過。證據已補進 handoff。
 - [ ] 手機三欄表格＋點列完整表單：另待定稿，本輪維持既有窄版表格捲動。
 
 ## CY Web V0.9.29 — 叫貨自動儲存與草稿載入修正
