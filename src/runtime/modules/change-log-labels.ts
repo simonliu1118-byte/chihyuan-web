@@ -11,10 +11,12 @@ const entityNames: Record<string,string> = {
   work_log_platform:"日誌平台",work_log_scoring_row:"計分參考列",work_log_scoring_config:"計分門檻",
   module_access:"使用權",module_access_group:"權限群組",app_tag:"標籤",
   hr_leave:"請假紀錄",hr_leave_attachment:"請假證明",hr_annual_leave:"特休通知",hr_overtime:"加班紀錄",hr_comp_time:"補休帳戶",hr_employee:"人事員工",hr_roster:"人事排班",hr_attendance:"出勤紀錄",hr_status_change:"人事狀態異動",hr_salary_record:"薪資異動",hr_seniority_exclusion:"年資不計期間",hr_setting:"人事設定",
+  ordering:"叫貨單",
   backup:"備份",erp_item_query:"ERP 查詢",erp_item_agent:"ERP 連線服務",
 };
 export const entityLabel = (type: string): string => entityNames[type] ?? "資料";
 export const actionLabels: Record<string,string> = {
+  "ordering.source_created":"新增叫貨來源","ordering.source_updated":"修改叫貨來源","ordering.created":"新增叫貨草稿","ordering.updated":"修改叫貨單","ordering.sent":"送出叫貨單","ordering.voided":"作廢叫貨單","ordering.line_saved":"儲存叫貨品項","ordering.line_deleted":"刪除叫貨品項","ordering.received":"登記叫貨到貨","ordering.closed":"結掉叫貨餘額",
   "hr_leave.created":"新增正式假單","hr_leave.cancelled":"銷假",
   "hr_leave_attachment.uploaded":"上傳請假證明","hr_annual_leave.notified":"記錄特休書面通知","hr_annual_leave.adjusted":"調整特休應給時數",
   "hr_overtime.updated":"修改加班標記","hr_comp_time.granted":"給予補休或換休",
