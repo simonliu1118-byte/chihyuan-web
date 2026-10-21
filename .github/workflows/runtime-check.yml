@@ -111,7 +111,7 @@ jobs:
       - name: Enforce Worker TypeScript
         run: test "$(cat worker-tsc.exit)" = "0"
       - name: Identity adapter regression tests
-        run: node --test scripts/first-login-boundary.test.mjs scripts/identity-adapter.test.mjs scripts/authority-refresh.test.mjs scripts/feedback-messages.test.mjs scripts/backup-providers.test.mjs scripts/backup-ui.test.mjs scripts/backup-rehearsal-http.test.mjs scripts/backup-schedule.test.mjs scripts/guarded-navigation.test.mjs scripts/program-entry-links.test.mjs scripts/program-catalog-refresh.test.mjs scripts/program-catalog-schedule.test.mjs scripts/erp-history-api.test.mjs scripts/erp-business-query.test.mjs scripts/module-requirements.test.mjs
+        run: node --test scripts/first-login-boundary.test.mjs scripts/identity-adapter.test.mjs scripts/authority-refresh.test.mjs scripts/feedback-messages.test.mjs scripts/backup-providers.test.mjs scripts/backup-ui.test.mjs scripts/backup-rehearsal-http.test.mjs scripts/backup-schedule.test.mjs scripts/guarded-navigation.test.mjs scripts/program-entry-links.test.mjs scripts/program-catalog-refresh.test.mjs scripts/program-catalog-schedule.test.mjs scripts/erp-history-api.test.mjs scripts/erp-business-query.test.mjs scripts/module-requirements.test.mjs scripts/ordering.test.mjs
 
       - name: CYInvoice recovery authority and current UI
         run: |
