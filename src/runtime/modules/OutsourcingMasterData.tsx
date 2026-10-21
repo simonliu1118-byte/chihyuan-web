@@ -1,3 +1,4 @@
+import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import { formatItem } from "../../ui/foundation/format";
 import { FormEvent, useEffect, useId, useState } from "react";
 import type { BomDetail, BomSummary, ContractorDetail, ContractorEntityType, ContractorPrice, ContractorSummary } from "../../../shared/contractor-outsourcing";
@@ -176,15 +177,18 @@ export function ContractorWorkspace({ contractors, onChanged, onEditingChange, n
     {price ? <Dialog open title={price.existing ? `修改單價：${price.existing.itemName}` : "設定代工單價"} size="small" dismissible={!busy} onClose={() => setPrice(null)}
       description="同一商品只有一個現行單價；修改後，已計價的代工單不受影響。"
       footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={() => setPrice(null)}>取消</button><button type="submit" form={priceFormId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>儲存單價</button></div>}>
-      <form id={priceFormId} className="cy-op-form-grid" onKeyDown={enterAdvancesThenSubmits} onSubmit={(event) => void savePrice(event)}>
+      <form id={priceFormId} className="cy-op-form" onKeyDown={enterAdvancesThenSubmits} onSubmit={(event) => void savePrice(event)}>
+    <FormSection>
         <div className="wide"><EntityPicker<OutsourcingItemOption> label="商品" required disabled={busy || price.existing !== null} value={price.item}
           onSelect={(row) => setPrice({ ...price, item: row, pricingUnit: row?.baseUnit ?? "" })} search={searchItems}
           getKey={(row) => row.id} getLabel={itemLabel} placeholder="輸入品號、品名或規格" /></div>
-        <label>計價單位<select className="cy-op-input" value={price.pricingUnit} disabled={busy || !price.item} onChange={(event) => setPrice({ ...price, pricingUnit: event.target.value })}>
-          {unitsOf(price.item, price.pricingUnit).map((unit) => <option key={unit}>{unit}</option>)}</select></label>
-        <label>單價（元）<input className="cy-op-input" inputMode="decimal" value={price.unitPrice} disabled={busy} onChange={(event) => setPrice({ ...price, unitPrice: event.target.value })} /></label>
-        <label className="wide">備註<input className="cy-op-input" value={price.note} disabled={busy} onChange={(event) => setPrice({ ...price, note: event.target.value })} /></label>
-      </form>
+        <Field  label="計價單位" size="s"><select className="cy-op-input" value={price.pricingUnit} disabled={busy || !price.item} onChange={(event) => setPrice({ ...price, pricingUnit: event.target.value })}>
+          {unitsOf(price.item, price.pricingUnit).map((unit) => <option key={unit}>{unit}</option>)}</select></Field>
+        <Field  label="單價（元）" size="s"><input className="cy-op-input" inputMode="decimal" value={price.unitPrice} disabled={busy} onChange={(event) => setPrice({ ...price, unitPrice: event.target.value })} /></Field>
+        <Field  label="備註" size="l"><input className="cy-op-input" value={price.note} disabled={busy} onChange={(event) => setPrice({ ...price, note: event.target.value })} /></Field>
+      
+    </FormSection>
+  </form>
     </Dialog> : null}
     <div className="cy-md" data-pane={pane.pane}>
       <section className="cy-op-panel cy-md-list" aria-label="代工對象清單">
@@ -197,18 +201,19 @@ export function ContractorWorkspace({ contractors, onChanged, onEditingChange, n
       <section className="cy-op-panel cy-md-detail">
         <MasterDetailBack label="代工對象清單" disabled={busy} onBack={async () => { if (draft && !(await canLeave())) return; setDraft(null); setCreating(false); pane.close(); }} />
         {draft ? <form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={(event) => void save(event)}>
+    <FormSection>
           <div className="cy-record-header cy-edit-header"><div><h2>{creating ? "新增代工對象" : `修改 ${detail?.displayName ?? "代工對象"}`}</h2></div><div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
             <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立代工對象" : "儲存修改"}</button></div></div>
-          <div className="cy-op-form-grid">
-            <label>名稱<input className="cy-op-input" value={draft.displayName} disabled={busy} onChange={(event) => patch({ displayName: event.target.value })} required /></label>
-            <label>類型<select className="cy-op-input" value={draft.entityType} disabled={busy} onChange={(event) => patch({ entityType: event.target.value as ContractorEntityType })}>
-              <option value="organization">公司／工廠</option><option value="person">個人</option></select></label>
-            <label>正式名稱<input className="cy-op-input" value={draft.legalName} disabled={busy} onChange={(event) => patch({ legalName: event.target.value })} /></label>
-            <label>統編<input className="cy-op-input" value={draft.taxId} disabled={busy} onChange={(event) => patch({ taxId: event.target.value })} /></label>
-            <label>電話<input className="cy-op-input" value={draft.phone} disabled={busy} onChange={(event) => patch({ phone: event.target.value })} /></label>
-            <label>地址<input className="cy-op-input" value={draft.address} disabled={busy} onChange={(event) => patch({ address: event.target.value })} /></label>
-            <label className="wide">備註<textarea className="cy-op-input" rows={2} value={draft.note} disabled={busy} onChange={(event) => patch({ note: event.target.value })} /></label>
-            <label className="wide"><input type="checkbox" checked={draft.isActive} disabled={busy} onChange={(event) => patch({ isActive: event.target.checked })} />使用中（停用後不會出現在新代工單的選單）</label>
+          <div className="cy-f-grid">
+            <Field  label="名稱" size="m" required><input className="cy-op-input" value={draft.displayName} disabled={busy} onChange={(event) => patch({ displayName: event.target.value })} /></Field>
+            <Field  label="類型" size="s"><select className="cy-op-input" value={draft.entityType} disabled={busy} onChange={(event) => patch({ entityType: event.target.value as ContractorEntityType })}>
+              <option value="organization">公司／工廠</option><option value="person">個人</option></select></Field>
+            <Field  label="正式名稱" size="m"><input className="cy-op-input" value={draft.legalName} disabled={busy} onChange={(event) => patch({ legalName: event.target.value })} /></Field>
+            <Field  label="統編" size="s"><input className="cy-op-input" value={draft.taxId} disabled={busy} onChange={(event) => patch({ taxId: event.target.value })} /></Field>
+            <Field  label="電話" size="s"><input className="cy-op-input" value={draft.phone} disabled={busy} onChange={(event) => patch({ phone: event.target.value })} /></Field>
+            <Field  label="地址" size="l"><input className="cy-op-input" value={draft.address} disabled={busy} onChange={(event) => patch({ address: event.target.value })} /></Field>
+            <Field  label="備註" size="l"><textarea className="cy-op-input" rows={2} value={draft.note} disabled={busy} onChange={(event) => patch({ note: event.target.value })} /></Field>
+            <CheckField  label="使用中（停用後不會出現在新代工單的選單）" size="s"  checked={draft.isActive} disabled={busy} onChange={(event) => patch({ isActive: event.target.checked })} />
           </div>
           <section className="cy-form-block">
             <div className="cy-form-block-head"><div><h3>聯絡人</h3></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={() => patch({ contacts: [...draft.contacts, { name: "", title: "", phone: "", mobile: "" }] })}>＋ 增加聯絡人</button></div>
@@ -222,7 +227,9 @@ export function ContractorWorkspace({ contractors, onChanged, onEditingChange, n
               </div>)}
             </div>
           </section>
-        </form> : loadingDetail ? <Loading /> : detail ? <div>
+        
+    </FormSection>
+  </form> : loadingDetail ? <Loading /> : detail ? <div>
           <div className="cy-record-header"><div><h2>{detail.displayName}</h2><p>{[detail.legalName, detail.entityType === "person" ? "個人" : "公司／工廠"].filter(Boolean).join(" · ")}</p></div>
             <div className="cy-record-actions"><StatusChip tone={detail.isActive ? "success" : "neutral"}>{detail.isActive ? "使用中" : "停用"}</StatusChip>
               <button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button></div></div>
@@ -338,17 +345,18 @@ export function BomWorkspace({ boms, onChanged, onEditingChange, notify, reportE
       <section className="cy-op-panel cy-md-detail">
         <MasterDetailBack label="BOM 清單" disabled={busy} onBack={async () => { if (draft && !(await canLeave())) return; setDraft(null); setCreating(false); pane.close(); }} />
         {draft ? <form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={(event) => void save(event)}>
+    <FormSection>
           <div className="cy-record-header cy-edit-header"><div><h2>{creating ? "新增 BOM" : `修改 ${detail?.recipeRef ?? "BOM"}`}</h2><p>一個成品可以有多個 BOM；入庫時若有多個使用中的 BOM，需要選擇實際用的那一個。</p></div><div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
             <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立 BOM" : "儲存修改"}</button></div></div>
-          <div className="cy-op-form-grid">
-            <label>BOM 代號<input className="cy-op-input" value={draft.recipeRef} disabled={busy} onChange={(event) => patch({ recipeRef: event.target.value })} placeholder="例如：紙袋-標準" required /></label>
+          <div className="cy-f-grid">
+            <Field  label="BOM 代號" size="s" required><input className="cy-op-input" value={draft.recipeRef} disabled={busy} onChange={(event) => patch({ recipeRef: event.target.value })} placeholder="例如：紙袋-標準" /></Field>
             <EntityPicker<OutsourcingItemOption> label="成品" required disabled={busy} value={draft.finished}
               onSelect={(row) => patch({ finished: row, outputUnit: row?.baseUnit ?? "" })} search={searchItems}
               getKey={(row) => row.id} getLabel={itemLabel} placeholder="輸入品號、品名或規格" />
-            <label>產出數量<input className="cy-op-input" inputMode="decimal" value={draft.outputQuantity} disabled={busy} onChange={(event) => patch({ outputQuantity: event.target.value })} /></label>
-            <label>產出單位<select className="cy-op-input" value={draft.outputUnit} disabled={busy || !draft.finished} onChange={(event) => patch({ outputUnit: event.target.value })}>
-              {unitsOf(draft.finished, draft.outputUnit).map((unit) => <option key={unit}>{unit}</option>)}</select></label>
-            <label className="wide"><input type="checkbox" checked={draft.isActive} disabled={busy} onChange={(event) => patch({ isActive: event.target.checked })} />使用中</label>
+            <Field  label="產出數量" size="s"><input className="cy-op-input" inputMode="decimal" value={draft.outputQuantity} disabled={busy} onChange={(event) => patch({ outputQuantity: event.target.value })} /></Field>
+            <Field  label="產出單位" size="s"><select className="cy-op-input" value={draft.outputUnit} disabled={busy || !draft.finished} onChange={(event) => patch({ outputUnit: event.target.value })}>
+              {unitsOf(draft.finished, draft.outputUnit).map((unit) => <option key={unit}>{unit}</option>)}</select></Field>
+            <CheckField  label="使用中" size="s"  checked={draft.isActive} disabled={busy} onChange={(event) => patch({ isActive: event.target.checked })} />
           </div>
           <section className="cy-form-block">
             <div className="cy-form-block-head"><div><h3>料件</h3></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={() => patch({ components: [...draft.components, newComponent()] })}>＋ 增加料件</button></div>
@@ -364,7 +372,9 @@ export function BomWorkspace({ boms, onChanged, onEditingChange, notify, reportE
               </div>)}
             </div>
           </section>
-        </form> : loadingDetail ? <Loading /> : detail ? <div>
+        
+    </FormSection>
+  </form> : loadingDetail ? <Loading /> : detail ? <div>
           <div className="cy-record-header"><div><h2>{detail.finishedItemName}</h2><p><span className="cy-mono">{detail.recipeRef}</span> · {detail.finishedItemNo}</p></div>
             <div className="cy-record-actions"><StatusChip tone={detail.isActive ? "success" : "neutral"}>{detail.isActive ? "使用中" : "停用"}</StatusChip>
               <button type="button" className="cy-op-button" disabled={busy} aria-busy={busy || undefined} onClick={() => void startEdit()}>修改</button></div></div>
