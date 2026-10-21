@@ -113,6 +113,12 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
    return success(await one(ctx.db,"SELECT vendor_item_code,vendor_item_name FROM ordering_vendor_items WHERE source_id=? AND key_type=? AND item_key=?",sourceId,key.type,key.key),requestId);
   }
   if(path==="last-source"&&method==="GET")return success(await one(ctx.db,"SELECT source_id FROM ordering_item_last_source WHERE item_code=?",must(url.searchParams.get("itemCode"),"品號",40)),requestId);
+  if(path==="last-source"&&method==="POST"){
+   const v=await body(request),code=must(v.itemCode,"品號",40),sourceId=int(v.sourceId,"來源");
+   if(!code||!await one(ctx.db,"SELECT id FROM ordering_sources WHERE id=? AND is_active=1",sourceId))throw new Bad("ORDERING_INVALID","無法記錄來源");
+   await ctx.db.prepare("INSERT INTO ordering_item_last_source(item_code,source_id,updated_at) VALUES(?,?,?) ON CONFLICT(item_code) DO UPDATE SET source_id=excluded.source_id,updated_at=excluded.updated_at").bind(code,sourceId,ctx.now).run();
+   return success({saved:true},requestId);
+  }
   if(path==="item"&&method==="GET"){
    const code=must(url.searchParams.get("itemCode"),"品號",40);
    return success(await one(ctx.db,"SELECT item_name,unit FROM erp_sales_items WHERE item_code=? LIMIT 1",code),requestId);
@@ -153,20 +159,33 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     const field=(key:string,fallback:string,max:number)=>key in raw?must(raw[key],key,max):fallback;
     const itemCode=field("itemCode",old?.item_code??"",40),itemName=field("itemName",old?.item_name??"",200);
     const qt=field("quantityText",old?.quantity_text??"",40);
+    if(!itemName||!qt)throw new Bad("ORDERING_INVALID","品名與數量必填");
+    if(!old){const total=await one<{n:number}>(ctx.db,"SELECT COUNT(*) n FROM ordering_lines WHERE order_id=?",id);
+     if((total?.n??0)>=500)throw new Bad("ORDERING_LIMIT","單張叫貨單最多 500 列",409);
+    }
     const parsed=parseQuantity(qt);let unit=field("unit",old?.unit??"",10);if(!unit)unit=parsed.unit;
+    // ERP lookup fills only missing values. Typed values always win.
+    let finalName=itemName;
+    if(itemCode&&(!finalName||!unit)){
+     const erp=await one<{item_name:string;unit:string}>(ctx.db,"SELECT item_name,unit FROM erp_sales_items WHERE item_code=?",itemCode);
+     if(!finalName)finalName=erp?.item_name??"";if(!unit)unit=erp?.unit??"";
+    }
     const source=await one<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE id=?",o.source_id);
     const section=source?.kind==="CN_REGULAR"?String(raw.section??old?.section??"OTHER"):"";
     if(!["","SINGLE","BAG","OTHER"].includes(section))throw new Bad("ORDERING_INVALID","區段不正確");
     const vendorNameFollows="vendorItemName" in raw?false:old?.vendor_name_follows!==0;
-    const vendorItemName=vendorNameFollows?itemName:field("vendorItemName",old?.vendor_item_name??"",200);
-    const vendorCode=field("vendorItemCode",old?.vendor_item_code??"",200),spec=field("spec",old?.spec??"",200),note=field("note",old?.note??"",300);
+    const remembered=vendorItemKey(itemCode,finalName);
+    const memory=remembered?await one<{vendor_item_code:string;vendor_item_name:string}>(ctx.db,"SELECT vendor_item_code,vendor_item_name FROM ordering_vendor_items WHERE source_id=? AND key_type=? AND item_key=?",o.source_id,remembered.type,remembered.key):null;
+    const vendorItemName=vendorNameFollows?finalName:field("vendorItemName",old?.vendor_item_name??memory?.vendor_item_name??"",200);
+    const vendorCode=field("vendorItemCode",old?.vendor_item_code??memory?.vendor_item_code??"",200),spec=field("spec",old?.spec??"",200),note=field("note",old?.note??"",300);
     const sortOrder=Number(raw.sortOrder??old?.sort_order??Date.now());if(!Number.isSafeInteger(sortOrder)||sortOrder<0)throw new Bad("ORDERING_INVALID","排序不正確");
-    const fields=[section,sortOrder,itemCode,itemName,vendorCode,vendorItemName,vendorNameFollows?1:0,spec,qt,parsed.quantity,unit,note];
+    const fields=[section,sortOrder,itemCode,finalName,vendorCode,vendorItemName,vendorNameFollows?1:0,spec,qt,parsed.quantity,unit,note];
     const sql=old?"UPDATE ordering_lines SET section=?,sort_order=?,item_code=?,item_name=?,vendor_item_code=?,vendor_item_name=?,vendor_name_follows=?,spec=?,quantity_text=?,quantity=?,unit=?,note=? WHERE id=? AND order_id=?":
       "INSERT INTO ordering_lines(section,sort_order,item_code,item_name,vendor_item_code,vendor_item_name,vendor_name_follows,spec,quantity_text,quantity,unit,note,id,order_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
     const stmt=ctx.db.prepare(sql).bind(...fields,old?.id??null,id);
-    const summary=(old?.item_name??itemName)+" "+(!old?"新增":Object.keys(raw).join("、")+" 已修改");
-    const stmts=[stmt];
+    const updates=Object.entries(raw).filter(([key,value])=>key in (old??{})||["itemCode","itemName","quantityText","unit","vendorItemCode","vendorItemName","sortOrder","spec","section","note"].includes(key));
+    const summary=(old?.item_name??finalName)+" "+(!old?"新增":updates.map(([key,value])=>key+" "+String((old as unknown as Record<string,unknown>|null)?.[key]??"")+" → "+String(value)).join("、"));
+    const stmts:D1PreparedStatement[]=[stmt];
     if(("vendorItemCode" in raw||"vendorItemName" in raw)&&vendorItemKey(itemCode,itemName)){
      const key=vendorItemKey(itemCode,itemName)!;
      stmts.push(ctx.db.prepare("INSERT INTO ordering_vendor_items(source_id,key_type,item_key,vendor_item_code,vendor_item_name,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(source_id,key_type,item_key) DO UPDATE SET vendor_item_code=excluded.vendor_item_code,vendor_item_name=excluded.vendor_item_name,updated_at=excluded.updated_at").bind(o.source_id,key.type,key.key,"vendorItemCode" in raw?vendorCode:old?.vendor_item_code??"", "vendorItemName" in raw?vendorItemName:old?.vendor_item_name??"",ctx.now));
