@@ -158,10 +158,18 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
    const v=await body(request),expected=int(v.expectedVersion,"版本");if(expected!==o.version)throw new Bad("ORDERING_VERSION_CONFLICT","已被其他人修改，請重新載入",409);
    if(!action&&method==="PATCH"){
     if(o.status==="VOID")throw new Bad("ORDERING_INVALID","單據已作廢");
-    const sets:string[]=[],vals:unknown[]=[];if("plannedSendDate" in v){sets.push("planned_send_date=?");vals.push(v.plannedSendDate?date(v.plannedSendDate):null)}
-    if("note" in v){sets.push("note=?");vals.push(must(v.note,"備註",300))}
-    if(!sets.length)throw new Bad("ORDERING_INVALID","沒有變更");
-    return success(await mutate(ctx,o,expected,[ctx.db.prepare("UPDATE ordering_orders SET "+sets.join(",")+" WHERE id=?").bind(...vals,id)],"更新單據", "updated"),requestId);
+    const sets:string[]=[],vals:unknown[]=[],history:string[]=[];
+    if("plannedSendDate" in v){
+     const next=v.plannedSendDate?date(v.plannedSendDate):null;
+     if(next!==o.planned_send_date){sets.push("planned_send_date=?");vals.push(next);
+      history.push("預計送出日期 "+(o.planned_send_date??"空白")+" → "+(next??"空白"))}
+    }
+    if("note" in v){
+     const next=must(v.note,"備註",300);
+     if(next!==o.note){sets.push("note=?");vals.push(next);history.push("備註 "+(o.note||"空白")+" → "+(next||"空白"))}
+    }
+    if(!sets.length)return success(await getOrder(ctx,id),requestId);
+    return success(await mutate(ctx,o,expected,[ctx.db.prepare("UPDATE ordering_orders SET "+sets.join(",")+" WHERE id=?").bind(...vals,id)],history.join("、"),"updated"),requestId);
    }
    if(action==="send"&&method==="POST"){
     if(o.status!=="DRAFT")throw new Bad("ORDERING_INVALID","只有草稿能送出");
