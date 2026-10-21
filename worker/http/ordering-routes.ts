@@ -96,7 +96,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
    await init(ctx);
    const sources=await rows<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE kind='VENDOR' AND is_active=1 ORDER BY sort_order,id LIMIT 101");
    if(sources.length>100)throw new Bad("ORDERING_LIMIT","廠商數量超過上限",409);
-   const orders=await rows<{id:number;source_id:number;planned_send_date:string|null;created_at:string}>(ctx.db,
+   const orders=await rows<{id:number;source_id:number;planned_send_date:string|null;created_at:string;version:number}>(ctx.db,
     "SELECT o.id,o.source_id,o.planned_send_date,o.created_at FROM ordering_orders o JOIN ordering_sources s ON s.id=o.source_id WHERE o.status='DRAFT' AND s.kind='VENDOR' AND s.is_active=1 ORDER BY o.id DESC LIMIT 501");
    if(orders.length>500)throw new Bad("ORDERING_LIMIT","廠商草稿超過500張",409);
    const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);
@@ -105,7 +105,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
    const lines=ids.length?await rows<Line>(ctx.db,
     "SELECT l.*,0 received FROM ordering_lines l WHERE l.order_id IN ("+ids.map(()=>"?").join(",")+") ORDER BY l.order_id,l.section,l.sort_order,l.id LIMIT 2501",...ids):[];
    if(lines.length>2500)throw new Bad("ORDERING_LIMIT","廠商合併明細超過2500列",409);
-   return success(selection.map(x=>({sourceId:x.source.id,sourceName:x.source.name,conditions:x.source.conditions,orderId:x.order?.id??null,
+   return success(selection.map(x=>({sourceId:x.source.id,sourceName:x.source.name,conditions:x.source.conditions,orderId:x.order?.id??null,orderVersion:orders.find(o=>o.id===x.order?.id)?.version??null,
     lines:lines.filter(l=>l.order_id===x.order?.id).map(l=>({id:l.id,section:l.section,sortOrder:l.sort_order,itemCode:l.item_code,itemName:l.item_name,vendorItemCode:l.vendor_item_code,vendorItemName:l.vendor_item_name,spec:l.spec,quantityText:l.quantity_text,quantity:l.quantity,unit:l.unit,note:l.note}))})),requestId);
   }
   if(path==="orders"&&method==="GET"){
