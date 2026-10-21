@@ -1,3 +1,4 @@
+import {Field,CheckField,FormSection} from "../../../ui/forms/Field";
 import { FormEvent, useEffect, useState } from "react";
 import type { DefectCustomerOption, DefectItemOption, DefectModuleLookups } from "../../../../shared/business-lookups";
 import type { DefectDetail } from "../../../../shared/defect";
@@ -76,40 +77,40 @@ export function DefectForm({ mode, initial, fixedItem, onSaved, onCancel }: Defe
   // there the actions sit at the bottom like the other dialog forms.
   const inDialog = Boolean(fixedItem);
   return <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={event => void submit(event)}>
+    <FormSection>
     {inDialog ? null : <div className="cy-record-header cy-edit-header">
       <div><h2>{mode === "create" ? "新增瑕疵" : `修改瑕疵 #${initial?.id ?? ""}`}</h2>
         <p>已建檔與處理中的瑕疵可以修改；已處理的需先重新開啟。</p></div>
       <div className="cy-record-actions">{actions}</div>
     </div>}
-    <div className="cy-defect-form-body"><div className="cy-op-form-grid">
-      <label>回報日期<input className="cy-op-input" type="date" max="9999-12-31" required value={reportedDate}
-        disabled={busy} onChange={event => setReportedDate(event.target.value)} /></label>
+    <div className="cy-defect-form-body"><div className="cy-f-grid">
+      <Field  label="回報日期" size="s" required><input className="cy-op-input" type="date" max="9999-12-31" value={reportedDate}
+        disabled={busy} onChange={event => setReportedDate(event.target.value)} /></Field>
       <EntityPicker<DefectCustomerOption> label="客戶" required disabled={busy}
         value={customer} onSelect={setCustomer}
         search={async q => (await loadDefectLookups({ customerQuery: q, limit: 20 })).customers}
         getKey={row => row.id} getLabel={row => [row.customerNo, row.shortName].filter(Boolean).join(" ")}
         placeholder="輸入客戶編號或名稱" />
-      {fixedItem ? <label>商品
-        <strong className="cy-defect-fixed-item">{formatItem(fixedItem.itemNo, fixedItem.name)}</strong>
-      </label> : <EntityPicker<DefectItemOption> label="商品" required disabled={busy}
+      {fixedItem ? <Field  label="商品" size="m"><span><strong className="cy-defect-fixed-item">{formatItem(fixedItem.itemNo, fixedItem.name)}</strong></span></Field> : <EntityPicker<DefectItemOption> label="商品" required disabled={busy}
         value={item} onSelect={setItem}
         search={async q => (await loadDefectLookups({ itemQuery: q, limit: 20 })).items}
         getKey={row => row.id} getLabel={row => formatItem(row.itemNo, row.name)}
         getDescription={row => row.spec} placeholder="輸入品號或品名" />}
-      <label>負責人<select className="cy-op-input" value={ownerEmployeeId ?? ""} disabled={busy}
+      <Field  label="負責人" size="m"><select className="cy-op-input" value={ownerEmployeeId ?? ""} disabled={busy}
         onChange={event => setOwnerEmployeeId(Number(event.target.value) || null)}>
         <option value="">請選擇</option>
         {lookups?.owners.map(row => <option key={row.id} value={row.id}>
           {row.displayName || row.employeeNo || `員工 #${row.id}`}{row.isActive ? "" : "（已停用）"}
         </option>)}
-      </select></label>
-      <label className="wide">瑕疵內容<textarea className="cy-op-input" rows={5} required value={description}
-        disabled={busy} onChange={event => setDescription(event.target.value)} /></label>
-      {mode === "edit" && initial?.statusCode === "processing" ? <label className="wide">處理中備註
-        <textarea className="cy-op-input" rows={4} value={handling} disabled={busy}
-          onChange={event => setHandling(event.target.value)} /></label> : null}
+      </select></Field>
+      <Field  label="瑕疵內容" size="l" required><textarea className="cy-op-input" rows={5} value={description}
+        disabled={busy} onChange={event => setDescription(event.target.value)} /></Field>
+      {mode === "edit" && initial?.statusCode === "processing" ? <Field  label="處理中備註" size="l"><textarea className="cy-op-input" rows={4} value={handling} disabled={busy}
+          onChange={event => setHandling(event.target.value)} /></Field> : null}
     </div></div>
     {error ? <p className="cy-notice cy-notice-error" role="alert">{error}</p> : null}
     {inDialog ? <div className="cy-customer-related-form-actions">{actions}</div> : null}
+  
+    </FormSection>
   </form>;
 }
