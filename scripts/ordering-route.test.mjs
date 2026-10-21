@@ -50,6 +50,24 @@ test("draft saves one row, conflicts on stale version, send and revise",async()=
   assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_revisions").get().n,1);
  }finally{sql.close()}
 });
+test("manual vendor memory is reused, ERP sales item fills blanks and source disable preserves history",async()=>{
+ const {sql,call}=fixture();try{
+  const sources=(await call("/sources")).body.data;
+  const vendor=sources.find(x=>x.name==="永全"),sourceId=vendor.id;
+  sql.prepare("INSERT INTO erp_sales_items(item_code,item_name,unit,updated_at) VALUES(?,?,?,?)").run("CODE01","測試品名甲","箱","2026-10-21T00:00:00Z");
+  let o=(await call("/orders","POST",{sourceId})).body.data;
+  const first=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{itemCode:"CODE01",itemName:"測試品名甲",quantityText:"1",vendorItemCode:"V01",vendorItemName:"測試廠商品名甲"}});
+  assert.equal(first.status,200,JSON.stringify(first.body));
+  o=first.body.data;assert.equal(o.lines[0].vendorItemName,"測試廠商品名甲");
+  assert.equal((await call("/vendor-memory?sourceId="+sourceId+"&itemCode=CODE01")).body.data.vendor_item_name,"測試廠商品名甲");
+  let other=(await call("/orders","POST",{sourceId})).body.data;
+  other=(await call("/orders/"+other.id+"/lines","POST",{expectedVersion:other.version,line:{itemCode:"CODE01",itemName:"",vendorItemCode:"",vendorItemName:"",quantityText:"2"}})).body.data;
+  assert.equal(other.lines[0].itemName,"測試品名甲");assert.equal(other.lines[0].unit,"箱");
+  assert.equal(other.lines[0].vendorItemCode,"V01");assert.equal(other.lines[0].vendorItemName,"測試廠商品名甲");
+  assert.equal((await call("/sources/"+sourceId,"PATCH",{isActive:false})).status,200);
+  assert.equal((await call("/orders/"+o.id)).status,200,"inactive source must retain history");
+ }finally{sql.close()}
+});
 test("receipt performs multi-line update and settles shortages with correct status",async()=>{
  const {sql,call}=fixture();try{
   const id=(await call("/sources")).body.data.find(x=>x.name==="台北").id;
