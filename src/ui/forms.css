@@ -95,3 +95,15 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--cy-accent); wi
 .cy-f-grid > .cy-f-check{min-width:0}
 .cy-f-grid > .cy-f-grid{display:grid}
 .cy-f-section{max-width:min(960px,100%)}
+
+/* Existing form subsections retain their semantic wrappers but adopt the same 12-column Field widths. */
+.cy-f-section :is(div,section):has(> .cy-f,> .cy-f-check){display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px 16px;min-width:0;max-width:100%}
+.cy-f-section :is(div,section):has(> .cy-f,> .cy-f-check)>:not(.cy-f):not(.cy-f-check){grid-column:1/-1;min-width:0}
+.cy-f-section :is(div,section):has(> .cy-f,> .cy-f-check)>.cy-f-s{grid-column:span 3}
+.cy-f-section :is(div,section):has(> .cy-f,> .cy-f-check)>.cy-f-m{grid-column:span 6}
+.cy-f-section :is(div,section):has(> .cy-f,> .cy-f-check)>.cy-f-l{grid-column:1/-1}
+@container (max-width:640px){
+ .cy-f-section :is(div,section):has(> .cy-f,> .cy-f-check)>.cy-f-s{grid-column:span 6}
+ .cy-f-section :is(div,section):has(> .cy-f,> .cy-f-check)>.cy-f-m{grid-column:1/-1}
+}
+@container (max-width:300px){.cy-f-section :is(div,section):has(> .cy-f,> .cy-f-check)>.cy-f-s{grid-column:1/-1}}
