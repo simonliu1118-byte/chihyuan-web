@@ -403,20 +403,21 @@ export function HrOperationalPage() {
       title={action === "status" ? "新增狀態異動" : action === "salary" ? "新增薪資異動" : "新增年資不計期間"}
       onClose={() => { setAction(null); }}>
       <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={event => void submitAction(event)}>
-        <div className="cy-op-form-grid">
+    <FormSection>
+        <div className="cy-f-grid">
           {action === "exclusion" ? <>
             <FormField label="起日" type="date" required value={form.startDate} onChange={value => setForm({ ...form, startDate: value })} />
             <FormField label="迄日" type="date" required value={form.endDate} onChange={value => setForm({ ...form, endDate: value })} />
           </> : <FormField label="生效日" type="date" required value={form.effectiveDate} onChange={value => setForm({ ...form, effectiveDate: value })} />}
-          {action === "status" ? <label>新狀態<select className="cy-op-input" value={form.nextStatus} onChange={event => setForm({ ...form, nextStatus: event.target.value })}>
-            {(Object.keys(statusLabels) as HrStatus[]).map(code => <option key={code} value={code}>{statusLabels[code]}</option>)}</select></label> : null}
+          {action === "status" ? <Field label="新狀態" size="s"><select className="cy-op-input" value={form.nextStatus} onChange={event => setForm({ ...form, nextStatus: event.target.value })}>
+            {(Object.keys(statusLabels) as HrStatus[]).map(code => <option key={code} value={code}>{statusLabels[code]}</option>)}</select></Field> : null}
           {action === "status" && form.nextStatus === "terminated" ? <>
             <FormField label="離職日" type="date" required value={form.terminationDate} onChange={value => setForm({ ...form, terminationDate: value })} />
             <FormField label="離職原因" required value={form.terminationReason} onChange={value => setForm({ ...form, terminationReason: value })} />
           </> : null}
           {action === "salary" ? <>
-            <label>計薪方式<select className="cy-op-input" value={form.paymentType} onChange={event => setForm({ ...form, paymentType: event.target.value })}>
-              <option value="monthly">月薪</option><option value="hourly">時薪</option></select></label>
+            <Field label="計薪方式" size="m"><select className="cy-op-input" value={form.paymentType} onChange={event => setForm({ ...form, paymentType: event.target.value })}>
+              <option value="monthly">月薪</option><option value="hourly">時薪</option></select></Field>
             <FormField label={form.paymentType === "hourly" ? "時薪（元）" : "本薪（元）"} type="number" required value={form.baseAmount}
               onChange={value => setForm({ ...form, baseAmount: value })} />
           </> : null}
@@ -434,8 +435,8 @@ export function HrOperationalPage() {
                 {salaryItems.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
               <input className="cy-op-input" aria-label="金額" type="number" min="0" step="1" placeholder="金額" value={row.amount}
                 onChange={event => setAllowances(allowances.map((item, n) => n === index ? { ...item, amount: event.target.value } : item))} />
-              <label className="cy-hr-check"><input type="checkbox" checked={row.isRegular}
-                onChange={event => setAllowances(allowances.map((item, n) => n === index ? { ...item, isRegular: event.target.checked } : item))} />經常性</label>
+              <CheckField  label="經常性" size="s"  checked={row.isRegular}
+                onChange={event => setAllowances(allowances.map((item, n) => n === index ? { ...item, isRegular: event.target.checked } : item))} />
               <button type="button" className="cy-op-button compact quiet cy-row-remove" onClick={() => setAllowances(allowances.filter((_, n) => n !== index))}>移除</button>
             </div>)}
           </div>
@@ -445,7 +446,9 @@ export function HrOperationalPage() {
           <button type="button" className="cy-op-button" disabled={busy} onClick={() => { setAction(null); }}>取消</button>
           <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>新增</button>
         </div>
-      </form>
+      
+    </FormSection>
+  </form>
     </Dialog> : null}
 
     {detail && browse ? <Dialog open size="large" onClose={() => setBrowse(null)}
@@ -471,13 +474,16 @@ export function HrOperationalPage() {
     </Dialog> : null}
     {deleteNo !== null && detail ? <Dialog open size="small" title="刪除人事資料（測試用）" onClose={() => setDeleteNo(null)}>
       <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={event => void removeEmployee(event)}>
+    <FormSection>
         <p>會一併刪除 {detail.employee_no} {detail.name} 的學經歷、聯絡人、異動、薪資、班表與出勤，無法復原。請輸入員工編號確認。</p>
-        <label className="cy-field"><span>員工編號</span><input className="cy-op-input" autoFocus value={deleteNo} onChange={e => setDeleteNo(e.target.value)} /></label>
+        <Field label="員工編號" size="s"><input className="cy-op-input" autoFocus value={deleteNo} onChange={e => setDeleteNo(e.target.value)} /></Field>
         <div className="cy-op-form-footer">
           <button type="button" className="cy-op-button" disabled={busy} onClick={() => setDeleteNo(null)}>取消</button>
           <button className="cy-op-button danger" disabled={busy || deleteNo.trim() !== detail.employee_no} aria-busy={busy || undefined}>刪除</button>
         </div>
-      </form>
+      
+    </FormSection>
+  </form>
     </Dialog> : null}
   </div>:tab==="roster"?<HrRosterPanel/>:tab==="attendance"?<HrAttendancePanel/>:<HrLeavePanel initialEmployeeId={initialLeaveEmployeeId}/>}</>;
 }

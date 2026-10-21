@@ -1,3 +1,4 @@
+import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import { Dialog } from "../../ui/overlays/Dialog";
 import { RelatedCard } from "../../ui/records/RelatedCard";
 import { EntityPicker } from "../../ui/pickers/EntityPicker";
@@ -653,6 +654,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
         <MasterDetailBack label="商品清單" disabled={busy} onBack={async () => { if (editing) { if (!(await canLeave())) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
         {editing && draft ? (
           <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void save(event)}>
+    <FormSection>
             <div className="cy-record-header cy-edit-header">
               <div>
                 <h2>{creating ? "新增商品" : `修改 ${selected?.itemNo ?? "商品"}`}</h2>
@@ -661,12 +663,12 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
             <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
               <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立商品" : "儲存修改"}</button></div></div>
             <div className="cy-item-form-body">
-              <div className="cy-op-form-grid">
-                <label>品號<input className="cy-op-input" value={creating ? draft.itemNo : selected?.itemNo ?? draft.itemNo} disabled={!creating || busy} onChange={(event) => creating && patch({ itemNo: event.target.value })} required /></label>
-                <label>名稱<input className="cy-op-input" value={draft.name} disabled={busy} onChange={(event) => patch({ name: event.target.value })} required /></label>
-                <label>規格<input className="cy-op-input" value={draft.spec} disabled={busy} onChange={(event) => patch({ spec: event.target.value })} /></label>
-                <label>分類<select className="cy-op-input" value={draft.itemCategoryId ?? ""} disabled={busy} onChange={(event) => patch({ itemCategoryId: event.target.value ? Number(event.target.value) : null })}><option value="">未分類</option>{categories.filter((row) => row.isActive || row.id === draft.itemCategoryId).map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}</select></label>
-                <label>基準單位<input className="cy-op-input" value={draft.baseUnit} disabled={busy} onChange={(event) => patch({ baseUnit: event.target.value })} required /></label>
+              <div className="cy-f-grid">
+                <Field label="品號" size="m" required><input className="cy-op-input" value={creating ? draft.itemNo : selected?.itemNo ?? draft.itemNo} disabled={!creating || busy} onChange={(event) => creating && patch({ itemNo: event.target.value })} /></Field>
+                <Field label="名稱" size="m" required><input className="cy-op-input" value={draft.name} disabled={busy} onChange={(event) => patch({ name: event.target.value })} /></Field>
+                <Field label="規格" size="l"><input className="cy-op-input" value={draft.spec} disabled={busy} onChange={(event) => patch({ spec: event.target.value })} /></Field>
+                <Field label="分類" size="m"><select className="cy-op-input" value={draft.itemCategoryId ?? ""} disabled={busy} onChange={(event) => patch({ itemCategoryId: event.target.value ? Number(event.target.value) : null })}><option value="">未分類</option>{categories.filter((row) => row.isActive || row.id === draft.itemCategoryId).map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}</select></Field>
+                <Field label="基準單位" size="s" required><input className="cy-op-input" value={draft.baseUnit} disabled={busy} onChange={(event) => patch({ baseUnit: event.target.value })} /></Field>
               <div className="cy-item-conversions-inline wide">
                 {draft.unitConversions.map((row, index) => (
                   <div className="cy-item-conversion-row" key={index}>
@@ -683,15 +685,17 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
                 ))}
                 <button type="button" className="cy-item-add-conversion" disabled={busy} onClick={addConversion}>＋ 換算</button>
               </div>
-                <label>成本<input className="cy-op-input" inputMode="decimal" value={draft.cost} disabled={busy} onChange={(event) => patch({ cost: event.target.value })} /></label>
-                <label>成本稅別<select className="cy-op-input" value={draft.costTaxMode ?? ""} disabled={busy} onChange={(event) => patch({ costTaxMode: (event.target.value || null) as ItemCostTaxMode | null })}><option value="">未指定</option><option value="inclusive">含稅</option><option value="exclusive">未稅</option><option value="none">無稅別</option></select></label>
-                <label>門市價<input className="cy-op-input" inputMode="decimal" value={draft.storePrice} disabled={busy} onChange={(event) => patch({ storePrice: event.target.value })} /></label>
-                <label>診所價<input className="cy-op-input" inputMode="decimal" value={draft.clinicPrice} disabled={busy} onChange={(event) => patch({ clinicPrice: event.target.value })} /></label>
-                <label className="wide">備註<textarea className="cy-op-input" rows={3} value={draft.notes} disabled={busy} onChange={(event) => patch({ notes: event.target.value })} /></label>
+                <Field label="成本" size="s"><input className="cy-op-input" inputMode="decimal" value={draft.cost} disabled={busy} onChange={(event) => patch({ cost: event.target.value })} /></Field>
+                <Field label="成本稅別" size="s"><select className="cy-op-input" value={draft.costTaxMode ?? ""} disabled={busy} onChange={(event) => patch({ costTaxMode: (event.target.value || null) as ItemCostTaxMode | null })}><option value="">未指定</option><option value="inclusive">含稅</option><option value="exclusive">未稅</option><option value="none">無稅別</option></select></Field>
+                <Field label="門市價" size="s"><input className="cy-op-input" inputMode="decimal" value={draft.storePrice} disabled={busy} onChange={(event) => patch({ storePrice: event.target.value })} /></Field>
+                <Field label="診所價" size="s"><input className="cy-op-input" inputMode="decimal" value={draft.clinicPrice} disabled={busy} onChange={(event) => patch({ clinicPrice: event.target.value })} /></Field>
+                <Field label="備註" size="l"><textarea className="cy-op-input" rows={3} value={draft.notes} disabled={busy} onChange={(event) => patch({ notes: event.target.value })} /></Field>
               </div>
 
             </div>
-          </form>
+          
+    </FormSection>
+  </form>
         ) : loadingDetail ? (
           <Loading />
         ) : selected ? (

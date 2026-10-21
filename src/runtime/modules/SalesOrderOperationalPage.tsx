@@ -1,3 +1,4 @@
+import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import { formatItem } from "../../ui/foundation/format";
 import { formatDate } from "../../ui/foundation/format";
 import { StatusFilter } from "../../ui/data/StatusFilter";
@@ -548,37 +549,32 @@ export function SalesOrderOperationalPage() {
           <MasterDetailBack label="工單清單" disabled={busy} onBack={async () => { if (editing) { if (!(await canLeave())) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
           {editing && draft ? (
             <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void save(event)}>
+    <FormSection>
               <div className="cy-record-header cy-edit-header">
                 <div><h2>{creating ? "新增銷售工單" : `修改 ${selected?.workOrderRef ?? "工單"}`}</h2><p>ERP 開單前可以修改；開單後只能更正 ERP 資料。</p></div>
               <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立工單" : "儲存修改"}</button></div></div>
 
-              <div className="cy-op-form-grid cy-form-grid-spaced">
+              <div className="cy-f-grid cy-form-grid-spaced">
                 <EntityPicker<SalesWorkOrderCustomerOption> label="客戶" disabled={busy}
                   value={pickedCustomer?.id === draft.customerId ? pickedCustomer : (lookups?.customers ?? []).find((row) => row.id === draft.customerId) ?? null}
                   onSelect={(row) => { setPickedCustomer(row); setDraft({ ...draft, customerId: row?.id ?? null }); }}
                   search={async (query) => (await loadSalesOrderLookups({ customerQuery: query, limit: 20 })).customers}
                   getKey={(row) => row.id} getLabel={(row) => `${row.customerNo ? `${row.customerNo} · ` : ""}${row.shortName}`}
                   placeholder="輸入客戶編號或名稱" description="未建檔的現場客戶可留空，改填下方名稱。" />
-                {draft.customerId == null ? <label>現場客戶名稱<input className="cy-op-input" value={draft.customerName} disabled={busy} onChange={(event) => setDraft({ ...draft, customerName: event.target.value })} required /></label> : null}
-                <label>工單日期<input className="cy-op-input" type="date" max="9999-12-31" value={draft.orderDate} disabled={busy} onChange={(event) => setDraft({ ...draft, orderDate: event.target.value })} /></label>
-                <label>操作人員
-                  <select className="cy-op-input" value={draft.operatorEmployeeId ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, operatorEmployeeId: Number(event.target.value) || null })}>
+                {draft.customerId == null ? <Field label="現場客戶名稱" size="m" required><input className="cy-op-input" value={draft.customerName} disabled={busy} onChange={(event) => setDraft({ ...draft, customerName: event.target.value })} /></Field> : null}
+                <Field label="工單日期" size="s"><input className="cy-op-input" type="date" max="9999-12-31" value={draft.orderDate} disabled={busy} onChange={(event) => setDraft({ ...draft, orderDate: event.target.value })} /></Field>
+                <Field label="操作人員" size="m"><select className="cy-op-input" value={draft.operatorEmployeeId ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, operatorEmployeeId: Number(event.target.value) || null })}>
                     <option value="">請選擇</option>
                     {(lookups?.operators ?? []).map((row) => <option key={row.id} value={row.id}>{operatorLabel(row.id, row.employeeNo)}{row.isActive ? "" : "（已停用）"}</option>)}
-                  </select>
-                </label>
-                <label>發票類型
-                  <select className="cy-op-input" value={draft.invoiceTypeCode ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, invoiceTypeCode: event.target.value ? event.target.value as InvoiceTypeCode : null })}>
+                  </select></Field>
+                <Field label="發票類型" size="s"><select className="cy-op-input" value={draft.invoiceTypeCode ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, invoiceTypeCode: event.target.value ? event.target.value as InvoiceTypeCode : null })}>
                     <option value="">未指定</option><option value="two_copy">二聯式</option><option value="three_copy">三聯式</option>
-                  </select>
-                </label>
-                <label>收據
-                  <select className="cy-op-input" value={draft.receiptOptionCode ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, receiptOptionCode: event.target.value ? event.target.value as ReceiptOptionCode : null })}>
+                  </select></Field>
+                <Field label="收據" size="s"><select className="cy-op-input" value={draft.receiptOptionCode ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, receiptOptionCode: event.target.value ? event.target.value as ReceiptOptionCode : null })}>
                     <option value="">未指定</option><option value="with_receipt">附收據</option><option value="without_receipt">不附收據</option>
-                  </select>
-                </label>
-                <label><input type="checkbox" checked={draft.hidePriceOnSalesDocument} disabled={busy} onChange={(event) => setDraft({ ...draft, hidePriceOnSalesDocument: event.target.checked })} /> 銷售文件隱藏價格</label>
-                <label className="wide">備註<textarea className="cy-op-input" rows={2} value={draft.note} disabled={busy} onChange={(event) => setDraft({ ...draft, note: event.target.value })} /></label>
+                  </select></Field>
+                <CheckField  label="銷售文件隱藏價格" size="s"  checked={draft.hidePriceOnSalesDocument} disabled={busy} onChange={(event) => setDraft({ ...draft, hidePriceOnSalesDocument: event.target.checked })} />
+                <Field label="備註" size="l"><textarea className="cy-op-input" rows={2} value={draft.note} disabled={busy} onChange={(event) => setDraft({ ...draft, note: event.target.value })} /></Field>
               </div>
 
               <section className="cy-form-block">
@@ -609,7 +605,9 @@ export function SalesOrderOperationalPage() {
                 </div>
               </section>
 
-            </form>
+            
+    </FormSection>
+  </form>
           ) : loadingDetail ? <Loading /> : selected ? (
             <div>
               <div className="cy-record-header">

@@ -1,3 +1,4 @@
+import {Field,CheckField,FormSection} from "../ui/forms/Field";
 import { FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
 import { useFeedback } from "../ui/feedback/FeedbackProvider";
 import { advanceFocusOnEnter, enterAdvancesThenSubmits } from "../ui/foundation/enter-advance";
@@ -316,41 +317,52 @@ export function AuthGate({ children }: AuthGateProps) {
     <section className="cy-auth-card" aria-labelledby="cy-auth-title">
       <div className="cy-auth-heading"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><div><h1 id="cy-auth-title">{mode === "login" ? "登入 CY Web" : mode === "first_login" ? "完成 Email 驗證" : "帳號協助"}</h1><p>{mode === "login" ? "請使用員工編號及密碼登入" : "依照畫面指示完成帳號驗證"}</p></div></div>
 
-    {mode === "login" ? <form className="cy-auth-form" onSubmit={handleLogin} onKeyDown={advanceFocusOnEnter} noValidate>
-      <label><span>員工編號</span><input data-enter-advance="true" autoComplete="username" inputMode="numeric" maxLength={4} pattern="[0-9]{4}" value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value.replace(/\D/g, "").slice(0, 4))} disabled={submitting} autoFocus required /></label>
-      <label><span>密碼</span><input data-enter-advance="true" type="password" autoComplete="current-password" maxLength={16} value={password} onChange={(e) => setPassword(e.target.value)} disabled={submitting} required /></label>
+    {mode === "login" ? <form className="cy-auth-form" onSubmit={handleLogin} onKeyDown={advanceFocusOnEnter}>
+    <FormSection>
+      <Field label="員工編號" size="s" required><input data-enter-advance="true" autoComplete="username" inputMode="numeric" maxLength={4} pattern="[0-9]{4}" value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value.replace(/\D/g, "").slice(0, 4))} disabled={submitting} autoFocus /></Field>
+      <Field label="密碼" size="m" required><input data-enter-advance="true" type="password" autoComplete="current-password" maxLength={16} value={password} onChange={(e) => setPassword(e.target.value)} disabled={submitting} /></Field>
       <div className="cy-auth-login-options">
-        <label className="cy-auth-remember"><input type="checkbox" checked={rememberMe} disabled={submitting}
+        <CheckField  label="記住我" size="s"  checked={rememberMe} disabled={submitting}
           onChange={event => { setRememberMe(event.target.checked); if (!event.target.checked) saveRememberedEmployee(null); }} />
-          <span>記住我</span></label>
         <button type="button" className="cy-auth-link-button" onClick={() => resetFlow("recover")}>忘記密碼？</button>
       </div>
       {state.message ? <p className="cy-auth-error" role="alert">{state.message}</p> : null}
       <button className="cy-auth-primary-button" type="submit" disabled={submitting} aria-busy={submitting || undefined}>登入</button>
-    </form> : mode === "first_login" ? <form className="cy-auth-form" onSubmit={submitFirstLogin} onKeyDown={enterAdvancesThenSubmits} noValidate>
+    
+    </FormSection>
+  </form> : mode === "first_login" ? <form className="cy-auth-form" onSubmit={submitFirstLogin} onKeyDown={enterAdvancesThenSubmits}>
+    <FormSection>
       <div className="cy-auth-flow-title">
         <h2>完成 Email 驗證</h2>
         <p>{firstLogin?.displayName ? `${firstLogin.displayName} · ${firstLogin.employeeNo ?? employeeNo}` : employeeNo ? `員工編號 ${employeeNo}` : "請設定您的正式登入密碼。"}</p>
       </div>
       <p className="cy-auth-note-inline">首次登入密碼已完成一次性驗證。請在驗證時效內設定正式密碼；設定成功後會回到登入頁，並需使用新密碼重新登入。</p>
-      <label><span>正式密碼</span><input type="password" autoComplete="new-password" maxLength={16} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={submitting} autoFocus required /></label>
-      <label><span>確認正式密碼</span><input type="password" autoComplete="new-password" maxLength={16} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={submitting} required /></label>
+      <Field label="正式密碼" size="m" required><input type="password" autoComplete="new-password" maxLength={16} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={submitting} autoFocus /></Field>
+      <Field label="確認正式密碼" size="m" required><input type="password" autoComplete="new-password" maxLength={16} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={submitting} /></Field>
       {flowMessage ? <p className="cy-auth-error" role="status">{flowMessage}</p> : null}
       <button className="cy-auth-primary-button" disabled={submitting} aria-busy={submitting || undefined}>設定正式密碼</button>
-    </form> : !challengeId ? <form className="cy-auth-form" onSubmit={startRecovery} onKeyDown={enterAdvancesThenSubmits}>
-      <label><span>員工編號</span><input inputMode="numeric" maxLength={4} value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value.replace(/\D/g, "").slice(0, 4))} required /></label>
+    
+    </FormSection>
+  </form> : !challengeId ? <form className="cy-auth-form" onSubmit={startRecovery} onKeyDown={enterAdvancesThenSubmits}>
+    <FormSection>
+      <Field label="員工編號" size="s" required><input inputMode="numeric" maxLength={4} value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value.replace(/\D/g, "").slice(0, 4))} /></Field>
       {flowMessage ? <p className="cy-auth-error" role="status">{flowMessage}</p> : null}
       <button className="cy-auth-primary-button" disabled={submitting} aria-busy={submitting || undefined}>取得驗證碼</button>
       <button className="cy-auth-link-button" type="button" onClick={() => resetFlow("login")}>返回登入</button>
-    </form> : <form className="cy-auth-form" onSubmit={confirmRecovery} onKeyDown={enterAdvancesThenSubmits} noValidate>
+    
+    </FormSection>
+  </form> : <form className="cy-auth-form" onSubmit={confirmRecovery} onKeyDown={enterAdvancesThenSubmits}>
+    <FormSection>
       <div className="cy-auth-flow-title"><h2>重設密碼</h2><p>員工編號 {employeeNo}</p></div>
-      <label><span>6 位數驗證碼</span><input inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} required /></label>
-      <label><span>新密碼</span><input type="password" autoComplete="new-password" maxLength={16} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required /></label>
-      <label><span>確認新密碼</span><input type="password" autoComplete="new-password" maxLength={16} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required /></label>
+      <Field label="6 位數驗證碼" size="m" required><input inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} /></Field>
+      <Field label="新密碼" size="m" required><input type="password" autoComplete="new-password" maxLength={16} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} /></Field>
+      <Field label="確認新密碼" size="m" required><input type="password" autoComplete="new-password" maxLength={16} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} /></Field>
       {flowMessage ? <p className="cy-auth-error" role="status">{flowMessage}</p> : null}
       <button className="cy-auth-primary-button" disabled={submitting || otp.length !== 6} aria-busy={submitting || undefined}>重設密碼</button>
       <button className="cy-auth-link-button" type="button" onClick={() => { setChallengeId(null); setOtp(""); setFlowMessage(null); }}>重新取得驗證碼</button>
-    </form>}
+    
+    </FormSection>
+  </form>}
 
     </section>
   </main>;

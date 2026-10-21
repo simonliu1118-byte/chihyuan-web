@@ -37,13 +37,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--cy-accent); wi
 .cy-field-error { color: var(--cy-danger); font-weight: 600; }
 
 /* Label-wrapped controls used by the operational modules. */
-.cy-form-grid, .cy-op-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
-.cy-op-form-grid label { display: grid; gap: 4px; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 500; min-width: 0; align-content: start; }
-.cy-op-form-grid label.cy-field-label { display: block; }
-.cy-op-form-grid > .cy-field { align-content: start; }
-.cy-op-form-grid label > :is(input, select, textarea) { color: var(--cy-text); font-weight: 400; }
-.cy-form-grid-full, .cy-op-form-grid .wide { grid-column: 1 / -1; }
-.cy-op-form-grid label:has(> input[type="checkbox"]) { display: flex; align-items: center; gap: 8px; color: var(--cy-text); }
+.cy-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+.cy-form-grid-full { grid-column: 1 / -1; }
 .cy-op-inline-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .cy-op-inline-row .cy-op-input { max-width: 200px; }
 
@@ -61,8 +56,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--cy-accent); wi
 .cy-form-block-empty { margin: 0; color: var(--cy-text-subtle); font-size: var(--cy-fs-sm); }
 
 @media (max-width: 720px) {
-  .cy-form-grid, .cy-op-form-grid { grid-template-columns: minmax(0, 1fr); }
-  .cy-form-grid-full, .cy-op-form-grid .wide { grid-column: auto; }
+  .cy-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .cy-form-grid-full { grid-column: auto; }
   .cy-op-inline-row { flex-wrap: wrap; }
 }
 
@@ -88,3 +83,22 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--cy-accent); wi
 /* Fields the last submit reported; cleared as soon as they are edited. */
 :is(.cy-op-input, .cy-input)[aria-invalid="true"] { border-color: var(--cy-danger); }
 .cy-form-block-head h3 small { margin-left: 6px; color: var(--cy-text-muted); font-size: var(--cy-fs-xs); font-weight: 400; }
+
+/* WO-0.9.27: share 12-column Field layout while legacy form wrappers migrate. */
+.cy-f-grid > :not(.cy-f):not(.cy-f-check){grid-column:1/-1;min-width:0}
+.cy-f-grid > .cy-f{min-width:0}
+.cy-f-grid > .cy-f-check{min-width:0}
+.cy-f-grid > .cy-f-grid{display:grid}
+.cy-f-section{max-width:min(960px,100%)}
+
+/* Existing form subsections retain their semantic wrappers but adopt the same 12-column Field widths. */
+.cy-f-section :is(div,section):has(> .cy-f,> .cy-f-check){display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px 16px;min-width:0;max-width:100%}
+.cy-f-section :is(div,section):has(> .cy-f,> .cy-f-check)>:not(.cy-f):not(.cy-f-check){grid-column:1/-1;min-width:0}
+.cy-f-section :is(div,section):has(> .cy-f,> .cy-f-check)>.cy-f-s{grid-column:span 3}
+.cy-f-section :is(div,section):has(> .cy-f,> .cy-f-check)>.cy-f-m{grid-column:span 6}
+.cy-f-section :is(div,section):has(> .cy-f,> .cy-f-check)>.cy-f-l{grid-column:1/-1}
+@container (max-width:640px){
+ .cy-f-section :is(div,section):has(> .cy-f,> .cy-f-check)>.cy-f-s{grid-column:span 6}
+ .cy-f-section :is(div,section):has(> .cy-f,> .cy-f-check)>.cy-f-m{grid-column:1/-1}
+}
+@container (max-width:300px){.cy-f-section :is(div,section):has(> .cy-f,> .cy-f-check)>.cy-f-s{grid-column:1/-1}}

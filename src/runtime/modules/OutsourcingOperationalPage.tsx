@@ -1,3 +1,4 @@
+import {Field,CheckField,FormSection,RequiredRows} from "../../ui/forms/Field";
 import { formatItem } from "../../ui/foundation/format";
 import { StatusFilter } from "../../ui/data/StatusFilter";
 import { outsourcingNextStep, outsourcingTone } from "./status-flow";
@@ -567,34 +568,34 @@ export function OutsourcingOperationalPage() {
               <MasterDetailBack label="代工單清單" disabled={busy} onBack={async () => { if (editing && !(await discardEditing())) return; pane.close(); }} />
               {editing && draft ? (
               <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void saveOrder(event)}>
+    <FormSection>
                 <div className="cy-record-header cy-edit-header">
                   <div><h2>{creating ? "新增代工單" : correctingOutbound ? "更正已確認的出庫" : "修改代工單"}</h2><p>{correctingOutbound ? "儲存後會以新的出庫資料取代原本的出庫，並保留更正紀錄。" : "確認出庫前可以修改內容。"}</p></div>
                 <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立代工單" : "儲存修改"}</button></div></div>
-                <div className="cy-op-form-grid cy-form-grid-spaced">
-                  <label>協力廠商
-                    <select className="cy-op-input" value={draft.contractorId ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, contractorId: Number(event.target.value) || null })}>
+                <div className="cy-f-grid cy-form-grid-spaced">
+                  <Field label="協力廠商" size="s" required><select className="cy-op-input" value={draft.contractorId ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, contractorId: Number(event.target.value) || null })}>
                       <option value="">請選擇</option>
                       {contractors.map((row) => <option key={row.id} value={row.id}>{row.displayName}{row.isActive ? "" : "（已停用）"}</option>)}
-                    </select>
-                  </label>
-                  <label>工單日期<input className="cy-op-input" type="date" max="9999-12-31" value={draft.orderDate} disabled={busy} onChange={(event) => setDraft({ ...draft, orderDate: event.target.value })} /></label>
-                  <label className="wide">篩選商品選單<input className="cy-op-input" type="search" value={itemQuery} disabled={busy} onChange={(event) => setItemQuery(event.target.value)} placeholder="品號／品名／規格" /></label>
+                    </select></Field>
+                  <Field label="工單日期" size="s"><input className="cy-op-input" type="date" max="9999-12-31" value={draft.orderDate} disabled={busy} onChange={(event) => setDraft({ ...draft, orderDate: event.target.value })} /></Field>
+                  <Field label="篩選商品選單" size="m"><input className="cy-op-input" type="search" value={itemQuery} disabled={busy} onChange={(event) => setItemQuery(event.target.value)} placeholder="品號／品名／規格" /></Field>
                 </div>
 
+                <RequiredRows label="出庫料件" satisfied={draft.parts.length>0}/>
                 <section className="cy-form-block">
-                  <div className="cy-form-block-head"><div><h3>出庫料件</h3></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={addPart}>＋ 增加料件</button></div>
+                  <div className="cy-form-block-head"><div><h3>出庫料件<span className="cy-field-required" aria-hidden="true">＊</span><small>每列料件、數量與單位必填</small></h3></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={addPart}>＋ 增加料件</button></div>
                   <div className="cy-form-block-body">
                   <div className="cy-out-part cy-out-part-head" aria-hidden="true"><span>料件</span><span>數量</span><span>單位</span><span>預計成品</span><span>BOM</span><span /></div>
                   {draft.parts.map((part, index) => {
                     const component = activeItem(part.componentItemId);
                     const units = component?.allowedUnits?.length ? component.allowedUnits : (part.unit ? [part.unit] : []);
                     return <div className="cy-out-part" key={part.key}>
-                      <select className="cy-op-input" value={part.componentItemId ?? ""} disabled={busy} onChange={(event) => changeComponent(index, Number(event.target.value) || null)}>
+                      <select className="cy-op-input" required data-label={"第 "+(index+1)+" 列料件"} value={part.componentItemId ?? ""} disabled={busy} onChange={(event) => changeComponent(index, Number(event.target.value) || null)}>
                         <option value="">選擇料件</option>
                         {(lookups?.items ?? []).map((row) => <option key={row.id} value={row.id}>{formatItem(row.itemNo, row.name)}{row.isActive ? "" : "（已停用）"}</option>)}
                       </select>
-                      <input className="cy-op-input" value={part.quantity} inputMode="decimal" disabled={busy} onChange={(event) => patchPart(index, { quantity: event.target.value })} placeholder="數量" />
-                      <select className="cy-op-input" value={part.unit} disabled={busy} onChange={(event) => patchPart(index, { unit: event.target.value })}>{units.map((unit) => <option key={unit}>{unit}</option>)}</select>
+                      <input className="cy-op-input" required data-label={"第 "+(index+1)+" 列數量"} value={part.quantity} inputMode="decimal" disabled={busy} onChange={(event) => patchPart(index, { quantity: event.target.value })} placeholder="數量" />
+                      <select className="cy-op-input" required data-label={"第 "+(index+1)+" 列單位"} value={part.unit} disabled={busy} onChange={(event) => patchPart(index, { unit: event.target.value })}>{units.map((unit) => <option key={unit}>{unit}</option>)}</select>
                       <select className="cy-op-input" value={part.finishedItemId ?? ""} disabled={busy} onChange={(event) => patchPart(index, { finishedItemId: Number(event.target.value) || null, bomRecipeId: null })}>
                         <option value="">未指定對應成品</option>
                         {(lookups?.items ?? []).map((row) => <option key={row.id} value={row.id}>{formatItem(row.itemNo, row.name)}</option>)}
@@ -608,7 +609,9 @@ export function OutsourcingOperationalPage() {
                   })}
                   </div>
                 </section>
-              </form>
+              
+    </FormSection>
+  </form>
               ) : selectedOrder ? <div>
                 <div className="cy-record-header"><div><h2>{selectedOrder.contractorNameSnapshot}</h2><p><span className="cy-mono">{selectedOrder.outsourcingRef}</span> · {formatDate(selectedOrder.orderDate)}</p></div>
                 <div className="cy-record-actions">

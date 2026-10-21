@@ -1,3 +1,4 @@
+import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {apiRequest} from "../../api/client";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
@@ -192,9 +193,12 @@ function AddToOrdering({row,onClose,onAdded}:{row:Row;onClose:()=>void;onAdded:(
  }
  return <Dialog open title={"加入叫貨單："+row.itemName} onClose={onClose}>{error?<p role="alert">{error}</p>:null}
  <form onKeyDown={enterAdvancesFields} onSubmit={e=>void submit(e)}>
- <label>來源<select className="cy-op-input" required value={sourceId} onChange={e=>setSourceId(Number(e.target.value))}><option value={0}>請選來源</option>{sources.filter(x=>x.kind!=="CN_REGULAR"&&x.kind!=="CN_CUSTOM").map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
- <label>草稿<select className="cy-op-input" value={orderId} onChange={e=>setOrderId(Number(e.target.value))}><option value={0}>＋ 新草稿</option>{drafts.map(x=><option key={x.id} value={x.id}>{x.plannedSendDate??"未排日期"}（#{x.id}）</option>)}</select></label>
- <label>數量<input className="cy-op-input" type="number" min=".0001" step="any" required value={qty} onChange={e=>setQty(e.target.value)}/></label>
+    <FormSection>
+ <Field label="來源" size="s" required><select className="cy-op-input" value={sourceId} onChange={e=>setSourceId(Number(e.target.value))}><option value={0}>請選來源</option>{sources.filter(x=>x.kind!=="CN_REGULAR"&&x.kind!=="CN_CUSTOM").map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
+ <Field label="草稿" size="m"><select className="cy-op-input" value={orderId} onChange={e=>setOrderId(Number(e.target.value))}><option value={0}>＋ 新草稿</option>{drafts.map(x=><option key={x.id} value={x.id}>{x.plannedSendDate??"未排日期"}（#{x.id}）</option>)}</select></Field>
+ <Field label="數量" size="s" required><input className="cy-op-input" type="number" min=".0001" step="any" value={qty} onChange={e=>setQty(e.target.value)}/></Field>
  <button type="submit" className="cy-op-button primary" disabled={busy||!sourceId}>加入</button><button type="button" className="cy-op-button" onClick={onClose}>取消</button>
- </form>{confirmationDialog}</Dialog>;
+ 
+    </FormSection>
+  </form>{confirmationDialog}</Dialog>;
 }

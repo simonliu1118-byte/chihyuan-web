@@ -1,3 +1,4 @@
+import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import {useCallback,useEffect,useState} from "react";
 import {apiRequest} from "../../api/client";
 import {taipeiToday} from "../../../shared/erp-query-history";
@@ -115,21 +116,27 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
   </div>
   <Dialog open={grantOpen} title="給予補休" onClose={()=>setGrantOpen(false)} size="small">
    <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>{e.preventDefault();void submitGrant()}}>
-    <label>來源<select className="cy-op-input" value={grantKind} onChange={e=>setGrantKind(e.target.value as "holiday"|"grant")}><option value="holiday">國定假日</option><option value="grant">管理員給予</option></select></label>
-    {grantKind==="holiday"?<label>國定假日<select className="cy-op-input" required value={holidayDate} onChange={e=>setHolidayDate(e.target.value)}><option value="">請選擇</option>
-     {holidays.map(h=><option key={h.date} value={h.date}>{ymd(h.date)} {h.name}{owed.some(a=>a.holidayDate===h.date)?"（有預支）":""}</option>)}</select></label>:null}
-    <label>時數（0.5 小時為單位）<input className="cy-op-input" type="number" min=".5" step=".5" required value={grantHours} onChange={e=>setGrantHours(e.target.value)}/></label>
+    <FormSection>
+    <Field label="來源" size="s"><select className="cy-op-input" value={grantKind} onChange={e=>setGrantKind(e.target.value as "holiday"|"grant")}><option value="holiday">國定假日</option><option value="grant">管理員給予</option></select></Field>
+    {grantKind==="holiday"?<Field label="國定假日" size="m" required><select className="cy-op-input" value={holidayDate} onChange={e=>setHolidayDate(e.target.value)}><option value="">請選擇</option>
+     {holidays.map(h=><option key={h.date} value={h.date}>{ymd(h.date)} {h.name}{owed.some(a=>a.holidayDate===h.date)?"（有預支）":""}</option>)}</select></Field>:null}
+    <Field label="時數（0.5 小時為單位）" size="s" required><input className="cy-op-input" type="number" min=".5" step=".5" value={grantHours} onChange={e=>setGrantHours(e.target.value)}/></Field>
     <p>補休在{grantKind==="holiday"?"國定假日當月":"給予當月"}的下個月底到期。</p>
     <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setGrantOpen(false)}>取消</button><button className="cy-op-button primary">給予</button></div>
-   </form>
+   
+    </FormSection>
+  </form>
   </Dialog>
   <Dialog open={adjust!==null} title="調整特休應給時數" onClose={()=>setAdjust(null)} size="small">
    <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>{e.preventDefault();void submitAdjust()}}>
+    <FormSection>
     {adjust?<p>{ymd(adjust.periodStart)}～{ymd(adjust.periodEnd)}。{basisText(adjust)}</p>:null}
-    <label>應給時數（空白＝依出勤工時比例計算）<input className="cy-op-input" type="number" min="0" step=".5" value={adjustHours} onChange={e=>setAdjustHours(e.target.value)}/></label>
+    <Field label="應給時數（空白＝依出勤工時比例計算）" size="s"><input className="cy-op-input" type="number" min="0" step=".5" value={adjustHours} onChange={e=>setAdjustHours(e.target.value)}/></Field>
     <p>用於 CY Web 上線前的工時（沒有出勤紀錄）等情況。</p>
     <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setAdjust(null)}>取消</button><button className="cy-op-button primary">儲存</button></div>
-   </form>
+   
+    </FormSection>
+  </form>
   </Dialog>
   <Dialog open={printYear!==null} title="特休書面通知" onClose={()=>setPrintYear(null)} size="large">
    {printYear&&person?<div className="hr-leave-notice"><h1>特別休假書面通知</h1>

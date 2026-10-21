@@ -1,3 +1,4 @@
+import {Field,FormSection,RequiredRows} from "../../../ui/forms/Field";
 import { enterAdvancesFields } from "../../../ui/foundation/enter-advance";
 import { FormEvent, useState } from "react";
 import type { CustomerItemOption } from "../../../../shared/business-lookups";
@@ -65,24 +66,26 @@ export function QuoteCreateForm({ customerId, initialLines, onSaved, onCancel }:
     }
   }
   return <form onKeyDown={enterAdvancesFields} className="cy-customer-quote-form" onSubmit={event => void save(event)}>
+    <FormSection>
     <div className="cy-customer-quote-header-fields">
-      <label>日期<input type="date" max="9999-12-31" className="cy-op-input" required value={quoteDate} disabled={busy}
-        onChange={event => setQuoteDate(event.target.value)} /></label>
-      <label>備註<input className="cy-op-input" value={note} disabled={busy} maxLength={120}
-        onChange={event => setNote(event.target.value)} /></label>
+      <Field label="日期" size="s" required><input type="date" max="9999-12-31" className="cy-op-input" value={quoteDate} disabled={busy}
+        onChange={event => setQuoteDate(event.target.value)} /></Field>
+      <Field label="備註" size="l"><input className="cy-op-input" value={note} disabled={busy} maxLength={120}
+        onChange={event => setNote(event.target.value)} /></Field>
     </div>
+    <RequiredRows label="報價品項" satisfied={lines.length>0}/>
     <div className="cy-customer-quote-lines">
       {lines.map((line, index) => <div key={index} className="cy-customer-quote-line">
         <EntityPicker<CustomerItemOption> label="商品" value={line.item} required disabled={busy}
           search={searchItems} getKey={item => item.id} getLabel={itemLabel}
           minQueryLength={1} placeholder="輸入品號或品名搜尋"
           onSelect={item => patchLine(index, { item, unit: item?.baseUnit ?? line.unit })} />
-        <label>數量<input className="cy-op-input" inputMode="decimal" required disabled={busy} value={line.quantity}
-          onChange={event => patchLine(index, { quantity: event.target.value })} /></label>
-        <label>單位<input className="cy-op-input" required disabled={busy} value={line.unit}
-          onChange={event => patchLine(index, { unit: event.target.value })} /></label>
-        <label>單價<input className="cy-op-input" inputMode="decimal" required disabled={busy} value={line.unitPrice}
-          onChange={event => patchLine(index, { unitPrice: event.target.value })} /></label>
+        <Field label="數量" size="s" required><input className="cy-op-input" inputMode="decimal" disabled={busy} value={line.quantity}
+          onChange={event => patchLine(index, { quantity: event.target.value })} /></Field>
+        <Field label="單位" size="s" required><input className="cy-op-input" disabled={busy} value={line.unit}
+          onChange={event => patchLine(index, { unit: event.target.value })} /></Field>
+        <Field label="單價" size="s" required><input className="cy-op-input" inputMode="decimal" disabled={busy} value={line.unitPrice}
+          onChange={event => patchLine(index, { unitPrice: event.target.value })} /></Field>
         <button type="button" className="cy-op-button compact" disabled={busy} title="移除品項"
           onClick={() => setLines(current => current.filter((_, n) => n !== index))}>移除</button>
       </div>)}
@@ -94,5 +97,6 @@ export function QuoteCreateForm({ customerId, initialLines, onSaved, onCancel }:
       <button type="button" className="cy-op-button" disabled={busy} onClick={onCancel}>取消</button>
       <button className="cy-op-button primary" disabled={busy || !customerId || lines.length === 0}>儲存報價</button>
     </div>
+      </FormSection>
   </form>;
 }

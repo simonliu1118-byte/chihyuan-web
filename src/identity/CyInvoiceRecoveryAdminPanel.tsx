@@ -1,3 +1,4 @@
+import {Field,CheckField,FormSection} from "../ui/forms/Field";
 import { enterAdvancesThenSubmits } from "../ui/foundation/enter-advance";
 import { FormEvent, useRef, useState } from "react";
 import { ApiClientError } from "../api/client";
@@ -141,7 +142,8 @@ export function CyInvoiceRecoveryAdminPanel({ session }: { session: AuthSession 
       <div className="cy-notice-title">公司級接管提醒</div>
       <div className="cy-notice-body">寄信、查詢與撤銷邀請不會撤銷裝置。只有新電腦成功復原後，原公司的全部舊裝置才會失效。</div>
     </div>
-    <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={e => void act("issue", e)} noValidate>
+    <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={e => void act("issue", e)}>
+    <FormSection>
       <TextInput label="復原操作 ID" value={operationId} maxLength={36}
         onChange={e => {
           setOperationId(e.target.value.trim()); setState(null); setMessage(null); setError(null);
@@ -151,18 +153,17 @@ export function CyInvoiceRecoveryAdminPanel({ session }: { session: AuthSession 
         description="此頁籤會保留原 ID 以便重新整理後查詢。請另行複製保存；關閉頁籤或清除瀏覽器資料後，需貼回原 ID。不會自動重寄。" />
       <TextInput label="當次 CYID 超級管理員密碼" type="password" autoComplete="off"
         value={password} onChange={e => setPassword(e.target.value)} maxLength={32} disabled={busy} />
-      <label className="cy-invoice-recovery-ack">
-        <input type="checkbox" checked={acknowledged} disabled={busy || checkpoint.attempted || importedOperation || storageError}
+      <CheckField  label="我了解只有新裝置復原成功後，所有舊裝置才會一併撤銷；寄信不代表已完成復原。" size="s"  checked={acknowledged} disabled={busy || checkpoint.attempted || importedOperation || storageError}
           onChange={e => setAcknowledged(e.target.checked)} />
-        我了解只有新裝置復原成功後，所有舊裝置才會一併撤銷；寄信不代表已完成復原。
-      </label>
       <div className="cy-identity-actions">
         <button className="cy-op-button" type="submit" disabled={busy || !valid || !acknowledged || checkpoint.attempted || importedOperation || storageError}>簽發並寄送邀請</button>
         <button className="cy-op-button" type="button" disabled={busy || !valid} onClick={() => void act("status")}>查詢狀態</button>
         <button className="cy-op-button" type="button" disabled={busy || !valid} onClick={() => void act("revoke")}>撤銷邀請</button>
         <button className="cy-op-button" type="button" disabled={busy || storageError || outstanding} onClick={newOperation}>新的操作 ID</button>
       </div>
-    </form>
+    
+    </FormSection>
+  </form>
     {outstanding ? <p className="cy-identity-subtext">原操作尚未取得明確撤銷結果。請先查詢／撤銷，暫不建立其他操作 ID。</p> : null}
     {storageError ? <p role="alert">瀏覽器無法讀寫原操作紀錄，簽發已停用。請保留原 ID；可貼入已自行保存的 ID 查詢。</p> : null}
     {state?.status === "sent" ? <div className="cy-identity-message" role="status">
