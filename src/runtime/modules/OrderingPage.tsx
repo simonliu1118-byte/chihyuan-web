@@ -24,7 +24,7 @@ export function OrderingPage(){
  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const [sourceForm,setSourceForm]=useState<{id?:number;kind:"GENERAL"|"VENDOR";name:string;conditions:string;sortOrder?:number;isActive?:boolean}|null>(null);
  const [sourceFilter,setSourceFilter]=useState("");
- const [receipt,setReceipt]=useState<{id:number;no:string;date:string;quantities:Record<number,string>}|null>(null);
+ const [receipt,setReceipt]=useState<{id:number;no:string;date:string;quantities:Record<number,string>;selectedLineIds:number[]}|null>(null);
  const [closing,setClosing]=useState<{id:number;kind:"SHORTAGE"|"CANCELLED"|"OTHER";reason:string}|null>(null);
  const [viewPending,setViewPending]=useState(false),[showHistory,setShowHistory]=useState(false),[drafts,setDrafts]=useState<OrderingListRow[]>([]);
  const [vendorOverview,setVendorOverview]=useState<VendorGroup[]>([]);
@@ -71,8 +71,11 @@ export function OrderingPage(){
    setSourceForm(null);await refresh();if(vendorAll)void showVendorOverview();
   }catch(err){setError(errorOf(err))}finally{setBusy(false)}}
  async function receive(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!receipt||!selected)return;
-  const lines=Object.entries(receipt.quantities).filter(([,q])=>Number(q)>0).map(([lineId,q])=>({lineId:Number(lineId),quantity:Number(q)}));
+  const lines=Object.entries(receipt.quantities).filter(([lineId,q])=>receipt.selectedLineIds.includes(Number(lineId))&&Number(q)>0).map(([lineId,q])=>({lineId:Number(lineId),quantity:Number(q)}));
   if(!lines.length){setError("請至少勾選一列並填到貨數量");return}
+  const fullNo="341A-"+receipt.no;
+  if(selected.receipts.some(x=>x.erpPurchaseNo===fullNo)&&
+    !await confirm({title:"進貨單號重複",description:"本張叫貨單已有「"+fullNo+"」的到貨紀錄。可以繼續登記，但請先確認沒有重複計算。",confirmLabel:"繼續登記"}))return;
   const value=await write("/orders/"+receipt.id+"/receipts","POST",{erpPurchaseNo:receipt.no,receivedDate:receipt.date,lines});if(value)setReceipt(null);
  }
  async function closeRemaining(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!selected||!closing)return;
@@ -133,7 +136,7 @@ export function OrderingPage(){
      <button className={"cy-op-button "+(vendorAll?"primary":"")} type="button" onClick={()=>void showVendorOverview()}>廠商</button>
      <button className="cy-op-button" type="button" onClick={()=>setSourceForm({kind:"GENERAL",name:"",conditions:""})}>＋</button>
     </div>
-    {viewPending?<><h3>未到貨明細（{pending.length}）</h3>{pending.map(l=><p key={l.lineId}>{l.sourceName}　{displayDate(l.orderDate)}　{l.itemName}　叫貨 {l.quantity}{l.unit}　已到 {l.received}　剩餘 {l.remaining} <button className="cy-op-button" type="button" onClick={()=>void reloadOrder(l.orderId).then(()=>setReceipt({id:l.orderId,no:"",date:nowDate(),quantities:{[l.lineId]:String(l.remaining)}}))}>登記到貨</button><button type="button" className="cy-op-button" onClick={()=>void reloadOrder(l.orderId).then(()=>setClosing({id:l.lineId,kind:"SHORTAGE",reason:""}))}>結掉</button></p>)}</>
+    {viewPending?<><h3>未到貨明細（{pending.length}）</h3>{pending.map(l=><p key={l.lineId}>{l.sourceName}　{displayDate(l.orderDate)}　{l.itemName}　叫貨 {l.quantity}{l.unit}　已到 {l.received}　剩餘 {l.remaining} <button className="cy-op-button" type="button" onClick={()=>void reloadOrder(l.orderId).then(()=>setReceipt({id:l.orderId,no:"",date:nowDate(),quantities:{[l.lineId]:String(l.remaining)},selectedLineIds:[l.lineId]}))}>登記到貨</button><button type="button" className="cy-op-button" onClick={()=>void reloadOrder(l.orderId).then(()=>setClosing({id:l.lineId,kind:"SHORTAGE",reason:""}))}>結掉</button></p>)}</>
     :vendorAll?<><h3>廠商草稿</h3><p>預設依廠商分段；進入個別廠商頁面後才能送出。</p>
       <button type="button" className="cy-op-button" onClick={()=>setSourceForm({kind:"VENDOR",name:"",conditions:""})}>＋ 新增廠商</button>
       <button type="button" className="cy-op-button" onClick={()=>void exportVendors().catch(e=>setError(errorOf(e)))}>匯出廠商合併 Excel</button>
@@ -154,7 +157,7 @@ export function OrderingPage(){
       </form>
       {(current.sourceKind==="CN_REGULAR"?CN_REGULAR_SECTIONS:[{key:"" as const,label:"叫貨明細"}]).map(group=><div key={group.key}><h4>{group.label}</h4><OrderingGrid kind={current.sourceKind} section={group.key as OrderingSection} lines={current.lines} busy={busy||!editable} onCommit={lineCommit} onDelete={removeLine}/></div>)}
       <div className="cy-page-toolbar">{current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button primary" onClick={()=>void sent()}>送出</button>:null}
-      {current.storedStatus==="SENT"?<button type="button" className="cy-op-button" onClick={()=>setReceipt({id:current.id,no:"",date:nowDate(),quantities:{}})}>登記到貨</button>:null}
+      {current.storedStatus==="SENT"?<button type="button" className="cy-op-button" onClick={()=>setReceipt({id:current.id,no:"",date:nowDate(),quantities:Object.fromEntries(current.lines.filter(l=>l.quantity!==null&&l.received<l.quantity&&!l.closedAs).map(l=>[l.id,String((l.quantity??0)-l.received)])),selectedLineIds:[]})}>登記到貨</button>:null}
       {editable?<button type="button" className="cy-op-button" onClick={()=>void voidOrder()}>作廢</button>:null}
       <button type="button" className="cy-op-button" onClick={()=>setShowHistory(v=>!v)}>修改紀錄</button></div>
       {current.lines.map(l=><p key={l.id}>{l.itemName}　叫貨 {l.quantityText}{l.unit}　已到 {l.received}　{lineState(l)}　{l.closedAs??""}
@@ -172,7 +175,7 @@ export function OrderingPage(){
   {receipt&&selected?<Dialog open title="登記到貨" onClose={()=>setReceipt(null)} size="large"><form onKeyDown={enterAdvancesFields} onSubmit={e=>void receive(e)}>
    <label>ERP 進貨單號 341A-<input className="cy-op-input" required inputMode="numeric" pattern="[0-9]{11}" maxLength={11} value={receipt.no} onChange={e=>setReceipt(v=>v?{...v,no:e.target.value}:v)}/></label>
    <label>到貨日期<input className="cy-op-input" type="date" max="9999-12-31" required value={receipt.date} onChange={e=>setReceipt(v=>v?{...v,date:e.target.value}:v)}/></label>
-   {selected.lines.filter(l=>l.quantity!==null&&l.received<l.quantity&&!l.closedAs).map(l=><label key={l.id}>{l.itemName} 剩餘 {(l.quantity??0)-l.received}<input className="cy-op-input" type="number" min="0" max={(l.quantity??0)-l.received} step="any" value={receipt.quantities[l.id]??""} onChange={e=>setReceipt(v=>v?{...v,quantities:{...v.quantities,[l.id]:e.target.value}}:v)}/></label>)}
+   {selected.lines.filter(l=>l.quantity!==null&&l.received<l.quantity&&!l.closedAs).map(l=><label key={l.id}><input type="checkbox" checked={receipt.selectedLineIds.includes(l.id)} onChange={e=>setReceipt(v=>v?{...v,selectedLineIds:e.target.checked?[...v.selectedLineIds,l.id]:v.selectedLineIds.filter(id=>id!==l.id)}:v)}/>{l.itemName} 剩餘 {(l.quantity??0)-l.received}<input className="cy-op-input" type="number" min="0" max={(l.quantity??0)-l.received} step="any" disabled={!receipt.selectedLineIds.includes(l.id)} value={receipt.quantities[l.id]??String((l.quantity??0)-l.received)} onChange={e=>setReceipt(v=>v?{...v,quantities:{...v.quantities,[l.id]:e.target.value}}:v)}/></label>)}
    <button type="submit" className="cy-op-button primary">儲存到貨</button><button type="button" className="cy-op-button" onClick={()=>setReceipt(null)}>取消</button></form></Dialog>:null}
   {closing?<Dialog open title="結掉剩餘量" onClose={()=>setClosing(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void closeRemaining(e)}><label>處理方式<select className="cy-op-input" value={closing.kind} onChange={e=>setClosing(v=>v?{...v,kind:e.target.value as typeof v.kind}:v)}><option value="SHORTAGE">缺貨</option><option value="CANCELLED">取消</option><option value="OTHER">其他</option></select></label>
    <label>原因<input className="cy-op-input" required={closing.kind==="OTHER"} value={closing.reason} onChange={e=>setClosing(v=>v?{...v,reason:e.target.value}:v)}/></label><button type="submit" className="cy-op-button primary">確認</button><button type="button" className="cy-op-button" onClick={()=>setClosing(null)}>取消</button></form></Dialog>:null}
