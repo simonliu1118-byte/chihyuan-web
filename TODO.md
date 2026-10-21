@@ -1,3 +1,7 @@
+## CY Web V0.9.26 — 叫貨模組（WO-0.9.26；待執行）
+
+- [ ] GPT 依 [WO-0.9.26](docs/development/work-orders/WO-0.9.26.md) 實作（分支 `cyweb/ordering`，建立在 PR #252 之上；含前一位執行者的半成品）。審查通過後與 #252 一起部署（使用者 2026-10-21）。
+
 ## CY Web V0.9.25 Build 2 — 進貨輔助第二版（Claude 直接處理）
 
 - [x] 銷貨／銷退含贈／備品量（使用者 2026-10-21）：AUTO 送的 sold／returned 已含贈品，另送 soldGift／returnedGift；舊版 AUTO 沒送時補 "0"。格子滑鼠移上去顯示「含贈品 N」。
