@@ -1,3 +1,4 @@
+import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import {useCallback,useEffect,useState,type FormEvent} from "react";
 import {apiRequest} from "../../api/client";
 import {enterAdvancesFields,enterAdvancesThenSubmits} from "../../ui/foundation/enter-advance";
@@ -55,21 +56,27 @@ export function HrPhase2aSettings(){
    <button type="button" className="cy-op-button" onClick={()=>edit(row)}>編輯</button></div>)}
   <button type="button" className="cy-op-button" onClick={()=>edit()}>＋ 新增{kindLabels[kind]}</button>
   {value.name!==undefined?<form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>void save(e)}>
+    <FormSection>
    {field("名稱","name","text",true)}
    {kind==="shift-types"?field("班別代號（1～2 字）","code","text",true):null}
    {field("排序","sortOrder","number")}
-   <label>狀態<select className="cy-op-input" value={value.isActive??"true"} onChange={e=>change("isActive",e.target.value)}><option value="true">啟用</option><option value="false">停用</option></select></label>
-   {kind==="stores"?<>{field("雙週起算週一","cycleAnchorDate","date",true)}<label>注意事項範本<textarea className="cy-op-input" value={value.rulesTemplate??""} onChange={e=>change("rulesTemplate",e.target.value)}/></label></>:null}
+   <Field  label="狀態" size="s"><select className="cy-op-input" value={value.isActive??"true"} onChange={e=>change("isActive",e.target.value)}><option value="true">啟用</option><option value="false">停用</option></select></Field>
+   {kind==="stores"?<>{field("雙週起算週一","cycleAnchorDate","date",true)}<Field  label="注意事項範本" size="m"><textarea className="cy-op-input" value={value.rulesTemplate??""} onChange={e=>change("rulesTemplate",e.target.value)}/></Field></>:null}
    {kind==="shift-types"?<>{field("上班時間","startTime","time",true)}{field("下班時間","endTime","time",true)}{field("休息開始","breakStart","time")}{field("休息結束","breakEnd","time")}
     <p>正常工時：{Math.max(0,minutes(value.endTime??"")-minutes(value.startTime??"")-(value.breakStart&&value.breakEnd?minutes(value.breakEnd)-minutes(value.breakStart):0))} 分鐘</p></>:null}
    <div className="cy-op-form-footer"><button className="cy-op-button" type="button" onClick={()=>setValue({})}>取消</button><button className="cy-op-button primary" disabled={busy}>儲存</button></div>
+  
+    </FormSection>
   </form>:null}
   <h4>國定假日（人工維護）</h4><label>年份<select className="cy-op-input" value={year} onChange={e=>setYear(Number(e.target.value))}>{[year-1,year,year+1].map(y=><option key={y} value={y}>{y}</option>)}</select></label>
   {holidays.map(h=><div className="hr-staff-setting" key={h.date}><span>{h.date.replaceAll("-","/")}　{h.name}</span><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void deleteHoliday(h.date)}>刪除</button></div>)}
   <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={e=>void saveHoliday(e)}>
-   <label>假日日期<input type="date" max="9999-12-31" className="cy-op-input" required value={holidayDate} onChange={e=>setHolidayDate(e.target.value)}/></label>
-   <label>假日名稱<input className="cy-op-input" required value={holidayName} onChange={e=>setHolidayName(e.target.value)}/></label>
+    <FormSection>
+   <Field  label="假日日期" size="s" required><input type="date" max="9999-12-31" className="cy-op-input" value={holidayDate} onChange={e=>setHolidayDate(e.target.value)}/></Field>
+   <Field  label="假日名稱" size="m" required><input className="cy-op-input" value={holidayName} onChange={e=>setHolidayName(e.target.value)}/></Field>
    <button className="cy-op-button primary" disabled={busy}>新增國定假日</button>
+  
+    </FormSection>
   </form>
  <HrLeaveTypeSettings/>
  </section>;
