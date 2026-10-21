@@ -18,6 +18,22 @@ test("Taipei display converts UTC timestamps and midnight boundary",()=>{
  assert.deepEqual(logic.orderingTaipeiDateTime("2026-10-20T16:30:00Z"),{date:"2026/10/21",time:"00:30"});
  assert.deepEqual(logic.orderingTaipeiDateTime("2026-10-22"),{date:"2026/10/22",time:""});
 });
+test("serial queue preserves three 300ms edits and resumes after a rejected write",async()=>{
+ const queue=logic.createOrderingWriteQueue(),events=[];
+ let version=1,active=0,maxActive=0;
+ const jobs=[1,2,3].map(number=>queue.enqueue("order:1",async()=>{
+   active++;maxActive=Math.max(maxActive,active);
+   const expected=version;
+   await new Promise(resolve=>setTimeout(resolve,300));
+   assert.equal(version,expected,"a queued request must use the latest serial version");
+   events.push(number);version++;active--;
+ }));
+ await Promise.all(jobs);
+ assert.deepEqual(events,[1,2,3]);assert.equal(version,4);assert.equal(maxActive,1);
+ await assert.rejects(queue.enqueue("order:1",async()=>{throw Error("simulated 409")}),/409/);
+ await queue.enqueue("order:1",async()=>{events.push(4);version++});
+ assert.deepEqual(events,[1,2,3,4]);assert.equal(version,5);
+});
 test("purchase number validates full date",()=>{
  assert.equal(parseErpPurchaseNo("20261019001"),"341A-20261019001");
  assert.equal(parseErpPurchaseNo("341A-20260229001"),null);
