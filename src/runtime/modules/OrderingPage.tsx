@@ -47,6 +47,7 @@ export function OrderingPage(){
  const [closing,setClosing]=useState<{id:number;kind:"SHORTAGE"|"CANCELLED"|"OTHER";reason:string}|null>(null);
  const [viewPending,setViewPending]=useState(false),[showHistory,setShowHistory]=useState(false),[drafts,setDrafts]=useState<OrderingListRow[]>([]);
  const [vendorOverview,setVendorOverview]=useState<VendorGroup[]>([]);
+ const vendorOrderIds=useRef(new Map<number,number>());
  const pane=useMasterDetailPane(),{confirm,confirmationDialog}=useConfirmation();
  const source=sources.find(x=>x.id===tab);
  const active=sources.filter(x=>x.isActive),vendors=active.filter(x=>x.kind==="VENDOR");
@@ -79,7 +80,10 @@ export function OrderingPage(){
   }catch(e){setError(errorOf(e))}
  }
  async function showVendorOverview(){setVendorAll(true);setSelected(null);setViewPending(false);
-  try{setVendorOverview(await call<VendorGroup[]>("/vendors/overview"))}catch(e){setError(errorOf(e))}
+  try{const groups=await call<VendorGroup[]>("/vendors/overview");
+    groups.forEach(x=>{if(x.orderId)vendorOrderIds.current.set(x.sourceId,x.orderId)});
+    setVendorOverview(groups);
+   }catch(e){setError(errorOf(e))}
  }
  async function write(path:string,method:string,input:Record<string,unknown>,refreshId=selected?.id){
   const id=Number(/^\/orders\/(\d+)/.exec(path)?.[1]??refreshId);
@@ -140,21 +144,30 @@ export function OrderingPage(){
   const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=exportFileName(order.sourceName,fallback);a.click();URL.revokeObjectURL(url);
  }
  async function commitVendorRow(group:VendorGroup,row:GridLine,patch:Partial<GridLine>){
-  if(busy)throw new Error("仍在儲存");setBusy(true);setError("");
-  try{
-   const current=group.orderId?await call<DisplayOrder>("/orders/"+group.orderId):await call<DisplayOrder>("/orders","POST",{sourceId:group.sourceId});
-   const data=await call<DisplayOrder>("/orders/"+current.id+"/lines","POST",{operation:"save",expectedVersion:current.version,lineId:row.id||undefined,
-    line:{...(!row.id?row:{}),...patch,...(!row.id?{sortOrder:Date.now()}:{})}});
-   setVendorOverview(await call<VendorGroup[]>("/vendors/overview"));await refresh();setNotice("已儲存 "+group.sourceName+" 草稿");return data;
-  }catch(e){setError(errorOf(e));throw e}finally{setBusy(false)}
+  return enqueue("vendor:"+group.sourceId,async()=>{
+   try{
+    const chosen=vendorOrderIds.current.get(group.sourceId)??group.orderId;
+    const current=chosen?await call<DisplayOrder>("/orders/"+chosen):await call<DisplayOrder>("/orders","POST",{sourceId:group.sourceId});
+    vendorOrderIds.current.set(group.sourceId,current.id);
+    const data=await call<DisplayOrder>("/orders/"+current.id+"/lines","POST",{operation:"save",expectedVersion:current.version,lineId:row.id>0?row.id:undefined,
+      line:{...(!row.id?row:{}),...patch,...(row.id<=0?{sortOrder:Date.now()}:{})}});
+    const groups=await call<VendorGroup[]>("/vendors/overview");
+    setVendorOverview(groups);void refresh().catch(e=>setError(errorOf(e)));
+    setNotice("已儲存 "+group.sourceName+" 草稿");
+    return data;
+   }catch(e){setError(errorOf(e));throw e}
+  });
  }
  async function deleteVendorRow(group:VendorGroup,row:GridLine){
   if(!group.orderId||!await confirm({title:"刪除廠商草稿品項",description:"確定刪除「"+row.itemName+"」？"}))return;
-  setBusy(true);try{
-   const current=await call<DisplayOrder>("/orders/"+group.orderId);
-   await call("/orders/"+current.id+"/lines","POST",{expectedVersion:current.version,operation:"delete",lineId:row.id});
-   setVendorOverview(await call<VendorGroup[]>("/vendors/overview"));await refresh();
-  }catch(e){setError(errorOf(e))}finally{setBusy(false)}
+  return enqueue("vendor:"+group.sourceId,async()=>{
+   try{
+    const current=await call<DisplayOrder>("/orders/"+(vendorOrderIds.current.get(group.sourceId)??group.orderId));
+    await call("/orders/"+current.id+"/lines","POST",{expectedVersion:current.version,operation:"delete",lineId:row.id});
+    setVendorOverview(await call<VendorGroup[]>("/vendors/overview"));
+    void refresh().catch(e=>setError(errorOf(e)));
+   }catch(e){setError(errorOf(e));throw e}
+  });
  }
  async function exportVendors(){
   const view=await call<VendorGroup[]>("/vendors/overview");
