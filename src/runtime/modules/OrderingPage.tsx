@@ -55,7 +55,8 @@ export function OrderingPage(){
  async function lineCommit(row:GridLine,patch:Partial<GridLine>){
   if(!selected)return;
   const line={...patch,...(!row.id?{...row,...patch}:{}),...(!row.id?{sortOrder:Date.now()}:{} )};
-  await write("/orders/"+selected.id+"/lines","POST",{operation:"save",lineId:row.id||undefined,line});
+  const saved=await write("/orders/"+selected.id+"/lines","POST",{operation:"save",lineId:row.id||undefined,line});
+  if(!saved)throw new Error("叫貨明細未成功儲存");
  }
  async function removeLine(row:GridLine){if(!selected||!await confirm({title:"刪除叫貨品項",description:"確定刪除「"+row.itemName+"」？"}))return;
   await write("/orders/"+selected.id+"/lines","POST",{operation:"delete",lineId:row.id})}
