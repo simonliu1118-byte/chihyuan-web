@@ -45,7 +45,8 @@ async function getOrder(ctx:Context,id:number){
  const changes=await rows<{revision:number;changed_at:string;changed_by:number;summary:string}>(ctx.db,"SELECT revision,changed_at,changed_by,summary FROM ordering_revisions WHERE order_id=? ORDER BY revision DESC LIMIT 501",id);
  return {id:o.id,sourceId:o.source_id,sourceName:source?.name??"",sourceKind:source?.kind??"GENERAL",status:orderStatus(o.status,lines.map(x=>({quantity:x.quantity,received:x.received,closedAs:x.closed_as}))),
   storedStatus:o.status,plannedSendDate:o.planned_send_date,sentAt:o.sent_at,note:o.note,version:o.version,revision:o.revision,createdAt:o.created_at,
-  lines:lines.map(x=>({id:x.id,section:x.section,sortOrder:x.sort_order,itemCode:x.item_code,itemName:x.item_name,vendorItemCode:x.vendor_item_code,vendorItemName:x.vendor_item_name,vendorNameFollows:!!x.vendor_name_follows,spec:x.spec,quantityText:x.quantity_text,quantity:x.quantity,unit:x.unit,note:x.note,closedAs:x.closed_as,closedNote:x.closed_note,received:x.received,state:lineState({quantity:x.quantity,received:x.received,closedAs:x.closed_as})})),receipts, revisions:changes};
+  lines:lines.map(x=>({id:x.id,section:x.section,sortOrder:x.sort_order,itemCode:x.item_code,itemName:x.item_name,vendorItemCode:x.vendor_item_code,vendorItemName:x.vendor_item_name,vendorNameFollows:!!x.vendor_name_follows,spec:x.spec,quantityText:x.quantity_text,quantity:x.quantity,unit:x.unit,note:x.note,closedAs:x.closed_as,closedNote:x.closed_note,received:x.received,state:lineState({quantity:x.quantity,received:x.received,closedAs:x.closed_as})})),receipts:receipts.map(x=>({id:x.id,erpPurchaseNo:x.erp_purchase_no,receivedDate:x.received_date,createdAt:x.created_at})),
+  revisions:changes.map(x=>({revision:x.revision,at:x.changed_at,by:String(x.changed_by),summary:x.summary}))};
 }
 async function mutate(ctx:Context,o:Ord,expected:number,stmts:D1PreparedStatement[],summary:string,action:string){
  if(o.version!==expected)throw new Bad("ORDERING_VERSION_CONFLICT","已被其他人修改，請重新載入",409);
@@ -74,7 +75,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
  const ctx:Context={db:env.DB,actor:gate.member.id,name:gate.member.displayName??gate.member.employeeNo??"使用者",now:new Date().toISOString(),requestId};
  const path=url.pathname.replace(/^\/api\/business\/ordering\/?/,""),method=request.method;
  try{
-  if(path==="sources"&&method==="GET"){await init(ctx);return success(await rows<Source>(ctx.db,"SELECT * FROM ordering_sources ORDER BY sort_order,id LIMIT 101"),requestId)}
+  if(path==="sources"&&method==="GET"){await init(ctx);const items=await rows<Source>(ctx.db,"SELECT * FROM ordering_sources ORDER BY sort_order,id LIMIT 101");if(items.length>100)throw new Bad("ORDERING_LIMIT","來源超過100筆",409);return success(items.map(x=>({id:x.id,name:x.name,kind:x.kind,conditions:x.conditions,sortOrder:x.sort_order,isActive:!!x.is_active})),requestId)}
   if(path==="sources"&&method==="POST"){
    const v=await body(request),name=must(v.name,"來源",40),kind=v.kind==="VENDOR"?"VENDOR":"GENERAL";
    const result=await ctx.db.prepare("INSERT INTO ordering_sources(name,kind,conditions,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?)").bind(name,kind,must(v.conditions??"","條件",500),Number(v.sortOrder??100),ctx.now,ctx.now).run();
