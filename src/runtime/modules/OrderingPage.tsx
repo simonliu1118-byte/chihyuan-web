@@ -12,6 +12,7 @@ const nowDate=()=>new Date(Date.now()+8*3600000).toISOString().slice(0,10);
 const errorOf=(e:unknown)=>e instanceof ApiClientError&&e.code==="ORDERING_VERSION_CONFLICT"?"已被其他人修改，請重新載入":e instanceof Error?e.message:"叫貨操作失敗";
 type DisplayOrder=OrderingOrder&{storedStatus:"DRAFT"|"SENT"|"VOID"};
 type DisplayLine=GridLine&{quantity:number|null;received:number;state:string;closedAs:string|null};
+type VendorGroup={sourceId:number;sourceName:string;conditions:string;orderId:number|null;lines:(GridLine&{quantity:number|null})[]};
 const call=<T,>(path:string,method="GET",json?:unknown)=>apiRequest<T>(ROOT+path,{method,json});
 export function OrderingPage(){
  const [sources,setSources]=useState<OrderingSource[]>([]),[list,setList]=useState<OrderingListRow[]>([]),[pending,setPending]=useState<OrderingPendingLine[]>([]);
@@ -22,6 +23,7 @@ export function OrderingPage(){
  const [receipt,setReceipt]=useState<{id:number;no:string;date:string;quantities:Record<number,string>}|null>(null);
  const [closing,setClosing]=useState<{id:number;kind:"SHORTAGE"|"CANCELLED"|"OTHER";reason:string}|null>(null);
  const [viewPending,setViewPending]=useState(false),[showHistory,setShowHistory]=useState(false),[drafts,setDrafts]=useState<OrderingListRow[]>([]);
+ const [vendorOverview,setVendorOverview]=useState<VendorGroup[]>([]);
  const pane=useMasterDetailPane(),{confirm,confirmationDialog}=useConfirmation();
  const source=sources.find(x=>x.id===tab);
  const active=sources.filter(x=>x.isActive),vendors=active.filter(x=>x.kind==="VENDOR");
@@ -37,6 +39,9 @@ export function OrderingPage(){
   }catch(e){setError(errorOf(e))}finally{setBusy(false)}
  }
  async function selectSource(s:OrderingSource){setTab(s.id);setVendorAll(false);setSelected(null);await openDraft(s.id)}
+ async function showVendorOverview(){setVendorAll(true);setSelected(null);setViewPending(false);
+  try{setVendorOverview(await call<VendorGroup[]>("/vendors/overview"))}catch(e){setError(errorOf(e))}
+ }
  async function write(path:string,method:string,input:Record<string,unknown>,refreshId=selected?.id){
   if(busy)return;setBusy(true);setError("");try{
    const data=await call<DisplayOrder>(path,method,{...input,expectedVersion:selected?.version});
@@ -71,9 +76,12 @@ export function OrderingPage(){
   const blob=new Blob([new Uint8Array(bytes) as BlobPart],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=exportFileName(order.sourceName,fallback);a.click();URL.revokeObjectURL(url);
  }
- async function exportVendors(){const sheets=[];for(const s of vendors){const ords=await call<OrderingListRow[]>("/orders?sourceId="+s.id+"&status=DRAFT");const ref=pickDraft(ords.map(x=>({id:x.id,plannedSendDate:x.plannedSendDate,createdAt:x.createdAt})),nowDate());if(!ref)continue;
-   const o=await call<DisplayOrder>("/orders/"+ref.id);if(o.lines.length)sheets.push(orderSheet({sourceName:s.name,sourceKind:"VENDOR",date:o.plannedSendDate??nowDate(),note:o.note,lines:o.lines}));}
-   if(!sheets.length){setError("目前沒有廠商品項");return}const file=buildXlsx(sheets);const blob=new Blob([new Uint8Array(file) as BlobPart]);const url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=exportFileName("廠商",nowDate());link.click();URL.revokeObjectURL(url);
+ async function exportVendors(){
+  const view=await call<VendorGroup[]>("/vendors/overview");
+  const sheets=view.filter(v=>v.lines.length).map(v=>orderSheet({sourceName:v.sourceName,sourceKind:"VENDOR",date:nowDate(),note:"",lines:v.lines}));
+  if(!sheets.length){setError("目前沒有廠商品項");return}
+  const bytes=buildXlsx(sheets),blob=new Blob([new Uint8Array(bytes) as BlobPart],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  const href=URL.createObjectURL(blob),a=document.createElement("a");a.href=href;a.download=exportFileName("廠商",nowDate());a.click();URL.revokeObjectURL(href);
  }
  const current=selected,editable=current?.storedStatus!=="VOID";
  const visibleSources=active.filter(x=>x.kind!=="VENDOR");
@@ -97,14 +105,19 @@ export function OrderingPage(){
     <MasterDetailBack label="叫貨紀錄" onBack={pane.close} disabled={busy}/>
     <div className="cy-page-toolbar" style={{flexWrap:"wrap"}}>
      {visibleSources.map(s=><button className={"cy-op-button "+(tab===s.id&&!vendorAll?"primary":"")} key={s.id} type="button" disabled={busy} onClick={()=>void selectSource(s)}>{s.name}</button>)}
-     <button className={"cy-op-button "+(vendorAll?"primary":"")} type="button" onClick={()=>{setVendorAll(true);setSelected(null);setViewPending(false)}}>廠商</button>
+     <button className={"cy-op-button "+(vendorAll?"primary":"")} type="button" onClick={()=>void showVendorOverview()}>廠商</button>
      <button className="cy-op-button" type="button" onClick={()=>setSourceForm({kind:"GENERAL",name:"",conditions:""})}>＋</button>
     </div>
     {viewPending?<><h3>未到貨明細（{pending.length}）</h3>{pending.map(l=><p key={l.lineId}>{l.sourceName}　{l.orderDate}　{l.itemName}　叫貨 {l.quantity}{l.unit}　已到 {l.received}　剩餘 {l.remaining} <button className="cy-op-button" type="button" onClick={()=>void reloadOrder(l.orderId).then(()=>setReceipt({id:l.orderId,no:"",date:nowDate(),quantities:{[l.lineId]:String(l.remaining)}}))}>登記到貨</button><button type="button" className="cy-op-button" onClick={()=>void reloadOrder(l.orderId).then(()=>setClosing({id:l.lineId,kind:"SHORTAGE",reason:""}))}>結掉</button></p>)}</>
     :vendorAll?<><h3>廠商草稿</h3><p>預設依廠商分段；進入個別廠商頁面後才能送出。</p>
       <button type="button" className="cy-op-button" onClick={()=>setSourceForm({kind:"VENDOR",name:"",conditions:""})}>＋ 新增廠商</button>
       <button type="button" className="cy-op-button" onClick={()=>void exportVendors().catch(e=>setError(errorOf(e)))}>匯出廠商合併 Excel</button>
-      {vendors.map(v=><div key={v.id} className="cy-op-panel"><h4>{v.name}</h4><p>{v.conditions}</p><button type="button" className="cy-op-button" onClick={()=>void selectSource(v)}>進入廠商／編輯草稿</button><button type="button" className="cy-op-button" onClick={()=>setSourceForm({id:v.id,kind:"VENDOR",name:v.name,conditions:v.conditions})}>編輯條件</button></div>)}</>
+      {vendorOverview.map(v=><div key={v.sourceId} className="cy-op-panel"><h4>{v.sourceName}</h4><p>{v.conditions}</p>
+        {v.lines.length?<table className="cy-ordering-grid"><thead><tr><th>我方品號</th><th>我方品名</th><th>廠商品號</th><th>廠商品名</th><th>數量</th><th>單位</th></tr></thead><tbody>
+         {v.lines.map(l=><tr key={l.id}><td>{l.itemCode}</td><td>{l.itemName}</td><td>{l.vendorItemCode}</td><td>{l.vendorItemName}</td><td>{l.quantityText}</td><td>{l.unit}</td></tr>)}
+        </tbody></table>:<p>沒有已存草稿品項</p>}
+        <button type="button" className="cy-op-button" onClick={()=>{const s=vendors.find(x=>x.id===v.sourceId);if(s)void selectSource(s)}}>進入廠商／編輯草稿</button>
+        <button type="button" className="cy-op-button" onClick={()=>{const s=vendors.find(x=>x.id===v.sourceId);if(s)setSourceForm({id:s.id,kind:"VENDOR",name:s.name,conditions:s.conditions})}}>編輯條件</button></div>)}</>
     :current?<><div className="cy-page-toolbar"><h3>{current.sourceName}　{ORDERING_STATUS_LABELS[current.status]}</h3>
       <button type="button" className="cy-op-button" onClick={()=>void openDraft(current.sourceId)}>回到草稿</button>
       <select className="cy-op-input" value={current.storedStatus==="DRAFT"?current.id:""} aria-label="切換草稿" onChange={e=>{if(e.target.value)void reloadOrder(Number(e.target.value))}}><option value="">選擇草稿</option>{drafts.map(d=><option key={d.id} value={d.id}>{d.plannedSendDate??"無預計日"}（#{d.id}）</option>)}</select>
