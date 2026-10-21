@@ -7,7 +7,7 @@
 - [x] 本機叫貨／路由／鍵盤 36 項測試、build、validate:source 通過。
 - [x] [PR #262](https://github.com/simonliu1118-byte/chihyuan-web/pull/262) 最終提交必要 CI 全數通過並合併，主線 `d77a05e`。
 - [x] 原 CYWEB 網站 [部署 #39626518329](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39626518329) 成功，來源 `d77a05e`；來源版本／D1 健康、HTTPS／靜態資源、正式網域及 Identity 權威檢查通過。證據已補入 Claude handoff。
-- [ ] 叫貨明細版型：共用元件盤點與建議見 handoff；目前僅評估「桌面可編輯明細表＋手機單筆表單」，未實作。
+- [ ] 叫貨明細版型：使用者澄清桌面要緊湊表格、避免常駐輸入框與留白，不採卡片。手機建議三欄表格＋點列編輯完整表單；共用元件盤點與方案見 handoff，目前僅評估，未實作。
 
 ## CY Web V0.9.28 — 叫貨備註 Enter 換列修正
 
