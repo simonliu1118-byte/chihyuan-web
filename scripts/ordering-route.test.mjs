@@ -46,7 +46,7 @@ test("draft saves one row, conflicts on stale version, send and revise",async()=
   let sent=await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version});assert.equal(sent.status,200,JSON.stringify(sent.body));
   assert.equal(sent.body.data.revision,1);o=sent.body.data;
   save=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,lineId:o.lines[0].id,operation:"save",line:{quantityText:"3"}});
-  assert.equal(save.status,200,JSON.stringify(save.body));o=save.body.data;assert.equal(o.revision,2);assert.equal(o.revisions[0].revision,2);
+  assert.equal(save.status,200,JSON.stringify(save.body));o=save.body.data;assert.equal(o.revision,2);assert.equal(o.revisions[0].revision,2);assert.equal(o.revisions[0].by,"測試員工甲");
   assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_revisions").get().n,1);
  }finally{sql.close()}
 });
