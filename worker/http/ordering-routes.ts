@@ -58,6 +58,14 @@ async function mutate(ctx:Context,o:Ord,expected:number,stmts:D1PreparedStatemen
  try{await run(ctx,stm)}catch(e){if(o.version!==expected||String(e).includes("UNIQUE")||String(e).includes("malformed JSON"))throw new Bad("ORDERING_VERSION_CONFLICT","已被其他人修改，請重新載入",409);throw e}
  return getOrder(ctx,o.id);
 }
+const currentStatusSql=`CASE WHEN o.status<>'SENT' THEN o.status
+ WHEN EXISTS(SELECT 1 FROM ordering_lines l WHERE l.order_id=o.id)
+  AND NOT EXISTS(SELECT 1 FROM ordering_lines l WHERE l.order_id=o.id AND l.closed_as IS NULL
+   AND (l.quantity IS NULL OR COALESCE((SELECT SUM(rl.quantity) FROM ordering_receipt_lines rl WHERE rl.line_id=l.id),0)<l.quantity))
+ THEN 'CLOSED'
+ WHEN EXISTS(SELECT 1 FROM ordering_lines l WHERE l.order_id=o.id AND
+  (l.closed_as IS NOT NULL OR EXISTS(SELECT 1 FROM ordering_receipt_lines rl WHERE rl.line_id=l.id)))
+ THEN 'PARTIAL' ELSE 'SENT' END`;
 export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv,requestId:string):Promise<Response|null>{
  const url=new URL(request.url);if(!url.pathname.startsWith("/api/business/ordering"))return null;
  const provider=identityClient(env);if(!provider)return failure({code:"IDENTITY_UNAVAILABLE",message:"身分服務無法使用"},requestId,503);
@@ -86,13 +94,13 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
   if(path==="orders"&&method==="GET"){
    const clauses:string[]=[],args:unknown[]=[];
    if(url.searchParams.has("sourceId")){clauses.push("o.source_id=?");args.push(int(Number(url.searchParams.get("sourceId")),"來源"))}
-   if(url.searchParams.has("status")){const status=must(url.searchParams.get("status"),"狀態",20);if(!["DRAFT","SENT","VOID"].includes(status))throw new Bad("ORDERING_INVALID","狀態錯誤");clauses.push("o.status=?");args.push(status)}
+   if(url.searchParams.has("status")){const status=must(url.searchParams.get("status"),"狀態",20);if(!["DRAFT","SENT","PARTIAL","CLOSED","VOID"].includes(status))throw new Bad("ORDERING_INVALID","狀態錯誤");clauses.push("("+currentStatusSql+")=?");args.push(status)}
    if(url.searchParams.has("from")){clauses.push("COALESCE(o.planned_send_date,substr(o.created_at,1,10))>=?");args.push(date(url.searchParams.get("from")))}
    if(url.searchParams.has("to")){clauses.push("COALESCE(o.planned_send_date,substr(o.created_at,1,10))<=?");args.push(date(url.searchParams.get("to")))}
    const q=must(url.searchParams.get("q")??"","搜尋",100);if(q){clauses.push("(s.name LIKE ? OR EXISTS(SELECT 1 FROM ordering_lines l WHERE l.order_id=o.id AND (l.item_name LIKE ? OR l.item_code LIKE ?)) OR EXISTS(SELECT 1 FROM ordering_receipts r WHERE r.order_id=o.id AND r.erp_purchase_no LIKE ?))");for(let i=0;i<4;i++)args.push("%"+q+"%")}
-   const result=await rows<Ord&{source_name:string;source_kind:Source["kind"]}>(ctx.db,"SELECT o.*,s.name AS source_name,s.kind AS source_kind FROM ordering_orders o JOIN ordering_sources s ON s.id=o.source_id "+(clauses.length?"WHERE "+clauses.join(" AND "):"")+" ORDER BY o.created_at DESC,o.id DESC LIMIT 201",...args);
+   const result=await rows<Ord&{source_name:string;source_kind:Source["kind"];current_status:string}>(ctx.db,"SELECT o.*,s.name AS source_name,s.kind AS source_kind,("+currentStatusSql+") AS current_status FROM ordering_orders o JOIN ordering_sources s ON s.id=o.source_id "+(clauses.length?"WHERE "+clauses.join(" AND "):"")+" ORDER BY o.created_at DESC,o.id DESC LIMIT 201",...args);
    if(result.length>200)throw new Bad("ORDERING_LIMIT","請縮小搜尋條件",409);
-   return success(result.map(x=>({id:x.id,sourceId:x.source_id,sourceName:x.source_name,sourceKind:x.source_kind,status:x.status,plannedSendDate:x.planned_send_date,sentAt:x.sent_at,createdAt:x.created_at,version:x.version})),requestId);
+   return success(result.map(x=>({id:x.id,sourceId:x.source_id,sourceName:x.source_name,sourceKind:x.source_kind,status:x.current_status,plannedSendDate:x.planned_send_date,sentAt:x.sent_at,createdAt:x.created_at,version:x.version})),requestId);
   }
   if(path==="orders"&&method==="POST"){
    const v=await body(request),sourceId=int(v.sourceId,"來源");
