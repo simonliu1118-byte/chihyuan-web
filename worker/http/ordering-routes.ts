@@ -42,7 +42,7 @@ async function getOrder(ctx:Context,id:number){
  if(lines.length>500)throw new Bad("ORDERING_LIMIT","單據超過 500 列",409);
  const receipts=await rows<{id:number;erp_purchase_no:string;received_date:string;created_at:string}>(ctx.db,"SELECT * FROM ordering_receipts WHERE order_id=? ORDER BY id DESC LIMIT 101",id);
  if(receipts.length>100)throw new Bad("ORDERING_LIMIT","到貨記錄超過上限",409);
- const changes=await rows<{revision:number;changed_at:string;changed_by:number;summary:string}>(ctx.db,"SELECT revision,changed_at,changed_by,summary FROM ordering_revisions WHERE order_id=? ORDER BY revision DESC LIMIT 501",id);
+ const changes=await rows<{revision:number;changed_at:string;changed_by:number;actor_name:string|null;summary:string}>(ctx.db,"SELECT r.revision,r.changed_at,r.changed_by,COALESCE(m.display_name,m.employee_no) AS actor_name,r.summary FROM ordering_revisions r LEFT JOIN app_members m ON m.id=r.changed_by WHERE r.order_id=? ORDER BY r.revision DESC LIMIT 501",id);
  if(changes.length>500)throw new Bad("ORDERING_LIMIT","修改紀錄超過單次查詢安全上限",409);
  const receiptIds=receipts.map(x=>x.id);
  const receiptLines=receiptIds.length?await rows<{receipt_id:number;line_id:number;quantity:number}>(ctx.db,"SELECT receipt_id,line_id,quantity FROM ordering_receipt_lines WHERE receipt_id IN ("+receiptIds.map(()=>"?").join(",")+") ORDER BY receipt_id,line_id LIMIT 5001",...receiptIds):[];
@@ -50,7 +50,7 @@ async function getOrder(ctx:Context,id:number){
  return {id:o.id,sourceId:o.source_id,sourceName:source?.name??"",sourceKind:source?.kind??"GENERAL",status:orderStatus(o.status,lines.map(x=>({quantity:x.quantity,received:x.received,closedAs:x.closed_as}))),
   storedStatus:o.status,plannedSendDate:o.planned_send_date,sentAt:o.sent_at,note:o.note,version:o.version,revision:o.revision,createdAt:o.created_at,
   lines:lines.map(x=>({id:x.id,section:x.section,sortOrder:x.sort_order,itemCode:x.item_code,itemName:x.item_name,vendorItemCode:x.vendor_item_code,vendorItemName:x.vendor_item_name,vendorNameFollows:!!x.vendor_name_follows,spec:x.spec,quantityText:x.quantity_text,quantity:x.quantity,unit:x.unit,note:x.note,closedAs:x.closed_as,closedNote:x.closed_note,received:x.received,state:lineState({quantity:x.quantity,received:x.received,closedAs:x.closed_as})})),receipts:receipts.map(x=>({id:x.id,erpPurchaseNo:x.erp_purchase_no,receivedDate:x.received_date,createdAt:x.created_at,createdBy:"",lines:receiptLines.filter(l=>l.receipt_id===x.id).map(l=>({lineId:l.line_id,quantity:l.quantity}))})),
-  revisions:changes.map(x=>({revision:x.revision,at:x.changed_at,by:String(x.changed_by),summary:x.summary}))};
+  revisions:changes.map(x=>({revision:x.revision,at:x.changed_at,by:x.actor_name??String(x.changed_by),summary:x.summary}))};
 }
 async function mutate(ctx:Context,o:Ord,expected:number,stmts:D1PreparedStatement[],summary:string,action:string){
  if(o.version!==expected)throw new Bad("ORDERING_VERSION_CONFLICT","已被其他人修改，請重新載入",409);
