@@ -55,7 +55,7 @@ export function OrderingPage(){
    const all=await call<OrderingListRow[]>("/orders?sourceId="+sourceId+"&status=DRAFT");setDrafts(all);
    const chosen=pickDraft(all.map(x=>({id:x.id,plannedSendDate:x.plannedSendDate,createdAt:x.createdAt})),nowDate());
    const x=chosen?await reloadOrder(chosen.id):await call<DisplayOrder>("/orders","POST",{sourceId});
-   if(!chosen){setSelected(remember(x));setHeaderDirty({date:false,note:false});headerDirtyRef.current={date:false,note:false};setDrafts(all)}setViewPending(false);pane.open();await refresh();
+   if(!chosen){setSelected(remember(x));setHeaderDirty({date:false,note:false});headerDirtyRef.current={date:false,note:false};setDrafts(await call<OrderingListRow[]>("/orders?sourceId="+sourceId+"&status=DRAFT"))}setViewPending(false);pane.open();await refresh();
   }catch(e){setError(errorOf(e))}finally{setBusy(false)}
  }
  async function selectSource(s:OrderingSource){setTab(s.id);setVendorAll(false);setSelected(null);await openDraft(s.id)}
