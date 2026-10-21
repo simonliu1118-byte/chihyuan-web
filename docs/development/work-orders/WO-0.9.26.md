@@ -141,8 +141,82 @@
 
 ## 8. 完成報告（執行者填）
 
-- 驗收清單逐項結果。
-- 與工作單不同之處與原因（含對 §5.1 半成品的修改）。
-- 驗證指令輸出摘要。
+### 8.1 交付狀態（2026-10-21，Asia/Taipei）
+
+- **執行分支：** `cyweb/ordering`，沿用本單指定、含先行進貨輔助 PR #252 半成品的工作分支。
+- **Pull Request：** [#253 — feat(ordering): implement WO-0.9.26 ordering workflow](https://github.com/simonliu1118-byte/chihyuan-web/pull/253)，目標 `main`；交付審查，保留 Draft；**未自行合併／未正式部署**。
+- **最後一筆經 CI 完整驗證的程式提交：** `74a2061fbf11e61aeed9d12995bbec8b01fad243`；之後只有工作單報告與 PR 說明更新，不改功能程式。
+- **程式交付：** Migration `0022_ordering.sql`、ORDERING Module Access、叫貨 Worker API、主從頁面與共用逐格輸入、來源設定、草稿選擇／存檔與版本鎖、送出／修改紀錄、到貨與結掉剩餘量、未到貨清單、廠商合併檢視／各自送出、ERP 資料帶入與進貨輔助串接、xlsx 匯出、中文稽核、架構文件與測試。
+- **交付判斷：** 原工單開發內容已提交且最新版 GitHub Runtime CI 綠燈，**可轉 Claude 進行 §9 程式審查及 §7 實際畫面驗收**。人工桌面／手機／Excel 實際開啟的截圖及「全部指定 shell 指令逐字執行」尚未由本執行者取得，不能把它們記為已通過。
+
+### 8.2 §6 驗收清單逐項結果
+
+| # | 工單驗收項目 | 本輪結果與證據 |
+|---|---|---|
+| 1 | ORDERING 導覽與 API 權限 | **程式完成、route test 通過**：無權 GET sources 回 403；導覽接 `shared/modules.ts` 的 ORDERING。實際帳號權限畫面待審查者確認。 |
+| 2 | 預設來源、條件、冪等 | **route test 通過**：第一次建立 22 筆預設來源，重複讀取不重建；例如東昇條件文字按工單原文。 |
+| 3 | 來源／廠商新增、排序、改名、停用 | **實作完成；局部 route test 通過**（停用、保留歷史），桌面與手機表單互動待 §7 審查。 |
+| 4 | 草稿距離、同距及無日期規則 | **純函式 test 通過**；`pickDraft`、日期 tie、全無日期、混有空日期均涵蓋。 |
+| 5 | 共用逐格清單、Enter、刪除、排序、版本衝突 | **實作完成，版號 409 route test、共用表單鍵盤靜態 test 通過**；另修正新增列重複送出與存檔失敗清除輸入問題。真實 390px 鍵盤與雙分頁併發 UI 顯示仍須人工驗證。 |
+| 6 | 各頁籤欄位、數量拆解 | **純函式 test 通過**：「1箱」→ 1＋箱、「2.5 包」→ 2.5＋包、「各1」→ 不計；不同來源欄位已按 §2.5。 |
+| 7 | 廠商品名跟隨／手動停止跟隨 | **程式實作，局部 route test 通過**；手動廠商品名與空值承接已驗；更改原品名後的完整畫面互動待審查。 |
+| 8 | 廠商品號／名手動記憶 | **route test 通過**：同來源同品號下一張草稿自動帶回廠商品號與手動名稱；自動欄位不回寫記憶。 |
+| 9 | ERP 品號帶入品名／單位 | **route test 通過**：以虛構 ERP 商品 CODE01 帶入測試品名甲與「箱」，不覆蓋人工欄位。 |
+| 10 | 送出確認、另開下一張草稿 | **route test 通過送出與 revision 1，確認視窗與下一草稿選擇已實作**；實際頁面需 §7 審查。 |
+| 11 | 已送出修改版本與操作人紀錄 | **route test 通過**：送出後修改 revision 從 1→2，記錄保留；補正為顯示員工顯示姓名，並新增測試。 |
+| 12 | 到貨、重複進貨單號提示、多次／多列、結案 | **route tests 通過**：單次多列、同張多次到貨、同一 ERP 單號允許重複登記、總量與已結案狀態；前端提示但不擋重複單號、勾選本次列與預設剩餘量。 |
+| 13 | 未到貨入口與直接處理 | **route tests 通過**：未到貨剩餘量計算、完全到貨後移除；前端入口及到貨／結掉剩餘直接操作已實作，待人工畫面驗收。 |
+| 14 | 左清單與搜尋篩選 | **程式完成、局部 route test 通過**：以 ERP 單號、來源及 CLOSED 狀態搜尋；左清單只顯示來源、狀態、日期，實際互動待審查。 |
+| 15 | 各來源 Excel 格式與 ZIP/XML | **`ordering.test.mjs` 通過**：台中只輸出 6 欄、定期中國貨區別、自訂中國貨含規格、ZIP 簽章與 worksheet XML；廠商合併多 sheet API 已完成。**未以桌面 Microsoft Excel 實際開檔**，交 §7 審查。 |
+| 16 | 進貨輔助加入叫貨單 | **程式完成、權限條件已接入**；上次來源、最適草稿、可改數量、同品號合併／新增選擇均有程式。實際 ERP 查詢後畫面須人工驗收。 |
+| 17 | 備份暫列 EPHEMERAL、TODO／Schema | **已完成，Schema CI 通過**：8 張 `ordering_*` 表暫排除基礎可攜備份，TODO 明訂未來擴容移回。這是上線前資料保護風險，必須依 TODO 處理。 |
+| 18 | 表單 Enter、日期 max | **`scripts/form-keyboard.test.mjs` 兩個子測試通過**（且已加入原有 CI 的 npm 安裝 job）。 |
+| 19 | 指定四組 npm、全量 node --test | **CI 覆蓋主要對應項目並通過，但未逐字全量執行**；詳見 §8.3，不得誤標為五條原文指令皆已執行。 |
+| 20 | VERSION／BUILD／TODO／架構文件 | **已提交**：VERSION／package.json 0.9.26、BUILD 0，TODO 連回工作單，新增 `ORDERING_MODULE.md`。 |
+
+### 8.3 驗證指令、實際輸出與 CI 證據
+
+**最新程式提交 `74a2061f` 的 GitHub Actions：**
+
+| 驗證 | Run | 結果 |
+|---|---|---|
+| [Runtime Check](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39568373052) | 39568373052 | **success**：source-contracts、browser-typecheck、worker-typecheck、build 四個 jobs 全成功 |
+| [Governance Check](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39568372822) | 39568372822 | **success** |
+| [CY Web Deploy](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39568373107) | 39568373107 | PR 路徑檢查 **success**；**不是正式環境部署** |
+
+- Worker 的已安裝相依環境 `node --test` 主測試組 **105/105 成功，0 失敗**（包含 `ordering.test.mjs`、`ordering-route.test.mjs` 與 `form-keyboard.test.mjs`）；另外兩組共 5/5、12/12 成功。
+- Source Contracts：`validate_schema.py` 驗證包含 0022 的資料表全集成功，其他既有 core/source 檢查成功。
+- TypeScript：Browser 與 Worker 專用 `npx tsc --noEmit` 檢查均成功。
+- Build job：`npm run validate:d1:local` 實際執行，`PASS Wrangler local D1 migrations`（0001～0022）、`PASS Worker + D1 acceptance`；Worker／Client `npx vite build` 成功。
+- **精確指令差異：** `npm run typecheck`、`npm run validate:source`、`npm run build` 這三條 npm 包裝指令未逐字執行，但 CI 已執行其重點底層檢查；`node --test scripts/*.test.mjs` 全量未單獨執行（工單已註明 `audit-account-portal` 需另外的 CYapps checkout）。不能將其聲稱為逐字通過。請審查者具備完整 checkout 時依 §9 補驗。
+- 先前失敗與修正：`ordering-route.test.mjs` 廠商合併檢視的 `orderVersion` 因 SQL 漏選 `o.version` 而失敗；已修正，最新版 route test 通過。表單鍵盤靜態測試也曾因表單屬性次序失敗，已按專案既有慣例修正並在最新版通過。
+
+### 8.4 §5.1 半成品修訂與工作單差異
+
+- 保留既有 `0022_ordering.sql` 的表與 Module Access 設計；配合既定 schema 檢查器加上八張 ordering 資料表。沒有另建平行 migration。
+- 檢查並沿用 `shared/ordering.ts` 與 `shared/xlsx-writer.ts`；修正 `ordering-export.ts`：自訂中國貨固定保留品號欄，定期中國貨區段合併位置校正；加上真實 ZIP／Excel XML 的單元測試。
+- 新增 Worker、Page、共用清單表格、Restock Assist 按鈕，以及 route acceptance；加入現有 `runtime-check.yml` **只有測試指令清單**，未新增 workflow，也未修改權限或部署步驟。
+- 因 `portable-backup.ts` 的 500 列限制，依 §2.18 暫列 `ordering_*` 在 `EPHEMERAL_TABLES`，架構文件與 TODO 均註明風險；沒有擴張備份能力或納入正式環境。
+- 為防止存檔遺失，額外修正了 grid 草稿重複自動存檔／失敗保留輸入、版本號漏選、到貨勾選與重複進貨單號提醒。這些均是實現 §2／§5 既定行為，沒有更改業務決議。
+- **範圍外工作：無。** 沒有 ERP 查單、歷史 Excel 匯入、單位換算、修改人事出勤、合併或部署。
+
+### 8.5 實際畫面與 §7 審查操作步驟（審查者擷取）
+
+1. 以授予 `ORDERING` 的測試帳號，在桌面 1440px／手機 390px 開業務模組→叫貨，進台中頁籤；建立兩張不同預計送出日期的草稿，檢視草稿選單、逐格輸入、Enter 跳格、儲存及重新整理；另一分頁同時修改確認 409 提示。
+2. 開廠商→全部廠商合併頁，確認每家廠商條件文字與可編輯明細、各自草稿；進單一廠商頁核對「送出」確認、廠商品號與名稱記憶；匯出含數家廠商各一張工作表的 Excel。
+3. 開定期中國貨，核對三區「針灸針－單支／氣包袋／其他」；自訂中國貨核對規格欄及品號選填。
+4. 在測試草稿輸入「測試品名甲」、數量「2.5 包」，送出；編輯送出單並展開修改紀錄，核對版本、時間、操作者及前後值。
+5. 登記到貨時勾選本次品項、填 11 碼 ERP 單號與日期，核對預設剩餘量與重複單號警告；部分到貨後自「未到貨」入口，對剩餘數量分別操作到貨、缺貨、取消與其他原因。
+6. 進進貨輔助（有 ERP 前置權限與 `ORDERING`），對一個**虛構測試品號**開「加入叫貨單」，驗證預設來源、草稿、數量、同品號合併或另建；無 `ORDERING` 的帳號不應看到該按鈕。
+7. 實際下載台中／定期中國貨／自訂中國貨／廠商合併 xlsx，以桌面 Microsoft Excel 或相容軟體開啟確認工作表、欄位、區段、合併儲存格及文字；截圖歸於審查紀錄。
+
+**§7 截圖尚未產生**：依工作單明訂由審查者以實際畫面擷取，不以示意圖或 mock 截圖取代。
+
+### 8.6 D1／備份費用與部署界線
+
+- 本輪在 GitHub 原始碼及 GitHub-hosted Local D1 測試環境執行，**未對正式 Cloudflare D1、Worker 或 R2 做變更**，正式環境 D1 讀寫為 0。
+- D1 API 的明確回傳上限：來源 100、左清單 200、單據明細 500、到貨紀錄 100、到貨明細 5,000、修改紀錄 500、未到貨列 1,500、廠商合併草稿 500 張／總明細 2,500 列；達上限的關鍵查詢採上限＋1 拒絕截斷以免顯示不完整資料。這些是**回傳上限而非 D1 計費掃描列數**。
+- 備份機制的容量擴充與 ordering 表重新納入可攜備份，是叫貨正式使用前的重要風險／TODO；未在本工單擅自修改備份系統。
+- PR #253 交付後應依 PROJECT_RULES §9 由 Claude 審查及決定下一步；**不得因 CI 成功就直接合併或部署**。
 
 ## 9. 審查紀錄（審查者填）
