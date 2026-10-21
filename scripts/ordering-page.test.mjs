@@ -70,6 +70,10 @@ function mount(transport) {
     async tick() { await new Promise(resolve => setImmediate(resolve)); render(); },
     click(label) { const node = descendants(tree).find(n => n.type === "button" && text(n) === label); assert.ok(node, `button ${label}`); node.props.onClick(); render(); },
     get grid() { return descendants(tree).find(n => n.type?.name === "OrderingGrid")?.props; },
+    get heading() { return text(descendants(tree).find(n => n.type === "h2")); },
+    get selectedTabs() { return descendants(tree).filter(n => n.props?.role === "tab" && n.props["aria-selected"]).map(text); },
+    get saveStatus() { const node = descendants(tree).find(n => n.type?.name === "OrderingSaveStatus"); return node ? node.type(node.props) : null; },
+    headerInput(label) { return descendants(tree).find(n => n.props?.label === label && n.props?.children?.type === "input").props.children.props; },
     dispose() { slots.forEach(slot => slot?.cleanup?.()); },
   };
   activeHost = view; render(); return view;
@@ -84,6 +88,8 @@ const normalTransport = (path, options) => path.startsWith("/orders?sourceId=") 
 test("opening an existing draft needs only list and detail; initial history is not fetched twice", async () => {
   const page = mount(normalTransport); await page.tick();
   assert.deepEqual(page.calls.map(x => x.path), ["/sources", "/pending"]);
+  assert.equal(page.heading, "未到貨明細"); assert.deepEqual(page.selectedTabs, []);
+  assert.equal(page.grid, undefined, "entering the module never loads or creates a draft");
   page.calls.length = 0; page.click("測試來源甲"); await page.tick();
   assert.deepEqual(page.calls.map(x => x.path), ["/orders?sourceId=1&status=DRAFT", "/orders/10"]);
   assert.ok(page.grid); assert.equal(page.grid.busy, false);
@@ -95,7 +101,7 @@ test("source switching waits for the editor; incomplete input keeps the current 
   const page = mount(normalTransport); await page.tick(); page.click("測試來源甲"); await page.tick();
   const gate = deferred(); const grid = page.grid;
   grid.onRegister({ flush: () => gate.promise, discard() { assert.fail("cancelled navigation must preserve input"); } });
-  grid.onStateChange({ dirty: true, saving: true }); page.render();
+  grid.onStateChange({ dirty: true, saving: true, failed: false }); page.render();
   assert.equal(globalThis.orderingPageGuard.blocked, true);
   page.calls.length = 0; page.click("測試來源乙"); await page.tick(); assert.equal(page.calls.length, 0);
   gate.resolve(false); await page.tick(); assert.equal(page.calls.length, 0);
@@ -128,4 +134,35 @@ test("line save returns the acknowledged line and does not refresh sources/histo
   const saved = await page.grid.onCommit(row, row); await page.tick();
   assert.equal(saved.id, 101); assert.equal(saved.itemName, ""); assert.equal(page.grid.lines[0].note, "測試備註");
   assert.deepEqual(page.calls.map(x => x.path), ["/orders/10/lines"]);
+});
+
+test("header status reports saving spinner, red failure, dirty and acknowledged saved states", async () => {
+  const page = mount(normalTransport); await page.tick(); page.click("測試來源甲"); await page.tick();
+  const grid = page.grid;
+  for (const [state, label, value, spinner] of [
+    [{ dirty: true, saving: true, failed: false }, "儲存中", "saving", true],
+    [{ dirty: true, saving: false, failed: true }, "儲存失敗", "failed", false],
+    [{ dirty: true, saving: false, failed: false }, "尚未儲存", "dirty", false],
+    [{ dirty: false, saving: false, failed: false }, "已儲存", "saved", false],
+  ]) {
+    grid.onStateChange(state); page.render(); const status = page.saveStatus;
+    assert.equal(text(status), label); assert.equal(status.props["data-state"], value);
+    assert.equal(descendants(status).some(n => n.props?.className?.includes("cy-ordering-save-spinner")), spinner);
+  }
+});
+
+test("header autosave failure is red and late input is not declared saved by an earlier acknowledgement", async () => {
+  const replies=[];
+  const page=mount((path,options)=>path==="/orders/10"&&options.method==="PATCH"?new Promise((resolve,reject)=>replies.push({resolve,reject,note:options.json.note})):normalTransport(path,options));
+  await page.tick();page.click("測試來源甲");await page.tick();
+  page.headerInput("單據備註").onChange({target:{value:"第一次輸入"}});page.render();page.headerInput("單據備註").onBlur();await page.tick();
+  assert.equal(text(page.saveStatus),"儲存中");replies[0].reject(new Error("測試失敗"));await page.tick();
+  assert.equal(text(page.saveStatus),"儲存失敗");assert.equal(page.saveStatus.props["data-state"],"failed");
+  assert.equal(page.headerInput("單據備註").value,"第一次輸入");
+  page.headerInput("單據備註").onBlur();await page.tick();
+  page.headerInput("單據備註").onChange({target:{value:"等待時又輸入"}});page.render();
+  replies[1].resolve({...order(1),version:2,note:"第一次輸入"});await page.tick();
+  assert.equal(text(page.saveStatus),"尚未儲存");assert.equal(page.headerInput("單據備註").value,"等待時又輸入");
+  page.headerInput("單據備註").onBlur();await page.tick();replies[2].resolve({...order(1),version:3,note:"等待時又輸入"});await page.tick();
+  assert.equal(text(page.saveStatus),"已儲存");
 });

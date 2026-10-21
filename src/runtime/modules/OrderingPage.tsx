@@ -25,6 +25,13 @@ type DisplayLine=GridLine&{quantity:number|null;received:number;state:string;clo
 type VendorGroup={sourceId:number;sourceName:string;conditions:string;orderId:number|null;orderVersion:number|null;lines:(GridLine&{quantity:number|null})[]};
 const STATUS_TONE:Record<string,StatusTone>={DRAFT:"neutral",SENT:"info",PARTIAL:"warning",CLOSED:"success",VOID:"danger"};
 const call=<T,>(path:string,method="GET",json?:unknown)=>apiRequest<T>(ROOT+path,{method,json});
+function OrderingSaveStatus({states}: {states:OrderingGridState[]}){
+ const state=states.some(s=>s.saving)?"saving":states.some(s=>s.failed)?"failed":states.some(s=>s.dirty)?"dirty":"saved";
+ return <span className="cy-ordering-save-state" data-state={state} role="status" aria-live="polite">
+  {state==="saving"?<span className="cy-loading-spinner cy-ordering-save-spinner" aria-hidden="true"/>:null}
+  {state==="saving"?"儲存中":state==="failed"?"儲存失敗":state==="dirty"?"尚未儲存":"已儲存"}
+ </span>;
+}
 export function OrderingPage(){
  const [sources,setSources]=useState<OrderingSource[]>([]),[list,setList]=useState<OrderingListRow[]>([]),[pending,setPending]=useState<OrderingPendingLine[]>([]);
  const [tab,setTab]=useState<number|null>(null),[vendorAll,setVendorAll]=useState(false),[selected,setSelected]=useState<DisplayOrder|null>(null);
@@ -37,13 +44,15 @@ export function OrderingPage(){
  const cached=useRef(new Map<number,DisplayOrder>());
  const savedHeader=useRef(new Map<number,{date:string|null;note:string}>());
  const [headerDirty,setHeaderDirty]=useState({date:false,note:false});
+ const [headerSaving,setHeaderSaving]=useState(0),[headerSaveFailed,setHeaderSaveFailed]=useState(false);
  const headerDirtyRef=useRef({date:false,note:false});
+ const headerEditRevisions=useRef({date:0,note:0});
  const [sourceForm,setSourceForm]=useState<{id?:number;kind:"GENERAL"|"VENDOR";name:string;conditions:string;sortOrder?:number;isActive?:boolean}|null>(null);
  const [sourceFilter,setSourceFilter]=useState("");
  const [manageSources,setManageSources]=useState(false);
  const [receipt,setReceipt]=useState<{id:number;no:string;date:string;quantities:Record<number,string>;selectedLineIds:number[]}|null>(null);
  const [closing,setClosing]=useState<{id:number;kind:"SHORTAGE"|"CANCELLED"|"OTHER";reason:string}|null>(null);
- const [viewPending,setViewPending]=useState(false),[showHistory,setShowHistory]=useState(false),[drafts,setDrafts]=useState<OrderingListRow[]>([]);
+ const [viewPending,setViewPending]=useState(true),[pendingLoading,setPendingLoading]=useState(true),[showHistory,setShowHistory]=useState(false),[drafts,setDrafts]=useState<OrderingListRow[]>([]);
  const [vendorOverview,setVendorOverview]=useState<VendorGroup[]>([]);
  const vendorOrderIds=useRef(new Map<number,number>());
  const pane=useMasterDetailPane(),{confirm,confirmationDialog}=useConfirmation();
@@ -56,7 +65,7 @@ export function OrderingPage(){
  function gridBindings(key:string){
   if(!bindings.current.has(key))bindings.current.set(key,{
    onRegister(editor){if(editor)editors.current.set(key,editor);else{editors.current.delete(key);setEditorStates(prev=>{if(!prev[key])return prev;const next={...prev};delete next[key];return next})}},
-   onStateChange(state){setEditorStates(prev=>prev[key]?.dirty===state.dirty&&prev[key]?.saving===state.saving?prev:{...prev,[key]:state});if(state.dirty)setMessage(null)},
+   onStateChange(state){setEditorStates(prev=>prev[key]?.dirty===state.dirty&&prev[key]?.saving===state.saving&&prev[key]?.failed===state.failed?prev:{...prev,[key]:state});if(state.dirty)setMessage(null)},
   });
   return bindings.current.get(key)!;
  }
@@ -74,15 +83,15 @@ export function OrderingPage(){
  const listQuery=useRef("history=1");
  async function refreshLists(){const [b,c]=await Promise.all([call<OrderingListRow[]>("/orders?"+listQuery.current),call<OrderingPendingLine[]>("/pending")]);setList(b);setPending(c)}
  async function refresh(){await Promise.all([
-  call<OrderingSource[]>("/sources").then(a=>{setSources(a);setTab(t=>t??a.find(x=>x.isActive&&x.kind==="GENERAL")?.id??null)}),
-  call<OrderingPendingLine[]>("/pending").then(setPending),
+  call<OrderingSource[]>("/sources").then(setSources),
+  call<OrderingPendingLine[]>("/pending").then(setPending).finally(()=>setPendingLoading(false)),
  ])}
  useEffect(()=>{void refresh().catch(e=>setError(errorOf(e)))},[]);
  const remember=(x:DisplayOrder)=>{
    cached.current.set(x.id,x);savedHeader.current.set(x.id,{date:x.plannedSendDate,note:x.note});return x;
  };
  const enqueue=<T,>(key:string,job:()=>Promise<T>):Promise<T>=>queueRef.current.enqueue(key,job);
- const showOrder=(x:DisplayOrder)=>{setSelected(x);setHeaderDirty({date:false,note:false});headerDirtyRef.current={date:false,note:false};return x};
+ const showOrder=(x:DisplayOrder)=>{setSelected(x);setHeaderDirty({date:false,note:false});setHeaderSaveFailed(false);headerDirtyRef.current={date:false,note:false};return x};
  async function reloadOrder(id:number){if(!await prepareSwitch())return;const sequence=++loadSequence.current;setBusy(true);
   try{const x=remember(await call<DisplayOrder>("/orders/"+id));if(sequence!==loadSequence.current)return;
    setViewPending(false);setVendorAll(false);pane.open();return showOrder(x);
@@ -126,7 +135,7 @@ export function OrderingPage(){
     setSelected(previous=>previous?.id===id?
      {...data,plannedSendDate:headerDirtyRef.current.date?previous.plannedSendDate:data.plannedSendDate,note:headerDirtyRef.current.note?previous.note:data.note}:previous);
     // A row commit never disables any editor or steals focus while the network is pending.
-    if(!path.endsWith("/lines"))setNotice("已儲存");
+    if(method!=="PATCH"&&!path.endsWith("/lines"))setNotice("已儲存");
     if(path.endsWith("/send")||path.endsWith("/void")){
      void call<OrderingListRow[]>("/orders?sourceId="+data.sourceId+"&status=DRAFT").then(setDrafts).catch(e=>setError(errorOf(e)));
     }
@@ -137,13 +146,16 @@ export function OrderingPage(){
  }
  async function saveHeader(field:"date"|"note"){
   const current=selected;if(!current)return;
+  const editRevision=headerEditRevisions.current[field];
   const value=field==="date"?current.plannedSendDate:current.note;
   const saved=savedHeader.current.get(current.id);
   if(value===(field==="date"?saved?.date:saved?.note)){setHeaderDirty(prev=>({...prev,[field]:false}));headerDirtyRef.current={...headerDirtyRef.current,[field]:false};return}
+  setHeaderSaving(n=>n+1);setHeaderSaveFailed(false);
   try{
    await write("/orders/"+current.id,"PATCH",field==="date"?{plannedSendDate:value}:{note:value});
-   setHeaderDirty(prev=>({...prev,[field]:false}));headerDirtyRef.current={...headerDirtyRef.current,[field]:false};
-  }catch{/* Banner and modal explain the error; leave the typed value intact. */}
+   if(headerEditRevisions.current[field]===editRevision){setHeaderDirty(prev=>({...prev,[field]:false}));headerDirtyRef.current={...headerDirtyRef.current,[field]:false}}
+  }catch{setHeaderSaveFailed(true)/* Banner and modal explain the error; leave the typed value intact. */}
+  finally{setHeaderSaving(n=>n-1)}
  }
  async function lineCommit(row:GridLine,patch:Partial<GridLine>){
   if(!selected)throw new Error("請先選擇叫貨單");
@@ -211,6 +223,7 @@ export function OrderingPage(){
   const href=URL.createObjectURL(blob),a=document.createElement("a");a.href=href;a.download=exportFileName("廠商",nowDate());a.click();URL.revokeObjectURL(href);
  }
  const current=selected,editable=current?.storedStatus!=="VOID";
+ const currentSaveStates:OrderingGridState[]=[{dirty:headerDirty.date||headerDirty.note,saving:headerSaving>0,failed:headerSaveFailed},...Object.entries(editorStates).filter(([key])=>key.startsWith(current?.id+"-")).map(([,state])=>state)];
  const [expandedVendors,setExpandedVendors]=useState<number[]>([]);
  const expanded=(v:VendorGroup)=>v.lines.length>0||expandedVendors.includes(v.sourceId);
  async function toggleVendor(v:VendorGroup){
@@ -271,12 +284,12 @@ export function OrderingPage(){
       <button type="button" className="cy-op-button quiet" onClick={()=>setManageSources(true)}>管理來源</button>
     </div>
     {viewPending?<>
-      <div className="cy-record-header"><div><h2>未到貨明細</h2><p>已送出、還有剩餘數量的品項，共 {pending.length} 項。</p></div></div>
+      <div className="cy-record-header"><div><h2>未到貨明細</h2><p>{pendingLoading?"正在載入未到貨明細…":"已送出、還有剩餘數量的品項，共 "+pending.length+" 項。"}</p></div></div>
       {pending.length?<div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>來源</th><th>叫貨日</th><th>品號</th><th>品名</th><th>叫貨</th><th>已到</th><th>剩餘</th><th/></tr></thead><tbody>
        {pending.map(l=><tr key={l.lineId}><td>{l.sourceName}</td><td>{displayDate(l.orderDate)}</td><td className="cy-mono">{l.itemCode}</td><td>{l.itemName||l.vendorItemName}</td><td>{l.quantity}{l.unit}</td><td>{l.received}</td><td><strong>{l.remaining}</strong></td>
         <td className="cy-ordering-row-actions"><button className="cy-op-button compact" type="button" onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setReceipt({id:l.orderId,no:"",date:nowDate(),quantities:{[l.lineId]:String(l.remaining)},selectedLineIds:[l.lineId]})})}>登記到貨</button>
          <button type="button" className="cy-op-button compact quiet" onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setClosing({id:l.lineId,kind:"SHORTAGE",reason:""})})}>結掉</button></td></tr>)}
-      </tbody></table></div>:<p className="cy-op-empty">目前沒有未到貨的品項。</p>}
+      </tbody></table></div>:!pendingLoading?<p className="cy-op-empty">目前沒有未到貨的品項。</p>:null}
     </>
     :vendorAll?<>
       <div className="cy-record-header"><div><h2>廠商草稿</h2><p>依廠商分段；要送出時進入該廠商。</p></div>
@@ -290,6 +303,7 @@ export function OrderingPage(){
            {expanded(v)?"▾":"▸"} {v.sourceName}（{v.lines.length} 項）
           </button>
           {v.conditions?<strong className="cy-ordering-vendor-condition">{v.conditions}</strong>:null}
+          {editorStates["vendor:"+v.sourceId]?<OrderingSaveStatus states={[editorStates["vendor:"+v.sourceId]]}/>:null}
           <button type="button" className="cy-op-button quiet compact" onClick={()=>{const s=vendors.find(x=>x.id===v.sourceId);if(s)void selectSource(s)}}>進入廠商</button>
          </div>
          {expanded(v)?<OrderingGrid kind="VENDOR" section="" lines={v.lines} busy={busy} {...gridBindings("vendor:"+v.sourceId)}
@@ -299,8 +313,8 @@ export function OrderingPage(){
     :current?<>
       <div className="cy-record-header">
        <div><h2>{current.sourceName} <StatusChip tone={STATUS_TONE[current.status]}>{ORDERING_STATUS_LABELS[current.status]}</StatusChip></h2>
-        <p>{current.storedStatus==="DRAFT"?(current.plannedSendDate?"預計 "+displayDate(current.plannedSendDate)+" 送出":"尚未設定預計送出日")+"・"+current.lines.length+" 項・自動儲存"
-         :"送出 "+displayTime(current.sentAt)+"・版本 "+current.revision+"・"+current.lines.length+" 項"}</p></div>
+        <p>{current.storedStatus==="DRAFT"?(current.plannedSendDate?"預計 "+displayDate(current.plannedSendDate)+" 送出":"尚未設定預計送出日")+"・"+current.lines.length+" 項"
+         :"送出 "+displayTime(current.sentAt)+"・版本 "+current.revision+"・"+current.lines.length+" 項"}{editable?<>・<OrderingSaveStatus states={currentSaveStates}/></>:null}</p></div>
        <div className="cy-record-actions">
         {current.storedStatus!=="DRAFT"?<button type="button" className="cy-op-button" onClick={()=>void openDraft(current.sourceId)}>回到草稿</button>:null}
         <button type="button" className="cy-op-button" onClick={()=>void exportOrder(current)}>匯出 Excel</button>
@@ -319,8 +333,8 @@ export function OrderingPage(){
        <button type="button" className="cy-op-button compact quiet" onClick={()=>{const s=sources.find(x=>x.id===current.sourceId);if(s)setSourceForm({id:s.id,kind:"VENDOR",name:s.name,conditions:s.conditions,sortOrder:s.sortOrder,isActive:s.isActive})}}>修改</button></p>:null}
       <form onKeyDown={enterAdvancesFields} onSubmit={e=>{e.preventDefault();if(headerDirty.date)void saveHeader("date");if(headerDirty.note)void saveHeader("note")}}>
        <FormSection>
-        <Field label="預計送出日期" size="s"><input type="date" className="cy-op-input" max="9999-12-31" disabled={!editable} value={current.plannedSendDate??""} onChange={e=>{headerDirtyRef.current={...headerDirtyRef.current,date:true};setHeaderDirty(v=>({...v,date:true}));setSelected(v=>v?{...v,plannedSendDate:e.target.value||null}:v)}} onBlur={()=>void saveHeader("date")}/></Field>
-        <Field label="單據備註" size="m" hint={headerDirty.date||headerDirty.note?"離開欄位後自動儲存":undefined}><input className="cy-op-input" disabled={!editable} value={current.note} onChange={e=>{headerDirtyRef.current={...headerDirtyRef.current,note:true};setHeaderDirty(v=>({...v,note:true}));setSelected(v=>v?{...v,note:e.target.value}:v)}} onBlur={()=>void saveHeader("note")}/></Field>
+        <Field label="預計送出日期" size="s"><input type="date" className="cy-op-input" max="9999-12-31" disabled={!editable} value={current.plannedSendDate??""} onChange={e=>{headerEditRevisions.current.date++;headerDirtyRef.current={...headerDirtyRef.current,date:true};setHeaderDirty(v=>({...v,date:true}));setSelected(v=>v?{...v,plannedSendDate:e.target.value||null}:v)}} onBlur={()=>void saveHeader("date")}/></Field>
+        <Field label="單據備註" size="m" hint={headerDirty.date||headerDirty.note?"離開欄位後自動儲存":undefined}><input className="cy-op-input" disabled={!editable} value={current.note} onChange={e=>{headerEditRevisions.current.note++;headerDirtyRef.current={...headerDirtyRef.current,note:true};setHeaderDirty(v=>({...v,note:true}));setSelected(v=>v?{...v,note:e.target.value}:v)}} onBlur={()=>void saveHeader("note")}/></Field>
        </FormSection>
       </form>
       {(current.sourceKind==="CN_REGULAR"?CN_REGULAR_SECTIONS:[{key:"" as const,label:"叫貨明細"}]).map(group=><section key={group.key} className="cy-ordering-lines">

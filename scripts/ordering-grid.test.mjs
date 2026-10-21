@@ -14,6 +14,8 @@ try {
   await build({ entryPoints: [fileURLToPath(new URL("../src/ui/OrderingGrid.tsx", import.meta.url))], outfile, bundle: true,
     platform: "node", format: "esm", jsx: "automatic", packages: "external",
     plugins: [{ name: "hook-host", setup(build) {
+      build.onResolve({ filter: /^\.\/overlays\/Dialog$/ }, () => ({ path: "dialog", namespace: "dialog-boundary" }));
+      build.onLoad({ filter: /.*/, namespace: "dialog-boundary" }, () => ({ contents: "export const Dialog=()=>null;" }));
       build.onResolve({ filter: /^react$/ }, () => ({ path: "react", namespace: "hook-host" }));
       build.onLoad({ filter: /.*/, namespace: "hook-host" }, () => ({ contents:
         ["useState", "useRef", "useEffect"].map(name =>
@@ -83,6 +85,7 @@ function mount(kind = "GENERAL", lines = []) {
   }
   render();
   return { change, press, flush, input, commits, settlements,
+    click(label) { const node=descendants(tree).find(n=>n.type==="button"&&(n.props["aria-label"]===label||n.props.children===label)); assert.ok(node,`button ${label}`);node.props.onClick();render(); },
     get editor() { return editor; }, get state() { return state; },
     rowKey(id) { return descendants(tree).find(n => n.type === "tr" && descendants(n).some(child => child.props?.["data-order-row"] === id))?.key; },
     get focused() { return focused; },
@@ -135,13 +138,15 @@ test("saved rows advance to the following saved or draft row without adding dupl
   assert.deepEqual(grid.rowIds, [1, 2, -1]); assert.equal(grid.commits.length, 0);
 });
 
-test("ordinary field progression, quantity shortcut and IME behavior remain unchanged", () => {
+test("quantity Enter advances to unit, then note and the next row; IME does not advance", () => {
   const grid = mount();
   grid.press(-1, "itemCode"); assert.deepEqual(grid.focused, { row: -1, field: "itemName" });
   grid.press(-1, "note", { nativeEvent: { isComposing: true } });
   grid.press(-1, "note", { key: "Tab" }); assert.deepEqual(grid.rowIds, [-1]);
   grid.change(-1, "itemName", "測試品名甲"); grid.change(-1, "quantityText", "2");
-  grid.press(-1, "quantityText"); assert.deepEqual(grid.focused, { row: -2, field: "itemName" });
+  grid.press(-1, "quantityText"); assert.deepEqual(grid.focused, { row: -1, field: "unit" });
+  grid.press(-1, "unit"); assert.deepEqual(grid.focused, { row: -1, field: "note" });
+  grid.press(-1, "note"); assert.deepEqual(grid.focused, { row: -2, field: "itemCode" });
 });
 
 const tick = async grid => { await new Promise(resolve => setImmediate(resolve)); grid.flush(); };
@@ -156,7 +161,7 @@ for (const kind of ["GENERAL", "VENDOR"]) test(`${kind}: vendor-only row is ackn
   const grid = mount(kind);
   grid.change(-1, "vendorItemCode", "TEST-V01"); grid.change(-1, "vendorItemName", "測試廠商品名");
   grid.change(-1, "quantityText", "7"); grid.change(-1, "note", "測試備註"); grid.press(-1, "note");
-  assert.deepEqual(grid.state, { dirty: true, saving: true });
+  assert.deepEqual(grid.state, { dirty: true, saving: true, failed: false });
   const key = grid.rowKey(-1);
   let done = false; const saving = grid.editor.flush().then(result => { done = true; return result; });
   await tick(grid); assert.equal(done, false); assert.equal(grid.commits.length, 1);
@@ -164,7 +169,7 @@ for (const kind of ["GENERAL", "VENDOR"]) test(`${kind}: vendor-only row is ackn
   assert.equal(grid.input(101, "itemName").props.value, "");
   assert.equal(grid.input(101, "vendorItemName").props.value, "測試廠商品名");
   assert.equal(grid.rowKey(101), key, "acknowledging a new row must retain its React identity while typing");
-  assert.deepEqual(grid.state, { dirty: false, saving: false });
+  assert.deepEqual(grid.state, { dirty: false, saving: false, failed: false });
 });
 
 test("edits typed during create update the acknowledged row, retaining failed late edits for retry", async () => {
@@ -176,7 +181,7 @@ test("edits typed during create update the acknowledged row, retaining failed la
   assert.deepEqual(grid.commits[1].patch, { unit: "箱", note: "網路等待時填寫" });
   grid.settlements[1].reject(new Error("simulated failure")); await tick(grid);
   assert.equal(grid.input(-1, "note").props.value, "網路等待時填寫");
-  assert.deepEqual(grid.state, { dirty: true, saving: false });
+  assert.deepEqual(grid.state, { dirty: true, saving: false, failed: true });
   assert.equal(grid.rowIds.filter(id => id === 101).length, 0, "hide the acknowledged baseline while late edits remain pending");
   const retry = grid.editor.flush();
   assert.equal(grid.commits[2].row.id, 101, "retry must update, not create a duplicate row");
@@ -203,4 +208,31 @@ test("saved-cell flush deduplicates pending edits and retains a failed value", a
   assert.equal(await saving, false); assert.equal(grid.input(101, "note").props.value, "新的備註");
   const retry = grid.editor.flush(); acknowledge(grid, 1); await tick(grid);
   assert.equal(await retry, true); assert.equal(grid.input(101, "note").props.value, "新的備註");
+});
+
+for (const [kind, fields] of Object.entries({
+  GENERAL: ["itemCode", "itemName", "vendorItemCode", "vendorItemName", "quantityText", "unit", "note"],
+  VENDOR: ["itemCode", "itemName", "vendorItemCode", "vendorItemName", "quantityText", "unit", "note"],
+  CN_REGULAR: ["itemCode", "itemName", "quantityText", "unit", "note"],
+  CN_CUSTOM: ["itemCode", "itemName", "spec", "quantityText", "unit", "note"],
+})) test(`${kind}: full Enter order is consistent on pending and saved rows`, () => {
+  const grid = mount(kind);
+  grid.change(-1, "itemName", "測試商品"); grid.change(-1, "quantityText", "2");
+  for (let i = 0; i < fields.length - 1; i++) {
+    grid.press(-1, fields[i]); assert.deepEqual(grid.focused, { row: -1, field: fields[i + 1] });
+  }
+  grid.press(-1, "note"); assert.deepEqual(grid.focused, { row: -2, field: "itemCode" });
+  const saved = mount(kind, [{ ...grid.commits[0].row, id: 101 }]);
+  for (let i = 0; i < fields.length - 1; i++) {
+    saved.press(101, fields[i]); assert.deepEqual(saved.focused, { row: 101, field: fields[i + 1] });
+  }
+  saved.press(101, "note"); assert.deepEqual(saved.focused, { row: -1, field: "itemCode" });
+});
+
+test("row action saves participate in header state and navigation flush", async () => {
+  const line=id=>({id,section:"",sortOrder:id,itemCode:"T00"+id,itemName:"測試商品",vendorItemCode:"",vendorItemName:"",spec:"",quantityText:"2",unit:"箱",note:""});
+  const grid=mount("GENERAL",[line(1),line(2)]);
+  grid.click("第1列操作");grid.click("下移");assert.equal(grid.state.saving,true);assert.equal(grid.commits[0].patch.sortOrder,3);
+  let done=false;const saving=grid.editor.flush().then(okay=>{done=true;return okay;});await tick(grid);assert.equal(done,false);
+  acknowledge(grid,0);await tick(grid);assert.equal(await saving,true);assert.equal(grid.state.saving,false);
 });
