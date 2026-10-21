@@ -188,7 +188,7 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
     </section>
     <Dialog open={dialog === "password"} title="變更密碼" size="small" dismissible={!busy} onClose={closeDialog}>
       <FeedbackBanner message={message} tone={messageTone} />
-      <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={submitPassword} noValidate>
+      <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={submitPassword}>
     <FormSection>
         <Field  label="目前密碼" size="m" required><PasswordInput value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} autoComplete="current-password" /></Field>
         <Field  label="新密碼" size="m" required><PasswordInput value={newPassword} onChange={event => setNewPassword(event.target.value)} autoComplete="new-password" /></Field>
@@ -785,7 +785,7 @@ function CreateUserDialog({ canIdentityAdmin, onClose, onCreated, reportError }:
     <Dialog open title="新增使用者" size="small" dismissible={!busy} onClose={() => void close()}
       description="系統會寄出驗證信與一次性首次登入密碼，本人完成驗證後即可使用。"
       footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void close()}>取消</button><button type="submit" form={formId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>新增使用者</button></div>}>
-      <form onKeyDown={enterAdvancesFields} id={formId} className="cy-op-form" onSubmit={create} noValidate>
+      <form onKeyDown={enterAdvancesFields} id={formId} className="cy-op-form" onSubmit={create}>
     <FormSection>
         <TextInput label="員工編號" inputMode="numeric" autoComplete="off" maxLength={4} value={employeeNo} onChange={(event) => setEmployeeNo(event.target.value.replace(/\D/g, "").slice(0, 4))} disabled={busy} autoFocus required />
         <TextInput label="姓名" autoComplete="off" value={displayName} onChange={(event) => setDisplayName(event.target.value)} disabled={busy} required />
