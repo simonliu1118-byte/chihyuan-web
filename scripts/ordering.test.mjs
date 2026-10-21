@@ -13,6 +13,11 @@ test("quantity splitting and uncounted warning",{concurrency:false},()=>{
  assert.equal(parseQuantity("各1").quantity,null);
  assert.equal(parseQuantity("1,000").quantity,1000);
 });
+test("Taipei display converts UTC timestamps and midnight boundary",()=>{
+ assert.deepEqual(logic.orderingTaipeiDateTime("2026-10-21T08:28:00Z"),{date:"2026/10/21",time:"16:28"});
+ assert.deepEqual(logic.orderingTaipeiDateTime("2026-10-20T16:30:00Z"),{date:"2026/10/21",time:"00:30"});
+ assert.deepEqual(logic.orderingTaipeiDateTime("2026-10-22"),{date:"2026/10/22",time:""});
+});
 test("purchase number validates full date",()=>{
  assert.equal(parseErpPurchaseNo("20261019001"),"341A-20261019001");
  assert.equal(parseErpPurchaseNo("341A-20260229001"),null);
