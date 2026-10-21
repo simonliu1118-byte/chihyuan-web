@@ -1,5 +1,9 @@
 # CY Web Governance Changelog
 
+## 1.1.22 — 2026/10/21
+
+- 同步共通規則 2.10.0：工作單交接抽出為 `REPOSITORY_RULES.md` §11.4，並註明只有在使用者指示 Claude 開立工作單轉交 GPT 製作時才適用（使用者 2026-10-21）。`PROJECT_RULES.md` §9 改為指向共通規則，只保留本 repo 的工作單位置；工作單 README 同步說明。
+
 ## 1.1.21 — 2026/10/20
 
 - `PROJECT_RULES.md` §5 新增表單鍵盤規則：所有資料輸入表單按 Enter 跳到下一欄，查詢表單（`role="search"`）按 Enter 查詢；日期欄位限制四碼年份。由新增的 `scripts/form-keyboard.test.mjs` 納入 `validate:source` 自動檢查。使用者要求寫成必要功能，避免新功能漏做。
