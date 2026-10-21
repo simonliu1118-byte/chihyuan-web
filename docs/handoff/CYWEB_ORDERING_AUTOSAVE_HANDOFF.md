@@ -53,7 +53,10 @@
 - [x] `node --test scripts/ordering.test.mjs scripts/ordering-route.test.mjs scripts/form-keyboard.test.mjs`：最終修改後 36 項通過。
 - [x] `npm run build`：瀏覽器與 Worker 型別檢查、Vite build 通過；僅既有 bundle 大小／動態 import 提示。
 - [x] `npm run validate:source`：來源合約及共用 UI／表單檢查通過。
-- [ ] PR、必要 CI、合併及部署結果：完成後在本段補上精確連結／來源 SHA。
+- [x] [PR #262](https://github.com/simonliu1118-byte/chihyuan-web/pull/262) 已合併；最終修正 `5712cb0068cdf247332b137a609a7f0cb624f9cf`，主線合併 `d77a05ed30fa3137568e9c6c021ce58422920324`。
+- [x] 最終修正的 [Runtime Check #39626268627](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39626268627)、[Governance #39626268365](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39626268365)、[部署契約 #39626268713](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39626268713) 必要檢查全部成功。PR 曾顯示過期 head，暫關重開同一 PR 後確認 SHA 正確，未沿用前一提交檢查合併。
+- [x] 原 CYWEB 網站 [部署 #39626518329](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39626518329) 成功，來源 `main` 的 `d77a05ed30fa3137568e9c6c021ce58422920324`。來源 consumer 宣告／D1 健康、HTTPS／靜態資源、原正式網域、無效 session 與 Identity 權威檢查全部成功。此次未建立 GitHub Release。
+- 部署後僅另補本 handoff 與 TODO 的證據，不修改已部署功能／版本；Claude 可從 `TODO.md` 連到本文件，不需重做上述修正。
 - 未登入正式網站建立／送出業務測試單；尚無本輪真實瀏覽器端到端截圖。不可把 handler／SQLite 測試描述成實機驗收。
 
 ## ListView／表單評估（尚未實作）
