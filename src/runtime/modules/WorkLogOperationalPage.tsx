@@ -1,4 +1,4 @@
-import {Field,CheckField,FormSection} from "../../ui/forms/Field";
+import {Field,CheckField,FormSection,RequiredRows} from "../../ui/forms/Field";
 import { formatDate } from "../../ui/foundation/format";
 import { StatusFilter } from "../../ui/data/StatusFilter";
 import { workLogNextStep, workLogTone } from "./status-flow";
@@ -361,9 +361,9 @@ export function WorkLogOperationalPage() {
   async function save(event: FormEvent) {
     event.preventDefault();
     if (!draft || busy) return;
-    const entryIssue = draft.entries.findIndex((entry) => !entry.entryTypeCode.trim() || (!entry.content.trim() && entry.categories.length === 0));
-    if (!draft.typeCode.trim() || draft.entries.length === 0) { reportError("請填寫日誌類型，並至少加入一個工作項目。"); return; }
-    if (entryIssue >= 0) { reportError(`工作項目 ${entryIssue + 1} 請填寫項目類型，以及工作內容或計分分類。`); return; }
+    const issues=draft.entries.flatMap((entry,i)=>!entry.entryTypeCode.trim()||(!entry.content.trim()&&entry.categories.length===0)
+      ? ["工作項目 "+(i+1)+" 請填寫項目類型以及工作內容或計分分類"]:[]);
+    if(issues.length){reportError(issues.join("；"));return;}
 
     const profile = {
       logDate: draft.logDate,
@@ -615,8 +615,9 @@ export function WorkLogOperationalPage() {
               <Field  label="日誌類型" size="s" required><input className="cy-op-input" value={draft.typeCode} disabled={busy} onChange={(event) => setDraft({ ...draft, typeCode: event.target.value })} placeholder="輸入日誌類型" /></Field>
             </div>
 
+            <RequiredRows label="工作項目" satisfied={draft.entries.length>0}/>
             <section className="cy-form-block">
-              <div className="cy-form-block-head"><div><h3>工作內容</h3></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={addEntry}>＋ 增加工作項目</button></div>
+              <div className="cy-form-block-head"><div><h3>工作內容<span className="cy-field-required" aria-hidden="true">＊</span><small>至少一個工作項目；每列內容或計分分類擇一</small></h3></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={addEntry}>＋ 增加工作項目</button></div>
               <div className="cy-form-block-body">
               {draft.entries.map((entry, entryIndex) => (
                 <div className="cy-worklog-entry" key={entry.key}>
@@ -627,7 +628,7 @@ export function WorkLogOperationalPage() {
                         <option value="">未指定</option>
                         {(configuration?.platforms ?? []).map((platform) => <option key={platform.id} value={platform.id}>{platform.name}</option>)}
                       </select></Field>
-                    <Field  label="工作內容" size="l"><textarea className="cy-op-input" rows={3} value={entry.content} disabled={busy} onChange={(event) => patchEntry(entryIndex, { content: event.target.value })} /></Field>
+                    <Field label="工作內容" size="l" required={entry.categories.length===0} oneOf="與計分分類擇一" reportAs={"工作項目 "+(entryIndex+1)+" 內容或計分分類"}><textarea className="cy-op-input" rows={3} value={entry.content} disabled={busy} onChange={(event) => patchEntry(entryIndex, { content: event.target.value })} /></Field>
                   </div>
                   <div className="cy-worklog-categories">
                     <div className="cy-worklog-categories-head"><span>計分分類</span><button type="button" className="cy-op-button compact" disabled={busy} onClick={() => addCategory(entryIndex)}>＋ 加入分類</button></div>
