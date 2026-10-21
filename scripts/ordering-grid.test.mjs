@@ -28,11 +28,15 @@ function descendants(node) {
 }
 function mount(kind = "GENERAL", lines = []) {
   const slots = [], frames = [], commits = [], settlements = [];
-  let cursor = 0, dirty = true, effects = [], tree, focused;
+  let cursor = 0, dirty = true, effects = [], tree, focused, editor, state;
   const props = { kind, section: kind === "CN_REGULAR" ? "SINGLE" : "", lines, busy: false,
+    onRegister(value) { editor = value; }, onStateChange(value) { state = value; },
     onDelete: async () => {}, onCommit(row, patch) {
       commits.push({ row, patch });
-      return new Promise((resolve, reject) => settlements.push({ resolve, reject }));
+      return new Promise((resolve, reject) => settlements.push({ resolve(saved) {
+        props.lines = [...props.lines.filter(line => line.id !== saved.id), saved];
+        dirty = true; resolve(saved);
+      }, reject }));
     } };
   const host = {
     useRef(value) { const i = cursor++; return slots[i] ??= { current: value }; },
@@ -79,6 +83,8 @@ function mount(kind = "GENERAL", lines = []) {
   }
   render();
   return { change, press, flush, input, commits, settlements,
+    get editor() { return editor; }, get state() { return state; },
+    rowKey(id) { return descendants(tree).find(n => n.type === "tr" && descendants(n).some(child => child.props?.["data-order-row"] === id))?.key; },
     get focused() { return focused; },
     get rowIds() { return [...new Set(descendants(tree).filter(n => n.type === "input").map(n => n.props["data-order-row"]))]; } };
 }
@@ -97,7 +103,8 @@ for (const kind of ["GENERAL", "VENDOR", "CN_REGULAR", "CN_CUSTOM"]) {
     assert.deepEqual(grid.rowIds, [-1, -2]);
     assert.deepEqual(grid.focused, { row: -2, field: "itemCode" });
     assert.equal(grid.input(-1, "note").props.value, "測試備註");
-    assert.equal(grid.commits.length, 0, "incomplete input is retained without weakening save validation");
+    assert.equal(grid.commits.length, ["GENERAL", "VENDOR"].includes(kind) ? 1 : 0,
+      "vendor name and quantity save only for sources that expose vendor fields");
     grid.press(-1, "note");
     assert.deepEqual(grid.rowIds, [-1, -2], "reuse an existing next row");
     grid.press(-2, "note");
@@ -135,4 +142,65 @@ test("ordinary field progression, quantity shortcut and IME behavior remain unch
   grid.press(-1, "note", { key: "Tab" }); assert.deepEqual(grid.rowIds, [-1]);
   grid.change(-1, "itemName", "測試品名甲"); grid.change(-1, "quantityText", "2");
   grid.press(-1, "quantityText"); assert.deepEqual(grid.focused, { row: -2, field: "itemName" });
+});
+
+const tick = async grid => { await new Promise(resolve => setImmediate(resolve)); grid.flush(); };
+function acknowledge(grid, index, id = 101) {
+  const { row, patch } = grid.commits[index];
+  const saved = { ...row, ...patch, id: row.id || id };
+  grid.settlements[index].resolve(saved);
+  return saved;
+}
+
+for (const kind of ["GENERAL", "VENDOR"]) test(`${kind}: vendor-only row is acknowledged before it becomes clean`, async () => {
+  const grid = mount(kind);
+  grid.change(-1, "vendorItemCode", "TEST-V01"); grid.change(-1, "vendorItemName", "測試廠商品名");
+  grid.change(-1, "quantityText", "7"); grid.change(-1, "note", "測試備註"); grid.press(-1, "note");
+  assert.deepEqual(grid.state, { dirty: true, saving: true });
+  const key = grid.rowKey(-1);
+  let done = false; const saving = grid.editor.flush().then(result => { done = true; return result; });
+  await tick(grid); assert.equal(done, false); assert.equal(grid.commits.length, 1);
+  acknowledge(grid, 0); await tick(grid); assert.equal(await saving, true);
+  assert.equal(grid.input(101, "itemName").props.value, "");
+  assert.equal(grid.input(101, "vendorItemName").props.value, "測試廠商品名");
+  assert.equal(grid.rowKey(101), key, "acknowledging a new row must retain its React identity while typing");
+  assert.deepEqual(grid.state, { dirty: false, saving: false });
+});
+
+test("edits typed during create update the acknowledged row, retaining failed late edits for retry", async () => {
+  const grid = mount();
+  grid.change(-1, "vendorItemName", "測試廠商品名"); grid.change(-1, "quantityText", "7"); grid.press(-1, "quantityText");
+  grid.change(-1, "unit", "箱"); grid.change(-1, "note", "網路等待時填寫");
+  acknowledge(grid, 0); await tick(grid);
+  assert.equal(grid.commits.length, 2); assert.equal(grid.commits[1].row.id, 101);
+  assert.deepEqual(grid.commits[1].patch, { unit: "箱", note: "網路等待時填寫" });
+  grid.settlements[1].reject(new Error("simulated failure")); await tick(grid);
+  assert.equal(grid.input(-1, "note").props.value, "網路等待時填寫");
+  assert.deepEqual(grid.state, { dirty: true, saving: false });
+  assert.equal(grid.rowIds.filter(id => id === 101).length, 0, "hide the acknowledged baseline while late edits remain pending");
+  const retry = grid.editor.flush();
+  assert.equal(grid.commits[2].row.id, 101, "retry must update, not create a duplicate row");
+  acknowledge(grid, 2); await tick(grid); assert.equal(await retry, true);
+  assert.equal(grid.input(101, "note").props.value, "網路等待時填寫");
+  assert.deepEqual(grid.rowIds, [101, -2]);
+});
+
+test("incomplete input and unacknowledged saves never report clean", async () => {
+  const grid = mount(); grid.change(-1, "vendorItemCode", "TEST-ONLY-CODE");
+  assert.equal(await grid.editor.flush(), false); assert.equal(grid.commits.length, 0);
+  grid.change(-1, "vendorItemName", "測試廠商品名"); grid.change(-1, "quantityText", "2"); grid.press(-1, "note");
+  grid.settlements[0].resolve({ id: 0 }); await tick(grid);
+  assert.equal(grid.state.dirty, true); assert.equal(grid.input(-1, "vendorItemName").props.value, "測試廠商品名");
+  grid.editor.discard(); grid.flush(); assert.equal(grid.state.dirty, false);
+});
+
+test("saved-cell flush deduplicates pending edits and retains a failed value", async () => {
+  const line = { id: 101, section: "", sortOrder: 1, itemCode: "", itemName: "", vendorItemCode: "V01",
+    vendorItemName: "測試廠商品名", spec: "", quantityText: "7", unit: "", note: "" };
+  const grid = mount("GENERAL", [line]); grid.change(101, "note", "新的備註"); grid.press(101, "note");
+  const saving = grid.editor.flush(); assert.equal(grid.commits.length, 1);
+  grid.settlements[0].reject(new Error("simulated failure")); await tick(grid);
+  assert.equal(await saving, false); assert.equal(grid.input(101, "note").props.value, "新的備註");
+  const retry = grid.editor.flush(); acknowledge(grid, 1); await tick(grid);
+  assert.equal(await retry, true); assert.equal(grid.input(101, "note").props.value, "新的備註");
 });

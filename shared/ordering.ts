@@ -56,12 +56,17 @@ export interface OrderingListRow {
   plannedSendDate: string | null; sentAt: string | null; createdAt: string;
 }
 export interface OrderingPendingLine {
-  orderId: number; lineId: number; sourceName: string; orderDate: string; itemCode: string; itemName: string;
+  orderId: number; lineId: number; sourceName: string; orderDate: string; itemCode: string; itemName: string; vendorItemName?: string;
   quantity: number; unit: string; received: number; remaining: number;
 }
 
 export const ORDERING_LIMITS = { name: 40, conditions: 500, itemCode: 40, text: 200, quantityText: 40, unit: 10, note: 300 } as const;
 export const ERP_PURCHASE_PREFIX = "341A-";
+
+/** General/vendor orders may identify goods by the vendor name without filling our own item fields. */
+export function orderingLineHasName(kind: OrderingSourceKind, line: {itemName:string;vendorItemName:string}): boolean {
+  return !!line.itemName.trim() || ((kind === "GENERAL" || kind === "VENDOR") && !!line.vendorItemName.trim());
+}
 
 /**
  * 「1」「1箱」「1.5 包」「1,000」 → number and 單位 (user 2026-10-21); null quantity when there is no

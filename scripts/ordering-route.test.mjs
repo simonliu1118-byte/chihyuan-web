@@ -7,12 +7,13 @@ const compiled=await build({entryPoints:["worker/http/ordering-routes.ts"],bundl
 const {handleOrderingRoute}=await import("data:text/javascript;base64,"+Buffer.from(compiled.outputFiles[0].text).toString("base64"));
 function fixture(role="SUPER_ADMIN"){
  const sql=new DatabaseSync(":memory:");
+ const queries=[];
  sql.exec("PRAGMA foreign_keys=ON");
  for(const file of readdirSync(new URL("../migrations/",import.meta.url)).filter(f=>f.endsWith(".sql")).sort())sql.exec(readFileSync(new URL("../migrations/"+file,import.meta.url),"utf8"));
  const t="2026-10-21T00:00:00Z";
  sql.prepare("INSERT INTO app_members(identity_employee_id,employee_no,display_name,is_active,created_at,updated_at) VALUES(?,?,?,?,?,?)").run("test-ordering","9999","測試員工甲",1,t,t);
  const db={
-  prepare(query){let bind=[];const s=sql.prepare(query);const exec=()=>({results:s.all(...bind),meta:{changes:sql.prepare("SELECT changes() n").get().n,last_row_id:sql.prepare("SELECT last_insert_rowid() n").get().n}});
+  prepare(query){queries.push(query);let bind=[];const s=sql.prepare(query);const exec=()=>({results:s.all(...bind),meta:{changes:sql.prepare("SELECT changes() n").get().n,last_row_id:sql.prepare("SELECT last_insert_rowid() n").get().n}});
    return {bind(...params){bind=params;return this},async first(){return exec().results[0]??null},async all(){return exec()},async run(){return exec()},execute:exec}
   },
   async batch(stmts){sql.exec("BEGIN");try{const out=stmts.map(s=>s.execute());sql.exec("COMMIT");return out}catch(e){sql.exec("ROLLBACK");throw e}}
@@ -21,7 +22,7 @@ function fixture(role="SUPER_ADMIN"){
  isIdentityAdmin:false,emailVerified:true,isWorkspaceSuperAdmin:role==="SUPER_ADMIN",credentialVersion:1,employeeRevision:1};
  const env={DB:db,IDENTITY_APPLICATION_ID:"APP_TEST",IDENTITY_WORKSPACE_ID:"workspace-test",IDENTITY:{async fetch(){return Response.json({principal,session:{expiresAt:"2999-01-01T00:00:00Z"}})}}};
  const call=async(path,method="GET",json)=>{const req=new Request("https://acceptance.test/api/business/ordering"+path,{method,headers:{cookie:"cyweb_identity_session=cyid_"+"a".repeat(64),"content-type":"application/json"},body:json===undefined?undefined:JSON.stringify(json)});const res=await handleOrderingRoute(req,env,"ordering-test");return {status:res.status,body:await res.json()}};
- return {sql,call};
+ return {sql,call,queries};
 }
 test("permission gate and idempotent source seed",async()=>{
  const denied=fixture("USER");try{assert.equal((await denied.call("/sources")).status,403)}finally{denied.sql.close()}
@@ -133,5 +134,51 @@ test("receipt performs multi-line update and settles shortages with correct stat
   assert.equal(o.status,"CLOSED");
   assert.equal((await call("/pending")).body.data.length,0);
   assert.equal((await call("/orders/"+o.id+"/receipts","POST",{expectedVersion:o.version,erpPurchaseNo:"20260229001",receivedDate:"2026-10-21",lines:[{lineId:o.lines[0].id,quantity:1}]})).status,422);
+ }finally{sql.close()}
+});
+
+for(const kind of ["GENERAL","VENDOR"])test(`${kind}: vendor-only draft persists on reopen and can send without copying our item fields`,async()=>{
+ const {sql,call,queries}=fixture();try{
+  const source=(await call("/sources")).body.data.find(x=>x.kind===kind);
+  let o=(await call("/orders","POST",{sourceId:source.id})).body.data;
+  const saved=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{vendorItemCode:"TEST-V01",vendorItemName:"測試廠商品名",quantityText:"7",unit:"箱",note:"測試備註"}});
+  assert.equal(saved.status,200,JSON.stringify(saved.body));o=saved.body.data;
+  const id=o.savedLineId;assert.ok(Number.isSafeInteger(id)&&id>0);assert.equal(o.lines[0].id,id);
+  assert.equal((await call("/orders?status=DRAFT&sourceId="+source.id)).body.data[0].id,o.id);
+  queries.length=0;
+  const reopened=(await call("/orders/"+o.id)).body.data;
+  assert.equal(queries.filter(q=>q==="SELECT * FROM ordering_orders WHERE id=?").length,1);
+  assert.equal(queries.some(q=>/ordering_receipt|ordering_revisions/.test(q)),false,"draft detail skips receipt/revision reads");
+  assert.equal(reopened.lines.length,1);const line=reopened.lines[0];
+  assert.equal(line.itemCode,"");assert.equal(line.itemName,"");assert.equal(line.vendorItemCode,"TEST-V01");
+  assert.equal(line.vendorItemName,"測試廠商品名");assert.equal(line.quantity,7);assert.equal(line.unit,"箱");assert.equal(line.note,"測試備註");
+  const updated=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,lineId:id,line:{note:"後續補的備註"}});
+  assert.equal(updated.status,200);o=updated.body.data;assert.equal(o.savedLineId,id);assert.equal(o.lines.length,1);
+  const sent=await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version});
+  assert.equal(sent.status,200,JSON.stringify(sent.body));assert.equal(sent.body.data.status,"SENT");
+  assert.equal(sent.body.data.lines[0].itemName,"");
+  const pending=(await call("/pending")).body.data.find(l=>l.lineId===id);
+  assert.equal(pending.vendorItemName,"測試廠商品名");assert.equal(pending.itemName,"");
+  assert.equal((await call("/orders?history=1&q="+encodeURIComponent("測試廠商品名"))).body.data[0].id,o.id);
+  assert.equal((await call("/orders?history=1&q=TEST-V01")).body.data[0].id,o.id);
+  assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_vendor_items").get().n,0,"no vendor memory is keyed by a fabricated own-item identity");
+ }finally{sql.close()}
+});
+
+test("missing names/quantity and China-source vendor-only rows remain invalid",async()=>{
+ const {sql,call}=fixture();try{
+  const sources=(await call("/sources")).body.data;
+  for(const kind of ["GENERAL","VENDOR","CN_REGULAR","CN_CUSTOM"]){
+   const source=sources.find(s=>s.kind===kind),o=(await call("/orders","POST",{sourceId:source.id})).body.data;
+   for(const line of [{quantityText:"2"},{itemName:"測試品名",quantityText:""},...(["CN_REGULAR","CN_CUSTOM"].includes(kind)?[{vendorItemName:"測試廠商品名",quantityText:"2"}]:[])]){
+    const result=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line});
+    assert.equal(result.status,422,JSON.stringify(result.body));
+   }
+   assert.equal((await call("/orders/"+o.id)).body.data.lines.length,0);
+  }
+  const source=sources.find(s=>s.kind==="GENERAL");let o=(await call("/orders","POST",{sourceId:source.id})).body.data;
+  o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{itemName:"測試品名",quantityText:"2"}})).body.data;
+  const blank=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,lineId:o.lines[0].id,line:{itemName:""}});
+  assert.equal(blank.status,422,"auto-follow must not let clearing own name leave both names blank");
  }finally{sql.close()}
 });
