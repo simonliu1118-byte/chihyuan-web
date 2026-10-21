@@ -9,6 +9,7 @@ import { groupManagedSystemAccess } from "./http/module-access-group-routes";
 import { handleCyInvoiceRecoveryRoute, type CyInvoiceRecoveryEnv } from "./http/cyinvoice-recovery-routes";
 import { handleBusinessApiRoute } from "./http/business-api-routes";
 import { handleHrRoute } from "./http/hr-routes";
+import {handleOrderingRoute} from "./http/ordering-routes";
 import { handleUsageRoute } from "./http/usage-routes";
 import { handleBusinessApiPhase2Route } from "./http/business-api-phase2-routes";
 import { handleProgramCatalogRoute } from "./http/program-catalog-routes";
@@ -82,6 +83,8 @@ async function routeRequest(request: Request, env: Env, url: URL): Promise<Respo
   const usageResponse = await handleUsageRoute(request, env, requestId);
   if (usageResponse) return usageResponse;
 
+  const orderingResponse = await handleOrderingRoute(request, env, requestId);
+  if(orderingResponse)return orderingResponse;
   const hrResponse = await handleHrRoute(request, env, requestId);
   if (hrResponse) return hrResponse;
 

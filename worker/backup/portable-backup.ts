@@ -3,7 +3,13 @@ import { BACKUP_COLUMNS } from "./schema-columns";
 export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
 // Operational queue, heartbeat and revocable credential hashes are intentionally
 // excluded from durable backup. After recovery the Super Admin reissues the Agent token.
-const EPHEMERAL_TABLES = ["erp_item_queries", "erp_item_agent_status", "erp_item_agent_credentials"] as const;
+// The ERP sales history (進貨輔助, 2026-10-21) is copied from SMART ERP, which stays its source:
+// it is rebuilt by running 進貨輔助 again, and is far larger than this snapshot allows.
+const EPHEMERAL_TABLES = ["erp_item_queries", "erp_item_agent_status", "erp_item_agent_credentials",
+  "erp_sales_daily", "erp_sales_days", "erp_sales_items",
+  // WO-0.9.26: the portable backup currently limits all rows to 500; temporarily exclude ordering until capacity expansion.
+  "ordering_sources", "ordering_orders", "ordering_lines", "ordering_receipts", "ordering_receipt_lines",
+  "ordering_vendor_items", "ordering_item_last_source", "ordering_revisions"] as const;
 const ALL_TABLES = [...BACKUP_TABLES, "backup_copies", "backup_sets", ...EPHEMERAL_TABLES].sort();
 // Newly migrated D1 has canonical HR reference rows before any operator data.
 // Allow only these *unaltered* migration fixtures as a fresh restore destination.

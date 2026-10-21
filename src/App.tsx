@@ -7,7 +7,7 @@ import { checkModuleAccess } from "./access/module-access-client";
 import { AuthGate } from "./auth/AuthGate";
 import type { AuthSession, WorkspaceRole } from "./auth/auth-client";
 import { MyAccountPage, SharedIdentityPage } from "./identity/SharedIdentityPage";
-import { CYWEB_MODULES, moduleCodesForRoute, type CyWebModuleCode } from "../shared/modules";
+import { effectiveModules, CYWEB_MODULES, moduleCodesForRoute, type CyWebModuleCode } from "../shared/modules";
 import { verifiedProgramCatalog } from "../shared/program-catalog";
 import type { NavigationGroup } from "./ui/foundation/navigation";
 import { AppShell } from "./ui/shell/AppShell";
@@ -20,6 +20,7 @@ import { CustomerOperationalPage } from "./runtime/modules/CustomerOperationalPa
 import { DefectOperationalPage } from "./runtime/modules/DefectOperationalPage";
 import { ErpItemQueryPage } from "./runtime/modules/ErpItemQueryPage";
 import { RestockAssistPage } from "./runtime/modules/RestockAssistPage";
+import {OrderingPage} from "./runtime/modules/OrderingPage";
 import { ErpAgentCredentialControl } from "./runtime/modules/ErpAgentCredentialControl";
 import { ItemOperationalPage } from "./runtime/modules/ItemOperationalPage";
 import { OutsourcingOperationalPage } from "./runtime/modules/OutsourcingOperationalPage";
@@ -33,7 +34,7 @@ import { UnsavedChangesBoundary, useNavigationGuard } from "./ui/foundation/useU
 import { createGuardedHashNavigation } from "./ui/foundation/guarded-hash-navigation";
 import { FeedbackProvider, useFeedback, useFeedbackMessage } from "./ui/feedback/FeedbackProvider";
 
-type AppRoute = "hr" | "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "erp-item-query" | "restock-assist" | "audit" | "identity" | "account" | "backups" | "programs";
+type AppRoute = "hr" | "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "erp-item-query" | "restock-assist" | "ordering" | "audit" | "identity" | "account" | "backups" | "programs";
 
 // One source of truth for the topbar titles and on-demand module descriptions.
 const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
@@ -46,6 +47,7 @@ const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
   worklogs: { title:"工作日誌", description:"填寫日誌、送審與評分統計" },
   "erp-item-query": { title:"ERP 查詢", description:"查閱 SMART ERP 資料，只讀不改" },
   "restock-assist": { title:"進貨輔助", description:"期間內各品號每日銷貨、銷退與目前庫存（SMART ERP，只讀不改）" },
+  ordering: {title:"叫貨",description:"叫貨草稿、送出、到貨紀錄與未到貨管理"},
   identity: { title:"帳號與權限", description:"使用者、權限群組與系統安全" },
   account: { title:"我的帳號", description:"變更自己的密碼與 Email" },
   audit: { title:"異動紀錄", description:"誰在什麼時候改了什麼" },
@@ -67,6 +69,7 @@ const baseNavigation: readonly NavigationGroup[] = [
       { key: "items", label: "商品", href: "#items" },
       { key: "defects", label: "瑕疵", href: "#defects" },
       { key: "orders", label: "銷售工單", href: "#orders" },
+      { key: "ordering", label: "叫貨", href: "#ordering" },
       { key: "outsourcing", label: "委外/代工", href: "#outsourcing" },
       { key: "worklogs", label: "工作日誌", href: "#worklogs" },
       { key: "hr", label: "人事", href: "#hr" },
@@ -101,6 +104,7 @@ const routes = new Set<AppRoute>([
   "worklogs",
   "erp-item-query",
   "restock-assist",
+  "ordering",
   "identity",
   "account",
   "audit",
@@ -180,7 +184,8 @@ function OperationalApp({
   }), [canLeave]);
 
   const allowedModules = useMemo(
-    () => new Set<CyWebModuleCode>(moduleAccess?.allowedModules ?? []),
+    // The grants in effect: 進貨輔助 counts only with ERP 商品查詢 and ERP 客戶查詢 (user 2026-10-21).
+    () => new Set<CyWebModuleCode>(effectiveModules(moduleAccess?.allowedModules ?? [])),
     [moduleAccess],
   );
 
@@ -289,7 +294,8 @@ function OperationalApp({
   else if (route === "outsourcing") content = <OutsourcingOperationalPage />;
   else if (route === "worklogs") content = <WorkLogOperationalPage />;
   else if (route === "erp-item-query") content = <ErpItemQueryPage allowedModules={allowedModules} />;
-  else if (route === "restock-assist") content = <RestockAssistPage />;
+  else if (route === "restock-assist") content = <RestockAssistPage canQueryItem={allowedModules.has("ERP_ITEM_QUERY")} canOrdering={allowedModules.has("ORDERING")} />;
+  else if (route === "ordering") content = <OrderingPage />;
   else if (route === "identity") content = <SharedIdentityPage session={session}
     showUsage={usageRequested && role === "SUPER_ADMIN"}
     usage={role === "SUPER_ADMIN" ? {report:usageReport,error:usageError,loading:usageLoading,onRefresh:refreshUsage} : undefined} />;

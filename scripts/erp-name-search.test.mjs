@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseErpNameKeyword, erpNameContains } from "../shared/erp-name-search.ts";
+import { parseErpNameKeyword, erpNameContains, parseErpCode } from "../shared/erp-name-search.ts";
 
 test("name search keyword limits and trimming",()=>{
   assert.equal(parseErpNameKeyword("  穴位貼  "),"穴位貼");
@@ -21,4 +21,10 @@ test("order numbers: 23x 銷貨 and 24x 銷退 only", async () => {
   assert.equal(parseErpOrderNo(" 232a-20260804003 "), "232A-20260804003");
   assert.equal(parseErpOrderNo("241A-20260910001"), "241A-20260910001");
   for (const no of ["631A-20260422002", "232A20260804003", "232A-2026080400X", ""]) assert.equal(parseErpOrderNo(no), null, no);
+});
+
+test("ERP codes may hold a dash after the first letter or digit", () => {
+  assert.equal(parseErpCode(" K1807003-1 "), "K1807003-1");
+  assert.equal(parseErpCode("A00001"), "A00001");
+  for (const bad of ["-A1", "A 1", "A_1", "A'1", "穴位貼", "A".repeat(41), ""]) assert.equal(parseErpCode(bad), null, bad);
 });
