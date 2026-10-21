@@ -27,7 +27,7 @@ export function orderSheet(order: ExportOrder, sheetName = order.sourceName): Xl
     for (const section of CN_REGULAR_SECTIONS) {
       const lines = order.lines.filter((line) => line.section === section.key);
       if (!lines.length) continue;
-      const first = rows.length + 2;
+      const first = rows.length + 1;
       for (const line of lines) {
         n++;
         const label = section.key === "OTHER" ? line.itemCode : line === lines[0] ? section.label.replace("針灸針－", "") : null;
@@ -36,7 +36,7 @@ export function orderSheet(order: ExportOrder, sheetName = order.sourceName): Xl
       if (section.key !== "OTHER" && lines.length > 1) merges.push(`B${first + 1}:B${first + lines.length}`);
     }
   } else if (order.sourceKind === "CN_CUSTOM") {
-    const withCode = order.lines.some((line) => line.itemCode);
+    const withCode = true;
     titles = [...["項次"], ...(withCode ? ["品號"] : []), "品名", "規格", "數量", "單位", "備註"];
     widths = [6, ...(withCode ? [14] : []), 40, 30, 10, 8, 24];
     order.lines.forEach((line, i) => rows.push([i + 1, ...(withCode ? [line.itemCode] : []), line.itemName, line.spec, quantityCell(line), line.unit, line.note]));
