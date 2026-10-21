@@ -142,7 +142,7 @@ export function CyInvoiceRecoveryAdminPanel({ session }: { session: AuthSession 
       <div className="cy-notice-title">公司級接管提醒</div>
       <div className="cy-notice-body">寄信、查詢與撤銷邀請不會撤銷裝置。只有新電腦成功復原後，原公司的全部舊裝置才會失效。</div>
     </div>
-    <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={e => void act("issue", e)} noValidate>
+    <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={e => void act("issue", e)}>
     <FormSection>
       <TextInput label="復原操作 ID" value={operationId} maxLength={36}
         onChange={e => {
