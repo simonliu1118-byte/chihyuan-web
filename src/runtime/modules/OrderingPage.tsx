@@ -6,7 +6,7 @@ import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import {OrderingGrid,type GridLine} from "../../ui/OrderingGrid";
 import {orderSheet} from "../../../shared/ordering-export";
 import {buildXlsx} from "../../../shared/xlsx-writer";
-import {exportFileName,pickDraft,ORDERING_STATUS_LABELS,CN_REGULAR_SECTIONS,type OrderingOrder,type OrderingSource,type OrderingPendingLine,type OrderingListRow,type OrderingSection} from "../../../shared/ordering";
+import {exportFileName,pickDraft,lineState,ORDERING_STATUS_LABELS,CN_REGULAR_SECTIONS,type OrderingOrder,type OrderingSource,type OrderingPendingLine,type OrderingListRow,type OrderingSection} from "../../../shared/ordering";
 const ROOT="/api/business/ordering";
 const nowDate=()=>new Date(Date.now()+8*3600000).toISOString().slice(0,10);
 const errorOf=(e:unknown)=>e instanceof ApiClientError&&e.code==="ORDERING_VERSION_CONFLICT"?"已被其他人修改，請重新載入":e instanceof Error?e.message:"叫貨操作失敗";
@@ -121,7 +121,7 @@ export function OrderingPage(){
       {current.storedStatus==="SENT"?<button type="button" className="cy-op-button" onClick={()=>setReceipt({id:current.id,no:"",date:nowDate(),quantities:{}})}>登記到貨</button>:null}
       {editable?<button type="button" className="cy-op-button" onClick={()=>void voidOrder()}>作廢</button>:null}
       <button type="button" className="cy-op-button" onClick={()=>setShowHistory(v=>!v)}>修改紀錄</button></div>
-      {current.lines.map(l=><p key={l.id}>{l.itemName}　叫貨 {l.quantityText}{l.unit}　已到 {l.received}　{l.state}　{l.closedAs??""}
+      {current.lines.map(l=><p key={l.id}>{l.itemName}　叫貨 {l.quantityText}{l.unit}　已到 {l.received}　{lineState(l)}　{l.closedAs??""}
        {current.storedStatus==="SENT"&&l.quantity!==null&&l.received<l.quantity&&!l.closedAs?<button type="button" className="cy-op-button" onClick={()=>setClosing({id:l.id,kind:"SHORTAGE",reason:""})}>結掉剩餘</button>:null}</p>)}
       {showHistory&&current.revisions.map(x=><p key={x.revision}>版本 {x.revision}　{x.at}　{x.by}　{x.summary}</p>)}
       {current.receipts.map(x=><p key={x.id}>到貨：{x.erpPurchaseNo}　{x.receivedDate}</p>)}
