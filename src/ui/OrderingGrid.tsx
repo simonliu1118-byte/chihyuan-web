@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState,type KeyboardEvent} from "react";
 import type {OrderingSourceKind,OrderingSection} from "../../shared/ordering";
 import {orderingLineHasName,parseQuantity} from "../../shared/ordering";
+import {Dialog} from "./overlays/Dialog";
 export interface GridLine{ id:number;section:OrderingSection;sortOrder:number;itemCode:string;itemName:string;vendorItemCode:string;vendorItemName:string;spec:string;quantityText:string;unit:string;note:string;vendorNameFollows?:boolean; }
 const columns={
  GENERAL:[["itemCode","品號"],["itemName","品名"],["vendorItemCode","廠商品號"],["vendorItemName","廠商品名"],["quantityText","數量"],["unit","單位"],["note","備註"]],
@@ -9,7 +10,7 @@ const columns={
  CN_CUSTOM:[["itemCode","品號"],["itemName","品名"],["spec","規格"],["quantityText","數量"],["unit","單位"],["note","備註"]],
 } as const;
 const empty=(section:OrderingSection,id:number):GridLine=>({id,section,sortOrder:0,itemCode:"",itemName:"",vendorItemCode:"",vendorItemName:"",spec:"",quantityText:"",unit:"",note:""});
-export type OrderingGridState={dirty:boolean;saving:boolean};
+export type OrderingGridState={dirty:boolean;saving:boolean;failed:boolean};
 export type OrderingGridEditor={flush:()=>Promise<boolean>;discard:()=>void};
 type Props={kind:OrderingSourceKind;section:OrderingSection;lines:GridLine[];busy:boolean;onCommit:(line:GridLine,patch:Partial<GridLine>)=>Promise<GridLine>;onDelete:(line:GridLine)=>Promise<void>;onRegister?:(editor:OrderingGridEditor|null)=>void;onStateChange?:(state:OrderingGridState)=>void};
 export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete,onRegister,onStateChange}:Props){
@@ -21,10 +22,12 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete,onRegist
  const savedDrafts=useRef(new Map<number,{line:GridLine;input:GridLine}>());
  const savedRowKeys=useRef(new Map<number,number>());
  const cellSaves=useRef(new Map<string,{value:string;promise:Promise<boolean>}>());
+ const actionSaves=useRef(new Set<Promise<boolean>>());
  const skipBlur=useRef(new Set<string>());
  const [editing,setEditing]=useState<Record<string,string>>({});
  const editingRef=useRef(editing);
  const [saveError,setSaveError]=useState(false);
+ const [actionRowId,setActionRowId]=useState<number|null>(null);
  const setEdits=(update:(previous:Record<string,string>)=>Record<string,string>)=>{editingRef.current=update(editingRef.current);setEditing(editingRef.current)};
  useEffect(()=>{draftsRef.current=[empty(section,-1)];setDrafts(draftsRef.current);nextTemp.current=-2;inFlight.current.clear();savedDrafts.current.clear();savedRowKeys.current.clear();cellSaves.current.clear();editingRef.current={};setEditing({});setSaveError(false)},[section,kind]);
  const fields=columns[kind];
@@ -34,8 +37,8 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete,onRegist
  const hasInput=(row:GridLine)=>fields.some(([field])=>getValue(row,field).trim());
  const canSave=(row:GridLine)=>(orderingLineHasName(kind,row)||!!row.itemCode.trim())&&!!row.quantityText.trim();
  const dirty=drafts.some(hasInput)||Object.keys(editing).length>0;
- const saving=inFlight.current.size>0||cellSaves.current.size>0;
- useEffect(()=>{onStateChange?.({dirty,saving})},[dirty,saving,onStateChange]);
+ const saving=inFlight.current.size>0||cellSaves.current.size>0||actionSaves.current.size>0;
+ useEffect(()=>{onStateChange?.({dirty,saving,failed:saveError})},[dirty,saving,saveError,onStateChange]);
  const setDraftValue=(row:GridLine,field:string,value:string)=>{
   draftsRef.current=draftsRef.current.map(d=>d.id===row.id?{...d,[field]:value}:d);
   setDrafts(draftsRef.current);
@@ -98,7 +101,7 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete,onRegist
  editor.current.flush=async()=>{
   const work=draftsRef.current.filter(hasInput).map(commitNew);
   for(const row of lines.filter(x=>x.section===section))for(const [field] of fields){const value=editingRef.current[row.id+"|"+field];if(value!==undefined)work.push(commitCell(row,field,value))}
-  work.push(...inFlight.current.values(),...[...cellSaves.current.values()].map(x=>x.promise));
+  work.push(...inFlight.current.values(),...[...cellSaves.current.values()].map(x=>x.promise),...actionSaves.current);
   const okay=(await Promise.all(work)).every(Boolean);
   return okay&&!draftsRef.current.some(hasInput)&&Object.keys(editingRef.current).length===0;
  };
@@ -110,10 +113,7 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete,onRegist
   const target=e.currentTarget;
   if(row.id>0)skipBlur.current.add(row.id+"|"+field);
   commitCell(row,field,target.value);
-  if(row.id<0&&field==="quantityText"&&canSave(draftsRef.current.find(d=>d.id===row.id)??row)){
-   const next=draftsRef.current[draftsRef.current.findIndex(d=>d.id===row.id)+1];
-   if(next)focus(next.id,"itemName");
-  }else if(col<fields.length-1)focus(row.id,fields[col+1][0]);
+  if(col<fields.length-1)focus(row.id,fields[col+1][0]);
   else{
    const currentRows=[...lines.filter(x=>x.section===section),...draftsRef.current];
    const index=currentRows.findIndex(r=>r.id===row.id);
@@ -125,12 +125,26 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete,onRegist
    if(next)focus(next.id,fields[0][0]);
   }
  }
+ const actionRow=visible.find(row=>row.id===actionRowId);
+ const actionIndex=actionRow?visible.indexOf(actionRow):-1;
+ const savedRows=visible.filter(row=>row.id>0);
+ const runAction=(job:()=>Promise<unknown>)=>{
+  setActionRowId(null);setSaveError(false);
+  const promise=job().then(()=>true).catch(()=>{setSaveError(true);return false}).finally(()=>{actionSaves.current.delete(promise);setDrafts([...draftsRef.current])});
+  actionSaves.current.add(promise);setDrafts([...draftsRef.current]);
+ };
+ const moveRow=(direction:-1|1)=>{
+  if(!actionRow)return;const index=savedRows.findIndex(row=>row.id===actionRow.id),neighbor=savedRows[index+direction];
+  if(neighbor)runAction(()=>onCommit(actionRow,{sortOrder:neighbor.sortOrder+direction}));
+ };
  return <div ref={containerRef} className="cy-ordering-grid-scroll" role="region" aria-label="叫貨明細" tabIndex={0}>
-  <table className="cy-ordering-grid"><thead><tr><th>項次</th>{fields.map(([_,label])=><th key={label}>{label}</th>)}<th>操作</th></tr></thead>
+  <table className="cy-ordering-grid" data-kind={kind}>
+   <colgroup><col className="cy-ordering-col-index"/>{fields.map(([field])=><col key={field} className={"cy-ordering-col-"+field}/>)}<col className="cy-ordering-col-actions"/></colgroup>
+   <thead><tr><th scope="col">項次</th>{fields.map(([_,label])=><th scope="col" key={label}>{label}</th>)}<th scope="col">操作</th></tr></thead>
    <tbody>{visible.map((row,i)=><tr key={savedRowKeys.current.get(row.id)??row.id} data-saving={inFlight.current.has(row.id)||undefined}><td>{i+1}</td>
     {fields.map(([field,title],col)=>{
      const key=row.id+"|"+field,value=editing[key]??getValue(row,field);
-     return <td key={field}><input data-order-row={row.id} data-order-field={field} className="cy-op-input"
+     return <td key={field}><input data-order-row={row.id} data-order-field={field} className="cy-ordering-cell"
        aria-label={title+" 第"+(i+1)+"列"} title={title} value={value} disabled={busy}
        aria-busy={inFlight.current.has(row.id)||undefined}
        required={field==="quantityText"||(field==="itemName"&&kind!=="GENERAL"&&kind!=="VENDOR")}
@@ -142,12 +156,15 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete,onRegist
        }}
        onKeyDown={e=>enter(e,row,col)} /></td>
     })}
-    <td className="cy-ordering-grid-actions">{row.id>0?<><button type="button" className="cy-op-button compact quiet" onClick={()=>void onDelete(row)}>刪除</button>
-      <button type="button" className="cy-op-button compact quiet" aria-label="上移" disabled={i===0} onClick={()=>void onCommit(row,{sortOrder:(visible[i-1]?.sortOrder??0)-1})}>↑</button>
-      <button type="button" className="cy-op-button compact quiet" aria-label="下移" disabled={i===lines.length-1} onClick={()=>void onCommit(row,{sortOrder:(visible[i+1]?.sortOrder??0)+1})}>↓</button></>:inFlight.current.has(row.id)?"儲存中":null}</td></tr>)}</tbody>
+    <td className="cy-ordering-grid-actions">{row.id>0?<button type="button" className="cy-ordering-row-menu" aria-label={"第"+(i+1)+"列操作"} aria-haspopup="dialog" disabled={busy||actionSaves.current.size>0} onClick={()=>setActionRowId(row.id)}>⋮</button>:null}</td></tr>)}</tbody>
   </table>
-  <p className="cy-erp-search-hint" role="status">{saveError?"儲存失敗，輸入仍保留；請重新確認後再切換。":saving?"儲存中，完成前請勿關閉網頁。":dirty?"尚未儲存：請填寫"+(kind==="GENERAL"||kind==="VENDOR"?"品名或廠商品名":"品名")+"及數量，按 Enter 或離開欄位儲存。":"已儲存"}</p>
   {visible.filter(x=>x.quantityText&&parseQuantity(x.quantityText).quantity===null).map(x=><p key={x.id} className="cy-notice cy-notice-warning">「{x.itemName||x.vendorItemName||x.itemCode}」數量無法拆解，保留文字、不計到貨量。</p>)}
-  <p className="cy-erp-search-hint">逐格按 Enter 或離開時儲存；儲存中仍可繼續輸入下一列。存檔失敗保留輸入，請重新確認後再送出。</p>
+  {actionRow?<Dialog open title={"第"+(actionIndex+1)+"列操作"} description={actionRow.itemName||actionRow.vendorItemName||actionRow.itemCode} onClose={()=>setActionRowId(null)} size="small">
+   <div className="cy-ordering-line-actions">
+    <button type="button" className="cy-op-button" disabled={busy||savedRows[0]?.id===actionRow.id} onClick={()=>moveRow(-1)}>上移</button>
+    <button type="button" className="cy-op-button" disabled={busy||savedRows.at(-1)?.id===actionRow.id} onClick={()=>moveRow(1)}>下移</button>
+    <button type="button" className="cy-op-button danger" disabled={busy} onClick={()=>runAction(()=>onDelete(actionRow))}>刪除此列</button>
+   </div>
+  </Dialog>:null}
  </div>;
 }
