@@ -167,7 +167,7 @@ export function OrderingPage(){
     </>:<MasterDetailEmpty title="選擇叫貨來源" hint="從上方頁籤選擇來源，或從左側開啟歷史單。"/>}
    </section>
   </div>
-  {sourceForm?<Dialog open title={sourceForm.id?"修改叫貨來源":"新增叫貨來源"} onClose={()=>setSourceForm(null)}><form onSubmit={e=>void saveSource(e)} onKeyDown={enterAdvancesFields}><label>名稱<input className="cy-op-input" required maxLength={40} value={sourceForm.name} onChange={e=>setSourceForm(s=>s?{...s,name:e.target.value}:s)}/></label>
+  {sourceForm?<Dialog open title={sourceForm.id?"修改叫貨來源":"新增叫貨來源"} onClose={()=>setSourceForm(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void saveSource(e)}><label>名稱<input className="cy-op-input" required maxLength={40} value={sourceForm.name} onChange={e=>setSourceForm(s=>s?{...s,name:e.target.value}:s)}/></label>
    <label>條件<input className="cy-op-input" maxLength={500} value={sourceForm.conditions} onChange={e=>setSourceForm(s=>s?{...s,conditions:e.target.value}:s)}/></label>
    {sourceForm.id?<><label>排序<input type="number" className="cy-op-input" value={sourceForm.sortOrder??0} onChange={e=>setSourceForm(s=>s?{...s,sortOrder:Number(e.target.value)}:s)}/></label>
    <label><input type="checkbox" checked={sourceForm.isActive??true} onChange={e=>setSourceForm(s=>s?{...s,isActive:e.target.checked}:s)}/>啟用（停用保留歷史單）</label></>:null}
