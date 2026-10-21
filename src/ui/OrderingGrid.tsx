@@ -87,9 +87,9 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete}:Props){
        }}
        onKeyDown={e=>enter(e,row,col)} /></td>
     })}
-    <td>{row.id>0?<><button type="button" className="cy-op-button quiet" onClick={()=>void onDelete(row)}>刪除</button>
-      <button type="button" className="cy-op-button quiet" disabled={i===0} onClick={()=>void onCommit(row,{sortOrder:(visible[i-1]?.sortOrder??0)-1})}>↑</button>
-      <button type="button" className="cy-op-button quiet" disabled={i===lines.length-1} onClick={()=>void onCommit(row,{sortOrder:(visible[i+1]?.sortOrder??0)+1})}>↓</button></>:inFlight.current.has(row.id)?"儲存中":null}</td></tr>)}</tbody>
+    <td className="cy-ordering-grid-actions">{row.id>0?<><button type="button" className="cy-op-button compact quiet" onClick={()=>void onDelete(row)}>刪除</button>
+      <button type="button" className="cy-op-button compact quiet" aria-label="上移" disabled={i===0} onClick={()=>void onCommit(row,{sortOrder:(visible[i-1]?.sortOrder??0)-1})}>↑</button>
+      <button type="button" className="cy-op-button compact quiet" aria-label="下移" disabled={i===lines.length-1} onClick={()=>void onCommit(row,{sortOrder:(visible[i+1]?.sortOrder??0)+1})}>↓</button></>:inFlight.current.has(row.id)?"儲存中":null}</td></tr>)}</tbody>
   </table>
   {visible.filter(x=>x.quantityText&&parseQuantity(x.quantityText).quantity===null).map(x=><p key={x.id} className="cy-notice cy-notice-warning">「{x.itemName||x.itemCode}」數量無法拆解，保留文字、不計到貨量。</p>)}
   <p className="cy-erp-search-hint">逐格按 Enter 或離開時儲存；儲存中仍可繼續輸入下一列。存檔失敗保留輸入，請重新確認後再送出。</p>
