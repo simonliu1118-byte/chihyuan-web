@@ -14,7 +14,7 @@ const displayDate=(value:string|null|undefined)=>value?.slice(0,10).replaceAll("
 const errorOf=(e:unknown)=>e instanceof ApiClientError&&e.code==="ORDERING_VERSION_CONFLICT"?"已被其他人修改，請重新載入":e instanceof Error?e.message:"叫貨操作失敗";
 type DisplayOrder=OrderingOrder&{storedStatus:"DRAFT"|"SENT"|"VOID"};
 type DisplayLine=GridLine&{quantity:number|null;received:number;state:string;closedAs:string|null};
-type VendorGroup={sourceId:number;sourceName:string;conditions:string;orderId:number|null;lines:(GridLine&{quantity:number|null})[]};
+type VendorGroup={sourceId:number;sourceName:string;conditions:string;orderId:number|null;orderVersion:number|null;lines:(GridLine&{quantity:number|null})[]};
 const call=<T,>(path:string,method="GET",json?:unknown)=>apiRequest<T>(ROOT+path,{method,json});
 export function OrderingPage(){
  const [sources,setSources]=useState<OrderingSource[]>([]),[list,setList]=useState<OrderingListRow[]>([]),[pending,setPending]=useState<OrderingPendingLine[]>([]);
@@ -82,6 +82,23 @@ export function OrderingPage(){
   const blob=new Blob([new Uint8Array(bytes) as BlobPart],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=exportFileName(order.sourceName,fallback);a.click();URL.revokeObjectURL(url);
  }
+ async function commitVendorRow(group:VendorGroup,row:GridLine,patch:Partial<GridLine>){
+  if(busy)throw new Error("仍在儲存");setBusy(true);setError("");
+  try{
+   const current=group.orderId?await call<DisplayOrder>("/orders/"+group.orderId):await call<DisplayOrder>("/orders","POST",{sourceId:group.sourceId});
+   const data=await call<DisplayOrder>("/orders/"+current.id+"/lines","POST",{operation:"save",expectedVersion:current.version,lineId:row.id||undefined,
+    line:{...(!row.id?row:{}),...patch,...(!row.id?{sortOrder:Date.now()}:{})}});
+   setVendorOverview(await call<VendorGroup[]>("/vendors/overview"));await refresh();setNotice("已儲存 "+group.sourceName+" 草稿");return data;
+  }catch(e){setError(errorOf(e));throw e}finally{setBusy(false)}
+ }
+ async function deleteVendorRow(group:VendorGroup,row:GridLine){
+  if(!group.orderId||!await confirm({title:"刪除廠商草稿品項",description:"確定刪除「"+row.itemName+"」？"}))return;
+  setBusy(true);try{
+   const current=await call<DisplayOrder>("/orders/"+group.orderId);
+   await call("/orders/"+current.id+"/lines","POST",{expectedVersion:current.version,operation:"delete",lineId:row.id});
+   setVendorOverview(await call<VendorGroup[]>("/vendors/overview"));await refresh();
+  }catch(e){setError(errorOf(e))}finally{setBusy(false)}
+ }
  async function exportVendors(){
   const view=await call<VendorGroup[]>("/vendors/overview");
   const sheets=view.filter(v=>v.lines.length).map(v=>orderSheet({sourceName:v.sourceName,sourceKind:"VENDOR",date:nowDate(),note:"",lines:v.lines}));
@@ -120,9 +137,7 @@ export function OrderingPage(){
       <button type="button" className="cy-op-button" onClick={()=>setSourceForm({kind:"VENDOR",name:"",conditions:""})}>＋ 新增廠商</button>
       <button type="button" className="cy-op-button" onClick={()=>void exportVendors().catch(e=>setError(errorOf(e)))}>匯出廠商合併 Excel</button>
       {vendorOverview.map(v=><div key={v.sourceId} className="cy-op-panel"><h4>{v.sourceName}</h4><p>{v.conditions}</p>
-        {v.lines.length?<table className="cy-ordering-grid"><thead><tr><th>我方品號</th><th>我方品名</th><th>廠商品號</th><th>廠商品名</th><th>數量</th><th>單位</th></tr></thead><tbody>
-         {v.lines.map(l=><tr key={l.id}><td>{l.itemCode}</td><td>{l.itemName}</td><td>{l.vendorItemCode}</td><td>{l.vendorItemName}</td><td>{l.quantityText}</td><td>{l.unit}</td></tr>)}
-        </tbody></table>:<p>沒有已存草稿品項</p>}
+        <OrderingGrid kind="VENDOR" section="" lines={v.lines} busy={busy} onCommit={async(row,patch)=>{await commitVendorRow(v,row,patch)}} onDelete={async row=>{await deleteVendorRow(v,row)}}/>
         <button type="button" className="cy-op-button" onClick={()=>{const s=vendors.find(x=>x.id===v.sourceId);if(s)void selectSource(s)}}>進入廠商／編輯草稿</button>
         <button type="button" className="cy-op-button" onClick={()=>{const s=vendors.find(x=>x.id===v.sourceId);if(s)setSourceForm({id:s.id,kind:"VENDOR",name:s.name,conditions:s.conditions})}}>編輯條件</button></div>)}</>
     :current?<><div className="cy-page-toolbar"><h3>{current.sourceName}　{ORDERING_STATUS_LABELS[current.status]}</h3>
