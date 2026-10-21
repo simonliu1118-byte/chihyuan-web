@@ -27,6 +27,7 @@ import {
   type ModuleAccessGroup,
 } from "../access/module-access-client";
 import type { AuthSession } from "../auth/auth-client";
+import { MODULE_REQUIREMENTS, moduleChangeProblem, moduleLabel } from "../../shared/modules";
 import type { StatusTone } from "../runtime/modules/status-flow";
 import {
   changeOwnPassword,
@@ -232,6 +233,8 @@ interface AccessColumn {
   label: string;
   group: "系統使用權" | "業務模組" | "ERP 查詢";
   kind: "app" | "module";
+  /** The grants this module needs too (進貨輔助, user 2026-10-21), shown by the column. */
+  hint?: string;
   code: string;
   disabledReason?: string;
 }
@@ -273,6 +276,8 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
     }));
     const modules = (moduleView?.modules ?? []).map((module): AccessColumn => ({
       key: `module:${module.code}`, label: module.label, group: module.code.startsWith("ERP_") ? "ERP 查詢" : "業務模組", kind: "module", code: module.code,
+      hint: MODULE_REQUIREMENTS[module.code as ModuleCode]
+        ? `需同時開啟${MODULE_REQUIREMENTS[module.code as ModuleCode]!.map((need) => `「${moduleLabel(need)}」`).join("、")}` : undefined,
     }));
     return [...apps, ...modules.filter((column) => column.group === "業務模組"), ...modules.filter((column) => column.group === "ERP 查詢")];
   }, [canIdentityAdmin, snapshot.applications, moduleView]);
@@ -307,6 +312,10 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
     try {
       if (column.kind === "app") { await setEmployeeApplicationAccess(employee.employee_id, column.code, next); await refresh(); }
       else {
+        // Required grants are checked before saving; the server refuses the same (shared rule).
+        const held = new Set((moduleView?.grants ?? []).filter((row) => row.enabled === 1 && row.employee_id === employee.employee_id).map((row) => row.module_code as string));
+        const problem = moduleChangeProblem(held, column.code as ModuleCode, next);
+        if (problem) { reportError(`${employee.name}：${problem}`); return false; }
         await setEmployeeModuleAccess(employee.employee_id, column.code as ModuleCode, next);
         setModuleView((view) => view && {
           ...view,
@@ -317,7 +326,7 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
       return true;
     } catch (error) { reportError(`${employee.name}「${column.label}」：${messageOf(error)}`); return false; }
     finally { setSaving((current) => { const copy = new Set(current); copy.delete(cell); return copy; }); }
-  }, [refresh, reportError]);
+  }, [refresh, reportError, moduleView]);
 
   /** Both snapshots: a group change touches CY Web modules and CYID system access. */
   const reloadAll = useCallback(async () => { await Promise.all([loadModules(), refresh()]); }, [loadModules, refresh]);
@@ -423,8 +432,8 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
               {canIdentityAdmin ? <th rowSpan={columns.length ? 2 : 1} className="cy-access-role">權限群組</th> : null}
               {groups.map((group) => <th key={group.group} colSpan={group.span} className="cy-access-group">{group.group}</th>)}
             </tr>
-            {columns.length ? <tr>{columns.map((column) => <th key={column.key} className="cy-access-col">
-              {column.label}
+            {columns.length ? <tr>{columns.map((column) => <th key={column.key} className="cy-access-col" title={column.hint}>
+              {column.label}{column.hint ? <small className="cy-access-col-hint">{column.hint}</small> : null}
             </th>)}</tr> : null}
           </thead>
           <tbody>{rows.map((employee) => {
@@ -680,7 +689,7 @@ function AccessChecks({ employee, columns, allowed, lockReason, saving, onToggle
       return <label key={column.key} className="cy-identity-access-item" title={reason ?? undefined}>
         <input type="checkbox" checked={allowed(employee, column)} disabled={!!reason || saving.has(`${employee.employee_id}:${column.key}`)}
           onChange={(event) => void onToggle(employee, column, event.target.checked)} />
-        <span>{column.label}</span>
+        <span>{column.label}{column.hint ? <small className="cy-access-col-hint">{column.hint}</small> : null}</span>
         {saving.has(`${employee.employee_id}:${column.key}`) ? <span className="cy-loading-spinner" aria-hidden="true" /> : reason && !quiet ? <small>{reason}</small> : null}
       </label>;
     })}
@@ -851,7 +860,11 @@ function GroupWorkspace({ snapshot, session, view, columns, reload, switcher }: 
   function toggle(group: ModuleAccessGroup, column: AccessColumn, enabled: boolean) {
     const input = inputOf(group);
     if (column.kind === "app") input.applications = enabled ? [...group.applications, column.code] : group.applications.filter((code) => code !== column.code);
-    else input.modules = enabled ? [...group.modules, column.code as ModuleCode] : group.modules.filter((code) => code !== column.code);
+    else {
+      const problem = moduleChangeProblem(new Set<string>(group.modules), column.code as ModuleCode, enabled);
+      if (problem) { reportError(`「${group.name}」：${problem}`); return; }
+      input.modules = enabled ? [...group.modules, column.code as ModuleCode] : group.modules.filter((code) => code !== column.code);
+    }
     void save(group, input, `「${group.name}」${enabled ? "已開放" : "已取消"}「${column.label}」，已套用到 ${group.memberCount} 位成員。`);
   }
   async function resync(group: ModuleAccessGroup) {
@@ -908,7 +921,7 @@ function GroupWorkspace({ snapshot, session, view, columns, reload, switcher }: 
               {headerGroups.map((item) => <th key={item.group} colSpan={item.span} className="cy-access-group">{item.group}</th>)}
               <th rowSpan={2}>操作</th>
             </tr>
-            <tr>{columns.map((column) => <th key={column.key} className="cy-access-col">{column.label}</th>)}</tr>
+            <tr>{columns.map((column) => <th key={column.key} className="cy-access-col" title={column.hint}>{column.label}{column.hint ? <small className="cy-access-col-hint">{column.hint}</small> : null}</th>)}</tr>
           </thead>
           <tbody>{view.groups.map((group) => {
             const names = memberIds(group.id).map(nameOf).filter((name): name is string => !!name);

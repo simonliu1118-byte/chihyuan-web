@@ -19,6 +19,7 @@
 .cy-identity-access-table thead .cy-access-person { z-index: 3; background: var(--cy-surface-muted); }
 .cy-identity-access-table .cy-access-group { text-align: center; color: var(--cy-text-muted); font-size: var(--cy-fs-xs); border-left: 1px solid var(--cy-border); }
 .cy-identity-access-table .cy-access-col { padding: 4px; text-align: center; }
+.cy-access-col-hint { display: block; font-weight: 400; font-size: var(--cy-fs-xs); color: var(--cy-text-muted); white-space: normal; }
 .cy-identity-access-table .cy-access-cell { text-align: center; min-width: 76px; }
 .cy-identity-access-table tbody tr:hover > * { background: var(--cy-surface-muted); }
 .cy-identity-access-table .cy-access-cell input { width: 18px; height: 18px; cursor: pointer; }

@@ -31,6 +31,7 @@ jobs:
           node --test scripts/erp-query-history.test.mjs
           node --test scripts/erp-name-search.test.mjs
           node --test scripts/erp-sales-links.test.mjs
+          node --test scripts/module-requirements.test.mjs
           python scripts/validate_foundation.py
           python scripts/validate_identity_foundation.py
           python scripts/validate_module_access.py

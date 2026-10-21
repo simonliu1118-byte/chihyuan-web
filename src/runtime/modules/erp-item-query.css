@@ -85,19 +85,41 @@
 .cy-erp-order-dialog{margin-top:0}
 .cy-erp-dialog-dates{margin-bottom:.75rem}
 .cy-erp-dialog-dates button{grid-column:1/-1;justify-self:start}
-/* 進貨輔助: 品號 rows × days (銷／退), the 品號 column stays in view while scrolling sideways. */
-.cy-restock-scroller{border:1px solid var(--cy-border);border-radius:var(--cy-radius-md);max-height:70vh;overflow:auto}
-.cy-restock-table{border-collapse:separate;border-spacing:0;font-size:var(--cy-fs-sm);font-variant-numeric:tabular-nums}
-.cy-restock-table th,.cy-restock-table td{border-bottom:1px solid var(--cy-border);padding:.35rem .5rem;text-align:right;white-space:nowrap;background:var(--cy-surface)}
+/* 進貨輔助 (user 2026-10-21: easier to read): 品號 rows × days (銷／退). The 品號 column and the
+   header stay in view; days alternate in shade with a line between them, weekends are tinted;
+   0 is blank; 庫存不足 is flagged. */
+.cy-restock-tools{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem 1rem;margin:.5rem 0 .75rem}
+.cy-restock-tools input[type="search"]{width:min(16rem,100%)}
+.cy-restock-tools label{display:inline-flex;align-items:center;gap:.4rem;white-space:nowrap}
+.cy-restock-tools select{width:auto}
+.cy-restock-count{margin-left:auto;color:var(--cy-text-muted);font-size:var(--cy-fs-sm)}
+.cy-restock-scroller{border:1px solid var(--cy-border);border-radius:var(--cy-radius-md);max-height:72vh;overflow:auto}
+.cy-restock-table{border-collapse:separate;border-spacing:0;font-size:var(--cy-fs-sm);font-variant-numeric:tabular-nums;line-height:1.3}
+.cy-restock-table th,.cy-restock-table td{border-bottom:1px solid var(--cy-border);padding:.3rem .45rem;text-align:right;white-space:nowrap;background:var(--cy-surface);min-width:2.2rem}
 .cy-restock-table thead th{position:sticky;top:0;z-index:2;background:var(--cy-surface-muted);color:var(--cy-text-muted);font-weight:650;text-align:center}
-.cy-restock-table thead tr:nth-child(2) th{top:1.9rem}
-.cy-restock-table .cy-restock-item{position:sticky;left:0;z-index:1;text-align:left;min-width:180px;max-width:260px;white-space:normal;border-right:1px solid var(--cy-border)}
-.cy-restock-table thead .cy-restock-item{z-index:3}
-.cy-restock-table tbody .cy-restock-item{display:table-cell;font-weight:400}
-.cy-restock-table tbody .cy-restock-item strong{display:block}
-.cy-restock-table tbody .cy-restock-item span{display:block;color:var(--cy-text-muted);overflow-wrap:anywhere}
-.cy-restock-table .cy-restock-day{border-left:1px solid var(--cy-border)}
-.cy-restock-table .cy-restock-sub{font-weight:600}
+.cy-restock-table thead th small{display:block;font-weight:500;font-size:var(--cy-fs-xs)}
+.cy-restock-table thead tr:nth-child(2) th{top:2.55rem;font-size:var(--cy-fs-xs)}
+.cy-restock-table .cy-restock-item{position:sticky;left:0;z-index:1;text-align:left;min-width:12rem;max-width:16rem;border-right:2px solid var(--cy-border-strong)}
+.cy-restock-table thead .cy-restock-item{z-index:3;vertical-align:middle}
+.cy-restock-table tbody .cy-restock-item{font-weight:400}
+.cy-restock-table tbody .cy-restock-item strong,.cy-restock-code{display:block;font-weight:700;color:var(--cy-text)}
+.cy-restock-code{background:none;border:0;padding:0;font:inherit;font-weight:700;color:var(--cy-accent);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.cy-restock-code:hover{color:var(--cy-accent-hover)}
+.cy-restock-code:focus-visible{outline:2px solid var(--cy-focus);outline-offset:2px}
+.cy-restock-table tbody .cy-restock-item span{display:block;color:var(--cy-text-muted);font-size:var(--cy-fs-xs);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cy-restock-table .cy-restock-day.is-first{border-left:1px solid var(--cy-border-strong)}
+.cy-restock-table td.cy-restock-day.is-alt,.cy-restock-table thead th.cy-restock-day.is-alt{background:var(--cy-surface-sunken)}
+.cy-restock-table thead th.cy-restock-day.is-weekend{color:var(--cy-copper)}
+.cy-restock-table td.cy-restock-day.is-weekend{background:var(--cy-copper-soft)}
 .cy-restock-table .cy-restock-returned{color:var(--cy-danger)}
-.cy-restock-table .cy-restock-strong{font-weight:700}
-.cy-restock-table tbody tr:hover td,.cy-restock-table tbody tr:hover th{background:var(--cy-surface-muted)}
+.cy-restock-table .cy-restock-total{border-left:1px solid var(--cy-border)}
+.cy-restock-table thead .cy-restock-total{min-width:3.5rem}
+.cy-restock-table .cy-restock-total:first-of-type{border-left:2px solid var(--cy-border-strong)}
+.cy-restock-table .cy-restock-strong{font-weight:700;color:var(--cy-text)}
+.cy-restock-short{display:inline-block;padding:0 .4rem;border-radius:var(--cy-radius-sm);background:var(--cy-warning-soft);color:var(--cy-warning);font-weight:700}
+.cy-restock-none{color:var(--cy-text-subtle)}
+.cy-restock-check input{margin:0}
+.cy-restock-table tbody tr:nth-child(even) td:not(.is-alt):not(.is-weekend),.cy-restock-table tbody tr:nth-child(even) th{background:color-mix(in srgb,var(--cy-surface-muted) 45%,var(--cy-surface))}
+.cy-restock-table tbody tr.is-short th{box-shadow:inset 3px 0 0 var(--cy-warning)}
+.cy-restock-table tbody tr:hover td,.cy-restock-table tbody tr:hover th{background:var(--cy-accent-soft)}
+@media (max-width:640px){.cy-restock-table .cy-restock-item{min-width:7.5rem;max-width:9rem}.cy-restock-count{margin-left:0}}

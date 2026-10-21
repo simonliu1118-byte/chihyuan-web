@@ -1,4 +1,4 @@
-import { CYWEB_MODULES, isCyWebModuleCode, type CyWebModuleCode } from "../../shared/modules";
+import { CYWEB_MODULES, isCyWebModuleCode, moduleRequirementProblem, type CyWebModuleCode } from "../../shared/modules";
 import { ensureAppMemberProjection, resolveAppMember } from "../auth/app-access";
 import { requireIdentity } from "../auth/guard";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
@@ -159,6 +159,8 @@ export async function createGroup(request: Request, env: IdentityRuntimeEnv, req
   if (gate instanceof Response) return gate;
   const input = groupInput(await body(request), env);
   if (!input) return failure({ code: "INVALID_MODULE_ACCESS_GROUP", message: "請填寫群組名稱（60 字以內）並選擇有效的系統與模組。" }, requestId, 400);
+  const createProblem = moduleRequirementProblem(input.modules);
+  if (createProblem) return failure({ code: "MODULE_REQUIREMENT_MISSING", message: createProblem }, requestId, 409);
   if (await nameTaken(env.DB, input.name)) return failure({ code: "MODULE_ACCESS_GROUP_NAME_TAKEN", message: "已有同名的權限群組。" }, requestId, 409);
   const now = new Date().toISOString();
   const actor = await resolveAppMember(env.DB, gate.principal, now);
@@ -182,6 +184,8 @@ export async function updateGroup(request: Request, env: IdentityRuntimeEnv, req
   if (!Number.isSafeInteger(id) || id <= 0 || !input || !Number.isSafeInteger(expectedRevision)) {
     return failure({ code: "INVALID_MODULE_ACCESS_GROUP", message: "請填寫群組名稱（60 字以內）並選擇有效的系統與模組。" }, requestId, 400);
   }
+  const updateProblem = moduleRequirementProblem(input.modules);
+  if (updateProblem) return failure({ code: "MODULE_REQUIREMENT_MISSING", message: updateProblem }, requestId, 409);
   const current = await groupState(env.DB, id);
   if (!current) return failure({ code: "MODULE_ACCESS_GROUP_NOT_FOUND", message: "找不到這個權限群組。" }, requestId, 404);
   if (current.revision !== expectedRevision) return failure({ code: "MODULE_ACCESS_GROUP_REVISION_CONFLICT", message: "群組已被其他人修改，請重新整理後再試。" }, requestId, 409);

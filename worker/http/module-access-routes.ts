@@ -1,4 +1,4 @@
-import { CYWEB_MODULES, isCyWebModuleCode, type CyWebModuleCode } from "../../shared/modules";
+import { CYWEB_MODULES, isCyWebModuleCode, moduleChangeProblem, type CyWebModuleCode } from "../../shared/modules";
 import { currentModuleAccess, ensureAppMemberProjection, resolveAppMember } from "../auth/app-access";
 import { requireIdentity, requireModuleAccess } from "../auth/guard";
 import { CYWEB_IDENTITY_COOKIE, cookieValue, isSessionToken, normalizedApplicationId, fetchIdentityProvider } from "../identity/provider-transport";
@@ -168,6 +168,14 @@ async function putEmployeeModule(
       LIMIT 1`,
   ).bind(targetMember.id, moduleCode).first<{ enabled: number }>();
   const before = previous?.enabled === 1;
+
+  // Required grants (進貨輔助 needs ERP 商品查詢 and ERP 客戶查詢, user 2026-10-21): turning one on
+  // without them, or one of them off under it, is refused rather than widened or narrowed silently.
+  const held = await env.DB.prepare(
+    "SELECT module_code FROM app_member_module_access WHERE member_id = ?1 AND enabled = 1",
+  ).bind(targetMember.id).all<{ module_code: string }>();
+  const problem = moduleChangeProblem(new Set((held.results ?? []).map((row) => row.module_code)), moduleCode, enabled);
+  if (problem) return failure({ code: "MODULE_REQUIREMENT_MISSING", message: problem }, requestId, 409);
 
   const statements: D1PreparedStatement[] = [
     env.DB.prepare(

@@ -6,12 +6,13 @@ import {
   type ErpReceivableScope, type ErpSalesOrder, type ErpSalesLine, type ErpPurchaseOrder, type ErpPurchaseLine, type ErpReceivableBill, type ErpReceivableVoucher,
 } from "../../shared/erp-item-query";
 import { AuditService } from "../audit/audit-service";
+import { salesHistoryStatements } from "./erp-sales-history";
 import { HistoryRangeError, daysInclusive, resolveDateRange, resolveHistoryRange, resolveRestockRange } from "../../shared/erp-query-history";
 import { erpNameContains, parseErpCode, parseErpNameKeyword, parseErpOrderNo } from "../../shared/erp-name-search";
 import { checkModuleAccess, resolveAppMember, type AppMemberRecord } from "../auth/app-access";
 import { requireIdentity } from "../auth/guard";
 import type { IdentityPrincipal } from "../identity/contract";
-import type { CyWebModuleCode } from "../../shared/modules";
+import { MODULE_REQUIREMENTS, moduleLabel, type CyWebModuleCode } from "../../shared/modules";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
 import { errorResponse } from "./errors";
 import { readJsonObject, RequestInputError } from "./request";
@@ -344,12 +345,14 @@ function parseRestock(body: Record<string, unknown>, job: JobRow) {
       const date = isoDay(day.date, "單據日期");
       if (date < from || date > to || dates.has(date)) return bad("INVALID_AGENT_RESULT", "進貨輔助的日期不在查詢範圍內或重複");
       dates.add(date);
-      return { date, sold: quantity(day.sold, "銷貨數量"), returned: quantity(day.returned, "銷退數量") };
+      return { date, sold: quantity(day.sold, "銷貨數量"), returned: quantity(day.returned, "銷退數量"),
+        soldGift: quantity(day.soldGift ?? "0", "銷貨贈品量"), returnedGift: quantity(day.returnedGift ?? "0", "銷退贈品量") };
     }).sort((a, b) => a.date.localeCompare(b.date));
     const stock = item.stock == null ? null : quantity(item.stock, "庫存數量");
     return {
       itemCode, itemName: limitedString(item.itemName, "品名", 200), unit: limitedString(item.unit, "單位", 40), days,
       sold: quantity(item.sold, "銷貨小計"), returned: quantity(item.returned, "銷退小計"),
+      soldGift: quantity(item.soldGift ?? "0", "銷貨贈品小計"), returnedGift: quantity(item.returnedGift ?? "0", "銷退贈品小計"),
       stock, stockNote: limitedString(item.stockNote ?? "", "庫存說明", 200),
     };
   });
@@ -553,7 +556,10 @@ async function userGuard(request: Request, env: ErpBridgeEnv, requestId: string)
   if (!gate.ok) return failure({ code: gate.code, message: "需要有效登入" }, requestId, gate.status);
   return gate.principal;
 }
-const denied = (requestId: string) => failure({ code: "ACCESS_DENIED", message: "沒有這項 ERP 查詢的模組權限" }, requestId, 403);
+/** 進貨輔助 counts only with its required grants (user 2026-10-21); the refusal says which. */
+const denied = (requestId: string, type?: ErpQueryType) => failure({ code: "ACCESS_DENIED", message: type === "RESTOCK"
+  ? `進貨輔助需要「${moduleLabel("ERP_RESTOCK_ASSIST")}」，並同時具備${(MODULE_REQUIREMENTS.ERP_RESTOCK_ASSIST ?? []).map(code => `「${moduleLabel(code)}」`).join("、")}的模組權限`
+  : "沒有這項 ERP 查詢的模組權限" }, requestId, 403);
 const KEYS: Record<ErpQueryType, readonly string[]> = {
   ITEM_NO: ["queryType", "itemNo", "includeHistory", "historyFrom", "historyTo"],
   ITEM_NAME: ["queryType", "keyword"],
@@ -636,7 +642,7 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
     if (!ERP_QUERY_TYPES.includes(queryType))
       return failure({code:"INVALID_QUERY_TYPE",message:"查詢類型不正確"},requestId,400);
     const member = await allowedAny(env.DB, principal, MODULES_FOR_TYPE[queryType]);
-    if (!member) return denied(requestId);
+    if (!member) return denied(requestId, queryType);
     const job = parseRequest(queryType, body);
     const includeCost = queryType === "ITEM_NO" && !!await allowed(env.DB, principal, "ERP_ITEM_COST");
     const active = await env.DB.prepare("SELECT 1 AS active FROM erp_item_queries WHERE owner_member_id=?1 AND status IN ('QUEUED','RUNNING') LIMIT 1")
@@ -681,7 +687,7 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
     if (!row || (row.owner_member_id !== member.id && principal.workspaceRole !== "SUPER_ADMIN"))
       return failure({ code: "QUERY_NOT_FOUND", message: "查無此查詢工作" }, requestId, 404);
     // Results follow the reader's grants at this moment (a revoked grant hides them at once).
-    if (!await allowedAny(env.DB, principal, MODULES_FOR_TYPE[row.query_type])) return denied(requestId);
+    if (!await allowedAny(env.DB, principal, MODULES_FOR_TYPE[row.query_type])) return denied(requestId, row.query_type);
     const showCost = row.query_type === "ITEM_NO" && !!await allowed(env.DB, principal, "ERP_ITEM_COST");
     return success(toJob(row, showCost), requestId);
   }
@@ -841,6 +847,12 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
         values: [row.id, result.status, completedAt],
       }),
     ];
+    // 銷貨資料保存 (user 2026-10-21): a finished RESTOCK keeps the per-day sales for later analysis.
+    if (row.query_type === "RESTOCK" && (result.status === "DONE" || result.status === "NOT_FOUND") && row.history_from && row.history_to) {
+      const saved = parsedJson<{ restock?: ErpRestockItem[] }>(result.resultJson)?.restock ?? [];
+      statements.push(...salesHistoryStatements(env.DB, { id: row.id, from: row.history_from, to: row.history_to },
+        saved, result.truncated, result.status, completedAt));
+    }
     const updates = await env.DB.batch(statements);
     if (updates[0].meta.changes !== 1)
       return failure({ code: "QUERY_NOT_RUNNING", message: "工作已結束" }, requestId, 409);
