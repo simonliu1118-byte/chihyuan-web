@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {apiRequest} from "../../api/client";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
+import {Dialog} from "../../ui/overlays/Dialog";
+import {FeedbackBanner,useFeedbackMessage} from "../../ui/feedback/FeedbackProvider";
 import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import {pickDraft,type OrderingSource,type OrderingListRow,type OrderingOrder} from "../../../shared/ordering";
 import { Loading } from "../../ui/feedback/Loading";
@@ -56,6 +58,7 @@ function RestockTable({ from, to, items, canQueryItem, canOrdering }: { from: st
   const [shortOnly, setShortOnly] = useState(false);
   const [opened, setOpened] = useState<string | null>(null);
   const [addRow,setAddRow]=useState<Row|null>(null);
+  const [addedMessage,setAddedMessage,reportAddedError,addedTone]=useFeedbackMessage<string|null>(null);
   const shown = useMemo(() => {
     const needle = filter.trim().toLowerCase();
     return rows.filter(r => (!shortOnly || r.short) && (!needle || r.itemCode.toLowerCase().includes(needle) || r.itemName.toLowerCase().includes(needle)))
@@ -112,7 +115,8 @@ function RestockTable({ from, to, items, canQueryItem, canOrdering }: { from: st
     </div>
     {shown.length === 0 && <p className="cy-erp-search-hint">沒有符合篩選條件的品號。</p>}
     {opened && <ErpItemDialog key={opened} itemCode={opened} onClose={() => setOpened(null)} />}
-    {addRow&&<AddToOrdering row={addRow} onClose={()=>setAddRow(null)}/>}
+    <FeedbackBanner message={addedMessage} tone={addedTone}/>
+    {addRow&&<AddToOrdering row={addRow} onClose={()=>setAddRow(null)} onAdded={text=>{setAddedMessage(text);setAddRow(null)}}/>}
   </>;
 }
 /** A day's columns: alternate days shaded, weekends tinted, a line before each day. */
@@ -163,9 +167,9 @@ export function RestockAssistPage({ canQueryItem,canOrdering=false }: { canQuery
   </div>;
 }
 
-function AddToOrdering({row,onClose}:{row:Row;onClose:()=>void}){
+function AddToOrdering({row,onClose,onAdded}:{row:Row;onClose:()=>void;onAdded:(text:string)=>void}){
  const [sources,setSources]=useState<OrderingSource[]>([]),[sourceId,setSourceId]=useState(0),[orderId,setOrderId]=useState(0),[drafts,setDrafts]=useState<OrderingListRow[]>([]);
- const [qty,setQty]=useState(String(Math.max(0,row.net))),[busy,setBusy]=useState(false),[error,setError]=useState(""),[done,setDone]=useState(false);
+ const [qty,setQty]=useState(String(Math.max(0,row.net))),[busy,setBusy]=useState(false),[error,setError]=useState("");
  const {confirm,confirmationDialog}=useConfirmation();
  useEffect(()=>{let valid=true;void Promise.all([
   apiRequest<OrderingSource[]>("/api/business/ordering/sources"),
@@ -181,15 +185,16 @@ function AddToOrdering({row,onClose}:{row:Row;onClose:()=>void}){
    if(existing&&await confirm({title:"已有同品號品項",description:"加到既有那一列？選「取消」會新增一列。",confirmLabel:"加到既有列",cancelLabel:"新增一列"}))lineId=existing.id;
    const quantityText=lineId?String(Number(existing?.quantity??0)+Number(qty)):qty;
    await apiRequest(ROOT+"/orders/"+current.id+"/lines",{method:"POST",json:{expectedVersion:current.version,operation:"save",lineId,line:{itemCode:row.itemCode,itemName:row.itemName,unit:row.unit??"",quantityText,sortOrder:Date.now()}}});
-   await apiRequest(ROOT+"/last-source",{method:"POST",json:{sourceId,itemCode:row.itemCode}});
-   setDone(true);
+   await apiRequest(ROOT+"/last-source",{method:"POST",json:{sourceId,itemCode:row.itemCode}}).catch(()=>{});
+   const source=sources.find(s=>s.id===sourceId);
+   onAdded("已加入 "+(source?.name??"叫貨")+" "+(current.plannedSendDate?current.plannedSendDate.slice(5).replace("-","/"):"未定日期")+" 草稿");
   }catch(err){setError(err instanceof Error?err.message:"加入失敗")}finally{setBusy(false)}
  }
- return <div className="cy-op-panel" role="dialog" aria-label="加入叫貨單"><h3>加入叫貨單：{row.itemName}</h3>{error?<p role="alert">{error}</p>:null}{done?<><p>已加入叫貨草稿。</p><button type="button" className="cy-op-button" onClick={onClose}>關閉</button></>:
+ return <Dialog open title={"加入叫貨單："+row.itemName} onClose={onClose}>{error?<p role="alert">{error}</p>:null}
  <form onKeyDown={enterAdvancesFields} onSubmit={e=>void submit(e)}>
  <label>來源<select className="cy-op-input" required value={sourceId} onChange={e=>setSourceId(Number(e.target.value))}><option value={0}>請選來源</option>{sources.filter(x=>x.kind!=="CN_REGULAR"&&x.kind!=="CN_CUSTOM").map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
  <label>草稿<select className="cy-op-input" value={orderId} onChange={e=>setOrderId(Number(e.target.value))}><option value={0}>＋ 新草稿</option>{drafts.map(x=><option key={x.id} value={x.id}>{x.plannedSendDate??"未排日期"}（#{x.id}）</option>)}</select></label>
  <label>數量<input className="cy-op-input" type="number" min=".0001" step="any" required value={qty} onChange={e=>setQty(e.target.value)}/></label>
  <button type="submit" className="cy-op-button primary" disabled={busy||!sourceId}>加入</button><button type="button" className="cy-op-button" onClick={onClose}>取消</button>
- </form>}{confirmationDialog}</div>;
+ </form>{confirmationDialog}</Dialog>;
 }
