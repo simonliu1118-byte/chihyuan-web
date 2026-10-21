@@ -22,7 +22,7 @@ export function HrPhase2aSettings(){
  },[kind,year]);
  useEffect(()=>{void refresh().catch(e=>setError(String(e)))},[refresh]);
  const change=(key:string,val:string)=>setValue(x=>({...x,[key]:val}));
- const field=(label:string,key:string,type="text",required=false)=><label key={key}>{label}<input className="cy-op-input" type={type} max={type==="date"?"9999-12-31":undefined} required={required} value={value[key]??""} onChange={e=>change(key,e.target.value)}/></label>;
+ const field=(label:string,key:string,type="text",required=false)=><Field key={key} label={label} required={required} size={type==="date"||type==="time"||type==="number"||/代號|排序|門市|職稱/.test(label)?"s":"m"}><input className="cy-op-input" type={type} max={type==="date"?"9999-12-31":undefined} value={value[key]??""} onChange={e=>change(key,e.target.value)}/></Field>;
  function edit(row?:Item){
   setId(row?.id??null);setValue(row?{name:row.name,code:row.code??"",sortOrder:String(row.sort_order),isActive:String(row.is_active===1),
    cycleAnchorDate:row.cycle_anchor_date??"",rulesTemplate:row.rules_template??"",startTime:row.start_time??"",
