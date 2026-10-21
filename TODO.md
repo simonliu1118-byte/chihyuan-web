@@ -1,4 +1,4 @@
-## CY Web V0.9.27 — 全系統表單改用共用欄位元件（[WO-0.9.27](docs/development/work-orders/WO-0.9.27.md)；待執行）
+## CY Web V0.9.27 — 全系統表單改用共用欄位元件（[WO-0.9.27](docs/development/work-orders/WO-0.9.27.md)；實作中）
 
 - [ ] GPT 依工作單把其餘表單改用 `Field`／`FormSection`：必填＊、一次提醒、依長短排版；新增 `form-fields.test.mjs` 自動檢查。
 - [ ] 審查、截圖、合併部署。
