@@ -123,3 +123,21 @@
 .cy-restock-table tbody tr.is-short th{box-shadow:inset 3px 0 0 var(--cy-warning)}
 .cy-restock-table tbody tr:hover td,.cy-restock-table tbody tr:hover th{background:var(--cy-accent-soft)}
 @media (max-width:640px){.cy-restock-table .cy-restock-item{min-width:7.5rem;max-width:9rem}.cy-restock-count{margin-left:0}}
+
+
+/* WO-0.9.26: responsive, reusable inline ordering grid. */
+.cy-ordering-page .cy-md { min-width: 0; }
+.cy-ordering-page .cy-md-detail { min-width: 0; }
+.cy-ordering-grid-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; border-radius: 7px; }
+.cy-ordering-grid { border-collapse: separate; border-spacing: 0; min-width: 750px; width: 100%; font-size: .88rem; }
+.cy-ordering-grid th,.cy-ordering-grid td { border-bottom: 1px solid var(--cy-border, #d3d8df); padding: .35rem; vertical-align: middle; }
+.cy-ordering-grid th { text-align: left; font-weight: 600; white-space: nowrap; }
+.cy-ordering-grid td:first-child { font-variant-numeric: tabular-nums; }
+.cy-ordering-grid input { box-sizing: border-box; }
+.cy-ordering-grid tr:focus-within { background: var(--cy-surface-hover, #f6f8fb); }
+.cy-ordering-page .cy-md-toolbar-row { gap: .5rem; }
+@media (max-width: 820px) {
+ .cy-ordering-page .cy-md-detail,.cy-ordering-page .cy-md-list { min-width: 0; }
+ .cy-ordering-page .cy-page-toolbar { gap: .3rem; }
+ .cy-ordering-grid { min-width: 720px; }
+}
