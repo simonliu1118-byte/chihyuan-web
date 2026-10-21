@@ -242,12 +242,15 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     const at=date(v.receivedDate),items=v.lines;if(!Array.isArray(items)||!items.length||items.length>100)throw new Bad("ORDERING_INVALID","本次到貨列數不正確");
     const all=await rows<Line>(ctx.db,"SELECT l.*,COALESCE((SELECT SUM(quantity) FROM ordering_receipt_lines WHERE line_id=l.id),0) received FROM ordering_lines l WHERE order_id=? LIMIT 501",id);
     const seen=new Set<number>(),stmts:D1PreparedStatement[]=[];
-    stmts.push(ctx.db.prepare("INSERT INTO ordering_receipts(order_id,erp_purchase_no,received_date,created_at,created_by) VALUES(?,?,?,?,?)").bind(id,no,at,ctx.now,ctx.actor));
+    // A 52-bit UUID-derived INTEGER key is unique per receipt even across concurrent transactions.
+    // All master/detail records are still inserted in the same atomic D1 batch.
+    const receiptId=Number.parseInt(crypto.randomUUID().replaceAll("-","").slice(0,13),16);
+    stmts.push(ctx.db.prepare("INSERT INTO ordering_receipts(id,order_id,erp_purchase_no,received_date,created_at,created_by) VALUES(?,?,?,?,?,?)").bind(receiptId,id,no,at,ctx.now,ctx.actor));
     // Single latest-row lookup belongs to the same batch; no per-line read/write roundtrips.
     for(const raw of items){const x=raw as Record<string,unknown>,lineId=int(x.lineId,"明細"),qty=Number(x.quantity),line=all.find(a=>a.id===lineId);
      if(seen.has(lineId)||!line||line.closed_as||line.quantity===null||!Number.isFinite(qty)||qty<=0||qty>line.quantity-line.received)throw new Bad("ORDERING_INVALID","到貨數量超過剩餘或明細不正確");
      seen.add(lineId);
-     stmts.push(ctx.db.prepare("INSERT INTO ordering_receipt_lines(receipt_id,line_id,quantity) VALUES((SELECT MAX(id) FROM ordering_receipts),?,?)").bind(lineId,qty));
+     stmts.push(ctx.db.prepare("INSERT INTO ordering_receipt_lines(receipt_id,line_id,quantity) VALUES(?,?,?)").bind(receiptId,lineId,qty));
     }
     return success(await mutate(ctx,o,expected,stmts,"到貨 "+no,"received"),requestId);
    }
