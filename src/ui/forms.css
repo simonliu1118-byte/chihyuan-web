@@ -88,3 +88,10 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--cy-accent); wi
 /* Fields the last submit reported; cleared as soon as they are edited. */
 :is(.cy-op-input, .cy-input)[aria-invalid="true"] { border-color: var(--cy-danger); }
 .cy-form-block-head h3 small { margin-left: 6px; color: var(--cy-text-muted); font-size: var(--cy-fs-xs); font-weight: 400; }
+
+/* WO-0.9.27: share 12-column Field layout while legacy form wrappers migrate. */
+.cy-f-grid > :not(.cy-f):not(.cy-f-check){grid-column:1/-1;min-width:0}
+.cy-f-grid > .cy-f{min-width:0}
+.cy-f-grid > .cy-f-check{min-width:0}
+.cy-f-grid > .cy-f-grid{display:grid}
+.cy-f-section{max-width:min(960px,100%)}
