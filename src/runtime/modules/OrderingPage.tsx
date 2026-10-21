@@ -9,7 +9,7 @@ import {OrderingGrid,type GridLine} from "../../ui/OrderingGrid";
 import {orderSheet} from "../../../shared/ordering-export";
 import "./erp-item-query.css";
 import {buildXlsx} from "../../../shared/xlsx-writer";
-import {exportFileName,pickDraft,lineState,ORDERING_STATUS_LABELS,CN_REGULAR_SECTIONS,type OrderingOrder,type OrderingSource,type OrderingPendingLine,type OrderingListRow,type OrderingSection} from "../../../shared/ordering";
+import {exportFileName,pickDraft,lineState,LINE_STATE_LABELS,CLOSED_AS_LABELS,ORDERING_STATUS_LABELS,CN_REGULAR_SECTIONS,type OrderingOrder,type OrderingSource,type OrderingPendingLine,type OrderingListRow,type OrderingSection} from "../../../shared/ordering";
 const ROOT="/api/business/ordering";
 const nowDate=()=>new Date(Date.now()+8*3600000).toISOString().slice(0,10);
 const taipeiParts=(value:string|null|undefined)=>{
@@ -70,6 +70,12 @@ export function OrderingPage(){
   }catch(e){setError(errorOf(e))}finally{setBusy(false)}
  }
  async function selectSource(s:OrderingSource){setTab(s.id);setVendorAll(false);setSelected(null);await openDraft(s.id)}
+ async function createDraft(sourceId:number){
+  try{const x=remember(await call<DisplayOrder>("/orders","POST",{sourceId}));
+   setDrafts(await call<OrderingListRow[]>("/orders?sourceId="+sourceId+"&status=DRAFT"));
+   setSelected(x);setHeaderDirty({date:false,note:false});setViewPending(false);pane.open();void refresh().catch(e=>setError(errorOf(e)));
+  }catch(e){setError(errorOf(e))}
+ }
  async function showVendorOverview(){setVendorAll(true);setSelected(null);setViewPending(false);
   try{setVendorOverview(await call<VendorGroup[]>("/vendors/overview"))}catch(e){setError(errorOf(e))}
  }
@@ -156,10 +162,12 @@ export function OrderingPage(){
   const href=URL.createObjectURL(blob),a=document.createElement("a");a.href=href;a.download=exportFileName("廠商",nowDate());a.click();URL.revokeObjectURL(href);
  }
  const current=selected,editable=current?.storedStatus!=="VOID";
+ const [expandedVendors,setExpandedVendors]=useState<number[]>([]);
+ const expanded=(v:VendorGroup)=>v.lines.length>0||expandedVendors.includes(v.sourceId);
  const visibleSources=active.filter(x=>x.kind!=="VENDOR");
  return <section className="cy-ordering-page">
-  {error?<div role="alert" className="cy-op-notice danger">{error}<button type="button" className="cy-op-button" onClick={()=>{setError("");if(selected)void reloadOrder(selected.id);void refresh()}}>重新載入</button></div>:null}
-  {notice?<p role="status" className="cy-op-notice">{notice}</p>:null}
+  <FeedbackBanner message={message} tone={messageTone}/>
+  {messageTone==="danger"&&message?<button type="button" className="cy-op-button" onClick={()=>{setMessage(null);if(selected)void reloadOrder(selected.id);void refresh()}}>重新載入</button>:null}
   <div className="cy-md" data-pane={pane.pane}>
    <section className="cy-op-panel cy-md-list" aria-label="叫貨紀錄">
     <h3>叫貨紀錄</h3>
@@ -191,23 +199,23 @@ export function OrderingPage(){
         <button type="button" className="cy-op-button" onClick={()=>{const s=vendors.find(x=>x.id===v.sourceId);if(s)setSourceForm({id:s.id,kind:"VENDOR",name:s.name,conditions:s.conditions})}}>編輯條件</button></div>)}</>
     :current?<><div className="cy-page-toolbar"><h3>{current.sourceName}　{ORDERING_STATUS_LABELS[current.status]}</h3>
       <button type="button" className="cy-op-button" onClick={()=>void openDraft(current.sourceId)}>回到草稿</button>
-      <select className="cy-op-input" value={current.storedStatus==="DRAFT"?current.id:""} aria-label="切換草稿" onChange={e=>{if(e.target.value)void reloadOrder(Number(e.target.value))}}><option value="">選擇草稿</option>{drafts.map(d=><option key={d.id} value={d.id}>{d.plannedSendDate??"無預計日"}（#{d.id}）</option>)}</select>
-      <button type="button" className="cy-op-button" onClick={()=>void call<DisplayOrder>("/orders","POST",{sourceId:current.sourceId}).then(setSelected).catch(e=>setError(errorOf(e)))}>＋ 新草稿</button>
+      <select className="cy-op-input" value={current.storedStatus==="DRAFT"?String(current.id):""} aria-label="切換草稿" onChange={e=>{if(e.target.value)void reloadOrder(Number(e.target.value))}}><option value="">選擇草稿</option>{drafts.map(d=><option key={d.id} value={d.id}>{d.plannedSendDate?displayDate(d.plannedSendDate).slice(5):"無預計日"}{current.storedStatus==="DRAFT"&&d.id===current.id?"（目前）":""}</option>)}</select>
+      <button type="button" className="cy-op-button" onClick={()=>void createDraft(current.sourceId)}>＋ 新草稿</button>
       <button type="button" className="cy-op-button" onClick={()=>void exportOrder(current)}>匯出 Excel</button></div>
       {sources.find(x=>x.id===current.sourceId)?.kind==="VENDOR"?<p>廠商條件：{sources.find(x=>x.id===current.sourceId)?.conditions} <button type="button" className="cy-op-button" onClick={()=>{const s=sources.find(x=>x.id===current.sourceId);if(s)setSourceForm({id:s.id,kind:"VENDOR",name:s.name,conditions:s.conditions,sortOrder:s.sortOrder,isActive:s.isActive})}}>修改</button></p>:null}
       <form onKeyDown={enterAdvancesFields} onSubmit={e=>e.preventDefault()}>
-       <label>預計送出日期<input type="date" className="cy-op-input" max="9999-12-31" disabled={busy||!editable} value={current.plannedSendDate??""} onChange={e=>setSelected(v=>v?{...v,plannedSendDate:e.target.value||null}:v)} onBlur={()=>void write("/orders/"+current.id,"PATCH",{plannedSendDate:current.plannedSendDate})}/></label>
-       <label>單據備註<input className="cy-op-input" disabled={busy||!editable} value={current.note} onChange={e=>setSelected(v=>v?{...v,note:e.target.value}:v)} onBlur={()=>void write("/orders/"+current.id,"PATCH",{note:current.note})}/></label>
-       <button type="submit" className="cy-op-button" onClick={()=>void write("/orders/"+current.id,"PATCH",{plannedSendDate:current.plannedSendDate,note:current.note})}>儲存</button>
+       <label>預計送出日期<input type="date" className="cy-op-input" max="9999-12-31" disabled={!editable} value={current.plannedSendDate??""} onChange={e=>{setHeaderDirty(v=>({...v,date:true}));setSelected(v=>v?{...v,plannedSendDate:e.target.value||null}:v)}} onBlur={()=>void saveHeader("date")}/></label>
+       <label>單據備註<input className="cy-op-input" disabled={!editable} value={current.note} onChange={e=>{setHeaderDirty(v=>({...v,note:true}));setSelected(v=>v?{...v,note:e.target.value}:v)}} onBlur={()=>void saveHeader("note")}/></label>
+       <button type="submit" className="cy-op-button" onClick={()=>{if(headerDirty.date)void saveHeader("date");if(headerDirty.note)void saveHeader("note")}}>儲存</button>
       </form>
-      {(current.sourceKind==="CN_REGULAR"?CN_REGULAR_SECTIONS:[{key:"" as const,label:"叫貨明細"}]).map(group=><div key={group.key}><h4>{group.label}</h4><OrderingGrid kind={current.sourceKind} section={group.key as OrderingSection} lines={current.lines} busy={busy||!editable} onCommit={lineCommit} onDelete={removeLine}/></div>)}
+      {(current.sourceKind==="CN_REGULAR"?CN_REGULAR_SECTIONS:[{key:"" as const,label:"叫貨明細"}]).map(group=><div key={group.key}><h4>{group.label}</h4><OrderingGrid kind={current.sourceKind} section={group.key as OrderingSection} lines={current.lines} busy={!editable} onCommit={lineCommit} onDelete={removeLine}/></div>)}
       <div className="cy-page-toolbar">{current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button primary" onClick={()=>void sent()}>送出</button>:null}
       {current.storedStatus==="SENT"?<button type="button" className="cy-op-button" onClick={()=>setReceipt({id:current.id,no:"",date:nowDate(),quantities:Object.fromEntries(current.lines.filter(l=>l.quantity!==null&&l.received<l.quantity&&!l.closedAs).map(l=>[l.id,String((l.quantity??0)-l.received)])),selectedLineIds:[]})}>登記到貨</button>:null}
       {editable?<button type="button" className="cy-op-button" onClick={()=>void voidOrder()}>作廢</button>:null}
       <button type="button" className="cy-op-button" onClick={()=>setShowHistory(v=>!v)}>修改紀錄</button></div>
-      {current.lines.map(l=><p key={l.id}>{l.itemName}　叫貨 {l.quantityText}{l.unit}　已到 {l.received}　{lineState(l)}　{l.closedAs??""}
+      {current.storedStatus!=="DRAFT"&&current.lines.map(l=><p key={l.id}>{l.itemName}　叫貨 {l.quantityText}　已到 {l.received}　{l.closedAs?CLOSED_AS_LABELS[l.closedAs as keyof typeof CLOSED_AS_LABELS]:LINE_STATE_LABELS[lineState(l)]}{l.closedAs&&l.closedNote?"（"+l.closedNote+"）":""}
        {current.storedStatus==="SENT"&&l.quantity!==null&&l.received<l.quantity&&!l.closedAs?<button type="button" className="cy-op-button" onClick={()=>setClosing({id:l.id,kind:"SHORTAGE",reason:""})}>結掉剩餘</button>:null}</p>)}
-      {showHistory&&current.revisions.map(x=><p key={x.revision}>版本 {x.revision}　{displayDate(x.at)} {x.at.slice(11,16)}　{x.by}　{x.summary}</p>)}
+      {showHistory&&current.revisions.map(x=><p key={x.revision}>版本 {x.revision}　{displayTime(x.at)}　{x.by}　{x.summary}</p>)}
       {current.receipts.map(x=><p key={x.id}>到貨：{x.erpPurchaseNo}　{displayDate(x.receivedDate)}</p>)}
     </>:<MasterDetailEmpty title="選擇叫貨來源" hint="從上方頁籤選擇來源，或從左側開啟歷史單。"/>}
    </section>
