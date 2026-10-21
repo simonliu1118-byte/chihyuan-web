@@ -317,7 +317,7 @@ export function AuthGate({ children }: AuthGateProps) {
     <section className="cy-auth-card" aria-labelledby="cy-auth-title">
       <div className="cy-auth-heading"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><div><h1 id="cy-auth-title">{mode === "login" ? "登入 CY Web" : mode === "first_login" ? "完成 Email 驗證" : "帳號協助"}</h1><p>{mode === "login" ? "請使用員工編號及密碼登入" : "依照畫面指示完成帳號驗證"}</p></div></div>
 
-    {mode === "login" ? <form className="cy-auth-form" onSubmit={handleLogin} onKeyDown={advanceFocusOnEnter} noValidate>
+    {mode === "login" ? <form className="cy-auth-form" onSubmit={handleLogin} onKeyDown={advanceFocusOnEnter}>
     <FormSection>
       <Field  label="員工編號" size="s" required><input data-enter-advance="true" autoComplete="username" inputMode="numeric" maxLength={4} pattern="[0-9]{4}" value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value.replace(/\D/g, "").slice(0, 4))} disabled={submitting} autoFocus /></Field>
       <Field  label="密碼" size="m" required><input data-enter-advance="true" type="password" autoComplete="current-password" maxLength={16} value={password} onChange={(e) => setPassword(e.target.value)} disabled={submitting} /></Field>
@@ -330,7 +330,7 @@ export function AuthGate({ children }: AuthGateProps) {
       <button className="cy-auth-primary-button" type="submit" disabled={submitting} aria-busy={submitting || undefined}>登入</button>
     
     </FormSection>
-  </form> : mode === "first_login" ? <form className="cy-auth-form" onSubmit={submitFirstLogin} onKeyDown={enterAdvancesThenSubmits} noValidate>
+  </form> : mode === "first_login" ? <form className="cy-auth-form" onSubmit={submitFirstLogin} onKeyDown={enterAdvancesThenSubmits}>
     <FormSection>
       <div className="cy-auth-flow-title">
         <h2>完成 Email 驗證</h2>
@@ -351,7 +351,7 @@ export function AuthGate({ children }: AuthGateProps) {
       <button className="cy-auth-link-button" type="button" onClick={() => resetFlow("login")}>返回登入</button>
     
     </FormSection>
-  </form> : <form className="cy-auth-form" onSubmit={confirmRecovery} onKeyDown={enterAdvancesThenSubmits} noValidate>
+  </form> : <form className="cy-auth-form" onSubmit={confirmRecovery} onKeyDown={enterAdvancesThenSubmits}>
     <FormSection>
       <div className="cy-auth-flow-title"><h2>重設密碼</h2><p>員工編號 {employeeNo}</p></div>
       <Field  label="6 位數驗證碼" size="m" required><input inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} /></Field>
