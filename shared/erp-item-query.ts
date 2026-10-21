@@ -82,14 +82,18 @@ export interface ErpPurchaseOrder {
   lines: ErpPurchaseLine[];
 }
 /** One 品號's 銷貨／銷退 on one day of a RESTOCK range; quantities are ERP display strings. */
-export interface ErpRestockDay { date: string; sold: string; returned: string; }
+/**
+ * One day of a 品號 in a RESTOCK result. sold／returned include 贈／備品量 (user 2026-10-21);
+ * soldGift／returnedGift are that part ("0" from an Agent that does not send them).
+ */
+export interface ErpRestockDay { date: string; sold: string; returned: string; soldGift: string; returnedGift: string; }
 /**
  * One 品號 of a RESTOCK result: the days it moved, the range's subtotals and its INVI02 庫存數量
  * (null when not read; stockNote says why).
  */
 export interface ErpRestockItem {
   itemCode: string; itemName: string; unit: string; days: ErpRestockDay[];
-  sold: string; returned: string; stock: string | null; stockNote: string;
+  sold: string; returned: string; soldGift: string; returnedGift: string; stock: string | null; stockNote: string;
 }
 export interface ErpReceivableVoucher { voucherNo: string; date: string; amount: string; tax: string; }
 export interface ErpReceivableBill {

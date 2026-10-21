@@ -1,4 +1,4 @@
-import { CYWEB_MODULES, isCyWebModuleCode, type CyWebModuleCode } from "../../shared/modules";
+import { CYWEB_MODULES, MODULE_REQUIREMENTS, effectiveModules, isCyWebModuleCode, type CyWebModuleCode } from "../../shared/modules";
 import type { IdentityPrincipal } from "../identity/contract";
 
 export interface AppMemberRecord {
@@ -112,9 +112,10 @@ export async function allowedModuleCodes(
       ORDER BY module_code`,
   ).bind(member.id).all<{ module_code: string }>();
 
-  return (result.results ?? [])
+  // A grant whose required grants are not all held does not count (shared MODULE_REQUIREMENTS).
+  return effectiveModules((result.results ?? [])
     .map((row) => row.module_code)
-    .filter(isCyWebModuleCode);
+    .filter(isCyWebModuleCode));
 }
 
 /** One app-local projection shape for the existing access route and auth refresh. */
@@ -143,18 +144,19 @@ export async function checkModuleAccess(
   if (principal.workspaceRole === "SUPER_ADMIN") return { allowed: true, member };
   if (!member.isActive) return { allowed: false, reason: "app-member-inactive", member };
 
+  // The grant and every grant it requires (進貨輔助: ERP 商品查詢 and ERP 客戶查詢).
+  const needed = [normalizedModule, ...(MODULE_REQUIREMENTS[normalizedModule] ?? [])];
   const grant = await db
     .prepare(
-      `SELECT 1 AS allowed
+      `SELECT count(*) AS held
          FROM app_member_module_access
         WHERE member_id = ?1
-          AND module_code = ?2
-          AND enabled = 1
-        LIMIT 1`,
+          AND module_code IN (SELECT value FROM json_each(?2))
+          AND enabled = 1`,
     )
-    .bind(member.id, normalizedModule)
-    .first<{ allowed: number }>();
+    .bind(member.id, JSON.stringify(needed))
+    .first<{ held: number }>();
 
-  if (!grant) return { allowed: false, reason: "module-not-granted", member };
+  if ((grant?.held ?? 0) < needed.length) return { allowed: false, reason: "module-not-granted", member };
   return { allowed: true, member };
 }

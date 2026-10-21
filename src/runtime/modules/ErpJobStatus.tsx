@@ -31,9 +31,9 @@ function describe(result: ErpQueryResult): string {
 function restockProgress(result: ErpQueryResult): string {
   const p = result.progress;
   if (p?.stage === "STOCK")
-    return `已查庫存 ${p.done} / ${p.total} 個品號${p.done < p.total ? "，每個品號約需數秒" : "，整理結果中"}。`;
-  if (p?.stage === "REPORT") return `正在產生銷貨、銷退報表（已完成 ${p.done} / ${p.total} 張），之後逐一查詢各品號庫存。`;
-  return "正在產生銷貨、銷退報表，再逐一查詢各品號庫存，品號多時可能需要十幾分鐘。";
+    return `已查庫存 ${p.done} / ${p.total} 個品號${p.done < p.total ? "，分批查詢中" : "，整理結果中"}。`;
+  if (p?.stage === "REPORT") return `正在產生銷貨、銷退報表（已完成 ${p.done} / ${p.total} 張），之後分批查詢各品號庫存。`;
+  return "正在產生銷貨、銷退報表，再分批查詢各品號庫存，可能需要數分鐘。";
 }
 
 export function ErpJobStatus({ result }: { result: ErpQueryResult }) {

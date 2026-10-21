@@ -7,7 +7,7 @@ import { checkModuleAccess } from "./access/module-access-client";
 import { AuthGate } from "./auth/AuthGate";
 import type { AuthSession, WorkspaceRole } from "./auth/auth-client";
 import { MyAccountPage, SharedIdentityPage } from "./identity/SharedIdentityPage";
-import { CYWEB_MODULES, moduleCodesForRoute, type CyWebModuleCode } from "../shared/modules";
+import { effectiveModules, CYWEB_MODULES, moduleCodesForRoute, type CyWebModuleCode } from "../shared/modules";
 import { verifiedProgramCatalog } from "../shared/program-catalog";
 import type { NavigationGroup } from "./ui/foundation/navigation";
 import { AppShell } from "./ui/shell/AppShell";
@@ -180,7 +180,8 @@ function OperationalApp({
   }), [canLeave]);
 
   const allowedModules = useMemo(
-    () => new Set<CyWebModuleCode>(moduleAccess?.allowedModules ?? []),
+    // The grants in effect: 進貨輔助 counts only with ERP 商品查詢 and ERP 客戶查詢 (user 2026-10-21).
+    () => new Set<CyWebModuleCode>(effectiveModules(moduleAccess?.allowedModules ?? [])),
     [moduleAccess],
   );
 
@@ -289,7 +290,7 @@ function OperationalApp({
   else if (route === "outsourcing") content = <OutsourcingOperationalPage />;
   else if (route === "worklogs") content = <WorkLogOperationalPage />;
   else if (route === "erp-item-query") content = <ErpItemQueryPage allowedModules={allowedModules} />;
-  else if (route === "restock-assist") content = <RestockAssistPage />;
+  else if (route === "restock-assist") content = <RestockAssistPage canQueryItem={allowedModules.has("ERP_ITEM_QUERY")} />;
   else if (route === "identity") content = <SharedIdentityPage session={session}
     showUsage={usageRequested && role === "SUPER_ADMIN"}
     usage={role === "SUPER_ADMIN" ? {report:usageReport,error:usageError,loading:usageLoading,onRefresh:refreshUsage} : undefined} />;

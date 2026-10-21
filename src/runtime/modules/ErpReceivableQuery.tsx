@@ -33,7 +33,7 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
     if (code) { await job.start({ queryType: "RECEIVABLE", scope, code }); return; }
     // A customer name finds the customer first (needs ERP 客戶查詢 too).
     const keyword = scope === "CUSTOMER" && canSearchCustomers ? parseErpNameKeyword(text) : null;
-    if (!keyword) { setError(scope === "CUSTOMER" ? "請輸入客戶代號（英文字母或數字）" + (canSearchCustomers ? "或客戶名稱。" : "。") : "業務員代號只能輸入 1～40 個英文字母或數字。"); return; }
+    if (!keyword) { setError(scope === "CUSTOMER" ? "請輸入客戶代號（英文字母、數字或「-」）" + (canSearchCustomers ? "或客戶名稱。" : "。") : "業務員代號只能輸入 1～40 個英文字母、數字或「-」。"); return; }
     await job.start({ queryType: "CUSTOMER_NAME", keyword });
   }
   const mine = result && (result.queryType === "RECEIVABLE" || result.queryType === "CUSTOMER_NAME") ? result : null;

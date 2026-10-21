@@ -62,10 +62,10 @@ test("each query type needs its own ERP grant", async () => {
   } finally { sql.close(); }
 });
 
-test("codes are letters and digits; requests refuse fields of other types", async () => {
+test("codes are letters, digits and a dash; requests refuse fields of other types", async () => {
   const { sql, user } = fixture("SUPER_ADMIN");
   try {
-    for (const body of [{ queryType: "CUSTOMER_NO", customerCode: "CU-01" }, { queryType: "ITEM_NO", itemNo: "A 1" },
+    for (const body of [{ queryType: "CUSTOMER_NO", customerCode: "-CU01" }, { queryType: "ITEM_NO", itemNo: "A 1" },
       { queryType: "RECEIVABLE", scope: "ALL", code: "CU0001" }, { queryType: "RECEIVABLE", scope: "SALESPERSON" },
       { queryType: "CUSTOMER_NAME", keyword: "假%" }, { queryType: "SALES", customerCode: "CU0001", itemNo: "X1" }]) {
       const response = await user.create(body);
@@ -145,7 +145,7 @@ test("suppliers need ERP_SUPPLIER_QUERY; the Agent echoes supplierCode and the �
     assert.equal((await user.create({ queryType: "SUPPLIER_NO", supplierCode: "SU0001" })).status, 403);
     grant("ERP_SUPPLIER_QUERY");
     assert.equal((await user.create({ queryType: "SUPPLIER_NO", customerCode: "SU0001" })).status, 400);
-    assert.equal((await user.create({ queryType: "SUPPLIER_NO", supplierCode: "SU-01" })).status, 400);
+    assert.equal((await user.create({ queryType: "SUPPLIER_NO", supplierCode: "SU_01" })).status, 400);
     const { id } = (await user.create({ queryType: "SUPPLIER_NO", supplierCode: " SU0001 " })).body.data;
     // An Agent without the supplier types does not get the job.
     assert.equal((await agent.claim(["ITEM_NO", "CUSTOMER_NO"])).body.data.job, null);
@@ -236,14 +236,19 @@ test("ORDER opens one 23x／24x order with either the customer or the receivable
 
 const shiftDay = (date, days) => new Date(Date.parse(date + "T00:00:00Z") + days * 86400000).toISOString().slice(0, 10);
 
-test("RESTOCK needs ERP_RESTOCK_ASSIST, both dates and at most 31 days", async () => {
+test("RESTOCK needs ERP_RESTOCK_ASSIST with ERP_ITEM_QUERY and ERP_CUSTOMER_QUERY, both dates and at most 31 days", async () => {
   const { sql, user, agent, grant } = fixture();
   try {
     const today = taipeiToday();
     const from = shiftDay(today, -8);
     grant("ERP_CUSTOMER_QUERY");
     assert.equal((await user.create({ queryType: "RESTOCK", dateFrom: from, dateTo: today })).status, 403);
+    // 進貨輔助 alone or with one requirement is not enough (user 2026-10-21); the refusal names them.
     grant("ERP_RESTOCK_ASSIST");
+    const refused = await user.create({ queryType: "RESTOCK", dateFrom: from, dateTo: today });
+    assert.equal(refused.status, 403);
+    assert.match(refused.body.error.message, /ERP 商品查詢.*ERP 客戶查詢/);
+    grant("ERP_ITEM_QUERY");
     for (const body of [{ queryType: "RESTOCK", dateFrom: from }, { queryType: "RESTOCK", dateTo: today },
       { queryType: "RESTOCK", dateFrom: shiftDay(today, -31), dateTo: today }, { queryType: "RESTOCK", dateFrom: today, dateTo: shiftDay(today, 1) },
       { queryType: "RESTOCK", dateFrom: today, dateTo: from }, { queryType: "RESTOCK", dateFrom: from, dateTo: today, customerCode: "CU0001" }]) {
@@ -262,8 +267,8 @@ test("RESTOCK needs ERP_RESTOCK_ASSIST, both dates and at most 31 days", async (
 test("RESTOCK results are per 品號 inside the range and keep only the summary fields", async () => {
   const { sql, user, agent, grant } = fixture();
   try {
-    grant("ERP_RESTOCK_ASSIST");
-    // The Agent status is open to a member who only has 進貨輔助.
+    grant("ERP_RESTOCK_ASSIST"); grant("ERP_ITEM_QUERY"); grant("ERP_CUSTOMER_QUERY");
+    // The Agent status is open to a member who has 進貨輔助 (with its requirements).
     assert.equal((await user.agentStatus()).status, 200);
     const today = taipeiToday();
     const from = shiftDay(today, -2);
@@ -340,5 +345,66 @@ test("RESTOCK shows the progress the Agent reports while it runs", async () => {
     const sales = (await user.create({ queryType: "SALES", customerCode: "CU0001" })).body.data;
     await agent.claim(ALL_TYPES);
     assert.equal((await agent.progress(sales.id, { stage: "STOCK", done: 1, total: 2 })).status, 409, "only RESTOCK reports progress");
+  } finally { sql.close(); }
+});
+
+test("a finished RESTOCK keeps per-day sales and rewrites only what changed", async () => {
+  const { sql, user, agent } = fixture("SUPER_ADMIN");
+  try {
+    const today = taipeiToday();
+    const from = shiftDay(today, -2), mid = shiftDay(today, -1);
+    const item = (code, days, extra = {}) => ({ itemCode: code, itemName: "假品名" + code, unit: "盒", days,
+      sold: "0", returned: "0", stock: "10", stockNote: "", ...extra });
+    const run = async (items, extra = {}) => {
+      const { id } = (await user.create({ queryType: "RESTOCK", dateFrom: from, dateTo: today })).body.data;
+      await agent.claim(ALL_TYPES);
+      const done = await agent.complete(id, { outcome: items.length ? "FOUND" : "NOT_FOUND", dateFrom: from, dateTo: today, items, total: items.length, truncated: false, ...extra });
+      assert.equal(done.status, 200, JSON.stringify(done.body));
+      return id;
+    };
+    const daily = () => sql.prepare("SELECT item_code,sale_date,sold,returned,sold_gift,returned_gift,query_id FROM erp_sales_daily ORDER BY item_code,sale_date").all()
+      .map(r => ({ ...r }));
+    const first = await run([
+      item("X0001", [{ date: from, sold: "3", returned: "0", soldGift: "1" }, { date: today, sold: "2", returned: "1" }]),
+      item("X0002", [{ date: mid, sold: "5", returned: "0" }], { stock: null, stockNote: "查無品號" }),
+    ]);
+    assert.deepEqual(daily(), [
+      { item_code: "X0001", sale_date: from, sold: 3, returned: 0, sold_gift: 1, returned_gift: 0, query_id: first },
+      { item_code: "X0001", sale_date: today, sold: 2, returned: 1, sold_gift: 0, returned_gift: 0, query_id: first },
+      { item_code: "X0002", sale_date: mid, sold: 5, returned: 0, sold_gift: 0, returned_gift: 0, query_id: first },
+    ]);
+    assert.deepEqual(sql.prepare("SELECT item_code,stock FROM erp_sales_items ORDER BY item_code").all().map(r => ({ ...r })),
+      [{ item_code: "X0001", stock: 10 }, { item_code: "X0002", stock: null }]);
+    assert.equal(sql.prepare("SELECT count(*) AS n FROM erp_sales_days WHERE query_id=?").get(first).n, 3);
+    const itemsBefore = sql.prepare("SELECT updated_at FROM erp_sales_items WHERE item_code='X0001'").get().updated_at;
+
+    // The same data again: no row is rewritten (query_id stays the first one).
+    await run([
+      item("X0001", [{ date: from, sold: "3", returned: "0", soldGift: "1" }, { date: today, sold: "2", returned: "1" }]),
+      item("X0002", [{ date: mid, sold: "5", returned: "0" }], { stock: null }),
+    ]);
+    assert.ok(daily().every(r => r.query_id === first));
+    assert.equal(sql.prepare("SELECT updated_at FROM erp_sales_items WHERE item_code='X0001'").get().updated_at, itemsBefore);
+
+    // One quantity changes and X0002 is gone: only that row is written, X0002's row is deleted;
+    // X0002 keeps its item row. The past days stay marked by the first query, today is synced again.
+    const third = await run([item("X0001", [{ date: from, sold: "3", returned: "0", soldGift: "1" }, { date: today, sold: "4", returned: "1" }], { stock: "8" })]);
+    assert.deepEqual(daily().map(r => [r.item_code, r.sale_date, r.sold, r.query_id]),
+      [["X0001", from, 3, first], ["X0001", today, 4, third]]);
+    assert.equal(sql.prepare("SELECT stock FROM erp_sales_items WHERE item_code='X0001'").get().stock, 8);
+    assert.equal(sql.prepare("SELECT count(*) AS n FROM erp_sales_items").get().n, 2);
+    assert.equal(sql.prepare("SELECT query_id FROM erp_sales_days WHERE sale_date=?").get(today).query_id, third);
+    sql.prepare("UPDATE erp_sales_days SET synced_at=? WHERE sale_date=?").run(shiftDay(today, 1) + "T00:00:00.000Z", mid);
+
+    // A truncated result writes what it has but deletes nothing and marks no day.
+    const fourth = await run([item("X0003", [{ date: mid, sold: "1", returned: "0" }])], { truncated: true, total: 600 });
+    assert.deepEqual(daily().map(r => r.item_code), ["X0001", "X0001", "X0003"]);
+    assert.equal(sql.prepare("SELECT count(*) AS n FROM erp_sales_days WHERE query_id=?").get(fourth).n, 0);
+
+    // NOT_FOUND empties the range; a day synced after it ended is not marked again.
+    const fifth = await run([]);
+    assert.deepEqual(daily(), []);
+    assert.equal(sql.prepare("SELECT query_id FROM erp_sales_days WHERE sale_date=?").get(mid).query_id, first);
+    assert.equal(sql.prepare("SELECT query_id FROM erp_sales_days WHERE sale_date=?").get(today).query_id, fifth);
   } finally { sql.close(); }
 });
