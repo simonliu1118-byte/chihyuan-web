@@ -1,3 +1,4 @@
+import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import { formatItem } from "../../ui/foundation/format";
 import { StatusFilter } from "../../ui/data/StatusFilter";
 import { outsourcingNextStep, outsourcingTone } from "./status-flow";
@@ -567,18 +568,17 @@ export function OutsourcingOperationalPage() {
               <MasterDetailBack label="代工單清單" disabled={busy} onBack={async () => { if (editing && !(await discardEditing())) return; pane.close(); }} />
               {editing && draft ? (
               <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void saveOrder(event)}>
+    <FormSection>
                 <div className="cy-record-header cy-edit-header">
                   <div><h2>{creating ? "新增代工單" : correctingOutbound ? "更正已確認的出庫" : "修改代工單"}</h2><p>{correctingOutbound ? "儲存後會以新的出庫資料取代原本的出庫，並保留更正紀錄。" : "確認出庫前可以修改內容。"}</p></div>
                 <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立代工單" : "儲存修改"}</button></div></div>
-                <div className="cy-op-form-grid cy-form-grid-spaced">
-                  <label>協力廠商
-                    <select className="cy-op-input" value={draft.contractorId ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, contractorId: Number(event.target.value) || null })}>
+                <div className="cy-f-grid cy-form-grid-spaced">
+                  <Field  label="協力廠商" size="m"><select className="cy-op-input" value={draft.contractorId ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, contractorId: Number(event.target.value) || null })}>
                       <option value="">請選擇</option>
                       {contractors.map((row) => <option key={row.id} value={row.id}>{row.displayName}{row.isActive ? "" : "（已停用）"}</option>)}
-                    </select>
-                  </label>
-                  <label>工單日期<input className="cy-op-input" type="date" max="9999-12-31" value={draft.orderDate} disabled={busy} onChange={(event) => setDraft({ ...draft, orderDate: event.target.value })} /></label>
-                  <label className="wide">篩選商品選單<input className="cy-op-input" type="search" value={itemQuery} disabled={busy} onChange={(event) => setItemQuery(event.target.value)} placeholder="品號／品名／規格" /></label>
+                    </select></Field>
+                  <Field  label="工單日期" size="s"><input className="cy-op-input" type="date" max="9999-12-31" value={draft.orderDate} disabled={busy} onChange={(event) => setDraft({ ...draft, orderDate: event.target.value })} /></Field>
+                  <Field  label="篩選商品選單" size="m"><input className="cy-op-input" type="search" value={itemQuery} disabled={busy} onChange={(event) => setItemQuery(event.target.value)} placeholder="品號／品名／規格" /></Field>
                 </div>
 
                 <section className="cy-form-block">
@@ -608,7 +608,9 @@ export function OutsourcingOperationalPage() {
                   })}
                   </div>
                 </section>
-              </form>
+              
+    </FormSection>
+  </form>
               ) : selectedOrder ? <div>
                 <div className="cy-record-header"><div><h2>{selectedOrder.contractorNameSnapshot}</h2><p><span className="cy-mono">{selectedOrder.outsourcingRef}</span> · {formatDate(selectedOrder.orderDate)}</p></div>
                 <div className="cy-record-actions">
