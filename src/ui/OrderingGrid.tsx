@@ -1,4 +1,4 @@
-import {useEffect,useState,type KeyboardEvent} from "react";
+import {useEffect,useRef,useState,type KeyboardEvent} from "react";
 import type {OrderingSourceKind,OrderingSection} from "../../shared/ordering";
 import {parseQuantity} from "../../shared/ordering";
 export interface GridLine{ id:number;section:OrderingSection;sortOrder:number;itemCode:string;itemName:string;vendorItemCode:string;vendorItemName:string;spec:string;quantityText:string;unit:string;note:string;vendorNameFollows?:boolean; }
@@ -13,15 +13,25 @@ type Props={kind:OrderingSourceKind;section:OrderingSection;lines:GridLine[];bus
 export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete}:Props){
  const [draft,setDraft]=useState<GridLine>(()=>empty(section));
  const [editing,setEditing]=useState<Record<string,string>>({});
+ const savingDraft=useRef(false);
  useEffect(()=>{setDraft(empty(section));setEditing({})},[section,kind]);
  const fields=columns[kind];
+ async function saveDraft(next:GridLine){
+  if(savingDraft.current||busy||!(next.itemName.trim()||next.itemCode.trim())||!next.quantityText.trim())return;
+  savingDraft.current=true;
+  try{
+   await onCommit(next,next);
+   setDraft(empty(section));
+   setEditing(prev=>Object.fromEntries(Object.entries(prev).filter(([key])=>!key.startsWith("0|"+section+"|"))));
+  }finally{savingDraft.current=false}
+ }
  async function commit(row:GridLine,key:keyof GridLine,value:string){
   const old=String(row[key]??"");if(value===old)return;
   const patch={ [key]:value } as Partial<GridLine>;
   if(row.id)await onCommit(row,patch);else{
    const next={...draft,...patch};
    setDraft(next);
-   if((next.itemName.trim()||next.itemCode.trim())&&next.quantityText.trim()){await onCommit(next,next);setDraft(empty(section))}
+   await saveDraft(next);
   }
  }
  function enter(e:KeyboardEvent<HTMLInputElement>,idx:number,col:number){
@@ -39,7 +49,7 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete}:Props){
       <input data-order-field="true" className="cy-op-input" aria-label={title+" 第"+(i+1)+"列"} title={title} disabled={busy} value={value} required={field==="itemName"||field==="quantityText"}
        style={{minWidth:field==="itemName"||field==="vendorItemName"?125:72,width:"100%"}}
        onChange={e=>{setEditing(old=>({...old,[key]:e.target.value}));if(!line.id)setDraft(d=>({...d,[field]:e.target.value}))}}
-       onBlur={()=>{if(line.id&&value!==String(line[field as keyof GridLine]??""))void commit(line,field as keyof GridLine,value).finally(()=>setEditing(prev=>{const next={...prev};delete next[key];return next}));else if(!line.id&&(draft.itemName||draft.itemCode)&&draft.quantityText)void onCommit(draft,draft).then(()=>setDraft(empty(section))).catch(()=>{});}}
+       onBlur={()=>{if(line.id&&value!==String(line[field as keyof GridLine]??""))void commit(line,field as keyof GridLine,value).then(()=>setEditing(prev=>{const next={...prev};delete next[key];return next})).catch(()=>{});else if(!line.id&&(draft.itemName||draft.itemCode)&&draft.quantityText)void saveDraft(draft).catch(()=>{});}}
        onKeyDown={e=>enter(e,i,j)}/></td>})}
     <td><button type="button" className="cy-op-button" disabled={busy||!line.id} onClick={()=>void onDelete(line)}>刪除</button>
       {line.id?<><button type="button" className="cy-op-button" disabled={busy||i===0} onClick={()=>void onCommit(line,{sortOrder:(lines.filter(x=>x.section===section)[i-1]?.sortOrder??0)-1})}>↑</button><button type="button" className="cy-op-button" disabled={busy||i===lines.filter(x=>x.section===section).length-1} onClick={()=>void onCommit(line,{sortOrder:(lines.filter(x=>x.section===section)[i+1]?.sortOrder??0)+1})}>↓</button></>:null}</td></tr>)}
