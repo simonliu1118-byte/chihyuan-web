@@ -2,7 +2,7 @@ import {requireModuleAccess} from "../auth/guard";
 import {identityClient,type IdentityRuntimeEnv} from "./auth-routes";
 import {success,failure} from "./response";
 import {AuditService} from "../audit/audit-service";
-import {lineIsOpen,lineState,orderStatus,parseErpPurchaseNo,parseQuantity,pickDraft,vendorItemKey,type OrderingStoredStatus} from "../../shared/ordering";
+import {lineIsOpen,lineState,orderStatus,orderingLineHasName,parseErpPurchaseNo,parseQuantity,pickDraft,vendorItemKey,type OrderingStoredStatus} from "../../shared/ordering";
 
 type Context={db:D1Database;actor:number;name:string;now:string;requestId:string};
 type Source={id:number;name:string;kind:"GENERAL"|"VENDOR"|"CN_REGULAR"|"CN_CUSTOM";conditions:string;sort_order:number;is_active:number};
@@ -35,14 +35,17 @@ async function init(ctx:Context){
  // INSERT OR IGNORE preserves concurrent first-open and is idempotent.
  await run(ctx,defaults.map(([name,kind,conditions],i)=>ctx.db.prepare("INSERT OR IGNORE INTO ordering_sources(name,kind,conditions,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?)").bind(name,kind,conditions,i,ctx.now,ctx.now)));
 }
-async function getOrder(ctx:Context,id:number){
- const o=await one<Ord>(ctx.db,"SELECT * FROM ordering_orders WHERE id=?",id);if(!o)throw new Bad("ORDERING_NOT_FOUND","叫貨單不存在",404);
- const source=await one<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE id=?",o.source_id);
- const lines=await rows<Line>(ctx.db,"SELECT l.*,COALESCE((SELECT SUM(quantity) FROM ordering_receipt_lines WHERE line_id=l.id),0) received FROM ordering_lines l WHERE order_id=? ORDER BY section,sort_order,id LIMIT 501",id);
+async function getOrder(ctx:Context,id:number,knownOrder?:Ord){
+ const o=knownOrder??await one<Ord>(ctx.db,"SELECT * FROM ordering_orders WHERE id=?",id);if(!o)throw new Bad("ORDERING_NOT_FOUND","叫貨單不存在",404);
+ const draft=o.status==="DRAFT";
+ const [source,lines,receipts,changes]=await Promise.all([
+  one<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE id=?",o.source_id),
+  rows<Line>(ctx.db,"SELECT l.*,"+(draft?"0":"COALESCE((SELECT SUM(quantity) FROM ordering_receipt_lines WHERE line_id=l.id),0)")+" received FROM ordering_lines l WHERE order_id=? ORDER BY section,sort_order,id LIMIT 501",id),
+  draft?Promise.resolve([]):rows<{id:number;erp_purchase_no:string;received_date:string;created_at:string}>(ctx.db,"SELECT * FROM ordering_receipts WHERE order_id=? ORDER BY id DESC LIMIT 101",id),
+  draft?Promise.resolve([]):rows<{revision:number;changed_at:string;changed_by:number;actor_name:string|null;summary:string}>(ctx.db,"SELECT r.revision,r.changed_at,r.changed_by,COALESCE(m.display_name,m.employee_no) AS actor_name,r.summary FROM ordering_revisions r LEFT JOIN app_members m ON m.id=r.changed_by WHERE r.order_id=? ORDER BY r.revision DESC LIMIT 501",id),
+ ]);
  if(lines.length>500)throw new Bad("ORDERING_LIMIT","單據超過 500 列",409);
- const receipts=await rows<{id:number;erp_purchase_no:string;received_date:string;created_at:string}>(ctx.db,"SELECT * FROM ordering_receipts WHERE order_id=? ORDER BY id DESC LIMIT 101",id);
  if(receipts.length>100)throw new Bad("ORDERING_LIMIT","到貨記錄超過上限",409);
- const changes=await rows<{revision:number;changed_at:string;changed_by:number;actor_name:string|null;summary:string}>(ctx.db,"SELECT r.revision,r.changed_at,r.changed_by,COALESCE(m.display_name,m.employee_no) AS actor_name,r.summary FROM ordering_revisions r LEFT JOIN app_members m ON m.id=r.changed_by WHERE r.order_id=? ORDER BY r.revision DESC LIMIT 501",id);
  if(changes.length>500)throw new Bad("ORDERING_LIMIT","修改紀錄超過單次查詢安全上限",409);
  const receiptIds=receipts.map(x=>x.id);
  const receiptLines=receiptIds.length?await rows<{receipt_id:number;line_id:number;quantity:number}>(ctx.db,"SELECT receipt_id,line_id,quantity FROM ordering_receipt_lines WHERE receipt_id IN ("+receiptIds.map(()=>"?").join(",")+") ORDER BY receipt_id,line_id LIMIT 5001",...receiptIds):[];
@@ -120,7 +123,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
    if(url.searchParams.get("history")==="1")clauses.push("o.status<>'DRAFT'");
    if(url.searchParams.has("from")){clauses.push("COALESCE(o.planned_send_date,substr(o.created_at,1,10))>=?");args.push(date(url.searchParams.get("from")))}
    if(url.searchParams.has("to")){clauses.push("COALESCE(o.planned_send_date,substr(o.created_at,1,10))<=?");args.push(date(url.searchParams.get("to")))}
-   const q=must(url.searchParams.get("q")??"","搜尋",100);if(q){clauses.push("(s.name LIKE ? OR EXISTS(SELECT 1 FROM ordering_lines l WHERE l.order_id=o.id AND (l.item_name LIKE ? OR l.item_code LIKE ?)) OR EXISTS(SELECT 1 FROM ordering_receipts r WHERE r.order_id=o.id AND r.erp_purchase_no LIKE ?))");for(let i=0;i<4;i++)args.push("%"+q+"%")}
+   const q=must(url.searchParams.get("q")??"","搜尋",100);if(q){clauses.push("(s.name LIKE ? OR EXISTS(SELECT 1 FROM ordering_lines l WHERE l.order_id=o.id AND (l.item_name LIKE ? OR l.item_code LIKE ? OR l.vendor_item_name LIKE ? OR l.vendor_item_code LIKE ?)) OR EXISTS(SELECT 1 FROM ordering_receipts r WHERE r.order_id=o.id AND r.erp_purchase_no LIKE ?))");for(let i=0;i<6;i++)args.push("%"+q+"%")}
    const result=await rows<Ord&{source_name:string;source_kind:Source["kind"];current_status:string}>(ctx.db,"SELECT o.*,s.name AS source_name,s.kind AS source_kind,("+currentStatusSql+") AS current_status FROM ordering_orders o JOIN ordering_sources s ON s.id=o.source_id "+(clauses.length?"WHERE "+clauses.join(" AND "):"")+" ORDER BY o.created_at DESC,o.id DESC LIMIT 201",...args);
    if(result.length>200)throw new Bad("ORDERING_LIMIT","請縮小搜尋條件",409);
    return success(result.map(x=>({id:x.id,sourceId:x.source_id,sourceName:x.source_name,sourceKind:x.source_kind,status:x.current_status,plannedSendDate:x.planned_send_date,sentAt:x.sent_at,createdAt:x.created_at,version:x.version})),requestId);
@@ -133,11 +136,11 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
    await run(ctx,[audit(ctx,Number(row.meta.last_row_id),"created",{sourceId})]);return success(await getOrder(ctx,Number(row.meta.last_row_id)),requestId);
   }
   if(path==="pending"&&method==="GET"){
-   const all=await rows<{order_id:number;id:number;item_code:string;item_name:string;quantity:number|null;unit:string;closed_as:string|null;received:number;source_name:string;order_date:string}>(ctx.db,
-    "SELECT l.id,l.order_id,l.item_code,l.item_name,l.quantity,l.unit,l.closed_as,COALESCE((SELECT SUM(quantity) FROM ordering_receipt_lines rl WHERE rl.line_id=l.id),0) received,s.name source_name,COALESCE(o.planned_send_date,substr(o.created_at,1,10)) order_date FROM ordering_lines l JOIN ordering_orders o ON o.id=l.order_id JOIN ordering_sources s ON s.id=o.source_id WHERE o.status='SENT' AND l.closed_as IS NULL ORDER BY o.sent_at DESC,l.id DESC LIMIT 1501");
+   const all=await rows<{order_id:number;id:number;item_code:string;item_name:string;vendor_item_name:string;quantity:number|null;unit:string;closed_as:string|null;received:number;source_name:string;order_date:string}>(ctx.db,
+    "SELECT l.id,l.order_id,l.item_code,l.item_name,l.vendor_item_name,l.quantity,l.unit,l.closed_as,COALESCE((SELECT SUM(quantity) FROM ordering_receipt_lines rl WHERE rl.line_id=l.id),0) received,s.name source_name,COALESCE(o.planned_send_date,substr(o.created_at,1,10)) order_date FROM ordering_lines l JOIN ordering_orders o ON o.id=l.order_id JOIN ordering_sources s ON s.id=o.source_id WHERE o.status='SENT' AND l.closed_as IS NULL ORDER BY o.sent_at DESC,l.id DESC LIMIT 1501");
    const result=all.filter(x=>x.quantity!==null&&x.received<x.quantity);
    if(all.length>1500)throw new Bad("ORDERING_LIMIT","未到貨查詢超過安全上限",409);
-   return success(result.map(x=>({orderId:x.order_id,lineId:x.id,itemCode:x.item_code,itemName:x.item_name,sourceName:x.source_name,orderDate:x.order_date,quantity:x.quantity,unit:x.unit,received:x.received,remaining:(x.quantity??0)-x.received})),requestId);
+   return success(result.map(x=>({orderId:x.order_id,lineId:x.id,itemCode:x.item_code,itemName:x.item_name,vendorItemName:x.vendor_item_name,sourceName:x.source_name,orderDate:x.order_date,quantity:x.quantity,unit:x.unit,received:x.received,remaining:(x.quantity??0)-x.received})),requestId);
   }
   if(path==="vendor-memory"&&method==="GET"){
    const sourceId=int(Number(url.searchParams.get("sourceId")),"來源"),key=vendorItemKey(url.searchParams.get("itemCode")??"",url.searchParams.get("itemName")??"");if(!key)return success(null,requestId);
@@ -156,7 +159,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
   }
   m=/^orders\/(\d+)(?:\/(.*))?$/.exec(path);
   if(m){const id=int(Number(m[1]),"單據"),action=m[2]??"",o=await one<Ord>(ctx.db,"SELECT * FROM ordering_orders WHERE id=?",id);if(!o)throw new Bad("ORDERING_NOT_FOUND","叫貨單不存在",404);
-   if(!action&&method==="GET")return success(await getOrder(ctx,id),requestId);
+   if(!action&&method==="GET")return success(await getOrder(ctx,id,o),requestId);
    const v=await body(request),expected=int(v.expectedVersion,"版本");if(expected!==o.version)throw new Bad("ORDERING_VERSION_CONFLICT","已被其他人修改，請重新載入",409);
    if(!action&&method==="PATCH"){
     if(o.status==="VOID")throw new Bad("ORDERING_INVALID","單據已作廢");
@@ -176,7 +179,8 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
    if(action==="send"&&method==="POST"){
     if(o.status!=="DRAFT")throw new Bad("ORDERING_INVALID","只有草稿能送出");
     const lines=await rows<Line>(ctx.db,"SELECT * FROM ordering_lines WHERE order_id=? LIMIT 501",id);
-    if(!lines.length||lines.some(x=>!x.item_name.trim()||!x.quantity_text.trim()))throw new Bad("ORDERING_INVALID","品名、數量必填，至少需要一列");
+    const source=await one<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE id=?",o.source_id);
+    if(!lines.length||lines.some(x=>!orderingLineHasName(source?.kind??"GENERAL",{itemName:x.item_name,vendorItemName:x.vendor_item_name})||!x.quantity_text.trim()))throw new Bad("ORDERING_INVALID","品名（一般／廠商來源亦可填廠商品名）、數量必填，至少需要一列");
     const guard=ctx.db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM ordering_orders WHERE id=? AND version=? AND status='DRAFT') THEN 1 ELSE json('') END").bind(id,expected);
     await run(ctx,[guard,ctx.db.prepare("UPDATE ordering_orders SET status='SENT',sent_at=?,sent_by=?,revision=1,version=version+1,updated_at=? WHERE id=? AND version=?").bind(ctx.now,ctx.actor,ctx.now,id,expected),audit(ctx,id,"sent",{sourceId:o.source_id,items:lines.length})]);
     return success(await getOrder(ctx,id),requestId);
@@ -192,13 +196,13 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     if(input==="delete"){if(!old)throw new Bad("ORDERING_INVALID","沒有選擇明細");
      const received=await one<{n:number}>(ctx.db,"SELECT COUNT(*) n FROM ordering_receipt_lines WHERE line_id=?",old.id);
      if(received?.n)throw new Bad("ORDERING_INVALID","已有到貨，不能刪除明細");
-     return success(await mutate(ctx,o,expected,[ctx.db.prepare("DELETE FROM ordering_lines WHERE id=? AND order_id=?").bind(old.id,id)],old.item_name+" 刪除明細","line_deleted"),requestId);
+     return success(await mutate(ctx,o,expected,[ctx.db.prepare("DELETE FROM ordering_lines WHERE id=? AND order_id=?").bind(old.id,id)],(old.item_name||old.vendor_item_name)+" 刪除明細","line_deleted"),requestId);
     }
     const raw=(v.line??{}) as Record<string,unknown>;
     const field=(key:string,fallback:string,max:number)=>key in raw?must(raw[key],key,max):fallback;
     const itemCode=field("itemCode",old?.item_code??"",40),itemName=field("itemName",old?.item_name??"",200);
     const qt=field("quantityText",old?.quantity_text??"",40);
-    if(!qt)throw new Bad("ORDERING_INVALID","品名與數量必填");
+    if(!qt)throw new Bad("ORDERING_INVALID","數量必填");
     if(!old){const total=await one<{n:number}>(ctx.db,"SELECT COUNT(*) n FROM ordering_lines WHERE order_id=?",id);
      if((total?.n??0)>=500)throw new Bad("ORDERING_LIMIT","單張叫貨單最多 500 列",409);
     }
@@ -212,7 +216,6 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     const source=await one<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE id=?",o.source_id);
     const section=source?.kind==="CN_REGULAR"?String(raw.section??old?.section??"OTHER"):"";
     if(!["","SINGLE","BAG","OTHER"].includes(section))throw new Bad("ORDERING_INVALID","區段不正確");
-    if(!finalName)throw new Bad("ORDERING_INVALID","品名與數量必填");
     // Empty draft fields are never treated as manually-entered vendor names.
     const manuallyNamed="vendorItemName" in raw&&String(raw.vendorItemName??"").trim().length>0;
     const remembered=vendorItemKey(itemCode,finalName);
@@ -220,23 +223,25 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     const vendorNameFollows=manuallyNamed?false:old?old.vendor_name_follows!==0:!memory?.vendor_item_name;
     const manualVendorCode="vendorItemCode" in raw&&String(raw.vendorItemCode??"").trim().length>0;
     const vendorItemName=vendorNameFollows?finalName:manuallyNamed?must(raw.vendorItemName,"vendorItemName",200):old?.vendor_item_name||memory?.vendor_item_name||finalName;
+    if(!orderingLineHasName(source?.kind??"GENERAL",{itemName:finalName,vendorItemName}))throw new Bad("ORDERING_INVALID","請填寫品名或廠商品名，以及數量");
     const vendorCode=manualVendorCode?must(raw.vendorItemCode,"vendorItemCode",200):old?.vendor_item_code||memory?.vendor_item_code||"";
     const spec=field("spec",old?.spec??"",200),note=field("note",old?.note??"",300);
     const sortOrder=Number(raw.sortOrder??old?.sort_order??Date.now());if(!Number.isSafeInteger(sortOrder)||sortOrder<0)throw new Bad("ORDERING_INVALID","排序不正確");
     const fields=[section,sortOrder,itemCode,finalName,vendorCode,vendorItemName,vendorNameFollows?1:0,spec,qt,parsed.quantity,unit,note];
     const sql=old?"UPDATE ordering_lines SET section=?,sort_order=?,item_code=?,item_name=?,vendor_item_code=?,vendor_item_name=?,vendor_name_follows=?,spec=?,quantity_text=?,quantity=?,unit=?,note=? WHERE id=? AND order_id=?":
       "INSERT INTO ordering_lines(section,sort_order,item_code,item_name,vendor_item_code,vendor_item_name,vendor_name_follows,spec,quantity_text,quantity,unit,note,id,order_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-    const stmt=ctx.db.prepare(sql).bind(...fields,old?.id??null,id);
+    const savedLineId=old?.id??Number.parseInt(crypto.randomUUID().replaceAll("-","").slice(0,13),16);
+    const stmt=ctx.db.prepare(sql).bind(...fields,savedLineId,id);
     const oldKeys:Record<string,string>={itemCode:"item_code",itemName:"item_name",quantityText:"quantity_text",unit:"unit",vendorItemCode:"vendor_item_code",vendorItemName:"vendor_item_name",sortOrder:"sort_order",spec:"spec",section:"section",note:"note"};
     const labels:Record<string,string>={itemCode:"品號",itemName:"品名",quantityText:"數量",unit:"單位",vendorItemCode:"廠商品號",vendorItemName:"廠商品名",sortOrder:"排序",spec:"規格",section:"分類",note:"備註"};
     const updates=Object.entries(raw).filter(([key,value])=>key in oldKeys&&String(old?.[oldKeys[key] as keyof Line]??"")!==String(value??""));
-    const summary=(old?.item_name??finalName)+" "+(!old?"新增":updates.length?updates.map(([key,value])=>labels[key]+" "+String(old?.[oldKeys[key] as keyof Line]??"")+" → "+String(value)).join("、"):"編輯");
+    const summary=(old?.item_name||finalName||vendorItemName)+" "+(!old?"新增":updates.length?updates.map(([key,value])=>labels[key]+" "+String(old?.[oldKeys[key] as keyof Line]??"")+" → "+String(value)).join("、"):"編輯");
     const stmts:D1PreparedStatement[]=[stmt];
     if((String(raw.vendorItemCode??"").trim()||manuallyNamed)&&vendorItemKey(itemCode,finalName)){
      const key=vendorItemKey(itemCode,finalName)!;
      stmts.push(ctx.db.prepare("INSERT INTO ordering_vendor_items(source_id,key_type,item_key,vendor_item_code,vendor_item_name,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(source_id,key_type,item_key) DO UPDATE SET vendor_item_code=CASE WHEN excluded.vendor_item_code<>'' THEN excluded.vendor_item_code ELSE ordering_vendor_items.vendor_item_code END, vendor_item_name=CASE WHEN excluded.vendor_item_name<>'' THEN excluded.vendor_item_name ELSE ordering_vendor_items.vendor_item_name END,updated_at=excluded.updated_at").bind(o.source_id,key.type,key.key,String(raw.vendorItemCode??"").trim()?vendorCode:old?.vendor_item_code??"", manuallyNamed?vendorItemName:old?.vendor_item_name??"",ctx.now));
     }
-    return success(await mutate(ctx,o,expected,stmts,summary,"line_saved"),requestId);
+    return success({...await mutate(ctx,o,expected,stmts,summary,"line_saved"),savedLineId},requestId);
    }
    if(action==="receipts"&&method==="POST"){
     if(o.status!=="SENT")throw new Bad("ORDERING_INVALID","尚未送出");
@@ -263,7 +268,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     const note=must(v.reason??"","原因",200);if(closed==="OTHER"&&!note)throw new Bad("ORDERING_INVALID","其他原因必填");
     const line=await one<Line>(ctx.db,"SELECT * FROM ordering_lines WHERE order_id=? AND id=?",id,lineId);
     if(!line||line.closed_as)throw new Bad("ORDERING_INVALID","明細不能結掉");
-    return success(await mutate(ctx,o,expected,[ctx.db.prepare("UPDATE ordering_lines SET closed_as=?,closed_note=?,closed_at=?,closed_by=? WHERE order_id=? AND id=?").bind(closed,note,ctx.now,ctx.actor,id,lineId)],line.item_name+" "+closed,"closed"),requestId);
+    return success(await mutate(ctx,o,expected,[ctx.db.prepare("UPDATE ordering_lines SET closed_as=?,closed_note=?,closed_at=?,closed_by=? WHERE order_id=? AND id=?").bind(closed,note,ctx.now,ctx.actor,id,lineId)],(line.item_name||line.vendor_item_name)+" "+closed,"closed"),requestId);
    }
   }
   return failure({code:"NOT_FOUND",message:"找不到叫貨功能"},requestId,404);

@@ -4,6 +4,7 @@ import {DatabaseSync} from "node:sqlite";
 import {readFileSync,readdirSync} from "node:fs";
 import {build} from "esbuild";
 import "./ordering-grid.test.mjs";
+import "./ordering-page.test.mjs";
 const compiled=await build({entryPoints:["shared/ordering.ts","shared/ordering-export.ts","shared/xlsx-writer.ts"],bundle:true,format:"esm",platform:"node",outdir:"out",write:false});
 const modules=await Promise.all(compiled.outputFiles.map(async f=>import("data:text/javascript;base64,"+Buffer.from(f.text).toString("base64"))));
 const logic=modules.find(m=>m.parseQuantity),excel=modules.find(m=>m.orderSheet),zip=modules.find(m=>m.buildXlsx);
