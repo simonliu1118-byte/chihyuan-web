@@ -1,4 +1,4 @@
-import {Field,FormSection} from "../../../ui/forms/Field";
+import {Field,FormSection,RequiredRows} from "../../../ui/forms/Field";
 import { enterAdvancesFields } from "../../../ui/foundation/enter-advance";
 import { FormEvent, useState } from "react";
 import type { CustomerItemOption } from "../../../../shared/business-lookups";
@@ -73,6 +73,7 @@ export function QuoteCreateForm({ customerId, initialLines, onSaved, onCancel }:
       <Field label="備註" size="l"><input className="cy-op-input" value={note} disabled={busy} maxLength={120}
         onChange={event => setNote(event.target.value)} /></Field>
     </div>
+    <RequiredRows label="報價品項" satisfied={lines.length>0}/>
     <div className="cy-customer-quote-lines">
       {lines.map((line, index) => <div key={index} className="cy-customer-quote-line">
         <EntityPicker<CustomerItemOption> label="商品" value={line.item} required disabled={busy}
