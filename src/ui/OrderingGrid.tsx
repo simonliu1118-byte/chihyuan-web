@@ -1,5 +1,6 @@
 import {useEffect,useState,type KeyboardEvent} from "react";
 import type {OrderingSourceKind,OrderingSection} from "../../shared/ordering";
+import {parseQuantity} from "../../shared/ordering";
 export interface GridLine{ id:number;section:OrderingSection;sortOrder:number;itemCode:string;itemName:string;vendorItemCode:string;vendorItemName:string;spec:string;quantityText:string;unit:string;note:string;vendorNameFollows?:boolean; }
 const columns={
  GENERAL:[["itemCode","品號"],["itemName","品名"],["vendorItemCode","廠商品號"],["vendorItemName","廠商品名"],["quantityText","數量"],["unit","單位"],["note","備註"]],
@@ -20,7 +21,7 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete}:Props){
   if(row.id)await onCommit(row,patch);else{
    const next={...draft,...patch};
    setDraft(next);
-   if(next.itemName.trim()&&next.quantityText.trim()){await onCommit(next,next);setDraft(empty(section))}
+   if((next.itemName.trim()||next.itemCode.trim())&&next.quantityText.trim()){await onCommit(next,next);setDraft(empty(section))}
   }
  }
  function enter(e:KeyboardEvent<HTMLInputElement>,idx:number,col:number){
@@ -38,11 +39,13 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete}:Props){
       <input data-order-field="true" className="cy-op-input" aria-label={title+" 第"+(i+1)+"列"} title={title} disabled={busy} value={value} required={field==="itemName"||field==="quantityText"}
        style={{minWidth:field==="itemName"||field==="vendorItemName"?125:72,width:"100%"}}
        onChange={e=>{setEditing(old=>({...old,[key]:e.target.value}));if(!line.id)setDraft(d=>({...d,[field]:e.target.value}))}}
-       onBlur={()=>{if(line.id&&value!==String(line[field as keyof GridLine]??""))void commit(line,field as keyof GridLine,value).finally(()=>setEditing(prev=>{const next={...prev};delete next[key];return next}));else if(!line.id&&draft.itemName&&draft.quantityText)void commit(draft,field as keyof GridLine,value);}}
+       onBlur={()=>{if(line.id&&value!==String(line[field as keyof GridLine]??""))void commit(line,field as keyof GridLine,value).finally(()=>setEditing(prev=>{const next={...prev};delete next[key];return next}));else if(!line.id&&(draft.itemName||draft.itemCode)&&draft.quantityText)void commit(draft,field as keyof GridLine,value);}}
        onKeyDown={e=>enter(e,i,j)}/></td>})}
     <td><button type="button" className="cy-op-button" disabled={busy||!line.id} onClick={()=>void onDelete(line)}>刪除</button>
       {line.id?<><button type="button" className="cy-op-button" disabled={busy||i===0} onClick={()=>void onCommit(line,{sortOrder:(lines.filter(x=>x.section===section)[i-1]?.sortOrder??0)-1})}>↑</button><button type="button" className="cy-op-button" disabled={busy||i===lines.filter(x=>x.section===section).length-1} onClick={()=>void onCommit(line,{sortOrder:(lines.filter(x=>x.section===section)[i+1]?.sortOrder??0)+1})}>↓</button></>:null}</td></tr>)}
    </tbody>
-  </table><p className="cy-erp-search-hint">逐格離開或按 Enter 自動儲存；品名與數量為必填。數量無法拆解時不計到貨。</p>
+  </table>
+  {lines.filter(x=>x.section===section&&x.quantityText&&parseQuantity(x.quantityText).quantity===null).map(x=><p key={x.id} className="cy-notice cy-notice-warning">「{x.itemName||x.itemCode}」數量無法拆解，保留文字、不計到貨量。</p>)}
+  <p className="cy-erp-search-hint">逐格離開或按 Enter 自動儲存；品名與數量為必填。已填品號時可由 ERP 帶入空白品名。</p>
  </div>;
 }
