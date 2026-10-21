@@ -12,6 +12,7 @@ const empty=(section:OrderingSection,id:number):GridLine=>({id,section,sortOrder
 type Props={kind:OrderingSourceKind;section:OrderingSection;lines:GridLine[];busy:boolean;onCommit:(line:GridLine,patch:Partial<GridLine>)=>Promise<void>;onDelete:(line:GridLine)=>Promise<void>};
 export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete}:Props){
  const nextTemp=useRef(-2);
+ const containerRef=useRef<HTMLDivElement>(null);
  const [drafts,setDrafts]=useState<GridLine[]>(()=>[empty(section,-1)]);
  const draftsRef=useRef(drafts);
  const inFlight=useRef(new Set<number>());
@@ -27,7 +28,7 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete}:Props){
   setDrafts(draftsRef.current);
  };
  const focus=(id:number,field:string)=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
-  document.querySelector<HTMLInputElement>(`input[data-order-row="${id}"][data-order-field="${field}"]`)?.focus();
+  containerRef.current?.querySelector<HTMLInputElement>(`input[data-order-row="${id}"][data-order-field="${field}"]`)?.focus();
  }));
  const commitNew=(row:GridLine)=>{
   const latest=draftsRef.current.find(d=>d.id===row.id);
@@ -47,7 +48,10 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete}:Props){
  const commitCell=(row:GridLine,field:keyof GridLine,value:string)=>{
   if(row.id<0){setDraftValue(row,field,value);commitNew(row);return}
   if(getValue(row,field)===value){setEditing(prev=>{const n={...prev};delete n[row.id+"|"+field];return n});return}
-  void onCommit(row,{[field]:value}).then(()=>setEditing(prev=>{const n={...prev};delete n[row.id+"|"+field];return n})).catch(()=>{/* Keep entered value on failed request; parent shows error. */});
+  void onCommit(row,{[field]:value}).then(()=>setEditing(prev=>{
+    const key=row.id+"|"+field;if(prev[key]!==value)return prev;
+    const n={...prev};delete n[key];return n;
+   })).catch(()=>{/* Keep entered value on failed request; parent shows error. */});
  };
  function enter(e:KeyboardEvent<HTMLInputElement>,row:GridLine,col:number){
   if(e.key!=="Enter"||e.nativeEvent.isComposing)return;
@@ -66,13 +70,13 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete}:Props){
    if(next)focus(next.id,fields[0][0]);
   }
  }
- return <div className="cy-ordering-grid-scroll" role="region" aria-label="叫貨明細" tabIndex={0}>
+ return <div ref={containerRef} className="cy-ordering-grid-scroll" role="region" aria-label="叫貨明細" tabIndex={0}>
   <table className="cy-ordering-grid"><thead><tr><th>項次</th>{fields.map(([_,label])=><th key={label}>{label}</th>)}<th>操作</th></tr></thead>
    <tbody>{visible.map((row,i)=><tr key={row.id} data-saving={inFlight.current.has(row.id)||undefined}><td>{i+1}</td>
     {fields.map(([field,title],col)=>{
      const key=row.id+"|"+field,value=editing[key]??getValue(row,field);
      return <td key={field}><input data-order-row={row.id} data-order-field={field} className="cy-op-input"
-       aria-label={title+" 第"+(i+1)+"列"} title={title} value={value}
+       aria-label={title+" 第"+(i+1)+"列"} title={title} value={value} disabled={busy}
        aria-busy={inFlight.current.has(row.id)||undefined}
        required={field==="itemName"||field==="quantityText"}
        onChange={e=>{setEditing(prev=>({...prev,[key]:e.target.value}));if(row.id<0)setDraftValue(row,field,e.target.value)}}
