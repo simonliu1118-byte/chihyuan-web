@@ -1,3 +1,4 @@
+import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import { formatDate } from "../../ui/foundation/format";
 import { StatusFilter } from "../../ui/data/StatusFilter";
 import { workLogNextStep, workLogTone } from "./status-flow";
@@ -520,24 +521,27 @@ export function WorkLogOperationalPage() {
           <button type="submit" form={reviewFormId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>完成審核</button>
         </div>}>
         {reviewDraft ? <form onKeyDown={enterAdvancesFields} id={reviewFormId} onSubmit={event => void saveReview(event)}>
+    <FormSection>
           <p>{reviewDraft.record.workLogRef}</p>
           {message ? <p role="alert" className="cy-auth-error">{message}</p> : null}
-          <div className="cy-op-form-grid">
-            <label>工作日數<input className="cy-op-input" inputMode="decimal" required disabled={busy} value={reviewDraft.workDays}
-              onChange={event => setReviewDraft({ ...reviewDraft, workDays: event.target.value })} /></label>
-            <label className="wide">整體審核備註<textarea className="cy-op-input" disabled={busy} value={reviewDraft.remark}
-              onChange={event => setReviewDraft({ ...reviewDraft, remark: event.target.value })} /></label>
+          <div className="cy-f-grid">
+            <Field  label="工作日數" size="m" required><input className="cy-op-input" inputMode="decimal" disabled={busy} value={reviewDraft.workDays}
+              onChange={event => setReviewDraft({ ...reviewDraft, workDays: event.target.value })} /></Field>
+            <Field  label="整體審核備註" size="l"><textarea className="cy-op-input" disabled={busy} value={reviewDraft.remark}
+              onChange={event => setReviewDraft({ ...reviewDraft, remark: event.target.value })} /></Field>
           </div>
           {reviewDraft.entries.map((entry, index) => <section className="cy-op-subsection" key={entry.entryId}>
             <h3>工作項目 {index + 1}</h3><p>{entry.content}</p>
-            <div className="cy-op-form-grid">
-              <label>審核分數（留空不計分）<input className="cy-op-input" inputMode="decimal" disabled={busy} value={entry.score}
-                onChange={event => setReviewDraft({ ...reviewDraft, entries: reviewDraft.entries.map((row, i) => i === index ? { ...row, score: event.target.value } : row) })} /></label>
-              <label className="wide">項目審核備註<textarea className="cy-op-input" disabled={busy} value={entry.remark}
-                onChange={event => setReviewDraft({ ...reviewDraft, entries: reviewDraft.entries.map((row, i) => i === index ? { ...row, remark: event.target.value } : row) })} /></label>
+            <div className="cy-f-grid">
+              <Field  label="審核分數（留空不計分）" size="s"><input className="cy-op-input" inputMode="decimal" disabled={busy} value={entry.score}
+                onChange={event => setReviewDraft({ ...reviewDraft, entries: reviewDraft.entries.map((row, i) => i === index ? { ...row, score: event.target.value } : row) })} /></Field>
+              <Field  label="項目審核備註" size="l"><textarea className="cy-op-input" disabled={busy} value={entry.remark}
+                onChange={event => setReviewDraft({ ...reviewDraft, entries: reviewDraft.entries.map((row, i) => i === index ? { ...row, remark: event.target.value } : row) })} /></Field>
             </div>
           </section>)}
-        </form> : null}
+        
+    </FormSection>
+  </form> : null}
       </Dialog>
       <Dialog open={reasonDraft !== null} title={reasonDraft?.kind === "cancel" ? "取消審核" : "撤回審核"}
         size="small" dismissible={!busy} onClose={() => void closeReason()} footer={<div className="cy-dialog-action-row">
@@ -545,11 +549,14 @@ export function WorkLogOperationalPage() {
           <button type="submit" form={reasonFormId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>確認</button>
         </div>}>
         {reasonDraft ? <form onKeyDown={enterAdvancesThenSubmits} id={reasonFormId} onSubmit={event => void saveReason(event)}>
+    <FormSection>
           <p>{reasonDraft.record.workLogRef}</p>
           {message ? <p role="alert" className="cy-auth-error">{message}</p> : null}
-          <label>原因（可留空）<textarea className="cy-op-input" disabled={busy} value={reasonDraft.reason}
-            onChange={event => setReasonDraft({ ...reasonDraft, reason: event.target.value })} /></label>
-        </form> : null}
+          <Field  label="原因（可留空）" size="l"><textarea className="cy-op-input" disabled={busy} value={reasonDraft.reason}
+            onChange={event => setReasonDraft({ ...reasonDraft, reason: event.target.value })} /></Field>
+        
+    </FormSection>
+  </form> : null}
       </Dialog>
       
       <FeedbackBanner message={message} tone={messageTone} />
@@ -595,16 +602,17 @@ export function WorkLogOperationalPage() {
           <MasterDetailBack label="工作日誌清單" disabled={busy} onBack={async () => { if (editing) { if (busy || !await canLeave()) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
           {editing && draft ? (
           <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void save(event)}>
+    <FormSection>
             <div className="cy-record-header cy-edit-header">
               <div><h2>{creating ? "新增工作日誌" : `修改 ${selected?.workLogRef ?? "工作日誌"}`}</h2></div>
             <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
               <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立日誌" : "儲存修改"}</button></div></div>
-            <div className="cy-op-form-grid cy-worklog-head-grid cy-form-grid-spaced">
-              <label>日誌日期<input className="cy-op-input" type="date" max="9999-12-31" value={draft.logDate} disabled={busy} onChange={(event) => setDraft({ ...draft, logDate: event.target.value })} /></label>
-              <label>期間起<input className="cy-op-input" type="date" max="9999-12-31" value={draft.dateFrom} disabled={busy} onChange={(event) => setDraft({ ...draft, dateFrom: event.target.value })} /></label>
-              <label>期間迄<input className="cy-op-input" type="date" max="9999-12-31" value={draft.dateTo} disabled={busy} onChange={(event) => setDraft({ ...draft, dateTo: event.target.value })} /></label>
-              <label>工作日數<input className="cy-op-input" value={draft.workDays} inputMode="decimal" disabled={busy} onChange={(event) => setDraft({ ...draft, workDays: event.target.value })} required /></label>
-              <label>日誌類型<input className="cy-op-input" value={draft.typeCode} disabled={busy} onChange={(event) => setDraft({ ...draft, typeCode: event.target.value })} placeholder="輸入日誌類型" required /></label>
+            <div className="cy-f-grid cy-worklog-head-grid cy-form-grid-spaced">
+              <Field  label="日誌日期" size="s"><input className="cy-op-input" type="date" max="9999-12-31" value={draft.logDate} disabled={busy} onChange={(event) => setDraft({ ...draft, logDate: event.target.value })} /></Field>
+              <Field  label="期間起" size="s"><input className="cy-op-input" type="date" max="9999-12-31" value={draft.dateFrom} disabled={busy} onChange={(event) => setDraft({ ...draft, dateFrom: event.target.value })} /></Field>
+              <Field  label="期間迄" size="s"><input className="cy-op-input" type="date" max="9999-12-31" value={draft.dateTo} disabled={busy} onChange={(event) => setDraft({ ...draft, dateTo: event.target.value })} /></Field>
+              <Field  label="工作日數" size="m" required><input className="cy-op-input" value={draft.workDays} inputMode="decimal" disabled={busy} onChange={(event) => setDraft({ ...draft, workDays: event.target.value })} /></Field>
+              <Field  label="日誌類型" size="s" required><input className="cy-op-input" value={draft.typeCode} disabled={busy} onChange={(event) => setDraft({ ...draft, typeCode: event.target.value })} placeholder="輸入日誌類型" /></Field>
             </div>
 
             <section className="cy-form-block">
@@ -613,15 +621,13 @@ export function WorkLogOperationalPage() {
               {draft.entries.map((entry, entryIndex) => (
                 <div className="cy-worklog-entry" key={entry.key}>
                   <div className="cy-worklog-entry-head"><strong>工作項目 {entryIndex + 1}</strong><button type="button" className="cy-op-button compact quiet cy-row-remove" disabled={busy || draft.entries.length <= 1} onClick={() => removeEntry(entryIndex)}>移除</button></div>
-                  <div className="cy-op-form-grid">
-                    <label>項目類型<input className="cy-op-input" value={entry.entryTypeCode} disabled={busy} onChange={(event) => patchEntry(entryIndex, { entryTypeCode: event.target.value })} placeholder="輸入項目類型" required /></label>
-                    <label>平台
-                      <select className="cy-op-input" value={entry.platformId ?? ""} disabled={busy} onChange={(event) => patchEntry(entryIndex, { platformId: Number(event.target.value) || null })}>
+                  <div className="cy-f-grid">
+                    <Field  label="項目類型" size="s" required><input className="cy-op-input" value={entry.entryTypeCode} disabled={busy} onChange={(event) => patchEntry(entryIndex, { entryTypeCode: event.target.value })} placeholder="輸入項目類型" /></Field>
+                    <Field  label="平台" size="m"><select className="cy-op-input" value={entry.platformId ?? ""} disabled={busy} onChange={(event) => patchEntry(entryIndex, { platformId: Number(event.target.value) || null })}>
                         <option value="">未指定</option>
                         {(configuration?.platforms ?? []).map((platform) => <option key={platform.id} value={platform.id}>{platform.name}</option>)}
-                      </select>
-                    </label>
-                    <label className="wide">工作內容<textarea className="cy-op-input" rows={3} value={entry.content} disabled={busy} onChange={(event) => patchEntry(entryIndex, { content: event.target.value })} /></label>
+                      </select></Field>
+                    <Field  label="工作內容" size="l"><textarea className="cy-op-input" rows={3} value={entry.content} disabled={busy} onChange={(event) => patchEntry(entryIndex, { content: event.target.value })} /></Field>
                   </div>
                   <div className="cy-worklog-categories">
                     <div className="cy-worklog-categories-head"><span>計分分類</span><button type="button" className="cy-op-button compact" disabled={busy} onClick={() => addCategory(entryIndex)}>＋ 加入分類</button></div>
@@ -642,7 +648,9 @@ export function WorkLogOperationalPage() {
               </div>
             </section>
 
-          </form>
+          
+    </FormSection>
+  </form>
           ) : selected ? <div>
             <div className="cy-record-header"><div><h2>{formatDate(selected.logDate)} 工作日誌</h2><p><span className="cy-mono">{selected.workLogRef}</span> · {selected.employee.displayName || selected.employee.employeeNo || `員工 #${selected.employeeId}`}</p></div>
               <div className="cy-record-actions">
