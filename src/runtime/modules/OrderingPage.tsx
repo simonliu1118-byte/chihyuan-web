@@ -221,6 +221,7 @@ export function OrderingPage(){
          {expanded(v)?<OrderingGrid kind="VENDOR" section="" lines={v.lines} busy={false}
           onCommit={async(row,patch)=>{await commitVendorRow(v,row,patch)}} onDelete={async row=>{await deleteVendorRow(v,row)}}/>:null}
         </div>)}
+    </>
     :current?<><div className="cy-page-toolbar"><h3>{current.sourceName}　{ORDERING_STATUS_LABELS[current.status]}</h3>
       <button type="button" className="cy-op-button" onClick={()=>void openDraft(current.sourceId)}>回到草稿</button>
       <select className="cy-op-input" value={current.storedStatus==="DRAFT"?String(current.id):""} aria-label="切換草稿" onChange={e=>{if(e.target.value)void reloadOrder(Number(e.target.value))}}><option value="">選擇草稿</option>{drafts.map(d=><option key={d.id} value={d.id}>{d.plannedSendDate?displayDate(d.plannedSendDate).slice(5):"無預計日"}{current.storedStatus==="DRAFT"&&d.id===current.id?"（目前）":""}</option>)}</select>
