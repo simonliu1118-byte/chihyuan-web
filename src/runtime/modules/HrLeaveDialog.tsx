@@ -121,10 +121,9 @@ export function HrLeaveDialog({person:given,people,types,initialDate,initialType
      <Field  label="起始時間" size="s"><input className="cy-op-input" type="time" value={startTime} onChange={e=>setStartTime(e.target.value)}/></Field>
      <Field  label="結束時間" size="s"><input className="cy-op-input" type="time" value={endTime} onChange={e=>setEndTime(e.target.value)}/></Field>
     </>}</>}
-   {isComp?<Field  label="補休來源" size="s"><select className="cy-op-input" value={advanceDate} onChange={e=>setAdvanceDate(e.target.value)}>
+   {isComp?<Field label="補休來源" size="s" hint={advanceDate?"預支會另外列出，只有這個國定假日的補休給予後才會抵銷，不會從現有補休扣除。":undefined}><select className="cy-op-input" value={advanceDate} onChange={e=>setAdvanceDate(e.target.value)}>
      <option value="">使用現有補休</option>
-     {holidays.map(h=><option key={h.date} value={h.date}>預支 {h.date.replaceAll("-","/")} {h.name} 的補休</option>)}</select>
-     {advanceDate?<small>預支會另外列出，只有這個國定假日的補休給予後才會抵銷，不會從現有補休扣除。</small>:null}</Field>:null}
+     {holidays.map(h=><option key={h.date} value={h.date}>預支 {h.date.replaceAll("-","/")} {h.name} 的補休</option>)}</select></Field>:null}
    {type?.requires_reason?<Field  label="事由（必填）" size="m" required><textarea className="cy-op-input" value={reason} onChange={e=>setReason(e.target.value)}/></Field>:null}
    {type?.quota_period==="event"?<Field  label="事件日期" size="s" required><input type="date" className="cy-op-input" max="9999-12-31" value={eventDate} onChange={e=>setEventDate(e.target.value)}/></Field>:null}
    {type?.event_quota_options?<Field  label="本次天數" size="m"><select className="cy-op-input" value={eventDays} onChange={e=>setEventDays(e.target.value)}>{type.event_quota_options.split(",").map(x=><option key={x}>{x}</option>)}</select></Field>:null}
