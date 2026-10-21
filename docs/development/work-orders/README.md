@@ -1,6 +1,6 @@
 # CY Web 工作單
 
-工作單是 `PROJECT_RULES.md` §9 的交接文件：Claude 討論定案後撰寫 → 使用者轉交 GPT 執行並填「完成報告」→ Claude 審查。一個版本一張，檔名 `WO-<版本>.md`（例如 `WO-0.9.13.md`）。工作單描述需求與狀態，不是規則來源；規則仍以 `REPOSITORY_RULES.md`、`REPO_POLICY.md`、`PROJECT_RULES.md`、Business Decisions 為準。
+工作單是 `REPOSITORY_RULES.md` §11.4（本 repo `PROJECT_RULES.md` §9 指向它）的交接文件，**只有在使用者指示 Claude 開立工作單轉交 GPT 製作時才使用**：Claude 討論定案後撰寫 → 使用者轉交 GPT 執行並填「完成報告」→ Claude 審查。一個版本一張，檔名 `WO-<版本>.md`（例如 `WO-0.9.13.md`）。工作單描述需求與狀態，不是規則來源；規則仍以 `REPOSITORY_RULES.md`、`REPO_POLICY.md`、`PROJECT_RULES.md`、Business Decisions 為準。
 
 ## 格式
 
