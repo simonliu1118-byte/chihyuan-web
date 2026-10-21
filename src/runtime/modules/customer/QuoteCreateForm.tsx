@@ -65,8 +65,8 @@ export function QuoteCreateForm({ customerId, initialLines, onSaved, onCancel }:
       setBusy(false);
     }
   }
-  return <form onKeyDown={enterAdvancesFields} className="cy-customer-quote-form" onSubmit={event =>
-    <FormSection> void save(event)}>
+  return <form onKeyDown={enterAdvancesFields} className="cy-customer-quote-form" onSubmit={event => void save(event)}>
+    <FormSection>
     <div className="cy-customer-quote-header-fields">
       <Field label="日期" size="s" required><input type="date" max="9999-12-31" className="cy-op-input" value={quoteDate} disabled={busy}
         onChange={event => setQuoteDate(event.target.value)} /></Field>
