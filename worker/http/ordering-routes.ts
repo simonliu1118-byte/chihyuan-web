@@ -187,8 +187,10 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     const vendorNameFollows=manuallyNamed?false:old?old.vendor_name_follows!==0:!memory?.vendor_item_name;
     const remembered=vendorItemKey(itemCode,finalName);
     const memory=remembered?await one<{vendor_item_code:string;vendor_item_name:string}>(ctx.db,"SELECT vendor_item_code,vendor_item_name FROM ordering_vendor_items WHERE source_id=? AND key_type=? AND item_key=?",o.source_id,remembered.type,remembered.key):null;
-    const vendorItemName=vendorNameFollows?finalName:field("vendorItemName",old?.vendor_item_name??memory?.vendor_item_name??"",200);
-    const vendorCode=field("vendorItemCode",old?.vendor_item_code??memory?.vendor_item_code??"",200),spec=field("spec",old?.spec??"",200),note=field("note",old?.note??"",300);
+    const manualVendorCode="vendorItemCode" in raw&&String(raw.vendorItemCode??"").trim().length>0;
+    const vendorItemName=vendorNameFollows?finalName:manuallyNamed?must(raw.vendorItemName,"vendorItemName",200):old?.vendor_item_name||memory?.vendor_item_name||finalName;
+    const vendorCode=manualVendorCode?must(raw.vendorItemCode,"vendorItemCode",200):old?.vendor_item_code||memory?.vendor_item_code||"";
+    const spec=field("spec",old?.spec??"",200),note=field("note",old?.note??"",300);
     const sortOrder=Number(raw.sortOrder??old?.sort_order??Date.now());if(!Number.isSafeInteger(sortOrder)||sortOrder<0)throw new Bad("ORDERING_INVALID","排序不正確");
     const fields=[section,sortOrder,itemCode,finalName,vendorCode,vendorItemName,vendorNameFollows?1:0,spec,qt,parsed.quantity,unit,note];
     const sql=old?"UPDATE ordering_lines SET section=?,sort_order=?,item_code=?,item_name=?,vendor_item_code=?,vendor_item_name=?,vendor_name_follows=?,spec=?,quantity_text=?,quantity=?,unit=?,note=? WHERE id=? AND order_id=?":
