@@ -223,7 +223,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     const vendorNameFollows=manuallyNamed?false:old?old.vendor_name_follows!==0:!memory?.vendor_item_name;
     const manualVendorCode="vendorItemCode" in raw&&String(raw.vendorItemCode??"").trim().length>0;
     const vendorItemName=vendorNameFollows?finalName:manuallyNamed?must(raw.vendorItemName,"vendorItemName",200):old?.vendor_item_name||memory?.vendor_item_name||finalName;
-    if(!orderingLineHasName(source?.kind??"GENERAL",{itemName:finalName,vendorItemName}))throw new Bad("ORDERING_INVALID","請填寫品名或廠商品名，以及數量");
+    if(!orderingLineHasName(source?.kind??"GENERAL",{itemName:finalName,vendorItemName}))throw new Bad("ORDERING_INVALID",source?.kind==="CN_REGULAR"||source?.kind==="CN_CUSTOM"?"請填寫品名及數量":"請填寫品名或廠商品名，以及數量");
     const vendorCode=manualVendorCode?must(raw.vendorItemCode,"vendorItemCode",200):old?.vendor_item_code||memory?.vendor_item_code||"";
     const spec=field("spec",old?.spec??"",200),note=field("note",old?.note??"",300);
     const sortOrder=Number(raw.sortOrder??old?.sort_order??Date.now());if(!Number.isSafeInteger(sortOrder)||sortOrder<0)throw new Bad("ORDERING_INVALID","排序不正確");

@@ -84,6 +84,7 @@ function mount(kind = "GENERAL", lines = []) {
   render();
   return { change, press, flush, input, commits, settlements,
     get editor() { return editor; }, get state() { return state; },
+    rowKey(id) { return descendants(tree).find(n => n.type === "tr" && descendants(n).some(child => child.props?.["data-order-row"] === id))?.key; },
     get focused() { return focused; },
     get rowIds() { return [...new Set(descendants(tree).filter(n => n.type === "input").map(n => n.props["data-order-row"]))]; } };
 }
@@ -156,11 +157,13 @@ for (const kind of ["GENERAL", "VENDOR"]) test(`${kind}: vendor-only row is ackn
   grid.change(-1, "vendorItemCode", "TEST-V01"); grid.change(-1, "vendorItemName", "測試廠商品名");
   grid.change(-1, "quantityText", "7"); grid.change(-1, "note", "測試備註"); grid.press(-1, "note");
   assert.deepEqual(grid.state, { dirty: true, saving: true });
+  const key = grid.rowKey(-1);
   let done = false; const saving = grid.editor.flush().then(result => { done = true; return result; });
   await tick(grid); assert.equal(done, false); assert.equal(grid.commits.length, 1);
   acknowledge(grid, 0); await tick(grid); assert.equal(await saving, true);
   assert.equal(grid.input(101, "itemName").props.value, "");
   assert.equal(grid.input(101, "vendorItemName").props.value, "測試廠商品名");
+  assert.equal(grid.rowKey(101), key, "acknowledging a new row must retain its React identity while typing");
   assert.deepEqual(grid.state, { dirty: false, saving: false });
 });
 

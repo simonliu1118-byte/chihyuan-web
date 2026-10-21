@@ -19,13 +19,14 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete,onRegist
  const draftsRef=useRef(drafts);
  const inFlight=useRef(new Map<number,Promise<boolean>>());
  const savedDrafts=useRef(new Map<number,{line:GridLine;input:GridLine}>());
+ const savedRowKeys=useRef(new Map<number,number>());
  const cellSaves=useRef(new Map<string,{value:string;promise:Promise<boolean>}>());
  const skipBlur=useRef(new Set<string>());
  const [editing,setEditing]=useState<Record<string,string>>({});
  const editingRef=useRef(editing);
  const [saveError,setSaveError]=useState(false);
  const setEdits=(update:(previous:Record<string,string>)=>Record<string,string>)=>{editingRef.current=update(editingRef.current);setEditing(editingRef.current)};
- useEffect(()=>{draftsRef.current=[empty(section,-1)];setDrafts(draftsRef.current);nextTemp.current=-2;inFlight.current.clear();savedDrafts.current.clear();cellSaves.current.clear();editingRef.current={};setEditing({});setSaveError(false)},[section,kind]);
+ useEffect(()=>{draftsRef.current=[empty(section,-1)];setDrafts(draftsRef.current);nextTemp.current=-2;inFlight.current.clear();savedDrafts.current.clear();savedRowKeys.current.clear();cellSaves.current.clear();editingRef.current={};setEditing({});setSaveError(false)},[section,kind]);
  const fields=columns[kind];
  const mappedIds=new Set([...savedDrafts.current.values()].map(x=>x.line.id));
  const visible=[...lines.filter(x=>x.section===section&&!mappedIds.has(x.id)),...drafts];
@@ -40,7 +41,8 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete,onRegist
   setDrafts(draftsRef.current);
  };
  const focus=(id:number,field:string)=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
-  containerRef.current?.querySelector<HTMLInputElement>(`input[data-order-row="${id}"][data-order-field="${field}"]`)?.focus();
+  const target=id<0?[...savedRowKeys.current].find(([,key])=>key===id)?.[0]??id:id;
+  containerRef.current?.querySelector<HTMLInputElement>(`input[data-order-row="${target}"][data-order-field="${field}"]`)?.focus();
  }));
  const commitNew=(row:GridLine)=>{
   const latest=draftsRef.current.find(d=>d.id===row.id);
@@ -62,6 +64,7 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete,onRegist
      const persisted=await onCommit(known?.line??{...snapshot,id:0},patch);
      if(!persisted||persisted.id<=0)throw new Error("未取得儲存確認，請保留輸入後重試");
      savedDrafts.current.set(row.id,{line:persisted,input:snapshot});
+     savedRowKeys.current.set(persisted.id,row.id);
     }
     const newest=draftsRef.current.find(d=>d.id===row.id);
     if(newest&&fields.some(([field])=>getValue(newest,field)!==getValue(snapshot,field)))continue;
@@ -124,7 +127,7 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete,onRegist
  }
  return <div ref={containerRef} className="cy-ordering-grid-scroll" role="region" aria-label="叫貨明細" tabIndex={0}>
   <table className="cy-ordering-grid"><thead><tr><th>項次</th>{fields.map(([_,label])=><th key={label}>{label}</th>)}<th>操作</th></tr></thead>
-   <tbody>{visible.map((row,i)=><tr key={row.id} data-saving={inFlight.current.has(row.id)||undefined}><td>{i+1}</td>
+   <tbody>{visible.map((row,i)=><tr key={savedRowKeys.current.get(row.id)??row.id} data-saving={inFlight.current.has(row.id)||undefined}><td>{i+1}</td>
     {fields.map(([field,title],col)=>{
      const key=row.id+"|"+field,value=editing[key]??getValue(row,field);
      return <td key={field}><input data-order-row={row.id} data-order-field={field} className="cy-op-input"
@@ -144,7 +147,7 @@ export function OrderingGrid({kind,section,lines,busy,onCommit,onDelete,onRegist
       <button type="button" className="cy-op-button compact quiet" aria-label="下移" disabled={i===lines.length-1} onClick={()=>void onCommit(row,{sortOrder:(visible[i+1]?.sortOrder??0)+1})}>↓</button></>:inFlight.current.has(row.id)?"儲存中":null}</td></tr>)}</tbody>
   </table>
   <p className="cy-erp-search-hint" role="status">{saveError?"儲存失敗，輸入仍保留；請重新確認後再切換。":saving?"儲存中，完成前請勿關閉網頁。":dirty?"尚未儲存：請填寫"+(kind==="GENERAL"||kind==="VENDOR"?"品名或廠商品名":"品名")+"及數量，按 Enter 或離開欄位儲存。":"已儲存"}</p>
-  {visible.filter(x=>x.quantityText&&parseQuantity(x.quantityText).quantity===null).map(x=><p key={x.id} className="cy-notice cy-notice-warning">「{x.itemName||x.itemCode}」數量無法拆解，保留文字、不計到貨量。</p>)}
+  {visible.filter(x=>x.quantityText&&parseQuantity(x.quantityText).quantity===null).map(x=><p key={x.id} className="cy-notice cy-notice-warning">「{x.itemName||x.vendorItemName||x.itemCode}」數量無法拆解，保留文字、不計到貨量。</p>)}
   <p className="cy-erp-search-hint">逐格按 Enter 或離開時儲存；儲存中仍可繼續輸入下一列。存檔失敗保留輸入，請重新確認後再送出。</p>
  </div>;
 }

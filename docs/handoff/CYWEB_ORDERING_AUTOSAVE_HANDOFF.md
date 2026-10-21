@@ -31,7 +31,7 @@
 |---|---|
 | `shared/ordering.ts` | `orderingLineHasName` 統一一般／廠商的擇一品名規則；未到貨資料帶獨立 `vendorItemName` |
 | `worker/http/ordering-routes.ts` | 儲存及送出採用新規則；成功附 `savedLineId`，新列產生 52-bit 安全整數 ID；保留版本鎖／稽核／交易。草稿略過到貨及修訂查詢，GET 不重查單據。搜尋納入廠商品名／品號；未到貨／稽核保留可識別的廠商品名 |
-| `src/ui/OrderingGrid.tsx` | 等儲存確認才清除暫存；等待中補填欄位更新至同一個明細 ID；失敗保留並能重試。提供 editor `flush/discard` 及 dirty/saving 狀態，中文儲存狀態。保留上一輪 Enter 修正 |
+| `src/ui/OrderingGrid.tsx` | 等儲存確認才清除暫存；等待中補填欄位更新至同一個明細 ID；失敗保留並能重試。確認後保留同一 React row key，避免伺服器 ID 替換時重新建立輸入控制；延後的焦點操作能解析該 ID。提供 editor `flush/discard` 及 dirty/saving 狀態，中文儲存狀態。保留上一輪 Enter 修正 |
 | `src/runtime/modules/OrderingPage.tsx` | 切換／送出／匯出前 flush、未完整則確認；套用共用離開保護。移除草稿路徑多餘 refresh，直接使用寫入回應與快取版本；來源切換用序號忽略過期載入。廠商增修／刪除同步當組與快取，不重查全畫面 |
 | `scripts/ordering-grid.test.mjs` | 實際元件事件：廠商欄位儲存、Enter、等待中補填、失敗重試不重複新增、確認前不宣稱已儲存 |
 | `scripts/ordering-page.test.mjs` | 實際頁面 handlers、控制 transport/editor 邊界：載入請求數、flush 等待、取消切換保留、過期回應、儲存回應精確對應列 |
