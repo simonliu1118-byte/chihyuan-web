@@ -219,6 +219,43 @@
 - 備份機制的容量擴充與 ordering 表重新納入可攜備份，是叫貨正式使用前的重要風險／TODO；未在本工單擅自修改備份系統。
 - PR #253 交付後應依 PROJECT_RULES §9 由 Claude 審查及決定下一步；**不得因 CI 成功就直接合併或部署**。
 
+### 8.7 第 2 輪完成報告（2026-10-21；回覆 §9.1 審查意見）
+
+- **PR：** [#253](https://github.com/simonliu1118-byte/chihyuan-web/pull/253)；原分支 `cyweb/ordering`；維持 Draft，未合併或部署。
+- **第 2 輪程式驗證 SHA：** `a3dc59c257981d0418727a82da575e35521ee663`（下面所列 Runtime CI 全綠）；本節報告提交會產生後續純文件 commit。
+- **審查者原 §9.1 保留不更動**；本節逐項記錄程式改動與可核對證據，**實際瀏覽器／手機畫面仍須由原審查者以相同測試頁複驗**。
+
+| §9.1 項次 | 第二輪處理結果與可驗證狀態 |
+|---|---|
+| 1. 慢網路連續輸入丟欄位／焦點 | **已改程式，等待實際瀏覽器複驗。** `OrderingGrid` 不再因一般自動存檔停用全表，改為每列有獨立暫存 ID、立即補新的空白列、輸入值本地保留，Enter 焦點以該表自己的 `ref` 找對應格；待寫入列不會清掉下一列的鍵盤焦點，Enter＋blur 不重複儲存。欄位失敗保留輸入並由頁面共用 Feedback 顯示錯誤。主頁與廠商合併檢視都用 `createOrderingWriteQueue` 按單據／來源串行提交，使用最新版本號，移除 `busy` 時丟棄請求。**新增有 300ms 延遲的三筆連續保存／失敗後恢復純函式測試並通過**；這不取代 §9.1 要求的真實三列、跨五格瀏覽器測試。 |
+| 2. UTC 時間／跨午夜日期 | **已修正且純函式測試通過。** `shared/ordering.ts` 的 `orderingTaipeiDateTime` 以 `Asia/Taipei` 轉換 API ISO 時戳；左清單與版本歷程用同一函式，日期型別（無 T）不另行改日。測試：`2026-10-21T08:28Z → 16:28`，`2026-10-20T16:30Z → 10/21 00:30`。 |
+| 3. 英文狀態／數量重複單位 | **已修正程式，實際畫面待複驗。** 使用 `LINE_STATE_LABELS` 和 `CLOSED_AS_LABELS` 呈現中文；顯示「其他」可附原因；只輸出 `quantityText` 而不再附加已解析的 `unit`；草稿不顯示到貨明細段落。 |
+| 4. 草稿切換選單未同步 | **已修正程式。** 開來源若無草稿自動新增後重新讀取草稿清單，＋新草稿也重新讀清單；送出或作廢後更新草稿清單；目前草稿被選中並顯示日期及「（目前）」。 |
+| 5. 未改欄位產生多餘 PATCH／修改紀錄 | **已修正並有 route test 通過。** 前端比較已儲存值及 dirty 狀態，避免無變更自動送出；Worker 再保護一次，無變更不增加 version／revision／稽核。實際變更寫「預計送出日期 2026-10-22 → 2026-10-29」等前後值，測試驗證 no-op 不新增 revision。 |
+| 6. 進貨輔助加入叫貨單在表格底部 | **已修正程式，畫面待複驗。** 改用既有 `Dialog` 置於表格上方顯示，加入成功即關閉視窗並以 `FeedbackBanner` 顯示「已加入 {來源} {日期} 草稿」。 |
+| 7. 廠商合併過長 | **已修正程式，畫面待複驗。** 有品項廠商排前並展開；空白廠商壓縮成單行、可按展開；同一列有條件醒目標籤、明細數量與「進入廠商」，可繼續逐格編輯。 |
+| 8. 視覺元件不合規 | **已調整程式／CSS，畫面待複驗。** 左側改用 `cy-op-list-row`、狀態 `cy-status-chip`、日期次要文字，移除整排主色 inline style；來源用 `cy-op-tabs`、統一「管理來源」Dialog，頁籤不再每顆有「⋯」；訊息改用 `FeedbackBanner/useFeedbackMessage`（錯誤亦用共用提醒 Dialog）；響應式樣式放既有模組 CSS。 |
+| 9. 到貨記錄用 MAX(id) | **已改且 route／D1 測試通過。** 改為 52-bit UUID 衍生的明確 receipt ID，於同一個原子 D1 batch 寫入主檔與各明細，不依賴 `SELECT MAX(id)`。 |
+| 10. 逐條原字驗證命令 | **部分完成；限制如實保留。** GitHub CI 在有 `npm ci` 的 runner 完成下列實際結果，但四個 npm 包裝命令與全量 `node --test scripts/*.test.mjs` **未由本執行環境逐字執行**。本容器無 repo checkout，`git ls-remote` 嘗試遭 `Could not resolve host: github.com`，故不得宣稱完全符合此項；請 §9 審查者於有完整 checkout 的工作機補驗，並回填輸出。 |
+
+**最新可核對 CI（程式 SHA `a3dc59c2`）：**
+
+- [Runtime Check #39573091076](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39573091076)：**success**；`source-contracts`、`browser-typecheck`、`worker-typecheck`、`build` 四組 Job 均成功。
+- [Governance Check #39573091225](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39573091225)：**success**。
+- 同一 CI 的 Worker 已安裝相依套件測試：主測試組 **107 tests / 107 pass / 0 fail**，另 **5/5、12/12**；包含 `ordering.test.mjs`／`ordering-route.test.mjs`／`form-keyboard.test.mjs`，以及 300ms 串行保存、跨午夜日期、無變更表頭不增版、明細批次到貨等新增案例。
+- 本地 D1 runner 實際輸出 `PASS Wrangler local D1 migrations`（0001～0022）及 `PASS Worker + D1 acceptance`；Worker／Client `vite build` 均顯示 `✓ built`。
+- PR 路徑部署合約檢查是驗證，不代表已正式部署。**本次不動正式 Cloudflare Worker、D1 或 R2。**
+
+**提供審查者的第 2 輪實測步驟：**
+
+1. 用 §9.1 同一測試頁，在 1440／390 寬、API 延遲 300ms 下，只以鍵盤連續輸入三列「測試品名甲／乙／丙」與 2／3／4，完成 Enter 移格、重新整理，核對三列都在且各欄未偏移；對既有列連續跨五格編輯並重新整理核對。
+2. 同時開兩個分頁更動同一單，應顯示 `ORDERING_VERSION_CONFLICT`，未成功資料仍停留輸入格；觀察儲存中全表不能失焦。另測有品項與空白廠商各一組的連續輸入與折疊展開。
+3. 於台北凌晨模擬 API UTC 建立／送出時間、展開修改紀錄，比對臺北日期及時分；測有單位文字的數量、缺貨／取消／其他原因與草稿不顯示到貨資訊。
+4. 對日期與備註逐格離開、無變更點按儲存，確認 version／revision 不增加；修改日期後確認歷程前後值。
+5. 在 419 品項進貨輔助清單任何可見列按「加入叫貨單」，應在中央共用 Dialog 出現；加入後關閉並顯示來源／草稿日期；在 390px 手機核對頁籤、來源管理、廠商空白段落收合與左清單狀態標籤。
+
+**結論：** 本輪第 1～9 項的程式修正已提交且 CI 通過，**並非人工畫面驗收已完成**。第 10 項精確 shell 指令仍待有完整 checkout 的審查工作機補執行。保留 Draft PR #253，按 PROJECT_RULES §9 交由 Claude 第 2 次審查，未合併、未部署。
+
 ## 9. 審查紀錄（審查者填）
 
 ### 9.1 第 1 次審查（2026-10-21，Claude）— 結論：需修正
