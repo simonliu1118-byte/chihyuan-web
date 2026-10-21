@@ -39,6 +39,7 @@ export function OrderingPage(){
  const cached=useRef(new Map<number,DisplayOrder>());
  const savedHeader=useRef(new Map<number,{date:string|null;note:string}>());
  const [headerDirty,setHeaderDirty]=useState({date:false,note:false});
+ const headerDirtyRef=useRef({date:false,note:false});
  const [sourceForm,setSourceForm]=useState<{id?:number;kind:"GENERAL"|"VENDOR";name:string;conditions:string;sortOrder?:number;isActive?:boolean}|null>(null);
  const [sourceFilter,setSourceFilter]=useState("");
  const [manageSources,setManageSources]=useState(false);
@@ -61,20 +62,20 @@ export function OrderingPage(){
    void task.finally(()=>{if(queueRef.current.get(key)===task)queueRef.current.delete(key)}).catch(()=>{});
    return task;
  };
- async function reloadOrder(id:number){const x=remember(await call<DisplayOrder>("/orders/"+id));setSelected(x);setHeaderDirty({date:false,note:false});return x}
+ async function reloadOrder(id:number){const x=remember(await call<DisplayOrder>("/orders/"+id));setSelected(x);setHeaderDirty({date:false,note:false});headerDirtyRef.current={date:false,note:false};return x}
  async function openDraft(sourceId:number){
   setBusy(true);setError("");try{
    const all=await call<OrderingListRow[]>("/orders?sourceId="+sourceId+"&status=DRAFT");setDrafts(all);
    const chosen=pickDraft(all.map(x=>({id:x.id,plannedSendDate:x.plannedSendDate,createdAt:x.createdAt})),nowDate());
    const x=chosen?await reloadOrder(chosen.id):await call<DisplayOrder>("/orders","POST",{sourceId});
-   if(!chosen){setSelected(remember(x));setHeaderDirty({date:false,note:false});setDrafts(all)}setViewPending(false);pane.open();await refresh();
+   if(!chosen){setSelected(remember(x));setHeaderDirty({date:false,note:false});headerDirtyRef.current={date:false,note:false};setDrafts(all)}setViewPending(false);pane.open();await refresh();
   }catch(e){setError(errorOf(e))}finally{setBusy(false)}
  }
  async function selectSource(s:OrderingSource){setTab(s.id);setVendorAll(false);setSelected(null);await openDraft(s.id)}
  async function createDraft(sourceId:number){
   try{const x=remember(await call<DisplayOrder>("/orders","POST",{sourceId}));
    setDrafts(await call<OrderingListRow[]>("/orders?sourceId="+sourceId+"&status=DRAFT"));
-   setSelected(x);setHeaderDirty({date:false,note:false});setViewPending(false);pane.open();void refresh().catch(e=>setError(errorOf(e)));
+   setSelected(x);setHeaderDirty({date:false,note:false});headerDirtyRef.current={date:false,note:false};setViewPending(false);pane.open();void refresh().catch(e=>setError(errorOf(e)));
   }catch(e){setError(errorOf(e))}
  }
  async function showVendorOverview(){setVendorAll(true);setSelected(null);setViewPending(false);
@@ -88,7 +89,7 @@ export function OrderingPage(){
    try{
     const data=remember(await call<DisplayOrder>(path,method,{...input,expectedVersion:version}));
     setSelected(previous=>previous?.id===id?
-     {...data,plannedSendDate:headerDirty.date?previous.plannedSendDate:data.plannedSendDate,note:headerDirty.note?previous.note:data.note}:previous);
+     {...data,plannedSendDate:headerDirtyRef.current.date?previous.plannedSendDate:data.plannedSendDate,note:headerDirtyRef.current.note?previous.note:data.note}:previous);
     // A row commit never disables any editor or steals focus while the network is pending.
     setNotice("已儲存");
     void refresh().catch(e=>setError(errorOf(e)));
@@ -100,10 +101,10 @@ export function OrderingPage(){
   const current=selected;if(!current)return;
   const value=field==="date"?current.plannedSendDate:current.note;
   const saved=savedHeader.current.get(current.id);
-  if(value===(field==="date"?saved?.date:saved?.note)){setHeaderDirty(prev=>({...prev,[field]:false}));return}
+  if(value===(field==="date"?saved?.date:saved?.note)){setHeaderDirty(prev=>({...prev,[field]:false}));headerDirtyRef.current={...headerDirtyRef.current,[field]:false};return}
   try{
    await write("/orders/"+current.id,"PATCH",field==="date"?{plannedSendDate:value}:{note:value});
-   setHeaderDirty(prev=>({...prev,[field]:false}));
+   setHeaderDirty(prev=>({...prev,[field]:false}));headerDirtyRef.current={...headerDirtyRef.current,[field]:false};
   }catch{/* Banner and modal explain the error; leave the typed value intact. */}
  }
  async function lineCommit(row:GridLine,patch:Partial<GridLine>){
@@ -229,11 +230,11 @@ export function OrderingPage(){
       <button type="button" className="cy-op-button" onClick={()=>void exportOrder(current)}>匯出 Excel</button></div>
       {sources.find(x=>x.id===current.sourceId)?.kind==="VENDOR"?<p>廠商條件：{sources.find(x=>x.id===current.sourceId)?.conditions} <button type="button" className="cy-op-button" onClick={()=>{const s=sources.find(x=>x.id===current.sourceId);if(s)setSourceForm({id:s.id,kind:"VENDOR",name:s.name,conditions:s.conditions,sortOrder:s.sortOrder,isActive:s.isActive})}}>修改</button></p>:null}
       <form onKeyDown={enterAdvancesFields} onSubmit={e=>e.preventDefault()}>
-       <label>預計送出日期<input type="date" className="cy-op-input" max="9999-12-31" disabled={!editable} value={current.plannedSendDate??""} onChange={e=>{setHeaderDirty(v=>({...v,date:true}));setSelected(v=>v?{...v,plannedSendDate:e.target.value||null}:v)}} onBlur={()=>void saveHeader("date")}/></label>
-       <label>單據備註<input className="cy-op-input" disabled={!editable} value={current.note} onChange={e=>{setHeaderDirty(v=>({...v,note:true}));setSelected(v=>v?{...v,note:e.target.value}:v)}} onBlur={()=>void saveHeader("note")}/></label>
+       <label>預計送出日期<input type="date" className="cy-op-input" max="9999-12-31" disabled={!editable} value={current.plannedSendDate??""} onChange={e=>{headerDirtyRef.current={...headerDirtyRef.current,date:true};setHeaderDirty(v=>({...v,date:true}));setSelected(v=>v?{...v,plannedSendDate:e.target.value||null}:v)}} onBlur={()=>void saveHeader("date")}/></label>
+       <label>單據備註<input className="cy-op-input" disabled={!editable} value={current.note} onChange={e=>{headerDirtyRef.current={...headerDirtyRef.current,note:true};setHeaderDirty(v=>({...v,note:true}));setSelected(v=>v?{...v,note:e.target.value}:v)}} onBlur={()=>void saveHeader("note")}/></label>
        <button type="submit" className="cy-op-button" onClick={()=>{if(headerDirty.date)void saveHeader("date");if(headerDirty.note)void saveHeader("note")}}>儲存</button>
       </form>
-      {(current.sourceKind==="CN_REGULAR"?CN_REGULAR_SECTIONS:[{key:"" as const,label:"叫貨明細"}]).map(group=><div key={group.key}><h4>{group.label}</h4><OrderingGrid kind={current.sourceKind} section={group.key as OrderingSection} lines={current.lines} busy={!editable} onCommit={lineCommit} onDelete={removeLine}/></div>)}
+      {(current.sourceKind==="CN_REGULAR"?CN_REGULAR_SECTIONS:[{key:"" as const,label:"叫貨明細"}]).map(group=><div key={group.key}><h4>{group.label}</h4><OrderingGrid kind={current.sourceKind} section={group.key as OrderingSection} key={current.id+"-"+group.key} lines={current.lines} busy={!editable} onCommit={lineCommit} onDelete={removeLine}/></div>)}
       <div className="cy-page-toolbar">{current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button primary" onClick={()=>void sent()}>送出</button>:null}
       {current.storedStatus==="SENT"?<button type="button" className="cy-op-button" onClick={()=>setReceipt({id:current.id,no:"",date:nowDate(),quantities:Object.fromEntries(current.lines.filter(l=>l.quantity!==null&&l.received<l.quantity&&!l.closedAs).map(l=>[l.id,String((l.quantity??0)-l.received)])),selectedLineIds:[]})}>登記到貨</button>:null}
       {editable?<button type="button" className="cy-op-button" onClick={()=>void voidOrder()}>作廢</button>:null}
