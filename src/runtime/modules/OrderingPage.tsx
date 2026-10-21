@@ -9,6 +9,7 @@ import {buildXlsx} from "../../../shared/xlsx-writer";
 import {exportFileName,pickDraft,lineState,ORDERING_STATUS_LABELS,CN_REGULAR_SECTIONS,type OrderingOrder,type OrderingSource,type OrderingPendingLine,type OrderingListRow,type OrderingSection} from "../../../shared/ordering";
 const ROOT="/api/business/ordering";
 const nowDate=()=>new Date(Date.now()+8*3600000).toISOString().slice(0,10);
+const displayDate=(value:string|null|undefined)=>value?.slice(0,10).replaceAll("-","/")??"";
 const errorOf=(e:unknown)=>e instanceof ApiClientError&&e.code==="ORDERING_VERSION_CONFLICT"?"已被其他人修改，請重新載入":e instanceof Error?e.message:"叫貨操作失敗";
 type DisplayOrder=OrderingOrder&{storedStatus:"DRAFT"|"SENT"|"VOID"};
 type DisplayLine=GridLine&{quantity:number|null;received:number;state:string;closedAs:string|null};
@@ -60,7 +61,9 @@ export function OrderingPage(){
  async function sent(){if(!selected)return;const okay=await confirm({title:"送出叫貨單",description:"來源："+selected.sourceName+"；品項："+selected.lines.length+" 列。確認送出後將記錄實際送出時間與版本 1。",confirmLabel:"確認送出"});if(okay)await write("/orders/"+selected.id+"/send","POST",{})}
  async function voidOrder(){if(!selected)return;if(await confirm({title:"作廢叫貨單",description:"確定作廢？歷史紀錄會保留。",confirmTone:"danger",confirmLabel:"作廢"}))await write("/orders/"+selected.id+"/void","POST",{})}
  async function saveSource(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!sourceForm)return;setBusy(true);try{
-   if(sourceForm.id)await call("/sources/"+sourceForm.id,"PATCH",{name:sourceForm.name,conditions:sourceForm.conditions,sortOrder:sourceForm.sortOrder??0,isActive:sourceForm.isActive??true});
+   if(sourceForm.id){const original=sources.find(x=>x.id===sourceForm.id);
+    await call("/sources/"+sourceForm.id,"PATCH",{name:sourceForm.name,conditions:sourceForm.conditions,sortOrder:sourceForm.sortOrder??original?.sortOrder??0,isActive:sourceForm.isActive??original?.isActive??true});
+   }
    else await call("/sources","POST",{name:sourceForm.name,kind:sourceForm.kind,conditions:sourceForm.conditions});
    setSourceForm(null);await refresh();if(vendorAll)void showVendorOverview();
   }catch(err){setError(errorOf(err))}finally{setBusy(false)}}
@@ -101,7 +104,7 @@ export function OrderingPage(){
      <label>迄日<input type="date" className="cy-op-input" max="9999-12-31" value={to} onChange={e=>setTo(e.target.value)}/></label>
      <button type="submit" className="cy-op-button">搜尋</button>
     </form>
-    <div>{list.map(o=><button type="button" key={o.id} className={"cy-op-button "+(current?.id===o.id?"primary":"")} style={{display:"block",width:"100%",textAlign:"left",margin:"4px 0"}} onClick={()=>{setViewPending(false);pane.open();void reloadOrder(o.id).catch(e=>setError(errorOf(e)))}}>{o.sourceName}　{ORDERING_STATUS_LABELS[o.status]??o.status}　{o.plannedSendDate??o.sentAt?.slice(0,10)??o.createdAt.slice(0,10)}</button>)}</div>
+    <div>{list.map(o=><button type="button" key={o.id} className={"cy-op-button "+(current?.id===o.id?"primary":"")} style={{display:"block",width:"100%",textAlign:"left",margin:"4px 0"}} onClick={()=>{setViewPending(false);pane.open();void reloadOrder(o.id).catch(e=>setError(errorOf(e)))}}>{o.sourceName}　{ORDERING_STATUS_LABELS[o.status]??o.status}　{displayDate(o.plannedSendDate??o.sentAt??o.createdAt)}</button>)}</div>
    </section>
    <section className="cy-op-panel cy-md-detail">
     <MasterDetailBack label="叫貨紀錄" onBack={pane.close} disabled={busy}/>
@@ -110,7 +113,7 @@ export function OrderingPage(){
      <button className={"cy-op-button "+(vendorAll?"primary":"")} type="button" onClick={()=>void showVendorOverview()}>廠商</button>
      <button className="cy-op-button" type="button" onClick={()=>setSourceForm({kind:"GENERAL",name:"",conditions:""})}>＋</button>
     </div>
-    {viewPending?<><h3>未到貨明細（{pending.length}）</h3>{pending.map(l=><p key={l.lineId}>{l.sourceName}　{l.orderDate}　{l.itemName}　叫貨 {l.quantity}{l.unit}　已到 {l.received}　剩餘 {l.remaining} <button className="cy-op-button" type="button" onClick={()=>void reloadOrder(l.orderId).then(()=>setReceipt({id:l.orderId,no:"",date:nowDate(),quantities:{[l.lineId]:String(l.remaining)}}))}>登記到貨</button><button type="button" className="cy-op-button" onClick={()=>void reloadOrder(l.orderId).then(()=>setClosing({id:l.lineId,kind:"SHORTAGE",reason:""}))}>結掉</button></p>)}</>
+    {viewPending?<><h3>未到貨明細（{pending.length}）</h3>{pending.map(l=><p key={l.lineId}>{l.sourceName}　{displayDate(l.orderDate)}　{l.itemName}　叫貨 {l.quantity}{l.unit}　已到 {l.received}　剩餘 {l.remaining} <button className="cy-op-button" type="button" onClick={()=>void reloadOrder(l.orderId).then(()=>setReceipt({id:l.orderId,no:"",date:nowDate(),quantities:{[l.lineId]:String(l.remaining)}}))}>登記到貨</button><button type="button" className="cy-op-button" onClick={()=>void reloadOrder(l.orderId).then(()=>setClosing({id:l.lineId,kind:"SHORTAGE",reason:""}))}>結掉</button></p>)}</>
     :vendorAll?<><h3>廠商草稿</h3><p>預設依廠商分段；進入個別廠商頁面後才能送出。</p>
       <button type="button" className="cy-op-button" onClick={()=>setSourceForm({kind:"VENDOR",name:"",conditions:""})}>＋ 新增廠商</button>
       <button type="button" className="cy-op-button" onClick={()=>void exportVendors().catch(e=>setError(errorOf(e)))}>匯出廠商合併 Excel</button>
@@ -138,8 +141,8 @@ export function OrderingPage(){
       <button type="button" className="cy-op-button" onClick={()=>setShowHistory(v=>!v)}>修改紀錄</button></div>
       {current.lines.map(l=><p key={l.id}>{l.itemName}　叫貨 {l.quantityText}{l.unit}　已到 {l.received}　{lineState(l)}　{l.closedAs??""}
        {current.storedStatus==="SENT"&&l.quantity!==null&&l.received<l.quantity&&!l.closedAs?<button type="button" className="cy-op-button" onClick={()=>setClosing({id:l.id,kind:"SHORTAGE",reason:""})}>結掉剩餘</button>:null}</p>)}
-      {showHistory&&current.revisions.map(x=><p key={x.revision}>版本 {x.revision}　{x.at}　{x.by}　{x.summary}</p>)}
-      {current.receipts.map(x=><p key={x.id}>到貨：{x.erpPurchaseNo}　{x.receivedDate}</p>)}
+      {showHistory&&current.revisions.map(x=><p key={x.revision}>版本 {x.revision}　{displayDate(x.at)} {x.at.slice(11,16)}　{x.by}　{x.summary}</p>)}
+      {current.receipts.map(x=><p key={x.id}>到貨：{x.erpPurchaseNo}　{displayDate(x.receivedDate)}</p>)}
     </>:<MasterDetailEmpty title="選擇叫貨來源" hint="從上方頁籤選擇來源，或從左側開啟歷史單。"/>}
    </section>
   </div>
