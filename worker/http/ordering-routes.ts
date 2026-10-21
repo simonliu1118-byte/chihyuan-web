@@ -116,6 +116,8 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
    const clauses:string[]=[],args:unknown[]=[];
    if(url.searchParams.has("sourceId")){clauses.push("o.source_id=?");args.push(int(Number(url.searchParams.get("sourceId")),"來源"))}
    if(url.searchParams.has("status")){const status=must(url.searchParams.get("status"),"狀態",20);if(!["DRAFT","SENT","PARTIAL","CLOSED","VOID"].includes(status))throw new Bad("ORDERING_INVALID","狀態錯誤");clauses.push("("+currentStatusSql+")=?");args.push(status)}
+   // history=1: the 叫貨紀錄 list, which shows sent and voided orders only (drafts live on the source tabs).
+   if(url.searchParams.get("history")==="1")clauses.push("o.status<>'DRAFT'");
    if(url.searchParams.has("from")){clauses.push("COALESCE(o.planned_send_date,substr(o.created_at,1,10))>=?");args.push(date(url.searchParams.get("from")))}
    if(url.searchParams.has("to")){clauses.push("COALESCE(o.planned_send_date,substr(o.created_at,1,10))<=?");args.push(date(url.searchParams.get("to")))}
    const q=must(url.searchParams.get("q")??"","搜尋",100);if(q){clauses.push("(s.name LIKE ? OR EXISTS(SELECT 1 FROM ordering_lines l WHERE l.order_id=o.id AND (l.item_name LIKE ? OR l.item_code LIKE ?)) OR EXISTS(SELECT 1 FROM ordering_receipts r WHERE r.order_id=o.id AND r.erp_purchase_no LIKE ?))");for(let i=0;i<4;i++)args.push("%"+q+"%")}
