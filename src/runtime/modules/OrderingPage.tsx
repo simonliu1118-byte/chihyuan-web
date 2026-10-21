@@ -19,7 +19,8 @@ export function OrderingPage(){
  const [tab,setTab]=useState<number|null>(null),[vendorAll,setVendorAll]=useState(false),[selected,setSelected]=useState<DisplayOrder|null>(null);
  const [search,setSearch]=useState(""),[status,setStatus]=useState(""),[from,setFrom]=useState(""),[to,setTo]=useState("");
  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
- const [sourceForm,setSourceForm]=useState<{id?:number;kind:"GENERAL"|"VENDOR";name:string;conditions:string}|null>(null);
+ const [sourceForm,setSourceForm]=useState<{id?:number;kind:"GENERAL"|"VENDOR";name:string;conditions:string;sortOrder?:number;isActive?:boolean}|null>(null);
+ const [sourceFilter,setSourceFilter]=useState("");
  const [receipt,setReceipt]=useState<{id:number;no:string;date:string;quantities:Record<number,string>}|null>(null);
  const [closing,setClosing]=useState<{id:number;kind:"SHORTAGE"|"CANCELLED"|"OTHER";reason:string}|null>(null);
  const [viewPending,setViewPending]=useState(false),[showHistory,setShowHistory]=useState(false),[drafts,setDrafts]=useState<OrderingListRow[]>([]);
@@ -59,9 +60,9 @@ export function OrderingPage(){
  async function sent(){if(!selected)return;const okay=await confirm({title:"送出叫貨單",description:"來源："+selected.sourceName+"；品項："+selected.lines.length+" 列。確認送出後將記錄實際送出時間與版本 1。",confirmLabel:"確認送出"});if(okay)await write("/orders/"+selected.id+"/send","POST",{})}
  async function voidOrder(){if(!selected)return;if(await confirm({title:"作廢叫貨單",description:"確定作廢？歷史紀錄會保留。",confirmTone:"danger",confirmLabel:"作廢"}))await write("/orders/"+selected.id+"/void","POST",{})}
  async function saveSource(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!sourceForm)return;setBusy(true);try{
-   if(sourceForm.id)await call("/sources/"+sourceForm.id,"PATCH",{name:sourceForm.name,conditions:sourceForm.conditions});
+   if(sourceForm.id)await call("/sources/"+sourceForm.id,"PATCH",{name:sourceForm.name,conditions:sourceForm.conditions,sortOrder:sourceForm.sortOrder??0,isActive:sourceForm.isActive??true});
    else await call("/sources","POST",{name:sourceForm.name,kind:sourceForm.kind,conditions:sourceForm.conditions});
-   setSourceForm(null);await refresh();
+   setSourceForm(null);await refresh();if(vendorAll)void showVendorOverview();
   }catch(err){setError(errorOf(err))}finally{setBusy(false)}}
  async function receive(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!receipt||!selected)return;
   const lines=Object.entries(receipt.quantities).filter(([,q])=>Number(q)>0).map(([lineId,q])=>({lineId:Number(lineId),quantity:Number(q)}));
@@ -92,9 +93,10 @@ export function OrderingPage(){
    <section className="cy-op-panel cy-md-list" aria-label="叫貨紀錄">
     <h3>叫貨紀錄</h3>
     <button type="button" className="cy-op-button primary" onClick={()=>{setViewPending(true);pane.open()}}>未到貨（{pending.length}）</button>
-    <form role="search" onSubmit={e=>{e.preventDefault();void call<OrderingListRow[]>("/orders?"+new URLSearchParams({...(search?{q:search}:{}),...(status?{status}:{}),...(from?{from}:{}),...(to?{to}:{})})).then(setList).catch(e=>setError(errorOf(e)))}}>
+    <form role="search" onSubmit={e=>{e.preventDefault();void call<OrderingListRow[]>("/orders?"+new URLSearchParams({...(search?{q:search}:{}),...(status?{status}:{}),...(sourceFilter?{sourceId:sourceFilter}:{}),...(from?{from}:{}),...(to?{to}:{})})).then(setList).catch(e=>setError(errorOf(e)))}}>
      <input className="cy-op-input" type="search" aria-label="搜尋品號品名或進貨單號" placeholder="搜尋品號、品名、進貨單號" value={search} onChange={e=>setSearch(e.target.value)}/>
-     <select className="cy-op-input" aria-label="狀態" value={status} onChange={e=>setStatus(e.target.value)}><option value="">全部狀態</option>{["DRAFT","SENT","VOID"].map(x=><option key={x} value={x}>{ORDERING_STATUS_LABELS[x as keyof typeof ORDERING_STATUS_LABELS]}</option>)}</select>
+     <select className="cy-op-input" aria-label="狀態" value={status} onChange={e=>setStatus(e.target.value)}><option value="">全部狀態</option>{["DRAFT","SENT","PARTIAL","CLOSED","VOID"].map(x=><option key={x} value={x}>{ORDERING_STATUS_LABELS[x as keyof typeof ORDERING_STATUS_LABELS]}</option>)}</select>
+     <select className="cy-op-input" aria-label="來源篩選" value={sourceFilter} onChange={e=>setSourceFilter(e.target.value)}><option value="">全部來源</option>{sources.map(s=><option key={s.id} value={s.id}>{s.name}{s.isActive?"":"（停用）"}</option>)}</select>
      <label>起日<input type="date" className="cy-op-input" max="9999-12-31" value={from} onChange={e=>setFrom(e.target.value)}/></label>
      <label>迄日<input type="date" className="cy-op-input" max="9999-12-31" value={to} onChange={e=>setTo(e.target.value)}/></label>
      <button type="submit" className="cy-op-button">搜尋</button>
@@ -104,7 +106,7 @@ export function OrderingPage(){
    <section className="cy-op-panel cy-md-detail">
     <MasterDetailBack label="叫貨紀錄" onBack={pane.close} disabled={busy}/>
     <div className="cy-page-toolbar" style={{flexWrap:"wrap"}}>
-     {visibleSources.map(s=><button className={"cy-op-button "+(tab===s.id&&!vendorAll?"primary":"")} key={s.id} type="button" disabled={busy} onClick={()=>void selectSource(s)}>{s.name}</button>)}
+     {visibleSources.map(s=><span key={s.id}><button className={"cy-op-button "+(tab===s.id&&!vendorAll?"primary":"")} type="button" disabled={busy} onClick={()=>void selectSource(s)}>{s.name}</button><button type="button" className="cy-op-button" title={"編輯"+s.name} onClick={()=>setSourceForm({id:s.id,kind:"GENERAL",name:s.name,conditions:s.conditions,sortOrder:s.sortOrder,isActive:s.isActive})}>⋯</button></span>)}
      <button className={"cy-op-button "+(vendorAll?"primary":"")} type="button" onClick={()=>void showVendorOverview()}>廠商</button>
      <button className="cy-op-button" type="button" onClick={()=>setSourceForm({kind:"GENERAL",name:"",conditions:""})}>＋</button>
     </div>
@@ -143,6 +145,8 @@ export function OrderingPage(){
   </div>
   {sourceForm?<div className="cy-op-panel"><form onSubmit={e=>void saveSource(e)} onKeyDown={enterAdvancesFields}><h3>{sourceForm.id?"修改來源":"新增來源"}</h3><label>名稱<input className="cy-op-input" required maxLength={40} value={sourceForm.name} onChange={e=>setSourceForm(s=>s?{...s,name:e.target.value}:s)}/></label>
    <label>條件<input className="cy-op-input" maxLength={500} value={sourceForm.conditions} onChange={e=>setSourceForm(s=>s?{...s,conditions:e.target.value}:s)}/></label>
+   {sourceForm.id?<><label>排序<input type="number" className="cy-op-input" value={sourceForm.sortOrder??0} onChange={e=>setSourceForm(s=>s?{...s,sortOrder:Number(e.target.value)}:s)}/></label>
+   <label><input type="checkbox" checked={sourceForm.isActive??true} onChange={e=>setSourceForm(s=>s?{...s,isActive:e.target.checked}:s)}/>啟用（停用保留歷史單）</label></>:null}
    <button type="submit" className="cy-op-button primary">儲存</button><button type="button" className="cy-op-button" onClick={()=>setSourceForm(null)}>取消</button></form></div>:null}
   {receipt&&selected?<div className="cy-op-panel"><form onKeyDown={enterAdvancesFields} onSubmit={e=>void receive(e)}><h3>登記到貨</h3>
    <label>ERP 進貨單號 341A-<input className="cy-op-input" required inputMode="numeric" pattern="[0-9]{11}" maxLength={11} value={receipt.no} onChange={e=>setReceipt(v=>v?{...v,no:e.target.value}:v)}/></label>
