@@ -184,7 +184,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     if(!finalName)throw new Bad("ORDERING_INVALID","品名與數量必填");
     // Empty draft fields are never treated as manually-entered vendor names.
     const manuallyNamed="vendorItemName" in raw&&String(raw.vendorItemName??"").trim().length>0;
-    const vendorNameFollows=manuallyNamed?false:old?.vendor_name_follows!==0;
+    const vendorNameFollows=manuallyNamed?false:old?old.vendor_name_follows!==0:!memory?.vendor_item_name;
     const remembered=vendorItemKey(itemCode,finalName);
     const memory=remembered?await one<{vendor_item_code:string;vendor_item_name:string}>(ctx.db,"SELECT vendor_item_code,vendor_item_name FROM ordering_vendor_items WHERE source_id=? AND key_type=? AND item_key=?",o.source_id,remembered.type,remembered.key):null;
     const vendorItemName=vendorNameFollows?finalName:field("vendorItemName",old?.vendor_item_name??memory?.vendor_item_name??"",200);
@@ -199,7 +199,8 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     const stmts:D1PreparedStatement[]=[stmt];
     if((String(raw.vendorItemCode??"").trim()||manuallyNamed)&&vendorItemKey(itemCode,finalName)){
      const key=vendorItemKey(itemCode,finalName)!;
-     stmts.push(ctx.db.prepare("INSERT INTO ordering_vendor_items(source_id,key_type,item_key,vendor_item_code,vendor_item_name,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(source_id,key_type,item_key) DO UPDATE SET vendor_item_code=excluded.vendor_item_code,vendor_item_name=excluded.vendor_item_name,updated_at=excluded.updated_at").bind(o.source_id,key.type,key.key,String(raw.vendorItemCode??"").trim()?vendorCode:old?.vendor_item_code??"", manuallyNamed?vendorItemName:old?.vendor_item_name??"",ctx.now));
+     stmts.push(ctx.db.prepare("INSERT INTO ordering_vendor_items(source_id,key_type,item_key,vendor_item_code,vendor_item_name,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(source_id,key_type,item_key) DO UPDATE SET vendor_item_code=CASE WHEN excluded.vendor_item_code<>'' THEN excluded.vendor_item_code ELSE ordering_vendor_items.vendor_item_code END,
+ vendor_item_name=CASE WHEN excluded.vendor_item_name<>'' THEN excluded.vendor_item_name ELSE ordering_vendor_items.vendor_item_name END,updated_at=excluded.updated_at").bind(o.source_id,key.type,key.key,String(raw.vendorItemCode??"").trim()?vendorCode:old?.vendor_item_code??"", manuallyNamed?vendorItemName:old?.vendor_item_name??"",ctx.now));
     }
     return success(await mutate(ctx,o,expected,stmts,summary,"line_saved"),requestId);
    }
