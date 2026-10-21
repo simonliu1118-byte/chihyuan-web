@@ -213,8 +213,10 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     const sql=old?"UPDATE ordering_lines SET section=?,sort_order=?,item_code=?,item_name=?,vendor_item_code=?,vendor_item_name=?,vendor_name_follows=?,spec=?,quantity_text=?,quantity=?,unit=?,note=? WHERE id=? AND order_id=?":
       "INSERT INTO ordering_lines(section,sort_order,item_code,item_name,vendor_item_code,vendor_item_name,vendor_name_follows,spec,quantity_text,quantity,unit,note,id,order_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
     const stmt=ctx.db.prepare(sql).bind(...fields,old?.id??null,id);
-    const updates=Object.entries(raw).filter(([key,value])=>key in (old??{})||["itemCode","itemName","quantityText","unit","vendorItemCode","vendorItemName","sortOrder","spec","section","note"].includes(key));
-    const summary=(old?.item_name??finalName)+" "+(!old?"新增":updates.map(([key,value])=>key+" "+String((old as unknown as Record<string,unknown>|null)?.[key]??"")+" → "+String(value)).join("、"));
+    const oldKeys:Record<string,string>={itemCode:"item_code",itemName:"item_name",quantityText:"quantity_text",unit:"unit",vendorItemCode:"vendor_item_code",vendorItemName:"vendor_item_name",sortOrder:"sort_order",spec:"spec",section:"section",note:"note"};
+    const labels:Record<string,string>={itemCode:"品號",itemName:"品名",quantityText:"數量",unit:"單位",vendorItemCode:"廠商品號",vendorItemName:"廠商品名",sortOrder:"排序",spec:"規格",section:"分類",note:"備註"};
+    const updates=Object.entries(raw).filter(([key,value])=>key in oldKeys&&String(old?.[oldKeys[key] as keyof Line]??"")!==String(value??""));
+    const summary=(old?.item_name??finalName)+" "+(!old?"新增":updates.length?updates.map(([key,value])=>labels[key]+" "+String(old?.[oldKeys[key] as keyof Line]??"")+" → "+String(value)).join("、"):"編輯");
     const stmts:D1PreparedStatement[]=[stmt];
     if((String(raw.vendorItemCode??"").trim()||manuallyNamed)&&vendorItemKey(itemCode,finalName)){
      const key=vendorItemKey(itemCode,finalName)!;
