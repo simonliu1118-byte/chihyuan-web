@@ -1134,7 +1134,7 @@ function FrequentPanel({ rows, itemId, setItemId, freeText, setFreeText, add, re
         search={searchQuoteItem} getKey={row => row.id} getLabel={quoteItemLabel}
         minQueryLength={1} placeholder="輸入品號或品名搜尋" disabled={busy}
         onSelect={selected => { setItem(selected); setItemId(selected?.id ?? null); if (selected) setFreeText(""); }} />
-      <Field  label="或輸入未建檔名稱" size="m"><input className="cy-op-input" value={freeText}
+      <Field label="或輸入未建檔名稱" size="m" oneOf="與正式商品擇一" reportAs="正式商品或未建檔名稱" required={itemId===null&&!freeText.trim()}><input className="cy-op-input" value={freeText}
         disabled={busy || itemId !== null} onChange={event => setFreeText(event.target.value)} /></Field>
       <div className="cy-customer-related-form-actions">
         <button type="button" className="cy-op-button" disabled={busy} onClick={onCancel}>取消</button>
