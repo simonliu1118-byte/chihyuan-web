@@ -1,3 +1,4 @@
+import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import { enterAdvancesThenSubmits } from "../foundation/enter-advance";
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { Dialog } from "./Dialog";
@@ -63,16 +64,17 @@ export function useFormPrompt() {
       <button type="submit" form={formId} className={`cy-op-button ${request.confirmTone === "danger" ? "danger-solid" : "primary"}`}>{request.confirmLabel ?? "確認"}</button>
     </div>}>
     <form onKeyDown={enterAdvancesThenSubmits} id={formId} className="cy-prompt-form" onSubmit={submit}>
-      {request.fields.map((field, index) => <label key={field.name}>
-        <span>{field.label}{field.required ? <span className="cy-field-required"> *</span> : null}</span>
+    <FormSection>
+      {request.fields.map((field, index) => <Field key={field.name} label={<><span>{field.label}{field.required ? <span className="cy-field-required"> *</span> : null}</span>
         {field.multiline
-          ? <textarea className="cy-op-input" rows={3} autoFocus={index === 0} required={field.required} placeholder={field.placeholder}
+          ?</>} size="m" required={field.required}><textarea className="cy-op-input" rows={3} autoFocus={index === 0} placeholder={field.placeholder}
               value={values[field.name] ?? ""} onChange={event => setValues(current => ({ ...current, [field.name]: event.target.value }))} />
           : <input className="cy-op-input" autoFocus={index === 0} required={field.required} placeholder={field.placeholder} inputMode={field.inputMode}
               value={values[field.name] ?? ""} onChange={event => setValues(current => ({ ...current, [field.name]: event.target.value }))} />}
-        {field.description ? <small>{field.description}</small> : null}
-      </label>)}
-    </form>
+        {field.description ? <small>{field.description}</small> : null}</Field>)}
+    
+    </FormSection>
+  </form>
   </Dialog> : null;
 
   return { ask, promptDialog };
