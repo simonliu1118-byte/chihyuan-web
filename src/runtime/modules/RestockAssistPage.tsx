@@ -1,4 +1,10 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import {apiRequest} from "../../api/client";
+import {useConfirmation} from "../../ui/overlays/useConfirmation";
+import {Dialog} from "../../ui/overlays/Dialog";
+import {FeedbackBanner,useFeedbackMessage} from "../../ui/feedback/FeedbackProvider";
+import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
+import {pickDraft,type OrderingSource,type OrderingListRow,type OrderingOrder} from "../../../shared/ordering";
 import { Loading } from "../../ui/feedback/Loading";
 import { HistoryRangeError, resolveRestockRange, taipeiToday } from "../../../shared/erp-query-history";
 import { ERP_RESTOCK_MAX_DAYS, type ErpRestockItem } from "../../../shared/erp-item-query";
@@ -40,7 +46,7 @@ const sorters: Record<Sort, (a: Row, b: Row) => number> = {
   SHORT: (a, b) => Number(b.short) - Number(a.short) || (stockOf(a) - a.net) - (stockOf(b) - b.net) || byCode(a, b),
 };
 
-function RestockTable({ from, to, items, canQueryItem }: { from: string; to: string; items: readonly ErpRestockItem[]; canQueryItem: boolean }) {
+function RestockTable({ from, to, items, canQueryItem, canOrdering }: { from: string; to: string; items: readonly ErpRestockItem[]; canQueryItem: boolean;canOrdering:boolean }) {
   const days = useMemo(() => rangeDays(from, to), [from, to]);
   const rows = useMemo<Row[]>(() => items.map(item => {
     const net = Number(item.sold) - Number(item.returned);
@@ -51,6 +57,8 @@ function RestockTable({ from, to, items, canQueryItem }: { from: string; to: str
   const [sort, setSort] = useState<Sort>("SHORT");
   const [shortOnly, setShortOnly] = useState(false);
   const [opened, setOpened] = useState<string | null>(null);
+  const [addRow,setAddRow]=useState<Row|null>(null);
+  const [addedMessage,setAddedMessage,reportAddedError,addedTone]=useFeedbackMessage<string|null>(null);
   const shown = useMemo(() => {
     const needle = filter.trim().toLowerCase();
     return rows.filter(r => (!shortOnly || r.short) && (!needle || r.itemCode.toLowerCase().includes(needle) || r.itemName.toLowerCase().includes(needle)))
@@ -73,7 +81,7 @@ function RestockTable({ from, to, items, canQueryItem }: { from: string; to: str
             {days.map((day, i) => <th key={day} colSpan={2} className={dayClass(day, i)}>
               {day.slice(5).replace("-", "/")}<small>（{WEEKDAYS[weekday(day)]}）</small></th>)}
             <th rowSpan={2} className="cy-restock-total">銷貨</th><th rowSpan={2} className="cy-restock-total">銷退</th>
-            <th rowSpan={2} className="cy-restock-total">淨銷</th><th rowSpan={2} className="cy-restock-total">庫存</th>
+            <th rowSpan={2} className="cy-restock-total">淨銷</th><th rowSpan={2} className="cy-restock-total">庫存</th>{canOrdering?<th rowSpan={2}>叫貨</th>:null}
           </tr>
           <tr>{days.map((day, i) => [<th key={day + "s"} className={dayClass(day, i) + " cy-restock-sub"}>銷</th>,
             <th key={day + "r"} className={dayClass(day, i, true) + " cy-restock-sub"}>退</th>])}</tr>
@@ -100,12 +108,15 @@ function RestockTable({ from, to, items, canQueryItem }: { from: string; to: str
             <td className="cy-restock-total cy-restock-strong" title={row.stockValue === null ? row.stockNote || "未查到庫存" : row.short ? "庫存不足：庫存不到期間淨銷，或已無庫存" : undefined}>
               {row.stockValue === null ? <span className="cy-restock-none">—</span>
                 : row.short ? <span className="cy-restock-short">{quantity(row.stockValue)}</span> : quantity(row.stockValue)}</td>
+            {canOrdering?<td><button type="button" className="cy-op-button" onClick={()=>setAddRow(row)}>加入叫貨單</button></td>:null}
           </tr>;
         })}</tbody>
       </table>
     </div>
     {shown.length === 0 && <p className="cy-erp-search-hint">沒有符合篩選條件的品號。</p>}
     {opened && <ErpItemDialog key={opened} itemCode={opened} onClose={() => setOpened(null)} />}
+    <FeedbackBanner message={addedMessage} tone={addedTone}/>
+    {addRow&&<AddToOrdering row={addRow} onClose={()=>setAddRow(null)} onAdded={text=>{setAddedMessage(text);setAddRow(null)}}/>}
   </>;
 }
 /** A day's columns: alternate days shaded, weekends tinted, a line before each day. */
@@ -118,7 +129,7 @@ const dayClass = (day: string, index: number, second = false) =>
  * user 2026-10-21), and each 品號's 庫存數量, shown in one table: filtered, sorted, 庫存不足 marked,
  * and a 品號 opens its ERP data in a window (with ERP 商品查詢).
  */
-export function RestockAssistPage({ canQueryItem }: { canQueryItem: boolean }) {
+export function RestockAssistPage({ canQueryItem,canOrdering=false }: { canQueryItem: boolean;canOrdering?:boolean }) {
   const job = useErpJob();
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -150,8 +161,40 @@ export function RestockAssistPage({ canQueryItem }: { canQueryItem: boolean }) {
       <ErpJobStatus result={mine} />
       {showsData(mine) && mine.dateFrom && mine.dateTo && <>
         {mine.truncated && <p className="cy-notice cy-notice-warning">品號超過 {mine.restock.length} 個，只列出前 {mine.restock.length} 個，請縮短日期範圍。</p>}
-        <RestockTable key={mine.id} from={mine.dateFrom} to={mine.dateTo} items={mine.restock} canQueryItem={canQueryItem} />
+        <RestockTable key={mine.id} from={mine.dateFrom} to={mine.dateTo} items={mine.restock} canQueryItem={canQueryItem} canOrdering={canOrdering} />
       </>}
     </div>}
   </div>;
+}
+
+function AddToOrdering({row,onClose,onAdded}:{row:Row;onClose:()=>void;onAdded:(text:string)=>void}){
+ const [sources,setSources]=useState<OrderingSource[]>([]),[sourceId,setSourceId]=useState(0),[orderId,setOrderId]=useState(0),[drafts,setDrafts]=useState<OrderingListRow[]>([]);
+ const [qty,setQty]=useState(String(Math.max(0,row.net))),[busy,setBusy]=useState(false),[error,setError]=useState("");
+ const {confirm,confirmationDialog}=useConfirmation();
+ useEffect(()=>{let valid=true;void Promise.all([
+  apiRequest<OrderingSource[]>("/api/business/ordering/sources"),
+  apiRequest<{source_id:number}|null>("/api/business/ordering/last-source?itemCode="+encodeURIComponent(row.itemCode))
+ ]).then(([s,last])=>{if(valid){setSources(s.filter(x=>x.isActive));setSourceId(last?.source_id??0)}}).catch(e=>{if(valid)setError(e instanceof Error?e.message:"無法讀取叫貨來源")});return()=>{valid=false}},[row.itemCode]);
+ useEffect(()=>{if(!sourceId)return;let valid=true;void apiRequest<OrderingListRow[]>("/api/business/ordering/orders?sourceId="+sourceId+"&status=DRAFT").then(xs=>{if(valid){setDrafts(xs);const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);setOrderId(pickDraft(xs.map(x=>({id:x.id,plannedSendDate:x.plannedSendDate,createdAt:x.createdAt})),today)?.id??0)}}).catch(e=>{if(valid)setError(e instanceof Error?e.message:"無法讀取草稿")});return()=>{valid=false}},[sourceId]);
+ async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!sourceId||!qty.trim()||Number(qty)<=0)return;
+  setBusy(true);setError("");try{
+   const ROOT="/api/business/ordering";
+   let current=orderId?await apiRequest<OrderingOrder>(ROOT+"/orders/"+orderId):await apiRequest<OrderingOrder>(ROOT+"/orders",{method:"POST",json:{sourceId}});
+   const existing=current.lines.find(l=>l.itemCode===row.itemCode);
+   let lineId:number|undefined;
+   if(existing&&await confirm({title:"已有同品號品項",description:"加到既有那一列？選「取消」會新增一列。",confirmLabel:"加到既有列",cancelLabel:"新增一列"}))lineId=existing.id;
+   const quantityText=lineId?String(Number(existing?.quantity??0)+Number(qty)):qty;
+   await apiRequest(ROOT+"/orders/"+current.id+"/lines",{method:"POST",json:{expectedVersion:current.version,operation:"save",lineId,line:{itemCode:row.itemCode,itemName:row.itemName,unit:row.unit??"",quantityText,sortOrder:Date.now()}}});
+   await apiRequest(ROOT+"/last-source",{method:"POST",json:{sourceId,itemCode:row.itemCode}}).catch(()=>{});
+   const source=sources.find(s=>s.id===sourceId);
+   onAdded("已加入 "+(source?.name??"叫貨")+" "+(current.plannedSendDate?current.plannedSendDate.slice(5).replace("-","/"):"未定日期")+" 草稿");
+  }catch(err){setError(err instanceof Error?err.message:"加入失敗")}finally{setBusy(false)}
+ }
+ return <Dialog open title={"加入叫貨單："+row.itemName} onClose={onClose}>{error?<p role="alert">{error}</p>:null}
+ <form onKeyDown={enterAdvancesFields} onSubmit={e=>void submit(e)}>
+ <label>來源<select className="cy-op-input" required value={sourceId} onChange={e=>setSourceId(Number(e.target.value))}><option value={0}>請選來源</option>{sources.filter(x=>x.kind!=="CN_REGULAR"&&x.kind!=="CN_CUSTOM").map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+ <label>草稿<select className="cy-op-input" value={orderId} onChange={e=>setOrderId(Number(e.target.value))}><option value={0}>＋ 新草稿</option>{drafts.map(x=><option key={x.id} value={x.id}>{x.plannedSendDate??"未排日期"}（#{x.id}）</option>)}</select></label>
+ <label>數量<input className="cy-op-input" type="number" min=".0001" step="any" required value={qty} onChange={e=>setQty(e.target.value)}/></label>
+ <button type="submit" className="cy-op-button primary" disabled={busy||!sourceId}>加入</button><button type="button" className="cy-op-button" onClick={onClose}>取消</button>
+ </form>{confirmationDialog}</Dialog>;
 }
