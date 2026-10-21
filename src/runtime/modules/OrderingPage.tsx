@@ -241,7 +241,7 @@ export function OrderingPage(){
       {current.storedStatus==="SENT"?<button type="button" className="cy-op-button" onClick={()=>setReceipt({id:current.id,no:"",date:nowDate(),quantities:Object.fromEntries(current.lines.filter(l=>l.quantity!==null&&l.received<l.quantity&&!l.closedAs).map(l=>[l.id,String((l.quantity??0)-l.received)])),selectedLineIds:[]})}>登記到貨</button>:null}
       {editable?<button type="button" className="cy-op-button" onClick={()=>void voidOrder()}>作廢</button>:null}
       <button type="button" className="cy-op-button" onClick={()=>setShowHistory(v=>!v)}>修改紀錄</button></div>
-      {current.storedStatus!=="DRAFT"&&current.lines.map(l=><p key={l.id}>{l.itemName}　叫貨 {l.quantityText}　已到 {l.received}　{l.closedAs?CLOSED_AS_LABELS[l.closedAs as keyof typeof CLOSED_AS_LABELS]:LINE_STATE_LABELS[lineState(l)]}{l.closedAs&&l.closedNote?"（"+l.closedNote+"）":""}
+      {current.storedStatus!=="DRAFT"&&current.lines.map(l=><p key={l.id}>{l.itemName}　叫貨 {l.quantityText}{l.unit&&!l.quantityText.endsWith(l.unit)?l.unit:""}　已到 {l.received}　{l.closedAs?CLOSED_AS_LABELS[l.closedAs as keyof typeof CLOSED_AS_LABELS]:LINE_STATE_LABELS[lineState(l)]}{l.closedAs&&l.closedNote?"（"+l.closedNote+"）":""}
        {current.storedStatus==="SENT"&&l.quantity!==null&&l.received<l.quantity&&!l.closedAs?<button type="button" className="cy-op-button" onClick={()=>setClosing({id:l.id,kind:"SHORTAGE",reason:""})}>結掉剩餘</button>:null}</p>)}
       {showHistory&&current.revisions.map(x=><p key={x.revision}>版本 {x.revision}　{displayTime(x.at)}　{x.by}　{x.summary}</p>)}
       {current.receipts.map(x=><p key={x.id}>到貨：{x.erpPurchaseNo}　{displayDate(x.receivedDate)}</p>)}
