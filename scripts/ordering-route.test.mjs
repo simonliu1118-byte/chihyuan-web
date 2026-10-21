@@ -68,6 +68,28 @@ test("manual vendor memory is reused, ERP sales item fills blanks and source dis
   assert.equal((await call("/orders/"+o.id)).status,200,"inactive source must retain history");
  }finally{sql.close()}
 });
+test("combined vendor overview groups draft lines without sending vendors",async()=>{
+ const {sql,call}=fixture();try{
+  const sources=(await call("/sources")).body.data;
+  const a=sources.find(x=>x.name==="永全"),b=sources.find(x=>x.name==="東昇");
+  for(const source of [a,b]){
+   let draft=(await call("/orders","POST",{sourceId:source.id})).body.data;
+   const added=await call("/orders/"+draft.id+"/lines","POST",{expectedVersion:draft.version,line:{itemCode:"SKU"+source.id,itemName:"測試品名甲",quantityText:"1箱"}});
+   assert.equal(added.status,200,JSON.stringify(added.body));
+  }
+  const overview=await call("/vendors/overview");assert.equal(overview.status,200,JSON.stringify(overview.body));
+  const first=overview.body.data.find(x=>x.sourceId===a.id);
+  const second=overview.body.data.find(x=>x.sourceId===b.id);
+  assert.equal(first.lines.length,1);assert.equal(first.lines[0].itemName,"測試品名甲");
+  assert.equal(second.lines.length,1);
+  assert.ok(first.orderId>0&&first.orderVersion>1);assert.equal(second.conditions,"滿$5000免運費");
+  const changed=await call("/orders/"+first.orderId+"/lines","POST",{expectedVersion:first.orderVersion,operation:"save",lineId:first.lines[0].id,line:{quantityText:"2箱"}});
+  assert.equal(changed.status,200,JSON.stringify(changed.body));
+  const updated=(await call("/vendors/overview")).body.data.find(x=>x.sourceId===a.id);
+  assert.equal(updated.lines[0].quantity,2);
+  assert.equal((await call("/orders/"+first.orderId)).body.data.status,"DRAFT");
+ }finally{sql.close()}
+});
 test("receipt performs multi-line update and settles shortages with correct status",async()=>{
  const {sql,call}=fixture();try{
   const id=(await call("/sources")).body.data.find(x=>x.name==="台北").id;
