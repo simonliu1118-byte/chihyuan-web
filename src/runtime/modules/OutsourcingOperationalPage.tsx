@@ -353,6 +353,7 @@ export function OutsourcingOperationalPage() {
     event.preventDefault();
     if (!draft || !lookups || busy) return;
     const partIssue = draft.parts.findIndex((part) => !part.componentItemId || !part.quantity.trim() || !part.unit.trim());
+    if (!draft.contractorId) { reportError("請選擇協力廠商。"); return; }
     if (partIssue >= 0) { reportError(`第 ${partIssue + 1} 列料件請填寫商品、數量與單位。`); return; }
 
     const profile = {
