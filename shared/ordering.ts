@@ -149,3 +149,14 @@ export function vendorItemKey(itemCode: string, itemName: string): { type: "CODE
 export function exportFileName(sourceName: string, date: string): string {
   return `${sourceName}${date.replace(/-/g, "")}.xlsx`;
 }
+
+/** UTC API timestamps must render as Asia/Taipei, including cross-midnight order dates. */
+export function orderingTaipeiDateTime(value:string|null|undefined):{date:string;time:string}|null {
+ if(!value)return null;
+ if(!value.includes("T"))return {date:value.slice(0,10).replaceAll("-","/"),time:""};
+ const d=new Date(value);
+ if(!Number.isFinite(d.getTime()))return {date:value.slice(0,10).replaceAll("-","/"),time:""};
+ const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Taipei",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(d);
+ const get=(kind:string)=>parts.find(p=>p.type===kind)?.value??"";
+ return {date:get("year")+"/"+get("month")+"/"+get("day"),time:get("hour")+":"+get("minute")};
+}
