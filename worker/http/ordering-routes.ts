@@ -23,7 +23,7 @@ const defaults:[string,Source["kind"],string][]=[
 class Bad extends Error{constructor(public code:string,message:string,public status=422){super(message)}}
 const must=(v:unknown,n:string,max=200)=>{if(typeof v!=="string"||v.trim().length>max)throw new Bad("ORDERING_INVALID",n+"不正確");return v.trim()};
 const int=(v:unknown,n:string)=>{if(!Number.isSafeInteger(v)||Number(v)<1)throw new Bad("ORDERING_INVALID",n+"不正確");return Number(v)};
-const date=(v:unknown)=>{const d=must(v,"日期",10),t=new Date(d+"T00:00:00Z");if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(d)||!Number.isFinite(t.getTime())||t.toISOString().slice(0,10)!==d)throw new Bad("ORDERING_INVALID","日期無效");return d};
+const date=(v:unknown)=>{const d=must(v,"日期",10),t=new Date(d+"T00:00:00Z");if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||!Number.isFinite(t.getTime())||t.toISOString().slice(0,10)!==d)throw new Bad("ORDERING_INVALID","日期無效");return d};
 const body=async(req:Request)=>{const b=await req.json().catch(()=>null);if(!b||typeof b!=="object"||Array.isArray(b))throw new Bad("ORDERING_INVALID","請提供有效資料");return b as Record<string,unknown>};
 const audit=(ctx:Context,id:number,action:string,after:Record<string,unknown>)=>new AuditService(ctx.db).prepareRecord({entityType:"ordering",entityKey:String(id),action:"ordering."+action,actorEmployeeId:ctx.actor,requestId:ctx.requestId,after});
 const rows=async<T>(db:D1Database,sql:string,...args:unknown[])=>((await db.prepare(sql).bind(...args).all<T>()).results??[]) as T[];
@@ -64,7 +64,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
  const gate=await requireModuleAccess(provider,env.DB,request,"ORDERING");
  if(!gate.ok)return failure({code:gate.code,message:"沒有叫貨權限"},requestId,gate.status);
  const ctx:Context={db:env.DB,actor:gate.member.id,name:gate.member.displayName??gate.member.employeeNo??"使用者",now:new Date().toISOString(),requestId};
- const path=url.pathname.replace(/^\\/api\\/business\\/ordering\\/?/,""),method=request.method;
+ const path=url.pathname.replace(/^\/api\/business\/ordering\/?/,""),method=request.method;
  try{
   if(path==="sources"&&method==="GET"){await init(ctx);return success(await rows<Source>(ctx.db,"SELECT * FROM ordering_sources ORDER BY sort_order,id LIMIT 101"),requestId)}
   if(path==="sources"&&method==="POST"){
@@ -73,7 +73,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
    await run(ctx,[audit(ctx,Number(result.meta.last_row_id),"source_created",{name,kind})]);
    return success({id:Number(result.meta.last_row_id)},requestId);
   }
-  let m=/^sources\\/(\\d+)$/.exec(path);
+  let m=/^sources\/(\d+)$/.exec(path);
   if(m&&method==="PATCH"){const v=await body(request),id=int(Number(m[1]),"來源");const stm:string[]=[],args:unknown[]=[];
    for(const [key,col,max] of [["name","name",40],["conditions","conditions",500]] as const)if(key in v){stm.push(col+"=?");args.push(must(v[key],col,max))}
    if("sortOrder" in v){stm.push("sort_order=?");args.push(Number(v.sortOrder))}
@@ -123,7 +123,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
    const code=must(url.searchParams.get("itemCode"),"品號",40);
    return success(await one(ctx.db,"SELECT item_name,unit FROM erp_sales_items WHERE item_code=? LIMIT 1",code),requestId);
   }
-  m=/^orders\\/(\\d+)(?:\\/(.*))?$/.exec(path);
+  m=/^orders\/(\d+)(?:\/(.*))?$/.exec(path);
   if(m){const id=int(Number(m[1]),"單據"),action=m[2]??"",o=await one<Ord>(ctx.db,"SELECT * FROM ordering_orders WHERE id=?",id);if(!o)throw new Bad("ORDERING_NOT_FOUND","叫貨單不存在",404);
    if(!action&&method==="GET")return success(await getOrder(ctx,id),requestId);
    const v=await body(request),expected=int(v.expectedVersion,"版本");if(expected!==o.version)throw new Bad("ORDERING_VERSION_CONFLICT","已被其他人修改，請重新載入",409);
