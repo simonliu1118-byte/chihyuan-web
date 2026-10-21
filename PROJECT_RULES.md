@@ -62,6 +62,13 @@
   - 只有查詢表單（標示 `role="search"`）可以按 Enter 直接查詢。
   - 日期欄位一律限制為四碼年份。
   - 這兩項由 `scripts/form-keyboard.test.mjs` 自動檢查（`npm run validate:source`）。新功能未通過時，不得以加入例外清單代替實作。
+- **表單欄位一律用共用欄位元件**（使用者 2026-10-21）：
+  - 資料輸入表單的欄位用 `src/ui/forms/Field.tsx` 的 `Field`、`CheckField`、`FormSection`、`RequiredRows`，不再手寫 `<label>文字<input/></label>`。
+  - **必填欄位顯示紅色＊**：在 `Field` 標 `required`，元件同時設定控制項的 `required`，記號與瀏覽器檢查不會不一致。「擇一必填」用 `oneOf`、`reportAs`；「至少一列」用 `RequiredRows`。
+  - **欄位寬度依內容長短**（12 格格線）：短 `s`（日期、下拉選單、電話、數字、短代號，一列 4 個）；中 `m`（姓名、名稱、Email、搜尋選擇，一列 2 個）；長 `l`（地址、備註、說明，整列）。表單最寬 960px；窄的區域自動收成兩欄或一欄。
+  - 欄位多的表單用 `FormSection` 分區並加小標題。
+  - **送出時所有缺漏一次提醒**：由瀏覽器檢查與 `FeedbackProvider` 統一處理，列出全部缺漏並標紅框；頁面不再自行逐欄跳提醒。
+  - 由 `scripts/form-fields.test.mjs` 自動檢查（`npm run validate:source`）。
 
 ## 6. 共用模板與一致性
 
