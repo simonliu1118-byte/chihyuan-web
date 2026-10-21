@@ -160,3 +160,16 @@ export function orderingTaipeiDateTime(value:string|null|undefined):{date:string
  const get=(kind:string)=>parts.find(p=>p.type===kind)?.value??"";
  return {date:get("year")+"/"+get("month")+"/"+get("day"),time:get("hour")+":"+get("minute")};
 }
+
+/** Serializes writes per order/source: slow network or a failed write never drops the next edit. */
+export function createOrderingWriteQueue(){
+ const pending=new Map<string,Promise<unknown>>();
+ function enqueue<T>(key:string,write:()=>Promise<T>):Promise<T>{
+  const previous=pending.get(key)??Promise.resolve();
+  const next=previous.catch(()=>{}).then(write);
+  pending.set(key,next);
+  void next.finally(()=>{if(pending.get(key)===next)pending.delete(key)}).catch(()=>{});
+  return next;
+ }
+ return {enqueue};
+}
