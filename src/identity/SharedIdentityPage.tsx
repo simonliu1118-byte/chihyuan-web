@@ -190,9 +190,9 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
       <FeedbackBanner message={message} tone={messageTone} />
       <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={submitPassword}>
     <FormSection>
-        <Field  label="目前密碼" size="m" required><PasswordInput value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} autoComplete="current-password" /></Field>
-        <Field  label="新密碼" size="m" required><PasswordInput value={newPassword} onChange={event => setNewPassword(event.target.value)} autoComplete="new-password" /></Field>
-        <Field  label="確認新密碼" size="m" required><PasswordInput value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} autoComplete="new-password" /></Field>
+        <Field label="目前密碼" size="m" required><PasswordInput value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} autoComplete="current-password" /></Field>
+        <Field label="新密碼" size="m" required><PasswordInput value={newPassword} onChange={event => setNewPassword(event.target.value)} autoComplete="new-password" /></Field>
+        <Field label="確認新密碼" size="m" required><PasswordInput value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} autoComplete="new-password" /></Field>
         <div className="cy-password-checks" aria-live="polite">
           <span className={validLength ? "valid" : ""}>{validLength ? "✓" : "○"} 8～16 字元</span>
           <span className={matching ? "valid" : ""}>{matching ? "✓" : "○"} 兩次輸入相同</span>
@@ -209,14 +209,14 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
       <FeedbackBanner message={message} tone={messageTone} />
       {!challengeId && verifyingCurrentEmail ? <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={closeDialog}>取消</button><button type="button" className="cy-op-button primary" disabled={busy || countdown > 0} onClick={() => void verifyCurrentEmail()}>{countdown > 0 ? String(countdown) + " 秒後可重新寄送" : "重新寄送驗證碼"}</button></div> : !challengeId ? <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={startEmail}>
     <FormSection>
-        <Field  label="新 Email" size="m" required><input className="cy-op-input" type="email" value={newEmail} onChange={event => setNewEmail(event.target.value)} /></Field>
-        <Field  label="目前密碼" size="m" required><PasswordInput value={emailPassword} onChange={event => setEmailPassword(event.target.value)} autoComplete="current-password" /></Field>
+        <Field label="新 Email" size="m" required><input className="cy-op-input" type="email" value={newEmail} onChange={event => setNewEmail(event.target.value)} /></Field>
+        <Field label="目前密碼" size="m" required><PasswordInput value={emailPassword} onChange={event => setEmailPassword(event.target.value)} autoComplete="current-password" /></Field>
         <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={closeDialog}>取消</button><button className="cy-op-button primary" disabled={busy || countdown > 0}>{countdown > 0 ? `${countdown} 秒後可重新寄送` : "寄送驗證碼"}</button></div>
       
     </FormSection>
   </form> : <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={confirmEmail}>
     <FormSection>
-        <Field  label="6 位數驗證碼" size="m" required><input className="cy-op-input" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otp} onChange={event => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} /></Field>
+        <Field label="6 位數驗證碼" size="m" required><input className="cy-op-input" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otp} onChange={event => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} /></Field>
         <div className="cy-op-form-footer">
           <button type="button" className="cy-op-button" disabled={busy} onClick={() => { if (verifyingCurrentEmail) { closeDialog(); } else { setChallengeId(null); setOtp(""); setMessage(null); } }}>{verifyingCurrentEmail ? "關閉" : "返回"}</button>
           <button type="button" className="cy-op-button" disabled={busy || countdown > 0} onClick={() => void (verifyingCurrentEmail ? verifyCurrentEmail() : startEmail())}>{countdown > 0 ? String(countdown) + " 秒後可重新寄送" : "重新寄送"}</button>
@@ -790,7 +790,7 @@ function CreateUserDialog({ canIdentityAdmin, onClose, onCreated, reportError }:
         <TextInput label="員工編號" inputMode="numeric" autoComplete="off" maxLength={4} value={employeeNo} onChange={(event) => setEmployeeNo(event.target.value.replace(/\D/g, "").slice(0, 4))} disabled={busy} autoFocus required />
         <TextInput label="姓名" autoComplete="off" value={displayName} onChange={(event) => setDisplayName(event.target.value)} disabled={busy} required />
         <TextInput label="電子郵件" type="email" autoComplete="off" value={email} onChange={(event) => setEmail(event.target.value)} disabled={busy} required />
-        <Field  label="權限" size="s"><select className="cy-op-input" value={canIdentityAdmin ? roleKey : "USER"} disabled={busy || !canIdentityAdmin} onChange={(event) => setRoleKey(event.target.value as "USER" | "ADMIN")}><option value="USER">一般使用者</option>{canIdentityAdmin ? <option value="ADMIN">管理員</option> : null}</select></Field>
+        <Field label="權限" size="s"><select className="cy-op-input" value={canIdentityAdmin ? roleKey : "USER"} disabled={busy || !canIdentityAdmin} onChange={(event) => setRoleKey(event.target.value as "USER" | "ADMIN")}><option value="USER">一般使用者</option>{canIdentityAdmin ? <option value="ADMIN">管理員</option> : null}</select></Field>
       
     </FormSection>
   </form>
@@ -838,9 +838,9 @@ function TransferDialog({ employees, onClose }: { employees: readonly IdentityEm
       <form onKeyDown={enterAdvancesThenSubmits} id={formId} className="cy-op-form" onSubmit={(event) => void submit(event)}>
     <FormSection>
         {!challengeId ? <>
-          <Field  label="新的超級管理員" size="m"><select className="cy-op-input" value={targetEmployeeId} disabled={busy} onChange={(event) => setTargetEmployeeId(event.target.value)}>{eligible.map((row) => <option key={row.employee_id} value={row.employee_id}>{row.employee_no} · {row.name}</option>)}</select></Field>
-          <Field  label="目前超級管理員密碼" size="m" required><input className="cy-op-input" type="password" value={currentPassword} disabled={busy} onChange={(event) => setCurrentPassword(event.target.value)} /></Field>
-        </> : <Field  label="6 位數驗證碼" size="m" required><input className="cy-op-input" inputMode="numeric" maxLength={6} value={otp} disabled={busy} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} autoFocus /></Field>}
+          <Field label="新的超級管理員" size="m"><select className="cy-op-input" value={targetEmployeeId} disabled={busy} onChange={(event) => setTargetEmployeeId(event.target.value)}>{eligible.map((row) => <option key={row.employee_id} value={row.employee_id}>{row.employee_no} · {row.name}</option>)}</select></Field>
+          <Field label="目前超級管理員密碼" size="m" required><input className="cy-op-input" type="password" value={currentPassword} disabled={busy} onChange={(event) => setCurrentPassword(event.target.value)} /></Field>
+        </> : <Field label="6 位數驗證碼" size="m" required><input className="cy-op-input" inputMode="numeric" maxLength={6} value={otp} disabled={busy} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} autoFocus /></Field>}
       
     </FormSection>
   </form>
@@ -1093,9 +1093,9 @@ function SecurityPanel() {
       footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={close}>取消</button><button type="submit" form={formId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>儲存</button></div>}>
       <form onKeyDown={enterAdvancesFields} id={formId} className="cy-identity-policy-grid" onSubmit={(event) => void save(event)}>
     <FormSection>
-        <Field  label="驗證碼重寄間隔（秒）" size="s"><input className="cy-op-input" type="number" min={30} max={600} value={draft.otpResendCooldownSeconds} onChange={field("otpResendCooldownSeconds")} /></Field>
-        <Field  label="驗證碼最多嘗試次數" size="m"><input className="cy-op-input" type="number" min={3} max={10} value={draft.otpMaxAttempts} onChange={field("otpMaxAttempts")} /></Field>
-        <Field  label="同一 Email、同一用途每小時最多" size="m"><input className="cy-op-input" type="number" min={1} max={20} value={draft.otpMaxSentPerEmailPurposeHour} onChange={field("otpMaxSentPerEmailPurposeHour")} /></Field>
+        <Field label="驗證碼重寄間隔（秒）" size="s"><input className="cy-op-input" type="number" min={30} max={600} value={draft.otpResendCooldownSeconds} onChange={field("otpResendCooldownSeconds")} /></Field>
+        <Field label="驗證碼最多嘗試次數" size="s"><input className="cy-op-input" type="number" min={3} max={10} value={draft.otpMaxAttempts} onChange={field("otpMaxAttempts")} /></Field>
+        <Field label="同一 Email、同一用途每小時最多" size="s"><input className="cy-op-input" type="number" min={1} max={20} value={draft.otpMaxSentPerEmailPurposeHour} onChange={field("otpMaxSentPerEmailPurposeHour")} /></Field>
         <Field label="每日 Email 上限" size="m" hint={<>系統上限：{view.systemEmailDailyCeiling}</>}><input className="cy-op-input" type="number" min={1} max={view.systemEmailDailyCeiling} value={draft.emailDailyLimit} onChange={field("emailDailyLimit")} /></Field>
         {dialogError ? <p className="wide cy-notice cy-notice-danger" role="alert">{dialogError}</p> : null}
       

@@ -20,12 +20,12 @@ export function HrLeaveTypeSettings(){
   <button type="button" className="cy-op-button" onClick={()=>edit(null)}>＋新增公司假別</button>
   {selected!==null||name?<form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>void save(e)}>
     <FormSection>
-   <Field  label="代號" size="s" required><input className="cy-op-input" value={code} onChange={e=>setCode(e.target.value)} disabled={!!selected} maxLength={2}/></Field>
-   <Field  label="名稱" size="m" required><input className="cy-op-input" value={name} onChange={e=>setName(e.target.value)} disabled={selected?.is_statutory===1}/></Field>
-   <Field  label="排序" size="m"><input className="cy-op-input" type="number" value={sort} onChange={e=>setSort(e.target.value)}/></Field>
+   <Field label="代號" size="s" required><input className="cy-op-input" value={code} onChange={e=>setCode(e.target.value)} disabled={!!selected} maxLength={2}/></Field>
+   <Field label="名稱" size="m" required><input className="cy-op-input" value={name} onChange={e=>setName(e.target.value)} disabled={selected?.is_statutory===1}/></Field>
+   <Field label="排序" size="s"><input className="cy-op-input" type="number" value={sort} onChange={e=>setSort(e.target.value)}/></Field>
    <CheckField  label="啟用" size="s"  checked={enabled} onChange={e=>setEnabled(e.target.checked)}/>
-   <Field  label="額度天數" size="m"><input className="cy-op-input" type="number" min="0" step="0.5" value={quota} onChange={e=>setQuota(e.target.value)} disabled={selected?.is_statutory===1}/></Field>
-   <Field  label="期間" size="s"><select className="cy-op-input" value={period} disabled={selected?.is_statutory===1} onChange={e=>setPeriod(e.target.value)}><option value="">不限</option><option value="calendar_year">每年</option><option value="month">每月</option><option value="event">每事件</option><option value="two_years">近兩年</option></select></Field>
+   <Field label="額度天數" size="s"><input className="cy-op-input" type="number" min="0" step="0.5" value={quota} onChange={e=>setQuota(e.target.value)} disabled={selected?.is_statutory===1}/></Field>
+   <Field label="期間" size="s"><select className="cy-op-input" value={period} disabled={selected?.is_statutory===1} onChange={e=>setPeriod(e.target.value)}><option value="">不限</option><option value="calendar_year">每年</option><option value="month">每月</option><option value="event">每事件</option><option value="two_years">近兩年</option></select></Field>
    <CheckField  label="事由必填" size="s"  checked={reason} disabled={selected?.is_statutory===1} onChange={e=>setReason(e.target.checked)}/>
    <CheckField  label="接受 JPEG 證明" size="s"  checked={proof} disabled={selected?.is_statutory===1} onChange={e=>setProof(e.target.checked)}/>
    <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>{edit(null);setName("")}}>取消</button><button className="cy-op-button primary">儲存假別</button></div>

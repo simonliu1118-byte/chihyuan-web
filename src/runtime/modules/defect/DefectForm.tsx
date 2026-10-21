@@ -84,28 +84,28 @@ export function DefectForm({ mode, initial, fixedItem, onSaved, onCancel }: Defe
       <div className="cy-record-actions">{actions}</div>
     </div>}
     <div className="cy-defect-form-body"><div className="cy-f-grid">
-      <Field  label="回報日期" size="s" required><input className="cy-op-input" type="date" max="9999-12-31" value={reportedDate}
+      <Field label="回報日期" size="s" required><input className="cy-op-input" type="date" max="9999-12-31" value={reportedDate}
         disabled={busy} onChange={event => setReportedDate(event.target.value)} /></Field>
       <EntityPicker<DefectCustomerOption> label="客戶" required disabled={busy}
         value={customer} onSelect={setCustomer}
         search={async q => (await loadDefectLookups({ customerQuery: q, limit: 20 })).customers}
         getKey={row => row.id} getLabel={row => [row.customerNo, row.shortName].filter(Boolean).join(" ")}
         placeholder="輸入客戶編號或名稱" />
-      {fixedItem ? <Field  label="商品" size="m"><span><strong className="cy-defect-fixed-item">{formatItem(fixedItem.itemNo, fixedItem.name)}</strong></span></Field> : <EntityPicker<DefectItemOption> label="商品" required disabled={busy}
+      {fixedItem ? <Field label="商品" size="m"><span><strong className="cy-defect-fixed-item">{formatItem(fixedItem.itemNo, fixedItem.name)}</strong></span></Field> : <EntityPicker<DefectItemOption> label="商品" required disabled={busy}
         value={item} onSelect={setItem}
         search={async q => (await loadDefectLookups({ itemQuery: q, limit: 20 })).items}
         getKey={row => row.id} getLabel={row => formatItem(row.itemNo, row.name)}
         getDescription={row => row.spec} placeholder="輸入品號或品名" />}
-      <Field  label="負責人" size="m"><select className="cy-op-input" value={ownerEmployeeId ?? ""} disabled={busy}
+      <Field label="負責人" size="m"><select className="cy-op-input" value={ownerEmployeeId ?? ""} disabled={busy}
         onChange={event => setOwnerEmployeeId(Number(event.target.value) || null)}>
         <option value="">請選擇</option>
         {lookups?.owners.map(row => <option key={row.id} value={row.id}>
           {row.displayName || row.employeeNo || `員工 #${row.id}`}{row.isActive ? "" : "（已停用）"}
         </option>)}
       </select></Field>
-      <Field  label="瑕疵內容" size="l" required><textarea className="cy-op-input" rows={5} value={description}
+      <Field label="瑕疵內容" size="l" required><textarea className="cy-op-input" rows={5} value={description}
         disabled={busy} onChange={event => setDescription(event.target.value)} /></Field>
-      {mode === "edit" && initial?.statusCode === "processing" ? <Field  label="處理中備註" size="l"><textarea className="cy-op-input" rows={4} value={handling} disabled={busy}
+      {mode === "edit" && initial?.statusCode === "processing" ? <Field label="處理中備註" size="l"><textarea className="cy-op-input" rows={4} value={handling} disabled={busy}
           onChange={event => setHandling(event.target.value)} /></Field> : null}
     </div></div>
     {error ? <p className="cy-notice cy-notice-error" role="alert">{error}</p> : null}

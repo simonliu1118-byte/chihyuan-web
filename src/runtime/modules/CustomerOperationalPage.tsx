@@ -853,14 +853,14 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
 
               <div className="cy-customer-form-body">
                 <div className="cy-f-grid">
-                  <Field  label="客戶名稱／簡稱" size="m" required><input className="cy-op-input" value={draft.shortName} disabled={busy} onChange={(e) => patchDraft({ shortName: e.target.value })} /></Field>
-                  <Field  label="完整名稱" size="m"><input className="cy-op-input" value={draft.fullName} disabled={busy} onChange={(e) => patchDraft({ fullName: e.target.value })} /></Field>
-                  <Field  label="客戶編號" size="s"><input className="cy-op-input" value={draft.customerNo} disabled={busy} onChange={(e) => patchDraft({ customerNo: e.target.value })} placeholder="可稍後補填" /></Field>
-                  <Field  label="統編" size="s"><input className="cy-op-input" inputMode="numeric" value={draft.taxId} disabled={busy} onChange={(e) => patchDraft({ taxId: e.target.value })} /></Field>
-                  <Field  label="地區" size="m"><select className="cy-op-input" value={draft.regionId ?? ""} disabled={busy} onChange={(e) => patchDraft({ regionId: e.target.value ? Number(e.target.value) : null })}><option value="">未設定</option>{regions.filter((row) => row.isActive || row.id === draft.regionId).map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}</select></Field>
-                  <Field  label="分類" size="m"><select className="cy-op-input" value={draft.customerCategoryId ?? ""} disabled={busy} onChange={(e) => patchDraft({ customerCategoryId: e.target.value ? Number(e.target.value) : null })}><option value="">未分類</option>{categories.filter((row) => row.isActive || row.id === draft.customerCategoryId).map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}</select></Field>
-                  <Field  label="狀態" size="s"><select className="cy-op-input" value={draft.customerStatusId ?? ""} disabled={busy} onChange={(e) => patchDraft({ customerStatusId: e.target.value ? Number(e.target.value) : null })}><option value="">未設定</option>{statuses.filter((row) => row.isActive || row.id === draft.customerStatusId).map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}</select></Field>
-                  <Field  label="傳真" size="m"><input className="cy-op-input" value={draft.fax} disabled={busy} onChange={(e) => patchDraft({ fax: e.target.value })} /></Field>
+                  <Field label="客戶名稱／簡稱" size="m" required><input className="cy-op-input" value={draft.shortName} disabled={busy} onChange={(e) => patchDraft({ shortName: e.target.value })} /></Field>
+                  <Field label="完整名稱" size="m"><input className="cy-op-input" value={draft.fullName} disabled={busy} onChange={(e) => patchDraft({ fullName: e.target.value })} /></Field>
+                  <Field label="客戶編號" size="s"><input className="cy-op-input" value={draft.customerNo} disabled={busy} onChange={(e) => patchDraft({ customerNo: e.target.value })} placeholder="可稍後補填" /></Field>
+                  <Field label="統編" size="s"><input className="cy-op-input" inputMode="numeric" value={draft.taxId} disabled={busy} onChange={(e) => patchDraft({ taxId: e.target.value })} /></Field>
+                  <Field label="地區" size="m"><select className="cy-op-input" value={draft.regionId ?? ""} disabled={busy} onChange={(e) => patchDraft({ regionId: e.target.value ? Number(e.target.value) : null })}><option value="">未設定</option>{regions.filter((row) => row.isActive || row.id === draft.regionId).map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}</select></Field>
+                  <Field label="分類" size="m"><select className="cy-op-input" value={draft.customerCategoryId ?? ""} disabled={busy} onChange={(e) => patchDraft({ customerCategoryId: e.target.value ? Number(e.target.value) : null })}><option value="">未分類</option>{categories.filter((row) => row.isActive || row.id === draft.customerCategoryId).map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}</select></Field>
+                  <Field label="狀態" size="s"><select className="cy-op-input" value={draft.customerStatusId ?? ""} disabled={busy} onChange={(e) => patchDraft({ customerStatusId: e.target.value ? Number(e.target.value) : null })}><option value="">未設定</option>{statuses.filter((row) => row.isActive || row.id === draft.customerStatusId).map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}</select></Field>
+                  <Field label="傳真" size="m"><input className="cy-op-input" value={draft.fax} disabled={busy} onChange={(e) => patchDraft({ fax: e.target.value })} /></Field>
                 </div>
 
                 <EditableRows title="電話" addLabel="增加電話" onAdd={addPhone} empty={!draft.phones.length} busy={busy}>
@@ -982,17 +982,17 @@ function VisitsPanel({ selected, rows, draft, setDraft, save, edit, remove, busy
   return <div className="cy-customer-related-content">
     {draft ? <form onKeyDown={enterAdvancesFields} className="cy-customer-related-form" onSubmit={save}>
     <FormSection>
-      <Field  label="日期" size="s" required><input className="cy-op-input" type="date" max="9999-12-31" value={draft.visitDate} disabled={busy}
+      <Field label="日期" size="s" required><input className="cy-op-input" type="date" max="9999-12-31" value={draft.visitDate} disabled={busy}
         onChange={event => setDraft({ ...draft, visitDate: event.target.value })} /></Field>
-      <Field  label="聯絡人" size="m"><select className="cy-op-input" value={draft.contactId ?? ""} disabled={busy}
+      <Field label="聯絡人" size="m"><select className="cy-op-input" value={draft.contactId ?? ""} disabled={busy}
         onChange={event => setDraft({ ...draft, contactId: event.target.value ? Number(event.target.value) : null,
           personSnapshot: event.target.value ? "" : draft.personSnapshot })}>
         <option value="">自由輸入</option>
         {contacts.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
       </select></Field>
-      {draft.contactId == null ? <Field  label="拜訪對象" size="m"><input className="cy-op-input" value={draft.personSnapshot}
+      {draft.contactId == null ? <Field label="拜訪對象" size="m"><input className="cy-op-input" value={draft.personSnapshot}
         disabled={busy} onChange={event => setDraft({ ...draft, personSnapshot: event.target.value })} /></Field> : null}
-      <Field  label="內容" size="l" required><textarea className="cy-op-input" rows={3} value={draft.content}
+      <Field label="內容" size="l" required><textarea className="cy-op-input" rows={3} value={draft.content}
         disabled={busy} onChange={event => setDraft({ ...draft, content: event.target.value })} /></Field>
       <div className="cy-customer-related-form-actions">
         <button type="button" className="cy-op-button" disabled={busy} onClick={onCancel}>取消</button>
@@ -1051,9 +1051,9 @@ function QuotesPanel({ customerId, rows, draft, setDraft, save, correct, busy, m
     {draft?.corrected ? <form onKeyDown={enterAdvancesFields} className="cy-customer-quote-form" onSubmit={save}>
     <FormSection>
       <div className="cy-customer-quote-header-fields">
-        <Field  label="日期" size="s" required><input type="date" max="9999-12-31" className="cy-op-input" value={draft.quoteDate} disabled={busy}
+        <Field label="日期" size="s" required><input type="date" max="9999-12-31" className="cy-op-input" value={draft.quoteDate} disabled={busy}
           onChange={event => setDraft({ ...draft, quoteDate: event.target.value })} /></Field>
-        <Field  label="備註" size="l"><input className="cy-op-input" value={draft.note} disabled={busy} maxLength={120}
+        <Field label="備註" size="l"><input className="cy-op-input" value={draft.note} disabled={busy} maxLength={120}
           onChange={event => setDraft({ ...draft, note: event.target.value })} /></Field>
       </div>
       <div className="cy-customer-quote-lines">
@@ -1063,11 +1063,11 @@ function QuotesPanel({ customerId, rows, draft, setDraft, save, correct, busy, m
             search={searchQuoteItem} getKey={row => row.id} getLabel={quoteItemLabel}
             minQueryLength={1} placeholder="輸入品號或品名搜尋"
             onSelect={item => patchLine(index, { item, unit: item?.baseUnit ?? line.unit })} />
-          <Field  label="數量" size="s" required><input className="cy-op-input" inputMode="decimal" value={line.quantity}
+          <Field label="數量" size="s" required><input className="cy-op-input" inputMode="decimal" value={line.quantity}
             disabled={busy} onChange={event => patchLine(index, { quantity: event.target.value })} /></Field>
-          <Field  label="單位" size="s" required><input className="cy-op-input" value={line.unit}
+          <Field label="單位" size="s" required><input className="cy-op-input" value={line.unit}
             disabled={busy} onChange={event => patchLine(index, { unit: event.target.value })} /></Field>
-          <Field  label="單價" size="s" required><input className="cy-op-input" inputMode="decimal" value={line.unitPrice}
+          <Field label="單價" size="s" required><input className="cy-op-input" inputMode="decimal" value={line.unitPrice}
             disabled={busy} onChange={event => patchLine(index, { unitPrice: event.target.value })} /></Field>
           <button className="cy-op-button compact" type="button" disabled={busy} title="移除品項"
             onClick={() => setDraft({ ...draft, lines: draft.lines.filter((_, i) => i !== index) })}>移除</button>
@@ -1077,7 +1077,7 @@ function QuotesPanel({ customerId, rows, draft, setDraft, save, correct, busy, m
         onClick={() => setDraft({ ...draft, lines: [...draft.lines, {
           ...emptyQuoteLine(), item: draft.corrected ? draft.lines[0]?.item ?? null : null,
         }] })}>＋ 加一列</button>
-      {draft.corrected ? <Field  label="修正原因" size="l"><input className="cy-op-input" value={draft.correctionReason} disabled={busy}
+      {draft.corrected ? <Field label="修正原因" size="l"><input className="cy-op-input" value={draft.correctionReason} disabled={busy}
           onChange={event => setDraft({ ...draft, correctionReason: event.target.value })} /></Field> : null}
       <div className="cy-customer-related-form-actions">
         <button className="cy-op-button" type="button" disabled={busy} onClick={onCancel}>取消</button>

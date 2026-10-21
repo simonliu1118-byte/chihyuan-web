@@ -60,8 +60,8 @@ export function HrPhase2aSettings(){
    {field("名稱","name","text",true)}
    {kind==="shift-types"?field("班別代號（1～2 字）","code","text",true):null}
    {field("排序","sortOrder","number")}
-   <Field  label="狀態" size="s"><select className="cy-op-input" value={value.isActive??"true"} onChange={e=>change("isActive",e.target.value)}><option value="true">啟用</option><option value="false">停用</option></select></Field>
-   {kind==="stores"?<>{field("雙週起算週一","cycleAnchorDate","date",true)}<Field  label="注意事項範本" size="m"><textarea className="cy-op-input" value={value.rulesTemplate??""} onChange={e=>change("rulesTemplate",e.target.value)}/></Field></>:null}
+   <Field label="狀態" size="s"><select className="cy-op-input" value={value.isActive??"true"} onChange={e=>change("isActive",e.target.value)}><option value="true">啟用</option><option value="false">停用</option></select></Field>
+   {kind==="stores"?<>{field("雙週起算週一","cycleAnchorDate","date",true)}<Field label="注意事項範本" size="l"><textarea className="cy-op-input" value={value.rulesTemplate??""} onChange={e=>change("rulesTemplate",e.target.value)}/></Field></>:null}
    {kind==="shift-types"?<>{field("上班時間","startTime","time",true)}{field("下班時間","endTime","time",true)}{field("休息開始","breakStart","time")}{field("休息結束","breakEnd","time")}
     <p>正常工時：{Math.max(0,minutes(value.endTime??"")-minutes(value.startTime??"")-(value.breakStart&&value.breakEnd?minutes(value.breakEnd)-minutes(value.breakStart):0))} 分鐘</p></>:null}
    <div className="cy-op-form-footer"><button className="cy-op-button" type="button" onClick={()=>setValue({})}>取消</button><button className="cy-op-button primary" disabled={busy}>儲存</button></div>
@@ -72,8 +72,8 @@ export function HrPhase2aSettings(){
   {holidays.map(h=><div className="hr-staff-setting" key={h.date}><span>{h.date.replaceAll("-","/")}　{h.name}</span><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void deleteHoliday(h.date)}>刪除</button></div>)}
   <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={e=>void saveHoliday(e)}>
     <FormSection>
-   <Field  label="假日日期" size="s" required><input type="date" max="9999-12-31" className="cy-op-input" value={holidayDate} onChange={e=>setHolidayDate(e.target.value)}/></Field>
-   <Field  label="假日名稱" size="m" required><input className="cy-op-input" value={holidayName} onChange={e=>setHolidayName(e.target.value)}/></Field>
+   <Field label="假日日期" size="s" required><input type="date" max="9999-12-31" className="cy-op-input" value={holidayDate} onChange={e=>setHolidayDate(e.target.value)}/></Field>
+   <Field label="假日名稱" size="m" required><input className="cy-op-input" value={holidayName} onChange={e=>setHolidayName(e.target.value)}/></Field>
    <button className="cy-op-button primary" disabled={busy}>新增國定假日</button>
   
     </FormSection>

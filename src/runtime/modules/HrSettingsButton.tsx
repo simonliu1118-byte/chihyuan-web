@@ -28,7 +28,7 @@ export function HrSettingsButton(){
       <button className="cy-op-button" disabled={busy} onClick={()=>void run(()=>apiRequest(ROOT+"/salary-item-types",{method:"PATCH",json:{id:x.id,name:x.name,isActive:x.is_active!==1}}))}>{x.is_active===1?"停用":"啟用"}</button>
     </div>)}
     <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={addItem}>
-    <FormSection><Field  label="津貼項目名稱" size="m" required><input className="cy-op-input" value={name} onChange={e=>setName(e.target.value)}/></Field><div className="cy-op-form-footer"><button className="cy-op-button primary" disabled={busy}>＋ 新增項目</button></div>
+    <FormSection><Field label="津貼項目名稱" size="m" required><input className="cy-op-input" value={name} onChange={e=>setName(e.target.value)}/></Field><div className="cy-op-form-footer"><button className="cy-op-button primary" disabled={busy}>＋ 新增項目</button></div>
     </FormSection>
   </form>
    </section>
@@ -36,9 +36,9 @@ export function HrSettingsButton(){
     {wages.map(x=><p key={x.id} className="cy-hr-setting-row">{formatDate(x.effective_date)}　月薪 {x.monthly_amount.toLocaleString("zh-TW")} 元　時薪 {x.hourly_amount.toLocaleString("zh-TW")} 元</p>)}
     <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={addWage}>
     <FormSection>
-      <Field  label="生效日" size="m" required><input className="cy-op-input" type="date" max="9999-12-31" value={date} onChange={e=>setDate(e.target.value)}/></Field>
-      <Field  label="每月最低工資（整數元）" size="m" required><input className="cy-op-input" type="number" min="0" step="1" value={monthly} onChange={e=>setMonthly(e.target.value)}/></Field>
-      <Field  label="每小時最低工資（整數元）" size="m" required><input className="cy-op-input" type="number" min="0" step="1" value={hourly} onChange={e=>setHourly(e.target.value)}/></Field>
+      <Field label="生效日" size="s" required><input className="cy-op-input" type="date" max="9999-12-31" value={date} onChange={e=>setDate(e.target.value)}/></Field>
+      <Field label="每月最低工資（整數元）" size="s" required><input className="cy-op-input" type="number" min="0" step="1" value={monthly} onChange={e=>setMonthly(e.target.value)}/></Field>
+      <Field label="每小時最低工資（整數元）" size="s" required><input className="cy-op-input" type="number" min="0" step="1" value={hourly} onChange={e=>setHourly(e.target.value)}/></Field>
       <div className="cy-op-form-footer"><button className="cy-op-button primary" disabled={busy}>＋ 新增最低工資</button></div>
     
     </FormSection>

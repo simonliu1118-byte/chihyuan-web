@@ -561,20 +561,20 @@ export function SalesOrderOperationalPage() {
                   search={async (query) => (await loadSalesOrderLookups({ customerQuery: query, limit: 20 })).customers}
                   getKey={(row) => row.id} getLabel={(row) => `${row.customerNo ? `${row.customerNo} · ` : ""}${row.shortName}`}
                   placeholder="輸入客戶編號或名稱" description="未建檔的現場客戶可留空，改填下方名稱。" />
-                {draft.customerId == null ? <Field  label="現場客戶名稱" size="m" required><input className="cy-op-input" value={draft.customerName} disabled={busy} onChange={(event) => setDraft({ ...draft, customerName: event.target.value })} /></Field> : null}
-                <Field  label="工單日期" size="s"><input className="cy-op-input" type="date" max="9999-12-31" value={draft.orderDate} disabled={busy} onChange={(event) => setDraft({ ...draft, orderDate: event.target.value })} /></Field>
-                <Field  label="操作人員" size="m"><select className="cy-op-input" value={draft.operatorEmployeeId ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, operatorEmployeeId: Number(event.target.value) || null })}>
+                {draft.customerId == null ? <Field label="現場客戶名稱" size="m" required><input className="cy-op-input" value={draft.customerName} disabled={busy} onChange={(event) => setDraft({ ...draft, customerName: event.target.value })} /></Field> : null}
+                <Field label="工單日期" size="s"><input className="cy-op-input" type="date" max="9999-12-31" value={draft.orderDate} disabled={busy} onChange={(event) => setDraft({ ...draft, orderDate: event.target.value })} /></Field>
+                <Field label="操作人員" size="m"><select className="cy-op-input" value={draft.operatorEmployeeId ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, operatorEmployeeId: Number(event.target.value) || null })}>
                     <option value="">請選擇</option>
                     {(lookups?.operators ?? []).map((row) => <option key={row.id} value={row.id}>{operatorLabel(row.id, row.employeeNo)}{row.isActive ? "" : "（已停用）"}</option>)}
                   </select></Field>
-                <Field  label="發票類型" size="s"><select className="cy-op-input" value={draft.invoiceTypeCode ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, invoiceTypeCode: event.target.value ? event.target.value as InvoiceTypeCode : null })}>
+                <Field label="發票類型" size="s"><select className="cy-op-input" value={draft.invoiceTypeCode ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, invoiceTypeCode: event.target.value ? event.target.value as InvoiceTypeCode : null })}>
                     <option value="">未指定</option><option value="two_copy">二聯式</option><option value="three_copy">三聯式</option>
                   </select></Field>
-                <Field  label="收據" size="s"><select className="cy-op-input" value={draft.receiptOptionCode ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, receiptOptionCode: event.target.value ? event.target.value as ReceiptOptionCode : null })}>
+                <Field label="收據" size="s"><select className="cy-op-input" value={draft.receiptOptionCode ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, receiptOptionCode: event.target.value ? event.target.value as ReceiptOptionCode : null })}>
                     <option value="">未指定</option><option value="with_receipt">附收據</option><option value="without_receipt">不附收據</option>
                   </select></Field>
                 <CheckField  label="銷售文件隱藏價格" size="s"  checked={draft.hidePriceOnSalesDocument} disabled={busy} onChange={(event) => setDraft({ ...draft, hidePriceOnSalesDocument: event.target.checked })} />
-                <Field  label="備註" size="l"><textarea className="cy-op-input" rows={2} value={draft.note} disabled={busy} onChange={(event) => setDraft({ ...draft, note: event.target.value })} /></Field>
+                <Field label="備註" size="l"><textarea className="cy-op-input" rows={2} value={draft.note} disabled={busy} onChange={(event) => setDraft({ ...draft, note: event.target.value })} /></Field>
               </div>
 
               <section className="cy-form-block">

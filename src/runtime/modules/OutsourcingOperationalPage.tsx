@@ -577,8 +577,8 @@ export function OutsourcingOperationalPage() {
                       <option value="">請選擇</option>
                       {contractors.map((row) => <option key={row.id} value={row.id}>{row.displayName}{row.isActive ? "" : "（已停用）"}</option>)}
                     </select></Field>
-                  <Field  label="工單日期" size="s"><input className="cy-op-input" type="date" max="9999-12-31" value={draft.orderDate} disabled={busy} onChange={(event) => setDraft({ ...draft, orderDate: event.target.value })} /></Field>
-                  <Field  label="篩選商品選單" size="m"><input className="cy-op-input" type="search" value={itemQuery} disabled={busy} onChange={(event) => setItemQuery(event.target.value)} placeholder="品號／品名／規格" /></Field>
+                  <Field label="工單日期" size="s"><input className="cy-op-input" type="date" max="9999-12-31" value={draft.orderDate} disabled={busy} onChange={(event) => setDraft({ ...draft, orderDate: event.target.value })} /></Field>
+                  <Field label="篩選商品選單" size="m"><input className="cy-op-input" type="search" value={itemQuery} disabled={busy} onChange={(event) => setItemQuery(event.target.value)} placeholder="品號／品名／規格" /></Field>
                 </div>
 
                 <RequiredRows label="出庫料件" satisfied={draft.parts.length>0}/>
