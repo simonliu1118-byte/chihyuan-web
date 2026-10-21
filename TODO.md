@@ -3,7 +3,7 @@
 - [x] 修正 `OrderingGrid`：備註按 Enter 以最新草稿列決定下一列，沒有下一列時立即建立，並聚焦下一列品號；尚缺儲存必填值時也保留原列並允許往下輸入。
 - [x] 儲存驗證、數量欄既有快捷操作、其他畫面與 API 不變；回歸測試納入既有叫貨測試入口。
 - [x] 本機 `npm run build`、`npm run validate:source` 與叫貨／路由／鍵盤測試 24 項通過（含新增換列回歸 7 項）。
-- [ ] PR 檢查與正式更新。
+- [x] [PR #260](https://github.com/simonliu1118-byte/chihyuan-web/pull/260) 必要檢查全數通過並合併；[CY Web Deploy #39619928512](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39619928512) 已由 `main` 的 `32c69ce` 部署成功，來源版本、D1 健康、HTTPS／靜態資源、正式網域及 Identity 權威檢查通過。
 
 ## CY Web V0.9.27 Build 1 — 叫貨畫面整理（Claude 直接處理）
 
