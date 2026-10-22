@@ -1,3 +1,9 @@
+## CY Web V0.9.31 Build 1 — 正式 D1 到貨失敗根因已確認（2026-10-23）
+
+- [x] Cloudflare Worker log：`phase=persist`、`D1_ERROR: LIKE or GLOB pattern too complex`。0022 Schema 的 ERP 進貨單號 CHECK 使用 60-byte GLOB，超過 D1 50-byte 上限。
+- [x] 新增 0023 forward migration：保留到貨主檔／明細／主鍵／外鍵／索引，以長度＋固定前綴＋短 GLOB 取代原 CHECK；不修改既有 0022。
+- [x] 擴充 schema 測試：模擬 D1 50-byte 限制，重現舊錯、驗證 migration 後歷史完整、正常單號寫入與錯誤單號拒絕。
+- [ ] PR 必要 CI、確認正式 D1 復原點、受控部署及正式到貨功能驗收。
 ## CY Web V0.9.31 Build 1 — Workers Logs 設定持久化與到貨故障調查（2026-10-23）
 
 - [x] 使用者已在 Cloudflare Dashboard 啟用 Logs，確認 `[ordering_receipt_failure]` 事件出現；畫面尚未提供原始例外欄位，真實 D1 根因待查。
