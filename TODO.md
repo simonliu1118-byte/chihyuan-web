@@ -1,3 +1,10 @@
+## CY Web V0.9.31 Build 1 — Workers Logs 設定持久化與到貨故障調查（2026-10-23）
+
+- [x] 使用者已在 Cloudflare Dashboard 啟用 Logs，確認 `[ordering_receipt_failure]` 事件出現；畫面尚未提供原始例外欄位，真實 D1 根因待查。
+- [x] Wrangler 正式部署範本新增 Logs 與 Invocation Logs，避免後續 GitHub 部署覆蓋 Dashboard 設定。
+- [x] 部署契約測試驗證輸出 Wrangler JSON 的觀測設定；原 GPT handoff 補交接。
+- [ ] 本次 PR CI 驗證／審查後合併及受控部署；未動正式資料庫或 Worker 業務邏輯。
+- [ ] 取得該筆 `[ordering_receipt_failure]` 事件 `phase`、`errorName`、`errorMessage`，核對是否已留有到貨紀錄，再另行修復真正寫入錯誤。
 ## CY Web V0.9.31 — 登記到貨診斷（待審查）
 
 - [x] Worker 到貨 POST 區分 preflight／persist／readback，記錄 requestId、階段及受限的原始例外供排查。
