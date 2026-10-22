@@ -83,7 +83,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
  const ctx:Context={db:env.DB,actor:gate.member.id,name:gate.member.displayName??gate.member.employeeNo??"使用者",now:new Date().toISOString(),requestId};
  const path=url.pathname.replace(/^\/api\/business\/ordering\/?/,""),method=request.method;
  // Receipt requests track the commit/readback boundary; no retry or extra database query is introduced.
- let receiptPhase:"preflight"|"persist"|"readback"|null=/^orders\/\d+\/receipts$/.test(path)&&method==="POST"?"preflight":null;
+ const receiptPhase:{value:"preflight"|"persist"|"readback"|null}={value:/^orders\/\d+\/receipts$/.test(path)&&method==="POST"?"preflight":null};
  try{
   if(path==="sources"&&method==="GET"){await init(ctx);const items=await rows<Source>(ctx.db,"SELECT * FROM ordering_sources ORDER BY sort_order,id LIMIT 101");if(items.length>100)throw new Bad("ORDERING_LIMIT","來源超過100筆",409);return success(items.map(x=>({id:x.id,name:x.name,kind:x.kind,conditions:x.conditions,sortOrder:x.sort_order,isActive:!!x.is_active})),requestId)}
   if(path==="sources"&&method==="POST"){
@@ -254,7 +254,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     const seen=new Set<number>(),stmts:D1PreparedStatement[]=[];
     // A 52-bit UUID-derived INTEGER key is unique per receipt even across concurrent transactions.
     // All master/detail records are still inserted in the same atomic D1 batch.
-    receiptPhase="persist";
+    receiptPhase.value="persist";
     const receiptId=Number.parseInt(crypto.randomUUID().replaceAll("-","").slice(0,13),16);
     stmts.push(ctx.db.prepare("INSERT INTO ordering_receipts(id,order_id,erp_purchase_no,received_date,created_at,created_by) VALUES(?,?,?,?,?,?)").bind(receiptId,id,no,at,ctx.now,ctx.actor));
     // Single latest-row lookup belongs to the same batch; no per-line read/write roundtrips.
@@ -263,7 +263,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
      seen.add(lineId);
      stmts.push(ctx.db.prepare("INSERT INTO ordering_receipt_lines(receipt_id,line_id,quantity) VALUES(?,?,?)").bind(receiptId,lineId,qty));
     }
-    return success(await mutate(ctx,o,expected,stmts,"到貨 "+no,"received",()=>{receiptPhase="readback"}),requestId);
+    return success(await mutate(ctx,o,expected,stmts,"到貨 "+no,"received",()=>{receiptPhase.value="readback"}),requestId);
    }
    if(action==="close"&&method==="POST"){
     if(o.status!=="SENT")throw new Bad("ORDERING_INVALID","尚未送出");
@@ -277,21 +277,21 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
   }
   return failure({code:"NOT_FOUND",message:"找不到叫貨功能"},requestId,404);
  }catch(e){
-  if(receiptPhase && (receiptPhase==="readback" || !(e instanceof Bad))){
+  if(receiptPhase.value && (receiptPhase.value==="readback" || !(e instanceof Bad))){
    // Worker logs are restricted; never log submitted receipt numbers, line values, or identity fields.
    console.error("[ordering_receipt_failure]",{
-    requestId,phase:receiptPhase,
+    requestId,phase:receiptPhase.value,
     errorName:e instanceof Error?e.name:"Unknown",
     errorMessage:String(e instanceof Error?e.message:e).slice(0,500),
    });
   }
-  if(receiptPhase==="readback"){
+  if(receiptPhase.value==="readback"){
    return failure({code:"ORDERING_RECEIPT_CONFIRMATION_REQUIRED",
     message:"到貨資料已寫入，但無法取得確認結果。請重新載入核對到貨紀錄，不要直接重複儲存。"},requestId,503);
   }
   if(e instanceof Bad)return failure({code:e.code,message:e.message},requestId,e.status);
-  if(String(e).includes("UNIQUE constraint") && !receiptPhase)return failure({code:"ORDERING_DUPLICATE",message:"名稱或資料已存在"},requestId,409);
-  if(receiptPhase)return failure({code:"ORDERING_UNAVAILABLE",message:"到貨結果尚未確認，請先重新載入核對紀錄。"},requestId,500);
+  if(String(e).includes("UNIQUE constraint") && !receiptPhase.value)return failure({code:"ORDERING_DUPLICATE",message:"名稱或資料已存在"},requestId,409);
+  if(receiptPhase.value)return failure({code:"ORDERING_UNAVAILABLE",message:"到貨結果尚未確認，請先重新載入核對紀錄。"},requestId,500);
   return failure({code:"ORDERING_UNAVAILABLE",message:"叫貨操作失敗"},requestId,500);
  }
 }
