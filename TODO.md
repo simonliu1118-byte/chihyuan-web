@@ -1,3 +1,12 @@
+## CY Web V0.9.31 — 登記到貨診斷（待審查）
+
+- [x] Worker 到貨 POST 區分 preflight／persist／readback，記錄 requestId、階段及受限的原始例外供排查。
+- [x] D1 寫入後讀回失敗回傳 `ORDERING_RECEIPT_CONFIRMATION_REQUIRED`，不誤導為未寫入。
+- [x] 前端保留到貨輸入，顯示 requestId，提示先重新載入核對而非重複送出。
+- [x] 增加 committed-readback-failure 與前置驗證失敗測試，待 PR CI 驗證。
+- [x] 交接更新原有 [GPT handoff](docs/handoff/CYWEB_ORDERING_AUTOSAVE_HANDOFF.md)。
+- [ ] PR CI 與 Claude 審查、核准後部署；本輪未操作正式 D1。
+
 ## CY Web V0.9.30 — 叫貨緊湊表格與儲存狀態
 
 - [x] 依使用者核准預覽改為緊湊表格，儲存格持續可輸入、焦點細框，操作縮成 `⋮` 並沿用共用 Dialog。
