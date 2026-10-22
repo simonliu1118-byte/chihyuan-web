@@ -2,6 +2,13 @@
 
 更新日期：2026-10-22。此文件依使用者「專案主要由 Claude 處理，必須開 handoff 註明修改」要求建立。這是直接交辦修正的交接紀錄；共通規則仍以既有治理鏈為準。維護狀態入口為根目錄 `TODO.md`。
 
+## 補充：V0.9.31 Build 1 — Cloudflare Workers Logs 與 GitHub Wrangler 設定同步（2026-10-23）
+
+- 使用者在 Cloudflare Dashboard 已自行啟用 `cyweb-dev` 的 Workers Observability Logs，並觀察到 `[ordering_receipt_failure]` 及到貨 POST 失敗事件。螢幕截圖僅顯示 Events 列表；尚未取得事件中的 `phase`、`errorName`、`errorMessage`，**不能根據此圖宣稱定位到 D1 根因**。
+- 原 `wrangler.deploy.template.jsonc` 未包含 `observability`，日後 GitHub Actions 部署可能覆蓋 Dashboard 設定；此輪新增 `observability.logs.enabled=true` 與 `observability.logs.invocation_logs=true`，保留預設日誌持久化行為，與使用者在 Dashboard 上啟用的設定保持一致。
+- `scripts/validate-deploy-config.mjs` 對實際產生的 Wrangler JSON 增加安全閘門，CI 與正式部署前要求兩個設定皆為 `true`；不修改業務 Worker、D1 Schema、ERP、CI Workflow 或增加 Cloudflare 資源。
+- 本輪為前次 V0.9.31 到貨診斷未完成事項的同一工作項目返修，BUILD 由 0 調整為 1；版本維持 V0.9.31，不新增 Major/Minor。
+- 部署／交接：使用者已在 Cloudflare Dashboard 啟用日誌。此 GitHub 設定變更仍需 PR 通過、合併、由既有受控發布流程正式部署，**提交 PR 本身不等於部署**。若準備排查當次錯誤，請在 Events 展開 `[ordering_receipt_failure]`，核對 `phase`、`errorName`、`errorMessage`；避免將實際 ERP 單號／交易明細貼入公開 GitHub。
 ## 本輪 GPT 交接：V0.9.31 Build 0 — 到貨診斷（2026-10-22，待審查）
 
 使用者實機出現「叫貨操作失敗」，原 Worker catch 區統一回傳 500 而未輸出原始例外。到貨 D1 batch 成功後仍會重新讀取單據，讀回出錯時原先會把已提交的結果誤判為儲存失敗。目前沒有正式 Worker log，**不可斷言原始 D1 根因**。
