@@ -4,6 +4,12 @@
   "main": "./worker/index.ts",
   "compatibility_date": "2026-09-28",
   "workers_dev": true,
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    }
+  },
   "routes": [
     {
       "pattern": "__CF_PUBLIC_HOSTNAME__",
