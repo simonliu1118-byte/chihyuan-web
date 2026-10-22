@@ -1,16 +1,18 @@
 import {
   ERP_ITEM_FIELDS, ERP_WAREHOUSE_FIELDS, ERP_BATCH_FIELDS, ERP_HISTORY_COLUMNS, ERP_SEARCH_FIELDS,
-  ERP_ITEM_COST_FIELDS, ERP_CUSTOMER_FIELDS, ERP_CUSTOMER_SEARCH_FIELDS, ERP_QUERY_TYPES,
+  ERP_ITEM_COST_FIELDS, ERP_CUSTOMER_FIELDS, ERP_CUSTOMER_SEARCH_FIELDS, ERP_SUPPLIER_FIELDS, ERP_SUPPLIER_SEARCH_FIELDS, ERP_QUERY_TYPES,
+  ERP_RESTOCK_MAX_DAYS, ERP_RESTOCK_MAX_ITEMS, type ErpRestockItem, type ErpRestockDay,
   type ErpQueryType, type ErpQueryHistory, type ErpField, type ErpQueryErrorCode, type ErpQueryResult,
-  type ErpReceivableScope, type ErpSalesOrder, type ErpSalesLine, type ErpReceivableBill, type ErpReceivableVoucher,
+  type ErpReceivableScope, type ErpSalesOrder, type ErpSalesLine, type ErpPurchaseOrder, type ErpPurchaseLine, type ErpReceivableBill, type ErpReceivableVoucher,
 } from "../../shared/erp-item-query";
 import { AuditService } from "../audit/audit-service";
-import { HistoryRangeError, resolveDateRange, resolveHistoryRange } from "../../shared/erp-query-history";
+import { salesHistoryStatements } from "./erp-sales-history";
+import { HistoryRangeError, daysInclusive, resolveDateRange, resolveHistoryRange, resolveRestockRange } from "../../shared/erp-query-history";
 import { erpNameContains, parseErpCode, parseErpNameKeyword, parseErpOrderNo } from "../../shared/erp-name-search";
 import { checkModuleAccess, resolveAppMember, type AppMemberRecord } from "../auth/app-access";
 import { requireIdentity } from "../auth/guard";
 import type { IdentityPrincipal } from "../identity/contract";
-import type { CyWebModuleCode } from "../../shared/modules";
+import { MODULE_REQUIREMENTS, moduleLabel, type CyWebModuleCode } from "../../shared/modules";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
 import { errorResponse } from "./errors";
 import { readJsonObject, RequestInputError } from "./request";
@@ -27,6 +29,7 @@ type JobRow = {
   batch_managed: number | null; batches_json: string | null; history_json: string | null; items_json: string | null;
   target_code: string | null; receivable_scope: ErpReceivableScope | null; include_cost: number; result_json: string | null;
   error_code: ErpQueryErrorCode | null; error_message: string | null;
+  progress_stage: "REPORT" | "STOCK" | null; progress_done: number | null; progress_total: number | null;
 };
 /**
  * The Module Access grants that open each query type, any one is enough (user 2026-10-17: by data
@@ -35,19 +38,38 @@ type JobRow = {
 const MODULES_FOR_TYPE: Record<ErpQueryType, readonly CyWebModuleCode[]> = {
   ITEM_NO: ["ERP_ITEM_QUERY"], ITEM_NAME: ["ERP_ITEM_QUERY"],
   CUSTOMER_NO: ["ERP_CUSTOMER_QUERY"], CUSTOMER_NAME: ["ERP_CUSTOMER_QUERY"], SALES: ["ERP_CUSTOMER_QUERY"],
+  SUPPLIER_NO: ["ERP_SUPPLIER_QUERY"], SUPPLIER_NAME: ["ERP_SUPPLIER_QUERY"], PURCHASES: ["ERP_SUPPLIER_QUERY"],
   RECEIVABLE: ["ERP_RECEIVABLE_QUERY"], ORDER: ["ERP_CUSTOMER_QUERY", "ERP_RECEIVABLE_QUERY"],
+  RESTOCK: ["ERP_RESTOCK_ASSIST"],
 };
-const ERP_QUERY_MODULES: readonly CyWebModuleCode[] = ["ERP_ITEM_QUERY", "ERP_CUSTOMER_QUERY", "ERP_RECEIVABLE_QUERY"];
-/** Report types run whole ERP reports (COPR15+COPR16, ACRR18) and may take minutes. */
-const REPORT_TYPES = new Set<ErpQueryType>(["SALES", "RECEIVABLE", "ORDER"]);
-const NAME_TYPES = new Set<ErpQueryType>(["ITEM_NAME", "CUSTOMER_NAME"]);
+/** The grants that may see the Agent's status (every page that sends ERP jobs). */
+const ERP_QUERY_MODULES: readonly CyWebModuleCode[] = ["ERP_ITEM_QUERY", "ERP_CUSTOMER_QUERY", "ERP_RECEIVABLE_QUERY", "ERP_SUPPLIER_QUERY", "ERP_RESTOCK_ASSIST"];
+/**
+ * Report types run whole ERP reports (COPR15+COPR16, PURR18+PURR22, ACRR18) and may take minutes;
+ * RESTOCK also reads every 品號's 庫存 afterwards.
+ */
+const REPORT_TYPES = new Set<ErpQueryType>(["SALES", "PURCHASES", "RECEIVABLE", "ORDER", "RESTOCK"]);
+/** Types with a 單據日期 range in history_from／history_to. */
+const DATED_TYPES = new Set<ErpQueryType>(["SALES", "PURCHASES", "RESTOCK"]);
+const NAME_TYPES = new Set<ErpQueryType>(["ITEM_NAME", "CUSTOMER_NAME", "SUPPLIER_NAME"]);
 const ITEM_FIELD_SET = new Set<string>(ERP_ITEM_FIELDS);
 const COST_FIELD_SET = new Set<string>(ERP_ITEM_COST_FIELDS);
 const WAREHOUSE_FIELD_SET = new Set<string>(ERP_WAREHOUSE_FIELDS);
 const BATCH_FIELD_SET = new Set<string>(ERP_BATCH_FIELDS);
 const SEARCH_FIELD_SET = new Set<string>(ERP_SEARCH_FIELDS);
-const CUSTOMER_FIELD_SET = new Set<string>(ERP_CUSTOMER_FIELDS);
 const CUSTOMER_SEARCH_FIELD_SET = new Set<string>(ERP_CUSTOMER_SEARCH_FIELDS);
+/**
+ * 客戶 and 廠商 (COPI01／PURI01) are queried the same way: one record by code, or a list by
+ * 簡稱／全名 where every row must contain the keyword.
+ */
+const PARTIES = {
+  CUSTOMER: { kind: "客戶", fields: ERP_CUSTOMER_FIELDS, fieldSet: new Set<string>(ERP_CUSTOMER_FIELDS),
+    search: ERP_CUSTOMER_SEARCH_FIELDS, searchSet: CUSTOMER_SEARCH_FIELD_SET, codeKey: "customerCode" },
+  SUPPLIER: { kind: "廠商", fields: ERP_SUPPLIER_FIELDS, fieldSet: new Set<string>(ERP_SUPPLIER_FIELDS),
+    search: ERP_SUPPLIER_SEARCH_FIELDS, searchSet: new Set<string>(ERP_SUPPLIER_SEARCH_FIELDS), codeKey: "supplierCode" },
+} as const;
+const partyOf = (type: ErpQueryType) => type === "CUSTOMER_NO" || type === "CUSTOMER_NAME" ? PARTIES.CUSTOMER
+  : type === "SUPPLIER_NO" || type === "SUPPLIER_NAME" ? PARTIES.SUPPLIER : null;
 const ERROR_TEXT: Record<ErpQueryErrorCode, string> = {
   ERP_NOT_OPEN: "ERP 尚未開啟", ERP_BUSY: "ERP 正在忙碌",
   ERP_STATE: "ERP 畫面狀態不符", EXPORT_FAILED: "ERP 匯出失敗",
@@ -68,17 +90,19 @@ function bad(code: string, message: string, status = 400): never {
 const parsedJson = <T,>(text: string | null): T | null => text ? JSON.parse(text) as T : null;
 function toJob(row: JobRow, showCost: boolean): ErpQueryResult {
   const list = parsedJson<{items:ErpField[][];total:number;truncated:boolean}>(row.items_json);
-  const report = parsedJson<{orders?:ErpSalesOrder[];bills?:ErpReceivableBill[];total:number;truncated:boolean}>(row.result_json);
-  const sales = row.query_type === "SALES";  // ORDER keeps its number in code and has no dates
+  const report = parsedJson<{orders?:ErpSalesOrder[];purchases?:ErpPurchaseOrder[];bills?:ErpReceivableBill[];restock?:ErpRestockItem[];total:number;truncated:boolean}>(row.result_json);
+  const sales = DATED_TYPES.has(row.query_type);  // ORDER keeps its number in code and has no dates
   const fields = parsedJson<ErpField[]>(row.fields_json) ?? [];
   return {
     id: row.id, queryType:row.query_type, itemNo:row.query_type === "ITEM_NO" ? row.item_no : null,
     keyword:row.keyword, items:list?.items ?? [], total:list?.total ?? report?.total ?? 0, truncated:list?.truncated ?? report?.truncated ?? false,
     code: row.target_code, scope: row.receivable_scope,
     dateFrom: sales ? row.history_from : null, dateTo: sales ? row.history_to : null,
-    orders: report?.orders ?? [], bills: report?.bills ?? [],
+    orders: report?.orders ?? [], purchases: report?.purchases ?? [], bills: report?.bills ?? [], restock: report?.restock ?? [],
     status: row.status, createdAt: row.created_at,
     startedAt: row.started_at, completedAt: row.completed_at, elapsedMs: row.elapsed_ms,
+    progress: row.status === "RUNNING" && row.progress_stage && row.progress_done != null && row.progress_total != null
+      ? { stage: row.progress_stage, done: row.progress_done, total: row.progress_total } : null,
     // 標準進價 also follows the reader's current grant, not only the one at creation.
     fields: showCost ? fields : fields.filter(field => !COST_FIELD_SET.has(field.name)),
     warehouses: parsedJson<ErpField[][]>(row.warehouses_json) ?? [],
@@ -97,10 +121,10 @@ function resultColumn(row: JobRow): string | null {
 }
 function parseItemNo(value: unknown): string {
   // Item numbers are ASCII letters and digits only (user 2026-10-16), the same rule as the Agent.
-  return parseErpCode(value) ?? bad("INVALID_ITEM_NO", "品號只能輸入 1～40 個英文字母或數字");
+  return parseErpCode(value) ?? bad("INVALID_ITEM_NO", "品號只能輸入 1～40 個英文字母、數字或「-」");
 }
 function parseCode(value: unknown, what: string): string {
-  return parseErpCode(value) ?? bad("INVALID_CODE", what + "只能輸入 1～40 個英文字母或數字");
+  return parseErpCode(value) ?? bad("INVALID_CODE", what + "只能輸入 1～40 個英文字母、數字或「-」");
 }
 function parseKeyword(value: unknown, what = "品名"): string {
   const keyword = parseErpNameKeyword(value);
@@ -163,20 +187,20 @@ function parseHistory(raw: unknown, job: JobRow): ErpQueryHistory | null {
     return bad("INVALID_AGENT_RESULT", "歷史異動總筆數或截斷狀態錯誤");
   return {from:data.from as string,to:data.to as string,columns:[...ERP_HISTORY_COLUMNS],rows,total:data.total,truncated:data.truncated as boolean};
 }
-/** A name-search list (品名 or 客戶簡稱／全名): every row has its code and contains the keyword. */
+/** A name-search list (品名, or 客戶／廠商 簡稱／全名): every row has its code and contains the keyword. */
 function parseNameList(body: Record<string, unknown>, job: JobRow) {
-  const customer = job.query_type === "CUSTOMER_NAME";
+  const party = partyOf(job.query_type);
   if (body.keyword !== job.keyword)
     return bad("INVALID_AGENT_RESULT", "回報的關鍵字與查詢工作不同");
   const items = list(body.items, "名稱查詢結果", 500).map((raw: unknown) => {
-    const fields = parseFields(raw, customer ? CUSTOMER_SEARCH_FIELD_SET : SEARCH_FIELD_SET,
-      customer ? ERP_CUSTOMER_SEARCH_FIELDS.length : ERP_SEARCH_FIELDS.length);
+    const fields = parseFields(raw, party ? party.searchSet : SEARCH_FIELD_SET,
+      party ? party.search.length : ERP_SEARCH_FIELDS.length);
     const value = (name: string) => fields.find(field => field.name === name)?.value ?? "";
-    if (!value(customer ? "客戶代號" : "品號").trim())
-      return bad("INVALID_AGENT_RESULT", customer ? "客戶名稱查詢每筆都必須有客戶代號" : "品名查詢每筆都必須有品號");
+    if (!value(party ? party.kind + "代號" : "品號").trim())
+      return bad("INVALID_AGENT_RESULT", party ? `${party.kind}名稱查詢每筆都必須有${party.kind}代號` : "品名查詢每筆都必須有品號");
     const keyword = job.keyword ?? "";
-    const matches = customer
-      ? erpNameContains(value("客戶簡稱"), keyword) || erpNameContains(value("客戶全名"), keyword)
+    const matches = party
+      ? erpNameContains(value(party.kind + "簡稱"), keyword) || erpNameContains(value(party.kind + "全名"), keyword)
       : !!value("品名") && erpNameContains(value("品名"), keyword);
     if (!matches) return bad("INVALID_AGENT_RESULT", "名稱查詢結果不符合關鍵字");
     return fields;
@@ -227,6 +251,45 @@ function parseSales(body: Record<string, unknown>, job: JobRow) {
   });
   return { orders, ...totals(body, orders.length, "銷貨銷退單") };
 }
+function parsePurchaseLine(raw: unknown): ErpPurchaseLine {
+  const line = object(raw, "進貨明細");
+  if (typeof line.seq !== "number" || !Number.isSafeInteger(line.seq) || line.seq < 1)
+    return bad("INVALID_AGENT_RESULT", "進貨明細序號不正確");
+  const s = (name: string, max = 200) => limitedString(line[name], "進貨明細" + name, max);
+  const acceptDate = s("acceptDate", 10);
+  return {
+    seq: line.seq, itemCode: s("itemCode", 40), itemName: s("itemName"), specification: s("specification"),
+    acceptDate: acceptDate ? isoDay(acceptDate, "驗收日期") : "", warehouse: s("warehouse"),
+    quantity: s("quantity", 40), acceptedQuantity: s("acceptedQuantity", 40), returnedQuantity: s("returnedQuantity", 40),
+    unit: s("unit", 40), unitPrice: s("unitPrice", 40), amount: s("amount", 40), tax: s("tax", 40), batch: s("batch", 60),
+    purchaseOrderNo: s("purchaseOrderNo", 60), note: s("note", 4096), sourceOrder: s("sourceOrder", 60),
+  };
+}
+/** 進貨／退貨單 (PURR18+PURR22): every order is the job's supplier inside its 單據日期 range. */
+function parsePurchases(body: Record<string, unknown>, job: JobRow) {
+  if (body.supplierCode !== job.target_code || body.dateFrom !== job.history_from || body.dateTo !== job.history_to)
+    return bad("INVALID_AGENT_RESULT", "回報的廠商或日期範圍與查詢工作不同");
+  const purchases = list(body.orders, "進貨退貨單", MAX_ORDERS).map((raw: unknown): ErpPurchaseOrder => {
+    const order = object(raw, "進貨退貨單");
+    const s = (name: string, max = 200) => limitedString(order[name], "進貨退貨單" + name, max);
+    if (order.kind !== "進貨" && order.kind !== "退貨") return bad("INVALID_AGENT_RESULT", "單據類別只能是進貨或退貨");
+    const date = isoDay(order.date, "單據日期");
+    if (date < (job.history_from ?? "") || date > (job.history_to ?? "")) return bad("INVALID_AGENT_RESULT", "單據日期不在查詢範圍內");
+    const supplierCode = s("supplierCode", 40);
+    if (supplierCode !== job.target_code) return bad("INVALID_AGENT_RESULT", "單據廠商與查詢廠商不同");
+    const orderNo = s("orderNo", 60);
+    if (!orderNo.trim()) return bad("INVALID_AGENT_RESULT", "單據必須有單號");
+    const lines = list(order.lines, "進貨明細", MAX_ORDER_LINES).map(parsePurchaseLine);
+    if (!lines.length) return bad("INVALID_AGENT_RESULT", "單據必須有明細");
+    return {
+      kind: order.kind, orderNo, date, supplierCode, supplierName: s("supplierName"), supplierOrderNo: s("supplierOrderNo", 60),
+      invoiceNo: s("invoiceNo", 40), invoiceType: s("invoiceType", 40), taxType: s("taxType", 40), currency: s("currency", 10),
+      totalQuantity: s("totalQuantity", 40), amount: s("amount", 40), deduction: s("deduction", 40), tax: s("tax", 40),
+      total: s("total", 40), settled: s("settled", 10), lines,
+    };
+  });
+  return { purchases, ...totals(body, purchases.length, "進貨退貨單") };
+}
 /** 未收款 結帳單: one customer／業務員 jobs only hold that code's bills. */
 function parseReceivables(body: Record<string, unknown>, job: JobRow) {
   if (body.scope !== job.receivable_scope || (body.code ?? null) !== job.target_code)
@@ -254,6 +317,46 @@ function parseReceivables(body: Record<string, unknown>, job: JobRow) {
     return bill_;
   });
   return { bills, ...totals(body, bills.length, "結帳單") };
+}
+const QUANTITY = /^-?\d{1,12}(\.\d{1,6})?$/;
+function quantity(value: unknown, what: string): string {
+  const text = limitedString(value, what, 20);
+  if (!QUANTITY.test(text)) return bad("INVALID_AGENT_RESULT", what + "必須是數字");
+  return text;
+}
+/**
+ * 進貨輔助 (RESTOCK): one row per 品號 with the days inside the job's range it moved on, the range's
+ * subtotals and its 庫存數量 (null with a note when it was not read).
+ */
+function parseRestock(body: Record<string, unknown>, job: JobRow) {
+  if (body.dateFrom !== job.history_from || body.dateTo !== job.history_to)
+    return bad("INVALID_AGENT_RESULT", "回報的日期範圍與查詢工作不同");
+  const from = job.history_from ?? "", to = job.history_to ?? "";
+  const maxDays = from && to ? daysInclusive(from, to) : 0;
+  const codes = new Set<string>();
+  const restock = list(body.items, "進貨輔助品號", ERP_RESTOCK_MAX_ITEMS).map((raw: unknown): ErpRestockItem => {
+    const item = object(raw, "進貨輔助品號");
+    const itemCode = limitedString(item.itemCode, "品號", 40).trim();
+    if (!itemCode || codes.has(itemCode)) return bad("INVALID_AGENT_RESULT", "進貨輔助的品號不可空白或重複");
+    codes.add(itemCode);
+    const dates = new Set<string>();
+    const days = list(item.days, "進貨輔助日期", maxDays).map((entry: unknown): ErpRestockDay => {
+      const day = object(entry, "進貨輔助日期");
+      const date = isoDay(day.date, "單據日期");
+      if (date < from || date > to || dates.has(date)) return bad("INVALID_AGENT_RESULT", "進貨輔助的日期不在查詢範圍內或重複");
+      dates.add(date);
+      return { date, sold: quantity(day.sold, "銷貨數量"), returned: quantity(day.returned, "銷退數量"),
+        soldGift: quantity(day.soldGift ?? "0", "銷貨贈品量"), returnedGift: quantity(day.returnedGift ?? "0", "銷退贈品量") };
+    }).sort((a, b) => a.date.localeCompare(b.date));
+    const stock = item.stock == null ? null : quantity(item.stock, "庫存數量");
+    return {
+      itemCode, itemName: limitedString(item.itemName, "品名", 200), unit: limitedString(item.unit, "單位", 40), days,
+      sold: quantity(item.sold, "銷貨小計"), returned: quantity(item.returned, "銷退小計"),
+      soldGift: quantity(item.soldGift ?? "0", "銷貨贈品小計"), returnedGift: quantity(item.returnedGift ?? "0", "銷退贈品小計"),
+      stock, stockNote: limitedString(item.stockNote ?? "", "庫存說明", 200),
+    };
+  });
+  return { restock, ...totals(body, restock.length, "進貨輔助品號") };
 }
 type ParsedResult = {
   status: "DONE" | "NOT_FOUND" | "FAILED";
@@ -316,15 +419,15 @@ function parseItemResult(body: Record<string, unknown>, job: JobRow, outcome: "F
     truncated: found ? search?.truncated ?? false : false,
   };
 }
-/** Customer, 銷貨銷退 and 未收款 results: no item detail, one result shape per type. */
+/** Customer, supplier, 銷貨銷退 and 未收款 results: no item detail, one result shape per type. */
 function parseBusinessResult(body: Record<string, unknown>, job: JobRow, outcome: "FOUND" | "NOT_FOUND" | "FAILED") {
   for (const key of ["warehouses", "batches", "items", "orders", "bills"] as const)
     if (body[key] != null && (!Array.isArray(body[key]) || (body[key] as unknown[]).length !== 0)
-      && !(key === "items" && job.query_type === "CUSTOMER_NAME" || key === "orders" && (job.query_type === "SALES" || job.query_type === "ORDER")
+      && !(key === "items" && (NAME_TYPES.has(job.query_type) || job.query_type === "RESTOCK") || key === "orders" && (job.query_type === "SALES" || job.query_type === "ORDER" || job.query_type === "PURCHASES")
         || key === "bills" && job.query_type === "RECEIVABLE"))
       return bad("INVALID_AGENT_RESULT", "查詢結果附帶了其他類型的資料");
   if (body.history != null || body.batchManaged != null
-    || job.query_type !== "CUSTOMER_NO" && body.fields != null && (!Array.isArray(body.fields) || body.fields.length !== 0))
+    || job.query_type !== "CUSTOMER_NO" && job.query_type !== "SUPPLIER_NO" && body.fields != null && (!Array.isArray(body.fields) || body.fields.length !== 0))
     return bad("INVALID_AGENT_RESULT", "查詢結果附帶了其他類型的資料");
   if (outcome === "FAILED") {
     if (["fields", "items", "orders", "bills"].some(key => Array.isArray(body[key]) && (body[key] as unknown[]).length))
@@ -332,17 +435,21 @@ function parseBusinessResult(body: Record<string, unknown>, job: JobRow, outcome
     return { ...EMPTY, resultCount: 0, truncated: false };
   }
   const found = outcome === "FOUND";
-  if (job.query_type === "CUSTOMER_NO") {
-    if (body.customerCode !== job.target_code) return bad("INVALID_AGENT_RESULT", "回報的客戶代號與查詢工作不同");
-    const fields = parseFields(body.fields ?? [], CUSTOMER_FIELD_SET, ERP_CUSTOMER_FIELDS.length);
-    if (found && fields.find(f => f.name === "客戶代號")?.value !== job.target_code)
-      return bad("INVALID_AGENT_RESULT", "查詢結果客戶代號與工作不一致");
+  const party = job.query_type === "CUSTOMER_NO" || job.query_type === "SUPPLIER_NO" ? partyOf(job.query_type) : null;
+  if (party) {
+    if (body[party.codeKey] !== job.target_code) return bad("INVALID_AGENT_RESULT", `回報的${party.kind}代號與查詢工作不同`);
+    const fields = parseFields(body.fields ?? [], party.fieldSet, party.fields.length);
+    if (found && fields.find(f => f.name === party.kind + "代號")?.value !== job.target_code)
+      return bad("INVALID_AGENT_RESULT", `查詢結果${party.kind}代號與工作不一致`);
     if (!found && fields.length) return bad("INVALID_AGENT_RESULT", "非成功結果不得附帶 ERP 欄位");
     return { ...EMPTY, fieldsJson: found ? JSON.stringify(fields) : null, resultCount: found ? 1 : 0, truncated: false };
   }
-  const result = job.query_type === "CUSTOMER_NAME" ? parseNameList(body, job)
-    : job.query_type === "SALES" || job.query_type === "ORDER" ? parseSales(body, job) : parseReceivables(body, job);
-  const count = "items" in result ? result.items.length : "orders" in result ? result.orders.length : result.bills.length;
+  const result = NAME_TYPES.has(job.query_type) ? parseNameList(body, job)
+    : job.query_type === "SALES" || job.query_type === "ORDER" ? parseSales(body, job)
+    : job.query_type === "PURCHASES" ? parsePurchases(body, job)
+    : job.query_type === "RESTOCK" ? parseRestock(body, job) : parseReceivables(body, job);
+  const count = "items" in result ? result.items.length : "orders" in result ? result.orders.length
+    : "purchases" in result ? result.purchases.length : "restock" in result ? result.restock.length : result.bills.length;
   if (found && count === 0) return bad("INVALID_AGENT_RESULT", "FOUND 的結果不可為空");
   if (!found && (count !== 0 || result.total !== 0 || result.truncated)) return bad("INVALID_AGENT_RESULT", "非成功結果不得附帶 ERP 資料");
   return {
@@ -405,15 +512,17 @@ async function housekeeping(db: D1Database): Promise<void> {
   const expired = await db.prepare(
     "UPDATE erp_item_queries SET status='EXPIRED', completed_at=?1 WHERE status='QUEUED' AND expires_at<=?1 RETURNING id,owner_member_id,item_no"
   ).bind(nowIso).all<{ id: string; owner_member_id: number; item_no: string }>();
-  // RUNNING limits: 180 s a plain query, 300 s with 歷史異動, 600 s an ERP report (SALES runs two, ORDER one).
+  // RUNNING limits: 180 s a plain query, 300 s with 歷史異動, 600 s an ERP report (SALES and PURCHASES
+  // run two, ORDER one), 1800 s a 進貨輔助 (two reports, then 庫存 one 品號 at a time).
   const timedOut = await db.prepare(
     `UPDATE erp_item_queries SET status='FAILED', completed_at=?1, error_code='AGENT_TIMEOUT', error_message=?2
       WHERE status='RUNNING' AND (
-        (query_type IN ('SALES','RECEIVABLE','ORDER') AND started_at<=?5)
-        OR (query_type NOT IN ('SALES','RECEIVABLE','ORDER') AND include_history=0 AND started_at<=?3)
-        OR (query_type NOT IN ('SALES','RECEIVABLE','ORDER') AND include_history=1 AND started_at<=?4))
+        (query_type='RESTOCK' AND started_at<=?6)
+        OR (query_type IN ('SALES','PURCHASES','RECEIVABLE','ORDER') AND started_at<=?5)
+        OR (query_type NOT IN ('SALES','PURCHASES','RECEIVABLE','ORDER','RESTOCK') AND include_history=0 AND started_at<=?3)
+        OR (query_type NOT IN ('SALES','PURCHASES','RECEIVABLE','ORDER','RESTOCK') AND include_history=1 AND started_at<=?4))
       RETURNING id,owner_member_id,item_no`
-  ).bind(nowIso, ERROR_TEXT.AGENT_TIMEOUT, ago(180), ago(300), ago(600)).all<{ id: string; owner_member_id: number; item_no: string }>();
+  ).bind(nowIso, ERROR_TEXT.AGENT_TIMEOUT, ago(180), ago(300), ago(600), ago(1800)).all<{ id: string; owner_member_id: number; item_no: string }>();
   const audit = new AuditService(db);
   for (const job of expired.results ?? []) {
     await audit.record({ entityType: "erp_item_query", entityKey: job.id, action: "erp_item_query.expired", actorEmployeeId: job.owner_member_id, statusFrom: "QUEUED", statusTo: "EXPIRED", metadata: { itemNo: job.item_no } });
@@ -447,15 +556,22 @@ async function userGuard(request: Request, env: ErpBridgeEnv, requestId: string)
   if (!gate.ok) return failure({ code: gate.code, message: "需要有效登入" }, requestId, gate.status);
   return gate.principal;
 }
-const denied = (requestId: string) => failure({ code: "ACCESS_DENIED", message: "沒有這項 ERP 查詢的模組權限" }, requestId, 403);
+/** 進貨輔助 counts only with its required grants (user 2026-10-21); the refusal says which. */
+const denied = (requestId: string, type?: ErpQueryType) => failure({ code: "ACCESS_DENIED", message: type === "RESTOCK"
+  ? `進貨輔助需要「${moduleLabel("ERP_RESTOCK_ASSIST")}」，並同時具備${(MODULE_REQUIREMENTS.ERP_RESTOCK_ASSIST ?? []).map(code => `「${moduleLabel(code)}」`).join("、")}的模組權限`
+  : "沒有這項 ERP 查詢的模組權限" }, requestId, 403);
 const KEYS: Record<ErpQueryType, readonly string[]> = {
   ITEM_NO: ["queryType", "itemNo", "includeHistory", "historyFrom", "historyTo"],
   ITEM_NAME: ["queryType", "keyword"],
   CUSTOMER_NO: ["queryType", "customerCode"],
   CUSTOMER_NAME: ["queryType", "keyword"],
+  SUPPLIER_NO: ["queryType", "supplierCode"],
+  SUPPLIER_NAME: ["queryType", "keyword"],
+  PURCHASES: ["queryType", "supplierCode", "dateFrom", "dateTo"],
   SALES: ["queryType", "customerCode", "dateFrom", "dateTo"],
   RECEIVABLE: ["queryType", "scope", "code"],
   ORDER: ["queryType", "orderNo"],
+  RESTOCK: ["queryType", "dateFrom", "dateTo"],
 };
 type NewJob = {
   itemNo: string; keyword: string | null; targetCode: string | null; scope: ErpReceivableScope | null;
@@ -475,9 +591,19 @@ function parseRequest(queryType: ErpQueryType, body: Record<string, unknown>): N
       case "ITEM_NAME": return { ...base, keyword: parseKeyword(body.keyword) };
       case "CUSTOMER_NO": return { ...base, targetCode: parseCode(body.customerCode, "客戶代號") };
       case "CUSTOMER_NAME": return { ...base, keyword: parseKeyword(body.keyword, "客戶名稱") };
+      case "SUPPLIER_NO": return { ...base, targetCode: parseCode(body.supplierCode, "廠商代號") };
+      case "SUPPLIER_NAME": return { ...base, keyword: parseKeyword(body.keyword, "廠商名稱") };
+      case "PURCHASES": {
+        const range = resolveDateRange(body.dateFrom, body.dateTo, "單據日期");
+        return { ...base, targetCode: parseCode(body.supplierCode, "廠商代號"), from: range.from, to: range.to };
+      }
       case "SALES": {
         const range = resolveDateRange(body.dateFrom, body.dateTo, "單據日期");
         return { ...base, targetCode: parseCode(body.customerCode, "客戶代號"), from: range.from, to: range.to };
+      }
+      case "RESTOCK": {
+        const range = resolveRestockRange(body.dateFrom, body.dateTo, ERP_RESTOCK_MAX_DAYS);
+        return { ...base, from: range.from, to: range.to };
       }
       case "ORDER":
         return { ...base, targetCode: parseErpOrderNo(body.orderNo) ?? bad("INVALID_CODE", "單號必須是銷貨單（23 開頭）或銷退單（24 開頭），例如 232A-20260804003") };
@@ -492,7 +618,7 @@ function parseRequest(queryType: ErpQueryType, body: Record<string, unknown>): N
       }
     }
   } catch (error) {
-    if (error instanceof HistoryRangeError) return bad(queryType === "SALES" ? "INVALID_DATE_RANGE" : "INVALID_HISTORY_RANGE", error.message);
+    if (error instanceof HistoryRangeError) return bad(DATED_TYPES.has(queryType) ? "INVALID_DATE_RANGE" : "INVALID_HISTORY_RANGE", error.message);
     throw error;
   }
 }
@@ -516,7 +642,7 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
     if (!ERP_QUERY_TYPES.includes(queryType))
       return failure({code:"INVALID_QUERY_TYPE",message:"查詢類型不正確"},requestId,400);
     const member = await allowedAny(env.DB, principal, MODULES_FOR_TYPE[queryType]);
-    if (!member) return denied(requestId);
+    if (!member) return denied(requestId, queryType);
     const job = parseRequest(queryType, body);
     const includeCost = queryType === "ITEM_NO" && !!await allowed(env.DB, principal, "ERP_ITEM_COST");
     const active = await env.DB.prepare("SELECT 1 AS active FROM erp_item_queries WHERE owner_member_id=?1 AND status IN ('QUEUED','RUNNING') LIMIT 1")
@@ -531,7 +657,7 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
     const created = {
       id, queryType, itemNo: queryType === "ITEM_NO" ? job.itemNo : null, keyword: job.keyword,
       code: job.targetCode, scope: job.scope,
-      dateFrom: queryType === "SALES" ? job.from : null, dateTo: queryType === "SALES" ? job.to : null,
+      dateFrom: DATED_TYPES.has(queryType) ? job.from : null, dateTo: DATED_TYPES.has(queryType) ? job.to : null,
       status: "QUEUED" as const, createdAt, ...historyRequest,
     };
     try {
@@ -561,7 +687,7 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
     if (!row || (row.owner_member_id !== member.id && principal.workspaceRole !== "SUPER_ADMIN"))
       return failure({ code: "QUERY_NOT_FOUND", message: "查無此查詢工作" }, requestId, 404);
     // Results follow the reader's grants at this moment (a revoked grant hides them at once).
-    if (!await allowedAny(env.DB, principal, MODULES_FOR_TYPE[row.query_type])) return denied(requestId);
+    if (!await allowedAny(env.DB, principal, MODULES_FOR_TYPE[row.query_type])) return denied(requestId, row.query_type);
     const showCost = row.query_type === "ITEM_NO" && !!await allowed(env.DB, principal, "ERP_ITEM_COST");
     return success(toJob(row, showCost), requestId);
   }
@@ -632,9 +758,13 @@ function claimedJob(job: ClaimRow) {
     case "ITEM_NAME": return { ...base, keyword: job.keyword, includeHistory: false, historyFrom: null, historyTo: null };
     case "CUSTOMER_NO": return { ...base, customerCode: job.target_code };
     case "CUSTOMER_NAME": return { ...base, keyword: job.keyword };
+    case "SUPPLIER_NO": return { ...base, supplierCode: job.target_code };
+    case "SUPPLIER_NAME": return { ...base, keyword: job.keyword };
+    case "PURCHASES": return { ...base, supplierCode: job.target_code, dateFrom: job.history_from, dateTo: job.history_to };
     case "SALES": return { ...base, customerCode: job.target_code, dateFrom: job.history_from, dateTo: job.history_to };
     case "RECEIVABLE": return { ...base, scope: job.receivable_scope, code: job.target_code };
     case "ORDER": return { ...base, orderNo: job.target_code };
+    case "RESTOCK": return { ...base, dateFrom: job.history_from, dateTo: job.history_to };
   }
 }
 async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: string, pathname: string): Promise<Response> {
@@ -661,6 +791,29 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
         RETURNING id,item_no,query_type,keyword,expires_at,include_history,history_from,history_to,target_code,receivable_scope,include_cost`
     ).bind(now, auth.digest, JSON.stringify(types)).first<ClaimRow>();
     return success({ job: job ? claimedJob(job) : null }, requestId);
+  }
+  // 進貨輔助 progress (user 2026-10-20): what the Agent has done so far, for the page while RUNNING.
+  // A report older than the stored one (same stage, fewer done) is ignored.
+  const progress = /^\/api\/erp-agent\/item-queries\/([0-9a-f-]{36})\/progress$/.exec(pathname);
+  if (progress && request.method === "POST") {
+    const body = await readJsonObject(request, 512);
+    const stage = body.stage === "REPORT" || body.stage === "STOCK" ? body.stage : bad("INVALID_AGENT_RESULT", "進度階段不正確");
+    const count = (value: unknown, what: string) =>
+      Number.isInteger(value) && (value as number) >= 0 && (value as number) <= 100000 ? value as number : bad("INVALID_AGENT_RESULT", what + "不正確");
+    const done = count(body.done, "進度完成數"), total = count(body.total, "進度總數");
+    if (done > total) bad("INVALID_AGENT_RESULT", "進度完成數大於總數");
+    const updated = await env.DB.prepare(
+      `UPDATE erp_item_queries SET progress_stage=?1,progress_done=?2,progress_total=?3
+        WHERE id=?4 AND status='RUNNING' AND claim_hash=?5 AND query_type='RESTOCK'
+          AND NOT (progress_stage IS ?1 AND progress_done>?2)`
+    ).bind(stage, done, total, progress[1], auth.digest).run();
+    if (updated.meta.changes !== 1) {
+      const row = await env.DB.prepare("SELECT status,claim_hash,query_type FROM erp_item_queries WHERE id=?1").bind(progress[1]).first<{ status: string; claim_hash: string | null; query_type: string }>();
+      if (!row) return failure({ code: "QUERY_NOT_FOUND", message: "查無此查詢工作" }, requestId, 404);
+      if (row.status !== "RUNNING" || row.claim_hash !== auth.digest || row.query_type !== "RESTOCK")
+        return failure({ code: "QUERY_NOT_RUNNING", message: "工作不在可回報狀態，或不是此 Agent 領取" }, requestId, 409);
+    }
+    return success({ id: progress[1] }, requestId);
   }
   const match = /^\/api\/erp-agent\/item-queries\/([0-9a-f-]{36})\/complete$/.exec(pathname);
   if (match && request.method === "POST") {
@@ -694,6 +847,12 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
         values: [row.id, result.status, completedAt],
       }),
     ];
+    // 銷貨資料保存 (user 2026-10-21): a finished RESTOCK keeps the per-day sales for later analysis.
+    if (row.query_type === "RESTOCK" && (result.status === "DONE" || result.status === "NOT_FOUND") && row.history_from && row.history_to) {
+      const saved = parsedJson<{ restock?: ErpRestockItem[] }>(result.resultJson)?.restock ?? [];
+      statements.push(...salesHistoryStatements(env.DB, { id: row.id, from: row.history_from, to: row.history_to },
+        saved, result.truncated, result.status, completedAt));
+    }
     const updates = await env.DB.batch(statements);
     if (updates[0].meta.changes !== 1)
       return failure({ code: "QUERY_NOT_RUNNING", message: "工作已結束" }, requestId, 409);

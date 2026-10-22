@@ -7,11 +7,14 @@ export type NewErpJob = Pick<ErpQueryResult,
 /** Every ERP query request, one per query type (see worker/http/erp-item-query-routes.ts). */
 export type ErpQueryRequest =
   | ({ queryType: "ITEM_NO"; itemNo: string } & ErpHistoryRequest)
-  | { queryType: "ITEM_NAME" | "CUSTOMER_NAME"; keyword: string }
+  | { queryType: "ITEM_NAME" | "CUSTOMER_NAME" | "SUPPLIER_NAME"; keyword: string }
+  | { queryType: "SUPPLIER_NO"; supplierCode: string }
+  | { queryType: "PURCHASES"; supplierCode: string; dateFrom: string | null; dateTo: string | null }
   | { queryType: "CUSTOMER_NO"; customerCode: string }
   | { queryType: "SALES"; customerCode: string; dateFrom: string | null; dateTo: string | null }
   | { queryType: "RECEIVABLE"; scope: ErpReceivableScope; code: string | null }
-  | { queryType: "ORDER"; orderNo: string };
+  | { queryType: "ORDER"; orderNo: string }
+  | { queryType: "RESTOCK"; dateFrom: string; dateTo: string };
 export function createErpQuery(request: ErpQueryRequest): Promise<NewErpJob> {
   // A RECEIVABLE ALL request carries no code at all.
   const json = request.queryType === "RECEIVABLE" && request.scope === "ALL" ? { queryType: request.queryType, scope: request.scope } : request;

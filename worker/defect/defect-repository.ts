@@ -1,3 +1,4 @@
+import { countByStatus } from "../persistence/status-counts";
 import type {
   DefectDetail,
   DefectListResult,
@@ -20,6 +21,7 @@ type DefectRow = {
   spec_snapshot: string | null;
   owner_employee_id: number;
   owner_employee_no: string | null;
+  owner_display_name: string | null;
   defect_description: string;
   handling: string | null;
   status_code: DefectStatusCode;
@@ -69,6 +71,7 @@ const DEFECT_SELECT = `
          d.spec_snapshot,
          d.owner_employee_id,
          am.employee_no AS owner_employee_no,
+         am.display_name AS owner_display_name,
          d.defect_description,
          d.handling,
          d.status_code,
@@ -96,7 +99,7 @@ function toSummary(row: DefectRow): DefectSummary {
     ownerEmployee: {
       id: row.owner_employee_id,
       employeeNo: row.owner_employee_no,
-      displayName: null,
+      displayName: row.owner_display_name,
     },
     defectDescription: row.defect_description,
     handling: row.handling,
@@ -179,11 +182,6 @@ export class DefectRepository {
       params.push(value);
     }
 
-    if (query.statusCode && ["created", "processing", "resolved"].includes(query.statusCode)) {
-      where.push("d.status_code = ?");
-      params.push(query.statusCode);
-    }
-
     if (query.includeInvalid !== true) {
       where.push("d.invalidated_at IS NULL");
     }
@@ -195,6 +193,14 @@ export class DefectRepository {
     if (isIsoDate(query.reportedTo)) {
       where.push("d.reported_date <= ?");
       params.push(query.reportedTo);
+    }
+
+    // Counts cover the same filters except status; only the first page carries them.
+    const statusCounts = query.cursor ? undefined
+      : await countByStatus<DefectStatusCode>(this.db, "FROM defect_reports d", "d.status_code", where, params);
+    if (query.statusCode && ["created", "processing", "resolved"].includes(query.statusCode)) {
+      where.push("d.status_code = ?");
+      params.push(query.statusCode);
     }
 
     const cursorId = decodeCursor(query.cursor);
@@ -218,6 +224,7 @@ export class DefectRepository {
     return {
       items: visible.map(toSummary),
       nextCursor: hasMore && last ? encodeCursor(last.id) : null,
+      ...(statusCounts ? { statusCounts } : {}),
     };
   }
 

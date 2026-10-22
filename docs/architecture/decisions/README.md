@@ -11,6 +11,10 @@ This index records the current interpretation of confirmed CY Web Business Decis
 - BD-053 and BD-054 define the CY Web audit boundary: ordinary edits retain last-modified metadata, meaningful business actions use structured audit, and all CY Web modules use one shared in-App Audit Core with cost-conscious payloads.
 - BD-055 confirms that Legacy GAS UX is reference evidence rather than a replication target: useful proven behavior may be retained/adapted, while the new UI and implementation follow the new Web architecture and shared-component model.
 - BD-056 confirms `chihyuancm.com` as the shared parent domain for the future official website and internal/business CY Web systems, with separate hostnames/origins and security boundaries.
+- BD-057 adds CY Web 權限群組: one group per person, group members use exactly the group's systems and CY Web modules without individual edits, and leaving keeps the current access; module grants are materialized into `app_member_module_access` (still the runtime authority) and system access is synced to CYID with a visible re-sync for members not yet applied.
+- BD-058 makes Item unit conversions single-level: every row converts directly to the base unit (`1 盒 = 30 包`, `1 箱 = 180 包`); existing chained rows stay readable and are rewritten on the next save.
+- BD-059 adds the 人事 module: three phases (主檔／假勤／薪資), Super Admin only until visibility is split after phase 3, 週年制 特休 per 勞基法第 38 條, masked 身分證字號 with audited reveal, and no deletion of HR records.
+- BD-060 fixes HR phase 2: paper time cards keyed in (OCR import later), admin-entered leave with scanned slips, configurable shifts, 雙週變形 with a fixed Monday anchor that crosses months, system-assigned 例假／休息日, half-hour leave units, 特休 deferral, overtime confirmed from punches into pay or 補休, 國定假日 換休, a next-month-end deadline for 補休, stores and job-title groups, and a print layout matching the current Excel roster.
 
 ## Decision index
 
@@ -72,6 +76,10 @@ This index records the current interpretation of confirmed CY Web Business Decis
 | BD-054 | CY Web uses one shared in-App Audit Core with cost-conscious storage | CONFIRMED; scoped to CY Web only |
 | BD-055 | Legacy UX is reference evidence, not a replication target; retain/adapt good proven behavior under the new architecture | CONFIRMED |
 | BD-056 | `chihyuancm.com` is the shared parent domain for the public website and internal/business CY Web systems | CONFIRMED |
+| BD-057 | 權限群組 presets system and module access for members; one group per person; leaving keeps current access | CONFIRMED; refines BD-037 |
+| BD-058 | Item unit conversions are single-level: every conversion goes directly to the base unit | CONFIRMED |
+| BD-059 | 人事模組 in three phases, Super Admin only, 週年制 特休, 身分證字號 stored masked, records never deleted | CONFIRMED |
+| BD-060 | 人事第二期：排班、雙週變形、自動例休、出勤輸入、半小時請假、特休遞延、加班與補休、國定假日換休、門市與職稱、列印 | CONFIRMED |
 
 ## Cross-decision supersession / refinement notes
 

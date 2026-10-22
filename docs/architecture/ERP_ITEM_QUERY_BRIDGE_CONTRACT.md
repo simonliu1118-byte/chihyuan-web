@@ -126,7 +126,7 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
   - `{"queryType":"CUSTOMER_NO","customerCode":"CU0001"}`、`{"queryType":"CUSTOMER_NAME","keyword":"假"}`（關鍵字規則同品名）。
   - `{"queryType":"SALES","customerCode":"CU0001","dateFrom":null,"dateTo":null}`：單據日期與歷史異動共用 `resolveDateRange`（未填＝去年同月同日至臺北今天、最多三個曆年），錯誤 400 `INVALID_DATE_RANGE`。
   - `{"queryType":"RECEIVABLE","scope":"CUSTOMER"|"SALESPERSON"|"ALL","code":"…"}`；ALL 不可帶 code。
-  - 品號、客戶代號、業務員代號一律 1～40 個英文字母或數字（與 Agent 相同），否則 400 `INVALID_ITEM_NO`／`INVALID_CODE`。
+  - 品號、客戶代號、業務員代號一律 1～40 個英文字母、數字或「-」，第一個字須為英文字母或數字（使用者 2026-10-21；與 Agent V0.10.2 Build 4 相同），否則 400 `INVALID_ITEM_NO`／`INVALID_CODE`。
   - GET 增加 `code`、`scope`、`dateFrom`、`dateTo`、`orders`、`bills`；讀取時再次即時檢查該類型的 Module Access。
 - **Agent claim**：body 必須帶 `queryTypes`（Agent 支援的類型），缺少或含未知類型回 400 `INVALID_AGENT_REQUEST`；只派這些類型的工作。回傳依類型只含所需欄位：CUSTOMER_NO `customerCode`、CUSTOMER_NAME `keyword`、SALES `customerCode,dateFrom,dateTo`、RECEIVABLE `scope,code`、ITEM_NO 另加 `includeCost`。
 - **Agent complete**（非 FAILED 時都要回聲工作識別，Worker 逐一比對）：
@@ -145,3 +145,35 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 - claim：`{id,queryType:"ORDER",orderNo,expiresAt}`。complete：`{outcome,orderNo,orders,total,truncated,…}`，orders 結構同 SALES，每張的 `orderNo` 須等於工作單號（客戶與日期不限）。屬報表類：600 秒逾時、900 KiB 上限、`result_json` 5 分鐘清除。
 - 畫面：未收款的憑證號碼（23x／24x）可點，開 `ErpOrderDialog` 以自己的短工作查詢該單並展開明細；頁面原本的未收款結果不變。
 - CY Web 顯示的 ERP 金額一律加 `$`（`erpMoney`：`1420`→`$1,420`、`-3250`→`-$3,250`），包括未收款、銷貨銷退單與商品價格欄位；API 值仍為 ERP 字串。
+
+## 供應廠商查詢（V0.8.4）
+
+來源：使用者 2026-10-17（供應廠商 PURI01，頁面／流程／作法同客戶資料）。CYERPAutoQuery V0.9.0。
+
+- 新 Module Access `ERP_SUPPLIER_QUERY`「ERP 供應商查詢」（同一個 ERP 查詢入口的「廠商」頁籤；之後的進貨單也歸此權限，因含進貨價格）。`migrations/0014_erp_supplier_query.sql` 擴充 module_code 與 query_type CHECK。
+- 新類型 `SUPPLIER_NO`：`{"queryType":"SUPPLIER_NO","supplierCode":"B0009"}`（英數，存於 `target_code`）；`SUPPLIER_NAME`：`{"queryType":"SUPPLIER_NAME","keyword":"假"}`（規則同品名）。
+- claim：`{id,queryType:"SUPPLIER_NO",supplierCode,expiresAt}`／`{id,queryType:"SUPPLIER_NAME",keyword,expiresAt}`。
+- complete：SUPPLIER_NO 回聲 `supplierCode`＋`fields`（24 欄白名單 `ERP_SUPPLIER_FIELDS`，FOUND 的「廠商代號」須與工作相同）；SUPPLIER_NAME 同名稱清單格式，欄位 `廠商代號、廠商簡稱、廠商全名、TEL、FAX、統一編號`，每筆簡稱或全名須含關鍵字。客戶與廠商在 Worker 共用 `PARTIES` 驗證。
+- 新類型 `PURCHASES`（使用者 2026-10-18，進貨退貨單，同客戶的銷貨銷退單）：`{"queryType":"PURCHASES","supplierCode":"B0055","dateFrom":null,"dateTo":null}`，日期規則同 SALES（都未填為去年同日至今天、最多三年），存於 `target_code`／`history_from`／`history_to`。屬報表類（600 秒、900 KiB）。
+  - claim：`{id,queryType:"PURCHASES",supplierCode,dateFrom,dateTo,expiresAt}`。
+  - complete：回聲 `supplierCode`、`dateFrom`、`dateTo`＋`orders`（最多 1,000 張、每張 500 行）。每張 `kind` 進貨／退貨、`orderNo`、`date`（須在範圍內）、`supplierCode`（須等於工作）、`supplierName`、`supplierOrderNo`、`invoiceNo`、`invoiceType`、`taxType`、`currency`、`totalQuantity`、`amount`、`deduction`、`tax`、`total`、`settled`、`lines`；每行 `seq`、`itemCode`、`itemName`、`specification`、`acceptDate`（yyyy-MM-dd 或空）、`warehouse`、`quantity`、`acceptedQuantity`、`returnedQuantity`、`unit`、`unitPrice`、`amount`、`tax`、`batch`、`purchaseOrderNo`、`note`、`sourceOrder`（退貨的原進貨單「單號-序號」）。金額為原幣 ERP 字串。存於 `result_json.purchases`，讀取回 `purchases`。
+  - AUTO：PURR18 依廠商與日期；PURR22 沒有廠商條件，同日期整份轉出後在 AUTO 只留該廠商（小計以全部退貨單核對）。退貨↔原進貨單的連結在 CY Web（`arrangePurchases`，與銷貨銷退共用）。
+- Agent claim 的 `queryTypes` 含未知類型會回 400：AUTO V0.9.0 會送出 SUPPLIER／PURCHASES 類型，必須在 CY Web 0.8.4 部署後才能連線。
+
+## 進貨輔助（V0.9.24 Build 3）
+
+- 新 Module Access `ERP_RESTOCK_ASSIST`「進貨輔助」，獨立頁面 `#restock-assist`（左邊導覽在「ERP 查詢」下方）。`migrations/0019_erp_restock_assist.sql` 擴充 module_code 與 query_type CHECK。
+- 前提權限（使用者 2026-10-21）：`ERP_RESTOCK_ASSIST` 只在同時具備 `ERP_ITEM_QUERY`、`ERP_CUSTOMER_QUERY` 時有效（`shared/modules.ts` 的 `MODULE_REQUIREMENTS`，`checkModuleAccess`／`allowedModuleCodes` 依此計算）；缺前提時建立或讀取 RESTOCK 回 403，訊息列出需要的權限。Module Access 個人設定開啟它而缺前提回 409 `MODULE_REQUIREMENT_MISSING`；關閉它需要的前提時，它在同一批一併關閉（回應 `alsoDisabled`，各記一筆稽核；使用者 2026-10-21）。權限群組送出的模組組合缺前提回 409（畫面在取消前提時會一併移除進貨輔助再送出）。
+- 查詢類型 `RESTOCK`：`POST /api/erp/item-queries` `{ queryType:"RESTOCK", dateFrom, dateTo }`，兩者必填（YYYY-MM-DD），起 ≤ 迄 ≤ 台北今天，最多 31 天（含頭尾）；存在 `history_from／history_to`。
+- Claim：`{ id, queryType:"RESTOCK", dateFrom, dateTo, expiresAt }`。Agent 查這段期間**所有客戶**的 COPR15 銷貨單與 COPR16 銷退單，依品號與單據日期加總數量，再逐一以 INVI02 查各品號的庫存數量。
+- Complete（outcome FOUND／NOT_FOUND，共通欄位同其他類型）：`dateFrom`、`dateTo` 必須與工作相同；`items` 最多 500 個品號，每個 `{ itemCode, itemName, unit, days:[{date,sold,returned}], sold, returned, stock, stockNote }`。`days` 只列有異動的日期且必須在範圍內、不重複；數量為數字字串；`stock` 為數字字串或 null（`stockNote` 說明原因，例如查無品號）。品號不可空白或重複；其他欄位一律不保存。結果存在 `result_json`（`{ restock, total, truncated }`），讀取時以 `restock` 回傳。NOT_FOUND 表示期間沒有銷貨／銷退單，不得附帶品號。
+- RUNNING 逾時：RESTOCK 1800 秒（兩份報表再加逐一查庫存）。PURCHASES 與 SALES、RECEIVABLE、ORDER 同為 600 秒（原本漏列，曾以一般查詢的 180 秒計算）。
+- Agent 狀態 `GET /api/erp/agent-status` 也開放給只有 `ERP_RESTOCK_ASSIST` 的成員。
+- 進度（使用者 2026-10-20：查詢中至少顯示已查／總數）：Agent 在 RUNNING 期間 `POST /api/erp-agent/item-queries/{id}/progress` `{ stage:"REPORT"|"STOCK", done, total }`（整數，done ≤ total；REPORT 為兩張明細表完成數，STOCK 為已查庫存品號數），只接受此 Agent 領取、RUNNING 中的 RESTOCK；同一階段較舊（done 較小）的回報忽略。存在 `progress_stage／progress_done／progress_total`，讀取 API 於 RUNNING 時回 `progress`，其餘為 null。Agent 至多每 2 秒回報一次，失敗不影響查詢。
+- 贈品（使用者 2026-10-21）：days 每筆與 item 小計的 `sold`／`returned` 含贈／備品量；選填 `soldGift`／`returnedGift`（數字字串）是其中贈品部分，缺少時 Worker 補 "0"。
+- 銷貨資料保存（使用者 2026-10-21，`migrations/0021_erp_sales_history.sql`）：RESTOCK 完成（DONE／NOT_FOUND）時，與 complete 同一個 D1 batch、且只在該 complete 確實寫入時（EXISTS 查詢工作狀態與 completed_at）：
+  - `erp_sales_daily(item_code, sale_date, sold, returned, sold_gift, returned_gift, updated_at, query_id)`：json_each 一次 upsert，只有數量有變才更新（updated_at／query_id 為最後改動的查詢）；未 truncated 時刪除範圍內這次沒列出的（品號, 日期）。
+  - `erp_sales_items(item_code, item_name, unit, stock, stock_at, updated_at)`：品名、單位或庫存不同才更新；這次沒查到庫存（null）保留舊值；stock_at 為讀到不同庫存的時間。
+  - `erp_sales_days(sale_date, synced_at, query_id)`：未 truncated 時標記範圍內每一天；已同步過的日子只有上次同步時（台北日期）還沒過完才改寫。
+  - 這些表不跟著查詢結果的保存期限清除，供之後的銷貨分析使用；每批 1,500 列一個 statement。
+

@@ -2,6 +2,7 @@ import type {
   CorrectCustomerItemQuoteRequest,
   CreateCustomerFrequentItemRequest,
   CreateCustomerItemQuoteRequest,
+  CreateCustomerQuoteBatchRequest,
   CreateCustomerVisitRequest,
   DeleteCustomerFrequentItemRequest,
   DeleteCustomerVisitRequest,
@@ -249,6 +250,43 @@ function normalizeQuote(raw: unknown): NormalizedQuoteInput {
 
 export function normalizeCreateQuoteRequest(raw: unknown): NormalizedCreateQuoteRequest {
   return normalizeQuote(raw as CreateCustomerItemQuoteRequest);
+}
+
+/** Validate every line before any write. Reuse canonical four-decimal quote validation. */
+export function normalizeCreateQuoteBatchRequest(raw: unknown): readonly NormalizedCreateQuoteRequest[] {
+  const input = asObject(raw as CreateCustomerQuoteBatchRequest);
+  const bag = new ValidationBag(input);
+  const quoteDate = bag.requiredIsoDate("quoteDate") ?? "";
+  bag.throwIfInvalid();
+  const lines = input.lines;
+  if (!Array.isArray(lines) || lines.length < 1 || lines.length > 100) {
+    throw new FieldValidationError({ lines: "請輸入 1～100 筆品項" });
+  }
+  if (input.note != null && (typeof input.note !== "string" || input.note.length > 120)) {
+    throw new FieldValidationError({ note: "備註不可超過 120 個字元" });
+  }
+  const grouped = new Map<number, Record<string, unknown>[]>();
+  for (let index = 0; index < lines.length; index++) {
+    const line = asObject(lines[index]);
+    const itemId = line.itemId;
+    if (typeof itemId !== "number" || !Number.isSafeInteger(itemId) || itemId <= 0) {
+      throw new FieldValidationError({ [`lines.${index}.itemId`]: "商品必須選擇有效品項" });
+    }
+    const rows = grouped.get(itemId) ?? [];
+    if (rows.length >= MAX_QUOTE_BREAKS) {
+      throw new FieldValidationError({ [`lines.${index}`]: `同商品最多 ${MAX_QUOTE_BREAKS} 個級距` });
+    }
+    rows.push({
+      quantity: line.quantity,
+      unit: line.unit,
+      unitPrice: line.unitPrice,
+      note: line.note ?? input.note ?? null,
+      sortOrder: rows.length,
+    });
+    grouped.set(itemId, rows);
+  }
+  return Array.from(grouped, ([itemId, priceBreaks]) =>
+    normalizeCreateQuoteRequest({ itemId, quoteDate, priceBreaks }));
 }
 
 export function normalizeCorrectQuoteRequest(raw: unknown): NormalizedCorrectQuoteRequest {

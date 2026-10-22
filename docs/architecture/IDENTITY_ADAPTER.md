@@ -171,6 +171,7 @@ CY Web is a multi-module exception:
 - Identity Admin cannot change its own Module Access;
 - Role changes do not silently add/remove Module Access;
 - forward storage authority is direct `app_member_module_access` (Employee × fixed Module code);
+- 權限群組 (BD-057) presets a member's systems and CY Web modules: one group per person, no individual edits while in a group, leaving keeps current access; module writes materialize into `app_member_module_access`, system access is synced to CYID with the actor's session (only differing cells, failures reported for re-sync), and the same self/Super Admin protections apply;
 - legacy `app_tags / app_tag_modules / app_member_tags` may remain as metadata/history but do not authorize runtime requests.
 
 Protected Worker/API routes must enforce current Module Access server-side on each relevant request. Navigation visibility is not an authorization boundary.

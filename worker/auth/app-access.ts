@@ -1,10 +1,11 @@
-import { CYWEB_MODULES, isCyWebModuleCode, type CyWebModuleCode } from "../../shared/modules";
+import { CYWEB_MODULES, MODULE_REQUIREMENTS, effectiveModules, isCyWebModuleCode, type CyWebModuleCode } from "../../shared/modules";
 import type { IdentityPrincipal } from "../identity/contract";
 
 export interface AppMemberRecord {
   id: number;
   identityEmployeeId: string;
   employeeNo: string | null;
+  displayName: string | null;
   isActive: boolean;
 }
 
@@ -16,6 +17,7 @@ type AppMemberRow = {
   id: number;
   identity_employee_id: string;
   employee_no: string | null;
+  display_name: string | null;
   is_active: number;
 };
 
@@ -24,6 +26,7 @@ function toAppMember(row: AppMemberRow): AppMemberRecord {
     id: row.id,
     identityEmployeeId: row.identity_employee_id,
     employeeNo: row.employee_no,
+    displayName: row.display_name,
     isActive: row.is_active === 1,
   };
 }
@@ -38,7 +41,10 @@ export async function ensureAppMemberProjection(
   identityEmployeeId: string,
   employeeNo: string | null,
   nowIso = new Date().toISOString(),
+  displayName?: string | null,
 ): Promise<AppMemberRecord> {
+  const name = displayName?.trim() || null;
+  const validName = name && name.length <= 120 ? name : null;
   const normalizedIdentityEmployeeId = identityEmployeeId.trim();
   if (!normalizedIdentityEmployeeId || normalizedIdentityEmployeeId.length > 128) {
     throw new Error("INVALID_IDENTITY_EMPLOYEE_ID");
@@ -46,7 +52,7 @@ export async function ensureAppMemberProjection(
 
   const existing = await db
     .prepare(
-      `SELECT id, identity_employee_id, employee_no, is_active
+      `SELECT id, identity_employee_id, employee_no, display_name, is_active
          FROM app_members
         WHERE identity_employee_id = ?1
         LIMIT 1`,
@@ -59,22 +65,23 @@ export async function ensureAppMemberProjection(
     const result = await db
       .prepare(
         `INSERT INTO app_members (
-           identity_employee_id, employee_no, is_active, created_at, updated_at
-         ) VALUES (?1, ?2, 1, ?3, ?3)`,
+           identity_employee_id, employee_no, display_name, is_active, created_at, updated_at
+         ) VALUES (?1, ?2, ?4, 1, ?3, ?3)`,
       )
-      .bind(normalizedIdentityEmployeeId, normalizedEmployeeNo, nowIso)
+      .bind(normalizedIdentityEmployeeId, normalizedEmployeeNo, nowIso, validName)
       .run();
     const id = Number(result.meta.last_row_id);
     if (!Number.isInteger(id) || id <= 0) throw new Error("APP_MEMBER_INSERT_FAILED");
-    return { id, identityEmployeeId: normalizedIdentityEmployeeId, employeeNo: normalizedEmployeeNo, isActive: true };
+    return { id, identityEmployeeId: normalizedIdentityEmployeeId, employeeNo: normalizedEmployeeNo, displayName: validName, isActive: true };
   }
 
   const member = toAppMember(existing);
-  if (member.employeeNo !== normalizedEmployeeNo) {
+  if (member.employeeNo !== normalizedEmployeeNo || (validName && member.displayName !== validName)) {
     await db.prepare(
-      `UPDATE app_members SET employee_no = ?2, updated_at = ?3 WHERE id = ?1`,
-    ).bind(member.id, normalizedEmployeeNo, nowIso).run();
+      `UPDATE app_members SET employee_no = ?2, display_name = COALESCE(?4, display_name), updated_at = ?3 WHERE id = ?1`,
+    ).bind(member.id, normalizedEmployeeNo, nowIso, validName).run();
     member.employeeNo = normalizedEmployeeNo;
+    if (validName) member.displayName = validName;
   }
   return member;
 }
@@ -85,7 +92,7 @@ export async function resolveAppMember(
   principal: IdentityPrincipal,
   nowIso = new Date().toISOString(),
 ): Promise<AppMemberRecord> {
-  return ensureAppMemberProjection(db, principal.employeeId, principal.employeeNo, nowIso);
+  return ensureAppMemberProjection(db, principal.employeeId, principal.employeeNo, nowIso, principal.displayName);
 }
 
 export async function allowedModuleCodes(
@@ -105,9 +112,10 @@ export async function allowedModuleCodes(
       ORDER BY module_code`,
   ).bind(member.id).all<{ module_code: string }>();
 
-  return (result.results ?? [])
+  // A grant whose required grants are not all held does not count (shared MODULE_REQUIREMENTS).
+  return effectiveModules((result.results ?? [])
     .map((row) => row.module_code)
-    .filter(isCyWebModuleCode);
+    .filter(isCyWebModuleCode));
 }
 
 /** One app-local projection shape for the existing access route and auth refresh. */
@@ -136,18 +144,19 @@ export async function checkModuleAccess(
   if (principal.workspaceRole === "SUPER_ADMIN") return { allowed: true, member };
   if (!member.isActive) return { allowed: false, reason: "app-member-inactive", member };
 
+  // The grant and every grant it requires (進貨輔助: ERP 商品查詢 and ERP 客戶查詢).
+  const needed = [normalizedModule, ...(MODULE_REQUIREMENTS[normalizedModule] ?? [])];
   const grant = await db
     .prepare(
-      `SELECT 1 AS allowed
+      `SELECT count(*) AS held
          FROM app_member_module_access
         WHERE member_id = ?1
-          AND module_code = ?2
-          AND enabled = 1
-        LIMIT 1`,
+          AND module_code IN (SELECT value FROM json_each(?2))
+          AND enabled = 1`,
     )
-    .bind(member.id, normalizedModule)
-    .first<{ allowed: number }>();
+    .bind(member.id, JSON.stringify(needed))
+    .first<{ held: number }>();
 
-  if (!grant) return { allowed: false, reason: "module-not-granted", member };
+  if ((grant?.held ?? 0) < needed.length) return { allowed: false, reason: "module-not-granted", member };
   return { allowed: true, member };
 }

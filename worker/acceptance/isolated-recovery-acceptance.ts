@@ -5,9 +5,9 @@ function assert(value: unknown, code: string): asserts value { if (!value) throw
 async function rejects(action: () => Promise<unknown>, code: string) { let failed = false; try { await action(); } catch { failed = true; } assert(failed, code); }
 export async function acceptIsolatedRecovery(db: D1Database, target: D1Database, bucket: R2Bucket): Promise<void> {
   const stored = new Map<string, Uint8Array>(), binding = new R2BackupProvider(bucket);
-  let unavailablePrefix = "", failGcs = false;
+  let unavailablePrefix = "", failGcs = false, failR2Write = false;
   const r2: BackupStorageProvider = {
-    putObject: (key, bytes) => binding.putObject(key, bytes),
+    putObject: (key, bytes) => { if (failR2Write) throw new Error("Synthetic R2 outage"); return binding.putObject(key, bytes); },
     getObject: key => { if (key.startsWith(unavailablePrefix) && unavailablePrefix) throw new Error("Synthetic R2 outage"); return binding.getObject(key); },
     listObjects: prefix => binding.listObjects(prefix), deleteObject: (key, version) => binding.deleteObject(key, version),
   };
@@ -19,6 +19,7 @@ export async function acceptIsolatedRecovery(db: D1Database, target: D1Database,
   };
   const workspaceScope = "acceptance-workspace", service = new BackupService(db, workspaceScope, "0.7.3", { r2, gcs });
   const context = { now: "2026-10-01T11:00:00.000Z", actorMemberId: 1, requestId: "synthetic-rehearsal-select" };
+  const pristineCount = JSON.parse(new TextDecoder().decode((await exportPortableBackup(target, { workspaceScope, appVersion: "0.7.3" })).manifestBytes)).totalRecordCount;
   const id = await service.create("manual", context);
   const input = { backupId: id, selectionConfirmation: id, targetConfirmation: "isolated_empty_database" as const, role: "SUPER_ADMIN", isActive: true };
   const before = await db.prepare("SELECT COUNT(*) AS n FROM backup_sets").first<{ n: number }>();
@@ -31,6 +32,7 @@ export async function acceptIsolatedRecovery(db: D1Database, target: D1Database,
   assert(before?.n === after?.n, "ACCEPT_RECOVERY_DENIAL_STARTED_BACKUP");
   const preferred = await service.loadVerified(id);
   assert(preferred.provider === "r2", "ACCEPT_RECOVERY_R2_PREFERENCE");
+  assert((await service.loadVerified(id, "gcs")).provider === "gcs", "ACCEPT_RECOVERY_EXPLICIT_GCS_SELECTION");
   unavailablePrefix = `cyweb/${id}/`;
   assert((await service.loadVerified(id)).provider === "gcs", "ACCEPT_RECOVERY_GCS_FALLBACK");
   // Digest-valid portable bytes still need catalog agreement.
@@ -41,11 +43,18 @@ export async function acceptIsolatedRecovery(db: D1Database, target: D1Database,
   stored.set(unavailablePrefix + "manifest.json", original);
   failGcs = true;
   await rejects(() => service.isolatedRecovery(target, input, { ...context, requestId: "synthetic-rehearsal-safety-failed" }), "ACCEPT_RECOVERY_UNVERIFIED_SAFETY_COPY");
-  assert(JSON.parse(new TextDecoder().decode((await exportPortableBackup(target, { workspaceScope, appVersion: "0.7.3" })).manifestBytes)).totalRecordCount === 0,
+  assert(JSON.parse(new TextDecoder().decode((await exportPortableBackup(target, { workspaceScope, appVersion: "0.7.3" })).manifestBytes)).totalRecordCount === pristineCount,
     "ACCEPT_RECOVERY_TARGET_CHANGED_BEFORE_SAFETY");
   failGcs = false;
+  failR2Write = true;
+  await rejects(() => service.isolatedRecovery(target, input, { ...context, requestId: "synthetic-rehearsal-r2-safety-failed" }), "ACCEPT_RECOVERY_GCS_ONLY_SAFETY_ACCEPTED");
+  assert(JSON.parse(new TextDecoder().decode((await exportPortableBackup(target, { workspaceScope, appVersion: "0.7.3" })).manifestBytes)).totalRecordCount === pristineCount,
+    "ACCEPT_RECOVERY_GCS_ONLY_SAFETY_CHANGED_TARGET");
+  failR2Write = false;
   const liveCustomers = await db.prepare("SELECT * FROM customers ORDER BY id").all();
-  const result = await service.isolatedRecovery(target, input, { ...context, requestId: "synthetic-rehearsal-success" });
+  // R2 is healthy: explicit GCS must still exercise actual GCS bytes, not preference fallback.
+  unavailablePrefix = "";
+  const result = await service.isolatedRecovery(target, { ...input, provider: "gcs" }, { ...context, requestId: "synthetic-rehearsal-success" });
   assert(result.provider === "gcs" && result.safetyBackupId !== id, "ACCEPT_RECOVERY_SOURCE_OR_SAFETY_ID");
   const recovered = await exportPortableBackup(target, { workspaceScope, appVersion: "0.7.3" });
   assert(recovered.dataBytes.length === preferred.bundle.dataBytes.length && recovered.dataBytes.every((v, i) => v === preferred.bundle.dataBytes[i]), "ACCEPT_RECOVERY_DATA_RECONCILIATION");

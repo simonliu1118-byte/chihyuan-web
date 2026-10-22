@@ -37,8 +37,8 @@ def main() -> int:
 
     for token in (
         "parseScaled4",
-        "換算路徑存在循環",
-        "目標單位",
+        "換算單位必須換成基準單位",
+        "此單位已有換算",
         "quantityScaled4",
     ):
         if token not in validation:

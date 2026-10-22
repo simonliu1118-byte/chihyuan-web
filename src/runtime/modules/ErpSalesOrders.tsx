@@ -1,5 +1,8 @@
+import { formatDate } from "../../ui/foundation/format";
+import { StatusChip } from "../../ui/primitives/StatusChip";
 import { arrangeSales, erpMoney, erpNumber } from "../../../shared/erp-sales-links";
 import type { ErpSalesOrder } from "../../../shared/erp-item-query";
+import { ErpOrderList } from "./ErpOrderList";
 import { ErpQueryRows } from "./ErpQueryRows";
 
 const LINE_COLUMNS = ["序號", "品號", "品名", "規格", "數量", "單位", "單價", "金額", "類型", "贈/備品量", "庫別", "批號", "備註", "原銷貨單"];
@@ -15,15 +18,16 @@ export function ErpSalesOrders({ orders, total, truncated, defaultOpen = false }
   const count = (kind: ErpSalesOrder["kind"]) => orders.filter(o => o.kind === kind).length;
   return <>
     <h3>銷貨 {count("銷貨")} 張（合計 {erpMoney(sum("銷貨"))}）、銷退 {count("銷退")} 張（合計 {erpMoney(sum("銷退"))}）</h3>
-    {truncated && <p className="cy-erp-error">共 {total} 張，只顯示最新 {orders.length} 張，請縮小日期範圍。</p>}
-    <div className="cy-erp-orders">
+    {truncated && <p className="cy-notice cy-notice-warning">共 {total} 張，只顯示最新 {orders.length} 張，請縮小日期範圍。</p>}
+    <ErpOrderList columns={["類別", "日期", "單號", "品項", "業務員", "合計"]}>
       {entries.map(({ order, under, related }) => <details key={order.kind + order.orderNo} id={anchor(order.orderNo)} open={defaultOpen || undefined}
         className={"cy-erp-order" + (order.kind === "銷退" ? " is-return" : "") + (under ? " is-linked" : "")}>
         <summary>
-          <span className="cy-erp-order-kind">{order.kind}</span>
-          <span>{order.date}</span>
+          <StatusChip tone={order.kind === "銷退" ? "danger" : "neutral"}>{order.kind}</StatusChip>
+          <span>{formatDate(order.date)}</span>
           <strong>{order.orderNo}</strong>
           <span>{order.lines.length} 項</span>
+          <span className="cy-erp-order-extra">{order.salesperson}</span>
           <span className="cy-erp-order-total">{erpMoney(order.total)}</span>
         </summary>
         <div className="cy-erp-order-body">
@@ -47,6 +51,6 @@ export function ErpSalesOrders({ orders, total, truncated, defaultOpen = false }
               erpMoney(l.amount), l.giftType, l.giftQuantity, l.warehouse, l.batch, l.note, l.sourceOrder])} />
         </div>
       </details>)}
-    </div>
+    </ErpOrderList>
   </>;
 }

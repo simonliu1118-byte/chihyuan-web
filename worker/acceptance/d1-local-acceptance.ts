@@ -1,7 +1,11 @@
 import { acceptSalesOrderStaleAudit } from "./sales-order-stale-acceptance";
 import { acceptCustomerQuoteStaleMutation } from "./customer-quote-stale-acceptance";
 import { acceptBusinessHttpAuthority } from "./business-http-acceptance";
+import { acceptModuleAccessGroups } from "./module-access-group-acceptance";
 import { acceptProgramCatalog } from "./program-catalog-acceptance";
+import { acceptHrPhase1 } from "./hr-phase1-acceptance";
+import { acceptHrPhase2a } from "./hr-phase2a-acceptance";
+import { acceptHrPhase2b } from "./hr-phase2b-acceptance";
 import { acceptRetiredIdentitySource, acceptRetiredIdentityRestore } from "./retired-identity-acceptance";
 import { acceptDefectStaleAudit } from "./defect-stale-acceptance";
 import { acceptOutsourcingStaleEffects } from "./outsourcing-stale-acceptance";
@@ -12,8 +16,10 @@ import { acceptPortableRecovery } from "./portable-recovery-acceptance";
 import { parseScaled4 } from "../../shared/fixed-point";
 import { AuditService } from "../audit/audit-service";
 import { CustomerService } from "../customer/customer-service";
+import { ensureAppMemberProjection, resolveAppMember } from "../auth/app-access";
 import { ItemService } from "../item/item-service";
-import { convertScaled4Exact, scaled4ProductToMoney2Exact } from "../item/unit-conversion";
+import { CustomerRepository } from "../customer/customer-repository";
+import { convertScaled4Exact, scaled4ProductToMoney2Exact } from "../../shared/unit-conversion";
 import { OutsourcingService } from "../outsourcing/outsourcing-service";
 import { BusinessLookupService } from "../reference/business-lookup-service";
 import { handleSettingsAuditRoute } from "../http/settings-audit-routes";
@@ -27,6 +33,7 @@ interface Env {
   RESTORE_DB: D1Database;
   REHEARSAL_DB: D1Database;
   BACKUP_R2: R2Bucket;
+  HR_FILES?: R2Bucket;
 }
 
 interface AcceptanceChecks {
@@ -45,8 +52,12 @@ interface AcceptanceChecks {
   workLogReviewLifecycle: boolean;
   settingsAuditHttpAuthority: boolean;
   businessHttpAuthority: boolean;
+  moduleAccessGroups: boolean;
   retiredEntityIds: boolean;
   programCatalog: boolean;
+  hrPhase1: boolean;
+  hrPhase2a: boolean;
+  hrPhase2b: boolean;
 }
 
 function assertAcceptance(condition: unknown, code: string): asserts condition {
@@ -130,6 +141,30 @@ async function acceptSettingsAuditHttp(db: D1Database): Promise<void> {
   assertAcceptance(references.regions.some(value => value.code === "ACCEPT_REGION_HTTP" && value.groupCode === "TEST" && !("updatedAt" in value)), "ACCEPT_REGION_LOOKUP_SCHEMA");
   role = "ADMIN";
   assertAcceptance((await call("/api/admin/settings/worklog-categories", "POST", { code: "ACCEPT_HTTP_LOG", name: "HTTP WorkLog", inputMode: "boolean" })).status === 200, "ACCEPT_SETTINGS_ADMIN_WORKLOG");
+  const timeline = new AuditService(db);
+  for (const action of ["erp_item_query.created", "erp_item_query.completed", "erp_item_query.failed", "erp_item_query.expired"]) {
+    await timeline.record({ entityType: "erp_item_query", entityKey: "accept-query",
+      action, metadata: { queryType: "CUSTOMER_NO", code: "AC0016" } });
+  }
+  await timeline.record({ entityType: "erp_item_agent", entityKey: "primary",
+    action: "erp_item_agent.credential_rotated" });
+  const erpEvents = async (include = false) => {
+    const response = await call("/api/admin/audit?entityTypes=erp_item_query,erp_item_agent&limit=100"
+      + (include ? "&includeErpQueries=true" : ""));
+    assertAcceptance(response.status === 200, "ACCEPT_AUDIT_ERP_FILTER_REQUEST");
+    return (await response.json() as { data: { events: { entityType: string; action: string }[] } }).data.events;
+  };
+  const defaultErp = await erpEvents();
+  assertAcceptance(defaultErp.every(event => event.entityType !== "erp_item_query")
+    && defaultErp.some(event => event.entityType === "erp_item_agent"), "ACCEPT_AUDIT_ERP_DEFAULT_HIDDEN_AGENT_VISIBLE");
+  const adminErp = await erpEvents(true);
+  assertAcceptance(adminErp.every(event => event.entityType !== "erp_item_query"), "ACCEPT_AUDIT_ADMIN_CANNOT_OVERRIDE_ERP");
+  role = "SUPER_ADMIN";
+  const superErp = await erpEvents(true);
+  assertAcceptance(superErp.filter(event => event.entityType === "erp_item_query").length === 3
+    && superErp.every(event => event.action !== "erp_item_query.created")
+    && superErp.some(event => event.entityType === "erp_item_agent"), "ACCEPT_AUDIT_SUPER_VISIBLE_NO_SUBMISSIONS");
+  role = "ADMIN";
   const audit = await (await call("/api/admin/audit?entityType=setting.department&limit=100")).json() as { data: { events: { actorEmployeeId: number }[] } };
   const member = await db.prepare("SELECT id FROM app_members WHERE identity_employee_id = ?1").bind("settings-acceptance").first<{ id: number }>();
   assertAcceptance(audit.data.events.length >= 2 && audit.data.events.every(event => event.actorEmployeeId === member?.id), "ACCEPT_SETTINGS_AUDIT_SERVER_ACTOR");
@@ -141,7 +176,7 @@ async function acceptSettingsAuditHttp(db: D1Database): Promise<void> {
   assertAcceptance((await backupCall()).status === 403, "ACCEPT_BACKUP_INACTIVE_MEMBER");
 }
 
-async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bucket, rehearsalDb: D1Database): Promise<AcceptanceChecks> {
+async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bucket, rehearsalDb: D1Database, hrFiles?: R2Bucket): Promise<AcceptanceChecks> {
   const t0 = "2026-09-28T00:00:00.000Z";
   const t1 = "2026-09-28T00:01:00.000Z";
   const t2 = "2026-09-28T00:02:00.000Z";
@@ -213,7 +248,20 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
   }
   assertAcceptance(staleRevisionRejected, "ACCEPT_STALE_REVISION_NOT_REJECTED");
 
-  const afterStale = await customerService.getDetail(created.id);
+  // CYID name projection must hydrate on session read and surface in Customer references.
+  const projected = await resolveAppMember(db, {
+    workspaceId: "acceptance", employeeId: "acceptance-employee-1", employeeNo: "T0001",
+    displayName: "驗收姓名", workspaceRole: "SUPER_ADMIN", isIdentityAdmin: false,
+    emailVerified: true, isWorkspaceSuperAdmin: true, credentialVersion: 1, employeeRevision: 1,
+  });
+  const storedName = await db.prepare("SELECT display_name FROM app_members WHERE id = ?")
+    .bind(projected.id).first<{ display_name: string | null }>();
+  assertAcceptance(storedName?.display_name === "驗收姓名", "ACCEPT_CYID_NAME_CACHE_NOT_WRITTEN");
+  await db.prepare("UPDATE customers SET owner_employee_id = ? WHERE id = ?").bind(projected.id,created.id).run();
+  const populated = await new CustomerRepository(db).getDetail(created.id);
+  assertAcceptance(populated?.ownerEmployee?.displayName === "驗收姓名", "ACCEPT_CUSTOMER_OWNER_NAME_MISSING");
+  await ensureAppMemberProjection(db, "acceptance-employee-1", "T0001", new Date().toISOString(), "驗收姓名");
+    const afterStale = await customerService.getDetail(created.id);
   assertAcceptance(afterStale.revision === 2, "ACCEPT_STALE_REVISION_MUTATED");
   assertAcceptance(afterStale.shortName === "D1 Acceptance Updated", "ACCEPT_STALE_WRITE_MUTATED");
 
@@ -335,9 +383,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
   await acceptSalesOrderStaleAudit(db,created.id,1001);
   await acceptCustomerQuoteStaleMutation(db, created.id, 1001);
 
-  // Item domain: persist a chained conversion graph through ItemService, then
-  // prove exact scaled4 conversion and exact money2 multiplication from the
-  // database-backed conversion values.
+  // BD-058: persist direct-to-base conversion rows and test legacy chain read compatibility.
   const itemService = new ItemService(db);
   const componentItem = await itemService.create(
     {
@@ -350,7 +396,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
       clinicPrice: "3.75",
       unitConversions: [
         { fromUnit: "BOX", quantity: "12", toUnit: "EA", sortOrder: 0 },
-        { fromUnit: "CASE", quantity: "2", toUnit: "BOX", sortOrder: 1 },
+        { fromUnit: "CASE", quantity: "24", toUnit: "EA", sortOrder: 1 },
       ],
     },
     { actorMemberId: 1, now: t3 },
@@ -379,9 +425,15 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
   }));
   assertAcceptance(edges.length === 2, "ACCEPT_ITEM_CONVERSION_DB_ROWS_MISSING");
   assertAcceptance(edges[0]?.quantityScaled4 === 120000, "ACCEPT_ITEM_BOX_FACTOR_MISMATCH");
-  assertAcceptance(edges[1]?.quantityScaled4 === 20000, "ACCEPT_ITEM_CASE_FACTOR_MISMATCH");
+  assertAcceptance(edges[1]?.quantityScaled4 === 240000, "ACCEPT_ITEM_CASE_FACTOR_MISMATCH");
   const convertedCase = convertScaled4Exact(15000, "CASE", "EA", "EA", edges);
   assertAcceptance(convertedCase === 360000, "ACCEPT_ITEM_CHAINED_CONVERSION_MISMATCH");
+  const legacyChainedEdges = [
+    { fromUnit: "BOX", quantityScaled4: 120000, toUnit: "EA" },
+    { fromUnit: "CASE", quantityScaled4: 20000, toUnit: "BOX" },
+  ];
+  assertAcceptance(convertScaled4Exact(15000, "CASE", "EA", "EA", legacyChainedEdges) === convertedCase,
+    "ACCEPT_ITEM_LEGACY_CHAIN_FLATTEN_COMPAT");
   assertAcceptance(
     scaled4ProductToMoney2Exact(convertedCase, 12500) === 4500,
     "ACCEPT_ITEM_EXACT_MONEY_MISMATCH",
@@ -714,8 +766,12 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
   await assertWorkLogRejected(() => workLogService.withdrawReview(workLogCreated.id,
     { expectedRevision: withdrawn.revision }, { actorMemberId: 1, now: t9 }), "WORK_LOG_TRANSITION_NOT_ALLOWED");
 
+  await acceptHrPhase1(db);
+  await acceptHrPhase2a(db);
+  await acceptHrPhase2b(db,hrFiles);
   await acceptSettingsAuditHttp(db);
   await acceptBusinessHttpAuthority(db, componentItem.id, finishedItem.id);
+  await acceptModuleAccessGroups(db);
   await acceptProgramCatalog(db);
   await acceptRetiredIdentitySource(db);
   await acceptPortableRecovery(db, restoreDb);
@@ -729,8 +785,12 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
     isolatedRecovery: true,
     settingsAuditHttpAuthority: true,
     businessHttpAuthority: true,
+    moduleAccessGroups: true,
     retiredEntityIds: true,
     programCatalog: true,
+    hrPhase1: true,
+    hrPhase2a: true,
+    hrPhase2b: true,
     customerBatchCreate: true,
     optimisticRevision: true,
     batchRollback: true,
@@ -759,7 +819,7 @@ export default {
     }
 
     try {
-      const checks = await runAcceptance(env.DB, env.RESTORE_DB, env.BACKUP_R2, env.REHEARSAL_DB);
+      const checks = await runAcceptance(env.DB, env.RESTORE_DB, env.BACKUP_R2, env.REHEARSAL_DB, env.HR_FILES);
       return jsonResponse({ ok: true, checks });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

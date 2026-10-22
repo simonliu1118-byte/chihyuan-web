@@ -5,6 +5,7 @@ import { ERP_CUSTOMER_SEARCH_FIELDS, type ErpField } from "../../../shared/erp-i
 import { ErpQueryRows } from "./ErpQueryRows";
 import { ErpJobStatus, Fields, showsData } from "./ErpJobStatus";
 import { ErpSalesOrders } from "./ErpSalesOrders";
+import { ErpPartyOrdersDialog } from "./ErpPartyOrdersDialog";
 import type { ErpJob } from "./useErpJob";
 
 type Mode = "CODE" | "NAME" | "SALES";
@@ -27,6 +28,8 @@ export function ErpCustomerQuery({ job }: { job: ErpJob }) {
   // What a picked customer is queried for: its data, or its 銷貨銷退單 (with the range it was asked with).
   const [follow, setFollow] = useState<{ sales: boolean; from: string | null; to: string | null }>({ sales: false, from: null, to: null });
   const autoFollowed = useRef<string | null>(null);
+  // The orders opened from the 資料 view, in a window (user 2026-10-18: keep the 資料 on the page).
+  const [ordersOf, setOrdersOf] = useState<{ code: string; name: string } | null>(null);
   const { result, busy, submitting, setError } = job;
 
   function range(from: string | null, to: string | null) {
@@ -46,7 +49,7 @@ export function ErpCustomerQuery({ job }: { job: ErpJob }) {
     }
     const code = parseErpCode(text);
     if (mode === "CODE" || (mode === "SALES" && code)) {
-      if (!code) { setError("客戶代號只能輸入 1～40 個英文字母或數字。"); return; }
+      if (!code) { setError("客戶代號只能輸入 1～40 個英文字母、數字或「-」。"); return; }
       await queryCustomer(code, mode === "SALES", dateFrom || null, dateTo || null);
       return;
     }
@@ -68,23 +71,23 @@ export function ErpCustomerQuery({ job }: { job: ErpJob }) {
   const customerCode = mine?.queryType === "CUSTOMER_NO" ? mine.code : null;
   return <>
     <div className="cy-op-panel cy-erp-query-box">
-      <form className="cy-erp-form" onSubmit={event => void submit(event)} noValidate>
-        <div className="cy-erp-mode-switch" role="group" aria-label="查詢方式">
+      <form role="search" className="cy-erp-form" onSubmit={event => void submit(event)} noValidate>
+        <div className="cy-segmented" role="group" aria-label="查詢方式">
           {MODES.map(m => <button key={m.key} type="button" aria-pressed={mode === m.key} disabled={busy}
-            className={mode === m.key ? "is-active" : ""} onClick={() => { setMode(m.key); setError(null); }}>{m.label}</button>)}
+            onClick={() => { setMode(m.key); setError(null); }}>{m.label}</button>)}
         </div>
         <div className="cy-erp-query-row">
-          <input value={text} maxLength={40} autoComplete="off" disabled={busy} required
+          <input className="cy-op-input" value={text} maxLength={40} autoComplete="off" disabled={busy} required
             aria-label={mode === "CODE" ? "客戶代號" : mode === "NAME" ? "客戶名稱" : "客戶代號或名稱"}
             placeholder={mode === "CODE" ? "請輸入客戶代號" : mode === "NAME" ? "請輸入客戶簡稱或全名" : "請輸入客戶代號或名稱"}
             onChange={e => setText(e.target.value)} />
-          <button className="cy-op-button primary" type="submit" disabled={busy}>
-            {submitting ? "送出中…" : busy ? "查詢中…" : "查詢"}
+          <button className="cy-op-button primary" type="submit" disabled={busy} aria-busy={submitting || busy || undefined}>
+            查詢
           </button>
         </div>
         {mode === "SALES" && <div className="cy-erp-history-options">
-          <label>起日 <input type="date" max={taipeiToday()} value={dateFrom} disabled={busy} onChange={e => setDateFrom(e.target.value)} /></label>
-          <label>迄日 <input type="date" max={taipeiToday()} value={dateTo} disabled={busy} onChange={e => setDateTo(e.target.value)} /></label>
+          <label>起日 <input className="cy-op-input" type="date" max={taipeiToday()} value={dateFrom} disabled={busy} onChange={e => setDateFrom(e.target.value)} /></label>
+          <label>迄日 <input className="cy-op-input" type="date" max={taipeiToday()} value={dateTo} disabled={busy} onChange={e => setDateTo(e.target.value)} /></label>
           <p>單據日期起訖都未填：去年同月同日至今天；範圍最多三年。輸入名稱時先列出客戶。</p>
         </div>}
       </form>
@@ -93,19 +96,20 @@ export function ErpCustomerQuery({ job }: { job: ErpJob }) {
       <ErpJobStatus result={mine} />
       {showsData(mine) && mine.queryType === "CUSTOMER_NAME" && <>
         <h3>符合的客戶（{mine.total} 筆）</h3>
-        {mine.truncated && <p className="cy-erp-error">結果已達 {mine.items.length} 筆，可能有更多資料，請輸入更完整的名稱。</p>}
+        {mine.truncated && <p className="cy-notice cy-notice-warning">結果已達 {mine.items.length} 筆，可能有更多資料，請輸入更完整的名稱。</p>}
         <ErpQueryRows key={mine.id} label="客戶搜尋結果" columns={ERP_CUSTOMER_SEARCH_FIELDS} rows={rowsOf(mine.items)}
           disabled={busy} onItemSelect={code => void queryCustomer(code, follow.sales, follow.from, follow.to)} />
-        <p className="cy-erp-search-hint">{follow.sales ? "點選客戶代號，查詢該客戶的銷貨銷退單。" : "點選客戶代號，重新向 ERP 查詢該客戶完整資料。"}</p>
       </>}
       {showsData(mine) && mine.queryType === "CUSTOMER_NO" && <>
         <h3>客戶資料</h3>
         <Fields fields={mine.fields} />
         {customerCode && <button className="cy-op-button cy-erp-follow" type="button" disabled={busy}
-          onClick={() => { setMode("SALES"); setText(customerCode); void queryCustomer(customerCode, true, dateFrom || null, dateTo || null); }}>
+          onClick={() => setOrdersOf({ code: customerCode, name: mine.fields.find(f => f.name === "客戶簡稱")?.value ?? "" })}>
           查此客戶的銷貨銷退單</button>}
       </>}
       {showsData(mine) && mine.queryType === "SALES" && <ErpSalesOrders key={mine.id} orders={mine.orders} truncated={mine.truncated} total={mine.total} />}
     </div>}
+    {ordersOf && <ErpPartyOrdersDialog key={ordersOf.code} kind="SALES" code={ordersOf.code} name={ordersOf.name}
+      from={dateFrom || null} to={dateTo || null} onClose={() => setOrdersOf(null)} />}
   </>;
 }

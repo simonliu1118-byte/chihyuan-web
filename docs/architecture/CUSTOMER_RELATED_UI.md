@@ -6,7 +6,7 @@
 
 The old `#customer-related-preview` route is no longer mounted by `src/App.tsx`. Current `#customers` uses `CustomerOperationalPage` with protected Worker/D1 transport; see `OPERATIONAL_RUNTIME.md` and root `TODO.md` for actual behavior and acceptance.
 
-The Drawer, EntityPicker, repeated price-break rows and selected-resource-only loading described below are historical preview behavior/proposals, not evidence that the operational page implements them. `scripts/validate_customer_related_ui.py` checks only the retained historical preview assets and is not an operational acceptance gate. It must not require the old route to return.
+The Drawer, EntityPicker, repeated price-break rows and selected-resource-only loading described below are historical preview behavior/proposals, not evidence that the operational page implements them. The historical preview assets and their validator were removed in 0.9.2 (Git history keeps them); the operational page is the only Customer UI.
 
 BD-022 still distinguishes a new commercial Quote from correction of existing history. BD-053/054 refine ordinary-change metadata and meaningful Audit events; historical UI text does not override those current decisions.
 

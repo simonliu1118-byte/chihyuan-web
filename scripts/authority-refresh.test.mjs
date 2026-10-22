@@ -76,7 +76,7 @@ function serverFixture() {
   const f={grants:["CUSTOMERS"],active:1,role:"USER",status:200,reads:0,writes:0,resolutions:0};
   f.env={IDENTITY_APPLICATION_ID:"CYWEB",IDENTITY_WORKSPACE_ID:principal.workspaceId,
     IDENTITY:{async fetch(request){ f.resolutions++; assert.equal(new URL(request.url).pathname,"/v1/identity/session/resolve"); return Response.json({principal:{...principal,workspaceRole:f.role,isWorkspaceSuperAdmin:f.role==="SUPER_ADMIN"},session:{expiresAt:"2999-01-01T00:00:00Z"}},{status:f.status}); }},
-    DB:{prepare(sql){ assert.match(sql,/^SELECT/); f.reads++; return {bind(){return this;},async first(){return {id:1,identity_employee_id:principal.employeeId,employee_no:"4712",is_active:f.active};},async all(){return {results:f.grants.map(module_code => ({module_code}))};},async run(){f.writes++;throw Error("unexpected mutation");}};}}};
+    DB:{prepare(sql){ assert.match(sql,/^SELECT/); f.reads++; return {bind(){return this;},async first(){return {id:1,identity_employee_id:principal.employeeId,employee_no:"4712",display_name:principal.displayName,is_active:f.active};},async all(){return {results:f.grants.map(module_code => ({module_code}))};},async run(){f.writes++;throw Error("unexpected mutation");}};}}};
   f.read=include => handleAuthRoute(new Request("https://web.example.test/api/auth/me"+(include?"?include=module-access":""),{headers:{cookie:"cyweb_identity_session=cyid_"+"c".repeat(64)}}),f.env,"synthetic");
   return f;
 }

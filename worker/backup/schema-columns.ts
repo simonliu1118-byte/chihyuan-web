@@ -7,12 +7,19 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "updated_at",
     "updated_by"
   ],
+  "app_member_module_groups": [
+    "assigned_at",
+    "assigned_by",
+    "group_id",
+    "member_id"
+  ],
   "app_member_tags": [
     "member_id",
     "tag_id"
   ],
   "app_members": [
     "created_at",
+    "display_name",
     "employee_no",
     "id",
     "identity_employee_id",
@@ -274,6 +281,298 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "last_id",
     "table_name"
   ],
+  "hr_annual_leave_years": [
+    "basis",
+    "employee_id",
+    "entitled_days",
+    "entitled_minutes",
+    "entitled_minutes_override",
+    "id",
+    "notified_by",
+    "notified_on",
+    "period_end",
+    "period_start"
+  ],
+  "hr_attendance_days": [
+    "employee_id",
+    "id",
+    "in1",
+    "in2",
+    "note",
+    "out1",
+    "out2",
+    "revision",
+    "source",
+    "updated_at",
+    "updated_by",
+    "work_date"
+  ],
+  "hr_comp_time_grants": [
+    "created_at",
+    "created_by",
+    "employee_id",
+    "expires_on",
+    "extended_count",
+    "holiday_date",
+    "holiday_name",
+    "id",
+    "kind",
+    "minutes",
+    "note"
+  ],
+  "hr_comp_time_settlements": [
+    "created_at",
+    "created_by",
+    "employee_id",
+    "id",
+    "minutes",
+    "overtime_day_id"
+  ],
+  "hr_education": [
+    "degree",
+    "department",
+    "employee_id",
+    "graduation_month",
+    "id",
+    "school",
+    "sort_order"
+  ],
+  "hr_emergency_contacts": [
+    "employee_id",
+    "id",
+    "name",
+    "phone",
+    "relationship",
+    "sort_order"
+  ],
+  "hr_employees": [
+    "birth_date",
+    "created_at",
+    "created_by",
+    "employee_no",
+    "employment_type",
+    "gender",
+    "hire_date",
+    "id",
+    "job_title_id",
+    "mailing_address",
+    "member_id",
+    "mobile",
+    "name",
+    "national_id",
+    "note",
+    "phone",
+    "registered_address",
+    "revision",
+    "roster_sort",
+    "schedule_mode",
+    "seniority_start_date",
+    "skip_roster_checks",
+    "status",
+    "store_id",
+    "termination_date",
+    "termination_reason",
+    "updated_at",
+    "updated_by"
+  ],
+  "hr_holidays": [
+    "date",
+    "name"
+  ],
+  "hr_job_titles": [
+    "id",
+    "is_active",
+    "name",
+    "sort_order",
+    "updated_at"
+  ],
+  "hr_leave_attachments": [
+    "batch_id",
+    "bytes",
+    "content_type",
+    "created_at",
+    "created_by",
+    "grayscale",
+    "height",
+    "id",
+    "object_key",
+    "width"
+  ],
+  "hr_leave_records": [
+    "advance_holiday_date",
+    "advance_holiday_name",
+    "batch_id",
+    "cancel_reason",
+    "cancelled_at",
+    "cancelled_by",
+    "created_at",
+    "created_by",
+    "employee_id",
+    "end_time",
+    "event_date",
+    "event_quota_days",
+    "id",
+    "leave_type_id",
+    "minutes",
+    "reason",
+    "start_time",
+    "whole_day",
+    "work_date"
+  ],
+  "hr_leave_types": [
+    "accepts_proof",
+    "code",
+    "comp_kind",
+    "counts_calendar_days",
+    "event_quota_options",
+    "id",
+    "is_active",
+    "is_statutory",
+    "legal_basis",
+    "merge_after_days",
+    "merge_into_type_id",
+    "name",
+    "needs_form",
+    "pay_ratio",
+    "quota_days",
+    "quota_period",
+    "requires_reason",
+    "sort_order",
+    "updated_at"
+  ],
+  "hr_minimum_wages": [
+    "created_at",
+    "created_by",
+    "effective_date",
+    "hourly_amount",
+    "id",
+    "monthly_amount"
+  ],
+  "hr_overtime_days": [
+    "comp_expires_on",
+    "comp_extended_count",
+    "employee_id",
+    "id",
+    "minutes",
+    "note",
+    "revision",
+    "settlement",
+    "updated_at",
+    "updated_by",
+    "work_date"
+  ],
+  "hr_roster_approvals": [
+    "approved_at",
+    "approved_by",
+    "employee_id",
+    "end_date",
+    "id",
+    "kind",
+    "start_date"
+  ],
+  "hr_salary_allowances": [
+    "amount",
+    "id",
+    "is_regular",
+    "item_type_id",
+    "salary_record_id"
+  ],
+  "hr_salary_item_types": [
+    "created_at",
+    "id",
+    "is_active",
+    "name",
+    "updated_at"
+  ],
+  "hr_salary_records": [
+    "base_amount",
+    "created_at",
+    "created_by",
+    "effective_date",
+    "employee_id",
+    "id",
+    "payment_type",
+    "reason"
+  ],
+  "hr_schedule_days": [
+    "employee_id",
+    "end_time",
+    "hours",
+    "id",
+    "kind",
+    "leave_type_id",
+    "marker",
+    "note",
+    "off_mark",
+    "rest_label",
+    "shift_type_id",
+    "start_time",
+    "store_id",
+    "updated_at",
+    "updated_by",
+    "work_date"
+  ],
+  "hr_schedule_months": [
+    "id",
+    "month",
+    "notes",
+    "rules",
+    "store_id",
+    "updated_at",
+    "updated_by"
+  ],
+  "hr_seniority_exclusions": [
+    "created_at",
+    "created_by",
+    "employee_id",
+    "end_date",
+    "id",
+    "reason",
+    "start_date"
+  ],
+  "hr_shift_types": [
+    "break_end",
+    "break_start",
+    "code",
+    "end_time",
+    "id",
+    "is_active",
+    "name",
+    "normal_minutes",
+    "sort_order",
+    "start_time",
+    "updated_at"
+  ],
+  "hr_status_changes": [
+    "created_at",
+    "effective_date",
+    "employee_id",
+    "handled_by",
+    "id",
+    "next_status",
+    "previous_status",
+    "reason"
+  ],
+  "hr_stores": [
+    "created_at",
+    "cycle_anchor_date",
+    "id",
+    "is_active",
+    "name",
+    "rules_template",
+    "sort_order",
+    "updated_at"
+  ],
+  "hr_work_history": [
+    "company",
+    "employee_id",
+    "end_month",
+    "id",
+    "job_title",
+    "note",
+    "sort_order",
+    "start_month"
+  ],
   "item_categories": [
     "code",
     "id",
@@ -318,6 +617,23 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "revision",
     "spec",
     "store_price",
+    "updated_at",
+    "updated_by"
+  ],
+  "module_access_group_applications": [
+    "application_id",
+    "group_id"
+  ],
+  "module_access_group_modules": [
+    "group_id",
+    "module_code"
+  ],
+  "module_access_groups": [
+    "created_at",
+    "created_by",
+    "id",
+    "name",
+    "revision",
     "updated_at",
     "updated_by"
   ],

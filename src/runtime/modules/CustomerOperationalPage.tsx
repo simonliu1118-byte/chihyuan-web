@@ -1,7 +1,20 @@
-import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
-import { FormEvent, useEffect, useId, useMemo, useState } from "react";
-import { Dialog } from "../../ui/overlays/Dialog";
+import {Field,CheckField,FormSection} from "../../ui/forms/Field";
+import { IconButton } from "../../ui/actions/IconButton";
+import { recordIdFromHash, replaceRouteParams } from "../navigation/route-params";
+import { QuoteCreateForm } from "./customer/QuoteCreateForm";
+import { RelatedCard } from "../../ui/records/RelatedCard";
+import { Loading } from "../../ui/feedback/Loading";
+import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
+import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
+import { taipeiToday } from "../../../shared/erp-query-history";
+import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
+import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
+import { Dialog } from "../../ui/overlays/Dialog";
+import { ChangeLogList } from "./AuditOperationalPage";
+import { formatDate, formatDateTime, formatPerson, formatItem } from "../../ui/foundation/format";
+import { EntityPicker } from "../../ui/pickers/EntityPicker";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import type { CustomerItemOption, CustomerModuleLookups } from "../../../shared/business-lookups";
 import type {
@@ -26,7 +39,6 @@ import {
   correctCustomerQuote,
   createCustomer,
   createCustomerFrequentItem,
-  createCustomerQuote,
   createCustomerVisit,
   deleteCustomerFrequentItem,
   deleteCustomerVisit,
@@ -43,7 +55,8 @@ import {
 } from "../api/customer-runtime-client";
 import "./customer-operational.css";
 
-type RelatedTab = "visits" | "quotes" | "frequent" | "activity";
+type RelatedView = "visits" | "quotes" | "frequent";
+type RelatedDialog = { view: RelatedView; mode: "create" | "browse" };
 
 interface CustomerDraft {
   customerNo: string;
@@ -70,19 +83,23 @@ interface VisitDraft {
   content: string;
 }
 
-interface QuoteDraft {
-  corrected: CustomerItemQuoteDetail | null;
-  itemId: number | null;
-  quoteDate: string;
+interface QuoteLineDraft {
+  item: CustomerItemOption | null;
   quantity: string;
   unit: string;
   unitPrice: string;
+}
+interface QuoteDraft {
+  corrected: CustomerItemQuoteDetail | null;
+  quoteDate: string;
+  lines: QuoteLineDraft[];
   note: string;
   correctionReason: string;
 }
 
+/** Business dates follow Taiwan time; toISOString() would give yesterday before 08:00. */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return taipeiToday();
 }
 
 function activeLookupId(rows: readonly { id: number; isActive: boolean }[]): number | null {
@@ -228,24 +245,17 @@ function emptyVisit(): VisitDraft {
   return { record: null, visitDate: today(), contactId: null, personSnapshot: "", content: "" };
 }
 
-function emptyQuote(item: CustomerItemOption | null): QuoteDraft {
-  return {
-    corrected: null,
-    itemId: item?.id ?? null,
-    quoteDate: today(),
-    quantity: "1",
-    unit: item?.baseUnit ?? "個",
-    unitPrice: "0",
-    note: "",
-    correctionReason: "",
-  };
+function emptyQuote(): QuoteDraft {
+  return { corrected: null, quoteDate: today(), lines: [emptyQuoteLine()], note: "", correctionReason: "" };
+}
+function emptyQuoteLine(): QuoteLineDraft {
+  return { item: null, quantity: "1", unit: "個", unitPrice: "0" };
 }
 
-export function CustomerOperationalPage() {
+export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"USER"}) {
   const [lookups, setLookups] = useState<CustomerModuleLookups | null>(null);
-  const [itemOptions, setItemOptions] = useState<readonly CustomerItemOption[]>([]);
   const [rows, setRows] = useState<readonly CustomerSummary[]>([]);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(() => recordIdFromHash());
   const [selected, setSelected] = useState<CustomerDetail | null>(null);
   const [visits, setVisits] = useState<readonly CustomerVisitRecord[]>([]);
   const [quotes, setQuotes] = useState<readonly CustomerItemQuoteSummary[]>([]);
@@ -256,40 +266,56 @@ export function CustomerOperationalPage() {
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<CustomerDraft | null>(null);
-  const [relatedTab, setRelatedTab] = useState<RelatedTab>("visits");
+  const [relatedView, setRelatedView] = useState<RelatedDialog | null>(null);
+  const [relatedFilter, setRelatedFilter] = useState("");
+  const [frequentAdding, setFrequentAdding] = useState(false);
+  const [historyOpen,setHistoryOpen] = useState(false);
+  const pane = useMasterDetailPane();
   const [visitDraft, setVisitDraft] = useState<VisitDraft | null>(null);
   const [quoteDraft, setQuoteDraft] = useState<QuoteDraft | null>(null);
   const [frequentItemId, setFrequentItemId] = useState<number | null>(null);
   const [frequentText, setFrequentText] = useState("");
   const [busy, setBusy] = useState(false);
   const [loadingList, setLoadingList] = useState(true);
+  // The page appears once its first list page is in; until then only the shared spinner shows.
+  const [listReady, setListReady] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [message, setMessage, reportError] = useFeedbackMessage<string | null>(null);
+  const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
+  const paging = useLoadMore(searchCustomers, setRows, (error) => reportError(errorMessage(error)));
   const [refreshEpoch, setRefreshEpoch] = useState(0);
+  useEffect(() => {
+    const receiveRecordLink = () => {
+      if (!window.location.hash.startsWith("#customers?")) return;
+      const id = recordIdFromHash();
+      if (id) { setSelectedId(id); pane.open(); }
+    };
+    receiveRecordLink();
+    window.addEventListener("hashchange", receiveRecordLink);
+    return () => window.removeEventListener("hashchange", receiveRecordLink);
+  }, []);
+
   const [relatedEpoch, setRelatedEpoch] = useState(0);
   const { confirm, confirmationDialog } = useConfirmation();
-  const unsavedGuard = useUnsavedChangesGuard({ active: editing, blocked: busy, message: "目前有尚未儲存的客戶修改，確定放棄？" });
-  useUnsavedChangesGuard({ active: visitDraft !== null || quoteDraft !== null || frequentText.trim() !== "" || frequentItemId !== null });
+  const unsavedGuard = useUnsavedChangesGuard({ active: editing || visitDraft !== null || quoteDraft !== null || frequentText.trim() !== "" || frequentItemId !== null, blocked: busy, message: "放棄尚未儲存的內容？" });
   const canLeave = async () => (await unsavedGuard.confirmNavigationAsync(description => confirm({
     title: "放棄尚未儲存的修改", description, confirmLabel: "放棄修改", confirmTone: "danger",
   }))).allowed;
-  const [numberDraft, setNumberDraft] = useState<{ record: CustomerDetail; number: string; reason: string } | null>(null);
-  const numberFormId = useId();
-  const numberGuard = useUnsavedChangesGuard({ active: !!numberDraft &&
-    (numberDraft.number !== (numberDraft.record.customerNo ?? "") || numberDraft.reason !== (numberDraft.record.customerNo ? "ERP 編號更正" : "ERP 建檔後回填")) });
-  async function closeNumber() {
-    if (busy) return;
-    if ((await numberGuard.confirmNavigationAsync(description => confirm({ title: "放棄客戶編號修改", description,
-      confirmLabel: "放棄修改", confirmTone: "danger" }))).allowed) setNumberDraft(null);
+  async function backToList() {
+    if (editing) {
+      if (busy || !(await canLeave())) return;
+      setEditing(false);
+      setCreating(false);
+      setDraft(null);
+    }
+    pane.close();
   }
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all([loadCustomerLookups(), searchCustomerItemOptions("", 100)])
-      .then(([lookupValue, items]) => {
+    void loadCustomerLookups()
+      .then((lookupValue) => {
         if (cancelled) return;
         setLookups(lookupValue);
-        setItemOptions(items);
       })
       .catch((error) => {
         if (!cancelled) reportError(errorMessage(error));
@@ -305,18 +331,20 @@ export function CustomerOperationalPage() {
       setLoadingList(true);
       const categoryId = categoryFilter ? Number(categoryFilter) : undefined;
       const statusId = statusFilter ? Number(statusFilter) : undefined;
-      void searchCustomers({
+      const listQuery = {
         q: query.trim() || undefined,
         customerCategoryId: Number.isSafeInteger(categoryId) && (categoryId ?? 0) > 0 ? categoryId : undefined,
         customerStatusId: Number.isSafeInteger(statusId) && (statusId ?? 0) > 0 ? statusId : undefined,
         limit: 100,
-      })
+      };
+      void searchCustomers(listQuery)
         .then((result) => {
           if (cancelled) return;
           setRows(result.items);
+          paging.reset(listQuery, result.nextCursor);
           if (!editing && !creating) {
             setSelectedId((current) => (
-              current != null && result.items.some((row) => row.id === current)
+              current != null && (result.items.some((row) => row.id === current) || recordIdFromHash() === current)
                 ? current
                 : result.items[0]?.id ?? null
             ));
@@ -326,7 +354,7 @@ export function CustomerOperationalPage() {
           if (!cancelled) reportError(errorMessage(error));
         })
         .finally(() => {
-          if (!cancelled) setLoadingList(false);
+          if (!cancelled) { setLoadingList(false); setListReady(true); }
         });
     }, 180);
     return () => {
@@ -383,7 +411,13 @@ export function CustomerOperationalPage() {
 
   async function selectCustomer(id: number) {
     if (busy || !(await canLeave())) return;
+    pane.open();
+    replaceRouteParams({});
     setSelectedId(id);
+    setRelatedView(null);
+    setHistoryOpen(false);
+    setFrequentItemId(null);
+    setFrequentText("");
     setEditing(false);
     setCreating(false);
     setDraft(null);
@@ -394,7 +428,11 @@ export function CustomerOperationalPage() {
 
   async function startCreate() {
     if (busy || !(await canLeave())) return;
+    pane.open();
     setSelectedId(null);
+    setRelatedView(null);
+    setVisitDraft(null);
+    setQuoteDraft(null);
     setSelected(null);
     setCreating(true);
     setEditing(true);
@@ -412,6 +450,7 @@ export function CustomerOperationalPage() {
 
   async function cancelEdit() {
     if (busy || !(await canLeave())) return;
+    if (creating) pane.close();
     setEditing(false);
     setCreating(false);
     setDraft(null);
@@ -443,51 +482,25 @@ export function CustomerOperationalPage() {
 
       const customerNo = creating ? draft.customerNo.trim() || null : selected?.customerNo ?? null;
       const profile = profileFromDraft(draft, customerNo, confirmDuplicateTaxId);
-      const saved = creating
+      let saved = creating
         ? await createCustomer(profile)
         : selected
           ? await updateCustomer(selected.id, { ...profile, expectedRevision: selected.revision })
           : null;
       if (!saved) return;
+      // The ERP number has its own audited change; it follows the profile save with the new revision.
+      const nextCustomerNo = draft.customerNo.trim() || null;
+      if (!creating && nextCustomerNo !== saved.customerNo) {
+        setSelected(saved);
+        saved = await changeCustomerNumber(saved.id, { newCustomerNo: nextCustomerNo, expectedRevision: saved.revision,
+          changeReason: saved.customerNo ? "客戶編號更正" : "客戶編號建檔後回填" });
+      }
       setSelectedId(saved.id);
       setSelected(saved);
       setEditing(false);
       setCreating(false);
       setDraft(null);
       setMessage(creating ? "客戶已新增。" : "客戶已儲存。");
-      setRefreshEpoch((value) => value + 1);
-    } catch (error) {
-      reportError(errorMessage(error));
-      if (error instanceof ApiClientError && error.status === 409) setRefreshEpoch((value) => value + 1);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function setCustomerNumber() {
-    if (!selected || busy) return;
-    setMessage(null);
-    setNumberDraft({ record: selected, number: selected.customerNo ?? "", reason: selected.customerNo ? "ERP 編號更正" : "ERP 建檔後回填" });
-  }
-
-  async function saveCustomerNumber(event: FormEvent) {
-    event.preventDefault();
-    if (!numberDraft || busy) return;
-    const { record, number, reason } = numberDraft;
-    const next = number.trim() || null;
-    if (next === record.customerNo) { setNumberDraft(null); return; }
-
-    setBusy(true);
-    setMessage(null);
-    try {
-      const saved = await changeCustomerNumber(record.id, {
-        newCustomerNo: next,
-        expectedRevision: record.revision,
-        changeReason: reason.trim() || null,
-      });
-      setSelected(saved);
-      setNumberDraft(null);
-      setMessage("ERP 客戶編號已更新。");
       setRefreshEpoch((value) => value + 1);
     } catch (error) {
       reportError(errorMessage(error));
@@ -547,6 +560,7 @@ export function CustomerOperationalPage() {
         await createCustomerVisit(selected.id, payload);
       }
       setVisitDraft(null);
+      if (relatedView?.mode === "create") setRelatedView(null);
       setRelatedEpoch((value) => value + 1);
       setMessage("拜訪紀錄已儲存。");
     } catch (error) {
@@ -569,7 +583,7 @@ export function CustomerOperationalPage() {
 
   async function removeVisit(visit: CustomerVisitRecord) {
     if (!selected || busy) return;
-    if (!(await confirm({ title: "刪除拜訪紀錄", description: `確定刪除 ${visit.visitDate} 的拜訪紀錄？此操作無法復原。`, confirmLabel: "刪除", confirmTone: "danger" }))) return;
+    if (!(await confirm({ title: "刪除拜訪紀錄", description: `確定刪除 ${formatDate(visit.visitDate)} 的拜訪紀錄？此操作無法復原。`, confirmLabel: "刪除", confirmTone: "danger" }))) return;
     setBusy(true);
     setMessage(null);
     try {
@@ -585,7 +599,7 @@ export function CustomerOperationalPage() {
   }
 
   function startQuote() {
-    setQuoteDraft(emptyQuote(itemOptions[0] ?? null));
+    setQuoteDraft(emptyQuote());
   }
 
   async function startQuoteCorrection(summary: CustomerItemQuoteSummary) {
@@ -594,16 +608,16 @@ export function CustomerOperationalPage() {
     setMessage(null);
     try {
       const detail = await loadCustomerQuote(selected.id, summary.id);
-      const first = detail.priceBreaks[0];
+      const item: CustomerItemOption = {
+        id: detail.itemId, itemNo: detail.itemNoSnapshot, name: detail.itemNameSnapshot,
+        spec: detail.specSnapshot, baseUnit: detail.priceBreaks[0]?.unit ?? "個",
+      };
       setQuoteDraft({
-        corrected: detail,
-        itemId: detail.itemId,
-        quoteDate: detail.quoteDate,
-        quantity: first?.quantity ?? "1",
-        unit: first?.unit ?? itemOptions.find((row) => row.id === detail.itemId)?.baseUnit ?? "個",
-        unitPrice: first?.unitPrice ?? "0",
-        note: first?.note ?? "",
-        correctionReason: "",
+        corrected: detail, quoteDate: detail.quoteDate,
+        lines: detail.priceBreaks.map(tier => ({
+          item, quantity: tier.quantity, unit: tier.unit, unitPrice: tier.unitPrice,
+        })),
+        note: detail.priceBreaks[0]?.note ?? "", correctionReason: "",
       });
     } catch (error) {
       reportError(errorMessage(error));
@@ -614,40 +628,38 @@ export function CustomerOperationalPage() {
 
   async function saveQuote(event: FormEvent) {
     event.preventDefault();
-    if (!selected || !quoteDraft?.itemId || busy) return;
-    const quantity = quoteDraft.quantity.trim();
-    const unitPrice = quoteDraft.unitPrice.trim();
-    if (!quantity || !unitPrice || !quoteDraft.unit.trim()) return;
-
+    if (!selected || !quoteDraft || busy) return;
+    const lines = quoteDraft.lines;
+    if (!quoteDraft.quoteDate || !lines.length || lines.some(row => !row.item || !row.quantity.trim() || !row.unit.trim() || !row.unitPrice.trim())) {
+      reportError("每列請選擇商品並填寫數量、單位及單價。");
+      return;
+    }
     setBusy(true);
     setMessage(null);
     try {
-      const base = {
-        itemId: quoteDraft.itemId,
-        quoteDate: quoteDraft.quoteDate,
-        priceBreaks: [{
-          quantity,
-          unit: quoteDraft.unit.trim(),
-          unitPrice,
-          note: quoteDraft.note.trim() || null,
-          sortOrder: 0,
-        }],
-      };
-      if (quoteDraft.corrected) {
-        await correctCustomerQuote(selected.id, quoteDraft.corrected.id, {
-          ...base,
-          expectedRevision: quoteDraft.corrected.revision,
-          correctionReason: quoteDraft.correctionReason.trim() || null,
-        });
-      } else {
-        await createCustomerQuote(selected.id, base);
+      const correction = quoteDraft.corrected;
+      if (!correction) return;
+      const itemId = lines[0].item!.id;
+      if (lines.some(row => row.item?.id !== itemId)) {
+        reportError("單筆修正只能包含同一個商品的數量級距。");
+        return;
       }
+      await correctCustomerQuote(selected.id, correction.id, {
+        itemId, quoteDate: quoteDraft.quoteDate,
+        priceBreaks: lines.map((row, index) => ({
+          quantity: row.quantity.trim(), unit: row.unit.trim(), unitPrice: row.unitPrice.trim(),
+          note: quoteDraft.note.trim() || null, sortOrder: index,
+        })),
+        expectedRevision: correction.revision,
+        correctionReason: quoteDraft.correctionReason.trim() || null,
+      });
       setQuoteDraft(null);
-      setRelatedEpoch((value) => value + 1);
+      if (relatedView?.mode === "create") setRelatedView(null);
+      setRelatedEpoch(value => value + 1);
       setMessage("報價紀錄已儲存。");
     } catch (error) {
       reportError(errorMessage(error));
-      if (error instanceof ApiClientError && error.status === 409) setRelatedEpoch((value) => value + 1);
+      if (error instanceof ApiClientError && error.status === 409) setRelatedEpoch(value => value + 1);
     } finally {
       setBusy(false);
     }
@@ -673,6 +685,8 @@ export function CustomerOperationalPage() {
       });
       setFrequentItemId(null);
       setFrequentText("");
+      setFrequentAdding(false);
+      if (relatedView?.mode === "create") setRelatedView(null);
       setRelatedEpoch((value) => value + 1);
       setMessage("常用商品已加入。");
     } catch (error) {
@@ -699,181 +713,254 @@ export function CustomerOperationalPage() {
     }
   }
 
+  // Cards and their dialogs list the same records in the same order: newest first.
+  const visitsNewestFirst = useMemo(() => [...visits].sort((a, b) => b.visitDate.localeCompare(a.visitDate)), [visits]);
+  const quotesNewestFirst = useMemo(() => [...quotes].sort((a, b) => b.quoteDate.localeCompare(a.quoteDate)), [quotes]);
+
+  function openRelated(view: RelatedView, create = false) {
+    if (busy) return;
+    setVisitDraft(null);
+    setQuoteDraft(null);
+    setFrequentItemId(null);
+    setFrequentText("");
+    setFrequentAdding(view === "frequent" && create);
+    setRelatedFilter("");
+    if (view === "visits" && create) setVisitDraft(emptyVisit());
+    if (view === "quotes" && create) startQuote();
+    setRelatedView({ view, mode: create ? "create" : "browse" });
+  }
+
+  async function closeRelated() {
+    if (busy) return;
+    if (visitDraft || quoteDraft || frequentItemId !== null || frequentText.trim() !== "") {
+      if (!(await confirm({
+        title: "放棄尚未儲存的內容？",
+        description: "目前的新增或修改內容尚未儲存，確定關閉視窗？",
+        confirmLabel: "放棄內容", confirmTone: "danger",
+      }))) return;
+    }
+    setVisitDraft(null);
+    setQuoteDraft(null);
+    setFrequentItemId(null);
+    setFrequentText("");
+    setFrequentAdding(false);
+    setRelatedView(null);
+  }
+
+  if (!listReady) return <Loading />;
+
   return (
     <div className="cy-customer-op">
       {confirmationDialog}
-      {numberDraft ? <Dialog open title="ERP 客戶編號" size="small" dismissible={!busy} onClose={() => void closeNumber()}
-        description="輸入 ERP 客戶編號；留空代表清除目前編號。"
-        footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void closeNumber()}>取消</button><button type="submit" form={numberFormId} className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : "儲存"}</button></div>}>
-        <form id={numberFormId} className="cy-op-form-grid" onSubmit={event => void saveCustomerNumber(event)}>
-          <label className="wide">ERP 客戶編號<input className="cy-op-input" disabled={busy} value={numberDraft.number} onChange={event => setNumberDraft({ ...numberDraft, number: event.target.value })} /></label>
-          <label className="wide">指派／更正原因<textarea className="cy-op-input" disabled={busy} value={numberDraft.reason} onChange={event => setNumberDraft({ ...numberDraft, reason: event.target.value })} /></label>
-          {message ? <p role="alert">{message}</p> : null}
-        </form>
+      {selected && (role === "ADMIN" || role === "SUPER_ADMIN") && historyOpen ?
+        <Dialog open size="large" title={`修改紀錄 — ${selected.shortName}`}
+          onClose={()=>setHistoryOpen(false)}>
+          <ChangeLogList role={role} customerId={selected.id}/>
+        </Dialog> : null}
+      {selected && relatedView ? <Dialog open size="large"
+        title={`${relatedView.view === "visits" ? "拜訪紀錄" : relatedView.view === "quotes" ? "報價紀錄" : "常用商品"} — ${selected.shortName}`}
+        onClose={() => void closeRelated()}>
+        {relatedView.mode === "browse" ? <div className="cy-related-toolbar">
+          <button className="cy-op-button primary compact" type="button" aria-label={relatedView.view === "visits" ? "新增拜訪" : relatedView.view === "quotes" ? "新增報價" : "新增常用商品"} disabled={busy || visitDraft !== null || quoteDraft !== null || frequentAdding} onClick={() => {
+            if (relatedView.view === "visits") setVisitDraft(emptyVisit());
+            if (relatedView.view === "quotes") startQuote();
+            if (relatedView.view === "frequent") setFrequentAdding(true);
+          }}>＋ 新增</button>
+          <input type="search" className="cy-op-input" aria-label="搜尋相關紀錄" value={relatedFilter}
+            onChange={event => setRelatedFilter(event.target.value)}
+            placeholder={relatedView.view === "visits" ? "搜尋內容、拜訪對象、聯絡人" : "搜尋品號、品名或自訂名稱"} />
+        </div> : null}
+        {relatedView.view === "visits" ? <VisitsPanel selected={selected} rows={visitsNewestFirst} draft={visitDraft}
+          setDraft={setVisitDraft} save={saveVisit} edit={editVisit} remove={removeVisit} busy={busy}
+          filter={relatedFilter} mode={relatedView.mode} onCancel={() => {
+            setVisitDraft(null); if (relatedView.mode === "create") setRelatedView(null);
+          }} /> : null}
+        {relatedView.view === "quotes" ? <QuotesPanel customerId={selected.id} rows={quotesNewestFirst} draft={quoteDraft} setDraft={setQuoteDraft}
+          save={saveQuote} correct={startQuoteCorrection} busy={busy} filter={relatedFilter} mode={relatedView.mode}
+          onCreated={() => { setQuoteDraft(null); if (relatedView.mode === "create") setRelatedView(null); setRelatedEpoch(v => v + 1); setMessage("報價紀錄已儲存。"); }}
+          onCancel={() => { setQuoteDraft(null); if (relatedView.mode === "create") setRelatedView(null); }} /> : null}
+        {relatedView.view === "frequent" ? <FrequentPanel rows={frequentItems} itemId={frequentItemId}
+          setItemId={setFrequentItemId} freeText={frequentText} setFreeText={setFrequentText}
+          add={addFrequentItem} remove={removeFrequent} busy={busy} filter={relatedFilter}
+          mode={relatedView.mode} adding={frequentAdding} onCancel={() => {
+            setFrequentAdding(false); setFrequentItemId(null); setFrequentText("");
+            if (relatedView.mode === "create") setRelatedView(null);
+          }} /> : null}
       </Dialog> : null}
-      <div className="cy-op-page-header cy-customer-page-header">
-        
-        <div className="cy-op-page-actions">
-          <button className="cy-op-button primary" disabled={busy} onClick={startCreate}>新增客戶</button>
-        </div>
-      </div>
 
-      {message ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-body">{message}</div></div> : null}
+      <FeedbackBanner message={message} tone={messageTone} />
 
-      <div className="cy-customer-workspace">
-        <section className="cy-op-panel cy-customer-search-pane">
-          <div className="cy-customer-search-controls">
-            <input
-              className="cy-op-input"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜尋編號、名稱、統編"
-            />
-            <div className="cy-customer-filter-row">
-              <select className="cy-op-input" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+      <div className="cy-md cy-customer-workspace" data-pane={pane.pane}>
+        <section className="cy-op-panel cy-md-list" aria-label="客戶清單">
+          <div className="cy-md-toolbar">
+            <div className="cy-md-toolbar-lead">
+              <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增客戶</button>
+              <input
+                className="cy-op-input"
+                type="search"
+                aria-label="搜尋客戶"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="搜尋編號、名稱、統編"
+              />
+            </div>
+            <div className="cy-md-toolbar-row">
+              <select className="cy-op-input" aria-label="客戶分類" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
                 <option value="">全部分類</option>
                 {categories.map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}
               </select>
-              <select className="cy-op-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <select className="cy-op-input" aria-label="客戶狀態" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
                 <option value="">全部狀態</option>
                 {statuses.map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}
               </select>
             </div>
-            <div className="cy-customer-result-count">{loadingList ? "讀取客戶中…" : `搜尋結果 ${rows.length} 筆`}</div>
+            <div className="cy-md-count">{loadingList ? <Loading inline /> : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
           </div>
 
           <div className="cy-op-list cy-customer-result-list">
             {rows.map((customer) => (
               <button
                 key={customer.id}
+                type="button"
                 className={`cy-customer-result-row ${selectedId === customer.id ? "active" : ""}`}
-                onClick={() => selectCustomer(customer.id)}
+                aria-current={selectedId === customer.id ? "true" : undefined}
+                onClick={() => void selectCustomer(customer.id)}
               >
-                <div className="cy-customer-result-main">
+                <span className="cy-customer-result-main">
+                  <span>{customer.customerNo ?? "未設定編號"}</span>
                   <strong>{customer.shortName}</strong>
-                  <span>{customer.customerNo ?? "尚無 ERP 編號"}</span>
-                </div>
-                <span className="cy-customer-result-region">{customer.region?.name ?? "—"}</span>
-                <span className="cy-customer-result-status">{customer.status?.name ?? "未設定"}</span>
+                </span>
+                <span className={`cy-status-chip ${customer.status ? "cy-status-chip-success" : ""}`}>{customer.status?.name ?? "未設定"}</span>
               </button>
             ))}
+            {loadingList && rows.length === 0 ? <Loading /> : null}
             {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的客戶。</div> : null}
+            <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
           </div>
         </section>
 
-        <section className="cy-op-panel cy-customer-detail-pane">
+        <section className="cy-op-panel cy-md-detail cy-customer-detail-pane">
+          <MasterDetailBack label="客戶清單" onBack={() => void backToList()} disabled={busy} />
           {editing && draft ? (
-            <form className="cy-op-form" onSubmit={(event) => void saveCustomer(event)}>
-              <div className="cy-op-panel-header cy-customer-edit-header">
+            <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void saveCustomer(event)}>
+    <FormSection>
+              <div className="cy-record-header cy-edit-header">
                 <div>
                   <h2>{creating ? "新增客戶" : `修改 ${selected?.shortName ?? "客戶"}`}</h2>
-                  <p>{creating ? "ERP 客戶編號可先留空" : "既有 ERP 客戶編號請使用受控動作更正"}</p>
                 </div>
-                <div className="cy-customer-inline-actions">
-                  <button type="button" className="cy-op-button" disabled={busy} onClick={cancelEdit}>取消</button>
-                  <button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : "儲存"}</button>
-                </div>
-              </div>
+              <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
+                <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立客戶" : "儲存修改"}</button></div></div>
 
               <div className="cy-customer-form-body">
-                <div className="cy-op-form-grid">
-                  <label>客戶名稱／簡稱<input className="cy-op-input" value={draft.shortName} disabled={busy} onChange={(e) => patchDraft({ shortName: e.target.value })} required /></label>
-                  <label>完整名稱<input className="cy-op-input" value={draft.fullName} disabled={busy} onChange={(e) => patchDraft({ fullName: e.target.value })} /></label>
-                  <label>ERP 客戶編號<input className="cy-op-input" value={creating ? draft.customerNo : selected?.customerNo ?? ""} disabled={!creating || busy} onChange={(e) => creating && patchDraft({ customerNo: e.target.value })} placeholder="可稍後回填" /></label>
-                  <label>統編<input className="cy-op-input" inputMode="numeric" value={draft.taxId} disabled={busy} onChange={(e) => patchDraft({ taxId: e.target.value })} /></label>
-                  <label>地區<select className="cy-op-input" value={draft.regionId ?? ""} disabled={busy} onChange={(e) => patchDraft({ regionId: e.target.value ? Number(e.target.value) : null })}><option value="">未設定</option>{regions.filter((row) => row.isActive || row.id === draft.regionId).map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}</select></label>
-                  <label>分類<select className="cy-op-input" value={draft.customerCategoryId ?? ""} disabled={busy} onChange={(e) => patchDraft({ customerCategoryId: e.target.value ? Number(e.target.value) : null })}><option value="">未分類</option>{categories.filter((row) => row.isActive || row.id === draft.customerCategoryId).map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}</select></label>
-                  <label>狀態<select className="cy-op-input" value={draft.customerStatusId ?? ""} disabled={busy} onChange={(e) => patchDraft({ customerStatusId: e.target.value ? Number(e.target.value) : null })}><option value="">未設定</option>{statuses.filter((row) => row.isActive || row.id === draft.customerStatusId).map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}</select></label>
-                  <label>傳真<input className="cy-op-input" value={draft.fax} disabled={busy} onChange={(e) => patchDraft({ fax: e.target.value })} /></label>
+                <div className="cy-f-grid">
+                  <Field label="客戶名稱／簡稱" size="m" required><input className="cy-op-input" value={draft.shortName} disabled={busy} onChange={(e) => patchDraft({ shortName: e.target.value })} /></Field>
+                  <Field label="完整名稱" size="m"><input className="cy-op-input" value={draft.fullName} disabled={busy} onChange={(e) => patchDraft({ fullName: e.target.value })} /></Field>
+                  <Field label="客戶編號" size="s"><input className="cy-op-input" value={draft.customerNo} disabled={busy} onChange={(e) => patchDraft({ customerNo: e.target.value })} placeholder="可稍後補填" /></Field>
+                  <Field label="統編" size="s"><input className="cy-op-input" inputMode="numeric" value={draft.taxId} disabled={busy} onChange={(e) => patchDraft({ taxId: e.target.value })} /></Field>
+                  <Field label="地區" size="m"><select className="cy-op-input" value={draft.regionId ?? ""} disabled={busy} onChange={(e) => patchDraft({ regionId: e.target.value ? Number(e.target.value) : null })}><option value="">未設定</option>{regions.filter((row) => row.isActive || row.id === draft.regionId).map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}</select></Field>
+                  <Field label="分類" size="m"><select className="cy-op-input" value={draft.customerCategoryId ?? ""} disabled={busy} onChange={(e) => patchDraft({ customerCategoryId: e.target.value ? Number(e.target.value) : null })}><option value="">未分類</option>{categories.filter((row) => row.isActive || row.id === draft.customerCategoryId).map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}</select></Field>
+                  <Field label="狀態" size="s"><select className="cy-op-input" value={draft.customerStatusId ?? ""} disabled={busy} onChange={(e) => patchDraft({ customerStatusId: e.target.value ? Number(e.target.value) : null })}><option value="">未設定</option>{statuses.filter((row) => row.isActive || row.id === draft.customerStatusId).map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}</select></Field>
+                  <Field label="傳真" size="m"><input className="cy-op-input" value={draft.fax} disabled={busy} onChange={(e) => patchDraft({ fax: e.target.value })} /></Field>
                 </div>
 
-                <EditableRows title="電話" addLabel="增加電話" onAdd={addPhone}>
-                  {draft.phones.map((row, index) => <div className="cy-customer-edit-row phone" key={row.id ?? `phone-${index}`}><input className="cy-op-input" placeholder="電話" value={row.phoneNumber} disabled={busy} onChange={(e) => patchDraft({ phones: draft.phones.map((item, i) => i === index ? { ...item, phoneNumber: e.target.value } : item) })} /><input className="cy-op-input" placeholder="分機" value={row.extension ?? ""} disabled={busy} onChange={(e) => patchDraft({ phones: draft.phones.map((item, i) => i === index ? { ...item, extension: e.target.value || null } : item) })} /><input className="cy-op-input grow" placeholder="備註" value={row.note ?? ""} disabled={busy} onChange={(e) => patchDraft({ phones: draft.phones.map((item, i) => i === index ? { ...item, note: e.target.value || null } : item) })} /><button type="button" className="cy-op-button danger" disabled={busy} onClick={() => patchDraft({ phones: draft.phones.filter((_, i) => i !== index) })}>移除</button></div>)}
+                <EditableRows title="電話" addLabel="增加電話" onAdd={addPhone} empty={!draft.phones.length} busy={busy}>
+                  {draft.phones.map((row, index) => <div className="cy-customer-edit-row phone" key={row.id ?? `phone-${index}`}><input className="cy-op-input" aria-label="電話" placeholder="電話" value={row.phoneNumber} disabled={busy} onChange={(e) => patchDraft({ phones: draft.phones.map((item, i) => i === index ? { ...item, phoneNumber: e.target.value } : item) })} /><input className="cy-op-input" aria-label="分機" placeholder="分機" value={row.extension ?? ""} disabled={busy} onChange={(e) => patchDraft({ phones: draft.phones.map((item, i) => i === index ? { ...item, extension: e.target.value || null } : item) })} /><input className="cy-op-input grow" aria-label="電話備註" placeholder="備註" value={row.note ?? ""} disabled={busy} onChange={(e) => patchDraft({ phones: draft.phones.map((item, i) => i === index ? { ...item, note: e.target.value || null } : item) })} /><RemoveRow busy={busy} onRemove={() => patchDraft({ phones: draft.phones.filter((_, i) => i !== index) })} /></div>)}
                 </EditableRows>
 
-                <EditableRows title="聯絡人" addLabel="增加聯絡人" onAdd={addContact}>
-                  {draft.contacts.map((row, index) => <div className="cy-customer-edit-row contact" key={row.id ?? `contact-${index}`}><input className="cy-op-input" placeholder="姓名" value={row.name} disabled={busy} onChange={(e) => patchDraft({ contacts: draft.contacts.map((item, i) => i === index ? { ...item, name: e.target.value } : item) })} /><input className="cy-op-input" placeholder="職稱" value={row.title ?? ""} disabled={busy} onChange={(e) => patchDraft({ contacts: draft.contacts.map((item, i) => i === index ? { ...item, title: e.target.value || null } : item) })} /><input className="cy-op-input" placeholder="電話" value={row.phone ?? ""} disabled={busy} onChange={(e) => patchDraft({ contacts: draft.contacts.map((item, i) => i === index ? { ...item, phone: e.target.value || null } : item) })} /><input className="cy-op-input" placeholder="手機" value={row.mobile ?? ""} disabled={busy} onChange={(e) => patchDraft({ contacts: draft.contacts.map((item, i) => i === index ? { ...item, mobile: e.target.value || null } : item) })} /><button type="button" className="cy-op-button danger" disabled={busy} onClick={() => patchDraft({ contacts: draft.contacts.filter((_, i) => i !== index) })}>移除</button></div>)}
+                <EditableRows title="聯絡人" addLabel="增加聯絡人" onAdd={addContact} empty={!draft.contacts.length} busy={busy}>
+                  {draft.contacts.map((row, index) => <div className="cy-customer-edit-row contact" key={row.id ?? `contact-${index}`}><input className="cy-op-input" aria-label="姓名" placeholder="姓名" value={row.name} disabled={busy} onChange={(e) => patchDraft({ contacts: draft.contacts.map((item, i) => i === index ? { ...item, name: e.target.value } : item) })} /><input className="cy-op-input" aria-label="職稱" placeholder="職稱" value={row.title ?? ""} disabled={busy} onChange={(e) => patchDraft({ contacts: draft.contacts.map((item, i) => i === index ? { ...item, title: e.target.value || null } : item) })} /><input className="cy-op-input" aria-label="聯絡人電話" placeholder="電話" value={row.phone ?? ""} disabled={busy} onChange={(e) => patchDraft({ contacts: draft.contacts.map((item, i) => i === index ? { ...item, phone: e.target.value || null } : item) })} /><input className="cy-op-input" aria-label="手機" placeholder="手機" value={row.mobile ?? ""} disabled={busy} onChange={(e) => patchDraft({ contacts: draft.contacts.map((item, i) => i === index ? { ...item, mobile: e.target.value || null } : item) })} /><RemoveRow busy={busy} onRemove={() => patchDraft({ contacts: draft.contacts.filter((_, i) => i !== index) })} /></div>)}
                 </EditableRows>
 
-                <EditableRows title="地址" addLabel="增加地址" onAdd={addAddress}>
-                  {draft.addresses.map((row, index) => <div className="cy-customer-edit-row address" key={row.id ?? `address-${index}`}><input className="cy-op-input" placeholder="郵遞區號" value={row.postalCode ?? ""} disabled={busy} onChange={(e) => patchDraft({ addresses: draft.addresses.map((item, i) => i === index ? { ...item, postalCode: e.target.value || null } : item) })} /><input className="cy-op-input grow" placeholder="地址" value={row.address} disabled={busy} onChange={(e) => patchDraft({ addresses: draft.addresses.map((item, i) => i === index ? { ...item, address: e.target.value } : item) })} /><input className="cy-op-input" placeholder="備註" value={row.note ?? ""} disabled={busy} onChange={(e) => patchDraft({ addresses: draft.addresses.map((item, i) => i === index ? { ...item, note: e.target.value || null } : item) })} /><button type="button" className="cy-op-button danger" disabled={busy} onClick={() => patchDraft({ addresses: draft.addresses.filter((_, i) => i !== index) })}>移除</button></div>)}
+                <EditableRows title="地址" addLabel="增加地址" onAdd={addAddress} empty={!draft.addresses.length} busy={busy}>
+                  {draft.addresses.map((row, index) => <div className="cy-customer-edit-row address" key={row.id ?? `address-${index}`}><input className="cy-op-input" aria-label="郵遞區號" placeholder="郵遞區號" value={row.postalCode ?? ""} disabled={busy} onChange={(e) => patchDraft({ addresses: draft.addresses.map((item, i) => i === index ? { ...item, postalCode: e.target.value || null } : item) })} /><input className="cy-op-input grow" aria-label="地址" placeholder="地址" value={row.address} disabled={busy} onChange={(e) => patchDraft({ addresses: draft.addresses.map((item, i) => i === index ? { ...item, address: e.target.value } : item) })} /><input className="cy-op-input" aria-label="地址備註" placeholder="備註" value={row.note ?? ""} disabled={busy} onChange={(e) => patchDraft({ addresses: draft.addresses.map((item, i) => i === index ? { ...item, note: e.target.value || null } : item) })} /><RemoveRow busy={busy} onRemove={() => patchDraft({ addresses: draft.addresses.filter((_, i) => i !== index) })} /></div>)}
                 </EditableRows>
 
-                <EditableRows title="重要備註" addLabel="增加備註" onAdd={addNote}>
-                  {draft.notes.map((row, index) => <div className="cy-customer-edit-row note" key={row.id ?? `note-${index}`}><textarea className="cy-op-input" rows={2} value={row.content} disabled={busy} onChange={(e) => patchDraft({ notes: draft.notes.map((item, i) => i === index ? { ...item, content: e.target.value } : item) })} /><button type="button" className="cy-op-button danger" disabled={busy} onClick={() => patchDraft({ notes: draft.notes.filter((_, i) => i !== index) })}>移除</button></div>)}
+                <EditableRows title="重要備註" hint="會以醒目提示顯示在客戶資料最上方，例如付款條件、出貨注意事項。" addLabel="增加備註" onAdd={addNote} empty={!draft.notes.length} busy={busy}>
+                  {draft.notes.map((row, index) => <div className="cy-customer-edit-row note" key={row.id ?? `note-${index}`}><textarea className="cy-op-input" aria-label="重要備註" rows={2} value={row.content} disabled={busy} onChange={(e) => patchDraft({ notes: draft.notes.map((item, i) => i === index ? { ...item, content: e.target.value } : item) })} /><RemoveRow busy={busy} onRemove={() => patchDraft({ notes: draft.notes.filter((_, i) => i !== index) })} /></div>)}
                 </EditableRows>
               </div>
 
-              <div className="cy-op-form-footer cy-customer-form-footer">
-                <button type="button" className="cy-op-button" disabled={busy} onClick={cancelEdit}>取消</button>
-                <button className="cy-op-button primary" disabled={busy}>{busy ? "儲存中…" : "儲存"}</button>
-              </div>
-            </form>
-          ) : selected ? (
+            
+    </FormSection>
+  </form>
+          ) : loadingDetail ? <Loading /> : selected ? (
             <div>
-              <div className="cy-op-panel-header cy-customer-detail-header">
-                <div><h2>{selected.shortName}</h2><p>{selected.customerNo ?? "尚未建立 ERP 客戶編號"} · rev.{selected.revision}</p></div>
-                <div className="cy-customer-action-stack"><button className="cy-op-button primary" disabled={busy} onClick={startEdit}>修改</button></div>
+              <div className="cy-record-header">
+                <div>
+                  <h2>{selected.customerNo ? `${selected.customerNo} ` : ""}{selected.shortName}{selected.fullName ? <small className="cy-record-title-note">（{selected.fullName}）</small> : null}</h2>
+                  <p className="cy-record-meta">最後修改：{formatDateTime(selected.updatedAt)}{selected.updatedBy ? ` · ${formatPerson(selected.updatedBy)}` : ""}</p>
+                </div>
+                <div className="cy-record-actions">
+                  {selected.status ? <span className="cy-status-chip cy-status-chip-success">{selected.status.name}</span> : null}
+                  <button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
+                  {role !== "USER" ? <IconButton icon="🕘" label="修改紀錄" onClick={() => setHistoryOpen(true)} disabled={busy} /> : null}
+                </div>
               </div>
 
-              <div className="cy-customer-detail-body">
-                {loadingDetail ? <p className="cy-customer-muted">更新客戶資料中…</p> : null}
-                <section className="cy-customer-profile-grid">
-                  <InfoCard title="基本資料">
-                    <Info label="完整名稱" value={selected.fullName} />
-                    <Info label="統編" value={selected.taxId} />
-                    <Info label="地區" value={selected.region?.name} />
-                    <Info label="分類" value={selected.category?.name} />
-                    <Info label="狀態" value={selected.status?.name} />
-                    <Info label="傳真" value={selected.fax} />
-                    <div className="cy-customer-number-row"><Info label="ERP 客戶編號" value={selected.customerNo} /><button className="cy-op-button compact" disabled={busy} onClick={() => void setCustomerNumber()}>{selected.customerNo ? "更正" : "回填"}</button></div>
-                  </InfoCard>
-                  <InfoCard title="聯絡方式">
-                    {selected.phones.length ? selected.phones.map((row) => <Info key={row.id} label="電話" value={`${row.phoneNumber}${row.extension ? ` #${row.extension}` : ""}`} />) : <p className="cy-customer-muted">尚無電話</p>}
-                    {selected.contacts.filter((row) => row.isActive).map((row) => <Info key={row.id} label={row.title ?? "聯絡人"} value={`${row.name}${row.mobile ? ` · ${row.mobile}` : row.phone ? ` · ${row.phone}` : ""}`} />)}
-                  </InfoCard>
-                  <InfoCard title="地址">
-                    {selected.addresses.map((row) => <Info key={row.id} label="地址" value={`${row.postalCode ? `${row.postalCode} ` : ""}${row.address}`} />)}
-                    {!selected.addresses.length ? <p className="cy-customer-muted">尚無地址</p> : null}
-                  </InfoCard>
-                  <InfoCard title="重要備註">
-                    {selected.notes.map((row) => <p className="cy-customer-important-note" key={row.id}>{row.content}</p>)}
-                    {!selected.notes.length ? <p className="cy-customer-muted">尚無重要備註</p> : null}
-                  </InfoCard>
-                </section>
+              {selected.notes.length ? <div className="cy-customer-alert" role="note">
+                <strong>重要備註</strong>
+                {selected.notes.map((row) => <p key={row.id}>{row.content}</p>)}
+              </div> : null}
 
-                <section className="cy-customer-related">
-                  <div className="cy-customer-related-tabs">
-                    {(["visits", "quotes", "frequent", "activity"] as RelatedTab[]).map((tab) => <button key={tab} className={relatedTab === tab ? "active" : ""} onClick={() => { setRelatedTab(tab); setVisitDraft(null); setQuoteDraft(null); }}>{tab === "visits" ? "拜訪紀錄" : tab === "quotes" ? "報價紀錄" : tab === "frequent" ? "常用商品" : "動態／歷史"}</button>)}
+              <section className="cy-customer-profile" aria-label="基本資料">
+                <dl className="cy-customer-facts">
+                  <Info label="統編" value={selected.taxId} mono />
+                  <Info label="分類" value={selected.category?.name} />
+                  <Info label="地區" value={selected.region?.name} />
+                  <Info label="負責業務" value={selected.ownerEmployee ? formatPerson(selected.ownerEmployee) : null} />
+                  <Info label="傳真" value={selected.fax} mono />
+                </dl>
+                <div className="cy-customer-contact-grid">
+                  <div>
+                    <h3>電話與聯絡人</h3>
+                    {selected.phones.map((row) => <p key={`p${row.id}`} className="cy-customer-line"><span className="cy-mono">{row.phoneNumber}{row.extension ? ` #${row.extension}` : ""}</span>{row.note ? <small>{row.note}</small> : null}</p>)}
+                    {selected.contacts.filter((row) => row.isActive).map((row) => <p key={`c${row.id}`} className="cy-customer-line"><span>{row.name}{row.title ? `（${row.title}）` : ""}</span><small className="cy-mono">{row.mobile ?? row.phone ?? ""}</small></p>)}
+                    {!selected.phones.length && !selected.contacts.some((row) => row.isActive) ? <p className="cy-customer-muted">尚無電話或聯絡人</p> : null}
                   </div>
+                  <div>
+                    <h3>地址</h3>
+                    {selected.addresses.map((row) => <p key={row.id} className="cy-customer-line"><span>{`${row.postalCode ? `${row.postalCode} ` : ""}${row.address}`}</span>{row.note ? <small>{row.note}</small> : null}</p>)}
+                    {!selected.addresses.length ? <p className="cy-customer-muted">尚無地址</p> : null}
+                  </div>
+                </div>
+              </section>
 
-                  {relatedTab === "visits" ? <VisitsPanel selected={selected} rows={visits} draft={visitDraft} setDraft={setVisitDraft} save={saveVisit} edit={editVisit} remove={removeVisit} busy={busy} /> : null}
-                  {relatedTab === "quotes" ? <QuotesPanel items={itemOptions} rows={quotes} draft={quoteDraft} setDraft={setQuoteDraft} startNew={startQuote} save={saveQuote} correct={startQuoteCorrection} busy={busy} /> : null}
-                  {relatedTab === "frequent" ? <FrequentPanel items={itemOptions} rows={frequentItems} itemId={frequentItemId} setItemId={setFrequentItemId} freeText={frequentText} setFreeText={setFrequentText} add={addFrequentItem} remove={removeFrequent} busy={busy} /> : null}
-                  {relatedTab === "activity" ? <div className="cy-customer-related-content"><h3>重要操作</h3><p className="cy-customer-muted">重要異動已保存至稽核紀錄；管理員可在「稽核／操作記錄」依客戶與操作類型查詢。</p></div> : null}
-                </section>
-              </div>
+              <section className="cy-customer-cards" aria-label="客戶相關紀錄">
+                <RelatedCard title="拜訪紀錄" count={visits.length} empty="尚無拜訪紀錄。"
+                  onView={() => openRelated("visits")} onAdd={() => openRelated("visits", true)}
+                  rows={visitsNewestFirst.slice(0, 3).map(row =>
+                    <span key={row.id} title={row.content ?? ""}>{formatDate(row.visitDate)} · {row.personSnapshot || selected.contacts.find(c => c.id === row.contactId)?.name || "未指定對象"} · {row.content?.split("\n")[0] || "—"}</span>)} />
+                <RelatedCard title="報價紀錄" count={quotes.length} empty="尚無報價紀錄。"
+                  onView={() => openRelated("quotes")} onAdd={() => openRelated("quotes", true)}
+                  rows={quotesNewestFirst.slice(0, 3).map(row =>
+                    <span key={row.id}>{formatDate(row.quoteDate)} {formatItem(row.itemNoSnapshot, row.itemNameSnapshot)}</span>)} />
+                <RelatedCard title="常用商品" count={frequentItems.length} empty="尚無常用商品。"
+                  onView={() => openRelated("frequent")} onAdd={() => openRelated("frequent", true)}
+                  rows={[...frequentItems].sort((a,b) => a.sortOrder-b.sortOrder).slice(0,3).map(row =>
+                    <span key={row.id}>{row.item ? formatItem(row.item.itemNo, row.item.name) : row.customItemName || "未命名品項"}</span>)} />
+              </section>
             </div>
-          ) : loadingDetail ? <div className="cy-op-empty">讀取客戶資料中…</div> : <div className="cy-op-empty">請從左側選擇客戶，或新增一筆客戶。</div>}
+          ) : <MasterDetailEmpty title="尚未選擇客戶" hint="從左側清單選一位客戶，或按清單上方的「＋ 新增客戶」。" />}
         </section>
       </div>
     </div>
   );
 }
 
-function EditableRows({ title, addLabel, onAdd, children }: { title: string; addLabel: string; onAdd: () => void; children: React.ReactNode }) {
-  return <section className="cy-customer-edit-section"><div className="cy-customer-edit-section-head"><h3>{title}</h3><button type="button" className="cy-op-button" onClick={onAdd}>＋ {addLabel}</button></div><div className="cy-customer-edit-rows">{children}</div></section>;
+
+function EditableRows({ title, hint, addLabel, onAdd, empty, busy, children }: { title: string; hint?: string; addLabel: string; onAdd: () => void; empty: boolean; busy: boolean; children: React.ReactNode }) {
+  return <section className="cy-form-block"><div className="cy-form-block-head"><div><h3>{title}</h3>{hint ? <p>{hint}</p> : null}</div><button type="button" className="cy-op-button compact" disabled={busy} onClick={onAdd}>＋ {addLabel}</button></div><div className="cy-form-block-body">{empty ? <p className="cy-form-block-empty">尚未填寫。</p> : children}</div></section>;
 }
 
-function InfoCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return <div className="cy-customer-info-card"><h3>{title}</h3><div className="cy-customer-info-list">{children}</div></div>;
+function RemoveRow({ busy, onRemove }: { busy: boolean; onRemove: () => void }) {
+  return <button type="button" className="cy-op-button compact quiet cy-row-remove" aria-label="移除這一列" title="移除這一列" disabled={busy} onClick={onRemove}>移除</button>;
 }
 
-function Info({ label, value }: { label: string; value: string | null | undefined }) {
-  return <div className="cy-customer-info"><span>{label}</span><strong>{value || "—"}</strong></div>;
+function Info({ label, value, mono }: { label: string; value: string | null | undefined; mono?: boolean }) {
+  return <div className="cy-customer-info"><dt>{label}</dt><dd className={mono && value ? "cy-mono" : undefined}>{value || "—"}</dd></div>;
 }
 
-function VisitsPanel({ selected, rows, draft, setDraft, save, edit, remove, busy }: {
+function VisitsPanel({ selected, rows, draft, setDraft, save, edit, remove, busy, mode, filter, onCancel }: {
   selected: CustomerDetail;
   rows: readonly CustomerVisitRecord[];
   draft: VisitDraft | null;
@@ -882,26 +969,145 @@ function VisitsPanel({ selected, rows, draft, setDraft, save, edit, remove, busy
   edit: (visit: CustomerVisitRecord) => void;
   remove: (visit: CustomerVisitRecord) => void;
   busy: boolean;
+  mode: "create" | "browse";
+  filter: string;
+  onCancel: () => void;
 }) {
-  const contacts = selected.contacts.filter((row) => row.isActive);
-  return <div className="cy-customer-related-content"><div className="cy-customer-related-head"><h3>拜訪紀錄</h3><button className="cy-op-button primary" disabled={busy} onClick={() => setDraft(emptyVisit())}>新增拜訪</button></div>{draft ? <form className="cy-customer-related-form" onSubmit={save}><label>日期<input className="cy-op-input" type="date" value={draft.visitDate} disabled={busy} onChange={(e) => setDraft({ ...draft, visitDate: e.target.value })} /></label><label>聯絡人<select className="cy-op-input" value={draft.contactId ?? ""} disabled={busy} onChange={(e) => setDraft({ ...draft, contactId: e.target.value ? Number(e.target.value) : null, personSnapshot: e.target.value ? "" : draft.personSnapshot })}><option value="">自由輸入</option>{contacts.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}</select></label>{draft.contactId == null ? <label>拜訪對象<input className="cy-op-input" value={draft.personSnapshot} disabled={busy} onChange={(e) => setDraft({ ...draft, personSnapshot: e.target.value })} /></label> : null}<label className="wide">內容<textarea className="cy-op-input" rows={3} value={draft.content} disabled={busy} onChange={(e) => setDraft({ ...draft, content: e.target.value })} required /></label><div className="cy-customer-related-form-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => setDraft(null)}>取消</button><button className="cy-op-button primary" disabled={busy}>儲存</button></div></form> : null}<div className="cy-customer-timeline">{rows.map((visit) => <div className="cy-customer-visit" key={visit.id}><div><strong>{visit.visitDate} · {visit.personSnapshot ?? "未指定對象"}</strong><p>{visit.content || "—"}</p><span>{visit.employee.displayName ?? visit.employee.employeeNo ?? "使用者"} · rev.{visit.revision}</span></div><div className="cy-customer-row-actions"><button className="cy-op-button compact" disabled={busy} onClick={() => edit(visit)}>修改</button><button className="cy-op-button compact danger" disabled={busy} onClick={() => void remove(visit)}>刪除</button></div></div>)}{rows.length === 0 ? <p className="cy-customer-muted">尚無拜訪紀錄。</p> : null}</div></div>;
+  const contacts = selected.contacts.filter(row => row.isActive);
+  const q = filter.trim().toLowerCase();
+  const visible = rows.filter(visit => !q || [
+    visit.content, visit.personSnapshot,
+    contacts.find(row => row.id === visit.contactId)?.name,
+  ].some(text => text?.toLowerCase().includes(q)));
+  return <div className="cy-customer-related-content">
+    {draft ? <form onKeyDown={enterAdvancesFields} className="cy-customer-related-form" onSubmit={save}>
+    <FormSection>
+      <Field label="日期" size="s" required><input className="cy-op-input" type="date" max="9999-12-31" value={draft.visitDate} disabled={busy}
+        onChange={event => setDraft({ ...draft, visitDate: event.target.value })} /></Field>
+      <Field label="聯絡人" size="m"><select className="cy-op-input" value={draft.contactId ?? ""} disabled={busy}
+        onChange={event => setDraft({ ...draft, contactId: event.target.value ? Number(event.target.value) : null,
+          personSnapshot: event.target.value ? "" : draft.personSnapshot })}>
+        <option value="">自由輸入</option>
+        {contacts.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
+      </select></Field>
+      {draft.contactId == null ? <Field label="拜訪對象" size="m"><input className="cy-op-input" value={draft.personSnapshot}
+        disabled={busy} onChange={event => setDraft({ ...draft, personSnapshot: event.target.value })} /></Field> : null}
+      <Field label="內容" size="l" required><textarea className="cy-op-input" rows={3} value={draft.content}
+        disabled={busy} onChange={event => setDraft({ ...draft, content: event.target.value })} /></Field>
+      <div className="cy-customer-related-form-actions">
+        <button type="button" className="cy-op-button" disabled={busy} onClick={onCancel}>取消</button>
+        <button className="cy-op-button primary" disabled={busy}>儲存</button>
+      </div>
+    
+    </FormSection>
+  </form> : null}
+    {mode === "browse" ? <div className="cy-customer-timeline">
+      {visible.map(visit => <div className="cy-customer-visit" key={visit.id}>
+        <div><strong>{formatDate(visit.visitDate)} · {visit.personSnapshot ??
+          contacts.find(row => row.id === visit.contactId)?.name ?? "未指定對象"}</strong>
+          <p>{visit.content || "—"}</p>
+          <span>{formatPerson(visit.employee)} · rev.{visit.revision}</span>
+        </div>
+        <div className="cy-customer-row-actions">
+          <button className="cy-op-button compact" disabled={busy} onClick={() => edit(visit)}>修改</button>
+          <button className="cy-op-button compact danger" disabled={busy} onClick={() => void remove(visit)}>刪除</button>
+        </div>
+      </div>)}
+      {!visible.length ? <p className="cy-customer-muted">沒有符合條件的拜訪紀錄。</p> : null}
+    </div> : null}
+  </div>;
 }
 
-function QuotesPanel({ items, rows, draft, setDraft, startNew, save, correct, busy }: {
-  items: readonly CustomerItemOption[];
+const searchQuoteItem = async (query: string) => searchCustomerItemOptions(query, 20);
+const quoteItemLabel = (row: CustomerItemOption) => formatItem(row.itemNo, row.name);
+
+function QuotesPanel({ customerId, rows, draft, setDraft, save, correct, busy, mode, filter, onCancel, onCreated }: {
+  customerId: number;
+  onCreated: () => void;
   rows: readonly CustomerItemQuoteSummary[];
   draft: QuoteDraft | null;
   setDraft: (value: QuoteDraft | null) => void;
-  startNew: () => void;
   save: (event: FormEvent) => void;
   correct: (quote: CustomerItemQuoteSummary) => void;
   busy: boolean;
+  mode: "create" | "browse";
+  filter: string;
+  onCancel: () => void;
 }) {
-  return <div className="cy-customer-related-content"><div className="cy-customer-related-head"><h3>報價紀錄</h3><button className="cy-op-button primary" disabled={busy || items.length === 0} onClick={startNew}>新增報價</button></div>{draft ? <form className="cy-customer-related-form quote" onSubmit={save}><label>日期<input className="cy-op-input" type="date" value={draft.quoteDate} disabled={busy} onChange={(e) => setDraft({ ...draft, quoteDate: e.target.value })} /></label><label>商品<select className="cy-op-input" value={draft.itemId ?? ""} disabled={busy} onChange={(e) => { const id = Number(e.target.value); const item = items.find((row) => row.id === id); setDraft({ ...draft, itemId: id, unit: item?.baseUnit ?? draft.unit }); }}>{items.map((row) => <option value={row.id} key={row.id}>{row.itemNo} · {row.name}</option>)}</select></label><label>數量<input className="cy-op-input" inputMode="decimal" value={draft.quantity} disabled={busy} onChange={(e) => setDraft({ ...draft, quantity: e.target.value })} /></label><label>單位<input className="cy-op-input" value={draft.unit} disabled={busy} onChange={(e) => setDraft({ ...draft, unit: e.target.value })} /></label><label>單價<input className="cy-op-input" inputMode="decimal" value={draft.unitPrice} disabled={busy} onChange={(e) => setDraft({ ...draft, unitPrice: e.target.value })} /></label><label className="wide">備註<input className="cy-op-input" value={draft.note} disabled={busy} onChange={(e) => setDraft({ ...draft, note: e.target.value })} /></label>{draft.corrected ? <label className="wide">修正原因<input className="cy-op-input" value={draft.correctionReason} disabled={busy} onChange={(e) => setDraft({ ...draft, correctionReason: e.target.value })} /></label> : null}<div className="cy-customer-related-form-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => setDraft(null)}>取消</button><button className="cy-op-button primary" disabled={busy}>{draft.corrected ? "儲存修正" : "儲存報價"}</button></div></form> : null}<div className="cy-customer-quote-list">{rows.map((quote) => <div className="cy-customer-quote" key={quote.id}><div><strong>{quote.quoteDate} · {quote.itemNoSnapshot} {quote.itemNameSnapshot}</strong><p>{quote.specSnapshot ?? "無規格"}</p><span>{quote.employee.displayName ?? quote.employee.employeeNo ?? "使用者"} · rev.{quote.revision}</span></div><button className="cy-op-button compact" disabled={busy} onClick={() => void correct(quote)}>修正紀錄</button></div>)}{rows.length === 0 ? <p className="cy-customer-muted">尚無報價紀錄。</p> : null}</div></div>;
+  const q = filter.trim().toLowerCase();
+  const visible = rows.filter(row => !q || formatItem(row.itemNoSnapshot, row.itemNameSnapshot).toLowerCase().includes(q));
+  const groups = new Map<string, CustomerItemQuoteSummary[]>();
+  for (const quote of visible) {
+    const key = `${quote.quoteDate}|${quote.employee.id}`;
+    const group = groups.get(key) ?? [];
+    group.push(quote);
+    groups.set(key, group);
+  }
+  const patchLine = (index: number, patch: Partial<QuoteLineDraft>) => {
+    if (draft) setDraft({ ...draft, lines: draft.lines.map((row, i) => i === index ? { ...row, ...patch } : row) });
+  };
+  return <div className="cy-customer-related-content">
+    {draft && !draft.corrected ? <QuoteCreateForm customerId={customerId} onSaved={onCreated} onCancel={onCancel} /> : null}
+    {draft?.corrected ? <form onKeyDown={enterAdvancesFields} className="cy-customer-quote-form" onSubmit={save}>
+    <FormSection>
+      <div className="cy-customer-quote-header-fields">
+        <Field label="日期" size="s" required><input type="date" max="9999-12-31" className="cy-op-input" value={draft.quoteDate} disabled={busy}
+          onChange={event => setDraft({ ...draft, quoteDate: event.target.value })} /></Field>
+        <Field label="備註" size="l"><input className="cy-op-input" value={draft.note} disabled={busy} maxLength={120}
+          onChange={event => setDraft({ ...draft, note: event.target.value })} /></Field>
+      </div>
+      <div className="cy-customer-quote-lines">
+        {draft.lines.map((line, index) => <div key={index} className="cy-customer-quote-line">
+          <EntityPicker<CustomerItemOption>
+            label="商品" value={line.item} disabled={busy} required
+            search={searchQuoteItem} getKey={row => row.id} getLabel={quoteItemLabel}
+            minQueryLength={1} placeholder="輸入品號或品名搜尋"
+            onSelect={item => patchLine(index, { item, unit: item?.baseUnit ?? line.unit })} />
+          <Field label="數量" size="s" required><input className="cy-op-input" inputMode="decimal" value={line.quantity}
+            disabled={busy} onChange={event => patchLine(index, { quantity: event.target.value })} /></Field>
+          <Field label="單位" size="s" required><input className="cy-op-input" value={line.unit}
+            disabled={busy} onChange={event => patchLine(index, { unit: event.target.value })} /></Field>
+          <Field label="單價" size="s" required><input className="cy-op-input" inputMode="decimal" value={line.unitPrice}
+            disabled={busy} onChange={event => patchLine(index, { unitPrice: event.target.value })} /></Field>
+          <button className="cy-op-button compact" type="button" disabled={busy} title="移除品項"
+            onClick={() => setDraft({ ...draft, lines: draft.lines.filter((_, i) => i !== index) })}>移除</button>
+        </div>)}
+      </div>
+      <button type="button" className="cy-op-button compact" disabled={busy || draft.lines.length >= 100}
+        onClick={() => setDraft({ ...draft, lines: [...draft.lines, {
+          ...emptyQuoteLine(), item: draft.corrected ? draft.lines[0]?.item ?? null : null,
+        }] })}>＋ 加一列</button>
+      {draft.corrected ? <Field label="修正原因" size="l"><input className="cy-op-input" value={draft.correctionReason} disabled={busy}
+          onChange={event => setDraft({ ...draft, correctionReason: event.target.value })} /></Field> : null}
+      <div className="cy-customer-related-form-actions">
+        <button className="cy-op-button" type="button" disabled={busy} onClick={onCancel}>取消</button>
+        <button className="cy-op-button primary" disabled={busy || draft.lines.length === 0}>
+          {draft.corrected ? "儲存修正" : "儲存報價"}
+        </button>
+      </div>
+    
+    </FormSection>
+  </form> : null}
+    {mode === "browse" ? <div className="cy-customer-quote-list">
+      {Array.from(groups, ([key, group]) => <section key={key} className="cy-customer-quote-group">
+        <h3>{formatDate(group[0].quoteDate)}　{formatPerson(group[0].employee)}</h3>
+        {group.map(quote => <div className="cy-customer-quote" key={quote.id}>
+          <div><strong>{formatItem(quote.itemNoSnapshot, quote.itemNameSnapshot)}</strong>
+            {quote.priceBreaks.map(tier => <p key={tier.id}>
+              {tier.quantity} {tier.unit}　${tier.unitPrice}
+            </p>)}
+            <span>rev.{quote.revision}</span>
+          </div>
+          <button type="button" className="cy-op-button compact" disabled={busy}
+            onClick={() => void correct(quote)}>修正紀錄</button>
+        </div>)}
+      </section>)}
+      {!groups.size ? <p className="cy-customer-muted">沒有符合條件的報價紀錄。</p> : null}
+    </div> : null}
+  </div>;
 }
 
-function FrequentPanel({ items, rows, itemId, setItemId, freeText, setFreeText, add, remove, busy }: {
-  items: readonly CustomerItemOption[];
+function FrequentPanel({ rows, itemId, setItemId, freeText, setFreeText, add, remove, busy, mode, filter, adding, onCancel }: {
   rows: readonly CustomerFrequentItemRecord[];
   itemId: number | null;
   setItemId: (value: number | null) => void;
@@ -910,6 +1116,41 @@ function FrequentPanel({ items, rows, itemId, setItemId, freeText, setFreeText, 
   add: (event: FormEvent) => void;
   remove: (row: CustomerFrequentItemRecord) => void;
   busy: boolean;
+  mode: "create" | "browse";
+  filter: string;
+  adding: boolean;
+  onCancel: () => void;
 }) {
-  return <div className="cy-customer-related-content"><div className="cy-customer-related-head"><h3>常用商品</h3></div><form className="cy-customer-frequent-form" onSubmit={add}><select className="cy-op-input" value={itemId ?? ""} disabled={busy} onChange={(e) => { setItemId(e.target.value ? Number(e.target.value) : null); if (e.target.value) setFreeText(""); }}><option value="">未建檔品項</option>{items.map((row) => <option key={row.id} value={row.id}>{row.itemNo} · {row.name}</option>)}</select><input className="cy-op-input" placeholder="選未建檔品項時輸入名稱" value={freeText} disabled={busy || itemId != null} onChange={(e) => setFreeText(e.target.value)} /><button className="cy-op-button primary" disabled={busy}>加入</button></form><div className="cy-customer-frequent-list">{rows.map((row) => <div className="cy-customer-frequent-row" key={row.id}><div><strong>{row.item ? `${row.item.itemNo} · ${row.item.name}` : row.customItemName ?? "未命名品項"}</strong><span>{row.item ? "正式商品" : "未建檔自由文字"}</span></div><button className="cy-op-button compact danger" disabled={busy} onClick={() => void remove(row)}>移除</button></div>)}{rows.length === 0 ? <p className="cy-customer-muted">尚無常用商品。</p> : null}</div></div>;
+  const [item, setItem] = useState<CustomerItemOption | null>(null);
+  useEffect(() => { if (itemId === null) setItem(null); }, [itemId]);
+  const q = filter.trim().toLowerCase();
+  const visible = rows.filter(row => !q || [
+    row.item ? formatItem(row.item.itemNo, row.item.name) : "", row.customItemName,
+  ].some(label => label?.toLowerCase().includes(q)));
+  return <div className="cy-customer-related-content">
+    {adding ? <form onKeyDown={enterAdvancesFields} className="cy-customer-frequent-form" onSubmit={add}>
+    <FormSection>
+      <EntityPicker<CustomerItemOption> label="正式商品" value={item}
+        search={searchQuoteItem} getKey={row => row.id} getLabel={quoteItemLabel}
+        minQueryLength={1} placeholder="輸入品號或品名搜尋" disabled={busy}
+        onSelect={selected => { setItem(selected); setItemId(selected?.id ?? null); if (selected) setFreeText(""); }} />
+      <Field label="或輸入未建檔名稱" size="m" oneOf="與正式商品擇一" reportAs="正式商品或未建檔名稱" required={itemId===null&&!freeText.trim()}><input className="cy-op-input" value={freeText}
+        disabled={busy || itemId !== null} onChange={event => setFreeText(event.target.value)} /></Field>
+      <div className="cy-customer-related-form-actions">
+        <button type="button" className="cy-op-button" disabled={busy} onClick={onCancel}>取消</button>
+        <button className="cy-op-button primary" disabled={busy}>加入</button>
+      </div>
+    
+    </FormSection>
+  </form> : null}
+    {mode === "browse" ? <div className="cy-customer-frequent-list">
+      {visible.map(row => <div className="cy-customer-frequent-row" key={row.id}>
+        <div><strong>{row.item ? formatItem(row.item.itemNo, row.item.name) : row.customItemName ?? "未命名品項"}</strong>
+          <span>{row.item ? "正式商品" : "未建檔自由文字"}</span></div>
+        <button type="button" className="cy-op-button compact danger" disabled={busy}
+          onClick={() => void remove(row)}>移除</button>
+      </div>)}
+      {!visible.length ? <p className="cy-customer-muted">沒有符合條件的常用商品。</p> : null}
+    </div> : null}
+  </div>;
 }

@@ -1,3 +1,4 @@
+import { formatDate } from "../../ui/foundation/format";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { parseErpCode, parseErpNameKeyword, parseErpOrderNo } from "../../../shared/erp-name-search";
 import { ERP_CUSTOMER_SEARCH_FIELDS, type ErpReceivableScope } from "../../../shared/erp-item-query";
@@ -32,7 +33,7 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
     if (code) { await job.start({ queryType: "RECEIVABLE", scope, code }); return; }
     // A customer name finds the customer first (needs ERP 客戶查詢 too).
     const keyword = scope === "CUSTOMER" && canSearchCustomers ? parseErpNameKeyword(text) : null;
-    if (!keyword) { setError(scope === "CUSTOMER" ? "請輸入客戶代號（英文字母或數字）" + (canSearchCustomers ? "或客戶名稱。" : "。") : "業務員代號只能輸入 1～40 個英文字母或數字。"); return; }
+    if (!keyword) { setError(scope === "CUSTOMER" ? "請輸入客戶代號（英文字母、數字或「-」）" + (canSearchCustomers ? "或客戶名稱。" : "。") : "業務員代號只能輸入 1～40 個英文字母、數字或「-」。"); return; }
     await job.start({ queryType: "CUSTOMER_NAME", keyword });
   }
   const mine = result && (result.queryType === "RECEIVABLE" || result.queryType === "CUSTOMER_NAME") ? result : null;
@@ -47,18 +48,18 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
   const totalUnpaid = groups.reduce((acc, g) => acc + g.unpaid, 0);
   return <>
     <div className="cy-op-panel cy-erp-query-box">
-      <form className="cy-erp-form" onSubmit={event => void submit(event)} noValidate>
-        <div className="cy-erp-mode-switch" role="group" aria-label="查詢範圍">
+      <form role="search" className="cy-erp-form" onSubmit={event => void submit(event)} noValidate>
+        <div className="cy-segmented" role="group" aria-label="查詢範圍">
           {SCOPES.map(s => <button key={s.key} type="button" aria-pressed={scope === s.key} disabled={busy}
-            className={scope === s.key ? "is-active" : ""} onClick={() => { setScope(s.key); setError(null); }}>{s.label}</button>)}
+            onClick={() => { setScope(s.key); setError(null); }}>{s.label}</button>)}
         </div>
         <div className="cy-erp-query-row">
-          {scope !== "ALL" && <input value={text} maxLength={40} autoComplete="off" disabled={busy} required
+          {scope !== "ALL" && <input className="cy-op-input" value={text} maxLength={40} autoComplete="off" disabled={busy} required
             aria-label={scope === "CUSTOMER" ? "客戶" : "業務員代號"}
             placeholder={scope === "CUSTOMER" ? (canSearchCustomers ? "請輸入客戶代號或名稱" : "請輸入客戶代號") : "請輸入業務員代號"}
             onChange={e => setText(e.target.value)} />}
-          <button className="cy-op-button primary" type="submit" disabled={busy}>
-            {submitting ? "送出中…" : busy ? "查詢中…" : scope === "ALL" ? "查詢全部未收款" : "查詢"}
+          <button className="cy-op-button primary" type="submit" disabled={busy} aria-busy={submitting || busy || undefined}>
+            {scope === "ALL" ? "查詢全部未收款" : "查詢"}
           </button>
         </div>
       </form>
@@ -70,11 +71,10 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
         <ErpQueryRows key={mine.id} label="客戶搜尋結果" columns={ERP_CUSTOMER_SEARCH_FIELDS} disabled={busy}
           rows={mine.items.map(row => { const v = new Map(row.map(f => [f.name, f.value])); return ERP_CUSTOMER_SEARCH_FIELDS.map(n => v.get(n) || ""); })}
           onItemSelect={code => void queryCustomer(code)} />
-        <p className="cy-erp-search-hint">點選客戶代號，查詢該客戶的未收款。</p>
       </>}
       {showsData(mine) && mine.queryType === "RECEIVABLE" && <>
         <h3>未收合計 {erpMoney(totalUnpaid)}（{groups.length} 位客戶、{mine.bills.length} 張結帳單）</h3>
-        {mine.truncated && <p className="cy-erp-error">共 {mine.total} 張，只顯示 {mine.bills.length} 張。</p>}
+        {mine.truncated && <p className="cy-notice cy-notice-warning">共 {mine.total} 張，只顯示 {mine.bills.length} 張。</p>}
         <div className="cy-erp-orders">
           {groups.map(group => <details key={group.customerCode} className="cy-erp-order" open={groups.length === 1}>
             <summary>
@@ -83,21 +83,21 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
             </summary>
             <div className="cy-erp-order-body">
               <ErpQueryRows label={group.customerCode + " 結帳單"} columns={BILL_COLUMNS} summaryColumns={[0, 1, 6]}
-                rows={group.bills.map(b => [b.billNo, b.date, [b.salespersonCode, b.salespersonName].filter(Boolean).join(" "),
+                rows={group.bills.map(b => [b.billNo, formatDate(b.date), [b.salespersonCode, b.salespersonName].filter(Boolean).join(" "),
                   b.invoiceNo, erpMoney(b.receivable), erpMoney(b.receivableTax), erpMoney(b.unpaid),
-                  b.vouchers.map(v => `${v.voucherNo}（${v.date} ${erpMoney(v.amount)}）`).join("\n")])}
+                  b.vouchers.map(v => `${v.voucherNo}（${formatDate(v.date)} ${erpMoney(v.amount)}）`).join("\n")])}
                 cell={(row, column) => column !== 7 ? undefined : <span className="cy-erp-vouchers">
                   {group.bills[row].vouchers.map(v => {
                     const orderNo = parseErpOrderNo(v.voucherNo);
                     return <span key={v.voucherNo}>
                       {orderNo ? <button type="button" className="cy-erp-item-link" disabled={busy}
                         onClick={() => setOpenOrder(orderNo)}>{v.voucherNo}</button> : v.voucherNo}
-                      （{v.date} {erpMoney(v.amount)}）</span>;
+                      （{formatDate(v.date)} {erpMoney(v.amount)}）</span>;
                   })}</span>} />
             </div>
           </details>)}
         </div>
-        <p className="cy-erp-search-hint">點選憑證號碼可在視窗中查看該張銷貨單或銷退單，未收款清單會保留。金額為 ERP 原幣；未收合計由各結帳單未收帳款相加（{erpMoney(mine.bills.reduce((a, b) => a + erpNumber(b.unpaid), 0))}）。</p>
+        <p className="cy-erp-search-hint">金額為 ERP 原幣；未收合計由各結帳單未收帳款相加（{erpMoney(mine.bills.reduce((a, b) => a + erpNumber(b.unpaid), 0))}）。</p>
       </>}
     </div>}
     {openOrder && <ErpOrderDialog key={openOrder} orderNo={openOrder} onClose={() => setOpenOrder(null)} />}

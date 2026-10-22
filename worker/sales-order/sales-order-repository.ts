@@ -1,3 +1,4 @@
+import { countByStatus } from "../persistence/status-counts";
 import type {
   SalesWorkOrderDetail,
   SalesWorkOrderLine,
@@ -19,6 +20,7 @@ type OrderRow = {
   order_date: string;
   operator_employee_id: number;
   operator_employee_no: string | null;
+  operator_display_name: string | null;
   note?: string | null;
   status_code: SalesWorkOrderStatusCode;
   erp_no: string | null;
@@ -84,6 +86,7 @@ const SELECT_FIELDS = `
   o.order_date,
   o.operator_employee_id,
   m.employee_no AS operator_employee_no,
+  m.display_name AS operator_display_name,
   o.status_code,
   o.erp_no,
   o.hide_price_on_sales_document,
@@ -110,7 +113,7 @@ function toSummary(row: OrderRow): SalesWorkOrderSummary {
     operator: {
       id: row.operator_employee_id,
       employeeNo: row.operator_employee_no,
-      displayName: null,
+      displayName: row.operator_display_name,
     },
     statusCode: row.status_code,
     erpNo: row.erp_no,
@@ -166,10 +169,6 @@ export class SalesWorkOrderRepository {
       )`);
       params.push(like, like, like, like);
     }
-    if (query.statusCode) {
-      where.push("o.status_code = ?");
-      params.push(query.statusCode);
-    }
     if (query.customerId != null && Number.isInteger(query.customerId) && query.customerId > 0) {
       where.push("o.customer_id = ?");
       params.push(query.customerId);
@@ -185,6 +184,14 @@ export class SalesWorkOrderRepository {
     if (query.orderDateTo) {
       where.push("o.order_date <= ?");
       params.push(query.orderDateTo);
+    }
+
+    // Counts cover the same filters except status; only the first page carries them.
+    const statusCounts = query.cursor ? undefined
+      : await countByStatus<SalesWorkOrderStatusCode>(this.db, "FROM sales_work_orders AS o", "o.status_code", where, params);
+    if (query.statusCode) {
+      where.push("o.status_code = ?");
+      params.push(query.statusCode);
     }
 
     const cursorId = decodeCursor(query.cursor);
@@ -211,6 +218,7 @@ export class SalesWorkOrderRepository {
     return {
       items: visible.map(toSummary),
       nextCursor: hasMore && last ? encodeCursor(last.id) : null,
+      ...(statusCounts ? { statusCounts } : {}),
     };
   }
 

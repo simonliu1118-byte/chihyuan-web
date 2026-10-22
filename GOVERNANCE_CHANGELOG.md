@@ -1,5 +1,28 @@
 # CY Web Governance Changelog
 
+## 1.1.23 — 2026/10/21
+
+- `PROJECT_RULES.md` §5 新增「表單欄位一律用共用欄位元件」：必填欄位顯示紅色＊、擇一必填與至少一列的標示、依內容長短的三種欄寬（12 格格線、表單最寬 960px）、送出時所有缺漏一次提醒。使用者 2026-10-21 要求。由 WO-0.9.27 新增的 `scripts/form-fields.test.mjs` 自動檢查；其餘表單於該工作單改版。
+
+## 1.1.22 — 2026/10/21
+
+- 同步共通規則 2.10.0：工作單交接抽出為 `REPOSITORY_RULES.md` §11.4，並註明只有在使用者指示 Claude 開立工作單轉交 GPT 製作時才適用（使用者 2026-10-21）。`PROJECT_RULES.md` §9 改為指向共通規則，只保留本 repo 的工作單位置；工作單 README 同步說明。
+
+## 1.1.21 — 2026/10/20
+
+- `PROJECT_RULES.md` §5 新增表單鍵盤規則：所有資料輸入表單按 Enter 跳到下一欄，查詢表單（`role="search"`）按 Enter 查詢；日期欄位限制四碼年份。由新增的 `scripts/form-keyboard.test.mjs` 納入 `validate:source` 自動檢查。使用者要求寫成必要功能，避免新功能漏做。
+- 人事頁（WO-0.9.24 進行中）暫列例外，於該單審查時補齊並移除例外。工作單範本加入固定驗收項目。
+
+## 1.1.20 — 2026/10/18
+
+- 使用者決定採工作單交接：Claude 與使用者討論定案後撰寫 `docs/development/work-orders/WO-<版本>.md`，使用者轉交 GPT 依工作單實作並填完成報告，Claude 對照工作單審查後才合併部署（`PROJECT_RULES.md` §9）。
+- 工作單格式見 `docs/development/work-orders/README.md`；工作單是需求與狀態文件，不是規則來源。產品 VERSION／BUILD、業務規則、權限與部署配置不變。
+
+## 1.1.19 — 2026/10/17
+
+- 整理既有正式網站的發布入口：保留受控發布分支，手動 deploy 限 main；validate、deploy、read-only audit 分鎖，正式 deploy 使用固定鎖且不取消進行中的執行。
+- 遠端 migration 前驗證事件／checkout SHA、當前 main ancestry 與相同 tracked tree，保留歷史發布 merge；補齊操作與成功判定。未搬移 Environment／metadata、變更業務／Identity／備份配置或發布產品；VERSION／BUILD 不變。
+
 ## 1.1.18 — 2026/10/16
 
 - Synchronize the complete canonical CYID consumer 1.0.6 manifest package after CYapps #459. Minimum compatible remains 1.0.0; Web continues to declare consumer 1.0.5 inside the support window.

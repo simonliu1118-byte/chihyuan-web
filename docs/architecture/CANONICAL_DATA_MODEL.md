@@ -48,7 +48,7 @@ Candidate local application structures:
 
 - `id`
 - `identity_employee_id` — stable shared Identity subject/reference
-- current display metadata/cache needed by CY Web, such as employee number/name and CY Web department where applicable
+- `employee_no` and nullable `display_name` (1–120 字) are local **CYID-owned** member display projections; CYID remains the sole source of employee names and identities. The cache is refreshed from signed-in principals or authorized CYID admin snapshots; it is not a second identity authority. CY Web department metadata remains app-local where applicable.
 - `is_active`
 - `created_at`, `updated_at`
 
@@ -62,6 +62,10 @@ Direct CY Web-local Employee × Module grants are the forward authorization sour
 - last-change actor/time retained for audit correlation.
 
 Workspace Role and Module Access are independent. Super Admin receives all modules implicitly and does not depend on stored grant rows. Identity Admin / Super Admin manage eligible Employee grants under the anti-self-escalation rules in the Identity contract.
+
+### 權限群組 (`module_access_groups`, `module_access_group_modules`, `module_access_group_applications`, `app_member_module_groups`)
+
+BD-057: a named set of CY Web modules and other CY systems; a member belongs to at most one group and has exactly the group's set. Module changes are materialized into `app_member_module_access` for every member, which stays the only runtime module authority; system access is owned by CYID and synced there after each write. Leaving a group, or deleting it, keeps the member's current access.
 
 ### Legacy App tags
 
@@ -702,3 +706,14 @@ The forward `0007_retired_entity_ids` model preserves a per-table retired-ID hig
 ## 21. Derived program-release metadata
 
 Forward migration `0008_program_catalog_state` adds one operational row for the public Release catalog and daily refresh coordination. A single Cloudflare cron at 03:00 Asia/Taipei claims that day's attempt atomically across instances before querying GitHub. The row retains the last successful snapshot, safe failure classification and attempt token; old completions cannot overwrite a newer day. Browser GETs only read this shared state, never fetch GitHub or mutate the row. This is derived public metadata, not business, Identity, credential or permission authority, and is excluded from portable business backup data and its schema fingerprint.
+
+
+## WO-0.9.20 人事資料（第一期）
+
+D1 migration `0017_hr_phase1.sql` 新增 `hr_employees`、`hr_emergency_contacts`、`hr_education`、`hr_work_history`、`hr_status_changes`、`hr_seniority_exclusions`、`hr_salary_records`、`hr_salary_allowances`、`hr_salary_item_types`、`hr_minimum_wages`；全部為人事資料範疇，不改既有 CYID Authority。每一名人事員工可選填唯一的本地 `app_members.id` 綁定；人事狀態由追加式生效異動決定，薪資異動不可修改或刪除，主檔不得刪除。證號預設遮罩且 reveal 稽核留存遮罩值。詳見 [HR_MODULE_DESIGN.md](HR_MODULE_DESIGN.md) 及 [HR_MODULE_CONTRACT.md](HR_MODULE_CONTRACT.md)。
+
+## WO-0.9.24 人事第二期 2a
+`0018_hr_phase2a.sql` 增設 `hr_stores`、`hr_job_titles`、`hr_shift_types`、`hr_leave_types`、`hr_holidays`、`hr_schedule_days`、`hr_schedule_months`、`hr_roster_approvals`、`hr_attendance_days`，以及員工所屬門市／職稱、班表排序、僱用型態、排班方式及不須檢核欄位。格子唯一鍵 `(employee_id,work_date)`；備註唯一鍵 `(store_id,month)`；出勤唯一鍵 `(employee_id,work_date)`，不得直接刪除出勤資料。各格排班修改在 `db.batch` 加一筆 `hr_roster.updated` 稽核，出勤修改在同一批寫 `hr_attendance.updated`；自動例休標記保留在 `rest_label`。詳見 [HR_MODULE_DESIGN.md](HR_MODULE_DESIGN.md) §5 及 [HR_MODULE_CONTRACT.md](HR_MODULE_CONTRACT.md)。
+
+## WO-0.9.25 2b 資料模型
+0019_hr_phase2b.sql 新增 hr_leave_records（batch_id 聚合同次申請、取消不刪除）、hr_leave_attachments（metadata only，R2 實體備份未納入）、hr_annual_leave_years（員工／服務年度唯一）、hr_overtime_days（員工／日期唯一與 revision）、hr_comp_time_grants（補休與國定假日換休）、hr_comp_time_settlements（轉加班費結清）。hr_leave_types 增加額度、合併、附件及法規資訊並新增「院」；查詢期間即時計算遞延與到期，不使用排程。

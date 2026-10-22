@@ -88,6 +88,7 @@ export interface CustomerItemQuoteSummary {
   createdAt: string;
   updatedAt: string;
   revision: number;
+  priceBreaks: readonly CustomerItemQuotePriceBreak[];
 }
 
 export interface CustomerItemQuotePriceBreak {
@@ -123,4 +124,34 @@ export interface CreateCustomerItemQuoteRequest extends CustomerItemQuoteInput {
 export interface CorrectCustomerItemQuoteRequest extends CustomerItemQuoteInput {
   expectedRevision: number;
   correctionReason?: string | null;
+}
+
+/** Batch input groups rows by itemId while preserving multiple quantity tiers. */
+export interface CreateCustomerQuoteBatchRequest {
+  quoteDate: string;
+  note?: string | null;
+  lines: readonly {
+    itemId: number;
+    quantity: string;
+    unit: string;
+    unitPrice: string;
+    note?: string | null;
+  }[];
+}
+
+/** Item-scoped latest quotes: one latest record per customer, identical unit/tier schedules grouped. */
+export interface ItemQuoteSummary {
+  customerCount: number;
+  groups: {
+    unit: string;
+    breaks: { quantity: number; unitPrice: number }[];
+    latestQuoteDate: string;
+    customers: {
+      customerId: number;
+      customerNo: string | null;
+      shortName: string;
+      quoteDate: string;
+      quoteId: number;
+    }[];
+  }[];
 }

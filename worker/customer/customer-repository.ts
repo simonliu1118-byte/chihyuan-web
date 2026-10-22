@@ -35,6 +35,7 @@ type CustomerSummaryRow = {
   owner_department_name: string | null;
   owner_employee_id: number | null;
   owner_employee_no: string | null;
+  owner_display_name: string | null;
   status_id: number | null;
   status_code: string | null;
   status_name: string | null;
@@ -43,6 +44,9 @@ type CustomerSummaryRow = {
 };
 
 type CustomerDetailRow = CustomerSummaryRow & {
+  updated_by_id: number | null;
+  updated_by_employee_no: string | null;
+  updated_by_display_name: string | null;
   fax: string | null;
   created_at: string;
 };
@@ -152,6 +156,7 @@ const CUSTOMER_SELECT_FIELDS = `
     d.name AS owner_department_name,
     m.id AS owner_employee_id,
     m.employee_no AS owner_employee_no,
+    m.display_name AS owner_display_name,
     cs.id AS status_id,
     cs.code AS status_code,
     cs.name AS status_name,
@@ -169,7 +174,9 @@ const CUSTOMER_FROM = `
 `;
 
 const CUSTOMER_SUMMARY_SELECT = `SELECT ${CUSTOMER_SELECT_FIELDS} ${CUSTOMER_FROM}`;
-const CUSTOMER_DETAIL_SELECT = `SELECT ${CUSTOMER_SELECT_FIELDS}, c.fax, c.created_at ${CUSTOMER_FROM}`;
+const CUSTOMER_DETAIL_SELECT = `SELECT ${CUSTOMER_SELECT_FIELDS},
+  c.fax, c.created_at, ub.id AS updated_by_id, ub.employee_no AS updated_by_employee_no, ub.display_name AS updated_by_display_name
+  ${CUSTOMER_FROM} LEFT JOIN app_members AS ub ON ub.id = c.updated_by`;
 
 function toLookup(
   id: number | null,
@@ -200,7 +207,7 @@ function toSummary(row: CustomerSummaryRow): CustomerSummary {
         : {
             id: row.owner_employee_id,
             employeeNo: row.owner_employee_no,
-            displayName: null,
+            displayName: row.owner_display_name,
           },
     status: toLookup(row.status_id, row.status_code, row.status_name),
     revision: row.revision,
@@ -346,6 +353,7 @@ export class CustomerRepository {
       ...toSummary(master),
       fax: master.fax,
       createdAt: master.created_at,
+      updatedBy: master.updated_by_id == null ? null : { id: master.updated_by_id, employeeNo: master.updated_by_employee_no, displayName: master.updated_by_display_name },
       phones: phones.map<CustomerPhone>((row) => ({
         id: row.id,
         phoneNumber: row.phone_number,

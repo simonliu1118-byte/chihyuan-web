@@ -3,6 +3,7 @@ import type {
   CustomerItemQuoteDetail,
   CustomerItemQuotePriceBreak,
   CustomerItemQuoteSummary,
+  ItemQuoteSummary,
   CustomerRelatedPage,
   CustomerRelatedQuery,
   CustomerVisitRecord,
@@ -22,6 +23,7 @@ type VisitRow = {
   person_snapshot: string | null;
   employee_id: number;
   employee_no: string | null;
+  display_name: string | null;
   content: string | null;
   created_at: string;
   updated_at: string;
@@ -49,6 +51,7 @@ type QuoteRow = {
   quote_date: string;
   employee_id: number;
   employee_no: string | null;
+  display_name: string | null;
   item_no_snapshot: string;
   item_name_snapshot: string;
   spec_snapshot: string | null;
@@ -103,7 +106,7 @@ function toVisit(row: VisitRow): CustomerVisitRecord {
     employee: {
       id: row.employee_id,
       employeeNo: row.employee_no,
-      displayName: null,
+      displayName: row.display_name,
     },
     content: row.content,
     createdAt: row.created_at,
@@ -121,7 +124,7 @@ function toQuote(row: QuoteRow): CustomerItemQuoteSummary {
     employee: {
       id: row.employee_id,
       employeeNo: row.employee_no,
-      displayName: null,
+      displayName: row.display_name,
     },
     itemNoSnapshot: row.item_no_snapshot,
     itemNameSnapshot: row.item_name_snapshot,
@@ -129,6 +132,7 @@ function toQuote(row: QuoteRow): CustomerItemQuoteSummary {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     revision: row.revision,
+    priceBreaks: [],
   };
 }
 
@@ -171,6 +175,7 @@ export class CustomerRelatedRepository {
         v.person_snapshot,
         v.employee_id,
         m.employee_no,
+        m.display_name,
         v.content,
         v.created_at,
         v.updated_at,
@@ -234,6 +239,74 @@ export class CustomerRelatedRepository {
     }));
   }
 
+  /** One current quote per customer; no unit conversion or price averaging. */
+  async itemQuoteSummary(itemId: number): Promise<ItemQuoteSummary> {
+    const result = await this.db.prepare(`
+      SELECT q.id AS quote_id, q.customer_id, q.quote_date,
+             c.customer_no, c.short_name,
+             b.quantity, b.unit, b.unit_price
+        FROM (
+          SELECT id, customer_id, quote_date,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY customer_id ORDER BY quote_date DESC, id DESC
+                 ) AS rn
+            FROM customer_item_quotes WHERE item_id = ?
+        ) AS q
+        JOIN customers AS c ON c.id = q.customer_id
+        JOIN quote_price_breaks AS b ON b.quote_id = q.id
+       WHERE q.rn = 1
+       ORDER BY q.quote_date DESC, q.id DESC, b.quantity ASC, b.unit ASC, b.unit_price ASC
+    `).bind(itemId).all<{
+      quote_id: number;
+      customer_id: number;
+      quote_date: string;
+      customer_no: string | null;
+      short_name: string;
+      quantity: number;
+      unit: string;
+      unit_price: number;
+    }>();
+    type Row = (typeof result.results)[number];
+    const perCustomer = new Map<number, { customer: ItemQuoteSummary["groups"][number]["customers"][number]; tiers: Row[] }>();
+    for (const row of result.results ?? []) {
+      const current = perCustomer.get(row.customer_id);
+      if (current) current.tiers.push(row);
+      else perCustomer.set(row.customer_id, {
+        customer: {
+          customerId: row.customer_id, customerNo: row.customer_no,
+          shortName: row.short_name, quoteDate: row.quote_date, quoteId: row.quote_id,
+        },
+        tiers: [row],
+      });
+    }
+    const groups = new Map<string, ItemQuoteSummary["groups"][number]>();
+    for (const { customer, tiers } of perCustomer.values()) {
+      const ordered = tiers.sort((a, b) => a.quantity - b.quantity || a.unit.localeCompare(b.unit) || a.unit_price - b.unit_price);
+      // Key uses original exact scaled integers, never floating-point comparisons.
+      const key = JSON.stringify(ordered.map(row => [row.unit, row.quantity, row.unit_price]));
+      const existing = groups.get(key);
+      if (existing) {
+        existing.customers.push(customer);
+        if (customer.quoteDate > existing.latestQuoteDate) existing.latestQuoteDate = customer.quoteDate;
+      } else {
+        groups.set(key, {
+          unit: ordered[0].unit,
+          breaks: ordered.map(row => ({
+            quantity: Number(formatScaled4(row.quantity)),
+            unitPrice: Number(formatScaled4(row.unit_price)),
+          })),
+          latestQuoteDate: customer.quoteDate,
+          customers: [customer],
+        });
+      }
+    }
+    const orderedGroups = Array.from(groups.values()).sort((a, b) =>
+      b.latestQuoteDate.localeCompare(a.latestQuoteDate) || b.customers.length - a.customers.length);
+    orderedGroups.forEach(group => group.customers.sort((a, b) =>
+      b.quoteDate.localeCompare(a.quoteDate) || b.quoteId - a.quoteId));
+    return { customerCount: perCustomer.size, groups: orderedGroups };
+  }
+
   async listQuotes(
     customerId: number,
     query: CustomerRelatedQuery,
@@ -258,6 +331,7 @@ export class CustomerRelatedRepository {
         q.quote_date,
         q.employee_id,
         m.employee_no,
+        m.display_name,
         q.item_no_snapshot,
         q.item_name_snapshot,
         q.spec_snapshot,
@@ -276,8 +350,22 @@ export class CustomerRelatedRepository {
     const hasMore = rows.length > limit;
     const visible = hasMore ? rows.slice(0, limit) : rows;
     const last = visible[visible.length - 1];
+    if (visible.length === 0) return { items: [], nextCursor: null };
+    const ids = visible.map(row => row.id);
+    const placeholders = ids.map(() => "?").join(",");
+    const tierResult = await this.db.prepare(`
+      SELECT id, quote_id, quantity, unit, unit_price, note, sort_order
+        FROM quote_price_breaks WHERE quote_id IN (${placeholders})
+       ORDER BY sort_order ASC, id ASC
+    `).bind(...ids).all<QuoteBreakRow & { quote_id: number }>();
+    const breaksById = new Map<number, CustomerItemQuotePriceBreak[]>();
+    for (const row of tierResult.results ?? []) {
+      const items = breaksById.get(row.quote_id) ?? [];
+      items.push(toQuoteBreak(row));
+      breaksById.set(row.quote_id, items);
+    }
     return {
-      items: visible.map(toQuote),
+      items: visible.map(row => ({ ...toQuote(row), priceBreaks: breaksById.get(row.id) ?? [] })),
       nextCursor: hasMore && last ? encodeCursor({ date: last.quote_date, id: last.id }) : null,
     };
   }
@@ -292,6 +380,8 @@ export class CustomerRelatedRepository {
           q.quote_date,
           q.employee_id,
           m.employee_no,
+          m.display_name,
+        m.display_name,
           q.item_no_snapshot,
           q.item_name_snapshot,
           q.spec_snapshot,

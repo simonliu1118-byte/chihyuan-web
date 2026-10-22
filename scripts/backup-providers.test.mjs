@@ -26,7 +26,7 @@ const account = JSON.stringify({ type: "service_account", client_email: "synthet
 function gcs(extra, timeout = 1000) {
   let tokenCalls = 0;
   const provider = new GCSBackupProvider("synthetic-test-bucket", account, async (url, init) => {
-    assert.equal(init.redirect, "error");
+    assert.equal(init.redirect, "manual");
     if (url === "https://oauth2.googleapis.com/token") {
       tokenCalls++;
       const assertion = new URLSearchParams(init.body).get("assertion");
@@ -92,6 +92,35 @@ test("GCS deadline covers stalled body and errors reveal no credential/provider 
   await assert.rejects(stalled.getObject(key), /^Error: BACKUP_GCS_REQUEST_FAILED$/);
   const authFailure = new GCSBackupProvider("synthetic-test-bucket", account, async () => new Response("PRIVATE-PROVIDER-DETAIL", { status: 401 }));
   await assert.rejects(authFailure.getObject(key), /^Error: BACKUP_GCS_AUTH_FAILED$/);
+});
+test("GCS refuses OAuth and object redirects without following credential material", async () => {
+  let calls = 0;
+  const oauthRedirect = new GCSBackupProvider("synthetic-test-bucket", account, async (_url, init) => {
+    calls++; assert.equal(init.redirect, "manual"); return new Response(null, { status: 302, headers: { location: "https://untrusted.invalid" } });
+  });
+  await assert.rejects(oauthRedirect.getObject(key), /^Error: BACKUP_GCS_AUTH_FAILED$/); assert.equal(calls, 1);
+  const objectRedirect = gcs(() => new Response(null, { status: 307, headers: { location: "https://untrusted.invalid" } })).provider;
+  await assert.rejects(objectRedirect.getObject(key), /^Error: BACKUP_GCS_REQUEST_FAILED$/);
+});
+test("GCS upload diagnostics allow only stable billing/denied/missing codes and discard provider details", async () => {
+  for (const [status, reason, expected] of [[403, "billingNotEnabled", "BILLING_REQUIRED"], [403, "forbidden", "DENIED"],
+    [404, "notFound", "BUCKET_UNAVAILABLE"], [500, "secret-provider-detail", "UPLOAD_FAILED"]]) {
+    const provider = gcs(() => Response.json({ error: { message: "PRIVATE-PROVIDER-DETAIL", errors: [{ reason }] } }, { status })).provider;
+    await assert.rejects(provider.putObject(key, bytes), error => error.message === (expected === "BUCKET_UNAVAILABLE" ? "BACKUP_GCS_BUCKET_UNAVAILABLE" : `BACKUP_GCS_UPLOAD_${expected.replace("UPLOAD_", "")}`));
+  }
+});
+test("read-only GCS readiness requires all object permissions without touching objects", async () => {
+  const required = ["storage.objects.create", "storage.objects.get", "storage.objects.list", "storage.objects.delete"];
+  for (const granted of [required, required.slice(0, 3)]) {
+    const { provider } = gcs((url, init) => {
+      assert.equal(init.method, "GET");
+      assert.ok(url.pathname.endsWith("/iam/testPermissions"));
+      assert.deepEqual(url.searchParams.getAll("permissions"), required);
+      return Response.json({ permissions: granted });
+    });
+    if (granted.length === required.length) await provider.verifyAccess();
+    else await assert.rejects(provider.verifyAccess(), /BACKUP_GCS_PERMISSIONS_MISSING/);
+  }
 });
 test("R2 conditional create, byte collision and immutable generation guard", async () => {
   let content = null, deletes = 0;

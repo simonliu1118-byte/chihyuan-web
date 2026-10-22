@@ -6,6 +6,7 @@ import { SettingsService, SettingsServiceError } from "../settings/settings-serv
 import { FieldValidationError } from "../validation/fields";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
 import { failure, success } from "./response";
+import { identitySnapshot } from "./module-access-routes";
 
 function integer(value: string | null, field: string, max = Number.MAX_SAFE_INTEGER): number | undefined {
   if (value == null || value === "") return undefined;
@@ -32,7 +33,16 @@ function auditQuery(url: URL): AuditQuery {
   }
   const entityKey = params.get("entityKey")?.trim();
   if (entityKey && entityKey.length > 160) throw new FieldValidationError({ entityKey: "最多 160 字元" });
-  return { entityType: codes.entityType, action: codes.action, entityKey: entityKey || undefined,
+  const types = (params.get("entityTypes") || "").split(",").map(s => s.trim()).filter(Boolean);
+  if (types.length > 20 || types.some(s => !/^[a-z][a-z0-9_.-]{0,63}$/.test(s))) throw new FieldValidationError({ entityTypes: "模組代碼無效" });
+  const q = params.get("q")?.trim() || undefined;
+  if (q && q.length > 100) throw new FieldValidationError({ q: "關鍵字最多 100 字" });
+  const cursor = params.get("cursor") || undefined;
+  if (cursor && (cursor.length > 256 || !/^[A-Za-z0-9_-]+$/.test(cursor))) throw new FieldValidationError({ cursor: "分頁游標無效" });
+  return { entityTypes: types, q, cursor,
+    includeErpQueries: params.get("includeErpQueries") === "true",
+    relatedCustomerId: integer(params.get("relatedCustomerId"), "relatedCustomerId"),
+    entityType: codes.entityType, action: codes.action, entityKey: entityKey || undefined,
     actorEmployeeId: integer(params.get("actorEmployeeId"), "actorEmployeeId"),
     occurredFrom: from, occurredTo: to, limit: integer(params.get("limit"), "limit", 200) };
 }
@@ -52,7 +62,30 @@ export async function handleSettingsAuditRoute(request: Request, env: IdentityRu
     if (!member.isActive) return failure({ code: "ACCESS_DENIED", message: "App member is inactive" }, requestId, 403);
     if (url.pathname === "/api/admin/audit") {
       if (request.method !== "GET") return failure({ code: "METHOD_NOT_ALLOWED", message: "唯讀入口" }, requestId, 405);
-      return success({ events: await new AuditService(env.DB).listDetailed(auditQuery(url)) }, requestId);
+      // One best-effort CYID name refresh per authorized Audit query; outages must not hide Audit records.
+      try {
+        const snapshot = await identitySnapshot(request, env);
+        if (snapshot.status === "ok") {
+          const people = snapshot.employees.filter((raw): raw is { employee_id: string; name: string } =>
+            !!raw && typeof raw === "object" && typeof (raw as { employee_id?: unknown }).employee_id === "string"
+            && typeof (raw as { name?: unknown }).name === "string" && (raw as { name: string }).name.trim().length > 0
+            && (raw as { name: string }).name.trim().length <= 120);
+          const existing = await env.DB.prepare("SELECT identity_employee_id, display_name FROM app_members")
+            .all<{ identity_employee_id: string; display_name: string | null }>();
+          const current = new Map((existing.results ?? []).map(m => [m.identity_employee_id, m.display_name]));
+          const updates = people.filter(p => current.has(p.employee_id) && current.get(p.employee_id) !== p.name.trim());
+          if (updates.length) await env.DB.batch(updates.map(p =>
+            env.DB.prepare("UPDATE app_members SET display_name=?1, updated_at=?2 WHERE identity_employee_id=?3 AND COALESCE(display_name,'') != ?1")
+              .bind(p.name.trim(), new Date().toISOString(), p.employee_id)));
+        }
+      } catch { /* Snapshot is optional enrichment. */ }
+      const audit = new AuditService(env.DB);
+      const query = auditQuery(url);
+      // Client flag can never elevate ADMIN or USER to query-visibility.
+      query.includeErpQueries = role === "SUPER_ADMIN" && query.includeErpQueries === true;
+      query.includeHrEvents = role === "SUPER_ADMIN";
+      const result = await audit.listDetailedPage(query);
+      return success({ ...result, actors: await audit.listActors() }, requestId);
     }
     const service = new SettingsService(env.DB);
     if (url.pathname === "/api/admin/settings" && request.method === "GET") return success(await service.snapshot(), requestId);

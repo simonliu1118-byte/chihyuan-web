@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveHistoryRange, HistoryRangeError, taipeiToday } from "../shared/erp-query-history.ts";
+import { resolveHistoryRange, resolveRestockRange, HistoryRangeError, taipeiToday } from "../shared/erp-query-history.ts";
 const day="2026-10-16";
 const ok=(input)=>resolveHistoryRange(input,day);
 const invalid=(input)=>assert.throws(()=>ok(input),error=>error instanceof HistoryRangeError);
@@ -35,4 +35,12 @@ test("future, reversed, >3yr and invalid calendar are rejected",()=>{
   invalid({includeHistory:true,historyFrom:"2026-01-01",historyTo:"2025-12-31"});
   invalid({includeHistory:true,historyFrom:"2026-02-30"});
   invalid({includeHistory:true,historyFrom:"26-01-01"});
+});
+
+test("進貨輔助 needs both dates, at most the given days, not after today", () => {
+  const today = "2026-10-20";
+  assert.deepEqual(resolveRestockRange("2026-10-12", "2026-10-20", 31, today), { from: "2026-10-12", to: "2026-10-20" });
+  assert.deepEqual(resolveRestockRange("2026-09-20", "2026-10-20", 31, today), { from: "2026-09-20", to: "2026-10-20" });
+  for (const [from, to] of [[null, "2026-10-20"], ["2026-10-12", ""], ["2026-09-19", "2026-10-20"], ["2026-10-20", "2026-10-19"], ["2026-10-20", "2026-10-21"], ["2026-02-30", "2026-03-01"]])
+    assert.throws(() => resolveRestockRange(from, to, 31, today), HistoryRangeError, `${from}～${to}`);
 });

@@ -46,9 +46,9 @@
   max-height: 320px;
   overflow-y: auto;
   border: 1px solid var(--cy-border-strong);
-  border-radius: 11px;
+  border-radius: var(--cy-radius-lg);
   background: var(--cy-surface);
-  box-shadow: 0 14px 34px rgba(25, 35, 45, 0.14);
+  box-shadow: var(--cy-shadow-lg);
 }
 
 .cy-entity-picker-option {
@@ -72,22 +72,22 @@
 
 .cy-entity-picker-option-label {
   color: var(--cy-text);
-  font-size: 14px;
-  font-weight: 750;
+  font-size: var(--cy-fs-md);
+  font-weight: 600;
   line-height: 1.4;
 }
 
 .cy-entity-picker-option-description {
   margin-top: 3px;
   color: var(--cy-text-muted);
-  font-size: 12px;
+  font-size: var(--cy-fs-sm);
   line-height: 1.45;
 }
 
 .cy-entity-picker-message {
   padding: 12px;
   color: var(--cy-text-muted);
-  font-size: 13px;
+  font-size: var(--cy-fs-sm);
   line-height: 1.5;
 }
 

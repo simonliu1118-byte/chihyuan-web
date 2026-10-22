@@ -8,12 +8,22 @@ on:
       - "worker/**"
       - "migrations/**"
       - "scripts/render-deploy-config.mjs"
+      - "scripts/provision-backup-recovery.mjs"
+      - "scripts/provision-backup-recovery.test.mjs"
       - "scripts/resolve-production-identity.mjs"
       - "scripts/audit-account-portal.mjs"
       - "scripts/audit-account-portal.test.mjs"
       - "scripts/render-backup-secrets.mjs"
+      - "scripts/audit-backup-configuration.mjs"
+      - "scripts/backup-configuration.test.mjs"
+      - "scripts/backup-provider-worker.test.mjs"
       - "scripts/validate-deploy-config.mjs"
       - "scripts/verify-deployed-health.mjs"
+      - "scripts/verify-deployment-source.mjs"
+      - "scripts/deployment-source.test.mjs"
+      - "scripts/verify-secure-entry.mjs"
+      - "scripts/secure-entry.test.mjs"
+      - "scripts/secure-deployment.test.mjs"
       - "scripts/verify-program-catalog-schedule.mjs"
       - "scripts/program-schedule-deployment.test.mjs"
       - "scripts/test-deployed-health.mjs"
@@ -26,6 +36,7 @@ on:
       - "scripts/sync-cyid-consumer-contract.sh"
       - "docs/contracts/cyid/**"
       - ".github/workflows/development-deploy.yml"
+      - ".github/workflows/backup-configuration-audit.yml"
   push:
     branches:
       - deploy/cyweb-development
@@ -35,20 +46,19 @@ on:
       operation:
         description: Existing development deploy or read-only account portal audit
         type: choice
-        options: [deploy-development, audit-identity]
+        options: [deploy-development, audit-identity, audit-backup]
         default: deploy-development
 
 permissions:
   contents: read
 
-concurrency:
-  group: cyweb-development-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   validate-deployment-contract:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    concurrency:
+      group: cyweb-validate-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: true
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -67,7 +77,14 @@ jobs:
       - name: Validate deployment template contract
         run: |
           node scripts/validate-deploy-config.mjs
-          node --test scripts/test-deployed-health.mjs scripts/program-schedule-deployment.test.mjs
+          node --test scripts/provision-backup-recovery.test.mjs
+          node --test scripts/test-deployed-health.mjs scripts/program-schedule-deployment.test.mjs scripts/deployment-source.test.mjs
+
+      - name: Test HTTPS entry and deployed transport checks
+        run: node --test scripts/secure-entry.test.mjs scripts/secure-deployment.test.mjs
+
+      - name: Test read-only backup configuration audit
+        run: node --test scripts/backup-providers.test.mjs scripts/backup-provider-worker.test.mjs scripts/backup-configuration.test.mjs
 
       - name: Checkout canonical CYID production guard
         uses: actions/checkout@v4
@@ -114,11 +131,14 @@ jobs:
         run: rm -f wrangler.ci.generated.jsonc
 
   deploy-development:
-    if: (github.event_name == 'workflow_dispatch' && inputs.operation == 'deploy-development') || (github.event_name == 'push' && github.ref == 'refs/heads/deploy/cyweb-development')
+    if: (github.event_name == 'workflow_dispatch' && inputs.operation == 'deploy-development' && github.ref == 'refs/heads/main') || (github.event_name == 'push' && github.ref == 'refs/heads/deploy/cyweb-development')
     needs: validate-deployment-contract
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: development
+    concurrency:
+      group: cyweb-production
+      cancel-in-progress: false
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -131,14 +151,18 @@ jobs:
       CYID_LOOKUP_SERVICE: ${{ vars.CF_IDENTITY_SERVICE }}
       CF_IDENTITY_APPLICATION_ID: ${{ vars.CF_IDENTITY_APPLICATION_ID }}
       CF_IDENTITY_WORKSPACE_ID: ${{ vars.CF_IDENTITY_WORKSPACE_ID }}
+      CF_CYINVOICE_RECOVERY_SERVICE: ${{ vars.CF_CYINVOICE_RECOVERY_SERVICE }}
       CF_BACKUP_ENABLED: ${{ vars.CF_BACKUP_ENABLED }}
       CF_BACKUP_SCHEDULE_ENABLED: ${{ vars.CF_BACKUP_SCHEDULE_ENABLED }}
       CF_BACKUP_R2_BUCKET: ${{ vars.CF_BACKUP_R2_BUCKET }}
+      CF_HR_FILES_R2_BUCKET: ${{ vars.CF_HR_FILES_R2_BUCKET }}
       GCS_BUCKET: ${{ vars.GCS_BUCKET }}
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -177,13 +201,20 @@ jobs:
       - name: Resolve canonical production Identity without changing business D1
         run: node scripts/resolve-production-identity.mjs
 
-      - name: Render existing Worker deployment config
-        run: node scripts/render-deploy-config.mjs --output wrangler.development.generated.jsonc
-
       - name: Validate and prepare protected backup credential
         env:
           GCS_SERVICE_ACCOUNT_JSON: ${{ secrets.GCS_SERVICE_ACCOUNT_JSON }}
+          CF_USAGE_API_TOKEN: ${{ secrets.CF_USAGE_API_TOKEN }}
         run: node scripts/render-backup-secrets.mjs --output "$RUNNER_TEMP/cyweb-backup-secrets.json"
+
+      - name: Verify current reviewed main before remote changes
+        run: node scripts/verify-deployment-source.mjs
+
+      - name: Prepare fixed isolated recovery target without overwriting data
+        run: node scripts/provision-backup-recovery.mjs
+
+      - name: Render existing Worker deployment config
+        run: node scripts/render-deploy-config.mjs --output wrangler.development.generated.jsonc
 
       - name: Apply development D1 migrations
         run: npx wrangler d1 migrations apply DB --remote --config wrangler.development.generated.jsonc
@@ -221,6 +252,11 @@ jobs:
         env:
           CYWEB_WORKER_URL: ${{ steps.deploy.outputs.worker_url }}
         run: node scripts/verify-deployed-health.mjs
+
+      - name: Verify HTTPS entry and static asset transport
+        env:
+          CYWEB_WORKER_URL: ${{ steps.deploy.outputs.worker_url }}
+        run: node scripts/verify-secure-entry.mjs
 
       - name: Accept canonical Custom Domain
         shell: bash
@@ -328,6 +364,9 @@ jobs:
     needs: validate-deployment-contract
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    concurrency:
+      group: cyweb-identity-audit-${{ github.ref }}
+      cancel-in-progress: true
     environment: development
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -350,3 +389,33 @@ jobs:
           persist-credentials: false
       - name: Read-only account portal and production authority audit
         run: node scripts/audit-account-portal.mjs
+
+  backup-audit-inputs:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.operation == 'audit-backup'
+    runs-on: ubuntu-latest
+    environment: development
+    outputs:
+      gcs-bucket: ${{ vars.GCS_BUCKET }}
+      r2-bucket: ${{ vars.CF_BACKUP_R2_BUCKET }}
+      backup-enabled: ${{ vars.CF_BACKUP_ENABLED }}
+      schedule-enabled: ${{ vars.CF_BACKUP_SCHEDULE_ENABLED }}
+    steps:
+      - run: echo "Protected configuration context resolved without logging values."
+      - name: Check credential binding location without reading its value
+        env:
+          CREDENTIAL_PRESENT: ${{ secrets.GCS_SERVICE_ACCOUNT_JSON != '' }}
+          CREDENTIAL_IN_VARIABLES: ${{ vars.GCS_SERVICE_ACCOUNT_JSON != '' }}
+        run: |
+          node -e 'console.log(JSON.stringify({directCredentialPresent:process.env.CREDENTIAL_PRESENT==="true",credentialMisplacedInVariables:process.env.CREDENTIAL_IN_VARIABLES==="true"}))'
+
+  audit-backup:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.operation == 'audit-backup'
+    needs: [validate-deployment-contract, backup-audit-inputs]
+    uses: ./.github/workflows/backup-configuration-audit.yml
+    secrets:
+      GCS_SERVICE_ACCOUNT_JSON: ${{ secrets.GCS_SERVICE_ACCOUNT_JSON }}
+      GCS_BUCKET: ${{ needs.backup-audit-inputs.outputs.gcs-bucket }}
+      CF_BACKUP_R2_BUCKET: ${{ needs.backup-audit-inputs.outputs.r2-bucket }}
+    with:
+      backup-enabled: ${{ needs.backup-audit-inputs.outputs.backup-enabled }}
+      schedule-enabled: ${{ needs.backup-audit-inputs.outputs.schedule-enabled }}

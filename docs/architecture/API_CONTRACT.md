@@ -146,7 +146,12 @@ Endpoints:
 | GET | `/api/module-access` | any authenticated CY Web Employee | return current effective business modules; Super Admin receives implicit all |
 | GET | `/api/module-access/check/:moduleCode` | authenticated + requested module grant | authoritative module-entry check; returns 403 `ACCESS_DENIED` when absent |
 | GET | `/api/module-access/admin` | Identity Admin / Super Admin | return direct Employee × Module grants for account-management UI |
-| PUT | `/api/module-access/admin/employees/:employeeId/modules/:moduleCode` | Identity Admin / Super Admin | enable/disable one direct Module Access grant |
+| PUT | `/api/module-access/admin/employees/:employeeId/modules/:moduleCode` | Identity Admin / Super Admin | enable/disable one direct Module Access grant; 409 `MODULE_ACCESS_GROUP_MANAGED` for a group member |
+| PUT | `/api/module-access/admin/employees/:employeeId/group` | Identity Admin / Super Admin | `{ groupId: number \| null }`: join one 權限群組 (its systems and modules replace the person's) or leave (current access kept); returns `applicationSyncFailed` |
+| POST | `/api/module-access/admin/groups` | Identity Admin / Super Admin | create a group `{ name, modules, applications }` (201; `MODULE_ACCESS_GROUP_NAME_TAKEN`; the core application is refused) |
+| PATCH | `/api/module-access/admin/groups/:groupId` | Identity Admin / Super Admin | `{ name, modules, applications, expectedRevision }`; materializes every member's grants and syncs CYID system access (`MODULE_ACCESS_GROUP_REVISION_CONFLICT` on a stale revision); returns `applicationSyncFailed` |
+| DELETE | `/api/module-access/admin/groups/:groupId` | Identity Admin / Super Admin | `{ expectedRevision }`; members leave the group and keep their current access |
+| POST | `/api/module-access/admin/groups/:groupId/sync` | Identity Admin / Super Admin | re-apply the group's systems in CYID for every member; returns `applicationSyncFailed` |
 
 Mutation rules:
 
@@ -157,6 +162,8 @@ Mutation rules:
 - grant mutation and CY Web audit event are written in one D1 batch;
 - changes affect subsequent module checks immediately and do not require re-login;
 - browser navigation filtering is convenience only; protected Worker/business routes must call the server-side Module Access guard before reading or mutating protected data.
+
+The admin snapshot also returns `groups` (`id, name, modules, applications, revision, memberCount`) and `memberships` (`employee_id, group_id`). 權限群組 (BD-057) is administration state only: group writes update the members' `app_member_module_access` rows in the same batch, so the runtime checks above are unchanged. System access stays in CYID: the Worker syncs it after the D1 write (`applicationSyncFailed` lists members CYID did not update), and `PUT /api/identity/admin/employees/:id/applications/:applicationId` answers 409 `MODULE_ACCESS_GROUP_MANAGED` to an access admin for a group member.
 
 `app_tags / app_tag_modules / app_member_tags` are not forward authorization sources. The authoritative store is `app_member_module_access`.
 
@@ -189,11 +196,13 @@ Every route below resolves the current CYID session and requires the matching **
 | GET | `/api/business/items/:itemId/number-history` | Item number history |
 | POST | `/api/business/items/:itemId/number` | controlled Item number change |
 
+Workflow lists (Defect, Sales Work Order, Outsourcing order, WorkLog) return optional `statusCounts` on a request without `cursor`: an object of status code → record count for the same filters and authority scope, ignoring only the status filter. Statuses with no records are omitted. Later pages never repeat it, so the counts stay those of the query that started the list.
+
 ### Defect — `DEFECTS`
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/api/business/defects` | bounded search/list |
+| GET | `/api/business/defects` | bounded search/list; first page adds `statusCounts` |
 | GET | `/api/business/defects/lookups` | bounded Customer / Item / owner picker data under DEFECTS authority |
 | POST | `/api/business/defects` | create Defect report |
 | GET | `/api/business/defects/:defectId` | detail |
@@ -230,7 +239,7 @@ Every route below resolves the current CYID session and requires the matching cu
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/api/business/orders` | bounded search/list |
+| GET | `/api/business/orders` | bounded search/list; first page adds `statusCounts` |
 | POST | `/api/business/orders` | create draft order |
 | GET | `/api/business/orders/:orderId` | detail |
 | PATCH | `/api/business/orders/:orderId` | revision-gated draft update |
@@ -275,7 +284,7 @@ Outsourcing order:
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/api/business/outsourcing/orders` | bounded search/list |
+| GET | `/api/business/outsourcing/orders` | bounded search/list; first page adds `statusCounts` |
 | POST | `/api/business/outsourcing/orders` | create pending order |
 | GET | `/api/business/outsourcing/orders/:orderId` | detail |
 | PATCH | `/api/business/outsourcing/orders/:orderId` | update pending order |
@@ -294,7 +303,7 @@ Outsourcing order:
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/api/business/worklogs` | bounded search/list; ordinary users are scoped to self |
+| GET | `/api/business/worklogs` | bounded search/list; ordinary users are scoped to self; first page adds `statusCounts` |
 | POST | `/api/business/worklogs` | create own WorkLog |
 | GET | `/api/business/worklogs/:workLogId` | detail under current access context |
 | PATCH | `/api/business/worklogs/:workLogId` | update own created WorkLog |
@@ -368,6 +377,7 @@ Customer lifecycle in D1 uses `customer_status_id`. The temporary localStorage-o
 | DELETE | `/api/business/customers/:customerId/frequent-items/:frequentItemId` | updated-at-gated delete |
 | GET | `/api/business/customers/:customerId/quotes` | bounded quote history |
 | POST | `/api/business/customers/:customerId/quotes` | create quote |
+| POST | `/api/business/customers/:customerId/quotes/batch` | atomic multi-item quote creation |
 | GET | `/api/business/customers/:customerId/quotes/:quoteId` | quote detail |
 | POST | `/api/business/customers/:customerId/quotes/:quoteId/correct` | correction preserving quote history |
 
@@ -578,4 +588,63 @@ Recovery rehearsal remains an internal operator/test primitive. It validates sel
 
 Release lookup failures may include optional `refreshFailure` with an allowlisted code and HTTP status only. It never contains external response bodies, exception text, headers or credentials. This diagnostic is authenticated with the same route; it does not change the confirmed-snapshot UI or claim that refresh succeeded.
 
-The program reader retains the shared D1 catalog during failures, with `current=false` and the original verification time. Only the daily 03:00 Asia/Taipei scheduled producer queries GitHub; a durable daily claim prevents duplicate batches across Worker isolates and failed days are not retried. The next scheduled day can update the catalog. Newly listed source-owned programs use their verified source snapshot when absent from older shared results; existing release fields remain intact and `automaticUpdate.status="pending"` until the complete list is checked by a daily run. Names, descriptions and icons always come from current source. The ERP auto-input family accepts only `cyerp-auto-input-vX.Y.Z` and `CYERPAutoInput_VX.Y.Z.zip`; OCR model releases are not product releases.
+The program reader retains the shared D1 catalog during failures, with `current=false` and the original verification time. Only the daily 03:00 Asia/Taipei scheduled producer queries GitHub; a durable daily claim prevents duplicate batches across Worker isolates and failed days are not retried. The next scheduled day can update the catalog. Newly listed source-owned programs use their verified source snapshot when absent from older shared results; existing release fields remain intact and `automaticUpdate.status="pending"` until the complete list is checked by a daily run. Names, descriptions and icons always come from current source. The ERP auto-input family accepts only `cyerp-auto-input-vX.Y.Z` and `CYERPAutoInput_VX.Y.Z.zip`; OCR model releases are not product releases. The ERP auto-query family accepts only `cyerp-auto-query-vX.Y.Z` and `CYERPAutoQuery_VX.Y.Z.zip`. A listed program whose verified source snapshot has no formal version stays pending (no download link, no `MISSING` failure) until its first matching release appears; a program that already has a verified version still fails as `MISSING` if its release disappears.
+
+
+### WO-0.9.13 Change log (Admin only)
+
+- `GET /api/admin/audit` keeps existing filters `entityType`, `entityKey`, `action`, `actorEmployeeId`, `occurredFrom`, `occurredTo`, `limit`; adds `entityTypes` (comma separated), `q` (searches entity key and before/after JSON names), `cursor` (opaque descending timestamp/id pagination) and `relatedCustomerId` (strictly scopes customer record and attributable related events). All filtering occurs server-side.
+- Response `{ events: AuditEvent[], nextCursor: string|null, actors: { id, employeeNo, displayName }[] }`; each event adds `actor:{ id,employeeNo,displayName }|null`. UI never uses actor numeric ID as a label. `limit` maximum 200; exact actor, entity and date filters still supported.
+- Admin or Super Admin only; USER remains 403. Each authorized audit read may refresh existing `app_members.display_name` from the caller's CYID snapshot; failure to retrieve snapshot is non-fatal. No CYID mutation, and no change to audit event writes or schema.
+- Human-readable frontend view uses `change-log-labels.ts`; raw technical JSON is visible in the UI only to SUPER_ADMIN.
+
+### Customer Quote Batch V0.9.14
+
+`POST /api/business/customers/:customerId/quotes/batch` accepts `{ quoteDate: "YYYY-MM-DD", note?: string, lines: [{ itemId, quantity, unit, unitPrice, note? }] }` (1–100 lines). Quantities and prices are canonical four-decimal strings; unit must be present. All rows are validated against active Items and the existing quote rules before writing. Rows are grouped by Item: one customer quote per Item, with multiple quantity/price breaks when the same Item occurs more than once (up to 10 breaks per Item). All quote rows, price breaks and one `customer_item_quote / created` audit per quote (metadata includes `customerId`) are written in **one D1 batch**, atomically; on any validation or database error no partial success is returned. The response contains the created quote details. The pre-existing single-create and correction APIs remain supported.
+
+`GET /api/business/customers/:customerId/quotes` includes `priceBreaks` for each summary row (quantity, unit, unitPrice, note, sortOrder) so the UI can group by quote date and render every price tier.
+
+### Item-scoped quote history summary (V0.9.15)
+
+`GET /api/business/customers/item-quote-summary?itemId=<positive item id>` requires the existing **CUSTOMERS** module grant. The Item page must not call this endpoint without that grant. Returns:
+
+```ts
+{ customerCount: number; groups: Array<{
+  unit: string;
+  breaks: Array<{ quantity: number; unitPrice: number }>;
+  latestQuoteDate: string;
+  customers: Array<{
+    customerId: number; customerNo: string | null; shortName: string;
+    quoteDate: string; quoteId: number;
+  }>;
+}> }
+```
+
+Each customer's latest quote for the Item is selected by `quote_date DESC, id DESC`. All price tiers (unit, exact scaled quantity, exact scaled unit price) are sorted and compared as a complete schedule: only exactly identical schedules are grouped, without comparing or converting prices across units. Each group sorts customers by latest quote date (and quote ID) descending, groups by latest date descending. This is read-only; no quote correction, ERP quote number, migration or total calculation is added.
+
+
+## WO-0.9.16 — ERP 查詢稽核顯示
+
+異動紀錄查詢接受選填 `includeErpQueries`，預設 `false`，不回傳 `entity_type = 'erp_item_query'`。僅 `SUPER_ADMIN` 可要求 `true`；其他角色傳入 `true` 仍視為 `false`。啟用後 ERP 查詢僅顯示完成／失敗／逾時事件，不顯示送出（`created`）事件。`erp_item_agent.*` 管理事件維持顯示；此篩選不修改稽核資料寫入或資料表。
+
+
+## WO-0.9.20 人事模組第一期 API
+
+僅限已驗證的 CYID `SUPER_ADMIN`，所有 `/api/business/hr/*` 路徑不參與模組授權。提供員工主檔／子表、狀態異動、年資不計期間、薪資異動、週年制特休年度查詢、可綁定使用者、津貼類型與最低工資設定；完整方法／路徑／隱私契約詳見 [HR_MODULE_CONTRACT.md](HR_MODULE_CONTRACT.md)。一般員工 GET 只回遮罩證號；完整證號須額外 POST reveal 並寫稽核，稽核不記原文。非超管不得檢視人事事件。
+
+
+## WO-0.9.21 — Cloudflare D1 帳號用量（只讀）
+
+`GET /api/business/usage/d1?days=7`：只允許 CYID `SUPER_ADMIN`；未登入 401、其他角色 403。days 僅接受 1–31，預設 7；超出回 422 `USAGE_INVALID_DAYS`。
+
+回傳既有 `{ ok, data, requestId }` envelope；`data` 包含 `fetchedAt`、`limits`、`today {date,rowsRead,rowsWritten,level,databases[]}` 及 `days[]`。每日日期為 UTC，台灣時間 08:00 重置；資料庫依今日讀取量排序，資料庫 UUID 無名稱時只顯示前八碼；每日無資料補零。
+
+Worker 以 `CF_ACCOUNT_ID`（var）及 `CF_USAGE_API_TOKEN`（secret）只讀呼叫 Cloudflare GraphQL Analytics 及帳號 D1 database list，不進 D1；每個 days 組合於 Cache API 快取十分鐘。缺乏設定 503 `USAGE_NOT_CONFIGURED`；上游失敗、逾時 503 `USAGE_UNAVAILABLE`，不回傳 token 或上游內文。前端只有超管可載入及查看，不存歷史、不寄通知。
+
+GraphQL 結構以 [Cloudflare 官方 D1 Metrics and Analytics](https://developers.cloudflare.com/d1/observability/metrics-analytics/) 為準：`d1AnalyticsAdaptiveGroups`、`sum.rowsRead`、`sum.rowsWritten`、`sum.readQueries`、`sum.writeQueries`，`dimensions.date`、`dimensions.databaseId`。
+
+## WO-0.9.24 — 人事第二期 2a API
+僅限 CYID `SUPER_ADMIN`，不經模組授權。新增門市／職稱／班別／國定假日維護、`GET/PUT /api/business/hr/rosters/:storeId/:month`、`PATCH .../staff`、`GET/PUT /api/business/hr/employees/:id/attendance?month=`、`GET /api/business/hr/attendance/anomalies?storeId=&month=`。一般回應沿用 `{ok,data,requestId}`，違規或待核准 409，`error.code` 為 `HR_ROSTER_VIOLATION`／`HR_ROSTER_CONSECUTIVE` 並含 `error.items[]`。核准重送 `approve:[{employeeId,kind,startDate,endDate}]`。所有儲存與稽核同批交易；無薪資、請假、加班計算或員工自助入口。詳見 [HR_MODULE_CONTRACT.md](HR_MODULE_CONTRACT.md)。
+
+## WO-0.9.25 人事第二期 2b
+全部須 CYID SUPER_ADMIN。GET /api/business/hr/leave/summary?year=&storeId=；GET /api/business/hr/employees/:id/leave?year=；POST /api/business/hr/leave-requests；POST /api/business/hr/leave-requests/:batchId/cancel；POST /api/business/hr/leave-requests/:batchId/attachments；GET /api/business/hr/leave-attachments/:id；GET/POST/PATCH /api/business/hr/settings/leave-types；PATCH /api/business/hr/annual-leave-years/:id/notice；POST /api/business/hr/employees/:id/comp-time；POST /api/business/hr/comp-time/:kind/:id/extend；POST /api/business/hr/comp-time/overtime/:id/settle。補休不足 409 HR_COMP_INSUFFICIENT、假額不足 409 HR_LEAVE_QUOTA、已有正式假單擋 409 HR_LEAVE_FORM_EXISTS。R2 缺少綁定 503 HR_FILES_UNAVAILABLE。詳見 HR_MODULE_CONTRACT.md。

@@ -1,4 +1,4 @@
-import type { ErpReceivableBill, ErpSalesOrder } from "./erp-item-query";
+import type { ErpPurchaseOrder, ErpReceivableBill, ErpSalesOrder } from "./erp-item-query";
 
 /**
  * 銷退單 ↔ 原銷貨單 presentation (user 2026-10-17: the Agent only passes ERP's data, CY Web links
@@ -12,25 +12,29 @@ export function sourceOrderNo(lineRef: string): string | null {
   return parts.length >= 3 ? parts.slice(0, -1).join("-") : value;
 }
 
-export function sourcesOf(order: ErpSalesOrder): string[] {
+/** A 銷貨單／銷退單 or 進貨單／退貨單: the shape the links need. */
+interface LinkedOrder { kind: string; orderNo: string; date: string; lines: readonly { sourceOrder: string }[] }
+
+export function sourcesOf(order: LinkedOrder): string[] {
   return [...new Set(order.lines.map(line => sourceOrderNo(line.sourceOrder)).filter((no): no is string => !!no))];
 }
 
-const newest = (a: ErpSalesOrder, b: ErpSalesOrder) =>
+const newest = (a: LinkedOrder, b: LinkedOrder) =>
   b.date.localeCompare(a.date) || b.orderNo.localeCompare(a.orderNo);
 
-/** One shown order; `under` is the 銷貨單 a 銷退單 sits under, `related` the other side of each link. */
-export interface SalesEntry { order: ErpSalesOrder; under: string | null; related: { orderNo: string; inList: boolean }[] }
+/** One shown order; `under` is the order a return sits under, `related` the other side of each link. */
+export interface LinkedEntry<T extends LinkedOrder> { order: T; under: string | null; related: { orderNo: string; inList: boolean }[] }
+export type SalesEntry = LinkedEntry<ErpSalesOrder>;
 
-/** 銷貨單 newest first, each followed by the 銷退單 that name it; unlinked 銷退單 by their own date. */
-export function arrangeSales(orders: readonly ErpSalesOrder[]): SalesEntry[] {
-  const sales = new Map(orders.filter(o => o.kind === "銷貨").map(o => [o.orderNo, o]));
-  const returns = orders.filter(o => o.kind === "銷退");
+/** Orders of `main` kind newest first, each followed by the returns that name it; unlinked returns by their own date. */
+function arrangeLinked<T extends LinkedOrder>(orders: readonly T[], main: string, ret: string): LinkedEntry<T>[] {
+  const sales = new Map(orders.filter(o => o.kind === main).map(o => [o.orderNo, o]));
+  const returns = orders.filter(o => o.kind === ret);
   const under = new Map(returns.map(r => [r.orderNo,
-    sourcesOf(r).map(no => sales.get(no)).filter((o): o is ErpSalesOrder => !!o).sort(newest)[0]?.orderNo ?? null]));
-  const entries: SalesEntry[] = [];
-  for (const order of [...orders].filter(o => o.kind === "銷貨" || !under.get(o.orderNo)).sort(newest)) {
-    if (order.kind === "銷貨") {
+    sourcesOf(r).map(no => sales.get(no)).filter((o): o is T => !!o).sort(newest)[0]?.orderNo ?? null]));
+  const entries: LinkedEntry<T>[] = [];
+  for (const order of [...orders].filter(o => o.kind === main || !under.get(o.orderNo)).sort(newest)) {
+    if (order.kind === main) {
       const linked = returns.filter(r => sourcesOf(r).includes(order.orderNo)).sort(newest);
       entries.push({ order, under: null, related: linked.map(r => ({ orderNo: r.orderNo, inList: true })) });
       for (const r of linked.filter(r => under.get(r.orderNo) === order.orderNo))
@@ -39,6 +43,11 @@ export function arrangeSales(orders: readonly ErpSalesOrder[]): SalesEntry[] {
   }
   return entries;
 }
+
+/** 銷貨單 newest first, each followed by the 銷退單 that name it; unlinked 銷退單 by their own date. */
+export const arrangeSales = (orders: readonly ErpSalesOrder[]) => arrangeLinked(orders, "銷貨", "銷退");
+/** 進貨單 and 退貨單 the same way (user 2026-10-18: 有進貨就有退貨; a 退貨 line names its 原進貨單). */
+export const arrangePurchases = (orders: readonly ErpPurchaseOrder[]) => arrangeLinked(orders, "進貨", "退貨");
 
 /** ERP number text → number for CY Web's own sums (display only, never written back). */
 export function erpNumber(text: string): number {

@@ -17,7 +17,8 @@ def read(path: str) -> str:
 
 
 def main() -> int:
-    page = read("src/runtime/modules/DefectOperationalPage.tsx")
+    # The create/edit form is shared with the item page (WO-0.9.15), so the page and its form are checked together.
+    page = read("src/runtime/modules/DefectOperationalPage.tsx") + read("src/runtime/modules/defect/DefectForm.tsx")
     client = read("src/runtime/api/defect-runtime-client.ts")
     routes = read("worker/http/business-api-routes.ts")
     lookups = read("worker/reference/business-lookup-service.ts")

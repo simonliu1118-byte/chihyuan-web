@@ -211,6 +211,12 @@ async function handleCustomers(
     return success(await lookups.customerItemOptions(q, limit), requestId);
   }
 
+  if (request.method === "GET" && url.pathname === "/api/business/customers/item-quote-summary") {
+    const itemId = positiveInteger(url.searchParams.get("itemId"), "itemId");
+    if (!itemId) throw new FieldValidationError({ itemId: "必須指定商品" });
+    return success(await related.itemQuoteSummary(itemId), requestId);
+  }
+
   if (request.method === "GET" && url.pathname === "/api/business/customers/tax-id-check") {
     const taxId = url.searchParams.get("taxId");
     const exclude = positiveInteger(url.searchParams.get("excludeCustomerId"), "excludeCustomerId") ?? null;
@@ -274,6 +280,12 @@ async function handleCustomers(
       await related.deleteFrequentItem(customerId, frequentItemId, await jsonBody(request));
       return success({ deleted: true, customerId, frequentItemId }, requestId);
     }
+  }
+
+  match = /^\/api\/business\/customers\/(\d+)\/quotes\/batch$/.exec(url.pathname);
+  if (match && request.method === "POST") {
+    const customerId = routeId(match[1], "customerId");
+    return success(await related.createQuoteBatch(customerId, await jsonBody(request), context), requestId, { status: 201 });
   }
 
   match = /^\/api\/business\/customers\/(\d+)\/quotes$/.exec(url.pathname);

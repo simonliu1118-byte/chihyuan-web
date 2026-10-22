@@ -22,7 +22,7 @@ def schema() -> str:
 
 def check_sources() -> None:
     shared = read("shared/contractor-outsourcing.ts")
-    unit = read("worker/item/unit-conversion.ts")
+    unit = read("shared/unit-conversion.ts")
     contractor = read("worker/contractor/contractor-service.ts")
     bom = read("worker/bom/bom-service.ts")
     outsourcing = read("worker/outsourcing/outsourcing-service.ts")

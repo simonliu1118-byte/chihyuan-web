@@ -1,5 +1,7 @@
+import { StatusChip } from "../../ui/primitives/StatusChip";
 import { useEffect, useState } from "react";
 import { Dialog } from "../../ui/overlays/Dialog";
+import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { ApiClientError } from "../../api/client";
 import type { ErpAgentStatus } from "../../../shared/erp-item-query";
 import {
@@ -23,6 +25,7 @@ export function ErpAgentCredentialControl({ isSuperAdmin }: { isSuperAdmin: bool
   const [newToken, setNewToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirm, confirmationDialog } = useConfirmation();
 
   useEffect(() => {
     let cancelled = false;
@@ -51,9 +54,9 @@ export function ErpAgentCredentialControl({ isSuperAdmin }: { isSuperAdmin: bool
 
   async function manageCredential(operation: "issue" | "revoke") {
     if (busy) return;
-    if (!window.confirm(operation === "issue"
-      ? "產生新憑證會使舊憑證立即失效，確定繼續？"
-      : "撤銷後公司查詢程式將無法再連線，確定撤銷？")) return;
+    if (!(await confirm(operation === "issue"
+      ? { title: "產生新憑證", description: "產生新憑證後，舊憑證會立即失效。", confirmLabel: "產生新憑證", confirmTone: "danger" }
+      : { title: "撤銷憑證", description: "撤銷後公司的 ERP 查詢程式將無法再連線。", confirmLabel: "撤銷", confirmTone: "danger" }))) return;
     setBusy(true);
     setError(null);
     setNewToken(null);
@@ -80,25 +83,24 @@ export function ErpAgentCredentialControl({ isSuperAdmin }: { isSuperAdmin: bool
 
   const connected = !agentError && agent?.online === true;
   const label = agentError ? "狀態未知" : connected ? "已連線" : "未連線";
-  const stateClass = connected ? "is-online" : "is-offline";
+  const tone = agentError ? "neutral" : connected ? "success" : "danger";
   return <>
+    {confirmationDialog}
     {isSuperAdmin
-      ? <button type="button" className={"cy-op-button cy-erp-status-button " + stateClass}
+      ? <button type="button" className="cy-op-button compact"
           aria-label={"連線憑證：" + label} title="連線憑證" onClick={() => setOpen(true)}>
-          {label}
+          <span className="cy-status-dot" data-tone={tone} aria-hidden="true" />{label}
         </button>
-      : <span className={"cy-erp-status-readonly " + stateClass} role="status">
-          查詢程式 · {label}
-        </span>}
+      : <StatusChip tone={tone}>查詢程式 · {label}</StatusChip>}
     {isSuperAdmin && <Dialog open={open} title={"公司查詢程式連線憑證 · " + label}
       size="medium" onClose={close} dismissible={!busy}>
       <p>只有超級管理員能產生或撤銷憑證。每次產生的原文只顯示一次，請立即複製到公司電腦的安全設定。</p>
       <p>目前憑證：{credential === null ? "讀取中或無法取得"
         : credential.configured ? "已啟用" : "尚未設定或已撤銷"}</p>
       <div className="cy-op-page-actions">
-        <button type="button" className="cy-op-button" disabled={busy}
+        <button type="button" className="cy-op-button" disabled={busy} aria-busy={busy || undefined}
           onClick={() => void manageCredential("issue")}>
-          {busy ? "處理中…" : "產生／更換憑證"}
+          產生／更換憑證
         </button>
         <button type="button" className="cy-op-button danger" disabled={busy || !credential?.configured}
           onClick={() => void manageCredential("revoke")}>撤銷憑證</button>
@@ -111,7 +113,7 @@ export function ErpAgentCredentialControl({ isSuperAdmin }: { isSuperAdmin: bool
             .catch(() => setError("無法自動複製，請手動選取憑證。"))}>複製憑證</button>
         <button type="button" className="cy-op-button" onClick={() => setNewToken(null)}>已保存，隱藏憑證</button>
       </div>}
-      {error && <p className="cy-erp-error" role="alert">{error}</p>}
+      {error && <p className="cy-notice cy-notice-danger" role="alert">{error}</p>}
     </Dialog>}
   </>;
 }

@@ -77,6 +77,7 @@ CY Web reuses the shared Identity authority. It does not recreate passwords, PIN
 | `id` | INTEGER PK | no | local immutable key |
 | `identity_employee_id` | TEXT | no | UNIQUE shared Identity subject |
 | `employee_no` | TEXT | yes | optional company reference |
+| `display_name` | TEXT | yes | 1–120 字元；CYID 姓名唯讀快取，權威仍為 CYID；不得以本地欄位更改身分 |
 | `is_active` | INTEGER bool | no | default 1 |
 | `created_at` | TEXT utc_ts | no | |
 | `updated_at` | TEXT utc_ts | no | |
@@ -96,6 +97,26 @@ Direct CY Web-local Employee × Module authority.
 Primary key `(member_id, module_code)`.
 
 Current fixed business module codes are `CUSTOMERS / ITEMS / DEFECTS / ORDERS / OUTSOURCING / WORKLOGS`. Super Admin does not require stored rows; all modules are implicit/locked TRUE.
+
+### `module_access_groups` / `module_access_group_modules` / `module_access_group_applications` / `app_member_module_groups`
+
+權限群組 (BD-057, migration 0015). Administration state; module grants are materialized into `app_member_module_access`, system access is synced to CYID.
+
+| Table | Column | Type | Null | Rule |
+| --- | --- | --- | --- | --- |
+| `module_access_groups` | `id` | INTEGER PK | no | |
+| | `name` | TEXT UNIQUE | no | 1–60 characters |
+| | `revision` | INTEGER | no | optimistic concurrency, starts at 1 |
+| | `created_at` / `updated_at` | TEXT utc_ts | no | |
+| | `created_by` / `updated_by` | INTEGER FK app_members | yes | actor |
+| `module_access_group_modules` | `group_id` | INTEGER FK | no | cascade on group delete |
+| | `module_code` | TEXT | no | CY Web module code validated by the service (no CHECK list, so new modules need no rebuild) |
+| `module_access_group_applications` | `group_id` | INTEGER FK | no | cascade on group delete |
+| | `application_id` | TEXT | no | CYID application id (2–64); the core CY Web application is refused by the service |
+| `app_member_module_groups` | `member_id` | INTEGER PK FK app_members | no | one group per person |
+| | `group_id` | INTEGER FK | no | RESTRICT; deleting a group removes memberships first |
+| | `assigned_at` | TEXT utc_ts | no | |
+| | `assigned_by` | INTEGER FK app_members | yes | actor |
 
 ### Legacy application tags
 

@@ -32,18 +32,54 @@ try {
     if (!rejected) throw new Error("invalid source provenance accepted");
   }
   if (config.name !== env.CF_WORKER_NAME) throw new Error("worker name mismatch");
+  if (config.assets?.binding !== "ASSETS" || config.assets?.run_worker_first !== true)
+    throw new Error("all asset requests must enter the HTTPS boundary before ASSETS");
   if (config.workers_dev !== true) throw new Error("workers.dev fallback must remain enabled");
   if (config.routes?.length !== 1) throw new Error("canonical Custom Domain route missing");
   if (config.routes[0]?.pattern !== env.CF_PUBLIC_HOSTNAME) throw new Error("public hostname mismatch");
   if (config.routes[0]?.custom_domain !== true) throw new Error("public hostname must be a Custom Domain");
+  // HR leave attachments are opt-in: missing bucket must not affect any other deployment.
+  if((config.r2_buckets??[]).some(x=>x.binding==="HR_FILES"))throw new Error("HR_FILES must be absent unless configured");
+  const hrConfigPath=path.join(temporary,"hr-files.jsonc");
+  renderDeployConfig({env:{...env,CF_HR_FILES_R2_BUCKET:"synthetic-hr-files"},outputPath:hrConfigPath});
+  const hrConfig=JSON.parse(fs.readFileSync(hrConfigPath,"utf8"));
+  if(hrConfig.r2_buckets?.filter(x=>x.binding==="HR_FILES"&&x.bucket_name==="synthetic-hr-files").length!==1)
+    throw new Error("HR_FILES binding missing when configured");
+  let invalidBucketRejected=false;
+  try{renderDeployConfig({env:{...env,CF_HR_FILES_R2_BUCKET:"INVALID!"},outputPath:hrConfigPath})}
+  catch{invalidBucketRejected=true}
+  if(!invalidBucketRejected)throw new Error("invalid HR_FILES bucket accepted");
   if (config.d1_databases?.[0]?.binding !== "DB") throw new Error("DB binding missing");
   if (config.d1_databases?.[0]?.database_id !== env.CF_D1_DATABASE_ID) {
     throw new Error("D1 database id mismatch");
   }
+  if (config.services?.length !== 1) throw new Error("CYInvoice recovery binding must remain disabled by default");
   if (config.services?.[0]?.binding !== "IDENTITY") throw new Error("IDENTITY binding missing");
   if (config.services?.[0]?.service !== env.CF_IDENTITY_SERVICE) {
     throw new Error("IDENTITY service mismatch");
   }
+  // Opt-in must preserve the canonical CYID binding and resolve only
+  // the private exported Invoice RPC, never its default public fetch.
+  const workflow = fs.readFileSync(new URL("../.github/workflows/development-deploy.yml", import.meta.url), "utf8");
+  if (!workflow.includes("CF_CYINVOICE_RECOVERY_SERVICE: ${{ vars.CF_CYINVOICE_RECOVERY_SERVICE }}"))
+    throw new Error("Optional recovery service not passed to deployment renderer");
+  const recoveryEnv = {...env, CF_CYINVOICE_RECOVERY_SERVICE:"synthetic-cyinvoice-recovery"};
+  renderDeployConfig({env:recoveryEnv,outputPath:output});
+  const recoveryConfig=JSON.parse(fs.readFileSync(output,"utf8"));
+  if (recoveryConfig.services?.length!==2
+      || recoveryConfig.services[0]?.binding!=="IDENTITY"
+      || recoveryConfig.services[1]?.binding!=="CYINVOICE_RECOVERY"
+      || recoveryConfig.services[1]?.entrypoint!=="CyInvoiceRecoveryEntrypoint"
+      || recoveryConfig.services[1]?.service!==recoveryEnv.CF_CYINVOICE_RECOVERY_SERVICE)
+    throw new Error("Private Invoice RPC binding did not resolve");
+  for(const bad of ["https://invalid.test","../worker",env.CF_IDENTITY_SERVICE,env.CF_WORKER_NAME]) {
+    let rejected=false;
+    try {renderDeployConfig({env:{...env,CF_CYINVOICE_RECOVERY_SERVICE:bad},outputPath:output});}
+    catch(error){rejected=/Invalid CF_CYINVOICE_RECOVERY_SERVICE/.test(String(error));}
+    if(!rejected)throw new Error("Unsafe Invoice binding accepted");
+  }
+  renderDeployConfig({env,outputPath:output});
+
   if (config.vars?.IDENTITY_APPLICATION_ID !== env.CF_IDENTITY_APPLICATION_ID) {
     throw new Error("Identity application mismatch");
   }
@@ -54,8 +90,9 @@ try {
   if (config.vars?.IDENTITY_CONSUMER_VERSION !== fs.readFileSync(new URL("../CYID_CONSUMER_VERSION", import.meta.url), "utf8").trim()) throw new Error("consumer declaration missing from deployed health marker");
   if (/__CF_[A-Z0-9_]+__/.test(raw)) throw new Error("unresolved placeholder remains");
   if (config.triggers?.crons?.join() !== "0 19 * * *" || config.r2_buckets || config.vars.BACKUP_ENABLED) throw new Error("catalog schedule or backup opt-in mismatch");
-  renderDeployConfig({ env: { ...env, CF_BACKUP_ENABLED: "true", CF_BACKUP_R2_BUCKET: "cyweb-ci-backup", GCS_BUCKET: "cyweb-ci-gcs" }, outputPath: output });
+  renderDeployConfig({ env: { ...env, CF_BACKUP_ENABLED: "true", CF_BACKUP_R2_BUCKET: "cyweb-ci-backup", GCS_BUCKET: "cyweb-ci-gcs", CF_RECOVERY_D1_DATABASE_ID: "22222222-2222-4222-8222-222222222222", CF_RECOVERY_D1_DATABASE_NAME: "cyweb-ci-recovery" }, outputPath: output });
   const enabled = JSON.parse(fs.readFileSync(output, "utf8"));
+  if (enabled.d1_databases?.[1]?.binding !== "RECOVERY_DB" || enabled.d1_databases[1].database_id === env.CF_D1_DATABASE_ID) throw new Error("recovery isolation mismatch");
   if (enabled.r2_buckets?.[0]?.binding !== "BACKUP_R2" || enabled.vars.BACKUP_ENABLED !== "true"
     || enabled.vars.GCS_BUCKET !== "cyweb-ci-gcs" || enabled.vars.BACKUP_SCHEDULE_ENABLED !== "false"
     || enabled.triggers?.crons?.join() !== "0 19 * * *") throw new Error("backup opt-in contract mismatch");
@@ -63,13 +100,16 @@ try {
   try { renderDeployConfig({ env: { ...env, CF_BACKUP_ENABLED: "true" }, outputPath: output }); } catch { backupRejected = true; }
   if (!backupRejected) throw new Error("backup enabled without bucket");
 
-  const manualEnv = { ...env, CF_BACKUP_ENABLED: "true", CF_BACKUP_R2_BUCKET: "cyweb-ci-backup", GCS_BUCKET: "cyweb-ci-gcs" };
+  const manualEnv = { ...env, CF_BACKUP_ENABLED: "true", CF_BACKUP_R2_BUCKET: "cyweb-ci-backup", GCS_BUCKET: "cyweb-ci-gcs", CF_RECOVERY_D1_DATABASE_ID: "22222222-2222-4222-8222-222222222222", CF_RECOVERY_D1_DATABASE_NAME: "cyweb-ci-recovery" };
   renderDeployConfig({ env: { ...manualEnv, CF_BACKUP_SCHEDULE_ENABLED: "true" }, outputPath: output });
   const scheduled = JSON.parse(fs.readFileSync(output, "utf8"));
   if (scheduled.vars.BACKUP_SCHEDULE_ENABLED !== "true" || scheduled.triggers.crons.join() !== "0 19 * * *,30 19 * * *") throw new Error("schedule opt-in mismatch");
   for (const invalid of [
     { ...env, CF_BACKUP_SCHEDULE_ENABLED: "true" },
     { ...manualEnv, CF_BACKUP_SCHEDULE_ENABLED: "yes" },
+    { ...manualEnv, CF_RECOVERY_D1_DATABASE_ID: env.CF_D1_DATABASE_ID },
+    { ...manualEnv, CF_RECOVERY_D1_DATABASE_ID: "" },
+    { ...manualEnv, CF_RECOVERY_D1_DATABASE_NAME: "invalid\nINJECT=true" },
     { ...manualEnv, GCS_BUCKET: "" },
     { ...manualEnv, GCS_BUCKET: "https://invalid" },
   ]) {

@@ -17,12 +17,52 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS_DIR = ROOT / "migrations"
 
 EXPECTED_TABLES = {
+    "ordering_sources",
+    "ordering_orders",
+    "ordering_lines",
+    "ordering_receipts",
+    "ordering_receipt_lines",
+    "ordering_vendor_items",
+    "ordering_item_last_source",
+    "ordering_revisions",
+    "hr_leave_records",
+    "hr_leave_attachments",
+    "hr_annual_leave_years",
+    "hr_overtime_days",
+    "hr_comp_time_grants",
+    "hr_comp_time_settlements",
+    "hr_stores",
+    "hr_job_titles",
+    "hr_shift_types",
+    "hr_leave_types",
+    "hr_holidays",
+    "hr_schedule_days",
+    "hr_schedule_months",
+    "hr_roster_approvals",
+    "hr_attendance_days",
+    "hr_employees",
+    "hr_emergency_contacts",
+    "hr_education",
+    "hr_work_history",
+    "hr_status_changes",
+    "hr_seniority_exclusions",
+    "hr_salary_records",
+    "hr_salary_allowances",
+    "hr_salary_item_types",
+    "hr_minimum_wages",
     "program_catalog_state",
     "erp_item_queries",
     "erp_item_agent_status",
     "erp_item_agent_credentials",
+    "erp_sales_daily",
+    "erp_sales_days",
+    "erp_sales_items",
     "entity_id_high_watermarks",
     "app_member_module_access",
+    "app_member_module_groups",
+    "module_access_groups",
+    "module_access_group_modules",
+    "module_access_group_applications",
     "app_member_tags",
     "app_members",
     "app_tag_modules",
@@ -121,10 +161,16 @@ def validate_schema_shape(schema: str) -> None:
     unexpected = tables - EXPECTED_TABLES
     if missing or unexpected:
         raise AssertionError(f"table-set mismatch; missing={sorted(missing)}, unexpected={sorted(unexpected)}")
+    assert "display_name" in {row[1] for row in conn.execute("PRAGMA table_info(app_members)")}
+    # cache is nullable but cannot be blank or exceed 120 Unicode characters
+    seed_member(conn)
+    conn.execute("UPDATE app_members SET display_name='測試人員' WHERE id=1")
+    assert conn.execute("SELECT display_name FROM app_members WHERE id=1").fetchone()[0] == "測試人員"
+    assert_integrity_error(conn, "UPDATE app_members SET display_name='' WHERE id=1")
     source = (ROOT / "worker/backup/schema-columns.ts").read_text()
     declared = json.loads(source.split(" = ", 1)[1].rstrip().removesuffix(";"))
     actual = {table: sorted(row[1] for row in conn.execute(f'PRAGMA table_info("{table}")'))
-              for table in sorted(EXPECTED_TABLES - {"backup_sets", "backup_copies", "program_catalog_state", "erp_item_queries", "erp_item_agent_status", "erp_item_agent_credentials"})}
+              for table in sorted(EXPECTED_TABLES - {"backup_sets", "backup_copies", "program_catalog_state", "erp_item_queries", "erp_item_agent_status", "erp_item_agent_credentials", "erp_sales_daily", "erp_sales_days", "erp_sales_items", "ordering_sources", "ordering_orders", "ordering_lines", "ordering_receipts", "ordering_receipt_lines", "ordering_vendor_items", "ordering_item_last_source", "ordering_revisions"})}
     if declared != actual:
         raise AssertionError("backup schema columns differ from canonical migrations")
     conn.close()

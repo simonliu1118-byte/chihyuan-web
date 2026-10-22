@@ -1,101 +1,95 @@
-.cy-identity-page {
-  display: grid;
-  gap: 22px;
+/* Account & access workspace (SharedIdentityPage). Shared layout comes from app.css. */
+.cy-identity-page { display: grid; gap: 16px; min-width: 0; }
+.cy-identity-page > .cy-op-tabs { margin-bottom: 0; }
+.cy-identity-page .cy-op-panel > h3 { margin: 0 0 8px; font-size: var(--cy-fs-lg); }
+.cy-identity-page .cy-op-panel-header p, .cy-identity-intro { margin: 0 0 12px; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); line-height: 1.55; }
+.cy-identity-admin-stack { display: grid; gap: 16px; }
+
+/* 使用者: one editable table of every person's access; sticky header and person column. */
+.cy-identity-table-panel { padding: 0; overflow: hidden; }
+.cy-identity-table-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px; border-bottom: 1px solid var(--cy-border); }
+.cy-identity-table-toolbar > input { flex: 0 1 260px; }
+.cy-identity-table-toolbar .cy-md-count { margin-left: auto; }
+.cy-identity-access-scroll { overflow: auto; max-height: calc(100dvh - var(--cy-topbar-h) - 250px); min-height: 240px; }
+.cy-identity-access-table { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; }
+.cy-identity-access-table thead th { position: sticky; top: 0; z-index: 2; background: var(--cy-surface-muted); white-space: nowrap; }
+.cy-identity-access-table thead tr + tr th { top: 33px; }
+.cy-identity-access-table th, .cy-identity-access-table td { border-bottom: 1px solid var(--cy-border); }
+.cy-identity-access-table .cy-access-person { position: sticky; left: 0; z-index: 1; min-width: 150px; background: var(--cy-surface); text-align: left; border-right: 1px solid var(--cy-border); }
+.cy-identity-access-table thead .cy-access-person { z-index: 3; background: var(--cy-surface-muted); }
+.cy-identity-access-table .cy-access-group { text-align: center; color: var(--cy-text-muted); font-size: var(--cy-fs-xs); border-left: 1px solid var(--cy-border); }
+.cy-identity-access-table .cy-access-col { padding: 4px; text-align: center; }
+.cy-access-col-hint { display: block; font-weight: 400; font-size: var(--cy-fs-xs); color: var(--cy-text-muted); white-space: normal; }
+.cy-identity-access-table .cy-access-cell { text-align: center; min-width: 76px; }
+.cy-identity-access-table tbody tr:hover > * { background: var(--cy-surface-muted); }
+.cy-identity-access-table .cy-access-cell input { width: 18px; height: 18px; cursor: pointer; }
+.cy-identity-access-table .cy-access-cell input:disabled { cursor: not-allowed; }
+.cy-identity-access-table .cy-access-cell .cy-loading-spinner { display: inline-block; width: 14px; height: 14px; }
+/* 進貨輔助 and the grants it needs (user 2026-10-21): the three sit together, the prerequisites
+   tinted and the dependent column set off by a bracket line, so the requirement reads at a glance. */
+.cy-identity-access-table .cy-access-required { background: var(--cy-info-soft); }
+.cy-identity-access-table .cy-access-dependent { background: var(--cy-warning-soft); border-left: 2px dashed var(--cy-warning, #a66b10); }
+.cy-identity-access-table .cy-access-dependent input:disabled { opacity: 0.35; }
+.cy-identity-access-table th.cy-access-dependent .cy-access-col-hint, .cy-identity-access-table th.cy-access-required .cy-access-col-hint { color: var(--cy-text); }
+.cy-identity-access-item.cy-access-dependent { margin-left: 20px; border-left: 2px dashed var(--cy-warning, #a66b10); }
+.cy-identity-access-item.cy-access-required { background: var(--cy-info-soft); }
+.cy-access-person-button { display: grid; gap: 2px; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.cy-access-person-button strong { color: var(--cy-accent); font-weight: 600; }
+.cy-access-person-button span { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 400; }
+.cy-access-person-button:hover strong { text-decoration: underline; }
+
+/* Phones: the table lists people and statuses; access and role are edited in the person drawer. */
+@media (max-width: 820px) {
+  .cy-identity-access-table .cy-access-role, .cy-identity-access-table .cy-access-group,
+  .cy-identity-access-table .cy-access-col, .cy-identity-access-table .cy-access-cell { display: none; }
+  .cy-identity-access-table { width: 100%; }
 }
 
-.cy-identity-section-title {
-  margin-top: 4px;
+/* 權限群組 column / drawer row and the group table (editable on phones too: there is no group drawer). */
+.cy-access-muted { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
+.cy-access-person-text { display: grid; gap: 2px; }
+.cy-access-person-text span { max-width: 220px; overflow: hidden; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.cy-identity-row-actions { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.cy-identity-group-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 500; }
+@media (max-width: 820px) {
+  .cy-identity-group-table .cy-access-group, .cy-identity-group-table .cy-access-col, .cy-identity-group-table .cy-access-cell { display: table-cell; }
+  .cy-identity-access-table.cy-identity-group-table { width: max-content; }
 }
+.cy-identity-group-panel .cy-identity-access-scroll { min-height: 0; }
+.cy-notice.cy-identity-sync-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 12px 12px 0; }
+.cy-notice.cy-identity-sync-notice > .cy-op-button { margin-left: auto; }
 
-.cy-identity-section-title h2,
-.cy-identity-section-title p,
-.cy-identity-page h3,
-.cy-identity-page h4,
-.cy-identity-page h5 {
-  margin-top: 0;
+/* Person drawer. */
+.cy-identity-drawer { display: grid; gap: 12px; }
+.cy-identity-drawer-status { display: flex; align-items: center; gap: 8px; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
+.cy-identity-drawer-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.cy-identity-drawer .cy-op-subsection { margin-top: 4px; }
+.cy-identity-copy-row { display: flex; gap: 8px; }
+.cy-identity-copy-row select { flex: 1; min-width: 0; }
+
+/* Per-person access: one checkbox per system / module, grouped. */
+.cy-identity-module-group { margin: 0 0 12px; padding: 0; border: 0; }
+.cy-identity-module-group legend { margin-bottom: 6px; padding: 0; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 600; }
+.cy-identity-access-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
+.cy-identity-access-item {
+  display: flex; align-items: center; gap: 8px; min-height: var(--cy-control-h); padding: 4px 10px;
+  border: 1px solid var(--cy-border); border-radius: var(--cy-radius-md); background: var(--cy-surface); cursor: pointer;
 }
+.cy-identity-access-item:has(input:checked) { border-color: var(--cy-accent); background: var(--cy-accent-soft); }
+.cy-identity-access-item:has(input:disabled) { cursor: default; }
+.cy-identity-access-item small { margin-left: auto; color: var(--cy-text-muted); font-size: var(--cy-fs-xs); }
+.cy-identity-access-item .cy-loading-spinner { width: 12px; height: 12px; margin-left: auto; }
 
-.cy-identity-section-title p,
-.cy-identity-page .cy-op-panel-header p,
-.cy-identity-direct-access > p,
-.cy-identity-page section > p {
-  color: var(--cy-text-muted);
-  line-height: 1.55;
-}
+.cy-identity-policy-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 8px; }
+.cy-identity-policy-grid label { display: grid; gap: 6px; align-content: start; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 500; }
+.cy-identity-policy-grid small { color: var(--cy-text-muted); font-size: var(--cy-fs-xs); font-weight: 400; }
+.cy-identity-policy-grid .wide { grid-column: 1 / -1; }
+@media (max-width: 980px) { .cy-identity-policy-grid { grid-template-columns: 1fr; } .cy-identity-policy-grid .wide { grid-column: auto; } }
 
-.cy-identity-message {
-  margin: 10px 0;
-  padding: 10px 12px;
-  border: 1px solid #d7dfE5;
-  border-radius: 9px;
-  background: #f7fafc;
-  line-height: 1.5;
-}
-
-.cy-identity-message.error {
-  border-color: #eccaca;
-  background: var(--cy-danger-soft);
-  color: var(--cy-danger);
-}
-
-.cy-identity-admin-stack {
-  display: grid;
-  gap: 18px;
-}
-
-.cy-identity-table-wrap {
-  width: 100%;
-  overflow-x: auto;
-}
-
-.cy-identity-subtext {
-  display: block;
-  margin-top: 3px;
-  color: var(--cy-text-muted);
-  font-size: 11px;
-}
-
-.cy-identity-email-col {
-  width: 320px;
-  max-width: 320px;
-}
-
-.cy-identity-email-line {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  max-width: 320px;
-}
-
-.cy-identity-email-value {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.cy-identity-email-tag {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  min-height: 22px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.cy-identity-email-tag.verified {
-  background: #e8f5ec;
-  color: #2f6b3f;
-}
-
-.cy-identity-email-tag.unverified {
-  background: #eef1f3;
-  color: #626c75;
-}
-
+/* Used by the CYInvoice recovery panel. */
+.cy-identity-message { margin: 10px 0; padding: 10px 12px; border: 1px solid var(--cy-border); border-radius: var(--cy-radius-md); background: var(--cy-surface-muted); line-height: 1.5; }
+.cy-identity-message.error { border-color: transparent; background: var(--cy-danger-soft); color: var(--cy-danger); }
+.cy-identity-subtext { display: block; margin-top: 3px; color: var(--cy-text-muted); font-size: var(--cy-fs-xs); }
 .cy-identity-actions {
   display: flex;
   align-items: center;
@@ -103,217 +97,137 @@
   flex-wrap: wrap;
 }
 
-.cy-op-table.cy-identity-access-table {
-  width: max-content;
-  min-width: 0;
-  table-layout: auto;
+/* CYInvoice company-wide recovery is an explicit SUPER_ADMIN maintenance flow.
+   Reuse existing operational tokens and stack on mobile without a new shell. */
+.cy-invoice-recovery-panel .cy-op-form {
+  max-width: 660px;
 }
 
-.cy-identity-access-table th,
-.cy-identity-access-table td {
-  white-space: nowrap;
-}
-
-.cy-identity-access-table .cy-access-user-col {
-  width: 220px;
-  min-width: 220px;
-}
-
-.cy-identity-access-table .cy-access-permission-col {
-  width: 150px;
-  min-width: 150px;
-}
-
-.cy-identity-access-table .cy-access-app-col {
-  width: 150px;
-  min-width: 150px;
-}
-
-.cy-identity-access-fixed {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 4px 9px;
-  border-radius: 999px;
-  background: var(--cy-success-soft);
-  color: var(--cy-success);
-  font-size: 12px;
-  font-weight: 750;
-  white-space: nowrap;
-}
-
-.cy-identity-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1200;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  background: rgba(20, 27, 34, 0.48);
-}
-
-.cy-identity-modal {
-  width: min(600px, 100%);
-  max-height: calc(100vh - 40px);
-  overflow-y: auto;
-  padding: 22px;
-  border: 1px solid var(--cy-border);
-  border-radius: 14px;
-  background: white;
-  box-shadow: 0 20px 60px rgba(20, 27, 34, 0.24);
-}
-
-.cy-identity-modal-header {
+.cy-invoice-recovery-panel .cy-invoice-recovery-ack {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 14px;
+  gap: 10px;
+  line-height: 1.5;
 }
 
-.cy-identity-modal-header h3 {
-  margin-bottom: 6px;
+.cy-invoice-recovery-ack input[type="checkbox"] {
+  margin-top: 4px;
+  flex: 0 0 auto;
 }
 
-.cy-identity-modal-header p {
-  margin: 0;
-  color: var(--cy-text-muted);
-  line-height: 1.55;
+.cy-invoice-recovery-panel .cy-op-input {
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.cy-identity-modal-close {
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
-  border: 1px solid var(--cy-border);
-  border-radius: 8px;
-  background: white;
-  color: var(--cy-text);
-  font: inherit;
-  font-size: 22px;
-  line-height: 1;
-  cursor: pointer;
+.cy-invoice-recovery-panel .cy-identity-message {
+  overflow-wrap: anywhere;
 }
 
-.cy-identity-modal-close:disabled {
-  cursor: not-allowed;
-  opacity: .55;
-}
-
-.cy-identity-group-grid {
+/* WO-0.9.18: account details and shared password visibility. */
+.cy-my-account {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 16px;
+  gap: 0;
 }
-
-.cy-identity-group-card {
-  border: 1px solid var(--cy-border);
-  border-radius: 12px;
-  padding: 14px;
-  background: var(--cy-surface-muted);
-}
-
-.cy-identity-group-card h5 {
-  margin: 16px 0 8px;
-  color: var(--cy-text-muted);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-}
-
-.cy-identity-toggle-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--cy-border);
-  border-radius: 999px;
-  padding: 6px 9px;
-  background: white;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.cy-identity-toggle-chip.active {
-  border-color: #d6b9c0;
-  background: var(--cy-accent-soft);
-  color: var(--cy-accent);
-}
-
-.cy-identity-access-row {
-  min-height: 42px;
+.cy-my-account h2 {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 7px 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+  padding-bottom: 14px;
   border-bottom: 1px solid var(--cy-border);
+  font-size: var(--cy-fs-lg);
 }
-
-.cy-identity-access-row:last-child {
-  border-bottom: 0;
-}
-
-.cy-identity-access-row label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.cy-op-input.compact {
-  width: auto;
-  min-width: 120px;
-}
-
-.cy-identity-direct-access,
-.cy-identity-role-modes {
-  margin-top: 22px;
-  padding-top: 18px;
-  border-top: 1px solid var(--cy-border);
-}
-
-.cy-identity-policy-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.cy-identity-policy-grid label {
-  display: grid;
-  gap: 6px;
-  font-weight: 650;
-}
-
-.cy-identity-policy-grid small {
+.cy-my-account h2 span {
+  font-size: var(--cy-fs-sm);
   color: var(--cy-text-muted);
   font-weight: 400;
 }
-
-.cy-identity-policy-grid .wide {
-  grid-column: 1 / -1;
+.cy-my-account-row {
+  display: grid;
+  grid-template-columns: minmax(64px, 100px) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--cy-border);
+}
+.cy-my-account-row:last-child {
+  border-bottom: 0;
+}
+.cy-my-account-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cy-password-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.cy-password-input input {
+  width: 100%;
+  padding-right: 48px;
+}
+.cy-password-visibility {
+  position: absolute;
+  right: 4px;
+  height: 32px;
+  min-width: 38px;
+  border: 0;
+  border-radius: var(--cy-radius-sm);
+  background: transparent;
+  cursor: pointer;
+}
+.cy-password-visibility:focus-visible {
+  outline: 2px solid var(--cy-accent);
+}
+.cy-password-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  color: var(--cy-text-muted);
+  font-size: var(--cy-fs-sm);
+}
+.cy-password-checks .valid {
+  color: var(--cy-success);
+}
+@media (max-width: 430px) {
+  /* Keep 變更 on the same line as its value; the button is narrow enough at 390px. */
+  .cy-my-account-row {
+    grid-template-columns: 56px minmax(0, 1fr) auto;
+  }
+  .cy-identity-page .cy-dialog-small {
+    max-width: calc(100vw - 16px);
+  }
 }
 
-@media (max-width: 980px) {
-  .cy-identity-group-grid,
-  .cy-identity-policy-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .cy-identity-policy-grid .wide {
-    grid-column: auto;
-  }
-}
-
+/* Cloudflare account-wide D1 usage: compact, responsive, no extra chart dependency. */
+.cy-usage-panel h4 { margin: 18px 0 8px; }
+.cy-usage-meters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.cy-usage-meter { min-width: 0; }
+.cy-usage-meter-label { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 7px; }
+.cy-usage-progress { width: 100%; height: 12px; accent-color: var(--cy-accent); }
+.cy-usage-progress-warning { accent-color: var(--cy-warning); }
+.cy-usage-progress-danger { accent-color: var(--cy-danger); }
+.cy-usage-progress-warning::-webkit-progress-value { background: var(--cy-warning); }
+.cy-usage-progress-danger::-webkit-progress-value { background: var(--cy-danger); }
+.cy-usage-progress-warning::-moz-progress-bar { background: var(--cy-warning); }
+.cy-usage-progress-danger::-moz-progress-bar { background: var(--cy-danger); }
+.cy-shell-global-notice { padding: 8px var(--cy-gutter) 0; }
+.cy-usage-alert { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cy-usage-alert > span { flex: 1 1 240px; }
 @media (max-width: 640px) {
-  .cy-identity-modal-backdrop {
-    padding: 10px;
-    place-items: end center;
-  }
-
-  .cy-identity-modal {
-    width: 100%;
-    max-height: calc(100vh - 20px);
-    border-radius: 14px 14px 0 0;
-  }
+  .cy-usage-meters { grid-template-columns: minmax(0, 1fr); }
+  .cy-shell-global-notice { padding: 8px 12px 0; }
+  .cy-usage-alert > span { flex-basis: 100%; }
+  .cy-usage-panel .cy-op-table-wrap { overflow-x: auto; }
 }
+
+/* 系統與安全: bounded width; registry and security summary side by side on wide screens. */
+.cy-system-security { max-width: 1080px; }
+.cy-system-security-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.cy-identity-policy-summary { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 16px; margin: 4px 0 0; }
+.cy-identity-policy-summary dt { color: var(--cy-text-muted); }
+.cy-identity-policy-summary dd { margin: 0; }
+.cy-usage-panel .cy-op-table-wrap { max-width: 720px; }
+@media (max-width: 980px) { .cy-system-security-pair { grid-template-columns: minmax(0, 1fr); } }

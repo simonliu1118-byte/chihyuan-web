@@ -1,9 +1,10 @@
-import { CYWEB_MODULES, isCyWebModuleCode, type CyWebModuleCode } from "../../shared/modules";
+import { CYWEB_MODULES, isCyWebModuleCode, moduleChangeProblem, modulesDroppedWith, type CyWebModuleCode } from "../../shared/modules";
 import { currentModuleAccess, ensureAppMemberProjection, resolveAppMember } from "../auth/app-access";
 import { requireIdentity, requireModuleAccess } from "../auth/guard";
 import { CYWEB_IDENTITY_COOKIE, cookieValue, isSessionToken, normalizedApplicationId, fetchIdentityProvider } from "../identity/provider-transport";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
 import { failure, success } from "./response";
+import { createGroup, deleteGroup, groupConflictResponse, loadModuleAccessGroups, memberGroupId, setEmployeeGroup, syncGroup, updateGroup } from "./module-access-group-routes";
 
 interface IdentitySnapshotEmployee {
   employee_id: string;
@@ -17,19 +18,18 @@ interface IdentitySnapshotPayload {
   employees?: unknown;
 }
 
-function canManageModuleAccess(role: "SUPER_ADMIN" | "ADMIN" | "USER", isIdentityAdmin: boolean): boolean {
+export function canManageModuleAccess(role: "SUPER_ADMIN" | "ADMIN" | "USER", isIdentityAdmin: boolean): boolean {
   return role === "SUPER_ADMIN" || (role === "ADMIN" && isIdentityAdmin);
 }
 
-async function identityTarget(
-  request: Request,
-  env: IdentityRuntimeEnv,
-  employeeId: string,
-): Promise<
-  | { status: "ok"; employee: IdentitySnapshotEmployee }
+interface IdentitySnapshotApplication { application_id: string; enabled: number; core_access_locked: number }
+interface IdentitySnapshotAccess { employee_id: string; application_id: string; enabled: number }
+
+/** The CYID admin snapshot read with the caller's session: people, applications and direct application access. */
+export async function identitySnapshot(request: Request, env: IdentityRuntimeEnv): Promise<
+  | { status: "ok"; employees: unknown[]; applications: IdentitySnapshotApplication[]; directAccess: IdentitySnapshotAccess[] }
   | { status: "unauthorized" }
   | { status: "unavailable" }
-  | { status: "missing" }
 > {
   const applicationId = normalizedApplicationId(env);
   const token = cookieValue(request, CYWEB_IDENTITY_COOKIE);
@@ -44,10 +44,29 @@ async function identityTarget(
 
   if (response.status === 401 || response.status === 403) return { status: "unauthorized" };
   if (!response.ok) return { status: "unavailable" };
-  const payload = await response.json().catch(() => null) as IdentitySnapshotPayload | null;
+  const payload = await response.json().catch(() => null) as (IdentitySnapshotPayload & { applications?: unknown; directAccess?: unknown }) | null;
   if (!payload || payload.ok === false || !Array.isArray(payload.employees)) return { status: "unavailable" };
+  return {
+    status: "ok",
+    employees: payload.employees,
+    applications: Array.isArray(payload.applications) ? payload.applications as IdentitySnapshotApplication[] : [],
+    directAccess: Array.isArray(payload.directAccess) ? payload.directAccess as IdentitySnapshotAccess[] : [],
+  };
+}
 
-  const employee = payload.employees.find((raw): raw is IdentitySnapshotEmployee => {
+export async function identityTarget(
+  request: Request,
+  env: IdentityRuntimeEnv,
+  employeeId: string,
+): Promise<
+  | { status: "ok"; employee: IdentitySnapshotEmployee }
+  | { status: "unauthorized" }
+  | { status: "unavailable" }
+  | { status: "missing" }
+> {
+  const snapshot = await identitySnapshot(request, env);
+  if (snapshot.status !== "ok") return snapshot;
+  const employee = snapshot.employees.find((raw): raw is IdentitySnapshotEmployee => {
     if (!raw || typeof raw !== "object") return false;
     const row = raw as Partial<IdentitySnapshotEmployee>;
     return row.employee_id === employeeId
@@ -94,6 +113,7 @@ async function adminSnapshot(request: Request, env: IdentityRuntimeEnv, requestI
   return success({
     modules: CYWEB_MODULES,
     grants: (rows.results ?? []).filter((row) => isCyWebModuleCode(row.module_code)),
+    ...await loadModuleAccessGroups(env.DB),
   }, requestId);
 }
 
@@ -137,6 +157,10 @@ async function putEmployeeModule(
     ensureAppMemberProjection(env.DB, target.employee_id, target.employee_no, now),
   ]);
 
+  if (await memberGroupId(env.DB, targetMember.id) !== null) {
+    return failure({ code: "MODULE_ACCESS_GROUP_MANAGED", message: "此人的模組使用權由權限群組決定，請改群組設定或先移出群組。" }, requestId, 409);
+  }
+
   const previous = await env.DB.prepare(
     `SELECT enabled
        FROM app_member_module_access
@@ -145,18 +169,27 @@ async function putEmployeeModule(
   ).bind(targetMember.id, moduleCode).first<{ enabled: number }>();
   const before = previous?.enabled === 1;
 
-  const statements: D1PreparedStatement[] = [
-    env.DB.prepare(
+  // Required grants (進貨輔助 needs ERP 商品查詢 and ERP 客戶查詢, user 2026-10-21): turning one on
+  // without them is refused; turning one of them off turns the grants that need it off too.
+  const held = await env.DB.prepare(
+    "SELECT module_code FROM app_member_module_access WHERE member_id = ?1 AND enabled = 1",
+  ).bind(targetMember.id).all<{ module_code: string }>();
+  const heldCodes = new Set((held.results ?? []).map((row) => row.module_code));
+  const problem = moduleChangeProblem(heldCodes, moduleCode, enabled);
+  if (problem) return failure({ code: "MODULE_REQUIREMENT_MISSING", message: problem }, requestId, 409);
+  const alsoDisabled = enabled ? [] : modulesDroppedWith(heldCodes, moduleCode);
+
+  const statements: D1PreparedStatement[] = [];
+  const write = (code: CyWebModuleCode, on: boolean, was: boolean, cause?: CyWebModuleCode) => {
+    statements.push(env.DB.prepare(
       `INSERT INTO app_member_module_access(member_id, module_code, enabled, updated_at, updated_by)
        VALUES(?1, ?2, ?3, ?4, ?5)
        ON CONFLICT(member_id, module_code) DO UPDATE SET
          enabled = excluded.enabled,
          updated_at = excluded.updated_at,
          updated_by = excluded.updated_by`,
-    ).bind(targetMember.id, moduleCode, enabled ? 1 : 0, now, actorMember.id),
-  ];
-
-  if (before !== enabled) {
+    ).bind(targetMember.id, code, on ? 1 : 0, now, actorMember.id));
+    if (was === on) return;
     statements.push(
       env.DB.prepare(
         `INSERT INTO audit_events(
@@ -166,16 +199,18 @@ async function putEmployeeModule(
            'module_access', ?1, 'module_access.updated', ?2, ?3, ?4, ?5, ?6, ?7
          )`,
       ).bind(
-        `${target.employee_id}:${moduleCode}`,
+        `${target.employee_id}:${code}`,
         actorMember.id,
         now,
         requestId,
-        JSON.stringify({ enabled: before }),
-        JSON.stringify({ enabled }),
-        JSON.stringify({ targetEmployeeId: target.employee_id, moduleCode }),
+        JSON.stringify({ enabled: was }),
+        JSON.stringify({ enabled: on }),
+        JSON.stringify({ targetEmployeeId: target.employee_id, moduleCode: code, ...(cause ? { requiredModuleOff: cause } : {}) }),
       ),
     );
-  }
+  };
+  write(moduleCode, enabled, before);
+  for (const dependent of alsoDisabled) write(dependent, false, true, moduleCode);
   await env.DB.batch(statements);
 
   return success({
@@ -185,6 +220,7 @@ async function putEmployeeModule(
       enabled,
       effectiveImmediately: true,
     },
+    alsoDisabled,
   }, requestId);
 }
 
@@ -217,6 +253,21 @@ export async function handleModuleAccessRoute(
   let match = /^\/api\/module-access\/admin\/employees\/([^/]+)\/modules\/([^/]+)$/.exec(path);
   if (request.method === "PUT" && match) {
     return putEmployeeModule(request, env, requestId, decodeURIComponent(match[1]), decodeURIComponent(match[2]));
+  }
+
+  match = /^\/api\/module-access\/admin\/employees\/([^/]+)\/group$/.exec(path);
+  if (request.method === "PUT" && match) return setEmployeeGroup(request, env, requestId, decodeURIComponent(match[1]));
+  try {
+    if (request.method === "POST" && path === "/api/module-access/admin/groups") return await createGroup(request, env, requestId);
+    match = /^\/api\/module-access\/admin\/groups\/(\d+)$/.exec(path);
+    if (match && request.method === "PATCH") return await updateGroup(request, env, requestId, match[1]);
+    if (match && request.method === "DELETE") return await deleteGroup(request, env, requestId, match[1]);
+    match = /^\/api\/module-access\/admin\/groups\/(\d+)\/sync$/.exec(path);
+    if (match && request.method === "POST") return await syncGroup(request, env, requestId, match[1]);
+  } catch (error) {
+    const conflict = groupConflictResponse(error, requestId);
+    if (conflict) return conflict;
+    throw error;
   }
 
   match = /^\/api\/module-access\/check\/([^/]+)$/.exec(path);

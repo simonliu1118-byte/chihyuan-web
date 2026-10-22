@@ -1,0 +1,15 @@
+/* Sales work order line editor. Everything else uses the shared design system. */
+.cy-order-op { min-width: 0; }
+.cy-order-line { display: grid; grid-template-columns: minmax(180px, 2.2fr) 90px 90px 100px minmax(100px, 1.2fr) auto; gap: 8px; align-items: center; }
+.cy-order-line-head { color: var(--cy-text-muted); font-size: var(--cy-fs-xs); }
+@media (max-width: 1180px) {
+  .cy-order-line { grid-template-columns: minmax(0, 1fr) 80px 80px 90px; }
+  .cy-order-line > :nth-child(5) { grid-column: 1 / 4; }
+  .cy-order-line-head { display: none; }
+  .cy-order-line:not(.cy-order-line-head) { padding-bottom: 8px; border-bottom: 1px dashed var(--cy-border); }
+}
+@media (max-width: 560px) {
+  .cy-order-line { grid-template-columns: 1fr 1fr; }
+  .cy-order-line > :first-child, .cy-order-line > :nth-child(5) { grid-column: 1 / -1; }
+}
+.cy-order-line .cy-order-line-item { gap: 0; min-width: 0; }

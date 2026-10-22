@@ -1,5 +1,19 @@
 # Shared Common Rules Changelog
 
+## 2.10.0 — 2026/10/21
+
+- 新增 11.4 工作單交接（使用者 2026-10-21：由 CY Web `PROJECT_RULES.md` §9 與 CYERPAutoQuery 抽出為共通規則）：只有在使用者指示 Claude 開立工作單轉交 GPT 製作時才適用；Claude 規劃並撰寫工作單、GPT 依單實作開 PR 並填完成報告、Claude 審查；工作單位置（單一專案 `docs/development/work-orders/`、monorepo `apps/<Project>/docs/work-orders/`）、執行者不得擴大或改變範圍且不合併不部署、審查者可直接修小問題。
+
+## 2.9.1 — 2026/10/20
+
+- 11.3 改為明確的常設規則：不論是否有工作單、PR，或由使用者直接交辦，大量資料作業都須事前向使用者說明預估用量，完成時在回報中寫出實際用量。
+
+## 2.9.0 — 2026/10/20
+
+- 新增 11.3「計量資源與大量資料作業」：批次整理、匯入、重算、遷移等大量資料作業須先估算讀寫量並對照額度、分批執行並使用索引、可中斷續跑；接近額度須先取得使用者同意或跨日分段；遇額度不足或限流立即停止回報；完成報告寫出實際用量。
+- 排程、背景工作與重試同樣須有每次讀寫上限與重試上限。
+- 起因：2026/10/19 一次科目整理作業用盡 Cloudflare 帳號共用的 D1 每日讀取額度，同帳號的 CYID 與 CY Web 一起無法登入、部署失敗。
+
 ## 2.8.0 — 2026/10/04
 
 - 將既有「單一路徑／禁止版本殼」規則補強為 Canonical Owner 架構治理：每個 concern 應明確只有一個 State、Business/Mutation、Render 與 Lifecycle owner；裝置可有 presentation 差異，但不得複製 business/data authority。

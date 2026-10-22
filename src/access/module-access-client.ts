@@ -20,9 +20,21 @@ export interface ModuleAccessGrant {
   updated_at: string;
 }
 
+/** 權限群組: members use exactly the group's modules and systems (BD-057). */
+export interface ModuleAccessGroup {
+  id: number;
+  name: string;
+  modules: CyWebModuleCode[];
+  applications: string[];
+  revision: number;
+  memberCount: number;
+}
+
 export interface ModuleAccessAdminSnapshot {
   modules: ModuleCatalogItem[];
   grants: ModuleAccessGrant[];
+  groups: ModuleAccessGroup[];
+  memberships: { employee_id: string; group_id: number }[];
 }
 
 export function loadCurrentModuleAccess(): Promise<CurrentModuleAccess> {
@@ -34,7 +46,8 @@ export function loadModuleAccessAdminSnapshot(): Promise<ModuleAccessAdminSnapsh
 }
 
 export function setEmployeeModuleAccess(employeeId: string, moduleCode: CyWebModuleCode, enabled: boolean) {
-  return apiRequest<{ access: { employeeId: string; moduleCode: CyWebModuleCode; enabled: boolean; effectiveImmediately: boolean } }>(
+  // alsoDisabled: grants that needed this one and went off with it (進貨輔助, user 2026-10-21).
+  return apiRequest<{ access: { employeeId: string; moduleCode: CyWebModuleCode; enabled: boolean; effectiveImmediately: boolean }; alsoDisabled?: CyWebModuleCode[] }>(
     `/api/module-access/admin/employees/${encodeURIComponent(employeeId)}/modules/${encodeURIComponent(moduleCode)}`,
     { method: "PUT", json: { enabled } },
   );
@@ -45,4 +58,38 @@ export function checkModuleAccess(moduleCode: CyWebModuleCode) {
     `/api/module-access/check/${encodeURIComponent(moduleCode)}`,
     { method: "GET" },
   );
+}
+
+export interface ModuleAccessGroupInput {
+  name: string;
+  modules: readonly CyWebModuleCode[];
+  applications: readonly string[];
+}
+
+/** Employees whose system access CYID did not update; they show as not applied until re-synced. */
+export interface ApplicationSyncResult {
+  applicationSyncFailed: string[];
+}
+
+export function createModuleAccessGroup(input: ModuleAccessGroupInput) {
+  return apiRequest<{ group: ModuleAccessGroup }>("/api/module-access/admin/groups", { method: "POST", json: input });
+}
+
+export function updateModuleAccessGroup(groupId: number, input: ModuleAccessGroupInput, expectedRevision: number) {
+  return apiRequest<{ group: Omit<ModuleAccessGroup, "memberCount"> } & ApplicationSyncResult>(`/api/module-access/admin/groups/${groupId}`,
+    { method: "PATCH", json: { ...input, expectedRevision } });
+}
+
+export function syncModuleAccessGroup(groupId: number) {
+  return apiRequest<{ groupId: number } & ApplicationSyncResult>(`/api/module-access/admin/groups/${groupId}/sync`, { method: "POST", json: {} });
+}
+
+export function deleteModuleAccessGroup(groupId: number, expectedRevision: number) {
+  return apiRequest<{ deleted: true; groupId: number }>(`/api/module-access/admin/groups/${groupId}`, { method: "DELETE", json: { expectedRevision } });
+}
+
+/** Joins a group (its modules and systems replace the person's) or leaves it with null (current settings are kept). */
+export function setEmployeeModuleGroup(employeeId: string, groupId: number | null) {
+  return apiRequest<{ employeeId: string; groupId: number | null } & ApplicationSyncResult>(
+    `/api/module-access/admin/employees/${encodeURIComponent(employeeId)}/group`, { method: "PUT", json: { groupId } });
 }

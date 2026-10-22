@@ -89,6 +89,8 @@ export function renderDeployConfig({
   if (!/^[0-9a-f]{40}$/.test(sourceCommit)) throw new Error("Invalid or missing CF_SOURCE_COMMIT");
   const provenanceConfig = JSON.parse(rendered);
   provenanceConfig.vars.SOURCE_COMMIT = sourceCommit;
+  const usageAccount = String(env.CLOUDFLARE_ACCOUNT_ID ?? "").trim();
+  if (usageAccount) provenanceConfig.vars.CF_ACCOUNT_ID = usageAccount;
   rendered = JSON.stringify(provenanceConfig, null, 2) + "\n";
 
   if (env.CF_BACKUP_ENABLED !== undefined && !["true", "false", ""].includes(env.CF_BACKUP_ENABLED)) throw new Error("Invalid CF_BACKUP_ENABLED");
@@ -100,6 +102,10 @@ export function renderDeployConfig({
     const gcsBucket = requireValue(env, "GCS_BUCKET");
     if (!/^[a-z0-9][a-z0-9_-]{1,61}[a-z0-9]$/.test(gcsBucket)) throw new Error("Invalid backup GCS bucket");
     const config = JSON.parse(rendered);
+    const recoveryId = requireValue(env, "CF_RECOVERY_D1_DATABASE_ID"), recoveryName = requireValue(env, "CF_RECOVERY_D1_DATABASE_NAME");
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(recoveryId)
+      || recoveryId.toLowerCase() === values.CF_D1_DATABASE_ID.toLowerCase() || !/^[a-z0-9][a-z0-9_-]{1,62}$/i.test(recoveryName)) throw new Error("Invalid isolated recovery target");
+    config.d1_databases.push({ binding: "RECOVERY_DB", database_id: recoveryId, database_name: recoveryName, migrations_dir: "migrations" });
     config.r2_buckets = [{ binding: "BACKUP_R2", bucket_name: bucket }];
     config.vars.BACKUP_ENABLED = "true";
     config.vars.GCS_BUCKET = gcsBucket;
@@ -114,6 +120,34 @@ export function renderDeployConfig({
     rendered = JSON.stringify(config, null, 2) + "\n";
   }
 
+  // Optional private named CYInvoice Worker RPC. Keep absent until the
+  // original Invoice D1 is migrated, the issuer profile is approved and
+  // the runtime recovery feature is deliberately enabled.
+  const recoveryService = String(env.CF_CYINVOICE_RECOVERY_SERVICE ?? "").trim();
+  if (recoveryService) {
+    const workerLike = /^[a-z0-9][a-z0-9._-]{1,62}$/i;
+    if (!workerLike.test(recoveryService)
+        || recoveryService === values.CF_IDENTITY_SERVICE
+        || recoveryService === values.CF_WORKER_NAME)
+      throw new Error("Invalid CF_CYINVOICE_RECOVERY_SERVICE");
+    const config = JSON.parse(rendered);
+    if (config.services?.some(binding => binding.binding === "CYINVOICE_RECOVERY"))
+      throw new Error("Duplicate CYINVOICE_RECOVERY binding");
+    config.services.push({
+      binding: "CYINVOICE_RECOVERY",
+      service: recoveryService,
+      entrypoint: "CyInvoiceRecoveryEntrypoint",
+    });
+    rendered = JSON.stringify(config, null, 2) + "\n";
+  }
+
+  const hrFilesBucket = String(env.CF_HR_FILES_R2_BUCKET ?? "").trim();
+  if(hrFilesBucket){
+    if(!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(hrFilesBucket))throw new Error("Invalid CF_HR_FILES_R2_BUCKET");
+    const config = JSON.parse(rendered);
+    config.r2_buckets = [...(config.r2_buckets ?? []), {binding:"HR_FILES",bucket_name:hrFilesBucket}];
+    rendered = JSON.stringify(config,null,2)+"\n";
+  }
   const absoluteOutput = path.resolve(outputPath);
   fs.writeFileSync(absoluteOutput, rendered, { encoding: "utf8", mode: 0o600 });
   return absoluteOutput;

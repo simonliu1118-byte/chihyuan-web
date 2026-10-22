@@ -33,6 +33,8 @@
 - 正式部署所需的 infrastructure metadata 與 deployment/runtime secrets 由核准的部署環境或平台 secret store 注入；程式只依賴抽象 binding／environment contract。
 - 正式部署可在受控 runner/workspace 動態產生 deployment-only config，但不得把該 production-resolved config 回寫 Public repo。
 - PR／一般 CI 不得取得 production deployment secrets，也不得部署 production；production deploy 只由核准 branch/environment 執行。
+- CY Web 合併 `main` 不自動發布；正式更新使用 `deploy/cyweb-development` push，或從 `main` dispatch `development-deploy.yml` 的 `deploy-development` operation。既有 branch、job 與 Environment 的 development 名稱是歷史標籤，不另建測試 Worker／D1。唯讀 `audit-identity` 與部署入口分離。
+- 同一正式目標的發布共用固定 concurrency group，進行中的 deploy 不因新 run 取消；驗證及唯讀 audit 使用獨立鎖。遠端 migration 前核對事件 SHA 等於 checkout，發布來源包含當前遠端 main 且 tracked tree 完全相同；main dispatch 另要求完整 SHA 相同。保留既有發布分支的 merge ancestry，不以 force-push 改寫歷史或繞過過期來源檢查。
 - 同一份 Public source 應可由其他 deployer 接到自己的 Cloudflare、D1、Identity、Storage、第三方 API 與 secret configuration，不預設共享志遠正式資源。
 - 後續新增任何外部服務前，必須先設計 Public-safe binding 與部署注入邊界，不得先把 production identifier 寫進 Public source 再事後清除。
 - 詳細實作參考 `docs/architecture/CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md`；若與本文件衝突，以本文件為準。
@@ -52,6 +54,21 @@
 - 可建立適合企業 Web App 的獨立 Web Design System，包括 color tokens、spacing、typography、form、table/list、dialog/sheet、navigation、responsive pattern、interaction states 與 accessibility。
 - Desktop 與 Mobile 應屬同一產品視覺語言；Mobile 專用元件變體與 layout 不視為第二套網站。
 - AITeam `shared/cy-visual/` 是 family-wide visual canonical source；未來若建立正式 Web canonical package，本專案依治理鏈採用並保留必要 project-specific 例外。
+- **表單鍵盤操作是每個功能的必要條件**（使用者 2026-10-20）：
+  - 所有資料輸入表單，按 Enter 要跳到下一個欄位，不可直接存檔：
+    - 紀錄表單用 `enterAdvancesFields`，最後停在儲存按鈕；
+    - 簡短視窗（原因、密碼、驗證碼）用 `enterAdvancesThenSubmits`；
+    - Ctrl／⌘＋Enter 直接儲存。
+  - 只有查詢表單（標示 `role="search"`）可以按 Enter 直接查詢。
+  - 日期欄位一律限制為四碼年份。
+  - 這兩項由 `scripts/form-keyboard.test.mjs` 自動檢查（`npm run validate:source`）。新功能未通過時，不得以加入例外清單代替實作。
+- **表單欄位一律用共用欄位元件**（使用者 2026-10-21）：
+  - 資料輸入表單的欄位用 `src/ui/forms/Field.tsx` 的 `Field`、`CheckField`、`FormSection`、`RequiredRows`，不再手寫 `<label>文字<input/></label>`。
+  - **必填欄位顯示紅色＊**：在 `Field` 標 `required`，元件同時設定控制項的 `required`，記號與瀏覽器檢查不會不一致。「擇一必填」用 `oneOf`、`reportAs`；「至少一列」用 `RequiredRows`。
+  - **欄位寬度依內容長短**（12 格格線）：短 `s`（日期、下拉選單、電話、數字、短代號，一列 4 個）；中 `m`（姓名、名稱、Email、搜尋選擇，一列 2 個）；長 `l`（地址、備註、說明，整列）。表單最寬 960px；窄的區域自動收成兩欄或一欄。
+  - 欄位多的表單用 `FormSection` 分區並加小標題。
+  - **送出時所有缺漏一次提醒**：由瀏覽器檢查與 `FeedbackProvider` 統一處理，列出全部缺漏並標紅框；頁面不再自行逐欄跳提醒。
+  - 由 `scripts/form-fields.test.mjs` 自動檢查（`npm run validate:source`）。
 
 ## 6. 共用模板與一致性
 
@@ -94,3 +111,8 @@
 - 正式上線前至少完成 Identity/permission、高風險操作、主要業務 workflow、RWD/Adaptive UI 與 backup/restore 災難復原驗收。
 - 使用者確認 CY Web 穩定後，才停止／刪除舊 GAS deployment 與 Sheet；在此前不得因 Public repo 新系統開發而擅自破壞舊測試／參考環境。
 - 若未來另有真實 production 資料來源需要 import/sync，必須先明確定義資料權威、映射、核對與 rollback 策略；不得把已取消的 Legacy 測試資料 migration 假設自動復活。
+
+## 9. AI 分工：工作單交接
+
+- 依 `REPOSITORY_RULES.md` §11.4（使用者 2026-10-21 抽出為共通規則；**只有在使用者指示 Claude 開立工作單轉交 GPT 製作時才適用**，使用者直接交辦 Claude 實作的工作照一般流程）。
+- 本 repo 的工作單放 `docs/development/work-orders/WO-<版本>.md`，格式與固定驗收項目依同目錄 `README.md`；通過審查後依本檔 §8 與部署文件合併、部署。

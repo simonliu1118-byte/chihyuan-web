@@ -1,17 +1,26 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ApiClientError } from "./api/client";
+import { routeHref } from "./runtime/navigation/route-params";
+import { Loading } from "./ui/feedback/Loading";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ApiClientError, apiRequest } from "./api/client";
+import { usageRatio, type D1UsageReport } from "../shared/cloudflare-usage";
 import { checkModuleAccess } from "./access/module-access-client";
 import { AuthGate } from "./auth/AuthGate";
 import type { AuthSession, WorkspaceRole } from "./auth/auth-client";
-import { SharedIdentityPage } from "./identity/SharedIdentityPage";
-import { CYWEB_MODULES, moduleCodesForRoute, type CyWebModuleCode } from "../shared/modules";
+import { MyAccountPage, SharedIdentityPage } from "./identity/SharedIdentityPage";
+import { effectiveModules, CYWEB_MODULES, moduleCodesForRoute, type CyWebModuleCode } from "../shared/modules";
+import { verifiedProgramCatalog } from "../shared/program-catalog";
 import type { NavigationGroup } from "./ui/foundation/navigation";
 import { AppShell } from "./ui/shell/AppShell";
-import { SettingsOperationalPage } from "./runtime/modules/SettingsOperationalPage";
+import { ThemeSwitch, ThemeToggle } from "./ui/foundation/ThemeToggle";
+import { AccountMenu } from "./ui/shell/AccountMenu";
+import { useCompactLayout } from "./ui/foundation/useCompactLayout";
+import { ModuleSettingsButton } from "./runtime/modules/ModuleSettingsPanel";
 import { AuditOperationalPage } from "./runtime/modules/AuditOperationalPage";
 import { CustomerOperationalPage } from "./runtime/modules/CustomerOperationalPage";
 import { DefectOperationalPage } from "./runtime/modules/DefectOperationalPage";
 import { ErpItemQueryPage } from "./runtime/modules/ErpItemQueryPage";
+import { RestockAssistPage } from "./runtime/modules/RestockAssistPage";
+import {OrderingPage} from "./runtime/modules/OrderingPage";
 import { ErpAgentCredentialControl } from "./runtime/modules/ErpAgentCredentialControl";
 import { ItemOperationalPage } from "./runtime/modules/ItemOperationalPage";
 import { OutsourcingOperationalPage } from "./runtime/modules/OutsourcingOperationalPage";
@@ -19,58 +28,74 @@ import { SalesOrderOperationalPage } from "./runtime/modules/SalesOrderOperation
 import { WorkLogOperationalPage } from "./runtime/modules/WorkLogOperationalPage";
 import { BackupOperationalPage } from "./runtime/modules/BackupOperationalPage";
 import { ProgramCatalogPage } from "./runtime/modules/ProgramCatalogPage";
+import { HrOperationalPage } from "./runtime/modules/HrOperationalPage";
+import { HrSettingsButton } from "./runtime/modules/HrSettingsButton";
 import { UnsavedChangesBoundary, useNavigationGuard } from "./ui/foundation/useUnsavedChangesGuard";
 import { createGuardedHashNavigation } from "./ui/foundation/guarded-hash-navigation";
 import { FeedbackProvider, useFeedback, useFeedbackMessage } from "./ui/feedback/FeedbackProvider";
 
-type AppRoute = "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "erp-item-query" | "settings" | "audit" | "identity" | "backups" | "programs";
+type AppRoute = "hr" | "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "erp-item-query" | "restock-assist" | "ordering" | "audit" | "identity" | "account" | "backups" | "programs";
 
 // One source of truth for the topbar titles and on-demand module descriptions.
 const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
-  customers: { title:"客戶", description:"管理客戶資料、聯絡人、拜訪紀錄、報價與常用商品。" },
-  items: { title:"商品", description:"管理商品資料、品號、價格及單位換算。" },
-  defects: { title:"瑕疵", description:"管理瑕疵紀錄、處理進度及作廢。" },
-  orders: { title:"銷售工單", description:"管理銷售工單、ERP 單號與出貨流程；正式單號由 SMART ERP 提供。" },
-  outsourcing: { title:"委外／代工", description:"管理代工單、材料清單、代工單價與庫存。" },
-  worklogs: { title:"工作日誌", description:"建立工作日誌、送交審核及檢視評分統計。" },
-  "erp-item-query": { title:"ERP 查詢", description:"查閱 SMART ERP 的商品、客戶、銷貨銷退單與未收款；只讀取，不會新增或修改 ERP 或 CY Web 資料。" },
-  identity: { title:"帳號與權限", description:"CYID 身分、Email 與系統准入的管理入口。" },
-  settings: { title:"設定／管理", description:"結構設定由超級管理員維護；管理員可維護工作日誌與計分設定。" },
-  audit: { title:"稽核紀錄", description:"檢視重要業務操作與設定變更；只有管理員與超級管理員可讀取詳細內容。" },
-  backups: { title:"備份管理", description:"查看備份與副本狀態，建立手動備份或重試未完成的 GCS 副本。" },
-  programs: { title:"CY 程式", description:"CY 程式功能、正式版本與使用入口；開發中的程式先提供功能介紹。" },
+  hr: { title:"人事", description:"人事資料、年資特休與薪資紀錄" },
+  customers: { title:"客戶", description:"客戶資料、聯絡人、拜訪與報價紀錄" },
+  items: { title:"商品", description:"商品資料、品號、價格與單位換算" },
+  defects: { title:"瑕疵", description:"瑕疵回報、處理進度與作廢" },
+  orders: { title:"銷售工單", description:"銷售工單與出貨流程，正式單號由 ERP 提供" },
+  outsourcing: { title:"委外/代工", description:"代工單、協力廠商、單價、BOM 與庫存" },
+  worklogs: { title:"工作日誌", description:"填寫日誌、送審與評分統計" },
+  "erp-item-query": { title:"ERP 查詢", description:"查閱 SMART ERP 資料，只讀不改" },
+  "restock-assist": { title:"進貨輔助", description:"期間內各品號每日銷貨、銷退與目前庫存（SMART ERP，只讀不改）" },
+  ordering: {title:"叫貨",description:"叫貨草稿、送出、到貨紀錄與未到貨管理"},
+  identity: { title:"帳號與權限", description:"使用者、權限群組與系統安全" },
+  account: { title:"我的帳號", description:"變更自己的密碼與 Email" },
+  audit: { title:"異動紀錄", description:"誰在什麼時候改了什麼" },
+  backups: { title:"備份管理", description:"備份狀態、手動備份與重試副本" },
+  programs: { title:"CY 程式", description:"CY 程式的功能、版本與使用入口" },
 };
 
 const baseNavigation: readonly NavigationGroup[] = [
   {
-    key: "business",
+    key: "erp-query", items: [
+      { key: "erp-item-query", label: "ERP 查詢", href: "#erp-item-query" },
+      { key: "restock-assist", label: "進貨輔助", href: "#restock-assist" },
+    ],
+  },
+  {
+    key: "business", label: "業務模組",
     items: [
       { key: "customers", label: "客戶", href: "#customers" },
       { key: "items", label: "商品", href: "#items" },
       { key: "defects", label: "瑕疵", href: "#defects" },
       { key: "orders", label: "銷售工單", href: "#orders" },
-      { key: "outsourcing", label: "委外", href: "#outsourcing" },
+      { key: "ordering", label: "叫貨", href: "#ordering" },
+      { key: "outsourcing", label: "委外/代工", href: "#outsourcing" },
       { key: "worklogs", label: "工作日誌", href: "#worklogs" },
-      { key: "erp-item-query", label: "ERP 查詢", href: "#erp-item-query" },
+      { key: "hr", label: "人事", href: "#hr" },
     ],
   },
   {
-    key: "administration",
+    key: "administration", label: "系統管理",
     dividerBefore: true,
     items: [
       { key: "identity", label: "帳號與權限", href: "#identity" },
-      { key: "settings", label: "設定", href: "#settings" },
-      { key: "audit", label: "稽核紀錄", href: "#audit" },
+      { key: "audit", label: "異動紀錄", href: "#audit" },
       { key: "backups", label: "備份管理", href: "#backups" },
     ],
   },
 ];
 
 const programsNavigation: NavigationGroup = {
-  key: "tools", label: "工具", items: [{ key: "programs", label: "CY 程式", href: "#programs" }],
+  key: "tools", label: "工具", items: [
+    { key:"programs",label:"CY 程式",href:"#programs" },
+    ...verifiedProgramCatalog.programs.filter(program => program.platform === "web" && !!program.websiteUrl)
+      .map(program => ({ key:"web-"+program.id,label:program.navLabel ?? program.name,href:program.websiteUrl!,external:true })),
+  ],
 };
 
 const routes = new Set<AppRoute>([
+  "hr",
   "customers",
   "items",
   "defects",
@@ -78,16 +103,18 @@ const routes = new Set<AppRoute>([
   "outsourcing",
   "worklogs",
   "erp-item-query",
+  "restock-assist",
+  "ordering",
   "identity",
-  "settings",
+  "account",
   "audit",
   "backups",
   "programs",
 ]);
 
 function currentRoute(): AppRoute {
-  const value = window.location.hash.replace(/^#/, "") as AppRoute;
-  return routes.has(value) ? value : "identity";
+  const value = window.location.hash.replace(/^#/, "").split("?")[0] as AppRoute;
+  return routes.has(value) ? value : "account";
 }
 
 function accountPermissionLabel(role: WorkspaceRole): string {
@@ -117,41 +144,76 @@ function OperationalApp({
   const [route, setRoute] = useState<AppRoute>(currentRoute);
   const moduleAccess = session.moduleAccess;
   const notify = useFeedback();
+  const [usageReport, setUsageReport] = useState<D1UsageReport | null>(null);
+  const [usageError, setUsageError] = useState<string | null>(null);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [usageRequested, setUsageRequested] = useState(false);
+  const [dismissedUsageDay, setDismissedUsageDay] = useState<string | null>(null);
+  const refreshUsage = useCallback(async () => {
+    setUsageLoading(true);
+    try {
+      const report = await apiRequest<D1UsageReport>("/api/business/usage/d1?days=7");
+      setUsageReport(report); setUsageError(null);
+    } catch (error) {
+      setUsageError(error instanceof ApiClientError ? error.code : "USAGE_UNAVAILABLE");
+      setUsageReport(null);
+    } finally { setUsageLoading(false); }
+  }, []);
+  useEffect(() => { if (route !== "identity") setUsageRequested(false); }, [route]);
+  useEffect(() => {
+    if (session.user.workspaceRole !== "SUPER_ADMIN") return;
+    void refreshUsage();
+    const timer = window.setInterval(() => { void refreshUsage(); }, 30 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [session.user.workspaceRole, refreshUsage]);
   const previousAccess = useRef(moduleAccess);
   const [moduleAccessError, , setModuleAccessError] = useFeedbackMessage<string | null>(null);
   const [routeAccess, setRouteAccess] = useState<"idle" | "checking" | "allowed" | "denied">("idle");
   const [checkedRoute, setCheckedRoute] = useState<AppRoute | null>(null);
   const { canLeave, cancel } = useNavigationGuard();
+  const compact = useCompactLayout();
+  const pendingRecordHash = useRef<string | null>(null);
   const guardedNavigation = useMemo(() => createGuardedHashNavigation<AppRoute>({
     initial: currentRoute(), canLeave, commit: setRoute,
     write: (next, replace) => {
-      if (replace) window.history.replaceState(null, "", `#${next}`);
-      else window.location.hash = next;
+      const requested = pendingRecordHash.current;
+      const href = requested && requested.slice(1).split("?")[0] === next ? requested : routeHref(next);
+      if (replace) window.history.replaceState(null, "", href);
+      else window.location.hash = href;
     },
   }), [canLeave]);
 
   const allowedModules = useMemo(
-    () => new Set<CyWebModuleCode>(moduleAccess?.allowedModules ?? []),
+    // The grants in effect: 進貨輔助 counts only with ERP 商品查詢 and ERP 客戶查詢 (user 2026-10-21).
+    () => new Set<CyWebModuleCode>(effectiveModules(moduleAccess?.allowedModules ?? [])),
     [moduleAccess],
   );
 
   const navigation = useMemo<readonly NavigationGroup[]>(() => {
-    const business = baseNavigation[0].items.filter((item) =>
-      moduleCodesForRoute(item.key).some((code) => allowedModules.has(code)));
-    const administration = baseNavigation[1].items.filter((item) => {
-      if (item.key === "identity") return true;
-      if (item.key === "backups") return session.user.workspaceRole === "SUPER_ADMIN";
-      return session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN";
-    });
+    const erp = baseNavigation.find(group => group.key === "erp-query")!;
+    const business = baseNavigation.find(group => group.key === "business")!;
+    const administration = baseNavigation.find(group => group.key === "administration")!;
+    const erpItems = erp.items.filter(item =>
+      moduleCodesForRoute(item.key).some(code => allowedModules.has(code)));
+    const businessItems = business.items.filter(item => item.key === "hr"
+      ? session.user.workspaceRole === "SUPER_ADMIN"
+      : moduleCodesForRoute(item.key).some(code => allowedModules.has(code)));
+    const adminItems = administration.items.filter(item =>
+      item.key === "backups" ? session.user.workspaceRole === "SUPER_ADMIN"
+        : session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN");
     return [
-      { ...baseNavigation[0], items: business },
-      { ...baseNavigation[1], items: administration },
+      { ...erp, items: erpItems },
+      { ...business, items: businessItems },
+      { ...administration, items: adminItems },
       programsNavigation,
     ];
   }, [allowedModules, session.user.workspaceRole]);
 
   useEffect(() => {
-    const handleHashChange = () => { void guardedNavigation.request(currentRoute(), "hash"); };
+    const handleHashChange = () => {
+      pendingRecordHash.current = window.location.hash;
+      void guardedNavigation.request(currentRoute(), "hash").finally(() => { pendingRecordHash.current = null; });
+    };
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, [guardedNavigation]);
@@ -162,27 +224,29 @@ function OperationalApp({
     previousAccess.current = moduleAccess;
     const routeNow = route;
     const routeCodes = moduleCodesForRoute(routeNow);
-    const adminOnly = routeNow === "settings" || routeNow === "audit";
+    const adminOnly = routeNow === "audit" || routeNow === "identity";
     const adminAllowed = session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN";
 
     if (!window.location.hash) {
-      const firstBusiness = baseNavigation[0].items.find((item) =>
-        moduleCodesForRoute(item.key).some((code) => allowedModules.has(code)));
-      window.location.hash = firstBusiness?.href ?? "#identity";
+      const erpAllowed = moduleCodesForRoute("erp-item-query").some(code => allowedModules.has(code));
+      const firstBusiness = baseNavigation.find(group => group.key === "business")?.items.find(item =>
+        moduleCodesForRoute(item.key).some(code => allowedModules.has(code)));
+      const restockAllowed = moduleCodesForRoute("restock-assist").some(code => allowedModules.has(code));
+      window.location.hash = erpAllowed ? "#erp-item-query" : restockAllowed ? "#restock-assist" : firstBusiness?.href ?? "#account";
       return;
     }
 
     if ((routeCodes.length && !routeCodes.some((code) => allowedModules.has(code))) || (adminOnly && !adminAllowed)
-      || (routeNow === "backups" && session.user.workspaceRole !== "SUPER_ADMIN")) {
+      || ((routeNow === "backups" || routeNow === "hr") && session.user.workspaceRole !== "SUPER_ADMIN")) {
       cancel();
-      guardedNavigation.replace("identity");
+      guardedNavigation.replace("account");
       // A page opened by several grants (ERP 查詢) is named by its page title.
       const label = routeCodes.length > 1 ? PAGE_META[routeNow].title
         : CYWEB_MODULES.find(item => item.code === routeCodes[0])?.label;
       const revoked = routeCodes.some((code) => previous?.allowedModules.includes(code));
       notify(label
-        ? revoked ? `「${label}」模組的使用權已被取消，已退出該模組並返回帳號頁。尚未儲存的內容不會自動送出。` : `你目前沒有「${label}」模組的使用權，已返回帳號頁。`
-        : "你的管理權限已變更，已返回帳號頁。尚未儲存的內容不會自動送出。", "權限變更", { replace: true });
+        ? revoked ? `「${label}」模組的使用權已被取消，已退出該模組並返回「我的帳號」。尚未儲存的內容不會自動送出。` : `你目前沒有「${label}」模組的使用權，已返回「我的帳號」。`
+        : "你的管理權限已變更，已返回「我的帳號」。尚未儲存的內容不會自動送出。", "權限變更", { replace: true });
     }
   }, [moduleAccess, allowedModules, session.user.workspaceRole, guardedNavigation, cancel, notify, route]);
 
@@ -213,59 +277,87 @@ function OperationalApp({
   }, [route, routeAllowed, routeModuleCode, moduleAccess]);
 
   let content: React.ReactNode;
+  const role = session.user.workspaceRole;
   const moduleCode = routeModuleCode;
   const adminAllowed = session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN";
-  if ((route === "settings" || route === "audit") && !adminAllowed) {
-    content = <section className="cy-op-panel">管理權限已變更，正在返回帳號頁…</section>;
+  if ((route === "audit" || route === "identity") && !adminAllowed || (route === "hr" && role !== "SUPER_ADMIN")) {
+    content = <Loading />;
   } else if (moduleCode && (!routeAllowed || routeAccess !== "allowed" || checkedRoute !== route)) {
-    content = <section className="cy-op-panel"><h2>{routeAccess === "denied" ? "目前無法確認模組權限" : "正在確認模組權限…"}</h2><p>{moduleAccessError ?? "正在確認目前的模組使用權限。"}</p></section>;
-  } else if (route === "customers") content = <CustomerOperationalPage />;
-  else if (route === "items") content = <ItemOperationalPage />;
+    content = routeAccess === "denied"
+      ? <section className="cy-op-panel"><h2>目前無法確認模組權限</h2><p>{moduleAccessError ?? "請重新整理頁面後再試。"}</p></section>
+      : <Loading />;
+  } else if (route === "hr") content = <HrOperationalPage />;
+  else if (route === "customers") content = <CustomerOperationalPage role={role} />;
+  else if (route === "items") content = <ItemOperationalPage canViewDefects={allowedModules.has("DEFECTS")} canViewCustomers={allowedModules.has("CUSTOMERS")} />;
   else if (route === "defects") content = <DefectOperationalPage />;
   else if (route === "orders") content = <SalesOrderOperationalPage />;
   else if (route === "outsourcing") content = <OutsourcingOperationalPage />;
   else if (route === "worklogs") content = <WorkLogOperationalPage />;
   else if (route === "erp-item-query") content = <ErpItemQueryPage allowedModules={allowedModules} />;
-  else if (route === "identity") content = <SharedIdentityPage session={session} />;
+  else if (route === "restock-assist") content = <RestockAssistPage canQueryItem={allowedModules.has("ERP_ITEM_QUERY")} canOrdering={allowedModules.has("ORDERING")} />;
+  else if (route === "ordering") content = <OrderingPage />;
+  else if (route === "identity") content = <SharedIdentityPage session={session}
+    showUsage={usageRequested && role === "SUPER_ADMIN"}
+    usage={role === "SUPER_ADMIN" ? {report:usageReport,error:usageError,loading:usageLoading,onRefresh:refreshUsage} : undefined} />;
+  else if (route === "account") content = <MyAccountPage session={session} />;
   else if (route === "programs") content = <ProgramCatalogPage />;
-  else if (route === "settings") content = <SettingsOperationalPage role={session.user.workspaceRole} />;
-  else if (route === "backups") content = session.user.workspaceRole === "SUPER_ADMIN" ? <BackupOperationalPage /> : <section className="cy-op-panel">需要最高管理員權限。</section>;
-  else content = <AuditOperationalPage />;
+  else if (route === "backups") content = session.user.workspaceRole === "SUPER_ADMIN" ? <BackupOperationalPage session={session} /> : <section className="cy-op-panel">需要最高管理員權限。</section>;
+  else content = <AuditOperationalPage role={role === "SUPER_ADMIN" ? "SUPER_ADMIN" : "ADMIN"} />;
+
+  const usageToday = usageReport?.today;
+  const usageDate = usageToday?.date ?? "";
+  const dismissKey = "cyweb:d1-usage-dismissed:" + usageDate;
+  let dismissedInSession = false;
+  if (usageDate) {
+    try { dismissedInSession = window.sessionStorage.getItem(dismissKey) === "1"; } catch { /* blocked storage */ }
+  }
+  const readRatio = usageReport ? usageRatio(usageToday!.rowsRead, usageReport.limits.rowsReadPerDay) : 0;
+  const writeRatio = usageReport ? usageRatio(usageToday!.rowsWritten, usageReport.limits.rowsWrittenPerDay) : 0;
+  const isReadPrimary = readRatio >= writeRatio;
+  const primaryKey = isReadPrimary ? "rowsRead" : "rowsWritten";
+  const topDatabase = usageToday?.databases.reduce<typeof usageToday.databases[number] | undefined>(
+    (top, db) => !top || db[primaryKey] > top[primaryKey] ? db : top, undefined);
+  const databaseShare = topDatabase && usageToday?.[primaryKey]
+    ? Math.round(topDatabase[primaryKey] / usageToday[primaryKey] * 100) : 0;
+  const showUsageAlert = role === "SUPER_ADMIN" && !usageError && usageToday
+    && usageToday.level !== "ok" && dismissedUsageDay !== usageDate && !dismissedInSession;
+  const usageBanner = showUsageAlert
+    ? <div role="status" className={"cy-notice cy-usage-alert " + (usageToday.level === "danger" ? "cy-notice-danger" : "cy-notice-warning")}>
+      <span>今日 D1 {isReadPrimary ? "讀取" : "寫入"}已用 {Math.round(Math.max(readRatio,writeRatio)*100)}%
+        {topDatabase && databaseShare ? "（" + topDatabase.name + " 占 " + databaseShare + "%）" : ""}
+        ，每日 08:00（台灣時間）重置</span>
+      <button className="cy-op-button compact" type="button" onClick={() => {
+        setUsageRequested(true); void guardedNavigation.request("identity", "link");
+      }}>查看</button>
+      <button className="cy-op-button compact" type="button" aria-label="關閉用量警示" onClick={() => {
+        try { window.sessionStorage.setItem(dismissKey, "1"); } catch { /* still dismiss in memory */ }
+        setDismissedUsageDay(usageDate);
+      }}>關閉</button>
+    </div> : null;
 
   return (
     <AppShell
+      systemNotice={usageBanner}
       appName="CY Web"
       pageTitle={PAGE_META[route].title}
       pageDescription={PAGE_META[route].description}
-      accountLabel={`帳號：${session.user.employeeNo} ${session.user.displayName} ${accountPermissionLabel(session.user.workspaceRole)}`}
-      accountRole={session.user.workspaceRole}
-      pageTools={route === "erp-item-query"
+      pageTools={route === "hr" ? <HrSettingsButton />
+        : route === "erp-item-query" || route === "restock-assist"
         ? <ErpAgentCredentialControl isSuperAdmin={session.user.workspaceRole === "SUPER_ADMIN"} />
+        : route === "customers" ? <ModuleSettingsButton key={route} role={role} label="客戶" only={["customer_category","customer_status","department"]} />
+        : route === "items" ? <ModuleSettingsButton key={route} role={role} label="商品" only={["item_category"]} />
+        : route === "worklogs" ? <ModuleSettingsButton key={route} role={role} label="工作日誌" only={["worklog-categories","worklog-platforms","scoring"]} />
         : undefined}
-      subtitle="Chihyuan Enterprise Management System"
+      subtitle="志遠企業管理系統"
       navigation={navigation}
       activeNavigationKey={route}
       onNavigate={item => { if (routes.has(item.key as AppRoute)) void guardedNavigation.request(item.key as AppRoute, "link"); }}
-      headerActions={
-        <>
-          <div className="cy-auth-account-control" data-role={session.user.workspaceRole}>
-            <div className="cy-auth-user">
-              <span><strong>{session.user.employeeNo}</strong> {session.user.displayName} <span className="cy-auth-permission-badge">[{accountPermissionLabel(session.user.workspaceRole)}]</span></span>
-            </div>
-            <button
-              className="cy-auth-logout-button"
-              type="button"
-              disabled={signingOut}
-              onClick={() => void logout()}
-            >
-              {signingOut ? "登出中…" : "登出"}
-            </button>
-          </div>
-        </>
-      }
-      footer={<span className="cy-shell-foundation-note">CY Web</span>}
+      appearance={compact ? <ThemeToggle iconOnly /> : <ThemeSwitch />}
+      account={<AccountMenu displayName={session.user.displayName}
+        role={session.user.workspaceRole} roleLabel={accountPermissionLabel(session.user.workspaceRole)} compact={compact}
+        signingOut={signingOut} onAccount={() => void guardedNavigation.request("account", "link")} onLogout={() => void logout()} />}
     >
-      {moduleAccessError && route === "identity" ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-title">模組權限狀態</div><div className="cy-notice-body">{moduleAccessError}</div></div> : null}
+      {moduleAccessError && route === "account" ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-title">模組權限狀態</div><div className="cy-notice-body">{moduleAccessError}</div></div> : null}
       {content}
     </AppShell>
   );

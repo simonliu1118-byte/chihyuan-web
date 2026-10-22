@@ -50,6 +50,13 @@
       "bytes": 4068,
       "sha256": "e0e3faf5d2689142f0108d2af3cea3c0d8a4d3c7687376d65fbf5862a57ff0d9",
       "git_blob_sha1": "7e1928c5692d10137118184905b625bb9763026f"
+    },
+    {
+      "source": "shared/cy-visual/icon-family/apps/erp-autoquery/AutoQ.svg",
+      "target": "src/assets/cy-apps/AutoQ.svg",
+      "bytes": 2709,
+      "sha256": "389db089467326501b08e5374cbadd43e30cfddef30bb8f0117ef842ef1052fc",
+      "git_blob_sha1": "22affba0e93e9c338d1bd7e17391e613d65d3148"
     }
   ]
 }

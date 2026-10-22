@@ -81,6 +81,7 @@ export interface WorkLogSummary {
 }
 
 export interface WorkLogDetail extends WorkLogSummary {
+  employee: { employeeNo: string | null; displayName: string | null };
   reviewRemark: string | null;
   createdAt: string;
   entries: readonly WorkLogEntry[];
@@ -145,6 +146,8 @@ export interface WorkLogSearchQuery {
 export interface WorkLogListResult {
   items: readonly WorkLogSummary[];
   nextCursor: string | null;
+  /** Per-status totals for the same filters, on the first page only. */
+  statusCounts?: Partial<Record<WorkLogStatusCode, number>>;
 }
 
 export interface WorkLogStatisticsQuery {

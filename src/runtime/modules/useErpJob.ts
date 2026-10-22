@@ -10,7 +10,7 @@ export function readableErpError(error: unknown): string {
   if (error instanceof ApiClientError) {
     if (error.code === "QUERY_ALREADY_ACTIVE") return "已有一筆查詢尚未結束，請等候完成後再試。";
     if (error.code === "ACCESS_DENIED") return "你目前沒有這項 ERP 查詢的模組權限。";
-    if (error.code === "INVALID_ITEM_NO") return "品號只能輸入 1～40 個英文字母或數字。";
+    if (error.code === "INVALID_ITEM_NO") return "品號只能輸入 1～40 個英文字母、數字或「-」。";
     if (error.code === "INVALID_KEYWORD") return "請輸入 1～40 字，不可含單引號或 % _ [ ]。";
     return error.message || error.code;
   }
@@ -51,7 +51,7 @@ export function useErpJob() {
     try {
       const job = await createErpQuery(request);
       setResult({ ...job, fields: [], warehouses: [], elapsedMs: null, batchManaged: null, batches: [], history: null,
-        items: [], orders: [], bills: [], total: 0, truncated: false, startedAt: null, completedAt: null,
+        items: [], orders: [], purchases: [], bills: [], restock: [], total: 0, truncated: false, startedAt: null, progress: null, completedAt: null,
         errorCode: null, errorMessage: null, resultCleared: false });
       setQueryId(job.id);
       return true;

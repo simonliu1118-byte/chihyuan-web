@@ -13,7 +13,9 @@ function base64url(bytes: Uint8Array): string {
 export class GCSBackupProvider implements BackupStorageProvider {
   private token: { value: string; expires: number } | null = null;
   constructor(private readonly bucket: string, private readonly serviceAccountJson: string,
-    private readonly send: typeof fetch = fetch, private readonly timeoutMs = 10000) {
+    // Workers' native fetch requires the global receiver. A stored bare fetch
+    // called as this.send() throws before any outbound request in workerd.
+    private readonly send: typeof fetch = (input, init) => globalThis.fetch(input, init), private readonly timeoutMs = 10000) {
     storageCheck(/^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$/.test(bucket), "BACKUP_GCS_CONFIG_INVALID");
   }
   /** One attempt, bounded headers + body, fixed endpoints and no redirects. */
@@ -23,7 +25,12 @@ export class GCSBackupProvider implements BackupStorageProvider {
     try {
       return await Promise.race([
         (async () => {
-          const response = await this.send(url, { ...init, redirect: "error", signal: controller.signal });
+          // workerd accepts manual/follow only. Refuse redirects explicitly so
+          // neither JWT assertions nor bearer tokens reach another endpoint.
+          const response = await this.send(url, { ...init, redirect: "manual", signal: controller.signal });
+          if (response.status >= 300 && response.status < 400) {
+            await response.body?.cancel(); throw new Error("BACKUP_GCS_REDIRECT_REJECTED");
+          }
           return { status: response.status, bytes: await boundedBytes(response.body, limit) };
         })(),
         new Promise<never>((_, reject) => { timer = setTimeout(() => {
@@ -63,6 +70,17 @@ export class GCSBackupProvider implements BackupStorageProvider {
     return this.request(API + path, { ...init, headers: { ...init.headers, authorization: `Bearer ${token}` } }, limit);
   }
   private objectPath(key: string): string { objectKey(key); return `/storage/v1/b/${encodeURIComponent(this.bucket)}/o/${encodeURIComponent(key)}`; }
+  /** Read-only IAM probe. This does not create, read or delete backup objects. */
+  async verifyAccess(): Promise<void> {
+    const required = ["storage.objects.create", "storage.objects.get", "storage.objects.list", "storage.objects.delete"];
+    const query = new URLSearchParams(required.map(permission => ["permissions", permission]));
+    const response = await this.api(`/storage/v1/b/${encodeURIComponent(this.bucket)}/iam/testPermissions?${query}`, { method: "GET" });
+    storageCheck(response.status === 200, "BACKUP_GCS_PERMISSION_CHECK_FAILED");
+    let body: { permissions?: unknown };
+    try { body = JSON.parse(new TextDecoder().decode(response.bytes)); } catch { throw new Error("BACKUP_GCS_PERMISSION_CHECK_FAILED"); }
+    const permissions = body?.permissions;
+    storageCheck(Array.isArray(permissions) && required.every(permission => permissions.includes(permission)), "BACKUP_GCS_PERMISSIONS_MISSING");
+  }
   async putObject(key: string, bytes: Uint8Array): Promise<void> {
     objectKey(key);
     storageCheck(bytes.byteLength <= MAX_OBJECT_BYTES, "BACKUP_STORAGE_CAPACITY_EXCEEDED");
@@ -70,7 +88,18 @@ export class GCSBackupProvider implements BackupStorageProvider {
     const response = await this.api(`/upload/storage/v1/b/${encodeURIComponent(this.bucket)}/o?${query}`, {
       method: "POST", headers: { "content-type": "application/json" }, body: bytes });
     if (response.status === 412) storageCheck(equalBytes(await this.getObject(key), bytes), "BACKUP_STORAGE_COLLISION");
-    else storageCheck(response.status >= 200 && response.status < 300, "BACKUP_GCS_UPLOAD_FAILED");
+    else if (response.status < 200 || response.status >= 300) {
+      // Persist only a fixed diagnostic vocabulary, never provider messages,
+      // URLs, bucket names, account metadata or credential material.
+      let reason = "";
+      try {
+        const payload = JSON.parse(new TextDecoder().decode(response.bytes));
+        const reasons = payload?.error?.errors;
+        if (Array.isArray(reasons) && reasons.some(error => ["accountDisabled", "billingNotEnabled", "userProjectMissing"].includes(error?.reason))) reason = "BILLING";
+      } catch {}
+      throw new Error(reason === "BILLING" ? "BACKUP_GCS_UPLOAD_BILLING_REQUIRED" : response.status === 403
+        ? "BACKUP_GCS_UPLOAD_DENIED" : response.status === 404 ? "BACKUP_GCS_BUCKET_UNAVAILABLE" : "BACKUP_GCS_UPLOAD_FAILED");
+    }
   }
   async getObject(key: string): Promise<Uint8Array | null> {
     const response = await this.api(this.objectPath(key) + "?alt=media", { method: "GET" }, MAX_OBJECT_BYTES);

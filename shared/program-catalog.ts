@@ -1,9 +1,10 @@
-export type ProgramId = "accounting-web" | "accounting" | "invoice" | "tri-invoice-calc" | "converter" | "erp-auto-input" | "envelope" | "watermark" | "price-desk";
+export type ProgramId = "accounting-web" | "accounting" | "invoice" | "tri-invoice-calc" | "converter" | "erp-auto-input" | "erp-auto-query" | "envelope" | "watermark" | "price-desk";
 export interface ProgramEntry {
   id: ProgramId;
   name: string;
+  navLabel?: string;
   platform: "web" | "windows";
-  icon: "ACC" | "INV" | "CAL" | "CVT" | "Auto" | "ENV" | "WM" | null;
+  icon: "ACC" | "INV" | "CAL" | "CVT" | "Auto" | "AutoQ" | "ENV" | "WM" | null;
   description: string;
   version: string | null;
   publishedAt: string | null;
@@ -48,7 +49,7 @@ export function getProgramAction(program: ProgramEntry): ProgramAction {
 export const verifiedProgramCatalog: ProgramCatalog = {
   checkedAt: "2026-10-16T02:30:36Z", current: false,
   programs: [
-    { id: "accounting-web", name: "志遠記帳系統 Web 版", platform: "web", icon: "ACC",
+    { id: "accounting-web", name: "志遠記帳系統 Web 版", navLabel: "志遠記帳 Web", platform: "web", icon: "ACC",
       description: "多人網頁記帳，支援帳戶與科目管理、收支查詢、自動期初餘額及 Excel 匯出，可於電腦與手機使用。",
       version: "0.22.15", publishedAt: "2026-10-05T02:11:38Z", websiteUrl: "https://acc.chihyuancm.com",
       releaseUrl: "https://github.com/simonliu1118-byte/CYapps/releases/tag/cyaccountingweb-v0.22.15", downloadUrl: null },
@@ -77,13 +78,16 @@ export const verifiedProgramCatalog: ProgramCatalog = {
       version: "0.2.9", publishedAt: "2026-10-12T08:56:08Z", websiteUrl: null,
       releaseUrl: "https://github.com/simonliu1118-byte/CYapps/releases/tag/cyerp-auto-input-v0.2.9",
       downloadUrl: "https://github.com/simonliu1118-byte/CYapps/releases/download/cyerp-auto-input-v0.2.9/CYERPAutoInput_V0.2.9.zip" },
+    { id: "erp-auto-query", name: "SMART ERP 自動查詢工具", platform: "windows", icon: "AutoQ",
+      description: "在公司內網電腦接收 CY Web 的查詢，自動到 SMART ERP 查品號、批號庫存與歷史異動、客戶、廠商、銷貨銷退單、進貨退貨單及未收款，只查詢不修改 ERP 資料。",
+      version: null, publishedAt: null, releaseUrl: null, downloadUrl: null, websiteUrl: null },
     { id: "envelope", name: "信封套印工具", platform: "windows", icon: "ENV",
       description: "支援收件人與地址管理、臺灣郵遞區號查詢、信封版面位置與字型設定，以及 Windows 印表機套印。",
       version: null, publishedAt: null, releaseUrl: null, downloadUrl: null, websiteUrl: null },
     { id: "watermark", name: "盲浮水印工具", platform: "windows", icon: "WM",
       description: "商品圖片盲浮水印工具，支援批次嵌入、圖片驗證與 PDF 驗證報告。",
       version: null, publishedAt: null, releaseUrl: null, downloadUrl: null, websiteUrl: null },
-    { id: "price-desk", name: "價格觀測室（原型）", platform: "web", icon: null,
+    { id: "price-desk", name: "價格觀測室（原型）", navLabel: "價格觀測室", platform: "web", icon: null,
       description: "獨立查價原型，手動記錄商品與蝦皮、momo 等平台報價，比較最低價及價差。使用 ChatGPT 私有登入；資料儲存在目前瀏覽器。",
       version: null, publishedAt: null, releaseUrl: null, downloadUrl: null,
       websiteUrl: "https://price-desk-simon.workspace-110444.chatgpt.site/" },

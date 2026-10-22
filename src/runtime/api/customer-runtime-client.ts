@@ -15,10 +15,12 @@ import type {
   CorrectCustomerItemQuoteRequest,
   CreateCustomerFrequentItemRequest,
   CreateCustomerItemQuoteRequest,
+  CreateCustomerQuoteBatchRequest,
   CreateCustomerVisitRequest,
   CustomerFrequentItemRecord,
   CustomerItemQuoteDetail,
   CustomerItemQuoteSummary,
+  ItemQuoteSummary,
   CustomerRelatedPage,
   CustomerVisitRecord,
   DeleteCustomerFrequentItemRequest,
@@ -169,6 +171,13 @@ export function deleteCustomerFrequentItem(
   );
 }
 
+export function loadItemQuoteSummary(itemId: number): Promise<ItemQuoteSummary> {
+  return apiRequest<ItemQuoteSummary>(
+    `/api/business/customers/item-quote-summary?itemId=${encodeURIComponent(String(itemId))}`,
+    { method: "GET" },
+  );
+}
+
 export function loadCustomerQuotes(
   customerId: number,
   limit = 100,
@@ -193,6 +202,16 @@ export function createCustomerQuote(
 ): Promise<CustomerItemQuoteDetail> {
   return apiRequest<CustomerItemQuoteDetail>(
     `/api/business/customers/${encodeURIComponent(String(customerId))}/quotes`,
+    { method: "POST", json: input },
+  );
+}
+
+export function createCustomerQuoteBatch(
+  customerId: number,
+  input: CreateCustomerQuoteBatchRequest,
+): Promise<readonly CustomerItemQuoteDetail[]> {
+  return apiRequest<readonly CustomerItemQuoteDetail[]>(
+    `/api/business/customers/${encodeURIComponent(String(customerId))}/quotes/batch`,
     { method: "POST", json: input },
   );
 }
