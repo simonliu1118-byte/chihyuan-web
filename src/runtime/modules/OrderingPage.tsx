@@ -19,7 +19,7 @@ const ROOT="/api/business/ordering";
 const nowDate=()=>new Date(Date.now()+8*3600000).toISOString().slice(0,10);
 const displayDate=(value:string|null|undefined)=>orderingTaipeiDateTime(value)?.date??"";
 const displayTime=(value:string|null|undefined)=>{const p=orderingTaipeiDateTime(value);return p?p.date+" "+p.time:""};
-const errorOf=(e:unknown)=>e instanceof ApiClientError&&e.code==="ORDERING_VERSION_CONFLICT"?"已被其他人修改，請重新載入":e instanceof Error?e.message:"叫貨操作失敗";
+const errorOf=(e:unknown)=>e instanceof ApiClientError&&e.code==="ORDERING_VERSION_CONFLICT"?"已被其他人修改，請重新載入":e instanceof ApiClientError&&["ORDERING_RECEIPT_CONFIRMATION_REQUIRED","ORDERING_UNAVAILABLE"].includes(e.code)?e.message+(e.requestId?"（請求編號："+e.requestId+"）":""):e instanceof Error?e.message:"叫貨操作失敗";
 type DisplayOrder=OrderingOrder&{storedStatus:"DRAFT"|"SENT"|"VOID";savedLineId?:number};
 type DisplayLine=GridLine&{quantity:number|null;received:number;state:string;closedAs:string|null};
 type VendorGroup={sourceId:number;sourceName:string;conditions:string;orderId:number|null;orderVersion:number|null;lines:(GridLine&{quantity:number|null})[]};
@@ -180,7 +180,8 @@ export function OrderingPage(){
   const fullNo="341A-"+receipt.no;
   if(selected.receipts.some(x=>x.erpPurchaseNo===fullNo)&&
     !await confirm({title:"進貨單號重複",description:"本張叫貨單已有「"+fullNo+"」的到貨紀錄。可以繼續登記，但請先確認沒有重複計算。",confirmLabel:"繼續登記"}))return;
-  const value=await write("/orders/"+receipt.id+"/receipts","POST",{erpPurchaseNo:receipt.no,receivedDate:receipt.date,lines});if(value)setReceipt(null);
+  try{const value=await write("/orders/"+receipt.id+"/receipts","POST",{erpPurchaseNo:receipt.no,receivedDate:receipt.date,lines});if(value)setReceipt(null)}
+  catch{/* write() already reports the error; retain the form for reconciliation, never silently retry. */}
  }
  async function closeRemaining(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!selected||!closing)return;
   const value=await write("/orders/"+selected.id+"/close","POST",{lineId:closing.id,closedAs:closing.kind,reason:closing.reason});if(value)setClosing(null)}

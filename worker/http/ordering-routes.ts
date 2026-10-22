@@ -55,7 +55,7 @@ async function getOrder(ctx:Context,id:number,knownOrder?:Ord){
   lines:lines.map(x=>({id:x.id,section:x.section,sortOrder:x.sort_order,itemCode:x.item_code,itemName:x.item_name,vendorItemCode:x.vendor_item_code,vendorItemName:x.vendor_item_name,vendorNameFollows:!!x.vendor_name_follows,spec:x.spec,quantityText:x.quantity_text,quantity:x.quantity,unit:x.unit,note:x.note,closedAs:x.closed_as,closedNote:x.closed_note,received:x.received,state:lineState({quantity:x.quantity,received:x.received,closedAs:x.closed_as})})),receipts:receipts.map(x=>({id:x.id,erpPurchaseNo:x.erp_purchase_no,receivedDate:x.received_date,createdAt:x.created_at,createdBy:"",lines:receiptLines.filter(l=>l.receipt_id===x.id).map(l=>({lineId:l.line_id,quantity:l.quantity}))})),
   revisions:changes.map(x=>({revision:x.revision,at:x.changed_at,by:x.actor_name??String(x.changed_by),summary:x.summary}))};
 }
-async function mutate(ctx:Context,o:Ord,expected:number,stmts:D1PreparedStatement[],summary:string,action:string){
+async function mutate(ctx:Context,o:Ord,expected:number,stmts:D1PreparedStatement[],summary:string,action:string,onBatchSuccess?:()=>void){
  if(o.version!==expected)throw new Bad("ORDERING_VERSION_CONFLICT","已被其他人修改，請重新載入",409);
  const sent=o.status==="SENT",revision=o.revision+(sent?1:0);
  const guard=ctx.db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM ordering_orders WHERE id=? AND version=? AND status=?) THEN 1 ELSE json('') END AS match").bind(o.id,expected,o.status);
@@ -64,6 +64,7 @@ async function mutate(ctx:Context,o:Ord,expected:number,stmts:D1PreparedStatemen
  if(sent)stm.push(ctx.db.prepare("INSERT INTO ordering_revisions(order_id,revision,changed_at,changed_by,summary) VALUES(?,?,?,?,?)").bind(o.id,revision,ctx.now,ctx.actor,summary.slice(0,500)));
  stm.push(audit(ctx,o.id,action,{summary,revision,version:expected+1}));
  try{await run(ctx,stm)}catch(e){if(o.version!==expected||String(e).includes("UNIQUE")||String(e).includes("malformed JSON"))throw new Bad("ORDERING_VERSION_CONFLICT","已被其他人修改，請重新載入",409);throw e}
+ onBatchSuccess?.(); // The D1 batch committed: distinguish subsequent readback failure from failed persistence.
  return getOrder(ctx,o.id);
 }
 const currentStatusSql=`CASE WHEN o.status<>'SENT' THEN o.status
@@ -81,6 +82,8 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
  if(!gate.ok)return failure({code:gate.code,message:"沒有叫貨權限"},requestId,gate.status);
  const ctx:Context={db:env.DB,actor:gate.member.id,name:gate.member.displayName??gate.member.employeeNo??"使用者",now:new Date().toISOString(),requestId};
  const path=url.pathname.replace(/^\/api\/business\/ordering\/?/,""),method=request.method;
+ // Receipt requests track the commit/readback boundary; no retry or extra database query is introduced.
+ const receiptPhase:{value:"preflight"|"persist"|"readback"|null}={value:/^orders\/\d+\/receipts$/.test(path)&&method==="POST"?"preflight":null};
  try{
   if(path==="sources"&&method==="GET"){await init(ctx);const items=await rows<Source>(ctx.db,"SELECT * FROM ordering_sources ORDER BY sort_order,id LIMIT 101");if(items.length>100)throw new Bad("ORDERING_LIMIT","來源超過100筆",409);return success(items.map(x=>({id:x.id,name:x.name,kind:x.kind,conditions:x.conditions,sortOrder:x.sort_order,isActive:!!x.is_active})),requestId)}
   if(path==="sources"&&method==="POST"){
@@ -251,6 +254,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     const seen=new Set<number>(),stmts:D1PreparedStatement[]=[];
     // A 52-bit UUID-derived INTEGER key is unique per receipt even across concurrent transactions.
     // All master/detail records are still inserted in the same atomic D1 batch.
+    receiptPhase.value="persist";
     const receiptId=Number.parseInt(crypto.randomUUID().replaceAll("-","").slice(0,13),16);
     stmts.push(ctx.db.prepare("INSERT INTO ordering_receipts(id,order_id,erp_purchase_no,received_date,created_at,created_by) VALUES(?,?,?,?,?,?)").bind(receiptId,id,no,at,ctx.now,ctx.actor));
     // Single latest-row lookup belongs to the same batch; no per-line read/write roundtrips.
@@ -259,7 +263,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
      seen.add(lineId);
      stmts.push(ctx.db.prepare("INSERT INTO ordering_receipt_lines(receipt_id,line_id,quantity) VALUES(?,?,?)").bind(receiptId,lineId,qty));
     }
-    return success(await mutate(ctx,o,expected,stmts,"到貨 "+no,"received"),requestId);
+    return success(await mutate(ctx,o,expected,stmts,"到貨 "+no,"received",()=>{receiptPhase.value="readback"}),requestId);
    }
    if(action==="close"&&method==="POST"){
     if(o.status!=="SENT")throw new Bad("ORDERING_INVALID","尚未送出");
@@ -272,8 +276,22 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
    }
   }
   return failure({code:"NOT_FOUND",message:"找不到叫貨功能"},requestId,404);
- }catch(e){if(e instanceof Bad)return failure({code:e.code,message:e.message},requestId,e.status);
-  if(String(e).includes("UNIQUE constraint"))return failure({code:"ORDERING_DUPLICATE",message:"名稱或資料已存在"},requestId,409);
+ }catch(e){
+  if(receiptPhase.value && (receiptPhase.value==="readback" || !(e instanceof Bad))){
+   // Worker logs are restricted; never log submitted receipt numbers, line values, or identity fields.
+   console.error("[ordering_receipt_failure]",{
+    requestId,phase:receiptPhase.value,
+    errorName:e instanceof Error?e.name:"Unknown",
+    errorMessage:String(e instanceof Error?e.message:e).slice(0,500),
+   });
+  }
+  if(receiptPhase.value==="readback"){
+   return failure({code:"ORDERING_RECEIPT_CONFIRMATION_REQUIRED",
+    message:"到貨資料已寫入，但無法取得確認結果。請重新載入核對到貨紀錄，不要直接重複儲存。"},requestId,503);
+  }
+  if(e instanceof Bad)return failure({code:e.code,message:e.message},requestId,e.status);
+  if(String(e).includes("UNIQUE constraint") && !receiptPhase.value)return failure({code:"ORDERING_DUPLICATE",message:"名稱或資料已存在"},requestId,409);
+  if(receiptPhase.value)return failure({code:"ORDERING_UNAVAILABLE",message:"到貨結果尚未確認，請先重新載入核對紀錄。"},requestId,500);
   return failure({code:"ORDERING_UNAVAILABLE",message:"叫貨操作失敗"},requestId,500);
  }
 }

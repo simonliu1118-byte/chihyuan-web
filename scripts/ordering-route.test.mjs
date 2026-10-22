@@ -22,7 +22,7 @@ function fixture(role="SUPER_ADMIN"){
  isIdentityAdmin:false,emailVerified:true,isWorkspaceSuperAdmin:role==="SUPER_ADMIN",credentialVersion:1,employeeRevision:1};
  const env={DB:db,IDENTITY_APPLICATION_ID:"APP_TEST",IDENTITY_WORKSPACE_ID:"workspace-test",IDENTITY:{async fetch(){return Response.json({principal,session:{expiresAt:"2999-01-01T00:00:00Z"}})}}};
  const call=async(path,method="GET",json)=>{const req=new Request("https://acceptance.test/api/business/ordering"+path,{method,headers:{cookie:"cyweb_identity_session=cyid_"+"a".repeat(64),"content-type":"application/json"},body:json===undefined?undefined:JSON.stringify(json)});const res=await handleOrderingRoute(req,env,"ordering-test");return {status:res.status,body:await res.json()}};
- return {sql,call,queries};
+ return {sql,call,queries,db};
 }
 test("permission gate and idempotent source seed",async()=>{
  const denied=fixture("USER");try{assert.equal((await denied.call("/sources")).status,403)}finally{denied.sql.close()}
@@ -180,5 +180,57 @@ test("missing names/quantity and China-source vendor-only rows remain invalid",a
   o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{itemName:"測試品名",quantityText:"2"}})).body.data;
   const blank=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,lineId:o.lines[0].id,line:{itemName:""}});
   assert.equal(blank.status,422,"auto-follow must not let clearing own name leave both names blank");
+ }finally{sql.close()}
+});
+
+test("receipt readback failure preserves committed data and returns reconciliation code",async()=>{
+ const {sql,call,db}=fixture();
+ const originalPrepare=db.prepare;
+ const originalError=console.error;
+ const logs=[];
+ try{
+  const source=(await call("/sources")).body.data.find(x=>x.name==="台中");
+  let o=(await call("/orders","POST",{sourceId:source.id})).body.data;
+  o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{itemName:"測試品名甲",quantityText:"5"}})).body.data;
+  o=(await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version})).body.data;
+  let receiptLineReads=0;
+  db.prepare=function(query){
+   if(query.startsWith("SELECT l.*,") && query.includes("ordering_receipt_lines") && ++receiptLineReads===2){
+    throw new Error("synthetic readback failure");
+   }
+   return originalPrepare.call(this,query);
+  };
+  console.error=(...args)=>logs.push(args);
+  const reply=await call("/orders/"+o.id+"/receipts","POST",{
+   expectedVersion:o.version,erpPurchaseNo:"20261022003",receivedDate:"2026-10-22",
+   lines:[{lineId:o.lines[0].id,quantity:4}],
+  });
+  assert.equal(reply.status,503);
+  assert.equal(reply.body.error.code,"ORDERING_RECEIPT_CONFIRMATION_REQUIRED");
+  assert.match(reply.body.error.message,/請重新載入/);
+  assert.equal(reply.body.requestId,"ordering-test");
+  assert.equal(logs[0][0],"[ordering_receipt_failure]");
+  assert.equal(logs[0][1].phase,"readback");
+  assert.equal(logs[0][1].requestId,"ordering-test");
+  assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_receipts").get().n,1);
+  assert.equal(sql.prepare("SELECT quantity FROM ordering_receipt_lines").get().quantity,4);
+  const reloaded=await call("/orders/"+o.id);
+  assert.equal(reloaded.status,200);
+  assert.equal(reloaded.body.data.lines[0].received,4);
+ }finally{db.prepare=originalPrepare;console.error=originalError;sql.close()}
+});
+
+test("receipt preflight rejection is preserved and does not create a receipt",async()=>{
+ const {sql,call}=fixture();
+ try{
+  const source=(await call("/sources")).body.data.find(x=>x.name==="台中");
+  let o=(await call("/orders","POST",{sourceId:source.id})).body.data;
+  o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{itemName:"測試品名甲",quantityText:"5"}})).body.data;
+  o=(await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version})).body.data;
+  const response=await call("/orders/"+o.id+"/receipts","POST",{expectedVersion:o.version,
+   erpPurchaseNo:"20260229001",receivedDate:"2026-10-22",lines:[{lineId:o.lines[0].id,quantity:4}]});
+  assert.equal(response.status,422);
+  assert.equal(response.body.error.code,"ORDERING_INVALID");
+  assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_receipts").get().n,0);
  }finally{sql.close()}
 });

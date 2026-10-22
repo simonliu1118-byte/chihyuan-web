@@ -72,3 +72,9 @@
 - 工單 §7 的 1440px／390px 實機、送出、廠商合併、定期中國貨、到貨、未到貨、修改紀錄與進貨輔助視窗，由審查者依工作單擷取。
 - 叫貨 ERP 單號只儲存手動輸入，不呼叫 ERP 查單或核對、不作單位換算。
 - `scripts/ordering.test.mjs` 包含純函式、Excel ZIP/XML、Migration 驗證；需由有完整 checkout 的 GitHub CI 執行確認，不將未跑過的測試視為通過。
+
+## 到貨失敗診斷（V0.9.31）
+
+- POST receipts 以原 Worker 為唯一寫入者，追蹤 preflight／persist／readback 階段；非預期錯誤的 Worker console 記錄 `[ordering_receipt_failure]`、requestId、phase、受限例外資料，不將表單與個資寫入診斷紀錄。
+- D1 batch 已完成但讀回失敗回 `ORDERING_RECEIPT_CONFIRMATION_REQUIRED`（HTTP 503），請先重新載入核對已存在的到貨紀錄，不自動重送；其他非預期結果同樣要求核對。
+- 未取得正式 Worker 原始錯誤前不得斷言 D1 schema 或配額是根因。
