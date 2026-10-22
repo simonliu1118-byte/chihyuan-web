@@ -2,6 +2,17 @@
 
 更新日期：2026-10-22。此文件依使用者「專案主要由 Claude 處理，必須開 handoff 註明修改」要求建立。這是直接交辦修正的交接紀錄；共通規則仍以既有治理鏈為準。維護狀態入口為根目錄 `TODO.md`。
 
+## 本輪 GPT 交接：V0.9.31 Build 0 — 到貨診斷（2026-10-22，待審查）
+
+使用者實機出現「叫貨操作失敗」，原 Worker catch 區統一回傳 500 而未輸出原始例外。到貨 D1 batch 成功後仍會重新讀取單據，讀回出錯時原先會把已提交的結果誤判為儲存失敗。目前沒有正式 Worker log，**不可斷言原始 D1 根因**。
+
+- `worker/http/ordering-routes.ts`：POST receipts 加入 preflight／persist／readback 階段；未知例外以 `[ordering_receipt_failure]` 記錄 requestId、階段、例外名稱及截斷訊息，禁止主動寫入 ERP 單號、品項與帳號資訊；已提交後讀回失敗回 `ORDERING_RECEIPT_CONFIRMATION_REQUIRED`（503），不再當成整筆未寫入。
+- `src/runtime/modules/OrderingPage.tsx`：結果不明保留到貨 Dialog，不自動重送；提示附 requestId 供 Worker log 對應。
+- `scripts/ordering-route.test.mjs`：驗證交易已成功但回讀失敗的診斷結果與資料保留，以及驗證失敗時資料未寫入。
+- `VERSION`／`package.json`／`TODO.md`／架構文件更新；不增加 D1 migration、權限、ERP 查詢或其他模組功能。
+
+**驗證交接**：容器無法解析 GitHub DNS，未能取得完整本機 checkout 執行 Node／SQLite；需以 PR CI 的 typecheck、build、ordering tests、validate:source 正式確認後才可合併。部署後用畫面 requestId 對應 Worker log 與 phase 判定根因，並先核對是否已有到貨紀錄再決定重試。本輪正式 D1 讀寫 0 列，未合併或部署。
+
 ## 最新交付：V0.9.30 Build 0（桌面表格與儲存狀態）
 
 使用者已核准叫貨桌面預覽，並明確修正：格子本身直接可輸入，不是切換顯示／編輯模式；Enter 必須完整逐格，取消舊數量捷徑。另要求預設未到貨、移除明細下方兩行，以及原標題下自動儲存位置顯示轉圈儲存中／已儲存／紅字儲存失敗。
