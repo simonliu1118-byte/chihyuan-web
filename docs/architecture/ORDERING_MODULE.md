@@ -73,6 +73,13 @@
 - 叫貨 ERP 單號只儲存手動輸入，不呼叫 ERP 查單或核對、不作單位換算。
 - `scripts/ordering.test.mjs` 包含純函式、Excel ZIP/XML、Migration 驗證；需由有完整 checkout 的 GitHub CI 執行確認，不將未跑過的測試視為通過。
 
+## D1 50-byte GLOB 修正（V0.9.31 Build 1）
+
+- 正式 D1 的 LIKE/GLOB pattern 上限為 50 bytes；原 0022 對 ERP 單號使用 60-byte GLOB CHECK，會在到貨主檔 INSERT 失敗。前端與 Worker 已驗證日期和 11 碼數字，但 DB 仍需保留防呆。
+- 使用前置長度、固定前綴及短模式 `*[^0-9]*` 的 SQL CHECK；以 `0023_ordering_receipt_d1_glob.sql` forward migration 原封保留既有主明細的 PK／FK／索引和數量。原 0022 不修改（正式已套用）。
+- migration rebuild 順序重要：新主／新明細並複製 → DROP 舊明細 → DROP 舊主檔 → RENAME 新主／明細，避免 `ON DELETE CASCADE` 誤刪歷史。schema validator 強制 50-byte SQLite 限制並驗證資料完整性。
+- `2026-10-23` 正式 Cloudflare log 已證明 `phase=persist`、`LIKE or GLOB pattern too complex`；修正後是否可於正式端到貨成功，仍待部署與實際驗收。
+
 ## 到貨失敗診斷（V0.9.31）
 
 - POST receipts 以原 Worker 為唯一寫入者，追蹤 preflight／persist／readback 階段；非預期錯誤的 Worker console 記錄 `[ordering_receipt_failure]`、requestId、phase、受限例外資料，不將表單與個資寫入診斷紀錄。
