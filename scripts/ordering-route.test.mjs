@@ -193,10 +193,9 @@ test("receipt readback failure preserves committed data and returns reconciliati
   let o=(await call("/orders","POST",{sourceId:source.id})).body.data;
   o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{itemName:"測試品名甲",quantityText:"5"}})).body.data;
   o=(await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version})).body.data;
-  let failNextReadback=true;
+  let receiptLineReads=0;
   db.prepare=function(query){
-   if(failNextReadback && query.startsWith("SELECT l.*,") && query.includes("ordering_receipt_lines")){
-    failNextReadback=false;
+   if(query.startsWith("SELECT l.*,") && query.includes("ordering_receipt_lines") && ++receiptLineReads===2){
     throw new Error("synthetic readback failure");
    }
    return originalPrepare.call(this,query);
