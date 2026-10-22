@@ -182,3 +182,56 @@ test("missing names/quantity and China-source vendor-only rows remain invalid",a
   assert.equal(blank.status,422,"auto-follow must not let clearing own name leave both names blank");
  }finally{sql.close()}
 });
+
+test("receipt readback failure preserves committed data and returns reconciliation code",async()=>{
+ const {sql,call,db}=fixture();
+ const originalPrepare=db.prepare;
+ const originalError=console.error;
+ const logs=[];
+ try{
+  const source=(await call("/sources")).body.data.find(x=>x.name==="台中");
+  let o=(await call("/orders","POST",{sourceId:source.id})).body.data;
+  o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{itemName:"測試品名甲",quantityText:"5"}})).body.data;
+  o=(await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version})).body.data;
+  let failNextReadback=true;
+  db.prepare=function(query){
+   if(failNextReadback && query.startsWith("SELECT l.*,") && query.includes("ordering_receipt_lines")){
+    failNextReadback=false;
+    throw new Error("synthetic readback failure");
+   }
+   return originalPrepare.call(this,query);
+  };
+  console.error=(...args)=>logs.push(args);
+  const reply=await call("/orders/"+o.id+"/receipts","POST",{
+   expectedVersion:o.version,erpPurchaseNo:"20261022003",receivedDate:"2026-10-22",
+   lines:[{lineId:o.lines[0].id,quantity:4}],
+  });
+  assert.equal(reply.status,503);
+  assert.equal(reply.body.error.code,"ORDERING_RECEIPT_CONFIRMATION_REQUIRED");
+  assert.match(reply.body.error.message,/請重新載入/);
+  assert.equal(reply.body.requestId,"ordering-test");
+  assert.equal(logs[0][0],"[ordering_receipt_failure]");
+  assert.equal(logs[0][1].phase,"readback");
+  assert.equal(logs[0][1].requestId,"ordering-test");
+  assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_receipts").get().n,1);
+  assert.equal(sql.prepare("SELECT quantity FROM ordering_receipt_lines").get().quantity,4);
+  const reloaded=await call("/orders/"+o.id);
+  assert.equal(reloaded.status,200);
+  assert.equal(reloaded.body.data.lines[0].received,4);
+ }finally{db.prepare=originalPrepare;console.error=originalError;sql.close()}
+});
+
+test("receipt preflight rejection is preserved and does not create a receipt",async()=>{
+ const {sql,call}=fixture();
+ try{
+  const source=(await call("/sources")).body.data.find(x=>x.name==="台中");
+  let o=(await call("/orders","POST",{sourceId:source.id})).body.data;
+  o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{itemName:"測試品名甲",quantityText:"5"}})).body.data;
+  o=(await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version})).body.data;
+  const response=await call("/orders/"+o.id+"/receipts","POST",{expectedVersion:o.version,
+   erpPurchaseNo:"20260229001",receivedDate:"2026-10-22",lines:[{lineId:o.lines[0].id,quantity:4}]});
+  assert.equal(response.status,422);
+  assert.equal(response.body.error.code,"ORDERING_INVALID");
+  assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_receipts").get().n,0);
+ }finally{sql.close()}
+});
