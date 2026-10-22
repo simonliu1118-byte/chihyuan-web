@@ -10,6 +10,12 @@
 - [x] 原 CYWEB [部署 #39631658692](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39631658692) 成功，來源 `b75b9ac`；版本／D1 健康、HTTPS／靜態資源、正式網域與 Identity 權威檢查通過。證據已補進 handoff。
 - [ ] 手機三欄表格＋點列完整表單：另待定稿，本輪維持既有窄版表格捲動。
 
+## 2026-10-23 未合併 PR 盤點
+
+- [x] 逐項確認 38 個 Open PR：34 個早期 Draft 的提交已完整在 main；#9 僅舊版本號、#24 核准設計已帶入且舊預覽淘汰、#151 核心已由 #192 移植。證據與各 head 見 [盤點交接](docs/handoff/CYWEB_OPEN_PR_CLEANUP_REPORT.md)。
+- [x] 上述 37 個已涵蓋／取代的舊 Draft 全部關閉；獨立回讀確認 37 Closed／1 Open，原 head／分支均保留。網站程式、版本與正式資料未改，未部署。
+- [ ] [#267](https://github.com/simonliu1118-byte/chihyuan-web/pull/267) 到貨失敗診斷仍是獨立工作，維持 Open，依原 handoff 審查／部署並追查 requestId；本次清理不代為合併或部署。
+
 ## CY Web V0.9.29 — 叫貨自動儲存與草稿載入修正
 
 - [x] 使用者確認一般／廠商來源可只填廠商品名＋數量儲存及送出；我方品號／品名保持獨立。前後端驗證一致，保留定期／自訂中國貨原必填規則。
@@ -191,8 +197,8 @@
 - [x] 接回同源 + Origin／Fetch Metadata／CYID session 檢查、`CYINVOICE` Application 再驗證、固定 Workspace／Device 授權，以及非預設的 named `CyInvoiceRecoveryEntrypoint` 私有 RPC Service Binding，未接線回 503 而不會簽發；原 CYWEB/Identity D1 不增加第二權威。
 - [x] 已有 #151 的 source API／UI 單元測試納入現行 Runtime Check、Deployment Config 測試，確認 0.9 UI 不需另一套 Desktop/Mobile renderer。
 - [ ] 新 CYWEB PR 的最新 head Governance／Runtime Check／Build 與自動測試、Desktop／Mobile 真實 UI 操作驗收。
-- [ ] CYInvoice PR #476 在原 D1 完成備份＋回復演練與 schema 0014／0015、Issuer gate 維護配置、Worker feature flag 後，再將 CYWEB `CF_CYINVOICE_RECOVERY_SERVICE` 實際接到正確命名入口並進行受控部署、真 Email／雙 Windows／DR-01～13。
-- 來源舊 PR #151 保留作參照，不直接合併；本輪不變更正式 D1／Worker／CYWEB `main`，不發布正式新功能。CI 綠燈不代替真裝置驗收。
+- [ ] CYInvoice PR #476 在原 D1 完成備份＋回復演練與 schema 0014／0015、Issuer gate 維護配置、Worker feature flag 後，再唯讀核對真 Session／Email／Binding／原 D1 配置，將 CYWEB `CF_CYINVOICE_RECOVERY_SERVICE` 接到正確命名入口並依具體授權受控部署、真 Email／雙 Windows／DR-01～13；另確認撤銷裝置在途 Work Item fencing、跨 repo 同版位契約及變更密碼／移交後的查回。這些均未因舊 PR 清理而完成。
+- 來源舊 PR #151 已由 #192 選取移植；2026-10-23 納入舊 Draft 關閉盤點，分支與固定 SHA 交接仍保留參照，不直接合併舊分支。此來源整合紀錄不代表正式 DR rollout／真裝置驗收完成，CI 綠燈不能代替相應證據。
 
 # CY Web TODO
 
