@@ -1,24 +1,17 @@
-## CY Web V0.9.31 Build 1 — 正式 D1 到貨失敗根因已確認（2026-10-23）
+## CY Web V0.9.31 Build 1 — 到貨修正已部署並完成正式驗收（2026-10-23）
 
-- [x] Cloudflare Worker log：`phase=persist`、`D1_ERROR: LIKE or GLOB pattern too complex`。0022 Schema 的 ERP 進貨單號 CHECK 使用 60-byte GLOB，超過 D1 50-byte 上限。
-- [x] 新增 0023 forward migration：保留到貨主檔／明細／主鍵／外鍵／索引，以長度＋固定前綴＋短 GLOB 取代原 CHECK；不修改既有 0022。
-- [x] 擴充 schema 測試：模擬 D1 50-byte 限制，重現舊錯、驗證 migration 後歷史完整、正常單號寫入與錯誤單號拒絕。
-- [ ] PR 必要 CI、確認正式 D1 復原點、受控部署及正式到貨功能驗收。
-## CY Web V0.9.31 Build 1 — Workers Logs 設定持久化與到貨故障調查（2026-10-23）
+- [x] 正式 Logs 確認根因：0022 ERP 單號 CHECK 的 60-byte GLOB 超過 D1 50-byte 限制；0023 forward migration 改用長度、前綴及短 GLOB，不重寫 0022。
+- [x] 模擬 D1 限制與歷史主明細保留測試通過；本機 43 項叫貨回歸通過；PR 必要 CI 全數成功。
+- [x] Cloudflare MCP 核對正式 DB binding、原 Schema、外鍵、既有到貨與 Time Travel 復原書籤；既有 R2／GCS 備份有 verified 紀錄。復原資訊保留私密目錄。
+- [x] [PR #269](https://github.com/simonliu1118-byte/chihyuan-web/pull/269) 已合併；使用者直接批准正式發布後，[部署 #39913713939](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39913713939) 從 `7d67d10d15e45bedadb9df1f32284090037b52a3` 成功發布原網站。
+- [x] 僅 0023 待套用且成功套用；部署前後到貨主／明細均為 0 筆，叫貨資料彙總一致、FK／原索引完整。網站來源／D1 健康、HTTPS、Custom Domain、Identity 權威檢查成功；Logs／Invocation Logs／persist 保留並有新版本事件。
+- [x] 使用者實際登記到貨，回覆「已成功，重整後紀錄與數量都正確」；唯讀回查確認一筆多品項到貨及相應 Audit／修訂紀錄，無孤兒或跨單明細。這是正式業務操作驗收，並非僅部署成功。
+- [x] 原 [Claude handoff](docs/handoff/CYWEB_ORDERING_AUTOSAVE_HANDOFF.md) 已補實際發布、資料保留、驗收與讀寫量證據；本項結案。不新增 Worker／D1，不另建 workflow 或 Release。
 
-- [x] 使用者已在 Cloudflare Dashboard 啟用 Logs，確認 `[ordering_receipt_failure]` 事件出現；畫面尚未提供原始例外欄位，真實 D1 根因待查。
-- [x] Wrangler 正式部署範本新增 Logs 與 Invocation Logs，避免後續 GitHub 部署覆蓋 Dashboard 設定。
-- [x] 部署契約測試驗證輸出 Wrangler JSON 的觀測設定；原 GPT handoff 補交接。
-- [ ] 本次 PR CI 驗證／審查後合併及受控部署；未動正式資料庫或 Worker 業務邏輯。
-- [ ] 取得該筆 `[ordering_receipt_failure]` 事件 `phase`、`errorName`、`errorMessage`，核對是否已留有到貨紀錄，再另行修復真正寫入錯誤。
-## CY Web V0.9.31 — 登記到貨診斷（待審查）
+## CY Web V0.9.31 — 到貨診斷（已由 Build 1 完成故障收尾）
 
-- [x] Worker 到貨 POST 區分 preflight／persist／readback，記錄 requestId、階段及受限的原始例外供排查。
-- [x] D1 寫入後讀回失敗回傳 `ORDERING_RECEIPT_CONFIRMATION_REQUIRED`，不誤導為未寫入。
-- [x] 前端保留到貨輸入，顯示 requestId，提示先重新載入核對而非重複送出。
-- [x] 增加 committed-readback-failure 與前置驗證失敗測試，待 PR CI 驗證。
-- [x] 交接更新原有 [GPT handoff](docs/handoff/CYWEB_ORDERING_AUTOSAVE_HANDOFF.md)。
-- [ ] PR CI 與 Claude 審查、核准後部署；本輪未操作正式 D1。
+- [x] #267 已合併部署；POST receipts 區分 preflight／persist／readback，保留 requestId 診斷；已提交後讀回失敗回 `ORDERING_RECEIPT_CONFIRMATION_REQUIRED`，前端保留輸入並提示先核對，防止重送。
+- [x] committed-readback-failure 與 preflight 測試通過；正式 GLOB 根因與修復／驗收結果見上方 Build 1 及原 handoff。
 
 ## CY Web V0.9.30 — 叫貨緊湊表格與儲存狀態
 
@@ -36,7 +29,7 @@
 
 - [x] 逐項確認 38 個 Open PR：34 個早期 Draft 的提交已完整在 main；#9 僅舊版本號、#24 核准設計已帶入且舊預覽淘汰、#151 核心已由 #192 移植。證據與各 head 見 [盤點交接](docs/handoff/CYWEB_OPEN_PR_CLEANUP_REPORT.md)。
 - [x] 上述 37 個已涵蓋／取代的舊 Draft 全部關閉；獨立回讀確認 37 Closed／1 Open，原 head／分支均保留。網站程式、版本與正式資料未改，未部署。
-- [ ] [#267](https://github.com/simonliu1118-byte/chihyuan-web/pull/267) 到貨失敗診斷仍是獨立工作，維持 Open，依原 handoff 審查／部署並追查 requestId；本次清理不代為合併或部署。
+- [x] 盤點當時另保留 [#267](https://github.com/simonliu1118-byte/chihyuan-web/pull/267) 待處理；之後已獨立合併部署，並由 #269 修復根因、正式驗收完成。歷史盤點報告保留當時狀態，本項現況以上方 V0.9.31 Build 1 為準。
 
 ## CY Web V0.9.29 — 叫貨自動儲存與草稿載入修正
 
