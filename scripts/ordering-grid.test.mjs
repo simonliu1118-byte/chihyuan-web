@@ -107,8 +107,7 @@ for (const kind of ["GENERAL", "VENDOR", "CN_REGULAR", "CN_CUSTOM"]) {
     assert.deepEqual(grid.rowIds, [-1, -2]);
     assert.deepEqual(grid.focused, { row: -2, field: "itemCode" });
     assert.equal(grid.input(-1, "note").props.value, "測試備註");
-    assert.equal(grid.commits.length, ["GENERAL", "VENDOR"].includes(kind) ? 1 : 0,
-      "vendor name and quantity save only for sources that expose vendor fields");
+    assert.equal(grid.commits.length,1,"every source type must be able to save partial draft inputs");
     grid.press(-1, "note");
     assert.deepEqual(grid.rowIds, [-1, -2], "reuse an existing next row");
     grid.press(-2, "note");
