@@ -1,7 +1,8 @@
 # WO-0.9.21 Cloudflare 用量巡檢
 
-- 狀態：已完成（審查通過 2026-10-20）
-- 分支：`cyweb/usage-monitor`　PR：[#225](https://github.com/simonliu1118-byte/chihyuan-web/pull/225)
+- 狀態：**已完成・Claude 審查通過・PR #225 已合併**（截至 2026-10-23；歷史交付狀態見 §8、§9）
+- 分支：`cyweb/usage-monitor`　PR：[#225](https://github.com/simonliu1118-byte/chihyuan-web/pull/225)（已合併）
+- 閱讀提示：本單 §0 的「不合併、不部署」、§8 的「待審查／尚未部署」是 GPT **交付當時**的執行界線與證據，不是目前 PR 狀態；§8 完成報告及 §9 Claude 審查紀錄原文保留供交接。
 - 依據：`PROJECT_RULES.md` §9；共通規則 `REPOSITORY_RULES.md` §11.3（計量資源與大量資料作業）
 - 視覺規範：`docs/architecture/CY_WEB_VISUAL_GUIDE.md`
 
