@@ -83,6 +83,11 @@ test("manual vendor memory is reused, ERP sales item fills blanks and source dis
   other=(await call("/orders/"+other.id+"/lines","POST",{expectedVersion:other.version,line:{itemCode:"CODE01",itemName:"",vendorItemCode:"",vendorItemName:"",quantityText:"2"}})).body.data;
   assert.equal(other.lines[0].itemName,"測試品名甲");assert.equal(other.lines[0].unit,"箱");
   assert.equal(other.lines[0].vendorItemCode,"V01");assert.equal(other.lines[0].vendorItemName,"測試廠商品名甲");
+  assert.equal((await call("/sources/"+sourceId,"PATCH",{isActive:false})).status,422,"populated drafts cannot be stranded by hiding");
+  const sentFirst=await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version});
+  const sentSecond=await call("/orders/"+other.id+"/send","POST",{expectedVersion:other.version});
+  assert.equal(sentFirst.status,200,JSON.stringify(sentFirst.body));
+  assert.equal(sentSecond.status,200,JSON.stringify(sentSecond.body));
   assert.equal((await call("/sources/"+sourceId,"PATCH",{isActive:false})).status,200);
   assert.equal((await call("/orders/"+o.id)).status,200,"inactive source must retain history");
  }finally{sql.close()}
