@@ -140,7 +140,7 @@
 .cy-ordering-grid .cy-ordering-cell { display: block; box-sizing: border-box; width: 100%; min-width: 0; height: 34px; min-height: 0; padding: 6px 8px; margin: 0; border: 0; border-radius: 0; background: transparent; color: var(--cy-text); font: inherit; box-shadow: none; text-overflow: ellipsis; }
 .cy-ordering-grid .cy-ordering-cell:focus { outline: 0; box-shadow: inset 0 0 0 1.5px var(--cy-accent); background: var(--cy-surface); text-overflow: clip; }
 .cy-ordering-grid .cy-ordering-cell:disabled { opacity: .65; cursor: not-allowed; }
-.cy-ordering-grid textarea.cy-ordering-multiline { height: auto; min-height: 38px; max-height: 176px; line-height: 1.5; resize: vertical; white-space: pre-wrap; overflow-wrap: anywhere; overflow-y: auto; color: var(--cy-text); }
+.cy-ordering-grid textarea.cy-ordering-multiline { height: 34px; min-height: 34px; max-height: 176px; line-height: 1.5; resize: none; white-space: pre-wrap; overflow-wrap: anywhere; overflow-y: auto; color: var(--cy-text); text-overflow: clip; }
 .cy-ordering-grid .cy-ordering-multiline:focus { white-space: pre-wrap; }
 .cy-ordering-grid input[data-order-field="quantityText"] { text-align: right; font-variant-numeric: tabular-nums; }
 .cy-ordering-grid input[data-order-field="unit"] { text-align: center; }
@@ -260,3 +260,10 @@
  .cy-ordering-vendor-tabs { order: 2; flex-basis: calc(100% - 72px); }
  .cy-ordering-vendor-other { order: 3; }
 }
+
+/* V0.9.34: source/date filters occupy full sidebar width, never clip date labels. */
+.cy-ordering-list-filters{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;align-items:stretch}
+.cy-ordering-list-filters input[type="date"]{width:100%;min-width:0;box-sizing:border-box}
+.cy-ordering-list-filters>span[aria-hidden]{display:none}
+.cy-ordering-page .cy-ordering-list-filters .cy-ordering-source-picker{min-width:0;width:100%}
+.cy-ordering-page .cy-md-detail>.cy-loading{min-height:180px;display:flex;align-items:center;justify-content:center}
