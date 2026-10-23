@@ -367,8 +367,8 @@ export function OrderingPage(){
     :current?<>
       <div className="cy-record-header">
        <div><h2>{current.sourceName} <StatusChip tone={STATUS_TONE[current.status]}>{ORDERING_STATUS_LABELS[current.status]}</StatusChip></h2>
-        <p>{current.storedStatus==="DRAFT"?(current.plannedSendDate?"預計 "+displayDate(current.plannedSendDate)+" 送出":"尚未設定預計送出日")+"・"+current.lines.length+" 項"
-         :"送出 "+displayTime(current.sentAt)+"・版本 "+current.revision+"・"+current.lines.length+" 項"}{editable?<>・<OrderingSaveStatus states={currentSaveStates}/></>:null}</p></div>
+        <p>{current.storedStatus==="DRAFT"?(current.plannedSendDate?"預計 "+displayDate(current.plannedSendDate)+" 送出":"尚未設定預計送出日")
+         :"送出 "+displayTime(current.sentAt)+"・版本 "+current.revision}{editable?<>・<OrderingSaveStatus states={currentSaveStates}/></>:null}</p></div>
        <div className="cy-record-actions">
         {current.storedStatus!=="DRAFT"?<button type="button" className="cy-op-button" onClick={()=>void openDraft(current.sourceId)}>回到草稿</button>:null}
         <button type="button" className="cy-op-button" onClick={()=>void exportOrder(current)}>匯出 Excel</button>
@@ -395,7 +395,7 @@ export function OrderingPage(){
        </FormSection>
       </form>:<dl className="cy-ordering-order-summary"><div><dt>預計送出日期</dt><dd>{displayDate(current.plannedSendDate)||"—"}</dd></div><div><dt>單據備註</dt><dd>{current.note||"—"}</dd></div></dl>}
       {(current.sourceKind==="CN_REGULAR"?CN_REGULAR_SECTIONS:[{key:"" as const,label:"叫貨明細"}]).map(group=><section key={group.key} className="cy-ordering-lines">
-        <h3>{group.label}<small>{current.lines.filter(l=>(l.section??"")===group.key).length} 項</small></h3>
+        <h3>{group.label}</h3>
         <OrderingGrid kind={current.sourceKind} section={group.key as OrderingSection} key={current.id+"-"+group.key} lines={current.lines} busy={busy} readOnly={!editable} {...gridBindings(current.id+"-"+group.key)} onCommit={lineCommit} onDelete={removeLine}/></section>)}
       {current.revisions.length?<section className="cy-ordering-lines"><h3>修改紀錄<small>{current.revisions.length} 筆</small>
         <button type="button" className="cy-op-button compact quiet" aria-expanded={showHistory} onClick={()=>setShowHistory(v=>!v)}>{showHistory?"收合":"展開"}</button></h3>
