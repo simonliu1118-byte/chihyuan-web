@@ -1,6 +1,36 @@
 # CYWEB 叫貨修正交接給 Claude
 
-更新日期：2026-10-22。此文件依使用者「專案主要由 Claude 處理，必須開 handoff 註明修改」要求建立。這是直接交辦修正的交接紀錄；共通規則仍以既有治理鏈為準。維護狀態入口為根目錄 `TODO.md`。
+更新日期：2026-10-23。此文件依使用者「專案主要由 Claude 處理，必須開 handoff 註明修改」要求建立。這是直接交辦修正的交接紀錄；共通規則仍以既有治理鏈為準。維護狀態入口為根目錄 `TODO.md`。
+
+## 最新交付：V0.9.31 Build 1 — 正式部署與到貨驗收完成（2026-10-23）
+
+本段取代下方歷史階段的「待診斷／待合併／待部署」狀態。此輪接續既有 #269，未重做功能或建立重複修正 PR；僅在完成後補本文件及 TODO。正式基礎設施識別資訊、復原書籤、業務資料及詳細核對結果保留在執行工作區的 private 目錄，不提交 Public Git。
+
+### 發布與安全核對
+
+- [PR #269](https://github.com/simonliu1118-byte/chihyuan-web/pull/269) 核對 head `7c1f353b4e22f4aac5e0b6102ede4691c477a803`，必要 CI 全數成功；原始 check-runs 確認 build 已完成，未依過期的 pending 顯示判斷。合併提交及部署來源：`7d67d10d15e45bedadb9df1f32284090037b52a3`。
+- 使用者直接批准正式部署後，沿用 `development-deploy.yml` 的 `main`／`deploy-development`；[部署 #39913713939](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39913713939) 全部成功，2026-10-23 約 14:49（臺灣時間）完成發布。未 force-push 部署分支、未另建 Workflow／Worker／D1，原 DB 與既有隔離復原 DB binding 保持一致；無 GitHub Release。
+- 部署前由 Worker `DB` binding 解析原正式 D1；確認只到 0022、原長 GLOB CHECK 仍在、無其他表額外引用到貨主檔。到貨主／明細均 0 筆，原問題單也沒有已提交卻未顯示的紀錄；全庫 foreign-key check 正常。
+- Time Travel 可讀取當前復原書籤，既有 R2／GCS 備份目錄有 verified 紀錄；雲端 D1 匯出已完成。完整正式備份下載到本機被自動審查拒絕，未執行，亦未進行該份完整資料的本機還原演練；發布依據是雲端復原點、正式空到貨表的核對與合成資料 migration 保留測試，不宣稱已演練正式還原。既有自動備份排程未啟用，這次未變更。
+- 僅 `0023_ordering_receipt_d1_glob.sql` 待套用，正式流程成功執行 14 個命令，約 21.22 ms；D1 migration 目錄回讀確認 0023 已套用。未手改正式 Schema。
+- 部署前後到貨主／明細均 **0 → 0**；原叫貨資料的筆數及數量彙總一致。新表使用短 GLOB、三個原索引完整，receipt-line FK 正確指向原表名，無 `_new` 殘表，foreign-key check 無異常。正式 D1 以純 SELECT 驗證新 CHECK：合法格式通過、含非數字／過短／過長格式拒絕；未為測試新增正式交易。
+- 正式 `/api/health` 回報 `database=ok`、`version=0.9.31`、consumer `1.0.5` 與上述來源 SHA；Actions 的 HTTPS／靜態資源／Custom Domain／無效 Session／CYID production authority 驗證均通過。
+- Cloudflare 設定回讀確認 `logs.enabled=true`、`invocation_logs=true`、`persist=true`。新 Worker version 發布後至 14:52:30 的短觀察窗有 **29** 個事件，GLOB 錯誤比對 **0**；此觀察窗早於下述使用者正式驗收，不把「沒有錯誤」單獨當成功證明。
+
+### 正式功能驗收
+
+- 使用者在更新後自行操作原本的正常到貨流程，確認「**已成功，重整後紀錄與數量都正確**」。涵蓋儲存、重載持久性及未到貨數量扣減。
+- 隨後 MCP 唯讀回查確認 **1 筆到貨主檔、8 筆明細**，本次發布後相應 **1 筆 `ordering.received` Audit 與 1 筆修訂紀錄**；主檔無孤兒，明細無孤兒或跨單關聯。資料增加來自使用者正常業務操作；執行者未新增測試交易、未清除或覆寫正式資料，也未重送使用者的請求。
+- 原「叫貨操作失敗／GLOB pattern too complex」故障本輪已修復並完成正式驗收；不是只以部署成功結案。未額外宣稱其他來源、跨日或併發到貨皆已由使用者驗收。
+
+### 驗證與實際資源量
+
+- 本機 `PYTHONUTF8=1` 執行 schema validator：23 migrations、92 tables、10 組檢查通過，包含強制 50-byte pattern limit、歷史主明細逐列保留、FK 及新舊合法性驗證。43 項叫貨／路由／表格回歸通過，含多品項到貨及寫入後讀回失敗保護。
+- Windows 的完整 deploy-config validator 在既有 POSIX `0600` 權限斷言失敗；本機第一次測試另遇沙箱依賴路徑讀取限制，解除後 43 項全過。部署設定／local D1／build／dry-run 以本次 Linux PR CI 及正式 workflow 全部成功為驗證依據，未為 Windows 平台差異修改產品。
+- MCP 直接 D1 核對共 **5 批、22 個唯讀 SQL／PRAGMA**，服務 metadata 累計 **2,956 rows read／0 rows written**，低於原預估 1 萬列。正式 migration 另計 **14 個命令**、到貨資料搬移 **0 列**；Schema／migration bookkeeping 的平台列寫入數未由 workflow 摘要提供，不將其混稱為 0。使用者驗收新增資料另計，不算執行者測試寫入。
+- 另有一次雲端 SQL 匯出（兩次 polling 呼叫），資料庫配置大小約 1.1 MB；未下載完整正式資料。遙測核對為指定新版、約 3 分鐘窗的 **2 次彙總查詢**；Observability 服務回報內部掃描共 **6,449,195 列／296,173,328 bytes**，與 D1 rows-read 計量不同。掃描量高於小型彙總直覺，取得結果即停止，不進行持續輪詢；這不是 D1 每日資料讀取量。上述摘要不含正式 ERP 單號、帳號、品項或 infrastructure ID。
+
+本故障收尾沒有待補的部署／到貨成功閘門。其他模組及既有手機版／備份功能待辦依根 TODO 另案維護。
 
 ## 根因確認與修正：V0.9.31 Build 1 — D1 到貨 GLOB 限制（2026-10-23）
 
@@ -11,14 +41,14 @@
 - 不修改 ERP 單號上層解析器及 Worker 商務流程、不更動實際 ERP／Cloudflare 服務綁定、不直接操作正式業務資料。本輪與既有 Workers Logs persistence 設定合併到同一 PR，遵守同一故障返修 Build 1。
 
 **發布安全閘**：需 PR 全部 CI（包括 schema source validation、D1 local、deploy dry-run）通過、先確認正式 D1 備份／Time Travel 狀態，才可按專案既有發布流程套用 0023；migration 是正式業務資料 Schema 變更，勿在 PR 測試使用正式 D1。部署後先核對舊到貨紀錄，再用正常業務流程測試一次；請求編號、原始錯誤與業務欄位不得加入 Public Git。
-## 補充：V0.9.31 Build 1 — Cloudflare Workers Logs 與 GitHub Wrangler 設定同步（2026-10-23）
+## 部署前歷史：V0.9.31 Build 1 — Cloudflare Workers Logs 與 GitHub Wrangler 設定同步（2026-10-23）
 
 - 使用者在 Cloudflare Dashboard 已自行啟用 `cyweb-dev` 的 Workers Observability Logs，並觀察到 `[ordering_receipt_failure]` 及到貨 POST 失敗事件。螢幕截圖僅顯示 Events 列表；尚未取得事件中的 `phase`、`errorName`、`errorMessage`，**不能根據此圖宣稱定位到 D1 根因**。
 - 原 `wrangler.deploy.template.jsonc` 未包含 `observability`，日後 GitHub Actions 部署可能覆蓋 Dashboard 設定；此輪新增 `observability.logs.enabled=true` 與 `observability.logs.invocation_logs=true`，保留預設日誌持久化行為，與使用者在 Dashboard 上啟用的設定保持一致。
 - `scripts/validate-deploy-config.mjs` 對實際產生的 Wrangler JSON 增加安全閘門，CI 與正式部署前要求兩個設定皆為 `true`；不修改業務 Worker、D1 Schema、ERP、CI Workflow 或增加 Cloudflare 資源。
 - 本輪為前次 V0.9.31 到貨診斷未完成事項的同一工作項目返修，BUILD 由 0 調整為 1；版本維持 V0.9.31，不新增 Major/Minor。
 - 部署／交接：使用者已在 Cloudflare Dashboard 啟用日誌。此 GitHub 設定變更仍需 PR 通過、合併、由既有受控發布流程正式部署，**提交 PR 本身不等於部署**。若準備排查當次錯誤，請在 Events 展開 `[ordering_receipt_failure]`，核對 `phase`、`errorName`、`errorMessage`；避免將實際 ERP 單號／交易明細貼入公開 GitHub。
-## 本輪 GPT 交接：V0.9.31 Build 0 — 到貨診斷（2026-10-22，待審查）
+## 歷史交接：V0.9.31 Build 0 — 到貨診斷（2026-10-22）
 
 使用者實機出現「叫貨操作失敗」，原 Worker catch 區統一回傳 500 而未輸出原始例外。到貨 D1 batch 成功後仍會重新讀取單據，讀回出錯時原先會把已提交的結果誤判為儲存失敗。目前沒有正式 Worker log，**不可斷言原始 D1 根因**。
 
