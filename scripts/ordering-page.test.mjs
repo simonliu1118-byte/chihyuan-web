@@ -11,7 +11,7 @@ const directory = mkdtempSync(fileURLToPath(new URL("../node_modules/.ordering-p
 const outfile = join(directory, "page.mjs");
 const stubs = {
   "react": ["useState", "useRef", "useEffect", "useMemo"].map(name =>
-    `export const ${name}=(...args)=>globalThis.orderingPageHost.${name}(...args);`).join("\n"),
+    `export const ${name}=(...args)=>globalThis.orderingPageHost.${name}(...args);`).join("\n")+"\nexport const useId=()=>\"ordering-test-picker\";",
   "../../api/client": `export class ApiClientError extends Error{}; export const apiRequest=(...args)=>globalThis.orderingPageTransport(...args);`,
   "../../ui/layout/MasterDetail": `export const MasterDetailBack=()=>null,MasterDetailEmpty=()=>null; export const useMasterDetailPane=()=>({className:'',open(){},close(){}});`,
   "../../ui/overlays/useConfirmation": `export const useConfirmation=()=>({confirm:options=>globalThis.orderingPageConfirm(options),confirmationDialog:null});`,

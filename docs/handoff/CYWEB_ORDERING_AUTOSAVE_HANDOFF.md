@@ -1,5 +1,46 @@
 # CYWEB 叫貨修正交接給 Claude
 
+## V0.9.34 — GPT 第二輪叫貨介面與草稿儲存修正（2026-10-23，待審查／未部署）
+
+使用者同意本輪直接實作，但**尚未批准本 PR 合併或正式部署**。以當時最新 `main` `0da4d35a0d9b92e415b3e1fc524dd2443678c16c` 開分支 `cyweb/fix-ordering-draft-save-picker-20261023`；版本預計 V0.9.34。與上節 V0.9.33 已部署結案區分，正式站仍為已發布版本。
+
+### 使用者需求及本輪處理
+- 進貨輔助「加入叫貨單」：`AddToOrdering` 專用 Dialog `dismissible={false}`，不接受 backdrop／Esc／右上 X 關閉，保留「取消」及加入成功後離開。新增自由填寫的單位，沿用 `ordering_lines.unit`，10 字限制。
+- 新共用 `OrderingSourcePicker`：一邊打字搜尋或按按鈕展開；第一層固定台北／台中／洲美／定期中國貨／自訂中國貨／廠商，按廠商進第二層選外部廠商。相同元件用於加入叫貨單與左側歷史來源篩選；歷史篩選可查被隱藏來源，新增只可選 active。移除原 RestockAssist 對 `CN_REGULAR`／`CN_CUSTOM` 的排除過濾，後端保留原來 CN_REGULAR 分區與 CN_CUSTOM 欄位契約。
+- 明細草稿長期顯示「尚未儲存」的確定原因：舊 `OrderingGrid.canSave` 要求品號／名稱和數量都已填才呼叫寫入，`commitNew` 缺欄位便直接返回；只有 blur／Enter 時才嘗試提交，沒有停打自動送。後端也曾對 draft 明細數量與名稱做與正式送出相同的驗證。
+- 本輪允許具有任一內容（例如只有 A00302 品號）的**不完整草稿行**儲存到原 D1，禁止儲存完全空白的 phantom row；只有正式 `/send` 仍嚴格驗證必填品名／數量。前端停打約 900ms 或 blur／Enter、切換前 flush 即儲存；新增「儲存草稿」手動保險按鈕、單據頁首備註／日期停打自動儲存。成功必須收到實際 API ack 才呈現「已儲存」，失敗保留草稿。
+- 品名／廠商品名／備註輸入區預設單行高 34px，文字內容需要時才自動長高，最多 176px 並可欄內捲動；不是一開始佔兩列。
+- 共用 `Loading` 轉圈圈用於讀取草稿及廠商 overview。點廠商先切頁籤／載入畫面，待資料回來才顯示；使用既有 `loadSequence` 防過期請求覆寫。
+- 左側來源與日期改為各佔一整列，避免篩選器與日期字被截；「管理來源」有清楚的「查看已隱藏來源（N）」入口，另開清單可恢復，不硬刪歷史來源。
+- 新增／更新 route、grid、page 回歸測試；所有變更都只限 CYWEB 叫貨／進貨輔助 UI、既有 ordering API 校驗，沒有新 Worker、D1、Migration 或 CI workflow。
+
+### GitHub PR 與自動驗證結果（同日）
+- [PR #276](https://github.com/simonliu1118-byte/chihyuan-web/pull/276)，最新驗證工作提交 `6f6a97841836552d9ad166553fdaf58e6163b457`。
+- [Governance Check #39981885588](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39981885588)：success。
+- [Runtime Check #39981885608](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39981885608)：success，含 Worker、browser TS、local D1 與新增 source picker UI 互動測試。
+- [CY Web Deploy #39981885629](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39981885629)：**PR 契約驗證 success，並非正式 Worker 部署**。
+- 首次 CI 找到舊中國貨測試認定部分草稿不可存的過時預期，已修正測試，最新 run 全通過。尚未合併、未部署；正式登入後的 UI／資料驗收仍需進行。
+
+### 審查及正式驗收注意
+- **必測**：只有品號的未完成草稿→離欄位/停打→重新載入仍存在；填完後才允許送出；不允許空白列；連續快速輸入多欄保留最新版本且不重複建立；儲存失敗保留資料；中國貨兩類加入叫貨後分區正確。
+- 來源篩選是 sourceId，**「廠商」是第二層入口，非實際來源**；歷史清單須能查隱藏來源，新增不能用已隱藏來源；單位須隨新增／同品項追加正常保存。
+- 未經使用者再批准，不合併、不部署、不對正式業務 D1 實際重送測試訂單。PR CI 僅證明自動驗證，不等於真人視覺驗收。
+
+
+## 2026-10-23 V0.9.33 正式合併／部署結案（本輪最新狀態，優先於下方開發階段紀錄）
+
+**使用者已於 2026-10-23 明確批准合併並部署。已完成 PR #274 合併、原本正式 CYWEB Worker／D1 受控更新及部署後權威稽核。本節為當前事實，下方「尚未合併或部署」僅保留作實作階段的歷史快照，不再代表目前狀態。**
+
+- GitHub PR：[ #274 ](https://github.com/simonliu1118-byte/chihyuan-web/pull/274)，於本輪使用者批准後合併到 `main`；merge commit `4acf533d1d65800b77b6ada60592f275375f09ce`。正式產品版本 `V0.9.33`、`BUILD=0`。
+- 合併前該 PR head `67460874e0bc4f52b087e325a631b47d1fe1a02a` 的 Runtime Check `#39949709448`、Governance Check `#39949709468`、CY Web Deploy 契約檢查 `#39949709505` 均通過。
+- **正式發布**：沿用 `deploy/cyweb-development` 的既有受控發布入口，以具雙 parent 的非強制更新 `5d5dc51748a0880f0d34e497f346b565803b8f2b` 保留原部署 ancestry，並納入完整 `main` merge commit。新發布 commit 的 Git tree `ce733514365503ed55356643a106966e6d8736a9` 與合併後當時的 `main` tree 完全一致；未 force-push／未新建 Worker 或業務 D1。
+- [正式部署 GitHub Actions #39957226382](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39957226382)：`validate-deployment-contract`、`deploy-development` 均 **success**。部署時間約 2026-10-23 20:58（Asia/Taipei）。`Verify current reviewed main before remote changes`、原受控備份／復原目標準備、Build、Worker 發布等所有實際執行的發佈步驟皆成功。
+- **正式 D1 forward migration**：部署輸出明確列出 `0024_ordering_source_preferences.sql` 且狀態 **✅**（僅 1 項新 migration）。在既有資料庫原位加上 `ordering_sources.payment_terms` 與 `ordering_user_preferences`；沒有移除原始來源或歷史訂單表。部署後的 D1 health/source consumer declaration 驗證通過；未手動寫入或更動其他 D1。
+- **入口與權威驗證**：正式 Custom Domain、workers.dev fallback、HTTPS／靜態資源、daily catalog schedule 驗證均通過。發布後 production Identity audit 回報 `productionPortalReady=true`、`canonicalProductionProviderVerified=true`、`portalUsesCanonicalProductionIdentity=true`、`healthMatchesRuntime=true`、`failureCode=null`、`mutationPerformed=false`。無新增測試 Worker、D1 或身分服務。
+- **資料安全／功能邊界**：本次為叫貨 UI／來源付款條件／個人頁籤順序更新；原到貨 POST／送出版本鎖、特殊中國貨邏輯、CYID contract 及其他模組維持原邊界。隱藏是 soft-hide，並阻擋有內容的未送出草稿被隱藏；沒有硬刪來源或歷史單。無從 CI 宣告真實業務資料的人工逐筆核對，且尚未以實際有權限帳號完成桌面／手機畫面手動驗收；如 Claude 後續接手，請優先核對來源隱藏／恢復、個人頁籤排序跨裝置、長文字折行和表格到貨操作，不要未經使用者核准就重送到貨造成重複計數。
+- **文件整理提醒**：另有尚待處理的文件整理 PR #273，可能同樣修改 `TODO.md`；該 PR 之後合併時須與本輪 V0.9.33 紀錄整合，勿用過時 TODO 覆蓋最新結案狀態。
+
+
 ## 本輪 GPT 交付：V0.9.33 — 叫貨明細、到貨、廠商頁籤與來源管理介面調整（2026-10-23）
 
 使用者已核准直接實作；本輪以主線 V0.9.32 Build 1 為基礎，新增獨立 `cyweb/ordering-ui-sources-tabs` 分支。**尚未合併或部署**；原正式資料與 Cloudflare 不動。純介面與必要小範圍 source/settings 資料層修改，無關 CYID、ERP 與其他模組不動。

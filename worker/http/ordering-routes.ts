@@ -242,7 +242,11 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     const field=(key:string,fallback:string,max:number)=>key in raw?must(raw[key],key,max):fallback;
     const itemCode=field("itemCode",old?.item_code??"",40),itemName=field("itemName",old?.item_name??"",200);
     const qt=field("quantityText",old?.quantity_text??"",40);
-    if(!qt)throw new Bad("ORDERING_INVALID","數量必填");
+    // A partially entered DRAFT line is saved immediately. /send validates completeness.
+    // Reject only a completely empty new row (no phantom draft records).
+    if(!old&&!["itemCode","itemName","vendorItemCode","vendorItemName","spec","quantityText","unit","note"]
+     .some(key=>typeof raw[key]==="string"&&(raw[key] as string).trim()))
+     throw new Bad("ORDERING_INVALID","空白明細不需要儲存");
     if(!old){const total=await one<{n:number}>(ctx.db,"SELECT COUNT(*) n FROM ordering_lines WHERE order_id=?",id);
      if((total?.n??0)>=500)throw new Bad("ORDERING_LIMIT","單張叫貨單最多 500 列",409);
     }
@@ -263,7 +267,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     const vendorNameFollows=manuallyNamed?false:old?old.vendor_name_follows!==0:!memory?.vendor_item_name;
     const manualVendorCode="vendorItemCode" in raw&&String(raw.vendorItemCode??"").trim().length>0;
     const vendorItemName=vendorNameFollows?finalName:manuallyNamed?must(raw.vendorItemName,"vendorItemName",200):old?.vendor_item_name||memory?.vendor_item_name||finalName;
-    if(!orderingLineHasName(source?.kind??"GENERAL",{itemName:finalName,vendorItemName}))throw new Bad("ORDERING_INVALID",source?.kind==="CN_REGULAR"||source?.kind==="CN_CUSTOM"?"請填寫品名及數量":"請填寫品名或廠商品名，以及數量");
+    // Name is allowed to be absent while drafting; final /send still checks name and quantity.
     const vendorCode=manualVendorCode?must(raw.vendorItemCode,"vendorItemCode",200):old?.vendor_item_code||memory?.vendor_item_code||"";
     const spec=field("spec",old?.spec??"",200),note=field("note",old?.note??"",300);
     const sortOrder=Number(raw.sortOrder??old?.sort_order??Date.now());if(!Number.isSafeInteger(sortOrder)||sortOrder<0)throw new Bad("ORDERING_INVALID","排序不正確");
