@@ -7,7 +7,8 @@
 - [x] 給 Claude 的原 [handoff](docs/handoff/CYWEB_ORDERING_AUTOSAVE_HANDOFF.md) 補範圍、改動、合成畫面與驗證證據；無 migration。
 - [x] 本機 52 項叫貨／路由／表單回歸、typecheck／build 及 validate:source 通過；實際瀏覽器完成唯讀、勾選數量與空尾列 Enter 核對。
 - [x] 依使用者回饋加寬兩個品名欄，叫貨／已到／剩餘數量與本次到貨縮為緊湊固定寬度；Build 1，沿用同一 PR。
-- [ ] 使用者已批准合併並部署；等待更新後必要 CI 通過，再走既有正式流程並補實際結果。
+- [x] 使用者批准合併並部署後，[PR #271](https://github.com/simonliu1118-byte/chihyuan-web/pull/271) 更新 head 必要 CI 全數成功並合併；原網站已由 `d219a89e709f667f19c957b23e37463db846290c` 發布 V0.9.32 Build 1，正式 health／D1／來源及 Logs 核對正常。
+- [x] [部署 #39919678240](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39919678240) 的 Worker 發布、HTTPS／靜態資源／網域檢查通過，但最後權威稽核回報快照變動，原 run 保留 failure。未重複部署；另跑既有 [唯讀稽核 #39920079780](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39920079780) 成功，確認 productionPortalReady=true、failureCode=null、mutationPerformed=false。交接已記錄兩者差異。
 
 ## CY Web V0.9.31 Build 1 — 到貨修正已部署並完成正式驗收（2026-10-23）
 

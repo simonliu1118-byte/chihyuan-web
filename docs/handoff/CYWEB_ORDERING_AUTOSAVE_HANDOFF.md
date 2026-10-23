@@ -2,7 +2,7 @@
 
 更新日期：2026-10-23。此文件依使用者「專案主要由 Claude 處理，必須開 handoff 註明修改」要求建立。這是直接交辦修正的交接紀錄；共通規則仍以既有治理鏈為準。維護狀態入口為根目錄 `TODO.md`。
 
-## 最新修改：V0.9.32 Build 1 — 到貨表格、合併狀態與送出唯讀（2026-10-23）
+## 最新交付：V0.9.32 Build 1 — 到貨表格、合併狀態與送出唯讀（2026-10-23）
 
 使用者在前一輪到貨故障正式驗收完成後，另行交辦本項介面／流程調整，故 Patch 升至 0.9.32。第一次交付後依使用者回饋加寬品名／廠商品名，三個數量欄各 76px、本次到貨 96px，剩餘寬度分配給兩個品名欄；同一項返修 Build 增為 1。不是 0.9.31 GLOB 修正返修。使用者已明確授權本輪合併並部署原網站；實際部署結果須以收尾紀錄為準。
 
@@ -17,7 +17,16 @@
 
 本機實際瀏覽器畫面（全部合成資料，非正式資料）：[草稿刪除圖示](images/ordering-receipt-table/draft-delete.png)、[送出後唯讀與到貨狀態](images/ordering-receipt-table/sent-readonly.png)、[到貨表格多選](images/ordering-receipt-table/receipt-table.png)。已目視核對欄位完整、綠勾／黃色警告、送出無輸入與尾列、勾選後數量欄啟用；空尾列備註 Enter 聚焦下一列品號且仍為已儲存。API persistence 由本機 SQLite 路由測試負責；UI harness 不連正式後端。
 
-本輪無 migration／新增查詢／正式資料搬移或清除；正式資料庫直接讀寫 0 列。沒有變更 CYID／ERP／其他業務模組、部署設定或前次 0023。主要待辦為必要 CI、Claude 審查與受控正式發布；未經部署不得宣稱正式站已更新。
+本輪無 migration／新增查詢／正式資料搬移或清除；執行者未直接查詢或修改正式業務資料。沒有變更 CYID／ERP／其他業務模組、部署設定或前次 0023。使用者已直接批准本輪合併部署，以下為實際結果，供 Claude 接續維護。
+
+### V0.9.32 Build 1 正式發布紀錄
+
+- [PR #271](https://github.com/simonliu1118-byte/chihyuan-web/pull/271) 更新 head `78d535a2f91ed9087516aaffff468773fea52c39` 的 [Governance #39919478095](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39919478095)、[Runtime #39919478036](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39919478036) 與 [部署契約 #39919478111](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39919478111) 全數成功；合併及正式部署來源為 `d219a89e709f667f19c957b23e37463db846290c`。
+- 使用者回饋欄寬後，只調整 colgroup、叫貨 scoped CSS、Build 與交接，不重改商務邏輯。實際瀏覽器在 1082px 表格量得兩個品名欄各 262px，叫貨／已到／剩餘各 76px，本次到貨 96px；文字欄分配剩餘空間，窄版維持表格內橫向捲動。更新後 typecheck／build 與 diff check 通過，合成截圖已替換。
+- 沿用 `development-deploy.yml`／`main` 的 `deploy-development` 發布原網站。[部署 #39919678240](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39919678240) 的 Worker 發布、來源／D1 health、每日排程、HTTPS／靜態資源、Custom Domain 與無效 Session 檢查均通過；最後 `Require canonical production portal authority after deployment` 因 `CYWEB_AUDIT_SNAPSHOT_CHANGED` 失敗，故**原 workflow conclusion 仍為 failure**。不得把 Worker 已發布誤寫為整個 run 全綠，也未繞過或移除該保護。
+- 未重新部署、未更動帳號 authority 或 D1。改用既有 `audit-identity` operation 作獨立唯讀核對：[稽核 #39920079780](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39920079780) 成功，實際 report 為 `productionPortalReady=true`、`failureCode=null`、`mutationPerformed=false`；provider／DB 隔離、正式 Identity 綁定、workspace／application、health 與 consumer `1.0.5` 均通過。原快照變動告警保留可追溯，當前正式拓樸已重新確認。
+- 正式 `/api/health` 獨立回讀為版本 `0.9.32`、`database=ok`、上述來源 SHA；Cloudflare MCP 唯讀回讀同一來源與版本，`logs.enabled`／`invocation_logs`／`persist` 皆為 true。新版 UI 的檢查使用前述本機合成畫面；沒有擅自新增正式到貨或其他交易來驗收。
+- 無新 migration、Worker／D1／workflow／GitHub Release，未重寫部署分支。執行者直接正式 SQL／業務資料寫入 0 列；額外使用既有平台部署 1 次、唯讀稽核 1 次、Worker settings GET 1 次及公開 health GET 1 次，沒有遠端批次整理、資料匯出或遙測全表掃描。文件收尾合併後不重部署。
 
 ## 已發布交付：V0.9.31 Build 1 — 正式部署與到貨驗收完成（2026-10-23）
 
