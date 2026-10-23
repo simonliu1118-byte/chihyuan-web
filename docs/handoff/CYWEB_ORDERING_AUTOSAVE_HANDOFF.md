@@ -14,6 +14,13 @@
 - 左側來源與日期改為各佔一整列，避免篩選器與日期字被截；「管理來源」有清楚的「查看已隱藏來源（N）」入口，另開清單可恢復，不硬刪歷史來源。
 - 新增／更新 route、grid、page 回歸測試；所有變更都只限 CYWEB 叫貨／進貨輔助 UI、既有 ordering API 校驗，沒有新 Worker、D1、Migration 或 CI workflow。
 
+### GitHub PR 與自動驗證結果（同日）
+- [PR #276](https://github.com/simonliu1118-byte/chihyuan-web/pull/276)，最新驗證工作提交 `6f6a97841836552d9ad166553fdaf58e6163b457`。
+- [Governance Check #39981885588](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39981885588)：success。
+- [Runtime Check #39981885608](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39981885608)：success，含 Worker、browser TS、local D1 與新增 source picker UI 互動測試。
+- [CY Web Deploy #39981885629](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39981885629)：**PR 契約驗證 success，並非正式 Worker 部署**。
+- 首次 CI 找到舊中國貨測試認定部分草稿不可存的過時預期，已修正測試，最新 run 全通過。尚未合併、未部署；正式登入後的 UI／資料驗收仍需進行。
+
 ### 審查及正式驗收注意
 - **必測**：只有品號的未完成草稿→離欄位/停打→重新載入仍存在；填完後才允許送出；不允許空白列；連續快速輸入多欄保留最新版本且不重複建立；儲存失敗保留資料；中國貨兩類加入叫貨後分區正確。
 - 來源篩選是 sourceId，**「廠商」是第二層入口，非實際來源**；歷史清單須能查隱藏來源，新增不能用已隱藏來源；單位須隨新增／同品項追加正常保存。
