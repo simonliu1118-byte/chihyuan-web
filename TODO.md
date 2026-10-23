@@ -1,627 +1,70 @@
-> **現況閱讀順序**：本檔只追蹤未完成事項及近期結案；GPT→Claude 完成報告／審查與直接修改索引見 [交接索引](docs/handoff/README.md)。已結案且無待辦的舊版狀態、過期「目前基準」已原文移入 [歷史快照](docs/development/TODO_COMPLETED_2026-10-23.md)。舊「待部署／目前」若在歷史段落，只代表當時，不是最新狀態。
+# CYWEB 目前工作清單（以需要處理的事項及相依順序排序）
 
-## CY Web V0.9.32 Build 1 — 到貨表格與送出後唯讀（2026-10-23）
+更新：2026-10-23；對照基準為當時 `main` 的 **V0.9.32 Build 1** 與 [GPT→Claude 交接索引](docs/handoff/README.md)。這份 **`TODO.md` 是唯一目前待辦追蹤檔**；日期與部署狀態須以 GitHub／正式環境當下讀回為準，不能用舊版描述覆蓋最新事實。
 
-- [x] 登記到貨改用表格，多選品項後填本次到貨；沿用共用 Dialog／欄位／必選列及 Enter、原生日期規則。
-- [x] 有到貨紀錄時置頂，無資料隱藏；到貨狀態併入明細，新增已到數量、全到綠勾／部分到黃色警告圖示。
-- [x] 草稿只留垃圾桶刪除按鈕，取消上下移動；空白尾列含輸入後清空不儲存、不阻擋送出。七欄 Enter 順序保留。
-- [x] 送出後表頭／明細皆唯讀，無尾列及刪除欄；後端同步拒絕修改／新增／刪除，保留到貨、結掉剩餘及作廢的原專用流程。
-- [x] 給 Claude 的原 [handoff](docs/handoff/CYWEB_ORDERING_AUTOSAVE_HANDOFF.md) 補範圍、改動、合成畫面與驗證證據；無 migration。
-- [x] 本機 52 項叫貨／路由／表單回歸、typecheck／build 及 validate:source 通過；實際瀏覽器完成唯讀、勾選數量與空尾列 Enter 核對。
-- [x] 依使用者回饋加寬兩個品名欄，叫貨／已到／剩餘數量與本次到貨縮為緊湊固定寬度；Build 1，沿用同一 PR。
-- [x] 使用者批准合併並部署後，[PR #271](https://github.com/simonliu1118-byte/chihyuan-web/pull/271) 更新 head 必要 CI 全數成功並合併；原網站已由 `d219a89e709f667f19c957b23e37463db846290c` 發布 V0.9.32 Build 1，正式 health／D1／來源及 Logs 核對正常。
-- [x] [部署 #39919678240](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39919678240) 的 Worker 發布、HTTPS／靜態資源／網域檢查通過，但最後權威稽核回報快照變動，原 run 保留 failure。未重複部署；另跑既有 [唯讀稽核 #39920079780](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39920079780) 成功，確認 productionPortalReady=true、failureCode=null、mutationPerformed=false。交接已記錄兩者差異。
+## 閱讀方式與處理原則
 
-## CY Web V0.9.31 Build 1 — 到貨修正已部署並完成正式驗收（2026-10-23）
+- **P0 資料安全／可還原性優先；P1 外部依賴／合規；P2 使用者待定需求；P3 剩餘實機驗收**。同一區依建議處理順序排列，但標示「暫緩」或「須核准」的事項**不因優先度高而獲得執行授權**。
+- 標籤：`待唯讀核對`＝先確認是否其實已完成；`待規劃／實作`＝明確缺口待處理；`待使用者決定`／`暫緩`＝先保留、不擅自改動；`跨產品`＝先查他方專案最新 contract／PR。
+- **不做推定結案**：既有文件說「待部署」不表示今天真的尚未部署，反之 GitHub CI 綠燈也不等於正式功能驗收。涉及備份、正式帳號、ERP／Cloudflare Secret 或資料刪除，必須先查當前權威並保留使用者核准界線。
+- 此次從原 **74 個一般 `- [ ]` + 3 個編號待辦＝77 個標記**收斂，不等於 77 個獨立專案。每個合併項目後的「舊 #」可在 [完整原文與 77 項對照](docs/development/TODO_BEFORE_TRIAGE_2026-10-23.md) 查到；先前已結案的九段另外保存在 [舊版完成紀錄](docs/development/TODO_COMPLETED_2026-10-23.md)。GPT 的工作單 §8 完成報告與 Claude §9 審查原文全部保留。
 
-- [x] 正式 Logs 確認根因：0022 ERP 單號 CHECK 的 60-byte GLOB 超過 D1 50-byte 限制；0023 forward migration 改用長度、前綴及短 GLOB，不重寫 0022。
-- [x] 模擬 D1 限制與歷史主明細保留測試通過；本機 43 項叫貨回歸通過；PR 必要 CI 全數成功。
-- [x] Cloudflare MCP 核對正式 DB binding、原 Schema、外鍵、既有到貨與 Time Travel 復原書籤；既有 R2／GCS 備份有 verified 紀錄。復原資訊保留私密目錄。
-- [x] [PR #269](https://github.com/simonliu1118-byte/chihyuan-web/pull/269) 已合併；使用者直接批准正式發布後，[部署 #39913713939](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39913713939) 從 `7d67d10d15e45bedadb9df1f32284090037b52a3` 成功發布原網站。
-- [x] 僅 0023 待套用且成功套用；部署前後到貨主／明細均為 0 筆，叫貨資料彙總一致、FK／原索引完整。網站來源／D1 健康、HTTPS、Custom Domain、Identity 權威檢查成功；Logs／Invocation Logs／persist 保留並有新版本事件。
-- [x] 使用者實際登記到貨，回覆「已成功，重整後紀錄與數量都正確」；唯讀回查確認一筆多品項到貨及相應 Audit／修訂紀錄，無孤兒或跨單明細。這是正式業務操作驗收，並非僅部署成功。
-- [x] 原 [Claude handoff](docs/handoff/CYWEB_ORDERING_AUTOSAVE_HANDOFF.md) 已補實際發布、資料保留、驗收與讀寫量證據；本項結案。不新增 Worker／D1，不另建 workflow 或 Release。
+## 目前已知基準（僅摘要，非待辦）
 
-## CY Web V0.9.31 — 到貨診斷（已由 Build 1 完成故障收尾）
+- 叫貨到貨 D1 60-byte GLOB 根因，已由 0023 forward migration 修正並在正式到貨操作驗收；V0.9.32 Build 1 已另調整到貨表格與送出後唯讀。來源及細節請讀 [原叫貨交接](docs/handoff/CYWEB_ORDERING_AUTOSAVE_HANDOFF.md)，不重複列為故障待辦。
+- 近期文件整理（本工作）在 [PR #273](https://github.com/simonliu1118-byte/chihyuan-web/pull/273) 審查中；**只改文件，不合併或部署**。PR 未完成前，此清單位於其工作分支。
 
-- [x] #267 已合併部署；POST receipts 區分 preflight／persist／readback，保留 requestId 診斷；已提交後讀回失敗回 `ORDERING_RECEIPT_CONFIRMATION_REQUIRED`，前端保留輸入並提示先核對，防止重送。
-- [x] committed-readback-failure 與 preflight 測試通過；正式 GLOB 根因與修復／驗收結果見上方 Build 1 及原 handoff。
+## P0 — 資料安全、備份可還原性與正式資料保護
 
-## CY Web V0.9.30 — 叫貨緊湊表格與儲存狀態
+- [ ] **A1｜待唯讀核對**：盤點目前**正式** Worker／D1 的可攜備份涵蓋範圍、R2／GCS 既有綁定與受保護設定，特別確認 `ordering_*` 是否仍列於 `EPHEMERAL_TABLES`；區分已存在、可用及有最新成功驗證證據。先讀 source 與受控部署設定，不輸出 secret／正式業務資料；GitHub API 403 **不代表設定不存在**。  （來源舊 #3、#5、#39、#44、#46、#68、#69、#70）
+- [ ] **A2｜待規劃／實作**：擴充 `worker/backup/portable-backup.ts`：確認原本 `MAX_ROWS=500`／5 MiB、整包匯出／還原與不接受小數是否仍存在，再設計**分批匯出／還原、同一時間點一致性、原子性及大量資料與小數支援**；將 `ordering_*` 業務資料納入備份，`erp_sales_*` 是否要保存由需求另決定。不得靠截資料、清 Audit 或拆開無法驗證的還原來通過測試。  （來源舊 #4、#6、#40）
+- [ ] **A3｜待驗證現況**：以最新的 Cloudflare／GitHub **唯讀證據**核對 manual R2＋GCS 雙副本、manifest/bytes 一致性、verified 備份、GCS failure/retry、D1 Time Travel 與**隔離空 D1** 的實際還原／資料對帳；若既有正式演練已通過，記錄證據即可，不重跑高風險寫入，不把正式 business D1 當復原目標。  （來源舊 #47、#71、#72、#73）
+- [ ] **A4｜需使用者明確核准後才執行（目前暫緩）**：**自動備份排程保留關閉**：使用者先前指定 `CF_BACKUP_SCHEDULE_ENABLED=false`。在可攜備份範圍、手動雙副本與隔離還原等前置條件核對完成後，另請使用者決定是否啟用；若核准才在既有環境受控配置／部署、核對台灣每日 03:30 排程、R2 30 天／GCS 週三與週日 182 天及首筆**真實 scheduled event**。不得只因 cron 存在就標記成功。  （來源舊 #35、#36、#37、#38、#74）
+- [ ] **A5｜待規劃**：確認人事**證明附檔／R2** 是否已納入災難復原能力；未涵蓋時另立最小方案，避免只有 D1 metadata 可還原、附件卻遺失。  （來源舊 #11）
+- [ ] **A6｜待功能核對及使用者確認**：檢查人事測試用「刪除員工」API、畫面及驗收入口（`HrService.remove`、DELETE 路由、`ACCEPT_HR_DELETE*`）是否仍啟用；在確認不再需要測試且獲同意後按 BD-059 收斂／移除，保留必要 Audit。不得直接刪除員工資料。  （來源舊 #14）
+- [ ] **A7｜待使用者逐批核准**：正式資料清理前先識別測試客戶／工單／人事等**合成紀錄**、備份與核對 ID／關聯／Audit；提出候選清單及正常產品刪除方式，得到當次授權後才執行，真實資料不得刪除，不能以此項授權清空 D1。  （來源舊 #13、#76、#77）
+- [ ] **A8｜待對照 CYID 目前能力**：核對測試期帳號刪除是否按最新 CYID 規格收斂為「已驗證不可刪／完整 Audit」；如仍需變更，先由 CYID canonical 主責處理，再同步 CYWEB mirror／入口，保護既有 business history。  （來源舊 #52）
+- [ ] **A9｜待唯讀核對**：查明部署受保護輸入、GitHub Environment scope 及備份隔離設定的**現行可核對事實**，以一份不含秘密的稽核結果收尾；以前版本待跑的 PR／source gate 不重複部署，有實際缺口再另立實作。  （來源舊 #41、#75）
 
-- [x] 依使用者核准預覽改為緊湊表格，儲存格持續可輸入、焦點細框，操作縮成 `⋮` 並沿用共用 Dialog。
-- [x] Enter 完整逐格：品號→品名→廠商品號→廠商品名→數量→單位→備註→下一列品號；取消數量跳下一列的舊快捷操作。
-- [x] 進入叫貨預設未到貨，不預選來源、不自動開草稿。表格下方兩行狀態／說明移除。
-- [x] 右側標題下原自動儲存位置顯示轉圈儲存中、已儲存、紅字儲存失敗；明細與表頭均納入，失敗保留輸入。
-- [x] [Claude handoff](docs/handoff/CYWEB_ORDERING_AUTOSAVE_HANDOFF.md) 更新本輪範圍、檔案責任及取代的舊行為。
-- [x] 最終本機 43 項叫貨／路由／鍵盤測試、build、validate:source 通過；本機瀏覽器完成輸入／失敗重試／重開驗證，畫面見 handoff。
-- [x] [PR #265](https://github.com/simonliu1118-byte/chihyuan-web/pull/265) 必要 CI 全數通過並合併，主線 `b75b9ac`。
-- [x] 原 CYWEB [部署 #39631658692](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39631658692) 成功，來源 `b75b9ac`；版本／D1 健康、HTTPS／靜態資源、正式網域與 Identity 權威檢查通過。證據已補進 handoff。
-- [ ] 手機三欄表格＋點列完整表單：另待定稿，本輪維持既有窄版表格捲動。
+## P1 — 跨系統依賴、權限與法規驗證
 
-## 2026-10-23 未合併 PR 盤點
+- [ ] **B1｜待法規確認**：逐條確認部分工時員工特休比例、年度基準及「請假一天」時數換算；目前程式邏輯以全時每週 40 小時與 1 天＝8 小時為基準，未完成法規確認前不擅自改公式。  （來源舊 #8）
+- [ ] **B2｜待使用者決定**：國定假日補休目前由超管手動給予；是否要依排班／出勤**自動**產生，須先定義來源、去重、抵銷、到期與 Audit 行為，未核准不實作。  （來源舊 #9）
+- [ ] **B3｜依賴 CYERPAutoQuery**：核對支援 `RESTOCK` 的 CYERPAutoQuery 版本與供應商／品項查詢契約，再以合法資料做**大量品號效能**測試；不足時評估「一次匯出庫存報表」，不直接改本機 ERP。  （來源舊 #12）
+- [ ] **B4｜待確認設定／真實驗收**：確認 Cloudflare 用量巡檢的只讀 `CF_USAGE_API_TOKEN` 權限與 GitHub Secret 是否已設定；無法讀 Secret 值不代表不存在。若未完成，由有權限的人設定，再按核准流程檢查實際 GraphQL／全帳號 D1 讀寫用量與警示，不在 PR 暴露 token。  （來源舊 #16）
+- [ ] **B5｜跨 CYInvoice／CYWEB 的外部 gate**：對照 **CYInvoice 當前** recovery 契約、受控回復演練、Issuer gate／flag、DR-01～13、Email／Session／雙 Windows／撤權在途工作，核對 `CF_CYINVOICE_RECOVERY_SERVICE` 目標與既有原 Worker。原記載的 Draft #476／舊 Schema 號僅作歷史起點；先查最新 repo，不因舊 PR 已關閉就宣告全部完成。  （來源舊 #20、#21）
+- [ ] **B6｜待核對最新 source／Agent**：核對 ERP **供應商查詢**（歷史 migration 0014、AUTO SUPPLIER claim）實際是否已合併、部署且 Agent 可使用；只對缺口處理。真人驗收 PURI01 代號／名稱與進貨退貨單，不盲目沿用 2026-10-17 的「待 PR」狀態。  （來源舊 #42、#43）
+- [ ] **B7｜跨 CYID／真人驗收**：集中核對正式 Email 驗證／Recovery、重新整理後主動撤權提醒、中央登記／App Access 的 ADMIN／USER／行動裝置與 dirty guard；先確認已驗收證據，只補真正沒測的情境，不再重做已確認通過的登入／角色流程。  （來源舊 #45、#51、#57）
+- [ ] **B8｜跨 ERP Adapter／真人驗收**：以最新 Worker／CYERPAutoQuery 契約核對舊版 ERP 單筆憑證、銷貨銷退、進貨退貨、未收款與商品成本相關整合是否已部署；剩餘真人測試需使用者提供**合法的 ERP 品項／單據**，不得製造正式交易。舊 migration 0012／0013、Agent 版本只是歷史要求。  （來源舊 #48、#49、#67）
+- [ ] **B9｜CYACCweb 端負責**：CYACCweb 首次登入／Email／一次性密碼→正式密碼→重新登入及普通登入的跨系統驗收；先讀 CYACCweb 最新 main，不直接沿用舊 Draft #435，CYWEB 不代其合併／部署。  （來源舊 #53）
+- [ ] **B10｜待真實排程證據**：CY 程式目錄 GitHub 每日更新：核對既有 D1 全域每日 claim 與**至少一次真實 cron 執行**，確認供應商 quota／錯誤 fallback；測試通過不等於外部限流永久解決。  （來源舊 #58）
 
-- [x] 逐項確認 38 個 Open PR：34 個早期 Draft 的提交已完整在 main；#9 僅舊版本號、#24 核准設計已帶入且舊預覽淘汰、#151 核心已由 #192 移植。證據與各 head 見 [盤點交接](docs/handoff/CYWEB_OPEN_PR_CLEANUP_REPORT.md)。
-- [x] 上述 37 個已涵蓋／取代的舊 Draft 全部關閉；獨立回讀確認 37 Closed／1 Open，原 head／分支均保留。網站程式、版本與正式資料未改，未部署。
-- [x] 盤點當時另保留 [#267](https://github.com/simonliu1118-byte/chihyuan-web/pull/267) 待處理；之後已獨立合併部署，並由 #269 修復根因、正式驗收完成。歷史盤點報告保留當時狀態，本項現況以上方 V0.9.31 Build 1 為準。
+## P2 — 待定案的功能及 UI／UX 改善
 
-## CY Web V0.9.29 — 叫貨自動儲存與草稿載入修正
+- [ ] **C1｜待使用者決定版型**：叫貨手機操作：是否採三欄摘要表格＋點選品項開完整編輯表單；目前維持窄版表格橫向捲動，先定稿再實作，不覆蓋已發布 V0.9.32 行為。  （來源舊 #1）
+- [ ] **C2｜待逐模組定稿**：全系統 `Field`／`FormSection` 已建成後，逐模組討論表單分區與短／中／長欄寬，不再重新建立另一套欄位元件。  （來源舊 #2）
+- [ ] **C3｜待需求確認**：進貨輔助銷貨分析頁（`erp_sales_daily`）：先確認報表維度、區間、權限、更新頻率、資料來源與 UI，再決定開發。  （來源舊 #7）
+- [ ] **C4｜待模組大致定稿**：統一「使用說明」入口與各頁教學內容：原構想是頁首右上角按鈕取代分散的 ⓘ，但最終入口及編寫時機先由使用者確認。  （來源舊 #23）
+- [ ] **C5｜跨 AITeam／待核准**：把已驗證的 CYWEB Web 視覺規範整理供 AITeam canonical 評估；不在 CYWEB 自行建立平行永久規則。  （來源舊 #27）
+- [ ] **C6｜依使用者回饋逐批**：後續共用 UX／Customer 細節：navigation、清單密度、表單／Dialog、loading／error、鍵盤／觸控及錯誤復原；實作前先核對最新版源碼，只針對使用者具體回報開工，原型一致性及跨角色驗收在 D1。  （來源舊 #61、#62、#63、#64、#65）
 
-- [x] 使用者確認一般／廠商來源可只填廠商品名＋數量儲存及送出；我方品號／品名保持獨立。前後端驗證一致，保留定期／自訂中國貨原必填規則。
-- [x] 新列等待儲存時補填的欄位更新同一列；取得 API 確認才清除暫存，失敗保留；切換／送出／匯出前檢查明細，沿用共用跨模組離開保護。
-- [x] 草稿載入與逐格儲存移除重複 refresh，後端草稿不查不適用的到貨／修訂資料，保留原權限及版本鎖。
-- [x] 依使用者要求建立 [給 Claude 的 handoff](docs/handoff/CYWEB_ORDERING_AUTOSAVE_HANDOFF.md)，含上一輪 Enter 修正、本輪修改、驗證與交付狀態。
-- [x] 本機叫貨／路由／鍵盤 36 項測試、build、validate:source 通過。
-- [x] [PR #262](https://github.com/simonliu1118-byte/chihyuan-web/pull/262) 最終提交必要 CI 全數通過並合併，主線 `d77a05e`。
-- [x] 原 CYWEB 網站 [部署 #39626518329](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39626518329) 成功，來源 `d77a05e`；來源版本／D1 健康、HTTPS／靜態資源、正式網域及 Identity 權威檢查通過。證據已補入 Claude handoff。
-- [x] 桌面叫貨明細版型已由使用者核准預覽並於 V0.9.30 實作；手機方案仍列為待辦。盤點與實作差異見 handoff。
+## P3 — 現行版本剩餘實機驗收／歷史核對
 
-## CY Web V0.9.28 — 叫貨備註 Enter 換列修正
+- [ ] **D1｜待核對缺口／人工驗收**：將多個舊版本散落的『使用者實機驗收』**合併為一份情境矩陣**：以目前 V0.9.32 的有效功能為準，抽查 SUPER_ADMIN／ADMIN／USER、無權限、Desktop／Tablet／Mobile，包含 Customer、WorkLog、CY 程式清單／下載等；只補沒有證據的情境，不為每個舊 Patch 重做同一組測試。  （來源舊 #19、#24、#25、#29、#30、#31、#32、#33、#34、#59、#60）
+- [ ] **D2｜先查歷史結果再決定**：核對早期『PR CI／合併／部署』標記所對應的 GitHub 事實，已完成的改列**歷史證據**；只有仍欠缺的實際操作／裝置驗收才納入 D1，不自行重開 PR 或再次部署。  （來源舊 #17、#18、#22、#26、#28）
 
-- [x] 修正 `OrderingGrid`：備註按 Enter 以最新草稿列決定下一列，沒有下一列時立即建立，並聚焦下一列品號；尚缺儲存必填值時也保留原列並允許往下輸入。
-- [x] 儲存驗證、數量欄既有快捷操作、其他畫面與 API 不變；回歸測試納入既有叫貨測試入口。
-- [x] 本機 `npm run build`、`npm run validate:source` 與叫貨／路由／鍵盤測試 24 項通過（含新增換列回歸 7 項）。
-- [x] [PR #260](https://github.com/simonliu1118-byte/chihyuan-web/pull/260) 必要檢查全數通過並合併；[CY Web Deploy #39619928512](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39619928512) 已由 `main` 的 `32c69ce` 部署成功，來源版本、D1 健康、HTTPS／靜態資源、正式網域及 Identity 權威檢查通過。
+## 舊版待辦歸檔（不列為目前執行工項）
 
-## CY Web V0.9.27 Build 1 — 叫貨畫面整理（Claude 直接處理）
+以下不是宣布功能已完成，而是把**不具體的占位符、已成事實的舊前置步驟、過期時間線及純歷史觀察**移出可執行清單。需要追查時看 [原文快照](docs/development/TODO_BEFORE_TRIAGE_2026-10-23.md)、相應工作單與 Git 歷史；沒有新驗證證據不能宣稱所有人工驗收已完成。
 
-- [x] 左邊「叫貨紀錄」改用共用清單元件：搜尋即時篩選、狀態篩選（已送出／部分到貨／已結案／作廢，含數量）、來源與起訖日一列、狀態標籤；**草稿不再出現在左邊清單**，只在上方來源頁籤（使用者 2026-10-21）。
-- [x] 右邊改用共用標題列：來源名稱＋狀態、說明（預計送出日、品項數、自動儲存／送出時間、版本），動作按鈕（回到草稿、匯出 Excel、作廢、登記到貨、送出）集中在右上。
-- [x] 草稿切換改為小標籤列（日期／無預計日、＋ 新草稿），預計送出日期與單據備註同一列、離開欄位自動儲存（拿掉整排的「儲存」按鈕）。
-- [x] 已送出單的到貨狀態、到貨紀錄、修改紀錄改成表格；未到貨明細改成表格；對話框按鈕移到底部。
-- [x] 叫貨明細列的刪除／上下移改為同一行，列高不再撐高。
+- **H1｜歷史／非獨立工作**：人事測試問題『之後記在這裡』屬舊占位提醒，不是可執行工作；有實際新問題再新增具體待辦。 （來源舊 #10）
+- **H2｜歷史／非獨立工作**：人事 2b 工作單已存在並通過 Claude 審查（WO-0.9.25），舊『之後開單』不得再當現行工作。 （來源舊 #15）
+- **H3｜歷史／非獨立工作**：2026-10-16『下一步先討論版型』已被之後的 UI／UX 工作推進，歷史計畫不應蓋過 V0.9.32。 （來源舊 #50）
+- **H4｜歷史／非獨立工作**：2026-10-16 的整體驗收、上線順序及 CYInvoice 接入計畫僅為當時時間線；仍有效依賴已分別收斂至 A／B／D，避免重複列工作。 （來源舊 #54、#55、#56）
+- **H5｜歷史／非獨立工作**：V0.7.10～0.7.15 觀察到初次健康檢查短暫返回舊版本來源，是歷史故障證據；目前沒有新的復發資料，不列獨立待開發項目，若再發生另立具體診斷。 （來源舊 #66）
 
-## CY Web V0.9.27 — 全系統表單改用共用欄位元件（[WO-0.9.27](docs/development/work-orders/WO-0.9.27.md)；已審查）
+## 本輪整理核對
 
-- [x] GPT 依工作單把其餘表單改用 `Field`／`FormSection`：必填＊、一次提醒、依長短排版；新增 `form-fields.test.mjs` 自動檢查。
-- [x] 審查、截圖、合併部署。
-- [ ] 之後由使用者逐一調整各表單的分區細節（使用者 2026-10-21：先改，分區細節後續再修）。
-
-## CY Web V0.9.26 Build 1 — 必填記號、一次提醒、表單依長短排版（Claude 直接處理）
-
-- [x] 共用欄位元件 `src/ui/forms/Field.tsx`（`Field`、`CheckField`、`FormSection`、`RequiredRows`）：必填自動顯示紅色＊並設定 required；「擇一必填」標示；12 格格線，短／中／長三種寬度，表單最寬 960px，窄版自動收成兩欄或一欄。
-- [x] 按儲存時所有缺漏一次提醒（「請填寫：A、B、C。」），缺的欄位標紅框、游標到第一個；全系統表單適用。
-- [x] 人事表單先改用新版：分「基本資料／聯絡方式／任職與排班」三區；手機與市話擇一必填、緊急聯絡人至少一位，都併入同一次提醒。
-- [x] 使用者確認樣式（2026-10-21）；規則寫入 PROJECT_RULES §5。其他表單見下方 0.9.27。
-## CY Web V0.9.26 — 叫貨模組（WO-0.9.26；已審查）
-
-- [x] GPT 依 [WO-0.9.26](docs/development/work-orders/WO-0.9.26.md) 實作（分支 `cyweb/ordering`，建立在 PR #252 之上；含前一位執行者的半成品）。第 2 次審查通過（審查者修正 1 項，見工作單 §9.2），與 #252 一起合併部署（使用者 2026-10-21）。
-
-## 待辦：可攜備份擴充（使用者 2026-10-21：列入 TODO，之後在 CY Web 對話處理）
-
-- [ ] 現行 `worker/backup/portable-backup.ts` 是基礎版（隔離演練用）：全部資料一次查詢匯出、一次批次還原，總列數上限 `MAX_ROWS = 500`、5 MB；儲存格只接受文字、整數、null（小數會 `BACKUP_UNSUPPORTED_CELL`）。上限是為了單一查詢／單一批次的大小與時間限制而保守設定，不是 Cloudflare 免費額度問題。
-- [ ] 擴充：改為依資料表分批匯出與分批還原，仍維持同一時間點（例如 D1 Time Travel 書籤）與「全部成功才算數」；支援小數；上限提高到數萬列以上。
-- [ ] 擴充後把目前列在 `EPHEMERAL_TABLES` 的使用者手打資料移回備份：叫貨模組（WO-0.9.26 的 `ordering_*` 表）。進貨輔助的 `erp_sales_*` 可由 ERP 重建，是否納入再決定。
-- [ ] 需在開啟每日自動備份排程（見「上線前提醒：啟用自動備份排程」）、叫貨模組正式使用之前完成。
-
-## CY Web V0.9.25 Build 2 — 進貨輔助第二版（Claude 直接處理）
-
-- [x] 銷貨／銷退含贈／備品量（使用者 2026-10-21）：AUTO 送的 sold／returned 已含贈品，另送 soldGift／returnedGift；舊版 AUTO 沒送時補 "0"。格子滑鼠移上去顯示「含贈品 N」。
-- [x] 品號可點（有 ERP 商品查詢權限、且品號是英數）：開「品號 X 資料」視窗立即查詢，畫面與 ERP 查詢頁共用 `ErpItemResult`。
-- [x] 表格好讀：0 留白、日期欄交替底色與分隔線、週六日標色、星期、品名縮成一行、淨銷／庫存加粗、庫存不足（庫存 ≤ 0 或低於期間淨銷）琥珀標示；工具列可篩選品號／品名、排序（庫存不足優先、淨銷、庫存、品號）、只看庫存不足。
-- [x] 銷貨資料保存（`migrations/0021_erp_sales_history.sql`）：`erp_sales_daily`（品號×日期的銷／退與贈品）、`erp_sales_items`（品名、單位、最新庫存）、`erp_sales_days`（已同步的日期）。RESTOCK 完成時在同一 batch 寫入，只寫有變動的列；ERP 已無的列刪除；truncated 不刪不標記。之後可做銷貨分析頁。
-- [x] 進貨輔助的前提權限（使用者 2026-10-21：必須要有查 ERP 商品和 ERP 銷退貨）：`shared/modules.ts` 的 `MODULE_REQUIREMENTS` 定義 `ERP_RESTOCK_ASSIST` 需要 `ERP_ITEM_QUERY`、`ERP_CUSTOMER_QUERY`（含銷貨銷退單）。缺前提時進貨輔助不算有效（導覽、頁面、Worker 建立／讀取 RESTOCK、Agent 狀態都依此判斷）；權限設定（個人與群組）：缺前提時「進貨輔助」鎖定不能勾（提示需先開啟哪些）；關掉 ERP 商品查詢或 ERP 客戶查詢時，進貨輔助一併關掉（使用者 2026-10-21；伺服器同一批寫入並各記一筆稽核，回傳 `alsoDisabled`）；三欄排在一起，前提欄淡藍底、進貨輔助欄淡琥珀底加虛線，欄名下註明關係。不自動補開前提，避免意外放大權限。
-- [x] 品號與客戶／廠商／業務員代號可含「-」（使用者 2026-10-21，如 K1807003-1；第一個字須為英文字母或數字），進貨輔助表的品號也都能點開資料視窗（需 Agent V0.10.2 Build 4）。
-- [ ] 銷貨分析頁（用 erp_sales_daily），規格待使用者確認。
-
-## CY Web V0.9.25 Build 1 — 人事第二期 2b：請假、特休、加班、補休（WO-0.9.25；已審查）
-
-- [x] GPT 依 WO-0.9.25 實作（PR #249）；審查者修正、截圖、合併部署。
-- [x] 請假頁籤（年度總表、假單、請假視窗、銷假）、排班表待補／已完成假單記號、出勤頁標記加班、特休年度與書面通知、補休帳戶、假別設定、R2 證明照片。
-- [x] BD-060 第 26～29 點：排班表打開已完成假單可銷假；補休只有一種（「換」停用，既有格子改為「補」）；預支綁定國定假日並分開顯示，只有該國定假日的補休給予時才抵銷；半職、兼職特休依打卡工時比例計算，可由超管調整。
-- [x] 使用者已建立 R2 bucket，GitHub variable `CF_HR_FILES_R2_BUCKET`＝`cyweb-hr-files`；deploy workflow 已傳遞。
-- [x] 每月 1 日 08:51 排程檢查人事法規（`docs/architecture/HR_LEGAL_WATCH.md`）。
-- [ ] 部分工時特休比例公式、請假一天的時數換算，待每月法規檢查確認條文（目前：全時每週 40 小時為分母、1 天＝8 小時）。
-- [ ] 國定假日補休目前由超管手動給予（選國定假日）；若要依排班自動產生，另行確認規則。
-- [ ] 使用者測試時發現的問題記在這裡，下一輪一起修。
-- [ ] 人事附檔的備份另案處理。
-
-## CY Web V0.9.24 Build 3 — 進貨輔助（Claude 直接處理）
-
-- [x] 左邊導覽新增「進貨輔助」（權限 `ERP_RESTOCK_ASSIST`，獨立頁面）：選單據日期起訖（都必填、最多 31 天），請公司電腦查這段期間所有客戶的銷貨單（COPR15）與銷退單（COPR16），依品號、日期加總，再逐一查各品號庫存數量，列成一張表（使用者 2026-10-20：先簡單版）。
-- [x] 查詢中顯示進度（使用者 2026-10-20）：「正在產生銷貨、銷退報表（已完成 x / 2 張）」，之後「已查庫存 x / y 個品號」；Agent 以 `/progress` 回報。
-- [x] 查詢類型 `RESTOCK`、migration `0019_erp_restock_assist.sql`；查詢中最長 30 分鐘才算逾時。
-- [x] 順手修正：進貨退貨單（PURCHASES，兩份報表）查詢中原本 3 分鐘就算逾時，改為與銷貨銷退相同的 10 分鐘。
-- [ ] 需要 CYERPAutoQuery 支援 `RESTOCK` 的版本；實機確認品號多時的耗時，必要時改用一次匯出全部庫存的報表。
-
-## CY Web V0.9.23 Build 2 — 表單鍵盤規則與自動檢查（Claude 直接處理）
-
-- [x] PROJECT_RULES §5：Enter 跳下一欄、日期四碼年份列為必要功能；`scripts/form-keyboard.test.mjs` 納入 validate:source。
-- [x] 登入流程的首次設定密碼、忘記密碼補上 Enter 跳欄；查詢表單標示 role="search"。
-
-## CY Web V0.9.23 Build 1 — 日期年份與 Enter 跳欄（Claude 直接處理）
-
-- [x] 全系統日期欄位加上年份上限（四碼），避免手動輸入時年份變成六碼。
-- [x] 補上 Enter 跳下一欄：客戶報價（含商品頁共用的報價表單）、更正報價、常用商品新增；我的帳號的密碼、Email 視窗（最後一欄 Enter 送出）。
-- [x] 人事表單修正（Enter 跳欄、綁定使用者選擇視窗、身分證隱碼、地址順序、必填）在 WO-0.9.24 審查時一併完成。
-- [ ] 正式上線前統一整理測試資料（測試客戶、工單、人事等）：先備份，列出候選清單給使用者確認，真實資料不可刪，再分批刪除。
-- [ ] **正式上線前移除人事「刪除」功能**（測試用，BD-059 第 7 項；`HrService.remove`、DELETE 路由、人員頁刪除按鈕與驗收 `ACCEPT_HR_DELETE*`）。
-
-## CY Web V0.9.24 Build 0 — 人事第二期 2a：排班與出勤（WO-0.9.24；已審查）
-
-- [x] BD-060 第二期規則定案（2026-10-20）；設計文件 §5 更新。
-- [x] [WO-0.9.24 工作單](docs/development/work-orders/WO-0.9.24.md)：門市、職稱、班別、國定假日、月排班表（雙週跨月、自動例休、合法性檢查、列印）、出勤輸入與異常。
-- [ ] 2b 工作單（請假與附檔、特休扣抵與遞延、加班確認與補休、國定假日換休帳戶、書面通知）於 2a 審查後開立。
-
-## CY Web V0.9.23 Build 0 — 系統與安全細修（Claude 直接處理）
-
-- [x] 「開始災難復原」按鈕放在說明文字下方（靠左）。
-- [x] 已登記的系統只顯示名稱與狀態；識別碼為 CYID 註冊的正式系統代號（CYACC 為不具意義的代號，改名需 CYID／CYACC 協同搬移，使用者決定不改），改為滑鼠停留在名稱上時顯示。
-- 使用者：系統與安全維持目前視覺；日後新增模組優先把上排填成三張卡片，再調整下方版面。
-- [x] PR #227 合併 `cd0e5cb`；部署 run 39371824177（success）。
-
-## CY Web V0.9.22 Build 0 — 系統與安全版面整理（Claude 直接處理）
-
-- 使用者 2026-10-20：驗證碼與 Email 安全設定直接攤開容易誤按、全寬沒有意義；災難復原改去備份管理。
-- [x] 系統與安全限制最大寬度 1080px；已登記的系統與安全設定並排（窄螢幕單欄）。
-- [x] 驗證碼與 Email 安全設定改為唯讀摘要，按「變更」開視窗修改。
-- [x] D1 用量只列今日有用量的資料庫，其餘收成一行；表格限制寬度。
-- [x] CYInvoice 裝置災難復原移到備份管理：平時一行說明與「開始災難復原」按鈕，操作在視窗內；有未完成操作時按鈕改為「繼續處理復原操作」。復原流程與檢查不變。
-- [x] PR #226 合併 `a2240c5`；部署 run 39366664656（success）。
-
-## CY Web V0.9.21 Build 0 — Cloudflare 用量巡檢（WO-0.9.21；已審查）
-
-- [x] [WO-0.9.21 工作單](docs/development/work-orders/WO-0.9.21.md)：超級管理員查看全帳號 D1 今日與近 7 天讀寫量，70%／90% 警示列；不做 Email。
-- [ ] 使用者在 Cloudflare 建立只讀 token（Account Analytics: Read、D1: Read），存為 GitHub secret `CF_USAGE_API_TOKEN`（deploy workflow 傳遞已由審查者補上）；設定後重新部署並實機確認。
-- [x] 2026-10-20 已設定 token 並重新部署（run 39365575767），實機顯示全帳號用量正常。
-- [x] 審查通過，審查者修正 5 項（見工作單 §9）。
-
-## CY Web V0.9.20 Build 0 — 人事模組第一期（WO-0.9.20；已部署）
-
-- [x] [WO-0.9.20 工作單](docs/development/work-orders/WO-0.9.20.md)：人事主檔、使用者綁定、狀態異動、週年制年資特休、薪資異動、津貼與最低工資設定、證號保護及稽核。
-- [x] 第二次審查通過：Node 測試 153/153、畫面依 §9 B 區由審查者改寫並截圖驗收。
-- [x] PR #221 合併 `c342e21`；部署 run 39347135492（#370，success）。2026-10-19 首次部署（run 39281112381）因 Cloudflare 帳號 D1 每日讀取額度被 CYACC 作業用盡而在遠端變更前失敗，額度重置後重新部署。
-
-## CY Web V0.9.19 Build 0 — 我的帳號與說明文字細修（WO-0.9.18；已部署）
-
-- [x] [WO-0.9.18 工作單](docs/development/work-orders/WO-0.9.18.md)：我的帳號設定卡、密碼與 Email 視窗、全站說明文字清理；PR #220 已審查。版本號改為 0.9.19（0.9.18 已由 PR #218 使用）。
-- [x] PR #220 合併 `fce11c5`；部署 run 39263519808（#321，success）。PR #218（0.9.18）部署 run 39234445296（#319，success）。
-
-## CY Web V0.9.18 Build 0 — ERP 銷貨銷退／進貨退貨清單與視窗
-
-- 使用者 2026-10-19：從客戶／供應商資料開的銷貨銷退、進貨退貨視窗不再一開就查，先帶入頁面日期、可改，按「查詢」才送出。
-- 單據由卡片改為清單（`ErpOrderList`）：表頭＋每張一列（類別、日期、單號、品項、業務員／廠商單號、合計），點列展開／收合，並有「全部展開」「全部收合」；手機版每張兩行。銷退／退貨仍接在原單下並互相連結。單筆憑證視窗同樣套用。
-- [ ] PR CI、授權後合併與部署；實機驗收。
-
-## CY Web V0.9.17 Build 0 — 審查遺留小項（Claude 直接處理）
-
-- [x] PR #217 合併 `045c86c`；部署 run 39225975605（#317，success）。
-
-- [x] 異動紀錄商品名稱顯示為「A00001 志遠拔罐杯#1」；名稱含「#1」不再被當成內部編號濾掉。
-- [x] 選單外部工具「價格觀測室（原型）」短名稱「價格觀測室」。
-- [x] 單位換算純函式由 `worker/item/unit-conversion.ts` 搬到 `shared/unit-conversion.ts`，前端與 Worker 共用。
-- [x] 商品頁瑕疵新增對話框不再有兩層標題；按鈕放在表單底部，與其他對話框表單一致。
-
-## CY Web V0.9.16 Build 0 — 介面細修（已部署）
-
-- [x] PR #216 合併 `38c40b1`；部署 run 39224596556（#315，success）。
-- [x] [WO-0.9.16 工作單](docs/development/work-orders/WO-0.9.16.md)：設定及修改紀錄圖示、ERP 稽核篩選與文字、清單密度、選單及協力廠商用詞。
-
-## CY Web V0.9.15 Build 0 — 商品頁精簡與跨模組瑕疵／報價紀錄（已部署）
-
-- [x] [WO-0.9.15 工作單](docs/development/work-orders/WO-0.9.15.md)：商品清單／明細精簡、BD-058 直接換成基準單位、瑕疵與報價跨模組共用表單及摘要卡、含 id 的分享連結。
-- [x] PR #214 合併 `a8352fe`；部署 run 39215572767（#311，success）。
-- [ ] 此版本僅開 PR 交審查；正式合併／部署／真實 UI 截圖驗收由審查者辦理。
-
-## CY Web V0.9.14 Build 0 — 客戶編號與多品項報價（已部署）
-
-- [x] [WO-0.9.14 工作單](docs/development/work-orders/WO-0.9.14.md)：客戶編號呈現、相關紀錄新增／查看全部、商品搜尋、單次多品項報價（每商品一紀錄、同商品多級距）、批次原子寫入與品號顯示規範。
-- [x] PR #212 合併 `85e20f0`；部署 run 39209010837（#294，success）。
-
-## CY Web V0.9.13 Build 0 — 異動紀錄人性化與工具連結
-
-- [x] [WO-0.9.13 工作單](docs/development/work-orders/WO-0.9.13.md)：CYID 姓名顯示快取、異動紀錄中文摘要與篩選／欄位變更抽屜、客戶管理員專屬修改紀錄，以及網頁程式外部工具入口。PR #208 審查通過（2026-10-19，紀錄見工作單 §9）。
-- [x] PR #208 已於 2026-10-19 合併（commit `6c490196`）；CY Web Deploy [run 39183836960](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39183836960) 同提交正式部署成功；使用者實機驗收仍待完成。
-
-## CY Web V0.9.12 Build 0 — 客戶紀錄卡片與介面一致性
-
-- [x] [WO-0.9.12 工作單](docs/development/work-orders/WO-0.9.12.md)：拜訪／報價／常用商品改三張唯讀摘要卡片與各自專屬視窗；客戶最後修改者；個人選單精簡；共用台北日期顯示；標題說明與模組設定大視窗。
-- [x] PR #207 審查通過並合併 `101de07`，CY Web Deploy #269（run 39144743035）部署成功。
-- [ ] 使用者實機驗收。
-
-## 2026-10-18 CYInvoice 3.0 Recovery × CYWEB V0.9.0 介面重整後接線
-
-- [x] 以 CYWEB `main` 的最新 V0.9.0 Build 1（`a46f5666`，#191）為唯一基準，選取 #151 的復原 UI／Worker／測試與配置程式移植，不 merge 舊 V0.7.25 分支以免覆寫 Claude 已部署的介面、ERP、備份、Program Catalog 等功能。
-- [x] 接回 SUPER_ADMIN／Email 驗證門檻的 `CyInvoiceRecoveryAdminPanel`、當次密碼、操作 ID checkpoint、防重送／狀態／明確撤銷 readback；User/ADMIN 不出現介面，瀏覽器不儲存密碼／復原碼。
-- [x] 接回同源 + Origin／Fetch Metadata／CYID session 檢查、`CYINVOICE` Application 再驗證、固定 Workspace／Device 授權，以及非預設的 named `CyInvoiceRecoveryEntrypoint` 私有 RPC Service Binding，未接線回 503 而不會簽發；原 CYWEB/Identity D1 不增加第二權威。
-- [x] 已有 #151 的 source API／UI 單元測試納入現行 Runtime Check、Deployment Config 測試，確認 0.9 UI 不需另一套 Desktop/Mobile renderer。
-- [ ] 新 CYWEB PR 的最新 head Governance／Runtime Check／Build 與自動測試、Desktop／Mobile 真實 UI 操作驗收。
-- [ ] CYInvoice PR #476 在原 D1 完成備份＋回復演練與 schema 0014／0015、Issuer gate 維護配置、Worker feature flag 後，再唯讀核對真 Session／Email／Binding／原 D1 配置，將 CYWEB `CF_CYINVOICE_RECOVERY_SERVICE` 接到正確命名入口並依具體授權受控部署、真 Email／雙 Windows／DR-01～13；另確認撤銷裝置在途 Work Item fencing、跨 repo 同版位契約及變更密碼／移交後的查回。這些均未因舊 PR 清理而完成。
-- 來源舊 PR #151 已由 #192 選取移植；2026-10-23 納入舊 Draft 關閉盤點，分支與固定 SHA 交接仍保留參照，不直接合併舊分支。此來源整合紀錄不代表正式 DR rollout／真裝置驗收完成，CI 綠燈不能代替相應證據。
-
-# CY Web TODO
-
-> 本文件只保存目前狀態、驗收證據與待辦，不是永久規則來源。舊版本逐輪紀錄以 Git history 追溯；業務規則與架構參照既有 canonical 文件，不另建交接或規則層。
-
-## 外框、新增按鈕、修改按鈕與模組設定 — 0.9.11 Build 0（2026-10-18）
-
-- PR #203 合併 2e45269，CY Web Deploy #250（run 39139601492）部署成功
-
-- 右上角從左到右為外觀切換（系統／淺色／深色，獨立按鈕；手機為單一圖示按鈕）與個人選單（頭像、姓名、角色；選單內「我的帳號」「登出」）。側欄帳號卡移除。個人設定目前只有外觀與密碼／Email，不另做設定按鈕；日後要加（例如字級）時做成上方獨立按鈕。
-- 「我的帳號」改為獨立頁（`#account`），由個人選單進入；帳號與權限只剩「使用者」「系統與安全」，一般使用者側欄不再顯示帳號與權限。沒有可用模組或權限被取消時改回到「我的帳號」。
-- 全站「＋ 新增…」移到清單工具列最左邊、搜尋框前面（客戶、商品、瑕疵、工單、委外代工單／代工對象／BOM、工作日誌）；備份頁的動作與設定頁的新增放在內容最上方工具列。移除 `PagePrimaryActions`。
-- 紀錄修改表單的「取消／儲存」移到表單標題列右側（原本「修改」的位置），捲動時固定在畫面上方；不再放在底部（使用者同意只放上面）。
-- 「系統管理／設定」拆回各模組（使用者：設定是各模組的，共通入口很奇怪）：客戶、商品、工作日誌各有「設定」頁籤（只對管理員／超級管理員顯示，結構設定仍只有超級管理員能改，BD-043 不變）。舊的分類標籤（`app_tags`，BD-037 已不作授權）不再顯示。API 不變。
-- [ ] PR CI、合併與部署；使用者實機驗收。
-
-## 待辦：使用說明
-
-- [ ] 所有模組修完後：右上角加「使用說明」按鈕（排在外觀切換左邊），打開顯示目前頁面的教學並可切換其他模組；頁標題旁的 ⓘ 說明併入。教學內容等模組全部完成後一次撰寫。
-
-## 權限群組 — 0.9.10 Build 0（2026-10-18）
-
-- 使用者要求加上權限群組：群組設定好權限，加入的人使用群組設定、不可另外修改。使用者確認（BD-057）：每人最多一個群組；群組同時管系統使用權與 CY Web 模組（使用者：「這樣比較簡單」）；移出群組時保留當時的設定成為個人設定。
-  - 權限群組放在「使用者」頁籤內，工具列切換「人員｜權限群組」；新增按鈕放在工具列左邊（「＋ 新增使用者」「＋ 新增群組」）。
-  - 群組表：一列一群組，欄位分系統使用權、業務模組、ERP 查詢，勾選立即套用到所有成員；新增、重新命名、刪除（成員保留目前設定）。
-  - 「人員」總表與個人抽屜有「權限群組」下拉（個人設定／群組，加入前確認）；群組成員整列鎖定並註明由哪個群組設定。「從某人複製使用權」：來源在群組就加入同群組，否則先移出群組再複製個人設定。
-  - 系統使用權存在 CYID，無法和 D1 一起寫入：Worker 寫完 D1 後逐人同步到 CYID，只改不同的格；失敗或在 CY Web 以外被改動的成員，群組頁顯示黃色提示並可「重新套用」。
-  - 後端：migration `0015_module_access_groups.sql` 四張表；模組變更在同一個 D1 batch 改寫成員的 `app_member_module_access`，執行期授權不變；個人模組 API 與系統使用權代理對群組成員回 409 `MODULE_ACCESS_GROUP_MANAGED`；revision 樂觀鎖與稽核事件。`validate:d1:local` 的 `moduleAccessGroups` 驗收涵蓋 CYID 同步、失敗回報與重新套用。
-- [x] PR #202 CI 全綠後合併 `deaffa6`，CY Web Deploy #248（run 39137792479）以同一 commit 部署成功，含「Apply development D1 migrations」（0015）。
-- [ ] 使用者實機驗收。
-
-## 帳號頁：可編輯使用權總表 — 0.9.9 Build 0（2026-10-18）
-
-- 使用者回饋 0.9.8：「我的帳號」放第一個；使用者一個一個點選不好用，要使用權一覽且最好能直接編輯。依使用者同意的提案 A 實作：
-  - 頁籤順序改為「我的帳號／使用者／系統與安全」，預設開「我的帳號」。
-  - 「使用者」改為一張總表：一列一人，欄位分組為系統使用權、業務模組、ERP 查詢；勾選立即生效（該格轉圈、只更新那一格），權限下拉可直接改。表頭與姓名欄固定，左右捲動。超級管理員列固定可用、自己那列不能改。搜尋與帳號狀態按鈕列保留。
-  - 點姓名開右側抽屜：帳號動作（停用／啟用、更換 Email、重寄驗證、帳號管理員、刪除、移交）、權限、「從某人複製使用權」與此人的逐項使用權；手機版表格只列姓名與狀態，在抽屜內編輯。
-  - 移除 0.9.8 的左清單右明細。仍只使用既有 API（`setEmployeeApplicationAccess`、`setEmployeeModuleAccess`），複製逐項送出並回報成功筆數。使用者確認不需要整欄設定（已移除）。
-- [x] PR #200 已部署：CY Web Deploy #242（run 39124462710）以合併 commit `21fc879` 部署成功。
-- [x] PR #201 CI 全綠後合併 `bfef221`，CY Web Deploy #245（run 39126985680）以同一 commit 部署成功。
-- [ ] 使用者實機驗收。
-
-## 帳號與權限頁整理 — 0.9.8 Build 0（2026-10-18）
-
-- 使用者反映帳號與權限頁「有點難用、太亂」：原本一頁由上而下堆疊我的帳號、使用者大表（每列 2–4 顆按鈕）、系統使用權與模組使用權兩張勾選矩陣、OTP 設定與 CYInvoice 復原。改為頁籤＋左清單右明細，沿用其他模組的做法：
-  - 「使用者」：左側清單可搜尋，狀態按鈕列（尚未啟用／Email 待驗證／啟用／停用）含人數；右側明細只顯示這個人可以做的動作，依狀態給「下一步」提示，權限、帳號管理員、Email 在同一區，下方逐項勾選「系統使用權」與「CY Web 模組使用權」（業務模組、ERP 查詢分組，勾選立即生效、該格轉圈）。新增使用者後自動選取該帳號。
-  - 「我的帳號」：變更密碼與 Email（一般使用者只看到這一頁）。
-  - 「系統與安全」（超級管理員）：已登記系統清單與「登記系統」、驗證碼與 Email 安全設定、CYInvoice 裝置災難復原。
-- 移除兩張矩陣與舊的自訂移交視窗（改用共用 `Dialog`），`window.alert` 改為共用確認視窗後重新登入；停用帳號前先確認。API、權限規則與後端不變；`identity.css` 移除不再使用的表格、矩陣與自訂視窗樣式。
-- [ ] PR CI、合併與部署；使用者實機驗收。
-
-## ERP 查詢介面對齊與網頁標準視覺規範 — 0.9.7 Build 0（2026-10-18）
-
-- 使用者要求確保 ERP 自動查詢工作線部署的 0.9.6 與新版介面一致。0.9.6 新增的單據視窗已使用共用 `Dialog`／`Loading`／按鈕轉圈；ERP 查詢頁仍有自訂的一套，本次改用共用元件並移除 `erp-item-query.css` 中的重複樣式：
-  - 輸入框、日期、類別下拉改用 `.cy-op-input`；類別頁籤改用 `.cy-op-tabs`。
-  - 查詢方式（品號／品名、客戶代號／名稱／銷貨銷退單、未收款範圍）改用新的共用分段按鈕 `.cy-segmented`；側欄外觀切換也改用它（`.compact`），取代 `.cy-theme-switch` 與 `.cy-erp-mode-switch`。
-  - 連線狀態原為外框按鈕樣式，改為 `cy-status-dot`＋文字（超級管理員按鈕）或 `StatusChip`（唯讀）。
-  - 銷貨／銷退、進貨／退貨類別改用 `StatusChip`；「結果已達上限」類提示改為黃色提醒框，ERP 錯誤訊息改為紅色訊息框（原本全部是紅字）。
-  - 固定圓角數字改用 radius tokens。
-- 新增 `docs/architecture/CY_WEB_VISUAL_GUIDE.md`（志遠網頁程式標準視覺規範），結構比照 AITeam CY Desktop Visual Guide：規範強度、字型字級、顏色與狀態語意、版面、元件、清單、載入、鍵盤、響應式、無障礙、用語、圖示、實作規則、與 Windows 規範的關係及驗收清單。依 `PROJECT_RULES.md` §5 為 canonical 候選，經使用者確認後應升格至 AITeam `shared/cy-visual/web/`（本工作階段對 AITeam 只有讀取權限）。
-- [x] PR #197 已部署：CY Web Deploy #235（run 39104398791）以合併 commit `a316b9b` 部署成功。
-- [x] [PR #199](https://github.com/simonliu1118-byte/chihyuan-web/pull/199) 合併 `5c0bb9b`，CY Web Deploy #240（run 39122159939）部署成功。
-- [ ] 使用者確認視覺規範後升格至 AITeam（使用者 2026-10-18：之後另開對話處理）。
-
-## ERP 客戶／廠商的銷貨銷退、進貨退貨改開視窗 — 0.9.6 Build 0（2026-10-18）
-
-- 使用者實測：從客戶／廠商資料按「查此客戶的銷貨銷退單」「查此廠商的進貨退貨單」會換掉頁面上的資料，要再查一次。改為開視窗（`ErpPartyOrdersDialog`，自己的查詢工作，帶入頁面日期、可在視窗內改日期重查），頁面上的客戶／廠商資料保留。直接選「銷貨銷退單」「進貨退貨單」模式查詢的方式不變。
-- 同批 CYERPAutoQuery V0.9.0 Build 3：報表「查無資料」訊息視為空結果（COPR16 無銷退時原本整筆失敗）、回報網路失敗會重試。
-- [ ] PR CI、授權後合併與部署；實機驗收兩個視窗。
-
-## 篩選列狀態計數 — 0.9.5 Build 0（2026-10-18）
-
-- 依使用者核可的改版順序第 3 項（GPT 預覽的統計卡改為可點的篩選）：瑕疵、工單、委外、工作日誌的「全部狀態」下拉改為共用 `ui/data/StatusFilter` 狀態按鈕列，每顆顯示筆數與狀態色點，按一下篩選、再按一次或按「全部」取消。
-- 後端：四個清單查詢在沒有 `cursor` 的第一頁回傳 `statusCounts`（共用 `worker/persistence/status-counts.ts` 的 `GROUP BY`），條件與清單相同（含工作日誌一般使用者只看自己），只排除狀態篩選；未新增路由、資料表或權限。`API_CONTRACT.md` 已記錄。
-- Worker + D1 acceptance 新增瑕疵計數檢查（含作廢顯示切換、狀態篩選不影響計數、下一頁不帶計數），並確認改錯時會失敗。
-- [x] [PR #197](https://github.com/simonliu1118-byte/chihyuan-web/pull/197) CI 全綠後合併 `a316b9b`，CY Web Deploy #235 部署成功。
-- [ ] 使用者實機驗收。
-
-## 狀態顏色統一與「下一步」提示 — 0.9.4 Build 0（2026-10-18）
-
-- 依使用者核可的改版順序第 2 項（採用 GPT 預覽中「狀態顏色一致」與「下一步提示」兩點）。
-- 單一顏色語意，定義在 `runtime/modules/status-flow.ts`：黃＝等這裡的人處理、藍＝進行中、綠＝完成、紅＝作廢、灰＝草稿／停用。瑕疵、工單、委外、工作日誌的清單與明細狀態一律改用共用 `StatusChip`；移除各模組自訂的 `cy-flow-status`、`cy-defect-status` 與重複的色票對照。工作日誌「已建檔」由黃改灰（草稿）、「待審核」由藍改黃（等審核人處理），使顏色代表同一件事。
-- 明細上方新增 `NextStep`：依狀態寫出下一個要按的按鈕（例如瑕疵「確認問題後按『開始處理』」），完成狀態改為灰色說明，作廢沿用原有作廢提示不重複顯示。
-- 頁面訊息：成功原本用黃色警告框、錯誤也是黃色。`useFeedbackMessage` 改帶語氣，成功為綠色、錯誤為紅色（錯誤仍同時跳提醒），六個業務模組改用共用 `FeedbackBanner`。
-- 下一項：篩選列狀態計數（需新增後端計數 API）。
-- [x] [PR #196](https://github.com/simonliu1118-byte/chihyuan-web/pull/196) CI 全綠後合併 `c20a398`，CY Web Deploy #233（run 39104072066）以同一 commit 部署成功。
-- [ ] 使用者實機驗收。
-
-## 按鈕轉圈與代工對象／BOM 操作 — 0.9.3 Build 0（2026-10-18）
-
-- 使用者要求「儲存中…」這類動作提示也改用同一個轉圈：按鈕保留原文字，忙碌時以 `aria-busy` 在文字前顯示共用轉圈（`app.css`），取代 25 處「…中…」文字（存檔、ERP 查詢、登入／設定密碼／驗證碼／登出、帳號新增／登記／重新整理、備份、ERP 憑證、載入更多）；邊打邊選下拉的「搜尋中…」與單號視窗的「送出中…」改為共用 `Loading`，ERP 排隊／執行中的說明前加轉圈並保留說明文字。
-- 流程按鈕原本整排變灰看不出是哪一顆在處理：新增 `ui/feedback/usePendingAction`，工單、瑕疵、委外、工作日誌、商品的流程按鈕只有被按的那一顆轉圈，其餘維持停用。開啟視窗的按鈕（撤回、審核、取消審核）不轉圈，由視窗內的確認按鈕轉圈。
-- 使用者回報委外／代工的「代工對象／單價」與「BOM」頁沒有任何按鈕：後端新增／修改 API 早已存在，但畫面從未實作。新增 `OutsourcingMasterData.tsx`（`ContractorWorkspace`、`BomWorkspace`），取代原本只讀的兩段畫面：
-  - 代工對象：新增、修改（名稱、類型、正式名稱、統編、電話、地址、備註、使用中、聯絡人）。
-  - 代工單價：「設定單價」與每列「修改」，商品邊打邊選、計價單位只列該商品可用單位，沿用 revision 檢查。
-  - BOM：新增、修改（代號、成品、產出數量／單位、使用中、料件邊打邊選與單位）。
-  - 未存檔時切換頁籤、清單或模組會詢問；儲存後重新讀取共用清單，代工單表單的選單同步更新。
-  - 刪除代工對象需工作區管理員且限從未使用者，本次未提供按鈕，改用「使用中」停用。
-- 已知：代工單表單的料件仍是下拉加「篩選商品選單」，留待委外模組逐一整理時改成邊打邊選；頁面成功訊息仍沿用黃色提示框，留待第 2 項狀態顏色統一處理。
-- [x] [PR #195](https://github.com/simonliu1118-byte/chihyuan-web/pull/195) CI 全綠後合併 `c5d671b`，CY Web Deploy #231（run 39103500583）以同一 commit 部署成功。
-- [ ] 使用者實機驗收。
-
-## 工單明細邊打邊選與整體檢視修正 — 0.9.2 Build 0（2026-10-18）
-
-- 使用者要求工單明細商品改為邊打邊選，並整體檢視 CY Web。明細列改用共用 `EntityPicker`，移除「篩選商品選單」輸入框。
-- 整體檢視修正：
-  - 新增瑕疵／工單不再自動帶入清單第一位客戶與第一項商品（容易選錯），改為空白由使用者選。
-  - 瑕疵、工單、委外、工作日誌存檔時缺必填欄位原本按了沒反應，改為提示缺哪一欄（工單、委外指出第幾列）。
-  - 五個模組的預設日期原用 `toISOString()`（UTC），台灣 00:00–08:00 會變成前一天；改用既有 `taipeiToday()`。
-  - 時間顯示原依瀏覽器語系（英文瀏覽器顯示 10/17/2026, 3:00:00 AM），改用共用 `formatDateTime`（台灣時區 2026/10/17 03:00）。
-  - 手機刪除瑕疵／工單／代工單／日誌後自動回到清單；商品、瑕疵篩選與帳號頁權限選單補上可讀名稱；稽核篩選列的日期欄在 1440px 溢出 6px 已修正；帳號頁說明文字不再小於 12px。
-- 使用者要求 Enter 不要直接儲存：紀錄編輯表單 Enter 依序跳到下一欄，最後停在儲存按鈕，再按一次才儲存；簡短視窗（原因、密碼、驗證碼）最後一欄 Enter 送出；多行文字保留換行；邊打邊選清單打開時 Enter 用來選取；Ctrl／⌘＋Enter 任何欄位直接儲存；查詢表單維持 Enter＝查詢。規則記於 [KEYBOARD_ENTRY_FOUNDATION](docs/architecture/KEYBOARD_ENTRY_FOUNDATION.md#data-entry-forms-092-user-decision-2026-10-18)。
-- 整體檢視（前後端）另修：六個清單原本只顯示後端第一頁 100 筆、從未使用 nextCursor，超過 100 筆就看不到；新增共用 `useLoadMore`／「載入更多」，切換篩選時丟棄過期頁。
-- 後端審查：API 入口與各路由均經 Identity／Module Access 或管理員角色檢查；寫入要求 JSON content-type、限制 64KiB，Session cookie 為 HttpOnly＋Secure＋SameSite=Strict；ERP 代理憑證以 SHA-256 雜湊保存並固定時間比對；金額數量全用定點整數；更新均帶 revision 檢查。`validate:d1:local` 17 組實際 Worker＋D1 驗收全數通過，未發現需修正的後端缺陷。
-- 使用者同意刪除早期預覽：移除 `src/modules/customer/*`（未被正式頁面使用）、`preview/*` 與 9 支只檢查它們的驗證腳本（皆不在 `validate:source`／CI）。
-- 使用者要求載入一律顯示轉圈：新增共用 `ui/feedback/Loading`（轉圈＋「載入中…」）。切換模組時的權限確認、六個模組首次進入（等第一頁清單讀完才整頁一次顯示）、點選清單讀明細（整個明細區改為轉圈，不再在舊資料上方顯示「更新客戶資料中…」）、設定／帳號／稽核／備份／CY 程式頁的讀取都改用它；清單重新查詢時筆數處顯示小轉圈。按鈕上的「儲存中…」等動作狀態維持不變。
-- 使用者回報 ERP 客戶編號填不回去、找不到「更正」：移除客戶明細的「回填／更正」按鈕與獨立對話框，ERP 客戶編號改在「修改」表單直接填寫；儲存時先存基本資料，編號有變再以既有的編號變更 API（保留稽核與重複檢查）寫入，原因自動帶「ERP 建檔後回填」或「ERP 編號更正」。
-- 使用者要求 CY 程式頁補上 CYERPAutoQuery：新增「SMART ERP 自動查詢工具」，圖示取自 AITeam 中央 `erp-autoquery/AutoQ.svg`（manifest 記錄 hash）；只接受 `cyerp-auto-query-vX.Y.Z` 與 `CYERPAutoQuery_VX.Y.Z.zip`。CYapps 目前尚未發正式版，先顯示「尚未發版」；尚無已確認版本的程式查不到 Release 時維持待發版、不算 `MISSING`，正式發版後每日 03:00 排程自動帶出版本與下載。
-- 已知但本次未處理：`scripts/audit-account-portal.test.mjs` 需外部 cyapps 檢出，本機與 main 皆失敗；備份管理頁版面待備份工作結束後整理。
-- [x] [PR #194](https://github.com/simonliu1118-byte/chihyuan-web/pull/194) CI 全綠後合併 `081413c`，CY Web Deploy #229（run 39099899777）以同一 commit 部署成功（validate-deployment-contract、deploy-development）。
-- [ ] 使用者實機驗收。
-
-## UI／UX 重整第二批 — 0.9.1 Build 0（2026-10-18）
-
-- 原生 `window.confirm`／`window.prompt` 全部改用共用確認視窗與新的 `useFormPrompt` 表單視窗（商品、瑕疵、銷售工單、委外、ERP 連線憑證、帳號與權限）；多步 prompt 合併成一個表單，需填原因的動作寫明後果。商品、瑕疵、工單、委外的「放棄未儲存修改」改走共用 unsaved-change guard，與客戶、日誌一致。
-- 瑕疵的客戶／商品、銷售工單的客戶改用共用 `EntityPicker`（邊打邊搜尋），移除「搜尋欄＋下拉」兩段式選擇。
-- 稽核紀錄：查詢條件改為單列篩選列，點一列從右側抽屜看詳細內容。帳號與權限：「重新整理」移到頂欄、表單間距統一、畫面上的 Identity Admin／Module Access 改中文用語。
-- 備份管理頁維持原樣，避免與進行中的備份工作衝突。
-- [x] [#193](https://github.com/simonliu1118-byte/chihyuan-web/pull/193) CI 全綠後合併；[部署 39097850261](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39097850261) **success**，live **0.9.1**。
-- [ ] 使用者以真實帳號驗收。
-
-## UI／UX 重整 — 0.9.0 Build 1（2026-10-17）
-
-- 使用者對 0.8.3～0.8.6 的精簡介面不滿意（字太小、元件仍大、流程不順），要求重新順過含 UX 流程。升 Y：全站版型、字級、操作流程都有明顯變化。設計重點與邊界記於 [App Shell 文件](docs/architecture/APP_SHELL_FOUNDATION.md)。
-- 只改呈現與前端操作流程；API、權限、Module Access、guard、業務規則與資料不變。
-- Build 1：使用者看過 Build 0 後比較三組主色，選定「商務藍」（淺 `#3D63D2`／深 `#9DBBFF`），只改主色 token。
-- [x] Browser／Worker TypeScript、`validate:source`、build、Node regression（`audit-account-portal` 需外部 cyapps 檢出，main 上同樣失敗）；本機模擬資料 Chromium 1440／1024／390、淺色／深色截圖。
-- [x] [#191](https://github.com/simonliu1118-byte/chihyuan-web/pull/191) CI 全綠後合併；使用者授權後以 main 執行 [部署 39062483770](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39062483770) **success**（deploy、health、HTTPS、Custom Domain、正式帳號入口 gates 全過），live **0.9.0 Build 1**。
-- [ ] 使用者以真實帳號於桌機／手機驗收。
-- 下一批見 0.9.1。
-
-## 上線前提醒：啟用自動備份排程（使用者暫緩）
-
-- [ ] **整體功能測試完成、準備正式上線前，提醒使用者啟用 CY Web 自動備份排程。** 使用者於2026-10-18明確要求在其他測試完成前先維持 `CF_BACKUP_SCHEDULE_ENABLED=false`；目前手動雙副本與GCS隔離還原已通過，排程尚未啟用。
-- [ ] 屆時將 GitHub `development` Environment 的 `CF_BACKUP_SCHEDULE_ENABLED` 改為 `true`，保留既有Worker／主D1／Identity／R2／GCS及已使用的隔離驗證副本，從當前main受控部署；GitHub變數寫入API目前403，須由有權限的設定介面操作。
-- [ ] 部署後核對 backup flag與UTC `30 19 * * *`（台灣每日03:30），並保留獨立catalog `0 19 * * *`；確認R2每日30天、GCS台灣週三／週日182天，manual／pre_restore雙副本。
-- [ ] 觀察第一筆真實scheduled事件與provider verification／Audit；配置存在或手動成功不等於排程已執行。已使用的隔離副本不得清空重做。
-
-## Phase D 備份上線準備 — 2026-10-17（歷史準備；目前狀態見上節）
-
-- Source **0.8.5 Build 0**（同步 Claude 已部署的0.8.4供應商／進貨介面後採下一個版號）：參考 CYACC 已啟用的 Phase D；原排程維持台灣 03:30、R2 每日30天／GCS週三週日182天，手動及還原前雙副本。移除 R2 複製失敗便停止的短路，讓跨雲副本獨立嘗試並保留原單次匯出／驗證／失敗稽核；補 GCS-only 成功提示。
-- [x] 新增 actual Worker＋D1 故障回歸先在舊 source 重現 `ACCEPT_BACKUP_R2_OUTAGE_BLOCKED_GCS`；修正後17組驗收通過，含手動／還原前／週三排程的 R2 故障仍完成 GCS、R2-only 日不多跑 GCS，以及雙 provider 失敗不誤報成功。
-- [x] 使用者已提供專用 Web GCS bucket 畫面；資源真名僅保留於受保護工作區。CYACC 目前 active240，具有 R2／GCS／RECOVERY_DB／通知 bindings；其已完成 Phase D 及正式 GCS 還原證據沿用原交接，不重新驗收或改動 CYACC。
-- [ ] 受保護部署輸入：確認 Web GCS service-account Secret 設定位置、bucket IAM／lifecycle、既有 Web R2 owner。GitHub Secret 名稱API仍403，不能據此斷言 Secret 不存在或讀出其他 App 憑證。
-- [x] 正式 D1 僅執行 aggregate SELECT，確認目前 durable rows 未超過500筆；0列寫入、不讀取業務內容。5MiB上限仍由真實匯出驗證。
-- [ ] paired copy／隔離還原驗收及 production recovery 操作入口就緒後，再開啟備份排程；目前未啟用。500總筆數／5MiB exporter限制不得靠裁資料或清Audit規避。
-- [ ] 本輪 source PR／CI／審查與符合啟用條件後的同目標發布。
-## ERP 供應商查詢 — 2026-10-17
-
-- 以 main `6c33b13`（0.8.3）開始 **0.8.4 Build 0**：使用者要求新增供應廠商（PURI01），頁面與流程同客戶。ERP 查詢入口新增「廠商」頁籤（廠商代號／廠商名稱／進貨退貨單，名稱只有一筆時直接查），新權限「ERP 供應商查詢」，migration 0014。進貨退貨單（PURCHASES，PURR18＋PURR22）版面同銷貨銷退單，退貨單接在原進貨單下並互相連結。ERP 查詢樣式改用 0.8.3 主題變數（原本模組 CSS 後載入、寫死淺色，深色模式按鈕與日期欄白底、連結深紅）；淺色也因此改為主題紫色。協定見 [ERP_ITEM_QUERY_BRIDGE_CONTRACT](docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md#供應廠商查詢v084)。
-- [ ] PR CI、使用者授權後合併與部署（含 migration 0014）；部署後才發 AUTO V0.9.0 測試包（舊 CY Web 會拒絕含 SUPPLIER 類型的 claim）。
-- [ ] 實機：PURI01 代號與名稱、進貨退貨單經 Web 驗收。
-
-## Cloudflare 發布流程整理 — 2026-10-17
-
-- 初始以 0.8.0 準備流程 PR，現已同步含 HTTPS 修正的 0.8.2 main：合併不部署、手動 deploy 限 main、同正式目標固定鎖且不取消進行中的 deploy；驗證／audit 分鎖。migration 前檢查當前 main ancestry 與完整 tracked tree，保留發布分支歷史 merge。產品 VERSION／BUILD 不變。
-- 操作、非 fast-forward／相同 SHA 的處理方式與成功判定見 [既有網站發布操作](docs/development/IDENTITY_DEPLOYMENT.md#existing-portal-deployment-gate)。不把 PR validate 成功視為已部署。
-- [x] [#178](https://github.com/simonliu1118-byte/chihyuan-web/pull/178) 已合併；使用者授權後，以 main dispatch [39008172352](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39008172352) 完成首次新模式發布。current-main guard、deploy／health／portal／schedule 全成功；保留原 Worker／業務 D1／正式 Identity，未啟用備份或切換 authority。
-- [ ] 補齊 GitHub 設定名稱／scope 的現行 read-back，才搬移 metadata；目前 API 403 不等於設定不存在。CY Web 備份的既有 bucket owner、GCS 配置與隔離回復另批驗收；Invoice 相關修改等待 D1 新基準。
-
-## HTTPS 入口與備份配置 — 2026-10-17
-
-- Source **0.8.2 Build 0**：正式 HTTP 頁面、靜態檔與 API 在任何 binding／body 處理前轉同 host/path/query 的 HTTPS；HTTPS 回應加入一年、僅限目前 host 的 HSTS。localhost／127.0.0.1／[::1] 保留原 HTTP 開發。
-- 根因是原本只有 `/api/*` 先經 Worker；部署／本機設定改為所有請求先經同一入口，再由 ASSETS 提供原 SPA／檔案，API 不回退 HTML。所有靜態請求因此增加 Worker invocation，未改共用 Zone、Identity authority、業務 schema 或備份啟用狀態。
-- 已補正式網域及 workers.dev 的部署後 HTTPS／HSTS／實際 JS 資產驗證；使用同一 run 的有界 propagation 觀察。操作與配置步驟見 [IDENTITY_DEPLOYMENT](docs/development/IDENTITY_DEPLOYMENT.md)。
-- [x] [#180](https://github.com/simonliu1118-byte/chihyuan-web/pull/180) CI／合併及授權部署完成；[正式部署 39008172352](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39008172352) 於 **2026-10-17 13:59:43 Asia/Taipei** success。部署來源 `f70cc561d1f373a93381eb93a0ab59103371af9b`，**0.8.2／consumer1.0.5**，雙入口 exact health、HTTP→HTTPS、HTML／built JS MIME／HSTS、invalid Session 401／清 cookie、catalog schedule 與 canonical production Identity strict gate 均通過。
-- [x] 本機合併後 110／110 Node regression、localhost HTML／API／模組驗收通過；Cloudflare 回讀原 Worker active67／100%，原業務 D1／Identity 與備份 opt-in contract 保持。獨立 HTTPS 頁面／JS／API HSTS、exact source 與 invalid Session 回讀通過；本機代理關閉 plain HTTP socket，HTTP redirect 使用本次部署 runner 的成功證據。
-- [ ] 正式帳號的 Email 驗證／recovery 真人驗收仍待原流程追蹤；本次沒有寄信、建立真實 Session 或操作正式還原。
-- [ ] 備份：確認核准的 R2 owner、GCS bucket 與受保護 credential 設定位置；目前此雲端沒有 GCS 綁定，GitHub 設定清單 API 仍受 integration 403 限制，未將缺讀取權限當成不存在。
-- [ ] 正式隔離還原：已有 `BackupService.isolatedRecovery` 與 local runner 驗收，production API 目前僅 list/create/retry；需受控操作入口與隔離空 D1 目標接線，再驗證真實雙 provider 備份／還原，最後啟用備份排程。既有 03:00 catalog cron 不代表備份已啟用。
-
-## ERP 單筆憑證視窗與金額 $ — 2026-10-17
-
-- 以 main `e2d8e19`（已部署0.8.0）開始 **0.8.1 Build 0**：使用者實測未收款後要求金額加 `$`，並可點憑證在視窗查該張銷貨／銷退單（不離開未收款頁）。
-- 新 `ORDER` 類型（migration 0013）、`ErpOrderDialog` 自有短工作、`ErpQueryRows` 增加呼叫端自訂儲存格；`erpMoney` 統一金額格式。
-- [x] Worker／Browser TypeScript；ORDER 權限（客戶或未收款其一）、23x／24x 限制、單號歸屬與金額格式 regression；本機合成 browser 1280／390px 點憑證開視窗、關閉後未收款保留、無 runtime error。
-- [x] 手機頁首（使用者回報）：說明按鈕由 44px 縮為 32px，連線狀態按鈕只顯示「未連線／已連線」（aria-label 保留「連線憑證」），與標題同列；本機合成 320／390px 頁首單列、無橫向溢出。
-- [ ] PR CI、部署（含 0013）與真人驗收；需 CYERPAutoQuery V0.7.2。
-
-## ERP 客戶、銷貨銷退單、未收款與商品成本權限 — 2026-10-17
-
-- 以 main `31812ea`（已部署0.7.37）開始 **0.8.0 Build 0**：使用者要求把 CYERPAutoQuery V0.5～V0.7 的客戶（COPI01）、銷貨銷退單（COPR15＋COPR16）與未收款（ACRR18）接上 CY Web；升 Y 因新增三類使用者明顯可感受的查詢能力與權限。
-- 單一「ERP 查詢」入口；桌機頁籤、手機下拉（使用者決定）。權限依資料敏感度分三個查詢權限＋「ERP 商品成本」（決定標準進價可見）；未收款有權限即可查客戶／業務員／全部，日後再細分；銷貨銷退單日期規則同歷史異動。
-- 一個 job owner（`useErpJob`）供三類共用；銷退↔原銷貨單連結、未收款分組小計在 CY Web（`shared/erp-sales-links.ts`）。協定見 `docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md` V0.8.0 節。
-- [x] Browser／Worker TypeScript、完整 build、validate:source（12 migrations）；新增 Worker／SQLite regression（各類型權限、欄位白名單、Agent queryTypes 派工、SALES／RECEIVABLE 歸屬檢查、標準進價儲存與讀取過濾）與連結／分組測試。
-- [x] 以 CYERPAutoQuery 實際產生的六種 complete body 回灌本 Worker 全部接受（跨 repo 契約核對，未提交 fixture）。
-- [x] 本機合成 browser：1280px 頁籤／銷退縮排連結、390px 下拉／未收款分組、客戶名稱清單，無橫向溢出與 runtime error；未操作正式帳號或真實 ERP。
-- [ ] PR CI、部署（含 0012 migration）與真人 ERP 驗收；需搭配 CYERPAutoQuery V0.7.1 以上（測試階段不做向下相容，舊版 Agent 無法領取工作）。
-
-## 配色已確認，下一步討論版型 — 2026-10-16
-
-- [x] 使用者選定「石墨靛藍」作深色版，再補「霧白靛藍」淺色版，並確認「顏色改這樣比較好看，再來是版型」。色票與設計邊界記於既有 [App Shell 文件](docs/architecture/APP_SHELL_FOUNDATION.md#confirmed-colour-direction--2026-10-16)，兩版預覽 source 一併保存於 `docs/design/cyweb-indigo-light-dark.html`，合成資料且不進 runtime。
-- [x] 釐清先前說法：酒紅色不是已確認的 CY 家族品牌色，只是現行 Web 暫定配色。金色／銅色角色識別及狀態色保留；不因本輪 Web 選色修改 family-wide canonical。
-- [ ] **下一步：先給版型設計方案。** 桌機／平板／手機、導覽與頁首、表單及資料區配置仍待討論；預覽橫式導覽不代表定案，不能遺漏管理／工具入口。主題切換／預設／偏好保存方式也待定。
-- 正式程式及網站仍為已部署 **0.7.37**，PR174／175已合併；新配色目前只完成設計，尚未實作、合併產品程式或部署。本輪依使用者要求先保存文件，不開始版型或配色實作，也不重做舊 ERP 橋接草稿。
-
-## 主動同步登入與撤權 — 2026-10-16
-
-- [x] 使用者確認「帳號與郵件完整驗收 OK」及「真實角色與權限驗收 OK」；作為本輪真人總體驗收結果，沒有另行推定未逐項記錄的裝置／故障組合或 CYACCweb 驗收。
-- 使用者回報撤權只能在下一次操作得知，已選定：**單一模組撤權 → 退出該模組並跳中文提醒；帳號停用／登入失效 → 返回登入頁**。
-- Source **0.7.29 Build 0／consumer 1.0.5**：AuthGate 統一持有 principal／Module Access snapshot，前景每 30 秒與 focus／visibility return／online 確認；每次只一筆、有十秒期限／一秒合併間隔、隱藏暫停排程、卸載 abort／stale fencing。沿用 `/auth/me` 的可選 Module Access expansion 與既有 app-local service；無新增 Session authority／heartbeat table／業務重試。
-- 確認 active module 撤權時先 render gate／unmount，取消未完成 dirty navigation，再強制返回仍可使用的帳號頁；共用中文 Dialog 指出模組及未儲存內容不會送出。其他模組撤權只更新導覽；管理角色失去必要權限時退出管理頁。保留 server 每次 protected operation 的即時拒絕。
-- Protected 401／403 只發出 authority refresh signal，不自動重送 mutation。503／斷線／不完整 snapshot 不視為撤權或登出，保留當前內容並一次提醒，恢復後重新確認；卸載頁面的延遲錯誤不蓋過撤權提醒。
-- [x] 本機 Browser／Worker TypeScript、完整 Worker+assets build、全部 source contracts、43 項 regression 通過；新增 monitor cadence／hidden／deadline／stale／logout fencing、combined route current grants／inactive member／SUPER_ADMIN／invalid Session／outage、API denial signal／no retry 測試。Windows 不適用的既有 backup schedule test 仍由 Linux CI 驗收。
-- [x] Chrome 合成 API 六情境：idle 撤權／dirty editor＋pending navigation取消、非 active module 撤權保留欄位、invalid Session 回登入且停止檢查、503 保留欄位並僅一次提醒／恢復後撤權、protected403 提早重新確認與精確彈窗、一般 action403 不誤撤權；零業務 mutation，無真實帳號操作。
-- [x] 中央契約更新先獨立同步：[治理 PR #160](https://github.com/simonliu1118-byte/chihyuan-web/pull/160) exact head `eaedc989ab73835350dd046bdb10972daef86341` Governance `38780595302`／deployment contract `38780595293` 通過並合併 `056abb96b9aeba14444b5159e6b52fe7b5e96fda`。七項 canonical package 鏡像更新至 1.0.6；本輪 consumer 仍 1.0.5，在 1.0.0–1.0.6 支援窗內，未引入私有通知功能或部署。
-- [x] [功能 PR #161](https://github.com/simonliu1118-byte/chihyuan-web/pull/161) exact head `5eb11023380a34c90cf77ed5b1d966e0461e3faf`：Governance `38780977595`、Runtime `38780977593`（四 jobs，含新增回歸與 actual isolated Worker/D1）、deployment contract `38780977670` 全通過；合併 `c13c28f33c0e51a5941c68bec451cc42479cc985`。PR real deploy skipped。
-- [x] [原網站部署 38781263296](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/38781263296) 於 **2026-10-16 01:56:24 Asia/Taipei** 全部完成。Deployment commit `d242702c6e6989207c96793454a1e373f1a83c3b` 由前部署與已驗 main 雙 parent 向前推進，tree `61036e4574af292149566b3683e454fcdac6bcf8` 與已驗 main 完全相同。原 Worker deploy、雙入口 exact source／consumer／D1 health、invalid Session/cookie clearing及 canonical production Identity strict gate 全通過；沒有新增 migration、Worker 或 authority。
-- [x] 部署完成後獨立回讀正式入口 **0.7.29／consumer1.0.5／d242702c／D1 ok**，無登入 Chrome 確認原中文登入與 Enter 行為；零登入 POST。部署進行中獨立首次健康讀取仍為 0.7.28，於同一 run 完成後已轉新 source，未重新部署；不宣稱歷史 propagation 問題已根治。
-- [ ] 使用者重新整理後確認本輪主動撤權的間隔與中文提醒；既有帳號／郵件與角色／權限驗收維持已完成，不要求重做全部流程。
-
-## 測試期帳號刪除與寄信入口 — 2026-10-15
-
-- 使用者批准測試期可刪除已驗證帳號，暫停新增／刪除Identity Audit；中央能力與恢復條件以CYID canonical consumer standard §17.2為準，不在Web另建帳號authority。
-- Source0.7.27／consumer1.0.5：沿用帳號列表與DELETE代理，僅在provider明確回傳testingAccountDeletionAllowed=true且目前為Super Admin時，顯示已驗證帳號刪除；缺少能力仍維持pending-only。使用共用ConfirmDialog「確定刪除帳號／保留帳號」，刪除結果確認後才刷新清單；新增提示明確寫從CYWEB用信中一次性密碼完成驗證；移除登入／首次驗證頁共用底部灰色技術說明。
-- [x] Web 0.7.27／consumer1.0.5：PR #156／#157 已合併，部署 `38717773511` 雙入口 health 與 production Identity strict gate通過；CYID0.3.9 production `38718039836` validate/deploy/version/session-rejection通過（2026-10-15 18:08 Asia/Taipei）。未刪任何真人帳號／重寄Email。
-- [x] 使用者已回報帳號與郵件完整真人驗收 OK（2026-10-16）；本對話沒有逐項細節，不另宣稱所有刪除／重建／故障組合都有獨立證據。
-- [ ] **業務第一版前**依CYID TODO恢復已驗證不可刪及新增/刪除Audit，更新Web契約mirror並驗收刪除入口隨provider能力關閉；保留既有business history，不將舊projection或Module Access轉給重建帳號。
-
-## CYACCweb 首次登入入口交接 — 2026-10-15
-
-來源：使用者提供的 CYACCweb first-login handoff／Draft CYapps #435（81cc5fcc），既有 production #38675354003 曾回 `CYWEB_PRODUCTION_AUTHORITY_MISMATCH`。本輪專用 branch 與 CYInvoice Draft #151 分開；不修改帳務 D1、CYInvoice source 或已部署 provider authority。
-
-- [x] 核對 source：根 TODO 仍稱 admin portal 為 development；唯一 Web deploy owner 是既有 development workflow。不能只從 Worker 名字推定哪端該換綁定，當時尚未批准原系統完整切換；其後授權見下方。
-- [x] 實作既有 workflow 的 `audit-identity` 唯讀操作：原受保護 environment、原憑證，GET-only 讀 domain → Worker → IDENTITY／D1 metadata／health；沿用 CYapps canonical production resolver 與 `requireProductionCoreConsumer`，不複製新 readiness authority。只輸出 boolean／正常化版本／stable code／時間，不輸出正式名稱、ID、token 或設定。
-- [x] 本地八項回歸通過：中央 actual resolver／guard、authority/workspace/health mismatch、Identity DB隔離／業務 DB collision、unsafe URL／多網域、audit期間 drift、GET-only與 credential 不外送、audit operation 不進 deploy job；workflow YAML parsed。
-- [x] [PR #152](https://github.com/simonliu1118-byte/chihyuan-web/pull/152) exact head `f13f4772884a10b8ee4fc9ec6ac1027066b400b7`：Governance `38693643909`、Runtime `38693643966`、部署契約 `38693643912` 通過，合併 `9b3fbb514beba5393978bc1de8b1e51b3fb393de`。未部署。
-- [x] [唯讀稽核 run 38693835413](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/38693835413)，2026-10-15 **14:41:22 Asia/Taipei**：原受保護 environment 執行，audit success、deploy-development skipped、mutationPerformed=false。canonical production provider／獨立 Identity D1 metadata／portal managed domain與 business D1 metadata 都驗證；Workspace／core App／consumer1.0.4／health符合。**Portal Worker、business D1與 IDENTITY 全部仍為已設定 development；productionPortalReady=false、CYWEB_PRODUCTION_AUTHORITY_MISMATCH。** 不是 CYACC 應改用 development provider，亦不能將audit job綠燈視為修復。
-- [x] **使用者 2026-10-15 17:09 明確批准：全部模組可直接開放，沿用既有 Module Access，由使用者限制其他員工。** 不新增 account-only 模式、UI／API 開關、另一 Worker 或第二登入。不自動新增／撤銷 grants、重播 Identity authority、清理測試資料或搬動帳務。
-- [x] Source **0.7.26 Build 0**：原 deploy owner 每次 render 前先以 canonical production resolver＋原唯讀 audit核對同一 Worker／同一 business D1／Workspace／core App／health，僅接受已批准的 authority mismatch或已修正狀態；注入正式 Identity target，後續部署不回退 development。原 CF_IDENTITY_SERVICE 值只作 canonical production lookup seed，實際輸出 Binding 一律經正式 runtime核對。部署後原 canonical strict gate 必須通過。歷史 GitHub environment／deploy ref 名稱仍保留，不另建部署 owner。
-- [x] 本地十二項 actual-canonical audit／runtime 回歸、四項首次登入 route/adapter regression、既有Identity tests、source contracts、Browser／Worker TypeScript及完整build通過。成功首次驗證必須明確回 emailVerified／passwordChanged／reloginRequired=true，無正常 Session；部分成功／expired／provider outage保持失敗。
-- [x] [PR #154](https://github.com/simonliu1118-byte/chihyuan-web/pull/154) exact head `70e6e9862b60e290ce0e9fb4125a6827a1840fb5`：Governance `38712073846`、Runtime `38712073567`（四 jobs）、部署契約 `38712073611` 全通過，PR deploy skipped；合併 `9a76a1ac1337c82aa1db3c046edf48448feea64c`。
-- [x] [實際部署 38712562070](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/38712562070)：原 deployment ref 以雙 parent commit `0be73dd96d81421f54f11f1e177f7365128f1bfb` 向前推進，tree `4ca0d9ba876f0acb9acc10d255469e7d7ca34f74` 與已驗 main 完全一致，無 force update。既有 Worker 部署成功、無新 migration；canonical／workers.dev 於1527ms同為0.7.26／consumer1.0.4／exact source／D1 ok，雙入口 invalid Session與cookie清除通過。
-- [x] 2026-10-15 **17:24:39 Asia/Taipei** post-deploy 原canonical strict guard：同一 Worker／原business D1維持、`portalUsesConfiguredDevelopmentIdentity=false`、`portalUsesCanonicalProductionIdentity=true`、provider environment=production；Workspace／core App／consumer／health符合，**productionPortalReady=true、failureCode=null**。原唯讀 audit report 的 mutationPerformed=false只描述稽核本身；本 run確實已部署。
-- [x] 先前同事回報「新使用者信件→CYWEB設定後 Email 未驗證／新密碼不能登入」；authority 修正與 0.7.28 部署後，使用者於 2026-10-16 確認帳號與郵件完整驗收 OK。沒有該舊請求逐筆證據，仍不推定其唯一根因；本輪未代改密碼／重發信。
-- [x] 正式 Identity／core portal 切換的既有 authority、中央契約及原business D1已核對；按本次全部模組開放授權處理原Worker，沒有重播provider provisioning、擴大IAM、搬動帳務或製造第二套帳號。
-- [x] CYWEB端正式 authority／Workspace／core App／consumer／D1 gate已通過，回交證據收斂至既有 Identity deployment文件下方 CYACCweb handback。
-- [ ] CYACCweb接手於自己的 protected runner 重跑 `--require-account-portal`，核對其最新 main後再推進 Draft #435；CYWEB未代合併或部署帳務。真 Email、一次性密碼→正式密碼→重新登入→CYACC一般登入仍未驗收，本輪未新增帳號／寄信。
-
-操作與回交證據依既有 [Identity deployment](docs/development/IDENTITY_DEPLOYMENT.md#account-portal-authority-read-only-audit)；此 TODO 為唯一進度表。
-
-## 歷史順序（2026-10-16 計畫，當前待辦狀態需另行核對）
-
-1. [x] 本輪獨立自動驗收準備完成：六模組 protected HTTP／service／D1 的規劃案例、實際欄位解析、重要計算、正反狀態、舊版本衝突、權限與精確 Audit 已通過 local 與 required GitHub checks。這不代表所有可能組合、真實服務／多角色／裝置已完成。
-2. [ ] **當時階段：使用者統一人工驗收、UI／UX 調整及小幅功能新增。** 本輪指定 CY 程式頁，採既有共用元件與單一 runtime；新增／調整後執行適用回歸驗收。
-3. [ ] 完成下方人工／Email／ERP／雲端項目後，核對第一版 readiness、測試資料清理及乾淨 production schema；使用者確認後才上線。這項順序確認不代表立即 production 部署批准。
-4. [ ] CYInvoice 接入工作已開始：本 repo 只完成 generic 中央登記 UI／代理與鏡像，實際既有 Workspace 登記及 App Access 由授權管理員操作；Invoice binding／Windows／cutover 由 CYapps 工作線完成，不在此修改其業務資料。
-
-## 中央系統登記（0.7.23）
-
-- [x] Super Admin 顯示操作；一般 ADMIN／Identity Admin 不提供登記入口，server authority 仍由 CYID 決定。
-- [x] Core Session proxy／unauthenticated denial／provider 403 原樣保留測試，以及 TypeScript、Vite 與 existing source contracts。
-- [x] Provider 0.3.7 開發部署 #158（38197480766）通過；本 repo 依既有 sync script 完成 canonical 1.0.4 七項鏡像，exact-sync／支援窗驗證通過。
-- [x] #146 exact-head Governance244／Runtime160／deploy-contract137通過，actual development#138部署與雙入口版本／D1／invalid Session驗收通過。
-- [x] 使用者以既有 Super Admin 完成 CYInvoice 真人中央登記／目前 Workspace 啟用，系統使用權清單出現 CYInvoice；一般員工 App Access 尚未確認。
-- [ ] 取消／dirty guard／busy、其他角色及行動裝置真人表單驗收。
-- [x] CYapps Invoice 唯讀 #38／prepare-cyid #39 完成配置；使用者回報原 Windows continuity 後，#420 CI／actual activate-cyid #42（38206372325）確認 development CYID_ENABLED=true，原業務 Workspace／Device Token hashes／資料／history／FK 保留，Provider不變。原 Windows 中央當次驗證及其餘角色／transport／AA／AB／AC 仍待驗收，唯一進度入口為 CYapps Invoice 現行 TODO／RC；production仍另行核准。
-
-## UI／UX 與小功能階段的工作範圍
-
-- [x] CY 程式頁移除獨立 GitHub 發版說明連結，保留網站入口與 compiled ZIP 下載；同一清單的 Desktop／Mobile 皆適用。共用 render 核對／TypeScript／Vite 及 required remote checks 通過，已部署 0.7.17；既有 SUPER_ADMIN 重新載入後實際顯示七列、僅一個網站與三個下載連結，無發版說明。
-
-- [x] CY 程式頁工程驗收與 Development 部署：所有已登入使用者均可使用，不需 Module Access。四個正式程式提供版本／日期／功能／核准 ICON 與網頁或 compiled Release 入口；SMART 銷貨單格式轉換工具、CYEnvelope、CYWatermark 先保留功能介紹並標示尚未發版，不提供虛構下載。
-- [x] 既有 SUPER_ADMIN 的 Desktop `#programs` 導覽、七項介紹、圖示載入、已確認版本／日期、三個未發版無連結、更新 loading 及失敗標示已觀察。三個公開 compiled ZIP 經匿名 HTTP HEAD／redirect 回 200，網頁入口可到 CYAccountingWeb 登入頁；未下載執行桌面程式。
-- [x] **CY 程式正式版本即時更新實測通過**：0.7.19 部署後既有 SUPER_ADMIN 初次讀取顯示「最新正式版本」且無 snapshot warning；手動更新 loading → 正常按鈕，七項、版本／日期、網站／三個 compiled ZIP 與三個未發版狀態保持正確。成功讀取採既有五分鐘 process cache；手動按鈕不表示每次強制繞過 cache。
-- 根因／修正證據：0.7.18 診斷 actual NETWORK；相同 compatibility date 的 actual workerd 重現 Request `redirect:error` 拋 TypeError，舊純 fetch stub 未真正建立 Request，掩蓋執行環境問題。0.7.18 Build 1 改 `manual`，非 2xx／302 拒絕且不跟隨 Location，補 actual Request construction regression；local／remote Worker/D1、TypeScript／build 均通過。[PR #133](https://github.com/simonliu1118-byte/chihyuan-web/pull/133)／[PR #134](https://github.com/simonliu1118-byte/chihyuan-web/pull/134)；診斷 source f42fa3bfd2d9eb319c0b02ff343bb71de5fd3938／run 37116571600；修正 source 0a0208ec4b0a39ef19cf560e11b35f50ff196380／run 37117059457，兩入口首次 ready 270ms。
-- [ ] **GitHub 真實每日排程與 quota 恢復驗收**：0.7.31 已以 D1 全域每日 claim 取代五分鐘／fallback process cache 與 provider cooldown；頁面不再查詢 GitHub，每排程日最多一批、失敗保留最近成功版本，跨 isolate SQL 與 actual Worker+D1 regression／實際已安裝 cron 驗證通過。首次真實每日執行與 provider quota 恢復仍待次日排程確認，不以此推論外部限流永久消除。診斷只回 allowlisted code／HTTP status，不回 provider body、headers、exception text、IP／credential。
-- [ ] `#programs` Tablet/Mobile、USER/ADMIN（含無 Module Access）的真人畫面與實際下載使用尚待確認；既有 isolated 三 Role API 通過不代替這些結果。
-
-- [ ] 依統一人工清單收集實際操作與畫面問題，回寫本文件，不另建平行進度表。
-- [ ] 優先調整共用 navigation、清單密度、表單／明細、dialog/drawer、loading/error/empty feedback 及鍵盤／觸控；Desktop/Tablet/Mobile 維持同一資料與權限契約。
-- [ ] 低風險 optimistic interaction 依既有方向逐項檢視；刪除、權限／credential、financial/inventory 等高風險操作不先呈現成功。
-- [ ] 使用者提出小功能後記錄需求與驗收條件，再開獨立工作項目；不自行假設第一版要增加什麼。
-- [ ] 每批 UI／功能變更跑適用 automated regression，真人/裝置 checklist 仍須實際確認。
-
-- [x] 既有 SUPER_ADMIN 合成 WorkLog Desktop 共用表單：送審 rev.7 → 審核 rev.8（1 日／2.5 分）→ 取消審核 rev.9（統計歸零）→ 撤回回草稿 rev.10。無效日數被拒絕且欄位保留；兩頁籤 rev.7 表單於另一頁完成後被拒絕，未覆蓋 rev.8；未操作其他員工真實日誌。
-
-- [x] Desktop Audit 本輪新增四筆 WorkLog 送審／審核／取消／撤回，累計八筆，entity work_log/1、actor 2；取消 reviewed → pending_review 與本輪合成原因 readback 通過。Customer ERP 表單／主檔取消、Visit 刪除 Escape 及 Frequent Item 移除取消後原資料保留；Customer rev.4、新舊 Visit／Frequent Item 未改，未 hard delete。
-- [x] 最後進行 Desktop 共用 UI／UX 檢查：1363×936 程式頁無 document 橫向溢出、七個可見 ICON 56px 載入、active navigation 與網站／ZIP rel 正確。Keyboard Tab 可到 skip link，但 Enter 將 hash 改成 cy-main-content 而切到 Identity，為實測 bug；0.7.19 共用 AppShell 改成只移焦點，live Tab → Enter 確認 hash 保持 #programs、activeElement 為 cy-main-content、CY 程式內容不變。
-- [x] 0.7.21 共用 UI 整理與 Build 1 焦點修正：Customer／WorkLog 採既有 Dialog／ConfirmDialog；WorkLog 一次填工作日數／整體備註／各項分數，客戶 ERP 編號與原因同一表單。dirty guard 的取消保留／放棄、busy inputs／actions／dismissal 鎖定、失敗及 stale 表單保留，Desktop 已實測。Escape／取消回 connected 原按鈕；nested confirmation 取消回原表單取消按鈕；native Tab 經 browser chrome 後回 dialog，未進入背景頁。1363×936 審核畫面無 document 橫向溢出。六模組及 Shell 工程描述改使用者語言。
-- [x] 0.7.22 切換模組提醒：六模組編輯／Settings／Customer 關聯編輯採共用 guard，普通導覽及 hash／Back 單次詢問「確定切換」／「放棄切換，繼續編輯」。確認即放棄並切換，不強制儲存、不另建保存層、不追加確認。拒絕保留原頁／欄位；busy 操作及權限強制返回不受過期同意覆蓋。目的模組等待自己的權限檢查才 mount。六項 transition tests、TypeScript／build 及 required CI 通過（Governance `37121454070`、Runtime `37121454067`、部署契約 `37121454072`）。Development 已部署；既有 SUPER_ADMIN Desktop 側邊欄／Back 的確認與放棄皆實測，取消保留 Customer 欄位及兩項未儲存 WorkLog 內容，確認一次即切換。Customer 回讀仍為原內容／rev.4，WorkLog 仍為單筆草稿／rev.10；本輪無儲存、送審或刪除。其他角色／裝置及 Identity 專屬表單不外推為已驗收。
-- [ ] 共用 UI 後續：Customer 重複統編確認／ERP 編號正式送出、reason 表單 dirty 取消，以及多項日誌儲存／審核與其他角色／裝置驗收仍待完成；本輪只驗收 ERP 表單取消，不寫入 ERP 編號。
-
-## 歷史驗收範圍（2026-10-16 快照，非最新驗收結論）
-
-| 範圍 | 已通過 | 尚不能視為完成 |
-| --- | --- | --- |
-| Identity | 單一登入、first-login ticket 與 normal Session 分離、設定正式密碼後要求重新登入；consumer exact-sync；invalid provider Session fallback；使用者 2026-10-16 確認帳號／郵件完整及真實角色／權限驗收 OK | 本輪主動撤權處理的部署與真人確認；未逐項留證的裝置及故障組合不外推 |
-| CY 程式 | 七項清單與三個未發版；三 Role 無 Module Access API 自動驗收；SUPER_ADMIN Desktop 七個圖示／無橫向溢出／失敗標示已觀察，ZIP HEAD 200、網頁入口可到登入頁 | 部署端 Release refresh 已成功，另保留曾觀察的 RATE_LIMIT／cache 穩定性；其他真人角色／裝置與桌面程式實際下載使用未完成 |
-| 六模組 HTTP 權限 | 未登入、無 Module Access、grant revoke/restore、Role 不改 grants、inactive member、provider invalid/unavailable、body 權限偽造拒絕；實際 routes/services/D1 | provider 為 isolated stub，不等於真實 CYID／瀏覽器全流程 |
-| Customer / Quote | persistence／related schema、Contact retention、Visit snapshot；HTTP Visit/Frequent Item create/edit/delete、stale；Quote HTTP 新歷史／correct/stale／精確 price breaks／Audit、原子 rollback | 正式 Item／Quote 真人流程需合法 ERP 品項；完整畫面流程仍待人工確認 |
-| Item / Defect | Item HTTP create/edit/renumber/stale／number Audit、精確成本／單位換算；Defect HTTP processing/resolved/reopen/invalidate/stale／Audit，creator 與 ADMIN 刪除界線 | 真實正式 Item、完整 lifecycle 畫面及裝置驗收 |
-| Sales Order | ERP fill/correction、waiting/pick/ship/reversal/void、draft edit/delete、stale snapshot 及精確 Audit；HTTP 主要生命週期 | 合法 ERP 參考及真實多角色／畫面驗收 |
-| Outsourcing | 全九種 persistence 轉換／stale replay、庫存與 receipt/pricing ledger preservation；取消後重建資料不被舊請求改動 | 完整 protected HTTP 計算／BOM／計價／反轉遠端已通過；真人流程未完成 |
-| WorkLog | service lifecycle、併發／Audit；HTTP CRUD/submit/withdraw/review/cancel-review／statistics、cascade、精確 actor 與 stale；owner、非 owner、ADMIN／revoked-access 邊界 | 既有 SUPER_ADMIN 合成 Desktop workflow／錯誤／stale 通過；其他角色、設定組合、多項表單及裝置待驗收 |
-| Backup / recovery | separate migrated D1 還原、FK／duplicate rollback、immutable copies、catalog/retry/retention、ephemeral R2；GCS 使用模擬 HTTP | 真實 GCS/R2 及排程、獨立 DR、實際 SUPER_ADMIN 畫面驗收 |
-| ID / Audit | 九種 standalone entity 刪除後不重用 ID；migration backfill／rollback／備份還原後分配及 exact entity-key history | 無法推斷未留證據的舊 ID，也未重寫既有可能混淆的 Audit |
-
-### 已觀察的 Desktop browser 結果
-
-- 既有 SUPER_ADMIN 登入後模組／Settings／Audit 頁面載入；forgot-password 返回登入導覽通過，未寄信。
-- Customer 建立／欄位儲存／reload、兩頁籤 stale save 拒絕通過。Customer 單列過高問題已修，673.9px pane 中 row 回到 70px。
-- Visit 建立／編輯／reload／兩頁籤 stale 拒絕；原生鍵盤日期 `2026-11-01` 保留；Contact 改名及 Visit 再編輯後仍保留原 snapshot。改名後新 Visit 已由既有 SUPER_ADMIN 儲存成功，取得改名後 snapshot；reload readback 通過，新舊 snapshot 各自保留。
-- Frequent Item 空白拒絕／自由文字新增／reload；WorkLog draft 建立／編輯／reload 通過。未建立正式 Item／Quote。
-- 以上只涵蓋已觀察的 Desktop 與既有帳號，不外推其他角色或 Tablet/Mobile。
-- CY 程式頁已由既有 SUPER_ADMIN 登入後觀察：Desktop 七列、七個 56×56 圖示完整載入，無頁面橫向溢出；三個尚未發版列各有零連結。初次及手動更新在 0.7.19 已顯示「最新正式版本」並正常完成；先前 snapshot／RATE_LIMIT 的觀察仍作穩定性證據。這取代先前「登入後清單未觀察」與「live refresh 未通過」狀態；live API 401、其他真人角色／Tablet/Mobile 仍未驗收。
-
-## 部署觀察保留事項
-
-- [ ] 持續保留 recurrent first-attempt health mismatch 診斷。0.7.10、0.7.12、0.7.14 與 0.7.15 曾觀察入口先回舊 source，於同一次部署後 13598ms／14586ms／20910ms／32620ms 轉為新 source，無再次 deploy；Cloudflare 內部原因仍未建立。
-- 現有 gate 在 90 秒內只讀觀察兩入口的 allowlisted version／commit／consumer／D1，無自動 redeploy。0.7.13 首次觀察成功不表示歷史問題已根治。
-- 0.7.16 兩入口首次觀察成功，391ms ready；0.7.18 診斷部署首次回 0.7.17，1296ms 於同一部署轉為新 source；Build 1／0.7.19 首次 ready 270ms／348ms。不據此宣稱歷史 mismatch 原因已修復。
-- acceptance runner 原二秒 timeout 會重送已成功 fixture 寫入的原因已修正：readiness 不寫入、正式 acceptance 單次執行與 60 秒 bound；不保留舊 replay 做法。
-
-## 需要使用者完成及暫緩事項
-
-- [x] **帳號與 Email 真人驗收**：使用者 2026-10-16 確認完整驗收 OK，取代先前延後狀態；不要求重做既有驗收。本輪不代建立帳號、寄信或改密碼，未留逐項紀錄的故障案例不推定已逐一執行。
-- [ ] **ERP**：使用者指定合法 SMART ERP 驗收品項及參考；不捏造 live 正式 Item／ERP 交易。
-- [ ] **雲端**：使用者將 development R2/GCS resource／bucket IAM／GitHub environment variables 與 secret 設定延至 **2026-10-05 起的一週**。完成後只回報完成，不提供憑證內容。
-- 雲端操作步驟沿用 [既有 deployment 文件](docs/architecture/CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md#development-backup-manual-setup-and-handback)。App-owned buckets／credentials 與 CYACC 分離；策略 R2 每日臺灣 03:30／30 天、GCS 臺灣週三／週日／182 天，同一份 portable bytes 複製兩邊。
-- 使用者完成設定後，先 manual-only 接續驗收，再啟用排程；不因等待這些項目停止獨立工程工作。
-
-### 真實雲端驗收清單
-
-- [ ] 專屬 development R2/GCS buckets、bucket-only service account、R2 無外部覆寫來源、protected deployment inputs；不得共用 CYACC storage/credentials。
-- [ ] 先 `CF_BACKUP_ENABLED=true`／`CF_BACKUP_SCHEDULE_ENABLED=false` 部署，確認 SUPER_ADMIN manual controls 與其他角色拒絕。
-- [ ] 真實 manual backup：兩邊 readback、相同 bytes/manifest SHA／backup event、非敏感 catalog/Audit。
-- [ ] 受控 GCS failure/retry：verified R2 保留，重試只複製同一 immutable event bytes，不建立新 snapshot。
-- [ ] 真實 isolated recovery：選定 cloud backup、兩邊 verified safety copies、空的 migrated target、record/byte reconciliation、source 不變與 structured Audit；不得以 live business D1 為 target。
-- [ ] manual/recovery 通過後再明確啟用排程，驗證臺灣日期、每日 R2／週三週日 GCS、30/182-day retention 與 pending replica 保護。
-- [ ] 就地記錄實際 run／結果，production activation 另行處理。
-
-### 統一人工驗收清單
-
-使用者安排在自動驗收後集中操作及調整；以下須實際觀察，不以自動檢查代替。
-
-| 範圍 | 人工確認 | 前提與保留界線 |
-| --- | --- | --- |
-| 核心帳號 / CYID | 登入/登出、Session 逾期/撤銷、self-service、返回登入 | 既有受控帳號；不自行新增帳號或授權 |
-| Role / Module Access | USER/ADMIN/Identity Admin/SUPER_ADMIN 畫面、撤權/恢復/角色變更 | 受控帳號，不執行未指定的 live 權限變更 |
-| CY 程式 | 無 Module Access 仍可看清單；版本／日期／ICON、網頁入口及 ZIP 下載；三個尚未發版項目無下載 | 既有登入帳號；外部 App 自行處理登入權限，未發版項目待正式公開 Release 才補入口 |
-| Customer | 建立/編輯/搜尋、Contact/Visit snapshot/日期、Frequent Item、Quote 新歷史/更正/Audit | 保留既有 synthetic fixtures；正式 Item/Quote 需合法 ERP 品項 |
-| Item / Defect | 正式欄位、單位/價格精度、Defect 狀態與管理操作 | 合法 ERP 參考，不捏造 live 正式 Item |
-| Sales Order | Draft、ERP fill/correction、waiting/picking/shipping/reversal/void、權限提示 | 合法 ERP 參考與受控 synthetic workflow |
-| Outsourcing | Contractor/BOM、outbound/receipt/pricing/payment 及反轉、stock/Audit readback | 受控 synthetic workflow，不異動真實庫存/付款 |
-| WorkLog | owner CRUD/submit/withdraw、ADMIN review/cancel-review、statistics/readback | 受控 synthetic workflow 與既有帳號 |
-| Settings / Audit | 編輯 settings、唯讀 Audit search、actor/reason | 既有權限，不改 production settings |
-| 電腦 / 平板 / 手機 | 密度、導覽、表單、捲動、選取、錯誤/載入、觸控/鍵盤 | 真實裝置，調整需求回寫同一 TODO |
-| Email | 驗證、重寄/逾期、密碼 recovery 與實際收信 | 使用者明確延後，此輪不寄信 |
-| Backup / recovery | R2/GCS 設定、history/create、隔離還原/演練、排程 | 2026-10-05 起一週設定後再驗收，不啟動 production restore |
-| 清理 / 上線 | 核對 fixture/account 清單、受控清理與 first-release gates | 驗收後確認，不自動刪除或 production cutover |
-
-## 上線前暫時保留 — 用途與結束條件
-
-- 測試資料及清理清單只為開發驗收與後續核對保留；不是 production seed 或另一份正式資料來源。完成相關驗收後核對清單，再經不可逆清理的當次確認移除。
-- isolated acceptance source 為可重建 CI 驗證，fixture 僅存在臨時 D1，不隨 production 部署建立；不因清理 live fixture 移除有用的 regression tests。
-- 未完成的人工／雲端／Email gate 保留到取得實測結果；完成後更新此文件，不另外新增狀態文件或永久例外規則。
-- 舊 GAS／Sheet 只保留作參考，直到使用者確認新系統穩定後再決定停用／刪除；不把舊測試資料搬入 production。
-
-### Development 測試資料清理 — 驗收後
-
-- [ ] 核對此工作線建立的合成資料、ID/reference 及支援的正常清理行為；Git 只記錄非敏感結果。
-- 保留範圍：Customer `CYWEB 驗收 20261001` revision 4（合成 phone/contact/address/note）；linked Visit revision 5；新增 Visit `2026-10-03` revision 1（改名後 snapshot 合成驗收）；自由文字 Frequent Item `Development 常用商品驗收（未建檔合成品項）`；draft WorkLog type `DEVELOPMENT_ACCEPTANCE` revision 10。未建立 live 正式 Item/Quote。
-- [ ] 驗收完成後依相依順序使用正常產品行為清理；不可逆清理取得當次確認，保留必要 Audit/history 與其他資料。此項不授權清空資料庫。
-- 使用既有登入帳號，未建立驗收帳號；日後若新增受控帳號須補清單，不刪既有使用者／authority。此清單與 production 乾淨 schema provisioning 分離，目前未執行清理。
-
-## 歷史驗收與部署證據（0.7 系列快照）
-
-- quota/cache：[PR #137](https://github.com/simonliu1118-byte/chihyuan-web/pull/137) accepted head `af2c8eb446846bf1daac837afd667f216a1d5556`；Governance `37118362496`、Runtime `37118362481`、deploy contract `37118362503` 通過。Development `37118566726` attempt 1，290ms ready。Actual loader 隔離測試包含 concurrent coalescing、5min cache、reset／retry-after、invalid header、最近成功資料保留及 on-demand recovery；live reload／manual refresh 仍標示 fallback，不能推論 quota 恢復或跨 isolate 全域快取。
-- 共用 UI：[PR #138](https://github.com/simonliu1118-byte/chihyuan-web/pull/138) accepted head `f19109774f48392f924e65788ba9a2468a8b3135`，14 blobs 及 tree exact-match；local TypeScript／source／Vite 通過。Governance `37119318772`、Runtime `37119318792`（actual D1 full acceptance）、deploy contract `37119318807` 通過；Development `37119391904` attempt 1，421ms ready。Live 取消後 BODY 焦點問題於同工作項目 Build 1 修正。
-- 焦點修正：[PR #139](https://github.com/simonliu1118-byte/chihyuan-web/pull/139) accepted head `78ffaf1f3d512655f972e4f073f31d3bdec8b779`，四 blobs exact-match；local TypeScript／Vite、Governance `37119656203`、Runtime `37119656168` 通過。UI-only 路徑不觸發 PR deploy-contract；[Development run 37119745615](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/37119745615) 包含部署契約／完整 build／health，attempt 1 成功，canonical 前一 source 下一次觀察轉新 source，1516ms ready，未 redeploy。共享 Dialog layout cleanup 於移除前關閉／回焦點，live connected trigger／nested form／review cancel 通過。
-- 最新 Runtime 的 actual Worker/D1 full suite 仍包含六模組 protected HTTP／roles／grants／stale／domain lifecycle／exact Audit／ID non-reuse／restore／backup regression、七 migrations／48 tables、Program Catalog 三 Role 無 Module Access及 trusted release；provider、R2/GCS 等隔離邊界不替代真人／真實外部服務驗收。已完成語意與未完成範圍見上方矩陣。舊版本逐輪 PR／run／preview 記錄以 Git history 追溯，避免在本文件保存互相矛盾的過期基準。
-
-## Topic source map
-
-- Governance/product permanence: `PROJECT_RULES.md`
-- Architecture index: `docs/architecture/README.md`
-- Business Decisions: `docs/architecture/decisions/README.md`
-- Shared CYID consumer package mirror: `docs/contracts/cyid/`
-- CY Web-specific Identity adapter: `docs/architecture/IDENTITY_ADAPTER.md`
-- Identity deployment: `docs/development/IDENTITY_DEPLOYMENT.md`
-- Data model / physical dictionary: `docs/architecture/CANONICAL_DATA_MODEL.md` / `FINAL_DATA_DICTIONARY.md`
-- Worker API: `docs/architecture/API_CONTRACT.md`
-- Backup/recovery: `docs/architecture/BACKUP_ARCHITECTURE.md`
-- Current progress: this file only
-
-Historical preview/audit/readiness/review material under `docs/architecture/archive/` and Git history is evidence only, not current contract.
+- 來源：原 77 個未勾選標記，各自對應本清單 **27 項可處理／待核對的合併工作**或 **5 條非獨立歷史註記**；原文全文留在 Git，沒有任何來源 ID 被遺漏或重複歸屬。
+- **先做 A1→A2/A3→A5/A6** 的現況與風險查核；自動備份排程 A4 仍受使用者明確暫緩決定約束，不能因其他查核通過就自行啟用。先查他方專案最新狀態後才排 B 系列；C 系列等待使用者定案；D 系列以現行版本合併驗收，不重跑所有歷史 Patch。
+- [交接文件入口](docs/handoff/README.md)／[工作單入口](docs/development/work-orders/README.md)／[歷史已結案快照](docs/development/TODO_COMPLETED_2026-10-23.md)；本文件不重複治理規則、正式 API 契約或其他 repo TODO。
