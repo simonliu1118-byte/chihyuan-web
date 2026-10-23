@@ -50,6 +50,7 @@ function mount(transport) {
   globalThis.orderingPageTransport = async (url, options) => {
     const path = url.replace("/api/business/ordering", ""); calls.push({ path, ...options });
     if (path === "/sources") return sources;
+    if (path === "/preferences/vendors") return [];
     if (path === "/pending" || path.startsWith("/orders?history=")) return [];
     return transport(path, options);
   };
@@ -138,7 +139,7 @@ test("a selected zero receipt quantity is rejected rather than silently omitted"
 
 test("opening an existing draft needs only list and detail; initial history is not fetched twice", async () => {
   const page = mount(normalTransport); await page.tick();
-  assert.deepEqual(page.calls.map(x => x.path), ["/sources", "/pending"]);
+  assert.deepEqual(page.calls.map(x => x.path).sort(), ["/sources", "/pending", "/preferences/vendors"].sort());
   assert.equal(page.heading, "未到貨明細"); assert.deepEqual(page.selectedTabs, []);
   assert.equal(page.grid, undefined, "entering the module never loads or creates a draft");
   page.calls.length = 0; page.click("測試來源甲"); await page.tick();
