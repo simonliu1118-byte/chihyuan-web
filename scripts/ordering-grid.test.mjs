@@ -71,7 +71,7 @@ function mount(kind = "GENERAL", lines = [], options = {}) {
     } while (dirty);
   }
   function input(row, field) {
-    return descendants(tree).find(node => node.type === "input" &&
+    return descendants(tree).find(node => (node.type === "input" || node.type === "textarea") &&
       node.props["data-order-row"] === row && node.props["data-order-field"] === field);
   }
   function flush() { render(); while (frames.length) frames.shift()(); }
@@ -90,7 +90,7 @@ function mount(kind = "GENERAL", lines = [], options = {}) {
     get editor() { return editor; }, get state() { return state; },
     rowKey(id) { return descendants(tree).find(n => n.type === "tr" && descendants(n).some(child => child.props?.["data-order-row"] === id))?.key; },
     get focused() { return focused; },
-    get rowIds() { return [...new Set(descendants(tree).filter(n => n.type === "input").map(n => n.props["data-order-row"]))]; } };
+    get rowIds() { return [...new Set(descendants(tree).filter(n => n.type === "input" || n.type === "textarea").map(n => n.props["data-order-row"]))]; } };
 }
 test.afterEach(() => { delete globalThis.orderingGridHookHost; delete globalThis.requestAnimationFrame; });
 
@@ -244,6 +244,16 @@ test("completely empty trailing rows, including cleared input, never save or blo
   const grid=mount();grid.change(-1,"vendorItemName"," ");grid.change(-1,"vendorItemName","");
   grid.press(-1,"note");assert.deepEqual(grid.rowIds,[-1,-2]);
   assert.equal(grid.state.dirty,false);assert.equal(await grid.editor.flush(),true);assert.equal(grid.commits.length,0);
+});
+
+test("editable product name, vendor name and note use wrapping controls without changing Enter traversal", () => {
+ const grid=mount();
+ for(const field of ["itemName","vendorItemName","note"]){
+  assert.equal(grid.input(-1,field).type,"textarea",field+" permits wrapping in draft");
+ }
+ grid.change(-1,"itemName","很長的商品名稱不用省略號，應該在欄內顯示完整文字");
+ assert.equal(grid.press(-1,"itemName"),true);
+ assert.deepEqual(grid.focused,{row:-1,field:"vendorItemCode"});
 });
 
 test("sent table contains only persisted rows, received quantities and accessible arrival markers", () => {
