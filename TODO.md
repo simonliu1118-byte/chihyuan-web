@@ -5,7 +5,10 @@
 - [x] 廠商草稿改可搜尋的橫向頁籤、其他固定最右、頁籤無項數、條件改顯示於下方；個人排序保存在同一登入者 D1 preference，不更動共用排序。
 - [x] 管理來源分類顯示公司內部／外部廠商，新增自由填寫付款條件，列表化修改／排序／隱藏／恢復；保留歷史關聯與 CN 原類型。
 - [x] 新增 D1 forward migration `0024_ordering_source_preferences.sql` 與 routes 回歸測試；原 GPT→Claude 叫貨 handoff 更新。
-- [ ] PR 必要 CI、Claude 審查、受控 migration/Worker 部署與正式人工驗收；本輪不動正式資料，也不自行合併部署。
+- [x] 使用者於 2026-10-23 授權，PR #274 已合併至 main（4acf533d）；最新 PR 必要 CI 全綠。
+- [x] 原正式發布分支已受控部署 V0.9.33（5d5dc517）；[Actions #39957226382](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39957226382) 成功，原 D1 forward migration `0024` ✅、Worker／自訂網域／權威稽核成功；無新建 Worker 或 D1。
+- [x] GPT→Claude 交接檔已補上合併、正式 migration、部署證據、資料保護與人工驗收邊界。
+- [ ] Claude 審查與登入後實際桌面／手機 UI、人員操作、來源個人排序跨裝置及已到貨資料核對（CI 不能取代）；原本到貨資料不做無意義重送。
 ## CY Web V0.9.32 Build 1 — 到貨表格與送出後唯讀（2026-10-23）
 
 - [x] 登記到貨改用表格，多選品項後填本次到貨；沿用共用 Dialog／欄位／必選列及 Enter、原生日期規則。
