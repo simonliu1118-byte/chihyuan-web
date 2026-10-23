@@ -2,7 +2,24 @@
 
 更新日期：2026-10-23。此文件依使用者「專案主要由 Claude 處理，必須開 handoff 註明修改」要求建立。這是直接交辦修正的交接紀錄；共通規則仍以既有治理鏈為準。維護狀態入口為根目錄 `TODO.md`。
 
-## 最新交付：V0.9.31 Build 1 — 正式部署與到貨驗收完成（2026-10-23）
+## 最新修改：V0.9.32 Build 1 — 到貨表格、合併狀態與送出唯讀（2026-10-23）
+
+使用者在前一輪到貨故障正式驗收完成後，另行交辦本項介面／流程調整，故 Patch 升至 0.9.32。第一次交付後依使用者回饋加寬品名／廠商品名，三個數量欄各 76px、本次到貨 96px，剩餘寬度分配給兩個品名欄；同一項返修 Build 增為 1。不是 0.9.31 GLOB 修正返修。使用者已明確授權本輪合併並部署原網站；實際部署結果須以收尾紀錄為準。
+
+- `OrderingPage.tsx`：到貨 Dialog 改用共用表格樣式、Field／CheckField／RequiredRows；表頭只有單號與原生日期，品項逐列顯示。勾選者可輸入數量，預設剩餘量；由 selected IDs 產生完整多列 payload，防止選了顯示預設值卻未實際放入 quantities map 的品項遺漏，0／無效數量明確中文拒絕。
+- 有紀錄的「到貨紀錄」移到單據標題後最上方；空的完全不渲染。獨立到貨狀態表取消，`OrderingGrid` 同一表加入已到數量；全到綠勾／部分到黃色三角驚嘆號位於數量格，附中文 aria-label／tooltip。結掉原因保留顯示，結掉剩餘仍從未到貨清單操作。
+- `OrderingGrid.tsx`：draft／readonly presentation 共用同一欄位模型。送出或作廢後只渲染文字，無 input、尾列或操作欄；草稿仍可直接輸入並按七欄 Enter。只留下垃圾桶 IconButton，刪除經原確認及 action-save／flush；沒有上移／下移或第二層選單。
+- 空白暫存列包含輸入後清空時，不計 dirty、不送 API、不阻擋 flush。實際有內容的未完成列及失敗輸入仍保留；原新列確認、晚到回應、序列寫入與自動儲存狀態不變。
+- `ordering-routes.ts`：送出後禁止 header PATCH 及 line save／insert／delete／reorder，中文 409 拒絕且不寫資料／Audit；避免僅把前端停用而舊頁籤仍可改。保留原版本鎖與到貨、結掉剩餘、作廢權限及寫入流程。這是使用者最新決定，取代早期送出後可直接改明細的設計。
+- `IconButton.tsx`：icon prop 從 string 放寬為 ReactNode 以重用既有按鈕顯示線條 SVG；現有 string 呼叫相容，標示／tooltip／尺寸規則不變。CSS 只新增叫貨 scope，使用既有淺／深色 tokens；到貨視窗桌面最大 1120px，窄版表格區水平捲動。
+
+驗證：本機 `node --test scripts/ordering.test.mjs scripts/ordering-route.test.mjs scripts/form-keyboard.test.mjs scripts/form-fields.test.mjs` **52 項全數通過**，`npm run build`（含 browser／Worker typecheck）及 `npm run validate:source` 通過。新增案例包含空尾列清空、唯讀無輸入／尾列、到貨紀錄順序及隱藏、多列預設到貨量、零數量拒絕，以及送出後所有內容寫入拒絕；原多次／多品項到貨與 committed-readback-failure 案例持續通過。Build 僅原有 bundle 大小／dynamic import 提示。遠端 CI 與部署現況依 PR 及根 TODO，不把本機驗證等同正式發布。
+
+本機實際瀏覽器畫面（全部合成資料，非正式資料）：[草稿刪除圖示](images/ordering-receipt-table/draft-delete.png)、[送出後唯讀與到貨狀態](images/ordering-receipt-table/sent-readonly.png)、[到貨表格多選](images/ordering-receipt-table/receipt-table.png)。已目視核對欄位完整、綠勾／黃色警告、送出無輸入與尾列、勾選後數量欄啟用；空尾列備註 Enter 聚焦下一列品號且仍為已儲存。API persistence 由本機 SQLite 路由測試負責；UI harness 不連正式後端。
+
+本輪無 migration／新增查詢／正式資料搬移或清除；正式資料庫直接讀寫 0 列。沒有變更 CYID／ERP／其他業務模組、部署設定或前次 0023。主要待辦為必要 CI、Claude 審查與受控正式發布；未經部署不得宣稱正式站已更新。
+
+## 已發布交付：V0.9.31 Build 1 — 正式部署與到貨驗收完成（2026-10-23）
 
 本段取代下方歷史階段的「待診斷／待合併／待部署」狀態。此輪接續既有 #269，未重做功能或建立重複修正 PR；僅在完成後補本文件及 TODO。正式基礎設施識別資訊、復原書籤、業務資料及詳細核對結果保留在執行工作區的 private 目錄，不提交 Public Git。
 

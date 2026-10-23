@@ -33,7 +33,7 @@ test("permission gate and idempotent source seed",async()=>{
   assert.equal(first.body.data.find(x=>x.name==="東昇").conditions,"滿$5000免運費");
  }finally{sql.close()}
 });
-test("draft saves one row, conflicts on stale version, send and revise",async()=>{
+test("draft saves one row, conflicts on stale version, and send locks header and all line mutations",async()=>{
  const {sql,call}=fixture();try{
   const sources=(await call("/sources")).body.data;
   const source=sources.find(x=>x.name==="台中");
@@ -46,17 +46,27 @@ test("draft saves one row, conflicts on stale version, send and revise",async()=
   assert.equal(stale.status,409);assert.equal(stale.body.error.code,"ORDERING_VERSION_CONFLICT");
   let sent=await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version});assert.equal(sent.status,200,JSON.stringify(sent.body));
   assert.equal(sent.body.data.revision,1);o=sent.body.data;
-  save=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,lineId:o.lines[0].id,operation:"save",line:{quantityText:"3"}});
-  assert.equal(save.status,200,JSON.stringify(save.body));o=save.body.data;assert.equal(o.revision,2);assert.equal(o.revisions[0].revision,2);assert.equal(o.revisions[0].by,"測試員工甲");
-  assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_revisions").get().n,1);
+  const auditBefore=sql.prepare("SELECT COUNT(*) n FROM audit_events").get().n;
+  for(const input of [
+   {operation:"save",lineId:o.lines[0].id,line:{quantityText:"3"}},
+   {operation:"save",line:{itemName:"不應新增",quantityText:"1"}},
+   {operation:"delete",lineId:o.lines[0].id},
+   {operation:"save",lineId:o.lines[0].id,line:{sortOrder:999}},
+  ]){
+   const blocked=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,...input});
+   assert.equal(blocked.status,409);assert.match(blocked.body.error.message,/唯讀/);
+  }
+  const blockedHeader=await call("/orders/"+o.id,"PATCH",{expectedVersion:o.version,note:"不應變更",plannedSendDate:"2026-10-23"});
+  assert.equal(blockedHeader.status,409);
+  const persisted=(await call("/orders/"+o.id)).body.data;
+  assert.equal(persisted.lines.length,1);assert.equal(persisted.lines[0].quantity,2);
+  assert.equal(persisted.version,o.version);assert.equal(persisted.revision,1);assert.equal(persisted.note,"");
+  assert.equal(persisted.plannedSendDate,"2026-10-22");
+  assert.equal(sql.prepare("SELECT COUNT(*) n FROM audit_events").get().n,auditBefore);
+  assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_revisions").get().n,0);
   const unchanged=await call("/orders/"+o.id,"PATCH",{expectedVersion:o.version,note:o.note,plannedSendDate:o.plannedSendDate});
-  assert.equal(unchanged.status,200);assert.equal(unchanged.body.data.version,o.version,"no-op must not change version");
-  assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_revisions").get().n,1,"no-op must not audit a revision");
-  const changed=await call("/orders/"+o.id,"PATCH",{expectedVersion:o.version,plannedSendDate:"2026-10-29"});
-  assert.equal(changed.status,200,JSON.stringify(changed.body));
-  assert.equal(changed.body.data.revision,o.revision+1);
-  assert.match(changed.body.data.revisions[0].summary,/預計送出日期 2026-10-22 → 2026-10-29/);
-  assert.equal(changed.body.data.revisions[0].by,"測試員工甲");
+  assert.equal(unchanged.status,409,"sent orders reject even a stale editor's no-op PATCH");
+  assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_revisions").get().n,0);
  }finally{sql.close()}
 });
 test("manual vendor memory is reused, ERP sales item fills blanks and source disable preserves history",async()=>{

@@ -145,9 +145,33 @@
 .cy-ordering-col-index { width: 42px; }.cy-ordering-col-actions { width: 42px; }
 .cy-ordering-col-itemCode { width: 88px; }.cy-ordering-col-vendorItemCode { width: 100px; }
 .cy-ordering-col-quantityText { width: 64px; }.cy-ordering-col-unit { width: 54px; }.cy-ordering-col-note { width: 150px; }
-.cy-ordering-row-menu { display: block; width: 100%; height: 34px; border: 0; border-radius: 0; background: transparent; color: var(--cy-text-muted); font-size: 1.2rem; cursor: pointer; }
-.cy-ordering-row-menu:hover { background: var(--cy-surface-muted); color: var(--cy-text); }
-.cy-ordering-line-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.cy-ordering-grid-actions .cy-icon-button { display: inline-flex; align-items: center; justify-content: center; width: 34px; min-width: 0; height: 34px; padding: 0; border: 0; background: transparent; color: var(--cy-text-muted); }
+.cy-ordering-grid-actions .cy-icon-button:hover { color: var(--cy-danger); background: var(--cy-danger-soft); }
+.cy-ordering-cell-text { display: block; min-height: 34px; box-sizing: border-box; padding: 7px 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cy-ordering-quantity { display: flex; align-items: center; justify-content: flex-end; gap: 5px; font-variant-numeric: tabular-nums; }
+.cy-ordering-grid[data-readonly] .cy-ordering-col-quantityText { width: 92px; }
+.cy-ordering-col-received { width: 92px; }
+.cy-ordering-arrival-mark { display: inline-flex; flex: 0 0 17px; }
+.cy-ordering-arrival-mark svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.cy-ordering-arrival-mark.is-complete { color: var(--cy-success); }
+.cy-ordering-arrival-mark.is-partial { color: var(--cy-warning); }
+.cy-ordering-closed-note { display: block; padding: 0 8px 5px; color: var(--cy-text-muted); overflow-wrap: anywhere; }
+.cy-ordering-order-summary { display: flex; flex-wrap: wrap; gap: 12px 32px; margin: 12px 0; }
+.cy-ordering-order-summary dt { font-size: var(--cy-fs-sm); color: var(--cy-text-muted); }
+.cy-ordering-order-summary dd { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cy-ordering-receipt-table { table-layout: fixed; min-width: 900px; }
+.cy-dialog.cy-ordering-receipt-dialog .cy-dialog-surface { width: min(1120px, calc(100vw - 32px)); }
+.cy-ordering-receipt-table th { white-space: nowrap; }
+.cy-ordering-receipt-table .cy-f,.cy-ordering-receipt-table .cy-f-check { margin: 0; }
+.cy-ordering-receipt-col-select { width: 42px; }
+.cy-ordering-receipt-col-code { width: 88px; }
+.cy-ordering-receipt-col-vendor-code { width: 104px; }
+.cy-ordering-receipt-col-quantity { width: 76px; }
+.cy-ordering-receipt-col-input { width: 96px; }
+.cy-ordering-receipt-table th,.cy-ordering-receipt-table td { padding: 7px 8px; overflow-wrap: anywhere; }
+.cy-ordering-receipt-table th:nth-child(n+6),.cy-ordering-receipt-table td:nth-child(n+6) { text-align: right; font-variant-numeric: tabular-nums; }
+.cy-ordering-receipt-table .cy-op-input { min-width: 0; padding: 6px 8px; text-align: right; }
+.cy-ordering-receipt-table .cy-f-label,.cy-ordering-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .cy-ordering-save-state { display: inline-flex; align-items: center; gap: 5px; vertical-align: baseline; }
 .cy-ordering-save-state[data-state="failed"] { color: var(--cy-danger); font-weight: 600; }
 .cy-ordering-save-spinner { width: 12px; height: 12px; border-width: 1.5px; }
@@ -155,7 +179,8 @@
 @media (max-width: 820px) {
  .cy-ordering-page .cy-md-detail,.cy-ordering-page .cy-md-list { min-width: 0; }
  .cy-ordering-page .cy-page-toolbar { gap: .3rem; }
- .cy-ordering-grid .cy-ordering-cell,.cy-ordering-row-menu { height: 44px; }
+ .cy-ordering-grid .cy-ordering-cell,.cy-ordering-grid-actions .cy-icon-button { height: 44px; }
+ .cy-ordering-grid-actions .cy-icon-button { width: 40px; }
 }
 
 
