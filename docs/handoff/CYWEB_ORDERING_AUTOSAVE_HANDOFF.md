@@ -1,5 +1,19 @@
 # CYWEB 叫貨修正交接給 Claude
 
+## 2026-10-23 V0.9.33 正式合併／部署結案（本輪最新狀態，優先於下方開發階段紀錄）
+
+**使用者已於 2026-10-23 明確批准合併並部署。已完成 PR #274 合併、原本正式 CYWEB Worker／D1 受控更新及部署後權威稽核。本節為當前事實，下方「尚未合併或部署」僅保留作實作階段的歷史快照，不再代表目前狀態。**
+
+- GitHub PR：[ #274 ](https://github.com/simonliu1118-byte/chihyuan-web/pull/274)，於本輪使用者批准後合併到 `main`；merge commit `4acf533d1d65800b77b6ada60592f275375f09ce`。正式產品版本 `V0.9.33`、`BUILD=0`。
+- 合併前該 PR head `67460874e0bc4f52b087e325a631b47d1fe1a02a` 的 Runtime Check `#39949709448`、Governance Check `#39949709468`、CY Web Deploy 契約檢查 `#39949709505` 均通過。
+- **正式發布**：沿用 `deploy/cyweb-development` 的既有受控發布入口，以具雙 parent 的非強制更新 `5d5dc51748a0880f0d34e497f346b565803b8f2b` 保留原部署 ancestry，並納入完整 `main` merge commit。新發布 commit 的 Git tree `ce733514365503ed55356643a106966e6d8736a9` 與合併後當時的 `main` tree 完全一致；未 force-push／未新建 Worker 或業務 D1。
+- [正式部署 GitHub Actions #39957226382](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39957226382)：`validate-deployment-contract`、`deploy-development` 均 **success**。部署時間約 2026-10-23 20:58（Asia/Taipei）。`Verify current reviewed main before remote changes`、原受控備份／復原目標準備、Build、Worker 發布等所有實際執行的發佈步驟皆成功。
+- **正式 D1 forward migration**：部署輸出明確列出 `0024_ordering_source_preferences.sql` 且狀態 **✅**（僅 1 項新 migration）。在既有資料庫原位加上 `ordering_sources.payment_terms` 與 `ordering_user_preferences`；沒有移除原始來源或歷史訂單表。部署後的 D1 health/source consumer declaration 驗證通過；未手動寫入或更動其他 D1。
+- **入口與權威驗證**：正式 Custom Domain、workers.dev fallback、HTTPS／靜態資源、daily catalog schedule 驗證均通過。發布後 production Identity audit 回報 `productionPortalReady=true`、`canonicalProductionProviderVerified=true`、`portalUsesCanonicalProductionIdentity=true`、`healthMatchesRuntime=true`、`failureCode=null`、`mutationPerformed=false`。無新增測試 Worker、D1 或身分服務。
+- **資料安全／功能邊界**：本次為叫貨 UI／來源付款條件／個人頁籤順序更新；原到貨 POST／送出版本鎖、特殊中國貨邏輯、CYID contract 及其他模組維持原邊界。隱藏是 soft-hide，並阻擋有內容的未送出草稿被隱藏；沒有硬刪來源或歷史單。無從 CI 宣告真實業務資料的人工逐筆核對，且尚未以實際有權限帳號完成桌面／手機畫面手動驗收；如 Claude 後續接手，請優先核對來源隱藏／恢復、個人頁籤排序跨裝置、長文字折行和表格到貨操作，不要未經使用者核准就重送到貨造成重複計數。
+- **文件整理提醒**：另有尚待處理的文件整理 PR #273，可能同樣修改 `TODO.md`；該 PR 之後合併時須與本輪 V0.9.33 紀錄整合，勿用過時 TODO 覆蓋最新結案狀態。
+
+
 ## 本輪 GPT 交付：V0.9.33 — 叫貨明細、到貨、廠商頁籤與來源管理介面調整（2026-10-23）
 
 使用者已核准直接實作；本輪以主線 V0.9.32 Build 1 為基礎，新增獨立 `cyweb/ordering-ui-sources-tabs` 分支。**尚未合併或部署**；原正式資料與 Cloudflare 不動。純介面與必要小範圍 source/settings 資料層修改，無關 CYID、ERP 與其他模組不動。
