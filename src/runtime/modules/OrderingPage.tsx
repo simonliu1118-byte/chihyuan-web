@@ -337,23 +337,31 @@ export function OrderingPage(){
       </tbody></table></div>:!pendingLoading?<p className="cy-op-empty">目前沒有未到貨的品項。</p>:null}
     </>
     :vendorAll?<>
-      <div className="cy-record-header"><div><h2>廠商草稿</h2><p>依廠商分段；要送出時進入該廠商。</p></div>
+      <div className="cy-record-header"><div><h2>廠商草稿</h2><p>選擇廠商編輯草稿；拖曳頁籤可調整個人順序。「其他」固定最右。</p></div>
        <div className="cy-record-actions"><button type="button" className="cy-op-button" onClick={()=>void exportVendors().catch(e=>setError(errorOf(e)))}>匯出廠商合併 Excel</button>
-        <button type="button" className="cy-op-button" onClick={()=>setSourceForm({kind:"VENDOR",name:"",conditions:""})}>＋ 新增廠商</button></div></div>
-      {vendorOverview.slice().sort((a,b)=>Number(b.lines.length>0)-Number(a.lines.length>0)).map(v=>
-        <div key={v.sourceId} className={"cy-ordering-vendor-group "+(v.lines.length?"has-lines":"is-empty")}>
-         <div className="cy-ordering-vendor-heading">
-          <button type="button" className="cy-op-button quiet" aria-expanded={expanded(v)}
-           onClick={()=>void toggleVendor(v)}>
-           {expanded(v)?"▾":"▸"} {v.sourceName}（{v.lines.length} 項）
-          </button>
-          {v.conditions?<strong className="cy-ordering-vendor-condition">{v.conditions}</strong>:null}
-          {editorStates["vendor:"+v.sourceId]?<OrderingSaveStatus states={[editorStates["vendor:"+v.sourceId]]}/>:null}
-          <button type="button" className="cy-op-button quiet compact" onClick={()=>{const s=vendors.find(x=>x.id===v.sourceId);if(s)void selectSource(s)}}>進入廠商</button>
-         </div>
-         {expanded(v)?<OrderingGrid kind="VENDOR" section="" lines={v.lines} busy={busy} {...gridBindings("vendor:"+v.sourceId)}
-          onCommit={(row,patch)=>commitVendorRow(v,row,patch)} onDelete={async row=>{await deleteVendorRow(v,row)}}/>:null}
-        </div>)}
+        <button type="button" className="cy-op-button" onClick={()=>setSourceForm({kind:"VENDOR",name:"",conditions:"",paymentTerms:""})}>＋ 新增廠商</button></div></div>
+      <div className="cy-ordering-vendor-tabs-layout">
+       <input className="cy-op-input cy-ordering-vendor-search" type="search" aria-label="速查廠商" placeholder="搜尋廠商" value={vendorQuery} onChange={e=>setVendorQuery(e.target.value)}/>
+       <div className="cy-ordering-vendor-tabs" role="tablist" aria-label="廠商草稿頁籤">
+        {movableVendors.filter(v=>v.sourceName.toLocaleLowerCase().includes(vendorQuery.trim().toLocaleLowerCase())).map(v=><button type="button" role="tab" key={v.sourceId} className={activeVendorGroup?.sourceId===v.sourceId?"active":""} aria-selected={activeVendorGroup?.sourceId===v.sourceId}
+         draggable={!busy} title="拖曳調整自己的廠商頁籤順序" onDragStart={e=>{vendorDragging.current=v.sourceId;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",String(v.sourceId))}}
+         onDragOver={e=>{if(vendorDragging.current!==null)e.preventDefault()}} onDrop={e=>{e.preventDefault();if(vendorDragging.current!==null)moveVendor(vendorDragging.current,v.sourceId);vendorDragging.current=null}}
+         onDragEnd={()=>{vendorDragging.current=null}} onClick={()=>void chooseVendor(v.sourceId)}>{v.sourceName}</button>)}
+       </div>
+       {vendorOther?<button type="button" role="tab" className={"cy-ordering-vendor-other"+(activeVendorGroup?.sourceId===vendorOther.sourceId?" active":"")} aria-selected={activeVendorGroup?.sourceId===vendorOther.sourceId} onClick={()=>void chooseVendor(vendorOther.sourceId)}>其他</button>:null}
+      </div>
+      {activeVendorGroup?<div className="cy-ordering-vendor-current">
+       <div><h3>{activeVendorGroup.sourceName}</h3><div className="cy-ordering-vendor-tab-help">叫貨條件：{activeVendorGroup.conditions||"未設定"}　付款條件：{activeVendorGroup.paymentTerms||"未設定"}</div></div>
+       <div className="cy-record-actions">
+        {editorStates["vendor:"+activeVendorGroup.sourceId]?<OrderingSaveStatus states={[editorStates["vendor:"+activeVendorGroup.sourceId]]}/>:null}
+        {activeVendorGroup.sourceName!=="其他"?<div className="cy-ordering-vendor-move">
+         <button type="button" className="cy-op-button compact quiet" aria-label="將此廠商頁籤向前" disabled={movableVendors[0]?.sourceId===activeVendorGroup.sourceId} onClick={()=>{const ix=movableVendors.findIndex(x=>x.sourceId===activeVendorGroup.sourceId);if(ix>0)moveVendor(activeVendorGroup.sourceId,movableVendors[ix-1].sourceId)}}>←</button>
+         <button type="button" className="cy-op-button compact quiet" aria-label="將此廠商頁籤向後" disabled={movableVendors.at(-1)?.sourceId===activeVendorGroup.sourceId} onClick={()=>{const ix=movableVendors.findIndex(x=>x.sourceId===activeVendorGroup.sourceId);if(ix>=0&&ix<movableVendors.length-1)moveVendor(activeVendorGroup.sourceId,movableVendors[ix+1].sourceId)}}>→</button>
+        </div>:null}
+        <button type="button" className="cy-op-button compact quiet" onClick={()=>{const v=vendors.find(x=>x.id===activeVendorGroup.sourceId);if(v)void selectSource(v)}}>進入廠商</button>
+       </div></div>:<p className="cy-op-empty">目前沒有可使用的廠商來源。</p>}
+      {activeVendorGroup?<OrderingGrid key={activeVendorGroup.sourceId} kind="VENDOR" section="" lines={activeVendorGroup.lines} busy={busy} {...gridBindings("vendor:"+activeVendorGroup.sourceId)}
+       onCommit={(row,patch)=>commitVendorRow(activeVendorGroup,row,patch)} onDelete={async row=>{await deleteVendorRow(activeVendorGroup,row)}}/>:null}
     </>
     :current?<>
       <div className="cy-record-header">
