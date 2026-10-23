@@ -2,6 +2,22 @@
 
 更新日期：2026-10-22。此文件依使用者「專案主要由 Claude 處理，必須開 handoff 註明修改」要求建立。這是直接交辦修正的交接紀錄；共通規則仍以既有治理鏈為準。維護狀態入口為根目錄 `TODO.md`。
 
+## 根因確認與修正：V0.9.31 Build 1 — D1 到貨 GLOB 限制（2026-10-23）
+
+使用者於正式站 `POST /api/business/ordering/orders/1/receipts` 取得 Cloudflare Workers Logs：`phase=persist`、`errorName=Error`、`D1_ERROR: LIKE or GLOB pattern too complex: SQLITE_ERROR`。Cloudflare D1 官方平台上限是 **LIKE/GLOB pattern 50 bytes**；`migrations/0022_ordering.sql` 中 `ordering_receipts.erp_purchase_no` 使用 `341A-` + 11 組 `[0-9]`，共 **60 bytes**，使正式 D1 INSERT 被 CHECK 評估阻斷；本機預設 SQLite 上限高，原測試未覆蓋。不可將原 0022 當作未套用 migration 修改。
+
+- 新增 `migrations/0023_ordering_receipt_d1_glob.sql`：將 60-byte CHECK 改為 `length(erp_purchase_no)=16 AND substr(...)= '341A-' AND substr(...,6) NOT GLOB '*[^0-9]*'`。建立新主檔及新明細表、先複製既有主檔及明細、先刪舊明細再刪舊主檔、重新命名及建立原索引；原始 PK、外鍵、到貨日期 CHECK 均保留。防範 Cloudflare `defer_foreign_keys` 無法停用 `ON DELETE CASCADE` 導致誤刪歷史。
+- `scripts/validate_schema.py`：先用舊 Schema 插入歷史資料，再強制 SQLite `SQLITE_LIMIT_LIKE_PATTERN_LENGTH=50` 重現舊版 INSERT 錯誤；在同一交易測試 0023，核對歷史主檔／明細逐列一致、外鍵完整、正常 ERP 單號可寫入，非法單號仍被拒。
+- 不修改 ERP 單號上層解析器及 Worker 商務流程、不更動實際 ERP／Cloudflare 服務綁定、不直接操作正式業務資料。本輪與既有 Workers Logs persistence 設定合併到同一 PR，遵守同一故障返修 Build 1。
+
+**發布安全閘**：需 PR 全部 CI（包括 schema source validation、D1 local、deploy dry-run）通過、先確認正式 D1 備份／Time Travel 狀態，才可按專案既有發布流程套用 0023；migration 是正式業務資料 Schema 變更，勿在 PR 測試使用正式 D1。部署後先核對舊到貨紀錄，再用正常業務流程測試一次；請求編號、原始錯誤與業務欄位不得加入 Public Git。
+## 補充：V0.9.31 Build 1 — Cloudflare Workers Logs 與 GitHub Wrangler 設定同步（2026-10-23）
+
+- 使用者在 Cloudflare Dashboard 已自行啟用 `cyweb-dev` 的 Workers Observability Logs，並觀察到 `[ordering_receipt_failure]` 及到貨 POST 失敗事件。螢幕截圖僅顯示 Events 列表；尚未取得事件中的 `phase`、`errorName`、`errorMessage`，**不能根據此圖宣稱定位到 D1 根因**。
+- 原 `wrangler.deploy.template.jsonc` 未包含 `observability`，日後 GitHub Actions 部署可能覆蓋 Dashboard 設定；此輪新增 `observability.logs.enabled=true` 與 `observability.logs.invocation_logs=true`，保留預設日誌持久化行為，與使用者在 Dashboard 上啟用的設定保持一致。
+- `scripts/validate-deploy-config.mjs` 對實際產生的 Wrangler JSON 增加安全閘門，CI 與正式部署前要求兩個設定皆為 `true`；不修改業務 Worker、D1 Schema、ERP、CI Workflow 或增加 Cloudflare 資源。
+- 本輪為前次 V0.9.31 到貨診斷未完成事項的同一工作項目返修，BUILD 由 0 調整為 1；版本維持 V0.9.31，不新增 Major/Minor。
+- 部署／交接：使用者已在 Cloudflare Dashboard 啟用日誌。此 GitHub 設定變更仍需 PR 通過、合併、由既有受控發布流程正式部署，**提交 PR 本身不等於部署**。若準備排查當次錯誤，請在 Events 展開 `[ordering_receipt_failure]`，核對 `phase`、`errorName`、`errorMessage`；避免將實際 ERP 單號／交易明細貼入公開 GitHub。
 ## 本輪 GPT 交接：V0.9.31 Build 0 — 到貨診斷（2026-10-22，待審查）
 
 使用者實機出現「叫貨操作失敗」，原 Worker catch 區統一回傳 500 而未輸出原始例外。到貨 D1 batch 成功後仍會重新讀取單據，讀回出錯時原先會把已提交的結果誤判為儲存失敗。目前沒有正式 Worker log，**不可斷言原始 D1 根因**。

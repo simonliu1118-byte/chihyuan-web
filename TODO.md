@@ -1,3 +1,16 @@
+## CY Web V0.9.31 Build 1 — 正式 D1 到貨失敗根因已確認（2026-10-23）
+
+- [x] Cloudflare Worker log：`phase=persist`、`D1_ERROR: LIKE or GLOB pattern too complex`。0022 Schema 的 ERP 進貨單號 CHECK 使用 60-byte GLOB，超過 D1 50-byte 上限。
+- [x] 新增 0023 forward migration：保留到貨主檔／明細／主鍵／外鍵／索引，以長度＋固定前綴＋短 GLOB 取代原 CHECK；不修改既有 0022。
+- [x] 擴充 schema 測試：模擬 D1 50-byte 限制，重現舊錯、驗證 migration 後歷史完整、正常單號寫入與錯誤單號拒絕。
+- [ ] PR 必要 CI、確認正式 D1 復原點、受控部署及正式到貨功能驗收。
+## CY Web V0.9.31 Build 1 — Workers Logs 設定持久化與到貨故障調查（2026-10-23）
+
+- [x] 使用者已在 Cloudflare Dashboard 啟用 Logs，確認 `[ordering_receipt_failure]` 事件出現；畫面尚未提供原始例外欄位，真實 D1 根因待查。
+- [x] Wrangler 正式部署範本新增 Logs 與 Invocation Logs，避免後續 GitHub 部署覆蓋 Dashboard 設定。
+- [x] 部署契約測試驗證輸出 Wrangler JSON 的觀測設定；原 GPT handoff 補交接。
+- [ ] 本次 PR CI 驗證／審查後合併及受控部署；未動正式資料庫或 Worker 業務邏輯。
+- [ ] 取得該筆 `[ordering_receipt_failure]` 事件 `phase`、`errorName`、`errorMessage`，核對是否已留有到貨紀錄，再另行修復真正寫入錯誤。
 ## CY Web V0.9.31 — 登記到貨診斷（待審查）
 
 - [x] Worker 到貨 POST 區分 preflight／persist／readback，記錄 requestId、階段及受限的原始例外供排查。
