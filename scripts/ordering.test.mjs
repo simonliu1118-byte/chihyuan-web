@@ -87,7 +87,7 @@ test("ordering migration recreates module CHECK and all tables",()=>{
  const sql=new DatabaseSync(":memory:");
  for(const file of readdirSync(new URL("../migrations/",import.meta.url)).filter(x=>x.endsWith(".sql")).sort())
   sql.exec(readFileSync(new URL("../migrations/"+file,import.meta.url),"utf8"));
- for(const table of ["ordering_sources","ordering_orders","ordering_lines","ordering_receipts","ordering_receipt_lines","ordering_vendor_items","ordering_item_last_source","ordering_revisions"])
+ for(const table of ["ordering_sources","ordering_orders","ordering_lines","ordering_receipts","ordering_receipt_lines","ordering_vendor_items","ordering_item_last_source","ordering_revisions","ordering_user_preferences"])
   assert.equal(sql.prepare("SELECT name FROM sqlite_master WHERE name=?").get(table)?.name,table);
  assert.match(sql.prepare("SELECT sql FROM sqlite_master WHERE name='app_member_module_access'").get().sql,/ORDERING/);
 });

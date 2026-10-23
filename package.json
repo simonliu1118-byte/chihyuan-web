@@ -1,6 +1,6 @@
 {
   "name": "chihyuan-web",
-  "version": "0.9.31",
+  "version": "0.9.33",
   "private": true,
   "type": "module",
   "scripts": {

@@ -18,6 +18,7 @@ MIGRATIONS_DIR = ROOT / "migrations"
 
 EXPECTED_TABLES = {
     "ordering_sources",
+    "ordering_user_preferences",
     "ordering_orders",
     "ordering_lines",
     "ordering_receipts",
@@ -170,7 +171,7 @@ def validate_schema_shape(schema: str) -> None:
     source = (ROOT / "worker/backup/schema-columns.ts").read_text()
     declared = json.loads(source.split(" = ", 1)[1].rstrip().removesuffix(";"))
     actual = {table: sorted(row[1] for row in conn.execute(f'PRAGMA table_info("{table}")'))
-              for table in sorted(EXPECTED_TABLES - {"backup_sets", "backup_copies", "program_catalog_state", "erp_item_queries", "erp_item_agent_status", "erp_item_agent_credentials", "erp_sales_daily", "erp_sales_days", "erp_sales_items", "ordering_sources", "ordering_orders", "ordering_lines", "ordering_receipts", "ordering_receipt_lines", "ordering_vendor_items", "ordering_item_last_source", "ordering_revisions"})}
+              for table in sorted(EXPECTED_TABLES - {"backup_sets", "backup_copies", "program_catalog_state", "erp_item_queries", "erp_item_agent_status", "erp_item_agent_credentials", "erp_sales_daily", "erp_sales_days", "erp_sales_items", "ordering_sources", "ordering_orders", "ordering_lines", "ordering_receipts", "ordering_receipt_lines", "ordering_vendor_items", "ordering_item_last_source", "ordering_revisions", "ordering_user_preferences"})}
     if declared != actual:
         raise AssertionError("backup schema columns differ from canonical migrations")
     conn.close()
@@ -379,6 +380,80 @@ def validate_retired_identity_migration(schema: str) -> None:
     fresh.close()
 
 
+
+def validate_ordering_receipt_d1_pattern_limit(schema: str) -> None:
+    """Simulate D1's 50-byte GLOB limit and verify the forward migration keeps history."""
+    conn = sqlite3.connect(":memory:")
+    conn.execute("PRAGMA foreign_keys=ON")
+    for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
+        if path.name >= "0023_ordering_receipt_d1_glob.sql":
+            break
+        conn.executescript(path.read_text(encoding="utf-8"))
+
+    now = "2026-10-22T00:00:00Z"
+    conn.execute(
+        "INSERT INTO ordering_sources(id,name,kind,conditions,sort_order,created_at,updated_at) "
+        "VALUES(1,'台中','GENERAL','',0,?,?)", (now, now)
+    )
+    conn.execute(
+        "INSERT INTO ordering_orders(id,source_id,status,sent_at,created_at,updated_at) "
+        "VALUES(1,1,'SENT',?,?,?)", (now, now, now)
+    )
+    conn.execute(
+        "INSERT INTO ordering_lines(id,order_id,sort_order,item_name,quantity_text,quantity) "
+        "VALUES(1,1,0,'Synthetic item','5',5)"
+    )
+    conn.execute(
+        "INSERT INTO ordering_receipts(id,order_id,erp_purchase_no,received_date,created_at) "
+        "VALUES(1,1,'341A-20261022001','2026-10-22',?)", (now,)
+    )
+    conn.execute("INSERT INTO ordering_receipt_lines(receipt_id,line_id,quantity) VALUES(1,1,3)")
+    conn.commit()
+    headers = conn.execute("SELECT * FROM ordering_receipts ORDER BY id").fetchall()
+    details = conn.execute("SELECT * FROM ordering_receipt_lines ORDER BY receipt_id,line_id").fetchall()
+
+    conn.setlimit(sqlite3.SQLITE_LIMIT_LIKE_PATTERN_LENGTH, 50)
+    try:
+        conn.execute(
+            "INSERT INTO ordering_receipts(id,order_id,erp_purchase_no,received_date,created_at) "
+            "VALUES(2,1,'341A-20261022002','2026-10-22',?)", (now,)
+        )
+        raise AssertionError("Old 60-byte GLOB did not fail at D1's 50-byte limit")
+    except sqlite3.OperationalError as error:
+        if "LIKE or GLOB pattern too complex" not in str(error):
+            raise
+    conn.rollback()
+
+    migration = (MIGRATIONS_DIR / "0023_ordering_receipt_d1_glob.sql").read_text(encoding="utf-8")
+    conn.executescript("BEGIN;\n" + migration + "\nCOMMIT;")
+    if conn.execute("SELECT * FROM ordering_receipts ORDER BY id").fetchall() != headers:
+        raise AssertionError("Migration changed existing receipt headers")
+    if conn.execute("SELECT * FROM ordering_receipt_lines ORDER BY receipt_id,line_id").fetchall() != details:
+        raise AssertionError("Migration lost or changed receipt lines")
+    if conn.execute("PRAGMA foreign_key_check").fetchall():
+        raise AssertionError("Migration left invalid foreign keys")
+    child_fks = conn.execute("PRAGMA foreign_key_list(ordering_receipt_lines)").fetchall()
+    if not any(row[2] == "ordering_receipts" for row in child_fks):
+        raise AssertionError("Receipt detail foreign key points at wrong table")
+
+    conn.execute(
+        "INSERT INTO ordering_receipts(id,order_id,erp_purchase_no,received_date,created_at) "
+        "VALUES(2,1,'341A-20261022002','2026-10-22',?)", (now,)
+    )
+    conn.execute("INSERT INTO ordering_receipt_lines(receipt_id,line_id,quantity) VALUES(2,1,2)")
+    if conn.execute("SELECT SUM(quantity) FROM ordering_receipt_lines").fetchone() != (5,):
+        raise AssertionError("New receipt failed or historical quantity was lost")
+    for invalid in ("341A-2026102200X", "341A-2026102200", "341A-202610220001"):
+        try:
+            conn.execute(
+                "INSERT INTO ordering_receipts(id,order_id,erp_purchase_no,received_date,created_at) "
+                "VALUES(3,1,?,'2026-10-22',?)", (invalid, now)
+            )
+        except sqlite3.IntegrityError:
+            continue
+        raise AssertionError("Invalid ERP purchase number bypassed CHECK: " + invalid)
+    conn.close()
+
 def main() -> int:
     schema = load_schema()
     checks = [
@@ -391,6 +466,7 @@ def main() -> int:
         validate_defect_invalidation_shape,
         validate_no_local_identity_session,
         validate_retired_identity_migration,
+        validate_ordering_receipt_d1_pattern_limit,
     ]
     for check in checks:
         check(schema)

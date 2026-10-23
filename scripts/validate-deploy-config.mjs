@@ -35,6 +35,8 @@ try {
   if (config.assets?.binding !== "ASSETS" || config.assets?.run_worker_first !== true)
     throw new Error("all asset requests must enter the HTTPS boundary before ASSETS");
   if (config.workers_dev !== true) throw new Error("workers.dev fallback must remain enabled");
+  if (config.observability?.logs?.enabled !== true || config.observability.logs.invocation_logs !== true)
+    throw new Error("Cloudflare Workers Logs and invocation logs must remain enabled after deployment");
   if (config.routes?.length !== 1) throw new Error("canonical Custom Domain route missing");
   if (config.routes[0]?.pattern !== env.CF_PUBLIC_HOSTNAME) throw new Error("public hostname mismatch");
   if (config.routes[0]?.custom_domain !== true) throw new Error("public hostname must be a Custom Domain");

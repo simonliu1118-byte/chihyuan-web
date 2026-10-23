@@ -27,7 +27,7 @@ export const LINE_STATE_LABELS: Readonly<Record<OrderingLineState, string>> = {
 };
 
 export interface OrderingSource {
-  id: number; name: string; kind: OrderingSourceKind; conditions: string; sortOrder: number; isActive: boolean;
+  id: number; name: string; kind: OrderingSourceKind; conditions: string; paymentTerms: string; sortOrder: number; isActive: boolean;
 }
 export interface OrderingDraftRef { id: number; sourceId: number; plannedSendDate: string | null; createdAt: string }
 export interface OrderingLine {
