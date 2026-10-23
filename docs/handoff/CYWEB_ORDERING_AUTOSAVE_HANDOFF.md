@@ -10,7 +10,8 @@
 - 管理來源改為緊湊表格：名稱、類型（只顯示公司內部／外部廠商）、叫貨條件、付款條件，以及修改／共用排序／隱藏或恢復；停用改稱隱藏，不刪除歷史單據。原 `CN_REGULAR/CN_CUSTOM` 仍在 DB 保留類型與專用邏輯，避免 UI 合併分類時破壞既有業務流程。
 - 新 `migrations/0024_ordering_source_preferences.sql` 為 forward migration：`ordering_sources.payment_terms` 自填文本、`ordering_user_preferences`（app member FK）保存個人廠商順序。共享 `ordering_sources.sort_order` 只用於管理來源的預設排序；個人喜好使用獨立受權保護的 API `/preferences/vendors`，換裝置登入可保留，不寫 LocalStorage。
 - `ordering-routes.ts`：`paymentTerms` 加入來源 GET/POST/PATCH，來源 `is_active` 沿用隱藏／恢復；`POST /sources/reorder` 原子批次更新共用排序；`GET/PUT /preferences/vendors` 保存認證會員的個人順序並核對每個來源有效，均需原模組權限。Audit 僅寫入來源類型／欄位或排序摘要，不紀錄敏感帳密。
-- 測試調整：新增來源付款、個人排序、共用排序與歷史保存的 route regression；原 `ordering-grid` status icon 斷言轉為文字標籤。CI 尚需驗證實際 TS／D1 與畫面；不可宣稱部署完成。
+- **隱藏安全閘**：來源若仍有已填內容／單據備註的未送出草稿，API 會拒絕隱藏，避免草稿從頁籤消失無法操作；送出／清空後才能隱藏。原來的歷史單與到貨紀錄仍保留，恢復沿用原始來源 ID。
+- 測試調整：新增來源付款、個人排序、共用排序、未送出草稿防隱藏及歷史保存的 route regression；原 `ordering-grid` status icon 斷言改為文字標籤，且覆蓋 editable multiline／Enter 流程；`ordering-page` 增加到貨 Dialog 排除已到齊與廠商可搜尋頁籤／其他固定顯示。最終 CI 與正式部署狀態以 PR #274 Actions、部署交接記錄為準；本 PR 仍未合併或部署。
 
 **後續 Claude 審查點**：新 migration 需依既有 D1 受控發布，確認現有資料 `payment_terms` 的 default 保持空字串、個人排序只認目前登入的 app member、隱藏來源不能新增單但歷史叫貨依舊可讀；不直接刪除來源。若發現 UI 需要更改來源種類語意、特殊中國貨訂貨邏輯或廠商主檔連動，屬另案，應先確認使用者需求，不要藉本輪擴大範圍。
 
