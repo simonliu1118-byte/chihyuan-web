@@ -1,7 +1,8 @@
 # WO-0.9.13 異動紀錄改寫、人名顯示、客戶修改紀錄、網頁程式放到工具
 
-- 狀態：已完成（審查通過）
-- 分支：`cyweb/change-log`　PR：[#208](https://github.com/simonliu1118-byte/chihyuan-web/pull/208)（開啟中、未合併）
+- 狀態：**已完成・Claude 審查通過・PR #208 已合併**（截至 2026-10-23；歷史交付狀態見 §8、§9）
+- 分支：`cyweb/change-log`　PR：[#208](https://github.com/simonliu1118-byte/chihyuan-web/pull/208)（已合併）
+- 閱讀提示：本單 §0 的「不合併、不部署」、§8 的「待審查／尚未部署」是 GPT **交付當時**的執行界線與證據，不是目前 PR 狀態；§8 完成報告及 §9 Claude 審查紀錄原文保留供交接。
 - 依據：`PROJECT_RULES.md` §9；BD-053（一般修改只保留最後修改資訊，詳細稽核僅管理員）、BD-054（共用 Audit Core）
 - 視覺規範：`docs/architecture/CY_WEB_VISUAL_GUIDE.md`
 

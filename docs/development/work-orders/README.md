@@ -2,6 +2,8 @@
 
 工作單是 `REPOSITORY_RULES.md` §11.4（本 repo `PROJECT_RULES.md` §9 指向它）的交接文件，**只有在使用者指示 Claude 開立工作單轉交 GPT 製作時才使用**：Claude 討論定案後撰寫 → 使用者轉交 GPT 執行並填「完成報告」→ Claude 審查。一個版本一張，檔名 `WO-<版本>.md`（例如 `WO-0.9.13.md`）。工作單描述需求與狀態，不是規則來源；規則仍以 `REPOSITORY_RULES.md`、`REPO_POLICY.md`、`PROJECT_RULES.md`、Business Decisions 為準。
 
+**交接索引**：[CY Web GPT→Claude 工作紀錄索引](../../handoff/README.md)。已完成工作單的 §8（GPT 交付）與 §9（Claude 審查）保留原始歷史；頁首僅列最新一次核對的 PR 狀態。§0 的「不得合併／部署」是該次執行者權限界線，不是永久禁止後續經審查部署。實際現況依 [根 TODO](../../../TODO.md) 與 GitHub 即時狀態。
+
 ## 格式
 
 ```markdown
