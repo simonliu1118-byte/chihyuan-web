@@ -1,7 +1,8 @@
 # WO-0.9.15 商品頁改版：精簡基本資料、單層換算、瑕疵與報價卡片
 
-- 狀態：已完成（審查通過 2026-10-19）
-- 分支：`cyweb/item-page-0.9.15`　PR：[ #214 ](https://github.com/simonliu1118-byte/chihyuan-web/pull/214)（未合併／未部署）
+- 狀態：**已完成・Claude 審查通過・PR #214 已合併**（截至 2026-10-23；歷史交付狀態見 §8、§9）
+- 分支：`cyweb/item-page-0.9.15`　PR：[#214](https://github.com/simonliu1118-byte/chihyuan-web/pull/214)（已合併）
+- 閱讀提示：本單 §0 的「不合併、不部署」、§8 的「待審查／尚未部署」是 GPT **交付當時**的執行界線與證據，不是目前 PR 狀態；§8 完成報告及 §9 Claude 審查紀錄原文保留供交接。
 - 依據：`PROJECT_RULES.md` §9；**BD-058**（單位換算單層、一律換成基準單位）；BD-020／021／022（報價語意不變）；BD-043（模組權限）
 - 視覺規範：`docs/architecture/CY_WEB_VISUAL_GUIDE.md`
 
