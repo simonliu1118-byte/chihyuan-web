@@ -180,21 +180,31 @@ for(const kind of ["GENERAL","VENDOR"])test(`${kind}: vendor-only draft persists
  }finally{sql.close()}
 });
 
-test("missing names/quantity and China-source vendor-only rows remain invalid",async()=>{
+test("incomplete draft rows persist across reopen but incomplete orders cannot be sent",async()=>{
  const {sql,call}=fixture();try{
   const sources=(await call("/sources")).body.data;
   for(const kind of ["GENERAL","VENDOR","CN_REGULAR","CN_CUSTOM"]){
-   const source=sources.find(s=>s.kind===kind),o=(await call("/orders","POST",{sourceId:source.id})).body.data;
-   for(const line of [{quantityText:"2"},{itemName:"測試品名",quantityText:""},...(["CN_REGULAR","CN_CUSTOM"].includes(kind)?[{vendorItemName:"測試廠商品名",quantityText:"2"}]:[])]){
-    const result=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line});
-    assert.equal(result.status,422,JSON.stringify(result.body));
-   }
-   assert.equal((await call("/orders/"+o.id)).body.data.lines.length,0);
+   const source=sources.find(s=>s.kind===kind);
+   let o=(await call("/orders","POST",{sourceId:source.id})).body.data;
+   const partial=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{itemCode:"A00302",quantityText:""}});
+   assert.equal(partial.status,200,JSON.stringify(partial.body));o=partial.body.data;
+   assert.equal(o.lines[0].itemCode,"A00302");
+   assert.equal(o.lines[0].quantityText,"");
+   assert.equal((await call("/orders/"+o.id)).body.data.lines[0].itemCode,"A00302");
+   const noSend=await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version});
+   assert.equal(noSend.status,422,"incomplete draft must not be sent");
+   const blank=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{}});
+   assert.equal(blank.status,422,"wholly empty rows are not stored");
+   const changed=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,lineId:o.lines[0].id,line:{itemName:"測試品名",quantityText:"2"}});
+   assert.equal(changed.status,200,JSON.stringify(changed.body));o=changed.body.data;
+   assert.equal((await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version})).status,200);
   }
   const source=sources.find(s=>s.kind==="GENERAL");let o=(await call("/orders","POST",{sourceId:source.id})).body.data;
   o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{itemName:"測試品名",quantityText:"2"}})).body.data;
   const blank=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,lineId:o.lines[0].id,line:{itemName:""}});
-  assert.equal(blank.status,422,"auto-follow must not let clearing own name leave both names blank");
+  assert.equal(blank.status,200,"clearing a name is allowed while drafting");
+  o=blank.body.data;
+  assert.equal((await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version})).status,422,"cannot send without name");
  }finally{sql.close()}
 });
 
