@@ -135,16 +135,13 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  };
  return <div ref={containerRef} className="cy-ordering-grid-scroll" role="region" aria-label="叫貨明細" tabIndex={0}>
   <table className="cy-ordering-grid" data-kind={kind} data-readonly={readOnly||undefined}>
-   <colgroup><col className="cy-ordering-col-index"/>{fields.flatMap(([field])=>[<col key={field} className={"cy-ordering-col-"+field}/>,...(readOnly&&field==="quantityText"?[<col key="received" className="cy-ordering-col-received"/>]:[])])}{!readOnly?<col className="cy-ordering-col-actions"/>:null}</colgroup>
-   <thead><tr><th scope="col">項次</th>{fields.flatMap(([field,label])=>[<th scope="col" key={field}>{label}</th>,...(readOnly&&field==="quantityText"?[<th scope="col" key="received">已到數量</th>]:[])])}{!readOnly?<th scope="col">操作</th>:null}</tr></thead>
+   <colgroup><col className="cy-ordering-col-index"/>{fields.flatMap(([field])=>[<col key={field} className={"cy-ordering-col-"+field}/>,...(readOnly&&field==="quantityText"?[<col key="received" className="cy-ordering-col-received"/>]:[])])}{readOnly?<col className="cy-ordering-col-status"/>:<col className="cy-ordering-col-actions"/>}</colgroup>
+   <thead><tr><th scope="col">項次</th>{fields.flatMap(([field,label])=>[<th scope="col" key={field}>{label}</th>,...(readOnly&&field==="quantityText"?[<th scope="col" key="received">已到數量</th>]:[])])}{readOnly?<th scope="col">狀態</th>:<th scope="col">操作</th>}</tr></thead>
    <tbody>{visible.map((row,i)=><tr key={savedRowKeys.current.get(row.id)??row.id} data-saving={inFlight.current.has(row.id)||undefined}><td>{i+1}</td>
     {fields.flatMap(([field,title],col)=>{
      const key=row.id+"|"+field,value=editing[key]??getValue(row,field);
-     const state=lineState({quantity:row.quantity===undefined?parseQuantity(row.quantityText).quantity:row.quantity,received:row.received??0,closedAs:null});
-     return [<td key={field}>{readOnly?<span className={"cy-ordering-cell-text"+(field==="quantityText"?" cy-ordering-quantity":"")} title={value}>
-      {value}{field==="quantityText"&&(state==="RECEIVED"||state==="PARTIAL")?<span className={"cy-ordering-arrival-mark "+(state==="RECEIVED"?"is-complete":"is-partial")} role="img" aria-label={LINE_STATE_LABELS[state]} title={LINE_STATE_LABELS[state]}>
-       {state==="RECEIVED"?<svg viewBox="0 0 20 20" aria-hidden="true"><path d="m4 10 4 4 8-9"/></svg>:<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2 19 18H1Z"/><path d="M10 7v5m0 3v.1"/></svg>}
-      </span>:null}</span>:<input data-order-row={row.id} data-order-field={field} className="cy-ordering-cell"
+     const state=lineState({quantity:row.quantity===undefined?parseQuantity(row.quantityText).quantity:row.quantity,received:row.received??0,closedAs:row.closedAs??null});
+     return [<td key={field}>{readOnly?<span className={"cy-ordering-cell-text"+(field==="quantityText"?" cy-ordering-quantity":"")+((field==="itemName"||field==="vendorItemName"||field==="note")?" cy-ordering-wrap":"")}>{value}</span>:<input data-order-row={row.id} data-order-field={field} className="cy-ordering-cell"
        aria-label={title+" 第"+(i+1)+"列"} title={title} value={value} disabled={busy}
        aria-busy={inFlight.current.has(row.id)||undefined}
        required={field==="quantityText"||(field==="itemName"&&kind!=="GENERAL"&&kind!=="VENDOR")}
@@ -156,6 +153,7 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
        }}
        onKeyDown={e=>enter(e,row,col)} />}</td>,...(readOnly&&field==="quantityText"?[<td key="received"><span className="cy-ordering-cell-text cy-ordering-quantity">{row.received??0}</span>{row.closedAs?<small className="cy-ordering-closed-note" title={row.closedNote}>{CLOSED_AS_LABELS[row.closedAs]}{row.closedNote?"（"+row.closedNote+"）":""}</small>:null}</td>]:[])];
     })}
+    {readOnly?<td className="cy-ordering-status-cell"><span className={"cy-ordering-status-chip state-"+lineState({quantity:row.quantity===undefined?parseQuantity(row.quantityText).quantity:row.quantity,received:row.received??0,closedAs:row.closedAs??null}).toLowerCase()}>{lineState({quantity:row.quantity===undefined?parseQuantity(row.quantityText).quantity:row.quantity,received:row.received??0,closedAs:row.closedAs??null})==="OPEN"?"待到貨":LINE_STATE_LABELS[lineState({quantity:row.quantity===undefined?parseQuantity(row.quantityText).quantity:row.quantity,received:row.received??0,closedAs:row.closedAs??null})]}</span></td>:null}
     {!readOnly?<td className="cy-ordering-grid-actions">{row.id>0?<IconButton label={"刪除第"+(i+1)+"列"} disabled={busy||actionSaves.current.size>0} onClick={()=>runAction(()=>onDelete(row))} icon={<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v8m4-8v8"/></svg>}/>:null}</td>:null}</tr>)}</tbody>
   </table>
   {visible.filter(x=>x.quantityText&&parseQuantity(x.quantityText).quantity===null).map(x=><p key={x.id} className="cy-notice cy-notice-warning">「{x.itemName||x.vendorItemName||x.itemCode}」數量無法拆解，保留文字、不計到貨量。</p>)}
