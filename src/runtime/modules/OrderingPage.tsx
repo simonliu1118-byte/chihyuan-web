@@ -405,30 +405,41 @@ export function OrderingPage(){
   </div>
   {manageSources?<Dialog open title="管理叫貨來源" onClose={()=>setManageSources(false)} size="large">
     <div className="cy-ordering-source-management">
-    {sources.map(s=><div className="cy-ordering-source-row" key={s.id}>
-     <span><strong>{s.name}</strong> <small>{s.kind==="VENDOR"?"廠商":s.kind==="CN_REGULAR"?"定期中國貨":s.kind==="CN_CUSTOM"?"自訂中國貨":"一般"}　{!s.isActive?"已停用":""}</small></span>
-     <span className="cy-ordering-vendor-condition">{s.conditions}</span>
-     <button type="button" className="cy-op-button quiet" onClick={()=>setSourceForm({id:s.id,kind:s.kind==="VENDOR"?"VENDOR":"GENERAL",name:s.name,conditions:s.conditions,sortOrder:s.sortOrder,isActive:s.isActive})}>修改／排序／停用</button>
-    </div>)}
-    <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setManageSources(false)}>關閉</button>
-     <button type="button" className="cy-op-button primary" onClick={()=>setSourceForm({kind:"GENERAL",name:"",conditions:""})}>＋ 新增來源</button></div>
-   </div>
+     <div className="cy-record-actions"><label><input type="checkbox" checked={showHiddenSources} onChange={e=>setShowHiddenSources(e.target.checked)}/> 顯示已隱藏來源</label></div>
+     <div className="cy-op-table-wrap"><table className="cy-op-table">
+      <thead><tr><th scope="col">名稱</th><th scope="col">類型</th><th scope="col">叫貨條件</th><th scope="col">付款條件</th><th scope="col">操作</th></tr></thead>
+      <tbody>{sources.filter(x=>x.isActive||showHiddenSources).map(s=><tr key={s.id} data-hidden={!s.isActive||undefined}>
+       <td><strong>{s.name}</strong>{!s.isActive?<small>（已隱藏）</small>:null}</td>
+       <td>{s.kind==="VENDOR"?"外部廠商":"公司內部"}</td>
+       <td className="cy-ordering-source-note">{s.conditions||"—"}</td>
+       <td className="cy-ordering-source-note">{s.paymentTerms||"—"}</td>
+       <td className="cy-ordering-source-actions">
+        <button type="button" className="cy-op-button compact quiet" disabled={busy} onClick={()=>setSourceForm({id:s.id,kind:s.kind==="VENDOR"?"VENDOR":"GENERAL",name:s.name,conditions:s.conditions,paymentTerms:s.paymentTerms,sortOrder:s.sortOrder})}>修改</button>
+        {s.isActive?<><button type="button" className="cy-op-button compact quiet" disabled={busy||active[0]?.id===s.id} aria-label={"將 "+s.name+" 排序向前"} onClick={()=>void changeSharedOrder(s.id,-1)}>↑</button>
+         <button type="button" className="cy-op-button compact quiet" disabled={busy||active.at(-1)?.id===s.id} aria-label={"將 "+s.name+" 排序向後"} onClick={()=>void changeSharedOrder(s.id,1)}>↓</button></>:null}
+        <button type="button" className="cy-op-button compact quiet" disabled={busy} onClick={()=>void updateVisibility(s)}>{s.isActive?"隱藏":"恢復"}</button>
+       </td></tr>)}</tbody>
+     </table></div>
+     <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setManageSources(false)}>關閉</button>
+      <button type="button" className="cy-op-button primary" onClick={()=>setSourceForm({kind:"GENERAL",name:"",conditions:"",paymentTerms:""})}>＋ 新增來源</button></div>
+    </div>
   </Dialog>:null}
   {sourceForm?<Dialog open title={sourceForm.id?"修改叫貨來源":"新增叫貨來源"} onClose={()=>setSourceForm(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void saveSource(e)}>
-    <FormSection><Field label="名稱" size="m" required><input className="cy-op-input" maxLength={40} value={sourceForm.name} onChange={e=>setSourceForm(s=>s?{...s,name:e.target.value}:s)}/></Field>
-   <Field label="條件" size="m"><input className="cy-op-input" maxLength={500} value={sourceForm.conditions} onChange={e=>setSourceForm(s=>s?{...s,conditions:e.target.value}:s)}/></Field>
-   {sourceForm.id?<><Field label="排序" size="s"><input type="number" className="cy-op-input" value={sourceForm.sortOrder??0} onChange={e=>setSourceForm(s=>s?{...s,sortOrder:Number(e.target.value)}:s)}/></Field>
-   <CheckField  label="啟用（停用保留歷史單）" size="s"  checked={sourceForm.isActive??true} onChange={e=>setSourceForm(s=>s?{...s,isActive:e.target.checked}:s)}/></>:null}
+    <FormSection>
+     <Field label="名稱" size="m" required><input className="cy-op-input" maxLength={40} required value={sourceForm.name} onChange={e=>setSourceForm(s=>s?{...s,name:e.target.value}:s)}/></Field>
+     {!sourceForm.id?<Field label="類型" size="s"><select className="cy-op-input" value={sourceForm.kind} onChange={e=>setSourceForm(s=>s?{...s,kind:e.target.value as "GENERAL"|"VENDOR"}:s)}><option value="GENERAL">公司內部</option><option value="VENDOR">外部廠商</option></select></Field>:null}
+     <Field label="叫貨條件" size="m"><input className="cy-op-input" maxLength={500} value={sourceForm.conditions} onChange={e=>setSourceForm(s=>s?{...s,conditions:e.target.value}:s)}/></Field>
+     <Field label="付款條件" size="m"><input className="cy-op-input" maxLength={200} placeholder="例如：月結30天、貨到付款" value={sourceForm.paymentTerms} onChange={e=>setSourceForm(s=>s?{...s,paymentTerms:e.target.value}:s)}/></Field>
     </FormSection>
-   <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setSourceForm(null)}>取消</button><button type="submit" className="cy-op-button primary">儲存</button></div>
-  </form></Dialog>:null}
+    <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setSourceForm(null)}>取消</button><button type="submit" className="cy-op-button primary" disabled={busy}>儲存</button></div>
+   </form></Dialog>:null}
   {receipt&&selected?<Dialog open title="登記到貨" onClose={()=>setReceipt(null)} size="large" className="cy-ordering-receipt-dialog"><form onKeyDown={enterAdvancesFields} onSubmit={e=>void receive(e)}>
     <FormSection>
    <Field label="ERP 進貨單號 341A-" size="m" required><input className="cy-op-input" inputMode="numeric" pattern="[0-9]{11}" maxLength={11} value={receipt.no} onChange={e=>setReceipt(v=>v?{...v,no:e.target.value}:v)}/></Field>
    <Field label="到貨日期" size="s" required><input className="cy-op-input" type="date" max="9999-12-31" value={receipt.date} onChange={e=>setReceipt(v=>v?{...v,date:e.target.value}:v)}/></Field>
     </FormSection>
    <RequiredRows label="至少選擇一項到貨品項" satisfied={receipt.selectedLineIds.length>0}/>
-   <div className="cy-op-table-wrap" role="region" aria-label="登記到貨品項" tabIndex={0}><table className="cy-op-table cy-ordering-receipt-table">
+   <div className="cy-op-table-wrap" role="region" aria-label="登記到貨品項" tabIndex={0}><table className="cy-op-table cy-ordering-grid cy-ordering-receipt-table">
     <colgroup><col className="cy-ordering-receipt-col-select"/><col className="cy-ordering-receipt-col-code"/><col/><col className="cy-ordering-receipt-col-vendor-code"/><col/><col className="cy-ordering-receipt-col-quantity"/><col className="cy-ordering-receipt-col-quantity"/><col className="cy-ordering-receipt-col-quantity"/><col className="cy-ordering-receipt-col-input"/></colgroup>
     <thead><tr><th scope="col">選取</th><th scope="col">品號</th><th scope="col">品名</th><th scope="col">廠商品號</th><th scope="col">廠商品名</th><th scope="col">叫貨數量</th><th scope="col">已到數量</th><th scope="col">剩餘數量</th><th scope="col">本次到貨</th></tr></thead><tbody>
     {selected.lines.filter(l=>l.quantity!==null&&l.received<l.quantity&&!l.closedAs).map((l,i)=>{const remaining=(l.quantity??0)-l.received,checked=receipt.selectedLineIds.includes(l.id);return <tr key={l.id}>
