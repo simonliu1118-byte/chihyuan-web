@@ -92,6 +92,17 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
    await run(ctx,[audit(ctx,Number(result.meta.last_row_id),"source_created",{name,kind})]);
    return success({id:Number(result.meta.last_row_id)},requestId);
   }
+  if(path==="sources/reorder"&&method==="POST"){
+    const v=await body(request),ids=v.sourceIds;
+    if(!Array.isArray(ids)||!ids.length||ids.length>100||ids.some(x=>!Number.isSafeInteger(x)||Number(x)<1)||new Set(ids).size!==ids.length)
+      throw new Bad("ORDERING_INVALID","來源排序資料不正確");
+    const active=await rows<{id:number}>(ctx.db,"SELECT id FROM ordering_sources WHERE is_active=1 ORDER BY sort_order,id LIMIT 101");
+    if(active.length!==ids.length||active.some(x=>!ids.includes(x.id)))throw new Bad("ORDERING_VERSION_CONFLICT","來源清單已變動，請重新載入",409);
+    const statements=(ids as number[]).map((id,i)=>ctx.db.prepare("UPDATE ordering_sources SET sort_order=?,updated_at=? WHERE id=? AND is_active=1").bind(i*10,ctx.now,id));
+    statements.push(audit(ctx,0,"source_reordered",{count:ids.length}));
+    await run(ctx,statements);
+    return success({saved:true},requestId);
+   }
   let m=/^sources\/(\d+)$/.exec(path);
   if(m&&method==="PATCH"){const v=await body(request),id=int(Number(m[1]),"來源");const stm:string[]=[],args:unknown[]=[];
    for(const [key,col,max] of [["name","name",40],["conditions","conditions",500],["paymentTerms","payment_terms",200]] as const)if(key in v){stm.push(col+"=?");args.push(must(v[key],col,max))}
