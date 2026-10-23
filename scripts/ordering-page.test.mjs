@@ -39,7 +39,7 @@ try {
 const descendants = node => !node || typeof node !== "object" ? [] :
   [node, ...[node.props?.children].flat(Infinity).flatMap(descendants)];
 const text = node => typeof node === "string" ? node : Array.isArray(node) ? node.map(text).join("") : text(node?.props?.children ?? "");
-const sources = [{ id: 1, name: "測試來源甲", kind: "GENERAL", isActive: true }, { id: 2, name: "測試來源乙", kind: "GENERAL", isActive: true }];
+const sources = [{ id: 1, name: "測試來源甲", kind: "GENERAL", isActive: true }, { id: 2, name: "測試來源乙", kind: "GENERAL", isActive: true }, {id:3,name:"永全",kind:"VENDOR",isActive:true,sortOrder:2,conditions:"滿額免運",paymentTerms:"月結30天"}, {id:4,name:"其他",kind:"VENDOR",isActive:true,sortOrder:3,conditions:"",paymentTerms:""}];
 const order = sourceId => ({ id: sourceId * 10, sourceId, sourceName: sources[sourceId - 1].name, sourceKind: "GENERAL",
   status: "DRAFT", storedStatus: "DRAFT", version: 1, revision: 0, plannedSendDate: null, note: "", createdAt: "2026-10-21T00:00:00Z",
   sentAt: null, lines: [], receipts: [], revisions: [] });
@@ -50,6 +50,7 @@ function mount(transport) {
   globalThis.orderingPageTransport = async (url, options) => {
     const path = url.replace("/api/business/ordering", ""); calls.push({ path, ...options });
     if (path === "/sources") return sources;
+    if (path === "/preferences/vendors") return [];
     if (path === "/pending" || path.startsWith("/orders?history=")) return [];
     return transport(path, options);
   };
@@ -138,7 +139,7 @@ test("a selected zero receipt quantity is rejected rather than silently omitted"
 
 test("opening an existing draft needs only list and detail; initial history is not fetched twice", async () => {
   const page = mount(normalTransport); await page.tick();
-  assert.deepEqual(page.calls.map(x => x.path), ["/sources", "/pending"]);
+  assert.deepEqual(page.calls.map(x => x.path).sort(), ["/sources", "/pending", "/preferences/vendors"].sort());
   assert.equal(page.heading, "未到貨明細"); assert.deepEqual(page.selectedTabs, []);
   assert.equal(page.grid, undefined, "entering the module never loads or creates a draft");
   page.calls.length = 0; page.click("測試來源甲"); await page.tick();
@@ -216,4 +217,30 @@ test("header autosave failure is red and late input is not declared saved by an 
   assert.equal(text(page.saveStatus),"尚未儲存");assert.equal(page.headerInput("單據備註").value,"等待時又輸入");
   page.headerInput("單據備註").onBlur();await page.tick();replies[2].resolve({...order(1),version:3,note:"等待時又輸入"});await page.tick();
   assert.equal(text(page.saveStatus),"已儲存");
+});
+
+
+test("receipt dialog excludes fully received products and retains only outstanding rows",async()=>{
+ const sent=sentOrder(),done={...sent.lines[0],id:3,itemCode:"DONE",quantity:10,quantityText:"10",received:10};
+ const page=mount((path,options)=>path==="/orders/10"?{...sent,lines:[...sent.lines,done]}:normalTransport(path,options));
+ await page.tick();page.click("測試來源甲");await page.tick();page.click("登記到貨");
+ const dlg=page.nodes.find(n=>n.type?.name==="Dialog"&&n.props.title==="登記到貨");
+ const rows=descendants(dlg).filter(n=>n.type==="tr");
+ assert.equal(rows.length,3,"table header plus only two rows with remaining quantity");
+ assert.equal(descendants(dlg).some(n=>n.type==="td"&&text(n)==="DONE"),false,"completed line absent in receipt UI");
+});
+
+test("vendor overview uses searchable horizontal tabs with fixed Other and no item counts",async()=>{
+ const groups=[
+  {sourceId:3,sourceName:"永全",conditions:"滿額免運",paymentTerms:"月結30天",orderId:null,orderVersion:null,lines:[]},
+  {sourceId:4,sourceName:"其他",conditions:"",paymentTerms:"",orderId:null,orderVersion:null,lines:[]},
+ ];
+ const page=mount((path,options)=>path==="/vendors/overview"?groups:normalTransport(path,options));
+ await page.tick();page.click("廠商");await page.tick();
+ const vendorTabs=()=>page.nodes.filter(n=>n.props?.role==="tab"&&["永全","其他"].includes(text(n)));
+ assert.deepEqual(vendorTabs().map(text),["永全","其他"]);
+ assert.equal(vendorTabs().some(n=>/項/.test(text(n))),false);
+ const q=page.nodes.find(n=>n.props?.["aria-label"]==="速查廠商");
+ assert.ok(q);q.props.onChange({target:{value:"查無"}});page.render();
+ assert.deepEqual(vendorTabs().map(text),["其他"],"Other stays visible on right even with a no-match search");
 });

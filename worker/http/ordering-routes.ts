@@ -5,7 +5,7 @@ import {AuditService} from "../audit/audit-service";
 import {lineIsOpen,lineState,orderStatus,orderingLineHasName,parseErpPurchaseNo,parseQuantity,pickDraft,vendorItemKey,type OrderingStoredStatus} from "../../shared/ordering";
 
 type Context={db:D1Database;actor:number;name:string;now:string;requestId:string};
-type Source={id:number;name:string;kind:"GENERAL"|"VENDOR"|"CN_REGULAR"|"CN_CUSTOM";conditions:string;sort_order:number;is_active:number};
+type Source={id:number;name:string;kind:"GENERAL"|"VENDOR"|"CN_REGULAR"|"CN_CUSTOM";conditions:string;payment_terms:string;sort_order:number;is_active:number};
 type Ord={id:number;source_id:number;status:OrderingStoredStatus;planned_send_date:string|null;sent_at:string|null;note:string;version:number;revision:number;created_at:string;updated_at:string};
 type Line={id:number;order_id:number;section:string;sort_order:number;item_code:string;item_name:string;vendor_item_code:string;vendor_item_name:string;vendor_name_follows:number;spec:string;quantity_text:string;quantity:number|null;unit:string;note:string;closed_as:"SHORTAGE"|"CANCELLED"|"OTHER"|null;closed_note:string;received:number};
 const defaults:[string,Source["kind"],string][]=[
@@ -85,23 +85,60 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
  // Receipt requests track the commit/readback boundary; no retry or extra database query is introduced.
  const receiptPhase:{value:"preflight"|"persist"|"readback"|null}={value:/^orders\/\d+\/receipts$/.test(path)&&method==="POST"?"preflight":null};
  try{
-  if(path==="sources"&&method==="GET"){await init(ctx);const items=await rows<Source>(ctx.db,"SELECT * FROM ordering_sources ORDER BY sort_order,id LIMIT 101");if(items.length>100)throw new Bad("ORDERING_LIMIT","來源超過100筆",409);return success(items.map(x=>({id:x.id,name:x.name,kind:x.kind,conditions:x.conditions,sortOrder:x.sort_order,isActive:!!x.is_active})),requestId)}
+  if(path==="sources"&&method==="GET"){await init(ctx);const items=await rows<Source>(ctx.db,"SELECT * FROM ordering_sources ORDER BY sort_order,id LIMIT 101");if(items.length>100)throw new Bad("ORDERING_LIMIT","來源超過100筆",409);return success(items.map(x=>({id:x.id,name:x.name,kind:x.kind,conditions:x.conditions,paymentTerms:x.payment_terms,sortOrder:x.sort_order,isActive:!!x.is_active})),requestId)}
   if(path==="sources"&&method==="POST"){
    const v=await body(request),name=must(v.name,"來源",40),kind=v.kind==="VENDOR"?"VENDOR":"GENERAL";
-   const result=await ctx.db.prepare("INSERT INTO ordering_sources(name,kind,conditions,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?)").bind(name,kind,must(v.conditions??"","條件",500),Number(v.sortOrder??100),ctx.now,ctx.now).run();
+   const result=await ctx.db.prepare("INSERT INTO ordering_sources(name,kind,conditions,payment_terms,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?,?)").bind(name,kind,must(v.conditions??"","條件",500),must(v.paymentTerms??"","付款條件",200),Number(v.sortOrder??100),ctx.now,ctx.now).run();
    await run(ctx,[audit(ctx,Number(result.meta.last_row_id),"source_created",{name,kind})]);
    return success({id:Number(result.meta.last_row_id)},requestId);
   }
+  if(path==="sources/reorder"&&method==="POST"){
+    const v=await body(request),ids=v.sourceIds;
+    if(!Array.isArray(ids)||!ids.length||ids.length>100||ids.some(x=>!Number.isSafeInteger(x)||Number(x)<1)||new Set(ids).size!==ids.length)
+      throw new Bad("ORDERING_INVALID","來源排序資料不正確");
+    const active=await rows<{id:number}>(ctx.db,"SELECT id FROM ordering_sources WHERE is_active=1 ORDER BY sort_order,id LIMIT 101");
+    if(active.length!==ids.length||active.some(x=>!ids.includes(x.id)))throw new Bad("ORDERING_VERSION_CONFLICT","來源清單已變動，請重新載入",409);
+    const statements=(ids as number[]).map((id,i)=>ctx.db.prepare("UPDATE ordering_sources SET sort_order=?,updated_at=? WHERE id=? AND is_active=1").bind(i*10,ctx.now,id));
+    statements.push(audit(ctx,0,"source_reordered",{count:ids.length}));
+    await run(ctx,statements);
+    return success({saved:true},requestId);
+   }
   let m=/^sources\/(\d+)$/.exec(path);
   if(m&&method==="PATCH"){const v=await body(request),id=int(Number(m[1]),"來源");const stm:string[]=[],args:unknown[]=[];
-   for(const [key,col,max] of [["name","name",40],["conditions","conditions",500]] as const)if(key in v){stm.push(col+"=?");args.push(must(v[key],col,max))}
+   for(const [key,col,max] of [["name","name",40],["conditions","conditions",500],["paymentTerms","payment_terms",200]] as const)if(key in v){stm.push(col+"=?");args.push(must(v[key],col,max))}
    if("sortOrder" in v){stm.push("sort_order=?");args.push(Number(v.sortOrder))}
-   if("isActive" in v){stm.push("is_active=?");args.push(v.isActive?1:0)}
+   if("isActive" in v){
+    if(v.isActive===false){
+     // Hidden sources cannot be reached from the draft tabs; retain access to meaningful unsent work.
+     const draft=await one<{n:number}>(ctx.db,
+      "SELECT COUNT(*) AS n FROM ordering_orders o WHERE o.source_id=? AND o.status='DRAFT' AND (length(trim(o.note))>0 OR EXISTS(SELECT 1 FROM ordering_lines l WHERE l.order_id=o.id))",id);
+     if((draft?.n??0)>0)throw new Bad("ORDERING_INVALID","此來源仍有未送出的草稿內容，請先送出或清除草稿再隱藏");
+    }
+    stm.push("is_active=?");args.push(v.isActive?1:0)
+   }
    if(!stm.length)throw new Bad("ORDERING_INVALID","沒有變更");
    const changed=await ctx.db.prepare("UPDATE ordering_sources SET "+stm.join(",")+",updated_at=? WHERE id=?").bind(...args,ctx.now,id).run();
    if(!changed.meta.changes)throw new Bad("ORDERING_NOT_FOUND","來源不存在",404);
    await run(ctx,[audit(ctx,id,"source_updated",{fields:stm})]);return success({saved:true},requestId);
   }
+  if(path==="preferences/vendors"&&method==="GET"){
+    const pref=await one<{vendor_order_json:string}>(ctx.db,"SELECT vendor_order_json FROM ordering_user_preferences WHERE member_id=?",ctx.actor);
+    const ids=pref?JSON.parse(pref.vendor_order_json) as unknown:[];
+    return success(Array.isArray(ids)?ids.filter((x):x is number=>Number.isSafeInteger(x)&&x>0):[],requestId);
+   }
+   if(path==="preferences/vendors"&&method==="PUT"){
+    const v=await body(request);
+    if(!Array.isArray(v.sourceIds)||v.sourceIds.length>100||v.sourceIds.some(x=>!Number.isSafeInteger(x)||Number(x)<1)||new Set(v.sourceIds).size!==v.sourceIds.length)
+     throw new Bad("ORDERING_INVALID","廠商頁籤順序不正確");
+    const ids=v.sourceIds as number[];
+    if(ids.length){
+     const count=await one<{n:number}>(ctx.db,"SELECT COUNT(*) AS n FROM ordering_sources WHERE kind='VENDOR' AND is_active=1 AND id IN ("+ids.map(()=>"?").join(",")+")",...ids);
+     if(count?.n!==ids.length)throw new Bad("ORDERING_INVALID","廠商頁籤包含無效或已隱藏的來源");
+    }
+    await ctx.db.prepare("INSERT INTO ordering_user_preferences(member_id,vendor_order_json,updated_at) VALUES(?,?,?) ON CONFLICT(member_id) DO UPDATE SET vendor_order_json=excluded.vendor_order_json,updated_at=excluded.updated_at")
+     .bind(ctx.actor,JSON.stringify(ids),ctx.now).run();
+    return success({saved:true},requestId);
+   }
   if(path==="vendors/overview"&&method==="GET"){
    await init(ctx);
    const sources=await rows<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE kind='VENDOR' AND is_active=1 ORDER BY sort_order,id LIMIT 101");
@@ -115,7 +152,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
    const lines=ids.length?await rows<Line>(ctx.db,
     "SELECT l.*,0 received FROM ordering_lines l WHERE l.order_id IN ("+ids.map(()=>"?").join(",")+") ORDER BY l.order_id,l.section,l.sort_order,l.id LIMIT 2501",...ids):[];
    if(lines.length>2500)throw new Bad("ORDERING_LIMIT","廠商合併明細超過2500列",409);
-   return success(selection.map(x=>({sourceId:x.source.id,sourceName:x.source.name,conditions:x.source.conditions,orderId:x.order?.id??null,orderVersion:orders.find(o=>o.id===x.order?.id)?.version??null,
+   return success(selection.map(x=>({sourceId:x.source.id,sourceName:x.source.name,conditions:x.source.conditions,paymentTerms:x.source.payment_terms,orderId:x.order?.id??null,orderVersion:orders.find(o=>o.id===x.order?.id)?.version??null,
     lines:lines.filter(l=>l.order_id===x.order?.id).map(l=>({id:l.id,section:l.section,sortOrder:l.sort_order,itemCode:l.item_code,itemName:l.item_name,vendorItemCode:l.vendor_item_code,vendorItemName:l.vendor_item_name,spec:l.spec,quantityText:l.quantity_text,quantity:l.quantity,unit:l.unit,note:l.note}))})),requestId);
   }
   if(path==="orders"&&method==="GET"){

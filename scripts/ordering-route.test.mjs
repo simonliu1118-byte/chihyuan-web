@@ -83,6 +83,11 @@ test("manual vendor memory is reused, ERP sales item fills blanks and source dis
   other=(await call("/orders/"+other.id+"/lines","POST",{expectedVersion:other.version,line:{itemCode:"CODE01",itemName:"",vendorItemCode:"",vendorItemName:"",quantityText:"2"}})).body.data;
   assert.equal(other.lines[0].itemName,"測試品名甲");assert.equal(other.lines[0].unit,"箱");
   assert.equal(other.lines[0].vendorItemCode,"V01");assert.equal(other.lines[0].vendorItemName,"測試廠商品名甲");
+  assert.equal((await call("/sources/"+sourceId,"PATCH",{isActive:false})).status,422,"populated drafts cannot be stranded by hiding");
+  const sentFirst=await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version});
+  const sentSecond=await call("/orders/"+other.id+"/send","POST",{expectedVersion:other.version});
+  assert.equal(sentFirst.status,200,JSON.stringify(sentFirst.body));
+  assert.equal(sentSecond.status,200,JSON.stringify(sentSecond.body));
   assert.equal((await call("/sources/"+sourceId,"PATCH",{isActive:false})).status,200);
   assert.equal((await call("/orders/"+o.id)).status,200,"inactive source must retain history");
  }finally{sql.close()}
@@ -242,5 +247,42 @@ test("receipt preflight rejection is preserved and does not create a receipt",as
   assert.equal(response.status,422);
   assert.equal(response.body.error.code,"ORDERING_INVALID");
   assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_receipts").get().n,0);
+ }finally{sql.close()}
+});
+
+
+test("source payment terms, soft-hide, atomic shared sort and personal vendor order survive reloads",async()=>{
+ const {sql,call}=fixture();try{
+  const sources=(await call("/sources")).body.data;
+  const vendor=sources.find(x=>x.name==="永全"),internal=sources.find(x=>x.name==="台北");
+  assert.equal(vendor.paymentTerms,"");
+  const paid=await call("/sources/"+vendor.id,"PATCH",{paymentTerms:"月結30天"});
+  assert.equal(paid.status,200,JSON.stringify(paid.body));
+  assert.equal((await call("/sources")).body.data.find(x=>x.id===vendor.id).paymentTerms,"月結30天");
+  const invalid=await call("/sources/"+vendor.id,"PATCH",{paymentTerms:"X".repeat(201)});
+  assert.equal(invalid.status,422);
+  const orderIds=sources.filter(x=>x.kind==="VENDOR"&&x.name!=="其他").slice(0,3).map(x=>x.id).reverse();
+  const saved=await call("/preferences/vendors","PUT",{sourceIds:orderIds});
+  assert.equal(saved.status,200,JSON.stringify(saved.body));
+  assert.deepEqual((await call("/preferences/vendors")).body.data,orderIds);
+  assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_user_preferences").get().n,1);
+  assert.equal((await call("/preferences/vendors","PUT",{sourceIds:[vendor.id,vendor.id]})).status,422);
+  assert.equal((await call("/preferences/vendors","PUT",{sourceIds:[internal.id]})).status,422);
+  const all=sources.map(x=>x.id).reverse();
+  const sorted=await call("/sources/reorder","POST",{sourceIds:all});
+  assert.equal(sorted.status,200,JSON.stringify(sorted.body));
+  assert.deepEqual((await call("/sources")).body.data.map(x=>x.id),all);
+  assert.deepEqual((await call("/preferences/vendors")).body.data,orderIds,"shared sort does not overwrite personal preferences");
+  let existing=(await call("/orders","POST",{sourceId:vendor.id})).body.data;
+  existing=(await call("/orders/"+existing.id+"/lines","POST",{expectedVersion:existing.version,line:{vendorItemName:"測試廠商品名",quantityText:"1"}})).body.data;
+  const blocked=await call("/sources/"+vendor.id,"PATCH",{isActive:false});
+  assert.equal(blocked.status,422,"a hidden tab must not strand meaningful unsent drafts");
+  assert.match(blocked.body.error.message,/草稿/);
+  existing=(await call("/orders/"+existing.id+"/send","POST",{expectedVersion:existing.version})).body.data;
+  assert.equal((await call("/sources/"+vendor.id,"PATCH",{isActive:false})).status,200);
+  assert.equal((await call("/orders/"+existing.id)).status,200,"hiding source retains historical orders");
+  assert.equal((await call("/orders","POST",{sourceId:vendor.id})).status,422,"hidden source cannot create fresh drafts");
+  assert.equal((await call("/sources/"+vendor.id,"PATCH",{isActive:true})).status,200);
+  assert.equal((await call("/orders","POST",{sourceId:vendor.id})).status,200,"restored source can create drafts again");
  }finally{sql.close()}
 });

@@ -71,7 +71,7 @@ function mount(kind = "GENERAL", lines = [], options = {}) {
     } while (dirty);
   }
   function input(row, field) {
-    return descendants(tree).find(node => node.type === "input" &&
+    return descendants(tree).find(node => (node.type === "input" || node.type === "textarea") &&
       node.props["data-order-row"] === row && node.props["data-order-field"] === field);
   }
   function flush() { render(); while (frames.length) frames.shift()(); }
@@ -90,7 +90,7 @@ function mount(kind = "GENERAL", lines = [], options = {}) {
     get editor() { return editor; }, get state() { return state; },
     rowKey(id) { return descendants(tree).find(n => n.type === "tr" && descendants(n).some(child => child.props?.["data-order-row"] === id))?.key; },
     get focused() { return focused; },
-    get rowIds() { return [...new Set(descendants(tree).filter(n => n.type === "input").map(n => n.props["data-order-row"]))]; } };
+    get rowIds() { return [...new Set(descendants(tree).filter(n => n.type === "input" || n.type === "textarea").map(n => n.props["data-order-row"]))]; } };
 }
 test.afterEach(() => { delete globalThis.orderingGridHookHost; delete globalThis.requestAnimationFrame; });
 
@@ -246,13 +246,25 @@ test("completely empty trailing rows, including cleared input, never save or blo
   assert.equal(grid.state.dirty,false);assert.equal(await grid.editor.flush(),true);assert.equal(grid.commits.length,0);
 });
 
+test("editable product name, vendor name and note use wrapping controls without changing Enter traversal", () => {
+ const grid=mount();
+ for(const field of ["itemName","vendorItemName","note"]){
+  assert.equal(grid.input(-1,field).type,"textarea",field+" permits wrapping in draft");
+ }
+ grid.change(-1,"itemName","很長的商品名稱不用省略號，應該在欄內顯示完整文字");
+ assert.equal(grid.press(-1,"itemName"),true);
+ assert.deepEqual(grid.focused,{row:-1,field:"vendorItemCode"});
+});
+
 test("sent table contains only persisted rows, received quantities and accessible arrival markers", () => {
   const base={section:"",sortOrder:0,itemCode:"T001",itemName:"測試商品",vendorItemCode:"",vendorItemName:"",spec:"",quantityText:"10",quantity:10,unit:"箱",note:""};
   const grid=mount("GENERAL",[{...base,id:1,received:10},{...base,id:2,received:4},{...base,id:3,received:0}],{readOnly:true});
   assert.equal(grid.nodes.filter(n=>n.type==="tr").length,4);
   assert.deepEqual(grid.rowIds,[]);assert.equal(grid.editor,null);
   assert.equal(grid.nodes.some(n=>n.type?.name==="IconButton"),false);
-  assert.deepEqual(grid.nodes.filter(n=>n.props?.role==="img").map(n=>n.props["aria-label"]),["已到貨","部分到貨"]);
+  assert.deepEqual(grid.nodes.filter(n=>typeof n.props?.className==="string"&&n.props.className.includes("cy-ordering-status-chip")).map(n=>n.props.children),["已到齊","部分到貨","待到貨"]);
+  assert.equal(grid.nodes.some(n=>n.type==="th"&&n.props.children==="狀態"),true);
+  assert.equal(grid.nodes.filter(n=>typeof n.props?.className==="string"&&n.props.className.includes("cy-ordering-wrap")).length,9,"each readonly row wraps item name, vendor name and notes without ellipsis");
   assert.equal(grid.nodes.some(n=>n.type==="th"&&n.props.children==="已到數量"),true);
   assert.equal(grid.nodes.some(n=>n.type==="th"&&n.props.children==="操作"),false);
 });
