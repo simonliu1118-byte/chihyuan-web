@@ -165,7 +165,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
    if(!action&&method==="GET")return success(await getOrder(ctx,id,o),requestId);
    const v=await body(request),expected=int(v.expectedVersion,"版本");if(expected!==o.version)throw new Bad("ORDERING_VERSION_CONFLICT","已被其他人修改，請重新載入",409);
    if(!action&&method==="PATCH"){
-    if(o.status==="VOID")throw new Bad("ORDERING_INVALID","單據已作廢");
+    if(o.status!=="DRAFT")throw new Bad("ORDERING_INVALID","只有草稿可修改，已送出或作廢的叫貨單為唯讀",409);
     const sets:string[]=[],vals:unknown[]=[],history:string[]=[];
     if("plannedSendDate" in v){
      const next=v.plannedSendDate?date(v.plannedSendDate):null;
@@ -193,7 +193,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     return success(await mutate(ctx,o,expected,[ctx.db.prepare("UPDATE ordering_orders SET status='VOID' WHERE id=?").bind(id)],"單據作廢","voided"),requestId);
    }
    if(action==="lines"&&method==="POST"){
-    if(o.status==="VOID")throw new Bad("ORDERING_INVALID","已作廢");
+    if(o.status!=="DRAFT")throw new Bad("ORDERING_INVALID","只有草稿可修改，已送出或作廢的叫貨明細為唯讀",409);
     const input=String(v.operation??"save"),lineId=v.lineId?int(v.lineId,"明細"):null;
     let old:Line|null=null;if(lineId){old=await one<Line>(ctx.db,"SELECT * FROM ordering_lines WHERE id=? AND order_id=?",lineId,id);if(!old)throw new Bad("ORDERING_NOT_FOUND","找不到明細",404)}
     if(input==="delete"){if(!old)throw new Bad("ORDERING_INVALID","沒有選擇明細");

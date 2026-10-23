@@ -20,7 +20,7 @@ const stubs = {
   "../../ui/foundation/useUnsavedChangesGuard": `export const useUnsavedChangesGuard=options=>{globalThis.orderingPageGuard=options};`,
 };
 for (const [path, names] of [
-  ["../../ui/forms/Field", ["Field", "CheckField", "FormSection"]],
+  ["../../ui/forms/Field", ["Field", "CheckField", "FormSection", "RequiredRows"]],
   ["../../ui/data/StatusFilter", ["StatusFilter"]], ["../../ui/primitives/StatusChip", ["StatusChip"]],
   ["../../ui/overlays/Dialog", ["Dialog"]],
 ]) stubs[path] = names.map(name => `export const ${name}=()=>null;`).join("\n");
@@ -70,6 +70,7 @@ function mount(transport) {
     async tick() { await new Promise(resolve => setImmediate(resolve)); render(); },
     click(label) { const node = descendants(tree).find(n => n.type === "button" && text(n) === label); assert.ok(node, `button ${label}`); node.props.onClick(); render(); },
     get grid() { return descendants(tree).find(n => n.type?.name === "OrderingGrid")?.props; },
+    get nodes() { return descendants(tree); },
     get heading() { return text(descendants(tree).find(n => n.type === "h2")); },
     get selectedTabs() { return descendants(tree).filter(n => n.props?.role === "tab" && n.props["aria-selected"]).map(text); },
     get saveStatus() { const node = descendants(tree).find(n => n.type?.name === "OrderingSaveStatus"); return node ? node.type(node.props) : null; },
@@ -84,6 +85,56 @@ test.afterEach(() => {
 });
 const normalTransport = (path, options) => path.startsWith("/orders?sourceId=") ? [order(Number(new URLSearchParams(path.split("?")[1]).get("sourceId")))] :
   path === "/orders" && options.method === "POST" ? order(options.json.sourceId) : order(Number(path.split("/")[2]) / 10);
+
+const sentOrder=()=>({...order(1),storedStatus:"SENT",status:"PARTIAL",sentAt:"2026-10-23T01:00:00Z",revision:2,
+ lines:[1,2].map(id=>({id,section:"",sortOrder:id,itemCode:"T00"+id,itemName:"測試商品"+id,vendorItemCode:"V00"+id,vendorItemName:"測試廠商品名"+id,quantityText:"10",quantity:10,received:id===1?4:0,closedAs:null,unit:"箱",note:""})),
+ receipts:[{id:1,erpPurchaseNo:"341A-20261023001",receivedDate:"2026-10-23",lines:[]}],
+ revisions:[{revision:2,at:"2026-10-23T01:00:00Z",by:"測試員工",summary:"測試到貨"}]});
+
+test("sent order puts receipts first, merges status into the readonly grid and removes draft header fields", async()=>{
+ const page=mount((path,options)=>path==="/orders/10"?sentOrder():normalTransport(path,options));
+ await page.tick();page.click("測試來源甲");await page.tick();
+ assert.equal(page.grid.readOnly,true);assert.equal(page.grid.busy,false);
+ assert.deepEqual(page.nodes.filter(n=>n.type==="h3").map(n=>text(n).replace(/\s*(?:\d+)?\s*(筆|項)/g,"")),["到貨紀錄","叫貨明細","修改紀錄展開"]);
+ assert.equal(page.nodes.some(n=>n.type==="form"),false);
+ assert.equal(page.nodes.some(n=>n.props?.label==="草稿"),false);
+ assert.equal(page.nodes.some(n=>n.type==="button"&&text(n)==="作廢"),true);
+});
+
+test("receipt table selects several rows with remaining defaults, preserving the multiline payload", async()=>{
+ const calls=[];
+ const page=mount((path,options)=>{if(path.endsWith("/receipts")){calls.push(options.json);return sentOrder()}
+  return path==="/orders/10"?sentOrder():normalTransport(path,options)});
+ await page.tick();page.click("測試來源甲");await page.tick();page.click("登記到貨");
+ const dialog=()=>page.nodes.find(n=>n.type?.name==="Dialog"&&n.props.title==="登記到貨");
+ assert.equal(descendants(dialog()).filter(n=>n.type==="table").length,1);
+ const no=descendants(dialog()).find(n=>n.props?.label==="ERP 進貨單號 341A-").props.children.props;
+ no.onChange({target:{value:"20261023002"}});page.render();
+ for(let i=0;i<2;i++){
+  descendants(dialog()).filter(n=>n.type?.name==="CheckField")[i].props.onChange({target:{checked:true}});page.render();
+ }
+ assert.equal(descendants(dialog()).find(n=>n.type?.name==="RequiredRows").props.satisfied,true);
+ await descendants(dialog()).find(n=>n.type==="form").props.onSubmit({preventDefault(){}});await page.tick();
+ assert.deepEqual(calls[0].lines,[{lineId:1,quantity:6},{lineId:2,quantity:10}]);
+ assert.equal(dialog(),undefined);
+});
+
+test("receipt history is absent when no receipts exist", async()=>{
+ const page=mount((path,options)=>path==="/orders/10"?{...sentOrder(),receipts:[]}:normalTransport(path,options));
+ await page.tick();page.click("測試來源甲");await page.tick();
+ assert.equal(page.nodes.some(n=>n.props?.["aria-label"]==="到貨紀錄"),false);
+});
+
+test("a selected zero receipt quantity is rejected rather than silently omitted", async()=>{
+ const page=mount((path,options)=>path==="/orders/10"?sentOrder():normalTransport(path,options));
+ await page.tick();page.click("測試來源甲");await page.tick();page.click("登記到貨");
+ const dialog=()=>page.nodes.find(n=>n.type?.name==="Dialog"&&n.props.title==="登記到貨");
+ descendants(dialog()).filter(n=>n.type?.name==="CheckField")[0].props.onChange({target:{checked:true}});page.render();
+ descendants(dialog()).find(n=>n.props?.label==="本次到貨數量 第1列").props.children.props.onChange({target:{value:"0"}});page.render();
+ await descendants(dialog()).find(n=>n.type==="form").props.onSubmit({preventDefault(){}});await page.tick();
+ assert.match(globalThis.orderingPageErrors.at(-1),/大於 0/);
+ assert.equal(page.calls.some(call=>call.path.endsWith("/receipts")),false);assert.ok(dialog());
+});
 
 test("opening an existing draft needs only list and detail; initial history is not fetched twice", async () => {
   const page = mount(normalTransport); await page.tick();

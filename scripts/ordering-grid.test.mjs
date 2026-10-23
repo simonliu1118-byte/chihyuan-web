@@ -28,7 +28,7 @@ function descendants(node) {
   if (!node || typeof node !== "object") return [];
   return [node, ...[node.props?.children].flat(Infinity).flatMap(descendants)];
 }
-function mount(kind = "GENERAL", lines = []) {
+function mount(kind = "GENERAL", lines = [], options = {}) {
   const slots = [], frames = [], commits = [], settlements = [];
   let cursor = 0, dirty = true, effects = [], tree, focused, editor, state;
   const props = { kind, section: kind === "CN_REGULAR" ? "SINGLE" : "", lines, busy: false,
@@ -39,7 +39,7 @@ function mount(kind = "GENERAL", lines = []) {
         props.lines = [...props.lines.filter(line => line.id !== saved.id), saved];
         dirty = true; resolve(saved);
       }, reject }));
-    } };
+    }, ...options };
   const host = {
     useRef(value) { const i = cursor++; return slots[i] ??= { current: value }; },
     useState(value) {
@@ -85,7 +85,8 @@ function mount(kind = "GENERAL", lines = []) {
   }
   render();
   return { change, press, flush, input, commits, settlements,
-    click(label) { const node=descendants(tree).find(n=>n.type==="button"&&(n.props["aria-label"]===label||n.props.children===label)); assert.ok(node,`button ${label}`);node.props.onClick();render(); },
+    click(label) { const node=descendants(tree).find(n=>(n.type==="button"||n.type?.name==="IconButton")&&(n.props["aria-label"]===label||n.props.label===label||n.props.children===label)); assert.ok(node,`button ${label}`);node.props.onClick();render(); },
+    get nodes() { return descendants(tree); },
     get editor() { return editor; }, get state() { return state; },
     rowKey(id) { return descendants(tree).find(n => n.type === "tr" && descendants(n).some(child => child.props?.["data-order-row"] === id))?.key; },
     get focused() { return focused; },
@@ -229,10 +230,29 @@ for (const [kind, fields] of Object.entries({
   saved.press(101, "note"); assert.deepEqual(saved.focused, { row: -1, field: "itemCode" });
 });
 
-test("row action saves participate in header state and navigation flush", async () => {
+test("delete icon participates in header state and navigation flush without a reorder menu", async () => {
   const line=id=>({id,section:"",sortOrder:id,itemCode:"T00"+id,itemName:"測試商品",vendorItemCode:"",vendorItemName:"",spec:"",quantityText:"2",unit:"箱",note:""});
-  const grid=mount("GENERAL",[line(1),line(2)]);
-  grid.click("第1列操作");grid.click("下移");assert.equal(grid.state.saving,true);assert.equal(grid.commits[0].patch.sortOrder,3);
+  let finish;const deleted=[];
+  const grid=mount("GENERAL",[line(1),line(2)],{onDelete:row=>{deleted.push(row.id);return new Promise(resolve=>{finish=resolve})}});
+  grid.click("刪除第1列");assert.equal(grid.state.saving,true);assert.deepEqual(deleted,[1]);assert.equal(grid.commits.length,0);
   let done=false;const saving=grid.editor.flush().then(okay=>{done=true;return okay;});await tick(grid);assert.equal(done,false);
-  acknowledge(grid,0);await tick(grid);assert.equal(await saving,true);assert.equal(grid.state.saving,false);
+  finish();await tick(grid);assert.equal(await saving,true);assert.equal(grid.state.saving,false);
+  assert.equal(grid.nodes.some(n=>n.type==="button"&&["上移","下移","⋮"].includes(n.props.children)),false);
+});
+
+test("completely empty trailing rows, including cleared input, never save or block send flush", async () => {
+  const grid=mount();grid.change(-1,"vendorItemName"," ");grid.change(-1,"vendorItemName","");
+  grid.press(-1,"note");assert.deepEqual(grid.rowIds,[-1,-2]);
+  assert.equal(grid.state.dirty,false);assert.equal(await grid.editor.flush(),true);assert.equal(grid.commits.length,0);
+});
+
+test("sent table contains only persisted rows, received quantities and accessible arrival markers", () => {
+  const base={section:"",sortOrder:0,itemCode:"T001",itemName:"測試商品",vendorItemCode:"",vendorItemName:"",spec:"",quantityText:"10",quantity:10,unit:"箱",note:""};
+  const grid=mount("GENERAL",[{...base,id:1,received:10},{...base,id:2,received:4},{...base,id:3,received:0}],{readOnly:true});
+  assert.equal(grid.nodes.filter(n=>n.type==="tr").length,4);
+  assert.deepEqual(grid.rowIds,[]);assert.equal(grid.editor,null);
+  assert.equal(grid.nodes.some(n=>n.type?.name==="IconButton"),false);
+  assert.deepEqual(grid.nodes.filter(n=>n.props?.role==="img").map(n=>n.props["aria-label"]),["已到貨","部分到貨"]);
+  assert.equal(grid.nodes.some(n=>n.type==="th"&&n.props.children==="已到數量"),true);
+  assert.equal(grid.nodes.some(n=>n.type==="th"&&n.props.children==="操作"),false);
 });
