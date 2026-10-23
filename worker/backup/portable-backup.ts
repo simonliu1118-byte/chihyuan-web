@@ -9,7 +9,8 @@ const EPHEMERAL_TABLES = ["erp_item_queries", "erp_item_agent_status", "erp_item
   "erp_sales_daily", "erp_sales_days", "erp_sales_items",
   // WO-0.9.26: the portable backup currently limits all rows to 500; temporarily exclude ordering until capacity expansion.
   "ordering_sources", "ordering_orders", "ordering_lines", "ordering_receipts", "ordering_receipt_lines",
-  "ordering_vendor_items", "ordering_item_last_source", "ordering_revisions"] as const;
+  // Personal vendor tab preference refers to ordering_sources, excluded until portable backup expansion.
+  "ordering_vendor_items", "ordering_item_last_source", "ordering_revisions", "ordering_user_preferences"] as const;
 const ALL_TABLES = [...BACKUP_TABLES, "backup_copies", "backup_sets", ...EPHEMERAL_TABLES].sort();
 // Newly migrated D1 has canonical HR reference rows before any operator data.
 // Allow only these *unaltered* migration fixtures as a fresh restore destination.
