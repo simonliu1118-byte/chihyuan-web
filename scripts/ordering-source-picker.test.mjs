@@ -24,6 +24,7 @@ const sources=[
  {id:8,name:"已停用廠商",kind:"VENDOR",isActive:false}
 ];
 function mount({allowAll=false,includeHidden=false}={}){
+ globalThis.document={addEventListener(){},removeEventListener(){}};
  let cursor=0,dirty=true,tree,effects=[],value=0;
  const slots=[],changed=[];
  const host={
