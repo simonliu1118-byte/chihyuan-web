@@ -263,8 +263,9 @@ export function OrderingPage(){
  }
  async function updateVisibility(s:OrderingSource){
   if(s.isActive&&!await confirm({title:"隱藏叫貨來源",description:"隱藏「"+s.name+"」後不再提供建立新叫貨單；歷史紀錄和到貨資料會保留。",confirmLabel:"隱藏來源"}))return;
+  if(!await prepareSwitch())return;
   setBusy(true);
-  try{await call("/sources/"+s.id,"PATCH",{isActive:!s.isActive});await refresh();setNotice(s.isActive?"來源已隱藏，歷史單保留":"來源已恢復")}
+  try{await call("/sources/"+s.id,"PATCH",{isActive:!s.isActive});await refresh();setNotice(s.isActive?"來源已隱藏，歷史單保留":"來源已恢復");if(vendorAll){const groups=await call<VendorGroup[]>("/vendors/overview");setVendorOverview(groups);setVendorSelected(prev=>groups.some(v=>v.sourceId===prev)?prev:groups[0]?.sourceId??null)}}
   catch(e){setError(errorOf(e))}finally{setBusy(false)}
  }
  async function changeSharedOrder(id:number,step:number){
@@ -386,7 +387,7 @@ export function OrderingPage(){
         <button type="button" className="cy-op-button compact quiet" onClick={()=>void createDraft(current.sourceId)}>＋ 新草稿</button>
       </div>:null}
       {sources.find(x=>x.id===current.sourceId)?.kind==="VENDOR"?<p className="cy-ordering-vendor-note">廠商條件：<strong className="cy-ordering-vendor-condition">{sources.find(x=>x.id===current.sourceId)?.conditions||"未設定"}</strong>
-       <button type="button" className="cy-op-button compact quiet" onClick={()=>{const s=sources.find(x=>x.id===current.sourceId);if(s)setSourceForm({id:s.id,kind:"VENDOR",name:s.name,conditions:s.conditions,sortOrder:s.sortOrder,isActive:s.isActive})}}>修改</button></p>:null}
+       <button type="button" className="cy-op-button compact quiet" onClick={()=>{const s=sources.find(x=>x.id===current.sourceId);if(s)setSourceForm({id:s.id,kind:"VENDOR",name:s.name,conditions:s.conditions,paymentTerms:s.paymentTerms,sortOrder:s.sortOrder})}}>修改</button></p>:null}
       {editable?<form onKeyDown={enterAdvancesFields} onSubmit={e=>{e.preventDefault();if(headerDirty.date)void saveHeader("date");if(headerDirty.note)void saveHeader("note")}}>
        <FormSection>
         <Field label="預計送出日期" size="s"><input type="date" className="cy-op-input" max="9999-12-31" disabled={!editable} value={current.plannedSendDate??""} onChange={e=>{headerEditRevisions.current.date++;headerDirtyRef.current={...headerDirtyRef.current,date:true};setHeaderDirty(v=>({...v,date:true}));setSelected(v=>v?{...v,plannedSendDate:e.target.value||null}:v)}} onBlur={()=>void saveHeader("date")}/></Field>
