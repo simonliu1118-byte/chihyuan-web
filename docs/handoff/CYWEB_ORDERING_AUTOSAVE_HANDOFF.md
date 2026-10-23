@@ -1,5 +1,21 @@
 # CYWEB 叫貨修正交接給 Claude
 
+
+## 2026-10-24 CYWEB V0.9.34 正式合併與受控部署結案（當前狀態）
+
+**使用者 2026-10-24 已明確批准「可合併部署」。已完成 PR #276 合併、原 Worker 正式發布及部署後權威稽核。以下是本版本最新權威紀錄；下方 V0.9.34 開發段落內「待審查／未部署／尚未批准」只是工作時點的歷史快照，不代表現在狀態。**
+
+- **版本／來源**：`VERSION=0.9.34`、`BUILD=0`。PR [#276](https://github.com/simonliu1118-byte/chihyuan-web/pull/276) 由使用者授權合併至 `main`；merge SHA `b924d9891c4befb73e1f4fe326b29aadbddab03c`，審查提交 `073d507be4167c4951ce3e401d2d8eaf4498f2bd`。
+- **PR 必要檢查**：對 `073d507b` 的 [Governance #39982394605](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39982394605)、[Runtime #39982394697](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39982394697)、[CY Web Deploy 契約檢查 #39982394843](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39982394843) 均 `success`。
+- **正式部署**：沿用 **原本** `deploy/cyweb-development` 發布分支、environment／Worker／D1，保留原父提交 `5d5dc51748a0880f0d34e497f346b565803b8f2b`，新增受控 deploy merge commit `5af960b87eab012af2c50cd97f4b55b220a18c80`，第二 parent 為已審核 `main` merge commit；其 Git tree `cc9e779f29361f4e580a6ca47320bde075053f16` 與合併後當時 `main` 相同。**沒有 force-push／建立新 Worker、D1 或部署分支替代品。**
+- **部署結果**：[CY Web Deploy GitHub Actions #40008521753](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40008521753) `validate-deployment-contract=success`、`deploy-development=success`；執行於 2026-10-24 03:04–03:06（Asia/Taipei）。Cloudflare 發布現有 `cyweb-dev` 與正式自訂網域 `https://admin.chihyuancm.com`；原 Custom Domain、workers.dev fallback、HTTPS 與部署健康驗證通過。
+- **D1**：遠端 migrations log 明確顯示 `✅ No migrations to apply!`。V0.9.34 不新增 forward migration；沿用 V0.9.33 既有的 ordering schema（含 `0024`），沒有執行 Schema 變更、沒有進行人工真實業務資料操作。
+- **正式 CYID 權威稽核**：production audit 確認 `canonicalProductionProviderVerified=true`、`portalUsesCanonicalProductionIdentity=true`、`productionPortalReady=true`、`healthMatchesRuntime=true`、`identityDatabasesSeparated=true`、`failureCode=null`、`mutationPerformed=false`。
+- **本輪已發行內容**：不完整明細草稿在 D1 保存、停打 900ms／blur／Enter／flush／手動儲存；正式送出仍須完整品名與數量，空白 phantom row 不存；共用兩層可打字搜尋來源選擇器（含中國貨來源）、進貨輔助加入叫貨單防誤關閉及單位欄位、左側日期與來源篩選修正、共用 Loading、已隱藏來源列表與恢復操作，以及預設單行／隨內容增高的文字輸入區。
+- **未完成項目／風險**：部署與自動測試通過**不等於有權限帳號的人員已完成 UI 驗收**。Claude／使用者後續仍需實機檢查：只填品號的未完成草稿停打或失焦後重開仍在；連續輸入＋切來源不漏寫／不複製列；無效草稿擋送出；兩類中國貨專屬區段與進貨輔助新增操作；雙層搜尋與行動版位置；單位／隱藏恢復／歷史來源篩選；不可在正式站為了測試而重送到貨或建立未授權的真實訂單。
+- **文件整合**：下方 V0.9.33 的開發階段段落亦有歷史「未合併／未部署」字樣，請以下兩節正式結案優先；另有文件整理 PR #273 時，後續合併 `TODO.md` 要保留 V0.9.34 結案更新，不得覆蓋。
+
+
 ## V0.9.34 — GPT 第二輪叫貨介面與草稿儲存修正（2026-10-23，待審查／未部署）
 
 使用者同意本輪直接實作，但**尚未批准本 PR 合併或正式部署**。以當時最新 `main` `0da4d35a0d9b92e415b3e1fc524dd2443678c16c` 開分支 `cyweb/fix-ordering-draft-save-picker-20261023`；版本預計 V0.9.34。與上節 V0.9.33 已部署結案區分，正式站仍為已發布版本。
