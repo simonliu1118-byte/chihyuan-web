@@ -244,3 +244,35 @@ test("receipt preflight rejection is preserved and does not create a receipt",as
   assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_receipts").get().n,0);
  }finally{sql.close()}
 });
+
+
+test("source payment terms, soft-hide, atomic shared sort and personal vendor order survive reloads",async()=>{
+ const {sql,call}=fixture();try{
+  const sources=(await call("/sources")).body.data;
+  const vendor=sources.find(x=>x.name==="永全"),internal=sources.find(x=>x.name==="台北");
+  assert.equal(vendor.paymentTerms,"");
+  const paid=await call("/sources/"+vendor.id,"PATCH",{paymentTerms:"月結30天"});
+  assert.equal(paid.status,200,JSON.stringify(paid.body));
+  assert.equal((await call("/sources")).body.data.find(x=>x.id===vendor.id).paymentTerms,"月結30天");
+  const invalid=await call("/sources/"+vendor.id,"PATCH",{paymentTerms:"X".repeat(201)});
+  assert.equal(invalid.status,422);
+  const orderIds=sources.filter(x=>x.kind==="VENDOR"&&x.name!=="其他").slice(0,3).map(x=>x.id).reverse();
+  const saved=await call("/preferences/vendors","PUT",{sourceIds:orderIds});
+  assert.equal(saved.status,200,JSON.stringify(saved.body));
+  assert.deepEqual((await call("/preferences/vendors")).body.data,orderIds);
+  assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_user_preferences").get().n,1);
+  assert.equal((await call("/preferences/vendors","PUT",{sourceIds:[vendor.id,vendor.id]})).status,422);
+  assert.equal((await call("/preferences/vendors","PUT",{sourceIds:[internal.id]})).status,422);
+  const all=sources.map(x=>x.id).reverse();
+  const sorted=await call("/sources/reorder","POST",{sourceIds:all});
+  assert.equal(sorted.status,200,JSON.stringify(sorted.body));
+  assert.deepEqual((await call("/sources")).body.data.map(x=>x.id),all);
+  assert.deepEqual((await call("/preferences/vendors")).body.data,orderIds,"shared sort does not overwrite personal preferences");
+  const existing=(await call("/orders","POST",{sourceId:vendor.id})).body.data;
+  assert.equal((await call("/sources/"+vendor.id,"PATCH",{isActive:false})).status,200);
+  assert.equal((await call("/orders/"+existing.id)).status,200,"hiding source retains historical orders");
+  assert.equal((await call("/orders","POST",{sourceId:vendor.id})).status,422,"hidden source cannot create fresh drafts");
+  assert.equal((await call("/sources/"+vendor.id,"PATCH",{isActive:true})).status,200);
+  assert.equal((await call("/orders","POST",{sourceId:vendor.id})).status,200,"restored source can create drafts again");
+ }finally{sql.close()}
+});
