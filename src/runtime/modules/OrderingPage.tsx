@@ -21,7 +21,7 @@ const displayDate=(value:string|null|undefined)=>orderingTaipeiDateTime(value)?.
 const displayTime=(value:string|null|undefined)=>{const p=orderingTaipeiDateTime(value);return p?p.date+" "+p.time:""};
 const errorOf=(e:unknown)=>e instanceof ApiClientError&&e.code==="ORDERING_VERSION_CONFLICT"?"已被其他人修改，請重新載入":e instanceof ApiClientError&&["ORDERING_RECEIPT_CONFIRMATION_REQUIRED","ORDERING_UNAVAILABLE"].includes(e.code)?e.message+(e.requestId?"（請求編號："+e.requestId+"）":""):e instanceof Error?e.message:"叫貨操作失敗";
 type DisplayOrder=OrderingOrder&{storedStatus:"DRAFT"|"SENT"|"VOID";savedLineId?:number};
-type VendorGroup={sourceId:number;sourceName:string;conditions:string;orderId:number|null;orderVersion:number|null;lines:(GridLine&{quantity:number|null})[]};
+type VendorGroup={sourceId:number;sourceName:string;conditions:string;paymentTerms:string;orderId:number|null;orderVersion:number|null;lines:(GridLine&{quantity:number|null})[]};
 const STATUS_TONE:Record<string,StatusTone>={DRAFT:"neutral",SENT:"info",PARTIAL:"warning",CLOSED:"success",VOID:"danger"};
 const call=<T,>(path:string,method="GET",json?:unknown)=>apiRequest<T>(ROOT+path,{method,json});
 function OrderingSaveStatus({states}: {states:OrderingGridState[]}){
@@ -46,13 +46,18 @@ export function OrderingPage(){
  const [headerSaving,setHeaderSaving]=useState(0),[headerSaveFailed,setHeaderSaveFailed]=useState(false);
  const headerDirtyRef=useRef({date:false,note:false});
  const headerEditRevisions=useRef({date:0,note:0});
- const [sourceForm,setSourceForm]=useState<{id?:number;kind:"GENERAL"|"VENDOR";name:string;conditions:string;sortOrder?:number;isActive?:boolean}|null>(null);
+ const [sourceForm,setSourceForm]=useState<{id?:number;kind:"GENERAL"|"VENDOR";name:string;conditions:string;paymentTerms:string;sortOrder?:number}|null>(null);
  const [sourceFilter,setSourceFilter]=useState("");
  const [manageSources,setManageSources]=useState(false);
  const [receipt,setReceipt]=useState<{id:number;no:string;date:string;quantities:Record<number,string>;selectedLineIds:number[]}|null>(null);
  const [closing,setClosing]=useState<{id:number;kind:"SHORTAGE"|"CANCELLED"|"OTHER";reason:string}|null>(null);
  const [viewPending,setViewPending]=useState(true),[pendingLoading,setPendingLoading]=useState(true),[showHistory,setShowHistory]=useState(false),[drafts,setDrafts]=useState<OrderingListRow[]>([]);
  const [vendorOverview,setVendorOverview]=useState<VendorGroup[]>([]);
+ const [vendorQuery,setVendorQuery]=useState("");
+ const [vendorSelected,setVendorSelected]=useState<number|null>(null);
+ const [vendorTabOrder,setVendorTabOrder]=useState<number[]>([]);
+ const vendorDragging=useRef<number|null>(null);
+ const [showHiddenSources,setShowHiddenSources]=useState(false);
  const vendorOrderIds=useRef(new Map<number,number>());
  const pane=useMasterDetailPane(),{confirm,confirmationDialog}=useConfirmation();
  const editors=useRef(new Map<string,OrderingGridEditor>());
@@ -83,6 +88,7 @@ export function OrderingPage(){
  async function refreshLists(){const [b,c]=await Promise.all([call<OrderingListRow[]>("/orders?"+listQuery.current),call<OrderingPendingLine[]>("/pending")]);setList(b);setPending(c)}
  async function refresh(){await Promise.all([
   call<OrderingSource[]>("/sources").then(setSources),
+  call<number[]>("/preferences/vendors").then(setVendorTabOrder),
   call<OrderingPendingLine[]>("/pending").then(setPending).finally(()=>setPendingLoading(false)),
  ])}
  useEffect(()=>{void refresh().catch(e=>setError(errorOf(e)))},[]);
@@ -121,6 +127,7 @@ export function OrderingPage(){
     if(sequence!==loadSequence.current)return;setVendorAll(true);setSelected(null);setViewPending(false);
     groups.forEach(x=>{if(x.orderId)vendorOrderIds.current.set(x.sourceId,x.orderId)});
     setVendorOverview(groups);
+    setVendorSelected(prev=>groups.some(v=>v.sourceId===prev)?prev:groups[0]?.sourceId??null);
    }catch(e){setError(errorOf(e))}finally{if(sequence===loadSequence.current)setBusy(false)}
  }
  async function showPending(){if(!await prepareSwitch())return;++loadSequence.current;setBusy(false);setViewPending(true);setVendorAll(false);pane.open()}
@@ -168,9 +175,9 @@ export function OrderingPage(){
  async function voidOrder(){if(!selected||!await prepareSwitch())return;if(await confirm({title:"作廢叫貨單",description:"確定作廢？歷史紀錄會保留。",confirmTone:"danger",confirmLabel:"作廢"}))await write("/orders/"+selected.id+"/void","POST",{})}
  async function saveSource(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!sourceForm)return;setBusy(true);try{
    if(sourceForm.id){const original=sources.find(x=>x.id===sourceForm.id);
-    await call("/sources/"+sourceForm.id,"PATCH",{name:sourceForm.name,conditions:sourceForm.conditions,sortOrder:sourceForm.sortOrder??original?.sortOrder??0,isActive:sourceForm.isActive??original?.isActive??true});
+    await call("/sources/"+sourceForm.id,"PATCH",{name:sourceForm.name,conditions:sourceForm.conditions,paymentTerms:sourceForm.paymentTerms,sortOrder:sourceForm.sortOrder??original?.sortOrder??0});
    }
-   else await call("/sources","POST",{name:sourceForm.name,kind:sourceForm.kind,conditions:sourceForm.conditions});
+   else await call("/sources","POST",{name:sourceForm.name,kind:sourceForm.kind,conditions:sourceForm.conditions,paymentTerms:sourceForm.paymentTerms});
    setSourceForm(null);await refresh();void refreshLists().catch(e=>setError(errorOf(e)));if(vendorAll)void showVendorOverview();
   }catch(err){setError(errorOf(err))}finally{setBusy(false)}}
  async function receive(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!receipt||!selected)return;
@@ -225,11 +232,48 @@ export function OrderingPage(){
  }
  const current=selected,editable=current?.storedStatus==="DRAFT";
  const currentSaveStates:OrderingGridState[]=[{dirty:headerDirty.date||headerDirty.note,saving:headerSaving>0,failed:headerSaveFailed},...Object.entries(editorStates).filter(([key])=>key.startsWith(current?.id+"-")).map(([,state])=>state)];
- const [expandedVendors,setExpandedVendors]=useState<number[]>([]);
- const expanded=(v:VendorGroup)=>v.lines.length>0||expandedVendors.includes(v.sourceId);
- async function toggleVendor(v:VendorGroup){
-  if(expanded(v)&&!await prepareSwitch())return;
-  setExpandedVendors(ids=>ids.includes(v.sourceId)?ids.filter(id=>id!==v.sourceId):[...ids,v.sourceId]);
+ const orderedVendorGroups=useMemo(()=>{
+  const priorities=new Map(vendorTabOrder.map((id,i)=>[id,i]));
+  return vendorOverview.slice().sort((a,b)=>{
+   if(a.sourceName==="其他")return 1;
+   if(b.sourceName==="其他")return -1;
+   const rankA=priorities.get(a.sourceId),rankB=priorities.get(b.sourceId);
+   if(rankA!==undefined&&rankB!==undefined)return rankA-rankB;
+   if(rankA!==undefined)return -1;
+   if(rankB!==undefined)return 1;
+   const sa=sources.find(x=>x.id===a.sourceId),sb=sources.find(x=>x.id===b.sourceId);
+   return (sa?.sortOrder??0)-(sb?.sortOrder??0)||a.sourceId-b.sourceId;
+  });
+ },[vendorOverview,vendorTabOrder,sources]);
+ const movableVendors=orderedVendorGroups.filter(x=>x.sourceName!=="其他");
+ const vendorOther=orderedVendorGroups.find(x=>x.sourceName==="其他");
+ const activeVendorGroup=orderedVendorGroups.find(x=>x.sourceId===vendorSelected)??orderedVendorGroups[0];
+ async function chooseVendor(id:number){if(id===vendorSelected)return;if(!await prepareSwitch())return;setVendorSelected(id)}
+ async function savePersonalVendorOrder(ids:number[]){
+  const before=vendorTabOrder;setVendorTabOrder(ids);
+  try{await call("/preferences/vendors","PUT",{sourceIds:ids})}
+  catch(e){setVendorTabOrder(before);setError(errorOf(e))}
+ }
+ function moveVendor(id:number,targetId:number){
+  if(id===targetId)return;
+  const ids=movableVendors.map(x=>x.sourceId),from=ids.indexOf(id),to=ids.indexOf(targetId);
+  if(from<0||to<0)return;
+  ids.splice(from,1);ids.splice(to,0,id);
+  void savePersonalVendorOrder(ids);
+ }
+ async function updateVisibility(s:OrderingSource){
+  if(s.isActive&&!await confirm({title:"隱藏叫貨來源",description:"隱藏「"+s.name+"」後不再提供建立新叫貨單；歷史紀錄和到貨資料會保留。",confirmLabel:"隱藏來源"}))return;
+  setBusy(true);
+  try{await call("/sources/"+s.id,"PATCH",{isActive:!s.isActive});await refresh();setNotice(s.isActive?"來源已隱藏，歷史單保留":"來源已恢復")}
+  catch(e){setError(errorOf(e))}finally{setBusy(false)}
+ }
+ async function changeSharedOrder(id:number,step:number){
+  const ordered=active.slice().sort((a,b)=>a.sortOrder-b.sortOrder||a.id-b.id);
+  const from=ordered.findIndex(x=>x.id===id),to=from+step;if(from<0||to<0||to>=ordered.length)return;
+  const moved=ordered.splice(from,1)[0];ordered.splice(to,0,moved);
+  setBusy(true);
+  try{await call("/sources/reorder","POST",{sourceIds:ordered.map(x=>x.id)});await refresh();setNotice("共用來源順序已更新，個人廠商頁籤順序不變")}
+  catch(e){setError(errorOf(e))}finally{setBusy(false)}
  }
  const visibleSources=active.filter(x=>x.kind!=="VENDOR");
  // History list (drafts live on the source tabs, not here): search as you type; status narrows the loaded rows.
