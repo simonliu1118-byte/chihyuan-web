@@ -159,11 +159,18 @@
 .cy-ordering-order-summary { display: flex; flex-wrap: wrap; gap: 12px 32px; margin: 12px 0; }
 .cy-ordering-order-summary dt { font-size: var(--cy-fs-sm); color: var(--cy-text-muted); }
 .cy-ordering-order-summary dd { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-.cy-ordering-receipt-table { min-width: 900px; }
+.cy-ordering-receipt-table { table-layout: fixed; min-width: 900px; }
 .cy-dialog.cy-ordering-receipt-dialog .cy-dialog-surface { width: min(1120px, calc(100vw - 32px)); }
 .cy-ordering-receipt-table th { white-space: nowrap; }
 .cy-ordering-receipt-table .cy-f,.cy-ordering-receipt-table .cy-f-check { margin: 0; }
-.cy-ordering-receipt-table td:last-child { width: 110px; }
+.cy-ordering-receipt-col-select { width: 42px; }
+.cy-ordering-receipt-col-code { width: 88px; }
+.cy-ordering-receipt-col-vendor-code { width: 104px; }
+.cy-ordering-receipt-col-quantity { width: 76px; }
+.cy-ordering-receipt-col-input { width: 96px; }
+.cy-ordering-receipt-table th,.cy-ordering-receipt-table td { padding: 7px 8px; overflow-wrap: anywhere; }
+.cy-ordering-receipt-table th:nth-child(n+6),.cy-ordering-receipt-table td:nth-child(n+6) { text-align: right; font-variant-numeric: tabular-nums; }
+.cy-ordering-receipt-table .cy-op-input { min-width: 0; padding: 6px 8px; text-align: right; }
 .cy-ordering-receipt-table .cy-f-label,.cy-ordering-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .cy-ordering-save-state { display: inline-flex; align-items: center; gap: 5px; vertical-align: baseline; }
 .cy-ordering-save-state[data-state="failed"] { color: var(--cy-danger); font-weight: 600; }
