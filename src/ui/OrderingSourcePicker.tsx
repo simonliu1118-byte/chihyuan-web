@@ -29,7 +29,7 @@ export function OrderingSourcePicker({sources,value,onChange,allowAll=false,incl
  return <div ref={root} className="cy-ordering-source-picker">
   <div className="cy-ordering-source-picker-control">
    <input ref={input} type="search" className="cy-op-input" role="combobox" autoComplete="off" aria-label={label} aria-controls={listId} aria-expanded={open} aria-autocomplete="list" disabled={disabled} placeholder={allowAll?"全部來源":"輸入或選擇來源"} value={displayed}
-    onChange={e=>edit(e.target.value)} onFocus={()=>setOpen(true)} onKeyDown={e=>{if(e.key==="Escape"){e.preventDefault();setOpen(false);setTyping(false);setLevel("root")}if(e.key==="ArrowDown"){e.preventDefault();setOpen(true);root.current?.querySelector<HTMLButtonElement>(".cy-ordering-source-picker-menu button")?.focus()}}}/>
+    onChange={e=>edit(e.target.value)} onFocus={()=>setOpen(true)} onKeyDown={e=>{if(e.key==="Escape"){e.preventDefault();setOpen(false);setTyping(false);setLevel("root")}if(e.key==="ArrowDown"){e.preventDefault();setOpen(true);root.current?.querySelector<HTMLButtonElement>(".cy-ordering-source-picker-menu button")?.focus()}if(e.key==="Enter"&&open){e.preventDefault();if(search){const first=level==="vendor"?vendorSearch[0]:searched[0];if(first)pick(first.id)}else if(level==="vendor"&&vendors.length===1)pick(vendors[0].id)}}}/>
    <button type="button" className="cy-ordering-source-picker-toggle" aria-label="展開來源清單" aria-expanded={open} disabled={disabled} onClick={()=>{setTyping(false);setQuery("");setLevel("root");setOpen(v=>!v);if(!open)input.current?.focus()}}>▾</button>
   </div>
   {open?<div id={listId} className="cy-ordering-source-picker-menu" role="group" aria-label={level==="vendor"?"外部廠商清單":"叫貨來源清單"}>
