@@ -166,6 +166,18 @@ export function OrderingPage(){
   }catch{setHeaderSaveFailed(true)/* Banner and modal explain the error; leave the typed value intact. */}
   finally{setHeaderSaving(n=>n-1)}
  }
+ async function saveDraftNow(){
+  const ok=(await Promise.all([...editors.current.values()].map(e=>e.flush()))).every(Boolean);
+  if(headerDirtyRef.current.date)await saveHeader("date");
+  if(headerDirtyRef.current.note)await saveHeader("note");
+  if(ok&&!headerDirtyRef.current.date&&!headerDirtyRef.current.note)setNotice("草稿已儲存");
+  else setError("部分欄位未能儲存，請確認錯誤後重試");
+ }
+ useEffect(()=>{
+  if(!selected||selected.storedStatus!=="DRAFT"||!(headerDirtyRef.current.date||headerDirtyRef.current.note))return;
+  const timer=setTimeout(()=>{if(headerDirtyRef.current.date)void saveHeader("date");if(headerDirtyRef.current.note)void saveHeader("note")},900);
+  return()=>clearTimeout(timer);
+ },[selected?.id,selected?.plannedSendDate,selected?.note]);
  async function lineCommit(row:GridLine,patch:Partial<GridLine>){
   if(!selected||selected.storedStatus!=="DRAFT")throw new Error("只有草稿可修改叫貨明細");
   const line={...patch,...(!row.id?{...row,...patch}:{}),...(!row.id?{sortOrder:Date.now()}:{} )};
@@ -373,6 +385,7 @@ export function OrderingPage(){
         <p>{current.storedStatus==="DRAFT"?(current.plannedSendDate?"預計 "+displayDate(current.plannedSendDate)+" 送出":"尚未設定預計送出日")
          :"送出 "+displayTime(current.sentAt)+"・版本 "+current.revision}{editable?<>・<OrderingSaveStatus states={currentSaveStates}/></>:null}</p></div>
        <div className="cy-record-actions">
+        {current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button" onClick={()=>void saveDraftNow()} disabled={busy}>儲存草稿</button>:null}
         {current.storedStatus!=="DRAFT"?<button type="button" className="cy-op-button" onClick={()=>void openDraft(current.sourceId)}>回到草稿</button>:null}
         <button type="button" className="cy-op-button" onClick={()=>void exportOrder(current)}>匯出 Excel</button>
         {current.storedStatus!=="VOID"?<button type="button" className="cy-op-button danger" onClick={()=>void voidOrder()}>作廢</button>:null}
