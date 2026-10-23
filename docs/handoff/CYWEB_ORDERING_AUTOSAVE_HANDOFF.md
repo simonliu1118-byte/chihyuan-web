@@ -1,5 +1,19 @@
 # CYWEB 叫貨修正交接給 Claude
 
+## 本輪 GPT 交付：V0.9.33 — 叫貨明細、到貨、廠商頁籤與來源管理介面調整（2026-10-23）
+
+使用者已核准直接實作；本輪以主線 V0.9.32 Build 1 為基礎，新增獨立 `cyweb/ordering-ui-sources-tabs` 分支。**尚未合併或部署**；原正式資料與 Cloudflare 不動。純介面與必要小範圍 source/settings 資料層修改，無關 CYID、ERP 與其他模組不動。
+
+- `OrderingGrid.tsx`：已送出唯讀表格的品名／廠商品名／備註可完全折行，不再用省略號；備註保持主文字色。數量不再跟綠勾或警示三角擠在一起，獨立狀態欄以文字標籤呈現（待到貨、部分到貨、已到貨、已結掉等）；欄寬縮小兩個名稱欄的剩餘比例、加寬廠商品號。
+- `OrderingPage.tsx`：到貨 Dialog 沿用與叫貨明細相同的表格視覺；只顯示尚未到齊、未結掉、有效可計算數量的品項，不改既有到貨 payload、版本鎖或寫入流程。
+- 原廠商草稿的垂直卡片改為單一編輯表格＋可搜尋的橫向頁籤。廠商不顯示項數；「其他」固定最右，不參與個人排序。切換頁籤前沿用 `prepareSwitch()` 保存/確認未儲存資料。可拖曳排序，也有鍵盤可點的左／右移動按鈕。叫貨條件與付款條件在頁籤內容上方顯示。
+- 管理來源改為緊湊表格：名稱、類型（只顯示公司內部／外部廠商）、叫貨條件、付款條件，以及修改／共用排序／隱藏或恢復；停用改稱隱藏，不刪除歷史單據。原 `CN_REGULAR/CN_CUSTOM` 仍在 DB 保留類型與專用邏輯，避免 UI 合併分類時破壞既有業務流程。
+- 新 `migrations/0024_ordering_source_preferences.sql` 為 forward migration：`ordering_sources.payment_terms` 自填文本、`ordering_user_preferences`（app member FK）保存個人廠商順序。共享 `ordering_sources.sort_order` 只用於管理來源的預設排序；個人喜好使用獨立受權保護的 API `/preferences/vendors`，換裝置登入可保留，不寫 LocalStorage。
+- `ordering-routes.ts`：`paymentTerms` 加入來源 GET/POST/PATCH，來源 `is_active` 沿用隱藏／恢復；`POST /sources/reorder` 原子批次更新共用排序；`GET/PUT /preferences/vendors` 保存認證會員的個人順序並核對每個來源有效，均需原模組權限。Audit 僅寫入來源類型／欄位或排序摘要，不紀錄敏感帳密。
+- 測試調整：新增來源付款、個人排序、共用排序與歷史保存的 route regression；原 `ordering-grid` status icon 斷言轉為文字標籤。CI 尚需驗證實際 TS／D1 與畫面；不可宣稱部署完成。
+
+**後續 Claude 審查點**：新 migration 需依既有 D1 受控發布，確認現有資料 `payment_terms` 的 default 保持空字串、個人排序只認目前登入的 app member、隱藏來源不能新增單但歷史叫貨依舊可讀；不直接刪除來源。若發現 UI 需要更改來源種類語意、特殊中國貨訂貨邏輯或廠商主檔連動，屬另案，應先確認使用者需求，不要藉本輪擴大範圍。
+
 更新日期：2026-10-23。此文件依使用者「專案主要由 Claude 處理，必須開 handoff 註明修改」要求建立。這是直接交辦修正的交接紀錄；共通規則仍以既有治理鏈為準。維護狀態入口為根目錄 `TODO.md`。
 
 ## 最新交付：V0.9.32 Build 1 — 到貨表格、合併狀態與送出唯讀（2026-10-23）
