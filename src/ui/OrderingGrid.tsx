@@ -25,17 +25,20 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  const cellSaves=useRef(new Map<string,{value:string;promise:Promise<boolean>}>());
  const actionSaves=useRef(new Set<Promise<boolean>>());
  const skipBlur=useRef(new Set<string>());
+ const saveTimers=useRef(new Map<string,ReturnType<typeof setTimeout>>());
+ const cancelTimer=(key:string)=>{const timer=saveTimers.current.get(key);if(timer!==undefined)clearTimeout(timer);saveTimers.current.delete(key)};
+ const cancelAllTimers=()=>{for(const timer of saveTimers.current.values())clearTimeout(timer);saveTimers.current.clear()};
  const [editing,setEditing]=useState<Record<string,string>>({});
  const editingRef=useRef(editing);
  const [saveError,setSaveError]=useState(false);
  const setEdits=(update:(previous:Record<string,string>)=>Record<string,string>)=>{editingRef.current=update(editingRef.current);setEditing(editingRef.current)};
- useEffect(()=>{draftsRef.current=[empty(section,-1)];setDrafts(draftsRef.current);nextTemp.current=-2;inFlight.current.clear();savedDrafts.current.clear();savedRowKeys.current.clear();cellSaves.current.clear();editingRef.current={};setEditing({});setSaveError(false)},[section,kind]);
+ useEffect(()=>{cancelAllTimers();draftsRef.current=[empty(section,-1)];setDrafts(draftsRef.current);nextTemp.current=-2;inFlight.current.clear();savedDrafts.current.clear();savedRowKeys.current.clear();cellSaves.current.clear();editingRef.current={};setEditing({});setSaveError(false)},[section,kind]);
  const fields=columns[kind];
  const mappedIds=new Set([...savedDrafts.current.values()].map(x=>x.line.id));
  const visible=readOnly?lines.filter(x=>x.section===section):[...lines.filter(x=>x.section===section&&!mappedIds.has(x.id)),...drafts];
  const getValue=(row:GridLine,field:string)=>String(row[field as keyof GridLine]??"");
  const hasInput=(row:GridLine)=>fields.some(([field])=>getValue(row,field).trim());
- const canSave=(row:GridLine)=>(orderingLineHasName(kind,row)||!!row.itemCode.trim())&&!!row.quantityText.trim();
+ const canSave=(row:GridLine)=>hasInput(row); // partial drafts persist; /send owns completeness validation.
  const hasSavedEdits=(values:Record<string,string>)=>Object.keys(values).some(key=>Number(key.split("|")[0])>0);
  const dirty=!readOnly&&(drafts.some(hasInput)||hasSavedEdits(editing));
  const saving=!readOnly&&(inFlight.current.size>0||cellSaves.current.size>0||actionSaves.current.size>0);
@@ -85,6 +88,7 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
   inFlight.current.set(row.id,promise);setDrafts([...draftsRef.current]);return promise;
  };
  const commitCell=(row:GridLine,field:keyof GridLine,value:string)=>{
+  cancelTimer(row.id+"|"+field);
   if(readOnly)return Promise.resolve(false);
   if(row.id<0){setDraftValue(row,field,value);return commitNew(row)}
   const key=row.id+"|"+field,queued=cellSaves.current.get(key);
@@ -100,8 +104,9 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
   cellSaves.current.set(key,{value,promise});setDrafts([...draftsRef.current]);return promise;
  };
  const editor=useRef<OrderingGridEditor>({flush:async()=>true,discard:()=>{}});
- editor.current.discard=()=>{draftsRef.current=[empty(section,nextTemp.current--)];savedDrafts.current.clear();setDrafts(draftsRef.current);setEdits(()=>({}));setSaveError(false)};
+ editor.current.discard=()=>{cancelAllTimers();draftsRef.current=[empty(section,nextTemp.current--)];savedDrafts.current.clear();setDrafts(draftsRef.current);setEdits(()=>({}));setSaveError(false)};
  editor.current.flush=async()=>{
+  cancelAllTimers();
   if(readOnly)return true;
   const work=draftsRef.current.filter(hasInput).map(commitNew);
   for(const row of lines.filter(x=>x.section===section))for(const [field] of fields){const value=editingRef.current[row.id+"|"+field];if(value!==undefined)work.push(commitCell(row,field,value))}
@@ -129,6 +134,15 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
    if(next)focus(next.id,fields[0][0]);
   }
  }
+ const scheduleSave=(row:GridLine,field:string,value:string)=>{
+  const key=row.id+"|"+field;cancelTimer(key);
+  saveTimers.current.set(key,setTimeout(()=>{
+   saveTimers.current.delete(key);
+   if(row.id<0){void commitNew(row)}
+   else{void commitCell(row,field as keyof GridLine,editingRef.current[key]??value)}
+  },900));
+ };
+ useEffect(()=>()=>cancelAllTimers(),[]);
  const runAction=(job:()=>Promise<unknown>)=>{
   setSaveError(false);
   const promise=job().then(()=>true).catch(()=>{setSaveError(true);return false}).finally(()=>{actionSaves.current.delete(promise);setDrafts([...draftsRef.current])});
@@ -148,15 +162,15 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
       "aria-label":title+" 第"+(i+1)+"列",title,value,disabled:busy,
       "aria-busy":inFlight.current.has(row.id)||undefined,
       required:field==="quantityText"||(field==="itemName"&&kind!=="GENERAL"&&kind!=="VENDOR"),
-      onChange:(e:ChangeEvent<HTMLInputElement|HTMLTextAreaElement>)=>{setEdits(prev=>({...prev,[key]:e.target.value}));if(row.id<0)setDraftValue(row,field,e.target.value)},
+      onChange:(e:ChangeEvent<HTMLInputElement|HTMLTextAreaElement>)=>{setEdits(prev=>({...prev,[key]:e.target.value}));if(row.id<0)setDraftValue(row,field,e.target.value);scheduleSave(row,field,e.target.value)},
       onBlur:(e:FocusEvent<HTMLInputElement|HTMLTextAreaElement>)=>{
        const id=row.id+"|"+field;
-       if(skipBlur.current.delete(id))return;
+       if(skipBlur.current.delete(id)){cancelTimer(id);return}
        commitCell(row,field as keyof GridLine,e.currentTarget.value);
       },
       onKeyDown:(e:KeyboardEvent<HTMLInputElement|HTMLTextAreaElement>)=>enter(e,row,col),
      };
-     return [<td key={field}>{readOnly?<span className={"cy-ordering-cell-text"+(field==="quantityText"?" cy-ordering-quantity":"")+((field==="itemName"||field==="vendorItemName"||field==="note")?" cy-ordering-wrap":"")}>{value}</span>:multiline?<textarea {...editProps} rows={Math.min(6,Math.max(2,Math.ceil(value.length/20)))} />:<input {...editProps} />}</td>,...(readOnly&&field==="quantityText"?[<td key="received"><span className="cy-ordering-cell-text cy-ordering-quantity">{row.received??0}</span>{row.closedAs?<small className="cy-ordering-closed-note" title={row.closedNote}>{CLOSED_AS_LABELS[row.closedAs]}{row.closedNote?"（"+row.closedNote+"）":""}</small>:null}</td>]:[])];
+     return [<td key={field}>{readOnly?<span className={"cy-ordering-cell-text"+(field==="quantityText"?" cy-ordering-quantity":"")+((field==="itemName"||field==="vendorItemName"||field==="note")?" cy-ordering-wrap":"")}>{value}</span>:multiline?<textarea {...editProps} rows={1} ref={element=>{if(element){element.style.height="34px";element.style.height=Math.min(176,Math.max(34,element.scrollHeight))+"px"}}} />:<input {...editProps} />}</td>,...(readOnly&&field==="quantityText"?[<td key="received"><span className="cy-ordering-cell-text cy-ordering-quantity">{row.received??0}</span>{row.closedAs?<small className="cy-ordering-closed-note" title={row.closedNote}>{CLOSED_AS_LABELS[row.closedAs]}{row.closedNote?"（"+row.closedNote+"）":""}</small>:null}</td>]:[])];
     })}
     {readOnly?<td className="cy-ordering-status-cell"><span className={"cy-ordering-status-chip state-"+receiptState(row).toLowerCase()}>{receiptState(row)==="OPEN"?"待到貨":receiptState(row)==="RECEIVED"?"已到齊":LINE_STATE_LABELS[receiptState(row)]}</span></td>:null}
     {!readOnly?<td className="cy-ordering-grid-actions">{row.id>0?<IconButton label={"刪除第"+(i+1)+"列"} disabled={busy||actionSaves.current.size>0} onClick={()=>runAction(()=>onDelete(row))} icon={<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v8m4-8v8"/></svg>}/>:null}</td>:null}</tr>)}</tbody>
