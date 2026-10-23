@@ -107,7 +107,15 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
   if(m&&method==="PATCH"){const v=await body(request),id=int(Number(m[1]),"來源");const stm:string[]=[],args:unknown[]=[];
    for(const [key,col,max] of [["name","name",40],["conditions","conditions",500],["paymentTerms","payment_terms",200]] as const)if(key in v){stm.push(col+"=?");args.push(must(v[key],col,max))}
    if("sortOrder" in v){stm.push("sort_order=?");args.push(Number(v.sortOrder))}
-   if("isActive" in v){stm.push("is_active=?");args.push(v.isActive?1:0)}
+   if("isActive" in v){
+    if(v.isActive===false){
+     // Hidden sources cannot be reached from the draft tabs; retain access to meaningful unsent work.
+     const draft=await one<{n:number}>(ctx.db,
+      "SELECT COUNT(*) AS n FROM ordering_orders o WHERE o.source_id=? AND o.status='DRAFT' AND (length(trim(o.note))>0 OR EXISTS(SELECT 1 FROM ordering_lines l WHERE l.order_id=o.id))",id);
+     if((draft?.n??0)>0)throw new Bad("ORDERING_INVALID","此來源仍有未送出的草稿內容，請先送出或清除草稿再隱藏");
+    }
+    stm.push("is_active=?");args.push(v.isActive?1:0)
+   }
    if(!stm.length)throw new Bad("ORDERING_INVALID","沒有變更");
    const changed=await ctx.db.prepare("UPDATE ordering_sources SET "+stm.join(",")+",updated_at=? WHERE id=?").bind(...args,ctx.now,id).run();
    if(!changed.meta.changes)throw new Bad("ORDERING_NOT_FOUND","來源不存在",404);
