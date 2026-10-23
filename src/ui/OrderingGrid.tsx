@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState,type KeyboardEvent} from "react";
+import {useEffect,useRef,useState,type KeyboardEvent,type ChangeEvent,type FocusEvent} from "react";
 import type {OrderingSourceKind,OrderingSection} from "../../shared/ordering";
 import {orderingLineHasName,parseQuantity,lineState,LINE_STATE_LABELS,CLOSED_AS_LABELS,type OrderingClosedAs} from "../../shared/ordering";
 import {IconButton} from "./actions/IconButton";
@@ -46,7 +46,7 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  };
  const focus=(id:number,field:string)=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
   const target=id<0?[...savedRowKeys.current].find(([,key])=>key===id)?.[0]??id:id;
-  containerRef.current?.querySelector<HTMLInputElement>(`input[data-order-row="${target}"][data-order-field="${field}"]`)?.focus();
+  containerRef.current?.querySelector<HTMLInputElement|HTMLTextAreaElement>(`[data-order-row="${target}"][data-order-field="${field}"]`)?.focus();
  }));
  const commitNew=(row:GridLine)=>{
   if(readOnly)return Promise.resolve(false);
@@ -110,7 +110,7 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
   return okay&&!draftsRef.current.some(hasInput)&&!hasSavedEdits(editingRef.current);
  };
  useEffect(()=>{onRegister?.(readOnly?null:editor.current);return()=>onRegister?.(null)},[onRegister,readOnly]);
- function enter(e:KeyboardEvent<HTMLInputElement>,row:GridLine,col:number){
+ function enter(e:KeyboardEvent<HTMLInputElement|HTMLTextAreaElement>,row:GridLine,col:number){
   if(e.key!=="Enter"||e.nativeEvent.isComposing)return;
   e.preventDefault();
   const field=fields[col][0];
@@ -141,17 +141,22 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
    <tbody>{visible.map((row,i)=><tr key={savedRowKeys.current.get(row.id)??row.id} data-saving={inFlight.current.has(row.id)||undefined}><td>{i+1}</td>
     {fields.flatMap(([field,title],col)=>{
      const key=row.id+"|"+field,value=editing[key]??getValue(row,field);
-     return [<td key={field}>{readOnly?<span className={"cy-ordering-cell-text"+(field==="quantityText"?" cy-ordering-quantity":"")+((field==="itemName"||field==="vendorItemName"||field==="note")?" cy-ordering-wrap":"")}>{value}</span>:<input data-order-row={row.id} data-order-field={field} className="cy-ordering-cell"
-       aria-label={title+" 第"+(i+1)+"列"} title={title} value={value} disabled={busy}
-       aria-busy={inFlight.current.has(row.id)||undefined}
-       required={field==="quantityText"||(field==="itemName"&&kind!=="GENERAL"&&kind!=="VENDOR")}
-       onChange={e=>{setEdits(prev=>({...prev,[key]:e.target.value}));if(row.id<0)setDraftValue(row,field,e.target.value)}}
-       onBlur={e=>{
-        const id=row.id+"|"+field;
-        if(skipBlur.current.delete(id))return;
-        commitCell(row,field as keyof GridLine,e.currentTarget.value);
-       }}
-       onKeyDown={e=>enter(e,row,col)} />}</td>,...(readOnly&&field==="quantityText"?[<td key="received"><span className="cy-ordering-cell-text cy-ordering-quantity">{row.received??0}</span>{row.closedAs?<small className="cy-ordering-closed-note" title={row.closedNote}>{CLOSED_AS_LABELS[row.closedAs]}{row.closedNote?"（"+row.closedNote+"）":""}</small>:null}</td>]:[])];
+     const multiline=field==="itemName"||field==="vendorItemName"||field==="note";
+     const editProps={
+      "data-order-row":row.id,"data-order-field":field,
+      className:"cy-ordering-cell"+(multiline?" cy-ordering-multiline":""),
+      "aria-label":title+" 第"+(i+1)+"列",title,value,disabled:busy,
+      "aria-busy":inFlight.current.has(row.id)||undefined,
+      required:field==="quantityText"||(field==="itemName"&&kind!=="GENERAL"&&kind!=="VENDOR"),
+      onChange:(e:ChangeEvent<HTMLInputElement|HTMLTextAreaElement>)=>{setEdits(prev=>({...prev,[key]:e.target.value}));if(row.id<0)setDraftValue(row,field,e.target.value)},
+      onBlur:(e:FocusEvent<HTMLInputElement|HTMLTextAreaElement>)=>{
+       const id=row.id+"|"+field;
+       if(skipBlur.current.delete(id))return;
+       commitCell(row,field as keyof GridLine,e.currentTarget.value);
+      },
+      onKeyDown:(e:KeyboardEvent<HTMLInputElement|HTMLTextAreaElement>)=>enter(e,row,col),
+     };
+     return [<td key={field}>{readOnly?<span className={"cy-ordering-cell-text"+(field==="quantityText"?" cy-ordering-quantity":"")+((field==="itemName"||field==="vendorItemName"||field==="note")?" cy-ordering-wrap":"")}>{value}</span>:multiline?<textarea {...editProps} rows={Math.min(6,Math.max(2,Math.ceil(value.length/20)))} />:<input {...editProps} />}</td>,...(readOnly&&field==="quantityText"?[<td key="received"><span className="cy-ordering-cell-text cy-ordering-quantity">{row.received??0}</span>{row.closedAs?<small className="cy-ordering-closed-note" title={row.closedNote}>{CLOSED_AS_LABELS[row.closedAs]}{row.closedNote?"（"+row.closedNote+"）":""}</small>:null}</td>]:[])];
     })}
     {readOnly?<td className="cy-ordering-status-cell"><span className={"cy-ordering-status-chip state-"+receiptState(row).toLowerCase()}>{receiptState(row)==="OPEN"?"待到貨":LINE_STATE_LABELS[receiptState(row)]}</span></td>:null}
     {!readOnly?<td className="cy-ordering-grid-actions">{row.id>0?<IconButton label={"刪除第"+(i+1)+"列"} disabled={busy||actionSaves.current.size>0} onClick={()=>runAction(()=>onDelete(row))} icon={<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v8m4-8v8"/></svg>}/>:null}</td>:null}</tr>)}</tbody>
