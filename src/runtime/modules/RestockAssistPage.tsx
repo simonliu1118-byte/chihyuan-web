@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {apiRequest} from "../../api/client";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {Dialog} from "../../ui/overlays/Dialog";
+import {OrderingSourcePicker} from "../../ui/OrderingSourcePicker";
 import {FeedbackBanner,useFeedbackMessage} from "../../ui/feedback/FeedbackProvider";
 import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import {pickDraft,type OrderingSource,type OrderingListRow,type OrderingOrder} from "../../../shared/ordering";
@@ -170,13 +171,13 @@ export function RestockAssistPage({ canQueryItem,canOrdering=false }: { canQuery
 
 function AddToOrdering({row,onClose,onAdded}:{row:Row;onClose:()=>void;onAdded:(text:string)=>void}){
  const [sources,setSources]=useState<OrderingSource[]>([]),[sourceId,setSourceId]=useState(0),[orderId,setOrderId]=useState(0),[drafts,setDrafts]=useState<OrderingListRow[]>([]);
- const [qty,setQty]=useState(String(Math.max(0,row.net))),[busy,setBusy]=useState(false),[error,setError]=useState("");
+ const [qty,setQty]=useState(String(Math.max(0,row.net))),[unit,setUnit]=useState(row.unit??""),[busy,setBusy]=useState(false),[error,setError]=useState("");
  const {confirm,confirmationDialog}=useConfirmation();
  useEffect(()=>{let valid=true;void Promise.all([
   apiRequest<OrderingSource[]>("/api/business/ordering/sources"),
   apiRequest<{source_id:number}|null>("/api/business/ordering/last-source?itemCode="+encodeURIComponent(row.itemCode))
- ]).then(([s,last])=>{if(valid){setSources(s.filter(x=>x.isActive));setSourceId(last?.source_id??0)}}).catch(e=>{if(valid)setError(e instanceof Error?e.message:"無法讀取叫貨來源")});return()=>{valid=false}},[row.itemCode]);
- useEffect(()=>{if(!sourceId)return;let valid=true;void apiRequest<OrderingListRow[]>("/api/business/ordering/orders?sourceId="+sourceId+"&status=DRAFT").then(xs=>{if(valid){setDrafts(xs);const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);setOrderId(pickDraft(xs.map(x=>({id:x.id,plannedSendDate:x.plannedSendDate,createdAt:x.createdAt})),today)?.id??0)}}).catch(e=>{if(valid)setError(e instanceof Error?e.message:"無法讀取草稿")});return()=>{valid=false}},[sourceId]);
+ ]).then(([s,last])=>{if(valid){setSources(s.filter(x=>x.isActive));setSourceId(s.some(x=>x.id===last?.source_id&&x.isActive)?last!.source_id:0)}}).catch(e=>{if(valid)setError(e instanceof Error?e.message:"無法讀取叫貨來源")});return()=>{valid=false}},[row.itemCode]);
+ useEffect(()=>{setDrafts([]);setOrderId(0);if(!sourceId)return;let valid=true;void apiRequest<OrderingListRow[]>("/api/business/ordering/orders?sourceId="+sourceId+"&status=DRAFT").then(xs=>{if(valid){setDrafts(xs);const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);setOrderId(pickDraft(xs.map(x=>({id:x.id,plannedSendDate:x.plannedSendDate,createdAt:x.createdAt})),today)?.id??0)}}).catch(e=>{if(valid)setError(e instanceof Error?e.message:"無法讀取草稿")});return()=>{valid=false}},[sourceId]);
  async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!sourceId||!qty.trim()||Number(qty)<=0)return;
   setBusy(true);setError("");try{
    const ROOT="/api/business/ordering";
@@ -185,18 +186,19 @@ function AddToOrdering({row,onClose,onAdded}:{row:Row;onClose:()=>void;onAdded:(
    let lineId:number|undefined;
    if(existing&&await confirm({title:"已有同品號品項",description:"加到既有那一列？選「取消」會新增一列。",confirmLabel:"加到既有列",cancelLabel:"新增一列"}))lineId=existing.id;
    const quantityText=lineId?String(Number(existing?.quantity??0)+Number(qty)):qty;
-   await apiRequest(ROOT+"/orders/"+current.id+"/lines",{method:"POST",json:{expectedVersion:current.version,operation:"save",lineId,line:{itemCode:row.itemCode,itemName:row.itemName,unit:row.unit??"",quantityText,sortOrder:Date.now()}}});
+   await apiRequest(ROOT+"/orders/"+current.id+"/lines",{method:"POST",json:{expectedVersion:current.version,operation:"save",lineId,line:{itemCode:row.itemCode,itemName:row.itemName,unit:unit.trim(),quantityText,sortOrder:Date.now()}}});
    await apiRequest(ROOT+"/last-source",{method:"POST",json:{sourceId,itemCode:row.itemCode}}).catch(()=>{});
    const source=sources.find(s=>s.id===sourceId);
    onAdded("已加入 "+(source?.name??"叫貨")+" "+(current.plannedSendDate?current.plannedSendDate.slice(5).replace("-","/"):"未定日期")+" 草稿");
   }catch(err){setError(err instanceof Error?err.message:"加入失敗")}finally{setBusy(false)}
  }
- return <Dialog open title={"加入叫貨單："+row.itemName} onClose={onClose}>{error?<p role="alert">{error}</p>:null}
+ return <Dialog open title={"加入叫貨單："+row.itemName} dismissible={false} onClose={onClose}>{error?<p role="alert">{error}</p>:null}
  <form onKeyDown={enterAdvancesFields} onSubmit={e=>void submit(e)}>
     <FormSection>
- <Field label="來源" size="s" required><select className="cy-op-input" value={sourceId} onChange={e=>setSourceId(Number(e.target.value))}><option value={0}>請選來源</option>{sources.filter(x=>x.kind!=="CN_REGULAR"&&x.kind!=="CN_CUSTOM").map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
+ <Field label="來源" size="m" required><OrderingSourcePicker sources={sources} value={sourceId} onChange={setSourceId} label="選擇加入叫貨單來源"/></Field>
  <Field label="草稿" size="m"><select className="cy-op-input" value={orderId} onChange={e=>setOrderId(Number(e.target.value))}><option value={0}>＋ 新草稿</option>{drafts.map(x=><option key={x.id} value={x.id}>{x.plannedSendDate??"未排日期"}（#{x.id}）</option>)}</select></Field>
  <Field label="數量" size="s" required><input className="cy-op-input" type="number" min=".0001" step="any" value={qty} onChange={e=>setQty(e.target.value)}/></Field>
+  <Field label="單位" size="s"><input className="cy-op-input" maxLength={10} value={unit} onChange={e=>setUnit(e.target.value)}/></Field>
  <button type="submit" className="cy-op-button primary" disabled={busy||!sourceId}>加入</button><button type="button" className="cy-op-button" onClick={onClose}>取消</button>
  
     </FormSection>

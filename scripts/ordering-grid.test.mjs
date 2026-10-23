@@ -107,8 +107,7 @@ for (const kind of ["GENERAL", "VENDOR", "CN_REGULAR", "CN_CUSTOM"]) {
     assert.deepEqual(grid.rowIds, [-1, -2]);
     assert.deepEqual(grid.focused, { row: -2, field: "itemCode" });
     assert.equal(grid.input(-1, "note").props.value, "測試備註");
-    assert.equal(grid.commits.length, ["GENERAL", "VENDOR"].includes(kind) ? 1 : 0,
-      "vendor name and quantity save only for sources that expose vendor fields");
+    assert.equal(grid.commits.length,1,"every source type must be able to save partial draft inputs");
     grid.press(-1, "note");
     assert.deepEqual(grid.rowIds, [-1, -2], "reuse an existing next row");
     grid.press(-2, "note");
@@ -191,13 +190,14 @@ test("edits typed during create update the acknowledged row, retaining failed la
   assert.deepEqual(grid.rowIds, [101, -2]);
 });
 
-test("incomplete input and unacknowledged saves never report clean", async () => {
-  const grid = mount(); grid.change(-1, "vendorItemCode", "TEST-ONLY-CODE");
-  assert.equal(await grid.editor.flush(), false); assert.equal(grid.commits.length, 0);
-  grid.change(-1, "vendorItemName", "測試廠商品名"); grid.change(-1, "quantityText", "2"); grid.press(-1, "note");
-  grid.settlements[0].resolve({ id: 0 }); await tick(grid);
-  assert.equal(grid.state.dirty, true); assert.equal(grid.input(-1, "vendorItemName").props.value, "測試廠商品名");
-  grid.editor.discard(); grid.flush(); assert.equal(grid.state.dirty, false);
+test("partially entered drafts persist on flush; failed acknowledgement leaves dirty",async()=>{
+ const grid=mount();grid.change(-1,"vendorItemCode","TEST-ONLY-CODE");
+ const pending=grid.editor.flush();assert.equal(grid.commits.length,1);
+ assert.equal(grid.commits[0].patch.vendorItemCode,"TEST-ONLY-CODE");
+ grid.settlements[0].resolve({id:0});
+ assert.equal(await pending,false);await tick(grid);
+ assert.equal(grid.state.dirty,true);
+ grid.editor.discard();grid.flush();assert.equal(grid.state.dirty,false);
 });
 
 test("saved-cell flush deduplicates pending edits and retains a failed value", async () => {
@@ -250,6 +250,7 @@ test("editable product name, vendor name and note use wrapping controls without 
  const grid=mount();
  for(const field of ["itemName","vendorItemName","note"]){
   assert.equal(grid.input(-1,field).type,"textarea",field+" permits wrapping in draft");
+  assert.equal(grid.input(-1,field).props.rows,1,"start at one line");
  }
  grid.change(-1,"itemName","很長的商品名稱不用省略號，應該在欄內顯示完整文字");
  assert.equal(grid.press(-1,"itemName"),true);
