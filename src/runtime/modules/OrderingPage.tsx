@@ -7,6 +7,8 @@ import {StatusChip} from "../../ui/primitives/StatusChip";
 import type {StatusTone} from "./status-flow";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {Dialog} from "../../ui/overlays/Dialog";
+import {Loading} from "../../ui/feedback/Loading";
+import {OrderingSourcePicker} from "../../ui/OrderingSourcePicker";
 import {FeedbackBanner,useFeedbackMessage} from "../../ui/feedback/FeedbackProvider";
 import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import {OrderingGrid,type GridLine,type OrderingGridEditor,type OrderingGridState} from "../../ui/OrderingGrid";
@@ -57,7 +59,8 @@ export function OrderingPage(){
  const [vendorSelected,setVendorSelected]=useState<number|null>(null);
  const [vendorTabOrder,setVendorTabOrder]=useState<number[]>([]);
  const vendorDragging=useRef<number|null>(null);
- const [showHiddenSources,setShowHiddenSources]=useState(false);
+ const [hiddenSourcesOpen,setHiddenSourcesOpen]=useState(false);
+ const [vendorLoading,setVendorLoading]=useState(false);
  const vendorOrderIds=useRef(new Map<number,number>());
  const pane=useMasterDetailPane(),{confirm,confirmationDialog}=useConfirmation();
  const editors=useRef(new Map<string,OrderingGridEditor>());
@@ -122,13 +125,13 @@ export function OrderingPage(){
    showOrder(x);setViewPending(false);pane.open();
   }catch(e){setError(errorOf(e))}finally{if(sequence===loadSequence.current)setBusy(false)}
  }
- async function showVendorOverview(){if(!await prepareSwitch())return;const sequence=++loadSequence.current;setBusy(true);
+ async function showVendorOverview(){if(!await prepareSwitch())return;const sequence=++loadSequence.current;setBusy(true);setVendorLoading(true);setVendorAll(true);setSelected(null);setViewPending(false);setVendorOverview([]);pane.open();
   try{const groups=await call<VendorGroup[]>("/vendors/overview");
     if(sequence!==loadSequence.current)return;setVendorAll(true);setSelected(null);setViewPending(false);
     groups.forEach(x=>{if(x.orderId)vendorOrderIds.current.set(x.sourceId,x.orderId)});
     setVendorOverview(groups);
     setVendorSelected(prev=>groups.some(v=>v.sourceId===prev)?prev:groups[0]?.sourceId??null);
-   }catch(e){setError(errorOf(e))}finally{if(sequence===loadSequence.current)setBusy(false)}
+   }catch(e){setError(errorOf(e))}finally{if(sequence===loadSequence.current){setBusy(false);setVendorLoading(false)}}
  }
  async function showPending(){if(!await prepareSwitch())return;++loadSequence.current;setBusy(false);setViewPending(true);setVendorAll(false);pane.open()}
  async function write(path:string,method:string,input:Record<string,unknown>,refreshId=selected?.id){
@@ -300,7 +303,7 @@ export function OrderingPage(){
      <StatusFilter label="叫貨狀態" value={status} onChange={setStatus} counts={counts}
       options={(["SENT","PARTIAL","CLOSED","VOID"] as const).map(code=>({code,label:ORDERING_STATUS_LABELS[code],tone:STATUS_TONE[code]}))}/>
      <div className="cy-ordering-list-filters">
-      <select className="cy-op-input" aria-label="來源" value={sourceFilter} onChange={e=>setSourceFilter(e.target.value)}><option value="">全部來源</option>{sources.map(s=><option key={s.id} value={s.id}>{s.name}{s.isActive?"":"（停用）"}</option>)}</select>
+      <OrderingSourcePicker sources={sources} value={Number(sourceFilter)||0} onChange={id=>setSourceFilter(id?String(id):"")} includeHidden allowAll label="篩選叫貨來源"/>
       <input type="date" className="cy-op-input" aria-label="起日" max="9999-12-31" value={from} onChange={e=>setFrom(e.target.value)}/>
       <span aria-hidden="true">～</span>
       <input type="date" className="cy-op-input" aria-label="迄日" max="9999-12-31" value={to} onChange={e=>setTo(e.target.value)}/>
@@ -337,7 +340,7 @@ export function OrderingPage(){
          <button type="button" className="cy-op-button compact quiet" onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setClosing({id:l.lineId,kind:"SHORTAGE",reason:""})})}>結掉</button></td></tr>)}
       </tbody></table></div>:!pendingLoading?<p className="cy-op-empty">目前沒有未到貨的品項。</p>:null}
     </>
-    :vendorAll?<>
+    :vendorAll?<>{vendorLoading?<Loading/>:<>
       <div className="cy-record-header"><div><h2>廠商草稿</h2><p>選擇廠商編輯草稿；拖曳頁籤可調整個人順序。「其他」固定最右。</p></div>
        <div className="cy-record-actions"><button type="button" className="cy-op-button" onClick={()=>void exportVendors().catch(e=>setError(errorOf(e)))}>匯出廠商合併 Excel</button>
         <button type="button" className="cy-op-button" onClick={()=>setSourceForm({kind:"VENDOR",name:"",conditions:"",paymentTerms:""})}>＋ 新增廠商</button></div></div>
@@ -363,7 +366,7 @@ export function OrderingPage(){
        </div></div>:<p className="cy-op-empty">目前沒有可使用的廠商來源。</p>}
       {activeVendorGroup?<OrderingGrid key={activeVendorGroup.sourceId} kind="VENDOR" section="" lines={activeVendorGroup.lines} busy={busy} {...gridBindings("vendor:"+activeVendorGroup.sourceId)}
        onCommit={(row,patch)=>commitVendorRow(activeVendorGroup,row,patch)} onDelete={async row=>{await deleteVendorRow(activeVendorGroup,row)}}/>:null}
-    </>
+    </>}</>
     :current?<>
       <div className="cy-record-header">
        <div><h2>{current.sourceName} <StatusChip tone={STATUS_TONE[current.status]}>{ORDERING_STATUS_LABELS[current.status]}</StatusChip></h2>
@@ -401,15 +404,15 @@ export function OrderingPage(){
         <button type="button" className="cy-op-button compact quiet" aria-expanded={showHistory} onClick={()=>setShowHistory(v=>!v)}>{showHistory?"收合":"展開"}</button></h3>
        {showHistory?<div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>版本</th><th>時間</th><th>人員</th><th>內容</th></tr></thead><tbody>
         {current.revisions.map(x=><tr key={x.revision}><td>{x.revision}</td><td>{displayTime(x.at)}</td><td>{x.by}</td><td>{x.summary}</td></tr>)}</tbody></table></div>:null}</section>:null}
-    </>:<MasterDetailEmpty title={busy?"正在載入草稿":"選擇叫貨來源"} hint={busy?"":"從上方頁籤選擇來源開始叫貨，或從左側開啟已送出的叫貨單。"}/>}
+    </>:busy?<Loading/>:<MasterDetailEmpty title="選擇叫貨來源" hint="從上方頁籤選擇來源開始叫貨，或從左側開啟已送出的叫貨單。"/>}
    </section>
   </div>
   {manageSources?<Dialog open title="管理叫貨來源" onClose={()=>setManageSources(false)} size="large">
     <div className="cy-ordering-source-management">
-     <div className="cy-record-actions"><label><input type="checkbox" checked={showHiddenSources} onChange={e=>setShowHiddenSources(e.target.checked)}/> 顯示已隱藏來源</label></div>
+     <div className="cy-record-actions"><button type="button" className="cy-op-button" onClick={()=>setHiddenSourcesOpen(true)}>查看已隱藏來源（{sources.filter(x=>!x.isActive).length}）</button></div>
      <div className="cy-op-table-wrap"><table className="cy-op-table">
       <thead><tr><th scope="col">名稱</th><th scope="col">類型</th><th scope="col">叫貨條件</th><th scope="col">付款條件</th><th scope="col">操作</th></tr></thead>
-      <tbody>{sources.filter(x=>x.isActive||showHiddenSources).map(s=><tr key={s.id} data-hidden={!s.isActive||undefined}>
+      <tbody>{sources.filter(x=>x.isActive).map(s=><tr key={s.id} data-hidden={!s.isActive||undefined}>
        <td><strong>{s.name}</strong>{!s.isActive?<small>（已隱藏）</small>:null}</td>
        <td>{s.kind==="VENDOR"?"外部廠商":"公司內部"}</td>
        <td className="cy-ordering-source-note">{s.conditions||"—"}</td>
@@ -424,6 +427,13 @@ export function OrderingPage(){
      <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setManageSources(false)}>關閉</button>
       <button type="button" className="cy-op-button primary" onClick={()=>setSourceForm({kind:"GENERAL",name:"",conditions:"",paymentTerms:""})}>＋ 新增來源</button></div>
     </div>
+  </Dialog>:null}
+  {hiddenSourcesOpen?<Dialog open title="已隱藏叫貨來源" onClose={()=>setHiddenSourcesOpen(false)}>
+   <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>名稱</th><th>類型</th><th>操作</th></tr></thead>
+    <tbody>{sources.filter(x=>!x.isActive).map(s=><tr key={s.id}><td>{s.name}</td><td>{s.kind==="VENDOR"?"外部廠商":"公司內部"}</td>
+     <td><button className="cy-op-button compact" type="button" disabled={busy} onClick={()=>void updateVisibility(s)}>恢復</button></td></tr>)}</tbody></table>
+    {!sources.some(x=>!x.isActive)?<p className="cy-op-empty">目前沒有已隱藏的來源。</p>:null}</div>
+   <div className="cy-op-form-footer"><button className="cy-op-button" type="button" onClick={()=>setHiddenSourcesOpen(false)}>關閉</button></div>
   </Dialog>:null}
   {sourceForm?<Dialog open title={sourceForm.id?"修改叫貨來源":"新增叫貨來源"} onClose={()=>setSourceForm(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void saveSource(e)}>
     <FormSection>
