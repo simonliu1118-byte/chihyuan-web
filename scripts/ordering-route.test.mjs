@@ -268,7 +268,12 @@ test("source payment terms, soft-hide, atomic shared sort and personal vendor or
   assert.equal(sorted.status,200,JSON.stringify(sorted.body));
   assert.deepEqual((await call("/sources")).body.data.map(x=>x.id),all);
   assert.deepEqual((await call("/preferences/vendors")).body.data,orderIds,"shared sort does not overwrite personal preferences");
-  const existing=(await call("/orders","POST",{sourceId:vendor.id})).body.data;
+  let existing=(await call("/orders","POST",{sourceId:vendor.id})).body.data;
+  existing=(await call("/orders/"+existing.id+"/lines","POST",{expectedVersion:existing.version,line:{vendorItemName:"測試廠商品名",quantityText:"1"}})).body.data;
+  const blocked=await call("/sources/"+vendor.id,"PATCH",{isActive:false});
+  assert.equal(blocked.status,422,"a hidden tab must not strand meaningful unsent drafts");
+  assert.match(blocked.body.error.message,/草稿/);
+  existing=(await call("/orders/"+existing.id+"/send","POST",{expectedVersion:existing.version})).body.data;
   assert.equal((await call("/sources/"+vendor.id,"PATCH",{isActive:false})).status,200);
   assert.equal((await call("/orders/"+existing.id)).status,200,"hiding source retains historical orders");
   assert.equal((await call("/orders","POST",{sourceId:vendor.id})).status,422,"hidden source cannot create fresh drafts");
