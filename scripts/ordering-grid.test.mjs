@@ -252,7 +252,9 @@ test("sent table contains only persisted rows, received quantities and accessibl
   assert.equal(grid.nodes.filter(n=>n.type==="tr").length,4);
   assert.deepEqual(grid.rowIds,[]);assert.equal(grid.editor,null);
   assert.equal(grid.nodes.some(n=>n.type?.name==="IconButton"),false);
-  assert.deepEqual(grid.nodes.filter(n=>n.props?.role==="img").map(n=>n.props["aria-label"]),["已到貨","部分到貨"]);
+  assert.deepEqual(grid.nodes.filter(n=>typeof n.props?.className==="string"&&n.props.className.includes("cy-ordering-status-chip")).map(n=>n.props.children),["已到貨","部分到貨","待到貨"]);
+  assert.equal(grid.nodes.some(n=>n.type==="th"&&n.props.children==="狀態"),true);
+  assert.equal(grid.nodes.filter(n=>typeof n.props?.className==="string"&&n.props.className.includes("cy-ordering-wrap")).length,9,"each readonly row wraps item name, vendor name and notes without ellipsis");
   assert.equal(grid.nodes.some(n=>n.type==="th"&&n.props.children==="已到數量"),true);
   assert.equal(grid.nodes.some(n=>n.type==="th"&&n.props.children==="操作"),false);
 });
