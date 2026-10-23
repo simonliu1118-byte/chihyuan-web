@@ -1,7 +1,8 @@
 # WO-0.9.27 全系統表單改用共用欄位元件（必填＊、一次提醒、依長短排版）
 
-- 狀態：待審查
-- 分支：`cyweb/form-fields-all`　PR：[#258](https://github.com/simonliu1118-byte/chihyuan-web/pull/258)
+- 狀態：**已完成・Claude 審查通過・PR #258 已合併**（截至 2026-10-23；歷史交付狀態見 §8、§9）
+- 分支：`cyweb/form-fields-all`　PR：[#258](https://github.com/simonliu1118-byte/chihyuan-web/pull/258)（已合併）
+- 閱讀提示：本單 §0 的「不合併、不部署」、§8 的「待審查／尚未部署」是 GPT **交付當時**的執行界線與證據，不是目前 PR 狀態；§8 完成報告及 §9 Claude 審查紀錄原文保留供交接。
 
 ## 1. 背景（使用者原話）
 
