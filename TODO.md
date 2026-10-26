@@ -6,7 +6,9 @@
 - [x] 廠商品號記憶只在確定輸入時套用／寫入，改品號會清掉舊品號帶入的值；ERP 補品名同理。
 - [x] 後端：隱藏來源原子判斷且 isActive 必須布林、隱藏來源不能新增明細、送出刪空列並指出不完整列號、到貨與待到貨依日期／排序列出。
 - [x] FeedbackProvider 監聽不累積、replace 只取代同類提醒；清掉無用 CSS；WO-0.9.27 狀態更新。
-- [ ] 使用者授權後合併、部署，並於正式網站登入確認上述畫面（不建立或重送真實叫貨／到貨）。
+- [x] 2026-10-26 使用者授權，[PR #278](https://github.com/simonliu1118-byte/chihyuan-web/pull/278) 合併 main（`41a3b0d0`）；必要 CI 全通過。
+- [x] 原發布分支部署 V0.9.35（`c8186be2`，tree 與 main 相同），[GitHub Actions #40262682205](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40262682205) 成功；遠端 D1 `No migrations to apply!`；`/api/health` 回 0.9.35、database ok；正式登入頁「記住我／忘記密碼」已恢復同一行。
+- [ ] 使用者登入後確認客戶拜訪紀錄／常用商品、HR 津貼、身分頁對話框、叫貨來源選單與進貨輔助加入叫貨單（不建立或重送真實叫貨／到貨）。
 
 ## CY Web V0.9.34 — 叫貨草稿與來源選擇器修正（2026-10-23）
 

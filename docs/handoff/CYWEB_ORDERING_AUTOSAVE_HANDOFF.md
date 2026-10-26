@@ -1,7 +1,9 @@
 # CYWEB 叫貨修正交接給 Claude
 
 
-## 2026-10-26 V0.9.35 — Claude 審查 V0.9.27–0.9.34 後的修正（待合併／未部署）
+## 2026-10-26 V0.9.35 — Claude 審查 V0.9.27–0.9.34 後的修正（已合併並部署，當前狀態）
+
+- **部署**：使用者 2026-10-26 批准「可以部署並合併」。PR #278 合併 main `41a3b0d0711fd20d1f63c2701bebfe04a9e396b6`；原 `deploy/cyweb-development` 以 merge commit `c8186be2a02c45b3586cd8d022bc8d58a7aea0c6`（parents：原 tip `5af960b8`、main；tree 與 main 相同，無 force-push）發布。[Actions #40262682205](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40262682205) `validate-deployment-contract`、`deploy-development` 皆 success；遠端 D1 `✅ No migrations to apply!`；正式 `/api/health` 回 `version=0.9.35`、`database=ok`、`sourceCommit=c8186be2`。未登入正式網站做任何業務寫入。
 
 使用者要求審查 GPT 在 V0.9.27–0.9.34 的改動，回覆「直接修」。已確認無問題的部分：build／全部測試、0023 migration 保留資料、送出後唯讀、版本鎖、權限、表單重構保留全部欄位與 Enter 行為、草稿部分輸入可存而送出時檢查。以下為修正內容，**取代**下方各段相對應的舊行為：
 
