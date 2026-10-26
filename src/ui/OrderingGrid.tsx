@@ -10,10 +10,12 @@ const columns={
  CN_CUSTOM:[["itemCode","品號"],["itemName","品名"],["spec","規格"],["quantityText","數量"],["unit","單位"],["note","備註"]],
 } as const;
 const receiptState=(row:GridLine)=>lineState({quantity:row.quantity===undefined?parseQuantity(row.quantityText).quantity:row.quantity,received:row.received??0,closedAs:row.closedAs??null});
+/** What a final save of an unchanged row sends: its own vendor values, so they are remembered. */
+const finalPatch=(row:GridLine):Partial<GridLine>=>({...(row.vendorItemCode?{vendorItemCode:row.vendorItemCode}:{}),...(row.vendorNameFollows===false&&row.vendorItemName?{vendorItemName:row.vendorItemName}:{})});
 const empty=(section:OrderingSection,id:number):GridLine=>({id,section,sortOrder:0,itemCode:"",itemName:"",vendorItemCode:"",vendorItemName:"",spec:"",quantityText:"",unit:"",note:""});
 export type OrderingGridState={dirty:boolean;saving:boolean;failed:boolean};
 export type OrderingGridEditor={flush:()=>Promise<boolean>;discard:()=>void};
-type Props={kind:OrderingSourceKind;section:OrderingSection;lines:GridLine[];busy:boolean;readOnly?:boolean;onCommit:(line:GridLine,patch:Partial<GridLine>)=>Promise<GridLine>;onDelete:(line:GridLine)=>Promise<void>;onRegister?:(editor:OrderingGridEditor|null)=>void;onStateChange?:(state:OrderingGridState)=>void};
+type Props={kind:OrderingSourceKind;section:OrderingSection;lines:GridLine[];busy:boolean;readOnly?:boolean;onCommit:(line:GridLine,patch:Partial<GridLine>,final:boolean)=>Promise<GridLine>;onDelete:(line:GridLine)=>Promise<void>;onRegister?:(editor:OrderingGridEditor|null)=>void;onStateChange?:(state:OrderingGridState)=>void};
 export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,onDelete,onRegister,onStateChange}:Props){
  const nextTemp=useRef(-2);
  const containerRef=useRef<HTMLDivElement>(null);
@@ -22,7 +24,11 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  const inFlight=useRef(new Map<number,Promise<boolean>>());
  const savedDrafts=useRef(new Map<number,{line:GridLine;input:GridLine}>());
  const savedRowKeys=useRef(new Map<number,number>());
- const cellSaves=useRef(new Map<string,{value:string;promise:Promise<boolean>}>());
+ const cellSaves=useRef(new Map<string,{value:string;final:boolean;promise:Promise<boolean>}>());
+ // Autosave while typing is not final (the server neither fills nor remembers vendor values from it).
+ // A blur, Enter or flush makes it final: new rows still saving pick it up, saved rows send it once more.
+ const wantFinal=useRef(new Set<number>());
+ const unfinal=useRef(new Set<number>());
  const actionSaves=useRef(new Set<Promise<boolean>>());
  const skipBlur=useRef(new Set<string>());
  const saveTimers=useRef(new Map<string,ReturnType<typeof setTimeout>>());
@@ -32,7 +38,7 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  const editingRef=useRef(editing);
  const [saveError,setSaveError]=useState(false);
  const setEdits=(update:(previous:Record<string,string>)=>Record<string,string>)=>{editingRef.current=update(editingRef.current);setEditing(editingRef.current)};
- useEffect(()=>{cancelAllTimers();draftsRef.current=[empty(section,-1)];setDrafts(draftsRef.current);nextTemp.current=-2;inFlight.current.clear();savedDrafts.current.clear();savedRowKeys.current.clear();cellSaves.current.clear();editingRef.current={};setEditing({});setSaveError(false)},[section,kind]);
+ useEffect(()=>{cancelAllTimers();draftsRef.current=[empty(section,-1)];setDrafts(draftsRef.current);nextTemp.current=-2;inFlight.current.clear();savedDrafts.current.clear();savedRowKeys.current.clear();cellSaves.current.clear();wantFinal.current.clear();unfinal.current.clear();editingRef.current={};setEditing({});setSaveError(false)},[section,kind]);
  const fields=columns[kind];
  const mappedIds=new Set([...savedDrafts.current.values()].map(x=>x.line.id));
  const visible=readOnly?lines.filter(x=>x.section===section):[...lines.filter(x=>x.section===section&&!mappedIds.has(x.id)),...drafts];
@@ -51,8 +57,9 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
   const target=id<0?[...savedRowKeys.current].find(([,key])=>key===id)?.[0]??id:id;
   containerRef.current?.querySelector<HTMLInputElement|HTMLTextAreaElement>(`[data-order-row="${target}"][data-order-field="${field}"]`)?.focus();
  }));
- const commitNew=(row:GridLine)=>{
+ const commitNew=(row:GridLine,final=true)=>{
   if(readOnly)return Promise.resolve(false);
+  if(final)wantFinal.current.add(row.id);
   const latest=draftsRef.current.find(d=>d.id===row.id);
   const pending=inFlight.current.get(row.id);if(pending)return pending;
   if(!latest||!canSave(latest))return Promise.resolve(false);
@@ -64,18 +71,25 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
   }
   const save=async()=>{
    // Follow only newly typed edits; failed requests are never replayed automatically.
+   let sentFinal=false;
    for(let pass=0;pass<8;pass++){
     const current=draftsRef.current.find(d=>d.id===row.id);if(!current)return true;
     const known=savedDrafts.current.get(row.id),snapshot={...current};
     const patch:Partial<GridLine>=known?Object.fromEntries(fields.filter(([field])=>getValue(snapshot,field)!==getValue(known.input,field)).map(([field])=>[field,getValue(snapshot,field)])):{...snapshot,id:0};
-    if(!known||Object.keys(patch).length){
-     const persisted=await onCommit(known?.line??{...snapshot,id:0},patch);
+    const final=wantFinal.current.has(row.id);
+    if(!known||Object.keys(patch).length||(final&&!sentFinal)){
+     const persisted=await onCommit(known?.line??{...snapshot,id:0},known&&!Object.keys(patch).length?finalPatch(known.line):patch,final);
      if(!persisted||persisted.id<=0)throw new Error("未取得儲存確認，請保留輸入後重試");
+     sentFinal=final;
      savedDrafts.current.set(row.id,{line:persisted,input:snapshot});
      savedRowKeys.current.set(persisted.id,row.id);
     }
     const newest=draftsRef.current.find(d=>d.id===row.id);
     if(newest&&fields.some(([field])=>getValue(newest,field)!==getValue(snapshot,field)))continue;
+    if(wantFinal.current.has(row.id)&&!sentFinal)continue;
+    const saved=savedDrafts.current.get(row.id)?.line;
+    if(saved){if(sentFinal)unfinal.current.delete(saved.id);else unfinal.current.add(saved.id)}
+    wantFinal.current.delete(row.id);
     draftsRef.current=draftsRef.current.filter(d=>d.id!==row.id);savedDrafts.current.delete(row.id);
     setDrafts(draftsRef.current);
     setEdits(prev=>Object.fromEntries(Object.entries(prev).filter(([key])=>!key.startsWith(row.id+"|"))));
@@ -87,29 +101,49 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
   const promise=save().catch(()=>{setSaveError(true);return false}).finally(()=>{inFlight.current.delete(row.id);setDrafts([...draftsRef.current])});
   inFlight.current.set(row.id,promise);setDrafts([...draftsRef.current]);return promise;
  };
- const commitCell=(row:GridLine,field:keyof GridLine,value:string)=>{
+ const commitCell=(row:GridLine,field:keyof GridLine,value:string,final=true):Promise<boolean>=>{
   cancelTimer(row.id+"|"+field);
   if(readOnly)return Promise.resolve(false);
-  if(row.id<0){setDraftValue(row,field,value);return commitNew(row)}
+  if(row.id<0){setDraftValue(row,field,value);return commitNew(row,final)}
   const key=row.id+"|"+field,queued=cellSaves.current.get(key);
-  if(queued?.value===value)return queued.promise;
-  if(!queued&&getValue(row,field)===value){setEdits(prev=>{const n={...prev};delete n[key];return n});return Promise.resolve(true)}
+  if(queued?.value===value){
+   if(!final||queued.final)return queued.promise;
+   return queued.promise.then(()=>commitFinal(row));
+  }
+  if(!queued&&getValue(row,field)===value){
+   setEdits(prev=>{const n={...prev};delete n[key];return n});
+   return final&&unfinal.current.has(row.id)?commitFinal(row):Promise.resolve(true);
+  }
   setSaveError(false);
-  const promise=onCommit(row,{[field]:value}).then(()=>{setEdits(prev=>{
+  if(final)unfinal.current.delete(row.id);else unfinal.current.add(row.id);
+  const promise=onCommit(row,{[field]:value},final).then(()=>{setEdits(prev=>{
     if(prev[key]!==value)return prev;
     const n={...prev};delete n[key];return n;
    });return true}).catch(()=>{setSaveError(true);return false}).finally(()=>{
     if(cellSaves.current.get(key)?.promise===promise)cellSaves.current.delete(key);setDrafts([...draftsRef.current]);
    });
-  cellSaves.current.set(key,{value,promise});setDrafts([...draftsRef.current]);return promise;
+  cellSaves.current.set(key,{value,final,promise});setDrafts([...draftsRef.current]);return promise;
+ };
+ /** Re-sends a saved row's own vendor values as final, after it was only autosaved. */
+ const commitFinal=(row:GridLine)=>{
+  if(!unfinal.current.has(row.id))return Promise.resolve(true);
+  unfinal.current.delete(row.id);
+  const latest=lines.find(l=>l.id===row.id)??row;
+  const promise=onCommit(latest,finalPatch(latest),true).then(()=>true).catch(()=>{unfinal.current.add(row.id);setSaveError(true);return false})
+   .finally(()=>{actionSaves.current.delete(promise);setDrafts([...draftsRef.current])});
+  actionSaves.current.add(promise);return promise;
  };
  const editor=useRef<OrderingGridEditor>({flush:async()=>true,discard:()=>{}});
  editor.current.discard=()=>{cancelAllTimers();draftsRef.current=[empty(section,nextTemp.current--)];savedDrafts.current.clear();setDrafts(draftsRef.current);setEdits(()=>({}));setSaveError(false)};
  editor.current.flush=async()=>{
   cancelAllTimers();
   if(readOnly)return true;
-  const work=draftsRef.current.filter(hasInput).map(commitNew);
-  for(const row of lines.filter(x=>x.section===section))for(const [field] of fields){const value=editingRef.current[row.id+"|"+field];if(value!==undefined)work.push(commitCell(row,field,value))}
+  const work=draftsRef.current.filter(hasInput).map(row=>commitNew(row));
+  for(const row of lines.filter(x=>x.section===section)){
+   const pending=fields.filter(([field])=>editingRef.current[row.id+"|"+field]!==undefined);
+   for(const [field] of pending)work.push(commitCell(row,field,editingRef.current[row.id+"|"+field]));
+   if(!pending.length&&unfinal.current.has(row.id))work.push(commitFinal(row));
+  }
   work.push(...inFlight.current.values(),...[...cellSaves.current.values()].map(x=>x.promise),...actionSaves.current);
   const okay=(await Promise.all(work)).every(Boolean);
   return okay&&!draftsRef.current.some(hasInput)&&!hasSavedEdits(editingRef.current);
@@ -138,8 +172,8 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
   const key=row.id+"|"+field;cancelTimer(key);
   saveTimers.current.set(key,setTimeout(()=>{
    saveTimers.current.delete(key);
-   if(row.id<0){void commitNew(row)}
-   else{void commitCell(row,field as keyof GridLine,editingRef.current[key]??value)}
+   if(row.id<0){void commitNew(row,false)}
+   else{void commitCell(row,field as keyof GridLine,editingRef.current[key]??value,false)}
   },900));
  };
  useEffect(()=>()=>cancelAllTimers(),[]);

@@ -33,8 +33,8 @@ function mount(kind = "GENERAL", lines = [], options = {}) {
   let cursor = 0, dirty = true, effects = [], tree, focused, editor, state;
   const props = { kind, section: kind === "CN_REGULAR" ? "SINGLE" : "", lines, busy: false,
     onRegister(value) { editor = value; }, onStateChange(value) { state = value; },
-    onDelete: async () => {}, onCommit(row, patch) {
-      commits.push({ row, patch });
+    onDelete: async () => {}, onCommit(row, patch, final) {
+      commits.push({ row, patch, final });
       return new Promise((resolve, reject) => settlements.push({ resolve(saved) {
         props.lines = [...props.lines.filter(line => line.id !== saved.id), saved];
         dirty = true; resolve(saved);
@@ -268,4 +268,33 @@ test("sent table contains only persisted rows, received quantities and accessibl
   assert.equal(grid.nodes.filter(n=>typeof n.props?.className==="string"&&n.props.className.includes("cy-ordering-wrap")).length,9,"each readonly row wraps item name, vendor name and notes without ellipsis");
   assert.equal(grid.nodes.some(n=>n.type==="th"&&n.props.children==="已到數量"),true);
   assert.equal(grid.nodes.some(n=>n.type==="th"&&n.props.children==="操作"),false);
+});
+
+test("autosave while typing is not final; leaving the cell sends the final save once", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const line = { id: 101, section: "", sortOrder: 1, itemCode: "", itemName: "測試品名甲", vendorItemCode: "V01",
+    vendorItemName: "測試廠商品名甲", vendorNameFollows: false, spec: "", quantityText: "1", unit: "", note: "" };
+  const grid = mount("GENERAL", [line]);
+  grid.change(101, "itemCode", "CODE01"); t.mock.timers.tick(900); grid.flush();
+  assert.equal(grid.commits.length, 1); assert.equal(grid.commits[0].final, false);
+  acknowledge(grid, 0); await tick(grid);
+  grid.input(101, "itemCode").props.onBlur({ currentTarget: { value: "CODE01" } }); grid.flush();
+  assert.equal(grid.commits.length, 2); assert.equal(grid.commits[1].final, true);
+  assert.deepEqual(grid.commits[1].patch, { vendorItemCode: "V01", vendorItemName: "測試廠商品名甲" });
+  acknowledge(grid, 1); await tick(grid);
+  grid.input(101, "itemCode").props.onBlur({ currentTarget: { value: "CODE01" } }); grid.flush();
+  assert.equal(grid.commits.length, 2, "already final: nothing more to send");
+});
+
+test("a new row's Enter during its autosave is carried into one more final save", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const grid = mount("GENERAL");
+  grid.change(-1, "itemName", "測試品名甲"); t.mock.timers.tick(900); grid.flush();
+  assert.equal(grid.commits.length, 1); assert.equal(grid.commits[0].final, false);
+  grid.press(-1, "itemName");
+  assert.equal(grid.commits.length, 1, "the pending save is reused");
+  acknowledge(grid, 0); await tick(grid);
+  assert.equal(grid.commits.length, 2); assert.equal(grid.commits[1].final, true);
+  acknowledge(grid, 1); await tick(grid);
+  assert.equal(grid.commits.length, 2);
 });

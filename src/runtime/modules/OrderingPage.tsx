@@ -178,10 +178,10 @@ export function OrderingPage(){
   const timer=setTimeout(()=>{if(headerDirtyRef.current.date)void saveHeader("date");if(headerDirtyRef.current.note)void saveHeader("note")},900);
   return()=>clearTimeout(timer);
  },[selected?.id,selected?.plannedSendDate,selected?.note]);
- async function lineCommit(row:GridLine,patch:Partial<GridLine>){
+ async function lineCommit(row:GridLine,patch:Partial<GridLine>,final:boolean){
   if(!selected||selected.storedStatus!=="DRAFT")throw new Error("只有草稿可修改叫貨明細");
   const line={...patch,...(!row.id?{...row,...patch}:{}),...(!row.id?{sortOrder:Date.now()}:{} )};
-  const data=await write("/orders/"+selected.id+"/lines","POST",{operation:"save",lineId:row.id||undefined,line});
+  const data=await write("/orders/"+selected.id+"/lines","POST",{operation:"save",lineId:row.id||undefined,line,final});
   const saved=data.lines.find(l=>l.id===(data.savedLineId??row.id));if(!saved)throw new Error("未取得明細儲存確認，請保留輸入後重試");return saved;
  }
  async function removeLine(row:GridLine){if(!selected||!await confirm({title:"刪除叫貨品項",description:"確定刪除「"+(row.itemName||row.vendorItemName)+"」？"}))return;
@@ -214,14 +214,14 @@ export function OrderingPage(){
   const blob=new Blob([new Uint8Array(bytes) as BlobPart],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=exportFileName(order.sourceName,fallback);a.click();URL.revokeObjectURL(url);
  }
- async function commitVendorRow(group:VendorGroup,row:GridLine,patch:Partial<GridLine>){
+ async function commitVendorRow(group:VendorGroup,row:GridLine,patch:Partial<GridLine>,final:boolean){
   return enqueue("vendor:"+group.sourceId,async()=>{
    try{
     const chosen=vendorOrderIds.current.get(group.sourceId)??group.orderId;
     const current=chosen?(cached.current.get(chosen)??remember(await call<DisplayOrder>("/orders/"+chosen))):remember(await call<DisplayOrder>("/orders","POST",{sourceId:group.sourceId}));
     vendorOrderIds.current.set(group.sourceId,current.id);
     const data=await call<DisplayOrder>("/orders/"+current.id+"/lines","POST",{operation:"save",expectedVersion:current.version,lineId:row.id>0?row.id:undefined,
-      line:{...(!row.id?row:{}),...patch,...(row.id<=0?{sortOrder:Date.now()}:{})}});
+      line:{...(!row.id?row:{}),...patch,...(row.id<=0?{sortOrder:Date.now()}:{})},final});
     remember(data);setVendorOverview(groups=>groups.map(g=>g.sourceId===group.sourceId?{...g,orderId:data.id,orderVersion:data.version,lines:data.lines}:g));
     const saved=data.lines.find(l=>l.id===(data.savedLineId??row.id));if(!saved)throw new Error("未取得明細儲存確認，請保留輸入後重試");return saved;
    }catch(e){setError(errorOf(e));throw e}
@@ -377,7 +377,7 @@ export function OrderingPage(){
         <button type="button" className="cy-op-button compact quiet" onClick={()=>{const v=vendors.find(x=>x.id===activeVendorGroup.sourceId);if(v)void selectSource(v)}}>進入廠商</button>
        </div></div>:<p className="cy-op-empty">目前沒有可使用的廠商來源。</p>}
       {activeVendorGroup?<OrderingGrid key={activeVendorGroup.sourceId} kind="VENDOR" section="" lines={activeVendorGroup.lines} busy={busy} {...gridBindings("vendor:"+activeVendorGroup.sourceId)}
-       onCommit={(row,patch)=>commitVendorRow(activeVendorGroup,row,patch)} onDelete={async row=>{await deleteVendorRow(activeVendorGroup,row)}}/>:null}
+       onCommit={(row,patch,final)=>commitVendorRow(activeVendorGroup,row,patch,final)} onDelete={async row=>{await deleteVendorRow(activeVendorGroup,row)}}/>:null}
     </>}</>
     :current?<>
       <div className="cy-record-header">

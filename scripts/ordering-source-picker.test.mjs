@@ -21,7 +21,8 @@ const text=n=>typeof n==="string"?n:Array.isArray(n)?n.map(text).join(""):text(n
 const sources=[
  ...["台北","台中","洲美","定期中國貨","自訂中國貨"].map((name,i)=>({id:i+1,name,kind:i===3?"CN_REGULAR":i===4?"CN_CUSTOM":"GENERAL",isActive:true})),
  {id:6,name:"永全",kind:"VENDOR",isActive:true},{id:7,name:"坤日",kind:"VENDOR",isActive:true},
- {id:8,name:"已停用廠商",kind:"VENDOR",isActive:false}
+ {id:8,name:"已停用廠商",kind:"VENDOR",isActive:false},
+ {id:9,name:"自訂倉庫",kind:"GENERAL",sortOrder:5,isActive:true}
 ];
 function mount({allowAll=false,includeHidden=false}={}){
  globalThis.document={addEventListener(){},removeEventListener(){}};
@@ -40,7 +41,7 @@ function mount({allowAll=false,includeHidden=false}={}){
  render();
  return {input,buttons,click,render,changed,get value(){return value},dispose(){slots.forEach(s=>s?.cleanup?.())}};
 }
-test("two-level picker opens only five internal sources and vendor entry; can select vendor by mouse",()=>{
+test("two-level picker opens non-vendor sources and the vendor entry; can select vendor by mouse",()=>{
  const picker=mount();
  picker.input().props.onFocus();picker.render();
  const root=picker.buttons().map(text);
@@ -64,5 +65,21 @@ test("history picker permits hidden sources and clearing All",()=>{
  picker.input().props.onFocus();picker.render();
  picker.click("全部來源");assert.equal(picker.value,0);
  picker.input().props.onFocus();picker.render();picker.click("廠商");picker.click("已停用廠商");assert.equal(picker.value,8);
+ picker.dispose();
+});
+test("first level lists every active non-vendor source, including ones added later",()=>{
+ const picker=mount();
+ picker.input().props.onFocus();picker.render();
+ const root=picker.buttons().map(text);
+ assert.ok(root.some(x=>x.includes("自訂倉庫")),"a renamed or added general source is not hidden");
+ assert.ok(root.findIndex(x=>x.includes("自訂倉庫"))<root.findIndex(x=>x.includes("定期中國貨")),"general sources come before China sources");
+ picker.dispose();
+});
+test("Enter with nothing to pick closes the list and leaves Enter to the form",()=>{
+ const picker=mount();
+ picker.input().props.onFocus();picker.render();
+ let prevented=false,expanded=null;
+ picker.input().props.onKeyDown({key:"Enter",preventDefault(){prevented=true},currentTarget:{setAttribute(k,v){if(k==="aria-expanded")expanded=v}}});picker.render();
+ assert.equal(prevented,false);assert.equal(expanded,"false");assert.equal(picker.input().props["aria-expanded"],false);
  picker.dispose();
 });
