@@ -14,7 +14,8 @@ export function FeedbackProvider({ children }: PropsWithChildren) {
   const invalidBatch = useRef<{ input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement; label: string; problem: string | null }[]>([]);
   const notify: Notify = useCallback((message, title = "操作提醒", options) => {
     const translated = chineseMessage(message);
-    setQueue(current => options?.replace ? [{ message: translated, title }]
+    // replace: a newer alert of the same kind (same title) supersedes the older one; others stay queued.
+    setQueue(current => options?.replace ? [...current.filter(item => item.title !== title), { message: translated, title }]
       : current.some(item => item.message === translated) ? current : [...current, { message: translated, title }]);
   }, []);
   const close = useCallback(() => setQueue(current => current.slice(1)), []);
@@ -30,6 +31,7 @@ export function FeedbackProvider({ children }: PropsWithChildren) {
       : validity.rangeUnderflow || validity.rangeOverflow ? `${label}超出允許範圍`
       : validity.tooLong || validity.tooShort ? `${label}的字數不符合要求`
       : validity.badInput || validity.stepMismatch ? `${label}的數值格式不正確`
+      : validity.customError ? `${label}${input.validationMessage}`
       : `${label}的格式不正確`;
     // The browser fires one invalid event per field; gather them and speak once after the last.
     if (!invalidBatch.current.length) setTimeout(flushInvalid, 0);
@@ -43,8 +45,9 @@ export function FeedbackProvider({ children }: PropsWithChildren) {
     const lines = [missing.length ? `請填寫：${missing.join("、")}。` : "", ...batch.filter(x => x.problem).map(x => x.problem + "。")].filter(Boolean);
     for (const { input } of batch) {
       input.setAttribute("aria-invalid", "true");
-      input.addEventListener("input", () => input.removeAttribute("aria-invalid"), { once: true });
-      input.addEventListener("change", () => input.removeAttribute("aria-invalid"), { once: true });
+      // One shared handler: adding it again on the next failed submit is a no-op, so nothing piles up.
+      input.addEventListener("input", clearInvalid);
+      input.addEventListener("change", clearInvalid);
     }
     const first = batch.find(x => !x.input.classList.contains("cy-f-rows-required"))?.input;
     first?.focus();
@@ -103,3 +106,6 @@ function fieldName(input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaEle
   return own || input.getAttribute("aria-label") || input.getAttribute("placeholder") || "此欄位";
 }
 
+function clearInvalid(event: Event) {
+  (event.currentTarget as Element).removeAttribute("aria-invalid");
+}

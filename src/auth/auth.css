@@ -28,7 +28,7 @@
 .cy-auth-status-card .cy-auth-brand-mark { margin: 0 auto 12px; }
 
 .cy-auth-form { display: grid; gap: 14px; }
-.cy-auth-form label:not(.cy-auth-remember) { display: grid; gap: 6px; color: var(--cy-text); font-size: var(--cy-fs-md); font-weight: 600; }
+.cy-auth-form label:not(.cy-f-check) { display: grid; gap: 6px; color: var(--cy-text); font-size: var(--cy-fs-md); font-weight: 600; }
 .cy-auth-form input:not([type="checkbox"]) {
   width: 100%; min-height: 40px; padding: 6px 12px;
   border: 1px solid var(--cy-border-input); border-radius: var(--cy-radius-md);
@@ -47,7 +47,7 @@
 .cy-auth-primary-button:disabled { opacity: .6; cursor: wait; }
 
 .cy-auth-login-options { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.cy-auth-remember { display: inline-flex; align-items: center; gap: 8px; color: var(--cy-text-muted); font-size: var(--cy-fs-md); cursor: pointer; }
+.cy-auth-login-options .cy-f-check { min-height: 0; color: var(--cy-text-muted); font-size: var(--cy-fs-md); cursor: pointer; }
 
 .cy-auth-error { margin: 0; padding: 8px 10px; border-radius: var(--cy-radius-md); background: var(--cy-danger-soft); color: var(--cy-danger); font-weight: 600; }
 .cy-auth-note-inline, .cy-auth-note { margin: 0; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); line-height: 1.6; }

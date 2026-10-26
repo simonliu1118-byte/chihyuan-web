@@ -1,6 +1,6 @@
 # WO-0.9.27 全系統表單改用共用欄位元件（必填＊、一次提醒、依長短排版）
 
-- 狀態：待審查
+- 狀態：已完成（GPT 於 V0.9.27–0.9.34 實作；Claude 於 V0.9.35 審查並修正過渡排版規則）
 - 分支：`cyweb/form-fields-all`　PR：[#258](https://github.com/simonliu1118-byte/chihyuan-web/pull/258)
 
 ## 1. 背景（使用者原話）

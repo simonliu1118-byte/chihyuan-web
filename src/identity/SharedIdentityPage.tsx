@@ -1039,7 +1039,7 @@ function ApplicationRegistryPanel({ snapshot, refresh }: { snapshot: IdentityAdm
     {registration ? <Dialog open title="登記並啟用系統" size="small" dismissible={!busy} onClose={() => void close()}
       description="為目前 Workspace 加入系統。超級管理員可直接使用；其他員工仍須另外開放使用權。已停用的系統重新登記後會啟用，原有使用權會保留。"
       footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void close()}>取消</button><button type="submit" form={formId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>登記並啟用</button></div>}>
-      <form onKeyDown={enterAdvancesFields} id={formId} className="cy-form-grid" onSubmit={(event) => void register(event)}>
+      <form onKeyDown={enterAdvancesFields} id={formId} onSubmit={(event) => void register(event)}>
     <FormSection>
         <div className="cy-form-grid-full"><TextInput label="系統識別碼" description="使用該系統核准的識別碼，由英文字母、數字、底線或連字號組成。" value={registration.applicationId} maxLength={64} required disabled={busy} autoFocus onChange={(event) => setRegistration({ ...registration, applicationId: event.target.value })} /></div>
         <div className="cy-form-grid-full"><TextInput label="顯示名稱" value={registration.displayName} maxLength={120} required disabled={busy} onChange={(event) => setRegistration({ ...registration, displayName: event.target.value })} /></div>
@@ -1091,7 +1091,7 @@ function SecurityPanel() {
     {draft && view ? <Dialog open title="變更驗證碼與 Email 安全設定" size="small" dismissible={!busy} onClose={close}
       description="限制驗證碼重寄與 Email 寄送次數，避免被濫用。"
       footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={close}>取消</button><button type="submit" form={formId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>儲存</button></div>}>
-      <form onKeyDown={enterAdvancesFields} id={formId} className="cy-identity-policy-grid" onSubmit={(event) => void save(event)}>
+      <form onKeyDown={enterAdvancesFields} id={formId} className="cy-identity-policy-form" onSubmit={(event) => void save(event)}>
     <FormSection>
         <Field label="驗證碼重寄間隔（秒）" size="s"><input className="cy-op-input" type="number" min={30} max={600} value={draft.otpResendCooldownSeconds} onChange={field("otpResendCooldownSeconds")} /></Field>
         <Field label="驗證碼最多嘗試次數" size="s"><input className="cy-op-input" type="number" min={3} max={10} value={draft.otpMaxAttempts} onChange={field("otpMaxAttempts")} /></Field>
