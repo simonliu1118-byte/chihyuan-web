@@ -1,6 +1,12 @@
 # CYWEB 叫貨修正交接給 Claude
 
 
+## 2026-10-26 V0.9.35 Build 1 — 總覽舊草稿與到貨重複送出
+
+- **廠商總覽**：`showVendorOverview` 原本只新增 `vendorOrderIds`、從不刪除，草稿送出／作廢後總覽仍寫向舊單而一直 409。現在載入時伺服器回 `orderId:null` 就刪除對應；`commitVendorRow` 若快取中的對應單已非草稿也改開新草稿。
+- **登記到貨**：`receive` 以 ref 擋住進行中的第二次送出，按鈕 `disabled`／`aria-busy`。原本第二次會排在第一次之後並用更新後的版本，部分到貨會被記兩次。
+- 後端未改，無 migration。
+
 ## 2026-10-26 V0.9.35 — Claude 審查 V0.9.27–0.9.34 後的修正（已合併並部署，當前狀態）
 
 - **部署**：使用者 2026-10-26 批准「可以部署並合併」。PR #278 合併 main `41a3b0d0711fd20d1f63c2701bebfe04a9e396b6`；原 `deploy/cyweb-development` 以 merge commit `c8186be2a02c45b3586cd8d022bc8d58a7aea0c6`（parents：原 tip `5af960b8`、main；tree 與 main 相同，無 force-push）發布。[Actions #40262682205](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40262682205) `validate-deployment-contract`、`deploy-development` 皆 success；遠端 D1 `✅ No migrations to apply!`；正式 `/api/health` 回 `version=0.9.35`、`database=ok`、`sourceCommit=c8186be2`。未登入正式網站做任何業務寫入。
