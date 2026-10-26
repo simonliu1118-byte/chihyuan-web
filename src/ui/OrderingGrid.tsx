@@ -28,7 +28,11 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  // Autosave while typing is not final (the server neither fills nor remembers vendor values from it).
  // A blur, Enter or flush makes it final: new rows still saving pick it up, saved rows send it once more.
  const wantFinal=useRef(new Set<number>());
- const unfinal=useRef(new Set<number>());
+ // Saved rows whose last save was only an autosave, with the fields it carried; the final save resends
+ // exactly those, so a cleared field stays cleared and only a 品號 entered just now pulls in ERP values.
+ const unfinal=useRef(new Map<number,Set<string>>());
+ const markUnfinal=(id:number,field?:string)=>{const set=unfinal.current.get(id)??new Set<string>();if(field)set.add(field);unfinal.current.set(id,set)};
+ const markFinal=(id:number,field:string)=>{const set=unfinal.current.get(id);if(!set)return;set.delete(field);if(!set.size)unfinal.current.delete(id)};
  const actionSaves=useRef(new Set<Promise<boolean>>());
  const skipBlur=useRef(new Set<string>());
  const saveTimers=useRef(new Map<string,ReturnType<typeof setTimeout>>());
@@ -42,7 +46,10 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  const fields=columns[kind];
  const mappedIds=new Set([...savedDrafts.current.values()].map(x=>x.line.id));
  const visible=readOnly?lines.filter(x=>x.section===section):[...lines.filter(x=>x.section===section&&!mappedIds.has(x.id)),...drafts];
- const getValue=(row:GridLine,field:string)=>String(row[field as keyof GridLine]??"");
+ // A saved 廠商品名 that still follows 品名 edits as empty (品名 shows as its placeholder), so typing
+ // your own never starts by deleting a copy; leaving it empty keeps following 品名.
+ const follows=(row:GridLine)=>row.id>0&&row.vendorNameFollows===true;
+ const getValue=(row:GridLine,field:string)=>field==="vendorItemName"&&follows(row)?"":String(row[field as keyof GridLine]??"");
  const hasInput=(row:GridLine)=>fields.some(([field])=>getValue(row,field).trim());
  const canSave=(row:GridLine)=>hasInput(row); // partial drafts persist; /send owns completeness validation.
  const hasSavedEdits=(values:Record<string,string>)=>Object.keys(values).some(key=>Number(key.split("|")[0])>0);
@@ -78,7 +85,7 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
     const patch:Partial<GridLine>=known?Object.fromEntries(fields.filter(([field])=>getValue(snapshot,field)!==getValue(known.input,field)).map(([field])=>[field,getValue(snapshot,field)])):{...snapshot,id:0};
     const final=wantFinal.current.has(row.id);
     if(!known||Object.keys(patch).length||(final&&!sentFinal)){
-     const persisted=await onCommit(known?.line??{...snapshot,id:0},known&&!Object.keys(patch).length?finalPatch(known.line):patch,final);
+     const persisted=await onCommit(known?.line??{...snapshot,id:0},known&&!Object.keys(patch).length?{...finalPatch(known.line),...(known.line.itemCode?{itemCode:known.line.itemCode}:{})}:patch,final);
      if(!persisted||persisted.id<=0)throw new Error("未取得儲存確認，請保留輸入後重試");
      sentFinal=final;
      savedDrafts.current.set(row.id,{line:persisted,input:snapshot});
@@ -88,7 +95,7 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
     if(newest&&fields.some(([field])=>getValue(newest,field)!==getValue(snapshot,field)))continue;
     if(wantFinal.current.has(row.id)&&!sentFinal)continue;
     const saved=savedDrafts.current.get(row.id)?.line;
-    if(saved){if(sentFinal)unfinal.current.delete(saved.id);else unfinal.current.add(saved.id)}
+    if(saved){if(sentFinal)unfinal.current.delete(saved.id);else markUnfinal(saved.id,saved.itemCode?"itemCode":undefined)}
     wantFinal.current.delete(row.id);
     draftsRef.current=draftsRef.current.filter(d=>d.id!==row.id);savedDrafts.current.delete(row.id);
     setDrafts(draftsRef.current);
@@ -115,7 +122,7 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
    return final&&unfinal.current.has(row.id)?commitFinal(row):Promise.resolve(true);
   }
   setSaveError(false);
-  if(final)unfinal.current.delete(row.id);else unfinal.current.add(row.id);
+  if(final)markFinal(row.id,field);else markUnfinal(row.id,field);
   const promise=onCommit(row,{[field]:value},final).then(()=>{setEdits(prev=>{
     if(prev[key]!==value)return prev;
     const n={...prev};delete n[key];return n;
@@ -126,10 +133,12 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  };
  /** Re-sends a saved row's own vendor values as final, after it was only autosaved. */
  const commitFinal=(row:GridLine)=>{
-  if(!unfinal.current.has(row.id))return Promise.resolve(true);
+  const fieldsToResend=unfinal.current.get(row.id);
+  if(!fieldsToResend)return Promise.resolve(true);
   unfinal.current.delete(row.id);
   const latest=lines.find(l=>l.id===row.id)??row;
-  const promise=onCommit(latest,finalPatch(latest),true).then(()=>true).catch(()=>{unfinal.current.add(row.id);setSaveError(true);return false})
+  const patch={...finalPatch(latest),...Object.fromEntries([...fieldsToResend].map(field=>[field,getValue(latest,field)]))};
+  const promise=onCommit(latest,patch,true).then(()=>true).catch(()=>{unfinal.current.set(row.id,fieldsToResend);setSaveError(true);return false})
    .finally(()=>{actionSaves.current.delete(promise);setDrafts([...draftsRef.current])});
   actionSaves.current.add(promise);return promise;
  };
@@ -194,6 +203,7 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
       "data-order-row":row.id,"data-order-field":field,
       className:"cy-ordering-cell"+(multiline?" cy-ordering-multiline":""),
       "aria-label":title+" 第"+(i+1)+"列",title,value,disabled:busy,
+      placeholder:field==="vendorItemName"&&row.itemName?row.itemName:undefined,
       "aria-busy":inFlight.current.has(row.id)||undefined,
       required:field==="quantityText"||(field==="itemName"&&kind!=="GENERAL"&&kind!=="VENDOR"),
       onChange:(e:ChangeEvent<HTMLInputElement|HTMLTextAreaElement>)=>{setEdits(prev=>({...prev,[key]:e.target.value}));if(row.id<0)setDraftValue(row,field,e.target.value);scheduleSave(row,field,e.target.value)},
@@ -204,7 +214,7 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
       },
       onKeyDown:(e:KeyboardEvent<HTMLInputElement|HTMLTextAreaElement>)=>enter(e,row,col),
      };
-     return [<td key={field}>{readOnly?<span className={"cy-ordering-cell-text"+(field==="quantityText"?" cy-ordering-quantity":"")+((field==="itemName"||field==="vendorItemName"||field==="note")?" cy-ordering-wrap":"")}>{value}</span>:multiline?<textarea {...editProps} rows={1} ref={element=>{if(element){element.style.height="34px";element.style.height=Math.min(176,Math.max(34,element.scrollHeight))+"px"}}} />:<input {...editProps} />}</td>,...(readOnly&&field==="quantityText"?[<td key="received"><span className="cy-ordering-cell-text cy-ordering-quantity">{row.received??0}</span>{row.closedAs?<small className="cy-ordering-closed-note" title={row.closedNote}>{CLOSED_AS_LABELS[row.closedAs]}{row.closedNote?"（"+row.closedNote+"）":""}</small>:null}</td>]:[])];
+     return [<td key={field}>{readOnly?<span className={"cy-ordering-cell-text"+(field==="quantityText"?" cy-ordering-quantity":"")+((field==="itemName"||field==="vendorItemName"||field==="note")?" cy-ordering-wrap":"")}>{String(row[field as keyof GridLine]??"")}</span>:multiline?<textarea {...editProps} rows={1} ref={element=>{if(element){element.style.height="34px";element.style.height=Math.min(176,Math.max(34,element.scrollHeight))+"px"}}} />:<input {...editProps} />}</td>,...(readOnly&&field==="quantityText"?[<td key="received"><span className="cy-ordering-cell-text cy-ordering-quantity">{row.received??0}</span>{row.closedAs?<small className="cy-ordering-closed-note" title={row.closedNote}>{CLOSED_AS_LABELS[row.closedAs]}{row.closedNote?"（"+row.closedNote+"）":""}</small>:null}</td>]:[])];
     })}
     {readOnly?<td className="cy-ordering-status-cell"><span className={"cy-ordering-status-chip state-"+receiptState(row).toLowerCase()}>{receiptState(row)==="OPEN"?"待到貨":receiptState(row)==="RECEIVED"?"已到齊":LINE_STATE_LABELS[receiptState(row)]}</span></td>:null}
     {!readOnly?<td className="cy-ordering-grid-actions">{row.id>0?<IconButton label={"刪除第"+(i+1)+"列"} disabled={busy||actionSaves.current.size>0} onClick={()=>runAction(()=>onDelete(row))} icon={<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v8m4-8v8"/></svg>}/>:null}</td>:null}</tr>)}</tbody>

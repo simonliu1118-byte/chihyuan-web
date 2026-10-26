@@ -117,6 +117,13 @@ test("autosave while typing neither fills nor remembers; a changed key drops the
   // Clearing a vendor code on a saved line clears it rather than restoring it.
   r=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,lineId:id,line:{vendorItemCode:""},final:true});o=r.body.data;
   assert.equal(o.lines[0].vendorItemCode,"");
+  // A cleared 單位 stays cleared: later saves of other fields never pull the ERP unit back.
+  r=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{itemCode:"CODE01",quantityText:"100"},final:true});o=r.body.data;
+  const filled=o.lines.find(l=>l.id===r.body.data.savedLineId);assert.equal(filled.unit,"箱");
+  r=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,lineId:filled.id,line:{unit:""},final:true});o=r.body.data;
+  assert.equal(o.lines.find(l=>l.id===filled.id).unit,"");
+  r=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,lineId:filled.id,line:{note:"測試"},final:true});o=r.body.data;
+  assert.equal(o.lines.find(l=>l.id===filled.id).unit,"");
  }finally{sql.close()}
 });
 test("send drops emptied rows, names incomplete rows, and hiding needs a boolean",async()=>{
