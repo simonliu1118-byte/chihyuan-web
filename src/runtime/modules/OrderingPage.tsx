@@ -52,6 +52,8 @@ export function OrderingPage(){
  const [sourceFilter,setSourceFilter]=useState("");
  const [manageSources,setManageSources]=useState(false);
  const [receipt,setReceipt]=useState<{id:number;no:string;date:string;quantities:Record<number,string>;selectedLineIds:number[]}|null>(null);
+ const [receiptSaving,setReceiptSaving]=useState(false),receiptSavingRef=useRef(false);
+ type ReceiptForm=NonNullable<typeof receipt>;
  const [closing,setClosing]=useState<{id:number;kind:"SHORTAGE"|"CANCELLED"|"OTHER";reason:string}|null>(null);
  const [viewPending,setViewPending]=useState(true),[pendingLoading,setPendingLoading]=useState(true),[showHistory,setShowHistory]=useState(false),[drafts,setDrafts]=useState<OrderingListRow[]>([]);
  const [vendorOverview,setVendorOverview]=useState<VendorGroup[]>([]);
@@ -128,7 +130,8 @@ export function OrderingPage(){
  async function showVendorOverview(){if(!await prepareSwitch())return;const sequence=++loadSequence.current;setBusy(true);setVendorLoading(true);setVendorAll(true);setSelected(null);setViewPending(false);setVendorOverview([]);pane.open();
   try{const groups=await call<VendorGroup[]>("/vendors/overview");
     if(sequence!==loadSequence.current)return;setVendorAll(true);setSelected(null);setViewPending(false);
-    groups.forEach(x=>{if(x.orderId)vendorOrderIds.current.set(x.sourceId,x.orderId)});
+    // The overview is authoritative: a draft sent or voided elsewhere must not keep receiving rows.
+    groups.forEach(x=>{if(x.orderId)vendorOrderIds.current.set(x.sourceId,x.orderId);else vendorOrderIds.current.delete(x.sourceId)});
     setVendorOverview(groups);
     setVendorSelected(prev=>groups.some(v=>v.sourceId===prev)?prev:groups[0]?.sourceId??null);
    }catch(e){setError(errorOf(e))}finally{if(sequence===loadSequence.current){setBusy(false);setVendorLoading(false)}}
@@ -196,6 +199,11 @@ export function OrderingPage(){
    setSourceForm(null);await refresh();void refreshLists().catch(e=>setError(errorOf(e)));if(vendorAll)void showVendorOverview();
   }catch(err){setError(errorOf(err))}finally{setBusy(false)}}
  async function receive(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!receipt||!selected)return;
+  // A second click would queue a second receipt against the refreshed version and double-count it.
+  if(receiptSavingRef.current)return;receiptSavingRef.current=true;setReceiptSaving(true);
+  try{await saveReceipt(receipt,selected)}finally{receiptSavingRef.current=false;setReceiptSaving(false)}
+ }
+ async function saveReceipt(receipt:ReceiptForm,selected:DisplayOrder){
   const lines=receipt.selectedLineIds.map(lineId=>{const line=selected.lines.find(l=>l.id===lineId);return {lineId,quantity:Number(receipt.quantities[lineId]??((line?.quantity??0)-(line?.received??0)))}});
   if(!lines.length){setError("請至少勾選一列並填到貨數量");return}
   if(lines.some(item=>{const line=selected.lines.find(l=>l.id===item.lineId);return !line||!Number.isFinite(item.quantity)||item.quantity<=0||item.quantity>(line.quantity??0)-line.received})){setError("本次到貨數量須大於 0，且不可超過剩餘數量");return}
@@ -217,7 +225,8 @@ export function OrderingPage(){
  async function commitVendorRow(group:VendorGroup,row:GridLine,patch:Partial<GridLine>,final:boolean){
   return enqueue("vendor:"+group.sourceId,async()=>{
    try{
-    const chosen=vendorOrderIds.current.get(group.sourceId)??group.orderId;
+    const mapped=vendorOrderIds.current.get(group.sourceId),known=mapped?cached.current.get(mapped):undefined;
+    const chosen=known&&known.storedStatus!=="DRAFT"?null:mapped??group.orderId;
     const current=chosen?(cached.current.get(chosen)??remember(await call<DisplayOrder>("/orders/"+chosen))):remember(await call<DisplayOrder>("/orders","POST",{sourceId:group.sourceId}));
     vendorOrderIds.current.set(group.sourceId,current.id);
     const data=await call<DisplayOrder>("/orders/"+current.id+"/lines","POST",{operation:"save",expectedVersion:current.version,lineId:row.id>0?row.id:undefined,
@@ -471,7 +480,7 @@ export function OrderingPage(){
      <td className="cy-mono">{l.itemCode}</td><td>{l.itemName}</td><td className="cy-mono">{l.vendorItemCode}</td><td>{l.vendorItemName}</td><td>{l.quantity}{l.unit}</td><td>{l.received}</td><td>{remaining}</td>
      <td><Field label={"本次到貨數量 第"+(i+1)+"列"} size="s" required={checked}><input className="cy-op-input" type="number" min="0" max={remaining} step="any" disabled={!checked} value={receipt.quantities[l.id]??String(remaining)} onChange={e=>setReceipt(v=>v?{...v,quantities:{...v.quantities,[l.id]:e.target.value}}:v)}/></Field></td>
     </tr>})}</tbody></table></div>
-   <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setReceipt(null)}>取消</button><button type="submit" className="cy-op-button primary">儲存到貨</button></div>
+   <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setReceipt(null)}>取消</button><button type="submit" className="cy-op-button primary" disabled={receiptSaving} aria-busy={receiptSaving||undefined}>儲存到貨</button></div>
   </form></Dialog>:null}
   {closing?<Dialog open title="結掉剩餘量" onClose={()=>setClosing(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void closeRemaining(e)}>
     <FormSection><Field label="處理方式" size="m"><select className="cy-op-input" value={closing.kind} onChange={e=>setClosing(v=>v?{...v,kind:e.target.value as typeof v.kind}:v)}><option value="SHORTAGE">缺貨</option><option value="CANCELLED">取消</option><option value="OTHER">其他</option></select></Field>

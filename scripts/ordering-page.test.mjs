@@ -244,3 +244,37 @@ test("vendor overview uses searchable horizontal tabs with fixed Other and no it
  assert.ok(q);q.props.onChange({target:{value:"查無"}});page.render();
  assert.deepEqual(vendorTabs().map(text),["其他"],"Other stays visible on right even with a no-match search");
 });
+
+test("a double-submitted receipt is recorded once while the first save is in flight",async()=>{
+ const calls=[],reply=deferred();
+ const page=mount((path,options)=>{if(path.endsWith("/receipts")){calls.push(options.json);return reply.promise}
+  return path==="/orders/10"?sentOrder():normalTransport(path,options)});
+ await page.tick();page.click("測試來源甲");await page.tick();page.click("登記到貨");
+ const dialog=()=>page.nodes.find(n=>n.type?.name==="Dialog"&&n.props.title==="登記到貨");
+ descendants(dialog()).find(n=>n.props?.label==="ERP 進貨單號 341A-").props.children.props.onChange({target:{value:"20261023002"}});page.render();
+ descendants(dialog()).filter(n=>n.type?.name==="CheckField")[0].props.onChange({target:{checked:true}});page.render();
+ const form=()=>descendants(dialog()).find(n=>n.type==="form");
+ const first=form().props.onSubmit({preventDefault(){}});await page.tick();
+ assert.equal(descendants(dialog()).find(n=>n.type==="button"&&text(n)==="儲存到貨").props.disabled,true);
+ await form().props.onSubmit({preventDefault(){}});
+ reply.resolve(sentOrder());await first;await page.tick();
+ assert.equal(calls.length,1);assert.equal(dialog(),undefined);
+});
+
+test("vendor overview stops writing to a draft that is no longer open for that vendor",async()=>{
+ let overviewOrder=30,next=31;const lineWrites=[];
+ const draft=id=>({...order(3),id,sourceKind:"VENDOR"});
+ const page=mount((path,options)=>{
+  if(path==="/vendors/overview")return [{sourceId:3,sourceName:"永全",conditions:"",paymentTerms:"",orderId:overviewOrder,orderVersion:overviewOrder?1:null,lines:[]}];
+  if(path==="/orders"&&options.method==="POST")return draft(next++);
+  const m=/^\/orders\/(\d+)\/lines$/.exec(path);
+  if(m){lineWrites.push(Number(m[1]));return {...draft(Number(m[1])),version:2,lines:[{id:7,section:"",sortOrder:1,itemCode:"",itemName:"測試商品",vendorItemCode:"",vendorItemName:"",quantityText:"1",quantity:1,received:0,closedAs:null,unit:"",note:""}],savedLineId:7}}
+  if(/^\/orders\/\d+$/.test(path))return draft(Number(path.split("/")[2]));
+  return normalTransport(path,options)});
+ await page.tick();page.click("廠商");await page.tick();
+ await page.grid.onCommit({id:-1,itemName:"測試商品",quantityText:"1"},{},true);
+ assert.deepEqual(lineWrites,[30]);
+ overviewOrder=null;page.click("測試來源甲");await page.tick();page.click("廠商");await page.tick();
+ await page.grid.onCommit({id:-2,itemName:"測試商品",quantityText:"1"},{},true);
+ assert.deepEqual(lineWrites,[30,31],"after the draft was sent elsewhere a new draft is opened");
+});
