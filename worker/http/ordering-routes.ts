@@ -273,11 +273,14 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
      if(before&&!("itemName" in raw)&&finalName===before.item_name)finalName="";
      if(before&&!("unit" in raw)&&unit===before.unit)unit="";
     }
-    if(!unit)unit=parsed.unit;
-    // ERP lookup fills only missing values. Typed values always win.
-    if(final&&itemCode&&(!finalName||!unit)){
+    // A field sent empty on a saved line was cleared on purpose: nothing fills it back in.
+    const cleared=(key:string)=>!!old&&key in raw&&!String(raw[key]??"").trim();
+    if(!unit&&"quantityText" in raw&&!cleared("unit"))unit=parsed.unit;
+    // ERP fills only what is missing, and only when this request carries the 品號 (it was just
+    // entered or confirmed); saving another field never brings a cleared 品名／單位 back.
+    if(final&&itemCode&&"itemCode" in raw&&(!finalName||!unit)){
      const erp=await erpOf(itemCode);
-     if(!finalName)finalName=erp?.item_name??"";if(!unit)unit=erp?.unit??"";
+     if(!finalName&&!cleared("itemName"))finalName=erp?.item_name??"";if(!unit&&!cleared("unit"))unit=erp?.unit??"";
     }
     const source=await one<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE id=?",o.source_id);
     if(!old&&!source?.is_active)throw new Bad("ORDERING_INVALID","來源已隱藏，不能再加入品項",409);

@@ -280,7 +280,7 @@ test("autosave while typing is not final; leaving the cell sends the final save 
   acknowledge(grid, 0); await tick(grid);
   grid.input(101, "itemCode").props.onBlur({ currentTarget: { value: "CODE01" } }); grid.flush();
   assert.equal(grid.commits.length, 2); assert.equal(grid.commits[1].final, true);
-  assert.deepEqual(grid.commits[1].patch, { vendorItemCode: "V01", vendorItemName: "測試廠商品名甲" });
+  assert.deepEqual(grid.commits[1].patch, { vendorItemCode: "V01", vendorItemName: "測試廠商品名甲", itemCode: "CODE01" }, "the autosaved 品號 is confirmed so ERP can fill blanks");
   acknowledge(grid, 1); await tick(grid);
   grid.input(101, "itemCode").props.onBlur({ currentTarget: { value: "CODE01" } }); grid.flush();
   assert.equal(grid.commits.length, 2, "already final: nothing more to send");
@@ -297,4 +297,27 @@ test("a new row's Enter during its autosave is carried into one more final save"
   assert.equal(grid.commits.length, 2); assert.equal(grid.commits[1].final, true);
   acknowledge(grid, 1); await tick(grid);
   assert.equal(grid.commits.length, 2);
+});
+
+test("a 廠商品名 that follows 品名 edits empty with 品名 as placeholder, and leaving it empty saves nothing", () => {
+  const line = { id: 101, section: "", sortOrder: 1, itemCode: "CODE01", itemName: "測試品名甲", vendorItemCode: "",
+    vendorItemName: "測試品名甲", vendorNameFollows: true, spec: "", quantityText: "1", unit: "", note: "" };
+  const grid = mount("VENDOR", [line]);
+  const input = grid.input(101, "vendorItemName");
+  assert.equal(input.props.value, ""); assert.equal(input.props.placeholder, "測試品名甲");
+  input.props.onBlur({ currentTarget: { value: "" } }); grid.flush();
+  assert.equal(grid.commits.length, 0);
+});
+
+test("a cleared 單位 autosaved then confirmed resends only the clear, never the 品號", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const line = { id: 101, section: "", sortOrder: 1, itemCode: "CODE01", itemName: "測試品名甲", vendorItemCode: "",
+    vendorItemName: "測試品名甲", vendorNameFollows: true, spec: "", quantityText: "100", unit: "個", note: "" };
+  const grid = mount("GENERAL", [line]);
+  grid.change(101, "unit", ""); t.mock.timers.tick(900); grid.flush();
+  assert.equal(grid.commits.length, 1); assert.equal(grid.commits[0].final, false);
+  acknowledge(grid, 0); await tick(grid);
+  grid.input(101, "unit").props.onBlur({ currentTarget: { value: "" } }); grid.flush();
+  assert.equal(grid.commits.length, 2); assert.equal(grid.commits[1].final, true);
+  assert.deepEqual(grid.commits[1].patch, { unit: "" });
 });

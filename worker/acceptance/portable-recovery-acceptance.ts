@@ -27,6 +27,14 @@ function memoryProvider(): BackupStorageProvider & { objects: Map<string, Uint8A
 }
 export async function acceptPortableRecovery(source: D1Database, target: D1Database): Promise<void> {
   const scope = { workspaceScope: "acceptance-workspace", appVersion: "0.7.1" };
+  // Ordering is operator data: far more than the old 500-row cap, decimal quantities,
+  // JSON-looking text and a JSON preference must all survive the round trip unchanged.
+  const now = "2026-10-26T00:00:00.000Z";
+  const orderingSource = await source.prepare("INSERT INTO ordering_sources(name,kind,created_at,updated_at) VALUES('備份驗收來源','VENDOR',?,?) RETURNING id").bind(now, now).first<{ id: number }>();
+  const orderingOrder = await source.prepare("INSERT INTO ordering_orders(source_id,note,created_at,updated_at) VALUES(?,'{\"note\":[1]}',?,?) RETURNING id").bind(orderingSource!.id, now, now).first<{ id: number }>();
+  await source.prepare(`WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<1200)
+    INSERT INTO ordering_lines(order_id,sort_order,item_name,quantity_text,quantity,unit) SELECT ?,i,'驗收品 '||i,'1.5',1.5,'個' FROM n`).bind(orderingOrder!.id).run();
+  await source.prepare("INSERT INTO ordering_user_preferences(member_id,vendor_order_json,updated_at) VALUES(1,?,?)").bind(JSON.stringify([orderingSource!.id]), now).run();
   const bundle = await exportPortableBackup(source, scope);
   const verified = await verifyPortableBackup(bundle, scope.workspaceScope);
   assert(verified.manifest.totalRecordCount > 0 && verified.data.tables.customers.rows.length > 0, "ACCEPT_BACKUP_EMPTY_FIXTURE");
@@ -75,6 +83,10 @@ export async function acceptPortableRecovery(source: D1Database, target: D1Datab
   await restoreIntoEmptyDatabase(target, bundle, scope.workspaceScope);
   const fk = await target.prepare("PRAGMA foreign_key_check").all();
   assert(fk.results.length === 0, "ACCEPT_BACKUP_RESTORED_FOREIGN_KEYS");
+  const restoredOrdering = await target.prepare("SELECT COUNT(*) AS n, SUM(quantity) AS total, typeof(MAX(quantity)) AS kind FROM ordering_lines WHERE order_id=?").bind(orderingOrder!.id).first<{ n: number; total: number; kind: string }>();
+  assert(restoredOrdering?.n === 1200 && restoredOrdering.total === 1800 && restoredOrdering.kind === "real", "ACCEPT_BACKUP_ORDERING_ROUND_TRIP");
+  const restoredNote = await target.prepare("SELECT note, typeof(note) AS kind FROM ordering_orders WHERE id=?").bind(orderingOrder!.id).first<{ note: string; kind: string }>();
+  assert(restoredNote?.note === '{"note":[1]}' && restoredNote.kind === "text", "ACCEPT_BACKUP_TEXT_ROUND_TRIP");
   await rejects(() => restoreIntoEmptyDatabase(target, bundle, scope.workspaceScope), "ACCEPT_BACKUP_NONEMPTY_TARGET");
   const unchangedSource = await exportPortableBackup(source, scope);
   assert(JSON.stringify([...bundle.dataBytes]) === JSON.stringify([...unchangedSource.dataBytes]), "ACCEPT_BACKUP_SOURCE_MUTATED");

@@ -1,6 +1,13 @@
 # CYWEB 叫貨修正交接給 Claude
 
 
+## 2026-10-26 V0.9.36 — 廠商頁直接編輯、單位與廠商品名、備份納入叫貨
+
+- **廠商頁**：移除「全部廠商」總覽表格與 `commitVendorRow`／`deleteVendorRow`／`vendorOrderIds`。廠商頁籤（來自啟用中的 VENDOR 來源、依個人順序，「其他」最後）點下去就是 `openDraft(id)`，下方顯示與其他來源相同的草稿編輯畫面；`reloadOrder` 依單據來源種類保持在廠商頁。`/vendors/overview` 只剩「匯出廠商合併 Excel」使用。
+- **單位／品名不再被帶回**：伺服器只在 `final` 且該次請求含 `itemCode` 時用 ERP 補空白的品名／單位；已存列明確送空字串的欄位不補；數量拆出的單位也只在該次送了 `quantityText` 時套用。前端改記「哪些欄位只被自動存過」，確定時只重送那些欄位（新列的確定儲存會帶品號）。
+- **廠商品名跟隨**：`vendorNameFollows` 為 true 的已存列，廠商品名欄位值為空、`placeholder` 顯示品名，聚焦時提示字隱藏；空白離開不送出。唯讀與匯出仍顯示實際值。
+- **可攜備份**：見 TODO V0.9.36；`schema-columns.ts` 加入 9 張 `ordering_*`，`validate_schema.py` 不再排除。
+
 ## 2026-10-26 V0.9.35 Build 1 — 總覽舊草稿與到貨重複送出
 
 - **廠商總覽**：`showVendorOverview` 原本只新增 `vendorOrderIds`、從不刪除，草稿送出／作廢後總覽仍寫向舊單而一直 409。現在載入時伺服器回 `orderId:null` 就刪除對應；`commitVendorRow` 若快取中的對應單已非草稿也改開新草稿。

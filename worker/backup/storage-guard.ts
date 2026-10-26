@@ -1,4 +1,4 @@
-export const MAX_OBJECT_BYTES = 5 * 1024 * 1024;
+export const MAX_OBJECT_BYTES = 24 * 1024 * 1024;
 export const BACKUP_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export function storageCheck(value: unknown, code: string): asserts value {
   if (!value) throw new Error(code);

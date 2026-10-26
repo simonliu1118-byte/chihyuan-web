@@ -199,7 +199,9 @@ test("header status reports saving spinner, red failure, dirty and acknowledged 
   ]) {
     grid.onStateChange(state); page.render(); const status = page.saveStatus;
     assert.equal(text(status), label); assert.equal(status.props["data-state"], value);
-    assert.equal(descendants(status).some(n => n.props?.className?.includes("cy-ordering-save-spinner")), spinner);
+    const spinnerNode = descendants(status).find(n => n.props?.className?.includes("cy-ordering-save-spinner"));
+    assert.ok(spinnerNode, "the spinner slot is always present so the line never shifts");
+    assert.equal(!spinnerNode.props["data-idle"], spinner);
   }
 });
 
@@ -230,16 +232,18 @@ test("receipt dialog excludes fully received products and retains only outstandi
  assert.equal(descendants(dlg).some(n=>n.type==="td"&&text(n)==="DONE"),false,"completed line absent in receipt UI");
 });
 
-test("vendor overview uses searchable horizontal tabs with fixed Other and no item counts",async()=>{
- const groups=[
-  {sourceId:3,sourceName:"永全",conditions:"滿額免運",paymentTerms:"月結30天",orderId:null,orderVersion:null,lines:[]},
-  {sourceId:4,sourceName:"其他",conditions:"",paymentTerms:"",orderId:null,orderVersion:null,lines:[]},
- ];
- const page=mount((path,options)=>path==="/vendors/overview"?groups:normalTransport(path,options));
+test("廠商 opens a vendor's draft in place: searchable tabs, Other last, no 進入廠商 step",async()=>{
+ const page=mount((path,options)=>path==="/orders/30"||path==="/orders/40"?{...order(1),id:Number(path.split("/")[2]),sourceId:Number(path.split("/")[2])/10,sourceName:Number(path.split("/")[2])===30?"永全":"其他",sourceKind:"VENDOR"}:
+  path.startsWith("/orders?sourceId=")?[{...order(1),id:Number(new URLSearchParams(path.split("?")[1]).get("sourceId"))*10}]:normalTransport(path,options));
  await page.tick();page.click("廠商");await page.tick();
  const vendorTabs=()=>page.nodes.filter(n=>n.props?.role==="tab"&&["永全","其他"].includes(text(n)));
  assert.deepEqual(vendorTabs().map(text),["永全","其他"]);
- assert.equal(vendorTabs().some(n=>/項/.test(text(n))),false);
+ assert.deepEqual(page.selectedTabs,["廠商","永全"]);
+ assert.equal(page.grid.readOnly,false,"the vendor's draft is editable right under the tabs");
+ assert.equal(page.nodes.some(n=>n.type==="button"&&text(n)==="進入廠商"),false);
+ assert.ok(page.nodes.some(n=>n.type==="button"&&text(n)==="修改"),"vendor terms are edited in place");
+ page.click("其他");await page.tick();
+ assert.deepEqual(page.selectedTabs,["廠商","其他"]);
  const q=page.nodes.find(n=>n.props?.["aria-label"]==="速查廠商");
  assert.ok(q);q.props.onChange({target:{value:"查無"}});page.render();
  assert.deepEqual(vendorTabs().map(text),["其他"],"Other stays visible on right even with a no-match search");
@@ -259,22 +263,4 @@ test("a double-submitted receipt is recorded once while the first save is in fli
  await form().props.onSubmit({preventDefault(){}});
  reply.resolve(sentOrder());await first;await page.tick();
  assert.equal(calls.length,1);assert.equal(dialog(),undefined);
-});
-
-test("vendor overview stops writing to a draft that is no longer open for that vendor",async()=>{
- let overviewOrder=30,next=31;const lineWrites=[];
- const draft=id=>({...order(3),id,sourceKind:"VENDOR"});
- const page=mount((path,options)=>{
-  if(path==="/vendors/overview")return [{sourceId:3,sourceName:"永全",conditions:"",paymentTerms:"",orderId:overviewOrder,orderVersion:overviewOrder?1:null,lines:[]}];
-  if(path==="/orders"&&options.method==="POST")return draft(next++);
-  const m=/^\/orders\/(\d+)\/lines$/.exec(path);
-  if(m){lineWrites.push(Number(m[1]));return {...draft(Number(m[1])),version:2,lines:[{id:7,section:"",sortOrder:1,itemCode:"",itemName:"測試商品",vendorItemCode:"",vendorItemName:"",quantityText:"1",quantity:1,received:0,closedAs:null,unit:"",note:""}],savedLineId:7}}
-  if(/^\/orders\/\d+$/.test(path))return draft(Number(path.split("/")[2]));
-  return normalTransport(path,options)});
- await page.tick();page.click("廠商");await page.tick();
- await page.grid.onCommit({id:-1,itemName:"測試商品",quantityText:"1"},{},true);
- assert.deepEqual(lineWrites,[30]);
- overviewOrder=null;page.click("測試來源甲");await page.tick();page.click("廠商");await page.tick();
- await page.grid.onCommit({id:-2,itemName:"測試商品",quantityText:"1"},{},true);
- assert.deepEqual(lineWrites,[30,31],"after the draft was sent elsewhere a new draft is opened");
 });
