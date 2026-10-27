@@ -371,6 +371,7 @@ export function OrderingPage(){
  const shown=status?list.filter(x=>x.status===status):list;
  const sentDate=(o:{sentAt:string|null;plannedSendDate:string|null;createdAt:string})=>displayDate(o.sentAt??o.plannedSendDate??o.createdAt);
  const openLines=current?current.lines.filter(l=>l.quantity!==null&&l.received<l.quantity&&!l.closedAs):[];
+ const currentSource=current?sources.find(x=>x.id===current.sourceId):undefined;
  const orderView=current?<>
       <div className="cy-record-header">
        <div className="cy-ordering-title"><h2>{current.sourceName}</h2><StatusChip tone={STATUS_TONE[current.status]}>{ORDERING_STATUS_LABELS[current.status]}</StatusChip>
@@ -392,14 +393,22 @@ export function OrderingPage(){
       {current.receipts.length?<section className="cy-ordering-lines" aria-label="到貨紀錄"><h3>到貨紀錄<small>{current.receipts.length} 筆</small></h3>
        <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>ERP 進貨單號</th><th>到貨日期</th></tr></thead><tbody>
         {current.receipts.map(x=><tr key={x.id}><td className="cy-mono">{x.erpPurchaseNo}</td><td>{displayDate(x.receivedDate)}</td></tr>)}</tbody></table></div></section>:null}
-      {current.storedStatus==="DRAFT"?<div className="cy-ordering-drafts" role="group" aria-label="草稿">
-        <span>草稿</span>
-        {drafts.map(d=><button key={d.id} type="button" className={"cy-ordering-draft-chip"+(d.id===current.id?" active":"")} aria-pressed={d.id===current.id}
-          onClick={()=>{if(d.id!==current.id)void reloadOrder(d.id)}}>{d.plannedSendDate?displayDate(d.plannedSendDate).slice(5):"無預計日"}</button>)}
-        <button type="button" className="cy-op-button compact quiet" onClick={()=>void createDraft(current.sourceId)}>＋ 新草稿</button>
+      {current.storedStatus==="DRAFT"||currentSource?.kind==="VENDOR"?<div className="cy-ordering-meta">
+       {current.storedStatus==="DRAFT"?<><span className="cy-ordering-meta-label">草稿</span>
+        <div className="cy-ordering-meta-value" role="group" aria-label="草稿">
+         {drafts.map(d=><button key={d.id} type="button" className={"cy-ordering-draft-chip"+(d.id===current.id?" active":"")} aria-pressed={d.id===current.id}
+           onClick={()=>{if(d.id!==current.id)void reloadOrder(d.id)}}>{d.plannedSendDate?displayDate(d.plannedSendDate).slice(5):"無預計日"}</button>)}
+         <button type="button" className="cy-ordering-draft-chip cy-ordering-draft-new" onClick={()=>void createDraft(current.sourceId)}>＋ 新草稿</button>
+        </div></>:null}
+       {currentSource?.kind==="VENDOR"?<><span className="cy-ordering-meta-label">廠商條件</span>
+        <div className="cy-ordering-meta-value">
+         {currentSource.conditions?<span className="cy-ordering-vendor-condition">{currentSource.conditions}</span>:<span className="cy-ordering-unset">未設定</span>}
+         <span className="cy-ordering-meta-label cy-ordering-meta-inline">付款條件</span>
+         {currentSource.paymentTerms?<span>{currentSource.paymentTerms}</span>:<span className="cy-ordering-unset">未設定</span>}
+         <button type="button" className="cy-op-button compact cy-ordering-meta-edit" onClick={()=>setSourceForm({id:currentSource.id,kind:"VENDOR",name:currentSource.name,conditions:currentSource.conditions,paymentTerms:currentSource.paymentTerms,sortOrder:currentSource.sortOrder})}>
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>修改廠商</button>
+        </div></>:null}
       </div>:null}
-      {sources.find(x=>x.id===current.sourceId)?.kind==="VENDOR"?<p className="cy-ordering-vendor-note">廠商條件：<strong className="cy-ordering-vendor-condition">{sources.find(x=>x.id===current.sourceId)?.conditions||"未設定"}</strong>　付款條件：{sources.find(x=>x.id===current.sourceId)?.paymentTerms||"未設定"}
-       <button type="button" className="cy-op-button compact quiet" onClick={()=>{const s=sources.find(x=>x.id===current.sourceId);if(s)setSourceForm({id:s.id,kind:"VENDOR",name:s.name,conditions:s.conditions,paymentTerms:s.paymentTerms,sortOrder:s.sortOrder})}}>修改</button></p>:null}
       {editable?<form onKeyDown={enterAdvancesFields} onSubmit={e=>{e.preventDefault();if(headerDirty.date)void saveHeader("date");if(headerDirty.note)void saveHeader("note")}}>
        <FormSection>
         <Field label="預計送出日期" size="s"><input type="date" className="cy-op-input" max="9999-12-31" disabled={!editable} value={current.plannedSendDate??""} onChange={e=>{headerEditRevisions.current.date++;headerDirtyRef.current={...headerDirtyRef.current,date:true};setHeaderDirty(v=>({...v,date:true}));setSelected(v=>v?{...v,plannedSendDate:e.target.value||null}:v)}} onBlur={()=>void saveHeader("date")}/></Field>
@@ -471,19 +480,21 @@ export function OrderingPage(){
       </tbody></table></div>:!pendingLoading?<p className="cy-op-empty">目前沒有未到貨的品項。</p>:null}
     </>
     :vendorAll?<>
-      <div className="cy-ordering-vendor-tabs-layout">
-       <input className="cy-op-input cy-ordering-vendor-search" type="search" aria-label="速查廠商" placeholder="搜尋" value={vendorQuery} onChange={e=>setVendorQuery(e.target.value)}/>
-       <div className="cy-ordering-vendor-tabs" role="tablist" aria-label="廠商頁籤（拖曳調整自己的順序）">
+      <div className="cy-ordering-vendor-picker">
+       <div className="cy-ordering-vendor-bar">
+        <label className="cy-ordering-vendor-search"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+         <input type="search" aria-label="速查廠商" placeholder="搜尋廠商" value={vendorQuery} onChange={e=>setVendorQuery(e.target.value)}/></label>
+        <span className="cy-ordering-vendor-legend" aria-hidden="true">{VENDOR_DOTS.map(([key,tone,label])=><span key={key}><span className="cy-status-dot" data-tone={tone}/>{label==="已送出待到貨"?"待到貨":label==="有草稿"?"草稿":label}</span>)}</span>
+        <button type="button" className="cy-op-button compact" onClick={()=>setSourceForm({kind:"VENDOR",name:"",conditions:"",paymentTerms:""})}>＋ 新增廠商</button>
+       </div>
+       <div className="cy-ordering-vendor-pills" role="tablist" aria-label="廠商（拖曳調整自己的順序）">
         {movableVendors.filter(v=>v.name.toLocaleLowerCase().includes(vendorQuery.trim().toLocaleLowerCase())).map(v=><button type="button" role="tab" key={v.id} className={activeVendorId===v.id?"active":""} aria-selected={activeVendorId===v.id}
-         draggable={!busy} title="拖曳調整自己的廠商頁籤順序" onDragStart={e=>{vendorDragging.current=v.id;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",String(v.id))}}
+         draggable={!busy} title="拖曳調整自己的廠商順序" onDragStart={e=>{vendorDragging.current=v.id;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",String(v.id))}}
          onDragOver={e=>{if(vendorDragging.current!==null)e.preventDefault()}} onDrop={e=>{e.preventDefault();if(vendorDragging.current!==null)moveVendor(vendorDragging.current,v.id);vendorDragging.current=null}}
          onDragEnd={()=>{vendorDragging.current=null}} onKeyDown={e=>{if(!e.altKey)return;const ix=movableVendors.findIndex(x=>x.id===v.id),target=movableVendors[ix+(e.key==="ArrowLeft"?-1:e.key==="ArrowRight"?1:0)];if(target&&target.id!==v.id){e.preventDefault();moveVendor(v.id,target.id)}}}
          onClick={()=>void chooseVendor(v.id)}>{v.name}<VendorDots status={vendorStatus.get(v.id)}/></button>)}
-       </div>
-       {vendorOther?<button type="button" role="tab" className={"cy-ordering-vendor-other"+(activeVendorId===vendorOther.id?" active":"")} aria-selected={activeVendorId===vendorOther.id} onClick={()=>void chooseVendor(vendorOther.id)}>其他<VendorDots status={vendorStatus.get(vendorOther.id)}/></button>:null}
-       <div className="cy-ordering-vendor-tools">
-        <span className="cy-ordering-vendor-legend" aria-hidden="true">{VENDOR_DOTS.map(([key,tone,label])=><span key={key}><span className="cy-status-dot" data-tone={tone}/>{label==="已送出待到貨"?"待到貨":label==="有草稿"?"草稿":label}</span>)}</span>
-        <button type="button" className="cy-op-button compact" onClick={()=>setSourceForm({kind:"VENDOR",name:"",conditions:"",paymentTerms:""})}>＋ 新增廠商</button>
+        {vendorOther?<><span className="cy-ordering-vendor-sep" aria-hidden="true"/>
+         <button type="button" role="tab" className={activeVendorId===vendorOther.id?"active":""} aria-selected={activeVendorId===vendorOther.id} onClick={()=>void chooseVendor(vendorOther.id)}>其他<VendorDots status={vendorStatus.get(vendorOther.id)}/></button></>:null}
        </div>
       </div>
       {current&&current.sourceId===activeVendorId?orderView:busy?<Loading/>:!orderedVendors.length?<p className="cy-op-empty">目前沒有可使用的廠商來源。</p>:null}
