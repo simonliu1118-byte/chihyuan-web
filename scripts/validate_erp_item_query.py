@@ -16,12 +16,10 @@ conn.execute("INSERT INTO app_member_module_access(member_id,module_code,enabled
 assert conn.execute("SELECT enabled FROM app_member_module_access WHERE member_id=? AND module_code='ERP_ITEM_QUERY'",(member,)).fetchone() == (1,)
 for id, status in (("test-1","QUEUED"),("test-2","DONE")):
     conn.execute("INSERT INTO erp_item_queries(id,owner_member_id,item_no,status,created_at,expires_at) VALUES(?,?,?,?,?,?)",(id,member,"T0001",status,now,now))
-try:
-    conn.execute("INSERT INTO erp_item_queries(id,owner_member_id,item_no,status,created_at,expires_at) VALUES('test-3',?,'T0002','RUNNING',?,?)",(member,now,now))
-except sqlite3.IntegrityError:
-    pass
-else:
-    raise AssertionError("active job uniqueness not enforced")
+# V0.9.41: a member may have up to three active jobs; the Worker checks the limit when one is made.
+conn.execute("INSERT INTO erp_item_queries(id,owner_member_id,item_no,status,created_at,expires_at) VALUES('test-3',?,'T0002','RUNNING',?,?)",(member,now,now))
+assert not conn.execute("SELECT 1 FROM sqlite_master WHERE name='idx_erp_query_one_active_per_member'").fetchone()
+conn.execute("DELETE FROM erp_item_queries WHERE id='test-3'")
 conn.execute("UPDATE erp_item_queries SET status='DONE',completed_at=? WHERE id='test-1'",(now,))
 conn.execute("INSERT INTO erp_item_queries(id,owner_member_id,item_no,status,created_at,expires_at) VALUES('test-4',?,'T0002','RUNNING',?,?)",(member,now,now))
 conn.execute("UPDATE erp_item_queries SET fields_json='[{\"name\":\"品號\",\"value\":\"T0002\"}]' WHERE id='test-4'")

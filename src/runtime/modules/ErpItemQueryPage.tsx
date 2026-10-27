@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { HistoryRangeError, resolveHistoryRange, taipeiToday } from "../../../shared/erp-query-history";
 import { useCompactLayout } from "../../ui/foundation/useCompactLayout";
 import { ErpQueryRows } from "./ErpQueryRows";
@@ -7,20 +7,27 @@ import { ERP_QUERY_TYPE_LABELS, type ErpQueryType } from "../../../shared/erp-it
 import { ErpJobStatus, showsData } from "./ErpJobStatus";
 import { ErpItemResult, rowsOf } from "./ErpItemResult";
 import type { CyWebModuleCode } from "../../../shared/modules";
-import { useErpJob, type ErpJob } from "./useErpJob";
+import { ErpPageVisibleContext, runningStatus, useErpJob, type ErpJob } from "./useErpJob";
+import { RestockAssist } from "./RestockAssist";
+import { ErpQueuePanel } from "./ErpQueuePanel";
 import { ErpCustomerQuery } from "./ErpCustomerQuery";
 import { ErpReceivableQuery } from "./ErpReceivableQuery";
 import { ErpSupplierQuery } from "./ErpSupplierQuery";
 import "./erp-item-query.css";
 
-/** The ERP 查詢 categories, each opened by its own grant (user 2026-10-17). */
+/**
+ * The ERP 查詢 categories, each opened by its own grant (user 2026-10-17); 進貨輔助 joined them in
+ * V0.9.41 (user 2026-10-27: between 客戶 and 未收款). Each keeps its own query and result.
+ */
 const CATEGORIES = [
-  { key: "ITEM", label: ERP_QUERY_TYPE_LABELS.ITEM_NO, module: "ERP_ITEM_QUERY" },
-  { key: "CUSTOMER", label: ERP_QUERY_TYPE_LABELS.CUSTOMER_NO, module: "ERP_CUSTOMER_QUERY" },
-  { key: "SUPPLIER", label: ERP_QUERY_TYPE_LABELS.SUPPLIER_NO, module: "ERP_SUPPLIER_QUERY" },
-  { key: "RECEIVABLE", label: ERP_QUERY_TYPE_LABELS.RECEIVABLE, module: "ERP_RECEIVABLE_QUERY" },
-] as const;
-type Category = (typeof CATEGORIES)[number]["key"];
+  { key: "ITEM", label: ERP_QUERY_TYPE_LABELS.ITEM_NO, module: "ERP_ITEM_QUERY", types: ["ITEM_NO", "ITEM_NAME"] },
+  { key: "CUSTOMER", label: ERP_QUERY_TYPE_LABELS.CUSTOMER_NO, module: "ERP_CUSTOMER_QUERY", types: ["CUSTOMER_NO", "CUSTOMER_NAME", "SALES"] },
+  { key: "SUPPLIER", label: ERP_QUERY_TYPE_LABELS.SUPPLIER_NO, module: "ERP_SUPPLIER_QUERY", types: ["SUPPLIER_NO", "SUPPLIER_NAME", "PURCHASES"] },
+  { key: "RESTOCK", label: ERP_QUERY_TYPE_LABELS.RESTOCK, module: "ERP_RESTOCK_ASSIST", types: ["RESTOCK"] },
+  // Its 客戶 name search (CUSTOMER_NAME) is shown again under 客戶 only.
+  { key: "RECEIVABLE", label: ERP_QUERY_TYPE_LABELS.RECEIVABLE, module: "ERP_RECEIVABLE_QUERY", types: ["RECEIVABLE"] },
+] as const satisfies readonly { key: string; label: string; module: CyWebModuleCode; types: readonly ErpQueryType[] }[];
+type Category = (typeof CATEGORIES)[number]["key"] | "QUEUE";
 
 const SEARCH_COLUMNS = ["品號", "品名", "規格", "單位", "庫存數量", "標準售價"];
 
@@ -105,48 +112,66 @@ function ErpItemQuery({ job }: { job: ErpJob }) {
   </>;
 }
 
-/** The job types each category's panel shows (the same lists as their `mine`). */
-const CATEGORY_TYPES: Record<Category, readonly ErpQueryType[]> = {
-  ITEM: ["ITEM_NO", "ITEM_NAME"],
-  CUSTOMER: ["CUSTOMER_NO", "CUSTOMER_NAME", "SALES"],
-  SUPPLIER: ["SUPPLIER_NO", "SUPPLIER_NAME", "PURCHASES"],
-  RECEIVABLE: ["RECEIVABLE", "CUSTOMER_NAME"],
-};
+/** Opens a category of ERP 查詢 (the 查看 of a finished query's notice). */
+export const ERP_OPEN_CATEGORY_EVENT = "cy-erp-open-category";
+export const ERP_QUERY_ROUTE = "erp-item-query";
+
+/** One category's job, owned below the page so it knows whether its category is on screen. */
+function CategoryJob({ category, onBusy, children }: {
+  category: (typeof CATEGORIES)[number]; onBusy: (key: Category, busy: boolean) => void; children: (job: ErpJob) => ReactNode;
+}) {
+  const job = useErpJob({ route: ERP_QUERY_ROUTE, key: category.key, label: category.label, types: category.types });
+  const running = !!job.result && runningStatus(job.result.status);
+  useEffect(() => { onBusy(category.key, running); }, [running]); // eslint-disable-line react-hooks/exhaustive-deps
+  return <>{children(job)}</>;
+}
 
 /**
- * ERP 查詢: one entry for 商品／客戶／未收款 (user 2026-10-17). Desktop switches categories with
- * tabs, mobile with a drop-down (user: easier to operate); both are presentations of the same
- * category state. One job owner for the page.
+ * ERP 查詢: one entry for 商品／客戶／供應商／進貨輔助／未收款 and the Agent's queue (user
+ * 2026-10-17, 2026-10-27). Desktop switches categories with tabs, mobile with a drop-down (user:
+ * easier to operate). Every category stays mounted with its own query, form and result; a query
+ * keeps running while another category or module is open.
  */
 export function ErpItemQueryPage({ allowedModules }: { allowedModules: ReadonlySet<CyWebModuleCode> }) {
   const categories = CATEGORIES.filter(category => allowedModules.has(category.module));
-  const [selected, setSelected] = useState<Category>(categories[0]?.key ?? "ITEM");
-  const category = categories.some(c => c.key === selected) ? selected : categories[0]?.key;
+  const tabs: { key: Category; label: string }[] = [...categories, { key: "QUEUE", label: "排程佇列" }];
+  const [selected, setSelected] = useState<Category>(categories[0]?.key ?? "QUEUE");
+  const category = tabs.some(c => c.key === selected) ? selected : tabs[0].key;
+  const [running, setRunning] = useState<ReadonlySet<Category>>(new Set());
+  const onBusy = useCallback((key: Category, busy: boolean) => setRunning(current => {
+    if (current.has(key) === busy) return current;
+    const next = new Set(current); if (busy) next.add(key); else next.delete(key); return next;
+  }), []);
   const compact = useCompactLayout();
-  const job = useErpJob("erp-item-query");
-  // A job shown again after coming back to the page opens a category that shows it.
-  const resultType = job.result?.queryType ?? null;
+  const pageVisible = useContext(ErpPageVisibleContext);
   useEffect(() => {
-    if (!resultType || !category || CATEGORY_TYPES[category].includes(resultType)) return;
-    const owner = categories.find(c => CATEGORY_TYPES[c.key].includes(resultType));
-    if (owner) setSelected(owner.key);
-  }, [job.result?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const choose = (next: Category) => { if (job.busy || next === category) return; job.clear(); job.setError(null); setSelected(next); };
-  if (!category) return <section className="cy-op-panel">你目前沒有任何 ERP 查詢的模組權限。</section>;
+    const open = (event: Event) => setSelected((event as CustomEvent<string>).detail as Category);
+    window.addEventListener(ERP_OPEN_CATEGORY_EVENT, open);
+    return () => window.removeEventListener(ERP_OPEN_CATEGORY_EVENT, open);
+  }, []);
+  if (!categories.length) return <section className="cy-op-panel">你目前沒有任何 ERP 查詢的模組權限。</section>;
+  const label = (c: { key: Category; label: string }) => running.has(c.key) ? `${c.label}（查詢中）` : c.label;
+  const panel = (key: Category, body: ReactNode) =>
+    <ErpPageVisibleContext.Provider key={key} value={pageVisible && category === key}>
+      <div className="cy-erp-category-panel" hidden={category !== key}>{body}</div>
+    </ErpPageVisibleContext.Provider>;
   return <section className="cy-erp-page">
-    {categories.length > 1 && (compact
-      ? <select className="cy-op-input cy-erp-category" aria-label="查詢類別" value={category} disabled={job.busy}
-        onChange={e => choose(e.target.value as Category)}>
-        {categories.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+    {compact
+      ? <select className="cy-op-input cy-erp-category" aria-label="查詢類別" value={category}
+        onChange={e => setSelected(e.target.value as Category)}>
+        {tabs.map(c => <option key={c.key} value={c.key}>{label(c)}</option>)}
       </select>
       : <div className="cy-op-tabs" role="tablist" aria-label="查詢類別">
-        {categories.map(c => <button key={c.key} type="button" role="tab" aria-selected={category === c.key}
-          className={category === c.key ? "active" : ""} disabled={job.busy && category !== c.key}
-          onClick={() => choose(c.key)}>{c.label}</button>)}
-      </div>)}
-    {category === "ITEM" && <ErpItemQuery job={job} />}
-    {category === "CUSTOMER" && <ErpCustomerQuery job={job} />}
-    {category === "SUPPLIER" && <ErpSupplierQuery job={job} />}
-    {category === "RECEIVABLE" && <ErpReceivableQuery job={job} canSearchCustomers={allowedModules.has("ERP_CUSTOMER_QUERY")} />}
+        {tabs.map(c => <button key={c.key} type="button" role="tab" aria-selected={category === c.key}
+          className={[category === c.key ? "active" : "", c.key === "QUEUE" ? "cy-erp-queue-tab" : ""].join(" ").trim() || undefined}
+          onClick={() => setSelected(c.key)}>{c.label}{running.has(c.key) && <span className="cy-erp-tab-running" aria-label="查詢中" />}</button>)}
+      </div>}
+    {categories.map(c => panel(c.key, <CategoryJob category={c} onBusy={onBusy}>{job =>
+      c.key === "ITEM" ? <ErpItemQuery job={job} />
+      : c.key === "CUSTOMER" ? <ErpCustomerQuery job={job} />
+      : c.key === "SUPPLIER" ? <ErpSupplierQuery job={job} />
+      : c.key === "RESTOCK" ? <RestockAssist job={job} canQueryItem={allowedModules.has("ERP_ITEM_QUERY")} canOrdering={allowedModules.has("ORDERING")} />
+      : <ErpReceivableQuery job={job} canSearchCustomers={allowedModules.has("ERP_CUSTOMER_QUERY")} />}</CategoryJob>))}
+    {panel("QUEUE", <ErpQueuePanel />)}
   </section>;
 }

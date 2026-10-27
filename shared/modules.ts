@@ -10,8 +10,9 @@ export const CYWEB_MODULES = [
   { code: "ERP_CUSTOMER_QUERY", route: "erp-item-query", label: "ERP 客戶查詢" },
   { code: "ERP_RECEIVABLE_QUERY", route: "erp-item-query", label: "ERP 未收款查詢" },
   { code: "ERP_SUPPLIER_QUERY", route: "erp-item-query", label: "ERP 供應商查詢" },
-  // 進貨輔助 (user 2026-10-20): a page of its own, every customer's 銷貨／銷退 per 品號 with 庫存.
-  { code: "ERP_RESTOCK_ASSIST", route: "restock-assist", label: "進貨輔助" },
+  // 進貨輔助 (user 2026-10-20): every customer's 銷貨／銷退 per 品號 with 庫存; a category of
+  // ERP 查詢 since V0.9.41 (user 2026-10-27).
+  { code: "ERP_RESTOCK_ASSIST", route: "erp-item-query", label: "進貨輔助" },
   { code: "ORDERING", route: "ordering", label: "叫貨" },
   // A permission inside ERP 商品查詢 (標準進價), not a page of its own.
   { code: "ERP_ITEM_COST", route: null, label: "ERP 商品成本" },
@@ -28,7 +29,7 @@ export function isCyWebModuleRoute(value: unknown): value is CyWebModuleRoute {
   return typeof value === "string" && CYWEB_MODULES.some((module) => module.route === value);
 }
 
-/** The grants that open a page; any one of them is enough (ERP 查詢 has four). */
+/** The grants that open a page; any one of them is enough (ERP 查詢 has five). */
 export function moduleCodesForRoute(route: string): CyWebModuleCode[] {
   return CYWEB_MODULES.filter((module) => module.route === route).map((module) => module.code);
 }

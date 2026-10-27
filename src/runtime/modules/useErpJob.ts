@@ -1,15 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { ApiClientError } from "../../api/client";
-import type { ErpQueryResult, ErpQueryStatus } from "../../../shared/erp-item-query";
+import type { ErpQueryResult, ErpQueryStatus, ErpQueryType } from "../../../shared/erp-item-query";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
-import { createErpQuery, loadErpItemQuery, type ErpQueryRequest } from "../api/erp-item-query-client";
+import { createErpQuery, loadErpItemQuery, loadRecentErpJobs, type ErpQueryRequest, type RecentErpJob } from "../api/erp-item-query-client";
 import { ERP_QUERY_FAILED_EVENT, type ErpQueryFailedDetail } from "./ErpAgentCredentialControl";
 
 export const runningStatus = (status: ErpQueryStatus) => status === "QUEUED" || status === "RUNNING";
 
 export function readableErpError(error: unknown): string {
   if (error instanceof ApiClientError) {
-    if (error.code === "QUERY_ALREADY_ACTIVE") return "已有一筆查詢尚未結束，請等候完成後再試。";
+    if (error.code === "QUERY_ALREADY_ACTIVE") return error.message || "你的查詢已達上限，請等其中一筆完成後再試。";
     if (error.code === "ERP_HELD") return error.message;
     if (error.code === "ACCESS_DENIED") return "你目前沒有這項 ERP 查詢的模組權限。";
     if (error.code === "INVALID_ITEM_NO") return "品號只能輸入 1～40 個英文字母、數字或「-」。";
@@ -20,35 +20,54 @@ export function readableErpError(error: unknown): string {
 }
 
 /**
- * The page's last job id, kept for the browser tab (user 2026-10-27: switching to another module
- * and back must still show the running query). Only the id is kept; the job is loaded again from
- * CY Web, which drops results after a while. Storage may be unavailable: then nothing is kept.
+ * Whether the page holding the job is the one on screen. The ERP pages stay mounted while the
+ * member works in another module (user 2026-10-27); a hidden page announces its outcome with
+ * ERP_QUERY_DONE_EVENT instead of an alert over the other module.
  */
-const JOB_KEY_PREFIX = "cyweb.erp-job.";
-function keptJob(key: string | undefined): string | null {
-  if (!key) return null;
-  try { return window.sessionStorage.getItem(JOB_KEY_PREFIX + key); } catch { return null; }
-}
-function keepJob(key: string | undefined, id: string | null) {
-  if (!key) return;
-  try {
-    if (id) window.sessionStorage.setItem(JOB_KEY_PREFIX + key, id);
-    else window.sessionStorage.removeItem(JOB_KEY_PREFIX + key);
-  } catch { /* nothing kept */ }
+export const ErpPageVisibleContext = createContext(true);
+
+/** Raised when a job this page saw running ends; the app shows a notice when its page is hidden. */
+export const ERP_QUERY_DONE_EVENT = "cy-erp-query-done";
+export type ErpQueryDoneDetail = { route: string; key: string; label: string; status: ErpQueryStatus; message: string | null; visible: boolean };
+
+/**
+ * Where a job lives (a page and its category), so the page shows it again when opened anew, on any
+ * device, and a notice can lead back to it.
+ */
+export type ErpJobHome = { route: string; key: string; label: string; types: readonly ErpQueryType[] };
+
+// One read of the member's recent jobs serves every page opened together.
+let recent: { at: number; jobs: Promise<RecentErpJob[]> } | null = null;
+function recentJobs(): Promise<RecentErpJob[]> {
+  if (!recent || Date.now() - recent.at > 5000) recent = { at: Date.now(), jobs: loadRecentErpJobs().catch(() => []) };
+  return recent.jobs;
 }
 
 /**
- * The one ERP job of the page (CY Web allows one per member): create, poll every 1.5 s until it
- * ends, keep the result. Every category uses this owner; a new request always runs ERP again.
- * With a key, the page shows its last job again when it is opened anew (running or finished).
+ * One ERP job owner (a member may have three queued or running; one per owner): create, poll every 1.5 s until it
+ * ends, keep the result. With a home, the page's newest job of the last 24 hours is loaded when the
+ * page opens (CY Web keeps a finished result for 5 minutes, its status longer).
  */
-export function useErpJob(key?: string) {
+export function useErpJob(home?: ErpJobHome) {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<ErpQueryResult | null>(null);
-  const [queryId, setQueryId] = useState<string | null>(() => keptJob(key));
-  // Whether this page saw the job running: a failure found on coming back is not offered again.
-  const sawRunning = useRef(false);
+  const [queryId, setQueryId] = useState<string | null>(null);
   const [, , setError] = useFeedbackMessage<string | null>(null);
+  const visible = useContext(ErpPageVisibleContext);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+  // Whether this page saw the job running: a job found already finished is shown, not announced.
+  const sawRunning = useRef(false);
+  const homeTypes = home?.types.join(",");
+  useEffect(() => {
+    if (!home) return;
+    let cancelled = false;
+    void recentJobs().then(jobs => {
+      const latest = jobs.find(job => home.types.includes(job.queryType));
+      if (!cancelled && latest) setQueryId(current => current ?? latest.id);
+    });
+    return () => { cancelled = true; };
+  }, [homeTypes]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!queryId) return;
     let cancelled = false; let pending = false;
@@ -56,28 +75,34 @@ export function useErpJob(key?: string) {
       if (pending) return; pending = true;
       void loadErpItemQuery(queryId).then(job => {
         if (cancelled) return;
-        setResult(job); setError(null);
-        if (runningStatus(job.status)) sawRunning.current = true;
-        if (job.status === "FAILED" || job.status === "EXPIRED") {
-          const message = job.errorMessage || "查詢已逾時，請重新查詢。";
+        setResult(job);
+        if (visibleRef.current) setError(null);
+        if (runningStatus(job.status)) { sawRunning.current = true; return; }
+        setQueryId(null);
+        const failed = job.status === "FAILED" || job.status === "EXPIRED";
+        const message = failed ? job.errorMessage || "查詢已逾時，請重新查詢。" : null;
+        if (!sawRunning.current) return;
+        sawRunning.current = false;
+        if (home) window.dispatchEvent(new CustomEvent<ErpQueryDoneDetail>(ERP_QUERY_DONE_EVENT,
+          { detail: { route: home.route, key: home.key, label: home.label, status: job.status, message, visible: visibleRef.current } }));
+        if (!failed) return;
+        if (visibleRef.current) {
           setError(message);
           // The header ERP control offers a force-close for failures that may mean ERP is stuck.
-          if (sawRunning.current) window.dispatchEvent(new CustomEvent<ErpQueryFailedDetail>(ERP_QUERY_FAILED_EVENT, {
-            detail: { code: job.status === "EXPIRED" ? "AGENT_TIMEOUT" : job.errorCode, message } }));
+          window.dispatchEvent(new CustomEvent<ErpQueryFailedDetail>(ERP_QUERY_FAILED_EVENT, {
+            detail: { code: job.status === "EXPIRED" ? "AGENT_TIMEOUT" : job.errorCode, message: message! } }));
         }
-        if (!runningStatus(job.status)) setQueryId(null);
       }).catch(err => {
         if (cancelled) return;
-        // A kept job CY Web no longer has is simply forgotten, without an error.
-        if (err instanceof ApiClientError && err.code === "QUERY_NOT_FOUND") keepJob(key, null);
-        else setError(readableErpError(err));
+        // A job CY Web no longer has is simply forgotten, without an error.
+        if (!(err instanceof ApiClientError && err.code === "QUERY_NOT_FOUND") && visibleRef.current) setError(readableErpError(err));
         setQueryId(null);
       }).finally(() => { pending = false; });
     };
     refresh();
     const timer = window.setInterval(refresh, 1500);
     return () => { cancelled = true; window.clearInterval(timer); };
-  }, [queryId]);
+  }, [queryId]); // eslint-disable-line react-hooks/exhaustive-deps
   async function start(request: ErpQueryRequest): Promise<boolean> {
     if (submitting || queryId) return false;
     setSubmitting(true); setError(null);
@@ -88,14 +113,13 @@ export function useErpJob(key?: string) {
         errorCode: null, errorMessage: null, resultCleared: false });
       sawRunning.current = true;
       setQueryId(job.id);
-      keepJob(key, job.id);
       return true;
     } catch (err) { setError(readableErpError(err)); return false; }
     finally { setSubmitting(false); }
   }
   return {
     result, submitting, busy: submitting || !!queryId, start, setError,
-    clear: () => { if (!queryId) { setResult(null); keepJob(key, null); } },
+    clear: () => { if (!queryId) setResult(null); },
   };
 }
 export type ErpJob = ReturnType<typeof useErpJob>;
