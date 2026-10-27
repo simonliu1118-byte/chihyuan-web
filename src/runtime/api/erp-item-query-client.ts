@@ -1,5 +1,5 @@
 import { apiRequest } from "../../api/client";
-import type { ErpAgentStatus, ErpHistoryRequest, ErpQueryResult, ErpReceivableScope } from "../../../shared/erp-item-query";
+import type { ErpAgentControl, ErpAgentStatus, ErpHistoryRequest, ErpQueryResult, ErpReceivableScope } from "../../../shared/erp-item-query";
 
 export type NewErpJob = Pick<ErpQueryResult,
   "id" | "queryType" | "itemNo" | "keyword" | "code" | "scope" | "dateFrom" | "dateTo"
@@ -25,6 +25,11 @@ export function loadErpItemQuery(id: string): Promise<ErpQueryResult> {
 }
 export function loadErpAgentStatus(): Promise<ErpAgentStatus> {
   return apiRequest("/api/erp/agent-status", { method: "GET" });
+}
+/** ERP 關閉／暫停 (user 2026-10-27): close after the queue (minutes>0 also holds new queries), force-close, or lift a hold. */
+export type ErpControlAction = { action: "CLOSE"; minutes: 0 | 15 | 30 | 60 } | { action: "FORCE_CLOSE" } | { action: "RESUME" };
+export function controlErpAgent(action: ErpControlAction): Promise<ErpAgentControl> {
+  return apiRequest("/api/erp/agent-control", { method: "POST", json: action });
 }
 
 export interface ErpAgentCredentialStatus {

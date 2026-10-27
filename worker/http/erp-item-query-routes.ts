@@ -4,6 +4,7 @@ import {
   ERP_RESTOCK_MAX_DAYS, ERP_RESTOCK_MAX_ITEMS, type ErpRestockItem, type ErpRestockDay,
   type ErpQueryType, type ErpQueryHistory, type ErpField, type ErpQueryErrorCode, type ErpQueryResult,
   type ErpReceivableScope, type ErpSalesOrder, type ErpSalesLine, type ErpPurchaseOrder, type ErpPurchaseLine, type ErpReceivableBill, type ErpReceivableVoucher,
+  type ErpAgentControl, type ErpControlRequest, type ErpControlResult,
 } from "../../shared/erp-item-query";
 import { AuditService } from "../audit/audit-service";
 import { salesHistoryStatements } from "./erp-sales-history";
@@ -624,6 +625,17 @@ function parseRequest(queryType: ErpQueryType, body: Record<string, unknown>): N
     throw error;
   }
 }
+// ---- ERP 關閉／暫停 (user 2026-10-27) ------------------------------------------------------------
+type ControlRow = { request: ErpControlRequest | null; requested_at: string | null; hold_until: string | null; result: ErpControlResult | null; result_at: string | null };
+const CONTROL_HOLD_MINUTES = new Set([0, 15, 30, 60]);
+async function readControl(db: D1Database): Promise<ErpAgentControl> {
+  const row = await db.prepare("SELECT request,requested_at,hold_until,result,result_at FROM erp_item_agent_control WHERE id=1").first<ControlRow>();
+  const holdUntil = row?.hold_until && Date.parse(row.hold_until) > Date.now() ? row.hold_until : null;
+  return { request: row?.request ?? null, requestedAt: row?.requested_at ?? null, holdUntil, result: row?.result ?? null, resultAt: row?.result_at ?? null };
+}
+/** 「HH:MM」 in Taipei, for messages. */
+const taipeiTime = (iso: string) => new Date(Date.parse(iso) + 8 * 3600000).toISOString().slice(11, 16);
+
 async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string, pathname: string): Promise<Response> {
   const principal = await userGuard(request, env, requestId);
   if (principal instanceof Response) return principal;
@@ -636,7 +648,35 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
     return success({
       online: !!lastSeenAt && Date.now() - Date.parse(lastSeenAt) < 15000 && Date.now() >= Date.parse(lastSeenAt),
       lastSeenAt, agentVersion: heartbeat?.agent_version ?? null, erpState: heartbeat?.erp_state ?? null,
+      control: await readControl(env.DB),
     }, requestId);
+  }
+  // CLOSE: the Agent closes ERP once its queue is done; minutes>0 also holds new queries until then.
+  // FORCE_CLOSE: after a failed query, the Agent ends the ERP processes. RESUME: lifts a hold.
+  if (pathname === "/api/erp/agent-control" && request.method === "POST") {
+    const member = await allowedAny(env.DB, principal, ERP_QUERY_MODULES);
+    if (!member) return denied(requestId);
+    const body = await readJsonObject(request, 512);
+    const action = body.action;
+    const now = new Date().toISOString();
+    let statement: D1PreparedStatement;
+    if (action === "CLOSE") {
+      const minutes = body.minutes ?? 0;
+      if (typeof minutes !== "number" || !CONTROL_HOLD_MINUTES.has(minutes)) return bad("INVALID_CONTROL", "暫停時間只能是 0、15、30 或 60 分鐘");
+      const holdUntil = minutes ? new Date(Date.now() + minutes * 60000).toISOString() : null;
+      statement = env.DB.prepare(`INSERT INTO erp_item_agent_control(id,request,requested_at,requested_by,hold_until,result,result_at) VALUES(1,'CLOSE',?1,?2,?3,NULL,NULL)
+        ON CONFLICT(id) DO UPDATE SET request='CLOSE',requested_at=?1,requested_by=?2,hold_until=?3,result=NULL,result_at=NULL`).bind(now, member.id, holdUntil);
+    } else if (action === "FORCE_CLOSE") {
+      statement = env.DB.prepare(`INSERT INTO erp_item_agent_control(id,request,requested_at,requested_by,result,result_at) VALUES(1,'FORCE_CLOSE',?1,?2,NULL,NULL)
+        ON CONFLICT(id) DO UPDATE SET request='FORCE_CLOSE',requested_at=?1,requested_by=?2,result=NULL,result_at=NULL`).bind(now, member.id);
+    } else if (action === "RESUME") {
+      statement = env.DB.prepare("UPDATE erp_item_agent_control SET hold_until=NULL WHERE id=1");
+    } else return bad("INVALID_CONTROL", "不支援的 ERP 控制動作");
+    await env.DB.batch([statement, new AuditService(env.DB).prepareRecord({
+      entityType: "erp_agent_control", entityKey: "1", action: "erp_agent_control." + String(action).toLowerCase(),
+      actorEmployeeId: member.id, requestId, metadata: { minutes: action === "CLOSE" ? body.minutes ?? 0 : null },
+    })]);
+    return success(await readControl(env.DB), requestId);
   }
   if (pathname === "/api/erp/item-queries" && request.method === "POST") {
     const body = await readJsonObject(request, 2048);
@@ -646,6 +686,8 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
     const member = await allowedAny(env.DB, principal, MODULES_FOR_TYPE[queryType]);
     if (!member) return denied(requestId, queryType);
     const job = parseRequest(queryType, body);
+    const { holdUntil } = await readControl(env.DB);
+    if (holdUntil) return failure({ code: "ERP_HELD", message: `ERP 已暫停，${taipeiTime(holdUntil)} 後可再查詢` }, requestId, 409);
     const includeCost = queryType === "ITEM_NO" && !!await allowed(env.DB, principal, "ERP_ITEM_COST");
     const active = await env.DB.prepare("SELECT 1 AS active FROM erp_item_queries WHERE owner_member_id=?1 AND status IN ('QUEUED','RUNNING') LIMIT 1")
       .bind(member.id).first();
@@ -792,7 +834,18 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
           AND NOT EXISTS(SELECT 1 FROM erp_item_queries WHERE status='RUNNING')
         RETURNING id,item_no,query_type,keyword,expires_at,include_history,history_from,history_to,target_code,receivable_scope,include_cost`
     ).bind(now, auth.digest, JSON.stringify(types)).first<ClaimRow>();
-    return success({ job: job ? claimedJob(job) : null }, requestId);
+    const control = await readControl(env.DB);
+    return success({ job: job ? claimedJob(job) : null, control: { request: control.request, holdUntil: control.holdUntil } }, requestId);
+  }
+  // The Agent's outcome of a CLOSE／FORCE_CLOSE; a newer request made meanwhile stays pending.
+  if (pathname === "/api/erp-agent/control" && request.method === "POST") {
+    const body = await readJsonObject(request, 512);
+    if (body.request !== "CLOSE" && body.request !== "FORCE_CLOSE") return bad("INVALID_CONTROL", "控制要求不正確");
+    if (!["CLOSED", "KEPT_OPEN", "NOT_OPEN", "FAILED"].includes(String(body.result))) return bad("INVALID_CONTROL", "控制結果不正確");
+    const now = new Date().toISOString();
+    await env.DB.prepare("UPDATE erp_item_agent_control SET request=NULL,result=?1,result_at=?2 WHERE id=1 AND request=?3")
+      .bind(body.result, now, body.request).run();
+    return success(await readControl(env.DB), requestId);
   }
   // 進貨輔助 progress (user 2026-10-20): what the Agent has done so far, for the page while RUNNING.
   // A report older than the stored one (same stage, fewer done) is ignored.
@@ -866,7 +919,7 @@ export async function handleErpItemQueryRoute(request: Request, env: ErpBridgeEn
   const pathname = new URL(request.url).pathname;
   const isAgent = pathname.startsWith("/api/erp-agent/");
   const isCredentials = pathname === "/api/erp/agent-credentials";
-  const isUser = pathname === "/api/erp/agent-status" || pathname.startsWith("/api/erp/item-queries") || isCredentials;
+  const isUser = pathname === "/api/erp/agent-status" || pathname === "/api/erp/agent-control" || pathname.startsWith("/api/erp/item-queries") || isCredentials;
   if (!isAgent && !isUser) return null;
   try {
     return isCredentials ? await credentialRoutes(request, env, requestId)

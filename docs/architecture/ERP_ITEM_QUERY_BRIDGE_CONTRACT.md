@@ -177,3 +177,10 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
   - `erp_sales_days(sale_date, synced_at, query_id)`：未 truncated 時標記範圍內每一天；已同步過的日子只有上次同步時（台北日期）還沒過完才改寫。
   - 這些表不跟著查詢結果的保存期限清除，供之後的銷貨分析使用；每批 1,500 列一個 statement。
 
+## V0.9.38：ERP 關閉／暫停與強制關閉（使用者 2026-10-27）
+
+- 有任一 ERP 查詢權限的成員可呼叫 `POST /api/erp/agent-control`：`{action:"CLOSE",minutes:0|15|30|60}`（佇列跑完後關閉 ERP；minutes>0 同時暫停）、`{action:"FORCE_CLOSE"}`（強制結束 ERP）、`{action:"RESUME"}`（取消暫停）。單一共用列 `erp_item_agent_control`，不納入可攜備份。
+- 暫停期間 `POST /api/erp/item-queries` 回 409 `ERP_HELD`「ERP 已暫停，HH:MM 後可再查詢」；已排隊的工作照常執行。
+- `GET /api/erp/agent-status` 增加 `control:{request,requestedAt,holdUntil,result,resultAt}`。
+- Agent claim 回應增加 `control:{request,holdUntil}`；Agent 只在沒有領到工作時處理 request，完成後 `POST /api/erp-agent/control {request,result}`，result 為 `CLOSED`／`KEPT_OPEN`（ERP 有編輯中的詢問而保留）／`NOT_OPEN`／`FAILED`。回報的 request 與目前不同時不覆蓋（新的要求仍待處理）。舊版 Agent 不認得 control，要求會一直顯示「等待查詢程式關閉 ERP」。
+- 查詢失敗（ERP_NOT_OPEN、ERP_STATE、EXPORT_FAILED、INTERNAL、逾時）時，網頁詢問是否強制關閉 ERP。

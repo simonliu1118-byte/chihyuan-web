@@ -3,12 +3,14 @@ import { ApiClientError } from "../../api/client";
 import type { ErpQueryResult, ErpQueryStatus } from "../../../shared/erp-item-query";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { createErpQuery, loadErpItemQuery, type ErpQueryRequest } from "../api/erp-item-query-client";
+import { ERP_QUERY_FAILED_EVENT, type ErpQueryFailedDetail } from "./ErpAgentCredentialControl";
 
 export const runningStatus = (status: ErpQueryStatus) => status === "QUEUED" || status === "RUNNING";
 
 export function readableErpError(error: unknown): string {
   if (error instanceof ApiClientError) {
     if (error.code === "QUERY_ALREADY_ACTIVE") return "已有一筆查詢尚未結束，請等候完成後再試。";
+    if (error.code === "ERP_HELD") return error.message;
     if (error.code === "ACCESS_DENIED") return "你目前沒有這項 ERP 查詢的模組權限。";
     if (error.code === "INVALID_ITEM_NO") return "品號只能輸入 1～40 個英文字母、數字或「-」。";
     if (error.code === "INVALID_KEYWORD") return "請輸入 1～40 字，不可含單引號或 % _ [ ]。";
@@ -34,7 +36,13 @@ export function useErpJob() {
       void loadErpItemQuery(queryId).then(job => {
         if (cancelled) return;
         setResult(job); setError(null);
-        if (job.status === "FAILED" || job.status === "EXPIRED") setError(job.errorMessage || "查詢已逾時，請重新查詢。");
+        if (job.status === "FAILED" || job.status === "EXPIRED") {
+          const message = job.errorMessage || "查詢已逾時，請重新查詢。";
+          setError(message);
+          // The header ERP control offers a force-close for failures that may mean ERP is stuck.
+          window.dispatchEvent(new CustomEvent<ErpQueryFailedDetail>(ERP_QUERY_FAILED_EVENT, {
+            detail: { code: job.status === "EXPIRED" ? "AGENT_TIMEOUT" : job.errorCode, message } }));
+        }
         if (!runningStatus(job.status)) setQueryId(null);
       }).catch(err => {
         if (cancelled) return;

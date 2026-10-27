@@ -158,9 +158,22 @@ export interface ErpQueryResult extends ErpHistoryRequest {
   errorMessage: string | null;
   resultCleared: boolean;
 }
+/** ERP 關閉／暫停 (user 2026-10-27). */
+export type ErpControlRequest = "CLOSE" | "FORCE_CLOSE";
+export type ErpControlResult = "CLOSED" | "KEPT_OPEN" | "NOT_OPEN" | "FAILED";
+export interface ErpAgentControl {
+  /** Waiting for the Agent: close once its queue is done, or force-close. */
+  request: ErpControlRequest | null;
+  requestedAt: string | null;
+  /** New queries are refused until then (null when not held or the hold has passed). */
+  holdUntil: string | null;
+  result: ErpControlResult | null;
+  resultAt: string | null;
+}
 export interface ErpAgentStatus {
   online: boolean;
   lastSeenAt: string | null;
   agentVersion: string | null;
   erpState: string | null;
+  control: ErpAgentControl;
 }
