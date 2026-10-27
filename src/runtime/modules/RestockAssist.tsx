@@ -3,7 +3,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {apiRequest} from "../../api/client";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {Dialog} from "../../ui/overlays/Dialog";
-import {OrderingSourcePicker} from "../../ui/OrderingSourcePicker";
+import {OrderingSourceChips} from "../../ui/OrderingSourceChips";
 import {FeedbackBanner,useFeedbackMessage} from "../../ui/feedback/FeedbackProvider";
 import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import {pickDraft,CN_REGULAR_SECTIONS,type OrderingSection,type OrderingSource,type OrderingListRow,type OrderingOrder} from "../../../shared/ordering";
@@ -178,14 +178,22 @@ function AddToOrdering({row,onClose,onAdded}:{row:Row;onClose:()=>void;onAdded:(
  const [sources,setSources]=useState<OrderingSource[]>([]),[sourceId,setSourceId]=useState(0),[orderId,setOrderId]=useState(0),[drafts,setDrafts]=useState<OrderingListRow[]>([]);
  const [qty,setQty]=useState(String(Math.max(0,row.net))),[unit,setUnit]=useState(row.unit??""),[busy,setBusy]=useState(false),[error,setError]=useState("");
  const [section,setSection]=useState<OrderingSection>("");
+ // Suggestions for the source tags: the item's last source, sources with a draft, the member's vendor order.
+ const [lastSourceId,setLastSourceId]=useState(0),[draftSourceIds,setDraftSourceIds]=useState<number[]>([]),[vendorOrder,setVendorOrder]=useState<number[]>([]);
  const {confirm,confirmationDialog}=useConfirmation();
  const regular=sources.find(s=>s.id===sourceId)?.kind==="CN_REGULAR";
  useEffect(()=>{let valid=true;void Promise.all([
   apiRequest<OrderingSource[]>("/api/business/ordering/sources"),
-  apiRequest<{source_id:number}|null>("/api/business/ordering/last-source?itemCode="+encodeURIComponent(row.itemCode))
- ]).then(([s,last])=>{if(valid){setSources(s.filter(x=>x.isActive));setSourceId(s.some(x=>x.id===last?.source_id&&x.isActive)?last!.source_id:0)}}).catch(e=>{if(valid)setError(e instanceof Error?e.message:"無法讀取叫貨來源")});return()=>{valid=false}},[row.itemCode]);
+  apiRequest<{source_id:number}|null>("/api/business/ordering/last-source?itemCode="+encodeURIComponent(row.itemCode)),
+  apiRequest<OrderingListRow[]>("/api/business/ordering/orders?status=DRAFT").catch(()=>[]),
+  apiRequest<number[]>("/api/business/ordering/preferences/vendors").catch(()=>[]),
+ ]).then(([s,last,allDrafts,order])=>{if(valid){
+  const lastId=s.some(x=>x.id===last?.source_id&&x.isActive)?last!.source_id:0;
+  setSources(s.filter(x=>x.isActive));setSourceId(lastId);setLastSourceId(lastId);
+  setDraftSourceIds([...new Set(allDrafts.map(x=>x.sourceId))]);setVendorOrder(order);
+ }}).catch(e=>{if(valid)setError(e instanceof Error?e.message:"無法讀取叫貨來源")});return()=>{valid=false}},[row.itemCode]);
  useEffect(()=>{setDrafts([]);setOrderId(0);if(!sourceId)return;let valid=true;void apiRequest<OrderingListRow[]>("/api/business/ordering/orders?sourceId="+sourceId+"&status=DRAFT").then(xs=>{if(valid){setDrafts(xs);const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);setOrderId(pickDraft(xs.map(x=>({id:x.id,plannedSendDate:x.plannedSendDate,createdAt:x.createdAt})),today)?.id??0)}}).catch(e=>{if(valid)setError(e instanceof Error?e.message:"無法讀取草稿")});return()=>{valid=false}},[sourceId]);
- async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!sourceId||!qty.trim()||Number(qty)<=0||(regular&&!section))return;
+ async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!sourceId){setError("請選擇來源。");return}if(!qty.trim()||Number(qty)<=0||(regular&&!section))return;
   setBusy(true);setError("");try{
    const ROOT="/api/business/ordering";
    let current=orderId?await apiRequest<OrderingOrder>(ROOT+"/orders/"+orderId):await apiRequest<OrderingOrder>(ROOT+"/orders",{method:"POST",json:{sourceId}});
@@ -200,10 +208,11 @@ function AddToOrdering({row,onClose,onAdded}:{row:Row;onClose:()=>void;onAdded:(
    onAdded("已加入 "+(source?.name??"叫貨")+" "+(current.plannedSendDate?current.plannedSendDate.slice(5).replace("-","/"):"未定日期")+" 草稿");
   }catch(err){setError(err instanceof Error?err.message:"加入失敗")}finally{setBusy(false)}
  }
- return <Dialog open title={"加入叫貨單："+row.itemName} dismissible={false} onClose={onClose}>{error?<p role="alert">{error}</p>:null}
+ return <Dialog open size="small" title={"加入叫貨單："+row.itemName} dismissible={false} onClose={onClose}>{error?<p role="alert">{error}</p>:null}
  <form onKeyDown={enterAdvancesFields} onSubmit={e=>void submit(e)}>
     <FormSection>
- <Field label="來源" size="m" required><OrderingSourcePicker sources={sources} value={sourceId} onChange={setSourceId} label="選擇加入叫貨單來源"/></Field>
+ <div className="cy-f cy-f-l" role="group" aria-label="來源"><span className="cy-f-label">來源<span className="cy-field-required" aria-hidden="true">＊</span></span>
+  <OrderingSourceChips sources={sources} value={sourceId} onChange={setSourceId} lastSourceId={lastSourceId} draftSourceIds={draftSourceIds} vendorOrder={vendorOrder}/></div>
  {regular?<Field label="區段" size="m" required><select className="cy-op-input" value={section} onChange={e=>setSection(e.target.value as OrderingSection)}><option value="">請選擇</option>{CN_REGULAR_SECTIONS.map(x=><option key={x.key} value={x.key}>{x.label}</option>)}</select></Field>:null}
  <Field label="草稿" size="m"><select className="cy-op-input" value={orderId} onChange={e=>setOrderId(Number(e.target.value))}><option value={0}>＋ 新草稿</option>{drafts.map(x=><option key={x.id} value={x.id}>{x.plannedSendDate??"未排日期"}（#{x.id}）</option>)}</select></Field>
  <Field label="數量" size="s" required><input className="cy-op-input" type="number" min=".0001" step="any" value={qty} onChange={e=>setQty(e.target.value)}/></Field>
