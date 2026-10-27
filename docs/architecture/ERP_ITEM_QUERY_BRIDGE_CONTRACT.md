@@ -1,12 +1,12 @@
 # ERP 查詢 Bridge — CY Web current contract
 
-狀態：CY Web 實作契約（目前 V0.9.42）。涵蓋 ERP 查詢頁（商品、客戶、供應商、進貨輔助、未收款、排程佇列）與 CYERPAutoQuery Agent 佇列；不改變既有 Item／Customer 主檔權威。
+狀態：CY Web 實作契約（目前 V0.9.43）。涵蓋 ERP 查詢頁（商品、客戶、供應商、進貨輔助、未收款、排程佇列）與 CYERPAutoQuery Agent 佇列；不改變既有 Item／Customer 主檔權威。
 
-## 目前狀態總覽（V0.9.42）
+## 目前狀態總覽（V0.9.43）
 
 下面各節依版本累積寫成；較早的段落若與本節不同，以本節與較新的段落為準。
 
-- **頁面**：導覽只有「ERP 查詢」（route `erp-item-query`）。類別依權限顯示：商品 `ERP_ITEM_QUERY`、客戶 `ERP_CUSTOMER_QUERY`、供應商 `ERP_SUPPLIER_QUERY`、進貨輔助 `ERP_RESTOCK_ASSIST`（需同時有商品與客戶查詢權限）、未收款 `ERP_RECEIVABLE_QUERY`；類別列右側「排程佇列」按鈕打開右側抽屜（V0.9.42）。標準進價另需 `ERP_ITEM_COST`。舊連結 `#restock-assist` 轉到 ERP 查詢。
+- **頁面**：導覽只有「ERP 查詢」（route `erp-item-query`）。類別依權限顯示：商品 `ERP_ITEM_QUERY`、客戶 `ERP_CUSTOMER_QUERY`、供應商 `ERP_SUPPLIER_QUERY`、進貨輔助 `ERP_RESTOCK_ASSIST`（需同時有商品與客戶查詢權限）、未收款 `ERP_RECEIVABLE_QUERY`；類別列右側「排程佇列」按鈕打開右側欄（V0.9.43 起不遮住頁面）。標準進價另需 `ERP_ITEM_COST`。舊連結 `#restock-assist` 轉到 ERP 查詢。
 - **查詢類型**：`ITEM_NO`、`ITEM_NAME`、`CUSTOMER_NO`、`CUSTOMER_NAME`、`SALES`、`SUPPLIER_NO`、`SUPPLIER_NAME`、`PURCHASES`、`RECEIVABLE`、`ORDER`、`RESTOCK`（權限對照見 `MODULES_FOR_TYPE`）。
 - **佇列**：每位成員最多 3 筆 QUEUED／RUNNING；Agent 一次執行一筆，依送入時間領取。排隊工作在 Agent 連線或執行中時等待，Agent 離線（無 RUNNING、60 秒內無 claim）且建立超過 120 秒才 `EXPIRED`，最長 60 分鐘。
 - **RUNNING 逾時**：一般 180 秒、含歷史異動 300 秒、報表類（SALES、PURCHASES、RECEIVABLE、ORDER）600 秒、RESTOCK 1800 秒，逾時為 `FAILED/AGENT_TIMEOUT`。
@@ -214,3 +214,11 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 - 排程佇列改為類別列右側「排程佇列」按鈕打開的右側抽屜（共用 `Drawer`），開著時每 5 秒讀 `GET /api/erp/queue`；每筆顯示「預計 HH:MM 完成（約 N 分鐘後）」。API 不變。
 - 進貨輔助表格：品號與品名（單位）同一行；每天的銷與退之間淡虛線；日期欄固定斑馬紋（週末不另加底色）；小計（銷貨）、淨銷、庫存前粗框線。
 - 進貨輔助「加入叫貨單」的來源改為點選標籤，見 `ORDERING_MODULE.md`。
+
+## V0.9.43：暫停時加入佇列、關閉到…（使用者 2026-10-28）
+
+- `POST /api/erp/agent-control` 的 CLOSE 可改帶 `until`（ISO 時間，1 分鐘後至 24 小時內）取代 `minutes`；超出範圍 400 `INVALID_CONTROL`。
+- 暫停中 `POST /api/erp/item-queries` 帶 `afterHold:true` 時不回 `ERP_HELD`，改建立 QUEUED 工作並記 `not_before`＝暫停結束時間（`migrations/0027_erp_query_not_before.sql`），`expires_at`＝暫停結束後 60 分鐘。回應與讀取工作含 `notBefore`（QUEUED 時）。
+- Claim 只領 `not_before` 為空或已到的工作。CLOSE 改變暫停時間時，等待中的工作 `not_before` 跟著改；RESUME 或無暫停的 CLOSE 清空 `not_before`（立即可領）。Agent 離線過期規則改以 `COALESCE(not_before, created_at)` 起算。
+- `GET /api/erp/queue` 每筆含 `notBefore`；預估完成時間從暫停結束起算。
+- 前端：`ERP_HELD` 時跳「ERP 暫停中」視窗（`ErpHeldPrompt`，App 層掛一次），可選「知道了」或「加入佇列，暫停結束自動查」。ERP 查詢程式視窗暫停中只顯示「取消暫停」；排程佇列為不遮住頁面的右側欄。

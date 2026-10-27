@@ -78,7 +78,7 @@ export function OrderingPage(){
  const [headerSaving,setHeaderSaving]=useState(0),[headerSaveFailed,setHeaderSaveFailed]=useState(false);
  const headerDirtyRef=useRef({date:false,note:false});
  const headerEditRevisions=useRef({date:0,note:0});
- const [sourceForm,setSourceForm]=useState<{id?:number;kind:"GENERAL"|"VENDOR";name:string;conditions:string;paymentTerms:string;sortOrder?:number}|null>(null);
+ const [sourceForm,setSourceForm]=useState<{id?:number;kind:"GENERAL"|"VENDOR";name:string;conditions:string;paymentTerms:string;note:string;sortOrder?:number}|null>(null);
  const [sourceFilter,setSourceFilter]=useState("");
  const [manageSources,setManageSources]=useState(false);
  const [receipt,setReceipt]=useState<{id:number;no:string;date:string;quantities:Record<number,string>;selectedLineIds:number[]}|null>(null);
@@ -232,9 +232,9 @@ export function OrderingPage(){
  async function voidOrder(){if(!selected||!await prepareSwitch())return;if(await confirm({title:"作廢叫貨單",description:"確定作廢？歷史紀錄會保留。",confirmTone:"danger",confirmLabel:"作廢"}))await write("/orders/"+selected.id+"/void","POST",{})}
  async function saveSource(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!sourceForm)return;setBusy(true);try{
    if(sourceForm.id){const original=sources.find(x=>x.id===sourceForm.id);
-    await call("/sources/"+sourceForm.id,"PATCH",{name:sourceForm.name,conditions:sourceForm.conditions,paymentTerms:sourceForm.paymentTerms,sortOrder:sourceForm.sortOrder??original?.sortOrder??0});
+    await call("/sources/"+sourceForm.id,"PATCH",{name:sourceForm.name,conditions:sourceForm.conditions,paymentTerms:sourceForm.paymentTerms,note:sourceForm.note,sortOrder:sourceForm.sortOrder??original?.sortOrder??0});
    }
-   else await call("/sources","POST",{name:sourceForm.name,kind:sourceForm.kind,conditions:sourceForm.conditions,paymentTerms:sourceForm.paymentTerms});
+   else await call("/sources","POST",{name:sourceForm.name,kind:sourceForm.kind,conditions:sourceForm.conditions,paymentTerms:sourceForm.paymentTerms,note:sourceForm.note});
    setSourceForm(null);await refresh();void refreshLists().catch(e=>setError(errorOf(e)));
   }catch(err){setError(errorOf(err))}finally{setBusy(false)}}
  async function receive(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!receipt||!selected)return;
@@ -414,7 +414,8 @@ export function OrderingPage(){
          {currentSource.conditions?<span className="cy-ordering-vendor-condition">{currentSource.conditions}</span>:<span className="cy-ordering-unset">未設定</span>}
          <span className="cy-ordering-meta-label cy-ordering-meta-inline">付款條件</span>
          {currentSource.paymentTerms?<span>{currentSource.paymentTerms}</span>:<span className="cy-ordering-unset">未設定</span>}
-         <button type="button" className="cy-op-button compact cy-ordering-meta-edit" onClick={()=>setSourceForm({id:currentSource.id,kind:"VENDOR",name:currentSource.name,conditions:currentSource.conditions,paymentTerms:currentSource.paymentTerms,sortOrder:currentSource.sortOrder})}>
+         {currentSource.note?<><span className="cy-ordering-meta-label cy-ordering-meta-inline">註記</span><span className="cy-ordering-source-note-text">{currentSource.note}</span></>:null}
+         <button type="button" className="cy-op-button compact cy-ordering-meta-edit" onClick={()=>setSourceForm({id:currentSource.id,kind:"VENDOR",name:currentSource.name,conditions:currentSource.conditions,paymentTerms:currentSource.paymentTerms,note:currentSource.note,sortOrder:currentSource.sortOrder})}>
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>修改廠商</button>
         </div></>:null}
       </div>:null}
@@ -507,7 +508,7 @@ export function OrderingPage(){
         <label className="cy-ordering-vendor-search"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
          <input type="search" aria-label="速查廠商" placeholder="搜尋廠商" value={vendorQuery} onChange={e=>setVendorQuery(e.target.value)}/></label>
         <span className="cy-ordering-vendor-legend" aria-hidden="true">{VENDOR_DOTS.map(([key,tone,label])=><span key={key}><span className="cy-status-dot" data-tone={tone}/>{label==="已送出待到貨"?"待到貨":label==="有草稿"?"草稿":label}</span>)}</span>
-        <button type="button" className="cy-op-button compact" onClick={()=>setSourceForm({kind:"VENDOR",name:"",conditions:"",paymentTerms:""})}>＋ 新增廠商</button>
+        <button type="button" className="cy-op-button compact" onClick={()=>setSourceForm({kind:"VENDOR",name:"",conditions:"",paymentTerms:"",note:""})}>＋ 新增廠商</button>
        </div>
        <div className="cy-ordering-vendor-pills" role="tablist" aria-label="廠商（拖曳調整自己的順序）">
         {movableVendors.filter(v=>v.name.toLocaleLowerCase().includes(vendorQuery.trim().toLocaleLowerCase())).map(v=><button type="button" role="tab" key={v.id} className={activeVendorId===v.id?"active":""} aria-selected={activeVendorId===v.id}
@@ -535,14 +536,14 @@ export function OrderingPage(){
        <td className="cy-ordering-source-note">{s.conditions||"—"}</td>
        <td className="cy-ordering-source-note">{s.paymentTerms||"—"}</td>
        <td className="cy-ordering-source-actions">
-        <button type="button" className="cy-op-button compact quiet" disabled={busy} onClick={()=>setSourceForm({id:s.id,kind:s.kind==="VENDOR"?"VENDOR":"GENERAL",name:s.name,conditions:s.conditions,paymentTerms:s.paymentTerms,sortOrder:s.sortOrder})}>修改</button>
+        <button type="button" className="cy-op-button compact quiet" disabled={busy} onClick={()=>setSourceForm({id:s.id,kind:s.kind==="VENDOR"?"VENDOR":"GENERAL",name:s.name,conditions:s.conditions,paymentTerms:s.paymentTerms,note:s.note,sortOrder:s.sortOrder})}>修改</button>
         {s.isActive?<><button type="button" className="cy-op-button compact quiet" disabled={busy||active[0]?.id===s.id} aria-label={"將 "+s.name+" 排序向前"} onClick={()=>void changeSharedOrder(s.id,-1)}>↑</button>
          <button type="button" className="cy-op-button compact quiet" disabled={busy||active.at(-1)?.id===s.id} aria-label={"將 "+s.name+" 排序向後"} onClick={()=>void changeSharedOrder(s.id,1)}>↓</button></>:null}
         <button type="button" className="cy-op-button compact quiet" disabled={busy} onClick={()=>void updateVisibility(s)}>{s.isActive?"隱藏":"恢復"}</button>
        </td></tr>)}</tbody>
      </table></div>
      <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setManageSources(false)}>關閉</button>
-      <button type="button" className="cy-op-button primary" onClick={()=>setSourceForm({kind:"GENERAL",name:"",conditions:"",paymentTerms:""})}>＋ 新增來源</button></div>
+      <button type="button" className="cy-op-button primary" onClick={()=>setSourceForm({kind:"GENERAL",name:"",conditions:"",paymentTerms:"",note:""})}>＋ 新增來源</button></div>
     </div>
   </Dialog>:null}
   {hiddenSourcesOpen?<Dialog open title="已隱藏叫貨來源" onClose={()=>setHiddenSourcesOpen(false)}>
@@ -558,6 +559,7 @@ export function OrderingPage(){
      {!sourceForm.id?<Field label="類型" size="s"><select className="cy-op-input" value={sourceForm.kind} onChange={e=>setSourceForm(s=>s?{...s,kind:e.target.value as "GENERAL"|"VENDOR"}:s)}><option value="GENERAL">公司內部</option><option value="VENDOR">外部廠商</option></select></Field>:null}
      <Field label="叫貨條件" size="m"><input className="cy-op-input" maxLength={500} value={sourceForm.conditions} onChange={e=>setSourceForm(s=>s?{...s,conditions:e.target.value}:s)}/></Field>
      <Field label="付款條件" size="m"><input className="cy-op-input" maxLength={200} placeholder="例如：月結30天、貨到付款" value={sourceForm.paymentTerms} onChange={e=>setSourceForm(s=>s?{...s,paymentTerms:e.target.value}:s)}/></Field>
+     <Field label="註記" size="l" hint={`${[...sourceForm.note].length}／300 字，可換行`}><textarea className="cy-op-input" rows={4} maxLength={300} value={sourceForm.note} onChange={e=>setSourceForm(s=>s?{...s,note:e.target.value}:s)}/></Field>
     </FormSection>
     <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setSourceForm(null)}>取消</button><button type="submit" className="cy-op-button primary" disabled={busy}>儲存</button></div>
    </form></Dialog>:null}

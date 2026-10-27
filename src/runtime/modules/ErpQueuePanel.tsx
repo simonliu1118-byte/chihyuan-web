@@ -49,7 +49,8 @@ export function ErpQueuePanel({ active }: { active: boolean }) {
           const running = job.status === "RUNNING";
           if (!running) waiting += 1;
           return <li key={job.id} className={["cy-erp-queue-row", running ? "is-running" : "", job.mine ? "is-mine" : ""].join(" ").trim()}>
-            <span className="cy-erp-queue-state">{running ? "執行中" : `排隊第 ${waiting}`}</span>
+            <span className="cy-erp-queue-state">{running ? "執行中" : job.notBefore && Date.parse(job.notBefore) > now
+              ? `暫停結束後（${clock.format(new Date(job.notBefore))}）` : `排隊第 ${waiting}`}</span>
             <span className="cy-erp-queue-who">{job.member}{job.mine && <em>（我）</em>}</span>
             <span className="cy-erp-queue-what">
               <strong>{ERP_QUERY_TYPE_LABELS[job.queryType]}</strong>
@@ -61,4 +62,20 @@ export function ErpQueuePanel({ active }: { active: boolean }) {
         })}
       </ol>}
   </div>;
+}
+
+/**
+ * The queue beside the page (user 2026-10-28: narrower than the drawer, and the page behind it stays
+ * usable, so no backdrop). Esc or × closes it.
+ */
+export function ErpQueueSidePanel({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [onClose]);
+  return <aside className="cy-erp-queue-side" aria-label="排程佇列">
+    <header><h2>排程佇列</h2><button type="button" className="cy-dialog-close" aria-label="關閉排程佇列" onClick={onClose}>×</button></header>
+    <ErpQueuePanel active />
+  </aside>;
 }

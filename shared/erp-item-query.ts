@@ -157,6 +157,8 @@ export interface ErpQueryResult extends ErpHistoryRequest {
   errorCode: ErpQueryErrorCode | null;
   errorMessage: string | null;
   resultCleared: boolean;
+  /** QUEUED while ERP is paused: the query runs once the pause ends (V0.9.43). */
+  notBefore: string | null;
 }
 /** ERP 關閉／暫停 (user 2026-10-27). */
 export type ErpControlRequest = "CLOSE" | "FORCE_CLOSE";

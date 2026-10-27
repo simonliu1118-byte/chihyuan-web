@@ -28,6 +28,8 @@ export const LINE_STATE_LABELS: Readonly<Record<OrderingLineState, string>> = {
 
 export interface OrderingSource {
   id: number; name: string; kind: OrderingSourceKind; conditions: string; paymentTerms: string; sortOrder: number; isActive: boolean;
+  /** 註記 (V0.9.43): up to 300 characters, several lines. */
+  note: string;
 }
 export interface OrderingDraftRef { id: number; sourceId: number; plannedSendDate: string | null; createdAt: string }
 export interface OrderingLine {

@@ -31,6 +31,20 @@ export const ERP_QUERY_DONE_EVENT = "cy-erp-query-done";
 export type ErpQueryDoneDetail = { route: string; key: string; label: string; status: ErpQueryStatus; message: string | null; visible: boolean };
 
 /**
+ * Asked when a query is refused because ERP is paused (user 2026-10-28): the app's prompt answers
+ * true to queue it until the pause ends, false to drop it. Without a prompt on screen it is null.
+ */
+export const ERP_HELD_EVENT = "cy-erp-held";
+export type ErpHeldDetail = { message: string; answer: (queue: boolean) => void; handled: boolean };
+function askHeld(message: string): Promise<boolean | null> {
+  return new Promise(resolve => {
+    const detail: ErpHeldDetail = { message, answer: resolve, handled: false };
+    window.dispatchEvent(new CustomEvent<ErpHeldDetail>(ERP_HELD_EVENT, { detail }));
+    if (!detail.handled) resolve(null);
+  });
+}
+
+/**
  * Where a job lives (a page and its category), so the page shows it again when opened anew, on any
  * device, and a notice can lead back to it.
  */
@@ -107,7 +121,15 @@ export function useErpJob(home?: ErpJobHome) {
     if (submitting || queryId) return false;
     setSubmitting(true); setError(null);
     try {
-      const job = await createErpQuery(request);
+      let job;
+      try { job = await createErpQuery(request); }
+      catch (err) {
+        if (!(err instanceof ApiClientError && err.code === "ERP_HELD")) throw err;
+        const queue = await askHeld(err.message);
+        if (queue === null) throw err;
+        if (!queue) return false;
+        job = await createErpQuery(request, true);
+      }
       setResult({ ...job, fields: [], warehouses: [], elapsedMs: null, batchManaged: null, batches: [], history: null,
         items: [], orders: [], purchases: [], bills: [], restock: [], total: 0, truncated: false, startedAt: null, progress: null, completedAt: null,
         errorCode: null, errorMessage: null, resultCleared: false });

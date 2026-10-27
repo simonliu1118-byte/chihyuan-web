@@ -325,6 +325,11 @@ test("source payment terms, soft-hide, atomic shared sort and personal vendor or
   assert.equal((await call("/sources")).body.data.find(x=>x.id===vendor.id).paymentTerms,"月結30天");
   const invalid=await call("/sources/"+vendor.id,"PATCH",{paymentTerms:"X".repeat(201)});
   assert.equal(invalid.status,422);
+  // 註記 (V0.9.43): up to 300 characters, line breaks kept.
+  const noted=await call("/sources/"+vendor.id,"PATCH",{note:"週一、四出貨\n電話先聯絡"});
+  assert.equal(noted.status,200,JSON.stringify(noted.body));
+  assert.equal((await call("/sources")).body.data.find(x=>x.id===vendor.id).note,"週一、四出貨\n電話先聯絡");
+  assert.equal((await call("/sources/"+vendor.id,"PATCH",{note:"註".repeat(301)})).status,422);
   const orderIds=sources.filter(x=>x.kind==="VENDOR"&&x.name!=="其他").slice(0,3).map(x=>x.id).reverse();
   const saved=await call("/preferences/vendors","PUT",{sourceIds:orderIds});
   assert.equal(saved.status,200,JSON.stringify(saved.body));

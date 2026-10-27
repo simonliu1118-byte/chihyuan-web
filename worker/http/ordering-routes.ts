@@ -5,7 +5,7 @@ import {AuditService} from "../audit/audit-service";
 import {CN_REGULAR_SECTIONS,lineIsOpen,lineState,orderStatus,orderingLineHasName,parseErpPurchaseNo,parseQuantity,pickDraft,vendorItemKey,type OrderingStoredStatus} from "../../shared/ordering";
 
 type Context={db:D1Database;actor:number;name:string;now:string;requestId:string};
-type Source={id:number;name:string;kind:"GENERAL"|"VENDOR"|"CN_REGULAR"|"CN_CUSTOM";conditions:string;payment_terms:string;sort_order:number;is_active:number};
+type Source={id:number;name:string;kind:"GENERAL"|"VENDOR"|"CN_REGULAR"|"CN_CUSTOM";conditions:string;payment_terms:string;note:string;sort_order:number;is_active:number};
 type Ord={id:number;source_id:number;status:OrderingStoredStatus;planned_send_date:string|null;sent_at:string|null;note:string;version:number;revision:number;created_at:string;updated_at:string};
 type Line={id:number;order_id:number;section:string;sort_order:number;item_code:string;item_name:string;vendor_item_code:string;vendor_item_name:string;vendor_name_follows:number;spec:string;quantity_text:string;quantity:number|null;unit:string;note:string;closed_as:"SHORTAGE"|"CANCELLED"|"OTHER"|null;closed_note:string;received:number};
 const defaults:[string,Source["kind"],string][]=[
@@ -85,10 +85,10 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
  // Receipt requests track the commit/readback boundary; no retry or extra database query is introduced.
  const receiptPhase:{value:"preflight"|"persist"|"readback"|null}={value:/^orders\/\d+\/receipts$/.test(path)&&method==="POST"?"preflight":null};
  try{
-  if(path==="sources"&&method==="GET"){await init(ctx);const items=await rows<Source>(ctx.db,"SELECT * FROM ordering_sources ORDER BY sort_order,id LIMIT 101");if(items.length>100)throw new Bad("ORDERING_LIMIT","來源超過100筆",409);return success(items.map(x=>({id:x.id,name:x.name,kind:x.kind,conditions:x.conditions,paymentTerms:x.payment_terms,sortOrder:x.sort_order,isActive:!!x.is_active})),requestId)}
+  if(path==="sources"&&method==="GET"){await init(ctx);const items=await rows<Source>(ctx.db,"SELECT * FROM ordering_sources ORDER BY sort_order,id LIMIT 101");if(items.length>100)throw new Bad("ORDERING_LIMIT","來源超過100筆",409);return success(items.map(x=>({id:x.id,name:x.name,kind:x.kind,conditions:x.conditions,paymentTerms:x.payment_terms,note:x.note,sortOrder:x.sort_order,isActive:!!x.is_active})),requestId)}
   if(path==="sources"&&method==="POST"){
    const v=await body(request),name=must(v.name,"來源",40),kind=v.kind==="VENDOR"?"VENDOR":"GENERAL";
-   const result=await ctx.db.prepare("INSERT INTO ordering_sources(name,kind,conditions,payment_terms,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?,?)").bind(name,kind,must(v.conditions??"","條件",500),must(v.paymentTerms??"","付款條件",200),Number(v.sortOrder??100),ctx.now,ctx.now).run();
+   const result=await ctx.db.prepare("INSERT INTO ordering_sources(name,kind,conditions,payment_terms,note,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)").bind(name,kind,must(v.conditions??"","條件",500),must(v.paymentTerms??"","付款條件",200),must(v.note??"","註記",300),Number(v.sortOrder??100),ctx.now,ctx.now).run();
    await run(ctx,[audit(ctx,Number(result.meta.last_row_id),"source_created",{name,kind})]);
    return success({id:Number(result.meta.last_row_id)},requestId);
   }
@@ -105,7 +105,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
    }
   let m=/^sources\/(\d+)$/.exec(path);
   if(m&&method==="PATCH"){const v=await body(request),id=int(Number(m[1]),"來源");const stm:string[]=[],args:unknown[]=[];
-   for(const [key,col,max] of [["name","name",40],["conditions","conditions",500],["paymentTerms","payment_terms",200]] as const)if(key in v){stm.push(col+"=?");args.push(must(v[key],col,max))}
+   for(const [key,col,max] of [["name","name",40],["conditions","conditions",500],["paymentTerms","payment_terms",200],["note","note",300]] as const)if(key in v){stm.push(col+"=?");args.push(must(v[key],col,max))}
    if("sortOrder" in v){const order=Number(v.sortOrder);if(!Number.isSafeInteger(order)||order<0)throw new Bad("ORDERING_INVALID","排序不正確");stm.push("sort_order=?");args.push(order)}
    let hiding=false;
    if("isActive" in v){

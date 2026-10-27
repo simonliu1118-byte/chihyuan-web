@@ -551,3 +551,35 @@ test("a queued query waits while the Agent is busy or connected, and expires onc
     assert.equal((await user.load(waiting.id)).body.data.status, "EXPIRED");
   } finally { sql.close(); }
 });
+
+test("關閉到 a chosen time; a query sent while paused may wait for the pause and follows it", async () => {
+  const { sql, user, agent, grant } = fixture();
+  try {
+    grant("ERP_ITEM_QUERY");
+    assert.equal((await user.control({ action: "CLOSE", until: new Date(Date.now() + 30000).toISOString() })).status, 400, "under a minute");
+    assert.equal((await user.control({ action: "CLOSE", until: new Date(Date.now() + 25 * 3600000).toISOString() })).status, 400, "over 24 hours");
+    const until = new Date(Date.now() + 2 * 3600000).toISOString();
+    const held = await user.control({ action: "CLOSE", until });
+    assert.equal(held.status, 200, JSON.stringify(held.body));
+    assert.equal(held.body.data.holdUntil, until);
+    assert.equal((await user.create({ queryType: "ITEM_NO", itemNo: "X0001" })).body.error.code, "ERP_HELD");
+    const waiting = await user.create({ queryType: "ITEM_NO", itemNo: "X0001", afterHold: true });
+    assert.equal(waiting.status, 202, JSON.stringify(waiting.body));
+    assert.equal(waiting.body.data.notBefore, until);
+    assert.equal((await user.load(waiting.body.data.id)).body.data.notBefore, until);
+    assert.equal((await agent.claim(ALL_TYPES)).body.data.job, null, "not claimed during the pause");
+    const queue = (await user.queue()).body.data.jobs;
+    assert.equal(queue[0].notBefore, until);
+    assert.ok(Date.parse(queue[0].estimatedDoneAt) > Date.parse(until));
+    // An old agent heartbeat does not expire a query waiting for the pause.
+    sql.prepare("UPDATE erp_item_agent_status SET last_seen_at=? WHERE id=1").run(new Date(Date.now() - 600000).toISOString());
+    assert.equal((await user.load(waiting.body.data.id)).body.data.status, "QUEUED");
+    // A longer pause moves it; 取消暫停 releases it.
+    const later = new Date(Date.now() + 3 * 3600000).toISOString();
+    await user.control({ action: "CLOSE", until: later });
+    assert.equal((await user.load(waiting.body.data.id)).body.data.notBefore, later);
+    await user.control({ action: "RESUME" });
+    assert.equal((await user.load(waiting.body.data.id)).body.data.notBefore, null);
+    assert.equal((await agent.claim(ALL_TYPES)).body.data.job.id, waiting.body.data.id);
+  } finally { sql.close(); }
+});

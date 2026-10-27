@@ -1,6 +1,8 @@
 import "./erp-item-query.css";
 import { useEffect, useState } from "react";
 import { Dialog } from "../../ui/overlays/Dialog";
+import { Field } from "../../ui/forms/Field";
+import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { ApiClientError } from "../../api/client";
 import type { ErpAgentStatus, ErpControlResult } from "../../../shared/erp-item-query";
@@ -23,6 +25,23 @@ const clock = (iso: string) => new Date(iso).toLocaleTimeString("zh-TW", { hour:
 const RESULT_TEXT: Record<ErpControlResult, string> = {
   CLOSED: "ERP 已關閉", KEPT_OPEN: "ERP 有未完成的作業，沒有關閉", NOT_OPEN: "ERP 原本就沒有開", FAILED: "ERP 關閉失敗，請到伺服器檢查",
 };
+/**
+ * 「關閉到…」 (user 2026-10-28): a clock time today, or tomorrow when it has already passed today.
+ */
+function untilDate(time: string): Date | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(time);
+  if (!match) return null;
+  const at = new Date(); at.setHours(Number(match[1]), Number(match[2]), 0, 0);
+  if (at.getTime() <= Date.now() + 60000) at.setDate(at.getDate() + 1);
+  return at;
+}
+const untilIso = (time: string) => untilDate(time)?.toISOString() ?? null;
+function untilHint(time: string): string {
+  const at = untilDate(time);
+  if (!at) return "暫停到這個時間，最多 24 小時。";
+  const minutes = Math.round((at.getTime() - Date.now()) / 60000);
+  return `${at.getDate() !== new Date().getDate() ? "明天 " : ""}${clock(at.toISOString())}，約 ${minutes >= 60 ? `${Math.floor(minutes / 60)} 小時 ${minutes % 60} 分` : `${minutes} 分鐘`}後可再查詢。`;
+}
 /** Query failures after which ERP itself may be stuck, so the member is offered a force-close. */
 const FORCE_CLOSE_CODES = new Set(["ERP_NOT_OPEN", "ERP_STATE", "EXPORT_FAILED", "INTERNAL", "AGENT_TIMEOUT"]);
 /** Raised by useErpJob when a query fails; the header control asks whether to force-close ERP. */
@@ -45,6 +64,8 @@ export function ErpAgentCredentialControl({ isSuperAdmin }: { isSuperAdmin: bool
   const [controlBusy, setControlBusy] = useState(false);
   const [controlError, setControlError] = useState<string | null>(null);
   const [failure, setFailure] = useState<ErpQueryFailedDetail | null>(null);
+  const [untilOpen, setUntilOpen] = useState(false);
+  const [untilTime, setUntilTime] = useState("");
 
   useEffect(() => {
     const listen = (event: Event) => {
@@ -138,17 +159,32 @@ export function ErpAgentCredentialControl({ isSuperAdmin }: { isSuperAdmin: bool
     <Dialog open={open} title={"ERP 查詢程式 · " + label} size="medium" onClose={close} dismissible={!busy && !controlBusy}>
       <h3 className="cy-erp-control-title">關閉 ERP</h3>
       <p>把 ERP 的使用人數空出來給需要的同事。會等目前排隊的查詢跑完才關閉；暫停期間不能送出新的 ERP 查詢，查詢程式也不會自動開啟 ERP。</p>
-      <p role="status">
-        {held ? <>ERP 暫停中，<strong>{clock(held)}</strong> 後可再查詢。</> : "目前沒有暫停。"}
-        {pending ? (pending === "FORCE_CLOSE" ? "　等待查詢程式強制關閉 ERP…" : "　等待查詢程式關閉 ERP…")
-          : agent?.control.result && agent.control.resultAt ? "　上次結果（" + clock(agent.control.resultAt) + "）：" + RESULT_TEXT[agent.control.result] : null}
-      </p>
+      {held
+        ? <div className="cy-erp-held-box" role="status">
+          <span>ERP 暫停中，<strong>{clock(held)}</strong> 後可再查詢。暫停期間送出的查詢可加入佇列，暫停結束後自動查詢。</span>
+          <button type="button" className="cy-op-button primary" disabled={controlBusy} onClick={() => void control({ action: "RESUME" })}>取消暫停</button>
+        </div>
+        : <>
+          <div className="cy-op-page-actions">
+            <button type="button" className="cy-op-button" disabled={controlBusy || !!pending} onClick={() => void control({ action: "CLOSE", minutes: 0 })}>立即關閉</button>
+            <button type="button" className="cy-op-button" disabled={controlBusy} onClick={() => void control({ action: "CLOSE", minutes: 15 })}>關閉 15 分鐘</button>
+            <button type="button" className="cy-op-button" disabled={controlBusy} onClick={() => void control({ action: "CLOSE", minutes: 30 })}>關閉 30 分鐘</button>
+            <button type="button" className="cy-op-button" disabled={controlBusy} onClick={() => void control({ action: "CLOSE", minutes: 60 })}>關閉 1 小時</button>
+            <button type="button" className="cy-op-button" aria-expanded={untilOpen} disabled={controlBusy} onClick={() => setUntilOpen(open => !open)}>關閉到…</button>
+          </div>
+          {untilOpen && <form className="cy-erp-until" onKeyDown={enterAdvancesFields} onSubmit={event => { event.preventDefault(); const until = untilIso(untilTime);
+            if (!until) { setControlError("請選擇時間。"); return; }
+            void control({ action: "CLOSE", until }).then(ok => { if (ok) setUntilOpen(false); }); }}>
+            <Field label="關閉到" size="s" hint={untilHint(untilTime)}>
+              <input className="cy-op-input" type="time" value={untilTime} onChange={event => setUntilTime(event.target.value)} />
+            </Field>
+            <button type="submit" className="cy-op-button primary" disabled={controlBusy || !untilTime}>確定</button>
+          </form>}
+        </>}
+      {pending ? <p role="status">{pending === "FORCE_CLOSE" ? "等待查詢程式強制關閉 ERP…" : "等待查詢程式關閉 ERP…"}</p>
+        : agent?.control.resultAt && (agent.control.result === "KEPT_OPEN" || agent.control.result === "FAILED")
+          ? <p role="status">{"上次關閉（" + clock(agent.control.resultAt) + "）：" + RESULT_TEXT[agent.control.result]}</p> : null}
       <div className="cy-op-page-actions">
-        <button type="button" className="cy-op-button" disabled={controlBusy} onClick={() => void control({ action: "CLOSE", minutes: 0 })}>立即關閉</button>
-        <button type="button" className="cy-op-button" disabled={controlBusy} onClick={() => void control({ action: "CLOSE", minutes: 15 })}>關閉 15 分鐘</button>
-        <button type="button" className="cy-op-button" disabled={controlBusy} onClick={() => void control({ action: "CLOSE", minutes: 30 })}>關閉 30 分鐘</button>
-        <button type="button" className="cy-op-button" disabled={controlBusy} onClick={() => void control({ action: "CLOSE", minutes: 60 })}>關閉 1 小時</button>
-        {held ? <button type="button" className="cy-op-button" disabled={controlBusy} onClick={() => void control({ action: "RESUME" })}>取消暫停</button> : null}
         <button type="button" className="cy-op-button danger" disabled={controlBusy} onClick={() => void control({ action: "FORCE_CLOSE" })}>強制關閉 ERP</button>
       </div>
       {controlError && <p className="cy-notice cy-notice-danger" role="alert">{controlError}</p>}

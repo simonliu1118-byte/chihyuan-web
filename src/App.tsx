@@ -21,6 +21,7 @@ import { DefectOperationalPage } from "./runtime/modules/DefectOperationalPage";
 import { ERP_OPEN_CATEGORY_EVENT, ErpItemQueryPage } from "./runtime/modules/ErpItemQueryPage";
 import { ERP_QUERY_DONE_EVENT, ErpPageVisibleContext, type ErpQueryDoneDetail } from "./runtime/modules/useErpJob";
 import { useToastQueue } from "./ui/feedback/useToastQueue";
+import { ErpHeldPrompt } from "./runtime/modules/ErpHeldPrompt";
 import { ToastRegion } from "./ui/feedback/ToastRegion";
 import {OrderingPage} from "./runtime/modules/OrderingPage";
 import { ErpAgentCredentialControl } from "./runtime/modules/ErpAgentCredentialControl";
@@ -389,6 +390,7 @@ function OperationalApp({
         <ErpPageVisibleContext.Provider value={erpShown}><ErpItemQueryPage allowedModules={allowedModules} /></ErpPageVisibleContext.Provider>
       </div>}
       <ToastRegion toasts={toasts} onDismiss={dismissToast} label="ERP 查詢通知" />
+      <ErpHeldPrompt />
     </AppShell>
   );
 }

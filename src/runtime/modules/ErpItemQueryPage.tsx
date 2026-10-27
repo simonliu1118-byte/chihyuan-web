@@ -9,8 +9,7 @@ import { ErpItemResult, rowsOf } from "./ErpItemResult";
 import type { CyWebModuleCode } from "../../../shared/modules";
 import { ErpPageVisibleContext, runningStatus, useErpJob, type ErpJob } from "./useErpJob";
 import { RestockAssist } from "./RestockAssist";
-import { ErpQueuePanel } from "./ErpQueuePanel";
-import { Drawer } from "../../ui/overlays/Dialog";
+import { ErpQueueSidePanel } from "./ErpQueuePanel";
 import { ErpCustomerQuery } from "./ErpCustomerQuery";
 import { ErpReceivableQuery } from "./ErpReceivableQuery";
 import { ErpSupplierQuery } from "./ErpSupplierQuery";
@@ -129,7 +128,7 @@ function CategoryJob({ category, onBusy, children }: {
 
 /**
  * ERP 查詢: one entry for 商品／客戶／供應商／進貨輔助／未收款 (user 2026-10-17, 2026-10-27);
- * the Agent's queue opens in a drawer at the right of the category bar (user 2026-10-27).
+ * the Agent's queue opens in a side panel at the right that leaves the page usable (user 2026-10-28).
  * Desktop switches categories with tabs, mobile with a drop-down (user: easier to operate). Every
  * category stays mounted with its own query, form and result; a query keeps running while another
  * category or module is open.
@@ -169,7 +168,7 @@ export function ErpItemQueryPage({ allowedModules }: { allowedModules: ReadonlyS
             className={category === c.key ? "active" : undefined}
             onClick={() => setSelected(c.key)}>{c.label}{running.has(c.key) && <span className="cy-erp-tab-running" aria-label="查詢中" />}</button>)}
         </div>}
-      <button type="button" className="cy-op-button cy-erp-queue-button" aria-haspopup="dialog" onClick={() => setQueueOpen(true)}>排程佇列</button>
+      <button type="button" className="cy-op-button cy-erp-queue-button" aria-expanded={queueOpen} onClick={() => setQueueOpen(open => !open)}>排程佇列</button>
     </div>
     {categories.map(c => panel(c.key, <CategoryJob category={c} onBusy={onBusy}>{job =>
       c.key === "ITEM" ? <ErpItemQuery job={job} />
@@ -177,8 +176,6 @@ export function ErpItemQueryPage({ allowedModules }: { allowedModules: ReadonlyS
       : c.key === "SUPPLIER" ? <ErpSupplierQuery job={job} />
       : c.key === "RESTOCK" ? <RestockAssist job={job} canQueryItem={allowedModules.has("ERP_ITEM_QUERY")} canOrdering={allowedModules.has("ORDERING")} />
       : <ErpReceivableQuery job={job} canSearchCustomers={allowedModules.has("ERP_CUSTOMER_QUERY")} />}</CategoryJob>))}
-    <Drawer open={queueOpen} title="排程佇列" onClose={() => setQueueOpen(false)}>
-      <ErpQueuePanel active={pageVisible && queueOpen} />
-    </Drawer>
+    {queueOpen && pageVisible && <ErpQueueSidePanel onClose={() => setQueueOpen(false)} />}
   </section>;
 }
