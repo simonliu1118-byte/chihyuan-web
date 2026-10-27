@@ -105,7 +105,7 @@ export interface ErpNameSearchRow extends Array<ErpField> {}
 export type ErpQueryStatus = "QUEUED" | "RUNNING" | "DONE" | "NOT_FOUND" | "FAILED" | "EXPIRED";
 export type ErpQueryOutcome = "FOUND" | "NOT_FOUND" | "FAILED";
 export type ErpQueryErrorCode =
-  | "ERP_NOT_OPEN" | "ERP_BUSY" | "ERP_STATE" | "EXPORT_FAILED"
+  | "ERP_NOT_OPEN" | "ERP_BUSY" | "ERP_STATE" | "EXPORT_FAILED" | "ERP_SEATS_FULL"
   | "CANCELLED" | "INTERNAL" | "AGENT_TIMEOUT";
 export interface ErpField { name: string; value: string; }
 export interface ErpQueryHistory {
