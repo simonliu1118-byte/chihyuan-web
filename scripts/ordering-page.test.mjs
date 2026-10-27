@@ -241,7 +241,7 @@ test("廠商 opens a vendor's draft in place: searchable tabs, Other last, no �
  assert.deepEqual(page.selectedTabs,["廠商","永全"]);
  assert.equal(page.grid.readOnly,false,"the vendor's draft is editable right under the tabs");
  assert.equal(page.nodes.some(n=>n.type==="button"&&text(n)==="進入廠商"),false);
- assert.ok(page.nodes.some(n=>n.type==="button"&&text(n)==="修改"),"vendor terms are edited in place");
+ assert.ok(page.nodes.some(n=>n.type==="button"&&text(n)==="修改廠商"),"vendor terms are edited in place");
  page.click("其他");await page.tick();
  assert.deepEqual(page.selectedTabs,["廠商","其他"]);
  const q=page.nodes.find(n=>n.props?.["aria-label"]==="速查廠商");
