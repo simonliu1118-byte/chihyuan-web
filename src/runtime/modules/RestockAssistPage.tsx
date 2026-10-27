@@ -132,7 +132,7 @@ const dayClass = (day: string, index: number, second = false) =>
  * and a 品號 opens its ERP data in a window (with ERP 商品查詢).
  */
 export function RestockAssistPage({ canQueryItem,canOrdering=false }: { canQueryItem: boolean;canOrdering?:boolean }) {
-  const job = useErpJob();
+  const job = useErpJob("restock");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const { result, busy, submitting, setError } = job;

@@ -238,10 +238,10 @@
 @media (max-width: 820px) {
 }
 
-/* V0.9.34: source/date filters occupy full sidebar width, never clip date labels. */
-.cy-ordering-list-filters{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;align-items:stretch}
-.cy-ordering-list-filters input[type="date"]{width:100%;min-width:0;box-sizing:border-box}
-.cy-ordering-list-filters>span[aria-hidden]{display:none}
+/* Source on its own row; 起～迄 dates share the next row (user 2026-10-27). */
+.cy-ordering-list-filters{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:6px;align-items:center}
+.cy-ordering-list-filters>.cy-ordering-source-picker{grid-column:1/-1}
+.cy-ordering-list-filters input[type="date"]{width:100%;min-width:0;box-sizing:border-box;padding-inline:6px}
 .cy-ordering-page .cy-ordering-list-filters .cy-ordering-source-picker{min-width:0;width:100%}
 .cy-ordering-page .cy-md-detail>.cy-loading{min-height:180px;display:flex;align-items:center;justify-content:center}
 
@@ -298,3 +298,18 @@
 /* ERP 關閉／暫停 dialog (header control): two titled parts, ERP control first. */
 .cy-erp-control-title { margin: 16px 0 6px; font-size: var(--cy-fs-md); font-weight: 600; }
 .cy-erp-control-title:first-child { margin-top: 0; }
+
+/* 未到貨明細: one collapsible card per 叫貨單, compact rows (user 2026-10-27). */
+.cy-ordering-pending { display: grid; gap: 8px; }
+.cy-ordering-pending-card { border: 1px solid var(--cy-border); border-radius: var(--cy-radius-md); background: var(--cy-surface); overflow: hidden; }
+.cy-ordering-pending-head { display: flex; align-items: center; gap: 8px; padding: 4px 8px 4px 4px; background: var(--cy-surface-muted); }
+.cy-ordering-pending-toggle { display: flex; flex: 1; align-items: baseline; gap: 10px; min-width: 0; padding: 4px 6px; border: 0; background: none; color: var(--cy-text); font: inherit; text-align: left; cursor: pointer; }
+.cy-ordering-pending-toggle span { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
+.cy-ordering-pending-caret { width: 12px; }
+.cy-ordering-pending-count { margin-left: auto; }
+.cy-ordering-pending-table { font-size: var(--cy-fs-sm); }
+.cy-ordering-pending-table :is(th, td) { padding-block: 4px; }
+.cy-ordering-pending-table th:nth-child(1) { width: 96px; }
+.cy-ordering-pending-table th:nth-child(n+3):nth-child(-n+5) { width: 64px; }
+.cy-ordering-pending-table th:last-child { width: 150px; }
+.cy-ordering-pending-table .cy-op-button.compact { min-height: 26px; padding-block: 0; }

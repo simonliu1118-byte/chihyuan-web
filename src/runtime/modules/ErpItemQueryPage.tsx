@@ -1,9 +1,9 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { HistoryRangeError, resolveHistoryRange, taipeiToday } from "../../../shared/erp-query-history";
 import { useCompactLayout } from "../../ui/foundation/useCompactLayout";
 import { ErpQueryRows } from "./ErpQueryRows";
 import { parseErpCode, parseErpNameKeyword } from "../../../shared/erp-name-search";
-import { ERP_QUERY_TYPE_LABELS } from "../../../shared/erp-item-query";
+import { ERP_QUERY_TYPE_LABELS, type ErpQueryType } from "../../../shared/erp-item-query";
 import { ErpJobStatus, showsData } from "./ErpJobStatus";
 import { ErpItemResult, rowsOf } from "./ErpItemResult";
 import type { CyWebModuleCode } from "../../../shared/modules";
@@ -105,6 +105,14 @@ function ErpItemQuery({ job }: { job: ErpJob }) {
   </>;
 }
 
+/** The job types each category's panel shows (the same lists as their `mine`). */
+const CATEGORY_TYPES: Record<Category, readonly ErpQueryType[]> = {
+  ITEM: ["ITEM_NO", "ITEM_NAME"],
+  CUSTOMER: ["CUSTOMER_NO", "CUSTOMER_NAME", "SALES"],
+  SUPPLIER: ["SUPPLIER_NO", "SUPPLIER_NAME", "PURCHASES"],
+  RECEIVABLE: ["RECEIVABLE", "CUSTOMER_NAME"],
+};
+
 /**
  * ERP 查詢: one entry for 商品／客戶／未收款 (user 2026-10-17). Desktop switches categories with
  * tabs, mobile with a drop-down (user: easier to operate); both are presentations of the same
@@ -115,7 +123,14 @@ export function ErpItemQueryPage({ allowedModules }: { allowedModules: ReadonlyS
   const [selected, setSelected] = useState<Category>(categories[0]?.key ?? "ITEM");
   const category = categories.some(c => c.key === selected) ? selected : categories[0]?.key;
   const compact = useCompactLayout();
-  const job = useErpJob();
+  const job = useErpJob("erp-item-query");
+  // A job shown again after coming back to the page opens a category that shows it.
+  const resultType = job.result?.queryType ?? null;
+  useEffect(() => {
+    if (!resultType || !category || CATEGORY_TYPES[category].includes(resultType)) return;
+    const owner = categories.find(c => CATEGORY_TYPES[c.key].includes(resultType));
+    if (owner) setSelected(owner.key);
+  }, [job.result?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const choose = (next: Category) => { if (job.busy || next === category) return; job.clear(); job.setError(null); setSelected(next); };
   if (!category) return <section className="cy-op-panel">你目前沒有任何 ERP 查詢的模組權限。</section>;
   return <section className="cy-erp-page">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiClientError } from "../../api/client";
 import type { ErpQueryResult, ErpQueryStatus } from "../../../shared/erp-item-query";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
@@ -20,13 +20,34 @@ export function readableErpError(error: unknown): string {
 }
 
 /**
+ * The page's last job id, kept for the browser tab (user 2026-10-27: switching to another module
+ * and back must still show the running query). Only the id is kept; the job is loaded again from
+ * CY Web, which drops results after a while. Storage may be unavailable: then nothing is kept.
+ */
+const JOB_KEY_PREFIX = "cyweb.erp-job.";
+function keptJob(key: string | undefined): string | null {
+  if (!key) return null;
+  try { return window.sessionStorage.getItem(JOB_KEY_PREFIX + key); } catch { return null; }
+}
+function keepJob(key: string | undefined, id: string | null) {
+  if (!key) return;
+  try {
+    if (id) window.sessionStorage.setItem(JOB_KEY_PREFIX + key, id);
+    else window.sessionStorage.removeItem(JOB_KEY_PREFIX + key);
+  } catch { /* nothing kept */ }
+}
+
+/**
  * The one ERP job of the page (CY Web allows one per member): create, poll every 1.5 s until it
  * ends, keep the result. Every category uses this owner; a new request always runs ERP again.
+ * With a key, the page shows its last job again when it is opened anew (running or finished).
  */
-export function useErpJob() {
+export function useErpJob(key?: string) {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<ErpQueryResult | null>(null);
-  const [queryId, setQueryId] = useState<string | null>(null);
+  const [queryId, setQueryId] = useState<string | null>(() => keptJob(key));
+  // Whether this page saw the job running: a failure found on coming back is not offered again.
+  const sawRunning = useRef(false);
   const [, , setError] = useFeedbackMessage<string | null>(null);
   useEffect(() => {
     if (!queryId) return;
@@ -36,17 +57,21 @@ export function useErpJob() {
       void loadErpItemQuery(queryId).then(job => {
         if (cancelled) return;
         setResult(job); setError(null);
+        if (runningStatus(job.status)) sawRunning.current = true;
         if (job.status === "FAILED" || job.status === "EXPIRED") {
           const message = job.errorMessage || "查詢已逾時，請重新查詢。";
           setError(message);
           // The header ERP control offers a force-close for failures that may mean ERP is stuck.
-          window.dispatchEvent(new CustomEvent<ErpQueryFailedDetail>(ERP_QUERY_FAILED_EVENT, {
+          if (sawRunning.current) window.dispatchEvent(new CustomEvent<ErpQueryFailedDetail>(ERP_QUERY_FAILED_EVENT, {
             detail: { code: job.status === "EXPIRED" ? "AGENT_TIMEOUT" : job.errorCode, message } }));
         }
         if (!runningStatus(job.status)) setQueryId(null);
       }).catch(err => {
         if (cancelled) return;
-        setError(readableErpError(err)); setQueryId(null);
+        // A kept job CY Web no longer has is simply forgotten, without an error.
+        if (err instanceof ApiClientError && err.code === "QUERY_NOT_FOUND") keepJob(key, null);
+        else setError(readableErpError(err));
+        setQueryId(null);
       }).finally(() => { pending = false; });
     };
     refresh();
@@ -61,14 +86,16 @@ export function useErpJob() {
       setResult({ ...job, fields: [], warehouses: [], elapsedMs: null, batchManaged: null, batches: [], history: null,
         items: [], orders: [], purchases: [], bills: [], restock: [], total: 0, truncated: false, startedAt: null, progress: null, completedAt: null,
         errorCode: null, errorMessage: null, resultCleared: false });
+      sawRunning.current = true;
       setQueryId(job.id);
+      keepJob(key, job.id);
       return true;
     } catch (err) { setError(readableErpError(err)); return false; }
     finally { setSubmitting(false); }
   }
   return {
     result, submitting, busy: submitting || !!queryId, start, setError,
-    clear: () => { if (!queryId) setResult(null); },
+    clear: () => { if (!queryId) { setResult(null); keepJob(key, null); } },
   };
 }
 export type ErpJob = ReturnType<typeof useErpJob>;
