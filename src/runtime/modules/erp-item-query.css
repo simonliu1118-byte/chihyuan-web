@@ -99,30 +99,32 @@
 .cy-restock-table thead th{position:sticky;top:0;z-index:2;background:var(--cy-surface-muted);color:var(--cy-text-muted);font-weight:650;text-align:center}
 .cy-restock-table thead th small{display:block;font-weight:500;font-size:var(--cy-fs-xs)}
 .cy-restock-table thead tr:nth-child(2) th{top:2.55rem;font-size:var(--cy-fs-xs)}
-.cy-restock-table .cy-restock-item{position:sticky;left:0;z-index:1;text-align:left;min-width:12rem;max-width:16rem;border-right:2px solid var(--cy-border-strong)}
+.cy-restock-table .cy-restock-item{position:sticky;left:0;z-index:1;text-align:left;min-width:14rem;max-width:22rem;border-right:2px solid var(--cy-border-strong)}
 .cy-restock-table thead .cy-restock-item{z-index:3;vertical-align:middle}
 .cy-restock-table tbody .cy-restock-item{font-weight:400}
-.cy-restock-table tbody .cy-restock-item strong,.cy-restock-code{display:block;font-weight:700;color:var(--cy-text)}
+/* 品號 and 品名（單位） on one line (user 2026-10-27); a long 品名 is cut with an ellipsis. */
+.cy-restock-item-line{display:flex;align-items:baseline;gap:.5rem;min-width:0}
+.cy-restock-table tbody .cy-restock-item strong,.cy-restock-code{flex:0 0 auto;font-weight:700;color:var(--cy-text)}
 .cy-restock-code{background:none;border:0;padding:0;font:inherit;font-weight:700;color:var(--cy-accent);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .cy-restock-code:hover{color:var(--cy-accent-hover)}
 .cy-restock-code:focus-visible{outline:2px solid var(--cy-focus);outline-offset:2px}
-.cy-restock-table tbody .cy-restock-item span{display:block;color:var(--cy-text-muted);font-size:var(--cy-fs-xs);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cy-restock-item-line>span{min-width:0;color:var(--cy-text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cy-restock-table .cy-restock-day.is-first{border-left:1px solid var(--cy-border-strong)}
 .cy-restock-table td.cy-restock-day.is-alt,.cy-restock-table thead th.cy-restock-day.is-alt{background:var(--cy-surface-sunken)}
-.cy-restock-table thead th.cy-restock-day.is-weekend{color:var(--cy-copper)}
-.cy-restock-table td.cy-restock-day.is-weekend{background:var(--cy-copper-soft)}
+.cy-restock-table .cy-restock-day.is-second{border-left:1px dashed color-mix(in srgb,var(--cy-border) 70%,transparent)}
 .cy-restock-table .cy-restock-returned{color:var(--cy-danger)}
 .cy-restock-table .cy-restock-total{border-left:1px solid var(--cy-border)}
 .cy-restock-table thead .cy-restock-total{min-width:3.5rem}
-.cy-restock-table .cy-restock-total:first-of-type{border-left:2px solid var(--cy-border-strong)}
+/* Thick lines before the 銷貨／銷退 subtotals, 淨銷 and 庫存 (user 2026-10-27). */
+.cy-restock-table .cy-restock-total.is-break{border-left:2px solid var(--cy-border-strong)}
 .cy-restock-table .cy-restock-strong{font-weight:700;color:var(--cy-text)}
 .cy-restock-short{display:inline-block;padding:0 .4rem;border-radius:var(--cy-radius-sm);background:var(--cy-warning-soft);color:var(--cy-warning);font-weight:700}
 .cy-restock-none{color:var(--cy-text-subtle)}
 .cy-restock-check input{margin:0}
-.cy-restock-table tbody tr:nth-child(even) td:not(.is-alt):not(.is-weekend),.cy-restock-table tbody tr:nth-child(even) th{background:color-mix(in srgb,var(--cy-surface-muted) 45%,var(--cy-surface))}
+.cy-restock-table tbody tr:nth-child(even) td:not(.is-alt),.cy-restock-table tbody tr:nth-child(even) th{background:color-mix(in srgb,var(--cy-surface-muted) 45%,var(--cy-surface))}
 .cy-restock-table tbody tr.is-short th{box-shadow:inset 3px 0 0 var(--cy-warning)}
 .cy-restock-table tbody tr:hover td,.cy-restock-table tbody tr:hover th{background:var(--cy-accent-soft)}
-@media (max-width:640px){.cy-restock-table .cy-restock-item{min-width:7.5rem;max-width:9rem}.cy-restock-count{margin-left:0}}
+@media (max-width:640px){.cy-restock-table .cy-restock-item{min-width:9rem;max-width:12rem}.cy-restock-count{margin-left:0}}
 
 
 /* WO-0.9.26: responsive, reusable inline ordering grid. */
@@ -319,12 +321,16 @@
 .cy-erp-tab-running{display:inline-block;width:8px;height:8px;margin-left:6px;border-radius:50%;background:var(--cy-accent);vertical-align:middle;animation:cy-erp-pulse 1.4s ease-in-out infinite}
 @keyframes cy-erp-pulse{50%{opacity:.35}}
 @media(prefers-reduced-motion:reduce){.cy-erp-tab-running{animation:none}}
-.cy-op-tabs .cy-erp-queue-tab{margin-left:auto}
+/* The category tabs (or drop-down) with the 排程佇列 drawer button at the right. */
+.cy-erp-tabbar{display:flex;align-items:flex-end;gap:.75rem;margin-bottom:16px;border-bottom:1px solid var(--cy-border)}
+.cy-erp-tabbar .cy-op-tabs{flex:1 1 auto;min-width:0;margin-bottom:0;border-bottom:0}
+.cy-erp-tabbar .cy-erp-category{flex:1 1 auto;margin-bottom:.5rem}
+.cy-erp-queue-button{flex:0 0 auto;margin-bottom:.4rem;white-space:nowrap}
 /* 排程佇列: one row per query, in the order the Agent runs them. */
-.cy-erp-queue{display:grid;gap:.75rem;max-width:1000px}
+.cy-erp-queue{display:grid;gap:.75rem}
 .cy-erp-queue p{margin:0}
 .cy-erp-queue-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-.cy-erp-queue-row{display:grid;grid-template-columns:88px minmax(90px,160px) minmax(0,1fr) auto;gap:.4rem .9rem;align-items:center;
+.cy-erp-queue-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.4rem .9rem;align-items:center;
   padding:.55rem .75rem;border:1px solid var(--cy-border);border-radius:var(--cy-radius-md);background:var(--cy-surface)}
 .cy-erp-queue-row.is-running{border-color:var(--cy-accent)}
 .cy-erp-queue-row.is-mine{background:var(--cy-surface-muted)}
@@ -334,10 +340,7 @@
 .cy-erp-queue-who em{font-style:normal;color:var(--cy-text-muted);font-weight:400}
 .cy-erp-queue-what{display:flex;flex-wrap:wrap;gap:.2rem .6rem;min-width:0;overflow-wrap:anywhere}
 .cy-erp-queue-progress{color:var(--cy-text-muted);font-size:var(--cy-fs-sm)}
-.cy-erp-queue-eta{white-space:nowrap;font-variant-numeric:tabular-nums}
-@media(max-width:820px){
-  .cy-erp-queue-row{grid-template-columns:auto minmax(0,1fr)}
-  .cy-erp-queue-what,.cy-erp-queue-eta{grid-column:1/-1}
-  .cy-erp-queue-eta{white-space:normal;color:var(--cy-text-muted);font-size:var(--cy-fs-sm)}
-}
+/* In the drawer: state and member on the first line, then the query, then the estimate. */
+.cy-erp-queue-what,.cy-erp-queue-eta{grid-column:1/-1}
+.cy-erp-queue-eta{color:var(--cy-text-muted);font-size:var(--cy-fs-sm);font-variant-numeric:tabular-nums}
 .cy-kept-page{display:contents}.cy-kept-page[hidden]{display:none}

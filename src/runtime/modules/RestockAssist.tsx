@@ -82,8 +82,8 @@ function RestockTable({ from, to, items, canQueryItem, canOrdering }: { from: st
             <th rowSpan={2} className="cy-restock-item">品號／品名</th>
             {days.map((day, i) => <th key={day} colSpan={2} className={dayClass(day, i)}>
               {day.slice(5).replace("-", "/")}<small>（{WEEKDAYS[weekday(day)]}）</small></th>)}
-            <th rowSpan={2} className="cy-restock-total">銷貨</th><th rowSpan={2} className="cy-restock-total">銷退</th>
-            <th rowSpan={2} className="cy-restock-total">淨銷</th><th rowSpan={2} className="cy-restock-total">庫存</th>{canOrdering?<th rowSpan={2}>叫貨</th>:null}
+            <th rowSpan={2} className="cy-restock-total is-break">銷貨</th><th rowSpan={2} className="cy-restock-total">銷退</th>
+            <th rowSpan={2} className="cy-restock-total is-break">淨銷</th><th rowSpan={2} className="cy-restock-total is-break">庫存</th>{canOrdering?<th rowSpan={2}>叫貨</th>:null}
           </tr>
           <tr>{days.map((day, i) => [<th key={day + "s"} className={dayClass(day, i) + " cy-restock-sub"}>銷</th>,
             <th key={day + "r"} className={dayClass(day, i, true) + " cy-restock-sub"}>退</th>])}</tr>
@@ -92,10 +92,12 @@ function RestockTable({ from, to, items, canQueryItem, canOrdering }: { from: st
           const byDay = new Map(row.days.map(d => [d.date, d]));
           return <tr key={row.itemCode} className={row.short ? "is-short" : undefined}>
             <th scope="row" className="cy-restock-item" title={`${row.itemCode} ${row.itemName}${row.unit ? `（${row.unit}）` : ""}`}>
-              {canQueryItem && parseErpCode(row.itemCode)
-                ? <button type="button" className="cy-restock-code" onClick={() => setOpened(row.itemCode)}>{row.itemCode}</button>
-                : <strong>{row.itemCode}</strong>}
-              <span>{row.itemName}{row.unit ? `（${row.unit}）` : ""}</span>
+              <span className="cy-restock-item-line">
+                {canQueryItem && parseErpCode(row.itemCode)
+                  ? <button type="button" className="cy-restock-code" onClick={() => setOpened(row.itemCode)}>{row.itemCode}</button>
+                  : <strong>{row.itemCode}</strong>}
+                <span>{row.itemName}{row.unit ? `（${row.unit}）` : ""}</span>
+              </span>
             </th>
             {days.map((day, i) => {
               const d = byDay.get(day);
@@ -104,10 +106,10 @@ function RestockTable({ from, to, items, canQueryItem, canOrdering }: { from: st
                 <td key={day + "r"} className={dayClass(day, i, true) + " cy-restock-returned"} title={giftNote(d?.returnedGift)}>{blankZero(Number(d?.returned ?? 0))}</td>,
               ];
             })}
-            <td className="cy-restock-total" title={giftNote(row.soldGift)}>{blankZero(Number(row.sold))}</td>
+            <td className="cy-restock-total is-break" title={giftNote(row.soldGift)}>{blankZero(Number(row.sold))}</td>
             <td className="cy-restock-total cy-restock-returned" title={giftNote(row.returnedGift)}>{blankZero(Number(row.returned))}</td>
-            <td className="cy-restock-total cy-restock-strong">{blankZero(row.net)}</td>
-            <td className="cy-restock-total cy-restock-strong" title={row.stockValue === null ? row.stockNote || "未查到庫存" : row.short ? "庫存不足：庫存不到期間淨銷，或已無庫存" : undefined}>
+            <td className="cy-restock-total is-break cy-restock-strong">{blankZero(row.net)}</td>
+            <td className="cy-restock-total is-break cy-restock-strong" title={row.stockValue === null ? row.stockNote || "未查到庫存" : row.short ? "庫存不足：庫存不到期間淨銷，或已無庫存" : undefined}>
               {row.stockValue === null ? <span className="cy-restock-none">—</span>
                 : row.short ? <span className="cy-restock-short">{quantity(row.stockValue)}</span> : quantity(row.stockValue)}</td>
             {canOrdering?<td><button type="button" className="cy-op-button" onClick={()=>setAddRow(row)}>加入叫貨單</button></td>:null}
@@ -121,9 +123,12 @@ function RestockTable({ from, to, items, canQueryItem, canOrdering }: { from: st
     {addRow&&<AddToOrdering row={addRow} onClose={()=>setAddRow(null)} onAdded={text=>{setAddedMessage(text);setAddRow(null)}}/>}
   </>;
 }
-/** A day's columns: alternate days shaded, weekends tinted, a line before each day. */
-const dayClass = (day: string, index: number, second = false) =>
-  ["cy-restock-day", second ? "is-second" : "is-first", index % 2 ? "is-alt" : "", weekday(day) % 6 === 0 ? "is-weekend" : ""].filter(Boolean).join(" ");
+/**
+ * A day's columns: alternate days shaded the same all through (user 2026-10-27: no weekend tint),
+ * a line before each day and a faint dashed line between its 銷 and 退.
+ */
+const dayClass = (_day: string, index: number, second = false) =>
+  ["cy-restock-day", second ? "is-second" : "is-first", index % 2 ? "is-alt" : ""].filter(Boolean).join(" ");
 
 /**
  * 進貨輔助 (user 2026-10-20, a simple first version): pick a 單據日期 range (both ends), CY Web asks
