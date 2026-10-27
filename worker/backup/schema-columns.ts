@@ -705,6 +705,7 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "is_active",
     "kind",
     "name",
+    "note",
     "payment_terms",
     "sort_order",
     "updated_at"

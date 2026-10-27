@@ -40,7 +40,10 @@ export function ErpJobStatus({ result }: { result: ErpQueryResult }) {
   return <>
     <h2>{statusLabel[result.status]}</h2>
     <p>{subject[result.queryType]}：<strong>{describe(result)}</strong>{result.elapsedMs !== null ? `　耗時 ${(result.elapsedMs / 1000).toFixed(1)} 秒` : ""}</p>
-    {result.status === "QUEUED" && <p className="cy-erp-waiting"><span className="cy-loading-spinner" aria-hidden="true" />已加入查詢佇列，等待公司電腦處理。</p>}
+    {result.status === "QUEUED" && <p className="cy-erp-waiting"><span className="cy-loading-spinner" aria-hidden="true" />
+      {result.notBefore && Date.parse(result.notBefore) > Date.now()
+        ? `ERP 暫停中，已加入查詢佇列，${new Date(result.notBefore).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false })} 暫停結束後自動查詢。`
+        : "已加入查詢佇列，等待公司電腦處理。"}</p>}
     {result.status === "RUNNING" && <p className="cy-erp-waiting"><span className="cy-loading-spinner" aria-hidden="true" />{result.queryType === "RESTOCK"
       ? restockProgress(result)
       : ["SALES", "PURCHASES", "RECEIVABLE", "ORDER"].includes(result.queryType)

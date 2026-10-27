@@ -31,6 +31,7 @@ type JobRow = {
   target_code: string | null; receivable_scope: ErpReceivableScope | null; include_cost: number; result_json: string | null;
   error_code: ErpQueryErrorCode | null; error_message: string | null;
   progress_stage: "REPORT" | "STOCK" | null; progress_done: number | null; progress_total: number | null;
+  not_before: string | null;
 };
 /**
  * The Module Access grants that open each query type, any one is enough (user 2026-10-17: by data
@@ -133,6 +134,7 @@ function toJob(row: JobRow, showCost: boolean): ErpQueryResult {
     history: parsedJson<ErpQueryHistory>(row.history_json),
     errorCode: row.error_code, errorMessage: row.error_message,
     resultCleared: row.status === "DONE" && resultColumn(row) === null,
+    notBefore: row.status === "QUEUED" ? row.not_before : null,
   };
 }
 function resultColumn(row: JobRow): string | null {
@@ -531,7 +533,7 @@ async function housekeeping(db: D1Database): Promise<void> {
   const nowIso = now.toISOString();
   const ago = (seconds: number) => new Date(now.getTime() - seconds * 1000).toISOString();
   const expired = await db.prepare(
-    `UPDATE erp_item_queries SET status='EXPIRED', completed_at=?1 WHERE status='QUEUED' AND (expires_at<=?1 OR (created_at<=?2
+    `UPDATE erp_item_queries SET status='EXPIRED', completed_at=?1 WHERE status='QUEUED' AND (expires_at<=?1 OR (COALESCE(not_before,created_at)<=?2
         AND NOT EXISTS(SELECT 1 FROM erp_item_queries WHERE status='RUNNING')
         AND NOT EXISTS(SELECT 1 FROM erp_item_agent_status WHERE id=1 AND last_seen_at>?3)))
       RETURNING id,owner_member_id,item_no`
@@ -649,6 +651,8 @@ function parseRequest(queryType: ErpQueryType, body: Record<string, unknown>): N
 // ---- ERP 關閉／暫停 (user 2026-10-27) ------------------------------------------------------------
 type ControlRow = { request: ErpControlRequest | null; requested_at: string | null; hold_until: string | null; result: ErpControlResult | null; result_at: string | null };
 const CONTROL_HOLD_MINUTES = new Set([0, 15, 30, 60]);
+/** 「關閉到…」 (user 2026-10-28): a chosen end, at most 24 hours ahead. */
+const CONTROL_HOLD_MAX_MS = 24 * 3600000;
 async function readControl(db: D1Database): Promise<ErpAgentControl> {
   const row = await db.prepare("SELECT request,requested_at,hold_until,result,result_at FROM erp_item_agent_control WHERE id=1").first<ControlRow>();
   const holdUntil = row?.hold_until && Date.parse(row.hold_until) > Date.now() ? row.hold_until : null;
@@ -662,7 +666,7 @@ type QueueRow = {
   item_no: string | null; keyword: string | null; target_code: string | null; receivable_scope: ErpReceivableScope | null;
   include_history: number; history_from: string | null; history_to: string | null;
   progress_stage: "REPORT" | "STOCK" | null; progress_done: number | null; progress_total: number | null;
-  display_name: string | null; employee_no: string | null;
+  display_name: string | null; employee_no: string | null; not_before: string | null;
 };
 /** What a queued query is for, in a few words (the queue shows it next to the query type). */
 function queueTarget(row: QueueRow): string | null {
@@ -704,26 +708,46 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
     const action = body.action;
     const now = new Date().toISOString();
     let statement: D1PreparedStatement;
+    // Queries waiting for the pause follow it: a new end moves them, no pause releases them.
+    const moveWaiting = (holdUntil: string | null) => env.DB.prepare(
+      `UPDATE erp_item_queries SET not_before=?1, expires_at=CASE WHEN ?1 IS NULL THEN expires_at ELSE ?2 END
+        WHERE status='QUEUED' AND not_before IS NOT NULL`
+    ).bind(holdUntil, holdUntil ? new Date(Date.parse(holdUntil) + QUEUE_WAIT_MAX_MS).toISOString() : null);
+    const extra: D1PreparedStatement[] = [];
     if (action === "CLOSE") {
-      const minutes = body.minutes ?? 0;
-      if (typeof minutes !== "number" || !CONTROL_HOLD_MINUTES.has(minutes)) return bad("INVALID_CONTROL", "暫停時間只能是 0、15、30 或 60 分鐘");
-      const holdUntil = minutes ? new Date(Date.now() + minutes * 60000).toISOString() : null;
+      let holdUntil: string | null;
+      if (body.until !== undefined) {
+        const until = typeof body.until === "string" ? Date.parse(body.until) : NaN;
+        if (!Number.isFinite(until) || until <= Date.now() + 60000 || until > Date.now() + CONTROL_HOLD_MAX_MS)
+          return bad("INVALID_CONTROL", "關閉到的時間須在 1 分鐘後、24 小時內");
+        holdUntil = new Date(until).toISOString();
+      } else {
+        const minutes = body.minutes ?? 0;
+        if (typeof minutes !== "number" || !CONTROL_HOLD_MINUTES.has(minutes)) return bad("INVALID_CONTROL", "暫停時間只能是 0、15、30 或 60 分鐘");
+        holdUntil = minutes ? new Date(Date.now() + minutes * 60000).toISOString() : null;
+      }
       statement = env.DB.prepare(`INSERT INTO erp_item_agent_control(id,request,requested_at,requested_by,hold_until,result,result_at) VALUES(1,'CLOSE',?1,?2,?3,NULL,NULL)
         ON CONFLICT(id) DO UPDATE SET request='CLOSE',requested_at=?1,requested_by=?2,hold_until=?3,result=NULL,result_at=NULL`).bind(now, member.id, holdUntil);
+      extra.push(moveWaiting(holdUntil));
     } else if (action === "FORCE_CLOSE") {
       statement = env.DB.prepare(`INSERT INTO erp_item_agent_control(id,request,requested_at,requested_by,result,result_at) VALUES(1,'FORCE_CLOSE',?1,?2,NULL,NULL)
         ON CONFLICT(id) DO UPDATE SET request='FORCE_CLOSE',requested_at=?1,requested_by=?2,result=NULL,result_at=NULL`).bind(now, member.id);
     } else if (action === "RESUME") {
       statement = env.DB.prepare("UPDATE erp_item_agent_control SET hold_until=NULL WHERE id=1");
+      extra.push(moveWaiting(null));
     } else return bad("INVALID_CONTROL", "不支援的 ERP 控制動作");
-    await env.DB.batch([statement, new AuditService(env.DB).prepareRecord({
+    await env.DB.batch([statement, ...extra, new AuditService(env.DB).prepareRecord({
       entityType: "erp_agent_control", entityKey: "1", action: "erp_agent_control." + String(action).toLowerCase(),
-      actorEmployeeId: member.id, requestId, metadata: { minutes: action === "CLOSE" ? body.minutes ?? 0 : null },
+      actorEmployeeId: member.id, requestId,
+      metadata: { minutes: action === "CLOSE" && body.until === undefined ? body.minutes ?? 0 : null, until: action === "CLOSE" ? body.until ?? null : null },
     })]);
     return success(await readControl(env.DB), requestId);
   }
   if (pathname === "/api/erp/item-queries" && request.method === "POST") {
     const body = await readJsonObject(request, 2048);
+    // afterHold: sent while ERP is paused, the query waits for the pause to end (user 2026-10-28).
+    const afterHold = body.afterHold === true;
+    delete body.afterHold;
     const queryType = (body.queryType ?? "ITEM_NO") as ErpQueryType;
     if (!ERP_QUERY_TYPES.includes(queryType))
       return failure({code:"INVALID_QUERY_TYPE",message:"查詢類型不正確"},requestId,400);
@@ -731,7 +755,8 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
     if (!member) return denied(requestId, queryType);
     const job = parseRequest(queryType, body);
     const { holdUntil } = await readControl(env.DB);
-    if (holdUntil) return failure({ code: "ERP_HELD", message: `ERP 已暫停，${taipeiTime(holdUntil)} 後可再查詢` }, requestId, 409);
+    if (holdUntil && !afterHold) return failure({ code: "ERP_HELD", message: `ERP 已暫停，${taipeiTime(holdUntil)} 後可再查詢` }, requestId, 409);
+    const notBefore = holdUntil;
     const includeCost = queryType === "ITEM_NO" && !!await allowed(env.DB, principal, "ERP_ITEM_COST");
     const active = await env.DB.prepare("SELECT COUNT(*) AS n FROM erp_item_queries WHERE owner_member_id=?1 AND status IN ('QUEUED','RUNNING')")
       .bind(member.id).first<{ n: number }>();
@@ -739,7 +764,7 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
       return failure({ code: "QUERY_ALREADY_ACTIVE", message: `你已有 ${MAX_ACTIVE_PER_MEMBER} 筆查詢在排隊或執行中，請等其中一筆完成後再查` }, requestId, 409);
     const id = crypto.randomUUID();
     const createdAt = new Date().toISOString();
-    const expiresAt = new Date(Date.now() + QUEUE_WAIT_MAX_MS).toISOString();
+    const expiresAt = new Date((notBefore ? Date.parse(notBefore) : Date.now()) + QUEUE_WAIT_MAX_MS).toISOString();
     const historyRequest = queryType === "ITEM_NO"
       ? { includeHistory: job.includeHistory, historyFrom: job.from, historyTo: job.to }
       : { includeHistory: false, historyFrom: null, historyTo: null };
@@ -747,13 +772,13 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
       id, queryType, itemNo: queryType === "ITEM_NO" ? job.itemNo : null, keyword: job.keyword,
       code: job.targetCode, scope: job.scope,
       dateFrom: DATED_TYPES.has(queryType) ? job.from : null, dateTo: DATED_TYPES.has(queryType) ? job.to : null,
-      status: "QUEUED" as const, createdAt, ...historyRequest,
+      status: "QUEUED" as const, createdAt, notBefore, ...historyRequest,
     };
     await env.DB.batch([
       env.DB.prepare(`INSERT INTO erp_item_queries(id,owner_member_id,item_no,status,created_at,expires_at,include_history,history_from,history_to,
-          query_type,keyword,target_code,receivable_scope,include_cost) VALUES(?1,?2,?3,'QUEUED',?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)`)
+          query_type,keyword,target_code,receivable_scope,include_cost,not_before) VALUES(?1,?2,?3,'QUEUED',?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)`)
         .bind(id, member.id, job.itemNo, createdAt, expiresAt, job.includeHistory ? 1 : 0, job.from, job.to,
-          queryType, job.keyword, job.targetCode, job.scope, includeCost ? 1 : 0),
+          queryType, job.keyword, job.targetCode, job.scope, includeCost ? 1 : 0, notBefore),
       new AuditService(env.DB).prepareRecord({
         entityType: "erp_item_query", entityKey: id, action: "erp_item_query.created",
         actorEmployeeId: member.id, requestId, statusTo: "QUEUED",
@@ -784,7 +809,7 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
     if (!member) return denied(requestId);
     const rows = await env.DB.prepare(
       `SELECT q.id,q.owner_member_id,q.query_type,q.status,q.created_at,q.started_at,q.item_no,q.keyword,q.target_code,
-              q.receivable_scope,q.include_history,q.history_from,q.history_to,q.progress_stage,q.progress_done,q.progress_total,
+              q.receivable_scope,q.include_history,q.history_from,q.history_to,q.progress_stage,q.progress_done,q.progress_total,q.not_before,
               m.display_name,m.employee_no
          FROM erp_item_queries q JOIN app_members m ON m.id=q.owner_member_id
         WHERE q.status IN ('QUEUED','RUNNING') ORDER BY q.status='QUEUED', ${QUEUE_ORDER}`
@@ -807,12 +832,12 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
       // queued after it takes its usual time.
       at = row.status === "RUNNING" && row.started_at
         ? Math.max(Date.parse(row.started_at) + seconds(row) * 1000, at + 30000)
-        : at + seconds(row) * 1000;
+        : Math.max(at, row.not_before ? Date.parse(row.not_before) : 0) + seconds(row) * 1000;
       queue.push({
         id: row.id, mine: row.owner_member_id === member.id,
         member: row.display_name || row.employee_no || `成員 ${row.owner_member_id}`,
         queryType: row.query_type, target: may.get(row.query_type) ? queueTarget(row) : null,
-        status: row.status, createdAt: row.created_at, startedAt: row.started_at,
+        status: row.status, createdAt: row.created_at, startedAt: row.started_at, notBefore: row.not_before,
         progress: row.progress_stage ? { stage: row.progress_stage, done: row.progress_done ?? 0, total: row.progress_total ?? 0 } : null,
         estimatedDoneAt: new Date(at).toISOString(),
       });
@@ -925,6 +950,7 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
       `UPDATE erp_item_queries
           SET status='RUNNING',started_at=?1,claim_hash=?2
         WHERE id=(SELECT q.id FROM erp_item_queries q WHERE q.status='QUEUED' AND q.expires_at>?1
+                    AND (q.not_before IS NULL OR q.not_before<=?1)
                     AND q.query_type IN (SELECT value FROM json_each(?3)) ORDER BY ${QUEUE_ORDER} LIMIT 1)
           AND NOT EXISTS(SELECT 1 FROM erp_item_queries WHERE status='RUNNING')
         RETURNING id,item_no,query_type,keyword,expires_at,include_history,history_from,history_to,target_code,receivable_scope,include_cost`
