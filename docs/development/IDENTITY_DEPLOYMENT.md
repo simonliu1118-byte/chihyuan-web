@@ -88,6 +88,17 @@ git push origin refs/remotes/origin/main:refs/heads/deploy/cyweb-development
 
 Use a normal fast-forward push. The existing publish branch contains historical merge commits, so pushing main directly may be rejected even when its source is correct. Do not force-push. Either preserve the publish history with a merge that includes current main and has exactly the same tracked tree, or use the main dispatch fallback below. A merge conflict or tree mismatch requires review; do not publish a hand-edited deployment-only change. An unchanged branch tip produces no new push event, so use dispatch to republish the same source.
 
+The publish merge used since V0.9.3x keeps the deploy history and carries exactly main's tree (both parents, tree = main):
+
+```bash
+git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main refs/heads/deploy/cyweb-development:refs/remotes/origin/deploy/cyweb-development
+MAIN=$(git rev-parse origin/main); DEPLOY=$(git rev-parse origin/deploy/cyweb-development)
+COMMIT=$(git commit-tree "$MAIN^{tree}" -p "$DEPLOY" -p "$MAIN" -m "Deploy CY Web <version> (main $MAIN)")
+git push origin "$COMMIT":refs/heads/deploy/cyweb-development
+```
+
+Read the deploy tip from the remote right before this (a stale local ref is rejected as non-fast-forward). After the run, `/api/health` at both entry points must report the new `version`, the deploy commit as `sourceCommit` and `database: ok`.
+
 ```bash
 gh workflow run development-deploy.yml --ref main -f operation=deploy-development
 ```

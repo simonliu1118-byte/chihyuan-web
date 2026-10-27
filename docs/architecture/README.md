@@ -8,7 +8,7 @@
 2. `REPO_POLICY.md`
 3. `PROJECT_RULES.md`
 
-目前實作進度與下一步只由根 `TODO.md` 維護；本目錄不另外維護一份平行 status/handoff。
+目前實作進度與下一步只由根 `TODO.md` 維護，各版本完成內容在根 `CHANGELOG.md`；本目錄不另外維護一份平行 status/handoff。
 
 ## 文件語意與優先順序
 
@@ -21,7 +21,7 @@
 5. current source 與可重建驗證結果；
 6. archive/legacy/preview evidence。
 
-Archive、舊 preview、review backlog、readiness checkpoint、舊 handoff 或舊 branch metadata 都不能覆蓋較新的 current contract／Business Decision／`main` source。Active tree 不維護 dated Identity handoff；歷史 checkpoint 以 Git history 追溯。
+Archive、舊 preview、review backlog、readiness checkpoint、舊 handoff（`../handoff/`）或舊 branch metadata 都不能覆蓋較新的 current contract／Business Decision／`main` source。Active tree 不維護 dated Identity handoff；歷史 checkpoint 以 Git history 追溯。
 
 ## Current architecture baseline
 
@@ -29,7 +29,7 @@ Archive、舊 preview、review backlog、readiness checkpoint、舊 handoff 或�
 
 - 單一 TypeScript + React + Vite Web application，Desktop／Tablet／Mobile 共用一套主要 codebase，以 RWD + Adaptive UI 呈現。
 - Cloudflare Workers 是 runtime/API target；D1 是正式 relational database target。
-- Integrated React operational runtime 的六個業務模組與 Settings/Audit 全部使用 protected Worker API → D1；browser-local business authority 已退休。
+- Integrated React operational runtime 的所有業務模組（客戶、商品、瑕疵、銷售工單、委外/代工、工作日誌、叫貨、人事、ERP 查詢）與 Settings/Audit 全部使用 protected Worker API → D1；browser-local business authority 已退休。
 - Forward schema source of truth 是 `migrations/`；已套用的 migration 不重寫，後續變更持續使用新的 forward migration。
 - **CYCloud Identity** 擁有 Workspace、Employee、Credential、Workspace Role、Identity Admin capability、Application Access、Session、Email verification／OTP／Recovery 與受保護的 Super Admin authority；CY Web 只保存 app-local Module Access 與 domain authorization。
 - Shared CYID consumer contract 以 `../contracts/cyid/` 的 read-only synchronized mirror 作本 repo 工作副本；Governance/Deploy 逐檔對照 CYID `main`，canonical authority 仍在 CYID。
@@ -85,13 +85,15 @@ Archive、舊 preview、review backlog、readiness checkpoint、舊 handoff 或�
 - `CUSTOMER_UI_COMPOSITION.md`
 - `CUSTOMER_EDIT_INTERACTION.md`
 - `CUSTOMER_RELATED_UI.md`
-- `ERP_ITEM_QUERY_BRIDGE_CONTRACT.md` — 單筆 ERP 品號只讀查詢、Agent 佇列、憑證與短期資料契約。
+- `ERP_ITEM_QUERY_BRIDGE_CONTRACT.md` — ERP 查詢（商品、客戶、供應商、進貨輔助、未收款、排程佇列）、CYERPAutoQuery Agent 佇列、憑證、ERP 關閉／暫停與短期資料契約；開頭有目前狀態總覽。
 - `ITEM_MODULE_CONTRACT.md`
 - `DEFECT_MODULE_CONTRACT.md`
 - `SALES_WORK_ORDER_MODULE_CONTRACT.md`
 - `CONTRACTOR_OUTSOURCING_MODULE_CONTRACT.md`
 - `WORK_LOG_MODULE_CONTRACT.md`
 - `SETTINGS_ADMIN_MODULE_CONTRACT.md`
+- `ORDERING_MODULE.md` — 叫貨（草稿、送出、修改、到貨、廠商頁、可攜備份）。
+- `HR_MODULE_DESIGN.md`、`HR_MODULE_CONTRACT.md` — 人事（主檔、排班出勤、請假特休加班補休）；`HR_LEGAL_WATCH.md` 為每月法規檢查。
 
 Module contract 與適用的最新 Business Decisions 共同定義業務語意；不要從歷史 preview 反推 current business rule。
 
@@ -101,7 +103,8 @@ Module contract 與適用的最新 Business Decisions 共同定義業務語意�
 - `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public source 與 production infrastructure boundary。
 - `../DOMAIN_STRATEGY.md` — Chihyuan parent-domain namespace、security boundary、rollout sequence。
 - `../development/LOCAL_DEVELOPMENT.md` — local development workflow。
-- `../development/IDENTITY_DEPLOYMENT.md` — CYCloud Identity development deployment and browser acceptance path。
+- `../development/IDENTITY_DEPLOYMENT.md` — CYCloud Identity development deployment and browser acceptance path；也是 CY Web 發布（`deploy/cyweb-development`）的操作文件。
+- `../development/work-orders/` — 版本工作單（格式見該目錄 `README.md`）。
 
 ## Historical evidence / archive
 
