@@ -407,3 +407,20 @@ test("dragging rows renumbers one block in one write; revise can move sent rows 
   assert.match(r.body.data.revisions[0].summary,/調整明細順序/);
  }finally{sql.close()}
 });
+test("vendor status marks drafts with content, waiting and partly received orders, and nothing once all arrived",async()=>{
+ const {sql,call}=fixture();try{
+  const vendor=(await call("/sources")).body.data.find(x=>x.name==="永全");
+  const status=async()=>(await call("/vendors/status")).body.data.find(x=>x.sourceId===vendor.id)??null;
+  let o=(await call("/orders","POST",{sourceId:vendor.id})).body.data;
+  assert.equal(await status(),null,"an empty draft is not marked");
+  o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{itemName:"測試品名甲",quantityText:"4"}})).body.data;
+  assert.deepEqual(await status(),{sourceId:vendor.id,draft:true,sent:false,partial:false});
+  o=(await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version})).body.data;
+  assert.deepEqual(await status(),{sourceId:vendor.id,draft:false,sent:true,partial:false});
+  const line=o.lines[0].id;
+  o=(await call("/orders/"+o.id+"/receipts","POST",{expectedVersion:o.version,erpPurchaseNo:"20261021001",receivedDate:"2026-10-21",lines:[{lineId:line,quantity:1}]})).body.data;
+  assert.deepEqual(await status(),{sourceId:vendor.id,draft:false,sent:false,partial:true});
+  o=(await call("/orders/"+o.id+"/receipts","POST",{expectedVersion:o.version,erpPurchaseNo:"20261021002",receivedDate:"2026-10-21",lines:[{lineId:line,quantity:3}]})).body.data;
+  assert.equal(await status(),null,"fully received: no mark");
+ }finally{sql.close()}
+});

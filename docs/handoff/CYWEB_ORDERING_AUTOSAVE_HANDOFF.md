@@ -7,6 +7,7 @@
 - **刪除草稿**：`DELETE /orders/:id` 只限 DRAFT，版本鎖，明細隨外鍵 CASCADE 刪除，留稽核 `ordering.deleted`。
 - **排序／拖曳**：`OrderingGrid` 標題排序只影響顯示（`Intl.Collator` 自然排序）；未排序時項次可拖曳，草稿走 `lines` 的 `operation:"reorder"`（同一區段，依序 10、20…）。
 - 「全部廠商」合併匯出移除（伺服器 `/vendors/overview` 仍保留但前端不再呼叫）。
+- **廠商頁籤圓點**：`GET /vendors/status` 依 `currentStatusSql` 回傳每個啟用廠商是否有「有內容的草稿」「SENT」「PARTIAL」，已結案與空白草稿不回傳；前端在進入廠商頁、切換廠商與 `refreshLists()` 時更新。
 
 ## 2026-10-26 V0.9.36 — 廠商頁直接編輯、單位與廠商品名、備份納入叫貨
 

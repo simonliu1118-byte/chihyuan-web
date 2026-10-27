@@ -24,6 +24,13 @@ const displayDate=(value:string|null|undefined)=>orderingTaipeiDateTime(value)?.
 const displayTime=(value:string|null|undefined)=>{const p=orderingTaipeiDateTime(value);return p?p.date+" "+p.time:""};
 const errorOf=(e:unknown)=>e instanceof ApiClientError&&e.code==="ORDERING_VERSION_CONFLICT"?"已被其他人修改，請重新載入":e instanceof ApiClientError&&["ORDERING_RECEIPT_CONFIRMATION_REQUIRED","ORDERING_UNAVAILABLE"].includes(e.code)?e.message+(e.requestId?"（請求編號："+e.requestId+"）":""):e instanceof Error?e.message:"叫貨操作失敗";
 type DisplayOrder=OrderingOrder&{storedStatus:"DRAFT"|"SENT"|"VOID";savedLineId?:number};
+type VendorStatus={sourceId:number;draft:boolean;sent:boolean;partial:boolean};
+const VENDOR_DOTS=[["draft","neutral","有草稿"],["sent","info","已送出待到貨"],["partial","warning","部分到貨"]] as const;
+function VendorDots({status}:{status?:VendorStatus}){
+ const shown=VENDOR_DOTS.filter(([key])=>status?.[key]);
+ return shown.length?<span className="cy-ordering-vendor-dots" title={shown.map(([,,label])=>label).join("、")}>
+  {shown.map(([key,tone,label])=><span key={key} className="cy-status-dot" data-tone={tone} aria-label={label} role="img"/>)}</span>:null;
+}
 type ReviseLine=GridLine&{received:number;quantity:number|null};
 /** A sent order being changed in edit mode: kept locally (no autosave) and sent in one save. */
 type Revision={orderId:number;lines:ReviseLine[];note:string;deleted:number[];added:Set<number>};
@@ -71,6 +78,7 @@ export function OrderingPage(){
  const [closing,setClosing]=useState<{id:number;kind:"SHORTAGE"|"CANCELLED"|"OTHER";reason:string}|null>(null);
  const [viewPending,setViewPending]=useState(true),[pendingLoading,setPendingLoading]=useState(true),[showHistory,setShowHistory]=useState(false),[drafts,setDrafts]=useState<OrderingListRow[]>([]);
  const [vendorQuery,setVendorQuery]=useState("");
+ const [vendorStatus,setVendorStatus]=useState<Map<number,VendorStatus>>(new Map());
  const [vendorSelected,setVendorSelected]=useState<number|null>(null);
  const [vendorTabOrder,setVendorTabOrder]=useState<number[]>([]);
  const vendorDragging=useRef<number|null>(null);
@@ -110,7 +118,8 @@ export function OrderingPage(){
  const active=sources.filter(x=>x.isActive),vendors=active.filter(x=>x.kind==="VENDOR");
  // The history list keeps the filters the user typed; drafts are never listed there.
  const listQuery=useRef("history=1");
- async function refreshLists(){const [b,c]=await Promise.all([call<OrderingListRow[]>("/orders?"+listQuery.current),call<OrderingPendingLine[]>("/pending")]);setList(b);setPending(c)}
+ async function refreshLists(){const [b,c]=await Promise.all([call<OrderingListRow[]>("/orders?"+listQuery.current),call<OrderingPendingLine[]>("/pending")]);setList(b);setPending(c);void refreshVendorStatus()}
+ async function refreshVendorStatus(){try{setVendorStatus(new Map((await call<VendorStatus[]>("/vendors/status")).map(x=>[x.sourceId,x])))}catch{/* Dots are a hint only; the tabs work without them. */}}
  async function refresh(){await Promise.all([
   call<OrderingSource[]>("/sources").then(setSources),
   call<number[]>("/preferences/vendors").then(setVendorTabOrder),
@@ -150,6 +159,7 @@ export function OrderingPage(){
  // 廠商 is a tab like the others: a vendor's draft opens right here, with the vendor strip above it.
  function setVendorMode(sourceId:number,vendor:boolean){setVendorAll(vendor);if(vendor)setVendorSelected(sourceId)}
  async function showVendors(){
+  void refreshVendorStatus();
   const id=orderedVendors.some(v=>v.id===vendorSelected)?vendorSelected:orderedVendors[0]?.id;
   if(id){await openDraft(id);return}
   if(!await prepareSwitch())return;++loadSequence.current;setVendorAll(true);setSelected(null);setViewPending(false);pane.open();
@@ -320,7 +330,7 @@ export function OrderingPage(){
  const movableVendors=orderedVendors.filter(x=>x.name!=="其他");
  const vendorOther=orderedVendors.find(x=>x.name==="其他");
  const activeVendorId=vendorAll?current?.sourceId??vendorSelected:null;
- async function chooseVendor(id:number){if(id===current?.sourceId&&vendorAll)return;await openDraft(id)}
+ async function chooseVendor(id:number){if(id===current?.sourceId&&vendorAll)return;await openDraft(id);void refreshVendorStatus()}
  async function savePersonalVendorOrder(ids:number[]){
   const before=vendorTabOrder;setVendorTabOrder(ids);
   try{await call("/preferences/vendors","PUT",{sourceIds:ids})}
@@ -466,10 +476,11 @@ export function OrderingPage(){
          draggable={!busy} title="拖曳調整自己的廠商頁籤順序" onDragStart={e=>{vendorDragging.current=v.id;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",String(v.id))}}
          onDragOver={e=>{if(vendorDragging.current!==null)e.preventDefault()}} onDrop={e=>{e.preventDefault();if(vendorDragging.current!==null)moveVendor(vendorDragging.current,v.id);vendorDragging.current=null}}
          onDragEnd={()=>{vendorDragging.current=null}} onKeyDown={e=>{if(!e.altKey)return;const ix=movableVendors.findIndex(x=>x.id===v.id),target=movableVendors[ix+(e.key==="ArrowLeft"?-1:e.key==="ArrowRight"?1:0)];if(target&&target.id!==v.id){e.preventDefault();moveVendor(v.id,target.id)}}}
-         onClick={()=>void chooseVendor(v.id)}>{v.name}</button>)}
+         onClick={()=>void chooseVendor(v.id)}>{v.name}<VendorDots status={vendorStatus.get(v.id)}/></button>)}
        </div>
-       {vendorOther?<button type="button" role="tab" className={"cy-ordering-vendor-other"+(activeVendorId===vendorOther.id?" active":"")} aria-selected={activeVendorId===vendorOther.id} onClick={()=>void chooseVendor(vendorOther.id)}>其他</button>:null}
+       {vendorOther?<button type="button" role="tab" className={"cy-ordering-vendor-other"+(activeVendorId===vendorOther.id?" active":"")} aria-selected={activeVendorId===vendorOther.id} onClick={()=>void chooseVendor(vendorOther.id)}>其他<VendorDots status={vendorStatus.get(vendorOther.id)}/></button>:null}
        <div className="cy-ordering-vendor-tools">
+        <span className="cy-ordering-vendor-legend" aria-hidden="true">{VENDOR_DOTS.map(([key,tone,label])=><span key={key}><span className="cy-status-dot" data-tone={tone}/>{label==="已送出待到貨"?"待到貨":label==="有草稿"?"草稿":label}</span>)}</span>
         <button type="button" className="cy-op-button compact" onClick={()=>setSourceForm({kind:"VENDOR",name:"",conditions:"",paymentTerms:""})}>＋ 新增廠商</button>
        </div>
       </div>

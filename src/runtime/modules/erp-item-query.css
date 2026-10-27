@@ -279,3 +279,12 @@
 .cy-ordering-grid td.cy-ordering-drag { cursor: grab; }
 .cy-ordering-grid td.cy-ordering-drag:active { cursor: grabbing; }
 .cy-ordering-grid tr[data-drop-target] td { box-shadow: inset 0 2px 0 var(--cy-accent); }
+/* Vendor tab dots: draft with content, sent and waiting, partly received. */
+.cy-ordering-vendor-dots { display: inline-flex; gap: 3px; margin-left: 5px; vertical-align: 2px; }
+.cy-ordering-vendor-dots .cy-status-dot { width: 6px; height: 6px; }
+.cy-ordering-vendor-dots .cy-status-dot[data-tone="neutral"] { background: var(--cy-text-muted); }
+.cy-ordering-vendor-tools { align-items: center; }
+.cy-ordering-vendor-legend { display: inline-flex; gap: 8px; margin-right: 4px; font-size: var(--cy-fs-xs); color: var(--cy-text-muted); white-space: nowrap; }
+.cy-ordering-vendor-legend > span { display: inline-flex; align-items: center; gap: 3px; }
+.cy-ordering-vendor-legend .cy-status-dot { width: 6px; height: 6px; }
+.cy-ordering-vendor-legend .cy-status-dot[data-tone="neutral"] { background: var(--cy-text-muted); }

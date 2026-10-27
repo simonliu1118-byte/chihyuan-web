@@ -141,6 +141,16 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
      .bind(ctx.actor,JSON.stringify(ids),ctx.now).run();
     return success({saved:true},requestId);
    }
+  if(path==="vendors/status"&&method==="GET"){
+   // Per vendor tab: a draft with content, a sent order still waiting, a partly received order.
+   const found=await rows<{source_id:number;state:string}>(ctx.db,`SELECT o.source_id,${currentStatusSql} AS state FROM ordering_orders o JOIN ordering_sources s ON s.id=o.source_id
+    WHERE s.kind='VENDOR' AND s.is_active=1 AND (o.status='SENT' OR (o.status='DRAFT' AND (length(trim(o.note))>0 OR EXISTS(SELECT 1 FROM ordering_lines l WHERE l.order_id=o.id)))) LIMIT 5001`);
+   if(found.length>5000)throw new Bad("ORDERING_LIMIT","廠商狀態超過單次查詢安全上限",409);
+   const byVendor=new Map<number,{sourceId:number;draft:boolean;sent:boolean;partial:boolean}>();
+   for(const x of found){const v=byVendor.get(x.source_id)??{sourceId:x.source_id,draft:false,sent:false,partial:false};
+    if(x.state==="DRAFT")v.draft=true;else if(x.state==="SENT")v.sent=true;else if(x.state==="PARTIAL")v.partial=true;byVendor.set(x.source_id,v)}
+   return success([...byVendor.values()].filter(v=>v.draft||v.sent||v.partial),requestId);
+  }
   if(path==="vendors/overview"&&method==="GET"){
    await init(ctx);
    const sources=await rows<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE kind='VENDOR' AND is_active=1 ORDER BY sort_order,id LIMIT 101");
