@@ -238,10 +238,10 @@
 @media (max-width: 820px) {
 }
 
-/* V0.9.34: source/date filters occupy full sidebar width, never clip date labels. */
-.cy-ordering-list-filters{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;align-items:stretch}
-.cy-ordering-list-filters input[type="date"]{width:100%;min-width:0;box-sizing:border-box}
-.cy-ordering-list-filters>span[aria-hidden]{display:none}
+/* Source on its own row; 起～迄 dates share the next row (user 2026-10-27). */
+.cy-ordering-list-filters{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:6px;align-items:center}
+.cy-ordering-list-filters>.cy-ordering-source-picker{grid-column:1/-1}
+.cy-ordering-list-filters input[type="date"]{width:100%;min-width:0;box-sizing:border-box;padding-inline:6px}
 .cy-ordering-page .cy-ordering-list-filters .cy-ordering-source-picker{min-width:0;width:100%}
 .cy-ordering-page .cy-md-detail>.cy-loading{min-height:180px;display:flex;align-items:center;justify-content:center}
 
@@ -298,3 +298,46 @@
 /* ERP 關閉／暫停 dialog (header control): two titled parts, ERP control first. */
 .cy-erp-control-title { margin: 16px 0 6px; font-size: var(--cy-fs-md); font-weight: 600; }
 .cy-erp-control-title:first-child { margin-top: 0; }
+
+/* 未到貨明細: one collapsible card per 叫貨單, compact rows (user 2026-10-27). */
+.cy-ordering-pending { display: grid; gap: 8px; }
+.cy-ordering-pending-card { border: 1px solid var(--cy-border); border-radius: var(--cy-radius-md); background: var(--cy-surface); overflow: hidden; }
+.cy-ordering-pending-head { display: flex; align-items: center; gap: 8px; padding: 4px 8px 4px 4px; background: var(--cy-surface-muted); }
+.cy-ordering-pending-toggle { display: flex; flex: 1; align-items: baseline; gap: 10px; min-width: 0; padding: 4px 6px; border: 0; background: none; color: var(--cy-text); font: inherit; text-align: left; cursor: pointer; }
+.cy-ordering-pending-toggle span { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
+.cy-ordering-pending-caret { width: 12px; }
+.cy-ordering-pending-count { margin-left: auto; }
+.cy-ordering-pending-table { font-size: var(--cy-fs-sm); }
+.cy-ordering-pending-table :is(th, td) { padding-block: 4px; }
+.cy-ordering-pending-table th:nth-child(1) { width: 96px; }
+.cy-ordering-pending-table th:nth-child(n+3):nth-child(-n+5) { width: 64px; }
+.cy-ordering-pending-table th:last-child { width: 150px; }
+.cy-ordering-pending-table .cy-op-button.compact { min-height: 26px; padding-block: 0; }
+
+/* ERP 查詢 categories stay mounted (V0.9.41); a running one is marked on its tab. */
+.cy-erp-category-panel[hidden]{display:none}
+.cy-erp-tab-running{display:inline-block;width:8px;height:8px;margin-left:6px;border-radius:50%;background:var(--cy-accent);vertical-align:middle;animation:cy-erp-pulse 1.4s ease-in-out infinite}
+@keyframes cy-erp-pulse{50%{opacity:.35}}
+@media(prefers-reduced-motion:reduce){.cy-erp-tab-running{animation:none}}
+.cy-op-tabs .cy-erp-queue-tab{margin-left:auto}
+/* 排程佇列: one row per query, in the order the Agent runs them. */
+.cy-erp-queue{display:grid;gap:.75rem;max-width:1000px}
+.cy-erp-queue p{margin:0}
+.cy-erp-queue-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.cy-erp-queue-row{display:grid;grid-template-columns:88px minmax(90px,160px) minmax(0,1fr) auto;gap:.4rem .9rem;align-items:center;
+  padding:.55rem .75rem;border:1px solid var(--cy-border);border-radius:var(--cy-radius-md);background:var(--cy-surface)}
+.cy-erp-queue-row.is-running{border-color:var(--cy-accent)}
+.cy-erp-queue-row.is-mine{background:var(--cy-surface-muted)}
+.cy-erp-queue-state{font-weight:700;font-size:var(--cy-fs-sm);color:var(--cy-text-muted)}
+.cy-erp-queue-row.is-running .cy-erp-queue-state{color:var(--cy-accent)}
+.cy-erp-queue-who{font-weight:600;overflow-wrap:anywhere}
+.cy-erp-queue-who em{font-style:normal;color:var(--cy-text-muted);font-weight:400}
+.cy-erp-queue-what{display:flex;flex-wrap:wrap;gap:.2rem .6rem;min-width:0;overflow-wrap:anywhere}
+.cy-erp-queue-progress{color:var(--cy-text-muted);font-size:var(--cy-fs-sm)}
+.cy-erp-queue-eta{white-space:nowrap;font-variant-numeric:tabular-nums}
+@media(max-width:820px){
+  .cy-erp-queue-row{grid-template-columns:auto minmax(0,1fr)}
+  .cy-erp-queue-what,.cy-erp-queue-eta{grid-column:1/-1}
+  .cy-erp-queue-eta{white-space:normal;color:var(--cy-text-muted);font-size:var(--cy-fs-sm)}
+}
+.cy-kept-page{display:contents}.cy-kept-page[hidden]{display:none}

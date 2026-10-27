@@ -56,6 +56,13 @@ function OrderingSaveStatus({states}: {states:OrderingGridState[]}){
   <span className="cy-loading-spinner cy-ordering-save-spinner" data-idle={state!=="saving"||undefined} aria-hidden="true"/>
  </span>;
 }
+/** 未到貨明細 by 叫貨單 (user 2026-10-27: one collapsible card per order), in the list's order. */
+function pendingOrders(lines: readonly OrderingPendingLine[]): { orderId: number; lines: OrderingPendingLine[] }[] {
+ const groups=new Map<number,OrderingPendingLine[]>();
+ for(const line of lines){const group=groups.get(line.orderId);if(group)group.push(line);else groups.set(line.orderId,[line])}
+ return [...groups].map(([orderId,group])=>({orderId,lines:group}));
+}
+
 export function OrderingPage(){
  const [sources,setSources]=useState<OrderingSource[]>([]),[list,setList]=useState<OrderingListRow[]>([]),[pending,setPending]=useState<OrderingPendingLine[]>([]);
  const [tab,setTab]=useState<number|null>(null),[vendorAll,setVendorAll]=useState(false),[selected,setSelected]=useState<DisplayOrder|null>(null);
@@ -77,6 +84,8 @@ export function OrderingPage(){
  const [receipt,setReceipt]=useState<{id:number;no:string;date:string;quantities:Record<number,string>;selectedLineIds:number[]}|null>(null);
  const [receiptSaving,setReceiptSaving]=useState(false),receiptSavingRef=useRef(false);
  type ReceiptForm=NonNullable<typeof receipt>;
+ // 未到貨明細 grouped by 叫貨單; the cards a member folded stay folded while on the page.
+ const [collapsedPending,setCollapsedPending]=useState<ReadonlySet<number>>(()=>new Set());
  const [closing,setClosing]=useState<{id:number;kind:"SHORTAGE"|"CANCELLED"|"OTHER";reason:string}|null>(null);
  const [viewPending,setViewPending]=useState(true),[pendingLoading,setPendingLoading]=useState(true),[showHistory,setShowHistory]=useState(false),[drafts,setDrafts]=useState<OrderingListRow[]>([]);
  const [vendorQuery,setVendorQuery]=useState("");
@@ -473,11 +482,24 @@ export function OrderingPage(){
     </div>
     {viewPending?<>
       <div className="cy-record-header"><div><h2>未到貨明細</h2><p>{pendingLoading?"正在載入未到貨明細…":"已送出、還有剩餘數量的品項，共 "+pending.length+" 項。"}</p></div></div>
-      {pending.length?<div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>來源</th><th>叫貨日</th><th>品號</th><th>品名</th><th>叫貨</th><th>已到</th><th>剩餘</th><th/></tr></thead><tbody>
-       {pending.map(l=><tr key={l.lineId}><td>{l.sourceName}</td><td>{displayDate(l.orderDate)}</td><td className="cy-mono">{l.itemCode}</td><td>{l.itemName||l.vendorItemName}</td><td>{l.quantity}{l.unit}</td><td>{l.received}</td><td><strong>{l.remaining}</strong></td>
-        <td className="cy-ordering-row-actions"><button className="cy-op-button compact" type="button" onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setReceipt({id:l.orderId,no:"",date:nowDate(),quantities:{[l.lineId]:String(l.remaining)},selectedLineIds:[l.lineId]})})}>登記到貨</button>
-         <button type="button" className="cy-op-button compact quiet" onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setClosing({id:l.lineId,kind:"SHORTAGE",reason:""})})}>結掉</button></td></tr>)}
-      </tbody></table></div>:!pendingLoading?<p className="cy-op-empty">目前沒有未到貨的品項。</p>:null}
+      {pending.length?<div className="cy-ordering-pending">
+       {pendingOrders(pending).map(group=>{const open=!collapsedPending.has(group.orderId),first=group.lines[0];return <section key={group.orderId} className="cy-ordering-pending-card">
+        <div className="cy-ordering-pending-head">
+         <button type="button" className="cy-ordering-pending-toggle" aria-expanded={open}
+          onClick={()=>setCollapsedPending(prev=>{const next=new Set(prev);if(next.has(group.orderId))next.delete(group.orderId);else next.add(group.orderId);return next})}>
+          <span className="cy-ordering-pending-caret" aria-hidden="true">{open?"▾":"▸"}</span>
+          <strong>{first.sourceName}</strong><span>{displayDate(first.orderDate)}</span><span className="cy-ordering-pending-count">{group.lines.length} 項未到</span>
+         </button>
+         <button type="button" className="cy-op-button compact" onClick={()=>void reloadOrder(group.orderId).then(order=>{if(order)setReceipt({id:group.orderId,no:"",date:nowDate(),
+          quantities:Object.fromEntries(group.lines.map(l=>[l.lineId,String(l.remaining)])),selectedLineIds:group.lines.map(l=>l.lineId)})})}>登記到貨</button>
+        </div>
+        {open?<table className="cy-op-table cy-ordering-pending-table"><thead><tr><th>品號</th><th>品名</th><th>叫貨</th><th>已到</th><th>剩餘</th><th/></tr></thead><tbody>
+         {group.lines.map(l=><tr key={l.lineId}><td className="cy-mono">{l.itemCode}</td><td>{l.itemName||l.vendorItemName}</td><td>{l.quantity}{l.unit}</td><td>{l.received}</td><td><strong>{l.remaining}</strong></td>
+          <td className="cy-ordering-row-actions"><button className="cy-op-button compact quiet" type="button" onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setReceipt({id:l.orderId,no:"",date:nowDate(),quantities:{[l.lineId]:String(l.remaining)},selectedLineIds:[l.lineId]})})}>登記到貨</button>
+           <button type="button" className="cy-op-button compact quiet" onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setClosing({id:l.lineId,kind:"SHORTAGE",reason:""})})}>結掉</button></td></tr>)}
+        </tbody></table>:null}
+       </section>})}
+      </div>:!pendingLoading?<p className="cy-op-empty">目前沒有未到貨的品項。</p>:null}
     </>
     :vendorAll?<>
       <div className="cy-ordering-vendor-picker">

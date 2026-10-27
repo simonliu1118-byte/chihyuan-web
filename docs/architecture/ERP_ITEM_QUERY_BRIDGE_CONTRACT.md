@@ -162,7 +162,7 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 
 ## 進貨輔助（V0.9.24 Build 3）
 
-- 新 Module Access `ERP_RESTOCK_ASSIST`「進貨輔助」，獨立頁面 `#restock-assist`（左邊導覽在「ERP 查詢」下方）。`migrations/0019_erp_restock_assist.sql` 擴充 module_code 與 query_type CHECK。
+- 新 Module Access `ERP_RESTOCK_ASSIST`「進貨輔助」，獨立頁面 `#restock-assist`（左邊導覽在「ERP 查詢」下方；V0.9.41 起併入 ERP 查詢頁）。`migrations/0019_erp_restock_assist.sql` 擴充 module_code 與 query_type CHECK。
 - 前提權限（使用者 2026-10-21）：`ERP_RESTOCK_ASSIST` 只在同時具備 `ERP_ITEM_QUERY`、`ERP_CUSTOMER_QUERY` 時有效（`shared/modules.ts` 的 `MODULE_REQUIREMENTS`，`checkModuleAccess`／`allowedModuleCodes` 依此計算）；缺前提時建立或讀取 RESTOCK 回 403，訊息列出需要的權限。Module Access 個人設定開啟它而缺前提回 409 `MODULE_REQUIREMENT_MISSING`；關閉它需要的前提時，它在同一批一併關閉（回應 `alsoDisabled`，各記一筆稽核；使用者 2026-10-21）。權限群組送出的模組組合缺前提回 409（畫面在取消前提時會一併移除進貨輔助再送出）。
 - 查詢類型 `RESTOCK`：`POST /api/erp/item-queries` `{ queryType:"RESTOCK", dateFrom, dateTo }`，兩者必填（YYYY-MM-DD），起 ≤ 迄 ≤ 台北今天，最多 31 天（含頭尾）；存在 `history_from／history_to`。
 - Claim：`{ id, queryType:"RESTOCK", dateFrom, dateTo, expiresAt }`。Agent 查這段期間**所有客戶**的 COPR15 銷貨單與 COPR16 銷退單，依品號與單據日期加總數量，再逐一以 INVI02 查各品號的庫存數量。
@@ -184,3 +184,12 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 - `GET /api/erp/agent-status` 增加 `control:{request,requestedAt,holdUntil,result,resultAt}`。
 - Agent claim 回應增加 `control:{request,holdUntil}`；Agent 只在沒有領到工作時處理 request，完成後 `POST /api/erp-agent/control {request,result}`，result 為 `CLOSED`／`KEPT_OPEN`（ERP 有編輯中的詢問而保留）／`NOT_OPEN`／`FAILED`。回報的 request 與目前不同時不覆蓋（新的要求仍待處理）。舊版 Agent 不認得 control，要求會一直顯示「等待查詢程式關閉 ERP」。
 - 查詢失敗（ERP_NOT_OPEN、ERP_STATE、EXPORT_FAILED、INTERNAL、逾時）時，網頁詢問是否強制關閉 ERP。
+
+## V0.9.41：每人三筆、排程佇列、ERP 查詢頁保留（使用者 2026-10-27）
+
+- 每位成員最多 3 筆 QUEUED／RUNNING（建立時檢查，超過回 409 `QUERY_ALREADY_ACTIVE`「你已有 3 筆查詢在排隊或執行中…」）。`migrations/0026_erp_query_owner_index.sql` 移除「每人一筆」唯一索引，加 `(owner_member_id, created_at)` 索引。
+- Agent 仍一次執行一筆，依送入時間（created_at, id）領取，不做成員間輪流（使用者 2026-10-27）。
+- 排隊過期：`expires_at` 改為建立後 60 分鐘上限；另外建立超過 120 秒、沒有 RUNNING 工作且 Agent 最近 60 秒沒有 claim（已離線）時過期。Agent 連線中或正在執行時，排隊工作會等待（可能排在別人的進貨輔助後面）。
+- `GET /api/erp/queue`（任一 ERP 查詢權限）：`{jobs:[{id,mine,member,queryType,target,status,createdAt,startedAt,progress,estimatedDoneAt}],maxPerMember}`，執行中在前、其後依送入時間。`member` 為顯示名稱（無則員工編號）；`target`（品號、關鍵字、代號、日期範圍）只在讀者有該查詢類型權限時提供，否則為 null。預估完成時間：近 30 天同類型（含歷史異動分開）DONE／NOT_FOUND 的平均耗時，沒有資料時用預設值；依序累加，執行中的以開始時間加平均耗時（已超過則至少 30 秒後）。
+- `GET /api/erp/item-queries/recent`：成員近 24 小時的查詢（新到舊，最多 20 筆，只列仍有權限的類型），ERP 查詢頁開啟時各類別接回自己最新的一筆（換裝置也可）。
+- 前端：進貨輔助併入 ERP 查詢頁，類別順序 商品、客戶、供應商、進貨輔助、未收款，最右邊「排程佇列」（每 5 秒更新）。`ERP_RESTOCK_ASSIST` 的 route 改為 `erp-item-query`，舊連結 `#restock-assist` 轉到 ERP 查詢。每個類別各自保留查詢、表單與結果，查詢中的類別在頁籤上標示；ERP 查詢頁開過後切到其他模組仍保留在背景，查詢完成時若該類別不在畫面上，右上角通知「XX查詢完成／失敗」並可按「查看」回到該類別。

@@ -18,8 +18,10 @@ import { ModuleSettingsButton } from "./runtime/modules/ModuleSettingsPanel";
 import { AuditOperationalPage } from "./runtime/modules/AuditOperationalPage";
 import { CustomerOperationalPage } from "./runtime/modules/CustomerOperationalPage";
 import { DefectOperationalPage } from "./runtime/modules/DefectOperationalPage";
-import { ErpItemQueryPage } from "./runtime/modules/ErpItemQueryPage";
-import { RestockAssistPage } from "./runtime/modules/RestockAssistPage";
+import { ERP_OPEN_CATEGORY_EVENT, ErpItemQueryPage } from "./runtime/modules/ErpItemQueryPage";
+import { ERP_QUERY_DONE_EVENT, ErpPageVisibleContext, type ErpQueryDoneDetail } from "./runtime/modules/useErpJob";
+import { useToastQueue } from "./ui/feedback/useToastQueue";
+import { ToastRegion } from "./ui/feedback/ToastRegion";
 import {OrderingPage} from "./runtime/modules/OrderingPage";
 import { ErpAgentCredentialControl } from "./runtime/modules/ErpAgentCredentialControl";
 import { ItemOperationalPage } from "./runtime/modules/ItemOperationalPage";
@@ -34,7 +36,7 @@ import { UnsavedChangesBoundary, useNavigationGuard } from "./ui/foundation/useU
 import { createGuardedHashNavigation } from "./ui/foundation/guarded-hash-navigation";
 import { FeedbackProvider, useFeedback, useFeedbackMessage } from "./ui/feedback/FeedbackProvider";
 
-type AppRoute = "hr" | "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "erp-item-query" | "restock-assist" | "ordering" | "audit" | "identity" | "account" | "backups" | "programs";
+type AppRoute = "hr" | "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "erp-item-query" | "ordering" | "audit" | "identity" | "account" | "backups" | "programs";
 
 // One source of truth for the topbar titles and on-demand module descriptions.
 const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
@@ -46,7 +48,6 @@ const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
   outsourcing: { title:"委外/代工", description:"代工單、協力廠商、單價、BOM 與庫存" },
   worklogs: { title:"工作日誌", description:"填寫日誌、送審與評分統計" },
   "erp-item-query": { title:"ERP 查詢", description:"查閱 SMART ERP 資料，只讀不改" },
-  "restock-assist": { title:"進貨輔助", description:"期間內各品號每日銷貨、銷退與目前庫存（SMART ERP，只讀不改）" },
   ordering: {title:"叫貨",description:"叫貨草稿、送出、到貨紀錄與未到貨管理"},
   identity: { title:"帳號與權限", description:"使用者、權限群組與系統安全" },
   account: { title:"我的帳號", description:"變更自己的密碼與 Email" },
@@ -59,7 +60,6 @@ const baseNavigation: readonly NavigationGroup[] = [
   {
     key: "erp-query", items: [
       { key: "erp-item-query", label: "ERP 查詢", href: "#erp-item-query" },
-      { key: "restock-assist", label: "進貨輔助", href: "#restock-assist" },
     ],
   },
   {
@@ -103,7 +103,6 @@ const routes = new Set<AppRoute>([
   "outsourcing",
   "worklogs",
   "erp-item-query",
-  "restock-assist",
   "ordering",
   "identity",
   "account",
@@ -113,7 +112,9 @@ const routes = new Set<AppRoute>([
 ]);
 
 function currentRoute(): AppRoute {
-  const value = window.location.hash.replace(/^#/, "").split("?")[0] as AppRoute;
+  const hash = window.location.hash.replace(/^#/, "").split("?")[0];
+  // 進貨輔助 is a category of ERP 查詢 since V0.9.41; its old link still opens it.
+  const value = (hash === "restock-assist" ? "erp-item-query" : hash) as AppRoute;
   return routes.has(value) ? value : "account";
 }
 
@@ -231,8 +232,7 @@ function OperationalApp({
       const erpAllowed = moduleCodesForRoute("erp-item-query").some(code => allowedModules.has(code));
       const firstBusiness = baseNavigation.find(group => group.key === "business")?.items.find(item =>
         moduleCodesForRoute(item.key).some(code => allowedModules.has(code)));
-      const restockAllowed = moduleCodesForRoute("restock-assist").some(code => allowedModules.has(code));
-      window.location.hash = erpAllowed ? "#erp-item-query" : restockAllowed ? "#restock-assist" : firstBusiness?.href ?? "#account";
+      window.location.hash = erpAllowed ? "#erp-item-query" : firstBusiness?.href ?? "#account";
       return;
     }
 
@@ -293,8 +293,7 @@ function OperationalApp({
   else if (route === "orders") content = <SalesOrderOperationalPage />;
   else if (route === "outsourcing") content = <OutsourcingOperationalPage />;
   else if (route === "worklogs") content = <WorkLogOperationalPage />;
-  else if (route === "erp-item-query") content = <ErpItemQueryPage allowedModules={allowedModules} />;
-  else if (route === "restock-assist") content = <RestockAssistPage canQueryItem={allowedModules.has("ERP_ITEM_QUERY")} canOrdering={allowedModules.has("ORDERING")} />;
+  else if (route === "erp-item-query") content = null; // the kept ERP 查詢 page below
   else if (route === "ordering") content = <OrderingPage />;
   else if (route === "identity") content = <SharedIdentityPage session={session}
     showUsage={usageRequested && role === "SUPER_ADMIN"}
@@ -303,6 +302,33 @@ function OperationalApp({
   else if (route === "programs") content = <ProgramCatalogPage />;
   else if (route === "backups") content = session.user.workspaceRole === "SUPER_ADMIN" ? <BackupOperationalPage session={session} /> : <section className="cy-op-panel">需要最高管理員權限。</section>;
   else content = <AuditOperationalPage role={role === "SUPER_ADMIN" ? "SUPER_ADMIN" : "ADMIN"} />;
+
+  // ERP 查詢 stays mounted once opened (user 2026-10-27: switching modules must not close it); its
+  // queries keep running and a finished one is announced while another module or category is open.
+  const erpShown = route === "erp-item-query" && content === null;
+  const erpAllowed = moduleCodesForRoute("erp-item-query").some(code => allowedModules.has(code));
+  const [erpOpened, setErpOpened] = useState(false);
+  useEffect(() => { if (erpShown) setErpOpened(true); }, [erpShown]);
+  const { toasts, pushToast, dismissToast } = useToastQueue(10000);
+  useEffect(() => {
+    const done = (event: Event) => {
+      const detail = (event as CustomEvent<ErpQueryDoneDetail>).detail;
+      if (detail.visible) return;
+      const failed = detail.status === "FAILED" || detail.status === "EXPIRED";
+      const id = pushToast({
+        tone: failed ? "danger" : "success",
+        title: `${detail.label}查詢${failed ? "失敗" : detail.status === "NOT_FOUND" ? "完成（查無資料）" : "完成"}`,
+        message: <>{failed && detail.message ? <span>{detail.message} </span> : null}
+          <button className="cy-op-button compact" type="button" onClick={() => {
+            dismissToast(id);
+            void guardedNavigation.request(detail.route as AppRoute, "link").then(() =>
+              window.dispatchEvent(new CustomEvent(ERP_OPEN_CATEGORY_EVENT, { detail: detail.key })));
+          }}>查看</button></>,
+      });
+    };
+    window.addEventListener(ERP_QUERY_DONE_EVENT, done);
+    return () => window.removeEventListener(ERP_QUERY_DONE_EVENT, done);
+  }, [pushToast, dismissToast, guardedNavigation]);
 
   const usageToday = usageReport?.today;
   const usageDate = usageToday?.date ?? "";
@@ -342,7 +368,7 @@ function OperationalApp({
       pageTitle={PAGE_META[route].title}
       pageDescription={PAGE_META[route].description}
       pageTools={route === "hr" ? <HrSettingsButton />
-        : route === "erp-item-query" || route === "restock-assist"
+        : route === "erp-item-query"
         ? <ErpAgentCredentialControl isSuperAdmin={session.user.workspaceRole === "SUPER_ADMIN"} />
         : route === "customers" ? <ModuleSettingsButton key={route} role={role} label="客戶" only={["customer_category","customer_status","department"]} />
         : route === "items" ? <ModuleSettingsButton key={route} role={role} label="商品" only={["item_category"]} />
@@ -359,6 +385,10 @@ function OperationalApp({
     >
       {moduleAccessError && route === "account" ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-title">模組權限狀態</div><div className="cy-notice-body">{moduleAccessError}</div></div> : null}
       {content}
+      {erpAllowed && (erpOpened || erpShown) && <div className="cy-kept-page" hidden={!erpShown}>
+        <ErpPageVisibleContext.Provider value={erpShown}><ErpItemQueryPage allowedModules={allowedModules} /></ErpPageVisibleContext.Provider>
+      </div>}
+      <ToastRegion toasts={toasts} onDismiss={dismissToast} label="ERP 查詢通知" />
     </AppShell>
   );
 }

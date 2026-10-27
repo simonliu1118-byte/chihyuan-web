@@ -30,6 +30,8 @@ function fixture(role = "USER") {
   const user = {
     create: async body => json(await call("/api/erp/item-queries", "POST", body)),
     load: async id => json(await call("/api/erp/item-queries/" + id, "GET")),
+    recent: async () => json(await call("/api/erp/item-queries/recent", "GET")),
+    queue: async () => json(await call("/api/erp/queue", "GET")),
     agentStatus: async () => json(await call("/api/erp/agent-status", "GET")),
     control: async body => json(await call("/api/erp/agent-control", "POST", body)),
   };
@@ -470,5 +472,82 @@ test("the Agent counts as connected while it runs a job", async () => {
     assert.equal((await user.agentStatus()).body.data.online, true);
     sql.prepare("UPDATE erp_item_queries SET status='FAILED'").run();
     assert.equal((await user.agentStatus()).body.data.online, false);
+  } finally { sql.close(); }
+});
+
+test("a member's recent queries are listed newest first, only types still granted", async () => {
+  const { sql, user, agent, grant } = fixture();
+  try {
+    grant("ERP_ITEM_QUERY");
+    const first = (await user.create({ queryType: "ITEM_NO", itemNo: "X0001" })).body.data;
+    const job = (await agent.claim(ALL_TYPES)).body.data.job;
+    await agent.complete(job.id, { outcome: "NOT_FOUND", fields: [], warehouses: [], errorCode: null, errorMessage: null });
+    grant("ERP_CUSTOMER_QUERY");
+    const second = (await user.create({ queryType: "CUSTOMER_NO", customerCode: "CU0001" })).body.data;
+    const recent = await user.recent();
+    assert.equal(recent.status, 200, JSON.stringify(recent.body));
+    assert.deepEqual(recent.body.data.map(r => [r.id, r.queryType]), [[second.id, "CUSTOMER_NO"], [first.id, "ITEM_NO"]]);
+    sql.prepare("DELETE FROM app_member_module_access WHERE module_code='ERP_CUSTOMER_QUERY'").run();
+    assert.deepEqual((await user.recent()).body.data.map(r => r.queryType), ["ITEM_NO"]);
+  } finally { sql.close(); }
+});
+
+test("a member may have three queries queued or running; the queue lists them in the order sent", async () => {
+  const { sql, user, agent, grant } = fixture();
+  try {
+    grant("ERP_ITEM_QUERY");
+    const ids = [];
+    for (const itemNo of ["X0001", "X0002", "X0003"]) {
+      const created = await user.create({ queryType: "ITEM_NO", itemNo });
+      assert.equal(created.status, 202, JSON.stringify(created.body));
+      ids.push(created.body.data.id);
+    }
+    const fourth = await user.create({ queryType: "ITEM_NO", itemNo: "X0004" });
+    assert.equal(fourth.status, 409);
+    assert.equal(fourth.body.error.code, "QUERY_ALREADY_ACTIVE");
+    // Another member's query sent later waits behind them.
+    sql.prepare("INSERT INTO app_members(identity_employee_id,employee_no,display_name,is_active,created_at,updated_at) VALUES('other','0098','假同事',1,?,?)").run(new Date().toISOString(), new Date().toISOString());
+    const other = sql.prepare("SELECT id FROM app_members WHERE identity_employee_id='other'").get().id;
+    sql.prepare(`INSERT INTO erp_item_queries(id,owner_member_id,item_no,status,created_at,expires_at,query_type,receivable_scope,target_code)
+      VALUES('00000000-0000-4000-8000-000000000001',?,'CU0001','QUEUED',?,?,'RECEIVABLE','CUSTOMER','CU0001')`)
+      .run(other, new Date(Date.now() + 1000).toISOString(), new Date(Date.now() + 3600000).toISOString());
+    const claimed = (await agent.claim(ALL_TYPES)).body.data.job;
+    assert.equal(claimed.id, ids[0]);
+    const queue = await user.queue();
+    assert.equal(queue.status, 200, JSON.stringify(queue.body));
+    const jobs = queue.body.data.jobs;
+    assert.deepEqual(jobs.map(j => [j.status, j.mine, j.target]),
+      [["RUNNING", true, "X0001"], ["QUEUED", true, "X0002"], ["QUEUED", true, "X0003"], ["QUEUED", false, null]]);
+    assert.equal(jobs[3].member, "假同事");
+    assert.equal(queue.body.data.maxPerMember, 3);
+    // Each estimate is after the one before it.
+    for (let i = 1; i < jobs.length; i++) assert.ok(Date.parse(jobs[i].estimatedDoneAt) > Date.parse(jobs[i - 1].estimatedDoneAt));
+    // A receivable grant shows what the receivable query is for.
+    grant("ERP_RECEIVABLE_QUERY");
+    assert.equal((await user.queue()).body.data.jobs[3].target, "客戶 CU0001");
+    await agent.complete(claimed.id, { outcome: "NOT_FOUND", fields: [], warehouses: [], errorCode: null, errorMessage: null });
+    assert.equal((await user.create({ queryType: "ITEM_NO", itemNo: "X0004" })).status, 202);
+  } finally { sql.close(); }
+});
+
+test("a queued query waits while the Agent is busy or connected, and expires once it is gone", async () => {
+  const { sql, user, agent, grant } = fixture();
+  try {
+    grant("ERP_ITEM_QUERY");
+    await user.create({ queryType: "ITEM_NO", itemNo: "X0001" });
+    const waiting = (await user.create({ queryType: "ITEM_NO", itemNo: "X0002" })).body.data;
+    await agent.claim(ALL_TYPES);
+    const old = new Date(Date.now() - 10 * 60000).toISOString();
+    sql.prepare("UPDATE erp_item_queries SET created_at=? WHERE id=?").run(old, waiting.id);
+    sql.prepare("UPDATE erp_item_agent_status SET last_seen_at=? WHERE id=1").run(old);
+    // A query is running: the queued one waits.
+    assert.equal((await user.load(waiting.id)).body.data.status, "QUEUED");
+    sql.prepare("UPDATE erp_item_queries SET status='FAILED' WHERE status='RUNNING'").run();
+    // Nothing running, but the Agent claimed in the last minute: still waits.
+    sql.prepare("UPDATE erp_item_agent_status SET last_seen_at=? WHERE id=1").run(new Date().toISOString());
+    assert.equal((await user.load(waiting.id)).body.data.status, "QUEUED");
+    // The Agent is gone.
+    sql.prepare("UPDATE erp_item_agent_status SET last_seen_at=? WHERE id=1").run(old);
+    assert.equal((await user.load(waiting.id)).body.data.status, "EXPIRED");
   } finally { sql.close(); }
 });

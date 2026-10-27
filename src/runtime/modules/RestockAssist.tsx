@@ -13,7 +13,7 @@ import { ERP_RESTOCK_MAX_DAYS, type ErpRestockItem } from "../../../shared/erp-i
 import { parseErpCode } from "../../../shared/erp-name-search";
 import { ErpItemDialog } from "./ErpItemDialog";
 import { ErpJobStatus, showsData } from "./ErpJobStatus";
-import { useErpJob } from "./useErpJob";
+import type { ErpJob } from "./useErpJob";
 import "./erp-item-query.css";
 
 /** Every day of the range, YYYY-MM-DD, oldest first. */
@@ -131,8 +131,8 @@ const dayClass = (day: string, index: number, second = false) =>
  * user 2026-10-21), and each 品號's 庫存數量, shown in one table: filtered, sorted, 庫存不足 marked,
  * and a 品號 opens its ERP data in a window (with ERP 商品查詢).
  */
-export function RestockAssistPage({ canQueryItem,canOrdering=false }: { canQueryItem: boolean;canOrdering?:boolean }) {
-  const job = useErpJob();
+/** 進貨輔助, a category of ERP 查詢 (V0.9.41); the page owns its job. */
+export function RestockAssist({ job, canQueryItem, canOrdering }: { job: ErpJob; canQueryItem: boolean; canOrdering: boolean }) {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const { result, busy, submitting, setError } = job;
@@ -148,7 +148,7 @@ export function RestockAssistPage({ canQueryItem,canOrdering=false }: { canQuery
     void job.start({ queryType: "RESTOCK", dateFrom: range.from, dateTo: range.to });
   }
   const mine = result?.queryType === "RESTOCK" ? result : null;
-  return <div className="cy-erp-page">
+  return <>
     <div className="cy-op-panel cy-erp-query-box">
       <form role="search" className="cy-erp-form" onSubmit={submit} noValidate>
         <div className="cy-erp-history-options">
@@ -166,7 +166,7 @@ export function RestockAssistPage({ canQueryItem,canOrdering=false }: { canQuery
         <RestockTable key={mine.id} from={mine.dateFrom} to={mine.dateTo} items={mine.restock} canQueryItem={canQueryItem} canOrdering={canOrdering} />
       </>}
     </div>}
-  </div>;
+  </>;
 }
 
 function AddToOrdering({row,onClose,onAdded}:{row:Row;onClose:()=>void;onAdded:(text:string)=>void}){
