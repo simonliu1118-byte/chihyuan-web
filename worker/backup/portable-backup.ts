@@ -3,10 +3,11 @@ import { BACKUP_COLUMNS } from "./schema-columns";
 import { MAX_OBJECT_BYTES } from "./storage-guard";
 export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
 // Operational queue, heartbeat and revocable credential hashes are intentionally
-// excluded from durable backup. After recovery the Super Admin reissues the Agent token.
+// excluded from durable backup (also the ERP 關閉／暫停 request). After recovery the Super Admin
+// reissues the Agent token.
 // The ERP sales history (進貨輔助, 2026-10-21) is copied from SMART ERP, which stays its source:
 // it is rebuilt by running 進貨輔助 again, and is far larger than this snapshot allows.
-const EPHEMERAL_TABLES = ["erp_item_queries", "erp_item_agent_status", "erp_item_agent_credentials",
+const EPHEMERAL_TABLES = ["erp_item_queries", "erp_item_agent_status", "erp_item_agent_credentials", "erp_item_agent_control",
   "erp_sales_daily", "erp_sales_days", "erp_sales_items"] as const;
 const ALL_TABLES = [...BACKUP_TABLES, "backup_copies", "backup_sets", ...EPHEMERAL_TABLES].sort();
 // Newly migrated D1 has canonical HR reference rows before any operator data.

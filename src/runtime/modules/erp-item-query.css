@@ -288,3 +288,6 @@
 .cy-ordering-vendor-legend > span { display: inline-flex; align-items: center; gap: 3px; }
 .cy-ordering-vendor-legend .cy-status-dot { width: 6px; height: 6px; }
 .cy-ordering-vendor-legend .cy-status-dot[data-tone="neutral"] { background: var(--cy-text-muted); }
+/* ERP 關閉／暫停 dialog (header control): two titled parts, ERP control first. */
+.cy-erp-control-title { margin: 16px 0 6px; font-size: var(--cy-fs-md); font-weight: 600; }
+.cy-erp-control-title:first-child { margin-top: 0; }

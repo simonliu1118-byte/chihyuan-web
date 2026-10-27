@@ -31,11 +31,13 @@ function fixture(role = "USER") {
     create: async body => json(await call("/api/erp/item-queries", "POST", body)),
     load: async id => json(await call("/api/erp/item-queries/" + id, "GET")),
     agentStatus: async () => json(await call("/api/erp/agent-status", "GET")),
+    control: async body => json(await call("/api/erp/agent-control", "POST", body)),
   };
   const agent = {
     claim: async queryTypes => json(await call("/api/erp-agent/item-queries/claim", "POST", { agentVersion: "test", erpState: "BROWSE", ...(queryTypes ? { queryTypes } : {}) }, true)),
     complete: async (id, body) => json(await call(`/api/erp-agent/item-queries/${id}/complete`, "POST", { elapsedMs: 1000, agentVersion: "test", ...body }, true)),
     progress: async (id, body) => json(await call(`/api/erp-agent/item-queries/${id}/progress`, "POST", body, true)),
+    control: async body => json(await call("/api/erp-agent/control", "POST", body, true)),
   };
   const grant = code => {
     sql.prepare("INSERT OR IGNORE INTO app_members(identity_employee_id,employee_no,is_active,created_at,updated_at) VALUES('erp-business-synthetic','0097',1,?,?)").run(now, now);
@@ -422,5 +424,38 @@ test("ERP_SEATS_FULL is accepted and shown as 人數已滿", async () => {
     assert.equal(loaded.status, "FAILED");
     assert.equal(loaded.errorCode, "ERP_SEATS_FULL");
     assert.match(loaded.errorMessage, /人數已滿/);
+  } finally { sql.close(); }
+});
+
+test("ERP close and hold: any ERP grant may ask; the Agent sees it on claim and reports back", async () => {
+  const { sql, user, agent, grant } = fixture();
+  try {
+    assert.equal((await user.control({ action: "CLOSE", minutes: 30 })).status, 403);
+    grant("ERP_CUSTOMER_QUERY");
+    assert.equal((await user.control({ action: "CLOSE", minutes: 20 })).status, 400);
+    const held = await user.control({ action: "CLOSE", minutes: 30 });
+    assert.equal(held.status, 200, JSON.stringify(held.body));
+    assert.equal(held.body.data.request, "CLOSE");
+    assert.ok(Date.parse(held.body.data.holdUntil) > Date.now() + 29 * 60000);
+    grant("ERP_ITEM_QUERY");
+    const refused = await user.create({ queryType: "ITEM_NO", itemNo: "X0001" });
+    assert.equal(refused.status, 409);
+    assert.equal(refused.body.error.code, "ERP_HELD");
+    assert.match(refused.body.error.message, /\d\d:\d\d 後可再查詢/);
+    const claimed = (await agent.claim(ALL_TYPES)).body.data;
+    assert.equal(claimed.job, null);
+    assert.equal(claimed.control.request, "CLOSE");
+    assert.equal((await agent.control({ request: "FORCE_CLOSE", result: "CLOSED" })).body.data.request, "CLOSE", "a different request stays pending");
+    const done = await agent.control({ request: "CLOSE", result: "CLOSED" });
+    assert.equal(done.body.data.request, null);
+    assert.equal(done.body.data.result, "CLOSED");
+    const status = (await user.agentStatus()).body.data.control;
+    assert.equal(status.result, "CLOSED");
+    assert.ok(status.holdUntil);
+    assert.equal((await user.control({ action: "RESUME" })).body.data.holdUntil, null);
+    assert.equal((await user.create({ queryType: "ITEM_NO", itemNo: "X0001" })).status, 202);
+    const forced = await user.control({ action: "FORCE_CLOSE" });
+    assert.equal(forced.body.data.request, "FORCE_CLOSE");
+    assert.equal((await agent.control({ request: "FORCE_CLOSE", result: "BOGUS" })).status, 400);
   } finally { sql.close(); }
 });
