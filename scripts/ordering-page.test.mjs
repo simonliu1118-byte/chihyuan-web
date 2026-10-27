@@ -291,3 +291,15 @@ test("a sent order is changed in edit mode with no autosave and saved as one rev
  assert.deepEqual(revisions[0].lines.map(l=>[l.lineId,l.quantityText]),[[2,"12"]]);
  assert.equal(page.grid.readOnly,true,"saving leaves edit mode");
 });
+
+test("a row added in edit mode keeps its local id, so later keystrokes update it instead of adding rows",async()=>{
+ const page=mount((path,options)=>path==="/orders/10"?sentOrder():normalTransport(path,options));
+ await page.tick();page.click("測試來源甲");await page.tick();page.click("修改");await page.tick();
+ const blank={id:0,section:"",sortOrder:0,itemCode:"",itemName:"C0003",vendorItemCode:"",vendorItemName:"",spec:"",quantityText:"",unit:"",note:""};
+ const first=await page.grid.onCommit({...blank},{...blank},false);await page.tick();
+ assert.ok(first.id>0,"the grid requires a positive id to treat the row as saved");
+ const second=await page.grid.onCommit(first,{itemName:"C00031"},false);await page.tick();
+ assert.equal(second.id,first.id);
+ assert.equal(page.grid.lines.length,sentOrder().lines.length+1);
+ assert.equal(page.grid.lines.at(-1).itemName,"C00031");
+});

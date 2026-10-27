@@ -39,7 +39,9 @@ let localLineId=Number.MAX_SAFE_INTEGER;
 const REVISE_FIELDS=["sortOrder","section","itemCode","itemName","vendorItemCode","vendorItemName","spec","quantityText","unit","note"] as const;
 const revisePayload=(l:ReviseLine)=>Object.fromEntries(REVISE_FIELDS.map(f=>[f,f==="vendorItemName"&&l.vendorNameFollows?"":String(l[f]??"")]));
 function applyRevise(line:ReviseLine,patch:Partial<GridLine>):ReviseLine{
- const next={...line,...patch} as ReviseLine;
+ // A new row's first save carries the whole row with id 0; the local id must survive it.
+ const {id:_id,...fields}=patch;
+ const next={...line,...fields} as ReviseLine;
  if("vendorItemName" in patch){const own=String(patch.vendorItemName??"").trim();next.vendorNameFollows=!own;next.vendorItemName=own||next.itemName}
  else if(next.vendorNameFollows!==false)next.vendorItemName=next.itemName;
  next.quantity=parseQuantity(next.quantityText).quantity;
@@ -262,7 +264,7 @@ export function OrderingPage(){
    setRevising({...r,lines:r.lines.map(l=>l.id===row.id?saved:l)});
   }else{
    const id=localLineId--;
-   saved=applyRevise({...row,...patch,id,sortOrder:Date.now(),received:0,quantity:null,vendorNameFollows:true} as ReviseLine,{...row,...patch});
+   saved=applyRevise({...row,id,sortOrder:Date.now(),received:0,quantity:null,vendorNameFollows:true} as ReviseLine,{...row,...patch});
    setRevising({...r,lines:[...r.lines,saved],added:new Set([...r.added,id])});
   }
   return saved;
