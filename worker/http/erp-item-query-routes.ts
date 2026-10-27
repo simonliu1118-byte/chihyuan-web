@@ -73,6 +73,8 @@ const partyOf = (type: ErpQueryType) => type === "CUSTOMER_NO" || type === "CUST
 const ERROR_TEXT: Record<ErpQueryErrorCode, string> = {
   ERP_NOT_OPEN: "ERP 尚未開啟", ERP_BUSY: "ERP 正在忙碌",
   ERP_STATE: "ERP 畫面狀態不符", EXPORT_FAILED: "ERP 匯出失敗",
+  // ERP refused the Agent's login: every licence is taken (CYERPAutoQuery 1.0.4, user 2026-10-27).
+  ERP_SEATS_FULL: "ERP 人數已滿，請稍後再查詢",
   CANCELLED: "查詢已取消", INTERNAL: "查詢程式發生錯誤",
   AGENT_TIMEOUT: "查詢程式逾時，請重新查詢",
 };

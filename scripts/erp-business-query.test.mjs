@@ -408,3 +408,19 @@ test("a finished RESTOCK keeps per-day sales and rewrites only what changed", as
     assert.equal(sql.prepare("SELECT query_id FROM erp_sales_days WHERE sale_date=?").get(today).query_id, fifth);
   } finally { sql.close(); }
 });
+
+test("ERP_SEATS_FULL is accepted and shown as 人數已滿", async () => {
+  const { sql, user, agent, grant } = fixture();
+  try {
+    grant("ERP_ITEM_QUERY");
+    const created = await user.create({ queryType: "ITEM_NO", itemNo: "X0001" });
+    assert.equal(created.status, 202, JSON.stringify(created.body));
+    const job = (await agent.claim(ALL_TYPES)).body.data.job;
+    const done = await agent.complete(job.id, { outcome: "FAILED", fields: [], warehouses: [], errorCode: "ERP_SEATS_FULL", errorMessage: null });
+    assert.equal(done.status, 200, JSON.stringify(done.body));
+    const loaded = (await user.load(created.body.data.id)).body.data;
+    assert.equal(loaded.status, "FAILED");
+    assert.equal(loaded.errorCode, "ERP_SEATS_FULL");
+    assert.match(loaded.errorMessage, /人數已滿/);
+  } finally { sql.close(); }
+});
