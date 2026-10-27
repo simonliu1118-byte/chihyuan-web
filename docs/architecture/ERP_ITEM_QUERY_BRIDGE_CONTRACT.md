@@ -207,4 +207,10 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 - 排隊過期：`expires_at` 改為建立後 60 分鐘上限；另外建立超過 120 秒、沒有 RUNNING 工作且 Agent 最近 60 秒沒有 claim（已離線）時過期。Agent 連線中或正在執行時，排隊工作會等待（可能排在別人的進貨輔助後面）。
 - `GET /api/erp/queue`（任一 ERP 查詢權限）：`{jobs:[{id,mine,member,queryType,target,status,createdAt,startedAt,progress,estimatedDoneAt}],maxPerMember}`，執行中在前、其後依送入時間。`member` 為顯示名稱（無則員工編號）；`target`（品號、關鍵字、代號、日期範圍）只在讀者有該查詢類型權限時提供，否則為 null。預估完成時間：近 30 天同類型（含歷史異動分開）DONE／NOT_FOUND 的平均耗時，沒有資料時用預設值；依序累加，執行中的以開始時間加平均耗時（已超過則至少 30 秒後）。
 - `GET /api/erp/item-queries/recent`：成員近 24 小時的查詢（新到舊，最多 20 筆，只列仍有權限的類型），ERP 查詢頁開啟時各類別接回自己最新的一筆（換裝置也可）。
-- 前端：進貨輔助併入 ERP 查詢頁，類別順序 商品、客戶、供應商、進貨輔助、未收款，最右邊「排程佇列」（每 5 秒更新）。`ERP_RESTOCK_ASSIST` 的 route 改為 `erp-item-query`，舊連結 `#restock-assist` 轉到 ERP 查詢。每個類別各自保留查詢、表單與結果，查詢中的類別在頁籤上標示；ERP 查詢頁開過後切到其他模組仍保留在背景，查詢完成時若該類別不在畫面上，右上角通知「XX查詢完成／失敗」並可按「查看」回到該類別。
+- 前端：進貨輔助併入 ERP 查詢頁，類別順序 商品、客戶、供應商、進貨輔助、未收款，最右邊「排程佇列」（每 5 秒更新；V0.9.42 改為類別列右側按鈕打開的抽屜）。`ERP_RESTOCK_ASSIST` 的 route 改為 `erp-item-query`，舊連結 `#restock-assist` 轉到 ERP 查詢。每個類別各自保留查詢、表單與結果，查詢中的類別在頁籤上標示；ERP 查詢頁開過後切到其他模組仍保留在背景，查詢完成時若該類別不在畫面上，右上角通知「XX查詢完成／失敗」並可按「查看」回到該類別。
+
+## V0.9.42：排程佇列抽屜與進貨輔助表格（使用者 2026-10-27）
+
+- 排程佇列改為類別列右側「排程佇列」按鈕打開的右側抽屜（共用 `Drawer`），開著時每 5 秒讀 `GET /api/erp/queue`；每筆顯示「預計 HH:MM 完成（約 N 分鐘後）」。API 不變。
+- 進貨輔助表格：品號與品名（單位）同一行；每天的銷與退之間淡虛線；日期欄固定斑馬紋（週末不另加底色）；小計（銷貨）、淨銷、庫存前粗框線。
+- 進貨輔助「加入叫貨單」的來源改為點選標籤，見 `ORDERING_MODULE.md`。
