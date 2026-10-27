@@ -1,0 +1,17 @@
+/* 加入叫貨單 source tags (V0.9.42). */
+.cy-source-chips{display:grid;gap:.6rem;min-width:0}
+.cy-source-chips-group{display:grid;grid-template-columns:2.6rem minmax(0,1fr);gap:.5rem;align-items:start}
+.cy-source-chips-label{padding-top:.35rem;font-size:var(--cy-fs-xs);color:var(--cy-text-muted);font-weight:600}
+.cy-source-chips-row{display:flex;flex-wrap:wrap;gap:.35rem;min-width:0}
+.cy-source-chips-vendors{display:grid;gap:.4rem;min-width:0}
+.cy-source-chips-vendors .cy-source-chips-row{max-height:9.5rem;overflow:auto;padding:1px}
+.cy-source-chips-search{max-width:14rem;min-height:32px;padding-block:.2rem}
+.cy-source-chip{display:inline-flex;align-items:center;gap:.3rem;min-height:30px;padding:.15rem .7rem;border:1px solid var(--cy-border);border-radius:999px;
+  background:var(--cy-surface);color:var(--cy-text);font:inherit;font-size:var(--cy-fs-sm);cursor:pointer;white-space:nowrap}
+.cy-source-chip:hover{border-color:var(--cy-accent)}
+.cy-source-chip:focus-visible{outline:2px solid var(--cy-focus);outline-offset:2px}
+.cy-source-chip[aria-pressed="true"]{background:var(--cy-accent);border-color:var(--cy-accent);color:var(--cy-on-accent)}
+.cy-source-chip small{font-size:var(--cy-fs-xs);opacity:.75}
+.cy-source-chip-dot{width:6px;height:6px;border-radius:50%;background:var(--cy-text-muted)}
+.cy-source-chip[aria-pressed="true"] .cy-source-chip-dot{background:currentColor}
+.cy-source-chips-empty{font-size:var(--cy-fs-sm);color:var(--cy-text-muted)}

@@ -459,7 +459,7 @@ export function OrderingPage(){
      <div className="cy-md-count">共 {shown.length} 筆</div>
     </div>
     <div className="cy-op-list">
-     {shown.map(o=><button type="button" key={o.id} className={"cy-op-list-row cy-status-row "+(current?.id===o.id&&!viewPending&&!vendorAll?"active":"")}
+     {shown.map(o=><button type="button" key={o.id} className={"cy-op-list-row cy-status-row cy-ordering-history-row "+(current?.id===o.id&&!viewPending&&!vendorAll?"active":"")}
       aria-current={current?.id===o.id?"true":undefined}
       onClick={()=>void reloadOrder(o.id).catch(e=>setError(errorOf(e)))}>
       <strong>{o.sourceName}</strong>

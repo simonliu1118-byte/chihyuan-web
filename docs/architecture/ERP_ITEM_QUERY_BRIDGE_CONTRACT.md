@@ -1,12 +1,12 @@
 # ERP 查詢 Bridge — CY Web current contract
 
-狀態：CY Web 實作契約（目前 V0.9.41）。涵蓋 ERP 查詢頁（商品、客戶、供應商、進貨輔助、未收款、排程佇列）與 CYERPAutoQuery Agent 佇列；不改變既有 Item／Customer 主檔權威。
+狀態：CY Web 實作契約（目前 V0.9.42）。涵蓋 ERP 查詢頁（商品、客戶、供應商、進貨輔助、未收款、排程佇列）與 CYERPAutoQuery Agent 佇列；不改變既有 Item／Customer 主檔權威。
 
-## 目前狀態總覽（V0.9.41）
+## 目前狀態總覽（V0.9.42）
 
 下面各節依版本累積寫成；較早的段落若與本節不同，以本節與較新的段落為準。
 
-- **頁面**：導覽只有「ERP 查詢」（route `erp-item-query`）。類別依權限顯示：商品 `ERP_ITEM_QUERY`、客戶 `ERP_CUSTOMER_QUERY`、供應商 `ERP_SUPPLIER_QUERY`、進貨輔助 `ERP_RESTOCK_ASSIST`（需同時有商品與客戶查詢權限）、未收款 `ERP_RECEIVABLE_QUERY`；最右邊「排程佇列」。標準進價另需 `ERP_ITEM_COST`。舊連結 `#restock-assist` 轉到 ERP 查詢。
+- **頁面**：導覽只有「ERP 查詢」（route `erp-item-query`）。類別依權限顯示：商品 `ERP_ITEM_QUERY`、客戶 `ERP_CUSTOMER_QUERY`、供應商 `ERP_SUPPLIER_QUERY`、進貨輔助 `ERP_RESTOCK_ASSIST`（需同時有商品與客戶查詢權限）、未收款 `ERP_RECEIVABLE_QUERY`；類別列右側「排程佇列」按鈕打開右側抽屜（V0.9.42）。標準進價另需 `ERP_ITEM_COST`。舊連結 `#restock-assist` 轉到 ERP 查詢。
 - **查詢類型**：`ITEM_NO`、`ITEM_NAME`、`CUSTOMER_NO`、`CUSTOMER_NAME`、`SALES`、`SUPPLIER_NO`、`SUPPLIER_NAME`、`PURCHASES`、`RECEIVABLE`、`ORDER`、`RESTOCK`（權限對照見 `MODULES_FOR_TYPE`）。
 - **佇列**：每位成員最多 3 筆 QUEUED／RUNNING；Agent 一次執行一筆，依送入時間領取。排隊工作在 Agent 連線或執行中時等待，Agent 離線（無 RUNNING、60 秒內無 claim）且建立超過 120 秒才 `EXPIRED`，最長 60 分鐘。
 - **RUNNING 逾時**：一般 180 秒、含歷史異動 300 秒、報表類（SALES、PURCHASES、RECEIVABLE、ORDER）600 秒、RESTOCK 1800 秒，逾時為 `FAILED/AGENT_TIMEOUT`。
