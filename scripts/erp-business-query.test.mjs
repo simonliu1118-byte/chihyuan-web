@@ -459,3 +459,16 @@ test("ERP close and hold: any ERP grant may ask; the Agent sees it on claim and 
     assert.equal((await agent.control({ request: "FORCE_CLOSE", result: "BOGUS" })).status, 400);
   } finally { sql.close(); }
 });
+
+test("the Agent counts as connected while it runs a job", async () => {
+  const { sql, user, agent, grant } = fixture();
+  try {
+    grant("ERP_ITEM_QUERY");
+    assert.equal((await user.create({ queryType: "ITEM_NO", itemNo: "X0001" })).status, 202);
+    assert.ok((await agent.claim(ALL_TYPES)).body.data.job);
+    sql.prepare("UPDATE erp_item_agent_status SET last_seen_at=? WHERE id=1").run(new Date(Date.now() - 60000).toISOString());
+    assert.equal((await user.agentStatus()).body.data.online, true);
+    sql.prepare("UPDATE erp_item_queries SET status='FAILED'").run();
+    assert.equal((await user.agentStatus()).body.data.online, false);
+  } finally { sql.close(); }
+});

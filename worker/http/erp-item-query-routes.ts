@@ -645,8 +645,12 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
     const heartbeat = await env.DB.prepare("SELECT last_seen_at,agent_version,erp_state FROM erp_item_agent_status WHERE id=1")
       .first<{ last_seen_at: string; agent_version: string; erp_state: string }>();
     const lastSeenAt = heartbeat?.last_seen_at ?? null;
+    // The Agent claims (and so beats) only between jobs; while it runs one (a 進貨輔助 can take
+    // minutes) it is still connected (user 2026-10-27: it showed 未連線 during queries).
+    const running = await env.DB.prepare("SELECT 1 AS running FROM erp_item_queries WHERE status='RUNNING' AND started_at>?1 LIMIT 1")
+      .bind(new Date(Date.now() - 10 * 60000).toISOString()).first();
     return success({
-      online: !!lastSeenAt && Date.now() - Date.parse(lastSeenAt) < 15000 && Date.now() >= Date.parse(lastSeenAt),
+      online: !!running || (!!lastSeenAt && Date.now() - Date.parse(lastSeenAt) < 15000 && Date.now() >= Date.parse(lastSeenAt)),
       lastSeenAt, agentVersion: heartbeat?.agent_version ?? null, erpState: heartbeat?.erp_state ?? null,
       control: await readControl(env.DB),
     }, requestId);
