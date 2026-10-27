@@ -1,6 +1,13 @@
 # CYWEB 叫貨修正交接給 Claude
 
 
+## 2026-10-27 V0.9.38 — 修改已送出單、刪除草稿、排序與拖曳
+
+- **修改已送出單**：前端 `revising` 狀態保存本機副本，`OrderingGrid` 在修改模式的 `onCommit`／`onDelete`／`onReorder` 都只改本機（新列用高於 2^52 的本機 id），按「儲存」只送有變動的列（含 `sortOrder`）、刪除清單與備註到 `POST /orders/:id/revise`；伺服器一次 `mutate`，版本 +1、一筆修改紀錄摘要。切換單據或來源前若有未儲存修改會確認。
+- **刪除草稿**：`DELETE /orders/:id` 只限 DRAFT，版本鎖，明細隨外鍵 CASCADE 刪除，留稽核 `ordering.deleted`。
+- **排序／拖曳**：`OrderingGrid` 標題排序只影響顯示（`Intl.Collator` 自然排序）；未排序時項次可拖曳，草稿走 `lines` 的 `operation:"reorder"`（同一區段，依序 10、20…）。
+- 「全部廠商」合併匯出移除（伺服器 `/vendors/overview` 仍保留但前端不再呼叫）。
+
 ## 2026-10-26 V0.9.36 — 廠商頁直接編輯、單位與廠商品名、備份納入叫貨
 
 - **廠商頁**：移除「全部廠商」總覽表格與 `commitVendorRow`／`deleteVendorRow`／`vendorOrderIds`。廠商頁籤（來自啟用中的 VENDOR 來源、依個人順序，「其他」最後）點下去就是 `openDraft(id)`，下方顯示與其他來源相同的草稿編輯畫面；`reloadOrder` 依單據來源種類保持在廠商頁。`/vendors/overview` 只剩「匯出廠商合併 Excel」使用。

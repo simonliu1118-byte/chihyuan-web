@@ -349,3 +349,61 @@ test("source payment terms, soft-hide, atomic shared sort and personal vendor or
   assert.equal((await call("/orders","POST",{sourceId:vendor.id})).status,200,"restored source can create drafts again");
  }finally{sql.close()}
 });
+test("an unsent draft can be deleted; a sent order cannot and is voided instead",async()=>{
+ const {sql,call}=fixture();try{
+  const source=(await call("/sources")).body.data.find(x=>x.name==="台中");
+  let o=(await call("/orders","POST",{sourceId:source.id})).body.data;
+  o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{itemName:"測試品名甲",quantityText:"2"}})).body.data;
+  assert.equal((await call("/orders/"+o.id,"DELETE",{expectedVersion:o.version-1})).status,409,"stale version is refused");
+  const removed=await call("/orders/"+o.id,"DELETE",{expectedVersion:o.version});assert.equal(removed.status,200,JSON.stringify(removed.body));
+  assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_orders WHERE id=?").get(o.id).n,0);
+  assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_lines WHERE order_id=?").get(o.id).n,0);
+  let s=(await call("/orders","POST",{sourceId:source.id})).body.data;
+  s=(await call("/orders/"+s.id+"/lines","POST",{expectedVersion:s.version,line:{itemName:"測試品名乙",quantityText:"1"}})).body.data;
+  s=(await call("/orders/"+s.id+"/send","POST",{expectedVersion:s.version})).body.data;
+  assert.equal((await call("/orders/"+s.id,"DELETE",{expectedVersion:s.version})).status,409);
+ }finally{sql.close()}
+});
+test("a sent order is revised in one explicit save that becomes one new version",async()=>{
+ const {sql,call}=fixture();try{
+  const source=(await call("/sources")).body.data.find(x=>x.name==="台中");
+  let o=(await call("/orders","POST",{sourceId:source.id})).body.data;
+  for(const [name,q] of [["測試品名甲","10"],["測試品名乙","5"]])o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{itemName:name,quantityText:q}})).body.data;
+  o=(await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version})).body.data;
+  const [a,b]=o.lines;
+  o=(await call("/orders/"+o.id+"/receipts","POST",{expectedVersion:o.version,erpPurchaseNo:"20261021001",receivedDate:"2026-10-21",lines:[{lineId:a.id,quantity:4}]})).body.data;
+  // Rules: received lines cannot drop below what came or be deleted; names and quantities stay required.
+  assert.equal((await call("/orders/"+o.id+"/revise","POST",{expectedVersion:o.version,lines:[{lineId:a.id,quantityText:"3"}]})).status,422);
+  assert.equal((await call("/orders/"+o.id+"/revise","POST",{expectedVersion:o.version,deleted:[a.id]})).status,422);
+  assert.equal((await call("/orders/"+o.id+"/revise","POST",{expectedVersion:o.version,lines:[{itemName:"測試品名丙"}]})).status,422);
+  const r=await call("/orders/"+o.id+"/revise","POST",{expectedVersion:o.version,note:"測試備註",deleted:[b.id],
+   lines:[{lineId:a.id,quantityText:"12"},{itemName:"測試品名丙",quantityText:"3箱"}]});
+  assert.equal(r.status,200,JSON.stringify(r.body));const after=r.body.data;
+  assert.equal(after.revision,o.revision+1);assert.equal(after.note,"測試備註");
+  assert.deepEqual(after.lines.map(l=>[l.itemName,l.quantity,l.unit]),[["測試品名甲",12,""],["測試品名丙",3,"箱"]]);
+  assert.equal(after.revisions.length,o.revisions.length+1,"one save is one version");
+  assert.match(after.revisions[0].summary,/數量 10 → 12/);assert.match(after.revisions[0].summary,/刪除 測試品名乙/);assert.match(after.revisions[0].summary,/新增 測試品名丙/);
+  // An unchanged resend changes nothing.
+  const same=await call("/orders/"+o.id+"/revise","POST",{expectedVersion:after.version,lines:[{lineId:a.id,quantityText:"12"}]});
+  assert.equal(same.body.data.revision,after.revision);
+  // Drafts keep their autosave path.
+  let d=(await call("/orders","POST",{sourceId:source.id})).body.data;
+  assert.equal((await call("/orders/"+d.id+"/revise","POST",{expectedVersion:d.version,lines:[]})).status,409);
+ }finally{sql.close()}
+});
+test("dragging rows renumbers one block in one write; revise can move sent rows too",async()=>{
+ const {sql,call}=fixture();try{
+  const source=(await call("/sources")).body.data.find(x=>x.name==="台中");
+  let o=(await call("/orders","POST",{sourceId:source.id})).body.data;
+  for(const name of ["測試甲","測試乙","測試丙"])o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{itemName:name,quantityText:"1"}})).body.data;
+  const [a,b,c]=o.lines.map(l=>l.id);
+  assert.equal((await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,operation:"reorder",lineIds:[c,c]})).status,422);
+  o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,operation:"reorder",lineIds:[c,a,b]})).body.data;
+  assert.deepEqual(o.lines.map(l=>l.itemName),["測試丙","測試甲","測試乙"]);
+  o=(await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version})).body.data;
+  const r=await call("/orders/"+o.id+"/revise","POST",{expectedVersion:o.version,lines:[{lineId:b,sortOrder:5}]});
+  assert.equal(r.status,200,JSON.stringify(r.body));
+  assert.deepEqual(r.body.data.lines.map(l=>l.itemName),["測試乙","測試丙","測試甲"]);
+  assert.match(r.body.data.revisions[0].summary,/調整明細順序/);
+ }finally{sql.close()}
+});

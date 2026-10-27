@@ -15,8 +15,14 @@ const finalPatch=(row:GridLine):Partial<GridLine>=>({...(row.vendorItemCode?{ven
 const empty=(section:OrderingSection,id:number):GridLine=>({id,section,sortOrder:0,itemCode:"",itemName:"",vendorItemCode:"",vendorItemName:"",spec:"",quantityText:"",unit:"",note:""});
 export type OrderingGridState={dirty:boolean;saving:boolean;failed:boolean};
 export type OrderingGridEditor={flush:()=>Promise<boolean>;discard:()=>void};
-type Props={kind:OrderingSourceKind;section:OrderingSection;lines:GridLine[];busy:boolean;readOnly?:boolean;onCommit:(line:GridLine,patch:Partial<GridLine>,final:boolean)=>Promise<GridLine>;onDelete:(line:GridLine)=>Promise<void>;onRegister?:(editor:OrderingGridEditor|null)=>void;onStateChange?:(state:OrderingGridState)=>void};
-export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,onDelete,onRegister,onStateChange}:Props){
+type Props={kind:OrderingSourceKind;section:OrderingSection;lines:GridLine[];busy:boolean;readOnly?:boolean;onCommit:(line:GridLine,patch:Partial<GridLine>,final:boolean)=>Promise<GridLine>;onDelete:(line:GridLine)=>Promise<void>;onRegister?:(editor:OrderingGridEditor|null)=>void;onStateChange?:(state:OrderingGridState)=>void;onReorder?:(lineIds:number[])=>Promise<unknown>};
+const SORTABLE=new Set(["itemCode","itemName","vendorItemCode","vendorItemName"]);
+const collator=new Intl.Collator("zh-Hant",{numeric:true,sensitivity:"base"});
+export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,onDelete,onRegister,onStateChange,onReorder}:Props){
+ // View-only sort by a header click (ascending, descending, off); with it off, 項次 drags reorder the saved rows.
+ const [sort,setSort]=useState<{field:string;dir:1|-1}|null>(null);
+ const dragging=useRef<number|null>(null);
+ const [dropTarget,setDropTarget]=useState<number|null>(null);
  const nextTemp=useRef(-2);
  const containerRef=useRef<HTMLDivElement>(null);
  const [drafts,setDrafts]=useState<GridLine[]>(()=>[empty(section,-1)]);
@@ -45,7 +51,18 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  useEffect(()=>{cancelAllTimers();draftsRef.current=[empty(section,-1)];setDrafts(draftsRef.current);nextTemp.current=-2;inFlight.current.clear();savedDrafts.current.clear();savedRowKeys.current.clear();cellSaves.current.clear();wantFinal.current.clear();unfinal.current.clear();editingRef.current={};setEditing({});setSaveError(false)},[section,kind]);
  const fields=columns[kind];
  const mappedIds=new Set([...savedDrafts.current.values()].map(x=>x.line.id));
- const visible=readOnly?lines.filter(x=>x.section===section):[...lines.filter(x=>x.section===section&&!mappedIds.has(x.id)),...drafts];
+ const sectionLines=lines.filter(x=>x.section===section);
+ const sorted=(rows:GridLine[])=>sort?rows.slice().sort((a,b)=>sort.dir*collator.compare(String(a[sort.field as keyof GridLine]??""),String(b[sort.field as keyof GridLine]??""))||a.sortOrder-b.sortOrder):rows;
+ const visible=readOnly?sorted(sectionLines):[...sorted(sectionLines.filter(x=>!mappedIds.has(x.id))),...drafts];
+ const canDrag=!readOnly&&!sort&&!!onReorder&&!busy;
+ const toggleSort=(field:string)=>setSort(prev=>prev?.field!==field?{field,dir:1}:prev.dir===1?{field,dir:-1}:null);
+ const drop=(targetId:number)=>{
+  const from=dragging.current;dragging.current=null;setDropTarget(null);
+  if(from===null||from===targetId||!onReorder)return;
+  const ids=sectionLines.map(x=>x.id),a=ids.indexOf(from),b=ids.indexOf(targetId);if(a<0||b<0)return;
+  ids.splice(a,1);ids.splice(b,0,from);
+  runAction(()=>onReorder(ids));
+ };
  // A saved 廠商品名 that still follows 品名 edits as empty (品名 shows as its placeholder), so typing
  // your own never starts by deleting a copy; leaving it empty keeps following 品名.
  const follows=(row:GridLine)=>row.id>0&&row.vendorNameFollows===true;
@@ -194,8 +211,11 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  return <div ref={containerRef} className="cy-ordering-grid-scroll" role="region" aria-label="叫貨明細" tabIndex={0}>
   <table className="cy-ordering-grid" data-kind={kind} data-readonly={readOnly||undefined}>
    <colgroup><col className="cy-ordering-col-index"/>{fields.flatMap(([field])=>[<col key={field} className={"cy-ordering-col-"+field}/>,...(readOnly&&field==="quantityText"?[<col key="received" className="cy-ordering-col-received"/>]:[])])}{readOnly?<col className="cy-ordering-col-status"/>:<col className="cy-ordering-col-actions"/>}</colgroup>
-   <thead><tr><th scope="col">項次</th>{fields.flatMap(([field,label])=>[<th scope="col" key={field}>{label}</th>,...(readOnly&&field==="quantityText"?[<th scope="col" key="received">已到數量</th>]:[])])}{readOnly?<th scope="col">狀態</th>:<th scope="col">操作</th>}</tr></thead>
-   <tbody>{visible.map((row,i)=><tr key={savedRowKeys.current.get(row.id)??row.id} data-saving={inFlight.current.has(row.id)||undefined}><td>{i+1}</td>
+   <thead><tr><th scope="col">項次</th>{fields.flatMap(([field,label])=>[<th scope="col" key={field} aria-sort={sort?.field===field?(sort.dir===1?"ascending":"descending"):undefined}>{SORTABLE.has(field)?<button type="button" className="cy-ordering-sort" data-active={sort?.field===field||undefined} title={"依"+label+"排序（再按一次反向，第三次取消）"} onClick={()=>toggleSort(field)}>{label}<span aria-hidden="true">{sort?.field===field?(sort.dir===1?"▲":"▼"):"↕"}</span></button>:label}</th>,...(readOnly&&field==="quantityText"?[<th scope="col" key="received">已到數量</th>]:[])])}{readOnly?<th scope="col">狀態</th>:<th scope="col">操作</th>}</tr></thead>
+   <tbody>{visible.map((row,i)=><tr key={savedRowKeys.current.get(row.id)??row.id} data-saving={inFlight.current.has(row.id)||undefined} data-drop-target={dropTarget===row.id||undefined}
+    onDragOver={e=>{if(dragging.current!==null&&row.id>0){e.preventDefault();if(dropTarget!==row.id)setDropTarget(row.id)}}} onDrop={e=>{e.preventDefault();drop(row.id)}}>
+    <td draggable={canDrag&&row.id>0||undefined} className={canDrag&&row.id>0?"cy-ordering-drag":undefined} title={canDrag&&row.id>0?"拖曳調整順序":undefined}
+     onDragStart={e=>{dragging.current=row.id;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",String(row.id))}} onDragEnd={()=>{dragging.current=null;setDropTarget(null)}}>{i+1}</td>
     {fields.flatMap(([field,title],col)=>{
      const key=row.id+"|"+field,value=editing[key]??getValue(row,field);
      const multiline=field==="itemName"||field==="vendorItemName"||field==="note";

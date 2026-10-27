@@ -16,6 +16,7 @@ import {useUnsavedChangesGuard} from "../../ui/foundation/useUnsavedChangesGuard
 import {orderSheet} from "../../../shared/ordering-export";
 import "./erp-item-query.css";
 import {buildXlsx} from "../../../shared/xlsx-writer";
+import {parseQuantity} from "../../../shared/ordering";
 import {createOrderingWriteQueue,orderingTaipeiDateTime,exportFileName,pickDraft,ORDERING_STATUS_LABELS,CN_REGULAR_SECTIONS,type OrderingOrder,type OrderingSource,type OrderingPendingLine,type OrderingListRow,type OrderingSection} from "../../../shared/ordering";
 const ROOT="/api/business/ordering";
 const nowDate=()=>new Date(Date.now()+8*3600000).toISOString().slice(0,10);
@@ -23,7 +24,20 @@ const displayDate=(value:string|null|undefined)=>orderingTaipeiDateTime(value)?.
 const displayTime=(value:string|null|undefined)=>{const p=orderingTaipeiDateTime(value);return p?p.date+" "+p.time:""};
 const errorOf=(e:unknown)=>e instanceof ApiClientError&&e.code==="ORDERING_VERSION_CONFLICT"?"已被其他人修改，請重新載入":e instanceof ApiClientError&&["ORDERING_RECEIPT_CONFIRMATION_REQUIRED","ORDERING_UNAVAILABLE"].includes(e.code)?e.message+(e.requestId?"（請求編號："+e.requestId+"）":""):e instanceof Error?e.message:"叫貨操作失敗";
 type DisplayOrder=OrderingOrder&{storedStatus:"DRAFT"|"SENT"|"VOID";savedLineId?:number};
-type VendorGroup={sourceId:number;sourceName:string;conditions:string;paymentTerms:string;orderId:number|null;orderVersion:number|null;lines:(GridLine&{quantity:number|null})[]};
+type ReviseLine=GridLine&{received:number;quantity:number|null};
+/** A sent order being changed in edit mode: kept locally (no autosave) and sent in one save. */
+type Revision={orderId:number;lines:ReviseLine[];note:string;deleted:number[];added:Set<number>};
+// Local ids for rows added in edit mode sit above any server id (server ids are below 2^52).
+let localLineId=Number.MAX_SAFE_INTEGER;
+const REVISE_FIELDS=["sortOrder","section","itemCode","itemName","vendorItemCode","vendorItemName","spec","quantityText","unit","note"] as const;
+const revisePayload=(l:ReviseLine)=>Object.fromEntries(REVISE_FIELDS.map(f=>[f,f==="vendorItemName"&&l.vendorNameFollows?"":String(l[f]??"")]));
+function applyRevise(line:ReviseLine,patch:Partial<GridLine>):ReviseLine{
+ const next={...line,...patch} as ReviseLine;
+ if("vendorItemName" in patch){const own=String(patch.vendorItemName??"").trim();next.vendorNameFollows=!own;next.vendorItemName=own||next.itemName}
+ else if(next.vendorNameFollows!==false)next.vendorItemName=next.itemName;
+ next.quantity=parseQuantity(next.quantityText).quantity;
+ return next;
+}
 const STATUS_TONE:Record<string,StatusTone>={DRAFT:"neutral",SENT:"info",PARTIAL:"warning",CLOSED:"success",VOID:"danger"};
 const call=<T,>(path:string,method="GET",json?:unknown)=>apiRequest<T>(ROOT+path,{method,json});
 function OrderingSaveStatus({states}: {states:OrderingGridState[]}){
@@ -66,7 +80,11 @@ export function OrderingPage(){
  const bindings=useRef(new Map<string,{onRegister:(editor:OrderingGridEditor|null)=>void;onStateChange:(state:OrderingGridState)=>void}>());
  const [editorStates,setEditorStates]=useState<Record<string,OrderingGridState>>({});
  const loadSequence=useRef(0);
- useUnsavedChangesGuard({active:Object.values(editorStates).some(s=>s.dirty)||headerDirty.date||headerDirty.note,
+ const [revising,setRevisingState]=useState<Revision|null>(null),revisingRef=useRef<Revision|null>(null);
+ const setRevising=(next:Revision|null)=>{revisingRef.current=next;setRevisingState(next)};
+ const reviseChanged=(r:Revision|null)=>{if(!r)return false;const order=cached.current.get(r.orderId);if(!order)return true;
+  return r.deleted.length>0||r.added.size>0||r.note!==order.note||r.lines.some(l=>{const o=order.lines.find(x=>x.id===l.id);return !o||JSON.stringify(revisePayload(l))!==JSON.stringify(revisePayload({...o,received:o.received}))})};
+ useUnsavedChangesGuard({active:Object.values(editorStates).some(s=>s.dirty)||headerDirty.date||headerDirty.note||reviseChanged(revising),
   blocked:Object.values(editorStates).some(s=>s.saving),message:"叫貨資料尚未儲存，確定離開？"});
  function gridBindings(key:string){
   if(!bindings.current.has(key))bindings.current.set(key,{
@@ -76,6 +94,11 @@ export function OrderingPage(){
   return bindings.current.get(key)!;
  }
  async function prepareSwitch(){
+  if(revisingRef.current){
+   await Promise.all([...editors.current.values()].map(e=>e.flush()));
+   if(reviseChanged(revisingRef.current)&&!await confirm({title:"修改尚未儲存",description:"已送出叫貨單的修改還沒儲存。繼續切換會放棄這些修改。",confirmLabel:"放棄修改並切換",cancelLabel:"留下繼續編輯",confirmTone:"danger"}))return false;
+   editors.current.forEach(e=>e.discard());setRevising(null);
+  }
   const okay=(await Promise.all([...editors.current.values()].map(e=>e.flush()))).every(Boolean);
   if(headerDirtyRef.current.date)await saveHeader("date");if(headerDirtyRef.current.note)await saveHeader("note");
   if(okay&&!headerDirtyRef.current.date&&!headerDirtyRef.current.note)return true;
@@ -98,7 +121,7 @@ export function OrderingPage(){
    cached.current.set(x.id,x);savedHeader.current.set(x.id,{date:x.plannedSendDate,note:x.note});return x;
  };
  const enqueue=<T,>(key:string,job:()=>Promise<T>):Promise<T>=>queueRef.current.enqueue(key,job);
- const showOrder=(x:DisplayOrder)=>{setSelected(x);setHeaderDirty({date:false,note:false});setHeaderSaveFailed(false);headerDirtyRef.current={date:false,note:false};return x};
+ const showOrder=(x:DisplayOrder)=>{setSelected(x);if(revisingRef.current?.orderId!==x.id)setRevising(null);setHeaderDirty({date:false,note:false});setHeaderSaveFailed(false);headerDirtyRef.current={date:false,note:false};return x};
  async function reloadOrder(id:number){if(!await prepareSwitch())return;const sequence=++loadSequence.current;setBusy(true);
   try{const x=remember(await call<DisplayOrder>("/orders/"+id));if(sequence!==loadSequence.current)return;
    setViewPending(false);setVendorMode(x.sourceId,x.sourceKind==="VENDOR");pane.open();return showOrder(x);
@@ -217,15 +240,70 @@ export function OrderingPage(){
   const blob=new Blob([new Uint8Array(bytes) as BlobPart],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=exportFileName(order.sourceName,fallback);a.click();URL.revokeObjectURL(url);
  }
- async function exportVendors(){
-  if(!await prepareSwitch())return;
-  const view=await call<VendorGroup[]>("/vendors/overview");
-  const sheets=view.filter(v=>v.lines.length).map(v=>orderSheet({sourceName:v.sourceName,sourceKind:"VENDOR",date:nowDate(),note:"",lines:v.lines}));
-  if(!sheets.length){setError("目前沒有廠商品項");return}
-  const bytes=buildXlsx(sheets),blob=new Blob([new Uint8Array(bytes) as BlobPart],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
-  const href=URL.createObjectURL(blob),a=document.createElement("a");a.href=href;a.download=exportFileName("廠商",nowDate());a.click();URL.revokeObjectURL(href);
+ function startRevision(){
+  if(!selected||selected.storedStatus!=="SENT")return;
+  setRevising({orderId:selected.id,lines:selected.lines.map(l=>({...l})),note:selected.note,deleted:[],added:new Set()});
  }
- const current=selected,editable=current?.storedStatus==="DRAFT";
+ async function reviseCommit(row:GridLine,patch:Partial<GridLine>):Promise<GridLine>{
+  const r=revisingRef.current;if(!r)throw new Error("目前不在修改模式");
+  let saved:ReviseLine;
+  if(row.id>0&&r.lines.some(l=>l.id===row.id)){
+   saved=applyRevise(r.lines.find(l=>l.id===row.id)!,patch);
+   setRevising({...r,lines:r.lines.map(l=>l.id===row.id?saved:l)});
+  }else{
+   const id=localLineId--;
+   saved=applyRevise({...row,...patch,id,sortOrder:Date.now(),received:0,quantity:null,vendorNameFollows:true} as ReviseLine,{...row,...patch});
+   setRevising({...r,lines:[...r.lines,saved],added:new Set([...r.added,id])});
+  }
+  return saved;
+ }
+ async function reviseDelete(row:GridLine){
+  const r=revisingRef.current;if(!r)return;
+  const line=r.lines.find(l=>l.id===row.id);if(!line)return;
+  if(line.received>0){setError("「"+(line.itemName||line.vendorItemName)+"」已有到貨，不能刪除");return}
+  const added=new Set(r.added),wasAdded=added.delete(line.id);
+  setRevising({...r,lines:r.lines.filter(l=>l.id!==line.id),added,deleted:wasAdded?r.deleted:[...r.deleted,line.id]});
+ }
+ async function reorderLines(lineIds:number[]){
+  if(!selected||selected.storedStatus!=="DRAFT")return;
+  await write("/orders/"+selected.id+"/lines","POST",{operation:"reorder",lineIds});
+ }
+ async function reviseReorder(lineIds:number[]){
+  const r=revisingRef.current;if(!r)return;
+  const moved=lineIds.map((id,i)=>({...r.lines.find(l=>l.id===id)!,sortOrder:(i+1)*10}));
+  setRevising({...r,lines:[...r.lines.filter(l=>!lineIds.includes(l.id)),...moved]});
+ }
+ async function cancelRevision(){
+  await Promise.all([...editors.current.values()].map(e=>e.flush()));
+  if(reviseChanged(revisingRef.current)&&!await confirm({title:"放棄修改",description:"確定放棄這次對已送出叫貨單的修改？",confirmLabel:"放棄修改",confirmTone:"danger"}))return;
+  editors.current.forEach(e=>e.discard());setRevising(null);
+ }
+ async function saveRevision(){
+  if(!(await Promise.all([...editors.current.values()].map(e=>e.flush()))).every(Boolean)){setError("有欄位尚未完成，請確認後再儲存");return}
+  const r=revisingRef.current,order=r?cached.current.get(r.orderId):null;if(!r||!order)return;
+  const lines=r.lines.flatMap((l):Record<string,unknown>[]=>{
+   const payload=revisePayload(l);
+   if(r.added.has(l.id))return [{...payload,sortOrder:l.sortOrder}];
+   const o=order.lines.find(x=>x.id===l.id);
+   return o&&JSON.stringify(payload)===JSON.stringify(revisePayload({...o,received:o.received}))?[]:[{...payload,lineId:l.id}];
+  });
+  if(!lines.length&&!r.deleted.length&&r.note===order.note){setRevising(null);return}
+  setBusy(true);
+  try{await write("/orders/"+r.orderId+"/revise","POST",{lines,deleted:r.deleted,...(r.note!==order.note?{note:r.note}:{})});setRevising(null);setNotice("修改已儲存，版本已更新")}
+  catch{/* write() reports the error; stay in edit mode with the edits intact. */}
+  finally{setBusy(false)}
+ }
+ async function deleteDraft(){
+  if(!selected||selected.storedStatus!=="DRAFT")return;
+  const current=cached.current.get(selected.id)??selected;
+  if(!await confirm({title:"刪除草稿",description:"確定刪除這張草稿"+(current.lines.length?"（"+current.lines.length+" 列品項）":"")+"？刪除後無法復原。",confirmLabel:"刪除",confirmTone:"danger"}))return;
+  editors.current.forEach(e=>e.discard());headerDirtyRef.current={date:false,note:false};setHeaderDirty({date:false,note:false});
+  try{
+   await enqueue("order:"+current.id,()=>call("/orders/"+current.id,"DELETE",{expectedVersion:cached.current.get(current.id)?.version??current.version}));
+   cached.current.delete(current.id);setNotice("草稿已刪除");await openDraft(current.sourceId);
+  }catch(e){setError(errorOf(e))}
+ }
+ const current=selected,editable=current?.storedStatus==="DRAFT",revisingNow=!!revising&&revising.orderId===current?.id&&current?.storedStatus==="SENT";
  const currentSaveStates:OrderingGridState[]=[{dirty:headerDirty.date||headerDirty.note,saving:headerSaving>0,failed:headerSaveFailed},...Object.entries(editorStates).filter(([key])=>key.startsWith(current?.id+"-")).map(([,state])=>state)];
  const orderedVendors=useMemo(()=>{
   const priorities=new Map(vendorTabOrder.map((id,i)=>[id,i]));
@@ -283,16 +361,20 @@ export function OrderingPage(){
  const openLines=current?current.lines.filter(l=>l.quantity!==null&&l.received<l.quantity&&!l.closedAs):[];
  const orderView=current?<>
       <div className="cy-record-header">
-       <div><h2>{current.sourceName} <StatusChip tone={STATUS_TONE[current.status]}>{ORDERING_STATUS_LABELS[current.status]}</StatusChip></h2>
-        <p>{current.storedStatus==="DRAFT"?(current.plannedSendDate?"預計 "+displayDate(current.plannedSendDate)+" 送出":"尚未設定預計送出日")
-         :"送出 "+displayTime(current.sentAt)+"・版本 "+current.revision}{editable?<>・<OrderingSaveStatus states={currentSaveStates}/></>:null}</p></div>
+       <div className="cy-ordering-title"><h2>{current.sourceName}</h2><StatusChip tone={STATUS_TONE[current.status]}>{ORDERING_STATUS_LABELS[current.status]}</StatusChip>
+        {editable?<OrderingSaveStatus states={currentSaveStates}/>
+         :current.sentAt?<span className="cy-ordering-title-meta">送出 {displayTime(current.sentAt)}・版本 {current.revision}{revisingNow?"・修改中":""}</span>:null}</div>
        <div className="cy-record-actions">
+        {revisingNow?<><button type="button" className="cy-op-button" onClick={()=>void cancelRevision()} disabled={busy}>取消</button>
+         <button type="button" className="cy-op-button primary" onClick={()=>void saveRevision()} disabled={busy}>儲存</button></>:<>
         {current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button" onClick={()=>void saveDraftNow()} disabled={busy}>儲存草稿</button>:null}
         {current.storedStatus!=="DRAFT"?<button type="button" className="cy-op-button" onClick={()=>void openDraft(current.sourceId)}>回到草稿</button>:null}
         <button type="button" className="cy-op-button" onClick={()=>void exportOrder(current)}>匯出 Excel</button>
-        {current.storedStatus!=="VOID"?<button type="button" className="cy-op-button danger" onClick={()=>void voidOrder()}>作廢</button>:null}
+        {current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button danger" onClick={()=>void deleteDraft()}>刪除</button>
+         :current.storedStatus==="SENT"?<button type="button" className="cy-op-button danger" onClick={()=>void voidOrder()}>作廢</button>:null}
+        {current.storedStatus==="SENT"?<button type="button" className="cy-op-button" onClick={startRevision}>修改</button>:null}
         {current.storedStatus==="SENT"&&openLines.length?<button type="button" className="cy-op-button primary" onClick={()=>setReceipt({id:current.id,no:"",date:nowDate(),quantities:Object.fromEntries(openLines.map(l=>[l.id,String((l.quantity??0)-l.received)])),selectedLineIds:[]})}>登記到貨</button>:null}
-        {current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button primary" onClick={()=>void sent()}>送出</button>:null}
+        {current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button primary" onClick={()=>void sent()}>送出</button>:null}</>}
        </div>
       </div>
       {current.receipts.length?<section className="cy-ordering-lines" aria-label="到貨紀錄"><h3>到貨紀錄<small>{current.receipts.length} 筆</small></h3>
@@ -311,10 +393,16 @@ export function OrderingPage(){
         <Field label="預計送出日期" size="s"><input type="date" className="cy-op-input" max="9999-12-31" disabled={!editable} value={current.plannedSendDate??""} onChange={e=>{headerEditRevisions.current.date++;headerDirtyRef.current={...headerDirtyRef.current,date:true};setHeaderDirty(v=>({...v,date:true}));setSelected(v=>v?{...v,plannedSendDate:e.target.value||null}:v)}} onBlur={()=>void saveHeader("date")}/></Field>
         <Field label="單據備註" size="m" hint={headerDirty.date||headerDirty.note?"離開欄位後自動儲存":undefined}><input className="cy-op-input" disabled={!editable} value={current.note} onChange={e=>{headerEditRevisions.current.note++;headerDirtyRef.current={...headerDirtyRef.current,note:true};setHeaderDirty(v=>({...v,note:true}));setSelected(v=>v?{...v,note:e.target.value}:v)}} onBlur={()=>void saveHeader("note")}/></Field>
        </FormSection>
-      </form>:<dl className="cy-ordering-order-summary"><div><dt>預計送出日期</dt><dd>{displayDate(current.plannedSendDate)||"—"}</dd></div><div><dt>單據備註</dt><dd>{current.note||"—"}</dd></div></dl>}
-      {(current.sourceKind==="CN_REGULAR"?CN_REGULAR_SECTIONS:[{key:"" as const,label:"叫貨明細"}]).map(group=><section key={group.key} className="cy-ordering-lines">
+      </form>:null}
+      {(current.sourceKind==="CN_REGULAR"?CN_REGULAR_SECTIONS:[{key:"" as const,label:"叫貨明細"}]).map(group=>{const gridKey=current.id+"-"+group.key+(revisingNow?"-revise":"");
+       return <section key={group.key} className="cy-ordering-lines">
         <h3>{group.label}</h3>
-        <OrderingGrid kind={current.sourceKind} section={group.key as OrderingSection} key={current.id+"-"+group.key} lines={current.lines} busy={busy} readOnly={!editable} {...gridBindings(current.id+"-"+group.key)} onCommit={lineCommit} onDelete={removeLine}/></section>)}
+        <OrderingGrid kind={current.sourceKind} section={group.key as OrderingSection} key={gridKey} lines={revisingNow?revising!.lines:current.lines} busy={busy} readOnly={!editable&&!revisingNow} {...gridBindings(gridKey)}
+         onCommit={revisingNow?reviseCommit:lineCommit} onDelete={revisingNow?reviseDelete:removeLine} onReorder={revisingNow?reviseReorder:editable?reorderLines:undefined}/></section>})}
+      {!editable&&(current.note||revisingNow)?<div className="cy-ordering-order-note">
+        <span className="cy-ordering-order-note-label">單據備註</span>
+        {revisingNow?<input className="cy-op-input" aria-label="單據備註" maxLength={300} value={revising!.note} onChange={e=>setRevising({...revising!,note:e.target.value})}/>:<span className="cy-ordering-order-note-text">{current.note}</span>}
+       </div>:null}
       {current.revisions.length?<section className="cy-ordering-lines"><h3>修改紀錄<small>{current.revisions.length} 筆</small>
         <button type="button" className="cy-op-button compact quiet" aria-expanded={showHistory} onClick={()=>setShowHistory(v=>!v)}>{showHistory?"收合":"展開"}</button></h3>
        {showHistory?<div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>版本</th><th>時間</th><th>人員</th><th>內容</th></tr></thead><tbody>
@@ -372,7 +460,7 @@ export function OrderingPage(){
     </>
     :vendorAll?<>
       <div className="cy-ordering-vendor-tabs-layout">
-       <input className="cy-op-input cy-ordering-vendor-search" type="search" aria-label="速查廠商" placeholder="搜尋廠商" value={vendorQuery} onChange={e=>setVendorQuery(e.target.value)}/>
+       <input className="cy-op-input cy-ordering-vendor-search" type="search" aria-label="速查廠商" placeholder="搜尋" value={vendorQuery} onChange={e=>setVendorQuery(e.target.value)}/>
        <div className="cy-ordering-vendor-tabs" role="tablist" aria-label="廠商頁籤（拖曳調整自己的順序）">
         {movableVendors.filter(v=>v.name.toLocaleLowerCase().includes(vendorQuery.trim().toLocaleLowerCase())).map(v=><button type="button" role="tab" key={v.id} className={activeVendorId===v.id?"active":""} aria-selected={activeVendorId===v.id}
          draggable={!busy} title="拖曳調整自己的廠商頁籤順序" onDragStart={e=>{vendorDragging.current=v.id;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",String(v.id))}}
@@ -382,7 +470,6 @@ export function OrderingPage(){
        </div>
        {vendorOther?<button type="button" role="tab" className={"cy-ordering-vendor-other"+(activeVendorId===vendorOther.id?" active":"")} aria-selected={activeVendorId===vendorOther.id} onClick={()=>void chooseVendor(vendorOther.id)}>其他</button>:null}
        <div className="cy-ordering-vendor-tools">
-        <button type="button" className="cy-op-button compact" onClick={()=>void exportVendors().catch(e=>setError(errorOf(e)))}>匯出廠商合併 Excel</button>
         <button type="button" className="cy-op-button compact" onClick={()=>setSourceForm({kind:"VENDOR",name:"",conditions:"",paymentTerms:""})}>＋ 新增廠商</button>
        </div>
       </div>

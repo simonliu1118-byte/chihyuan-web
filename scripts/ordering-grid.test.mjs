@@ -321,3 +321,32 @@ test("a cleared 單位 autosaved then confirmed resends only the clear, never th
   assert.equal(grid.commits.length, 2); assert.equal(grid.commits[1].final, true);
   assert.deepEqual(grid.commits[1].patch, { unit: "" });
 });
+
+const sortLine = (id, itemCode, itemName, sortOrder) => ({ id, section: "", sortOrder, itemCode, itemName, vendorItemCode: "", vendorItemName: itemName,
+  vendorNameFollows: true, spec: "", quantityText: "1", unit: "", note: "" });
+test("a header click sorts the view (asc, desc, off) without saving anything", () => {
+  const grid = mount("GENERAL", [sortLine(101, "C10", "測試丙", 1), sortLine(102, "A2", "測試甲", 2), sortLine(103, "A10", "測試乙", 3)]);
+  const header = () => grid.nodes.find(n => n.type === "button" && n.props.className === "cy-ordering-sort" && n.props.title.startsWith("依品號"));
+  header().props.onClick(); grid.flush();
+  assert.deepEqual(grid.rowIds.filter(id => id > 0), [102, 103, 101], "natural order: A2 before A10");
+  header().props.onClick(); grid.flush();
+  assert.deepEqual(grid.rowIds.filter(id => id > 0), [101, 103, 102]);
+  header().props.onClick(); grid.flush();
+  assert.deepEqual(grid.rowIds.filter(id => id > 0), [101, 102, 103], "third click returns to the saved order");
+  assert.equal(grid.commits.length, 0);
+});
+
+test("dragging a 項次 onto another row reorders the block; sorting turns dragging off", async () => {
+  const orders = [];
+  const grid = mount("GENERAL", [sortLine(101, "A1", "測試甲", 10), sortLine(102, "A2", "測試乙", 20), sortLine(103, "A3", "測試丙", 30)],
+    { onReorder: async ids => { orders.push(ids); } });
+  const handle = id => grid.nodes.find(n => n.type === "td" && n.props.draggable && descendants(grid.nodes.find(r => r.type === "tr" && descendants(r).includes(n))).some(c => c.props?.["data-order-row"] === id));
+  const row = id => grid.nodes.find(n => n.type === "tr" && descendants(n).some(c => c.props?.["data-order-row"] === id));
+  const transfer = { setData() {}, effectAllowed: "" };
+  handle(103).props.onDragStart({ dataTransfer: transfer });
+  row(101).props.onDragOver({ preventDefault() {} }); grid.flush();
+  row(101).props.onDrop({ preventDefault() {} }); grid.flush(); await tick(grid);
+  assert.deepEqual(orders, [[103, 101, 102]]);
+  grid.nodes.find(n => n.type === "button" && n.props.className === "cy-ordering-sort").props.onClick(); grid.flush();
+  assert.equal(grid.nodes.some(n => n.type === "td" && n.props.draggable), false, "manual order only when the view is not sorted");
+});
