@@ -132,7 +132,8 @@ test("send drops emptied rows, names incomplete rows, and hiding needs a boolean
   const regular=sources.find(x=>x.kind==="CN_REGULAR"),taichung=sources.find(x=>x.name==="台中");
   let o=(await call("/orders","POST",{sourceId:regular.id})).body.data;
   assert.equal((await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{section:"",itemName:"測試品名甲",quantityText:"1"}})).status,422,"定期中國貨 needs a block");
-  for(const line of [{section:"SINGLE",itemName:"測試品名甲",quantityText:"1"},{section:"SINGLE",itemName:"測試品名乙"},{section:"BAG",itemName:"測試品名丙",quantityText:"2"}]){
+  // Explicit sortOrder: rows saved in the same millisecond would otherwise tie and fall back to random ids.
+  for(const line of [{section:"SINGLE",sortOrder:1,itemName:"測試品名甲",quantityText:"1"},{section:"SINGLE",sortOrder:2,itemName:"測試品名乙"},{section:"BAG",sortOrder:3,itemName:"測試品名丙",quantityText:"2"}]){
    const r=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line});assert.equal(r.status,200,JSON.stringify(r.body));o=r.body.data;
   }
   const bad=await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version});
