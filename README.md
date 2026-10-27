@@ -14,11 +14,11 @@
 
 ## 目前工程基礎
 
-正式程式基準為 `main`，版本由根 `VERSION`／`BUILD` 定義（目前 **V0.9.42 Build 0**，已部署）。
+正式程式基準為 `main`，版本由根 `VERSION`／`BUILD` 定義（目前 **V0.9.43 Build 0**，已部署）。
 
 - Frontend：TypeScript + React + Vite，一套程式服務桌機、平板、手機。
 - Runtime/API：TypeScript + Cloudflare Workers；same-origin `/api/*`，共用 success/failure envelope + `requestId`。
-- Database：Cloudflare D1；schema 由 `migrations/` 的 forward migrations 定義（目前到 0026）。
+- Database：Cloudflare D1；schema 由 `migrations/` 的 forward migrations 定義（目前到 0028）。
 - Static delivery：Workers Static Assets／SPA fallback，所有請求先經 Worker（HTTPS 轉址與 HSTS）。
 - 帳號：CYCloud Identity（CYID）管理帳號、Session 與系統使用權；CY Web 只保存模組權限（Module Access）與業務授權。
 - 模組：客戶、商品、瑕疵、銷售工單、叫貨、委外/代工、工作日誌、人事、ERP 查詢（經公司電腦上的 CYERPAutoQuery 只讀查 SMART ERP）、帳號與權限、異動紀錄、備份管理、CY 程式。

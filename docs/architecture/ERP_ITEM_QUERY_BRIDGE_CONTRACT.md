@@ -8,13 +8,13 @@
 
 - **頁面**：導覽只有「ERP 查詢」（route `erp-item-query`）。類別依權限顯示：商品 `ERP_ITEM_QUERY`、客戶 `ERP_CUSTOMER_QUERY`、供應商 `ERP_SUPPLIER_QUERY`、進貨輔助 `ERP_RESTOCK_ASSIST`（需同時有商品與客戶查詢權限）、未收款 `ERP_RECEIVABLE_QUERY`；類別列右側「排程佇列」按鈕打開右側欄（V0.9.43 起不遮住頁面）。標準進價另需 `ERP_ITEM_COST`。舊連結 `#restock-assist` 轉到 ERP 查詢。
 - **查詢類型**：`ITEM_NO`、`ITEM_NAME`、`CUSTOMER_NO`、`CUSTOMER_NAME`、`SALES`、`SUPPLIER_NO`、`SUPPLIER_NAME`、`PURCHASES`、`RECEIVABLE`、`ORDER`、`RESTOCK`（權限對照見 `MODULES_FOR_TYPE`）。
-- **佇列**：每位成員最多 3 筆 QUEUED／RUNNING；Agent 一次執行一筆，依送入時間領取。排隊工作在 Agent 連線或執行中時等待，Agent 離線（無 RUNNING、60 秒內無 claim）且建立超過 120 秒才 `EXPIRED`，最長 60 分鐘。
+- **佇列**：每位成員最多 3 筆 QUEUED／RUNNING；Agent 一次執行一筆，依送入時間領取；ERP 暫停時可加入佇列，暫停結束後才領取（V0.9.43）。排隊工作在 Agent 連線或執行中時等待，Agent 離線（無 RUNNING、60 秒內無 claim）且建立超過 120 秒才 `EXPIRED`，最長 60 分鐘。
 - **RUNNING 逾時**：一般 180 秒、含歷史異動 300 秒、報表類（SALES、PURCHASES、RECEIVABLE、ORDER）600 秒、RESTOCK 1800 秒，逾時為 `FAILED/AGENT_TIMEOUT`。
 - **保存**：結果 JSON 完成後 5 分鐘清除（`resultCleared:true`），metadata 30 天；進貨輔助另把每日銷貨彙總寫入 `erp_sales_*`（不隨查詢清除）。
 - **使用者 API**：`POST /api/erp/item-queries`、`GET /api/erp/item-queries/:id`、`GET /api/erp/item-queries/recent`、`GET /api/erp/queue`、`GET /api/erp/agent-status`、`POST /api/erp/agent-control`、`GET|POST|DELETE /api/erp/agent-credentials`（Super Admin）。
 - **Agent API**：`POST /api/erp-agent/item-queries/claim`（回 `{job,control}`）、`POST /api/erp-agent/item-queries/:id/complete`、`POST /api/erp-agent/item-queries/:id/progress`（RESTOCK）、`POST /api/erp-agent/control`。
 - **前端**：ERP 查詢頁開過後切到其他模組仍保留；每個類別各自保留查詢與結果，每 1.5 秒輪詢；開啟時接回近 24 小時內各類別最新的查詢；類別不在畫面上時完成會出通知。查詢失敗（ERP 未開、畫面不符、匯出失敗、程式錯誤、逾時）時詢問是否強制關閉 ERP。
-- **Migration**：0009–0014、0019、0021、0025、0026。
+- **Migration**：0009–0014、0019、0021、0025、0026、0027。
 
 ## 範圍與資料權威
 
