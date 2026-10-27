@@ -264,3 +264,30 @@ test("a double-submitted receipt is recorded once while the first save is in fli
  reply.resolve(sentOrder());await first;await page.tick();
  assert.equal(calls.length,1);assert.equal(dialog(),undefined);
 });
+
+test("a draft is deleted (not voided) after confirmation and the source reopens a draft",async()=>{
+ const page=mount(normalTransport);await page.tick();page.click("測試來源甲");await page.tick();
+ assert.equal(page.nodes.some(n=>n.type==="button"&&text(n)==="作廢"),false);
+ globalThis.orderingPageConfirm=async()=>true;
+ page.click("刪除");await page.tick();await page.tick();
+ const del=page.calls.find(c=>c.method==="DELETE");assert.ok(del);assert.equal(del.path,"/orders/10");
+ assert.ok(page.calls.indexOf(del)<page.calls.length-1,"the source's draft is opened again");
+});
+
+test("a sent order is changed in edit mode with no autosave and saved as one revision",async()=>{
+ const revisions=[];
+ const page=mount((path,options)=>{if(path.endsWith("/revise")){revisions.push(options.json);return {...sentOrder(),revision:3}}
+  return path==="/orders/10"?sentOrder():normalTransport(path,options)});
+ await page.tick();page.click("測試來源甲");await page.tick();
+ assert.equal(page.grid.readOnly,true);
+ page.click("修改");await page.tick();
+ assert.equal(page.grid.readOnly,false);
+ assert.equal(page.nodes.some(n=>n.type==="button"&&text(n)==="登記到貨"),false,"edit mode shows only 取消／儲存");
+ const before=page.calls.length;
+ await page.grid.onCommit(page.grid.lines[1],{quantityText:"12"},true);await page.tick();
+ assert.equal(page.calls.length,before,"edits stay local until 儲存");
+ page.click("儲存");await page.tick();await page.tick();
+ assert.equal(revisions.length,1);
+ assert.deepEqual(revisions[0].lines.map(l=>[l.lineId,l.quantityText]),[[2,"12"]]);
+ assert.equal(page.grid.readOnly,true,"saving leaves edit mode");
+});

@@ -141,6 +141,16 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
      .bind(ctx.actor,JSON.stringify(ids),ctx.now).run();
     return success({saved:true},requestId);
    }
+  if(path==="vendors/status"&&method==="GET"){
+   // Per vendor tab: a draft with content, a sent order still waiting, a partly received order.
+   const found=await rows<{source_id:number;state:string}>(ctx.db,`SELECT o.source_id,${currentStatusSql} AS state FROM ordering_orders o JOIN ordering_sources s ON s.id=o.source_id
+    WHERE s.kind='VENDOR' AND s.is_active=1 AND (o.status='SENT' OR (o.status='DRAFT' AND (length(trim(o.note))>0 OR EXISTS(SELECT 1 FROM ordering_lines l WHERE l.order_id=o.id)))) LIMIT 5001`);
+   if(found.length>5000)throw new Bad("ORDERING_LIMIT","廠商狀態超過單次查詢安全上限",409);
+   const byVendor=new Map<number,{sourceId:number;draft:boolean;sent:boolean;partial:boolean}>();
+   for(const x of found){const v=byVendor.get(x.source_id)??{sourceId:x.source_id,draft:false,sent:false,partial:false};
+    if(x.state==="DRAFT")v.draft=true;else if(x.state==="SENT")v.sent=true;else if(x.state==="PARTIAL")v.partial=true;byVendor.set(x.source_id,v)}
+   return success([...byVendor.values()].filter(v=>v.draft||v.sent||v.partial),requestId);
+  }
   if(path==="vendors/overview"&&method==="GET"){
    await init(ctx);
    const sources=await rows<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE kind='VENDOR' AND is_active=1 ORDER BY sort_order,id LIMIT 101");
@@ -236,6 +246,68 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     await run(ctx,[guard,...drop,ctx.db.prepare("UPDATE ordering_orders SET status='SENT',sent_at=?,sent_by=?,revision=1,version=version+1,updated_at=? WHERE id=? AND version=?").bind(ctx.now,ctx.actor,ctx.now,id,expected),audit(ctx,id,"sent",{sourceId:o.source_id,items:lines.length})]);
     return success(await getOrder(ctx,id),requestId);
    }
+   if(!action&&method==="DELETE"){
+    // An unsent draft is simply removed (its lines cascade); a sent order is voided instead, keeping history.
+    if(o.status!=="DRAFT")throw new Bad("ORDERING_INVALID","只有未送出的草稿可以刪除，已送出的叫貨單請作廢",409);
+    const guard=ctx.db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM ordering_orders WHERE id=? AND version=? AND status='DRAFT') THEN 1 ELSE json('') END").bind(id,expected);
+    const lines=await one<{n:number}>(ctx.db,"SELECT COUNT(*) n FROM ordering_lines WHERE order_id=?",id);
+    try{await run(ctx,[guard,ctx.db.prepare("DELETE FROM ordering_orders WHERE id=? AND version=? AND status='DRAFT'").bind(id,expected),audit(ctx,id,"deleted",{sourceId:o.source_id,items:lines?.n??0})])}
+    catch(e){if(String(e).includes("malformed JSON"))throw new Bad("ORDERING_VERSION_CONFLICT","已被其他人修改，請重新載入",409);throw e}
+    return success({deleted:true},requestId);
+   }
+   if(action==="revise"&&method==="POST"){
+    // A sent order is changed in one explicit save (no autosave): all edits become one new 版本.
+    if(o.status!=="SENT")throw new Bad("ORDERING_INVALID","只有已送出的叫貨單可以這樣修改",409);
+    const upserts=Array.isArray(v.lines)?v.lines as Record<string,unknown>[]:[],removes=Array.isArray(v.deleted)?v.deleted:[];
+    if(upserts.length>500||removes.length>500||upserts.some(x=>!x||typeof x!=="object"||Array.isArray(x)))throw new Bad("ORDERING_INVALID","修改內容不正確");
+    const all=await rows<Line>(ctx.db,"SELECT l.*,COALESCE((SELECT SUM(quantity) FROM ordering_receipt_lines WHERE line_id=l.id),0) received FROM ordering_lines l WHERE order_id=? LIMIT 501",id);
+    const source=await one<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE id=?",o.source_id),kind=source?.kind??"GENERAL";
+    const stmts:D1PreparedStatement[]=[],changes:string[]=[];
+    const label=(x:{item_name:string;vendor_item_name:string;item_code:string})=>x.item_name||x.vendor_item_name||x.item_code;
+    if("note" in v){const next=must(v.note,"備註",300);if(next!==o.note){stmts.push(ctx.db.prepare("UPDATE ordering_orders SET note=? WHERE id=?").bind(next,id));changes.push("備註 "+(o.note||"空白")+" → "+(next||"空白"))}}
+    const removed=new Set<number>();let moved=false;
+    for(const value of removes){const lineId=int(value,"明細"),line=all.find(x=>x.id===lineId);
+     if(!line)throw new Bad("ORDERING_NOT_FOUND","找不到明細",404);
+     if(line.received>0)throw new Bad("ORDERING_INVALID",label(line)+" 已有到貨，不能刪除");
+     removed.add(lineId);stmts.push(ctx.db.prepare("DELETE FROM ordering_lines WHERE id=? AND order_id=?").bind(lineId,id));changes.push("刪除 "+label(line));
+    }
+    if(all.length-removed.size+upserts.filter(x=>!x.lineId).length>500)throw new Bad("ORDERING_LIMIT","單張叫貨單最多 500 列",409);
+    const labels:Record<string,string>={item_code:"品號",item_name:"品名",vendor_item_code:"廠商品號",vendor_item_name:"廠商品名",spec:"規格",quantity_text:"數量",unit:"單位",note:"備註",section:"分類"};
+    upserts.forEach((raw,index)=>{
+     const old=raw.lineId?all.find(x=>x.id===Number(raw.lineId)):null;
+     if(raw.lineId&&(!old||removed.has(old.id)))throw new Bad("ORDERING_NOT_FOUND","找不到明細",404);
+     const text=(key:string,column:keyof Line,max:number)=>key in raw?must(raw[key],key,max):old?String(old[column]??""):"";
+     const typedVendorName="vendorItemName" in raw?must(raw.vendorItemName,"vendorItemName",200):old&&!old.vendor_name_follows?old.vendor_item_name:"";
+     const next={item_code:text("itemCode","item_code",40),item_name:text("itemName","item_name",200),vendor_item_code:text("vendorItemCode","vendor_item_code",200),
+      spec:text("spec","spec",200),quantity_text:text("quantityText","quantity_text",40),unit:text("unit","unit",10),note:text("note","note",300),
+      section:kind==="CN_REGULAR"?String(raw.section??old?.section??"OTHER"):""};
+     if(!(kind==="CN_REGULAR"?["SINGLE","BAG","OTHER"]:[""]).includes(next.section))throw new Bad("ORDERING_INVALID","區段不正確");
+     const name=next.item_name||typedVendorName||next.item_code||"第 "+(index+1)+" 列";
+     if(!orderingLineHasName(kind,{itemName:next.item_name,vendorItemName:typedVendorName})||!next.quantity_text.trim())throw new Bad("ORDERING_INVALID",name+"：品名（一般／廠商來源亦可填廠商品名）、數量必填");
+     const parsed=parseQuantity(next.quantity_text),unit=next.unit||("quantityText" in raw?parsed.unit:"");
+     if(old&&old.received>0&&(parsed.quantity===null||parsed.quantity<old.received))throw new Bad("ORDERING_INVALID",name+"：數量不可少於已到貨 "+old.received);
+     const follows=!typedVendorName,vendorName=typedVendorName||next.item_name;
+     const row={...next,unit,vendor_item_name:vendorName};
+     if(old){
+      const diff=(Object.keys(row) as (keyof typeof row)[]).filter(k=>String(old[k as keyof Line]??"")!==String(row[k]));
+      const sortOrder="sortOrder" in raw?Number(raw.sortOrder):old.sort_order;
+      if(!Number.isSafeInteger(sortOrder)||sortOrder<0)throw new Bad("ORDERING_INVALID","排序不正確");
+      if(sortOrder!==old.sort_order)moved=true;
+      if(!diff.length&&(old.vendor_name_follows?1:0)===(follows?1:0)&&sortOrder===old.sort_order)return;
+      stmts.push(ctx.db.prepare("UPDATE ordering_lines SET section=?,sort_order=?,item_code=?,item_name=?,vendor_item_code=?,vendor_item_name=?,vendor_name_follows=?,spec=?,quantity_text=?,quantity=?,unit=?,note=? WHERE id=? AND order_id=?")
+       .bind(row.section,sortOrder,row.item_code,row.item_name,row.vendor_item_code,row.vendor_item_name,follows?1:0,row.spec,row.quantity_text,parsed.quantity,row.unit,row.note,old.id,id));
+      if(diff.length)changes.push(label(old)+"："+diff.map(k=>labels[k]+" "+(String(old[k as keyof Line]??"")||"空白")+" → "+(String(row[k])||"空白")).join("、"));
+     }else{
+      const sortOrder=Number(raw.sortOrder??Date.now());if(!Number.isSafeInteger(sortOrder)||sortOrder<0)throw new Bad("ORDERING_INVALID","排序不正確");
+      stmts.push(ctx.db.prepare("INSERT INTO ordering_lines(id,order_id,section,sort_order,item_code,item_name,vendor_item_code,vendor_item_name,vendor_name_follows,spec,quantity_text,quantity,unit,note) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+       .bind(Number.parseInt(crypto.randomUUID().replaceAll("-","").slice(0,13),16),id,row.section,sortOrder,row.item_code,row.item_name,row.vendor_item_code,row.vendor_item_name,follows?1:0,row.spec,row.quantity_text,parsed.quantity,row.unit,row.note));
+      changes.push("新增 "+name+" "+row.quantity_text+row.unit);
+     }
+    });
+    if(moved)changes.push("調整明細順序");
+    if(!stmts.length)return success(await getOrder(ctx,id,o),requestId);
+    return success(await mutate(ctx,o,expected,stmts,changes.join("；")||"修改明細","revised"),requestId);
+   }
    if(action==="void"&&method==="POST"){
     if(o.status==="VOID")throw new Bad("ORDERING_INVALID","已作廢");
     return success(await mutate(ctx,o,expected,[ctx.db.prepare("UPDATE ordering_orders SET status='VOID' WHERE id=?").bind(id)],"單據作廢","voided"),requestId);
@@ -244,6 +316,15 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     if(o.status!=="DRAFT")throw new Bad("ORDERING_INVALID","只有草稿可修改，已送出或作廢的叫貨明細為唯讀",409);
     const input=String(v.operation??"save"),lineId=v.lineId?int(v.lineId,"明細"):null;
     let old:Line|null=null;if(lineId){old=await one<Line>(ctx.db,"SELECT * FROM ordering_lines WHERE id=? AND order_id=?",lineId,id);if(!old)throw new Bad("ORDERING_NOT_FOUND","找不到明細",404)}
+    if(input==="reorder"){
+     // The rows of one block in their new order (drag on 項次): renumbered in one write.
+     const ids=Array.isArray(v.lineIds)?v.lineIds.map(x=>int(x,"明細")):[];
+     if(!ids.length||ids.length>500||new Set(ids).size!==ids.length)throw new Bad("ORDERING_INVALID","排序內容不正確");
+     const owned=await rows<{id:number;section:string}>(ctx.db,"SELECT id,section FROM ordering_lines WHERE order_id=? LIMIT 501",id);
+     const sections=new Set(ids.map(x=>owned.find(l=>l.id===x)?.section));
+     if(sections.has(undefined)||sections.size!==1)throw new Bad("ORDERING_INVALID","排序內容不正確");
+     return success(await mutate(ctx,o,expected,ids.map((lineId,i)=>ctx.db.prepare("UPDATE ordering_lines SET sort_order=? WHERE id=? AND order_id=?").bind((i+1)*10,lineId,id)),"調整明細順序","lines_reordered"),requestId);
+    }
     if(input==="delete"){if(!old)throw new Bad("ORDERING_INVALID","沒有選擇明細");
      const received=await one<{n:number}>(ctx.db,"SELECT COUNT(*) n FROM ordering_receipt_lines WHERE line_id=?",old.id);
      if(received?.n)throw new Bad("ORDERING_INVALID","已有到貨，不能刪除明細");

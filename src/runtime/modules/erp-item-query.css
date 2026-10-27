@@ -161,9 +161,6 @@
 .cy-ordering-arrival-mark.is-complete { color: var(--cy-success); }
 .cy-ordering-arrival-mark.is-partial { color: var(--cy-warning); }
 .cy-ordering-closed-note { display: block; padding: 0 8px 5px; color: var(--cy-text-muted); overflow-wrap: anywhere; }
-.cy-ordering-order-summary { display: flex; flex-wrap: wrap; gap: 12px 32px; margin: 12px 0; }
-.cy-ordering-order-summary dt { font-size: var(--cy-fs-sm); color: var(--cy-text-muted); }
-.cy-ordering-order-summary dd { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .cy-ordering-receipt-table { table-layout: fixed; min-width: 900px; }
 .cy-dialog.cy-ordering-receipt-dialog .cy-dialog-surface { width: min(1120px, calc(100vw - 32px)); }
 .cy-ordering-receipt-table th { white-space: nowrap; }
@@ -232,7 +229,7 @@
 .cy-ordering-status-chip.state-closed { color: var(--cy-text-muted); background: var(--cy-surface-muted); }
 .cy-ordering-grid .cy-ordering-col-itemName,.cy-ordering-grid .cy-ordering-col-vendorItemName { min-width: 120px; }
 .cy-ordering-vendor-tabs-layout { display: flex; min-width: 0; gap: 8px; align-items: center; margin: 0 0 10px; }
-.cy-ordering-vendor-search { width: 154px; flex: 0 0 154px; }
+.cy-ordering-vendor-search { width: 84px; flex: 0 0 84px; }
 .cy-ordering-vendor-tabs { flex: 1 1 auto; display: flex; align-items: center; gap: 4px; overflow-x: auto; min-width: 0; scrollbar-width: thin; padding: 0 0 3px; }
 .cy-ordering-vendor-tabs button,.cy-ordering-vendor-other { flex: 0 0 auto; white-space: nowrap; padding: 9px 12px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--cy-text-muted); cursor: pointer; }
 .cy-ordering-vendor-tabs button.active,.cy-ordering-vendor-other.active { border-bottom-color: var(--cy-accent); color: var(--cy-accent); font-weight: 600; }
@@ -264,3 +261,30 @@
 .cy-ordering-list-filters>span[aria-hidden]{display:none}
 .cy-ordering-page .cy-ordering-list-filters .cy-ordering-source-picker{min-width:0;width:100%}
 .cy-ordering-page .cy-md-detail>.cy-loading{min-height:180px;display:flex;align-items:center;justify-content:center}
+
+/* Title row: status chip, then the save state (draft) or send time and version (sent). */
+.cy-ordering-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+.cy-ordering-title h2 { margin: 0; }
+.cy-ordering-title-meta, .cy-ordering-title .cy-ordering-save-state { font-size: var(--cy-fs-sm); color: var(--cy-text-muted); }
+/* The order note sits under the lines as the table's last row. */
+.cy-ordering-order-note { display: flex; align-items: center; gap: 12px; margin-top: -1px; padding: 6px 10px; border: 1px solid var(--cy-border); border-radius: 0 0 var(--cy-radius-sm) var(--cy-radius-sm); background: var(--cy-surface-muted); font-size: .88rem; }
+.cy-ordering-order-note-label { flex: 0 0 auto; font-weight: 600; color: var(--cy-text-muted); }
+.cy-ordering-order-note-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.cy-ordering-order-note .cy-op-input { flex: 1 1 auto; min-height: 0; height: 30px; padding: 3px 8px; }
+/* Header sort (view only) and 項次 drag handle for manual order. */
+.cy-ordering-sort { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.cy-ordering-sort span { font-size: .7rem; color: var(--cy-text-muted); }
+.cy-ordering-sort[data-active] span { color: var(--cy-accent); }
+.cy-ordering-sort:focus-visible { outline: 2px solid var(--cy-accent); outline-offset: 2px; }
+.cy-ordering-grid td.cy-ordering-drag { cursor: grab; }
+.cy-ordering-grid td.cy-ordering-drag:active { cursor: grabbing; }
+.cy-ordering-grid tr[data-drop-target] td { box-shadow: inset 0 2px 0 var(--cy-accent); }
+/* Vendor tab dots: draft with content, sent and waiting, partly received. */
+.cy-ordering-vendor-dots { display: inline-flex; gap: 3px; margin-left: 5px; vertical-align: 2px; }
+.cy-ordering-vendor-dots .cy-status-dot { width: 6px; height: 6px; }
+.cy-ordering-vendor-dots .cy-status-dot[data-tone="neutral"] { background: var(--cy-text-muted); }
+.cy-ordering-vendor-tools { align-items: center; }
+.cy-ordering-vendor-legend { display: inline-flex; gap: 8px; margin-right: 4px; font-size: var(--cy-fs-xs); color: var(--cy-text-muted); white-space: nowrap; }
+.cy-ordering-vendor-legend > span { display: inline-flex; align-items: center; gap: 3px; }
+.cy-ordering-vendor-legend .cy-status-dot { width: 6px; height: 6px; }
+.cy-ordering-vendor-legend .cy-status-dot[data-tone="neutral"] { background: var(--cy-text-muted); }
