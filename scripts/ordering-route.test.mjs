@@ -370,7 +370,7 @@ test("a sent order is revised in one explicit save that becomes one new version"
   let o=(await call("/orders","POST",{sourceId:source.id})).body.data;
   for(const [name,q] of [["測試品名甲","10"],["測試品名乙","5"]])o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{itemName:name,quantityText:q}})).body.data;
   o=(await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version})).body.data;
-  const [a,b]=o.lines;
+  const [a,b]=["測試品名甲","測試品名乙"].map(name=>o.lines.find(l=>l.itemName===name));
   o=(await call("/orders/"+o.id+"/receipts","POST",{expectedVersion:o.version,erpPurchaseNo:"20261021001",receivedDate:"2026-10-21",lines:[{lineId:a.id,quantity:4}]})).body.data;
   // Rules: received lines cannot drop below what came or be deleted; names and quantities stay required.
   assert.equal((await call("/orders/"+o.id+"/revise","POST",{expectedVersion:o.version,lines:[{lineId:a.id,quantityText:"3"}]})).status,422);
@@ -396,7 +396,8 @@ test("dragging rows renumbers one block in one write; revise can move sent rows 
   const source=(await call("/sources")).body.data.find(x=>x.name==="台中");
   let o=(await call("/orders","POST",{sourceId:source.id})).body.data;
   for(const name of ["測試甲","測試乙","測試丙"])o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{itemName:name,quantityText:"1"}})).body.data;
-  const [a,b,c]=o.lines.map(l=>l.id);
+  // Rows saved in the same millisecond share a sort order, so look them up by name.
+  const [a,b,c]=["測試甲","測試乙","測試丙"].map(name=>o.lines.find(l=>l.itemName===name).id);
   assert.equal((await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,operation:"reorder",lineIds:[c,c]})).status,422);
   o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,operation:"reorder",lineIds:[c,a,b]})).body.data;
   assert.deepEqual(o.lines.map(l=>l.itemName),["測試丙","測試甲","測試乙"]);
