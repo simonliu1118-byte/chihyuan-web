@@ -18,4 +18,4 @@
 
 - [CYWEB V0.9.48：隔離還原診斷與驗證紀錄](CYWEB-V0.9.48-REHEARSAL-CLAUDE-REVIEW.md) — PR #300，包含變更清單、測試／CI、Cloudflare 唯讀診斷摘要、風險與 Claude 最終審查欄位。
 
-CYWEB GPT／ChatGPT 直接執行修正時，依根 `PROJECT_RULES.md` §9.1：每一項修正都更新同分支的 handoff，最終交 Claude 審查，通過且另獲授權後才合併／部署。
+CYWEB GPT／ChatGPT 直接執行修正時，依使用者 2026-10-28 的明確指示，每一項修正都更新同分支 handoff，最終交 Claude 審查，通過且另獲授權後才合併／部署。永久規則由 [治理 PR #301](https://github.com/simonliu1118-byte/chihyuan-web/pull/301) 提出 `PROJECT_RULES.md` §9.1，**尚待 Claude 審查，未合併前不宣稱已生效為 main 的規則**。
