@@ -17,7 +17,8 @@
   color: var(--cy-text);
 }
 .cy-auth-status-card { text-align: center; }
-.cy-auth-heading { display: grid; gap: 14px; margin-bottom: 20px; }
+/* The CY mark sits left of the title on one line. */
+.cy-auth-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
 .cy-auth-heading h1, .cy-auth-status-card h1 { margin: 0; font-size: 22px; font-weight: 700; }
 .cy-auth-heading p, .cy-auth-status-card p { margin: 4px 0 0; color: var(--cy-text-muted); }
 .cy-auth-brand-mark {
