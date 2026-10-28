@@ -16,6 +16,15 @@ const call=<T,>(path:string,method="GET",json?:unknown)=>apiRequest<T>(ROOT+path
 const errorOf=(error:unknown)=>error instanceof Error?error.message:"盤點操作失敗";
 const isAdmin=(role:string)=>role==="ADMIN"||role==="SUPER_ADMIN";
 type LineHistory={id:number;field:string;beforeValue:string|null;afterValue:string|null;memberId:number;actorName:string;at:string};
+type StoredWriteResult={
+ error?:string;
+ results?:{key:string;ok:boolean;message:string}[];
+ mismatches?:{key:string;seq:string|null;itemCode:string;batch:string;expected:string;actual:string}[];
+};
+function writeFailure(value:unknown):StoredWriteResult|null{
+ if(!value||typeof value!=="object"||Array.isArray(value))return null;
+ return value as StoredWriteResult;
+}
 const date=(iso:string|null)=>iso?new Date(iso).toLocaleString("zh-TW",{timeZone:"Asia/Taipei",hour12:false}):"—";
 const relativeDiff=(a:string|null,b:string|undefined)=>{
  if(a===null||b===undefined)return "—";
@@ -230,7 +239,23 @@ export function StoreStocktake({role}:{role:string}){
          <button className="cy-op-button" type="button" onClick={()=>setBatchForm({itemCode:"",batch:"",quantity:""})}>新增批號</button>:null}
       </div>
      </header>
-     {currentSheet.status==="WRITE_FAILED"&&currentSheet.writeResult?<pre className="cy-stocktake-result">{JSON.stringify(currentSheet.writeResult,null,2)}</pre>:null}
+     {currentSheet.status==="WRITE_FAILED"?<section className="cy-stocktake-write-failure" role="alert">
+       <h4>ERP 寫回未完成，盤點尚未確認</h4>
+       {(()=>{const failed=writeFailure(currentSheet.writeResult);
+         const errors=failed?.results?.filter(x=>!x.ok)??[];
+         const mismatches=failed?.mismatches??[];
+         return <>
+          {failed?.error?<p>{failed.error}</p>:null}
+          {errors.length?<><strong>寫入失敗（{errors.length} 列）</strong>
+            <ul>{errors.map(x=><li key={x.key}>列鍵 {x.key}：{x.message||"ERP 寫入未完成"}</li>)}</ul></>:null}
+          {mismatches.length?<><strong>ERP 核對差異（{mismatches.length} 列）</strong>
+            <ul>{mismatches.map(x=><li key={x.key}>列鍵 {x.key}／{x.itemCode}
+              {x.batch?"／批號 "+x.batch:""}：應為 {x.expected}，ERP 為 {x.actual}</li>)}</ul></>:null}
+          {!failed?.error&&!errors.length&&!mismatches.length?
+            <p>ERP 尚未確認本張盤點單。請主管先核對實際 ERP 狀態，再決定是否重新寫回。</p>:null}
+         </>})()}
+       <small>重新寫回不會自動執行，必須由管理員再次確認。</small>
+      </section>:null}
      {currentSheet.status==="COUNTING"?<p className="cy-notice">盲盤中：帳面數量在第一次主管確認前不會由伺服器傳回。</p>:null}
      <div className="cy-store-filters">
       <input className="cy-op-input cy-store-search" type="search" role="search" aria-label="搜尋儲位、品號、品名、批號"
