@@ -1,6 +1,6 @@
 # CYWEB Governance 1.1.24 — GPT → Claude handoff
 
-- **狀態：Claude 審查完成——需修正（見 §5）；不合併、不部署。**
+- **狀態：Claude 首輪 §5 的 R3 已返修；待與功能 PR #300 同輪 Claude 複審，不合併、不部署。**
 - 日期：2026-10-28；分支：`governance/cyweb-handoff-claude-20261028`
 - 此為使用者指定的 CYWEB 交接／審查工作程序治理 PR，與應用修正 [PR #300](https://github.com/simonliu1118-byte/chihyuan-web/pull/300) 分開。
 - 規則來源仍是 `PROJECT_RULES.md`、`REPO_POLICY.md`、`REPOSITORY_RULES.md`，本 handoff 只是交接、驗證及審查紀錄。
@@ -50,3 +50,26 @@
   - CI：最新 head 全部 success，deploy skipped。本機 typecheck 與測試 329 pass（唯一失敗為 worktree 缺 `.tmp` 的環境問題，main 上通過）。
 - Claude 直接修正與 GPT 返修紀錄：Claude 未直接修改（使用者指示交回 GPT 修正）。待 GPT 修正後複審。
 - 是否可交使用者核准合併：**否**，待 #300／#301 複審通過；順序仍為 #300 先、#301 後。
+
+## 6. GPT 對 §5 的跨 PR 返修完成報告（2026-10-28）
+
+> 本節由 GPT 填寫；Claude §5 首輪審查原文不修改，§7 留給 Claude 複審。請同時審查功能 PR #300 handoff §6 的 R1–R5 完成報告。
+
+- **R3 輪替前主 D1 Migration 落後**：`.github/workflows/development-deploy.yml` 的 `Require reviewed rotation implementation before any remote mutation` 來源保護新增必須在 `scripts/provision-backup-recovery.mjs` 中找到 `RECOVERY_ROTATION_PRIMARY_MIGRATIONS_OUTDATED`，避免 Workflow 在功能引擎仍未包含 pre-create parity gate 時接受輪替請求；延續原有 main／手動 `rotate-recovery`／確認短語／protected `development` environment／`cyweb-production` 鎖。
+- **功能引擎（PR #300）實際阻擋**：輪替分支在任何 `POST d1/database` 之前唯讀查主 D1 的 `d1_migrations`，逐項比對 repo `migrations/*.sql`；缺少、額外或非預期順序即 `RECOVERY_ROTATION_PRIMARY_MIGRATIONS_OUTDATED` 並停止；`scripts/provision-backup-recovery.test.mjs` 新增 0 次建立 API、0 次 Migration 的對應測試。正常部署不受此輪替專屬新檢查影響。
+- **部署契約測試**：`scripts/deployment-source.test.mjs` 增加檢查新錯誤碼之來源守門必須先於 `node scripts/provision-backup-recovery.mjs`，不能僅依 Workflow 使用者輸入保護就放行。
+- **R1、R2、R4、R5 分工**：R1 的 shared canonical seeds＋普通部署補 Migration、R2 的 SQLite 自選 Audit 索引、R4 的 D1 配額與人工保留政策、R5 的 CHANGELOG 文字均在功能 PR #300；此治理 PR 不另複製程式實作。
+- **額外建議（僅供 Claude 討論，未直接實作）**：後續可用受保護執行流程檢查 D1 migration 的實際 DDL 來源一致性，避免因「檔名相同、內容經人工改動」在新目標建立後才發現 Schema 不符；同時建議把 D1 配額和歷史目標的人工盤點列入操作前必檢，維持不得自動刪除。
+- 本次仍只改 GitHub 工作分支；**Cloudflare API 讀／寫 0、D1 建立 0、Worker 改綁 0、正式部署 0**。需 Claude 複審通過、使用者另行批准合併及正式操作。
+- **CI**：請依本 handoff 提交後治理 PR #301 最新 head 的 Governance／Runtime／Deploy PR-only checks 核對，不以首輪審查 SHA 的測試結果充當本次驗證。
+
+## 7. Claude 複審紀錄（僅 Claude 本人填寫）
+
+- 複審日期：
+- 複審者：Claude
+- 兩份 PR 複審 head SHA：
+- R3 的 Workflow 與功能引擎核對：
+- R1、R2、R4、R5 的跨 PR 核對：
+- 本機／CI 驗證及剩餘風險：
+- 結論：**待複審**
+- 是否可提交使用者批准合併及正式操作：
