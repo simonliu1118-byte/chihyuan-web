@@ -1,7 +1,8 @@
 # WO-0.9.12 客戶相關紀錄改卡片、標題列說明與設定按鈕、日期格式、個人選單精簡
 
-- 狀態：已完成（審查通過）
-- 分支：`cyweb/customer-cards`　PR：[#207](https://github.com/simonliu1118-byte/chihyuan-web/pull/207)（開啟中，未合併）
+- 狀態：**已完成・Claude 審查通過・PR #207 已合併**（截至 2026-10-23；歷史交付狀態見 §8、§9）
+- 分支：`cyweb/customer-cards`　PR：[#207](https://github.com/simonliu1118-byte/chihyuan-web/pull/207)（已合併）
+- 閱讀提示：本單 §0 的「不合併、不部署」、§8 的「待審查／尚未部署」是 GPT **交付當時**的執行界線與證據，不是目前 PR 狀態；§8 完成報告及 §9 Claude 審查紀錄原文保留供交接。
 - 依據：`PROJECT_RULES.md` §9；視覺規範 `docs/architecture/CY_WEB_VISUAL_GUIDE.md`
 - 基準：`main` 於 V0.9.11（PR #203 已部署，CY Web Deploy #250）
 

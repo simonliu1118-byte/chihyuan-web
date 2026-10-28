@@ -1,7 +1,8 @@
 # WO-0.9.18 移除多餘說明文字、我的帳號改版
 
-- 狀態：已完成（審查通過 2026-10-19）
-- 分支：`cyweb/account-hints`（建議）　PR：（執行者填）
+- 狀態：**已完成・Claude 審查通過・PR #220 已合併**（截至 2026-10-23；歷史交付狀態見 §8、§9）
+- 分支：`cyweb/account-hints-wo-0.9.18`　PR：[#220](https://github.com/simonliu1118-byte/chihyuan-web/pull/220)（已合併）
+- 閱讀提示：本單 §0 的「不合併、不部署」、§8 的「待審查／尚未部署」是 GPT **交付當時**的執行界線與證據，不是目前 PR 狀態；§8 完成報告及 §9 Claude 審查紀錄原文保留供交接。
 - 依據：`PROJECT_RULES.md` §9
 - 視覺規範：`docs/architecture/CY_WEB_VISUAL_GUIDE.md`
 

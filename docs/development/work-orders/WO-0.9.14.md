@@ -1,7 +1,8 @@
 # WO-0.9.14 客戶編號呈現、相關紀錄視窗、報價多品項輸入、品號顯示統一
 
-- 狀態：已完成（審查通過 2026-10-19；已依 WO-0.9.13／PR #208 合併後最新 `main` `e2884e86` 開分支）
-- 分支：`cyweb/customer-quotes-0.9.14`　PR：[ #212 ](https://github.com/simonliu1118-byte/chihyuan-web/pull/212)（未合併、未部署）
+- 狀態：**已完成・Claude 審查通過・PR #212 已合併**（截至 2026-10-23；歷史交付狀態見 §8、§9）
+- 分支：`cyweb/customer-quotes-0.9.14`　PR：[#212](https://github.com/simonliu1118-byte/chihyuan-web/pull/212)（已合併）
+- 閱讀提示：本單 §0 的「不合併、不部署」、§8 的「待審查／尚未部署」是 GPT **交付當時**的執行界線與證據，不是目前 PR 狀態；§8 完成報告及 §9 Claude 審查紀錄原文保留供交接。
 - 依據：`PROJECT_RULES.md` §9；BD-020／BD-021／BD-022（報價＝一個客戶＋一個商品＋數量級距，本單**不改**）
 - 視覺規範：`docs/architecture/CY_WEB_VISUAL_GUIDE.md`
 

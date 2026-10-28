@@ -36,6 +36,7 @@
 - `TODO.md` — 唯一 current implementation status / next-work tracker。
 - `CHANGELOG.md` — 各版本完成內容與驗收證據。
 - `docs/development/work-orders/` — 交由其他執行者實作的版本工作單。
+- `docs/handoff/README.md` — GPT 工作單完成報告／Claude 審查與直接交接的導覽索引（不另建進度表）。
 - `docs/development/LOCAL_DEVELOPMENT.md` — 本機開發流程。
 - `docs/development/IDENTITY_DEPLOYMENT.md#existing-portal-deployment-gate` — Work 發布指令、main-only 手動入口、來源檢查與部署成功判定；main 合併本身不部署。
 - `docs/DOMAIN_STRATEGY.md` — Chihyuan Web systems 的 domain namespace／rollout architecture。
