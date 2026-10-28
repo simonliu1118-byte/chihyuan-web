@@ -45,15 +45,19 @@ export function BackupHistoryView({ history, busy, retry, rehearse }: { history:
     {!row.canRetry && !(history.recoveryReady && rehearse && row.copies.some(copy => copy.status === "verified")) ? <span>—</span> : null}
   </div>;
   const event = (row: BackupHistoryEntry) => <div className="cy-backup-event"><strong>{time(row.createdAt)}</strong>
-    <span>{row.triggerKind === "scheduled" ? "排程備份" : row.triggerKind === "pre_restore" ? "還原前安全備份" : "手動備份"} · {label(row.status)}</span>
-    <details><summary>備份識別資訊</summary><dl><dt>備份編號</dt><dd>{row.backupId}</dd><dt>版本</dt><dd>V{row.appVersion}</dd>
-      <dt>資料摘要</dt><dd>{row.dataSha256 === "pending" ? "尚未產生" : row.dataSha256}</dd></dl></details></div>;
+    <span>{row.triggerKind === "scheduled" ? "排程備份" : row.triggerKind === "pre_restore" ? "還原前安全備份" : "手動備份"} · {label(row.status)}</span></div>;
+  const identity = (row: BackupHistoryEntry) => <dl className="cy-backup-identity">
+    <dt>備份編號</dt><dd>{row.backupId}</dd>
+    <dt>版本</dt><dd>V{row.appVersion}</dd>
+    <dt>資料摘要</dt><dd>{row.dataSha256 === "pending" ? "尚未產生" : row.dataSha256}</dd>
+  </dl>;
   return <DataView ariaLabel="備份紀錄" items={history.sets} getKey={row => row.backupId}
     columns={[{ key: "event", header: "備份時間（台灣）", render: event },
+      { key: "identity", header: "備份資訊", render: identity },
       { key: "copies", header: "儲存副本", render: providerStatus },
       { key: "size", header: "資料量", render: row => <>{row.recordCount.toLocaleString()} 筆<br />{size(row.byteLength)}</> },
       { key: "action", header: "操作", render: action }]}
-    renderCard={row => <>{event(row)}{providerStatus(row)}<div className="cy-backup-card-footer"><span>{row.recordCount.toLocaleString()} 筆 · {size(row.byteLength)}</span>{action(row)}</div></>}
+    renderCard={row => <>{event(row)}{identity(row)}{providerStatus(row)}<div className="cy-backup-card-footer"><span>{row.recordCount.toLocaleString()} 筆 · {size(row.byteLength)}</span>{action(row)}</div></>}
     emptyTitle="尚無備份紀錄" emptyDescription={history.configured ? "建立手動備份後，這裡會顯示各儲存副本的驗證結果。" : "儲存設定完成後才能建立備份。"} />;
 }
 const rehearsalPhaseLabels: Record<string, string> = {
@@ -91,12 +95,12 @@ export function shouldShowLatestRehearsalResult(history: BackupHistory | null): 
 export function BackupLatestRehearsalResult({ items }: { items: readonly BackupRehearsalHistoryEntry[] }) {
   const latest = items.find(row => row.status === "verified");
   if (!latest) return null;
-  return <section className="cy-op-panel cy-backup-rehearsal-success" role="status" aria-label="最新隔離還原驗證結果">
+  return <div className="cy-backup-rehearsal-success" role="status" aria-label="最新隔離還原驗證結果">
     <h3>✓ 隔離還原驗證：完成</h3>
     <p>驗證時間：{time(latest.occurredAt)}（台灣）</p>
     <p>結果：備份已還原至隔離資料庫，資料核對成功。本次驗證已完成，請勿對同一隔離目標再次執行。</p>
     <p>下次驗證請依季度計畫準備經核准的全新空白隔離目標。</p>
-  </section>;
+  </div>;
 }
 export function BackupOperationalPage({ session }: { session: AuthSession }) {
   const [history, setHistory] = useState<BackupHistory | null>(null);
@@ -167,7 +171,9 @@ export function BackupOperationalPage({ session }: { session: AuthSession }) {
   const enabled = !loading && !busy && history?.configured === true;
   return <><div className="cy-page-toolbar">
       <button className="cy-op-button primary" type="button" disabled={!enabled} aria-busy={busy || undefined} onClick={() => void run("create")}>建立手動備份</button>
-      <button className="cy-op-button" type="button" disabled={loading || busy} onClick={() => void run("refresh")}>更新紀錄</button></div>
+      <button className="cy-op-button" type="button" disabled={loading || busy} onClick={() => void run("refresh")}>更新紀錄</button>
+      <CyInvoiceRecoveryAdminPanel key={JSON.stringify([session.user.workspaceId, session.user.employeeId, session.user.workspaceRole, session.user.emailVerified, session.user.isWorkspaceSuperAdmin])} session={session} />
+    </div>
     <div className="cy-op-panel cy-backup-policy"><span><strong>R2</strong> 每日 03:30 · 保留 30 天</span><span><strong>GCS</strong> 週三、週日 · 保留 182 天</span><span>時間皆為台灣時間；手動備份會建立兩端副本。</span></div>
     {history && !history.configured ? <div className="cy-op-notice" role="status">備份儲存尚未設定，建立與重試暫停使用。</div> : null}
     {history?.configured && history.scheduleEnabled === false ? <div className="cy-op-notice" role="status">目前僅啟用手動備份；上述排程尚未開啟。</div> : null}
@@ -175,18 +181,17 @@ export function BackupOperationalPage({ session }: { session: AuthSession }) {
     {notice ? <div className="cy-op-notice" role="status">{notice}</div> : null}
     {history && history.recoveryReady === false
       ? <div className="cy-op-notice" role="status">{history.recoveryBlockedReason ?? "隔離目標已使用或尚未準備，驗證按鈕已停用。"}</div> : null}
-    {shouldShowLatestRehearsalResult(history)
-      ? <BackupLatestRehearsalResult items={history?.rehearsals ?? []} /> : null}
     <section className="cy-op-panel cy-backup-history" aria-busy={loading || busy}>{loading ? <Loading />
       : history ? <><BackupHistoryView history={history} busy={busy} retry={id => void run("retry", id)} rehearse={selectRehearsal} /><p className="cy-backup-history-note">顯示最新 50 筆備份；每次備份只列一次，副本驗證結果分開顯示。</p></>
         : <p>尚未取得備份紀錄，請使用「更新紀錄」。</p>}</section>
     <section className="cy-op-panel cy-backup-history">
       <h3>隔離還原驗證紀錄</h3>
+      {shouldShowLatestRehearsalResult(history)
+        ? <BackupLatestRehearsalResult items={history?.rehearsals ?? []} /> : null}
       {loading ? <Loading /> : history?.rehearsalHistoryAvailable === false
         ? <div className="cy-op-notice danger" role="alert">隔離演練紀錄暫時無法讀取；不能據此判定演練成功或失敗。請稍後再更新紀錄，不要直接重送。</div>
         : <BackupRehearsalHistoryView items={history?.rehearsals ?? []} />}
     </section>
-    <CyInvoiceRecoveryAdminPanel key={JSON.stringify([session.user.workspaceId, session.user.employeeId, session.user.workspaceRole, session.user.emailVerified, session.user.isWorkspaceSuperAdmin])} session={session} />
     <Dialog open={selected !== null} title="驗證隔離還原" dismissible={!busy} onClose={() => { if (!busy) setSelected(null); }}
       footer={<><button className="cy-op-button" type="button" disabled={busy} onClick={() => setSelected(null)}>取消</button>
         <button className="cy-op-button primary" type="button" disabled={busy || !reviewed || confirmation !== BACKUP_REHEARSAL_CONFIRMATION}
