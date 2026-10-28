@@ -53,16 +53,18 @@
 - 請維持 server blind serialization；不能把 COUNTING bookQty 藏在前端但仍傳 JSON。
 - 僅僅經過 CI 不表示使用者已核准合併／Worker deploy／ERP 真交易。
 
-## 5. GPT 完成報告（待驗收後填）
+## 5. GPT 完成報告（2026-10-29，正式交 Claude 審查）
 
-- 開發完成 SHA：
-- 新 PR：
-- 完整 CI／local D1／Source 檢查：
-- 安全 regression：
-- 1440／390 截圖：
-- 尚未完成及風險：
-- 對 WO §6 各項達成情形：
-- 已確實未合併／未部署：
+- **PR / 分支**：[PR #307](https://github.com/simonliu1118-byte/chihyuan-web/pull/307)／`cyweb/store-stocktake`，base 是工單 [#306](https://github.com/simonliu1118-byte/chihyuan-web/pull/306)／`cyweb/wo-0.9.52-stocktake`；版號 **V0.9.52 Build 0**，原始工單 4 筆規格提交已全數讀取。V0.9.51 是另案未合併 PR #305。
+- **已驗證程式提交**：`61d2ff7d95649e8c4fe598afe7eb0710f3f80a4d`；其後僅新增本輪 handoff／工單文件，Claude 仍應核對最新 PR HEAD。
+- **CI**：[Runtime Check #40750528573](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40750528573) `success`，五 jobs（source-contracts、browser-typecheck、worker-typecheck、build、stocktake-visual）全數通過，含本地 D1 acceptance、Vite build。
+- **完整 Node 測試**：`node --test scripts/*.test.mjs` 399 項全部通過、0 失敗。新增的 17 項盤點測試涵蓋盲盤、多人／版本、批號、兩次主管確認、ERP SYNC/WRITE 成敗與 retry、全表 mismatch、空 rows、timeout、進度與 3,000 上限。因原有 `audit-account-portal.test.mjs` 讀取 CYapps 共通 resolver，CI 在跑全套測試前唯讀 sparse checkout 公開 CYapps 指定 scripts；沒有修改另一張 ERP 工單。
+- **真瀏覽器測試**：七張截圖皆為 Chromium 渲染真 React `StoreStocktake` 元件 + 正式 CSS，僅使用合成 API/品號/底稿；1440（盲盤、第一次確認、複盤、寫回失敗）及 390（盲盤、新增批號對話框、複盤）。[CI artifact `stocktake-1440-390-visual-acceptance`（ID 12844265324）](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40750528573)。已親自下載抽查截圖；mobile 無橫向溢出，寫回失敗顯示中文失敗列與 ERP 差異，非原始 JSON。
+- **權限與資料**：`STORE_STOCKTAKE` Module Access，`ADMIN/SUPER_ADMIN` 主管確認，Worker 在 COUNTING 時不返回 `bookQty`，逐列 version／歷史／參與者，十進位整數倍數計算，完整 ERP 核對與失敗重試明確人為確認；四張新表納入可攜備份。
+- **可靠度與成本**：修正忽略 stub 再讀、每人最多三筆 ERP queue、Audit 中文動作名稱、避免將 ERP 逐列寫入數量複製至共用 Audit、每張底稿 JSON1 批量 insert 降低 D1 工作量；CI 僅做 synthetic 3,000 列測試，未聲稱正式 D1 最大量通過。
+- **依 WO §6 的項目**：授權頁籤、update/skip/ignore/refresh、盲盤、多人逐列編輯、批號規則、兩次主管確認、STOCKTAKE_WRITE 寫回資料與重試、390px 操作、Enter／日期四碼、Node／TypeScript／D1／build、VERSION／TODO／CHANGELOG／架構文檔，均已實作與離線驗收；正式 ERP 互通不是本工單模擬測試可取代的驗收。
+- **未完成的外部驗證／Claude 判斷**：正式 Cloudflare D1 高併發 200×3,000 與配額、正式 CYID/整站 Shell 端到端、CYERPAutoQuery 1.3.0 Windows ERP 實機操作，需相應授權與設備。**禁止擅自連線正式 Cloudflare、真庫存寫入或部署。**
+- **操作安全**：只修改本 feature branch；沒有合併 PR #306、#307，沒有部署，正式 Cloudflare Worker/D1/R2/GCS 及 ERP 全部未更動。Claude 審查結果只寫第 6 節，GPT 不代填審查結論。
 
 ## 6. Claude 最終審查（僅由 Claude 填）
 
