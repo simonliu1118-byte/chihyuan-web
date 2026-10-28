@@ -70,7 +70,9 @@ export function validateWriteResult(body:Record<string,unknown>,sheet:string,exp
  if(results.length!==expected.length)invalid("寫回結果列數不符");
  const mismatches=list(body.mismatches,"ERP 核對差異",STOCKTAKE_MAX_ROWS).map(raw=>{
    const m=record(raw,"核對差異"),key=str(m.key,"列鍵",40,true);
-   if(!ids.has(key))invalid("核對差異含未授權的列鍵");
+   // INVR11 checks the entire stocktake, including rows unchanged by this write.
+   // A discrepancy may legally refer to a row not present in the job's write list.
+   // writeResultStatements verifies each such key against the persisted sheet.
    return {key,seq:m.seq===null?null:seq(m.seq),itemCode:str(m.itemCode,"品號",40,true),
      batch:str(m.batch,"批號",80),expected:qty(m.expected),actual:qty(m.actual)};
  });
@@ -127,6 +129,23 @@ export async function syncStatements(db:D1Database,body:StocktakeSyncResult,only
  return out;
 }
 export async function writeResultStatements(db:D1Database,body:StocktakeWriteResult,jobId:string,now:string):Promise<D1PreparedStatement[]>{
+ // Check INVR11 mismatches against the complete sheet, not just changed rows.
+ // Validation must finish before the atomic job-completion batch.
+ if(body.mismatches.length){
+   const lines=await db.prepare(`SELECT line_key,seq,item_code,batch FROM stocktake_lines
+     WHERE sheet_no=? LIMIT 3001`).bind(body.sheetNo).all<{
+       line_key:string;seq:string|null;item_code:string;batch:string
+     }>();
+   const byKey=new Map((lines.results??[]).map(l=>[l.line_key,l]));
+   const seen=new Set<string>();
+   for(const m of body.mismatches){
+     const line=byKey.get(m.key);
+     if(!line || seen.has(m.key) || line.seq!==m.seq ||
+       line.item_code!==m.itemCode || line.batch!==m.batch)
+       invalid("ERP 核對差異與底稿逐列資料不符");
+     seen.add(m.key);
+   }
+ }
  const out:D1PreparedStatement[]=[
    db.prepare("SELECT CASE WHEN EXISTS (SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND status='WRITING' AND write_query_id=?) THEN 1 ELSE json('') END")
     .bind(body.sheetNo,jobId),
