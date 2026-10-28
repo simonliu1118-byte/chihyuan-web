@@ -134,5 +134,9 @@ jobs:
         run: |
           python scripts/test_d1_runner.py
           npm run validate:d1:local
+      # Full acceptance requested by WO-0.9.52. All synthetic fixture tests,
+      # no production resources, credentials or live ERP connections.
+      - name: Full Node test suite
+        run: node --test scripts/*.test.mjs
       - name: Vite build
         run: npx vite build
