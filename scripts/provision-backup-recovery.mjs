@@ -104,7 +104,8 @@ export async function provisionBackupRecovery({ env, fetchImpl = fetch, migrate 
     check(await alreadyUsed(boundTarget.uuid), "RECOVERY_ROTATION_PREVIOUS_TARGET_UNUSED");
     target = (await api("d1/database", { name })).result;
     check(target?.name === name && UUID.test(target?.uuid ?? "") && target.uuid !== env.CF_D1_DATABASE_ID
-      && target.uuid !== boundTarget.uuid, "RECOVERY_TARGET_NOT_ISOLATED");
+      && target.uuid !== boundTarget.uuid && !databases.some(db => db.uuid === target.uuid),
+      "RECOVERY_TARGET_NOT_ISOLATED");
     maskOnce(target.uuid); maskOnce(target.name);
     // A fresh D1 must contain no application tables *before* canonical forward
     // migrations. Never migrate a previously observed/nonempty candidate.
@@ -136,8 +137,8 @@ export async function provisionBackupRecovery({ env, fetchImpl = fetch, migrate 
   } else {
     check(matching.length === 0, "RECOVERY_OWNER_CONFIRMATION_REQUIRED");
     target = (await api("d1/database", { name })).result;
-    check(target?.name === name && UUID.test(target?.uuid ?? "") && target.uuid !== env.CF_D1_DATABASE_ID,
-      "RECOVERY_TARGET_NOT_ISOLATED");
+    check(target?.name === name && UUID.test(target?.uuid ?? "") && target.uuid !== env.CF_D1_DATABASE_ID
+      && !databases.some(db => db.uuid === target.uuid), "RECOVERY_TARGET_NOT_ISOLATED");
     maskOnce(target.uuid); maskOnce(target.name);
     check((await tablesFor(target.uuid)).length === 0, "RECOVERY_TARGET_NOT_EMPTY");
     await migrate({ id: target.uuid, name, env });
