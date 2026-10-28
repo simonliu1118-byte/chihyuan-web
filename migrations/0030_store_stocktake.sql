@@ -100,7 +100,9 @@ CREATE TABLE stocktake_lines (
   FOREIGN KEY(recount_by) REFERENCES app_members(id)
 );
 CREATE UNIQUE INDEX idx_stocktake_seq ON stocktake_lines(sheet_no,seq) WHERE seq IS NOT NULL;
-CREATE UNIQUE INDEX idx_stocktake_batch ON stocktake_lines(sheet_no,item_code,batch) WHERE batch<>'';
+-- Not unique: an ERP sheet may list one 品號＋批號 in two places; only added batches are checked
+-- for duplicates (in the route).
+CREATE INDEX idx_stocktake_batch ON stocktake_lines(sheet_no,item_code,batch);
 CREATE INDEX idx_stocktake_location ON stocktake_lines(sheet_no,location,item_code);
 CREATE TABLE stocktake_line_history (
   id INTEGER PRIMARY KEY,

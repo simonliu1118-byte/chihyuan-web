@@ -1,6 +1,6 @@
 # CY Web WO-0.9.52 門市庫存盤點（第一階段）— GPT 工作紀錄／Claude 最終審查
 
-- **狀態：GPT 實作與離線驗收完成；正式交 Claude 最終審查。399/399 Node、五個 CI Job、七張真 Chromium 合成元件截圖已通過。PR #307 未合併／未部署；真 ERP、真 D1 大批量及正式登入整站仍未驗證。**
+- **狀態：Claude 審查通過（2026-10-29，審查者已直接修正，見 §6）。399/399 Node、五個 CI Job、七張真 Chromium 合成元件截圖已通過。PR #307 未合併／未部署；真 ERP、真 D1 大批量及正式登入整站仍未驗證。**
 - 工單：[docs/development/work-orders/WO-0.9.52.md](../development/work-orders/WO-0.9.52.md)。
 - 原工單 [PR #306](https://github.com/simonliu1118-byte/chihyuan-web/pull/306)：本分支建於**最新** `be85abdd5d6da17857394cc2f4dd75e3f3774966`（4 筆提交），已包含「資料清除後保留參與者／兩次確認／差異盈虧摘要、刪明細與逐列歷史」修正。2026-10-29 本輪重新唯讀查核時 PR 仍 Open，該 HEAD 無新增提交／討論回覆。
 - 實作：`cyweb/store-stocktake`；基礎 `main` 為 `d775cac6e7dfb798e7981318047288b1f70a7a56`（V0.9.50）；目標 `0.9.52 Build 0`，V0.9.51 是另案 PR #305，不將它併進本分支。
@@ -68,11 +68,22 @@
 
 ## 6. Claude 最終審查（僅由 Claude 填）
 
-- 審查日期／最新 HEAD：
-- 結論：**待審查**
-- 逐檔問題：
-- 對 ERP 端 WO-1.3.0 協定核對：
-- 可否合併：
+- 審查日期：2026-10-29；審查基準 HEAD `84548ec4`，審查者修正後另提交。
+- 結論：**通過（審查者已直接修正下列 1–5，無需再交 GPT）**，可合併部署。
+- 整體：權限（Module Access＋ADMIN）、盲盤在 Worker 序列化層、逐列樂觀鎖與 `stocktake_line_history`／`stocktake_participants`、兩次確認、品號合計鎖定與逐批號寫回規則、`confirmed=false` 視為失敗、INVR11 全表 mismatch 驗證、新增批號 `erpSeq`、共用 Audit 不含數量，均符合工單。
+- 審查者直接修正（依嚴重度）：
+  1. **寫回失敗回報會卡住**：Agent 在開始寫入前就失敗（ERP 未開、人數已滿）時，`results` 可能是空的；原驗證要求每列都有結果，complete 被 400 拒絕，盤點單停在「寫回中」直到 1 小時逾時。改為 FAILED 可不帶列，直接 `WRITE_FAILED` 讓管理員重試。
+  2. **讀取失敗回報同樣會卡住**：`STOCKTAKE_SYNC` 的 FAILED 可不帶 `sheets`／`details`。
+  3. **整批被拒、其他底稿一起遺失**：領工作後才有人把某張設為忽略、或兩人同時按「更新盤點單」時，原本整個 complete 被拒；改為略過狀態已變的那張，其餘照常寫入。
+  4. **跨 repo 協定不一致**：工單寫「`onlySheet` 模式可只回該張」（也可回整份清單），原驗證只接受只回該張；改為清單可為整份，明細必須恰好該張。
+  5. **ERP 底稿同品號＋批號出現兩列會整批失敗**：`idx_stocktake_batch` 由 UNIQUE 改為一般索引（新增批號的重複檢查仍在路由內）。migration 0030 尚未部署，直接修正。
+  6. 盤點數量（初盤、複盤、新增批號）不可小於 0（帳面仍可為負）。
+  7. 移除只在 `cyweb/store-stocktake` 分支觸發的截圖 CI job 與其 fixture（合併後永不執行）；截圖證據保留在 Action #40750528573 artifact。全量 Node 測試步驟保留。
+- 新增測試 3 項（失敗回報不卡住、同步略過與重新整理清單、負數），`store-stocktake.test.mjs` 20/20；全量 393 通過（`audit-account-portal` 需 CYapps checkout，CI 已補）。
+- 對 ERP 端 WO-1.3.0：協定與本實作一致；請 ERP 端注意 FAILED 時可不帶 `results`、刷新時清單可為整份。
+- 待第二階段：清除時一併清空該盤點工作的 `erp_item_queries.keyword`（寫回工作的 keyword 含逐列數量，30 天後才隨工作刪除）。
+- 上線前提醒：正式 D1 對單張 3,000 列的一次寫入未實測；ERP 端未上線前，盤點工作只會排隊（舊版查詢程式不領這兩種工作），60 分鐘後逾期，不影響其他查詢。
+- 可否合併：可；先合併工單 PR #306，再把 #307 改為對 main 合併並部署（含 migration 0030）。
 
 ## 7. GPT 本輪安全返修、測試與 Claude 補充（2026-10-29）
 

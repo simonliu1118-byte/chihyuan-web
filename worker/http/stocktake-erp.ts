@@ -25,6 +25,8 @@ const seq=(v:unknown)=>{const n=str(v,"序號",5,true);if(!STOCKTAKE_SEQ.test(n)
 const date=(v:unknown)=>{const n=str(v,"日期",10,true);if(!/^\d{4}-\d{2}-\d{2}$/.test(n)||!Number.isFinite(Date.parse(n+"T00:00:00Z"))||new Date(n+"T00:00:00Z").toISOString().slice(0,10)!==n)return invalid("盤點日期不正確");return n};
 export function validateSyncResult(body:Record<string,unknown>,skip:string[],onlySheet:string|null):StocktakeSyncResult {
  const outcome=body.outcome;if(outcome!=="FOUND"&&outcome!=="NOT_FOUND"&&outcome!=="FAILED")return invalid("同步狀態不正確");
+ // A failed run (ERP not open, seats full…) may stop before it read the list: nothing is stored.
+ if(outcome==="FAILED")return {outcome,sheets:[],details:[]};
  const sheets=list(body.sheets,"盤點單清單",200).map(raw=>{const row=record(raw,"盤點單");return {sheetNo:sheetNo(row.sheetNo),date:date(row.date)}});
  const sheetKeys=new Set<string>();
  for(const sh of sheets){if(sheetKeys.has(sh.sheetNo))invalid("底稿不可重複");sheetKeys.add(sh.sheetNo)}
@@ -45,17 +47,22 @@ export function validateSyncResult(body:Record<string,unknown>,skip:string[],onl
  const detailKeys=new Set<string>();
  for(const d of details){if(detailKeys.has(d.sheetNo))invalid("同張底稿明細重複");detailKeys.add(d.sheetNo)}
  if(onlySheet){
-   if(details.length!==1||details[0].sheetNo!==onlySheet||sheets.some(s=>s.sheetNo!==onlySheet))invalid("重新整理只能回傳指定的一張底稿");
+   // The list may hold every sheet (or only this one); the details must be exactly this one.
+   if(details.length!==1||details[0].sheetNo!==onlySheet)invalid("重新整理只能回傳指定的一張底稿明細");
  }else{
    for(const s of sheets)if(!skip.includes(s.sheetNo)&&!detailKeys.has(s.sheetNo)&&outcome==="FOUND")invalid("缺少未讀底稿明細");
  }
  if(outcome==="NOT_FOUND"&&details.length)invalid("NOT_FOUND 不可有明細");
  if(outcome==="FOUND"&&!details.length)invalid("FOUND 必須有明細");
- if(outcome==="FAILED"&&details.length)invalid("失敗不可有明細");
+ // FAILED returned above.
  return {outcome,sheets,details};
 }
 export function validateWriteResult(body:Record<string,unknown>,sheet:string,expected:readonly StocktakeWriteRow[]):StocktakeWriteResult{
  if(body.outcome!=="FOUND"&&body.outcome!=="FAILED")return invalid("寫回狀態不正確");
+ // A run that failed before writing (ERP not open, seats full…) may carry no rows; the sheet
+ // becomes WRITE_FAILED and the admin retries the same rows.
+ if(body.outcome==="FAILED"&&(body.results===undefined||Array.isArray(body.results)&&body.results.length===0))
+   return {outcome:"FAILED",sheetNo:sheet,results:[],confirmed:false,mismatches:[]};
  if(sheetNo(body.sheetNo)!==sheet)invalid("寫回底稿與工作不符");
  if(typeof body.confirmed!=="boolean")invalid("confirmed 不正確");
  const ids=new Set(expected.map(x=>x.key)),seen=new Set<string>();
@@ -109,11 +116,14 @@ export async function syncStatements(db:D1Database,body:StocktakeSyncResult,only
  for(const d of body.details){
    const current=await db.prepare("SELECT sheet_no,status,detail_read_at FROM stocktake_sheets WHERE sheet_no=?")
      .bind(d.sheetNo).first<SyncSheetRow>();
-   if(current&&current.status!=="COUNTING")invalid("非初盤底稿不得重新整理");
-   if(current&&!onlySheet&&current.detail_read_at)invalid("已讀底稿不能覆寫");
-   if(current&&onlySheet){
+   // The sheet may have changed since the claim (ignored meanwhile, read by another update, or
+   // someone started counting): keep what CY Web has and skip it, rather than refusing the
+   // whole completion and losing the other sheets of this run.
+   if(current&&current.status!=="COUNTING")continue;
+   if(current&&!onlySheet&&current.detail_read_at)continue;
+   if(current){
      const filled=await db.prepare("SELECT 1 AS yes FROM stocktake_lines WHERE sheet_no=? AND (first_qty IS NOT NULL OR recount_qty IS NOT NULL) LIMIT 1").bind(d.sheetNo).first();
-     if(filled)invalid("已有填寫資料的底稿不得重新整理");
+     if(filled)continue;
    }
    if(current){
      out.push(db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND status='COUNTING') AND NOT EXISTS (SELECT 1 FROM stocktake_lines WHERE sheet_no=? AND (first_qty IS NOT NULL OR recount_qty IS NOT NULL)) THEN 1 ELSE json('') END").bind(d.sheetNo,d.sheetNo));

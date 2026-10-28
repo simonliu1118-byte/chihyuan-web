@@ -63,6 +63,8 @@ async function detail(db:D1Database,sheet:string){
 }
 const version=(v:unknown)=>Number.isSafeInteger(v)&&Number(v)>=1?Number(v):fail("STOCKTAKE_INVALID","版本不正確");
 const safeQty=(value:unknown)=>{try{parseStocktakeQuantity(value);return value as string}catch{return fail("STOCKTAKE_INVALID","數量需為數字字串，最多四位小數且小於十億")}};
+/** A counted quantity is what is on the shelf: never below zero (the ERP book may be). */
+const countQty=(value:unknown)=>{const v=safeQty(value);if(parseStocktakeQuantity(v)<0n)fail("STOCKTAKE_INVALID","盤點數量不可小於 0");return v};
 const requireAdmin=(role:string)=>{if(role!=="ADMIN"&&role!=="SUPER_ADMIN")fail("ACCESS_DENIED","僅管理員可以執行此操作",403)};
 const nowIso=()=>new Date().toISOString();
 async function verifyJobQuota(db:D1Database,member:number){
@@ -157,7 +159,7 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
     if(line.version!==expected)fail("STOCKTAKE_VERSION_CONFLICT","這一列已被其他人修改，請核對最新填寫人與數量",409);
     const field=sh.status==="COUNTING"?"first_qty":sh.status==="RECOUNTING"?"recount_qty":null;
     if(!field||line.locked)fail("STOCKTAKE_STATUS","目前狀態不可修改這一列",409);
-    const value=safeQty(v.quantity),before=field==="first_qty"?line.first_qty:line.recount_qty;
+    const value=countQty(v.quantity),before=field==="first_qty"?line.first_qty:line.recount_qty;
     await db.batch([
       guard(db,"EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND status=?)",sheet,sh.status),
       guard(db,"EXISTS(SELECT 1 FROM stocktake_lines WHERE sheet_no=? AND line_key=? AND version=?)",sheet,key,expected),
@@ -179,7 +181,7 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
       fail("STOCKTAKE_STATUS","此品號合計已核對並鎖定，不能增加新批號",409);
     if(same.some(l=>l.batch===batch))fail("STOCKTAKE_DUPLICATE","批號已存在",409);
     const base=same[0],id="N"+crypto.randomUUID().replaceAll("-","").slice(0,12);
-    const qty=v.quantity===undefined?null:safeQty(v.quantity);
+    const qty=v.quantity===undefined?null:countQty(v.quantity);
     const recount=sh.status==="RECOUNTING";
     await db.batch([guard(db,"EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND status=?)",sheet,sh.status),
       db.prepare(`INSERT INTO stocktake_lines(sheet_no,line_key,seq,item_code,item_name,spec,warehouse_name,location,unit,batch,book_qty,is_added,first_qty,first_by,first_at)

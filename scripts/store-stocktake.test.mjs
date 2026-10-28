@@ -418,3 +418,50 @@ test("each member has at most 3 active stocktake ERP jobs and fourth receives ac
   assert.equal(f.sql.prepare("SELECT count(*) n FROM erp_item_queries WHERE status='QUEUED'").get().n,3);
  }finally{f.sql.close()}
 });
+
+// Claude review (2026-10-29): robustness fixes.
+test("a failed WRITE may carry no rows and leaves the sheet WRITE_FAILED for retry",async()=>{
+ const f=fixture();try{
+  const {id}=await prepareWrite(f);
+  const failed=await f.agent("/item-queries/"+id+"/complete",{outcome:"FAILED",sheetNo:"990001",results:[],confirmed:false,mismatches:[],
+   errorCode:"ERP_SEATS_FULL",errorMessage:null,elapsedMs:5,agentVersion:"synthetic"});
+  assert.equal(failed.status,200,JSON.stringify(failed));
+  assert.equal((await f.sheet()).data.sheet.status,"WRITE_FAILED");
+ }finally{f.sql.close()}
+});
+test("a failed SYNC may omit the lists; a refresh may list every sheet; a sheet ignored meanwhile is skipped",async()=>{
+ const f=fixture();try{
+  const first=await f.user("/sync","POST");
+  await f.agent("/item-queries/claim",{agentVersion:"synthetic",erpState:"BROWSE",queryTypes:["STOCKTAKE_SYNC"]});
+  const failed=await f.agent("/item-queries/"+first.data.id+"/complete",{outcome:"FAILED",errorCode:"ERP_NOT_OPEN",errorMessage:null,elapsedMs:5,agentVersion:"synthetic"});
+  assert.equal(failed.status,200,JSON.stringify(failed));
+  // Ignored after the claim: its details are skipped, the other sheet is kept.
+  const second=await f.user("/sync","POST");
+  await f.agent("/item-queries/claim",{agentVersion:"synthetic",erpState:"BROWSE",queryTypes:["STOCKTAKE_SYNC"]});
+  assert.equal((await f.user("/ignore","POST",{sheetNo:"990002"})).status,200);
+  const done=await f.agent("/item-queries/"+second.data.id+"/complete",{outcome:"FOUND",
+   sheets:[{sheetNo:"990001",date:"2026-10-28"},{sheetNo:"990002",date:"2026-10-28"}],
+   details:[{sheetNo:"990001",rows:[f.row("00001","B1","2"),f.row("00002","B1","3")]},{sheetNo:"990002",rows:[f.row("00001","B1","2")]}],
+   elapsedMs:5,agentVersion:"synthetic"});
+  assert.equal(done.status,200,JSON.stringify(done));
+  assert.equal((await f.sheet("990001")).data.lines.length,2,"the same 品號＋批號 twice on an ERP sheet is kept");
+  assert.equal(f.sql.prepare("SELECT status FROM stocktake_sheets WHERE sheet_no='990002'").get().status,"IGNORED");
+  assert.equal(f.sql.prepare("SELECT COUNT(*) n FROM stocktake_lines WHERE sheet_no='990002'").get().n,0);
+  // Refresh: the agent may return the whole list with only this sheet's details.
+  const refresh=await f.user("/990001/refresh","POST");
+  assert.equal(refresh.status,200,JSON.stringify(refresh));
+  await f.agent("/item-queries/claim",{agentVersion:"synthetic",erpState:"BROWSE",queryTypes:["STOCKTAKE_SYNC"]});
+  const refreshed=await f.agent("/item-queries/"+refresh.data.id+"/complete",{outcome:"FOUND",
+   sheets:[{sheetNo:"990001",date:"2026-10-28"},{sheetNo:"990002",date:"2026-10-28"}],
+   details:[{sheetNo:"990001",rows:[f.row("00001","B1","5")]}],elapsedMs:5,agentVersion:"synthetic"});
+  assert.equal(refreshed.status,200,JSON.stringify(refreshed));
+  assert.equal((await f.sheet("990001")).data.lines.length,1);
+ }finally{f.sql.close()}
+});
+test("a counted quantity cannot be negative",async()=>{
+ const f=fixture();try{
+  f.insert();const line=(await f.sheet()).data.lines[0];
+  assert.equal((await f.user("/990001/line","PATCH",{lineKey:line.lineKey,expectedVersion:line.version,quantity:"-1"})).status,422);
+  assert.equal((await f.user("/990001/line","PATCH",{lineKey:line.lineKey,expectedVersion:line.version,quantity:"0"})).status,200);
+ }finally{f.sql.close()}
+});
