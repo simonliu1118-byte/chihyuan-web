@@ -106,7 +106,7 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
   if(!match)return failure({code:"NOT_FOUND",message:"盤點路徑不存在"},requestId,404);
   const sheet=sheetNo(match[1]),action=match[2]??"";
   const sh=await one<Sheet>(db,"SELECT * FROM stocktake_sheets WHERE sheet_no=?",sheet);
-  if(!sh)fail("STOCKTAKE_NOT_FOUND","盤點單不存在",404);
+  if(!sh)throw new Invalid("STOCKTAKE_NOT_FOUND","盤點單不存在",404);
   if(!action&&method==="GET")return success(await detail(db,sheet),requestId);
   if(action==="history"&&method==="GET"){
     const line=text(url.searchParams.get("lineKey"),"列鍵",40);
@@ -140,7 +140,7 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
   if(action==="line"&&method==="PATCH"){
     const v=await json(request),key=text(v.lineKey,"列鍵",40),expected=version(v.expectedVersion);
     const line=await one<Line>(db,"SELECT * FROM stocktake_lines WHERE sheet_no=? AND line_key=?",sheet,key);
-    if(!line)fail("STOCKTAKE_NOT_FOUND","盤點列不存在",404);
+    if(!line)throw new Invalid("STOCKTAKE_NOT_FOUND","盤點列不存在",404);
     if(line.version!==expected)fail("STOCKTAKE_VERSION_CONFLICT","這一列已被其他人修改，請核對最新填寫人與數量",409);
     const field=sh.status==="COUNTING"?"first_qty":sh.status==="RECOUNTING"?"recount_qty":null;
     if(!field||line.locked)fail("STOCKTAKE_STATUS","目前狀態不可修改這一列",409);
@@ -181,7 +181,7 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
   if(action==="batches"&&method==="DELETE"){
     const v=await json(request),key=text(v.lineKey,"列鍵",40),expected=version(v.expectedVersion);
     const line=await one<Line>(db,"SELECT * FROM stocktake_lines WHERE sheet_no=? AND line_key=?",sheet,key);
-    if(!line||!line.is_added)fail("STOCKTAKE_INVALID","只能刪除尚未寫回的新增批號列");
+    if(!line||!line.is_added)throw new Invalid("STOCKTAKE_INVALID","只能刪除尚未寫回的新增批號列");
     if(sh.status!=="COUNTING"&&sh.status!=="RECOUNTING")fail("STOCKTAKE_STATUS","目前不能刪新增列",409);
     if(line.version!==expected)fail("STOCKTAKE_VERSION_CONFLICT","新增列已被其他人修改",409);
     if(line.first_qty!==null||line.recount_qty!==null){
