@@ -118,10 +118,17 @@ export async function syncStatements(db:D1Database,body:StocktakeSyncResult,only
      out.push(db.prepare("INSERT INTO stocktake_sheets(sheet_no,sheet_date,detail_read_at,status,created_at,updated_at) VALUES(?,?,?,'COUNTING',?,?)")
        .bind(d.sheetNo,body.sheets.find(s=>s.sheetNo===d.sheetNo)!.date,now,now,now));
    }
-   for(const line of d.rows)out.push(db.prepare(`INSERT INTO stocktake_lines(
+   // One indexed, transactional INSERT per sheet, not 3,000 individual D1
+   // statements. Rows are already validated and normalized above.
+   // This reduces Worker/D1 CPU, subrequest payload and batch execution time.
+   if(d.rows.length)out.push(db.prepare(`INSERT INTO stocktake_lines(
      sheet_no,line_key,seq,item_code,item_name,spec,warehouse_name,location,unit,batch,book_qty)
-     VALUES(?,?,?,?,?,?,?,?,?,?,?)`).bind(d.sheetNo,line.seq,line.seq,line.itemCode,line.itemName,
-       line.spec,line.warehouseName,line.location,line.unit,line.batch,line.bookQty));
+     SELECT ?1,json_extract(value,'$.seq'),json_extract(value,'$.seq'),
+       json_extract(value,'$.itemCode'),json_extract(value,'$.itemName'),
+       json_extract(value,'$.spec'),json_extract(value,'$.warehouseName'),
+       json_extract(value,'$.location'),json_extract(value,'$.unit'),
+       json_extract(value,'$.batch'),json_extract(value,'$.bookQty')
+     FROM json_each(?2)`).bind(d.sheetNo,JSON.stringify(d.rows)));
    out.push(new AuditService(db).prepareRecord({entityType:"stocktake",entityKey:d.sheetNo,
      action:"stocktake.sheet_synced",actorEmployeeId:null,statusTo:"COUNTING",
      metadata:{lines:d.rows.length,refresh:!!onlySheet}}));
