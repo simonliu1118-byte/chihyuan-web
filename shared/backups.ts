@@ -30,7 +30,7 @@ export interface BackupRehearsalHistoryEntry {
 }
 export interface BackupHistory {
   configured: boolean; recoveryConfigured?: boolean; scheduleEnabled?: boolean;
-  sets: BackupHistoryEntry[]; rehearsals?: BackupRehearsalHistoryEntry[];
+  sets: BackupHistoryEntry[]; rehearsals?: BackupRehearsalHistoryEntry[]; rehearsalHistoryAvailable?: boolean;
 }
 export const BACKUP_REHEARSAL_ERROR_MESSAGES: Record<string, string> = {
   BACKUP_TABLE_COVERAGE_MISMATCH: "隔離資料庫結構與目前備份不一致（部分資料表缺少或多出），無法驗證。請保留既有目標，由管理員確認後準備新版空白驗證副本。",
