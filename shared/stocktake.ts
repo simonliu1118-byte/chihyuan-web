@@ -9,7 +9,8 @@ export type StocktakeLine = {
   sheetNo:string;lineKey:string;seq:string|null;itemCode:string;itemName:string;spec:string;
   warehouseName:string;location:string;unit:string;batch:string;isAdded:boolean;erpSeq:string|null;
   bookQty?:string;firstQty:string|null;firstBy:number|null;firstAt:string|null;
-  recountQty:string|null;recountBy:number|null;recountAt:string|null;locked:boolean;version:number;
+  recountQty:string|null;recountBy:number|null;recountAt:string|null;
+  firstByName?:string|null;recountByName?:string|null;locked:boolean;version:number;
 };
 export type StocktakeSheet = {
   sheetNo:string;sheetDate:string|null;status:StocktakeStatus;version:number;
