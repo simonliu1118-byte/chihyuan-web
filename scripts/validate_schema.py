@@ -17,6 +17,9 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS_DIR = ROOT / "migrations"
 
 EXPECTED_TABLES = {
+    "store_customer_orders",
+    "store_customer_order_lines",
+    "store_blacklist",
     "ordering_sources",
     "ordering_user_preferences",
     "ordering_orders",
