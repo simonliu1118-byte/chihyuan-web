@@ -40,9 +40,9 @@ export function BackupHistoryView({ history, busy, retry, rehearse }: { history:
   rehearse?: (row: BackupHistoryEntry) => void }) {
   const action = (row: BackupHistoryEntry) => <div className="cy-op-page-actions">
     {row.canRetry ? <button className="cy-op-button" type="button" disabled={busy} onClick={() => retry(row.backupId)}>重試 GCS</button> : null}
-    {history.recoveryConfigured && rehearse && row.copies.some(copy => copy.status === "verified")
+    {history.recoveryReady && rehearse && row.copies.some(copy => copy.status === "verified")
       ? <button className="cy-op-button" type="button" disabled={busy} onClick={() => rehearse(row)}>驗證隔離還原</button> : null}
-    {!row.canRetry && !(history.recoveryConfigured && rehearse && row.copies.some(copy => copy.status === "verified")) ? <span>—</span> : null}
+    {!row.canRetry && !(history.recoveryReady && rehearse && row.copies.some(copy => copy.status === "verified")) ? <span>—</span> : null}
   </div>;
   const event = (row: BackupHistoryEntry) => <div className="cy-backup-event"><strong>{time(row.createdAt)}</strong>
     <span>{row.triggerKind === "scheduled" ? "排程備份" : row.triggerKind === "pre_restore" ? "還原前安全備份" : "手動備份"} · {label(row.status)}</span>
@@ -57,7 +57,7 @@ export function BackupHistoryView({ history, busy, retry, rehearse }: { history:
     emptyTitle="尚無備份紀錄" emptyDescription={history.configured ? "建立手動備份後，這裡會顯示各儲存副本的驗證結果。" : "儲存設定完成後才能建立備份。"} />;
 }
 const rehearsalPhaseLabels: Record<string, string> = {
-  source_read: "來源備份核對", target_validation: "隔離目標檢查",
+  completed: "完成", target_lock: "隔離目標使用狀態", source_read: "來源備份核對", target_validation: "隔離目標檢查",
   safety_backup: "還原前安全備份", audit_start: "演練啟動紀錄",
   restore_reconcile: "隔離還原／資料核對", result_record: "結果紀錄",
 };
@@ -81,6 +81,22 @@ export function BackupRehearsalHistoryView({ items }: { items: readonly BackupRe
     columns={[{ key: "time", header: "驗證時間／結果（台灣）", render: detail }]}
     renderCard={detail} emptyTitle="尚無隔離還原驗證紀錄"
     emptyDescription="此處顯示近 90 天已記錄的演練，最多 30 筆；早期失敗若發生在記錄前，可能無法追溯。" />;
+}
+/** Prevent an old successful rehearsal from appearing as the status of a fresh
+ * recovery target after the next quarter's approved rotation. */
+export function shouldShowLatestRehearsalResult(history: BackupHistory | null): boolean {
+  return history?.rehearsalHistoryAvailable !== false && history?.recoveryReady === false;
+}
+/** A durable, prominent result derived from Audit; not from a transient toast. */
+export function BackupLatestRehearsalResult({ items }: { items: readonly BackupRehearsalHistoryEntry[] }) {
+  const latest = items.find(row => row.status === "verified");
+  if (!latest) return null;
+  return <section className="cy-op-panel cy-backup-rehearsal-success" role="status" aria-label="最新隔離還原驗證結果">
+    <h3>✓ 隔離還原驗證：完成</h3>
+    <p>驗證時間：{time(latest.occurredAt)}（台灣）</p>
+    <p>結果：備份已還原至隔離資料庫，資料核對成功。本次驗證已完成，請勿對同一隔離目標再次執行。</p>
+    <p>下次驗證請依季度計畫準備經核准的全新空白隔離目標。</p>
+  </section>;
 }
 export function BackupOperationalPage({ session }: { session: AuthSession }) {
   const [history, setHistory] = useState<BackupHistory | null>(null);
@@ -128,6 +144,7 @@ export function BackupOperationalPage({ session }: { session: AuthSession }) {
     } finally { lock.current = false; if (mounted.current) { setBusy(false); setLoading(false); } }
   }
   function selectRehearsal(row: BackupHistoryEntry) {
+    if (!history?.recoveryReady) { setError(history?.recoveryBlockedReason ?? "隔離目標不可再次驗證。"); return; }
     setSelected(row); setProvider(row.copies.some(copy => copy.provider === "gcs" && copy.status === "verified") ? "gcs" : "r2");
     setReviewed(false); setConfirmation("");
   }
@@ -138,7 +155,9 @@ export function BackupOperationalPage({ session }: { session: AuthSession }) {
     try {
       const result = await rehearseBackup(selected.backupId, provider, controller.signal);
       if (!mounted.current) return;
-      setSelected(null); setNotice(`${result.provider.toUpperCase()} 隔離還原與資料核對成功，還原前安全備份已完成。`);
+      setSelected(null); setNotice(`✓ 隔離還原驗證完成（${result.provider.toUpperCase()}），還原前安全備份與資料核對皆已成功。本隔離目標不可再用。`);
+      setHistory(previous => previous ? { ...previous, recoveryReady: false, recoveryBlockedReason: "本隔離目標已成功驗證，後端已禁止再次使用。" } : previous);
+      window.dispatchEvent(new Event("cyweb:rehearsal-verified"));
       try { const refreshed = await loadBackups(controller.signal); if (mounted.current) setHistory(refreshed); }
       catch { if (mounted.current) setError("隔離還原已驗證，紀錄更新失敗；請使用更新紀錄核對，無須重做還原。"); }
     } catch (e) {
@@ -154,6 +173,10 @@ export function BackupOperationalPage({ session }: { session: AuthSession }) {
     {history?.configured && history.scheduleEnabled === false ? <div className="cy-op-notice" role="status">目前僅啟用手動備份；上述排程尚未開啟。</div> : null}
     {error ? <div className="cy-op-notice danger" role="alert">{error}</div> : null}
     {notice ? <div className="cy-op-notice" role="status">{notice}</div> : null}
+    {history && history.recoveryReady === false
+      ? <div className="cy-op-notice" role="status">{history.recoveryBlockedReason ?? "隔離目標已使用或尚未準備，驗證按鈕已停用。"}</div> : null}
+    {shouldShowLatestRehearsalResult(history)
+      ? <BackupLatestRehearsalResult items={history?.rehearsals ?? []} /> : null}
     <section className="cy-op-panel cy-backup-history" aria-busy={loading || busy}>{loading ? <Loading />
       : history ? <><BackupHistoryView history={history} busy={busy} retry={id => void run("retry", id)} rehearse={selectRehearsal} /><p className="cy-backup-history-note">顯示最新 50 筆備份；每次備份只列一次，副本驗證結果分開顯示。</p></>
         : <p>尚未取得備份紀錄，請使用「更新紀錄」。</p>}</section>

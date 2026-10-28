@@ -1,7 +1,8 @@
 import { resolveAppMember } from "../auth/app-access";
 import { requireIdentity } from "../auth/guard";
 import { backupService, type BackupRuntimeEnv } from "../backup/runtime";
-import { loadBackupHistory, loadBackupRehearsals } from "../backup/backup-service";
+import { loadBackupHistory, loadBackupRehearsals, loadQuarterlyRehearsalReminder, isRecoveryGenerationConsumed } from "../backup/backup-service";
+import { isEmptyRecoveryTarget } from "../backup/portable-backup";
 import { identityClient } from "./auth-routes";
 import { failure, success } from "./response";
 import { readJsonObject, RequestInputError } from "./request";
@@ -19,6 +20,10 @@ export async function handleBackupRoute(request: Request, env: BackupRuntimeEnv,
     const member = await resolveAppMember(env.DB, gate.principal);
     if (!member.isActive) return failure({ code: "ACCESS_DENIED", message: "App member is inactive" }, requestId, 403);
     const service = backupService(env);
+    if (request.method === "GET" && path === "/api/admin/backups/quarterly-reminder") {
+      const reminder = await loadQuarterlyRehearsalReminder(env.DB, gate.principal.workspaceId, new Date().toISOString());
+      return success(reminder, requestId);
+    }
     if (request.method === "GET" && path === "/api/admin/backups") {
       const history = await loadBackupHistory(env.DB, gate.principal.workspaceId, !!service);
       let rehearsals = [] as Awaited<ReturnType<typeof loadBackupRehearsals>>, rehearsalHistoryAvailable = true;
@@ -28,7 +33,19 @@ export async function handleBackupRoute(request: Request, env: BackupRuntimeEnv,
         rehearsalHistoryAvailable = false;
         console.error("[backup_rehearsal_history_unavailable]", JSON.stringify({ requestId }));
       }
+      let recoveryReady = false;
+      if (service && env.RECOVERY_DB) {
+        try {
+          recoveryReady = !await isRecoveryGenerationConsumed(env.DB, gate.principal.workspaceId, env.RECOVERY_TARGET_GENERATION ?? "legacy")
+            && await isEmptyRecoveryTarget(env.RECOVERY_DB);
+        } catch {
+          // Fail closed without hiding verified backup history.
+          console.error("[backup_recovery_target_preflight_unavailable]", JSON.stringify({ requestId }));
+        }
+      }
       return success({ ...history, rehearsals, rehearsalHistoryAvailable,
+        recoveryReady,
+        recoveryBlockedReason: recoveryReady ? undefined : !env.RECOVERY_DB ? "隔離資料庫已解除綁定，下一次演練需先準備新目標。" : "隔離資料庫已使用或狀態不明，不可再次驗證。",
         recoveryConfigured: !!service && !!env.RECOVERY_DB,
         scheduleEnabled: !!service && env.BACKUP_SCHEDULE_ENABLED === "true" }, requestId);
     }
@@ -47,7 +64,7 @@ export async function handleBackupRoute(request: Request, env: BackupRuntimeEnv,
           return failure({ code: "BACKUP_RECOVERY_CONFIRMATION_REQUIRED", message: "請核對來源備份並輸入確認文字" }, requestId, 400);
         const result = await service.isolatedRecovery(env.RECOVERY_DB, { backupId: rehearsal[1], selectionConfirmation: rehearsal[1],
           targetConfirmation: "isolated_empty_database", role: gate.principal.workspaceRole, isActive: member.isActive,
-          provider: body.provider as "r2" | "gcs" }, context);
+          provider: body.provider as "r2" | "gcs", targetGeneration: env.RECOVERY_TARGET_GENERATION ?? "legacy" }, context);
         return success({ verified: true, backupId: rehearsal[1], ...result }, requestId);
       } catch (error) {
         if (error instanceof RequestInputError) return failure({ code: error.code, message: "確認資料格式不正確" }, requestId, 400);

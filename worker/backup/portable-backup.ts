@@ -167,6 +167,16 @@ export async function storeVerifiedCopy(provider: BackupStorageProvider, bundle:
 }
 // Internal fresh-database recovery primitive. Caller owns authorization, target isolation
 // and confirmation. Production access is through the guarded backup rehearsal route.
+/** Read-only preflight for the management UI; fail closed for missing/old schema
+ * or any historical restored data. This never performs restore operations. */
+export async function isEmptyRecoveryTarget(db: D1Database): Promise<boolean> {
+  try {
+    await layout(db);
+    const row = await db.prepare(`SELECT CASE WHEN ${emptyTargetGuard()} THEN 1 ELSE 0 END AS empty_target`)
+      .first<{ empty_target: number }>();
+    return row?.empty_target === 1;
+  } catch { return false; }
+}
 export async function validateEmptyBackupTarget(db: D1Database, bundle: PortableBackup, workspaceScope: string): Promise<{ manifest: Manifest; data: Data }> {
   const { manifest, data } = await verifyPortableBackup(bundle, workspaceScope);
   const target = await layout(db);

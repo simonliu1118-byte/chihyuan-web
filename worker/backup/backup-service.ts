@@ -1,4 +1,5 @@
 import { AuditService } from "../audit/audit-service";
+import { quarterlyRehearsalReminder, type QuarterlyRehearsalReminder } from "../../shared/backup-quarterly";
 import { BACKUP_REHEARSAL_ERROR_MESSAGES, type BackupHistory, type BackupProvider, type BackupRehearsalHistoryEntry } from "../../shared/backups";
 import { exportPortableBackup, restoreIntoEmptyDatabase, validateEmptyBackupTarget, storeVerifiedCopy, verifyPortableBackup, type BackupStorageProvider, type PortableBackup } from "./portable-backup";
 import { BACKUP_ID, storageCheck } from "./storage-guard";
@@ -33,10 +34,38 @@ export async function loadBackupHistory(db: D1Database, workspace: string, confi
     };
   }) };
 }
+/** One small, workspace-scoped query used for a persistent Super Admin notice.
+ * This is independent from the 90-day diagnostic history window. */
+export async function loadQuarterlyRehearsalReminder(db: D1Database, workspace: string, now: string): Promise<QuarterlyRehearsalReminder> {
+  const policy = quarterlyRehearsalReminder(now, null);
+  const match = /^(\d{4})-Q([1-4])$/.exec(policy.quarter);
+  if (!match) throw Error("BACKUP_TIME_INVALID");
+  const start = new Date(Date.UTC(Number(match[1]), (Number(match[2]) - 1) * 3, 1) - 8 * 3600000).toISOString();
+  const last = await db.prepare(`SELECT ae.occurred_at FROM audit_events ae
+    JOIN backup_sets bs ON bs.backup_id=ae.entity_key AND bs.workspace_scope=?
+    WHERE ae.entity_type='backup' AND ae.action='backup.rehearsal.verified'
+      AND ae.occurred_at>=? AND ae.occurred_at<=?
+    ORDER BY ae.occurred_at DESC, ae.id DESC LIMIT 1`).bind(workspace, start, now).first<{occurred_at:string}>();
+  return quarterlyRehearsalReminder(now, last?.occurred_at ?? null);
+}
 // Only stable, public-safe codes may be persisted or shown. No exception text, stack or data payload.
 function safeRehearsalCode(error: unknown): string {
   const code = error instanceof Error ? error.message : "";
   return Object.hasOwn(BACKUP_REHEARSAL_ERROR_MESSAGES, code) ? code : "BACKUP_RECOVERY_UNAVAILABLE";
+}
+/** A target is consumed once restore starts, including uncertain post-write failures. Preflight failures do not consume a still-empty target.
+ * Every generation is unique; legacy Audit lacking generations remains protected by
+ * the separate actual target-empty validation (fail-closed).
+ */
+export async function isRecoveryGenerationConsumed(db: D1Database, workspace: string, generation: string): Promise<boolean> {
+  if (!/^(legacy|[0-9]{8}[a-z0-9]{1,6})$/.test(generation)) return true;
+  const row = await db.prepare(`SELECT ae.id FROM audit_events ae
+    JOIN backup_sets bs ON bs.backup_id=ae.entity_key AND bs.workspace_scope=?
+    WHERE ae.entity_type='backup'
+      AND ae.action IN ('backup.rehearsal.started','backup.rehearsal.verified')
+      AND json_extract(ae.metadata_json, '$.targetGeneration')=?
+    ORDER BY ae.occurred_at DESC LIMIT 1`).bind(workspace, generation).first<{id:number}>();
+  return !!row;
 }
 /** Recent Super Admin-only recovery attempts, read from the existing Audit Core (no new D1 schema). */
 export async function loadBackupRehearsals(db: D1Database, workspace: string): Promise<BackupRehearsalHistoryEntry[]> {
@@ -116,7 +145,7 @@ export class BackupService {
     throw new Error("BACKUP_NO_VERIFIED_COPY_AVAILABLE");
   }
   async isolatedRecovery(target: D1Database, input: { backupId: string; selectionConfirmation: string;
-    targetConfirmation: "isolated_empty_database"; role: string; isActive: boolean; provider?: ProviderCode }, context: Context): Promise<{ safetyBackupId: string; provider: ProviderCode }> {
+    targetConfirmation: "isolated_empty_database"; role: string; isActive: boolean; provider?: ProviderCode; targetGeneration?: string }, context: Context): Promise<{ safetyBackupId: string; provider: ProviderCode }> {
     storageCheck(input.role === "SUPER_ADMIN" && input.isActive && context.actorMemberId !== null, "BACKUP_RECOVERY_AUTHORITY_REQUIRED");
     storageCheck(input.selectionConfirmation === input.backupId && input.targetConfirmation === "isolated_empty_database", "BACKUP_RECOVERY_CONFIRMATION_REQUIRED");
     storageCheck(target !== this.db, "BACKUP_RECOVERY_TARGET_NOT_ISOLATED");
@@ -128,9 +157,13 @@ export class BackupService {
       entityType: "backup", entityKey: input.backupId, action, actorEmployeeId: context.actorMemberId,
       occurredAt: context.now, requestId: context.requestId,
       metadata: { provider: verifiedProvider ?? input.provider ?? null, target: "isolated_empty_database",
-        safetyBackupId, ...extra },
+        targetGeneration: input.targetGeneration ?? "legacy", safetyBackupId, ...extra },
     });
     try {
+      phase = "target_lock";
+      storageCheck(!await isRecoveryGenerationConsumed(this.db, this.workspace, input.targetGeneration ?? "legacy"),
+        "BACKUP_TARGET_ALREADY_REHEARSED");
+      phase = "source_read";
       const selected = await this.loadVerified(input.backupId, input.provider);
       verifiedProvider = selected.provider;
       phase = "target_validation";

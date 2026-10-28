@@ -3,6 +3,7 @@ import { Loading } from "./ui/feedback/Loading";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiClientError, apiRequest } from "./api/client";
 import { usageRatio, type D1UsageReport } from "../shared/cloudflare-usage";
+import { taiwanQuarter, type QuarterlyRehearsalReminder } from "../shared/backup-quarterly";
 import { checkModuleAccess } from "./access/module-access-client";
 import { AuthGate } from "./auth/AuthGate";
 import type { AuthSession, WorkspaceRole } from "./auth/auth-client";
@@ -155,6 +156,34 @@ function OperationalApp({
   const [usageLoading, setUsageLoading] = useState(false);
   const [usageRequested, setUsageRequested] = useState(false);
   const [dismissedUsageDay, setDismissedUsageDay] = useState<string | null>(null);
+  const [quarterlyReminder, setQuarterlyReminder] = useState<QuarterlyRehearsalReminder | null>(null);
+  const [dismissedQuarter, setDismissedQuarter] = useState<string | null>(null);
+  useEffect(() => {
+    if (session.user.workspaceRole !== "SUPER_ADMIN") return;
+    let active = true, lastCheck = 0, lastQuarter = "";
+    const refresh = (force = false) => {
+      if (!active) return;
+      const quarter = taiwanQuarter(new Date().toISOString());
+      const now = Date.now();
+      if (!force && now - lastCheck < 60 * 60 * 1000 && lastQuarter === quarter) return;
+      lastCheck = now; lastQuarter = quarter;
+      void apiRequest<QuarterlyRehearsalReminder>("/api/admin/backups/quarterly-reminder")
+        .then(data => { if (active) setQuarterlyReminder(data); })
+        .catch(() => { if (active) setQuarterlyReminder(null); });
+    };
+    refresh();
+    // Read-only, rate-limited recheck: login, tab return, and at most once per hour while open.
+    const visible = () => { if (document.visibilityState === "visible") refresh(); };
+    const verified = () => refresh(true);
+    document.addEventListener("visibilitychange", visible);
+    window.addEventListener("cyweb:rehearsal-verified", verified);
+    const timer = window.setInterval(() => refresh(), 60 * 60 * 1000);
+    return () => {
+      active = false; document.removeEventListener("visibilitychange", visible);
+      window.removeEventListener("cyweb:rehearsal-verified", verified);
+      window.clearInterval(timer);
+    };
+  }, [session.user.workspaceRole, session.user.workspaceId]);
   const refreshUsage = useCallback(async () => {
     setUsageLoading(true);
     try {
@@ -353,6 +382,16 @@ function OperationalApp({
     ? Math.round(topDatabase[primaryKey] / usageToday[primaryKey] * 100) : 0;
   const showUsageAlert = role === "SUPER_ADMIN" && !usageError && usageToday
     && usageToday.level !== "ok" && dismissedUsageDay !== usageDate && !dismissedInSession;
+  const quarterlyBanner = role === "SUPER_ADMIN" && quarterlyReminder?.due
+    && dismissedQuarter !== quarterlyReminder.quarter
+    ? <div className="cy-notice cy-notice-warning" role="status">
+      <strong>季度隔離還原演練待完成（{quarterlyReminder.quarter}）</strong>
+      <span>請核對備份、準備經核准的空白隔離目標後，執行本季一次人工驗證；不會自動還原或開啟備份排程。</span>
+      <button className="cy-op-button compact" type="button" onClick={() => {
+        void guardedNavigation.request("backups", "link");
+      }}>前往備份管理</button>
+      <button className="cy-op-button compact" type="button" onClick={() => setDismissedQuarter(quarterlyReminder.quarter)}>本次先關閉</button>
+    </div> : null;
   const usageBanner = showUsageAlert
     ? <div role="status" className={"cy-notice cy-usage-alert " + (usageToday.level === "danger" ? "cy-notice-danger" : "cy-notice-warning")}>
       <span>今日 D1 {isReadPrimary ? "讀取" : "寫入"}已用 {Math.round(Math.max(readRatio,writeRatio)*100)}%
@@ -369,7 +408,7 @@ function OperationalApp({
 
   return (
     <AppShell
-      systemNotice={usageBanner}
+      systemNotice={usageBanner || quarterlyBanner ? <>{quarterlyBanner}{usageBanner}</> : null}
       appName="CY Web"
       pageTitle={PAGE_META[route].title}
       pageDescription={PAGE_META[route].description}

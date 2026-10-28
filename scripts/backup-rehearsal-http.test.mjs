@@ -17,13 +17,16 @@ try {
 } finally { rmSync(directory, { recursive: true, force: true }); }
 const id = "00000000-0000-4000-8000-000000000001";
 const valid = { selectionConfirmation: id, reviewed: true, confirmation: "驗證隔離還原", provider: "gcs" };
-function fixture({ role = "SUPER_ADMIN", active = true, authenticated = true, bound = true, failure, auditRows = [], auditUnavailable = false } = {}) {
+function fixture({ role = "SUPER_ADMIN", active = true, authenticated = true, bound = true, failure, auditRows = [], auditUnavailable = false, latestVerifiedAt = null } = {}) {
   const calls = [], queries = [], target = {};
   const env = { RECOVERY_DB: bound ? target : undefined, IDENTITY_APPLICATION_ID: "APP_TEST", IDENTITY_WORKSPACE_ID: "workspace-test",
     DB: {
       prepare(sql) { return {
         bind(...args) { queries.push({ sql, args }); return this; },
-        async first() { return { id: 7, identity_employee_id: "synthetic", employee_no: "0098", display_name: "Synthetic", is_active: active ? 1 : 0 }; },
+        async first() {
+          if (sql.includes("ae.occurred_at")) return latestVerifiedAt ? { occurred_at: latestVerifiedAt } : null;
+          return { id: 7, identity_employee_id: "synthetic", employee_no: "0098", display_name: "Synthetic", is_active: active ? 1 : 0 };
+        },
         async all() { if (auditUnavailable) throw Error("sensitive audit provider outage"); return { results: auditRows }; },
       }; },
       async batch() { return [{ results: [] }, { results: [] }]; },
@@ -45,7 +48,10 @@ function fixture({ role = "SUPER_ADMIN", active = true, authenticated = true, bo
   const history = () => handleBackupRoute(new Request("https://synthetic.test/api/admin/backups", {
     method: "GET", headers: { cookie: "cyweb_identity_session=cyid_" + "a".repeat(64) },
   }), env, "synthetic-history");
-  return { run, history, calls, queries, target };
+  const reminder = () => handleBackupRoute(new Request("https://synthetic.test/api/admin/backups/quarterly-reminder", {
+    method: "GET", headers: { cookie: "cyweb_identity_session=cyid_" + "a".repeat(64) },
+  }), env, "synthetic-reminder");
+  return { run, history, reminder, calls, queries, target };
 }
 test("rehearsal uses CYID authority, active app member, exact server binding and forced GCS", async () => {
   const f = fixture(), response = await f.run(); assert.equal(response.status, 200);
@@ -120,4 +126,23 @@ test("optional Audit lookup failure does not conceal healthy backup catalog or r
   assert.deepEqual(body.data.rehearsals, []);
   assert.deepEqual(body.data.sets, []);
   assert.doesNotMatch(JSON.stringify(body), /sensitive audit provider outage/);
+});
+
+test("quarterly reminder is Super Admin only, workspace scoped, and read-only", async () => {
+  const current = new Date().toISOString();
+  const f = fixture({ latestVerifiedAt: current });
+  const response = await f.reminder(), data = (await response.json()).data;
+  assert.equal(response.status, 200);
+  assert.equal(data.due, false);
+  assert.match(data.quarter, /^\d{4}-Q[1-4]$/);
+  assert.ok(f.queries.some(q => q.sql.includes("backup.rehearsal.verified") && q.args[0] === "workspace-test"));
+  assert.equal((await fixture({ role: "ADMIN" }).reminder()).status, 403);
+  assert.equal((await fixture({ role: "USER" }).reminder()).status, 403);
+});
+test("rehearsal lock error is safe and distinct from transient provider failure", async () => {
+  const f = fixture({ failure: "BACKUP_TARGET_ALREADY_REHEARSED" });
+  const response = await f.run(), body = await response.json();
+  assert.equal(response.status, 409);
+  assert.equal(body.error.code, "BACKUP_TARGET_ALREADY_REHEARSED");
+  assert.match(body.error.message, /鎖定/);
 });
