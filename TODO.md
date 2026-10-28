@@ -38,11 +38,12 @@
 
 - [x] **唯讀診斷完成**：正式 Worker 的 `DB` 與 `RECOVERY_DB` 綁定已核實為不同 D1，主 D1 已套用 migration 0029，原隔離 D1 僅到 0014，缺 45 張業務表；隔離庫有非種子資料及 2026/10/18 的已驗證演練 Audit，**必須視為已使用歷史復原副本並保留**。已排除「本次只因 HR Migration 預設資料誤判已使用」的推論。
 - [x] 2026/10/28 15:46:34、15:46:54 兩筆演練請求回 409；該時段沒有 `backup.rehearsal.*` 或新的 `pre_restore` 安全備份。若來源 `loadVerified` 成功，`validateEmptyBackupTarget` 的表覆蓋比對必然在還原寫入前拋 `BACKUP_TABLE_COVERAGE_MISMATCH`；**當次最早原始錯誤與所選備份仍無 Logs 直接證據**，不可改寫成已完全證實的例外碼。手動備份 R2／GCS catalog 皆顯示 verified，未重新下載物件。
-- [x] **V0.9.48 程式修正已提交；PR CI 已通過，待 Claude 審查／合併／部署**：在既有 Audit Core 記錄包含還原前檢查失敗的安全階段／錯誤碼／requestId；API 的更新紀錄回傳近 90 日、最多 30 筆已知演練狀態；備份管理頁顯示隔離還原紀錄與不洩漏資訊的中文錯誤。沒有新增 Migration 或修改原隔離副本，舊的 2026/10/28 前置失敗無法倒填成真實 Audit。
-- [x] V0.9.48 PR #300 的 Governance、Runtime 與部署契約 PR 驗證已通過；**正式部署工作未執行**。
+- [x] **V0.9.48 階段 A 程式修正已提交；最新 PR CI 及 Claude 審查／合併／部署仍需核對**：在既有 Audit Core 記錄包含還原前檢查失敗的安全階段／錯誤碼／requestId；API 的更新紀錄回傳近 90 日、最多 30 筆已知演練狀態；備份管理頁顯示隔離還原紀錄與不洩漏資訊的中文錯誤。沒有新增 Migration 或修改原隔離副本，舊的 2026/10/28 前置失敗無法倒填成真實 Audit。
+- [ ] **最新 PR head 的所有 CI 待重新核對**（早期階段 A 的 CI 曾通過，新增階段 B 的來源與測試後須重新驗證）；**正式部署工作未執行**。
 - [ ] **Claude 最終審查待辦**：[V0.9.48 GPT → Claude handoff](docs/handoff/CYWEB-V0.9.48-REHEARSAL-CLAUDE-REVIEW.md)；Claude 必須審查最新 PR 差異並親自填寫審查結論。未通過前不可合併。
 - [ ] 正式環境的唯讀效能、實機畫面及查詢／寫入成本驗證；正式部署**尚未授權**，不可把 CI 綠燈當成已部署。
-- [ ] **階段 B 另案核准**：保留已使用的 0014 隔離副本；規劃封存證據及受控準備符合最新 schema 的空白驗證目標，明確審核後才允許建立／切換綁定及下一次演練。不能清空、補跑舊副本 migration、改綁或自行重試。
+- [x] **階段 B 程式流程已實作待 Claude 審查**：`scripts/provision-backup-recovery.mjs` 加入受控單次輪替 generation、舊目標保留及名稱／綁定驗證、全新 D1 migration、主／新 D1 DDL 一致與僅允許 HR seed 的空白檢查；部署 Workflow 的 `rotate-recovery` 入口、確認短語與來源防護由治理 PR #301 提供；新增 fail-closed 測試與 [輪替手冊](docs/development/CYWEB_RECOVERY_ROTATION_RUNBOOK.md)。一般部署不得自動切換。**本項只表示程式編寫完成，Cloudflare 尚未建立新 D1 或改綁。**
+- [ ] **階段 B 正式操作另案批准**：先保留已使用 0014 歷史副本，再確認帳號配額、當前 main migration 與使用者對新 D1 建立／單次改綁的明確授權，始可依受保護 dispatch 執行。新目標的實機安全演練需再單獨核准；不能清空、補跑舊副本 migration 或自動重試。
 - [ ] 自動備份排程繼續停用，依上線前既有 gate 另行核准，不因修正日誌而開啟。
 
 ## 開發待辦
