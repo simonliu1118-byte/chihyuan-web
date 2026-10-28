@@ -31,3 +31,12 @@ test("schedule opt-in still requires backup opt-in", async () => {
   await worker.scheduled({ cron: "30 19 * * *", scheduledTime: Date.now() }, env);
   assert.equal(env.BACKUP_ENABLED, "false");
 });
+
+test("in-app Super Admin reminder observes Taiwan calendar quarter and only successful Audit completion", async () => {
+  const { taiwanQuarter, quarterlyRehearsalReminder } = await import("../shared/backup-quarterly.ts");
+  assert.equal(taiwanQuarter("2026-12-31T15:59:59Z"), "2026-Q4");
+  assert.equal(taiwanQuarter("2026-12-31T16:00:00Z"), "2027-Q1");
+  assert.equal(quarterlyRehearsalReminder("2027-01-01T00:30:00Z", "2026-10-28T13:11:00Z").due, true);
+  assert.equal(quarterlyRehearsalReminder("2027-01-01T00:30:00Z", "2027-01-01T00:00:00Z").due, false);
+  assert.equal(quarterlyRehearsalReminder("2027-01-01T00:30:00Z", null).due, true);
+});
