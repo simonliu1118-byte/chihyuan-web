@@ -1,6 +1,6 @@
 # CYWEB V0.9.48｜隔離還原階段 A＋B 一次交 Claude 最終審查
 
-- **狀態：已依 Claude 首輪 §5 返修 R1–R5，待 Claude 複審；不合併、不部署。**
+- **狀態：Claude 複審通過（見 §7）；待使用者批准合併／部署。真實 Cloudflare 輪替另行核准。**
 - 日期：2026-10-28（臺灣時間）
 - Repo：`simonliu1118-byte/chihyuan-web`；分支：`cyweb/next-work-20261028`
 - PR：[ #300 ](https://github.com/simonliu1118-byte/chihyuan-web/pull/300)，base `main`
@@ -138,11 +138,30 @@
 
 ## 7. Claude 複審紀錄（**僅 Claude 親自填寫**）
 
-- 複審日期：
+- 複審日期：2026-10-28
 - 複審者：Claude
-- PR #300／#301 最新 head SHA：
+- PR #300／#301 最新 head SHA：#300 `29e886e89f20bea1468142f5e5fb9a9714730542`；#301 `49e06052b513febe5a51dfd0cb1935c24bcdaf30`
 - R1–R5 判定（通過／需修正與理由）：
-- 新增的阻擋問題：
+  - **R1 通過**：
+    - 種子判定已集中到 `shared/backup-migration-seeds.ts`，由 Worker 的空白目標檢查與部署腳本的 `alreadyUsed()`／輪替空白檢查共用。
+    - 只有標準種子的新庫會被視為未使用，下一次一般部署會補 forward migration；種子被改、多列或被改成 NULL 都視為已使用，不會補。
+    - 新的 `NOT (...)` 包裝與原 Worker 條件等價，NULL 情況更嚴格。
+    - Node 24（workflow 指定）可直接載入 `.ts`，repo 測試已有先例。
+  - **R2 通過**：已移除強制索引，planner 改走 `entity_type` 索引，只讀備份類 Audit。
+  - **R3 通過**（含 #301）：
+    - 輪替分支會在 `POST d1/database` 之前，唯讀比對主 D1 `d1_migrations` 與 repo `migrations/*.sql`（數量、名稱、順序），不符即以 `RECOVERY_ROTATION_PRIMARY_MIGRATIONS_OUTDATED` 停止，建立 0 次、migration 0 次，一般部署不受影響。
+    - #301 的來源守門要求引擎含此安全碼，且排在 provision 之前。
+    - 主 D1 落後時，整個 rotate 部署會在任何寫入前失敗，需先跑一般部署再輪替，符合 runbook。
+  - **R4 通過**：runbook 已加入 D1 配額需唯讀查核、不自動刪除、人工封存與逐一批准清理。保留年限由使用者另行決定。
+  - **R5 通過**：CHANGELOG 已改正測試描述。
+- 新增的阻擋問題：無。
+- 非阻擋備註：
+  - `development-deploy.yml` PR 路徑篩選未列 `shared/backup-migration-seeds.ts`。Runtime Check 仍會跑全部測試，不影響正確性。
+  - GPT §6 的兩項後續建議（migration 種子一致性 fixture、建立前 DDL 指紋）可列 TODO，非本版必要。
 - 程式／CI／本機測試與查詢計畫證據：
-- 複審結論：**待複審**
-- 是否可提交使用者批准合併／部署：
+  - 最新 head：#300 `29e886e89f20bea1468142f5e5fb9a9714730542`、#301 `49e06052b513febe5a51dfd0cb1935c24bcdaf30`。兩者 GitHub check runs 全部 success，`deploy-development` skipped。
+  - 本機把 #301 合併進 #300 後執行：`npm run typecheck` 通過；`node --test scripts/*.test.mjs` **356 pass／0 fail**（`provision-backup-recovery.test.mjs` 14/14）；`validate:source` 與 `npm run build` 通過；兩份合併無衝突。
+  - 以 SQLite 套用 0001–0029 實測 `nonSeedRowCondition`：剛遷移的新庫四張 HR 表與其他表都判定為 0（未使用）；把 `hr_job_titles` 任一列改名即判定為 1（已使用）。
+  - 移除 `INDEXED BY` 後，planner 選用 `idx_audit_events_entity_time (entity_type=?)`，與首輪實測相同。
+- 複審結論：**通過**
+- 是否可提交使用者批准合併／部署：**可以**。建議順序：先合併 #300、再合併 #301，之後依使用者授權做一般部署。**真實 Cloudflare 輪替（建新 D1、改綁）與新目標演練仍須使用者另外明確核准**，本審查不構成該授權。
