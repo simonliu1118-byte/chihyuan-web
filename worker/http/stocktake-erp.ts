@@ -1,9 +1,10 @@
 import {parseStocktakeQuantity,STOCKTAKE_NO,STOCKTAKE_SEQ,STOCKTAKE_MAX_ROWS,
   type StocktakeSyncRow,type StocktakeSyncResult,type StocktakeWriteResult,type StocktakeWriteRow} from "../../shared/stocktake";
 import {AuditService} from "../audit/audit-service";
+import {RequestInputError} from "./request";
 
-export class StocktakeInputError extends Error {
-  constructor(public code:string,message:string,public status=422){super(message)}
+export class StocktakeInputError extends RequestInputError {
+  constructor(code:string,message:string,status=400){super(code,message,status)}
 }
 const invalid=(text:string):never=>{throw new StocktakeInputError("INVALID_AGENT_RESULT",text)};
 const record=(v:unknown,name:string):Record<string,unknown>=>{
