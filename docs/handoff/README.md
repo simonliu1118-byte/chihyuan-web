@@ -16,6 +16,9 @@
 
 ## 目前待 Claude 審查
 
+- [CYWEB V0.9.49：季度隔離還原及超管主動提醒](CYWEB-V0.9.49-QUARTERLY-REHEARSAL-CLAUDE-REVIEW.md) — 功能分支 `feat/cyweb-quarterly-rehearsal-20261028`，含逐檔變更、站內提醒、回歸測試、未完成的物理 D1 解綁風險及 Claude 最終審查欄位。
+
+
 - [CYWEB V0.9.48：隔離還原診斷與驗證紀錄](CYWEB-V0.9.48-REHEARSAL-CLAUDE-REVIEW.md) — PR #300，包含變更清單、測試／CI、Cloudflare 唯讀診斷摘要、風險與 Claude 最終審查欄位。
 
-CYWEB GPT／ChatGPT 直接執行修正時，依使用者 2026-10-28 的明確指示，每一項修正都更新同分支 handoff，最終交 Claude 審查，通過且另獲授權後才合併／部署。永久規則由 [治理 PR #301](https://github.com/simonliu1118-byte/chihyuan-web/pull/301) 提出 `PROJECT_RULES.md` §9.1，**尚待 Claude 審查，未合併前不宣稱已生效為 main 的規則**。
+CYWEB GPT／ChatGPT 每項修正依已合併的 `PROJECT_RULES.md` §9.1，須在同分支 handoff 完整記錄並交 Claude 審查；Claude 通過後，合併與正式部署仍須按使用者授權執行。
