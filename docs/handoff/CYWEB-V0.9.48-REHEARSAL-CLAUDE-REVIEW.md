@@ -27,11 +27,13 @@
 | `scripts/backup-ui.test.mjs` | 驗證失敗階段、錯誤碼、結果待確認畫面。 |
 | `VERSION`、`package.json` | 0.9.48；`BUILD` 仍為 0。 |
 | `TODO.md`、`CHANGELOG.md` | 保存使用者驗收回報、診斷已證實／未證實差異、V0.9.48 變更與待辦；ERP 完成通知位置尚未實作。 |
-| `PROJECT_RULES.md` §9.1 | 依使用者新指示：CYWEB 由 GPT 實作的**每個修正（程式、文件、版本、測試）都寫入 handoff，最終由 Claude 審查**；不擴大共通規則 §11.4 的 Claude-first 工作單適用條件。 |
-| `docs/handoff/README.md` | 增加本版待審 handoff 索引。 |
+| **治理 PR #301（非本 PR diff）** | 將使用者的 CYWEB GPT 修正留 handoff、Claude 最終審查要求放入獨立 `governance/*` 分支，更新 `PROJECT_RULES.md` §9.1／`GOVERNANCE_VERSION`／治理變更紀錄；本功能 PR 已還原其 `PROJECT_RULES.md`，避免違反治理 CI。 |
+| `docs/handoff/README.md` | 增加本版待審 handoff 索引，並連結治理 PR #301。 |
 | 本檔 | GPT 完成報告、變更清單、驗證證據、Claude 審查待填區。 |
 
 之前的 PR #299 是已結案的文件整理，非此 PR 的審查差異；PR #300 原本只有驗收文件，後續擴充為 V0.9.48 階段 A 修正。
+
+**治理分支拆分補記**：曾在功能分支新增 `PROJECT_RULES.md` §9.1，隨後 Governance Check 提示「repository governance changes require governance/*」。因此已把功能分支 `PROJECT_RULES.md` 完全還原至 main，另開 [PR #301](https://github.com/simonliu1118-byte/chihyuan-web/pull/301)（治理版本 1.1.24、變更紀錄、獨立 handoff）讓 Claude 審查。本版仍依使用者當次明確指示進行 handoff／Claude 審查；不能把尚未合併的 #301 說成 main 已採納的規則。
 
 ## 3. 完成報告：驗證證據與成本
 
@@ -49,7 +51,7 @@
 - [ ] **測試涵蓋**：HTTP fixture 用 mock `isolatedRecovery`；是否需要增補 BackupService 的實際前置失敗 Audit 整合測試？審查中發現缺口請列為阻擋或返修。
 - [ ] **資料量**：90 日 Audit、SQL LIMIT 100、結果最多 30 筆、既有 `idx_audit_events_time` 及 `backup_sets.workspace_scope` 的查詢計畫；避免 D1 高耗讀。
 - [ ] **UX 與隔離安全**：更新紀錄、loading、錯誤、長代碼手機換行；舊隔離 D1 必須保留，不得新增清空、改綁、重試、回復正式主庫等路徑。
-- [ ] **治理**：逐檔檢查 PR 差異、版本、TODO／CHANGELOG、`PROJECT_RULES.md` 和本 handoff 一致；Public Git 不含正式環境機密。
+- [ ] **治理**：逐檔檢查 PR #300 差異、版本、TODO／CHANGELOG 和本 handoff 一致；確認功能 PR 不再修改 `PROJECT_RULES.md`。治理規則另見 PR #301，兩份 PR 皆須由 Claude 審查；Public Git 不含正式環境機密。
 - [ ] **審查後**：Claude 寫回以下紀錄並提供具體結論；若需修正，GPT 更新本 handoff 及測試後再交審。Claude 審查通過仍需使用者另外授權合併／正式部署。
 
 ## 5. Claude 最終審查紀錄（請 Claude 親自填，GPT 不代填）
