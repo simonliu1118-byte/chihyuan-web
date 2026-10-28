@@ -14,13 +14,17 @@
 - `PROJECT_RULES.md`：在既有 §9 追加 §9.1，規定 handoff、逐項變更、驗證證據及 Claude 最終審查；特別說明此為「GPT 直接承接 CYWEB 修正」的專案專屬要求，**不改 AITeam 共通規則 §11.4 的 Claude-first 工作單適用條件**。
 - `GOVERNANCE_VERSION`：1.1.23 → 1.1.24。
 - `GOVERNANCE_CHANGELOG.md`：新增 1.1.24 的治理變更與不變更範圍。
+- `.github/workflows/development-deploy.yml`：在 `main` 的受控 `workflow_dispatch` 新增 `rotate-recovery`；要求 generation、明確確認語、主分支及已完成的新版 provision 原始碼檢查，輪替與正常部署共用不取消的 `cyweb-production` 鎖。此入口只在使用者未來另行核准後才會被手動觸發，PR/push 不得輪替。
+- `scripts/deployment-source.test.mjs`：新增受控輪替 dispatch、原始碼 guard 及既有來源驗證順序的回歸測試。
 - `docs/handoff/CYWEB-GOV-1.1.24-CLAUDE-REVIEW.md`：本份執行、驗收及 Claude 審查紀錄。
-- 本治理 PR 沒有動 `VERSION`、`BUILD`、產品程式、D1 migration、Worker、Cloudflare、R2/GCS 或正式資料。
+- 本治理 PR 沒有動 `VERSION`、`BUILD`、產品程式、D1 migration、Cloudflare、R2/GCS 或正式資料。Workflow 是新增受控**未執行**的正式輪替入口，實際建立、套 migration 和新目標驗證引擎由功能 PR #300 提供。兩份 PR 必須由 Claude **一起審查**，並建議 **先合併 #300，再合併 #301**，避免入口存在而引擎尚未就緒；即使順序顛倒，新增來源 guard 也須先拒絕操作。
 
 ## 3. 治理驗收與風險
 
 - [ ] Governance Check：必須是 `governance/*` 分支且同時變更 `GOVERNANCE_VERSION`、`GOVERNANCE_CHANGELOG.md`。
 - [ ] Claude 核對 §9.1 是否與 `REPOSITORY_RULES.md` §11.4、`docs/development/work-orders/README.md` 現行規範相容。
+- [ ] 核對 Workflow 僅 main 手動 `rotate-recovery` 可建立新 D1 並改綁，必須保留正常 deploy/push 行為；確認來源 guard 先於任何遠端更動，權限及 `cyweb-production` 鎖不降級。
+- [ ] 核對 `scripts/deployment-source.test.mjs` 及 `scripts/validate-deploy-config.mjs` 在 Governance/Runtime/Deploy PR CI 可通過，並完整比對功能 PR #300 的 generation 與確認參數一致。
 - [ ] 確認 handoff 是非規則的執行交接紀錄，沒有建立新的第四層永久契約。
 - [ ] 確認不含任何正式資源識別、Secret、個資或實際業務資料。
 - [ ] Claude 將審查結果回寫本文件；需修正則依審查意見修改後再複審。
@@ -28,7 +32,7 @@
 
 ## 4. GPT 完成報告
 
-正式機制本應從治理分支建立，因此本次將先前在 V0.9.48 一般功能 PR 的 `PROJECT_RULES.md` 修改分離至本治理 PR，避免繞過 Governance Check。此處只修改 Public Git 文字與治理版本，沒有 Cloudflare API 操作；Cloudflare 讀 0、寫 0、資源異動 0。
+正式機制本應從治理分支建立，因此本次將先前在 V0.9.48 一般功能 PR 的 `PROJECT_RULES.md` 修改分離至本治理 PR，避免繞過 Governance Check。此處修改 Public Git 治理檔案、受控 Workflow 及來源防護測試，沒有 Cloudflare API 操作；Cloudflare 讀 0、寫 0、資源異動 0。明確警告：PR #301 不提供自行部署或輪替的授權；此輪唯一完成的是受控入口的程式碼。
 
 ## 5. Claude 審查紀錄（僅 Claude 填寫）
 
