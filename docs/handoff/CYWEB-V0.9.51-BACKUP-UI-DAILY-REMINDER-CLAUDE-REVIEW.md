@@ -46,7 +46,8 @@
 
 - [x] 新增合成 React render 與靜態版面 contract（`scripts/backup-ui.test.mjs`）。
 - [x] 新增提醒間隔常數與實作節流檢查（`scripts/backup-schedule.test.mjs`）。
-- [ ] 最新 Governance Check、Runtime Check、Deploy PR-only 驗證結果：由本輪新 PR 建立後填入實際 workflow URL／SHA，不以舊版 CI 當本次證據。
+- [x] **PR #305 實作與測試 HEAD `8d333c68af14df277c96c878302e4f5e738f4170` 的全部 CI 通過**：[Governance Check #40726921512](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40726921512)、[Runtime Check #40726921437](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40726921437)（source-contracts、worker-typecheck、browser-typecheck、local D1 acceptance、Vite build）、[CY Web Deploy PR-only #40726921543](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40726921543) 均為 `success`；`deploy-development` **skipped**，沒有正式部署。
+- [ ] 本次 CI 證據寫入 handoff 後，GitHub 可能為文件最新 HEAD 再觸發 PR CI，Claude 仍以最終 HEAD 的檢查狀態為準。
 - [ ] Claude 以最新 head 檢查桌面／平板／手機 CSS 可讀性與 toolbar 在窄版換行時操作可用性；真正裝置截圖尚未執行。
 - [ ] Claude 確認 CYInvoice 元件在 toolbar 只 mount 一次，`confirmationDialog`、credential dialog、未結操作 checkpoint 未遺失；對簽發、撤銷與重送風險不應因純位置變更產生第二條路徑。
 - [ ] 併入前需要 Claude 最終審查且另取得使用者核准；正式部署、Cloudflare 及任何還原不屬本輪。
