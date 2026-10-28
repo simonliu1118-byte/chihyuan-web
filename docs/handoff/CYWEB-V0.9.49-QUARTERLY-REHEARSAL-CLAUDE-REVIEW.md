@@ -1,6 +1,6 @@
 # CYWEB V0.9.49 — 季度隔離還原演練與超管主動提醒／Claude 審查 handoff
 
-- **狀態：Claude 審查通過（見 §8）；待使用者決定合併／部署。Cloudflare 物理解綁另案。**
+- **狀態：Claude §8 已通過原 head；N1–N3 非阻擋建議已在原 PR 返修，新增提交待 Claude 複審；仍未合併／部署，Cloudflare 物理解綁另案。**
 - 日期：2026-10-28（Asia/Taipei）
 - Repo：`simonliu1118-byte/chihyuan-web`
 - 分支：`feat/cyweb-quarterly-rehearsal-20261028`
@@ -122,3 +122,32 @@
   - 同時放寬輪替條件：無綁定時也可建立新目標，並保留 `-recovery-v*` 名稱碰撞與 UUID 檢查。
   - 這只動受保護部署流程，不需在 Worker 放 Token。需獨立 PR 與審查。
 - 是否可提交使用者決定合併或部署：**可以**。合併與部署由使用者決定。
+ 
+## 9. GPT 依 Claude §8 N1–N3 完成返修（待 Claude 複審）
+
+**注意**：§8 的原始 Claude 審查日期、head `c3f3241d36137f18bf384c3b28f49784c11afbcc`、結論及全部意見**保持原文，不以 GPT 代填／改寫**。本節是 §8 之後的增量提交交接，必須重新檢查最新 head 才可宣稱複審通過。
+
+| Claude §8 意見 | 本次逐檔實作 | 回歸與仍需確認 |
+| --- | --- | --- |
+| **N1** 新庫換好仍顯示舊的「✓ 完成」，同時又提醒本季要演練，易混淆 | `src/runtime/modules/BackupOperationalPage.tsx` 新增 `shouldShowLatestRehearsalResult`：僅 `recoveryReady === false` 且演練歷史可讀時顯示醒目的成功結果；新空白目標 `recoveryReady === true` 時不顯示該大框，**歷史清單仍保留過去 verified 紀錄，季度提醒獨立依當季 Audit 判斷**。保留原有成功後顯示及後端鎖定的行為。 | `scripts/backup-ui.test.mjs` 增補 ready true／false／unknown／Audit 讀取失敗的 visibility cases；請 Claude 核對超管換庫後不會混淆。 |
+| **N2** 註解與排程實際頻率不一致 | `src/App.tsx` 改註解為「登入／頁籤切回、每小時最多檢查一次」，**不修改** interval、節流、來源 API、通知權限或費用；原每小時檢查仍保持。 | 既有 `scripts/backup-schedule.test.mjs` 季度 reminder regression 及 Runtime Check；請以最新 head 確認。 |
+| **N3** 已使用 generation 拒絕回報 `source_read` 階段不準確 | `worker/backup/backup-service.ts` 在 `isRecoveryGenerationConsumed` 與 `BACKUP_TARGET_ALREADY_REHEARSED` 之前設 `phase="target_lock"`，通過鎖檢查後才設定 `phase="source_read"`。保留原有 Audit 失敗回報、錯誤白名單、雙重確認及隔離空庫保護。前端 `rehearsalPhaseLabels` 加入 `target_lock: "隔離目標使用狀態"`。 | `scripts/backup-ui.test.mjs` 增補 phase 顯示不再誤標「來源備份核對」；後端仍應由 Claude 依 `isolatedRecovery` catch／Audit 流程核對時序。 |
+
+### GPT 增量驗證與安全邊界
+
+- 本次只改 3 份正式程式（`src/App.tsx`、`src/runtime/modules/BackupOperationalPage.tsx`、`worker/backup/backup-service.ts`）、1 份 `scripts/backup-ui.test.mjs` 與 `TODO.md`／`CHANGELOG.md`／本 handoff。**無新 Migration、無改 Cloudflare Worker 綁定、無正式 D1/R2/GCS/API 操作、無合併或部署**。
+- 用戶所提自動**物理**解除 `RECOVERY_DB`、現有的併發 restore race、是否需離線 Email／Push 等事項**不在此次 N1–N3 小項中偷渡實作**；Claude 原 §8 已將物理解綁列為須另案的控制平面工作。
+- 返修後 CI 須重新以最新 PR head 評估 Governance、Runtime、Deploy PR-only checks；舊 `c3f3241` 的 363 pass／0 fail 並不能代替這次增量驗證。
+- 完成此次返修目的：一次交由 Claude **對 N1–N3 最新差異複審**，若有其他建議可直接記下，不自動修改已核准的其他需求。
+
+## 10. Claude 增量複審紀錄（僅 Claude 親自填寫）
+
+- 複審日期：
+- Claude 複審的最新 PR head SHA：
+- N1 回歸／UX 結論：
+- N2 註解與實際輪詢頻率一致性：
+- N3 Audit phase 與重複演練鎖：
+- 新發現或建議：
+- 最新 CI／本機證據：
+- 複審結論：**待複審**（通過／需修正／阻擋合併）
+- 是否可請使用者授權合併／部署：
