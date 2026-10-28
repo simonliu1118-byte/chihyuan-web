@@ -84,8 +84,8 @@ export function BackupRehearsalHistoryView({ items }: { items: readonly BackupRe
 }
 /** A durable, prominent result derived from Audit; not from a transient toast. */
 export function BackupLatestRehearsalResult({ items }: { items: readonly BackupRehearsalHistoryEntry[] }) {
-  const latest = items[0];
-  if (!latest || latest.status !== "verified") return null;
+  const latest = items.find(row => row.status === "verified");
+  if (!latest) return null;
   return <section className="cy-op-panel cy-backup-rehearsal-success" role="status" aria-label="最新隔離還原驗證結果">
     <h3>✓ 隔離還原驗證：完成</h3>
     <p>驗證時間：{time(latest.occurredAt)}（台灣）</p>
