@@ -61,7 +61,9 @@ try{
    config.name+": unexpected horizontal scrollbar "+JSON.stringify(widths));
   assert.ok((widths.main??0)>150,config.name+": detail width collapsed");
   const path=output+"/"+config.name+".png";
-  await page.screenshot({path,fullPage:true,animations:"disabled"});
+  // Native <dialog> backdrops cover the viewport; a full-page capture of
+  // a modal can leave lower off-screen content undimmed in the screenshot.
+  await page.screenshot({path,fullPage:!config.action,animations:"disabled"});
   manifest.push({...config,actualViewport:widths.viewport,actualScrollWidth:widths.content,path});
   await page.close();
  }
