@@ -7,12 +7,12 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 const directory = mkdtempSync(fileURLToPath(new URL("../node_modules/.cyweb-backup-ui-", import.meta.url)));
-let BackupHistoryView, BackupRehearsalHistoryView, BackupLatestRehearsalResult;
+let BackupHistoryView, BackupRehearsalHistoryView, BackupLatestRehearsalResult, shouldShowLatestRehearsalResult;
 try {
   const outfile = join(directory, "view.mjs");
   await build({ entryPoints: [fileURLToPath(new URL("../src/runtime/modules/BackupOperationalPage.tsx", import.meta.url))], outfile,
     bundle: true, platform: "node", format: "esm", jsx: "automatic", packages: "external", loader: { ".css": "empty" } });
-  ({ BackupHistoryView, BackupRehearsalHistoryView, BackupLatestRehearsalResult } = await import(pathToFileURL(outfile)));
+  ({ BackupHistoryView, BackupRehearsalHistoryView, BackupLatestRehearsalResult, shouldShowLatestRehearsalResult } = await import(pathToFileURL(outfile)));
 } finally { rmSync(directory, { recursive: true, force: true }); }
 const row = { backupId: "00000000-0000-4000-8000-000000000001", createdAt: "2026-10-01T19:30:00.000Z", appVersion: "0.7.3",
   schemaVersion: "0006_backup_catalog", dataSha256: "a".repeat(64), byteLength: 1200, recordCount: 3, status: "verified", triggerKind: "manual",
@@ -83,4 +83,22 @@ test("verified Audit shows prominent 完成 and original outcome without claimin
   assert.match(html, /隔離還原驗證：完成/);
   assert.match(html, /資料核對成功/);
   assert.doesNotMatch(html, /已解除綁定|已刪除資料庫/);
+});
+
+test("Claude N1: new ready target hides the old success panel but retains history", () => {
+  assert.equal(shouldShowLatestRehearsalResult(null), false);
+  assert.equal(shouldShowLatestRehearsalResult({ recoveryReady: true, rehearsalHistoryAvailable: true }), false);
+  assert.equal(shouldShowLatestRehearsalResult({ recoveryReady: false, rehearsalHistoryAvailable: true }), true);
+  assert.equal(shouldShowLatestRehearsalResult({ recoveryReady: false, rehearsalHistoryAvailable: false }), false);
+  assert.equal(shouldShowLatestRehearsalResult({ recoveryReady: undefined, rehearsalHistoryAvailable: true }), false);
+});
+test("Claude N3: a reused generation has its own target lock phase label", () => {
+  const html = renderToStaticMarkup(createElement(BackupRehearsalHistoryView, { items: [{
+    eventId: 12, backupId: "synthetic-backup", occurredAt: "2026-10-28T13:11:00.000Z",
+    status: "failed", provider: "r2", phase: "target_lock",
+    errorCode: "BACKUP_TARGET_ALREADY_REHEARSED", requestId: "synthetic-request",
+  }] }));
+  assert.match(html, /隔離目標使用狀態/);
+  assert.doesNotMatch(html, /來源備份核對/);
+  assert.match(html, /BACKUP_TARGET_ALREADY_REHEARSED/);
 });
