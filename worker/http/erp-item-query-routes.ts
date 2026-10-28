@@ -549,12 +549,13 @@ async function housekeeping(db: D1Database): Promise<void> {
   const timedOut = await db.prepare(
     `UPDATE erp_item_queries SET status='FAILED', completed_at=?1, error_code='AGENT_TIMEOUT', error_message=?2
       WHERE status='RUNNING' AND (
-        (query_type='RESTOCK' AND started_at<=?6)
+        (query_type='STOCKTAKE_WRITE' AND started_at<=?7)
+        OR (query_type IN ('RESTOCK','STOCKTAKE_SYNC') AND started_at<=?6)
         OR (query_type IN ('SALES','PURCHASES','RECEIVABLE','ORDER') AND started_at<=?5)
-        OR (query_type NOT IN ('SALES','PURCHASES','RECEIVABLE','ORDER','RESTOCK') AND include_history=0 AND started_at<=?3)
-        OR (query_type NOT IN ('SALES','PURCHASES','RECEIVABLE','ORDER','RESTOCK') AND include_history=1 AND started_at<=?4))
+        OR (query_type NOT IN ('SALES','PURCHASES','RECEIVABLE','ORDER','RESTOCK','STOCKTAKE_SYNC','STOCKTAKE_WRITE') AND include_history=0 AND started_at<=?3)
+        OR (query_type NOT IN ('SALES','PURCHASES','RECEIVABLE','ORDER','RESTOCK','STOCKTAKE_SYNC','STOCKTAKE_WRITE') AND include_history=1 AND started_at<=?4))
       RETURNING id,owner_member_id,item_no`
-  ).bind(nowIso, ERROR_TEXT.AGENT_TIMEOUT, ago(180), ago(300), ago(600), ago(1800)).all<{ id: string; owner_member_id: number; item_no: string }>();
+  ).bind(nowIso, ERROR_TEXT.AGENT_TIMEOUT, ago(180), ago(300), ago(600), ago(1800), ago(3600)).all<{ id: string; owner_member_id: number; item_no: string }>();
   const audit = new AuditService(db);
   for (const job of expired.results ?? []) {
     await audit.record({ entityType: "erp_item_query", entityKey: job.id, action: "erp_item_query.expired", actorEmployeeId: job.owner_member_id, statusFrom: "QUEUED", statusTo: "EXPIRED", metadata: { itemNo: job.item_no } });
@@ -1015,6 +1016,12 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
     const limit = REPORT_TYPES.has(row.query_type) ? 900 * 1024
       : row.include_history || NAME_TYPES.has(row.query_type) ? 256 * 1024 : 96 * 1024;
     const body = await readJsonObject(request, limit);
+    const stocktakeInput = row.query_type === "STOCKTAKE_SYNC" || row.query_type === "STOCKTAKE_WRITE"
+      ? JSON.parse(row.keyword ?? "{}") as {skipSheets?:string[];onlySheet?:string|null;sheetNo?:string;rows?:StocktakeWriteRow[]} : null;
+    const syncResult = row.query_type === "STOCKTAKE_SYNC"
+      ? validateSyncResult(body,stocktakeInput?.skipSheets ?? [],stocktakeInput?.onlySheet ?? null):null;
+    const writeResult = row.query_type === "STOCKTAKE_WRITE"
+      ? validateWriteResult(body,row.target_code ?? "",stocktakeInput?.rows ?? []):null;
     const result = parseResult(body, row);
     const completedAt = new Date().toISOString();
     const statements = [
@@ -1038,6 +1045,9 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
         values: [row.id, result.status, completedAt],
       }),
     ];
+    if(syncResult && result.status !== "FAILED")
+      statements.push(...await syncStatements(env.DB,syncResult,stocktakeInput?.onlySheet ?? null,completedAt));
+    if(writeResult)statements.push(...await writeResultStatements(env.DB,writeResult,row.id,completedAt));
     // 銷貨資料保存 (user 2026-10-21): a finished RESTOCK keeps the per-day sales for later analysis.
     if (row.query_type === "RESTOCK" && (result.status === "DONE" || result.status === "NOT_FOUND") && row.history_from && row.history_to) {
       const saved = parsedJson<{ restock?: ErpRestockItem[] }>(result.resultJson)?.restock ?? [];
