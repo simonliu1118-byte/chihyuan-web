@@ -16,6 +16,7 @@ export const CYWEB_MODULES = [
   { code: "ORDERING", route: "ordering", label: "叫貨" },
   // 門市 (user 2026-10-28): a page of tabs like ERP 查詢; each tab has its own grant.
   { code: "STORE_CUSTOMER_ORDERS", route: "store", label: "門市顧客訂購" },
+  { code: "STORE_STOCKTAKE", route: "store", label: "門市庫存盤點" },
   // A permission inside ERP 商品查詢 (標準進價), not a page of its own.
   { code: "ERP_ITEM_COST", route: null, label: "ERP 商品成本" },
 ] as const;
