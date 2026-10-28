@@ -160,8 +160,10 @@ export class BackupService {
         targetGeneration: input.targetGeneration ?? "legacy", safetyBackupId, ...extra },
     });
     try {
+      phase = "target_lock";
       storageCheck(!await isRecoveryGenerationConsumed(this.db, this.workspace, input.targetGeneration ?? "legacy"),
         "BACKUP_TARGET_ALREADY_REHEARSED");
+      phase = "source_read";
       const selected = await this.loadVerified(input.backupId, input.provider);
       verifiedProvider = selected.provider;
       phase = "target_validation";
