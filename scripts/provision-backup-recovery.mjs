@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { nonSeedRowCondition } from "../shared/backup-migration-seeds.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const NAME = /^[a-z0-9][a-z0-9_-]{1,62}$/i;
@@ -90,7 +91,7 @@ export async function provisionBackupRecovery({ env, fetchImpl = fetch, migrate 
   async function alreadyUsed(id) {
     const tables = await tablesFor(id);
     if (!tables.length) return false;
-    const checkSql = balancedOr(tables.map(t => `EXISTS(SELECT 1 FROM "${t.name}")`));
+    const checkSql = balancedOr(tables.map(t => nonSeedRowCondition(t.name)));
     const result = await query(id, `SELECT CASE WHEN ${checkSql} THEN 1 ELSE 0 END AS used_target`);
     check(result.length === 1 && [0, 1].includes(result[0].used_target), "RECOVERY_QUERY_FAILED");
     return result[0].used_target === 1;
@@ -102,6 +103,18 @@ export async function provisionBackupRecovery({ env, fetchImpl = fetch, migrate 
     check(boundTarget && bound.length === 1, "RECOVERY_ROTATION_PREVIOUS_TARGET_REQUIRED");
     check(matching.length === 0, "RECOVERY_ROTATION_NAME_ALREADY_EXISTS");
     check(await alreadyUsed(boundTarget.uuid), "RECOVERY_ROTATION_PREVIOUS_TARGET_UNUSED");
+    // PRE-CREATE fail-closed gate: remote primary must already be fully migrated
+    // to the exact reviewed main source; do not leave an orphan candidate when
+    // the deployment has not yet applied new migrations to the primary DB.
+    const repoMigrations = fs.readdirSync(new URL("../migrations/", import.meta.url))
+      .filter(filename => filename.endsWith(".sql")).sort();
+    check(repoMigrations.length > 0 && repoMigrations.length <= 128
+      && repoMigrations.every(filename => /^[0-9]{4}_[a-z0-9_]+\.sql$/.test(filename)),
+      "RECOVERY_ROTATION_MIGRATIONS_INVALID");
+    const applied = await query(env.CF_D1_DATABASE_ID, "SELECT name FROM d1_migrations ORDER BY name");
+    check(applied.length === repoMigrations.length
+      && applied.every((row, index) => row.name === repoMigrations[index]),
+      "RECOVERY_ROTATION_PRIMARY_MIGRATIONS_OUTDATED");
     target = (await api("d1/database", { name })).result;
     check(target?.name === name && UUID.test(target?.uuid ?? "") && target.uuid !== env.CF_D1_DATABASE_ID
       && target.uuid !== boundTarget.uuid && !databases.some(db => db.uuid === target.uuid),
@@ -118,14 +131,9 @@ export async function provisionBackupRecovery({ env, fetchImpl = fetch, migrate 
     ]);
     check(sourceSchema.length > 0 && sourceSchema.length <= 512 && targetSchema.length <= 512
       && JSON.stringify(sourceSchema) === JSON.stringify(targetSchema), "RECOVERY_ROTATION_SCHEMA_MISMATCH");
-    const freshTables = await tablesFor(target.uuid);
-    const seeds = { hr_stores: 1, hr_job_titles: 5, hr_shift_types: 6, hr_leave_types: 18 };
-    // New target contains only canonical migration seeds, no business entries.
-    const condition = balancedOr(freshTables.map(t => seeds[t.name] == null
-      ? `EXISTS(SELECT 1 FROM "${t.name}")`
-      : `(SELECT COUNT(*) FROM "${t.name}") != ${seeds[t.name]}`));
-    const dirty = await query(target.uuid, `SELECT CASE WHEN ${condition} THEN 1 ELSE 0 END AS dirty_target`);
-    check(dirty.length === 1 && dirty[0].dirty_target === 0, "RECOVERY_ROTATION_TARGET_NOT_EMPTY");
+    // Use the same exact canonical row predicates as the Worker restore guard.
+    // Mere HR migration fixtures do not mark a fresh target as used.
+    check(!await alreadyUsed(target.uuid), "RECOVERY_ROTATION_TARGET_NOT_EMPTY");
     // The old D1 has not been mutated or deleted. Only a subsequent
     // reviewed Worker deploy may bind the new ID.
   } else if (boundTarget) {
