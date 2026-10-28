@@ -111,7 +111,7 @@ export async function syncStatements(db:D1Database,body:StocktakeSyncResult,only
      if(filled)invalid("已有填寫資料的底稿不得重新整理");
    }
    if(current){
-     out.push(db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND status='COUNTING' AND detail_read_at IS NOT NULL) AND NOT EXISTS (SELECT 1 FROM stocktake_lines WHERE sheet_no=? AND (first_qty IS NOT NULL OR recount_qty IS NOT NULL)) THEN 1 ELSE json('') END").bind(d.sheetNo,d.sheetNo));
+     out.push(db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND status='COUNTING') AND NOT EXISTS (SELECT 1 FROM stocktake_lines WHERE sheet_no=? AND (first_qty IS NOT NULL OR recount_qty IS NOT NULL)) THEN 1 ELSE json('') END").bind(d.sheetNo,d.sheetNo));
      out.push(db.prepare("DELETE FROM stocktake_lines WHERE sheet_no=?").bind(d.sheetNo));
      out.push(db.prepare("UPDATE stocktake_sheets SET sheet_date=?,detail_read_at=?,version=version+1,updated_at=? WHERE sheet_no=?").bind(body.sheets.find(s=>s.sheetNo===d.sheetNo)!.date,now,now,d.sheetNo));
    }else{
