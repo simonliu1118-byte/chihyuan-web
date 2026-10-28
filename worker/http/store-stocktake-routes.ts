@@ -65,10 +65,16 @@ const version=(v:unknown)=>Number.isSafeInteger(v)&&Number(v)>=1?Number(v):fail(
 const safeQty=(value:unknown)=>{try{parseStocktakeQuantity(value);return value as string}catch{return fail("STOCKTAKE_INVALID","數量需為數字字串，最多四位小數且小於十億")}};
 const requireAdmin=(role:string)=>{if(role!=="ADMIN"&&role!=="SUPER_ADMIN")fail("ACCESS_DENIED","僅管理員可以執行此操作",403)};
 const nowIso=()=>new Date().toISOString();
+async function verifyJobQuota(db:D1Database,member:number){
+ const count=await one<{n:number}>(db,
+   "SELECT COUNT(*) AS n FROM erp_item_queries WHERE owner_member_id=? AND status IN ('QUEUED','RUNNING')",member);
+ if((count?.n??0)>=3)fail("ERP_QUEUE_LIMIT","每人同時最多三筆 ERP 查詢或寫回工作，請等待完成後再送出。",409);
+}
 async function createJob(db:D1Database,actor:number,requestId:string,type:"STOCKTAKE_SYNC"|"STOCKTAKE_WRITE",payload:unknown,sheet:string|null,
  extras:D1PreparedStatement[]=[]){
  const control=await one<{hold_until:string|null}>(db,"SELECT hold_until FROM erp_item_agent_control WHERE id=1");
  const now=nowIso(),id=crypto.randomUUID(),notBefore=control?.hold_until&&Date.parse(control.hold_until)>Date.now()?control.hold_until:null;
+ await verifyJobQuota(db,actor);
  const stm=stocktakeJobStatements(db,{id,member:actor,now,notBefore,sheet,type,payload,requestId});
  await db.batch([...stm,...extras]);
  return {id,queryType:type,status:"QUEUED",notBefore};
@@ -228,6 +234,7 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
       fail("STOCKTAKE_INCOMPLETE","還有 "+lines.filter(l=>!l.locked&&l.recount_qty===null).length+" 列尚未複盤",409);
     const rows=stocktakeWriteRows(lines.map(l=>toLine(l,"RECOUNTING")));
     if(rows.length>3000)fail("STOCKTAKE_LIMIT","寫回列數超過 3000",409);
+    await verifyJobQuota(db,member);
     const id=crypto.randomUUID(),control=await one<{hold_until:string|null}>(db,"SELECT hold_until FROM erp_item_agent_control WHERE id=1");
     const notBefore=control?.hold_until&&Date.parse(control.hold_until)>Date.now()?control.hold_until:null;
     await db.batch([
