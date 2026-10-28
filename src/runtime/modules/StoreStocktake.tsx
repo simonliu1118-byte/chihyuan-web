@@ -192,6 +192,14 @@ export function StoreStocktake({role}:{role:string}){
   <div className="cy-stocktake-layout">
    <nav className="cy-stocktake-sheets" aria-label="盤點單清單">
     <h3>盤點單</h3>
+    <select className="cy-op-input cy-stocktake-mobile-select" aria-label="選擇盤點底稿"
+      value={selected??""} onChange={e=>setSelected(e.target.value||null)}>
+      <option value="">請選擇盤點單</option>
+      {[...(sheets??[]),...(showIgnored?ignored:[])].map(sh=>
+        <option key={sh.sheetNo} value={sh.sheetNo}>
+          {sh.sheetNo} · {STOCKTAKE_LABELS[sh.status]} · {sh.counted}/{sh.total}
+        </option>)}
+    </select>
     {sheets===null?<Loading/>:null}
     {[...(sheets??[]),...(showIgnored?ignored:[])].map(s=><button key={s.sheetNo} type="button"
       className={"cy-stocktake-sheet"+(s.sheetNo===selected?" active":"")} onClick={()=>setSelected(s.sheetNo)}>
