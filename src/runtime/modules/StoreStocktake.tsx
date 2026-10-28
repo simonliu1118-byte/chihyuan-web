@@ -134,20 +134,12 @@ export function StoreStocktake({role}:{role:string}){
    const lines=detail?.lines??[];
    const unfilled=action==="first-confirm"?lines.filter(l=>l.firstQty===null).length:
      action==="second-confirm"?lines.filter(l=>!l.locked&&l.recountQty===null).length:0;
-   let diffItems=0,writeRows=0;
-   if(action==="first-confirm"){
-     const totals=new Map<string,{book:bigint;first:bigint}>();
-     for(const l of lines){
-       const old=totals.get(l.itemCode)??{book:0n,first:0n};
-       if(l.bookQty!==undefined)old.book+=parseStocktakeQuantity(l.bookQty);
-       if(l.firstQty!==null)old.first+=parseStocktakeQuantity(l.firstQty);
-       totals.set(l.itemCode,old);
-     }
-     diffItems=[...totals.values()].filter(t=>t.book!==t.first).length;
-   }
-   if(action==="second-confirm")writeRows=stocktakeWriteRows(lines).length;
+   // COUNTING is blind: the server intentionally does not send bookQty even
+   // to admins. Never fabricate the number of discrepant items from hidden data.
+   // The Worker computes and locks the true item totals atomically on confirm.
+   const writeRows=action==="second-confirm"?stocktakeWriteRows(lines).length:0;
    const explain=action==="first-confirm"
-     ? `總列數：${lines.length}；未填：${unfilled}；需複盤品號：${diffItems}。`
+     ? `總列數：${lines.length}；未填：${unfilled}；需複盤品號：確認後依 ERP 帳面核算並顯示。`
      :action==="second-confirm"
        ? `總列數：${lines.length}；未複盤：${unfilled}；將寫回 ${writeRows} 列（含新增批號）。`
        :action==="retry-write"?"將用相同實盤數量再次要求 ERP 寫回與核對。":"請確認要執行此操作。";
