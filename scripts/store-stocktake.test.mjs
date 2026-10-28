@@ -334,3 +334,32 @@ test("blind current-count rows include the actual actor name but no book quantit
   assert.equal(fresh.bookQty,undefined);
  }finally{f.sql.close()}
 });
+
+
+test("unignored pre-created stub is not skipped and receives its first ERP details",async()=>{
+ const f=fixture();try{
+  const ignored=await f.user("/ignore","POST",{sheetNo:"990001"});
+  assert.equal(ignored.status,200,JSON.stringify(ignored));
+  assert.deepEqual((await f.user("")).data,[]);
+  const shown=(await f.user("?ignored=true")).data;
+  assert.equal(shown.length,1);
+  const unignored=await f.user("/990001/unignore","POST",{expectedVersion:1});
+  assert.equal(unignored.status,200,JSON.stringify(unignored));
+  const sync=await f.user("/sync","POST");
+  assert.equal(sync.status,200,JSON.stringify(sync));
+  const claimed=await f.agent("/item-queries/claim",{agentVersion:"synthetic",erpState:"BROWSE",
+   queryTypes:["STOCKTAKE_SYNC"]});
+  assert.equal(claimed.status,200,JSON.stringify(claimed));
+  assert.deepEqual(claimed.data.job.skipSheets,[]);
+  const completed=await f.agent("/item-queries/"+sync.data.id+"/complete",{
+    outcome:"FOUND",sheets:[{sheetNo:"990001",date:"2026-10-28"}],
+    details:[{sheetNo:"990001",rows:[f.row("00001","B1","2")]}],
+    elapsedMs:15,agentVersion:"synthetic"
+  });
+  assert.equal(completed.status,200,JSON.stringify(completed));
+  const d=(await f.sheet()).data;
+  assert.equal(d.lines.length,1);
+  assert.equal(d.sheet.status,"COUNTING");
+  assert.equal(d.lines[0].bookQty,undefined);
+ }finally{f.sql.close()}
+});
