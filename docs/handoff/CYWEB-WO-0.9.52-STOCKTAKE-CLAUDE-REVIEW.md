@@ -103,6 +103,13 @@
 - 門市盤點專用路由在 `STOCKTAKE_SYNC` 和主管 `STOCKTAKE_WRITE` 提交前，唯讀查同一成員的 `QUEUED/RUNNING` 工作量；已達既有「每人最多三筆」時明確回 **409 `ERP_QUEUE_LIMIT`** 並提示等待，不再誤回泛用不可用錯誤。D1 batch 內原先的原子 quota guard **仍保留**，並發請求不能藉此繞過限制。
 - `scripts/store-stocktake.test.mjs` 已增第 17 項：連續三筆建立可用，第四筆 409、沒有新增排程工作。
 
+### 7.2.3 最新合成驗證完成紀錄
+
+- **程式與 17 項測試完成 SHA**：`1ed51608b5ca529e9f79cb9cdee7cb9e7fcb05c0`（本輪最後程式提交後更新 handoff 的 SHA）。
+- [Runtime Check #40748024167](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40748024167)：**success**。其四個 jobs **source-contracts、browser-typecheck、worker-typecheck、build** 均 `success`，涵蓋 `scripts/store-stocktake.test.mjs` 的 17 項合成 Worker+SQLite 測試，以及原本本機 D1 Runtime acceptance／Vite build。
+- 本段後續為文件紀錄更新，不改動 Worker／React 程式；若本文件新 HEAD 又觸發 CI，Claude 審查時仍需核對最新提交狀態。
+- **未宣稱**真 ERP 寫入、Cloudflare 生產 D1、1440/390 真實截圖、完整 wildcard Node suite 已驗收。
+
 ### 7.3 無法宣稱已通過的項目
 
 - **1440px／390px 真正實際畫面截圖**：已完成響應式 CSS／卡片初稿，但本次執行環境沒有可用的 repo checkout／React 套件與可連 GitHub 的 clone；無法忠實渲染實際 CYWEB App，因此**不提供假的截圖**，要由 Claude 或具有工作樹的本地 Work 做真 Browser/Chrome 截圖。
