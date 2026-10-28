@@ -113,7 +113,8 @@ export function BackupOperationalPage({ session }: { session: AuthSession }) {
       // create/retry return history from the service; refresh also carries the runtime capability.
       setHistory(previous => ({ ...result, recoveryConfigured: result.recoveryConfigured ?? previous?.recoveryConfigured,
         scheduleEnabled: result.scheduleEnabled ?? previous?.scheduleEnabled,
-        rehearsals: result.rehearsals ?? previous?.rehearsals }));
+        rehearsals: result.rehearsals ?? previous?.rehearsals,
+        rehearsalHistoryAvailable: result.rehearsalHistoryAvailable ?? previous?.rehearsalHistoryAvailable }));
       if (kind !== "refresh") {
         const row = result.sets.find(row => row.backupId === ("backupId" in result ? result.backupId : id));
         const message = completion(row);
@@ -158,7 +159,9 @@ export function BackupOperationalPage({ session }: { session: AuthSession }) {
         : <p>尚未取得備份紀錄，請使用「更新紀錄」。</p>}</section>
     <section className="cy-op-panel cy-backup-history">
       <h3>隔離還原驗證紀錄</h3>
-      {loading ? <Loading /> : <BackupRehearsalHistoryView items={history?.rehearsals ?? []} />}
+      {loading ? <Loading /> : history?.rehearsalHistoryAvailable === false
+        ? <div className="cy-op-notice danger" role="alert">隔離演練紀錄暫時無法讀取；不能據此判定演練成功或失敗。請稍後再更新紀錄，不要直接重送。</div>
+        : <BackupRehearsalHistoryView items={history?.rehearsals ?? []} />}
     </section>
     <CyInvoiceRecoveryAdminPanel key={JSON.stringify([session.user.workspaceId, session.user.employeeId, session.user.workspaceRole, session.user.emailVerified, session.user.isWorkspaceSuperAdmin])} session={session} />
     <Dialog open={selected !== null} title="驗證隔離還原" dismissible={!busy} onClose={() => { if (!busy) setSelected(null); }}
