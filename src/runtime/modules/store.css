@@ -71,7 +71,7 @@
 .cy-stocktake-sheet{appearance:none;border:1px solid var(--cy-border);border-radius:var(--cy-radius-sm);
  padding:10px;text-align:left;display:grid;gap:4px;background:var(--cy-surface);color:var(--cy-text);font:inherit;cursor:pointer}
 .cy-stocktake-sheet span,.cy-stocktake-sheet small{color:var(--cy-text-muted);font-size:var(--cy-fs-xs)}
-.cy-stocktake-sheet.active{border-color:var(--cy-primary);background:var(--cy-surface-muted)}
+.cy-stocktake-sheet.active{border-color:var(--cy-accent);background:var(--cy-surface-muted)}
 .cy-stocktake-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
 .cy-stocktake-head p{color:var(--cy-text-muted);font-size:var(--cy-fs-sm);margin:4px 0}
 .cy-stocktake-actions{display:flex;gap:6px;flex-wrap:wrap}
