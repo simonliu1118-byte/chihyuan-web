@@ -122,4 +122,14 @@
 
 ## 8. 完成報告（執行者填）
 
+> **執行中紀錄（2026-10-29），不是已驗收完成報告。** 本工單尚未解除 Draft，Claude 不應將本節視為可合併批准。
+
+- 執行 PR：[Draft #307](https://github.com/simonliu1118-byte/chihyuan-web/pull/307)；基準是原工單 #306 最新 commit `be85abdd5d6da17857394cc2f4dd75e3f3774966`。
+- 已提交：Migration 0030、四張 D1 庫存盤點資料表及可攜備份；`STORE_STOCKTAKE` 權限；COUNTING 盲盤 API、逐列 version 樂觀鎖、編輯人及獨立歷史、管理員兩次確認、ERP STOCKTAKE_SYNC/WRITE claim／progress／complete／逾時／人工重寫；門市第二頁籤及 390/1440 響應式 CSS 初稿。
+- 安全補強：ERP 全表核對未寫入列亦檢查、嚴格核對新增批號 `erpSeq`、失敗不標 DONE、逐列數量不寫共用 Audit、取消忽略的空白底稿可同步；每張底稿以 JSON1 單次 bulk insert 減少 D1 批次語句量。
+- 已建立 **16 項**真 Worker＋合成 Node SQLite 回歸測試，由現有 Runtime Check runner 觸發（含 3000 列上限／3001 拒絕、零寫回列仍須 ERP 確認）。最新完整 CI 以 Draft #307 的最終 HEAD 為準，不以舊版成功代替。
+- **尚未完成**：真實 App 的 1440px／390px 截圖、Cloudflare D1 真實 30 秒／900KiB 邊界壓測、`node --test scripts/*.test.mjs` 全套命令的獨立執行證據、CYERPAutoQuery 1.3.0 真實 ERP 互通（屬另一張工單）；尚未經 Claude 最終審查。
+- 詳細逐檔變更、CI、風險、阻擋：`docs/handoff/CYWEB-WO-0.9.52-STOCKTAKE-CLAUDE-REVIEW.md`。
+- **本輪無任何合併、部署、Cloudflare D1/R2/GCS/Worker 寫入或 ERP 真交易。**
+
 ## 9. 審查紀錄（審查者填）
