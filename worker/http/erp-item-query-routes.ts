@@ -1038,6 +1038,13 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
     const writeResult = row.query_type === "STOCKTAKE_WRITE"
       ? validateWriteResult(body,row.target_code ?? "",stocktakeInput?.rows ?? []):null;
     const result = parseResult(body, row);
+    if (writeResult && !writeResult.confirmed) {
+      // The transport may return FOUND (the ERP form was opened), but the
+      // business write is not complete until INVR11 matches and INVI06 confirms.
+      result.status = "FAILED";
+      result.errorCode = "ERP_STATE";
+      result.errorMessage = ERROR_TEXT.ERP_STATE;
+    }
     const completedAt = new Date().toISOString();
     const statements = [
       env.DB.prepare(
