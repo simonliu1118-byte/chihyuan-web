@@ -19,11 +19,19 @@ export async function handleBackupRoute(request: Request, env: BackupRuntimeEnv,
     const member = await resolveAppMember(env.DB, gate.principal);
     if (!member.isActive) return failure({ code: "ACCESS_DENIED", message: "App member is inactive" }, requestId, 403);
     const service = backupService(env);
-    if (request.method === "GET" && path === "/api/admin/backups")
-      return success({ ...await loadBackupHistory(env.DB, gate.principal.workspaceId, !!service),
-        rehearsals: await loadBackupRehearsals(env.DB, gate.principal.workspaceId),
+    if (request.method === "GET" && path === "/api/admin/backups") {
+      const history = await loadBackupHistory(env.DB, gate.principal.workspaceId, !!service);
+      let rehearsals = [] as Awaited<ReturnType<typeof loadBackupRehearsals>>, rehearsalHistoryAvailable = true;
+      try { rehearsals = await loadBackupRehearsals(env.DB, gate.principal.workspaceId); }
+      catch {
+        // Do not mask the main backup catalog if the optional Audit history is unavailable.
+        rehearsalHistoryAvailable = false;
+        console.error("[backup_rehearsal_history_unavailable]", JSON.stringify({ requestId }));
+      }
+      return success({ ...history, rehearsals, rehearsalHistoryAvailable,
         recoveryConfigured: !!service && !!env.RECOVERY_DB,
         scheduleEnabled: !!service && env.BACKUP_SCHEDULE_ENABLED === "true" }, requestId);
+    }
     if (!service) return failure({ code: "BACKUP_NOT_CONFIGURED", message: "備份儲存尚未設定" }, requestId, 503);
     const context = { actorMemberId: member.id, now: new Date().toISOString(), requestId };
     const rehearsal = /^\/api\/admin\/backups\/([0-9a-f-]{36})\/rehearse$/.exec(path);
