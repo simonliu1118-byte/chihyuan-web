@@ -22,7 +22,8 @@
 
 ## 3. 治理驗收與風險
 
-- [ ] Governance Check：必須是 `governance/*` 分支且同時變更 `GOVERNANCE_VERSION`、`GOVERNANCE_CHANGELOG.md`。
+- [x] **治理分支最新程式提交**（更新 handoff 前 HEAD `38a32799aefb514127f4e3b977f6e1be5db70e68`）：[Governance Check #40662751520](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40662751520)、[Runtime Check #40662751519](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40662751519)、[Deploy PR contract #40662751588](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40662751588) **均 success**，實際 deploy-development skipped。原則：`governance/*`、`GOVERNANCE_VERSION`／`GOVERNANCE_CHANGELOG.md` 同步。
+- [x] 功能 PR #300 對應程式測試檢查通過：[Governance #40662905471](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40662905471)、[Runtime #40662905472](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40662905472)、[Deploy PR contract #40662905385](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40662905385)。
 - [ ] Claude 核對 §9.1 是否與 `REPOSITORY_RULES.md` §11.4、`docs/development/work-orders/README.md` 現行規範相容。
 - [ ] 核對 Workflow 僅 main 手動 `rotate-recovery` 可建立新 D1 並改綁，必須保留正常 deploy/push 行為；確認來源 guard 先於任何遠端更動，權限及 `cyweb-production` 鎖不降級。
 - [ ] 核對 `scripts/deployment-source.test.mjs` 及 `scripts/validate-deploy-config.mjs` 在 Governance/Runtime/Deploy PR CI 可通過，並完整比對功能 PR #300 的 generation 與確認參數一致。
