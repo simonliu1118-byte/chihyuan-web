@@ -68,7 +68,10 @@ export async function provisionBackupRecovery({ env, fetchImpl = fetch, migrate 
     if (inventory.result.length < 100) break;
   }
   const owned = db => NAME.test(db.name ?? "") && (
-    db.name === standardName || new RegExp("^" + standardName.replace(/[.*+?^$\{\}()|[\]\\]/g, "\\$&") + "-v[0-9]{8}[a-z0-9]{1,6}$").test(db.name));
+    db.name === standardName || (db.name.startsWith(standardName + "-v")
+      && /^[0-9]{8}[a-z0-9]{1,6}$/.test(db.name.slice((standardName + "-v").length))));
+  const masked = new Set();
+  const maskOnce = value => { if (!masked.has(value)) { mask(value); masked.add(value); } };
   const boundTarget = bound.length ? databases.find(db => db.uuid === bound[0].id) : null;
   if (bound.length) check(boundTarget && owned(boundTarget), "RECOVERY_OWNER_CONFIRMATION_REQUIRED");
   const matching = databases.filter(db => db.name === name);
@@ -102,7 +105,7 @@ export async function provisionBackupRecovery({ env, fetchImpl = fetch, migrate 
     target = (await api("d1/database", { name })).result;
     check(target?.name === name && UUID.test(target?.uuid ?? "") && target.uuid !== env.CF_D1_DATABASE_ID
       && target.uuid !== boundTarget.uuid, "RECOVERY_TARGET_NOT_ISOLATED");
-    mask(target.uuid); mask(target.name);
+    maskOnce(target.uuid); maskOnce(target.name);
     // A fresh D1 must contain no application tables *before* canonical forward
     // migrations. Never migrate a previously observed/nonempty candidate.
     check((await tablesFor(target.uuid)).length === 0, "RECOVERY_ROTATION_TARGET_NOT_NEW");
@@ -134,15 +137,15 @@ export async function provisionBackupRecovery({ env, fetchImpl = fetch, migrate 
     check(matching.length === 0, "RECOVERY_OWNER_CONFIRMATION_REQUIRED");
     target = (await api("d1/database", { name })).result;
     check(target?.name === name && UUID.test(target?.uuid ?? ""), "RECOVERY_TARGET_NOT_ISOLATED");
-    mask(target.uuid); mask(target.name);
+    maskOnce(target.uuid); maskOnce(target.name);
     check((await tablesFor(target.uuid)).length === 0, "RECOVERY_TARGET_NOT_EMPTY");
     await migrate({ id: target.uuid, name, env });
   }
   check(target?.name && owned(target) && UUID.test(target.uuid) && target.uuid !== env.CF_D1_DATABASE_ID,
     "RECOVERY_TARGET_NOT_ISOLATED");
-  mask(target.uuid); mask(target.name);
+  maskOnce(target.uuid); maskOnce(target.name);
 
-  return { CF_RECOVERY_D1_DATABASE_ID: target.uuid, CF_RECOVERY_D1_DATABASE_NAME: name, used };
+  return { CF_RECOVERY_D1_DATABASE_ID: target.uuid, CF_RECOVERY_D1_DATABASE_NAME: target.name, used, rotated: !!generation };
 }
 
 function migrateTarget({ id, name, env }) {
@@ -163,9 +166,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     check(!!process.env.GITHUB_ENV, "RECOVERY_PROTECTED_RUNNER_REQUIRED");
     const result = await provisionBackupRecovery({ env: process.env, mask: value => console.log(`::add-mask::${value}`) });
     if (result) {
-      const { used, ...values } = result;
+      const { used, rotated, ...values } = result;
       fs.appendFileSync(process.env.GITHUB_ENV, Object.entries(values).map(([key, value]) => `${key}=${value}\n`).join(""));
-      console.log(used ? "RECOVERY_USED_TARGET_PRESERVED" : "RECOVERY_EMPTY_TARGET_PREPARED");
+      console.log(rotated ? "RECOVERY_NEW_TARGET_PREPARED_OLD_PRESERVED"
+        : used ? "RECOVERY_USED_TARGET_PRESERVED" : "RECOVERY_EMPTY_TARGET_PREPARED");
     }
   } catch (error) {
     console.error(/^RECOVERY_[A-Z_]+$/.test(error?.message ?? "") ? error.message : "RECOVERY_SETUP_FAILED"); process.exitCode = 1;
