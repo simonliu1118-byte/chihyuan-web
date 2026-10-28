@@ -33,9 +33,16 @@ export async function handleBackupRoute(request: Request, env: BackupRuntimeEnv,
         rehearsalHistoryAvailable = false;
         console.error("[backup_rehearsal_history_unavailable]", JSON.stringify({ requestId }));
       }
-      const recoveryReady = !!service && !!env.RECOVERY_DB
-        && !await isRecoveryGenerationConsumed(env.DB, gate.principal.workspaceId, env.RECOVERY_TARGET_GENERATION ?? "legacy")
-        && await isEmptyRecoveryTarget(env.RECOVERY_DB);
+      let recoveryReady = false;
+      if (service && env.RECOVERY_DB) {
+        try {
+          recoveryReady = !await isRecoveryGenerationConsumed(env.DB, gate.principal.workspaceId, env.RECOVERY_TARGET_GENERATION ?? "legacy")
+            && await isEmptyRecoveryTarget(env.RECOVERY_DB);
+        } catch {
+          // Fail closed without hiding verified backup history.
+          console.error("[backup_recovery_target_preflight_unavailable]", JSON.stringify({ requestId }));
+        }
+      }
       return success({ ...history, rehearsals, rehearsalHistoryAvailable,
         recoveryReady,
         recoveryBlockedReason: recoveryReady ? undefined : !env.RECOVERY_DB ? "隔離資料庫已解除綁定，下一次演練需先準備新目標。" : "隔離資料庫已使用或狀態不明，不可再次驗證。",
