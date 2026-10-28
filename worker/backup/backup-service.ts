@@ -44,8 +44,8 @@ export async function loadQuarterlyRehearsalReminder(db: D1Database, workspace: 
   const last = await db.prepare(`SELECT ae.occurred_at FROM audit_events ae
     JOIN backup_sets bs ON bs.backup_id=ae.entity_key AND bs.workspace_scope=?
     WHERE ae.entity_type='backup' AND ae.action='backup.rehearsal.verified'
-      AND ae.occurred_at>=?
-    ORDER BY ae.occurred_at DESC, ae.id DESC LIMIT 1`).bind(workspace, start).first<{occurred_at:string}>();
+      AND ae.occurred_at>=? AND ae.occurred_at<=?
+    ORDER BY ae.occurred_at DESC, ae.id DESC LIMIT 1`).bind(workspace, start, now).first<{occurred_at:string}>();
   return quarterlyRehearsalReminder(now, last?.occurred_at ?? null);
 }
 // Only stable, public-safe codes may be persisted or shown. No exception text, stack or data payload.
