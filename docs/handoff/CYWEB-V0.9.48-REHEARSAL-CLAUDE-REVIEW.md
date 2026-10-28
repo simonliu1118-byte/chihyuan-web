@@ -1,11 +1,11 @@
 # CYWEB V0.9.48｜隔離還原階段 A＋B 一次交 Claude 最終審查
 
-- **狀態：Claude 審查完成——需修正（見 §5）；不合併、不部署。**
+- **狀態：已依 Claude 首輪 §5 返修 R1–R5，待 Claude 複審；不合併、不部署。**
 - 日期：2026-10-28（臺灣時間）
 - Repo：`simonliu1118-byte/chihyuan-web`；分支：`cyweb/next-work-20261028`
 - PR：[ #300 ](https://github.com/simonliu1118-byte/chihyuan-web/pull/300)，base `main`
 - 版本：V0.9.48 Build 0（正式站仍 V0.9.47 Build 0）
-- **執行：ChatGPT；審查：Claude（尚未開始）**。每次返修同步更新本檔，審查結論由 Claude 親自填寫。
+- **執行：ChatGPT；首輪審查：Claude（§5 已填需修正）；複審待 Claude。** 每次返修同步更新本檔，GPT 不代填 Claude 結論。
 
 ## 1. 指示、範圍、已確認原因
 
@@ -109,3 +109,40 @@
 - 審查者直接修正內容：無（依使用者指示交回 GPT 修正以節省額度）。
 - GPT 返修與複審紀錄（如有）：待 GPT 修正 R1–R3（R4、R5 一併處理），更新本檔與 PR 後再交 Claude 複審。
 - 是否可提交使用者決定合併／部署：**否**，待複審通過。
+
+## 6. GPT 返修完成報告（回 Claude 複審，2026-10-28）
+
+**適用：PR #300 與 PR #301 同輪複審。** 本節由 GPT 依 Claude §5 的 R1–R5 逐項修正；上面 Claude 首輪 §5 原文保留不改，複審結論仍只能由 Claude 親自寫入新的 §7。
+
+| Claude 意見 | 完成修正與證據 | 仍需 Claude 評估 |
+| --- | --- | --- |
+| **R1（阻擋）** Migration seed 被誤判 | 新增 `shared/backup-migration-seeds.ts` 作 Worker 和 Node 唯一共用的完整 HR seed **筆數 + 逐列 predicate**；`worker/backup/portable-backup.ts` 不再自有 `MIGRATION_SEEDS`，`scripts/provision-backup-recovery.mjs` 的 `alreadyUsed()` 和輪替後空白驗證均共用 `nonSeedRowCondition`。seed-only 為未使用可在下次普通部署補 forward Migration；修改、額外資料或 NULL 改動均視為已使用不補。 `scripts/provision-backup-recovery.test.mjs` 新增 SQLite 精確 seed／NULL／extra 測試、輪替後普通部署與變更 seed 防覆寫測試。 | 核對移入 shared 的 predicate 與原 Worker 保護條件等價，以及新增 forward Migration 不會破壞 seed-only 判斷。 |
+| **R2（應修）** 強制錯誤的 Audit 索引 | `worker/backup/backup-service.ts` 已移除 `INDEXED BY idx_audit_events_time`，交由 SQLite planner 自行選擇 `idx_audit_events_entity_time` 或其他合適索引。90 天與 SQL LIMIT 100、輸出最多 30 次的邊界不變；`CHANGELOG.md` 修正原本錯誤的效能宣稱。 | 必要時重跑本地 `EXPLAIN QUERY PLAN`，比較 Claude 首輪的 entity_time 證據。 |
+| **R3（跨 PR 應修）** 建庫早於主庫 Migration | `scripts/provision-backup-recovery.mjs` 在既有舊副本與手動條件核對後、**任何 POST 建立新 D1 前**，唯讀查主 D1 `d1_migrations` 的完整檔名清單，與已審核 repo `migrations/*.sql` 的排序及數量逐項相符，不符則 `RECOVERY_ROTATION_PRIMARY_MIGRATIONS_OUTDATED` fail closed。新測試：少最後一版、額外版、錯誤順序皆 **0 次 D1 建立／0 次 Migration**。治理 PR #301 的 Workflow 來源 guard 與測試同步要求新安全碼存在，防舊引擎被輪替入口執行。 | 確認 D1 查詢在建立候選前、普通部署沒有額外遠端寫入；舊庫保護不變，PR 合併順序 #300 → #301。 |
+| **R4（建議）** D1 逐次累積 | `docs/development/CYWEB_RECOVERY_ROTATION_RUNBOOK.md` §4 新增帳號當時的 D1 **數量上限／已用／可新增**需由 MCP 唯讀確認；不編造固定配額。預設已使用副本無自動刪除期限、須人工確認封存與逐一批准清理，附建議私人資產清冊欄位及核准程序。**未新增自動清除。** | Claude 可建議合理的最短保留年限，但仍待使用者決定。 |
+| **R5（文字）** 測試描述過時 | `CHANGELOG.md` 更正為先前最新 PR CI 已過、Claude 首輪本地驗證 #300 340 pass／#301 329 pass，工作樹缺 `.tmp/canonical-cyapps` 為環境問題；R1–R3 返修後的最終驗證一律以最新 HEAD 的 CI 重新核對。 | 不以舊 SHA CI 充當本次返修驗證。 |
+
+### 本輪額外安全補強與建議
+
+- **已補強：** shared seed predicate 對 `NULL` 也採 fail-closed：`WHERE NOT ((predicate) IS TRUE)`；避免資料被改成 NULL 時因 SQLite 三值邏輯被誤視為標準種子。新增 SQLite 回歸測試；這比 Claude §5 的最低要求更嚴謹。
+- **建議（未擅自擴大修正範圍）：** 後續 CI 可加入以實際 Migration 套用的 D1 fixture，驗證 shared 四組 seed predicate 與 Migration 原始 INSERT 永遠一致；單純同檔共享仍可能隨未來 Migration 新增種子而需要更新。
+- **建議（未實作）：** 若未來要降低新建候選的孤兒機率，可在建立 D1 **之前**對主庫 DDL 與本地 migration 產生的本地 schema 進行唯讀指紋比對；本輪 R3 已先用 migration 名稱與數量硬守門，而原有新建後完整 DDL 檢查仍保留。
+- **建議（未實作）：** D1 資源數量／保留成本由本地 Cloudflare MCP 另做使用者批准的唯讀定期盤點；絕不自動清庫／改綁或推定費用。
+
+### 驗證、安全與剩餘界線
+
+- 本次只變更 GitHub 的 PR #300／#301 分支：**Cloudflare 讀取 0、寫入 0、新資源 0、Worker 部署 0**。未讀取正式個資或公開環境識別碼。
+- R1–R3 的新 synthetic 程式／SQLite 測試已提交；**請以本文最後更新後兩份 PR 的最新 HEAD Check runs 為準**。若最新 CI 仍在執行或失敗，不能宣稱已通過。
+- 原 0014 已使用的隔離 D1 保留，不能因新 seed guard 而被當成可用空白副本。真實 Cloudflare 建庫／改綁／演練仍分開授權。
+- 不合併 PR、不發布、不自行覆寫或補 Migration 至舊隔離 D1、備份排程保持停用。
+
+## 7. Claude 複審紀錄（**僅 Claude 親自填寫**）
+
+- 複審日期：
+- 複審者：Claude
+- PR #300／#301 最新 head SHA：
+- R1–R5 判定（通過／需修正與理由）：
+- 新增的阻擋問題：
+- 程式／CI／本機測試與查詢計畫證據：
+- 複審結論：**待複審**
+- 是否可提交使用者批准合併／部署：
