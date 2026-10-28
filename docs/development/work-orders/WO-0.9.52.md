@@ -28,14 +28,14 @@
 3. **盲盤**：`COUNTING` 期間**任何人**（含管理員）的 API 回應都不含帳面數量；由 Worker 保證，不能只靠畫面隱藏。
 4. **逐批號填寫**：每列＝ERP 底稿一列（品號＋批號），填「初盤數量」；沒有批號的品號就是一列。
 5. **新增批號**：只能對「本底稿上已有非空批號的品號」新增；同一底稿同品號不可重複批號；新增列帳面視為 0、標示「新增」。新增列只在 `COUNTING`／`RECOUNTING` 可新增或刪除（有數量的新增列刪除前要確認）。
-6. **邊填邊存、多人同時填**：每列獨立儲存（離開欄位或 Enter 即存，失敗保留輸入並提示），附該列 `version` 做樂觀鎖；衝突時顯示對方填的值與人、時間，由使用者選擇覆蓋或採用。每列顯示最後填寫人與時間；每次寫入記 Audit（前後值、操作者、時間），可在列上看修改紀錄。畫面每 10 秒更新他人填寫結果（不覆蓋自己正在輸入的欄位）。
+6. **邊填邊存、多人同時填**：每列獨立儲存（離開欄位或 Enter 即存，失敗保留輸入並提示），附該列 `version` 做樂觀鎖；衝突時顯示對方填的值與人、時間，由使用者選擇覆蓋或採用。每列顯示最後填寫人與時間；每次寫入記在盤點自己的修改紀錄表 `stocktake_line_history`（列鍵、欄位、前值、後值、操作者、時間），可在列上看修改紀錄；**逐列填寫不寫進共用 Audit**（清除盤點單時要能一起刪掉，見第 13 點）。畫面每 10 秒更新他人填寫結果（不覆蓋自己正在輸入的欄位）。
 7. **第一次管理員確認**（`COUNTING` → `RECOUNTING`）：所有列都要有初盤數量（空白列數不為 0 時不能確認，提示還有幾列）。以**品號**比較「初盤合計」與「帳面合計」：相等的品號所有列鎖定（不需複盤）；不相等的品號所有列開放複盤。確認後帳面數量與差異（初盤－帳面，逐列與品號合計）對所有人顯示。
 8. **複盤**：只有開放複盤的列可填「複盤數量」（同樣邊填邊存、多人、紀錄）；可在這些品號下新增批號。
 9. **第二次管理員確認**（`RECOUNTING` → `WRITING`）：開放複盤的列都要有複盤數量。每列「實際數量」＝有複盤數量用複盤，否則用初盤。**逐批號**：實際 ≠ 帳面的既有列，加上全部新增批號列，送 `STOCKTAKE_WRITE` 工作（自動送出，不另按鈕）。若沒有任何列需要寫入，仍送工作（rows 為空），讓 ERP 端做 INVR11 核對與 INVI06 確認。
 10. **寫回結果**：`confirmed=true` → `ERP_CONFIRMED`，記錄完成時間；否則 → `WRITE_FAILED`，畫面列出每列失敗原因與 `mismatches`，管理員可按「重新寫回」（再送同樣的 rows，ERP 端寫入相同數值是安全的）。新增批號列收到 `erpSeq` 後存起來。
 11. **讀盤點單**：「更新盤點單」送 `STOCKTAKE_SYNC`（`skipSheets`＝所有已存在的底稿，含忽略；`onlySheet`=null）。「重新整理」（只在 `COUNTING` 且尚無任何人填數量時可用）送 `onlySheet`。清單中出現但未讀明細的底稿不存在（更新模式會把未 skip 的都讀完）。重新整理時以 `seq` 對應更新 ERP 欄位與帳面；ERP 少掉的列刪除（因為尚無人填）。
 12. **忽略**：管理員可把底稿設為忽略（`IGNORED`，不再出現在清單、更新時 skip）或取消忽略（取消後回到 `COUNTING`；若從未讀過明細，下次更新會讀）。為了讓使用者能在第一次更新前就設好忽略，提供「新增要忽略的底稿編號」輸入（建立一筆只有編號、狀態 `IGNORED` 的底稿）。
-13. **保存（使用者 2026-10-29，第二階段實作）**：ERP 執行「盤點資料清除作業」後，CY Web 也不保留整張盤點明細，只留底稿編號、盤點日期、兩次確認與寫回的人和時間，以及**有差異的列（盈虧明細）**：品號、品名、批號、帳面、實際、差異、填寫人。本階段資料表設計要讓第二階段能刪除無差異列而不影響上述摘要（例如確認資訊放在 `stocktake_sheets`，不要只存在列上）；Audit 紀錄依既有保存規則，不隨清除刪除。
+13. **保存（使用者 2026-10-29，第二階段實作）**：ERP 執行「盤點資料清除作業」後，CY Web 也不保留盤點明細與逐列修改紀錄（`stocktake_line_history` 一起刪除，因為盤點單已不存在），只保留：底稿編號與盤點日期；**參與盤點的人**（填過初盤或複盤的人）；**第一次、第二次確認的人與時間**、寫回 ERP 完成時間；**有差異的列（盈虧明細）**：品號、品名、批號、帳面、實際、差異、填寫人。本階段資料表設計要讓第二階段能這樣清除而不影響上述摘要：確認人與時間存在 `stocktake_sheets`；參與者另存（例如 `stocktake_participants(sheet_no, member_id, first_at, last_at)`，每次填寫時更新）。盤點單層級的動作（確認、忽略、要求寫回、寫回結果）仍記共用 Audit，不隨清除刪除。
 14. **協定**：見下方，兩張工單必須完全一致；欄位名稱、上限、逾時不得自行更改。
 
 ### 協定（兩張工單共用，兩邊必須完全一致）
@@ -73,7 +73,8 @@
    - `app_member_module_access.module_code` CHECK 加入 `STORE_STOCKTAKE`（照 0029 的重建方式）；`erp_item_queries.query_type` CHECK 加入 `STOCKTAKE_SYNC`、`STOCKTAKE_WRITE`（照 0019 的重建方式，保留全部欄位與索引）。
    - `stocktake_sheets`：`sheet_no` PK、`sheet_date`、`status`（CHECK 上述六種）、`detail_read_at`、`first_confirmed_by/at`、`second_confirmed_by/at`、`write_query_id`、`write_result_json`、`erp_confirmed_at`、`version`、`created_at`、`updated_at`。
    - `stocktake_lines`：PK(`sheet_no`,`line_key`)；ERP 欄位（`seq`、品號、品名、規格、庫別名稱、儲位、單位、批號、`book_qty` TEXT）；`is_added`、`erp_seq`；`first_qty`／`first_by`／`first_at`、`recount_qty`／`recount_by`／`recount_at`；`locked`；`version`。數量以十進位字串保存並在 Worker 驗證（最多 4 位小數、絕對值 < 1e9）。
-   - 兩張表都是人填的資料，**納入可攜備份**（更新 `worker/backup/schema-columns.ts`，`validate_schema.py` 會比對）。
+   - `stocktake_line_history`（逐列修改紀錄）、`stocktake_participants`（參與盤點的人）。
+   - 以上都是人填的資料，**納入可攜備份**（更新 `worker/backup/schema-columns.ts`，`validate_schema.py` 會比對）。
 2. `shared/modules.ts`：`STORE_STOCKTAKE`（route `store`，label「門市庫存盤點」）；門市頁有任一門市權限即可進入，頁籤依權限顯示。
 3. Worker：
    - `worker/http/store-stocktake-routes.ts`（新檔）：清單、單張明細（依狀態決定是否回帳面）、填寫（初盤／複盤，含 version）、新增／刪除批號列、兩次確認、忽略／取消忽略／新增忽略編號、更新與重新整理（建立 ERP 工作）、重新寫回、單列修改紀錄。所有寫入同一 D1 batch 記 Audit。
@@ -97,7 +98,7 @@
 - 盲盤在 Worker 的序列化函式處理（依 sheet status 決定是否輸出 `bookQty`、差異），並寫測試證明 `COUNTING` 時 API 回應完全沒有帳面欄位。
 - 品號合計比較用十進位字串轉整數倍數（×10⁴）避免浮點誤差。
 - 多人同時：參考叫貨的逐列儲存與 `expectedVersion`（`ordering-routes.ts`）。
-- Audit：entityType `stocktake`，entityKey `<sheetNo>/<lineKey>`；動作：first_count、recount、line_added、line_removed、first_confirmed、second_confirmed、ignored、unignored、write_requested、erp_confirmed、write_failed。
+- 共用 Audit（AuditService）只記盤點單層級動作：entityType `stocktake`，entityKey `<sheetNo>`；動作：first_confirmed、second_confirmed、ignored、unignored、write_requested、erp_confirmed、write_failed、sheet_synced。逐列的初盤、複盤、新增／刪除批號記在 `stocktake_line_history`（與填寫在同一 D1 batch），並更新 `stocktake_participants`；這兩張表也納入可攜備份。
 - 測試（`scripts/` 新增 `store-stocktake.test.mjs`，用假資料跑真 Worker routes＋SQLite）：權限（無權限 403、非管理員不能確認）、盲盤、新增批號規則、版本衝突、第一次確認的品號合計鎖定（含 1+2 對 2+1）、第二次確認送出的 rows 正確（逐批號、含新增列、不含相同列）、SYNC 落地與 skip、重新整理對應、WRITE 成功／失敗狀態、可攜備份欄位。
 
 ## 6. 驗收清單
@@ -105,7 +106,7 @@
 - [ ] 「更新盤點單」送出 `STOCKTAKE_SYNC`，skip 含全部已知與忽略底稿；完成後清單出現新底稿。
 - [ ] 可先輸入要忽略的底稿編號；忽略的底稿不出現在清單、更新時 skip。
 - [ ] `COUNTING` 時任何人的 API 回應都沒有帳面數量（測試證明）。
-- [ ] 兩人同時填同一張不同列互不覆蓋；同一列衝突會提示；每列顯示最後填寫人與時間、可看修改紀錄。
+- [ ] 兩人同時填同一張不同列互不覆蓋；同一列衝突會提示；每列顯示最後填寫人與時間、可看修改紀錄（存在 `stocktake_line_history`，不寫共用 Audit）；參與盤點的人有記錄。
 - [ ] 新增批號只限已有批號的品號，不可重複。
 - [ ] 第一次確認：未填完不能確認；品號合計相等的鎖定（1+2 對 2+1 也鎖定）；帳面與差異出現。
 - [ ] 第二次確認：自動送 `STOCKTAKE_WRITE`；rows＝逐批號實際≠帳面的既有列＋全部新增列。
