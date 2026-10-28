@@ -317,7 +317,7 @@ test("STOCKTAKE_WRITE progress accepts only STOCK and preserves monotonic comple
   const older=await f.agent("/item-queries/"+id+"/progress",{stage:"STOCK",done:0,total:rows.length});
   assert.equal(older.status,200,JSON.stringify(older));
   const row=f.sql.prepare("SELECT progress_stage,progress_done,progress_total FROM erp_item_queries WHERE id=?").get(id);
-  assert.deepEqual(row,{progress_stage:"STOCK",progress_done:1,progress_total:rows.length});
+  assert.deepEqual({...row},{progress_stage:"STOCK",progress_done:1,progress_total:rows.length});
  }finally{f.sql.close()}
 });
 test("blind current-count rows include the actual actor name but no book quantity",async()=>{
