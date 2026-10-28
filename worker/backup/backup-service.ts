@@ -66,7 +66,8 @@ export async function loadBackupRehearsals(db: D1Database, workspace: string): P
       ? safeRehearsalCode(new Error(metadata.errorCode)) : null;
     history.push({ eventId: row.id, backupId: row.entity_key, occurredAt: row.occurred_at,
       status: row.action === "backup.rehearsal.verified" ? "verified"
-        : row.action === "backup.rehearsal.failed" ? "failed" : "unconfirmed",
+        : row.action === "backup.rehearsal.failed" && errorCode !== "BACKUP_REHEARSAL_RESULT_UNCONFIRMED"
+          ? "failed" : "unconfirmed",
       provider, phase, errorCode, requestId: row.request_id });
     if (history.length >= 30) break;
   }
