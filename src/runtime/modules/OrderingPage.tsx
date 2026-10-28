@@ -464,7 +464,7 @@ export function OrderingPage(){
       aria-current={current?.id===o.id?"true":undefined}
       onClick={()=>void reloadOrder(o.id).catch(e=>setError(errorOf(e)))}>
       <strong>{o.sourceName}</strong>
-      <span>{o.sentAt?"送出 ":"建立 "}{sentDate(o)}</span>
+      <span>{sentDate(o)}{o.sentAt?" 送出":" 建立"}</span>
       <StatusChip tone={STATUS_TONE[o.status]}>{ORDERING_STATUS_LABELS[o.status]??o.status}</StatusChip>
      </button>)}
      {!shown.length?<div className="cy-op-empty">沒有符合條件的叫貨紀錄。送出後的叫貨單才會出現在這裡。</div>:null}

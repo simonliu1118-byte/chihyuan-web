@@ -346,10 +346,12 @@
 .cy-kept-page{display:contents}.cy-kept-page[hidden]{display:none}
 /* 叫貨紀錄 list: source, date and status on one line (user 2026-10-27). Three classes so it wins over
    the shared .cy-status-row two-line layout whatever order the stylesheets end up in the build. */
-.cy-op-list-row.cy-status-row.cy-ordering-history-row{grid-template-columns:minmax(0,1fr) auto 4.6rem;align-items:center;column-gap:8px;padding-block:3px;min-height:32px}
+.cy-op-list-row.cy-status-row.cy-ordering-history-row{grid-template-columns:minmax(0,1fr) auto 4.6rem;align-items:center;column-gap:8px;padding-block:6px;min-height:36px}
 .cy-op-list-row.cy-status-row.cy-ordering-history-row>strong{grid-column:1;grid-row:1;font-size:var(--cy-fs-sm)}
 .cy-op-list-row.cy-status-row.cy-ordering-history-row>span:not(.cy-status-chip){grid-column:2;grid-row:1;font-variant-numeric:tabular-nums}
-.cy-op-list-row.cy-status-row.cy-ordering-history-row>.cy-status-chip{grid-column:3;grid-row:1;justify-self:end}
+.cy-op-list-row.cy-status-row.cy-ordering-history-row>.cy-status-chip{grid-column:3;grid-row:1;justify-self:stretch;justify-content:center}
+/* Rows are separated by a hairline so a short list still reads row by row. */
+.cy-op-list-row.cy-status-row.cy-ordering-history-row+.cy-ordering-history-row{border-top:1px solid var(--cy-border)}
 @media(max-width:820px){.cy-op-list-row.cy-status-row.cy-ordering-history-row{min-height:40px}}
 /* 排程佇列 side panel (V0.9.43): fixed at the right, no backdrop, the page stays usable. */
 .cy-erp-queue-side{position:fixed;top:64px;right:12px;bottom:12px;z-index:900;width:min(340px,calc(100vw - 24px));display:flex;flex-direction:column;
