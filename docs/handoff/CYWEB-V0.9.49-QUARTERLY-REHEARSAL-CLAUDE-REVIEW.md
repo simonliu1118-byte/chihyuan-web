@@ -1,6 +1,6 @@
 # CYWEB V0.9.49 — 季度隔離還原演練與超管主動提醒／Claude 審查 handoff
 
-- **狀態：程式 CI 已通過；待 Claude 審查。Cloudflare 物理解綁仍未實作，不得視為五項全數完成；未合併、未部署。**
+- **狀態：Claude 審查通過（見 §8）；待使用者決定合併／部署。Cloudflare 物理解綁另案。**
 - 日期：2026-10-28（Asia/Taipei）
 - Repo：`simonliu1118-byte/chihyuan-web`
 - 分支：`feat/cyweb-quarterly-rehearsal-20261028`
@@ -97,12 +97,28 @@
 
 ## 8. Claude 最終審查（僅 Claude 填）
 
-- 審查日期：
+- 審查日期：2026-10-28
 - 審查者：Claude
-- 審查的最新 PR head SHA：
-- 結論：**待審查**（通過／需修正／阻擋合併）
+- 審查的最新 PR head SHA：`c3f3241d36137f18bf384c3b28f49784c11afbcc`
+- 結論：**通過**（下列意見皆不阻擋合併）
 - 問題清單（依嚴重度）：
+  - **N1（建議）** `BackupLatestRehearsalResult` 在 90 天內一律顯示最近一次「✓ 完成」與「請勿對同一隔離目標再次執行」。下季輪替出新目標（`recoveryReady=true`）後仍會顯示，與季度提醒並列時容易混淆。建議只在 `recoveryReady === false` 時顯示，或改寫成「上次驗證」。
+  - **N2（文字）** `src/App.tsx` 註解寫「at most every 6h」，實際 interval 與節流都是 1 小時。成本可接受：每位超管每小時 1 次 `LIMIT 1` 查詢。請把註解改成一致。
+  - **N3（小）** generation 已使用而被擋時，失敗 Audit 的 phase 記成 `source_read`，畫面顯示「來源備份核對」。可把檢查移到 try 前，或給獨立 phase（例如 `target_lock`）。
+  - **N4（既有，非本版引入）** 兩個並發 POST 可能同時通過 generation 與空白檢查。restore 為單一 D1 batch，後到者會失敗並記錄為失敗，不會雙寫成功；前端另有 busy 鎖，限超管操作。可接受。
 - 已執行的測試、CI、UI／D1 證據：
-- Claude 直接修正與 GPT 返修紀錄：
-- 物理解綁依規格是否可放行／需要另案：
-- 是否可提交使用者決定合併或部署：
+  - 最新 head check runs 全部 success，`deploy-development` skipped。
+  - 本機 `npm run typecheck`、`node --test scripts/*.test.mjs` **363 pass／0 fail**、`npm run build` 通過。
+  - 逐檔檢查重點：
+    - 季度起點以台灣時間換算（`Date.UTC(...) - 8h`），上限 `<= now`。
+    - `isRecoveryGenerationConsumed` 只計 `started`／`verified`：前置檢查失敗不消耗目標，restore 開始即鎖定。`legacy` 名稱仍由實際空白檢查 fail-closed。
+    - GET 的 `isEmptyRecoveryTarget` 失敗時回傳 false，不遮蔽備份清單。
+    - 新 API 位於既有 `SUPER_ADMIN` gate 之後。
+    - `RECOVERY_TARGET_GENERATION` 只由版本化名稱推得，不暴露 UUID。
+  - 對照正式現況：現有綁定 `20261028a` 的成功 Audit 不含 `targetGeneration`，但新庫已有資料，空白檢查判定為不可用，按鈕會正確停用；2026-Q4 已有成功演練，季度提醒不會顯示。
+- Claude 直接修正與 GPT 返修紀錄：無。N1–N3 可在下一版一併處理，不需返修本 PR。
+- 物理解綁依規格是否可放行／需要另案：**需另案**。同意不把 Cloudflare 管理 Token 放進 Worker。建議方案：
+  - 一般部署時，若 `provision-backup-recovery.mjs` 判定已綁定的目標為「已使用」，且 Audit 有對應的成功演練，就不輸出 `CF_RECOVERY_D1_DATABASE_ID`，`render-deploy-config` 便不綁定 `RECOVERY_DB`。之後使用者即可在 Cloudflare 刪除該 D1。
+  - 同時放寬輪替條件：無綁定時也可建立新目標，並保留 `-recovery-v*` 名稱碰撞與 UUID 檢查。
+  - 這只動受保護部署流程，不需在 Worker 放 Token。需獨立 PR 與審查。
+- 是否可提交使用者決定合併或部署：**可以**。合併與部署由使用者決定。
