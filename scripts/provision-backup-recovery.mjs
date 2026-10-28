@@ -136,7 +136,8 @@ export async function provisionBackupRecovery({ env, fetchImpl = fetch, migrate 
   } else {
     check(matching.length === 0, "RECOVERY_OWNER_CONFIRMATION_REQUIRED");
     target = (await api("d1/database", { name })).result;
-    check(target?.name === name && UUID.test(target?.uuid ?? ""), "RECOVERY_TARGET_NOT_ISOLATED");
+    check(target?.name === name && UUID.test(target?.uuid ?? "") && target.uuid !== env.CF_D1_DATABASE_ID,
+      "RECOVERY_TARGET_NOT_ISOLATED");
     maskOnce(target.uuid); maskOnce(target.name);
     check((await tablesFor(target.uuid)).length === 0, "RECOVERY_TARGET_NOT_EMPTY");
     await migrate({ id: target.uuid, name, env });
