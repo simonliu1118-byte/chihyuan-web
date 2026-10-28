@@ -58,8 +58,8 @@
 
 **程式層的階段 A、B 已整合，雲端建立／改綁／新演練尚未授權及執行。** 功能 PR #300 與治理／部署 PR #301 應由 Claude 在同一輪統一審查，不要先審 A 再審 B。
 
-- `scripts/provision-backup-recovery.mjs`（功能 #300）：提供 `rotate-recovery` 所需的唯一 `YYYYMMDD` generation 輪替。核對現有 Worker 的主 D1、歷史 `RECOVERY_DB`、已使用狀態與帳號資源名稱是否相符；候選名稱若已存在即拒絕。獲核准手動 dispatch 後才建立 1 個新 D1，先證明無業務資料表、再用 forward Migration 建立 Schema、比對主 D1 所有 sqlite_master DDL 與 HR seed-only 空白狀態。若失敗不清除、不覆寫、不改綁。成功僅將新的候選 ID/名稱交給受保護的正式部署程序；後續正常部署可識別版本化名稱且不自行輪替。
-- `scripts/provision-backup-recovery.test.mjs`（功能 #300）：新增正常部署保留、已輪替目標的後續部署、手動核准／分支／操作型別鎖、名稱碰撞與重送拒絕、來源主 D1 排除、舊目標使用狀態、候選髒資料、Schema mismatch、建立後失敗保留孤兒資產等 synthetic 測試。初次 CI 曾抓到測試 fixture 與新主 D1 排除檢查的問題，已修正並須以最新 HEAD CI 重驗。
+- `scripts/provision-backup-recovery.mjs`（功能 #300）：提供 `rotate-recovery` 所需的唯一 `YYYYMMDD` generation 輪替。核對現有 Worker 的主 D1、歷史 `RECOVERY_DB`、已使用狀態與帳號資源名稱是否相符；候選名稱若已存在即拒絕；新建時 Cloudflare 回傳的 UUID 也不得出現在執行前的資源清單，以免誤接管既有 D1。獲核准手動 dispatch 後才建立 1 個新 D1，先證明無業務資料表、再用 forward Migration 建立 Schema、比對主 D1 所有 sqlite_master DDL 與 HR seed-only 空白狀態。若失敗不清除、不覆寫、不改綁。成功僅將新的候選 ID/名稱交給受保護的正式部署程序；後續正常部署可識別版本化名稱且不自行輪替。
+- `scripts/provision-backup-recovery.test.mjs`（功能 #300）：新增正常部署保留、已輪替目標的後續部署、手動核准／分支／操作型別鎖、名稱碰撞與重送拒絕、來源主 D1 排除、舊目標使用狀態、供應商回傳既有 UUID、候選髒資料、Schema mismatch、建立後失敗保留孤兒資產等 synthetic 測試。初次 CI 曾抓到測試 fixture 與新主 D1 排除檢查的問題，已修正並須以最新 HEAD CI 重驗。
 - `shared/backups.ts`、`worker/http/backup-routes.ts`、`src/runtime/modules/BackupOperationalPage.tsx`（功能 #300）：加上 `rehearsalHistoryAvailable`，當可選的 Audit 查詢失敗時仍讓 Super Admin 看得到 R2/GCS 備份目錄，且明確提示歷史 unavailable 不等於零次驗證；不應錯誤顯示成功。
 - `worker/backup/backup-service.ts`（功能 #300）：將 90 天／100 原始事件的 Audit 演練列表強制透過現有 `idx_audit_events_time` 查詢，避免未限制時間的全表掃描。Claude 應檢查 query plan 與 Workspace join。
 - `scripts/backup-rehearsal-http.test.mjs`（功能 #300）：補 Audit provider 失敗、備份主目錄仍能讀取且不洩漏例外文字的回歸測試。
