@@ -74,7 +74,9 @@ export async function provisionBackupRecovery({ env, fetchImpl = fetch, migrate 
   const masked = new Set();
   const maskOnce = value => { if (!masked.has(value)) { mask(value); masked.add(value); } };
   const boundTarget = bound.length ? databases.find(db => db.uuid === bound[0].id) : null;
-  if (bound.length) check(boundTarget && owned(boundTarget), "RECOVERY_OWNER_CONFIRMATION_REQUIRED");
+  // A binding whose D1 no longer exists (deleted in Cloudflare) is simply dropped below;
+  // an existing D1 must carry this Worker's recovery name.
+  if (boundTarget) check(owned(boundTarget), "RECOVERY_OWNER_CONFIRMATION_REQUIRED");
   const matching = databases.filter(db => db.name === name);
   check(matching.length <= 1, "RECOVERY_OWNER_CONFIRMATION_REQUIRED");
   async function query(id, sql) {
@@ -100,9 +102,10 @@ export async function provisionBackupRecovery({ env, fetchImpl = fetch, migrate 
   if (generation) {
     // Protected manual rotation only. Do not reuse even an empty name collision:
     // it could be an orphan from a prior interrupted run.
-    check(boundTarget && bound.length === 1, "RECOVERY_ROTATION_PREVIOUS_TARGET_REQUIRED");
+    // A detached Worker (the previous target was used and unbound) may rotate;
+    // a still-bound unused target must be rehearsed first, not replaced.
     check(matching.length === 0, "RECOVERY_ROTATION_NAME_ALREADY_EXISTS");
-    check(await alreadyUsed(boundTarget.uuid), "RECOVERY_ROTATION_PREVIOUS_TARGET_UNUSED");
+    if (boundTarget) check(await alreadyUsed(boundTarget.uuid), "RECOVERY_ROTATION_PREVIOUS_TARGET_UNUSED");
     // PRE-CREATE fail-closed gate: remote primary must already be fully migrated
     // to the exact reviewed main source; do not leave an orphan candidate when
     // the deployment has not yet applied new migrations to the primary DB.
@@ -117,7 +120,7 @@ export async function provisionBackupRecovery({ env, fetchImpl = fetch, migrate 
       "RECOVERY_ROTATION_PRIMARY_MIGRATIONS_OUTDATED");
     target = (await api("d1/database", { name })).result;
     check(target?.name === name && UUID.test(target?.uuid ?? "") && target.uuid !== env.CF_D1_DATABASE_ID
-      && target.uuid !== boundTarget.uuid && !databases.some(db => db.uuid === target.uuid),
+      && target.uuid !== boundTarget?.uuid && !databases.some(db => db.uuid === target.uuid),
       "RECOVERY_TARGET_NOT_ISOLATED");
     maskOnce(target.uuid); maskOnce(target.name);
     // A fresh D1 must contain no application tables *before* canonical forward
@@ -139,17 +142,14 @@ export async function provisionBackupRecovery({ env, fetchImpl = fetch, migrate 
   } else if (boundTarget) {
     target = boundTarget;
     used = await alreadyUsed(target.uuid);
-    // Preserve any used target across releases without changing its historical
-    // data or schema. A fresh, un-used target may receive forward migrations.
-    if (!used) await migrate({ id: target.uuid, name: target.name, env });
+    // A used target can never be rehearsed again, so stop binding it: the D1
+    // keeps its data untouched and the user may delete it. The next rehearsal
+    // needs an approved rotation. A fresh, un-used target receives forward migrations.
+    if (used) return { detached: true, used: true, rotated: false };
+    await migrate({ id: target.uuid, name: target.name, env });
   } else {
-    check(matching.length === 0, "RECOVERY_OWNER_CONFIRMATION_REQUIRED");
-    target = (await api("d1/database", { name })).result;
-    check(target?.name === name && UUID.test(target?.uuid ?? "") && target.uuid !== env.CF_D1_DATABASE_ID
-      && !databases.some(db => db.uuid === target.uuid), "RECOVERY_TARGET_NOT_ISOLATED");
-    maskOnce(target.uuid); maskOnce(target.name);
-    check((await tablesFor(target.uuid)).length === 0, "RECOVERY_TARGET_NOT_EMPTY");
-    await migrate({ id: target.uuid, name, env });
+    // Normal deployments never create a D1; only the approved rotation does.
+    return { detached: true, used: false, rotated: false };
   }
   check(target?.name && owned(target) && UUID.test(target.uuid) && target.uuid !== env.CF_D1_DATABASE_ID,
     "RECOVERY_TARGET_NOT_ISOLATED");
@@ -176,10 +176,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     check(!!process.env.GITHUB_ENV, "RECOVERY_PROTECTED_RUNNER_REQUIRED");
     const result = await provisionBackupRecovery({ env: process.env, mask: value => console.log(`::add-mask::${value}`) });
     if (result) {
-      const { used, rotated, ...values } = result;
+      const { used, rotated, detached, ...values } = result;
+      if (detached) values.CF_RECOVERY_DETACHED = "true";
       fs.appendFileSync(process.env.GITHUB_ENV, Object.entries(values).map(([key, value]) => `${key}=${value}\n`).join(""));
       console.log(rotated ? "RECOVERY_NEW_TARGET_PREPARED_OLD_PRESERVED"
-        : used ? "RECOVERY_USED_TARGET_PRESERVED" : "RECOVERY_EMPTY_TARGET_PREPARED");
+        : detached ? (used ? "RECOVERY_USED_TARGET_DETACHED" : "RECOVERY_TARGET_NOT_BOUND") : "RECOVERY_EMPTY_TARGET_PREPARED");
     }
   } catch (error) {
     console.error(/^RECOVERY_[A-Z_]+$/.test(error?.message ?? "") ? error.message : "RECOVERY_SETUP_FAILED"); process.exitCode = 1;

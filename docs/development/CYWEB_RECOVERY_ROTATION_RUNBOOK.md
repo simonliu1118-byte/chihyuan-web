@@ -52,11 +52,12 @@
 - 每季演練均須由超管核對備份、人工批准新空白隔離目標並完成原有雙重確認。**提醒不執行演練、不替任何人核准新 D1／改綁／刪除。**
 - 演練完成後的 Audit 顯示「完成」並以顯眼狀態保存成功結果；已使用、不可確認或無綁定的隔離目標，在管理 UI 和 Worker server-side 皆禁止直接重送。原真實業務 D1 不得作為隔離目標。
 
-## 4.2 自動解除綁定的安全限制
+## 4.2 演練後自動斷開（V0.9.50）
 
-- 原 Worker 沒有、也不應取得 Cloudflare 管理 API 的寫入憑證。V0.9.49 **僅實作成功後立即鎖定 UI 和 server-side 驗證資格**，**沒有聲稱已從 Cloudflare Worker 物理移除 `RECOVERY_DB` 綁定**。
-- 真正自動物理解除綁定必須由另行審核的受保護控制平面操作完成，需驗證：本次成功 Audit 與目前綁定的 generation 對應、Worker 目前 source commit、保持 `DB`／Identity／其他綁定／Secrets 不變、發布回復方案、重試與失敗安全性；不得在 Worker 加管理 Token 或用無授權的外部 webhook。
-- 完成自動解除綁定機制並經 Claude 審查、使用者核准前，現有綁定雖仍可能存在，**但同一目標不能透過正常 Worker API 重複還原**。實際刪除先看 Cloudflare 真實綁定與已使用的歷史副本，另行核准後才可操作。
+- 斷開由**受保護部署流程**完成，Worker 不持有 Cloudflare 管理權限：每次部署時 `provision-backup-recovery.mjs` 檢查綁定中的隔離庫，若已使用（有非標準種子資料），就輸出 `CF_RECOVERY_DETACHED=true`，`render-deploy-config.mjs` 不再綁定 `RECOVERY_DB`。隔離庫內容不讀業務資料、不修改、不刪除。
+- 斷開後備份管理停用演練並說明原因；使用者確認 Worker 已無 `RECOVERY_DB` 綁定後，可在 Cloudflare 刪除該庫。
+- 一般部署**不會**自動建立隔離 D1。下次演練前，依 §2 以 `rotate-recovery` 建立並綁定新目標；無綁定時也可輪替，綁定中但尚未使用的目標則拒絕輪替。
+- 每季流程：輪替 → 備份管理演練 → 任一次後續部署自動斷開 → 刪除該庫。
 
 ## 5. 使用者與 Claude 審查的剩餘關卡
 

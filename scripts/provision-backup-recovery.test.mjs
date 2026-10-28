@@ -54,35 +54,35 @@ function fixture({ bound, inventory = [], created = isolated, used = false, tabl
     migrate: async target => { migrations.push(target); wasMigrated = true; }, mask: value => masks.push(value) });
   return { run, calls, migrations, masks };
 }
-test("disabled backups make no provider calls; fresh target is migrated exactly once", async () => {
+test("disabled backups make no provider calls; normal deployment never creates a D1", async () => {
   const f = fixture(); assert.equal(await f.run({ CF_BACKUP_ENABLED: "false" }), null); assert.equal(f.calls.length, 0);
-  const result = await f.run();
-  assert.equal(result.CF_RECOVERY_D1_DATABASE_ID, isolated); assert.equal(result.used, false);
-  assert.equal(result.rotated, false);
-  assert.equal(f.calls.filter(c => c.route === "d1/database" && c.method === "POST").length, 1);
-  assert.equal(f.migrations.length, 1); assert.equal(f.migrations[0].id, isolated);
-  assert.deepEqual(f.masks, [isolated, "synthetic-web-recovery"]);
-});
-test("exact Worker binding proves ownership; used target remains untouched during normal deployment", async () => {
-  for (const used of [false, true]) {
-    const f = fixture({ bound: isolated, inventory: [{ uuid: isolated, name: "synthetic-web-recovery" }], used });
-    assert.equal((await f.run()).used, used); assert.equal(f.migrations.length, used ? 0 : 1);
-    assert.equal(f.calls.some(c => c.route === "d1/database" && c.method === "POST"), false);
+  for (const inventory of [[], [{ uuid: isolated, name: "synthetic-web-recovery" }], [{ uuid: isolated, name: candidateName }]]) {
+    const g = fixture({ inventory });
+    assert.deepEqual(await g.run(), { detached: true, used: false, rotated: false });
+    assert.equal(g.calls.filter(c => c.method === "POST").length, 0);
+    assert.equal(g.migrations.length, 0);
   }
 });
-test("versioned rotated Worker target persists on all later normal deployments", async () => {
-  const f = fixture({ bound: isolated, inventory: [{ uuid: isolated, name: candidateName }], used: true });
-  const result = await f.run();
-  assert.equal(result.CF_RECOVERY_D1_DATABASE_ID, isolated);
-  assert.equal(result.CF_RECOVERY_D1_DATABASE_NAME, candidateName);
-  assert.equal(result.used, true); assert.equal(f.migrations.length, 0);
+test("exact Worker binding proves ownership; unused target stays bound, used target is detached untouched", async () => {
+  for (const name of ["synthetic-web-recovery", candidateName]) {
+    const fresh = fixture({ bound: isolated, inventory: [{ uuid: isolated, name }] });
+    const kept = await fresh.run();
+    assert.equal(kept.CF_RECOVERY_D1_DATABASE_ID, isolated); assert.equal(kept.CF_RECOVERY_D1_DATABASE_NAME, name);
+    assert.equal(kept.used, false); assert.equal(fresh.migrations.length, 1);
+    const used = fixture({ bound: isolated, inventory: [{ uuid: isolated, name }], used: true });
+    assert.deepEqual(await used.run(), { detached: true, used: true, rotated: false });
+    assert.equal(used.migrations.length, 0);
+    assert.ok(!used.calls.some(c => c.method === "POST" && !c.route.endsWith("/query")));
+    assert.ok(!used.calls.some(c => c.route.endsWith("/query") && /DELETE|DROP|UPDATE|INSERT/.test(c.body?.sql ?? "")));
+  }
 });
-test("name collision, missing binding inventory and primary as target cannot authorize migration", async () => {
+test("a deleted bound D1 is dropped; unowned name and primary as target cannot authorize migration", async () => {
+  const gone = fixture({ bound: isolated });
+  assert.deepEqual(await gone.run(), { detached: true, used: false, rotated: false });
+  assert.equal(gone.migrations.length, 0);
   for (const options of [
-    { inventory: [{ uuid: isolated, name: "synthetic-web-recovery" }] },
-    { bound: isolated },
     { bound: primary, inventory: [{ uuid: primary, name: "synthetic-web-recovery" }] },
-    { created: primary },
+    { bound: isolated, inventory: [{ uuid: isolated, name: "unrelated-d1" }] },
   ]) {
     const f = fixture(options);
     await assert.rejects(f.run(), /^Error: RECOVERY_(OWNER_CONFIRMATION_REQUIRED|TARGET_NOT_ISOLATED)$/);
@@ -91,8 +91,8 @@ test("name collision, missing binding inventory and primary as target cannot aut
 });
 test("failed provider query, occupied new target or unsafe schema cannot trigger migration", async () => {
   for (const options of [{ failQuery: true }, { tables: [{ name: 'invalid";DELETE' }], createdHasTables: true }, { createdHasTables: true }]) {
-    const f = fixture(options);
-    await assert.rejects(f.run(), /^Error: RECOVERY_(PROVIDER_UNAVAILABLE|SCHEMA_INVALID|TARGET_NOT_EMPTY)$/);
+    const f = fixture({ created: candidate, ...options });
+    await assert.rejects(f.run(approval), /^Error: RECOVERY_(PROVIDER_UNAVAILABLE|SCHEMA_INVALID|ROTATION_TARGET_NOT_NEW)$/);
     assert.equal(f.migrations.length, 0);
   }
 });
@@ -109,6 +109,15 @@ test("protected manual rotation prepares a distinct new canonical D1; old target
   assert.ok(!f.calls.some(c => c.method === "DELETE" || c.method === "PATCH" || c.method === "PUT"));
   assert.ok(!f.calls.some(c => c.route.endsWith("/query") && c.body?.sql?.includes("DELETE")));
   assert.deepEqual(f.masks, [candidate, candidateName]);
+});
+test("a detached Worker rotates to a new target without any previous binding", async () => {
+  const f = fixture({ inventory: [{ uuid: isolated, name: "synthetic-web-recovery" }], created: candidate });
+  const result = await f.run(approval);
+  assert.equal(result.rotated, true); assert.equal(result.CF_RECOVERY_D1_DATABASE_ID, candidate);
+  assert.deepEqual(f.migrations.map(x => x.id), [candidate]);
+  const primaryTarget = fixture({ created: primary });
+  await assert.rejects(primaryTarget.run(approval), /^Error: RECOVERY_TARGET_NOT_ISOLATED$/);
+  assert.equal(primaryTarget.migrations.length, 0);
 });
 test("rotation cannot be triggered by ordinary dispatch, branch, push, absent confirmation or disabled backup", async () => {
   for (const bad of [

@@ -45,7 +45,7 @@ export async function handleBackupRoute(request: Request, env: BackupRuntimeEnv,
       }
       return success({ ...history, rehearsals, rehearsalHistoryAvailable,
         recoveryReady,
-        recoveryBlockedReason: recoveryReady ? undefined : !env.RECOVERY_DB ? "隔離資料庫已解除綁定，下一次演練需先準備新目標。" : "隔離資料庫已使用或狀態不明，不可再次驗證。",
+        recoveryBlockedReason: recoveryReady ? undefined : !env.RECOVERY_DB ? "上次用過的隔離資料庫已斷開，可在 Cloudflare 刪除；下次演練前需先輪替建立新目標。" : "隔離資料庫已使用或狀態不明，不可再次驗證。",
         recoveryConfigured: !!service && !!env.RECOVERY_DB,
         scheduleEnabled: !!service && env.BACKUP_SCHEDULE_ENABLED === "true" }, requestId);
     }
