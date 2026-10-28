@@ -3,18 +3,44 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { nonSeedRowCondition } from "../shared/backup-migration-seeds.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const NAME = /^[a-z0-9][a-z0-9_-]{1,62}$/i;
+export const RECOVERY_ROTATION_CONFIRMATION = "ROTATE_ISOLATED_RECOVERY_TARGET";
+const SCHEMA_SQL = "SELECT type, name, tbl_name, sql FROM sqlite_master WHERE tbl_name != 'd1_migrations' AND tbl_name != 'program_catalog_state' AND tbl_name NOT GLOB 'sqlite_*' AND tbl_name NOT GLOB '_cf_*' ORDER BY type, name";
+function balancedOr(items) {
+  if (items.length === 0) return "0=1";
+  if (items.length === 1) return items[0];
+  const mid = Math.floor(items.length / 2);
+  return "(" + balancedOr(items.slice(0, mid)) + " OR " + balancedOr(items.slice(mid)) + ")";
+}
+function rotationGeneration(env) {
+  const gen = String(env.CF_RECOVERY_ROTATION_GENERATION ?? "").trim();
+  const confirmation = String(env.CF_RECOVERY_ROTATION_CONFIRMATION ?? "");
+  if (!gen && !confirmation) return null;
+  check(/^[0-9]{8}[a-z0-9]{1,6}$/.test(gen)
+    && confirmation === RECOVERY_ROTATION_CONFIRMATION
+    && env.CF_RECOVERY_ROTATION_OPERATION === "rotate-recovery"
+    && env.GITHUB_EVENT_NAME === "workflow_dispatch"
+    && env.GITHUB_REF === "refs/heads/main"
+    && !!env.GITHUB_ENV, "RECOVERY_ROTATION_NOT_APPROVED");
+  return gen;
+}
 function check(ok, code) { if (!ok) throw Error(code); }
 
 /** Protected deployment only. A name collision is never proof of ownership.
  * Existing targets must already be bound to this exact Worker. Never reset data. */
 export async function provisionBackupRecovery({ env, fetchImpl = fetch, migrate = migrateTarget, mask = () => {} }) {
-  if (env.CF_BACKUP_ENABLED !== "true") return null;
+  if (env.CF_BACKUP_ENABLED !== "true") {
+    check(!env.CF_RECOVERY_ROTATION_GENERATION && !env.CF_RECOVERY_ROTATION_CONFIRMATION, "RECOVERY_ROTATION_NOT_APPROVED");
+    return null;
+  }
   check(NAME.test(env.CF_WORKER_NAME ?? "") && UUID.test(env.CF_D1_DATABASE_ID ?? "")
     && /^[0-9a-f]{32}$/i.test(env.CLOUDFLARE_ACCOUNT_ID ?? "") && !!env.CLOUDFLARE_API_TOKEN, "RECOVERY_INPUT_INVALID");
-  const name = `${env.CF_WORKER_NAME}-recovery`;
+  const generation = rotationGeneration(env);
+  const standardName = `${env.CF_WORKER_NAME}-recovery`;
+  const name = generation ? `${standardName}-v${generation}` : standardName;
   check(NAME.test(name), "RECOVERY_INPUT_INVALID");
   async function api(route, body) {
     let response, payload;
@@ -42,34 +68,94 @@ export async function provisionBackupRecovery({ env, fetchImpl = fetch, migrate 
     databases.push(...inventory.result);
     if (inventory.result.length < 100) break;
   }
+  const owned = db => NAME.test(db.name ?? "") && (
+    db.name === standardName || (db.name.startsWith(standardName + "-v")
+      && /^[0-9]{8}[a-z0-9]{1,6}$/.test(db.name.slice((standardName + "-v").length))));
+  const masked = new Set();
+  const maskOnce = value => { if (!masked.has(value)) { mask(value); masked.add(value); } };
+  const boundTarget = bound.length ? databases.find(db => db.uuid === bound[0].id) : null;
+  if (bound.length) check(boundTarget && owned(boundTarget), "RECOVERY_OWNER_CONFIRMATION_REQUIRED");
   const matching = databases.filter(db => db.name === name);
   check(matching.length <= 1, "RECOVERY_OWNER_CONFIRMATION_REQUIRED");
-  let target;
-  if (bound.length) {
-    check(matching.length === 1 && matching[0].uuid === bound[0].id, "RECOVERY_OWNER_CONFIRMATION_REQUIRED");
-    target = matching[0];
+  async function query(id, sql) {
+    const result = (await api(`d1/database/${id}/query`, { sql })).result;
+    check(Array.isArray(result) && result.length === 1 && result[0].success === true && Array.isArray(result[0].results),
+      "RECOVERY_QUERY_FAILED");
+    return result[0].results;
+  }
+  async function tablesFor(id) {
+    const tables = await query(id, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT GLOB '_cf_*' AND name NOT IN ('d1_migrations','program_catalog_state') ORDER BY name");
+    check(tables.length <= 128 && tables.every(t => /^[a-z][a-z0-9_]*$/.test(t.name)), "RECOVERY_SCHEMA_INVALID");
+    return tables;
+  }
+  async function alreadyUsed(id) {
+    const tables = await tablesFor(id);
+    if (!tables.length) return false;
+    const checkSql = balancedOr(tables.map(t => nonSeedRowCondition(t.name)));
+    const result = await query(id, `SELECT CASE WHEN ${checkSql} THEN 1 ELSE 0 END AS used_target`);
+    check(result.length === 1 && [0, 1].includes(result[0].used_target), "RECOVERY_QUERY_FAILED");
+    return result[0].used_target === 1;
+  }
+  let target, used = false;
+  if (generation) {
+    // Protected manual rotation only. Do not reuse even an empty name collision:
+    // it could be an orphan from a prior interrupted run.
+    check(boundTarget && bound.length === 1, "RECOVERY_ROTATION_PREVIOUS_TARGET_REQUIRED");
+    check(matching.length === 0, "RECOVERY_ROTATION_NAME_ALREADY_EXISTS");
+    check(await alreadyUsed(boundTarget.uuid), "RECOVERY_ROTATION_PREVIOUS_TARGET_UNUSED");
+    // PRE-CREATE fail-closed gate: remote primary must already be fully migrated
+    // to the exact reviewed main source; do not leave an orphan candidate when
+    // the deployment has not yet applied new migrations to the primary DB.
+    const repoMigrations = fs.readdirSync(new URL("../migrations/", import.meta.url))
+      .filter(filename => filename.endsWith(".sql")).sort();
+    check(repoMigrations.length > 0 && repoMigrations.length <= 128
+      && repoMigrations.every(filename => /^[0-9]{4}_[a-z0-9_]+\.sql$/.test(filename)),
+      "RECOVERY_ROTATION_MIGRATIONS_INVALID");
+    const applied = await query(env.CF_D1_DATABASE_ID, "SELECT name FROM d1_migrations ORDER BY name");
+    check(applied.length === repoMigrations.length
+      && applied.every((row, index) => row.name === repoMigrations[index]),
+      "RECOVERY_ROTATION_PRIMARY_MIGRATIONS_OUTDATED");
+    target = (await api("d1/database", { name })).result;
+    check(target?.name === name && UUID.test(target?.uuid ?? "") && target.uuid !== env.CF_D1_DATABASE_ID
+      && target.uuid !== boundTarget.uuid && !databases.some(db => db.uuid === target.uuid),
+      "RECOVERY_TARGET_NOT_ISOLATED");
+    maskOnce(target.uuid); maskOnce(target.name);
+    // A fresh D1 must contain no application tables *before* canonical forward
+    // migrations. Never migrate a previously observed/nonempty candidate.
+    check((await tablesFor(target.uuid)).length === 0, "RECOVERY_ROTATION_TARGET_NOT_NEW");
+    await migrate({ id: target.uuid, name, env });
+    // Fail closed before switching bindings if source migrations are not an
+    // exact DDL match to the authoritative business DB.
+    const [sourceSchema, targetSchema] = await Promise.all([
+      query(env.CF_D1_DATABASE_ID, SCHEMA_SQL), query(target.uuid, SCHEMA_SQL),
+    ]);
+    check(sourceSchema.length > 0 && sourceSchema.length <= 512 && targetSchema.length <= 512
+      && JSON.stringify(sourceSchema) === JSON.stringify(targetSchema), "RECOVERY_ROTATION_SCHEMA_MISMATCH");
+    // Use the same exact canonical row predicates as the Worker restore guard.
+    // Mere HR migration fixtures do not mark a fresh target as used.
+    check(!await alreadyUsed(target.uuid), "RECOVERY_ROTATION_TARGET_NOT_EMPTY");
+    // The old D1 has not been mutated or deleted. Only a subsequent
+    // reviewed Worker deploy may bind the new ID.
+  } else if (boundTarget) {
+    target = boundTarget;
+    used = await alreadyUsed(target.uuid);
+    // Preserve any used target across releases without changing its historical
+    // data or schema. A fresh, un-used target may receive forward migrations.
+    if (!used) await migrate({ id: target.uuid, name: target.name, env });
   } else {
     check(matching.length === 0, "RECOVERY_OWNER_CONFIRMATION_REQUIRED");
     target = (await api("d1/database", { name })).result;
+    check(target?.name === name && UUID.test(target?.uuid ?? "") && target.uuid !== env.CF_D1_DATABASE_ID
+      && !databases.some(db => db.uuid === target.uuid), "RECOVERY_TARGET_NOT_ISOLATED");
+    maskOnce(target.uuid); maskOnce(target.name);
+    check((await tablesFor(target.uuid)).length === 0, "RECOVERY_TARGET_NOT_EMPTY");
+    await migrate({ id: target.uuid, name, env });
   }
-  check(target?.name === name && UUID.test(target?.uuid ?? "") && target.uuid !== env.CF_D1_DATABASE_ID, "RECOVERY_TARGET_NOT_ISOLATED");
-  mask(target.uuid); mask(name);
-  async function query(sql) {
-    const result = (await api(`d1/database/${target.uuid}/query`, { sql })).result;
-    check(Array.isArray(result) && result.length === 1 && result[0].success === true && Array.isArray(result[0].results), "RECOVERY_QUERY_FAILED");
-    return result[0].results;
-  }
-  const tables = await query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT GLOB '_cf_*' AND name NOT IN ('d1_migrations','program_catalog_state') ORDER BY name");
-  check(tables.length <= 128 && tables.every(t => /^[a-z][a-z0-9_]*$/.test(t.name)), "RECOVERY_SCHEMA_INVALID");
-  let used = false;
-  if (tables.length) {
-    const results = await query(`SELECT CASE WHEN ${tables.map(t => `EXISTS(SELECT 1 FROM "${t.name}")`).join(" OR ")} THEN 1 ELSE 0 END AS used_target`);
-    check(results.length === 1 && [0, 1].includes(results[0].used_target), "RECOVERY_QUERY_FAILED");
-    used = results[0].used_target === 1;
-  }
-  // Retain a successful rehearsal byte-for-byte across subsequent releases.
-  if (!used) await migrate({ id: target.uuid, name, env });
-  return { CF_RECOVERY_D1_DATABASE_ID: target.uuid, CF_RECOVERY_D1_DATABASE_NAME: name, used };
+  check(target?.name && owned(target) && UUID.test(target.uuid) && target.uuid !== env.CF_D1_DATABASE_ID,
+    "RECOVERY_TARGET_NOT_ISOLATED");
+  maskOnce(target.uuid); maskOnce(target.name);
+
+  return { CF_RECOVERY_D1_DATABASE_ID: target.uuid, CF_RECOVERY_D1_DATABASE_NAME: target.name, used, rotated: !!generation };
 }
 
 function migrateTarget({ id, name, env }) {
@@ -90,9 +176,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     check(!!process.env.GITHUB_ENV, "RECOVERY_PROTECTED_RUNNER_REQUIRED");
     const result = await provisionBackupRecovery({ env: process.env, mask: value => console.log(`::add-mask::${value}`) });
     if (result) {
-      const { used, ...values } = result;
+      const { used, rotated, ...values } = result;
       fs.appendFileSync(process.env.GITHUB_ENV, Object.entries(values).map(([key, value]) => `${key}=${value}\n`).join(""));
-      console.log(used ? "RECOVERY_USED_TARGET_PRESERVED" : "RECOVERY_EMPTY_TARGET_PREPARED");
+      console.log(rotated ? "RECOVERY_NEW_TARGET_PREPARED_OLD_PRESERVED"
+        : used ? "RECOVERY_USED_TARGET_PRESERVED" : "RECOVERY_EMPTY_TARGET_PREPARED");
     }
   } catch (error) {
     console.error(/^RECOVERY_[A-Z_]+$/.test(error?.message ?? "") ? error.message : "RECOVERY_SETUP_FAILED"); process.exitCode = 1;

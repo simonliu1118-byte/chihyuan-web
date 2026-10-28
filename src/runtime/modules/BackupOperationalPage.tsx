@@ -3,7 +3,7 @@ import { Loading } from "../../ui/feedback/Loading";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { useEffect, useRef, useState } from "react";
-import { BACKUP_REHEARSAL_CONFIRMATION, type BackupHistory, type BackupHistoryEntry, type BackupProvider } from "../../../shared/backups";
+import { BACKUP_REHEARSAL_CONFIRMATION, BACKUP_REHEARSAL_ERROR_MESSAGES, type BackupHistory, type BackupHistoryEntry, type BackupProvider, type BackupRehearsalHistoryEntry } from "../../../shared/backups";
 import { ApiClientError } from "../../api/client";
 import { DataView } from "../../ui/data/DataView";
 import { createBackup, loadBackups, retryBackup, rehearseBackup } from "../api/backup-client";
@@ -56,6 +56,32 @@ export function BackupHistoryView({ history, busy, retry, rehearse }: { history:
     renderCard={row => <>{event(row)}{providerStatus(row)}<div className="cy-backup-card-footer"><span>{row.recordCount.toLocaleString()} 筆 · {size(row.byteLength)}</span>{action(row)}</div></>}
     emptyTitle="尚無備份紀錄" emptyDescription={history.configured ? "建立手動備份後，這裡會顯示各儲存副本的驗證結果。" : "儲存設定完成後才能建立備份。"} />;
 }
+const rehearsalPhaseLabels: Record<string, string> = {
+  source_read: "來源備份核對", target_validation: "隔離目標檢查",
+  safety_backup: "還原前安全備份", audit_start: "演練啟動紀錄",
+  restore_reconcile: "隔離還原／資料核對", result_record: "結果紀錄",
+};
+export function BackupRehearsalHistoryView({ items }: { items: readonly BackupRehearsalHistoryEntry[] }) {
+  const status = (row: BackupRehearsalHistoryEntry) => row.status === "verified" ? "驗證成功"
+    : row.status === "failed" ? "驗證失敗" : "結果待確認";
+  const explanation = (row: BackupRehearsalHistoryEntry) => row.status === "verified"
+    ? "已記錄隔離驗證成功。"
+    : row.errorCode ? BACKUP_REHEARSAL_ERROR_MESSAGES[row.errorCode] ?? BACKUP_REHEARSAL_ERROR_MESSAGES.BACKUP_RECOVERY_UNAVAILABLE
+    : row.status === "unconfirmed" ? "已有演練啟動紀錄，但沒有確認的最終結果；不可直接重送。"
+    : "此筆舊驗證紀錄未附錯誤代碼，請核對 Audit；不可直接重送。";
+  const detail = (row: BackupRehearsalHistoryEntry) => <div className="cy-backup-event">
+    <strong>{time(row.occurredAt)} · {status(row)}</strong>
+    <span>{row.provider ? row.provider.toUpperCase() : "來源未確認"} · {row.phase ? rehearsalPhaseLabels[row.phase] ?? "階段待確認" : "歷史紀錄"}</span>
+    <span>{explanation(row)}</span>
+    {row.errorCode ? <span>錯誤代碼：{row.errorCode}</span> : null}
+    <details><summary>診斷識別資訊</summary><dl><dt>來源備份</dt><dd>{row.backupId}</dd>
+      <dt>requestId</dt><dd>{row.requestId ?? "未記錄"}</dd></dl></details>
+  </div>;
+  return <DataView ariaLabel="隔離還原驗證紀錄" items={[...items]} getKey={row => String(row.eventId)}
+    columns={[{ key: "time", header: "驗證時間／結果（台灣）", render: detail }]}
+    renderCard={detail} emptyTitle="尚無隔離還原驗證紀錄"
+    emptyDescription="此處顯示近 90 天已記錄的演練，最多 30 筆；早期失敗若發生在記錄前，可能無法追溯。" />;
+}
 export function BackupOperationalPage({ session }: { session: AuthSession }) {
   const [history, setHistory] = useState<BackupHistory | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,7 +112,9 @@ export function BackupOperationalPage({ session }: { session: AuthSession }) {
       if (!mounted.current) return;
       // create/retry return history from the service; refresh also carries the runtime capability.
       setHistory(previous => ({ ...result, recoveryConfigured: result.recoveryConfigured ?? previous?.recoveryConfigured,
-        scheduleEnabled: result.scheduleEnabled ?? previous?.scheduleEnabled }));
+        scheduleEnabled: result.scheduleEnabled ?? previous?.scheduleEnabled,
+        rehearsals: result.rehearsals ?? previous?.rehearsals,
+        rehearsalHistoryAvailable: result.rehearsalHistoryAvailable ?? previous?.rehearsalHistoryAvailable }));
       if (kind !== "refresh") {
         const row = result.sets.find(row => row.backupId === ("backupId" in result ? result.backupId : id));
         const message = completion(row);
@@ -129,6 +157,12 @@ export function BackupOperationalPage({ session }: { session: AuthSession }) {
     <section className="cy-op-panel cy-backup-history" aria-busy={loading || busy}>{loading ? <Loading />
       : history ? <><BackupHistoryView history={history} busy={busy} retry={id => void run("retry", id)} rehearse={selectRehearsal} /><p className="cy-backup-history-note">顯示最新 50 筆備份；每次備份只列一次，副本驗證結果分開顯示。</p></>
         : <p>尚未取得備份紀錄，請使用「更新紀錄」。</p>}</section>
+    <section className="cy-op-panel cy-backup-history">
+      <h3>隔離還原驗證紀錄</h3>
+      {loading ? <Loading /> : history?.rehearsalHistoryAvailable === false
+        ? <div className="cy-op-notice danger" role="alert">隔離演練紀錄暫時無法讀取；不能據此判定演練成功或失敗。請稍後再更新紀錄，不要直接重送。</div>
+        : <BackupRehearsalHistoryView items={history?.rehearsals ?? []} />}
+    </section>
     <CyInvoiceRecoveryAdminPanel key={JSON.stringify([session.user.workspaceId, session.user.employeeId, session.user.workspaceRole, session.user.emailVerified, session.user.isWorkspaceSuperAdmin])} session={session} />
     <Dialog open={selected !== null} title="驗證隔離還原" dismissible={!busy} onClose={() => { if (!busy) setSelected(null); }}
       footer={<><button className="cy-op-button" type="button" disabled={busy} onClick={() => setSelected(null)}>取消</button>

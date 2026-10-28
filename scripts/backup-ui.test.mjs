@@ -7,12 +7,12 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 const directory = mkdtempSync(fileURLToPath(new URL("../node_modules/.cyweb-backup-ui-", import.meta.url)));
-let BackupHistoryView;
+let BackupHistoryView, BackupRehearsalHistoryView;
 try {
   const outfile = join(directory, "view.mjs");
   await build({ entryPoints: [fileURLToPath(new URL("../src/runtime/modules/BackupOperationalPage.tsx", import.meta.url))], outfile,
     bundle: true, platform: "node", format: "esm", jsx: "automatic", packages: "external", loader: { ".css": "empty" } });
-  ({ BackupHistoryView } = await import(pathToFileURL(outfile)));
+  ({ BackupHistoryView, BackupRehearsalHistoryView } = await import(pathToFileURL(outfile)));
 } finally { rmSync(directory, { recursive: true, force: true }); }
 const row = { backupId: "00000000-0000-4000-8000-000000000001", createdAt: "2026-10-01T19:30:00.000Z", appVersion: "0.7.3",
   schemaVersion: "0006_backup_catalog", dataSha256: "a".repeat(64), byteLength: 1200, recordCount: 3, status: "verified", triggerKind: "manual",
@@ -44,4 +44,25 @@ test("rehearsal control requires server capability and a verified copy; busy dis
   assert.doesNotMatch(render({ ...row, copies: [] }, false, true, true), /驗證隔離還原/);
   assert.match(render(row, false, true, true), /驗證隔離還原/);
   assert.match(render(row, true, true, true), /button[^>]*disabled=""[^>]*>驗證隔離還原/);
+});
+
+test("rehearsal history shows failed phase and safe error without exposing technical exception", () => {
+  const html = renderToStaticMarkup(createElement(BackupRehearsalHistoryView, { items: [{
+    eventId: 9, backupId: "synthetic-backup", occurredAt: "2026-10-28T07:46:34.000Z",
+    status: "failed", provider: "gcs", phase: "target_validation",
+    errorCode: "BACKUP_TABLE_COVERAGE_MISMATCH", requestId: "synthetic-request",
+  }] }));
+  assert.match(html, /隔離目標檢查/);
+  assert.match(html, /BACKUP_TABLE_COVERAGE_MISMATCH/);
+  assert.match(html, /驗證失敗/);
+  assert.match(html, /synthetic-request/);
+  assert.doesNotMatch(html, /敏感憑證|token secret/);
+});
+test("rehearsal history reports unconfirmed result distinctly from successful restore", () => {
+  const html = renderToStaticMarkup(createElement(BackupRehearsalHistoryView, { items: [{
+    eventId: 10, backupId: "synthetic-backup", occurredAt: "2026-10-28T07:46:34.000Z",
+    status: "unconfirmed", provider: null, phase: null, errorCode: null, requestId: null,
+  }] }));
+  assert.match(html, /結果待確認/);
+  assert.match(html, /不可直接重送/);
 });

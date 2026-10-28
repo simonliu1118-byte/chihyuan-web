@@ -13,3 +13,9 @@
 - **已結案舊 handoff 原文與舊版截圖**：在 Git 版本歷史仍可存取，參考 [2026-10-28 清理前固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff)；此為歷史資料，不作現行規格依據。
 
 後續新工作如需交接，另建新檔並記錄該工作實際進度、驗收與剩餘事項。正式功能完成後，仍以對應架構契約、CHANGELOG 與 TODO 為準；此目錄不成為平行契約或永久規則。
+
+## 目前待 Claude 審查
+
+- [CYWEB V0.9.48：隔離還原診斷與驗證紀錄](CYWEB-V0.9.48-REHEARSAL-CLAUDE-REVIEW.md) — PR #300，包含變更清單、測試／CI、Cloudflare 唯讀診斷摘要、風險與 Claude 最終審查欄位。
+
+CYWEB GPT／ChatGPT 直接執行修正時，依使用者 2026-10-28 的明確指示，每一項修正都更新同分支 handoff，最終交 Claude 審查，通過且另獲授權後才合併／部署。永久規則由 [治理 PR #301](https://github.com/simonliu1118-byte/chihyuan-web/pull/301) 提出 `PROJECT_RULES.md` §9.1，**尚待 Claude 審查，未合併前不宣稱已生效為 main 的規則**。

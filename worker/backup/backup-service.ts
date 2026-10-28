@@ -1,5 +1,5 @@
 import { AuditService } from "../audit/audit-service";
-import type { BackupHistory, BackupProvider } from "../../shared/backups";
+import { BACKUP_REHEARSAL_ERROR_MESSAGES, type BackupHistory, type BackupProvider, type BackupRehearsalHistoryEntry } from "../../shared/backups";
 import { exportPortableBackup, restoreIntoEmptyDatabase, validateEmptyBackupTarget, storeVerifiedCopy, verifyPortableBackup, type BackupStorageProvider, type PortableBackup } from "./portable-backup";
 import { BACKUP_ID, storageCheck } from "./storage-guard";
 
@@ -32,6 +32,46 @@ export async function loadBackupHistory(db: D1Database, workspace: string, confi
           && (!copy.lease_until || copy.lease_until <= new Date().toISOString())),
     };
   }) };
+}
+// Only stable, public-safe codes may be persisted or shown. No exception text, stack or data payload.
+function safeRehearsalCode(error: unknown): string {
+  const code = error instanceof Error ? error.message : "";
+  return Object.hasOwn(BACKUP_REHEARSAL_ERROR_MESSAGES, code) ? code : "BACKUP_RECOVERY_UNAVAILABLE";
+}
+/** Recent Super Admin-only recovery attempts, read from the existing Audit Core (no new D1 schema). */
+export async function loadBackupRehearsals(db: D1Database, workspace: string): Promise<BackupRehearsalHistoryEntry[]> {
+  const since = new Date(Date.now() - 90 * 86400000).toISOString();
+  const rows = await db.prepare(`SELECT ae.id, ae.entity_key, ae.action, ae.occurred_at, ae.request_id, ae.metadata_json
+    FROM audit_events ae JOIN backup_sets bs ON bs.backup_id=ae.entity_key AND bs.workspace_scope=?
+    WHERE ae.entity_type='backup' AND ae.action IN
+      ('backup.rehearsal.started','backup.rehearsal.verified','backup.rehearsal.failed')
+      AND ae.occurred_at>=?
+    ORDER BY ae.occurred_at DESC, ae.id DESC LIMIT 100`).bind(workspace, since).all<{
+    id: number; entity_key: string; action: string; occurred_at: string; request_id: string | null; metadata_json: string | null;
+  }>();
+  const seen = new Set<string>(), history: BackupRehearsalHistoryEntry[] = [];
+  for (const row of rows.results ?? []) {
+    // Start and terminal events for the same attempt share a requestId. Newest wins.
+    const key = row.request_id ?? String(row.id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    let metadata: Record<string, unknown> = {};
+    try {
+      const parsed: unknown = JSON.parse(row.metadata_json ?? "{}");
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) metadata = parsed as Record<string, unknown>;
+    } catch { /* Old Audit may lack metadata. */ }
+    const provider = metadata.provider === "r2" || metadata.provider === "gcs" ? metadata.provider : null;
+    const phase = typeof metadata.phase === "string" && /^[a-z_]{1,32}$/.test(metadata.phase) ? metadata.phase : null;
+    const errorCode = typeof metadata.errorCode === "string"
+      ? safeRehearsalCode(new Error(metadata.errorCode)) : null;
+    history.push({ eventId: row.id, backupId: row.entity_key, occurredAt: row.occurred_at,
+      status: row.action === "backup.rehearsal.verified" ? "verified"
+        : row.action === "backup.rehearsal.failed" && errorCode !== "BACKUP_REHEARSAL_RESULT_UNCONFIRMED"
+          ? "failed" : "unconfirmed",
+      provider, phase, errorCode, requestId: row.request_id });
+    if (history.length >= 30) break;
+  }
+  return history;
 }
 export function taiwanBackupPolicy(time: string): { date: string; gcs: boolean } {
   const value = new Date(Date.parse(time) + 8 * 60 * 60 * 1000);
@@ -81,29 +121,42 @@ export class BackupService {
     storageCheck(input.selectionConfirmation === input.backupId && input.targetConfirmation === "isolated_empty_database", "BACKUP_RECOVERY_CONFIRMATION_REQUIRED");
     storageCheck(target !== this.db, "BACKUP_RECOVERY_TARGET_NOT_ISOLATED");
     storageCheck(input.provider === undefined || input.provider === "r2" || input.provider === "gcs", "BACKUP_PROVIDER_INVALID");
-    const selected = await this.loadVerified(input.backupId, input.provider);
-    await validateEmptyBackupTarget(target, selected.bundle, this.workspace);
-    // Resolve immutable selected bytes first. Safety export then captures current
-    // source data, requires both verified providers, and never clears a target.
-    const safetyBackupId = await this.create("pre_restore", { ...context, requestId: `${context.requestId}:safety` });
-    storageCheck(safetyBackupId !== input.backupId, "BACKUP_RECOVERY_SAFETY_ID_INVALID");
-    await this.loadVerified(safetyBackupId, "r2");
-    await this.loadVerified(safetyBackupId, "gcs");
-    await new AuditService(this.db).record({ entityType: "backup", entityKey: input.backupId, action: "backup.rehearsal.started",
-      actorEmployeeId: context.actorMemberId, occurredAt: context.now, requestId: context.requestId,
-      metadata: { safetyBackupId, provider: selected.provider, target: "isolated_empty_database" } });
+    let phase = "source_read", safetyBackupId: string | null = null;
+    let verifiedProvider: ProviderCode | null = null;
+    const audit = new AuditService(this.db);
+    const event = (action: string, extra: Record<string, string | null>) => audit.record({
+      entityType: "backup", entityKey: input.backupId, action, actorEmployeeId: context.actorMemberId,
+      occurredAt: context.now, requestId: context.requestId,
+      metadata: { provider: verifiedProvider ?? input.provider ?? null, target: "isolated_empty_database",
+        safetyBackupId, ...extra },
+    });
     try {
+      const selected = await this.loadVerified(input.backupId, input.provider);
+      verifiedProvider = selected.provider;
+      phase = "target_validation";
+      await validateEmptyBackupTarget(target, selected.bundle, this.workspace);
+      // The validated source bytes are immutable. Do not create safety backups for an invalid target.
+      phase = "safety_backup";
+      safetyBackupId = await this.create("pre_restore", { ...context, requestId: `${context.requestId}:safety` });
+      storageCheck(safetyBackupId !== input.backupId, "BACKUP_RECOVERY_SAFETY_ID_INVALID");
+      await this.loadVerified(safetyBackupId, "r2");
+      await this.loadVerified(safetyBackupId, "gcs");
+      phase = "audit_start";
+      await event("backup.rehearsal.started", { phase: "restore_reconcile" });
+      phase = "restore_reconcile";
       await restoreIntoEmptyDatabase(target, selected.bundle, this.workspace);
-      await new AuditService(this.db).record({ entityType: "backup", entityKey: input.backupId, action: "backup.rehearsal.verified",
-        actorEmployeeId: context.actorMemberId, occurredAt: context.now, requestId: context.requestId,
-        metadata: { safetyBackupId, provider: selected.provider, target: "isolated_empty_database" } });
-    } catch {
-      await new AuditService(this.db).record({ entityType: "backup", entityKey: input.backupId, action: "backup.rehearsal.failed",
-        actorEmployeeId: context.actorMemberId, occurredAt: context.now, requestId: context.requestId,
-        metadata: { safetyBackupId, provider: selected.provider, target: "isolated_empty_database" } });
-      throw new Error("BACKUP_ISOLATED_RECOVERY_FAILED");
+      phase = "result_record";
+      await event("backup.rehearsal.verified", { phase: "completed" });
+      return { safetyBackupId, provider: selected.provider };
+    } catch (error) {
+      const code = phase === "restore_reconcile" ? "BACKUP_ISOLATED_RECOVERY_FAILED"
+        : phase === "result_record" ? "BACKUP_REHEARSAL_RESULT_UNCONFIRMED" : safeRehearsalCode(error);
+      // No source payload, exception text, Cloudflare credentials or target identifiers are logged.
+      console.error("[backup_rehearsal_failure]", JSON.stringify({ requestId: context.requestId, phase, code }));
+      try { await event("backup.rehearsal.failed", { phase, errorCode: code }); }
+      catch { console.error("[backup_rehearsal_audit_unavailable]", JSON.stringify({ requestId: context.requestId, phase })); }
+      throw new Error(code);
     }
-    return { safetyBackupId, provider: selected.provider };
   }
   async create(kind: "manual" | "scheduled" | "pre_restore", context: Context): Promise<string> {
     const policy = taiwanBackupPolicy(context.now), id = crypto.randomUUID();
