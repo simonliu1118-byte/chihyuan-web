@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import { DatabaseSync } from "node:sqlite";
+import { nonSeedRowCondition, MIGRATION_SEEDS } from "../shared/backup-migration-seeds.ts";
 import { provisionBackupRecovery, RECOVERY_ROTATION_CONFIRMATION } from "./provision-backup-recovery.mjs";
 const primary = "11111111-1111-4111-8111-111111111111";
 const isolated = "22222222-2222-4222-8222-222222222222";
@@ -8,11 +11,13 @@ const env = { CF_BACKUP_ENABLED: "true", CF_WORKER_NAME: "synthetic-web", CF_D1_
   CLOUDFLARE_ACCOUNT_ID: "a".repeat(32), CLOUDFLARE_API_TOKEN: "synthetic-secret" };
 const generation = "20261028a";
 const candidateName = "synthetic-web-recovery-v" + generation;
+const migrationNames = fs.readdirSync(new URL("../migrations/", import.meta.url)).filter(x => x.endsWith(".sql")).sort();
 const approval = { CF_RECOVERY_ROTATION_GENERATION: generation,
   CF_RECOVERY_ROTATION_CONFIRMATION: RECOVERY_ROTATION_CONFIRMATION, CF_RECOVERY_ROTATION_OPERATION: "rotate-recovery",
   GITHUB_EVENT_NAME: "workflow_dispatch", GITHUB_REF: "refs/heads/main", GITHUB_ENV: "/tmp/synthetic-environment" };
 function fixture({ bound, inventory = [], created = isolated, used = false, tables = [{ name: "customers" }],
-  failQuery = false, schemaMismatch = false, candidateDirty = false, createdHasTables = false } = {}) {
+  failQuery = false, schemaMismatch = false, candidateDirty = false, createdHasTables = false,
+  appliedMigrations = migrationNames } = {}) {
   const calls = [], migrations = [], masks = [];
   let justCreated = null, wasMigrated = false;
   const fetchImpl = async (url, options) => {
@@ -28,17 +33,20 @@ function fixture({ bound, inventory = [], created = isolated, used = false, tabl
     } else if (route.endsWith("/query")) {
       if (failQuery) throw Error("secret provider details");
       const databaseId = route.split("/")[2], sql = JSON.parse(options.body).sql;
-      if (databaseId === primary && !sql.startsWith("SELECT type"))
+      if (databaseId === primary && !sql.startsWith("SELECT type") && !sql.startsWith("SELECT name FROM d1_migrations"))
         throw Error("no primary business data reads allowed");
-      if (sql.startsWith("SELECT name")) result = [{
+      if (sql.startsWith("SELECT name FROM d1_migrations")) result = [{ success: true,
+        results: appliedMigrations.map(name => ({ name })) }];
+      else if (sql.startsWith("SELECT name")) result = [{
         success: true, results: justCreated === databaseId && !wasMigrated && !createdHasTables ? [] : tables,
       }];
       else if (sql.startsWith("SELECT type")) result = [{
         success: true, results: databaseId !== primary && schemaMismatch ? [{ type: "table", name: "unexpected" }]
           : [{ type: "table", name: "customers", tbl_name: "customers", sql: "CREATE TABLE customers (...)" }],
       }];
-      else if (sql.includes("dirty_target")) result = [{ success: true, results: [{ dirty_target: candidateDirty ? 1 : 0 }] }];
-      else result = [{ success: true, results: [{ used_target: used ? 1 : 0 }] }];
+      else result = [{ success: true, results: [{
+        used_target: databaseId === justCreated && wasMigrated ? (candidateDirty ? 1 : 0) : (used ? 1 : 0),
+      }] }];
     } else throw Error("unexpected route");
     return Response.json({ success: true, result });
   };
@@ -147,4 +155,53 @@ test("a provider response recycling another known D1 UUID cannot activate that r
   await assert.rejects(f.run(approval), /^Error: RECOVERY_TARGET_NOT_ISOLATED$/);
   assert.equal(f.migrations.length, 0);
   assert.ok(!f.calls.some(c => c.method === "DELETE" || c.method === "PATCH"));
+});
+
+test("canonical seed predicate treats exact seed as unused and edited or extra rows as used", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec("CREATE TABLE hr_stores (id INTEGER, name TEXT, sort_order INTEGER, is_active INTEGER, cycle_anchor_date TEXT, rules_template TEXT)");
+    const isUsed = () => db.prepare("SELECT CASE WHEN " + nonSeedRowCondition("hr_stores") + " THEN 1 ELSE 0 END AS used").get().used;
+    db.prepare("INSERT INTO hr_stores VALUES (1, ?, 0, 1, '2026-09-28', '')").run("志遠高雄門市");
+    assert.equal(isUsed(), 0);
+    db.exec("UPDATE hr_stores SET name='modified seed' WHERE id=1");
+    assert.equal(isUsed(), 1);
+    db.exec("UPDATE hr_stores SET name='志遠高雄門市' WHERE id=1");
+    db.exec("INSERT INTO hr_stores VALUES (2, 'extra', 1, 1, '2026-09-28', '')");
+    assert.equal(isUsed(), 1);
+    assert.equal(MIGRATION_SEEDS.hr_stores.count, 1);
+    assert.match(nonSeedRowCondition("hr_leave_types"), /is_statutory/);
+    assert.throws(() => nonSeedRowCondition('unsafe";DROP TABLE'), /RECOVERY_SCHEMA_INVALID/);
+  } finally { db.close(); }
+});
+test("seed-only versioned target receives new forward migrations during subsequent normal deployment", async () => {
+  const f = fixture({ bound: isolated, inventory: [{ uuid: isolated, name: candidateName }],
+    tables: [{ name: "hr_stores" }], used: false });
+  const result = await f.run();
+  assert.equal(result.used, false);
+  assert.equal(result.CF_RECOVERY_D1_DATABASE_NAME, candidateName);
+  assert.deepEqual(f.migrations.map(x => x.id), [isolated]);
+  const checks = f.calls.filter(x => x.route === `d1/database/${isolated}/query`).map(x => x.body.sql);
+  assert.ok(checks.some(sql => sql.includes("COUNT(*)") && sql.includes("cycle_anchor_date") && sql.includes("NOT (")));
+});
+test("modified or additional HR seed rows preserve existing D1 and prevent migration", async () => {
+  for (const reason of ["modified seed", "extra row"]) {
+    const f = fixture({ bound: isolated, inventory: [{ uuid: isolated, name: candidateName }],
+      tables: [{ name: "hr_stores" }], used: true });
+    assert.equal((await f.run()).used, true, reason);
+    assert.equal(f.migrations.length, 0);
+    assert.ok(f.calls.some(x => x.body?.sql?.includes("NOT (id=1 AND name=")));
+  }
+});
+test("primary schema migration lag, unexpected additions or ordering abort rotation before D1 creation", async () => {
+  for (const appliedMigrations of [
+    migrationNames.slice(0, -1), [...migrationNames, "0030_unreviewed.sql"], migrationNames.slice().reverse(),
+  ]) {
+    const f = fixture({ bound: isolated, inventory: [{ uuid: isolated, name: "synthetic-web-recovery" }],
+      created: candidate, used: true, appliedMigrations });
+    await assert.rejects(f.run(approval), /^Error: RECOVERY_ROTATION_PRIMARY_MIGRATIONS_OUTDATED$/);
+    assert.equal(f.calls.some(x => x.route === "d1/database" && x.method === "POST"), false);
+    assert.equal(f.migrations.length, 0);
+    assert.ok(f.calls.some(x => x.route === `d1/database/${primary}/query` && x.body?.sql?.includes("d1_migrations")));
+  }
 });
