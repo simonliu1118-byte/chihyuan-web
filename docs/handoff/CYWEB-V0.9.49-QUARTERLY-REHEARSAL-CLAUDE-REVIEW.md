@@ -137,7 +137,7 @@
 
 - 本次只改 3 份正式程式（`src/App.tsx`、`src/runtime/modules/BackupOperationalPage.tsx`、`worker/backup/backup-service.ts`）、1 份 `scripts/backup-ui.test.mjs` 與 `TODO.md`／`CHANGELOG.md`／本 handoff。**無新 Migration、無改 Cloudflare Worker 綁定、無正式 D1/R2/GCS/API 操作、無合併或部署**。
 - 用戶所提自動**物理**解除 `RECOVERY_DB`、現有的併發 restore race、是否需離線 Email／Push 等事項**不在此次 N1–N3 小項中偷渡實作**；Claude 原 §8 已將物理解綁列為須另案的控制平面工作。
-- 返修後 CI 須重新以最新 PR head 評估 Governance、Runtime、Deploy PR-only checks；舊 `c3f3241` 的 363 pass／0 fail 並不能代替這次增量驗證。
+- [x] **新增 N1–N3 程式及測試修正已完成 CI**：原返修完成 HEAD `8a2958e5211850155ac306d69767881fe584e10c`；[Governance Check #40711800662](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40711800662)、[Runtime Check #40711800512](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40711800512)（browser／worker typecheck、source contracts、local D1 acceptance、build）、[Deploy PR contract #40711800556](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40711800556) **均 success**；`deploy-development` skipped，沒有發布。此後本份 handoff 的提交為**文件紀錄更新**，若 GitHub 對新 HEAD 再跑 CI，請 Claude 以最新狀態核對。舊 `c3f3241` 的 363 pass／0 fail 不充當這次增量驗證。
 - 完成此次返修目的：一次交由 Claude **對 N1–N3 最新差異複審**，若有其他建議可直接記下，不自動修改已核准的其他需求。
 
 ## 10. Claude 增量複審紀錄（僅 Claude 親自填寫）
