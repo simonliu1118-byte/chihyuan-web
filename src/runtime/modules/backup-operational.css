@@ -3,8 +3,13 @@
 .cy-backup-event{display:grid;gap:.35rem;min-width:0}
 .cy-backup-event>span,.cy-backup-history-note{font-size:var(--cy-fs-sm);color:var(--cy-text-muted)}
 .cy-backup-event summary{cursor:pointer;font-size:var(--cy-fs-sm);color:var(--cy-text-muted)}
-.cy-backup-event dl{display:grid;gap:.2rem;margin:.55rem 0;font-size:var(--cy-fs-sm);max-width:25rem}
-.cy-backup-event dt{font-weight:700}.cy-backup-event dd{margin:0 0 .4rem;overflow-wrap:anywhere;color:var(--cy-text-muted)}
+/* Always-visible backup ID, version and digest, in a dedicated table column. */
+.cy-backup-identity{display:grid;grid-template-columns:minmax(0,1fr);gap:.12rem;
+  margin:0;font-size:var(--cy-fs-sm);min-width:0;max-width:100%}
+.cy-backup-identity dt{font-weight:700;margin-top:.32rem}
+.cy-backup-identity dt:first-child{margin-top:0}
+.cy-backup-identity dd{min-width:0;overflow-wrap:anywhere;word-break:break-word;
+  margin:0;color:var(--cy-text-muted);line-height:1.4}
 .cy-backup-copies{display:grid;gap:.45rem}
 .cy-backup-copy{display:inline-flex;gap:.5rem;align-items:center;flex-wrap:wrap;border:1px solid var(--cy-border);border-radius:var(--cy-radius-md);padding:.25rem .5rem;font-size:var(--cy-fs-sm);background:var(--cy-surface-muted)}
 .cy-backup-copy[data-status=verified]{background:var(--cy-success-soft);color:var(--cy-success);border-color:transparent}
@@ -22,12 +27,15 @@
   font: inherit; font-size: var(--cy-fs-input); color: var(--cy-text); background: var(--cy-surface);
   min-height: var(--cy-control-h); padding: .25rem .6rem; border: 1px solid var(--cy-border-input); border-radius: var(--cy-radius-md);
 }
-.cy-backup-history + .cy-invoice-recovery-panel{margin-top:1rem}
+/* Admin disaster recovery entry remains in the same toolbar, without a separate panel. */
+.cy-backup-toolbar-divider{display:inline-block;align-self:center;height:1.7rem;width:1px;
+  flex:0 0 1px;margin:0 .3rem;background:var(--cy-border)}
 
 /* Verified Audit outcome remains prominently visible after dialog and refresh. */
 .cy-backup-rehearsal-success{
   border:1px solid var(--cy-success);background:var(--cy-success-soft);
-  color:var(--cy-text);margin:1rem 0;display:grid;gap:.4rem;
+  color:var(--cy-text);margin:.65rem 0 1rem;padding:1rem;border-radius:var(--cy-radius-md);
+  display:grid;gap:.4rem;
 }
 .cy-backup-rehearsal-success h3{color:var(--cy-success);margin:0}
 .cy-backup-rehearsal-success p{margin:0;overflow-wrap:anywhere}
