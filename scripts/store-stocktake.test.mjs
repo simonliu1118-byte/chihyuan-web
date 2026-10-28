@@ -390,3 +390,17 @@ test("STOCKTAKE_SYNC imports 3000 rows with bulk JSON1 in one atomic completion;
   assert.equal(JSON.stringify(detail.data).includes("bookQty"),false);
  }finally{f.sql.close()}
 });
+
+
+test("new batch must receive ERP sequence and existing batch must keep its sequence before CONFIRMED",async()=>{
+ const validate=await compile("worker/http/stocktake-erp.ts","validateWriteResult");
+ const base={outcome:"FOUND",sheetNo:"990001",confirmed:true,mismatches:[]};
+ const added=[{key:"N0001",seq:null,itemCode:"X0001",batch:"NEW",quantity:"3"}];
+ assert.throws(()=>validate({...base,results:[{key:"N0001",ok:true,erpSeq:null,message:"ok"}]},
+   "990001",added),/ERP/);
+ assert.deepEqual(validate({...base,results:[{key:"N0001",ok:true,erpSeq:"00003",message:"ok"}]},
+   "990001",added).results.map(x=>x.erpSeq),["00003"]);
+ const existing=[{key:"00001",seq:"00001",itemCode:"X0001",batch:"B1",quantity:"1"}];
+ assert.throws(()=>validate({...base,results:[{key:"00001",ok:true,erpSeq:"00002",message:"ok"}]},
+   "990001",existing),/ERP/);
+});
