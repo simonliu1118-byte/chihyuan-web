@@ -166,6 +166,8 @@ test("canonical seed predicate treats exact seed as unused and edited or extra r
     assert.equal(isUsed(), 0);
     db.exec("UPDATE hr_stores SET name='modified seed' WHERE id=1");
     assert.equal(isUsed(), 1);
+    db.exec("UPDATE hr_stores SET name=NULL WHERE id=1");
+    assert.equal(isUsed(), 1, "NULL-modified migration seed must be protected");
     db.exec("UPDATE hr_stores SET name='志遠高雄門市' WHERE id=1");
     db.exec("INSERT INTO hr_stores VALUES (2, 'extra', 1, 1, '2026-09-28', '')");
     assert.equal(isUsed(), 1);
@@ -190,7 +192,7 @@ test("modified or additional HR seed rows preserve existing D1 and prevent migra
       tables: [{ name: "hr_stores" }], used: true });
     assert.equal((await f.run()).used, true, reason);
     assert.equal(f.migrations.length, 0);
-    assert.ok(f.calls.some(x => x.body?.sql?.includes("NOT (id=1 AND name=")));
+    assert.ok(f.calls.some(x => x.body?.sql?.includes("id=1 AND name=") && x.body.sql.includes("IS TRUE")));
   }
 });
 test("primary schema migration lag, unexpected additions or ordering abort rotation before D1 creation", async () => {
