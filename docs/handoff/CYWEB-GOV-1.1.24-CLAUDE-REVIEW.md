@@ -1,6 +1,6 @@
 # CYWEB Governance 1.1.24 — GPT → Claude handoff
 
-- **狀態：Claude 首輪 §5 的 R3 已返修；待與功能 PR #300 同輪 Claude 複審，不合併、不部署。**
+- **狀態：Claude 複審通過（見 §7）；待使用者批准合併（#300 先、#301 後）。**
 - 日期：2026-10-28；分支：`governance/cyweb-handoff-claude-20261028`
 - 此為使用者指定的 CYWEB 交接／審查工作程序治理 PR，與應用修正 [PR #300](https://github.com/simonliu1118-byte/chihyuan-web/pull/300) 分開。
 - 規則來源仍是 `PROJECT_RULES.md`、`REPO_POLICY.md`、`REPOSITORY_RULES.md`，本 handoff 只是交接、驗證及審查紀錄。
@@ -65,11 +65,19 @@
 
 ## 7. Claude 複審紀錄（僅 Claude 本人填寫）
 
-- 複審日期：
+- 複審日期：2026-10-28
 - 複審者：Claude
-- 兩份 PR 複審 head SHA：
-- R3 的 Workflow 與功能引擎核對：
-- R1、R2、R4、R5 的跨 PR 核對：
+- 兩份 PR 複審 head SHA：#300 `29e886e89f20bea1468142f5e5fb9a9714730542`；#301 `49e06052b513febe5a51dfd0cb1935c24bcdaf30`
+- R3 的 Workflow 與功能引擎核對：**通過**。
+  - 來源守門新增 `RECOVERY_ROTATION_PRIMARY_MIGRATIONS_OUTDATED` 檢查，位置在 `verify-deployment-source.mjs` 與 `provision-backup-recovery.mjs` 之前，測試已斷言順序。
+  - 引擎在建立新 D1 前比對主 D1 `d1_migrations` 與 repo migration，不符即零寫入停止。
+  - 權限、`development` environment、`cyweb-production` 不取消鎖，以及一般 deploy／push 行為都沒有降級。
+- R1、R2、R4、R5 的跨 PR 核對：均在 #300 修正並通過，詳見 #300 handoff §7；本 PR 不需重複實作。
 - 本機／CI 驗證及剩餘風險：
-- 結論：**待複審**
-- 是否可提交使用者批准合併及正式操作：
+  - 最新 head：#300 `29e886e89f20bea1468142f5e5fb9a9714730542`、#301 `49e06052b513febe5a51dfd0cb1935c24bcdaf30`。兩者 GitHub check runs 全部 success，`deploy-development` skipped。
+  - 本機把 #301 合併進 #300 後執行：`npm run typecheck` 通過；`node --test scripts/*.test.mjs` **356 pass／0 fail**（`provision-backup-recovery.test.mjs` 14/14）；`validate:source` 與 `npm run build` 通過；兩份合併無衝突。
+  - 以 SQLite 套用 0001–0029 實測 `nonSeedRowCondition`：剛遷移的新庫四張 HR 表與其他表都判定為 0（未使用）；把 `hr_job_titles` 任一列改名即判定為 1（已使用）。
+  - 移除 `INDEXED BY` 後，planner 選用 `idx_audit_events_entity_time (entity_type=?)`，與首輪實測相同。
+  - 剩餘風險：GPT §6 提出的「檔名相同但內容被改」需靠新建後完整 DDL 比對攔截，可能留下孤兒 D1。這已有 fail-closed 保護且不會改綁，可列後續 TODO。
+- 結論：**通過**
+- 是否可提交使用者批准合併及正式操作：**可提交使用者批准合併**，順序 #300 → #301。真實輪替與演練仍須使用者另外核准。
