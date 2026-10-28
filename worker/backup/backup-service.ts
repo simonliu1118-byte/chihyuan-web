@@ -53,7 +53,7 @@ function safeRehearsalCode(error: unknown): string {
   const code = error instanceof Error ? error.message : "";
   return Object.hasOwn(BACKUP_REHEARSAL_ERROR_MESSAGES, code) ? code : "BACKUP_RECOVERY_UNAVAILABLE";
 }
-/** A target is consumed from its first recorded attempt, including uncertain post-write failures.
+/** A target is consumed once restore starts, including uncertain post-write failures. Preflight failures do not consume a still-empty target.
  * Every generation is unique; legacy Audit lacking generations remains protected by
  * the separate actual target-empty validation (fail-closed).
  */
@@ -62,7 +62,7 @@ export async function isRecoveryGenerationConsumed(db: D1Database, workspace: st
   const row = await db.prepare(`SELECT ae.id FROM audit_events ae
     JOIN backup_sets bs ON bs.backup_id=ae.entity_key AND bs.workspace_scope=?
     WHERE ae.entity_type='backup'
-      AND ae.action IN ('backup.rehearsal.started','backup.rehearsal.verified','backup.rehearsal.failed')
+      AND ae.action IN ('backup.rehearsal.started','backup.rehearsal.verified')
       AND json_extract(ae.metadata_json, '$.targetGeneration')=?
     ORDER BY ae.occurred_at DESC LIMIT 1`).bind(workspace, generation).first<{id:number}>();
   return !!row;
