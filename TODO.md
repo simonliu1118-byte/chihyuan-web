@@ -6,9 +6,9 @@
 - ERP 查詢需公司電腦上的 CYERPAutoQuery：正式版 **V1.2.0**（2026-10-28 發布，tag `cyerp-auto-query-v1.2.0`）；自動開啟 ERP、報表匯出、進貨輔助、立即關閉與關閉 15 分鐘已實機確認。
 - 備份：手動 R2＋GCS 雙副本與 GCS 隔離還原已通過；可攜備份上限 100,000 列／24 MB，叫貨資料已納入。**自動備份排程未啟用**（使用者決定上線前再開，見下方）。
 
-## 待執行：V0.9.52 — 門市庫存盤點（第一階段，交 GPT：[WO-0.9.52](docs/development/work-orders/WO-0.9.52.md)）
+## 待 Claude 審查：V0.9.52 — 門市庫存盤點（第一階段，交 GPT：[WO-0.9.52](docs/development/work-orders/WO-0.9.52.md)）
 
-- [ ] **GPT 實作分支 `cyweb/store-stocktake` 進行中（未審／未合併／未部署）**：Migration 0030、逐列盲盤與複盤、ERP bridge、手機卡片初稿與 synthetic test 已提交；待 CI、本機 D1 验證、Claude 審查及與 CYapps WO-1.3.0 對照。ERP 端仍由另一張工單獨立執行。
+- [x] **GPT PR #307 程式與離線驗收完成，待 Claude 最終審查（未合併／未部署）**：Migration 0030、盲盤／複盤／ERP bridge／手機版、17 synthetic regressions；[Runtime #40750528573](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40750528573) 五 jobs 全綠、完整 Node **399/399**，1440／390 真 Chromium 七張 screenshot artifact；CYapps WO-1.3.0 協定已比對。真 ERP、正式 D1 大負載及正式登入 E2E 仍需另行授權與驗證。
 - [ ] Claude 審查、合併部署（需 CYERPAutoQuery 1.3.0）。
 - [ ] 部署後由使用者把三張舊底稿設為忽略，再按「更新盤點單」。
 - [ ] 第二階段（另開工單）：盤點盈虧明細表、盤點資料更新作業、核對庫存異動盤點單、（視需要）核對品號庫存、盤點資料清除作業，完成才算一次完整盤點。
