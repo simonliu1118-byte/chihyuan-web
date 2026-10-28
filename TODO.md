@@ -8,7 +8,7 @@
 
 ## 待執行：V0.9.52 — 門市庫存盤點（第一階段，交 GPT：[WO-0.9.52](docs/development/work-orders/WO-0.9.52.md)）
 
-- [ ] GPT 依工單實作（盲盤、逐批號初盤、新增批號、多人邊填邊存、兩次管理員確認、自動寫回 ERP）；ERP 端同步 CYapps WO-1.3.0。
+- [ ] **GPT 實作分支 `cyweb/store-stocktake` 進行中（未審／未合併／未部署）**：Migration 0030、逐列盲盤與複盤、ERP bridge、手機卡片初稿與 synthetic test 已提交；待 CI、本機 D1 验證、Claude 審查及與 CYapps WO-1.3.0 對照。ERP 端仍由另一張工單獨立執行。
 - [ ] Claude 審查、合併部署（需 CYERPAutoQuery 1.3.0）。
 - [ ] 部署後由使用者把三張舊底稿設為忽略，再按「更新盤點單」。
 - [ ] 第二階段（另開工單）：盤點盈虧明細表、盤點資料更新作業、核對庫存異動盤點單、（視需要）核對品號庫存、盤點資料清除作業，完成才算一次完整盤點。
