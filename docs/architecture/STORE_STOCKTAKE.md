@@ -34,6 +34,13 @@
 
 大量盤點單（最壞 200 × 3000 行）的完整單次 atomic D1 batch 可能觸及 Worker／D1 limits；需以 synthetic fixture 壓測，確認每張分批的完整性與 D1 費用，**未實測前不能宣稱負載門檻通過**。
 
+## 寫回安全補強及負載策略（2026-10-29）
+
+- 任一 STOCKTAKE_WRITE 由 ERP 回覆 `confirmed=false` 時，job 不得標示一般 DONE，sheet 進入 `WRITE_FAILED`，只有管理員可核對後再明確重試；即使 Agent 回 `outcome=FOUND` 亦然。
+- INVR11 全表核對的 mismatch 可指向本次未寫入的舊批號列；Worker 以張內完整列鍵／seq／品號／批號驗證，新增批號可接受本次結果配發的 seq，但不能接受其他張的列或陌生值。寫入成功回報 `erpSeq` 必須與舊序號一致或提供新增序號。
+- ERP job 的 `keyword` 對 STOCKTAKE_WRITE 含逐列數量，**不得複製進共用 Audit**；保留專用 `stocktake` 表及每張工作狀態。
+- SYNC 單張最多 3000 列，Worker 改為經 `validateSyncResult` 檢查的 `json_each` bulk insert，與 job status 在一個 D1 batch 交易中。合成 Node sqlite 3,000 列測試覆蓋，超過 3,000 被拒絕；未測真 Cloudflare D1 30 秒限制，不據此聲稱大量匯入已在正式環境通過。
+
 ## 未完成與第二階段邊界
 
 - ERP Windows Agent 的 INVR11／INVI14／INVI06 真操作只在另一張 WO-1.3.0 完成；CY Web 不代替 Agent 操作 ERP。
