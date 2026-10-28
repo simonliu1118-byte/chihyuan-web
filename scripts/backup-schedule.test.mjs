@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { build } from "esbuild";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -39,4 +40,12 @@ test("in-app Super Admin reminder observes Taiwan calendar quarter and only succ
   assert.equal(quarterlyRehearsalReminder("2027-01-01T00:30:00Z", "2026-10-28T13:11:00Z").due, true);
   assert.equal(quarterlyRehearsalReminder("2027-01-01T00:30:00Z", "2027-01-01T00:00:00Z").due, false);
   assert.equal(quarterlyRehearsalReminder("2027-01-01T00:30:00Z", null).due, true);
+});
+
+test("V0.9.51 quarterly reminder rechecks once daily instead of every hour", async () => {
+  const { QUARTERLY_REMINDER_RECHECK_MS } = await import("../shared/backup-quarterly.ts");
+  assert.equal(QUARTERLY_REMINDER_RECHECK_MS, 24 * 60 * 60 * 1000);
+  const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  assert.match(app, /now - lastCheck < QUARTERLY_REMINDER_RECHECK_MS/);
+  assert.match(app, /window\.setInterval\(\(\) => refresh\(\), QUARTERLY_REMINDER_RECHECK_MS\)/);
 });
