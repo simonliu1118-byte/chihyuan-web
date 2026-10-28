@@ -10,7 +10,7 @@
 - [x] 依 Cloudflare MCP 唯讀診斷：正式主 D1 為 0029、**已使用**的隔離還原 D1 僅 0014，故目前不具相容 schema。原 2026/10/28 兩次 409 的確切原始碼未被日誌保留；若來源備份讀取成功，預期首先在 `BACKUP_TABLE_COVERAGE_MISMATCH` 被阻擋。
 - [x] 演練每個已授權請求新增安全的失敗階段／錯誤碼／requestId Audit 與 Worker 訊息；涵蓋來源讀回、目標驗證、安全備份、還原與資料核對。排除敏感例外文字，安全錯誤顯示中文原因與禁止重試指示。
 - [x] 「更新紀錄」同時讀取近 90 天最多 30 筆隔離演練結果（以既有 Audit Core／workspace scope，不新增資料庫 schema）；畫面另有「隔離還原驗證紀錄」。歷史僅有啟動紀錄者標示未確認，不當成成功。
-- [x] 補充 HTTP 錯誤白名單、演練歷史 API 與 UI 呈現的回歸測試。尚未透過本對話執行本機程式測試，CI 狀態另行核對。
+- [x] 補充 HTTP 錯誤白名單、演練歷史 API 與 UI 呈現的回歸測試；先前 PR 最新 CI 已通過。Claude 已在本地 worktree 進行型別與回歸測試（#300：340 pass、#301：329 pass；另有一項缺 `.tmp/canonical-cyapps` 的 worktree 環境問題，main checkout 12/12 pass）。R1–R3 返修後仍須以新 HEAD CI 為準。
 - [ ] 待 PR 驗證、審查及使用者授權合併／部署；本版程式提交不代表已發布。
 - [x] **階段 B 程式流程**：受保護的手動 `rotate-recovery` 單次 generation 輪替；原已使用歷史隔離 D1 保留不變；只有新建空白 D1 完成 forward migrations、與主 D1 精確結構比對、確認只有預設 HR seeds 才能在已授權的同一次受控部署中改綁 `RECOVERY_DB`。部署入口與安全 gate 位於治理 PR #301，功能引擎位於 PR #300；一般部署永不自行輪替。詳見 `docs/development/CYWEB_RECOVERY_ROTATION_RUNBOOK.md`。
 - [x] 維護性補強：演練紀錄讀取若失敗，備份主清單仍可使用，畫面明確顯示「紀錄不可用」而非誤報無資料；Audit 查詢保留 90 天／100 筆上限，讓 SQLite 查詢規劃器自行選擇適當的 entity/time 索引，不再強制時間索引。
