@@ -1,6 +1,6 @@
 # CY Web WO-0.9.52 門市庫存盤點（第一階段）— GPT 工作紀錄／Claude 最終審查
 
-- **狀態：16 項 synthetic Worker／SQLite 盤點測試已完成程式提交、CI 驗證進行中；桌機／手機實際渲染仍未驗證。Claude 尚未審查，PR #307 保留 Draft，勿合併、勿部署。**
+- **狀態：17 項 synthetic Worker／SQLite 盤點測試已完成程式提交、CI 驗證進行中；桌機／手機實際渲染仍未驗證。Claude 尚未審查，PR #307 保留 Draft，勿合併、勿部署。**
 - 工單：[docs/development/work-orders/WO-0.9.52.md](../development/work-orders/WO-0.9.52.md)。
 - 原工單 [PR #306](https://github.com/simonliu1118-byte/chihyuan-web/pull/306)：本分支建於**最新** `be85abdd5d6da17857394cc2f4dd75e3f3774966`（4 筆提交），已包含「資料清除後保留參與者／兩次確認／差異盈虧摘要、刪明細與逐列歷史」修正。2026-10-29 本輪重新唯讀查核時 PR 仍 Open，該 HEAD 無新增提交／討論回覆。
 - 實作：`cyweb/store-stocktake`；基礎 `main` 為 `d775cac6e7dfb798e7981318047288b1f70a7a56`（V0.9.50）；目標 `0.9.52 Build 0`，V0.9.51 是另案 PR #305，不將它併進本分支。
@@ -37,7 +37,7 @@
 ## 3. 尚未驗證／不可宣稱完成之處
 
 - [ ] **最新 HEAD GitHub CI、Worker typecheck、frontend typecheck、Source validations、local D1 migrations、可攜備份、一整套 Node tests** 尚未取得綠燈，需依錯誤逐項修正。
-- [x] **已加入 synthetic Worker + SQLite roundtrip**：WRITE 成功、全表差異含本次未寫列、FAILED 人工 retry、空 rows 仍須 INVI06 確認、3600 秒逾時、單張 refresh、STOCK 進度與單調性、忽略 stub 取消後首次同步、盲盤與最後編輯人；共 16 項測試在 `scripts/store-stocktake.test.mjs`，執行狀態見 §7。
+- [x] **已加入 synthetic Worker + SQLite roundtrip**：WRITE 成功、全表差異含本次未寫列、FAILED 人工 retry、空 rows 仍須 INVI06 確認、3600 秒逾時、單張 refresh、STOCK 進度與單調性、忽略 stub 取消後首次同步、盲盤與最後編輯人；共 17 項測試在 `scripts/store-stocktake.test.mjs`，執行狀態見 §7。
 - [ ] 低成本 D1 限額：最多 500 張已知底稿、每張 3000 列。單次超大量 SYNC 的 batch/response size 可能觸 Cloudflare D1 限制；未壓測，不能認定合法資料全規模無風險。
 - [ ] Desktop 1440／Mobile 390 的 7 張指定畫面，無正式 mock／CI 截圖；目前僅完成 RWD source 初稿。
 - [ ] UI 中逐列最後操作者目前以 member ID（非顯示名稱）呈現，需對照既有 app_members 及個資最小化政策調整。
@@ -88,7 +88,7 @@
 
 ### 7.2 合成 Worker + SQLite 測試
 
-- `scripts/store-stocktake.test.mjs` **16 項**（測試入口 `scripts/ordering-route.test.mjs`，屬原有 Runtime Check）：授權、Worker COUNTING 盲盤、多列版本、批號限制、品號合計鎖定、同步／skip、WRITE confirmed、全表 mismatches、拒絕虛假 mismatch、WRITE_FAILED／retry、零 rows 確認、3600 秒逾時、受控重新整理、STOCK 進度／最後操作者、ignored stub unignore。
+- `scripts/store-stocktake.test.mjs` **17 項**（測試入口 `scripts/ordering-route.test.mjs`，屬原有 Runtime Check）：授權、Worker COUNTING 盲盤、多列版本、批號限制、品號合計鎖定、同步／skip、WRITE confirmed、全表 mismatches、拒絕虛假 mismatch、WRITE_FAILED／retry、零 rows 確認、3600 秒逾時、受控重新整理、STOCK 進度／最後操作者、ignored stub unignore。
 - 早期 CI 錯誤均已依 log 修正（新增測試與 schema 的整合進行中）；**本節不把舊 HEAD 的綠燈代替最新 HEAD 的證據**。最新 Runtime／TypeScript／本機 D1 等檢查須在最後一次 commit 完成後重新核對。
 - 未經 Cloudflare MCP 或正式 ERP 做任何讀取／寫入，測試中的 D1 為合成 Node sqlite `:memory:`，資料為假底稿、假品號。
 
@@ -97,6 +97,11 @@
 - `worker/http/stocktake-erp.ts`：Agent `results[].ok=true` 必須提供有效 `erpSeq`；既有底稿列需與原 `seq` 相同，新增批號必須有 ERP 新配發的五位數序號，否則拒絕標記 `ERP_CONFIRMED`。避免 ERP 已確認但 CYWEB 新批號仍缺識別欄位的後續同步問題。
 - `scripts/store-stocktake.test.mjs` 新增第 16 項，驗證新增批號缺序號被擋、回正確序號被接受、舊列錯序號被擋。
 - `STOCKTAKE_SYNC` 大量匯入調整為經驗證 JSON1 單張 bulk insert，CI 對 3,000 列合成資料已建立測試；**正式 Cloudflare D1 30 秒限制仍須另外驗證**。
+
+### 7.2.2 ERP 排程上限回饋
+
+- 門市盤點專用路由在 `STOCKTAKE_SYNC` 和主管 `STOCKTAKE_WRITE` 提交前，唯讀查同一成員的 `QUEUED/RUNNING` 工作量；已達既有「每人最多三筆」時明確回 **409 `ERP_QUEUE_LIMIT`** 並提示等待，不再誤回泛用不可用錯誤。D1 batch 內原先的原子 quota guard **仍保留**，並發請求不能藉此繞過限制。
+- `scripts/store-stocktake.test.mjs` 已增第 17 項：連續三筆建立可用，第四筆 409、沒有新增排程工作。
 
 ### 7.3 無法宣稱已通過的項目
 
