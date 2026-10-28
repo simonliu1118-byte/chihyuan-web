@@ -16,10 +16,11 @@
 
 ## 目前待 Claude 審查
 
-- [CYWEB V0.9.49：季度隔離還原及超管主動提醒](CYWEB-V0.9.49-QUARTERLY-REHEARSAL-CLAUDE-REVIEW.md) — 功能分支 `feat/cyweb-quarterly-rehearsal-20261028`，含逐檔變更、站內提醒、回歸測試、未完成的物理 D1 解綁風險及 Claude 最終審查欄位。
-
+- [CYWEB V0.9.51：備份頁面整理與每日季度提醒](CYWEB-V0.9.51-BACKUP-UI-DAILY-REMINDER-CLAUDE-REVIEW.md) — 從已合併 V0.9.50 的 main 開新分支，完成說明、測試證據、風險、Claude 最終審查欄位；不含部署或 Cloudflare 資源變更。
 
 ## 歷史已合併交接
+
+- [CYWEB V0.9.49：季度隔離還原及超管主動提醒](CYWEB-V0.9.49-QUARTERLY-REHEARSAL-CLAUDE-REVIEW.md) — PR #303 已合併；階段及後續物理斷開已於 V0.9.50 完成，依 CHANGELOG 及 Git 歷史追溯。
 
 - [CYWEB V0.9.48：隔離還原診斷與驗證紀錄](CYWEB-V0.9.48-REHEARSAL-CLAUDE-REVIEW.md) — PR #300，包含變更清單、測試／CI、Cloudflare 唯讀診斷摘要、風險與 Claude 最終審查欄位。
 
