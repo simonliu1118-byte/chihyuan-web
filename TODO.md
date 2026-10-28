@@ -43,14 +43,16 @@
 - [ ] 往後**每季人工演練一次**：提醒後由超管另行核准新空白目標輪替、實機驗證與歷史副本清理；不要自動建庫、還原或刪庫。
 - [ ] 自動備份排程繼續停用，上線前另行核准。
 
-### V0.9.49（開發分支待 Claude 審查，未部署）
+### V0.9.49（Claude 首審通過、小項返修待複審；未合併／未部署）
 
 - [x] 完成後的 Audit phase `completed` 顯示「完成」；頁面另外以明顯的「隔離還原驗證：完成」保存驗證結果。
 - [x] 以 read-only Schema／seed 驗證和 target generation Audit 狀態控制 UI；已使用／結果不明的隔離庫不顯示「驗證隔離還原」，Worker 保留來源完整檢查，且新增同代次已做過演練的 server-side 拒絕。
 - [x] 每季超管站內主動提醒；僅登入中的超管可看到（跨模組），依台灣時間曆季計算，API 依 Workspace、Role 檢查，短期重新讀取有節流。
 - [x] [隔離還原輪替手冊](docs/development/CYWEB_RECOVERY_ROTATION_RUNBOOK.md) 改成「最近一個已使用副本」的保留目標；舊已使用副本須經單獨核准才可刪除，沒有無條件自動刪除。
 - [ ] **正式 Cloudflare Worker 實體解除 `RECOVERY_DB` 綁定**：目前不應誤稱已完成。Worker 沒有 Cloudflare 管理權限，本版已做演練後**邏輯鎖定**；安全物理解除綁定需另有受保護控制平面、與成功 Audit／當前 generation 驗證、發布及回復計畫，提交 Claude 審查後才可部署。
-- [ ] Claude 依 `docs/handoff/CYWEB-V0.9.49-QUARTERLY-REHEARSAL-CLAUDE-REVIEW.md` 統一審查，通過後由使用者另行授權合併及部署。自動備份排程繼續停用。
+- [x] Claude 已完成 **V0.9.49 初次審查**：PR #303 原 head `c3f3241d36137f18bf384c3b28f49784c11afbcc`，結論「通過」，另列 N1–N3 不阻擋建議。
+- [x] 同分支已修正 **N1–N3**：換新空白隔離目標時不顯示舊成功大框、修正每小時檢查註解、重複演練拒絕的 Audit phase 改 `target_lock`，補 UI 測試；詳見 handoff §9。
+- [ ] **Claude 對最新新增提交複審**，之後仍需使用者另行授權合併與正式部署。自動備份排程繼續停用。
 
 ## 開發待辦
 
