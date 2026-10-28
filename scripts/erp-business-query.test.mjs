@@ -497,10 +497,15 @@ test("a member may have three queries queued or running; the queue lists them in
   try {
     grant("ERP_ITEM_QUERY");
     const ids = [];
+    const baseCreatedAt = Date.now() - 5000;
     for (const itemNo of ["X0001", "X0002", "X0003"]) {
       const created = await user.create({ queryType: "ITEM_NO", itemNo });
       assert.equal(created.status, 202, JSON.stringify(created.body));
       ids.push(created.body.data.id);
+      // The queue orders by created_at; requests can share one millisecond on fast CI.
+      // Stabilize this ordering fixture without sleeping or relying on random UUID ties.
+      sql.prepare("UPDATE erp_item_queries SET created_at=? WHERE id=?")
+        .run(new Date(baseCreatedAt + ids.length * 1000).toISOString(), created.body.data.id);
     }
     const fourth = await user.create({ queryType: "ITEM_NO", itemNo: "X0004" });
     assert.equal(fourth.status, 409);
