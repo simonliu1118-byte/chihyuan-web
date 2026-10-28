@@ -1,15 +1,14 @@
 // App-owned portable snapshot foundation. Guarded isolated rehearsal only; no live overwrite.
 import { BACKUP_COLUMNS } from "./schema-columns";
+import { MAX_OBJECT_BYTES } from "./storage-guard";
 export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
 // Operational queue, heartbeat and revocable credential hashes are intentionally
-// excluded from durable backup. After recovery the Super Admin reissues the Agent token.
+// excluded from durable backup (also the ERP 關閉／暫停 request). After recovery the Super Admin
+// reissues the Agent token.
 // The ERP sales history (進貨輔助, 2026-10-21) is copied from SMART ERP, which stays its source:
 // it is rebuilt by running 進貨輔助 again, and is far larger than this snapshot allows.
-const EPHEMERAL_TABLES = ["erp_item_queries", "erp_item_agent_status", "erp_item_agent_credentials",
-  "erp_sales_daily", "erp_sales_days", "erp_sales_items",
-  // WO-0.9.26: the portable backup currently limits all rows to 500; temporarily exclude ordering until capacity expansion.
-  "ordering_sources", "ordering_orders", "ordering_lines", "ordering_receipts", "ordering_receipt_lines",
-  "ordering_vendor_items", "ordering_item_last_source", "ordering_revisions"] as const;
+const EPHEMERAL_TABLES = ["erp_item_queries", "erp_item_agent_status", "erp_item_agent_credentials", "erp_item_agent_control",
+  "erp_sales_daily", "erp_sales_days", "erp_sales_items"] as const;
 const ALL_TABLES = [...BACKUP_TABLES, "backup_copies", "backup_sets", ...EPHEMERAL_TABLES].sort();
 // Newly migrated D1 has canonical HR reference rows before any operator data.
 // Allow only these *unaltered* migration fixtures as a fresh restore destination.
@@ -35,8 +34,11 @@ function emptyTargetGuard() {
   }));
 }
 
-const MAX_ROWS = 500;
-const MAX_BYTES = 5 * 1024 * 1024;
+// One SELECT reads every table (a single consistent snapshot); restore inserts in
+// bounded JSON chunks inside one batch, so the limits are memory, not statement count.
+const MAX_ROWS = 100_000;
+const MAX_BYTES = MAX_OBJECT_BYTES;
+const RESTORE_CHUNK_BYTES = 512 * 1024;
 const SCHEMA_VERSION = "0007_retired_entity_ids";
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
@@ -90,11 +92,14 @@ async function layout(db: D1Database): Promise<{ schema: string; columns: Record
   for (const table of BACKUP_TABLES) check(same(columns.filter(row => row.table_name === table).map(row => row.name).sort(), BACKUP_COLUMNS[table]), "BACKUP_COLUMNS_MISMATCH");
   return { schema: JSON.stringify(result.results), columns: BACKUP_COLUMNS };
 }
-const DATA_SQL = "WITH snapshots(table_name, rows_json) AS (VALUES " + BACKUP_TABLES.map(table => {
-  const columns = BACKUP_COLUMNS[table].map(identifier).join(",");
-  return `('${table}', (SELECT json_group_array(json_array(${columns}))
-    FROM (SELECT ${columns} FROM ${identifier(table)} LIMIT ${MAX_ROWS + 1})))`;
-}).join(",") + ") SELECT table_name, rows_json FROM snapshots";
+// One statement per table, one row per record: no table-sized JSON cell (D1 caps a value
+// at 2 MB) and no compound SELECT (D1 caps its terms). The batch is a single transaction.
+const DATA_SQL = BACKUP_TABLES.map(table =>
+  `SELECT json_array(${BACKUP_COLUMNS[table].map(identifier).join(",")}) AS row_json FROM ${identifier(table)} LIMIT ${MAX_ROWS + 1}`);
+function validCell(cell: unknown): boolean {
+  return cell === null || typeof cell === "string" || (typeof cell === "number" && Number.isFinite(cell)
+    && (Number.isInteger(cell) ? Number.isSafeInteger(cell) : true));
+}
 function canonicalData(data: Data): Uint8Array {
   for (const table of BACKUP_TABLES) data.tables[table].rows.sort((a, b) => {
     const x = JSON.stringify(a), y = JSON.stringify(b);
@@ -108,21 +113,18 @@ export async function exportPortableBackup(db: D1Database, scope: Scope, event?:
   // Every data table is read in one D1 transaction; no provider-specific re-export.
   const results = await db.batch([
     db.prepare(SCHEMA_SQL),
-    db.prepare(DATA_SQL),
+    ...DATA_SQL.map(sql => db.prepare(sql)),
   ]);
   check(JSON.stringify(results[0].results) === target.schema, "BACKUP_SCHEMA_CHANGED");
   const data: Data = { tables: {} }, recordCounts: Record<string, number> = {};
-  const tableResults = results.slice(1).flatMap(result => result.results);
+  check(results.length === BACKUP_TABLES.length + 1, "BACKUP_TABLE_COVERAGE_MISMATCH");
   let totalRecordCount = 0;
   BACKUP_TABLES.forEach((table, index) => {
-    const columns = target.columns[table];
-    const result = tableResults[index] as { table_name: string; rows_json: string };
-    check(result.table_name === table, "BACKUP_TABLE_COVERAGE_MISMATCH");
-    const rows = JSON.parse(result.rows_json) as Cell[][];
-    totalRecordCount += rows.length;
+    const columns = target.columns[table], records = results[index + 1].results as { row_json: string }[];
+    totalRecordCount += records.length;
     check(totalRecordCount <= MAX_ROWS, "BACKUP_CAPACITY_EXCEEDED");
-    for (const row of rows) for (const cell of row)
-      check(cell === null || typeof cell === "string" || (typeof cell === "number" && Number.isSafeInteger(cell)), "BACKUP_UNSUPPORTED_CELL");
+    const rows = records.map(record => JSON.parse(record.row_json) as Cell[]);
+    check(rows.every(row => Array.isArray(row) && row.length === columns.length && row.every(validCell)), "BACKUP_UNSUPPORTED_CELL");
     data.tables[table] = { columns, rows };
     recordCounts[table] = rows.length;
   });
@@ -160,8 +162,7 @@ export async function verifyPortableBackup(bundle: PortableBackup, workspaceScop
     check(count <= MAX_ROWS, "BACKUP_CAPACITY_EXCEEDED");
     for (const row of value.rows) {
       check(Array.isArray(row) && row.length === value.columns.length, "BACKUP_ROW_INVALID");
-      for (const cell of row) check(cell === null || typeof cell === "string"
-        || (typeof cell === "number" && Number.isSafeInteger(cell)), "BACKUP_UNSUPPORTED_CELL");
+      check(row.every(validCell), "BACKUP_UNSUPPORTED_CELL");
     }
   }
   check(count === manifest.totalRecordCount, "BACKUP_COUNTS_INVALID");
@@ -200,8 +201,17 @@ export async function restoreIntoEmptyDatabase(db: D1Database, bundle: PortableB
     statements.push(db.prepare(`DELETE FROM ${identifier(table)}`));
   for (const table of BACKUP_TABLES) {
     const value = data.tables[table];
-    const insert = db.prepare(`INSERT INTO ${identifier(table)} (${value.columns.map(identifier).join(",")}) VALUES (${value.columns.map(() => "?").join(",")})`);
-    for (const row of value.rows) statements.push(insert.bind(...row));
+    // json_extract keeps each cell's JSON type (text, integer, real, null); json_each keeps row order.
+    const insert = db.prepare(`INSERT INTO ${identifier(table)} (${value.columns.map(identifier).join(",")})
+      SELECT ${value.columns.map((_, i) => `json_extract(value,'$[${i}]')`).join(",")} FROM json_each(?)`);
+    let chunk: string[] = [], size = 0;
+    const flush = () => { if (chunk.length) statements.push(insert.bind("[" + chunk.join(",") + "]")); chunk = []; size = 0; };
+    for (const row of value.rows) {
+      const json = JSON.stringify(row), bytes = encoder.encode(json).byteLength;
+      if (size + bytes > RESTORE_CHUNK_BYTES) flush();
+      chunk.push(json); size += bytes + 1;
+    }
+    flush();
   }
   await db.batch(statements);
   const restored = await exportPortableBackup(db, { workspaceScope, appVersion: manifest.appVersion });

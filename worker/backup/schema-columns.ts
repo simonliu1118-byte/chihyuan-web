@@ -637,6 +637,92 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "updated_at",
     "updated_by"
   ],
+  "ordering_item_last_source": [
+    "item_code",
+    "source_id",
+    "updated_at"
+  ],
+  "ordering_lines": [
+    "closed_as",
+    "closed_at",
+    "closed_by",
+    "closed_note",
+    "id",
+    "item_code",
+    "item_name",
+    "note",
+    "order_id",
+    "quantity",
+    "quantity_text",
+    "section",
+    "sort_order",
+    "spec",
+    "unit",
+    "vendor_item_code",
+    "vendor_item_name",
+    "vendor_name_follows"
+  ],
+  "ordering_orders": [
+    "created_at",
+    "created_by",
+    "id",
+    "note",
+    "planned_send_date",
+    "revision",
+    "sent_at",
+    "sent_by",
+    "source_id",
+    "status",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "ordering_receipt_lines": [
+    "line_id",
+    "quantity",
+    "receipt_id"
+  ],
+  "ordering_receipts": [
+    "created_at",
+    "created_by",
+    "erp_purchase_no",
+    "id",
+    "order_id",
+    "received_date"
+  ],
+  "ordering_revisions": [
+    "changed_at",
+    "changed_by",
+    "id",
+    "order_id",
+    "revision",
+    "summary"
+  ],
+  "ordering_sources": [
+    "conditions",
+    "created_at",
+    "id",
+    "is_active",
+    "kind",
+    "name",
+    "note",
+    "payment_terms",
+    "sort_order",
+    "updated_at"
+  ],
+  "ordering_user_preferences": [
+    "member_id",
+    "updated_at",
+    "vendor_order_json"
+  ],
+  "ordering_vendor_items": [
+    "item_key",
+    "key_type",
+    "source_id",
+    "updated_at",
+    "vendor_item_code",
+    "vendor_item_name"
+  ],
   "outsourcing_order_parts": [
     "bom_recipe_id",
     "component_item_id",
@@ -766,6 +852,43 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "voided_at",
     "voided_by",
     "work_order_ref"
+  ],
+  "store_blacklist": [
+    "action",
+    "created_at",
+    "created_by",
+    "id",
+    "name",
+    "phone",
+    "reason",
+    "updated_at",
+    "updated_by"
+  ],
+  "store_customer_order_lines": [
+    "id",
+    "item_code",
+    "item_name",
+    "order_id",
+    "quantity",
+    "sort_order",
+    "unit_price"
+  ],
+  "store_customer_orders": [
+    "cancel_reason",
+    "created_at",
+    "created_by",
+    "customer_name",
+    "deposit",
+    "id",
+    "line_name",
+    "note",
+    "notified_at",
+    "order_date",
+    "phone",
+    "status",
+    "updated_at",
+    "updated_by",
+    "version"
   ],
   "work_log_categories": [
     "code",

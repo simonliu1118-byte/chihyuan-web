@@ -30,12 +30,16 @@ function fixture(role = "USER") {
   const user = {
     create: async body => json(await call("/api/erp/item-queries", "POST", body)),
     load: async id => json(await call("/api/erp/item-queries/" + id, "GET")),
+    recent: async () => json(await call("/api/erp/item-queries/recent", "GET")),
+    queue: async () => json(await call("/api/erp/queue", "GET")),
     agentStatus: async () => json(await call("/api/erp/agent-status", "GET")),
+    control: async body => json(await call("/api/erp/agent-control", "POST", body)),
   };
   const agent = {
     claim: async queryTypes => json(await call("/api/erp-agent/item-queries/claim", "POST", { agentVersion: "test", erpState: "BROWSE", ...(queryTypes ? { queryTypes } : {}) }, true)),
     complete: async (id, body) => json(await call(`/api/erp-agent/item-queries/${id}/complete`, "POST", { elapsedMs: 1000, agentVersion: "test", ...body }, true)),
     progress: async (id, body) => json(await call(`/api/erp-agent/item-queries/${id}/progress`, "POST", body, true)),
+    control: async body => json(await call("/api/erp-agent/control", "POST", body, true)),
   };
   const grant = code => {
     sql.prepare("INSERT OR IGNORE INTO app_members(identity_employee_id,employee_no,is_active,created_at,updated_at) VALUES('erp-business-synthetic','0097',1,?,?)").run(now, now);
@@ -406,5 +410,176 @@ test("a finished RESTOCK keeps per-day sales and rewrites only what changed", as
     assert.deepEqual(daily(), []);
     assert.equal(sql.prepare("SELECT query_id FROM erp_sales_days WHERE sale_date=?").get(mid).query_id, first);
     assert.equal(sql.prepare("SELECT query_id FROM erp_sales_days WHERE sale_date=?").get(today).query_id, fifth);
+  } finally { sql.close(); }
+});
+
+test("ERP_SEATS_FULL is accepted and shown as 人數已滿", async () => {
+  const { sql, user, agent, grant } = fixture();
+  try {
+    grant("ERP_ITEM_QUERY");
+    const created = await user.create({ queryType: "ITEM_NO", itemNo: "X0001" });
+    assert.equal(created.status, 202, JSON.stringify(created.body));
+    const job = (await agent.claim(ALL_TYPES)).body.data.job;
+    const done = await agent.complete(job.id, { outcome: "FAILED", fields: [], warehouses: [], errorCode: "ERP_SEATS_FULL", errorMessage: null });
+    assert.equal(done.status, 200, JSON.stringify(done.body));
+    const loaded = (await user.load(created.body.data.id)).body.data;
+    assert.equal(loaded.status, "FAILED");
+    assert.equal(loaded.errorCode, "ERP_SEATS_FULL");
+    assert.match(loaded.errorMessage, /人數已滿/);
+  } finally { sql.close(); }
+});
+
+test("ERP close and hold: any ERP grant may ask; the Agent sees it on claim and reports back", async () => {
+  const { sql, user, agent, grant } = fixture();
+  try {
+    assert.equal((await user.control({ action: "CLOSE", minutes: 30 })).status, 403);
+    grant("ERP_CUSTOMER_QUERY");
+    assert.equal((await user.control({ action: "CLOSE", minutes: 20 })).status, 400);
+    const held = await user.control({ action: "CLOSE", minutes: 30 });
+    assert.equal(held.status, 200, JSON.stringify(held.body));
+    assert.equal(held.body.data.request, "CLOSE");
+    assert.ok(Date.parse(held.body.data.holdUntil) > Date.now() + 29 * 60000);
+    grant("ERP_ITEM_QUERY");
+    const refused = await user.create({ queryType: "ITEM_NO", itemNo: "X0001" });
+    assert.equal(refused.status, 409);
+    assert.equal(refused.body.error.code, "ERP_HELD");
+    assert.match(refused.body.error.message, /\d\d:\d\d 後可再查詢/);
+    const claimed = (await agent.claim(ALL_TYPES)).body.data;
+    assert.equal(claimed.job, null);
+    assert.equal(claimed.control.request, "CLOSE");
+    assert.equal((await agent.control({ request: "FORCE_CLOSE", result: "CLOSED" })).body.data.request, "CLOSE", "a different request stays pending");
+    const done = await agent.control({ request: "CLOSE", result: "CLOSED" });
+    assert.equal(done.body.data.request, null);
+    assert.equal(done.body.data.result, "CLOSED");
+    const status = (await user.agentStatus()).body.data.control;
+    assert.equal(status.result, "CLOSED");
+    assert.ok(status.holdUntil);
+    assert.equal((await user.control({ action: "RESUME" })).body.data.holdUntil, null);
+    assert.equal((await user.create({ queryType: "ITEM_NO", itemNo: "X0001" })).status, 202);
+    const forced = await user.control({ action: "FORCE_CLOSE" });
+    assert.equal(forced.body.data.request, "FORCE_CLOSE");
+    assert.equal((await agent.control({ request: "FORCE_CLOSE", result: "BOGUS" })).status, 400);
+  } finally { sql.close(); }
+});
+
+test("the Agent counts as connected while it runs a job", async () => {
+  const { sql, user, agent, grant } = fixture();
+  try {
+    grant("ERP_ITEM_QUERY");
+    assert.equal((await user.create({ queryType: "ITEM_NO", itemNo: "X0001" })).status, 202);
+    assert.ok((await agent.claim(ALL_TYPES)).body.data.job);
+    sql.prepare("UPDATE erp_item_agent_status SET last_seen_at=? WHERE id=1").run(new Date(Date.now() - 60000).toISOString());
+    assert.equal((await user.agentStatus()).body.data.online, true);
+    sql.prepare("UPDATE erp_item_queries SET status='FAILED'").run();
+    assert.equal((await user.agentStatus()).body.data.online, false);
+  } finally { sql.close(); }
+});
+
+test("a member's recent queries are listed newest first, only types still granted", async () => {
+  const { sql, user, agent, grant } = fixture();
+  try {
+    grant("ERP_ITEM_QUERY");
+    const first = (await user.create({ queryType: "ITEM_NO", itemNo: "X0001" })).body.data;
+    const job = (await agent.claim(ALL_TYPES)).body.data.job;
+    await agent.complete(job.id, { outcome: "NOT_FOUND", fields: [], warehouses: [], errorCode: null, errorMessage: null });
+    grant("ERP_CUSTOMER_QUERY");
+    const second = (await user.create({ queryType: "CUSTOMER_NO", customerCode: "CU0001" })).body.data;
+    const recent = await user.recent();
+    assert.equal(recent.status, 200, JSON.stringify(recent.body));
+    assert.deepEqual(recent.body.data.map(r => [r.id, r.queryType]), [[second.id, "CUSTOMER_NO"], [first.id, "ITEM_NO"]]);
+    sql.prepare("DELETE FROM app_member_module_access WHERE module_code='ERP_CUSTOMER_QUERY'").run();
+    assert.deepEqual((await user.recent()).body.data.map(r => r.queryType), ["ITEM_NO"]);
+  } finally { sql.close(); }
+});
+
+test("a member may have three queries queued or running; the queue lists them in the order sent", async () => {
+  const { sql, user, agent, grant } = fixture();
+  try {
+    grant("ERP_ITEM_QUERY");
+    const ids = [];
+    for (const itemNo of ["X0001", "X0002", "X0003"]) {
+      const created = await user.create({ queryType: "ITEM_NO", itemNo });
+      assert.equal(created.status, 202, JSON.stringify(created.body));
+      ids.push(created.body.data.id);
+    }
+    const fourth = await user.create({ queryType: "ITEM_NO", itemNo: "X0004" });
+    assert.equal(fourth.status, 409);
+    assert.equal(fourth.body.error.code, "QUERY_ALREADY_ACTIVE");
+    // Another member's query sent later waits behind them.
+    sql.prepare("INSERT INTO app_members(identity_employee_id,employee_no,display_name,is_active,created_at,updated_at) VALUES('other','0098','假同事',1,?,?)").run(new Date().toISOString(), new Date().toISOString());
+    const other = sql.prepare("SELECT id FROM app_members WHERE identity_employee_id='other'").get().id;
+    sql.prepare(`INSERT INTO erp_item_queries(id,owner_member_id,item_no,status,created_at,expires_at,query_type,receivable_scope,target_code)
+      VALUES('00000000-0000-4000-8000-000000000001',?,'CU0001','QUEUED',?,?,'RECEIVABLE','CUSTOMER','CU0001')`)
+      .run(other, new Date(Date.now() + 1000).toISOString(), new Date(Date.now() + 3600000).toISOString());
+    const claimed = (await agent.claim(ALL_TYPES)).body.data.job;
+    assert.equal(claimed.id, ids[0]);
+    const queue = await user.queue();
+    assert.equal(queue.status, 200, JSON.stringify(queue.body));
+    const jobs = queue.body.data.jobs;
+    assert.deepEqual(jobs.map(j => [j.status, j.mine, j.target]),
+      [["RUNNING", true, "X0001"], ["QUEUED", true, "X0002"], ["QUEUED", true, "X0003"], ["QUEUED", false, null]]);
+    assert.equal(jobs[3].member, "假同事");
+    assert.equal(queue.body.data.maxPerMember, 3);
+    // Each estimate is after the one before it.
+    for (let i = 1; i < jobs.length; i++) assert.ok(Date.parse(jobs[i].estimatedDoneAt) > Date.parse(jobs[i - 1].estimatedDoneAt));
+    // A receivable grant shows what the receivable query is for.
+    grant("ERP_RECEIVABLE_QUERY");
+    assert.equal((await user.queue()).body.data.jobs[3].target, "客戶 CU0001");
+    await agent.complete(claimed.id, { outcome: "NOT_FOUND", fields: [], warehouses: [], errorCode: null, errorMessage: null });
+    assert.equal((await user.create({ queryType: "ITEM_NO", itemNo: "X0004" })).status, 202);
+  } finally { sql.close(); }
+});
+
+test("a queued query waits while the Agent is busy or connected, and expires once it is gone", async () => {
+  const { sql, user, agent, grant } = fixture();
+  try {
+    grant("ERP_ITEM_QUERY");
+    await user.create({ queryType: "ITEM_NO", itemNo: "X0001" });
+    const waiting = (await user.create({ queryType: "ITEM_NO", itemNo: "X0002" })).body.data;
+    await agent.claim(ALL_TYPES);
+    const old = new Date(Date.now() - 10 * 60000).toISOString();
+    sql.prepare("UPDATE erp_item_queries SET created_at=? WHERE id=?").run(old, waiting.id);
+    sql.prepare("UPDATE erp_item_agent_status SET last_seen_at=? WHERE id=1").run(old);
+    // A query is running: the queued one waits.
+    assert.equal((await user.load(waiting.id)).body.data.status, "QUEUED");
+    sql.prepare("UPDATE erp_item_queries SET status='FAILED' WHERE status='RUNNING'").run();
+    // Nothing running, but the Agent claimed in the last minute: still waits.
+    sql.prepare("UPDATE erp_item_agent_status SET last_seen_at=? WHERE id=1").run(new Date().toISOString());
+    assert.equal((await user.load(waiting.id)).body.data.status, "QUEUED");
+    // The Agent is gone.
+    sql.prepare("UPDATE erp_item_agent_status SET last_seen_at=? WHERE id=1").run(old);
+    assert.equal((await user.load(waiting.id)).body.data.status, "EXPIRED");
+  } finally { sql.close(); }
+});
+
+test("關閉到 a chosen time; a query sent while paused may wait for the pause and follows it", async () => {
+  const { sql, user, agent, grant } = fixture();
+  try {
+    grant("ERP_ITEM_QUERY");
+    assert.equal((await user.control({ action: "CLOSE", until: new Date(Date.now() + 30000).toISOString() })).status, 400, "under a minute");
+    assert.equal((await user.control({ action: "CLOSE", until: new Date(Date.now() + 25 * 3600000).toISOString() })).status, 400, "over 24 hours");
+    const until = new Date(Date.now() + 2 * 3600000).toISOString();
+    const held = await user.control({ action: "CLOSE", until });
+    assert.equal(held.status, 200, JSON.stringify(held.body));
+    assert.equal(held.body.data.holdUntil, until);
+    assert.equal((await user.create({ queryType: "ITEM_NO", itemNo: "X0001" })).body.error.code, "ERP_HELD");
+    const waiting = await user.create({ queryType: "ITEM_NO", itemNo: "X0001", afterHold: true });
+    assert.equal(waiting.status, 202, JSON.stringify(waiting.body));
+    assert.equal(waiting.body.data.notBefore, until);
+    assert.equal((await user.load(waiting.body.data.id)).body.data.notBefore, until);
+    assert.equal((await agent.claim(ALL_TYPES)).body.data.job, null, "not claimed during the pause");
+    const queue = (await user.queue()).body.data.jobs;
+    assert.equal(queue[0].notBefore, until);
+    assert.ok(Date.parse(queue[0].estimatedDoneAt) > Date.parse(until));
+    // An old agent heartbeat does not expire a query waiting for the pause.
+    sql.prepare("UPDATE erp_item_agent_status SET last_seen_at=? WHERE id=1").run(new Date(Date.now() - 600000).toISOString());
+    assert.equal((await user.load(waiting.body.data.id)).body.data.status, "QUEUED");
+    // A longer pause moves it; 取消暫停 releases it.
+    const later = new Date(Date.now() + 3 * 3600000).toISOString();
+    await user.control({ action: "CLOSE", until: later });
+    assert.equal((await user.load(waiting.body.data.id)).body.data.notBefore, later);
+    await user.control({ action: "RESUME" });
+    assert.equal((await user.load(waiting.body.data.id)).body.data.notBefore, null);
+    assert.equal((await agent.claim(ALL_TYPES)).body.data.job.id, waiting.body.data.id);
   } finally { sql.close(); }
 });

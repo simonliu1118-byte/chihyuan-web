@@ -1,6 +1,20 @@
-# ERP 品號查詢 Bridge — CY Web current contract
+# ERP 查詢 Bridge — CY Web current contract
 
-狀態：CY Web 實作契約；本頁只適用於 ERP 品號即時查詢，不改變既有 Item 主檔權威。
+狀態：CY Web 實作契約（目前 V0.9.43）。涵蓋 ERP 查詢頁（商品、客戶、供應商、進貨輔助、未收款、排程佇列）與 CYERPAutoQuery Agent 佇列；不改變既有 Item／Customer 主檔權威。
+
+## 目前狀態總覽（V0.9.43）
+
+下面各節依版本累積寫成；較早的段落若與本節不同，以本節與較新的段落為準。
+
+- **頁面**：導覽只有「ERP 查詢」（route `erp-item-query`）。類別依權限顯示：商品 `ERP_ITEM_QUERY`、客戶 `ERP_CUSTOMER_QUERY`、供應商 `ERP_SUPPLIER_QUERY`、進貨輔助 `ERP_RESTOCK_ASSIST`（需同時有商品與客戶查詢權限）、未收款 `ERP_RECEIVABLE_QUERY`；類別列右側「排程佇列」按鈕打開右側欄（V0.9.43 起不遮住頁面）。標準進價另需 `ERP_ITEM_COST`。舊連結 `#restock-assist` 轉到 ERP 查詢。
+- **查詢類型**：`ITEM_NO`、`ITEM_NAME`、`CUSTOMER_NO`、`CUSTOMER_NAME`、`SALES`、`SUPPLIER_NO`、`SUPPLIER_NAME`、`PURCHASES`、`RECEIVABLE`、`ORDER`、`RESTOCK`（權限對照見 `MODULES_FOR_TYPE`）。
+- **佇列**：每位成員最多 3 筆 QUEUED／RUNNING；Agent 一次執行一筆，依送入時間領取；ERP 暫停時可加入佇列，暫停結束後才領取（V0.9.43）。排隊工作在 Agent 連線或執行中時等待，Agent 離線（無 RUNNING、60 秒內無 claim）且建立超過 120 秒才 `EXPIRED`，最長 60 分鐘。
+- **RUNNING 逾時**：一般 180 秒、含歷史異動 300 秒、報表類（SALES、PURCHASES、RECEIVABLE、ORDER）600 秒、RESTOCK 1800 秒，逾時為 `FAILED/AGENT_TIMEOUT`。
+- **保存**：結果 JSON 完成後 5 分鐘清除（`resultCleared:true`），metadata 30 天；進貨輔助另把每日銷貨彙總寫入 `erp_sales_*`（不隨查詢清除）。
+- **使用者 API**：`POST /api/erp/item-queries`、`GET /api/erp/item-queries/:id`、`GET /api/erp/item-queries/recent`、`GET /api/erp/queue`、`GET /api/erp/agent-status`、`POST /api/erp/agent-control`、`GET|POST|DELETE /api/erp/agent-credentials`（Super Admin）。
+- **Agent API**：`POST /api/erp-agent/item-queries/claim`（回 `{job,control}`）、`POST /api/erp-agent/item-queries/:id/complete`、`POST /api/erp-agent/item-queries/:id/progress`（RESTOCK）、`POST /api/erp-agent/control`。
+- **前端**：ERP 查詢頁開過後切到其他模組仍保留；每個類別各自保留查詢與結果，每 1.5 秒輪詢；開啟時接回近 24 小時內各類別最新的查詢；類別不在畫面上時完成會出通知。查詢失敗（ERP 未開、畫面不符、匯出失敗、程式錯誤、逾時）時詢問是否強制關閉 ERP。
+- **Migration**：0009–0014、0019、0021、0025、0026、0027。
 
 ## 範圍與資料權威
 
@@ -37,9 +51,9 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 | POST | `/api/erp/agent-credentials` | Super Admin 專用，立即產生／輪換一組憑證，`{token,createdAt}` 僅本次顯示明文 |
 | DELETE | `/api/erp/agent-credentials` | Super Admin 專用，撤銷憑證並使舊 Token 即時失效 |
 
-`itemNo` 去前後空白後長 1～40 字，不可含空白／控制字元。同使用者同時最多一筆 QUEUED／RUNNING；衝突 HTTP 409。讀取工作時使用 CYID session 與**每次即時** Module Access 驗證；Agent token 無權使用使用者 API。
+`itemNo` 去前後空白後長 1～40 字，不可含空白／控制字元。同使用者同時最多一筆 QUEUED／RUNNING（V0.9.41 起改為三筆）；衝突 HTTP 409。讀取工作時使用 CYID session 與**每次即時** Module Access 驗證；Agent token 無權使用使用者 API。
 
-工作狀態：`QUEUED → RUNNING → DONE | NOT_FOUND | FAILED`，`QUEUED → EXPIRED`；建立後排隊 120 秒過期、RUNNING 一般工作逾 180 秒、含歷史異動逾 300 秒未回報視為 `FAILED/AGENT_TIMEOUT`。前端每 1.5 秒輪詢直到結束，離線顯示提示。狀態清理於讀取／claim 順便執行，不依賴新 cron。完成後 5 分鐘清除 fields／warehouses／batches／history，metadata 保留 30 天；清除後 DONE 仍有 `resultCleared:true`。ERP 短期佇列、heartbeat、Agent 憑證 hash 不納入長期備份，復原後須由超級管理員重新產生憑證。Audit 僅記員工、查詢品號、結果與耗時，不記欄位值。
+工作狀態：`QUEUED → RUNNING → DONE | NOT_FOUND | FAILED`，`QUEUED → EXPIRED`；建立後排隊 120 秒過期（V0.9.41 起改為 Agent 離線才過期，見總覽）、RUNNING 一般工作逾 180 秒、含歷史異動逾 300 秒未回報視為 `FAILED/AGENT_TIMEOUT`。前端每 1.5 秒輪詢直到結束，離線顯示提示。狀態清理於讀取／claim 順便執行，不依賴新 cron。完成後 5 分鐘清除 fields／warehouses／batches／history，metadata 保留 30 天；清除後 DONE 仍有 `resultCleared:true`。ERP 短期佇列、heartbeat、Agent 憑證 hash 不納入長期備份，復原後須由超級管理員重新產生憑證。Audit 僅記員工、查詢品號、結果與耗時，不記欄位值。
 
 ## Agent API
 
@@ -68,19 +82,20 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 
 查詢失敗：`{"outcome":"FAILED","fields":[],"warehouses":[],"errorCode":"ERP_BUSY","errorMessage":"ERP忙碌","elapsedMs":500,"agentVersion":"0.1.0"}`。錯誤訊息會被服務端固定中文映射取代，避免原始路徑／帳密洩露。
 
-允許的 FAILED `errorCode`：`ERP_NOT_OPEN`、`ERP_BUSY`、`ERP_STATE`、`EXPORT_FAILED`、`CANCELLED`、`INTERNAL`；`AGENT_TIMEOUT` 為 CY Web 系統狀態，Agent 不可自行回報。FOUND 的「品號」必須與工作請求的品號**完全相同（區分大小寫）**：SMART ERP 品號區分大小寫（使用者 2026-10-16 確認），例如輸入小寫 `c00154` 在 ERP 查不到 `C00154`，應回 NOT_FOUND，不得轉換大小寫。claim 以單一 D1 原子 UPDATE 領取，已有 RUNNING 時返回 `job:null`，同時至多一筆執行中。Agent 閒置 2～3 秒輪詢，錯誤退避至 30 秒。
+允許的 FAILED `errorCode`：`ERP_NOT_OPEN`、`ERP_BUSY`、`ERP_STATE`、`EXPORT_FAILED`、`CANCELLED`、`INTERNAL`、`ERP_SEATS_FULL`（V0.9.37 起，ERP 登入時顯示「人數已滿」；CY Web 顯示「ERP 人數已滿，請稍後再查詢」）；`AGENT_TIMEOUT` 為 CY Web 系統狀態，Agent 不可自行回報。FOUND 的「品號」必須與工作請求的品號**完全相同（區分大小寫）**：SMART ERP 品號區分大小寫（使用者 2026-10-16 確認），例如輸入小寫 `c00154` 在 ERP 查不到 `C00154`，應回 NOT_FOUND，不得轉換大小寫。claim 以單一 D1 原子 UPDATE 領取，已有 RUNNING 時返回 `job:null`，同時至多一筆執行中。Agent 閒置 2～3 秒輪詢，錯誤退避至 30 秒。
 
 ## 主要錯誤碼
 
 | HTTP | Code | 情境 |
 | --- | --- | --- |
-| 400 | `INVALID_ITEM_NO` | 品號不符 |
+| 400 | `INVALID_ITEM_NO` / `INVALID_CODE` / `INVALID_KEYWORD` / `INVALID_QUERY` | 品號、代號、關鍵字或欄位組合不符 |
 | 400 | `INVALID_AGENT_RESULT` / `INVALID_OUTCOME` | Agent payload 不符白名單／欄位重複／狀態不符 |
 | 401 | `AUTH_REQUIRED` / `AUTH_INVALID` | 使用者未登入或 session 無效 |
 | 401 | `AGENT_UNAUTHORIZED` | Agent 憑證缺少、錯誤或已撤銷 |
 | 403 | `ACCESS_DENIED` | 無模組權限或非 Super Admin 的憑證管理 |
 | 404 | `QUERY_NOT_FOUND` | 工作不存在或使用者不可讀 |
-| 409 | `QUERY_ALREADY_ACTIVE` / `QUERY_NOT_RUNNING` | 已有未完成查詢、重複完成或 claim 權限失效 |
+| 409 | `QUERY_ALREADY_ACTIVE` / `QUERY_NOT_RUNNING` | 已有 3 筆未完成查詢、重複完成或 claim 權限失效 |
+| 409 | `ERP_HELD` | ERP 暫停中，暫停結束前不能建立查詢 |
 | 503 | `IDENTITY_UNAVAILABLE` | CYID 暫時無法確認授權 |
 
 ## 驗收邊界
@@ -162,7 +177,7 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 
 ## 進貨輔助（V0.9.24 Build 3）
 
-- 新 Module Access `ERP_RESTOCK_ASSIST`「進貨輔助」，獨立頁面 `#restock-assist`（左邊導覽在「ERP 查詢」下方）。`migrations/0019_erp_restock_assist.sql` 擴充 module_code 與 query_type CHECK。
+- 新 Module Access `ERP_RESTOCK_ASSIST`「進貨輔助」，獨立頁面 `#restock-assist`（左邊導覽在「ERP 查詢」下方；V0.9.41 起併入 ERP 查詢頁）。`migrations/0019_erp_restock_assist.sql` 擴充 module_code 與 query_type CHECK。
 - 前提權限（使用者 2026-10-21）：`ERP_RESTOCK_ASSIST` 只在同時具備 `ERP_ITEM_QUERY`、`ERP_CUSTOMER_QUERY` 時有效（`shared/modules.ts` 的 `MODULE_REQUIREMENTS`，`checkModuleAccess`／`allowedModuleCodes` 依此計算）；缺前提時建立或讀取 RESTOCK 回 403，訊息列出需要的權限。Module Access 個人設定開啟它而缺前提回 409 `MODULE_REQUIREMENT_MISSING`；關閉它需要的前提時，它在同一批一併關閉（回應 `alsoDisabled`，各記一筆稽核；使用者 2026-10-21）。權限群組送出的模組組合缺前提回 409（畫面在取消前提時會一併移除進貨輔助再送出）。
 - 查詢類型 `RESTOCK`：`POST /api/erp/item-queries` `{ queryType:"RESTOCK", dateFrom, dateTo }`，兩者必填（YYYY-MM-DD），起 ≤ 迄 ≤ 台北今天，最多 31 天（含頭尾）；存在 `history_from／history_to`。
 - Claim：`{ id, queryType:"RESTOCK", dateFrom, dateTo, expiresAt }`。Agent 查這段期間**所有客戶**的 COPR15 銷貨單與 COPR16 銷退單，依品號與單據日期加總數量，再逐一以 INVI02 查各品號的庫存數量。
@@ -177,3 +192,33 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
   - `erp_sales_days(sale_date, synced_at, query_id)`：未 truncated 時標記範圍內每一天；已同步過的日子只有上次同步時（台北日期）還沒過完才改寫。
   - 這些表不跟著查詢結果的保存期限清除，供之後的銷貨分析使用；每批 1,500 列一個 statement。
 
+## V0.9.38：ERP 關閉／暫停與強制關閉（使用者 2026-10-27）
+
+- 有任一 ERP 查詢權限的成員可呼叫 `POST /api/erp/agent-control`：`{action:"CLOSE",minutes:0|15|30|60}`（佇列跑完後關閉 ERP；minutes>0 同時暫停）、`{action:"FORCE_CLOSE"}`（強制結束 ERP）、`{action:"RESUME"}`（取消暫停）。單一共用列 `erp_item_agent_control`，不納入可攜備份。
+- 暫停期間 `POST /api/erp/item-queries` 回 409 `ERP_HELD`「ERP 已暫停，HH:MM 後可再查詢」；已排隊的工作照常執行。
+- `GET /api/erp/agent-status` 增加 `control:{request,requestedAt,holdUntil,result,resultAt}`。
+- Agent claim 回應增加 `control:{request,holdUntil}`；Agent 只在沒有領到工作時處理 request，完成後 `POST /api/erp-agent/control {request,result}`，result 為 `CLOSED`／`KEPT_OPEN`（ERP 有編輯中的詢問而保留）／`NOT_OPEN`／`FAILED`。回報的 request 與目前不同時不覆蓋（新的要求仍待處理）。舊版 Agent 不認得 control，要求會一直顯示「等待查詢程式關閉 ERP」。
+- 查詢失敗（ERP_NOT_OPEN、ERP_STATE、EXPORT_FAILED、INTERNAL、逾時）時，網頁詢問是否強制關閉 ERP。
+
+## V0.9.41：每人三筆、排程佇列、ERP 查詢頁保留（使用者 2026-10-27）
+
+- 每位成員最多 3 筆 QUEUED／RUNNING（建立時檢查，超過回 409 `QUERY_ALREADY_ACTIVE`「你已有 3 筆查詢在排隊或執行中…」）。`migrations/0026_erp_query_owner_index.sql` 移除「每人一筆」唯一索引，加 `(owner_member_id, created_at)` 索引。
+- Agent 仍一次執行一筆，依送入時間（created_at, id）領取，不做成員間輪流（使用者 2026-10-27）。
+- 排隊過期：`expires_at` 改為建立後 60 分鐘上限；另外建立超過 120 秒、沒有 RUNNING 工作且 Agent 最近 60 秒沒有 claim（已離線）時過期。Agent 連線中或正在執行時，排隊工作會等待（可能排在別人的進貨輔助後面）。
+- `GET /api/erp/queue`（任一 ERP 查詢權限）：`{jobs:[{id,mine,member,queryType,target,status,createdAt,startedAt,progress,estimatedDoneAt}],maxPerMember}`，執行中在前、其後依送入時間。`member` 為顯示名稱（無則員工編號）；`target`（品號、關鍵字、代號、日期範圍）只在讀者有該查詢類型權限時提供，否則為 null。預估完成時間：近 30 天同類型（含歷史異動分開）DONE／NOT_FOUND 的平均耗時，沒有資料時用預設值；依序累加，執行中的以開始時間加平均耗時（已超過則至少 30 秒後）。
+- `GET /api/erp/item-queries/recent`：成員近 24 小時的查詢（新到舊，最多 20 筆，只列仍有權限的類型），ERP 查詢頁開啟時各類別接回自己最新的一筆（換裝置也可）。
+- 前端：進貨輔助併入 ERP 查詢頁，類別順序 商品、客戶、供應商、進貨輔助、未收款，最右邊「排程佇列」（每 5 秒更新；V0.9.42 改為類別列右側按鈕打開的抽屜）。`ERP_RESTOCK_ASSIST` 的 route 改為 `erp-item-query`，舊連結 `#restock-assist` 轉到 ERP 查詢。每個類別各自保留查詢、表單與結果，查詢中的類別在頁籤上標示；ERP 查詢頁開過後切到其他模組仍保留在背景，查詢完成時若該類別不在畫面上，右上角通知「XX查詢完成／失敗」並可按「查看」回到該類別。
+
+## V0.9.42：排程佇列抽屜與進貨輔助表格（使用者 2026-10-27）
+
+- 排程佇列改為類別列右側「排程佇列」按鈕打開的右側抽屜（共用 `Drawer`），開著時每 5 秒讀 `GET /api/erp/queue`；每筆顯示「預計 HH:MM 完成（約 N 分鐘後）」。API 不變。
+- 進貨輔助表格：品號與品名（單位）同一行；每天的銷與退之間淡虛線；日期欄固定斑馬紋（週末不另加底色）；小計（銷貨）、淨銷、庫存前粗框線。
+- 進貨輔助「加入叫貨單」的來源改為點選標籤，見 `ORDERING_MODULE.md`。
+
+## V0.9.43：暫停時加入佇列、關閉到…（使用者 2026-10-28）
+
+- `POST /api/erp/agent-control` 的 CLOSE 可改帶 `until`（ISO 時間，1 分鐘後至 24 小時內）取代 `minutes`；超出範圍 400 `INVALID_CONTROL`。
+- 暫停中 `POST /api/erp/item-queries` 帶 `afterHold:true` 時不回 `ERP_HELD`，改建立 QUEUED 工作並記 `not_before`＝暫停結束時間（`migrations/0027_erp_query_not_before.sql`），`expires_at`＝暫停結束後 60 分鐘。回應與讀取工作含 `notBefore`（QUEUED 時）。
+- Claim 只領 `not_before` 為空或已到的工作。CLOSE 改變暫停時間時，等待中的工作 `not_before` 跟著改；RESUME 或無暫停的 CLOSE 清空 `not_before`（立即可領）。Agent 離線過期規則改以 `COALESCE(not_before, created_at)` 起算。
+- `GET /api/erp/queue` 每筆含 `notBefore`；預估完成時間從暫停結束起算。
+- 前端：`ERP_HELD` 時跳「ERP 暫停中」視窗（`ErpHeldPrompt`，App 層掛一次），可選「知道了」或「加入佇列，暫停結束自動查」。ERP 查詢程式視窗暫停中只顯示「取消暫停」；排程佇列為不遮住頁面的右側欄。

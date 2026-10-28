@@ -10,6 +10,7 @@ import { handleCyInvoiceRecoveryRoute, type CyInvoiceRecoveryEnv } from "./http/
 import { handleBusinessApiRoute } from "./http/business-api-routes";
 import { handleHrRoute } from "./http/hr-routes";
 import {handleOrderingRoute} from "./http/ordering-routes";
+import {handleStoreRoute} from "./http/store-routes";
 import { handleUsageRoute } from "./http/usage-routes";
 import { handleBusinessApiPhase2Route } from "./http/business-api-phase2-routes";
 import { handleProgramCatalogRoute } from "./http/program-catalog-routes";
@@ -85,6 +86,8 @@ async function routeRequest(request: Request, env: Env, url: URL): Promise<Respo
 
   const orderingResponse = await handleOrderingRoute(request, env, requestId);
   if(orderingResponse)return orderingResponse;
+  const storeResponse = await handleStoreRoute(request, env, requestId);
+  if (storeResponse) return storeResponse;
   const hrResponse = await handleHrRoute(request, env, requestId);
   if (hrResponse) return hrResponse;
 

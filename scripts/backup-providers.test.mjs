@@ -85,7 +85,7 @@ test("GCS fails closed on looping pagination, bad scope, missing objects and ove
   await assert.rejects(looping.listObjects("cyweb/"), /PAGINATION_INVALID/);
   await assert.rejects(looping.getObject("cyacc/secret/data.json"), /KEY_INVALID/);
   assert.equal(await gcs(() => new Response(null, { status: 404 })).provider.getObject(key), null);
-  await assert.rejects(gcs(() => new Response(new Uint8Array(5 * 1024 * 1024 + 1))).provider.getObject(key), /REQUEST_FAILED/);
+  await assert.rejects(gcs(() => new Response(new Uint8Array(24 * 1024 * 1024 + 1))).provider.getObject(key), /REQUEST_FAILED/);
 });
 test("GCS deadline covers stalled body and errors reveal no credential/provider body", async () => {
   const stalled = gcs(() => new Response(new ReadableStream({ start() {} })), 25).provider;

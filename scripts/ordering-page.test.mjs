@@ -11,7 +11,7 @@ const directory = mkdtempSync(fileURLToPath(new URL("../node_modules/.ordering-p
 const outfile = join(directory, "page.mjs");
 const stubs = {
   "react": ["useState", "useRef", "useEffect", "useMemo"].map(name =>
-    `export const ${name}=(...args)=>globalThis.orderingPageHost.${name}(...args);`).join("\n"),
+    `export const ${name}=(...args)=>globalThis.orderingPageHost.${name}(...args);`).join("\n")+"\nexport const useId=()=>\"ordering-test-picker\";",
   "../../api/client": `export class ApiClientError extends Error{}; export const apiRequest=(...args)=>globalThis.orderingPageTransport(...args);`,
   "../../ui/layout/MasterDetail": `export const MasterDetailBack=()=>null,MasterDetailEmpty=()=>null; export const useMasterDetailPane=()=>({className:'',open(){},close(){}});`,
   "../../ui/overlays/useConfirmation": `export const useConfirmation=()=>({confirm:options=>globalThis.orderingPageConfirm(options),confirmationDialog:null});`,
@@ -39,7 +39,7 @@ try {
 const descendants = node => !node || typeof node !== "object" ? [] :
   [node, ...[node.props?.children].flat(Infinity).flatMap(descendants)];
 const text = node => typeof node === "string" ? node : Array.isArray(node) ? node.map(text).join("") : text(node?.props?.children ?? "");
-const sources = [{ id: 1, name: "測試來源甲", kind: "GENERAL", isActive: true }, { id: 2, name: "測試來源乙", kind: "GENERAL", isActive: true }];
+const sources = [{ id: 1, name: "測試來源甲", kind: "GENERAL", isActive: true }, { id: 2, name: "測試來源乙", kind: "GENERAL", isActive: true }, {id:3,name:"永全",kind:"VENDOR",isActive:true,sortOrder:2,conditions:"滿額免運",paymentTerms:"月結30天"}, {id:4,name:"其他",kind:"VENDOR",isActive:true,sortOrder:3,conditions:"",paymentTerms:""}];
 const order = sourceId => ({ id: sourceId * 10, sourceId, sourceName: sources[sourceId - 1].name, sourceKind: "GENERAL",
   status: "DRAFT", storedStatus: "DRAFT", version: 1, revision: 0, plannedSendDate: null, note: "", createdAt: "2026-10-21T00:00:00Z",
   sentAt: null, lines: [], receipts: [], revisions: [] });
@@ -50,6 +50,7 @@ function mount(transport) {
   globalThis.orderingPageTransport = async (url, options) => {
     const path = url.replace("/api/business/ordering", ""); calls.push({ path, ...options });
     if (path === "/sources") return sources;
+    if (path === "/preferences/vendors") return [];
     if (path === "/pending" || path.startsWith("/orders?history=")) return [];
     return transport(path, options);
   };
@@ -138,7 +139,7 @@ test("a selected zero receipt quantity is rejected rather than silently omitted"
 
 test("opening an existing draft needs only list and detail; initial history is not fetched twice", async () => {
   const page = mount(normalTransport); await page.tick();
-  assert.deepEqual(page.calls.map(x => x.path), ["/sources", "/pending"]);
+  assert.deepEqual(page.calls.map(x => x.path).sort(), ["/sources", "/pending", "/preferences/vendors"].sort());
   assert.equal(page.heading, "未到貨明細"); assert.deepEqual(page.selectedTabs, []);
   assert.equal(page.grid, undefined, "entering the module never loads or creates a draft");
   page.calls.length = 0; page.click("測試來源甲"); await page.tick();
@@ -198,7 +199,9 @@ test("header status reports saving spinner, red failure, dirty and acknowledged 
   ]) {
     grid.onStateChange(state); page.render(); const status = page.saveStatus;
     assert.equal(text(status), label); assert.equal(status.props["data-state"], value);
-    assert.equal(descendants(status).some(n => n.props?.className?.includes("cy-ordering-save-spinner")), spinner);
+    const spinnerNode = descendants(status).find(n => n.props?.className?.includes("cy-ordering-save-spinner"));
+    assert.ok(spinnerNode, "the spinner slot is always present so the line never shifts");
+    assert.equal(!spinnerNode.props["data-idle"], spinner);
   }
 });
 
@@ -216,4 +219,87 @@ test("header autosave failure is red and late input is not declared saved by an 
   assert.equal(text(page.saveStatus),"尚未儲存");assert.equal(page.headerInput("單據備註").value,"等待時又輸入");
   page.headerInput("單據備註").onBlur();await page.tick();replies[2].resolve({...order(1),version:3,note:"等待時又輸入"});await page.tick();
   assert.equal(text(page.saveStatus),"已儲存");
+});
+
+
+test("receipt dialog excludes fully received products and retains only outstanding rows",async()=>{
+ const sent=sentOrder(),done={...sent.lines[0],id:3,itemCode:"DONE",quantity:10,quantityText:"10",received:10};
+ const page=mount((path,options)=>path==="/orders/10"?{...sent,lines:[...sent.lines,done]}:normalTransport(path,options));
+ await page.tick();page.click("測試來源甲");await page.tick();page.click("登記到貨");
+ const dlg=page.nodes.find(n=>n.type?.name==="Dialog"&&n.props.title==="登記到貨");
+ const rows=descendants(dlg).filter(n=>n.type==="tr");
+ assert.equal(rows.length,3,"table header plus only two rows with remaining quantity");
+ assert.equal(descendants(dlg).some(n=>n.type==="td"&&text(n)==="DONE"),false,"completed line absent in receipt UI");
+});
+
+test("廠商 opens a vendor's draft in place: searchable tabs, Other last, no 進入廠商 step",async()=>{
+ const page=mount((path,options)=>path==="/orders/30"||path==="/orders/40"?{...order(1),id:Number(path.split("/")[2]),sourceId:Number(path.split("/")[2])/10,sourceName:Number(path.split("/")[2])===30?"永全":"其他",sourceKind:"VENDOR"}:
+  path.startsWith("/orders?sourceId=")?[{...order(1),id:Number(new URLSearchParams(path.split("?")[1]).get("sourceId"))*10}]:normalTransport(path,options));
+ await page.tick();page.click("廠商");await page.tick();
+ const vendorTabs=()=>page.nodes.filter(n=>n.props?.role==="tab"&&["永全","其他"].includes(text(n)));
+ assert.deepEqual(vendorTabs().map(text),["永全","其他"]);
+ assert.deepEqual(page.selectedTabs,["廠商","永全"]);
+ assert.equal(page.grid.readOnly,false,"the vendor's draft is editable right under the tabs");
+ assert.equal(page.nodes.some(n=>n.type==="button"&&text(n)==="進入廠商"),false);
+ assert.ok(page.nodes.some(n=>n.type==="button"&&text(n)==="修改廠商"),"vendor terms are edited in place");
+ page.click("其他");await page.tick();
+ assert.deepEqual(page.selectedTabs,["廠商","其他"]);
+ const q=page.nodes.find(n=>n.props?.["aria-label"]==="速查廠商");
+ assert.ok(q);q.props.onChange({target:{value:"查無"}});page.render();
+ assert.deepEqual(vendorTabs().map(text),["其他"],"Other stays visible on right even with a no-match search");
+});
+
+test("a double-submitted receipt is recorded once while the first save is in flight",async()=>{
+ const calls=[],reply=deferred();
+ const page=mount((path,options)=>{if(path.endsWith("/receipts")){calls.push(options.json);return reply.promise}
+  return path==="/orders/10"?sentOrder():normalTransport(path,options)});
+ await page.tick();page.click("測試來源甲");await page.tick();page.click("登記到貨");
+ const dialog=()=>page.nodes.find(n=>n.type?.name==="Dialog"&&n.props.title==="登記到貨");
+ descendants(dialog()).find(n=>n.props?.label==="ERP 進貨單號 341A-").props.children.props.onChange({target:{value:"20261023002"}});page.render();
+ descendants(dialog()).filter(n=>n.type?.name==="CheckField")[0].props.onChange({target:{checked:true}});page.render();
+ const form=()=>descendants(dialog()).find(n=>n.type==="form");
+ const first=form().props.onSubmit({preventDefault(){}});await page.tick();
+ assert.equal(descendants(dialog()).find(n=>n.type==="button"&&text(n)==="儲存到貨").props.disabled,true);
+ await form().props.onSubmit({preventDefault(){}});
+ reply.resolve(sentOrder());await first;await page.tick();
+ assert.equal(calls.length,1);assert.equal(dialog(),undefined);
+});
+
+test("a draft is deleted (not voided) after confirmation and the source reopens a draft",async()=>{
+ const page=mount(normalTransport);await page.tick();page.click("測試來源甲");await page.tick();
+ assert.equal(page.nodes.some(n=>n.type==="button"&&text(n)==="作廢"),false);
+ globalThis.orderingPageConfirm=async()=>true;
+ page.click("刪除");await page.tick();await page.tick();
+ const del=page.calls.find(c=>c.method==="DELETE");assert.ok(del);assert.equal(del.path,"/orders/10");
+ assert.ok(page.calls.indexOf(del)<page.calls.length-1,"the source's draft is opened again");
+});
+
+test("a sent order is changed in edit mode with no autosave and saved as one revision",async()=>{
+ const revisions=[];
+ const page=mount((path,options)=>{if(path.endsWith("/revise")){revisions.push(options.json);return {...sentOrder(),revision:3}}
+  return path==="/orders/10"?sentOrder():normalTransport(path,options)});
+ await page.tick();page.click("測試來源甲");await page.tick();
+ assert.equal(page.grid.readOnly,true);
+ page.click("修改");await page.tick();
+ assert.equal(page.grid.readOnly,false);
+ assert.equal(page.nodes.some(n=>n.type==="button"&&text(n)==="登記到貨"),false,"edit mode shows only 取消／儲存");
+ const before=page.calls.length;
+ await page.grid.onCommit(page.grid.lines[1],{quantityText:"12"},true);await page.tick();
+ assert.equal(page.calls.length,before,"edits stay local until 儲存");
+ page.click("儲存");await page.tick();await page.tick();
+ assert.equal(revisions.length,1);
+ assert.deepEqual(revisions[0].lines.map(l=>[l.lineId,l.quantityText]),[[2,"12"]]);
+ assert.equal(page.grid.readOnly,true,"saving leaves edit mode");
+});
+
+test("a row added in edit mode keeps its local id, so later keystrokes update it instead of adding rows",async()=>{
+ const page=mount((path,options)=>path==="/orders/10"?sentOrder():normalTransport(path,options));
+ await page.tick();page.click("測試來源甲");await page.tick();page.click("修改");await page.tick();
+ const blank={id:0,section:"",sortOrder:0,itemCode:"",itemName:"C0003",vendorItemCode:"",vendorItemName:"",spec:"",quantityText:"",unit:"",note:""};
+ const first=await page.grid.onCommit({...blank},{...blank},false);await page.tick();
+ assert.ok(first.id>0,"the grid requires a positive id to treat the row as saved");
+ const second=await page.grid.onCommit(first,{itemName:"C00031"},false);await page.tick();
+ assert.equal(second.id,first.id);
+ assert.equal(page.grid.lines.length,sentOrder().lines.length+1);
+ assert.equal(page.grid.lines.at(-1).itemName,"C00031");
 });

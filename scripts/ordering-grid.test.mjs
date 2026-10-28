@@ -33,8 +33,8 @@ function mount(kind = "GENERAL", lines = [], options = {}) {
   let cursor = 0, dirty = true, effects = [], tree, focused, editor, state;
   const props = { kind, section: kind === "CN_REGULAR" ? "SINGLE" : "", lines, busy: false,
     onRegister(value) { editor = value; }, onStateChange(value) { state = value; },
-    onDelete: async () => {}, onCommit(row, patch) {
-      commits.push({ row, patch });
+    onDelete: async () => {}, onCommit(row, patch, final) {
+      commits.push({ row, patch, final });
       return new Promise((resolve, reject) => settlements.push({ resolve(saved) {
         props.lines = [...props.lines.filter(line => line.id !== saved.id), saved];
         dirty = true; resolve(saved);
@@ -71,7 +71,7 @@ function mount(kind = "GENERAL", lines = [], options = {}) {
     } while (dirty);
   }
   function input(row, field) {
-    return descendants(tree).find(node => node.type === "input" &&
+    return descendants(tree).find(node => (node.type === "input" || node.type === "textarea") &&
       node.props["data-order-row"] === row && node.props["data-order-field"] === field);
   }
   function flush() { render(); while (frames.length) frames.shift()(); }
@@ -90,7 +90,7 @@ function mount(kind = "GENERAL", lines = [], options = {}) {
     get editor() { return editor; }, get state() { return state; },
     rowKey(id) { return descendants(tree).find(n => n.type === "tr" && descendants(n).some(child => child.props?.["data-order-row"] === id))?.key; },
     get focused() { return focused; },
-    get rowIds() { return [...new Set(descendants(tree).filter(n => n.type === "input").map(n => n.props["data-order-row"]))]; } };
+    get rowIds() { return [...new Set(descendants(tree).filter(n => n.type === "input" || n.type === "textarea").map(n => n.props["data-order-row"]))]; } };
 }
 test.afterEach(() => { delete globalThis.orderingGridHookHost; delete globalThis.requestAnimationFrame; });
 
@@ -107,8 +107,7 @@ for (const kind of ["GENERAL", "VENDOR", "CN_REGULAR", "CN_CUSTOM"]) {
     assert.deepEqual(grid.rowIds, [-1, -2]);
     assert.deepEqual(grid.focused, { row: -2, field: "itemCode" });
     assert.equal(grid.input(-1, "note").props.value, "測試備註");
-    assert.equal(grid.commits.length, ["GENERAL", "VENDOR"].includes(kind) ? 1 : 0,
-      "vendor name and quantity save only for sources that expose vendor fields");
+    assert.equal(grid.commits.length,1,"every source type must be able to save partial draft inputs");
     grid.press(-1, "note");
     assert.deepEqual(grid.rowIds, [-1, -2], "reuse an existing next row");
     grid.press(-2, "note");
@@ -191,13 +190,14 @@ test("edits typed during create update the acknowledged row, retaining failed la
   assert.deepEqual(grid.rowIds, [101, -2]);
 });
 
-test("incomplete input and unacknowledged saves never report clean", async () => {
-  const grid = mount(); grid.change(-1, "vendorItemCode", "TEST-ONLY-CODE");
-  assert.equal(await grid.editor.flush(), false); assert.equal(grid.commits.length, 0);
-  grid.change(-1, "vendorItemName", "測試廠商品名"); grid.change(-1, "quantityText", "2"); grid.press(-1, "note");
-  grid.settlements[0].resolve({ id: 0 }); await tick(grid);
-  assert.equal(grid.state.dirty, true); assert.equal(grid.input(-1, "vendorItemName").props.value, "測試廠商品名");
-  grid.editor.discard(); grid.flush(); assert.equal(grid.state.dirty, false);
+test("partially entered drafts persist on flush; failed acknowledgement leaves dirty",async()=>{
+ const grid=mount();grid.change(-1,"vendorItemCode","TEST-ONLY-CODE");
+ const pending=grid.editor.flush();assert.equal(grid.commits.length,1);
+ assert.equal(grid.commits[0].patch.vendorItemCode,"TEST-ONLY-CODE");
+ grid.settlements[0].resolve({id:0});
+ assert.equal(await pending,false);await tick(grid);
+ assert.equal(grid.state.dirty,true);
+ grid.editor.discard();grid.flush();assert.equal(grid.state.dirty,false);
 });
 
 test("saved-cell flush deduplicates pending edits and retains a failed value", async () => {
@@ -246,13 +246,107 @@ test("completely empty trailing rows, including cleared input, never save or blo
   assert.equal(grid.state.dirty,false);assert.equal(await grid.editor.flush(),true);assert.equal(grid.commits.length,0);
 });
 
+test("editable product name, vendor name and note use wrapping controls without changing Enter traversal", () => {
+ const grid=mount();
+ for(const field of ["itemName","vendorItemName","note"]){
+  assert.equal(grid.input(-1,field).type,"textarea",field+" permits wrapping in draft");
+  assert.equal(grid.input(-1,field).props.rows,1,"start at one line");
+ }
+ grid.change(-1,"itemName","很長的商品名稱不用省略號，應該在欄內顯示完整文字");
+ assert.equal(grid.press(-1,"itemName"),true);
+ assert.deepEqual(grid.focused,{row:-1,field:"vendorItemCode"});
+});
+
 test("sent table contains only persisted rows, received quantities and accessible arrival markers", () => {
   const base={section:"",sortOrder:0,itemCode:"T001",itemName:"測試商品",vendorItemCode:"",vendorItemName:"",spec:"",quantityText:"10",quantity:10,unit:"箱",note:""};
   const grid=mount("GENERAL",[{...base,id:1,received:10},{...base,id:2,received:4},{...base,id:3,received:0}],{readOnly:true});
   assert.equal(grid.nodes.filter(n=>n.type==="tr").length,4);
   assert.deepEqual(grid.rowIds,[]);assert.equal(grid.editor,null);
   assert.equal(grid.nodes.some(n=>n.type?.name==="IconButton"),false);
-  assert.deepEqual(grid.nodes.filter(n=>n.props?.role==="img").map(n=>n.props["aria-label"]),["已到貨","部分到貨"]);
+  assert.deepEqual(grid.nodes.filter(n=>typeof n.props?.className==="string"&&n.props.className.includes("cy-ordering-status-chip")).map(n=>n.props.children),["已到齊","部分到貨","待到貨"]);
+  assert.equal(grid.nodes.some(n=>n.type==="th"&&n.props.children==="狀態"),true);
+  assert.equal(grid.nodes.filter(n=>typeof n.props?.className==="string"&&n.props.className.includes("cy-ordering-wrap")).length,9,"each readonly row wraps item name, vendor name and notes without ellipsis");
   assert.equal(grid.nodes.some(n=>n.type==="th"&&n.props.children==="已到數量"),true);
   assert.equal(grid.nodes.some(n=>n.type==="th"&&n.props.children==="操作"),false);
+});
+
+test("autosave while typing is not final; leaving the cell sends the final save once", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const line = { id: 101, section: "", sortOrder: 1, itemCode: "", itemName: "測試品名甲", vendorItemCode: "V01",
+    vendorItemName: "測試廠商品名甲", vendorNameFollows: false, spec: "", quantityText: "1", unit: "", note: "" };
+  const grid = mount("GENERAL", [line]);
+  grid.change(101, "itemCode", "CODE01"); t.mock.timers.tick(900); grid.flush();
+  assert.equal(grid.commits.length, 1); assert.equal(grid.commits[0].final, false);
+  acknowledge(grid, 0); await tick(grid);
+  grid.input(101, "itemCode").props.onBlur({ currentTarget: { value: "CODE01" } }); grid.flush();
+  assert.equal(grid.commits.length, 2); assert.equal(grid.commits[1].final, true);
+  assert.deepEqual(grid.commits[1].patch, { vendorItemCode: "V01", vendorItemName: "測試廠商品名甲", itemCode: "CODE01" }, "the autosaved 品號 is confirmed so ERP can fill blanks");
+  acknowledge(grid, 1); await tick(grid);
+  grid.input(101, "itemCode").props.onBlur({ currentTarget: { value: "CODE01" } }); grid.flush();
+  assert.equal(grid.commits.length, 2, "already final: nothing more to send");
+});
+
+test("a new row's Enter during its autosave is carried into one more final save", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const grid = mount("GENERAL");
+  grid.change(-1, "itemName", "測試品名甲"); t.mock.timers.tick(900); grid.flush();
+  assert.equal(grid.commits.length, 1); assert.equal(grid.commits[0].final, false);
+  grid.press(-1, "itemName");
+  assert.equal(grid.commits.length, 1, "the pending save is reused");
+  acknowledge(grid, 0); await tick(grid);
+  assert.equal(grid.commits.length, 2); assert.equal(grid.commits[1].final, true);
+  acknowledge(grid, 1); await tick(grid);
+  assert.equal(grid.commits.length, 2);
+});
+
+test("a 廠商品名 that follows 品名 edits empty with 品名 as placeholder, and leaving it empty saves nothing", () => {
+  const line = { id: 101, section: "", sortOrder: 1, itemCode: "CODE01", itemName: "測試品名甲", vendorItemCode: "",
+    vendorItemName: "測試品名甲", vendorNameFollows: true, spec: "", quantityText: "1", unit: "", note: "" };
+  const grid = mount("VENDOR", [line]);
+  const input = grid.input(101, "vendorItemName");
+  assert.equal(input.props.value, ""); assert.equal(input.props.placeholder, "測試品名甲");
+  input.props.onBlur({ currentTarget: { value: "" } }); grid.flush();
+  assert.equal(grid.commits.length, 0);
+});
+
+test("a cleared 單位 autosaved then confirmed resends only the clear, never the 品號", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const line = { id: 101, section: "", sortOrder: 1, itemCode: "CODE01", itemName: "測試品名甲", vendorItemCode: "",
+    vendorItemName: "測試品名甲", vendorNameFollows: true, spec: "", quantityText: "100", unit: "個", note: "" };
+  const grid = mount("GENERAL", [line]);
+  grid.change(101, "unit", ""); t.mock.timers.tick(900); grid.flush();
+  assert.equal(grid.commits.length, 1); assert.equal(grid.commits[0].final, false);
+  acknowledge(grid, 0); await tick(grid);
+  grid.input(101, "unit").props.onBlur({ currentTarget: { value: "" } }); grid.flush();
+  assert.equal(grid.commits.length, 2); assert.equal(grid.commits[1].final, true);
+  assert.deepEqual(grid.commits[1].patch, { unit: "" });
+});
+
+const sortLine = (id, itemCode, itemName, sortOrder) => ({ id, section: "", sortOrder, itemCode, itemName, vendorItemCode: "", vendorItemName: itemName,
+  vendorNameFollows: true, spec: "", quantityText: "1", unit: "", note: "" });
+test("a header click sorts the view (asc, desc, off) without saving anything", () => {
+  const grid = mount("GENERAL", [sortLine(101, "C10", "測試丙", 1), sortLine(102, "A2", "測試甲", 2), sortLine(103, "A10", "測試乙", 3)]);
+  const header = () => grid.nodes.find(n => n.type === "button" && n.props.className === "cy-ordering-sort" && n.props.title.startsWith("依品號"));
+  header().props.onClick(); grid.flush();
+  assert.deepEqual(grid.rowIds.filter(id => id > 0), [102, 103, 101], "natural order: A2 before A10");
+  header().props.onClick(); grid.flush();
+  assert.deepEqual(grid.rowIds.filter(id => id > 0), [101, 103, 102]);
+  header().props.onClick(); grid.flush();
+  assert.deepEqual(grid.rowIds.filter(id => id > 0), [101, 102, 103], "third click returns to the saved order");
+  assert.equal(grid.commits.length, 0);
+});
+
+test("dragging a 項次 onto another row reorders the block; sorting turns dragging off", async () => {
+  const orders = [];
+  const grid = mount("GENERAL", [sortLine(101, "A1", "測試甲", 10), sortLine(102, "A2", "測試乙", 20), sortLine(103, "A3", "測試丙", 30)],
+    { onReorder: async ids => { orders.push(ids); } });
+  const handle = id => grid.nodes.find(n => n.type === "td" && n.props.draggable && descendants(grid.nodes.find(r => r.type === "tr" && descendants(r).includes(n))).some(c => c.props?.["data-order-row"] === id));
+  const row = id => grid.nodes.find(n => n.type === "tr" && descendants(n).some(c => c.props?.["data-order-row"] === id));
+  const transfer = { setData() {}, effectAllowed: "" };
+  handle(103).props.onDragStart({ dataTransfer: transfer });
+  row(101).props.onDragOver({ preventDefault() {} }); grid.flush();
+  row(101).props.onDrop({ preventDefault() {} }); grid.flush(); await tick(grid);
+  assert.deepEqual(orders, [[103, 101, 102]]);
+  grid.nodes.find(n => n.type === "button" && n.props.className === "cy-ordering-sort").props.onClick(); grid.flush();
+  assert.equal(grid.nodes.some(n => n.type === "td" && n.props.draggable), false, "manual order only when the view is not sorted");
 });

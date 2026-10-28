@@ -105,7 +105,7 @@ export interface ErpNameSearchRow extends Array<ErpField> {}
 export type ErpQueryStatus = "QUEUED" | "RUNNING" | "DONE" | "NOT_FOUND" | "FAILED" | "EXPIRED";
 export type ErpQueryOutcome = "FOUND" | "NOT_FOUND" | "FAILED";
 export type ErpQueryErrorCode =
-  | "ERP_NOT_OPEN" | "ERP_BUSY" | "ERP_STATE" | "EXPORT_FAILED"
+  | "ERP_NOT_OPEN" | "ERP_BUSY" | "ERP_STATE" | "EXPORT_FAILED" | "ERP_SEATS_FULL"
   | "CANCELLED" | "INTERNAL" | "AGENT_TIMEOUT";
 export interface ErpField { name: string; value: string; }
 export interface ErpQueryHistory {
@@ -157,10 +157,25 @@ export interface ErpQueryResult extends ErpHistoryRequest {
   errorCode: ErpQueryErrorCode | null;
   errorMessage: string | null;
   resultCleared: boolean;
+  /** QUEUED while ERP is paused: the query runs once the pause ends (V0.9.43). */
+  notBefore: string | null;
+}
+/** ERP 關閉／暫停 (user 2026-10-27). */
+export type ErpControlRequest = "CLOSE" | "FORCE_CLOSE";
+export type ErpControlResult = "CLOSED" | "KEPT_OPEN" | "NOT_OPEN" | "FAILED";
+export interface ErpAgentControl {
+  /** Waiting for the Agent: close once its queue is done, or force-close. */
+  request: ErpControlRequest | null;
+  requestedAt: string | null;
+  /** New queries are refused until then (null when not held or the hold has passed). */
+  holdUntil: string | null;
+  result: ErpControlResult | null;
+  resultAt: string | null;
 }
 export interface ErpAgentStatus {
   online: boolean;
   lastSeenAt: string | null;
   agentVersion: string | null;
   erpState: string | null;
+  control: ErpAgentControl;
 }

@@ -5,6 +5,7 @@ import {readFileSync,readdirSync} from "node:fs";
 import {build} from "esbuild";
 import "./ordering-grid.test.mjs";
 import "./ordering-page.test.mjs";
+import "./ordering-source-picker.test.mjs";
 const compiled=await build({entryPoints:["shared/ordering.ts","shared/ordering-export.ts","shared/xlsx-writer.ts"],bundle:true,format:"esm",platform:"node",outdir:"out",write:false});
 const modules=await Promise.all(compiled.outputFiles.map(async f=>import("data:text/javascript;base64,"+Buffer.from(f.text).toString("base64"))));
 const logic=modules.find(m=>m.parseQuantity),excel=modules.find(m=>m.orderSheet),zip=modules.find(m=>m.buildXlsx);
@@ -87,7 +88,7 @@ test("ordering migration recreates module CHECK and all tables",()=>{
  const sql=new DatabaseSync(":memory:");
  for(const file of readdirSync(new URL("../migrations/",import.meta.url)).filter(x=>x.endsWith(".sql")).sort())
   sql.exec(readFileSync(new URL("../migrations/"+file,import.meta.url),"utf8"));
- for(const table of ["ordering_sources","ordering_orders","ordering_lines","ordering_receipts","ordering_receipt_lines","ordering_vendor_items","ordering_item_last_source","ordering_revisions"])
+ for(const table of ["ordering_sources","ordering_orders","ordering_lines","ordering_receipts","ordering_receipt_lines","ordering_vendor_items","ordering_item_last_source","ordering_revisions","ordering_user_preferences"])
   assert.equal(sql.prepare("SELECT name FROM sqlite_master WHERE name=?").get(table)?.name,table);
  assert.match(sql.prepare("SELECT sql FROM sqlite_master WHERE name='app_member_module_access'").get().sql,/ORDERING/);
 });

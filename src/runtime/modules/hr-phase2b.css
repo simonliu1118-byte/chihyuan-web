@@ -21,4 +21,3 @@
 @media(min-width:701px){.cy-hr-leave-md[data-pane="list"]{grid-template-columns:minmax(0,1fr)}.cy-hr-leave-md[data-pane="list"] .cy-md-detail{display:none}
  .cy-hr-leave-md[data-pane="detail"]{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr)}}
 .cy-hr-leave .cy-md-list h3{padding:12px 14px 0}
-.cy-op-form > label.cy-hr-check{display:flex;align-items:center;gap:8px;color:var(--cy-text)}

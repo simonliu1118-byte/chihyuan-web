@@ -80,11 +80,7 @@
 .cy-identity-access-item small { margin-left: auto; color: var(--cy-text-muted); font-size: var(--cy-fs-xs); }
 .cy-identity-access-item .cy-loading-spinner { width: 12px; height: 12px; margin-left: auto; }
 
-.cy-identity-policy-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 8px; }
-.cy-identity-policy-grid label { display: grid; gap: 6px; align-content: start; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 500; }
-.cy-identity-policy-grid small { color: var(--cy-text-muted); font-size: var(--cy-fs-xs); font-weight: 400; }
-.cy-identity-policy-grid .wide { grid-column: 1 / -1; }
-@media (max-width: 980px) { .cy-identity-policy-grid { grid-template-columns: 1fr; } .cy-identity-policy-grid .wide { grid-column: auto; } }
+.cy-identity-policy-form { margin-top: 8px; }
 
 /* Used by the CYInvoice recovery panel. */
 .cy-identity-message { margin: 10px 0; padding: 10px 12px; border: 1px solid var(--cy-border); border-radius: var(--cy-radius-md); background: var(--cy-surface-muted); line-height: 1.5; }

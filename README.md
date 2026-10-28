@@ -14,18 +14,18 @@
 
 ## 目前工程基礎
 
-正式程式基準為 `main`，版本由根 `VERSION`／`BUILD` 定義。目前基礎包含：
+正式程式基準為 `main`，版本由根 `VERSION`／`BUILD` 定義（目前 **V0.9.43 Build 0**，已部署）。
 
-- Frontend：TypeScript + React + Vite。
-- Runtime/API：TypeScript + Cloudflare Workers。
-- Database target：Cloudflare D1。
-- Static delivery：Workers Static Assets / SPA fallback。
-- API：same-origin `/api/*`，共用 success/failure envelope + `requestId`。
-- Forward migrations：`migrations/0001_initial.sql`、`migrations/0002_defect_invalidation.sql`。
+- Frontend：TypeScript + React + Vite，一套程式服務桌機、平板、手機。
+- Runtime/API：TypeScript + Cloudflare Workers；same-origin `/api/*`，共用 success/failure envelope + `requestId`。
+- Database：Cloudflare D1；schema 由 `migrations/` 的 forward migrations 定義（目前到 0028）。
+- Static delivery：Workers Static Assets／SPA fallback，所有請求先經 Worker（HTTPS 轉址與 HSTS）。
+- 帳號：CYCloud Identity（CYID）管理帳號、Session 與系統使用權；CY Web 只保存模組權限（Module Access）與業務授權。
+- 模組：客戶、商品、瑕疵、銷售工單、叫貨、委外/代工、工作日誌、人事、ERP 查詢（經公司電腦上的 CYERPAutoQuery 只讀查 SMART ERP）、帳號與權限、異動紀錄、備份管理、CY 程式。
+- 備份：D1 → R2（每日）＋ GCS（週三／週日）；手動備份與隔離還原已驗收，自動排程待上線前啟用。
+- 部署：合併 main 不會部署；授權後以發布分支 `deploy/cyweb-development` 觸發「CY Web Deploy」，流程與成功判定見 `docs/development/IDENTITY_DEPLOYMENT.md`。
 
-目前實際功能／UI 測試面是整合後的 React operational runtime，暫以 versioned browser `localStorage` 作 persistence adapter。這只是 D1 cutover 前的暫時 runtime adapter，不是第二套 domain model。
-
-**目前工作狀態與下一步只看根 `TODO.md`。** 架構文件不另外維護一份平行進度表。
+**目前狀態與待辦只看根 `TODO.md`；各版本完成內容見根 `CHANGELOG.md`。** 架構文件不另外維護平行進度表。
 
 ## 文件入口
 
@@ -34,9 +34,9 @@
 - `docs/contracts/cyid/` — CYID shared consumer contract 的 read-only synchronized mirror；內容由 manifest 管理並與 CYID `main` 逐檔驗證。
 - `docs/architecture/IDENTITY_ADAPTER.md` — CY Web-specific Identity adapter／Module Access 邊界；不得取代 shared CYID contract。
 - `TODO.md` — 唯一 current implementation status / next-work tracker。
+- `CHANGELOG.md` — 各版本完成內容與驗收證據。
+- `docs/development/work-orders/` — 交由其他執行者實作的版本工作單。
 - `docs/handoff/README.md` — GPT 工作單完成報告／Claude 審查與直接交接的導覽索引（不另建進度表）。
-- `docs/development/TODO_COMPLETED_2026-10-23.md` — 根 TODO 已結案且無未完成項目的過期狀態快照；僅供歷史查證。
-- `docs/development/TODO_BEFORE_TRIAGE_2026-10-23.md` — 77 個原始未勾選標記、來源章節與去重前完整 TODO；查歷史與稽核用，不是平行待辦表。
 - `docs/development/LOCAL_DEVELOPMENT.md` — 本機開發流程。
 - `docs/development/IDENTITY_DEPLOYMENT.md#existing-portal-deployment-gate` — Work 發布指令、main-only 手動入口、來源檢查與部署成功判定；main 合併本身不部署。
 - `docs/DOMAIN_STRATEGY.md` — Chihyuan Web systems 的 domain namespace／rollout architecture。
