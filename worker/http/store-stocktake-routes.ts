@@ -12,7 +12,8 @@ type Sheet={sheet_no:string;sheet_date:string|null;status:StocktakeStatus;versio
 type Line={sheet_no:string;line_key:string;seq:string|null;item_code:string;item_name:string;spec:string;
  warehouse_name:string;location:string;unit:string;batch:string;book_qty:string;
  is_added:number;erp_seq:string|null;first_qty:string|null;first_by:number|null;first_at:string|null;
- recount_qty:string|null;recount_by:number|null;recount_at:string|null;locked:number;version:number};
+ recount_qty:string|null;recount_by:number|null;recount_at:string|null;
+ first_by_name?:string|null;recount_by_name?:string|null;locked:number;version:number};
 class Invalid extends Error {constructor(public code:string,message:string,public status=422){super(message)}}
 const fail=(code:string,message:string,status=422):never=>{throw new Invalid(code,message,status)};
 const sheetNo=(value:unknown)=>typeof value==="string"&&STOCKTAKE_NO.test(value)?value:fail("STOCKTAKE_INVALID","底稿編號必須是 1～20 位英數字");
@@ -35,6 +36,7 @@ const toLine=(row:Line,status:StocktakeStatus):StocktakeLine=>{
  unit:row.unit,batch:row.batch,isAdded:!!row.is_added,erpSeq:row.erp_seq,
  firstQty:row.first_qty,firstBy:row.first_by,firstAt:row.first_at,
  recountQty:row.recount_qty,recountBy:row.recount_by,recountAt:row.recount_at,
+ firstByName:row.first_by_name??null,recountByName:row.recount_by_name??null,
  locked:!!row.locked,version:row.version};
  if(open)base.bookQty=row.book_qty;
  return base;
@@ -50,7 +52,12 @@ const sheetJson=(sheet:Sheet,lines:Line[]):StocktakeSheet=>({
 async function detail(db:D1Database,sheet:string){
  const sh=await one<Sheet>(db,"SELECT * FROM stocktake_sheets WHERE sheet_no=?",sheet);
  if(!sh)return fail("STOCKTAKE_NOT_FOUND","盤點單不存在",404);
- const lines=await all<Line>(db,"SELECT * FROM stocktake_lines WHERE sheet_no=? ORDER BY location,item_code,batch,line_key LIMIT 3001",sheet);
+ const lines=await all<Line>(db,`SELECT l.*,
+   COALESCE(f.display_name,f.employee_no) AS first_by_name,
+   COALESCE(rc.display_name,rc.employee_no) AS recount_by_name
+   FROM stocktake_lines l LEFT JOIN app_members f ON f.id=l.first_by
+   LEFT JOIN app_members rc ON rc.id=l.recount_by
+   WHERE l.sheet_no=? ORDER BY l.location,l.item_code,l.batch,l.line_key LIMIT 3001`,sheet);
  if(lines.length>3000)fail("STOCKTAKE_LIMIT","盤點列數超過 3000",409);
  return {sheet:sheetJson(sh,lines),lines:lines.map(l=>toLine(l,sh.status))};
 }
