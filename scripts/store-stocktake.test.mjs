@@ -363,3 +363,30 @@ test("unignored pre-created stub is not skipped and receives its first ERP detai
   assert.equal(d.lines[0].bookQty,undefined);
  }finally{f.sql.close()}
 });
+
+
+test("STOCKTAKE_SYNC imports 3000 rows with bulk JSON1 in one atomic completion; 3001 is rejected",async()=>{
+ const f=fixture();try{
+  const created=await f.user("/sync","POST");
+  assert.equal(created.status,200,JSON.stringify(created));
+  const claim=await f.agent("/item-queries/claim",{agentVersion:"synthetic",erpState:"BROWSE",
+    queryTypes:["STOCKTAKE_SYNC"]});
+  assert.equal(claim.status,200,JSON.stringify(claim));
+  const rows=Array.from({length:3000},(_,i)=>f.row(String(i+1).padStart(5,"0"),"LOT"+i,"1"));
+  const body={outcome:"FOUND",sheets:[{sheetNo:"990001",date:"2026-10-28"}],
+    details:[{sheetNo:"990001",rows}],elapsedMs:1500,agentVersion:"synthetic"};
+  const tooMany=await f.agent("/item-queries/"+created.data.id+"/complete",
+    {...body,details:[{sheetNo:"990001",rows:[...rows, f.row("03001","LOT3001","1")]}]});
+  assert.equal(tooMany.status,400,JSON.stringify(tooMany).slice(0,1000));
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM stocktake_lines").get().n,0);
+  const saved=await f.agent("/item-queries/"+created.data.id+"/complete",body);
+  assert.equal(saved.status,200,JSON.stringify(saved).slice(0,1000));
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM stocktake_lines").get().n,3000);
+  assert.equal(f.sql.prepare("SELECT result_json FROM erp_item_queries WHERE id=?")
+    .get(created.data.id).result_json,null);
+  const detail=await f.sheet();
+  assert.equal(detail.status,200);
+  assert.equal(detail.data.lines.length,3000);
+  assert.equal(JSON.stringify(detail.data).includes("bookQty"),false);
+ }finally{f.sql.close()}
+});
