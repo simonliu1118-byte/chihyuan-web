@@ -1,8 +1,8 @@
 # ERP 查詢 Bridge — CY Web current contract
 
-狀態：CY Web 實作契約（目前 V0.9.43）。涵蓋 ERP 查詢頁（商品、客戶、供應商、進貨輔助、未收款、排程佇列）與 CYERPAutoQuery Agent 佇列；不改變既有 Item／Customer 主檔權威。
+狀態：CY Web ERP 查詢實作契約（本契約最新功能更新 V0.9.43；全站目前 V0.9.47）。涵蓋 ERP 查詢頁（商品、客戶、供應商、進貨輔助、未收款、排程佇列）與 CYERPAutoQuery Agent 佇列；不改變既有 Item／Customer 主檔權威。
 
-## 目前狀態總覽（V0.9.43）
+## ERP 查詢目前狀態總覽（最近功能規格 V0.9.43）
 
 下面各節依版本累積寫成；較早的段落若與本節不同，以本節與較新的段落為準。
 
@@ -104,7 +104,7 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 
 ## INVQ01 批號庫存與歷史異動（V0.7.34）
 
-補充來源：`docs/handoff/ERP_ITEM_QUERY_INVQ01_HANDOFF.md`；CYERPAutoQuery Agent V0.3.0 Build 1。現有 `ITEMS` 主檔與權限邊界不變。
+這一節已整合舊版 INVQ01 跨 repo 交接及回報（CYERPAutoQuery V0.3.0 Build 1）；現行契約以本節及開頭的最新狀態總覽為準，舊原文只保留在 Git 歷史。原 `ITEMS` 主檔與權限邊界不變。
 
 - `POST /api/erp/item-queries` 保留原 `{itemNo}` 語意，可加 `includeHistory:boolean`（預設 false）、`historyFrom`、`historyTo`（`YYYY-MM-DD` 或 null）。未勾選不能帶非 null 日期。
 - 全介面與後端共用 `resolveHistoryRange`，使用**臺北當日**。迄未填取今天、起未填取迄往前一年同月同日（不再加一天）；起訖都未填即最近一年。閏日遇平年收斂至二月底。迄不可晚於今天、起不可晚於迄；迄日不得超過起日往後三個曆年，三年周年當天可用、下一天拒絕。例如 `2023-01-01..2026-01-01` 允許、`..2026-01-02` 拒絕；`2021-02-28..2024-02-29` 亦拒絕。錯誤 400 `INVALID_HISTORY_RANGE`，不建立工作。此規則適用桌機、平板、手機及直接 API 請求。
@@ -119,7 +119,7 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 
 ## 品名包含查詢（V0.7.36）
 
-來源：`docs/handoff/ERP_ITEM_NAME_SEARCH_HANDOFF.md`，CYERPAutoQuery V0.4.0 Build 1。
+這一節已整合舊版品名搜尋交接與回報（CYERPAutoQuery V0.4.0 Build 1）；現行契約以本節及開頭狀態總覽為準，舊原文只保留在 Git 歷史。
 
 - 使用者 `POST /api/erp/item-queries` 新增 `{"queryType":"ITEM_NAME","keyword":"穴位貼"}`。品號模式固定 `{"queryType":"ITEM_NO","itemNo":"T0001",...history}`。品名查詢不接受 itemNo、歷史異動或起訖日期；兩種類型共用 `ERP_ITEM_QUERY` 權限、單人一筆未完成工作與全域單 Agent 佇列。
 - keyword 去頭尾空白後 1～40 字，可含內部空白，不可有控制字元、單引號、`%`、`_`、`[`、`]`；無效回 `400 INVALID_KEYWORD`。CYWEB 不得傳 ERP 欄名、SQL 或 LIKE 條件；條件固定由 CYERPAutoQuery 建立。

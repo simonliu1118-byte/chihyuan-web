@@ -1,17 +1,15 @@
-# 交接與工作報告（歷史）
+# 新工作交接入口
 
-本目錄是跨 repo 或跨執行者的交接、完成報告與一次性工作紀錄，**只作追溯**，不是永久規則，也不是目前契約。內容若與下列目前文件不同，以目前文件為準：
+本目錄供**接下來新開的、仍在進行的跨對話／跨執行者工作**寫 handoff。舊的已結案交接文件已於 2026-10-28 經整理後移出主線，不需要持續追加到舊檔。
 
-- ERP 查詢：`../architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`（開頭有目前狀態總覽）
-- 叫貨：`../architecture/ORDERING_MODULE.md`
-- 目前狀態與待辦：根 `TODO.md`；各版本完成內容：根 `CHANGELOG.md`
+目前應依下列文件處理，而不是沿用過時交接：
 
-| 檔案 | 內容 | 狀態（2026-10-27） |
-| --- | --- | --- |
-| `ERP_ITEM_QUERY_BRIDGE_HANDOFF.md`／`_REPORT.md` | CYERPAutoQuery → CY Web 的 ERP 品號查詢交接與完成報告（2026-10-16，V0.7.33） | 已整併到 ERP 契約 |
-| `ERP_ITEM_QUERY_INVQ01_HANDOFF.md`／`_REPORT.md` | INVQ01 批號庫存與歷史異動（V0.7.34） | 已整併到 ERP 契約 |
-| `ERP_ITEM_NAME_SEARCH_HANDOFF.md`／`_REPORT.md` | 品名包含查詢（V0.7.36） | 已整併到 ERP 契約 |
-| `ERP_ITEM_QUERY_UI_SHELL_REPORT.md` | ERP 查詢欄位與共用頁首調整（V0.7.35） | 已被之後的 ERP 查詢頁取代 |
-| `CYWEB_ORDERING_AUTOSAVE_HANDOFF.md` | 叫貨模組 GPT ↔ Claude 交接（V0.9.29–0.9.38） | 摘要已整併到叫貨文件 |
-| `CYWEB_OPEN_PR_CLEANUP_REPORT.md` | 2026-10-23 未合併 PR 盤點 | 一次性紀錄，已完成 |
-| `images/` | 上列報告引用的畫面 | — |
+- **叫貨功能／流程**：[ORDERING_MODULE.md](../architecture/ORDERING_MODULE.md)
+- **ERP 查詢與 CYERPAutoQuery 介接**：[ERP_ITEM_QUERY_BRIDGE_CONTRACT.md](../architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md)
+- **當前狀態與未完成事項**：[根 TODO](../../TODO.md)
+- **已完成版本、歷史問題與驗證**：[根 CHANGELOG](../../CHANGELOG.md)
+- **已結案工作單的 GPT 完成與 Claude 審查原文**：[2026-10-28 前的工作單固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/development/work-orders)（§8／§9 由 Git 歷史保留，不占用現行文件目錄）
+- **未來新工作單的流程與模板**：[工作單 README](../development/work-orders/README.md)（尚未結案的工作單持續留在目錄中）
+- **已結案舊 handoff 原文與舊版截圖**：在 Git 版本歷史仍可存取，參考 [2026-10-28 清理前固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff)；此為歷史資料，不作現行規格依據。
+
+後續新工作如需交接，另建新檔並記錄該工作實際進度、驗收與剩餘事項。正式功能完成後，仍以對應架構契約、CHANGELOG 與 TODO 為準；此目錄不成為平行契約或永久規則。

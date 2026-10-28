@@ -1,11 +1,13 @@
-# CY Web 叫貨模組（WO-0.9.26 起，目前 V0.9.43）
+# CY Web 叫貨模組（WO-0.9.26 起；網站 V0.9.47，叫貨功能持續依主線更新）
+
+> **現行規格優先順序**：以最新 `main` 程式、本文較新的版本段落及 Business Decisions 為準。本文 V0.9.26～0.9.32 的版本段落描述**當時行為**，若與 V0.9.33 之後的行為不同，不能當成現行限制。逐版 PR、正式部署與測試證據參閱根 `CHANGELOG.md`；2026-10-28 前的 GPT／Claude 交接原文與截圖保留在 Git 歷史，不在 active tree 維護重複 handoff。
 
 ## 唯一資料與權限責任
 
 - 前端呈現：`src/runtime/modules/OrderingPage.tsx`，重用 `src/ui/layout/MasterDetail.tsx`，逐格輸入元件為 `src/ui/OrderingGrid.tsx`。
 - 主資料、驗證、狀態變更與稽核：`worker/http/ordering-routes.ts`，以 `ORDERING` Module Access 在每個 API 進入點驗證。不同裝置共用同一 API。
 - 狀態、草稿選擇、數量與 ERP 進貨單號：`shared/ordering.ts`。Excel 輸出：`shared/ordering-export.ts` 與 `shared/xlsx-writer.ts`。
-- Schema：`migrations/0022_ordering.sql`；既有表和欄位不直接改 Dashboard。工單半成品經檢查，維持原表名但修正應用層的邊界與驗證。
+- Schema 以 `migrations/0022_ordering.sql` 為基礎，後續受控 forward migrations 包括 `0023` 到貨 CHECK、`0024` 來源付款／個人排序、`0028` 來源註記；不可直接在 Dashboard 改正式表。
 
 ## 資料表
 
@@ -18,6 +20,7 @@
 | `ordering_vendor_items` | 相同來源＋我方品號（或品名）之廠商欄位手動值記憶 |
 | `ordering_item_last_source` | 進貨輔助下次帶入同品號上次加入的來源 |
 | `ordering_revisions` | 送出後每次內容更新記載版本、時間、操作者與變更摘要 |
+| `ordering_user_preferences` | 依登入會員保存個人廠商頁籤順序，與共用來源排序分開 |
 
 `ORDERING` 為單一 Module Access；Super Admin 按共通權限規則可用，其餘須明確授予。
 
@@ -27,27 +30,28 @@
 
 | 方法與路徑 | 功能 |
 |---|---|
-| GET/POST `/sources`、PATCH `/sources/:id` | 第一次讀取來源時冪等建立預設來源、查詢、新增、更名與停用 |
+| GET/POST `/sources`、PATCH `/sources/:id`、POST `/sources/reorder` | 預設來源冪等建立、查詢、新增、更名、付款條件／來源註記、軟隱藏／恢復與共用預設排序；不硬刪歷史 |
+| GET/PUT `/preferences/vendors`、GET `/vendors/status` | 會員個人廠商頁籤順序，以及各廠商草稿／待到貨狀態標記 |
 | GET/POST `/orders`、GET/PATCH `/orders/:id` | 清單搜尋篩選、新草稿、單據詳情、計畫送出日期與備註 |
-| POST `/orders/:id/lines` | 僅草稿可新增、刪除及編輯一列；附 `expectedVersion`，衝突回 409 `ORDERING_VERSION_CONFLICT`；送出／作廢後拒絕內容修改 |
-| POST `/orders/:id/send`、`/orders/:id/void` | 送出（實際時間與版本 1）、作廢 |
+| POST `/orders/:id/lines` | 草稿可新增、刪除、編輯及排序單列；可先保存有內容但不完整的明細，完全空白列不建立；附 `expectedVersion`，衝突回 409 `ORDERING_VERSION_CONFLICT`；送出後改走專用 revise 流程 |
+| POST `/orders/:id/send`、`/orders/:id/void`、POST `/orders/:id/revise`、DELETE `/orders/:id` | 送出（必填檢核）、作廢、已送出單明確進入修改模式後一次提交新版、僅草稿可刪除並保留 Audit；已到貨量仍限制修改與刪除 |
 | POST `/orders/:id/receipts` | 只接受合法 `341A-`+11 碼日期單號；單次多品項與剩餘量檢核 |
 | POST `/orders/:id/close` | 未到餘額設為缺貨／取消／其他（其他必填原因） |
 | GET `/pending` | 所有已送出、未結掉且仍有剩餘量的明細 |
 | GET `/vendor-memory`、GET/POST `/last-source`、GET `/item` | 廠商品號記憶、進貨輔助預設來源、最新 ERP 品號資料 |
 
-所有變更寫共用 AuditService。草稿增修只提高樂觀鎖版本，不建立修改紀錄。依使用者 2026-10-23 新指示，送出後內容固定，`PATCH /orders/:id` 與 `POST /orders/:id/lines` 均拒絕；到貨、結掉剩餘量及作廢仍保留原專用流程並同交易提交修訂。這項決策取代早期送出後可直接編輯內容的行為。
+所有變更寫共用 AuditService。草稿增修只提高樂觀鎖版本；已送出單不允許再走草稿增修路徑，但自 V0.9.38 起可由明確的「修改」模式，經 `POST /orders/:id/revise` 一次提交新版、版本鎖及修訂紀錄。到貨、結掉剩餘量、作廢仍為獨立專用操作，不得以舊草稿 API 繞過檢核。
 
 ## 逐列輸入與儲存（使用者 2026-10-21 更新）
 
-- 一般來源（`GENERAL`）與廠商（`VENDOR`）：我方品名、廠商品名擇一，加上數量，即可儲存及送出。使用者明確允許只填廠商品名與數量；廠商品號為選填。我方品號／品名不因這項規則自動填入廠商識別。
-- 定期／自訂中國貨仍需我方品名與數量；原 ERP 品號補入缺少品名、單位及廠商記憶規則保留。
+- **草稿保存**與**正式送出**分開：任一非空白輸入（如只有品號）即可保存為草稿，完整空白列不寫入；送出時一般來源（`GENERAL`）與廠商（`VENDOR`）仍須我方品名或廠商品名擇一，加上有效數量。只填廠商品名及數量可送出，廠商品號選填。
+- 定期／自訂中國貨**送出前**仍需我方品名與數量；草稿未填齊可先保存。ERP 品號補值只在符合當次欄位語意時套用，不能把使用者明確清空的單位／品名自動填回；定期中國貨仍須有來源區段。
 - `POST /orders/:id/lines` 成功回傳完整單據，另外附 `data.savedLineId`，標示本次真正儲存的明細；新列使用安全整數 ID，沿用既有 INTEGER 主鍵，不變更 schema。前端取得確認後才移除暫存列；等待期間的新輸入補寫至同一個已確認 ID，失敗保留輸入，不自動重送失敗請求。
 - 切換來源／草稿／未到貨、送出或匯出前先等待明細儲存；仍有未填完整或失敗內容時以中文對話框詢問，取消則保留原輸入。跨模組切換沿用共用未儲存保護，儲存中阻擋離開。
 - 開啟既有草稿只查來源的草稿列表與選定單據；新增草稿直接使用 POST 回應，不再重讀列表、來源、歷史及未到貨。草稿逐格儲存也不重讀這些無關列表。歷史仍由原搜尋 effect 取得，已送出單變更後仍更新歷史／未到貨。
 - 草稿詳情不查到貨／修改紀錄或逐列累加到貨量；已送出單仍使用完整查詢。保留原查詢容量限制與樂觀鎖。
 
-本輪問題、驗證、交付狀態及可編輯 ListView 評估見 [Claude handoff](../handoff/CYWEB_ORDERING_AUTOSAVE_HANDOFF.md)。
+歷次儲存失敗、Enter 鍵、讀回競態及正式驗證結果已歸入本模組的版本段落與根 `CHANGELOG.md`；原一次性交接全文可由 Git 固定提交 `b2d53cdd71c5bf9126f2976607257e892b911df5` 查閱。
 
 ## 緊湊表格與進入頁（V0.9.30，使用者確認）
 
@@ -72,7 +76,7 @@
 - 單張單據明細上限 500 列、到貨紀錄 100 筆、修改紀錄每次最多回 500 筆；超出會拒絕，不靜默截斷。
 - 左側歷史列表上限 200 筆、未到貨明細初始掃描至多 1,500 列，超過拒絕並要求縮小範圍。
 - 每次逐格只更新一張單／一列與稽核；到貨最多一次 100 列，正常產生一筆到貨主檔＋至多 100 筆到貨明細＋版本與 Audit，避免整張重寫。
-- `ordering_*` 是使用者人工輸入的業務資料，本應納入備份。但目前可攜備份 `MAX_ROWS=500`，所以依工單先列入 `EPHEMERAL_TABLES` 暫不納入可攜備份；此為正式資料風險，需在叫貨正式使用前完成 TODO 的分批備份擴容。
+- **歷史風險已解除（V0.9.36）**：叫貨 `ordering_*` 九張使用者手填業務表已納入可攜備份，不再列於 `EPHEMERAL_TABLES`；目前備份上限為 100,000 列／24 MB。正式是否啟動**排程**仍依 `TODO.md` 的使用者決定，不能把手動備份通過當成排程已開啟。
 - 本次僅於 GitHub 開發分支修改程式碼／測試；未對正式 D1/R2 執行批次資料操作，正式環境讀寫 0 列。上述為程式路徑上界，不等同 D1 計費讀取掃描量。
 
 ## 驗收注意
@@ -86,7 +90,7 @@
 - 正式 D1 的 LIKE/GLOB pattern 上限為 50 bytes；原 0022 對 ERP 單號使用 60-byte GLOB CHECK，會在到貨主檔 INSERT 失敗。前端與 Worker 已驗證日期和 11 碼數字，但 DB 仍需保留防呆。
 - 使用前置長度、固定前綴及短模式 `*[^0-9]*` 的 SQL CHECK；以 `0023_ordering_receipt_d1_glob.sql` forward migration 原封保留既有主明細的 PK／FK／索引和數量。原 0022 不修改（正式已套用）。
 - migration rebuild 順序重要：新主／新明細並複製 → DROP 舊明細 → DROP 舊主檔 → RENAME 新主／明細，避免 `ON DELETE CASCADE` 誤刪歷史。schema validator 強制 50-byte SQLite 限制並驗證資料完整性。
-- `2026-10-23` 正式 Cloudflare log 已證明 `phase=persist`、`LIKE or GLOB pattern too complex`；修正後是否可於正式端到貨成功，仍待部署與實際驗收。
+- `2026-10-23` 正式 Cloudflare log 證明 `phase=persist`、`LIKE or GLOB pattern too complex`；後續 `0023` 已經受控套用、正式到貨驗收成功。發生相似情形仍須用 requestId 與 Worker Logs 核查，不能直接重送以免重複計入。
 
 ## 到貨失敗診斷（V0.9.31）
 

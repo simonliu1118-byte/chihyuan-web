@@ -3,6 +3,7 @@
 > 各版本當時的完成內容與驗收證據，由 `TODO.md` 移出（2026-10-27 整理）。不是永久規則來源。
 > 未勾選的項目已在整理時逐項核對：已完成的（例如已部署）已勾選或不再追蹤；仍待辦或待使用者確認的，彙整在 `TODO.md`。
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
+> 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
 ## CY Web V0.9.47 — 分頁圖示與系統名稱（2026-10-28）
 
@@ -161,7 +162,7 @@
 - [x] 有到貨紀錄時置頂，無資料隱藏；到貨狀態併入明細，新增已到數量、全到綠勾／部分到黃色警告圖示。
 - [x] 草稿只留垃圾桶刪除按鈕，取消上下移動；空白尾列含輸入後清空不儲存、不阻擋送出。七欄 Enter 順序保留。
 - [x] 送出後表頭／明細皆唯讀，無尾列及刪除欄；後端同步拒絕修改／新增／刪除，保留到貨、結掉剩餘及作廢的原專用流程。
-- [x] 給 Claude 的原 [handoff](docs/handoff/CYWEB_ORDERING_AUTOSAVE_HANDOFF.md) 補範圍、改動、合成畫面與驗證證據；無 migration。
+- [x] 給 Claude 的原 [handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff/CYWEB_ORDERING_AUTOSAVE_HANDOFF.md) 補範圍、改動、合成畫面與驗證證據；無 migration。
 - [x] 本機 52 項叫貨／路由／表單回歸、typecheck／build 及 validate:source 通過；實際瀏覽器完成唯讀、勾選數量與空尾列 Enter 核對。
 - [x] 依使用者回饋加寬兩個品名欄，叫貨／已到／剩餘數量與本次到貨縮為緊湊固定寬度；Build 1，沿用同一 PR。
 - [x] 使用者批准合併並部署後，[PR #271](https://github.com/simonliu1118-byte/chihyuan-web/pull/271) 更新 head 必要 CI 全數成功並合併；原網站已由 `d219a89e709f667f19c957b23e37463db846290c` 發布 V0.9.32 Build 1，正式 health／D1／來源及 Logs 核對正常。
@@ -175,7 +176,7 @@
 - [x] [PR #269](https://github.com/simonliu1118-byte/chihyuan-web/pull/269) 已合併；使用者直接批准正式發布後，[部署 #39913713939](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39913713939) 從 `7d67d10d15e45bedadb9df1f32284090037b52a3` 成功發布原網站。
 - [x] 僅 0023 待套用且成功套用；部署前後到貨主／明細均為 0 筆，叫貨資料彙總一致、FK／原索引完整。網站來源／D1 健康、HTTPS、Custom Domain、Identity 權威檢查成功；Logs／Invocation Logs／persist 保留並有新版本事件。
 - [x] 使用者實際登記到貨，回覆「已成功，重整後紀錄與數量都正確」；唯讀回查確認一筆多品項到貨及相應 Audit／修訂紀錄，無孤兒或跨單明細。這是正式業務操作驗收，並非僅部署成功。
-- [x] 原 [Claude handoff](docs/handoff/CYWEB_ORDERING_AUTOSAVE_HANDOFF.md) 已補實際發布、資料保留、驗收與讀寫量證據；本項結案。不新增 Worker／D1，不另建 workflow 或 Release。
+- [x] 原 [Claude handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff/CYWEB_ORDERING_AUTOSAVE_HANDOFF.md) 已補實際發布、資料保留、驗收與讀寫量證據；本項結案。不新增 Worker／D1，不另建 workflow 或 Release。
 
 ## CY Web V0.9.31 — 到貨診斷（已由 Build 1 完成故障收尾）
 
@@ -188,7 +189,7 @@
 - [x] Enter 完整逐格：品號→品名→廠商品號→廠商品名→數量→單位→備註→下一列品號；取消數量跳下一列的舊快捷操作。
 - [x] 進入叫貨預設未到貨，不預選來源、不自動開草稿。表格下方兩行狀態／說明移除。
 - [x] 右側標題下原自動儲存位置顯示轉圈儲存中、已儲存、紅字儲存失敗；明細與表頭均納入，失敗保留輸入。
-- [x] [Claude handoff](docs/handoff/CYWEB_ORDERING_AUTOSAVE_HANDOFF.md) 更新本輪範圍、檔案責任及取代的舊行為。
+- [x] [Claude handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff/CYWEB_ORDERING_AUTOSAVE_HANDOFF.md) 更新本輪範圍、檔案責任及取代的舊行為。
 - [x] 最終本機 43 項叫貨／路由／鍵盤測試、build、validate:source 通過；本機瀏覽器完成輸入／失敗重試／重開驗證，畫面見 handoff。
 - [x] [PR #265](https://github.com/simonliu1118-byte/chihyuan-web/pull/265) 必要 CI 全數通過並合併，主線 `b75b9ac`。
 - [x] 原 CYWEB [部署 #39631658692](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39631658692) 成功，來源 `b75b9ac`；版本／D1 健康、HTTPS／靜態資源、正式網域與 Identity 權威檢查通過。證據已補進 handoff。
@@ -196,7 +197,7 @@
 
 ## 2026-10-23 未合併 PR 盤點
 
-- [x] 逐項確認 38 個 Open PR：34 個早期 Draft 的提交已完整在 main；#9 僅舊版本號、#24 核准設計已帶入且舊預覽淘汰、#151 核心已由 #192 移植。證據與各 head 見 [盤點交接](docs/handoff/CYWEB_OPEN_PR_CLEANUP_REPORT.md)。
+- [x] 逐項確認 38 個 Open PR：34 個早期 Draft 的提交已完整在 main；#9 僅舊版本號、#24 核准設計已帶入且舊預覽淘汰、#151 核心已由 #192 移植。證據與各 head 見 [盤點交接](https://github.com/simonliu1118-byte/chihyuan-web/blob/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff/CYWEB_OPEN_PR_CLEANUP_REPORT.md)。
 - [x] 上述 37 個已涵蓋／取代的舊 Draft 全部關閉；獨立回讀確認 37 Closed／1 Open，原 head／分支均保留。網站程式、版本與正式資料未改，未部署。
 - [x] 盤點當時另保留 [#267](https://github.com/simonliu1118-byte/chihyuan-web/pull/267) 待處理；之後已獨立合併部署，並由 #269 修復根因、正式驗收完成。歷史盤點報告保留當時狀態，本項現況以上方 V0.9.31 Build 1 為準。
 
@@ -205,7 +206,7 @@
 - [x] 使用者確認一般／廠商來源可只填廠商品名＋數量儲存及送出；我方品號／品名保持獨立。前後端驗證一致，保留定期／自訂中國貨原必填規則。
 - [x] 新列等待儲存時補填的欄位更新同一列；取得 API 確認才清除暫存，失敗保留；切換／送出／匯出前檢查明細，沿用共用跨模組離開保護。
 - [x] 草稿載入與逐格儲存移除重複 refresh，後端草稿不查不適用的到貨／修訂資料，保留原權限及版本鎖。
-- [x] 依使用者要求建立 [給 Claude 的 handoff](docs/handoff/CYWEB_ORDERING_AUTOSAVE_HANDOFF.md)，含上一輪 Enter 修正、本輪修改、驗證與交付狀態。
+- [x] 依使用者要求建立 [給 Claude 的 handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff/CYWEB_ORDERING_AUTOSAVE_HANDOFF.md)，含上一輪 Enter 修正、本輪修改、驗證與交付狀態。
 - [x] 本機叫貨／路由／鍵盤 36 項測試、build、validate:source 通過。
 - [x] [PR #262](https://github.com/simonliu1118-byte/chihyuan-web/pull/262) 最終提交必要 CI 全數通過並合併，主線 `d77a05e`。
 - [x] 原 CYWEB 網站 [部署 #39626518329](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39626518329) 成功，來源 `d77a05e`；來源版本／D1 健康、HTTPS／靜態資源、正式網域及 Identity 權威檢查通過。證據已補入 Claude handoff。
@@ -226,7 +227,7 @@
 - [x] 已送出單的到貨狀態、到貨紀錄、修改紀錄改成表格；未到貨明細改成表格；對話框按鈕移到底部。
 - [x] 叫貨明細列的刪除／上下移改為同一行，列高不再撐高。
 
-## CY Web V0.9.27 — 全系統表單改用共用欄位元件（[WO-0.9.27](docs/development/work-orders/WO-0.9.27.md)；已審查）
+## CY Web V0.9.27 — 全系統表單改用共用欄位元件（[WO-0.9.27](https://github.com/simonliu1118-byte/chihyuan-web/blob/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/development/work-orders/WO-0.9.27.md)；已審查）
 
 - [x] GPT 依工作單把其餘表單改用 `Field`／`FormSection`：必填＊、一次提醒、依長短排版；新增 `form-fields.test.mjs` 自動檢查。
 - [x] 審查、截圖、合併部署。
@@ -240,7 +241,7 @@
 - [x] 使用者確認樣式（2026-10-21）；規則寫入 PROJECT_RULES §5。其他表單見下方 0.9.27。
 ## CY Web V0.9.26 — 叫貨模組（WO-0.9.26；已審查）
 
-- [x] GPT 依 [WO-0.9.26](docs/development/work-orders/WO-0.9.26.md) 實作（分支 `cyweb/ordering`，建立在 PR #252 之上；含前一位執行者的半成品）。第 2 次審查通過（審查者修正 1 項，見工作單 §9.2），與 #252 一起合併部署（使用者 2026-10-21）。
+- [x] GPT 依 [WO-0.9.26](https://github.com/simonliu1118-byte/chihyuan-web/blob/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/development/work-orders/WO-0.9.26.md) 實作（分支 `cyweb/ordering`，建立在 PR #252 之上；含前一位執行者的半成品）。第 2 次審查通過（審查者修正 1 項，見工作單 §9.2），與 #252 一起合併部署（使用者 2026-10-21）。
 
 ## 待辦：可攜備份擴充（使用者 2026-10-21：列入 TODO，之後在 CY Web 對話處理）
 
@@ -248,7 +249,7 @@
 
 - [ ] 現行 `worker/backup/portable-backup.ts` 是基礎版（隔離演練用）：全部資料一次查詢匯出、一次批次還原，總列數上限 `MAX_ROWS = 500`、5 MB；儲存格只接受文字、整數、null（小數會 `BACKUP_UNSUPPORTED_CELL`）。上限是為了單一查詢／單一批次的大小與時間限制而保守設定，不是 Cloudflare 免費額度問題。
 - [ ] 擴充：改為依資料表分批匯出與分批還原，仍維持同一時間點（例如 D1 Time Travel 書籤）與「全部成功才算數」；支援小數；上限提高到數萬列以上。
-- [ ] 擴充後把目前列在 `EPHEMERAL_TABLES` 的使用者手打資料移回備份：叫貨模組（WO-0.9.26 的 `ordering_*` 表）。進貨輔助的 `erp_sales_*` 可由 ERP 重建，是否納入再決定。
+- [x] （歷史待辦，V0.9.36 已完成）使用者手填的叫貨 `ordering_*` 業務資料已移出 `EPHEMERAL_TABLES` 並納入備份。進貨輔助的 `erp_sales_*` 可由 ERP 重建，是否納入再決定。
 - [ ] 需在開啟每日自動備份排程（見「上線前提醒：啟用自動備份排程」）、叫貨模組正式使用之前完成。
 
 ## CY Web V0.9.25 Build 2 — 進貨輔助第二版（Claude 直接處理）
@@ -297,7 +298,7 @@
 ## CY Web V0.9.24 Build 0 — 人事第二期 2a：排班與出勤（WO-0.9.24；已審查）
 
 - [x] BD-060 第二期規則定案（2026-10-20）；設計文件 §5 更新。
-- [x] [WO-0.9.24 工作單](docs/development/work-orders/WO-0.9.24.md)：門市、職稱、班別、國定假日、月排班表（雙週跨月、自動例休、合法性檢查、列印）、出勤輸入與異常。
+- [x] [WO-0.9.24 工作單](https://github.com/simonliu1118-byte/chihyuan-web/blob/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/development/work-orders/WO-0.9.24.md)：門市、職稱、班別、國定假日、月排班表（雙週跨月、自動例休、合法性檢查、列印）、出勤輸入與異常。
 - [ ] 2b 工作單（請假與附檔、特休扣抵與遞延、加班確認與補休、國定假日換休帳戶、書面通知）於 2a 審查後開立。
 
 ## CY Web V0.9.23 Build 0 — 系統與安全細修（Claude 直接處理）
@@ -318,20 +319,20 @@
 
 ## CY Web V0.9.21 Build 0 — Cloudflare 用量巡檢（WO-0.9.21；已審查）
 
-- [x] [WO-0.9.21 工作單](docs/development/work-orders/WO-0.9.21.md)：超級管理員查看全帳號 D1 今日與近 7 天讀寫量，70%／90% 警示列；不做 Email。
+- [x] [WO-0.9.21 工作單](https://github.com/simonliu1118-byte/chihyuan-web/blob/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/development/work-orders/WO-0.9.21.md)：超級管理員查看全帳號 D1 今日與近 7 天讀寫量，70%／90% 警示列；不做 Email。
 - [ ] 使用者在 Cloudflare 建立只讀 token（Account Analytics: Read、D1: Read），存為 GitHub secret `CF_USAGE_API_TOKEN`（deploy workflow 傳遞已由審查者補上）；設定後重新部署並實機確認。
 - [x] 2026-10-20 已設定 token 並重新部署（run 39365575767），實機顯示全帳號用量正常。
 - [x] 審查通過，審查者修正 5 項（見工作單 §9）。
 
 ## CY Web V0.9.20 Build 0 — 人事模組第一期（WO-0.9.20；已部署）
 
-- [x] [WO-0.9.20 工作單](docs/development/work-orders/WO-0.9.20.md)：人事主檔、使用者綁定、狀態異動、週年制年資特休、薪資異動、津貼與最低工資設定、證號保護及稽核。
+- [x] [WO-0.9.20 工作單](https://github.com/simonliu1118-byte/chihyuan-web/blob/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/development/work-orders/WO-0.9.20.md)：人事主檔、使用者綁定、狀態異動、週年制年資特休、薪資異動、津貼與最低工資設定、證號保護及稽核。
 - [x] 第二次審查通過：Node 測試 153/153、畫面依 §9 B 區由審查者改寫並截圖驗收。
 - [x] PR #221 合併 `c342e21`；部署 run 39347135492（#370，success）。2026-10-19 首次部署（run 39281112381）因 Cloudflare 帳號 D1 每日讀取額度被 CYACC 作業用盡而在遠端變更前失敗，額度重置後重新部署。
 
 ## CY Web V0.9.19 Build 0 — 我的帳號與說明文字細修（WO-0.9.18；已部署）
 
-- [x] [WO-0.9.18 工作單](docs/development/work-orders/WO-0.9.18.md)：我的帳號設定卡、密碼與 Email 視窗、全站說明文字清理；PR #220 已審查。版本號改為 0.9.19（0.9.18 已由 PR #218 使用）。
+- [x] [WO-0.9.18 工作單](https://github.com/simonliu1118-byte/chihyuan-web/blob/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/development/work-orders/WO-0.9.18.md)：我的帳號設定卡、密碼與 Email 視窗、全站說明文字清理；PR #220 已審查。版本號改為 0.9.19（0.9.18 已由 PR #218 使用）。
 - [x] PR #220 合併 `fce11c5`；部署 run 39263519808（#321，success）。PR #218（0.9.18）部署 run 39234445296（#319，success）。
 
 ## CY Web V0.9.18 Build 0 — ERP 銷貨銷退／進貨退貨清單與視窗
@@ -352,27 +353,27 @@
 ## CY Web V0.9.16 Build 0 — 介面細修（已部署）
 
 - [x] PR #216 合併 `38c40b1`；部署 run 39224596556（#315，success）。
-- [x] [WO-0.9.16 工作單](docs/development/work-orders/WO-0.9.16.md)：設定及修改紀錄圖示、ERP 稽核篩選與文字、清單密度、選單及協力廠商用詞。
+- [x] [WO-0.9.16 工作單](https://github.com/simonliu1118-byte/chihyuan-web/blob/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/development/work-orders/WO-0.9.16.md)：設定及修改紀錄圖示、ERP 稽核篩選與文字、清單密度、選單及協力廠商用詞。
 
 ## CY Web V0.9.15 Build 0 — 商品頁精簡與跨模組瑕疵／報價紀錄（已部署）
 
-- [x] [WO-0.9.15 工作單](docs/development/work-orders/WO-0.9.15.md)：商品清單／明細精簡、BD-058 直接換成基準單位、瑕疵與報價跨模組共用表單及摘要卡、含 id 的分享連結。
+- [x] [WO-0.9.15 工作單](https://github.com/simonliu1118-byte/chihyuan-web/blob/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/development/work-orders/WO-0.9.15.md)：商品清單／明細精簡、BD-058 直接換成基準單位、瑕疵與報價跨模組共用表單及摘要卡、含 id 的分享連結。
 - [x] PR #214 合併 `a8352fe`；部署 run 39215572767（#311，success）。
 - [ ] 此版本僅開 PR 交審查；正式合併／部署／真實 UI 截圖驗收由審查者辦理。
 
 ## CY Web V0.9.14 Build 0 — 客戶編號與多品項報價（已部署）
 
-- [x] [WO-0.9.14 工作單](docs/development/work-orders/WO-0.9.14.md)：客戶編號呈現、相關紀錄新增／查看全部、商品搜尋、單次多品項報價（每商品一紀錄、同商品多級距）、批次原子寫入與品號顯示規範。
+- [x] [WO-0.9.14 工作單](https://github.com/simonliu1118-byte/chihyuan-web/blob/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/development/work-orders/WO-0.9.14.md)：客戶編號呈現、相關紀錄新增／查看全部、商品搜尋、單次多品項報價（每商品一紀錄、同商品多級距）、批次原子寫入與品號顯示規範。
 - [x] PR #212 合併 `85e20f0`；部署 run 39209010837（#294，success）。
 
 ## CY Web V0.9.13 Build 0 — 異動紀錄人性化與工具連結
 
-- [x] [WO-0.9.13 工作單](docs/development/work-orders/WO-0.9.13.md)：CYID 姓名顯示快取、異動紀錄中文摘要與篩選／欄位變更抽屜、客戶管理員專屬修改紀錄，以及網頁程式外部工具入口。PR #208 審查通過（2026-10-19，紀錄見工作單 §9）。
+- [x] [WO-0.9.13 工作單](https://github.com/simonliu1118-byte/chihyuan-web/blob/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/development/work-orders/WO-0.9.13.md)：CYID 姓名顯示快取、異動紀錄中文摘要與篩選／欄位變更抽屜、客戶管理員專屬修改紀錄，以及網頁程式外部工具入口。PR #208 審查通過（2026-10-19，紀錄見工作單 §9）。
 - [x] PR #208 已於 2026-10-19 合併（commit `6c490196`）；CY Web Deploy [run 39183836960](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/39183836960) 同提交正式部署成功；使用者實機驗收仍待完成。
 
 ## CY Web V0.9.12 Build 0 — 客戶紀錄卡片與介面一致性
 
-- [x] [WO-0.9.12 工作單](docs/development/work-orders/WO-0.9.12.md)：拜訪／報價／常用商品改三張唯讀摘要卡片與各自專屬視窗；客戶最後修改者；個人選單精簡；共用台北日期顯示；標題說明與模組設定大視窗。
+- [x] [WO-0.9.12 工作單](https://github.com/simonliu1118-byte/chihyuan-web/blob/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/development/work-orders/WO-0.9.12.md)：拜訪／報價／常用商品改三張唯讀摘要卡片與各自專屬視窗；客戶最後修改者；個人選單精簡；共用台北日期顯示；標題說明與模組設定大視窗。
 - [x] PR #207 審查通過並合併 `101de07`，CY Web Deploy #269（run 39144743035）部署成功。
 - [ ] 使用者實機驗收。
 

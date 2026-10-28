@@ -2,7 +2,9 @@
 
 工作單是 `REPOSITORY_RULES.md` §11.4（本 repo `PROJECT_RULES.md` §9 指向它）的交接文件，**只有在使用者指示 Claude 開立工作單轉交 GPT 製作時才使用**：Claude 討論定案後撰寫 → 使用者轉交 GPT 執行並填「完成報告」→ Claude 審查。一個版本一張，檔名 `WO-<版本>.md`（例如 `WO-0.9.13.md`）。工作單描述需求與狀態，不是規則來源；規則仍以 `REPOSITORY_RULES.md`、`REPO_POLICY.md`、`PROJECT_RULES.md`、Business Decisions 為準。
 
-**交接索引**：[CY Web GPT→Claude 工作紀錄索引](../../handoff/README.md)。已完成工作單的 §8（GPT 交付）與 §9（Claude 審查）保留原始歷史；頁首僅列最新一次核對的 PR 狀態。§0 的「不得合併／部署」是該次執行者權限界線，不是永久禁止後續經審查部署。實際現況依 [根 TODO](../../../TODO.md) 與 GitHub 即時狀態。
+**結案工作單的保存方式（使用者 2026-10-28 核准）**：共通規則 §11.4 要求**執行及審查期間**在同一工作單記錄需求、§8 GPT 完成報告、§9 Claude 審查紀錄；通過審查及合併、正式規格與剩餘待辦同步後，已結案版本可移出 active tree。原文、原始 §8／§9 與 PR 證據**必須由 Git 固定 SHA 保留**，不可改寫歷史；本次移除的 12 份已結案 `WO-0.9.12～0.9.27` 文件可於 [清理前固定工作單快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/development/work-orders) 找回。原單 §0「不合併／部署」只描述執行當時的權限，不得反推現行狀態。
+
+**後續新工作**：進行中／待審查／需修正的工作單繼續保留在本目錄（含 §8／§9）；完成後先核對現行 [架構規格](../../architecture/README.md)、[TODO](../../../TODO.md)、[CHANGELOG](../../../CHANGELOG.md) 及 PR／部署證據，再於文件整理 PR 移出主線。不得直接刪除未審查或仍含獨有未完成需求的工作單。[新 handoff 入口](../../handoff/README.md) 與工作單依用途分開。
 
 ## 格式
 
