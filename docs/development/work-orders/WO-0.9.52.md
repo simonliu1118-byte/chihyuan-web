@@ -1,7 +1,7 @@
 # WO-0.9.52 門市「庫存盤點」：盲盤、複盤、寫回 ERP（第一階段）
 
-- 狀態：待執行
-- 分支：cyweb/store-stocktake　PR：#<編號>（執行者填）
+- 狀態：GPT 實作與離線驗收完成，**待 Claude 最終審查**（不合併、不部署）
+- 分支：cyweb/store-stocktake　PR：#307（實作）；原規格 PR #306
 - 對應：CYapps `apps/CYERPAutoQuery/docs/work-orders/WO-1.3.0.md`（ERP 端，同一份協定）
 - 版號：0.9.52 Build 0；若開工時 0.9.52 已被其他 PR 使用，順延到下一個未用版號並在完成報告註明。
 
@@ -120,17 +120,17 @@
 - 桌機 1440：清單＋初盤中明細（看不到帳面）、第一次確認後（帳面、差異、鎖定列）、複盤中、寫回失敗畫面。
 - 手機 390：初盤填寫、新增批號。
 
-## 8. 完成報告（執行者填）
+## 8. 完成報告（GPT，2026-10-29）
 
-> **執行中紀錄（2026-10-29），不是已驗收完成報告。** 本工單尚未解除 Draft，Claude 不應將本節視為可合併批准。
+**工單已完成程式與離線驗收，交 Claude 審核；未合併、未部署、未連正式 Cloudflare 或 ERP。**
 
-- 執行 PR：[Draft #307](https://github.com/simonliu1118-byte/chihyuan-web/pull/307)；基準是原工單 #306 最新 commit `be85abdd5d6da17857394cc2f4dd75e3f3774966`。
-- 已提交：Migration 0030、四張 D1 庫存盤點資料表及可攜備份；`STORE_STOCKTAKE` 權限；COUNTING 盲盤 API、逐列 version 樂觀鎖、編輯人及獨立歷史、管理員兩次確認、ERP STOCKTAKE_SYNC/WRITE claim／progress／complete／逾時／人工重寫；門市第二頁籤及 390/1440 響應式 CSS 初稿。
-- 安全補強：ERP 全表核對未寫入列亦檢查、嚴格核對新增批號 `erpSeq`、失敗不標 DONE、逐列數量不寫共用 Audit、取消忽略的空白底稿可同步；每張底稿以 JSON1 單次 bulk insert 減少 D1 批次語句量。
-- 已建立 **17 項**真 Worker＋合成 Node SQLite 回歸測試，由現有 Runtime Check runner 觸發（含 3000 列上限／3001 拒絕、零寫回列仍須 ERP 確認）。最新完整 CI 以 Draft #307 的最終 HEAD 為準，不以舊版成功代替。
-- **實際 CI 驗證**：程式及測試 SHA `1ed51608b5ca529e9f79cb9cdee7cb9e7fcb05c0` 的 [Runtime Check #40748024167](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40748024167) **success**，四個 job 全部通過（含 17 項 synthetic Worker／SQLite 盤點測試及本機 D1 acceptance）。此後若只是文件更新，仍以最新 PR HEAD 重新核對。
-- **尚未完成**：真實 App 的 1440px／390px 截圖、Cloudflare D1 真實 30 秒／900KiB 邊界壓測、`node --test scripts/*.test.mjs` 全套命令的獨立執行證據、CYERPAutoQuery 1.3.0 真實 ERP 互通（屬另一張工單）；尚未經 Claude 最終審查。
-- 詳細逐檔變更、CI、風險、阻擋：`docs/handoff/CYWEB-WO-0.9.52-STOCKTAKE-CLAUDE-REVIEW.md`。
-- **本輪無任何合併、部署、Cloudflare D1/R2/GCS/Worker 寫入或 ERP 真交易。**
+- **PR／基準**：[CYWEB PR #307](https://github.com/simonliu1118-byte/chihyuan-web/pull/307) 基於原 [工單 PR #306](https://github.com/simonliu1118-byte/chihyuan-web/pull/306) 四筆最新定案；V0.9.52 Build 0。最新程式提交 `61d2ff7d95649e8c4fe598afe7eb0710f3f80a4d`（後續為 handoff／本報告）。
+- **程式**：Migration 0030 四張表、permission-driven 門市盤點頁籤，Worker 真盲盤／多人 version／批號新增／兩次主管確認與逐列 Audit 分離、ERP sync/write claim/progress/complete、失敗／逾時與人工重寫、3000 列 JSON1 批次匯入、可攜備份；手機版底稿下拉，失敗回報中文逐列摘要而非 JSON。
+- **驗證**：[Runtime Check #40750528573](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40750528573) 五個 jobs 全部 **success**，Worker／browser 型別、source contracts、本機 D1、Vite build、完整 `node --test scripts/*.test.mjs` **399/399 pass／0 fail**；盤點專用 synthetic Worker+SQLite 17 tests。
+- **視覺**：真 Chromium Render 實際 `StoreStocktake` React 元件與正式 CSS，假 API 下 1440×900 四場景（初盤、一次確認、複盤、寫回失敗），390×844 三場景（初盤、新增批號、複盤）。[視覺 artifact ID 12844265324](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40750528573)；檢查無水平捲軸，初盤不傳帳面，複盤差異正常。屬元件級合成畫面，不是正式登入完整 App Shell。
+- **安全**：批號序號核對、INVR11 全表 mismatch（含未寫入列）、confirmed=false 不得當 DONE、共用 Audit 不記錄 ERP 逐列數量、中文 Audit labels、三筆 ERP 排程上限、單張 JSON1 bulk 受限於 900 KiB。正式 DB／Worker／R2／GCS、真 ERP 完全未變更。
+- **跨 repo**：CYERPAutoQuery [WO-1.3.0／PR #565](https://github.com/simonliu1118-byte/CYapps/pull/565) 與本工單共用 ERP claim/complete 協定已核對一致，但不在本 PR 實作 Windows Agent。
+- **真實操作外部驗證仍待授權**：Cloudflare D1 200 張 × 最多 3000 列的正式性能與用量，CYID 正式登入／整站 E2E，Windows ERP INVR11／INVI14／INVI06 真寫回。第二階段 ERP 盈虧／清除與 CYWEB 快照保留仍依 WO §2.13 另案辦理。這些都不能用 synthetic CI 冒充已驗證。
+- **完整 handoff**：`docs/handoff/CYWEB-WO-0.9.52-STOCKTAKE-CLAUDE-REVIEW.md` §1～§8（逐檔修改、17 專用測試、399 全量測試、七張圖、外部風險、Claude 待審事項）。
 
 ## 9. 審查紀錄（審查者填）
