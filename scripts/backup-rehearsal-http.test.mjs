@@ -67,9 +67,18 @@ test("missing or foreign Origin, malformed JSON, oversized and incomplete/spoofe
   }
 });
 test("used targets and provider failures return stable safe errors without automatic retry", async () => {
-  for (const failure of ["BACKUP_TARGET_NOT_EMPTY", "sensitive-provider-details"]) {
+  for (const failure of ["BACKUP_TARGET_NOT_EMPTY", "BACKUP_TABLE_COVERAGE_MISMATCH", "BACKUP_COLUMNS_MISMATCH", "BACKUP_ISOLATED_RECOVERY_FAILED", "sensitive-provider-details"]) {
     const f = fixture({ failure }), response = await f.run(); assert.equal(response.status, 409);
-    const body = await response.json(); assert.equal(body.error.code, failure === "BACKUP_TARGET_NOT_EMPTY" ? failure : "BACKUP_RECOVERY_UNAVAILABLE");
+    const body = await response.json(); assert.equal(body.error.code, failure.startsWith("BACKUP_") ? failure : "BACKUP_RECOVERY_UNAVAILABLE");
     assert.ok(!JSON.stringify(body).includes("sensitive-provider-details")); assert.equal(f.calls.length, 1);
   }
+});
+
+test("incompatible old recovery target explains schema mismatch without leaking resource IDs", async () => {
+  const f = fixture({ failure: "BACKUP_TABLE_COVERAGE_MISMATCH" });
+  const response = await f.run(), body = await response.json();
+  assert.equal(response.status, 409);
+  assert.equal(body.error.code, "BACKUP_TABLE_COVERAGE_MISMATCH");
+  assert.match(body.error.message, /結構.*不一致/);
+  assert.match(body.error.message, /不可|保留|新版/);
 });
