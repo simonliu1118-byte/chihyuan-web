@@ -1051,7 +1051,10 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
         entityType: "erp_item_query", entityKey: row.id, action: "erp_item_query.completed",
         actorEmployeeId: row.owner_member_id, requestId, statusFrom: "RUNNING", statusTo: result.status,
         metadata: { queryType:row.query_type, itemNo:row.query_type === "ITEM_NO" ? row.item_no : null,
-          keyword:row.keyword, code:row.target_code, scope:row.receivable_scope,
+          // Stocktake keyword carries the complete write payload with quantities; never
+          // duplicate it into the long-lived common Audit event.
+          keyword:row.query_type === "STOCKTAKE_SYNC" || row.query_type === "STOCKTAKE_WRITE"
+            ? null : row.keyword, code:row.target_code, scope:row.receivable_scope,
           resultCount:result.resultCount, truncated:result.truncated,
           outcome:result.status, elapsedMs:result.elapsedMs,
           includeHistory:row.include_history===1,historyFrom:row.history_from,historyTo:row.history_to },
