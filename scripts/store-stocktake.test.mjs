@@ -262,3 +262,46 @@ test("WRITE empty rows still requires INVR11/INVI06 confirmation",async()=>{
    assert.equal((await f.sheet()).data.sheet.status,"ERP_CONFIRMED");
  }finally{f.sql.close()}
 });
+
+
+test("running WRITE 3600-second timeout releases WRITING and requires an explicit supervisor retry",async()=>{
+ const f=fixture();try{
+   const {id}=await prepareWrite(f);
+   f.sql.prepare("UPDATE erp_item_queries SET started_at='2020-01-01T00:00:00.000Z' WHERE id=?").run(id);
+   const poll=await f.agent("/item-queries/claim",{agentVersion:"synthetic",erpState:"BROWSE",
+      queryTypes:["STOCKTAKE_WRITE"]});
+   assert.equal(poll.status,200,JSON.stringify(poll));
+   assert.equal(f.sql.prepare("SELECT status,error_code FROM erp_item_queries WHERE id=?").get(id).status,"FAILED");
+   const sheet=(await f.sheet()).data.sheet;
+   assert.equal(sheet.status,"WRITE_FAILED");
+   assert.match(JSON.stringify(sheet.writeResult),/逾時/);
+   const retry=await f.user("/990001/retry-write","POST",{expectedVersion:sheet.version});
+   assert.equal(retry.status,200,JSON.stringify(retry));
+   assert.equal((await f.sheet()).data.sheet.status,"WRITING");
+ }finally{f.sql.close()}
+});
+test("pre-existing untouched COUNTING sheet may refresh only before any counts are entered",async()=>{
+ const f=fixture();try{
+   f.insert();
+   let refreshed=await f.user("/990001/refresh","POST");
+   assert.equal(refreshed.status,200,JSON.stringify(refreshed));
+   let claimed=await f.agent("/item-queries/claim",{agentVersion:"synthetic",erpState:"BROWSE",
+      queryTypes:["STOCKTAKE_SYNC"]});
+   assert.equal(claimed.status,200,JSON.stringify(claimed));
+   assert.equal(claimed.data.job.onlySheet,"990001");
+   const complete=await f.agent("/item-queries/"+refreshed.data.id+"/complete",{
+     outcome:"FOUND",sheets:[{sheetNo:"990001",date:"2026-10-28"}],
+     details:[{sheetNo:"990001",rows:[f.row("00001","B1","5")]}],
+     elapsedMs:35,agentVersion:"synthetic"
+   });
+   assert.equal(complete.status,200,JSON.stringify(complete));
+   let d=(await f.sheet()).data;
+   assert.equal(d.lines.length,1,"missing original line must disappear on an approved unfilled refresh");
+   assert.equal(JSON.stringify(d).includes("bookQty"),false);
+   assert.equal((await f.user("/990001/line","PATCH",{
+     lineKey:d.lines[0].lineKey,expectedVersion:d.lines[0].version,quantity:"5"
+   })).status,200);
+   refreshed=await f.user("/990001/refresh","POST");
+   assert.equal(refreshed.status,409,"filled count cannot be overwritten by ERP reimport");
+ }finally{f.sql.close()}
+});
