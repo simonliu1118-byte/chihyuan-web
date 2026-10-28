@@ -1,6 +1,6 @@
 # CYWEB Governance 1.1.24 — GPT → Claude handoff
 
-- **狀態：待 Claude 審查；不合併、不部署。**
+- **狀態：Claude 審查完成——需修正（見 §5）；不合併、不部署。**
 - 日期：2026-10-28；分支：`governance/cyweb-handoff-claude-20261028`
 - 此為使用者指定的 CYWEB 交接／審查工作程序治理 PR，與應用修正 [PR #300](https://github.com/simonliu1118-byte/chihyuan-web/pull/300) 分開。
 - 規則來源仍是 `PROJECT_RULES.md`、`REPO_POLICY.md`、`REPOSITORY_RULES.md`，本 handoff 只是交接、驗證及審查紀錄。
@@ -38,10 +38,15 @@
 
 ## 5. Claude 審查紀錄（僅 Claude 填寫）
 
-- 審查日期：
+- 審查日期：2026-10-28
 - 審查者：Claude
-- 審查的 PR head SHA：
-- 結論：**待審查**（通過／需修正／阻擋合併）
+- 審查的 PR head SHA：`84e3fc7278e80ae4687e99092f8585529fe03370`（與 #300 `1a66850905177fcbdadce44eabe4c4f2b52476ea` 同輪審查）
+- 結論：**需修正**（隨 #300 R3 一併修正；#300 未通過前本 PR 亦不合併）
 - 驗證與意見：
-- Claude 直接修正與 GPT 返修紀錄：
-- 是否可交使用者核准合併：
+  - §9.1 與 `REPOSITORY_RULES.md` §11.4、work-orders README 相容。它明確不擴大 §11.4，handoff 定位為交接紀錄，不是第四層契約。可接受。
+  - Workflow：`rotate-recovery` 僅 main 手動 dispatch 可進入部署 job，沿用 `cyweb-production`（不取消）鎖與 `development` environment。inputs 經 env 傳入，無 shell injection；一般 deploy／push 行為不變。source guard 先於 `verify-deployment-source.mjs` 及任何遠端操作，測試有斷言順序。
+  - **需修正（對應 #300 handoff R3）**：job 內 `provision-backup-recovery.mjs` 在 `wrangler d1 migrations apply DB` 之前執行。若該次 main 含未套用的 migration，輪替必因 DDL 不符失敗並留下孤兒 D1。須在建立新 D1 前確認主 D1 `d1_migrations` 與 repo 完全一致（建議在 #300 引擎實作，並在本 PR 補 workflow／測試對應），或把 rotate 放到 migration apply 之後且仍保留建立前檢查。
+  - 不含正式資源識別、Secret 或個資。
+  - CI：最新 head 全部 success，deploy skipped。本機 typecheck 與測試 329 pass（唯一失敗為 worktree 缺 `.tmp` 的環境問題，main 上通過）。
+- Claude 直接修正與 GPT 返修紀錄：Claude 未直接修改（使用者指示交回 GPT 修正）。待 GPT 修正後複審。
+- 是否可交使用者核准合併：**否**，待 #300／#301 複審通過；順序仍為 #300 先、#301 後。
