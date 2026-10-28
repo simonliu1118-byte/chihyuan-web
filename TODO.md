@@ -34,12 +34,14 @@
 | 清理 / 上線 | 核對 fixture/account 清單、受控清理與 first-release gates | 驗收後確認，不自動刪除或 production cutover |
 
 
-## 2026-10-28 隔離還原異常（待唯讀查證）
+## 隔離還原：正式唯讀診斷與後續（2026-10-28）
 
-- [ ] 使用者於備份管理點「驗證隔離還原」出現「隔離還原未完成；請先更新紀錄，不要直接重送」，按「更新紀錄」仍看不到驗證結果。截圖顯示 2026/10/28 15:43 手動備份 1,126 筆／245.1 KB，但**不可由截圖推定所選來源或隔離資料庫是否已寫入**。
-- [ ] 確認失敗階段與目標：唯讀核對正式 `RECOVERY_DB` 綁定、與主 D1 分離、目標的 schema／migration 到 0029 與否及是否已使用；查對應時間的 Worker requestId／Invocation Logs、`backup.rehearsal.started/verified/failed` Audit 與 `pre_restore` 安全備份紀錄。**不得自動重試、重建／清空已使用的隔離目標、切換綁定或異動正式資料**。
-- [ ] 程式／部署證據：`worker/http/backup-routes.ts` 把未列入白名單的失敗都回 `BACKUP_RECOVERY_UNAVAILABLE`／通用中文訊息；`loadBackupHistory` 只列 `backup_sets`／`backup_copies`，沒有隔離還原結果，因此「更新紀錄」不會顯示演練狀態。[V0.9.45 部署 #40629706921](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40629706921) 已先回報 `RECOVERY_USED_TARGET_PRESERVED`，同一執行後續只將 `0029_store_customer_orders.sql` 套用到**主 D1**；[V0.9.47 部署 #40636481484](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40636481484) 再次回報 `RECOVERY_USED_TARGET_PRESERVED`。因此可確認這兩次部署均**跳過隔離目標的 migration**，強烈支持其 schema 落後於主 D1 的假設（仍須唯讀讀回目標確認）。`scripts/provision-backup-recovery.mjs` 用所有業務表的 `EXISTS` 判定已使用，可能把 Migration 自帶的 HR 基本資料誤認為還原完成；此判斷缺陷由程式碼可確認。**目標實際版本尚未核實**；若仍停在 0029 之前，`BACKUP_TABLE_COVERAGE_MISMATCH` 可能被通用訊息遮蔽，不能直接斷定就是本次根因。
-- [ ] 後續修正須提供不洩漏正式資料的階段／錯誤代碼、可查詢的隔離驗證紀錄，並保持空白目標與雙重確認等復原安全界線；待授權、驗證後另行部署與實機驗收。
+- [x] **唯讀診斷完成**：正式 Worker 為 `cyweb-dev`（綁定 `DB` 與 `RECOVERY_DB` 為不同 D1），主 D1 已套用 migration 0029，原隔離 D1 僅到 0014，缺 45 張業務表；隔離庫有非種子資料及 2026/10/18 的已驗證演練 Audit，**必須視為已使用歷史復原副本並保留**。已排除「本次只因 HR Migration 預設資料誤判已使用」的推論。
+- [x] 2026/10/28 15:46:34、15:46:54 兩筆演練請求回 409；該時段沒有 `backup.rehearsal.*` 或新的 `pre_restore` 安全備份。若來源 `loadVerified` 成功，`validateEmptyBackupTarget` 的表覆蓋比對必然在還原寫入前拋 `BACKUP_TABLE_COVERAGE_MISMATCH`；**當次最早原始錯誤與所選備份仍無 Logs 直接證據**，不可改寫成已完全證實的例外碼。手動備份 R2／GCS catalog 皆顯示 verified，未重新下載物件。
+- [x] **V0.9.48 程式修正已提交待驗證／合併／部署**：在既有 Audit Core 記錄包含還原前檢查失敗的安全階段／錯誤碼／requestId；API 的更新紀錄回傳近 90 日、最多 30 筆已知演練狀態；備份管理頁顯示隔離還原紀錄與不洩漏資訊的中文錯誤。沒有新增 Migration 或修改原隔離副本，舊的 2026/10/28 前置失敗無法倒填成真實 Audit。
+- [ ] 新程式的 PR CI、實機畫面與查詢／寫入成本驗證；受控合併、正式部署均**尚未授權**，請勿誤認為正式網站已修正。
+- [ ] **階段 B 另案核准**：保留已使用的 0014 隔離副本；規劃封存證據及受控準備符合最新 schema 的空白驗證目標，明確審核後才允許建立／切換綁定及下一次演練。不能清空、補跑舊副本 migration、改綁或自行重試。
+- [ ] 自動備份排程繼續停用，依上線前既有 gate 另行核准，不因修正日誌而開啟。
 
 ## 開發待辦
 
