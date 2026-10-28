@@ -161,3 +161,104 @@ test("SYNC validates exact job payload and never reveals book quantities in user
   assert.deepEqual(second.data.job.skipSheets,["990001"]);
  }finally{f.sql.close()}
 });
+
+
+async function prepareWrite(f, counts=["4","1"], recount=["5","1"]) {
+ f.insert();
+ for(const line of (await f.sheet()).data.lines){
+   const n=Number(line.seq)-1;
+   const result=await f.user("/990001/line","PATCH",{lineKey:line.lineKey,expectedVersion:line.version,quantity:counts[n]});
+   assert.equal(result.status,200,JSON.stringify(result));
+ }
+ let d=(await f.sheet()).data;
+ assert.equal((await f.user("/990001/first-confirm","POST",{expectedVersion:d.sheet.version})).status,200);
+ d=(await f.sheet()).data;
+ for(const line of d.lines){
+   if(line.locked)continue;
+   const n=Number(line.seq)-1;
+   const result=await f.user("/990001/line","PATCH",{lineKey:line.lineKey,expectedVersion:line.version,quantity:recount[n]});
+   assert.equal(result.status,200,JSON.stringify(result));
+ }
+ d=(await f.sheet()).data;
+ const created=await f.user("/990001/second-confirm","POST",{expectedVersion:d.sheet.version});
+ assert.equal(created.status,200,JSON.stringify(created));
+ const claimed=await f.agent("/item-queries/claim",{
+   agentVersion:"synthetic",erpState:"BROWSE",queryTypes:["STOCKTAKE_WRITE"]});
+ assert.equal(claimed.status,200,JSON.stringify(claimed));
+ assert.equal(claimed.data.job.id,created.data.id);
+ assert.equal(claimed.data.job.sheetNo,"990001");
+ return {id:created.data.id,rows:claimed.data.job.rows};
+}
+function writeComplete(id,rows,overrides={}) {
+ return {outcome:"FOUND",sheetNo:"990001",
+  results:rows.map(l=>({key:l.key,ok:true,erpSeq:l.seq,message:"已核對"})),
+  confirmed:true,mismatches:[],elapsedMs:15,agentVersion:"synthetic",...overrides};
+}
+test("WRITE complete is atomic, ERP_CONFIRMED, never writes quantities to shared Audit",async()=>{
+ const f=fixture();try{
+   const {id,rows}=await prepareWrite(f);
+   assert.equal(rows.length,1);
+   assert.equal(rows[0].key,"00001");
+   const response=await f.agent("/item-queries/"+id+"/complete",writeComplete(id,rows));
+   assert.equal(response.status,200,JSON.stringify(response));
+   assert.equal((await f.sheet()).data.sheet.status,"ERP_CONFIRMED");
+   assert.ok((await f.sheet()).data.sheet.erpConfirmedAt);
+   const job=f.sql.prepare("SELECT status,result_json FROM erp_item_queries WHERE id=?").get(id);
+   assert.equal(job.status,"DONE");
+   assert.equal(job.result_json,null);
+   const audit=f.sql.prepare("SELECT metadata_json FROM audit_events WHERE entity_type='erp_item_query' AND action='erp_item_query.completed' AND entity_key=?").get(id);
+   assert.ok(audit);
+   assert.doesNotMatch(audit.metadata_json,/"quantity"/);
+   assert.doesNotMatch(audit.metadata_json,/"rows"/);
+   assert.equal((await f.user("/990001/retry-write","POST",{expectedVersion:(await f.sheet()).data.sheet.version})).status,409);
+ }finally{f.sql.close()}
+});
+test("WRITE mismatch on a never-written original line is accepted, blocks confirmation and permits explicit retry",async()=>{
+ const f=fixture();try{
+   const {id,rows}=await prepareWrite(f);
+   const mismatch={key:"00002",seq:"00002",itemCode:"X0001",batch:"B2",expected:"1",actual:"0"};
+   let response=await f.agent("/item-queries/"+id+"/complete",
+     writeComplete(id,rows,{confirmed:false,mismatches:[mismatch]}));
+   assert.equal(response.status,200,JSON.stringify(response));
+   let sheet=(await f.sheet()).data.sheet;
+   assert.equal(sheet.status,"WRITE_FAILED");
+   assert.deepEqual(sheet.writeResult.mismatches,[mismatch]);
+   assert.equal(f.sql.prepare("SELECT status FROM erp_item_queries WHERE id=?").get(id).status,"FAILED");
+   const retry=await f.user("/990001/retry-write","POST",{expectedVersion:sheet.version});
+   assert.equal(retry.status,200,JSON.stringify(retry));
+   assert.notEqual(retry.data.id,id);
+   const claim=await f.agent("/item-queries/claim",{
+      agentVersion:"synthetic",erpState:"BROWSE",queryTypes:["STOCKTAKE_WRITE"]});
+   assert.equal(claim.status,200,JSON.stringify(claim));
+   assert.deepEqual(claim.data.job.rows,rows);
+   response=await f.agent("/item-queries/"+retry.data.id+"/complete",writeComplete(retry.data.id,rows));
+   assert.equal(response.status,200,JSON.stringify(response));
+   sheet=(await f.sheet()).data.sheet;
+   assert.equal(sheet.status,"ERP_CONFIRMED");
+   assert.equal(sheet.secondConfirmedAt!==null,true);
+ }finally{f.sql.close()}
+});
+test("WRITE rejects unrelated INVR11 mismatch keys and inconsistent confirmation without finishing job",async()=>{
+ const f=fixture();try{
+   const {id,rows}=await prepareWrite(f);
+   for(const extra of [
+     {confirmed:false,mismatches:[{key:"FAKE",seq:"00002",itemCode:"X0001",batch:"B2",expected:"1",actual:"0"}]},
+     {confirmed:true,mismatches:[{key:"00002",seq:"00002",itemCode:"X0001",batch:"B2",expected:"1",actual:"0"}]},
+     {results:[{key:"WRONG",ok:true,erpSeq:"00001",message:"ok"}]},
+   ]){
+     const response=await f.agent("/item-queries/"+id+"/complete",writeComplete(id,rows,extra));
+     assert.equal(response.status,400,JSON.stringify(response));
+     assert.equal(f.sql.prepare("SELECT status FROM erp_item_queries WHERE id=?").get(id).status,"RUNNING");
+     assert.equal((await f.sheet()).data.sheet.status,"WRITING");
+   }
+ }finally{f.sql.close()}
+});
+test("WRITE empty rows still requires INVR11/INVI06 confirmation",async()=>{
+ const f=fixture();try{
+   const {id,rows}=await prepareWrite(f,["1","2"],["1","2"]);
+   assert.deepEqual(rows,[]);
+   const completed=await f.agent("/item-queries/"+id+"/complete",writeComplete(id,rows));
+   assert.equal(completed.status,200,JSON.stringify(completed));
+   assert.equal((await f.sheet()).data.sheet.status,"ERP_CONFIRMED");
+ }finally{f.sql.close()}
+});
