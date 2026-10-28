@@ -132,15 +132,19 @@ export async function writeResultStatements(db:D1Database,body:StocktakeWriteRes
  // Check INVR11 mismatches against the complete sheet, not just changed rows.
  // Validation must finish before the atomic job-completion batch.
  if(body.mismatches.length){
-   const lines=await db.prepare(`SELECT line_key,seq,item_code,batch FROM stocktake_lines
+   const lines=await db.prepare(`SELECT line_key,seq,erp_seq,is_added,item_code,batch FROM stocktake_lines
      WHERE sheet_no=? LIMIT 3001`).bind(body.sheetNo).all<{
-       line_key:string;seq:string|null;item_code:string;batch:string
+       line_key:string;seq:string|null;erp_seq:string|null;is_added:number;item_code:string;batch:string
      }>();
    const byKey=new Map((lines.results??[]).map(l=>[l.line_key,l]));
    const seen=new Set<string>();
+   const resultSeq=new Map(body.results.map(row=>[row.key,row.erpSeq]));
    for(const m of body.mismatches){
      const line=byKey.get(m.key);
-     if(!line || seen.has(m.key) || line.seq!==m.seq ||
+     // An added batch can acquire its ERP sequence during this very completion.
+     const acceptedSeq=line && (m.seq===line.seq || m.seq===line.erp_seq ||
+       (line.is_added===1 && m.seq===resultSeq.get(m.key)));
+     if(!line || seen.has(m.key) || !acceptedSeq ||
        line.item_code!==m.itemCode || line.batch!==m.batch)
        invalid("ERP 核對差異與底稿逐列資料不符");
      seen.add(m.key);
