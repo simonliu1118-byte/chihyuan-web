@@ -5,13 +5,14 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
-## CY Web V0.9.49 — 每季隔離演練超管主動提醒與完成防護（2026-10-28，待 Claude 審查）
+## CY Web V0.9.49 — 每季隔離演練超管主動提醒與完成防護（2026-10-28，Claude 首審通過；小項返修待複審）
 
 - [x] 全站 `SUPER_ADMIN` 登入後主動顯示每季隔離還原驗證提醒（台灣時間曆季 Q1–Q4），附「前往備份管理」捷徑；本季有已驗證演練 Audit 時自動不再顯示。登入、回到頁籤、每小時有限次重新核對；完成後即時刷新。其他角色無權讀取或顯示提醒。
 - [x] 既有演練歷史成功事件的 `completed` 顯示「完成」，成功時以醒目的獨立結果區持續顯示時間、已驗證結果及禁止重送指示。
 - [x] 新增隔離 D1 的唯讀 schema／canonical seed 空目標探查；已使用或不明的目標 UI 隱藏再次演練按鈕；同一已記錄 generation 的演練再呼叫由 Worker 安全拒絕。使用者成功後立即鎖定 UI；主資料庫與 R2/GCS 原有還原確認安全界線不變。
 - [x] 輪替手冊改為**只長期保留最近一個已使用隔離副本**，上一份成功副本僅在新演練成功後成為受控清理候選，必須另行人工確認／授權刪除；不提供自動刪庫。
 - [x] 每季提醒採原有 AppShell 的**站內主動提醒**，不寄外部 Email 或 Push，不啟用備份排程與定時自動還原。
+- [x] **Claude 首審非阻擋意見 N1–N3 已在同一 V0.9.49 PR 返修**：N1 新目標可驗證（`recoveryReady=true`）時隱藏舊「✓ 完成」提示，舊成功紀錄仍保留在歷史表；N2 註解改為正確的「每小時一次」；N3 已使用 generation 拒絕時把失敗 phase 寫成 `target_lock`／「隔離目標使用狀態」，不再誤標來源核對。新增 UI regression，請 Claude 對新 head 複審。
 - [ ] **Cloudflare 真實 D1 實體解除綁定尚未實作**：Worker 不持有 Cloudflare 管理權限，當前只保證 API／UI 邏輯鎖定。物理解除綁定需另設受保護控制平面、核對成功 Audit、當前 target generation 與其他既有 Worker 綁定不變，先通過 Claude 審查再授權。
 - [ ] 新 PR CI、Claude 統一審查、使用者合併／部署授權及 Desktop／Mobile 實機驗收；現行正式站不會因本次提交自動更新。
 
