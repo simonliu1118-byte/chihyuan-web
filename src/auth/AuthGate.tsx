@@ -315,7 +315,7 @@ export function AuthGate({ children }: AuthGateProps) {
   return <main className="cy-auth-screen cy-auth-login-screen">
     <div className="cy-auth-theme-position"><ThemeToggle /></div>
     <section className="cy-auth-card" aria-labelledby="cy-auth-title">
-      <div className="cy-auth-heading"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><div><h1 id="cy-auth-title">{mode === "login" ? "登入 CY Web" : mode === "first_login" ? "完成 Email 驗證" : "帳號協助"}</h1>{mode === "login" ? null : <p>依照畫面指示完成帳號驗證</p>}</div></div>
+      <div className="cy-auth-heading"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><div><h1 id="cy-auth-title">{mode === "login" ? "志遠企業管理系統" : mode === "first_login" ? "完成 Email 驗證" : "帳號協助"}</h1>{mode === "login" ? null : <p>依照畫面指示完成帳號驗證</p>}</div></div>
 
     {mode === "login" ? <form className="cy-auth-form" onSubmit={handleLogin} onKeyDown={advanceFocusOnEnter}>
     <FormSection>
