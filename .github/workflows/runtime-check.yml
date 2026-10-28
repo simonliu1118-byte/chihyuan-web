@@ -121,6 +121,41 @@ jobs:
       - name: HTTPS entry and deployed transport regressions
         run: node --test scripts/secure-entry.test.mjs scripts/secure-deployment.test.mjs scripts/backup-provider-worker.test.mjs
 
+  # WO-0.9.52 feature-only component visual acceptance. No Cloudflare
+  # Vite plugin, no production requests, only deterministic synthetic fixtures.
+  stocktake-visual:
+    if: github.event_name == 'pull_request' && github.head_ref == 'cyweb/store-stocktake'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm install --no-audit --no-fund
+      - name: Install browser test-only tools
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Seven real React stocktake screenshots, 1440 and 390
+        shell: bash
+        run: |
+          set -e
+          npx vite --config vite.stocktake-visual.config.ts --host 127.0.0.1 --port 4173 > /tmp/stocktake-vite.log 2>&1 &
+          vite_pid=$!
+          trap 'kill "$vite_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:4173/scripts/stocktake-visual/index.html > /dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/stocktake-visual/capture.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stocktake-1440-390-visual-acceptance
+          path: artifacts/stocktake-visual/*.png
+          if-no-files-found: warn
+
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
