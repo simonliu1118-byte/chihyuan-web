@@ -305,3 +305,32 @@ test("pre-existing untouched COUNTING sheet may refresh only before any counts a
    assert.equal(refreshed.status,409,"filled count cannot be overwritten by ERP reimport");
  }finally{f.sql.close()}
 });
+
+
+test("STOCKTAKE_WRITE progress accepts only STOCK and preserves monotonic completion",async()=>{
+ const f=fixture();try{
+  const {id,rows}=await prepareWrite(f);
+  const wrong=await f.agent("/item-queries/"+id+"/progress",{stage:"REPORT",done:1,total:1});
+  assert.equal(wrong.status,400,JSON.stringify(wrong));
+  const valid=await f.agent("/item-queries/"+id+"/progress",{stage:"STOCK",done:1,total:rows.length});
+  assert.equal(valid.status,200,JSON.stringify(valid));
+  const older=await f.agent("/item-queries/"+id+"/progress",{stage:"STOCK",done:0,total:rows.length});
+  assert.equal(older.status,200,JSON.stringify(older));
+  const row=f.sql.prepare("SELECT progress_stage,progress_done,progress_total FROM erp_item_queries WHERE id=?").get(id);
+  assert.deepEqual(row,{progress_stage:"STOCK",progress_done:1,progress_total:rows.length});
+ }finally{f.sql.close()}
+});
+test("blind current-count rows include the actual actor name but no book quantity",async()=>{
+ const f=fixture();try{
+  f.insert();
+  const d=(await f.sheet()).data;
+  const row=d.lines[0];
+  const save=await f.user("/990001/line","PATCH",{
+     lineKey:row.lineKey,quantity:"2",expectedVersion:row.version});
+  assert.equal(save.status,200,JSON.stringify(save));
+  const fresh=(await f.sheet()).data.lines.find(l=>l.lineKey===row.lineKey);
+  assert.equal(fresh.firstByName,"合成盤點員甲");
+  assert.equal(fresh.firstBy,1);
+  assert.equal(fresh.bookQty,undefined);
+ }finally{f.sql.close()}
+});
