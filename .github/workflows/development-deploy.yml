@@ -226,6 +226,7 @@ jobs:
         run: |
           set -euo pipefail
           grep -q 'RECOVERY_NEW_TARGET_PREPARED_OLD_PRESERVED' scripts/provision-backup-recovery.mjs
+          grep -q 'RECOVERY_ROTATION_PRIMARY_MIGRATIONS_OUTDATED' scripts/provision-backup-recovery.mjs
           test -n "${CF_RECOVERY_ROTATION_GENERATION}"
           test "${CF_RECOVERY_ROTATION_CONFIRMATION}" = "ROTATE_ISOLATED_RECOVERY_TARGET"
           echo "Protected recovery rotation source contract confirmed."
