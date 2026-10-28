@@ -1,6 +1,6 @@
 # CY Web WO-0.9.52 門市庫存盤點（第一階段）— GPT 工作紀錄／Claude 最終審查
 
-- **狀態：17 項 synthetic Worker／SQLite 盤點測試已完成程式提交、CI 驗證進行中；桌機／手機實際渲染仍未驗證。Claude 尚未審查，PR #307 保留 Draft，勿合併、勿部署。**
+- **狀態：17 項 synthetic Worker／SQLite 盤點測試及程式 SHA 的 Runtime CI 已通過；最後文件 HEAD 仍需確認；桌機／手機實際渲染仍未驗證。Claude 尚未審查，PR #307 保留 Draft，勿合併、勿部署。**
 - 工單：[docs/development/work-orders/WO-0.9.52.md](../development/work-orders/WO-0.9.52.md)。
 - 原工單 [PR #306](https://github.com/simonliu1118-byte/chihyuan-web/pull/306)：本分支建於**最新** `be85abdd5d6da17857394cc2f4dd75e3f3774966`（4 筆提交），已包含「資料清除後保留參與者／兩次確認／差異盈虧摘要、刪明細與逐列歷史」修正。2026-10-29 本輪重新唯讀查核時 PR 仍 Open，該 HEAD 無新增提交／討論回覆。
 - 實作：`cyweb/store-stocktake`；基礎 `main` 為 `d775cac6e7dfb798e7981318047288b1f70a7a56`（V0.9.50）；目標 `0.9.52 Build 0`，V0.9.51 是另案 PR #305，不將它併進本分支。
@@ -36,7 +36,7 @@
 
 ## 3. 尚未驗證／不可宣稱完成之處
 
-- [ ] **最新 HEAD GitHub CI、Worker typecheck、frontend typecheck、Source validations、local D1 migrations、可攜備份、一整套 Node tests** 尚未取得綠燈，需依錯誤逐項修正。
+- [x] **原程式 SHA `1ed51608b5ca529e9f79cb9cdee7cb9e7fcb05c0` Runtime Check 全綠**（source-contracts、browser-typecheck、worker-typecheck、build／local D1 acceptance，見 §7.2.3）；完整 wildcard `node --test scripts/*.test.mjs` 及文件新 HEAD CI 仍須另核對。
 - [x] **已加入 synthetic Worker + SQLite roundtrip**：WRITE 成功、全表差異含本次未寫列、FAILED 人工 retry、空 rows 仍須 INVI06 確認、3600 秒逾時、單張 refresh、STOCK 進度與單調性、忽略 stub 取消後首次同步、盲盤與最後編輯人；共 17 項測試在 `scripts/store-stocktake.test.mjs`，執行狀態見 §7。
 - [ ] 低成本 D1 限額：最多 500 張已知底稿、每張 3000 列。單次超大量 SYNC 的 batch/response size 可能觸 Cloudflare D1 限制；未壓測，不能認定合法資料全規模無風險。
 - [ ] Desktop 1440／Mobile 390 的 7 張指定畫面，無正式 mock／CI 截圖；目前僅完成 RWD source 初稿。
