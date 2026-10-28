@@ -112,9 +112,20 @@
 - 本段後續為文件紀錄更新，不改動 Worker／React 程式；若本文件新 HEAD 又觸發 CI，Claude 審查時仍需核對最新提交狀態。
 - **未宣稱**真 ERP 寫入、Cloudflare 生產 D1、1440/390 真實截圖、完整 wildcard Node suite 已驗收。
 
-### 7.3 無法宣稱已通過的項目
+### 7.3 最終視覺驗收、完整回歸與外部風險（取代前段 WIP 狀態）
 
-- **1440px／390px 真正實際畫面截圖**：已完成響應式 CSS／卡片初稿，但本次執行環境沒有可用的 repo checkout／React 套件與可連 GitHub 的 clone；無法忠實渲染實際 CYWEB App，因此**不提供假的截圖**，要由 Claude 或具有工作樹的本地 Work 做真 Browser/Chrome 截圖。
-- **規模與配額**：本輪已改為每張底稿以單一 `INSERT ... SELECT FROM json_each(?)` 整批寫入，不再有 3,000 條逐列 INSERT。新增 3,000 列可同步、3,001 列拒絕且保留盲盤的真 Worker／SQLite 測試。Cloudflare D1 官方文件 2026-10-24 的 SQL 執行限制為每個查詢最多約 30 秒；`db.batch()` 雖算一次讀取子請求，批次仍受 30 秒執行限制。200 張底稿 × 每張 3000 列（受 900 KiB JSON 上限另行約束）的實際 D1 測試未做，因此大規模 SYNC **可能超時，不可宣稱滿載合格**。參照 https://developers.cloudflare.com/d1/platform/limits/ 。必須在部署前由具合成 fixture 的獨立受控 CI/Work 壓測，必要時另訂 per-sheet 分批和失敗回復策略。
-- `node --test scripts/*.test.mjs` 的**全數**驗證和原 WO 要求 7 張 1440/390 真正圖像尚未取得完整證據；CI 會覆蓋原 Runtime 定義的子集合。真實 ERP 寫回還待 CYERPAutoQuery WO-1.3.0 完成及使用者另行批准測試底稿。
-- PR #307 **仍為 Draft，不可改 Ready、更不可自行合併／部署**；Claude §6 在全部門檻達成之前維持待審。
+- **實際 Chromium**：測試專用 `scripts/stocktake-visual/{index.html,main.tsx,capture.mjs}` + `vite.stocktake-visual.config.ts` 不載入 Cloudflare plugin、不連正式 API，渲染真 React 元件和共用 CSS；七張畫面截圖及無水平捲軸等斷言存於 [#40750528573 artifact](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40750528573)。這是合成資料的**元件級**視覺驗收，非正式 CYID 登入後整站畫面。
+- **UI 補強**：初盤盲盤的主管第一次確認不再虛構差異品號數；手機清單改上方下拉、選中底稿用標準 accent token；ERP 寫回失敗顯示中文錯誤列與 mismatch，非 JSON 技術資料；Modal 截圖固定 viewport 高度，避免 full-page 擷取導致背景下方變亮的假象。
+- **全量 Node suite**：CI 增加 `node --test scripts/*.test.mjs`，並只讀公開 CYapps 的 Canonical identity resolver 供其原有測試，399/399 全綠。此舉也抓出盤點 Audit 中文動作標籤缺漏，已在 `src/runtime/modules/change-log-labels.ts` 補上八個對應。
+- **CI 受控成本**：Chromium visual job 限定 feature branch PR，run 15 分鐘上限，所有輸入是 synthetic GET；未在正常 deployment workflow 增加會觸碰 Cloudflare 的步驟。
+- **待 Claude 風險審查**：D1 批次 30 秒、Agent complete 900 KiB、最多 200 底稿與每張 3,000 行的全規模邊界尚未實測真 Cloudflare。請決定是否需更小單次批量、逐張工作或提前標示限制，避免完成 PR 後誤當正式 D1 已滿載驗證。
+- **跨 repo 邊界**：WO-1.3.0（CYapps PR #565）規格協定文字已與本工單比對一致；此 PR 只實作 CYWEB，沒有做 Windows ERP 自動寫回、授權或部署。第二階段資料清除／盈虧明細仍另案。
+
+## 8. Claude 審查建議核對順序（由 GPT 提供，審查結果只寫 §6）
+
+1. 先確認 Migration 0030／四張表／portable backup schema、已使用資料不遭覆寫。
+2. 檢查 COUNTING 盲盤、逐列 optimistic conflict、兩次確認、INVR11 全表 mismatch、ERP `confirmed` 與新增批號 `erpSeq`，及 Audit 敏感欄位最小化。
+3. 對照 CYapps WO-1.3.0 合同；Windows Agent 真 ERP 操作只許在另案核准後驗證。
+4. 查看 399/399 全量 Node 測試、五個 CI job、七張 1440/390 截圖（合成 fixture），確認 mobile 下拉與失敗清單。
+5. 判斷 200×3,000 的 Cloudflare D1 大批次限制是否需要部署前的額外 gate；不得以測試 green 冒稱真 Cloudflare 配額已驗證。
+6. 最後才作出 PR #307 可否合併的審查決議。GPT 沒有自行合併、部署或真 ERP 寫回。
