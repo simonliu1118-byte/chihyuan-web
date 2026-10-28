@@ -1,6 +1,6 @@
 # CY Web WO-0.9.52 門市庫存盤點（第一階段）— GPT 工作紀錄／Claude 最終審查
 
-- **狀態：17 項 synthetic Worker／SQLite 盤點測試及程式 SHA 的 Runtime CI 已通過；最後文件 HEAD 仍需確認；桌機／手機實際渲染仍未驗證。Claude 尚未審查，PR #307 保留 Draft，勿合併、勿部署。**
+- **狀態：GPT 實作與離線驗收完成；正式交 Claude 最終審查。399/399 Node、五個 CI Job、七張真 Chromium 合成元件截圖已通過。PR #307 未合併／未部署；真 ERP、真 D1 大批量及正式登入整站仍未驗證。**
 - 工單：[docs/development/work-orders/WO-0.9.52.md](../development/work-orders/WO-0.9.52.md)。
 - 原工單 [PR #306](https://github.com/simonliu1118-byte/chihyuan-web/pull/306)：本分支建於**最新** `be85abdd5d6da17857394cc2f4dd75e3f3774966`（4 筆提交），已包含「資料清除後保留參與者／兩次確認／差異盈虧摘要、刪明細與逐列歷史」修正。2026-10-29 本輪重新唯讀查核時 PR 仍 Open，該 HEAD 無新增提交／討論回覆。
 - 實作：`cyweb/store-stocktake`；基礎 `main` 為 `d775cac6e7dfb798e7981318047288b1f70a7a56`（V0.9.50）；目標 `0.9.52 Build 0`，V0.9.51 是另案 PR #305，不將它併進本分支。
@@ -12,7 +12,7 @@
 
 **2026-10-29 四筆 WO 提交更新（已讀）**：§2.13 要求最終 ERP 清除後只保留底稿編號／日期／參與者／兩次確認者與時間／ERP 完成時間／盈虧差異列；`stocktake_line_history` 應和明細一起刪。資料表分開保留，第二階段才實作清除及盈虧快照。這是目前架構不可破壞的前向條件，不是本版功能已完成。
 
-## 2. 本輪逐檔工作紀錄（開發中）
+## 2. 本輪逐檔工作紀錄（已提交，交 Claude 審查）
 
 | 檔案 | 已修改內容／目的 |
 | --- | --- |
@@ -34,16 +34,16 @@
 | `VERSION`、`package.json`、`TODO.md`、`CHANGELOG.md` | 目標 0.9.52；現行正式仍 0.9.50，新增工作保持未完成狀態。 |
 | `docs/handoff/README.md`、本檔 | 新工作所有 GPT 變更放同分支，最終 Claude 逐檔審查。 |
 
-## 3. 尚未驗證／不可宣稱完成之處
+## 3. 驗收狀態、實機界線
 
-- [x] **原程式 SHA `1ed51608b5ca529e9f79cb9cdee7cb9e7fcb05c0` Runtime Check 全綠**（source-contracts、browser-typecheck、worker-typecheck、build／local D1 acceptance，見 §7.2.3）；完整 wildcard `node --test scripts/*.test.mjs` 及文件新 HEAD CI 仍須另核對。
-- [x] **已加入 synthetic Worker + SQLite roundtrip**：WRITE 成功、全表差異含本次未寫列、FAILED 人工 retry、空 rows 仍須 INVI06 確認、3600 秒逾時、單張 refresh、STOCK 進度與單調性、忽略 stub 取消後首次同步、盲盤與最後編輯人；共 17 項測試在 `scripts/store-stocktake.test.mjs`，執行狀態見 §7。
-- [ ] 低成本 D1 限額：最多 500 張已知底稿、每張 3000 列。單次超大量 SYNC 的 batch/response size 可能觸 Cloudflare D1 限制；未壓測，不能認定合法資料全規模無風險。
-- [ ] Desktop 1440／Mobile 390 的 7 張指定畫面，無正式 mock／CI 截圖；目前僅完成 RWD source 初稿。
-- [ ] UI 中逐列最後操作者目前以 member ID（非顯示名稱）呈現，需對照既有 app_members 及個資最小化政策調整。
-- [ ] 型別、XML 風格 React／CSS Token、專用表單 keyboard、表單 Enter 及 10 秒刷新之脫鉤競態，須跑真 CI 並逐一修正。
-- [ ] 同步後 ERP Windows 程式 **1.3.0** 尚需其他工單完成，不在本 PR 測試真實 ERP 或進行任何真庫存變更。
-- [ ] 使用者要求的資料清除後保留「有差異列」快照屬第二階段，這次只建立能繼承它的資料表；若屆時要新增 snapshot 表，須 forward migration。
+- [x] [Runtime Check #40750528573](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40750528573) 五個 job 全部 `success`：source-contracts、browser-typecheck、worker-typecheck、build／Local D1、stocktake-visual。
+- [x] `node --test scripts/*.test.mjs` **399/399 通過，0 失敗**；含 `scripts/store-stocktake.test.mjs` 的 17 項真 Worker + SQLite 合成測試、原專案合約與 Audit 中文對照回歸。
+- [x] **1440px／390px 七張真 Chromium React 元件／專案 CSS 截圖**：Action #40750528573 的 artifact `stocktake-1440-390-visual-acceptance`（ID `12844265324`）。以假 API 驗證手機下拉、盲盤無帳面、複盤差異、主管確認、批號新增對話框、失敗寫回中文清單、無水平溢出。**未聲稱是正式登入後的完整 App Shell 截圖**。
+- [x] 每列最後編輯人改為受權讀取的顯示名稱與時間；Enter／blur 不重複儲存，React／Worker typecheck、合成測試及視覺場景通過。
+- [ ] **真 Cloudflare D1 大規模性能與配額**：本機已驗證每張 3,000 列，拒絕 3,001；未讀／寫正式 D1。200 張 × 每張 3,000 列大批量情境仍需另外限制、分批／受控測試，需 Claude 評估上線 gate。
+- [ ] **Windows ERP 真實互通**：CYERPAutoQuery WO-1.3.0（PR #565）獨立處理；沒有真 INVR11／INVI14／INVI06 的回寫許可，也沒有正式庫存交易。
+- [ ] **正式 CYID 登入、完整 App Shell 人工驗收**：本輪 Chromium 截圖是實際元件配合合成 API，非正式站；上線前仍需權限端到端與使用者人工驗收。
+- [ ] **第二階段保留有差異列並清除明細**：只預留 sheet／participants／history 架構，尚未做 ERP 清除或盈虧快照（依 WO §2.13），不可誤認已完成。
 
 ## 4. 安全與成本界線
 
