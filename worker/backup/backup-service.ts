@@ -42,7 +42,7 @@ function safeRehearsalCode(error: unknown): string {
 export async function loadBackupRehearsals(db: D1Database, workspace: string): Promise<BackupRehearsalHistoryEntry[]> {
   const since = new Date(Date.now() - 90 * 86400000).toISOString();
   const rows = await db.prepare(`SELECT ae.id, ae.entity_key, ae.action, ae.occurred_at, ae.request_id, ae.metadata_json
-    FROM audit_events ae INDEXED BY idx_audit_events_time JOIN backup_sets bs ON bs.backup_id=ae.entity_key AND bs.workspace_scope=?
+    FROM audit_events ae JOIN backup_sets bs ON bs.backup_id=ae.entity_key AND bs.workspace_scope=?
     WHERE ae.entity_type='backup' AND ae.action IN
       ('backup.rehearsal.started','backup.rehearsal.verified','backup.rehearsal.failed')
       AND ae.occurred_at>=?
