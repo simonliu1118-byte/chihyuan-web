@@ -17,10 +17,17 @@ try {
 } finally { rmSync(directory, { recursive: true, force: true }); }
 const id = "00000000-0000-4000-8000-000000000001";
 const valid = { selectionConfirmation: id, reviewed: true, confirmation: "驗證隔離還原", provider: "gcs" };
-function fixture({ role = "SUPER_ADMIN", active = true, authenticated = true, bound = true, failure } = {}) {
-  const calls = [], target = {};
+function fixture({ role = "SUPER_ADMIN", active = true, authenticated = true, bound = true, failure, auditRows = [] } = {}) {
+  const calls = [], queries = [], target = {};
   const env = { RECOVERY_DB: bound ? target : undefined, IDENTITY_APPLICATION_ID: "APP_TEST", IDENTITY_WORKSPACE_ID: "workspace-test",
-    DB: { prepare() { return { bind() { return this; }, async first() { return { id: 7, identity_employee_id: "synthetic", employee_no: "0098", display_name: "Synthetic", is_active: active ? 1 : 0 }; } }; } },
+    DB: {
+      prepare(sql) { return {
+        bind(...args) { queries.push({ sql, args }); return this; },
+        async first() { return { id: 7, identity_employee_id: "synthetic", employee_no: "0098", display_name: "Synthetic", is_active: active ? 1 : 0 }; },
+        async all() { return { results: auditRows }; },
+      }; },
+      async batch() { return [{ results: [] }, { results: [] }]; },
+    },
     IDENTITY: { async fetch() {
       if (!authenticated) return Response.json({ error: { code: "SESSION_INVALID" } }, { status: 401 });
       return Response.json({ ok: true, principal: { workspaceId: "workspace-test", employeeId: "synthetic", employeeNo: "0098", displayName: "Synthetic",
@@ -35,7 +42,10 @@ function fixture({ role = "SUPER_ADMIN", active = true, authenticated = true, bo
     body: body instanceof ReadableStream ? body : typeof body === "string" ? body : JSON.stringify(body),
     ...(body instanceof ReadableStream ? { duplex: "half" } : {}),
   }), env, "synthetic-request");
-  return { run, calls, target };
+  const history = () => handleBackupRoute(new Request("https://synthetic.test/api/admin/backups", {
+    method: "GET", headers: { cookie: "cyweb_identity_session=cyid_" + "a".repeat(64) },
+  }), env, "synthetic-history");
+  return { run, history, calls, queries, target };
 }
 test("rehearsal uses CYID authority, active app member, exact server binding and forced GCS", async () => {
   const f = fixture(), response = await f.run(); assert.equal(response.status, 200);
@@ -81,4 +91,24 @@ test("incompatible old recovery target explains schema mismatch without leaking 
   assert.equal(body.error.code, "BACKUP_TABLE_COVERAGE_MISMATCH");
   assert.match(body.error.message, /結構.*不一致/);
   assert.match(body.error.message, /不可|保留|新版/);
+});
+
+test("backup refresh includes bounded, workspace-scoped rehearsal status without exposing raw Audit metadata", async () => {
+  const f = fixture({ auditRows: [
+    { id: 3, entity_key: id, action: "backup.rehearsal.failed", occurred_at: "2026-10-28T07:46:34.000Z",
+      request_id: "request-a", metadata_json: JSON.stringify({ provider: "gcs", phase: "target_validation",
+        errorCode: "BACKUP_TABLE_COVERAGE_MISMATCH", customerSecret: "hidden" }) },
+    { id: 2, entity_key: id, action: "backup.rehearsal.started", occurred_at: "2026-10-28T07:46:34.000Z",
+      request_id: "request-a", metadata_json: "{}" },
+    { id: 1, entity_key: id, action: "backup.rehearsal.verified", occurred_at: "2026-10-18T02:39:55.000Z",
+      request_id: "request-old", metadata_json: JSON.stringify({ provider: "r2" }) },
+  ] });
+  const response = await f.history(), body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.data.rehearsals.length, 2);
+  assert.equal(body.data.rehearsals[0].status, "failed");
+  assert.equal(body.data.rehearsals[0].errorCode, "BACKUP_TABLE_COVERAGE_MISMATCH");
+  assert.equal(body.data.rehearsals[1].status, "verified");
+  assert.doesNotMatch(JSON.stringify(body), /customerSecret|hidden/);
+  assert.ok(f.queries.some(q => q.sql.includes("JOIN backup_sets") && q.args[0] === "workspace-test"));
 });
