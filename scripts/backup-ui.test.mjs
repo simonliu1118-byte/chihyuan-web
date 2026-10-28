@@ -7,19 +7,19 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 const directory = mkdtempSync(fileURLToPath(new URL("../node_modules/.cyweb-backup-ui-", import.meta.url)));
-let BackupHistoryView, BackupRehearsalHistoryView;
+let BackupHistoryView, BackupRehearsalHistoryView, BackupLatestRehearsalResult;
 try {
   const outfile = join(directory, "view.mjs");
   await build({ entryPoints: [fileURLToPath(new URL("../src/runtime/modules/BackupOperationalPage.tsx", import.meta.url))], outfile,
     bundle: true, platform: "node", format: "esm", jsx: "automatic", packages: "external", loader: { ".css": "empty" } });
-  ({ BackupHistoryView, BackupRehearsalHistoryView } = await import(pathToFileURL(outfile)));
+  ({ BackupHistoryView, BackupRehearsalHistoryView, BackupLatestRehearsalResult } = await import(pathToFileURL(outfile)));
 } finally { rmSync(directory, { recursive: true, force: true }); }
 const row = { backupId: "00000000-0000-4000-8000-000000000001", createdAt: "2026-10-01T19:30:00.000Z", appVersion: "0.7.3",
   schemaVersion: "0006_backup_catalog", dataSha256: "a".repeat(64), byteLength: 1200, recordCount: 3, status: "verified", triggerKind: "manual",
   copies: [{ provider: "r2", status: "verified", verifiedAt: "2026-10-01T19:30:01.000Z", errorCode: null },
     { provider: "gcs", status: "failed", verifiedAt: null, errorCode: "BACKUP_COPY_FAILED" }], canRetry: true };
 function render(entry = row, busy = false, configured = true, recoveryConfigured = false) {
-  return renderToStaticMarkup(createElement(BackupHistoryView, { history: { configured, recoveryConfigured, sets: entry ? [entry] : [] }, busy, retry() {}, rehearse() {} }));
+  return renderToStaticMarkup(createElement(BackupHistoryView, { history: { configured, recoveryConfigured, recoveryReady: recoveryConfigured, sets: entry ? [entry] : [] }, busy, retry() {}, rehearse() {} }));
 }
 test("backup history groups both provider states under one table event and uses Taiwan time", () => {
   const html = render();
@@ -65,4 +65,22 @@ test("rehearsal history reports unconfirmed result distinctly from successful re
   }] }));
   assert.match(html, /結果待確認/);
   assert.match(html, /不可直接重送/);
+});
+
+test("used or detached recovery target never offers verification on desktop or cards", () => {
+  const history = { configured: true, recoveryConfigured: true, recoveryReady: false, sets: [row] };
+  const html = renderToStaticMarkup(createElement(BackupHistoryView, {
+    history, busy: false, retry() {}, rehearse() {},
+  }));
+  assert.doesNotMatch(html, /驗證隔離還原/);
+  assert.match(html, /重試 GCS/);
+});
+test("verified Audit shows prominent 完成 and original outcome without claiming physical unbinding", () => {
+  const html = renderToStaticMarkup(createElement(BackupLatestRehearsalResult, { items: [{
+    eventId: 3, backupId: row.backupId, occurredAt: "2026-10-28T13:11:00.000Z",
+    status: "verified", provider: "gcs", phase: "completed", errorCode: null, requestId: "synthetic",
+  }] }));
+  assert.match(html, /隔離還原驗證：完成/);
+  assert.match(html, /資料核對成功/);
+  assert.doesNotMatch(html, /已解除綁定|已刪除資料庫/);
 });
