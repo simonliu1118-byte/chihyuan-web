@@ -43,6 +43,9 @@ try{
   }
   if(config.scene==="failed"){
    assert.ok(await page.getByRole("button",{name:"重新寫回"}).count()>0);
+   assert.ok(await page.getByText("ERP 寫回未完成，盤點尚未確認").count()>0);
+   assert.equal(await page.locator("pre.cy-stocktake-result").count(),0,
+    "Raw ERP JSON must not be shown to store staff");
   }
   if(config.action==="first-confirm"){
    await page.getByRole("button",{name:"第一次確認"}).click();
