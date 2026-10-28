@@ -1,6 +1,6 @@
 # CYWEB V0.9.49 — 季度隔離還原演練與超管主動提醒／Claude 審查 handoff
 
-- **狀態：Claude §8 已通過原 head；N1–N3 非阻擋建議已在原 PR 返修，新增提交待 Claude 複審；仍未合併／部署，Cloudflare 物理解綁另案。**
+- **狀態：Claude 複審通過（§8、§10）；待使用者決定合併／部署。Cloudflare 物理解綁另案。**
 - 日期：2026-10-28（Asia/Taipei）
 - Repo：`simonliu1118-byte/chihyuan-web`
 - 分支：`feat/cyweb-quarterly-rehearsal-20261028`
@@ -142,12 +142,16 @@
 
 ## 10. Claude 增量複審紀錄（僅 Claude 親自填寫）
 
-- 複審日期：
-- Claude 複審的最新 PR head SHA：
-- N1 回歸／UX 結論：
-- N2 註解與實際輪詢頻率一致性：
-- N3 Audit phase 與重複演練鎖：
-- 新發現或建議：
-- 最新 CI／本機證據：
-- 複審結論：**待複審**（通過／需修正／阻擋合併）
-- 是否可請使用者授權合併／部署：
+- 複審日期：2026-10-28
+- 複審者：Claude
+- 複審 head SHA：`a3b973c5e5704a21ab10b3ff21153a929f0b9e2a`
+- N1–N3 判定：
+  - **N1 通過**：`shouldShowLatestRehearsalResult` 只在 `recoveryReady === false` 且歷史可讀時顯示成功區塊。換上新目標後不再顯示舊的「完成」；history 尚未載入時也不顯示。
+  - **N2 通過**：註解已改成每小時一次，與實作一致。
+  - **N3 通過**：generation 檢查前設 `phase = "target_lock"`，通過後才進入 `source_read`。`target_lock` 符合 `^[a-z_]{1,32}$`，畫面對照文字為「隔離目標使用狀態」。
+- 證據：
+  - 最新 head check runs 全部 success，`deploy-development` skipped。
+  - 本機 `npm run typecheck`、`node --test scripts/*.test.mjs` **365 pass／0 fail**。
+- 範圍：物理解除 `RECOVERY_DB` 綁定未包含在本 PR，維持 §8 建議的另案（部署流程在已使用時不再綁定，Worker 不放 Token）。
+- 複審結論：**通過**
+- 是否可提交使用者決定合併／部署：**可以**。
