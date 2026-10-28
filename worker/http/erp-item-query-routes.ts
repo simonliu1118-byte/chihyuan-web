@@ -1009,6 +1009,11 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
       Number.isInteger(value) && (value as number) >= 0 && (value as number) <= 100000 ? value as number : bad("INVALID_AGENT_RESULT", what + "不正確");
     const done = count(body.done, "進度完成數"), total = count(body.total, "進度總數");
     if (done > total) bad("INVALID_AGENT_RESULT", "進度完成數大於總數");
+    // The stocktake contract permits only STOCK progress, never report progress.
+    const progressType = await env.DB.prepare("SELECT query_type FROM erp_item_queries WHERE id=?")
+      .bind(progress[1]).first<{query_type:ErpQueryType}>();
+    if (progressType?.query_type === "STOCKTAKE_WRITE" && stage !== "STOCK")
+      bad("INVALID_AGENT_RESULT", "盤點寫回進度須使用 STOCK 階段");
     const updated = await env.DB.prepare(
       `UPDATE erp_item_queries SET progress_stage=?1,progress_done=?2,progress_total=?3
         WHERE id=?4 AND status='RUNNING' AND claim_hash=?5 AND query_type IN ('RESTOCK','STOCKTAKE_WRITE')
