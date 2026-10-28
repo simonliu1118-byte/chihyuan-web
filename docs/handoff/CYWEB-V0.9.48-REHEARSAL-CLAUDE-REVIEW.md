@@ -63,6 +63,7 @@
 - `shared/backups.ts`、`worker/http/backup-routes.ts`、`src/runtime/modules/BackupOperationalPage.tsx`（功能 #300）：加上 `rehearsalHistoryAvailable`，當可選的 Audit 查詢失敗時仍讓 Super Admin 看得到 R2/GCS 備份目錄，且明確提示歷史 unavailable 不等於零次驗證；不應錯誤顯示成功。
 - `worker/backup/backup-service.ts`（功能 #300）：將 90 天／100 原始事件的 Audit 演練列表強制透過現有 `idx_audit_events_time` 查詢，避免未限制時間的全表掃描。Claude 應檢查 query plan 與 Workspace join。
 - `scripts/backup-rehearsal-http.test.mjs`（功能 #300）：補 Audit provider 失敗、備份主目錄仍能讀取且不洩漏例外文字的回歸測試。
+- `scripts/erp-business-query.test.mjs`（功能 #300）：GitHub CI 暴露 ERP 佇列測試同毫秒提交時隨機 UUID 導致排序 fixture 不穩。只在 synthetic 測試中明確配置提交時間，維持原三筆／隊列順序行為，不修改 ERP 生產程式。
 - `docs/development/CYWEB_RECOVERY_ROTATION_RUNBOOK.md`（功能 #300）：新增兩階段控制、核准條件、保留舊副本、候選孤兒資產、成本與讀寫估計、唯讀查核與新目標演練之完整操作手冊。
 - `TODO.md`、`CHANGELOG.md`（功能 #300）：兩階段程式已提交、歷史 0014 副本保留、CI／Claude 審查待最終確認，正式雲端輪替和還原仍是獨立需要使用者核准的操作。
 - `.github/workflows/development-deploy.yml`（治理 #301）：只有 main `workflow_dispatch operation=rotate-recovery` 加上唯一 generation 與完整確認短語，維持原 `cyweb-production` 鎖及 Source/Identity/health gate；新增在遠端更動前檢查 feature PR 的輪替引擎存在。**推薦先合併 feature #300，再合併治理 #301**；未全部合併不得觸發 rotate。
