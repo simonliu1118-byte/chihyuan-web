@@ -33,6 +33,7 @@ export function StoreStocktake({role}:{role:string}){
  const [filter,setFilter]=useState<"ALL"|"UNFILLED"|"DIFFERENCE"|"ADDED">("ALL");
  const [drafts,setDrafts]=useState<Record<string,string>>({});
  const [saving,setSaving]=useState<string|null>(null);
+ const inFlightSave=useRef(new Set<string>());
  const [conflict,setConflict]=useState<{key:string;quantity:string}|null>(null);
  const [history,setHistory]=useState<{line:StocktakeLine;rows:LineHistory[]}|null>(null);
  const [ignoreForm,setIgnoreForm]=useState<string|null>(null);
@@ -105,13 +106,14 @@ export function StoreStocktake({role}:{role:string}){
  };
  const changeDraft=(key:string,value:string)=>setDrafts(s=>({...s,[key]:value}));
  async function saveLine(line:StocktakeLine,force=false){
-   if(!detail||saving||busy)return;
+   if(!detail||busy||inFlightSave.current.has(line.lineKey))return;
    const value=draftRef.current[line.lineKey];
    if(value===undefined)return;
    if(conflict?.key===line.lineKey&&!force)return;
    if(!/^-?(?:0|[1-9]\d{0,8})(?:\.\d{1,4})?$/.test(value)){
      reportError("數量格式錯誤：最多 4 位小數，絕對值小於十億。");return;
    }
+   inFlightSave.current.add(line.lineKey);
    setSaving(line.lineKey);
    try{
      const fresh=await call<StocktakeDetail>("/"+encodeURIComponent(detail.sheet.sheetNo)+"/line","PATCH",
@@ -125,7 +127,7 @@ export function StoreStocktake({role}:{role:string}){
        await loadDetail(detail.sheet.sheetNo);
        reportError("此列剛被其他人修改。請比較目前數量，選擇採用他人結果或覆蓋。");
      }else reportError(errorOf(e));
-   }finally{setSaving(null)}
+   }finally{inFlightSave.current.delete(line.lineKey);setSaving(null)}
  }
  async function afterConfirm(action:"first-confirm"|"second-confirm"|"retry-write"|"refresh"|"ignore"|"unignore"){
    if(!currentSheet)return;
@@ -245,7 +247,7 @@ export function StoreStocktake({role}:{role:string}){
        const canEdit=!l.locked&&(currentSheet.status==="COUNTING"||currentSheet.status==="RECOUNTING");
        const edited=drafts[l.lineKey];
        const lastAt=field==="firstQty"?l.firstAt:l.recountAt;
-       const lastBy=field==="firstQty"?l.firstBy:l.recountBy;
+       const lastBy=field==="firstQty"?l.firstByName:l.recountByName;
        return <article className="cy-stocktake-line" key={l.lineKey}>
         <div className="cy-stocktake-line-title"><strong>{l.itemCode} · {l.itemName}</strong>
          {l.isAdded?<span className="cy-notice cy-notice-warning">新增批號</span>:null}
@@ -264,7 +266,7 @@ export function StoreStocktake({role}:{role:string}){
           <div><small>差異（初盤－帳面）</small><strong>{relativeDiff(l.firstQty,l.bookQty)}</strong></div>
          </>:null}
         </div>
-        <div className="cy-stocktake-line-foot"><small>最後填寫：{lastBy===null?"—":`成員 ${lastBy}`} · {date(lastAt)}</small>
+        <div className="cy-stocktake-line-foot"><small>最後填寫：{lastBy??"—"} · {date(lastAt)}</small>
          <button className="cy-op-button compact" type="button" onClick={()=>void showHistory(l)}>修改紀錄</button>
          {l.isAdded&&canEdit?<button className="cy-op-button compact danger" type="button" onClick={()=>void deleteBatch(l)}>刪除批號</button>:null}
         </div>
