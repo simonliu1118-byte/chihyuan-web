@@ -853,6 +853,43 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "voided_by",
     "work_order_ref"
   ],
+  "store_blacklist": [
+    "action",
+    "created_at",
+    "created_by",
+    "id",
+    "name",
+    "phone",
+    "reason",
+    "updated_at",
+    "updated_by"
+  ],
+  "store_customer_order_lines": [
+    "id",
+    "item_code",
+    "item_name",
+    "order_id",
+    "quantity",
+    "sort_order",
+    "unit_price"
+  ],
+  "store_customer_orders": [
+    "cancel_reason",
+    "created_at",
+    "created_by",
+    "customer_name",
+    "deposit",
+    "id",
+    "line_name",
+    "note",
+    "notified_at",
+    "order_date",
+    "phone",
+    "status",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
   "work_log_categories": [
     "code",
     "id",

@@ -24,6 +24,7 @@ import { useToastQueue } from "./ui/feedback/useToastQueue";
 import { ErpHeldPrompt } from "./runtime/modules/ErpHeldPrompt";
 import { ToastRegion } from "./ui/feedback/ToastRegion";
 import {OrderingPage} from "./runtime/modules/OrderingPage";
+import {StorePage} from "./runtime/modules/StorePage";
 import { ErpAgentCredentialControl } from "./runtime/modules/ErpAgentCredentialControl";
 import { ItemOperationalPage } from "./runtime/modules/ItemOperationalPage";
 import { OutsourcingOperationalPage } from "./runtime/modules/OutsourcingOperationalPage";
@@ -37,7 +38,7 @@ import { UnsavedChangesBoundary, useNavigationGuard } from "./ui/foundation/useU
 import { createGuardedHashNavigation } from "./ui/foundation/guarded-hash-navigation";
 import { FeedbackProvider, useFeedback, useFeedbackMessage } from "./ui/feedback/FeedbackProvider";
 
-type AppRoute = "hr" | "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "erp-item-query" | "ordering" | "audit" | "identity" | "account" | "backups" | "programs";
+type AppRoute = "hr" | "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "erp-item-query" | "ordering" | "store" | "audit" | "identity" | "account" | "backups" | "programs";
 
 // One source of truth for the topbar titles and on-demand module descriptions.
 const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
@@ -50,6 +51,7 @@ const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
   worklogs: { title:"工作日誌", description:"填寫日誌、送審與評分統計" },
   "erp-item-query": { title:"ERP 查詢", description:"查閱 SMART ERP 資料，只讀不改" },
   ordering: {title:"叫貨",description:"叫貨草稿、送出、到貨紀錄與未到貨管理"},
+  store: {title:"門市",description:"顧客訂購、取貨通知與黑名單"},
   identity: { title:"帳號與權限", description:"使用者、權限群組與系統安全" },
   account: { title:"我的帳號", description:"變更自己的密碼與 Email" },
   audit: { title:"異動紀錄", description:"誰在什麼時候改了什麼" },
@@ -71,6 +73,7 @@ const baseNavigation: readonly NavigationGroup[] = [
       { key: "defects", label: "瑕疵", href: "#defects" },
       { key: "orders", label: "銷售工單", href: "#orders" },
       { key: "ordering", label: "叫貨", href: "#ordering" },
+      { key: "store", label: "門市", href: "#store" },
       { key: "outsourcing", label: "委外/代工", href: "#outsourcing" },
       { key: "worklogs", label: "工作日誌", href: "#worklogs" },
       { key: "hr", label: "人事", href: "#hr" },
@@ -105,6 +108,7 @@ const routes = new Set<AppRoute>([
   "worklogs",
   "erp-item-query",
   "ordering",
+  "store",
   "identity",
   "account",
   "audit",
@@ -296,6 +300,7 @@ function OperationalApp({
   else if (route === "worklogs") content = <WorkLogOperationalPage />;
   else if (route === "erp-item-query") content = null; // the kept ERP 查詢 page below
   else if (route === "ordering") content = <OrderingPage />;
+  else if (route === "store") content = <StorePage />;
   else if (route === "identity") content = <SharedIdentityPage session={session}
     showUsage={usageRequested && role === "SUPER_ADMIN"}
     usage={role === "SUPER_ADMIN" ? {report:usageReport,error:usageError,loading:usageLoading,onRefresh:refreshUsage} : undefined} />;
