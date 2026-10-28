@@ -8,17 +8,20 @@ const statusLabel: Record<ErpQueryStatus, string> = {
 const subject: Record<ErpQueryType, string> = {
   ITEM_NO: "品號", ITEM_NAME: "品名關鍵字", CUSTOMER_NO: "客戶代號", CUSTOMER_NAME: "客戶名稱關鍵字",
   SUPPLIER_NO: "廠商代號", SUPPLIER_NAME: "廠商名稱關鍵字", PURCHASES: "廠商代號",
-  SALES: "客戶代號", RECEIVABLE: "範圍", ORDER: "單號", RESTOCK: "單據日期",
+  SALES: "客戶代號", RECEIVABLE: "範圍", ORDER: "單號", RESTOCK: "單據日期", STOCKTAKE_SYNC: "盤點單", STOCKTAKE_WRITE: "底稿",
 };
 const notFound: Record<ErpQueryType, string> = {
   ITEM_NO: "找不到此品號。", ITEM_NAME: "沒有符合的品名。", CUSTOMER_NO: "找不到此客戶代號。",
   CUSTOMER_NAME: "沒有符合的客戶簡稱或全名。", SUPPLIER_NO: "找不到此廠商代號。", SUPPLIER_NAME: "沒有符合的廠商簡稱或全名。", PURCHASES: "此期間沒有進貨單或退貨單。",
   SALES: "此期間沒有銷貨單或銷退單。", RECEIVABLE: "沒有未收款。", ORDER: "ERP 查無此單號。",
   RESTOCK: "此期間沒有銷貨單或銷退單。",
+  STOCKTAKE_SYNC: "沒有新盤點單。", STOCKTAKE_WRITE: "沒有需要寫回的列。",
 };
 function describe(result: ErpQueryResult): string {
   if (result.queryType === "RECEIVABLE")
     return result.scope === "ALL" ? "全部客戶" : `${result.scope === "CUSTOMER" ? "客戶" : "業務員"} ${result.code}`;
+  if (result.queryType === "STOCKTAKE_SYNC")return "更新門市盤點底稿";
+  if (result.queryType === "STOCKTAKE_WRITE")return result.code??"盤點單";
   if (result.queryType === "RESTOCK")
     return result.dateFrom && result.dateTo ? `${formatDate(result.dateFrom)} ～ ${formatDate(result.dateTo)}` : "";
   if (result.queryType === "SALES" || result.queryType === "PURCHASES")
@@ -44,8 +47,11 @@ export function ErpJobStatus({ result }: { result: ErpQueryResult }) {
       {result.notBefore && Date.parse(result.notBefore) > Date.now()
         ? `ERP 暫停中，已加入查詢佇列，${new Date(result.notBefore).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false })} 暫停結束後自動查詢。`
         : "已加入查詢佇列，等待公司電腦處理。"}</p>}
-    {result.status === "RUNNING" && <p className="cy-erp-waiting"><span className="cy-loading-spinner" aria-hidden="true" />{result.queryType === "RESTOCK"
-      ? restockProgress(result)
+    {result.status === "RUNNING" && <p className="cy-erp-waiting"><span className="cy-loading-spinner" aria-hidden="true" />{result.queryType === "STOCKTAKE_WRITE" && result.progress?.stage === "STOCK"
+      ? `已寫入 ${result.progress.done} / ${result.progress.total} 列。`
+      : result.queryType === "STOCKTAKE_WRITE" ? "正在寫回並核對 ERP 庫存。"
+      : result.queryType === "STOCKTAKE_SYNC" ? "正在讀取尚未匯入的盤點底稿。"
+      : result.queryType === "RESTOCK" ? restockProgress(result)
       : ["SALES", "PURCHASES", "RECEIVABLE", "ORDER"].includes(result.queryType)
       ? "正在產生 ERP 報表並轉出，可能需要一到數分鐘。" : "正在查詢 ERP。"}</p>}
     {result.errorMessage && <p className="cy-notice cy-notice-danger">{result.errorMessage}</p>}
