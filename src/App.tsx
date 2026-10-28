@@ -3,7 +3,7 @@ import { Loading } from "./ui/feedback/Loading";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiClientError, apiRequest } from "./api/client";
 import { usageRatio, type D1UsageReport } from "../shared/cloudflare-usage";
-import { taiwanQuarter, type QuarterlyRehearsalReminder } from "../shared/backup-quarterly";
+import { QUARTERLY_REMINDER_RECHECK_MS, taiwanQuarter, type QuarterlyRehearsalReminder } from "../shared/backup-quarterly";
 import { checkModuleAccess } from "./access/module-access-client";
 import { AuthGate } from "./auth/AuthGate";
 import type { AuthSession, WorkspaceRole } from "./auth/auth-client";
@@ -165,19 +165,19 @@ function OperationalApp({
       if (!active) return;
       const quarter = taiwanQuarter(new Date().toISOString());
       const now = Date.now();
-      if (!force && now - lastCheck < 60 * 60 * 1000 && lastQuarter === quarter) return;
+      if (!force && now - lastCheck < QUARTERLY_REMINDER_RECHECK_MS && lastQuarter === quarter) return;
       lastCheck = now; lastQuarter = quarter;
       void apiRequest<QuarterlyRehearsalReminder>("/api/admin/backups/quarterly-reminder")
         .then(data => { if (active) setQuarterlyReminder(data); })
         .catch(() => { if (active) setQuarterlyReminder(null); });
     };
     refresh();
-    // Read-only, rate-limited recheck: login, tab return, and at most once per hour while open.
+    // Read-only, rate-limited recheck: on login and at most once per 24 hours; a new Taiwan quarter is checked promptly.
     const visible = () => { if (document.visibilityState === "visible") refresh(); };
     const verified = () => refresh(true);
     document.addEventListener("visibilitychange", visible);
     window.addEventListener("cyweb:rehearsal-verified", verified);
-    const timer = window.setInterval(() => refresh(), 60 * 60 * 1000);
+    const timer = window.setInterval(() => refresh(), QUARTERLY_REMINDER_RECHECK_MS);
     return () => {
       active = false; document.removeEventListener("visibilitychange", visible);
       window.removeEventListener("cyweb:rehearsal-verified", verified);
