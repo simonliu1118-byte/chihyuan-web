@@ -46,8 +46,18 @@ on:
       operation:
         description: Existing development deploy or read-only account portal audit
         type: choice
-        options: [deploy-development, audit-identity, audit-backup]
+        options: [deploy-development, rotate-recovery, audit-identity, audit-backup]
         default: deploy-development
+      recovery_generation:
+        description: "Rotation only: unique version suffix YYYYMMDD + 1-6 lowercase letters/digits"
+        type: string
+        required: false
+        default: ""
+      recovery_confirmation:
+        description: "Rotation only: type ROTATE_ISOLATED_RECOVERY_TARGET"
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -131,7 +141,7 @@ jobs:
         run: rm -f wrangler.ci.generated.jsonc
 
   deploy-development:
-    if: (github.event_name == 'workflow_dispatch' && inputs.operation == 'deploy-development' && github.ref == 'refs/heads/main') || (github.event_name == 'push' && github.ref == 'refs/heads/deploy/cyweb-development')
+    if: (github.event_name == 'workflow_dispatch' && (inputs.operation == 'deploy-development' || inputs.operation == 'rotate-recovery') && github.ref == 'refs/heads/main') || (github.event_name == 'push' && github.ref == 'refs/heads/deploy/cyweb-development')
     needs: validate-deployment-contract
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -155,6 +165,9 @@ jobs:
       CF_BACKUP_ENABLED: ${{ vars.CF_BACKUP_ENABLED }}
       CF_BACKUP_SCHEDULE_ENABLED: ${{ vars.CF_BACKUP_SCHEDULE_ENABLED }}
       CF_BACKUP_R2_BUCKET: ${{ vars.CF_BACKUP_R2_BUCKET }}
+      CF_RECOVERY_ROTATION_OPERATION: ${{ inputs.operation }}
+      CF_RECOVERY_ROTATION_GENERATION: ${{ inputs.recovery_generation }}
+      CF_RECOVERY_ROTATION_CONFIRMATION: ${{ inputs.recovery_confirmation }}
       CF_HR_FILES_R2_BUCKET: ${{ vars.CF_HR_FILES_R2_BUCKET }}
       GCS_BUCKET: ${{ vars.GCS_BUCKET }}
 
@@ -206,6 +219,16 @@ jobs:
           GCS_SERVICE_ACCOUNT_JSON: ${{ secrets.GCS_SERVICE_ACCOUNT_JSON }}
           CF_USAGE_API_TOKEN: ${{ secrets.CF_USAGE_API_TOKEN }}
         run: node scripts/render-backup-secrets.mjs --output "$RUNNER_TEMP/cyweb-backup-secrets.json"
+
+      - name: Require reviewed rotation implementation before any remote mutation
+        if: github.event_name == 'workflow_dispatch' && inputs.operation == 'rotate-recovery'
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'RECOVERY_NEW_TARGET_PREPARED_OLD_PRESERVED' scripts/provision-backup-recovery.mjs
+          test -n "${CF_RECOVERY_ROTATION_GENERATION}"
+          test "${CF_RECOVERY_ROTATION_CONFIRMATION}" = "ROTATE_ISOLATED_RECOVERY_TARGET"
+          echo "Protected recovery rotation source contract confirmed."
 
       - name: Verify current reviewed main before remote changes
         run: node scripts/verify-deployment-source.mjs
