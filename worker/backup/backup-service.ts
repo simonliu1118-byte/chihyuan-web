@@ -1,4 +1,5 @@
 import { AuditService } from "../audit/audit-service";
+import { quarterlyRehearsalReminder, type QuarterlyRehearsalReminder } from "../../shared/backup-quarterly";
 import { BACKUP_REHEARSAL_ERROR_MESSAGES, type BackupHistory, type BackupProvider, type BackupRehearsalHistoryEntry } from "../../shared/backups";
 import { exportPortableBackup, restoreIntoEmptyDatabase, validateEmptyBackupTarget, storeVerifiedCopy, verifyPortableBackup, type BackupStorageProvider, type PortableBackup } from "./portable-backup";
 import { BACKUP_ID, storageCheck } from "./storage-guard";
@@ -32,6 +33,20 @@ export async function loadBackupHistory(db: D1Database, workspace: string, confi
           && (!copy.lease_until || copy.lease_until <= new Date().toISOString())),
     };
   }) };
+}
+/** One small, workspace-scoped query used for a persistent Super Admin notice.
+ * This is independent from the 90-day diagnostic history window. */
+export async function loadQuarterlyRehearsalReminder(db: D1Database, workspace: string, now: string): Promise<QuarterlyRehearsalReminder> {
+  const policy = quarterlyRehearsalReminder(now, null);
+  const match = /^(\d{4})-Q([1-4])$/.exec(policy.quarter);
+  if (!match) throw Error("BACKUP_TIME_INVALID");
+  const start = new Date(Date.UTC(Number(match[1]), (Number(match[2]) - 1) * 3, 1) - 8 * 3600000).toISOString();
+  const last = await db.prepare(`SELECT ae.occurred_at FROM audit_events ae
+    JOIN backup_sets bs ON bs.backup_id=ae.entity_key AND bs.workspace_scope=?
+    WHERE ae.entity_type='backup' AND ae.action='backup.rehearsal.verified'
+      AND ae.occurred_at>=?
+    ORDER BY ae.occurred_at DESC, ae.id DESC LIMIT 1`).bind(workspace, start).first<{occurred_at:string}>();
+  return quarterlyRehearsalReminder(now, last?.occurred_at ?? null);
 }
 // Only stable, public-safe codes may be persisted or shown. No exception text, stack or data payload.
 function safeRehearsalCode(error: unknown): string {
