@@ -1,6 +1,6 @@
 # CYWEB V0.9.49 — 季度隔離還原演練與超管主動提醒／Claude 審查 handoff
 
-- **狀態：GPT 開發已提交；待 PR 最新 CI／Claude 最終審查；未合併、未部署。**
+- **狀態：程式 CI 已通過；待 Claude 審查。Cloudflare 物理解綁仍未實作，不得視為五項全數完成；未合併、未部署。**
 - 日期：2026-10-28（Asia/Taipei）
 - Repo：`simonliu1118-byte/chihyuan-web`
 - 分支：`feat/cyweb-quarterly-rehearsal-20261028`
@@ -28,7 +28,7 @@
 | --- | --- |
 | `VERSION`, `package.json` | 0.9.48 → 0.9.49；`BUILD` 仍 0。 |
 | `shared/backup-quarterly.ts` | 新增純函式台灣曆季判定、成功演練當季免提醒政策，跨 UTC/台灣時區邊界。 |
-| `worker/backup/backup-service.ts` | 新增 `loadQuarterlyRehearsalReminder`，於目前季度起始時間之後以 Workspace 篩選 Audit `backup.rehearsal.verified`，只傳回需要的時間及 Qn/due；新增 `isRecoveryGenerationConsumed` 以原 Audit 的 `targetGeneration` 防止同代次已開始／成功／失敗後再次演練。成功與失敗 Audit 的 metadata 增加此代次標記；原雙端安全備份與資料還原順序不改。 |
+| `worker/backup/backup-service.ts` | 新增 `loadQuarterlyRehearsalReminder`，於目前季度起始時間之後以 Workspace 篩選 Audit `backup.rehearsal.verified`，只傳回需要的時間及 Qn/due；新增 `isRecoveryGenerationConsumed` 以原 Audit 的 `targetGeneration` 防止同代次已開始實際還原／成功後再次演練；前置來源／安全備份失敗且隔離庫仍空白時，允許受控重試。成功與失敗 Audit 的 metadata 增加此代次標記；原雙端安全備份與資料還原順序不改。 |
 | `worker/backup/portable-backup.ts` | 新增 `isEmptyRecoveryTarget` 唯讀探查，重用既有 `layout`／完整 canonical seed guard，缺表、版本落後、無法確認即回 `false`；不寫入隔離 D1。 |
 | `worker/http/backup-routes.ts` | `GET /api/admin/backups/quarterly-reminder` 僅既有 CYID SUPER_ADMIN／有效成員可讀；完整備份紀錄新增 `recoveryReady`、`recoveryBlockedReason`，已使用／結果未確認的目標不允許 UI 顯示再驗證。讀取失敗則安全地視為不可驗證、但不遮蔽其他備份紀錄。POST 演練送入部署端 target generation。 |
 | `worker/backup/runtime.ts`、`scripts/render-deploy-config.mjs` | 保持原 Worker source of truth；部署時依合法版本化隔離庫名稱衍生 `RECOVERY_TARGET_GENERATION`（標準舊庫為 `legacy`），不向前端傳出真 D1 UUID。 |
@@ -36,7 +36,7 @@
 | `src/App.tsx` | 在現有 AppShell `systemNotice` 共用區增添**全域超管季度提醒**，初次登入、重新回到可見分頁及最多每小時校正；同季度節流，不改 Toast 權威。提供「前往備份管理」與「本次先關閉」（只對目前登入暫停；重新登入仍可見）。完成演練立即觸發更新。其他角色完全不發請求也不顯示。 |
 | `src/runtime/modules/BackupOperationalPage.tsx` | `completed` 中文顯示「完成」，成功 Audit 額外顯示可長期觀看的結果區；`recoveryReady=false` 時桌面／手機均不提供再次驗證，並顯示需新隔離目標。POST 成功立即將當前 UI 標成已使用，不等待刷新。 |
 | `src/runtime/modules/backup-operational.css` | 明顯的成功結果框，遵循系統原色票、手機可換行。 |
-| `scripts/backup-quarterly.test.mjs` | 台灣季度換季時間、沒有成功 Audit 需提醒、本季成功免提醒。 |
+| `scripts/backup-quarterly.test.mjs`、`scripts/backup-schedule.test.mjs` | 台灣季度換季時間、沒有成功 Audit 需提醒、本季成功免提醒；第二支已納入原 Runtime Check 測試集。 |
 | `scripts/backup-ui.test.mjs` | 桌面及手機版已使用目標隱藏按鈕、完成結果不誤稱已物理解綁。 |
 | `scripts/backup-rehearsal-http.test.mjs` | SUPER_ADMIN 專屬季度提醒、工作空間限定查詢、已使用代次 409 對應安全訊息。 |
 | `docs/development/CYWEB_RECOVERY_ROTATION_RUNBOOK.md` | 每季人工演練工作流程、超管站內提醒、**最近一個已使用副本**保留策略、明確 Cloudflare 物理解除綁定限制；舊庫清理需人工核准，不自動刪庫。 |
@@ -46,7 +46,7 @@
 ## 3. 安全及帳務界線
 
 - **不自動還原、不自動建立新 D1、不自動刪除 D1、不改 Worker 實際綁定、不啟用 `CF_BACKUP_SCHEDULE_ENABLED`**。正式 Worker 及備份數據未變。
-- 停用驗證 UI 不取代真正後端保護：原 `validateEmptyBackupTarget` 檢查仍在，另外加入唯一 target generation 的 Audit 重複演練鎖。稽核失敗時不自動解鎖；如果 metadata 不明則由實際 schema／row 檢查 fail closed。
+- 停用驗證 UI 不取代真正後端保護：原 `validateEmptyBackupTarget` 檢查仍在，另外加入唯一 target generation 的 Audit 重複演練鎖。真正進入還原後即使失敗也不自動解鎖；如果只在來源／雙副本安全備份前置檢查失敗、隔離庫仍空白，則允許原本受控流程安全重試。metadata 不明時由實際 schema／row 檢查 fail closed。
 - 由於原 backup POST 只對已授權的單次人工驗證執行，季度提醒 API 完全唯讀，不會讓 USER／ADMIN 存取稽核狀態。
 - 操作前仍依既有配額、源資料、Schema、空白目標、雙重確認及 `pre_restore` R2＋GCS 雙端驗證要求。
 - API 登入的超管每季讀取一次新提醒，切回分頁後最多約每小時查一次。實際 Cloudflare rows-read／費用未測，不可聲稱已具備精確用量。
@@ -55,10 +55,11 @@
 
 ## 4. 自動驗證紀錄
 
-- [ ] 以 PR 最新 SHA 確認 Governance Check。
-- [ ] 以 PR 最新 SHA 確認 Runtime Check（TypeScript、Worker/Browser、local D1 acceptance、Vite）。
-- [ ] 以 PR 最新 SHA 確認 Deploy PR-only validate-deployment-contract，deploy 仍須 skipped。
-- [ ] `scripts/backup-quarterly.test.mjs` 是否由 Runtime suite 自動收錄，需核對；未涵蓋時加至統一 test runner。
+- [x] [Governance Check #40700460625](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40700460625)：success，程式 SHA `9fd739918d611b2e5d3b3c5d12d66900efaf7773`。
+- [x] [Runtime Check #40700460744](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40700460744)：success（前後端 TypeScript、Worker tests、backup-schedule 季度測試、local D1 acceptance、Vite）。
+- [x] [CY Web Deploy PR contract #40700460735](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40700460735)：success，正式 deploy-development skipped。
+- [x] 首次 [Runtime #40699410730](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40699410730) 曾因前置 R2/GCS 安全備份失敗被誤當成目標已使用而失敗。修正後只在 `backup.rehearsal.started` 或 `verified` 鎖定，local D1 驗收已通過。
+- [ ] Claude 依最新 PR HEAD 與本文審查；最後文件提交後新 HEAD 的 CI 以當次結果為準。
 - [ ] Claude 審查本版 POST target generation 事件順序、重試競態（並發請求）、回傳 Audit 的季度邊界及成本。
 - [ ] 實機 Desktop／Tablet／Mobile 驗收待正式獲權後進行；本輪未操作正式 Cloudflare。
 
@@ -87,6 +88,12 @@
 - [ ] 季度提醒是否必須調整 API 範圍（僅查必要欄位）、時區起訖及已登入 UI 更新事件，確保沒有全表掃描或過度 Cloudflare 成本。
 - [ ] 成功結果、disabled control、長錯誤碼和手機密度驗證；「完成」為成功事件專屬。
 - [ ] 物理解綁尚未完成，不能審查通過後誤宣稱整個五項需求都已實現。
+
+### 補充：CI 發現與 Claude 後續評估
+
+- 初版把 `backup.rehearsal.failed` 也認為已使用，造成 local D1 前置備份故障測試失敗。已限定真正開始還原之 `started` 或成功 `verified` 才鎖定，保留前置安全失敗可重試、實際寫入後不可重試的分界。
+- 季度提醒單次為 workspace-scoped Audit JOIN／`LIMIT 1`；管理頁另做一次隔離目標唯讀 Schema／種子檢查。**遠端 rows-read 及費用尚未量測**，Claude 應評估。
+- Worker 無 Cloudflare 管理 Token；邏輯鎖定不能被稱為物理解綁，需獨立受保護控制平面與使用者許可。
 
 ## 8. Claude 最終審查（僅 Claude 填）
 
