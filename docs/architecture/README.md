@@ -21,7 +21,7 @@
 5. current source 與可重建驗證結果；
 6. archive/legacy/preview evidence。
 
-Archive、舊 preview、review backlog、readiness checkpoint、舊 handoff（`../handoff/`）或舊 branch metadata 都不能覆蓋較新的 current contract／Business Decision／`main` source。Active tree 不維護 dated Identity handoff；歷史 checkpoint 以 Git history 追溯。
+Archive、舊 preview、review backlog、readiness checkpoint、已結案舊 handoff（已移出 active tree，原文見 Git history）或舊 branch metadata 都不能覆蓋較新的 current contract／Business Decision／`main` source。Active tree 不維護 dated Identity handoff；歷史 checkpoint 以 Git history 追溯。
 
 ## Current architecture baseline
 
