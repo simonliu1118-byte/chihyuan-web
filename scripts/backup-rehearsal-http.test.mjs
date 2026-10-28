@@ -17,14 +17,14 @@ try {
 } finally { rmSync(directory, { recursive: true, force: true }); }
 const id = "00000000-0000-4000-8000-000000000001";
 const valid = { selectionConfirmation: id, reviewed: true, confirmation: "驗證隔離還原", provider: "gcs" };
-function fixture({ role = "SUPER_ADMIN", active = true, authenticated = true, bound = true, failure, auditRows = [] } = {}) {
+function fixture({ role = "SUPER_ADMIN", active = true, authenticated = true, bound = true, failure, auditRows = [], auditUnavailable = false } = {}) {
   const calls = [], queries = [], target = {};
   const env = { RECOVERY_DB: bound ? target : undefined, IDENTITY_APPLICATION_ID: "APP_TEST", IDENTITY_WORKSPACE_ID: "workspace-test",
     DB: {
       prepare(sql) { return {
         bind(...args) { queries.push({ sql, args }); return this; },
         async first() { return { id: 7, identity_employee_id: "synthetic", employee_no: "0098", display_name: "Synthetic", is_active: active ? 1 : 0 }; },
-        async all() { return { results: auditRows }; },
+        async all() { if (auditUnavailable) throw Error("sensitive audit provider outage"); return { results: auditRows }; },
       }; },
       async batch() { return [{ results: [] }, { results: [] }]; },
     },
@@ -111,4 +111,13 @@ test("backup refresh includes bounded, workspace-scoped rehearsal status without
   assert.equal(body.data.rehearsals[1].status, "verified");
   assert.doesNotMatch(JSON.stringify(body), /customerSecret|hidden/);
   assert.ok(f.queries.some(q => q.sql.includes("JOIN backup_sets") && q.args[0] === "workspace-test"));
+});
+
+test("optional Audit lookup failure does not conceal healthy backup catalog or report false success", async () => {
+  const f = fixture({ auditUnavailable: true }), response = await f.history(), body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.data.rehearsalHistoryAvailable, false);
+  assert.deepEqual(body.data.rehearsals, []);
+  assert.deepEqual(body.data.sets, []);
+  assert.doesNotMatch(JSON.stringify(body), /sensitive audit provider outage/);
 });
