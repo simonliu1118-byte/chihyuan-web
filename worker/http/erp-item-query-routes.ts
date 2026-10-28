@@ -137,7 +137,7 @@ function toJob(row: JobRow, showCost: boolean): ErpQueryResult {
     batches: parsedJson<ErpField[][]>(row.batches_json) ?? [],
     history: parsedJson<ErpQueryHistory>(row.history_json),
     errorCode: row.error_code, errorMessage: row.error_message,
-    resultCleared: row.status === "DONE" && resultColumn(row) === null,
+    resultCleared: row.status === "DONE" && !["STOCKTAKE_SYNC","STOCKTAKE_WRITE"].includes(row.query_type) && resultColumn(row) === null,
     notBefore: row.status === "QUEUED" ? row.not_before : null,
   };
 }
