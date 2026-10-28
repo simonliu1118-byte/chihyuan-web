@@ -3,7 +3,7 @@ import { Loading } from "./ui/feedback/Loading";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiClientError, apiRequest } from "./api/client";
 import { usageRatio, type D1UsageReport } from "../shared/cloudflare-usage";
-import type { QuarterlyRehearsalReminder } from "../shared/backup-quarterly";
+import { taiwanQuarter, type QuarterlyRehearsalReminder } from "../shared/backup-quarterly";
 import { checkModuleAccess } from "./access/module-access-client";
 import { AuthGate } from "./auth/AuthGate";
 import type { AuthSession, WorkspaceRole } from "./auth/auth-client";
@@ -160,9 +160,13 @@ function OperationalApp({
   const [dismissedQuarter, setDismissedQuarter] = useState<string | null>(null);
   useEffect(() => {
     if (session.user.workspaceRole !== "SUPER_ADMIN") return;
-    let active = true;
-    const refresh = () => {
+    let active = true, lastCheck = 0, lastQuarter = "";
+    const refresh = (force = false) => {
       if (!active) return;
+      const quarter = taiwanQuarter(new Date().toISOString());
+      const now = Date.now();
+      if (!force && now - lastCheck < 60 * 60 * 1000 && lastQuarter === quarter) return;
+      lastCheck = now; lastQuarter = quarter;
       void apiRequest<QuarterlyRehearsalReminder>("/api/admin/backups/quarterly-reminder")
         .then(data => { if (active) setQuarterlyReminder(data); })
         .catch(() => { if (active) setQuarterlyReminder(null); });
@@ -170,9 +174,15 @@ function OperationalApp({
     refresh();
     // Read-only, rate-limited recheck: login, return to tab, and at most every 6h while open.
     const visible = () => { if (document.visibilityState === "visible") refresh(); };
+    const verified = () => refresh(true);
     document.addEventListener("visibilitychange", visible);
-    const timer = window.setInterval(refresh, 6 * 60 * 60 * 1000);
-    return () => { active = false; document.removeEventListener("visibilitychange", visible); window.clearInterval(timer); };
+    window.addEventListener("cyweb:rehearsal-verified", verified);
+    const timer = window.setInterval(() => refresh(), 60 * 60 * 1000);
+    return () => {
+      active = false; document.removeEventListener("visibilitychange", visible);
+      window.removeEventListener("cyweb:rehearsal-verified", verified);
+      window.clearInterval(timer);
+    };
   }, [session.user.workspaceRole, session.user.workspaceId]);
   const refreshUsage = useCallback(async () => {
     setUsageLoading(true);
