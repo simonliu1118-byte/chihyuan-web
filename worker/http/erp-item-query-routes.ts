@@ -7,6 +7,8 @@ import {
   type ErpAgentControl, type ErpControlRequest, type ErpControlResult,
 } from "../../shared/erp-item-query";
 import { AuditService } from "../audit/audit-service";
+import {validateSyncResult,validateWriteResult,syncStatements,writeResultStatements} from "./stocktake-erp";
+import type {StocktakeWriteRow} from "../../shared/stocktake";
 import { salesHistoryStatements } from "./erp-sales-history";
 import { HistoryRangeError, daysInclusive, resolveDateRange, resolveHistoryRange, resolveRestockRange } from "../../shared/erp-query-history";
 import { erpNameContains, parseErpCode, parseErpNameKeyword, parseErpOrderNo } from "../../shared/erp-name-search";
@@ -43,14 +45,15 @@ const MODULES_FOR_TYPE: Record<ErpQueryType, readonly CyWebModuleCode[]> = {
   SUPPLIER_NO: ["ERP_SUPPLIER_QUERY"], SUPPLIER_NAME: ["ERP_SUPPLIER_QUERY"], PURCHASES: ["ERP_SUPPLIER_QUERY"],
   RECEIVABLE: ["ERP_RECEIVABLE_QUERY"], ORDER: ["ERP_CUSTOMER_QUERY", "ERP_RECEIVABLE_QUERY"],
   RESTOCK: ["ERP_RESTOCK_ASSIST"],
+  STOCKTAKE_SYNC: ["STORE_STOCKTAKE"], STOCKTAKE_WRITE: ["STORE_STOCKTAKE"],
 };
 /** The grants that may see the Agent's status (every page that sends ERP jobs). */
-const ERP_QUERY_MODULES: readonly CyWebModuleCode[] = ["ERP_ITEM_QUERY", "ERP_CUSTOMER_QUERY", "ERP_RECEIVABLE_QUERY", "ERP_SUPPLIER_QUERY", "ERP_RESTOCK_ASSIST"];
+const ERP_QUERY_MODULES: readonly CyWebModuleCode[] = ["ERP_ITEM_QUERY", "ERP_CUSTOMER_QUERY", "ERP_RECEIVABLE_QUERY", "ERP_SUPPLIER_QUERY", "ERP_RESTOCK_ASSIST", "STORE_STOCKTAKE"];
 /**
  * Report types run whole ERP reports (COPR15+COPR16, PURR18+PURR22, ACRR18) and may take minutes;
  * RESTOCK also reads every 品號's 庫存 afterwards.
  */
-const REPORT_TYPES = new Set<ErpQueryType>(["SALES", "PURCHASES", "RECEIVABLE", "ORDER", "RESTOCK"]);
+const REPORT_TYPES = new Set<ErpQueryType>(["SALES", "PURCHASES", "RECEIVABLE", "ORDER", "RESTOCK", "STOCKTAKE_SYNC", "STOCKTAKE_WRITE"]);
 /** Types with a 單據日期 range in history_from／history_to. */
 const DATED_TYPES = new Set<ErpQueryType>(["SALES", "PURCHASES", "RESTOCK"]);
 const NAME_TYPES = new Set<ErpQueryType>(["ITEM_NAME", "CUSTOMER_NAME", "SUPPLIER_NAME"]);
@@ -71,6 +74,7 @@ const QUEUE_ORDER = "q.created_at, q.id";
 const DEFAULT_SECONDS: Record<ErpQueryType, number> = {
   ITEM_NO: 40, ITEM_NAME: 30, CUSTOMER_NO: 30, CUSTOMER_NAME: 30, SUPPLIER_NO: 30, SUPPLIER_NAME: 30,
   PURCHASES: 120, SALES: 120, RECEIVABLE: 90, ORDER: 60, RESTOCK: 400,
+  STOCKTAKE_SYNC: 600, STOCKTAKE_WRITE: 900,
 };
 const ITEM_FIELD_SET = new Set<string>(ERP_ITEM_FIELDS);
 const COST_FIELD_SET = new Set<string>(ERP_ITEM_COST_FIELDS);
@@ -489,8 +493,10 @@ function parseResult(body: Record<string, unknown>, job: JobRow): ParsedResult {
   const elapsedMs = body.elapsedMs;
   if (typeof elapsedMs !== "number" || !Number.isSafeInteger(elapsedMs) || elapsedMs < 0 || elapsedMs > 3600000)
     return bad("INVALID_AGENT_RESULT", "查詢耗時不正確");
-  const parsed = job.query_type === "ITEM_NO" || job.query_type === "ITEM_NAME"
-    ? parseItemResult(body, job, outcome) : parseBusinessResult(body, job, outcome);
+  const parsed = job.query_type === "STOCKTAKE_SYNC" || job.query_type === "STOCKTAKE_WRITE"
+    ? { ...EMPTY, resultCount: 0, truncated: false }
+    : job.query_type === "ITEM_NO" || job.query_type === "ITEM_NAME"
+      ? parseItemResult(body, job, outcome) : parseBusinessResult(body, job, outcome);
   let errorCode: ErpQueryErrorCode | null = null;
   if (outcome === "FAILED") {
     if (typeof body.errorCode !== "string" || !VALID_AGENT_ERRORS.has(body.errorCode))
@@ -598,6 +604,7 @@ const KEYS: Record<ErpQueryType, readonly string[]> = {
   RECEIVABLE: ["queryType", "scope", "code"],
   ORDER: ["queryType", "orderNo"],
   RESTOCK: ["queryType", "dateFrom", "dateTo"],
+  STOCKTAKE_SYNC: ["queryType"], STOCKTAKE_WRITE: ["queryType"],
 };
 type NewJob = {
   itemNo: string; keyword: string | null; targetCode: string | null; scope: ErpReceivableScope | null;
@@ -627,6 +634,8 @@ function parseRequest(queryType: ErpQueryType, body: Record<string, unknown>): N
         const range = resolveDateRange(body.dateFrom, body.dateTo, "單據日期");
         return { ...base, targetCode: parseCode(body.customerCode, "客戶代號"), from: range.from, to: range.to };
       }
+      case "STOCKTAKE_SYNC": case "STOCKTAKE_WRITE":
+        return bad("INVALID_QUERY", "庫存盤點工作只能從門市盤點功能提出");
       case "RESTOCK": {
         const range = resolveRestockRange(body.dateFrom, body.dateTo, ERP_RESTOCK_MAX_DAYS);
         return { ...base, from: range.from, to: range.to };
@@ -676,6 +685,8 @@ function queueTarget(row: QueueRow): string | null {
     case "ITEM_NAME": case "CUSTOMER_NAME": case "SUPPLIER_NAME": return row.keyword;
     case "SALES": case "PURCHASES": return [row.target_code, range].filter(Boolean).join(" ") || null;
     case "RESTOCK": return range;
+    case "STOCKTAKE_SYNC": return "門市盤點更新";
+    case "STOCKTAKE_WRITE": return row.target_code;
     case "RECEIVABLE": return row.receivable_scope === "ALL" ? "全部客戶" : `${row.receivable_scope === "CUSTOMER" ? "客戶" : "業務員"} ${row.target_code ?? ""}`;
     default: return row.target_code;
   }
@@ -929,6 +940,10 @@ function claimedJob(job: ClaimRow) {
     case "RECEIVABLE": return { ...base, scope: job.receivable_scope, code: job.target_code };
     case "ORDER": return { ...base, orderNo: job.target_code };
     case "RESTOCK": return { ...base, dateFrom: job.history_from, dateTo: job.history_to };
+    case "STOCKTAKE_SYNC": { const v=JSON.parse(job.keyword??"{}") as {skipSheets:string[];onlySheet:string|null};
+      return { ...base, skipSheets:v.skipSheets, onlySheet:v.onlySheet }; }
+    case "STOCKTAKE_WRITE": { const v=JSON.parse(job.keyword??"{}") as {sheetNo:string;rows:unknown[]};
+      return { ...base, sheetNo:v.sheetNo, rows:v.rows }; }
   }
 }
 async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: string, pathname: string): Promise<Response> {
@@ -980,13 +995,13 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
     if (done > total) bad("INVALID_AGENT_RESULT", "進度完成數大於總數");
     const updated = await env.DB.prepare(
       `UPDATE erp_item_queries SET progress_stage=?1,progress_done=?2,progress_total=?3
-        WHERE id=?4 AND status='RUNNING' AND claim_hash=?5 AND query_type='RESTOCK'
+        WHERE id=?4 AND status='RUNNING' AND claim_hash=?5 AND query_type IN ('RESTOCK','STOCKTAKE_WRITE')
           AND NOT (progress_stage IS ?1 AND progress_done>?2)`
     ).bind(stage, done, total, progress[1], auth.digest).run();
     if (updated.meta.changes !== 1) {
       const row = await env.DB.prepare("SELECT status,claim_hash,query_type FROM erp_item_queries WHERE id=?1").bind(progress[1]).first<{ status: string; claim_hash: string | null; query_type: string }>();
       if (!row) return failure({ code: "QUERY_NOT_FOUND", message: "查無此查詢工作" }, requestId, 404);
-      if (row.status !== "RUNNING" || row.claim_hash !== auth.digest || row.query_type !== "RESTOCK")
+      if (row.status !== "RUNNING" || row.claim_hash !== auth.digest || row.query_type !== "RESTOCK" && row.query_type !== "STOCKTAKE_WRITE")
         return failure({ code: "QUERY_NOT_RUNNING", message: "工作不在可回報狀態，或不是此 Agent 領取" }, requestId, 409);
     }
     return success({ id: progress[1] }, requestId);
