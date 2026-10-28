@@ -404,3 +404,17 @@ test("new batch must receive ERP sequence and existing batch must keep its seque
  assert.throws(()=>validate({...base,results:[{key:"00001",ok:true,erpSeq:"00002",message:"ok"}]},
    "990001",existing),/ERP/);
 });
+
+
+test("each member has at most 3 active stocktake ERP jobs and fourth receives actionable 409",async()=>{
+ const f=fixture();try{
+  for(let i=0;i<3;i++){
+   const created=await f.user("/sync","POST");
+   assert.equal(created.status,200,JSON.stringify(created));
+  }
+  const fourth=await f.user("/sync","POST");
+  assert.equal(fourth.status,409,JSON.stringify(fourth));
+  assert.equal(fourth.error.code,"ERP_QUEUE_LIMIT");
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM erp_item_queries WHERE status='QUEUED'").get().n,3);
+ }finally{f.sql.close()}
+});
