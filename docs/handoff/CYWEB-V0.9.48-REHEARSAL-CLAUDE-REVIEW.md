@@ -37,9 +37,8 @@
 
 ## 3. 完成報告：驗證證據與成本
 
-- [x] [Governance Check #40656646294](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40656646294)：success。
-- [x] [Runtime Check #40656646326](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40656646326)：success（前後端 typecheck、source contracts、Worker regression tests、local D1 acceptance、Vite build）。
-- [x] [CY Web Deploy PR 驗證 #40656646318](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40656646318)：success；`deploy-development` **skipped**，**不代表已發布**。
+- [x] **階段 A＋B 最新程式提交**（更新 handoff 前 HEAD `cb990f569d07e8bd1725dd7aad6a30bdf109bfaa`）：[Governance Check #40662905471](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40662905471) success；[Runtime Check #40662905472](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40662905472) success（前後端 typecheck、source contracts、Worker regression tests、local D1 acceptance、Vite build）；[CY Web Deploy PR 驗證 #40662905385](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40662905385) success，`deploy-development` skipped。
+- [x] **治理／受控輪替入口 PR #301**（更新 handoff 前 HEAD `38a32799aefb514127f4e3b977f6e1be5db70e68`）：[Governance #40662751520](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40662751520)、[Runtime #40662751519](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40662751519)、[Deploy PR contract #40662751588](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40662751588) 均 success；正式 deploy skipped。
 - [x] `backup-rehearsal-http.test.mjs` 與 `backup-ui.test.mjs` 已納入 Runtime Check 的 Worker 測試組。
 - [ ] Claude 獨立審查與必要返修；[ ] 正式環境只讀效能與操作驗收；[ ] 桌面／手機截圖（未提供）。
 - 本次程式修正沒有呼叫 Cloudflare、沒有正式 D1/R2/GCS 讀寫或資源異動（皆為 0）；遠端查核由先前本地 Work 的獨立唯讀任務完成。本次沒有取得新版 Audit 的實際 rows read，**不得虛構成本或配額**。
