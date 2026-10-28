@@ -172,7 +172,7 @@ function OperationalApp({
         .catch(() => { if (active) setQuarterlyReminder(null); });
     };
     refresh();
-    // Read-only, rate-limited recheck: login, return to tab, and at most every 6h while open.
+    // Read-only, rate-limited recheck: login, tab return, and at most once per hour while open.
     const visible = () => { if (document.visibilityState === "visible") refresh(); };
     const verified = () => refresh(true);
     document.addEventListener("visibilitychange", visible);
