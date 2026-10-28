@@ -59,12 +59,17 @@ export function validateWriteResult(body:Record<string,unknown>,sheet:string,exp
  if(sheetNo(body.sheetNo)!==sheet)invalid("寫回底稿與工作不符");
  if(typeof body.confirmed!=="boolean")invalid("confirmed 不正確");
  const ids=new Set(expected.map(x=>x.key)),seen=new Set<string>();
+ const expectedByKey=new Map(expected.map(x=>[x.key,x]));
  const results=list(body.results,"寫回結果",STOCKTAKE_MAX_ROWS).map(raw=>{
    const v=record(raw,"逐列結果"),key=str(v.key,"列鍵",40,true);
    if(!ids.has(key)||seen.has(key))invalid("寫回列鍵未授權或重複");
    seen.add(key);
    if(typeof v.ok!=="boolean")invalid("寫回結果 ok 不正確");
    const erpSeq=v.erpSeq===null?null:seq(v.erpSeq);
+   const expectedRow=expectedByKey.get(key)!;
+   if(v.ok && ((expectedRow.seq!==null && erpSeq!==expectedRow.seq) ||
+     (expectedRow.seq===null && erpSeq===null)))
+     invalid("寫入成功列必須回報 ERP 實際底稿序號");
    return {key,ok:v.ok as boolean,erpSeq,message:str(v.message,"結果",200)};
  });
  if(results.length!==expected.length)invalid("寫回結果列數不符");
