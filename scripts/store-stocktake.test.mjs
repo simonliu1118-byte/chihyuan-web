@@ -255,7 +255,7 @@ test("WRITE rejects unrelated INVR11 mismatch keys and inconsistent confirmation
 });
 test("WRITE empty rows still requires INVR11/INVI06 confirmation",async()=>{
  const f=fixture();try{
-   const {id,rows}=await prepareWrite(f,["1","2"],["1","2"]);
+   const {id,rows}=await prepareWrite(f,["2","1"],["2","1"]);
    assert.deepEqual(rows,[]);
    const completed=await f.agent("/item-queries/"+id+"/complete",writeComplete(id,rows));
    assert.equal(completed.status,200,JSON.stringify(completed));
