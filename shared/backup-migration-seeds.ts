@@ -17,6 +17,6 @@ export function nonSeedRowCondition(table: string): string {
   const name = '"' + table + '"';
   const seed = MIGRATION_SEEDS[table];
   return seed
-    ? `((SELECT COUNT(*) FROM ${name}) != ${seed.count} OR EXISTS(SELECT 1 FROM ${name} WHERE NOT (${seed.predicate})))`
+    ? `((SELECT COUNT(*) FROM ${name}) != ${seed.count} OR EXISTS(SELECT 1 FROM ${name} WHERE NOT ((${seed.predicate}) IS TRUE)))`
     : `EXISTS(SELECT 1 FROM ${name})`;
 }
