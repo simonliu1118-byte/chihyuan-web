@@ -138,3 +138,13 @@ test("rotation failures after creation leave new resource unbound and old target
     assert.equal(f.calls.filter(c => c.method === "DELETE" || c.method === "PATCH").length, 0);
   }
 });
+
+test("a provider response recycling another known D1 UUID cannot activate that resource", async () => {
+  const f = fixture({ bound: isolated, inventory: [
+    { uuid: isolated, name: "synthetic-web-recovery" },
+    { uuid: candidate, name: "unrelated-existing-d1" },
+  ], created: candidate, used: true });
+  await assert.rejects(f.run(approval), /^Error: RECOVERY_TARGET_NOT_ISOLATED$/);
+  assert.equal(f.migrations.length, 0);
+  assert.ok(!f.calls.some(c => c.method === "DELETE" || c.method === "PATCH"));
+});
