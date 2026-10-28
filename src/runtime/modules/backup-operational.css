@@ -23,3 +23,11 @@
   min-height: var(--cy-control-h); padding: .25rem .6rem; border: 1px solid var(--cy-border-input); border-radius: var(--cy-radius-md);
 }
 .cy-backup-history + .cy-invoice-recovery-panel{margin-top:1rem}
+
+/* Verified Audit outcome remains prominently visible after dialog and refresh. */
+.cy-backup-rehearsal-success{
+  border:1px solid var(--cy-success);background:var(--cy-success-soft);
+  color:var(--cy-text);margin:1rem 0;display:grid;gap:.4rem;
+}
+.cy-backup-rehearsal-success h3{color:var(--cy-success);margin:0}
+.cy-backup-rehearsal-success p{margin:0;overflow-wrap:anywhere}
