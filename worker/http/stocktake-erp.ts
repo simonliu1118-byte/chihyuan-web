@@ -65,7 +65,7 @@ export function validateWriteResult(body:Record<string,unknown>,sheet:string,exp
    seen.add(key);
    if(typeof v.ok!=="boolean")invalid("寫回結果 ok 不正確");
    const erpSeq=v.erpSeq===null?null:seq(v.erpSeq);
-   return {key,ok:v.ok,erpSeq,message:str(v.message,"結果",200)};
+   return {key,ok:v.ok as boolean,erpSeq,message:str(v.message,"結果",200)};
  });
  if(results.length!==expected.length)invalid("寫回結果列數不符");
  const mismatches=list(body.mismatches,"ERP 核對差異",STOCKTAKE_MAX_ROWS).map(raw=>{
@@ -75,7 +75,7 @@ export function validateWriteResult(body:Record<string,unknown>,sheet:string,exp
      batch:str(m.batch,"批號",80),expected:qty(m.expected),actual:qty(m.actual)};
  });
  if(body.confirmed&&(body.outcome!=="FOUND"||mismatches.length||results.some(x=>!x.ok)))invalid("確認與寫回核對結果不一致");
- return {outcome:body.outcome, sheetNo:sheet,results,confirmed:body.confirmed,mismatches};
+ return {outcome:body.outcome, sheetNo:sheet,results,confirmed:body.confirmed as boolean,mismatches};
 }
 type JobParams={id:string;member:number;now:string;notBefore:string|null;sheet:string|null;
  type:"STOCKTAKE_SYNC"|"STOCKTAKE_WRITE"; payload:unknown;requestId:string};
