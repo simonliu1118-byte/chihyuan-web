@@ -96,4 +96,4 @@
 - 資料模型：`docs/architecture/CANONICAL_DATA_MODEL.md`、`FINAL_DATA_DICTIONARY.md`、`migrations/`；Worker API：`docs/architecture/API_CONTRACT.md`
 - CYID consumer contract 鏡像：`docs/contracts/cyid/`；Identity adapter：`docs/architecture/IDENTITY_ADAPTER.md`
 - 部署：`docs/development/IDENTITY_DEPLOYMENT.md`；本機開發：`docs/development/LOCAL_DEVELOPMENT.md`；備份：`docs/architecture/BACKUP_ARCHITECTURE.md`
-- 歷史資料：`docs/architecture/archive/`、`docs/handoff/`（只作追溯，不是目前契約）
+- 歷史資料：`docs/architecture/archive/` 與 Git history（已結案的舊 handoff 原文和舊版截圖保留於固定快照；`docs/handoff/` 供後續新工作使用，不是目前契約）。
