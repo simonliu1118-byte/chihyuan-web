@@ -82,6 +82,11 @@ export function BackupRehearsalHistoryView({ items }: { items: readonly BackupRe
     renderCard={detail} emptyTitle="尚無隔離還原驗證紀錄"
     emptyDescription="此處顯示近 90 天已記錄的演練，最多 30 筆；早期失敗若發生在記錄前，可能無法追溯。" />;
 }
+/** Prevent an old successful rehearsal from appearing as the status of a fresh
+ * recovery target after the next quarter's approved rotation. */
+export function shouldShowLatestRehearsalResult(history: BackupHistory | null): boolean {
+  return history?.rehearsalHistoryAvailable !== false && history?.recoveryReady === false;
+}
 /** A durable, prominent result derived from Audit; not from a transient toast. */
 export function BackupLatestRehearsalResult({ items }: { items: readonly BackupRehearsalHistoryEntry[] }) {
   const latest = items.find(row => row.status === "verified");
@@ -170,8 +175,8 @@ export function BackupOperationalPage({ session }: { session: AuthSession }) {
     {notice ? <div className="cy-op-notice" role="status">{notice}</div> : null}
     {history && history.recoveryReady === false
       ? <div className="cy-op-notice" role="status">{history.recoveryBlockedReason ?? "隔離目標已使用或尚未準備，驗證按鈕已停用。"}</div> : null}
-    {history?.rehearsalHistoryAvailable !== false && history?.recoveryReady === false
-      ? <BackupLatestRehearsalResult items={history.rehearsals ?? []} /> : null}
+    {shouldShowLatestRehearsalResult(history)
+      ? <BackupLatestRehearsalResult items={history?.rehearsals ?? []} /> : null}
     <section className="cy-op-panel cy-backup-history" aria-busy={loading || busy}>{loading ? <Loading />
       : history ? <><BackupHistoryView history={history} busy={busy} retry={id => void run("retry", id)} rehearse={selectRehearsal} /><p className="cy-backup-history-note">顯示最新 50 筆備份；每次備份只列一次，副本驗證結果分開顯示。</p></>
         : <p>尚未取得備份紀錄，請使用「更新紀錄」。</p>}</section>
