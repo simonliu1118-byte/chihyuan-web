@@ -16,6 +16,7 @@
 - `GOVERNANCE_CHANGELOG.md`：新增 1.1.24 的治理變更與不變更範圍。
 - `.github/workflows/development-deploy.yml`：在 `main` 的受控 `workflow_dispatch` 新增 `rotate-recovery`；要求 generation、明確確認語、主分支及已完成的新版 provision 原始碼檢查，輪替與正常部署共用不取消的 `cyweb-production` 鎖。此入口只在使用者未來另行核准後才會被手動觸發，PR/push 不得輪替。
 - `scripts/deployment-source.test.mjs`：新增受控輪替 dispatch、原始碼 guard 及既有來源驗證順序的回歸測試。
+- `scripts/erp-business-query.test.mjs`：Runtime Check 曾兩次遇到未改動的 ERP 佇列 synthetic 測試因同毫秒 `created_at`／隨機 UUID 排序導致失敗；僅將三筆測試資料的 created_at 明確相隔 1 秒，修正測試非決定性，不變更實際 ERP 生產行為。功能 PR #300 同步該測試修正，避免其中一支 CI 偶發失敗。
 - `docs/handoff/CYWEB-GOV-1.1.24-CLAUDE-REVIEW.md`：本份執行、驗收及 Claude 審查紀錄。
 - 本治理 PR 沒有動 `VERSION`、`BUILD`、產品程式、D1 migration、Cloudflare、R2/GCS 或正式資料。Workflow 是新增受控**未執行**的正式輪替入口，實際建立、套 migration 和新目標驗證引擎由功能 PR #300 提供。兩份 PR 必須由 Claude **一起審查**，並建議 **先合併 #300，再合併 #301**，避免入口存在而引擎尚未就緒；即使順序顛倒，新增來源 guard 也須先拒絕操作。
 
