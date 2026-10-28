@@ -18,10 +18,10 @@
 
 - Frontend：TypeScript + React + Vite，一套程式服務桌機、平板、手機。
 - Runtime/API：TypeScript + Cloudflare Workers；same-origin `/api/*`，共用 success/failure envelope + `requestId`。
-- Database：Cloudflare D1；schema 由 `migrations/` 的 forward migrations 定義（目前到 0028）。
+- Database：Cloudflare D1；schema 由 `migrations/` 的 forward migrations 定義（目前到 0029，含門市顧客訂購與黑名單）。
 - Static delivery：Workers Static Assets／SPA fallback，所有請求先經 Worker（HTTPS 轉址與 HSTS）。
 - 帳號：CYCloud Identity（CYID）管理帳號、Session 與系統使用權；CY Web 只保存模組權限（Module Access）與業務授權。
-- 模組：客戶、商品、瑕疵、銷售工單、叫貨、委外/代工、工作日誌、人事、ERP 查詢（經公司電腦上的 CYERPAutoQuery 只讀查 SMART ERP）、帳號與權限、異動紀錄、備份管理、CY 程式。
+- 模組：客戶、商品、瑕疵、銷售工單、叫貨、門市（顧客訂購與黑名單）、委外/代工、工作日誌、人事、ERP 查詢（經公司電腦上的 CYERPAutoQuery 只讀查 SMART ERP）、帳號與權限、異動紀錄、備份管理、CY 程式、我的帳號。
 - 備份：D1 → R2（每日）＋ GCS（週三／週日）；手動備份與隔離還原已驗收，自動排程待上線前啟用。
 - 部署：合併 main 不會部署；授權後以發布分支 `deploy/cyweb-development` 觸發「CY Web Deploy」，流程與成功判定見 `docs/development/IDENTITY_DEPLOYMENT.md`。
 
@@ -36,7 +36,7 @@
 - `TODO.md` — 唯一 current implementation status / next-work tracker。
 - `CHANGELOG.md` — 各版本完成內容與驗收證據。
 - `docs/development/work-orders/` — 交由其他執行者實作的版本工作單。
-- `docs/handoff/README.md` — 後續新工作交接入口；舊已結案 handoff 已整合至正式架構與版本紀錄，原文／截圖保留於 Git 固定歷史快照；既有 GPT→Claude 工作單 §8／§9 繼續保留在 `docs/development/work-orders/`。
+- `docs/handoff/README.md` — 後續新工作交接入口；舊已結案 handoff 已整合至正式架構與版本紀錄，原文／截圖保留於 Git 固定歷史快照；尚在執行或審查的工作單繼續保留於 `docs/development/work-orders/`；已結案工作單的 §8／§9 則保留於 Git 固定歷史快照。
 - `docs/development/LOCAL_DEVELOPMENT.md` — 本機開發流程。
 - `docs/development/IDENTITY_DEPLOYMENT.md#existing-portal-deployment-gate` — Work 發布指令、main-only 手動入口、來源檢查與部署成功判定；main 合併本身不部署。
 - `docs/DOMAIN_STRATEGY.md` — Chihyuan Web systems 的 domain namespace／rollout architecture。
