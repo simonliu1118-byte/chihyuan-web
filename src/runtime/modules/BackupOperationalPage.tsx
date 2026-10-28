@@ -151,6 +151,8 @@ export function BackupOperationalPage({ session }: { session: AuthSession }) {
       const result = await rehearseBackup(selected.backupId, provider, controller.signal);
       if (!mounted.current) return;
       setSelected(null); setNotice(`✓ 隔離還原驗證完成（${result.provider.toUpperCase()}），還原前安全備份與資料核對皆已成功。本隔離目標不可再用。`);
+      setHistory(previous => previous ? { ...previous, recoveryReady: false, recoveryBlockedReason: "本隔離目標已成功驗證，後端已禁止再次使用。" } : previous);
+      window.dispatchEvent(new Event("cyweb:rehearsal-verified"));
       try { const refreshed = await loadBackups(controller.signal); if (mounted.current) setHistory(refreshed); }
       catch { if (mounted.current) setError("隔離還原已驗證，紀錄更新失敗；請使用更新紀錄核對，無須重做還原。"); }
     } catch (e) {
