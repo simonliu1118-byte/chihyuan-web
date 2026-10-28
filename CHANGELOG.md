@@ -5,6 +5,12 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.52 — 門市庫存盤點第一階段（2026-10-29，**開發中／尚未交付**）
+
+- [ ] WO-0.9.52：受權門市盤點頁籤，初盤盲盤與逐列樂觀鎖、第一次主管確認後顯示帳面／差異、複盤、第二次確認寫回 ERP。所有結果須以最新 CI／合成 SQLite 驗證，正式 ERP 測試另待 CYERPAutoQuery WO-1.3.0。
+- [ ] Migraton 0030 與四張 stocktake 表、可攜備份欄位、Agent 的 STOCKTAKE_SYNC／WRITE contract、1800／3600 秒逾時。未進行 D1 Migration 或 Cloudflare 操作。
+- [ ] 尚有進行中程式整合、UI 390／1440 截圖與 Claude 工單 §9 審查；不合併不部署。
+
 ## CY Web V0.9.50 — 演練後自動斷開隔離庫（2026-10-28）
 
 - [x] 部署時 `provision-backup-recovery.mjs` 若判定綁定中的隔離庫已使用，回傳 detached，`render-deploy-config.mjs` 依 `CF_RECOVERY_DETACHED=true` 不綁定 `RECOVERY_DB`。隔離庫資料不動、不刪，之後由使用者在 Cloudflare 刪除；Worker 不持有 Cloudflare 管理權限。
