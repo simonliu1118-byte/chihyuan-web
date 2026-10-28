@@ -38,7 +38,7 @@
 
 - [ ] 使用者於備份管理點「驗證隔離還原」出現「隔離還原未完成；請先更新紀錄，不要直接重送」，按「更新紀錄」仍看不到驗證結果。截圖顯示 2026/10/28 15:43 手動備份 1,126 筆／245.1 KB，但**不可由截圖推定所選來源或隔離資料庫是否已寫入**。
 - [ ] 確認失敗階段與目標：唯讀核對正式 `RECOVERY_DB` 綁定、與主 D1 分離、目標的 schema／migration 到 0029 與否及是否已使用；查對應時間的 Worker requestId／Invocation Logs、`backup.rehearsal.started/verified/failed` Audit 與 `pre_restore` 安全備份紀錄。**不得自動重試、重建／清空已使用的隔離目標、切換綁定或異動正式資料**。
-- [ ] 程式核對：`worker/http/backup-routes.ts` 把未列入白名單的失敗都回 `BACKUP_RECOVERY_UNAVAILABLE`／通用中文訊息；`loadBackupHistory` 只列 `backup_sets`／`backup_copies`，沒有隔離還原結果，因此「更新紀錄」不會顯示演練狀態。部署 `scripts/provision-backup-recovery.mjs` 對已使用的隔離副本保留、不再補 Migration；若目標較舊，`BACKUP_TABLE_COVERAGE_MISMATCH` 可能被通用訊息遮蔽。上述是**待實際資料核證的原因假設**，不是根因定論。
+- [ ] 程式／部署證據：`worker/http/backup-routes.ts` 把未列入白名單的失敗都回 `BACKUP_RECOVERY_UNAVAILABLE`／通用中文訊息；`loadBackupHistory` 只列 `backup_sets`／`backup_copies`，沒有隔離還原結果，因此「更新紀錄」不會顯示演練狀態。[正式部署 #40636481484](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40636481484) 的 `Prepare fixed isolated recovery target` 已回報 `RECOVERY_USED_TARGET_PRESERVED`，即此次部署**跳過隔離目標的 migration**。`scripts/provision-backup-recovery.mjs` 用所有業務表的 `EXISTS` 判定已使用，可能把 Migration 自帶的 HR 基本資料誤認為還原完成；此判斷缺陷由程式碼可確認。**目標實際版本尚未核實**；若仍停在 0029 之前，`BACKUP_TABLE_COVERAGE_MISMATCH` 可能被通用訊息遮蔽，不能直接斷定就是本次根因。
 - [ ] 後續修正須提供不洩漏正式資料的階段／錯誤代碼、可查詢的隔離驗證紀錄，並保持空白目標與雙重確認等復原安全界線；待授權、驗證後另行部署與實機驗收。
 
 ## 開發待辦
