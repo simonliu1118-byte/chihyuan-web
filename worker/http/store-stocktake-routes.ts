@@ -79,15 +79,14 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
   if(!path&&method==="GET"){
    const ignored=url.searchParams.get("ignored")==="true";
    if(ignored)requireAdmin(role);
-   const sheets=await all<Sheet>(db,"SELECT * FROM stocktake_sheets WHERE status "+(ignored?"=":"<>")+" 'IGNORED' ORDER BY sheet_date DESC,sheet_no DESC LIMIT 501");
+   const sheets=await all<Sheet & {total:number;counted:number;recount_needed:number}>(db,`SELECT s.*,COALESCE(c.total,0) AS total,COALESCE(c.counted,0) AS counted,COALESCE(c.recount_needed,0) AS recount_needed
+    FROM stocktake_sheets s LEFT JOIN (
+      SELECT sheet_no,COUNT(*) total,COUNT(first_qty) counted,SUM(CASE WHEN locked=0 THEN 1 ELSE 0 END) recount_needed
+      FROM stocktake_lines GROUP BY sheet_no
+    ) c ON c.sheet_no=s.sheet_no
+    WHERE s.status `+(ignored?"=":"<>")+` 'IGNORED' ORDER BY s.sheet_date DESC,s.sheet_no DESC LIMIT 501`);
    if(sheets.length>500)fail("STOCKTAKE_LIMIT","底稿超過 500 張",409);
-   const results=[];
-   for(const sh of sheets){
-     const n=await one<{total:number;counted:number;recount_needed:number}>(db,
-       "SELECT COUNT(*) AS total,COUNT(first_qty) AS counted,SUM(CASE WHEN locked=0 THEN 1 ELSE 0 END) AS recount_needed FROM stocktake_lines WHERE sheet_no=?",sh.sheet_no);
-     results.push({...sheetJson(sh,[]),total:n?.total??0,counted:n?.counted??0,recountNeeded:n?.recount_needed??0});
-   }
-   return success(results,requestId);
+   return success(sheets.map(sh=>({...sheetJson(sh,[]),total:sh.total,counted:sh.counted,recountNeeded:sh.recount_needed})),requestId);
   }
   if(path==="ignore"&&method==="POST"){
    requireAdmin(role);const v=await json(request),sheet=sheetNo(v.sheetNo);
@@ -162,13 +161,17 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
     const v=await json(request),code=text(v.itemCode,"品號",40),batch=text(v.batch,"批號",80);
     if(sh.status!=="COUNTING"&&sh.status!=="RECOUNTING")fail("STOCKTAKE_STATUS","目前不能新增批號",409);
     const same=await all<Line>(db,"SELECT * FROM stocktake_lines WHERE sheet_no=? AND item_code=? LIMIT 3001",sheet,code);
-    if(!same.some(l=>l.batch))fail("STOCKTAKE_INVALID","此品號原本沒有批號，不能新增批號");
+    if(!same.some(l=>!l.is_added&&l.batch))fail("STOCKTAKE_INVALID","此品號原本沒有批號，不能新增批號");
+    if(sh.status==="RECOUNTING"&&same.some(l=>l.locked))
+      fail("STOCKTAKE_STATUS","此品號合計已核對並鎖定，不能增加新批號",409);
     if(same.some(l=>l.batch===batch))fail("STOCKTAKE_DUPLICATE","批號已存在",409);
     const base=same[0],id="N"+crypto.randomUUID().replaceAll("-","").slice(0,12);
-    const qty= v.quantity===undefined?null:safeQty(v.quantity);
+    const qty=v.quantity===undefined?null:safeQty(v.quantity);
+    const recount=sh.status==="RECOUNTING";
     await db.batch([guard(db,"EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND status=?)",sheet,sh.status),
       db.prepare(`INSERT INTO stocktake_lines(sheet_no,line_key,seq,item_code,item_name,spec,warehouse_name,location,unit,batch,book_qty,is_added,first_qty,first_by,first_at)
-        VALUES(?,?,NULL,?,?,?,?,?, ?,?,'0',1,?,?,?)`).bind(sheet,id,code,base.item_name,base.spec,base.warehouse_name,base.location,base.unit,batch,qty,qty!==null?member:null,qty!==null?now:null),
+        VALUES(?,?,NULL,?,?,?,?,?, ?,?,'0',1,?,?,?)`).bind(sheet,id,code,base.item_name,base.spec,base.warehouse_name,base.location,base.unit,batch,recount?null:qty,recount?null:qty!==null?member:null,recount?null:qty!==null?now:null),
+      ...(recount&&qty!==null?[db.prepare("UPDATE stocktake_lines SET recount_qty=?,recount_by=?,recount_at=? WHERE sheet_no=? AND line_key=?").bind(qty,member,now,sheet,id)]:[]),
       db.prepare("UPDATE stocktake_sheets SET version=version+1,updated_at=? WHERE sheet_no=?").bind(now,sheet),
       db.prepare("INSERT INTO stocktake_line_history(sheet_no,line_key,field,before_value,after_value,actor_member_id,changed_at) VALUES(?,?,'added',NULL,?,?,?)")
        .bind(sheet,id,JSON.stringify({itemCode:code,batch,qty}),member,now),
