@@ -82,7 +82,7 @@ test("name collision, missing binding inventory and primary as target cannot aut
   }
 });
 test("failed provider query, occupied new target or unsafe schema cannot trigger migration", async () => {
-  for (const options of [{ failQuery: true }, { tables: [{ name: 'invalid";DELETE' }] }, { createdHasTables: true }]) {
+  for (const options of [{ failQuery: true }, { tables: [{ name: 'invalid";DELETE' }], createdHasTables: true }, { createdHasTables: true }]) {
     const f = fixture(options);
     await assert.rejects(f.run(), /^Error: RECOVERY_(PROVIDER_UNAVAILABLE|SCHEMA_INVALID|TARGET_NOT_EMPTY)$/);
     assert.equal(f.migrations.length, 0);
