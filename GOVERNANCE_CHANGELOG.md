@@ -1,5 +1,13 @@
 # CY Web Governance Changelog
 
+## 1.1.24 — 2026/10/28
+
+- 依使用者明確指示，CYWEB 每項由 GPT／ChatGPT 執行的程式、測試、文件、版本及部署流程修正均須在工作分支 `docs/handoff/` 留下逐檔修正、驗證與風險證據，最後交由 Claude 親自審查；未審查通過前不得將工作視為完成或合併，部署仍須另獲使用者授權。
+- 在 `PROJECT_RULES.md` §9.1 增列 CYWEB 專用交接／審查要求，**不改變 AITeam 共通 §11.4 對 Claude 先開工作單的限定適用情境**；handoff 仍為交接紀錄，非第四層永久規則來源。
+- 受控部署 Workflow 加入手動 `rotate-recovery` 入口（僅 `main` 的 workflow_dispatch，與原有正式部署共用 `cyweb-production` 鎖）；需人工輸入唯一 generation 及完整確認短語，先檢查 main 已含已審核輪替引擎，未通過就在任何遠端更動前停止。舊 `deploy-development`／部署分支不會自動輪替。
+- `scripts/deployment-source.test.mjs` 增補手動輪替入口、前置 guard 順序與 main 限制的測試；實際輪替引擎／演練安全測試在功能 PR #300。
+- 本治理 PR 不變更產品 VERSION／BUILD、正式 D1/R2/GCS、既有還原資料；**未執行**任何 Cloudflare 部署、建庫或改綁。
+
 ## 1.1.23 — 2026/10/21
 
 - `PROJECT_RULES.md` §5 新增「表單欄位一律用共用欄位元件」：必填欄位顯示紅色＊、擇一必填與至少一列的標示、依內容長短的三種欄寬（12 格格線、表單最寬 960px）、送出時所有缺漏一次提醒。使用者 2026-10-21 要求。由 WO-0.9.27 新增的 `scripts/form-fields.test.mjs` 自動檢查；其餘表單於該工作單改版。

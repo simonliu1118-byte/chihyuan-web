@@ -66,7 +66,12 @@ test("CLI uses real Git history: exact main, legacy publish merge, stale main an
 test("workflow serializes writes, limits dispatch, and guards before migration", () => {
   const workflow = fs.readFileSync(path.join(root, ".github/workflows/development-deploy.yml"), "utf8");
   const deploy = workflow.split("\n  deploy-development:\n")[1].split("\n  audit-identity:\n")[0];
-  assert.match(deploy, /inputs\.operation == 'deploy-development' && github\.ref == 'refs\/heads\/main'/);
+  assert.match(deploy, /\(inputs\.operation == 'deploy-development' \|\| inputs\.operation == 'rotate-recovery'\) && github\.ref == 'refs\/heads\/main'/);
+  assert.match(deploy, /if: github\.event_name == 'workflow_dispatch' && inputs\.operation == 'rotate-recovery'/);
+  assert.match(deploy, /grep -q 'RECOVERY_NEW_TARGET_PREPARED_OLD_PRESERVED'/);
+  assert.match(deploy, /grep -q 'RECOVERY_ROTATION_PRIMARY_MIGRATIONS_OUTDATED'/);
+  assert.ok(deploy.indexOf('RECOVERY_ROTATION_PRIMARY_MIGRATIONS_OUTDATED') < deploy.indexOf('node scripts/provision-backup-recovery.mjs'));
+  assert.ok(deploy.indexOf("Require reviewed rotation implementation") < deploy.indexOf("node scripts/verify-deployment-source.mjs"));
   assert.match(deploy, /group: cyweb-production\s*\n\s*cancel-in-progress: false/);
   assert.match(deploy, /fetch-depth: 0/);
   const guard = deploy.indexOf("node scripts/verify-deployment-source.mjs");

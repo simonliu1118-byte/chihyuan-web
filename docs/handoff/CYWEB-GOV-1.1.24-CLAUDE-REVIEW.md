@@ -1,0 +1,83 @@
+# CYWEB Governance 1.1.24 — GPT → Claude handoff
+
+- **狀態：Claude 複審通過（見 §7）；待使用者批准合併（#300 先、#301 後）。**
+- 日期：2026-10-28；分支：`governance/cyweb-handoff-claude-20261028`
+- 此為使用者指定的 CYWEB 交接／審查工作程序治理 PR，與應用修正 [PR #300](https://github.com/simonliu1118-byte/chihyuan-web/pull/300) 分開。
+- 規則來源仍是 `PROJECT_RULES.md`、`REPO_POLICY.md`、`REPOSITORY_RULES.md`，本 handoff 只是交接、驗證及審查紀錄。
+
+## 1. 使用者指示與目的
+
+使用者明確指示：「所有你對CYWEB修正的事項，都要寫在handoff，最終交由claude審查。」從本版起，對由 GPT／ChatGPT 執行的每一項 CYWEB 修正（程式、測試、文件、版本及部署流程）要求同分支的 `docs/handoff/` 完成報告，交 Claude 親自審查；尚未審查通過前不合併。Claude 通過不等於正式部署授權。
+
+## 2. 逐檔變更與原因
+
+- `PROJECT_RULES.md`：在既有 §9 追加 §9.1，規定 handoff、逐項變更、驗證證據及 Claude 最終審查；特別說明此為「GPT 直接承接 CYWEB 修正」的專案專屬要求，**不改 AITeam 共通規則 §11.4 的 Claude-first 工作單適用條件**。
+- `GOVERNANCE_VERSION`：1.1.23 → 1.1.24。
+- `GOVERNANCE_CHANGELOG.md`：新增 1.1.24 的治理變更與不變更範圍。
+- `.github/workflows/development-deploy.yml`：在 `main` 的受控 `workflow_dispatch` 新增 `rotate-recovery`；要求 generation、明確確認語、主分支及已完成的新版 provision 原始碼檢查，輪替與正常部署共用不取消的 `cyweb-production` 鎖。此入口只在使用者未來另行核准後才會被手動觸發，PR/push 不得輪替。
+- `scripts/deployment-source.test.mjs`：新增受控輪替 dispatch、原始碼 guard 及既有來源驗證順序的回歸測試。
+- `scripts/erp-business-query.test.mjs`：Runtime Check 曾兩次遇到未改動的 ERP 佇列 synthetic 測試因同毫秒 `created_at`／隨機 UUID 排序導致失敗；僅將三筆測試資料的 created_at 明確相隔 1 秒，修正測試非決定性，不變更實際 ERP 生產行為。功能 PR #300 同步該測試修正，避免其中一支 CI 偶發失敗。
+- `docs/handoff/CYWEB-GOV-1.1.24-CLAUDE-REVIEW.md`：本份執行、驗收及 Claude 審查紀錄。
+- 本治理 PR 沒有動 `VERSION`、`BUILD`、產品程式、D1 migration、Cloudflare、R2/GCS 或正式資料。Workflow 是新增受控**未執行**的正式輪替入口，實際建立、套 migration 和新目標驗證引擎由功能 PR #300 提供。兩份 PR 必須由 Claude **一起審查**，並建議 **先合併 #300，再合併 #301**，避免入口存在而引擎尚未就緒；即使順序顛倒，新增來源 guard 也須先拒絕操作。
+
+## 3. 治理驗收與風險
+
+- [x] **治理分支最新程式提交**（更新 handoff 前 HEAD `38a32799aefb514127f4e3b977f6e1be5db70e68`）：[Governance Check #40662751520](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40662751520)、[Runtime Check #40662751519](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40662751519)、[Deploy PR contract #40662751588](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40662751588) **均 success**，實際 deploy-development skipped。原則：`governance/*`、`GOVERNANCE_VERSION`／`GOVERNANCE_CHANGELOG.md` 同步。
+- [x] 功能 PR #300 對應程式測試檢查通過：[Governance #40662905471](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40662905471)、[Runtime #40662905472](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40662905472)、[Deploy PR contract #40662905385](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40662905385)。
+- [ ] Claude 核對 §9.1 是否與 `REPOSITORY_RULES.md` §11.4、`docs/development/work-orders/README.md` 現行規範相容。
+- [ ] 核對 Workflow 僅 main 手動 `rotate-recovery` 可建立新 D1 並改綁，必須保留正常 deploy/push 行為；確認來源 guard 先於任何遠端更動，權限及 `cyweb-production` 鎖不降級。
+- [ ] 核對 `scripts/deployment-source.test.mjs` 及 `scripts/validate-deploy-config.mjs` 在 Governance/Runtime/Deploy PR CI 可通過，並完整比對功能 PR #300 的 generation 與確認參數一致。
+- [ ] 確認 handoff 是非規則的執行交接紀錄，沒有建立新的第四層永久契約。
+- [ ] 確認不含任何正式資源識別、Secret、個資或實際業務資料。
+- [ ] Claude 將審查結果回寫本文件；需修正則依審查意見修改後再複審。
+- [ ] 審查通過後仍需使用者對合併／正式部署作另外授權。
+
+## 4. GPT 完成報告
+
+正式機制本應從治理分支建立，因此本次將先前在 V0.9.48 一般功能 PR 的 `PROJECT_RULES.md` 修改分離至本治理 PR，避免繞過 Governance Check。此處修改 Public Git 治理檔案、受控 Workflow 及來源防護測試，沒有 Cloudflare API 操作；Cloudflare 讀 0、寫 0、資源異動 0。明確警告：PR #301 不提供自行部署或輪替的授權；此輪唯一完成的是受控入口的程式碼。
+
+## 5. Claude 審查紀錄（僅 Claude 填寫）
+
+- 審查日期：2026-10-28
+- 審查者：Claude
+- 審查的 PR head SHA：`84e3fc7278e80ae4687e99092f8585529fe03370`（與 #300 `1a66850905177fcbdadce44eabe4c4f2b52476ea` 同輪審查）
+- 結論：**需修正**（隨 #300 R3 一併修正；#300 未通過前本 PR 亦不合併）
+- 驗證與意見：
+  - §9.1 與 `REPOSITORY_RULES.md` §11.4、work-orders README 相容。它明確不擴大 §11.4，handoff 定位為交接紀錄，不是第四層契約。可接受。
+  - Workflow：`rotate-recovery` 僅 main 手動 dispatch 可進入部署 job，沿用 `cyweb-production`（不取消）鎖與 `development` environment。inputs 經 env 傳入，無 shell injection；一般 deploy／push 行為不變。source guard 先於 `verify-deployment-source.mjs` 及任何遠端操作，測試有斷言順序。
+  - **需修正（對應 #300 handoff R3）**：job 內 `provision-backup-recovery.mjs` 在 `wrangler d1 migrations apply DB` 之前執行。若該次 main 含未套用的 migration，輪替必因 DDL 不符失敗並留下孤兒 D1。須在建立新 D1 前確認主 D1 `d1_migrations` 與 repo 完全一致（建議在 #300 引擎實作，並在本 PR 補 workflow／測試對應），或把 rotate 放到 migration apply 之後且仍保留建立前檢查。
+  - 不含正式資源識別、Secret 或個資。
+  - CI：最新 head 全部 success，deploy skipped。本機 typecheck 與測試 329 pass（唯一失敗為 worktree 缺 `.tmp` 的環境問題，main 上通過）。
+- Claude 直接修正與 GPT 返修紀錄：Claude 未直接修改（使用者指示交回 GPT 修正）。待 GPT 修正後複審。
+- 是否可交使用者核准合併：**否**，待 #300／#301 複審通過；順序仍為 #300 先、#301 後。
+
+## 6. GPT 對 §5 的跨 PR 返修完成報告（2026-10-28）
+
+> 本節由 GPT 填寫；Claude §5 首輪審查原文不修改，§7 留給 Claude 複審。請同時審查功能 PR #300 handoff §6 的 R1–R5 完成報告。
+
+- **R3 輪替前主 D1 Migration 落後**：`.github/workflows/development-deploy.yml` 的 `Require reviewed rotation implementation before any remote mutation` 來源保護新增必須在 `scripts/provision-backup-recovery.mjs` 中找到 `RECOVERY_ROTATION_PRIMARY_MIGRATIONS_OUTDATED`，避免 Workflow 在功能引擎仍未包含 pre-create parity gate 時接受輪替請求；延續原有 main／手動 `rotate-recovery`／確認短語／protected `development` environment／`cyweb-production` 鎖。
+- **功能引擎（PR #300）實際阻擋**：輪替分支在任何 `POST d1/database` 之前唯讀查主 D1 的 `d1_migrations`，逐項比對 repo `migrations/*.sql`；缺少、額外或非預期順序即 `RECOVERY_ROTATION_PRIMARY_MIGRATIONS_OUTDATED` 並停止；`scripts/provision-backup-recovery.test.mjs` 新增 0 次建立 API、0 次 Migration 的對應測試。正常部署不受此輪替專屬新檢查影響。
+- **部署契約測試**：`scripts/deployment-source.test.mjs` 增加檢查新錯誤碼之來源守門必須先於 `node scripts/provision-backup-recovery.mjs`，不能僅依 Workflow 使用者輸入保護就放行。
+- **R1、R2、R4、R5 分工**：R1 的 shared canonical seeds＋普通部署補 Migration、R2 的 SQLite 自選 Audit 索引、R4 的 D1 配額與人工保留政策、R5 的 CHANGELOG 文字均在功能 PR #300；此治理 PR 不另複製程式實作。
+- **額外建議（僅供 Claude 討論，未直接實作）**：後續可用受保護執行流程檢查 D1 migration 的實際 DDL 來源一致性，避免因「檔名相同、內容經人工改動」在新目標建立後才發現 Schema 不符；同時建議把 D1 配額和歷史目標的人工盤點列入操作前必檢，維持不得自動刪除。
+- 本次仍只改 GitHub 工作分支；**Cloudflare API 讀／寫 0、D1 建立 0、Worker 改綁 0、正式部署 0**。需 Claude 複審通過、使用者另行批准合併及正式操作。
+- **CI**：請依本 handoff 提交後治理 PR #301 最新 head 的 Governance／Runtime／Deploy PR-only checks 核對，不以首輪審查 SHA 的測試結果充當本次驗證。
+
+## 7. Claude 複審紀錄（僅 Claude 本人填寫）
+
+- 複審日期：2026-10-28
+- 複審者：Claude
+- 兩份 PR 複審 head SHA：#300 `29e886e89f20bea1468142f5e5fb9a9714730542`；#301 `49e06052b513febe5a51dfd0cb1935c24bcdaf30`
+- R3 的 Workflow 與功能引擎核對：**通過**。
+  - 來源守門新增 `RECOVERY_ROTATION_PRIMARY_MIGRATIONS_OUTDATED` 檢查，位置在 `verify-deployment-source.mjs` 與 `provision-backup-recovery.mjs` 之前，測試已斷言順序。
+  - 引擎在建立新 D1 前比對主 D1 `d1_migrations` 與 repo migration，不符即零寫入停止。
+  - 權限、`development` environment、`cyweb-production` 不取消鎖，以及一般 deploy／push 行為都沒有降級。
+- R1、R2、R4、R5 的跨 PR 核對：均在 #300 修正並通過，詳見 #300 handoff §7；本 PR 不需重複實作。
+- 本機／CI 驗證及剩餘風險：
+  - 最新 head：#300 `29e886e89f20bea1468142f5e5fb9a9714730542`、#301 `49e06052b513febe5a51dfd0cb1935c24bcdaf30`。兩者 GitHub check runs 全部 success，`deploy-development` skipped。
+  - 本機把 #301 合併進 #300 後執行：`npm run typecheck` 通過；`node --test scripts/*.test.mjs` **356 pass／0 fail**（`provision-backup-recovery.test.mjs` 14/14）；`validate:source` 與 `npm run build` 通過；兩份合併無衝突。
+  - 以 SQLite 套用 0001–0029 實測 `nonSeedRowCondition`：剛遷移的新庫四張 HR 表與其他表都判定為 0（未使用）；把 `hr_job_titles` 任一列改名即判定為 1（已使用）。
+  - 移除 `INDEXED BY` 後，planner 選用 `idx_audit_events_entity_time (entity_type=?)`，與首輪實測相同。
+  - 剩餘風險：GPT §6 提出的「檔名相同但內容被改」需靠新建後完整 DDL 比對攔截，可能留下孤兒 D1。這已有 fail-closed 保護且不會改綁，可列後續 TODO。
+- 結論：**通過**
+- 是否可提交使用者批准合併及正式操作：**可提交使用者批准合併**，順序 #300 → #301。真實輪替與演練仍須使用者另外核准。
