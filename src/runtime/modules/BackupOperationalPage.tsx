@@ -52,11 +52,11 @@ export function BackupHistoryView({ history, busy, retry, rehearse }: { history:
     <dt>資料摘要</dt><dd>{row.dataSha256 === "pending" ? "尚未產生" : row.dataSha256}</dd>
   </dl>;
   return <DataView ariaLabel="備份紀錄" items={history.sets} getKey={row => row.backupId}
-    columns={[{ key: "event", header: "備份時間（台灣）", render: event },
-      { key: "identity", header: "備份資訊", render: identity },
-      { key: "copies", header: "儲存副本", render: providerStatus },
-      { key: "size", header: "資料量", render: row => <>{row.recordCount.toLocaleString()} 筆<br />{size(row.byteLength)}</> },
-      { key: "action", header: "操作", render: action }]}
+    columns={[{ key: "event", header: "備份時間（台灣）", render: event, width: "20%" },
+      { key: "identity", header: "備份資訊", render: identity, width: "34%" },
+      { key: "copies", header: "儲存副本", render: providerStatus, width: "18%" },
+      { key: "size", header: "資料量", render: row => <>{row.recordCount.toLocaleString()} 筆<br />{size(row.byteLength)}</>, width: "12%" },
+      { key: "action", header: "操作", render: action, width: "16%" }]}
     renderCard={row => <>{event(row)}{identity(row)}{providerStatus(row)}<div className="cy-backup-card-footer"><span>{row.recordCount.toLocaleString()} 筆 · {size(row.byteLength)}</span>{action(row)}</div></>}
     emptyTitle="尚無備份紀錄" emptyDescription={history.configured ? "建立手動備份後，這裡會顯示各儲存副本的驗證結果。" : "儲存設定完成後才能建立備份。"} />;
 }
