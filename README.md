@@ -14,7 +14,7 @@
 
 ## 目前工程基礎
 
-正式程式基準為 `main`，版本由根 `VERSION`／`BUILD` 定義（目前 **V0.9.43 Build 0**，已部署）。
+正式程式基準為 `main`，版本由根 `VERSION`／`BUILD` 定義（2026-10-28 已核實 **V0.9.47 Build 0** 正式部署，最新狀態以 `TODO.md`／受控 Actions 為準）。
 
 - Frontend：TypeScript + React + Vite，一套程式服務桌機、平板、手機。
 - Runtime/API：TypeScript + Cloudflare Workers；same-origin `/api/*`，共用 success/failure envelope + `requestId`。
@@ -36,7 +36,7 @@
 - `TODO.md` — 唯一 current implementation status / next-work tracker。
 - `CHANGELOG.md` — 各版本完成內容與驗收證據。
 - `docs/development/work-orders/` — 交由其他執行者實作的版本工作單。
-- `docs/handoff/README.md` — GPT 工作單完成報告／Claude 審查與直接交接的導覽索引（不另建進度表）。
+- `docs/handoff/README.md` — 後續新工作交接入口；舊已結案 handoff 已整合至正式架構與版本紀錄，原文／截圖保留於 Git 固定歷史快照；既有 GPT→Claude 工作單 §8／§9 繼續保留在 `docs/development/work-orders/`。
 - `docs/development/LOCAL_DEVELOPMENT.md` — 本機開發流程。
 - `docs/development/IDENTITY_DEPLOYMENT.md#existing-portal-deployment-gate` — Work 發布指令、main-only 手動入口、來源檢查與部署成功判定；main 合併本身不部署。
 - `docs/DOMAIN_STRATEGY.md` — Chihyuan Web systems 的 domain namespace／rollout architecture。
