@@ -534,6 +534,17 @@ async function agentGuard(request: Request, env: ErpBridgeEnv, requestId: string
     return failure({ code: "AGENT_UNAUTHORIZED", message: "Valid ERP agent token required" }, requestId, 401);
   return { digest };
 }
+/** A failed/expired stocktake write cannot leave the sheet stuck in WRITING. */
+async function failExpiredStocktakeWrite(db:D1Database,sheet:string,id:string,now:string,reason:string){
+  const out=await db.prepare(`UPDATE stocktake_sheets
+    SET status='WRITE_FAILED',write_result_json=?,version=version+1,updated_at=?
+    WHERE sheet_no=? AND status='WRITING' AND write_query_id=?`)
+    .bind(JSON.stringify({results:[],mismatches:[],error:reason}),now,sheet,id).run();
+  if(out.meta.changes)await new AuditService(db).record({
+    entityType:"stocktake",entityKey:sheet,action:"stocktake.write_failed",actorEmployeeId:null,
+    statusFrom:"WRITING",statusTo:"WRITE_FAILED",metadata:{jobId:id,reason:"AGENT_TIMEOUT"}
+  });
+}
 async function housekeeping(db: D1Database): Promise<void> {
   const now = new Date();
   const nowIso = now.toISOString();
@@ -542,8 +553,8 @@ async function housekeeping(db: D1Database): Promise<void> {
     `UPDATE erp_item_queries SET status='EXPIRED', completed_at=?1 WHERE status='QUEUED' AND (expires_at<=?1 OR (COALESCE(not_before,created_at)<=?2
         AND NOT EXISTS(SELECT 1 FROM erp_item_queries WHERE status='RUNNING')
         AND NOT EXISTS(SELECT 1 FROM erp_item_agent_status WHERE id=1 AND last_seen_at>?3)))
-      RETURNING id,owner_member_id,item_no`
-  ).bind(nowIso, ago(120), ago(60)).all<{ id: string; owner_member_id: number; item_no: string }>();
+      RETURNING id,owner_member_id,item_no,query_type,target_code`
+  ).bind(nowIso, ago(120), ago(60)).all<{ id: string; owner_member_id: number; item_no: string; query_type: ErpQueryType; target_code: string|null }>();
   // RUNNING limits: 180 s a plain query, 300 s with 歷史異動, 600 s an ERP report (SALES and PURCHASES
   // run two, ORDER one), 1800 s a 進貨輔助 (two reports, then 庫存 one 品號 at a time).
   const timedOut = await db.prepare(
@@ -554,14 +565,18 @@ async function housekeeping(db: D1Database): Promise<void> {
         OR (query_type IN ('SALES','PURCHASES','RECEIVABLE','ORDER') AND started_at<=?5)
         OR (query_type NOT IN ('SALES','PURCHASES','RECEIVABLE','ORDER','RESTOCK','STOCKTAKE_SYNC','STOCKTAKE_WRITE') AND include_history=0 AND started_at<=?3)
         OR (query_type NOT IN ('SALES','PURCHASES','RECEIVABLE','ORDER','RESTOCK','STOCKTAKE_SYNC','STOCKTAKE_WRITE') AND include_history=1 AND started_at<=?4))
-      RETURNING id,owner_member_id,item_no`
-  ).bind(nowIso, ERROR_TEXT.AGENT_TIMEOUT, ago(180), ago(300), ago(600), ago(1800), ago(3600)).all<{ id: string; owner_member_id: number; item_no: string }>();
+      RETURNING id,owner_member_id,item_no,query_type,target_code`
+  ).bind(nowIso, ERROR_TEXT.AGENT_TIMEOUT, ago(180), ago(300), ago(600), ago(1800), ago(3600)).all<{ id: string; owner_member_id: number; item_no: string; query_type: ErpQueryType; target_code: string|null }>();
   const audit = new AuditService(db);
   for (const job of expired.results ?? []) {
     await audit.record({ entityType: "erp_item_query", entityKey: job.id, action: "erp_item_query.expired", actorEmployeeId: job.owner_member_id, statusFrom: "QUEUED", statusTo: "EXPIRED", metadata: { itemNo: job.item_no } });
+    if (job.query_type === "STOCKTAKE_WRITE" && job.target_code)
+      await failExpiredStocktakeWrite(db,job.target_code,job.id,nowIso,"等待 ERP 處理逾時");
   }
   for (const job of timedOut.results ?? []) {
     await audit.record({ entityType: "erp_item_query", entityKey: job.id, action: "erp_item_query.failed", actorEmployeeId: job.owner_member_id, statusFrom: "RUNNING", statusTo: "FAILED", metadata: { itemNo: job.item_no, outcome: "AGENT_TIMEOUT" } });
+    if (job.query_type === "STOCKTAKE_WRITE" && job.target_code)
+      await failExpiredStocktakeWrite(db,job.target_code,job.id,nowIso,"ERP 寫回逾時，請管理員核對後重新寫回");
   }
   await db.prepare(
     "UPDATE erp_item_queries SET fields_json=NULL,warehouses_json=NULL,batches_json=NULL,history_json=NULL,items_json=NULL,result_json=NULL WHERE completed_at<?1 AND (fields_json IS NOT NULL OR warehouses_json IS NOT NULL OR batches_json IS NOT NULL OR history_json IS NOT NULL OR items_json IS NOT NULL OR result_json IS NOT NULL)"
