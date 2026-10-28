@@ -163,7 +163,8 @@ export function StoreStocktake({role}:{role:string}){
  }
  async function addBatch(e:FormEvent<HTMLFormElement>){
   e.preventDefault();if(!currentSheet||!batchForm)return;
-  await open(currentSheet.sheetNo,"batches",batchForm);
+  const {quantity,...identifiers}=batchForm;
+  await open(currentSheet.sheetNo,"batches",{...identifiers,...(quantity.trim()?{quantity:quantity.trim()}:{})});
   setBatchForm(null);
  }
  async function deleteBatch(l:StocktakeLine){
@@ -258,6 +259,7 @@ export function StoreStocktake({role}:{role:string}){
            onBlur={()=>void saveLine(l)}
            onKeyDown={e=>nextOnEnter(e,l)} placeholder="未填"/></label>
          {currentSheet.status!=="COUNTING"&&l.bookQty!==undefined?<>
+          <div><small>初盤</small><strong>{l.firstQty??"—"}</strong></div>
           <div><small>帳面</small><strong>{l.bookQty}</strong></div>
           <div><small>差異（初盤－帳面）</small><strong>{relativeDiff(l.firstQty,l.bookQty)}</strong></div>
          </>:null}
