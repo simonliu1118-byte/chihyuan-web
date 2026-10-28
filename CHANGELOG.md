@@ -5,7 +5,14 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
-## CY Web V0.9.49 — 每季隔離演練超管主動提醒與完成防護（2026-10-28，Claude 首審通過；小項返修待複審）
+## CY Web V0.9.50 — 演練後自動斷開隔離庫（2026-10-28）
+
+- [x] 部署時 `provision-backup-recovery.mjs` 若判定綁定中的隔離庫已使用，回傳 detached，`render-deploy-config.mjs` 依 `CF_RECOVERY_DETACHED=true` 不綁定 `RECOVERY_DB`。隔離庫資料不動、不刪，之後由使用者在 Cloudflare 刪除；Worker 不持有 Cloudflare 管理權限。
+- [x] 一般部署不再自動建立隔離 D1（無綁定時維持斷開）；新目標只由受保護的 `rotate-recovery` 建立，且無綁定時也可輪替。綁定中但未使用的目標仍不得輪替、會補 forward migration。
+- [x] 備份管理在斷開時說明「上次用過的隔離庫已斷開，可在 Cloudflare 刪除；下次演練前需先輪替」。
+- [x] 測試：provisioner 斷開／不建庫／無綁定輪替，`validate-deploy-config` 斷開時無 `RECOVERY_DB` 且拒絕同時帶 ID。
+
+## CY Web V0.9.49 — 每季隔離演練超管主動提醒與完成防護（2026-10-28，PR #303 合併）
 
 - [x] 全站 `SUPER_ADMIN` 登入後主動顯示每季隔離還原驗證提醒（台灣時間曆季 Q1–Q4），附「前往備份管理」捷徑；本季有已驗證演練 Audit 時自動不再顯示。登入、回到頁籤、每小時有限次重新核對；完成後即時刷新。其他角色無權讀取或顯示提醒。
 - [x] 既有演練歷史成功事件的 `completed` 顯示「完成」，成功時以醒目的獨立結果區持續顯示時間、已驗證結果及禁止重送指示。
@@ -13,8 +20,8 @@
 - [x] 輪替手冊改為**只長期保留最近一個已使用隔離副本**，上一份成功副本僅在新演練成功後成為受控清理候選，必須另行人工確認／授權刪除；不提供自動刪庫。
 - [x] 每季提醒採原有 AppShell 的**站內主動提醒**，不寄外部 Email 或 Push，不啟用備份排程與定時自動還原。
 - [x] **Claude 首審非阻擋意見 N1–N3 已在同一 V0.9.49 PR 返修**：N1 新目標可驗證（`recoveryReady=true`）時隱藏舊「✓ 完成」提示，舊成功紀錄仍保留在歷史表；N2 註解改為正確的「每小時一次」；N3 已使用 generation 拒絕時把失敗 phase 寫成 `target_lock`／「隔離目標使用狀態」，不再誤標來源核對。新增 UI regression，請 Claude 對新 head 複審。
-- [ ] **Cloudflare 真實 D1 實體解除綁定尚未實作**：Worker 不持有 Cloudflare 管理權限，當前只保證 API／UI 邏輯鎖定。物理解除綁定需另設受保護控制平面、核對成功 Audit、當前 target generation 與其他既有 Worker 綁定不變，先通過 Claude 審查再授權。
-- [ ] 新 PR CI、Claude 統一審查、使用者合併／部署授權及 Desktop／Mobile 實機驗收；現行正式站不會因本次提交自動更新。
+- [x] 實體解除綁定改於 V0.9.50 由部署流程處理（見上）。
+- [x] Claude 審查與 N1–N3 複審通過，與 V0.9.50 一起部署。
 
 ## CY Web V0.9.48 — 隔離還原錯誤與演練紀錄（2026-10-28，待合併／部署）
 

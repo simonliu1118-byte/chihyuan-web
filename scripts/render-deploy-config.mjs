@@ -102,13 +102,19 @@ export function renderDeployConfig({
     const gcsBucket = requireValue(env, "GCS_BUCKET");
     if (!/^[a-z0-9][a-z0-9_-]{1,61}[a-z0-9]$/.test(gcsBucket)) throw new Error("Invalid backup GCS bucket");
     const config = JSON.parse(rendered);
-    const recoveryId = requireValue(env, "CF_RECOVERY_D1_DATABASE_ID"), recoveryName = requireValue(env, "CF_RECOVERY_D1_DATABASE_NAME");
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(recoveryId)
-      || recoveryId.toLowerCase() === values.CF_D1_DATABASE_ID.toLowerCase() || !/^[a-z0-9][a-z0-9_-]{1,62}$/i.test(recoveryName)) throw new Error("Invalid isolated recovery target");
-    config.d1_databases.push({ binding: "RECOVERY_DB", database_id: recoveryId, database_name: recoveryName, migrations_dir: "migrations" });
-    // Stable per-target namespace for Audit safety checks; does not expose D1 UUID to browser.
-    const generationMatch = /-recovery-v([0-9]{8}[a-z0-9]{1,6})$/.exec(recoveryName);
-    config.vars.RECOVERY_TARGET_GENERATION = generationMatch ? generationMatch[1] : "legacy";
+    if (env.CF_RECOVERY_DETACHED === "true") {
+      // The provisioner found the bound target used (or none bound): deploy without
+      // RECOVERY_DB so the used copy can be deleted. Rehearsal stays unavailable until rotation.
+      if (env.CF_RECOVERY_D1_DATABASE_ID || env.CF_RECOVERY_D1_DATABASE_NAME) throw new Error("Invalid isolated recovery target");
+    } else {
+      const recoveryId = requireValue(env, "CF_RECOVERY_D1_DATABASE_ID"), recoveryName = requireValue(env, "CF_RECOVERY_D1_DATABASE_NAME");
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(recoveryId)
+        || recoveryId.toLowerCase() === values.CF_D1_DATABASE_ID.toLowerCase() || !/^[a-z0-9][a-z0-9_-]{1,62}$/i.test(recoveryName)) throw new Error("Invalid isolated recovery target");
+      config.d1_databases.push({ binding: "RECOVERY_DB", database_id: recoveryId, database_name: recoveryName, migrations_dir: "migrations" });
+      // Stable per-target namespace for Audit safety checks; does not expose D1 UUID to browser.
+      const generationMatch = /-recovery-v([0-9]{8}[a-z0-9]{1,6})$/.exec(recoveryName);
+      config.vars.RECOVERY_TARGET_GENERATION = generationMatch ? generationMatch[1] : "legacy";
+    }
     config.r2_buckets = [{ binding: "BACKUP_R2", bucket_name: bucket }];
     config.vars.BACKUP_ENABLED = "true";
     config.vars.GCS_BUCKET = gcsBucket;

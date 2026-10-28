@@ -106,7 +106,13 @@ try {
   renderDeployConfig({ env: { ...manualEnv, CF_BACKUP_SCHEDULE_ENABLED: "true" }, outputPath: output });
   const scheduled = JSON.parse(fs.readFileSync(output, "utf8"));
   if (scheduled.vars.BACKUP_SCHEDULE_ENABLED !== "true" || scheduled.triggers.crons.join() !== "0 19 * * *,30 19 * * *") throw new Error("schedule opt-in mismatch");
+  const detachedEnv = { ...manualEnv, CF_RECOVERY_D1_DATABASE_ID: "", CF_RECOVERY_D1_DATABASE_NAME: "", CF_RECOVERY_DETACHED: "true" };
+  renderDeployConfig({ env: detachedEnv, outputPath: output });
+  const detached = JSON.parse(fs.readFileSync(output, "utf8"));
+  if (detached.d1_databases.some(db => db.binding === "RECOVERY_DB") || detached.vars.RECOVERY_TARGET_GENERATION !== undefined
+    || detached.vars.BACKUP_ENABLED !== "true") throw new Error("detached recovery contract mismatch");
   for (const invalid of [
+    { ...manualEnv, CF_RECOVERY_DETACHED: "true" },
     { ...env, CF_BACKUP_SCHEDULE_ENABLED: "true" },
     { ...manualEnv, CF_BACKUP_SCHEDULE_ENABLED: "yes" },
     { ...manualEnv, CF_RECOVERY_D1_DATABASE_ID: env.CF_D1_DATABASE_ID },
