@@ -1,6 +1,6 @@
 # CYWEB V0.9.48｜隔離還原階段 A＋B 一次交 Claude 最終審查
 
-- **狀態：待 Claude 審查；不合併、不部署。**
+- **狀態：Claude 審查完成——需修正（見 §5）；不合併、不部署。**
 - 日期：2026-10-28（臺灣時間）
 - Repo：`simonliu1118-byte/chihyuan-web`；分支：`cyweb/next-work-20261028`
 - PR：[ #300 ](https://github.com/simonliu1118-byte/chihyuan-web/pull/300)，base `main`
@@ -79,12 +79,33 @@
 
 ## 5. Claude 最終審查紀錄（請 Claude 親自填，GPT 不代填）
 
-- 審查日期：
+- 審查日期：2026-10-28
 - 審查者：Claude
-- 審查 PR head SHA：
-- 結論：**待審查**（通過／需修正／阻擋合併）
+- 審查 PR head SHA：#300 `1a66850905177fcbdadce44eabe4c4f2b52476ea`；#301 `84e3fc7278e80ae4687e99092f8585529fe03370`（兩份同輪審查）
+- 結論：**需修正**（修正 R1–R3 前不可合併）
 - 問題清單（依嚴重度）：
+  - **R1（阻擋）新輪替目標永遠不會補 forward migration。** `scripts/provision-backup-recovery.mjs` 的 `alreadyUsed()` 以「任一資料表有列」判定已使用，沒有排除 migration 種子（0018 起 `hr_stores` 1、`hr_job_titles` 5、`hr_shift_types` 6、`hr_leave_types` 18）。輪替建立的新 D1 一定帶種子，下一次一般部署即被當成 used、不再套 migration；main 一出現 0030，演練又會 `BACKUP_TABLE_COVERAGE_MISMATCH`，重演本次事故，只能再輪替。另外輪替時的 seed-only 檢查自行寫死筆數，與 `worker/backup/portable-backup.ts` 的 `MIGRATION_SEEDS`（含逐列 predicate）重複且較寬鬆。
+    - 修法：把種子判定抽成 `.mjs` 與 Worker 都能引用的單一來源（含 predicate），`alreadyUsed()` 與輪替 seed-only 檢查都改用它；「只有標準種子」視為未使用、可補 migration。
+    - 補測試：「輪替後的新目標在下一次一般部署遇到新 migration 時會被遷移」，以及「種子被改過或多一列時視為已使用、不遷移」。
+  - **R2（應修）`loadBackupRehearsals` 強制 `INDEXED BY idx_audit_events_time` 反而增加讀取。** 以全部 migration 建立的 SQLite 做 `EXPLAIN QUERY PLAN`：不加提示時 planner 走 `idx_audit_events_entity_time (entity_type=?)`，只讀 `backup` 類事件；強制時間索引則掃描 90 天內**所有** Audit（含 ERP 查詢等高頻事件）。handoff 所述「避免全表掃描」不成立。
+    - 修法：移除 `INDEXED BY`，並修正 handoff／CHANGELOG 的描述。
+  - **R3（應修，需改 #300 與 #301）輪替在主 D1 migration 之前執行。** 部署 job 的順序是 `provision-backup-recovery.mjs` → `wrangler d1 migrations apply DB`。若該次 dispatch 的 main 含未套用的 migration，新目標（repo HEAD schema）與主 D1 DDL 必不相符，留下孤兒 D1。runbook 第 3 步以人工流程要求先一般部署，但程式沒有擋。
+    - 修法：建立新 D1 **之前**，讀主 D1 `d1_migrations`，確認與 repo `migrations/` 完全一致，不一致即以安全碼停止（零寫入）。也可以在 #301 把 rotate 拆到 migration apply 之後，但仍須在建立前先檢查。
+    - 補測試：「主 D1 migration 落後時拒絕輪替且不呼叫建立 API」。
+  - **R4（建議）D1 數量累積。** 每次演練永久新增一個 D1 且舊庫不刪。runbook §4 應寫明帳號 D1 數量上限、保留期限與人工封存／清理的核准流程。不阻擋本版。
+  - **R5（文字）** CHANGELOG V0.9.48 仍寫「尚未透過本對話執行本機程式測試」，請更新為實際驗證狀態。
 - 執行的驗證／截圖／證據：
-- 審查者直接修正內容：
-- GPT 返修與複審紀錄（如有）：
-- 是否可提交使用者決定合併／部署：
+  - 兩份最新 head 的 GitHub check runs 全部 success，`deploy-development` skipped。
+  - 本機 worktree 執行 `npm run typecheck`，以及 `node --test scripts/*.test.mjs`（#300：340 pass；#301：329 pass）。唯一失敗的 `audit-account-portal.test.mjs` 是 worktree 缺 `.tmp/canonical-cyapps`，main checkout 同測試 12/12 pass，非 PR 造成。
+  - `git merge-tree` 確認 #300＋#301 合併無衝突；兩份 `erp-business-query.test.mjs` 修正內容一致。
+  - R2 的查詢計畫以本機 SQLite 套用 0001–0029 實測。
+  - 無截圖，本輪 UI 變更僅新增紀錄區塊。
+- 確認無問題的部分：
+  - `SUPER_ADMIN`／Origin／雙重確認未降級。
+  - 錯誤碼白名單：例外文字、Cloudflare 識別碼不會出現在 Audit 或回應中。
+  - 同一 requestId 的 started／failed 去重正確（同 `occurred_at` 依 id 排序）；`started` 但無結果時顯示「結果待確認」，不當成功。
+  - Audit 歷史失敗不遮蔽備份主清單。
+  - 輪替入口限 `workflow_dispatch`＋main＋`rotate-recovery`＋generation＋確認短語＋`GITHUB_ENV`。一般部署誤填參數會在任何 Cloudflare 呼叫前以 `RECOVERY_ROTATION_NOT_APPROVED` 停止。新建 UUID 不得出現在既有清單；失敗時保留候選、不改綁、不刪舊庫。
+- 審查者直接修正內容：無（依使用者指示交回 GPT 修正以節省額度）。
+- GPT 返修與複審紀錄（如有）：待 GPT 修正 R1–R3（R4、R5 一併處理），更新本檔與 PR 後再交 Claude 複審。
+- 是否可提交使用者決定合併／部署：**否**，待複審通過。
