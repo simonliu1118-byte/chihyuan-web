@@ -1,4 +1,4 @@
-# CYWEB V0.9.48｜隔離還原可觀測性：GPT → Claude 最終審查 handoff
+# CYWEB V0.9.48｜隔離還原階段 A＋B 一次交 Claude 最終審查
 
 - **狀態：待 Claude 審查；不合併、不部署。**
 - 日期：2026-10-28（臺灣時間）
@@ -9,7 +9,7 @@
 
 ## 1. 指示、範圍、已確認原因
 
-使用者先要求將 ERP／叫貨／Email／Backup 實機驗收結果更新 TODO／CHANGELOG，另新增 ERP 完成通知由畫面右上移右下的待辦。對備份管理「驗證隔離還原」通用失敗及「更新紀錄」無結果，使用者委派本地 Work 以 Cloudflare MCP **唯讀診斷**，隨後指示優先修正階段 A（可觀測性）。
+使用者先要求將 ERP／叫貨／Email／Backup 實機驗收結果更新 TODO／CHANGELOG，另新增 ERP 完成通知由畫面右上移右下的待辦。對備份管理「驗證隔離還原」通用失敗及「更新紀錄」無結果，使用者委派本地 Work 以 Cloudflare MCP **唯讀診斷**，隨後指示修正階段 A（可觀測性），再要求階段 B 的程式流程一併完成後，**兩份 PR 只送 Claude 一次完整審查**；不需要將完整 handoff 文字貼回使用者。
 
 唯讀診斷：正式主 D1 schema migration 已到 **0029**，固定隔離 D1 仍停留 **0014**，缺 45 張表且具有既有非種子資料與歷史成功演練 Audit；它是**已使用歷史復原副本**，必須保留。當天兩次 `/rehearse` 為 HTTP 409，沒有新的演練 Audit 或還原前安全備份。**若來源 loadVerified 成功**，必在目標 schema 表覆蓋檢查 `BACKUP_TABLE_COVERAGE_MISMATCH` 被阻擋；原始代碼並未從當次 Logs 取得，仍屬強推論。已排除本次僅由 HR Migration 種子假陽性引起的猜測。
 
@@ -53,6 +53,29 @@
 - [ ] **UX 與隔離安全**：更新紀錄、loading、錯誤、長代碼手機換行；舊隔離 D1 必須保留，不得新增清空、改綁、重試、回復正式主庫等路徑。
 - [ ] **治理**：逐檔檢查 PR #300 差異、版本、TODO／CHANGELOG 和本 handoff 一致；確認功能 PR 不再修改 `PROJECT_RULES.md`。治理規則另見 PR #301，兩份 PR 皆須由 Claude 審查；Public Git 不含正式環境機密。
 - [ ] **審查後**：Claude 寫回以下紀錄並提供具體結論；若需修正，GPT 更新本 handoff 及測試後再交審。Claude 審查通過仍需使用者另外授權合併／正式部署。
+
+## 4B. 階段 B 完成報告及新增逐檔修改（提交 Claude 一次審查）
+
+**程式層的階段 A、B 已整合，雲端建立／改綁／新演練尚未授權及執行。** 功能 PR #300 與治理／部署 PR #301 應由 Claude 在同一輪統一審查，不要先審 A 再審 B。
+
+- `scripts/provision-backup-recovery.mjs`（功能 #300）：提供 `rotate-recovery` 所需的唯一 `YYYYMMDD` generation 輪替。核對現有 Worker 的主 D1、歷史 `RECOVERY_DB`、已使用狀態與帳號資源名稱是否相符；候選名稱若已存在即拒絕。獲核准手動 dispatch 後才建立 1 個新 D1，先證明無業務資料表、再用 forward Migration 建立 Schema、比對主 D1 所有 sqlite_master DDL 與 HR seed-only 空白狀態。若失敗不清除、不覆寫、不改綁。成功僅將新的候選 ID/名稱交給受保護的正式部署程序；後續正常部署可識別版本化名稱且不自行輪替。
+- `scripts/provision-backup-recovery.test.mjs`（功能 #300）：新增正常部署保留、已輪替目標的後續部署、手動核准／分支／操作型別鎖、名稱碰撞與重送拒絕、來源主 D1 排除、舊目標使用狀態、候選髒資料、Schema mismatch、建立後失敗保留孤兒資產等 synthetic 測試。初次 CI 曾抓到測試 fixture 與新主 D1 排除檢查的問題，已修正並須以最新 HEAD CI 重驗。
+- `shared/backups.ts`、`worker/http/backup-routes.ts`、`src/runtime/modules/BackupOperationalPage.tsx`（功能 #300）：加上 `rehearsalHistoryAvailable`，當可選的 Audit 查詢失敗時仍讓 Super Admin 看得到 R2/GCS 備份目錄，且明確提示歷史 unavailable 不等於零次驗證；不應錯誤顯示成功。
+- `worker/backup/backup-service.ts`（功能 #300）：將 90 天／100 原始事件的 Audit 演練列表強制透過現有 `idx_audit_events_time` 查詢，避免未限制時間的全表掃描。Claude 應檢查 query plan 與 Workspace join。
+- `scripts/backup-rehearsal-http.test.mjs`（功能 #300）：補 Audit provider 失敗、備份主目錄仍能讀取且不洩漏例外文字的回歸測試。
+- `docs/development/CYWEB_RECOVERY_ROTATION_RUNBOOK.md`（功能 #300）：新增兩階段控制、核准條件、保留舊副本、候選孤兒資產、成本與讀寫估計、唯讀查核與新目標演練之完整操作手冊。
+- `TODO.md`、`CHANGELOG.md`（功能 #300）：兩階段程式已提交、歷史 0014 副本保留、CI／Claude 審查待最終確認，正式雲端輪替和還原仍是獨立需要使用者核准的操作。
+- `.github/workflows/development-deploy.yml`（治理 #301）：只有 main `workflow_dispatch operation=rotate-recovery` 加上唯一 generation 與完整確認短語，維持原 `cyweb-production` 鎖及 Source/Identity/health gate；新增在遠端更動前檢查 feature PR 的輪替引擎存在。**推薦先合併 feature #300，再合併治理 #301**；未全部合併不得觸發 rotate。
+- `scripts/deployment-source.test.mjs`（治理 #301）：檢查 `rotate-recovery` 只能從 main 手動觸發且先有來源 guard，且一般 deploy/push 原有行為及保護不變。
+- `GOVERNANCE_CHANGELOG.md`、`docs/handoff/CYWEB-GOV-1.1.24-CLAUDE-REVIEW.md`（治理 #301）：同步說明受保護 rotation 入口的作用及 Claude 審查欄位；新的 GPT handoff 規則仍在 `PROJECT_RULES.md` §9.1。
+
+### Claude 請特別審查
+
+- **雲端新庫權限**：未符合 `workflow_dispatch`、main、指定 operation、雙重確認、受保護 GITHUB_ENV 的條件，必須在任何 Cloudflare API 呼叫前拒絕；正常部署不得自動輪替。
+- **新候選安全與生命週期**：原已使用庫仍保持綁定直到候選驗證成功；每次 generation 不可重用；已建立但遷移或驗證失敗的候選不清空、不刪除、不自動重試。確認 DDL 完全相符、僅 canonical HR seeds、無其他資料，且主 DB 不被覆寫。
+- **交叉 PR 依賴**：#301 先合併、#300 未合併時的來源 guard 必須阻擋 rotation；PR CI 的成功不代表正式部署。兩份 PR **一次**共同審查並分別於各自 handoff 記錄 Claude 發現與結論。
+- **資料庫額度**：D1/schema 讀取、Cloudflare 1 個新 D1、最多 100 個 inventory 分頁、29 份 Migration 的成本預估及停止條件見 runbook §4；本次功能／治理 GitHub 修正對 Cloudflare API 的實際讀寫均為 **0**，不虛構雲端費用。
+- **操作尚未核准**：這次全部完成的是可以交 Claude 審的程式碼、測試與程序，不是執行 Cloudflare 建庫／改綁／正式測試。要等 Claude 通過及使用者授權後才另行發生真正資源變更。
 
 ## 5. Claude 最終審查紀錄（請 Claude 親自填，GPT 不代填）
 
