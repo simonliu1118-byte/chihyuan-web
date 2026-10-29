@@ -50,8 +50,8 @@ const sheetJson=(sheet:Sheet,lines:Line[]):StocktakeSheet=>({
  total:sheet.total_lines,counted:sheet.counted_lines,
  recountNeeded:sheet.recount_needed,
 });
-async function detail(db:D1Database,sheet:string,since?:number){
- const sh=await one<Sheet>(db,"SELECT * FROM stocktake_sheets WHERE sheet_no=?",sheet);
+async function detail(db:D1Database,sheet:string,since?:number,existing?:Sheet){
+ const sh=existing??await one<Sheet>(db,"SELECT * FROM stocktake_sheets WHERE sheet_no=?",sheet);
  if(!sh)return fail("STOCKTAKE_NOT_FOUND","盤點單不存在",404);
  if(since!==undefined&&sh.version===since)return {sheet:sheetJson(sh,[]),lines:[],removedKeys:[]};
  const lines=await all<Line>(db,`SELECT l.*,
@@ -124,7 +124,7 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
     const raw=url.searchParams.get("since");
     if(raw!==null&&!/^(0|[1-9][0-9]{0,9})$/.test(raw))fail("STOCKTAKE_INVALID","since 版本格式不正確");
     const since=raw===null?undefined:Number(raw);
-    return success(await detail(db,sheet,since!==undefined&&since<=sh.version?since:undefined),requestId);
+    return success(await detail(db,sheet,since!==undefined&&since<=sh.version?since:undefined,sh),requestId);
   }
   if(action==="history"&&method==="GET"){
     const line=text(url.searchParams.get("lineKey"),"列鍵",40);
