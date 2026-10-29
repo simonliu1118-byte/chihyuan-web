@@ -74,23 +74,36 @@
 .cy-status-row.cy-stocktake-list-row>strong{grid-column:1;grid-row:1}
 .cy-status-row.cy-stocktake-list-row>.cy-stocktake-list-date{grid-column:2;grid-row:1;white-space:nowrap}
 .cy-status-row.cy-stocktake-list-row>.cy-status-chip{grid-column:3;grid-row:1;align-self:center}
-.cy-stocktake-title{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.cy-stocktake-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
-.cy-stocktake-head p{color:var(--cy-text-muted);font-size:var(--cy-fs-sm);margin:4px 0}
-.cy-stocktake-actions{display:flex;gap:6px;flex-wrap:wrap}
-.cy-stocktake-inline{display:inline-flex;align-items:center;gap:6px}
-.cy-stocktake-lines{display:grid;gap:8px;min-width:0}
-.cy-stocktake-line{border:1px solid var(--cy-border);border-radius:var(--cy-radius-sm);padding:10px;display:grid;gap:7px;min-width:0}
-.cy-stocktake-line-title{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.cy-stocktake-line-title .cy-notice{padding:2px 6px;margin:0;font-size:var(--cy-fs-xs)}
-.cy-stocktake-meta{display:flex;gap:6px 14px;flex-wrap:wrap;color:var(--cy-text-muted);font-size:var(--cy-fs-xs)}
-.cy-stocktake-qty-row{display:flex;align-items:end;gap:12px;flex-wrap:wrap}
-.cy-stocktake-qty-row>div{display:grid;gap:3px;font-variant-numeric:tabular-nums}
-.cy-stocktake-qty-row small{font-size:var(--cy-fs-xs);color:var(--cy-text-muted)}
-.cy-stocktake-field{display:grid;gap:4px;max-width:160px;width:100%;font-size:var(--cy-fs-sm)}
-.cy-stocktake-field .cy-op-input{width:100%;font-variant-numeric:tabular-nums}
-.cy-stocktake-line-foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.cy-stocktake-line-foot small{margin-right:auto;color:var(--cy-text-muted)}
+/* Stocktake details reuse the ordering record header, table, and inline cell editor. */
+.cy-stocktake-main .cy-data-toolbar{margin:12px 0 0}
+.cy-stocktake-main .cy-data-filters>.cy-op-input{min-width:125px}
+.cy-stocktake-detail-section{margin-top:16px}
+.cy-stocktake-grid[data-phase="first"]{min-width:1290px}
+.cy-stocktake-grid[data-phase="recount"]{min-width:1580px}
+.cy-stocktake-grid th:first-child{width:42px}
+.cy-stocktake-grid th:nth-child(2){width:88px}
+.cy-stocktake-grid th:nth-child(3){width:200px}
+.cy-stocktake-grid th:nth-child(4){width:175px}
+.cy-stocktake-grid th:nth-child(5){width:125px}
+.cy-stocktake-grid th:nth-child(6){width:90px}
+.cy-stocktake-grid th:nth-child(7){width:108px}
+.cy-stocktake-grid th:nth-child(8){width:64px}
+.cy-stocktake-grid th:nth-last-child(3){width:108px}
+.cy-stocktake-grid th:nth-last-child(2){width:168px}
+.cy-stocktake-grid th:last-child{width:170px}
+.cy-stocktake-grid th:nth-last-child(4),.cy-stocktake-grid th:nth-last-child(5),
+.cy-stocktake-grid th:nth-last-child(6){width:92px}
+.cy-stocktake-grid td{vertical-align:middle}
+.cy-stocktake-grid .cy-stocktake-num{padding:8px;text-align:right;font-variant-numeric:tabular-nums}
+.cy-stocktake-grid .cy-stocktake-qty-cell .cy-ordering-cell{text-align:right;font-variant-numeric:tabular-nums}
+.cy-stocktake-last-edit{padding:4px 8px!important;font-size:var(--cy-fs-xs);overflow-wrap:anywhere}
+.cy-stocktake-last-edit small{display:block;color:var(--cy-text-muted)}
+.cy-stocktake-row-note{display:block;margin:0 8px 4px;color:var(--cy-warning);font-size:var(--cy-fs-xs)}
+.cy-stocktake-row-actions{padding:4px 6px!important;white-space:normal;text-align:right}
+.cy-stocktake-row-actions .cy-op-button{margin:2px 0 2px 4px}
+.cy-stocktake-conflict-row .cy-notice{margin:4px 8px;padding:10px}
+.cy-stocktake-conflict-row .cy-notice p{margin:0 0 8px}
+.cy-stocktake-conflict-row .cy-op-button{margin-right:6px}
 .cy-stocktake-write-failure{border:1px solid var(--cy-danger);background:var(--cy-danger-soft);
  color:var(--cy-text);border-radius:var(--cy-radius-md);padding:12px;overflow-wrap:anywhere}
 .cy-stocktake-write-failure h4{color:var(--cy-danger);font-size:var(--cy-fs-md);margin:0 0 8px}
@@ -104,19 +117,14 @@
  .cy-stocktake-sheets h3{white-space:nowrap;font-size:var(--cy-fs-sm)}
  .cy-stocktake-mobile-select{display:block}
  .cy-stocktake-sheets .cy-stocktake-list{display:none}
- .cy-stocktake-head,.cy-stocktake-actions{width:100%}
 }
 @media(max-width:420px){
  .cy-store-stocktake{gap:8px}
- .cy-stocktake-main,.cy-stocktake-line{padding:8px}
- .cy-stocktake-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
- .cy-stocktake-qty-row{align-items:stretch}
- .cy-stocktake-field{max-width:none}
- .cy-stocktake-qty-row .cy-op-input{min-height:44px}
- .cy-stocktake-actions .cy-op-button{min-height:40px}
+ .cy-stocktake-main{padding:8px}
+ .cy-stocktake-grid .cy-ordering-cell{min-height:44px}
 }
 
-/* The stocktake location picker limits phone cards to one location; desktop keeps all rows. */
+/* The existing phone location picker remains above the horizontally scrollable table. */
 .cy-stocktake-location-filter{display:none}
 @media(max-width:820px){
  .cy-stocktake-location-filter{display:grid;gap:4px;font-size:var(--cy-fs-sm)}
