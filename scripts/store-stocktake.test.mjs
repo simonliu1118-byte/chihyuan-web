@@ -104,8 +104,8 @@ test("adding a batch requires an existing batch-managed item and rejects duplica
   assert.equal((await f.user("/990001/batches","POST",{itemCode:"X9999",batch:"B9",quantity:"1"})).status,422);
   assert.equal((await f.user("/990001/batches","POST",{itemCode:"X0001",batch:"B1",quantity:"1"})).status,409);
   const added=await f.user("/990001/batches","POST",{itemCode:"X0001",batch:"B9",quantity:"1"});
-  assert.equal(added.status,200,JSON.stringify(added));assert.equal(added.data.lines.length,3);
-  const newLine=added.data.lines.find(x=>x.isAdded);
+  assert.equal(added.status,200,JSON.stringify(added));assert.equal(added.data.sheet.total,3);
+  const newLine=added.data.line;
   assert.equal(newLine.bookQty,undefined,"blind even for added batch");
   assert.equal((await f.user("/990001/batches","DELETE",{lineKey:newLine.lineKey,expectedVersion:newLine.version})).status,409);
   assert.equal((await f.user("/990001/batches","DELETE",{lineKey:newLine.lineKey,expectedVersion:newLine.version,confirmNonEmpty:true})).status,200);
