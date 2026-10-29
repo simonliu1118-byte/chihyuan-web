@@ -29,13 +29,17 @@ Scope: 僅 CYWEB 前端盤點頁面；不更動 Worker、DB、ERP Driver，不�
 ### Commit `ba45564f` — `src/runtime/modules/store.css`
 - 新增盤點專用的集中式 selector，控制導覽卡頂部按鈕列與忽略清單間距，不散落於其他樣式檔。
 
+### Commit `f284fef4` — 補齊成功提示與查無新單通知
+- 原有 `setMessage` 的成功提示因移除全寬 FeedbackBanner 不可消失；改由共用 `useFeedback` 顯示，保留所有成功訊息。
+- ERP `NOT_FOUND` 狀態顯示「沒有新盤點單」，避免向使用者只顯示狀態代碼。
+
 ## 風險／審查重點
 - `useFeedback` 目前是共用 Dialog 提醒（非自動消失 Toast）。需求文字「通知」可能指共享通知體系，請 Claude 評估是否要採用 `ToastRegion`，不要私造通知元件。
 - 目前沒有瀏覽器視覺驗證；檢查窄版手機下 `DataView` 卡片切換及對話框高度/捲動。
 - `ignoreForm` 新增後會維持原本成功即關閉 Dialog 的行為；再次開啟可看到清單。
 - 管理員開啟盤點頁時多一個 `?ignored=true` GET，應注意失敗時的反應（目前與正常清單同時取得）。
 - 原已存在的「設為忽略」和選中已忽略底稿上的「取消忽略」操作仍保留 API 路徑，但清單不再顯示已忽略底稿。
-- 尚未執行 npm build / 測試，請在審查前要求 CI 證據；不得聲稱已驗證或直接合併部署。
+- 提交 `42019a23` 對應 Governance Check 已通過，Runtime Check 曾處於執行中；新增修正提交 `f284fef4` 必須另取最新版 CI 證據。請在審查前要求最新 CI 證據；不得聲稱已驗證或直接合併部署。
 
 ## 後續驗收
 1. Desktop：頁面沒有全寬操作列、同步進度只在執行時出現、左右卡對齊。
