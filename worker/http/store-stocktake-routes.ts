@@ -166,14 +166,15 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
     await db.batch([
       guard(db,"EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND status=?)",sheet,sh.status),
       guard(db,"EXISTS(SELECT 1 FROM stocktake_lines WHERE sheet_no=? AND line_key=? AND version=?)",sheet,key,expected),
-      db.prepare("UPDATE stocktake_lines SET "+field+"=?, "+(field==="first_qty"?"first_by":"recount_by")+"=?, "+(field==="first_qty"?"first_at":"recount_at")+"=?,version=version+1 WHERE sheet_no=? AND line_key=?")
-       .bind(value,member,now,sheet,key),
-      db.prepare("UPDATE stocktake_sheets SET version=version+1,updated_at=? WHERE sheet_no=?").bind(now,sheet),
+      db.prepare("UPDATE stocktake_lines SET "+field+"=?, "+(field==="first_qty"?"first_by":"recount_by")+"=?, "+(field==="first_qty"?"first_at":"recount_at")+"=?,version=version+1,rev=(SELECT version+1 FROM stocktake_sheets WHERE sheet_no=?) WHERE sheet_no=? AND line_key=?")
+       .bind(value,member,now,sheet,sheet,key),
+      db.prepare("UPDATE stocktake_sheets SET version=version+1,counted_lines=counted_lines+?,updated_at=? WHERE sheet_no=?").bind(field==="first_qty"&&before===null?1:0,now,sheet),
       db.prepare("INSERT INTO stocktake_line_history(sheet_no,line_key,field,before_value,after_value,actor_member_id,changed_at) VALUES(?,?,?,?,?,?,?)")
        .bind(sheet,key,field,before,value,member,now),
       participant(db,sheet,member,now)
     ]);
-    return success(await detail(db,sheet),requestId);
+    const updated=await detail(db,sheet,sh.version);
+    return success({sheet:updated.sheet,line:updated.lines.find(l=>l.lineKey===key)},requestId);
   }
   if(action==="batches"&&method==="POST"){
     const v=await json(request),code=text(v.itemCode,"品號",40),batch=text(v.batch,"批號",80);
