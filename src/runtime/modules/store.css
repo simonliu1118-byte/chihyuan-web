@@ -71,9 +71,9 @@
 /* Use the same shared cy-op-list-row / cy-status-row / StatusChip as the 叫貨 list. */
 .cy-stocktake-list{margin:0;max-height:none;overflow:visible}
 .cy-stocktake-list-row{grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:8px;min-height:44px;cursor:pointer}
-.cy-stocktake-list-row>strong{grid-column:1;grid-row:1}
-.cy-stocktake-list-row>.cy-stocktake-list-date{grid-column:2;grid-row:1;white-space:nowrap}
-.cy-stocktake-list-row>.cy-status-chip{grid-column:3;grid-row:1;align-self:center}
+.cy-status-row.cy-stocktake-list-row>strong{grid-column:1;grid-row:1}
+.cy-status-row.cy-stocktake-list-row>.cy-stocktake-list-date{grid-column:2;grid-row:1;white-space:nowrap}
+.cy-status-row.cy-stocktake-list-row>.cy-status-chip{grid-column:3;grid-row:1;align-self:center}
 .cy-stocktake-title{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .cy-stocktake-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
 .cy-stocktake-head p{color:var(--cy-text-muted);font-size:var(--cy-fs-sm);margin:4px 0}
@@ -131,7 +131,7 @@
 .cy-stocktake-ignored-list h3{margin:0 0 10px}
 /* Dialog-specific sizing; shared Dialog and ordering table styles remain unchanged elsewhere. */
 .cy-dialog.cy-stocktake-ignore-dialog .cy-dialog-surface{width:min(496px,calc(100vw - 32px))}
-.cy-stocktake-ignore-form .cy-f{width:100%;max-width:none}
+.cy-stocktake-ignore-form{display:grid;gap:6px}.cy-stocktake-ignore-form .cy-f-label{display:block}
 .cy-stocktake-ignore-input{display:flex;align-items:center;gap:8px;min-width:0}
 .cy-stocktake-ignore-input>.cy-op-input{flex:1 1 auto;min-width:0;width:100%}
 .cy-stocktake-ignore-input>.cy-op-button{flex:none;white-space:nowrap}
