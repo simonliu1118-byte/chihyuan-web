@@ -35,7 +35,8 @@ function fixture(overrides = {}) {
     }
     assert.equal(u.hostname,"api.cloudflare.com");
     assert.equal(new Headers(init.headers).get("authorization"),"Bearer synthetic-token");
-    if(u.pathname.endsWith(`/scripts/${dev}/settings`)) return Response.json(devSettings);
+    if(u.pathname.endsWith(`/scripts/${dev}/settings`))
+      return overrides.devMissing ? Response.json({success:false,errors:[{code:10007}]},{status:404}) : Response.json(devSettings);
     if(u.pathname.endsWith(`/scripts/${prod}/settings`)) return Response.json(provider);
     if(u.pathname.endsWith(`/scripts/${web}/settings`)) {
       if(overrides.drift && calls.filter(x=>new URL(x.url).pathname.endsWith(`/scripts/${web}/settings`)).length>1)
@@ -59,6 +60,10 @@ test("actual canonical resolver/guard validates production topology using only G
   const text=JSON.stringify(r);
   for(const sensitive of [f.state.dev,f.state.prod,f.state.web,"synthetic-token","synthetic-account","synthetic-workspace",id(2),id(3),"portal.example.test"])
     assert.equal(text.includes(sensitive),false, "public report excludes private metadata");
+});
+test("a removed development CYID Worker does not block the production audit",async()=>{
+  const f=fixture({devMissing:true}); const r=await auditAccountPortal(f.options);
+  assert.equal(r.productionPortalReady,true); assert.equal(r.portalUsesCanonicalProductionIdentity,true);
 });
 test("development-bound portal reports the exact canonical authority mismatch, without remapping resources",async()=>{
   const f=fixture({change:s=>{s.settings.result.bindings[0].service=s.dev;}});
