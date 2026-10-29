@@ -61,10 +61,14 @@ export function StoreStocktake({role}:{role:string}){
    setSheets(normal);setIgnored(excluded);
  },[manager,showIgnored]);
  const detailRef=useRef<StocktakeDetail|null>(null);detailRef.current=detail;
- const loadDetail=useCallback(async(sheet:string,incremental=false)=>{
+ const loadDetail=useCallback(async(sheet:string,incremental=false):Promise<StocktakeDetail>=>{
    const previous=incremental&&detailRef.current?.sheet.sheetNo===sheet?detailRef.current:null;
    const suffix=previous?"?since="+previous.sheet.version:"";
    const d=await call<StocktakeDetail & {removedKeys?:string[]}>("/"+encodeURIComponent(sheet)+suffix);
+   // A re-read from ERP replaces every line and a status change (confirm, ERP write) changes many:
+   // neither leaves per-line revisions or tombstones, so the whole sheet is read again.
+   if(previous&&(d.sheet.detailReadAt!==previous.sheet.detailReadAt||d.sheet.status!==previous.sheet.status))
+     return loadDetailRef.current(sheet);
    if(selectedRef.current===sheet){
      setDetail(current=>{
        if(!previous||!current||current.sheet.sheetNo!==sheet)return d;
@@ -80,6 +84,7 @@ export function StoreStocktake({role}:{role:string}){
    }
    return d;
  },[]);
+ const loadDetailRef=useRef(loadDetail);loadDetailRef.current=loadDetail;
  useEffect(()=>{void loadSheets().catch(e=>reportError(errorOf(e)))},[loadSheets,reportError]);
  useEffect(()=>{if(!selected){setDetail(null);setDrafts({});setConflict(null);return;}
    setDetail(null);setDrafts({});setConflict(null);
@@ -151,8 +156,10 @@ export function StoreStocktake({role}:{role:string}){
    try{
      const fresh=await call<{sheet:StocktakeSheet;line:StocktakeLine}>("/"+encodeURIComponent(detail.sheet.sheetNo)+"/line","PATCH",
        {lineKey:line.lineKey,quantity:value,expectedVersion:line.version});
+     // Keep the polled version when others saved in between, so the next poll still brings their lines.
      setDetail(old=>old&&old.sheet.sheetNo===fresh.sheet.sheetNo?{
-       sheet:fresh.sheet,lines:old.lines.map(l=>l.lineKey===fresh.line.lineKey?fresh.line:l)
+       sheet:fresh.sheet.version===old.sheet.version+1?fresh.sheet:{...fresh.sheet,version:old.sheet.version},
+       lines:old.lines.map(l=>l.lineKey===fresh.line.lineKey?fresh.line:l)
      }:old);
      setDrafts(s=>{const copy={...s};if(copy[line.lineKey]===value)delete copy[line.lineKey];return copy});
      setConflict(null);
