@@ -8,12 +8,13 @@ import {stocktakeJobStatements,StocktakeInputError} from "./stocktake-erp";
 
 type Sheet={sheet_no:string;sheet_date:string|null;status:StocktakeStatus;version:number;
  detail_read_at:string|null;first_confirmed_at:string|null;second_confirmed_at:string|null;
- erp_confirmed_at:string|null;write_query_id:string|null;write_result_json:string|null};
+ erp_confirmed_at:string|null;write_query_id:string|null;write_result_json:string|null;
+ total_lines:number;counted_lines:number;recount_needed:number};
 type Line={sheet_no:string;line_key:string;seq:string|null;item_code:string;item_name:string;spec:string;
  warehouse_name:string;location:string;unit:string;batch:string;book_qty:string;
  is_added:number;erp_seq:string|null;first_qty:string|null;first_by:number|null;first_at:string|null;
  recount_qty:string|null;recount_by:number|null;recount_at:string|null;
- first_by_name?:string|null;recount_by_name?:string|null;locked:number;version:number};
+ first_by_name?:string|null;recount_by_name?:string|null;locked:number;version:number;rev:number};
 class Invalid extends Error {constructor(public code:string,message:string,public status=422){super(message)}}
 const fail=(code:string,message:string,status=422):never=>{throw new Invalid(code,message,status)};
 const sheetNo=(value:unknown)=>typeof value==="string"&&STOCKTAKE_NO.test(value)?value:fail("STOCKTAKE_INVALID","底稿編號必須是 1～20 位英數字");
@@ -46,20 +47,22 @@ const sheetJson=(sheet:Sheet,lines:Line[]):StocktakeSheet=>({
  detailReadAt:sheet.detail_read_at,firstConfirmedAt:sheet.first_confirmed_at,
  secondConfirmedAt:sheet.second_confirmed_at,erpConfirmedAt:sheet.erp_confirmed_at,
  writeQueryId:sheet.write_query_id,writeResult:sheet.write_result_json?JSON.parse(sheet.write_result_json):null,
- total:lines.length,counted:lines.filter(l=>l.first_qty!==null).length,
- recountNeeded:lines.filter(l=>!l.locked).length,
+ total:sheet.total_lines,counted:sheet.counted_lines,
+ recountNeeded:sheet.recount_needed,
 });
-async function detail(db:D1Database,sheet:string){
+async function detail(db:D1Database,sheet:string,since?:number){
  const sh=await one<Sheet>(db,"SELECT * FROM stocktake_sheets WHERE sheet_no=?",sheet);
  if(!sh)return fail("STOCKTAKE_NOT_FOUND","盤點單不存在",404);
+ if(since!==undefined&&sh.version===since)return {sheet:sheetJson(sh,[]),lines:[],removedKeys:[]};
  const lines=await all<Line>(db,`SELECT l.*,
    COALESCE(f.display_name,f.employee_no) AS first_by_name,
    COALESCE(rc.display_name,rc.employee_no) AS recount_by_name
    FROM stocktake_lines l LEFT JOIN app_members f ON f.id=l.first_by
    LEFT JOIN app_members rc ON rc.id=l.recount_by
-   WHERE l.sheet_no=? ORDER BY l.location,l.item_code,l.batch,l.line_key LIMIT 3001`,sheet);
+   WHERE l.sheet_no=? ${since===undefined?"":"AND l.rev>?"} ORDER BY l.location,l.item_code,l.batch,l.line_key LIMIT 3001`,...(since===undefined?[sheet]:[sheet,since]));
  if(lines.length>3000)fail("STOCKTAKE_LIMIT","盤點列數超過 3000",409);
- return {sheet:sheetJson(sh,lines),lines:lines.map(l=>toLine(l,sh.status))};
+ const removedKeys=since===undefined?[]:(await all<{line_key:string}>(db,"SELECT line_key FROM stocktake_line_history WHERE sheet_no=? AND removed_rev>? ORDER BY id LIMIT 3001",sheet,since)).map(r=>r.line_key);
+ return {sheet:sheetJson(sh,lines),lines:lines.map(l=>toLine(l,sh.status)),removedKeys};
 }
 const version=(v:unknown)=>Number.isSafeInteger(v)&&Number(v)>=1?Number(v):fail("STOCKTAKE_INVALID","版本不正確");
 const safeQty=(value:unknown)=>{try{parseStocktakeQuantity(value);return value as string}catch{return fail("STOCKTAKE_INVALID","數量需為數字字串，最多四位小數且小於十億")}};
@@ -94,14 +97,9 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
   if(!path&&method==="GET"){
    const ignored=url.searchParams.get("ignored")==="true";
    if(ignored)requireAdmin(role);
-   const sheets=await all<Sheet & {total:number;counted:number;recount_needed:number}>(db,`SELECT s.*,COALESCE(c.total,0) AS total,COALESCE(c.counted,0) AS counted,COALESCE(c.recount_needed,0) AS recount_needed
-    FROM stocktake_sheets s LEFT JOIN (
-      SELECT sheet_no,COUNT(*) total,COUNT(first_qty) counted,SUM(CASE WHEN locked=0 THEN 1 ELSE 0 END) recount_needed
-      FROM stocktake_lines GROUP BY sheet_no
-    ) c ON c.sheet_no=s.sheet_no
-    WHERE s.status `+(ignored?"=":"<>")+` 'IGNORED' ORDER BY s.sheet_date DESC,s.sheet_no DESC LIMIT 501`);
+   const sheets=await all<Sheet>(db,`SELECT * FROM stocktake_sheets WHERE status `+(ignored?"=":"<>")+` 'IGNORED' ORDER BY sheet_date DESC,sheet_no DESC LIMIT 501`);
    if(sheets.length>500)fail("STOCKTAKE_LIMIT","底稿超過 500 張",409);
-   return success(sheets.map(sh=>({...sheetJson(sh,[]),total:sh.total,counted:sh.counted,recountNeeded:sh.recount_needed})),requestId);
+   return success(sheets.map(sh=>sheetJson(sh,[])),requestId);
   }
   if(path==="ignore"&&method==="POST"){
    requireAdmin(role);const v=await json(request),sheet=sheetNo(v.sheetNo);
@@ -122,7 +120,12 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
   const sheet=sheetNo(match[1]),action=match[2]??"";
   const sh=await one<Sheet>(db,"SELECT * FROM stocktake_sheets WHERE sheet_no=?",sheet);
   if(!sh)throw new Invalid("STOCKTAKE_NOT_FOUND","盤點單不存在",404);
-  if(!action&&method==="GET")return success(await detail(db,sheet),requestId);
+  if(!action&&method==="GET"){
+    const raw=url.searchParams.get("since");
+    if(raw!==null&&!/^(0|[1-9][0-9]{0,9})$/.test(raw))fail("STOCKTAKE_INVALID","since 版本格式不正確");
+    const since=raw===null?undefined:Number(raw);
+    return success(await detail(db,sheet,since!==undefined&&since<=sh.version?since:undefined),requestId);
+  }
   if(action==="history"&&method==="GET"){
     const line=text(url.searchParams.get("lineKey"),"列鍵",40);
     return success(await all(db,`SELECT h.id,h.field,h.before_value AS beforeValue,h.after_value AS afterValue,
