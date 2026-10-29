@@ -1,3 +1,12 @@
+## 2026-10-30 開發部署執行紀錄
+
+- 使用者明確批准**部署但不合併**。
+- PR #313 的檢查提交 `8706676046b83ff1d5b748c9a7e692761d4dd1e3`：Governance Check、Runtime Check、CY Web Deploy 的 pull_request 驗證皆成功。
+- 原開發部署分支 `deploy/cyweb-development` SHA `fe0f13db7c88b8c21374e3307bd4f70b21eb7459`，與功能分支已分歧；建立雙 parent 合流部署提交 `19a44060436928f972d3ca58e746af406751033d`，使用通過驗證的功能樹，並由部署分支快轉更新來觸發既有開發部署工作流程。
+- 開發部署 GitHub Actions run: https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40917566654 。請以該 run 的**最終結果及健康檢查**判定部署成功，不能只看推送成功。
+- **PR #313 不合併**；無正式生產環境發行。
+
+---
 ## 2026-10-30 部署前檢查
 
 使用者已同意部署，但明確要求 **不合併 PR #313**。部署前 Runtime CI 曾失敗：新增 `stocktake_sync_ignored` 未進入資料表驗證與可攜備份覆蓋清單。已補：
