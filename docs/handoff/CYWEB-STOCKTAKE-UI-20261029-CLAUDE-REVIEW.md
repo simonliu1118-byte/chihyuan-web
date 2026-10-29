@@ -1,3 +1,13 @@
+## 第三輪驗證完成（2026-10-30）
+
+- Runtime Check [#40943246310](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40943246310) **completed / success**，對應本輪 UI + TODO 文件 SHA `2120f1dfdf06d946a4b683e2bea978a613f54d36`。
+- 四項 CI 工作均成功：`source-contracts`、`browser-typecheck`、`worker-typecheck`、`build`；完整 Node test suite 與 Vite build 完成。
+- Governance Check [#40943246330](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40943246330) **success**。
+- 此更新僅補測試證據於 Handoff，未改程式邏輯。仍需要 Claude 的瀏覽器桌機／手機視覺複審，特別是橫向捲動、表格欄寬、操作列換行、盤點數量編輯及版本衝突。
+- PR #314 保持 Draft，未合併、未部署。
+
+---
+
 # 2026-10-30 第三輪：庫存盤點右側基本架構改版（Claude 複審）
 
 ## 本輪確認範圍與已做項目
