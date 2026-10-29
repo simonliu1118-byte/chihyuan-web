@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { build } from "esbuild";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createElement } from "react";
@@ -101,4 +101,39 @@ test("Claude N3: a reused generation has its own target lock phase label", () =>
   assert.match(html, /隔離目標使用狀態/);
   assert.doesNotMatch(html, /來源備份核對/);
   assert.match(html, /BACKUP_TARGET_ALREADY_REHEARSED/);
+});
+
+test("V0.9.51 backup identifiers always occupy a dedicated table column and responsive card", () => {
+  const html = render();
+  assert.match(html, /<th[^>]*>備份時間（台灣）<\/th><th[^>]*>備份資訊<\/th><th[^>]*>儲存副本<\/th>/);
+  assert.match(html, /<dt>備份編號<\/dt>/);
+  assert.match(html, /<dt>版本<\/dt>/);
+  assert.match(html, /<dt>資料摘要<\/dt>/);
+  assert.match(html, /<dd>V0\.7\.3<\/dd>/);
+  assert.doesNotMatch(html, /備份識別資訊|<details>/);
+  assert.equal((html.match(/class="cy-backup-identity"/g) ?? []).length, 2, "both desktop table and mobile card show full metadata");
+});
+test("V0.9.51 verified result is inside the rehearsal history panel, not a detached panel", () => {
+  const source = readFileSync(new URL("../src/runtime/modules/BackupOperationalPage.tsx", import.meta.url), "utf8");
+  const historySection = source.indexOf('<h3>隔離還原驗證紀錄</h3>');
+  const successPlacement = source.indexOf('shouldShowLatestRehearsalResult(history)', historySection);
+  const historyList = source.indexOf('<BackupRehearsalHistoryView', historySection);
+  assert.ok(historySection > -1 && historySection < successPlacement && successPlacement < historyList);
+  assert.equal((source.match(/<BackupLatestRehearsalResult items=/g) ?? []).length, 1);
+  const html = renderToStaticMarkup(createElement(BackupLatestRehearsalResult, { items: [{
+    eventId: 10, backupId: row.backupId, occurredAt: "2026-10-28T13:11:00.000Z",
+    status: "verified", provider: "r2", phase: "completed", errorCode: null, requestId: "synthetic",
+  }] }));
+  assert.match(html, /<div class="cy-backup-rehearsal-success"/);
+});
+test("V0.9.51 CYInvoice recovery entry sits beside refresh, retaining its single dialog owner and tooltip", () => {
+  const page = readFileSync(new URL("../src/runtime/modules/BackupOperationalPage.tsx", import.meta.url), "utf8");
+  const owner = readFileSync(new URL("../src/identity/CyInvoiceRecoveryAdminPanel.tsx", import.meta.url), "utf8");
+  const toolbar = page.slice(page.indexOf('return <><div className="cy-page-toolbar">'));
+  assert.match(toolbar, /更新紀錄<\/button>\s*<CyInvoiceRecoveryAdminPanel/);
+  assert.equal((page.match(/<CyInvoiceRecoveryAdminPanel\s/g) ?? []).length, 1);
+  assert.match(owner, /className="cy-backup-toolbar-divider"/);
+  assert.match(owner, /title="公司電腦全部遺失或損毀時，寄送復原邀請給新電腦接管 CYInvoice。"/);
+  assert.doesNotMatch(owner, /cy-invoice-recovery-panel/);
+  assert.match(owner, /<Dialog open=\{open\} title="CYInvoice 裝置災難復原"/);
 });

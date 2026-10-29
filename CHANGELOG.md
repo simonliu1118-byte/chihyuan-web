@@ -5,6 +5,15 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.54 — 備份管理資訊常駐與季度提醒頻率（2026-10-29；原 PR #305 以 V0.9.51 提交，合併時改號）
+
+- [x] `SUPER_ADMIN` 全站季度提醒的唯讀查詢改為每 24 小時一次，而非每小時；登入、跨台灣曆季及當次成功演練後仍可刷新，不新增 Cron 或站外 Email。
+- [x] 「隔離還原驗證：完成」保留原 Audit 結果，但移入「隔離還原驗證紀錄」同一區塊，不再分離出現在備份清單之前。
+- [x] 備份清單新增「備份資訊」常駐欄，位於備份時間與 R2／GCS 儲存副本之間；備份編號、版本及資料摘要不需展開，桌面表格和手機卡片共用相同資料來源。
+- [x] CYInvoice 災難復原入口與「更新紀錄」同排，以細分隔線區分；說明文字移至按鈕原生 tooltip，移除下方獨立區塊。原 CYInvoice checkpoint、操作 ID、密碼、確認對話框及授權控制維持單一實作。
+- [x] 增加 backup-ui／backup-schedule 的靜態版面契約與提醒間隔回歸測試；沒有修改 Worker/D1 schema、Cloudflare 設定或正式備份物件。
+- [x] Claude 審查通過（2026-10-29），與 V0.9.52／V0.9.53 一起合併部署。
+
 ## CY Web V0.9.53 — ERP 清理 SQL 改排程執行（2026-10-29）
 
 - [x] ERP 清理不再於每次使用者／Agent API 請求執行（原截圖：執行 6,248 次、掃描 62.48 萬列、寫入 0），改由每分鐘 Cron：每分鐘處理排隊過期與執行逾時（閒置時只做索引探測）、每 5 分鐘清理一小時內完成的結果 JSON、台灣 03:15 全範圍補清並刪除 7 天以上紀錄。
