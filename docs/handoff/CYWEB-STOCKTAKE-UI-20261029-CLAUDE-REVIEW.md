@@ -1,3 +1,16 @@
+## 2026-10-30 iPhone 排版修復已合併並部署（Claude 後續複審）
+
+- 使用者提供實際 iPhone 截圖，指出桌面 14 欄表格在手機無法操作、「全部」下拉選單與搜尋欄分離且有大空白；修復詳情請見下方「手機版實機截圖缺陷修復」。
+- [PR #315](https://github.com/simonliu1118-byte/chihyuan-web/pull/315) 已合併 main，合併 SHA `d85298bddd7385b80eca2d7aa65b3b82873cd40c`。開發部署分支快轉到相同 SHA，遵守來源驗證流程。
+- [Runtime Check #40948279424](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40948279424) 最終 `completed/success`（第二次 attempt）：browser-typecheck、worker-typecheck、source-contracts、build 均成功。第一次 worker-typecheck 的既有非 UI 佇列測試因 RUNNING/QUEUED 時序差異失敗，重跑成功，沒有為此修改其他程式。
+- [Governance Check #40948279357](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40948279357) 成功。
+- [CY Web Deploy #40948725006](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40948725006) 完成且成功：部署來源核驗、Cloudflare Worker 與靜態資產發布、部署後權限／健康驗證通過。網站：https://admin.chihyuancm.com。
+- 本次只發布 UI/CSS/Source-contract 測試／Handoff，**未改 ERP QUERY、Worker、D1、盤點儲存邏輯**；先前的 TODO「重新盤點」仍完全未實作。
+- **後續 Claude 和使用者實機覆核仍必要**：特別驗證 Safari 320/375/390/430 CSS px 搜尋與下拉是否同排、每列可讀可輸入、表頭主管動作是否可見、複盤的帳面欄位與鎖定、離焦儲存與修改紀錄；不能將 CI 成功宣稱為真實 iPhone 視覺驗收。
+- 本段為部署完成後的文件紀錄，無新增功能程式碼。
+
+---
+
 # 2026-10-30 手機版實機截圖缺陷修復（Claude 複審重點）
 
 ## 使用者回報與根因
