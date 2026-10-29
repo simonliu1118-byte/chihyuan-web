@@ -3,7 +3,8 @@ import {apiRequest,ApiClientError} from "../../api/client";
 import {Field,FormSection} from "../../ui/forms/Field";
 import {Dialog} from "../../ui/overlays/Dialog";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
-import {FeedbackBanner,useFeedbackMessage} from "../../ui/feedback/FeedbackProvider";
+import {useFeedback,useFeedbackMessage} from "../../ui/feedback/FeedbackProvider";
+import {DataView} from "../../ui/data/DataView";
 import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import {Loading} from "../../ui/feedback/Loading";
 import {useErpJob} from "./useErpJob";
@@ -34,8 +35,8 @@ const relativeDiff=(a:string|null,b:string|undefined)=>{
 export function StoreStocktake({role}:{role:string}){
  const manager=isAdmin(role);
  const [sheets,setSheets]=useState<StocktakeSheet[]|null>(null);
- const [ignored,setIgnored]=useState<StocktakeSheet[]>([]);
- const [showIgnored,setShowIgnored]=useState(false);
+ const [ignored,setIgnored]=useState<{sheetNo:string;createdAt:string}[]>([]);
+
  const [selected,setSelected]=useState<string|null>(null);
  const [detail,setDetail]=useState<StocktakeDetail|null>(null);
  const [search,setSearch]=useState("");
@@ -49,7 +50,9 @@ export function StoreStocktake({role}:{role:string}){
  const [ignoreForm,setIgnoreForm]=useState<string|null>(null);
  const [batchForm,setBatchForm]=useState<{itemCode:string;batch:string;quantity:string}|null>(null);
  const [busy,setBusy]=useState(false);
- const [message,setMessage,reportError,tone]=useFeedbackMessage<string|null>(null);
+ const [,setFeedbackMessage,reportError]=useFeedbackMessage<string|null>(null);
+ const notify=useFeedback();
+ const setMessage=useCallback((value:string)=>{setFeedbackMessage(value);notify(value,"盤點通知",{replace:true})},[setFeedbackMessage,notify]);
  const {confirm,confirmationDialog}=useConfirmation();
  const job=useErpJob({route:"store",key:"STOCKTAKE",label:"門市庫存盤點",types:["STOCKTAKE_SYNC","STOCKTAKE_WRITE"]});
  const lastJob=useRef<string|null>(null);
@@ -57,9 +60,9 @@ export function StoreStocktake({role}:{role:string}){
  const selectedRef=useRef(selected);selectedRef.current=selected;
 
  const loadSheets=useCallback(async()=>{
-   const [normal,excluded]=await Promise.all([call<StocktakeSheet[]>(""),manager&&showIgnored?call<StocktakeSheet[]>("?ignored=true"):Promise.resolve([])]);
+   const [normal,excluded]=await Promise.all([call<StocktakeSheet[]>(""),manager?call<{sheetNo:string;createdAt:string}[]>("?ignored=true"):Promise.resolve([])]);
    setSheets(normal);setIgnored(excluded);
- },[manager,showIgnored]);
+ },[manager]);
  const detailRef=useRef<StocktakeDetail|null>(null);detailRef.current=detail;
  const loadDetail=useCallback(async(sheet:string,incremental=false):Promise<StocktakeDetail>=>{
    const previous=incremental&&detailRef.current?.sheet.sheetNo===sheet?detailRef.current:null;
@@ -104,8 +107,9 @@ export function StoreStocktake({role}:{role:string}){
    if(!job.result||job.result.id===lastJob.current)return;
    if(job.result.status==="QUEUED"||job.result.status==="RUNNING")return;
    lastJob.current=job.result.id;
+   if(job.result.queryType==="STOCKTAKE_SYNC")notify(job.result.status==="DONE"?"盤點單查詢完成。"+(job.result.elapsedMs!==null?" 耗時 "+(job.result.elapsedMs/1000).toFixed(1)+" 秒。":""):job.result.status==="NOT_FOUND"?"沒有新盤點單。":job.result.errorMessage||"盤點單查詢已結束："+job.result.status,"ERP 盤點通知",{replace:true});
    void loadSheets().then(()=>selectedRef.current?loadDetail(selectedRef.current):null).catch(()=>undefined);
- },[job.result,loadSheets,loadDetail]);
+ },[job.result,loadSheets,loadDetail,notify]);
 
  const locations=useMemo(()=>[...new Set(detail?.lines.map(l=>l.location||"未指定儲位")??[])].sort(),[detail]);
  useEffect(()=>{if(!locations.includes(location))setLocation(locations[0]??"")},[locations,location]);
@@ -171,7 +175,7 @@ export function StoreStocktake({role}:{role:string}){
      }else reportError(errorOf(e));
    }finally{inFlightSave.current.delete(line.lineKey);setSaving(null)}
  }
- async function afterConfirm(action:"first-confirm"|"second-confirm"|"retry-write"|"refresh"|"ignore"|"unignore"){
+ async function afterConfirm(action:"first-confirm"|"second-confirm"|"retry-write"|"refresh"){
    if(!currentSheet)return;
    const lines=detail?.lines??[];
    const unfilled=action==="first-confirm"?lines.filter(l=>l.firstQty===null).length:
@@ -189,13 +193,21 @@ export function StoreStocktake({role}:{role:string}){
    if(!await confirm({title:action==="first-confirm"?"第一次主管確認":action==="second-confirm"?"第二次主管確認":"確認操作",
      description:explain,confirmLabel:"確認執行"}))return;
    await open(currentSheet.sheetNo,action,{expectedVersion:currentSheet.version});
-   if(action==="ignore")setSelected(null);
  }
  async function addIgnored(e:FormEvent<HTMLFormElement>){
   e.preventDefault();if(!ignoreForm)return;
   setBusy(true);
   try{await call("/ignore","POST",{sheetNo:ignoreForm.trim()});setIgnoreForm(null);await loadSheets();setMessage("已新增忽略底稿。")}
   catch(err){reportError(errorOf(err))}finally{setBusy(false)}
+ }
+ async function removeIgnored(sh:{sheetNo:string}){
+  if(!await confirm({title:"移除忽略底稿",description:"確認從忽略清單移除 "+sh.sheetNo+"？",confirmLabel:"移除"}))return;
+  setBusy(true);
+  try{
+   await call("/ignore","DELETE",{sheetNo:sh.sheetNo});
+   await loadSheets();
+   notify("已從忽略清單移除 "+sh.sheetNo,"盤點通知",{replace:true});
+  }catch(e){reportError(errorOf(e))}finally{setBusy(false)}
  }
  async function addBatch(e:FormEvent<HTMLFormElement>){
   e.preventDefault();if(!currentSheet||!batchForm)return;
@@ -223,27 +235,24 @@ export function StoreStocktake({role}:{role:string}){
    const at=inputs.indexOf(event.currentTarget);inputs[at+1]?.focus();
  }
  return <section className="cy-store-stocktake">
-  <div className="cy-store-toolbar">
-   <button type="button" className="cy-op-button primary" disabled={busy||job.busy} onClick={()=>void update()}>更新盤點單</button>
-   <button type="button" className="cy-op-button" onClick={()=>void loadSheets().catch(e=>reportError(errorOf(e)))}>更新畫面</button>
-   {manager?<button type="button" className="cy-op-button" onClick={()=>setIgnoreForm("")}>新增忽略底稿</button>:null}
-   {manager?<label className="cy-stocktake-inline"><input type="checkbox" checked={showIgnored} onChange={e=>setShowIgnored(e.target.checked)}/>顯示忽略</label>:null}
-  </div>
-  <FeedbackBanner message={message} tone={tone}/>
-  {job.result?<div className="cy-op-panel"><ErpJobStatus result={job.result}/></div>:null}
+  {job.result&&(job.result.status==="QUEUED"||job.result.status==="RUNNING")?<div className="cy-op-panel"><ErpJobStatus result={job.result}/></div>:null}
   <div className="cy-stocktake-layout">
    <nav className="cy-stocktake-sheets" aria-label="盤點單清單">
     <h3>盤點單</h3>
+    <div className="cy-stocktake-list-actions">
+     <button type="button" className="cy-op-button primary compact" disabled={busy||job.busy} onClick={()=>void update()}>同步ERP盤點單</button>
+     {manager?<button type="button" className="cy-op-button compact" onClick={()=>setIgnoreForm("")}>新增忽略底稿</button>:null}
+    </div>
     <select className="cy-op-input cy-stocktake-mobile-select" aria-label="選擇盤點底稿"
       value={selected??""} onChange={e=>setSelected(e.target.value||null)}>
       <option value="">請選擇盤點單</option>
-      {[...(sheets??[]),...(showIgnored?ignored:[])].map(sh=>
+      {(sheets??[]).map(sh=>
         <option key={sh.sheetNo} value={sh.sheetNo}>
           {sh.sheetNo} · {STOCKTAKE_LABELS[sh.status]} · {sh.counted}/{sh.total}
         </option>)}
     </select>
     {sheets===null?<Loading/>:null}
-    {[...(sheets??[]),...(showIgnored?ignored:[])].map(s=><button key={s.sheetNo} type="button"
+    {(sheets??[]).map(s=><button key={s.sheetNo} type="button"
       className={"cy-stocktake-sheet"+(s.sheetNo===selected?" active":"")} onClick={()=>setSelected(s.sheetNo)}>
       <strong>{s.sheetNo}</strong><span>{s.sheetDate??"尚未讀明細"} · {STOCKTAKE_LABELS[s.status]}</span>
       <small>{s.counted} / {s.total} 列已填寫</small>
@@ -258,10 +267,6 @@ export function StoreStocktake({role}:{role:string}){
       <div className="cy-stocktake-actions">
        {manager&&currentSheet.status==="COUNTING"&&currentSheet.detailReadAt?
          <button className="cy-op-button" disabled={busy} type="button" onClick={()=>void afterConfirm("refresh")}>重新整理</button>:null}
-       {manager&&currentSheet.status==="COUNTING"?
-         <button className="cy-op-button" disabled={busy} type="button" onClick={()=>void afterConfirm("ignore")}>設為忽略</button>:null}
-       {manager&&currentSheet.status==="IGNORED"?
-         <button className="cy-op-button" disabled={busy} type="button" onClick={()=>void afterConfirm("unignore")}>取消忽略</button>:null}
        {manager&&currentSheet.status==="COUNTING"&&currentSheet.detailReadAt?
          <button className="cy-op-button primary" disabled={busy} type="button" onClick={()=>void afterConfirm("first-confirm")}>第一次確認</button>:null}
        {manager&&currentSheet.status==="RECOUNTING"?
@@ -345,13 +350,28 @@ export function StoreStocktake({role}:{role:string}){
     </>}
    </div>
   </div>
-  {ignoreForm!==null?<Dialog open title="新增忽略底稿" onClose={()=>setIgnoreForm(null)}>
+  {ignoreForm!==null?<Dialog open title="忽略底稿管理" onClose={()=>setIgnoreForm(null)}>
    <form onKeyDown={enterAdvancesFields} onSubmit={e=>void addIgnored(e)}>
     <FormSection><Field label="底稿編號" required size="m"><input className="cy-op-input" pattern="[A-Za-z0-9]{1,20}" maxLength={20}
      value={ignoreForm} onChange={e=>setIgnoreForm(e.target.value)}/></Field></FormSection>
     <div className="cy-op-form-footer"><button className="cy-op-button" type="button" onClick={()=>setIgnoreForm(null)}>取消</button>
      <button className="cy-op-button primary" type="submit" disabled={busy}>新增忽略</button></div>
    </form>
+   <section className="cy-stocktake-ignored-list" aria-label="已忽略底稿">
+    <h3>已忽略底稿（{ignored.length}）</h3>
+    <DataView ariaLabel="已忽略底稿清單" items={ignored} getKey={sh=>sh.sheetNo}
+     columns={[
+      {key:"sheet",header:"底稿編號",render:sh=><strong>{sh.sheetNo}</strong>},
+      {key:"date",header:"加入時間",render:sh=>date(sh.createdAt)},
+      {key:"actions",header:"操作",render:sh=><button type="button" className="cy-op-button compact danger"
+       disabled={busy} onClick={()=>void removeIgnored(sh)}>移除</button>}
+     ]}
+     renderCard={sh=><div className="cy-stocktake-ignored-card"><strong>{sh.sheetNo}</strong>
+      <span>{date(sh.createdAt)}</span><button type="button" className="cy-op-button compact danger"
+       disabled={busy} onClick={()=>void removeIgnored(sh)}>移除</button></div>}
+     emptyTitle="目前沒有忽略底稿"
+    />
+   </section>
   </Dialog>:null}
   {batchForm?<Dialog open title="新增批號" onClose={()=>setBatchForm(null)}>
    <form onKeyDown={enterAdvancesFields} onSubmit={e=>void addBatch(e)}>

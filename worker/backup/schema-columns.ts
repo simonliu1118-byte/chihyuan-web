@@ -894,6 +894,11 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "member_id",
     "sheet_no"
   ],
+  "stocktake_sync_ignored": [
+    "created_at",
+    "sheet_no",
+    "updated_at"
+  ],
   "stocktake_sheets": [
     "counted_lines",
     "created_at",

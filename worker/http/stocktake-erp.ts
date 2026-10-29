@@ -114,6 +114,8 @@ export type SyncSheetRow={sheet_no:string;status:string;detail_read_at:string|nu
 export async function syncStatements(db:D1Database,body:StocktakeSyncResult,onlySheet:string|null,now:string):Promise<D1PreparedStatement[]>{
  const out:D1PreparedStatement[]=[];
  for(const d of body.details){
+   const excluded=await db.prepare("SELECT 1 FROM stocktake_sync_ignored WHERE sheet_no=?").bind(d.sheetNo).first();
+   if(excluded)continue;
    const current=await db.prepare("SELECT sheet_no,status,detail_read_at FROM stocktake_sheets WHERE sheet_no=?")
      .bind(d.sheetNo).first<SyncSheetRow>();
    // The sheet may have changed since the claim (ignored meanwhile, read by another update, or
