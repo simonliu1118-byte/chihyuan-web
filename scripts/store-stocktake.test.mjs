@@ -348,6 +348,8 @@ test("unignored pre-created stub is not skipped and receives its first ERP detai
   assert.equal(shown.length,1);
   const unignored=await f.user("/990001/unignore","POST",{expectedVersion:1});
   assert.equal(unignored.status,200,JSON.stringify(unignored));
+  assert.deepEqual((await f.user("")).data,[],"removing ignore must not create a WEB sheet");
+  assert.deepEqual((await f.user("?ignored=true")).data,[]);
   const sync=await f.user("/sync","POST");
   assert.equal(sync.status,200,JSON.stringify(sync));
   const claimed=await f.agent("/item-queries/claim",{agentVersion:"synthetic",erpState:"BROWSE",
