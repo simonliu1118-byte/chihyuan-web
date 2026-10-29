@@ -348,16 +348,22 @@ function OperationalApp({
   useEffect(() => {
     const done = (event: Event) => {
       const detail = (event as CustomEvent<ErpQueryDoneDetail>).detail;
-      if (detail.visible) return;
+      const isStocktakeSync = detail.queryType === "STOCKTAKE_SYNC";
+      // Stocktake sync uses the same top-right toast as ERP queries even while its page is visible.
+      // Other ERP categories keep the original hidden-page-only rule.
+      if (detail.visible && !isStocktakeSync) return;
       const failed = detail.status === "FAILED" || detail.status === "EXPIRED";
       const id = pushToast({
         tone: failed ? "danger" : "success",
-        title: `${detail.label}查詢${failed ? "失敗" : detail.status === "NOT_FOUND" ? "完成（查無資料）" : "完成"}`,
+        title: isStocktakeSync
+          ? `ERP盤點單同步${failed ? "失敗" : "完成"}`
+          : `${detail.label}查詢${failed ? "失敗" : detail.status === "NOT_FOUND" ? "完成（查無資料）" : "完成"}`,
         message: <>{failed && detail.message ? <span>{detail.message} </span> : null}
           <button className="cy-op-button compact" type="button" onClick={() => {
             dismissToast(id);
-            void guardedNavigation.request(detail.route as AppRoute, "link").then(() =>
-              window.dispatchEvent(new CustomEvent(ERP_OPEN_CATEGORY_EVENT, { detail: detail.key })));
+            void guardedNavigation.request(detail.route as AppRoute, "link").then(() => {
+              if (!isStocktakeSync) window.dispatchEvent(new CustomEvent(ERP_OPEN_CATEGORY_EVENT, { detail: detail.key }));
+            });
           }}>查看</button></>,
       });
     };

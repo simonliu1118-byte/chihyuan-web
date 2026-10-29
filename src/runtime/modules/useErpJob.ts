@@ -28,7 +28,7 @@ export const ErpPageVisibleContext = createContext(true);
 
 /** Raised when a job this page saw running ends; the app shows a notice when its page is hidden. */
 export const ERP_QUERY_DONE_EVENT = "cy-erp-query-done";
-export type ErpQueryDoneDetail = { route: string; key: string; label: string; status: ErpQueryStatus; message: string | null; visible: boolean };
+export type ErpQueryDoneDetail = { route: string; key: string; label: string; queryType: ErpQueryType; status: ErpQueryStatus; message: string | null; visible: boolean };
 
 /**
  * Asked when a query is refused because ERP is paused (user 2026-10-28): the app's prompt answers
@@ -98,7 +98,7 @@ export function useErpJob(home?: ErpJobHome) {
         if (!sawRunning.current) return;
         sawRunning.current = false;
         if (home) window.dispatchEvent(new CustomEvent<ErpQueryDoneDetail>(ERP_QUERY_DONE_EVENT,
-          { detail: { route: home.route, key: home.key, label: home.label, status: job.status, message, visible: visibleRef.current } }));
+          { detail: { route: home.route, key: home.key, label: home.label, queryType: job.queryType, status: job.status, message, visible: visibleRef.current } }));
         if (!failed) return;
         if (visibleRef.current) {
           setError(message);

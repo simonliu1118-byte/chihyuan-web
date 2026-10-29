@@ -1,3 +1,111 @@
+## 第三輪驗證完成（2026-10-30）
+
+- Runtime Check [#40943246310](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40943246310) **completed / success**，對應本輪 UI + TODO 文件 SHA `2120f1dfdf06d946a4b683e2bea978a613f54d36`。
+- 四項 CI 工作均成功：`source-contracts`、`browser-typecheck`、`worker-typecheck`、`build`；完整 Node test suite 與 Vite build 完成。
+- Governance Check [#40943246330](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40943246330) **success**。
+- 此更新僅補測試證據於 Handoff，未改程式邏輯。仍需要 Claude 的瀏覽器桌機／手機視覺複審，特別是橫向捲動、表格欄寬、操作列換行、盤點數量編輯及版本衝突。
+- PR #314 保持 Draft，未合併、未部署。
+
+---
+
+# 2026-10-30 第三輪：庫存盤點右側基本架構改版（Claude 複審）
+
+## 本輪確認範圍與已做項目
+
+使用者要求以叫貨明細右側畫面為準，優先完成**庫存盤點基本架構**。此次僅改 UI 與 source-contract 測試，**未修改 QUERY Windows 程式、Worker API、資料庫、庫存同步、權限與 ERP 寫回行為**。
+
+1. 移除畫面上「盲盤中：帳面數量在第一次主管確認前不會由伺服器傳回。」說明文字。盲盤的安全限制不變：初盤仍不得接收或顯示 ERP 帳面數量。
+2. 右側表頭改用既有 `cy-record-header`、`cy-ordering-title`、`cy-record-actions`、`StatusChip`：單號 → 狀態 Pill → `YYYY/MM/DD盤點 · 商品 x/y 已填`；右側依狀態顯示「重新整理」「新增批號」「初盤確認」或「複盤確認」，失敗時維持「重新寫回」。原管理員權限、確認對話框與 ERP 重新讀取限制都保留。
+3. 初盤進度以 `counted/total` 顯示；複盤中顯示未鎖定且需要複盤列的 `recountQty` 填寫進度，避免直接顯示初盤已完成百分比。注意目前語意是**明細列**，同品號多批號會分別計算；文案遵照使用者指定的「商品」。
+4. 搜尋列改用 Claude 已建的 `DataViewToolbar`；原有搜尋條件及「全部／未填／有差異／新增批號」下拉篩選不變，下拉移至搜尋框右側。手機的儲位選單暫時保留原條件，表格可水平捲動。
+5. 明細標題改為 **「盤點品號庫存明細」**，不再用每商品一張卡。直接沿用 `cy-ordering-grid-scroll`、`cy-ordering-grid`、`cy-ordering-cell` 叫貨表格樣式：項次、品號、品名、規格、庫別、儲位、批號、單位、數量、最後填寫、操作。初盤不顯示帳面數量；複盤顯示初盤數量、帳面、差異及複盤輸入欄。保留 Enter 下一筆、離焦儲存、數量驗證、多人版本衝突、修改紀錄及新增批號刪除；衝突提示改為表格內跨欄的完整橫列。
+6. 復用 `OrderingGrid` 的**既有 CSS 外觀與編輯樣式**，但不直接使用其叫貨專用資料編輯器，以保留盤點的後端版本鎖及盲盤流程；未建立一套新的共用 Grid 元件。
+
+## 本輪 Commit 與檔案
+
+- `2fba47fa` `src/runtime/modules/StoreStocktake.tsx`：共用表頭、Toolbar、盤點表格、移除盲盤提醒。
+- `aa27a7e3` `StoreStocktake.tsx`：修正 JSX 層級，將多人衝突訊息放入全寬 table row，且維持對應列的 key。
+- `2e9f7682` `src/runtime/modules/store.css`：刪除舊卡片專屬樣式，沿用叫貨表格 CSS，增加必要欄寬與手機水平捲動調整，保持 CSS 集中管理。
+- `2c8ca470`、`a237277b` `scripts/store-stocktake-ui.test.mjs`：補表頭、共用 Toolbar、表格、操作與無盲盤說明的回歸檢查。
+
+## TODO（使用者要求先記錄，**這一輪嚴禁實作**）
+
+**未來新增逐品號操作「重新盤點」按鈕**。需求意圖：
+
+1. 使用者點擊盤點明細中的「重新盤點」，代表**該品號這次不盤點**，不可視為已填數量，也不該照一般盤點列寫回。
+2. 之後 QUERY 執行此次盤點單的 **ERP 回填** 時，必須把對應的 ERP 盤點列**刪除**，不能僅在前端隱藏；此操作涉及 ERP 寫入例外與核對，日後需獨立設計／安全審核。
+3. 所有這次不盤點的品項必須存成可管理的**獨立清單**，不可因畫面篩選或重整而丟失。
+4. 未來**使用者有需求時**，由 QUERY 根據該清單操作 ERP，**另產生一張盤點表**，供後續盤點；不是按「重新盤點」後立即自動建立。
+5. 待設計時要確認「品號」範圍是否包含同品號多批號／多儲位的所有列，如何追蹤來源單及 ERP 列序號、排除後的主管確認完整性、例外狀態、刪除／產生新 ERP 盤點表的安全界線、權限、審計、佇列與重試。請 Claude 先獨立複審工單及 ERP 寫回治理，再安排新一輪實作。**此項沒有新增按鈕、API、schema 或 QUERY 程式碼。**
+
+## 測試與待複審
+
+- 請以**本輪最後 UI SHA** 的 Runtime Check、Governance Check、PR 部署 dry-run 結果為準，不引用上一輪 CI 當作本輪證據。
+- Claude 需重點檢查：多列／相同品號不同批號、手機水平捲動、狀態切換後欄位數、複盤 progress、輸入離焦儲存／Enter、版本衝突跨欄提示、初盤 bookQty 不外洩、操作權限與狀態。
+- 此 PR 仍是 Draft；本輪未獲合併或部署授權。後續只有使用者明確批准才合併部署。
+
+---
+
+## 第二輪 CI 最終結果（2026-10-30）
+
+- [GitHub Actions Runtime Check #40940708273](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40940708273) `completed / success`，驗證程式 SHA `a1b81b3ddb89bf9471bfb76ef3b5df6583355af1`。
+- 4 個工作均成功：`browser-typecheck`、`worker-typecheck`、`source-contracts`、`build`。build 內含本機 D1 驗收、完整 Node 測試（包括新增 `scripts/store-stocktake-ui.test.mjs`）、Vite 打包。
+- 前兩輪 CI 失敗分別因 Enter 共用鍵盤規範及 Field/FormSection 共用表單規範，均已按既有設計修復；最新程式版全部通過。
+- 此後只更新本 Handoff 文件，不變更已測試的程式檔。PR #314 仍 Draft，尚未合併、尚未部署。瀏覽器實際視覺檢查與互動驗收仍列為 Claude 複審工作，不得把 CI 當成實際截圖驗證。
+
+---
+
+## 第二輪補充：共用表單元件治理檢查
+
+- 修正 Enter 鍵後，Runtime Check run `40940419218` 的 browser typecheck、source contracts、worker tests 通過，但完整 Node 測試的 `scripts/form-fields.test.mjs` 擋下表單中的原生 `<label>`，要求所有業務表單必須沿用共用 `Field` / `FormSection`。
+- `cf0bf631`：`StoreStocktake.tsx` 改以共用 `Field required size="l"` 包住唯一輸入，`FormSection` 布局，按鈕仍位於輸入框右側。
+- `a1b81b3`：`store.css` 對共用欄位提供局部 flex 寬度與底部對齊，不覆寫其他表單。
+- 最新 CI 需以 `cf0bf631`／`a1b81b3` 之後的版本為準；此段記錄既有失敗與修正，保留給 Claude 複審。
+
+---
+
+## 2026-10-30 CI 發現與修正（第二輪補充）
+
+- 新增的單欄位忽略底稿輸入表單，首次 Runtime Check `40940260959` 的 worker-typecheck／Identity adapter regression tests 階段被共用 `scripts/form-keyboard.test.mjs` 擋下：所有資料輸入表單必須使用既有 Enter 導覽處理器。
+- `2e488897`：`src/runtime/modules/StoreStocktake.tsx` 的忽略底稿表單補上既有 `enterAdvancesThenSubmits`，可在輸入編號後按 Enter 直接送出，符合共用鍵盤與表單規範。沒有修改忽略清單 API。
+- **首次 CI 的失敗不等於最新 SHA 的失敗；必須重新看 `2e488897` 之後的最新 CI 結果。** Claude 應保留此過程，複審鍵盤操作及成功新增時 Dialog 不關閉。
+
+---
+
+# 2026-10-30 盤點 UI 第二輪（Claude 後續複審必看）
+
+## 使用者最終確認需求
+
+1. **同步完成通知**必須使用 ERP 查詢現有**右上角**綠色 Toast（有「查看」按鈕）；只在使用者確實執行的同步工作結束時通知，載入歷史結果、重新整理、進入頁面都不能跳一次。不得再用 `useFeedback` Alert Dialog 代替 Toast，也不要在「已排入佇列」時發完成通知。
+2. 左側入口改 **「設定忽略底稿」**。對話框寬度從 620px 縮窄 20% 為約 **496px**；「新增」按鈕放輸入框右方；移除底部「取消」，保留右上角 X；成功新增後保持對話框開啟、清空輸入、更新清單。
+3. 已忽略清單改用叫貨共用 `cy-op-table` 樣式（不是另一套 `DataView` 視覺）；保留底稿編號、加入時間、單項「移除」。
+4. 左側盤點清單完全採用叫貨共用 `cy-op-list`、`cy-op-list-row`、`cy-status-row`、`StatusChip`，三項**同一行**：左底稿編號、中 `2026/10/28盤點`、右狀態 Pill。**不顯示** `0/47 列已填寫` 等進度。右側明細仍可顯示填寫進度。
+5. Windows QUERY、Worker API、資料庫、忽略排除規則這一輪均不修改。
+
+## 變更與 Commit SHA
+
+| Commit | 檔案 | 具體修改 |
+|---|---|---|
+| `96ec696b` | `src/runtime/modules/useErpJob.ts` | 在共用 `ERP_QUERY_DONE_EVENT` 增加 `queryType`，仍沿用 `sawRunning` 防止歷史結果重播通知 |
+| `3397f29e` | `src/App.tsx` | `STOCKTAKE_SYNC` 即使盤點頁可見也走全域 `useToastQueue` + `ToastRegion`；其他 ERP 查詢仍只在頁面隱藏時 Toast；查看導航走門市 |
+| `81904c75` | `StoreStocktake.tsx` | 移除原本依 `job.result` 跳 Dialog（重整重播的根源）；移除同步排隊即通知；叫貨清單、日期、狀態 Pill、手機 select 不再顯示進度 |
+| `0664f651`, `4dfb1c0f` | `StoreStocktake.tsx` | 496px 忽略視窗的配套 JSX、輸入框右側「新增」、無取消按鈕；共用 `cy-op-table`；新增成功保留視窗 |
+| `c0043fe9`, `411af305`, `71932fec` | `store.css` | 修改左欄寬至約 330px，三欄同列 CSS、Dialog 局部縮窄及手機表格，調高覆寫選擇器優先度；樣式集中在原 `store.css` |
+| `529f509c`, `45bac79b` | `scripts/store-stocktake-ui.test.mjs` | 新增 Toast 事件觸發防重播、共用清單結構、忽略視窗佈局的 source contract 回歸檢查 |
+
+狀態色：初盤中／寫回中 info（藍）、複盤中 warning（黃）、寫回失敗 danger（紅）、ERP 已確認 success（綠）；依現有 `StatusChip` 語意。
+
+## 驗證、風險及 Claude 複審要求
+
+- 新版 PR 需由最新 SHA 的 Governance Check、Runtime Check、部署 dry-run 結果證明；本節記錄時 CI 尚未完成。
+- 測試腳本的 source contract 僅是基本回歸保護，**不能取代**實際瀏覽器視覺檢查。
+- 複審「重新載入已完成 ERP Job 不 Toast」與「新同步在完成時恰好一筆右上角 Toast」；跑不同查詢頁不應因本改動改變原有通知規則。
+- 複審 330px 左欄在窄桌機下的三欄同列與狀態 Pill 是否截斷；手機 select、496px Dialog、清單表格、鍵盤 Enter、刪除確認須正常。
+- 檢查 `useErpJob` 的 `STOCKTAKE_WRITE` 不被誤當成同步完成。
+- **此輪不會自行合併／部署**；等使用者後續批准。原 2026-10-30 部署成功記錄屬前一輪版本，不代表這輪已部署。
+
+---
+
 ## 2026-10-30 已合併並完成開發環境部署（供 Claude 事後複審）
 
 - 使用者明確批准合併並部署，仍要求保留 Handoff 交 Claude 複審。
