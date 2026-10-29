@@ -85,13 +85,16 @@ export function StoreStocktake({role}:{role:string}){
    setDetail(null);setDrafts({});setConflict(null);
    void loadDetail(selected).catch(e=>reportError(errorOf(e)));
  },[selected,loadDetail,reportError]);
- useEffect(()=>{if(!selected)return;
-   const active=()=>document.visibilityState==="visible"&&
-     (document.querySelector(".cy-store-stocktake")?.getClientRects().length??0)>0;
-   const details=window.setInterval(()=>{if(active())void loadDetail(selected,true).catch(()=>undefined)},10000);
+ const active=()=>document.visibilityState==="visible"&&
+   (document.querySelector(".cy-store-stocktake")?.getClientRects().length??0)>0;
+ useEffect(()=>{
    const summary=window.setInterval(()=>{if(active())void loadSheets().catch(()=>undefined)},30000);
-   return()=>{window.clearInterval(details);window.clearInterval(summary)};
- },[selected,loadDetail,loadSheets]);
+   return()=>window.clearInterval(summary);
+ },[loadSheets]);
+ useEffect(()=>{if(!selected)return;
+   const details=window.setInterval(()=>{if(active())void loadDetail(selected,true).catch(()=>undefined)},10000);
+   return()=>window.clearInterval(details);
+ },[selected,loadDetail]);
  useEffect(()=>{
    if(!job.result||job.result.id===lastJob.current)return;
    if(job.result.status==="QUEUED"||job.result.status==="RUNNING")return;
