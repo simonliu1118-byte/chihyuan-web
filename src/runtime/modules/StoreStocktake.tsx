@@ -103,7 +103,7 @@ export function StoreStocktake({role}:{role:string}){
   if(!detail)return [];
   const q=search.trim().toLowerCase();
   return detail.lines.filter(l=>{
-   if(window.matchMedia("(max-width: 640px)").matches&&location&&(l.location||"未指定儲位")!==location)return false;
+   if(window.matchMedia("(max-width: 820px)").matches&&location&&(l.location||"未指定儲位")!==location)return false;
    if(q&&![l.itemCode,l.itemName,l.location,l.batch,l.warehouseName].some(v=>v.toLowerCase().includes(q)))return false;
    if(filter==="ADDED")return l.isAdded;
    if(filter==="UNFILLED")return detail.sheet.status==="COUNTING"?l.firstQty===null:
