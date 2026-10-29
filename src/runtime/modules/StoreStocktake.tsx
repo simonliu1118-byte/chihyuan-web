@@ -7,7 +7,7 @@ import {useFeedback,useFeedbackMessage} from "../../ui/feedback/FeedbackProvider
 import {StatusChip} from "../../ui/primitives/StatusChip";
 import {formatDate,formatDateTime} from "../../ui/foundation/format";
 import type {StatusTone} from "./status-flow";
-import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
+import {enterAdvancesFields,enterAdvancesThenSubmits} from "../../ui/foundation/enter-advance";
 import {Loading} from "../../ui/feedback/Loading";
 import {useErpJob} from "./useErpJob";
 import {ErpJobStatus} from "./ErpJobStatus";
@@ -359,7 +359,7 @@ export function StoreStocktake({role}:{role:string}){
    </div>
   </div>
   {ignoreForm!==null?<Dialog open title="忽略底稿管理" className="cy-stocktake-ignore-dialog" onClose={()=>setIgnoreForm(null)}>
-   <form className="cy-stocktake-ignore-form" onSubmit={e=>void addIgnored(e)}>
+   <form className="cy-stocktake-ignore-form" onKeyDown={enterAdvancesThenSubmits} onSubmit={e=>void addIgnored(e)}>
     <label className="cy-f-label" htmlFor="cy-stocktake-ignore-number">底稿編號<span className="cy-field-required" aria-hidden="true">＊</span></label>
     <div className="cy-stocktake-ignore-input">
      <input id="cy-stocktake-ignore-number" className="cy-op-input" pattern="[A-Za-z0-9]{1,20}"
