@@ -202,12 +202,12 @@ export function StoreStocktake({role}:{role:string}){
   catch(err){reportError(errorOf(err))}finally{setBusy(false)}
  }
  async function removeIgnored(sh:StocktakeSheet){
-  if(!await confirm({title:"取消忽略底稿",description:`底稿 ${sh.sheetNo} 將恢復為初盤中，不會刪除盤點資料。`,confirmLabel:"取消忽略"}))return;
+  if(!await confirm({title:"移除忽略底稿",description:`底稿 ${sh.sheetNo} 將移出 ERP 同步排除清單；下次同步時若 ERP 仍有此底稿，就會正常匯入。`,confirmLabel:"移除忽略"}))return;
   setBusy(true);
   try{
    await call("/"+encodeURIComponent(sh.sheetNo)+"/unignore","POST",{expectedVersion:sh.version});
    await loadSheets();
-   notify("底稿 "+sh.sheetNo+" 已取消忽略。","盤點通知",{replace:true});
+   notify("底稿 "+sh.sheetNo+" 已從忽略清單移除。","盤點通知",{replace:true});
   }catch(e){reportError(errorOf(e))}finally{setBusy(false)}
  }
  async function addBatch(e:FormEvent<HTMLFormElement>){
@@ -271,7 +271,7 @@ export function StoreStocktake({role}:{role:string}){
        {manager&&currentSheet.status==="COUNTING"?
          <button className="cy-op-button" disabled={busy} type="button" onClick={()=>void afterConfirm("ignore")}>設為忽略</button>:null}
        {manager&&currentSheet.status==="IGNORED"?
-         <button className="cy-op-button" disabled={busy} type="button" onClick={()=>void afterConfirm("unignore")}>取消忽略</button>:null}
+         <button className="cy-op-button" disabled={busy} type="button" onClick={()=>void afterConfirm("unignore")}>移除</button>:null}
        {manager&&currentSheet.status==="COUNTING"&&currentSheet.detailReadAt?
          <button className="cy-op-button primary" disabled={busy} type="button" onClick={()=>void afterConfirm("first-confirm")}>第一次確認</button>:null}
        {manager&&currentSheet.status==="RECOUNTING"?
@@ -369,11 +369,11 @@ export function StoreStocktake({role}:{role:string}){
       {key:"sheet",header:"底稿編號",render:sh=><strong>{sh.sheetNo}</strong>},
       {key:"date",header:"底稿日期",render:sh=>sh.sheetDate??"—"},
       {key:"actions",header:"操作",render:sh=><button type="button" className="cy-op-button compact danger"
-       disabled={busy} onClick={()=>void removeIgnored(sh)}>取消忽略</button>}
+       disabled={busy} onClick={()=>void removeIgnored(sh)}>移除</button>}
      ]}
      renderCard={sh=><div className="cy-stocktake-ignored-card"><strong>{sh.sheetNo}</strong>
       <span>{sh.sheetDate??"尚無日期"}</span><button type="button" className="cy-op-button compact danger"
-       disabled={busy} onClick={()=>void removeIgnored(sh)}>取消忽略</button></div>}
+       disabled={busy} onClick={()=>void removeIgnored(sh)}>移除</button></div>}
      emptyTitle="目前沒有忽略底稿"
     />
    </section>
