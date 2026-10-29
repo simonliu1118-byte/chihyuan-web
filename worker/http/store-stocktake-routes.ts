@@ -188,14 +188,15 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
     const qty=v.quantity===undefined?null:countQty(v.quantity);
     const recount=sh.status==="RECOUNTING";
     await db.batch([guard(db,"EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND status=?)",sheet,sh.status),
-      db.prepare(`INSERT INTO stocktake_lines(sheet_no,line_key,seq,item_code,item_name,spec,warehouse_name,location,unit,batch,book_qty,is_added,first_qty,first_by,first_at)
-        VALUES(?,?,NULL,?,?,?,?,?, ?,?,'0',1,?,?,?)`).bind(sheet,id,code,base.item_name,base.spec,base.warehouse_name,base.location,base.unit,batch,recount?null:qty,recount?null:qty!==null?member:null,recount?null:qty!==null?now:null),
+      db.prepare(`INSERT INTO stocktake_lines(sheet_no,line_key,seq,item_code,item_name,spec,warehouse_name,location,unit,batch,book_qty,is_added,first_qty,first_by,first_at,rev)
+        VALUES(?,?,NULL,?,?,?,?,?, ?,?,'0',1,?,?,?,(SELECT version+1 FROM stocktake_sheets WHERE sheet_no=?))`).bind(sheet,id,code,base.item_name,base.spec,base.warehouse_name,base.location,base.unit,batch,recount?null:qty,recount?null:qty!==null?member:null,recount?null:qty!==null?now:null,sheet),
       ...(recount&&qty!==null?[db.prepare("UPDATE stocktake_lines SET recount_qty=?,recount_by=?,recount_at=? WHERE sheet_no=? AND line_key=?").bind(qty,member,now,sheet,id)]:[]),
-      db.prepare("UPDATE stocktake_sheets SET version=version+1,updated_at=? WHERE sheet_no=?").bind(now,sheet),
+      db.prepare("UPDATE stocktake_sheets SET version=version+1,total_lines=total_lines+1,counted_lines=counted_lines+?,recount_needed=recount_needed+1,updated_at=? WHERE sheet_no=?").bind(!recount&&qty!==null?1:0,now,sheet),
       db.prepare("INSERT INTO stocktake_line_history(sheet_no,line_key,field,before_value,after_value,actor_member_id,changed_at) VALUES(?,?,'added',NULL,?,?,?)")
        .bind(sheet,id,JSON.stringify({itemCode:code,batch,qty}),member,now),
       participant(db,sheet,member,now)]);
-    return success(await detail(db,sheet),requestId);
+    const updated=await detail(db,sheet,sh.version);
+    return success({sheet:updated.sheet,line:updated.lines.find(l=>l.lineKey===id)},requestId);
   }
   if(action==="batches"&&method==="DELETE"){
     const v=await json(request),key=text(v.lineKey,"列鍵",40),expected=version(v.expectedVersion);
@@ -209,10 +210,11 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
     await db.batch([guard(db,"EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND status=?)",sheet,sh.status),
       guard(db,"EXISTS(SELECT 1 FROM stocktake_lines WHERE sheet_no=? AND line_key=? AND version=? AND is_added=1)",sheet,key,expected),
       db.prepare("DELETE FROM stocktake_lines WHERE sheet_no=? AND line_key=?").bind(sheet,key),
-      db.prepare("UPDATE stocktake_sheets SET version=version+1,updated_at=? WHERE sheet_no=?").bind(now,sheet),
+      db.prepare("UPDATE stocktake_sheets SET version=version+1,total_lines=total_lines-1,counted_lines=counted_lines-?,recount_needed=recount_needed-?,updated_at=? WHERE sheet_no=?").bind(line.first_qty===null?0:1,line.locked?0:1,now,sheet),
       db.prepare("INSERT INTO stocktake_line_history(sheet_no,line_key,field,before_value,after_value,actor_member_id,changed_at) VALUES(?,?,'deleted',?,?,?,?)")
-        .bind(sheet,key,JSON.stringify({batch:line.batch,first:line.first_qty,recount:line.recount_qty}),null,member,now)]);
-    return success(await detail(db,sheet),requestId);
+        .bind(sheet,key,JSON.stringify({batch:line.batch,first:line.first_qty,recount:line.recount_qty}),null,member,now,sh.version+1)]);
+    const updated=await one<Sheet>(db,"SELECT * FROM stocktake_sheets WHERE sheet_no=?",sheet);
+    return success({sheet:sheetJson(updated!,[]),removedKey:key},requestId);
   }
   if(action==="first-confirm"&&method==="POST"){
     requireAdmin(role);if(sh.status!=="COUNTING")fail("STOCKTAKE_STATUS","目前不能第一次確認",409);
@@ -222,10 +224,10 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
     if(!lines.length||lines.some(l=>l.first_qty===null))fail("STOCKTAKE_INCOMPLETE","還有 "+lines.filter(l=>l.first_qty===null).length+" 列尚未填寫",409);
     const totals=stocktakeItemTotals(lines.map(l=>toLine(l,"RECOUNTING")));
     const stm:D1PreparedStatement[]=[guard(db,"EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND version=? AND status='COUNTING')",sheet,expected)];
-    for(const l of lines)stm.push(db.prepare("UPDATE stocktake_lines SET locked=? WHERE sheet_no=? AND line_key=?")
-      .bind(totals.get(l.item_code)!.book===totals.get(l.item_code)!.counted?1:0,sheet,l.line_key));
-    stm.push(db.prepare("UPDATE stocktake_sheets SET status='RECOUNTING',first_confirmed_by=?,first_confirmed_at=?,version=version+1,updated_at=? WHERE sheet_no=?")
-      .bind(member,now,now,sheet),
+    for(const l of lines)stm.push(db.prepare("UPDATE stocktake_lines SET locked=?,rev=(SELECT version+1 FROM stocktake_sheets WHERE sheet_no=?) WHERE sheet_no=? AND line_key=?")
+      .bind(totals.get(l.item_code)!.book===totals.get(l.item_code)!.counted?1:0,sheet,sheet,l.line_key));
+    stm.push(db.prepare("UPDATE stocktake_sheets SET status='RECOUNTING',recount_needed=?,first_confirmed_by=?,first_confirmed_at=?,version=version+1,updated_at=? WHERE sheet_no=?")
+      .bind(lines.filter(l=>totals.get(l.item_code)!.book!==totals.get(l.item_code)!.counted).length,member,now,now,sheet),
       audit(db,sheet,"first_confirmed",member,requestId,{total:lines.length,locked:lines.filter(l=>totals.get(l.item_code)!.book===totals.get(l.item_code)!.counted).length}));
     await db.batch(stm);return success(await detail(db,sheet),requestId);
   }
