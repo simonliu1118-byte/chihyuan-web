@@ -40,7 +40,7 @@ async function cli() {
       Object.entries(values).map(([key, value]) => `${key}=${value}\n`).join(""), {encoding:"utf8"});
     console.log("CYWEB_PRODUCTION_IDENTITY_RESOLVED: verified canonical provider; existing Worker/business D1 and Module Access retained.");
   } catch (error) {
-    const code = /^(CYWEB_[A-Z_]+|PRODUCTION_CORE_CONSUMER_NOT_READY)$/.test(error?.message ?? "")
+    const code = /^(CYWEB_[A-Z_]+( [^\r\n]{1,300})?|PRODUCTION_CORE_CONSUMER_NOT_READY)$/.test(error?.message ?? "")
       ? error.message : "CYWEB_PRODUCTION_RUNTIME_UNAVAILABLE";
     console.error(code); process.exitCode = 1;
   }
