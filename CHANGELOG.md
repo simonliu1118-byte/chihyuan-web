@@ -13,11 +13,12 @@
 - [x] 逾時分類、Audit、盤點 `WRITING → WRITE_FAILED` 回復不變；新表為營運狀態，不納入可攜備份。
 - [ ] 部署前確認 Cloudflare 帳號 Cron 觸發器數量（Free 方案全帳號上限 5 個）；上線後以相同期間觀察 D1 rows read。
 
-## CY Web V0.9.52 — 門市庫存盤點第一階段（2026-10-29，**程式及離線驗收完成，待 Claude 審查／尚未交付**）
+## CY Web V0.9.52 — 門市庫存盤點第一階段（2026-10-29，Claude 複審通過，PR #306／#307 已合併，待部署）
 
 - [x] WO-0.9.52：受權門市盤點頁籤，初盤盲盤與逐列樂觀鎖、第一次主管確認後顯示帳面／差異、複盤、第二次確認寫回 ERP。所有結果須以最新 CI／合成 SQLite 驗證，正式 ERP 測試另待 CYERPAutoQuery WO-1.3.0。
 - [x] Migration 0030 與四張 stocktake 表、可攜備份欄位、Agent 的 STOCKTAKE_SYNC／WRITE contract、1800／3600 秒逾時。未進行 D1 Migration 或 Cloudflare 操作。
-- [ ] 尚有進行中程式整合、UI 390／1440 截圖與 Claude 工單 §9 審查；不合併不部署。
+- [x] Claude 複審通過（`docs/handoff/CYWEB-WO-0.9.52-STOCKTAKE-CLAUDE-REVIEW.md` §6.2），已合併。
+- [ ] 部署（migration 0030）與真 ERP／正式環境驗收。
 
 ## CY Web V0.9.50 — 演練後自動斷開隔離庫（2026-10-28）
 
