@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS_DIR = ROOT / "migrations"
 
 EXPECTED_TABLES = {
+    "stocktake_sync_ignored",
     "stocktake_sheets",
     "stocktake_lines",
     "stocktake_line_history",
