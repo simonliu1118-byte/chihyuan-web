@@ -59,8 +59,8 @@ function fixture(role="SUPER_ADMIN",grant=true){
   seq,itemCode:code,itemName:"合成品名",spec:"測試規格",warehouseName:"倉甲",location:"A-01",unit:"個",batch,bookQty
  });
  const insert=(number="990001",data=[row("00001","B1","2"),row("00002","B2","1")])=>{
-  sql.prepare("INSERT INTO stocktake_sheets(sheet_no,sheet_date,status,detail_read_at,created_at,updated_at) VALUES(?,?,'COUNTING',?,?,?)")
-   .run(number,"2026-10-28",now,now,now);
+  sql.prepare("INSERT INTO stocktake_sheets(sheet_no,sheet_date,status,detail_read_at,total_lines,recount_needed,created_at,updated_at) VALUES(?,?,'COUNTING',?,?,?, ?,?)")
+   .run(number,"2026-10-28",now,data.length,data.length,now,now);
   for(const line of data)sql.prepare("INSERT INTO stocktake_lines(sheet_no,line_key,seq,item_code,item_name,spec,warehouse_name,location,unit,batch,book_qty) VALUES(?,?,?,?,?,?,?,?,?,?,?)")
    .run(number,line.seq,line.seq,line.itemCode,line.itemName,line.spec,line.warehouseName,line.location,line.unit,line.batch,line.bookQty);
  };
@@ -463,5 +463,38 @@ test("a counted quantity cannot be negative",async()=>{
   f.insert();const line=(await f.sheet()).data.lines[0];
   assert.equal((await f.user("/990001/line","PATCH",{lineKey:line.lineKey,expectedVersion:line.version,quantity:"-1"})).status,422);
   assert.equal((await f.user("/990001/line","PATCH",{lineKey:line.lineKey,expectedVersion:line.version,quantity:"0"})).status,200);
+ }finally{f.sql.close()}
+});
+
+test("incremental GET returns only changed lines and deletion tombstones",async()=>{
+ const f=fixture();try{
+   f.insert();
+   const before=(await f.sheet()).data;
+   assert.equal(before.sheet.total,2);
+   assert.equal(before.sheet.counted,0);
+   const idle=(await f.user("/990001?since="+before.sheet.version)).data;
+   assert.deepEqual(idle.lines,[]);
+   const first=before.lines[0];
+   const patched=await f.user("/990001/line","PATCH",{lineKey:first.lineKey,quantity:"2",expectedVersion:first.version});
+   assert.equal(patched.status,200,JSON.stringify(patched));
+   assert.equal(patched.data.sheet.counted,1);
+   assert.equal(patched.data.line.lineKey,first.lineKey);
+   assert.equal(patched.data.lines,undefined);
+   const delta=(await f.user("/990001?since="+before.sheet.version)).data;
+   assert.equal(delta.lines.length,1);
+   assert.equal(delta.lines[0].lineKey,first.lineKey);
+   assert.equal(delta.sheet.counted,1);
+   const added=await f.user("/990001/batches","POST",{itemCode:"X0001",batch:"NEW",quantity:"1"});
+   assert.equal(added.status,200,JSON.stringify(added));
+   assert.equal(added.data.sheet.total,3);
+   assert.equal(added.data.sheet.counted,2);
+   const revision=added.data.sheet.version;
+   const removed=await f.user("/990001/batches","DELETE",{lineKey:added.data.line.lineKey,expectedVersion:added.data.line.version,confirmNonEmpty:true});
+   assert.equal(removed.status,200,JSON.stringify(removed));
+   assert.equal(removed.data.sheet.total,2);
+   assert.equal(removed.data.sheet.counted,1);
+   const changes=(await f.user("/990001?since="+revision)).data;
+   assert.deepEqual(changes.removedKeys,[added.data.line.lineKey]);
+   assert.deepEqual(changes.lines,[]);
  }finally{f.sql.close()}
 });
