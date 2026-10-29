@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useMemo,useRef,useState,type FormEvent, type KeyboardEvent} from "react";
+import {Fragment,useCallback,useEffect,useMemo,useRef,useState,type FormEvent, type KeyboardEvent} from "react";
 import {apiRequest,ApiClientError} from "../../api/client";
 import {Field,FormSection} from "../../ui/forms/Field";
 import {Dialog} from "../../ui/overlays/Dialog";
@@ -325,7 +325,7 @@ export function StoreStocktake({role}:{role:string}){
      <section className="cy-ordering-lines cy-stocktake-detail-section" aria-label="盤點品號庫存明細">
       <h3>盤點品號庫存明細</h3>
       <div className="cy-ordering-grid-scroll cy-stocktake-lines" role="region" aria-label="盤點品號庫存明細表格" tabIndex={0}>
-       <table className="cy-ordering-grid cy-stocktake-grid">
+       <table className="cy-ordering-grid cy-stocktake-grid" data-phase={currentSheet.status==="COUNTING"?"first":"recount"}>
         <thead><tr>
          <th scope="col">項次</th>
          <th scope="col">品號</th><th scope="col">品名</th><th scope="col">規格</th>
@@ -344,7 +344,7 @@ export function StoreStocktake({role}:{role:string}){
           const edited=drafts[l.lineKey];
           const lastAt=field==="firstQty"?l.firstAt:l.recountAt;
           const lastBy=field==="firstQty"?l.firstByName:l.recountByName;
-          return <tr key={l.lineKey} className="cy-stocktake-row-group">
+          return <Fragment key={l.lineKey}><tr className="cy-stocktake-row-group">
            <td>{index+1}</td>
            <td><span className="cy-ordering-cell-text">{l.itemCode}</span></td>
            <td><span className="cy-ordering-cell-text cy-ordering-wrap">{l.itemName}</span>
@@ -371,20 +371,21 @@ export function StoreStocktake({role}:{role:string}){
            <td className="cy-stocktake-row-actions">
             <button className="cy-op-button compact" type="button" onClick={()=>void showHistory(l)}>修改紀錄</button>
             {l.isAdded&&canEdit?<button className="cy-op-button compact danger" type="button" onClick={()=>void deleteBatch(l)}>刪除批號</button>:null}
-            {conflict?.key===l.lineKey?<div className="cy-notice cy-notice-warning" role="alert">
-             <p>其他人已修改本列，現在儲存的數量：{stored??"未填"}。</p>
-             <button className="cy-op-button compact" type="button" onClick={()=>{setConflict(null);setDrafts(d=>{const v={...d};delete v[l.lineKey];return v})}}>採用最新結果</button>
-             <button className="cy-op-button compact" type="button" onClick={()=>{setConflict(null);void saveLine(l,true)}}>覆蓋為我的數量</button>
-            </div>:null}
            </td>
           </tr>
+          {conflict?.key===l.lineKey?<tr className="cy-stocktake-conflict-row"><td colSpan={currentSheet.status==="COUNTING"?11:14}>
+           <div className="cy-notice cy-notice-warning" role="alert">
+            <p>其他人已修改本列，現在儲存的數量：{stored??"未填"}。</p>
+            <button className="cy-op-button compact" type="button" onClick={()=>{setConflict(null);setDrafts(d=>{const v={...d};delete v[l.lineKey];return v})}}>採用最新結果</button>
+            <button className="cy-op-button compact" type="button" onClick={()=>{setConflict(null);void saveLine(l,true)}}>覆蓋為我的數量</button>
+           </div>
+          </td></tr>:null}</Fragment>
          })}
         </tbody>
        </table>
        {detail&&visible.length===0?<p className="cy-op-empty">目前沒有符合篩選的盤點列。</p>:null}
       </div>
      </section>
-     </div>
     </>}
    </div>
   </div>
