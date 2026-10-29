@@ -70,7 +70,7 @@
 .cy-stocktake-mobile-select{display:none;width:100%;min-height:42px}
 /* Use the same shared cy-op-list-row / cy-status-row / StatusChip as the 叫貨 list. */
 .cy-stocktake-list{margin:0;max-height:none;overflow:visible}
-.cy-stocktake-list-row{grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:8px;min-height:44px;cursor:pointer}
+.cy-status-row.cy-stocktake-list-row{grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:8px;min-height:44px;cursor:pointer}
 .cy-status-row.cy-stocktake-list-row>strong{grid-column:1;grid-row:1}
 .cy-status-row.cy-stocktake-list-row>.cy-stocktake-list-date{grid-column:2;grid-row:1;white-space:nowrap}
 .cy-status-row.cy-stocktake-list-row>.cy-status-chip{grid-column:3;grid-row:1;align-self:center}
@@ -103,7 +103,7 @@
  .cy-stocktake-sheets{display:grid;gap:8px;padding:10px;overflow:visible}
  .cy-stocktake-sheets h3{white-space:nowrap;font-size:var(--cy-fs-sm)}
  .cy-stocktake-mobile-select{display:block}
- .cy-stocktake-list{display:none}
+ .cy-stocktake-sheets .cy-stocktake-list{display:none}
  .cy-stocktake-head,.cy-stocktake-actions{width:100%}
 }
 @media(max-width:420px){
