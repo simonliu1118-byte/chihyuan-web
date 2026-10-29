@@ -4,13 +4,15 @@ import {Field,FormSection} from "../../ui/forms/Field";
 import {Dialog} from "../../ui/overlays/Dialog";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {useFeedback,useFeedbackMessage} from "../../ui/feedback/FeedbackProvider";
-import {DataView} from "../../ui/data/DataView";
+import {StatusChip} from "../../ui/primitives/StatusChip";
+import {formatDate,formatDateTime} from "../../ui/foundation/format";
+import type {StatusTone} from "./status-flow";
 import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import {Loading} from "../../ui/feedback/Loading";
 import {useErpJob} from "./useErpJob";
 import {ErpJobStatus} from "./ErpJobStatus";
 import {STOCKTAKE_LABELS,parseStocktakeQuantity,decimalStocktake,stocktakeWriteRows,
- type StocktakeDetail,type StocktakeLine,type StocktakeSheet} from "../../../shared/stocktake";
+ type StocktakeDetail,type StocktakeLine,type StocktakeSheet,type StocktakeStatus} from "../../../shared/stocktake";
 
 const ROOT="/api/business/store/stocktake";
 const call=<T,>(path:string,method="GET",json?:unknown)=>apiRequest<T>(ROOT+path,{method,json});
@@ -26,7 +28,10 @@ function writeFailure(value:unknown):StoredWriteResult|null{
  if(!value||typeof value!=="object"||Array.isArray(value))return null;
  return value as StoredWriteResult;
 }
-const date=(iso:string|null)=>iso?new Date(iso).toLocaleString("zh-TW",{timeZone:"Asia/Taipei",hour12:false}):"—";
+const date=(iso:string|null)=>formatDateTime(iso);
+const STOCKTAKE_STATUS_TONE:Record<StocktakeStatus,StatusTone>={
+ IGNORED:"neutral",COUNTING:"info",RECOUNTING:"warning",WRITING:"info",WRITE_FAILED:"danger",ERP_CONFIRMED:"success"
+};
 const relativeDiff=(a:string|null,b:string|undefined)=>{
  if(a===null||b===undefined)return "—";
  try{return decimalStocktake(parseStocktakeQuantity(a)-parseStocktakeQuantity(b))}catch{return "—"}
@@ -107,9 +112,9 @@ export function StoreStocktake({role}:{role:string}){
    if(!job.result||job.result.id===lastJob.current)return;
    if(job.result.status==="QUEUED"||job.result.status==="RUNNING")return;
    lastJob.current=job.result.id;
-   if(job.result.queryType==="STOCKTAKE_SYNC")notify(job.result.status==="DONE"?"盤點單查詢完成。"+(job.result.elapsedMs!==null?" 耗時 "+(job.result.elapsedMs/1000).toFixed(1)+" 秒。":""):job.result.status==="NOT_FOUND"?"沒有新盤點單。":job.result.errorMessage||"盤點單查詢已結束："+job.result.status,"ERP 盤點通知",{replace:true});
+
    void loadSheets().then(()=>selectedRef.current?loadDetail(selectedRef.current):null).catch(()=>undefined);
- },[job.result,loadSheets,loadDetail,notify]);
+ },[job.result,loadSheets,loadDetail]);
 
  const locations=useMemo(()=>[...new Set(detail?.lines.map(l=>l.location||"未指定儲位")??[])].sort(),[detail]);
  useEffect(()=>{if(!locations.includes(location))setLocation(locations[0]??"")},[locations,location]);
@@ -142,7 +147,7 @@ export function StoreStocktake({role}:{role:string}){
    setBusy(true);
    try{
     const data=await call<{id:string}>("/sync","POST");
-    job.attach(data.id);setMessage("盤點單更新已排入 ERP 佇列。");
+    job.attach(data.id);
    }catch(e){reportError(errorOf(e))}
    finally{setBusy(false)}
  };
@@ -197,7 +202,7 @@ export function StoreStocktake({role}:{role:string}){
  async function addIgnored(e:FormEvent<HTMLFormElement>){
   e.preventDefault();if(!ignoreForm)return;
   setBusy(true);
-  try{await call("/ignore","POST",{sheetNo:ignoreForm.trim()});setIgnoreForm(null);await loadSheets();setMessage("已新增忽略底稿。")}
+  try{await call("/ignore","POST",{sheetNo:ignoreForm.trim()});setIgnoreForm("");await loadSheets()}
   catch(err){reportError(errorOf(err))}finally{setBusy(false)}
  }
  async function removeIgnored(sh:{sheetNo:string}){
@@ -206,7 +211,6 @@ export function StoreStocktake({role}:{role:string}){
   try{
    await call("/ignore","DELETE",{sheetNo:sh.sheetNo});
    await loadSheets();
-   notify("已從忽略清單移除 "+sh.sheetNo,"盤點通知",{replace:true});
   }catch(e){reportError(errorOf(e))}finally{setBusy(false)}
  }
  async function addBatch(e:FormEvent<HTMLFormElement>){
@@ -241,28 +245,32 @@ export function StoreStocktake({role}:{role:string}){
     <h3>盤點單</h3>
     <div className="cy-stocktake-list-actions">
      <button type="button" className="cy-op-button primary compact" disabled={busy||job.busy} onClick={()=>void update()}>同步ERP盤點單</button>
-     {manager?<button type="button" className="cy-op-button compact" onClick={()=>setIgnoreForm("")}>新增忽略底稿</button>:null}
+     {manager?<button type="button" className="cy-op-button compact" onClick={()=>setIgnoreForm("")}>設定忽略底稿</button>:null}
     </div>
     <select className="cy-op-input cy-stocktake-mobile-select" aria-label="選擇盤點底稿"
       value={selected??""} onChange={e=>setSelected(e.target.value||null)}>
       <option value="">請選擇盤點單</option>
       {(sheets??[]).map(sh=>
         <option key={sh.sheetNo} value={sh.sheetNo}>
-          {sh.sheetNo} · {STOCKTAKE_LABELS[sh.status]} · {sh.counted}/{sh.total}
+          {sh.sheetNo} · {sh.sheetDate?formatDate(sh.sheetDate)+"盤點":"尚無日期"} · {STOCKTAKE_LABELS[sh.status]}
         </option>)}
     </select>
     {sheets===null?<Loading/>:null}
-    {(sheets??[]).map(s=><button key={s.sheetNo} type="button"
-      className={"cy-stocktake-sheet"+(s.sheetNo===selected?" active":"")} onClick={()=>setSelected(s.sheetNo)}>
-      <strong>{s.sheetNo}</strong><span>{s.sheetDate??"尚未讀明細"} · {STOCKTAKE_LABELS[s.status]}</span>
-      <small>{s.counted} / {s.total} 列已填寫</small>
-    </button>)}
-    {sheets?.length===0?<p className="cy-op-empty">尚無盤點單。可以先設定忽略底稿，再按更新盤點單。</p>:null}
+    <div className="cy-op-list cy-stocktake-list">
+     {(sheets??[]).map(s=><button key={s.sheetNo} type="button"
+       className={"cy-op-list-row cy-status-row cy-stocktake-list-row"+(s.sheetNo===selected?" active":"")}
+       aria-current={s.sheetNo===selected?"true":undefined} onClick={()=>setSelected(s.sheetNo)}>
+       <strong>{s.sheetNo}</strong>
+       <span className="cy-stocktake-list-date">{s.sheetDate?formatDate(s.sheetDate)+"盤點":"尚無日期"}</span>
+       <StatusChip tone={STOCKTAKE_STATUS_TONE[s.status]}>{STOCKTAKE_LABELS[s.status]}</StatusChip>
+     </button>)}
+     {sheets?.length===0?<p className="cy-op-empty">尚無盤點單。請按「同步ERP盤點單」取得底稿。</p>:null}
+    </div>
    </nav>
    <div className="cy-stocktake-main">
     {!currentSheet?<p className="cy-op-empty">請從左側選擇盤點單（手機版請從上方選單選擇）。</p>:<>
      <header className="cy-stocktake-head">
-      <div><h3>{currentSheet.sheetNo} · {STOCKTAKE_LABELS[currentSheet.status]}</h3>
+      <div><div className="cy-stocktake-title"><h3>{currentSheet.sheetNo}</h3><StatusChip tone={STOCKTAKE_STATUS_TONE[currentSheet.status]}>{STOCKTAKE_LABELS[currentSheet.status]}</StatusChip></div>
        <p>{currentSheet.sheetDate??"未讀明細"} · 已填 {currentSheet.counted} / {currentSheet.total} 列</p></div>
       <div className="cy-stocktake-actions">
        {manager&&currentSheet.status==="COUNTING"&&currentSheet.detailReadAt?
