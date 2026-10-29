@@ -57,9 +57,9 @@ export function StoreStocktake({role}:{role:string}){
  const selectedRef=useRef(selected);selectedRef.current=selected;
 
  const loadSheets=useCallback(async()=>{
-   const [normal,excluded]=await Promise.all([call<StocktakeSheet[]>(""),manager?call<StocktakeSheet[]>("?ignored=true"):Promise.resolve([])]);
+   const [normal,excluded]=await Promise.all([call<StocktakeSheet[]>(""),manager&&showIgnored?call<StocktakeSheet[]>("?ignored=true"):Promise.resolve([])]);
    setSheets(normal);setIgnored(excluded);
- },[manager]);
+ },[manager,showIgnored]);
  const detailRef=useRef<StocktakeDetail|null>(null);detailRef.current=detail;
  const loadDetail=useCallback(async(sheet:string,incremental=false)=>{
    const previous=incremental&&detailRef.current?.sheet.sheetNo===sheet?detailRef.current:null;
