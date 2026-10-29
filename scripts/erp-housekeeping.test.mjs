@@ -71,17 +71,22 @@ test("expired QUEUED and timed-out RUNNING fail or expire once and retain audit;
     assert.deepEqual(events,["erp_item_query.expired","erp_item_query.failed"]);
   }finally{f.sql.close()}
 });
-test("results clear only after 5 minutes; daily 30-day retention is a separate phase",async()=>{
+test("results clear only after 5 minutes; daily 7-day retention is a separate phase",async()=>{
   const f=fixture();
   try{
     f.add("finished","DONE",-20,null,-10,'[{"name":"品號","value":"X0001"}]');
     f.add("older","DONE",-45000,null,-45000);
+    f.add("week-old","DONE",-8*1440,null,-8*1440);
+    f.add("six-days","DONE",-6*1440,null,-6*1440);
     await runErpHousekeeping(f.db,at-60000);
     assert.ok(f.sql.prepare("SELECT fields_json FROM erp_item_queries WHERE id='finished'").get().fields_json);
     assert.ok(f.sql.prepare("SELECT id FROM erp_item_queries WHERE id='older'").get());
     await runErpHousekeeping(f.db,at);
     assert.equal(f.sql.prepare("SELECT fields_json FROM erp_item_queries WHERE id='finished'").get().fields_json,null);
     assert.equal(f.sql.prepare("SELECT id FROM erp_item_queries WHERE id='older'").get(),undefined);
+    // Finished queries are kept 7 days.
+    assert.equal(f.sql.prepare("SELECT id FROM erp_item_queries WHERE id='week-old'").get(),undefined);
+    assert.ok(f.sql.prepare("SELECT id FROM erp_item_queries WHERE id='six-days'").get());
   }finally{f.sql.close()}
 });
 test("5-minute purge reads only the last hour; the daily pass clears older leftovers",async()=>{

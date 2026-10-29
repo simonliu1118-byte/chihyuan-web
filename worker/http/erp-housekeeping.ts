@@ -1,7 +1,9 @@
 import { AuditService } from "../audit/audit-service";
 import { erpHousekeepingPhases } from "../../shared/erp-housekeeping";
 
-const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+// Finished queries are kept 7 days (user 2026-10-29): the cross-device recent list needs 24 hours
+// and the 排程佇列 estimate has its own running averages.
+const RETENTION_DAYS = 7 * 24 * 60 * 60 * 1000;
 const AGENT_TIMEOUT_MESSAGE = "查詢程式逾時，請重新查詢";
 type ChangedJob = { id: string; owner_member_id: number; item_no: string; query_type: string; target_code: string | null };
 
@@ -73,13 +75,13 @@ export async function runErpHousekeeping(db: D1Database, scheduledTime: number):
   }
   if (phases.purge) {
     // Every 5 minutes reads only the last hour's completions; the daily pass (lower bound '')
-    // sweeps anything a missed run left, so reads do not grow with the 30-day retention.
+    // sweeps anything a missed run left, so reads do not grow with the retention.
     await db.prepare(
       "UPDATE erp_item_queries SET fields_json=NULL,warehouses_json=NULL,batches_json=NULL,history_json=NULL,items_json=NULL,result_json=NULL WHERE completed_at<?1 AND completed_at>=?2 AND (fields_json IS NOT NULL OR warehouses_json IS NOT NULL OR batches_json IS NOT NULL OR history_json IS NOT NULL OR items_json IS NOT NULL OR result_json IS NOT NULL)"
     ).bind(ago(300), phases.retention ? "" : ago(3600)).run();
   }
   if (phases.retention) {
     await db.prepare("DELETE FROM erp_item_queries WHERE completed_at<?1")
-      .bind(new Date(now.getTime() - THIRTY_DAYS).toISOString()).run();
+      .bind(new Date(now.getTime() - RETENTION_DAYS).toISOString()).run();
   }
 }

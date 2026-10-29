@@ -68,6 +68,28 @@ test("each query type needs its own ERP grant", async () => {
   } finally { sql.close(); }
 });
 
+test("排程佇列 estimate reads one running average per type, updated by each completion", async () => {
+  const { sql, user, agent, grant } = fixture();
+  try {
+    grant("ERP_ITEM_QUERY");
+    const finish = async (itemNo, seconds) => {
+      const id = (await user.create({ queryType: "ITEM_NO", itemNo })).body.data.id;
+      assert.equal((await agent.claim(ALL_TYPES)).body.data.job.id, id);
+      sql.prepare("UPDATE erp_item_queries SET started_at=? WHERE id=?").run(new Date(Date.now() - seconds * 1000).toISOString(), id);
+      assert.equal((await agent.complete(id, { outcome: "NOT_FOUND", fields: [], warehouses: [], errorCode: null, errorMessage: null })).status, 200);
+    };
+    const stats = () => sql.prepare("SELECT avg_seconds,samples FROM erp_query_duration_stats WHERE query_type='ITEM_NO' AND include_history=0").get();
+    await finish("X0001", 100);
+    assert.equal(stats().samples, 1); assert.ok(Math.abs(stats().avg_seconds - 100) < 2);
+    await finish("X0002", 40);
+    assert.equal(stats().samples, 2); assert.ok(Math.abs(stats().avg_seconds - 70) < 2);
+    await user.create({ queryType: "ITEM_NO", itemNo: "X0003" });
+    const [job] = (await user.queue()).body.data.jobs;
+    const ahead = (Date.parse(job.estimatedDoneAt) - Date.now()) / 1000;
+    assert.ok(ahead > 60 && ahead < 80, String(ahead));
+  } finally { sql.close(); }
+});
+
 test("codes are letters, digits and a dash; requests refuse fields of other types", async () => {
   const { sql, user } = fixture("SUPER_ADMIN");
   try {

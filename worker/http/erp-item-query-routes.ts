@@ -103,7 +103,6 @@ const ERROR_TEXT: Record<ErpQueryErrorCode, string> = {
   AGENT_TIMEOUT: "查詢程式逾時，請重新查詢",
 };
 const VALID_AGENT_ERRORS = new Set(Object.keys(ERROR_TEXT).filter(v => v !== "AGENT_TIMEOUT"));
-const ISO_30_DAYS = 30 * 24 * 60 * 60 * 1000;
 // The Agent claims every 2-3 s; the heartbeat row is rewritten at most every 10 s (or when
 // version/ERP state change) so an idle Agent does not cost a D1 write per poll. 10 s keeps
 // the 15 s online window satisfied.
@@ -790,13 +789,12 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
          FROM erp_item_queries q JOIN app_members m ON m.id=q.owner_member_id
         WHERE q.status IN ('QUEUED','RUNNING') ORDER BY q.status='QUEUED', ${QUEUE_ORDER}`
     ).all<QueueRow>();
-    const took = await env.DB.prepare(
-      `SELECT query_type,include_history,AVG((julianday(completed_at)-julianday(started_at))*86400) AS seconds
-         FROM erp_item_queries WHERE status IN ('DONE','NOT_FOUND') AND started_at IS NOT NULL AND completed_at>?1
-        GROUP BY query_type,include_history`
-    ).bind(new Date(Date.now() - ISO_30_DAYS).toISOString()).all<{ query_type: ErpQueryType; include_history: number; seconds: number }>();
+    // One small row per query type (kept by each completion), and none read for an empty queue.
+    const took = rows.results?.length ? await env.DB.prepare(
+      "SELECT query_type,include_history,avg_seconds AS seconds FROM erp_query_duration_stats"
+    ).all<{ query_type: ErpQueryType; include_history: number; seconds: number }>() : null;
     const seconds = (row: QueueRow) => {
-      const known = took.results?.find(t => t.query_type === row.query_type && t.include_history === row.include_history);
+      const known = took?.results?.find(t => t.query_type === row.query_type && t.include_history === row.include_history);
       return known?.seconds ?? DEFAULT_SECONDS[row.query_type] * (row.include_history ? 2 : 1);
     };
     const may = new Map<ErpQueryType, boolean>();
@@ -1023,6 +1021,17 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
         values: [row.id, result.status, completedAt],
       }),
     ];
+    // 排程佇列 estimate: fold this run into its type's running average, weighting the last ~20
+    // runs, only if the completion above was applied.
+    const tookSeconds = row.started_at ? (Date.parse(completedAt) - Date.parse(row.started_at)) / 1000 : NaN;
+    if ((result.status === "DONE" || result.status === "NOT_FOUND") && Number.isFinite(tookSeconds) && tookSeconds >= 0)
+      statements.push(env.DB.prepare(
+        `INSERT INTO erp_query_duration_stats(query_type,include_history,avg_seconds,samples,updated_at)
+         SELECT ?1,?2,?3,1,?4 WHERE EXISTS (SELECT 1 FROM erp_item_queries WHERE id=?5 AND status=?6 AND completed_at=?4)
+         ON CONFLICT(query_type,include_history) DO UPDATE SET
+           avg_seconds=avg_seconds+(excluded.avg_seconds-avg_seconds)/MIN(samples+1,20),
+           samples=samples+1, updated_at=excluded.updated_at`
+      ).bind(row.query_type, row.include_history ? 1 : 0, tookSeconds, completedAt, row.id, result.status));
     if(syncResult && result.status !== "FAILED")
       statements.push(...await syncStatements(env.DB,syncResult,stocktakeInput?.onlySheet ?? null,completedAt));
     if(writeResult)statements.push(...await writeResultStatements(env.DB,writeResult,row.id,completedAt));
