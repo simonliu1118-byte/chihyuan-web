@@ -128,10 +128,10 @@ export async function syncStatements(db:D1Database,body:StocktakeSyncResult,only
    if(current){
      out.push(db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND status='COUNTING') AND NOT EXISTS (SELECT 1 FROM stocktake_lines WHERE sheet_no=? AND (first_qty IS NOT NULL OR recount_qty IS NOT NULL)) THEN 1 ELSE json('') END").bind(d.sheetNo,d.sheetNo));
      out.push(db.prepare("DELETE FROM stocktake_lines WHERE sheet_no=?").bind(d.sheetNo));
-     out.push(db.prepare("UPDATE stocktake_sheets SET sheet_date=?,detail_read_at=?,version=version+1,updated_at=? WHERE sheet_no=?").bind(body.sheets.find(s=>s.sheetNo===d.sheetNo)!.date,now,now,d.sheetNo));
+     out.push(db.prepare("UPDATE stocktake_sheets SET sheet_date=?,detail_read_at=?,version=version+1,total_lines=?,counted_lines=0,recount_needed=?,updated_at=? WHERE sheet_no=?").bind(body.sheets.find(s=>s.sheetNo===d.sheetNo)!.date,now,d.rows.length,d.rows.length,now,d.sheetNo));
    }else{
-     out.push(db.prepare("INSERT INTO stocktake_sheets(sheet_no,sheet_date,detail_read_at,status,created_at,updated_at) VALUES(?,?,?,'COUNTING',?,?)")
-       .bind(d.sheetNo,body.sheets.find(s=>s.sheetNo===d.sheetNo)!.date,now,now,now));
+     out.push(db.prepare("INSERT INTO stocktake_sheets(sheet_no,sheet_date,detail_read_at,status,total_lines,recount_needed,created_at,updated_at) VALUES(?,?,?,'COUNTING',?,?,?,?)")
+       .bind(d.sheetNo,body.sheets.find(s=>s.sheetNo===d.sheetNo)!.date,now,d.rows.length,d.rows.length,now,now));
    }
    // One indexed, transactional INSERT per sheet, not 3,000 individual D1
    // statements. Rows are already validated and normalized above.
