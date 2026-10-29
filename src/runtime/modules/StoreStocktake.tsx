@@ -241,8 +241,7 @@ export function StoreStocktake({role}:{role:string}){
    <nav className="cy-stocktake-sheets" aria-label="盤點單清單">
     <h3>盤點單</h3>
     <div className="cy-stocktake-list-actions">
-     <button type="button" className="cy-op-button primary compact" disabled={busy||job.busy} onClick={()=>void update()}>更新盤點單</button>
-     <button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void loadSheets().catch(e=>reportError(errorOf(e)))}>更新畫面</button>
+     <button type="button" className="cy-op-button primary compact" disabled={busy||job.busy} onClick={()=>void update()}>同步ERP盤點單</button>
      {manager?<button type="button" className="cy-op-button compact" onClick={()=>setIgnoreForm("")}>新增忽略底稿</button>:null}
     </div>
     <select className="cy-op-input cy-stocktake-mobile-select" aria-label="選擇盤點底稿"
