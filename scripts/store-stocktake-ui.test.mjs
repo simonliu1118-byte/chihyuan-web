@@ -33,7 +33,7 @@ test("ignore setup dialog is compact, has inline add and uses ordering table sty
  assert.match(stocktake,/className="cy-stocktake-ignore-input"/);
  assert.match(stocktake,/>新增<\/button>/);
  assert.match(stocktake,/cy-op-table cy-stocktake-ignored-table/);
- assert.match(stocktake,/ignoreForm\)\;await loadSheets\(\)/);
+ assert.match(stocktake,/setIgnoreForm\(""\);await loadSheets\(\)/);
  assert.doesNotMatch(stocktake,/新增忽略<\/button>/);
  assert.match(css,/width:min\(496px,calc\(100vw - 32px\)\)/);
 });
