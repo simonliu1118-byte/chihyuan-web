@@ -134,5 +134,22 @@ jobs:
         run: |
           python scripts/test_d1_runner.py
           npm run validate:d1:local
+      # audit-account-portal.test.mjs imports the canonical source module,
+      # not credentials/runtime data. A sparse public checkout makes the
+      # complete offline suite reproducible without modifying CYapps.
+      - name: Canonical CYapps source for read-only identity contract tests
+        uses: actions/checkout@v4
+        with:
+          repository: simonliu1118-byte/CYapps
+          ref: main
+          path: .tmp/canonical-cyapps
+          persist-credentials: false
+          sparse-checkout: |
+            apps/CYAccountingWeb/scripts
+            apps/CYCloudIdentity/scripts
+      # Full acceptance requested by WO-0.9.52. All synthetic fixture tests,
+      # no production resources, credentials or live ERP connections.
+      - name: Full Node test suite
+        run: node --test scripts/*.test.mjs
       - name: Vite build
         run: npx vite build

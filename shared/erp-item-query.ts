@@ -36,9 +36,9 @@ export const ERP_SUPPLIER_SEARCH_FIELDS = ["廠商代號", "廠商簡稱", "廠�
  * One queue, one Agent, one job per member.
  */
 export type ErpQueryType = "ITEM_NO" | "ITEM_NAME" | "CUSTOMER_NO" | "CUSTOMER_NAME" | "SUPPLIER_NO" | "SUPPLIER_NAME"
-  | "PURCHASES" | "SALES" | "RECEIVABLE" | "ORDER" | "RESTOCK";
+  | "PURCHASES" | "SALES" | "RECEIVABLE" | "ORDER" | "RESTOCK" | "STOCKTAKE_SYNC" | "STOCKTAKE_WRITE";
 export const ERP_QUERY_TYPES: readonly ErpQueryType[] = [
-  "ITEM_NO", "ITEM_NAME", "CUSTOMER_NO", "CUSTOMER_NAME", "SUPPLIER_NO", "SUPPLIER_NAME", "PURCHASES", "SALES", "RECEIVABLE", "ORDER", "RESTOCK",
+  "ITEM_NO", "ITEM_NAME", "CUSTOMER_NO", "CUSTOMER_NAME", "SUPPLIER_NO", "SUPPLIER_NAME", "PURCHASES", "SALES", "RECEIVABLE", "ORDER", "RESTOCK", "STOCKTAKE_SYNC", "STOCKTAKE_WRITE",
 ];
 /** 進貨輔助 range limit: at most 31 days, both ends included (user 2026-10-20: a simple first version). */
 export const ERP_RESTOCK_MAX_DAYS = 31;
@@ -50,7 +50,7 @@ export const ERP_QUERY_TYPE_LABELS: Readonly<Record<ErpQueryType, string>> = {
   ITEM_NO: "商品", ITEM_NAME: "商品",
   CUSTOMER_NO: "客戶", CUSTOMER_NAME: "客戶",
   SUPPLIER_NO: "供應商", SUPPLIER_NAME: "供應商",
-  PURCHASES: "進貨", SALES: "銷貨", RECEIVABLE: "未收款", ORDER: "單據", RESTOCK: "進貨輔助",
+  PURCHASES: "進貨", SALES: "銷貨", RECEIVABLE: "未收款", ORDER: "單據", RESTOCK: "進貨輔助", STOCKTAKE_SYNC: "盤點單更新", STOCKTAKE_WRITE: "盤點寫回",
 };
 export type ErpReceivableScope = "CUSTOMER" | "SALESPERSON" | "ALL";
 /** One line of a 銷貨單／銷退單; amounts and quantities are ERP display strings. */
