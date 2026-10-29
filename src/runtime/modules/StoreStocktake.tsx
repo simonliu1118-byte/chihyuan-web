@@ -175,7 +175,7 @@ export function StoreStocktake({role}:{role:string}){
      }else reportError(errorOf(e));
    }finally{inFlightSave.current.delete(line.lineKey);setSaving(null)}
  }
- async function afterConfirm(action:"first-confirm"|"second-confirm"|"retry-write"|"refresh"|"ignore"|"unignore"){
+ async function afterConfirm(action:"first-confirm"|"second-confirm"|"retry-write"|"refresh"){
    if(!currentSheet)return;
    const lines=detail?.lines??[];
    const unfilled=action==="first-confirm"?lines.filter(l=>l.firstQty===null).length:
@@ -193,7 +193,6 @@ export function StoreStocktake({role}:{role:string}){
    if(!await confirm({title:action==="first-confirm"?"第一次主管確認":action==="second-confirm"?"第二次主管確認":"確認操作",
      description:explain,confirmLabel:"確認執行"}))return;
    await open(currentSheet.sheetNo,action,{expectedVersion:currentSheet.version});
-   if(action==="ignore")setSelected(null);
  }
  async function addIgnored(e:FormEvent<HTMLFormElement>){
   e.preventDefault();if(!ignoreForm)return;
