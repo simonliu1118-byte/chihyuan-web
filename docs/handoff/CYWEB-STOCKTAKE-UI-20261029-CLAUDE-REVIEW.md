@@ -1,3 +1,37 @@
+# 2026-10-30 盤點 UI 第二輪（Claude 後續複審必看）
+
+## 使用者最終確認需求
+
+1. **同步完成通知**必須使用 ERP 查詢現有**右上角**綠色 Toast（有「查看」按鈕）；只在使用者確實執行的同步工作結束時通知，載入歷史結果、重新整理、進入頁面都不能跳一次。不得再用 `useFeedback` Alert Dialog 代替 Toast，也不要在「已排入佇列」時發完成通知。
+2. 左側入口改 **「設定忽略底稿」**。對話框寬度從 620px 縮窄 20% 為約 **496px**；「新增」按鈕放輸入框右方；移除底部「取消」，保留右上角 X；成功新增後保持對話框開啟、清空輸入、更新清單。
+3. 已忽略清單改用叫貨共用 `cy-op-table` 樣式（不是另一套 `DataView` 視覺）；保留底稿編號、加入時間、單項「移除」。
+4. 左側盤點清單完全採用叫貨共用 `cy-op-list`、`cy-op-list-row`、`cy-status-row`、`StatusChip`，三項**同一行**：左底稿編號、中 `2026/10/28盤點`、右狀態 Pill。**不顯示** `0/47 列已填寫` 等進度。右側明細仍可顯示填寫進度。
+5. Windows QUERY、Worker API、資料庫、忽略排除規則這一輪均不修改。
+
+## 變更與 Commit SHA
+
+| Commit | 檔案 | 具體修改 |
+|---|---|---|
+| `96ec696b` | `src/runtime/modules/useErpJob.ts` | 在共用 `ERP_QUERY_DONE_EVENT` 增加 `queryType`，仍沿用 `sawRunning` 防止歷史結果重播通知 |
+| `3397f29e` | `src/App.tsx` | `STOCKTAKE_SYNC` 即使盤點頁可見也走全域 `useToastQueue` + `ToastRegion`；其他 ERP 查詢仍只在頁面隱藏時 Toast；查看導航走門市 |
+| `81904c75` | `StoreStocktake.tsx` | 移除原本依 `job.result` 跳 Dialog（重整重播的根源）；移除同步排隊即通知；叫貨清單、日期、狀態 Pill、手機 select 不再顯示進度 |
+| `0664f651`, `4dfb1c0f` | `StoreStocktake.tsx` | 496px 忽略視窗的配套 JSX、輸入框右側「新增」、無取消按鈕；共用 `cy-op-table`；新增成功保留視窗 |
+| `c0043fe9`, `411af305`, `71932fec` | `store.css` | 修改左欄寬至約 330px，三欄同列 CSS、Dialog 局部縮窄及手機表格，調高覆寫選擇器優先度；樣式集中在原 `store.css` |
+| `529f509c`, `45bac79b` | `scripts/store-stocktake-ui.test.mjs` | 新增 Toast 事件觸發防重播、共用清單結構、忽略視窗佈局的 source contract 回歸檢查 |
+
+狀態色：初盤中／寫回中 info（藍）、複盤中 warning（黃）、寫回失敗 danger（紅）、ERP 已確認 success（綠）；依現有 `StatusChip` 語意。
+
+## 驗證、風險及 Claude 複審要求
+
+- 新版 PR 需由最新 SHA 的 Governance Check、Runtime Check、部署 dry-run 結果證明；本節記錄時 CI 尚未完成。
+- 測試腳本的 source contract 僅是基本回歸保護，**不能取代**實際瀏覽器視覺檢查。
+- 複審「重新載入已完成 ERP Job 不 Toast」與「新同步在完成時恰好一筆右上角 Toast」；跑不同查詢頁不應因本改動改變原有通知規則。
+- 複審 330px 左欄在窄桌機下的三欄同列與狀態 Pill 是否截斷；手機 select、496px Dialog、清單表格、鍵盤 Enter、刪除確認須正常。
+- 檢查 `useErpJob` 的 `STOCKTAKE_WRITE` 不被誤當成同步完成。
+- **此輪不會自行合併／部署**；等使用者後續批准。原 2026-10-30 部署成功記錄屬前一輪版本，不代表這輪已部署。
+
+---
+
 ## 2026-10-30 已合併並完成開發環境部署（供 Claude 事後複審）
 
 - 使用者明確批准合併並部署，仍要求保留 Handoff 交 Claude 複審。
