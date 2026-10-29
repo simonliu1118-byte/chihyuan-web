@@ -94,3 +94,30 @@ test("young results are preserved and cleanup uses the existing completion index
     assert.ok(indexes.includes("idx_erp_query_retention"));
   }finally{f.sql.close()}
 });
+
+test("stocktake WRITE retains 3600-second timeout and transitions WRITING to WRITE_FAILED",async()=>{
+  const f=fixture();
+  try{
+    f.add("stock-write","RUNNING",-80,-61,null,null,"STOCKTAKE_WRITE");
+    f.sql.prepare("UPDATE erp_item_queries SET target_code=? WHERE id='stock-write'").run("990001");
+    f.sql.prepare("INSERT INTO stocktake_sheets(sheet_no,sheet_date,status,write_query_id,created_at,updated_at) VALUES(?,?,'WRITING',?,?,?)")
+      .run("990001","2026-10-28","stock-write",stamp(-90),stamp(-90));
+    await runErpHousekeeping(f.db,at+60000);
+    assert.equal(f.sql.prepare("SELECT status FROM erp_item_queries WHERE id='stock-write'").get().status,"FAILED");
+    const sheet=f.sql.prepare("SELECT status,write_result_json FROM stocktake_sheets WHERE sheet_no='990001'").get();
+    assert.equal(sheet.status,"WRITE_FAILED");
+    assert.match(sheet.write_result_json,/逾時/);
+    assert.equal(f.sql.prepare("SELECT COUNT(*) AS n FROM audit_events WHERE action='stocktake.write_failed'").get().n,1);
+  }finally{f.sql.close()}
+});
+test("stocktake SYNC keeps its 1800-second limit rather than an ordinary 180-second limit",async()=>{
+  const f=fixture();
+  try{
+    f.add("stock-sync","RUNNING",-10,-10,null,null,"STOCKTAKE_SYNC");
+    await runErpHousekeeping(f.db,at+60000);
+    assert.equal(f.sql.prepare("SELECT status FROM erp_item_queries WHERE id='stock-sync'").get().status,"RUNNING");
+    f.sql.prepare("UPDATE erp_item_queries SET started_at=? WHERE id='stock-sync'").run(stamp(-31));
+    await runErpHousekeeping(f.db,at+60000);
+    assert.equal(f.sql.prepare("SELECT status FROM erp_item_queries WHERE id='stock-sync'").get().status,"FAILED");
+  }finally{f.sql.close()}
+});

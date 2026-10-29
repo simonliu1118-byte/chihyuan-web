@@ -10,6 +10,8 @@ import { taipeiToday } from "../shared/erp-query-history.ts";
 // synthetic values only.
 const compiled = await build({ entryPoints: ["worker/http/erp-item-query-routes.ts"], bundle: true, write: false, platform: "node", format: "esm" });
 const { handleErpItemQueryRoute } = await import("data:text/javascript;base64," + Buffer.from(compiled.outputFiles[0].text).toString("base64"));
+const maint=await build({entryPoints:["worker/http/erp-housekeeping.ts"],bundle:true,write:false,platform:"node",format:"esm"});
+const {runErpHousekeeping}=await import("data:text/javascript;base64,"+Buffer.from(maint.outputFiles[0].text).toString("base64"));
 const TOKEN = "t".repeat(43);
 
 function fixture(role = "USER") {
@@ -46,7 +48,7 @@ function fixture(role = "USER") {
     const member = sql.prepare("SELECT id FROM app_members WHERE identity_employee_id='erp-business-synthetic'").get();
     sql.prepare("INSERT INTO app_member_module_access(member_id,module_code,enabled,updated_at) VALUES(?,?,1,?)").run(member.id, code, now);
   };
-  return { sql, user, agent, grant };
+  return { sql, user, agent, grant, housekeeping:()=>runErpHousekeeping(db,Date.now()) };
 }
 const ALL_TYPES = ["ITEM_NO", "ITEM_NAME", "CUSTOMER_NO", "CUSTOMER_NAME", "SUPPLIER_NO", "SUPPLIER_NAME", "PURCHASES", "SALES", "RECEIVABLE", "ORDER", "RESTOCK"];
 const line = (seq, extra = {}) => ({ seq, itemCode: "X0001", itemName: "假品名", specification: "", warehouse: "W01 假倉", quantity: "1", unit: "包", unitPrice: "100", amount: "100", giftType: "", giftQuantity: "0", batch: "", note: "", sourceOrder: "", ...extra });
@@ -308,7 +310,7 @@ test("RESTOCK results are per 品號 inside the range and keep only the summary 
 });
 
 test("RESTOCK may run 30 minutes and PURCHASES 10 before the Agent is timed out", async () => {
-  const { sql, user, agent } = fixture("SUPER_ADMIN");
+  const { sql, user, agent, housekeeping } = fixture("SUPER_ADMIN");
   try {
     const today = taipeiToday();
     const restock = (await user.create({ queryType: "RESTOCK", dateFrom: today, dateTo: today })).body.data;
@@ -317,12 +319,14 @@ test("RESTOCK may run 30 minutes and PURCHASES 10 before the Agent is timed out"
     sql.prepare("UPDATE erp_item_queries SET started_at=? WHERE id=?").run(ago(20), restock.id);
     assert.equal((await user.load(restock.id)).body.data.status, "RUNNING");
     sql.prepare("UPDATE erp_item_queries SET started_at=? WHERE id=?").run(ago(31), restock.id);
+    await housekeeping();
     assert.equal((await user.load(restock.id)).body.data.status, "FAILED");
     const purchases = (await user.create({ queryType: "PURCHASES", supplierCode: "SU0001" })).body.data;
     await agent.claim(ALL_TYPES);
     sql.prepare("UPDATE erp_item_queries SET started_at=? WHERE id=?").run(ago(5), purchases.id);
     assert.equal((await user.load(purchases.id)).body.data.status, "RUNNING");
     sql.prepare("UPDATE erp_item_queries SET started_at=? WHERE id=?").run(ago(11), purchases.id);
+    await housekeeping();
     assert.equal((await user.load(purchases.id)).body.data.status, "FAILED");
   } finally { sql.close(); }
 });
@@ -536,7 +540,7 @@ test("a member may have three queries queued or running; the queue lists them in
 });
 
 test("a queued query waits while the Agent is busy or connected, and expires once it is gone", async () => {
-  const { sql, user, agent, grant } = fixture();
+  const { sql, user, agent, grant, housekeeping } = fixture();
   try {
     grant("ERP_ITEM_QUERY");
     await user.create({ queryType: "ITEM_NO", itemNo: "X0001" });
@@ -545,14 +549,17 @@ test("a queued query waits while the Agent is busy or connected, and expires onc
     const old = new Date(Date.now() - 10 * 60000).toISOString();
     sql.prepare("UPDATE erp_item_queries SET created_at=? WHERE id=?").run(old, waiting.id);
     sql.prepare("UPDATE erp_item_agent_status SET last_seen_at=? WHERE id=1").run(old);
-    // A query is running: the queued one waits.
+    // A query is running: cron must not expire the queued one.
+    await housekeeping();
     assert.equal((await user.load(waiting.id)).body.data.status, "QUEUED");
     sql.prepare("UPDATE erp_item_queries SET status='FAILED' WHERE status='RUNNING'").run();
     // Nothing running, but the Agent claimed in the last minute: still waits.
     sql.prepare("UPDATE erp_item_agent_status SET last_seen_at=? WHERE id=1").run(new Date().toISOString());
+    await housekeeping();
     assert.equal((await user.load(waiting.id)).body.data.status, "QUEUED");
     // The Agent is gone.
     sql.prepare("UPDATE erp_item_agent_status SET last_seen_at=? WHERE id=1").run(old);
+    await housekeeping();
     assert.equal((await user.load(waiting.id)).body.data.status, "EXPIRED");
   } finally { sql.close(); }
 });

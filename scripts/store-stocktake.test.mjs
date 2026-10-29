@@ -9,9 +9,10 @@ async function compile(entry,name){
  const output=await build({entryPoints:[entry],bundle:true,write:false,platform:"node",format:"esm"});
  return (await import("data:text/javascript;base64,"+Buffer.from(output.outputFiles[0].text).toString("base64")))[name];
 }
-const [handleStocktake,handleErp]=await Promise.all([
+const [handleStocktake,handleErp,runErpHousekeeping]=await Promise.all([
  compile("worker/http/store-stocktake-routes.ts","handleStoreStocktakeRoute"),
- compile("worker/http/erp-item-query-routes.ts","handleErpItemQueryRoute")
+ compile("worker/http/erp-item-query-routes.ts","handleErpItemQueryRoute"),
+ compile("worker/http/erp-housekeeping.ts","runErpHousekeeping")
 ]);
 const TOKEN="a".repeat(64);
 function fixture(role="SUPER_ADMIN",grant=true){
@@ -65,7 +66,7 @@ function fixture(role="SUPER_ADMIN",grant=true){
   for(const line of data)sql.prepare("INSERT INTO stocktake_lines(sheet_no,line_key,seq,item_code,item_name,spec,warehouse_name,location,unit,batch,book_qty) VALUES(?,?,?,?,?,?,?,?,?,?,?)")
    .run(number,line.seq,line.seq,line.itemCode,line.itemName,line.spec,line.warehouseName,line.location,line.unit,line.batch,line.bookQty);
  };
- return {sql,db,api,user,agent,sheet,row,insert,scans};
+ return {sql,db,api,user,agent,sheet,row,insert,scans,housekeeping:()=>runErpHousekeeping(db,Date.now())};
 }
 
 test("access denied without STOCKTAKE grant; normal user cannot confirm",async()=>{
@@ -272,6 +273,7 @@ test("running WRITE 3600-second timeout releases WRITING and requires an explici
    const poll=await f.agent("/item-queries/claim",{agentVersion:"synthetic",erpState:"BROWSE",
       queryTypes:["STOCKTAKE_WRITE"]});
    assert.equal(poll.status,200,JSON.stringify(poll));
+   await f.housekeeping();
    assert.equal(f.sql.prepare("SELECT status,error_code FROM erp_item_queries WHERE id=?").get(id).status,"FAILED");
    const sheet=(await f.sheet()).data.sheet;
    assert.equal(sheet.status,"WRITE_FAILED");

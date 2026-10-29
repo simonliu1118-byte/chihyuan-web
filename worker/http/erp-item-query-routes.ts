@@ -534,17 +534,6 @@ async function agentGuard(request: Request, env: ErpBridgeEnv, requestId: string
     return failure({ code: "AGENT_UNAUTHORIZED", message: "Valid ERP agent token required" }, requestId, 401);
   return { digest };
 }
-/** A failed/expired stocktake write cannot leave the sheet stuck in WRITING. */
-async function failExpiredStocktakeWrite(db:D1Database,sheet:string,id:string,now:string,reason:string){
-  const out=await db.prepare(`UPDATE stocktake_sheets
-    SET status='WRITE_FAILED',write_result_json=?,version=version+1,updated_at=?
-    WHERE sheet_no=? AND status='WRITING' AND write_query_id=?`)
-    .bind(JSON.stringify({results:[],mismatches:[],error:reason}),now,sheet,id).run();
-  if(out.meta.changes)await new AuditService(db).record({
-    entityType:"stocktake",entityKey:sheet,action:"stocktake.write_failed",actorEmployeeId:null,
-    statusFrom:"WRITING",statusTo:"WRITE_FAILED",metadata:{jobId:id,reason:"AGENT_TIMEOUT"}
-  });
-}
 async function allowed(db: D1Database, principal: IdentityPrincipal, code: CyWebModuleCode): Promise<AppMemberRecord | null> {
   const access = await checkModuleAccess(db, principal, code);
   return access.allowed ? access.member : null;
