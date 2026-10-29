@@ -360,12 +360,13 @@ export function StoreStocktake({role}:{role:string}){
   </div>
   {ignoreForm!==null?<Dialog open title="忽略底稿管理" className="cy-stocktake-ignore-dialog" onClose={()=>setIgnoreForm(null)}>
    <form className="cy-stocktake-ignore-form" onKeyDown={enterAdvancesThenSubmits} onSubmit={e=>void addIgnored(e)}>
-    <label className="cy-f-label" htmlFor="cy-stocktake-ignore-number">底稿編號<span className="cy-field-required" aria-hidden="true">＊</span></label>
-    <div className="cy-stocktake-ignore-input">
-     <input id="cy-stocktake-ignore-number" className="cy-op-input" pattern="[A-Za-z0-9]{1,20}"
-      maxLength={20} required value={ignoreForm} onChange={e=>setIgnoreForm(e.target.value)}/>
+    <FormSection><div className="cy-stocktake-ignore-input">
+     <Field label="底稿編號" size="l" required>
+      <input className="cy-op-input" pattern="[A-Za-z0-9]{1,20}" maxLength={20}
+       value={ignoreForm} onChange={e=>setIgnoreForm(e.target.value)}/>
+     </Field>
      <button className="cy-op-button primary" type="submit" disabled={busy}>新增</button>
-    </div>
+    </div></FormSection>
    </form>
    <section className="cy-stocktake-ignored-list" aria-label="已忽略底稿">
     <h3>已忽略底稿（{ignored.length}）</h3>
