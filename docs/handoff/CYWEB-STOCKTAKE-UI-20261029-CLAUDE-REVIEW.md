@@ -33,6 +33,9 @@ Scope: 僅 CYWEB 前端盤點頁面；不更動 Worker、DB、ERP Driver，不�
 - 原有 `setMessage` 的成功提示因移除全寬 FeedbackBanner 不可消失；改由共用 `useFeedback` 顯示，保留所有成功訊息。
 - ERP `NOT_FOUND` 狀態顯示「沒有新盤點單」，避免向使用者只顯示狀態代碼。
 
+### Commit `98803483` — 保留原按鈕文案
+- 左側仍稱「新增忽略底稿」以符合使用者原操作習慣，開啟後是兼具新增、清單、單項取消忽略的「忽略底稿管理」Dialog。
+
 ## 風險／審查重點
 - `useFeedback` 目前是共用 Dialog 提醒（非自動消失 Toast）。需求文字「通知」可能指共享通知體系，請 Claude 評估是否要採用 `ToastRegion`，不要私造通知元件。
 - 目前沒有瀏覽器視覺驗證；檢查窄版手機下 `DataView` 卡片切換及對話框高度/捲動。
