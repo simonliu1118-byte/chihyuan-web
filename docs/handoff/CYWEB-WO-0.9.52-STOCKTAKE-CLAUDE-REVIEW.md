@@ -152,3 +152,15 @@
 4. 查看 399/399 全量 Node 測試、五個 CI job、七張 1440/390 截圖（合成 fixture），確認 mobile 下拉與失敗清單。
 5. 判斷 200×3,000 的 Cloudflare D1 大批次限制是否需要部署前的額外 gate；不得以測試 green 冒稱真 Cloudflare 配額已驗證。
 6. 最後才作出 PR #307 可否合併的審查決議。GPT 沒有自行合併、部署或真 ERP 寫回。
+
+## 9. GPT 回修 Claude §6.1：D1 讀取量與多人增量同步（2026-10-29）
+
+此次只修正 Claude 在 §6.1 指出的盤點資料讀取量問題；§6 原審查文字保留，等待 Claude 重新審核。
+
+- Migration 0030（尚未部署）：`stocktake_sheets` 增加 `total_lines`、`counted_lines`、`recount_needed`；`stocktake_lines.rev` 與 `(sheet_no,rev)` 索引；`stocktake_line_history.removed_rev` 與刪除修訂索引。portable backup 欄位目錄同步更新。
+- Worker：清單不再 `GROUP BY stocktake_lines`；`GET /{sheet}?since=<version>` 在版本未變時只查 sheet，變動時依 `rev` 取變動列及刪除鍵；PATCH、批號新增與刪除改回傳單列／單鍵及摘要，不再每次返回 500 列；同步匯入、填列、增刪及第一次確認以同批次更新摘要計數與 revision。
+- React：10 秒明細輪詢（僅帶 since）、30 秒清單輪詢；頁面不可見或盤點區塊不顯示時停止輪詢；變動列依 lineKey 合併，既有使用者草稿不覆寫；手機只渲染一個儲位，桌機沿用 keyed rows。
+- 回歸測試：`scripts/store-stocktake.test.mjs` 加增量查詢、單列回應、計數及刪除新增批號可由 tombstone 反映；原新增批號測試改接單列回應。
+- **估算（500 列／張、10 張、4 人、2 小時）**：保守假設每人期間各開啟全部 10 張一次，首次明細約 20,000 rows read；4 人每 30 秒清單一次約 960 次 × 10 張 = 9,600；4 人每 10 秒明細版本檢查約 2,880；所有 5,000 列各編輯一次、每次約 8 筆資料列或 guard 讀取，約 40,000。合計約 **72,480 rows read（估算而非正式 Cloudflare 計量）**，落在 §6.1 的 100,000 目標內。若大量反覆編輯／跨多張底稿頻繁切換，讀取量會更高，仍應監控正式 D1 metrics。
+- 禁止在此回修直接合併／部署；原 PR #306 與本 PR #307 的先後順序依 Claude §6 決議。
+
