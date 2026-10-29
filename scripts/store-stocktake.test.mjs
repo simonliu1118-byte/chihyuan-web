@@ -472,8 +472,10 @@ test("incremental GET returns only changed lines and deletion tombstones",async(
    const before=(await f.sheet()).data;
    assert.equal(before.sheet.total,2);
    assert.equal(before.sheet.counted,0);
+   const scannedBefore=f.scans.details;
    const idle=(await f.user("/990001?since="+before.sheet.version)).data;
    assert.deepEqual(idle.lines,[]);
+   assert.equal(f.scans.details,scannedBefore,"unchanged revision must not query line detail");
    const first=before.lines[0];
    const patched=await f.user("/990001/line","PATCH",{lineKey:first.lineKey,quantity:"2",expectedVersion:first.version});
    assert.equal(patched.status,200,JSON.stringify(patched));
