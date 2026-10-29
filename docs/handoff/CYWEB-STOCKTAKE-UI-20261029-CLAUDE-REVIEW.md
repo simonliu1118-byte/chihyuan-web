@@ -1,3 +1,14 @@
+## 2026-10-30 已合併並完成開發環境部署（供 Claude 事後複審）
+
+- 使用者明確批准合併並部署，仍要求保留 Handoff 交 Claude 複審。
+- PR #313: https://github.com/simonliu1118-byte/chihyuan-web/pull/313 ，已合併 main。
+- Merge SHA: `7f43a50a3e67dd48ef044488805709d96ec87f83`。
+- 開發部署分支 `deploy/cyweb-development` 更新至完全相同的 main SHA，遵守 `DEPLOYMENT_SOURCE_MUST_MATCH_CURRENT_MAIN`。
+- GitHub Actions CY Web Deploy run: https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40926268529 ，最終 `completed/success`，包含遷移、Worker 部署、HTTPS/static 與部署後權限檢查。
+- 所有原先的修改與待審內容仍在本文件；Claude 複審不因部署成功而省略。請注意此記錄是部署完成後的文件補記，非重新發行程式。
+
+---
+
 ## 2026-10-30 使用者批准合併及部署，Claude 後續複審保留
 
 - 使用者明確改為允許 PR #313 合併 main 並部署，但**仍要求保留完整 Handoff 供 Claude 事後複審**。
