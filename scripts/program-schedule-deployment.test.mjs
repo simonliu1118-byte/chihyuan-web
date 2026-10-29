@@ -8,13 +8,13 @@ test("protected schedule verification uses one fixed-origin GET and checks backu
     const result=await verifyProgramCatalogSchedule({env:{...env,CF_BACKUP_SCHEDULE_ENABLED:String(backup)},fetcher:async(url,init)=>{
       calls++;assert.equal(new URL(url).origin,"https://api.cloudflare.com");assert.equal(init.method,"GET");assert.equal(init.redirect,"manual");
       assert.equal(init.headers.Authorization,"Bearer synthetic-token");
-      return Response.json({success:true,result:{schedules:[{cron:"0 19 * * *"},...(backup?[{cron:"30 19 * * *"}]:[])]}});
+      return Response.json({success:true,result:{schedules:[{cron:"0 19 * * *"},{cron:"* * * * *"},...(backup?[{cron:"30 19 * * *"}]:[])]}});
     }});
     assert.deepEqual(result,{dailyCatalogSchedule:true,backupSchedule:backup});assert.equal(calls,1);
   }
 });
 test("missing, duplicated or unintended schedules fail closed",async()=>{
-  for(const crons of [[],["30 19 * * *"],["0 19 * * *","0 19 * * *"],["0 19 * * *","30 19 * * *"]]) {
+  for(const crons of [[],["30 19 * * *"],["0 19 * * *","0 19 * * *"],["0 19 * * *","30 19 * * *"],["0 19 * * *","* * * * *","* * * * *"]]) {
     await assert.rejects(verifyProgramCatalogSchedule({env,fetcher:async()=>Response.json({success:true,result:{schedules:crons.map(cron=>({cron}))}})}),/PROGRAM_SCHEDULE_MISMATCH/);
   }
 });

@@ -3,6 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { PROGRAM_CATALOG_CRON } from "../shared/program-catalog.ts";
+import { ERP_HOUSEKEEPING_CRON } from "../shared/erp-housekeeping.ts";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
@@ -120,12 +121,12 @@ export function renderDeployConfig({
     config.vars.GCS_BUCKET = gcsBucket;
     config.vars.BACKUP_SCHEDULE_ENABLED = env.CF_BACKUP_SCHEDULE_ENABLED === "true" ? "true" : "false";
     // UTC 19:30 is the next Taiwan calendar day's 03:30.
-    config.triggers = { crons: env.CF_BACKUP_SCHEDULE_ENABLED === "true" ? [PROGRAM_CATALOG_CRON, "30 19 * * *"] : [PROGRAM_CATALOG_CRON] };
+    config.triggers = { crons: env.CF_BACKUP_SCHEDULE_ENABLED === "true" ? [PROGRAM_CATALOG_CRON, ERP_HOUSEKEEPING_CRON, "30 19 * * *"] : [PROGRAM_CATALOG_CRON, ERP_HOUSEKEEPING_CRON] };
     rendered = JSON.stringify(config, null, 2) + "\n";
   } else {
     // Remove earlier backup schedules while retaining the independent catalog job.
     const config = JSON.parse(rendered);
-    config.triggers = { crons: [PROGRAM_CATALOG_CRON] };
+    config.triggers = { crons: [PROGRAM_CATALOG_CRON, ERP_HOUSEKEEPING_CRON] };
     rendered = JSON.stringify(config, null, 2) + "\n";
   }
 
