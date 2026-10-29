@@ -1,3 +1,12 @@
+## 2026-10-30 部署前檢查
+
+使用者已同意部署，但明確要求 **不合併 PR #313**。部署前 Runtime CI 曾失敗：新增 `stocktake_sync_ignored` 未進入資料表驗證與可攜備份覆蓋清單。已補：
+- `scripts/validate_schema.py`：`8bf30c5e`，補入 EXPECTED_TABLES。
+- `worker/backup/schema-columns.ts`：`11ddcc26`，將新表三欄納入可攜備份。
+
+需檢查最新版 CI，再依既有環境部署流程執行；PR 保持 Draft，不合併 main。
+
+---
 ## 2026-10-29 架構修正（依使用者最新最終定義）
 
 **最終需求：忽略清單僅告訴 QUERY 哪些 ERP 底稿不要掃；只有 QUERY 真正同步成功才有 WEB 盤點單。QUERY Windows 程式碼不修改。**
