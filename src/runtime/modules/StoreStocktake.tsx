@@ -50,8 +50,9 @@ export function StoreStocktake({role}:{role:string}){
  const [ignoreForm,setIgnoreForm]=useState<string|null>(null);
  const [batchForm,setBatchForm]=useState<{itemCode:string;batch:string;quantity:string}|null>(null);
  const [busy,setBusy]=useState(false);
- const [,setMessage,reportError]=useFeedbackMessage<string|null>(null);
+ const [,setFeedbackMessage,reportError]=useFeedbackMessage<string|null>(null);
  const notify=useFeedback();
+ const setMessage=useCallback((value:string)=>{setFeedbackMessage(value);notify(value,"盤點通知",{replace:true})},[setFeedbackMessage,notify]);
  const {confirm,confirmationDialog}=useConfirmation();
  const job=useErpJob({route:"store",key:"STOCKTAKE",label:"門市庫存盤點",types:["STOCKTAKE_SYNC","STOCKTAKE_WRITE"]});
  const lastJob=useRef<string|null>(null);
@@ -106,7 +107,7 @@ export function StoreStocktake({role}:{role:string}){
    if(!job.result||job.result.id===lastJob.current)return;
    if(job.result.status==="QUEUED"||job.result.status==="RUNNING")return;
    lastJob.current=job.result.id;
-   if(job.result.queryType==="STOCKTAKE_SYNC")notify(job.result.status==="DONE"?"盤點單查詢完成。"+(job.result.elapsedMs!==null?" 耗時 "+(job.result.elapsedMs/1000).toFixed(1)+" 秒。":""):job.result.errorMessage||"盤點單查詢已結束："+job.result.status,"ERP 盤點通知",{replace:true});
+   if(job.result.queryType==="STOCKTAKE_SYNC")notify(job.result.status==="DONE"?"盤點單查詢完成。"+(job.result.elapsedMs!==null?" 耗時 "+(job.result.elapsedMs/1000).toFixed(1)+" 秒。":""):job.result.status==="NOT_FOUND"?"沒有新盤點單。":job.result.errorMessage||"盤點單查詢已結束："+job.result.status,"ERP 盤點通知",{replace:true});
    void loadSheets().then(()=>selectedRef.current?loadDetail(selectedRef.current):null).catch(()=>undefined);
  },[job.result,loadSheets,loadDetail,notify]);
 
