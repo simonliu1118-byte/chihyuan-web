@@ -358,27 +358,29 @@ export function StoreStocktake({role}:{role:string}){
     </>}
    </div>
   </div>
-  {ignoreForm!==null?<Dialog open title="忽略底稿管理" onClose={()=>setIgnoreForm(null)}>
-   <form onKeyDown={enterAdvancesFields} onSubmit={e=>void addIgnored(e)}>
-    <FormSection><Field label="底稿編號" required size="m"><input className="cy-op-input" pattern="[A-Za-z0-9]{1,20}" maxLength={20}
-     value={ignoreForm} onChange={e=>setIgnoreForm(e.target.value)}/></Field></FormSection>
-    <div className="cy-op-form-footer"><button className="cy-op-button" type="button" onClick={()=>setIgnoreForm(null)}>取消</button>
-     <button className="cy-op-button primary" type="submit" disabled={busy}>新增忽略</button></div>
+  {ignoreForm!==null?<Dialog open title="忽略底稿管理" className="cy-stocktake-ignore-dialog" onClose={()=>setIgnoreForm(null)}>
+   <form className="cy-stocktake-ignore-form" onSubmit={e=>void addIgnored(e)}>
+    <FormSection><Field label="底稿編號" required size="m">
+     <div className="cy-stocktake-ignore-input">
+      <input className="cy-op-input" pattern="[A-Za-z0-9]{1,20}" maxLength={20} required
+       value={ignoreForm} onChange={e=>setIgnoreForm(e.target.value)}/>
+      <button className="cy-op-button primary" type="submit" disabled={busy}>新增</button>
+     </div>
+    </Field></FormSection>
    </form>
    <section className="cy-stocktake-ignored-list" aria-label="已忽略底稿">
     <h3>已忽略底稿（{ignored.length}）</h3>
-    <DataView ariaLabel="已忽略底稿清單" items={ignored} getKey={sh=>sh.sheetNo}
-     columns={[
-      {key:"sheet",header:"底稿編號",render:sh=><strong>{sh.sheetNo}</strong>},
-      {key:"date",header:"加入時間",render:sh=>date(sh.createdAt)},
-      {key:"actions",header:"操作",render:sh=><button type="button" className="cy-op-button compact danger"
-       disabled={busy} onClick={()=>void removeIgnored(sh)}>移除</button>}
-     ]}
-     renderCard={sh=><div className="cy-stocktake-ignored-card"><strong>{sh.sheetNo}</strong>
-      <span>{date(sh.createdAt)}</span><button type="button" className="cy-op-button compact danger"
-       disabled={busy} onClick={()=>void removeIgnored(sh)}>移除</button></div>}
-     emptyTitle="目前沒有忽略底稿"
-    />
+    {ignored.length?<div className="cy-op-table-wrap">
+     <table className="cy-op-table cy-stocktake-ignored-table">
+      <thead><tr><th scope="col">底稿編號</th><th scope="col">加入時間</th><th scope="col">操作</th></tr></thead>
+      <tbody>{ignored.map(sh=><tr key={sh.sheetNo}>
+       <td><strong>{sh.sheetNo}</strong></td>
+       <td>{date(sh.createdAt)}</td>
+       <td><button type="button" className="cy-op-button compact danger" disabled={busy}
+        onClick={()=>void removeIgnored(sh)}>移除</button></td>
+      </tr>)}</tbody>
+     </table>
+    </div>:<p className="cy-op-empty">目前沒有忽略底稿。</p>}
    </section>
   </Dialog>:null}
   {batchForm?<Dialog open title="新增批號" onClose={()=>setBatchForm(null)}>
