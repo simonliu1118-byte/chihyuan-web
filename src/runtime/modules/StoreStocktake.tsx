@@ -86,7 +86,7 @@ export function StoreStocktake({role}:{role:string}){
  },[selected,loadDetail,reportError]);
  useEffect(()=>{if(!selected)return;
    const active=()=>document.visibilityState==="visible"&&
-     document.querySelector(".cy-store-stocktake")?.getClientRects().length!==0;
+     (document.querySelector(".cy-store-stocktake")?.getClientRects().length??0)>0;
    const details=window.setInterval(()=>{if(active())void loadDetail(selected,true).catch(()=>undefined)},10000);
    const summary=window.setInterval(()=>{if(active())void loadSheets().catch(()=>undefined)},30000);
    return()=>{window.clearInterval(details);window.clearInterval(summary)};
