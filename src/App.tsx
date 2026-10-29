@@ -329,7 +329,7 @@ function OperationalApp({
   else if (route === "worklogs") content = <WorkLogOperationalPage />;
   else if (route === "erp-item-query") content = null; // the kept ERP 查詢 page below
   else if (route === "ordering") content = <OrderingPage />;
-  else if (route === "store") content = <StorePage />;
+  else if (route === "store") content = <StorePage role={role} allowedModules={allowedModules} />;
   else if (route === "identity") content = <SharedIdentityPage session={session}
     showUsage={usageRequested && role === "SUPER_ADMIN"}
     usage={role === "SUPER_ADMIN" ? {report:usageReport,error:usageError,loading:usageLoading,onRefresh:refreshUsage} : undefined} />;

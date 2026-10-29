@@ -10,7 +10,7 @@
 - **查詢類型**：`ITEM_NO`、`ITEM_NAME`、`CUSTOMER_NO`、`CUSTOMER_NAME`、`SALES`、`SUPPLIER_NO`、`SUPPLIER_NAME`、`PURCHASES`、`RECEIVABLE`、`ORDER`、`RESTOCK`（權限對照見 `MODULES_FOR_TYPE`）。
 - **佇列**：每位成員最多 3 筆 QUEUED／RUNNING；Agent 一次執行一筆，依送入時間領取；ERP 暫停時可加入佇列，暫停結束後才領取（V0.9.43）。排隊工作在 Agent 連線或執行中時等待，Agent 離線（無 RUNNING、60 秒內無 claim）且建立超過 120 秒才 `EXPIRED`，最長 60 分鐘。
 - **RUNNING 逾時**：一般 180 秒、含歷史異動 300 秒、報表類（SALES、PURCHASES、RECEIVABLE、ORDER）600 秒、RESTOCK 1800 秒，逾時為 `FAILED/AGENT_TIMEOUT`。
-- **保存**：結果 JSON 完成後 5 分鐘清除（`resultCleared:true`），metadata 30 天；進貨輔助另把每日銷貨彙總寫入 `erp_sales_*`（不隨查詢清除）。
+- **保存**：結果 JSON 完成後 5 分鐘清除（`resultCleared:true`），metadata 7 天（V0.9.53 起，原 30 天）；清理由每分鐘 Cron 執行（V0.9.53），不在 API 請求中順便執行；進貨輔助另把每日銷貨彙總寫入 `erp_sales_*`（不隨查詢清除）。
 - **使用者 API**：`POST /api/erp/item-queries`、`GET /api/erp/item-queries/:id`、`GET /api/erp/item-queries/recent`、`GET /api/erp/queue`、`GET /api/erp/agent-status`、`POST /api/erp/agent-control`、`GET|POST|DELETE /api/erp/agent-credentials`（Super Admin）。
 - **Agent API**：`POST /api/erp-agent/item-queries/claim`（回 `{job,control}`）、`POST /api/erp-agent/item-queries/:id/complete`、`POST /api/erp-agent/item-queries/:id/progress`（RESTOCK）、`POST /api/erp-agent/control`。
 - **前端**：ERP 查詢頁開過後切到其他模組仍保留；每個類別各自保留查詢與結果，每 1.5 秒輪詢；開啟時接回近 24 小時內各類別最新的查詢；類別不在畫面上時完成會出通知。查詢失敗（ERP 未開、畫面不符、匯出失敗、程式錯誤、逾時）時詢問是否強制關閉 ERP。
@@ -53,7 +53,7 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 
 `itemNo` 去前後空白後長 1～40 字，不可含空白／控制字元。同使用者同時最多一筆 QUEUED／RUNNING（V0.9.41 起改為三筆）；衝突 HTTP 409。讀取工作時使用 CYID session 與**每次即時** Module Access 驗證；Agent token 無權使用使用者 API。
 
-工作狀態：`QUEUED → RUNNING → DONE | NOT_FOUND | FAILED`，`QUEUED → EXPIRED`；建立後排隊 120 秒過期（V0.9.41 起改為 Agent 離線才過期，見總覽）、RUNNING 一般工作逾 180 秒、含歷史異動逾 300 秒未回報視為 `FAILED/AGENT_TIMEOUT`。前端每 1.5 秒輪詢直到結束，離線顯示提示。狀態清理於讀取／claim 順便執行，不依賴新 cron。完成後 5 分鐘清除 fields／warehouses／batches／history，metadata 保留 30 天；清除後 DONE 仍有 `resultCleared:true`。ERP 短期佇列、heartbeat、Agent 憑證 hash 不納入長期備份，復原後須由超級管理員重新產生憑證。Audit 僅記員工、查詢品號、結果與耗時，不記欄位值。
+工作狀態：`QUEUED → RUNNING → DONE | NOT_FOUND | FAILED`，`QUEUED → EXPIRED`；建立後排隊 120 秒過期（V0.9.41 起改為 Agent 離線才過期，見總覽）、RUNNING 一般工作逾 180 秒、含歷史異動逾 300 秒未回報視為 `FAILED/AGENT_TIMEOUT`。前端每 1.5 秒輪詢直到結束，離線顯示提示。狀態清理 V0.9.53 起改由每分鐘 Cron 執行（見第 13 行），不在讀取／claim 時執行。完成後 5 分鐘清除 fields／warehouses／batches／history，metadata 保留 7 天；清除後 DONE 仍有 `resultCleared:true`。ERP 短期佇列、heartbeat、Agent 憑證 hash 不納入長期備份，復原後須由超級管理員重新產生憑證。Audit 僅記員工、查詢品號、結果與耗時，不記欄位值。
 
 ## Agent API
 
@@ -113,7 +113,7 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 - 若要求歷史異動，FOUND `history` 可為物件 `{from,to,columns,rows,total,truncated}`：日期須等於工作起迄；`columns` 須按 `日期、單別-單號-序號、庫別、庫別名稱、入出別、異動數量、備註` 精確排序。每列 7 個字串、每格最多 1,024 字、最多 2,000 列、`total>=rows.length`、`truncated=(total>rows.length)`；Agent 依 ERP 順序返回最新 2,000 列。若舊 Agent 無 history，工作 DONE 但顯示版本不支援提醒。
 - 未要求歷史時不允許附 history；NOT_FOUND／FAILED 不允許帶非空 batches 或 history。批號管理非空但 `batchManaged:false` 也拒收。
 - **每次 POST 都建立新工作並重新執行 ERP**（仍受單人一筆未完成工作限制）；不從舊工作結果作快取。
-- 保存規則：完成後 5 分鐘清除所有結果 JSON，30 天後刪除 metadata；`resultCleared` 保持可追蹤。一般 RUNNING 180 秒／歷史 RUNNING 300 秒逾時，QUEUE 120 秒不變。
+- 保存規則：完成後 5 分鐘清除所有結果 JSON，7 天後刪除 metadata（V0.9.53 前為 30 天）；`resultCleared` 保持可追蹤。一般 RUNNING 180 秒／歷史 RUNNING 300 秒逾時，QUEUE 120 秒不變。
 - 前端「查歷史異動」勾選後可用原生日期選擇器輸入起迄、保留空值取得預設範圍。結果自動展示批號庫存及（有要求時）歷史異動；小螢幕表格可水平捲動。
 - 正式 schema 新增 `migrations/0010_erp_item_query_invq01.sql`，不覆寫 0009；寫入 `include_history,history_from,history_to,batch_managed,batches_json,history_json`，與現有身分及 Agent 認證同源。
 
@@ -126,7 +126,7 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 - Agent `POST /api/erp-agent/item-queries/claim`：ITEM_NAME 回 `{job:{id,queryType:"ITEM_NAME",keyword,expiresAt,includeHistory:false,historyFrom:null,historyTo:null}}`。ITEM_NO 仍回 itemNo／history。測試階段不做舊 Agent 版本偵測或額外兼容分流；須使用可理解 ITEM_NAME 的 AUTOQUERY。
 - Agent ITEM_NAME complete body：`{outcome:"FOUND"|"NOT_FOUND"|"FAILED",keyword,fields:[],warehouses:[],items,total,truncated,elapsedMs,agentVersion}`。每列 items 是六欄 `品號、品名、規格、單位、庫存數量、標準售價` 的 `{name,value}` 陣列，最多 500 列、每個 value 最多 4,096 字；欄名唯一。必須有非空品號與品名，品名須包含關鍵字（Unicode NFKC 正規化、不分英文字母大小寫）。品名工作不得回傳單頭／庫別／批號／歷史詳細資料。
 - FOUND 的 items 不可為空；NOT_FOUND 的 items 必須空且 total 為 0；FAILED 不可夾帶清單，錯誤碼沿用現有白名單。total 為非負整數且不小於 items 列數；truncated 為布林值，即使 total=500 也可能 true（ERP 的總筆數上限）。品名 complete 最多 256 KiB。
-- GET 工作增加 `queryType`、`keyword`、`items`、`total`、`truncated`。清單經 D1 `items_json` 暫存，5 分鐘後清除，metadata 30 天；不寫入商品主檔、不快取成正式資料。Audit 記 queryType、keyword、筆數、elapsedMs，不記清單內容。
+- GET 工作增加 `queryType`、`keyword`、`items`、`total`、`truncated`。清單經 D1 `items_json` 暫存，5 分鐘後清除，metadata 7 天；不寫入商品主檔、不快取成正式資料。Audit 記 queryType、keyword、筆數、elapsedMs，不記清單內容。
 - 前端在同一模組切換「品號／品名」，品名模式隱藏歷史異動。結果顯示六欄與超過上限提示；點選一筆品號會建立**新的 ITEM_NO** 工作並重新向 Agent 查完整單頭、庫別、批號與（若勾選）歷史異動。
 - 使用 forward migration `migrations/0011_erp_item_name_search.sql` 擴充 query_type、keyword、items_json，不重寫既有 migration。因底層既有 schema `item_no` 不可為空，ITEM_NAME 工作內部存固定占位代碼 `ITEM_NAME`；API 不對外回傳此占位。
 
@@ -205,7 +205,7 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 - 每位成員最多 3 筆 QUEUED／RUNNING（建立時檢查，超過回 409 `QUERY_ALREADY_ACTIVE`「你已有 3 筆查詢在排隊或執行中…」）。`migrations/0026_erp_query_owner_index.sql` 移除「每人一筆」唯一索引，加 `(owner_member_id, created_at)` 索引。
 - Agent 仍一次執行一筆，依送入時間（created_at, id）領取，不做成員間輪流（使用者 2026-10-27）。
 - 排隊過期：`expires_at` 改為建立後 60 分鐘上限；另外建立超過 120 秒、沒有 RUNNING 工作且 Agent 最近 60 秒沒有 claim（已離線）時過期。Agent 連線中或正在執行時，排隊工作會等待（可能排在別人的進貨輔助後面）。
-- `GET /api/erp/queue`（任一 ERP 查詢權限）：`{jobs:[{id,mine,member,queryType,target,status,createdAt,startedAt,progress,estimatedDoneAt}],maxPerMember}`，執行中在前、其後依送入時間。`member` 為顯示名稱（無則員工編號）；`target`（品號、關鍵字、代號、日期範圍）只在讀者有該查詢類型權限時提供，否則為 null。預估完成時間：近 30 天同類型（含歷史異動分開）DONE／NOT_FOUND 的平均耗時，沒有資料時用預設值；依序累加，執行中的以開始時間加平均耗時（已超過則至少 30 秒後）。
+- `GET /api/erp/queue`（任一 ERP 查詢權限）：`{jobs:[{id,mine,member,queryType,target,status,createdAt,startedAt,progress,estimatedDoneAt}],maxPerMember}`，執行中在前、其後依送入時間。`member` 為顯示名稱（無則員工編號）；`target`（品號、關鍵字、代號、日期範圍）只在讀者有該查詢類型權限時提供，否則為 null。預估完成時間：同類型（含歷史異動分開）DONE／NOT_FOUND 的耗時近期加權平均，存在 `erp_query_duration_stats`，每次完成時更新、約以最近 20 筆為權重（V0.9.53 起；migration 0031 以既有紀錄初始化）；佇列為空時不讀；沒有資料時用預設值；依序累加，執行中的以開始時間加平均耗時（已超過則至少 30 秒後）。
 - `GET /api/erp/item-queries/recent`：成員近 24 小時的查詢（新到舊，最多 20 筆，只列仍有權限的類型），ERP 查詢頁開啟時各類別接回自己最新的一筆（換裝置也可）。
 - 前端：進貨輔助併入 ERP 查詢頁，類別順序 商品、客戶、供應商、進貨輔助、未收款，最右邊「排程佇列」（每 5 秒更新；V0.9.42 改為類別列右側按鈕打開的抽屜）。`ERP_RESTOCK_ASSIST` 的 route 改為 `erp-item-query`，舊連結 `#restock-assist` 轉到 ERP 查詢。每個類別各自保留查詢、表單與結果，查詢中的類別在頁籤上標示；ERP 查詢頁開過後切到其他模組仍保留在背景，查詢完成時若該類別不在畫面上，右上角通知「XX查詢完成／失敗」並可按「查看」回到該類別。
 
@@ -222,3 +222,39 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 - Claim 只領 `not_before` 為空或已到的工作。CLOSE 改變暫停時間時，等待中的工作 `not_before` 跟著改；RESUME 或無暫停的 CLOSE 清空 `not_before`（立即可領）。Agent 離線過期規則改以 `COALESCE(not_before, created_at)` 起算。
 - `GET /api/erp/queue` 每筆含 `notBefore`；預估完成時間從暫停結束起算。
 - 前端：`ERP_HELD` 時跳「ERP 暫停中」視窗（`ErpHeldPrompt`，App 層掛一次），可選「知道了」或「加入佇列，暫停結束自動查」。ERP 查詢程式視窗暫停中只顯示「取消暫停」；排程佇列為不遮住頁面的右側欄。
+
+
+## 庫存盤點（V0.9.52，CYWEB／CYERPAutoQuery）
+
+> 本節協定逐字摘錄自 `docs/development/work-orders/WO-0.9.52.md`，另一端依 `apps/CYERPAutoQuery/docs/work-orders/WO-1.3.0.md` 實作；此處定義的是 CYWEB Agent claim／complete API 契約，不是 Windows 工具的實際 ERP UI 操作步驟。
+
+### 協定（兩張工單共用，兩邊必須完全一致）
+
+新增兩種 ERP 查詢類型，走既有 `/api/erp-agent/item-queries/claim`／`/complete` 與 CY Web 排程佇列（每人 3 筆、依送入時間、暫停時可加入佇列等既有規則一律適用）。所有數量在 JSON 中一律為**數字字串**（ERP 顯示值，可為負數、可有小數），日期 `YYYY-MM-DD`。
+
+**`STOCKTAKE_SYNC`：讀盤點單（INVR11）**
+
+- claim：`{ id, queryType:"STOCKTAKE_SYNC", expiresAt, skipSheets: string[], onlySheet: string|null }`
+  - `skipSheets`：CY Web 已讀過或設為忽略的底稿編號（最多 500 個）。
+  - `onlySheet`：不為 null 時是「重新整理」，只讀這一張（即使它在 skip 內）。
+- complete（`outcome` 為 `FOUND`／`NOT_FOUND`／`FAILED`，共通欄位同其他類型）：
+  - `sheets: [{ sheetNo, date }]`：F2 開窗清單看到的**所有**底稿（最多 200 筆）。`onlySheet` 模式可只回該張。
+  - `details: [{ sheetNo, rows: [...] }]`：這次實際讀了明細的底稿（`onlySheet` 模式恰好一張；更新模式＝清單中不在 skip 的每一張）。
+  - `rows` 每列（最多 3,000 列／張）：`{ seq, itemCode, itemName, spec, warehouseName, location, unit, batch, bookQty }`。`seq` 為 INVR11 的「底稿序號」（5 位數字字串，張內唯一）；`bookQty` 為 INVR11 的「盤點數量」（ERP 預設帶入帳面數量）；`location`、`batch` 可為空字串。
+  - `NOT_FOUND`：沒有任何需要讀的底稿（清單全在 skip 內）；此時仍回 `sheets`、`details:[]`。
+- RUNNING 逾時 1,800 秒；complete 上限 900 KiB。
+
+**`STOCKTAKE_WRITE`：寫回 ERP（INVI14 逐筆、INVI06 新增批號與確認）**
+
+- claim：`{ id, queryType:"STOCKTAKE_WRITE", expiresAt, sheetNo, rows: [...] }`
+  - `rows` 每列（最多 3,000）：`{ key, seq, itemCode, batch, quantity }`。
+    - 既有列：`seq` 為底稿序號、`key` 同 `seq`。
+    - 新增批號：`seq` 為 null、`key` 為 CY Web 的列鍵（例如 `N0001`）。
+  - 只送「實際數量 ≠ 帳面數量」的既有列，以及全部新增批號列（規則見 CY Web 工單 §2）。
+- complete：`{ outcome:"FOUND"|"FAILED", sheetNo, results:[{ key, ok, erpSeq, message }], confirmed, mismatches:[{ key, seq, itemCode, batch, expected, actual }] }`
+  - `results` 每列一筆：`ok` 表示已寫入並讀回一致；新增批號列的 `erpSeq` 為 ERP 新產生的序號（既有列同 `seq`）；失敗時 `message` 為給人看的短句（不含路徑或帳密）。
+  - `confirmed`：INVR11 核對全部一致，且已在 INVI06 按「確認」。
+  - `mismatches`：INVR11 核對時不一致的列（有任何一列就不得按確認）。
+- RUNNING 逾時 3,600 秒；complete 上限 900 KiB。
+- Agent 每寫完一列以既有 `POST /api/erp-agent/item-queries/{id}/progress` 回報 `{ stage:"STOCK", done, total }`，CY Web 顯示「已寫入 x / y 列」。
+

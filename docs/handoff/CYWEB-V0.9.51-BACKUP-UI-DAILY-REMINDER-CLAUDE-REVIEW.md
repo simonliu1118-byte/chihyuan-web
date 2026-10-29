@@ -5,7 +5,7 @@
 - Repository：`simonliu1118-byte/chihyuan-web`
 - 工作分支：`feat/cyweb-backup-layout-daily-reminder-20261029`
 - 基準：`main` commit `d775cac6e7dfb798e7981318047288b1f70a7a56`，已包含合併的 PR #303 與 #304（正式版本 V0.9.50 Build 0）
-- 新版：**V0.9.51 Build 0**；本版交接是增量修正，不回改已結案的 V0.9.49／50 handoff。
+- 新版：**V0.9.51 Build 0**（合併時改號為 V0.9.54）；本版交接是增量修正，不回改已結案的 V0.9.49／50 handoff。
 - 執行者：ChatGPT；**最終審查：Claude，由 Claude 親自填 §7；不可由執行者代填通過。**
 
 ## 1. 使用者原始需求與圖示
@@ -71,12 +71,16 @@
 
 ## 7. Claude 最終審查紀錄（Claude 親自填）
 
-- 審查日期：
+- 審查日期：2026-10-29
 - 審查者：Claude
-- 審查的 PR head SHA：
-- 結論：**待審查**（通過／需修正／阻擋合併）
-- 需修正事項（逐一附檔案／行號）：
+- 審查的 PR head SHA：`3a33473e181e98c514bb70e5df501b07c546aa2a`
+- 結論：**通過**
+- 需修正事項：無。
 - 視覺／裝置／React 生命週期檢查：
-- 最新 CI／本機測試證據：
-- Claude 直接修改或 GPT 返修（如有）：
-- 是否可交使用者決定合併／部署：
+  - 季度提醒：24 小時節流仍保留「換季立即重查」與成功演練 `force`；`setInterval` 24 小時未超過瀏覽器上限。
+  - CYInvoice：元件只在 toolbar mount 一次，`allowed` 為 false 時仍回 `null`。兩個 Dialog 都是原生 `<dialog>`（top layer），放在 toolbar 內不受版面影響；checkpoint、確認與認證流程未改。
+  - 成功結果框：移入「隔離還原驗證紀錄」，仍沿用 `shouldShowLatestRehearsalResult`。
+  - 備份資訊欄：桌面五欄寬度合計 100%，手機卡片直接顯示，長雜湊可換行。
+- 最新 CI／本機測試證據：PR head CI 全綠。合併 main（V0.9.52／V0.9.53）後，本機 typecheck、全部 Node 測試、validate:source、build 通過。
+- Claude 直接修改：合併最新 main。V0.9.52、V0.9.53 已佔用版號，本版改號為 **V0.9.54**，並同步 CHANGELOG／TODO。
+- 是否可交使用者決定合併／部署：使用者已指示審查通過即一起合併部署。

@@ -11,10 +11,13 @@ import { handleBusinessApiRoute } from "./http/business-api-routes";
 import { handleHrRoute } from "./http/hr-routes";
 import {handleOrderingRoute} from "./http/ordering-routes";
 import {handleStoreRoute} from "./http/store-routes";
+import {handleStoreStocktakeRoute} from "./http/store-stocktake-routes";
 import { handleUsageRoute } from "./http/usage-routes";
 import { handleBusinessApiPhase2Route } from "./http/business-api-phase2-routes";
 import { handleProgramCatalogRoute } from "./http/program-catalog-routes";
 import { handleErpItemQueryRoute, type ErpBridgeEnv } from "./http/erp-item-query-routes";
+import { runErpHousekeeping } from "./http/erp-housekeeping";
+import { ERP_HOUSEKEEPING_CRON } from "../shared/erp-housekeeping";
 import { failure, success } from "./http/response";
 import { PROGRAM_CATALOG_CRON } from "../shared/program-catalog";
 import { updateProgramCatalog } from "./programs/release-catalog";
@@ -86,6 +89,8 @@ async function routeRequest(request: Request, env: Env, url: URL): Promise<Respo
 
   const orderingResponse = await handleOrderingRoute(request, env, requestId);
   if(orderingResponse)return orderingResponse;
+  const stocktakeResponse = await handleStoreStocktakeRoute(request,env,requestId);
+  if(stocktakeResponse)return stocktakeResponse;
   const storeResponse = await handleStoreRoute(request, env, requestId);
   if (storeResponse) return storeResponse;
   const hrResponse = await handleHrRoute(request, env, requestId);
@@ -107,6 +112,10 @@ async function routeRequest(request: Request, env: Env, url: URL): Promise<Respo
 
 export default {
   async scheduled(controller: ScheduledController, env: Env): Promise<void> {
+    if (controller.cron === ERP_HOUSEKEEPING_CRON) {
+      await runErpHousekeeping(env.DB, controller.scheduledTime);
+      return;
+    }
     if (controller.cron === PROGRAM_CATALOG_CRON) {
       await updateProgramCatalog(env.DB, new Date(controller.scheduledTime).toISOString());
       return;

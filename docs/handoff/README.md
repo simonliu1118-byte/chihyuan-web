@@ -18,6 +18,13 @@
 
 - [CYWEB V0.9.51：備份頁面整理與每日季度提醒](CYWEB-V0.9.51-BACKUP-UI-DAILY-REMINDER-CLAUDE-REVIEW.md) — 從已合併 V0.9.50 的 main 開新分支，完成說明、測試證據、風險、Claude 最終審查欄位；不含部署或 Cloudflare 資源變更。
 
+- [CYWEB ERP 清理 SQL 高頻執行改善（2026-10-29）](CYWEB-ERP-HOUSEKEEPING-20261029-CLAUDE-REVIEW.md) — 獨立 PR：以每分鐘 Cron 取代高頻 HTTP 清理，五分鐘結果清空、每日保留處理；附 D1 用量、回歸測試及部署排程審查。
+
+- [WO-0.9.52 門市庫存盤點第一階段—交 Claude 最終審查](CYWEB-WO-0.9.52-STOCKTAKE-CLAUDE-REVIEW.md) — PR #307，399/399 完整 Node、Local D1、七張真 Chromium 合成 UI 截圖已通過；外部真 D1／ERP 限制詳見 handoff §5／§8。未合併未部署。
+
+- [CYWEB V0.9.49：季度隔離還原及超管主動提醒](CYWEB-V0.9.49-QUARTERLY-REHEARSAL-CLAUDE-REVIEW.md) — 功能分支 `feat/cyweb-quarterly-rehearsal-20261028`，含逐檔變更、站內提醒、回歸測試、未完成的物理 D1 解綁風險及 Claude 最終審查欄位。
+
+
 ## 歷史已合併交接
 
 - [CYWEB V0.9.49：季度隔離還原及超管主動提醒](CYWEB-V0.9.49-QUARTERLY-REHEARSAL-CLAUDE-REVIEW.md) — PR #303 已合併；階段及後續物理斷開已於 V0.9.50 完成，依 CHANGELOG 及 Git 歷史追溯。

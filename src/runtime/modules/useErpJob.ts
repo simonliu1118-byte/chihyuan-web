@@ -141,6 +141,7 @@ export function useErpJob(home?: ErpJobHome) {
   }
   return {
     result, submitting, busy: submitting || !!queryId, start, setError,
+    attach: (id: string) => { sawRunning.current = true; setQueryId(id); },
     clear: () => { if (!queryId) setResult(null); },
   };
 }

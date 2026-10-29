@@ -42,24 +42,28 @@ export async function inspectAccountPortal({ accountId, apiToken, configuredIden
     observations.set(target.href, fingerprint);
     return response;
   };
-  async function read(resource) {
+  async function read(resource, { missingOk = false } = {}) {
     const response = await readOnlyFetch(api + resource, { headers: {authorization: `Bearer ${apiToken}`} });
     const data = await response.json().catch(() => null);
-    if (!response.ok || data?.success !== true) fail("CYWEB_AUDIT_RESOURCE_UNAVAILABLE");
+    if (missingOk && response.status === 404) return null;
+    // Which read failed and why (HTTP status, Cloudflare error codes); ids are masked.
+    if (!response.ok || data?.success !== true)
+      fail(`CYWEB_AUDIT_RESOURCE_UNAVAILABLE ${resource.replace(/[0-9a-f-]{36}/gi, "<id>").split("?")[0]} HTTP ${response.status} cf=${(data?.errors ?? []).map(e => e.code).join(",")}`);
     return data;
   }
-  const configuredIdentity = await read(`/workers/scripts/${encodeURIComponent(configuredIdentityService)}/settings`);
-  // This is the established DEVELOPMENT deployment input, not the live domain's
-  // binding. Validate it before using the canonical production name resolver.
-  if (value(configuredIdentity, "APP_ENV") !== "development") fail("CYWEB_AUDIT_DEVELOPMENT_INPUT_UNVERIFIED");
+  // The DEVELOPMENT deployment input only seeds the canonical production name. The
+  // development CYID Worker was removed (user, 2026-10-29: unused D1／Workers cleaned up);
+  // when it still exists it must really be development.
+  const configuredIdentity = await read(`/workers/scripts/${encodeURIComponent(configuredIdentityService)}/settings`, { missingOk: true });
+  if (configuredIdentity && value(configuredIdentity, "APP_ENV") !== "development") fail("CYWEB_AUDIT_DEVELOPMENT_INPUT_UNVERIFIED");
   const runtime = await resolveProductionRuntime({ accountId, apiToken,
     developmentService: configuredIdentityService, requirePortal: false, fetchImpl: readOnlyFetch });
   const provider = await read(`/workers/scripts/${encodeURIComponent(runtime.service)}/settings`);
   const productionDb = binding(provider, "DB", "d1");
-  const developmentDb = binding(configuredIdentity, "DB", "d1");
-  if (productionDb?.length !== 1 || developmentDb?.length !== 1
-      || !uuid.test(productionDb[0].id ?? "") || !uuid.test(developmentDb[0].id ?? "")
-      || productionDb[0].id === developmentDb[0].id) fail("CYWEB_AUDIT_PROVIDER_DB_ISOLATION_UNVERIFIED");
+  const developmentDb = configuredIdentity ? binding(configuredIdentity, "DB", "d1") : [];
+  if (productionDb?.length !== 1 || !uuid.test(productionDb[0].id ?? "")
+      || (configuredIdentity && (developmentDb?.length !== 1 || !uuid.test(developmentDb[0].id ?? "")
+        || productionDb[0].id === developmentDb[0].id))) fail("CYWEB_AUDIT_PROVIDER_DB_ISOLATION_UNVERIFIED");
   const productionMetadata = await read(`/d1/database/${encodeURIComponent(productionDb[0].id)}`);
   if (productionMetadata.result?.uuid !== productionDb[0].id) fail("CYWEB_AUDIT_PROVIDER_DB_METADATA_MISMATCH");
   let portal;
@@ -78,11 +82,11 @@ export async function inspectAccountPortal({ accountId, apiToken, configuredIden
     fail("CYWEB_AUDIT_PORTAL_BINDINGS_UNVERIFIED");
   const database = await read(`/d1/database/${encodeURIComponent(portalDb[0].id)}`);
   if (database.result?.uuid !== portalDb[0].id) fail("CYWEB_AUDIT_PORTAL_DB_METADATA_MISMATCH");
-  if ([productionDb[0].id, developmentDb[0].id].includes(portalDb[0].id))
+  if ([productionDb[0].id, developmentDb[0]?.id].includes(portalDb[0].id))
     fail("CYWEB_AUDIT_IDENTITY_BUSINESS_DB_COLLISION");
   const healthResponse = await readOnlyFetch(new URL("/api/health", portal).href);
   const health = await healthResponse.json().catch(() => null);
-  const currentProvider = portalIdentity[0].service === configuredIdentityService ? configuredIdentity
+  const currentProvider = configuredIdentity && portalIdentity[0].service === configuredIdentityService ? configuredIdentity
     : portalIdentity[0].service === runtime.service ? provider : null;
   // Repeat the SAME canonical strict guard after observing topology, so drift
   // during the audit cannot be reported as readiness merely from local fields.
