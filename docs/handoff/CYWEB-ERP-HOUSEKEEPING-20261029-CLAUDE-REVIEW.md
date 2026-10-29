@@ -32,5 +32,11 @@
 5. 補確認 GitHub CI：browser/worker typecheck、source contracts、build、部署設定驗證、ERP housekeeping synthetic SQLite 測試。
 6. 此 PR 不修改盤點 PR #307／CYERPAutoQuery，**不得直接合併或部署**，交由 Claude 複審。
 
-## 驗證紀錄
-待本 PR 最新 GitHub Actions 取得 CI 結果後更新；此前不宣稱通過。
+## 驗證紀錄（2026-10-29）
+- **程式提交：** `0d3ae5dcd2f8f66992a8b9b3a8c4b0594d6561c1`。
+- **Runtime Check：4/4 成功**：[GitHub Actions #40833314041](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40833314041)，包含 worker-typecheck、browser-typecheck、source-contracts、build（其中有合成 SQLite 回歸測試）。
+- **CY Web Deploy（PR 僅驗證部署設定）：** `validate-deployment-contract` 成功：[GitHub Actions #40833314044](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40833314044)；`deploy-development` 為 **skipped**，沒有部署。
+- **Governance Check：成功**：[GitHub Actions #40833314085](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40833314085)。
+- 本次包含盤點 `STOCKTAKE_SYNC` 1800 秒、`STOCKTAKE_WRITE` 3600 秒逾時與 `WRITE_FAILED` 回復的合成測試；原有 ERP 查詢及盤點 API 測試改成明確觸發 Cron。
+- **尚未驗證：** Cloudflare 正式 Cron 安裝、線上 D1 query plan 與 rows-read 實測（需部署後才能收集）。此為 Claude 複審事項，不宣稱正式環境改善已實測。
+
