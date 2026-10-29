@@ -40,6 +40,7 @@ export function StoreStocktake({role}:{role:string}){
  const [detail,setDetail]=useState<StocktakeDetail|null>(null);
  const [search,setSearch]=useState("");
  const [filter,setFilter]=useState<"ALL"|"UNFILLED"|"DIFFERENCE"|"ADDED">("ALL");
+ const [location,setLocation]=useState("");
  const [drafts,setDrafts]=useState<Record<string,string>>({});
  const [saving,setSaving]=useState<string|null>(null);
  const inFlightSave=useRef(new Set<string>());
@@ -59,9 +60,22 @@ export function StoreStocktake({role}:{role:string}){
    const [normal,excluded]=await Promise.all([call<StocktakeSheet[]>(""),manager?call<StocktakeSheet[]>("?ignored=true"):Promise.resolve([])]);
    setSheets(normal);setIgnored(excluded);
  },[manager]);
- const loadDetail=useCallback(async(sheet:string)=>{
-   const d=await call<StocktakeDetail>("/"+encodeURIComponent(sheet));
-   if(selectedRef.current===sheet)setDetail(d);
+ const detailRef=useRef<StocktakeDetail|null>(null);detailRef.current=detail;
+ const loadDetail=useCallback(async(sheet:string,incremental=false)=>{
+   const previous=incremental&&detailRef.current?.sheet.sheetNo===sheet?detailRef.current:null;
+   const suffix=previous?"?since="+previous.sheet.version:"";
+   const d=await call<StocktakeDetail & {removedKeys?:string[]}>("/"+encodeURIComponent(sheet)+suffix);
+   if(selectedRef.current===sheet){
+     setDetail(current=>{
+       if(!previous||!current||current.sheet.sheetNo!==sheet)return d;
+       const removed=new Set(d.removedKeys??[]);
+       const changed=new Map(d.lines.map(l=>[l.lineKey,l]));
+       const merged=current.lines.filter(l=>!removed.has(l.lineKey)).map(l=>changed.get(l.lineKey)??l);
+       const known=new Set(merged.map(l=>l.lineKey));
+       for(const line of d.lines)if(!known.has(line.lineKey))merged.push(line);
+       return {sheet:d.sheet,lines:merged};
+     });
+   }
    return d;
  },[]);
  useEffect(()=>{void loadSheets().catch(e=>reportError(errorOf(e)))},[loadSheets,reportError]);
@@ -70,9 +84,11 @@ export function StoreStocktake({role}:{role:string}){
    void loadDetail(selected).catch(e=>reportError(errorOf(e)));
  },[selected,loadDetail,reportError]);
  useEffect(()=>{if(!selected)return;
-   // Poll for colleagues' saves without erasing an in-progress local draft.
-   const timer=window.setInterval(()=>{void Promise.all([loadDetail(selected),loadSheets()]).catch(()=>undefined)},10000);
-   return()=>window.clearInterval(timer);
+   const active=()=>document.visibilityState==="visible"&&
+     document.querySelector(".cy-store-stocktake")?.getClientRects().length!==0;
+   const details=window.setInterval(()=>{if(active())void loadDetail(selected,true).catch(()=>undefined)},10000);
+   const summary=window.setInterval(()=>{if(active())void loadSheets().catch(()=>undefined)},30000);
+   return()=>{window.clearInterval(details);window.clearInterval(summary)};
  },[selected,loadDetail,loadSheets]);
  useEffect(()=>{
    if(!job.result||job.result.id===lastJob.current)return;
@@ -81,10 +97,13 @@ export function StoreStocktake({role}:{role:string}){
    void loadSheets().then(()=>selectedRef.current?loadDetail(selectedRef.current):null).catch(()=>undefined);
  },[job.result,loadSheets,loadDetail]);
 
+ const locations=useMemo(()=>[...new Set(detail?.lines.map(l=>l.location||"未指定儲位")??[])].sort(),[detail]);
+ useEffect(()=>{if(!locations.includes(location))setLocation(locations[0]??"")},[locations,location]);
  const visible=useMemo(()=>{
   if(!detail)return [];
   const q=search.trim().toLowerCase();
   return detail.lines.filter(l=>{
+   if(window.matchMedia("(max-width: 640px)").matches&&location&&(l.location||"未指定儲位")!==location)return false;
    if(q&&![l.itemCode,l.itemName,l.location,l.batch,l.warehouseName].some(v=>v.toLowerCase().includes(q)))return false;
    if(filter==="ADDED")return l.isAdded;
    if(filter==="UNFILLED")return detail.sheet.status==="COUNTING"?l.firstQty===null:
@@ -93,7 +112,7 @@ export function StoreStocktake({role}:{role:string}){
       relativeDiff(l.recountQty??l.firstQty,l.bookQty)!=="0";
    return true;
   });
- },[detail,search,filter]);
+ },[detail,search,filter,location]);
  const currentSheet=detail?.sheet;
  const open=async(sheetNo:string,bodyPath:string,body?:Record<string,unknown>,method="POST")=>{
    setBusy(true);
@@ -127,7 +146,9 @@ export function StoreStocktake({role}:{role:string}){
    try{
      const fresh=await call<{sheet:StocktakeSheet;line:StocktakeLine}>("/"+encodeURIComponent(detail.sheet.sheetNo)+"/line","PATCH",
        {lineKey:line.lineKey,quantity:value,expectedVersion:line.version});
-     setDetail(fresh);
+     setDetail(old=>old&&old.sheet.sheetNo===fresh.sheet.sheetNo?{
+       sheet:fresh.sheet,lines:old.lines.map(l=>l.lineKey===fresh.line.lineKey?fresh.line:l)
+     }:old);
      setDrafts(s=>{const copy={...s};if(copy[line.lineKey]===value)delete copy[line.lineKey];return copy});
      setConflict(null);
    }catch(e){
