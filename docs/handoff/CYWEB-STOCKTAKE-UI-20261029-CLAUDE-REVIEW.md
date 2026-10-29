@@ -1,3 +1,12 @@
+## 第二輪 CI 最終結果（2026-10-30）
+
+- [GitHub Actions Runtime Check #40940708273](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/40940708273) `completed / success`，驗證程式 SHA `a1b81b3ddb89bf9471bfb76ef3b5df6583355af1`。
+- 4 個工作均成功：`browser-typecheck`、`worker-typecheck`、`source-contracts`、`build`。build 內含本機 D1 驗收、完整 Node 測試（包括新增 `scripts/store-stocktake-ui.test.mjs`）、Vite 打包。
+- 前兩輪 CI 失敗分別因 Enter 共用鍵盤規範及 Field/FormSection 共用表單規範，均已按既有設計修復；最新程式版全部通過。
+- 此後只更新本 Handoff 文件，不變更已測試的程式檔。PR #314 仍 Draft，尚未合併、尚未部署。瀏覽器實際視覺檢查與互動驗收仍列為 Claude 複審工作，不得把 CI 當成實際截圖驗證。
+
+---
+
 ## 第二輪補充：共用表單元件治理檢查
 
 - 修正 Enter 鍵後，Runtime Check run `40940419218` 的 browser typecheck、source contracts、worker tests 通過，但完整 Node 測試的 `scripts/form-fields.test.mjs` 擋下表單中的原生 `<label>`，要求所有業務表單必須沿用共用 `Field` / `FormSection`。
