@@ -1,3 +1,12 @@
+## 第二輪補充：共用表單元件治理檢查
+
+- 修正 Enter 鍵後，Runtime Check run `40940419218` 的 browser typecheck、source contracts、worker tests 通過，但完整 Node 測試的 `scripts/form-fields.test.mjs` 擋下表單中的原生 `<label>`，要求所有業務表單必須沿用共用 `Field` / `FormSection`。
+- `cf0bf631`：`StoreStocktake.tsx` 改以共用 `Field required size="l"` 包住唯一輸入，`FormSection` 布局，按鈕仍位於輸入框右側。
+- `a1b81b3`：`store.css` 對共用欄位提供局部 flex 寬度與底部對齊，不覆寫其他表單。
+- 最新 CI 需以 `cf0bf631`／`a1b81b3` 之後的版本為準；此段記錄既有失敗與修正，保留給 Claude 複審。
+
+---
+
 ## 2026-10-30 CI 發現與修正（第二輪補充）
 
 - 新增的單欄位忽略底稿輸入表單，首次 Runtime Check `40940260959` 的 worker-typecheck／Identity adapter regression tests 階段被共用 `scripts/form-keyboard.test.mjs` 擋下：所有資料輸入表單必須使用既有 Enter 導覽處理器。
