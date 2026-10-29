@@ -144,9 +144,12 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
   if(action==="unignore"&&method==="POST"){
     requireAdmin(role);if(sh.status!=="IGNORED")fail("STOCKTAKE_STATUS","底稿不在忽略狀態",409);
     const v=await json(request),expected=version(v.expectedVersion);
+    const stub=sh.detail_read_at===null;
     await db.batch([guard(db,"EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND version=? AND status='IGNORED')",sheet,expected),
-      db.prepare("UPDATE stocktake_sheets SET status='COUNTING',version=version+1,updated_at=? WHERE sheet_no=?").bind(now,sheet),
-      audit(db,sheet,"unignored",member,requestId,{})]);
+      ...(stub
+       ? [db.prepare("DELETE FROM stocktake_sheets WHERE sheet_no=? AND status='IGNORED' AND version=? AND detail_read_at IS NULL").bind(sheet,expected)]
+       : [db.prepare("UPDATE stocktake_sheets SET status='COUNTING',version=version+1,updated_at=? WHERE sheet_no=?").bind(now,sheet)]),
+      audit(db,sheet,"unignored",member,requestId,{removedExclusionOnly:stub})]);
     return success({ignored:false},requestId);
   }
   if(action==="refresh"&&method==="POST"){
