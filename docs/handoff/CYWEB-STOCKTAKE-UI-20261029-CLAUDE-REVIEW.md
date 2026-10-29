@@ -1,3 +1,20 @@
+## 2026-10-29 使用者釐清需求：忽略清單純粹是 ERP SYNC 排除表
+
+- 更新盤點單改名為 **同步ERP盤點單**；移除「更新畫面」，因已有 30 秒清單自動輪詢及其他即時刷新。
+- 忽略底稿**不是另一種需要在 WEB 操作的盤點單**，目的僅是排除 ERP 尚存但不需匯入的底稿編號。
+- 新增忽略編號後 `STOCKTAKE_SYNC` 的 `skipSheets` 必須包含它；從排除表移除後，下次同步若 ERP 確實存在，才能產生 WEB 盤點單。
+- 既有 schema 把同步前的排除編號記為 `stocktake_sheets.status=IGNORED` stub。為維持相容而不另加 migration；移除 **尚未讀明細** 的忽略 stub 時，API 刪除該 stub，不再轉成 `COUNTING` 造成 WEB 平白出現底稿；曾有明細的已忽略底稿則保留既有恢復行為，以免破壞歷史資料。
+- UI 表格動作改稱「移除」，確認對話框清楚解釋是排除清單調整，不會建立 WEB 底稿。
+
+本輪提交：
+- `a940ba32`：同步ERP盤點單按鈕文案與刪除更新畫面。
+- `15b6cfa4`：排除清單的 UI 文案和操作提示。
+- `3e64bd70`：修正 `worker/http/store-stocktake-routes.ts` 的未同步忽略 stub 移除行為。
+- `ce5ff95b`：`scripts/store-stocktake.test.mjs` 增加移除排除項後 WEB 不產生底稿的回歸斷言。
+
+驗證要求：同一張 stub 加入忽略→SYNC skip→移除忽略→WEB 清單仍無該單→再次 SYNC 包含該底稿→ERP 回傳後才出現在 WEB。最新 Runtime CI 需對 **最終 SHA** 驗證，不得沿用先前成功紀錄。
+
+---
 # CYWEB 庫存盤點 UI 修改 — Claude 審查交接
 日期：2026-10-29
 Repository: `simonliu1118-byte/chihyuan-web`
