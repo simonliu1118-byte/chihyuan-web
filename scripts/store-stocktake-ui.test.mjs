@@ -37,3 +37,28 @@ test("ignore setup dialog is compact, has inline add and uses ordering table sty
  assert.doesNotMatch(stocktake,/新增忽略<\/button>/);
  assert.match(css,/width:min\(496px,calc\(100vw - 32px\)\)/);
 });
+
+test("stocktake detail uses shared ordering record header and toolbar",()=>{
+ assert.match(stocktake,/<header className="cy-record-header">/);
+ assert.match(stocktake,/<div className="cy-ordering-title">[\\s\\S]*?<StatusChip[\\s\\S]*?formatDate\\(currentSheet\\.sheetDate\\)\\+"盤點"/);
+ assert.match(stocktake,/商品 \\{filledCount\\}\\/\\{totalCount\\} 已填/);
+ assert.match(stocktake,/<div className="cy-record-actions">/);
+ assert.match(stocktake,/>初盤確認<\\/button>/);
+ assert.match(stocktake,/>複盤確認<\\/button>/);
+ assert.match(stocktake,/<DataViewToolbar searchValue=\\{search\\} onSearchChange=\\{setSearch\\}/);
+ assert.match(stocktake,/filters=\\{<select className="cy-op-input"/);
+ assert.doesNotMatch(stocktake,/盲盤中：帳面數量在第一次主管確認前/);
+});
+
+test("stocktake inventory is an ordering-style editable grid without per-product cards",()=>{
+ assert.match(stocktake,/<h3>盤點品號庫存明細<\\/h3>/);
+ assert.match(stocktake,/className="cy-ordering-grid-scroll cy-stocktake-lines"/);
+ assert.match(stocktake,/<table className="cy-ordering-grid cy-stocktake-grid"/);
+ assert.match(stocktake,/className="cy-ordering-cell"[\\s\\S]*?onBlur=\\{\\(\\)=>void saveLine\\(l\\)\\}/);
+ assert.match(stocktake,/onKeyDown=\\{e=>nextOnEnter\\(e,l\\)\\}/);
+ assert.match(stocktake,/void showHistory\\(l\\)/);
+ assert.match(stocktake,/void deleteBatch\\(l\\)/);
+ assert.match(stocktake,/colSpan=\\{currentSheet.status==="COUNTING"\\?11:14\\}/);
+ assert.doesNotMatch(stocktake,/<article className="cy-stocktake-line"/);
+ assert.match(css,/cy-stocktake-grid\\[data-phase="recount"\\]/);
+});
