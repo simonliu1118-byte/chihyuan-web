@@ -211,7 +211,7 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
       guard(db,"EXISTS(SELECT 1 FROM stocktake_lines WHERE sheet_no=? AND line_key=? AND version=? AND is_added=1)",sheet,key,expected),
       db.prepare("DELETE FROM stocktake_lines WHERE sheet_no=? AND line_key=?").bind(sheet,key),
       db.prepare("UPDATE stocktake_sheets SET version=version+1,total_lines=total_lines-1,counted_lines=counted_lines-?,recount_needed=recount_needed-?,updated_at=? WHERE sheet_no=?").bind(line.first_qty===null?0:1,line.locked?0:1,now,sheet),
-      db.prepare("INSERT INTO stocktake_line_history(sheet_no,line_key,field,before_value,after_value,actor_member_id,changed_at) VALUES(?,?,'deleted',?,?,?,?)")
+      db.prepare("INSERT INTO stocktake_line_history(sheet_no,line_key,field,before_value,after_value,actor_member_id,changed_at,removed_rev) VALUES(?,?,'deleted',?,?,?,?,?)")
         .bind(sheet,key,JSON.stringify({batch:line.batch,first:line.first_qty,recount:line.recount_qty}),null,member,now,sh.version+1)]);
     const updated=await one<Sheet>(db,"SELECT * FROM stocktake_sheets WHERE sheet_no=?",sheet);
     return success({sheet:sheetJson(updated!,[]),removedKey:key},requestId);
