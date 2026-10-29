@@ -69,6 +69,7 @@ export function StoreStocktake({role}:{role:string}){
      setDetail(current=>{
        if(!previous||!current||current.sheet.sheetNo!==sheet)return d;
        if(current.sheet.version>d.sheet.version)return current; // slower responses must not roll back newer edits
+       if(current.sheet.version===d.sheet.version&&d.lines.length===0&&(d.removedKeys?.length??0)===0)return current; // no React redraw for idle polls
        const removed=new Set(d.removedKeys??[]);
        const changed=new Map(d.lines.map(l=>[l.lineKey,l]));
        const merged=current.lines.filter(l=>!removed.has(l.lineKey)).map(l=>changed.get(l.lineKey)??l);
