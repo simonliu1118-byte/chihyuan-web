@@ -45,7 +45,9 @@ export async function inspectAccountPortal({ accountId, apiToken, configuredIden
   async function read(resource) {
     const response = await readOnlyFetch(api + resource, { headers: {authorization: `Bearer ${apiToken}`} });
     const data = await response.json().catch(() => null);
-    if (!response.ok || data?.success !== true) fail("CYWEB_AUDIT_RESOURCE_UNAVAILABLE");
+    // Which read failed and why (HTTP status, Cloudflare error codes); ids are masked.
+    if (!response.ok || data?.success !== true)
+      fail(`CYWEB_AUDIT_RESOURCE_UNAVAILABLE ${resource.replace(/[0-9a-f-]{36}/gi, "<id>").split("?")[0]} HTTP ${response.status} cf=${(data?.errors ?? []).map(e => e.code).join(",")}`);
     return data;
   }
   const configuredIdentity = await read(`/workers/scripts/${encodeURIComponent(configuredIdentityService)}/settings`);
