@@ -1,3 +1,19 @@
+## 2026-10-29 架構修正（依使用者最新最終定義）
+
+**最終需求：忽略清單僅告訴 QUERY 哪些 ERP 底稿不要掃；只有 QUERY 真正同步成功才有 WEB 盤點單。QUERY Windows 程式碼不修改。**
+
+變更：
+- `migrations/0031_stocktake_ignore_exclusions.sql`：新增獨立 `stocktake_sync_ignored(sheet_no,created_at,updated_at)`；將舊 `IGNORED` 記錄移至此清單。尚未 ERP 同步的 legacy stub 刪除；已同步的舊底稿保留資料，轉回 COUNTING（歷史資料保護待 Claude 審查）。
+- `worker/http/store-stocktake-routes.ts`：管理員 `GET ?ignored=true` 查獨立清單、`POST /ignore` 加入編號、`DELETE /ignore` 移除編號；不再寫入 `stocktake_sheets`，也移除 `/:sheetNo/ignore` 和 `/unignore` 的盤點狀態操作。 `POST /sync` 讀此排除清單形成既有 `skipSheets`，不改 QUERY 協定。
+- `worker/http/stocktake-erp.ts`：同步結果存入 D1 前再次檢查忽略清單，以防 ERP job 排隊期間新增忽略卻仍匯入。這是 WEB 同步接收端防護，**沒有修改桌面 QUERY**。
+- `src/runtime/modules/StoreStocktake.tsx`：管理表只存底稿編號與加入時間；「移除」呼叫 `DELETE /ignore`；從盤點卡移除「設為忽略／取消忽略」狀態動作；前一輪已更名「同步ERP盤點單」及移除「更新畫面」。
+- `scripts/store-stocktake.test.mjs`：調整新增/移除忽略 API 測試、確認未成功同步的底稿不會出現在 WEB。
+
+主要提交：`adafdf12`、`6c7c7c88`、`f5df389c`、`b7ec0a29`、`8c25610f`、`df8a270a`。
+
+**注意：先前 Handoff 對 `unignore`、以盤點狀態表示忽略、`?ignored=true` 回傳 StocktakeSheet 的敘述已過時，以本節為準。** Claude 必須檢查 migration 對已有歷史的 IGNORED 盤點單處理、同步佇列競態與最新版 CI。未合併、未部署。
+
+---
 ## 2026-10-29 使用者釐清需求：忽略清單純粹是 ERP SYNC 排除表
 
 - 更新盤點單改名為 **同步ERP盤點單**；移除「更新畫面」，因已有 30 秒清單自動輪詢及其他即時刷新。
