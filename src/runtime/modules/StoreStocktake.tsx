@@ -35,7 +35,7 @@ const relativeDiff=(a:string|null,b:string|undefined)=>{
 export function StoreStocktake({role}:{role:string}){
  const manager=isAdmin(role);
  const [sheets,setSheets]=useState<StocktakeSheet[]|null>(null);
- const [ignored,setIgnored]=useState<StocktakeSheet[]>([]);
+ const [ignored,setIgnored]=useState<{sheetNo:string;createdAt:string}[]>([]);
 
  const [selected,setSelected]=useState<string|null>(null);
  const [detail,setDetail]=useState<StocktakeDetail|null>(null);
@@ -60,7 +60,7 @@ export function StoreStocktake({role}:{role:string}){
  const selectedRef=useRef(selected);selectedRef.current=selected;
 
  const loadSheets=useCallback(async()=>{
-   const [normal,excluded]=await Promise.all([call<StocktakeSheet[]>(""),manager?call<StocktakeSheet[]>("?ignored=true"):Promise.resolve([])]);
+   const [normal,excluded]=await Promise.all([call<StocktakeSheet[]>(""),manager?call<{sheetNo:string;createdAt:string}[]>("?ignored=true"):Promise.resolve([])]);
    setSheets(normal);setIgnored(excluded);
  },[manager]);
  const detailRef=useRef<StocktakeDetail|null>(null);detailRef.current=detail;
@@ -201,13 +201,13 @@ export function StoreStocktake({role}:{role:string}){
   try{await call("/ignore","POST",{sheetNo:ignoreForm.trim()});setIgnoreForm(null);await loadSheets();setMessage("已新增忽略底稿。")}
   catch(err){reportError(errorOf(err))}finally{setBusy(false)}
  }
- async function removeIgnored(sh:StocktakeSheet){
-  if(!await confirm({title:"移除忽略底稿",description:`底稿 ${sh.sheetNo} 將移出 ERP 同步排除清單；下次同步時若 ERP 仍有此底稿，就會正常匯入。`,confirmLabel:"移除忽略"}))return;
+ async function removeIgnored(sh:{sheetNo:string}){
+  if(!await confirm({title:"移除忽略底稿",description:"確認從忽略清單移除 "+sh.sheetNo+"？",confirmLabel:"移除"}))return;
   setBusy(true);
   try{
-   await call("/"+encodeURIComponent(sh.sheetNo)+"/unignore","POST",{expectedVersion:sh.version});
+   await call("/ignore","DELETE",{sheetNo:sh.sheetNo});
    await loadSheets();
-   notify("底稿 "+sh.sheetNo+" 已從忽略清單移除。","盤點通知",{replace:true});
+   notify("已從忽略清單移除 "+sh.sheetNo,"盤點通知",{replace:true});
   }catch(e){reportError(errorOf(e))}finally{setBusy(false)}
  }
  async function addBatch(e:FormEvent<HTMLFormElement>){
@@ -268,10 +268,6 @@ export function StoreStocktake({role}:{role:string}){
       <div className="cy-stocktake-actions">
        {manager&&currentSheet.status==="COUNTING"&&currentSheet.detailReadAt?
          <button className="cy-op-button" disabled={busy} type="button" onClick={()=>void afterConfirm("refresh")}>重新整理</button>:null}
-       {manager&&currentSheet.status==="COUNTING"?
-         <button className="cy-op-button" disabled={busy} type="button" onClick={()=>void afterConfirm("ignore")}>設為忽略</button>:null}
-       {manager&&currentSheet.status==="IGNORED"?
-         <button className="cy-op-button" disabled={busy} type="button" onClick={()=>void afterConfirm("unignore")}>移除</button>:null}
        {manager&&currentSheet.status==="COUNTING"&&currentSheet.detailReadAt?
          <button className="cy-op-button primary" disabled={busy} type="button" onClick={()=>void afterConfirm("first-confirm")}>第一次確認</button>:null}
        {manager&&currentSheet.status==="RECOUNTING"?
@@ -367,12 +363,12 @@ export function StoreStocktake({role}:{role:string}){
     <DataView ariaLabel="已忽略底稿清單" items={ignored} getKey={sh=>sh.sheetNo}
      columns={[
       {key:"sheet",header:"底稿編號",render:sh=><strong>{sh.sheetNo}</strong>},
-      {key:"date",header:"底稿日期",render:sh=>sh.sheetDate??"—"},
+      {key:"date",header:"加入時間",render:sh=>date(sh.createdAt)},
       {key:"actions",header:"操作",render:sh=><button type="button" className="cy-op-button compact danger"
        disabled={busy} onClick={()=>void removeIgnored(sh)}>移除</button>}
      ]}
      renderCard={sh=><div className="cy-stocktake-ignored-card"><strong>{sh.sheetNo}</strong>
-      <span>{sh.sheetDate??"尚無日期"}</span><button type="button" className="cy-op-button compact danger"
+      <span>{date(sh.createdAt)}</span><button type="button" className="cy-op-button compact danger"
        disabled={busy} onClick={()=>void removeIgnored(sh)}>移除</button></div>}
      emptyTitle="目前沒有忽略底稿"
     />
