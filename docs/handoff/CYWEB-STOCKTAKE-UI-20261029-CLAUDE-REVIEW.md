@@ -1,3 +1,11 @@
+## 2026-10-30 使用者批准合併及部署，Claude 後續複審保留
+
+- 使用者明確改為允許 PR #313 合併 main 並部署，但**仍要求保留完整 Handoff 供 Claude 事後複審**。
+- 合併前確認 PR #313 mergeable=true、clean；前次 `87066760` 的 Runtime Check、Governance Check、PR deploy dry-run 均成功。
+- 原本開發分支部署提交 `19a44060` 的驗證成功，但因 `DEPLOYMENT_SOURCE_MUST_MATCH_CURRENT_MAIN` 被安全檢查拒絕真正發布；本次遵循安全流程先合併 main 再發布。
+- 部署後應補記 merge SHA、開發部署 workflow run、health 結果。Claude 仍需複審：獨立忽略清單與 legacy IGNORED 遷移、同步佇列競態、備份資料表覆蓋、手機 UI，以及用戶要求的查詢完成通知。
+
+---
 ## 2026-10-30 開發部署執行紀錄
 
 - 使用者明確批准**部署但不合併**。
