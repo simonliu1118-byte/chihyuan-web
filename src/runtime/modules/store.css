@@ -119,3 +119,11 @@
  .cy-stocktake-location-filter{display:grid;gap:4px;font-size:var(--cy-fs-sm)}
  .cy-stocktake-location-filter .cy-op-input{width:100%;min-height:40px}
 }
+
+
+/* Stocktake: controls belong to the sheet navigator, not a full-width toolbar. */
+.cy-stocktake-list-actions{display:flex;flex-wrap:wrap;gap:6px;padding:2px 0 8px;border-bottom:1px solid var(--cy-border);margin-bottom:4px}
+.cy-stocktake-list-actions .cy-op-button{font-size:var(--cy-fs-xs)}
+.cy-stocktake-ignored-list{margin-top:18px;border-top:1px solid var(--cy-border);padding-top:14px;min-width:0}
+.cy-stocktake-ignored-list h3{margin:0 0 10px}
+.cy-stocktake-ignored-card{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
