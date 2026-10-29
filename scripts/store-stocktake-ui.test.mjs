@@ -62,3 +62,27 @@ test("stocktake inventory is an ordering-style editable grid without per-product
  assert.doesNotMatch(stocktake,/<article className="cy-stocktake-line"/);
  assert.match(css,/cy-stocktake-grid\[data-phase="recount"\]/);
 });
+
+test("mobile stocktake rows expose each field without requiring a 1290px horizontal table",()=>{
+ assert.match(stocktake,/<td data-label="品號">/);
+ assert.match(stocktake,/<td data-label="品名">/);
+ assert.match(stocktake,/<td data-label="庫別">/);
+ assert.match(stocktake,/<td data-label="儲位">/);
+ assert.match(stocktake,/<td data-label="批號">/);
+ assert.match(stocktake,/className="cy-stocktake-qty-cell" data-label=\{currentSheet\.status==="COUNTING"\?"初盤數量":"複盤數量"\}/);
+ assert.match(stocktake,/data-stocktake-qty type="text"/);
+ assert.match(stocktake,/onBlur=\{\(\)=>void saveLine\(l\)\}/);
+ assert.match(stocktake,/onKeyDown=\{e=>nextOnEnter\(e,l\)\}/);
+ assert.match(css,/\.cy-ordering-grid\.cy-stocktake-grid\{display:block;box-sizing:border-box;width:100%;min-width:0/);
+ assert.match(css,/\.cy-stocktake-grid tbody\{display:grid;gap:10px;width:100%;min-width:0\}/);
+ assert.match(css,/\.cy-ordering-grid\.cy-stocktake-grid tr\.cy-stocktake-row-group>td::before\{content:attr\(data-label\)/);
+ assert.match(css,/\.cy-ordering-grid\.cy-stocktake-grid \.cy-stocktake-qty-cell\{grid-column:1\/-1/);
+ assert.match(css,/\.cy-stocktake-grid \.cy-stocktake-qty-cell \.cy-ordering-cell\{display:block;width:100%;height:46px/);
+});
+
+test("stocktake search and ALL dropdown share one compact row on phones",()=>{
+ assert.match(css,/\.cy-stocktake-main \.cy-data-toolbar-primary\{display:flex;flex-direction:row;align-items:center/);
+ assert.match(css,/\.cy-stocktake-main \.cy-data-search\{display:block;flex:1 1 0/);
+ assert.match(css,/\.cy-stocktake-main \.cy-data-filters\{display:flex;flex:0 0 106px;flex-direction:row/);
+ assert.match(css,/\.cy-stocktake-main \.cy-data-filters>\.cy-op-input\{box-sizing:border-box;width:100%;min-width:0/);
+});

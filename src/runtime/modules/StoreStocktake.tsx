@@ -345,30 +345,30 @@ export function StoreStocktake({role}:{role:string}){
           const lastAt=field==="firstQty"?l.firstAt:l.recountAt;
           const lastBy=field==="firstQty"?l.firstByName:l.recountByName;
           return <Fragment key={l.lineKey}><tr className="cy-stocktake-row-group">
-           <td>{index+1}</td>
-           <td><span className="cy-ordering-cell-text">{l.itemCode}</span></td>
-           <td><span className="cy-ordering-cell-text cy-ordering-wrap">{l.itemName}</span>
+           <td data-label="項次">{index+1}</td>
+           <td data-label="品號"><span className="cy-ordering-cell-text">{l.itemCode}</span></td>
+           <td data-label="品名"><span className="cy-ordering-cell-text cy-ordering-wrap">{l.itemName}</span>
             {l.isAdded?<small className="cy-stocktake-row-note">新增批號</small>:null}
             {l.locked?<small className="cy-stocktake-row-note">已鎖定</small>:null}</td>
-           <td><span className="cy-ordering-cell-text cy-ordering-wrap">{l.spec||"—"}</span></td>
-           <td><span className="cy-ordering-cell-text">{l.warehouseName||"—"}</span></td>
-           <td><span className="cy-ordering-cell-text">{l.location||"—"}</span></td>
-           <td><span className="cy-ordering-cell-text">{l.batch||"無"}</span></td>
-           <td><span className="cy-ordering-cell-text">{l.unit||"—"}</span></td>
+           <td data-label="規格"><span className="cy-ordering-cell-text cy-ordering-wrap">{l.spec||"—"}</span></td>
+           <td data-label="庫別"><span className="cy-ordering-cell-text">{l.warehouseName||"—"}</span></td>
+           <td data-label="儲位"><span className="cy-ordering-cell-text">{l.location||"—"}</span></td>
+           <td data-label="批號"><span className="cy-ordering-cell-text">{l.batch||"無"}</span></td>
+           <td data-label="單位"><span className="cy-ordering-cell-text">{l.unit||"—"}</span></td>
            {currentSheet.status!=="COUNTING"?<>
-            <td className="cy-stocktake-num">{l.firstQty??"—"}</td>
-            <td className="cy-stocktake-num">{l.bookQty??"—"}</td>
-            <td className="cy-stocktake-num">{relativeDiff(l.firstQty,l.bookQty)}</td>
+            <td className="cy-stocktake-num" data-label="初盤數量">{l.firstQty??"—"}</td>
+            <td className="cy-stocktake-num" data-label="帳面數量">{l.bookQty??"—"}</td>
+            <td className="cy-stocktake-num" data-label="差異">{relativeDiff(l.firstQty,l.bookQty)}</td>
            </>:null}
-           <td className="cy-stocktake-qty-cell">
+           <td className="cy-stocktake-qty-cell" data-label={currentSheet.status==="COUNTING"?"初盤數量":"複盤數量"}>
             <input data-stocktake-qty type="text" inputMode="decimal" className="cy-ordering-cell"
              aria-label={(currentSheet.status==="COUNTING"?"初盤數量":"複盤數量")+"："+l.itemCode+"，批號 "+(l.batch||"無")}
              disabled={!canEdit||saving===l.lineKey}
              value={edited??stored??""} onChange={e=>changeDraft(l.lineKey,e.target.value)}
              onBlur={()=>void saveLine(l)} onKeyDown={e=>nextOnEnter(e,l)} placeholder="未填"/>
            </td>
-           <td className="cy-stocktake-last-edit"><span>{lastBy??"—"}</span><small>{date(lastAt)}</small></td>
-           <td className="cy-stocktake-row-actions">
+           <td className="cy-stocktake-last-edit" data-label="最後填寫"><span>{lastBy??"—"}</span><small>{date(lastAt)}</small></td>
+           <td className="cy-stocktake-row-actions" data-label="操作">
             <button className="cy-op-button compact" type="button" onClick={()=>void showHistory(l)}>修改紀錄</button>
             {l.isAdded&&canEdit?<button className="cy-op-button compact danger" type="button" onClick={()=>void deleteBatch(l)}>刪除批號</button>:null}
            </td>
