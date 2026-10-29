@@ -1,7 +1,7 @@
 # CYWEB ERP 清理 SQL 高頻執行改善 — Claude 審查交接
 
 日期：2026-10-29｜分支：`perf/cyweb-erp-housekeeping-cron-20261029`｜來源：`main`
-狀態：**Claude 審查完成——需修正 R1（見文末）；未合併、未部署**
+狀態：**Claude 審查並直接修正 R1、R3，通過；R2 為部署前確認；未合併、未部署**
 
 ## 問題與來源
 使用者 D1 監控截圖顯示：ERP 清理 SQL 執行 **6,248 次**、掃描 **624,800 列**，實際寫入 **0**。
@@ -63,3 +63,10 @@
   - 以 0001–最新 migration 建立 SQLite，對探測與清理 SQL 做 `EXPLAIN QUERY PLAN`（結果如 R1）。
   - PR 的 GitHub CI 全綠。
 - 使用者指示：本輪只審查，**不合併、不部署**。
+
+### Claude 直接修正（使用者指示小問題直接修，2026-10-29）
+
+- **R1 已修**：5 分鐘清理加上 `completed_at>=ago(3600)` 下限，每日 03:15（retention 分鐘同時是清理分鐘）以下限 `''` 全範圍補清。新增測試「5-minute purge reads only the last hour; the daily pass clears older leftovers」。
+- **R3 已修**：合併最新 main，升為 V0.9.53，並新增 CHANGELOG 項目。
+- **R2 仍待部署前確認**：檢查 Cloudflare 帳號的 Cron 觸發器總數。
+- 結論：**通過**，可交使用者決定合併／部署。

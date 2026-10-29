@@ -84,6 +84,16 @@ test("results clear only after 5 minutes; daily 30-day retention is a separate p
     assert.equal(f.sql.prepare("SELECT id FROM erp_item_queries WHERE id='older'").get(),undefined);
   }finally{f.sql.close()}
 });
+test("5-minute purge reads only the last hour; the daily pass clears older leftovers",async()=>{
+  const f=fixture();
+  try{
+    f.add("missed","DONE",-130,null,-120,"[]");
+    await runErpHousekeeping(f.db,at-5*60000);
+    assert.equal(f.sql.prepare("SELECT fields_json FROM erp_item_queries WHERE id='missed'").get().fields_json,"[]");
+    await runErpHousekeeping(f.db,at);
+    assert.equal(f.sql.prepare("SELECT fields_json FROM erp_item_queries WHERE id='missed'").get().fields_json,null);
+  }finally{f.sql.close()}
+});
 test("young results are preserved and cleanup uses the existing completion index",async()=>{
   const f=fixture();
   try{

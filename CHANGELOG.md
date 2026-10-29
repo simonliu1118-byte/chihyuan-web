@@ -5,6 +5,12 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.53 — ERP 清理 SQL 改排程執行（2026-10-29）
+
+- [x] ERP 清理不再於每次使用者／Agent API 請求執行（原截圖：執行 6,248 次、掃描 62.48 萬列、寫入 0），改由每分鐘 Cron：每分鐘處理排隊過期與執行逾時（閒置時只做索引探測）、每 5 分鐘清理一小時內完成的結果 JSON、台灣 03:15 全範圍補清並刪除 30 天以上紀錄。
+- [x] 逾時分類、Audit、盤點 `WRITING → WRITE_FAILED` 回復不變；無 Migration。
+- [ ] 部署前確認 Cloudflare 帳號 Cron 觸發器數量（Free 方案全帳號上限 5 個）；上線後以相同期間觀察 D1 rows read。
+
 ## CY Web V0.9.52 — 門市庫存盤點第一階段（2026-10-29，**程式及離線驗收完成，待 Claude 審查／尚未交付**）
 
 - [x] WO-0.9.52：受權門市盤點頁籤，初盤盲盤與逐列樂觀鎖、第一次主管確認後顯示帳面／差異、複盤、第二次確認寫回 ERP。所有結果須以最新 CI／合成 SQLite 驗證，正式 ERP 測試另待 CYERPAutoQuery WO-1.3.0。

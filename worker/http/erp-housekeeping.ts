@@ -72,9 +72,11 @@ export async function runErpHousekeeping(db: D1Database, scheduledTime: number):
       await failExpiredStocktakeWrite(db, job.target_code, job.id, nowIso, "ERP 寫回逾時，請管理員核對後重新寫回");
   }
   if (phases.purge) {
+    // Every 5 minutes reads only the last hour's completions; the daily pass (lower bound '')
+    // sweeps anything a missed run left, so reads do not grow with the 30-day retention.
     await db.prepare(
-      "UPDATE erp_item_queries SET fields_json=NULL,warehouses_json=NULL,batches_json=NULL,history_json=NULL,items_json=NULL,result_json=NULL WHERE completed_at<?1 AND (fields_json IS NOT NULL OR warehouses_json IS NOT NULL OR batches_json IS NOT NULL OR history_json IS NOT NULL OR items_json IS NOT NULL OR result_json IS NOT NULL)"
-    ).bind(ago(300)).run();
+      "UPDATE erp_item_queries SET fields_json=NULL,warehouses_json=NULL,batches_json=NULL,history_json=NULL,items_json=NULL,result_json=NULL WHERE completed_at<?1 AND completed_at>=?2 AND (fields_json IS NOT NULL OR warehouses_json IS NOT NULL OR batches_json IS NOT NULL OR history_json IS NOT NULL OR items_json IS NOT NULL OR result_json IS NOT NULL)"
+    ).bind(ago(300), phases.retention ? "" : ago(3600)).run();
   }
   if (phases.retention) {
     await db.prepare("DELETE FROM erp_item_queries WHERE completed_at<?1")
