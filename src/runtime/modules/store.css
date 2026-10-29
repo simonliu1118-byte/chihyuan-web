@@ -112,3 +112,10 @@
  .cy-stocktake-qty-row .cy-op-input{min-height:44px}
  .cy-stocktake-actions .cy-op-button{min-height:40px}
 }
+
+/* The stocktake location picker limits phone cards to one location; desktop keeps all rows. */
+.cy-stocktake-location-filter{display:none}
+@media(max-width:820px){
+ .cy-stocktake-location-filter{display:grid;gap:4px;font-size:var(--cy-fs-sm)}
+ .cy-stocktake-location-filter .cy-op-input{width:100%;min-height:40px}
+}
