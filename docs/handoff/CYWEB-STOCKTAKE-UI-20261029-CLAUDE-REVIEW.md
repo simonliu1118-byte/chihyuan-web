@@ -1,3 +1,11 @@
+## 2026-10-30 CI 發現與修正（第二輪補充）
+
+- 新增的單欄位忽略底稿輸入表單，首次 Runtime Check `40940260959` 的 worker-typecheck／Identity adapter regression tests 階段被共用 `scripts/form-keyboard.test.mjs` 擋下：所有資料輸入表單必須使用既有 Enter 導覽處理器。
+- `2e488897`：`src/runtime/modules/StoreStocktake.tsx` 的忽略底稿表單補上既有 `enterAdvancesThenSubmits`，可在輸入編號後按 Enter 直接送出，符合共用鍵盤與表單規範。沒有修改忽略清單 API。
+- **首次 CI 的失敗不等於最新 SHA 的失敗；必須重新看 `2e488897` 之後的最新 CI 結果。** Claude 應保留此過程，複審鍵盤操作及成功新增時 Dialog 不關閉。
+
+---
+
 # 2026-10-30 盤點 UI 第二輪（Claude 後續複審必看）
 
 ## 使用者最終確認需求
