@@ -25,8 +25,9 @@ function fixture(role="SUPER_ADMIN",grant=true){
  if(grant)sql.prepare("INSERT INTO app_member_module_access(member_id,module_code,enabled,updated_at) VALUES(1,'STORE_STOCKTAKE',1,?)").run(now);
  sql.prepare("INSERT INTO erp_item_agent_credentials(id,token_hash,created_at) VALUES(1,?,?)")
    .run(createHash("sha256").update(TOKEN).digest("hex"),now);
+ const scans={details:0};
  const db={
-  prepare(query){let bindings=[];const stmt=sql.prepare(query);const execute=()=>{
+  prepare(query){if(query.includes("FROM stocktake_lines l LEFT JOIN"))scans.details++;let bindings=[];const stmt=sql.prepare(query);const execute=()=>{
     const results=stmt.all(...bindings);
     return {results,meta:{changes:sql.prepare("SELECT changes() n").get().n,last_row_id:sql.prepare("SELECT last_insert_rowid() n").get().n}};
    };
@@ -64,7 +65,7 @@ function fixture(role="SUPER_ADMIN",grant=true){
   for(const line of data)sql.prepare("INSERT INTO stocktake_lines(sheet_no,line_key,seq,item_code,item_name,spec,warehouse_name,location,unit,batch,book_qty) VALUES(?,?,?,?,?,?,?,?,?,?,?)")
    .run(number,line.seq,line.seq,line.itemCode,line.itemName,line.spec,line.warehouseName,line.location,line.unit,line.batch,line.bookQty);
  };
- return {sql,db,api,user,agent,sheet,row,insert};
+ return {sql,db,api,user,agent,sheet,row,insert,scans};
 }
 
 test("access denied without STOCKTAKE grant; normal user cannot confirm",async()=>{
