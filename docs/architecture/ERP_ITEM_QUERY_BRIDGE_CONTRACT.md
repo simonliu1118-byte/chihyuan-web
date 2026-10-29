@@ -222,3 +222,39 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 - Claim 只領 `not_before` 為空或已到的工作。CLOSE 改變暫停時間時，等待中的工作 `not_before` 跟著改；RESUME 或無暫停的 CLOSE 清空 `not_before`（立即可領）。Agent 離線過期規則改以 `COALESCE(not_before, created_at)` 起算。
 - `GET /api/erp/queue` 每筆含 `notBefore`；預估完成時間從暫停結束起算。
 - 前端：`ERP_HELD` 時跳「ERP 暫停中」視窗（`ErpHeldPrompt`，App 層掛一次），可選「知道了」或「加入佇列，暫停結束自動查」。ERP 查詢程式視窗暫停中只顯示「取消暫停」；排程佇列為不遮住頁面的右側欄。
+
+
+## 庫存盤點（V0.9.52，CYWEB／CYERPAutoQuery）
+
+> 本節協定逐字摘錄自 `docs/development/work-orders/WO-0.9.52.md`，另一端依 `apps/CYERPAutoQuery/docs/work-orders/WO-1.3.0.md` 實作；此處定義的是 CYWEB Agent claim／complete API 契約，不是 Windows 工具的實際 ERP UI 操作步驟。
+
+### 協定（兩張工單共用，兩邊必須完全一致）
+
+新增兩種 ERP 查詢類型，走既有 `/api/erp-agent/item-queries/claim`／`/complete` 與 CY Web 排程佇列（每人 3 筆、依送入時間、暫停時可加入佇列等既有規則一律適用）。所有數量在 JSON 中一律為**數字字串**（ERP 顯示值，可為負數、可有小數），日期 `YYYY-MM-DD`。
+
+**`STOCKTAKE_SYNC`：讀盤點單（INVR11）**
+
+- claim：`{ id, queryType:"STOCKTAKE_SYNC", expiresAt, skipSheets: string[], onlySheet: string|null }`
+  - `skipSheets`：CY Web 已讀過或設為忽略的底稿編號（最多 500 個）。
+  - `onlySheet`：不為 null 時是「重新整理」，只讀這一張（即使它在 skip 內）。
+- complete（`outcome` 為 `FOUND`／`NOT_FOUND`／`FAILED`，共通欄位同其他類型）：
+  - `sheets: [{ sheetNo, date }]`：F2 開窗清單看到的**所有**底稿（最多 200 筆）。`onlySheet` 模式可只回該張。
+  - `details: [{ sheetNo, rows: [...] }]`：這次實際讀了明細的底稿（`onlySheet` 模式恰好一張；更新模式＝清單中不在 skip 的每一張）。
+  - `rows` 每列（最多 3,000 列／張）：`{ seq, itemCode, itemName, spec, warehouseName, location, unit, batch, bookQty }`。`seq` 為 INVR11 的「底稿序號」（5 位數字字串，張內唯一）；`bookQty` 為 INVR11 的「盤點數量」（ERP 預設帶入帳面數量）；`location`、`batch` 可為空字串。
+  - `NOT_FOUND`：沒有任何需要讀的底稿（清單全在 skip 內）；此時仍回 `sheets`、`details:[]`。
+- RUNNING 逾時 1,800 秒；complete 上限 900 KiB。
+
+**`STOCKTAKE_WRITE`：寫回 ERP（INVI14 逐筆、INVI06 新增批號與確認）**
+
+- claim：`{ id, queryType:"STOCKTAKE_WRITE", expiresAt, sheetNo, rows: [...] }`
+  - `rows` 每列（最多 3,000）：`{ key, seq, itemCode, batch, quantity }`。
+    - 既有列：`seq` 為底稿序號、`key` 同 `seq`。
+    - 新增批號：`seq` 為 null、`key` 為 CY Web 的列鍵（例如 `N0001`）。
+  - 只送「實際數量 ≠ 帳面數量」的既有列，以及全部新增批號列（規則見 CY Web 工單 §2）。
+- complete：`{ outcome:"FOUND"|"FAILED", sheetNo, results:[{ key, ok, erpSeq, message }], confirmed, mismatches:[{ key, seq, itemCode, batch, expected, actual }] }`
+  - `results` 每列一筆：`ok` 表示已寫入並讀回一致；新增批號列的 `erpSeq` 為 ERP 新產生的序號（既有列同 `seq`）；失敗時 `message` 為給人看的短句（不含路徑或帳密）。
+  - `confirmed`：INVR11 核對全部一致，且已在 INVI06 按「確認」。
+  - `mismatches`：INVR11 核對時不一致的列（有任何一列就不得按確認）。
+- RUNNING 逾時 3,600 秒；complete 上限 900 KiB。
+- Agent 每寫完一列以既有 `POST /api/erp-agent/item-queries/{id}/progress` 回報 `{ stage:"STOCK", done, total }`，CY Web 顯示「已寫入 x / y 列」。
+

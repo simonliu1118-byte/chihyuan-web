@@ -12,6 +12,8 @@ import {useCompactLayout} from "../../ui/foundation/useCompactLayout";
 import type {StatusTone} from "./status-flow";
 import {STORE_BLACKLIST_ACTION_LABELS,STORE_ORDER_STATUSES,STORE_ORDER_STATUS_LABELS,STORE_PICKUP_OVERDUE_DAYS,daysSinceNotified,lineAmount,normalizePhone,orderTotal,
  type StoreBlacklistAction,type StoreBlacklistEntry,type StoreOrder,type StoreOrderStatus} from "../../../shared/store";
+import {StoreStocktake} from "./StoreStocktake";
+import type {CyWebModuleCode} from "../../../shared/modules";
 import "./store.css";
 
 const ROOT="/api/business/store";
@@ -33,13 +35,19 @@ const formLines=(f:OrderForm)=>f.lines.filter(l=>l.itemCode.trim()||l.itemName.t
 const formTotal=(f:OrderForm)=>orderTotal(formLines(f).map(l=>({quantity:Number(l.quantity)||0,unitPrice:Number(l.unitPrice)||0})));
 
 /** 門市 (user 2026-10-28): tabs like ERP 查詢, no list on the left. 顧客訂購 is the first tab. */
-export function StorePage(){
- const [tab]=useState<"orders">("orders");
+export function StorePage({role,allowedModules}:{role:string;allowedModules:ReadonlySet<CyWebModuleCode>}){
+ const canOrders=allowedModules.has("STORE_CUSTOMER_ORDERS");
+ const canStocktake=allowedModules.has("STORE_STOCKTAKE");
+ const [tab,setTab]=useState<"orders"|"stocktake">(canOrders?"orders":"stocktake");
+ const active=tab==="orders"&&!canOrders?"stocktake":tab==="stocktake"&&!canStocktake?"orders":tab;
  return <section className="cy-store-page">
   <div className="cy-op-tabs" role="tablist" aria-label="門市">
-   <button type="button" role="tab" aria-selected={tab==="orders"} className={tab==="orders"?"active":undefined}>顧客訂購</button>
+   {canOrders?<button type="button" role="tab" aria-selected={active==="orders"} className={active==="orders"?"active":undefined}
+      onClick={()=>setTab("orders")}>顧客訂購</button>:null}
+   {canStocktake?<button type="button" role="tab" aria-selected={active==="stocktake"} className={active==="stocktake"?"active":undefined}
+      onClick={()=>setTab("stocktake")}>庫存盤點</button>:null}
   </div>
-  <CustomerOrders/>
+  {active==="orders"&&canOrders?<CustomerOrders/>:canStocktake?<StoreStocktake role={role}/>:null}
  </section>;
 }
 

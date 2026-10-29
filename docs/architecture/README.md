@@ -79,6 +79,8 @@ Archive、舊 preview、review backlog、readiness checkpoint、已結案舊 han
 
 ### Business modules
 
+- `STORE_STOCKTAKE.md` — 門市庫存盤點（V0.9.52、盲盤／複盤／ERP 寫回與第二階段保留資料邊界）。
+
 - `CUSTOMER_MODULE_CONTRACT.md`
 - `CUSTOMER_SERVICE_FOUNDATION.md`
 - `CUSTOMER_RELATED_FOUNDATION.md`

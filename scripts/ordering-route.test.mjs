@@ -1,3 +1,6 @@
+// One protected Store route regression suite owns these adjacent business-module checks.
+// Keep the stocktake tests in the existing Runtime Check list without changing governance workflows.
+import "./store-stocktake.test.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {DatabaseSync} from "node:sqlite";
