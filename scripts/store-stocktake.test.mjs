@@ -346,7 +346,7 @@ test("unignored pre-created stub is not skipped and receives its first ERP detai
   assert.deepEqual((await f.user("")).data,[]);
   const shown=(await f.user("?ignored=true")).data;
   assert.equal(shown.length,1);
-  const unignored=await f.user("/990001/unignore","POST",{expectedVersion:1});
+  const unignored=await f.user("/ignore","DELETE",{sheetNo:"990001"});
   assert.equal(unignored.status,200,JSON.stringify(unignored));
   assert.deepEqual((await f.user("")).data,[],"removing ignore must not create a WEB sheet");
   assert.deepEqual((await f.user("?ignored=true")).data,[]);
@@ -450,7 +450,7 @@ test("a failed SYNC may omit the lists; a refresh may list every sheet; a sheet 
    elapsedMs:5,agentVersion:"synthetic"});
   assert.equal(done.status,200,JSON.stringify(done));
   assert.equal((await f.sheet("990001")).data.lines.length,2,"the same 品號＋批號 twice on an ERP sheet is kept");
-  assert.equal(f.sql.prepare("SELECT status FROM stocktake_sheets WHERE sheet_no='990002'").get().status,"IGNORED");
+  assert.equal(f.sql.prepare("SELECT COUNT(*) AS n FROM stocktake_sheets WHERE sheet_no='990002'").get().n,0);
   assert.equal(f.sql.prepare("SELECT COUNT(*) n FROM stocktake_lines WHERE sheet_no='990002'").get().n,0);
   // Refresh: the agent may return the whole list with only this sheet's details.
   const refresh=await f.user("/990001/refresh","POST");
