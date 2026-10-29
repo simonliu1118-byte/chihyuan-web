@@ -861,6 +861,7 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "field",
     "id",
     "line_key",
+    "removed_rev",
     "sheet_no"
   ],
   "stocktake_lines": [
@@ -879,6 +880,7 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "recount_at",
     "recount_by",
     "recount_qty",
+    "rev",
     "seq",
     "sheet_no",
     "spec",
@@ -893,16 +895,19 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "sheet_no"
   ],
   "stocktake_sheets": [
+    "counted_lines",
     "created_at",
     "detail_read_at",
     "erp_confirmed_at",
     "first_confirmed_at",
     "first_confirmed_by",
     "second_confirmed_at",
+    "recount_needed",
     "second_confirmed_by",
     "sheet_date",
     "sheet_no",
     "status",
+    "total_lines",
     "updated_at",
     "version",
     "write_query_id",
