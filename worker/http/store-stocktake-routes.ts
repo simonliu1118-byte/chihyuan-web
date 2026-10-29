@@ -96,23 +96,31 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
  try{
   if(!path&&method==="GET"){
    const ignored=url.searchParams.get("ignored")==="true";
-   if(ignored)requireAdmin(role);
-   const sheets=await all<Sheet>(db,`SELECT * FROM stocktake_sheets WHERE status `+(ignored?"=":"<>")+` 'IGNORED' ORDER BY sheet_date DESC,sheet_no DESC LIMIT 501`);
+   if(ignored){
+    requireAdmin(role);
+    const entries=await all<{sheet_no:string;created_at:string}>(db,"SELECT sheet_no,created_at FROM stocktake_sync_ignored ORDER BY sheet_no LIMIT 501");
+    if(entries.length>500)fail("STOCKTAKE_LIMIT","忽略清單超過 500 筆",409);
+    return success(entries.map(e=>({sheetNo:e.sheet_no,createdAt:e.created_at})),requestId);
+   }
+   const sheets=await all<Sheet>(db,"SELECT * FROM stocktake_sheets WHERE status<>'IGNORED' ORDER BY sheet_date DESC,sheet_no DESC LIMIT 501");
    if(sheets.length>500)fail("STOCKTAKE_LIMIT","底稿超過 500 張",409);
    return success(sheets.map(sh=>sheetJson(sh,[])),requestId);
   }
   if(path==="ignore"&&method==="POST"){
    requireAdmin(role);const v=await json(request),sheet=sheetNo(v.sheetNo);
-   await db.batch([db.prepare("INSERT INTO stocktake_sheets(sheet_no,status,created_at,updated_at) VALUES(?,'IGNORED',?,?)").bind(sheet,now,now),
-    audit(db,sheet,"ignored",member,requestId,{beforeSync:true})]);
+   await db.prepare("INSERT INTO stocktake_sync_ignored(sheet_no,created_at,updated_at) VALUES(?,?,?)").bind(sheet,now,now).run();
    return success({sheetNo:sheet,ignored:true},requestId);
   }
+  if(path==="ignore"&&method==="DELETE"){
+   requireAdmin(role);const v=await json(request),sheet=sheetNo(v.sheetNo);
+   await db.prepare("DELETE FROM stocktake_sync_ignored WHERE sheet_no=?").bind(sheet).run();
+   return success({sheetNo:sheet,ignored:false},requestId);
+  }
   if(path==="sync"&&method==="POST"){
-   const sheets=await all<{sheet_no:string;detail_read_at:string|null;status:string}>(db,
-     "SELECT sheet_no,detail_read_at,status FROM stocktake_sheets ORDER BY sheet_no LIMIT 501");
-   if(sheets.length>500)fail("STOCKTAKE_LIMIT","已知底稿超過 500 張，請聯絡管理員",409);
-   // An ignored stub remains skipped until admin explicitly removes the ignore.
-   const skip=sheets.filter(s=>s.status==="IGNORED"||s.detail_read_at!==null).map(s=>s.sheet_no);
+   const sheets=await all<{sheet_no:string;detail_read_at:string|null}>(db,"SELECT sheet_no,detail_read_at FROM stocktake_sheets ORDER BY sheet_no LIMIT 501");
+   const ignored=await all<{sheet_no:string}>(db,"SELECT sheet_no FROM stocktake_sync_ignored ORDER BY sheet_no LIMIT 501");
+   if(sheets.length>500||ignored.length>500)fail("STOCKTAKE_LIMIT","底稿或忽略清單超過 500 筆",409);
+   const skip=[...new Set([...sheets.filter(s=>s.detail_read_at!==null).map(s=>s.sheet_no),...ignored.map(s=>s.sheet_no)])];
    return success(await createJob(db,member,requestId,"STOCKTAKE_SYNC",{skipSheets:skip,onlySheet:null},null),requestId);
   }
   const match=/^([A-Za-z0-9]{1,20})(?:\/(.*))?$/.exec(path);
@@ -132,25 +140,6 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
       h.actor_member_id AS memberId,h.changed_at AS at,COALESCE(m.display_name,m.employee_no) AS actorName
       FROM stocktake_line_history h JOIN app_members m ON m.id=h.actor_member_id
       WHERE h.sheet_no=? AND h.line_key=? ORDER BY h.id DESC LIMIT 101`,sheet,line),requestId);
-  }
-  if(action==="ignore"&&method==="POST"){
-    requireAdmin(role);if(sh.status!=="COUNTING")fail("STOCKTAKE_STATUS","只有初盤中的底稿可忽略",409);
-    const v=await json(request),expected=version(v.expectedVersion);
-    await db.batch([guard(db,"EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND version=? AND status='COUNTING')",sheet,expected),
-      db.prepare("UPDATE stocktake_sheets SET status='IGNORED',version=version+1,updated_at=? WHERE sheet_no=?").bind(now,sheet),
-      audit(db,sheet,"ignored",member,requestId,{})]);
-    return success({ignored:true},requestId);
-  }
-  if(action==="unignore"&&method==="POST"){
-    requireAdmin(role);if(sh.status!=="IGNORED")fail("STOCKTAKE_STATUS","底稿不在忽略狀態",409);
-    const v=await json(request),expected=version(v.expectedVersion);
-    const stub=sh.detail_read_at===null;
-    await db.batch([guard(db,"EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND version=? AND status='IGNORED')",sheet,expected),
-      ...(stub
-       ? [db.prepare("DELETE FROM stocktake_sheets WHERE sheet_no=? AND status='IGNORED' AND version=? AND detail_read_at IS NULL").bind(sheet,expected)]
-       : [db.prepare("UPDATE stocktake_sheets SET status='COUNTING',version=version+1,updated_at=? WHERE sheet_no=?").bind(now,sheet)]),
-      audit(db,sheet,"unignored",member,requestId,{removedExclusionOnly:stub})]);
-    return success({ignored:false},requestId);
   }
   if(action==="refresh"&&method==="POST"){
     requireAdmin(role);if(sh.status!=="COUNTING"||!sh.detail_read_at)fail("STOCKTAKE_STATUS","只有已讀明細的初盤底稿可重新整理",409);
