@@ -125,7 +125,7 @@ export function StoreStocktake({role}:{role:string}){
    inFlightSave.current.add(line.lineKey);
    setSaving(line.lineKey);
    try{
-     const fresh=await call<StocktakeDetail>("/"+encodeURIComponent(detail.sheet.sheetNo)+"/line","PATCH",
+     const fresh=await call<{sheet:StocktakeSheet;line:StocktakeLine}>("/"+encodeURIComponent(detail.sheet.sheetNo)+"/line","PATCH",
        {lineKey:line.lineKey,quantity:value,expectedVersion:line.version});
      setDetail(fresh);
      setDrafts(s=>{const copy={...s};if(copy[line.lineKey]===value)delete copy[line.lineKey];return copy});
@@ -265,6 +265,11 @@ export function StoreStocktake({role}:{role:string}){
        <option value="DIFFERENCE">有差異</option><option value="ADDED">新增批號</option>
       </select>
      </div>
+     <label className="cy-stocktake-location-filter">儲位（手機一次顯示一組）
+       <select className="cy-op-input" aria-label="選擇盤點儲位" value={location} onChange={e=>setLocation(e.target.value)}>
+        {locations.map(l=><option key={l} value={l}>{l}</option>)}
+       </select>
+     </label>
      <div className="cy-stocktake-lines">
       {visible.map(l=>{
        const field=currentSheet.status==="COUNTING"?"firstQty":"recountQty";
