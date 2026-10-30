@@ -58,9 +58,13 @@ function fixture(role="SUPER_ADMIN",grant=true){
  // Separate multi-location cases below exercise explicit locationCountId requests.
  const user=(path,method="GET",body)=>{
   if(path.endsWith("/line")&&method==="PATCH"&&body?.lineKey){
-   const cell=sql.prepare("SELECT id FROM stocktake_location_counts WHERE sheet_no=? AND source_line_key=? ORDER BY id LIMIT 1")
-    .get(path.split("/")[1],body.lineKey);
-   body={locationCountId:cell?.id,expectedVersion:body.expectedVersion,quantity:body.quantity};
+   const sheetNo=path.split("/")[1];
+   const cell=sql.prepare("SELECT id,version FROM stocktake_location_counts WHERE sheet_no=? AND source_line_key=? ORDER BY id LIMIT 1")
+    .get(sheetNo,body.lineKey);
+   const status=sql.prepare("SELECT status FROM stocktake_sheets WHERE sheet_no=?").get(sheetNo)?.status;
+   // Legacy test fixtures still read parent-row versions. In recount, use the child's
+   // latest version; explicit locationCountId tests below exercise stale-version conflicts.
+   body={locationCountId:cell?.id,expectedVersion:status==="RECOUNTING"?cell?.version:body.expectedVersion,quantity:body.quantity};
   }
   if(path.endsWith("/batches")&&method==="POST"&&body?.itemCode&&!Object.hasOwn(body,"locationCode"))
    body={...body,warehouseName:"倉甲",locationCode:"1324"};
