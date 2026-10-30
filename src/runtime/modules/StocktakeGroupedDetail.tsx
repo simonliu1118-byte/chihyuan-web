@@ -147,6 +147,7 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
    return <section key={group.code} className="cy-stocktake-desktop-group">
     {itemHeader}
     <div className="cy-ordering-grid-scroll"><table className="cy-ordering-grid cy-stocktake-grouped-table">
+     <colgroup><col className="cy-stocktake-col-location"/><col/><col className="cy-stocktake-col-quantity"/><col className="cy-stocktake-col-actions"/></colgroup>
      <thead><tr><th scope="col">儲位</th><th scope="col">批號</th>
       <th scope="col">{phase==="firstQty"?"初盤數量":"複盤數量"}</th><th scope="col">操作</th></tr></thead>
      <tbody>{group.locations.flatMap(loc=>{
