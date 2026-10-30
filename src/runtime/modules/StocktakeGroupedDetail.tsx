@@ -87,7 +87,7 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
   const required=phase==="firstQty"?rows:rows.filter(r=>!r.line.locked);
   return {total:required.length,done:required.filter(r=>r.cell[phase]!==null).length};
  };
- const editor=(r:Row)=>{
+ const editor=(r:Row,showUnit=true)=>{
   const id=String(r.cell.id),displayPhase=phase==="recountQty"&&r.line.locked?"firstQty":phase;
   const value=drafts[id]??r.cell[displayPhase]??"";
   const disabled=!editable||r.line.locked||saving===id;
@@ -102,11 +102,11 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
     value={value} placeholder="未填" disabled={disabled}
     aria-label={(displayPhase==="firstQty"?"初盤":"複盤")+"："+r.line.itemCode+" 儲位 "+(r.cell.locationCode||"未指定")+" 批號 "+(r.line.batch||"無")}
     onChange={e=>onDraft(id,e.target.value)} onBlur={()=>onSave(r.cell)} onKeyDown={next}/>
-   <small>{r.line.unit||"—"}</small>
+   {showUnit?<small>{r.line.unit||"—"}</small>:null}
   </div>;
  };
- const actions=(r:Row)=><div className="cy-stocktake-cell-actions">
-  <button className="cy-op-button compact" type="button" onClick={()=>onHistory(r.line,r.cell)}>修改紀錄</button>
+ const actions=(r:Row,iconOnly=false)=><div className="cy-stocktake-cell-actions">
+  <button className={"cy-op-button compact"+(iconOnly?" cy-stocktake-list-icon":"")} type="button" aria-label="修改紀錄" title="修改紀錄" onClick={()=>onHistory(r.line,r.cell)}>{iconOnly?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11a9 9 0 1 1 2.5 7M3 4v7h7M12 7v5l3 2"/></svg>:"修改紀錄"}</button>
   {r.line.isAdded&&editable&&!r.line.locked?
    <button className="cy-op-button compact danger" type="button" onClick={()=>onDeleteBatch(r.line)}>刪除批號</button>:null}
   {conflictKey===String(r.cell.id)?<div className="cy-notice cy-notice-warning" role="alert">
@@ -116,6 +116,31 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
    </div>:null}
  </div>;
  if(!groups.length)return <p className="cy-op-empty">目前沒有符合篩選的盤點列。</p>;
+ if(!compact)return <div className="cy-stocktake-lines cy-stocktake-desktop-list">
+  <div className="cy-ordering-grid-scroll"><table className="cy-ordering-grid cy-stocktake-grouped-table cy-stocktake-list-table">
+   <colgroup><col style={{width:"8%"}}/><col style={{width:"18%"}}/><col style={{width:"16%"}}/><col style={{width:"27%"}}/>
+    <col style={{width:"12%"}}/><col style={{width:"9%"}}/><col style={{width:"4%"}}/><col style={{width:"6%"}}/></colgroup>
+   <thead><tr><th scope="col">品號</th><th scope="col">品名</th><th scope="col">規格</th><th scope="col">儲位</th>
+    <th scope="col">批號</th><th scope="col">{phase==="firstQty"?"初盤數量":"複盤數量"}</th><th scope="col">單位</th><th scope="col">操作</th></tr></thead>
+   {groups.map(group=>{
+    const itemRows=group.locations.reduce((n,loc)=>n+loc.rows.length,0);
+    return <tbody key={group.code}>{group.locations.flatMap((loc,li)=>loc.rows.map((r,i)=><tr key={r.cell.id}>
+     {li===0&&i===0?<><td rowSpan={itemRows}>{group.code}</td><td rowSpan={itemRows}>{group.name}</td><td rowSpan={itemRows}>{group.spec||"—"}</td></>:null}
+     {i===0?<td rowSpan={loc.rows.length} className="cy-stocktake-list-location">
+      <div className="cy-stocktake-list-location-content"><span>{loc.warehouse}</span>
+       {renaming===locationKey(group.code,loc)?<InlineLocation key={loc.key} location={loc.location} label={group.code+" 新四碼儲位"}
+        onCancel={()=>setRenaming(null)} onSave={value=>onRename(group.code,loc.warehouse,loc.location,value)}/>:
+        <><strong>{loc.location||"未指定儲位"}</strong>{editable&&!r.line.locked?<button type="button" className="cy-op-button compact cy-stocktake-list-icon"
+         aria-label="修改儲位" title="修改儲位" onClick={()=>setRenaming(locationKey(group.code,loc))}>{pencil}</button>:null}</>}
+       {editable&&!r.line.locked&&r.line.batch?<button className="cy-op-button compact cy-stocktake-list-add" type="button"
+        onClick={()=>onAddBatch(group.code,loc.warehouse,loc.location)}>新增批號</button>:null}
+      </div>
+     </td>:null}
+     <td>{r.line.batch||"無"}</td><td>{editor(r,false)}</td><td className="cy-stocktake-list-unit">{r.line.unit||"—"}</td><td>{actions(r,true)}</td>
+    </tr>))}</tbody>;
+   })}
+  </table></div>
+ </div>;
  return <div className="cy-stocktake-lines">
   {groups.map(group=>{
    const groupRows=allRows.filter(row=>row.line.itemCode===group.code);
@@ -170,31 +195,7 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
      </div>)}
     </details>
    </section>;
-   return <section key={group.code} className="cy-stocktake-desktop-group">
-    {itemHeader}
-    <div className="cy-ordering-grid-scroll"><table className="cy-ordering-grid cy-stocktake-grouped-table">
-     <colgroup><col className="cy-stocktake-col-location"/><col/><col className="cy-stocktake-col-quantity"/><col className="cy-stocktake-col-actions"/></colgroup>
-     <thead><tr><th scope="col">儲位</th><th scope="col">批號</th>
-      <th scope="col">{phase==="firstQty"?"初盤數量":"複盤數量"}</th><th scope="col">操作</th></tr></thead>
-     <tbody>{group.locations.flatMap(loc=>{
-      const p=counts(loc.rows);
-      return loc.rows.map((r,i)=><tr key={r.cell.id}>
-       {i===0?<td rowSpan={loc.rows.length} className="cy-stocktake-group-location">
-        <div className="cy-stocktake-location-code">{renaming===locationKey(group.code,loc)?
-         <InlineLocation key={loc.key} location={loc.location} label={group.code+" 新四碼儲位"}
-          onCancel={()=>setRenaming(null)} onSave={value=>onRename(group.code,loc.warehouse,loc.location,value)}/>:
-         <><strong>{loc.location||"未指定儲位"}</strong>{editable&&!r.line.locked?<button className="cy-op-button compact cy-stocktake-edit-location" type="button"
-          aria-label="修改儲位" title="修改儲位" onClick={()=>setRenaming(locationKey(group.code,loc))}>{pencil}</button>:null}</>}
-        </div><small>{loc.warehouse}</small>
-        <small>{p.total===0?"已核對":p.done+"/"+p.total+" 已填"}</small>
-        {editable&&!r.line.locked&&r.line.batch?<button className="cy-op-button compact" type="button"
-         onClick={()=>onAddBatch(group.code,loc.warehouse,loc.location)}>新增批號</button>:null}
-       </td>:null}
-       <td>批號 {r.line.batch||"無"}</td><td>{editor(r)}</td><td>{actions(r)}</td>
-      </tr>);
-     })}</tbody>
-    </table></div>
-   </section>;
+   return null;
   })}
  </div>;
 }
