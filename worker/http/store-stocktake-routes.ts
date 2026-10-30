@@ -274,6 +274,71 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
     ]);
     return success({sheet:sheetJson((await one<Sheet>(db,"SELECT * FROM stocktake_sheets WHERE sheet_no=?",sheet))!,[]),removedKey:key},requestId);
   }
+  if(action==="locations"&&method==="PATCH"){
+    const v=await json(request),itemCode=text(v.itemCode,"品號",40),warehouse=typeof v.warehouseName==="string"?v.warehouseName:"",
+      from=typeof v.fromLocation==="string"?v.fromLocation:"",
+      to=typeof v.toLocation==="string"?v.toLocation:"",expected=version(v.expectedVersion);
+    if(!/^[0-9]{4}$/.test(to)||!(/^[0-9]{4}$/.test(from)||from===""))
+      fail("STOCKTAKE_LOCATION_INVALID","儲位必須是四碼");
+    if(from===to)fail("STOCKTAKE_INVALID","新儲位必須不同於原儲位");
+    if(sh.status!=="COUNTING"&&sh.status!=="RECOUNTING")fail("STOCKTAKE_STATUS","目前狀態不可修改儲位",409);
+    if(sh.version!==expected)fail("STOCKTAKE_VERSION_CONFLICT","盤點單已更新，請重新整理後再試",409);
+    const target=await all<LocationCell & {locked:number}>(db,`SELECT c.*,l.locked FROM stocktake_location_counts c
+      JOIN stocktake_lines l ON l.sheet_no=c.sheet_no AND l.line_key=c.source_line_key
+      WHERE c.sheet_no=? AND l.item_code=? AND c.warehouse_name=? AND c.location_code=? LIMIT 3001`,sheet,itemCode,warehouse,from);
+    if(!target.length||target.length>3000)fail("STOCKTAKE_NOT_FOUND","所選儲位不存在",404);
+    if(target.some(c=>c.locked))fail("STOCKTAKE_STATUS","已核對鎖定的品號不能修改儲位",409);
+    const conflicts=await all<{source_line_key:string}>(db,`SELECT c.source_line_key FROM stocktake_location_counts c
+      JOIN stocktake_lines l ON l.sheet_no=c.sheet_no AND l.line_key=c.source_line_key
+      WHERE c.sheet_no=? AND l.item_code=? AND c.warehouse_name=? AND c.location_code=? LIMIT 3001`,sheet,itemCode,warehouse,to);
+    if(conflicts.length)fail("STOCKTAKE_DUPLICATE","這個品號已使用目標儲位；不可自動合併批號數量",409);
+    const stm:D1PreparedStatement[]=[
+      guard(db,"EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND version=? AND status=?)",sheet,expected,sh.status)
+    ];
+    for(const cell of target){
+      stm.push(guard(db,"EXISTS(SELECT 1 FROM stocktake_location_counts WHERE sheet_no=? AND id=? AND version=?)",sheet,cell.id,cell.version),
+        db.prepare("UPDATE stocktake_location_counts SET location_code=?,manual_verified_at=NULL,manual_verified_by=NULL,version=version+1,rev=? WHERE sheet_no=? AND id=?")
+          .bind(to,sh.version+1,sheet,cell.id),
+        db.prepare("INSERT INTO stocktake_line_history(sheet_no,line_key,location_count_id,field,before_value,after_value,actor_member_id,changed_at) VALUES(?,?,?,'location_code',?,?,?,?)")
+          .bind(sheet,cell.source_line_key,cell.id,from,to,member,now));
+    }
+    stm.push(db.prepare("UPDATE stocktake_sheets SET version=version+1,updated_at=? WHERE sheet_no=?").bind(now,sheet),
+      audit(db,sheet,"location_changed",member,requestId,{itemCode,warehouse,from,to,affected:target.length}));
+    await db.batch(stm);
+    return success(await detail(db,sheet),requestId);
+  }
+  if(action==="manual-locations"&&method==="GET"){
+    requireAdmin(role);
+    return success(await all(db,`SELECT c.id AS locationCountId,c.source_line_key AS lineKey,
+      l.item_code AS itemCode,l.batch,l.is_added AS isAdded,c.warehouse_name AS warehouseName,
+      c.erp_location_code AS erpLocationCode,c.location_code AS locationCode,
+      c.manual_verified_at AS verifiedAt,c.manual_verified_by AS verifiedBy
+      FROM stocktake_location_counts c JOIN stocktake_lines l
+        ON l.sheet_no=c.sheet_no AND l.line_key=c.source_line_key
+      WHERE c.sheet_no=? AND (c.erp_location_code<>c.location_code OR (l.is_added=1 AND c.location_code<>''))
+      ORDER BY l.item_code,c.location_code,l.batch LIMIT 3001`,sheet),requestId);
+  }
+  if(action==="manual-locations"&&method==="PATCH"){
+    requireAdmin(role);
+    const v=await json(request),id=v.locationCountId;
+    if(!Number.isSafeInteger(id)||Number(id)<1)fail("STOCKTAKE_INVALID","儲位明細 ID 不正確");
+    const expected=version(v.expectedVersion);
+    const cell=await one<LocationCell>(db,"SELECT * FROM stocktake_location_counts WHERE sheet_no=? AND id=?",sheet,id);
+    if(!cell)fail("STOCKTAKE_NOT_FOUND","儲位格不存在",404);
+    if(cell.version!==expected)fail("STOCKTAKE_VERSION_CONFLICT","儲位已被修改，請重新載入",409);
+    const parent=await one<Line>(db,"SELECT * FROM stocktake_lines WHERE sheet_no=? AND line_key=?",sheet,cell.source_line_key);
+    if(!parent||!(cell.erp_location_code!==cell.location_code||(parent.is_added&&cell.location_code!=="")))
+      fail("STOCKTAKE_INVALID","此列不需要人工 ERP 儲位核對");
+    const checked=v.verified===true;
+    await db.batch([
+      guard(db,"EXISTS(SELECT 1 FROM stocktake_location_counts WHERE sheet_no=? AND id=? AND version=?)",sheet,id,expected),
+      db.prepare("UPDATE stocktake_location_counts SET manual_verified_at=?,manual_verified_by=?,version=version+1,rev=? WHERE sheet_no=? AND id=?")
+        .bind(checked?now:null,checked?member:null,sh.version+1,sheet,id),
+      db.prepare("UPDATE stocktake_sheets SET version=version+1,updated_at=? WHERE sheet_no=?").bind(now,sheet),
+      audit(db,sheet,checked?"manual_location_verified":"manual_location_reopened",member,requestId,{locationCountId:id,sourceLineKey:cell.source_line_key,erpLocation:cell.erp_location_code,webLocation:cell.location_code})
+    ]);
+    return success(await detail(db,sheet),requestId);
+  }
   if(action==="first-confirm"&&method==="POST"){
     requireAdmin(role);if(sh.status!=="COUNTING")fail("STOCKTAKE_STATUS","目前不能初盤確認",409);
     const v=await json(request),expected=version(v.expectedVersion);
