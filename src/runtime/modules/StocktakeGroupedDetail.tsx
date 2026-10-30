@@ -109,9 +109,7 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
    const locked=phase==="recountQty"&&groupRows.length>0&&groupRows.every(row=>row.line.locked);
    const state=progress.total===0?"none":progress.done===0?"none":progress.done===progress.total?"done":"partial";
    const picked=selectedLocations[group.code];
-   const selected=group.locations.find(l=>l.key===picked)??group.locations.find(l=>{
-    const p=counts(l.rows);return p.total>p.done;
-   })??group.locations[0];
+   const selected=group.locations.find(l=>l.key===picked)??group.locations[0];
    if(!selected)return null;
    const parent=selected.rows[0].line;
    const itemHeader=<div className="cy-stocktake-group-heading">
