@@ -2,8 +2,9 @@ import {requireModuleAccess} from "../auth/guard";
 import {identityClient,type IdentityRuntimeEnv} from "./auth-routes";
 import {success,failure} from "./response";
 import {AuditService} from "../audit/audit-service";
-import {parseStocktakeQuantity,stocktakeItemTotals,stocktakeWriteRows,STOCKTAKE_NO,
-  type StocktakeLine,type StocktakeSheet,type StocktakeStatus} from "../../shared/stocktake";
+import {parseStocktakeQuantity,stocktakeItemTotals,stocktakeWriteRows,stocktakeAggregateLines,
+  stocktakeLocations,STOCKTAKE_NO,
+  type StocktakeLine,type StocktakeLocationCount,type StocktakeSheet,type StocktakeStatus} from "../../shared/stocktake";
 import {stocktakeJobStatements,StocktakeInputError} from "./stocktake-erp";
 
 type Sheet={sheet_no:string;sheet_date:string|null;status:StocktakeStatus;version:number;
@@ -15,6 +16,17 @@ type Line={sheet_no:string;line_key:string;seq:string|null;item_code:string;item
  is_added:number;erp_seq:string|null;first_qty:string|null;first_by:number|null;first_at:string|null;
  recount_qty:string|null;recount_by:number|null;recount_at:string|null;
  first_by_name?:string|null;recount_by_name?:string|null;locked:number;version:number;rev:number};
+type LocationCell={id:number;sheet_no:string;source_line_key:string;warehouse_name:string;location_code:string;
+ first_qty:string|null;first_by:number|null;first_at:string|null;
+ recount_qty:string|null;recount_by:number|null;recount_at:string|null;
+ first_by_name?:string|null;recount_by_name?:string|null;version:number;rev:number};
+const toCell=(row:LocationCell):StocktakeLocationCount=>({
+ id:row.id,sheetNo:row.sheet_no,sourceLineKey:row.source_line_key,warehouseName:row.warehouse_name,
+ locationCode:row.location_code,firstQty:row.first_qty,firstBy:row.first_by,firstAt:row.first_at,
+ recountQty:row.recount_qty,recountBy:row.recount_by,recountAt:row.recount_at,
+ firstByName:row.first_by_name??null,recountByName:row.recount_by_name??null,
+ version:row.version,rev:row.rev
+});
 class Invalid extends Error {constructor(public code:string,message:string,public status=422){super(message)}}
 const fail=(code:string,message:string,status=422):never=>{throw new Invalid(code,message,status)};
 const sheetNo=(value:unknown)=>typeof value==="string"&&STOCKTAKE_NO.test(value)?value:fail("STOCKTAKE_INVALID","底稿編號必須是 1～20 位英數字");
@@ -53,7 +65,7 @@ const sheetJson=(sheet:Sheet,lines:Line[]):StocktakeSheet=>({
 async function detail(db:D1Database,sheet:string,since?:number,existing?:Sheet){
  const sh=existing??await one<Sheet>(db,"SELECT * FROM stocktake_sheets WHERE sheet_no=?",sheet);
  if(!sh)return fail("STOCKTAKE_NOT_FOUND","盤點單不存在",404);
- if(since!==undefined&&sh.version===since)return {sheet:sheetJson(sh,[]),lines:[],removedKeys:[]};
+ if(since!==undefined&&sh.version===since)return {sheet:sheetJson(sh,[]),lines:[],locationCounts:[],removedKeys:[]};
  const lines=await all<Line>(db,`SELECT l.*,
    COALESCE(f.display_name,f.employee_no) AS first_by_name,
    COALESCE(rc.display_name,rc.employee_no) AS recount_by_name
@@ -61,8 +73,17 @@ async function detail(db:D1Database,sheet:string,since?:number,existing?:Sheet){
    LEFT JOIN app_members rc ON rc.id=l.recount_by
    WHERE l.sheet_no=? ${since===undefined?"":"AND l.rev>?"} ORDER BY l.location,l.item_code,l.batch,l.line_key LIMIT 3001`,...(since===undefined?[sheet]:[sheet,since]));
  if(lines.length>3000)fail("STOCKTAKE_LIMIT","盤點列數超過 3000",409);
+ const cells=await all<LocationCell>(db,`SELECT c.*,
+   COALESCE(f.display_name,f.employee_no) AS first_by_name,
+   COALESCE(rc.display_name,rc.employee_no) AS recount_by_name
+   FROM stocktake_location_counts c LEFT JOIN app_members f ON f.id=c.first_by
+   LEFT JOIN app_members rc ON rc.id=c.recount_by
+   WHERE c.sheet_no=? ${since===undefined?"":"AND c.rev>?"}
+   ORDER BY c.warehouse_name,c.location_code,c.id LIMIT 3001`,...(since===undefined?[sheet]:[sheet,since]));
+ if(cells.length>3000)fail("STOCKTAKE_LIMIT","儲位盤點格超過 3000",409);
  const removedKeys=since===undefined?[]:(await all<{line_key:string}>(db,"SELECT line_key FROM stocktake_line_history WHERE sheet_no=? AND removed_rev>? ORDER BY id LIMIT 3001",sheet,since)).map(r=>r.line_key);
- return {sheet:sheetJson(sh,lines),lines:lines.map(l=>toLine(l,sh.status)),removedKeys};
+ return {sheet:sheetJson(sh,lines),lines:lines.map(l=>toLine(l,sh.status)),
+   locationCounts:cells.map(toCell),removedKeys};
 }
 const version=(v:unknown)=>Number.isSafeInteger(v)&&Number(v)>=1?Number(v):fail("STOCKTAKE_INVALID","版本不正確");
 const safeQty=(value:unknown)=>{try{parseStocktakeQuantity(value);return value as string}catch{return fail("STOCKTAKE_INVALID","數量需為數字字串，最多四位小數且小於十億")}};
