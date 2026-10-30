@@ -297,8 +297,7 @@ export function StoreStocktake({role}:{role:string}){
       <div className="cy-record-actions">
        {manager&&currentSheet.status==="COUNTING"&&currentSheet.detailReadAt?
         <button className="cy-op-button" disabled={busy} type="button" onClick={()=>void afterConfirm("refresh")}>重新整理</button>:null}
-       {(currentSheet.status==="COUNTING"||currentSheet.status==="RECOUNTING")?
-        <button className="cy-op-button" type="button" onClick={()=>setBatchForm({itemCode:"",batch:"",quantity:""})}>新增批號</button>:null}
+       {manager?<button className="cy-op-button" type="button" onClick={()=>{setManualOpen(true);void loadManual(currentSheet.sheetNo).catch(e=>reportError(errorOf(e)))}}>ERP 儲位待手動修改</button>:null}
        {manager&&currentSheet.status==="COUNTING"&&currentSheet.detailReadAt?
         <button className="cy-op-button primary" disabled={busy} type="button" onClick={()=>void afterConfirm("first-confirm")}>初盤確認</button>:null}
        {manager&&currentSheet.status==="RECOUNTING"?
@@ -332,92 +331,13 @@ export function StoreStocktake({role}:{role:string}){
       </select>}/>
      <section className="cy-ordering-lines cy-stocktake-detail-section" aria-label="盤點品號庫存明細">
       <h3>盤點品號庫存明細</h3>
-      <div className="cy-ordering-grid-scroll cy-stocktake-lines" role="region" aria-label="盤點品號庫存明細表格" tabIndex={0}>
-       <table className="cy-ordering-grid cy-stocktake-grid" data-phase={currentSheet.status==="COUNTING"?"first":"recount"}>
-        <thead><tr>
-         <th scope="col">項次</th>
-         <th scope="col">品號</th><th scope="col">品名</th><th scope="col">規格</th>
-         <th scope="col">庫別</th><th scope="col">儲位</th><th scope="col">批號</th><th scope="col">單位</th>
-         {currentSheet.status!=="COUNTING"?<>
-          <th scope="col">初盤數量</th><th scope="col">帳面數量</th><th scope="col">差異</th>
-         </>:null}
-         <th scope="col">{currentSheet.status==="COUNTING"?"初盤數量":"複盤數量"}</th>
-         <th scope="col">最後填寫</th><th scope="col">操作</th>
-        </tr></thead>
-        <tbody>
-         {visible.map((l,index)=>{
-          const field=currentSheet.status==="COUNTING"?"firstQty":"recountQty";
-          const stored=field==="firstQty"?l.firstQty:l.recountQty;
-          const canEdit=!l.locked&&(currentSheet.status==="COUNTING"||currentSheet.status==="RECOUNTING");
-          const edited=drafts[l.lineKey];
-          const lastAt=field==="firstQty"?l.firstAt:l.recountAt;
-          const lastBy=field==="firstQty"?l.firstByName:l.recountByName;
-          return <Fragment key={l.lineKey}><tr className="cy-stocktake-row-group">
-           <td data-label="項次">{index+1}</td>
-           <td data-label="品號"><span className="cy-ordering-cell-text">{l.itemCode}</span></td>
-           <td data-label="品名"><span className="cy-ordering-cell-text cy-ordering-wrap">{l.itemName}</span>
-            {l.isAdded?<small className="cy-stocktake-row-note">新增批號</small>:null}
-            {l.locked?<small className="cy-stocktake-row-note">已鎖定</small>:null}</td>
-           <td data-label="規格"><span className="cy-ordering-cell-text cy-ordering-wrap">{l.spec||"—"}</span></td>
-           <td data-label="庫別"><span className="cy-ordering-cell-text">{l.warehouseName||"—"}</span></td>
-           <td data-label="儲位"><span className="cy-ordering-cell-text">{l.location||"—"}</span></td>
-           <td data-label="批號"><span className="cy-ordering-cell-text">{l.batch||"無"}</span></td>
-           <td data-label="單位"><span className="cy-ordering-cell-text">{l.unit||"—"}</span></td>
-           {currentSheet.status!=="COUNTING"?<>
-            <td className="cy-stocktake-num" data-label="初盤數量">{l.firstQty??"—"}</td>
-            <td className="cy-stocktake-num" data-label="帳面數量">{l.bookQty??"—"}</td>
-            <td className="cy-stocktake-num" data-label="差異">{relativeDiff(l.firstQty,l.bookQty)}</td>
-           </>:null}
-           <td className="cy-stocktake-qty-cell" data-label={currentSheet.status==="COUNTING"?"初盤數量":"複盤數量"}>
-            <div className="cy-stocktake-qty-control">
-             <input data-stocktake-qty type="text" inputMode="decimal" className="cy-ordering-cell"
-              aria-label={(currentSheet.status==="COUNTING"?"初盤數量":"複盤數量")+"："+l.itemCode+"，批號 "+(l.batch||"無")}
-              disabled={!canEdit||saving===l.lineKey}
-              value={edited??stored??""} onChange={e=>changeDraft(l.lineKey,e.target.value)}
-              onBlur={()=>void saveLine(l)} onKeyDown={e=>nextOnEnter(e,l)} placeholder="未填"/>
-             <small className="cy-stocktake-mobile-unit">{l.unit||"—"}</small>
-            </div>
-           </td>
-           <td className="cy-stocktake-last-edit" data-label="最後填寫"><span>{lastBy??"—"}</span><small>{date(lastAt)}</small></td>
-           <td className="cy-stocktake-row-actions" data-label="操作">
-            <button className="cy-op-button compact" type="button" onClick={()=>void showHistory(l)}>修改紀錄</button>
-            {l.isAdded&&canEdit?<button className="cy-op-button compact danger" type="button" onClick={()=>void deleteBatch(l)}>刪除批號</button>:null}
-           </td>
-           <td className="cy-stocktake-mobile-summary">
-            <button type="button" className="cy-stocktake-mobile-summary-button"
-             aria-expanded={expandedLine===l.lineKey} aria-label={"查看"+l.itemCode+"的詳細資料與操作"}
-             onClick={()=>setExpandedLine(s=>s===l.lineKey?null:l.lineKey)}>
-             <span className="cy-stocktake-mobile-product"><strong>{l.itemCode}</strong>{" "}{l.itemName}</span>
-             <span className="cy-stocktake-mobile-spec">{l.spec||"—"}</span>
-             <span className="cy-stocktake-mobile-batch-location">批{l.batch||"無"}{" "}儲{l.location||"—"}</span>
-             {l.isAdded?<span className="cy-stocktake-mobile-flag">新增批號</span>:null}
-             {l.locked?<span className="cy-stocktake-mobile-flag">已鎖定</span>:null}
-            </button>
-           </td>
-          </tr>
-          {expandedLine===l.lineKey?<tr className="cy-stocktake-mobile-expanded"><td colSpan={currentSheet.status==="COUNTING"?12:15}>
-           <div className="cy-stocktake-expanded-content">
-            <div>庫別：{l.warehouseName||"—"}　單位：{l.unit||"—"}</div>
-            {currentSheet.status!=="COUNTING"?<div>初盤：{l.firstQty??"—"}　帳面：{l.bookQty??"—"}　差異：{relativeDiff(l.firstQty,l.bookQty)}</div>:null}
-            <div>最後填寫：{lastBy??"—"}　{date(lastAt)}</div>
-            <div className="cy-stocktake-expanded-actions">
-             <button className="cy-op-button compact" type="button" onClick={()=>void showHistory(l)}>修改紀錄</button>
-             {l.isAdded&&canEdit?<button className="cy-op-button compact danger" type="button" onClick={()=>void deleteBatch(l)}>刪除批號</button>:null}
-            </div>
-           </div>
-          </td></tr>:null}
-          {conflict?.key===l.lineKey?<tr className="cy-stocktake-conflict-row"><td colSpan={currentSheet.status==="COUNTING"?11:14}>
-           <div className="cy-notice cy-notice-warning" role="alert">
-            <p>其他人已修改本列，現在儲存的數量：{stored??"未填"}。</p>
-            <button className="cy-op-button compact" type="button" onClick={()=>{setConflict(null);setDrafts(d=>{const v={...d};delete v[l.lineKey];return v})}}>採用最新結果</button>
-            <button className="cy-op-button compact" type="button" onClick={()=>{setConflict(null);void saveLine(l,true)}}>覆蓋為我的數量</button>
-           </div>
-          </td></tr>:null}</Fragment>
-         })}
-        </tbody>
-       </table>
-       {detail&&visible.length===0?<p className="cy-op-empty">目前沒有符合篩選的盤點列。</p>:null}
-      </div>
+      <StocktakeGroupedDetail detail={detail!} search={search} filter={filter}
+       drafts={drafts} saving={saving} conflictKey={conflict?.key??null}
+       onDraft={changeDraft} onSave={(cell,force)=>void saveCell(cell,force)}
+       onConflictUseLatest={useLatest} onHistory={(line,cell)=>void showHistory(line,cell)}
+       onDeleteBatch={line=>void deleteBatch(line)}
+       onAddBatch={(itemCode,warehouseName,locationCode)=>setBatchForm({itemCode,warehouseName,locationCode,batch:"",quantity:""})}
+       onRename={(itemCode,warehouseName,fromLocation)=>setRenameForm({itemCode,warehouseName,fromLocation,toLocation:""})}/>
      </section>
     </>}
    </div>
