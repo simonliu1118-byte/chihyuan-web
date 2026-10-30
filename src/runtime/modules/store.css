@@ -227,3 +227,8 @@
  .cy-stocktake-list-table .cy-stocktake-cell-actions{position:relative}
  .cy-stocktake-list-table .cy-stocktake-cell-actions .cy-notice{min-width:200px;position:relative;z-index:1}
 }
+@media(min-width:821px){
+ .cy-stocktake-inline-location.cy-stocktake-inline-controls{display:inline-flex;align-items:center;flex-wrap:nowrap;gap:3px}
+ .cy-stocktake-inline-controls .cy-f{flex:0 1 64px;width:64px;min-width:45px}
+ .cy-stocktake-list-table .cy-stocktake-inline-controls .cy-stocktake-list-icon{flex-basis:22px;width:22px;min-width:22px;height:24px;min-height:24px;padding:2px}
+}
