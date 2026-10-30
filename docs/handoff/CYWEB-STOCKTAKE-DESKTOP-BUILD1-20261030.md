@@ -23,3 +23,8 @@
 - 未修改 API、數量儲存、ERP 寫回、資料庫或 migration。
 - 未合併、未部署。本輪提交交 Claude 最終審查；不得將之前 #318 的審查視為本輪通過。
 - Claude 審查結果：待審。
+
+## 使用者本輪授權與 CI 結果
+- 使用者於本輪明確指示：單純 UI 修改可合併與部署，較複雜變更才不可直接合併部署。本次依當次指示完成合併與受控部署，不宣稱 Claude 已審查本輪。
+- PR #319 Runtime Check（41038254930）：browser-typecheck、worker-typecheck、source-contracts、build 全通過；Governance Check（41038254915）通過。
+- 上述「未合併、未部署／待 Claude」為首次提交狀態；本輪授權後以 PR 合併紀錄及部署 run 的最終結果為準。
