@@ -124,14 +124,6 @@
  .cy-stocktake-grid .cy-ordering-cell{min-height:44px}
 }
 
-/* The existing phone location picker remains above the horizontally scrollable table. */
-.cy-stocktake-location-filter{display:none}
-@media(max-width:820px){
- .cy-stocktake-location-filter{display:grid;gap:4px;font-size:var(--cy-fs-sm)}
- .cy-stocktake-location-filter .cy-op-input{width:100%;min-height:40px}
-}
-
-
 /* Stocktake: controls belong to the sheet navigator, not a full-width toolbar. */
 .cy-stocktake-list-actions{display:flex;flex-wrap:wrap;gap:6px;padding:2px 0 8px;border-bottom:1px solid var(--cy-border);margin-bottom:4px}
 .cy-stocktake-list-actions .cy-op-button{font-size:var(--cy-fs-xs)}
@@ -151,9 +143,11 @@
  .cy-stocktake-ignored-table td,.cy-stocktake-ignored-table th{padding:8px 5px;font-size:var(--cy-fs-xs)}
 }
 
-/* Phone stocktake is a writable, vertically scrolling list. The desktop's 14-column
-   ordering grid is intentionally converted to labeled rows at compact widths.
-   Scope all overrides to stocktake: ordering / other DataView pages are unchanged. */
+/* Only the desktop ordering grid keeps its full column layout.
+   Compact mobile summary and its expandable actions share the same row data and editor. */
+.cy-stocktake-mobile-summary,.cy-stocktake-mobile-expanded,.cy-stocktake-mobile-unit{display:none}
+
+/* Stocktake: compact iPhone layout; no location picker and no horizontal grid. */
 @media(max-width:820px){
  .cy-store-stocktake,.cy-stocktake-layout,.cy-stocktake-sheets,.cy-stocktake-main,
  .cy-stocktake-detail-section{box-sizing:border-box;max-width:100%;min-width:0}
@@ -162,55 +156,61 @@
  .cy-stocktake-main .cy-ordering-title{width:100%;min-width:0}
  .cy-stocktake-main .cy-record-actions{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:6px}
  .cy-stocktake-main .cy-record-actions>.cy-op-button{min-height:40px}
- /* Shared DataViewToolbar normally stacks controls below 680px. On a stocktake
-    the search and its single filter must stay inline; reset the 320px flex-basis. */
+ /* The shared toolbar stacks below 680px; restore a compact inline search and filter. */
  .cy-stocktake-main .cy-data-toolbar{width:100%;min-width:0;margin:12px 0 0}
  .cy-stocktake-main .cy-data-toolbar-primary{display:flex;flex-direction:row;align-items:center;gap:8px;width:100%;min-width:0}
  .cy-stocktake-main .cy-data-search{display:block;flex:1 1 0;width:auto;max-width:none;min-width:0}
  .cy-stocktake-main .cy-data-search input{box-sizing:border-box;width:100%;min-width:0;min-height:42px}
  .cy-stocktake-main .cy-data-filters{display:flex;flex:0 0 106px;flex-direction:row;align-items:center;width:106px;min-width:0}
  .cy-stocktake-main .cy-data-filters>.cy-op-input{box-sizing:border-box;width:100%;min-width:0;max-width:100%;min-height:42px}
- .cy-stocktake-main .cy-stocktake-location-filter{margin-top:8px}
  .cy-stocktake-main .cy-ordering-grid-scroll{box-sizing:border-box;width:100%;max-width:100%;min-width:0;overflow:visible}
  .cy-ordering-grid.cy-stocktake-grid{display:block;box-sizing:border-box;width:100%;min-width:0;table-layout:auto;border:0;background:transparent}
  .cy-stocktake-grid thead{display:none}
- .cy-stocktake-grid tbody{display:grid;gap:10px;width:100%;min-width:0}
- .cy-stocktake-grid tr.cy-stocktake-row-group{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:8px 12px;box-sizing:border-box;width:100%;min-width:0;padding:12px;
+ .cy-stocktake-grid tbody{display:grid;gap:8px;width:100%;min-width:0}
+ .cy-stocktake-grid tr.cy-stocktake-row-group{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(122px,37%);
+  align-items:start;gap:10px;box-sizing:border-box;width:100%;min-width:0;padding:10px;
   border:1px solid var(--cy-border);border-radius:var(--cy-radius-sm);background:var(--cy-surface)}
- .cy-ordering-grid.cy-stocktake-grid tr.cy-stocktake-row-group>td{display:block;box-sizing:border-box;min-width:0;width:auto;
-  padding:0;border:0;text-align:left;vertical-align:top;overflow-wrap:anywhere}
- .cy-ordering-grid.cy-stocktake-grid tr.cy-stocktake-row-group>td::before{content:attr(data-label);
-  display:block;margin-bottom:3px;color:var(--cy-text-muted);font-size:var(--cy-fs-xs);font-weight:400}
- .cy-ordering-grid.cy-stocktake-grid tr.cy-stocktake-row-group>td:first-child{display:none}
- .cy-stocktake-grid tr.cy-stocktake-row-group>td:nth-child(2),
- .cy-stocktake-grid tr.cy-stocktake-row-group>td:nth-child(3),
- .cy-stocktake-grid tr.cy-stocktake-row-group>td:nth-child(4){grid-column:1/-1}
- .cy-ordering-grid.cy-stocktake-grid tr.cy-stocktake-row-group>td:nth-child(2)::before,
- .cy-ordering-grid.cy-stocktake-grid tr.cy-stocktake-row-group>td:nth-child(3)::before,
- .cy-ordering-grid.cy-stocktake-grid tr.cy-stocktake-row-group>td:nth-child(4)::before{display:none}
- .cy-stocktake-grid .cy-ordering-cell-text{display:block;min-height:0;padding:0;white-space:normal;
-  overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
- .cy-stocktake-grid tr.cy-stocktake-row-group>td:nth-child(2) .cy-ordering-cell-text{font-weight:700}
- .cy-stocktake-grid tr.cy-stocktake-row-group>td:nth-child(3) .cy-ordering-cell-text{font-weight:600}
- .cy-stocktake-grid tr.cy-stocktake-row-group>td:nth-child(4){font-size:var(--cy-fs-sm);color:var(--cy-text-muted)}
- .cy-ordering-grid.cy-stocktake-grid .cy-stocktake-num{padding:0;text-align:left}
- .cy-ordering-grid.cy-stocktake-grid .cy-stocktake-qty-cell{grid-column:1/-1;margin-top:4px}
- .cy-stocktake-grid .cy-stocktake-qty-cell .cy-ordering-cell{display:block;width:100%;height:46px;
-  box-sizing:border-box;padding:8px 12px;border:1px solid var(--cy-border-strong);
-  border-radius:var(--cy-radius-sm);background:var(--cy-surface);font-size:16px;text-align:left}
+ .cy-ordering-grid.cy-stocktake-grid tr.cy-stocktake-row-group>td{display:none;box-sizing:border-box;min-width:0;border:0;overflow-wrap:anywhere}
+ .cy-ordering-grid.cy-stocktake-grid tr.cy-stocktake-row-group>td.cy-stocktake-mobile-summary{
+  display:block;grid-column:1;grid-row:1;padding:0;align-self:start}
+ .cy-stocktake-mobile-summary-button{position:relative;display:block;width:100%;min-width:0;
+  padding:0 13px 0 0;margin:0;border:0;border-radius:0;background:transparent;color:var(--cy-text);
+  text-align:left;font:inherit;cursor:pointer}
+ .cy-stocktake-mobile-summary-button:focus-visible{outline:2px solid var(--cy-accent);outline-offset:3px;border-radius:3px}
+ .cy-stocktake-mobile-summary-button::after{content:"⌄";position:absolute;right:0;bottom:0;color:var(--cy-text-muted);font-size:var(--cy-fs-sm)}
+ .cy-stocktake-mobile-summary-button[aria-expanded="true"]::after{content:"⌃"}
+ .cy-stocktake-mobile-product,.cy-stocktake-mobile-spec,.cy-stocktake-mobile-batch-location{display:block;
+  white-space:normal;overflow-wrap:anywhere;word-break:normal}
+ .cy-stocktake-mobile-product{font-size:var(--cy-fs-sm);line-height:1.4;font-weight:600}
+ .cy-stocktake-mobile-product strong{font-weight:700}
+ .cy-stocktake-mobile-spec,.cy-stocktake-mobile-batch-location{font-size:var(--cy-fs-xs);
+  line-height:1.4;color:var(--cy-text-muted);margin-top:3px}
+ .cy-stocktake-mobile-flag{display:inline-block;font-size:var(--cy-fs-xs);color:var(--cy-warning);margin:2px 6px 0 0}
+ .cy-ordering-grid.cy-stocktake-grid tr.cy-stocktake-row-group>td.cy-stocktake-qty-cell{
+  display:block;grid-column:2;grid-row:1;padding:0;align-self:start}
+ .cy-ordering-grid.cy-stocktake-grid .cy-stocktake-qty-cell::before{
+  content:attr(data-label);display:block;margin:0 0 5px;color:var(--cy-text-muted);
+  font-size:var(--cy-fs-sm);line-height:1.4;font-weight:400}
+ .cy-stocktake-qty-control{display:flex;align-items:center;gap:5px;min-width:0}
+ .cy-stocktake-grid .cy-stocktake-qty-cell .cy-ordering-cell{display:block;box-sizing:border-box;
+  flex:1 1 0;width:100%;min-width:0;height:48px;min-height:48px;padding:8px;
+  border:1px solid var(--cy-border-strong);border-radius:var(--cy-radius-sm);
+  background:var(--cy-surface);font-size:16px;text-align:left}
  .cy-stocktake-grid .cy-stocktake-qty-cell .cy-ordering-cell:focus{outline:0;
   box-shadow:0 0 0 2px var(--cy-accent-soft);border-color:var(--cy-accent)}
- .cy-ordering-grid.cy-stocktake-grid .cy-stocktake-last-edit{grid-column:1/-1;padding:0!important}
- .cy-stocktake-grid .cy-stocktake-last-edit span,.cy-stocktake-grid .cy-stocktake-last-edit small{display:inline}
- .cy-stocktake-grid .cy-stocktake-last-edit small{margin-left:5px}
- .cy-ordering-grid.cy-stocktake-grid .cy-stocktake-row-actions{grid-column:1/-1;
-  display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:0!important;text-align:left}
- .cy-ordering-grid.cy-stocktake-grid .cy-stocktake-row-actions::before{display:none}
- .cy-stocktake-grid .cy-stocktake-row-actions .cy-op-button{margin:0;min-height:40px}
+ .cy-stocktake-grid .cy-stocktake-mobile-unit{display:block;flex:none;max-width:35px;
+  font-size:var(--cy-fs-xs);color:var(--cy-text-muted);overflow-wrap:anywhere}
+ .cy-ordering-grid.cy-stocktake-grid tr.cy-stocktake-mobile-expanded{
+  display:block;box-sizing:border-box;min-width:0;width:100%;
+  margin-top:-8px;padding:8px 10px 10px;border:1px solid var(--cy-border);border-top:0;
+  border-radius:0 0 var(--cy-radius-sm) var(--cy-radius-sm);background:var(--cy-surface-muted)}
+ .cy-stocktake-grid tr.cy-stocktake-mobile-expanded>td{display:block;padding:0;border:0}
+ .cy-stocktake-expanded-content{display:grid;gap:6px;font-size:var(--cy-fs-xs);color:var(--cy-text-muted)}
+ .cy-stocktake-expanded-actions{display:flex;flex-wrap:wrap;gap:6px}
+ .cy-stocktake-expanded-actions .cy-op-button{min-height:40px}
  .cy-ordering-grid.cy-stocktake-grid tr.cy-stocktake-conflict-row{display:block;min-width:0;width:100%}
  .cy-ordering-grid.cy-stocktake-grid tr.cy-stocktake-conflict-row>td{display:block;width:100%;padding:0;border:0}
  .cy-stocktake-grid .cy-stocktake-conflict-row .cy-notice{margin:0;display:flex;flex-wrap:wrap;gap:6px}
  .cy-stocktake-grid .cy-stocktake-conflict-row .cy-notice p{flex-basis:100%}
- .cy-stocktake-grid .cy-stocktake-row-note{margin:3px 0;font-size:var(--cy-fs-xs)}
 }
