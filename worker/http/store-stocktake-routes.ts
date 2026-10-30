@@ -266,11 +266,13 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
     if(!line||!line.is_added)throw new Invalid("STOCKTAKE_INVALID","只能刪除尚未寫回的新增批號列");
     if(sh.status!=="COUNTING"&&sh.status!=="RECOUNTING")fail("STOCKTAKE_STATUS","目前不能刪新增列",409);
     if(line.version!==expected)fail("STOCKTAKE_VERSION_CONFLICT","新增列已被其他人修改",409);
+    const expectedSheet=version(v.expectedSheetVersion);
+    if(sh.version!==expectedSheet)fail("STOCKTAKE_VERSION_CONFLICT","盤點單已有新的數量或儲位異動，請重整後再刪除",409);
     const cells=await all<LocationCell>(db,"SELECT * FROM stocktake_location_counts WHERE sheet_no=? AND source_line_key=?",sheet,key);
     if(cells.some(c=>c.first_qty!==null||c.recount_qty!==null)&&v.confirmNonEmpty!==true)
       fail("STOCKTAKE_CONFIRM_REQUIRED","已填數量的新增批號列，請確認刪除",409);
     await db.batch([
-      guard(db,"EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND status=?)",sheet,sh.status),
+      guard(db,"EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND version=? AND status=?)",sheet,expectedSheet,sh.status),
       guard(db,"EXISTS(SELECT 1 FROM stocktake_lines WHERE sheet_no=? AND line_key=? AND version=? AND is_added=1)",sheet,key,expected),
       db.prepare("DELETE FROM stocktake_lines WHERE sheet_no=? AND line_key=?").bind(sheet,key),
       db.prepare("UPDATE stocktake_sheets SET version=version+1,total_lines=total_lines-?,counted_lines=counted_lines-?,recount_needed=recount_needed-?,updated_at=? WHERE sheet_no=?")
@@ -336,6 +338,8 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
     if(!parent||!(cell.erp_location_code!==cell.location_code||(parent.is_added&&cell.location_code!=="")))
       fail("STOCKTAKE_INVALID","此列不需要人工 ERP 儲位核對");
     const checked=v.verified===true;
+    if(checked&&parent.is_added&&!parent.erp_seq)
+      fail("STOCKTAKE_STATUS","新增批號尚未取得 ERP 序號，不能標記 ERP 已人工修改",409);
     await db.batch([
       guard(db,"EXISTS(SELECT 1 FROM stocktake_location_counts WHERE sheet_no=? AND id=? AND version=?)",sheet,id,expected),
       db.prepare("UPDATE stocktake_location_counts SET manual_verified_at=?,manual_verified_by=?,version=version+1,rev=? WHERE sheet_no=? AND id=?")
