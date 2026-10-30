@@ -149,34 +149,37 @@ export function StoreStocktake({role}:{role:string}){
    }catch(e){reportError(errorOf(e))}
    finally{setBusy(false)}
  };
- const changeDraft=(key:string,value:string)=>setDrafts(s=>({...s,[key]:value}));
- async function saveLine(line:StocktakeLine,force=false){
-   if(!detail||busy||inFlightSave.current.has(line.lineKey))return;
-   const value=draftRef.current[line.lineKey];
-   if(value===undefined)return;
-   if(conflict?.key===line.lineKey&&!force)return;
-   if(!/^-?(?:0|[1-9]\d{0,8})(?:\.\d{1,4})?$/.test(value)){
-     reportError("數量格式錯誤：最多 4 位小數，絕對值小於十億。");return;
-   }
-   inFlightSave.current.add(line.lineKey);
-   setSaving(line.lineKey);
-   try{
-     const fresh=await call<{sheet:StocktakeSheet;line:StocktakeLine}>("/"+encodeURIComponent(detail.sheet.sheetNo)+"/line","PATCH",
-       {lineKey:line.lineKey,quantity:value,expectedVersion:line.version});
-     // Keep the polled version when others saved in between, so the next poll still brings their lines.
-     setDetail(old=>old&&old.sheet.sheetNo===fresh.sheet.sheetNo?{
-       sheet:fresh.sheet.version===old.sheet.version+1?fresh.sheet:{...fresh.sheet,version:old.sheet.version},
-       lines:old.lines.map(l=>l.lineKey===fresh.line.lineKey?fresh.line:l)
-     }:old);
-     setDrafts(s=>{const copy={...s};if(copy[line.lineKey]===value)delete copy[line.lineKey];return copy});
-     setConflict(null);
-   }catch(e){
-     if(e instanceof ApiClientError&&e.code==="STOCKTAKE_VERSION_CONFLICT"){
-       setConflict({key:line.lineKey,quantity:value});
-       await loadDetail(detail.sheet.sheetNo);
-       reportError("此列剛被其他人修改。請比較目前數量，選擇採用他人結果或覆蓋。");
-     }else reportError(errorOf(e));
-   }finally{inFlightSave.current.delete(line.lineKey);setSaving(null)}
+ const changeDraft=(key:string,value:string)=>setDrafts(prev=>({...prev,[key]:value}));
+ async function saveCell(cell:StocktakeLocationCount,force=false){
+  if(!detail||busy)return;
+  const key=String(cell.id),value=draftRef.current[key];
+  if(inFlightSave.current.has(key)||value===undefined)return;
+  if(conflict?.key===key&&!force)return;
+  if(value!==""&&!/^(?:0|[1-9]\d{0,8})(?:\.\d{1,4})?$/.test(value)){
+   reportError("數量格式錯誤：不可為負數，最多 4 位小數且小於十億。");return;
+  }
+  inFlightSave.current.add(key);setSaving(key);
+  try{
+   const fresh=await call<{sheet:StocktakeSheet;locationCount:StocktakeLocationCount}>(
+    "/"+encodeURIComponent(detail.sheet.sheetNo)+"/line","PATCH",
+    {locationCountId:cell.id,quantity:value===""?null:value,expectedVersion:cell.version});
+   setDetail(old=>old&&old.sheet.sheetNo===fresh.sheet.sheetNo?{
+    ...old,sheet:fresh.sheet.version>old.sheet.version?fresh.sheet:old.sheet,
+    locationCounts:old.locationCounts.map(c=>c.id===cell.id&&fresh.locationCount.version>=c.version?fresh.locationCount:c)
+   }:old);
+   setDrafts(old=>{const next={...old};if(next[key]===value)delete next[key];return next});
+   setConflict(null);
+  }catch(e){
+   if(e instanceof ApiClientError&&e.code==="STOCKTAKE_VERSION_CONFLICT"){
+    setConflict({key,quantity:value});
+    await loadDetail(detail.sheet.sheetNo);
+    reportError("這個儲位剛被其他人修改，請比較數量。");
+   }else reportError(errorOf(e));
+  }finally{inFlightSave.current.delete(key);setSaving(null)}
+ }
+ function useLatest(cell:StocktakeLocationCount){
+  const key=String(cell.id);
+  setConflict(null);setDrafts(prev=>{const next={...prev};delete next[key];return next});
  }
  async function afterConfirm(action:"first-confirm"|"second-confirm"|"retry-write"|"refresh"){
    if(!currentSheet)return;
