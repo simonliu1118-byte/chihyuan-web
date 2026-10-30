@@ -337,17 +337,6 @@ export function StoreStocktake({role}:{role:string}){
           const lastAt=field==="firstQty"?l.firstAt:l.recountAt;
           const lastBy=field==="firstQty"?l.firstByName:l.recountByName;
           return <Fragment key={l.lineKey}><tr className="cy-stocktake-row-group">
-           <td className="cy-stocktake-mobile-summary">
-            <button type="button" className="cy-stocktake-mobile-summary-button"
-             aria-expanded={expandedLine===l.lineKey} aria-label={"查看"+l.itemCode+"的詳細資料與操作"}
-             onClick={()=>setExpandedLine(s=>s===l.lineKey?null:l.lineKey)}>
-             <span className="cy-stocktake-mobile-product"><strong>{l.itemCode}</strong>{" "}{l.itemName}</span>
-             <span className="cy-stocktake-mobile-spec">{l.spec||"—"}</span>
-             <span className="cy-stocktake-mobile-batch-location">批{l.batch||"無"}{" "}儲{l.location||"—"}</span>
-             {l.isAdded?<span className="cy-stocktake-mobile-flag">新增批號</span>:null}
-             {l.locked?<span className="cy-stocktake-mobile-flag">已鎖定</span>:null}
-            </button>
-           </td>
            <td data-label="項次">{index+1}</td>
            <td data-label="品號"><span className="cy-ordering-cell-text">{l.itemCode}</span></td>
            <td data-label="品名"><span className="cy-ordering-cell-text cy-ordering-wrap">{l.itemName}</span>
@@ -377,6 +366,17 @@ export function StoreStocktake({role}:{role:string}){
            <td className="cy-stocktake-row-actions" data-label="操作">
             <button className="cy-op-button compact" type="button" onClick={()=>void showHistory(l)}>修改紀錄</button>
             {l.isAdded&&canEdit?<button className="cy-op-button compact danger" type="button" onClick={()=>void deleteBatch(l)}>刪除批號</button>:null}
+           </td>
+           <td className="cy-stocktake-mobile-summary">
+            <button type="button" className="cy-stocktake-mobile-summary-button"
+             aria-expanded={expandedLine===l.lineKey} aria-label={"查看"+l.itemCode+"的詳細資料與操作"}
+             onClick={()=>setExpandedLine(s=>s===l.lineKey?null:l.lineKey)}>
+             <span className="cy-stocktake-mobile-product"><strong>{l.itemCode}</strong>{" "}{l.itemName}</span>
+             <span className="cy-stocktake-mobile-spec">{l.spec||"—"}</span>
+             <span className="cy-stocktake-mobile-batch-location">批{l.batch||"無"}{" "}儲{l.location||"—"}</span>
+             {l.isAdded?<span className="cy-stocktake-mobile-flag">新增批號</span>:null}
+             {l.locked?<span className="cy-stocktake-mobile-flag">已鎖定</span>:null}
+            </button>
            </td>
           </tr>
           {expandedLine===l.lineKey?<tr className="cy-stocktake-mobile-expanded"><td colSpan={currentSheet.status==="COUNTING"?12:15}>
