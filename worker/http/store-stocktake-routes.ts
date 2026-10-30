@@ -108,12 +108,15 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
   }
   if(path==="ignore"&&method==="POST"){
    requireAdmin(role);const v=await json(request),sheet=sheetNo(v.sheetNo);
-   await db.prepare("INSERT INTO stocktake_sync_ignored(sheet_no,created_at,updated_at) VALUES(?,?,?)").bind(sheet,now,now).run();
+   // A duplicate fails the batch (UNIQUE → 409), so the Audit only records a real addition.
+   await db.batch([db.prepare("INSERT INTO stocktake_sync_ignored(sheet_no,created_at,updated_at) VALUES(?,?,?)").bind(sheet,now,now),
+    audit(db,sheet,"sync_ignored",member,requestId,{})]);
    return success({sheetNo:sheet,ignored:true},requestId);
   }
   if(path==="ignore"&&method==="DELETE"){
    requireAdmin(role);const v=await json(request),sheet=sheetNo(v.sheetNo);
-   await db.prepare("DELETE FROM stocktake_sync_ignored WHERE sheet_no=?").bind(sheet).run();
+   const removed=await db.prepare("DELETE FROM stocktake_sync_ignored WHERE sheet_no=?").bind(sheet).run();
+   if(removed.meta.changes)await audit(db,sheet,"sync_unignored",member,requestId,{}).run();
    return success({sheetNo:sheet,ignored:false},requestId);
   }
   if(path==="sync"&&method==="POST"){

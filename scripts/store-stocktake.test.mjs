@@ -348,6 +348,11 @@ test("unignored pre-created stub is not skipped and receives its first ERP detai
   assert.equal(shown.length,1);
   const unignored=await f.user("/ignore","DELETE",{sheetNo:"990001"});
   assert.equal(unignored.status,200,JSON.stringify(unignored));
+  assert.equal((await f.user("/ignore","POST",{sheetNo:"990001"})).status,200);
+  assert.equal((await f.user("/ignore","POST",{sheetNo:"990001"})).status,409,"a duplicate ignore is refused");
+  assert.equal((await f.user("/ignore","DELETE",{sheetNo:"990001"})).status,200);
+  assert.deepEqual(f.sql.prepare("SELECT action FROM audit_events WHERE entity_type='stocktake' AND entity_key='990001' ORDER BY id").all().map(r=>r.action),
+   ["stocktake.sync_ignored","stocktake.sync_unignored","stocktake.sync_ignored","stocktake.sync_unignored"]);
   assert.deepEqual((await f.user("")).data,[],"removing ignore must not create a WEB sheet");
   assert.deepEqual((await f.user("?ignored=true")).data,[]);
   const sync=await f.user("/sync","POST");
