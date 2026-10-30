@@ -164,7 +164,7 @@ export function StoreStocktake({role}:{role:string}){
     "/"+encodeURIComponent(detail.sheet.sheetNo)+"/line","PATCH",
     {locationCountId:cell.id,quantity:value===""?null:value,expectedVersion:cell.version});
    setDetail(old=>old&&old.sheet.sheetNo===fresh.sheet.sheetNo?{
-    ...old,sheet:fresh.sheet.version>old.sheet.version?fresh.sheet:old.sheet,
+    ...old,sheet:fresh.sheet.version===old.sheet.version+1?fresh.sheet:old.sheet,
     locationCounts:old.locationCounts.map(c=>c.id===cell.id&&fresh.locationCount.version>=c.version?fresh.locationCount:c)
    }:old);
    setDrafts(old=>{const next={...old};if(next[key]===value)delete next[key];return next});
