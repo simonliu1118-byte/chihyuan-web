@@ -5,6 +5,14 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.57 — 顧客訂購進度與黑名單事件（2026-10-31，待審查／未部署）
+
+- 共用表格、狀態 pill、備註與進度分區；手動日期前進／更正／退回、逐筆收合紀錄、叫貨後修改理由。
+- 統一訂購表格視窗，電話／手機／LINE 至少一項；尾款，黑名單理由單行／其他與「須全額預付」。
+- 取消是／否銜接黑名單，新／既有對象原子記錄，保留處置，人工同名核對與事件累積。
+- Migration 0033 保留資料並新增業務事件；portable backup 支援精確舊版升級。完整驗證及剩餘人工確認見 [交接](docs/handoff/CYWEB-STORE-ORDERS-IMPLEMENTATION-0957-20261031.md)。
+- 未合併、未部署；待 Claude 最終審查。
+
 ## CY Web V0.9.56 — 盤點分儲位盤點格與品號卡（2026-10-30，PR #318）
 
 - [x] Migration 0032：新增 `stocktake_location_counts`（每個 ERP 原始列依儲位拆格，各格獨立版本與 `rev`），重建 `stocktake_line_history`（加 `location_count_id`）；依使用者決定**清除既有盤點底稿**，忽略清單與 Audit 保留，上線後需重新「同步 ERP」。

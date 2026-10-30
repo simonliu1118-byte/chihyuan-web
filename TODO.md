@@ -1,3 +1,7 @@
+## 待審查：V0.9.57 顧客訂購流程（2026-10-31）
+
+- [ ] GPT 實作已提交 Draft PR，待遠端 CI、Claude 最終審查與瀏覽器／真實裝置驗收；未合併部署。見 [交接](docs/handoff/CYWEB-STORE-ORDERS-IMPLEMENTATION-0957-20261031.md)。
+
 ## 目前狀態（2026-10-29）
 
 - **V0.9.54 Build 0**（2026-10-29）：一次部署 V0.9.52 門市盤點（migration 0030）、V0.9.53 ERP 清理排程與佇列預估（migration 0031）、V0.9.54 備份頁面精簡與每日季度提醒。CYID consumer 1.0.5。
