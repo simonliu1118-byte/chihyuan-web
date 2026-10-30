@@ -243,18 +243,24 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
     return success({sheet:sheetJson(updated!,[]),removedKey:key},requestId);
   }
   if(action==="first-confirm"&&method==="POST"){
-    requireAdmin(role);if(sh.status!=="COUNTING")fail("STOCKTAKE_STATUS","目前不能第一次確認",409);
+    requireAdmin(role);if(sh.status!=="COUNTING")fail("STOCKTAKE_STATUS","目前不能初盤確認",409);
     const v=await json(request),expected=version(v.expectedVersion);
     if(sh.version!==expected)fail("STOCKTAKE_VERSION_CONFLICT","盤點單已被其他人修改，請重新載入",409);
     const lines=await all<Line>(db,"SELECT * FROM stocktake_lines WHERE sheet_no=? ORDER BY item_code,batch LIMIT 3001",sheet);
-    if(!lines.length||lines.some(l=>l.first_qty===null))fail("STOCKTAKE_INCOMPLETE","還有 "+lines.filter(l=>l.first_qty===null).length+" 列尚未填寫",409);
-    const totals=stocktakeItemTotals(lines.map(l=>toLine(l,"RECOUNTING")));
+    const cells=await all<LocationCell>(db,"SELECT * FROM stocktake_location_counts WHERE sheet_no=? LIMIT 3001",sheet);
+    if(lines.length>3000||cells.length>3000)fail("STOCKTAKE_LIMIT","盤點超出上限",409);
+    const resolved=stocktakeAggregateLines(lines.map(l=>toLine(l,"RECOUNTING")),cells.map(toCell));
+    if(!resolved.length||!cells.length||resolved.some(l=>l.firstQty===null))
+      fail("STOCKTAKE_INCOMPLETE","還有 "+resolved.filter(l=>l.firstQty===null).length+" 個原始列尚未完成所有儲位",409);
+    const totals=stocktakeItemTotals(resolved);
+    const lockedKeys=new Set(lines.filter(l=>totals.get(l.item_code)!.book===totals.get(l.item_code)!.counted).map(l=>l.line_key));
     const stm:D1PreparedStatement[]=[guard(db,"EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND version=? AND status='COUNTING')",sheet,expected)];
     for(const l of lines)stm.push(db.prepare("UPDATE stocktake_lines SET locked=?,rev=(SELECT version+1 FROM stocktake_sheets WHERE sheet_no=?) WHERE sheet_no=? AND line_key=?")
-      .bind(totals.get(l.item_code)!.book===totals.get(l.item_code)!.counted?1:0,sheet,sheet,l.line_key));
+      .bind(lockedKeys.has(l.line_key)?1:0,sheet,sheet,l.line_key));
+    const needed=cells.filter(cell=>!lockedKeys.has(cell.source_line_key)).length;
     stm.push(db.prepare("UPDATE stocktake_sheets SET status='RECOUNTING',recount_needed=?,first_confirmed_by=?,first_confirmed_at=?,version=version+1,updated_at=? WHERE sheet_no=?")
-      .bind(lines.filter(l=>totals.get(l.item_code)!.book!==totals.get(l.item_code)!.counted).length,member,now,now,sheet),
-      audit(db,sheet,"first_confirmed",member,requestId,{total:lines.length,locked:lines.filter(l=>totals.get(l.item_code)!.book===totals.get(l.item_code)!.counted).length}));
+      .bind(needed,member,now,now,sheet),
+      audit(db,sheet,"first_confirmed",member,requestId,{sourceLines:lines.length,locationCells:cells.length,lockedSourceLines:lockedKeys.size}));
     await db.batch(stm);return success(await detail(db,sheet),requestId);
   }
   if((action==="second-confirm"||action==="retry-write")&&method==="POST"){
@@ -264,9 +270,19 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
     const v=await json(request),expected=version(v.expectedVersion);
     if(expected!==sh.version)fail("STOCKTAKE_VERSION_CONFLICT","盤點單已被他人更新",409);
     const lines=await all<Line>(db,"SELECT * FROM stocktake_lines WHERE sheet_no=? ORDER BY line_key LIMIT 3001",sheet);
-    if(second&&lines.some(l=>!l.locked&&l.recount_qty===null))
-      fail("STOCKTAKE_INCOMPLETE","還有 "+lines.filter(l=>!l.locked&&l.recount_qty===null).length+" 列尚未複盤",409);
-    const rows=stocktakeWriteRows(lines.map(l=>toLine(l,"RECOUNTING")));
+    const cells=await all<LocationCell>(db,"SELECT * FROM stocktake_location_counts WHERE sheet_no=? LIMIT 3001",sheet);
+    if(lines.length>3000||cells.length>3000)fail("STOCKTAKE_LIMIT","盤點超過 3000 格",409);
+    const parentKeys=new Set(lines.map(l=>l.line_key));
+    if(cells.some(cell=>!parentKeys.has(cell.source_line_key)))fail("STOCKTAKE_INVALID","儲位格遺失 ERP 原始列",409);
+    const unresolved=cells.filter(cell=>!lines.find(l=>l.line_key===cell.source_line_key)?.locked&&cell.recount_qty===null);
+    if(second&&unresolved.length)
+      fail("STOCKTAKE_INCOMPLETE","還有 "+unresolved.length+" 個儲位批號尚未複盤",409);
+    const resolved=stocktakeAggregateLines(lines.map(l=>toLine(l,"RECOUNTING")),cells.map(toCell));
+    if(resolved.some(l=>l.firstQty===null||(!l.locked&&l.recountQty===null)))
+      fail("STOCKTAKE_INCOMPLETE","仍有原始 ERP 列缺少完整數量",409);
+    const rows=stocktakeWriteRows(resolved);
+    const seqs=rows.map(row=>row.seq).filter((seq):seq is string=>seq!==null);
+    if(new Set(seqs).size!==seqs.length)fail("STOCKTAKE_DUPLICATE","ERP 寫回序號不可重複",409);
     if(rows.length>3000)fail("STOCKTAKE_LIMIT","寫回列數超過 3000",409);
     await verifyJobQuota(db,member);
     const id=crypto.randomUUID(),control=await one<{hold_until:string|null}>(db,"SELECT hold_until FROM erp_item_agent_control WHERE id=1");
