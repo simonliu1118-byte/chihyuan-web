@@ -187,7 +187,7 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
     if(!parent)fail("STOCKTAKE_NOT_FOUND","對應 ERP 底稿列不存在",404);
     const field=sh.status==="COUNTING"?"first_qty":sh.status==="RECOUNTING"?"recount_qty":null;
     if(!field||parent.locked)fail("STOCKTAKE_STATUS","目前狀態不可修改這個儲位",409);
-    const value=countQty(v.quantity),before=field==="first_qty"?cell.first_qty:cell.recount_qty;
+    const value=v.quantity===null?null:countQty(v.quantity),before=field==="first_qty"?cell.first_qty:cell.recount_qty;
     await db.batch([
       guard(db,"EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND status=?)",sheet,sh.status),
       guard(db,"EXISTS(SELECT 1 FROM stocktake_location_counts WHERE sheet_no=? AND id=? AND version=?)",sheet,id,expected),
@@ -198,7 +198,7 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
         "rev=(SELECT version+1 FROM stocktake_sheets WHERE sheet_no=?) WHERE sheet_no=? AND id=?")
         .bind(value,member,now,sheet,sheet,id),
       db.prepare("UPDATE stocktake_sheets SET version=version+1,counted_lines=counted_lines+?,updated_at=? WHERE sheet_no=?")
-        .bind(field==="first_qty"&&before===null?1:0,now,sheet),
+        .bind(field==="first_qty"?(before===null&&value!==null?1:before!==null&&value===null?-1:0):0,now,sheet),
       db.prepare("INSERT INTO stocktake_line_history(sheet_no,line_key,location_count_id,field,before_value,after_value,actor_member_id,changed_at) VALUES(?,?,?,?,?,?,?,?)")
         .bind(sheet,parent.line_key,id,field,before,value,member,now),
       participant(db,sheet,member,now)
