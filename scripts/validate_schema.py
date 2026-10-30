@@ -26,6 +26,8 @@ EXPECTED_TABLES = {
     "store_customer_orders",
     "store_customer_order_lines",
     "store_blacklist",
+    "store_order_events",
+    "store_blacklist_events",
     "ordering_sources",
     "ordering_user_preferences",
     "ordering_orders",

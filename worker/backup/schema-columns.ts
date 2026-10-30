@@ -853,24 +853,6 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "voided_by",
     "work_order_ref"
   ],
-  "stocktake_location_counts": [
-    "erp_location_code",
-    "first_at",
-    "first_by",
-    "first_qty",
-    "id",
-    "location_code",
-    "manual_verified_at",
-    "manual_verified_by",
-    "recount_at",
-    "recount_by",
-    "recount_qty",
-    "rev",
-    "sheet_no",
-    "source_line_key",
-    "version",
-    "warehouse_name"
-  ],
   "stocktake_line_history": [
     "actor_member_id",
     "after_value",
@@ -907,16 +889,29 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "version",
     "warehouse_name"
   ],
+  "stocktake_location_counts": [
+    "erp_location_code",
+    "first_at",
+    "first_by",
+    "first_qty",
+    "id",
+    "location_code",
+    "manual_verified_at",
+    "manual_verified_by",
+    "recount_at",
+    "recount_by",
+    "recount_qty",
+    "rev",
+    "sheet_no",
+    "source_line_key",
+    "version",
+    "warehouse_name"
+  ],
   "stocktake_participants": [
     "first_at",
     "last_at",
     "member_id",
     "sheet_no"
-  ],
-  "stocktake_sync_ignored": [
-    "created_at",
-    "sheet_no",
-    "updated_at"
   ],
   "stocktake_sheets": [
     "counted_lines",
@@ -937,16 +932,34 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "write_query_id",
     "write_result_json"
   ],
+  "stocktake_sync_ignored": [
+    "created_at",
+    "sheet_no",
+    "updated_at"
+  ],
   "store_blacklist": [
     "action",
+    "active",
     "created_at",
     "created_by",
     "id",
+    "line_name",
+    "mobile",
     "name",
     "phone",
     "reason",
     "updated_at",
-    "updated_by"
+    "updated_by",
+    "version"
+  ],
+  "store_blacklist_events": [
+    "actor",
+    "at",
+    "blacklist_id",
+    "id",
+    "order_id",
+    "reason",
+    "summary_json"
   ],
   "store_customer_order_lines": [
     "id",
@@ -958,21 +971,40 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "unit_price"
   ],
   "store_customer_orders": [
+    "arrived_date",
+    "cancel_kind",
     "cancel_reason",
     "created_at",
     "created_by",
     "customer_name",
     "deposit",
+    "has_ever_ordered",
     "id",
+    "legacy",
     "line_name",
+    "mobile",
     "note",
     "notified_at",
+    "notified_date",
     "order_date",
+    "ordered_date",
     "phone",
+    "picked_up_date",
     "status",
     "updated_at",
     "updated_by",
     "version"
+  ],
+  "store_order_events": [
+    "actor",
+    "after_json",
+    "at",
+    "before_json",
+    "id",
+    "kind",
+    "order_id",
+    "reason",
+    "request_key"
   ],
   "work_log_categories": [
     "code",

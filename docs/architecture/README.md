@@ -95,7 +95,7 @@ Archive、舊 preview、review backlog、readiness checkpoint、已結案舊 han
 - `WORK_LOG_MODULE_CONTRACT.md`
 - `SETTINGS_ADMIN_MODULE_CONTRACT.md`
 - `ORDERING_MODULE.md` — 叫貨（草稿、送出、修改、到貨、廠商頁、可攜備份）。
-- 門市（顧客訂購／黑名單）— 目前以 `src/runtime/modules/StorePage.tsx`、`worker/http/store-routes.ts`、`migrations/0029_store_customer_orders.sql` 與根 `CHANGELOG.md` 的 V0.9.45 為實作參考；顧客訂購與叫貨連動仍是 `TODO.md` 待辦，不視為現有功能。
+- `STORE_CUSTOMER_ORDERS.md` — 門市顧客訂購／黑名單、手動進度日期、逐筆歷程與三選一聯絡方式（V0.9.57 實作候選；待審查部署）。叫貨連動仍為 TODO，不是現有能力。
 - `HR_MODULE_DESIGN.md`、`HR_MODULE_CONTRACT.md` — 人事（主檔、排班出勤、請假特休加班補休）；`HR_LEGAL_WATCH.md` 為每月法規檢查。
 
 Module contract 與適用的最新 Business Decisions 共同定義業務語意；不要從歷史 preview 反推 current business rule。
