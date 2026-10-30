@@ -529,3 +529,90 @@ test("incremental GET returns only changed lines and deletion tombstones",async(
    assert.deepEqual(changes.lines,[]);
  }finally{f.sql.close()}
 });
+
+test("multi-location single ERP seq: separate first/recount cells, no partial confirmation, one write row",async()=>{
+ const f=fixture();try{
+  f.insert("990001",[{...f.row("00001","LOT1","100"),location:"1324;3133"}]);
+  let data=(await f.sheet()).data;
+  assert.equal(data.lines.length,1);
+  assert.equal(data.locationCounts.length,2);
+  assert.equal(data.sheet.total,2);
+  const a=data.locationCounts.find(c=>c.locationCode==="1324"),b=data.locationCounts.find(c=>c.locationCode==="3133");
+  assert.equal((await f.user("/990001/line","PATCH",{locationCountId:a.id,quantity:"40",expectedVersion:a.version})).status,200);
+  assert.equal((await f.user("/990001/first-confirm","POST",{expectedVersion:2})).status,409);
+  assert.equal((await f.user("/990001/line","PATCH",{locationCountId:b.id,quantity:"55",expectedVersion:b.version})).status,200);
+  data=(await f.sheet()).data;assert.equal(data.sheet.counted,2);
+  assert.equal((await f.user("/990001/first-confirm","POST",{expectedVersion:data.sheet.version})).status,200);
+  data=(await f.sheet()).data;assert.equal(data.sheet.recountNeeded,2);
+  assert.equal(data.lines[0].locked,false);
+  for(const c of data.locationCounts){
+   const qty=c.locationCode==="1324"?"42":"53";
+   const r=await f.user("/990001/line","PATCH",{locationCountId:c.id,quantity:qty,expectedVersion:c.version});
+   assert.equal(r.status,200,JSON.stringify(r));
+  }
+  data=(await f.sheet()).data;
+  const confirmed=await f.user("/990001/second-confirm","POST",{expectedVersion:data.sheet.version});
+  assert.equal(confirmed.status,200,JSON.stringify(confirmed));
+  const job=f.sql.prepare("SELECT keyword FROM erp_item_queries WHERE id=?").get(confirmed.data.id);
+  const sent=JSON.parse(job.keyword);
+  assert.equal(sent.rows.length,1);
+  assert.deepEqual(sent.rows[0],{key:"00001",seq:"00001",itemCode:"X0001",batch:"LOT1",quantity:"95"});
+ }finally{f.sql.close()}
+});
+
+test("separate location version conflicts do not collide, null is unfilled, zero is counted",async()=>{
+ const f=fixture();try{
+  f.insert("990001",[{...f.row("00001","LOT1","1"),location:"1324;3133"}]);
+  const cells=(await f.sheet()).data.locationCounts;
+  const one=await f.user("/990001/line","PATCH",{locationCountId:cells[0].id,quantity:"0",expectedVersion:1});
+  assert.equal(one.status,200,JSON.stringify(one));
+  const two=await f.user("/990001/line","PATCH",{locationCountId:cells[1].id,quantity:"1",expectedVersion:1});
+  assert.equal(two.status,200,JSON.stringify(two));
+  assert.equal((await f.sheet()).data.sheet.counted,2);
+  assert.equal((await f.user("/990001/line","PATCH",{locationCountId:cells[0].id,quantity:"3",expectedVersion:1})).status,409);
+  const latest=(await f.sheet()).data.locationCounts.find(c=>c.id===cells[0].id);
+  assert.equal((await f.user("/990001/line","PATCH",{locationCountId:latest.id,quantity:null,expectedVersion:latest.version})).status,200);
+  assert.equal((await f.sheet()).data.sheet.counted,1);
+ }finally{f.sql.close()}
+});
+
+test("existing batch can be counted at another location; rename creates audited manual ERP task",async()=>{
+ const f=fixture();try{
+  f.insert();
+  let added=await f.user("/990001/batches","POST",{itemCode:"X0001",batch:"B1",warehouseName:"倉甲",locationCode:"3133",quantity:"2"});
+  assert.equal(added.status,200,JSON.stringify(added));
+  assert.equal((await f.sheet()).data.lines.length,2,"same batch must not create another ERP source seq");
+  assert.equal((await f.sheet()).data.locationCounts.length,3);
+  assert.equal((await f.user("/990001/batches","POST",{itemCode:"X0001",batch:"B1",warehouseName:"倉甲",locationCode:"3133"})).status,409);
+  let d=(await f.sheet()).data;
+  assert.equal((await f.user("/990001/locations","PATCH",{
+   itemCode:"X0001",warehouseName:"倉甲",fromLocation:"3133",toLocation:"0004",expectedVersion:d.sheet.version
+  })).status,200);
+  d=(await f.sheet()).data;
+  assert.equal(d.locationCounts.find(c=>c.locationCode==="0004").erpLocationCode,"");
+  const outstanding=await f.user("/990001/manual-locations");
+  assert.equal(outstanding.status,200);
+  const todo=outstanding.data.find(c=>c.locationCode==="0004");
+  assert.equal(todo.verifiedAt,null);
+  const cell=d.locationCounts.find(c=>c.id===todo.locationCountId);
+  assert.equal((await f.user("/990001/manual-locations","PATCH",{
+   locationCountId:todo.locationCountId,expectedVersion:cell.version,verified:true
+  })).status,200);
+  assert.ok((await f.user("/990001/manual-locations")).data.find(c=>c.locationCountId===cell.id).verifiedAt);
+  assert.equal((await f.user("/990001/locations","PATCH",{
+   itemCode:"X0001",warehouseName:"倉甲",fromLocation:"0004",toLocation:"1324",expectedVersion:(await f.sheet()).data.sheet.version
+  })).status,409,"duplicate destination must never silently merge count cells");
+ }finally{f.sql.close()}
+});
+
+test("ERP import rejects malformed or duplicate 4-digit locations without creating a sheet",async()=>{
+ const f=fixture();try{
+  const created=await f.user("/sync","POST");
+  const claimed=await f.agent("/item-queries/claim",{agentVersion:"synthetic",erpState:"BROWSE",queryTypes:["STOCKTAKE_SYNC"]});
+  assert.equal(claimed.status,200);
+  const bad=await f.agent("/item-queries/"+created.data.id+"/complete",{outcome:"FOUND",sheets:[{sheetNo:"990001",date:"2026-10-28"}],
+    details:[{sheetNo:"990001",rows:[{...f.row("00001","LOT1","1"),location:"1324;1324"}]}],elapsedMs:5,agentVersion:"synthetic"});
+  assert.equal(bad.status,400,JSON.stringify(bad));
+  assert.equal(f.sql.prepare("SELECT COUNT(*) n FROM stocktake_sheets").get().n,0);
+ }finally{f.sql.close()}
+});
