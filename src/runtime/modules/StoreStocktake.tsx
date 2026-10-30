@@ -1,4 +1,4 @@
-import {Fragment,useCallback,useEffect,useMemo,useRef,useState,type FormEvent, type KeyboardEvent} from "react";
+import {useCallback,useEffect,useRef,useState,type FormEvent} from "react";
 import {apiRequest,ApiClientError} from "../../api/client";
 import {Field,FormSection} from "../../ui/forms/Field";
 import {Dialog} from "../../ui/overlays/Dialog";
@@ -12,8 +12,9 @@ import {enterAdvancesFields,enterAdvancesThenSubmits} from "../../ui/foundation/
 import {Loading} from "../../ui/feedback/Loading";
 import {useErpJob} from "./useErpJob";
 import {ErpJobStatus} from "./ErpJobStatus";
-import {STOCKTAKE_LABELS,parseStocktakeQuantity,decimalStocktake,stocktakeWriteRows,
- type StocktakeDetail,type StocktakeLine,type StocktakeSheet,type StocktakeStatus} from "../../../shared/stocktake";
+import {STOCKTAKE_LABELS,stocktakeAggregateLines,stocktakeWriteRows,
+ type StocktakeDetail,type StocktakeLine,type StocktakeLocationCount,type StocktakeSheet,type StocktakeStatus} from "../../../shared/stocktake";
+import {StocktakeGroupedDetail} from "./StocktakeGroupedDetail";
 
 const ROOT="/api/business/store/stocktake";
 const call=<T,>(path:string,method="GET",json?:unknown)=>apiRequest<T>(ROOT+path,{method,json});
@@ -33,10 +34,6 @@ const date=(iso:string|null)=>formatDateTime(iso);
 const STOCKTAKE_STATUS_TONE:Record<StocktakeStatus,StatusTone>={
  IGNORED:"neutral",COUNTING:"info",RECOUNTING:"warning",WRITING:"info",WRITE_FAILED:"danger",ERP_CONFIRMED:"success"
 };
-const relativeDiff=(a:string|null,b:string|undefined)=>{
- if(a===null||b===undefined)return "—";
- try{return decimalStocktake(parseStocktakeQuantity(a)-parseStocktakeQuantity(b))}catch{return "—"}
-};
 
 export function StoreStocktake({role}:{role:string}){
  const manager=isAdmin(role);
@@ -47,14 +44,18 @@ export function StoreStocktake({role}:{role:string}){
  const [detail,setDetail]=useState<StocktakeDetail|null>(null);
  const [search,setSearch]=useState("");
  const [filter,setFilter]=useState<"ALL"|"UNFILLED"|"DIFFERENCE"|"ADDED">("ALL");
- const [expandedLine,setExpandedLine]=useState<string|null>(null);
  const [drafts,setDrafts]=useState<Record<string,string>>({});
  const [saving,setSaving]=useState<string|null>(null);
  const inFlightSave=useRef(new Set<string>());
  const [conflict,setConflict]=useState<{key:string;quantity:string}|null>(null);
- const [history,setHistory]=useState<{line:StocktakeLine;rows:LineHistory[]}|null>(null);
+ const [history,setHistory]=useState<{line:StocktakeLine;cell:StocktakeLocationCount;rows:LineHistory[]}|null>(null);
  const [ignoreForm,setIgnoreForm]=useState<string|null>(null);
- const [batchForm,setBatchForm]=useState<{itemCode:string;batch:string;quantity:string}|null>(null);
+ const [batchForm,setBatchForm]=useState<{itemCode:string;warehouseName:string;locationCode:string;batch:string;quantity:string}|null>(null);
+ const [renameForm,setRenameForm]=useState<{itemCode:string;warehouseName:string;fromLocation:string;toLocation:string}|null>(null);
+ const [manualOpen,setManualOpen]=useState(false);
+ type ManualRow={locationCountId:number;lineKey:string;itemCode:string;batch:string;isAdded:number;
+  warehouseName:string;erpLocationCode:string;locationCode:string;verifiedAt:string|null;verifiedBy:number|null};
+ const [manualRows,setManualRows]=useState<ManualRow[]>([]);
  const [busy,setBusy]=useState(false);
  const [,setFeedbackMessage,reportError]=useFeedbackMessage<string|null>(null);
  const notify=useFeedback();
@@ -82,13 +83,17 @@ export function StoreStocktake({role}:{role:string}){
      setDetail(current=>{
        if(!previous||!current||current.sheet.sheetNo!==sheet)return d;
        if(current.sheet.version>d.sheet.version)return current; // slower responses must not roll back newer edits
-       if(current.sheet.version===d.sheet.version&&d.lines.length===0&&(d.removedKeys?.length??0)===0)return current; // no React redraw for idle polls
+       if(current.sheet.version===d.sheet.version&&d.lines.length===0&&d.locationCounts.length===0&&(d.removedKeys?.length??0)===0)return current; // no React redraw for idle polls
        const removed=new Set(d.removedKeys??[]);
        const changed=new Map(d.lines.map(l=>[l.lineKey,l]));
        const merged=current.lines.filter(l=>!removed.has(l.lineKey)).map(l=>changed.get(l.lineKey)??l);
        const known=new Set(merged.map(l=>l.lineKey));
        for(const line of d.lines)if(!known.has(line.lineKey))merged.push(line);
-       return {sheet:d.sheet,lines:merged};
+       const changedCells=new Map(d.locationCounts.map(cell=>[cell.id,cell]));
+       const cells=current.locationCounts.filter(cell=>!removed.has(cell.sourceLineKey)).map(cell=>changedCells.get(cell.id)??cell);
+       const knownIds=new Set(cells.map(cell=>cell.id));
+       for(const cell of d.locationCounts)if(!knownIds.has(cell.id))cells.push(cell);
+       return {sheet:d.sheet,lines:merged,locationCounts:cells};
      });
    }
    return d;
@@ -96,7 +101,7 @@ export function StoreStocktake({role}:{role:string}){
  const loadDetailRef=useRef(loadDetail);loadDetailRef.current=loadDetail;
  useEffect(()=>{void loadSheets().catch(e=>reportError(errorOf(e)))},[loadSheets,reportError]);
  useEffect(()=>{if(!selected){setDetail(null);setDrafts({});setConflict(null);return;}
-   setDetail(null);setDrafts({});setConflict(null);setExpandedLine(null);
+   setDetail(null);setDrafts({});setConflict(null);
    void loadDetail(selected).catch(e=>reportError(errorOf(e)));
  },[selected,loadDetail,reportError]);
  const active=()=>document.visibilityState==="visible"&&
@@ -117,25 +122,15 @@ export function StoreStocktake({role}:{role:string}){
    void loadSheets().then(()=>selectedRef.current?loadDetail(selectedRef.current):null).catch(()=>undefined);
  },[job.result,loadSheets,loadDetail]);
 
- const visible=useMemo(()=>{
-  if(!detail)return [];
-  const q=search.trim().toLowerCase();
-  return detail.lines.filter(l=>{
-   if(q&&![l.itemCode,l.itemName,l.location,l.batch,l.warehouseName].some(v=>v.toLowerCase().includes(q)))return false;
-   if(filter==="ADDED")return l.isAdded;
-   if(filter==="UNFILLED")return detail.sheet.status==="COUNTING"?l.firstQty===null:
-     detail.sheet.status==="RECOUNTING"?!l.locked&&l.recountQty===null:false;
-   if(filter==="DIFFERENCE")return detail.sheet.status!=="COUNTING"&&l.bookQty!==undefined&&
-      relativeDiff(l.recountQty??l.firstQty,l.bookQty)!=="0";
-   return true;
-  });
- },[detail,search,filter]);
  const currentSheet=detail?.sheet;
- const recountRows=detail?.lines.filter(line=>!line.locked)??[];
+ const recountCells=detail?.locationCounts.filter(cell=>!detail.lines.find(l=>l.lineKey===cell.sourceLineKey)?.locked)??[];
  const filledCount=currentSheet?.status==="RECOUNTING"
-  ? recountRows.filter(line=>line.recountQty!==null).length
-  : currentSheet?.counted??0;
- const totalCount=currentSheet?.status==="RECOUNTING"?recountRows.length:currentSheet?.total??0;
+  ?recountCells.filter(cell=>cell.recountQty!==null).length:currentSheet?.counted??0;
+ const totalCount=currentSheet?.status==="RECOUNTING"?recountCells.length:currentSheet?.total??0;
+ const loadManual=useCallback(async(sheetNo:string)=>{
+  const rows=await call<ManualRow[]>("/"+encodeURIComponent(sheetNo)+"/manual-locations");
+  setManualRows(rows);
+ },[]);
  const open=async(sheetNo:string,bodyPath:string,body?:Record<string,unknown>,method="POST")=>{
    setBusy(true);
    try{
