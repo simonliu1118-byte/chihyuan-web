@@ -58,3 +58,9 @@
 - Deployment contract run [41092241049](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41092241049)：validate-deployment-contract 通過，正式 deploy／audit jobs 按 PR 規則跳過，沒有部署或正式資源操作。
 - PR [#324](https://github.com/simonliu1118-byte/chihyuan-web/pull/324) 保持 Draft。此次追加僅交接文件，功能 source 未再改動；CI 證據以明列 source 與 run 為準。
 - 實際瀏覽器／真實裝置驗收與 Claude 最終審查仍待完成，不將 460/460 誤稱為正式使用驗收。
+
+## 7. 使用者本輪明確授權合併部署（2026-10-31）
+- 使用者在得知本輪包含 migration／複雜流程、尚待 Claude 及瀏覽器驗收後，明確指示「可以合併部署」。本次依當次授權執行，作為本輪交付安排的明確更新，不修改永久專案規則。
+- Claude 審查仍未執行，不能代填通過；瀏覽器驗收限制仍保留。
+- 合併前確認最終 head 的必要 CI 全通過，再由 main dispatch 既有 development-deploy.yml operation=deploy-development；該名稱為既有正式部署入口的歷史名稱。
+- 正式 migration 0033、網站發布與健康檢查結果以本 PR 合併 SHA 及對應部署 run 的最終紀錄為準；本段不預先宣稱已部署成功。
