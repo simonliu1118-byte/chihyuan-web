@@ -135,7 +135,6 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
      {selected.rows.map(r=><div className="cy-stocktake-batch-row" key={r.cell.id}>
       <div className="cy-stocktake-batch-name">批號 {r.line.batch||"無"}</div>
       {editor(r)}
-      <div className="cy-stocktake-batch-actions">{actions(r)}</div>
      </div>)}
     </div>
     <div className="cy-stocktake-group-footer">
@@ -143,6 +142,12 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
       <button className="cy-op-button compact" type="button" onClick={()=>onAddBatch(group.code,selected.warehouse,selected.location)}>＋ 新增批號</button>:<span/>}
      <small>儲位小計 {qtySum(selected.rows,phase).total}{qtySum(selected.rows,phase).complete?"":"（尚未填完）"}</small>
     </div>
+    <details className="cy-stocktake-mobile-actions">
+     <summary>修改紀錄與批號操作</summary>
+     {selected.rows.map(r=><div key={r.cell.id} className="cy-stocktake-mobile-action-row">
+      <small>批號 {r.line.batch||"無"}</small>{actions(r)}
+     </div>)}
+    </details>
    </section>;
    return <section key={group.code} className="cy-stocktake-desktop-group">
     {itemHeader}
