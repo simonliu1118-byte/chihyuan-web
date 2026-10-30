@@ -7,7 +7,7 @@ import {
   type ErpAgentControl, type ErpControlRequest, type ErpControlResult,
 } from "../../shared/erp-item-query";
 import { AuditService } from "../audit/audit-service";
-import {validateSyncResult,validateWriteResult,syncStatements,writeResultStatements} from "./stocktake-erp";
+import {validateSyncResult,validateWriteResult,syncStatements,writeResultStatements,StocktakeInputError} from "./stocktake-erp";
 import type {StocktakeWriteRow} from "../../shared/stocktake";
 import { salesHistoryStatements } from "./erp-sales-history";
 import { HistoryRangeError, daysInclusive, resolveDateRange, resolveHistoryRange, resolveRestockRange } from "../../shared/erp-query-history";
@@ -101,8 +101,9 @@ const ERROR_TEXT: Record<ErpQueryErrorCode, string> = {
   ERP_SEATS_FULL: "ERP 人數已滿，請稍後再查詢",
   CANCELLED: "查詢已取消", INTERNAL: "查詢程式發生錯誤",
   AGENT_TIMEOUT: "查詢程式逾時，請重新查詢",
+  DATA_INVALID: "ERP 資料格式不符",
 };
-const VALID_AGENT_ERRORS = new Set(Object.keys(ERROR_TEXT).filter(v => v !== "AGENT_TIMEOUT"));
+const VALID_AGENT_ERRORS = new Set(Object.keys(ERROR_TEXT).filter(v => v !== "AGENT_TIMEOUT" && v !== "DATA_INVALID"));
 // The Agent claims every 2-3 s; the heartbeat row is rewritten at most every 10 s (or when
 // version/ERP state change) so an idle Agent does not cost a D1 write per poll. 10 s keeps
 // the 15 s online window satisfied.
@@ -997,6 +998,16 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
       result.errorMessage = ERROR_TEXT.ERP_STATE;
     }
     const completedAt = new Date().toISOString();
+    // A bad shelf code or an oversized sheet fails the sync with its reason, shown in the toast
+    // (the sheet can then be ignored), instead of a 400 the Agent cannot act on.
+    let syncStmts: D1PreparedStatement[] = [];
+    if (syncResult && result.status !== "FAILED") {
+      try { syncStmts = await syncStatements(env.DB, syncResult, stocktakeInput?.onlySheet ?? null, completedAt); }
+      catch (error) {
+        if (!(error instanceof StocktakeInputError) || !["STOCKTAKE_LOCATION_INVALID", "STOCKTAKE_LIMIT"].includes(error.code)) throw error;
+        result.status = "FAILED"; result.errorCode = "DATA_INVALID"; result.errorMessage = error.message;
+      }
+    }
     const statements = [
       env.DB.prepare(
         `UPDATE erp_item_queries SET status=?1,completed_at=?2,elapsed_ms=?3,
@@ -1032,8 +1043,7 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
            avg_seconds=avg_seconds+(excluded.avg_seconds-avg_seconds)/MIN(samples+1,20),
            samples=samples+1, updated_at=excluded.updated_at`
       ).bind(row.query_type, row.include_history ? 1 : 0, tookSeconds, completedAt, row.id, result.status));
-    if(syncResult && result.status !== "FAILED")
-      statements.push(...await syncStatements(env.DB,syncResult,stocktakeInput?.onlySheet ?? null,completedAt));
+    statements.push(...syncStmts);
     if(writeResult)statements.push(...await writeResultStatements(env.DB,writeResult,row.id,completedAt));
     // 銷貨資料保存 (user 2026-10-21): a finished RESTOCK keeps the per-day sales for later analysis.
     if (row.query_type === "RESTOCK" && (result.status === "DONE" || result.status === "NOT_FOUND") && row.history_from && row.history_to) {

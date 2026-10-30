@@ -224,6 +224,8 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
     const phase=recount?"recount_qty":"first_qty",by=recount?"recount_by":"first_by",at=recount?"recount_at":"first_at";
     if(matching.length){
       const parent=matching[0];
+      // A locked (book-matched) item is not recounted, so a new cell there would be lost on write.
+      if(parent.locked)fail("STOCKTAKE_STATUS","已核對鎖定的品號不能新增儲位",409);
       const duplicate=await one<LocationCell>(db,"SELECT * FROM stocktake_location_counts WHERE sheet_no=? AND source_line_key=? AND warehouse_name=? AND location_code=?",sheet,parent.line_key,warehouse,location);
       if(duplicate)fail("STOCKTAKE_DUPLICATE","這個儲位已經有此批號",409);
       await db.batch([

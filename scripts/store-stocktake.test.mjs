@@ -165,6 +165,22 @@ test("difference triggers recount; write sends only changed existing batches plu
   assert.equal((await f.sheet()).data.sheet.status,"WRITING");
  }finally{f.sql.close()}
 });
+test("a book-matched (locked) item refuses a new location cell, which would be lost on write",async()=>{
+ const f=fixture();try{
+  f.insert("990001",[f.row("00001","B1","2"),{...f.row("00002","C1","3"),itemCode:"X0002"}]);
+  let d=(await f.sheet()).data;
+  for(const c of d.locationCounts){
+   const saved=await f.user("/990001/line","PATCH",{locationCountId:c.id,expectedVersion:c.version,quantity:c.sourceLineKey==="00001"?"1":"3"});
+   assert.equal(saved.status,200,JSON.stringify(saved));
+  }
+  d=(await f.sheet()).data;
+  assert.equal((await f.user("/990001/first-confirm","POST",{expectedVersion:d.sheet.version})).status,200);
+  const locked=(await f.sheet()).data.lines.find(l=>l.locked);
+  assert.equal(locked.itemCode,"X0002");
+  const add=await f.user("/990001/batches","POST",{itemCode:"X0002",batch:"C1",warehouseName:locked.warehouseName,locationCode:"9999",quantity:"1"});
+  assert.equal(add.status,409,JSON.stringify(add));
+ }finally{f.sql.close()}
+});
 test("SYNC validates exact job payload and never reveals book quantities in user read",async()=>{
  const f=fixture();try{
   const created=await f.user("/sync","POST");
@@ -620,7 +636,11 @@ test("ERP import rejects malformed or duplicate 4-digit locations without creati
   assert.equal(claimed.status,200);
   const bad=await f.agent("/item-queries/"+created.data.id+"/complete",{outcome:"FOUND",sheets:[{sheetNo:"990001",date:"2026-10-28"}],
     details:[{sheetNo:"990001",rows:[{...f.row("00001","LOT1","1"),location:"1324;1324"}]}],elapsedMs:5,agentVersion:"synthetic"});
-  assert.equal(bad.status,400,JSON.stringify(bad));
+  // The Agent's report is accepted; the sync fails with the reason the user sees in the toast.
+  assert.equal(bad.status,200,JSON.stringify(bad));
+  const job=f.sql.prepare("SELECT status,error_code,error_message FROM erp_item_queries WHERE id=?").get(created.data.id);
+  assert.equal(job.status,"FAILED");assert.equal(job.error_code,"DATA_INVALID");
+  assert.match(job.error_message,/990001.*00001.*1324;1324/);
   assert.equal(f.sql.prepare("SELECT COUNT(*) n FROM stocktake_sheets").get().n,0);
  }finally{f.sql.close()}
 });

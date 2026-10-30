@@ -1,4 +1,5 @@
-import {useEffect,useMemo,useState,type KeyboardEvent} from "react";
+import {useMemo,useState,type KeyboardEvent} from "react";
+import {useCompactLayout} from "../../ui/foundation/useCompactLayout";
 import {parseStocktakeQuantity,decimalStocktake,type StocktakeDetail,type StocktakeLine,type StocktakeLocationCount} from "../../../shared/stocktake";
 
 type Row={line:StocktakeLine;cell:StocktakeLocationCount};
@@ -20,19 +21,9 @@ const qtySum=(rows:readonly Row[],field:"firstQty"|"recountQty")=>{
  const total=rows.reduce((sum,r)=>sum+(r.cell[field]===null?0n:parseStocktakeQuantity(r.cell[field]!)),0n);
  return {complete,total:decimalStocktake(total)};
 };
-function useCompact(){
- const [compact,setCompact]=useState(()=>typeof window!=="undefined"&&window.matchMedia("(max-width:820px)").matches);
- useEffect(()=>{
-  const media=window.matchMedia("(max-width:820px)");
-  const change=()=>setCompact(media.matches);
-  change();media.addEventListener("change",change);
-  return()=>media.removeEventListener("change",change);
- },[]);
- return compact;
-}
 export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,conflictKey,
  onDraft,onSave,onConflictUseLatest,onHistory,onDeleteBatch,onAddBatch,onRename}:Props){
- const compact=useCompact();
+ const compact=useCompactLayout();
  const [selectedLocations,setSelectedLocations]=useState<Record<string,string>>({});
  const phase=detail.sheet.status==="COUNTING"?"firstQty":"recountQty";
  const editable=detail.sheet.status==="COUNTING"||detail.sheet.status==="RECOUNTING";
@@ -110,7 +101,10 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
    const locked=phase==="recountQty"&&groupRows.length>0&&groupRows.every(row=>row.line.locked);
    const state=progress.total===0?"none":progress.done===0?"none":progress.done===progress.total?"done":"partial";
    const picked=selectedLocations[group.code];
-   const selected=group.locations.find(l=>l.key===picked)??group.locations[0];
+   // First visit: the first location still to fill (spec §5.4), else the first one.
+   const selected=group.locations.find(l=>l.key===picked)
+     ??group.locations.find(l=>{const p=counts(l.rows);return p.done<p.total})??group.locations[0];
+   const warehouses=new Set(group.locations.map(l=>l.warehouse)).size>1;
    if(!selected)return null;
    const parent=selected.rows[0].line;
    const itemHeader=<div className="cy-stocktake-group-heading">
@@ -128,7 +122,7 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
      {chosen.map(loc=>{const p=counts(loc.rows);return <button type="button" key={loc.key}
       className={"cy-op-button compact"+(loc.key===selected.key?" active":"")}
       aria-pressed={loc.key===selected.key} onClick={()=>setSelectedLocations(s=>({...s,[group.code]:loc.key}))}>
-      <strong>{loc.location||"未指定儲位"}</strong>
+      <strong>{warehouses?loc.warehouse+" ":""}{loc.location||"未指定儲位"}</strong>
       <small>{p.total===0?"已核對":p.done+"/"+p.total+" 已填"}</small>
      </button>})}
     </div>

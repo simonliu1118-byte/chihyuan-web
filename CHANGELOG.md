@@ -5,6 +5,18 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.56 — 盤點分儲位盤點格與品號卡（2026-10-30，PR #318）
+
+- [x] Migration 0032：新增 `stocktake_location_counts`（每個 ERP 原始列依儲位拆格，各格獨立版本與 `rev`），重建 `stocktake_line_history`（加 `location_count_id`）；依使用者決定**清除既有盤點底稿**，忽略清單與 Audit 保留，上線後需重新「同步 ERP」。
+- [x] 數量改存在儲位格；主管確認與 ERP 寫回時才由儲位格加總，每個 ERP 序號只寫回一次；鎖定品號不必複盤。
+- [x] 手機每品號一張卡（儲位切換、批號數量列、三色邊框）；桌面依品號／儲位分組；WEB 修改儲位與「ERP 儲位待手動修改」清單（勾選完成記 Audit，不擋寫回）。
+- [x] Claude 審查直接修正：
+  - ERP 儲位格式錯誤時，同步工作標為失敗並在通知顯示原因（原本是回 400，工作卡到逾時）；
+  - 已核對鎖定的品號禁止新增儲位格（原本新增的數量在寫回時會遺失）；
+  - 改用共用 `useCompactLayout`，不另寫 hook；
+  - 手機儲位按鈕在多庫別時加上庫別名稱，首次開卡預設選第一個未完成的儲位。
+- [ ] 部署後使用者重新同步 ERP，並以真實盤點單實機驗收。
+
 ## CY Web V0.9.55 — 盤點忽略清單、頁面與手機版整理（2026-10-30）
 
 - [x] PR #313–#316（GPT，已於 2026-10-29／30 部署，當時未升版號，部署後健康檢查仍顯示 0.9.54）：忽略清單改為獨立的 ERP 同步排除表 `stocktake_sync_ignored`（migration `0031_stocktake_ignore_exclusions.sql`），盤點工具列與忽略對話框精簡、同步完成改用右上角通知、明細表沿用叫貨表格樣式、手機三行精簡列並移除全頁儲位篩選。
