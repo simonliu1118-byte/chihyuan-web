@@ -295,7 +295,7 @@ export function StoreStocktake({role}:{role:string}){
     </div>
    </nav>
    <div className="cy-stocktake-main">
-    {!currentSheet?<p className="cy-op-empty">請從左側選擇盤點單（手機版請從上方選單選擇）。</p>:<>
+    {!currentSheet?<p className="cy-op-empty">請選擇盤點單</p>:<>
      <header className="cy-record-header">
       <div className="cy-ordering-title">
        <h2>{currentSheet.sheetNo}</h2>
