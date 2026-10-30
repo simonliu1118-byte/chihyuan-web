@@ -1,4 +1,4 @@
-import {Fragment,useCallback,useEffect,useMemo,useRef,useState,type FormEvent, type KeyboardEvent} from "react";
+import {useCallback,useEffect,useRef,useState,type FormEvent} from "react";
 import {apiRequest,ApiClientError} from "../../api/client";
 import {Field,FormSection} from "../../ui/forms/Field";
 import {Dialog} from "../../ui/overlays/Dialog";
@@ -12,8 +12,9 @@ import {enterAdvancesFields,enterAdvancesThenSubmits} from "../../ui/foundation/
 import {Loading} from "../../ui/feedback/Loading";
 import {useErpJob} from "./useErpJob";
 import {ErpJobStatus} from "./ErpJobStatus";
-import {STOCKTAKE_LABELS,parseStocktakeQuantity,decimalStocktake,stocktakeWriteRows,
- type StocktakeDetail,type StocktakeLine,type StocktakeSheet,type StocktakeStatus} from "../../../shared/stocktake";
+import {STOCKTAKE_LABELS,stocktakeAggregateLines,stocktakeWriteRows,
+ type StocktakeDetail,type StocktakeLine,type StocktakeLocationCount,type StocktakeSheet,type StocktakeStatus} from "../../../shared/stocktake";
+import {StocktakeGroupedDetail} from "./StocktakeGroupedDetail";
 
 const ROOT="/api/business/store/stocktake";
 const call=<T,>(path:string,method="GET",json?:unknown)=>apiRequest<T>(ROOT+path,{method,json});
@@ -33,10 +34,6 @@ const date=(iso:string|null)=>formatDateTime(iso);
 const STOCKTAKE_STATUS_TONE:Record<StocktakeStatus,StatusTone>={
  IGNORED:"neutral",COUNTING:"info",RECOUNTING:"warning",WRITING:"info",WRITE_FAILED:"danger",ERP_CONFIRMED:"success"
 };
-const relativeDiff=(a:string|null,b:string|undefined)=>{
- if(a===null||b===undefined)return "—";
- try{return decimalStocktake(parseStocktakeQuantity(a)-parseStocktakeQuantity(b))}catch{return "—"}
-};
 
 export function StoreStocktake({role}:{role:string}){
  const manager=isAdmin(role);
@@ -47,14 +44,18 @@ export function StoreStocktake({role}:{role:string}){
  const [detail,setDetail]=useState<StocktakeDetail|null>(null);
  const [search,setSearch]=useState("");
  const [filter,setFilter]=useState<"ALL"|"UNFILLED"|"DIFFERENCE"|"ADDED">("ALL");
- const [expandedLine,setExpandedLine]=useState<string|null>(null);
  const [drafts,setDrafts]=useState<Record<string,string>>({});
  const [saving,setSaving]=useState<string|null>(null);
  const inFlightSave=useRef(new Set<string>());
  const [conflict,setConflict]=useState<{key:string;quantity:string}|null>(null);
- const [history,setHistory]=useState<{line:StocktakeLine;rows:LineHistory[]}|null>(null);
+ const [history,setHistory]=useState<{line:StocktakeLine;cell:StocktakeLocationCount;rows:LineHistory[]}|null>(null);
  const [ignoreForm,setIgnoreForm]=useState<string|null>(null);
- const [batchForm,setBatchForm]=useState<{itemCode:string;batch:string;quantity:string}|null>(null);
+ const [batchForm,setBatchForm]=useState<{itemCode:string;warehouseName:string;locationCode:string;batch:string;quantity:string}|null>(null);
+ const [renameForm,setRenameForm]=useState<{itemCode:string;warehouseName:string;fromLocation:string;toLocation:string}|null>(null);
+ const [manualOpen,setManualOpen]=useState(false);
+ type ManualRow={locationCountId:number;lineKey:string;itemCode:string;batch:string;isAdded:number;
+  warehouseName:string;erpLocationCode:string;locationCode:string;verifiedAt:string|null;verifiedBy:number|null};
+ const [manualRows,setManualRows]=useState<ManualRow[]>([]);
  const [busy,setBusy]=useState(false);
  const [,setFeedbackMessage,reportError]=useFeedbackMessage<string|null>(null);
  const notify=useFeedback();
@@ -82,13 +83,17 @@ export function StoreStocktake({role}:{role:string}){
      setDetail(current=>{
        if(!previous||!current||current.sheet.sheetNo!==sheet)return d;
        if(current.sheet.version>d.sheet.version)return current; // slower responses must not roll back newer edits
-       if(current.sheet.version===d.sheet.version&&d.lines.length===0&&(d.removedKeys?.length??0)===0)return current; // no React redraw for idle polls
+       if(current.sheet.version===d.sheet.version&&d.lines.length===0&&d.locationCounts.length===0&&(d.removedKeys?.length??0)===0)return current; // no React redraw for idle polls
        const removed=new Set(d.removedKeys??[]);
        const changed=new Map(d.lines.map(l=>[l.lineKey,l]));
        const merged=current.lines.filter(l=>!removed.has(l.lineKey)).map(l=>changed.get(l.lineKey)??l);
        const known=new Set(merged.map(l=>l.lineKey));
        for(const line of d.lines)if(!known.has(line.lineKey))merged.push(line);
-       return {sheet:d.sheet,lines:merged};
+       const changedCells=new Map(d.locationCounts.map(cell=>[cell.id,cell]));
+       const cells=current.locationCounts.filter(cell=>!removed.has(cell.sourceLineKey)).map(cell=>changedCells.get(cell.id)??cell);
+       const knownIds=new Set(cells.map(cell=>cell.id));
+       for(const cell of d.locationCounts)if(!knownIds.has(cell.id))cells.push(cell);
+       return {sheet:d.sheet,lines:merged,locationCounts:cells};
      });
    }
    return d;
@@ -96,7 +101,7 @@ export function StoreStocktake({role}:{role:string}){
  const loadDetailRef=useRef(loadDetail);loadDetailRef.current=loadDetail;
  useEffect(()=>{void loadSheets().catch(e=>reportError(errorOf(e)))},[loadSheets,reportError]);
  useEffect(()=>{if(!selected){setDetail(null);setDrafts({});setConflict(null);return;}
-   setDetail(null);setDrafts({});setConflict(null);setExpandedLine(null);
+   setDetail(null);setDrafts({});setConflict(null);
    void loadDetail(selected).catch(e=>reportError(errorOf(e)));
  },[selected,loadDetail,reportError]);
  const active=()=>document.visibilityState==="visible"&&
@@ -117,25 +122,15 @@ export function StoreStocktake({role}:{role:string}){
    void loadSheets().then(()=>selectedRef.current?loadDetail(selectedRef.current):null).catch(()=>undefined);
  },[job.result,loadSheets,loadDetail]);
 
- const visible=useMemo(()=>{
-  if(!detail)return [];
-  const q=search.trim().toLowerCase();
-  return detail.lines.filter(l=>{
-   if(q&&![l.itemCode,l.itemName,l.location,l.batch,l.warehouseName].some(v=>v.toLowerCase().includes(q)))return false;
-   if(filter==="ADDED")return l.isAdded;
-   if(filter==="UNFILLED")return detail.sheet.status==="COUNTING"?l.firstQty===null:
-     detail.sheet.status==="RECOUNTING"?!l.locked&&l.recountQty===null:false;
-   if(filter==="DIFFERENCE")return detail.sheet.status!=="COUNTING"&&l.bookQty!==undefined&&
-      relativeDiff(l.recountQty??l.firstQty,l.bookQty)!=="0";
-   return true;
-  });
- },[detail,search,filter]);
  const currentSheet=detail?.sheet;
- const recountRows=detail?.lines.filter(line=>!line.locked)??[];
+ const recountCells=detail?.locationCounts.filter(cell=>!detail.lines.find(l=>l.lineKey===cell.sourceLineKey)?.locked)??[];
  const filledCount=currentSheet?.status==="RECOUNTING"
-  ? recountRows.filter(line=>line.recountQty!==null).length
-  : currentSheet?.counted??0;
- const totalCount=currentSheet?.status==="RECOUNTING"?recountRows.length:currentSheet?.total??0;
+  ?recountCells.filter(cell=>cell.recountQty!==null).length:currentSheet?.counted??0;
+ const totalCount=currentSheet?.status==="RECOUNTING"?recountCells.length:currentSheet?.total??0;
+ const loadManual=useCallback(async(sheetNo:string)=>{
+  const rows=await call<ManualRow[]>("/"+encodeURIComponent(sheetNo)+"/manual-locations");
+  setManualRows(rows);
+ },[]);
  const open=async(sheetNo:string,bodyPath:string,body?:Record<string,unknown>,method="POST")=>{
    setBusy(true);
    try{
@@ -154,48 +149,49 @@ export function StoreStocktake({role}:{role:string}){
    }catch(e){reportError(errorOf(e))}
    finally{setBusy(false)}
  };
- const changeDraft=(key:string,value:string)=>setDrafts(s=>({...s,[key]:value}));
- async function saveLine(line:StocktakeLine,force=false){
-   if(!detail||busy||inFlightSave.current.has(line.lineKey))return;
-   const value=draftRef.current[line.lineKey];
-   if(value===undefined)return;
-   if(conflict?.key===line.lineKey&&!force)return;
-   if(!/^-?(?:0|[1-9]\d{0,8})(?:\.\d{1,4})?$/.test(value)){
-     reportError("數量格式錯誤：最多 4 位小數，絕對值小於十億。");return;
-   }
-   inFlightSave.current.add(line.lineKey);
-   setSaving(line.lineKey);
-   try{
-     const fresh=await call<{sheet:StocktakeSheet;line:StocktakeLine}>("/"+encodeURIComponent(detail.sheet.sheetNo)+"/line","PATCH",
-       {lineKey:line.lineKey,quantity:value,expectedVersion:line.version});
-     // Keep the polled version when others saved in between, so the next poll still brings their lines.
-     setDetail(old=>old&&old.sheet.sheetNo===fresh.sheet.sheetNo?{
-       sheet:fresh.sheet.version===old.sheet.version+1?fresh.sheet:{...fresh.sheet,version:old.sheet.version},
-       lines:old.lines.map(l=>l.lineKey===fresh.line.lineKey?fresh.line:l)
-     }:old);
-     setDrafts(s=>{const copy={...s};if(copy[line.lineKey]===value)delete copy[line.lineKey];return copy});
-     setConflict(null);
-   }catch(e){
-     if(e instanceof ApiClientError&&e.code==="STOCKTAKE_VERSION_CONFLICT"){
-       setConflict({key:line.lineKey,quantity:value});
-       await loadDetail(detail.sheet.sheetNo);
-       reportError("此列剛被其他人修改。請比較目前數量，選擇採用他人結果或覆蓋。");
-     }else reportError(errorOf(e));
-   }finally{inFlightSave.current.delete(line.lineKey);setSaving(null)}
+ const changeDraft=(key:string,value:string)=>setDrafts(prev=>({...prev,[key]:value}));
+ async function saveCell(cell:StocktakeLocationCount,force=false){
+  if(!detail||busy)return;
+  const key=String(cell.id),value=draftRef.current[key];
+  if(inFlightSave.current.has(key)||value===undefined)return;
+  if(conflict?.key===key&&!force)return;
+  if(value!==""&&!/^(?:0|[1-9]\d{0,8})(?:\.\d{1,4})?$/.test(value)){
+   reportError("數量格式錯誤：不可為負數，最多 4 位小數且小於十億。");return;
+  }
+  inFlightSave.current.add(key);setSaving(key);
+  try{
+   const fresh=await call<{sheet:StocktakeSheet;locationCount:StocktakeLocationCount}>(
+    "/"+encodeURIComponent(detail.sheet.sheetNo)+"/line","PATCH",
+    {locationCountId:cell.id,quantity:value===""?null:value,expectedVersion:cell.version});
+   setDetail(old=>old&&old.sheet.sheetNo===fresh.sheet.sheetNo?{
+    ...old,sheet:fresh.sheet.version===old.sheet.version+1?fresh.sheet:old.sheet,
+    locationCounts:old.locationCounts.map(c=>c.id===cell.id&&fresh.locationCount.version>=c.version?fresh.locationCount:c)
+   }:old);
+   setDrafts(old=>{const next={...old};if(next[key]===value)delete next[key];return next});
+   setConflict(null);
+  }catch(e){
+   if(e instanceof ApiClientError&&e.code==="STOCKTAKE_VERSION_CONFLICT"){
+    setConflict({key,quantity:value});
+    await loadDetail(detail.sheet.sheetNo);
+    reportError("這個儲位剛被其他人修改，請比較數量。");
+   }else reportError(errorOf(e));
+  }finally{inFlightSave.current.delete(key);setSaving(null)}
+ }
+ function useLatest(cell:StocktakeLocationCount){
+  const key=String(cell.id);
+  setConflict(null);setDrafts(prev=>{const next={...prev};delete next[key];return next});
  }
  async function afterConfirm(action:"first-confirm"|"second-confirm"|"retry-write"|"refresh"){
    if(!currentSheet)return;
-   const lines=detail?.lines??[];
-   const unfilled=action==="first-confirm"?lines.filter(l=>l.firstQty===null).length:
-     action==="second-confirm"?lines.filter(l=>!l.locked&&l.recountQty===null).length:0;
-   // COUNTING is blind: the server intentionally does not send bookQty even
-   // to admins. Never fabricate the number of discrepant items from hidden data.
-   // The Worker computes and locks the true item totals atomically on confirm.
-   const writeRows=action==="second-confirm"?stocktakeWriteRows(lines).length:0;
+   const lines=detail?.lines??[],cells=detail?.locationCounts??[];
+   const unfilled=action==="first-confirm"?cells.filter(c=>c.firstQty===null).length:
+     action==="second-confirm"?cells.filter(c=>!lines.find(l=>l.lineKey===c.sourceLineKey)?.locked&&c.recountQty===null).length:0;
+   const resolved=stocktakeAggregateLines(lines,cells);
+   const writeRows=action==="second-confirm"?stocktakeWriteRows(resolved).length:0;
    const explain=action==="first-confirm"
-     ? `總列數：${lines.length}；未填：${unfilled}；需複盤品號：確認後依 ERP 帳面核算並顯示。`
+     ? `儲位批號格：${cells.length}；未填：${unfilled}；需複盤品號：確認後依 ERP 帳面核算並顯示。`
      :action==="second-confirm"
-       ? `總列數：${lines.length}；未複盤：${unfilled}；將寫回 ${writeRows} 列（含新增批號）。`
+       ? `儲位批號格：${cells.length}；未複盤：${unfilled}；將寫回 ${writeRows} 列（含新增批號）。`
        :action==="retry-write"?"將用相同實盤數量再次要求 ERP 寫回與核對。":"請確認要執行此操作。";
    if(unfilled){reportError("還有 "+unfilled+" 列未填，不能確認。");return}
    if(!await confirm({title:action==="first-confirm"?"第一次主管確認":action==="second-confirm"?"第二次主管確認":"確認操作",
@@ -219,27 +215,55 @@ export function StoreStocktake({role}:{role:string}){
  async function addBatch(e:FormEvent<HTMLFormElement>){
   e.preventDefault();if(!currentSheet||!batchForm)return;
   const {quantity,...identifiers}=batchForm;
-  await open(currentSheet.sheetNo,"batches",{...identifiers,...(quantity.trim()?{quantity:quantity.trim()}:{})});
-  setBatchForm(null);
+  setBusy(true);
+  try{
+   await call("/"+encodeURIComponent(currentSheet.sheetNo)+"/batches","POST",
+    {...identifiers,...(quantity.trim()?{quantity:quantity.trim()}:{})});
+   setBatchForm(null);
+   await Promise.all([loadSheets(),loadDetail(currentSheet.sheetNo)]);
+  }catch(e){reportError(errorOf(e))}
+  finally{setBusy(false)}
  }
- async function deleteBatch(l:StocktakeLine){
+ async function deleteBatch(line:StocktakeLine){
+  if(!currentSheet||!detail)return;
+  const cells=detail.locationCounts.filter(c=>c.sourceLineKey===line.lineKey);
+  if((cells.length>1||cells.some(c=>c.firstQty!==null||c.recountQty!==null))&&
+   !await confirm({title:"刪除新增批號",
+    description:"此批號目前連結 "+cells.length+" 個儲位，刪除會一次移除這個批號在所有儲位的盤點數量，並保留修改紀錄。確定刪除？",
+    confirmLabel:"確認刪除",confirmTone:"danger"}))return;
+  await open(currentSheet.sheetNo,"batches",{lineKey:line.lineKey,expectedVersion:line.version,expectedSheetVersion:currentSheet.version,confirmNonEmpty:true},"DELETE");
+ }
+ async function showHistory(line:StocktakeLine,cell:StocktakeLocationCount){
   if(!currentSheet)return;
-  if((l.firstQty!==null||l.recountQty!==null)&&
-   !await confirm({title:"刪除已填寫批號",description:"此新增批號已有數量，刪除後將保留修改紀錄。",confirmLabel:"確認刪除",confirmTone:"danger"}))return;
-  await open(currentSheet.sheetNo,"batches",{lineKey:l.lineKey,expectedVersion:l.version,confirmNonEmpty:true},"DELETE");
+  try{
+   const rows=await call<LineHistory[]>("/"+encodeURIComponent(currentSheet.sheetNo)+
+    "/history?lineKey="+encodeURIComponent(line.lineKey)+"&locationCountId="+cell.id);
+   setHistory({line,cell,rows});
+  }catch(e){reportError(errorOf(e))}
  }
- async function showHistory(l:StocktakeLine){
-   if(!currentSheet)return;
-   try{
-    const rows=await call<LineHistory[]>("/"+encodeURIComponent(currentSheet.sheetNo)+"/history?lineKey="+encodeURIComponent(l.lineKey));
-    setHistory({line:l,rows});
-   }catch(e){reportError(errorOf(e))}
+ async function renameLocation(e:FormEvent<HTMLFormElement>){
+  e.preventDefault();if(!currentSheet||!renameForm)return;
+  setBusy(true);
+  try{
+   await call("/"+encodeURIComponent(currentSheet.sheetNo)+"/locations","PATCH",{
+    ...renameForm,expectedVersion:currentSheet.version
+   });
+   setRenameForm(null);await loadDetail(currentSheet.sheetNo);
+  }catch(e){reportError(errorOf(e))}finally{setBusy(false)}
  }
- function nextOnEnter(event:KeyboardEvent<HTMLInputElement>,line:StocktakeLine){
-   if(event.key!=="Enter"||event.nativeEvent.isComposing)return;
-   event.preventDefault();void saveLine(line);
-   const inputs=Array.from(event.currentTarget.closest(".cy-stocktake-lines")?.querySelectorAll<HTMLInputElement>("input[data-stocktake-qty]:not([disabled])")??[]);
-   const at=inputs.indexOf(event.currentTarget);inputs[at+1]?.focus();
+ async function verifyManual(row:ManualRow,checked:boolean){
+  if(!currentSheet||!detail)return;
+  const cell=detail.locationCounts.find(c=>c.id===row.locationCountId);
+  if(!cell)return;
+  if(checked&&!await confirm({title:"確認已在 ERP 手動修改儲位",
+   description:"確認已人工核對 ERP 中品號 "+row.itemCode+"、批號 "+row.batch+" 的儲位？本操作不會修改 ERP。",
+   confirmLabel:"標記已人工完成"}))return;
+  setBusy(true);
+  try{
+   await call("/"+encodeURIComponent(currentSheet.sheetNo)+"/manual-locations","PATCH",
+    {locationCountId:row.locationCountId,expectedVersion:cell.version,verified:checked});
+   await Promise.all([loadDetail(currentSheet.sheetNo),loadManual(currentSheet.sheetNo)]);
+  }catch(e){reportError(errorOf(e))}finally{setBusy(false)}
  }
  return <section className="cy-store-stocktake">
   {job.result&&(job.result.status==="QUEUED"||job.result.status==="RUNNING")?<div className="cy-op-panel"><ErpJobStatus result={job.result}/></div>:null}
@@ -281,8 +305,7 @@ export function StoreStocktake({role}:{role:string}){
       <div className="cy-record-actions">
        {manager&&currentSheet.status==="COUNTING"&&currentSheet.detailReadAt?
         <button className="cy-op-button" disabled={busy} type="button" onClick={()=>void afterConfirm("refresh")}>重新整理</button>:null}
-       {(currentSheet.status==="COUNTING"||currentSheet.status==="RECOUNTING")?
-        <button className="cy-op-button" type="button" onClick={()=>setBatchForm({itemCode:"",batch:"",quantity:""})}>新增批號</button>:null}
+       {manager?<button className="cy-op-button" type="button" onClick={()=>{setManualOpen(true);void loadManual(currentSheet.sheetNo).catch(e=>reportError(errorOf(e)))}}>ERP 儲位待手動修改</button>:null}
        {manager&&currentSheet.status==="COUNTING"&&currentSheet.detailReadAt?
         <button className="cy-op-button primary" disabled={busy} type="button" onClick={()=>void afterConfirm("first-confirm")}>初盤確認</button>:null}
        {manager&&currentSheet.status==="RECOUNTING"?
@@ -316,92 +339,13 @@ export function StoreStocktake({role}:{role:string}){
       </select>}/>
      <section className="cy-ordering-lines cy-stocktake-detail-section" aria-label="盤點品號庫存明細">
       <h3>盤點品號庫存明細</h3>
-      <div className="cy-ordering-grid-scroll cy-stocktake-lines" role="region" aria-label="盤點品號庫存明細表格" tabIndex={0}>
-       <table className="cy-ordering-grid cy-stocktake-grid" data-phase={currentSheet.status==="COUNTING"?"first":"recount"}>
-        <thead><tr>
-         <th scope="col">項次</th>
-         <th scope="col">品號</th><th scope="col">品名</th><th scope="col">規格</th>
-         <th scope="col">庫別</th><th scope="col">儲位</th><th scope="col">批號</th><th scope="col">單位</th>
-         {currentSheet.status!=="COUNTING"?<>
-          <th scope="col">初盤數量</th><th scope="col">帳面數量</th><th scope="col">差異</th>
-         </>:null}
-         <th scope="col">{currentSheet.status==="COUNTING"?"初盤數量":"複盤數量"}</th>
-         <th scope="col">最後填寫</th><th scope="col">操作</th>
-        </tr></thead>
-        <tbody>
-         {visible.map((l,index)=>{
-          const field=currentSheet.status==="COUNTING"?"firstQty":"recountQty";
-          const stored=field==="firstQty"?l.firstQty:l.recountQty;
-          const canEdit=!l.locked&&(currentSheet.status==="COUNTING"||currentSheet.status==="RECOUNTING");
-          const edited=drafts[l.lineKey];
-          const lastAt=field==="firstQty"?l.firstAt:l.recountAt;
-          const lastBy=field==="firstQty"?l.firstByName:l.recountByName;
-          return <Fragment key={l.lineKey}><tr className="cy-stocktake-row-group">
-           <td data-label="項次">{index+1}</td>
-           <td data-label="品號"><span className="cy-ordering-cell-text">{l.itemCode}</span></td>
-           <td data-label="品名"><span className="cy-ordering-cell-text cy-ordering-wrap">{l.itemName}</span>
-            {l.isAdded?<small className="cy-stocktake-row-note">新增批號</small>:null}
-            {l.locked?<small className="cy-stocktake-row-note">已鎖定</small>:null}</td>
-           <td data-label="規格"><span className="cy-ordering-cell-text cy-ordering-wrap">{l.spec||"—"}</span></td>
-           <td data-label="庫別"><span className="cy-ordering-cell-text">{l.warehouseName||"—"}</span></td>
-           <td data-label="儲位"><span className="cy-ordering-cell-text">{l.location||"—"}</span></td>
-           <td data-label="批號"><span className="cy-ordering-cell-text">{l.batch||"無"}</span></td>
-           <td data-label="單位"><span className="cy-ordering-cell-text">{l.unit||"—"}</span></td>
-           {currentSheet.status!=="COUNTING"?<>
-            <td className="cy-stocktake-num" data-label="初盤數量">{l.firstQty??"—"}</td>
-            <td className="cy-stocktake-num" data-label="帳面數量">{l.bookQty??"—"}</td>
-            <td className="cy-stocktake-num" data-label="差異">{relativeDiff(l.firstQty,l.bookQty)}</td>
-           </>:null}
-           <td className="cy-stocktake-qty-cell" data-label={currentSheet.status==="COUNTING"?"初盤數量":"複盤數量"}>
-            <div className="cy-stocktake-qty-control">
-             <input data-stocktake-qty type="text" inputMode="decimal" className="cy-ordering-cell"
-              aria-label={(currentSheet.status==="COUNTING"?"初盤數量":"複盤數量")+"："+l.itemCode+"，批號 "+(l.batch||"無")}
-              disabled={!canEdit||saving===l.lineKey}
-              value={edited??stored??""} onChange={e=>changeDraft(l.lineKey,e.target.value)}
-              onBlur={()=>void saveLine(l)} onKeyDown={e=>nextOnEnter(e,l)} placeholder="未填"/>
-             <small className="cy-stocktake-mobile-unit">{l.unit||"—"}</small>
-            </div>
-           </td>
-           <td className="cy-stocktake-last-edit" data-label="最後填寫"><span>{lastBy??"—"}</span><small>{date(lastAt)}</small></td>
-           <td className="cy-stocktake-row-actions" data-label="操作">
-            <button className="cy-op-button compact" type="button" onClick={()=>void showHistory(l)}>修改紀錄</button>
-            {l.isAdded&&canEdit?<button className="cy-op-button compact danger" type="button" onClick={()=>void deleteBatch(l)}>刪除批號</button>:null}
-           </td>
-           <td className="cy-stocktake-mobile-summary">
-            <button type="button" className="cy-stocktake-mobile-summary-button"
-             aria-expanded={expandedLine===l.lineKey} aria-label={"查看"+l.itemCode+"的詳細資料與操作"}
-             onClick={()=>setExpandedLine(s=>s===l.lineKey?null:l.lineKey)}>
-             <span className="cy-stocktake-mobile-product"><strong>{l.itemCode}</strong>{" "}{l.itemName}</span>
-             <span className="cy-stocktake-mobile-spec">{l.spec||"—"}</span>
-             <span className="cy-stocktake-mobile-batch-location">批{l.batch||"無"}{" "}儲{l.location||"—"}</span>
-             {l.isAdded?<span className="cy-stocktake-mobile-flag">新增批號</span>:null}
-             {l.locked?<span className="cy-stocktake-mobile-flag">已鎖定</span>:null}
-            </button>
-           </td>
-          </tr>
-          {expandedLine===l.lineKey?<tr className="cy-stocktake-mobile-expanded"><td colSpan={currentSheet.status==="COUNTING"?12:15}>
-           <div className="cy-stocktake-expanded-content">
-            <div>庫別：{l.warehouseName||"—"}　單位：{l.unit||"—"}</div>
-            {currentSheet.status!=="COUNTING"?<div>初盤：{l.firstQty??"—"}　帳面：{l.bookQty??"—"}　差異：{relativeDiff(l.firstQty,l.bookQty)}</div>:null}
-            <div>最後填寫：{lastBy??"—"}　{date(lastAt)}</div>
-            <div className="cy-stocktake-expanded-actions">
-             <button className="cy-op-button compact" type="button" onClick={()=>void showHistory(l)}>修改紀錄</button>
-             {l.isAdded&&canEdit?<button className="cy-op-button compact danger" type="button" onClick={()=>void deleteBatch(l)}>刪除批號</button>:null}
-            </div>
-           </div>
-          </td></tr>:null}
-          {conflict?.key===l.lineKey?<tr className="cy-stocktake-conflict-row"><td colSpan={currentSheet.status==="COUNTING"?11:14}>
-           <div className="cy-notice cy-notice-warning" role="alert">
-            <p>其他人已修改本列，現在儲存的數量：{stored??"未填"}。</p>
-            <button className="cy-op-button compact" type="button" onClick={()=>{setConflict(null);setDrafts(d=>{const v={...d};delete v[l.lineKey];return v})}}>採用最新結果</button>
-            <button className="cy-op-button compact" type="button" onClick={()=>{setConflict(null);void saveLine(l,true)}}>覆蓋為我的數量</button>
-           </div>
-          </td></tr>:null}</Fragment>
-         })}
-        </tbody>
-       </table>
-       {detail&&visible.length===0?<p className="cy-op-empty">目前沒有符合篩選的盤點列。</p>:null}
-      </div>
+      <StocktakeGroupedDetail detail={detail!} search={search} filter={filter}
+       drafts={drafts} saving={saving} conflictKey={conflict?.key??null}
+       onDraft={changeDraft} onSave={(cell,force)=>void saveCell(cell,force)}
+       onConflictUseLatest={useLatest} onHistory={(line,cell)=>void showHistory(line,cell)}
+       onDeleteBatch={line=>void deleteBatch(line)}
+       onAddBatch={(itemCode,warehouseName,locationCode)=>setBatchForm({itemCode,warehouseName,locationCode,batch:"",quantity:""})}
+       onRename={(itemCode,warehouseName,fromLocation)=>setRenameForm({itemCode,warehouseName,fromLocation,toLocation:""})}/>
      </section>
     </>}
    </div>
@@ -434,18 +378,50 @@ export function StoreStocktake({role}:{role:string}){
   {batchForm?<Dialog open title="新增批號" onClose={()=>setBatchForm(null)}>
    <form onKeyDown={enterAdvancesFields} onSubmit={e=>void addBatch(e)}>
     <FormSection>
-     <Field label="既有品號" required size="m"><input className="cy-op-input" maxLength={40} value={batchForm.itemCode}
-       onChange={e=>setBatchForm(s=>s?{...s,itemCode:e.target.value}:null)}/></Field>
+     <Field label="品號" size="m"><input className="cy-op-input" value={batchForm.itemCode} readOnly/></Field>
+      <Field label="庫別" size="m"><input className="cy-op-input" value={batchForm.warehouseName} readOnly/></Field>
+      <Field label="WEB 儲位" size="m"><input className="cy-op-input" value={batchForm.locationCode||"未指定儲位"} readOnly/></Field>
      <Field label="新批號" required size="m"><input className="cy-op-input" maxLength={80} value={batchForm.batch}
        onChange={e=>setBatchForm(s=>s?{...s,batch:e.target.value}:null)}/></Field>
-     <Field label="初盤數量" size="s"><input className="cy-op-input" inputMode="decimal" value={batchForm.quantity}
+     <Field label={currentSheet?.status==="RECOUNTING"?"複盤數量":"初盤數量"} size="s"><input className="cy-op-input" inputMode="decimal" value={batchForm.quantity}
        onChange={e=>setBatchForm(s=>s?{...s,quantity:e.target.value}:null)}/></Field>
     </FormSection>
     <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setBatchForm(null)}>取消</button>
      <button type="submit" className="cy-op-button primary" disabled={busy}>新增</button></div>
    </form>
   </Dialog>:null}
-  {history?<Dialog open title={history.line.itemCode+"／"+history.line.batch+" 修改紀錄"} onClose={()=>setHistory(null)}>
+  {renameForm?<Dialog open title="修改 WEB 儲位" onClose={()=>setRenameForm(null)}>
+   <form onKeyDown={enterAdvancesFields} onSubmit={e=>void renameLocation(e)}>
+    <FormSection>
+     <Field label="品號" size="m"><input className="cy-op-input" value={renameForm.itemCode} readOnly/></Field>
+     <Field label="庫別" size="m"><input className="cy-op-input" value={renameForm.warehouseName} readOnly/></Field>
+     <Field label="原儲位" size="m"><input className="cy-op-input" value={renameForm.fromLocation||"未指定儲位"} readOnly/></Field>
+     <Field label="新四碼儲位" required size="m"><input className="cy-op-input" inputMode="numeric" pattern="[0-9]{4}"
+      maxLength={4} value={renameForm.toLocation} onChange={e=>setRenameForm(v=>v?{...v,toLocation:e.target.value}:null)}/></Field>
+    </FormSection>
+    <p className="cy-notice cy-notice-warning">僅修改 WEB 儲位；ERP 原始儲位不會同步修改，將列入管理員待人工處理清單。</p>
+    <div className="cy-op-form-footer">
+     <button className="cy-op-button" type="button" onClick={()=>setRenameForm(null)}>取消</button>
+     <button className="cy-op-button primary" type="submit" disabled={busy}>儲存 WEB 儲位</button>
+    </div>
+   </form>
+  </Dialog>:null}
+  {manualOpen?<Dialog open title="ERP 儲位待手動修改" onClose={()=>setManualOpen(false)}>
+   <p>此清單只用來核對人工 ERP 作業，本頁不會呼叫 QUERY 修改儲位。須在 ERP 完成作業後再標記完成。</p>
+   {manualRows.length?<div className="cy-op-table-wrap">
+    <table className="cy-op-table cy-stocktake-manual-table">
+     <thead><tr><th>品號／批號</th><th>庫別</th><th>ERP 儲位</th><th>WEB 儲位</th><th>狀態與操作</th></tr></thead>
+     <tbody>{manualRows.map(row=><tr key={row.locationCountId}>
+      <td>{row.itemCode}／{row.batch||"無"}</td><td>{row.warehouseName}</td>
+      <td>{row.erpLocationCode||"未指定"}</td><td>{row.locationCode||"未指定"}</td>
+      <td><StatusChip tone={row.verifiedAt?"success":"warning"}>{row.verifiedAt?"已人工完成":"待手動修改"}</StatusChip>
+       <button className="cy-op-button compact" type="button" disabled={busy}
+        onClick={()=>void verifyManual(row,!row.verifiedAt)}>{row.verifiedAt?"撤銷完成":"標記完成"}</button></td>
+     </tr>)}</tbody>
+    </table>
+   </div>:<p className="cy-op-empty">目前沒有需要人工修改的 ERP 儲位。</p>}
+  </Dialog>:null}
+  {history?<Dialog open title={history.line.itemCode+"／"+(history.cell.locationCode||"未指定儲位")+"／"+history.line.batch+" 修改紀錄"} onClose={()=>setHistory(null)}>
     {history.rows.length? <ul>{history.rows.map(h=><li key={h.id}>{date(h.at)} {h.actorName}：{h.field} {h.beforeValue??"未填"} → {h.afterValue??"空"}</li>)}</ul>:
      <p>尚無修改紀錄。</p>}
    </Dialog>:null}

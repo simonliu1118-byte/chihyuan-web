@@ -853,6 +853,24 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "voided_by",
     "work_order_ref"
   ],
+  "stocktake_location_counts": [
+    "erp_location_code",
+    "first_at",
+    "first_by",
+    "first_qty",
+    "id",
+    "location_code",
+    "manual_verified_at",
+    "manual_verified_by",
+    "recount_at",
+    "recount_by",
+    "recount_qty",
+    "rev",
+    "sheet_no",
+    "source_line_key",
+    "version",
+    "warehouse_name"
+  ],
   "stocktake_line_history": [
     "actor_member_id",
     "after_value",
@@ -861,6 +879,7 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "field",
     "id",
     "line_key",
+    "location_count_id",
     "removed_rev",
     "sheet_no"
   ],

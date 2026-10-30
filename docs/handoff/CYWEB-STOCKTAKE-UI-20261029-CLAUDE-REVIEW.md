@@ -1,3 +1,12 @@
+# 2026-10-30 §14.2 開發交接：Draft PR #318（未合併、未部署）
+
+- 使用者最新明示：**「這次變動大，做完不可合併部署」**。新功能只在 `feature/stocktake-location-counts-phase1-20261030` 分支與 [Draft PR #318](https://github.com/simonliu1118-byte/chihyuan-web/pull/318)。
+- 全面設計與實作紀錄：[CYWEB-STOCKTAKE-LOCATION-BATCH-DESIGN-20261030.md §14–15](CYWEB-STOCKTAKE-LOCATION-BATCH-DESIGN-20261030.md)；其中 §14.1 明確同意 migration 0032 清空舊 WEB 盤點底稿、保留忽略清單及 Audit；需 Claude 獨立審核後才能評估正式執行。
+- 含第一刀分儲位子表／SYNC／多儲位分數與原 ERP seq 加總／手機品號一卡／桌面分組；第二刀 WEB 儲位修改、ERP 人工待辦及 Audit。未動 QUERY、ERP 儲位回填與「重新盤點」TODO。
+- 僅供 Claude PR 複審；**禁止自動將此分支合併 main、禁止更新部署分支、禁止執行正式 D1 migration、禁止正式部署**。
+
+---
+
 # 2026-10-30 最新需求交接：品號一卡 × 儲位優先 × 多批號（僅設計，待 Claude 審核）
 
 - **最新版完整設計文件**：[CYWEB-STOCKTAKE-LOCATION-BATCH-DESIGN-20261030.md](CYWEB-STOCKTAKE-LOCATION-BATCH-DESIGN-20261030.md)

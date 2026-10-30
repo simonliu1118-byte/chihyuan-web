@@ -106,7 +106,7 @@ export type ErpQueryStatus = "QUEUED" | "RUNNING" | "DONE" | "NOT_FOUND" | "FAIL
 export type ErpQueryOutcome = "FOUND" | "NOT_FOUND" | "FAILED";
 export type ErpQueryErrorCode =
   | "ERP_NOT_OPEN" | "ERP_BUSY" | "ERP_STATE" | "EXPORT_FAILED" | "ERP_SEATS_FULL"
-  | "CANCELLED" | "INTERNAL" | "AGENT_TIMEOUT";
+  | "CANCELLED" | "INTERNAL" | "AGENT_TIMEOUT" | "DATA_INVALID";
 export interface ErpField { name: string; value: string; }
 export interface ErpQueryHistory {
   from: string;

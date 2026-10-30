@@ -54,17 +54,43 @@ function fixture(role="SUPER_ADMIN",grant=true){
   const res=await fn(req,env,"synthetic-stocktake-request");
   return {status:res.status,...await res.json()};
  };
- const user=(path,method="GET",body)=>api("/api/business/store/stocktake"+path,method,body);
+ // Legacy tests use the unique single-location count cell of each original ERP seq.
+ // Separate multi-location cases below exercise explicit locationCountId requests.
+ const user=(path,method="GET",body)=>{
+  if(path.endsWith("/line")&&method==="PATCH"&&body?.lineKey){
+   const sheetNo=path.split("/")[1];
+   const cell=sql.prepare("SELECT id,version FROM stocktake_location_counts WHERE sheet_no=? AND source_line_key=? ORDER BY id LIMIT 1")
+    .get(sheetNo,body.lineKey);
+   const status=sql.prepare("SELECT status FROM stocktake_sheets WHERE sheet_no=?").get(sheetNo)?.status;
+   // Legacy test fixtures still read parent-row versions. In recount, use the child's
+   // latest version; explicit locationCountId tests below exercise stale-version conflicts.
+   body={locationCountId:cell?.id,expectedVersion:status==="RECOUNTING"?cell?.version:body.expectedVersion,quantity:body.quantity};
+  }
+  if(path.endsWith("/batches")&&method==="POST"&&body?.itemCode&&!Object.hasOwn(body,"locationCode"))
+   body={...body,warehouseName:"倉甲",locationCode:"1324"};
+  if(path.endsWith("/batches")&&method==="DELETE"&&!Object.hasOwn(body??{},"expectedSheetVersion")){
+   const sh=sql.prepare("SELECT version FROM stocktake_sheets WHERE sheet_no=?").get(path.split("/")[1]);
+   body={...body,expectedSheetVersion:sh?.version};
+  }
+  return api("/api/business/store/stocktake"+path,method,body);
+ };
  const agent=(path,body)=>api("/api/erp-agent"+path,"POST",body,true);
  const sheet=(number="990001")=>user("/"+number);
  const row=(seq,batch,bookQty,code="X0001")=>({
-  seq,itemCode:code,itemName:"合成品名",spec:"測試規格",warehouseName:"倉甲",location:"A-01",unit:"個",batch,bookQty
+  seq,itemCode:code,itemName:"合成品名",spec:"測試規格",warehouseName:"倉甲",location:"1324",unit:"個",batch,bookQty
  });
  const insert=(number="990001",data=[row("00001","B1","2"),row("00002","B2","1")])=>{
   sql.prepare("INSERT INTO stocktake_sheets(sheet_no,sheet_date,status,detail_read_at,total_lines,recount_needed,created_at,updated_at) VALUES(?,?,'COUNTING',?,?,?, ?,?)")
    .run(number,"2026-10-28",now,data.length,data.length,now,now);
-  for(const line of data)sql.prepare("INSERT INTO stocktake_lines(sheet_no,line_key,seq,item_code,item_name,spec,warehouse_name,location,unit,batch,book_qty) VALUES(?,?,?,?,?,?,?,?,?,?,?)")
-   .run(number,line.seq,line.seq,line.itemCode,line.itemName,line.spec,line.warehouseName,line.location,line.unit,line.batch,line.bookQty);
+  for(const line of data){
+   sql.prepare("INSERT INTO stocktake_lines(sheet_no,line_key,seq,item_code,item_name,spec,warehouse_name,location,unit,batch,book_qty) VALUES(?,?,?,?,?,?,?,?,?,?,?)")
+    .run(number,line.seq,line.seq,line.itemCode,line.itemName,line.spec,line.warehouseName,line.location,line.unit,line.batch,line.bookQty);
+   for(const location of (line.location.trim()?line.location.split(";").map(x=>x.trim()):[""]))
+    sql.prepare("INSERT INTO stocktake_location_counts(sheet_no,source_line_key,warehouse_name,location_code,erp_location_code) VALUES(?,?,?,?,?)")
+     .run(number,line.seq,line.warehouseName,location,location);
+  }
+  const n=sql.prepare("SELECT COUNT(*) n FROM stocktake_location_counts WHERE sheet_no=?").get(number).n;
+  sql.prepare("UPDATE stocktake_sheets SET total_lines=?,recount_needed=? WHERE sheet_no=?").run(n,n,number);
  };
  return {sql,db,api,user,agent,sheet,row,insert,scans,housekeeping:()=>runErpHousekeeping(db,Date.now())};
 }
@@ -137,6 +163,22 @@ test("difference triggers recount; write sends only changed existing batches plu
   assert.equal(sent.rows.length,1);
   assert.deepEqual(sent.rows[0],{key:"00001",seq:"00001",itemCode:"X0001",batch:"B1",quantity:"5"});
   assert.equal((await f.sheet()).data.sheet.status,"WRITING");
+ }finally{f.sql.close()}
+});
+test("a book-matched (locked) item refuses a new location cell, which would be lost on write",async()=>{
+ const f=fixture();try{
+  f.insert("990001",[f.row("00001","B1","2"),{...f.row("00002","C1","3"),itemCode:"X0002"}]);
+  let d=(await f.sheet()).data;
+  for(const c of d.locationCounts){
+   const saved=await f.user("/990001/line","PATCH",{locationCountId:c.id,expectedVersion:c.version,quantity:c.sourceLineKey==="00001"?"1":"3"});
+   assert.equal(saved.status,200,JSON.stringify(saved));
+  }
+  d=(await f.sheet()).data;
+  assert.equal((await f.user("/990001/first-confirm","POST",{expectedVersion:d.sheet.version})).status,200);
+  const locked=(await f.sheet()).data.lines.find(l=>l.locked);
+  assert.equal(locked.itemCode,"X0002");
+  const add=await f.user("/990001/batches","POST",{itemCode:"X0002",batch:"C1",warehouseName:locked.warehouseName,locationCode:"9999",quantity:"1"});
+  assert.equal(add.status,409,JSON.stringify(add));
  }finally{f.sql.close()}
 });
 test("SYNC validates exact job payload and never reveals book quantities in user read",async()=>{
@@ -331,10 +373,10 @@ test("blind current-count rows include the actual actor name but no book quantit
   const save=await f.user("/990001/line","PATCH",{
      lineKey:row.lineKey,quantity:"2",expectedVersion:row.version});
   assert.equal(save.status,200,JSON.stringify(save));
-  const fresh=(await f.sheet()).data.lines.find(l=>l.lineKey===row.lineKey);
-  assert.equal(fresh.firstByName,"合成盤點員甲");
-  assert.equal(fresh.firstBy,1);
-  assert.equal(fresh.bookQty,undefined);
+  const fresh=(await f.sheet()).data;
+  assert.equal(fresh.locationCounts[0].firstByName,"合成盤點員甲");
+  assert.equal(fresh.locationCounts[0].firstBy,1);
+  assert.ok(fresh.lines.every(l=>!("bookQty" in l)));
  }finally{f.sql.close()}
 });
 
@@ -490,11 +532,12 @@ test("incremental GET returns only changed lines and deletion tombstones",async(
    const patched=await f.user("/990001/line","PATCH",{lineKey:first.lineKey,quantity:"2",expectedVersion:first.version});
    assert.equal(patched.status,200,JSON.stringify(patched));
    assert.equal(patched.data.sheet.counted,1);
-   assert.equal(patched.data.line.lineKey,first.lineKey);
+   assert.equal(patched.data.locationCount.sourceLineKey,first.lineKey);
    assert.equal(patched.data.lines,undefined);
    const delta=(await f.user("/990001?since="+before.sheet.version)).data;
-   assert.equal(delta.lines.length,1);
-   assert.equal(delta.lines[0].lineKey,first.lineKey);
+   assert.equal(delta.lines.length,0,"only the modified location cell should be returned");
+   assert.equal(delta.locationCounts.length,1);
+   assert.equal(delta.locationCounts[0].sourceLineKey,first.lineKey);
    assert.equal(delta.sheet.counted,1);
    const added=await f.user("/990001/batches","POST",{itemCode:"X0001",batch:"NEW",quantity:"1"});
    assert.equal(added.status,200,JSON.stringify(added));
@@ -508,5 +551,96 @@ test("incremental GET returns only changed lines and deletion tombstones",async(
    const changes=(await f.user("/990001?since="+revision)).data;
    assert.deepEqual(changes.removedKeys,[added.data.line.lineKey]);
    assert.deepEqual(changes.lines,[]);
+ }finally{f.sql.close()}
+});
+
+test("multi-location single ERP seq: separate first/recount cells, no partial confirmation, one write row",async()=>{
+ const f=fixture();try{
+  f.insert("990001",[{...f.row("00001","LOT1","100"),location:"1324;3133"}]);
+  let data=(await f.sheet()).data;
+  assert.equal(data.lines.length,1);
+  assert.equal(data.locationCounts.length,2);
+  assert.equal(data.sheet.total,2);
+  const a=data.locationCounts.find(c=>c.locationCode==="1324"),b=data.locationCounts.find(c=>c.locationCode==="3133");
+  assert.equal((await f.user("/990001/line","PATCH",{locationCountId:a.id,quantity:"40",expectedVersion:a.version})).status,200);
+  assert.equal((await f.user("/990001/first-confirm","POST",{expectedVersion:2})).status,409);
+  assert.equal((await f.user("/990001/line","PATCH",{locationCountId:b.id,quantity:"55",expectedVersion:b.version})).status,200);
+  data=(await f.sheet()).data;assert.equal(data.sheet.counted,2);
+  assert.equal((await f.user("/990001/first-confirm","POST",{expectedVersion:data.sheet.version})).status,200);
+  data=(await f.sheet()).data;assert.equal(data.sheet.recountNeeded,2);
+  assert.equal(data.lines[0].locked,false);
+  for(const c of data.locationCounts){
+   const qty=c.locationCode==="1324"?"42":"53";
+   const r=await f.user("/990001/line","PATCH",{locationCountId:c.id,quantity:qty,expectedVersion:c.version});
+   assert.equal(r.status,200,JSON.stringify(r));
+  }
+  data=(await f.sheet()).data;
+  const confirmed=await f.user("/990001/second-confirm","POST",{expectedVersion:data.sheet.version});
+  assert.equal(confirmed.status,200,JSON.stringify(confirmed));
+  const job=f.sql.prepare("SELECT keyword FROM erp_item_queries WHERE id=?").get(confirmed.data.id);
+  const sent=JSON.parse(job.keyword);
+  assert.equal(sent.rows.length,1);
+  assert.deepEqual(sent.rows[0],{key:"00001",seq:"00001",itemCode:"X0001",batch:"LOT1",quantity:"95"});
+ }finally{f.sql.close()}
+});
+
+test("separate location version conflicts do not collide, null is unfilled, zero is counted",async()=>{
+ const f=fixture();try{
+  f.insert("990001",[{...f.row("00001","LOT1","1"),location:"1324;3133"}]);
+  const cells=(await f.sheet()).data.locationCounts;
+  const one=await f.user("/990001/line","PATCH",{locationCountId:cells[0].id,quantity:"0",expectedVersion:1});
+  assert.equal(one.status,200,JSON.stringify(one));
+  const two=await f.user("/990001/line","PATCH",{locationCountId:cells[1].id,quantity:"1",expectedVersion:1});
+  assert.equal(two.status,200,JSON.stringify(two));
+  assert.equal((await f.sheet()).data.sheet.counted,2);
+  assert.equal((await f.user("/990001/line","PATCH",{locationCountId:cells[0].id,quantity:"3",expectedVersion:1})).status,409);
+  const latest=(await f.sheet()).data.locationCounts.find(c=>c.id===cells[0].id);
+  assert.equal((await f.user("/990001/line","PATCH",{locationCountId:latest.id,quantity:null,expectedVersion:latest.version})).status,200);
+  assert.equal((await f.sheet()).data.sheet.counted,1);
+ }finally{f.sql.close()}
+});
+
+test("existing batch can be counted at another location; rename creates audited manual ERP task",async()=>{
+ const f=fixture();try{
+  f.insert();
+  let added=await f.user("/990001/batches","POST",{itemCode:"X0001",batch:"B1",warehouseName:"倉甲",locationCode:"3133",quantity:"2"});
+  assert.equal(added.status,200,JSON.stringify(added));
+  assert.equal((await f.sheet()).data.lines.length,2,"same batch must not create another ERP source seq");
+  assert.equal((await f.sheet()).data.locationCounts.length,3);
+  assert.equal((await f.user("/990001/batches","POST",{itemCode:"X0001",batch:"B1",warehouseName:"倉甲",locationCode:"3133"})).status,409);
+  let d=(await f.sheet()).data;
+  assert.equal((await f.user("/990001/locations","PATCH",{
+   itemCode:"X0001",warehouseName:"倉甲",fromLocation:"3133",toLocation:"0004",expectedVersion:d.sheet.version
+  })).status,200);
+  d=(await f.sheet()).data;
+  assert.equal(d.locationCounts.find(c=>c.locationCode==="0004").erpLocationCode,"");
+  const outstanding=await f.user("/990001/manual-locations");
+  assert.equal(outstanding.status,200);
+  const todo=outstanding.data.find(c=>c.locationCode==="0004");
+  assert.equal(todo.verifiedAt,null);
+  const cell=d.locationCounts.find(c=>c.id===todo.locationCountId);
+  assert.equal((await f.user("/990001/manual-locations","PATCH",{
+   locationCountId:todo.locationCountId,expectedVersion:cell.version,verified:true
+  })).status,200);
+  assert.ok((await f.user("/990001/manual-locations")).data.find(c=>c.locationCountId===cell.id).verifiedAt);
+  assert.equal((await f.user("/990001/locations","PATCH",{
+   itemCode:"X0001",warehouseName:"倉甲",fromLocation:"0004",toLocation:"1324",expectedVersion:(await f.sheet()).data.sheet.version
+  })).status,409,"duplicate destination must never silently merge count cells");
+ }finally{f.sql.close()}
+});
+
+test("ERP import rejects malformed or duplicate 4-digit locations without creating a sheet",async()=>{
+ const f=fixture();try{
+  const created=await f.user("/sync","POST");
+  const claimed=await f.agent("/item-queries/claim",{agentVersion:"synthetic",erpState:"BROWSE",queryTypes:["STOCKTAKE_SYNC"]});
+  assert.equal(claimed.status,200);
+  const bad=await f.agent("/item-queries/"+created.data.id+"/complete",{outcome:"FOUND",sheets:[{sheetNo:"990001",date:"2026-10-28"}],
+    details:[{sheetNo:"990001",rows:[{...f.row("00001","LOT1","1"),location:"1324;1324"}]}],elapsedMs:5,agentVersion:"synthetic"});
+  // The Agent's report is accepted; the sync fails with the reason the user sees in the toast.
+  assert.equal(bad.status,200,JSON.stringify(bad));
+  const job=f.sql.prepare("SELECT status,error_code,error_message FROM erp_item_queries WHERE id=?").get(created.data.id);
+  assert.equal(job.status,"FAILED");assert.equal(job.error_code,"DATA_INVALID");
+  assert.match(job.error_message,/990001.*00001.*1324;1324/);
+  assert.equal(f.sql.prepare("SELECT COUNT(*) n FROM stocktake_sheets").get().n,0);
  }finally{f.sql.close()}
 });

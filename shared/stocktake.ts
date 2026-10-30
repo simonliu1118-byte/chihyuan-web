@@ -18,7 +18,16 @@ export type StocktakeSheet = {
   erpConfirmedAt:string|null;writeQueryId:string|null;writeResult:unknown;
   total:number;counted:number;recountNeeded:number;
 };
-export type StocktakeDetail = {sheet:StocktakeSheet;lines:StocktakeLine[]};
+/** WEB count cells are independent of ERP rows; book quantities belong to parent source rows only. */
+export type StocktakeLocationCount = {
+ id:number;sheetNo:string;sourceLineKey:string;warehouseName:string;locationCode:string;erpLocationCode:string;
+ manualVerifiedAt:string|null;manualVerifiedBy:number|null;
+ firstQty:string|null;firstBy:number|null;firstAt:string|null;
+ recountQty:string|null;recountBy:number|null;recountAt:string|null;
+ firstByName?:string|null;recountByName?:string|null;version:number;rev:number;
+};
+export type StocktakeDetail = {sheet:StocktakeSheet;lines:StocktakeLine[];
+ locationCounts:StocktakeLocationCount[]};
 export type StocktakeWriteRow = {key:string;seq:string|null;itemCode:string;batch:string;quantity:string};
 export const STOCKTAKE_NO = /^[A-Za-z0-9]{1,20}$/;
 export const STOCKTAKE_SEQ = /^[0-9]{5}$/;
@@ -52,6 +61,35 @@ export function stocktakeWriteRows(lines:readonly StocktakeLine[]):StocktakeWrit
   return lines.filter(l=>l.isAdded||parseStocktakeQuantity(l.recountQty??l.firstQty??"0")!==parseStocktakeQuantity(l.bookQty??"0"))
     .map(l=>({key:l.lineKey,seq:l.isAdded?null:l.seq,itemCode:l.itemCode,batch:l.batch,
       quantity:l.recountQty??l.firstQty??"0"}));
+}
+/** Each ERP sequence is counted once. Sum cells only when all locations are filled. */
+export function stocktakeAggregateLines(lines:readonly StocktakeLine[],counts:readonly StocktakeLocationCount[]):StocktakeLine[]{
+ const byKey=new Map<string,StocktakeLocationCount[]>();
+ for(const cell of counts){
+  const rows=byKey.get(cell.sourceLineKey)??[];
+  rows.push(cell);byKey.set(cell.sourceLineKey,rows);
+ }
+ function total(cells:StocktakeLocationCount[],field:"firstQty"|"recountQty"):string|null{
+  if(!cells.length||cells.some(c=>c[field]===null))return null;
+  return decimalStocktake(cells.reduce((sum,c)=>sum+parseStocktakeQuantity(c[field]!),0n));
+ }
+ return lines.map(line=>{
+  const cells=byKey.get(line.lineKey)??[];
+  return {...line,firstQty:total(cells,"firstQty"),recountQty:total(cells,"recountQty")};
+ });
+}
+/** Completion is per location cell, never per ERP seq or per React card. */
+export function stocktakeCountProgress(cells:readonly StocktakeLocationCount[],phase:"firstQty"|"recountQty",lockedKeys?:ReadonlySet<string>){
+ const required=lockedKeys?cells.filter(c=>!lockedKeys.has(c.sourceLineKey)):cells;
+ return {total:required.length,filled:required.filter(c=>c[phase]!==null).length};
+}
+/** Strict four-digit locations, with empty location represented by one blank count cell. */
+export function stocktakeLocations(source:string):string[]{
+ if(source.trim()==="")return [""];
+ const locations=source.split(";").map(x=>x.trim());
+ if(locations.some(x=>!/^[0-9]{4}$/.test(x))||new Set(locations).size!==locations.length)
+  throw Error("STOCKTAKE_LOCATION_INVALID");
+ return locations;
 }
 /** Strict ERP bridge payload contracts; sheet/date/qty are always strings. */
 export type StocktakeSyncRow = {seq:string;itemCode:string;itemName:string;spec:string;
