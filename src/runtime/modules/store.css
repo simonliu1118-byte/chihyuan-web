@@ -182,3 +182,32 @@
  .cy-stocktake-main .cy-data-filters{display:flex;flex:0 0 106px;flex-direction:row;min-width:0;width:106px}
  .cy-stocktake-main .cy-data-filters>.cy-op-input{width:100%;min-width:0;min-height:42px}
 }
+/* V0.9.56 Build 2: compact desktop rows and in-place location editing. */
+.cy-stocktake-location-code{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.cy-stocktake-inline-location{min-width:0;max-width:100%}
+.cy-stocktake-inline-location .cy-f{margin:0;max-width:110px}
+.cy-stocktake-inline-location .cy-f-label{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%)}
+.cy-stocktake-inline-location input{box-sizing:border-box;width:100%;min-width:0;height:28px;padding:3px 5px;border:1px solid var(--cy-accent);border-radius:4px;font:inherit}
+.cy-stocktake-inline-location small{display:block;font-size:var(--cy-fs-xs);color:var(--cy-text-muted)}
+.cy-stocktake-location-heading .cy-op-button{display:inline-flex;align-items:center;justify-content:center;padding:4px;min-width:28px;min-height:28px}
+@media(min-width:821px){
+ .cy-stocktake-lines{gap:6px}
+ .cy-stocktake-desktop-group{padding:6px}
+ .cy-stocktake-desktop-group .cy-stocktake-group-heading{align-items:center;gap:6px}
+ .cy-stocktake-desktop-group .cy-stocktake-group-heading>div{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+ .cy-stocktake-desktop-group .cy-stocktake-group-heading small{margin:0}
+ .cy-stocktake-desktop-group .cy-ordering-grid-scroll{margin-top:4px}
+ .cy-ordering-grid.cy-stocktake-grouped-table th{padding:4px 6px}
+ .cy-ordering-grid.cy-stocktake-grouped-table td{padding:1px 6px}
+ .cy-stocktake-grouped-table .cy-op-button{padding:2px 5px;min-height:23px;line-height:1.2;font-size:var(--cy-fs-xs)}
+ .cy-stocktake-grouped-table .cy-stocktake-group-location{vertical-align:top}
+ .cy-stocktake-group-location small{display:inline-block;margin:1px 6px 1px 0}
+ .cy-stocktake-group-location .cy-op-button{display:inline-flex;margin:2px 0;align-items:center;justify-content:center}
+ .cy-stocktake-group-location .cy-stocktake-edit-location{margin:0;padding:2px;min-height:22px;width:22px}
+ .cy-stocktake-grouped-table .cy-stocktake-cell-editor .cy-ordering-cell{height:26px;padding:3px 5px}
+}
+@media(max-width:820px){
+ .cy-stocktake-inline-location input{font-size:16px;min-height:44px}
+ .cy-stocktake-mobile-actions .cy-stocktake-cell-actions .cy-op-button{min-height:28px;padding:3px 6px}
+ .cy-stocktake-group-footer>.cy-op-button{min-height:28px;padding:3px 6px;font-size:var(--cy-fs-xs)}
+}
