@@ -1,4 +1,4 @@
-import {parseStocktakeQuantity,STOCKTAKE_NO,STOCKTAKE_SEQ,STOCKTAKE_MAX_ROWS,
+import {parseStocktakeQuantity,stocktakeLocations,STOCKTAKE_NO,STOCKTAKE_SEQ,STOCKTAKE_MAX_ROWS,
   type StocktakeSyncRow,type StocktakeSyncResult,type StocktakeWriteResult,type StocktakeWriteRow} from "../../shared/stocktake";
 import {AuditService} from "../audit/audit-service";
 import {RequestInputError} from "./request";
@@ -114,6 +114,17 @@ export type SyncSheetRow={sheet_no:string;status:string;detail_read_at:string|nu
 export async function syncStatements(db:D1Database,body:StocktakeSyncResult,onlySheet:string|null,now:string):Promise<D1PreparedStatement[]>{
  const out:D1PreparedStatement[]=[];
  for(const d of body.details){
+   // Reject invalid locations before attempting the atomic sheet import.
+   const locationRows=d.rows.flatMap(row=>{
+     let locations:string[];
+     try{locations=stocktakeLocations(row.location)}catch{
+       throw new StocktakeInputError("STOCKTAKE_LOCATION_INVALID",
+         "底稿 "+d.sheetNo+" 序號 "+row.seq+" 儲位格式錯誤或重複："+row.location);
+     }
+     return locations.map(locationCode=>({sourceLineKey:row.seq,warehouseName:row.warehouseName,locationCode}));
+   });
+   if(locationRows.length>STOCKTAKE_MAX_ROWS)
+     throw new StocktakeInputError("STOCKTAKE_LIMIT","底稿 "+d.sheetNo+" 儲位盤點格超過上限 3000");
    const excluded=await db.prepare("SELECT 1 FROM stocktake_sync_ignored WHERE sheet_no=?").bind(d.sheetNo).first();
    if(excluded)continue;
    const current=await db.prepare("SELECT sheet_no,status,detail_read_at FROM stocktake_sheets WHERE sheet_no=?")
@@ -124,16 +135,16 @@ export async function syncStatements(db:D1Database,body:StocktakeSyncResult,only
    if(current&&current.status!=="COUNTING")continue;
    if(current&&!onlySheet&&current.detail_read_at)continue;
    if(current){
-     const filled=await db.prepare("SELECT 1 AS yes FROM stocktake_lines WHERE sheet_no=? AND (first_qty IS NOT NULL OR recount_qty IS NOT NULL) LIMIT 1").bind(d.sheetNo).first();
+     const filled=await db.prepare("SELECT 1 AS yes FROM stocktake_location_counts WHERE sheet_no=? AND (first_qty IS NOT NULL OR recount_qty IS NOT NULL) LIMIT 1").bind(d.sheetNo).first();
      if(filled)continue;
    }
    if(current){
-     out.push(db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND status='COUNTING') AND NOT EXISTS (SELECT 1 FROM stocktake_lines WHERE sheet_no=? AND (first_qty IS NOT NULL OR recount_qty IS NOT NULL)) THEN 1 ELSE json('') END").bind(d.sheetNo,d.sheetNo));
+     out.push(db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND status='COUNTING') AND NOT EXISTS (SELECT 1 FROM stocktake_location_counts WHERE sheet_no=? AND (first_qty IS NOT NULL OR recount_qty IS NOT NULL)) THEN 1 ELSE json('') END").bind(d.sheetNo,d.sheetNo));
      out.push(db.prepare("DELETE FROM stocktake_lines WHERE sheet_no=?").bind(d.sheetNo));
-     out.push(db.prepare("UPDATE stocktake_sheets SET sheet_date=?,detail_read_at=?,version=version+1,total_lines=?,counted_lines=0,recount_needed=?,updated_at=? WHERE sheet_no=?").bind(body.sheets.find(s=>s.sheetNo===d.sheetNo)!.date,now,d.rows.length,d.rows.length,now,d.sheetNo));
+     out.push(db.prepare("UPDATE stocktake_sheets SET sheet_date=?,detail_read_at=?,version=version+1,total_lines=?,counted_lines=0,recount_needed=?,updated_at=? WHERE sheet_no=?").bind(body.sheets.find(s=>s.sheetNo===d.sheetNo)!.date,now,locationRows.length,locationRows.length,now,d.sheetNo));
    }else{
      out.push(db.prepare("INSERT INTO stocktake_sheets(sheet_no,sheet_date,detail_read_at,status,total_lines,recount_needed,created_at,updated_at) VALUES(?,?,?,'COUNTING',?,?,?,?)")
-       .bind(d.sheetNo,body.sheets.find(s=>s.sheetNo===d.sheetNo)!.date,now,d.rows.length,d.rows.length,now,now));
+       .bind(d.sheetNo,body.sheets.find(s=>s.sheetNo===d.sheetNo)!.date,now,locationRows.length,locationRows.length,now,now));
    }
    // One indexed, transactional INSERT per sheet, not 3,000 individual D1
    // statements. Rows are already validated and normalized above.
@@ -146,9 +157,15 @@ export async function syncStatements(db:D1Database,body:StocktakeSyncResult,only
        json_extract(value,'$.location'),json_extract(value,'$.unit'),
        json_extract(value,'$.batch'),json_extract(value,'$.bookQty')
      FROM json_each(?2)`).bind(d.sheetNo,JSON.stringify(d.rows)));
+   if(locationRows.length)out.push(db.prepare(`INSERT INTO stocktake_location_counts(
+     sheet_no,source_line_key,warehouse_name,location_code,rev)
+     SELECT ?1,json_extract(value,'$.sourceLineKey'),
+       json_extract(value,'$.warehouseName'),json_extract(value,'$.locationCode'),
+       (SELECT version FROM stocktake_sheets WHERE sheet_no=?1)
+     FROM json_each(?2)`).bind(d.sheetNo,JSON.stringify(locationRows)));
    out.push(new AuditService(db).prepareRecord({entityType:"stocktake",entityKey:d.sheetNo,
      action:"stocktake.sheet_synced",actorEmployeeId:null,statusTo:"COUNTING",
-     metadata:{lines:d.rows.length,refresh:!!onlySheet}}));
+     metadata:{lines:d.rows.length,locationCells:locationRows.length,refresh:!!onlySheet}}));
  }
  return out;
 }
