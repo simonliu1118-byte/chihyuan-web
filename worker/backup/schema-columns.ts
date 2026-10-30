@@ -854,11 +854,14 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "work_order_ref"
   ],
   "stocktake_location_counts": [
+    "erp_location_code",
     "first_at",
     "first_by",
     "first_qty",
     "id",
     "location_code",
+    "manual_verified_at",
+    "manual_verified_by",
     "recount_at",
     "recount_by",
     "recount_qty",
