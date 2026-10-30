@@ -57,7 +57,7 @@ function enforceBlacklist(matches:BlacklistRow[],deposit:number,total:number){fo
 function blacklistFields(v:Record<string,unknown>){const action=text(v.action,"處置",20,true) as StoreBlacklistAction;if(!(STORE_BLACKLIST_ACTIONS as readonly string[]).includes(action))throw new Bad("STORE_INVALID","處置不正確");return {name:text(v.name,"顧客姓名",40,true),...contacts(v),reason:text(v.reason,"理由",300,true),action}}
 const blackInsert=(c:Context,id:number,f:ReturnType<typeof blacklistFields>)=>c.db.prepare("INSERT INTO store_blacklist(id,name,phone,mobile,line_name,reason,action,created_at,created_by,updated_at,updated_by) VALUES(?,?,?,?,?,?,?,?,?,?,?)").bind(id,f.name,f.phone,f.mobile,f.lineName,f.reason,f.action,c.now,c.actor,c.now,c.actor);
 const randomId=()=>Number.parseInt(crypto.randomUUID().replaceAll("-","").slice(0,13),16);
-function validateDates(o:OrderRow,step:StoreMilestone,value:string,status:StoreOrderStatus=o.status,orderDate=o.order_date){const limit=Math.max(STORE_STEPS.indexOf(status as typeof STORE_STEPS[number]),STORE_STEPS.indexOf(step));let prior=orderDate;for(const s of STORE_MILESTONES){if(STORE_STEPS.indexOf(s)>limit)break;const d=s===step?value:o[dateColumns[s]];if(d){if(d<prior)throw new Bad("STORE_DATE_ORDER","進度日期不可早於前一步日期");prior=d}}}
+function validateDates(o:OrderRow,step:StoreMilestone,value:string|null,status:StoreOrderStatus=o.status,orderDate=o.order_date){const limit=Math.max(STORE_STEPS.indexOf(status as typeof STORE_STEPS[number]),STORE_STEPS.indexOf(step));let prior=orderDate;for(const s of STORE_MILESTONES){if(STORE_STEPS.indexOf(s)>limit)break;const d=s===step?value:o[dateColumns[s]];if(d){if(d<prior)throw new Bad("STORE_DATE_ORDER","進度日期不可早於前一步日期");prior=d}}}
 export async function handleStoreRoute(request:Request,env:IdentityRuntimeEnv,requestId:string):Promise<Response|null>{
  const url=new URL(request.url);if(!url.pathname.startsWith("/api/business/store"))return null;
  const provider=identityClient(env);if(!provider)return failure({code:"IDENTITY_UNAVAILABLE",message:"身分服務無法使用"},requestId,503);
@@ -100,13 +100,13 @@ export async function handleStoreRoute(request:Request,env:IdentityRuntimeEnv,re
      c.db.prepare("DELETE FROM store_customer_order_lines WHERE order_id=?").bind(id),...lineInserts(c,id,f.lines));kind="修改訂購";
    }else if(m[2]==="date"){
     const step=String(v.step) as StoreMilestone;if(!STORE_MILESTONES.includes(step)||o.status==="CANCELLED"||!o[dateColumns[step]]&&STORE_STEPS.indexOf(step)>STORE_STEPS.indexOf(o.status as typeof STORE_STEPS[number]))throw new Bad("STORE_INVALID","此步驟尚未到達或不可修改");
-    const d=dateOf(v.milestoneDate);validateDates(o,step,d);before=dates(o);after={...dates(o),[step]:d};if(o[dateColumns[step]]===d)return success(await getOrder(c,id),requestId);
+    const d=step==="ORDERED"&&(v.milestoneDate===null||v.milestoneDate==="")?null:dateOf(v.milestoneDate);validateDates(o,step,d);before=dates(o);after={...dates(o),[step]:d};if(o[dateColumns[step]]===d)return success(await getOrder(c,id),requestId);
     stmts.push(c.db.prepare(`UPDATE store_customer_orders SET ${dateColumns[step]}=?,version=version+1,updated_at=?,updated_by=? WHERE id=?`).bind(d,c.now,c.actor,id));kind="更正日期";
    }else{
     const action=v.action;if(o.status==="CANCELLED")throw new Bad("STORE_INVALID","已取消不可再操作",409);const index=STORE_STEPS.indexOf(o.status as typeof STORE_STEPS[number]);let target:StoreOrderStatus=o.status;
     before={status:o.status,dates:dates(o)};
     if(action==="advance"){
-     if(index<0||index>=STORE_STEPS.length-1)throw new Bad("STORE_INVALID","沒有下一步");target=STORE_STEPS[index+1];if(v.status&&v.status!==target)throw new Bad("STORE_INVALID","不可跳階");const step=target as StoreMilestone,d=dateOf(v.milestoneDate);validateDates(o,step,d,target);
+     if(index<0||index>=STORE_STEPS.length-1)throw new Bad("STORE_INVALID","沒有下一步");target=STORE_STEPS[index+1];if(v.status&&v.status!==target)throw new Bad("STORE_INVALID","不可跳階");const step=target as StoreMilestone,d=step==="ORDERED"&&(v.milestoneDate==null||v.milestoneDate==="")?null:dateOf(v.milestoneDate);validateDates(o,step,d,target);
      stmts.push(c.db.prepare(`UPDATE store_customer_orders SET status=?,${dateColumns[step]}=?,has_ever_ordered=1,version=version+1,updated_at=?,updated_by=? WHERE id=?`).bind(target,d,c.now,c.actor,id));kind="推進";after={status:target,date:d};
     }else if(action==="rollback"){
      if(index<=0)throw new Bad("STORE_INVALID","無法退回");reason=text(v.reason,"退回理由",300,true);target=STORE_STEPS[index-1];stmts.push(c.db.prepare("UPDATE store_customer_orders SET status=?,version=version+1,updated_at=?,updated_by=? WHERE id=?").bind(target,c.now,c.actor,id));kind="退回";after={status:target,dates:dates(o)};

@@ -16,6 +16,8 @@
 
 ## 目前待 Claude 審查
 
+- [V0.9.57 Build 1 訂購清單返修](CYWEB-STORE-LIST-BUILD1-20261031.md) — 欄寬、電話／手機合併、圖示、共通粗線、叫貨無日期、日期與表頭對齊；含實際合成瀏覽器驗收與測試證據。
+
 - [V0.9.57 顧客訂購實作與部署交接](CYWEB-STORE-ORDERS-IMPLEMENTATION-0957-20261031.md) — 設計 PR #323、實作 PR #324，460/460 Node 與 CI 通過；使用者授權後已部署，migration 0033／D1 health／HTTPS 通過；Claude 複審與實機驗收待完成。
 - 本對話盤點 UI 交接：[Build 1](CYWEB-STOCKTAKE-DESKTOP-BUILD1-20261030.md)、[Build 2](CYWEB-STOCKTAKE-DENSITY-INLINE-BUILD2-20261030.md)、[Build 3](CYWEB-STOCKTAKE-DESKTOP-LIST-BUILD3-20261030.md)、[Build 4](CYWEB-STOCKTAKE-LOCATION-CONTROLS-BUILD4-20261030.md)。實際部署結果見 PR #319–#322；早期未部署字樣為首次交付狀態。
 

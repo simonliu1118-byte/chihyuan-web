@@ -131,7 +131,7 @@
 .cy-ordering-page .cy-md { min-width: 0; }
 .cy-ordering-page .cy-md-detail { min-width: 0; }
 .cy-ordering-grid-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
-.cy-ordering-grid { table-layout: fixed; border-collapse: separate; border-spacing: 0; min-width: 800px; width: 100%; font-size: .88rem; border: 1px solid var(--cy-border); border-radius: var(--cy-radius-sm); }
+.cy-ordering-grid { --cy-grid-divider-width:2px; --cy-grid-divider-color:var(--cy-border); table-layout: fixed; border-collapse: separate; border-spacing: 0; min-width: 800px; width: 100%; font-size: .88rem; border: 1px solid var(--cy-border); border-radius: var(--cy-radius-sm); }
 .cy-ordering-grid th,.cy-ordering-grid td { border-bottom: 1px solid var(--cy-border); border-right: 1px solid var(--cy-border); padding: 0; vertical-align: top; }
 .cy-ordering-grid th { padding: 7px 8px; text-align: left; font-weight: 600; white-space: nowrap; background: var(--cy-surface-muted); }
 .cy-ordering-grid th:last-child,.cy-ordering-grid td:last-child { border-right: 0; }
@@ -366,3 +366,8 @@
 .cy-erp-until .cy-f{min-width:12rem}
 /* 廠商註記 (V0.9.43): several lines kept as typed. */
 .cy-ordering-source-note-text{white-space:pre-wrap;overflow-wrap:anywhere}
+
+/* Shared strong boundaries for inventory/order grids. */
+.cy-ordering-grid .cy-grid-divider-before{border-left:var(--cy-grid-divider-width,2px) solid var(--cy-grid-divider-color,var(--cy-border))}
+
+.cy-ordering-grid :is(th,td):has(+.cy-grid-divider-before){border-right:0}
