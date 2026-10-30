@@ -1,6 +1,6 @@
 # CYWEB 庫存盤點改版設計規格：品號卡 × 儲位優先 × 批號明細
 
-> 狀態：**設計交接／待 Claude 技術審核**，非實作批准。  
+> 狀態：**Claude 審核完成，使用者已決定（§14），可依 §14.2 施工**。  
 > 整理日期：2026-10-30。本文依當日使用者多輪討論之最終決定彙總。  
 > 涉及：CYWEB（前端／Worker／D1）、CYERPAutoQuery（**現階段只查核與約束，不修改 QUERY**）。  
 > 重要：**只建立設計文件，不修改任何功能程式、Migration、QUERY，不合併功能 PR、不部署。**
@@ -391,3 +391,57 @@
 - **(C) 新增批號指定儲位**：INVI06 只能填品號、批號、數量。可選擇：
   1. 新批號只記 WEB 儲位，ERP 由人工指定，併入 (B)2 的清單；**建議這個**。
   2. 暫不允許在多儲位品號新增批號。
+
+## 14. 使用者決定與施工範圍（2026-10-30，取代 §11 與 §13.2 的未決部分）
+
+### 14.1 使用者決定
+
+- **舊資料不遷移**：migration 0032 清除既有盤點底稿資料（`stocktake_sheets`、`stocktake_lines`、`stocktake_line_history`），**保留** `stocktake_sync_ignored` 與 Audit；上線後使用者重新執行「同步 ERP」。真 ERP 寫回尚未開始，沒有需保留的已寫回資料。不做 `LEGACY_UNALLOCATED`。
+- **一個批號同時放在兩個儲位很常見**：採子表 `stocktake_location_counts`，分儲位填寫（§13.4 (A) 不採合併顯示）。
+- **(B) 選 2**：WEB 修改儲位不擋二次確認；數量照常寫回 ERP，儲位修改進「ERP 儲位待手動修改」清單，管理員在 ERP 改完後勾選完成。
+- **(C) 選 1**：新增批號可指定 WEB 儲位，ERP 端由人工指定，同樣進上述清單。
+
+### 14.2 施工範圍（給 GPT）
+
+**第一刀：資料與分儲位盤點**
+
+1. Migration `0032`：
+   - 建 `stocktake_location_counts`：`id` INTEGER PK、`sheet_no`、`source_line_key`（FK `stocktake_lines` ON DELETE CASCADE）、`warehouse_name`、`location_code`（`^[0-9]{4}$`）、`first_qty`／`recount_qty`（TEXT 定點，與父列同格式）、`first_by/at`、`recount_by/at`、`version`、`rev`。
+   - 唯一鍵 `(sheet_no, source_line_key, warehouse_name, location_code)`；`(sheet_no, rev)` 索引。
+   - 清除既有盤點底稿資料（見 14.1）；`stocktake_line_history` 加 `location_count_id`（可 null）；表與欄位登記到 `schema-columns.ts`、`validate_schema.py`、可攜備份。
+2. SYNC：每個原始列依分號拆出儲位格；儲位碼不合法或重複時，該底稿同步失敗並回報原因，不靜默丟棄。無儲位的列建立一個 `location_code` 為空字串的格（需調整 CHECK 允許空字串，或另以 `0000` 表示並在 UI 顯示「未指定儲位」，二選一並在 handoff 說明）。
+3. API：
+   - 數量 PATCH 改以 `locationCountId + expectedVersion` 更新儲位格，`rev` 走現有增量輪詢；GET 詳情回傳儲位格，初盤時仍不含帳面。
+   - 父列 `first_qty`／`recount_qty` 不再寫入（§13.1-3）。
+   - 主管確認與建立寫回工作時，由 Worker 從儲位格加總（BigInt 定點）；任一必填格為 null 就拒絕；payload 每個原始 seq 只一筆，寫回前檢查 seq 不重複。
+   - 複盤：品號鎖定規則不變，鎖定品號的儲位格不必複盤。
+   - `counted_lines`／`total_lines` 改計儲位格。
+4. UI：
+   - 手機：每品號一張卡＋儲位切換＋批號數量列＋三色邊框，完全依 §5，含禁止項。
+   - 桌面：品號／儲位分組，依 §6。
+   - 「新增批號」作用於選定儲位：既有批號在其他儲位時，新增該儲位的格；全新批號沿用現行 INVI06 新增列，再建該儲位的格。
+5. 測試：§10.1 #1–6、#8–12、#14、#16–17 與 §10.2 全部。
+
+**第二刀：修改儲位與待手動修改清單**
+
+- 「修改」：改目前品號＋庫別＋儲位下所有儲位格的 `location_code`。保留 ERP 原始儲位（建格時另存 `erp_location_code`），目標儲位已存在時拒絕，並寫歷史。
+- 「ERP 儲位待手動修改」清單（盤點頁內，管理員可見）：列出 WEB 儲位與 ERP 原始儲位不同的格，以及指定了儲位的新增批號。管理員在 ERP 改完後勾選完成並記 Audit。這份清單不影響二次確認與寫回。
+
+**不做**：QUERY 改 ERP 儲位、重新盤點（§9 TODO A／B）。
+
+### 14.3 共用元件規則（Claude 審查重點）
+
+- **先找現有元件再寫**：
+  - 數量輸入與離焦保存：沿用盤點現有輸入邏輯。
+  - 表格：沿用 `src/ui/OrderingGrid.tsx`／`cy-ordering-grid` 樣式。
+  - 狀態：沿用 `StatusChip`。
+  - 對話框與確認：沿用 `Dialog`／`ConfirmDialog`／`useConfirmation`。
+  - 欄位：沿用 `Field`／`FormSection`／`TextInput`。
+  - 搜尋列：沿用 `DataViewToolbar`。
+- **不要在 `StoreStocktake.tsx` 內新寫**按鈕、晶片、對話框、欄位、進度條等通用 UI。真的需要新的通用元件（例如「三色進度邊框卡片」「切換晶片列」）時，放到 `src/ui/`，在 handoff 列出名稱與用途，由 Claude 審查並決定是否保留為共用元件。
+- 新 CSS 優先用既有變數與類別，不複製叫貨或其他模組的 CSS 片段。
+
+### 14.4 流程
+
+- 使用者 2026-10-30：**單純 UI 修改**可以先合併部署，使用者看過後再一併交 Claude 檢查。本改版含 migration 與 API，**不屬單純 UI**：第一刀、第二刀都要 Claude 審查後才合併部署。
+- 每次部署都要升版號；下一支 migration 是 0032。
