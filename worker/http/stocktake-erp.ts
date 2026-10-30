@@ -114,17 +114,6 @@ export type SyncSheetRow={sheet_no:string;status:string;detail_read_at:string|nu
 export async function syncStatements(db:D1Database,body:StocktakeSyncResult,onlySheet:string|null,now:string):Promise<D1PreparedStatement[]>{
  const out:D1PreparedStatement[]=[];
  for(const d of body.details){
-   // Reject invalid locations before attempting the atomic sheet import.
-   const locationRows=d.rows.flatMap(row=>{
-     let locations:string[];
-     try{locations=stocktakeLocations(row.location)}catch{
-       throw new StocktakeInputError("STOCKTAKE_LOCATION_INVALID",
-         "底稿 "+d.sheetNo+" 序號 "+row.seq+" 儲位格式錯誤或重複："+row.location);
-     }
-     return locations.map(locationCode=>({sourceLineKey:row.seq,warehouseName:row.warehouseName,locationCode}));
-   });
-   if(locationRows.length>STOCKTAKE_MAX_ROWS)
-     throw new StocktakeInputError("STOCKTAKE_LIMIT","底稿 "+d.sheetNo+" 儲位盤點格超過上限 3000");
    const excluded=await db.prepare("SELECT 1 FROM stocktake_sync_ignored WHERE sheet_no=?").bind(d.sheetNo).first();
    if(excluded)continue;
    const current=await db.prepare("SELECT sheet_no,status,detail_read_at FROM stocktake_sheets WHERE sheet_no=?")
@@ -138,6 +127,17 @@ export async function syncStatements(db:D1Database,body:StocktakeSyncResult,only
      const filled=await db.prepare("SELECT 1 AS yes FROM stocktake_location_counts WHERE sheet_no=? AND (first_qty IS NOT NULL OR recount_qty IS NOT NULL) LIMIT 1").bind(d.sheetNo).first();
      if(filled)continue;
    }
+   // Reject invalid locations before attempting the atomic sheet import.
+   const locationRows=d.rows.flatMap(row=>{
+     let locations:string[];
+     try{locations=stocktakeLocations(row.location)}catch{
+       throw new StocktakeInputError("STOCKTAKE_LOCATION_INVALID",
+         "底稿 "+d.sheetNo+" 序號 "+row.seq+" 儲位格式錯誤或重複："+row.location);
+     }
+     return locations.map(locationCode=>({sourceLineKey:row.seq,warehouseName:row.warehouseName,locationCode}));
+   });
+   if(locationRows.length>STOCKTAKE_MAX_ROWS)
+     throw new StocktakeInputError("STOCKTAKE_LIMIT","底稿 "+d.sheetNo+" 儲位盤點格超過上限 3000");
    if(current){
      out.push(db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND status='COUNTING') AND NOT EXISTS (SELECT 1 FROM stocktake_location_counts WHERE sheet_no=? AND (first_qty IS NOT NULL OR recount_qty IS NOT NULL)) THEN 1 ELSE json('') END").bind(d.sheetNo,d.sheetNo));
      out.push(db.prepare("DELETE FROM stocktake_lines WHERE sheet_no=?").bind(d.sheetNo));
