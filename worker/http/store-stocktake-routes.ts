@@ -161,10 +161,13 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
   }
   if(action==="history"&&method==="GET"){
     const line=text(url.searchParams.get("lineKey"),"列鍵",40);
+    const rawCell=url.searchParams.get("locationCountId");
+    const cellId=rawCell===null?null:Number(rawCell);
+    if(cellId!==null&&(!Number.isSafeInteger(cellId)||cellId<1))fail("STOCKTAKE_INVALID","儲位盤點格編號不正確");
     return success(await all(db,`SELECT h.id,h.field,h.location_count_id AS locationCountId,h.before_value AS beforeValue,h.after_value AS afterValue,
       h.actor_member_id AS memberId,h.changed_at AS at,COALESCE(m.display_name,m.employee_no) AS actorName
       FROM stocktake_line_history h JOIN app_members m ON m.id=h.actor_member_id
-      WHERE h.sheet_no=? AND h.line_key=? ORDER BY h.id DESC LIMIT 101`,sheet,line),requestId);
+      WHERE h.sheet_no=? AND h.line_key=? AND (? IS NULL OR h.location_count_id=?) ORDER BY h.id DESC LIMIT 101`,sheet,line,cellId,cellId),requestId);
   }
   if(action==="refresh"&&method==="POST"){
     requireAdmin(role);if(sh.status!=="COUNTING"||!sh.detail_read_at)fail("STOCKTAKE_STATUS","只有已讀明細的初盤底稿可重新整理",409);
