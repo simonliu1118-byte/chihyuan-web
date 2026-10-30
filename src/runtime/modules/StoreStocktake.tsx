@@ -189,9 +189,9 @@ export function StoreStocktake({role}:{role:string}){
    const resolved=stocktakeAggregateLines(lines,cells);
    const writeRows=action==="second-confirm"?stocktakeWriteRows(resolved).length:0;
    const explain=action==="first-confirm"
-     ? `總列數：${lines.length}；未填：${unfilled}；需複盤品號：確認後依 ERP 帳面核算並顯示。`
+     ? `儲位批號格：${cells.length}；未填：${unfilled}；需複盤品號：確認後依 ERP 帳面核算並顯示。`
      :action==="second-confirm"
-       ? `總列數：${lines.length}；未複盤：${unfilled}；將寫回 ${writeRows} 列（含新增批號）。`
+       ? `儲位批號格：${cells.length}；未複盤：${unfilled}；將寫回 ${writeRows} 列（含新增批號）。`
        :action==="retry-write"?"將用相同實盤數量再次要求 ERP 寫回與核對。":"請確認要執行此操作。";
    if(unfilled){reportError("還有 "+unfilled+" 列未填，不能確認。");return}
    if(!await confirm({title:action==="first-confirm"?"第一次主管確認":action==="second-confirm"?"第二次主管確認":"確認操作",
@@ -215,8 +215,14 @@ export function StoreStocktake({role}:{role:string}){
  async function addBatch(e:FormEvent<HTMLFormElement>){
   e.preventDefault();if(!currentSheet||!batchForm)return;
   const {quantity,...identifiers}=batchForm;
-  await open(currentSheet.sheetNo,"batches",{...identifiers,...(quantity.trim()?{quantity:quantity.trim()}:{})});
-  setBatchForm(null);
+  setBusy(true);
+  try{
+   await call("/"+encodeURIComponent(currentSheet.sheetNo)+"/batches","POST",
+    {...identifiers,...(quantity.trim()?{quantity:quantity.trim()}:{})});
+   setBatchForm(null);
+   await Promise.all([loadSheets(),loadDetail(currentSheet.sheetNo)]);
+  }catch(e){reportError(errorOf(e))}
+  finally{setBusy(false)}
  }
  async function deleteBatch(line:StocktakeLine){
   if(!currentSheet||!detail)return;
