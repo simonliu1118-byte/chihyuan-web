@@ -232,8 +232,9 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
         db.prepare(`INSERT INTO stocktake_location_counts(sheet_no,source_line_key,warehouse_name,location_code,erp_location_code,${phase},${by},${at},rev)
           VALUES(?,?,?,?,'',?,?,?,(SELECT version+1 FROM stocktake_sheets WHERE sheet_no=?))`)
           .bind(sheet,parent.line_key,warehouse,location,qty,qty===null?null:member,qty===null?null:now,sheet),
+        ...(recount?[db.prepare("UPDATE stocktake_location_counts SET first_qty='0' WHERE sheet_no=? AND source_line_key=? AND location_code=?").bind(sheet,parent.line_key,location)]:[]),
         db.prepare("UPDATE stocktake_sheets SET version=version+1,total_lines=total_lines+1,counted_lines=counted_lines+?,recount_needed=recount_needed+?,updated_at=? WHERE sheet_no=?")
-          .bind(!recount&&qty!==null?1:0,parent.locked?0:1,now,sheet),
+          .bind(recount?1:qty!==null?1:0,parent.locked?0:1,now,sheet),
         db.prepare("INSERT INTO stocktake_line_history(sheet_no,line_key,field,before_value,after_value,actor_member_id,changed_at) VALUES(?,?,'location_cell_added',NULL,?,?,?)")
           .bind(sheet,parent.line_key,JSON.stringify({warehouse,location,batch,qty}),member,now),
         participant(db,sheet,member,now)
@@ -249,13 +250,15 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
       db.prepare(`INSERT INTO stocktake_location_counts(sheet_no,source_line_key,warehouse_name,location_code,erp_location_code,${phase},${by},${at},rev)
         VALUES(?,?,?,?,'',?,?,?,(SELECT version+1 FROM stocktake_sheets WHERE sheet_no=?))`)
         .bind(sheet,id,warehouse,location,qty,qty===null?null:member,qty===null?null:now,sheet),
+      ...(recount?[db.prepare("UPDATE stocktake_location_counts SET first_qty='0' WHERE sheet_no=? AND source_line_key=?").bind(sheet,id)]:[]),
       db.prepare("UPDATE stocktake_sheets SET version=version+1,total_lines=total_lines+1,counted_lines=counted_lines+?,recount_needed=recount_needed+1,updated_at=? WHERE sheet_no=?")
-        .bind(!recount&&qty!==null?1:0,now,sheet),
+        .bind(recount?1:qty!==null?1:0,now,sheet),
       db.prepare("INSERT INTO stocktake_line_history(sheet_no,line_key,field,before_value,after_value,actor_member_id,changed_at) VALUES(?,?,'added',NULL,?,?,?)")
         .bind(sheet,id,JSON.stringify({itemCode:code,batch,warehouse,location,qty}),member,now),
       participant(db,sheet,member,now)
     ]);
-    return success(await detail(db,sheet),requestId);
+    const result=await detail(db,sheet);
+    return success({...result,line:result.lines.find(l=>l.lineKey===id)},requestId);
   }
   if(action==="batches"&&method==="DELETE"){
     const v=await json(request),key=text(v.lineKey,"列鍵",40),expected=version(v.expectedVersion);
