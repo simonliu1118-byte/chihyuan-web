@@ -335,7 +335,8 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
     if(!cell)throw new Invalid("STOCKTAKE_NOT_FOUND","儲位格不存在",404);
     if(cell.version!==expected)fail("STOCKTAKE_VERSION_CONFLICT","儲位已被修改，請重新載入",409);
     const parent=await one<Line>(db,"SELECT * FROM stocktake_lines WHERE sheet_no=? AND line_key=?",sheet,cell.source_line_key);
-    if(!parent||!(cell.erp_location_code!==cell.location_code||(parent.is_added&&cell.location_code!=="")))
+    if(!parent)throw new Invalid("STOCKTAKE_NOT_FOUND","ERP 原始盤點列不存在",404);
+    if(!(cell.erp_location_code!==cell.location_code||(parent.is_added&&cell.location_code!=="")))
       fail("STOCKTAKE_INVALID","此列不需要人工 ERP 儲位核對");
     const checked=v.verified===true;
     if(checked&&parent.is_added&&!parent.erp_seq)
