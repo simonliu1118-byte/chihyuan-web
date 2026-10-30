@@ -9,6 +9,7 @@ CREATE TABLE stocktake_location_counts (
   sheet_no TEXT NOT NULL,
   source_line_key TEXT NOT NULL,
   warehouse_name TEXT NOT NULL DEFAULT '',
+  erp_location_code TEXT NOT NULL DEFAULT '',
   location_code TEXT NOT NULL
     CHECK(location_code='' OR (length(location_code)=4 AND location_code NOT GLOB '*[^0-9]*')),
   first_qty TEXT,
@@ -19,10 +20,13 @@ CREATE TABLE stocktake_location_counts (
   recount_at TEXT,
   version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
   rev INTEGER NOT NULL DEFAULT 0,
+  manual_verified_at TEXT,
+  manual_verified_by INTEGER,
   UNIQUE(sheet_no,source_line_key,warehouse_name,location_code),
   FOREIGN KEY(sheet_no,source_line_key) REFERENCES stocktake_lines(sheet_no,line_key) ON DELETE CASCADE,
   FOREIGN KEY(first_by) REFERENCES app_members(id),
-  FOREIGN KEY(recount_by) REFERENCES app_members(id)
+  FOREIGN KEY(recount_by) REFERENCES app_members(id),
+  FOREIGN KEY(manual_verified_by) REFERENCES app_members(id)
 );
 CREATE INDEX idx_stocktake_location_counts_rev ON stocktake_location_counts(sheet_no,rev);
 CREATE INDEX idx_stocktake_location_counts_location ON stocktake_location_counts(sheet_no,warehouse_name,location_code);
