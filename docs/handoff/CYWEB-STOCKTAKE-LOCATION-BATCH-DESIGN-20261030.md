@@ -445,3 +445,45 @@
 
 - 使用者 2026-10-30：**單純 UI 修改**可以先合併部署，使用者看過後再一併交 Claude 檢查。本改版含 migration 與 API，**不屬單純 UI**：第一刀、第二刀都要 Claude 審查後才合併部署。
 - 每次部署都要升版號；下一支 migration 是 0032。
+
+## 15. GPT 實作交接（2026-10-30，**Draft PR #318，嚴禁自行合併與部署**）
+
+> 使用者 2026-10-30 最終指示：「這次變動大，做完不可合併部署」。以下為 **獨立功能分支** 的實作紀錄，不代表 Claude 已審查，也不代表實機 ERP 回填已驗收。
+
+- 開發分支：`feature/stocktake-location-counts-phase1-20261030`
+- [Draft PR #318](https://github.com/simonliu1118-byte/chihyuan-web/pull/318)：`main` 未合併、`deploy/cyweb-development` 不更新、Cloudflare 不部署、**正式 D1 migration 0032 未執行**。
+- **沒有改 CYERPAutoQuery 程式碼**；寫回仍以 ERP 原始 `seq`，整列子儲位數量加總最多產生一筆 payload。TODO「QUERY 修改 ERP 儲位」與「重新盤點／ERP 刪列／另產底稿」仍未實作。
+
+### 15.1 Migration 0032（重大資料操作，Claude 務必先審）
+
+- `migrations/0032_stocktake_location_counts.sql`：依 §14.1 明確批准，包含 `DELETE FROM stocktake_sheets`（D1 外鍵連動刪除現有盤點底稿列／參與者／歷史），**不刪** `stocktake_sync_ignored` 與 Audit；上線後需要重新按「同步 ERP 盤點單」。
+- 建 `stocktake_location_counts`：原 ERP 序號父列外鍵、每儲位各自 `first_qty/recount_qty`、操作者／時間、獨立 `version/rev`、唯一鍵與索引；四碼 `location_code`，允許**空字串**代表「未指定儲位」（不是虛構 `0000`）。
+- §14.2 第二刀也需要 `erp_location_code`（原 ERP 儲位）、`manual_verified_at/by`（ERP 人工修改標記）以保存回填尚未支援的差異。
+- 原 `stocktake_line_history` 有受限 CHECK enum；因舊底稿與歷史已明確清空，0032 於同一次 migration 重建**同一歷史表**以加入 `location_count_id` 及 `location_cell_added/location_code` 操作。不是新建第二張歷史表。請 Claude 查核 D1 rollback、安全順序、備份相容性。
+- `worker/backup/schema-columns.ts`、`scripts/validate_schema.py` 已登記新表／欄位，`worker/backup/portable-backup.ts` 原本依 `BACKUP_COLUMNS` 自動建立白名單，無需另維護一份表名。
+
+### 15.2 資料與 Worker 改動
+
+- `shared/stocktake.ts`：新增 `StocktakeLocationCount`、`stocktakeLocations`（嚴格四碼；空字串一格）、`stocktakeAggregateLines`（BigInt 定點；有任一未填則父列合計 null）、`stocktakeCountProgress`。父表原有 `first_qty/recount_qty` **不再寫入**。
+- `worker/http/stocktake-erp.ts`：SYNC 逐 ERP 原始列解析分號儲位，單次原子 batch 建父列＋子格；格式錯誤／重複儲位時回傳錯誤，不靜默消失；刷新已填子格時拒絕覆蓋；總列數改為子格數。
+- `worker/http/store-stocktake-routes.ts`：GET detail 提供 `locationCounts`，增量 GET 只提供更新子格；盲盤仍由 Worker 隱藏 parent 的 `bookQty`；PATCH 改以 `locationCountId + expectedVersion` 保護各儲位格，刪空數量可回歸 null，0 視為已填。
+- 初盤主管確認先做各 SourceLine 全儲位完整加總，再按品號帳面總和鎖定；複盤需要的格才必填；第二次確認與 retry-write 重新加總並拒絕重複原 ERP `seq`，**一個 ERP seq 最多一個寫回列**。
+- 新增批號：若是原品號在其他儲位已有的批號，新增指定儲位的 count cell，不新增 ERP 原始列；真正新批號才建新增父列及子格（既有 INVI06 payload）；無批號商品依既有規則禁止新增批號。刪除已新增批號需同時帶整張 sheet revision，避免競爭者新填的子格遭誤刪。
+- 修改儲位：僅修改選定「品號＋庫別＋儲位」的所有子格 `location_code`，保留 `erp_location_code`、稽核歷史、拒絕同品號庫別的目標重複、sheet 版本鎖；**WEB 改，不是 ERP 改**。
+- 管理員 `manual-locations` API：列出 ERP 原儲位／WEB 儲位不符與指定 WEB 儲位的新批號，允許人工在 ERP 完成後標記／撤銷並記 Audit；新增批號尚未取得 `erp_seq` 時不得先標記 ERP 已處理。**不阻擋二次數量確認**，遵守 §14.1 (B)2、(C)1。
+
+### 15.3 UI（沿用原始共用元件）
+
+- `src/runtime/modules/StoreStocktake.tsx`：既有 `DataViewToolbar`、`StatusChip`、`Dialog`、`Field/FormSection`、`useConfirmation` 保留；數量按儲位子格獨立離焦儲存與版本衝突提示；改版後「新增批號」在所選儲位內；管理員可查看 ERP 人工待辦。
+- `src/runtime/modules/StocktakeGroupedDetail.tsx`：**盤點專用視圖，不是另造通用 UI 原件**。桌面品號／儲位／批號分組、叫貨共用 `cy-ordering-grid` 樣式；手機整品號僅一張卡，可選儲位及各批號輸入，儲位標題最右「修改」，每筆批號前有「批號」字樣，**沒有「批號／初盤數量」整條標題及分隔線，也沒有重複儲位標題**。卡片未填一般框、部分黃框、完成綠框；未填 null 與數字 0 區分。
+- `src/runtime/modules/store.css`：盤點專屬樣式集中維護；手機輸入至少 48px、16px 字級；次要修改紀錄／刪除批號收進同一儲位內的可展開區塊，避免每批號佔滿一大張卡。仍**沒有**全頁儲位下拉篩選。
+
+### 15.4 測試／風險與 Claude 驗收要求
+
+- `scripts/store-stocktake.test.mjs`：原有 ERP 合成驗收改用子格契約，新增多儲位單 `seq` 的加總及回寫、兩儲位獨立版本、null/0、同批號補儲位、儲位修改與人工待辦、壞儲位拒絕匯入。
+- `scripts/store-stocktake-ui.test.mjs`：更新來源契約，不再驗證已淘汰的 ERP 一列一張手機卡，改測「一品號一張卡」、共用表格／表單、手機三色邊框與禁止標題等。
+- 詳細 CI 與 commit HEAD 請以 **本輪 PR 最新提交的 GitHub Actions Runtime/Governance Check** 為準；**CI 不等於 iPhone 視覺驗收、真 ERP INVI14 寫入與回讀驗收、也不代表 migration 上線安全**。
+- Claude 重點查核：`0032` 破壞性清除的正式資料庫前置核對與備份／回復；子格 batch 原子性與多人並發；同品號同批號不同 ERP seq 的歧義拒絕；ERP 新批號人工儲位待辦；新增批號在複盤期的初盤基準；同步錯誤訊息是否能完整顯示給操作人員；儲位切換時的未存草稿；瀏覽器與手機 layout／輸入。
+- **禁止 Claude 或 GPT 在未再次取得使用者明確批准時合併 PR、更新部署分支、執行 D1 0032 或正式部署**。Claude 先在 PR 審查並回報缺陷及修復建議。
+
+---
