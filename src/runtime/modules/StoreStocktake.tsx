@@ -218,24 +218,44 @@ export function StoreStocktake({role}:{role:string}){
   await open(currentSheet.sheetNo,"batches",{...identifiers,...(quantity.trim()?{quantity:quantity.trim()}:{})});
   setBatchForm(null);
  }
- async function deleteBatch(l:StocktakeLine){
+ async function deleteBatch(line:StocktakeLine){
+  if(!currentSheet||!detail)return;
+  const cells=detail.locationCounts.filter(c=>c.sourceLineKey===line.lineKey);
+  if(cells.some(c=>c.firstQty!==null||c.recountQty!==null)&&
+   !await confirm({title:"刪除已填寫批號",description:"刪除後將保留修改紀錄。",confirmLabel:"確認刪除",confirmTone:"danger"}))return;
+  await open(currentSheet.sheetNo,"batches",{lineKey:line.lineKey,expectedVersion:line.version,confirmNonEmpty:true},"DELETE");
+ }
+ async function showHistory(line:StocktakeLine,cell:StocktakeLocationCount){
   if(!currentSheet)return;
-  if((l.firstQty!==null||l.recountQty!==null)&&
-   !await confirm({title:"刪除已填寫批號",description:"此新增批號已有數量，刪除後將保留修改紀錄。",confirmLabel:"確認刪除",confirmTone:"danger"}))return;
-  await open(currentSheet.sheetNo,"batches",{lineKey:l.lineKey,expectedVersion:l.version,confirmNonEmpty:true},"DELETE");
+  try{
+   const rows=await call<LineHistory[]>("/"+encodeURIComponent(currentSheet.sheetNo)+
+    "/history?lineKey="+encodeURIComponent(line.lineKey)+"&locationCountId="+cell.id);
+   setHistory({line,cell,rows});
+  }catch(e){reportError(errorOf(e))}
  }
- async function showHistory(l:StocktakeLine){
-   if(!currentSheet)return;
-   try{
-    const rows=await call<LineHistory[]>("/"+encodeURIComponent(currentSheet.sheetNo)+"/history?lineKey="+encodeURIComponent(l.lineKey));
-    setHistory({line:l,rows});
-   }catch(e){reportError(errorOf(e))}
+ async function renameLocation(e:FormEvent<HTMLFormElement>){
+  e.preventDefault();if(!currentSheet||!renameForm)return;
+  setBusy(true);
+  try{
+   await call("/"+encodeURIComponent(currentSheet.sheetNo)+"/locations","PATCH",{
+    ...renameForm,expectedVersion:currentSheet.version
+   });
+   setRenameForm(null);await loadDetail(currentSheet.sheetNo);
+  }catch(e){reportError(errorOf(e))}finally{setBusy(false)}
  }
- function nextOnEnter(event:KeyboardEvent<HTMLInputElement>,line:StocktakeLine){
-   if(event.key!=="Enter"||event.nativeEvent.isComposing)return;
-   event.preventDefault();void saveLine(line);
-   const inputs=Array.from(event.currentTarget.closest(".cy-stocktake-lines")?.querySelectorAll<HTMLInputElement>("input[data-stocktake-qty]:not([disabled])")??[]);
-   const at=inputs.indexOf(event.currentTarget);inputs[at+1]?.focus();
+ async function verifyManual(row:ManualRow,checked:boolean){
+  if(!currentSheet||!detail)return;
+  const cell=detail.locationCounts.find(c=>c.id===row.locationCountId);
+  if(!cell)return;
+  if(checked&&!await confirm({title:"確認已在 ERP 手動修改儲位",
+   description:"確認已人工核對 ERP 中品號 "+row.itemCode+"、批號 "+row.batch+" 的儲位？本操作不會修改 ERP。",
+   confirmLabel:"標記已人工完成"}))return;
+  setBusy(true);
+  try{
+   await call("/"+encodeURIComponent(currentSheet.sheetNo)+"/manual-locations","PATCH",
+    {locationCountId:row.locationCountId,expectedVersion:cell.version,verified:checked});
+   await Promise.all([loadDetail(currentSheet.sheetNo),loadManual(currentSheet.sheetNo)]);
+  }catch(e){reportError(errorOf(e))}finally{setBusy(false)}
  }
  return <section className="cy-store-stocktake">
   {job.result&&(job.result.status==="QUEUED"||job.result.status==="RUNNING")?<div className="cy-op-panel"><ErpJobStatus result={job.result}/></div>:null}
