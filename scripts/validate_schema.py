@@ -20,6 +20,7 @@ EXPECTED_TABLES = {
     "stocktake_sync_ignored",
     "stocktake_sheets",
     "stocktake_lines",
+    "stocktake_location_counts",
     "stocktake_line_history",
     "stocktake_participants",
     "store_customer_orders",
