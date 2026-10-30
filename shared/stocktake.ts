@@ -20,7 +20,8 @@ export type StocktakeSheet = {
 };
 /** WEB count cells are independent of ERP rows; book quantities belong to parent source rows only. */
 export type StocktakeLocationCount = {
- id:number;sheetNo:string;sourceLineKey:string;warehouseName:string;locationCode:string;
+ id:number;sheetNo:string;sourceLineKey:string;warehouseName:string;locationCode:string;erpLocationCode:string;
+ manualVerifiedAt:string|null;manualVerifiedBy:number|null;
  firstQty:string|null;firstBy:number|null;firstAt:string|null;
  recountQty:string|null;recountBy:number|null;recountAt:string|null;
  firstByName?:string|null;recountByName?:string|null;version:number;rev:number;
