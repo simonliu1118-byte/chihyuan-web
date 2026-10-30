@@ -160,37 +160,47 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
   }
   if(action==="history"&&method==="GET"){
     const line=text(url.searchParams.get("lineKey"),"列鍵",40);
-    return success(await all(db,`SELECT h.id,h.field,h.before_value AS beforeValue,h.after_value AS afterValue,
+    return success(await all(db,`SELECT h.id,h.field,h.location_count_id AS locationCountId,h.before_value AS beforeValue,h.after_value AS afterValue,
       h.actor_member_id AS memberId,h.changed_at AS at,COALESCE(m.display_name,m.employee_no) AS actorName
       FROM stocktake_line_history h JOIN app_members m ON m.id=h.actor_member_id
       WHERE h.sheet_no=? AND h.line_key=? ORDER BY h.id DESC LIMIT 101`,sheet,line),requestId);
   }
   if(action==="refresh"&&method==="POST"){
     requireAdmin(role);if(sh.status!=="COUNTING"||!sh.detail_read_at)fail("STOCKTAKE_STATUS","只有已讀明細的初盤底稿可重新整理",409);
-    const filled=await one(db,"SELECT 1 FROM stocktake_lines WHERE sheet_no=? AND (first_qty IS NOT NULL OR recount_qty IS NOT NULL) LIMIT 1",sheet);
+    const filled=await one(db,"SELECT 1 FROM stocktake_location_counts WHERE sheet_no=? AND (first_qty IS NOT NULL OR recount_qty IS NOT NULL) LIMIT 1",sheet);
     if(filled)fail("STOCKTAKE_STATUS","已有填寫的底稿不可重新整理",409);
     return success(await createJob(db,member,requestId,"STOCKTAKE_SYNC",{skipSheets:[],onlySheet:sheet},sheet),requestId);
   }
   if(action==="line"&&method==="PATCH"){
-    const v=await json(request),key=text(v.lineKey,"列鍵",40),expected=version(v.expectedVersion);
-    const line=await one<Line>(db,"SELECT * FROM stocktake_lines WHERE sheet_no=? AND line_key=?",sheet,key);
-    if(!line)throw new Invalid("STOCKTAKE_NOT_FOUND","盤點列不存在",404);
-    if(line.version!==expected)fail("STOCKTAKE_VERSION_CONFLICT","這一列已被其他人修改，請核對最新填寫人與數量",409);
+    const v=await json(request),expected=version(v.expectedVersion);
+    const id=v.locationCountId;
+    if(!Number.isSafeInteger(id)||Number(id)<1)fail("STOCKTAKE_INVALID","必須指定有效儲位盤點格");
+    const cell=await one<LocationCell>(db,
+      "SELECT c.* FROM stocktake_location_counts c WHERE c.sheet_no=? AND c.id=?",sheet,id);
+    if(!cell)throw new Invalid("STOCKTAKE_NOT_FOUND","儲位盤點格不存在",404);
+    if(cell.version!==expected)fail("STOCKTAKE_VERSION_CONFLICT","這個儲位剛被其他人修改，請核對最新數量",409);
+    const parent=await one<Line>(db,"SELECT * FROM stocktake_lines WHERE sheet_no=? AND line_key=?",sheet,cell.source_line_key);
+    if(!parent)fail("STOCKTAKE_NOT_FOUND","對應 ERP 底稿列不存在",404);
     const field=sh.status==="COUNTING"?"first_qty":sh.status==="RECOUNTING"?"recount_qty":null;
-    if(!field||line.locked)fail("STOCKTAKE_STATUS","目前狀態不可修改這一列",409);
-    const value=countQty(v.quantity),before=field==="first_qty"?line.first_qty:line.recount_qty;
+    if(!field||parent.locked)fail("STOCKTAKE_STATUS","目前狀態不可修改這個儲位",409);
+    const value=countQty(v.quantity),before=field==="first_qty"?cell.first_qty:cell.recount_qty;
     await db.batch([
       guard(db,"EXISTS(SELECT 1 FROM stocktake_sheets WHERE sheet_no=? AND status=?)",sheet,sh.status),
-      guard(db,"EXISTS(SELECT 1 FROM stocktake_lines WHERE sheet_no=? AND line_key=? AND version=?)",sheet,key,expected),
-      db.prepare("UPDATE stocktake_lines SET "+field+"=?, "+(field==="first_qty"?"first_by":"recount_by")+"=?, "+(field==="first_qty"?"first_at":"recount_at")+"=?,version=version+1,rev=(SELECT version+1 FROM stocktake_sheets WHERE sheet_no=?) WHERE sheet_no=? AND line_key=?")
-       .bind(value,member,now,sheet,sheet,key),
-      db.prepare("UPDATE stocktake_sheets SET version=version+1,counted_lines=counted_lines+?,updated_at=? WHERE sheet_no=?").bind(field==="first_qty"&&before===null?1:0,now,sheet),
-      db.prepare("INSERT INTO stocktake_line_history(sheet_no,line_key,field,before_value,after_value,actor_member_id,changed_at) VALUES(?,?,?,?,?,?,?)")
-       .bind(sheet,key,field,before,value,member,now),
+      guard(db,"EXISTS(SELECT 1 FROM stocktake_location_counts WHERE sheet_no=? AND id=? AND version=?)",sheet,id,expected),
+      guard(db,"EXISTS(SELECT 1 FROM stocktake_lines WHERE sheet_no=? AND line_key=? AND locked=0)",sheet,parent.line_key),
+      db.prepare("UPDATE stocktake_location_counts SET "+field+"=?, "+
+        (field==="first_qty"?"first_by":"recount_by")+"=?, "+
+        (field==="first_qty"?"first_at":"recount_at")+"=?,version=version+1,"+
+        "rev=(SELECT version+1 FROM stocktake_sheets WHERE sheet_no=?) WHERE sheet_no=? AND id=?")
+        .bind(value,member,now,sheet,sheet,id),
+      db.prepare("UPDATE stocktake_sheets SET version=version+1,counted_lines=counted_lines+?,updated_at=? WHERE sheet_no=?")
+        .bind(field==="first_qty"&&before===null?1:0,now,sheet),
+      db.prepare("INSERT INTO stocktake_line_history(sheet_no,line_key,location_count_id,field,before_value,after_value,actor_member_id,changed_at) VALUES(?,?,?,?,?,?,?,?)")
+        .bind(sheet,parent.line_key,id,field,before,value,member,now),
       participant(db,sheet,member,now)
     ]);
     const updated=await detail(db,sheet,sh.version);
-    return success({sheet:updated.sheet,line:updated.lines.find(l=>l.lineKey===key)},requestId);
+    return success({sheet:updated.sheet,locationCount:updated.locationCounts.find(cell=>cell.id===id)},requestId);
   }
   if(action==="batches"&&method==="POST"){
     const v=await json(request),code=text(v.itemCode,"品號",40),batch=text(v.batch,"批號",80);
