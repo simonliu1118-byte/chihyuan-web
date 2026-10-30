@@ -1,3 +1,13 @@
+## 2026-10-30 第五輪 CI 與 PR 紀錄
+
+- [Draft PR #316](https://github.com/simonliu1118-byte/chihyuan-web/pull/316)：`ui/stocktake-compact-mobile-20261030` → `main`；只包含手機盤點緊湊版、移除儲位選單、UI 回歸測試、Handoff。
+- [Runtime Check #41007697860](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41007697860)：`completed / success`，四個工作 `source-contracts`、`browser-typecheck`、`worker-typecheck`、`build` 均成功，已驗證提交 `d03744ac5cafe087332fb081376eec518a789727`。
+- 同一提交的 Governance Check 成功。此後只追加本 Handoff 測試紀錄，沒有修改已驗證的應用程式碼。
+- **尚未在登入後的實際 iPhone Safari 進行視覺與互動驗收**；Claude 必須檢查極窄手機寬度、長品名／規格自然換行、右側單位與輸入框、左右上緣對齊、展開詳情、Enter／離焦保存，以及桌面表格不退化。
+- 依本輪使用者指令先完成修改供檢視，**尚未合併或部署**，須另取得發布授權。
+
+---
+
 # 2026-10-30 第五輪：手機精簡盤點卡與移除儲位下拉（Claude 複審）
 
 ## 使用者確認的版型
