@@ -299,7 +299,7 @@ export function StoreStocktake({role}:{role:string}){
       <div className="cy-ordering-title">
        <h2>{currentSheet.sheetNo}</h2>
        <StatusChip tone={STOCKTAKE_STATUS_TONE[currentSheet.status]}>{STOCKTAKE_LABELS[currentSheet.status]}</StatusChip>
-       <span className="cy-ordering-title-meta">{currentSheet.sheetDate?formatDate(currentSheet.sheetDate)+"盤點":"尚無日期"} · 商品 {filledCount}/{totalCount} 已填</span>
+       <span className="cy-ordering-title-meta">{currentSheet.sheetDate?formatDate(currentSheet.sheetDate)+"盤點":"尚無日期"}<span className="cy-stocktake-sheet-progress"> · 商品 {filledCount}/{totalCount} 已填</span></span>
       </div>
       <div className="cy-record-actions">
        {manager&&currentSheet.status==="COUNTING"&&currentSheet.detailReadAt?

@@ -56,7 +56,7 @@ test("stocktake grouped inventory uses location cells for save, history and desk
  assert.match(stocktake,/locationCountId:cell\.id/);
  assert.match(stocktake,/expectedVersion:cell\.version/);
  assert.match(stocktake,/const resolved=stocktakeAggregateLines\(lines,cells\)/);
- assert.match(grouped,/className="cy-ordering-grid cy-stocktake-grouped-table"/);
+ assert.match(grouped,/className="cy-ordering-grid cy-stocktake-grouped-table cy-stocktake-list-table"/);
  assert.match(grouped,/onBlur=\{\(\)=>onSave\(r\.cell\)\}/);
  assert.match(grouped,/data-stocktake-qty type="text"/);
 });

@@ -211,3 +211,19 @@
  .cy-stocktake-mobile-actions .cy-stocktake-cell-actions .cy-op-button{min-height:28px;padding:3px 6px}
  .cy-stocktake-group-footer>.cy-op-button{min-height:28px;padding:3px 6px;font-size:var(--cy-fs-xs)}
 }
+/* Build 3: desktop is one continuous list. Mobile presentation is unchanged. */
+@media(min-width:821px){
+ .cy-stocktake-sheet-progress{display:none}
+ .cy-ordering-grid.cy-stocktake-list-table{font-size:var(--cy-fs-sm);border-radius:0}
+ .cy-ordering-grid.cy-stocktake-list-table td{vertical-align:middle;padding:2px 6px}
+ .cy-ordering-grid.cy-stocktake-list-table th{padding:5px 6px}
+ .cy-stocktake-list-table tbody+tbody tr:first-child>td{border-top:2px solid var(--cy-border)}
+ .cy-stocktake-list-table .cy-stocktake-list-location-content{display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px}
+ .cy-stocktake-list-table .cy-stocktake-list-unit{text-align:center;white-space:nowrap}
+ .cy-stocktake-list-table .cy-stocktake-cell-editor .cy-ordering-cell{text-align:right;height:28px;font-size:inherit;max-width:none}
+ .cy-stocktake-list-table .cy-op-button.cy-stocktake-list-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 26px;width:26px;min-width:26px;height:26px;min-height:26px;padding:3px}
+ .cy-stocktake-list-icon svg{display:block;flex:none;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+ .cy-stocktake-list-table .cy-stocktake-list-add{padding:2px 5px;min-height:24px;font-size:var(--cy-fs-xs)}
+ .cy-stocktake-list-table .cy-stocktake-cell-actions{position:relative}
+ .cy-stocktake-list-table .cy-stocktake-cell-actions .cy-notice{min-width:200px;position:relative;z-index:1}
+}
