@@ -85,7 +85,7 @@ test("stocktake adds and edits selected WEB locations while preserving ERP manua
  assert.match(stocktake,/只修改 WEB|僅修改 WEB/);
  assert.match(grouped,/className="cy-stocktake-cell-editor"/);
  assert.match(grouped,/r\.cell\[phase\]/);
- assert.match(grouped,/qtySum\(selected\.rows,phase\)/);
+ assert.match(grouped,/qtySum\(selected\.rows,locked\?"firstQty":phase\)/);
  assert.match(grouped,/progress\.done===progress\.total\?"done":"partial"/);
 });
 
