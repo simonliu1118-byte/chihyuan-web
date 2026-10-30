@@ -51,3 +51,10 @@
 - production D1 migration、正式登入、正式訂單／黑名單與外部模組皆未操作；沒有任何網站部署。
 - Claude 需複審 0033 重建與 foreign keys／backup 指紋匹配、低頻大黑名單 snapshot guard 的成本、並發、LINE 人工判別、取貨／退回／日期更正與 7 日提醒、inactive 黑名單保存策略、表單與手機實機。
 - Claude 結論：待審；不能以 GPT 測試通過代填最終審查通過。
+
+## 6. 遠端最終驗證（實作 source fe4d1d0）
+- Runtime Check run [41092241136](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41092241136)：browser-typecheck、worker-typecheck、source-contracts、build 全部通過；完整 Node suite **460/460，0 fail**。包括本機受 Windows 路徑／CRLF 影響的驗收，在 Linux 全部通過。
+- Governance Check run [41092241099](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41092241099)：通過。
+- Deployment contract run [41092241049](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41092241049)：validate-deployment-contract 通過，正式 deploy／audit jobs 按 PR 規則跳過，沒有部署或正式資源操作。
+- PR [#324](https://github.com/simonliu1118-byte/chihyuan-web/pull/324) 保持 Draft。此次追加僅交接文件，功能 source 未再改動；CI 證據以明列 source 與 run 為準。
+- 實際瀏覽器／真實裝置驗收與 Claude 最終審查仍待完成，不將 460/460 誤稱為正式使用驗收。
