@@ -1,3 +1,16 @@
+## 2026-10-30 第五輪正式合併／部署紀錄（Claude 必審）
+
+- 使用者已明確批准「可以合併並部署」。
+- [PR #316](https://github.com/simonliu1118-byte/chihyuan-web/pull/316) 已合併 `main`，merge SHA `15e69de02858b49c7bfd3903ed8c4aa2d073fae2`。
+- `deploy/cyweb-development` 已採非強制快轉更新至與 `main` 完全相同的 merge SHA，通過部署來源一致性安全檢查。
+- [CY Web Deploy #41008014614](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41008014614)：`completed/success`；`validate-deployment-contract` 與 `deploy-development` 均成功，Cloudflare 發布及部署後身分／服務權限檢查通過。網站 https://admin.chihyuancm.com。
+- [Runtime Check #41007893310](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41007893310) 最終 `completed/success`，最新版功能分支提交 `ec7ff2304f71f84fc8b8aaad36084278e3457585` 的四項檢查都成功；Governance Check 同樣成功。
+- 本次完成的 UI 內容及待審核細節請見下文「第五輪：手機精簡盤點卡與移除儲位下拉」。QUERY、Worker、DB 均未更動；「重新盤點」仍為 TODO。
+- CI 與服務健康檢查**不是** iPhone Safari 的真實視覺與操作驗收，請 Claude 特別檢查 320–430px、長字折行、輸入欄頂端對齊、單位、手機展開記錄與桌面表格欄數。
+- 本段為發布後文件補記，沒有修改已發布的應用程式碼。
+
+---
+
 ## 2026-10-30 第五輪 CI 與 PR 紀錄
 
 - [Draft PR #316](https://github.com/simonliu1118-byte/chihyuan-web/pull/316)：`ui/stocktake-compact-mobile-20261030` → `main`；只包含手機盤點緊湊版、移除儲位選單、UI 回歸測試、Handoff。
