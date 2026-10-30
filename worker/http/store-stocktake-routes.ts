@@ -184,7 +184,7 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
     if(!cell)throw new Invalid("STOCKTAKE_NOT_FOUND","儲位盤點格不存在",404);
     if(cell.version!==expected)fail("STOCKTAKE_VERSION_CONFLICT","這個儲位剛被其他人修改，請核對最新數量",409);
     const parent=await one<Line>(db,"SELECT * FROM stocktake_lines WHERE sheet_no=? AND line_key=?",sheet,cell.source_line_key);
-    if(!parent)fail("STOCKTAKE_NOT_FOUND","對應 ERP 底稿列不存在",404);
+    if(!parent)throw new Invalid("STOCKTAKE_NOT_FOUND","對應 ERP 底稿列不存在",404);
     const field=sh.status==="COUNTING"?"first_qty":sh.status==="RECOUNTING"?"recount_qty":null;
     if(!field||parent.locked)fail("STOCKTAKE_STATUS","目前狀態不可修改這個儲位",409);
     const value=v.quantity===null?null:countQty(v.quantity),before=field==="first_qty"?cell.first_qty:cell.recount_qty;
@@ -327,7 +327,7 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
     if(!Number.isSafeInteger(id)||Number(id)<1)fail("STOCKTAKE_INVALID","儲位明細 ID 不正確");
     const expected=version(v.expectedVersion);
     const cell=await one<LocationCell>(db,"SELECT * FROM stocktake_location_counts WHERE sheet_no=? AND id=?",sheet,id);
-    if(!cell)fail("STOCKTAKE_NOT_FOUND","儲位格不存在",404);
+    if(!cell)throw new Invalid("STOCKTAKE_NOT_FOUND","儲位格不存在",404);
     if(cell.version!==expected)fail("STOCKTAKE_VERSION_CONFLICT","儲位已被修改，請重新載入",409);
     const parent=await one<Line>(db,"SELECT * FROM stocktake_lines WHERE sheet_no=? AND line_key=?",sheet,cell.source_line_key);
     if(!parent||!(cell.erp_location_code!==cell.location_code||(parent.is_added&&cell.location_code!=="")))
