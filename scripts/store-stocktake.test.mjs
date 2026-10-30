@@ -54,17 +54,35 @@ function fixture(role="SUPER_ADMIN",grant=true){
   const res=await fn(req,env,"synthetic-stocktake-request");
   return {status:res.status,...await res.json()};
  };
- const user=(path,method="GET",body)=>api("/api/business/store/stocktake"+path,method,body);
+ // Legacy tests use the unique single-location count cell of each original ERP seq.
+ // Separate multi-location cases below exercise explicit locationCountId requests.
+ const user=(path,method="GET",body)=>{
+  if(path.endsWith("/line")&&method==="PATCH"&&body?.lineKey){
+   const cell=sql.prepare("SELECT id FROM stocktake_location_counts WHERE sheet_no=? AND source_line_key=? ORDER BY id LIMIT 1")
+    .get(path.split("/")[1],body.lineKey);
+   body={locationCountId:cell?.id,expectedVersion:body.expectedVersion,quantity:body.quantity};
+  }
+  if(path.endsWith("/batches")&&method==="POST"&&body?.itemCode&&!Object.hasOwn(body,"locationCode"))
+   body={...body,warehouseName:"倉甲",locationCode:"1324"};
+  return api("/api/business/store/stocktake"+path,method,body);
+ };
  const agent=(path,body)=>api("/api/erp-agent"+path,"POST",body,true);
  const sheet=(number="990001")=>user("/"+number);
  const row=(seq,batch,bookQty,code="X0001")=>({
-  seq,itemCode:code,itemName:"合成品名",spec:"測試規格",warehouseName:"倉甲",location:"A-01",unit:"個",batch,bookQty
+  seq,itemCode:code,itemName:"合成品名",spec:"測試規格",warehouseName:"倉甲",location:"1324",unit:"個",batch,bookQty
  });
  const insert=(number="990001",data=[row("00001","B1","2"),row("00002","B2","1")])=>{
   sql.prepare("INSERT INTO stocktake_sheets(sheet_no,sheet_date,status,detail_read_at,total_lines,recount_needed,created_at,updated_at) VALUES(?,?,'COUNTING',?,?,?, ?,?)")
    .run(number,"2026-10-28",now,data.length,data.length,now,now);
-  for(const line of data)sql.prepare("INSERT INTO stocktake_lines(sheet_no,line_key,seq,item_code,item_name,spec,warehouse_name,location,unit,batch,book_qty) VALUES(?,?,?,?,?,?,?,?,?,?,?)")
-   .run(number,line.seq,line.seq,line.itemCode,line.itemName,line.spec,line.warehouseName,line.location,line.unit,line.batch,line.bookQty);
+  for(const line of data){
+   sql.prepare("INSERT INTO stocktake_lines(sheet_no,line_key,seq,item_code,item_name,spec,warehouse_name,location,unit,batch,book_qty) VALUES(?,?,?,?,?,?,?,?,?,?,?)")
+    .run(number,line.seq,line.seq,line.itemCode,line.itemName,line.spec,line.warehouseName,line.location,line.unit,line.batch,line.bookQty);
+   for(const location of (line.location.trim()?line.location.split(";").map(x=>x.trim()):[""]))
+    sql.prepare("INSERT INTO stocktake_location_counts(sheet_no,source_line_key,warehouse_name,location_code,erp_location_code) VALUES(?,?,?,?,?)")
+     .run(number,line.seq,line.warehouseName,location,location);
+  }
+  const n=sql.prepare("SELECT COUNT(*) n FROM stocktake_location_counts WHERE sheet_no=?").get(number).n;
+  sql.prepare("UPDATE stocktake_sheets SET total_lines=?,recount_needed=? WHERE sheet_no=?").run(n,n,number);
  };
  return {sql,db,api,user,agent,sheet,row,insert,scans,housekeeping:()=>runErpHousekeeping(db,Date.now())};
 }
@@ -331,10 +349,10 @@ test("blind current-count rows include the actual actor name but no book quantit
   const save=await f.user("/990001/line","PATCH",{
      lineKey:row.lineKey,quantity:"2",expectedVersion:row.version});
   assert.equal(save.status,200,JSON.stringify(save));
-  const fresh=(await f.sheet()).data.lines.find(l=>l.lineKey===row.lineKey);
-  assert.equal(fresh.firstByName,"合成盤點員甲");
-  assert.equal(fresh.firstBy,1);
-  assert.equal(fresh.bookQty,undefined);
+  const fresh=(await f.sheet()).data;
+  assert.equal(fresh.locationCounts[0].firstByName,"合成盤點員甲");
+  assert.equal(fresh.locationCounts[0].firstBy,1);
+  assert.ok(fresh.lines.every(l=>!("bookQty" in l)));
  }finally{f.sql.close()}
 });
 
@@ -490,11 +508,12 @@ test("incremental GET returns only changed lines and deletion tombstones",async(
    const patched=await f.user("/990001/line","PATCH",{lineKey:first.lineKey,quantity:"2",expectedVersion:first.version});
    assert.equal(patched.status,200,JSON.stringify(patched));
    assert.equal(patched.data.sheet.counted,1);
-   assert.equal(patched.data.line.lineKey,first.lineKey);
+   assert.equal(patched.data.locationCount.sourceLineKey,first.lineKey);
    assert.equal(patched.data.lines,undefined);
    const delta=(await f.user("/990001?since="+before.sheet.version)).data;
-   assert.equal(delta.lines.length,1);
-   assert.equal(delta.lines[0].lineKey,first.lineKey);
+   assert.equal(delta.lines.length,0,"only the modified location cell should be returned");
+   assert.equal(delta.locationCounts.length,1);
+   assert.equal(delta.locationCounts[0].sourceLineKey,first.lineKey);
    assert.equal(delta.sheet.counted,1);
    const added=await f.user("/990001/batches","POST",{itemCode:"X0001",batch:"NEW",quantity:"1"});
    assert.equal(added.status,200,JSON.stringify(added));
