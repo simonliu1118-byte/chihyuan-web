@@ -227,8 +227,10 @@ export function StoreStocktake({role}:{role:string}){
  async function deleteBatch(line:StocktakeLine){
   if(!currentSheet||!detail)return;
   const cells=detail.locationCounts.filter(c=>c.sourceLineKey===line.lineKey);
-  if(cells.some(c=>c.firstQty!==null||c.recountQty!==null)&&
-   !await confirm({title:"刪除已填寫批號",description:"刪除後將保留修改紀錄。",confirmLabel:"確認刪除",confirmTone:"danger"}))return;
+  if((cells.length>1||cells.some(c=>c.firstQty!==null||c.recountQty!==null))&&
+   !await confirm({title:"刪除新增批號",
+    description:"此批號目前連結 "+cells.length+" 個儲位，刪除會一次移除這個批號在所有儲位的盤點數量，並保留修改紀錄。確定刪除？",
+    confirmLabel:"確認刪除",confirmTone:"danger"}))return;
   await open(currentSheet.sheetNo,"batches",{lineKey:line.lineKey,expectedVersion:line.version,expectedSheetVersion:currentSheet.version,confirmNonEmpty:true},"DELETE");
  }
  async function showHistory(line:StocktakeLine,cell:StocktakeLocationCount){
