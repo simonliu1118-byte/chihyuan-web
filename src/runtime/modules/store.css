@@ -254,7 +254,7 @@
 .cy-store-list-note details[open] summary{display:block}
 .cy-store-history{padding:10px;white-space:normal;text-align:left;color:var(--cy-text)}
 .cy-store-history p{margin:4px 0}.cy-store-history ol>li{padding:6px 0;border-bottom:1px solid var(--cy-border)}
-.cy-dialog.cy-store-order-dialog .cy-dialog-surface{width:min(1050px,calc(100vw - 32px))}
+.cy-dialog.cy-store-order-dialog .cy-dialog-surface{width:min(840px,calc(100vw - 32px))}
 .cy-dialog.cy-store-blacklist-dialog .cy-dialog-surface{width:min(900px,calc(100vw - 32px))}
 .cy-store-entry-table{min-width:600px!important;color:var(--cy-text)}
 .cy-store-entry-table th{padding:6px 8px}
@@ -271,6 +271,7 @@
 .cy-store-entry-table .cy-store-entry-summary-head th{text-align:center}
 .cy-store-entry-table .cy-store-entry-summary>td{vertical-align:middle;text-align:center;font-variant-numeric:tabular-nums}
 .cy-store-entry-summary .cy-ordering-cell:not(textarea){text-align:center;font-weight:700}
+.cy-store-entry-summary textarea.cy-ordering-cell{resize:none}
 .cy-store-entry-summary strong{display:block;padding:6px;font-size:inherit;font-weight:700;white-space:nowrap}
 .cy-store-entry-row-actions{display:flex;align-items:center;justify-content:center;gap:6px}
 .cy-store-entry-row-actions .cy-icon-button{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:28px;min-width:28px;height:28px;min-height:28px;padding:4px}

@@ -129,7 +129,7 @@ export function CustomerOrders(){
    {form.order?.hasEverOrdered?<Reason inline kind={form.reasonKind} detail={form.reason} options={STORE_EDIT_REASONS} onChange={(reasonKind,reason)=>patchForm({reasonKind,reason})}/>:null}
    <EntryTable label="訂購資料" className="cy-store-entry-table">
     <colgroup><col className="cy-store-entry-code"/><col/><col className="cy-store-entry-quantity"/><col className="cy-store-entry-price"/><col className="cy-store-entry-amount"/><col className="cy-store-entry-actions"/></colgroup>
-    <tbody><tr><th colSpan={6}>基本資料</th></tr><tr><td colSpan={6} className="cy-store-basic-cell">
+    <tbody><tr><td colSpan={6} className="cy-store-basic-cell">
      <EntryTable embedded label="基本資料" className="cy-store-basic-table"><colgroup><col className="cy-store-basic-date"/><col/><col/><col/><col/></colgroup><thead><tr>{["訂購日期","顧客姓名","電話","手機","LINE 名稱"].map((h,i)=><th scope="col" key={h}><EntryHeading required={i<2}>{h}</EntryHeading></th>)}</tr></thead><tbody><tr>
       <td><Field label="訂購日期" required presentation="cell"><input className="cy-ordering-cell" type="date" max={today()} min="0001-01-01" value={form.orderDate} onChange={e=>patchForm({orderDate:e.target.value})}/></Field></td>
       <td><Field label="顧客姓名" required presentation="cell"><input className="cy-ordering-cell" maxLength={40} value={form.customerName} onChange={e=>patchForm({customerName:e.target.value})}/></Field></td>
