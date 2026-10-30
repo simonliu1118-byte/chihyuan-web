@@ -12,11 +12,11 @@ export type FieldSize = "s" | "m" | "l";
  * and the mark never disagree. `oneOf` notes a group where any one field is enough (e.g. 手機或市話);
  * `reportAs` names the field in the missing-fields alert when it differs from the label.
  */
-export function Field({ label, required, oneOf, reportAs, size = "m", hint, children }: {
-  label: ReactNode; required?: boolean; oneOf?: string; reportAs?: string; size?: FieldSize; hint?: ReactNode; children: ReactElement;
+export function Field({ label, required, oneOf, reportAs, size = "m", hint, children, presentation = "form" }: {
+  label: ReactNode; required?: boolean; oneOf?: string; reportAs?: string; size?: FieldSize; hint?: ReactNode; children: ReactElement; presentation?: "form" | "cell";
 }) {
   const control = required && isValidElement(children) ? cloneElement(children as ReactElement<{ required?: boolean }>, { required: true }) : children;
-  return <label className={`cy-f cy-f-${size}`} data-label={reportAs ?? (typeof label === "string" ? label : undefined)}>
+  return <label className={`cy-f cy-f-${size}${presentation === "cell" ? " cy-f-cell" : ""}`} data-label={reportAs ?? (typeof label === "string" ? label : undefined)}>
     <span className="cy-f-label">{label}{required ? <span className="cy-field-required" aria-hidden="true">＊</span> : null}
       {oneOf ? <span className="cy-f-oneof">{oneOf}</span> : null}</span>
     {control}

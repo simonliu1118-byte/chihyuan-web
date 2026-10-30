@@ -16,6 +16,8 @@
 
 ## 目前待 Claude 審查
 
+- [V0.9.57 Build 2 訂購新增／修改表格返修](CYWEB-STORE-ENTRY-BUILD2-20261031.md) — 共用儲存格輸入、刪除／加列、備註與金額對位、理由置頂、日期欄收窄；含實際合成瀏覽器及21項測試。
+
 - [V0.9.57 Build 1 訂購清單返修](CYWEB-STORE-LIST-BUILD1-20261031.md) — 欄寬、電話／手機合併、圖示、共通粗線、叫貨無日期、日期與表頭對齊；含實際合成瀏覽器驗收與測試證據。
 
 - [V0.9.57 顧客訂購實作與部署交接](CYWEB-STORE-ORDERS-IMPLEMENTATION-0957-20261031.md) — 設計 PR #323、實作 PR #324，460/460 Node 與 CI 通過；使用者授權後已部署，migration 0033／D1 health／HTTPS 通過；Claude 複審與實機驗收待完成。
