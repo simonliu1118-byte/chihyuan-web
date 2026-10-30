@@ -370,18 +370,50 @@ export function StoreStocktake({role}:{role:string}){
   {batchForm?<Dialog open title="新增批號" onClose={()=>setBatchForm(null)}>
    <form onKeyDown={enterAdvancesFields} onSubmit={e=>void addBatch(e)}>
     <FormSection>
-     <Field label="既有品號" required size="m"><input className="cy-op-input" maxLength={40} value={batchForm.itemCode}
-       onChange={e=>setBatchForm(s=>s?{...s,itemCode:e.target.value}:null)}/></Field>
+     <Field label="品號" size="m"><input className="cy-op-input" value={batchForm.itemCode} readOnly/></Field>
+      <Field label="庫別" size="m"><input className="cy-op-input" value={batchForm.warehouseName} readOnly/></Field>
+      <Field label="WEB 儲位" size="m"><input className="cy-op-input" value={batchForm.locationCode||"未指定儲位"} readOnly/></Field>
      <Field label="新批號" required size="m"><input className="cy-op-input" maxLength={80} value={batchForm.batch}
        onChange={e=>setBatchForm(s=>s?{...s,batch:e.target.value}:null)}/></Field>
-     <Field label="初盤數量" size="s"><input className="cy-op-input" inputMode="decimal" value={batchForm.quantity}
+     <Field label={currentSheet?.status==="RECOUNTING"?"複盤數量":"初盤數量"} size="s"><input className="cy-op-input" inputMode="decimal" value={batchForm.quantity}
        onChange={e=>setBatchForm(s=>s?{...s,quantity:e.target.value}:null)}/></Field>
     </FormSection>
     <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setBatchForm(null)}>取消</button>
      <button type="submit" className="cy-op-button primary" disabled={busy}>新增</button></div>
    </form>
   </Dialog>:null}
-  {history?<Dialog open title={history.line.itemCode+"／"+history.line.batch+" 修改紀錄"} onClose={()=>setHistory(null)}>
+  {renameForm?<Dialog open title="修改 WEB 儲位" onClose={()=>setRenameForm(null)}>
+   <form onKeyDown={enterAdvancesFields} onSubmit={e=>void renameLocation(e)}>
+    <FormSection>
+     <Field label="品號" size="m"><input className="cy-op-input" value={renameForm.itemCode} readOnly/></Field>
+     <Field label="庫別" size="m"><input className="cy-op-input" value={renameForm.warehouseName} readOnly/></Field>
+     <Field label="原儲位" size="m"><input className="cy-op-input" value={renameForm.fromLocation||"未指定儲位"} readOnly/></Field>
+     <Field label="新四碼儲位" required size="m"><input className="cy-op-input" inputMode="numeric" pattern="[0-9]{4}"
+      maxLength={4} value={renameForm.toLocation} onChange={e=>setRenameForm(v=>v?{...v,toLocation:e.target.value}:null)}/></Field>
+    </FormSection>
+    <p className="cy-notice cy-notice-warning">僅修改 WEB 儲位；ERP 原始儲位不會同步修改，將列入管理員待人工處理清單。</p>
+    <div className="cy-op-form-footer">
+     <button className="cy-op-button" type="button" onClick={()=>setRenameForm(null)}>取消</button>
+     <button className="cy-op-button primary" type="submit" disabled={busy}>儲存 WEB 儲位</button>
+    </div>
+   </form>
+  </Dialog>:null}
+  {manualOpen?<Dialog open title="ERP 儲位待手動修改" onClose={()=>setManualOpen(false)}>
+   <p>此清單只用來核對人工 ERP 作業，本頁不會呼叫 QUERY 修改儲位。須在 ERP 完成作業後再標記完成。</p>
+   {manualRows.length?<div className="cy-op-table-wrap">
+    <table className="cy-op-table cy-stocktake-manual-table">
+     <thead><tr><th>品號／批號</th><th>庫別</th><th>ERP 儲位</th><th>WEB 儲位</th><th>狀態與操作</th></tr></thead>
+     <tbody>{manualRows.map(row=><tr key={row.locationCountId}>
+      <td>{row.itemCode}／{row.batch||"無"}</td><td>{row.warehouseName}</td>
+      <td>{row.erpLocationCode||"未指定"}</td><td>{row.locationCode||"未指定"}</td>
+      <td><StatusChip tone={row.verifiedAt?"success":"warning"}>{row.verifiedAt?"已人工完成":"待手動修改"}</StatusChip>
+       <button className="cy-op-button compact" type="button" disabled={busy}
+        onClick={()=>void verifyManual(row,!row.verifiedAt)}>{row.verifiedAt?"撤銷完成":"標記完成"}</button></td>
+     </tr>)}</tbody>
+    </table>
+   </div>:<p className="cy-op-empty">目前沒有需要人工修改的 ERP 儲位。</p>}
+  </Dialog>:null}
+  {history?<Dialog open title={history.line.itemCode+"／"+(history.cell.locationCode||"未指定儲位")+"／"+history.line.batch+" 修改紀錄"} onClose={()=>setHistory(null)}>
     {history.rows.length? <ul>{history.rows.map(h=><li key={h.id}>{date(h.at)} {h.actorName}：{h.field} {h.beforeValue??"未填"} → {h.afterValue??"空"}</li>)}</ul>:
      <p>尚無修改紀錄。</p>}
    </Dialog>:null}
