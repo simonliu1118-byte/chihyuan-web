@@ -6,6 +6,7 @@ const stocktake=readFileSync(new URL("../src/runtime/modules/StoreStocktake.tsx"
 const app=readFileSync(new URL("../src/App.tsx",import.meta.url),"utf8");
 const erp=readFileSync(new URL("../src/runtime/modules/useErpJob.ts",import.meta.url),"utf8");
 const css=readFileSync(new URL("../src/runtime/modules/store.css",import.meta.url),"utf8");
+const grouped=readFileSync(new URL("../src/runtime/modules/StocktakeGroupedDetail.tsx",import.meta.url),"utf8");
 
 test("stocktake sync uses the existing global ERP toast only after an observed job completes",()=>{
  assert.match(erp,/if \(!sawRunning\.current\) return;/);
@@ -50,59 +51,50 @@ test("stocktake detail uses shared ordering record header and toolbar",()=>{
  assert.doesNotMatch(stocktake,/盲盤中：帳面數量在第一次主管確認前/);
 });
 
-test("stocktake inventory is an ordering-style editable grid without per-product cards",()=>{
- assert.match(stocktake,/<h3>盤點品號庫存明細<\/h3>/);
- assert.match(stocktake,/className="cy-ordering-grid-scroll cy-stocktake-lines"/);
- assert.match(stocktake,/<table className="cy-ordering-grid cy-stocktake-grid"/);
- assert.match(stocktake,/className="cy-ordering-cell"[\s\S]*?onBlur=\{\(\)=>void saveLine\(l\)\}/);
- assert.match(stocktake,/onKeyDown=\{e=>nextOnEnter\(e,l\)\}/);
- assert.match(stocktake,/void showHistory\(l\)/);
- assert.match(stocktake,/void deleteBatch\(l\)/);
- assert.match(stocktake,/colSpan=\{currentSheet.status==="COUNTING"\?11:14\}/);
- assert.doesNotMatch(stocktake,/<article className="cy-stocktake-line"/);
- assert.match(css,/cy-stocktake-grid\[data-phase="recount"\]/);
+test("stocktake grouped inventory uses location cells for save, history and desktop ordering styles",()=>{
+ assert.match(stocktake,/<StocktakeGroupedDetail detail=\{detail!\}/);
+ assert.match(stocktake,/locationCountId:cell\.id/);
+ assert.match(stocktake,/expectedVersion:cell\.version/);
+ assert.match(stocktake,/const resolved=stocktakeAggregateLines\(lines,cells\)/);
+ assert.match(grouped,/className="cy-ordering-grid cy-stocktake-grouped-table"/);
+ assert.match(grouped,/onBlur=\{\(\)=>onSave\(r\.cell\)\}/);
+ assert.match(grouped,/data-stocktake-qty type="text"/);
+ assert.match(grouped,/void/); // the grouped component keeps all handlers wired through props
 });
 
-test("mobile stocktake uses three wrapping information lines beside a large quantity input and small unit",()=>{
- assert.match(stocktake,/className="cy-stocktake-mobile-summary"/);
- assert.match(stocktake,/className="cy-stocktake-mobile-product"><strong>\{l\.itemCode\}<\/strong>\{" "\}\{l\.itemName\}/);
- assert.match(stocktake,/className="cy-stocktake-mobile-spec">\{l\.spec\|\|"—"\}/);
- assert.match(stocktake,/className="cy-stocktake-mobile-batch-location">批\{l\.batch\|\|"無"\}\{" "\}儲\{l\.location\|\|"—"\}/);
- assert.match(stocktake,/className="cy-stocktake-qty-control"/);
- assert.match(stocktake,/className="cy-stocktake-mobile-unit">\{l\.unit\|\|"—"\}/);
- assert.match(stocktake,/data-stocktake-qty type="text"/);
- assert.match(stocktake,/onBlur=\{\(\)=>void saveLine\(l\)\}/);
- assert.match(stocktake,/onKeyDown=\{e=>nextOnEnter\(e,l\)\}/);
- assert.match(css,/\.cy-stocktake-mobile-product,\.cy-stocktake-mobile-spec,\.cy-stocktake-mobile-batch-location\{display:block;/);
- assert.match(css,/white-space:normal;overflow-wrap:anywhere;word-break:normal/);
- assert.match(css,/grid-template-columns:minmax\(0,1fr\) minmax\(122px,37%\)/);
- assert.match(css,/\.cy-ordering-grid\.cy-stocktake-grid \.cy-stocktake-qty-cell::before\{/);
- assert.match(css,/font-size:16px;text-align:left/);
- assert.match(css,/height:48px;min-height:48px/);
- assert.match(css,/\.cy-stocktake-grid \.cy-stocktake-mobile-unit\{display:block/);
+test("one item mobile card contains a location selector and batch count rows without redundant headers",()=>{
+ assert.match(grouped,/className="cy-stocktake-item-card"/);
+ assert.match(grouped,/data-progress=\{locked\?"done":state\}/);
+ assert.match(grouped,/className="cy-stocktake-location-heading"/);
+ assert.match(grouped,/>選擇儲位<\/strong>/);
+ assert.match(grouped,/onRename\(group\.code,selected\.warehouse,selected\.location\)/);
+ assert.match(grouped,/className="cy-stocktake-location-switch"/);
+ assert.match(grouped,/className="cy-stocktake-batch-rows"/);
+ assert.match(grouped,/批號 \{r\.line\.batch\|\|"無"\}/);
+ assert.match(grouped,/onAddBatch\(group\.code,selected\.warehouse,selected\.location\)/);
+ assert.doesNotMatch(grouped,/>批號<\/th>/);
+ assert.doesNotMatch(grouped,/批號\s*\/\s*初盤數量/);
+ assert.doesNotMatch(grouped,/儲位 1324\/修改儲位/);
+ assert.match(css,/\.cy-stocktake-item-card\[data-progress="partial"\]\{border-color:var\(--cy-warning\)\}/);
+ assert.match(css,/\.cy-stocktake-item-card\[data-progress="done"\]\{border-color:var\(--cy-success\)\}/);
+ assert.match(css,/height:48px;min-height:48px;font-size:16px/);
 });
 
-test("mobile secondary stocktake actions expand without adding permanent card rows",()=>{
- assert.match(stocktake,/aria-expanded=\{expandedLine===l\.lineKey\}/);
- assert.match(stocktake,/onClick=\{\(\)=>setExpandedLine\(s=>s===l\.lineKey\?null:l\.lineKey\)\}/);
- assert.match(stocktake,/expandedLine===l\.lineKey\?<tr className="cy-stocktake-mobile-expanded"/);
- assert.match(stocktake,/void showHistory\(l\)/);
- assert.match(stocktake,/void deleteBatch\(l\)/);
- assert.match(css,/\.cy-stocktake-mobile-summary,\.cy-stocktake-mobile-expanded,\.cy-stocktake-mobile-unit\{display:none\}/);
- assert.match(css,/\.cy-ordering-grid\.cy-stocktake-grid tr\.cy-stocktake-mobile-expanded\{/);
+test("stocktake adds and edits selected WEB locations while preserving ERP manual follow-up",()=>{
+ assert.match(stocktake,/setRenameForm\(\{itemCode,warehouseName,fromLocation,toLocation:""\}\)/);
+ assert.match(stocktake,/\/manual-locations/);
+ assert.match(stocktake,/ERP 儲位待手動修改/);
+ assert.match(stocktake,/只修改 WEB|僅修改 WEB/);
+ assert.match(grouped,/className="cy-stocktake-cell-editor"/);
+ assert.match(grouped,/r\.cell\[phase\]/);
+ assert.match(grouped,/qtySum\(selected\.rows,phase\)/);
+ assert.match(grouped,/progress\.done===progress\.total\?"done":"partial"/);
 });
 
-test("location dropdown and its hidden filtering behavior are removed on mobile and desktop",()=>{
- assert.doesNotMatch(stocktake,/cy-stocktake-location-filter/);
- assert.doesNotMatch(stocktake,/setLocation\(/);
- assert.doesNotMatch(stocktake,/window\.matchMedia\("\(max-width: 820px\)"\)/);
+test("old global location dropdown remains absent; search and ALL filter stay inline",()=>{
+ assert.doesNotMatch(stocktake,/cy-stocktake-location-filter|setLocation\(/);
  assert.doesNotMatch(css,/cy-stocktake-location-filter/);
- assert.match(stocktake,/l\.itemCode,l\.itemName,l\.location,l\.batch,l\.warehouseName/);
-});
-
-test("stocktake search and ALL dropdown share one compact row on phones",()=>{
+ assert.match(stocktake,/searchLabel="搜尋儲位、品號、品名、批號"/);
  assert.match(css,/\.cy-stocktake-main \.cy-data-toolbar-primary\{display:flex;flex-direction:row;align-items:center/);
- assert.match(css,/\.cy-stocktake-main \.cy-data-search\{display:block;flex:1 1 0/);
  assert.match(css,/\.cy-stocktake-main \.cy-data-filters\{display:flex;flex:0 0 106px;flex-direction:row/);
- assert.match(css,/\.cy-stocktake-main \.cy-data-filters>\.cy-op-input\{box-sizing:border-box;width:100%;min-width:0/);
 });
