@@ -16,3 +16,6 @@
 - 未修改 Worker／API／資料庫／ERP 寫回規則。仍只改 WEB 儲位，ERP 待人工修改提示保留在輸入旁。
 - 真實桌面／手機視覺與操作待使用者驗收；未宣稱瀏覽器互動測試或 Claude 審查已完成。
 - 合併／部署最終證據請見本 PR 的 GitHub 紀錄與對應 main dispatch deployment run。
+
+## UI 驗收更新
+完整 CI 首次發現兩個既有 UI source 驗收仍要求舊 Dialog callback；`scripts/store-stocktake-ui.test.mjs` 已更新為驗證原地編輯入口、Enter／Esc、四碼 validity、成功才關閉、原有版本鎖及 WEB／ERP 提示。未移除既有盤點 API 回歸。該 UI suite 本機重新通過，遠端完整 suite 隨本提交重跑。
