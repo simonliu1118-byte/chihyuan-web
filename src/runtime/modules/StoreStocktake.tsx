@@ -183,13 +183,11 @@ export function StoreStocktake({role}:{role:string}){
  }
  async function afterConfirm(action:"first-confirm"|"second-confirm"|"retry-write"|"refresh"){
    if(!currentSheet)return;
-   const lines=detail?.lines??[];
-   const unfilled=action==="first-confirm"?lines.filter(l=>l.firstQty===null).length:
-     action==="second-confirm"?lines.filter(l=>!l.locked&&l.recountQty===null).length:0;
-   // COUNTING is blind: the server intentionally does not send bookQty even
-   // to admins. Never fabricate the number of discrepant items from hidden data.
-   // The Worker computes and locks the true item totals atomically on confirm.
-   const writeRows=action==="second-confirm"?stocktakeWriteRows(lines).length:0;
+   const lines=detail?.lines??[],cells=detail?.locationCounts??[];
+   const unfilled=action==="first-confirm"?cells.filter(c=>c.firstQty===null).length:
+     action==="second-confirm"?cells.filter(c=>!lines.find(l=>l.lineKey===c.sourceLineKey)?.locked&&c.recountQty===null).length:0;
+   const resolved=stocktakeAggregateLines(lines,cells);
+   const writeRows=action==="second-confirm"?stocktakeWriteRows(resolved).length:0;
    const explain=action==="first-confirm"
      ? `總列數：${lines.length}；未填：${unfilled}；需複盤品號：確認後依 ERP 帳面核算並顯示。`
      :action==="second-confirm"
