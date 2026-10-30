@@ -16,6 +16,9 @@
 
 ## 目前待 Claude 審查
 
+- [V0.9.57 顧客訂購實作與部署交接](CYWEB-STORE-ORDERS-IMPLEMENTATION-0957-20261031.md) — 設計 PR #323、實作 PR #324，460/460 Node 與 CI 通過；使用者授權後已部署，migration 0033／D1 health／HTTPS 通過；Claude 複審與實機驗收待完成。
+- 本對話盤點 UI 交接：[Build 1](CYWEB-STOCKTAKE-DESKTOP-BUILD1-20261030.md)、[Build 2](CYWEB-STOCKTAKE-DENSITY-INLINE-BUILD2-20261030.md)、[Build 3](CYWEB-STOCKTAKE-DESKTOP-LIST-BUILD3-20261030.md)、[Build 4](CYWEB-STOCKTAKE-LOCATION-CONTROLS-BUILD4-20261030.md)。實際部署結果見 PR #319–#322；早期未部署字樣為首次交付狀態。
+
 - [CYWEB V0.9.51：備份頁面整理與每日季度提醒](CYWEB-V0.9.51-BACKUP-UI-DAILY-REMINDER-CLAUDE-REVIEW.md) — 從已合併 V0.9.50 的 main 開新分支，完成說明、測試證據、風險、Claude 最終審查欄位；不含部署或 Cloudflare 資源變更。
 
 - [CYWEB ERP 清理 SQL 高頻執行改善（2026-10-29）](CYWEB-ERP-HOUSEKEEPING-20261029-CLAUDE-REVIEW.md) — 獨立 PR：以每分鐘 Cron 取代高頻 HTTP 清理，五分鐘結果清空、每日保留處理；附 D1 用量、回歸測試及部署排程審查。

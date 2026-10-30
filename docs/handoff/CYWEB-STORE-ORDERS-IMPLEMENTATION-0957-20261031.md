@@ -1,7 +1,7 @@
 # CYWEB V0.9.57 — 顧客訂購流程與黑名單事件實作交接
 
 日期：2026-10-31（Asia/Taipei）。設計來源：[設計方案](CYWEB-STORE-ORDERS-WORKFLOW-DESIGN-20261031.md)、設計 PR #323 與本對話使用者補充。
-狀態：GPT 實作完成、待遠端驗證與 Claude 最終審查；不合併、不部署、不執行正式 migration。使用者只授權單純 UI 直接部署，本輪跨資料／流程不適用。
+目前狀態：PR #324 已依使用者授權合併，V0.9.57 已部署且 migration 0033 成功；Claude 複審與實際畫面驗收仍待完成。首次交付為 Draft，後續授權與最終證據見 §7–8。
 
 ## 1. 功能
 - 訂購獨立為 REGISTERED，新單先訂購，既有 ORDERED 保留叫貨語意。桌面共用單張 grid、StatusChip、備註與粗分隔、15 欄（含手機）、狀態篩選、下一步一致 SVG、逐列展開歷程。
@@ -48,7 +48,7 @@
 
 ## 5. 明確未完成／Claude 檢查
 - 使用者同意瀏覽器後，Edge 獲准開啟，但 Computer Use 因無法可靠判斷當前 URL 自動停止本輪操作，未改用其他途徑繞過。因此**沒有實際瀏覽器視覺／點擊驗收證據**，合成 UI server 已停止；真實桌面／手機／日期選擇器的 focus、裁切、長字內容、單列展開需人工確認。
-- production D1 migration、正式登入、正式訂單／黑名單與外部模組皆未操作；沒有任何網站部署。
+- 首次提交時未執行 migration 或部署；後續依使用者授權已完成，見 §8。仍未登入或手動測試正式訂單／黑名單與外部模組。
 - Claude 需複審 0033 重建與 foreign keys／backup 指紋匹配、低頻大黑名單 snapshot guard 的成本、並發、LINE 人工判別、取貨／退回／日期更正與 7 日提醒、inactive 黑名單保存策略、表單與手機實機。
 - Claude 結論：待審；不能以 GPT 測試通過代填最終審查通過。
 
@@ -56,7 +56,7 @@
 - Runtime Check run [41092241136](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41092241136)：browser-typecheck、worker-typecheck、source-contracts、build 全部通過；完整 Node suite **460/460，0 fail**。包括本機受 Windows 路徑／CRLF 影響的驗收，在 Linux 全部通過。
 - Governance Check run [41092241099](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41092241099)：通過。
 - Deployment contract run [41092241049](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41092241049)：validate-deployment-contract 通過，正式 deploy／audit jobs 按 PR 規則跳過，沒有部署或正式資源操作。
-- PR [#324](https://github.com/simonliu1118-byte/chihyuan-web/pull/324) 保持 Draft。此次追加僅交接文件，功能 source 未再改動；CI 證據以明列 source 與 run 為準。
+- PR [#324](https://github.com/simonliu1118-byte/chihyuan-web/pull/324) 此時為 Draft（後續已依授權合併，見 §8）。此次追加僅交接文件，功能 source 未再改動；CI 證據以明列 source 與 run 為準。
 - 實際瀏覽器／真實裝置驗收與 Claude 最終審查仍待完成，不將 460/460 誤稱為正式使用驗收。
 
 ## 7. 使用者本輪明確授權合併部署（2026-10-31）
@@ -64,3 +64,14 @@
 - Claude 審查仍未執行，不能代填通過；瀏覽器驗收限制仍保留。
 - 合併前確認最終 head 的必要 CI 全通過，再由 main dispatch 既有 development-deploy.yml operation=deploy-development；該名稱為既有正式部署入口的歷史名稱。
 - 正式 migration 0033、網站發布與健康檢查結果以本 PR 合併 SHA 及對應部署 run 的最終紀錄為準；本段不預先宣稱已部署成功。
+
+## 8. 合併部署最終紀錄（2026-10-31，台北）
+- 最終 head 2deb36d6c834329c6a524bf801d6a1b55ae1fede：[Runtime 41092825460](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41092825460)、[Governance 41092825420](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41092825420)、[Deployment contract 41092825424](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41092825424) 全部通過。
+- PR #324 已 squash merge；main SHA：0bb0dda68a0d09c81113772a696e3578afbfde80。
+- [Deploy run 41093119232](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41093119232) 成功，D1 migrations（含 0033）、Worker deploy、D1 health、HTTPS／static asset transport 全部通過。
+- 正式版本 V0.9.57 Build 0；Claude 結論仍待審，不代填通過。實際桌面／手機驗收仍待完成。
+
+## 9. 本輪 handoff 收尾
+- 依使用者「所有改動都要留 handoff 給 Claude」要求，僅補本文件部署實績、修正首次提交狀態的歷史文字，並更新同目錄 README 入口；不改 runtime、schema 或版本，不重部署。
+- 本次發布依據為對話既有明確「授權遠端發布」；文件只包含既有公開 PR／CI／部署 run 連結與 source SHA，不新增正式基礎設施識別或秘密。
+- 驗證文件差異與交接連結；程式驗證仍以上述原 run 為證，不將文件修訂冒稱新功能驗收。
