@@ -158,10 +158,10 @@ export async function syncStatements(db:D1Database,body:StocktakeSyncResult,only
        json_extract(value,'$.batch'),json_extract(value,'$.bookQty')
      FROM json_each(?2)`).bind(d.sheetNo,JSON.stringify(d.rows)));
    if(locationRows.length)out.push(db.prepare(`INSERT INTO stocktake_location_counts(
-     sheet_no,source_line_key,warehouse_name,location_code,rev)
+     sheet_no,source_line_key,warehouse_name,location_code,erp_location_code,rev)
      SELECT ?1,json_extract(value,'$.sourceLineKey'),
        json_extract(value,'$.warehouseName'),json_extract(value,'$.locationCode'),
-       (SELECT version FROM stocktake_sheets WHERE sheet_no=?1)
+       json_extract(value,'$.locationCode'),(SELECT version FROM stocktake_sheets WHERE sheet_no=?1)
      FROM json_each(?2)`).bind(d.sheetNo,JSON.stringify(locationRows)));
    out.push(new AuditService(db).prepareRecord({entityType:"stocktake",entityKey:d.sheetNo,
      action:"stocktake.sheet_synced",actorEmployeeId:null,statusTo:"COUNTING",
