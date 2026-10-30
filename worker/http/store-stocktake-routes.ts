@@ -16,13 +16,14 @@ type Line={sheet_no:string;line_key:string;seq:string|null;item_code:string;item
  is_added:number;erp_seq:string|null;first_qty:string|null;first_by:number|null;first_at:string|null;
  recount_qty:string|null;recount_by:number|null;recount_at:string|null;
  first_by_name?:string|null;recount_by_name?:string|null;locked:number;version:number;rev:number};
-type LocationCell={id:number;sheet_no:string;source_line_key:string;warehouse_name:string;location_code:string;
+type LocationCell={id:number;sheet_no:string;source_line_key:string;warehouse_name:string;location_code:string;erp_location_code:string;manual_verified_at:string|null;manual_verified_by:number|null;
  first_qty:string|null;first_by:number|null;first_at:string|null;
  recount_qty:string|null;recount_by:number|null;recount_at:string|null;
  first_by_name?:string|null;recount_by_name?:string|null;version:number;rev:number};
 const toCell=(row:LocationCell):StocktakeLocationCount=>({
  id:row.id,sheetNo:row.sheet_no,sourceLineKey:row.source_line_key,warehouseName:row.warehouse_name,
- locationCode:row.location_code,firstQty:row.first_qty,firstBy:row.first_by,firstAt:row.first_at,
+ locationCode:row.location_code,erpLocationCode:row.erp_location_code,
+ manualVerifiedAt:row.manual_verified_at,manualVerifiedBy:row.manual_verified_by,firstQty:row.first_qty,firstBy:row.first_by,firstAt:row.first_at,
  recountQty:row.recount_qty,recountBy:row.recount_by,recountAt:row.recount_at,
  firstByName:row.first_by_name??null,recountByName:row.recount_by_name??null,
  version:row.version,rev:row.rev
