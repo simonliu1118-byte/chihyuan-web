@@ -5,6 +5,12 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.55 — 盤點忽略清單、頁面與手機版整理（2026-10-30）
+
+- [x] PR #313–#316（GPT，已於 2026-10-29／30 部署，當時未升版號，部署後健康檢查仍顯示 0.9.54）：忽略清單改為獨立的 ERP 同步排除表 `stocktake_sync_ignored`（migration `0031_stocktake_ignore_exclusions.sql`），盤點工具列與忽略對話框精簡、同步完成改用右上角通知、明細表沿用叫貨表格樣式、手機三行精簡列並移除全頁儲位篩選。
+- [x] Claude 事後審查（2026-10-30）：補回忽略清單新增／移除的 Audit（`stocktake.sync_ignored`／`sync_unignored`，重複新增回 409）；版本號補為 0.9.55。
+- [ ] 注意：migration 有兩支 `0031_*`（`0031_erp_query_duration_stats`、`0031_stocktake_ignore_exclusions`），兩者都已套用且檔名不同，不可改名；下一支 migration 從 **0032** 起編號。
+
 ## CY Web V0.9.54 — 備份管理資訊常駐與季度提醒頻率（2026-10-29；原 PR #305 以 V0.9.51 提交，合併時改號）
 
 - [x] `SUPER_ADMIN` 全站季度提醒的唯讀查詢改為每 24 小時一次，而非每小時；登入、跨台灣曆季及當次成功演練後仍可刷新，不新增 Cron 或站外 Email。
