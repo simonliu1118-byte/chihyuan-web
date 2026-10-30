@@ -1,4 +1,4 @@
-import {useMemo,useState,type KeyboardEvent} from "react";
+import {useMemo,useState,useRef,type KeyboardEvent} from "react";
 import {Field} from "../../ui/forms/Field";
 import {useCompactLayout} from "../../ui/foundation/useCompactLayout";
 import {parseStocktakeQuantity,decimalStocktake,type StocktakeDetail,type StocktakeLine,type StocktakeLocationCount} from "../../../shared/stocktake";
@@ -17,7 +17,8 @@ type Props={
  onAddBatch:(itemCode:string,warehouse:string,location:string)=>void;
  onRename:(itemCode:string,warehouse:string,location:string,toLocation:string)=>Promise<boolean>;
 };
-function InlineLocation({location,label,onSave,onCancel}:{location:string;label:string;onSave:(value:string)=>Promise<boolean>;onCancel:()=>void}){
+function InlineLocation({location,label,onSave,onCancel,desktopControls=false}:{location:string;label:string;onSave:(value:string)=>Promise<boolean>;onCancel:()=>void;desktopControls?:boolean}){
+ const inputRef=useRef<HTMLInputElement>(null);
  const [value,setValue]=useState(location);
  const [saving,setSaving]=useState(false);
  async function save(input:HTMLInputElement){
@@ -26,13 +27,18 @@ function InlineLocation({location,label,onSave,onCancel}:{location:string;label:
   setSaving(true);
   try{if(await onSave(value))onCancel()}finally{setSaving(false)}
  }
- return <div className="cy-stocktake-inline-location">
-  <Field label={label} required size="s"><input autoFocus aria-label={label} inputMode="numeric" pattern="[0-9]{4}" maxLength={4}
+ return <div className={"cy-stocktake-inline-location"+(desktopControls?" cy-stocktake-inline-controls":"")}>
+  <Field label={label} required size="s"><input ref={inputRef} autoFocus aria-label={label} inputMode="numeric" pattern="[0-9]{4}" maxLength={4}
    value={value} disabled={saving} onFocus={e=>e.currentTarget.select()} onChange={e=>setValue(e.target.value)}
    onKeyDown={e=>{if(e.nativeEvent.isComposing)return;if(e.key==="Enter"){e.preventDefault();void save(e.currentTarget)}
     if(e.key==="Escape"&&!saving){e.preventDefault();onCancel()}}}/></Field>
-  <small>{saving?"儲存中…":"Enter 儲存 · Esc 取消"}</small>
-  <small>僅修改 WEB，ERP 儲位待人工處理</small>
+  {desktopControls?<>
+   <button type="button" className="cy-op-button compact cy-stocktake-list-icon" aria-label="儲存儲位" title="儲存儲位" disabled={saving}
+    onClick={()=>{if(inputRef.current)void save(inputRef.current)}}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></button>
+   <button type="button" className="cy-op-button compact cy-stocktake-list-icon" aria-label="取消修改儲位" title="取消修改儲位" disabled={saving}
+    onClick={onCancel}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
+  </>:<><small>{saving?"儲存中…":"Enter 儲存 · Esc 取消"}</small>
+   <small>僅修改 WEB，ERP 儲位待人工處理</small></>}
  </div>;
 }
 const pencil=<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15z"/></svg>;
@@ -118,24 +124,24 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
  if(!groups.length)return <p className="cy-op-empty">目前沒有符合篩選的盤點列。</p>;
  if(!compact)return <div className="cy-stocktake-lines cy-stocktake-desktop-list">
   <div className="cy-ordering-grid-scroll"><table className="cy-ordering-grid cy-stocktake-grouped-table cy-stocktake-list-table">
-   <colgroup><col style={{width:"8%"}}/><col style={{width:"18%"}}/><col style={{width:"16%"}}/><col style={{width:"27%"}}/>
+   <colgroup><col style={{width:"8%"}}/><col style={{width:"18%"}}/><col style={{width:"16%"}}/><col style={{width:"9%"}}/><col style={{width:"18%"}}/>
     <col style={{width:"12%"}}/><col style={{width:"9%"}}/><col style={{width:"4%"}}/><col style={{width:"6%"}}/></colgroup>
-   <thead><tr><th scope="col">品號</th><th scope="col">品名</th><th scope="col">規格</th><th scope="col">儲位</th>
+   <thead><tr><th scope="col">品號</th><th scope="col">品名</th><th scope="col">規格</th><th scope="col">庫別</th><th scope="col">儲位</th>
     <th scope="col">批號</th><th scope="col">{phase==="firstQty"?"初盤數量":"複盤數量"}</th><th scope="col">單位</th><th scope="col">操作</th></tr></thead>
    {groups.map(group=>{
     const itemRows=group.locations.reduce((n,loc)=>n+loc.rows.length,0);
     return <tbody key={group.code}>{group.locations.flatMap((loc,li)=>loc.rows.map((r,i)=><tr key={r.cell.id}>
      {li===0&&i===0?<><td rowSpan={itemRows}>{group.code}</td><td rowSpan={itemRows}>{group.name}</td><td rowSpan={itemRows}>{group.spec||"—"}</td></>:null}
-     {i===0?<td rowSpan={loc.rows.length} className="cy-stocktake-list-location">
-      <div className="cy-stocktake-list-location-content"><span>{loc.warehouse}</span>
-       {renaming===locationKey(group.code,loc)?<InlineLocation key={loc.key} location={loc.location} label={group.code+" 新四碼儲位"}
+     {i===0?<><td rowSpan={loc.rows.length}>{loc.warehouse}</td><td rowSpan={loc.rows.length} className="cy-stocktake-list-location">
+      <div className="cy-stocktake-list-location-content">
+       {renaming===locationKey(group.code,loc)?<InlineLocation desktopControls key={loc.key} location={loc.location} label={group.code+" 新四碼儲位"}
         onCancel={()=>setRenaming(null)} onSave={value=>onRename(group.code,loc.warehouse,loc.location,value)}/>:
         <><strong>{loc.location||"未指定儲位"}</strong>{editable&&!r.line.locked?<button type="button" className="cy-op-button compact cy-stocktake-list-icon"
          aria-label="修改儲位" title="修改儲位" onClick={()=>setRenaming(locationKey(group.code,loc))}>{pencil}</button>:null}</>}
        {editable&&!r.line.locked&&r.line.batch?<button className="cy-op-button compact cy-stocktake-list-add" type="button"
         onClick={()=>onAddBatch(group.code,loc.warehouse,loc.location)}>新增批號</button>:null}
       </div>
-     </td>:null}
+     </td></>:null}
      <td>{r.line.batch||"無"}</td><td>{editor(r,false)}</td><td className="cy-stocktake-list-unit">{r.line.unit||"—"}</td><td>{actions(r,true)}</td>
     </tr>))}</tbody>;
    })}
