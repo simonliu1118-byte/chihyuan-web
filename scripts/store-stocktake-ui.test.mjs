@@ -63,21 +63,41 @@ test("stocktake inventory is an ordering-style editable grid without per-product
  assert.match(css,/cy-stocktake-grid\[data-phase="recount"\]/);
 });
 
-test("mobile stocktake rows expose each field without requiring a 1290px horizontal table",()=>{
- assert.match(stocktake,/<td data-label="品號">/);
- assert.match(stocktake,/<td data-label="品名">/);
- assert.match(stocktake,/<td data-label="庫別">/);
- assert.match(stocktake,/<td data-label="儲位">/);
- assert.match(stocktake,/<td data-label="批號">/);
- assert.match(stocktake,/className="cy-stocktake-qty-cell" data-label=\{currentSheet\.status==="COUNTING"\?"初盤數量":"複盤數量"\}/);
+test("mobile stocktake uses three wrapping information lines beside a large quantity input and small unit",()=>{
+ assert.match(stocktake,/className="cy-stocktake-mobile-summary"/);
+ assert.match(stocktake,/className="cy-stocktake-mobile-product"><strong>\{l\.itemCode\}<\/strong>\{" "\}\{l\.itemName\}/);
+ assert.match(stocktake,/className="cy-stocktake-mobile-spec">\{l\.spec\|\|"—"\}/);
+ assert.match(stocktake,/className="cy-stocktake-mobile-batch-location">批\{l\.batch\|\|"無"\}\{" "\}儲\{l\.location\|\|"—"\}/);
+ assert.match(stocktake,/className="cy-stocktake-qty-control"/);
+ assert.match(stocktake,/className="cy-stocktake-mobile-unit">\{l\.unit\|\|"—"\}/);
  assert.match(stocktake,/data-stocktake-qty type="text"/);
  assert.match(stocktake,/onBlur=\{\(\)=>void saveLine\(l\)\}/);
  assert.match(stocktake,/onKeyDown=\{e=>nextOnEnter\(e,l\)\}/);
- assert.match(css,/\.cy-ordering-grid\.cy-stocktake-grid\{display:block;box-sizing:border-box;width:100%;min-width:0/);
- assert.match(css,/\.cy-stocktake-grid tbody\{display:grid;gap:10px;width:100%;min-width:0\}/);
- assert.match(css,/\.cy-ordering-grid\.cy-stocktake-grid tr\.cy-stocktake-row-group>td::before\{content:attr\(data-label\)/);
- assert.match(css,/\.cy-ordering-grid\.cy-stocktake-grid \.cy-stocktake-qty-cell\{grid-column:1\/-1/);
- assert.match(css,/\.cy-stocktake-grid \.cy-stocktake-qty-cell \.cy-ordering-cell\{display:block;width:100%;height:46px/);
+ assert.match(css,/\.cy-stocktake-mobile-product,\.cy-stocktake-mobile-spec,\.cy-stocktake-mobile-batch-location\{display:block;/);
+ assert.match(css,/white-space:normal;overflow-wrap:anywhere;word-break:normal/);
+ assert.match(css,/grid-template-columns:minmax\(0,1fr\) minmax\(122px,37%\)/);
+ assert.match(css,/\.cy-ordering-grid\.cy-stocktake-grid \.cy-stocktake-qty-cell::before\{/);
+ assert.match(css,/font-size:16px;text-align:left/);
+ assert.match(css,/height:48px;min-height:48px/);
+ assert.match(css,/\.cy-stocktake-grid \.cy-stocktake-mobile-unit\{display:block/);
+});
+
+test("mobile secondary stocktake actions expand without adding permanent card rows",()=>{
+ assert.match(stocktake,/aria-expanded=\{expandedLine===l\.lineKey\}/);
+ assert.match(stocktake,/onClick=\{\(\)=>setExpandedLine\(s=>s===l\.lineKey\?null:l\.lineKey\)\}/);
+ assert.match(stocktake,/expandedLine===l\.lineKey\?<tr className="cy-stocktake-mobile-expanded"/);
+ assert.match(stocktake,/void showHistory\(l\)/);
+ assert.match(stocktake,/void deleteBatch\(l\)/);
+ assert.match(css,/\.cy-stocktake-mobile-summary,\.cy-stocktake-mobile-expanded,\.cy-stocktake-mobile-unit\{display:none\}/);
+ assert.match(css,/\.cy-ordering-grid\.cy-stocktake-grid tr\.cy-stocktake-mobile-expanded\{/);
+});
+
+test("location dropdown and its hidden filtering behavior are removed on mobile and desktop",()=>{
+ assert.doesNotMatch(stocktake,/cy-stocktake-location-filter/);
+ assert.doesNotMatch(stocktake,/setLocation\(/);
+ assert.doesNotMatch(stocktake,/window\.matchMedia\("\(max-width: 820px\)"\)/);
+ assert.doesNotMatch(css,/cy-stocktake-location-filter/);
+ assert.match(stocktake,/l\.itemCode,l\.itemName,l\.location,l\.batch,l\.warehouseName/);
 });
 
 test("stocktake search and ALL dropdown share one compact row on phones",()=>{
