@@ -47,7 +47,7 @@ export function StoreStocktake({role}:{role:string}){
  const [detail,setDetail]=useState<StocktakeDetail|null>(null);
  const [search,setSearch]=useState("");
  const [filter,setFilter]=useState<"ALL"|"UNFILLED"|"DIFFERENCE"|"ADDED">("ALL");
- const [location,setLocation]=useState("");
+ const [expandedLine,setExpandedLine]=useState<string|null>(null);
  const [drafts,setDrafts]=useState<Record<string,string>>({});
  const [saving,setSaving]=useState<string|null>(null);
  const inFlightSave=useRef(new Set<string>());
@@ -96,7 +96,7 @@ export function StoreStocktake({role}:{role:string}){
  const loadDetailRef=useRef(loadDetail);loadDetailRef.current=loadDetail;
  useEffect(()=>{void loadSheets().catch(e=>reportError(errorOf(e)))},[loadSheets,reportError]);
  useEffect(()=>{if(!selected){setDetail(null);setDrafts({});setConflict(null);return;}
-   setDetail(null);setDrafts({});setConflict(null);
+   setDetail(null);setDrafts({});setConflict(null);setExpandedLine(null);
    void loadDetail(selected).catch(e=>reportError(errorOf(e)));
  },[selected,loadDetail,reportError]);
  const active=()=>document.visibilityState==="visible"&&
@@ -117,13 +117,10 @@ export function StoreStocktake({role}:{role:string}){
    void loadSheets().then(()=>selectedRef.current?loadDetail(selectedRef.current):null).catch(()=>undefined);
  },[job.result,loadSheets,loadDetail]);
 
- const locations=useMemo(()=>[...new Set(detail?.lines.map(l=>l.location||"未指定儲位")??[])].sort(),[detail]);
- useEffect(()=>{if(!locations.includes(location))setLocation(locations[0]??"")},[locations,location]);
  const visible=useMemo(()=>{
   if(!detail)return [];
   const q=search.trim().toLowerCase();
   return detail.lines.filter(l=>{
-   if(window.matchMedia("(max-width: 820px)").matches&&location&&(l.location||"未指定儲位")!==location)return false;
    if(q&&![l.itemCode,l.itemName,l.location,l.batch,l.warehouseName].some(v=>v.toLowerCase().includes(q)))return false;
    if(filter==="ADDED")return l.isAdded;
    if(filter==="UNFILLED")return detail.sheet.status==="COUNTING"?l.firstQty===null:
@@ -132,7 +129,7 @@ export function StoreStocktake({role}:{role:string}){
       relativeDiff(l.recountQty??l.firstQty,l.bookQty)!=="0";
    return true;
   });
- },[detail,search,filter,location]);
+ },[detail,search,filter]);
  const currentSheet=detail?.sheet;
  const recountRows=detail?.lines.filter(line=>!line.locked)??[];
  const filledCount=currentSheet?.status==="RECOUNTING"
@@ -317,11 +314,6 @@ export function StoreStocktake({role}:{role:string}){
        <option value="ALL">全部</option><option value="UNFILLED">未填</option>
        <option value="DIFFERENCE">有差異</option><option value="ADDED">新增批號</option>
       </select>}/>
-     <label className="cy-stocktake-location-filter">儲位（手機一次顯示一組）
-      <select className="cy-op-input" aria-label="選擇盤點儲位" value={location} onChange={e=>setLocation(e.target.value)}>
-       {locations.map(l=><option key={l} value={l}>{l}</option>)}
-      </select>
-     </label>
      <section className="cy-ordering-lines cy-stocktake-detail-section" aria-label="盤點品號庫存明細">
       <h3>盤點品號庫存明細</h3>
       <div className="cy-ordering-grid-scroll cy-stocktake-lines" role="region" aria-label="盤點品號庫存明細表格" tabIndex={0}>
@@ -345,6 +337,17 @@ export function StoreStocktake({role}:{role:string}){
           const lastAt=field==="firstQty"?l.firstAt:l.recountAt;
           const lastBy=field==="firstQty"?l.firstByName:l.recountByName;
           return <Fragment key={l.lineKey}><tr className="cy-stocktake-row-group">
+           <td className="cy-stocktake-mobile-summary">
+            <button type="button" className="cy-stocktake-mobile-summary-button"
+             aria-expanded={expandedLine===l.lineKey} aria-label={"查看"+l.itemCode+"的詳細資料與操作"}
+             onClick={()=>setExpandedLine(s=>s===l.lineKey?null:l.lineKey)}>
+             <span className="cy-stocktake-mobile-product"><strong>{l.itemCode}</strong>{" "}{l.itemName}</span>
+             <span className="cy-stocktake-mobile-spec">{l.spec||"—"}</span>
+             <span className="cy-stocktake-mobile-batch-location">批{l.batch||"無"}{" "}儲{l.location||"—"}</span>
+             {l.isAdded?<span className="cy-stocktake-mobile-flag">新增批號</span>:null}
+             {l.locked?<span className="cy-stocktake-mobile-flag">已鎖定</span>:null}
+            </button>
+           </td>
            <td data-label="項次">{index+1}</td>
            <td data-label="品號"><span className="cy-ordering-cell-text">{l.itemCode}</span></td>
            <td data-label="品名"><span className="cy-ordering-cell-text cy-ordering-wrap">{l.itemName}</span>
@@ -361,11 +364,14 @@ export function StoreStocktake({role}:{role:string}){
             <td className="cy-stocktake-num" data-label="差異">{relativeDiff(l.firstQty,l.bookQty)}</td>
            </>:null}
            <td className="cy-stocktake-qty-cell" data-label={currentSheet.status==="COUNTING"?"初盤數量":"複盤數量"}>
-            <input data-stocktake-qty type="text" inputMode="decimal" className="cy-ordering-cell"
-             aria-label={(currentSheet.status==="COUNTING"?"初盤數量":"複盤數量")+"："+l.itemCode+"，批號 "+(l.batch||"無")}
-             disabled={!canEdit||saving===l.lineKey}
-             value={edited??stored??""} onChange={e=>changeDraft(l.lineKey,e.target.value)}
-             onBlur={()=>void saveLine(l)} onKeyDown={e=>nextOnEnter(e,l)} placeholder="未填"/>
+            <div className="cy-stocktake-qty-control">
+             <input data-stocktake-qty type="text" inputMode="decimal" className="cy-ordering-cell"
+              aria-label={(currentSheet.status==="COUNTING"?"初盤數量":"複盤數量")+"："+l.itemCode+"，批號 "+(l.batch||"無")}
+              disabled={!canEdit||saving===l.lineKey}
+              value={edited??stored??""} onChange={e=>changeDraft(l.lineKey,e.target.value)}
+              onBlur={()=>void saveLine(l)} onKeyDown={e=>nextOnEnter(e,l)} placeholder="未填"/>
+             <small className="cy-stocktake-mobile-unit">{l.unit||"—"}</small>
+            </div>
            </td>
            <td className="cy-stocktake-last-edit" data-label="最後填寫"><span>{lastBy??"—"}</span><small>{date(lastAt)}</small></td>
            <td className="cy-stocktake-row-actions" data-label="操作">
@@ -373,6 +379,17 @@ export function StoreStocktake({role}:{role:string}){
             {l.isAdded&&canEdit?<button className="cy-op-button compact danger" type="button" onClick={()=>void deleteBatch(l)}>刪除批號</button>:null}
            </td>
           </tr>
+          {expandedLine===l.lineKey?<tr className="cy-stocktake-mobile-expanded"><td colSpan={currentSheet.status==="COUNTING"?12:15}>
+           <div className="cy-stocktake-expanded-content">
+            <div>庫別：{l.warehouseName||"—"}　單位：{l.unit||"—"}</div>
+            {currentSheet.status!=="COUNTING"?<div>初盤：{l.firstQty??"—"}　帳面：{l.bookQty??"—"}　差異：{relativeDiff(l.firstQty,l.bookQty)}</div>:null}
+            <div>最後填寫：{lastBy??"—"}　{date(lastAt)}</div>
+            <div className="cy-stocktake-expanded-actions">
+             <button className="cy-op-button compact" type="button" onClick={()=>void showHistory(l)}>修改紀錄</button>
+             {l.isAdded&&canEdit?<button className="cy-op-button compact danger" type="button" onClick={()=>void deleteBatch(l)}>刪除批號</button>:null}
+            </div>
+           </div>
+          </td></tr>:null}
           {conflict?.key===l.lineKey?<tr className="cy-stocktake-conflict-row"><td colSpan={currentSheet.status==="COUNTING"?11:14}>
            <div className="cy-notice cy-notice-warning" role="alert">
             <p>其他人已修改本列，現在儲存的數量：{stored??"未填"}。</p>
