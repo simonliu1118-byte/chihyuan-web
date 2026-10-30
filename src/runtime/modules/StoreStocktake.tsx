@@ -51,7 +51,6 @@ export function StoreStocktake({role}:{role:string}){
  const [history,setHistory]=useState<{line:StocktakeLine;cell:StocktakeLocationCount;rows:LineHistory[]}|null>(null);
  const [ignoreForm,setIgnoreForm]=useState<string|null>(null);
  const [batchForm,setBatchForm]=useState<{itemCode:string;warehouseName:string;locationCode:string;batch:string;quantity:string}|null>(null);
- const [renameForm,setRenameForm]=useState<{itemCode:string;warehouseName:string;fromLocation:string;toLocation:string}|null>(null);
  const [manualOpen,setManualOpen]=useState(false);
  type ManualRow={locationCountId:number;lineKey:string;itemCode:string;batch:string;isAdded:number;
   warehouseName:string;erpLocationCode:string;locationCode:string;verifiedAt:string|null;verifiedBy:number|null};
@@ -241,15 +240,15 @@ export function StoreStocktake({role}:{role:string}){
    setHistory({line,cell,rows});
   }catch(e){reportError(errorOf(e))}
  }
- async function renameLocation(e:FormEvent<HTMLFormElement>){
-  e.preventDefault();if(!currentSheet||!renameForm)return;
+ async function renameLocation(itemCode:string,warehouseName:string,fromLocation:string,toLocation:string){
+  if(!currentSheet)return false;
   setBusy(true);
   try{
    await call("/"+encodeURIComponent(currentSheet.sheetNo)+"/locations","PATCH",{
-    ...renameForm,expectedVersion:currentSheet.version
+    itemCode,warehouseName,fromLocation,toLocation,expectedVersion:currentSheet.version
    });
-   setRenameForm(null);await loadDetail(currentSheet.sheetNo);
-  }catch(e){reportError(errorOf(e))}finally{setBusy(false)}
+   await loadDetail(currentSheet.sheetNo);return true;
+  }catch(e){reportError(errorOf(e));return false}finally{setBusy(false)}
  }
  async function verifyManual(row:ManualRow,checked:boolean){
   if(!currentSheet||!detail)return;
@@ -345,7 +344,7 @@ export function StoreStocktake({role}:{role:string}){
        onConflictUseLatest={useLatest} onHistory={(line,cell)=>void showHistory(line,cell)}
        onDeleteBatch={line=>void deleteBatch(line)}
        onAddBatch={(itemCode,warehouseName,locationCode)=>setBatchForm({itemCode,warehouseName,locationCode,batch:"",quantity:""})}
-       onRename={(itemCode,warehouseName,fromLocation)=>setRenameForm({itemCode,warehouseName,fromLocation,toLocation:""})}/>
+       onRename={renameLocation}/>
      </section>
     </>}
    </div>
@@ -388,22 +387,6 @@ export function StoreStocktake({role}:{role:string}){
     </FormSection>
     <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setBatchForm(null)}>取消</button>
      <button type="submit" className="cy-op-button primary" disabled={busy}>新增</button></div>
-   </form>
-  </Dialog>:null}
-  {renameForm?<Dialog open title="修改 WEB 儲位" onClose={()=>setRenameForm(null)}>
-   <form onKeyDown={enterAdvancesFields} onSubmit={e=>void renameLocation(e)}>
-    <FormSection>
-     <Field label="品號" size="m"><input className="cy-op-input" value={renameForm.itemCode} readOnly/></Field>
-     <Field label="庫別" size="m"><input className="cy-op-input" value={renameForm.warehouseName} readOnly/></Field>
-     <Field label="原儲位" size="m"><input className="cy-op-input" value={renameForm.fromLocation||"未指定儲位"} readOnly/></Field>
-     <Field label="新四碼儲位" required size="m"><input className="cy-op-input" inputMode="numeric" pattern="[0-9]{4}"
-      maxLength={4} value={renameForm.toLocation} onChange={e=>setRenameForm(v=>v?{...v,toLocation:e.target.value}:null)}/></Field>
-    </FormSection>
-    <p className="cy-notice cy-notice-warning">僅修改 WEB 儲位；ERP 原始儲位不會同步修改，將列入管理員待人工處理清單。</p>
-    <div className="cy-op-form-footer">
-     <button className="cy-op-button" type="button" onClick={()=>setRenameForm(null)}>取消</button>
-     <button className="cy-op-button primary" type="submit" disabled={busy}>儲存 WEB 儲位</button>
-    </div>
    </form>
   </Dialog>:null}
   {manualOpen?<Dialog open title="ERP 儲位待手動修改" onClose={()=>setManualOpen(false)}>

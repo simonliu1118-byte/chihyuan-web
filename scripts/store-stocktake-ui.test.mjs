@@ -66,7 +66,7 @@ test("one item mobile card contains a location selector and batch count rows wit
  assert.match(grouped,/data-progress=\{locked\?"done":state\}/);
  assert.match(grouped,/className="cy-stocktake-location-heading"/);
  assert.match(grouped,/>選擇儲位<\/strong>/);
- assert.match(grouped,/onRename\(group\.code,selected\.warehouse,selected\.location\)/);
+ assert.match(grouped,/setRenaming\(locationKey\(group\.code,selected\)\)/);
  assert.match(grouped,/className="cy-stocktake-location-switch"/);
  assert.match(grouped,/className="cy-stocktake-batch-rows"/);
  assert.match(grouped,/批號 \{r\.line\.batch\|\|"無"\}/);
@@ -79,10 +79,17 @@ test("one item mobile card contains a location selector and batch count rows wit
 });
 
 test("stocktake adds and edits selected WEB locations while preserving ERP manual follow-up",()=>{
- assert.match(stocktake,/setRenameForm\(\{itemCode,warehouseName,fromLocation,toLocation:""\}\)/);
+ assert.doesNotMatch(stocktake,/renameForm|title="修改 WEB 儲位"/);
+ assert.match(stocktake,/onRename=\{renameLocation\}/);
+ assert.match(grouped,/function InlineLocation/);
+ assert.match(grouped,/e.key==="Enter"/);
+ assert.match(grouped,/e.key==="Escape"/);
+ assert.match(grouped,/input.reportValidity\(\)/);
+ assert.match(grouped,/if\(await onSave\(value\)\)onCancel\(\)/);
+ assert.match(stocktake,/itemCode,warehouseName,fromLocation,toLocation,expectedVersion:currentSheet.version/);
  assert.match(stocktake,/\/manual-locations/);
  assert.match(stocktake,/ERP 儲位待手動修改/);
- assert.match(stocktake,/只修改 WEB|僅修改 WEB/);
+ assert.match(grouped,/只修改 WEB|僅修改 WEB/);
  assert.match(grouped,/className="cy-stocktake-cell-editor"/);
  assert.match(grouped,/r\.cell\[phase\]/);
  assert.match(grouped,/qtySum\(selected\.rows,locked\?"firstQty":phase\)/);
