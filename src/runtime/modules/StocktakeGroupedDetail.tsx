@@ -75,7 +75,8 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
   return {total:required.length,done:required.filter(r=>r.cell[phase]!==null).length};
  };
  const editor=(r:Row)=>{
-  const id=String(r.cell.id),value=drafts[id]??r.cell[phase]??"";
+  const id=String(r.cell.id),displayPhase=phase==="recountQty"&&r.line.locked?"firstQty":phase;
+  const value=drafts[id]??r.cell[displayPhase]??"";
   const disabled=!editable||r.line.locked||saving===id;
   const next=(event:KeyboardEvent<HTMLInputElement>)=>{
    if(event.key!=="Enter"||event.nativeEvent.isComposing)return;
@@ -86,7 +87,7 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
   return <div className="cy-stocktake-cell-editor">
    <input data-stocktake-qty type="text" inputMode="decimal" className="cy-ordering-cell"
     value={value} placeholder="未填" disabled={disabled}
-    aria-label={(phase==="firstQty"?"初盤":"複盤")+"："+r.line.itemCode+" 儲位 "+(r.cell.locationCode||"未指定")+" 批號 "+(r.line.batch||"無")}
+    aria-label={(displayPhase==="firstQty"?"初盤":"複盤")+"："+r.line.itemCode+" 儲位 "+(r.cell.locationCode||"未指定")+" 批號 "+(r.line.batch||"無")}
     onChange={e=>onDraft(id,e.target.value)} onBlur={()=>onSave(r.cell)} onKeyDown={next}/>
    <small>{r.line.unit||"—"}</small>
   </div>;
@@ -140,7 +141,7 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
     <div className="cy-stocktake-group-footer">
      {editable&&!parent.locked&&selected.rows.some(r=>r.line.batch)?
       <button className="cy-op-button compact" type="button" onClick={()=>onAddBatch(group.code,selected.warehouse,selected.location)}>＋ 新增批號</button>:<span/>}
-     <small>儲位小計 {qtySum(selected.rows,phase).total}{qtySum(selected.rows,phase).complete?"":"（尚未填完）"}</small>
+     <small>儲位小計 {qtySum(selected.rows,locked?"firstQty":phase).total}{qtySum(selected.rows,locked?"firstQty":phase).complete?"":"（尚未填完）"}</small>
     </div>
     <details className="cy-stocktake-mobile-actions">
      <summary>修改紀錄與批號操作</summary>
