@@ -68,6 +68,10 @@ function fixture(role="SUPER_ADMIN",grant=true){
   }
   if(path.endsWith("/batches")&&method==="POST"&&body?.itemCode&&!Object.hasOwn(body,"locationCode"))
    body={...body,warehouseName:"倉甲",locationCode:"1324"};
+  if(path.endsWith("/batches")&&method==="DELETE"&&!Object.hasOwn(body??{},"expectedSheetVersion")){
+   const sh=sql.prepare("SELECT version FROM stocktake_sheets WHERE sheet_no=?").get(path.split("/")[1]);
+   body={...body,expectedSheetVersion:sh?.version};
+  }
   return api("/api/business/store/stocktake"+path,method,body);
  };
  const agent=(path,body)=>api("/api/erp-agent"+path,"POST",body,true);
