@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS_DIR = ROOT / "migrations"
 
 EXPECTED_TABLES = {
+    "store_monthly_settings", "store_monthly_rows", "store_monthly_cells", "store_monthly_events",
     "stocktake_sync_ignored",
     "stocktake_sheets",
     "stocktake_lines",

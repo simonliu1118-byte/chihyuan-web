@@ -4,6 +4,9 @@ import {STORE_LEGACY_SCHEMAS,STORE_WORKFLOW_SCHEMAS,STORE_LEGACY_COLUMNS} from "
 import { BACKUP_COLUMNS } from "./schema-columns";
 import { MAX_OBJECT_BYTES } from "./storage-guard";
 export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
+const MONTHLY_TABLES=["store_monthly_settings","store_monthly_rows","store_monthly_cells","store_monthly_events"];
+const MONTHLY_SCHEMAS=["aae0b66db493643c44db312afdfa45b45fdf90d0d094e7b77c6548835ef4e711","84ba2b95d3dab20eeb991ad79dc246ea9feaee0038457a00cf2158440c15bc1f","0e2a0e04167df3caa9bfbde222adafb6dc0df0482f5fae521717c11a4abfd46e"];
+const preMonthly=(hash:string)=>STORE_LEGACY_SCHEMAS.includes(hash)||STORE_WORKFLOW_SCHEMAS.includes(hash);
 // Operational queue, heartbeat and revocable credential hashes are intentionally
 // excluded from durable backup (also the ERP 關閉／暫停 request). After recovery the Super Admin
 // reissues the Agent token.
@@ -137,7 +140,7 @@ export async function verifyPortableBackup(bundle: PortableBackup, workspaceScop
     && /^[a-f0-9]{64}$/.test(manifest.schemaSha256) && new Date(manifest.createdAtUtc).toISOString() === manifest.createdAtUtc, "BACKUP_METADATA_INVALID");
   check(manifest.dataByteLength === bundle.dataBytes.byteLength && manifest.dataSha256 === await sha256(bundle.dataBytes), "BACKUP_INTEGRITY_FAILED");
   const data = JSON.parse(decoder.decode(bundle.dataBytes)) as Data;
-  const expectedTables = STORE_LEGACY_SCHEMAS.includes(manifest.schemaSha256) ? BACKUP_TABLES.filter(t=>t!=="store_order_events"&&t!=="store_blacklist_events") : BACKUP_TABLES;
+  const expectedTables = BACKUP_TABLES.filter(t=>!(preMonthly(manifest.schemaSha256)&&MONTHLY_TABLES.includes(t))&&!(STORE_LEGACY_SCHEMAS.includes(manifest.schemaSha256)&&(t==="store_order_events"||t==="store_blacklist_events")));
   check(data?.tables && same(Object.keys(data.tables).sort(), [...expectedTables].sort()), "BACKUP_TABLE_COVERAGE_MISMATCH");
   check(manifest.recordCounts && same(Object.keys(manifest.recordCounts).sort(), [...expectedTables].sort()), "BACKUP_COUNTS_INVALID");
   let count = 0;
@@ -185,7 +188,7 @@ export async function validateEmptyBackupTarget(db: D1Database, bundle: Portable
   const target = await layout(db);
   const targetHash=await sha256(encoder.encode(target.schema));
   if(STORE_LEGACY_SCHEMAS.includes(manifest.schemaSha256)){
-    check(STORE_WORKFLOW_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
+    check(MONTHLY_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
     for(const table of ["store_customer_orders","store_blacklist"]){
       const old=data.tables[table];
       const migrated=old.rows.map(row=>{
@@ -195,6 +198,10 @@ export async function validateEmptyBackupTarget(db: D1Database, bundle: Portable
       });data.tables[table]={columns:BACKUP_COLUMNS[table],rows:migrated};
     }
     for(const t of ["store_order_events","store_blacklist_events"]){data.tables[t]={columns:BACKUP_COLUMNS[t],rows:[]};manifest.recordCounts[t]=0}
+  }
+  if(preMonthly(manifest.schemaSha256)){
+    check(MONTHLY_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
+    for(const t of MONTHLY_TABLES){data.tables[t]={columns:BACKUP_COLUMNS[t],rows:[]};manifest.recordCounts[t]=0}
     data.tables=Object.fromEntries(BACKUP_TABLES.map(t=>[t,data.tables[t]]));
   }else check(manifest.schemaSha256===targetHash,"BACKUP_SCHEMA_MISMATCH");
   for (const table of BACKUP_TABLES) check(same(data.tables[table].columns, target.columns[table]), "BACKUP_COLUMNS_MISMATCH");
@@ -228,5 +235,5 @@ export async function restoreIntoEmptyDatabase(db: D1Database, bundle: PortableB
   }
   await db.batch(statements);
   const restored = await exportPortableBackup(db, { workspaceScope, appVersion: manifest.appVersion });
-  check(sameBytes(restored.dataBytes, STORE_LEGACY_SCHEMAS.includes(manifest.schemaSha256)?canonicalData(data):bundle.dataBytes), "BACKUP_RECONCILIATION_FAILED");
+  check(sameBytes(restored.dataBytes, preMonthly(manifest.schemaSha256)?canonicalData(data):bundle.dataBytes), "BACKUP_RECONCILIATION_FAILED");
 }

@@ -10,7 +10,8 @@ import {Dialog} from "../../ui/overlays/Dialog";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {FeedbackBanner,useFeedbackMessage} from "../../ui/feedback/FeedbackProvider";
 import {enterAdvancesFields,enterAdvancesThenSubmits} from "../../ui/foundation/enter-advance";
-import {STORE_ORDER_STATUSES,STORE_ORDER_STATUS_LABELS,STORE_BLACKLIST_ACTIONS,STORE_BLACKLIST_ACTION_LABELS,STORE_STEPS,STORE_MILESTONES,STORE_CANCEL_REASONS,STORE_EDIT_REASONS,daysSinceNotified,lineAmount,normalizePhone,orderTotal,type StoreOrder,type StoreBlacklistEntry,type StoreBlacklistAction,type StoreMilestone,type StoreContactMatch,type StoreHistoryPage,type StoreHistory} from "../../../shared/store";
+import {STORE_ORDER_STATUSES,STORE_ORDER_STATUS_LABELS,STORE_BLACKLIST_ACTIONS,STORE_BLACKLIST_ACTION_LABELS,STORE_STEPS,STORE_MILESTONES,STORE_CANCEL_REASONS,STORE_EDIT_REASONS,daysSinceNotified,lineAmount,normalizePhone,orderTotal,type StoreOrder,type StoreBlacklistEntry,type StoreBlacklistAction,type StoreMilestone,type StoreContactMatch} from "../../../shared/store";
+import {StoreOperationHistory as History} from "./StoreOperationHistory";
 import type {StatusTone} from "./status-flow";
 const ROOT="/api/business/store";
 const call=<T,>(path:string,method="GET",json?:unknown)=>apiRequest<T>(ROOT+path,{method,json});
@@ -34,18 +35,6 @@ function Icon({label,onClick,kind,disabled=false,expanded,controls}:{label:strin
 }
 function ContactCells({value,onChange}:{value:Contact;onChange:(patch:Partial<Contact>)=>void}){
  const missing=!value.phone.trim()&&!value.mobile.trim()&&!value.lineName.trim();return <>{(["phone","mobile","lineName"] as const).map((k,i)=><td key={k}><Field label={["電話","手機","LINE 名稱"][i]} reportAs={i===0?"電話／手機／LINE 至少填寫一項":undefined} presentation="cell"><input className="cy-ordering-cell" type={i<2?"tel":"text"} required={i===0&&missing} aria-invalid={missing?undefined:false} maxLength={i<2?30:60} value={value[k]} onChange={e=>onChange({[k]:e.target.value})}/></Field></td>)}</>;
-}
-const fieldLabels:Record<string,string>={orderDate:"訂購日期",customerName:"顧客姓名",phone:"電話",mobile:"手機",lineName:"LINE 名稱",deposit:"訂金",note:"備註",lines:"品項",total:"金額合計",status:"處理狀態",dates:"進度日期",date:"作業日期",blacklistId:"黑名單編號",blacklistEvent:"黑名單事件",orderId:"來源訂購"};
-function display(v:unknown):string{if(v===null||v===undefined||v==="")return "";if(Array.isArray(v))return v.map(x=>{const l=x as {itemCode?:string;itemName?:string;quantity?:number;unitPrice?:number};return `${l.itemCode??""} ${l.itemName??""} ×${l.quantity??""} @${l.unitPrice??""}`}).join("；");if(typeof v==="object")return Object.entries(v).map(([k,x])=>`${STORE_ORDER_STATUS_LABELS[k as StoreOrder["status"]]??fieldLabels[k]??k}：${display(x)}`).join("；");return STORE_ORDER_STATUS_LABELS[String(v) as StoreOrder["status"]]??String(v)}
-function History({path,onError}:{path:string;onError:(s:string)=>void}){
- const [events,setEvents]=useState<StoreHistory[]>([]),[cursor,setCursor]=useState<number|null>(null),[loading,setLoading]=useState(true);
- const load=useCallback(async(next?:number)=>{setLoading(true);try{const p=await call<StoreHistoryPage>(path+(next?"?cursor="+next:""));setEvents(old=>next?[...old,...p.rows]:p.rows);setCursor(p.nextCursor)}catch(e){onError(errorOf(e))}finally{setLoading(false)}},[path,onError]);
- useEffect(()=>{void load()},[load]);return <div className="cy-store-history">
-  {!events.length?<p>{loading?"載入紀錄…":"尚無操作紀錄"}</p>:<ol>{events.map(e=><li key={e.id}>
-   <strong>{new Date(e.at).toLocaleString("zh-TW",{timeZone:"Asia/Taipei"})}　{e.actorName}　{e.kind}</strong>{e.reason?<p>理由：{e.reason}</p>:null}
-   <ul>{Object.keys({...e.before,...e.after}).filter(k=>JSON.stringify(e.before[k])!==JSON.stringify(e.after[k])).map(k=><li key={k}>{fieldLabels[k]??k}：{display(e.before[k])} → {display(e.after[k])}</li>)}</ul>
-  </li>)}</ol>}{cursor?<button type="button" className="cy-op-button compact" disabled={loading} onClick={()=>void load(cursor)}>載入更多</button>:null}
- </div>;
 }
 export function CustomerOrders(){
  const [orders,setOrders]=useState<StoreOrder[]>([]),[blacks,setBlacks]=useState<StoreBlacklistEntry[]>([]),[loading,setLoading]=useState(true);

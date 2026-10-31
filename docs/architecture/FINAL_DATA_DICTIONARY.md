@@ -691,3 +691,16 @@ Worker / app foundation
 ```
 
 Any schema change after production launch uses a forward migration. Production D1 is never hand-edited as an undocumented source of truth.
+
+## 21. Store monthly todos (forward migration 0034)
+
+The exact physical columns, CHECKs and indexes are defined in `migrations/0034_store_monthly.sql`; temporal rules and API are in [STORE_MONTHLY_TODOS.md](STORE_MONTHLY_TODOS.md).
+
+| Table | Key and durable content |
+| --- | --- |
+| `store_monthly_settings` | Singleton `id=1`, optimistic version, first/generated month, ordered stores/items JSON, actor/time. Stores, items and store applicability retain inclusive `from` / exclusive `until` month periods. |
+| `store_monthly_rows` | Stable text PK `month:storeId`, unique month/store, store name/order snapshots, creation time. |
+| `store_monthly_cells` | Composite row/item PK, independent version, completed boolean, nullable completion date, actor/time; incomplete requires null date. Missing cell means not applicable. |
+| `store_monthly_events` | Monotonic event ID, optional row/item for configuration events, actor/time/kind, before/after JSON, request key/hash. Unique actor/request key provides idempotency. |
+
+All four are durable portable-backup tables; no identity authority or browser-local store is introduced. Migration 0034 also widens the existing `app_member_module_access` module CHECK while preserving all existing grants.
