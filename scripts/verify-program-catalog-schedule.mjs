@@ -2,13 +2,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PROGRAM_CATALOG_CRON } from "../shared/program-catalog.ts";
 import { ERP_HOUSEKEEPING_CRON } from "../shared/erp-housekeeping.ts";
+import { STORE_MONTHLY_CRON } from "../shared/store-monthly.ts";
 
 /** Protected-runner GET only. Never expose resource identifiers, credentials or provider bodies. */
 export async function verifyProgramCatalogSchedule({ env = process.env, fetcher = fetch } = {}) {
   if (!/^[a-f0-9]{32}$/i.test(env.CLOUDFLARE_ACCOUNT_ID ?? "")
     || !/^[a-z0-9][a-z0-9._-]{1,62}$/i.test(env.CF_WORKER_NAME ?? "") || !env.CLOUDFLARE_API_TOKEN
     || ![undefined, "", "false", "true"].includes(env.CF_BACKUP_SCHEDULE_ENABLED)) throw new Error("PROGRAM_SCHEDULE_INPUT_INVALID");
-  const expected = [PROGRAM_CATALOG_CRON, ERP_HOUSEKEEPING_CRON, ...(env.CF_BACKUP_SCHEDULE_ENABLED === "true" ? ["30 19 * * *"] : [])].sort();
+  const expected = [PROGRAM_CATALOG_CRON, ERP_HOUSEKEEPING_CRON, STORE_MONTHLY_CRON, ...(env.CF_BACKUP_SCHEDULE_ENABLED === "true" ? ["30 19 * * *"] : [])].sort();
   let payload;
   try {
     const response = await fetcher(`https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/workers/scripts/${encodeURIComponent(env.CF_WORKER_NAME)}/schedules`, {
@@ -20,7 +21,7 @@ export async function verifyProgramCatalogSchedule({ env = process.env, fetcher 
   const schedules = payload?.result?.schedules;
   if (payload?.success !== true || !Array.isArray(schedules) || schedules.some(row => typeof row?.cron !== "string")
     || JSON.stringify(schedules.map(row => row.cron).sort()) !== JSON.stringify(expected)) throw new Error("PROGRAM_SCHEDULE_MISMATCH");
-  return { dailyCatalogSchedule: true, backupSchedule: env.CF_BACKUP_SCHEDULE_ENABLED === "true" };
+  return { dailyCatalogSchedule: true, monthlyTodoSchedule: true, backupSchedule: env.CF_BACKUP_SCHEDULE_ENABLED === "true" };
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try { console.log(JSON.stringify(await verifyProgramCatalogSchedule())); }

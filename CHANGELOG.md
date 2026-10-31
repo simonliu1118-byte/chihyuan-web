@@ -5,13 +5,21 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
-## CY Web V0.9.57 — 顧客訂購進度與黑名單事件（2026-10-31，待審查／未部署）
+## CY Web V0.9.58 — 門市月度待辦（2026-11-01，實作候選／未部署）
+
+- 門市第三頁籤、共用表格、動態項目與適用門市，管理員以上設定，沒有額外設定權限。
+- 每月每門市獨立辦理、日期／無日期、更正／取消完成與逐列操作紀錄；新增當月生效，停用次月生效，歷史不回填。
+- Migration 0034、新月產生／漏月補齊、台灣午夜排程、四表可攜備份與精確舊版升級；版本與重送保護、事件及 Audit 原子寫入。
+- 補回顧客訂購及黑名單桌面清單橫線；結案剩餘圖示按鈕置中。
+- 驗證、風險及 Claude 複審重點見 [交接](docs/handoff/CYWEB-MONTHLY-TODOS-0958-20261101.md)。未合併／未部署，不含尚待確認的顧客訂購新方案。
+
+## CY Web V0.9.57 — 顧客訂購進度與黑名單事件（2026-10-31，已部署至 Build 4）
 
 - 共用表格、狀態 pill、備註與進度分區；手動日期前進／更正／退回、逐筆收合紀錄、叫貨後修改理由。
 - 統一訂購表格視窗，電話／手機／LINE 至少一項；尾款，黑名單理由單行／其他與「須全額預付」。
 - 取消是／否銜接黑名單，新／既有對象原子記錄，保留處置，人工同名核對與事件累積。
 - Migration 0033 保留資料並新增業務事件；portable backup 支援精確舊版升級。完整驗證及剩餘人工確認見 [交接](docs/handoff/CYWEB-STORE-ORDERS-IMPLEMENTATION-0957-20261031.md)。
-- 未合併、未部署；待 Claude 最終審查。
+- 已依使用者授權合併發布，UI Build 1–4 最新為 PR #329；Claude 事後複審仍由同分支 handoff 追蹤。
 
 ## CY Web V0.9.56 — 盤點分儲位盤點格與品號卡（2026-10-30，PR #318）
 

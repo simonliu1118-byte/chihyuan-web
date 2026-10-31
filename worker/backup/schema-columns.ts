@@ -1,4 +1,3 @@
-// Generated from canonical forward migrations; validate_schema.py checks exact equality.
 export const BACKUP_COLUMNS: Record<string, string[]> = {
   "app_member_module_access": [
     "enabled",
@@ -991,6 +990,45 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "phone",
     "picked_up_date",
     "status",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "store_monthly_cells": [
+    "completed",
+    "completion_date",
+    "item_id",
+    "row_id",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "store_monthly_events": [
+    "actor",
+    "after_json",
+    "at",
+    "before_json",
+    "id",
+    "item_id",
+    "kind",
+    "request_hash",
+    "request_key",
+    "row_id"
+  ],
+  "store_monthly_rows": [
+    "created_at",
+    "id",
+    "month",
+    "store_id",
+    "store_name",
+    "store_order"
+  ],
+  "store_monthly_settings": [
+    "first_month",
+    "generated_through",
+    "id",
+    "items_json",
+    "stores_json",
     "updated_at",
     "updated_by",
     "version"
