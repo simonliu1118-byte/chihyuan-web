@@ -26,15 +26,17 @@
 
 ## 3. 驗證
 
-- `npm run build`：browser/Worker typecheck、Vite 通過；僅原有 bundle size 與 fixed-point dynamic import 提示。
+- `npm run build`：browser/Worker typecheck、Vite 通過；僅原有 bundle size 與 fixed-point dynamic import 提示。最終本機重點回歸共42項全部通過（含表單及現有訂購流程）。
 - 全部 Node 測試在本機 Windows：480 項，472 通過、8 項環境相容性失敗。月度 backend 11、UI 5、backup upgrade 6 均通過。
 - 剩餘八項：原有 `backup-rehearsal-http` 六項 mock 路徑 regex 不匹配 Windows 分隔符；`deployment-source` 一項以 LF 切割 CRLF workflow；`secure-entry` 一個檔案使用 URL pathname `/C:/...` 作 esbuild entry。沒有弱化測試或產品 guard；Linux CI 作完整最終驗證。
 - 本機 `validate:deploy` 的 POSIX 0600 secret fixture 檢查不適用 Windows；Python 執行檔不可用。相關 Linux CI 必須通過。
 - Wrangler local D1 完整 35 支 migration 成功；實際 sqlite schema hash 為 `aae0b66db493643c44db312afdfa45b45fdf90d0d094e7b77c6548835ef4e711`，與已釘選 schema 相符（另釘全 LF／CRLF）。
 - 真前端＋真 API handler＋隔離 SQLite／合成身份的瀏覽器驗收：管理員設定項目、當月新增只適用高雄、歷史斜線、日期／無日期、取消完成確認、USER 隱藏設定仍可辦理。未使用正式登入或資料。
 - 390px 畫面文件寬390、表格捲動區358／內容562；水費日期視窗160px、右緣348，日期欄不撐寬文件。
-- 截圖位於本地工作輸出 `outputs/monthly-todos-list.png`、`monthly-todos-mobile.png`。截圖只有合成資料，不上傳個資；PR 以 source 與測試重建。
-- 遠端 CI 及 PR 位置於建立後補記，下方保留實際結果。
+- 截圖位於本地工作輸出 `outputs/monthly-todos-list.png`、`monthly-todos-mobile.png`、`monthly-todos-settings.png`、`store-orders-row-lines.png`。截圖只有合成資料，不上傳個資；PR 以 source 與測試重建。訂購實測底線1px，結案2圖示在116px操作內容寬中左右各留30px，確認置中。
+- [Draft PR #330](https://github.com/simonliu1118-byte/chihyuan-web/pull/330)，程式及migration驗證 SHA `ae7102f89f74934278fee5dae9ae33fef15367e3`。
+- [Runtime Check #41218574899](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41218574899)：四個 jobs 全綠，**完整 Node 484/484、fail 0**；Local D1 runtime acceptance、來源契約、browser/Worker typecheck、Vite build 通過。Linux總數比本機多4項，因Windows secure-entry檔案在載入時即失敗、未展開該檔內測試。前述本機限制沒有被忽略，而是已由Linux完整重驗。
+- [Deployment contract #41218574836](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41218574836)：驗證通過，正式部署與 audit jobs 依PR條件跳過，未執行遠端操作。[Governance #41218574848](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41218574848) 通過。
 
 ## 4. Claude 複審重點及限制
 
