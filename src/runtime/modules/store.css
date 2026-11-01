@@ -234,25 +234,29 @@
 }
 /* Customer orders: shared inventory-style grid, manual workflow and compact dialog. */
 .cy-ordering-grid.cy-store-workflow-table{min-width:1340px;font-size:var(--cy-fs-sm)}
-.cy-store-workflow-table th,.cy-store-workflow-table td,.cy-store-blacklist-table td{padding:6px!important;vertical-align:middle!important;overflow-wrap:anywhere}
+.cy-store-workflow-table th,.cy-store-workflow-table td,.cy-store-blacklist-table td{padding:4px 6px!important;vertical-align:middle!important;overflow-wrap:anywhere}
 
 .cy-store-row-actions{display:flex;flex-wrap:nowrap;align-items:center;justify-content:center;gap:4px}
 @media(min-width:821px){
  .cy-store-workflow-table tbody:not(:last-child)>tr:last-child>td,
  .cy-store-blacklist-table tbody:not(:last-child)>tr:last-child>td{border-bottom:1px solid var(--cy-border)}
 }
-.cy-store-orders button.cy-op-button.cy-store-icon{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;flex:0 0 26px;min-width:26px;width:26px;max-width:26px;min-height:26px;height:26px;padding:3px;color:var(--cy-text);line-height:1}
-.cy-store-orders .cy-store-icon>svg{display:block;flex:0 0 18px;min-width:18px;width:18px;min-height:18px;height:18px;overflow:visible;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.cy-store-orders button.cy-store-icon.danger{color:var(--cy-danger)}
-.cy-store-orders button.cy-store-icon:disabled{opacity:1;color:var(--cy-text-subtle);background:var(--cy-surface-sunken);border-color:var(--cy-border)}
+.cy-store-orders button.cy-op-button.cy-store-icon{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;min-width:22px;width:22px;max-width:22px;min-height:22px;height:22px;padding:2px;border-color:transparent;background:transparent;box-shadow:none;color:var(--cy-text);line-height:1}
+.cy-store-orders .cy-store-icon>svg{display:block;flex:0 0 16px;min-width:16px;width:16px;min-height:16px;height:16px;overflow:visible;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.cy-store-orders button.cy-store-icon.danger{color:var(--cy-text)}
+.cy-store-orders button.cy-store-icon:hover:not(:disabled){border-color:var(--cy-border);background:var(--cy-surface-muted)}
+.cy-store-orders button.cy-store-icon.danger:hover:not(:disabled){color:var(--cy-danger)}
+.cy-store-orders button.cy-store-icon:disabled{opacity:1;color:var(--cy-text-subtle);background:transparent;border-color:transparent}
 .cy-store-orders button.cy-store-icon:disabled>svg{opacity:.35}
 .cy-store-workflow-table tr[data-overdue] td{background:var(--cy-danger-soft)}
 .cy-store-milestone{position:relative;text-align:center}
 .cy-store-milestone small{display:block;color:var(--cy-text-muted)}
 .cy-store-workflow-table .cy-store-milestone{padding:0!important}
-.cy-store-date-link{position:absolute;inset:0;width:100%;height:100%;min-height:32px;white-space:nowrap;font-variant-numeric:tabular-nums;border:0;background:transparent;color:var(--cy-text);font:inherit;text-decoration:none;padding:5px 2px}
+.cy-store-date-link{position:absolute;inset:0;width:100%;height:100%;min-height:0;white-space:nowrap;font-variant-numeric:tabular-nums;border:0;background:transparent;color:var(--cy-text);font:inherit;text-decoration:none;padding:5px 2px}
 .cy-store-date-link:hover:not(:disabled){background:var(--cy-accent-soft)}
-.cy-store-register{color:var(--cy-text-muted);font-size:var(--cy-fs-xs)}
+.cy-store-date-link.cy-store-register{position:static;inset:auto;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;min-height:26px;padding:0;border:1px solid var(--cy-border);border-radius:var(--cy-radius-sm);background:var(--cy-surface);color:var(--cy-text);font-size:11px;line-height:1}
+.cy-store-date-link:disabled{opacity:1;cursor:default;color:inherit}
+.cy-store-status-cell{text-align:center!important}
 .cy-store-check{color:var(--cy-success);font-size:17px}
 .cy-store-supply-x{display:block;color:var(--cy-text-muted);font-size:19px;text-align:center}
 .cy-store-not-applicable{background:linear-gradient(to bottom right,transparent calc(50% - .6px),var(--cy-border) 50%,transparent calc(50% + .6px));background-color:var(--cy-surface-muted)}
@@ -328,7 +332,7 @@
 /* Explicit desktop column budget; all remaining width belongs to items. */
 .cy-store-col-sequence{width:36px}.cy-store-col-status{width:86px}.cy-store-col-date{width:86px}.cy-store-col-name{width:calc(7em + 2ch + 14px)}
 .cy-store-col-contact{width:108px}.cy-store-col-line{width:calc(10em + 14px)}.cy-store-col-money{width:66px}
-.cy-store-col-note{width:102px}.cy-store-col-quantity{width:44px}.cy-store-col-milestone{width:56px}.cy-store-col-notice{width:72px}.cy-store-col-actions{width:130px}
+.cy-store-col-note{width:102px}.cy-store-col-quantity{width:44px}.cy-store-col-milestone{width:56px}.cy-store-col-actions{width:122px}
 .cy-store-workflow-table .cy-store-contact-cell>span{display:block;line-height:1.15;white-space:nowrap}
 .cy-store-workflow-table .cy-num{white-space:nowrap;font-variant-numeric:tabular-nums}
 .cy-store-workflow-table .cy-store-milestone{white-space:nowrap}

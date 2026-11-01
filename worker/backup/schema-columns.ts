@@ -984,6 +984,7 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "id",
     "legacy",
     "line_name",
+    "list_sequence",
     "mobile",
     "note",
     "notified_at",

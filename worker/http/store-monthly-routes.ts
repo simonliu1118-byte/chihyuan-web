@@ -63,7 +63,7 @@ export async function handleStoreMonthlyRoute(request:Request,env:IdentityRuntim
   if(history&&method==="GET"){
    const rowId=decodeURIComponent(history[1]);if(!await db.prepare("SELECT id FROM store_monthly_rows WHERE id=?").bind(rowId).first())throw new Invalid("月份門市資料不存在",404);
    const cursor=Number(url.searchParams.get("cursor")??0);if(!Number.isSafeInteger(cursor)||cursor<0)throw new Invalid("紀錄游標不正確");
-   const events=await query<{id:number;actor_name:string;at:string;kind:string;before_json:string;after_json:string}>(db,"SELECT e.*,m.display_name actor_name FROM store_monthly_events e JOIN app_members m ON m.id=e.actor WHERE row_id=? AND (?=0 OR e.id<?) ORDER BY e.id DESC LIMIT 21",rowId,cursor,cursor);
+   const events=await query<{id:number;actor_name:string;at:string;kind:string;before_json:string;after_json:string}>(db,"SELECT e.*,m.display_name actor_name FROM store_monthly_events e JOIN app_members m ON m.id=e.actor WHERE row_id=?"+(cursor?" AND e.id<?":"")+" ORDER BY e.id DESC LIMIT 21",...cursor?[rowId,cursor]:[rowId]);
    return success({rows:events.slice(0,20).map(e=>({id:e.id,actorName:e.actor_name,at:e.at,kind:e.kind,reason:"",before:JSON.parse(e.before_json),after:JSON.parse(e.after_json)})),nextCursor:events.length>20?events[19].id:null},requestId);
   }
   const settings=/^\/settings\/(stores|items)$/.exec(path),cellMatch=/^\/rows\/([^/]+)\/cells\/([^/]+)$/.exec(path);
