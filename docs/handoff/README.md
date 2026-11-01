@@ -16,6 +16,8 @@
 
 ## 目前待 Claude 審查
 
+- [V0.9.60 Build1 登記高度／日期彈窗／歷程換行](CYWEB-STORE-REGISTER-HEIGHT-0960-BUILD1-20261101.md) — 桌面20px登記、篩選黃點與文案、實心切換、日期與無日期同列／操作靠右，整筆歷程連箭頭換行。
+
 - [V0.9.60 日期密度／通知備註／訂購紀錄](CYWEB-STORE-DATE-NOTICE-0960-20261101.md) — 納入未部署Build2、四叫貨結果、0037保全與備份、數字日期、單行歷程與LINE6字；Linux516/516、PR334／部署41304711418與雙入口health通過，已補發布及成本證據，待Claude事後複審。
 
 - [V0.9.59 Build 2 登記色塊／叫貨送出排序／日期選項](CYWEB-STORE-REGISTER-FILL-0959-BUILD2-20261101.md) — 無框實心登記、直線分隔、history按實際送出新到舊、112px日期與叫貨三選一。
