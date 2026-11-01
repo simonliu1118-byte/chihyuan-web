@@ -16,7 +16,7 @@
 
 ## 目前待 Claude 審查
 
-- [V0.9.59 Build 1 表格／結案／紀錄與D1讀取](CYWEB-STORE-HISTORY-DENSITY-0959-BUILD1-20261101.md) — 通知等寬、緊湊圖示、結案唯讀、紀錄投影／暫存、持久項次及讀取量審查；取代前版結案允許退回的規則。
+- [V0.9.59 Build 1 表格／結案／紀錄與D1讀取](CYWEB-STORE-HISTORY-DENSITY-0959-BUILD1-20261101.md) — PR #332及501/501，已部署；通知等寬、緊湊圖示、結案唯讀、紀錄投影／暫存、持久項次及讀取量審查；取代前版結案允許退回的規則。
 
 - [V0.9.59 顧客訂購／共用電話日期輸入](CYWEB-STORE-CONTACT-PROGRESS-0959-20261101.md) — 與月度待辦同 PR #330 已合併部署，494/494與雙入口health／migration／月度排程通過；Claude 事後複審待完成。
 
