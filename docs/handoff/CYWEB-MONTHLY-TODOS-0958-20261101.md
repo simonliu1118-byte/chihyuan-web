@@ -1,5 +1,7 @@
 # V0.9.58 月度待辦：交 Claude 複審
 
+> 後續狀態：使用者已明確授權「做完就合併部署」。本檔下列未部署／僅Draft及後續方案未實作文字為V0.9.58首次交付快照，現以 [V0.9.59交接](CYWEB-STORE-CONTACT-PROGRESS-0959-20261101.md) 的實作／驗證／部署結果為準。操作已改固定四格含disabled，不再結案兩圖示置中。
+
 日期：2026-11-01（Asia/Taipei）。分支 `cyweb/monthly-todos-0958`，起點 `main` `7ad8da4e0168e0496769b29a7a4096ffce392885`。目前實作候選，不代表 Claude 通過。使用者授權遠端發布 source；本次有新 schema、排程、權限及備份變更，依「較複雜不可直接合併部署」留 Draft PR。沒有動正式 D1／Worker／Identity 設定。
 
 ## 1. 使用者決定與範圍

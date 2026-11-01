@@ -704,3 +704,11 @@ The exact physical columns, CHECKs and indexes are defined in `migrations/0034_s
 | `store_monthly_events` | Monotonic event ID, optional row/item for configuration events, actor/time/kind, before/after JSON, request key/hash. Unique actor/request key provides idempotency. |
 
 All four are durable portable-backup tables; no identity authority or browser-local store is introduced. Migration 0034 also widens the existing `app_member_module_access` module CHECK while preserving all existing grants.
+
+## 22. Store contact / progress revision (forward migration 0035)
+
+- Orders and blacklist gain `honorific`: non-null empty / MR / MS, independent of the raw customer name.
+- Orders gain `call_result`: non-null empty / ORDERED / OUT_OF_STOCK / DISCONTINUED, applying to the whole order.
+- Orders drop physical `arrived_date`; existing ARRIVED becomes ORDERED. The historical table CHECK still accepts ARRIVED, but the current API cannot write it.
+- `notified_at` is the actual confirmation clock; optional `notified_date` is the work date. Immutable historical event snapshots retain their old fields.
+- Exact backup upgrades and current behavior: [STORE_CUSTOMER_ORDERS.md](STORE_CUSTOMER_ORDERS.md).

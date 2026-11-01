@@ -1,3 +1,4 @@
+// Durable portable-backup columns; regenerated from the forward migration chain.
 export const BACKUP_COLUMNS: Record<string, string[]> = {
   "app_member_module_access": [
     "enabled",
@@ -941,6 +942,7 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "active",
     "created_at",
     "created_by",
+    "honorific",
     "id",
     "line_name",
     "mobile",
@@ -970,7 +972,7 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "unit_price"
   ],
   "store_customer_orders": [
-    "arrived_date",
+    "call_result",
     "cancel_kind",
     "cancel_reason",
     "created_at",
@@ -978,6 +980,7 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "customer_name",
     "deposit",
     "has_ever_ordered",
+    "honorific",
     "id",
     "legacy",
     "line_name",

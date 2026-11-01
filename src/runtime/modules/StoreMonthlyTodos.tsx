@@ -1,6 +1,7 @@
 import {useCallback,useEffect,useRef,useState,type ReactNode} from "react";
 import {apiRequest} from "../../api/client";
 import {Field,CheckField} from "../../ui/forms/Field";
+import {DateInput} from "../../ui/forms/DateInput";
 import {EntryTable,EntryHeading} from "../../ui/forms/EntryTable";
 import {IconButton} from "../../ui/actions/IconButton";
 import {Dialog} from "../../ui/overlays/Dialog";
@@ -47,7 +48,7 @@ export function StoreMonthlyTodos(){
       {cell?<>{cell.completed&&cell.completionDate?<button type="button" className="cy-store-date-link" disabled={busy||loading} title={"修改辦理日期："+cell.completionDate.replaceAll("-","/")} aria-label={item.name+"辦理日期 "+cell.completionDate.replaceAll("-","/")} onClick={()=>showDate(row,item,cell)}>{cell.completionDate.slice(5).replace("-","/")}</button>:<span className={"cy-monthly-cell-action "+(cell.completed?"is-complete":"")}><IconButton icon={cell.completed?icons.check:icons.next} label={cell.completed?item.name+"已完成（無日期），修改紀錄":"確認辦理："+item.name} disabled={busy||loading} onClick={()=>showDate(row,item,cell)}/></span>}
        {editing?<div className="cy-store-date-popover" role="dialog" aria-label={item.name+"辦理日期"}><form onKeyDown={enterAdvancesThenSubmits} onSubmit={e=>{e.preventDefault();if(date){const d=date;void run(()=>saveCell(d))}}}>
         <CheckField label="無日期" checked={date.withoutDate} onChange={e=>setDate(d=>d?{...d,withoutDate:e.target.checked}:d)}/>
-        <Field label="辦理日期" required={!date.withoutDate} size="s"><input className="cy-op-input" type="date" min="0001-01-01" max={taipeiDate()} value={date.withoutDate?"":date.value} disabled={date.withoutDate||busy} onChange={e=>setDate(d=>d?{...d,value:e.target.value}:d)}/></Field>
+        <Field label="辦理日期" required={!date.withoutDate} size="s"><DateInput aria-label="辦理日期" className="cy-op-input" min="0001-01-01" max={taipeiDate()} value={date.withoutDate?"":date.value} disabled={date.withoutDate||busy} onChange={value=>setDate(d=>d?{...d,value}:d)}/></Field>
         <div><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>setDate(null)}>取消</button><button type="submit" className="cy-op-button compact primary" disabled={busy}>儲存</button></div>
         {cell.completed?<button type="button" className="cy-op-button compact danger" disabled={busy} onClick={()=>void (async()=>{const d=date;if(d&&await confirm({title:"取消完成",description:`${row.month.replace("-","/")} ${row.storeName} ${item.name}`,confirmLabel:"取消完成",cancelLabel:"返回"}))await run(()=>saveCell({...d,requestKey:crypto.randomUUID()},false))})()}>取消完成</button>:null}
        </form></div>:null}

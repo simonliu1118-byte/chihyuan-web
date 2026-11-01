@@ -69,6 +69,7 @@ Archive、舊 preview、review backlog、readiness checkpoint、已結案舊 han
 - `UI_FOUNDATION.md`
 - `APP_SHELL_FOUNDATION.md`
 - `FORM_FOUNDATION.md`
+- `CONTACT_DATE_INPUTS.md` — 共用電話格式／純數字剪貼簿與 CYACCWEB 互動式日期輸入。
 - `DATA_VIEW_FOUNDATION.md`
 - `ENTITY_PICKER_FOUNDATION.md`
 - `EDITABLE_LIST_FOUNDATION.md`

@@ -1,0 +1,18 @@
+.cy-date-input{display:flex;position:relative;align-items:center;width:142px;max-width:100%;min-width:0}
+.cy-date-input>input{box-sizing:border-box;width:100%!important;min-width:0;padding-right:28px!important;font-variant-numeric:tabular-nums}
+.cy-date-input>.cy-date-trigger{position:absolute;right:2px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:25px;height:28px;min-width:25px;padding:4px;margin:0;border:0;background:transparent;color:var(--cy-text-muted);border-radius:var(--cy-radius-sm)}
+.cy-date-trigger svg{display:block;width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+.cy-date-calendar{position:fixed;inset:auto;margin:0;width:230px;max-width:calc(100vw - 16px);padding:8px;box-sizing:border-box;border:1px solid var(--cy-border-strong);border-radius:var(--cy-radius-sm);background:var(--cy-surface);color:var(--cy-text);font-family:inherit;font-size:var(--cy-fs-sm);box-shadow:var(--cy-shadow-md);z-index:100}
+.cy-date-calendar button{font:inherit;min-height:28px;padding:3px;border:0;border-radius:var(--cy-radius-sm);background:transparent;color:var(--cy-text)}
+.cy-date-calendar button:hover:not(:disabled){background:var(--cy-accent-soft)}
+.cy-date-calendar button:disabled{opacity:.3}
+.cy-date-calendar-head{display:grid;grid-template-columns:28px 1fr 28px;gap:4px;margin-bottom:5px}
+.cy-date-weekdays,.cy-date-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));text-align:center;gap:1px}
+.cy-date-weekdays{font-size:var(--cy-fs-xs);color:var(--cy-text-muted);padding:4px 0}
+.cy-date-calendar .other-month{color:var(--cy-text-muted)}
+.cy-date-calendar [aria-pressed=true]{background:var(--cy-accent);color:var(--cy-on-accent)}
+.cy-date-calendar .is-today:not([aria-pressed=true]){box-shadow:inset 0 0 0 1px var(--cy-border-input)}
+.cy-date-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.cy-date-choices button{min-height:36px}
+.cy-date-calendar-footer{display:flex;justify-content:center;border-top:1px solid var(--cy-border);margin-top:5px;padding-top:5px}
+@media(pointer:coarse){.cy-date-calendar{width:296px}.cy-date-calendar button{min-height:38px}.cy-date-input>input{font-size:16px}}

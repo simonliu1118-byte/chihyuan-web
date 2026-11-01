@@ -33,6 +33,34 @@ const ok=r=>{assert.equal(r.status,200,JSON.stringify(r.body));return r.body.dat
 const advance=async(call,o,date="2026-10-28")=>ok(await call(`/orders/${o.id}/status`,"POST",{requestKey:key(),expectedVersion:o.version,action:"advance",milestoneDate:date}));
 const rollback=async(call,o)=>ok(await call(`/orders/${o.id}/status`,"POST",{requestKey:key(),expectedVersion:o.version,action:"rollback",reason:"測試誤按更正"}));
 
+test('supply results lock the called step, close on notification, and never create cancellation or blacklist events',async()=>{
+ const {call,sql}=fixture();try{for(const result of ['OUT_OF_STOCK','DISCONTINUED']){
+  let o=ok(await call('/orders','POST',payload()));o=ok(await call(`/orders/${o.id}/status`,'POST',{action:'advance',callResult:result,expectedVersion:o.version,requestKey:key()}));
+  assert.equal(o.status,'ORDERED');assert.equal(o.callResult,result);assert.equal(o.dates.ORDERED,null);
+  assert.equal((await call(`/orders/${o.id}/date`,'PATCH',{step:'ORDERED',milestoneDate:'2026-10-28',expectedVersion:o.version,requestKey:key()})).status,422);
+  assert.equal((await call(`/orders/${o.id}/status`,'POST',{action:'rollback',reason:'誤按',expectedVersion:o.version,requestKey:key()})).status,422);
+  o=await advance(call,o);assert.equal(o.status,'NOTIFIED');assert.equal(o.callResult,result);assert.equal(o.cancelReason,'');
+  assert.equal((await call(`/orders/${o.id}/status`,'POST',{action:'advance',milestoneDate:null,expectedVersion:o.version,requestKey:key()})).status,422);
+  assert.equal((await call(`/orders/${o.id}`,'PATCH',payload({expectedVersion:o.version,reasonKind:'輸入錯誤'}))).status,409);
+  assert(ok(await call(`/orders/${o.id}/history`)).rows.some(e=>e.kind==='通知結案'));
+  o=await rollback(call,o);assert.equal(o.status,'ORDERED');assert.equal(o.callResult,result);
+ }
+ assert.equal(sql.prepare('SELECT count(*) n FROM store_blacklist_events').get().n,0);
+ const o=ok(await call('/orders','POST',payload()));for(const result of ['invalid','__proto__'])assert.equal((await call(`/orders/${o.id}/status`,'POST',{action:'advance',callResult:result,expectedVersion:o.version,requestKey:key()})).status,422);
+ for(const reasonKind of ['缺貨','絕版／停產'])assert.equal((await call(`/orders/${o.id}/status`,'POST',{action:'cancel',reasonKind,expectedVersion:o.version,requestKey:key()})).status,422);
+ }finally{sql.close()}
+});
+test('honorifics preserve raw names, normalize full-width contact numbers, and sequence numbering is global before search',async()=>{
+ const {call,sql}=fixture();try{
+ const first=ok(await call('/orders','POST',payload({customerName:'合成一',honorific:'MR',phone:'（０７）２３６－８５２０',orderDate:'2026-10-20'})));
+ const second=ok(await call('/orders','POST',payload({customerName:'合成二',honorific:'MS',orderDate:'2026-10-21'})));
+ assert.equal(first.customerName,'合成一');assert.equal(first.honorific,'MR');assert.equal(first.phone,'072368520');
+ const list=ok(await call('/orders'));assert.deepEqual(list.map(o=>[o.id,o.sequence]),[[second.id,2],[first.id,1]]);
+ assert.equal(ok(await call('/orders?q='+encodeURIComponent('合成二')))[0].sequence,2);
+ assert.equal((await call('/orders','POST',payload({honorific:'other'}))).status,422);
+ const b=ok(await call('/blacklist','POST',{name:'合成三',honorific:'MS',mobile:'0912-345-678',reason:'合成理由',action:'OTHER'}));assert.equal(ok(await call('/blacklist')).find(x=>x.id===b.id).honorific,'MS');
+ }finally{sql.close()}
+});
 test("module permission protects lists, history and mutation",async()=>{
  const f=fixture("USER");try{for(const p of ["/orders","/blacklist","/orders/1/history","/blacklist/1/history"])assert.equal((await f.call(p)).status,403)}finally{f.sql.close()}
 });
@@ -53,15 +81,15 @@ test("create is idempotent; stale saves cannot overwrite or delete lines",async(
  assert.equal(ok(await call(`/orders/${o.id}`)).lines.length,2);assert.equal(ok(await call(`/orders/${o.id}`,"PATCH",edit)).version,2);
  }finally{sql.close()}
 });
-test("progress requires adjacent action and a nonempty real date; no future date or skip",async()=>{
+test("progress requires adjacent action and a valid date or explicit no-date; no future date or skip",async()=>{
  const {call,sql}=fixture();try{let o=ok(await call("/orders","POST",payload()));for(const x of [{},{status:"NOTIFIED"},{action:"advance",milestoneDate:"2026-02-30"},{action:"advance",milestoneDate:"2999-01-01"},{action:"advance",milestoneDate:"2026-10-27"},{action:"advance",milestoneDate:"2026-10-28",status:"NOTIFIED"}])assert.equal((await call(`/orders/${o.id}/status`,"POST",{requestKey:key(),expectedVersion:o.version,...x})).status,422);
- for(const state of ["ORDERED","ARRIVED","NOTIFIED","PICKED_UP"]){o=await advance(call,o);assert.equal(o.status,state);assert.equal(o.dates[state],"2026-10-28")}
+ for(const state of ["ORDERED","NOTIFIED","PICKED_UP"]){o=await advance(call,o);assert.equal(o.status,state);assert.equal(o.dates[state],"2026-10-28")}
  assert.equal((await call(`/orders/${o.id}/status`,"POST",{requestKey:key(),expectedVersion:o.version,action:"advance",milestoneDate:"2026-10-28"})).status,422);
  }finally{sql.close()}
 });
 test("rollback keeps dates and ever-ordered rule, date correction never advances or clears",async()=>{
- const {call,sql}=fixture();try{let o=ok(await call("/orders","POST",payload()));o=await advance(call,o);o=await advance(call,o);o=await advance(call,o);const notice=o.notifiedAt;o=await rollback(call,o);assert.equal(o.status,"ARRIVED");assert.equal(o.notifiedAt,notice);
- o=await rollback(call,await rollback(call,o));assert.equal(o.status,"REGISTERED");assert.equal(o.hasEverOrdered,true);
+ const {call,sql}=fixture();try{let o=ok(await call("/orders","POST",payload()));o=await advance(call,o);o=await advance(call,o);const notice=o.notifiedAt;o=await rollback(call,o);assert.equal(o.status,"ORDERED");assert.equal(o.notifiedAt,notice);
+ o=await rollback(call,o);assert.equal(o.status,"REGISTERED");assert.equal(o.hasEverOrdered,true);
  assert.equal((await call(`/orders/${o.id}`,"PATCH",payload({expectedVersion:o.version,note:"改內容"}))).status,422);
  o=ok(await call(`/orders/${o.id}`,"PATCH",payload({expectedVersion:o.version,note:"改內容",reasonKind:"輸入錯誤"})));
  const d={requestKey:key(),expectedVersion:o.version,step:"ORDERED",milestoneDate:"2026-10-29"};o=ok(await call(`/orders/${o.id}/date`,"PATCH",d));assert.equal(o.status,"REGISTERED");assert.equal(o.dates.ORDERED,"2026-10-29");
@@ -70,7 +98,7 @@ test("rollback keeps dates and ever-ordered rule, date correction never advances
  }finally{sql.close()}
 });
 test("date correction validates neighboring dates; completed orders allow date-only correction",async()=>{
- const {call,sql}=fixture();try{let o=ok(await call("/orders","POST",payload()));for(let i=0;i<4;i++)o=await advance(call,o);
+ const {call,sql}=fixture();try{let o=ok(await call("/orders","POST",payload()));for(let i=0;i<3;i++)o=await advance(call,o);
  assert.equal((await call(`/orders/${o.id}`,"PATCH",payload({expectedVersion:o.version,note:"不應改"}))).status,409);
  assert.equal((await call(`/orders/${o.id}/date`,"PATCH",{requestKey:key(),expectedVersion:o.version,step:"ORDERED",milestoneDate:"2026-10-29"})).status,422);
  o=ok(await call(`/orders/${o.id}/date`,"PATCH",{requestKey:key(),expectedVersion:o.version,step:"PICKED_UP",milestoneDate:"2026-10-29"}));assert.equal(o.status,"PICKED_UP");o=await rollback(call,o);assert.equal(o.status,"NOTIFIED");assert.equal(o.dates.PICKED_UP,"2026-10-29");
@@ -101,7 +129,7 @@ test("cancel rejects bad reason or stale version without partial blacklist state
  const {call,sql}=fixture();try{const o=ok(await call("/orders","POST",payload()));for(const p of [{reasonKind:""},{reasonKind:"其他",reason:""},{reasonKind:"自創"}])assert.equal((await call(`/orders/${o.id}/status`,"POST",{action:"cancel",requestKey:key(),expectedVersion:o.version,...p})).status,422);
  assert.equal((await call(`/orders/${o.id}/status`,"POST",{action:"cancel",requestKey:key(),expectedVersion:0,reasonKind:"顧客取消",blacklist:{name:"測試",phone:o.phone,reason:"原因",action:"REFUSE"}})).status,409);
  assert.equal(sql.prepare("SELECT count(*) n FROM store_blacklist").get().n,0);assert.equal(ok(await call(`/orders/${o.id}`)).status,"REGISTERED");
- ok(await call(`/orders/${o.id}/status`,"POST",{action:"cancel",requestKey:key(),expectedVersion:o.version,reasonKind:"缺貨"}));assert.equal(sql.prepare("SELECT count(*) n FROM store_blacklist_events").get().n,0);
+ ok(await call(`/orders/${o.id}/status`,"POST",{action:"cancel",requestKey:key(),expectedVersion:o.version,reasonKind:"通知未取"}));assert.equal(sql.prepare("SELECT count(*) n FROM store_blacklist_events").get().n,0);
  }finally{sql.close()}
 });
 test("blacklist manual disposition changes need reason and version; removal preserves events",async()=>{
@@ -117,4 +145,4 @@ test("history pagination is bounded and date/filter validation rejects invalid i
 });
 test("concurrent adjacent advances commit exactly once and stale request does not skip a step",async()=>{const {call,sql}=fixture();try{const o=ok(await call('/orders','POST',payload()));const results=await Promise.all([1,2].map(()=>call(`/orders/${o.id}/status`,'POST',{action:'advance',requestKey:key(),expectedVersion:o.version,milestoneDate:'2026-10-28'})));assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);assert.equal(ok(await call(`/orders/${o.id}`)).status,'ORDERED');assert.equal(sql.prepare("SELECT count(*) n FROM store_order_events WHERE kind='推進'").get().n,1)}finally{sql.close()}});
 test("failed blacklist-event insert rolls back cancellation, new blacklist, history and Audit together",async()=>{const {call,sql}=fixture();try{const o=ok(await call('/orders','POST',payload()));sql.exec("CREATE TRIGGER synthetic_fail_blacklist_event BEFORE INSERT ON store_blacklist_events BEGIN SELECT RAISE(ABORT,'synthetic rollback test'); END");const count=sql.prepare('SELECT count(*) n FROM audit_events').get().n;const r=await call(`/orders/${o.id}/status`,'POST',{action:'cancel',requestKey:key(),expectedVersion:o.version,reasonKind:'顧客取消',blacklist:{name:o.customerName,phone:o.phone,mobile:o.mobile,lineName:o.lineName,reason:'測試',action:'REFUSE'}});assert.equal(r.status,500);assert.equal(ok(await call(`/orders/${o.id}`)).status,'REGISTERED');assert.equal(sql.prepare('SELECT count(*) n FROM store_blacklist').get().n,0);assert.equal(sql.prepare('SELECT count(*) n FROM audit_events').get().n,count);assert.equal(sql.prepare('SELECT count(*) n FROM store_order_events').get().n,1)}finally{sql.close()}});
-test('ordered step alone permits no date; other steps still require dates and cannot be cleared',async()=>{const {call,sql}=fixture();try{let o=ok(await call('/orders','POST',payload()));o=ok(await call(`/orders/${o.id}/status`,'POST',{action:'advance',expectedVersion:o.version,requestKey:key()}));assert.equal(o.status,'ORDERED');assert.equal(o.dates.ORDERED,null);assert.equal(o.hasEverOrdered,true);assert.equal((await call(`/orders/${o.id}/status`,'POST',{action:'advance',expectedVersion:o.version,requestKey:key(),milestoneDate:''})).status,422);o=await advance(call,o);assert.equal(o.status,'ARRIVED');assert.equal((await call(`/orders/${o.id}/date`,'PATCH',{step:'ARRIVED',expectedVersion:o.version,requestKey:key(),milestoneDate:''})).status,422);o=ok(await call(`/orders/${o.id}/date`,'PATCH',{step:'ORDERED',expectedVersion:o.version,requestKey:key(),milestoneDate:'2026-10-28'}));assert.equal(o.dates.ORDERED,'2026-10-28');o=ok(await call(`/orders/${o.id}/date`,'PATCH',{step:'ORDERED',expectedVersion:o.version,requestKey:key(),milestoneDate:null}));assert.equal(o.dates.ORDERED,null);assert.equal(o.status,'ARRIVED');assert.equal(o.hasEverOrdered,true)}finally{sql.close()}});
+test('all three milestones accept explicit no-date and notification retains its confirmation clock',async()=>{const {call,sql}=fixture();try{let o=ok(await call('/orders','POST',payload()));for(const status of ['ORDERED','NOTIFIED','PICKED_UP']){o=ok(await call(`/orders/${o.id}/status`,'POST',{action:'advance',expectedVersion:o.version,requestKey:key(),milestoneDate:null}));assert.equal(o.status,status);assert.equal(o.dates[status],null);if(status==='NOTIFIED')assert.ok(o.notifiedAt)}const confirmation=o.notifiedAt;o=ok(await call(`/orders/${o.id}/date`,'PATCH',{step:'NOTIFIED',expectedVersion:o.version,requestKey:key(),milestoneDate:'2026-10-28'}));o=ok(await call(`/orders/${o.id}/date`,'PATCH',{step:'NOTIFIED',expectedVersion:o.version,requestKey:key(),milestoneDate:null}));assert.equal(o.notifiedAt,confirmation);assert.equal(o.status,'PICKED_UP');assert.equal((await call(`/orders/${o.id}/date`,'PATCH',{step:'ARRIVED',expectedVersion:o.version,requestKey:key(),milestoneDate:null})).status,422)}finally{sql.close()}});
