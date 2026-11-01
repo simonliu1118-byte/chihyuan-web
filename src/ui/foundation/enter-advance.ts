@@ -94,7 +94,7 @@ function enterToNextField(event: KeyboardEvent<HTMLFormElement>, submitOnLast: b
   event.preventDefault();
   const fields = Array.from(form.querySelectorAll<HTMLElement>(FIELD_SELECTOR))
     .filter(element => isFocusableCandidate(element) && !(element as HTMLInputElement).readOnly);
-  const next = fields[fields.indexOf(target) + 1];
+  const next = fields.slice(fields.indexOf(target) + 1).find(field => field.getAttribute("data-enter-skip") !== "true");
   if (next) {
     next.focus();
     if (next instanceof HTMLInputElement && SELECTABLE_INPUT_TYPES.has(next.type)) next.select();

@@ -10,6 +10,8 @@ Backspace／Delete 跳過格式符號，按數字位置刪除。複製只含選�
 
 ## DateInput
 
+V0.9.61電話新增kind=auto：兩個連絡欄皆依實際號碼格式化。門市normalizeStoreContacts將單一號碼移至連絡電話1、兩號手機優先1，不刪數字。DateInput非法值以整個輸入框紅框呈現、阻擋提交並抑制原生validation泡泡；進度Enter可明確略過無日期checkbox，Tab鍵仍可到達。
+
 `shared/date-input.ts` 提供台北當日與真實日期換算；`DateInput.tsx` 為受控 ISO 日期，顯示 YYYY/MM/DD，支援 min／max、required、disabled 和原有 Enter 換欄。
 
 互動參考 CYACCWEB 現行 [adaptive-ui.js](https://github.com/simonliu1118-byte/CYapps/blob/main/apps/CYAccountingWeb/public/adaptive-ui.js#L1753-L1965) 與 [quick-entry-settings.js](https://github.com/simonliu1118-byte/CYapps/blob/main/apps/CYAccountingWeb/public/quick-entry-settings.js#L41-L104)，外觀使用 CYWEB token。

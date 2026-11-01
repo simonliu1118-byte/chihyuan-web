@@ -31,3 +31,8 @@ test('history summarizes only changed milestone fields and keeps the reason in t
  const e={id:1,actorName:'合成',kind:'推進',at:'2026-10-31T01:00:00Z',reason:'合成理由',before:{status:'ORDERED',dates:{ORDERED:'2026-10-20',NOTIFIED:null}},after:{status:'NOTIFIED',dates:{ORDERED:'2026-10-20',NOTIFIED:'2026-10-21'}}};
  const summary=history.historySummary(e);assert(summary.includes('通知日期'));assert(summary.includes('理由：合成理由'));assert(!summary.includes('2026-10-20'));assert(!summary.includes('\n'));
 });
+
+
+test('either contact slot detects mobile or landline and normalization preserves every number',()=>{
+ assert.equal(phone.formatPhone('0912345678','auto'),'0912-345-678');assert.equal(phone.formatPhone('072368520','auto'),'(07)236-8520');assert.deepEqual(phone.normalizeStoreContacts('072368520',''),{mobile:'072368520',phone:''});assert.deepEqual(phone.normalizeStoreContacts('0912345678','072368520'),{mobile:'0912345678',phone:'072368520'});assert.deepEqual(phone.normalizeStoreContacts('072368520','0912345678'),{mobile:'0912345678',phone:'072368520'});
+});

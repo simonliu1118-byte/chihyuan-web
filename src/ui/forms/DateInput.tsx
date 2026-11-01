@@ -9,7 +9,7 @@ export function DateInput({value,onChange,min="0001-01-01",max="9999-12-31",disa
  const [month,setMonth]=useState((value||taipeiToday()).slice(0,7)),[yearStart,setYearStart]=useState(2020);
  const root=useRef<HTMLDivElement>(null),field=useRef<HTMLInputElement>(null),trigger=useRef<HTMLButtonElement>(null),panel=useRef<HTMLDivElement>(null),id=useId(),typing=useRef(false);
  const y=Number(month.slice(0,4)),m=Number(month.slice(5)),selected=parseDateInput(value),today=taipeiToday();
- const caret=useRef<number|null>(null);
+ const caret=useRef<number|null>(null),[invalidShown,setInvalidShown]=useState(false);
  const allowed=(iso:string)=>!!iso&&iso>=min&&iso<=max;
  function validity(text:string){const iso=parseDateInput(text);return text&&!iso?"請輸入有效日期（YYYY/MM/DD、四碼月日或八碼日期）":iso&&!allowed(iso)?"日期超出允許範圍":""}
  useEffect(()=>{if(!typing.current)setDraft(value.replaceAll("-","/"))},[value]);
@@ -32,14 +32,15 @@ export function DateInput({value,onChange,min="0001-01-01",max="9999-12-31",disa
  useEffect(()=>{if(disabled)setOpen(false)},[disabled]);
  function navigate(delta:number){if(view==="years"){setYearStart(v=>Math.max(1,Math.min(9988,v+delta*12)));return}const target=view==="months"?dateValue(y+delta,m,1):shiftDate(dateValue(y,m,1),delta<0?-1:32);if(target)setMonth(target.slice(0,7))}
  const months=Array.from({length:12},(_,i)=>dateValue(y,i+1,1));
- return <div className="cy-date-input" data-density={density} ref={root}>
+ return <div className="cy-date-input" data-density={density} data-invalid={!disabled&&(!!validity(draft)||invalidShown&&!!required&&!draft)||undefined} ref={root}>
   <input {...props} ref={field} className={className} type="text" inputMode="numeric" autoComplete="off" maxLength={10} disabled={disabled} required={required} placeholder={props.placeholder??"YYYY/MM/DD"} value={draft}
    onFocus={e=>{typing.current=true;props.onFocus?.(e)}}
    onChange={e=>edit(digitsOnly(e.currentTarget.value),digitOffset(e.currentTarget.value,e.currentTarget.selectionStart??e.currentTarget.value.length),!(e.nativeEvent as InputEvent).inputType?.startsWith("delete"))}
    onCopy={e=>{const start=e.currentTarget.selectionStart??0,end=e.currentTarget.selectionEnd??0;if(start!==end){e.clipboardData.setData("text/plain",digitsOnly(e.currentTarget.value.slice(start,end)));e.preventDefault()}}}
    onCut={e=>{const node=e.currentTarget,start=node.selectionStart??0,end=node.selectionEnd??0;if(start===end)return;e.clipboardData.setData("text/plain",digitsOnly(node.value.slice(start,end)));e.preventDefault();const next=deleteDigit(node.value,start,end,false);edit(next.value,next.caret,false)}}
-   onBlur={e=>{typing.current=false;const iso=parseDateInput(draft);if(allowed(iso))setDraft(iso.replaceAll("-","/"));props.onBlur?.(e)}}
-   onKeyDown={e=>{props.onKeyDown?.(e);if(e.defaultPrevented||e.nativeEvent.isComposing)return;if(!e.ctrlKey&&!e.metaKey&&!e.altKey&&["Backspace","Delete"].includes(e.key)){e.preventDefault();const node=e.currentTarget,next=deleteDigit(node.value,node.selectionStart??0,node.selectionEnd??0,e.key==="Backspace");edit(next.value,next.caret,false);return}if(e.ctrlKey&&!e.altKey&&!e.metaKey&&!e.shiftKey&&["ArrowUp","ArrowDown"].includes(e.key)){e.preventDefault();const current=parseDateInput(draft);if(current)choose(shiftDate(current,e.key==="ArrowUp"?1:-1))}if(e.key==="Enter"&&!e.ctrlKey&&!e.metaKey){const error=validity(draft);if(error||required&&!draft){e.preventDefault();e.stopPropagation();field.current?.reportValidity()}}}}/>
+   onInvalid={e=>{e.preventDefault();setInvalidShown(true);props.onInvalid?.(e)}}
+   onBlur={e=>{typing.current=false;setInvalidShown(true);const iso=parseDateInput(draft);if(allowed(iso))setDraft(iso.replaceAll("-","/"));props.onBlur?.(e)}}
+   onKeyDown={e=>{props.onKeyDown?.(e);if(e.defaultPrevented||e.nativeEvent.isComposing)return;if(!e.ctrlKey&&!e.metaKey&&!e.altKey&&["Backspace","Delete"].includes(e.key)){e.preventDefault();const node=e.currentTarget,next=deleteDigit(node.value,node.selectionStart??0,node.selectionEnd??0,e.key==="Backspace");edit(next.value,next.caret,false);return}if(e.ctrlKey&&!e.altKey&&!e.metaKey&&!e.shiftKey&&["ArrowUp","ArrowDown"].includes(e.key)){e.preventDefault();const current=parseDateInput(draft);if(current)choose(shiftDate(current,e.key==="ArrowUp"?1:-1))}if(e.key==="Enter"&&!e.ctrlKey&&!e.metaKey){const error=validity(draft);if(error||required&&!draft){e.preventDefault();e.stopPropagation();setInvalidShown(true)}}}}/>
   <button type="button" ref={trigger} className="cy-date-trigger" disabled={disabled} aria-label="開啟日期選擇器" aria-haspopup="dialog" aria-controls={id} aria-expanded={open} onClick={()=>open?close():show()}>
    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></svg>
   </button>
