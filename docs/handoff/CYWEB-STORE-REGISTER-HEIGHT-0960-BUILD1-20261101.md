@@ -1,4 +1,4 @@
-# V0.9.60 Build1：登記高度、篩選、日期彈窗與歷程換行
+# V0.9.60 Build1～2：登記高度、篩選、日期彈窗與歷程換行
 
 2026-11-01 Asia/Taipei，分支 `cyweb/store-register-height-0960-b1`，基於main `e3de4ad3c8e2c3a9b835d2aca917f33d50e50be0`。使用者授權單純UI修改合併部署；本輪仍依既有授權，Claude事後複審待填，GPT不代簽。
 
@@ -20,6 +20,12 @@
 - 本地證據在外層outputs：`store-0960-b1-date.png`、`store-0960-b1-unorderable.png`、`store-0960-b1-history.png`。僅合成資料，不提交圖片與正式資料；隔離預覽結束後關閉owned tab、還原viewport。
 
 ## 雲端CI／合併部署
+
+### Build2範圍補正
+
+PR336 source45618c5 Runtime41308311147完整Linux516/516、治理41308311086通過，合併259afac8d9b38de6d41293fdb71d0c654dbb48a4，部署41308496079。交叉檢查發現StoreMonthlyTodos也使用cy-store-date-popover，Build1新增的form flex會連帶讓月度按鈕縱排。此輪只將flex selector加cy-store-orders祖先，並恢復共用form>button原margin；訂購footer為div不受該margin影響，月度保持原版。BUILD升2，VERSION維持0.9.60；需重新CI／部署確認最終source，不能把Build1驗證代稱Build2驗證。
+
+Build2最後build／typecheck通過，store-page19/19、store-monthly-ui5/5。真瀏覽器確認訂購form display:flex／column，月度form display:block、取消／儲存y同為290.08px；月度未提交辦理，仍為隔離合成資料。首次測試命令誤寫不存在的store-monthly-page檔名，Node只執行19項訂購；已用正確store-monthly-ui另跑5項，不把第一次19項冒稱兩頁全驗證。
 
 待本分支source CI／部署契約／治理檢查；通過後依授權合併部署，並同分支補實際run／source／雙入口health與排程。沒有新migration，無需重跑正式全庫資料掃描。
 

@@ -271,7 +271,7 @@
 .cy-store-not-applicable{background:linear-gradient(to bottom right,transparent calc(50% - .6px),var(--cy-border) 50%,transparent calc(50% + .6px));background-color:var(--cy-surface-muted)}
 .cy-store-sequence{text-align:center!important;color:var(--cy-text-muted)}
 .cy-store-date-popover{white-space:normal;position:absolute;z-index:5;right:0;top:0;width:max-content;padding:8px;background:var(--cy-surface);border:1px solid var(--cy-border);border-radius:var(--cy-radius-sm);box-shadow:0 4px 16px #0002;text-align:left}
-.cy-store-date-popover form{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+.cy-store-orders .cy-store-date-popover form{display:flex;flex-direction:column;align-items:stretch;gap:8px}
 .cy-store-date-popover .cy-f{display:grid;gap:4px;min-width:0;max-width:none;width:max-content}
 .cy-store-date-popover .cy-f-label{font-size:var(--cy-fs-xs);white-space:nowrap}
 .cy-store-call-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;min-width:184px}
@@ -282,6 +282,7 @@
 .cy-store-date-popover .cy-store-date-choice>.cy-f-check{display:inline-flex;align-items:center;gap:4px;min-width:0;width:auto;white-space:nowrap;min-height:32px;margin:0}
 .cy-store-date-actions{display:flex;justify-content:flex-end;gap:4px}
 .cy-store-date-actions>.cy-op-button{margin:0}
+.cy-store-date-popover form>button{margin:6px 4px 0 0}
 .cy-store-list-note summary{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
 .cy-store-list-note details[open] summary{display:block}
 .cy-store-history{padding:4px 6px;white-space:nowrap;text-align:left;color:var(--cy-text);font-size:var(--cy-fs-xs);line-height:1.3;overflow:auto}
