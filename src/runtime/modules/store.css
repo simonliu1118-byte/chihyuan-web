@@ -320,8 +320,8 @@
 .cy-store-entry-code{width:100px}.cy-store-entry-quantity{width:70px}
 .cy-store-entry-price,.cy-store-entry-amount,.cy-store-entry-actions{width:88px}
 .cy-store-entry-line input[type="number"],.cy-store-entry-line-amount{text-align:right;font-variant-numeric:tabular-nums}
-.cy-store-entry-table input[type="number"]{appearance:textfield;-moz-appearance:textfield}
-.cy-store-entry-table input[type="number"]::-webkit-inner-spin-button,.cy-store-entry-table input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.cy-store-orders input[type="number"]{appearance:textfield;-moz-appearance:textfield}
+.cy-store-orders input[type="number"]::-webkit-inner-spin-button,.cy-store-orders input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .cy-store-entry-line-amount .cy-ordering-cell-text{padding-inline:6px}
 .cy-store-entry-table .cy-store-entry-summary-head th{text-align:center}
 .cy-store-entry-table .cy-store-entry-summary>td{vertical-align:middle;text-align:center;font-variant-numeric:tabular-nums}
