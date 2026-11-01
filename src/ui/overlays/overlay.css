@@ -108,6 +108,11 @@
   padding: 18px;
 }
 
+/* Body padding owns the outer spacing; browser paragraph margins must not double it. */
+.cy-dialog-body > p:first-child,
+.cy-dialog-body > form > p:first-child { margin-top: 0; }
+.cy-dialog-body > p:last-child { margin-bottom: 0; }
+
 .cy-dialog-action-row {
   width: 100%;
   display: flex;

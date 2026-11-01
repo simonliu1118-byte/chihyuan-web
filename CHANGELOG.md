@@ -5,6 +5,11 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.62 — 視窗間距與所有結案猶豫期（2026-11-02，待發布）
+
+- 共用視窗首段不疊預設margin、取消288px；metadata輸入24px／12px，移除清單點選反藍。
+- 顧客取消加入5分鐘撤回，同步復原本次新增／加回名單，原active不變；後續異動拒絕覆蓋、完整歷史保留且可再次取消。無migration。見[Claude交接](docs/handoff/CYWEB-CANCEL-GRACE-0962-20261102.md)。
+
 ## CY Web V0.9.61 — 門市通知、補價、聯絡與黑名單（2026-11-02，已部署）
 
 - 通知未接通／三次轉取消、逾期未取、五分鐘結案修正、可空單價及單次補價，客戶編號／連絡欄及品項補充資料。

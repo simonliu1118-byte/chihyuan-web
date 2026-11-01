@@ -27,6 +27,8 @@ export function historySummary(e:StoreHistory):string{
  if(["建立","加入黑名單","加回黑名單","移出黑名單"].includes(e.kind))return "";
  if(e.kind==="訂購取消")return e.reason;
  if(e.kind.startsWith("登記"))return typeof e.after.customerNote==="string"&&e.after.customerNote?"客戶告知："+e.after.customerNote:"";
+ if(e.kind==="撤回取消")return [e.reason,e.after.blacklistReverted?"撤回列入黑名單":""].filter(Boolean).join("；");
+ if(e.kind==="撤回列入黑名單")return "";
  if(e.kind==="取消")return [e.reason,e.after.listedInBlacklist?"列入黑名單":""].filter(Boolean).join("；");
  if(e.kind==="通知未接通")return "日期："+String(e.after.date??"").replaceAll("-","/");
  const changes=(a:Record<string,unknown>,b:Record<string,unknown>):string[]=>Object.keys({...a,...b}).flatMap(k=>{

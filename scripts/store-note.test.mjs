@@ -11,6 +11,6 @@ test('a 46-character paste cannot exploit the two formatting newlines of a valid
 
 test('closure grace has a strict five-minute boundary and legacy closures stay locked',async()=>{
  const code=await build({entryPoints:['shared/store.ts'],bundle:true,write:false,format:'esm',platform:'node'}),{canAmendClosure,displayOrderItem}=await import('data:text/javascript;base64,'+Buffer.from(code.outputFiles[0].text).toString('base64'));
- const at=Date.parse('2026-11-01T00:00:00Z'),o={status:'PICKED_UP',closedAt:'2026-11-01T00:00:00Z'};assert.equal(canAmendClosure(o,at+299999),true);assert.equal(canAmendClosure(o,at+300000),false);assert.equal(canAmendClosure({...o,closedAt:null},at),false);assert.equal(canAmendClosure({...o,status:'CANCELLED'},at),false);assert.equal(canAmendClosure({...o,status:'NOTIFIED',callResult:'OUT_OF_STOCK'},at),true);
+ const at=Date.parse('2026-11-01T00:00:00Z'),o={status:'PICKED_UP',closedAt:'2026-11-01T00:00:00Z'};assert.equal(canAmendClosure(o,at+299999),true);assert.equal(canAmendClosure(o,at+300000),false);assert.equal(canAmendClosure({...o,closedAt:null},at),false);assert.equal(canAmendClosure({...o,status:'CANCELLED'},at),true);assert.equal(canAmendClosure({...o,status:'NOTIFIED',callResult:'OUT_OF_STOCK'},at),true);
  assert.equal(displayOrderItem({itemName:'合成書',metadataMode:'BOOK',publisher:'出版社',author:''}),'合成書/出版社');assert.equal(displayOrderItem({itemName:'合成書',metadataMode:'BOOK',publisher:'',author:'作者'}),'合成書/作者');assert.equal(displayOrderItem({itemName:'合成品',metadataMode:'SPEC',specification:'規格'}),'合成品/規格');
 });
