@@ -27,6 +27,12 @@ PR336 source45618c5 Runtime41308311147完整Linux516/516、治理41308311086通�
 
 Build2最後build／typecheck通過，store-page19/19、store-monthly-ui5/5。真瀏覽器確認訂購form display:flex／column，月度form display:block、取消／儲存y同為290.08px；月度未提交辦理，仍為隔離合成資料。首次測試命令誤寫不存在的store-monthly-page檔名，Node只執行19項訂購；已用正確store-monthly-ui另跑5項，不把第一次19項冒稱兩頁全驗證。
 
-待本分支source CI／部署契約／治理檢查；通過後依授權合併部署，並同分支補實際run／source／雙入口health與排程。沒有新migration，無需重跑正式全庫資料掃描。
+### 最終 Build2 發布證據
+
+- Source `07a8fd053c770a77ae87ddee2e2ff60cc5cd2910` 的 Runtime [41308811564](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41308811564) 全部成功，完整Linux **516/516**、0失敗；治理41308811585成功。PR [337](https://github.com/simonliu1118-byte/chihyuan-web/pull/337)合併 `04edf14a4c0ff79a4aff23b9223d9e1f0020fc74`。
+- 最終受控[部署41308987671](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41308987671)的部署契約與deploy-development均成功。日誌 **No migrations to apply**，本輪沒有資料搬移、回填或新增業務D1查詢；未重跑正式全庫掃描。
+- canonical／workers.dev雙入口 HTTP200、version0.9.60、consumer1.0.5、database ok、sourceCommit精確等於上述最終merge，314ms內both_targets_ready。BUILD2可由Git BUILD驗證，health版本目前只回傳VERSION、不假稱health另外有build欄位。
+- HTTPS／HSTS／靜態資產、無效session清cookie、canonical正式authority檢查成功；dailyCatalogSchedule=true、monthlyTodoSchedule=true，backupSchedule維持false。
+- 發布後同分支僅補本交接、TODO／CHANGELOG與入口，另開docs-only補件，不重部署相同程式。功能分支保留，沒有沿用上一個特定分支的刪除同意來刪本輪分支。
 
 Claude複審待填，重點是桌面絕對定位不遮擋格內popover、手機尺寸、黃色點只影響門市篩選、四結果與footer穩定排版、歷程箭頭跟隨完整下一筆換行。單筆超長歷程仍水平捲動為已知限制；正式登入實機驗收待使用者。
