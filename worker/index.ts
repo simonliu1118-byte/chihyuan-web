@@ -12,6 +12,9 @@ import { handleHrRoute } from "./http/hr-routes";
 import {handleOrderingRoute} from "./http/ordering-routes";
 import {handleStoreRoute} from "./http/store-routes";
 import {handleStoreStocktakeRoute} from "./http/store-stocktake-routes";
+import {handleStoreMonthlyRoute} from "./http/store-monthly-routes";
+import {ensureMonthlyRows} from "./store/monthly-service";
+import {STORE_MONTHLY_CRON} from "../shared/store-monthly";
 import { handleUsageRoute } from "./http/usage-routes";
 import { handleBusinessApiPhase2Route } from "./http/business-api-phase2-routes";
 import { handleProgramCatalogRoute } from "./http/program-catalog-routes";
@@ -91,6 +94,8 @@ async function routeRequest(request: Request, env: Env, url: URL): Promise<Respo
   if(orderingResponse)return orderingResponse;
   const stocktakeResponse = await handleStoreStocktakeRoute(request,env,requestId);
   if(stocktakeResponse)return stocktakeResponse;
+  const monthlyResponse = await handleStoreMonthlyRoute(request,env,requestId);
+  if(monthlyResponse)return monthlyResponse;
   const storeResponse = await handleStoreRoute(request, env, requestId);
   if (storeResponse) return storeResponse;
   const hrResponse = await handleHrRoute(request, env, requestId);
@@ -112,6 +117,7 @@ async function routeRequest(request: Request, env: Env, url: URL): Promise<Respo
 
 export default {
   async scheduled(controller: ScheduledController, env: Env): Promise<void> {
+    if(controller.cron===STORE_MONTHLY_CRON){await ensureMonthlyRows(env.DB,new Date(controller.scheduledTime).toISOString());return;}
     if (controller.cron === ERP_HOUSEKEEPING_CRON) {
       await runErpHousekeeping(env.DB, controller.scheduledTime);
       return;

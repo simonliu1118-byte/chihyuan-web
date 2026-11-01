@@ -12,10 +12,13 @@ const entityNames: Record<string,string> = {
   module_access:"使用權",module_access_group:"權限群組",app_tag:"標籤",
   hr_leave:"請假紀錄",hr_leave_attachment:"請假證明",hr_annual_leave:"特休通知",hr_overtime:"加班紀錄",hr_comp_time:"補休帳戶",hr_employee:"人事員工",hr_roster:"人事排班",hr_attendance:"出勤紀錄",hr_status_change:"人事狀態異動",hr_salary_record:"薪資異動",hr_seniority_exclusion:"年資不計期間",hr_setting:"人事設定",
   ordering:"叫貨單",stocktake:"門市庫存盤點",
+  store_monthly_settings:"月度待辦設定",store_monthly_row:"月度待辦",
   backup:"備份",erp_item_query:"ERP 查詢",erp_item_agent:"ERP 連線服務",
 };
 export const entityLabel = (type: string): string => entityNames[type] ?? "資料";
 export const actionLabels: Record<string,string> = {
+  "store_monthly.settings_updated":"修改月度待辦設定",
+  "store_monthly.cell_updated":"修改月度待辦辦理紀錄",
   "stocktake.sheet_synced":"更新盤點底稿",
   "stocktake.ignored":"忽略盤點底稿",
   "stocktake.unignored":"恢復盤點底稿",
