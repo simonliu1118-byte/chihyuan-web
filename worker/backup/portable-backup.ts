@@ -1,7 +1,7 @@
 import { nonSeedRowCondition } from "../../shared/backup-migration-seeds";
 // App-owned portable snapshot foundation. Guarded isolated rehearsal only; no live overwrite.
 import {STORE_LEGACY_SCHEMAS,STORE_WORKFLOW_SCHEMAS,STORE_LEGACY_COLUMNS} from "./store-workflow-upgrade";
-import {STORE_MONTHLY_SCHEMAS,STORE_PROGRESS_SCHEMAS,STORE_PRE_PROGRESS_COLUMNS,STORE_SEQUENCE_SCHEMAS,STORE_PRE_SEQUENCE_COLUMNS} from "./store-progress-upgrade";
+import {STORE_MONTHLY_SCHEMAS,STORE_PROGRESS_SCHEMAS,STORE_PRE_PROGRESS_COLUMNS,STORE_SEQUENCE_SCHEMAS,STORE_PRE_SEQUENCE_COLUMNS,STORE_UNORDERABLE_SCHEMAS} from "./store-progress-upgrade";
 import { BACKUP_COLUMNS } from "./schema-columns";
 import { MAX_OBJECT_BYTES } from "./storage-guard";
 export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
@@ -191,7 +191,7 @@ export async function validateEmptyBackupTarget(db: D1Database, bundle: Portable
   const target = await layout(db);
   const targetHash=await sha256(encoder.encode(target.schema));
   if(STORE_LEGACY_SCHEMAS.includes(manifest.schemaSha256)){
-    check(STORE_SEQUENCE_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
+    check(STORE_UNORDERABLE_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
     for(const table of ["store_customer_orders","store_blacklist"]){
       const old=data.tables[table];
       const migrated=old.rows.map(row=>{
@@ -205,7 +205,7 @@ export async function validateEmptyBackupTarget(db: D1Database, bundle: Portable
     for(const t of ["store_order_events","store_blacklist_events"]){data.tables[t]={columns:BACKUP_COLUMNS[t],rows:[]};manifest.recordCounts[t]=0}
   }
   else if(preProgress(manifest.schemaSha256)){
-    check(STORE_SEQUENCE_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
+    check(STORE_UNORDERABLE_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
     for(const table of ["store_customer_orders","store_blacklist"]){
       const old=data.tables[table];data.tables[table]={columns:BACKUP_COLUMNS[table],rows:old.rows.map(row=>{
         const value:Record<string,Cell>=Object.fromEntries(old.columns.map((k,i)=>[k,row[i]]));value.honorific="";
@@ -219,12 +219,13 @@ export async function validateEmptyBackupTarget(db: D1Database, bundle: Portable
     }
   }
   if(preMonthly(manifest.schemaSha256)){
-    check(STORE_SEQUENCE_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
+    check(STORE_UNORDERABLE_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
     for(const t of MONTHLY_TABLES){data.tables[t]={columns:BACKUP_COLUMNS[t],rows:[]};manifest.recordCounts[t]=0}
     data.tables=Object.fromEntries(BACKUP_TABLES.map(t=>[t,data.tables[t]]));
-  }else if(!preSequence(manifest.schemaSha256))check(manifest.schemaSha256===targetHash,"BACKUP_SCHEMA_MISMATCH");
+  }else if(!preSequence(manifest.schemaSha256)&&!STORE_SEQUENCE_SCHEMAS.includes(manifest.schemaSha256))check(manifest.schemaSha256===targetHash,"BACKUP_SCHEMA_MISMATCH");
+  if(STORE_SEQUENCE_SCHEMAS.includes(manifest.schemaSha256))check(STORE_UNORDERABLE_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
   if(preSequence(manifest.schemaSha256)){
-    check(STORE_SEQUENCE_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
+    check(STORE_UNORDERABLE_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
     const table=data.tables.store_customer_orders;
     const values=table.rows.map(row=>Object.fromEntries(table.columns.map((key,i)=>[key,row[i]])));
     const time=(v:Cell)=>{const n=Date.parse(String(v));return Number.isFinite(n)?n:-Infinity};
@@ -263,5 +264,5 @@ export async function restoreIntoEmptyDatabase(db: D1Database, bundle: PortableB
   }
   await db.batch(statements);
   const restored = await exportPortableBackup(db, { workspaceScope, appVersion: manifest.appVersion });
-  check(sameBytes(restored.dataBytes, preSequence(manifest.schemaSha256)?canonicalData(data):bundle.dataBytes), "BACKUP_RECONCILIATION_FAILED");
+  check(sameBytes(restored.dataBytes, preSequence(manifest.schemaSha256)||STORE_SEQUENCE_SCHEMAS.includes(manifest.schemaSha256)?canonicalData(data):bundle.dataBytes), "BACKUP_RECONCILIATION_FAILED");
 }

@@ -16,6 +16,10 @@
 
 ## 目前待 Claude 審查
 
+- [V0.9.60 日期密度／通知備註／訂購紀錄](CYWEB-STORE-DATE-NOTICE-0960-20261101.md) — 納入未部署Build2、四叫貨結果、0037保全與備份、數字日期、單行歷程與LINE6字；最終CI／發布證據持續補回。
+
+- [V0.9.59 Build 2 登記色塊／叫貨送出排序／日期選項](CYWEB-STORE-REGISTER-FILL-0959-BUILD2-20261101.md) — 無框實心登記、直線分隔、history按實際送出新到舊、112px日期與叫貨三選一。
+
 - [V0.9.59 Build 1 表格／結案／紀錄與D1讀取](CYWEB-STORE-HISTORY-DENSITY-0959-BUILD1-20261101.md) — PR #332及501/501，已部署；通知等寬、緊湊圖示、結案唯讀、紀錄投影／暫存、持久項次及讀取量審查；取代前版結案允許退回的規則。
 
 - [V0.9.59 顧客訂購／共用電話日期輸入](CYWEB-STORE-CONTACT-PROGRESS-0959-20261101.md) — 與月度待辦同 PR #330 已合併部署，494/494與雙入口health／migration／月度排程通過；Claude 事後複審待完成。

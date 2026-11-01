@@ -11,6 +11,7 @@ export interface ConfirmDialogProps {
   cancelLabel?: string;
   confirmTone?: "primary" | "danger";
   busy?: boolean;
+  dismissible?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -24,6 +25,7 @@ export function ConfirmDialog({
   cancelLabel = "取消",
   confirmTone = "primary",
   busy = false,
+  dismissible = true,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -33,7 +35,7 @@ export function ConfirmDialog({
       title={title}
       description={description}
       onClose={onCancel}
-      dismissible={!busy}
+      dismissible={dismissible&&!busy}
       size="small"
       footer={
         <div className="cy-dialog-action-row">

@@ -716,3 +716,7 @@ All four are durable portable-backup tables; no identity authority or browser-lo
 ## 23. Store order display numbering (forward migration 0036)
 
 `store_customer_orders.list_sequence` persists oldest-first display positions. Migration initializes by order_date / chronological created_at / id. Insert and order-date move shift only the affected interval atomically with the business mutation. Presentation shifts do not change other orders' content versions. Indexes cover descending list_sequence and the order-date / creation-time sort. Exact older portable backups derive the same positions into empty current targets; current backups preserve them.
+
+## 24. Store unorderable result (forward migration 0037)
+
+`call_result` additionally accepts UNORDERABLE. Like OUT_OF_STOCK and DISCONTINUED it locks the called result, closes after notification and makes pickup inapplicable. Migration rebuilds the order parent and three FK children preserving all IDs, versions and immutable events, then restores indexes; no FK disabling or historical event deletion. A bounded preflight aborts before DDL if their total exceeds 5000 rows. Exact known pre-0037 backup schemas may upgrade into empty current targets; unknown schemas remain rejected. Notification customerNote is appended to the existing note atomically (10 codepoints per entry, existing total 300 limit), with raw event snapshots recording the change; no extra column.

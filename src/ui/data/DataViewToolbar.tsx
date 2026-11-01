@@ -5,6 +5,7 @@ export interface DataViewToolbarProps {
   onSearchChange: (value: string) => void;
   searchPlaceholder?: string;
   searchLabel?: string;
+  beforeSearch?: ReactNode;
   filters?: ReactNode;
   actions?: ReactNode;
   resultSummary?: ReactNode;
@@ -15,6 +16,7 @@ export function DataViewToolbar({
   onSearchChange,
   searchPlaceholder = "搜尋…",
   searchLabel = "搜尋",
+  beforeSearch,
   filters,
   actions,
   resultSummary,
@@ -22,6 +24,7 @@ export function DataViewToolbar({
   return (
     <div className="cy-data-toolbar">
       <div className="cy-data-toolbar-primary">
+        {beforeSearch}
         <label className="cy-data-search">
           <span className="cy-visually-hidden">{searchLabel}</span>
           <input

@@ -4,7 +4,7 @@ import { ConfirmDialog, type ConfirmDialogProps } from "./ConfirmDialog";
 type Confirmation = Pick<ConfirmDialogProps, "title" | "description" | "confirmLabel" | "cancelLabel" | "confirmTone">;
 
 /** One pending decision per mounted screen; leaving it always cancels. */
-export function useConfirmation() {
+export function useConfirmation({dismissible=true}:{dismissible?:boolean}={}) {
   const [request, setRequest] = useState<Confirmation | null>(null);
   const resolve = useRef<((accepted: boolean) => void) | null>(null);
   const finish = useCallback((accepted: boolean) => {
@@ -19,6 +19,6 @@ export function useConfirmation() {
     return new Promise<boolean>(done => { resolve.current = done; setRequest(next); });
   }, []);
   const cancel = useCallback(() => finish(false), [finish]);
-  return { confirm, cancel, confirmationDialog: request ? <ConfirmDialog open {...request}
+  return { confirm, cancel, confirmationDialog: request ? <ConfirmDialog open {...request} dismissible={dismissible}
     onConfirm={() => finish(true)} onCancel={() => finish(false)} /> : null };
 }

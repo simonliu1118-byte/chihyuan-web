@@ -3,10 +3,10 @@ const load=async path=>{const r=await build({entryPoints:[path],bundle:true,writ
 const {orderHistoryPresentation,retiredArrivalEvent,cacheHistory,cachedHistory}=await load('shared/store-history.ts');
 const {historySummary}=await load('src/runtime/modules/StoreOperationHistory.tsx');
 const event=(over={})=>({id:1,at:'2026-11-01T00:00:00Z',actorName:'合成',kind:'推進',before:{status:'ORDERED'},after:{status:'NOTIFIED',date:'2026-10-31'},reason:'',...over});
-test('history projects creation without details and progress as one named action plus work date',()=>{
+test('history projects creation without details and progress as named actions without work-date details',()=>{
  const created=orderHistoryPresentation(event({kind:'建立',after:{customerName:'合成',lines:['long']}}));assert.equal(historySummary(created),'');assert.deepEqual(created.after,{});
- for(const [status,label] of [['ORDERED','叫貨'],['NOTIFIED','通知'],['PICKED_UP','取貨']]){const e=orderHistoryPresentation(event({after:{status,dates:{[status]:'2026-10-31'}}}));assert.equal(e.kind,'登記'+label);assert.equal(historySummary(e),'作業日期：2026-10-31');}
- assert.equal(historySummary(orderHistoryPresentation(event({after:{status:'ORDERED',dates:{ORDERED:null}}}))),'作業日期：無日期');
+ for(const [status,label] of [['ORDERED','叫貨'],['NOTIFIED','通知'],['PICKED_UP','取貨']]){const e=orderHistoryPresentation(event({after:{status,dates:{[status]:'2026-10-31'}}}));assert.equal(e.kind,'登記'+label);assert.equal(historySummary(e),'');}
+ assert.equal(historySummary(orderHistoryPresentation(event({after:{status:'ORDERED',dates:{ORDERED:null}}}))),'' );
 });
 test('retired arrival events disappear while notification survives without ARRIVED anywhere in the projection',()=>{
  assert(retiredArrivalEvent(event({after:{status:'ARRIVED',date:'2026-10-20'}})));

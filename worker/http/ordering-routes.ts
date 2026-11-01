@@ -172,11 +172,12 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
    if(url.searchParams.has("sourceId")){clauses.push("o.source_id=?");args.push(int(Number(url.searchParams.get("sourceId")),"來源"))}
    if(url.searchParams.has("status")){const status=must(url.searchParams.get("status"),"狀態",20);if(!["DRAFT","SENT","PARTIAL","CLOSED","VOID"].includes(status))throw new Bad("ORDERING_INVALID","狀態錯誤");clauses.push("("+currentStatusSql+")=?");args.push(status)}
    // history=1: the 叫貨紀錄 list, which shows sent and voided orders only (drafts live on the source tabs).
-   if(url.searchParams.get("history")==="1")clauses.push("o.status<>'DRAFT'");
+   const history=url.searchParams.get("history")==="1";
+   if(history)clauses.push("o.status<>'DRAFT'");
    if(url.searchParams.has("from")){clauses.push("COALESCE(o.planned_send_date,substr(o.created_at,1,10))>=?");args.push(date(url.searchParams.get("from")))}
    if(url.searchParams.has("to")){clauses.push("COALESCE(o.planned_send_date,substr(o.created_at,1,10))<=?");args.push(date(url.searchParams.get("to")))}
    const q=must(url.searchParams.get("q")??"","搜尋",100);if(q){clauses.push("(s.name LIKE ? OR EXISTS(SELECT 1 FROM ordering_lines l WHERE l.order_id=o.id AND (l.item_name LIKE ? OR l.item_code LIKE ? OR l.vendor_item_name LIKE ? OR l.vendor_item_code LIKE ?)) OR EXISTS(SELECT 1 FROM ordering_receipts r WHERE r.order_id=o.id AND r.erp_purchase_no LIKE ?))");for(let i=0;i<6;i++)args.push("%"+q+"%")}
-   const result=await rows<Ord&{source_name:string;source_kind:Source["kind"];current_status:string}>(ctx.db,"SELECT o.*,s.name AS source_name,s.kind AS source_kind,("+currentStatusSql+") AS current_status FROM ordering_orders o JOIN ordering_sources s ON s.id=o.source_id "+(clauses.length?"WHERE "+clauses.join(" AND "):"")+" ORDER BY o.created_at DESC,o.id DESC LIMIT 201",...args);
+   const result=await rows<Ord&{source_name:string;source_kind:Source["kind"];current_status:string}>(ctx.db,"SELECT o.*,s.name AS source_name,s.kind AS source_kind,("+currentStatusSql+") AS current_status FROM ordering_orders o JOIN ordering_sources s ON s.id=o.source_id "+(clauses.length?"WHERE "+clauses.join(" AND "):"")+(history?" ORDER BY o.sent_at DESC,o.created_at DESC,o.id DESC":" ORDER BY o.created_at DESC,o.id DESC")+" LIMIT 201",...args);
    if(result.length>200)throw new Bad("ORDERING_LIMIT","請縮小搜尋條件",409);
    return success(result.map(x=>({id:x.id,sourceId:x.source_id,sourceName:x.source_name,sourceKind:x.source_kind,status:x.current_status,plannedSendDate:x.planned_send_date,sentAt:x.sent_at,createdAt:x.created_at,version:x.version})),requestId);
   }
