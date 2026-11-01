@@ -1,8 +1,9 @@
-## 發布中：V0.9.60 Build2 登記／彈窗／歷程換行（2026-11-01）
+## 已部署、待事後複審：V0.9.60 Build2 登記／彈窗／歷程換行（2026-11-01）
 
 - [x] 登記20px不撐列、黃色點與篩選標示、實心未結案切換、結果2×2／無日期右側／操作靠右、紀錄整筆連箭頭換行；build與既有19/19、合成瀏覽器驗收通過。
 - [x] Build1 PR336完整Linux516/516；Build2限縮訂購form排版selector並恢復月度待辦既有按鈕margin，避免共用class連帶影響。
-- [ ] 雲端CI／合併部署／雙入口health；Claude事後複審及使用者實機驗收。見[交接](docs/handoff/CYWEB-STORE-REGISTER-HEIGHT-0960-BUILD1-20261101.md)。
+- [x] 最終Build2 PR337完整Linux516/516、治理通過；合併04edf14、部署41308987671成功，雙入口source／D1／HTTPS／排程通過、無待套migration。見[交接](docs/handoff/CYWEB-STORE-REGISTER-HEIGHT-0960-BUILD1-20261101.md)。
+- [ ] Claude事後複審及使用者正式登入實機驗收。
 
 ## 已部署、待事後複審：V0.9.60 日期／通知／訂購紀錄（2026-11-01）
 
