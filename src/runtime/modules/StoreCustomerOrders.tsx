@@ -14,7 +14,7 @@ import {Dialog} from "../../ui/overlays/Dialog";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {FeedbackBanner,useFeedbackMessage} from "../../ui/feedback/FeedbackProvider";
 import {enterAdvancesFields,enterAdvancesThenSubmits} from "../../ui/foundation/enter-advance";
-import {STORE_ORDER_STATUSES,STORE_ORDER_STATUS_LABELS,STORE_BLACKLIST_ACTIONS,STORE_BLACKLIST_ACTION_LABELS,STORE_STEPS,STORE_MILESTONES,STORE_MILESTONE_LABELS,STORE_CALL_RESULTS,STORE_CANCEL_REASONS,STORE_EDIT_REASONS,isSupplyUnavailable,isOrderClosed,canAmendClosure,pricesComplete,displayOrderItem,displayCustomerName,orderCancellationReason,daysSinceNotified,lineAmount,orderTotal,type Honorific,type StoreCallResult,type StoreOrder,type StoreBlacklistEntry,type StoreBlacklistAction,type StoreMilestone,type StoreContactMatch} from "../../../shared/store";
+import {STORE_PICKUP_OVERDUE_DAYS,STORE_ORDER_STATUSES,STORE_ORDER_STATUS_LABELS,STORE_BLACKLIST_ACTIONS,STORE_BLACKLIST_ACTION_LABELS,STORE_STEPS,STORE_MILESTONES,STORE_MILESTONE_LABELS,STORE_CALL_RESULTS,STORE_CANCEL_REASONS,STORE_EDIT_REASONS,isSupplyUnavailable,isOrderClosed,canAmendClosure,pricesComplete,displayOrderItem,displayCustomerName,orderCancellationReason,daysSinceNotified,lineAmount,orderTotal,type Honorific,type StoreCallResult,type StoreOrder,type StoreBlacklistEntry,type StoreBlacklistAction,type StoreMilestone,type StoreContactMatch} from "../../../shared/store";
 import {StoreOperationHistory as History} from "./StoreOperationHistory";
 import type {StatusTone} from "./status-flow";
 const ROOT="/api/business/store";
@@ -25,7 +25,7 @@ const errorOf=(e:unknown)=>e instanceof Error?e.message:"操作失敗";
 const tone:Record<StoreOrder["status"],StatusTone>={REGISTERED:"info",ORDERED:"info",NOTIFIED:"warning",PICKED_UP:"success",CANCELLED:"danger"};
 function orderState(o:StoreOrder):{code:string;label:string;tone:StatusTone}{
  if(o.status!=="CANCELLED"&&isSupplyUnavailable(o))return {code:o.callResult,label:STORE_CALL_RESULTS[o.callResult as StoreCallResult],tone:"neutral"};
- if(o.status==="NOTIFIED"&&(daysSinceNotified(o.notifiedAt)??0)>7)return {code:"OVERDUE",label:"逾期未取",tone:"warning"};
+ if(o.status==="NOTIFIED"&&(daysSinceNotified(o.notifiedAt)??0)>STORE_PICKUP_OVERDUE_DAYS)return {code:"OVERDUE",label:"逾期未取",tone:"warning"};
  return {code:o.status,label:STORE_ORDER_STATUS_LABELS[o.status],tone:tone[o.status]};
 }
 type Contact={phone:string;mobile:string;lineName:string};

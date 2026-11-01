@@ -131,3 +131,10 @@ test('closure grace enables only the final date and rollback while content and c
 test('cancel grace exposes undo only, without enabling milestone dates or normal edits',async()=>{
  const o={...sample(),status:'CANCELLED',closedAt:new Date().toISOString(),hasEverOrdered:true,notifiedAt:'2026-10-28T00:00:00Z',dates:{ORDERED:'2026-10-28',NOTIFIED:'2026-10-28',PICKED_UP:null}};const v=mount({order:o});await v.tick(true);assert.equal(v.nodes.find(n=>n.type==='button'&&n.props['aria-label']==='撤回取消').props.disabled,false);for(const label of ['修改訂購','取消訂購','叫貨日期 2026/10/28','通知日期 2026/10/28'])assert.equal(v.nodes.find(n=>n.type==='button'&&n.props['aria-label']===label).props.disabled,true,label);v.icon('撤回取消');assert(v.dialogs.includes('撤回取消訂購'));v.field('撤回理由','誤按取消');v.submit('撤回取消訂購');await v.tick();assert.equal(v.calls.find(c=>c.path.endsWith('/status')).json.action,'rollback');
 });
+
+test('overdue starts after the fourteenth Taipei calendar day, counting from the day after notification',async t=>{
+ t.mock.timers.enable({apis:['Date'],now:new Date('2026-11-15T23:59:59+08:00')});
+ const o={...sample(),status:'NOTIFIED',notifiedAt:'2026-11-01T15:59:59Z'},v=mount({order:o});await v.tick(true);
+ assert.equal(v.nodes.find(n=>n.type?.name==='StatusChip').props.children,'待取貨');
+ t.mock.timers.tick(1000);v.render();assert.equal(v.nodes.find(n=>n.type?.name==='StatusChip').props.children,'逾期未取');
+});

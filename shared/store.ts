@@ -20,8 +20,8 @@ export const STORE_BLACKLIST_ACTION_LABELS: Record<StoreBlacklistAction, string>
   REFUSE: "拒絕訂購", FULL_PAYMENT: "須全額預付", OTHER: "其他",
 };
 
-/** A notified order not picked up after this many days is flagged (user: 通知超過 7 天). */
-export const STORE_PICKUP_OVERDUE_DAYS = 7;
+/** Taipei calendar days: notification is day 0; overdue after day 14 ends. */
+export const STORE_PICKUP_OVERDUE_DAYS = 14;
 
 export interface StoreOrderLine { id?: number; itemCode: string; itemName: string; quantity: number; unitPrice: number|null; metadataMode?:""|"BOOK"|"SPEC";publisher?:string;author?:string;specification?:string }
 export interface StoreOrder {
