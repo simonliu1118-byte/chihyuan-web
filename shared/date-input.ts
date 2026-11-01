@@ -1,4 +1,8 @@
 export const taipeiToday=()=>new Date(Date.now()+8*3600000).toISOString().slice(0,10);
+export function dateInputDisplay(digits:string,expandMonthDay=true,today=taipeiToday()){
+ if(expandMonthDay&&digits.length===4){const value=parseDateInput(digits,today);if(value)return value.replaceAll("-","/")}
+ return digits.slice(0,4)+(digits.length>4?"/"+digits.slice(4,6):"")+(digits.length>6?"/"+digits.slice(6,8):"");
+}
 export function dateValue(year:number,month:number,day:number){
  if(!Number.isInteger(year)||year<1||year>9999||month<1||month>12||day<1||day>31)return "";
  const iso=`${String(year).padStart(4,"0")}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;

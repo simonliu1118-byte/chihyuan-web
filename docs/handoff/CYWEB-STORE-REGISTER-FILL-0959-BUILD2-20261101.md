@@ -1,5 +1,7 @@
 # V0.9.59 Build 2：登記色塊、叫貨排序與日期選項，交 Claude 複審
 
+狀態更正：本候選未單獨部署。使用者後續新增叫貨結果／日期／通知等要求，已整併升版 V0.9.60，發布與最新驗證以[新交接](CYWEB-STORE-DATE-NOTICE-0960-20261101.md)為準。首輪CI502/503的ERP測試setup非確定性問題也在該輪修正。
+
 2026-11-01 Asia/Taipei；分支 `cyweb/store-register-fill-0959-b2`，基於main `13bc507f919bb386ea560b8fb39bda4167be7ec6`。使用者既有合併部署授權持續適用；Claude事後複審待填，GPT不代簽。同項UI返修BUILD2，VERSION仍0.9.59。
 
 ## 修改與原因

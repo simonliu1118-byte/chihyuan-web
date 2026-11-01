@@ -9,11 +9,12 @@ function display(v:unknown,key=""):string{
  if(typeof v==="boolean")return key==="completed"?v?"已完成":"未完成":v?"是":"否";
  if(Array.isArray(v))return v.map(x=>{const l=x as {itemCode?:string;itemName?:string;quantity?:number;unitPrice?:number};return `${l.itemCode??""} ${l.itemName??""} ×${l.quantity??""} @${l.unitPrice??""}`}).join("；");
  if(typeof v==="object")return Object.entries(v).map(([k,x])=>`${STORE_ORDER_STATUS_LABELS[k as StoreOrder["status"]]??labels[k]??k}：${display(x,k)}`).join("；");
- return ({MR:"先生",MS:"小姐",OUT_OF_STOCK:"缺貨",DISCONTINUED:"絕版／停產"} as Record<string,string>)[String(v)]??STORE_ORDER_STATUS_LABELS[String(v) as StoreOrder["status"]]??String(v);
+ return ({MR:"先生",MS:"小姐",OUT_OF_STOCK:"缺貨",DISCONTINUED:"絕版/停產",UNORDERABLE:"無法訂購"} as Record<string,string>)[String(v)]??STORE_ORDER_STATUS_LABELS[String(v) as StoreOrder["status"]]??String(v);
 }
 export function historySummary(e:StoreHistory):string{
  if(e.kind==="建立")return "";
- if(e.kind.startsWith("登記"))return ["作業日期："+display(e.after.date,"date"),e.after.callResult?"叫貨結果："+display(e.after.callResult):""].filter(Boolean).join("；");
+ if(e.kind.startsWith("登記"))return typeof e.after.customerNote==="string"&&e.after.customerNote?"客戶告知："+e.after.customerNote:"";
+ if(e.kind==="取消")return e.reason;
  const changes=(a:Record<string,unknown>,b:Record<string,unknown>):string[]=>Object.keys({...a,...b}).flatMap(k=>{
   if(k==="dates"&&!("dates" in b)&&"date" in b)return [];
   if(JSON.stringify(a[k])===JSON.stringify(b[k])||!(a[k]??"")&&!(b[k]??"")&&typeof b[k]!=="boolean")return [];
@@ -24,13 +25,13 @@ export function historySummary(e:StoreHistory):string{
  return [typeof e.after.itemName==="string"?e.after.itemName:"",...changes(e.before,e.after),e.reason?"理由："+e.reason:""].filter(Boolean).join("；");
 }
 /** Shared per-record timeline for orders, blacklist and monthly todos. Paths are store-relative. */
-export function StoreOperationHistory({path,onError,cache}:{path:string;onError:(s:string)=>void;cache?:StoreHistoryCache}){
+export function StoreOperationHistory({path,onError,cache,layout="rows"}:{path:string;onError:(s:string)=>void;cache?:StoreHistoryCache;layout?:"rows"|"chain"}){
  const [events,setEvents]=useState<StoreHistory[]>([]),[cursor,setCursor]=useState<number|null>(null),[loading,setLoading]=useState(true),sequence=useRef(0);
  const load=useCallback(async(next?:number)=>{const serial=++sequence.current;setLoading(true);try{const p=await apiRequest<StoreHistoryPage>("/api/business/store"+path+(next?"?cursor="+next:""));if(serial===sequence.current){setEvents(old=>{const rows=next?[...old,...p.rows]:p.rows;if(cache)cacheHistory(cache,path,{rows,nextCursor:p.nextCursor});return rows});setCursor(p.nextCursor)}}catch(e){if(serial===sequence.current)onError(e instanceof Error?e.message:"紀錄載入失敗")}finally{if(serial===sequence.current)setLoading(false)}},[path,onError,cache]);
  useEffect(()=>{const saved=cache?cachedHistory(cache,path):null;if(saved){setEvents(saved.rows);setCursor(saved.nextCursor);setLoading(false)}else{setEvents([]);setCursor(null);void load()}return()=>{sequence.current++}},[load,path,cache]);
  return <div className="cy-store-history">
-  {!events.length?<p>{loading?"載入紀錄…":"尚無操作紀錄"}</p>:<ol>{events.map(e=><li key={e.id}>
-   <time dateTime={e.at}>{formatDateTime(e.at)}</time><span title={e.actorName}>{e.actorName}</span><strong title={e.kind}>{e.kind}</strong><span className="cy-store-history-summary" title={historySummary(e)}>{historySummary(e)}</span>
+  {!events.length?<p>{loading?"載入紀錄…":"尚無操作紀錄"}</p>:<ol className={layout==="chain"?"cy-store-history-chain":undefined}>{(layout==="chain"?[...events].sort((a,b)=>a.id-b.id):events).map(e=><li key={e.id}>
+   <time dateTime={e.at}>{formatDateTime(e.at)}</time><span title={e.actorName}>{e.actorName}</span><strong title={e.kind}>{e.kind}</strong>{historySummary(e)?<span className="cy-store-history-summary" title={historySummary(e)}>{layout==="chain"?"("+historySummary(e)+")":historySummary(e)}</span>:null}
   </li>)}</ol>}{cursor?<button type="button" className="cy-op-button compact" disabled={loading} onClick={()=>void load(cursor)}>載入更多</button>:null}
  </div>;
 }

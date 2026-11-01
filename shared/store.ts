@@ -6,11 +6,11 @@ export type StoreOrderStatus = (typeof STORE_ORDER_STATUSES)[number];
 export const STORE_ORDER_STATUS_LABELS: Record<StoreOrderStatus, string> = {
   REGISTERED: "訂購", ORDERED: "已叫貨", NOTIFIED: "待取貨", PICKED_UP: "已取貨", CANCELLED: "取消",
 };
-export const STORE_CALL_RESULTS={ORDERED:"已叫貨",OUT_OF_STOCK:"缺貨",DISCONTINUED:"絕版／停產"} as const;
+export const STORE_CALL_RESULTS={ORDERED:"已叫貨",OUT_OF_STOCK:"缺貨",DISCONTINUED:"絕版/停產",UNORDERABLE:"無法訂購"} as const;
 export type StoreCallResult=keyof typeof STORE_CALL_RESULTS;
 export type Honorific=""|"MR"|"MS";
 export const displayCustomerName=(name:string,honorific:Honorific="")=>name+(honorific==="MR"?"'r":honorific==="MS"?"'s":"");
-export const isSupplyUnavailable=(o:{callResult?:string})=>o.callResult==="OUT_OF_STOCK"||o.callResult==="DISCONTINUED";
+export const isSupplyUnavailable=(o:{callResult?:string})=>o.callResult==="OUT_OF_STOCK"||o.callResult==="DISCONTINUED"||o.callResult==="UNORDERABLE";
 export const isOrderClosed=(o:{status:StoreOrderStatus;callResult?:string})=>o.status==="PICKED_UP"||o.status==="CANCELLED"||isSupplyUnavailable(o)&&o.status==="NOTIFIED";
 export const STORE_MILESTONE_LABELS={ORDERED:"叫貨",NOTIFIED:"通知",PICKED_UP:"取貨"} as const;
 
@@ -60,4 +60,5 @@ export const STORE_CANCEL_REASONS=["顧客取消","通知未取","其他"] as co
 export const STORE_EDIT_REASONS=["顧客變更需求","品項／數量調整","價格／訂金更正","聯絡資料更正","備註補充","輸入錯誤","其他"] as const;
 export interface StoreHistory {id:number;actorName:string;at:string;kind:string;before:Record<string,unknown>;after:Record<string,unknown>;reason:string}
 export interface StoreHistoryPage {rows:StoreHistory[];nextCursor:number|null}
+export function orderCancellationReason(order:Pick<StoreOrder,"orderDate"|"lines">,kind:string,detail:string){return order.orderDate.replaceAll("-","/")+"訂購"+order.lines.map(line=>line.itemName+"x"+line.quantity).join("、")+","+kind+(detail?"("+detail+")":"")}
 export interface StoreContactMatch {matches:StoreBlacklistEntry[];lineCandidates:StoreBlacklistEntry[]}

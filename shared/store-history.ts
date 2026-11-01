@@ -15,9 +15,10 @@ export function orderHistoryPresentation(e:StoreHistory):StoreHistory{
  const clean=(v:Record<string,unknown>):Record<string,unknown>=>Object.fromEntries(Object.entries(v).filter(([k])=>k!=="ARRIVED").map(([k,x])=>[k,k==="status"&&x==="ARRIVED"?"ORDERED":k==="dates"?clean(record(x)):x]));
  let before=clean(e.before),after=clean(e.after),kind=e.kind;
  if(kind==="建立")return {...e,before:{},after:{},reason:""};
+ if(kind==="取消")return {...e,before:{},after:{}};
  if(kind==="推進"||kind==="通知結案"||kind==="叫貨結果"){
   const step=e.after.status as StoreMilestone,label=STORE_MILESTONE_LABELS[step];
-  if(label){kind="登記"+label;after={date:Object.hasOwn(e.after,"date")?e.after.date:record(e.after.dates)[step]??null,...(kind==="登記叫貨"&&e.after.callResult&&e.after.callResult!=="ORDERED"?{callResult:e.after.callResult}:{})};before={}}
+  if(label){kind="登記"+label;after={...(typeof e.after.customerNote==="string"&&e.after.customerNote?{customerNote:e.after.customerNote}:{}),date:Object.hasOwn(e.after,"date")?e.after.date:record(e.after.dates)[step]??null,...(kind==="登記叫貨"&&e.after.callResult&&e.after.callResult!=="ORDERED"?{callResult:e.after.callResult}:{})};before={}}
  }
  return {...e,kind,before,after};
 }

@@ -566,8 +566,9 @@ test("a queued query waits while the Agent is busy or connected, and expires onc
   try {
     grant("ERP_ITEM_QUERY");
     await user.create({ queryType: "ITEM_NO", itemNo: "X0001" });
-    const waiting = (await user.create({ queryType: "ITEM_NO", itemNo: "X0002" })).body.data;
+    // Claim the only job before queuing another; same-millisecond random IDs are not FIFO.
     await agent.claim(ALL_TYPES);
+    const waiting = (await user.create({ queryType: "ITEM_NO", itemNo: "X0002" })).body.data;
     const old = new Date(Date.now() - 10 * 60000).toISOString();
     sql.prepare("UPDATE erp_item_queries SET created_at=? WHERE id=?").run(old, waiting.id);
     sql.prepare("UPDATE erp_item_agent_status SET last_seen_at=? WHERE id=1").run(old);

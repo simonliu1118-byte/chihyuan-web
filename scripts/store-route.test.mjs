@@ -34,7 +34,7 @@ const advance=async(call,o,date="2026-10-28")=>ok(await call(`/orders/${o.id}/st
 const rollback=async(call,o)=>ok(await call(`/orders/${o.id}/status`,"POST",{requestKey:key(),expectedVersion:o.version,action:"rollback",reason:"測試誤按更正"}));
 
 test('supply results lock the called step, close on notification, and never create cancellation or blacklist events',async()=>{
- const {call,sql}=fixture();try{for(const result of ['OUT_OF_STOCK','DISCONTINUED']){
+ const {call,sql}=fixture();try{for(const result of ['OUT_OF_STOCK','DISCONTINUED','UNORDERABLE']){
   let o=ok(await call('/orders','POST',payload()));o=ok(await call(`/orders/${o.id}/status`,'POST',{action:'advance',callResult:result,expectedVersion:o.version,requestKey:key()}));
   assert.equal(o.status,'ORDERED');assert.equal(o.callResult,result);assert.equal(o.dates.ORDERED,null);
   assert.equal((await call(`/orders/${o.id}/date`,'PATCH',{step:'ORDERED',milestoneDate:'2026-10-28',expectedVersion:o.version,requestKey:key()})).status,422);
@@ -47,7 +47,7 @@ test('supply results lock the called step, close on notification, and never crea
  }
  assert.equal(sql.prepare('SELECT count(*) n FROM store_blacklist_events').get().n,0);
  const o=ok(await call('/orders','POST',payload()));for(const result of ['invalid','__proto__'])assert.equal((await call(`/orders/${o.id}/status`,'POST',{action:'advance',callResult:result,expectedVersion:o.version,requestKey:key()})).status,422);
- for(const reasonKind of ['缺貨','絕版／停產'])assert.equal((await call(`/orders/${o.id}/status`,'POST',{action:'cancel',reasonKind,expectedVersion:o.version,requestKey:key()})).status,422);
+ for(const reasonKind of ['缺貨','絕版/停產'])assert.equal((await call(`/orders/${o.id}/status`,'POST',{action:'cancel',reasonKind,expectedVersion:o.version,requestKey:key()})).status,422);
  }finally{sql.close()}
 });
 test('honorifics preserve raw names, normalize full-width contact numbers, and sequence numbering is global before search',async()=>{
@@ -177,3 +177,12 @@ test('deep history pages seek the composite index across 10000 events and filter
  const deep=ok(await call(`/orders/${o.id}/history?cursor=100`));assert.equal(deep.rows.length,20);const query=queries.findLast(q=>q.includes('FROM store_order_events e JOIN'));assert(!query.includes(' OR '));const plan=sql.prepare('EXPLAIN QUERY PLAN '+query).all(o.id,100);assert(plan.some(r=>r.detail.includes('idx_store_order_events_order')&&r.detail.includes('id<?')));assert(!plan.some(r=>r.detail.includes('TEMP B-TREE')));
  }finally{sql.close()}
 });
+
+test('notification customer note appends without overwriting and idempotent retries append only once',async()=>{
+ const {call,sql}=fixture();try{let o=ok(await call('/orders','POST',payload({note:'原本備註'})));o=await advance(call,o);const version=o.version,keyId=key(),request={action:'advance',milestoneDate:'2026-10-29',expectedVersion:version,requestKey:keyId,customerNote:'一二三四五六七八九十'};
+ assert.equal((await call(`/orders/${o.id}/status`,'POST',{...request,requestKey:key(),customerNote:'一二三四五六七八九十多'})).status,422);
+ o=ok(await call(`/orders/${o.id}/status`,'POST',request));assert.equal(o.note,'原本備註\n一二三四五六七八九十');const again=ok(await call(`/orders/${o.id}/status`,'POST',request));assert.equal(again.note,o.note);assert.equal(again.version,o.version);
+ const event=ok(await call(`/orders/${o.id}/history`)).rows.find(e=>e.kind==='登記通知');assert.equal(event.after.customerNote,request.customerNote);
+ }finally{sql.close()}
+});
+test('notification never silently truncates an existing full note',async()=>{const {call,sql}=fixture();try{let o=ok(await call('/orders','POST',payload({note:'甲'.repeat(300)})));o=await advance(call,o);const before=o.version;assert.equal((await call(`/orders/${o.id}/status`,'POST',{action:'advance',milestoneDate:null,expectedVersion:before,requestKey:key(),customerNote:'乙'})).status,422);const stored=ok(await call(`/orders/${o.id}`));assert.equal(stored.note,'甲'.repeat(300));assert.equal(stored.status,'ORDERED');assert.equal(stored.version,before)}finally{sql.close()}});
