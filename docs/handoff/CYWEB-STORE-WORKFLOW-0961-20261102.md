@@ -48,3 +48,14 @@
 待必要CI、PR、受控部署、雙入口source／D1／HTTPS／排程核對、migration實際量與聯絡數字保全聚合、同分支文件追補。Claude重點：通知取消原子性、closedAt、pending價格0、聯絡數字、備註IME、0040來源保全、精確restore與inactive snapshot競爭。正式登入、實體剪貼簿／觸控與同事實際使用仍待驗收。
 
 最後重點95/95與兩份TypeScript通過；新增store-0961-orders-final.png為整合主表畫面。
+
+## 遠端驗證與正式發布（2026-11-02）
+
+- Source `f0c9675659eb82726b2c3491662809ce36550f6e`，Runtime [41331649509](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41331649509) 完整Linux **547/547、0失敗**，source contracts、browser／Worker typecheck、Vite build全通過。治理[41331649529](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41331649529)、部署契約[41331649587](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41331649587)成功；完整40個migration鏈驗證通過。
+- PR [339](https://github.com/simonliu1118-byte/chihyuan-web/pull/339) 合併 `d18d3dbbc7a4265a77b2770cd492f9bd7fd03bb9`；受控[部署41331933754](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41331933754)成功。沿用既有正式服務，歷史development名稱不表示另建測試資料庫。
+- 正式0038／0039／0040分別 **6 commands/6.31ms、13/18.06ms、8/3.94ms**，合計27命令28.31ms；三筆migration記錄存在。Wrangler沒有回傳逐命令計費rows_read／rows_written，不能把命令數或資料範圍冒稱計費寫入量。已知0040實際複製3來源事件；metadata／索引仍另有成本，與預算差異無法精確量化。沒有配額告警或重試大型批次。
+- 發布前聚合111訂購／121品項／448訂購事件／3名單／3名單來源事件；發布後112／122／453／3／3，期間使用者持續新增，故沒有宣稱全表數量或版本總和不變。所有舊訂購事件id≤448的**448筆／ID總和100576／JSON及request_key字元115461**完全相同；黑名單來源3筆／ID總和6／summary及reason字元475相同。新timeline三筆逐筆比對id、parent、source order、actor、at、reason、summary JSON，**3/3完全一致**；新表FK check空集合。
+- 發布後需換位聯絡列**0／0**，名單聯絡字元30／3個號碼未變。訂購聯絡字元隨新增從935到944，不能把此動態聚合冒稱逐欄checksum；真SQLite migration／restore測試另已逐列驗證原數字保留。舊價格pending0、舊closedAt非空0，沒有把舊0元變未知或解鎖歷史結案。
+- 本輪所有有metadata的唯讀聚合／保全檢查合計**讀3752列、寫0列**；不包含部署migration／health本身。相較先前預算，唯讀驗證在10000內，但migration計費量未由工具輸出，不能宣稱總計精確低於預算。D1目前額度／DDL與索引計量依[官方定價](https://developers.cloudflare.com/d1/platform/pricing/)核對；未宣稱帳號剩餘額度。
+- canonical及workers.dev雙入口HTTP200、version **0.9.61**、consumer1.0.5、database ok、source精確等於merge；476ms內both_targets_ready。HTTPS／HSTS／靜態資產、無效session清cookie、canonical Identity及businessDB authority全部通過。dailyCatalogSchedule=true、monthlyTodoSchedule=true、backupSchedule=false保持不變。
+- 本段及根TODO／CHANGELOG為同分支發布後docs-only追補，不重部署。Claude最終複審與使用者正式登入驗收仍待完成，功能分支保留；本機合成服務及驗收tab已關閉、viewport已reset。
