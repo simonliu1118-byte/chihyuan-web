@@ -35,6 +35,11 @@
 
 ## 遠端CI／合併部署
 
-待本次 source push 的 Linux CI、部署契約與治理檢查；通過後依授權合併，受控 development-deploy 工作流發布既有正式服務，不另建資源。完成後同分支補回 run／source／health／實際 migration 成本與資料保全聚合檢查。
+- Source `a52ea3353b830d1bcb07d2fac77f8c98f8092f46`：Runtime [#41304511930](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41304511930) 全通過，完整 Linux **516/516、0失敗**；source validators／browser與Worker typecheck／build均成功。部署契約 [#41304511981](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41304511981)、治理 [#41304511934](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41304511934) 成功。
+- PR [#334](https://github.com/simonliu1118-byte/chihyuan-web/pull/334) 合併 `89523975856a91a0440c95a6e6d371ece77947be`，受控 [部署 #41304711418](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41304711418) 成功。歷史 development-deploy 名稱發布既有正式服務，沒有另建資源。
+- 最新37個migration本機CI完整鏈通過；正式0037 **26 commands／36.87ms**，migration記錄1筆、無殘留_v60表。更新前後四表 **29／29／123／1** 完全相同，訂購版本總和、各表ID總和（SQL轉TEXT避JS精度損失）、不可變事件JSON／request key長度總和均相同；FK check空集合。這是聚合保全檢查，非逐欄checksum；真SQLite測試另覆蓋逐列保全。
+- 實際複製182列，符合預估資料範圍與5000 guard。Wrangler未輸出這26命令的計費 rows_read／rows_written，不把26命令或182列冒稱計費寫入數；索引／schema記帳仍有額外成本。本輪有metadata的發布前後唯讀驗證共讀 **4797列、寫0列**，其中全庫FK檢查3780、sqlite_master檢查288、migration命中1；不含部署本身與其他健康檢查。沒有配額失敗、無重試批次。
+- canonical及workers.dev雙入口 HTTP200、version **0.9.60**、consumer1.0.5、database ok、sourceCommit精確等於上述merge；336ms內both_targets_ready。HTTPS／HSTS／靜態資產、無效session清cookie、canonical正式Identity與businessDB authority驗證成功；dailyCatalogSchedule=true、monthlyTodoSchedule=true，backupSchedule維持false。
+- 本段為發布後同分支文件提交，另開docs-only追補PR，不重部署相同程式。後續程式變更須另分支與新驗證。
 
 Claude 最終審查待填。複審重點：日期數字游標／密度、跨年不增列高、歷程chain分頁、取消不可變投影、通知備註CAS重送、UNORDERABLE所有結案路徑、0037 FK保全與精確backup schema pins。正式登入實機剪貼簿／觸控及實際同事操作仍待使用者驗收。

@@ -5,12 +5,13 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
-## CY Web V0.9.60 — 日期密度、通知備註與訂購紀錄（2026-11-01）
+## CY Web V0.9.60 — 日期密度、通知備註與訂購紀錄（2026-11-01，已部署）
 
 - 共用日期純數字即時分隔、compact／regular密度；取消保留已登記日期、跨年小年份不增列高。
 - 無法訂購第四叫貨結果、供貨失敗篩選合併；顯示未結案切換；LINE6字折行、備註加寬、數量／單價交換，修復重複備註。
 - 訂購歷程單行串接、取消只留理由、通知客戶告知10字原子附加備註；視窗明確取消才關、緊湊黑名單是／否與完整來源理由。
 - 0037保全FK及事件，5000筆guard與精確舊備份相容；完整驗證及發布見[Claude交接](docs/handoff/CYWEB-STORE-DATE-NOTICE-0960-20261101.md)。
+- PR #334、Linux516/516，部署 #41304711418成功；正式0037保全四表182列，雙入口0.9.60與精確source／D1／HTTPS／排程均通過，Claude事後複審待填。
 
 ## CY Web V0.9.59 Build 2 — 登記色塊與叫貨清單（2026-11-01，併入V0.9.60）
 
