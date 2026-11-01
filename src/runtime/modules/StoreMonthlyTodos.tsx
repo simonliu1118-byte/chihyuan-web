@@ -1,3 +1,4 @@
+import type {StoreHistoryCache} from "../../../shared/store-history";
 import {useCallback,useEffect,useRef,useState,type ReactNode} from "react";
 import {apiRequest} from "../../api/client";
 import {Field,CheckField} from "../../ui/forms/Field";
@@ -24,13 +25,13 @@ export function StoreMonthlyTodos(){
  const [data,setData]=useState<MonthlyPage|null>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[history,setHistory]=useState<string|null>(null),[revision,setRevision]=useState(0);
  const [settings,setSettings]=useState<SettingsForm|null>(null),[date,setDate]=useState<DateForm|null>(null);
  const [message,setMessage,reportError,tone]=useFeedbackMessage<string|null>(null),{confirm,confirmationDialog}=useConfirmation();
- const pages=useRef<string[]>([""]),sequence=useRef(0),mutation=useRef(false);
+ const pages=useRef<string[]>([""]),sequence=useRef(0),mutation=useRef(false),historyCache=useRef<StoreHistoryCache>(new Map());
  const load=useCallback(async()=>{const serial=++sequence.current;setLoading(true);try{
   const result=await Promise.all(pages.current.map(p=>call<MonthlyPage>(p?"?before="+p:"")));if(serial!==sequence.current)return;
   const seen=new Set<string>(),rows=result.flatMap(p=>p.rows).filter(r=>!seen.has(r.id)&&!!seen.add(r.id));setData({...result[0],rows,nextBefore:result.at(-1)!.nextBefore});
  }catch(e){if(serial===sequence.current)reportError(e instanceof Error?e.message:"月度待辦載入失敗")}finally{if(serial===sequence.current)setLoading(false)}},[reportError]);
  useEffect(()=>{void load();return()=>{sequence.current++}},[load]);
- async function run(job:()=>Promise<void>){if(mutation.current)return;mutation.current=true;setBusy(true);try{await job();setRevision(v=>v+1);await load()}catch(e){reportError(e instanceof Error?e.message:"操作失敗")}finally{mutation.current=false;setBusy(false)}}
+ async function run(job:()=>Promise<void>){if(mutation.current)return;mutation.current=true;setBusy(true);try{await job();historyCache.current.clear();setRevision(v=>v+1);await load()}catch(e){reportError(e instanceof Error?e.message:"操作失敗")}finally{mutation.current=false;setBusy(false)}}
  function openSettings(kind:SettingsForm["kind"]){if(!data?.canManage)return;const next=shiftMonth(data.currentMonth,1),rows=data.settings[kind].map(s=>({key:s.id,id:s.id,name:s.name,enabled:activeInMonth(s.periods,next),storeIds:"stores" in s?Object.entries(s.stores).filter(([,p])=>activeInMonth(p,next)).map(([id])=>id):[]}));setSettings({kind,version:data.settings.version,rows:rows.length?rows:[newDraft()],requestKey:crypto.randomUUID()})}
  const patchDraft=(key:string,p:Partial<Draft>)=>setSettings(s=>s?{...s,rows:s.rows.map(r=>r.key===key?{...r,...p}:r)}:s);
  function moveDraft(index:number,delta:number){setSettings(s=>{if(!s)return s;const rows=[...s.rows],to=index+delta;if(to<0||to>=rows.length)return s;[rows[index],rows[to]]=[rows[to],rows[index]];return {...s,rows}})}
@@ -55,7 +56,7 @@ export function StoreMonthlyTodos(){
       </>:null}
      </td>})}
      <td className="cy-monthly-operations cy-grid-divider-before"><button type="button" className="cy-op-button compact cy-monthly-history-button" title="展開操作紀錄" aria-label={row.month.replace("-","/")+" "+row.storeName+"操作紀錄"} aria-expanded={history===row.id} aria-controls={"monthly-history-"+row.id} onClick={()=>setHistory(v=>v===row.id?null:row.id)}>{icons.history}</button></td>
-    </tr>{history===row.id?<tr id={"monthly-history-"+row.id}><td colSpan={data.settings.items.length+3}><StoreOperationHistory key={revision} path={"/monthly/rows/"+encodeURIComponent(row.id)+"/history"} onError={reportError}/></td></tr>:null}</tbody>})}
+    </tr>{history===row.id?<tr id={"monthly-history-"+row.id}><td colSpan={data.settings.items.length+3}><StoreOperationHistory key={revision} path={"/monthly/rows/"+encodeURIComponent(row.id)+"/history"} onError={reportError} cache={historyCache.current}/></td></tr>:null}</tbody>})}
     {!data.rows.length?<tbody><tr><td colSpan={data.settings.items.length+3}>{data.canManage?"請先設定門市與項目":"尚無月度待辦"}</td></tr></tbody>:null}
    </table></div>
    {data.nextBefore?<button type="button" className="cy-op-button cy-monthly-more" disabled={loading||busy} onClick={()=>{if(data.nextBefore&&!pages.current.includes(data.nextBefore)){pages.current.push(data.nextBefore);void load()}}}>載入更早月份</button>:null}

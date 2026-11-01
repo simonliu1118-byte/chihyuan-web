@@ -712,3 +712,7 @@ All four are durable portable-backup tables; no identity authority or browser-lo
 - Orders drop physical `arrived_date`; existing ARRIVED becomes ORDERED. The historical table CHECK still accepts ARRIVED, but the current API cannot write it.
 - `notified_at` is the actual confirmation clock; optional `notified_date` is the work date. Immutable historical event snapshots retain their old fields.
 - Exact backup upgrades and current behavior: [STORE_CUSTOMER_ORDERS.md](STORE_CUSTOMER_ORDERS.md).
+
+## 23. Store order display numbering (forward migration 0036)
+
+`store_customer_orders.list_sequence` persists oldest-first display positions. Migration initializes by order_date / chronological created_at / id. Insert and order-date move shift only the affected interval atomically with the business mutation. Presentation shifts do not change other orders' content versions. Indexes cover descending list_sequence and the order-date / creation-time sort. Exact older portable backups derive the same positions into empty current targets; current backups preserve them.

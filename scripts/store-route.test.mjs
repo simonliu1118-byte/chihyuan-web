@@ -42,8 +42,8 @@ test('supply results lock the called step, close on notification, and never crea
   o=await advance(call,o);assert.equal(o.status,'NOTIFIED');assert.equal(o.callResult,result);assert.equal(o.cancelReason,'');
   assert.equal((await call(`/orders/${o.id}/status`,'POST',{action:'advance',milestoneDate:null,expectedVersion:o.version,requestKey:key()})).status,422);
   assert.equal((await call(`/orders/${o.id}`,'PATCH',payload({expectedVersion:o.version,reasonKind:'輸入錯誤'}))).status,409);
-  assert(ok(await call(`/orders/${o.id}/history`)).rows.some(e=>e.kind==='通知結案'));
-  o=await rollback(call,o);assert.equal(o.status,'ORDERED');assert.equal(o.callResult,result);
+  assert(ok(await call(`/orders/${o.id}/history`)).rows.some(e=>e.kind==='登記通知'));
+  assert.equal((await call(`/orders/${o.id}/status`,'POST',{action:'rollback',reason:'誤按',expectedVersion:o.version,requestKey:key()})).status,409);
  }
  assert.equal(sql.prepare('SELECT count(*) n FROM store_blacklist_events').get().n,0);
  const o=ok(await call('/orders','POST',payload()));for(const result of ['invalid','__proto__'])assert.equal((await call(`/orders/${o.id}/status`,'POST',{action:'advance',callResult:result,expectedVersion:o.version,requestKey:key()})).status,422);
@@ -97,13 +97,16 @@ test("rollback keeps dates and ever-ordered rule, date correction never advances
  const h=ok(await call(`/orders/${o.id}/history`));assert.ok(h.rows.some(e=>e.kind==="更正日期"));assert.ok(h.rows.some(e=>e.reason==="輸入錯誤"));
  }finally{sql.close()}
 });
-test("date correction validates neighboring dates; completed orders allow date-only correction",async()=>{
- const {call,sql}=fixture();try{let o=ok(await call("/orders","POST",payload()));for(let i=0;i<3;i++)o=await advance(call,o);
- assert.equal((await call(`/orders/${o.id}`,"PATCH",payload({expectedVersion:o.version,note:"不應改"}))).status,409);
+test("date correction validates neighboring dates before closure; closed orders reject every mutation",async()=>{
+ const {call,sql}=fixture();try{let o=ok(await call("/orders","POST",payload()));o=await advance(call,o);o=await advance(call,o);
  assert.equal((await call(`/orders/${o.id}/date`,"PATCH",{requestKey:key(),expectedVersion:o.version,step:"ORDERED",milestoneDate:"2026-10-29"})).status,422);
- o=ok(await call(`/orders/${o.id}/date`,"PATCH",{requestKey:key(),expectedVersion:o.version,step:"PICKED_UP",milestoneDate:"2026-10-29"}));assert.equal(o.status,"PICKED_UP");o=await rollback(call,o);assert.equal(o.status,"NOTIFIED");assert.equal(o.dates.PICKED_UP,"2026-10-29");
+ o=await advance(call,o);for(const step of ['ORDERED','NOTIFIED','PICKED_UP'])assert.equal((await call(`/orders/${o.id}/date`,"PATCH",{requestKey:key(),expectedVersion:o.version,step,milestoneDate:null})).status,409);
+ assert.equal((await call(`/orders/${o.id}/status`,"POST",{requestKey:key(),expectedVersion:o.version,action:'rollback',reason:'誤按'})).status,409);
+ assert.equal((await call(`/orders/${o.id}`,"PATCH",payload({expectedVersion:o.version,note:"不應改"}))).status,409);
+ assert.equal(ok(await call(`/orders/${o.id}/history`)).rows.length,4);
  }finally{sql.close()}
 });
+
 test("cross-field blacklist matching preserves refusal, exact full prepayment, OTHER and zero events",async()=>{
  const {call,sql}=fixture();try{ok(await call("/blacklist","POST",{name:"測試甲",phone:"",mobile:"0911111111",lineName:"",reason:"測試",action:"REFUSE"}));assert.equal((await call("/orders","POST",payload({phone:"0911111111"}))).status,409);
  ok(await call("/blacklist","POST",{name:"測試乙",phone:"0933333333",reason:"測試",action:"FULL_PAYMENT"}));assert.equal((await call("/orders","POST",payload({phone:"",mobile:"0933333333"}))).status,422);ok(await call("/orders","POST",payload({phone:"",mobile:"0933333333",deposit:399})));
@@ -145,4 +148,32 @@ test("history pagination is bounded and date/filter validation rejects invalid i
 });
 test("concurrent adjacent advances commit exactly once and stale request does not skip a step",async()=>{const {call,sql}=fixture();try{const o=ok(await call('/orders','POST',payload()));const results=await Promise.all([1,2].map(()=>call(`/orders/${o.id}/status`,'POST',{action:'advance',requestKey:key(),expectedVersion:o.version,milestoneDate:'2026-10-28'})));assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);assert.equal(ok(await call(`/orders/${o.id}`)).status,'ORDERED');assert.equal(sql.prepare("SELECT count(*) n FROM store_order_events WHERE kind='推進'").get().n,1)}finally{sql.close()}});
 test("failed blacklist-event insert rolls back cancellation, new blacklist, history and Audit together",async()=>{const {call,sql}=fixture();try{const o=ok(await call('/orders','POST',payload()));sql.exec("CREATE TRIGGER synthetic_fail_blacklist_event BEFORE INSERT ON store_blacklist_events BEGIN SELECT RAISE(ABORT,'synthetic rollback test'); END");const count=sql.prepare('SELECT count(*) n FROM audit_events').get().n;const r=await call(`/orders/${o.id}/status`,'POST',{action:'cancel',requestKey:key(),expectedVersion:o.version,reasonKind:'顧客取消',blacklist:{name:o.customerName,phone:o.phone,mobile:o.mobile,lineName:o.lineName,reason:'測試',action:'REFUSE'}});assert.equal(r.status,500);assert.equal(ok(await call(`/orders/${o.id}`)).status,'REGISTERED');assert.equal(sql.prepare('SELECT count(*) n FROM store_blacklist').get().n,0);assert.equal(sql.prepare('SELECT count(*) n FROM audit_events').get().n,count);assert.equal(sql.prepare('SELECT count(*) n FROM store_order_events').get().n,1)}finally{sql.close()}});
-test('all three milestones accept explicit no-date and notification retains its confirmation clock',async()=>{const {call,sql}=fixture();try{let o=ok(await call('/orders','POST',payload()));for(const status of ['ORDERED','NOTIFIED','PICKED_UP']){o=ok(await call(`/orders/${o.id}/status`,'POST',{action:'advance',expectedVersion:o.version,requestKey:key(),milestoneDate:null}));assert.equal(o.status,status);assert.equal(o.dates[status],null);if(status==='NOTIFIED')assert.ok(o.notifiedAt)}const confirmation=o.notifiedAt;o=ok(await call(`/orders/${o.id}/date`,'PATCH',{step:'NOTIFIED',expectedVersion:o.version,requestKey:key(),milestoneDate:'2026-10-28'}));o=ok(await call(`/orders/${o.id}/date`,'PATCH',{step:'NOTIFIED',expectedVersion:o.version,requestKey:key(),milestoneDate:null}));assert.equal(o.notifiedAt,confirmation);assert.equal(o.status,'PICKED_UP');assert.equal((await call(`/orders/${o.id}/date`,'PATCH',{step:'ARRIVED',expectedVersion:o.version,requestKey:key(),milestoneDate:null})).status,422)}finally{sql.close()}});
+test('all milestones accept no-date and the notification confirmation clock survives correction before closure',async()=>{
+ const {call,sql}=fixture();try{let o=ok(await call('/orders','POST',payload()));for(const status of ['ORDERED','NOTIFIED']){o=await advance(call,o,null);assert.equal(o.status,status);assert.equal(o.dates[status],null)}
+ const confirmation=o.notifiedAt;assert(confirmation);o=ok(await call(`/orders/${o.id}/date`,'PATCH',{step:'NOTIFIED',expectedVersion:o.version,requestKey:key(),milestoneDate:'2026-10-28'}));o=ok(await call(`/orders/${o.id}/date`,'PATCH',{step:'NOTIFIED',expectedVersion:o.version,requestKey:key(),milestoneDate:null}));assert.equal(o.notifiedAt,confirmation);
+ o=await advance(call,o,null);assert.equal(o.status,'PICKED_UP');assert.equal(o.dates.PICKED_UP,null);
+ }finally{sql.close()}
+});
+
+test('persisted numbering follows order date then creation time; insertion and date moves change only the affected interval',async()=>{
+ const {call,sql,queries}=fixture();try{
+ const a=ok(await call('/orders','POST',payload({orderDate:'2026-10-20',customerName:'最舊'})));
+ const b=ok(await call('/orders','POST',payload({orderDate:'2026-10-22',customerName:'較新'})));
+ const c=ok(await call('/orders','POST',payload({orderDate:'2026-10-21',customerName:'中間'})));
+ await new Promise(resolve=>setTimeout(resolve,3));const d=ok(await call('/orders','POST',payload({orderDate:'2026-10-21',customerName:'同日新單'})));
+ let list=ok(await call('/orders'));assert.deepEqual(list.map(o=>[o.id,o.sequence]),[[b.id,4],[d.id,3],[c.id,2],[a.id,1]]);
+ assert(queries.filter(q=>q.startsWith('SELECT o.*')).every(q=>!q.includes('ROW_NUMBER')));
+ ok(await call(`/orders/${c.id}`,'PATCH',payload({orderDate:'2026-10-23',customerName:'中間',expectedVersion:c.version})));
+ list=ok(await call('/orders'));assert.deepEqual(list.map(o=>[o.id,o.sequence]),[[c.id,4],[b.id,3],[d.id,2],[a.id,1]]);
+ assert.equal(list.find(o=>o.id===b.id).version,b.version);const current=list[0];ok(await call(`/orders/${c.id}`,'PATCH',payload({orderDate:'2026-10-19',customerName:'中間',expectedVersion:current.version})));
+ list=ok(await call('/orders'));assert.deepEqual(list.map(o=>o.sequence),[4,3,2,1]);assert.equal(list.at(-1).id,c.id);
+ const plan=sql.prepare('EXPLAIN QUERY PLAN SELECT * FROM store_customer_orders ORDER BY list_sequence DESC LIMIT 501').all();assert(plan.some(r=>r.detail.includes('idx_store_customer_orders_list_sequence')));assert(!plan.some(r=>r.detail.includes('TEMP B-TREE')));
+ }finally{sql.close()}
+});
+test('deep history pages seek the composite index across 10000 events and filter retired arrival without deleting source events',async()=>{
+ const {call,sql,queries}=fixture();try{const o=ok(await call('/orders','POST',payload()));const insert=sql.prepare('INSERT INTO store_order_events(order_id,actor,at,kind,before_json,after_json,reason,request_key) VALUES(?,1,?,?,?,?,?,?)');sql.exec('BEGIN');for(let i=0;i<10000;i++)insert.run(o.id,'2026-10-31T00:00:00Z','修改訂購','{}','{}','','history-'+i);sql.exec('COMMIT');
+ insert.run(o.id,'2026-10-31T00:00:00Z','推進','{}',JSON.stringify({status:'ARRIVED',date:'2026-10-20'}),'','old-arrival');insert.run(o.id,'2026-10-31T00:00:00Z','推進',JSON.stringify({status:'ARRIVED'}),JSON.stringify({status:'NOTIFIED',date:'2026-10-21'}),'','old-notice');
+ const first=ok(await call(`/orders/${o.id}/history`));assert(first.rows.length<=20);assert(!JSON.stringify(first).includes('ARRIVED'));assert(first.rows.some(e=>e.kind==='登記通知'));assert.equal(sql.prepare('SELECT count(*) n FROM store_order_events').get().n,10003);
+ const deep=ok(await call(`/orders/${o.id}/history?cursor=100`));assert.equal(deep.rows.length,20);const query=queries.findLast(q=>q.includes('FROM store_order_events e JOIN'));assert(!query.includes(' OR '));const plan=sql.prepare('EXPLAIN QUERY PLAN '+query).all(o.id,100);assert(plan.some(r=>r.detail.includes('idx_store_order_events_order')&&r.detail.includes('id<?')));assert(!plan.some(r=>r.detail.includes('TEMP B-TREE')));
+ }finally{sql.close()}
+});

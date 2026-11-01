@@ -12,7 +12,7 @@ export type Honorific=""|"MR"|"MS";
 export const displayCustomerName=(name:string,honorific:Honorific="")=>name+(honorific==="MR"?"'r":honorific==="MS"?"'s":"");
 export const isSupplyUnavailable=(o:{callResult?:string})=>o.callResult==="OUT_OF_STOCK"||o.callResult==="DISCONTINUED";
 export const isOrderClosed=(o:{status:StoreOrderStatus;callResult?:string})=>o.status==="PICKED_UP"||o.status==="CANCELLED"||isSupplyUnavailable(o)&&o.status==="NOTIFIED";
-export const STORE_MILESTONE_LABELS={ORDERED:"叫貨",NOTIFIED:"到貨通知",PICKED_UP:"取貨"} as const;
+export const STORE_MILESTONE_LABELS={ORDERED:"叫貨",NOTIFIED:"通知",PICKED_UP:"取貨"} as const;
 
 export const STORE_BLACKLIST_ACTIONS = ["REFUSE", "FULL_PAYMENT", "OTHER"] as const;
 export type StoreBlacklistAction = (typeof STORE_BLACKLIST_ACTIONS)[number];
