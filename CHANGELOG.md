@@ -5,12 +5,13 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
-## CY Web V0.9.59 — 訂購流程與共用聯絡／日期輸入（2026-11-01）
+## CY Web V0.9.59 — 訂購流程與共用聯絡／日期輸入（2026-11-01，已部署）
 
 - 叫貨三結果、缺貨／絕版通知結案、取消原因精簡、到貨獨立日期刪除、正常三步驟均可無日期與未取計時。
 - 多品項獨立品項／單價／數量列，其餘合併；項次、稱謂、簡化pill、純文字進度、固定四操作與單行歷程。
 - 新增共用台灣電話格式／純數字剪貼簿及CYACCWEB互動日期輸入，訂購與月度共用。
 - Migration0035及精確舊備份升級；與V0.9.58月度同PR #330，使用者已授權驗證後合併部署。證據、限制及Claude事後複審見[交接](docs/handoff/CYWEB-STORE-CONTACT-PROGRESS-0959-20261101.md)。
+- Linux完整494/494，PR #330合併 `b49976f`，正式部署 #41281370342成功；0034／0035、雙入口version0.9.59／source／D1、HTTPS／Identity及月度排程均通過。
 
 ## CY Web V0.9.58 — 門市月度待辦（2026-11-01，隨V0.9.59交付）
 

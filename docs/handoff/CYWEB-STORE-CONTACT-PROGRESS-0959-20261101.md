@@ -1,6 +1,6 @@
 # V0.9.59 顧客訂購／共用輸入：交 Claude 複審
 
-2026-11-01 Asia/Taipei。與 V0.9.58 同分支 `cyweb/monthly-todos-0958`、[PR #330](https://github.com/simonliu1118-byte/chihyuan-web/pull/330) 一併交付。使用者最新明確授權「上面這些可以做」「做完就合併部署」，取代本分支初期僅留 Draft 的限制；保留 Claude 事後複審，GPT 沒有代簽通過。尚未執行遠端 migration／部署，結果於完成後更新本檔。
+2026-11-01 Asia/Taipei。與 V0.9.58 同分支 `cyweb/monthly-todos-0958`、[PR #330](https://github.com/simonliu1118-byte/chihyuan-web/pull/330) 一併交付，已合併部署。使用者最新明確授權「上面這些可以做」「做完就合併部署」，取代本分支初期僅留 Draft 的限制；保留 Claude 事後複審，GPT 沒有代簽通過。部署結果見文末。
 
 ## 修改與原因
 
@@ -44,4 +44,12 @@
 
 ## 合併與部署
 
-待必要CI通過後依使用者授權執行受控發布，完成後補 commit、run、health、migration用量。
+- 實作 source `b8d0fef920ad7336e109e563adbc13cffd42cf41`：[Runtime #41281223006](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41281223006) 四 jobs 全綠，**完整 Node 494/494、fail 0**，含 Linux 下原 Windows 限制的完整驗證、Local D1 acceptance、來源契約及build。
+- [PR部署契約 #41281223047](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41281223047) 與 [Governance #41281223004](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41281223004) 全部必要檢查通過。
+- PR #330 合併 SHA `b49976f54137a12fad517b8fc721f812a851305b`；從 main dispatch `deploy-development`，沒有 force push 或另外建立正式資源。
+- [正式部署 #41281370342](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41281370342)：validate-deployment-contract、deploy-development 均成功。台北2026/11/01 14:35完成，0034執行12 commands、0035執行8 commands，各一次成功。
+- 雙入口health HTTP200：version `0.9.59`、consumer `1.0.5`、sourceCommit `b49976f54137a12fad517b8fc721f812a851305b`、database `ok`。HTTPS／資產、Custom Domain、無效session清cookie、canonical production portal authority均通過。
+- 排程檢查 `dailyCatalogSchedule:true`、`monthlyTodoSchedule:true`、`backupSchedule:false`，保持使用者未開自動備份的決定。
+- 正式唯讀復核：0034／0035 ledger存在，到貨實體欄數0，訂購11、黑名單0、grants13與部署前一致；月度settings／rows為0，沒有替使用者預設門市／項目或自動授權員工。本次復核 **50 read／0 write**，與部署前盤點合計 **77 read／0 write**。
+- Wrangler migration輸出只有command數，未提供可歸屬的D1計費read／write；Analytics即時查詢仍有延遲，不能把尚未出現的migration群組當作零用量。上述77是已直接量測的唯讀查核用量，不冒充migration用量；兩migration實際計費統計待Analytics可觀測後補核，預估各<1000 read／write。沒有進行資料回填重試或重複部署。
+- 部署後文件補記仍在原工作分支，另開純文件PR合併；不重複發布相同程式。Claude複審與真實使用者登入／OS剪貼簿、月初長期運作仍待完成。
