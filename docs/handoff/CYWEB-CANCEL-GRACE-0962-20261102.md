@@ -30,3 +30,11 @@
 ## 待辦
 
 必要CI／合併部署／雙入口source及D1／HTTPS／排程證據追補；Claude事後複審與正式登入、實際同事／觸控驗收。保留分支。
+
+## 發布完成證據（2026-11-02）
+
+- Source `43d7e28f108314df0e4d3df8452bde6db75852d1`，Runtime [41334282376](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41334282376) 完整Linux **552/552、0失敗**；source contracts、browser／Worker typecheck及build通過。治理[41334282365](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41334282365)、部署契約[41334282421](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41334282421)成功，未削弱validator。
+- PR [341](https://github.com/simonliu1118-byte/chihyuan-web/pull/341) 合併 `c835d4eb33ecdc19ca464059c3ec285e9cf51f60`；受控[部署41334505024](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41334505024)成功，migration明確No migrations to apply，無正式批次回填／資料核對，沒有為驗收建立正式業務資料。
+- canonical與workers.dev HTTP200、version0.9.62、consumer1.0.5、database ok，source精確等於上述merge，447ms內both_targets_ready。HTTPS／HSTS／靜態資產、無效session清cookie及canonical Identity／businessDB authority全部通過；dailyCatalogSchedule=true、monthlyTodoSchedule=true、backupSchedule=false保持原設定。
+- 本輪正式bulk讀／寫為0（沒有bulk作業）；健康檢查與受控部署原有查詢仍有服務計量，但工具未提供逐查詢row metadata，不宣稱服務完全零讀寫。預估新增撤回成本為單筆索引讀寫，沒有配額告警或重試。
+- 發布後本段與TODO／CHANGELOG同分支docs-only追補，不重部署。驗收tab／本機服務已關閉，未更動使用者原有tab或viewport；功能分支保留。Claude最終複審及正式登入／實機驗收仍待完成。

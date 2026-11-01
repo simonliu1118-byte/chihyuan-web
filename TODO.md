@@ -1,7 +1,8 @@
-## V0.9.62 視窗與取消猶豫期（2026-11-02，待發布）
+## 已部署、待事後複審：V0.9.62 視窗與取消猶豫期（2026-11-02）
 
 - [x] 共用段落留白／單層FormSection、取消寬288px、metadata24px／12px、移除清單反藍；取消5分鐘撤回及黑名單同步復原／競爭guard／重複取消；build、76重點與合成瀏覽器通過。[Claude交接](docs/handoff/CYWEB-CANCEL-GRACE-0962-20261102.md)。
-- [ ] 必要LinuxCI、合併部署及證據追補；Claude最終複審及正式登入實機驗收。
+- [x] PR341完整Linux552/552及必要檢查通過，合併c835d4e、[部署41334505024](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41334505024)成功，雙入口0.9.62／source／D1／HTTPS／排程通過，無migration。實際證據已補交接。
+- [ ] Claude最終複審及正式登入實機驗收。
 
 ## 已部署、待事後複審：V0.9.61 門市訂購／黑名單（2026-11-02）
 
