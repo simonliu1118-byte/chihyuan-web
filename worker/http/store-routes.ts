@@ -119,7 +119,7 @@ export async function handleStoreRoute(request:Request,env:IdentityRuntimeEnv,re
     const d=v.milestoneDate===null||v.milestoneDate===""?null:dateOf(v.milestoneDate);validateDates(o,step,d);before=dates(o);after={...dates(o),[step]:d};if(o[dateColumns[step]]===d)return success(await getOrder(c,id),requestId);
     stmts.push(c.db.prepare(`UPDATE store_customer_orders SET ${dateColumns[step]}=?,closed_at=CASE WHEN ?=1 THEN ? ELSE closed_at END,version=version+1,updated_at=?,updated_by=? WHERE id=?`).bind(d,closed?1:0,c.now,c.now,c.actor,id));kind="更正日期";
    }else{
-    const action=v.action;if(o.status==="CANCELLED")throw new Bad("STORE_INVALID","已取消不可再操作",409);const index=STORE_STEPS.indexOf(o.status as typeof STORE_STEPS[number]);let target:StoreOrderStatus=o.status;
+    const action=v.action;if(o.status==="CANCELLED"&&action!=="rollback")throw new Bad("STORE_INVALID","已取消不可再操作",409);const index=STORE_STEPS.indexOf(o.status as typeof STORE_STEPS[number]);let target:StoreOrderStatus=o.status;
     before={status:o.status,dates:dates(o),callResult:o.call_result};
     if(action==="advance"){
      if(index<0||index>=STORE_STEPS.length-1||isOrderClosed({status:o.status,callResult:o.call_result}))throw new Bad("STORE_INVALID","沒有下一步");target=STORE_STEPS[index+1];if(v.status&&v.status!==target||v.step&&v.step!==target)throw new Bad("STORE_INVALID","不可跳階");
@@ -136,14 +136,32 @@ export async function handleStoreRoute(request:Request,env:IdentityRuntimeEnv,re
      }
     }else if(action==="rollback"){
      if(isOrderClosed({status:o.status,callResult:o.call_result})&&!canAmendClosure({status:o.status,callResult:o.call_result,closedAt:o.closed_at},Date.parse(c.now)))throw new Bad("STORE_INVALID","已結案的訂購僅可查看紀錄",409);
+     if(o.status==="CANCELLED"){
+      const last=await one<{before_json:string;after_json:string;at:string}>(c.db,"SELECT before_json,after_json,at FROM store_order_events WHERE order_id=? AND kind='取消' ORDER BY id DESC LIMIT 1",id);
+      if(!last||last.at!==o.closed_at)throw new Bad("STORE_INVALID","找不到可撤回的取消紀錄",409);
+      const prior=JSON.parse(last.before_json) as {status:StoreOrderStatus},saved=JSON.parse(last.after_json) as {blacklistId?:number;blacklistUndo?:{id:number;version:number;prior:BlacklistRow|null}};
+      if(!["REGISTERED","ORDERED","NOTIFIED"].includes(prior.status))throw new Bad("STORE_INVALID","取消前狀態不正確",409);
+      const undo=saved.blacklistUndo;let reverted=false;
+      if(undo){
+       const b=await one<BlacklistRow>(c.db,"SELECT * FROM store_blacklist WHERE id=?",undo.id),anchor=await one<{id:number}>(c.db,"SELECT id FROM store_blacklist_operations WHERE blacklist_id=? AND source_order_id=? AND kind='訂購取消' AND at=? ORDER BY id DESC LIMIT 1",undo.id,id,last.at);
+       if(!b||b.version!==undo.version||!anchor||await one(c.db,"SELECT id FROM store_blacklist_operations WHERE blacklist_id=? AND id>? LIMIT 1",undo.id,anchor.id))throw new Bad("STORE_VERSION_CONFLICT","黑名單已另外異動，請先核對後再撤回取消",409);
+       stmts.push(guard(c,"store_blacklist",b.id,b.version),c.db.prepare("SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM store_blacklist_operations WHERE blacklist_id=? AND id>?) THEN 1 ELSE json('') END").bind(b.id,anchor.id));
+       if(undo.prior){const old=undo.prior;stmts.push(c.db.prepare("UPDATE store_blacklist SET active=0,name=?,honorific=?,phone=?,mobile=?,line_name=?,reason=?,action=?,joined_date=?,action_detail=?,activation_at=?,version=version+1,updated_at=?,updated_by=? WHERE id=?").bind(old.name,old.honorific,old.phone,old.mobile,old.line_name,old.reason,old.action,old.joined_date,old.action_detail,old.activation_at,c.now,c.actor,b.id))}
+       else stmts.push(c.db.prepare("UPDATE store_blacklist SET active=0,version=version+1,updated_at=?,updated_by=? WHERE id=?").bind(c.now,c.actor,b.id));
+       stmts.push(blackOperation(c,b.id,"撤回列入黑名單",{},{},"",id),audit(c,"store_blacklist",b.id,"store_blacklist.cancel_reverted",{orderId:id}));reverted=true;
+      }
+      reason=text(v.reason,"撤回理由",300,true);if(saved.blacklistId&&!undo)stmts.push(blackOperation(c,saved.blacklistId,"撤回訂購取消",{},{},reason,id));target=prior.status;before={status:"CANCELLED"};after={status:target,blacklistReverted:reverted};kind="撤回取消";
+      stmts.push(c.db.prepare("UPDATE store_customer_orders SET status=?,cancel_kind='',cancel_reason='',closed_at=NULL,version=version+1,updated_at=?,updated_by=? WHERE id=?").bind(target,c.now,c.actor,id));
+     }else{
      if(index<=0||isSupplyUnavailable({callResult:o.call_result})&&o.status==="ORDERED")throw new Bad("STORE_INVALID","無法退回；無法供貨的叫貨結果已鎖定");reason=text(v.reason,"退回理由",300,true);target=STORE_STEPS[index-1];stmts.push(c.db.prepare("UPDATE store_customer_orders SET status=?,closed_at=NULL,version=version+1,updated_at=?,updated_by=? WHERE id=?").bind(target,c.now,c.actor,id));kind="退回";after={status:target,dates:dates(o),callResult:o.call_result};
+     }
     }else if(action==="cancel"){
      if(isOrderClosed({status:o.status,callResult:o.call_result}))throw new Bad("STORE_INVALID","結案請先退回後再取消",409);reason=reasonOf(v,STORE_CANCEL_REASONS);const eligible=true;
-     stmts.push(c.db.prepare("UPDATE store_customer_orders SET status='CANCELLED',cancel_kind=?,cancel_reason=?,version=version+1,updated_at=?,updated_by=? WHERE id=?").bind(v.reasonKind,reason,c.now,c.actor,id));kind="取消";after={status:"CANCELLED"};
+     stmts.push(c.db.prepare("UPDATE store_customer_orders SET status='CANCELLED',cancel_kind=?,cancel_reason=?,closed_at=?,version=version+1,updated_at=?,updated_by=? WHERE id=?").bind(v.reasonKind,reason,c.now,c.now,c.actor,id));kind="取消";after={status:"CANCELLED"};
      if(eligible){const state=await contactState(c,{phone:o.phone,mobile:o.mobile,lineName:o.line_name}),matches=resolvedMatches(state,v).filter(b=>b.active||!!v.blacklist);stmts.push(state.check);const hit=oneBlackMatch(matches,v.blacklistId);
-      let blackId=hit?.id;
-      if((!hit||!hit.active)&&v.blacklist){if(typeof v.blacklist!=="object")throw new Bad("STORE_INVALID","黑名單不正確");const f=blacklistFields(v.blacklist as Record<string,unknown>);if(f.phone!==o.phone||f.mobile!==o.mobile||f.lineName!==o.line_name)throw new Bad("STORE_INVALID","請先修改訂購聯絡方式再建立黑名單");blackId=hit?.id??randomId();if(hit)stmts.push(guard(c,"store_blacklist",hit.id,hit.version),blackUpdate(c,hit.id,f,true));else stmts.push(blackInsert(c,blackId,f));stmts.push(blackOperation(c,blackId,hit?"加回黑名單":"加入黑名單",{}, {action:f.action,actionDetail:f.actionDetail},"",id),audit(c,"store_blacklist",blackId,hit?"store_blacklist.restored_from_order":"store_blacklist.created_from_order",{orderId:id}))}
-      if(blackId){const summary=await getOrder(c,id);stmts.push(c.db.prepare("INSERT INTO store_blacklist_events(blacklist_id,order_id,actor,at,reason,summary_json) VALUES(?,?,?,?,?,?)").bind(blackId,id,c.actor,c.now,reason,JSON.stringify({customerName:o.customer_name,honorific:o.honorific,orderDate:o.order_date,lines:summary.lines})),blackOperation(c,blackId,"訂購取消",{},{},reason,id));after={status:"CANCELLED",blacklistId:blackId,blacklistEvent:"追加訂購原因"}}
+      let blackId=hit?.id,blacklistUndo:{id:number;version:number;prior:BlacklistRow|null}|undefined;
+      if((!hit||!hit.active)&&v.blacklist){if(typeof v.blacklist!=="object")throw new Bad("STORE_INVALID","黑名單不正確");const f=blacklistFields(v.blacklist as Record<string,unknown>);if(f.phone!==o.phone||f.mobile!==o.mobile||f.lineName!==o.line_name)throw new Bad("STORE_INVALID","請先修改訂購聯絡方式再建立黑名單");blackId=hit?.id??randomId();blacklistUndo={id:blackId,version:hit?hit.version+1:1,prior:hit??null};if(hit)stmts.push(guard(c,"store_blacklist",hit.id,hit.version),blackUpdate(c,hit.id,f,true));else stmts.push(blackInsert(c,blackId,f));stmts.push(blackOperation(c,blackId,hit?"加回黑名單":"加入黑名單",{}, {action:f.action,actionDetail:f.actionDetail},"",id),audit(c,"store_blacklist",blackId,hit?"store_blacklist.restored_from_order":"store_blacklist.created_from_order",{orderId:id}))}
+      if(blackId){const summary=await getOrder(c,id);stmts.push(c.db.prepare("INSERT INTO store_blacklist_events(blacklist_id,order_id,actor,at,reason,summary_json) SELECT ?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM store_blacklist_events WHERE order_id=?)").bind(blackId,id,c.actor,c.now,reason,JSON.stringify({customerName:o.customer_name,honorific:o.honorific,orderDate:o.order_date,lines:summary.lines}),id),blackOperation(c,blackId,"訂購取消",{},{orderDate:o.order_date,lines:summary.lines},reason,id));after={status:"CANCELLED",blacklistId:blackId,blacklistEvent:"追加訂購原因",...(blacklistUndo?{blacklistUndo}:{})}}
      }
     }else throw new Bad("STORE_INVALID","請使用逐步進度操作");
    }
