@@ -38,4 +38,9 @@
 
 ## 遠端驗證／合併部署
 
-尚待本次source完整CI、合併、受控部署及health／migration驗證。使用者既有合併部署授權仍適用，完成後更新本檔。
+- [PR #332](https://github.com/simonliu1118-byte/chihyuan-web/pull/332) source `f7f3459b5c41ea236e48fe4f57f874ee91aa04ea`；[Runtime #41283324005](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41283324005) 全四jobs通過、完整 **Node501/501、fail0**；[部署契約 #41283324088](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41283324088) 與 [Governance #41283324128](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41283324128) 全綠。
+- 合併main `06321f8446dbbc6260f0e7b5aec50525b268912a`，從main dispatch [正式部署 #41283473165](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41283473165) **成功**；台北2026/11/01 15:08，0036一次5 commands成功，11筆項次回填及兩索引建立，沒有刪事件。
+- 雙入口health HTTP200：version0.9.59、consumer1.0.5、sourceCommit `06321f8446dbbc6260f0e7b5aec50525b268912a`、database ok；HTTPS／資產、Custom Domain、invalid-session清cookie、canonical production portal authority均成功。排程monthlyTodoSchedule／dailyCatalogSchedule=true、backupSchedule=false。
+- 正式唯讀復核項次：11訂購、min1／max11／distinct11；原始事件仍45，0036 ledger存在。這次查核57 read／0 write，與部署前盤點合計 **113 read／0 write**；migration實際邏輯回填11列。Wrangler只提供command數，含索引／schema的獨占計費read／write未直接提供，不冒稱已完整量測；預估各<1000，未進行重跑或額外補資料。
+- 此部署證據在原工作分支補記，純文件PR合併不重複部署同程式。Claude事後複審及使用者真實裝置驗收仍待完成。
+- 當次唯讀Analytics補查：該D1資料庫UTC2026-11-01當日 **42,724 rowsRead／2,920 rowsWritten**（查核時點統計、有延遲、非本次工作的獨占計數）；沒有看到大量讀取異常，不代表同帳號其他D1用量。一般一單通常僅4個進度事件；20只是分頁上限，實際有幾筆回幾筆，不為每次展開固定取滿20。一萬事件全是本機合成測試。
