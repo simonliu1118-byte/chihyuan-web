@@ -254,7 +254,8 @@
 .cy-store-workflow-table .cy-store-milestone{padding:0!important}
 .cy-store-date-link{position:absolute;inset:0;width:100%;height:100%;min-height:0;white-space:nowrap;font-variant-numeric:tabular-nums;border:0;background:transparent;color:var(--cy-text);font:inherit;text-decoration:none;padding:5px 2px}
 .cy-store-date-link:hover:not(:disabled){background:var(--cy-accent-soft)}
-.cy-store-date-link.cy-store-register{position:static;inset:auto;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;min-height:26px;padding:0;border:1px solid var(--cy-border);border-radius:var(--cy-radius-sm);background:var(--cy-surface);color:var(--cy-text);font-size:11px;line-height:1}
+.cy-store-date-link.cy-store-register{position:static;inset:auto;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;min-height:26px;padding:0;border:0;border-radius:0;background:var(--cy-accent);color:var(--cy-on-accent);font-size:11px;line-height:1}
+.cy-store-date-link.cy-store-register:hover:not(:disabled){background:var(--cy-accent-hover)}
 .cy-store-date-link:disabled{opacity:1;cursor:default;color:inherit}
 .cy-store-status-cell{text-align:center!important}
 .cy-store-check{color:var(--cy-success);font-size:17px}
@@ -264,6 +265,11 @@
 .cy-store-date-popover{white-space:normal;position:absolute;z-index:5;right:0;top:0;width:max-content;padding:8px;background:var(--cy-surface);border:1px solid var(--cy-border);border-radius:var(--cy-radius-sm);box-shadow:0 4px 16px #0002;text-align:left}
 .cy-store-date-popover .cy-f{display:grid;gap:4px;min-width:0;max-width:none;width:max-content}
 .cy-store-date-popover .cy-f-label{font-size:var(--cy-fs-xs);white-space:nowrap}
+.cy-store-date-popover .cy-date-input{width:112px}
+.cy-store-call-options{display:inline-flex;overflow:hidden;border:1px solid var(--cy-border-strong);border-radius:var(--cy-radius-sm);margin-bottom:6px}
+.cy-store-call-options>.cy-op-button{margin:0;border:0;border-radius:0;padding:3px 5px;height:26px;min-height:26px;font-size:var(--cy-fs-xs);line-height:1;box-shadow:none}
+.cy-store-call-options>.cy-op-button+button{border-left:1px solid var(--cy-border-strong)}
+.cy-store-call-options>.cy-op-button[aria-pressed="true"]{background:var(--cy-accent);color:var(--cy-on-accent)}
 .cy-store-date-popover .cy-date-input>input{display:block;max-width:100%;min-height:32px;padding:3px 6px;box-sizing:border-box;font-size:var(--cy-fs-sm)}
 .cy-store-date-popover button{margin:6px 4px 0 0}
 .cy-store-list-note summary{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}

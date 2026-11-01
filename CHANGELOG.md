@@ -5,6 +5,11 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.59 Build 2 — 登記色塊與叫貨清單（2026-11-01）
+
+- 登記改無框實心方塊；叫貨清單直線分隔，按實際送出新到舊，草稿排序不變。
+- 日期欄112px；叫貨結果三選一按鈕，預設已叫貨，移除標題與下拉。驗證與發布見[交接](docs/handoff/CYWEB-STORE-REGISTER-FILL-0959-BUILD2-20261101.md)。
+
 ## CY Web V0.9.59 Build 1 — 表格／結案與紀錄讀取返修（2026-11-01，已部署）
 
 - Pill置中、通知三欄等寬、方形登記、透明緊湊四圖示；結案包含日期／退回均唯讀。

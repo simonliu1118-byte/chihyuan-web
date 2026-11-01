@@ -434,3 +434,18 @@ test("vendor status marks drafts with content, waiting and partly received order
   assert.equal(await status(),null,"fully received: no mark");
  }finally{sql.close()}
 });
+
+test('ordering history sorts by actual send time, with unsent voids last, while draft order stays by creation time',async()=>{
+ const {sql,call}=fixture();try{
+ const sources=(await call('/sources')).body.data,source=sources.find(s=>s.kind==='VENDOR');assert(source);
+ const make=async()=>{const r=await call('/orders','POST',{sourceId:source.id});assert.equal(r.status,200,JSON.stringify(r.body));return r.body.data};
+ const a=await make(),b=await make(),c=await make(),v=await make(),draft=await make();
+ const update=sql.prepare("UPDATE ordering_orders SET status=?,sent_at=?,created_at=? WHERE id=?");
+ update.run('SENT','2026-10-29T01:00:00Z','2026-10-20T01:00:00Z',a.id);
+ update.run('SENT','2026-10-28T01:00:00Z','2026-10-29T01:00:00Z',b.id);
+ update.run('SENT','2026-10-29T02:00:00Z','2026-10-19T01:00:00Z',c.id);
+ update.run('VOID',null,'2026-10-30T01:00:00Z',v.id);
+ const history=await call('/orders?history=1&sourceId='+source.id);assert.equal(history.status,200);assert.deepEqual(history.body.data.map(x=>x.id),[c.id,a.id,b.id,v.id]);
+ const drafts=await call('/orders?status=DRAFT&sourceId='+source.id);assert.deepEqual(drafts.body.data.map(x=>x.id),[draft.id]);
+ }finally{sql.close()}
+});
