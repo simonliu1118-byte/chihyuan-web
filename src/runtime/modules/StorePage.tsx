@@ -9,7 +9,7 @@ export function StorePage({role,allowedModules}:{role:string;allowedModules:Read
  const canOrders=allowedModules.has("STORE_CUSTOMER_ORDERS");
  const canStocktake=allowedModules.has("STORE_STOCKTAKE");
  const canMonthly=allowedModules.has("STORE_MONTHLY_TODOS");
- const tabs=[{key:"orders",label:"顧客訂購",allowed:canOrders},{key:"stocktake",label:"庫存盤點",allowed:canStocktake},{key:"monthly",label:"月度待辦",allowed:canMonthly}] as const;
+ const tabs=[{key:"orders",label:"門市訂購",allowed:canOrders},{key:"stocktake",label:"庫存盤點",allowed:canStocktake},{key:"monthly",label:"月度待辦",allowed:canMonthly}] as const;
  const [tab,setTab]=useState<"orders"|"stocktake"|"monthly">(canOrders?"orders":canStocktake?"stocktake":"monthly");
  const active=tabs.find(t=>t.key===tab&&t.allowed)?.key??tabs.find(t=>t.allowed)?.key;
  return <section className="cy-store-page">

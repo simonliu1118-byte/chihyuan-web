@@ -3,22 +3,38 @@ import {apiRequest} from "../../api/client";
 import {STORE_ORDER_STATUS_LABELS,type StoreOrder,type StoreHistoryPage,type StoreHistory} from "../../../shared/store";
 import {formatDateTime} from "../../ui/foundation/format";
 import {cacheHistory,cachedHistory,type StoreHistoryCache} from "../../../shared/store-history";
-const labels:Record<string,string>={orderDate:"訂購日期",customerName:"顧客姓名",honorific:"稱謂",callResult:"叫貨結果",ORDERED:"叫貨日期",ARRIVED:"到貨（歷史）",NOTIFIED:"通知日期",PICKED_UP:"取貨日期",phone:"電話",mobile:"手機",lineName:"LINE 名稱",deposit:"訂金",note:"備註",lines:"品項",total:"金額合計",status:"處理狀態",dates:"進度日期",date:"作業日期",blacklistId:"黑名單編號",blacklistEvent:"黑名單事件",orderId:"來源訂購",itemName:"項目",completed:"辦理狀態",completionDate:"辦理日期"};
+const labels:Record<string,string>={joinedDate:"加入日期",name:"客戶姓名",reason:"理由",action:"處置",actionDetail:"處置方式",orderDate:"訂購日期",customerName:"客戶姓名",customerCode:"客戶編號",honorific:"稱謂",callResult:"叫貨結果",ORDERED:"叫貨日期",ARRIVED:"到貨（歷史）",NOTIFIED:"通知日期",PICKED_UP:"取貨日期",phone:"連絡電話2",mobile:"連絡電話1",lineName:"LINE 名稱",deposit:"訂金",note:"備註",lines:"品項",total:"金額合計",status:"處理狀態",dates:"進度日期",date:"作業日期",blacklistId:"黑名單編號",blacklistEvent:"黑名單事件",orderId:"來源訂購",itemName:"項目",completed:"辦理狀態",completionDate:"辦理日期"};
 function display(v:unknown,key=""):string{
  if(v===null||v===undefined||v==="")return ["date","completionDate","ORDERED","NOTIFIED","PICKED_UP"].includes(key)?"無日期":"";
  if(typeof v==="boolean")return key==="completed"?v?"已完成":"未完成":v?"是":"否";
- if(Array.isArray(v))return v.map(x=>{const l=x as {itemCode?:string;itemName?:string;quantity?:number;unitPrice?:number};return `${l.itemCode??""} ${l.itemName??""} ×${l.quantity??""} @${l.unitPrice??""}`}).join("；");
+ if(Array.isArray(v))return v.map(x=>{const l=x as {itemCode?:string;itemName?:string;metadataMode?:string;publisher?:string;author?:string;specification?:string;quantity?:number;unitPrice?:number|null};return `${l.itemCode??""} ${l.itemName??""} ×${l.quantity??""} @${l.unitPrice??""}`}).join("；");
  if(typeof v==="object")return Object.entries(v).map(([k,x])=>`${STORE_ORDER_STATUS_LABELS[k as StoreOrder["status"]]??labels[k]??k}：${display(x,k)}`).join("；");
- return ({MR:"先生",MS:"小姐",OUT_OF_STOCK:"缺貨",DISCONTINUED:"絕版/停產",UNORDERABLE:"無法訂購"} as Record<string,string>)[String(v)]??STORE_ORDER_STATUS_LABELS[String(v) as StoreOrder["status"]]??String(v);
+ return ({REFUSE:"拒絕訂購",FULL_PAYMENT:"須全額預付",OTHER:"其他",MR:"先生",MS:"小姐",OUT_OF_STOCK:"缺貨",DISCONTINUED:"絕版/停產",UNORDERABLE:"無法訂購"} as Record<string,string>)[String(v)]??STORE_ORDER_STATUS_LABELS[String(v) as StoreOrder["status"]]??String(v);
+}
+type HistoryLine={itemCode?:string;itemName?:string;metadataMode?:string;publisher?:string;author?:string;specification?:string;quantity?:number;unitPrice?:number|null};
+function lineChanges(before:HistoryLine[],after:HistoryLine[]):string[]{
+ const used=new Set<number>(),money=(v:unknown)=>typeof v==="number"?v.toLocaleString("zh-TW"):String(v??"");
+ const summary=(line:HistoryLine)=>(line.itemName||line.itemCode||"品項")+" ×"+line.quantity+" @"+money(line.unitPrice);
+ const result=after.flatMap((line,i)=>{let index=before.findIndex((old,j)=>!used.has(j)&&old.itemCode===line.itemCode&&old.itemName===line.itemName);
+  if(index<0&&before.length===after.length&&!used.has(i))index=i;
+  if(index<0)return ["新增品項："+summary(line)];used.add(index);const old=before[index];
+  const changes=([['itemCode','品號'],['itemName','品名'],['quantity','數量'],['unitPrice','單價'],['metadataMode','品項格式'],['publisher','出版社'],['author','作者'],['specification','規格']] as const).flatMap(([key,label])=>(old[key]??"")===(line[key]??"")?[]:[label+" "+money(old[key])+" → "+money(line[key])]);
+  return changes.length?[(line.itemName||line.itemCode||"品項")+"："+changes.join("、")]:[];
+ });
+ return [...result,...before.flatMap((line,i)=>used.has(i)?[]:["刪除品項："+summary(line)])];
 }
 export function historySummary(e:StoreHistory):string{
- if(e.kind==="建立")return "";
+ if(["建立","加入黑名單","加回黑名單","移出黑名單"].includes(e.kind))return "";
+ if(e.kind==="訂購取消")return e.reason;
  if(e.kind.startsWith("登記"))return typeof e.after.customerNote==="string"&&e.after.customerNote?"客戶告知："+e.after.customerNote:"";
- if(e.kind==="取消")return e.reason;
+ if(e.kind==="取消")return [e.reason,e.after.listedInBlacklist?"列入黑名單":""].filter(Boolean).join("；");
+ if(e.kind==="通知未接通")return "日期："+String(e.after.date??"").replaceAll("-","/");
  const changes=(a:Record<string,unknown>,b:Record<string,unknown>):string[]=>Object.keys({...a,...b}).flatMap(k=>{
   if(k==="dates"&&!("dates" in b)&&"date" in b)return [];
+  if(k==="total"&&e.kind==="修改訂購")return [];
   if(JSON.stringify(a[k])===JSON.stringify(b[k])||!(a[k]??"")&&!(b[k]??"")&&typeof b[k]!=="boolean")return [];
   if(k==="dates"&&b[k]&&typeof b[k]==="object")return changes((a[k]??{}) as Record<string,unknown>,b[k] as Record<string,unknown>);
+  if(k==="lines"&&e.kind==="修改訂購"&&Array.isArray(a[k])&&Array.isArray(b[k]))return lineChanges(a[k] as HistoryLine[],b[k] as HistoryLine[]);
   const hasOld=Object.hasOwn(a,k)&&a[k]!==undefined&&a[k]!==""&&(a[k]!==null||["date","completionDate","ORDERED","NOTIFIED","PICKED_UP"].includes(k));
   return [`${labels[k]??k}：${hasOld?display(a[k],k)+" → ":""}${display(b[k],k)}`];
  });

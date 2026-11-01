@@ -1,4 +1,5 @@
 import test from "node:test";
+
 import assert from "node:assert/strict";
 import {DatabaseSync} from "node:sqlite";
 import {readFileSync,readdirSync} from "node:fs";
@@ -39,7 +40,7 @@ test('supply results lock the called step, close on notification, and never crea
   assert.equal(o.status,'ORDERED');assert.equal(o.callResult,result);assert.equal(o.dates.ORDERED,null);
   assert.equal((await call(`/orders/${o.id}/date`,'PATCH',{step:'ORDERED',milestoneDate:'2026-10-28',expectedVersion:o.version,requestKey:key()})).status,422);
   assert.equal((await call(`/orders/${o.id}/status`,'POST',{action:'rollback',reason:'誤按',expectedVersion:o.version,requestKey:key()})).status,422);
-  o=await advance(call,o);assert.equal(o.status,'NOTIFIED');assert.equal(o.callResult,result);assert.equal(o.cancelReason,'');
+  o=await advance(call,o);assert.equal(o.status,'NOTIFIED');assert.equal(o.callResult,result);assert.equal(o.cancelReason,'');sql.prepare("UPDATE store_customer_orders SET closed_at='2000-01-01T00:00:00Z' WHERE id=?").run(o.id);
   assert.equal((await call(`/orders/${o.id}/status`,'POST',{action:'advance',milestoneDate:null,expectedVersion:o.version,requestKey:key()})).status,422);
   assert.equal((await call(`/orders/${o.id}`,'PATCH',payload({expectedVersion:o.version,reasonKind:'輸入錯誤'}))).status,409);
   assert(ok(await call(`/orders/${o.id}/history`)).rows.some(e=>e.kind==='登記通知'));
@@ -54,11 +55,11 @@ test('honorifics preserve raw names, normalize full-width contact numbers, and s
  const {call,sql}=fixture();try{
  const first=ok(await call('/orders','POST',payload({customerName:'合成一',honorific:'MR',phone:'（０７）２３６－８５２０',orderDate:'2026-10-20'})));
  const second=ok(await call('/orders','POST',payload({customerName:'合成二',honorific:'MS',orderDate:'2026-10-21'})));
- assert.equal(first.customerName,'合成一');assert.equal(first.honorific,'MR');assert.equal(first.phone,'072368520');
+ assert.equal(first.customerName,'合成一');assert.equal(first.honorific,'MR');assert.equal(first.mobile,'072368520');assert.equal(first.phone,'');
  const list=ok(await call('/orders'));assert.deepEqual(list.map(o=>[o.id,o.sequence]),[[second.id,2],[first.id,1]]);
  assert.equal(ok(await call('/orders?q='+encodeURIComponent('合成二')))[0].sequence,2);
  assert.equal((await call('/orders','POST',payload({honorific:'other'}))).status,422);
- const b=ok(await call('/blacklist','POST',{name:'合成三',honorific:'MS',mobile:'0912-345-678',reason:'合成理由',action:'OTHER'}));assert.equal(ok(await call('/blacklist')).find(x=>x.id===b.id).honorific,'MS');
+ const b=ok(await call('/blacklist','POST',{name:'合成三',honorific:'MS',mobile:'0912-345-678',reason:'合成理由',action:'OTHER',actionDetail:'人工確認'}));assert.equal(ok(await call('/blacklist')).find(x=>x.id===b.id).honorific,'MS');
  }finally{sql.close()}
 });
 test("module permission protects lists, history and mutation",async()=>{
@@ -100,7 +101,7 @@ test("rollback keeps dates and ever-ordered rule, date correction never advances
 test("date correction validates neighboring dates before closure; closed orders reject every mutation",async()=>{
  const {call,sql}=fixture();try{let o=ok(await call("/orders","POST",payload()));o=await advance(call,o);o=await advance(call,o);
  assert.equal((await call(`/orders/${o.id}/date`,"PATCH",{requestKey:key(),expectedVersion:o.version,step:"ORDERED",milestoneDate:"2026-10-29"})).status,422);
- o=await advance(call,o);for(const step of ['ORDERED','NOTIFIED','PICKED_UP'])assert.equal((await call(`/orders/${o.id}/date`,"PATCH",{requestKey:key(),expectedVersion:o.version,step,milestoneDate:null})).status,409);
+ o=await advance(call,o);sql.prepare("UPDATE store_customer_orders SET closed_at='2000-01-01T00:00:00Z' WHERE id=?").run(o.id);for(const step of ['ORDERED','NOTIFIED','PICKED_UP'])assert.equal((await call(`/orders/${o.id}/date`,"PATCH",{requestKey:key(),expectedVersion:o.version,step,milestoneDate:null})).status,409);
  assert.equal((await call(`/orders/${o.id}/status`,"POST",{requestKey:key(),expectedVersion:o.version,action:'rollback',reason:'誤按'})).status,409);
  assert.equal((await call(`/orders/${o.id}`,"PATCH",payload({expectedVersion:o.version,note:"不應改"}))).status,409);
  assert.equal(ok(await call(`/orders/${o.id}/history`)).rows.length,4);
@@ -110,7 +111,7 @@ test("date correction validates neighboring dates before closure; closed orders 
 test("cross-field blacklist matching preserves refusal, exact full prepayment, OTHER and zero events",async()=>{
  const {call,sql}=fixture();try{ok(await call("/blacklist","POST",{name:"測試甲",phone:"",mobile:"0911111111",lineName:"",reason:"測試",action:"REFUSE"}));assert.equal((await call("/orders","POST",payload({phone:"0911111111"}))).status,409);
  ok(await call("/blacklist","POST",{name:"測試乙",phone:"0933333333",reason:"測試",action:"FULL_PAYMENT"}));assert.equal((await call("/orders","POST",payload({phone:"",mobile:"0933333333"}))).status,422);ok(await call("/orders","POST",payload({phone:"",mobile:"0933333333",deposit:399})));
- ok(await call("/blacklist","POST",{name:"測試丙",lineName:"LINE其他",reason:"請人工確認",action:"OTHER"}));ok(await call("/orders","POST",payload({phone:"",lineName:"LINE其他",lineDecisions:[{id:ok(await call("/blacklist")).find(b=>b.action==="OTHER").id,version:1,same:true}]})));
+ ok(await call("/blacklist","POST",{name:"測試丙",lineName:"LINE其他",reason:"請人工確認",action:"OTHER",actionDetail:"人工確認"}));ok(await call("/orders","POST",payload({phone:"",lineName:"LINE其他",lineDecisions:[{id:ok(await call("/blacklist")).find(b=>b.action==="OTHER").id,version:1,same:true}]})));
  assert.equal(sql.prepare("SELECT count(*) n FROM store_blacklist_events").get().n,0);
  }finally{sql.close()}
 });
@@ -123,8 +124,8 @@ test("LINE display-name candidates require explicit versioned identity decision,
 });
 test("cancel with blacklist is atomic, records reason, never overwrites an existing disposition",async()=>{
  const {call,sql}=fixture();try{let o=ok(await call("/orders","POST",payload()));const p={action:"cancel",requestKey:key(),expectedVersion:o.version,reasonKind:"顧客取消",reason:"訂購後棄單",blacklist:{name:o.customerName,phone:o.phone,mobile:o.mobile,lineName:o.lineName,reason:"顧客取消：訂購後棄單",action:"FULL_PAYMENT"}};
- o=ok(await call(`/orders/${o.id}/status`,"POST",p));assert.equal(o.status,"CANCELLED");ok(await call(`/orders/${o.id}/status`,"POST",p));let b=ok(await call("/blacklist"))[0];assert.equal(b.eventCount,1);assert.equal(b.action,"FULL_PAYMENT");
- const second=ok(await call("/orders","POST",payload({deposit:399})));ok(await call(`/orders/${second.id}/status`,"POST",{action:"cancel",requestKey:key(),expectedVersion:second.version,reasonKind:"其他",reason:"再次未履約"}));b=ok(await call("/blacklist"))[0];assert.equal(b.eventCount,2);assert.equal(b.action,"FULL_PAYMENT");assert.equal(b.reason,"顧客取消：訂購後棄單");assert.equal(ok(await call(`/blacklist/${b.id}/history`)).rows.length,2);
+ o=ok(await call(`/orders/${o.id}/status`,"POST",p));assert.equal(o.status,"CANCELLED");ok(await call(`/orders/${o.id}/status`,"POST",p));let b=ok(await call("/blacklist"))[0];assert.equal(sql.prepare("SELECT count(*) n FROM store_blacklist_events").get().n,1);assert.equal(b.action,"FULL_PAYMENT");
+ const second=ok(await call("/orders","POST",payload({deposit:399})));ok(await call(`/orders/${second.id}/status`,"POST",{action:"cancel",requestKey:key(),expectedVersion:second.version,reasonKind:"其他",reason:"再次未履約"}));b=ok(await call("/blacklist"))[0];assert.equal(sql.prepare("SELECT count(*) n FROM store_blacklist_events").get().n,2);assert.equal(b.action,"FULL_PAYMENT");assert.equal(b.reason,"顧客取消：訂購後棄單");assert.equal(ok(await call(`/blacklist/${b.id}/history`)).rows.length,3);
  assert.equal((await call(`/orders/${o.id}`,"PATCH",payload({expectedVersion:o.version}))).status,409);
  }finally{sql.close()}
 });
@@ -136,9 +137,9 @@ test("cancel rejects bad reason or stale version without partial blacklist state
  }finally{sql.close()}
 });
 test("blacklist manual disposition changes need reason and version; removal preserves events",async()=>{
- const {call,sql}=fixture();try{const id=ok(await call("/blacklist","POST",{name:"測試",phone:"071234567",reason:"原理由",action:"OTHER"})).id;const b=ok(await call("/blacklist"))[0];
+ const {call,sql}=fixture();try{const id=ok(await call("/blacklist","POST",{name:"測試",phone:"071234567",reason:"原理由",action:"OTHER",actionDetail:"人工確認"})).id;const b=ok(await call("/blacklist"))[0];
  assert.equal((await call(`/blacklist/${id}`,"PATCH",{...b,expectedVersion:1,action:"REFUSE"})).status,422);
- ok(await call(`/blacklist/${id}`,"PATCH",{...b,expectedVersion:1,action:"REFUSE",changeReason:"人工核對後加重"}));assert.equal((await call(`/blacklist/${id}`,"DELETE",{expectedVersion:1})).status,409);ok(await call(`/blacklist/${id}`,"DELETE",{expectedVersion:2}));assert.equal(ok(await call("/blacklist")).length,0);assert.equal(sql.prepare("SELECT count(*) n FROM store_blacklist").get().n,1);
+ ok(await call(`/blacklist/${id}`,"PATCH",{...b,expectedVersion:1,action:"REFUSE",changeReason:"人工核對後加重"}));assert.equal((await call(`/blacklist/${id}`,"DELETE",{expectedVersion:1})).status,409);ok(await call(`/blacklist/${id}`,"DELETE",{expectedVersion:2}));assert.equal(ok(await call("/blacklist"))[0].active,false);assert.equal(sql.prepare("SELECT count(*) n FROM store_blacklist").get().n,1);
  }finally{sql.close()}
 });
 test("history pagination is bounded and date/filter validation rejects invalid input",async()=>{
@@ -186,3 +187,62 @@ test('notification customer note appends without overwriting and idempotent retr
  }finally{sql.close()}
 });
 test('notification never silently truncates an existing full note',async()=>{const {call,sql}=fixture();try{let o=ok(await call('/orders','POST',payload({note:'甲'.repeat(300)})));o=await advance(call,o);const before=o.version;assert.equal((await call(`/orders/${o.id}/status`,'POST',{action:'advance',milestoneDate:null,expectedVersion:before,requestKey:key(),customerNote:'乙'})).status,422);const stored=ok(await call(`/orders/${o.id}`));assert.equal(stored.note,'甲'.repeat(300));assert.equal(stored.status,'ORDERED');assert.equal(stored.version,before)}finally{sql.close()}});
+
+test('blacklist joined dates sort independently of edits and other disposition requires details',async()=>{
+ const {call,sql}=fixture();try{
+  assert.equal((await call('/blacklist','POST',{name:'合成甲',phone:'071234561',reason:'理由',action:'OTHER'})).status,422);
+  const a=ok(await call('/blacklist','POST',{name:'合成甲',phone:'071234561',joinedDate:'2026-04-25',reason:'訂購,顧客取消',action:'OTHER',actionDetail:'人工確認'}));
+  const b=ok(await call('/blacklist','POST',{name:'合成乙',phone:'071234562',joinedDate:'2026-04-24',reason:'理由',action:'REFUSE'}));let list=ok(await call('/blacklist'));assert.deepEqual(list.map(x=>x.id),[a.id,b.id]);assert.deepEqual(list.map(x=>x.sequence),[2,1]);assert.equal(list[0].reason,'訂購，顧客取消');assert.equal(list[0].actionDetail,'人工確認');
+  const older=list[1];ok(await call('/blacklist/'+older.id,'PATCH',{...older,expectedVersion:older.version,reason:'修改理由'}));list=ok(await call('/blacklist'));assert.deepEqual(list.map(x=>x.id),[a.id,b.id]);assert.equal(list[1].joinedDate,'2026-04-24');
+  assert.equal((await call('/blacklist/'+a.id,'PATCH',{...list[0],expectedVersion:1,actionDetail:'增加核對'})).status,422);
+  for(const joinedDate of ['9999-01-01','2026-02-30',''])assert.equal((await call('/blacklist','POST',{name:'合成丙',phone:'071234563',joinedDate,reason:'理由',action:'REFUSE'})).status,422);
+ }finally{sql.close()}
+});
+
+test('missing price permits a deposit, blocks pickup and can only be filled once with an idempotent price mutation',async()=>{
+ const {call,sql}=fixture();try{let o=ok(await call('/orders','POST',payload({customerCode:'C001',deposit:100,lines:[{itemCode:'TEST',itemName:'合成書',quantity:2,unitPrice:null,metadataMode:'BOOK',publisher:'合成出版社',author:''}]})));assert.equal(o.customerCode,'C001');assert.equal(o.lines[0].unitPrice,null);assert.equal(o.lines[0].publisher,'合成出版社');o=await advance(call,o);o=await advance(call,o);assert.equal((await call('/orders/'+o.id+'/status','POST',{action:'advance',milestoneDate:null,expectedVersion:o.version,requestKey:key()})).status,422);
+ const request={lineId:o.lines[0].id,unitPrice:1900,expectedVersion:o.version,requestKey:key()};o=ok(await call('/orders/'+o.id+'/price','PATCH',request));assert.equal(o.total,3800);assert.equal(o.lines[0].unitPrice,1900);const replay=ok(await call('/orders/'+o.id+'/price','PATCH',request));assert.equal(replay.version,o.version);assert.equal((await call('/orders/'+o.id+'/price','PATCH',{...request,unitPrice:2000,expectedVersion:o.version,requestKey:key()})).status,409);o=await advance(call,o);assert.equal(o.status,'PICKED_UP');assert(o.closedAt);
+ }finally{sql.close()}
+});
+
+test('unreached notification attempts do not advance, replay does not increment and successful contact clears only the current attempt state',async()=>{
+ const {call,sql}=fixture();try{let o=ok(await call('/orders','POST',payload()));o=await advance(call,o);let last;for(let i=1;i<=3;i++){last={action:'advance',notificationResult:'UNREACHED',milestoneDate:'2026-10-'+(27+i),expectedVersion:o.version,requestKey:key()};o=ok(await call('/orders/'+o.id+'/status','POST',last));assert.equal(o.status,'ORDERED');assert.equal(o.notificationAttempts,i);assert.equal(o.lastUnreachedDate,last.milestoneDate);assert.equal(o.dates.NOTIFIED,null);assert.equal(o.notifiedAt,null)}const replay=ok(await call('/orders/'+o.id+'/status','POST',last));assert.equal(replay.notificationAttempts,3);o=ok(await call('/orders/'+o.id+'/status','POST',{action:'advance',notificationResult:'CONTACTED',milestoneDate:'2026-10-31',customerNote:'明日取貨',expectedVersion:o.version,requestKey:key()}));assert.equal(o.status,'NOTIFIED');assert.equal(o.notificationAttempts,0);assert.equal(o.lastUnreachedDate,null);assert.equal(o.note,'明日取貨');assert.equal(ok(await call('/orders/'+o.id+'/history')).rows.filter(e=>e.kind==='通知未接通').length,3);
+ }finally{sql.close()}
+});
+
+test('closure grace permits only final-date correction and rollback, date changes restart five minutes and expired closures remain locked',async()=>{
+ const {call,sql}=fixture();try{let o=ok(await call('/orders','POST',payload()));for(let i=0;i<3;i++)o=await advance(call,o);const previous=new Date(Date.now()-240000).toISOString();sql.prepare('UPDATE store_customer_orders SET closed_at=? WHERE id=?').run(previous,o.id);o=ok(await call('/orders/'+o.id+'/date','PATCH',{step:'PICKED_UP',milestoneDate:'2026-10-29',expectedVersion:o.version,requestKey:key()}));assert(Date.parse(o.closedAt)>Date.parse(previous)+230000);assert.equal((await call('/orders/'+o.id+'/date','PATCH',{step:'ORDERED',milestoneDate:null,expectedVersion:o.version,requestKey:key()})).status,409);assert.equal((await call('/orders/'+o.id,'PATCH',payload({expectedVersion:o.version}))).status,409);o=ok(await call('/orders/'+o.id+'/status','POST',{action:'rollback',reason:'日期誤填',expectedVersion:o.version,requestKey:key()}));assert.equal(o.status,'NOTIFIED');assert.equal(o.closedAt,null);o=await advance(call,o);sql.prepare('UPDATE store_customer_orders SET closed_at=? WHERE id=?').run(new Date(Date.now()-300100).toISOString(),o.id);assert.equal((await call('/orders/'+o.id+'/date','PATCH',{step:'PICKED_UP',milestoneDate:null,expectedVersion:o.version,requestKey:key()})).status,409);assert.equal((await call('/orders/'+o.id+'/status','POST',{action:'rollback',reason:'已逾時',expectedVersion:o.version,requestKey:key()})).status,409);
+ }finally{sql.close()}
+});
+
+test('unavailable supply can undo notification closure within grace and unable-to-contact is a valid cancellation reason',async()=>{
+ const {call,sql}=fixture();try{let o=ok(await call('/orders','POST',payload()));o=ok(await call('/orders/'+o.id+'/status','POST',{action:'advance',callResult:'UNORDERABLE',milestoneDate:null,expectedVersion:o.version,requestKey:key()}));o=await advance(call,o);o=ok(await call('/orders/'+o.id+'/status','POST',{action:'rollback',reason:'通知日期誤填',expectedVersion:o.version,requestKey:key()}));assert.equal(o.status,'ORDERED');assert.equal(o.callResult,'UNORDERABLE');o=ok(await call('/orders/'+o.id+'/status','POST',{action:'cancel',reasonKind:'無法聯絡',expectedVersion:o.version,requestKey:key()}));assert.equal(o.status,'CANCELLED');assert.equal(o.cancelReason,'無法聯絡');
+ }finally{sql.close()}
+});
+
+test('blacklist removal retains row and history; direct matching add restores ID without enforcing the removed restriction',async()=>{
+ const {call,sql,queries}=fixture();try{const f={name:'移出驗收',mobile:'0912345678',reason:'原理由',action:'REFUSE',joinedDate:'2026-10-20'},id=ok(await call('/blacklist','POST',f)).id;
+ ok(await call('/blacklist/'+id,'DELETE',{expectedVersion:1}));let list=ok(await call('/blacklist'));assert.equal(list.length,1);assert.equal(list[0].active,false);
+ ok(await call('/orders','POST',payload({lineName:''})));const added=ok(await call('/blacklist','POST',{...f,reason:'重新列入',joinedDate:'2026-10-28'}));assert.equal(added.id,id);assert.equal(added.restored,true);assert.equal(sql.prepare('SELECT count(*) n FROM store_blacklist').get().n,1);
+ const history=ok(await call('/blacklist/'+id+'/history'));assert.deepEqual(history.rows.map(e=>e.kind),['加回黑名單','移出黑名單','加入黑名單']);assert.equal(ok(await call('/blacklist'))[0].reason,'重新列入');assert.equal((await call('/blacklist','POST',f)).status,409);
+ assert(queries.some(q=>q.includes('store_blacklist_operations')&&q.includes('LIMIT 21')));assert(!queries.some(q=>q.includes('COUNT(*) FROM store_blacklist_events')));
+ }finally{sql.close()}
+});
+test('cancel-to-blacklist restores matching removed entry atomically; declining leaves it inactive',async()=>{
+ const {call,sql}=fixture();try{const f={name:'取消加回',mobile:'0912345678',lineName:'測試LINE',reason:'原理由',action:'OTHER',actionDetail:'人工確認'},id=ok(await call('/blacklist','POST',f)).id;ok(await call('/blacklist/'+id,'DELETE',{expectedVersion:1}));
+ let o=ok(await call('/orders','POST',payload()));ok(await call('/orders/'+o.id+'/status','POST',{action:'cancel',requestKey:key(),expectedVersion:o.version,reasonKind:'顧客取消'}));assert.equal(ok(await call('/blacklist'))[0].active,false);
+ o=ok(await call('/orders','POST',payload()));const cancel={action:'cancel',requestKey:key(),expectedVersion:o.version,reasonKind:'無法聯絡',blacklist:{...f,reason:'本次無法聯絡',action:'REFUSE'}};ok(await call('/orders/'+o.id+'/status','POST',cancel));ok(await call('/orders/'+o.id+'/status','POST',cancel));assert.equal(sql.prepare('SELECT count(*) n FROM store_blacklist').get().n,1);assert.equal(ok(await call('/blacklist'))[0].active,true);assert.equal(sql.prepare('SELECT count(*) n FROM store_blacklist_events').get().n,1);
+ assert.deepEqual(ok(await call('/blacklist/'+id+'/history')).rows.map(e=>e.kind),['訂購取消','加回黑名單','移出黑名單','加入黑名單']);assert.equal(ok(await call('/orders/'+o.id+'/history')).rows[0].after.listedInBlacklist,true);
+ }finally{sql.close()}
+});
+test('removed LINE-only candidate requires identity review; restore version and duplicate-contact guards remain atomic',async()=>{
+ const {call,sql}=fixture();try{const f={name:'同名驗收',lineName:'sameLINE',reason:'原理由',action:'REFUSE'},id=ok(await call('/blacklist','POST',f)).id;ok(await call('/blacklist/'+id,'DELETE',{expectedVersion:1}));
+ assert.equal((await call('/blacklist','POST',f)).status,409);let r=ok(await call('/blacklist/check?lineName=sameLINE'));assert.equal(r.lineCandidates[0].active,false);
+ const restored=ok(await call('/blacklist','POST',{...f,lineDecisions:[{id,version:2,same:true}]}));assert.equal(restored.id,id);ok(await call('/blacklist/'+id,'DELETE',{expectedVersion:3}));assert.equal((await call('/blacklist','POST',{...f,restoreId:id,expectedVersion:2,lineDecisions:[{id,version:4,same:true}]})).status,409);
+ assert.equal(sql.prepare('SELECT count(*) n FROM store_blacklist').get().n,1);assert.equal(ok(await call('/blacklist'))[0].active,false);assert.equal((await call('/blacklist/'+id,'PATCH',{...f,expectedVersion:4})).status,409);
+ }finally{sql.close()}
+});
+test('failed lifecycle history insert rolls back blacklist removal',async()=>{const {call,sql}=fixture();try{const id=ok(await call('/blacklist','POST',{name:'原子驗收',mobile:'0912345678',reason:'原理由',action:'REFUSE'})).id;sql.exec("CREATE TRIGGER synthetic_fail_blackop BEFORE INSERT ON store_blacklist_operations BEGIN SELECT RAISE(ABORT,'history failure'); END");assert.equal((await call('/blacklist/'+id,'DELETE',{expectedVersion:1})).status,500);assert.equal(ok(await call('/blacklist'))[0].active,true);assert.equal(ok(await call('/blacklist'))[0].version,1)}finally{sql.close()}});
+
+test('removed LINE entries do not require review or enforce restrictions when only creating an order',async()=>{const {call,sql}=fixture();try{const id=ok(await call('/blacklist','POST',{name:'移出LINE',lineName:'測試LINE',reason:'原理由',action:'REFUSE'})).id;ok(await call('/blacklist/'+id,'DELETE',{expectedVersion:1}));ok(await call('/orders','POST',payload()));assert.equal(ok(await call('/blacklist'))[0].active,false)}finally{sql.close()}});
+test('blacklist history uses the parent cursor index with ten thousand unrelated operations',async()=>{const {call,sql}=fixture();try{const id=ok(await call('/blacklist','POST',{name:'索引驗收',mobile:'0912345678',reason:'原理由',action:'REFUSE'})).id;const insert=sql.prepare("INSERT INTO store_blacklist_operations(blacklist_id,actor,at,kind) VALUES(?,1,'2026-10-28T00:00:00Z','修改黑名單')");sql.exec('BEGIN');for(let i=0;i<10000;i++)insert.run(id);sql.exec('COMMIT');const first=ok(await call('/blacklist/'+id+'/history'));assert.equal(first.rows.length,20);assert(first.nextCursor);const plan=sql.prepare('EXPLAIN QUERY PLAN SELECT * FROM store_blacklist_operations WHERE blacklist_id=? AND id<? ORDER BY id DESC LIMIT 21').all(id,first.nextCursor);assert(plan.some(p=>p.detail.includes('idx_store_blacklist_operations')));assert.equal(ok(await call('/blacklist/'+id+'/history?cursor='+first.nextCursor)).rows.length,20)}finally{sql.close()}});

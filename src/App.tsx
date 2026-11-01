@@ -52,7 +52,7 @@ const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
   worklogs: { title:"工作日誌", description:"填寫日誌、送審與評分統計" },
   "erp-item-query": { title:"ERP 查詢", description:"查閱 SMART ERP 資料，只讀不改" },
   ordering: {title:"叫貨",description:"叫貨草稿、送出、到貨紀錄與未到貨管理"},
-  store: {title:"門市",description:"顧客訂購、取貨通知與黑名單"},
+  store: {title:"門市",description:"門市訂購、通知取貨與黑名單，庫存盤點及月度待辦"},
   identity: { title:"帳號與權限", description:"使用者、權限群組與系統安全" },
   account: { title:"我的帳號", description:"變更自己的密碼與 Email" },
   audit: { title:"異動紀錄", description:"誰在什麼時候改了什麼" },

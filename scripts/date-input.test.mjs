@@ -19,3 +19,6 @@ test('date copy/cut use selected digits and Backspace skips a separator instead 
 test('invalid numeric days do not become a valid saved value and density is configurable',()=>{
  const {input,changes,root}=field();input.props.onChange({currentTarget:{value:'20260230',selectionStart:8},nativeEvent:{inputType:'insertText'}});assert.equal(changes.at(-1),'');assert.equal(root.props['data-density'],'compact');assert.equal(DateInput({value:'',onChange(){},density:'regular'}).props['data-density'],'regular');
 });
+
+
+test('date validation prevents the native invalid bubble while marking its controlled invalid state',()=>{const {input}=field();let prevented=false;input.props.onInvalid({preventDefault(){prevented=true}});assert.equal(prevented,true);assert.equal(drafts.at(-1),true)});
