@@ -25,7 +25,15 @@
 - 外部截圖outputs/monthly-deadline-backup-0985.png與monthly-deadline-backup-0985-mobile.png，全部合成資料，未放Public Git。本輪未執行任何正式備份／還原或正式月度異動，實作驗收正式D1讀0寫0。沒有schema/migration，不改既有資料。
 - 已過期限的未完成格亦唯讀，符合使用者明確期限；沒有另設管理員解除鎖定。瀏覽器時間只作呈現，實際請求由Worker時間判斷。
 - 最近7天以亂序合成資料渲染實際元件：2026/11/02→2026/11/01→2026/10/31，原輸入陣列不變；此純顯示排序未增加永久鏡像測試。整合main V0.9.83後重跑build/typecheck、48/48及完整validate:source均通過。
-- 完整Linux CI及部署證據待回填；Claude複審待填。
+- 最終Linux CI及部署證據如下；Claude複審仍待填。
 
-- e24721f完整Linux CI 601/601與全部必要檢查通過；合併前main新增PR373，已保留其全部內容並重新驗證，最新CI待回填。
+- e24721f完整Linux CI 601/601與全部必要檢查通過；合併前main新增PR373，已保留其全部內容並重新驗證，最新結果見下方。
 - d1dd475整合後build/typecheck、完整validate:source與月度／備份／用量／排程重點56/56通過；未再次改動已驗收版面。
+
+## 最終CI與發布證據
+
+- Source head b10d5a7cc3f7415f22e641820883bda0d0f7aeec；[Runtime CI 41466133739](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41466133739)完整Node **602/602**、本機D1 acceptance、browser/worker typecheck、source contracts及build均通過；governance 41466133659、deployment contract 41466133717通過。
+- PR372合併source **404fe58b0f9d04ed2e27fb2e1c8ec181cfab4f3c**；[受控部署41466651744](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41466651744)成功。
+- canonical與workers.dev皆HTTP200、V0.9.85／consumer1.0.5／sourceCommit精確一致、database ok／result ready；HTTPS入口、HSTS與靜態資源驗證通過，正式Identity authority檢查通過。
+- 遷移檢查回No migrations to apply。發布使用既有Worker／D1及既有pipeline，沒有新增資源／還原／清理資料。部署既有migration metadata與health檢查會接觸D1；workflow未提供列讀寫計數，不能將整個部署宣稱為D1零讀寫。新增排序與截止判斷本身不增加D1 I/O。
+- 本次文件回填修正TODO既有備份排程註記回V0.9.84（避免版號順延時誤改歷史標記），不改執行內容，不需重部署。Claude最終複審仍待填，執行者未代簽。
