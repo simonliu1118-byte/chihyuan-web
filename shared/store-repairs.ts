@@ -39,9 +39,11 @@ export function nextRepairStep(r:Pick<StoreRepair,"status"|"cancelled"|"inspectR
  if(r.status==="REPAIRED")return "NOTIFIED";
  return "RETURNED";
 }
+/** False only for steps that are definitely skipped (shown struck out); undecided steps stay applicable. */
 export function repairStepApplicable(r:Pick<StoreRepair,"status"|"cancelled"|"inspectResult"|"sentAt">,step:StoreRepairStep):boolean{
- // Cancelled before inspection: the inspection never happened (shown as not applicable, not ✓).
+ // Cancelled before inspection: the inspection never happened (not applicable, not ✓).
  if(step==="INSPECTED")return !r.cancelled||r.inspectResult!=="";
- if(step==="SENT"||step==="REPAIRED")return !!r.sentAt||!r.cancelled&&r.inspectResult==="BAD";
+ // No factory trip after a good inspection, or after cancelling before sending.
+ if(step==="SENT"||step==="REPAIRED")return !(r.inspectResult==="GOOD"||r.cancelled&&!r.sentAt);
  return true;
 }

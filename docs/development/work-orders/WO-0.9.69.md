@@ -141,3 +141,26 @@
 - [ ] Claude 複審正式工單 §6／§7、migration、權限與整套維修流程；審查意見請填下方 §9 及 [Claude Handoff](../../handoff/CYWEB-WO-0.9.69-GPT-20261102.md)。複審不等同部署授權。
 
 ## 9. 審查紀錄（審查者填）
+
+- 日期：2026-11-03；審查者：Claude；PR #354。
+- 結論：**通過**（含 Claude 直接修正）。
+- 確認無誤：
+  - **Migration 0043**：重建 module access 時保留所有授權；`store_repairs`／`store_repair_events` 結構與 CHECK 正確。
+  - **備份**：0043 的 LF／CRLF 結構指紋，與 Claude 另行計算的結果一致；0042 的備份還原時，新表補為空表。
+  - **權限**：路由要求 `STORE_REPAIRS` 權限；requestKey 防重送，version 守門防並發覆蓋。
+  - **狀態流轉**：無異常跳過送廠；取消後仍要通知、歸還；已送廠的先完修收回；通知前可撤回取消；歸還後 5 分鐘內可撤回。
+  - **共用元件**：訂購頁確實改用抽出的共用元件（`store-workflow/`、`workflow-service.ts`、`store-workflow.ts`），沒有自寫 SVG，首次載入只顯示 `Loading`。
+- Claude 直接修正：
+  1. **不適用（斜線）規則錯誤**：
+     - 尚未檢測的維修單，送廠、完修已先顯示斜線；
+     - 收件時就取消的單，「檢測」顯示 ✓。
+     
+     改為只有確定略過的步驟才畫斜線：無異常、或取消時尚未送廠 → 送廠、完修畫斜線；取消時尚未檢測 → 檢測畫斜線。並補測試。
+  2. **項次競態**：原本先讀 `MAX(list_sequence)` 再 INSERT，同時新增兩張會撞 UNIQUE。改在 INSERT 內取號。
+  3. **新增維修單的上方兩列沒有欄位標題**：補上表頭「送修日期／客戶編號／客戶姓名／稱謂」「連絡電話1／連絡電話2／LINE 名稱／產品機號」。
+  4. **逾期列的紅底蓋掉斜線**：GPT 的規則用 `background` 簡寫，把斜線清掉；訂購頁原有規則也同樣有這個問題。兩處都改為 `background-color`，重複的規則刪除。
+  5. **手機版卡片被截斷且沒有欄位名稱**：桌面最小寬度 1250px 也套用到手機，且儲存格沒有 `data-label`。前者改為只在桌面套用，並補上欄位名稱。
+  6. **共用搜尋列在手機上空出約 300px**：`DataViewToolbar` 在直排時，`flex-basis:320px` 變成高度。這是既有問題，訂購頁也有，已在共用 CSS 修正。
+- 驗證：
+  - `npm run typecheck`、`node --test scripts/*.test.mjs`（568 pass）、`validate:source`、`validate_schema.py`（44 支 migration）、`validate:d1:local` 通過；
+  - 本機截圖：桌面 1680、手機 390 的維修清單與新增維修單。

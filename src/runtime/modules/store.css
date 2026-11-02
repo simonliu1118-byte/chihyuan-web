@@ -237,7 +237,7 @@
  .cy-store-workflow-table tbody:not(:last-child)>tr:last-child>td,
  .cy-store-blacklist-table tbody:not(:last-child)>tr:last-child>td{border-bottom:1px solid var(--cy-border)}
 }
-.cy-store-workflow-table tr[data-overdue] td{background:var(--cy-danger-soft)}
+.cy-store-workflow-table tr[data-overdue] td{background-color:var(--cy-danger-soft)}
 .cy-store-milestone{position:relative;text-align:center}
 .cy-store-milestone small{display:block;color:var(--cy-text-muted)}
 .cy-store-workflow-table .cy-store-milestone{padding:0!important}
@@ -400,11 +400,13 @@
 
 
 /* Repairs use the canonical store workflow grid, common controls, and responsive form cells. */
-.cy-store-repairs .cy-repair-list{min-width:1250px}
-.cy-store-repairs .cy-repair-list th{white-space:normal}
-.cy-store-repairs .cy-repair-list td{vertical-align:middle;text-align:center}
+/* Desktop table only; at phone width the shared workflow cards apply. */
+@media(min-width:821px){
+ .cy-store-repairs .cy-repair-list{min-width:1250px}
+ .cy-store-repairs .cy-repair-list th{white-space:normal}
+ .cy-store-repairs .cy-repair-list td{vertical-align:middle;text-align:center}
+}
 .cy-repair-list .cy-repair-fault{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
-.cy-repair-list tr[data-overdue="true"] td{background:var(--cy-danger-soft)}
 .cy-store-repairs .cy-store-row-actions{display:flex;align-items:center;justify-content:center}
 .cy-repair-form-dialog .cy-dialog-surface{width:min(1080px,calc(100vw - 20px))}
 .cy-repair-entry-table{min-width:660px}
