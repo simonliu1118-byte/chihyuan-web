@@ -1,7 +1,7 @@
-# V0.9.83 月度截止與備份清單交接（2026-11-02）
+# V0.9.84 月度截止與備份清單交接（2026-11-02）
 
 - 使用者直接交辦：每月待辦到隔月15日結束可編輯，16日00:00起鎖定；備份時間欄減20%轉給資訊，標題／內容同行。
-- 分支cyweb/monthly-deadline-backup-layout-0983，基底main ac22b49（保留Claude的V0.9.81備份migration level／column-name還原），PR待填。沿用本對話既有遠端發布授權；Claude最終複審待填，不代簽通過。
+- 分支cyweb/monthly-deadline-backup-layout-0984，開工基底main ac22b49，已整合main 8422d0d（保留V0.9.81備份還原與V0.9.82叫貨抽屜按需讀取），PR待填。人事PR370已使用V0.9.83，本次保留V0.9.84避免重複版號，未帶入該未合併人事分支。沿用本對話既有遠端發布授權；Claude最終複審待填，不代簽通過。
 
 ## 修改與Owner
 
@@ -16,10 +16,10 @@
 
 ## 驗證與限制
 
-- V0.9.83 build/typecheck、完整npm run validate:source通過。重點月度route/UI及backup UI共38/38，未替純CSS增加鏡像測試。
+- V0.9.84 build/typecheck、完整npm run validate:source通過。重點月度route/UI及backup UI共38/38，未替純CSS增加鏡像測試。
 - API合成資料：2026/11在2026/12/15 15:59:59.999Z仍可寫；15:59:59.999Z後1ms（台北12/16 00:00）三種異動均拒絕，原格／版本與事件不變，歷程可讀；2026/12跨年截止2027/01/16。
 - 前端單位測試：開著日期popover跨截止午夜會鎖定／隱藏，沒有新增GET，history仍可開。
 - 真瀏覽器合成資料：本月三格可用、歷史月三格停用、兩列history皆可用；備份時間／資訊實測198.08／470.44px，比例16%／38%，dt/dd同一行baseline（top差1px），手機390無水平溢出。
-- 外部截圖outputs/monthly-deadline-backup-0983.png與monthly-deadline-backup-0983-mobile.png，全部合成資料，未放Public Git。本輪未執行任何正式備份／還原或正式月度異動，實作驗收正式D1讀0寫0。沒有schema/migration，不改既有資料。
+- 外部截圖outputs/monthly-deadline-backup-0984.png與monthly-deadline-backup-0984-mobile.png，全部合成資料，未放Public Git。本輪未執行任何正式備份／還原或正式月度異動，實作驗收正式D1讀0寫0。沒有schema/migration，不改既有資料。
 - 已過期限的未完成格亦唯讀，符合使用者明確期限；沒有另設管理員解除鎖定。瀏覽器時間只作呈現，實際請求由Worker時間判斷。
 - 完整Linux CI及部署證據待回填；Claude複審待填。

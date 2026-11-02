@@ -5,9 +5,14 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
-## CY Web V0.9.83 — 月度待辦編輯期限與備份清單密度（2026-11-02）
+## CY Web V0.9.84 — 月度待辦編輯期限與備份清單密度（2026-11-02）
 - 月度待辦每月可修改至隔月15日結束，隔月16日00:00（台灣時間）起唯讀；前端午夜／focus更新，後端拒絕逾期補登、改日期與取消完成，紀錄仍可查。
 - 備份時間欄20%→16%，資訊欄34%→38%；備份編號、版本及資料摘要各自標題與內容同行，手機仍可自然折行。
+
+## CY Web V0.9.82 — 叫貨剛進來時第一次切頁籤要等 5～10 秒（2026-11-03，Claude）
+- 原因：V0.9.72 把進貨輔助移進叫貨頁後，一進叫貨就在背景載入上一次進貨輔助的完整結果（存成一大包 JSON，數百品號 × 每日明細），即使抽屜沒打開；資料庫同時只處理一個查詢，這段讀取卡住了切頁籤的請求。
+- 改為抽屜打開時才載入結果；只有查詢還在跑時才在背景追蹤，完成通知照舊。
+
 
 ## CY Web V0.9.81 — 備份改記 migration 名稱，不再釘結構指紋（2026-11-03，Claude）
 - 新備份（formatVersion 2）在 manifest 記錄來源資料庫最後一支 migration（`schemaMigration`）。還原時依資料表與欄位名稱對應：
