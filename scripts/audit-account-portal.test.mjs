@@ -107,7 +107,8 @@ test("audit workflow has no PR credentials or deployment path for audit operatio
   assert.match(raw,/inputs\.operation == 'deploy-development'/);
   const audit=raw.slice(raw.indexOf("\n  audit-identity:"));
   assert.match(audit,/inputs\.operation == 'audit-identity'/);
-  assert.match(audit,/refs\/heads\/audit\/cyweb-identity/);
+  assert.match(audit,/github\.ref == 'refs\/heads\/main'/);
+  assert.doesNotMatch(raw,/\n  push:/);
   assert.doesNotMatch(audit,/wrangler|migrations apply|secrets put|deploy --|pull_request/);
 });
 

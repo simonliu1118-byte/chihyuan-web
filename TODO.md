@@ -108,7 +108,10 @@
 
 ## 維運與基礎設施
 
-- [ ] 使用者在 GitHub 刪除舊發布分支 `deploy/cyweb-development`、`deploy/cyid-production-bootstrap`（推送到前者會把舊程式部署到正式站），並另開治理 PR 把 `PROJECT_RULES.md` §3.1 的發布入口改為只從 main 執行。
+- [x] 治理 1.1.25（PR #385）：正式部署只從 main dispatch，workflow 不再有分支 push 觸發；推送到舊發布分支不會再部署。
+- [ ] 使用者在 GitHub 刪除已沒用的遠端分支（2026-11-03 盤點 377 個：已合併、PR 已關閉且內容已由其他 PR 帶入、9 月初的早期分支）。這個環境的代理不允許刪除分支。
+- [ ] `docs/hr-leave-run-approval`（PR #239，未合併即關閉）：人事排班「區段內有事假或病假時，連七改為提醒並核准」，main 的文件與程式都沒有這條。由使用者決定要不要採用。
+- [ ] 建議在 GitHub 設定開啟「Automatically delete head branches」，之後合併的 PR 分支會自動刪除。
 - [ ] GitHub 設定名稱／scope 的 read-back（API 目前 403，不等於設定不存在）。
 - 部署後 Cloudflare 有時要一段時間才回新版本（V0.9.88 曾超過 90 秒）；部署檢查自 V0.9.89 起等待最多 5 分鐘，不需重新部署。
 - Cloudflare 名稱仍含 dev（Worker `cyweb-dev`、D1 `cyweb-dev-db`、GitHub Environment `development`），只是歷史標籤；使用者 2026-11-03 決定暫不改名。

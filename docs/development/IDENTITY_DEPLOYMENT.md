@@ -73,49 +73,26 @@ Pull-request validation never receives real Workspace IDs, Identity service targ
 
 ## Existing portal deployment gate
 
-The existing portal deployment uses the protected GitHub `development` Environment and may be started in either of two controlled ways:
+The existing portal deployment uses the protected GitHub `development` Environment and starts in one way only: `workflow_dispatch` from **main**, operation **deploy-development**. The former `deploy/cyweb-development` publish branch was retired on 2026-11-03 (a push to it would have deployed whatever that branch held); the workflow no longer has a push trigger.
 
-1. advance the dedicated `deploy/cyweb-development` branch to the current reviewed main source; or
-2. use `workflow_dispatch` from **main**, operation **deploy-development**, as an operational fallback.
-
-Normal pushes to `main` never deploy automatically. The deploy branch is an explicit release signal only; it must not be used as a development branch or receive unrelated commits.
-
-From the repository root, after the relevant PR checks and merge, Work can publish when instructed:
-
-```bash
-git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main
-git push origin refs/remotes/origin/main:refs/heads/deploy/cyweb-development
-```
-
-Use a normal fast-forward push. The existing publish branch contains historical merge commits, so pushing main directly may be rejected even when its source is correct. Do not force-push. Either preserve the publish history with a merge that includes current main and has exactly the same tracked tree, or use the main dispatch fallback below. A merge conflict or tree mismatch requires review; do not publish a hand-edited deployment-only change. An unchanged branch tip produces no new push event, so use dispatch to republish the same source.
-
-The publish merge used since V0.9.3x keeps the deploy history and carries exactly main's tree (both parents, tree = main):
-
-```bash
-git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main refs/heads/deploy/cyweb-development:refs/remotes/origin/deploy/cyweb-development
-MAIN=$(git rev-parse origin/main); DEPLOY=$(git rev-parse origin/deploy/cyweb-development)
-COMMIT=$(git commit-tree "$MAIN^{tree}" -p "$DEPLOY" -p "$MAIN" -m "Deploy CY Web <version> (main $MAIN)")
-git push origin "$COMMIT":refs/heads/deploy/cyweb-development
-```
-
-Read the deploy tip from the remote right before this (a stale local ref is rejected as non-fast-forward). After the run, `/api/health` at both entry points must report the new `version`, the deploy commit as `sourceCommit` and `database: ok`.
+Normal pushes to `main` never deploy automatically. After the relevant PR checks and merge, Work can publish when instructed:
 
 ```bash
 gh workflow run development-deploy.yml --ref main -f operation=deploy-development
 ```
 
-GitHub UI: Actions → **CY Web Deploy** → Run workflow → Branch **main** → operation **deploy-development**. If dispatch is unavailable to the current integration, use the controlled publish branch with the same source checks. The `audit-identity` operation is read-only and does not publish.
+GitHub UI: Actions → **CY Web Deploy** → Run workflow → Branch **main** → operation **deploy-development**. The `audit-identity` operation is read-only and does not publish. Dispatching again republishes the same source.
 
-All real deployments share the fixed `cyweb-production` lock with `cancel-in-progress: false`. PR validation may cancel older validation, while identity audits have a separate lock. Immediately before remote migration the source guard fetches current main, verifies the event SHA equals checkout, requires current main ancestry and the identical tracked tree, and additionally requires the exact main SHA for dispatch. If main advances while a run waits, stop and publish the newly reviewed main source. GitHub concurrency does not lock a manual Dashboard deployment or a separate Cloudflare Builds writer.
+All real deployments share the fixed `cyweb-production` lock with `cancel-in-progress: false`. PR validation may cancel older validation, while identity audits have a separate lock. Immediately before remote migration the source guard fetches current main and requires the event SHA, the checkout and current main to be the same commit. If main advances while a run waits, the run stops; dispatch again for the newly reviewed main. GitHub concurrency does not lock a manual Dashboard deployment or a separate Cloudflare Builds writer.
 
-Confirm the run's source SHA, successful `validate-deployment-contract` **and** `deploy-development` jobs, plus the existing health, schedule, invalid-session and production portal checks. A green PR or skipped deploy is not deployment evidence:
+After the run, `/api/health` at both entry points must report the new `version`, the main commit as `sourceCommit` and `database: ok`. Confirm the run's source SHA, successful `validate-deployment-contract` **and** `deploy-development` jobs, plus the existing health, schedule, invalid-session and production portal checks. A green PR or skipped deploy is not deployment evidence:
 
 ```bash
-gh run list --workflow development-deploy.yml --branch deploy/cyweb-development --event push --limit 5
+gh run list --workflow development-deploy.yml --branch main --event workflow_dispatch --limit 5
 gh run view <RUN_ID> --json status,conclusion,jobs,url
 ```
 
-For dispatch runs use `--branch main --event workflow_dispatch` instead. The historical GitHub `development` Environment still supplies the existing settings; this change does not require creating another environment, Worker, database or Secret. Web publication does not create a tag or GitHub Release.
+The historical GitHub `development` Environment still supplies the existing settings; this change does not require creating another environment, Worker, database or Secret. Web publication does not create a tag or GitHub Release.
 
 The workflow:
 
@@ -188,10 +165,10 @@ CYACCweb first-login handoff 2026-10-15 requires the configured CYID production
 A working CYWEB development login is not evidence of production readiness.
 
 The existing `development-deploy.yml` supports `workflow_dispatch` operation
-`audit-identity` on main, or push to `audit/cyweb-identity`. Both use the existing
-protected environment and credentials; PR validation never gets those credentials.
-The audit operation cannot enter `deploy-development`; existing normal deploy push
-behavior and manual deploy operation stay unchanged. No remote Worker is created.
+`audit-identity` on main (the former `audit/cyweb-identity` push trigger was retired
+on 2026-11-03). It uses the existing protected environment and credentials; PR
+validation never gets those credentials. The audit operation cannot enter
+`deploy-development`. No remote Worker is created.
 
 `audit-account-portal.mjs` imports the current CYapps production resolver and strict
 portal verifier from a separate temporary checkout (not a second contract mirror).
