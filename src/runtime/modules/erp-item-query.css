@@ -386,12 +386,20 @@
 .cy-ordering-receipts .cy-ordering-receipt-actions{display:flex;align-items:center;justify-content:flex-end;gap:4px}
 .cy-ordering-receipts th:last-child,.cy-ordering-receipts td:last-child{text-align:right;white-space:nowrap}
 @media(max-width:680px){
- .cy-ordering-receipts{display:block;min-width:0}
- .cy-ordering-receipts thead{display:none}
- .cy-ordering-receipts tbody{display:grid;gap:10px}
- .cy-ordering-receipts tr{display:grid;gap:6px;border:1px solid var(--cy-border);border-radius:var(--cy-radius-md);padding:10px;background:var(--cy-surface)}
+ .cy-op-table.cy-ordering-receipts{display:block;min-width:0;width:100%}
+ .cy-op-table.cy-ordering-receipts thead{display:none}
+ .cy-op-table.cy-ordering-receipts tbody{display:grid;gap:10px}
+ .cy-op-table.cy-ordering-receipts tr{display:grid;gap:6px;border:1px solid var(--cy-border);border-radius:var(--cy-radius-md);padding:10px;background:var(--cy-surface)}
  .cy-op-table.cy-ordering-receipts td{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:2px 0;border:0;text-align:right;white-space:normal;overflow-wrap:anywhere}
  .cy-op-table.cy-ordering-receipts td::before{content:attr(data-label);flex:0 0 88px;text-align:left;font-weight:600;color:var(--cy-text-muted)}
  .cy-ordering-receipts td.cy-ordering-receipt-summary{min-width:0}
  .cy-ordering-receipts .cy-ordering-receipt-actions{justify-content:flex-end}
+}
+/* 登記／修改到貨 on phones: drop the 廠商品號／品名 columns and scroll sideways instead of squeezing
+   names into one character per line (the generic phone table rule had removed the min-width). */
+@media(max-width:680px){
+ .cy-op-table.cy-ordering-receipt-table{min-width:560px}
+ .cy-ordering-receipt-table col:nth-child(4),.cy-ordering-receipt-table col:nth-child(5),
+ .cy-ordering-receipt-table th:nth-child(4),.cy-ordering-receipt-table th:nth-child(5),
+ .cy-ordering-receipt-table td:nth-child(4),.cy-ordering-receipt-table td:nth-child(5){display:none}
 }

@@ -636,7 +636,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
    <RequiredRows label="至少選擇一項到貨品項" satisfied={receipt.selectedLineIds.length>0}/>
    <div className="cy-op-table-wrap" role="region" aria-label="登記到貨品項" tabIndex={0}><table className="cy-op-table cy-ordering-grid cy-ordering-receipt-table">
     <colgroup><col className="cy-ordering-receipt-col-select"/><col className="cy-ordering-receipt-col-code"/><col/><col className="cy-ordering-receipt-col-vendor-code"/><col/><col className="cy-ordering-receipt-col-quantity"/><col className="cy-ordering-receipt-col-quantity"/><col className="cy-ordering-receipt-col-quantity"/><col className="cy-ordering-receipt-col-input"/></colgroup>
-    <thead><tr><th scope="col">選取</th><th scope="col">品號</th><th scope="col">品名</th><th scope="col">廠商品號</th><th scope="col">廠商品名</th><th scope="col">叫貨數量</th><th scope="col">已到數量</th><th scope="col">剩餘數量</th><th scope="col">本次到貨</th></tr></thead><tbody>
+    <thead><tr><th scope="col">選取</th><th scope="col">品號</th><th scope="col">品名</th><th scope="col">廠商品號</th><th scope="col">廠商品名</th><th scope="col">叫貨數量</th><th scope="col">已到數量</th><th scope="col">{receipt.receiptId?"可填上限":"剩餘數量"}</th><th scope="col">本次到貨</th></tr></thead><tbody>
     {selected.lines.filter(l=>{if(l.quantity===null)return false;
     if(!receipt.receiptId)return l.received<l.quantity&&!l.closedAs;
     const own=selected.receipts.find(r=>r.id===receipt.receiptId)?.lines.find(x=>x.lineId===l.id)?.quantity??0;
