@@ -52,7 +52,7 @@ export type ErpJobHome = { route: string; key: string; label: string; types: rea
 
 // One read of the member's recent jobs serves every page opened together.
 let recent: { at: number; jobs: Promise<RecentErpJob[]> } | null = null;
-function recentJobs(): Promise<RecentErpJob[]> {
+export function recentJobs(): Promise<RecentErpJob[]> {
   if (!recent || Date.now() - recent.at > 5000) recent = { at: Date.now(), jobs: loadRecentErpJobs().catch(() => []) };
   return recent.jobs;
 }

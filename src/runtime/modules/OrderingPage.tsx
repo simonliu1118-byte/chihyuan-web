@@ -13,7 +13,7 @@ import {SidePanel} from "../../ui/overlays/SidePanel";
 import {IconButton} from "../../ui/actions/IconButton";
 import {Icons} from "../../ui/actions/icons";
 import {RestockAssist} from "./RestockAssist";
-import {ErpPageVisibleContext,useErpJob} from "./useErpJob";
+import {ErpPageVisibleContext,recentJobs,runningStatus,useErpJob} from "./useErpJob";
 import {Loading} from "../../ui/feedback/Loading";
 import {OrderingSourcePicker} from "../../ui/OrderingSourcePicker";
 import {FeedbackBanner,useFeedbackMessage} from "../../ui/feedback/FeedbackProvider";
@@ -73,9 +73,15 @@ function pendingOrders(lines: readonly OrderingPendingLine[]): { orderId: number
 export const ORDERING_OPEN_RESTOCK_EVENT="cy-ordering-open-restock";
 function OrderingRestockDrawer({open,onClose,canQueryItem}:{open:boolean;onClose:()=>void;canQueryItem:boolean}){
  const pageVisible=useContext(ErpPageVisibleContext);
- return <ErpPageVisibleContext.Provider value={open&&pageVisible}>
+ // The last 進貨輔助 result is one large stored JSON. Loading it whenever 叫貨 opened held the database
+ // up and made the first tab switch take 5–10 s (user 2026-11-03). Load it once the drawer opens, or
+ // follow a query that is still running so its completion is still announced.
+ const [armed,setArmed]=useState(false);
+ useEffect(()=>{if(open)setArmed(true)},[open]);
+ useEffect(()=>{let live=true;void recentJobs().then(jobs=>{const latest=jobs.find(j=>j.queryType==="RESTOCK");if(live&&latest&&runningStatus(latest.status))setArmed(true)});return()=>{live=false}},[]);
+ return armed?<ErpPageVisibleContext.Provider value={open&&pageVisible}>
   <OrderingRestockJob open={open} onClose={onClose} canQueryItem={canQueryItem}/>
- </ErpPageVisibleContext.Provider>;
+ </ErpPageVisibleContext.Provider>:null;
 }
 function OrderingRestockJob({open,onClose,canQueryItem}:{open:boolean;onClose:()=>void;canQueryItem:boolean}){
  const job=useErpJob({route:"ordering",key:"RESTOCK",label:"進貨輔助",types:["RESTOCK"]});
