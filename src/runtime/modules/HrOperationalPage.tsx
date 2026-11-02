@@ -402,7 +402,7 @@ export function HrOperationalPage() {
       </section>
     </div>
 
-    {detail && action ? <Dialog open size="medium" dismissible={!busy}
+    {detail && action ? <Dialog showCloseButton={false} open size="medium" dismissible={!busy}
       title={action === "status" ? "新增狀態異動" : action === "salary" ? "新增薪資異動" : "新增年資不計期間"}
       onClose={() => { setAction(null); }}>
       <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={event => void submitAction(event)}>
@@ -475,7 +475,7 @@ export function HrOperationalPage() {
       <p className="cy-hr-revealed">{revealed}</p>
       <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={() => setRevealed(null)}>關閉</button></div>
     </Dialog> : null}
-    {deleteNo !== null && detail ? <Dialog open size="small" title="刪除人事資料" onClose={() => setDeleteNo(null)}>
+    {deleteNo !== null && detail ? <Dialog showCloseButton={false} open size="small" title="刪除人事資料" onClose={() => setDeleteNo(null)}>
       <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={event => void removeEmployee(event)}>
     <FormSection>
         <p>這筆人事資料還沒有任何薪資、請假、班表或出勤紀錄，可以刪除（例如建錯了）。會一併刪除 {detail.employee_no} {detail.name} 的學經歷與聯絡人，無法復原。請輸入員工編號確認。</p>

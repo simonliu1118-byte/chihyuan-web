@@ -759,6 +759,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
           <ChangeLogList role={role} customerId={selected.id}/>
         </Dialog> : null}
       {selected && relatedView ? <Dialog open size="large"
+        showCloseButton={!visitDraft && !quoteDraft && !frequentAdding}
         title={`${relatedView.view === "visits" ? "拜訪紀錄" : relatedView.view === "quotes" ? "報價紀錄" : "常用商品"} — ${selected.shortName}`}
         onClose={() => void closeRelated()}>
         {relatedView.mode === "browse" ? <div className="cy-related-toolbar">

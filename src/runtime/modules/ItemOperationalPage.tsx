@@ -552,6 +552,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
     {confirmationDialog}
     {promptDialog}
     {selected && relatedDialog?.startsWith("defect") && canViewDefects ? <Dialog open size="large"
+      showCloseButton={relatedDialog !== "defectCreate"}
       title={relatedDialog === "defectCreate" ? "新增瑕疵紀錄" : "瑕疵紀錄 — " + formatItem(selected.itemNo, selected.name)}
       onClose={() => setRelatedDialog(null)}>
       {relatedDialog === "defectCreate" ? <DefectForm key={selected.id} mode="create"
@@ -580,6 +581,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
         </div>}
     </Dialog> : null}
     {selected && relatedDialog?.startsWith("quote") && canViewCustomers ? <Dialog open size="large"
+      showCloseButton={relatedDialog !== "quoteCreate"}
       title={relatedDialog === "quoteCreate" ? "新增商品報價" : "報價紀錄 — " + formatItem(selected.itemNo, selected.name)}
       onClose={() => setRelatedDialog(null)}>
       {relatedDialog === "quoteCreate" ? <div className="cy-item-related-dialog">

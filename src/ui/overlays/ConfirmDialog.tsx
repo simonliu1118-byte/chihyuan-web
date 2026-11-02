@@ -36,6 +36,7 @@ export function ConfirmDialog({
       description={description}
       onClose={onCancel}
       dismissible={dismissible&&!busy}
+      showCloseButton={false}
       size="small"
       footer={
         <div className="cy-dialog-action-row">
