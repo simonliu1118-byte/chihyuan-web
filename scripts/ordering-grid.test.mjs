@@ -350,3 +350,14 @@ test("dragging a 項次 onto another row reorders the block; sorting turns dragg
   grid.nodes.find(n => n.type === "button" && n.props.className === "cy-ordering-sort").props.onClick(); grid.flush();
   assert.equal(grid.nodes.some(n => n.type === "td" && n.props.draggable), false, "manual order only when the view is not sorted");
 });
+
+test("a 廠商品號 typed on a saved row goes along when its 品號 is entered afterwards", async () => {
+  const line = { id: 101, section: "", sortOrder: 1, itemCode: "", itemName: "測試梳", vendorItemCode: "",
+    vendorItemName: "", spec: "", quantityText: "1", unit: "", note: "" };
+  const grid = mount("GENERAL", [line]);
+  grid.change(101, "vendorItemCode", "A43"); grid.press(101, "vendorItemCode");
+  grid.change(101, "itemCode", "C00275"); grid.press(101, "itemCode");
+  const itemSave = grid.commits.find(c => "itemCode" in c.patch);
+  assert.ok(itemSave, JSON.stringify(grid.commits.map(c => c.patch)));
+  assert.equal(itemSave.patch.vendorItemCode, "A43", "the server would otherwise drop it as the old item's remembered value");
+});

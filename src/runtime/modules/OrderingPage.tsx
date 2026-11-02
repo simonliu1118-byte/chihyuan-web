@@ -381,6 +381,22 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
    cached.current.delete(current.id);setNotice("草稿已刪除");await openDraft(current.sourceId);
   }catch(e){setError(errorOf(e))}
  }
+ // A draft row naming an item still waiting to arrive (same 品號, 品名, 廠商品號 or 廠商品名) is framed in
+ // red so it is not ordered twice (user 2026-11-03).
+ const pendingWarning=useMemo(()=>{
+  const index=new Map<string,OrderingPendingLine[]>();
+  const norm=(v:string|undefined)=>(v??"").trim().toLocaleLowerCase();
+  for(const p of pending)for(const [field,value] of [["c",p.itemCode],["n",p.itemName],["vc",p.vendorItemCode],["vn",p.vendorItemName]] as const){
+   const v=norm(value);if(v)(index.get(field+":"+v)??(index.set(field+":"+v,[]),index.get(field+":"+v)!)).push(p);
+  }
+  return (row:{itemCode:string;itemName:string;vendorItemCode:string;vendorItemName:string})=>{
+   const hits=new Map<number,OrderingPendingLine>();
+   for(const [field,value] of [["c",row.itemCode],["n",row.itemName],["vc",row.vendorItemCode],["vn",row.vendorItemName]] as const){
+    const v=norm(value);if(v)for(const p of index.get(field+":"+v)??[])hits.set(p.lineId,p);
+   }
+   return hits.size?"未到貨已有："+[...hits.values()].map(p=>p.sourceName+" "+displayDate(p.orderDate).slice(5)+" "+(p.itemName||p.vendorItemName||p.itemCode)+" 未到 "+p.remaining+(p.unit?" "+p.unit:"")).join("；"):undefined;
+  };
+ },[pending]);
  const current=selected,editable=current?.storedStatus==="DRAFT",revisingNow=!!revising&&revising.orderId===current?.id&&current?.storedStatus==="SENT";
  const currentSaveStates:OrderingGridState[]=[{dirty:headerDirty.date||headerDirty.note,saving:headerSaving>0,failed:headerSaveFailed},...Object.entries(editorStates).filter(([key])=>key.startsWith(current?.id+"-")).map(([,state])=>state)];
  const orderedVendors=useMemo(()=>{
@@ -497,7 +513,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
        return <section key={group.key} className="cy-ordering-lines">
         <h3>{group.label}</h3>
         <OrderingGrid kind={current.sourceKind} section={group.key as OrderingSection} key={gridKey} lines={revisingNow?revising!.lines:current.lines} busy={busy} readOnly={!editable&&!revisingNow} {...gridBindings(gridKey)}
-         onCommit={revisingNow?reviseCommit:lineCommit} onDelete={revisingNow?reviseDelete:removeLine} onReorder={revisingNow?reviseReorder:editable?reorderLines:undefined}/></section>})}
+         warnRow={editable?pendingWarning:undefined} onCommit={revisingNow?reviseCommit:lineCommit} onDelete={revisingNow?reviseDelete:removeLine} onReorder={revisingNow?reviseReorder:editable?reorderLines:undefined}/></section>})}
       {!editable&&(current.note||revisingNow)?<div className="cy-ordering-order-note">
         <span className="cy-ordering-order-note-label">單據備註</span>
         {revisingNow?<input className="cy-op-input" aria-label="單據備註" maxLength={300} value={revising!.note} onChange={e=>setRevising({...revising!,note:e.target.value})}/>:<span className="cy-ordering-order-note-text">{current.note}</span>}
