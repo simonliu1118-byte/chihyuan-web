@@ -109,7 +109,7 @@
 ## 維運與基礎設施
 
 - [x] 治理 1.1.25（PR #385）：正式部署只從 main dispatch，workflow 不再有分支 push 觸發；推送到舊發布分支不會再部署。
-- [ ] 刪除已沒用的遠端分支（2026-11-03 盤點 382 個，清單 `.github/branch-cleanup.txt`）：治理 1.1.26 合併後手動執行「Cleanup Merged Branches」，確認遠端只剩 `main` 後移除清單檔。之後 PR 合併時來源分支會自動刪除。
+- [ ] 刪除已沒用的遠端分支（2026-11-03 盤點 381 個，清單 `.github/branch-cleanup.txt`）：治理 1.1.26 合併後手動執行「Cleanup Merged Branches」，確認遠端只剩 `main` 後移除清單檔。之後 PR 合併時來源分支會自動刪除。
   - `docs/hr-leave-run-approval`（PR #239）的人事規則「區段內有事假或病假時，連七改為提醒並核准」：使用者 2026-11-03 決定不採用，維持連七一律擋下。
 - [ ] GitHub 設定名稱／scope 的 read-back（API 目前 403，不等於設定不存在）。
 - 部署後 Cloudflare 有時要一段時間才回新版本（V0.9.88 曾超過 90 秒）；部署檢查自 V0.9.89 起等待最多 5 分鐘，不需重新部署。

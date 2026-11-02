@@ -1,382 +1,382 @@
-audit/cyweb-identity
-cyinvoice/docs-actual-activation
-cyinvoice/docs-binding-prepared
-cyweb/0.9.35-build1
-cyweb/0.9.36
-cyweb/0.9.38
-cyweb/0.9.38-build1
-cyweb/0.9.39
-cyweb/0.9.44-list
-cyweb/0.9.45-store
-cyweb/0.9.46-login
-cyweb/account-hints-wo-0.9.18
-cyweb/busy-buttons-outsourcing
-cyweb/change-log
-cyweb/customer-cards
-cyweb/customer-density-0987
-cyweb/customer-quotes-0.9.14
-cyweb/cyinvoice-recovery-v30-current-ui
-cyweb/date-enter-fixes
-cyweb/dialog-explicit-close-0988
-cyweb/docs-0.9.35-deployed
-cyweb/docs-backup-acceptance
-cyweb/docs-erp-item-query-deployed
-cyweb/docs-https-deployment
-cyweb/docs-ordering-autosave-verification
-cyweb/docs-ordering-compact-verification
-cyweb/docs-ordering-table-design
-cyweb/docs-ordering-v0933-deploy-handoff
-cyweb/docs-responsive-search-deployment
-cyweb/docs-theme-layout-checkpoint
-cyweb/docs-v0934-deployment-handoff-20261024
-cyweb/docs-v0941
-cyweb/docs-v0942
-cyweb/docs-v0943
-cyweb/erp-agent-busy-online
-cyweb/erp-agent-control
-cyweb/erp-hold-queue
-cyweb/erp-job-resume
-cyweb/erp-orders-dialog
-cyweb/erp-orders-list
-cyweb/erp-queue-drawer
-cyweb/erp-seats-full
-cyweb/erp-visual-alignment
-cyweb/feat-erp-customer-sales-receivable
-cyweb/feat-erp-item-name-search
-cyweb/feat-erp-item-query-bridge
-cyweb/feat-erp-item-query-invq01-ui
-cyweb/feat-erp-order-dialog-money
-cyweb/feat-erp-supplier
-cyweb/feat-isolated-backup-rehearsal
-cyweb/feat-price-desk-prototype-20261012
-cyweb/feat-responsive-shell-search
-cyweb/feat-shared-page-header-erp-fields
-cyweb/fix-0.9.35
-cyweb/fix-backup-audit-secret-forwarding
-cyweb/fix-backup-provider-isolation
-cyweb/fix-gcs-worker-fetch-context
-cyweb/fix-https-entry
-cyweb/fix-ordering-autosave
-cyweb/fix-ordering-draft-save-picker-20261023
-cyweb/form-fields
-cyweb/form-fields-all
-cyweb/hr-form-fixes
-cyweb/hr-phase1
-cyweb/hr-phase2a
-cyweb/hr-phase2b
-cyweb/identity-access-table
-cyweb/identity-workspace
-cyweb/item-page-0.9.15
-cyweb/module-access-groups
-cyweb/monthly-completion-mark-0980
-cyweb/monthly-deadline-backup-layout-0984
-cyweb/order-line-picker
-cyweb/ordering
-cyweb/ordering-compact-table
-cyweb/ordering-deploy-verification
-cyweb/ordering-observability-persist
-cyweb/ordering-receipt-diagnostics
-cyweb/ordering-receipt-table
-cyweb/ordering-ui
-cyweb/ordering-ui-sources-tabs
-cyweb/recovery-button
-cyweb/restock-assist
-cyweb/restock-assist-v2
-cyweb/shell-header
-cyweb/small-fixes-0.9.17
-cyweb/status-counts
-cyweb/status-tones
-cyweb/store-blacklist-fields-0961
-cyweb/store-blacklist-monthly-0964
-cyweb/store-cancel-grace-0962
-cyweb/store-overdue-14-days-0963
-cyweb/store-register-height-0960-b1
-cyweb/store-stocktake
-cyweb/system-security-layout
-cyweb/ui-polish-0.9.16
-cyweb/ui-reflow
-cyweb/ui-reflow-2
-cyweb/usage-monitor
-cyweb/wo-0.9.12
-cyweb/wo-0.9.13
-cyweb/wo-0.9.14
-cyweb/wo-0.9.15
-cyweb/wo-0.9.15-defect-dialog
-cyweb/wo-0.9.15-quote-dialog
-cyweb/wo-0.9.16
-cyweb/wo-0.9.18-0.9.19
-cyweb/wo-0.9.21
-cyweb/wo-0.9.52-stocktake
-deploy/cyweb-development
-docs/cyid-registration-deployment-evidence
-docs/gpt-handoff-index-and-history-20261023
-docs/hr-2b-followups
-docs/hr-comp-advance
-docs/hr-consecutive-days
-docs/hr-employer-flex-holiday
-docs/hr-five-day-rule
-docs/hr-holiday-fill
-docs/hr-manual-holidays
-docs/hr-phase2-design
-docs/hr-rest-label-preference
-docs/hr-roster-input
-docs/hr-seventh-day-block
-docs/hr-sick-leave-count
-docs/hr-skip-checks
-docs/hr-three-staff-types
-docs/hr-weekly-rest-rule
-docs/retire-obsolete-handoffs-20261028
-docs/wo-0.9.24-review
-docs/wo-0.9.25
-docs/wo-0.9.25-rev
-docs/wo-0.9.27
-erp-item-query/handoff
-erp-item-query/invq01-handoff
-erp-item-query/name-search-handoff
-fix/cyweb-deploy-audit-diagnostics
-fix/cyweb-deploy-audit-diagnostics-2
-fix/cyweb-deploy-without-dev-identity
-fix/stocktake-mobile-responsive-20261030
-governance/common-rules-2.11.0
-governance/common-rules-2.9.0
-governance/cyid-application-registration
-governance/cyweb-serialized-deploy
-governance/enter-advance-rule
-governance/form-field-rule
-governance/sync-common-rules-v2-9-1
-governance/sync-cyid-contract-1.0.3
-governance/work-order-common-rule
-governance/work-order-process
-ui/stocktake-compact-mobile-20261030
-ui/stocktake-toast-ignore-list-20261030
-ui/store-stocktake-layout-20261029
-cyid/sync-contract-1.0.3
-cyweb/0.9.47-brand
-cyweb/0.9.50-detach-recovery
-cyweb/0.9.65-shared-icons
-cyweb/0.9.66-blacklist-index-shared-ui
-cyweb/0.9.67-store-loading
-cyweb/0.9.75-restock-pending
-cyweb/0.9.77-ordering-pending-tab
-cyweb/0.9.78-draft-pending-warning
-cyweb/0.9.82-ordering-first-switch
-cyweb/0.9.84-backup-in-minute-cron
-cyweb/0.9.85-backup-retry
-cyweb/0.9.90-ordering-open-draft
-cyweb/0.9.91-identity-resolve-cache
-cyweb/docs-0957-deployment-handoff
-cyweb/docs-acceptance-consolidation
-cyweb/docs-account-portal-audit
-cyweb/docs-account-ui-acceptance
-cyweb/docs-daily-catalog-deployment
-cyweb/docs-erp-catalog-deployment
-cyweb/docs-navigation-acceptance
-cyweb/docs-proactive-access-release
-cyweb/docs-production-identity-result
-cyweb/docs-program-catalog-acceptance
-cyweb/docs-program-catalog-release
-cyweb/docs-program-links-acceptance
-cyweb/docs-ui-acceptance
-cyweb/docs-uiux-stage
-cyweb/feat-daily-program-catalog
-cyweb/feat-erp-input-catalog
-cyweb/feature-program-catalog
-cyweb/fix-account-ui-feedback
-cyweb/fix-dialog-focus
-cyweb/fix-production-identity
-cyweb/fix-program-catalog-refresh
-cyweb/fix-program-refresh
-cyweb/fix-program-refresh-runtime
-cyweb/fix-release-cooldown
-cyweb/fix-skip-link-focus
-cyweb/fix-unsaved-navigation
-cyweb/operational-test-runtime
-cyweb/ordering-history-row-fix
-cyweb/program-catalog-links
-cyweb/store-entry-cleanup-build3
-cyweb/store-entry-table-build2
-cyweb/store-history-spin-build4
-cyweb/ui-shared-dialogs
-cyweb/wo-0.9.76-doc
-docs/rehearsal-followups
-docs/wo-0.9.68-0.9.69
-docs/wo-0.9.69-cancel-return
-docs/wo-0.9.70
-docs/wo-0.9.71
-governance/cyid-consumer-1-0-5
-governance/sync-cyid-1-0-6
-governance/cyweb-doc-consolidation
-architecture/d1-schema-draft
-cyweb/wo-0.9.74-receipts-dates
-cyweb/foundation-worker-d1
-feat/cyweb-backup-layout-daily-reminder-20261029
-governance/cyweb-handoff-claude-20261028
-cyweb/identity-adapter-foundation
-cyweb/feat-cyinvoice-recovery-auth-gate
-cyweb/audit-core-foundation
-cyweb/legacy-reusable-pattern-audit
-cyweb/shared-ui-foundation
-cyweb/fix-compact-preview-layout
-cyweb/shared-request-foundation
-cyweb/0.9.55-stocktake-review
-cyweb/0.9.73-ordering-revise-lock
-cyweb/0.9.74-restock-draft-on-add
-cyweb/0.9.82-hr-remove-delete
-cyweb/audit-account-portal
-cyweb/design-store-orders-workflow
-cyweb/feat-testing-account-delete
-cyweb/fix-centered-login-only
-cyweb/store-list-density-build1
-cyweb/ui-compact-business-preview
-governance/bootstrap
-cyweb/wo-0.9.71-restock-drawer
-cyweb/domain-baseline-integration
-cyweb/app-shell-foundation
-cyweb/form-guard-foundation
-cyweb/data-view-foundation
-cyweb/entity-picker-foundation
-cyweb/editable-list-foundation
-cyweb/overlay-feedback-foundation
-cyweb/keyboard-entry-foundation
-cyweb/pre-business-readiness
-cyweb/customer-module-contract
-cyweb/0.9.80-backup-migration-level
-cyweb/0.9.87-ordering-timing
-cyweb/feat-proactive-access-refresh
-governance/common-rules-2.8.0
-cyweb/customer-ui-composition
-cyweb/customer-ui-preview
-cyweb/customer-edit-interaction
-cyweb/customer-service-foundation
-cyweb/wo-0.9.70-repair-photos
-cyweb/customer-persistence-related
-cyweb/wo-0.9.69-store-repairs
-cyweb/customer-related-ui
-cyweb/customer-related-mutations
-cyweb/customer-related-interactions
-cyweb/0.9.86-single-cron
-cyweb/docs-domain-strategy
-cyweb/customer-full-workspace-preview
-cyweb/item-module-foundation
-feat/cyweb-quarterly-rehearsal-20261028
-cyweb/defect-service-foundation
-cyweb/item-full-workspace-preview
-cyweb/sales-work-order-foundation
-cyweb/sales-work-order-full-preview
-cyweb/contractor-outsourcing-foundation
-cyweb/outsourcing-full-preview
-feature/stocktake-location-counts-phase1-20261030
-cyweb/worklog-foundation
-cyweb/worklog-full-preview
-cyweb/customer-orders-workflow
-cyweb/docs-domain-registration
-cyweb/settings-admin-foundation
-cyweb/next-work-20261028
-cyweb/operational-local-runtime
-governance/cyweb-operational-runtime-integration
-docs/cyweb-post-merge-checkpoint
-cyweb/docs-consolidation
-cyweb/d1-local-integration
-cyweb/d1-domain-acceptance
-cyweb/development-deploy
-cyweb/development-dispatch-fix
-cyweb/development-dispatch-simplify
-cyweb/identity-dev-acceptance-status
-cyweb/browser-auth-gate
-cyweb/identity-bridge
-cyweb/shared-identity-management-ui
-cyweb/highest-authority-management
-cyweb/hide-superadmin-disable
-docs/identity-handoff-20260929
-cyweb/identity-cycloud-cutover
-cyweb/identity-invalid-session-acceptance
-docs/identity-invalid-session-gate-status
-docs/identity-invalid-session-live-evidence
-identity/employee-lifecycle-ui
-docs/identity-employee-lifecycle-status
-governance/identity-role-access-contract
-identity/role-access-runtime
-identity/cyid-0.2-consumer
-docs/acc-domain-hostname
-ui/identity-acceptance-fixes
-ui/identity-layout-polish
-docs/acc-domain-rollout-2026-09-29
-ui/email-verification-pill
-cyweb/wo-0.9.76-restock-layout
-ops/cyweb-canonical-domain
-docs/cyweb-domain-live
-docs/identity-document-consolidation
-governance/cyweb-identity-document-consolidation
-docs/identity-document-consolidation-build1
-feature/cyweb-first-login-password
-identity/cyid-0.3-consumer
-docs/cyweb-0.3-development-status
-feature/cyweb-module-access
-docs/cyweb-0.4-development-status
-feature/protected-business-worker-api
-feature/business-api-references-related
-governance/cyid-consumer-standard
-feature/protected-business-worker-api-phase2
-cyweb/wo-0.9.68-monthly-layout
-governance/cyid-contract-mirror-sync
-feature/protected-business-worker-api-phase2-main
-feature/business-api-completeness
-feature/item-worker-d1-transport
-feature/item-worker-d1-transport-main
-docs/cyweb-0.6-checkpoint
-docs/cyweb-0.6-handoff-checkpoint
-deploy/cyid-production-bootstrap
-handoff/cyweb-cyid-master-2026-10-01
-docs/cyweb-compatibility-review
-feature/customer-worker-d1-transport
-governance/cyweb-compatibility-cleanup
-governance/sync-common-rules-2.7.0
-governance/cyid-contract-1.0.2
-docs/cyweb-development-release-evidence
-docs/cyweb-browser-acceptance
-feature/worklog-worker-d1-transport
-governance/cyweb-backup-rehearsal
-governance/cyweb-finalize-d1-runtime
-governance/cyweb-backup-management
-governance/cyweb-backup-acceptance
-governance/cyweb-backup-release-record
-governance/cyweb-tiered-backup
-feature/order-worker-d1-transport
-governance/backup-cloud-activation
-cyweb/docs-cloud-activation-checkpoint
-feature/outsourcing-worker-d1-transport
-cyweb/docs-backup-manual-setup
-feature/defect-worker-d1-transport
-cyweb/fix-list-row-height
-feature/customer-worker-d1-transport-main
-cyweb/docs-independent-ui-acceptance
-cyweb/docs-customer-related-acceptance
-cyweb/docs-customer-related-resumed
-cyweb/docs-date-snapshot-worklog
-governance/customer-validation-reconcile
-cyweb/fix-worklog-stale-audit
-cyweb/docs-worklog-deploy-checkpoint
-cyweb/docs-outsourcing-deploy-checkpoint
-cyweb/fix-outsourcing-stale-effects
-architecture/legacy-data-normalization
-governance/d1-acceptance-single-invocation
-cyweb/docs-defect-deploy-checkpoint
-cyweb/fix-defect-stale-audit
-governance/development-health-evidence
-cyweb/docs-health-investigation
-cyweb/docs-sales-order-deploy-checkpoint
-cyweb/fix-sales-order-stale-audit
-cyweb/fix-quote-stale-price-breaks
-cyweb/docs-quote-acceptance
-cyweb/docs-http-acceptance
-cyweb/test-business-http-authority
-cyweb/fix-retired-entity-ids
-cyweb/accept-outsourcing-http
-cyweb/docs-retired-identity-acceptance
-cyweb/accept-business-lifecycles
-perf/cyweb-erp-housekeeping-cron-20261029
-docs/hr-leave-run-approval
-cyweb/docs-consolidation-20261103
-governance/cyweb-main-only-deploy
-cyweb/todo-branch-cleanup
-governance/cyweb-branch-cleanup
+# <刪除前的 SHA> <分支名>；找回：git push origin <SHA>:refs/heads/<分支名>
+9b3fbb514beba5393978bc1de8b1e51b3fb393de audit/cyweb-identity
+6b0cc852d3c8b2425161699fa812437250259235 cyinvoice/docs-actual-activation
+22f8446e3d6aa593d6a7cb858cef40970ffb5827 cyinvoice/docs-binding-prepared
+f5121da0a3f4c86a2189fef3175d052158b7cd18 cyweb/0.9.35-build1
+a558937b1f970071af68c0811836fca7f904c4bb cyweb/0.9.36
+2ffa67e7259d22eccba9508f3857a45200b04e1a cyweb/0.9.38
+22996ccdd736f9008531c903e0ec8f4cd51c007e cyweb/0.9.38-build1
+72e5e8122588fea57a11529c3f5392752afdddaf cyweb/0.9.39
+06206a144e90f4bc7da400ecf1fc7a8fa5fc5194 cyweb/0.9.44-list
+f8211c0bfc2df13a566e8905a317a52a1e0995f7 cyweb/0.9.45-store
+f6503818c8a36b8794d08f96d580c7a380beae7d cyweb/0.9.46-login
+0ad652dba3df4cb5f3bfe3e70fcd888997805237 cyweb/account-hints-wo-0.9.18
+023168268790b84d5638695ac2116468ac695ca8 cyweb/busy-buttons-outsourcing
+88bc63baab48105221ab2fa5ee2da50bc47d999f cyweb/change-log
+9d25971abd142ade3c122f05b322e91859b03b3d cyweb/customer-cards
+049e272ed1989a17441539272ba4bacaad5aa0c9 cyweb/customer-density-0987
+a1b214c5a34efcd62e8b7bf7c8e6f2c97fb5be89 cyweb/customer-quotes-0.9.14
+ac9cfdeea65eac9b302ddc84240ac18cd8ffe34e cyweb/cyinvoice-recovery-v30-current-ui
+5ac27368933bf6f2758d0d2e4d6e8cf13b464546 cyweb/date-enter-fixes
+64668567f278cfd72bf3c3439cc95f34bbfd5dd2 cyweb/dialog-explicit-close-0988
+987f977d9f51766dba6defe98af1b67a6eea57d6 cyweb/docs-0.9.35-deployed
+0088725f515091436e2d5a3daa853e67937d5de9 cyweb/docs-backup-acceptance
+8261d7ec632d18b7d14a56184499221075ecfe9c cyweb/docs-erp-item-query-deployed
+e132cc51565f227dc00def1e67422b1284f69fd7 cyweb/docs-https-deployment
+6c1447092eb7e139ecacdfcd8e4f99e2fca8a094 cyweb/docs-ordering-autosave-verification
+811b31e008d492243d951e9c5d77d2d4792b8a3b cyweb/docs-ordering-compact-verification
+bae56b14e345eafa5d1e1450a2af0ae42a769462 cyweb/docs-ordering-table-design
+e90958f7912f9e5614b9e84dfea15e5a1b36c61f cyweb/docs-ordering-v0933-deploy-handoff
+5e1c2a9dda28c9f2adb4601e9d2b554c06ee5728 cyweb/docs-responsive-search-deployment
+f6adbebf80213f55152773cc86f3c6b71f34a906 cyweb/docs-theme-layout-checkpoint
+5af1c41dab8632b66f4716b36529377338d3ee6d cyweb/docs-v0934-deployment-handoff-20261024
+82ed2a89b892b0c6673308f133a831e35dd0e024 cyweb/docs-v0941
+af529ddaedc3eda6dbfe1a5d397f633c20d59636 cyweb/docs-v0942
+ee49c725f8652b7e513df608297d4aaeadbcc5e9 cyweb/docs-v0943
+07dba0020187f529ac3b1a3af59bd533f8060bcc cyweb/erp-agent-busy-online
+7c0fbc621768303c07a3781a87e0980033c8badd cyweb/erp-agent-control
+ee5d6b112defa9eed17e5dc54ba87892e2103e10 cyweb/erp-hold-queue
+0d37dccc0d728c0ab2323ec9450de913d09748c1 cyweb/erp-job-resume
+b724d14aef762eec4e91523aa4bc11c4b73a7f37 cyweb/erp-orders-dialog
+c2bf474627b0110768732b9808961a46e950d89a cyweb/erp-orders-list
+e6ff8872e4295be74ede5d1ca8a5e050221ad7cd cyweb/erp-queue-drawer
+ffca25dab5853e2dc90558e112e015a43c0625cc cyweb/erp-seats-full
+979ac23d99aad393b7e01b1e343dcb1d827bec91 cyweb/erp-visual-alignment
+db6b68ade282c455fbe50c5c01abcea92ba9de29 cyweb/feat-erp-customer-sales-receivable
+a5e1adc0d4eb9e994467a210322455503d0a2d51 cyweb/feat-erp-item-name-search
+4d3fdcce2756b52213a96e40d9d785de1ec4612d cyweb/feat-erp-item-query-bridge
+663c80502498885015f9448ef07dabed2cf72f23 cyweb/feat-erp-item-query-invq01-ui
+57c74836a16ed0e2367fc9c76fc9cf543b882171 cyweb/feat-erp-order-dialog-money
+0c6a4fbb1538cb917e8938c273677cc403dc881e cyweb/feat-erp-supplier
+8837348025e80d26ec71dc19cea04c2b673de7e6 cyweb/feat-isolated-backup-rehearsal
+e13f72806f9bcb9158489f3a77e1f37163f4529c cyweb/feat-price-desk-prototype-20261012
+dd62e704cb71238ce896423db0c27fb2e98a05f8 cyweb/feat-responsive-shell-search
+6d025864118991d40c4ad098b9347fbd2cfd5c73 cyweb/feat-shared-page-header-erp-fields
+86c2a1045a5188d0dce2e75879c967e893a07e94 cyweb/fix-0.9.35
+98fa33e492e900abd8034266cfde696ce340db90 cyweb/fix-backup-audit-secret-forwarding
+f6963de65b8f00524b2ddacd9f2a07340ca72ca2 cyweb/fix-backup-provider-isolation
+101a706386f6de4a1049396715c1dd4ab550b09d cyweb/fix-gcs-worker-fetch-context
+a5d44af6c428cce7fc1d94caf31ad8ddf9657ef4 cyweb/fix-https-entry
+5712cb0068cdf247332b137a609a7f0cb624f9cf cyweb/fix-ordering-autosave
+073d507be4167c4951ce3e401d2d8eaf4498f2bd cyweb/fix-ordering-draft-save-picker-20261023
+c61835c05fb01d0d68157630487aa9b91693f138 cyweb/form-fields
+6b6739498fa76322c3a78f7c3155210e5f7ced66 cyweb/form-fields-all
+0729bd13daae43aacb8a7dd0edf2a3e26ef280fb cyweb/hr-form-fixes
+7a6228e94d12f0792236f292b38aa4df14a4e594 cyweb/hr-phase1
+0116f8caf6d8f4b4bca8f0893607125382853802 cyweb/hr-phase2a
+c5cf3bbe8dc2cf8d4294cc6114561be0295bac55 cyweb/hr-phase2b
+9169c1107f8a1258bfecc8f9366fb908b604e1c2 cyweb/identity-access-table
+e6d342e7c926f4792615e392885d1ab311edec7d cyweb/identity-workspace
+a81fec0e544bc0756b930d7f0167051af5e56d20 cyweb/item-page-0.9.15
+2ec922914335011a2c1e40da610a889f85b7e98a cyweb/module-access-groups
+2786f725484271275fb82267ba346f66d8f5336d cyweb/monthly-completion-mark-0980
+d0400813913112b4c6346b972ecdf6c0a165b9ab cyweb/monthly-deadline-backup-layout-0984
+a2137742caebec0a9352bdd3285bfe76b15f4851 cyweb/order-line-picker
+433c4fa5e99ba836b910be36d2740aac5ba01418 cyweb/ordering
+3f05a8c6d167faf6399bf91228d0471520a7b56d cyweb/ordering-compact-table
+52e95c32babb4c642d24902ce1c1e3db69ec89d1 cyweb/ordering-deploy-verification
+7c1f353b4e22f4aac5e0b6102ede4691c477a803 cyweb/ordering-observability-persist
+610e4355778634c2439cf8c4349238b7d0164d8c cyweb/ordering-receipt-diagnostics
+9e6467b528e0441184c01246da054393d2f3a568 cyweb/ordering-receipt-table
+4453187eeed4ea353b777ee770f5ca93a80daa5d cyweb/ordering-ui
+67460874e0bc4f52b087e325a631b47d1fe1a02a cyweb/ordering-ui-sources-tabs
+836d5bb988b1a8a78b25f2b17b342ab36b8b51f0 cyweb/recovery-button
+696a7d02e4728c386b1fefd0357353caaeb40a4f cyweb/restock-assist
+971c7cced2aec1e8e91b5ca0a26032f8c953a3e6 cyweb/restock-assist-v2
+6e842daf0b561f786575596ec98caee654b22e9c cyweb/shell-header
+6f9838dbc1024757733c0e7a9bd6322e03a8f5e8 cyweb/small-fixes-0.9.17
+a72fb7bd7e4c099231c04b5d35ee81c2354c189c cyweb/status-counts
+0706d41afaa342c7556bf48c289cef4d0e1c27bb cyweb/status-tones
+8ec58ad8cf2c2e9039e0d1365fea2ddac0c1a016 cyweb/store-blacklist-fields-0961
+b1ed72df6a5feacc93ba678c28b3f1f974c7d11c cyweb/store-blacklist-monthly-0964
+7781a5fa80a99ecce0d118c7b665d67e694d9836 cyweb/store-cancel-grace-0962
+a97ec11197dcffb327bd66b53156b21084663bcc cyweb/store-overdue-14-days-0963
+2922e4956045a2cfb2f7f8d4eca0eed01f2dd307 cyweb/store-register-height-0960-b1
+5c4ddfc91cd75a4c99de7fccf94d36136a92f5cf cyweb/store-stocktake
+7024a9d17937230155882c60dc3a45858de73c03 cyweb/system-security-layout
+f7f39963d9e71dadfe60396cb17f37d78618dc81 cyweb/ui-polish-0.9.16
+3e58993e0f638d2e13cc6e2dba1c8ddebe6b9cb5 cyweb/ui-reflow
+cf1c0176daa17f698ec5a906e6373ef3bee9c9d0 cyweb/ui-reflow-2
+dfea38a02d61080268df9d52d3d762be6ea09158 cyweb/usage-monitor
+fbd2fb40c8a3f7e4aa23a927c36dcf750c68bfd7 cyweb/wo-0.9.12
+1a8a9c67e2d0b243a61e739528c34b891385ff88 cyweb/wo-0.9.13
+1cc0396c81d1b1e9025342cf91acaa93c4cc3847 cyweb/wo-0.9.14
+d09c2a41ad22f75f0f707e2cc2e3180d1e695a2a cyweb/wo-0.9.15
+f99e6479a79eb6181c0d3f10041e1dc4ae1aefac cyweb/wo-0.9.15-defect-dialog
+ae93d2c16e1cb53c015680efa5906b5db8ef1a66 cyweb/wo-0.9.15-quote-dialog
+eb1c57bc5e48e5385a44f50d78e542e980f081e3 cyweb/wo-0.9.16
+ed237145abdd0a8d938927eeaefceaad6ff80b3d cyweb/wo-0.9.18-0.9.19
+7fa63910669733425f59e08f424e8770f94f99e7 cyweb/wo-0.9.21
+bfb69980289aea6af9d08c6995904386e300d320 cyweb/wo-0.9.52-stocktake
+95f93e826f483eb92f1fc7cc9c732d843c690a0c deploy/cyweb-development
+77df32c83750aec5729fb84f1ad9126fe1e69178 docs/cyid-registration-deployment-evidence
+8e03d055f3b36758f010cbe802d4df78a377c2e0 docs/gpt-handoff-index-and-history-20261023
+042d94768dc97718e9fa33c50946bcc4275502b2 docs/hr-2b-followups
+0412002fcb5c7bfe01345b1d7b7a29779f58a10b docs/hr-comp-advance
+811a7062af31b557fdc821237267b56c3b3fae29 docs/hr-consecutive-days
+06ac720cd7a6955a00859247cb46d98fc57cf856 docs/hr-employer-flex-holiday
+4997e6ea4c053953f8f9082d438d0bcdfd1d2d1c docs/hr-five-day-rule
+0cd87650cbc951722f5c922dbe97f63ce1327136 docs/hr-holiday-fill
+176fa800bd3a66f35d567893faa8c7d3820bf25a docs/hr-manual-holidays
+45994403b1e96261d738602a848c59f661c50d35 docs/hr-phase2-design
+2c29fc8152b7ce35f21f1e2c25f51a63fb3eafa4 docs/hr-rest-label-preference
+b1d10f9761edde264d5e53129683581c6c78f793 docs/hr-roster-input
+e0290a7de01cb4806b02bdb637e2abf089ee935f docs/hr-seventh-day-block
+4fddd3101f24b6b837af8af70cd40b498d719ff9 docs/hr-sick-leave-count
+96ad918a1674f86ed2c41011d07de8a0a16bf0a0 docs/hr-skip-checks
+d525c83cd67051d4b8503a4514fa3326919010ad docs/hr-three-staff-types
+d30a5deb494db2c98af9bb99eb67597ffe2cc7f3 docs/hr-weekly-rest-rule
+a647c6ddb3aadab9bb78f41aeb9543086331b3aa docs/retire-obsolete-handoffs-20261028
+d0a5ddab99c901930852a4a1f309a3f9c4b7b935 docs/wo-0.9.24-review
+e50eedfae7dacd165369b8c59d127899711fd32b docs/wo-0.9.25
+68d179ba6bcd7d85fad64507419e5d1a7f252de9 docs/wo-0.9.25-rev
+65f7f88ac991369163e3156b27c4d6846c23fcc8 docs/wo-0.9.27
+e17b773c3808eebc29af917fe0e5a97aec982a19 erp-item-query/handoff
+e69d9339b4c54e8904975afe0621056f8d1d0bb9 erp-item-query/invq01-handoff
+d8fe828fe2efd1b72259a277c885aec04b13c56c erp-item-query/name-search-handoff
+a09d3e92a88adc00b3e45a7e88a37a175b3e0713 fix/cyweb-deploy-audit-diagnostics
+da1520467e942981af52a864bd9a1418a2ee2396 fix/cyweb-deploy-audit-diagnostics-2
+9e73a6e14aa69c0ec8bb99766ab8306e48d8cc75 fix/cyweb-deploy-without-dev-identity
+c528e686768b994704814c0777fd093b62895799 fix/stocktake-mobile-responsive-20261030
+9dedf8b6ac34a77eafc46e7b4b3fb59ab5447f3e governance/common-rules-2.11.0
+ed934e2ca487884ae338c120428180b6335b9f55 governance/common-rules-2.9.0
+8aad63d9dd5963c82a9db8197e7e35fcf6404dd1 governance/cyid-application-registration
+eda094e194f083b0a89adb5ab2f374a6211eab7c governance/cyweb-serialized-deploy
+0abd19ec89937d438dbcc1a3e413797ef7fd9e2c governance/enter-advance-rule
+65f7f88ac991369163e3156b27c4d6846c23fcc8 governance/form-field-rule
+3368280a012b85c1c6e40442f85d45e87ebdebd4 governance/sync-common-rules-v2-9-1
+c2c6c5f08bb12cdb37126cfb2917d6068f9a1aac governance/sync-cyid-contract-1.0.3
+5ecd74080ef0fa47cc7846391e525a70db31cc6f governance/work-order-common-rule
+1d3aff7006a3ce8b166e5850830e42bfab500646 governance/work-order-process
+ec7ff2304f71f84fc8b8aaad36084278e3457585 ui/stocktake-compact-mobile-20261030
+52d4eae66de5f491a9034408957ef10c08dfaf3e ui/stocktake-toast-ignore-list-20261030
+0b291c4c1beebdc24dfc97bc764ff0f20f4e92ac ui/store-stocktake-layout-20261029
+9be6a0342a549acd103f60ea296287bd3d4604ff cyid/sync-contract-1.0.3
+938c8e06b4b69d2369acdf9ea7d4ca64b0a28a28 cyweb/0.9.47-brand
+5657ef1a71279da7a94b8e1aca15971127c2c555 cyweb/0.9.50-detach-recovery
+21592c7a174a8f045159c60dfffac6644addc72a cyweb/0.9.65-shared-icons
+bb6e3fb44ddc84d62dfe91098555a2a5b0abc265 cyweb/0.9.66-blacklist-index-shared-ui
+3dd9c4949f75ff4451101dfc353be59ac18ec497 cyweb/0.9.67-store-loading
+3ea9c8c8ca2396a45a0378a06b32c803f9f1cb3d cyweb/0.9.75-restock-pending
+4fc0d047033a7595b702eb2ee8cb2c6f2ae96898 cyweb/0.9.77-ordering-pending-tab
+68316e39abdad5b85d858b60ac1cf5fc23e1bfbc cyweb/0.9.78-draft-pending-warning
+e566cef1a3dcf4a3b81d16ffd64b70bd0c29f69c cyweb/0.9.82-ordering-first-switch
+89db8b920d2fe5cab54ce1791a60b148427a6d31 cyweb/0.9.84-backup-in-minute-cron
+33086d902c7c3276f926fbe05183347e28709b81 cyweb/0.9.85-backup-retry
+a9c86ab098e7c3c4a82776a47fc0e2c85d84997a cyweb/0.9.90-ordering-open-draft
+3c7d16bfab357793b469e671edbaaa3504e27b6b cyweb/0.9.91-identity-resolve-cache
+809ffdbddee85919a6e66ebc0ed3e8d0f66694f7 cyweb/docs-0957-deployment-handoff
+e0e3cafd91873a50e6d695e49006fc44a0da1877 cyweb/docs-acceptance-consolidation
+8195622ee90e7633458aa903da753b40f8faa57d cyweb/docs-account-portal-audit
+0dac72a224c940cdd09490289525992b36a5d8f7 cyweb/docs-account-ui-acceptance
+9dc4108b53917dd0aa278024e64c1976171c6c4b cyweb/docs-daily-catalog-deployment
+5ad0a902d82a841746090cd37f82f692f137d175 cyweb/docs-erp-catalog-deployment
+116603cd630ee37fd79e5a25286961d5037ce687 cyweb/docs-navigation-acceptance
+94cc328ef299a2f4464d5b84d3983b2d51b1baf6 cyweb/docs-proactive-access-release
+d497880670190414d4517ae92e977e9a1c787ee3 cyweb/docs-production-identity-result
+3ebb40d5f3d4ee4e1c08e318839ffb42da79c7fa cyweb/docs-program-catalog-acceptance
+6044a476cc4eedb1b27db44bae02a1b237ba716e cyweb/docs-program-catalog-release
+82e0e0ce32e2c3895fbf2174d22885da87fdb873 cyweb/docs-program-links-acceptance
+7295512ce7a24b0c490b064e82a8fce71eaf5d94 cyweb/docs-ui-acceptance
+44b1801ac81106ef4dd07fa19ad76f8f9e11c29d cyweb/docs-uiux-stage
+186a2b872df35131960c8c7534cf3b9b60560e74 cyweb/feat-daily-program-catalog
+cd47e97fed42dd1a591db6fcd544fd7b309cc2dd cyweb/feat-erp-input-catalog
+5427489115e103d232b091e3e0cca9c96ee6c628 cyweb/feature-program-catalog
+25d907bb4137e236f185c591d433875e7d177a23 cyweb/fix-account-ui-feedback
+78ffaf1f3d512655f972e4f073f31d3bdec8b779 cyweb/fix-dialog-focus
+70e6e9862b60e290ce0e9fb4125a6827a1840fb5 cyweb/fix-production-identity
+22a0e9c319f825137b1e161a37807cb46dcb9d8f cyweb/fix-program-catalog-refresh
+8d0e0070e8f5f7baab378dda376c8763513365f6 cyweb/fix-program-refresh
+f96540c07d0cc843a0957989f6ece6c7479c52a3 cyweb/fix-program-refresh-runtime
+af2c8eb446846bf1daac837afd667f216a1d5556 cyweb/fix-release-cooldown
+02f73d04b28179d6ec85baf0ca2340c0291bd472 cyweb/fix-skip-link-focus
+69295649ca5de92d4dca18651c21c979a168c062 cyweb/fix-unsaved-navigation
+9ab4382bbd1aa40234d5facadd793dab30fa5c4c cyweb/operational-test-runtime
+1b9c1eb133099b9279199c190f17a5d047c9cd8e cyweb/ordering-history-row-fix
+8181442e43c559bcb7a40c53a99e6c64d4b79fcf cyweb/program-catalog-links
+d517161ed03902900d60b31a57aea42b07a922a5 cyweb/store-entry-cleanup-build3
+67a122001bd5731dbe4c5eabf3742a96b2cb9e94 cyweb/store-entry-table-build2
+506eb7784d549cde065a573504983f1c2f0e6235 cyweb/store-history-spin-build4
+f19109774f48392f924e65788ba9a2468a8b3135 cyweb/ui-shared-dialogs
+230bb9a517a395643b5364ecdb1a0b59e7fbf263 cyweb/wo-0.9.76-doc
+f3a0c481219ccfdb0a0ea0ea633d46d4574f39c1 docs/rehearsal-followups
+3256ad15fd7181b6343aab52a6d9e96fc6ab869b docs/wo-0.9.68-0.9.69
+15441cca6736f61b91cdecb64287735f3e1d9b6f docs/wo-0.9.69-cancel-return
+7f64af5295aad37ba157333309c8fcc81435943d docs/wo-0.9.70
+8da033138d47528b1ae80b0b8d508b81b4ebe725 docs/wo-0.9.71
+8b5f1d982576dd2288e85bd463a16dfbbc454796 governance/cyid-consumer-1-0-5
+eaedc989ab73835350dd046bdb10972daef86341 governance/sync-cyid-1-0-6
+118613df1438323a8f70ab7e5af2291f4630111e governance/cyweb-doc-consolidation
+43d21b5dfa5007772fa6036a251e5a17c918b17c architecture/d1-schema-draft
+2547ffa6f7cc31973cf80c6f907b892ce90139ae cyweb/wo-0.9.74-receipts-dates
+b030a2da4d79e39b0d03eacd38277ececb27b545 cyweb/foundation-worker-d1
+0a47bb6448c8cbceb7f49ce205df8514062f09c3 feat/cyweb-backup-layout-daily-reminder-20261029
+a6fe7f45f9bd58c73b73828da57b976ef2e81927 governance/cyweb-handoff-claude-20261028
+8b29eb91e8ce17e055d960af9c65339fb4a137bb cyweb/identity-adapter-foundation
+a1f09d70239d2e23018ab5c6fec7eb27f916d586 cyweb/feat-cyinvoice-recovery-auth-gate
+d4ef88581341d7bd536f275793688bbf019cd03d cyweb/audit-core-foundation
+e1b6b58aa3bf9b054ae9527d6b63f0bfa48cea94 cyweb/legacy-reusable-pattern-audit
+66d058ee589331a8bcd0e19369d3da88966b8610 cyweb/shared-ui-foundation
+11dc0863811816970c6db83fdbedc36b09fa4158 cyweb/fix-compact-preview-layout
+c5c9fcad489ac4f2fc9e1cc67a12b6d62a0dbfc1 cyweb/shared-request-foundation
+e748c627af05157a57bb879f23ecd9f4bc8da6d4 cyweb/0.9.55-stocktake-review
+c7317ff914baa0e39377f15bae8480e3440a1f93 cyweb/0.9.73-ordering-revise-lock
+877357f4485743cbac20668ab9f142c65582ef4f cyweb/0.9.74-restock-draft-on-add
+ab91eba8da62deb8ec0dec1ca475fd9e6d0ee697 cyweb/0.9.82-hr-remove-delete
+f13f4772884a10b8ee4fc9ec6ac1027066b400b7 cyweb/audit-account-portal
+98667a12ee81353febb12a32150609d9e916f18c cyweb/design-store-orders-workflow
+09dc14c78a457409fecb17ad018e7e21345837c5 cyweb/feat-testing-account-delete
+4cf4c769837720c1dcf40b5aaeeeb74d96367a3f cyweb/fix-centered-login-only
+84658ab1c6927522232a95b753e90614d05633a0 cyweb/store-list-density-build1
+903e121db9a6ef8a215085063f78686eed8e47ea cyweb/ui-compact-business-preview
+dd13b193fcc26beb207d28b09f827cc02a5820f4 governance/bootstrap
+1d8afff04cfce90b37a4d89e7a365634995d2e37 cyweb/wo-0.9.71-restock-drawer
+06d4e68646607482c6ee799f3851e58bd9cde2d9 cyweb/domain-baseline-integration
+79da28b93d665c7c5d67c492fb1addb1dc386680 cyweb/app-shell-foundation
+e7a92eb8846ad455f3d0220374d72df965d7b979 cyweb/form-guard-foundation
+dd74ec42b2de3dc8578267d5a9fabd80498ea8fb cyweb/data-view-foundation
+29cdc84d838ad20739642f41c671a3f3b55e2df6 cyweb/entity-picker-foundation
+908fb2ea3b449040663a456c9461f23d00270540 cyweb/editable-list-foundation
+5a833d003832aa889e16b3d52091b09736849c62 cyweb/overlay-feedback-foundation
+22268d2233d9d000f0c6e81aa83cae69ab254275 cyweb/keyboard-entry-foundation
+5bee4478dd389c26b503fba0a5bd6e6eb1000326 cyweb/pre-business-readiness
+1cbc08b214cc79960e02b51cd37fb5cad554686b cyweb/customer-module-contract
+8e4452fdc0b8b3464e6653cd4b64686dcd3a578d cyweb/0.9.80-backup-migration-level
+7ec4ec0a8c496ce84525bc08ccf48e1d6da32f5b cyweb/0.9.87-ordering-timing
+5eb11023380a34c90cf77ed5b1d966e0461e3faf cyweb/feat-proactive-access-refresh
+835a2dea8b5d558f3e1c49ad2a330170f3d46d40 governance/common-rules-2.8.0
+ae24549319df37971cb9618fc6c421f2451ce57f cyweb/customer-ui-composition
+3931345ce8da92b5001b39ea3ed29568b6ad9ef4 cyweb/customer-ui-preview
+5a4a17e4683ad52fa7cbf138342f0f72f56160fb cyweb/customer-edit-interaction
+27b4d8e7c9ca7f9c38c9759f084a9a6e706c1b2e cyweb/customer-service-foundation
+cf201e3e48d5afc6c57ded2ca5e00ce44412bb68 cyweb/wo-0.9.70-repair-photos
+ed1c9d8eb6e8d64aa3cdb83cb28ec99fce195e1b cyweb/customer-persistence-related
+db179a38c72c1a32debf31e183c529d85888d69d cyweb/wo-0.9.69-store-repairs
+65d1e251ead016834f1f178e9226f6e1813e888d cyweb/customer-related-ui
+e6bd14dd84028dbf4d25246866698eea9996b95c cyweb/customer-related-mutations
+9ebdfc92cf9e171cb717293b7962e6c068bd0fcc cyweb/customer-related-interactions
+13f55694e15ed45f5adc3da5b731c43996c080cf cyweb/0.9.86-single-cron
+dd5f2d3ee97e65d8510658fa0dccdc63fb96408b cyweb/docs-domain-strategy
+f585eb228535e754c55f7025ee3ef12e32f612fe cyweb/customer-full-workspace-preview
+ca46ebc7c28cc06047021a3a67e9585a1a098df2 cyweb/item-module-foundation
+9982a9283a0d1f6b09f23d6b07cd8857d8be4915 feat/cyweb-quarterly-rehearsal-20261028
+bfdc9c7940fca57451ffb7838da3974b07706615 cyweb/defect-service-foundation
+0291e43e3579ea05368f1da6bf8a9b91eb57fa9c cyweb/item-full-workspace-preview
+e67170c893254810676c852b140d77d0e578fd42 cyweb/sales-work-order-foundation
+a6dba109989dd400409b5954f781148a69d802b9 cyweb/sales-work-order-full-preview
+0fe384d7c5c9148c4dc2d18087b7930d9f96101b cyweb/contractor-outsourcing-foundation
+007c61a35236a8b5512d0ef37b14cb6fae5beb9b cyweb/outsourcing-full-preview
+f178ea821b6d761efb018c352b9244b0d771bf3d feature/stocktake-location-counts-phase1-20261030
+7a349f0926f0ede1cdcabf12ccacfbb20cc17fe2 cyweb/worklog-foundation
+912c9d073e7ec0a2015342458d7ea189902bba0a cyweb/worklog-full-preview
+2deb36d6c834329c6a524bf801d6a1b55ae1fede cyweb/customer-orders-workflow
+b471ad20a7ea37f4eda54fcbba1929cfcbc3f23f cyweb/docs-domain-registration
+bbb5954912bd328b9ff75ed2ffd52d09042f6fca cyweb/settings-admin-foundation
+44c05e7a7fc02fbee8505855ec10f149e4c8c6e1 cyweb/next-work-20261028
+46acc1fb9f54911e07e3e239cc10cb718d3c84ab cyweb/operational-local-runtime
+f4b98c944bc98171822de4b5098182b08a66e10a governance/cyweb-operational-runtime-integration
+6df382cfdc8a78a1d94217bda71d98bc8d67791f docs/cyweb-post-merge-checkpoint
+48bcc4ff79637cde51b6535e6c316a2b20fd56a7 cyweb/docs-consolidation
+6bd4b1c51e92369758fc434ac63b10fbc817f87a cyweb/d1-local-integration
+ec9652a8c856e86012d6bc7ee9b820054cecd7b6 cyweb/d1-domain-acceptance
+1d64de94642342b92449c3d8c02118aa1f865d5d cyweb/development-deploy
+b1e465fbefabf029d6c67223dbb8a7c1022ffd4a cyweb/development-dispatch-fix
+3c43dc152181838a1c8ddd88a29612caa568281b cyweb/development-dispatch-simplify
+816e231e2a8df8a15c8d7753fa2a08eaf2319194 cyweb/identity-dev-acceptance-status
+578fc6d674cef3696afce5830a996c9053558b89 cyweb/browser-auth-gate
+9f8f5df2e08662dac02364231bf1c6bfe1ab3ee6 cyweb/identity-bridge
+ceadc01ac44b9deee95a628739055a6dde25a2bb cyweb/shared-identity-management-ui
+a3fc191ffab19287d085d9d4fd6041e2058b299f cyweb/highest-authority-management
+5fd6523a43236ed37296a4d0c7d012f88b55a48e cyweb/hide-superadmin-disable
+6dda7fd35952d268e16f8988f970e635da9d083e docs/identity-handoff-20260929
+0a2bc7ff115492928e60acd2d000e43542386f52 cyweb/identity-cycloud-cutover
+dc26cce71f1fd2a0d07e18b010c212a1451cf3d8 cyweb/identity-invalid-session-acceptance
+1e7e30781887ba56bf8a24252c72c9a1da3ba30b docs/identity-invalid-session-gate-status
+43488290577c26dcbc0c9d1d0ef07bf073e19897 docs/identity-invalid-session-live-evidence
+db61916452cc2b421ffa3ae183ce1c49b6f19d9d identity/employee-lifecycle-ui
+e2a85de0eebddf6a9cf110d04554a5eb460238cf docs/identity-employee-lifecycle-status
+356a6643df64f478e22e493ed5d2ddc89a83f92d governance/identity-role-access-contract
+5c996b8a48f1f88c1f9ccc1dbf3c91e48385dff9 identity/role-access-runtime
+4368db39ce92be35714fbb2cf458bd6f934d4b83 identity/cyid-0.2-consumer
+0ce666862c34acd4983adbf71fd0d16eacda4979 docs/acc-domain-hostname
+05a3ca65b8717af4c8b644581e8e9446605aa0a4 ui/identity-acceptance-fixes
+ad60ef3678f1aba893c0e4d7218aa59e45157afa ui/identity-layout-polish
+402dae768e34493598fb3dff55bc98d56db3edd6 docs/acc-domain-rollout-2026-09-29
+633be46dd9ab8d79f049357620c7114d16851068 ui/email-verification-pill
+94eeea0c0df7af6812cfc9eff33f4b123ddb836c cyweb/wo-0.9.76-restock-layout
+52c675e295b47f19774dd02d934e4d21f9eae563 ops/cyweb-canonical-domain
+5d9ca4d9e6a214aa03345a5e036463733c888262 docs/cyweb-domain-live
+ff111f7d11bb66e4c9e50583a4147bdc10bbd5d4 docs/identity-document-consolidation
+a97c96c0a94dc6bfa5852d69d8ca00ac393dbae7 governance/cyweb-identity-document-consolidation
+250f28e5f78ad80de439744fa50ab3db56a65c71 docs/identity-document-consolidation-build1
+5afb6999972462dc9141198c240856667a8f4684 feature/cyweb-first-login-password
+47b59e98c444105f1ecb5d25629a4966424c2046 identity/cyid-0.3-consumer
+c8875d310a77525ccc2266c66e332a043ae78309 docs/cyweb-0.3-development-status
+044a6e44211141a3af695b6c6c03c12b3a407f15 feature/cyweb-module-access
+5abd399e3f153676220a2e194e6b65c4cfbb47dc docs/cyweb-0.4-development-status
+d0dec504f43ea69e809968587762ff8e1f9bfe68 feature/protected-business-worker-api
+caeac13868b091366069bbfe50311c5ef40f5c51 feature/business-api-references-related
+c77bd376cf2049deae1ba563dd46b6e8881070c5 governance/cyid-consumer-standard
+f03d1c06e1466dcbe650f9e3bd05d5196ed18745 feature/protected-business-worker-api-phase2
+23fc9b9e83d6717d359847f1e8d837c1fd6defc6 cyweb/wo-0.9.68-monthly-layout
+9a690b9ee8806bd72972da2c0624a835874f3c2d governance/cyid-contract-mirror-sync
+da0d70746b8d55c614bbdbc441a9289952097f80 feature/protected-business-worker-api-phase2-main
+3f844d43952f1ee2b63a83981494a9ceba745856 feature/business-api-completeness
+ce19afbefb0920c7809aac7086697257ac42d14e feature/item-worker-d1-transport
+058d53d3d9f2d3f470b232bc8de17c2b373fca1a feature/item-worker-d1-transport-main
+e0bd52de0aab9c55788c0f00c458b8c86d876e57 docs/cyweb-0.6-checkpoint
+e0bd52de0aab9c55788c0f00c458b8c86d876e57 docs/cyweb-0.6-handoff-checkpoint
+0c676455e1d66600e1ae246c15289f60f6d9b2d1 deploy/cyid-production-bootstrap
+f9025de4ad9247c035b744e90bc2f015f2cdaf28 handoff/cyweb-cyid-master-2026-10-01
+e7105876537e210d8d0d0ff22bf462bfaea3f467 docs/cyweb-compatibility-review
+f8ab6e740737ede27a193dfad515bfe2c55926d3 feature/customer-worker-d1-transport
+5d3bcc5ee9b856b8c0310fc9099cc6fcaf940208 governance/cyweb-compatibility-cleanup
+50a4c1025c42f54f898c287d3e81c1eb97d2f3de governance/sync-common-rules-2.7.0
+a3abb240919c77930cb834552be030651f46f64b governance/cyid-contract-1.0.2
+63f4048db2fbb5e0fece4d8e3646d8be1e8a278e docs/cyweb-development-release-evidence
+0fe143c44cbb141a644c6e264251ed150e3f08e2 docs/cyweb-browser-acceptance
+5307131702deaaf759ccef8de9059d23a3b5b650 feature/worklog-worker-d1-transport
+3ff73eb97dac93385ec5a5700b4b64e38bd1c7f4 governance/cyweb-backup-rehearsal
+0cc919cbeca46dc161fd9db6800e8e58f341621c governance/cyweb-finalize-d1-runtime
+6dc5314b5b180a77a729db70ac3103801227e3cf governance/cyweb-backup-management
+7a3259ccd103658f27dd3caa1c3222c7ce54c4d0 governance/cyweb-backup-acceptance
+85379a26bf4e43972e168a04d2afb93b73cc7691 governance/cyweb-backup-release-record
+acd47f68e57676b9c3bc0686aaeaa83757eaabc9 governance/cyweb-tiered-backup
+80224c02c184fa1b628edb6639cabacddb7f6b51 feature/order-worker-d1-transport
+55b883f8d9c2bf63a575719b7e5747a1ddca444f governance/backup-cloud-activation
+86733ccb93e39a0db6dd40d23b6e9a627218d886 cyweb/docs-cloud-activation-checkpoint
+5d3965b418525d4b286475f80b27b1799d793582 feature/outsourcing-worker-d1-transport
+fb22c8d09e58385a521f2b6e787da81a15b39873 cyweb/docs-backup-manual-setup
+c4290a15cbf6def934bd20931703c98ee25a2c2c feature/defect-worker-d1-transport
+a4867fa76ea2da587473fcc515c8f01f6cf299e2 cyweb/fix-list-row-height
+f6d666c95f2957e28d7665de06fd400716c58d36 feature/customer-worker-d1-transport-main
+25d524882d4856f026c93103e053dfe30fa26a88 cyweb/docs-independent-ui-acceptance
+d3b4a9371c950c454db3d05f5bf1d74696d9be05 cyweb/docs-customer-related-acceptance
+4b621597d4e1f69f79a7ce295d6becaa02c25d1f cyweb/docs-customer-related-resumed
+037a219350e95062953848fc71679a45f81d28b6 cyweb/docs-date-snapshot-worklog
+49a41d65e56a00a3f3441f87de641a617cc35b93 governance/customer-validation-reconcile
+fac2bf81f5a3b6f5689cf7e8825cfe8132f60c27 cyweb/fix-worklog-stale-audit
+3906be1155dfc0d4280aa5f462af1dd1dc9a6c16 cyweb/docs-worklog-deploy-checkpoint
+f418dbebaa763fdc25f311c853d66a14503857e8 cyweb/docs-outsourcing-deploy-checkpoint
+093cc45cfe3d22c9d19c8b68f88586a6ad166d8e cyweb/fix-outsourcing-stale-effects
+74eb532b3f6daa1a85d80cc898f3037ef88ed47f architecture/legacy-data-normalization
+d12da937bde265877195f00c8beddd3237d39ee7 governance/d1-acceptance-single-invocation
+c3a6bc3c287b29ea227b8ac9b811f228a0d69245 cyweb/docs-defect-deploy-checkpoint
+60757206e8e9c9742be9bdb9ea49674df0ef09d8 cyweb/fix-defect-stale-audit
+4a9d37ea07af26e2daa0571abec4f70eed37d5ae governance/development-health-evidence
+c30820793390c5221b82336d63b416ed5e6b09b0 cyweb/docs-health-investigation
+f423b9ba47f25f83647ca130bebd25e6033a2ee6 cyweb/docs-sales-order-deploy-checkpoint
+92dc92567b6709be739f6df7e5983bdf8f64b191 cyweb/fix-sales-order-stale-audit
+9f95100f85041a58e40168678c8d61df882a7b28 cyweb/fix-quote-stale-price-breaks
+9854234455cd3ffec47ac0003940b175389c6ab1 cyweb/docs-quote-acceptance
+0425cb0f0a2232677083ece4c953f5fa7bf0cf40 cyweb/docs-http-acceptance
+97928e5ca8d55d2fd283778a70b7d38ed5c59528 cyweb/test-business-http-authority
+e36727cb7d26e0c61cd9ab11c906b65494af89ac cyweb/fix-retired-entity-ids
+8a5d3db15a7eb78a44cb26764007304e2f7e985b cyweb/accept-outsourcing-http
+28a7c13ee2e3cc55eac9552caffba67e20262fdd cyweb/docs-retired-identity-acceptance
+24a15de0774d055435e13014f8556a14ec512a71 cyweb/accept-business-lifecycles
+dfc439db325fa9b60e8f39bdcce9fd755d57edd7 perf/cyweb-erp-housekeeping-cron-20261029
+4db1a9a0339b174694fc113408a433de9737fe6e docs/hr-leave-run-approval
+093b27c959e51e6d68f9922d8040deeb3aca7a30 cyweb/docs-consolidation-20261103
+2951534f3ce05f1fd38a6368a48aca7f49400f1e governance/cyweb-main-only-deploy
+d9e341e32abff9c5b1f11bf8107a07254e405fdc cyweb/todo-branch-cleanup
