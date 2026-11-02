@@ -6,7 +6,7 @@ import {normalizeStoreContacts} from "../../shared/phone";
 import {normalizePhone,type Honorific} from "../../shared/store";
 import {STORE_EDIT_REASONS} from "../../shared/store";
 import {STORE_REPAIR_PRODUCTS,STORE_REPAIR_CARRIERS,STORE_REPAIR_CANCEL_REASONS,STORE_REPAIR_STEPS,nextRepairStep,canUndoRepairClosure,type StoreRepair,type StoreRepairStatus,type StoreRepairStep,type StoreRepairCarrier,type StoreRepairInspectResult,type StoreRepairReturnMethod} from "../../shared/store-repairs";
-import {storeVersionGuard,storeEvent} from "../store/workflow-service";
+import {storeVersionGuard,storeEvent,validStoreRequestKey} from "../store/workflow-service";
 const ROOT="/api/business/store/repairs";
 type Context={db:D1Database;actor:number;at:string;requestId:string};
 class Invalid extends Error{constructor(message:string,public status=422,public code="STORE_REPAIR_INVALID"){super(message)}}
@@ -23,7 +23,7 @@ const obj=(v:unknown):Record<string,unknown>=>{if(!v||typeof v!=="object"||Array
 const body=async(r:Request)=>{try{return obj(await r.json())}catch(e){if(e instanceof Invalid)throw e;throw new Invalid("請提供有效 JSON")}};
 const rows=async<T>(db:D1Database,sql:string,...args:unknown[])=>((await db.prepare(sql).bind(...args).all<T>()).results??[]);
 const one=async<T>(db:D1Database,sql:string,...args:unknown[])=>db.prepare(sql).bind(...args).first<T>();
-const key=(v:Record<string,unknown>)=>{const k=text(v.requestKey,"操作識別",80,true);if(!/^[\w-]{8,80}$/.test(k))throw new Invalid("操作識別不正確");return k};
+const key=(v:Record<string,unknown>)=>{const k=text(v.requestKey,"操作識別",80,true);if(!validStoreRequestKey(k))throw new Invalid("操作識別不正確");return k};
 const version=(v:Record<string,unknown>)=>{if(!Number.isSafeInteger(v.expectedVersion)||Number(v.expectedVersion)<1)throw new Invalid("版本不正確");return Number(v.expectedVersion)};
 const shipping=(v:Record<string,unknown>,prefix:"send"|"return")=>{
  const carrier=v.carrier;

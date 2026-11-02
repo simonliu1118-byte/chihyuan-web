@@ -1,5 +1,5 @@
 import {insertedOrderSequence,movedOrderSequence} from "../store/order-sequence";
-import {storeVersionGuard,storeEvent} from "../store/workflow-service";
+import {storeVersionGuard,storeEvent,validStoreRequestKey} from "../store/workflow-service";
 import {normalizeStoreContacts} from "../../shared/phone";
 import {requireModuleAccess} from "../auth/guard";
 import {identityClient,type IdentityRuntimeEnv} from "./auth-routes";
@@ -41,7 +41,7 @@ async function getOrder(c:Context,id:number){const o=await one<OrderRow>(c.db,"S
 function fields(v:Record<string,unknown>){const lines=parseLines(v.lines),total=orderTotal(lines),deposit=money(v.deposit,"訂金");if(pricesComplete(lines)&&deposit>total)throw new Bad("STORE_INVALID","訂金不可超過金額合計");return {customerCode:text(v.customerCode,"客戶編號",40),orderDate:dateOf(v.orderDate),customerName:text(v.customerName,"顧客姓名",40,true),honorific:honorificOf(v.honorific),...contacts(v),deposit,note:text(v.note,"備註",300),lines,total}}
 const lineInserts=(c:Context,id:number,lines:ReturnType<typeof parseLines>)=>lines.map((l,i)=>c.db.prepare("INSERT INTO store_customer_order_lines(order_id,sort_order,item_code,item_name,quantity,unit_price,price_pending,metadata_mode,publisher,author,specification) VALUES(?,?,?,?,?,?,?,?,?,?,?)").bind(id,(i+1)*10,l.itemCode,l.itemName,l.quantity,l.unitPrice??0,l.unitPrice===null?1:0,l.metadataMode,l.publisher,l.author,l.specification));
 const guard=(c:Context,table:"store_customer_orders"|"store_blacklist",id:number,version:number)=>storeVersionGuard(c.db,table,id,version);
-const keyOf=(v:Record<string,unknown>)=>{const k=text(v.requestKey,"操作識別",80,true);if(!/^[\w-]{8,80}$/.test(k))throw new Bad("STORE_INVALID","操作識別不正確");return k};
+const keyOf=(v:Record<string,unknown>)=>{const k=text(v.requestKey,"操作識別",80,true);if(!validStoreRequestKey(k))throw new Bad("STORE_INVALID","操作識別不正確");return k};
 const event=(c:Context,id:number,key:string,kind:string,before:unknown,after:unknown,reason:string)=>storeEvent(c.db,"store_order_events","order_id",id,c.actor,c.now,kind,before,after,reason,key);
 function reasonOf(v:Record<string,unknown>,allowed:readonly string[]){const kind=text(v.reasonKind,"理由類別",40,true),detail=text(v.reason,"理由補充",240,kind==="其他");if(!allowed.includes(kind))throw new Bad("STORE_INVALID","理由類別不正確");return detail?kind+"："+detail:kind}
 const blackSql="SELECT b.* FROM store_blacklist b";
