@@ -1,5 +1,9 @@
 # CY Web Governance Changelog
 
+## 1.1.27 — 2026/11/03
+
+- 使用者已在 GitHub 開啟「Automatically delete head branches」，PR 合併後由 GitHub 刪除來源分支。1.1.26 的 `cleanup-merged-branches.yml` 與此重複，而且一次性的分支清理已完成（遠端只剩 `main`），因此移除，維持單一做法。
+
 ## 1.1.26 — 2026/11/03
 
 - 新增 `.github/workflows/cleanup-merged-branches.yml`（比照 CYapps，使用者 2026-11-03 同意）：PR 合併後由 GitHub 刪除其來源分支；手動執行時刪除 `.github/branch-cleanup.txt` 列出的分支，`main` 與有開啟 PR 的分支一律保留。
