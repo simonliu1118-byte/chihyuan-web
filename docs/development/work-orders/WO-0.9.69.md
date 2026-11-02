@@ -1,7 +1,7 @@
 # WO-0.9.69 門市「售後維修」頁籤
 
-- 狀態：待執行
-- 分支：cyweb/wo-0.9.69-store-repairs　PR：#（執行者填）
+- 狀態：實作中／待遠端測試（尚未合併部署）
+- 分支：cyweb/wo-0.9.69-store-repairs　PR：#（建立後回填）
 - 含 migration 與 API：**Claude 審查通過後才合併部署**（使用者 2026-10-30 約定）。
 
 ## 1. 背景（使用者原話）
@@ -128,6 +128,15 @@
 
 - 桌面 1440、手機 390：維修清單（各狀態各一筆、含逾期與無異常略過）、新增維修單、檢測／送廠／歸還對話框、取消對話框。
 
-## 8. 完成報告（執行者填）
+## 8. 完成報告（GPT，2026-11-02；待驗證）
+- 已建立工作分支 `cyweb/wo-0.9.69-store-repairs`，基於 main `9a52fb5e55ed`。
+- 變更：0043 migration、STORE_REPAIRS module、shared/store-repairs.ts、shared/store-workflow.ts、Worker API、共用 store workflow 檢測／送修欄、前端維修頁與 tab、備份表清單／還原版本相容。
+- 既有訂購頁已改用抽出的共用 ContactCells、HonorificCell、Reason，後端共用 version guard、event 與 5 分鐘結案時限。
+- 已新增 `scripts/store-repairs.test.mjs` 與 0042→0043 還原回歸。遠端測試／視覺驗收尚未完成，**不可判為通過**。
+- 待處理：計算並核對 0043 LF／CRLF schema 指紋、確認 migration 對資料與 FK 的影響、完整 CI、1440／390 實際畫面及既有訂購回歸；如有失敗應優先返修。
+- 不合併、不部署、不建立 Release，工單第 9 節保留 Claude 最終審查。
+- Handoff：`docs/handoff/CYWEB-WO-0.9.69-GPT-20261102.md`。
+
+## 9. 審查紀錄（審查者填）
 
 ## 9. 審查紀錄（審查者填）

@@ -1,3 +1,10 @@
+## 待 Claude 複審：WO-0.9.69 售後維修
+- [x] 獨立 module grant、schema 0043、API／維修頁、共用表單欄位、流程測試初版。
+- [ ] 完成 GitHub CI 檢查、正確 0043 schema 指紋與 0042 → 0043 備份還原驗證，並修正可能的失敗。
+- [ ] 1440／390 真實畫面截圖、手機觸控、正式 D1 migration 與生產環境部署驗收。
+- [ ] Claude 完成工單 §9 最終複審；GPT 不合併、不部署。注意需與 WO-0.9.68 版本先後順序相容。
+- [工單](docs/development/work-orders/WO-0.9.69.md) ／ [Handoff](docs/handoff/CYWEB-WO-0.9.69-GPT-20261102.md)。
+
 ## 已部署、待複審：V0.9.64 黑名單與月度待辦（2026-11-02）
 
 - [x] 四處置排序／欄寬／OTHER純內容、移出理由及跨列線；月度16日預產／設定拖曳與備註／停啟用／單格更新及同訂購日期樣式，0041／舊備份保全、Build與合成瀏覽器通過。[Claude交接](docs/handoff/CYWEB-BLACKLIST-MONTHLY-0964-20261102.md)。
