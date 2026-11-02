@@ -294,5 +294,5 @@ export async function restoreIntoEmptyDatabase(db: D1Database, bundle: PortableB
   }
   await db.batch(statements);
   const restored = await exportPortableBackup(db, { workspaceScope, appVersion: manifest.appVersion });
-  check(sameBytes(restored.dataBytes, preItemIndex(manifest.schemaSha256)&&prePhotos(manifest.schemaSha256)?canonicalData(data):bundle.dataBytes), "BACKUP_RECONCILIATION_FAILED");
+  check(sameBytes(restored.dataBytes, preItemIndex(manifest.schemaSha256)?canonicalData(data):bundle.dataBytes), "BACKUP_RECONCILIATION_FAILED");
 }
