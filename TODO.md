@@ -7,7 +7,7 @@
 
 - **正式站 V0.9.91 Build 0**（`https://admin.chihyuancm.com`），CYID consumer 1.0.5；D1 migration 到 `0045_ordering_draft_item_index`，正式資料庫結構與 migration 完全一致。
 - 模組：客戶、商品、瑕疵、銷售工單、叫貨（含進貨輔助抽屜、未到貨）、門市（顧客訂購、黑名單、月度待辦、售後維修、庫存盤點）、委外/代工、工作日誌、人事、ERP 查詢、帳號與權限、異動紀錄、備份管理、CY 程式、我的帳號。
-- 帳號：CYID 正式服務（`cycloud-identity-prod`）；成功的登入確認在伺服器記住 30 秒（V0.9.91）。
+- 帳號：CYID 正式服務；成功的登入確認在伺服器記住 30 秒（V0.9.91）。
 - 排程：網站只有一個 `*/5 * * * *` 排程（V0.9.86）。
   - 每次：ERP 逾時與結果清理。
   - 台灣 00:00：門市月度。
@@ -109,11 +109,11 @@
 ## 維運與基礎設施
 
 - [x] 治理 1.1.25（PR #385）：正式部署只從 main dispatch，workflow 不再有分支 push 觸發；推送到舊發布分支不會再部署。
-- [ ] 刪除已沒用的遠端分支（2026-11-03 盤點 381 個，清單 `.github/branch-cleanup.txt`）：治理 1.1.26 合併後手動執行「Cleanup Merged Branches」，確認遠端只剩 `main` 後移除清單檔。之後 PR 合併時來源分支會自動刪除。
+- [x] 刪除已沒用的遠端分支（治理 1.1.26，2026-11-03）：CI 刪除 381 個，遠端只剩 `main`；清單檔已移除，刪除前的 SHA 留在 Git 歷史的 `.github/branch-cleanup.txt`。之後 PR 合併時來源分支會自動刪除。
   - `docs/hr-leave-run-approval`（PR #239）的人事規則「區段內有事假或病假時，連七改為提醒並核准」：使用者 2026-11-03 決定不採用，維持連七一律擋下。
 - [ ] GitHub 設定名稱／scope 的 read-back（API 目前 403，不等於設定不存在）。
 - 部署後 Cloudflare 有時要一段時間才回新版本（V0.9.88 曾超過 90 秒）；部署檢查自 V0.9.89 起等待最多 5 分鐘，不需重新部署。
-- Cloudflare 名稱仍含 dev（Worker `cyweb-dev`、D1 `cyweb-dev-db`、GitHub Environment `development`），只是歷史標籤；使用者 2026-11-03 決定暫不改名。
+- 部分 Cloudflare 資源與 GitHub Environment `development` 的名稱仍含 dev，只是歷史標籤；使用者 2026-11-03 決定暫不改名。
 
 ## 文件地圖
 
