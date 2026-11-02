@@ -1,7 +1,7 @@
 # WO-0.9.71 進貨輔助移到叫貨模組（右側抽屜）
 
-- 狀態：待執行
-- 分支：cyweb/wo-0.9.71-restock-drawer　PR：#（執行者填）
+- 狀態：程式提交／待 CI 與 Claude 複審；未合併、未部署
+- 分支：cyweb/wo-0.9.71-restock-drawer　PR：#（建立後回填）
 - 有新增 API（草稿品項查詢），沒有 migration：**Claude 審查通過後才合併部署**。
 
 ## 1. 背景（使用者原話）
@@ -81,6 +81,14 @@
 - 桌面 1440：叫貨頁頁籤列、進貨輔助抽屜（含結果與「已在草稿」提示）、加入叫貨單對話框。
 - 手機 390：抽屜。
 
-## 8. 完成報告（執行者填）
+## 8. 完成報告（GPT，2026-11-02；待完整驗證）
+- 基準：`main` SHA `2fc8dc8ec8d8c5cbfdb09c22766cacfc067928b0`；分支 `cyweb/wo-0.9.71-restock-drawer`，版本 `0.9.71`／BUILD `0`。
+- 共用元件：`src/ui/overlays/SidePanel.tsx` 與 `overlay.css`；排程佇列和叫貨進貨輔助共享可關閉的無遮罩側板及 Esc，移除 ERP 特例 CSS。
+- `ErpItemQueryPage.tsx` 移除 RESTOCK，`OrderingPage.tsx` 加入權限控管按鈕、保留 query job 的抽屜，`App.tsx` 完成通知導航至叫貨。原有 `useErpJob` 仍作唯一查詢狀態；`RestockAssist.tsx` 以 `Field`／`DateInput` 表單並顯示草稿提示。
+- `worker/http/ordering-routes.ts` 新增只含 DRAFT、closed_as 為 NULL 的 `draft-items` 批次查詢（`json_each`、500 品號）；`migrations/0045_ordering_draft_item_index.sql` 提供品號索引；備份 exact 版本／測試需 CI 核對。
+- `scripts/ordering-route.test.mjs` 增加草稿多筆、排除已送出與無權限測試。仍待全套 CI 與 1440／390 真實瀏覽器驗收，不可冒稱通過。
+- 不合併、不部署；Claude 審查結論在 §9，Handoff：`docs/handoff/CYWEB-WO-0.9.71-GPT-20261102.md`。
+
+
 
 ## 9. 審查紀錄（審查者填）
