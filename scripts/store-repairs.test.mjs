@@ -101,13 +101,13 @@ test('repair photo API: scoped access, JPEG size and count, R2 removal and after
   const root='/'+repair.id+'/photos';
   const deny=await raw(root,'POST',new Blob(['bad']),"text/plain");assert.equal(deny.status,422);
   const large=await raw(root,'POST',new Uint8Array(1048577));assert.equal(large.status,422);
-  for(let i=0;i<5;i++){const res=await raw(root,'POST',jpeg);assert.equal(res.status,200,await res.text());}
+  for(let i=0;i<3;i++){const res=await raw(root,'POST',jpeg);assert.equal(res.status,200,await res.text());}
   const tooMany=await raw(root,'POST',jpeg);assert.equal(tooMany.status,409);
-  const list=await raw(root,'GET');assert.equal(list.status,200);const photos=(await list.json()).data;assert.equal(photos.length,5);
-  assert.equal(f.objects.size,5);
+  const list=await raw(root,'GET');assert.equal(list.status,200);const photos=(await list.json()).data;assert.equal(photos.length,3);
+  assert.equal(f.objects.size,3);
   const image=await raw(root+'/'+photos[0].id,'GET');assert.equal(image.status,200);assert.equal(image.headers.get('cache-control'),'private, no-store');
-  const deleted=await raw(root+'/'+photos[0].id,'DELETE');assert.equal(deleted.status,200);assert.equal(f.objects.size,4);
-  assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM store_repair_events WHERE kind=?').get('上傳維修單照片').n,5);
+  const deleted=await raw(root+'/'+photos[0].id,'DELETE');assert.equal(deleted.status,200);assert.equal(f.objects.size,2);
+  assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM store_repair_events WHERE kind=?').get('上傳維修單照片').n,3);
   assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM store_repair_events WHERE kind=?').get('刪除維修單照片').n,1);
   const forbidden=fixture('ADMIN',false);
   try{

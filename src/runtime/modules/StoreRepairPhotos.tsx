@@ -1,9 +1,11 @@
 import {useEffect,useRef,useState,type ChangeEvent} from "react";
 import {Dialog} from "../../ui/overlays/Dialog";
+import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {Loading} from "../../ui/feedback/Loading";
 import {IconButton} from "../../ui/actions/IconButton";
 import {Icons} from "../../ui/actions/icons";
 import {resizeToJpeg} from "../../ui/forms/photo-upload";
+import {STORE_REPAIR_PHOTO_LIMIT} from "../../../shared/store-repairs";
 export interface RepairPhoto{id:number;bytes:number;width:number;height:number;createdAt:string}
 const base=(id:number)=>"/api/business/store/repairs/"+id+"/photos";
 async function responseError(res:Response):Promise<Error>{
@@ -13,6 +15,7 @@ async function responseError(res:Response):Promise<Error>{
 /** Authenticated image fetch keeps photo URLs private and revokes every object URL on close. */
 export function StoreRepairPhotos({repairId,onClose,onCountChanged}:{repairId:number;onClose:()=>void;onCountChanged:(count:number)=>void}){
  const notify=useRef(onCountChanged);notify.current=onCountChanged;
+ const {confirm,confirmationDialog}=useConfirmation();
  const [photos,setPhotos]=useState<RepairPhoto[]>([]),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(""),[selected,setSelected]=useState<number|null>(null),[urls,setUrls]=useState<Record<number,string>>({});
  useEffect(()=>{
   let active=true;
@@ -38,7 +41,7 @@ export function StoreRepairPhotos({repairId,onClose,onCountChanged}:{repairId:nu
   const file=e.target.files?.[0];e.target.value="";if(!file)return;
   setBusy(true);setError("");
   try{
-   if(photos.length>=5)throw Error("每張維修單最多五張照片");
+   if(photos.length>=STORE_REPAIR_PHOTO_LIMIT)throw Error("每張維修單最多"+STORE_REPAIR_PHOTO_LIMIT+"張照片");
    const jpeg=await resizeToJpeg(file,{maxSide:1600,quality:.8,grayscale:false});
    if(jpeg.size>1048576)throw Error("照片過大，請重新拍攝");
    const res=await fetch(base(repairId),{method:"POST",credentials:"same-origin",headers:{"content-type":"image/jpeg"},body:jpeg});
@@ -49,6 +52,8 @@ export function StoreRepairPhotos({repairId,onClose,onCountChanged}:{repairId:nu
   }catch(e){setError(e instanceof Error?e.message:"照片上傳失敗")}finally{setBusy(false)}
  }
  async function remove(photoId:number){
+  // Deleting also removes the file from storage, so it cannot be undone.
+  if(!await confirm({title:"刪除照片",description:"確定刪除這張維修單照片？刪除後無法復原。",confirmLabel:"刪除"}))return;
   setBusy(true);setError("");
   try{
    const res=await fetch(base(repairId)+"/"+photoId,{method:"DELETE",credentials:"same-origin"});
@@ -63,8 +68,9 @@ export function StoreRepairPhotos({repairId,onClose,onCountChanged}:{repairId:nu
    {urls[p.id]?<button type="button" className="cy-repair-photo-thumb" onClick={()=>setSelected(p.id)} aria-label={"放大照片 "+p.id}><img src={urls[p.id]} alt={"維修單照片 "+p.id}/></button>:<Loading inline/>}
    <IconButton variant="table" icon={Icons.remove} label={"刪除照片 "+p.id} disabled={busy} onClick={()=>void remove(p.id)}/>
   </div>)}</div>}
-  <p>{photos.length}／5 張</p>
-  <label className="cy-op-button cy-repair-photo-upload">上傳照片<input type="file" accept="image/*" capture="environment" disabled={busy||loading||photos.length>=5} onChange={e=>void upload(e)}/></label>
+  <p>{photos.length}／{STORE_REPAIR_PHOTO_LIMIT} 張</p>
+  <label className="cy-op-button cy-repair-photo-upload">上傳照片<input type="file" accept="image/*" capture="environment" disabled={busy||loading||photos.length>=STORE_REPAIR_PHOTO_LIMIT} onChange={e=>void upload(e)}/></label>
   {selected!==null&&urls[selected]?<div className="cy-repair-photo-large"><button type="button" className="cy-op-button" onClick={()=>setSelected(null)}>返回縮圖</button><img src={urls[selected]} alt="放大的維修單照片"/></div>:null}
+ {confirmationDialog}
  </Dialog>;
 }

@@ -11,7 +11,7 @@
 
 ## 2. 已定案事項
 
-- 每張維修單可上傳**維修單照片**，最多 **5 張**，任何階段都能上傳，結案後也能補傳。手機直接拍照（`<input type="file" accept="image/*" capture="environment">`），電腦可選檔。
+- 每張維修單可上傳**維修單照片**，最多 **3 張**（使用者 2026-11-03 由 5 張改為 3 張），任何階段都能上傳，結案後也能補傳。手機直接拍照（`<input type="file" accept="image/*" capture="environment">`），電腦可選檔。
 - **大小控制在前端完成**：上傳前縮圖並轉 JPEG。
   - 長邊最多 **1600px**，品質 0.8；
   - 縮圖後仍超過 **1 MB** 就拒絕，提示「照片過大，請重新拍攝」；
@@ -66,7 +66,7 @@
 ## 6. 驗收清單
 
 - [ ] 手機可直接拍照上傳；上傳後的照片 ≤ 1 MB、長邊 ≤ 1600px，文字清楚。
-- [ ] 每張維修單最多 5 張；可刪除；結案後可補傳。
+- [ ] 每張維修單最多 3 張；可刪除；結案後可補傳。
 - [ ] 清單顯示相機圖示＋張數，點開可看大圖。
 - [ ] 沒有 `STORE_REPAIRS` 權限無法讀取照片。
 - [ ] 人事請假附件改用共用函式後行為不變。
@@ -90,3 +90,19 @@
 
 
 ## 9. 審查紀錄（審查者填）
+
+- 日期：2026-11-03；審查者：Claude；PR #356。
+- 結論：**通過**（含 Claude 直接修正）。
+- 確認無誤：
+  - **共用抽取**：前端 `resizeToJpeg`、後端 `inspectJpeg`／`putJpegWithRecords`，人事請假附件已改用，行為不變。
+  - **權限與存取**：照片 API 都在 `STORE_REPAIRS` 權限後，回應為 `private, no-store`；上傳失敗會刪掉 R2 上的檔案；上傳與刪除都有事件與 Audit。
+  - **前端**：object URL 關閉時會釋放；圖示用共用 `Icons.camera`。
+- Claude 直接修正：
+  1. **阻擋：0044 結構指紋沒填**（`STORE_REPAIR_PHOTO_SCHEMAS` 是空陣列）。任何備份（包括部署後新做的）都無法還原，13 項備份測試失敗，CI 的 build job 也沒有通過。已填入 LF／CRLF 指紋（Claude 從 migration 鏈重算），並把「目前結構指紋」測試改為 0044。
+  2. **使用者 2026-11-03 指示每筆最多 3 張**：改為常數 `STORE_REPAIR_PHOTO_LIMIT=3`，後端、前端、測試、工作單、CHANGELOG 同步修改。
+  3. **清單的相機張數一律顯示 0**：清單 API 沒回傳張數。已在清單查詢加上 `photo_count` 子查詢。
+  4. **刪除照片沒有確認**：一按就刪，而且 R2 的檔案也一起刪掉、無法復原。已改用共用 `useConfirmation` 先確認。
+- 驗證：
+  - `npm run typecheck`、`node --test scripts/*.test.mjs`（571 pass）、`validate:source`、`validate_schema.py`（45 支 migration）、`validate:d1:local`、`npm run build` 通過；
+  - 本機截圖：照片對話框（2／3 張）。
+- 流程：**PR 交審時 CI 並未全綠**（build job 未通過）。之後交審前請確認最新 head 的 CI 全綠。

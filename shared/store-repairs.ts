@@ -13,6 +13,8 @@ export const STORE_REPAIR_CARRIERS={SELF:"自送",POST:"郵局",HCT:"新竹",KER
 export type StoreRepairCarrier=keyof typeof STORE_REPAIR_CARRIERS;
 export const STORE_REPAIR_CANCEL_REASONS=["顧客不修（費用考量）","無法維修","顧客取回","其他"] as const;
 export const STORE_REPAIR_FACTORY_OVERDUE_DAYS=30;
+/** Repair-slip photos per repair (user 2026-11-03). */
+export const STORE_REPAIR_PHOTO_LIMIT=3;
 export type StoreRepairInspectResult="GOOD"|"BAD"|"";
 export type StoreRepairReturnMethod=""|"PICKUP"|"SHIPPING";
 export interface StoreRepair {

@@ -83,16 +83,16 @@ test('0042 contact indexes: a backup taken before them restores unchanged into t
  assert.ok(target.sql.prepare("SELECT 1 FROM sqlite_master WHERE name='idx_store_blacklist_phone'").get());
 }finally{source.sql.close();target.sql.close()}});
 
-test('0043 fresh schema fingerprint for exact LF/CRLF verification',()=>{
+test('current (0044) schema fingerprint matches the pinned LF/CRLF values; update both with every new migration',()=>{
  const f=connection();try{
   const hash=sha(JSON.stringify(f.sql.prepare(schemaQuery).all()));
   console.log('STORE_REPAIR_SCHEMA_FINGERPRINT='+hash);
-  assert.equal(hash,'b3f9f2a9e256ca168a2811dafba00c69cdbcd030e91251b32b80a46910086b55');
+  assert.equal(hash,'a2ec97475e6a855df30d1964819d97f8a1735de8141e1bb7fc8685ce1862488b');
   const crlf=new DatabaseSync(':memory:');try{
    crlf.exec('PRAGMA foreign_keys=ON');
    for(const filename of migrations)crlf.exec(readFileSync(new URL('../migrations/'+filename,import.meta.url),'utf8').replace(/\r?\n/g,'\r\n'));
    const crlfHash=sha(JSON.stringify(crlf.prepare(schemaQuery).all()));
-   assert.equal(crlfHash,'a7fc77a58c97ec29ef992b2c83a69cb1f0173371edf9399c2d417d1cb47494cc');
+   assert.equal(crlfHash,'8e2751fac3de1cfc294cd5039c61cd0d66f0cfb2ee2bc17139f517abe606f15b');
   }finally{crlf.close()}
   assert.equal(f.sql.prepare('PRAGMA foreign_key_check').all().length,0);
   assert.equal(f.sql.prepare("SELECT count(*) n FROM sqlite_master WHERE name='store_repairs'").get().n,1);

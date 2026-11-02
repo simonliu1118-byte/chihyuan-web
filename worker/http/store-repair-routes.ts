@@ -6,12 +6,12 @@ import {inspectJpeg,putJpegWithRecords,JpegUploadError} from "../files/jpeg-uplo
 import {normalizeStoreContacts} from "../../shared/phone";
 import {normalizePhone,type Honorific} from "../../shared/store";
 import {STORE_EDIT_REASONS} from "../../shared/store";
-import {STORE_REPAIR_PRODUCTS,STORE_REPAIR_CARRIERS,STORE_REPAIR_CANCEL_REASONS,STORE_REPAIR_STEPS,nextRepairStep,canUndoRepairClosure,type StoreRepair,type StoreRepairStatus,type StoreRepairStep,type StoreRepairCarrier,type StoreRepairInspectResult,type StoreRepairReturnMethod} from "../../shared/store-repairs";
+import {STORE_REPAIR_PRODUCTS,STORE_REPAIR_CARRIERS,STORE_REPAIR_CANCEL_REASONS,STORE_REPAIR_PHOTO_LIMIT,STORE_REPAIR_STEPS,nextRepairStep,canUndoRepairClosure,type StoreRepair,type StoreRepairStatus,type StoreRepairStep,type StoreRepairCarrier,type StoreRepairInspectResult,type StoreRepairReturnMethod} from "../../shared/store-repairs";
 import {storeVersionGuard,storeEvent,validStoreRequestKey} from "../store/workflow-service";
 const ROOT="/api/business/store/repairs";
 type Context={db:D1Database;actor:number;at:string;requestId:string};
 class Invalid extends Error{constructor(message:string,public status=422,public code="STORE_REPAIR_INVALID"){super(message)}}
-type Row={id:number;list_sequence:number;received_date:string;customer_code:string;customer_name:string;honorific:Honorific;mobile:string;phone:string;line_name:string;product_kind:StoreRepair["productKind"];product_text:string;serial_no:string;fault:string;purchase_date:string|null;accessories:string;status:StoreRepairStatus;inspect_result:StoreRepairInspectResult;inspect_problem:string;cancelled:number;cancelled_at:string|null;cancel_reason:string;send_carrier:StoreRepairCarrier|"";send_tracking:string;sent_at:string|null;return_method:StoreRepairReturnMethod;return_carrier:StoreRepairCarrier|"";return_tracking:string;inspected_date:string|null;sent_date:string|null;repaired_date:string|null;notified_date:string|null;returned_date:string|null;notified_at:string|null;closed_at:string|null;version:number;created_at:string;updated_at:string};
+type Row={id:number;list_sequence:number;received_date:string;customer_code:string;customer_name:string;honorific:Honorific;mobile:string;phone:string;line_name:string;product_kind:StoreRepair["productKind"];product_text:string;serial_no:string;fault:string;purchase_date:string|null;accessories:string;status:StoreRepairStatus;inspect_result:StoreRepairInspectResult;inspect_problem:string;cancelled:number;cancelled_at:string|null;cancel_reason:string;send_carrier:StoreRepairCarrier|"";send_tracking:string;sent_at:string|null;return_method:StoreRepairReturnMethod;return_carrier:StoreRepairCarrier|"";return_tracking:string;inspected_date:string|null;sent_date:string|null;repaired_date:string|null;notified_date:string|null;returned_date:string|null;notified_at:string|null;closed_at:string|null;version:number;created_at:string;updated_at:string;photo_count?:number};
 const dateColumns:Record<StoreRepairStep,keyof Row>={INSPECTED:"inspected_date",SENT:"sent_date",REPAIRED:"repaired_date",NOTIFIED:"notified_date",RETURNED:"returned_date"};
 const today=(at:string)=>new Date(Date.parse(at)+8*3600000).toISOString().slice(0,10);
 const text=(v:unknown,label:string,max:number,required=false)=>{if(v===undefined||v===null)v="";if(typeof v!=="string"||[...v.trim()].length>max)throw new Invalid(label+"不正確");const s=v.trim();if(required&&!s)throw new Invalid(label+"必填");return s};
@@ -43,7 +43,7 @@ const fields=(v:Record<string,unknown>,at:string)=>{
  return {receivedDate:date(v.receivedDate,"送修日期",at)!,customerCode:text(v.customerCode,"客戶編號",40),customerName:name,honorific:honorific as Honorific,phone:normalized.phone,mobile:normalized.mobile,lineName,
   productKind:kind as StoreRepair["productKind"],productText:text(v.productText,kind==="OTHER"?"產品名稱":"產品型號",120,true),serialNo:text(v.serialNo,"產品機號",60),fault:text(v.fault,"故障狀況",300,true),purchaseDate:date(v.purchaseDate,"購買日期",at,true),accessories:text(v.accessories,"配件備註",300)};
 };
-const json=(o:Row):StoreRepair=>({id:o.id,sequence:o.list_sequence,receivedDate:o.received_date,customerCode:o.customer_code,customerName:o.customer_name,honorific:o.honorific,mobile:o.mobile,phone:o.phone,lineName:o.line_name,productKind:o.product_kind,productText:o.product_text,serialNo:o.serial_no,fault:o.fault,purchaseDate:o.purchase_date,accessories:o.accessories,status:o.status,inspectResult:o.inspect_result,inspectProblem:o.inspect_problem,cancelled:!!o.cancelled,cancelledAt:o.cancelled_at,cancelReason:o.cancel_reason,sentAt:o.sent_at,notifiedAt:o.notified_at,closedAt:o.closed_at,sendCarrier:o.send_carrier,sendTracking:o.send_tracking,returnMethod:o.return_method,returnCarrier:o.return_carrier,returnTracking:o.return_tracking,dates:{INSPECTED:o.inspected_date,SENT:o.sent_date,REPAIRED:o.repaired_date,NOTIFIED:o.notified_date,RETURNED:o.returned_date},version:o.version,createdAt:o.created_at,updatedAt:o.updated_at});
+const json=(o:Row):StoreRepair=>({id:o.id,sequence:o.list_sequence,photoCount:o.photo_count,receivedDate:o.received_date,customerCode:o.customer_code,customerName:o.customer_name,honorific:o.honorific,mobile:o.mobile,phone:o.phone,lineName:o.line_name,productKind:o.product_kind,productText:o.product_text,serialNo:o.serial_no,fault:o.fault,purchaseDate:o.purchase_date,accessories:o.accessories,status:o.status,inspectResult:o.inspect_result,inspectProblem:o.inspect_problem,cancelled:!!o.cancelled,cancelledAt:o.cancelled_at,cancelReason:o.cancel_reason,sentAt:o.sent_at,notifiedAt:o.notified_at,closedAt:o.closed_at,sendCarrier:o.send_carrier,sendTracking:o.send_tracking,returnMethod:o.return_method,returnCarrier:o.return_carrier,returnTracking:o.return_tracking,dates:{INSPECTED:o.inspected_date,SENT:o.sent_date,REPAIRED:o.repaired_date,NOTIFIED:o.notified_date,RETURNED:o.returned_date},version:o.version,createdAt:o.created_at,updatedAt:o.updated_at});
 const get=async(c:Context,id:number)=>{const r=await one<Row>(c.db,"SELECT * FROM store_repairs WHERE id=?",id);if(!r)throw new Invalid("維修單不存在",404);return r};
 const audit=(c:Context,id:number,action:string,before:unknown,after:unknown)=>new AuditService(c.db).prepareRecord({entityType:"store_repair",entityKey:String(id),action,actorEmployeeId:c.actor,occurredAt:c.at,requestId:c.requestId,before:before as Record<string,unknown>,after:after as Record<string,unknown>});
 const event=(c:Context,id:number,k:string,kind:string,before:unknown,after:unknown,reason="")=>storeEvent(c.db,"store_repair_events","repair_id",id,c.actor,c.at,kind,before,after,reason,k);
@@ -70,7 +70,7 @@ export async function handleStoreRepairRoute(req:Request,env:IdentityRuntimeEnv 
  try{
   if((path===""||path==="/")&&method==="GET"){
    const q=(u.searchParams.get("q")??"").trim().slice(0,60),like="%"+q.replace(/[\\%_]/g,m=>"\\"+m)+"%",digits=normalizePhone(q);
-   const list=await rows<Row>(c.db,"SELECT * FROM store_repairs WHERE (?='' OR customer_code LIKE ? ESCAPE '\\' OR customer_name LIKE ? ESCAPE '\\' OR phone LIKE ? ESCAPE '\\' OR mobile LIKE ? ESCAPE '\\' OR line_name LIKE ? ESCAPE '\\' OR product_text LIKE ? ESCAPE '\\' OR serial_no LIKE ? ESCAPE '\\' OR fault LIKE ? ESCAPE '\\' OR send_tracking LIKE ? ESCAPE '\\' OR return_tracking LIKE ? ESCAPE '\\') ORDER BY list_sequence DESC LIMIT 501",q,like,like,"%"+digits+"%","%"+digits+"%",like,like,like,like,like,like);
+   const list=await rows<Row>(c.db,"SELECT *,(SELECT COUNT(*) FROM store_repair_photos p WHERE p.repair_id=store_repairs.id) photo_count FROM store_repairs WHERE (?='' OR customer_code LIKE ? ESCAPE '\\' OR customer_name LIKE ? ESCAPE '\\' OR phone LIKE ? ESCAPE '\\' OR mobile LIKE ? ESCAPE '\\' OR line_name LIKE ? ESCAPE '\\' OR product_text LIKE ? ESCAPE '\\' OR serial_no LIKE ? ESCAPE '\\' OR fault LIKE ? ESCAPE '\\' OR send_tracking LIKE ? ESCAPE '\\' OR return_tracking LIKE ? ESCAPE '\\') ORDER BY list_sequence DESC LIMIT 501",q,like,like,"%"+digits+"%","%"+digits+"%",like,like,like,like,like,like);
    if(list.length>500)throw new Invalid("符合條件超過500筆，請縮小搜尋",409);
    return success(list.map(json),requestId);
   }
@@ -94,7 +94,7 @@ export async function handleStoreRepairRoute(req:Request,env:IdentityRuntimeEnv 
    type Photo={id:number;repair_id:number;object_key:string;bytes:number;width:number;height:number;created_at:string;created_by:number};
    const findPhoto=()=>one<Photo>(c.db,"SELECT * FROM store_repair_photos WHERE id=? AND repair_id=?",photoId,repairId);
    if(method==="GET"&&photoId===null){
-    const list=await rows<Photo>(c.db,"SELECT * FROM store_repair_photos WHERE repair_id=? ORDER BY id ASC LIMIT 5",repairId);
+    const list=await rows<Photo>(c.db,"SELECT * FROM store_repair_photos WHERE repair_id=? ORDER BY id ASC LIMIT ?",repairId,STORE_REPAIR_PHOTO_LIMIT);
     return success(list.map(x=>({id:x.id,bytes:x.bytes,width:x.width,height:x.height,createdAt:x.created_at})),requestId);
    }
    if(method==="GET"&&photoId!==null){
@@ -108,10 +108,10 @@ export async function handleStoreRepairRoute(req:Request,env:IdentityRuntimeEnv 
     let dimensions:{width:number;height:number};
     try{dimensions=inspectJpeg(bytes,req.headers.get("content-type"),1048576)}catch(e){if(e instanceof JpegUploadError)throw new Invalid(e.message);throw e}
     const count=(await one<{n:number}>(c.db,"SELECT COUNT(*) n FROM store_repair_photos WHERE repair_id=?",repairId))?.n??0;
-    if(count>=5)throw new Invalid("每張維修單最多五張照片",409);
+    if(count>=STORE_REPAIR_PHOTO_LIMIT)throw new Invalid("每張維修單最多"+STORE_REPAIR_PHOTO_LIMIT+"張照片",409);
     const objectKey="store-repairs/"+repairId+"/"+crypto.randomUUID()+".jpg";
     const info={repairId,bytes:bytes.length,...dimensions};
-    const duplicateGuard=c.db.prepare("SELECT CASE WHEN (SELECT COUNT(*) FROM store_repair_photos WHERE repair_id=?)<5 THEN 1 ELSE json('') END").bind(repairId);
+    const duplicateGuard=c.db.prepare("SELECT CASE WHEN (SELECT COUNT(*) FROM store_repair_photos WHERE repair_id=?)<? THEN 1 ELSE json('') END").bind(repairId,STORE_REPAIR_PHOTO_LIMIT);
     await putJpegWithRecords(bucket,c.db,objectKey,bytes,[
      duplicateGuard,
      c.db.prepare("INSERT INTO store_repair_photos(repair_id,object_key,bytes,width,height,created_at,created_by) VALUES(?,?,?,?,?,?,?)").bind(repairId,objectKey,bytes.length,dimensions.width,dimensions.height,c.at,c.actor),
