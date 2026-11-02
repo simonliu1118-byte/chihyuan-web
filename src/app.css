@@ -664,3 +664,14 @@ a.cy-op-button, a.cy-button { text-decoration: none; }
 @media (max-width: 820px) {
   .cy-icon-button { inline-size: 44px; block-size: 44px; min-inline-size: 44px; min-block-size: 44px; }
 }
+/* Shared action glyphs (src/ui/actions/icons.tsx) and the in-row icon button size. */
+.cy-icon { display: block; flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.cy-icon-button > span { display: flex; }
+button.cy-icon-button.cy-icon-button-table { inline-size: 26px; block-size: 26px; min-inline-size: 26px; min-block-size: 26px; padding: 3px; border-color: transparent; background: transparent; color: var(--cy-text); }
+button.cy-icon-button.cy-icon-button-table:hover:not(:disabled) { border-color: var(--cy-border); background: var(--cy-surface-muted); }
+button.cy-icon-button.cy-icon-button-table:disabled { opacity: 1; color: var(--cy-text-subtle); }
+button.cy-icon-button.cy-icon-button-table:disabled .cy-icon { opacity: .35; }
+button.cy-icon-button.cy-icon-button-danger:hover:not(:disabled) { color: var(--cy-danger); }
+@media (max-width: 820px) {
+  button.cy-icon-button.cy-icon-button-table { inline-size: 36px; block-size: 36px; min-inline-size: 36px; min-block-size: 36px; }
+}

@@ -1,4 +1,6 @@
 import {useMemo,useState,useRef,type KeyboardEvent} from "react";
+import {IconButton} from "../../ui/actions/IconButton";
+import {Icons} from "../../ui/actions/icons";
 import {Field} from "../../ui/forms/Field";
 import {useCompactLayout} from "../../ui/foundation/useCompactLayout";
 import {parseStocktakeQuantity,decimalStocktake,type StocktakeDetail,type StocktakeLine,type StocktakeLocationCount} from "../../../shared/stocktake";
@@ -33,15 +35,13 @@ function InlineLocation({location,label,onSave,onCancel,desktopControls=false}:{
    onKeyDown={e=>{if(e.nativeEvent.isComposing)return;if(e.key==="Enter"){e.preventDefault();void save(e.currentTarget)}
     if(e.key==="Escape"&&!saving){e.preventDefault();onCancel()}}}/></Field>
   {desktopControls?<>
-   <button type="button" className="cy-op-button compact cy-stocktake-list-icon" aria-label="儲存儲位" title="儲存儲位" disabled={saving}
-    onClick={()=>{if(inputRef.current)void save(inputRef.current)}}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></button>
-   <button type="button" className="cy-op-button compact cy-stocktake-list-icon" aria-label="取消修改儲位" title="取消修改儲位" disabled={saving}
-    onClick={onCancel}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
+   <IconButton variant="table" icon={Icons.check} label="儲存儲位" disabled={saving}
+    onClick={()=>{if(inputRef.current)void save(inputRef.current)}}/>
+   <IconButton variant="table" icon={Icons.close} label="取消修改儲位" disabled={saving} onClick={onCancel}/>
   </>:<><small>{saving?"儲存中…":"Enter 儲存 · Esc 取消"}</small>
    <small>僅修改 WEB，ERP 儲位待人工處理</small></>}
  </div>;
 }
-const pencil=<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15z"/></svg>;
 const qtySum=(rows:readonly Row[],field:"firstQty"|"recountQty")=>{
  const complete=rows.every(r=>r.cell[field]!==null);
  const total=rows.reduce((sum,r)=>sum+(r.cell[field]===null?0n:parseStocktakeQuantity(r.cell[field]!)),0n);
@@ -112,7 +112,8 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
   </div>;
  };
  const actions=(r:Row,iconOnly=false)=><div className="cy-stocktake-cell-actions">
-  <button className={"cy-op-button compact"+(iconOnly?" cy-stocktake-list-icon":"")} type="button" aria-label="修改紀錄" title="修改紀錄" onClick={()=>onHistory(r.line,r.cell)}>{iconOnly?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11a9 9 0 1 1 2.5 7M3 4v7h7M12 7v5l3 2"/></svg>:"修改紀錄"}</button>
+  {iconOnly?<IconButton variant="table" icon={Icons.history} label="修改紀錄" onClick={()=>onHistory(r.line,r.cell)}/>
+   :<button className="cy-op-button compact" type="button" onClick={()=>onHistory(r.line,r.cell)}>修改紀錄</button>}
   {r.line.isAdded&&editable&&!r.line.locked?
    <button className="cy-op-button compact danger" type="button" onClick={()=>onDeleteBatch(r.line)}>刪除批號</button>:null}
   {conflictKey===String(r.cell.id)?<div className="cy-notice cy-notice-warning" role="alert">
@@ -136,8 +137,8 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
       <div className="cy-stocktake-list-location-content">
        {renaming===locationKey(group.code,loc)?<InlineLocation desktopControls key={loc.key} location={loc.location} label={group.code+" 新四碼儲位"}
         onCancel={()=>setRenaming(null)} onSave={value=>onRename(group.code,loc.warehouse,loc.location,value)}/>:
-        <><strong>{loc.location||"未指定儲位"}</strong>{editable&&!r.line.locked?<button type="button" className="cy-op-button compact cy-stocktake-list-icon"
-         aria-label="修改儲位" title="修改儲位" onClick={()=>setRenaming(locationKey(group.code,loc))}>{pencil}</button>:null}</>}
+        <><strong>{loc.location||"未指定儲位"}</strong>{editable&&!r.line.locked?<IconButton variant="table" icon={Icons.edit} label="修改儲位"
+         onClick={()=>setRenaming(locationKey(group.code,loc))}/>:null}</>}
        {editable&&!r.line.locked&&r.line.batch?<button className="cy-op-button compact cy-stocktake-list-add" type="button"
         onClick={()=>onAddBatch(group.code,loc.warehouse,loc.location)}>新增批號</button>:null}
       </div>
@@ -168,8 +169,8 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
    if(compact)return <section key={group.code} className="cy-stocktake-item-card" data-progress={locked?"done":state}>
     {itemHeader}
     <div className="cy-stocktake-location-heading"><strong>選擇儲位</strong>
-     {editable&&!parent.locked?<button className="cy-op-button compact" type="button"
-      aria-label="修改儲位" title="修改儲位" onClick={()=>setRenaming(locationKey(group.code,selected))}>{pencil}</button>:null}
+     {editable&&!parent.locked?<IconButton variant="table" icon={Icons.edit} label="修改儲位"
+      onClick={()=>setRenaming(locationKey(group.code,selected))}/>:null}
     </div>
     <div className="cy-stocktake-location-switch" role="group" aria-label={group.code+" 儲位"}>
      {chosen.map(loc=>{const p=counts(loc.rows);if(renaming===locationKey(group.code,loc))return <InlineLocation key={loc.key} location={loc.location}

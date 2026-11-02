@@ -223,8 +223,6 @@
  .cy-stocktake-list-table .cy-stocktake-list-location-content{display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px}
  .cy-stocktake-list-table .cy-stocktake-list-unit{text-align:center;white-space:nowrap}
  .cy-stocktake-list-table .cy-stocktake-cell-editor .cy-ordering-cell{text-align:right;height:28px;font-size:inherit;max-width:none}
- .cy-stocktake-list-table .cy-op-button.cy-stocktake-list-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 26px;width:26px;min-width:26px;height:26px;min-height:26px;padding:3px}
- .cy-stocktake-list-icon svg{display:block;flex:none;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
  .cy-stocktake-list-table .cy-stocktake-list-add{padding:2px 5px;min-height:24px;font-size:var(--cy-fs-xs)}
  .cy-stocktake-list-table .cy-stocktake-cell-actions{position:relative}
  .cy-stocktake-list-table .cy-stocktake-cell-actions .cy-notice{min-width:200px;position:relative;z-index:1}
@@ -232,7 +230,6 @@
 @media(min-width:821px){
  .cy-stocktake-inline-location.cy-stocktake-inline-controls{display:inline-flex;align-items:center;flex-wrap:nowrap;gap:3px}
  .cy-stocktake-inline-controls .cy-f{flex:0 1 64px;width:64px;min-width:45px}
- .cy-stocktake-list-table .cy-stocktake-inline-controls .cy-stocktake-list-icon{flex-basis:22px;width:22px;min-width:22px;height:24px;min-height:24px;padding:2px}
 }
 /* Customer orders: shared inventory-style grid, manual workflow and compact dialog. */
 .cy-ordering-grid.cy-store-workflow-table{min-width:1340px;font-size:var(--cy-fs-sm)}
@@ -243,13 +240,6 @@
  .cy-store-workflow-table tbody:not(:last-child)>tr:last-child>td,
  .cy-store-blacklist-table tbody:not(:last-child)>tr:last-child>td{border-bottom:1px solid var(--cy-border)}
 }
-.cy-store-orders button.cy-op-button.cy-store-icon{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;min-width:22px;width:22px;max-width:22px;min-height:22px;height:22px;padding:2px;border-color:transparent;background:transparent;box-shadow:none;color:var(--cy-text);line-height:1}
-.cy-store-orders .cy-store-icon>svg{display:block;flex:0 0 16px;min-width:16px;width:16px;min-height:16px;height:16px;overflow:visible;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.cy-store-orders button.cy-store-icon.danger{color:var(--cy-text)}
-.cy-store-orders button.cy-store-icon:hover:not(:disabled){border-color:var(--cy-border);background:var(--cy-surface-muted)}
-.cy-store-orders button.cy-store-icon.danger:hover:not(:disabled){color:var(--cy-danger)}
-.cy-store-orders button.cy-store-icon:disabled{opacity:1;color:var(--cy-text-subtle);background:transparent;border-color:transparent}
-.cy-store-orders button.cy-store-icon:disabled>svg{opacity:.35}
 .cy-store-workflow-table tr[data-overdue] td{background:var(--cy-danger-soft)}
 .cy-store-milestone{position:relative;text-align:center}
 .cy-store-milestone small{display:block;color:var(--cy-text-muted)}
@@ -329,10 +319,7 @@
 .cy-store-entry-summary textarea.cy-ordering-cell{resize:none}
 .cy-store-entry-summary strong{display:block;padding:6px;font-size:inherit;font-weight:700;white-space:nowrap}
 .cy-store-entry-row-actions{display:flex;align-items:center;justify-content:center;gap:6px}
-.cy-store-entry-row-actions .cy-icon-button{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:28px;min-width:28px;height:28px;min-height:28px;padding:4px}
-.cy-store-entry-row-actions .cy-icon-button>span{display:flex}
 .cy-store-entry-row-actions svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.cy-store-entry-row-actions .cy-icon-button:last-child:not(:disabled){color:var(--cy-danger)}
 .cy-store-edit-reason{display:grid;grid-template-columns:210px minmax(0,1fr);gap:12px;margin-bottom:14px}
 .cy-store-edit-reason .cy-f{min-width:0;max-width:none}
 .cy-store-edit-reason .cy-op-input{box-sizing:border-box}
@@ -345,7 +332,6 @@
 .cy-store-blacklist-table th:last-child{text-align:center}
 @media(max-width:820px){
  .cy-store-edit-reason{grid-template-columns:minmax(100px,1fr) minmax(0,2fr);gap:8px}
- .cy-store-entry-row-actions .cy-icon-button{width:36px;min-width:36px;height:36px;min-height:36px}
  .cy-ordering-grid.cy-store-workflow-table{display:block;min-width:0}
  .cy-store-workflow-table thead{display:none}
  .cy-store-workflow-table tbody{display:block;margin-bottom:10px;border:1px solid var(--cy-border);border-radius:var(--cy-radius-sm)}
@@ -359,7 +345,6 @@
  .cy-store-orders .cy-store-workflow-table .cy-grid-divider-before{border-left:0}
  .cy-store-workflow-table td[colspan]{grid-column:1/-1}
  .cy-store-date-popover{position:relative;right:auto;max-width:100%;box-sizing:border-box}
- .cy-store-orders button.cy-op-button.cy-store-icon{flex-basis:36px;width:36px;max-width:36px;min-width:36px;height:36px;min-height:36px}
 }
 .cy-store-orders>.cy-ordering-grid-scroll:has(.cy-store-date-popover){padding-bottom:190px}
 
