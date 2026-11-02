@@ -1,6 +1,6 @@
 # CYWEB 固定隔離還原 D1 輪替操作手冊（V0.9.48）
 
-> 這是一次受保護的還原目標生命週期操作手冊，**不是 Cloudflare 操作授權，也不是永久規則來源**。完整審查證據與未解項目見 `docs/handoff/CYWEB-V0.9.48-REHEARSAL-CLAUDE-REVIEW.md`。適用於已使用的歷史隔離副本不得清空／覆寫的情境。
+> 這是一次受保護的還原目標生命週期操作手冊，**不是 Cloudflare 操作授權，也不是永久規則來源**。完整審查證據與未解項目見 [`docs/handoff/CYWEB-V0.9.48-REHEARSAL-CLAUDE-REVIEW.md`](https://github.com/simonliu1118-byte/chihyuan-web/blob/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/handoff/CYWEB-V0.9.48-REHEARSAL-CLAUDE-REVIEW.md)。適用於已使用的歷史隔離副本不得清空／覆寫的情境。
 
 ## 1. 分階段與預設狀態
 
