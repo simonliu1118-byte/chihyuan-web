@@ -75,7 +75,7 @@ function OrderingRestockDrawer({open,onClose,canQueryItem}:{open:boolean;onClose
 }
 function OrderingRestockJob({open,onClose,canQueryItem}:{open:boolean;onClose:()=>void;canQueryItem:boolean}){
  const job=useErpJob({route:"ordering",key:"RESTOCK",label:"進貨輔助",types:["RESTOCK"]});
- return open?<SidePanel title="進貨輔助" width="min(1100px, calc(100vw - 24px))" onClose={onClose}>
+ return open?<SidePanel title="進貨輔助" width="auto" className="cy-restock-side" onClose={onClose}>
   <div className="cy-restock-panel"><RestockAssist job={job} canQueryItem={canQueryItem} canOrdering/></div>
  </SidePanel>:null;
 }
@@ -514,7 +514,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
        <button type="button" role="tab" className={vendorAll?"active":""} aria-selected={vendorAll} onClick={()=>void showVendors()}>廠商</button>
       </div>
       <button type="button" className="cy-op-button quiet cy-ordering-manage-source" onClick={()=>setManageSources(true)}>管理來源</button>
-      {canRestock?<button type="button" className="cy-op-button cy-ordering-restock-trigger" aria-expanded={restockOpen} onClick={()=>setRestockOpen(v=>!v)}>進貨輔助</button>:null}
+      {canRestock?<button type="button" className="cy-op-button primary cy-ordering-restock-trigger" aria-expanded={restockOpen} onClick={()=>setRestockOpen(v=>!v)}>進貨輔助</button>:null}
     </div>
     {viewPending?<>
       <div className="cy-record-header"><div><h2>未到貨明細</h2><p>{pendingLoading?"正在載入未到貨明細…":"已送出、還有剩餘數量的品項，共 "+pending.length+" 項。"}</p></div></div>
