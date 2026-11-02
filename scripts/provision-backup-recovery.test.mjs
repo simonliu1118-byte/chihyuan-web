@@ -121,7 +121,7 @@ test("a detached Worker rotates to a new target without any previous binding", a
 });
 test("rotation cannot be triggered by ordinary dispatch, branch, push, absent confirmation or disabled backup", async () => {
   for (const bad of [
-    { CF_RECOVERY_ROTATION_CONFIRMATION: "" }, { GITHUB_REF: "refs/heads/deploy/cyweb-development" },
+    { CF_RECOVERY_ROTATION_CONFIRMATION: "" }, { GITHUB_REF: "refs/heads/feature" },
     { GITHUB_EVENT_NAME: "push" }, { CF_RECOVERY_ROTATION_OPERATION: "deploy-development" },
     { GITHUB_ENV: "" }, { CF_RECOVERY_ROTATION_GENERATION: "../path" },
     { CF_BACKUP_ENABLED: "false" },

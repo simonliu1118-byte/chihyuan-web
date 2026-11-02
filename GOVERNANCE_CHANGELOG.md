@@ -1,5 +1,12 @@
 # CY Web Governance Changelog
 
+## 1.1.25 — 2026/11/03
+
+- 使用者同意退役舊發布分支 `deploy/cyweb-development`：該分支停在 10/30 的舊版本，任何人推送都會把舊程式部署到正式站。`PROJECT_RULES.md` §3.1 改為正式更新只從 `main` dispatch `deploy-development`；來源檢查改為事件 SHA、checkout 與當前 main 必須是同一個 commit。
+- `development-deploy.yml` 移除 `deploy/cyweb-development`、`audit/cyweb-identity` 的 push 觸發；`audit-identity` 同樣只從 `main` dispatch。`scripts/verify-deployment-source.mjs` 與測試同步。
+- `docs/development/IDENTITY_DEPLOYMENT.md` 的發布步驟改為只用 main dispatch。
+- 本治理 PR 不變更產品 VERSION／BUILD，未部署。遠端舊分支由使用者在 GitHub 刪除。
+
 ## 1.1.24 — 2026/10/28
 
 - 依使用者明確指示，CYWEB 每項由 GPT／ChatGPT 執行的程式、測試、文件、版本及部署流程修正均須在工作分支 `docs/handoff/` 留下逐檔修正、驗證與風險證據，最後交由 Claude 親自審查；未審查通過前不得將工作視為完成或合併，部署仍須另獲使用者授權。

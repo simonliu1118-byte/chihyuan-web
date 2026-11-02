@@ -2,21 +2,17 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-export const DEPLOYMENT_REF = "refs/heads/deploy/cyweb-development";
-
+/** Deployment runs only from a main dispatch, on the exact current main commit (2026-11-03: the
+ * deploy/cyweb-development publish branch is retired). */
 export function verifyDeploymentSource({ event, ref, eventSha, checkoutSha, mainSha, checkoutTree, mainTree, containsMain }) {
-  if (!((event === "push" && ref === DEPLOYMENT_REF)
-    || (event === "workflow_dispatch" && ref === "refs/heads/main")))
+  if (!(event === "workflow_dispatch" && ref === "refs/heads/main"))
     throw Error("DEPLOYMENT_EVENT_NOT_ALLOWED");
   if (![eventSha, checkoutSha, mainSha, checkoutTree, mainTree].every(value => /^[0-9a-f]{40}$/.test(value ?? "")))
     throw Error("DEPLOYMENT_SOURCE_REQUIRED");
-  if (eventSha !== checkoutSha || checkoutTree !== mainTree || containsMain !== true
-    || (event === "workflow_dispatch" && checkoutSha !== mainSha))
+  if (eventSha !== checkoutSha || checkoutSha !== mainSha || checkoutTree !== mainTree || containsMain !== true)
     throw Error("DEPLOYMENT_SOURCE_MUST_MATCH_CURRENT_MAIN");
 }
 
-// The existing publish branch includes historical merge commits. Require reviewed
-// main ancestry and identical tracked bytes, while preserving that branch history.
 export function verifyCurrentCheckout(env = process.env) {
   const git = (...args) => execFileSync("git", args, {
     encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 30_000,

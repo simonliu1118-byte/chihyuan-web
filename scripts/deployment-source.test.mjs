@@ -5,36 +5,33 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync, spawnSync } from "node:child_process";
-import { DEPLOYMENT_REF, verifyDeploymentSource } from "./verify-deployment-source.mjs";
+import { verifyDeploymentSource } from "./verify-deployment-source.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sha = "a".repeat(40), other = "b".repeat(40), tree = "c".repeat(40);
-const source = { event: "push", ref: DEPLOYMENT_REF, eventSha: sha, checkoutSha: sha, mainSha: sha,
+const source = { event: "workflow_dispatch", ref: "refs/heads/main", eventSha: sha, checkoutSha: sha, mainSha: sha,
   checkoutTree: tree, mainTree: tree, containsMain: true };
 
-test("only the publish branch or main dispatch may deploy", () => {
+test("only a main dispatch may deploy", () => {
   verifyDeploymentSource(source);
-  verifyDeploymentSource({ ...source, event: "workflow_dispatch", ref: "refs/heads/main" });
-  for (const override of [{ event: "pull_request" }, { ref: "refs/heads/main" },
-    { ref: "refs/heads/audit/cyweb-identity" }, { event: "workflow_dispatch", ref: DEPLOYMENT_REF },
-    { ref: "refs/tags/deploy/cyweb-development" }])
+  for (const override of [{ event: "pull_request" }, { event: "push" },
+    { ref: "refs/heads/deploy/cyweb-development" }, { ref: "refs/heads/audit/cyweb-identity" },
+    { ref: "refs/tags/main" }])
     assert.throws(() => verifyDeploymentSource({ ...source, ...override }), /EVENT_NOT_ALLOWED/);
 });
 
-test("publish merges require main ancestry and exact tracked bytes; stale or modified sources fail", () => {
-  verifyDeploymentSource({ ...source, mainSha: other });
-  for (const override of [{ eventSha: other }, { checkoutTree: other }, { containsMain: false },
-    { event: "workflow_dispatch", ref: "refs/heads/main", mainSha: other }])
+test("the checkout must be the current main commit", () => {
+  for (const override of [{ eventSha: other }, { mainSha: other }, { checkoutTree: other }, { containsMain: false }])
     assert.throws(() => verifyDeploymentSource({ ...source, ...override }), /MUST_MATCH_CURRENT_MAIN/);
   assert.throws(() => verifyDeploymentSource({ ...source, mainSha: "" }), /SOURCE_REQUIRED/);
 });
 
-test("CLI uses real Git history: exact main, legacy publish merge, stale main and changed tree", () => {
+test("CLI uses real Git history: current main passes, stale main fails", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cyweb-deploy-"));
   const checkout = path.join(dir, "checkout"), origin = path.join(dir, "origin.git");
   const git = (...args) => execFileSync("git", ["-C", checkout, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
-  const run = (event = "push", ref = DEPLOYMENT_REF) => spawnSync(process.execPath, [path.join(root, "scripts/verify-deployment-source.mjs")], {
-    cwd: checkout, encoding: "utf8", env: { ...process.env, GITHUB_EVENT_NAME: event, GITHUB_REF: ref, GITHUB_SHA: git("rev-parse", "HEAD") },
+  const run = () => spawnSync(process.execPath, [path.join(root, "scripts/verify-deployment-source.mjs")], {
+    cwd: checkout, encoding: "utf8", env: { ...process.env, GITHUB_EVENT_NAME: "workflow_dispatch", GITHUB_REF: "refs/heads/main", GITHUB_SHA: git("rev-parse", "HEAD") },
   });
   try {
     execFileSync("git", ["init", "--bare", origin], { stdio: "ignore" });
@@ -45,21 +42,10 @@ test("CLI uses real Git history: exact main, legacy publish merge, stale main an
     git("add", "."); git("commit", "-m", "Reviewed main");
     git("remote", "add", "origin", origin); git("push", "origin", "main");
     assert.equal(run().status, 0);
-    assert.equal(run("workflow_dispatch", "refs/heads/main").status, 0);
-    git("switch", "-c", "publish"); git("commit", "--allow-empty", "-m", "Historical publication marker");
-    git("switch", "main");
-    fs.writeFileSync(path.join(checkout, "source.txt"), "new reviewed main\n");
-    git("commit", "-am", "New main"); git("push", "origin", "main");
-    git("switch", "publish"); git("merge", "--no-edit", "main");
-    assert.equal(run().status, 0, "publish merge preserves history and current main tree");
-    const publishSha = git("rev-parse", "HEAD");
-    fs.writeFileSync(path.join(checkout, "source.txt"), "unreviewed modification\n");
-    git("commit", "-am", "Changed publish tree");
+    const stale = git("rev-parse", "HEAD");
+    git("commit", "--allow-empty", "-m", "Main advanced"); git("push", "origin", "main");
+    git("checkout", "--detach", stale);
     assert.match(run().stderr, /MUST_MATCH_CURRENT_MAIN/);
-    git("switch", "main");
-    git("commit", "--allow-empty", "-m", "Main advanced without changing bytes"); git("push", "origin", "main");
-    git("checkout", "--detach", publishSha);
-    assert.match(run().stderr, /MUST_MATCH_CURRENT_MAIN/, "even same-tree stale main fails ancestry");
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
