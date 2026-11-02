@@ -3,6 +3,7 @@
 > 各版本當時的完成內容與驗收證據，由 `TODO.md` 移出（2026-10-27 整理）。不是永久規則來源。
 > 未勾選的項目已在整理時逐項核對：已完成的（例如已部署）已勾選或不再追蹤；仍待辦或待使用者確認的，彙整在 `TODO.md`。
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
+> 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
 ## CY Web V0.9.91 — 登入驗證記住 30 秒（2026-11-03，Claude）
@@ -60,7 +61,7 @@
 ## CY Web V0.9.80 — 月度待辦完成勾與日期（2026-11-02）
 - 已完成項目顯示正常17px勾號，9px日期置於下方；固定28px內容高度，保留原39px辦理列高。跨年日期仍顯示年份，完整日期hover／編輯行為不變。
 
-## CY Web V0.9.79 — 進貨輔助精簡結果與加入版面（WO-0.9.76，2026-11-02，待審查）
+## CY Web V0.9.79 — 進貨輔助精簡結果與加入版面（WO-0.9.76，2026-11-03 Claude 審查通過、合併部署）
 - 預設只顯示品號／品名、銷貨／銷退／淨銷／庫存與加入圖示，桌面抽屜約 780px；每日明細由共用 CheckField 切換並記住偏好，開啟才放寬至最多 1100px。
 - 移除表格獨立高度／捲動區，由抽屜內容統一捲動，表頭與左側品號固定；FeedbackBanner 放在不捲動的底部。
 - 加入視窗移除「建議」來源分組，保留上次來源預選、草稿小圓點及按需單品號查詢；廠商列表最多約五行。手機使用同一表格 DOM 呈現卡片，不顯示每日明細。
@@ -106,7 +107,7 @@
 - 維修單照片：最多三張，1600px／JPEG 品質 0.8、單張 1MB、相機入口及縮圖／大圖。
 - 共用人事相片處理和 R2 失敗補償；0044 metadata migration，備份不含影像檔本體。
 
-## CY Web V0.9.69 — 門市售後維修（Claude 複審前、未合併部署）
+## CY Web V0.9.69 — 門市售後維修（WO-0.9.69，2026-11-03 Claude 審查通過，與 V0.9.70 一起合併部署）
 - 門市新增獨立授權 STORE_REPAIRS 的售後維修頁籤及完整維修單資料。
 - 維修里程碑、物流、取消與歸還、五分鐘撤回、逾期與操作紀錄；單品項、聯絡／稱謂與共用理由欄位。
 - Migration 0043、備份 schema-columns 與舊 0042 → 0043 還原相容流程；共用訂購後端事件／版本守門與結案時限。
@@ -128,37 +129,37 @@
 - [x] 新增共用圖示 `src/ui/actions/icons.tsx`（修改紀錄、修改、取消、退回、確認、關閉、新增、刪除、拖曳），`IconButton` 加 `variant="table"`（列內 26px，手機 36px）、`tone="danger"`、`expanded`／`controls`。
 - [x] 門市訂購／黑名單、月度待辦、盤點、訂購品項列改用共用元件，移除模組內自寫的 `Icon`／`Glyph`／內嵌 SVG 與四套各自的圖示按鈕 CSS（`cy-store-icon`、`cy-stocktake-list-icon`、`cy-monthly-history-button`、`.cy-store-entry-row-actions .cy-icon-button`）。
 - [x] 側欄：叫貨（購物車）、門市（店面）不再共用 CY 程式的四方格；工作日誌改為筆記本，不再與銷售工單的日曆相似。
-- [x] Claude 事後審查 V0.9.56 Build 1 至 V0.9.64（PR #319–#346），紀錄見 `docs/handoff/CYWEB-CLAUDE-REVIEW-0956-0964-20261102.md`。
+- [x] Claude 事後審查 V0.9.56 Build 1 至 V0.9.64（PR #319–#346），紀錄見 [`docs/handoff/CYWEB-CLAUDE-REVIEW-0956-0964-20261102.md`](https://github.com/simonliu1118-byte/chihyuan-web/blob/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/handoff/CYWEB-CLAUDE-REVIEW-0956-0964-20261102.md)。
 
 ## CY Web V0.9.64 — 黑名單與月度待辦（2026-11-02，已部署）
 
 - 新增不保留商品及處置順序／10字欄寬、OTHER純內容；移出必填理由及整列橫線。
 - 月度16日預產次月、緊湊登記／日期／history與單格更新；設定項次、拖曳、備註、停啟用及表頭唯一＋，保留歷史／適用期間。
-- 0041及精確舊備份保全、Build／整合驗證見[Claude交接](docs/handoff/CYWEB-BLACKLIST-MONTHLY-0964-20261102.md)。
+- 0041及精確舊備份保全、Build／整合驗證見[Claude交接](https://github.com/simonliu1118-byte/chihyuan-web/blob/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/handoff/CYWEB-BLACKLIST-MONTHLY-0964-20261102.md)。
 - PR345／Linux559/559，合併06ea336、部署41393553229成功，50列保全與限定FK／雙入口及排程通過，Claude複審待填。
 
 ## CY Web V0.9.63 — 補價輸入與十四天逾期（2026-11-02，已部署）
 
-- 補填單價移除上下箭頭；通知隔日起算14天，第15天起逾期，Pill／篩選共用常數。Build及重點67/67通過，無migration。[Claude交接](docs/handoff/CYWEB-OVERDUE-14-DAYS-0963-20261102.md)。
+- 補填單價移除上下箭頭；通知隔日起算14天，第15天起逾期，Pill／篩選共用常數。Build及重點67/67通過，無migration。[Claude交接](https://github.com/simonliu1118-byte/chihyuan-web/blob/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/handoff/CYWEB-OVERDUE-14-DAYS-0963-20261102.md)。
 - PR343／Linux553/553，合併1f6a7c7，部署41336860713成功；雙入口及排程通過，Claude複審待填。
 
 ## CY Web V0.9.62 — 視窗間距與所有結案猶豫期（2026-11-02，已部署）
 
 - 共用視窗首段不疊預設margin、取消288px；metadata輸入24px／12px，移除清單點選反藍。
-- 顧客取消加入5分鐘撤回，同步復原本次新增／加回名單，原active不變；後續異動拒絕覆蓋、完整歷史保留且可再次取消。無migration。見[Claude交接](docs/handoff/CYWEB-CANCEL-GRACE-0962-20261102.md)。
+- 顧客取消加入5分鐘撤回，同步復原本次新增／加回名單，原active不變；後續異動拒絕覆蓋、完整歷史保留且可再次取消。無migration。見[Claude交接](https://github.com/simonliu1118-byte/chihyuan-web/blob/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/handoff/CYWEB-CANCEL-GRACE-0962-20261102.md)。
 - PR341／Linux552/552，合併c835d4e、部署41334505024成功，雙入口0.9.62／source／D1／HTTPS／排程均通過；Claude事後複審待填。
 
 ## CY Web V0.9.61 — 門市通知、補價、聯絡與黑名單（2026-11-02，已部署）
 
 - 通知未接通／三次轉取消、逾期未取、五分鐘結案修正、可空單價及單次補價，客戶編號／連絡欄及品項補充資料。
 - 備註15字×3行、整筆斑馬紋／反白、Enter及原生dialog焦點框修正；成功登記不重讀整表。
-- 黑名單加入日期／篩選、移出灰線保留、加回沿用ID、精簡逐筆歷程；0038～0040與精確舊備份升級。重點95/95、build通過，完整CI／發布及Claude複審見[交接](docs/handoff/CYWEB-STORE-WORKFLOW-0961-20261102.md)。
+- 黑名單加入日期／篩選、移出灰線保留、加回沿用ID、精簡逐筆歷程；0038～0040與精確舊備份升級。重點95/95、build通過，完整CI／發布及Claude複審見[交接](https://github.com/simonliu1118-byte/chihyuan-web/blob/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/handoff/CYWEB-STORE-WORKFLOW-0961-20261102.md)。
 - PR339／Linux547/547，合併d18d3db、部署41331933754成功；雙入口0.9.61／source／D1／HTTPS／排程、原事件與新timeline保全通過，Claude事後複審待填。
 
 ## CY Web V0.9.60 Build1～2 — 登記密度與彈窗、歷程換行（2026-11-01，已部署）
 
 - 桌面登記20px不參與列高，手機不變；待取貨黃點、顧客取消篩選、實心未結案切換。
-- 日期／無日期同列、取消／儲存靠右、叫貨四結果2×2；歷程完整一筆連箭頭換行。無API／D1變更；驗證發布見[Claude交接](docs/handoff/CYWEB-STORE-REGISTER-HEIGHT-0960-BUILD1-20261101.md)。
+- 日期／無日期同列、取消／儲存靠右、叫貨四結果2×2；歷程完整一筆連箭頭換行。無API／D1變更；驗證發布見[Claude交接](https://github.com/simonliu1118-byte/chihyuan-web/blob/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/handoff/CYWEB-STORE-REGISTER-HEIGHT-0960-BUILD1-20261101.md)。
 - Build2限縮form排版於顧客訂購並恢復共用直接子按鈕margin，月度待辦維持原排版。
 - 最終PR337／Linux516/516，部署41308987671成功；雙入口最終source04edf14／D1／HTTPS／排程通過，Claude事後複審待填。
 
@@ -167,19 +168,19 @@
 - 共用日期純數字即時分隔、compact／regular密度；取消保留已登記日期、跨年小年份不增列高。
 - 無法訂購第四叫貨結果、供貨失敗篩選合併；顯示未結案切換；LINE6字折行、備註加寬、數量／單價交換，修復重複備註。
 - 訂購歷程單行串接、取消只留理由、通知客戶告知10字原子附加備註；視窗明確取消才關、緊湊黑名單是／否與完整來源理由。
-- 0037保全FK及事件，5000筆guard與精確舊備份相容；完整驗證及發布見[Claude交接](docs/handoff/CYWEB-STORE-DATE-NOTICE-0960-20261101.md)。
+- 0037保全FK及事件，5000筆guard與精確舊備份相容；完整驗證及發布見[Claude交接](https://github.com/simonliu1118-byte/chihyuan-web/blob/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/handoff/CYWEB-STORE-DATE-NOTICE-0960-20261101.md)。
 - PR #334、Linux516/516，部署 #41304711418成功；正式0037保全四表182列，雙入口0.9.60與精確source／D1／HTTPS／排程均通過，Claude事後複審待填。
 
 ## CY Web V0.9.59 Build 2 — 登記色塊與叫貨清單（2026-11-01，併入V0.9.60）
 
 - 登記改無框實心方塊；叫貨清單直線分隔，按實際送出新到舊，草稿排序不變。
-- 日期欄112px；叫貨結果三選一按鈕，預設已叫貨，移除標題與下拉。驗證與發布見[交接](docs/handoff/CYWEB-STORE-REGISTER-FILL-0959-BUILD2-20261101.md)。
+- 日期欄112px；叫貨結果三選一按鈕，預設已叫貨，移除標題與下拉。驗證與發布見[交接](https://github.com/simonliu1118-byte/chihyuan-web/blob/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/handoff/CYWEB-STORE-REGISTER-FILL-0959-BUILD2-20261101.md)。
 
 ## CY Web V0.9.59 Build 1 — 表格／結案與紀錄讀取返修（2026-11-01，已部署）
 
 - Pill置中、通知三欄等寬、方形登記、透明緊湊四圖示；結案包含日期／退回均唯讀。
 - 建立無詳情、登記步驟與作業日、無日期箭頭語意、舊到貨紀錄移出一般投影；有界60秒暫存與索引游標。
-- 持久項次只在新增／日期移動更新；同日依建立時間，新在上。0036、精確舊備份相容與一萬事件索引驗證；見[Claude交接](docs/handoff/CYWEB-STORE-HISTORY-DENSITY-0959-BUILD1-20261101.md)。
+- 持久項次只在新增／日期移動更新；同日依建立時間，新在上。0036、精確舊備份相容與一萬事件索引驗證；見[Claude交接](https://github.com/simonliu1118-byte/chihyuan-web/blob/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/handoff/CYWEB-STORE-HISTORY-DENSITY-0959-BUILD1-20261101.md)。
 - PR #332、Linux501/501，部署 #41283473165成功；0036回填11列，項次1～11、雙入口source／D1／HTTPS與月度排程均通過。
 
 ## CY Web V0.9.59 — 訂購流程與共用聯絡／日期輸入（2026-11-01，已部署）
@@ -187,7 +188,7 @@
 - 叫貨三結果、缺貨／絕版通知結案、取消原因精簡、到貨獨立日期刪除、正常三步驟均可無日期與未取計時。
 - 多品項獨立品項／單價／數量列，其餘合併；項次、稱謂、簡化pill、純文字進度、固定四操作與單行歷程。
 - 新增共用台灣電話格式／純數字剪貼簿及CYACCWEB互動日期輸入，訂購與月度共用。
-- Migration0035及精確舊備份升級；與V0.9.58月度同PR #330，使用者已授權驗證後合併部署。證據、限制及Claude事後複審見[交接](docs/handoff/CYWEB-STORE-CONTACT-PROGRESS-0959-20261101.md)。
+- Migration0035及精確舊備份升級；與V0.9.58月度同PR #330，使用者已授權驗證後合併部署。證據、限制及Claude事後複審見[交接](https://github.com/simonliu1118-byte/chihyuan-web/blob/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/handoff/CYWEB-STORE-CONTACT-PROGRESS-0959-20261101.md)。
 - Linux完整494/494，PR #330合併 `b49976f`，正式部署 #41281370342成功；0034／0035、雙入口version0.9.59／source／D1、HTTPS／Identity及月度排程均通過。
 
 ## CY Web V0.9.58 — 門市月度待辦（2026-11-01，隨V0.9.59交付）
@@ -196,14 +197,14 @@
 - 每月每門市獨立辦理、日期／無日期、更正／取消完成與逐列操作紀錄；新增當月生效，停用次月生效，歷史不回填。
 - Migration 0034、新月產生／漏月補齊、台灣午夜排程、四表可攜備份與精確舊版升級；版本與重送保護、事件及 Audit 原子寫入。
 - 補回顧客訂購及黑名單桌面清單橫線；結案剩餘圖示按鈕置中。
-- 驗證、風險及 Claude 複審重點見 [交接](docs/handoff/CYWEB-MONTHLY-TODOS-0958-20261101.md)。首次為Draft候選，最新合併部署授權及結果見V0.9.59交接。
+- 驗證、風險及 Claude 複審重點見 [交接](https://github.com/simonliu1118-byte/chihyuan-web/blob/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/handoff/CYWEB-MONTHLY-TODOS-0958-20261101.md)。首次為Draft候選，最新合併部署授權及結果見V0.9.59交接。
 
 ## CY Web V0.9.57 — 顧客訂購進度與黑名單事件（2026-10-31，已部署至 Build 4）
 
 - 共用表格、狀態 pill、備註與進度分區；手動日期前進／更正／退回、逐筆收合紀錄、叫貨後修改理由。
 - 統一訂購表格視窗，電話／手機／LINE 至少一項；尾款，黑名單理由單行／其他與「須全額預付」。
 - 取消是／否銜接黑名單，新／既有對象原子記錄，保留處置，人工同名核對與事件累積。
-- Migration 0033 保留資料並新增業務事件；portable backup 支援精確舊版升級。完整驗證及剩餘人工確認見 [交接](docs/handoff/CYWEB-STORE-ORDERS-IMPLEMENTATION-0957-20261031.md)。
+- Migration 0033 保留資料並新增業務事件；portable backup 支援精確舊版升級。完整驗證及剩餘人工確認見 [交接](https://github.com/simonliu1118-byte/chihyuan-web/blob/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/handoff/CYWEB-STORE-ORDERS-IMPLEMENTATION-0957-20261031.md)。
 - 已依使用者授權合併發布，UI Build 1–4 最新為 PR #329；Claude 事後複審仍由同分支 handoff 追蹤。
 
 ## CY Web V0.9.56 — 盤點分儲位盤點格與品號卡（2026-10-30，PR #318）
@@ -241,11 +242,11 @@
 - [x] 逾時分類、Audit、盤點 `WRITING → WRITE_FAILED` 回復不變；新表為營運狀態，不納入可攜備份。
 - [ ] 部署前確認 Cloudflare 帳號 Cron 觸發器數量（Free 方案全帳號上限 5 個）；上線後以相同期間觀察 D1 rows read。
 
-## CY Web V0.9.52 — 門市庫存盤點第一階段（2026-10-29，Claude 複審通過，PR #306／#307 已合併，待部署）
+## CY Web V0.9.52 — 門市庫存盤點第一階段（2026-10-29，Claude 複審通過，PR #306／#307 已合併，隨 V0.9.54 部署）
 
 - [x] WO-0.9.52：受權門市盤點頁籤，初盤盲盤與逐列樂觀鎖、第一次主管確認後顯示帳面／差異、複盤、第二次確認寫回 ERP。所有結果須以最新 CI／合成 SQLite 驗證，正式 ERP 測試另待 CYERPAutoQuery WO-1.3.0。
 - [x] Migration 0030 與四張 stocktake 表、可攜備份欄位、Agent 的 STOCKTAKE_SYNC／WRITE contract、1800／3600 秒逾時。未進行 D1 Migration 或 Cloudflare 操作。
-- [x] Claude 複審通過（`docs/handoff/CYWEB-WO-0.9.52-STOCKTAKE-CLAUDE-REVIEW.md` §6.2），已合併。
+- [x] Claude 複審通過（[`docs/handoff/CYWEB-WO-0.9.52-STOCKTAKE-CLAUDE-REVIEW.md`](https://github.com/simonliu1118-byte/chihyuan-web/blob/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/handoff/CYWEB-WO-0.9.52-STOCKTAKE-CLAUDE-REVIEW.md) §6.2），已合併。
 - [ ] 部署（migration 0030）與真 ERP／正式環境驗收。
 
 ## CY Web V0.9.50 — 演練後自動斷開隔離庫（2026-10-28）
@@ -266,7 +267,8 @@
 - [x] 實體解除綁定改於 V0.9.50 由部署流程處理（見上）。
 - [x] Claude 審查與 N1–N3 複審通過，與 V0.9.50 一起部署。
 
-## CY Web V0.9.48 — 隔離還原錯誤與演練紀錄（2026-10-28，待合併／部署）
+## CY Web V0.9.48 — 隔離還原錯誤與演練紀錄（2026-10-28，PR #300／#301 已合併部署）
+- 同日受控輪替，`RECOVERY_DB` 改接新版隔離 D1（generation `20261028a`）。使用者 2026-10-28 21:11 實機演練「驗證成功」（R2 來源，還原前安全備份 R2／GCS 皆驗證）：**隔離還原驗收通過**。舊 0014 隔離庫由使用者自行刪除；`cyweb-dev-recovery-v20261028a` 也已刪除（2026-11-03 Cloudflare 清單確認）。
 
 - [x] 依 Cloudflare MCP 唯讀診斷：正式主 D1 為 0029、**已使用**的隔離還原 D1 僅 0014，故目前不具相容 schema。原 2026/10/28 兩次 409 的確切原始碼未被日誌保留；若來源備份讀取成功，預期首先在 `BACKUP_TABLE_COVERAGE_MISMATCH` 被阻擋。
 - [x] 演練每個已授權請求新增安全的失敗階段／錯誤碼／requestId Audit 與 Worker 訊息；涵蓋來源讀回、目標驗證、安全備份、還原與資料核對。排除敏感例外文字，安全錯誤顯示中文原因與禁止重試指示。
@@ -994,9 +996,13 @@
 - [x] CYWEB端正式 authority／Workspace／core App／consumer／D1 gate已通過，回交證據收斂至既有 Identity deployment文件下方 CYACCweb handback。
 - [ ] CYACCweb接手於自己的 protected runner 重跑 `--require-account-portal`，核對其最新 main後再推進 Draft #435；CYWEB未代合併或部署帳務。真 Email、一次性密碼→正式密碼→重新登入→CYACC一般登入仍未驗收，本輪未新增帳號／寄信。
 
-操作與回交證據依既有 [Identity deployment](docs/development/IDENTITY_DEPLOYMENT.md#account-portal-authority-read-only-audit)；此 TODO 為唯一進度表。
+操作與回交證據依既有 [Identity deployment](docs/development/IDENTITY_DEPLOYMENT.md#account-portal-authority-read-only-audit)。
 
-## 目前基準 — 2026-10-16（Asia/Taipei）
+# 附錄：0.7.x 時期的進度快照（2026-10-16）
+
+> 以下是 2026-10-27 從當時的 `TODO.md` 移入的原文，只作歷史追溯。其中「目前」「尚待」與未勾選項目描述的是 2026-10-16 的狀態，不是現在的待辦；現在的待辦只看根 `TODO.md`。
+
+## 當時基準 — 2026-10-16（Asia/Taipei）
 
 - 目前已部署 **0.7.37 Build 0／CYID consumer 1.0.5**（本輪共用頁首／手機搜尋／全介面日期驗證與部署見上方；canonical contract mirror1.0.6）。已包含PR169～173的ERP獨立Module Access入口、Agent連線、批號／歷史及品名搜尋；現行contract與既有handoff report為介接依據。既有全部模組沿用原Worker／business D1／Module Access；使用者已確認帳號／郵件與真實角色／權限驗收OK。新增ERP能力的真人驗收、業務首版及乾淨schema仍分開追蹤。
 - 已包含 0.7.24「CY 程式 → 價格觀測室（原型）」外連，原型程式位於 CYapps `apps/CYPriceDesk/`，維持 Sites owner-private 與 ChatGPT 登入；未發版桌面程式仍不提供下載。
