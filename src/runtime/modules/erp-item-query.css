@@ -366,10 +366,12 @@
 
 .cy-ordering-grid :is(th,td):has(+.cy-grid-divider-before){border-right:0}
 
-/* WO-0.9.71: draft presence beneath each product's add action, inside the restock drawer. */
-.cy-restock-draft-lines{display:grid;gap:2px;margin-top:5px;text-align:left;font-size:var(--cy-fs-xs);color:var(--cy-text-muted);min-width:150px}
-.cy-restock-draft-lines span{white-space:normal;overflow-wrap:anywhere}
-.cy-restock-panel .cy-erp-query-box{max-width:none}
+/* 加入叫貨單 dialog: drafts that already hold this 品號 (looked up on open, V0.9.74). */
+.cy-restock-in-drafts{grid-column:1/-1;margin:0;padding:6px 10px;border-radius:var(--cy-radius-sm);background:var(--cy-warning-soft);font-size:var(--cy-fs-sm)}
+.cy-restock-panel .cy-erp-query-box{max-width:600px}
+/* The restock drawer fits its content (user 2026-11-03: too big): only the query form → about 630px
+   wide and as tall as needed; with results it widens up to 1100px and scrolls inside. Phones stay full screen. */
+@media(min-width:681px){.cy-side-panel.cy-restock-side{bottom:auto;max-height:calc(100vh - 76px);max-width:min(1100px,calc(100vw - 24px))}}
 .cy-restock-panel .cy-restock-scroller{max-width:100%;overflow-x:auto}
 
 /* Restock action shares the tab baseline; the source manager moves left onto the divider. */
@@ -378,7 +380,6 @@
 .cy-ordering-manage-source{flex:0 0 auto;position:relative;left:-8px;margin-bottom:1px;white-space:nowrap}
 .cy-ordering-restock-trigger{flex:0 0 auto;margin-left:auto;margin-bottom:1px;white-space:nowrap}
 @media(max-width:820px){.cy-ordering-tabbar{gap:3px}.cy-ordering-manage-source{left:0}.cy-ordering-restock-trigger{min-height:40px}}
-
 /* WO-0.9.74: receipt detail uses the shared table; wrap all item names and quantities. */
 .cy-ordering-receipts .cy-ordering-receipt-summary{white-space:normal;overflow-wrap:anywhere;min-width:180px}
 .cy-ordering-receipts td>small{display:block;color:var(--cy-text-muted);font-size:var(--cy-fs-xs);white-space:nowrap}
