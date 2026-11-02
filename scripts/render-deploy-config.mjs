@@ -121,8 +121,9 @@ export function renderDeployConfig({
     config.vars.BACKUP_ENABLED = "true";
     config.vars.GCS_BUCKET = gcsBucket;
     config.vars.BACKUP_SCHEDULE_ENABLED = env.CF_BACKUP_SCHEDULE_ENABLED === "true" ? "true" : "false";
-    // UTC 19:30 is the next Taiwan calendar day's 03:30.
-    config.triggers = { crons: [PROGRAM_CATALOG_CRON, ERP_HOUSEKEEPING_CRON, STORE_MONTHLY_CRON, ...(env.CF_BACKUP_SCHEDULE_ENABLED === "true" ? ["30 19 * * *"] : [])] };
+    // The daily backup (Taiwan 03:30) runs inside the every-minute housekeeping trigger: the Free plan
+    // allows 5 cron triggers per account (shared/backup-schedule.ts). The flag above turns it on.
+    config.triggers = { crons: [PROGRAM_CATALOG_CRON, ERP_HOUSEKEEPING_CRON, STORE_MONTHLY_CRON] };
     rendered = JSON.stringify(config, null, 2) + "\n";
   } else {
     // Remove earlier backup schedules while retaining the independent catalog job.

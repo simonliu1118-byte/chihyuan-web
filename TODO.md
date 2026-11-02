@@ -1,6 +1,6 @@
-## V0.9.84 月度截止與備份清單（2026-11-02）
-- [x] 月度隔月16日台灣午夜鎖定，前後端共用判斷；備份時間縮20%、資訊增加、標題內容同行；系統與安全最近7天用量新的在上。重點38/38、build/typecheck及完整validate:source通過，合成畫面驗收完成。
-- [ ] CI／合併部署與Claude複審；見[交接](docs/handoff/CYWEB-MONTHLY-DEADLINE-BACKUP-0984-20261102.md)。
+## V0.9.85 月度截止與備份清單（2026-11-02）
+- [x] 月度隔月16日台灣午夜鎖定，前後端共用判斷；備份時間縮20%、資訊增加、標題內容同行；系統與安全最近7天用量新的在上。重點48/48、build/typecheck及完整validate:source通過，合成畫面驗收完成。
+- [ ] CI／合併部署與Claude複審；見[交接](docs/handoff/CYWEB-MONTHLY-DEADLINE-BACKUP-0985-20261102.md)。
 
 ## V0.9.81 備份改記 migration 名稱（2026-11-03，Claude）
 - [x] 新備份記錄 migration 名稱、依欄位名稱還原；舊備份走凍結的 v1 升級；每支 migration 只要更新 `CURRENT_MIGRATION`。
@@ -218,7 +218,7 @@
 
 - [ ] **啟用自動備份排程**（使用者 2026-10-18 要求其他測試完成前先維持 `CF_BACKUP_SCHEDULE_ENABLED=false`；整體功能測試完成、準備上線前提醒使用者）：
   - 將 GitHub `development` Environment 的 `CF_BACKUP_SCHEDULE_ENABLED` 改為 `true`，保留既有 Worker／主 D1／Identity／R2／GCS 與已使用的隔離驗證副本，從當前 main 受控部署（GitHub 變數寫入 API 目前 403，須由有權限的設定介面操作）；
-  - 部署後核對 UTC `30 19 * * *`（台灣每日 03:30）與獨立 catalog `0 19 * * *`；R2 每日保留 30 天、GCS 台灣週三／週日保留 182 天，manual／pre_restore 雙副本；
+  - （V0.9.85）備份改在每分鐘排程內的 UTC 19:30／19:45 執行，不另佔排程；部署後核對排程仍為 3 個（catalog `0 19 * * *`、每分鐘、月度 `0 16 * * *`）；R2 每日保留 30 天、GCS 台灣週三／週日保留 182 天，manual／pre_restore 雙副本；
   - 觀察第一筆真實排程事件與 provider verification／Audit；設定存在或手動成功不等於排程已執行。已使用的隔離副本不得清空重做。
 - [ ] **整理測試資料**（測試客戶、工單、人事等）：先備份，列出候選清單給使用者確認，真實資料不可刪，再分批刪除。已知合成資料：客戶「CYWEB 驗收 20261001」與其拜訪紀錄、常用商品「Development 常用商品驗收（未建檔合成品項）」、工作日誌類型 `DEVELOPMENT_ACCEPTANCE` 草稿。依相依順序用正常產品行為清理，保留必要 Audit／history；不清空資料庫。
 - [x] 人事「刪除」改為正式規則（V0.9.83，使用者 2026-11-03）：剛新增、還沒有任何紀錄才可刪除，取代 BD-059 第 7 項「上線前移除」。
