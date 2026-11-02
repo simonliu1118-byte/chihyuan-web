@@ -16,7 +16,7 @@ export const STORE_REPAIR_FACTORY_OVERDUE_DAYS=30;
 export type StoreRepairInspectResult="GOOD"|"BAD"|"";
 export type StoreRepairReturnMethod=""|"PICKUP"|"SHIPPING";
 export interface StoreRepair {
- id:number;sequence:number;receivedDate:string;customerCode:string;customerName:string;honorific:Honorific;
+ id:number;sequence:number;photoCount?:number;receivedDate:string;customerCode:string;customerName:string;honorific:Honorific;
  mobile:string;phone:string;lineName:string;productKind:StoreRepairProductKind;productText:string;serialNo:string;fault:string;
  purchaseDate:string|null;accessories:string;status:StoreRepairStatus;inspectResult:StoreRepairInspectResult;inspectProblem:string;
  cancelled:boolean;cancelReason:string;cancelledAt:string|null;sentAt:string|null;notifiedAt:string|null;closedAt:string|null;
