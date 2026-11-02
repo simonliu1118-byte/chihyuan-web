@@ -2,6 +2,7 @@ import {requireModuleAccess} from "../auth/guard";
 import {identityClient,type IdentityRuntimeEnv} from "./auth-routes";
 import {success,failure} from "./response";
 import {AuditService} from "../audit/audit-service";
+import {inspectJpeg,putJpegWithRecords,JpegUploadError} from "../files/jpeg-upload";
 import {normalizeStoreContacts} from "../../shared/phone";
 import {normalizePhone,type Honorific} from "../../shared/store";
 import {STORE_EDIT_REASONS} from "../../shared/store";
@@ -61,7 +62,7 @@ function reason(v:Record<string,unknown>,allowed:readonly string[]){
  const detail=text(v.reason,"補充說明",240,kind==="其他");
  return detail?kind+"："+detail:kind;
 }
-export async function handleStoreRepairRoute(req:Request,env:IdentityRuntimeEnv,requestId:string):Promise<Response|null>{
+export async function handleStoreRepairRoute(req:Request,env:IdentityRuntimeEnv & {HR_FILES?:R2Bucket},requestId:string):Promise<Response|null>{
  const u=new URL(req.url);if(u.pathname!==ROOT&&!u.pathname.startsWith(ROOT+"/"))return null;
  const provider=identityClient(env);if(!provider)return failure({code:"IDENTITY_UNAVAILABLE",message:"身分服務無法使用"},requestId,503);
  const gate=await requireModuleAccess(provider,env.DB,req,"STORE_REPAIRS");if(!gate.ok)return failure({code:gate.code,message:"沒有門市售後維修存取權"},requestId,gate.status);
@@ -83,6 +84,54 @@ export async function handleStoreRepairRoute(req:Request,env:IdentityRuntimeEnv,
    const insert=c.db.prepare("INSERT INTO store_repairs(id,list_sequence,received_date,customer_code,customer_name,honorific,mobile,phone,line_name,product_kind,product_text,serial_no,fault,purchase_date,accessories,created_at,created_by,updated_at,updated_by) SELECT ?,(SELECT COALESCE(MAX(list_sequence),0)+1 FROM store_repairs),"+values.slice(1).map(()=>"?").join(",")).bind(...values);
    await c.db.batch([insert,event(c,id,k,"建立",{},f),audit(c,id,"store_repair.created",{},f)]);
    return success(json(await get(c,id)),requestId);
+  }
+  const photoRoute=/^\/(\d+)\/photos(?:\/(\d+))?$/.exec(path);
+  if(photoRoute){
+   const repairId=Number(photoRoute[1]),photoId=photoRoute[2]?Number(photoRoute[2]):null;
+   await get(c,repairId);
+   const bucket=env.HR_FILES;
+   if(!bucket)return failure({code:"REPAIR_FILES_UNAVAILABLE",message:"附檔儲存尚未設定"},requestId,503);
+   type Photo={id:number;repair_id:number;object_key:string;bytes:number;width:number;height:number;created_at:string;created_by:number};
+   const findPhoto=()=>one<Photo>(c.db,"SELECT * FROM store_repair_photos WHERE id=? AND repair_id=?",photoId,repairId);
+   if(method==="GET"&&photoId===null){
+    const list=await rows<Photo>(c.db,"SELECT * FROM store_repair_photos WHERE repair_id=? ORDER BY id ASC LIMIT 5",repairId);
+    return success(list.map(x=>({id:x.id,bytes:x.bytes,width:x.width,height:x.height,createdAt:x.created_at})),requestId);
+   }
+   if(method==="GET"&&photoId!==null){
+    const photo=await findPhoto();if(!photo)throw new Invalid("照片不存在",404);
+    const blob=await bucket.get(photo.object_key);
+    if(!blob)return failure({code:"REPAIR_PHOTO_MISSING",message:"照片不存在"},requestId,404);
+    return new Response(blob.body,{headers:{"content-type":"image/jpeg","cache-control":"private, no-store","x-content-type-options":"nosniff"}});
+   }
+   if(method==="POST"&&photoId===null){
+    const bytes=new Uint8Array(await req.arrayBuffer());
+    let dimensions:{width:number;height:number};
+    try{dimensions=inspectJpeg(bytes,req.headers.get("content-type"),1048576)}catch(e){if(e instanceof JpegUploadError)throw new Invalid(e.message);throw e}
+    const count=(await one<{n:number}>(c.db,"SELECT COUNT(*) n FROM store_repair_photos WHERE repair_id=?",repairId))?.n??0;
+    if(count>=5)throw new Invalid("每張維修單最多五張照片",409);
+    const objectKey="store-repairs/"+repairId+"/"+crypto.randomUUID()+".jpg";
+    const info={repairId,bytes:bytes.length,...dimensions};
+    const duplicateGuard=c.db.prepare("SELECT CASE WHEN (SELECT COUNT(*) FROM store_repair_photos WHERE repair_id=?)<5 THEN 1 ELSE json('') END").bind(repairId);
+    await putJpegWithRecords(bucket,c.db,objectKey,bytes,[
+     duplicateGuard,
+     c.db.prepare("INSERT INTO store_repair_photos(repair_id,object_key,bytes,width,height,created_at,created_by) VALUES(?,?,?,?,?,?,?)").bind(repairId,objectKey,bytes.length,dimensions.width,dimensions.height,c.at,c.actor),
+     event(c,repairId,crypto.randomUUID(),"上傳維修單照片",{},info),
+     audit(c,repairId,"store_repair.photo_uploaded",{},info)
+    ]);
+    return success({uploaded:true},requestId);
+   }
+   if(method==="DELETE"&&photoId!==null){
+    const photo=await findPhoto();if(!photo)throw new Invalid("照片不存在",404);
+    const info={repairId,photoId,bytes:photo.bytes};
+    await c.db.batch([
+      c.db.prepare("DELETE FROM store_repair_photos WHERE id=? AND repair_id=?").bind(photoId,repairId),
+      event(c,repairId,crypto.randomUUID(),"刪除維修單照片",info,{}),
+      audit(c,repairId,"store_repair.photo_deleted",info,{})
+    ]);
+    await bucket.delete(photo.object_key);
+    return success({deleted:true},requestId);
+   }
+   throw new Invalid("操作方法不正確",404);
   }
   const m=/^\/(\d+)(?:\/(status|date|history))?$/.exec(path);
   if(!m)throw new Invalid("找不到維修操作",404);
