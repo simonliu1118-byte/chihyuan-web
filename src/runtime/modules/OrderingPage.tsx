@@ -293,7 +293,8 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
    const line=selected.lines.find(l=>l.id===lineId),previous=old.get(lineId)??0;
    return {lineId,quantity:Number(receipt.quantities[lineId]??(receipt.receiptId?previous:(line?.quantity??0)-(line?.received??0)))};
   });
-  if(!lines.length||!lines.some(l=>l.quantity>0)){setError(receipt.receiptId?"本筆到貨不可全部為 0，請使用刪除":"請至少勾選一列並填到貨數量");return}
+  if(!lines.length){setError("請至少勾選一列並填到貨數量");return}
+  if(!lines.some(l=>l.quantity>0)){setError(receipt.receiptId?"本筆到貨不可全部為 0，請使用刪除":"本次到貨數量須大於 0，且不可超過剩餘數量");return}
   if(lines.some(item=>{const line=selected.lines.find(l=>l.id===item.lineId),was=old.get(item.lineId)??0;
    const cap=receipt.receiptId?line?.closedAs?was:(line?.quantity??0)-(line?.received??0)+was:(line?.quantity??0)-(line?.received??0);
    return !line||!Number.isFinite(item.quantity)||item.quantity<0||(!receipt.receiptId&&item.quantity<=0)||item.quantity>cap;

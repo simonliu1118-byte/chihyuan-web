@@ -336,7 +336,7 @@ test("receipt history shows quantities and actor; edit reuses receipt dialog and
  const received=()=>({...sentOrder(),receipts:[receipt]});
  const page=mount((path,options)=>path==="/orders/10"?received():normalTransport(path,options));
  await page.tick();page.click("測試來源甲");await page.tick();
- const tr=page.nodes.find(n=>n.type==="tr"&&n.props?.children?.length===5);
+ const tr=page.nodes.find(n=>n.type==="tr"&&text(n).includes("測試商品1"));
  assert.ok(tr,"a receipt has five columns");
  assert.match(text(tr),/測試商品1 4 箱/);
  assert.match(text(tr),/測試員工甲/);
