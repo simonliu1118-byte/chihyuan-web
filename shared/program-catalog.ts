@@ -25,7 +25,6 @@ export interface ProgramCatalog {
 }
 
 /** Daily 03:00 Asia/Taipei (UTC+8), independent of the backup schedule. */
-export const PROGRAM_CATALOG_CRON = "0 19 * * *";
 export function programCatalogDay(now: number): string {
   return new Date(now + 5 * 3600000).toISOString().slice(0, 10);
 }

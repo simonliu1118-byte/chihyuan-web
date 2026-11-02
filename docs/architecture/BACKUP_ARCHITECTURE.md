@@ -48,7 +48,7 @@ Purpose:
 
 Policy:
 
-- schedule: daily, 03:30 Taiwan time;
+- schedule: daily, 03:30 Taiwan time (a failed backup is retried once at 03:45; both run inside the single CY Web cron);
 - application retention: 30 rolling days of verified backup copies;
 - read-back verification required after upload;
 - normal restore selection prefers R2 when an equivalent valid copy exists.

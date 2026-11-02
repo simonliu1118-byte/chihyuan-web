@@ -2,9 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { PROGRAM_CATALOG_CRON } from "../shared/program-catalog.ts";
-import { STORE_MONTHLY_CRON } from "../shared/store-monthly.ts";
-import { ERP_HOUSEKEEPING_CRON } from "../shared/erp-housekeeping.ts";
+import { CYWEB_CRON } from "../shared/cyweb-cron.ts";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
@@ -121,14 +119,13 @@ export function renderDeployConfig({
     config.vars.BACKUP_ENABLED = "true";
     config.vars.GCS_BUCKET = gcsBucket;
     config.vars.BACKUP_SCHEDULE_ENABLED = env.CF_BACKUP_SCHEDULE_ENABLED === "true" ? "true" : "false";
-    // The daily backup (Taiwan 03:30) runs inside the every-minute housekeeping trigger: the Free plan
-    // allows 5 cron triggers per account (shared/backup-schedule.ts). The flag above turns it on.
-    config.triggers = { crons: [PROGRAM_CATALOG_CRON, ERP_HOUSEKEEPING_CRON, STORE_MONTHLY_CRON] };
+    // One cron for everything, the daily backup included (shared/cyweb-cron.ts); the flag above turns the backup on.
+    config.triggers = { crons: [CYWEB_CRON] };
     rendered = JSON.stringify(config, null, 2) + "\n";
   } else {
-    // Remove earlier backup schedules while retaining the independent catalog job.
+    // One cron for every scheduled job (shared/cyweb-cron.ts); the backup stays off without its opt-in.
     const config = JSON.parse(rendered);
-    config.triggers = { crons: [PROGRAM_CATALOG_CRON, ERP_HOUSEKEEPING_CRON, STORE_MONTHLY_CRON] };
+    config.triggers = { crons: [CYWEB_CRON] };
     rendered = JSON.stringify(config, null, 2) + "\n";
   }
 
