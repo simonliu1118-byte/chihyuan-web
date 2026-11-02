@@ -1,7 +1,7 @@
 # WO-0.9.70 售後維修：拍照上傳維修單
 
-- 狀態：相依分支實作中／待 CI 與 Claude 審查；0.9.69 尚未合併
-- 分支：cyweb/wo-0.9.70-repair-photos　PR：#（執行者填）
+- 狀態：程式與 CI 571／571 通過，待 Claude 複審及真實瀏覽器驗收；0.9.69 尚未合併
+- 分支：cyweb/wo-0.9.70-repair-photos　PR：[ #356 ](https://github.com/simonliu1118-byte/chihyuan-web/pull/356)
 - 含 migration 與 API：**Claude 審查通過後才合併部署**。
 
 ## 1. 背景（使用者原話）
@@ -80,14 +80,15 @@
 
 - 桌面 1440、手機 390：清單的相機圖示、照片對話框（含 3 張縮圖與放大）。
 
-## 8. 完成報告（GPT，2026-11-02，待驗證）
-- 依 0.9.69 工作分支建立相依分支 `cyweb/wo-0.9.70-repair-photos`，以保留正式 main 未有 0.9.69 的審查界線。WO70 原文由 main 搬入本分支以供審查。
-- 抽出 `src/ui/forms/photo-upload.ts`、`worker/files/jpeg-upload.ts` 共用 JPEG 處理與補償流程；人事假單已沿用。
-- 新增 0044 metadata migration、維修照片 API、R2 HR_FILES、相機張數與縮圖／大圖／刪除對話框。
-- 備份只納入 D1 metadata；JPEG 檔案備份另案。完整 CI、指紋與人工照片驗收待確認，**不視為通過**。
-- 交接 `docs/handoff/CYWEB-WO-0.9.70-GPT-20261102.md`；第 9 節由 Claude 複審。未合併、未部署、未發 Release。
+## 8. 完成報告（GPT，2026-11-02）
 
-
+- **交付：** [PR #356](https://github.com/simonliu1118-byte/chihyuan-web/pull/356)；分支 `cyweb/wo-0.9.70-repair-photos`，**base 是尚未合併的 WO-0.9.69** (`cyweb/wo-0.9.69-store-repairs` SHA `5cc24ac73bab`)。WO-0.9.70 的正式工單原文從 main 引入相依工作分支，不覆寫 Claude 規格；版本 `0.9.70`／BUILD `0`。
+- **共用先行：** `src/ui/forms/photo-upload.ts` 提供 `resizeToJpeg`，人事 `HrLeaveDialog.tsx` 已改用，保留原灰階、1.5 MB；`worker/files/jpeg-upload.ts` 提供 `jpegSize`／`inspectJpeg`／`putJpegWithRecords`，人事附件與維修照片共用，維持 R2 失敗補償。沒有新增第二份獨立實作。
+- **維修照片：** 新增 `0044_store_repair_photos.sql`（Metadata、FK、索引），照片實體沿用 `HR_FILES`，路徑 `store-repairs/{repairId}/{uuid}.jpg`；API 經 `STORE_REPAIRS` 權限守門，包含列表、JPEG 資源、上傳與刪除，上傳及刪除寫事件與 Audit；照片 GET 為 `private, no-store`。前端提供手機相機、1600px／JPEG 0.8、單張 1MB、最多五張、清單相機及張數、縮圖與放大、刪除；結案後仍可補傳。
+- **備份：** D1 照片 metadata 新表加入 `schema-columns.ts`、`validate_schema.py`、`portable-backup.ts`，0043→0044 舊備份自動補空新表；0044 LF `a2ec97475e6a855df30d1964819d97f8a1735de8141e1bb7fc8685ce1862488b`，CRLF `8e2751fac3de1cfc294cd5039c61cd0d66f0cfb2ee2bc17139f517abe606f15b`，已依 CI 實際輸出登錄並在測試驗證。JPEG 本體**不備份**，保留既有「附檔備份另案處理」政策。
+- **實際自動驗證：** [Runtime Check #41426118458](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41426118458)：**Node 571／571、0 失敗**；本機 D1 runtime acceptance、browser／worker TypeScript、source contracts、Vite build 全部通過。測試涵蓋 0043 備份還原、維修照片五張上限／拒絕錯誤 JPEG／超限大小／刪除 R2／權限／結案補傳及人事既有回歸。
+- **剩餘人工驗收：** [ ] 桌面 1440／手機 390 的真實瀏覽器畫面、3 張縮圖與大圖、實際手機拍攝、照片可讀性；**尚未取得截圖，不代表實機驗收通過**。 [ ] Claude 對照 §6／§7、PR、R2 與 D1 一致性及安全性複審，意見填 §9 與 [Handoff](../../handoff/CYWEB-WO-0.9.70-GPT-20261102.md)。
+- **權限與部署：** PR 僅供 Claude 複審；**尚未合併、未部署、未建 Release**。WO-0.9.69 須先完成審查及受控合併部署；此後再調整 PR base 並依使用者授權處理。
 
 ## 9. 審查紀錄（審查者填）
 
