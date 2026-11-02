@@ -73,12 +73,12 @@ test('0040 and exact pre-lifecycle backup retain removed entries and copy cancel
 
 test('0040 stops before DDL when lifecycle copy exceeds the bounded budget',()=>{const f=connection(false,false,false,false,false,false,false,true);try{seed(f.sql);const put=f.sql.prepare("INSERT INTO store_blacklist(name,phone,reason,action,created_at,created_by,updated_at,updated_by) VALUES('合成界限','071234567','保留','OTHER',?,1,'2026-10-28T10:00:00Z',1)");f.sql.exec('BEGIN');for(let i=0;i<5000;i++)put.run(now);f.sql.exec('COMMIT');assert.throws(()=>f.sql.exec(readFileSync(new URL('../migrations/0040_store_blacklist_lifecycle.sql',import.meta.url),'utf8')),/malformed JSON/);assert(!f.sql.prepare('pragma table_info(store_blacklist)').all().some(c=>c.name==='activation_at'));assert.equal(f.sql.prepare('SELECT count(*) n FROM store_blacklist').get().n,5001)}finally{f.sql.close()}});
 
-test('0041 and pre-no-hold backup preserve all blacklist parents and linked immutable snapshots',async()=>{const source=connection(false,false,false,false,false,false,false,false,true),target=connection();try{seed(source.sql);source.sql.exec("INSERT INTO store_blacklist_events(id,blacklist_id,order_id,actor,at,reason,summary_json) VALUES(51,8,7,1,'2026-10-28T10:00:00Z','原理由','{  \"preserve\": true }');INSERT INTO store_blacklist_operations(id,blacklist_id,source_order_id,actor,at,kind,after_json,legacy_event_id) VALUES(61,8,7,1,'2026-10-28T10:00:00Z','訂購取消','{  \"preserve\": true }',51)");const bundle=await exportPortableBackup(source.db,{workspaceScope:'synthetic',appVersion:'0.9.63'});await restoreIntoEmptyDatabase(target.db,bundle,'synthetic');source.sql.exec(readFileSync(new URL('../migrations/0041_store_blacklist_no_hold.sql',import.meta.url),'utf8'));for(const t of ['store_blacklist','store_blacklist_events','store_blacklist_operations'])assert.deepEqual(target.sql.prepare('SELECT * FROM '+t).all(),source.sql.prepare('SELECT * FROM '+t).all());target.sql.exec("UPDATE store_blacklist SET action='NO_HOLD'");assert.deepEqual(target.sql.prepare('PRAGMA foreign_key_check').all(),[])}finally{source.sql.close();target.sql.close()}});
+test('0041 and pre-no-hold backup preserve all blacklist parents and linked immutable snapshots',async()=>{const source=connection(false,false,false,false,false,false,false,false,true),target=connection();try{seed(source.sql);source.sql.exec("INSERT INTO store_blacklist_events(id,blacklist_id,order_id,actor,at,reason,summary_json) VALUES(51,8,7,1,'2026-10-28T10:00:00Z','原理由','{  \"preserve\": true }');INSERT INTO store_blacklist_operations(id,blacklist_id,source_order_id,actor,at,kind,after_json,legacy_event_id) VALUES(61,8,7,1,'2026-10-28T10:00:00Z','訂購取消','{  \"preserve\": true }',51)");const bundle=await Promise.resolve(legacyBundle(source.sql,true,true));await restoreIntoEmptyDatabase(target.db,bundle,'synthetic');source.sql.exec(readFileSync(new URL('../migrations/0041_store_blacklist_no_hold.sql',import.meta.url),'utf8'));for(const t of ['store_blacklist','store_blacklist_events','store_blacklist_operations'])assert.deepEqual(target.sql.prepare('SELECT * FROM '+t).all(),source.sql.prepare('SELECT * FROM '+t).all());target.sql.exec("UPDATE store_blacklist SET action='NO_HOLD'");assert.deepEqual(target.sql.prepare('PRAGMA foreign_key_check').all(),[])}finally{source.sql.close();target.sql.close()}});
 
 test('0041 refuses an oversized source before touching original tables or snapshots',()=>{const f=connection(false,false,false,false,false,false,false,false,true);try{seed(f.sql);const put=f.sql.prepare("INSERT INTO store_blacklist_operations(blacklist_id,actor,at,kind) VALUES(8,1,'2026-10-28T10:00:00Z','原紀錄')");f.sql.exec('BEGIN');for(let i=0;i<5000;i++)put.run();f.sql.exec('COMMIT');assert.throws(()=>f.sql.exec(readFileSync(new URL('../migrations/0041_store_blacklist_no_hold.sql',import.meta.url),'utf8')),/malformed JSON/);assert.equal(f.sql.prepare('SELECT count(*) n FROM store_blacklist_operations').get().n,5000);assert.equal(f.sql.prepare("SELECT count(*) n FROM sqlite_master WHERE name LIKE '%_action_upgrade'").get().n,0);assert.throws(()=>f.sql.exec("UPDATE store_blacklist SET action='NO_HOLD'"),/CHECK/)}finally{f.sql.close()}});
 
 test('0042 contact indexes: a backup taken before them restores unchanged into the indexed schema',async()=>{const source=connection(false,false,false,false,false,false,false,false,false,true),target=connection();try{seed(source.sql);
- const bundle=await exportPortableBackup(source.db,{workspaceScope:'synthetic',appVersion:'0.9.65'});await verifyPortableBackup(bundle,'synthetic');await restoreIntoEmptyDatabase(target.db,bundle,'synthetic');
+ const bundle=await Promise.resolve(legacyBundle(source.sql,true,true));await verifyPortableBackup(bundle,'synthetic');await restoreIntoEmptyDatabase(target.db,bundle,'synthetic');
  for(const table of ['store_customer_orders','store_customer_order_lines','store_blacklist'])assert.deepEqual(target.sql.prepare('SELECT * FROM '+table).all(),source.sql.prepare('SELECT * FROM '+table).all());
  assert.ok(target.sql.prepare("SELECT 1 FROM sqlite_master WHERE name='idx_store_blacklist_phone'").get());
 }finally{source.sql.close();target.sql.close()}});
@@ -87,6 +87,11 @@ test('0043 fresh schema fingerprint for exact LF/CRLF verification',()=>{
  const f=connection();try{
   const hash=sha(JSON.stringify(f.sql.prepare(schemaQuery).all()));
   console.log('STORE_REPAIR_SCHEMA_FINGERPRINT='+hash);
+  const crlf=new DatabaseSync(':memory:');try{
+   crlf.exec('PRAGMA foreign_keys=ON');
+   for(const filename of migrations)crlf.exec(readFileSync(new URL('../migrations/'+filename,import.meta.url),'utf8').replace(/\r?\n/g,'\r\n'));
+   console.log('STORE_REPAIR_SCHEMA_FINGERPRINT_CRLF='+sha(JSON.stringify(crlf.prepare(schemaQuery).all())));
+  }finally{crlf.close()}
   assert.equal(f.sql.prepare('PRAGMA foreign_key_check').all().length,0);
   assert.equal(f.sql.prepare("SELECT count(*) n FROM sqlite_master WHERE name='store_repairs'").get().n,1);
  }finally{f.sql.close()}
@@ -95,7 +100,7 @@ test('0042 backup restores to 0043 with repair tables empty and original custome
  const source=connection(false,false,false,false,false,false,false,false,false,false,true),target=connection();
  try{
   seed(source.sql);
-  const bundle=await exportPortableBackup(source.db,{workspaceScope:'synthetic',appVersion:'0.9.67'});
+  const bundle=await Promise.resolve(legacyBundle(source.sql,true,true));
   await verifyPortableBackup(bundle,'synthetic');
   await restoreIntoEmptyDatabase(target.db,bundle,'synthetic');
   for(const t of ['store_customer_orders','store_customer_order_lines','store_blacklist'])

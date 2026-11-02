@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readdirSync,readFileSync} from 'node:fs';
 import {build} from 'esbuild';
-import {nextRepairStep,repairStepApplicable,repairOverdue,canUndoRepairClosure,STORE_REPAIR_FACTORY_OVERDUE_DAYS} from '../shared/store-repairs.ts';
+const modelBundle=await build({entryPoints:['shared/store-repairs.ts'],bundle:true,write:false,platform:'node',format:'esm'});
+const {nextRepairStep,repairStepApplicable,repairOverdue,canUndoRepairClosure,STORE_REPAIR_FACTORY_OVERDUE_DAYS}=await import('data:text/javascript;base64,'+Buffer.from(modelBundle.outputFiles[0].text).toString('base64'));
 const bundle=await build({entryPoints:['worker/http/store-repair-routes.ts'],bundle:true,write:false,platform:'node',format:'esm'});
 const {handleStoreRepairRoute}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
 function fixture(role='ADMIN',grant=true){

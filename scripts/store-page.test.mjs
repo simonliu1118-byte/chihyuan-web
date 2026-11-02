@@ -12,6 +12,7 @@ const stubs={
  '../../ui/feedback/FeedbackProvider':`export const FeedbackBanner=()=>null;export const useFeedbackMessage=()=>[null,globalThis.storeSetMessage,globalThis.storeError,'neutral'];`,
 };
 for(const [p,names] of [['../../ui/forms/Field',['Field','CheckField','FormSection']],['../../ui/data/DataViewToolbar',['DataViewToolbar']],['../../ui/data/StatusFilter',['StatusFilter']],['../../ui/primitives/StatusChip',['StatusChip']],['../../ui/overlays/Dialog',['Dialog']]])stubs[p]=names.map(n=>`export function ${n}(){return null}`).join('\n');
+stubs['../../../ui/forms/Field']=stubs['../../ui/forms/Field'];
 let CustomerOrders;
 try{await build({entryPoints:['src/runtime/modules/StoreCustomerOrders.tsx'],outfile:join(dir,'page.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',jsx:'automatic',plugins:[{name:'page-boundaries',setup(b){b.onResolve({filter:/.*/},a=>a.path in stubs?{path:a.path,namespace:'stub'}:undefined);b.onLoad({filter:/.*/,namespace:'stub'},a=>({contents:stubs[a.path]}))}}]});({CustomerOrders}=await import(pathToFileURL(join(dir,'page.mjs'))))}finally{rmSync(dir,{recursive:true,force:true})}
 const walk=n=>!n||typeof n!=='object'?[]:[n,...[n.props?.children].flat(Infinity).flatMap(walk)];
