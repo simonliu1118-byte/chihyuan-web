@@ -1,6 +1,6 @@
 ## 待 Claude 複審：WO-0.9.69 售後維修
 - [x] 獨立 module grant、schema 0043、API／維修頁、共用表單欄位、流程測試初版。
-- [ ] 完成 GitHub CI 檢查、正確 0043 schema 指紋與 0042 → 0043 備份還原驗證，並修正可能的失敗。
+- [x] 0043 LF／CRLF schema 指紋、0042 → 0043 備份還原及新維修流程測試已完成；原版 567／567 CI 通過，最終共用元件整理後以 PR #354 最新 CI 為準。
 - [ ] 1440／390 真實畫面截圖、手機觸控、正式 D1 migration 與生產環境部署驗收。
 - [ ] Claude 完成工單 §9 最終複審；GPT 不合併、不部署。注意需與 WO-0.9.68 版本先後順序相容。
 - [工單](docs/development/work-orders/WO-0.9.69.md) ／ [Handoff](docs/handoff/CYWEB-WO-0.9.69-GPT-20261102.md)。
