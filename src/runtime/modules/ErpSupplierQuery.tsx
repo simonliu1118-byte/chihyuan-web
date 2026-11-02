@@ -46,7 +46,7 @@ export function ErpSupplierQuery({ job }: { job: ErpJob }) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
-    if (mode === "PURCHASES" && Array.from(event.currentTarget.querySelectorAll<HTMLInputElement>('input[type="date"]')).some(input => input.validity.badInput)) {
+    if (mode === "PURCHASES" && Array.from(event.currentTarget.querySelectorAll<HTMLInputElement>('.cy-date-input input')).some(input => input.validity.customError)) {
       setError("請選擇完整且有效的單據日期。"); return;
     }
     const code = parseErpCode(text);
