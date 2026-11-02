@@ -87,10 +87,12 @@ test('0043 fresh schema fingerprint for exact LF/CRLF verification',()=>{
  const f=connection();try{
   const hash=sha(JSON.stringify(f.sql.prepare(schemaQuery).all()));
   console.log('STORE_REPAIR_SCHEMA_FINGERPRINT='+hash);
+  assert.equal(hash,'b3f9f2a9e256ca168a2811dafba00c69cdbcd030e91251b32b80a46910086b55');
   const crlf=new DatabaseSync(':memory:');try{
    crlf.exec('PRAGMA foreign_keys=ON');
    for(const filename of migrations)crlf.exec(readFileSync(new URL('../migrations/'+filename,import.meta.url),'utf8').replace(/\r?\n/g,'\r\n'));
-   console.log('STORE_REPAIR_SCHEMA_FINGERPRINT_CRLF='+sha(JSON.stringify(crlf.prepare(schemaQuery).all())));
+   const crlfHash=sha(JSON.stringify(crlf.prepare(schemaQuery).all()));
+   assert.equal(crlfHash,'a7fc77a58c97ec29ef992b2c83a69cb1f0173371edf9399c2d417d1cb47494cc');
   }finally{crlf.close()}
   assert.equal(f.sql.prepare('PRAGMA foreign_key_check').all().length,0);
   assert.equal(f.sql.prepare("SELECT count(*) n FROM sqlite_master WHERE name='store_repairs'").get().n,1);

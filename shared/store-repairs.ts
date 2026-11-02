@@ -40,8 +40,8 @@ export function nextRepairStep(r:Pick<StoreRepair,"status"|"cancelled"|"inspectR
  return "RETURNED";
 }
 export function repairStepApplicable(r:Pick<StoreRepair,"status"|"cancelled"|"inspectResult">,step:StoreRepairStep):boolean{
- if(step==="INSPECTED")return !r.cancelled||r.status!=="RECEIVED";
- if(step==="SENT")return !r.cancelled&&(r.inspectResult==="BAD"||r.status==="SENT"||r.status==="REPAIRED")&&r.inspectResult!=="GOOD";
+ if(step==="INSPECTED")return r.status!=="RECEIVED"||!r.cancelled;
+ if(step==="SENT")return (r.status==="SENT"||r.status==="REPAIRED"||r.status==="NOTIFIED")&&r.inspectResult==="BAD"||!r.cancelled&&r.inspectResult==="BAD";
  if(step==="REPAIRED")return r.status==="SENT"||r.status==="REPAIRED"||!r.cancelled&&r.inspectResult==="BAD";
  return true;
 }

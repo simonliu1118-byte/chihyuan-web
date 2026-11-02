@@ -1,6 +1,6 @@
 export const STORE_NO_HOLD_SCHEMAS=["f9d12f6b7a6065e9b546e72373436cbdcec892d9b44327f479cba34423cdc8c9","13895fad7e67cf414b3830a5ea99d592bff1c3d35be9eace14fb5d73f4ca0964"];
 // 0042 adds only contact indexes: same columns as no-hold, so a no-hold backup restores unchanged. LF/CRLF layouts.
-export const STORE_REPAIR_SCHEMAS=["b3f9f2a9e256ca168a2811dafba00c69cdbcd030e91251b32b80a46910086b55"]; // 0043 exact LF; CRLF variant recorded after CI schema check.
+export const STORE_REPAIR_SCHEMAS=["b3f9f2a9e256ca168a2811dafba00c69cdbcd030e91251b32b80a46910086b55","a7fc77a58c97ec29ef992b2c83a69cb1f0173371edf9399c2d417d1cb47494cc"]; // 0043 exact LF and CRLF.
 export const STORE_CONTACT_INDEX_SCHEMAS=["8501f8368055f0915882ec395e33d446c3d5b43398a4c095578c113072009332","2a5f15d27c656bcb50dcced068f75c9b124e4f38db2d3d235b76004f295f26a9"];
 // Exact pre-0035 schema/column layouts. Do not generalize unknown-schema restore acceptance.
 export const STORE_BLACKLIST_LIFECYCLE_SCHEMAS=["59ea5b424bbf24cc50e96f4acc97be730294d35cc26b3552ea7fbb8b0c7f0f9c","aac36cf06e7d0847c60646cd83cafb91b2b6b1481540a4dcd397b037e01227c9","fe569f82713a861f701b0f96b5436edb04953ff03292cdee18c7ff19dd9a704e"];
