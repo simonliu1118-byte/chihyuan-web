@@ -454,13 +454,13 @@ test('draft-items batches codes, returns multiple draft slips with quantities an
  const f=fixture();try{
   const sources=(await f.call('/sources')).body.data;
   const first=sources.find(x=>x.name==='台北'),second=sources.find(x=>x.name==='台中'),at='2026-11-02T00:00:00Z';
-  const insertOrder=f.sql.prepare("INSERT INTO ordering_orders(source_id,status,planned_send_date,created_at,updated_at) VALUES(?,?,?,?,?)");
+  const insertOrder=f.sql.prepare("INSERT INTO ordering_orders(source_id,status,planned_send_date,sent_at,created_at,updated_at) VALUES(?,?,?,?,?,?)");
   const insertLine=f.sql.prepare("INSERT INTO ordering_lines(order_id,sort_order,item_code,item_name,quantity_text,unit,closed_as) VALUES(?,?,?,?,?,?,?)");
-  insertOrder.run(first.id,'DRAFT','2026-11-05',at,at);const a=f.sql.prepare('SELECT last_insert_rowid() id').get().id;
+  insertOrder.run(first.id,'DRAFT','2026-11-05',null,at,at);const a=f.sql.prepare('SELECT last_insert_rowid() id').get().id;
   insertLine.run(a,1,'P001','測試商品','3','盒',null);
-  insertOrder.run(second.id,'DRAFT',null,at,at);const b=f.sql.prepare('SELECT last_insert_rowid() id').get().id;
+  insertOrder.run(second.id,'DRAFT',null,null,at,at);const b=f.sql.prepare('SELECT last_insert_rowid() id').get().id;
   insertLine.run(b,1,'P001','測試商品','8','盒',null);
-  insertOrder.run(first.id,'SENT','2026-11-05',at,at);const sent=f.sql.prepare('SELECT last_insert_rowid() id').get().id;
+  insertOrder.run(first.id,'SENT','2026-11-05',at,at,at);const sent=f.sql.prepare('SELECT last_insert_rowid() id').get().id;
   insertLine.run(sent,1,'P001','測試商品','100','盒',null);
   insertLine.run(a,2,'P001','測試商品','4','盒','CANCELLED');
   const found=await f.call('/draft-items?itemCodes=P001,P002');
