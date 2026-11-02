@@ -5,6 +5,10 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.82 — 人事資料只在剛新增、還沒有任何紀錄時可刪除（2026-11-03，Claude）
+- 原本測試用的「刪除人事資料」（BD-059）改為正式規則：只要還沒有薪資、請假、加班、補休、年資不計、班表、排班核准、出勤或建檔以外的異動紀錄，就能刪除（例如建錯了）；有任何紀錄就不顯示「刪除」，後端回 409，且在同一批次內再檢查一次。
+- 學經歷、緊急聯絡人、建檔異動與查看特休時自動產生的特休年度會一併刪除。
+
 ## CY Web V0.9.81 — 備份改記 migration 名稱，不再釘結構指紋（2026-11-03，Claude）
 - 新備份（formatVersion 2）在 manifest 記錄來源資料庫最後一支 migration（`schemaMigration`）。還原時依資料表與欄位名稱對應：
   - 備份沒有的資料表還原為空，備份沒有的欄位用資料庫預設值；
