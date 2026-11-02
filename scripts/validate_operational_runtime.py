@@ -42,7 +42,13 @@ def main() -> int:
         if (ROOT / retired).exists():
             raise AssertionError(f"retired local runtime returned: {retired}")
     for page in ROOT.glob("src/**/*.tsx"):
-        if "local-database" in page.read_text() or re.search(r"\blocalStorage\s*(?:\.|\[)", page.read_text()):
+        source = page.read_text()
+        # WO-0.9.76 explicitly persists one display-only checkbox, never business data.
+        # Permit only that literal key at its existing owner; other storage access stays forbidden.
+        if page == ROOT / "src/runtime/modules/RestockAssist.tsx":
+            source = source.replace('localStorage.getItem("cy-restock-daily")', "")
+            source = source.replace('localStorage.setItem("cy-restock-daily",String(value))', "")
+        if "local-database" in source or re.search(r"\blocalStorage\s*(?:\.|\[)", source):
             raise AssertionError(f"browser-local authority returned: {page}")
     # Settings live inside their modules (客戶、商品、工作日誌) rather than a shared 系統管理 page.
     for page, used_as, token in [("ModuleSettingsPanel", "ModuleSettingsButton", "loadSettings"), ("AuditOperationalPage", "AuditOperationalPage", "loadAudit")]:

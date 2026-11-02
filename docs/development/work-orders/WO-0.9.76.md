@@ -1,7 +1,7 @@
 # WO-0.9.76 進貨輔助抽屜：結果表格與加入叫貨單版面
 
 - 狀態：執行完成，待 CI／Claude 審查
-- 分支：cyweb/wo-0.9.76-restock-layout　PR：#（執行者填）
+- 分支：cyweb/wo-0.9.76-restock-layout　PR：[#365](https://github.com/simonliu1118-byte/chihyuan-web/pull/365)
 - 純前端、沒有 API 與 migration：審查通過後合併部署。
 
 ## 1. 背景（使用者原話，2026-11-03）
@@ -112,12 +112,13 @@
 - 加入：共用 IconButton/Icons.add（table），FeedbackBanner 作為不捲動 footer，加入後位於視窗底部；公司／廠商僅出現一次，上次來源預選與草稿點保留。80 個合成廠商下列表高度 174px、可見約五行，440px 加入對話框高度約 572px，本身不需捲動。
 - 手機390×844：抽屜寬390、內容無水平溢出、每日欄不建立／切換不顯示；同一表格轉 data-label 卡片，加入圖示在右上。手機加入對話框寬370，只有廠商列表捲動。
 - 主要測試：新增 scripts/restock-layout.test.mjs 三項，實際測試預設／切換、偏好及 compact、來源預選與按需查詢；連同欄位／鍵盤測試6/6通過。npm run build（含前後端 typecheck）通過，既有 bundle 大小／dynamic import 警告未擴大處理。
-- 本機完整 node --test scripts/*.test.mjs：582項571通過11失敗；失敗在未修改的 backup-rehearsal-http Windows URL、secure-entry Windows URL、部署檔CRLF及0043～0045 schema字元換行指紋。Windows未安裝Python，validate:source／validate:d1:local本機無法執行；需以PR的Linux CI執行正式完整驗證，不把本機結果寫成全通過。
+- 本機完整 node --test scripts/*.test.mjs：整合前582項571通過11失敗；整合main 431a73c後587項576通過11失敗（同一組Windows差異）；失敗在未修改的 backup-rehearsal-http Windows URL、secure-entry Windows URL、部署檔CRLF及0043～0045 schema字元換行指紋。Windows未安裝Python，validate:source／validate:d1:local本機無法執行；需以PR的Linux CI執行正式完整驗證，不把本機結果寫成全通過。
 - 截圖：外部交付 outputs/wo76-desktop-compact.png、wo76-desktop-daily.png、wo76-desktop-daily-sticky.png、wo76-desktop-add.png、wo76-desktop-footer.png、wo76-mobile-cards.png、wo76-mobile-add.png，全部是合成資料，未放入Public Git。
 - 偏離說明：每日明細的水平捲動與上下捲動共用抽屜內容區；若給 table wrapper overflow-x:auto，瀏覽器會同時建立上下捲動 ancestor，使 sticky 表頭無法相對抽屜固定。因此直接維持一個 scroll owner，沒有複製表頭／observer／DOM relocation／第二套手機元件，符合單層捲動目的。SidePanel共用元件未修改。
 - 資源：純前端；本輪正式D1讀0列／寫0列、正式ERP呼叫0。合成HTTP在localhost，不接正式服務，API/migration/Worker無變更。
 - 主線整合：只在TODO／CHANGELOG頂端的新版本段落有衝突，保留兩方內容並將本工單順延V0.9.78；RestockAssist的DateInput customError與日期／到貨／未到貨頁籤改動均保留。
-- 最新head CI：待PR建立後回填。Claude最終審查待填；未合併、未部署、未發Release。
+- 整合後重點27/27通過、V0.9.78 build/typecheck通過；首輪CI 41448262542 的來源檢查將所有 localStorage 一概視為業務authority，與工單指定的單一顯示偏好衝突。已直接更新既有validate_operational_runtime.py，僅允許RestockAssist的cy-restock-daily兩個literal存取，其他業務儲存禁用照舊；沒有新增storage wrapper或改掉工單要求。
+- 最新head CI：PR #365 checks，返修後待驗證。Claude最終審查待填；未合併、未部署、未發Release。
 
 
 ## 9. 審查紀錄（審查者填）
