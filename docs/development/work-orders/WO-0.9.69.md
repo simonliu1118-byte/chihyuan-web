@@ -1,7 +1,7 @@
 # WO-0.9.69 門市「售後維修」頁籤
 
-- 狀態：實作中／待遠端測試（尚未合併部署）
-- 分支：cyweb/wo-0.9.69-store-repairs　PR：#（建立後回填）
+- 狀態：程式與自動測試完成，待 Claude 複審與人工視覺驗收（尚未合併部署）
+- 分支：cyweb/wo-0.9.69-store-repairs　PR：#354
 - 含 migration 與 API：**Claude 審查通過後才合併部署**（使用者 2026-10-30 約定）。
 
 ## 1. 背景（使用者原話）
@@ -128,15 +128,16 @@
 
 - 桌面 1440、手機 390：維修清單（各狀態各一筆、含逾期與無異常略過）、新增維修單、檢測／送廠／歸還對話框、取消對話框。
 
-## 8. 完成報告（GPT，2026-11-02；待驗證）
-- 已建立工作分支 `cyweb/wo-0.9.69-store-repairs`，基於 main `9a52fb5e55ed`。
-- 變更：0043 migration、STORE_REPAIRS module、shared/store-repairs.ts、shared/store-workflow.ts、Worker API、共用 store workflow 檢測／送修欄、前端維修頁與 tab、備份表清單／還原版本相容。
-- 既有訂購頁已改用抽出的共用 ContactCells、HonorificCell、Reason，後端共用 version guard、event 與 5 分鐘結案時限。
-- 已新增 `scripts/store-repairs.test.mjs` 與 0042→0043 還原回歸。遠端測試／視覺驗收尚未完成，**不可判為通過**。
-- 待處理：計算並核對 0043 LF／CRLF schema 指紋、確認 migration 對資料與 FK 的影響、完整 CI、1440／390 實際畫面及既有訂購回歸；如有失敗應優先返修。
-- 不合併、不部署、不建立 Release，工單第 9 節保留 Claude 最終審查。
-- Handoff：`docs/handoff/CYWEB-WO-0.9.69-GPT-20261102.md`。
+## 8. 完成報告（GPT，2026-11-02）
 
-## 9. 審查紀錄（審查者填）
+- 工作分支：`cyweb/wo-0.9.69-store-repairs`；[PR #354](https://github.com/simonliu1118-byte/chihyuan-web/pull/354)；目標 `main`。版本 V0.9.69，BUILD 0。**尚未合併、尚未部署、未發布 Release**。
+- 實作：獨立 `STORE_REPAIRS` 權限、售後維修頁籤、單件維修單與聯絡資料、檢測／送廠／完修／通知／歸還、無異常跳步、物流選擇、取消後繼續通知及歸還、5 分鐘結案撤回、逾期標示、歷程與日期修改。
+- 共用：`ContactCells`、`HonorificCell`、`Reason` 自既有訂購頁抽出；物流使用共用 `StoreShippingFields`；新增共用里程碑欄位；後端 version guard／event 共用，兩種流程的結案時間判斷使用同一共用函式。
+- D1：新增 forward migration `0043_store_repairs.sql`；原有 module 授權保留。備份 portable table whitelist／schema-column coverage 已擴充，對 0042 舊備份補空維修表，並加入還原測試。0043 指紋 LF `b3f9f2a9e256ca168a2811dafba00c69cdbcd030e91251b32b80a46910086b55`、CRLF `a7fc77a58c97ec29ef992b2c83a69cb1f0173371edf9399c2d417d1cb47494cc` 已登錄。
+- [Runtime Check #41420795673](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41420795673)：**567／567 項 Node 測試通過、0 失敗**；browser／Worker typecheck、source contracts、Local D1 acceptance、Vite build 成功。
+- [Governance Check #41420795649](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41420795649)：通過；[Deployment Contract #41420795771](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41420795771)：驗證通過，實際 deploy-development **skipped**（未部署）。
+- 前兩輪 Runtime Check 曾因共用欄位測試替身、備份指紋與 UI 預期值而失敗，已在工作分支修正；僅以最後一次完整 CI 為準。
+- [ ] **尚待人工視覺驗收**：桌面 1440、手機 390、各狀態／逾期清單、新增維修單、檢測／送廠／歸還及取消對話框；尚未取得截圖，不能冒稱完成。
+- [ ] Claude 複審正式工單 §6／§7、migration、權限與整套維修流程；審查意見請填下方 §9 及 [Claude Handoff](../../handoff/CYWEB-WO-0.9.69-GPT-20261102.md)。複審不等同部署授權。
 
 ## 9. 審查紀錄（審查者填）
