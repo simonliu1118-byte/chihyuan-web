@@ -48,7 +48,7 @@ const order = sourceId => ({ id: sourceId * 10, sourceId, sourceName: sources[so
   sentAt: null, lines: [], receipts: [], revisions: [] });
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
 let activeHost;
-function mount(transport) {
+function mount(transport, pageProps={}) {
   const slots = [], calls = [], confirmations = []; let cursor, dirty = true, tree, effects = [];
   globalThis.orderingPageTransport = async (url, options) => {
     const path = url.replace("/api/business/ordering", ""); calls.push({ path, ...options });
@@ -68,7 +68,7 @@ function mount(transport) {
       slots[i]?.cleanup?.(); slots[i] = { deps }; effects.push(() => { slots[i].cleanup = fn(); });
     } },
   };
-  function render() { globalThis.orderingPageHost = host; do { dirty = false; cursor = 0; effects = []; tree = OrderingPage(); effects.forEach(fn => fn()); } while (dirty); }
+  function render() { globalThis.orderingPageHost = host; do { dirty = false; cursor = 0; effects = []; tree = OrderingPage(pageProps); effects.forEach(fn => fn()); } while (dirty); }
   const view = {
     calls, confirmations, render,
     async tick() { await new Promise(resolve => setImmediate(resolve)); render(); },
@@ -305,4 +305,14 @@ test("a row added in edit mode keeps its local id, so later keystrokes update it
  assert.equal(second.id,first.id);
  assert.equal(page.grid.lines.length,sentOrder().lines.length+1);
  assert.equal(page.grid.lines.at(-1).itemName,"C00031");
+});
+
+test('restock action is grant-gated and opens the reusable side drawer without changing source tabs',async()=>{
+ const denied=mount(normalTransport);await denied.tick();
+ assert.equal(denied.nodes.some(n=>n.type==='button'&&text(n)==='進貨輔助'),false);
+ const allowed=mount(normalTransport,{canRestock:true,canQueryItem:true});await allowed.tick();
+ allowed.click('進貨輔助');
+ const drawer=allowed.nodes.find(n=>n.type?.name==='OrderingRestockDrawer');
+ assert.equal(drawer?.props.open,true);
+ assert.deepEqual(allowed.selectedTabs,[]);
 });
