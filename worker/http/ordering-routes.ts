@@ -93,8 +93,7 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
      "SELECT l.item_code,o.id order_id,o.source_id,s.name source_name,o.planned_send_date,l.quantity_text,l.unit,l.section"+
      " FROM ordering_lines l JOIN ordering_orders o ON o.id=l.order_id JOIN ordering_sources s ON s.id=o.source_id"+
      " WHERE l.item_code IN (SELECT value FROM json_each(?)) AND o.status='DRAFT' AND l.closed_as IS NULL"+
-     " ORDER BY o.created_at DESC,o.id DESC,l.sort_order,l.id LIMIT 2501",JSON.stringify([...new Set(values)]));
-   if(matches.length>2500)throw new Bad("ORDERING_LIMIT","草稿品項過多，請縮小查詢",409);
+     " ORDER BY o.created_at DESC,o.id DESC,l.sort_order,l.id",JSON.stringify([...new Set(values)]));
    return success(matches.map(x=>({itemCode:x.item_code,orderId:x.order_id,sourceId:x.source_id,sourceName:x.source_name,plannedSendDate:x.planned_send_date,quantityText:x.quantity_text,unit:x.unit,section:x.section})),requestId);
   }
   if(path==="sources"&&method==="GET"){await init(ctx);const items=await rows<Source>(ctx.db,"SELECT * FROM ordering_sources ORDER BY sort_order,id LIMIT 101");if(items.length>100)throw new Bad("ORDERING_LIMIT","來源超過100筆",409);return success(items.map(x=>({id:x.id,name:x.name,kind:x.kind,conditions:x.conditions,paymentTerms:x.payment_terms,note:x.note,sortOrder:x.sort_order,isActive:!!x.is_active})),requestId)}

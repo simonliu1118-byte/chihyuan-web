@@ -8,7 +8,7 @@ import {build} from 'esbuild';
 const compiled=await build({entryPoints:['worker/backup/portable-backup.ts'],bundle:true,write:false,platform:'node',format:'esm'});
 const {exportPortableBackup,verifyPortableBackup,restoreIntoEmptyDatabase}=await import('data:text/javascript;base64,'+Buffer.from(compiled.outputFiles[0].text).toString('base64'));
 const migrations=readdirSync(new URL('../migrations/',import.meta.url)).filter(f=>f.endsWith('.sql')).sort();
-function connection(legacy=false,preMonthly=false,preProgress=false,preSequence=false,preUnorderable=false,preBlacklist=false,preOrderWorkflow=false,preLifecycle=false,preNoHold=false,preContactIndex=false,preRepairs=false,prePhotos=false){const sql=new DatabaseSync(':memory:');sql.exec('PRAGMA foreign_keys=ON');for(const f of migrations.filter(f=>legacy?f<'0033':preMonthly?f<'0034':preProgress?f<'0035':preSequence?f<'0036':preNoHold?f<'0041':preContactIndex?f<'0042':preRepairs?f<'0043':prePhotos?f<'0044':preLifecycle?f<'0040':preOrderWorkflow?f<'0039':preBlacklist?f<'0038':!preUnorderable||f<'0037'))sql.exec(readFileSync(new URL('../migrations/'+f,import.meta.url),'utf8'));const db={prepare(query){const statement=sql.prepare(query);let params=[];const execute=()=>({results:statement.all(...params),meta:{changes:sql.prepare('SELECT changes() n').get().n}});return {bind(...p){params=p;return this},execute,async first(){return execute().results[0]??null},async all(){return execute()},async run(){return execute()}}},async batch(stmts){sql.exec('BEGIN');try{const out=stmts.map(s=>s.execute());sql.exec('COMMIT');return out}catch(e){sql.exec('ROLLBACK');throw e}}};return {sql,db}}
+function connection(legacy=false,preMonthly=false,preProgress=false,preSequence=false,preUnorderable=false,preBlacklist=false,preOrderWorkflow=false,preLifecycle=false,preNoHold=false,preContactIndex=false,preRepairs=false,prePhotos=false,preItemIndex=false){const sql=new DatabaseSync(':memory:');sql.exec('PRAGMA foreign_keys=ON');for(const f of migrations.filter(f=>legacy?f<'0033':preMonthly?f<'0034':preProgress?f<'0035':preSequence?f<'0036':preNoHold?f<'0041':preContactIndex?f<'0042':preRepairs?f<'0043':prePhotos?f<'0044':preItemIndex?f<'0045':preLifecycle?f<'0040':preOrderWorkflow?f<'0039':preBlacklist?f<'0038':!preUnorderable||f<'0037'))sql.exec(readFileSync(new URL('../migrations/'+f,import.meta.url),'utf8'));const db={prepare(query){const statement=sql.prepare(query);let params=[];const execute=()=>({results:statement.all(...params),meta:{changes:sql.prepare('SELECT changes() n').get().n}});return {bind(...p){params=p;return this},execute,async first(){return execute().results[0]??null},async all(){return execute()},async run(){return execute()}}},async batch(stmts){sql.exec('BEGIN');try{const out=stmts.map(s=>s.execute());sql.exec('COMMIT');return out}catch(e){sql.exec('ROLLBACK');throw e}}};return {sql,db}}
 const now='2026-10-28T10:00:00Z';
 function seed(sql){sql.prepare("INSERT INTO app_members(id,identity_employee_id,employee_no,display_name,is_active,created_at,updated_at) VALUES(1,'synthetic-store','9999','測試人員',1,?,?)").run(now,now);
  sql.prepare("INSERT INTO store_customer_orders(id,order_date,customer_name,phone,line_name,deposit,note,status,notified_at,version,created_at,created_by,updated_at,updated_by) VALUES(7,'2026-10-28','合成顧客','0912345678','測試LINE',20,'保留備註','NOTIFIED',?,4,?,1,?,1)").run(now,now,now);
@@ -113,10 +113,10 @@ test('0042 backup restores to 0043 with repair tables empty and original custome
 });
 
 test('0044 exact schema fingerprint LF and CRLF',()=>{
- const f=connection();try{
+ const f=connection(false,false,false,false,false,false,false,false,false,false,false,false,true);try{
   const lf=sha(JSON.stringify(f.sql.prepare(schemaQuery).all()));
   const crlf=new DatabaseSync(':memory:');
-  try{crlf.exec('PRAGMA foreign_keys=ON');for(const name of migrations)crlf.exec(readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8').replace(/\r?\n/g,'\r\n'));
+  try{crlf.exec('PRAGMA foreign_keys=ON');for(const name of migrations.filter(f=>f<'0045'))crlf.exec(readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8').replace(/\r?\n/g,'\r\n'));
    assert.equal(lf,'a2ec97475e6a855df30d1964819d97f8a1735de8141e1bb7fc8685ce1862488b');
    assert.equal(sha(JSON.stringify(crlf.prepare(schemaQuery).all())),'8e2751fac3de1cfc294cd5039c61cd0d66f0cfb2ee2bc17139f517abe606f15b');
   }finally{crlf.close()}
@@ -133,4 +133,24 @@ test('0043 backup restores to 0044 retaining repairs; photos start empty',async(
    assert.deepEqual(target.sql.prepare('SELECT * FROM '+table).all(),source.sql.prepare('SELECT * FROM '+table).all());
   assert.equal(target.sql.prepare('SELECT count(*) n FROM store_repair_photos').get().n,0);
  }finally{source.sql.close();target.sql.close()}
+});
+
+test('0045 schema index fingerprints and 0044 portable backup compatibility',async()=>{
+ const current=connection(),old=connection(false,false,false,false,false,false,false,false,false,false,false,false,true);
+ try{
+  const hash=sha(JSON.stringify(current.sql.prepare(schemaQuery).all()));
+  const crlf=new DatabaseSync(':memory:');
+  try{
+   crlf.exec('PRAGMA foreign_keys=ON');
+   for(const name of migrations)crlf.exec(readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8').replace(/\r?\n/g,'\r\n'));
+   console.log('ORDERING_ITEM_INDEX_SCHEMA_LF='+hash);
+   console.log('ORDERING_ITEM_INDEX_SCHEMA_CRLF='+sha(JSON.stringify(crlf.prepare(schemaQuery).all())));
+  }finally{crlf.close()}
+  assert.ok(current.sql.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_ordering_lines_item_code'").get());
+  seed(old.sql);
+  const bundle=legacyBundle(old.sql,true,true);
+  await verifyPortableBackup(bundle,'synthetic');
+  await restoreIntoEmptyDatabase(current.db,bundle,'synthetic');
+  assert.deepEqual(current.sql.prepare('SELECT * FROM store_customer_orders').all(),old.sql.prepare('SELECT * FROM store_customer_orders').all());
+ }finally{current.sql.close();old.sql.close()}
 });
