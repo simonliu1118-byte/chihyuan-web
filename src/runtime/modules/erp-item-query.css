@@ -404,3 +404,6 @@
  .cy-ordering-receipt-table th:nth-child(4),.cy-ordering-receipt-table th:nth-child(5),
  .cy-ordering-receipt-table td:nth-child(4),.cy-ordering-receipt-table td:nth-child(5){display:none}
 }
+
+/* 未到貨 tab, then a divider before the sources (V0.9.77). */
+.cy-ordering-tabbar .cy-ordering-tab-divider{flex:0 0 auto;align-self:center;width:1px;height:20px;margin:0 10px;background:var(--cy-border-strong,var(--cy-border))}
