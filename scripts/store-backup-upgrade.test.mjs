@@ -143,8 +143,8 @@ test('0045 schema index fingerprints and 0044 portable backup compatibility',asy
   try{
    crlf.exec('PRAGMA foreign_keys=ON');
    for(const name of migrations)crlf.exec(readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8').replace(/\r?\n/g,'\r\n'));
-   console.log('ORDERING_ITEM_INDEX_SCHEMA_LF='+hash);
-   console.log('ORDERING_ITEM_INDEX_SCHEMA_CRLF='+sha(JSON.stringify(crlf.prepare(schemaQuery).all())));
+   assert.equal(hash,'e3f14b04ee560ddb43c98a2c31f2dcfb1c9710f81dd9161d018c1bd5506a1bab');
+   assert.equal(sha(JSON.stringify(crlf.prepare(schemaQuery).all())),'ffd84deca22c432706918692fef76bfe050cda0598f2c6b0f2851f0c55d4e8ad');
   }finally{crlf.close()}
   assert.ok(current.sql.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_ordering_lines_item_code'").get());
   seed(old.sql);
