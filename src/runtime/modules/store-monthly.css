@@ -7,28 +7,42 @@
 .cy-monthly-table>tbody{--cy-monthly-row-bg:var(--cy-surface)}
 .cy-monthly-table>tbody:nth-of-type(even){--cy-monthly-row-bg:var(--cy-surface-muted)}
 .cy-monthly-table>tbody>tr>td{background-color:var(--cy-monthly-row-bg)}
-.cy-monthly-table tbody:not(:last-child)>tr:last-child>td{border-bottom:1px solid var(--cy-border)}
-.cy-monthly-table thead th{position:sticky;top:0;z-index:2;white-space:normal;overflow-wrap:anywhere}
+.cy-monthly-table>tbody:not(:last-child)>tr:last-child>td{border-bottom:2px solid var(--cy-border)}
+.cy-monthly-table thead th{position:sticky;top:0;z-index:3;white-space:normal}
 .cy-monthly-table .cy-monthly-month,.cy-monthly-table .cy-monthly-store{position:sticky;z-index:2;white-space:nowrap}
 .cy-monthly-table .cy-monthly-month{left:0}
 .cy-monthly-table .cy-monthly-store{left:100px;text-align:left}
 .cy-monthly-table .cy-monthly-operations{position:sticky;right:0;z-index:2}
-.cy-monthly-table thead :is(.cy-monthly-month,.cy-monthly-store,.cy-monthly-operations){z-index:3;background:var(--cy-surface-muted)}
+.cy-monthly-table thead :is(.cy-monthly-month,.cy-monthly-store,.cy-monthly-operations){z-index:4;background:var(--cy-surface-muted)}
+.cy-monthly-group-heading th{font-weight:600;white-space:normal;word-break:normal;overflow-wrap:break-word;line-height:1.35;background:var(--cy-surface-muted)}
+.cy-monthly-group-break>th,.cy-monthly-group-break>td{border-top:2px solid var(--cy-border)}
+.cy-monthly-group-cells>td{height:39px}
+.cy-monthly-table .cy-monthly-empty{background:var(--cy-surface-muted)}
 .cy-monthly-cell{position:relative;padding:0!important}
 .cy-monthly-inapplicable{background:linear-gradient(to bottom right,transparent calc(50% - .6px),var(--cy-border) 50%,transparent calc(50% + .6px));background-color:var(--cy-surface-muted)}
+.cy-monthly-table>tbody>tr>td.cy-monthly-overdue{background-color:var(--cy-danger-surface,#fce8e8)}
+.cy-store-monthly .cy-monthly-cell .cy-store-register{background:var(--cy-surface);color:var(--cy-text);border:1px solid var(--cy-border);border-radius:4px;padding:4px 8px}
+.cy-store-monthly .cy-monthly-cell .cy-store-register:hover{background:var(--cy-surface-muted)}
+.cy-monthly-cell .cy-store-date-check{color:var(--cy-success,#198754);font-weight:700}
+.cy-monthly-cell .cy-store-check{color:var(--cy-success,#198754)}
 .cy-monthly-actions{display:inline-flex;align-items:center;justify-content:center;gap:3px}
 .cy-store-monthly svg{display:block;width:18px;height:18px;min-width:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .cy-monthly-scroll:has(.cy-store-date-popover){padding-bottom:180px}
 .cy-store-monthly .cy-store-date-popover{max-width:none;width:max-content;box-sizing:border-box}
 .cy-monthly-undo{margin-right:auto!important}
 .cy-monthly-settings-dialog .cy-dialog-surface{width:min(840px,calc(100vw - 32px))}
-.cy-monthly-settings-table{min-width:600px!important}
+.cy-monthly-settings-table{min-width:850px!important}
 .cy-monthly-settings-table th{padding:6px 8px}
 .cy-monthly-settings-table td{padding:0;vertical-align:middle}
 .cy-monthly-settings-table td:first-child{text-align:left;color:var(--cy-text)}
 .cy-monthly-settings-table th:last-child{white-space:nowrap}
 .cy-monthly-settings-table .cy-f-check{min-height:28px;font-size:var(--cy-fs-sm)}
 .cy-monthly-store-options{display:flex;flex-wrap:wrap;gap:4px 12px;padding:4px 8px}
+.cy-monthly-schedule-options{padding:4px 8px;min-width:245px}
+.cy-monthly-schedule-options .cy-segmented{display:flex;flex-wrap:nowrap}
+.cy-monthly-schedule-options .cy-segmented button{font-size:var(--cy-fs-xs);padding:4px 6px}
+.cy-monthly-schedule-months{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:3px 4px;margin-top:6px}
+.cy-monthly-schedule-months .cy-f-check{white-space:nowrap;font-size:var(--cy-fs-xs);gap:2px;min-height:24px}
 .cy-monthly-ops-heading{display:flex;align-items:center;justify-content:space-between;gap:4px}
 .cy-monthly-sequence{display:flex;align-items:center;justify-content:center;gap:4px;font-variant-numeric:tabular-nums}
 .cy-monthly-drag-handle{display:inline-flex;align-items:center;justify-content:center;width:22px;height:28px;padding:0;border:0;background:transparent;color:var(--cy-text-muted);touch-action:none;cursor:grab}
