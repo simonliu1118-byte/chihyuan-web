@@ -12,7 +12,7 @@ export const CYWEB_MODULES = [
   { code: "ERP_SUPPLIER_QUERY", route: "erp-item-query", label: "ERP 供應商查詢" },
   // 進貨輔助 (user 2026-10-20): every customer's 銷貨／銷退 per 品號 with 庫存; a category of
   // ERP 查詢 since V0.9.41 (user 2026-10-27).
-  { code: "ERP_RESTOCK_ASSIST", route: "erp-item-query", label: "進貨輔助" },
+  { code: "ERP_RESTOCK_ASSIST", route: "ordering", label: "進貨輔助" },
   { code: "ORDERING", route: "ordering", label: "叫貨" },
   // 門市 (user 2026-10-28): a page of tabs like ERP 查詢; each tab has its own grant.
   { code: "STORE_CUSTOMER_ORDERS", route: "store", label: "門市顧客訂購" },

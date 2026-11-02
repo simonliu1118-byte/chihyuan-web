@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { SidePanel } from "../../ui/overlays/SidePanel";
 import { ERP_QUERY_TYPE_LABELS } from "../../../shared/erp-item-query";
 import { loadErpQueue, type ErpQueueJob } from "../api/erp-item-query-client";
 import { readableErpError } from "./useErpJob";
@@ -68,14 +69,6 @@ export function ErpQueuePanel({ active }: { active: boolean }) {
  * The queue beside the page (user 2026-10-28: narrower than the drawer, and the page behind it stays
  * usable, so no backdrop). Esc or × closes it.
  */
-export function ErpQueueSidePanel({ onClose }: { onClose: () => void }) {
-  useEffect(() => {
-    const key = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
-    window.addEventListener("keydown", key);
-    return () => window.removeEventListener("keydown", key);
-  }, [onClose]);
-  return <aside className="cy-erp-queue-side" aria-label="排程佇列">
-    <header><h2>排程佇列</h2><button type="button" className="cy-dialog-close" aria-label="關閉排程佇列" onClick={onClose}>×</button></header>
-    <ErpQueuePanel active />
-  </aside>;
+export function ErpQueueSidePanel({onClose}:{onClose:()=>void}){
+ return <SidePanel title="排程佇列" onClose={onClose}><ErpQueuePanel active /></SidePanel>;
 }

@@ -9,7 +9,6 @@ import { ErpJobStatus, showsData } from "./ErpJobStatus";
 import { ErpItemResult, rowsOf } from "./ErpItemResult";
 import type { CyWebModuleCode } from "../../../shared/modules";
 import { ErpPageVisibleContext, runningStatus, useErpJob, type ErpJob } from "./useErpJob";
-import { RestockAssist } from "./RestockAssist";
 import { ErpQueueSidePanel } from "./ErpQueuePanel";
 import { ErpCustomerQuery } from "./ErpCustomerQuery";
 import { ErpReceivableQuery } from "./ErpReceivableQuery";
@@ -24,7 +23,6 @@ const CATEGORIES = [
   { key: "ITEM", label: ERP_QUERY_TYPE_LABELS.ITEM_NO, module: "ERP_ITEM_QUERY", types: ["ITEM_NO", "ITEM_NAME"] },
   { key: "CUSTOMER", label: ERP_QUERY_TYPE_LABELS.CUSTOMER_NO, module: "ERP_CUSTOMER_QUERY", types: ["CUSTOMER_NO", "CUSTOMER_NAME", "SALES"] },
   { key: "SUPPLIER", label: ERP_QUERY_TYPE_LABELS.SUPPLIER_NO, module: "ERP_SUPPLIER_QUERY", types: ["SUPPLIER_NO", "SUPPLIER_NAME", "PURCHASES"] },
-  { key: "RESTOCK", label: ERP_QUERY_TYPE_LABELS.RESTOCK, module: "ERP_RESTOCK_ASSIST", types: ["RESTOCK"] },
   // Its 客戶 name search (CUSTOMER_NAME) is shown again under 客戶 only.
   { key: "RECEIVABLE", label: ERP_QUERY_TYPE_LABELS.RECEIVABLE, module: "ERP_RECEIVABLE_QUERY", types: ["RECEIVABLE"] },
 ] as const satisfies readonly { key: string; label: string; module: CyWebModuleCode; types: readonly ErpQueryType[] }[];
@@ -173,7 +171,6 @@ export function ErpItemQueryPage({ allowedModules }: { allowedModules: ReadonlyS
       c.key === "ITEM" ? <ErpItemQuery job={job} />
       : c.key === "CUSTOMER" ? <ErpCustomerQuery job={job} />
       : c.key === "SUPPLIER" ? <ErpSupplierQuery job={job} />
-      : c.key === "RESTOCK" ? <RestockAssist job={job} canQueryItem={allowedModules.has("ERP_ITEM_QUERY")} canOrdering={allowedModules.has("ORDERING")} />
       : <ErpReceivableQuery job={job} canSearchCustomers={allowedModules.has("ERP_CUSTOMER_QUERY")} />}</CategoryJob>))}
     {queueOpen && pageVisible && <ErpQueueSidePanel onClose={() => setQueueOpen(false)} />}
   </section>;
