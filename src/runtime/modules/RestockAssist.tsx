@@ -32,14 +32,25 @@ const blankZero = (value: number) => value ? quantity(value) : "";
 const giftNote = (gift: string | undefined) => Number(gift ?? 0) ? `含贈品 ${quantity(Number(gift))}` : undefined;
 
 type Row = ErpRestockItem & { net: number; stockValue: number | null; short: boolean };
-type DraftHit={itemCode:string;orderId:number;sourceId:number;sourceName:string;plannedSendDate:string|null;quantityText:string;unit:string;section:string};
+type DraftHit={itemCode:string;orderId:number;status:"DRAFT"|"SENT";sourceId:number;sourceName:string;plannedSendDate:string|null;sentAt:string|null;quantityText:string;unit:string;section:string;remaining:number|null};
+const monthDay=(iso:string|null|undefined)=>iso?iso.slice(5,10).replace("-","/"):"";
+/** sent_at is a UTC timestamp; the slip shows its 台北 date. */
+const taipeiDay=(at:string|null)=>at?new Date(Date.parse(at)+8*3600000).toISOString().slice(0,10):null;
 const draftText=(d:Pick<DraftHit,"sourceName"|"plannedSendDate"|"quantityText"|"unit">)=>
-  d.sourceName+" "+(d.plannedSendDate?d.plannedSendDate.slice(5).replace("-","/"):"未定日期")+" 草稿 "+d.quantityText+(d.unit?" "+d.unit:"");
-/** One line per draft slip: 「台北 11/05 草稿 3 盒、2 箱」. */
-function draftLines(hits:readonly DraftHit[]){
+  d.sourceName+" "+(d.plannedSendDate?monthDay(d.plannedSendDate):"未定日期")+" 草稿 "+d.quantityText+(d.unit?" "+d.unit:"");
+/**
+ * One line per slip that already holds the item: drafts as 「台北 11/05 草稿 3 盒」, sent orders still
+ * waiting as 「台北 10/14 送出 未到 20 捲」 (user 2026-11-03: so the same item is not ordered twice).
+ */
+function holdingLines(hits:readonly DraftHit[]){
  const grouped=new Map<number,DraftHit[]>();
  for(const hit of hits)(grouped.get(hit.orderId)??(grouped.set(hit.orderId,[]),grouped.get(hit.orderId)!)).push(hit);
- return [...grouped.values()].map(lines=>draftText({...lines[0],quantityText:lines.map(d=>d.quantityText+(d.unit?" "+d.unit:"")).join("、"),unit:""}));
+ const qty=(lines:DraftHit[],sent:boolean)=>lines.map(d=>(sent?quantity(d.remaining??0):d.quantityText)+(d.unit?" "+d.unit:"")).join("、");
+ const groups=[...grouped.values()];
+ return {
+  drafts:groups.filter(g=>g[0].status==="DRAFT").map(g=>draftText({...g[0],quantityText:qty(g,false),unit:""})),
+  pending:groups.filter(g=>g[0].status==="SENT").map(g=>g[0].sourceName+" "+monthDay(taipeiDay(g[0].sentAt))+" 送出 未到 "+qty(g,true)),
+ };
 }
 type Sort = "CODE" | "NET" | "STOCK" | "SHORT";
 const SORTS: { key: Sort; label: string }[] = [
@@ -192,7 +203,7 @@ function AddToOrdering({row,onClose,onAdded}:{row:Row;onClose:()=>void;onAdded:(
  // Suggestions for the source tags: the item's last source, sources with a draft, the member's vendor order.
  const [lastSourceId,setLastSourceId]=useState(0),[draftSourceIds,setDraftSourceIds]=useState<number[]>([]),[vendorOrder,setVendorOrder]=useState<number[]>([]);
  // Which drafts already hold this 品號 is looked up only here, for the one item being added (user 2026-11-03).
- const [inDrafts,setInDrafts]=useState<string[]>([]);
+ const [holding,setHolding]=useState<{drafts:string[];pending:string[]}>({drafts:[],pending:[]});
  const {confirm,confirmationDialog}=useConfirmation();
  const regular=sources.find(s=>s.id===sourceId)?.kind==="CN_REGULAR";
  useEffect(()=>{let valid=true;void Promise.all([
@@ -202,7 +213,7 @@ function AddToOrdering({row,onClose,onAdded}:{row:Row;onClose:()=>void;onAdded:(
   apiRequest<number[]>("/api/business/ordering/preferences/vendors").catch(()=>[]),
   apiRequest<DraftHit[]>("/api/business/ordering/draft-items?itemCodes="+encodeURIComponent(row.itemCode)).catch(()=>[]),
  ]).then(([s,last,allDrafts,order,hits])=>{if(valid){
-  setInDrafts(draftLines(hits));
+  setHolding(holdingLines(hits));
   const lastId=s.some(x=>x.id===last?.source_id&&x.isActive)?last!.source_id:0;
   setSources(s.filter(x=>x.isActive));setSourceId(lastId);setLastSourceId(lastId);
   setDraftSourceIds([...new Set(allDrafts.map(x=>x.sourceId))]);setVendorOrder(order);
@@ -226,7 +237,10 @@ function AddToOrdering({row,onClose,onAdded}:{row:Row;onClose:()=>void;onAdded:(
  return <Dialog open size="small" title={"加入叫貨單："+row.itemName} dismissible={false} onClose={onClose}>{error?<p role="alert">{error}</p>:null}
  <form onKeyDown={enterAdvancesFields} onSubmit={e=>void submit(e)}>
     <FormSection>
- {inDrafts.length?<p className="cy-restock-in-drafts">已在 {inDrafts.join("；")}</p>:null}
+ {holding.drafts.length||holding.pending.length?<div className="cy-restock-in-drafts">
+  {holding.pending.length?<p><strong>未到貨</strong>{holding.pending.join("；")}</p>:null}
+  {holding.drafts.length?<p><strong>已在草稿</strong>{holding.drafts.join("；")}</p>:null}
+ </div>:null}
  <div className="cy-f cy-f-l" role="group" aria-label="來源"><span className="cy-f-label">來源<span className="cy-field-required" aria-hidden="true">＊</span></span>
   <OrderingSourceChips sources={sources} value={sourceId} onChange={setSourceId} lastSourceId={lastSourceId} draftSourceIds={draftSourceIds} vendorOrder={vendorOrder}/></div>
  {regular?<Field label="區段" size="m" required><select className="cy-op-input" value={section} onChange={e=>setSection(e.target.value as OrderingSection)}><option value="">請選擇</option>{CN_REGULAR_SECTIONS.map(x=><option key={x.key} value={x.key}>{x.label}</option>)}</select></Field>:null}
