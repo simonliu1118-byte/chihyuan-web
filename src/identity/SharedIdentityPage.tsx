@@ -1,4 +1,5 @@
 import {Field,CheckField,FormSection} from "../ui/forms/Field";
+import { SegmentedControl } from "../ui/primitives/SegmentedControl";
 import { Loading } from "../ui/feedback/Loading";
 import { CloudflareUsagePanel, type CloudflareUsagePanelProps } from "./CloudflareUsagePanel";
 import { enterAdvancesFields, enterAdvancesThenSubmits } from "../ui/foundation/enter-advance";
@@ -424,10 +425,8 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
     if (employee.employee_id === session.user.employeeId || !moduleGroups.length) return <span className="cy-access-muted">{current?.name ?? "個人設定"}</span>;
     return <GroupSelect employee={employee} groups={moduleGroups} current={current} saving={saving.has(`${employee.employee_id}:group`)} onChange={setGroup} />;
   };
-  const switcher = canIdentityAdmin ? <div className="cy-segmented" role="group" aria-label="檢視">
-    <button type="button" aria-pressed={view === "people"} onClick={() => setView("people")}>人員</button>
-    <button type="button" aria-pressed={view === "groups"} onClick={() => setView("groups")}>權限群組</button>
-  </div> : null;
+  const switcher = canIdentityAdmin ? <SegmentedControl label="檢視" value={view} onChange={setView}
+    options={[{ value: "people", label: "人員" }, { value: "groups", label: "權限群組" }]} /> : null;
   if (view === "groups" && moduleView) return <GroupWorkspace snapshot={snapshot} session={session} view={moduleView} columns={columns} reload={reloadAll} switcher={switcher} />;
   return <>
     {confirmationDialog}

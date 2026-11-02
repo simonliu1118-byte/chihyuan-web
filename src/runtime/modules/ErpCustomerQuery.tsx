@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { SegmentedControl } from "../../ui/primitives/SegmentedControl";
 import { HistoryRangeError, resolveDateRange, taipeiToday } from "../../../shared/erp-query-history";
 import { parseErpCode, parseErpNameKeyword } from "../../../shared/erp-name-search";
 import { ERP_CUSTOMER_SEARCH_FIELDS, type ErpField } from "../../../shared/erp-item-query";
@@ -72,10 +73,8 @@ export function ErpCustomerQuery({ job }: { job: ErpJob }) {
   return <>
     <div className="cy-op-panel cy-erp-query-box">
       <form role="search" className="cy-erp-form" onSubmit={event => void submit(event)} noValidate>
-        <div className="cy-segmented" role="group" aria-label="查詢方式">
-          {MODES.map(m => <button key={m.key} type="button" aria-pressed={mode === m.key} disabled={busy}
-            onClick={() => { setMode(m.key); setError(null); }}>{m.label}</button>)}
-        </div>
+        <SegmentedControl label="查詢方式" value={mode} disabled={busy}
+          options={MODES.map(m => ({ value: m.key, label: m.label }))} onChange={next => { setMode(next); setError(null); }} />
         <div className="cy-erp-query-row">
           <input className="cy-op-input" value={text} maxLength={40} autoComplete="off" disabled={busy} required
             aria-label={mode === "CODE" ? "客戶代號" : mode === "NAME" ? "客戶名稱" : "客戶代號或名稱"}

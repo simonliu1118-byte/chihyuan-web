@@ -45,12 +45,17 @@ const event=(c:Context,id:number,key:string,kind:string,before:unknown,after:unk
 function reasonOf(v:Record<string,unknown>,allowed:readonly string[]){const kind=text(v.reasonKind,"理由類別",40,true),detail=text(v.reason,"理由補充",240,kind==="其他");if(!allowed.includes(kind))throw new Bad("STORE_INVALID","理由類別不正確");return detail?kind+"："+detail:kind}
 const blackSql="SELECT b.* FROM store_blacklist b";
 async function contactState(c:Context,f:{phone:string;mobile:string;lineName:string}){
- const all=await rows<BlacklistRow>(c.db,blackSql+" ORDER BY b.id LIMIT 1001");if(all.length>1000)throw new Bad("STORE_LIMIT","黑名單資料過多，請先整理",409);
- const nums=[f.phone,f.mobile].filter(Boolean),matches=all.filter(b=>nums.includes(b.phone)&&!!b.phone||nums.includes(b.mobile)&&!!b.mobile);
- const lineCandidates=f.lineName?all.filter(b=>b.line_name===f.lineName&&!matches.some(m=>m.id===b.id)):[];
- // Guard the exact versioned snapshot at mutation time, including concurrent new matches.
- const snapshot=JSON.stringify(all.map(b=>[b.id,b.version]));
- const check=c.db.prepare("SELECT CASE WHEN (SELECT json_group_array(json_array(id,version)) FROM (SELECT id,version FROM store_blacklist ORDER BY id))=? THEN 1 ELSE json('') END").bind(snapshot);
+ // Indexed lookups (0042): only entries sharing a number or the LINE name are read, never the whole list.
+ const nums=[f.phone,f.mobile].filter(Boolean),marks=nums.map(()=>"?").join(",");
+ const terms=[...nums.length?[`(b.phone<>'' AND b.phone IN (${marks}))`,`(b.mobile<>'' AND b.mobile IN (${marks}))`]:[],...f.lineName?["(b.line_name<>'' AND b.line_name=?)"]:[]];
+ if(!terms.length)return {matches:[] as BlacklistRow[],lineCandidates:[] as BlacklistRow[],check:c.db.prepare("SELECT 1")};
+ const where=terms.join(" OR "),params=[...nums.length?[...nums,...nums]:[],...f.lineName?[f.lineName]:[]];
+ const related=await rows<BlacklistRow>(c.db,blackSql+" WHERE "+where+" ORDER BY b.id LIMIT 101",...params);
+ const matches=related.filter(b=>nums.includes(b.phone)&&!!b.phone||nums.includes(b.mobile)&&!!b.mobile);
+ const lineCandidates=f.lineName?related.filter(b=>b.line_name===f.lineName&&!matches.some(m=>m.id===b.id)):[];
+ // Guard the exact versioned snapshot of these related entries at mutation time, including concurrent new matches.
+ const snapshot=JSON.stringify(related.map(b=>[b.id,b.version]));
+ const check=c.db.prepare("SELECT CASE WHEN (SELECT json_group_array(json_array(id,version)) FROM (SELECT b.id,b.version FROM store_blacklist b WHERE "+where+" ORDER BY b.id))=? THEN 1 ELSE json('') END").bind(...params,snapshot);
  return {matches,lineCandidates,check};
 }
 function resolvedMatches(state:Awaited<ReturnType<typeof contactState>>,v:Record<string,unknown>){

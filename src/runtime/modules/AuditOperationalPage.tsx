@@ -1,4 +1,5 @@
 import { Loading } from "../../ui/feedback/Loading";
+import { SegmentedControl } from "../../ui/primitives/SegmentedControl";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { formatDate, formatDateTime, formatPerson } from "../../ui/foundation/format";
 import { taipeiToday } from "../../../shared/erp-query-history";
@@ -102,10 +103,9 @@ export function ChangeLogList({role,customerId}:{
   return <div className="cy-change-log">
     {!customerId ? <form role="search" className="cy-op-panel cy-change-log-filters" onSubmit={search} aria-label="異動紀錄查詢">
       <label>模組<select className="cy-op-input" value={filters.entityTypes} onChange={e=>setFilters(v=>({...v,entityTypes:e.target.value}))}>{moduleOptions.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select></label>
-      <fieldset><legend>期間</legend><div className="cy-segmented" role="group" aria-label="期間">{([
-        ["today","今天"],["7","近 7 天"],["30","近 30 天"],["custom","自訂起訖"],
-      ] as const).map(([value,label])=><button key={value} type="button" aria-pressed={filters.period===value}
-        onClick={()=>setFilters(v=>({...v,period:value}))}>{label}</button>)}</div></fieldset>
+      <fieldset><legend>期間</legend><SegmentedControl label="期間" value={filters.period}
+        options={[{value:"today",label:"今天"},{value:"7",label:"近 7 天"},{value:"30",label:"近 30 天"},{value:"custom",label:"自訂起訖"}] as const}
+        onChange={period=>setFilters(v=>({...v,period}))} /></fieldset>
       {filters.period==="custom" ? <>
         <label>開始日期<input type="date" max="9999-12-31" className="cy-op-input" value={filters.from} onChange={e=>setFilters(v=>({...v,from:e.target.value}))}/></label>
         <label>結束日期<input type="date" max="9999-12-31" className="cy-op-input" value={filters.to} onChange={e=>setFilters(v=>({...v,to:e.target.value}))}/></label>
