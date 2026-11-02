@@ -273,6 +273,8 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
     const upserts=Array.isArray(v.lines)?v.lines as Record<string,unknown>[]:[],removes=Array.isArray(v.deleted)?v.deleted:[];
     if(upserts.length>500||removes.length>500||upserts.some(x=>!x||typeof x!=="object"||Array.isArray(x)))throw new Bad("ORDERING_INVALID","修改內容不正確");
     const all=await rows<Line>(ctx.db,"SELECT l.*,COALESCE((SELECT SUM(quantity) FROM ordering_receipt_lines WHERE line_id=l.id),0) received FROM ordering_lines l WHERE order_id=? LIMIT 501",id);
+    // Partly or fully received (or with a closed line): the order can no longer be revised (user 2026-11-03).
+    if(all.some(l=>l.received>0||l.closed_as))throw new Bad("ORDERING_INVALID","已有到貨或已結掉的品項，不能再修改叫貨單",409);
     const source=await one<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE id=?",o.source_id),kind=source?.kind??"GENERAL";
     const stmts:D1PreparedStatement[]=[],changes:string[]=[];
     const label=(x:{item_name:string;vendor_item_name:string;item_code:string})=>x.item_name||x.vendor_item_name||x.item_code;

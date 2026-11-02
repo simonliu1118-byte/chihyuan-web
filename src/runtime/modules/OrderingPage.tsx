@@ -427,7 +427,8 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
         <button type="button" className="cy-op-button" onClick={()=>void exportOrder(current)}>匯出 Excel</button>
         {current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button danger" onClick={()=>void deleteDraft()}>刪除</button>
          :current.storedStatus==="SENT"?<button type="button" className="cy-op-button danger" onClick={()=>void voidOrder()}>作廢</button>:null}
-        {current.storedStatus==="SENT"?<button type="button" className="cy-op-button" onClick={startRevision}>修改</button>:null}
+        {/* Only a sent order with nothing received or closed yet can be revised (user 2026-11-03). */}
+        {current.status==="SENT"?<button type="button" className="cy-op-button" onClick={startRevision}>修改</button>:null}
         {current.storedStatus==="SENT"&&openLines.length?<button type="button" className="cy-op-button primary" onClick={()=>setReceipt({id:current.id,no:"",date:nowDate(),quantities:Object.fromEntries(openLines.map(l=>[l.id,String((l.quantity??0)-l.received)])),selectedLineIds:[]})}>登記到貨</button>:null}
         {current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button primary" onClick={()=>void sent()}>送出</button>:null}</>}
        </div>

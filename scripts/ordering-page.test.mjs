@@ -95,6 +95,8 @@ const sentOrder=()=>({...order(1),storedStatus:"SENT",status:"PARTIAL",sentAt:"2
  lines:[1,2].map(id=>({id,section:"",sortOrder:id,itemCode:"T00"+id,itemName:"測試商品"+id,vendorItemCode:"V00"+id,vendorItemName:"測試廠商品名"+id,quantityText:"10",quantity:10,received:id===1?4:0,closedAs:null,unit:"箱",note:""})),
  receipts:[{id:1,erpPurchaseNo:"341A-20261023001",receivedDate:"2026-10-23",lines:[]}],
  revisions:[{revision:2,at:"2026-10-23T01:00:00Z",by:"測試員工",summary:"測試到貨"}]});
+// A sent order with nothing received or closed yet: the only state that can still be revised.
+const openSentOrder=()=>{const o=sentOrder();return {...o,status:"SENT",receipts:[],lines:o.lines.map(l=>({...l,received:0}))}};
 
 test("sent order puts receipts first, merges status into the readonly grid and removes draft header fields", async()=>{
  const page=mount((path,options)=>path==="/orders/10"?sentOrder():normalTransport(path,options));
@@ -278,10 +280,16 @@ test("a draft is deleted (not voided) after confirmation and the source reopens 
  assert.ok(page.calls.indexOf(del)<page.calls.length-1,"the source's draft is opened again");
 });
 
+test("a partly received order offers no 修改",async()=>{
+ const page=mount((path,options)=>path==="/orders/10"?sentOrder():normalTransport(path,options));
+ await page.tick();page.click("測試來源甲");await page.tick();
+ assert.equal(page.nodes.some(n=>n.type==="button"&&text(n)==="修改"),false);
+});
+
 test("a sent order is changed in edit mode with no autosave and saved as one revision",async()=>{
  const revisions=[];
- const page=mount((path,options)=>{if(path.endsWith("/revise")){revisions.push(options.json);return {...sentOrder(),revision:3}}
-  return path==="/orders/10"?sentOrder():normalTransport(path,options)});
+ const page=mount((path,options)=>{if(path.endsWith("/revise")){revisions.push(options.json);return {...openSentOrder(),revision:3}}
+  return path==="/orders/10"?openSentOrder():normalTransport(path,options)});
  await page.tick();page.click("測試來源甲");await page.tick();
  assert.equal(page.grid.readOnly,true);
  page.click("修改");await page.tick();
@@ -297,7 +305,7 @@ test("a sent order is changed in edit mode with no autosave and saved as one rev
 });
 
 test("a row added in edit mode keeps its local id, so later keystrokes update it instead of adding rows",async()=>{
- const page=mount((path,options)=>path==="/orders/10"?sentOrder():normalTransport(path,options));
+ const page=mount((path,options)=>path==="/orders/10"?openSentOrder():normalTransport(path,options));
  await page.tick();page.click("測試來源甲");await page.tick();page.click("修改");await page.tick();
  const blank={id:0,section:"",sortOrder:0,itemCode:"",itemName:"C0003",vendorItemCode:"",vendorItemName:"",spec:"",quantityText:"",unit:"",note:""};
  const first=await page.grid.onCommit({...blank},{...blank},false);await page.tick();

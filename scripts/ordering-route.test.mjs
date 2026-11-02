@@ -380,10 +380,7 @@ test("a sent order is revised in one explicit save that becomes one new version"
   for(const [name,q] of [["測試品名甲","10"],["測試品名乙","5"]])o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{itemName:name,quantityText:q}})).body.data;
   o=(await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version})).body.data;
   const [a,b]=["測試品名甲","測試品名乙"].map(name=>o.lines.find(l=>l.itemName===name));
-  o=(await call("/orders/"+o.id+"/receipts","POST",{expectedVersion:o.version,erpPurchaseNo:"20261021001",receivedDate:"2026-10-21",lines:[{lineId:a.id,quantity:4}]})).body.data;
-  // Rules: received lines cannot drop below what came or be deleted; names and quantities stay required.
-  assert.equal((await call("/orders/"+o.id+"/revise","POST",{expectedVersion:o.version,lines:[{lineId:a.id,quantityText:"3"}]})).status,422);
-  assert.equal((await call("/orders/"+o.id+"/revise","POST",{expectedVersion:o.version,deleted:[a.id]})).status,422);
+  // Names and quantities stay required.
   assert.equal((await call("/orders/"+o.id+"/revise","POST",{expectedVersion:o.version,lines:[{itemName:"測試品名丙"}]})).status,422);
   const r=await call("/orders/"+o.id+"/revise","POST",{expectedVersion:o.version,note:"測試備註",deleted:[b.id],
    lines:[{lineId:a.id,quantityText:"12"},{itemName:"測試品名丙",quantityText:"3箱"}]});
@@ -395,6 +392,9 @@ test("a sent order is revised in one explicit save that becomes one new version"
   // An unchanged resend changes nothing.
   const same=await call("/orders/"+o.id+"/revise","POST",{expectedVersion:after.version,lines:[{lineId:a.id,quantityText:"12"}]});
   assert.equal(same.body.data.revision,after.revision);
+  // Once anything has arrived the order is locked against revision.
+  const got=(await call("/orders/"+o.id+"/receipts","POST",{expectedVersion:same.body.data.version,erpPurchaseNo:"20261021001",receivedDate:"2026-10-21",lines:[{lineId:a.id,quantity:4}]})).body.data;
+  assert.equal((await call("/orders/"+o.id+"/revise","POST",{expectedVersion:got.version,lines:[{lineId:a.id,quantityText:"20"}]})).status,409);
   // Drafts keep their autosave path.
   let d=(await call("/orders","POST",{sourceId:source.id})).body.data;
   assert.equal((await call("/orders/"+d.id+"/revise","POST",{expectedVersion:d.version,lines:[]})).status,409);
