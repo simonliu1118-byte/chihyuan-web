@@ -362,7 +362,7 @@ production shortcut or point the target at the live D1.
 
 After the real provider and isolated recovery evidence is recorded, enable the
 separate backup schedule. The independent `0 19 * * *` catalog schedule remains;
-the opt-in backup cron is `30 19 * * *`. Application retention remains R2 30 days
+the opt-in backup runs inside the every-minute housekeeping trigger at UTC 19:30 (Taiwan 03:30, retried 19:45); it adds no cron trigger. Application retention remains R2 30 days
 and GCS 182 days, with GCS scheduled Wednesday/Sunday Taiwan time. Current rollout
 state and missing inputs belong in root TODO.
 

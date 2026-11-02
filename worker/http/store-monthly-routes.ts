@@ -2,7 +2,7 @@ import {requireModuleAccess} from "../auth/guard";
 import {identityClient,type IdentityRuntimeEnv} from "./auth-routes";
 import {success,failure} from "./response";
 import {AuditService} from "../audit/audit-service";
-import {activeInMonth,monthlyKey,monthlyGenerationMonth,monthlyApplicable,shiftMonth,taipeiDate,setMonthlyEnabled,scheduleInMonth,setMonthlySchedule,type MonthlyScheduleKind,type MonthlyStore,type MonthlyItem,type MonthlySettings,type MonthlyRow,type MonthlyCell} from "../../shared/store-monthly";
+import {activeInMonth,monthlyKey,monthlyGenerationMonth,monthlyApplicable,monthlyEditLocked,shiftMonth,taipeiDate,setMonthlyEnabled,scheduleInMonth,setMonthlySchedule,type MonthlyScheduleKind,type MonthlyStore,type MonthlyItem,type MonthlySettings,type MonthlyRow,type MonthlyCell} from "../../shared/store-monthly";
 import {ensureMonthlyRows,loadMonthlySettings,monthlyGuard,monthlyMaterialization,firstMonthlyMonth} from "../store/monthly-service";
 
 const ROOT="/api/business/store/monthly";
@@ -104,6 +104,7 @@ export async function handleStoreMonthlyRoute(request:Request,env:IdentityRuntim
   const rowId=decodeURIComponent(cellMatch![1]),itemId=decodeURIComponent(cellMatch![2]);
   const cell=await db.prepare("SELECT * FROM store_monthly_cells WHERE row_id=? AND item_id=?").bind(rowId,itemId).first<CellRecord>();if(!cell)throw new Invalid("此月份門市不適用這個項目",404);
   const row=await db.prepare("SELECT * FROM store_monthly_rows WHERE id=?").bind(rowId).first<RowRecord>();if(!row||!monthlyApplicable(c,row.month,row.store_id,itemId))throw new Invalid("此月份門市不適用這個項目",404);
+  if(monthlyEditLocked(row.month,at))throw new Invalid("此月份已超過編輯期限，隔月16日00:00起無法修改",409,"MONTHLY_EDIT_CLOSED");
   if(expected!==cell.version)throw new Invalid("此待辦已被其他人修改，請重新載入",409,"MONTHLY_VERSION_CONFLICT");
   if(typeof v.completed!=="boolean")throw new Invalid("辦理狀態不正確");let date:string|null=null;
   if(v.completionDate!==null){if(typeof v.completionDate!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(v.completionDate)||v.completionDate<"0001-01-01")throw new Invalid("日期不正確");const d=new Date(v.completionDate+"T00:00:00Z");if(!Number.isFinite(d.getTime())||d.toISOString().slice(0,10)!==v.completionDate||v.completionDate>taipeiDate(at))throw new Invalid("請選擇有效日期，不可晚於今天");date=v.completionDate}

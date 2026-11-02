@@ -4,10 +4,9 @@
 .cy-backup-event>span,.cy-backup-history-note{font-size:var(--cy-fs-sm);color:var(--cy-text-muted)}
 .cy-backup-event summary{cursor:pointer;font-size:var(--cy-fs-sm);color:var(--cy-text-muted)}
 /* Always-visible backup ID, version and digest, in a dedicated table column. */
-.cy-backup-identity{display:grid;grid-template-columns:minmax(0,1fr);gap:.12rem;
+.cy-backup-identity{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:.22rem .5rem;align-items:baseline;
   margin:0;font-size:var(--cy-fs-sm);min-width:0;max-width:100%}
-.cy-backup-identity dt{font-weight:700;margin-top:.32rem}
-.cy-backup-identity dt:first-child{margin-top:0}
+.cy-backup-identity dt{font-weight:700;margin:0}
 .cy-backup-identity dd{min-width:0;overflow-wrap:anywhere;word-break:break-word;
   margin:0;color:var(--cy-text-muted);line-height:1.4}
 .cy-backup-copies{display:grid;gap:.45rem}

@@ -54,7 +54,7 @@ export function CloudflareUsagePanel({report,error,loading,onRefresh}:Cloudflare
      <h4>最近 {report.days.length} 天（UTC）</h4>
      <div className="cy-op-table-wrap"><table className="cy-op-table">
        <thead><tr><th>日期（UTC）</th><th>讀取列數</th><th>寫入列數</th></tr></thead>
-       <tbody>{report.days.map(day=><tr key={day.date}><td>{day.date.replaceAll("-","/")}</td>
+       <tbody>{[...report.days].sort((a,b)=>b.date.localeCompare(a.date)).map(day=><tr key={day.date}><td>{day.date.replaceAll("-","/")}</td>
          <td>{number(day.rowsRead)}</td><td>{number(day.rowsWritten)}</td></tr>)}</tbody>
      </table></div>
    </>:null}
