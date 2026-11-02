@@ -1,4 +1,5 @@
 import {insertedOrderSequence,movedOrderSequence} from "../store/order-sequence";
+import {storeVersionGuard,storeEvent} from "../store/workflow-service";
 import {normalizeStoreContacts} from "../../shared/phone";
 import {requireModuleAccess} from "../auth/guard";
 import {identityClient,type IdentityRuntimeEnv} from "./auth-routes";
@@ -39,9 +40,9 @@ const blacklistJson=(b:BlacklistRow)=>({id:b.id,active:!!b.active,joinedDate:b.j
 async function getOrder(c:Context,id:number){const o=await one<OrderRow>(c.db,"SELECT * FROM store_customer_orders WHERE id=?",id);if(!o)throw new Bad("STORE_NOT_FOUND","訂購不存在",404);return orderJson(o,await rows<LineRow>(c.db,"SELECT * FROM store_customer_order_lines WHERE order_id=?",id))}
 function fields(v:Record<string,unknown>){const lines=parseLines(v.lines),total=orderTotal(lines),deposit=money(v.deposit,"訂金");if(pricesComplete(lines)&&deposit>total)throw new Bad("STORE_INVALID","訂金不可超過金額合計");return {customerCode:text(v.customerCode,"客戶編號",40),orderDate:dateOf(v.orderDate),customerName:text(v.customerName,"顧客姓名",40,true),honorific:honorificOf(v.honorific),...contacts(v),deposit,note:text(v.note,"備註",300),lines,total}}
 const lineInserts=(c:Context,id:number,lines:ReturnType<typeof parseLines>)=>lines.map((l,i)=>c.db.prepare("INSERT INTO store_customer_order_lines(order_id,sort_order,item_code,item_name,quantity,unit_price,price_pending,metadata_mode,publisher,author,specification) VALUES(?,?,?,?,?,?,?,?,?,?,?)").bind(id,(i+1)*10,l.itemCode,l.itemName,l.quantity,l.unitPrice??0,l.unitPrice===null?1:0,l.metadataMode,l.publisher,l.author,l.specification));
-const guard=(c:Context,table:"store_customer_orders"|"store_blacklist",id:number,version:number)=>c.db.prepare(`SELECT CASE WHEN EXISTS(SELECT 1 FROM ${table} WHERE id=? AND version=?) THEN 1 ELSE json('') END`).bind(id,version);
+const guard=(c:Context,table:"store_customer_orders"|"store_blacklist",id:number,version:number)=>storeVersionGuard(c.db,table,id,version);
 const keyOf=(v:Record<string,unknown>)=>{const k=text(v.requestKey,"操作識別",80,true);if(!/^[\w-]{8,80}$/.test(k))throw new Bad("STORE_INVALID","操作識別不正確");return k};
-const event=(c:Context,id:number,key:string,kind:string,before:unknown,after:unknown,reason:string)=>c.db.prepare("INSERT INTO store_order_events(order_id,actor,at,kind,before_json,after_json,reason,request_key) VALUES(?,?,?,?,?,?,?,?)").bind(id,c.actor,c.now,kind,JSON.stringify(before),JSON.stringify(after),reason,key);
+const event=(c:Context,id:number,key:string,kind:string,before:unknown,after:unknown,reason:string)=>storeEvent(c.db,"store_order_events","order_id",id,c.actor,c.now,kind,before,after,reason,key);
 function reasonOf(v:Record<string,unknown>,allowed:readonly string[]){const kind=text(v.reasonKind,"理由類別",40,true),detail=text(v.reason,"理由補充",240,kind==="其他");if(!allowed.includes(kind))throw new Bad("STORE_INVALID","理由類別不正確");return detail?kind+"："+detail:kind}
 const blackSql="SELECT b.* FROM store_blacklist b";
 async function contactState(c:Context,f:{phone:string;mobile:string;lineName:string}){
