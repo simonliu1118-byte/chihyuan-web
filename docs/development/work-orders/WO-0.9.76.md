@@ -107,20 +107,18 @@
 
 ## 8. 完成報告（執行者填）
 
-- 實作版本：V0.9.79 Build0，開工基底main 5c2a01c；開發中Claude合併WO-0.9.74（V0.9.76）及V0.9.77未到貨頁籤，已整合main 431a73c，先依工單順延至V0.9.78；交審時Claude另合併V0.9.78草稿修正（main 2f9e9f8），再整合並依主線工單指定版本順延V0.9.79，保留已合併功能。
-- 驗收：1440×900／340 個合成品號下抽屜 780px，內容 scrollWidth=clientWidth=763，只有 cy-restock-content 一層上下捲動；顯示每日明細後為 1100px，橫向與上下捲動均由同一內容區承擔，表頭 top=120 與內容頂端一致，固定品號 left=329 與內容左側一致。選擇重新整理後保留。
-- 加入：共用 IconButton/Icons.add（table），FeedbackBanner 作為不捲動 footer，加入後位於視窗底部；公司／廠商僅出現一次，上次來源預選與草稿點保留。80 個合成廠商下列表高度 174px、可見約五行，440px 加入對話框高度約 572px，本身不需捲動。
-- 手機390×844：抽屜寬390、內容無水平溢出、每日欄不建立／切換不顯示；同一表格轉 data-label 卡片，加入圖示在右上。手機加入對話框寬370，只有廠商列表捲動。
-- 主要測試：新增 scripts/restock-layout.test.mjs 三項，實際測試預設／切換、偏好及 compact、來源預選與按需查詢；連同欄位／鍵盤測試6/6通過。npm run build（含前後端 typecheck）通過，既有 bundle 大小／dynamic import 警告未擴大處理。
-- 本機完整 node --test scripts/*.test.mjs：整合前582項571通過11失敗；整合main 431a73c後587項576通過11失敗（同一組Windows差異）；失敗在未修改的 backup-rehearsal-http Windows URL、secure-entry Windows URL、部署檔CRLF及0043～0045 schema字元換行指紋。Windows未安裝Python，validate:source／validate:d1:local本機無法執行；需以PR的Linux CI執行正式完整驗證，不把本機結果寫成全通過。
-- 截圖：外部交付 outputs/wo76-desktop-compact.png、wo76-desktop-daily.png、wo76-desktop-daily-sticky.png、wo76-desktop-add.png、wo76-desktop-footer.png、wo76-mobile-cards.png、wo76-mobile-add.png，全部是合成資料，未放入Public Git。
-- 偏離說明：每日明細的水平捲動與上下捲動共用抽屜內容區；若給 table wrapper overflow-x:auto，瀏覽器會同時建立上下捲動 ancestor，使 sticky 表頭無法相對抽屜固定。因此直接維持一個 scroll owner，沒有複製表頭／observer／DOM relocation／第二套手機元件，符合單層捲動目的。SidePanel共用元件未修改。
-- 資源：純前端；本輪正式D1讀0列／寫0列、正式ERP呼叫0。合成HTTP在localhost，不接正式服務，API/migration/Worker無變更。
-- 主線整合：只在TODO／CHANGELOG頂端的新版本段落有衝突，保留兩方內容並將本工單順延V0.9.78；RestockAssist的DateInput customError與日期／到貨／未到貨頁籤改動均保留。
-- 整合後重點27/27通過、V0.9.78 build/typecheck通過；首輪CI 41448262542 的來源檢查將所有 localStorage 一概視為業務authority，與工單指定的單一顯示偏好衝突。已直接更新既有validate_operational_runtime.py，僅允許RestockAssist的cy-restock-daily兩個literal存取，其他業務儲存禁用照舊；沒有新增storage wrapper或改掉工單要求。
-- 程式提交65acc04： [Runtime Check 41448660942](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41448660942)四個jobs全綠、完整Node **591/591通過、0失敗**，含Local D1與來源契約／Vite build；[Governance 41448660917](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41448660917)與[部署契約41448661032](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41448661032)全通過，實際deploy/audit未執行。
-- 第二次整合：完整保留main 2f9e9f8的草稿紅框、手填廠商值及原有測試；僅TODO／CHANGELOG新版本段落有衝突，兩方內容都保留，版本順延V0.9.79。先前交接提交504965b亦已完整Linux591/591、來源／型別／治理／部署契約全通過；整合後最新head仍以以下檢查入口為準。
-- 最終交審檢查入口：[PR #365 checks](https://github.com/simonliu1118-byte/chihyuan-web/pull/365/checks)，本輪只回填完成報告／交接，仍須確認該最終head的必要CI全綠再轉Ready。Claude最終審查待填；未合併、未部署、未發Release。
-
+- **交付**：V0.9.79 Build0，PR [#365](https://github.com/simonliu1118-byte/chihyuan-web/pull/365)，分支 cyweb/wo-0.9.76-restock-layout。已整合 main 2f9e9f8，保留Claude已合併的V0.9.76到貨／日期、V0.9.77未到貨頁籤、V0.9.78草稿紅框／手填廠商值。版本依工單順延，未覆蓋其他工作。
+- **桌面預設**：1440×900，340個合成品號；抽屜寬780px，內容scrollWidth=clientWidth=763，沒有水平溢出，只有cy-restock-content一層上下捲動。表頭固定在內容頂端。
+- **每日明細**：共用CheckField與庫存不足並排，切換後抽屜1100px，才產生每日欄位；同一內容區可水平捲動，單一thead固定top:0，品號固定left。重新整理後記得偏好。無額外API讀取。
+- **加入與提示**：共用IconButton＋Icons.add（table），aria-label/title「加入叫貨單」。FeedbackBanner為捲動內容外的flex footer，加入成功後即使表格很長仍在底部可見。
+- **來源視窗**：移除建議組，保留公司／廠商、上次來源預選及草稿圓點；仍只在打開時查該品號draft-items。80個合成廠商下列表174px約五行；1440×900的440×572px視窗只有廠商列表捲動，視窗本身不捲。
+- **手機**：390×844，抽屜寬390且無水平溢出；同一tbody/tr用data-label卡片顯示，右上加入圖示；不產生每日欄、隱藏明細切換。370px加入視窗亦只有廠商列表捲動。
+- **本機驗證**：V0.9.79的npm run typecheck／build／validate:source通過；整合後叫貨grid/page/route與本工單、共用欄位／鍵盤測試 **104/104** 通過。為執行完整來源檢查，在ignored .tmp使用Python官方3.13.0攜帶版（Authenticode Python Software Foundation簽章Valid）、僅程序環境PYTHONUTF8=1，未改系統安裝。
+- **本機平台差異**：前兩次完整Node在Windows為582/571、587/576，11失敗皆為未修改的Windows URL／CRLF／schema換行指紋；Linux完整結果如下。npm run validate:d1:local已完成全部migration、Worker+D1 acceptance及移除舊session表三項PASS，退出清理時遇Windows WinError32檔案占用；已停止該隔離驗證背景程序，沒有把此命令的整體退出碼記成成功。Linux CI的同命令整體通過。
+- **正式CI**：程式整合提交65d8fdc的[Runtime Check 41449692020](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41449692020)四jobs全綠，完整Node **596/596通過、0失敗**，含Local D1、來源契約及build；[Governance](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41449692094)及[部署契約](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41449692026)通過。最後僅回填本報告／交接，交審時仍確認[PR最新head checks](https://github.com/simonliu1118-byte/chihyuan-web/pull/365/checks)全綠後再轉Ready。
+- **截圖交付**：外部outputs/WO-0.9.76-ui-proof.zip，包含wo76-desktop-compact、desktop-daily、desktop-daily-sticky、desktop-add、desktop-footer、mobile-cards、mobile-add七張PNG，全部合成資料，未放入Public Git。
+- **偏離及原因**：水平與上下捲動共用抽屜內容區，避免table wrapper的overflow-x:auto建立另一個scroll ancestor、使表頭無法相對抽屜固定。沒有複製表頭／observer／DOM relocation／第二套手機元件，SidePanel共用元件未改。
+- **來源檢查修正**：原validate_operational_runtime.py全面拒絕localStorage，誤判工單指定的畫面偏好。直接修改既有檢查，只允許RestockAssist的cy-restock-daily兩個literal存取；其他業務儲存仍禁止，未新增儲存wrapper。
+- **資源與審查**：本輪正式D1讀0列／寫0列、正式ERP呼叫0；合成HTTP及本機D1均不接正式服務。相對最新main沒有API／Worker／migration變更。Claude最終審查請填原工單§9；未合併、未部署、未發Release。
 
 ## 9. 審查紀錄（審查者填）
