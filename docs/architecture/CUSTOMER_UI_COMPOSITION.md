@@ -1,5 +1,16 @@
 # CY Web Customer UI Composition — Approved Search-Pane Direction
 
+## V0.9.87 operational 呈現修訂（2026-11-02）
+
+以下為目前客戶頁修訂，取代下方歷史 preview 的衝突排列：
+- 左側編號與簡稱單行、狀態靠右，直線分隔與中性灰選取。保留 bounded server search 及既有分頁。
+- 頂部編號／簡稱／全稱後接統編；分類／地區／負責部門／業務以標籤值同行呈現。電話含分機、備註並與傳真集中；地址獨立整列，保留郵遞區號與備註。
+- 有效聯絡人以既有共通表格列出姓名、部門／職稱、電話、手機與備註，手機重排。電話與手機同時存在時均顯示。
+- 拜訪／報價／常用商品維持三張 RelatedCard，摘要上限三筆；報價呈現數量單位與前二單價級距，常用商品呈現規格或未建檔分類。完整資料沿用查看全部與新增視窗。無固定卡片內容最小高度，原字級不縮小。
+- 現行選客戶會以四個既有 bounded endpoint 載入主檔與三類摘要；此 UI 修訂不改載入、權限、寫入、schema 或共通卡片在其他模組的外觀。
+
+
+
 > Status: Desktop-first Customer composition direction approved through UI preview review.
 >
 > This document defines the first **new-Web** information architecture for Customer. It is intentionally not a reproduction of the Legacy GAS screen, and it does not freeze final colors, typography, spacing, or all Tablet/Mobile details.
