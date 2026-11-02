@@ -10,6 +10,14 @@
 - `worker/http/ordering-routes.ts`：權限 ORDERING 批次 500 個品號，json_each 單次 SQL；只讀 DRAFT 且未 closed 的明細；`migrations/0045_ordering_draft_item_index.sql` 建立索引。
 - `worker/backup/*`、`scripts/store-backup-upgrade.test.mjs`：新增 index-only schema 的備份指紋兼容；舊 0044 實體資料不變。
 - `VERSION`、`package.json`、`TODO.md`、`CHANGELOG.md`、`WO-0.9.71.md`：版本、工單與交接。
-## 仍待
-- CI 完整測試和 0045 LF／CRLF schema 指紋核對，desktop 1440 的抽屜結果／草稿／加單視窗，mobile 390 的抽屜；目前不可宣稱通過。
-- 請 Claude 審核 ERP 完成通知導向（特別是 query hidden 時）、本來已有草稿與多列同品號、Mobile Tabbar、輸入日期，並在工單 §9 留審查結果。
+## 實際 CI 與備份證據
+- PR [#358](https://github.com/simonliu1118-byte/chihyuan-web/pull/358)。
+- [Runtime Check #41437785135](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41437785135)：`f880945857...` 程式版本 **Node 577／577、0 失敗**；前端／Worker 型別、來源契約、本機 D1 驗證與 Vite Build 成功。
+- [Governance #41437785070](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41437785070)：成功；[Deploy preflight #41437785139](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41437785139)：部署契約成功、真正 deploy skipped。
+- 0045 schema exact：LF `e3f14b04ee560ddb43c98a2c31f2dcfb1c9710f81dd9161d018c1bd5506a1bab`、CRLF `ffd84deca22c432706918692fef76bfe050cda0598f2c6b0f2851f0c55d4e8ad`。移入 index 不改資料欄／行，舊 0044 可攜備份還原測試已通過。
+- 最新提交增加查詢表單共用 Enter 導航，CI 正重新驗證；是否可合併須以最新 head Checks 全綠為準。
+## Claude 複審／未完成的人工驗收
+- 尚未取得桌面 1440 與手機 390 的實際瀏覽器截圖：叫貨來源頁籤＋管理來源定位、抽屜查詢結果／草稿提示、加入既有草稿的確認視窗、手機全寬；不得用自動測試冒充視覺 QA。
+- 請檢查 RESTOCK toast「查看」導航回 `ordering` 的事件與背景輪詢、獨立權限、同一草稿多行及不同草稿的提示、草稿 API 必須僅返回 DRAFT 且未結案。
+- 請檢查 `ERP_RESTOCK_ASSIST` 權限用戶若無 ORDERING 權限時的入口／使用體驗，避免把兩種不同權限誤視為同一種；API 已由 ORDERING 守門。
+- 不修改 ERP Agent／結果欄位。此 PR 尚未合併、未部署、未建立 Release。Claude 最終結論請填工單第 9 節及本文件，不由 GPT 代簽。
