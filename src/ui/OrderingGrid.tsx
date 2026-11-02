@@ -15,10 +15,12 @@ const finalPatch=(row:GridLine):Partial<GridLine>=>({...(row.vendorItemCode?{ven
 const empty=(section:OrderingSection,id:number):GridLine=>({id,section,sortOrder:0,itemCode:"",itemName:"",vendorItemCode:"",vendorItemName:"",spec:"",quantityText:"",unit:"",note:""});
 export type OrderingGridState={dirty:boolean;saving:boolean;failed:boolean};
 export type OrderingGridEditor={flush:()=>Promise<boolean>;discard:()=>void};
-type Props={kind:OrderingSourceKind;section:OrderingSection;lines:GridLine[];busy:boolean;readOnly?:boolean;onCommit:(line:GridLine,patch:Partial<GridLine>,final:boolean)=>Promise<GridLine>;onDelete:(line:GridLine)=>Promise<void>;onRegister?:(editor:OrderingGridEditor|null)=>void;onStateChange?:(state:OrderingGridState)=>void;onReorder?:(lineIds:number[])=>Promise<unknown>};
+type Props={kind:OrderingSourceKind;section:OrderingSection;lines:GridLine[];busy:boolean;readOnly?:boolean;onCommit:(line:GridLine,patch:Partial<GridLine>,final:boolean)=>Promise<GridLine>;onDelete:(line:GridLine)=>Promise<void>;onRegister?:(editor:OrderingGridEditor|null)=>void;onStateChange?:(state:OrderingGridState)=>void;onReorder?:(lineIds:number[])=>Promise<unknown>;
+ /** A reason to frame a row in red (e.g. the same item is still waiting to arrive), shown on hover. */
+ warnRow?:(row:GridLine)=>string|undefined};
 const SORTABLE=new Set(["itemCode","itemName","vendorItemCode","vendorItemName"]);
 const collator=new Intl.Collator("zh-Hant",{numeric:true,sensitivity:"base"});
-export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,onDelete,onRegister,onStateChange,onReorder}:Props){
+export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,onDelete,onRegister,onStateChange,onReorder,warnRow}:Props){
  // View-only sort by a header click (ascending, descending, off); with it off, 項次 drags reorder the saved rows.
  const [sort,setSort]=useState<{field:string;dir:1|-1}|null>(null);
  const dragging=useRef<number|null>(null);
@@ -125,6 +127,16 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
   const promise=save().catch(()=>{setSaveError(true);return false}).finally(()=>{inFlight.current.delete(row.id);setDrafts([...draftsRef.current])});
   inFlight.current.set(row.id,promise);setDrafts([...draftsRef.current]);return promise;
  };
+ // 廠商品號／品名 the member typed on a saved row in this session. When its 品號 or 品名 changes later, the
+ // server drops vendor values that came from the old item's memory; it cannot tell a typed value from a
+ // remembered one, so a save of 品號／品名 carries the typed ones along (user 2026-11-03: they vanished).
+ // The typed value itself is kept: the row from props may not show it yet while its save is queued.
+ const typedVendor=useRef(new Map<number,Map<"vendorItemCode"|"vendorItemName",string>>());
+ const withTypedVendor=(row:GridLine,patch:Partial<GridLine>):Partial<GridLine>=>{
+  const typed=typedVendor.current.get(row.id);
+  if(!typed?.size||!("itemCode" in patch||"itemName" in patch))return patch;
+  return {...Object.fromEntries(typed),...patch};
+ };
  const commitCell=(row:GridLine,field:keyof GridLine,value:string,final=true):Promise<boolean>=>{
   cancelTimer(row.id+"|"+field);
   if(readOnly)return Promise.resolve(false);
@@ -140,7 +152,8 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
   }
   setSaveError(false);
   if(final)markFinal(row.id,field);else markUnfinal(row.id,field);
-  const promise=onCommit(row,{[field]:value},final).then(()=>{setEdits(prev=>{
+  if(field==="vendorItemCode"||field==="vendorItemName"){const typed=typedVendor.current.get(row.id)??new Map();if(value.trim())typed.set(field,value);else typed.delete(field);typedVendor.current.set(row.id,typed)}
+  const promise=onCommit(row,withTypedVendor(row,{[field]:value}),final).then(()=>{setEdits(prev=>{
     if(prev[key]!==value)return prev;
     const n={...prev};delete n[key];return n;
    });return true}).catch(()=>{setSaveError(true);return false}).finally(()=>{
@@ -154,7 +167,7 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
   if(!fieldsToResend)return Promise.resolve(true);
   unfinal.current.delete(row.id);
   const latest=lines.find(l=>l.id===row.id)??row;
-  const patch={...finalPatch(latest),...Object.fromEntries([...fieldsToResend].map(field=>[field,getValue(latest,field)]))};
+  const patch=withTypedVendor(latest,{...finalPatch(latest),...Object.fromEntries([...fieldsToResend].map(field=>[field,getValue(latest,field)]))});
   const promise=onCommit(latest,patch,true).then(()=>true).catch(()=>{unfinal.current.set(row.id,fieldsToResend);setSaveError(true);return false})
    .finally(()=>{actionSaves.current.delete(promise);setDrafts([...draftsRef.current])});
   actionSaves.current.add(promise);return promise;
@@ -212,7 +225,7 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
   <table className="cy-ordering-grid" data-kind={kind} data-readonly={readOnly||undefined}>
    <colgroup><col className="cy-ordering-col-index"/>{fields.flatMap(([field])=>[<col key={field} className={"cy-ordering-col-"+field}/>,...(readOnly&&field==="quantityText"?[<col key="received" className="cy-ordering-col-received"/>]:[])])}{readOnly?<col className="cy-ordering-col-status"/>:<col className="cy-ordering-col-actions"/>}</colgroup>
    <thead><tr><th scope="col">項次</th>{fields.flatMap(([field,label])=>[<th scope="col" key={field} aria-sort={sort?.field===field?(sort.dir===1?"ascending":"descending"):undefined}>{SORTABLE.has(field)?<button type="button" className="cy-ordering-sort" data-active={sort?.field===field||undefined} title={"依"+label+"排序（再按一次反向，第三次取消）"} onClick={()=>toggleSort(field)}>{label}<svg viewBox="0 0 10 14" width="8" height="12" aria-hidden="true"><path d="M5 1 8.5 5h-7z" data-on={sort?.field===field&&sort.dir===1||undefined}/><path d="M5 13 1.5 9h7z" data-on={sort?.field===field&&sort.dir===-1||undefined}/></svg></button>:label}</th>,...(readOnly&&field==="quantityText"?[<th scope="col" key="received">已到數量</th>]:[])])}{readOnly?<th scope="col">狀態</th>:<th scope="col">操作</th>}</tr></thead>
-   <tbody>{visible.map((row,i)=><tr key={savedRowKeys.current.get(row.id)??row.id} data-saving={inFlight.current.has(row.id)||undefined} data-drop-target={dropTarget===row.id||undefined}
+   <tbody>{visible.map((row,i)=>{const warning=warnRow?.(row);return <tr key={savedRowKeys.current.get(row.id)??row.id} data-saving={inFlight.current.has(row.id)||undefined} data-warning={warning?true:undefined} title={warning} data-drop-target={dropTarget===row.id||undefined}
     onDragOver={e=>{if(dragging.current!==null&&row.id>0){e.preventDefault();if(dropTarget!==row.id)setDropTarget(row.id)}}} onDrop={e=>{e.preventDefault();drop(row.id)}}>
     <td draggable={canDrag&&row.id>0||undefined} className={canDrag&&row.id>0?"cy-ordering-drag":undefined} title={canDrag&&row.id>0?"拖曳調整順序":undefined}
      onDragStart={e=>{dragging.current=row.id;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",String(row.id))}} onDragEnd={()=>{dragging.current=null;setDropTarget(null)}}>{i+1}</td>
@@ -237,7 +250,7 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
      return [<td key={field}>{readOnly?<span className={"cy-ordering-cell-text"+(field==="quantityText"?" cy-ordering-quantity":"")+((field==="itemName"||field==="vendorItemName"||field==="note")?" cy-ordering-wrap":"")}>{String(row[field as keyof GridLine]??"")}</span>:multiline?<textarea {...editProps} rows={1} ref={element=>{if(element){element.style.height="34px";element.style.height=Math.min(176,Math.max(34,element.scrollHeight))+"px"}}} />:<input {...editProps} />}</td>,...(readOnly&&field==="quantityText"?[<td key="received"><span className="cy-ordering-cell-text cy-ordering-quantity">{row.received??0}</span>{row.closedAs?<small className="cy-ordering-closed-note" title={row.closedNote}>{CLOSED_AS_LABELS[row.closedAs]}{row.closedNote?"（"+row.closedNote+"）":""}</small>:null}</td>]:[])];
     })}
     {readOnly?<td className="cy-ordering-status-cell"><span className={"cy-ordering-status-chip state-"+receiptState(row).toLowerCase()}>{receiptState(row)==="OPEN"?"待到貨":receiptState(row)==="RECEIVED"?"已到齊":LINE_STATE_LABELS[receiptState(row)]}</span></td>:null}
-    {!readOnly?<td className="cy-ordering-grid-actions">{row.id>0?<IconButton label={"刪除第"+(i+1)+"列"} disabled={busy||actionSaves.current.size>0} onClick={()=>runAction(()=>onDelete(row))} icon={<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v8m4-8v8"/></svg>}/>:null}</td>:null}</tr>)}</tbody>
+    {!readOnly?<td className="cy-ordering-grid-actions">{row.id>0?<IconButton label={"刪除第"+(i+1)+"列"} disabled={busy||actionSaves.current.size>0} onClick={()=>runAction(()=>onDelete(row))} icon={<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v8m4-8v8"/></svg>}/>:null}</td>:null}</tr>})}</tbody>
   </table>
   {visible.filter(x=>x.quantityText&&parseQuantity(x.quantityText).quantity===null).map(x=><p key={x.id} className="cy-notice cy-notice-warning">「{x.itemName||x.vendorItemName||x.itemCode}」數量無法拆解，保留文字、不計到貨量。</p>)}
  </div>;

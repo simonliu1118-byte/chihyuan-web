@@ -62,7 +62,7 @@ export interface OrderingListRow {
   plannedSendDate: string | null; sentAt: string | null; createdAt: string;
 }
 export interface OrderingPendingLine {
-  orderId: number; lineId: number; sourceName: string; orderDate: string; itemCode: string; itemName: string; vendorItemName?: string;
+  orderId: number; lineId: number; sourceName: string; orderDate: string; itemCode: string; itemName: string; vendorItemCode?: string; vendorItemName?: string;
   quantity: number; unit: string; received: number; remaining: number;
 }
 
