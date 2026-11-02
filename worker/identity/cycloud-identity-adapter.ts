@@ -162,11 +162,31 @@ export function hasFirstLoginCookie(request: Request): boolean {
   return isFirstLoginToken(cookieValue(request, CYWEB_FIRST_LOGIN_COOKIE));
 }
 
+/**
+ * Short-lived server cache of successful Session resolves (user 2026-11-03, approved under CYID
+ * standard §11: "an approved short-lived server cache"). Each protected request otherwise asked the
+ * provider again (~0.3–0.6 s). An entry lives 30 s at most and never past the Session's own expiry;
+ * only `authenticated` results are kept; logout and token revocation drop the entry at once. Revocation
+ * elsewhere (disable, role change, other-device logout) takes effect within 30 s. The duration comes from
+ * IDENTITY_RESOLVE_CACHE_SECONDS (deployed as 30; absent means no cache). Per isolate, keyed by
+ * a SHA-256 of application id and token, so the token itself is not held as a key.
+ */
+const RESOLVE_CACHE_MAX = 500;
+const resolvedSessions = new Map<string, { until: number; result: IdentityResolution }>();
+async function resolveCacheKey(applicationId: string, token: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(applicationId + "\n" + token));
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+/** Test hook: forget every cached Session resolve. */
+export function clearIdentityResolveCache(): void { resolvedSessions.clear(); }
+
 export class CYCloudIdentityClient implements IdentityAdapter {
   constructor(
     private readonly binding: Fetcher,
     private readonly applicationId: string,
     private readonly workspaceId: string,
+    /** How long a successful resolve is reused; 0 asks the provider every time. Capped at 60 s. */
+    private readonly resolveCacheMs = 0,
   ) {}
 
   async login(request: Request, employeeNo: string, password: string): Promise<IdentityLoginResult> {
@@ -251,6 +271,23 @@ export class CYCloudIdentityClient implements IdentityAdapter {
     if (!token) return { status: "unauthenticated", reason: "missing" };
     if (!isSessionToken(token)) return { status: "unauthenticated", reason: "invalid" };
 
+    if (!this.resolveCacheMs) return this.resolveWithProvider(request, token);
+    const key = await resolveCacheKey(this.applicationId, token), now = Date.now();
+    const cached = resolvedSessions.get(key);
+    if (cached && cached.until > now) return cached.result;
+    resolvedSessions.delete(key);
+    const result = await this.resolveWithProvider(request, token);
+    if (result.status === "authenticated") {
+      const until = Math.min(now + this.resolveCacheMs, Date.parse(result.expiresAt));
+      if (until > now) {
+        if (resolvedSessions.size >= RESOLVE_CACHE_MAX) resolvedSessions.delete(resolvedSessions.keys().next().value!);
+        resolvedSessions.set(key, { until, result });
+      }
+    }
+    return result;
+  }
+
+  private async resolveWithProvider(request: Request, token: string): Promise<IdentityResolution> {
     const headers = forwardedHeaders(request);
     headers.delete("content-type");
     headers.set("authorization", `Bearer ${token}`);
@@ -275,6 +312,7 @@ export class CYCloudIdentityClient implements IdentityAdapter {
   async logout(request: Request): Promise<IdentityLogoutResult> {
     const token = cookieValue(request, CYWEB_IDENTITY_COOKIE);
     if (!token || !isSessionToken(token)) return { status: "logged_out" };
+    resolvedSessions.delete(await resolveCacheKey(this.applicationId, token));
     const headers = forwardedHeaders(request);
     headers.delete("content-type");
     headers.set("authorization", `Bearer ${token}`);
@@ -286,6 +324,7 @@ export class CYCloudIdentityClient implements IdentityAdapter {
 
   async revokeToken(request: Request, token: string): Promise<void> {
     if (!isSessionToken(token)) return;
+    resolvedSessions.delete(await resolveCacheKey(this.applicationId, token));
     const headers = forwardedHeaders(request);
     headers.delete("content-type");
     headers.set("authorization", `Bearer ${token}`);

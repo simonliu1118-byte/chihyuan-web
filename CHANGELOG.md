@@ -5,6 +5,10 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.91 — 登入驗證記住 30 秒（2026-11-03，Claude）
+- 每個請求原本都要向帳號服務（CYID）確認登入，約 0.3～0.6 秒，而且時快時慢。經使用者同意，伺服器把成功的確認記住 30 秒（CYID 規範 §11 允許的短時間伺服器快取），全站操作都會變快。
+- 在本站登出會立刻清掉；停用帳號、改角色或在其他裝置登出，最多 30 秒後生效。記住的時間不會超過登入本身的到期時間；失敗的確認不記。
+
 ## CY Web V0.9.90 — 叫貨切頁籤立即反應、一次請求（2026-11-03，Claude）
 - 從「未到貨」點來源頁籤時，原本要等資料回來才切換、期間沒有任何反應，感覺像沒按到；現在立刻切換並顯示載入中。
 - 打開來源頁籤原本連續兩個請求（草稿清單、草稿內容），各自都要登入驗證約 0.3～0.6 秒；改為一個請求 `GET /ordering/drafts/open` 同時回傳。

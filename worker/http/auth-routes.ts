@@ -19,6 +19,8 @@ export interface IdentityRuntimeEnv {
   IDENTITY_CONSUMER_VERSION?: string;
   SOURCE_VERSION?: string;
   SOURCE_COMMIT?: string;
+  /** Seconds a successful Session resolve is reused (0 or absent: never). Deployed as 30. */
+  IDENTITY_RESOLVE_CACHE_SECONDS?: string;
 }
 
 export function identityClient(env: IdentityRuntimeEnv): CYCloudIdentityClient | null {
@@ -26,7 +28,9 @@ export function identityClient(env: IdentityRuntimeEnv): CYCloudIdentityClient |
   const applicationId = normalizedApplicationId(env);
   const workspaceId = normalizedWorkspaceId(env);
   if (!applicationId || !workspaceId) return null;
-  return new CYCloudIdentityClient(env.IDENTITY, applicationId, workspaceId);
+  const cacheSeconds = Number(env.IDENTITY_RESOLVE_CACHE_SECONDS ?? 0);
+  return new CYCloudIdentityClient(env.IDENTITY, applicationId, workspaceId,
+    Number.isFinite(cacheSeconds) && cacheSeconds > 0 ? Math.min(cacheSeconds, 60) * 1000 : 0);
 }
 
 function user(principal: IdentityPrincipal) {
