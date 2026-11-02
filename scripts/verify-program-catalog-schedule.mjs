@@ -9,7 +9,7 @@ export async function verifyProgramCatalogSchedule({ env = process.env, fetcher 
   if (!/^[a-f0-9]{32}$/i.test(env.CLOUDFLARE_ACCOUNT_ID ?? "")
     || !/^[a-z0-9][a-z0-9._-]{1,62}$/i.test(env.CF_WORKER_NAME ?? "") || !env.CLOUDFLARE_API_TOKEN
     || ![undefined, "", "false", "true"].includes(env.CF_BACKUP_SCHEDULE_ENABLED)) throw new Error("PROGRAM_SCHEDULE_INPUT_INVALID");
-  const expected = [PROGRAM_CATALOG_CRON, ERP_HOUSEKEEPING_CRON, STORE_MONTHLY_CRON, ...(env.CF_BACKUP_SCHEDULE_ENABLED === "true" ? ["30 19 * * *"] : [])].sort();
+  const expected = [PROGRAM_CATALOG_CRON, ERP_HOUSEKEEPING_CRON, STORE_MONTHLY_CRON].sort(); // backup rides the minute trigger
   let payload;
   try {
     const response = await fetcher(`https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/workers/scripts/${encodeURIComponent(env.CF_WORKER_NAME)}/schedules`, {

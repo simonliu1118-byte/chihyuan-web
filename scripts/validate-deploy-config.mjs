@@ -105,7 +105,7 @@ try {
   const manualEnv = { ...env, CF_BACKUP_ENABLED: "true", CF_BACKUP_R2_BUCKET: "cyweb-ci-backup", GCS_BUCKET: "cyweb-ci-gcs", CF_RECOVERY_D1_DATABASE_ID: "22222222-2222-4222-8222-222222222222", CF_RECOVERY_D1_DATABASE_NAME: "cyweb-ci-recovery" };
   renderDeployConfig({ env: { ...manualEnv, CF_BACKUP_SCHEDULE_ENABLED: "true" }, outputPath: output });
   const scheduled = JSON.parse(fs.readFileSync(output, "utf8"));
-  if (scheduled.vars.BACKUP_SCHEDULE_ENABLED !== "true" || scheduled.triggers.crons.join() !== "0 19 * * *,* * * * *,0 16 * * *,30 19 * * *") throw new Error("schedule opt-in mismatch");
+  if (scheduled.vars.BACKUP_SCHEDULE_ENABLED !== "true" || scheduled.triggers.crons.join() !== "0 19 * * *,* * * * *,0 16 * * *") throw new Error("schedule opt-in mismatch");
   const detachedEnv = { ...manualEnv, CF_RECOVERY_D1_DATABASE_ID: "", CF_RECOVERY_D1_DATABASE_NAME: "", CF_RECOVERY_DETACHED: "true" };
   renderDeployConfig({ env: detachedEnv, outputPath: output });
   const detached = JSON.parse(fs.readFileSync(output, "utf8"));
