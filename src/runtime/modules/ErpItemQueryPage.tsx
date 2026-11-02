@@ -1,3 +1,4 @@
+import { DateInput } from "../../ui/forms/DateInput";
 import { FormEvent, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { SegmentedControl } from "../../ui/primitives/SegmentedControl";
 import { HistoryRangeError, resolveHistoryRange, taipeiToday } from "../../../shared/erp-query-history";
@@ -88,10 +89,10 @@ function ErpItemQuery({ job }: { job: ErpJob }) {
             onChange={e => setIncludeHistory(e.target.checked)} /> 查歷史異動
         </label>}
         {queryType === "ITEM_NO" && includeHistory && <div className="cy-erp-history-options">
-          <label>起日 <input className="cy-op-input" type="date" max={taipeiToday()} value={historyFrom} disabled={busy}
-            onChange={e => setHistoryFrom(e.target.value)} /></label>
-          <label>迄日 <input className="cy-op-input" type="date" max={taipeiToday()} value={historyTo} disabled={busy}
-            onChange={e => setHistoryTo(e.target.value)} /></label>
+          <label>起日 <DateInput className="cy-op-input" max={taipeiToday()} value={historyFrom} disabled={busy}
+            onChange={e => setHistoryFrom(e)} /></label>
+          <label>迄日 <DateInput className="cy-op-input" max={taipeiToday()} value={historyTo} disabled={busy}
+            onChange={e => setHistoryTo(e)} /></label>
           <p>起訖都未填：去年同月同日至今天；範圍最多三年。</p>
         </div>}
       </form>

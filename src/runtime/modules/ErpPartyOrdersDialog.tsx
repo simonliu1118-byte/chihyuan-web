@@ -1,3 +1,4 @@
+import { DateInput } from "../../ui/forms/DateInput";
 import { FormEvent, useState } from "react";
 import { Loading } from "../../ui/feedback/Loading";
 import { Dialog } from "../../ui/overlays/Dialog";
@@ -39,8 +40,8 @@ export function ErpPartyOrdersDialog({ kind, code, name, from, to, onClose }: {
   const what = kind === "SALES" ? "銷貨銷退單" : "進貨退貨單";
   return <Dialog open title={`${name ? name + " " : ""}${code} ${what}`} size="large" onClose={onClose}>
     <form role="search" className="cy-erp-history-options cy-erp-dialog-dates" onSubmit={submit} noValidate>
-      <label>起日 <input className="cy-op-input" type="date" max={taipeiToday()} value={dateFrom} disabled={busy} onChange={e => setDateFrom(e.target.value)} /></label>
-      <label>迄日 <input className="cy-op-input" type="date" max={taipeiToday()} value={dateTo} disabled={busy} onChange={e => setDateTo(e.target.value)} /></label>
+      <label>起日 <DateInput className="cy-op-input" max={taipeiToday()} value={dateFrom} disabled={busy} onChange={e => setDateFrom(e)} /></label>
+      <label>迄日 <DateInput className="cy-op-input" max={taipeiToday()} value={dateTo} disabled={busy} onChange={e => setDateTo(e)} /></label>
       <p>單據日期起訖都未填：去年同月同日至今天；範圍最多三年。</p>
       <button className="cy-op-button primary" type="submit" disabled={busy} aria-busy={submitting || busy || undefined}>{result ? "重新查詢" : "查詢"}</button>
     </form>

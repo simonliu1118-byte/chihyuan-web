@@ -1,3 +1,4 @@
+import { DateInput } from "../../ui/forms/DateInput";
 import { Loading } from "../../ui/feedback/Loading";
 import { SegmentedControl } from "../../ui/primitives/SegmentedControl";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
@@ -107,8 +108,8 @@ export function ChangeLogList({role,customerId}:{
         options={[{value:"today",label:"今天"},{value:"7",label:"近 7 天"},{value:"30",label:"近 30 天"},{value:"custom",label:"自訂起訖"}] as const}
         onChange={period=>setFilters(v=>({...v,period}))} /></fieldset>
       {filters.period==="custom" ? <>
-        <label>開始日期<input type="date" max="9999-12-31" className="cy-op-input" value={filters.from} onChange={e=>setFilters(v=>({...v,from:e.target.value}))}/></label>
-        <label>結束日期<input type="date" max="9999-12-31" className="cy-op-input" value={filters.to} onChange={e=>setFilters(v=>({...v,to:e.target.value}))}/></label>
+        <label>開始日期<DateInput density="regular" max="9999-12-31" className="cy-op-input" value={filters.from} onChange={e=>setFilters(v=>({...v,from:e}))}/></label>
+        <label>結束日期<DateInput density="regular" max="9999-12-31" className="cy-op-input" value={filters.to} onChange={e=>setFilters(v=>({...v,to:e}))}/></label>
       </>:null}
       <label>操作者<select className="cy-op-input" value={filters.actorEmployeeId}
         onChange={e=>setFilters(v=>({...v,actorEmployeeId:e.target.value}))}>

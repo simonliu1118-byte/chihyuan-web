@@ -1,3 +1,4 @@
+import { DateInput } from "../../ui/forms/DateInput";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { SegmentedControl } from "../../ui/primitives/SegmentedControl";
 import { HistoryRangeError, resolveDateRange, taipeiToday } from "../../../shared/erp-query-history";
@@ -85,8 +86,8 @@ export function ErpCustomerQuery({ job }: { job: ErpJob }) {
           </button>
         </div>
         {mode === "SALES" && <div className="cy-erp-history-options">
-          <label>起日 <input className="cy-op-input" type="date" max={taipeiToday()} value={dateFrom} disabled={busy} onChange={e => setDateFrom(e.target.value)} /></label>
-          <label>迄日 <input className="cy-op-input" type="date" max={taipeiToday()} value={dateTo} disabled={busy} onChange={e => setDateTo(e.target.value)} /></label>
+          <label>起日 <DateInput className="cy-op-input" max={taipeiToday()} value={dateFrom} disabled={busy} onChange={e => setDateFrom(e)} /></label>
+          <label>迄日 <DateInput className="cy-op-input" max={taipeiToday()} value={dateTo} disabled={busy} onChange={e => setDateTo(e)} /></label>
           <p>單據日期起訖都未填：去年同月同日至今天；範圍最多三年。輸入名稱時先列出客戶。</p>
         </div>}
       </form>
