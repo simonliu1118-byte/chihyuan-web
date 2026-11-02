@@ -111,9 +111,10 @@ export async function acceptHrPhase2b(db:D1Database,hrFiles?:R2Bucket){
   check(view?.status===200&&view.headers.get("cache-control")==="private, no-store","JPEG_VIEW");
   const after=await db.prepare("SELECT COUNT(*) AS n FROM audit_events WHERE entity_type='hr_leave_attachment'").first<{n:number}>();
   check(before?.n===after?.n,"VIEW_NO_AUDIT");
-  await new HrService(db).remove(employeeId,{confirmEmployeeNo:"HR2BTEST001"},ctx,hrFiles);
+  // An employee with leave records cannot be deleted; the attachment and its file stay.
+  let refused=false;try{await new HrService(db).remove(employeeId,{confirmEmployeeNo:"HR2BTEST001"},ctx,hrFiles)}catch{refused=true}
   const remainingFiles=await db.prepare("SELECT COUNT(*) AS n FROM hr_leave_attachments WHERE batch_id=?").bind(sickForm.batchId).first<{n:number}>();
-  check(remainingFiles?.n===0&&await hrFiles.get(ref.object_key)===null,"DELETE_R2_AND_METADATA");
+  check(refused&&remainingFiles?.n===1&&await hrFiles.get(ref.object_key)!==null,"DELETE_REFUSED_KEEPS_ATTACHMENT");
  }
  const events=await db.prepare("SELECT COUNT(*) AS n FROM audit_events WHERE entity_type='hr_leave'").first<{n:number}>();
  check((events?.n??0)>=3,"LEAVE_AUDIT");

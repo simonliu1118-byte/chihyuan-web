@@ -63,6 +63,13 @@ export async function acceptHrPhase1(db:D1Database):Promise<void>{
  check((await call("employees","POST",{...input,employeeNo:"HRTEST004",status:"terminated"})).status===422,"ACCEPT_HR_TERMINATION_REQUIRES_EVENT");
  check((await call("employees/"+id+"/national-id/reveal","POST")).status===200,"ACCEPT_HR_REVEAL_ALLOWED");
  const removable=await svc.create({...input,employeeNo:"HRTEST005"},ctx) as Record<string,unknown>;
+ check((await svc.get(Number(removable.id))).deletable===true,"ACCEPT_HR_NEW_RECORD_DELETABLE");
+ // Once anything is done for the employee, the record stays (user 2026-11-03).
+ const used=await svc.create({...input,employeeNo:"HRTEST006"},ctx) as Record<string,unknown>;
+ await db.prepare("INSERT INTO hr_seniority_exclusions(employee_id,start_date,end_date,reason,created_at,created_by) VALUES(?,?,?,?,?,?)").bind(used.id,"2026-01-01","2026-01-31","驗收",ctx.now,ctx.actor).run();
+ check((await svc.get(Number(used.id))).deletable===false,"ACCEPT_HR_USED_RECORD_NOT_DELETABLE");
+ check((await call("employees/"+used.id,"DELETE",{confirmEmployeeNo:"HRTEST006"})).status===409,"ACCEPT_HR_DELETE_REFUSED_AFTER_USE");
+ check(!!(await db.prepare("SELECT 1 FROM hr_employees WHERE id=?").bind(used.id).first()),"ACCEPT_HR_DELETE_REFUSED_KEEPS_RECORD");
  check((await call("employees/"+removable.id,"DELETE",{confirmEmployeeNo:"HRTEST001"})).status===422,"ACCEPT_HR_DELETE_CONFIRMS_NUMBER");
  check((await call("employees/"+removable.id,"DELETE",{confirmEmployeeNo:"HRTEST005"})).status===200,"ACCEPT_HR_DELETE");
  check(!(await db.prepare("SELECT 1 FROM hr_employees WHERE id=?").bind(removable.id).first())&&!(await db.prepare("SELECT 1 FROM hr_emergency_contacts WHERE employee_id=?").bind(removable.id).first()),"ACCEPT_HR_DELETE_CASCADE");

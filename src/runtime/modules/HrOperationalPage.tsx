@@ -36,6 +36,8 @@ interface SalaryRow { id: number; effective_date: string; payment_type: HrPaymen
   allowances: { item_name: string; amount: number; is_regular: number }[] }
 interface ExclusionRow { id: number; start_date: string; end_date: string; reason: string }
 interface EmployeeDetail extends EmployeeRow {
+  /** No salary, leave, roster, attendance or status record yet: a mistaken record may still be deleted. */
+  deletable?: boolean;
   member_id: number | null; memberLabel?: string | null; nationalIdMasked: string | null; birth_date: string | null; gender: string | null;
   mobile: string | null; phone: string | null; mailing_address: string | null; registered_address: string | null;
   hire_date: string; seniority_start_date: string; termination_date: string | null; termination_reason: string | null;
@@ -261,7 +263,7 @@ export function HrOperationalPage() {
     finally { setBusy(false); }
   }
 
-  // Temporary for testing (BD-059): removed before launch.
+  // Only while nothing has been done for the employee yet (detail.deletable; the server checks again).
   async function removeEmployee(event: FormEvent) {
     event.preventDefault();
     if (!detail || deleteNo === null) return;
@@ -350,7 +352,7 @@ export function HrOperationalPage() {
               </div>
               <div className="cy-record-actions">
                 <button type="button" className="cy-op-button" disabled={busy} onClick={() => { setCreating(false); setDraft(draftFrom(detail)); }}>修改</button>
-                <button type="button" className="cy-op-button danger" disabled={busy} onClick={() => setDeleteNo("")}>刪除</button>
+                {detail.deletable ? <button type="button" className="cy-op-button danger" disabled={busy} onClick={() => setDeleteNo("")}>刪除</button> : null}
               </div>
             </div>
             <div className="cy-hr-detail-body">
@@ -473,10 +475,10 @@ export function HrOperationalPage() {
       <p className="cy-hr-revealed">{revealed}</p>
       <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={() => setRevealed(null)}>關閉</button></div>
     </Dialog> : null}
-    {deleteNo !== null && detail ? <Dialog open size="small" title="刪除人事資料（測試用）" onClose={() => setDeleteNo(null)}>
+    {deleteNo !== null && detail ? <Dialog open size="small" title="刪除人事資料" onClose={() => setDeleteNo(null)}>
       <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={event => void removeEmployee(event)}>
     <FormSection>
-        <p>會一併刪除 {detail.employee_no} {detail.name} 的學經歷、聯絡人、異動、薪資、班表與出勤，無法復原。請輸入員工編號確認。</p>
+        <p>這筆人事資料還沒有任何薪資、請假、班表或出勤紀錄，可以刪除（例如建錯了）。會一併刪除 {detail.employee_no} {detail.name} 的學經歷與聯絡人，無法復原。請輸入員工編號確認。</p>
         <Field label="員工編號" size="s"><input className="cy-op-input" autoFocus value={deleteNo} onChange={e => setDeleteNo(e.target.value)} /></Field>
         <div className="cy-op-form-footer">
           <button type="button" className="cy-op-button" disabled={busy} onClick={() => setDeleteNo(null)}>取消</button>

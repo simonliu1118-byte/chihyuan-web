@@ -1,5 +1,5 @@
 ## V0.9.84 月度截止與備份清單（2026-11-02）
-- [x] 月度隔月16日台灣午夜鎖定，前後端共用判斷；備份時間縮20%、資訊增加、標題內容同行。重點38/38、build/typecheck及完整validate:source通過，合成畫面驗收完成。
+- [x] 月度隔月16日台灣午夜鎖定，前後端共用判斷；備份時間縮20%、資訊增加、標題內容同行；系統與安全最近7天用量新的在上。重點38/38、build/typecheck及完整validate:source通過，合成畫面驗收完成。
 - [ ] CI／合併部署與Claude複審；見[交接](docs/handoff/CYWEB-MONTHLY-DEADLINE-BACKUP-0984-20261102.md)。
 
 ## V0.9.81 備份改記 migration 名稱（2026-11-03，Claude）
@@ -221,7 +221,7 @@
   - 部署後核對 UTC `30 19 * * *`（台灣每日 03:30）與獨立 catalog `0 19 * * *`；R2 每日保留 30 天、GCS 台灣週三／週日保留 182 天，manual／pre_restore 雙副本；
   - 觀察第一筆真實排程事件與 provider verification／Audit；設定存在或手動成功不等於排程已執行。已使用的隔離副本不得清空重做。
 - [ ] **整理測試資料**（測試客戶、工單、人事等）：先備份，列出候選清單給使用者確認，真實資料不可刪，再分批刪除。已知合成資料：客戶「CYWEB 驗收 20261001」與其拜訪紀錄、常用商品「Development 常用商品驗收（未建檔合成品項）」、工作日誌類型 `DEVELOPMENT_ACCEPTANCE` 草稿。依相依順序用正常產品行為清理，保留必要 Audit／history；不清空資料庫。
-- [ ] **移除人事「刪除」功能**（測試用，BD-059 第 7 項；`HrService.remove`、DELETE 路由、人員頁刪除按鈕與驗收 `ACCEPT_HR_DELETE*`）。
+- [x] 人事「刪除」改為正式規則（V0.9.83，使用者 2026-11-03）：剛新增、還沒有任何紀錄才可刪除，取代 BD-059 第 7 項「上線前移除」。
 - [ ] 核對第一版 readiness 與乾淨 production schema；使用者確認後才上線。
 - [ ] 舊 GAS／Google Sheets 只作參考，新系統穩定後由使用者決定停用時間；舊測試資料不搬入正式環境。
 - [ ] GitHub 設定名稱／scope 的 read-back（API 目前 403，不等於設定不存在），補齊後才搬移 metadata。
