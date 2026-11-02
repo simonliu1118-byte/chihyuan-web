@@ -3,7 +3,8 @@ import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync, readdirSync } from "node:fs";
 import { build } from "esbuild";
-import { verifiedProgramCatalog, PROGRAM_CATALOG_CRON, programCatalogDay, nextProgramCatalogUpdate } from "../shared/program-catalog.ts";
+import { verifiedProgramCatalog, programCatalogDay, nextProgramCatalogUpdate } from "../shared/program-catalog.ts";
+import { CYWEB_CRON } from "../shared/cyweb-cron.ts";
 async function compile(entry) {
   const result=await build({entryPoints:[entry],bundle:true,write:false,platform:"node",format:"esm"});
   return import("data:text/javascript;base64,"+Buffer.from(result.outputFiles[0].text).toString("base64"));
@@ -91,8 +92,10 @@ test("catalog cron runs with backup disabled; other schedules cannot trigger cat
   const {db,sqlite}=database();const original=globalThis.fetch;let calls=0;
   try{
     globalThis.fetch=async()=>{calls++;return Response.json(releases);};
-    await worker.scheduled({cron:PROGRAM_CATALOG_CRON,scheduledTime:Date.parse(day)},{DB:db,BACKUP_SCHEDULE_ENABLED:"false"});
-    await worker.scheduled({cron:PROGRAM_CATALOG_CRON,scheduledTime:Date.parse(day)},{DB:db,BACKUP_SCHEDULE_ENABLED:"false"});
+    await worker.scheduled({cron:CYWEB_CRON,scheduledTime:Date.parse(day)},{DB:db,BACKUP_SCHEDULE_ENABLED:"false"});
+    await worker.scheduled({cron:CYWEB_CRON,scheduledTime:Date.parse(day)},{DB:db,BACKUP_SCHEDULE_ENABLED:"false"});
+    // Other ticks of the same cron never fetch the catalog.
+    await worker.scheduled({cron:CYWEB_CRON,scheduledTime:Date.parse(day)+5*60000},{DB:db,BACKUP_SCHEDULE_ENABLED:"false"});
     const disabled={BACKUP_SCHEDULE_ENABLED:"false",get DB(){throw Error("unexpected DB");}};
     await worker.scheduled({cron:"30 19 * * *",scheduledTime:Date.parse(day)},disabled);
     await worker.scheduled({cron:"unexpected",scheduledTime:Date.parse(day)},disabled);

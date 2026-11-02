@@ -6,6 +6,7 @@ import {
   type ErpReceivableScope, type ErpSalesOrder, type ErpSalesLine, type ErpPurchaseOrder, type ErpPurchaseLine, type ErpReceivableBill, type ErpReceivableVoucher,
   type ErpAgentControl, type ErpControlRequest, type ErpControlResult,
 } from "../../shared/erp-item-query";
+import { expireStaleErpQueries } from "./erp-housekeeping";
 import { AuditService } from "../audit/audit-service";
 import {validateSyncResult,validateWriteResult,syncStatements,writeResultStatements,StocktakeInputError} from "./stocktake-erp";
 import type {StocktakeWriteRow} from "../../shared/stocktake";
@@ -821,8 +822,13 @@ async function userRoutes(request: Request, env: ErpBridgeEnv, requestId: string
   }
   const match = /^\/api\/erp\/item-queries\/([0-9a-f-]{36})$/.exec(pathname);
   if (match && request.method === "GET") {
-    const row = await env.DB.prepare("SELECT * FROM erp_item_queries WHERE id=?1").bind(match[1]).first<JobRow>();
+    let row = await env.DB.prepare("SELECT * FROM erp_item_queries WHERE id=?1").bind(match[1]).first<JobRow>();
     const member = await resolveAppMember(env.DB, principal);
+    // The owner waiting on a query sees a timeout as soon as it happens, not at the next 5-minute cron.
+    if (row && row.owner_member_id === member.id && (row.status === "QUEUED" || row.status === "RUNNING")) {
+      await expireStaleErpQueries(env.DB, Date.now(), row.id);
+      row = await env.DB.prepare("SELECT * FROM erp_item_queries WHERE id=?1").bind(match[1]).first<JobRow>();
+    }
     if (!row || (row.owner_member_id !== member.id && principal.workspaceRole !== "SUPER_ADMIN"))
       return failure({ code: "QUERY_NOT_FOUND", message: "查無此查詢工作" }, requestId, 404);
     // Results follow the reader's grants at this moment (a revoked grant hides them at once).

@@ -20,14 +20,21 @@ async function failExpiredStocktakeWrite(db:D1Database,sheet:string,id:string,no
 }
 
 
-/** Scheduled-only maintenance. No HTTP request can invoke this function. */
-export async function runErpHousekeeping(db: D1Database, scheduledTime: number): Promise<void> {
-  const phases = erpHousekeepingPhases(scheduledTime);
-  const now = new Date(scheduledTime);
+/**
+ * Marks queued queries the ERP Agent will not pick up as EXPIRED, and running ones past their time as
+ * FAILED (AGENT_TIMEOUT). The cron runs it for all queries every 5 minutes; a member waiting on their own
+ * query runs it for that one query when reading it, so the timeout shows at once (user 2026-11-03).
+ * Each UPDATE is conditional with RETURNING, so concurrent callers record a change only once.
+ */
+export async function expireStaleErpQueries(db: D1Database, nowMs: number, onlyId?: string): Promise<void> {
+  const now = new Date(nowMs);
   const nowIso = now.toISOString();
   const ago = (seconds: number) => new Date(now.getTime() - seconds * 1000).toISOString();
+  const one = onlyId ? " AND id=?9" : "";
   // One indexed probe, no UPDATE statements while neither queue nor Agent has active work.
-  const active = await db.prepare(`SELECT
+  const active = onlyId
+    ? await db.prepare("SELECT status='QUEUED' AS queued, status='RUNNING' AS running FROM erp_item_queries WHERE id=?1").bind(onlyId).first<{ queued: number; running: number }>()
+    : await db.prepare(`SELECT
     EXISTS(SELECT 1 FROM erp_item_queries WHERE status='QUEUED') AS queued,
     EXISTS(SELECT 1 FROM erp_item_queries WHERE status='RUNNING') AS running`
   ).first<{ queued: number; running: number }>();
@@ -39,9 +46,9 @@ export async function runErpHousekeeping(db: D1Database, scheduledTime: number):
       `UPDATE erp_item_queries SET status='EXPIRED', completed_at=?1
        WHERE status='QUEUED' AND (expires_at<=?1 OR (COALESCE(not_before,created_at)<=?2
          AND NOT EXISTS(SELECT 1 FROM erp_item_queries WHERE status='RUNNING')
-         AND NOT EXISTS(SELECT 1 FROM erp_item_agent_status WHERE id=1 AND last_seen_at>?3)))
+         AND NOT EXISTS(SELECT 1 FROM erp_item_agent_status WHERE id=1 AND last_seen_at>?3)))${one.replace("?9", "?4")}
        RETURNING id,owner_member_id,item_no,query_type,target_code`
-    ).bind(nowIso, ago(120), ago(60)).all<ChangedJob>();
+    ).bind(...[nowIso, ago(120), ago(60), ...(onlyId ? [onlyId] : [])]).all<ChangedJob>();
     expired = rows.results ?? [];
   }
   if (active?.running) {
@@ -52,9 +59,9 @@ export async function runErpHousekeeping(db: D1Database, scheduledTime: number):
         OR (query_type IN ('RESTOCK','STOCKTAKE_SYNC') AND started_at<=?6)
         OR (query_type IN ('SALES','PURCHASES','RECEIVABLE','ORDER') AND started_at<=?5)
         OR (query_type NOT IN ('SALES','PURCHASES','RECEIVABLE','ORDER','RESTOCK','STOCKTAKE_SYNC','STOCKTAKE_WRITE') AND include_history=0 AND started_at<=?3)
-        OR (query_type NOT IN ('SALES','PURCHASES','RECEIVABLE','ORDER','RESTOCK','STOCKTAKE_SYNC','STOCKTAKE_WRITE') AND include_history=1 AND started_at<=?4))
+        OR (query_type NOT IN ('SALES','PURCHASES','RECEIVABLE','ORDER','RESTOCK','STOCKTAKE_SYNC','STOCKTAKE_WRITE') AND include_history=1 AND started_at<=?4))${one.replace("?9", "?8")}
       RETURNING id,owner_member_id,item_no,query_type,target_code`
-  ).bind(nowIso, AGENT_TIMEOUT_MESSAGE, ago(180), ago(300), ago(600), ago(1800), ago(3600)).all<ChangedJob>();
+  ).bind(...[nowIso, AGENT_TIMEOUT_MESSAGE, ago(180), ago(300), ago(600), ago(1800), ago(3600), ...(onlyId ? [onlyId] : [])]).all<ChangedJob>();
     timedOut = rows.results ?? [];
   }
   const audit = new AuditService(db);
@@ -73,6 +80,14 @@ export async function runErpHousekeeping(db: D1Database, scheduledTime: number):
     if (job.query_type === "STOCKTAKE_WRITE" && job.target_code)
       await failExpiredStocktakeWrite(db, job.target_code, job.id, nowIso, "ERP 寫回逾時，請管理員核對後重新寫回");
   }
+}
+
+/** Scheduled-only maintenance (the single CY Web cron). No HTTP request can invoke this function. */
+export async function runErpHousekeeping(db: D1Database, scheduledTime: number): Promise<void> {
+  const phases = erpHousekeepingPhases(scheduledTime);
+  const now = new Date(scheduledTime);
+  const ago = (seconds: number) => new Date(now.getTime() - seconds * 1000).toISOString();
+  await expireStaleErpQueries(db, scheduledTime);
   if (phases.purge) {
     // Every 5 minutes reads only the last hour's completions; the daily pass (lower bound '')
     // sweeps anything a missed run left, so reads do not grow with the retention.

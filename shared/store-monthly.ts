@@ -1,4 +1,3 @@
-export const STORE_MONTHLY_CRON = "0 16 * * *"; // Taiwan midnight, daily catch-up.
 export type MonthPeriod = {from:string; until?:string}; // exclusive end
 export type MonthlyStore = {id:string; name:string; periods:MonthPeriod[]};
 export type MonthlyScheduleKind = "ALL"|"ODD"|"EVEN"|"CUSTOM";

@@ -3,13 +3,14 @@ import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync, readdirSync } from "node:fs";
 import { build } from "esbuild";
-import { erpHousekeepingPhases, ERP_HOUSEKEEPING_CRON } from "../shared/erp-housekeeping.ts";
+import { erpHousekeepingPhases } from "../shared/erp-housekeeping.ts";
+import { CYWEB_CRON, cywebCronTasks } from "../shared/cyweb-cron.ts";
 
 async function compile(path){
   const output=await build({entryPoints:[path],bundle:true,write:false,platform:"node",format:"esm"});
   return import("data:text/javascript;base64,"+Buffer.from(output.outputFiles[0].text).toString("base64"));
 }
-const {runErpHousekeeping}=await compile("worker/http/erp-housekeeping.ts");
+const {runErpHousekeeping,expireStaleErpQueries}=await compile("worker/http/erp-housekeeping.ts");
 const {default:worker}=await compile("worker/index.ts");
 const at=Date.parse("2026-10-29T19:15:00Z");
 const stamp=(offset)=>new Date(at+offset*60000).toISOString();
@@ -40,18 +41,21 @@ function fixture(){
   return {sql,db,statements,add};
 }
 
-test("one Cron partitions 1-minute timeout, 5-minute purge and daily retention by scheduledTime",()=>{
-  assert.equal(ERP_HOUSEKEEPING_CRON,"* * * * *");
-  assert.deepEqual(erpHousekeepingPhases(Date.parse("2026-10-29T14:01:00Z")),{expire:true,purge:false,retention:false});
+test("the single CY Web cron runs ERP checks every tick and each daily job at its Taiwan time",()=>{
+  assert.equal(CYWEB_CRON,"*/5 * * * *");
   assert.deepEqual(erpHousekeepingPhases(Date.parse("2026-10-29T14:05:00Z")),{expire:true,purge:true,retention:false});
   assert.deepEqual(erpHousekeepingPhases(at),{expire:true,purge:true,retention:true});
-  assert.deepEqual(erpHousekeepingPhases(at+60000),{expire:true,purge:false,retention:false});
+  const tasks=t=>{const x=cywebCronTasks(Date.parse("2026-10-29T"+t+":00Z"));return Object.keys(x).filter(k=>x[k]===true&&k!=="erp").join()};
+  assert.equal(tasks("16:00"),"storeMonthly");assert.equal(tasks("19:00"),"programCatalog");assert.equal(tasks("19:15"),"erpRetention");
+  assert.equal(tasks("19:30"),"backup");assert.equal(tasks("19:45"),"backup");
+  for(const t of ["16:05","19:05","19:20","19:35","19:50","03:30","11:30"])assert.equal(tasks(t),"",t);
 });
 test("idle cron probes queue but never attempts an UPDATE or DELETE",async()=>{
   const f=fixture();
   try{
-    await worker.scheduled({cron:ERP_HOUSEKEEPING_CRON,scheduledTime:at+60000},{DB:f.db});
-    assert.equal(f.statements.filter(s=>/^\s*(UPDATE|DELETE|INSERT)\b/i.test(s)).length,0);
+    await worker.scheduled({cron:CYWEB_CRON,scheduledTime:at+5*60000},{DB:f.db});
+    // Only the bounded result purge (a no-op here) writes; nothing touches the queue while it is idle.
+    assert.deepEqual(f.statements.filter(s=>/^\s*(UPDATE|DELETE|INSERT)\b/i.test(s)).map(s=>s.trim().slice(0,32)),["UPDATE erp_item_queries SET fiel"]);
     assert.equal(f.statements.filter(s=>s.includes("EXISTS(SELECT 1 FROM erp_item_queries WHERE status=")).length,1);
   }finally{f.sql.close()}
 });
@@ -71,14 +75,14 @@ test("expired QUEUED and timed-out RUNNING fail or expire once and retain audit;
     assert.deepEqual(events,["erp_item_query.expired","erp_item_query.failed"]);
   }finally{f.sql.close()}
 });
-test("results clear only after 5 minutes; daily 7-day retention is a separate phase",async()=>{
+test("results clear 5 minutes after completion; daily 7-day retention runs only at its tick",async()=>{
   const f=fixture();
   try{
     f.add("finished","DONE",-20,null,-10,'[{"name":"品號","value":"X0001"}]');
     f.add("older","DONE",-45000,null,-45000);
     f.add("week-old","DONE",-8*1440,null,-8*1440);
     f.add("six-days","DONE",-6*1440,null,-6*1440);
-    await runErpHousekeeping(f.db,at-60000);
+    await runErpHousekeeping(f.db,at-5*60000);
     assert.ok(f.sql.prepare("SELECT fields_json FROM erp_item_queries WHERE id='finished'").get().fields_json);
     assert.ok(f.sql.prepare("SELECT id FROM erp_item_queries WHERE id='older'").get());
     await runErpHousekeeping(f.db,at);
@@ -134,5 +138,20 @@ test("stocktake SYNC keeps its 1800-second limit rather than an ordinary 180-sec
     f.sql.prepare("UPDATE erp_item_queries SET started_at=? WHERE id='stock-sync'").run(stamp(-31));
     await runErpHousekeeping(f.db,at+60000);
     assert.equal(f.sql.prepare("SELECT status FROM erp_item_queries WHERE id='stock-sync'").get().status,"FAILED");
+  }finally{f.sql.close()}
+});
+
+test("reading one's own query times out only that query, once, with the same rules as the cron",async()=>{
+  const f=fixture();
+  try{
+    f.add("mine","RUNNING",-30,-6);
+    f.add("other","RUNNING",-30,-6);
+    f.add("fresh","RUNNING",-2,-1);
+    await expireStaleErpQueries(f.db,at,"mine");
+    await expireStaleErpQueries(f.db,at,"mine");
+    await expireStaleErpQueries(f.db,at,"fresh");
+    const status=id=>f.sql.prepare("SELECT status FROM erp_item_queries WHERE id=?").get(id).status;
+    assert.equal(status("mine"),"FAILED");assert.equal(status("other"),"RUNNING","left to the cron");assert.equal(status("fresh"),"RUNNING");
+    assert.equal(f.sql.prepare("SELECT count(*) n FROM audit_events WHERE entity_type='erp_item_query'").get().n,1,"recorded once");
   }finally{f.sql.close()}
 });

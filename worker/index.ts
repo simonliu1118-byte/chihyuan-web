@@ -1,5 +1,5 @@
 import type { HealthData } from "../shared/api";
-import { isScheduledBackupMinute } from "../shared/backup-schedule";
+import { CYWEB_CRON, cywebCronTasks } from "../shared/cyweb-cron";
 import { backupService, type BackupRuntimeEnv } from "./backup/runtime";
 import { handleBackupRoute } from "./http/backup-routes";
 import { handleSettingsAuditRoute } from "./http/settings-audit-routes";
@@ -16,15 +16,12 @@ import {handleStoreRepairRoute} from "./http/store-repair-routes";
 import {handleStoreStocktakeRoute} from "./http/store-stocktake-routes";
 import {handleStoreMonthlyRoute} from "./http/store-monthly-routes";
 import {ensureMonthlyRows} from "./store/monthly-service";
-import {STORE_MONTHLY_CRON} from "../shared/store-monthly";
 import { handleUsageRoute } from "./http/usage-routes";
 import { handleBusinessApiPhase2Route } from "./http/business-api-phase2-routes";
 import { handleProgramCatalogRoute } from "./http/program-catalog-routes";
 import { handleErpItemQueryRoute, type ErpBridgeEnv } from "./http/erp-item-query-routes";
 import { runErpHousekeeping } from "./http/erp-housekeeping";
-import { ERP_HOUSEKEEPING_CRON } from "../shared/erp-housekeeping";
 import { failure, success } from "./http/response";
-import { PROGRAM_CATALOG_CRON } from "../shared/program-catalog";
 import { updateProgramCatalog } from "./programs/release-catalog";
 
 interface Env extends IdentityRuntimeEnv, BackupRuntimeEnv, ErpBridgeEnv, CyInvoiceRecoveryEnv {
@@ -127,20 +124,15 @@ async function scheduledBackup(env: Env, scheduledTime: number): Promise<void> {
 
 export default {
   async scheduled(controller: ScheduledController, env: Env): Promise<void> {
-    if(controller.cron===STORE_MONTHLY_CRON){await ensureMonthlyRows(env.DB,new Date(controller.scheduledTime).toISOString());return;}
-    if (controller.cron === ERP_HOUSEKEEPING_CRON) {
-      // A housekeeping failure must not cost the day's backup, and the reverse.
-      const housekeeping = runErpHousekeeping(env.DB, controller.scheduledTime);
-      if (!isScheduledBackupMinute(controller.scheduledTime)) { await housekeeping; return; }
-      const results = await Promise.allSettled([housekeeping, scheduledBackup(env, controller.scheduledTime)]);
-      const failed = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
-      if (failed) throw failed.reason; // still reported as a failed cron run
-      return;
-    }
-    if (controller.cron === PROGRAM_CATALOG_CRON) {
-      await updateProgramCatalog(env.DB, new Date(controller.scheduledTime).toISOString());
-      return;
-    }
+    if (controller.cron !== CYWEB_CRON) return;
+    const tasks = cywebCronTasks(controller.scheduledTime), now = new Date(controller.scheduledTime).toISOString();
+    // Independent jobs on one tick: one failing never skips another; any failure still fails the run.
+    const jobs: Promise<unknown>[] = [runErpHousekeeping(env.DB, controller.scheduledTime)];
+    if (tasks.storeMonthly) jobs.push(ensureMonthlyRows(env.DB, now));
+    if (tasks.programCatalog) jobs.push(updateProgramCatalog(env.DB, now));
+    if (tasks.backup) jobs.push(scheduledBackup(env, controller.scheduledTime));
+    const failed = (await Promise.allSettled(jobs)).find((r): r is PromiseRejectedResult => r.status === "rejected");
+    if (failed) throw failed.reason;
   },
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
