@@ -5,7 +5,7 @@
 ## V0.9.85 月度截止與備份清單（2026-11-02）
 - [x] 月度隔月16日台灣午夜鎖定，前後端共用判斷；備份時間縮20%、資訊增加、標題內容同行；系統與安全最近7天用量新的在上。重點56/56、build/typecheck及完整validate:source通過，合成畫面驗收完成。
 - [x] PR372完整Linux602/602及必要CI通過；合併404fe58，部署41466651744成功，雙入口V0.9.85／source／D1／HTTPS通過。
-- [ ] Claude最終複審；見[交接](docs/handoff/CYWEB-MONTHLY-DEADLINE-BACKUP-0985-20261102.md)。
+- [x] Claude事後複審（2026-11-03）：無問題。編輯期限前後端共用 `monthlyEditLocked`，Worker 回 409；午夜計時與回到分頁時重算；備份清單與用量排序僅畫面調整。見[交接](docs/handoff/CYWEB-MONTHLY-DEADLINE-BACKUP-0985-20261102.md)。
 
 ## V0.9.81 備份改記 migration 名稱（2026-11-03，Claude）
 - [x] 新備份記錄 migration 名稱、依欄位名稱還原；舊備份走凍結的 v1 升級；每支 migration 只要更新 `CURRENT_MIGRATION`。
