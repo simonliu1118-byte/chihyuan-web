@@ -37,3 +37,11 @@ test("date inputs limit the year to four digits", () => {
   }
   assert.deepEqual(missing, [], "Add max=\"9999-12-31\" (or a real upper bound):\n" + missing.join("\n"));
 });
+
+test("all source date fields use the shared DateInput rather than native date inputs",()=>{
+ const deprecated=[];
+ for(const {path,text} of files){
+  for(const match of text.matchAll(/type=["']date["']/g))deprecated.push(path+":"+text.slice(0,match.index).split("\n").length);
+ }
+ assert.deepEqual(deprecated,[],"Replace native date controls and CSS selectors with shared DateInput:\n"+deprecated.join("\n"));
+});

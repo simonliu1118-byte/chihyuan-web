@@ -5,6 +5,11 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.76 — 到貨紀錄修改／刪除與共用日期輸入（WO-0.9.74，2026-11-03 Claude 審查通過）
+- 到貨紀錄改為日期、ERP 單號、品項數量摘要、登記人及時間；手機顯示卡片。
+- 新增 PUT／DELETE 到貨紀錄（版本鎖、D1 同批、稽核與修訂紀錄），修改模式沿用登記到貨對話框；保留 V0.9.73 的叫貨單修改限制。
+- 全站原生日期欄位改用共用 DateInput；表單 regular、篩選 compact，加寬避免截斷，來源測試禁止原生日期欄位。
+
 ## CY Web V0.9.75 — 加入叫貨單也顯示未到貨（2026-11-03，Claude）
 - 進貨輔助「加入叫貨單」對話框上方，除了已在哪些草稿，也列出已送出、還沒到齊的叫貨單與未到數量（例如「台北 10/14 送出 未到 20 捲」），避免重複叫貨。`draft-items` 多回傳已送出且有剩餘的行。
 

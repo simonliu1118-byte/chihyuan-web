@@ -1,5 +1,5 @@
-.cy-date-input{display:flex;position:relative;align-items:center;width:142px;max-width:100%;min-width:0}
-.cy-date-input[data-density=compact]{width:112px}
+.cy-date-input{display:flex;position:relative;align-items:center;width:162px;max-width:100%;min-width:0}
+.cy-date-input[data-density=compact]{width:148px}
 .cy-date-input[data-invalid=true]{outline:1px solid var(--cy-danger);outline-offset:-1px;border-radius:var(--cy-radius-sm)}
 .cy-date-input>input{box-sizing:border-box;width:100%!important;min-width:0;padding-right:28px!important;font-variant-numeric:tabular-nums}
 .cy-date-input>.cy-date-trigger{position:absolute;right:2px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:25px;height:28px;min-width:25px;padding:4px;margin:0;border:0;background:transparent;color:var(--cy-text-muted);border-radius:var(--cy-radius-sm)}
@@ -23,4 +23,4 @@
 .cy-date-calendar[data-density=compact] .cy-date-weekdays{padding:2px 0}
 .cy-date-calendar[data-density=compact] .cy-date-calendar-footer{margin-top:3px;padding-top:3px}
 .cy-date-calendar[data-density=compact] .cy-date-choices{gap:2px}
-@media(pointer:coarse){.cy-date-calendar{width:296px}.cy-date-calendar button{min-height:38px}.cy-date-calendar[data-density=compact]{width:252px}.cy-date-calendar[data-density=compact] button{min-height:30px}.cy-date-input[data-density=compact]{width:142px}.cy-date-input>input{font-size:16px}}
+@media(pointer:coarse){.cy-date-calendar{width:296px}.cy-date-calendar button{min-height:38px}.cy-date-calendar[data-density=compact]{width:252px}.cy-date-calendar[data-density=compact] button{min-height:30px}.cy-date-input[data-density=compact]{width:160px}.cy-date-input>input{font-size:16px}}

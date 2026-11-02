@@ -1,3 +1,4 @@
+import { DateInput } from "../../../ui/forms/DateInput";
 import {Field,CheckField,FormSection} from "../../../ui/forms/Field";
 import { FormEvent, useEffect, useState } from "react";
 import type { DefectCustomerOption, DefectItemOption, DefectModuleLookups } from "../../../../shared/business-lookups";
@@ -84,8 +85,8 @@ export function DefectForm({ mode, initial, fixedItem, onSaved, onCancel }: Defe
       <div className="cy-record-actions">{actions}</div>
     </div>}
     <div className="cy-defect-form-body"><div className="cy-f-grid">
-      <Field label="回報日期" size="s" required><input className="cy-op-input" type="date" max="9999-12-31" value={reportedDate}
-        disabled={busy} onChange={event => setReportedDate(event.target.value)} /></Field>
+      <Field label="回報日期" size="s" required><DateInput density="regular" className="cy-op-input" max="9999-12-31" value={reportedDate}
+        disabled={busy} onChange={event => setReportedDate(event)} /></Field>
       <EntityPicker<DefectCustomerOption> label="客戶" required disabled={busy}
         value={customer} onSelect={setCustomer}
         search={async q => (await loadDefectLookups({ customerQuery: q, limit: 20 })).customers}

@@ -1,3 +1,4 @@
+import { DateInput } from "../../ui/forms/DateInput";
 import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import {useCallback,useEffect,useState,type FormEvent} from "react";
 import {apiRequest} from "../../api/client";
@@ -72,7 +73,7 @@ export function HrPhase2aSettings(){
   {holidays.map(h=><div className="hr-staff-setting" key={h.date}><span>{h.date.replaceAll("-","/")}　{h.name}</span><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void deleteHoliday(h.date)}>刪除</button></div>)}
   <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={e=>void saveHoliday(e)}>
     <FormSection>
-   <Field label="假日日期" size="s" required><input type="date" max="9999-12-31" className="cy-op-input" value={holidayDate} onChange={e=>setHolidayDate(e.target.value)}/></Field>
+   <Field label="假日日期" size="s" required><DateInput density="regular" max="9999-12-31" className="cy-op-input" value={holidayDate} onChange={e=>setHolidayDate(e)}/></Field>
    <Field label="假日名稱" size="m" required><input className="cy-op-input" value={holidayName} onChange={e=>setHolidayName(e.target.value)}/></Field>
    <button className="cy-op-button primary" disabled={busy}>新增國定假日</button>
   

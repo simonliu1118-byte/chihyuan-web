@@ -481,3 +481,53 @@ test('draft-items returns draft slips and sent orders still waiting, never close
   assert(f.sql.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_ordering_lines_item_code'").get());
  }finally{f.sql.close()}
 });
+
+test("receipt update respects other receipts, version lock and audit; deleting the last restores SENT",async()=>{
+ const {sql,call}=fixture();try{
+  const src=(await call("/sources")).body.data.find(x=>x.name==="台北");
+  let o=(await call("/orders","POST",{sourceId:src.id})).body.data;
+  for(const name of ["測試膠帶","測試標籤"])
+   o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{itemName:name,quantityText:"10",unit:"捲"}})).body.data;
+  o=(await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version})).body.data;
+  const path="/orders/"+o.id+"/receipts";
+  let reply=await call(path,"POST",{expectedVersion:o.version,erpPurchaseNo:"20261023001",receivedDate:"2026-10-23",lines:[{lineId:o.lines[0].id,quantity:4}]});
+  assert.equal(reply.status,200,JSON.stringify(reply.body));o=reply.body.data;
+  assert.equal(o.receipts[0].createdBy,"測試員工甲");
+  const receiptId=o.receipts[0].id,edit=path+"/"+receiptId,firstVersion=o.version;
+  reply=await call(edit,"PUT",{expectedVersion:o.version,erpPurchaseNo:"20261023002",receivedDate:"2026-10-24",lines:[{lineId:o.lines[0].id,quantity:3},{lineId:o.lines[1].id,quantity:2}]});
+  assert.equal(reply.status,200,JSON.stringify(reply.body));o=reply.body.data;
+  assert.equal(o.version,firstVersion+1);
+  assert.equal(o.lines[0].received,3);assert.equal(o.lines[1].received,2);
+  assert.match(o.revisions[0].summary,/修改到貨/);assert.match(o.revisions[0].summary,/日期 10\/23 → 10\/24/);
+  assert.equal((await call(edit,"PUT",{expectedVersion:firstVersion,erpPurchaseNo:"20261023003",receivedDate:"2026-10-24",lines:[{lineId:o.lines[0].id,quantity:1}]})).status,409);
+  assert.equal((await call(edit,"PUT",{expectedVersion:o.version,erpPurchaseNo:"20261023002",receivedDate:"2026-10-24",lines:[{lineId:o.lines[0].id,quantity:11}]})).status,422);
+  assert.equal((await call(edit,"PUT",{expectedVersion:o.version,erpPurchaseNo:"20261023002",receivedDate:"2026-10-24",lines:[{lineId:o.lines[0].id,quantity:0},{lineId:o.lines[1].id,quantity:0}]})).status,422);
+  reply=await call(edit,"DELETE",{expectedVersion:o.version});
+  assert.equal(reply.status,200,JSON.stringify(reply.body));o=reply.body.data;
+  assert.equal(o.status,"SENT");assert.deepEqual(o.lines.map(l=>l.received),[0,0]);assert.equal(o.receipts.length,0);
+  assert.match(o.revisions[0].summary,/刪除到貨/);
+  assert.deepEqual(sql.prepare("PRAGMA foreign_key_check").all(),[]);
+ }finally{sql.close()}
+});
+test("receipt changes exclude other receipts and cannot increase a closed line or mutate a voided order",async()=>{
+ const {sql,call}=fixture();try{
+  const source=(await call("/sources")).body.data[0];
+  let o=(await call("/orders","POST",{sourceId:source.id})).body.data;
+  o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,line:{itemName:"測試商品",quantityText:"5"}})).body.data;
+  o=(await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version})).body.data;
+  const path="/orders/"+o.id+"/receipts",lineId=o.lines[0].id;
+  for(const qty of [2,2]){
+   const r=await call(path,"POST",{expectedVersion:o.version,erpPurchaseNo:"20261023001",receivedDate:"2026-10-23",lines:[{lineId,quantity:qty}]});
+   assert.equal(r.status,200,JSON.stringify(r.body));o=r.body.data;
+  }
+  const first=o.receipts[0],edit=path+"/"+first.id;
+  assert.equal((await call(edit,"PUT",{expectedVersion:o.version,erpPurchaseNo:"20261023001",receivedDate:"2026-10-23",lines:[{lineId,quantity:4}]})).status,422,"cannot exceed own 2 + remaining 1");
+  o=(await call("/orders/"+o.id+"/close","POST",{expectedVersion:o.version,lineId,closedAs:"SHORTAGE",reason:""})).body.data;
+  assert.equal((await call(edit,"PUT",{expectedVersion:o.version,erpPurchaseNo:"20261023001",receivedDate:"2026-10-23",lines:[{lineId,quantity:3}]})).status,422);
+  const revised=await call(edit,"PUT",{expectedVersion:o.version,erpPurchaseNo:"20261023001",receivedDate:"2026-10-23",lines:[{lineId,quantity:1}]});
+  assert.equal(revised.status,200,JSON.stringify(revised.body));o=revised.body.data;assert.equal(o.lines[0].received,3);
+  o=(await call("/orders/"+o.id+"/void","POST",{expectedVersion:o.version})).body.data;
+  assert.equal((await call(edit,"DELETE",{expectedVersion:o.version})).status,409);
+  assert.equal((await call(edit,"PUT",{expectedVersion:o.version,erpPurchaseNo:"20261023001",receivedDate:"2026-10-23",lines:[{lineId,quantity:1}]})).status,409);
+ }finally{sql.close()}
+});

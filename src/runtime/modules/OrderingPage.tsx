@@ -1,3 +1,4 @@
+import { DateInput } from "../../ui/forms/DateInput";
 import {Field,CheckField,FormSection,RequiredRows} from "../../ui/forms/Field";
 import {useContext,useEffect,useMemo,useRef,useState,type FormEvent} from "react";
 import {apiRequest,ApiClientError} from "../../api/client";
@@ -8,6 +9,8 @@ import type {StatusTone} from "./status-flow";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {Dialog} from "../../ui/overlays/Dialog";
 import {SidePanel} from "../../ui/overlays/SidePanel";
+import {IconButton} from "../../ui/actions/IconButton";
+import {Icons} from "../../ui/actions/icons";
 import {RestockAssist} from "./RestockAssist";
 import {ErpPageVisibleContext,useErpJob} from "./useErpJob";
 import {Loading} from "../../ui/feedback/Loading";
@@ -19,7 +22,7 @@ import {useUnsavedChangesGuard} from "../../ui/foundation/useUnsavedChangesGuard
 import {orderSheet} from "../../../shared/ordering-export";
 import "./erp-item-query.css";
 import {buildXlsx} from "../../../shared/xlsx-writer";
-import {parseQuantity} from "../../../shared/ordering";
+import {parseQuantity,receiptItemSummary,type OrderingReceipt} from "../../../shared/ordering";
 import {createOrderingWriteQueue,orderingTaipeiDateTime,exportFileName,pickDraft,ORDERING_STATUS_LABELS,CN_REGULAR_SECTIONS,type OrderingOrder,type OrderingSource,type OrderingPendingLine,type OrderingListRow,type OrderingSection} from "../../../shared/ordering";
 const ROOT="/api/business/ordering";
 const nowDate=()=>new Date(Date.now()+8*3600000).toISOString().slice(0,10);
@@ -103,7 +106,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
   window.addEventListener(ORDERING_OPEN_RESTOCK_EVENT,open);
   return()=>window.removeEventListener(ORDERING_OPEN_RESTOCK_EVENT,open);
  },[canRestock]);
- const [receipt,setReceipt]=useState<{id:number;no:string;date:string;quantities:Record<number,string>;selectedLineIds:number[]}|null>(null);
+ const [receipt,setReceipt]=useState<{id:number;receiptId?:number;no:string;date:string;quantities:Record<number,string>;selectedLineIds:number[]}|null>(null);
  const [receiptSaving,setReceiptSaving]=useState(false),receiptSavingRef=useRef(false);
  type ReceiptForm=NonNullable<typeof receipt>;
  // 未到貨明細 grouped by 叫貨單; the cards a member folded stay folded while on the page.
@@ -270,20 +273,39 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
    else await call("/sources","POST",{name:sourceForm.name,kind:sourceForm.kind,conditions:sourceForm.conditions,paymentTerms:sourceForm.paymentTerms,note:sourceForm.note});
    setSourceForm(null);await refresh();void refreshLists().catch(e=>setError(errorOf(e)));
   }catch(err){setError(errorOf(err))}finally{setBusy(false)}}
+ function editReceipt(target:OrderingReceipt,order:DisplayOrder){
+  setReceipt({id:order.id,receiptId:target.id,no:target.erpPurchaseNo.replace(/^341A-/,""),date:target.receivedDate,
+   quantities:Object.fromEntries(target.lines.map(l=>[l.lineId,String(l.quantity)])),selectedLineIds:target.lines.map(l=>l.lineId)});
+ }
+ async function deleteReceipt(target:OrderingReceipt,order:DisplayOrder){
+  if(!await confirm({title:"刪除到貨紀錄",description:"確定刪除「"+target.erpPurchaseNo+"」？刪除後這些品項的已到數量會扣回。",confirmLabel:"刪除到貨",confirmTone:"danger"}))return;
+  try{await write("/orders/"+order.id+"/receipts/"+target.id,"DELETE",{})}catch{/* write reports error */}
+ }
  async function receive(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!receipt||!selected)return;
   // A second click would queue a second receipt against the refreshed version and double-count it.
   if(receiptSavingRef.current)return;receiptSavingRef.current=true;setReceiptSaving(true);
   try{await saveReceipt(receipt,selected)}finally{receiptSavingRef.current=false;setReceiptSaving(false)}
  }
  async function saveReceipt(receipt:ReceiptForm,selected:DisplayOrder){
-  const lines=receipt.selectedLineIds.map(lineId=>{const line=selected.lines.find(l=>l.id===lineId);return {lineId,quantity:Number(receipt.quantities[lineId]??((line?.quantity??0)-(line?.received??0)))}});
+  const existing=receipt.receiptId?selected.receipts.find(r=>r.id===receipt.receiptId):null;
+  const old=new Map(existing?.lines.map(x=>[x.lineId,x.quantity])??[]);
+  const lines=receipt.selectedLineIds.map(lineId=>{
+   const line=selected.lines.find(l=>l.id===lineId),previous=old.get(lineId)??0;
+   return {lineId,quantity:Number(receipt.quantities[lineId]??(receipt.receiptId?previous:(line?.quantity??0)-(line?.received??0)))};
+  });
   if(!lines.length){setError("請至少勾選一列並填到貨數量");return}
-  if(lines.some(item=>{const line=selected.lines.find(l=>l.id===item.lineId);return !line||!Number.isFinite(item.quantity)||item.quantity<=0||item.quantity>(line.quantity??0)-line.received})){setError("本次到貨數量須大於 0，且不可超過剩餘數量");return}
+  if(!lines.some(l=>l.quantity>0)){setError(receipt.receiptId?"本筆到貨不可全部為 0，請使用刪除":"本次到貨數量須大於 0，且不可超過剩餘數量");return}
+  if(lines.some(item=>{const line=selected.lines.find(l=>l.id===item.lineId),was=old.get(item.lineId)??0;
+   const cap=receipt.receiptId?line?.closedAs?was:(line?.quantity??0)-(line?.received??0)+was:(line?.quantity??0)-(line?.received??0);
+   return !line||!Number.isFinite(item.quantity)||item.quantity<0||(!receipt.receiptId&&item.quantity<=0)||item.quantity>cap;
+  })){setError("本次到貨數量超過可用數量或明細不正確");return}
   const fullNo="341A-"+receipt.no;
-  if(selected.receipts.some(x=>x.erpPurchaseNo===fullNo)&&
-    !await confirm({title:"進貨單號重複",description:"本張叫貨單已有「"+fullNo+"」的到貨紀錄。可以繼續登記，但請先確認沒有重複計算。",confirmLabel:"繼續登記"}))return;
-  try{const value=await write("/orders/"+receipt.id+"/receipts","POST",{erpPurchaseNo:receipt.no,receivedDate:receipt.date,lines});if(value)setReceipt(null)}
-  catch{/* write() already reports the error; retain the form for reconciliation, never silently retry. */}
+  if(selected.receipts.some(x=>x.id!==receipt.receiptId&&x.erpPurchaseNo===fullNo)&&
+   !await confirm({title:"進貨單號重複",description:"本張叫貨單已有「"+fullNo+"」的到貨紀錄。可以繼續登記，但請先確認沒有重複計算。",confirmLabel:"繼續登記"}))return;
+  try{const path="/orders/"+receipt.id+"/receipts"+(receipt.receiptId?"/"+receipt.receiptId:"");
+   const value=await write(path,receipt.receiptId?"PUT":"POST",{erpPurchaseNo:receipt.no,receivedDate:receipt.date,lines});
+   if(value)setReceipt(null);
+  }catch{/* write() reports error, keep form for review. */}
  }
  async function closeRemaining(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!selected||!closing)return;
   const value=await write("/orders/"+selected.id+"/close","POST",{lineId:closing.id,closedAs:closing.kind,reason:closing.reason});if(value)setClosing(null)}
@@ -434,8 +456,16 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
        </div>
       </div>
       {current.receipts.length?<section className="cy-ordering-lines" aria-label="到貨紀錄"><h3>到貨紀錄<small>{current.receipts.length} 筆</small></h3>
-       <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>ERP 進貨單號</th><th>到貨日期</th></tr></thead><tbody>
-        {current.receipts.map(x=><tr key={x.id}><td className="cy-mono">{x.erpPurchaseNo}</td><td>{displayDate(x.receivedDate)}</td></tr>)}</tbody></table></div></section>:null}
+       <div className="cy-op-table-wrap"><table className="cy-op-table cy-ordering-receipts"><thead><tr><th>到貨日期</th><th>ERP 進貨單號</th><th>本次到貨品項</th><th>登記人／時間</th><th>操作</th></tr></thead><tbody>
+        {current.receipts.map(x=><tr key={x.id}>
+         <td data-label="到貨日期">{displayDate(x.receivedDate)}</td><td data-label="ERP 進貨單號" className="cy-mono">{x.erpPurchaseNo}</td>
+         <td data-label="本次到貨品項" className="cy-ordering-receipt-summary">{receiptItemSummary(x.lines.map(l=>{const item=current.lines.find(i=>i.id===l.lineId);return {itemName:item?.itemName||item?.vendorItemName||item?.itemCode||"品項",quantity:l.quantity,unit:item?.unit??""}}))}</td>
+         <td data-label="登記人／時間">{x.createdBy||"—"}<small>{displayTime(x.createdAt)}</small></td>
+         <td data-label="操作"><div className="cy-ordering-receipt-actions">
+          <IconButton icon={Icons.edit} label="修改到貨" variant="table" disabled={busy||current.storedStatus!=="SENT"} onClick={()=>editReceipt(x,current)}/>
+          <IconButton icon={Icons.remove} label="刪除到貨" variant="table" tone="danger" disabled={busy||current.storedStatus!=="SENT"} onClick={()=>void deleteReceipt(x,current)}/>
+         </div></td>
+        </tr>)}</tbody></table></div></section>:null}
       {current.storedStatus==="DRAFT"||currentSource?.kind==="VENDOR"?<div className="cy-ordering-meta">
        {current.storedStatus==="DRAFT"?<><span className="cy-ordering-meta-label">草稿</span>
         <div className="cy-ordering-meta-value" role="group" aria-label="草稿">
@@ -455,7 +485,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
       </div>:null}
       {editable?<form onKeyDown={enterAdvancesFields} onSubmit={e=>{e.preventDefault();if(headerDirty.date)void saveHeader("date");if(headerDirty.note)void saveHeader("note")}}>
        <FormSection>
-        <Field label="預計送出日期" size="s"><input type="date" className="cy-op-input" max="9999-12-31" disabled={!editable} value={current.plannedSendDate??""} onChange={e=>{headerEditRevisions.current.date++;headerDirtyRef.current={...headerDirtyRef.current,date:true};setHeaderDirty(v=>({...v,date:true}));setSelected(v=>v?{...v,plannedSendDate:e.target.value||null}:v)}} onBlur={()=>void saveHeader("date")}/></Field>
+        <Field label="預計送出日期" size="s"><DateInput density="regular" className="cy-op-input" max="9999-12-31" disabled={!editable} value={current.plannedSendDate??""} onChange={e=>{headerEditRevisions.current.date++;headerDirtyRef.current={...headerDirtyRef.current,date:true};setHeaderDirty(v=>({...v,date:true}));setSelected(v=>v?{...v,plannedSendDate:e||null}:v)}} onBlur={()=>void saveHeader("date")}/></Field>
         <Field label="單據備註" size="m" hint={headerDirty.date||headerDirty.note?"離開欄位後自動儲存":undefined}><input className="cy-op-input" disabled={!editable} value={current.note} onChange={e=>{headerEditRevisions.current.note++;headerDirtyRef.current={...headerDirtyRef.current,note:true};setHeaderDirty(v=>({...v,note:true}));setSelected(v=>v?{...v,note:e.target.value}:v)}} onBlur={()=>void saveHeader("note")}/></Field>
        </FormSection>
       </form>:null}
@@ -487,9 +517,9 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
       options={(["SENT","PARTIAL","CLOSED","VOID"] as const).map(code=>({code,label:ORDERING_STATUS_LABELS[code],tone:STATUS_TONE[code]}))}/>
      <div className="cy-ordering-list-filters">
       <OrderingSourcePicker sources={sources} value={Number(sourceFilter)||0} onChange={id=>setSourceFilter(id?String(id):"")} includeHidden allowAll label="篩選叫貨來源"/>
-      <input type="date" className="cy-op-input" aria-label="起日" max="9999-12-31" value={from} onChange={e=>setFrom(e.target.value)}/>
+      <DateInput className="cy-op-input" aria-label="起日" max="9999-12-31" value={from} onChange={e=>setFrom(e)}/>
       <span aria-hidden="true">～</span>
-      <input type="date" className="cy-op-input" aria-label="迄日" max="9999-12-31" value={to} onChange={e=>setTo(e.target.value)}/>
+      <DateInput className="cy-op-input" aria-label="迄日" max="9999-12-31" value={to} onChange={e=>setTo(e)}/>
      </div>
      <div className="cy-md-count">共 {shown.length} 筆</div>
     </div>
@@ -598,21 +628,27 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
     </FormSection>
     <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setSourceForm(null)}>取消</button><button type="submit" className="cy-op-button primary" disabled={busy}>儲存</button></div>
    </form></Dialog>:null}
-  {receipt&&selected?<Dialog open title="登記到貨" onClose={()=>setReceipt(null)} size="large" className="cy-ordering-receipt-dialog"><form onKeyDown={enterAdvancesFields} onSubmit={e=>void receive(e)}>
+  {receipt&&selected?<Dialog open title={receipt.receiptId?"修改到貨":"登記到貨"} onClose={()=>setReceipt(null)} size="large" className="cy-ordering-receipt-dialog"><form onKeyDown={enterAdvancesFields} onSubmit={e=>void receive(e)}>
     <FormSection>
    <Field label="ERP 進貨單號 341A-" size="m" required><input className="cy-op-input" inputMode="numeric" pattern="[0-9]{11}" maxLength={11} value={receipt.no} onChange={e=>setReceipt(v=>v?{...v,no:e.target.value}:v)}/></Field>
-   <Field label="到貨日期" size="s" required><input className="cy-op-input" type="date" max="9999-12-31" value={receipt.date} onChange={e=>setReceipt(v=>v?{...v,date:e.target.value}:v)}/></Field>
+   <Field label="到貨日期" size="s" required><DateInput density="regular" className="cy-op-input" max="9999-12-31" value={receipt.date} onChange={e=>setReceipt(v=>v?{...v,date:e}:v)}/></Field>
     </FormSection>
    <RequiredRows label="至少選擇一項到貨品項" satisfied={receipt.selectedLineIds.length>0}/>
    <div className="cy-op-table-wrap" role="region" aria-label="登記到貨品項" tabIndex={0}><table className="cy-op-table cy-ordering-grid cy-ordering-receipt-table">
     <colgroup><col className="cy-ordering-receipt-col-select"/><col className="cy-ordering-receipt-col-code"/><col/><col className="cy-ordering-receipt-col-vendor-code"/><col/><col className="cy-ordering-receipt-col-quantity"/><col className="cy-ordering-receipt-col-quantity"/><col className="cy-ordering-receipt-col-quantity"/><col className="cy-ordering-receipt-col-input"/></colgroup>
-    <thead><tr><th scope="col">選取</th><th scope="col">品號</th><th scope="col">品名</th><th scope="col">廠商品號</th><th scope="col">廠商品名</th><th scope="col">叫貨數量</th><th scope="col">已到數量</th><th scope="col">剩餘數量</th><th scope="col">本次到貨</th></tr></thead><tbody>
-    {selected.lines.filter(l=>l.quantity!==null&&l.received<l.quantity&&!l.closedAs).map((l,i)=>{const remaining=(l.quantity??0)-l.received,checked=receipt.selectedLineIds.includes(l.id);return <tr key={l.id}>
+    <thead><tr><th scope="col">選取</th><th scope="col">品號</th><th scope="col">品名</th><th scope="col">廠商品號</th><th scope="col">廠商品名</th><th scope="col">叫貨數量</th><th scope="col">已到數量</th><th scope="col">{receipt.receiptId?"可填上限":"剩餘數量"}</th><th scope="col">本次到貨</th></tr></thead><tbody>
+    {selected.lines.filter(l=>{if(l.quantity===null)return false;
+    if(!receipt.receiptId)return l.received<l.quantity&&!l.closedAs;
+    const own=selected.receipts.find(r=>r.id===receipt.receiptId)?.lines.find(x=>x.lineId===l.id)?.quantity??0;
+    return own>0||(!l.closedAs&&l.received<l.quantity);
+   }).map((l,i)=>{const own=receipt.receiptId?selected.receipts.find(r=>r.id===receipt.receiptId)?.lines.find(x=>x.lineId===l.id)?.quantity??0:0;
+    const remaining=receipt.receiptId?l.closedAs?own:(l.quantity??0)-l.received+own:(l.quantity??0)-l.received;
+    const checked=receipt.selectedLineIds.includes(l.id);return <tr key={l.id}>
      <td><CheckField label={<span className="cy-ordering-visually-hidden">選取第 {i+1} 項 {l.itemName||l.vendorItemName}</span>} checked={checked} onChange={e=>setReceipt(v=>v?{...v,selectedLineIds:e.target.checked?[...v.selectedLineIds,l.id]:v.selectedLineIds.filter(id=>id!==l.id)}:v)}/></td>
      <td className="cy-mono">{l.itemCode}</td><td>{l.itemName}</td><td className="cy-mono">{l.vendorItemCode}</td><td>{l.vendorItemName}</td><td>{l.quantity}{l.unit}</td><td>{l.received}</td><td>{remaining}</td>
-     <td><Field label={"本次到貨數量 第"+(i+1)+"列"} size="s" required={checked}><input className="cy-op-input" type="number" min="0" max={remaining} step="any" disabled={!checked} value={receipt.quantities[l.id]??String(remaining)} onChange={e=>setReceipt(v=>v?{...v,quantities:{...v.quantities,[l.id]:e.target.value}}:v)}/></Field></td>
+     <td><Field label={"本次到貨數量 第"+(i+1)+"列"} size="s" required={checked}><input className="cy-op-input" type="number" min="0" max={remaining} step="any" disabled={!checked} value={receipt.quantities[l.id]??String(receipt.receiptId?own:remaining)} onChange={e=>setReceipt(v=>v?{...v,quantities:{...v.quantities,[l.id]:e.target.value}}:v)}/></Field></td>
     </tr>})}</tbody></table></div>
-   <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setReceipt(null)}>取消</button><button type="submit" className="cy-op-button primary" disabled={receiptSaving} aria-busy={receiptSaving||undefined}>儲存到貨</button></div>
+   <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setReceipt(null)}>取消</button><button type="submit" className="cy-op-button primary" disabled={receiptSaving} aria-busy={receiptSaving||undefined}>{receipt.receiptId?"儲存修改":"儲存到貨"}</button></div>
   </form></Dialog>:null}
   {closing?<Dialog open title="結掉剩餘量" onClose={()=>setClosing(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void closeRemaining(e)}>
     <FormSection><Field label="處理方式" size="m"><select className="cy-op-input" value={closing.kind} onChange={e=>setClosing(v=>v?{...v,kind:e.target.value as typeof v.kind}:v)}><option value="SHORTAGE">缺貨</option><option value="CANCELLED">取消</option><option value="OTHER">其他</option></select></Field>
