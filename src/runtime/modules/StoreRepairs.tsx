@@ -1,3 +1,4 @@
+import {OpenOnlyToggle} from "../../ui/data/OpenOnlyToggle";
 import {useCallback,useEffect,useRef,useState,type FormEvent} from "react";
 import {apiRequest} from "../../api/client";
 import {Loading} from "../../ui/feedback/Loading";
@@ -71,7 +72,7 @@ export function StoreRepairs(){
  if(!loaded)return <Loading/>;
  return <div className="cy-store-orders cy-store-repairs"><FeedbackBanner message={message} tone={feedbackTone}/>
   <DataViewToolbar searchValue={search} onSearchChange={setSearch} searchLabel="搜尋售後維修" searchPlaceholder="搜尋客戶編號、姓名、電話、LINE、型號、機號、故障、寄送編號"
-   beforeSearch={<button className="cy-op-button primary" type="button" aria-pressed={openOnly} onClick={()=>setOpenOnly(v=>!v)}>{openOnly?"顯示全部":"顯示未結案"}</button>}
+   beforeSearch={<OpenOnlyToggle value={openOnly} onChange={setOpenOnly}/>}
    actions={<button type="button" className="cy-op-button primary" onClick={()=>setForm(draft())}>＋ 新增維修</button>}/>
   <div className="cy-store-filters"><StatusFilter label="維修處理狀態" counts={counts} value={filter} onChange={setFilter} options={[...STORE_REPAIR_STATUSES.map(code=>({code,label:STORE_REPAIR_STATUS_LABELS[code],tone:tone[code]})),{code:"CANCELLED",label:"取消維修",tone:"neutral"},{code:"OVERDUE",label:"逾期",tone:"danger"}]}/></div>
   {loading?<Loading inline/>:null}

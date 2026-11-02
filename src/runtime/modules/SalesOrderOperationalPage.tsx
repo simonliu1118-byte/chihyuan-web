@@ -1,3 +1,4 @@
+import { DateInput } from "../../ui/forms/DateInput";
 import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import { formatItem } from "../../ui/foundation/format";
 import { formatDate } from "../../ui/foundation/format";
@@ -562,7 +563,7 @@ export function SalesOrderOperationalPage() {
                   getKey={(row) => row.id} getLabel={(row) => `${row.customerNo ? `${row.customerNo} · ` : ""}${row.shortName}`}
                   placeholder="輸入客戶編號或名稱" description="未建檔的現場客戶可留空，改填下方名稱。" />
                 {draft.customerId == null ? <Field label="現場客戶名稱" size="m" required><input className="cy-op-input" value={draft.customerName} disabled={busy} onChange={(event) => setDraft({ ...draft, customerName: event.target.value })} /></Field> : null}
-                <Field label="工單日期" size="s"><input className="cy-op-input" type="date" max="9999-12-31" value={draft.orderDate} disabled={busy} onChange={(event) => setDraft({ ...draft, orderDate: event.target.value })} /></Field>
+                <Field label="工單日期" size="s"><DateInput density="regular" className="cy-op-input" max="9999-12-31" value={draft.orderDate} disabled={busy} onChange={(event) => setDraft({ ...draft, orderDate: event })} /></Field>
                 <Field label="操作人員" size="m"><select className="cy-op-input" value={draft.operatorEmployeeId ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, operatorEmployeeId: Number(event.target.value) || null })}>
                     <option value="">請選擇</option>
                     {(lookups?.operators ?? []).map((row) => <option key={row.id} value={row.id}>{operatorLabel(row.id, row.employeeNo)}{row.isActive ? "" : "（已停用）"}</option>)}

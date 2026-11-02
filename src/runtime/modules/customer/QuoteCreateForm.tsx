@@ -1,3 +1,4 @@
+import { DateInput } from "../../../ui/forms/DateInput";
 import {Field,FormSection,RequiredRows} from "../../../ui/forms/Field";
 import { enterAdvancesFields } from "../../../ui/foundation/enter-advance";
 import { FormEvent, useState } from "react";
@@ -68,8 +69,8 @@ export function QuoteCreateForm({ customerId, initialLines, onSaved, onCancel }:
   return <form onKeyDown={enterAdvancesFields} className="cy-customer-quote-form" onSubmit={event => void save(event)}>
     <FormSection>
     <div className="cy-customer-quote-header-fields">
-      <Field label="日期" size="s" required><input type="date" max="9999-12-31" className="cy-op-input" value={quoteDate} disabled={busy}
-        onChange={event => setQuoteDate(event.target.value)} /></Field>
+      <Field label="日期" size="s" required><DateInput density="regular" max="9999-12-31" className="cy-op-input" value={quoteDate} disabled={busy}
+        onChange={event => setQuoteDate(event)} /></Field>
       <Field label="備註" size="l"><input className="cy-op-input" value={note} disabled={busy} maxLength={120}
         onChange={event => setNote(event.target.value)} /></Field>
     </div>

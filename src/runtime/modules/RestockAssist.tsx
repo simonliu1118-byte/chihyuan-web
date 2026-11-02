@@ -174,7 +174,7 @@ export function RestockAssist({ job, canQueryItem, canOrdering }: { job: ErpJob;
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
-    if (Array.from(event.currentTarget.querySelectorAll<HTMLInputElement>('input[type="date"]')).some(input => input.validity.badInput)) {
+    if (Array.from(event.currentTarget.querySelectorAll<HTMLInputElement>('.cy-date-input input')).some(input => input.validity.customError)) {
       setError("請選擇完整且有效的單據日期。"); return;
     }
     let range;

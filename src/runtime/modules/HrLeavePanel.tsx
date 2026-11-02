@@ -1,3 +1,4 @@
+import { DateInput } from "../../ui/forms/DateInput";
 import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import {useCallback,useEffect,useState} from "react";
 import {apiRequest} from "../../api/client";
@@ -147,7 +148,7 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
      <p>請於特休年度內排定休假；年度終結未休完的天數依勞動基準法第 38 條遞延或發給工資。</p>
      <p>通知日期：{ymd(noteDate)}</p><p className="hr-leave-signature">雇主（蓋章）：___________________</p><p>員工簽收：___________________　日期：___________________</p>
    </div>:null}
-   <div className="cy-op-form-footer no-print"><label>通知日期<input type="date" max="9999-12-31" className="cy-op-input" value={noteDate} onChange={e=>setNoteDate(e.target.value)}/></label>
+   <div className="cy-op-form-footer no-print"><label>通知日期<DateInput max="9999-12-31" className="cy-op-input" value={noteDate} onChange={e=>setNoteDate(e)}/></label>
     <button type="button" className="cy-op-button" onClick={printNotice}>列印</button>
     <button type="button" className="cy-op-button primary" onClick={()=>{const id=printYear?.id;setPrintYear(null);void act(()=>apiRequest("/api/business/hr/annual-leave-years/"+id+"/notice",{method:"PATCH",json:{notifiedOn:noteDate}}),"記錄失敗")}}>記錄已通知</button>
    </div>

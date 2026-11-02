@@ -1,7 +1,7 @@
 # WO-0.9.74 到貨紀錄改版與可修改、全站日期欄位統一
 
-- 狀態：待執行
-- 分支：cyweb/wo-0.9.74-receipts-dates　PR：#（執行者填）
+- 狀態：GPT 程式與初輪自動測試完成；待最新 head CI、Claude 複審與實際畫面驗收；未合併、未部署
+- 分支：cyweb/wo-0.9.74-receipts-dates　PR：[ #362 ](https://github.com/simonliu1118-byte/chihyuan-web/pull/362)
 - 有新增 API（修改／刪除到貨紀錄），沒有 migration：**Claude 審查通過後才合併部署**。
 
 ## 1. 背景（使用者原話，2026-11-03）
@@ -117,6 +117,34 @@
   - 任選 3 個換過日期欄位的畫面（含一個表單、一個篩選列）。
 - 手機 390：到貨紀錄卡片、修改對話框。
 
-## 8. 完成報告（執行者填）
+## 8. 完成報告（GPT，2026-11-02）
+- 工單來源：Claude 編寫 `WO-0.9.74`；實際程式版 V0.9.75／BUILD 0。開工 main 為 `1690020eb246fa896e7a197105afbe19c1a23359`（V0.9.73）。Claude 在執行期間合併另一項 V0.9.74 工作，本分支透過二父系 merge 納入最新 main `b75f29165006cb61fc05e04510592e393f1ca33d`，保留進貨輔助「按加入才查草稿」、自適應抽屜及藍色按鈕。
+- 分支 `cyweb/wo-0.9.74-receipts-dates`；[PR #362](https://github.com/simonliu1118-byte/chihyuan-web/pull/362)。**未合併、未部署、未發 Release**。
+- `worker/http/ordering-routes.ts`：查詢到貨增加登記人；新增 `PUT/DELETE /orders/:id/receipts/:receiptId`，沿用 ORDERING 權限、版號守門與 `mutate` 的單次 D1 batch，資料修改／刪除產生一筆修訂與稽核記錄，僅限 stored SENT。修改允許 0（全部 0 拒絕）、補行、單號、日期；上限扣除其他到貨，已結掉品項只能減。刪除最後一筆後無結掉則衍生為已送出。
+- `src/runtime/modules/OrderingPage.tsx`：到貨表增加日期、等寬 ERP 單號、可換行摘要、登記人／時間與 `IconButton` 編輯／刪除；手機 CSS 轉為卡片。原「登記到貨」`Dialog` 加上 `receiptId` 編輯模式，已存在號碼提示排除本筆，刪除先危險確認。
+- `shared/ordering.ts`：共用 `receiptItemSummary` 產生品名／數量／單位，用於列表與後端修訂摘要。
+- 日期輸入：稽核、客戶、報價、ERP 客戶／供應商／交易對話框、瑕疵、銷售、委外、日誌、人事（含動態員工與請假／設定）、叫貨全改 `DateInput`；`type=month` 不變。調整 date-input.css 寬度、ERP 篩選樣式；`form-keyboard.test.mjs` 新增源碼禁止 `type="date"` 測試。
+- 增加 `scripts/ordering-route.test.mjs`、`scripts/ordering-page.test.mjs` 實際用例，驗證版本、超量、全 0、作廢、閉合品項、刪除回 SENT、登記人與編輯／刪除交互。
+- [整合前 Runtime Check #41443489077](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41443489077)，commit `80c6c1607`：**588／588 Node 測試，0 失敗**，browser/worker-typecheck、source-contracts、D1 local acceptance、Build 均成功。最新 main merge 後仍須依 PR 最新 head CI 核對（未核對前不可聲稱已交審全綠）。
+- **未完成的人工視覺驗收**：桌面 1440：2～3 筆到貨、修改 Dialog、刪除確認、三個日期畫面（含表單與篩選）；手機 390：到貨卡片、修改 Dialog。尚未有真實截圖，不冒稱完成。
+- Claude 完整交接：`docs/handoff/CYWEB-WO-0.9.74-GPT-20261102.md`；請 Claude 審核後於第 9 節簽署結論。
+
+
 
 ## 9. 審查紀錄（審查者填）
+
+### Claude 審查（2026-11-03，通過，V0.9.76 合併部署）
+
+版本：V0.9.75 已給 Claude 的「加入叫貨單顯示未到貨」，本 PR 改為 **V0.9.76**。
+
+審查時直接修正：
+1. **手機到貨紀錄卡片看不到內容**：共用 `.cy-op-table` 的 560px 最小寬度蓋過卡片規則，卡片被撐出畫面，右邊的日期、單號、品項全部在畫面外。已提高選擇器權重，改為滿版卡片（390 截圖確認）。
+2. **手機登記／修改到貨對話框的品項表格被擠成一字一行**：手機通用表格規則拿掉了原本的 900px 最小寬度（這是原本就有的問題，修改到貨沿用同一個對話框才看到）。手機改為隱藏廠商品號／品名兩欄、最小寬度 560px，左右捲動。
+3. 修改模式下「剩餘數量」欄顯示的其實是可填上限（剩餘＋這筆原本的數量），欄名改為「可填上限」。
+
+確認無誤：
+- PUT／DELETE 都要求 `storedStatus` 為 SENT，走 `mutate` 版本守門，一個 D1 batch 完成；上限為「叫貨數量 − 其他到貨」，已結掉的品項只能減少，全部為 0 回 422。
+- 取消勾選原本有的品項，等於把它從這筆到貨移除，修訂紀錄會寫「→ 0」，符合「可改成 0」。
+- 登記人改由 `app_members` 帶出人名。
+- `src` 已無 `type="date"`，`form-keyboard.test.mjs` 會擋。DateInput 寬度改為 regular 162px、compact 148px，避免「YYYY/MM/DD」被截斷。這是全站共用的調整，門市的日期欄位也跟著略寬，可接受。
+- 桌面 1440：到貨紀錄表格、修改對話框；手機 390：卡片、對話框，用合成資料截圖確認。

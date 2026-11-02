@@ -1,3 +1,4 @@
+import { DateInput } from "../../ui/forms/DateInput";
 import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import {useEffect,useState,type FormEvent} from "react";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
@@ -105,9 +106,9 @@ export function HrLeaveDialog({person:given,people,types,initialDate,initialType
     :<p>{person.employee_no}　{person.name}（{person.employment_type==="full"?"正職":person.employment_type==="half"?"半職":"兼職"}）</p>}
    <Field label="假別" size="m" required><select className="cy-op-input" value={typeId} onChange={e=>setTypeId(Number(e.target.value))}>
     {types.filter(x=>x.is_active!==0&&x.code!=="國").map(x=><option key={x.id} value={x.id}>{x.code} {x.name}</option>)}</select></Field>
-   <Field label="請假日期" size="s" required><input className="cy-op-input" type="date" max="9999-12-31" value={from} onChange={e=>{setFrom(e.target.value);if(!wholeDay)setTo(e.target.value)}}/></Field>
+   <Field label="請假日期" size="s" required><DateInput density="regular" className="cy-op-input" max="9999-12-31" value={from} onChange={e=>{setFrom(e);if(!wholeDay)setTo(e)}}/></Field>
    {person.employment_type==="full"?<CheckField  label="整天請假（8 小時）" size="s"  checked={wholeDay} onChange={e=>setWholeDay(e.target.checked)}/>:null}
-   {wholeDay?<Field label="結束日期" size="s" required><input className="cy-op-input" type="date" min={from} max="9999-12-31" value={to} onChange={e=>setTo(e.target.value)}/></Field>:
+   {wholeDay?<Field label="結束日期" size="s" required><DateInput density="regular" className="cy-op-input" min={from} max="9999-12-31" value={to} onChange={e=>setTo(e)}/></Field>:
     <>{person.employment_type!=="full"?<CheckField  label="當天沒有班別，直接輸入請假分鐘數" size="s"  checked={manualMinutes} onChange={e=>setManualMinutes(e.target.checked)}/>:null}
     {manualMinutes&&person.employment_type!=="full"?<Field label="請假時數（分鐘，30 的倍數）" size="s" required><input className="cy-op-input" type="number" min="30" step="30" value={minutes} onChange={e=>setMinutes(e.target.value)}/></Field>:<>
      <Field label="起始時間" size="s"><input className="cy-op-input" type="time" value={startTime} onChange={e=>setStartTime(e.target.value)}/></Field>
@@ -117,7 +118,7 @@ export function HrLeaveDialog({person:given,people,types,initialDate,initialType
      <option value="">使用現有補休</option>
      {holidays.map(h=><option key={h.date} value={h.date}>預支 {h.date.replaceAll("-","/")} {h.name} 的補休</option>)}</select></Field>:null}
    {type?.requires_reason?<Field label="事由（必填）" size="l" required><textarea className="cy-op-input" value={reason} onChange={e=>setReason(e.target.value)}/></Field>:null}
-   {type?.quota_period==="event"?<Field label="事件日期" size="s" required><input type="date" className="cy-op-input" max="9999-12-31" value={eventDate} onChange={e=>setEventDate(e.target.value)}/></Field>:null}
+   {type?.quota_period==="event"?<Field label="事件日期" size="s" required><DateInput density="regular" className="cy-op-input" max="9999-12-31" value={eventDate} onChange={e=>setEventDate(e)}/></Field>:null}
    {type?.event_quota_options?<Field label="本次天數" size="m"><select className="cy-op-input" value={eventDays} onChange={e=>setEventDays(e.target.value)}>{type.event_quota_options.split(",").map(x=><option key={x}>{x}</option>)}</select></Field>:null}
    {type?.accepts_proof?<><Field label="證明照片（最多 3 張，非必填）" size="m"><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>setFiles(Array.from(e.target.files??[]).slice(0,3))}/></Field>
     <CheckField  label="黑白縮圖" size="s"  checked={gray} onChange={e=>setGray(e.target.checked)}/>{files.map(f=><small key={f.name}>{f.name}</small>)}</>:null}

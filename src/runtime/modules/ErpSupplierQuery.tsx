@@ -1,3 +1,4 @@
+import { DateInput } from "../../ui/forms/DateInput";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { SegmentedControl } from "../../ui/primitives/SegmentedControl";
 import { HistoryRangeError, resolveDateRange, taipeiToday } from "../../../shared/erp-query-history";
@@ -45,7 +46,7 @@ export function ErpSupplierQuery({ job }: { job: ErpJob }) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
-    if (mode === "PURCHASES" && Array.from(event.currentTarget.querySelectorAll<HTMLInputElement>('input[type="date"]')).some(input => input.validity.badInput)) {
+    if (mode === "PURCHASES" && Array.from(event.currentTarget.querySelectorAll<HTMLInputElement>('.cy-date-input input')).some(input => input.validity.customError)) {
       setError("請選擇完整且有效的單據日期。"); return;
     }
     const code = parseErpCode(text);
@@ -85,8 +86,8 @@ export function ErpSupplierQuery({ job }: { job: ErpJob }) {
           </button>
         </div>
         {mode === "PURCHASES" && <div className="cy-erp-history-options">
-          <label>起日 <input className="cy-op-input" type="date" max={taipeiToday()} value={dateFrom} disabled={busy} onChange={e => setDateFrom(e.target.value)} /></label>
-          <label>迄日 <input className="cy-op-input" type="date" max={taipeiToday()} value={dateTo} disabled={busy} onChange={e => setDateTo(e.target.value)} /></label>
+          <label>起日 <DateInput className="cy-op-input" max={taipeiToday()} value={dateFrom} disabled={busy} onChange={e => setDateFrom(e)} /></label>
+          <label>迄日 <DateInput className="cy-op-input" max={taipeiToday()} value={dateTo} disabled={busy} onChange={e => setDateTo(e)} /></label>
           <p>單據日期起訖都未填：去年同月同日至今天；範圍最多三年。輸入名稱時先列出廠商。</p>
         </div>}
       </form>

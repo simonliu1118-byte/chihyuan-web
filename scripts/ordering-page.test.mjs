@@ -17,6 +17,9 @@ const stubs = {
   "../../ui/overlays/useConfirmation": `export const useConfirmation=()=>({confirm:options=>globalThis.orderingPageConfirm(options),confirmationDialog:null});`,
   "../../ui/feedback/FeedbackProvider": `import {useState} from 'react'; export const FeedbackBanner=()=>null; export function useFeedbackMessage(){const [message,setMessage]=useState(null);return [message,setMessage,value=>{globalThis.orderingPageErrors.push(value);setMessage(value)},'neutral'];}`,
   "../../ui/OrderingGrid": `export function OrderingGrid(){return null}`,
+  "../../ui/forms/DateInput": `export function DateInput(){return null}`,
+  "../../ui/actions/IconButton": `export function IconButton(){return null}`,
+  "../../ui/actions/icons": `export const Icons={edit:null,remove:null}`,
   "../../ui/overlays/SidePanel": `export function SidePanel(){return null}`,
   "./RestockAssist": `export function RestockAssist(){return null}`,
   "./useErpJob": `export const ErpPageVisibleContext={}; export function useErpJob(){return {result:null,busy:false}}`,
@@ -146,7 +149,7 @@ test("a selected zero receipt quantity is rejected rather than silently omitted"
 test("opening an existing draft needs only list and detail; initial history is not fetched twice", async () => {
   const page = mount(normalTransport); await page.tick();
   assert.deepEqual(page.calls.map(x => x.path).sort(), ["/sources", "/pending", "/preferences/vendors"].sort());
-  assert.equal(page.heading, "未到貨明細"); assert.deepEqual(page.selectedTabs, []);
+  assert.equal(page.heading, "未到貨明細"); assert.deepEqual(page.selectedTabs.map(t => t.trim()), ["未到貨"], "未到貨 is the first tab of the source bar");
   assert.equal(page.grid, undefined, "entering the module never loads or creates a draft");
   page.calls.length = 0; page.click("測試來源甲"); await page.tick();
   assert.deepEqual(page.calls.map(x => x.path), ["/orders?sourceId=1&status=DRAFT", "/orders/10"]);
@@ -325,5 +328,27 @@ test('authorized restock button opens drawer without changing source tabs',async
  allowed.click('進貨輔助');await allowed.tick();
  const drawer=allowed.nodes.find(n=>n.type?.name==='OrderingRestockDrawer');
  assert.equal(drawer?.props.open,true);
- assert.deepEqual(allowed.selectedTabs,[]);
+ assert.deepEqual(allowed.selectedTabs.map(t=>t.trim()),['未到貨'],'the source tab stays where it was');
+});
+
+test("receipt history shows quantities and actor; edit reuses receipt dialog and deletion needs confirmation",async()=>{
+ const receipt={id:9,erpPurchaseNo:"341A-20261023001",receivedDate:"2026-10-23",createdBy:"測試員工甲",createdAt:"2026-10-23T01:02:00Z",lines:[{lineId:1,quantity:4}]};
+ const received=()=>({...sentOrder(),receipts:[receipt]});
+ const page=mount((path,options)=>path==="/orders/10"?received():normalTransport(path,options));
+ await page.tick();page.click("測試來源甲");await page.tick();
+ const tr=page.nodes.find(n=>n.type==="tr"&&text(n).includes("測試商品1"));
+ assert.ok(tr,"a receipt has five columns");
+ assert.match(text(tr),/測試商品1 4 箱/);
+ assert.match(text(tr),/測試員工甲/);
+ const icons=page.nodes.filter(n=>n.type?.name==="IconButton");
+ assert.ok(icons.some(n=>n.props.label==="修改到貨"));
+ icons.find(n=>n.props.label==="修改到貨").props.onClick();page.render();
+ const dialog=page.nodes.find(n=>n.type?.name==="Dialog"&&n.props.title==="修改到貨");
+ assert.ok(dialog);
+ assert.equal(page.nodes.find(n=>n.props?.label==="ERP 進貨單號 341A-")?.props.children.props.value,"20261023001");
+ assert.equal(page.nodes.find(n=>n.props?.label==="到貨日期")?.props.children.props.value,"2026-10-23");
+ page.nodes.find(n=>n.type?.name==="IconButton"&&n.props.label==="刪除到貨").props.onClick();await page.tick();
+ assert.equal(page.confirmations.at(-1)?.confirmTone,"danger");
+ assert.match(page.confirmations.at(-1)?.description,/已到數量會扣回/);
+ assert.equal(page.calls.some(c=>c.method==="DELETE"),false);
 });

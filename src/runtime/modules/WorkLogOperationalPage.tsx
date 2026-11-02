@@ -1,3 +1,4 @@
+import { DateInput } from "../../ui/forms/DateInput";
 import {Field,CheckField,FormSection,RequiredRows} from "../../ui/forms/Field";
 import { formatDate } from "../../ui/foundation/format";
 import { StatusFilter } from "../../ui/data/StatusFilter";
@@ -608,9 +609,9 @@ export function WorkLogOperationalPage() {
             <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
               <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立日誌" : "儲存修改"}</button></div></div>
             <div className="cy-f-grid cy-worklog-head-grid cy-form-grid-spaced">
-              <Field label="日誌日期" size="s"><input className="cy-op-input" type="date" max="9999-12-31" value={draft.logDate} disabled={busy} onChange={(event) => setDraft({ ...draft, logDate: event.target.value })} /></Field>
-              <Field label="期間起" size="s"><input className="cy-op-input" type="date" max="9999-12-31" value={draft.dateFrom} disabled={busy} onChange={(event) => setDraft({ ...draft, dateFrom: event.target.value })} /></Field>
-              <Field label="期間迄" size="s"><input className="cy-op-input" type="date" max="9999-12-31" value={draft.dateTo} disabled={busy} onChange={(event) => setDraft({ ...draft, dateTo: event.target.value })} /></Field>
+              <Field label="日誌日期" size="s"><DateInput density="regular" className="cy-op-input" max="9999-12-31" value={draft.logDate} disabled={busy} onChange={(event) => setDraft({ ...draft, logDate: event })} /></Field>
+              <Field label="期間起" size="s"><DateInput density="regular" className="cy-op-input" max="9999-12-31" value={draft.dateFrom} disabled={busy} onChange={(event) => setDraft({ ...draft, dateFrom: event })} /></Field>
+              <Field label="期間迄" size="s"><DateInput density="regular" className="cy-op-input" max="9999-12-31" value={draft.dateTo} disabled={busy} onChange={(event) => setDraft({ ...draft, dateTo: event })} /></Field>
               <Field label="工作日數" size="s" required><input className="cy-op-input" value={draft.workDays} inputMode="decimal" disabled={busy} onChange={(event) => setDraft({ ...draft, workDays: event.target.value })} /></Field>
               <Field label="日誌類型" size="s" required><input className="cy-op-input" value={draft.typeCode} disabled={busy} onChange={(event) => setDraft({ ...draft, typeCode: event.target.value })} placeholder="輸入日誌類型" /></Field>
             </div>

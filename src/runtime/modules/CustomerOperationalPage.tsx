@@ -1,3 +1,4 @@
+import { DateInput } from "../../ui/forms/DateInput";
 import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import { IconButton } from "../../ui/actions/IconButton";
 import { recordIdFromHash, replaceRouteParams } from "../navigation/route-params";
@@ -982,8 +983,8 @@ function VisitsPanel({ selected, rows, draft, setDraft, save, edit, remove, busy
   return <div className="cy-customer-related-content">
     {draft ? <form onKeyDown={enterAdvancesFields} className="cy-customer-related-form" onSubmit={save}>
     <FormSection>
-      <Field label="日期" size="s" required><input className="cy-op-input" type="date" max="9999-12-31" value={draft.visitDate} disabled={busy}
-        onChange={event => setDraft({ ...draft, visitDate: event.target.value })} /></Field>
+      <Field label="日期" size="s" required><DateInput density="regular" className="cy-op-input" max="9999-12-31" value={draft.visitDate} disabled={busy}
+        onChange={event => setDraft({ ...draft, visitDate: event })} /></Field>
       <Field label="聯絡人" size="m"><select className="cy-op-input" value={draft.contactId ?? ""} disabled={busy}
         onChange={event => setDraft({ ...draft, contactId: event.target.value ? Number(event.target.value) : null,
           personSnapshot: event.target.value ? "" : draft.personSnapshot })}>
@@ -1051,8 +1052,8 @@ function QuotesPanel({ customerId, rows, draft, setDraft, save, correct, busy, m
     {draft?.corrected ? <form onKeyDown={enterAdvancesFields} className="cy-customer-quote-form" onSubmit={save}>
     <FormSection>
       <div className="cy-customer-quote-header-fields">
-        <Field label="日期" size="s" required><input type="date" max="9999-12-31" className="cy-op-input" value={draft.quoteDate} disabled={busy}
-          onChange={event => setDraft({ ...draft, quoteDate: event.target.value })} /></Field>
+        <Field label="日期" size="s" required><DateInput density="regular" max="9999-12-31" className="cy-op-input" value={draft.quoteDate} disabled={busy}
+          onChange={event => setDraft({ ...draft, quoteDate: event })} /></Field>
         <Field label="備註" size="l"><input className="cy-op-input" value={draft.note} disabled={busy} maxLength={120}
           onChange={event => setDraft({ ...draft, note: event.target.value })} /></Field>
       </div>

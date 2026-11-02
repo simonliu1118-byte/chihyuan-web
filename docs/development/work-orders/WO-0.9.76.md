@@ -85,7 +85,7 @@
   - `FeedbackBanner`；
   - `Dialog`。
 - 抽屜寬度：`SidePanel` 已有 `width="auto"`＋`className="cy-restock-side"` 依內容大小（V0.9.74）。開每日明細時可加一個 class 放寬上限，不要改共用 `SidePanel`。
-- 版本 V0.9.77（WO-0.9.74 為 V0.9.76；若順序不同則接續最新版本）。
+- 版本 V0.9.78（V0.9.77 已由 Claude 用掉；若順序不同則接續最新版本）。
 
 ## 6. 驗收清單
 
@@ -107,7 +107,7 @@
 
 ## 8. 完成報告（執行者填）
 
-- 實作版本：V0.9.77 Build0，基底 main 5c2a01c；WO-0.9.74 的到貨／日期改版另案審查，未混入本分支。
+- 實作版本：V0.9.78 Build0，開工基底main 5c2a01c；開發中Claude合併WO-0.9.74（V0.9.76）及V0.9.77未到貨頁籤，已整合main 431a73c，依工單順延至V0.9.78，保留已合併功能。
 - 驗收：1440×900／340 個合成品號下抽屜 780px，內容 scrollWidth=clientWidth=763，只有 cy-restock-content 一層上下捲動；顯示每日明細後為 1100px，橫向與上下捲動均由同一內容區承擔，表頭 top=120 與內容頂端一致，固定品號 left=329 與內容左側一致。選擇重新整理後保留。
 - 加入：共用 IconButton/Icons.add（table），FeedbackBanner 作為不捲動 footer，加入後位於視窗底部；公司／廠商僅出現一次，上次來源預選與草稿點保留。80 個合成廠商下列表高度 174px、可見約五行，440px 加入對話框高度約 572px，本身不需捲動。
 - 手機390×844：抽屜寬390、內容無水平溢出、每日欄不建立／切換不顯示；同一表格轉 data-label 卡片，加入圖示在右上。手機加入對話框寬370，只有廠商列表捲動。
@@ -116,6 +116,7 @@
 - 截圖：外部交付 outputs/wo76-desktop-compact.png、wo76-desktop-daily.png、wo76-desktop-daily-sticky.png、wo76-desktop-add.png、wo76-desktop-footer.png、wo76-mobile-cards.png、wo76-mobile-add.png，全部是合成資料，未放入Public Git。
 - 偏離說明：每日明細的水平捲動與上下捲動共用抽屜內容區；若給 table wrapper overflow-x:auto，瀏覽器會同時建立上下捲動 ancestor，使 sticky 表頭無法相對抽屜固定。因此直接維持一個 scroll owner，沒有複製表頭／observer／DOM relocation／第二套手機元件，符合單層捲動目的。SidePanel共用元件未修改。
 - 資源：純前端；本輪正式D1讀0列／寫0列、正式ERP呼叫0。合成HTTP在localhost，不接正式服務，API/migration/Worker無變更。
+- 主線整合：只在TODO／CHANGELOG頂端的新版本段落有衝突，保留兩方內容並將本工單順延V0.9.78；RestockAssist的DateInput customError與日期／到貨／未到貨頁籤改動均保留。
 - 最新head CI：待PR建立後回填。Claude最終審查待填；未合併、未部署、未發Release。
 
 
