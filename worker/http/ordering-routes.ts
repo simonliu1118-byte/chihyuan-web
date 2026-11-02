@@ -75,10 +75,25 @@ const currentStatusSql=`CASE WHEN o.status<>'SENT' THEN o.status
  WHEN EXISTS(SELECT 1 FROM ordering_lines l WHERE l.order_id=o.id AND
   (l.closed_as IS NOT NULL OR EXISTS(SELECT 1 FROM ordering_receipt_lines rl WHERE rl.line_id=l.id)))
  THEN 'PARTIAL' ELSE 'SENT' END`;
+/**
+ * Server-Timing on every 叫貨 response (user 2026-11-03: the first tab switch waits ~3 s): `auth` is the
+ * login check and module grant, `total` the whole request, so the browser's Network panel shows where
+ * the time goes. Durations only; no identifiers or data.
+ */
 export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv,requestId:string):Promise<Response|null>{
+ const started=Date.now(),timing={auth:0};
+ const response=await orderingRoute(request,env,requestId,timing);
+ if(!response)return null;
+ const headers=new Headers(response.headers);
+ headers.set("Server-Timing",`auth;dur=${timing.auth}, total;dur=${Date.now()-started}`);
+ return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
+}
+async function orderingRoute(request:Request,env:IdentityRuntimeEnv,requestId:string,timing:{auth:number}):Promise<Response|null>{
  const url=new URL(request.url);if(!url.pathname.startsWith("/api/business/ordering"))return null;
  const provider=identityClient(env);if(!provider)return failure({code:"IDENTITY_UNAVAILABLE",message:"身分服務無法使用"},requestId,503);
+ const authStarted=Date.now();
  const gate=await requireModuleAccess(provider,env.DB,request,"ORDERING");
+ timing.auth=Date.now()-authStarted;
  if(!gate.ok)return failure({code:gate.code,message:"沒有叫貨權限"},requestId,gate.status);
  const ctx:Context={db:env.DB,actor:gate.member.id,name:gate.member.displayName??gate.member.employeeNo??"使用者",now:new Date().toISOString(),requestId};
  const path=url.pathname.replace(/^\/api\/business\/ordering\/?/,""),method=request.method;
