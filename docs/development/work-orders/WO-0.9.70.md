@@ -99,7 +99,7 @@
   - **權限與存取**：照片 API 都在 `STORE_REPAIRS` 權限後，回應為 `private, no-store`；上傳失敗會刪掉 R2 上的檔案；上傳與刪除都有事件與 Audit。
   - **前端**：object URL 關閉時會釋放；圖示用共用 `Icons.camera`。
 - Claude 直接修正：
-  1. **阻擋：0044 結構指紋沒填**（`STORE_REPAIR_PHOTO_SCHEMAS` 是空陣列）。任何備份（包括部署後新做的）都無法還原，13 項備份測試失敗，CI 的 build job 也沒有通過。已填入 LF／CRLF 指紋（Claude 從 migration 鏈重算），並把「目前結構指紋」測試改為 0044。
+  1. **阻擋：0044 結構指紋沒填**（`STORE_REPAIR_PHOTO_SCHEMAS` 是空陣列）。任何備份（包括部署後新做的）都無法還原，13 項備份測試失敗，CI 的 build job 也沒有通過。GPT 在審查期間同步補上（0de47e7），數值與 Claude 從 migration 鏈重算的一致。
   2. **使用者 2026-11-03 指示每筆最多 3 張**：改為常數 `STORE_REPAIR_PHOTO_LIMIT=3`，後端、前端、測試、工作單、CHANGELOG 同步修改。
   3. **清單的相機張數一律顯示 0**：清單 API 沒回傳張數。已在清單查詢加上 `photo_count` 子查詢。
   4. **刪除照片沒有確認**：一按就刪，而且 R2 的檔案也一起刪掉、無法復原。已改用共用 `useConfirmation` 先確認。
