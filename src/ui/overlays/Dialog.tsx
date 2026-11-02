@@ -10,6 +10,8 @@ export interface DialogProps {
   onClose: () => void;
   footer?: ReactNode;
   dismissible?: boolean;
+  /** Hide the header X when this view already provides an explicit cancel action. */
+  showCloseButton?: boolean;
   presentation?: DialogPresentation;
   size?: DialogSize;
   closeLabel?: string;
@@ -25,6 +27,7 @@ export function Dialog({
   onClose,
   footer,
   dismissible = true,
+  showCloseButton = true,
   presentation = "modal",
   size = "medium",
   closeLabel = "關閉",
@@ -94,15 +97,11 @@ export function Dialog({
         event.preventDefault();
         onClose();
       }}
-      onClick={(event) => {
-        if (!dismissible || event.target !== event.currentTarget) return;
-        onClose();
-      }}
     >
       <div className="cy-dialog-surface">
         {hideHeader ? <>
           <h2 id={titleId} className="cy-visually-hidden">{title}</h2>
-          {dismissible ? <button type="button" className="cy-dialog-close cy-dialog-floating-close" onClick={onClose} aria-label={closeLabel}>×</button> : null}
+          {dismissible && showCloseButton ? <button type="button" className="cy-dialog-close cy-dialog-floating-close" onClick={onClose} aria-label={closeLabel}>×</button> : null}
         </> : <header className="cy-dialog-header">
           <div className="cy-dialog-heading">
             <h2 className="cy-dialog-title" id={titleId}>
@@ -114,7 +113,7 @@ export function Dialog({
               </div>
             ) : null}
           </div>
-          {dismissible ? (
+          {dismissible && showCloseButton ? (
             <button className="cy-dialog-close" type="button" onClick={onClose} aria-label={closeLabel}>
               ×
             </button>

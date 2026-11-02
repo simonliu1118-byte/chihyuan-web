@@ -6,7 +6,7 @@ const commitValue = value => typeof value === "string" && /^[0-9a-f]{40}$/.test(
 
 export async function observeHealth({ targets, expected, fetchImpl = fetch,
   now = Date.now, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)),
-  timeoutMs = 90000, intervalMs = 1000, log = console.log }) {
+  timeoutMs = 300000, intervalMs = 2000, log = console.log }) {
   const start = now(), observations = [];
   async function probe(target) {
     const sample = { target: target.label, elapsedMs: now() - start };

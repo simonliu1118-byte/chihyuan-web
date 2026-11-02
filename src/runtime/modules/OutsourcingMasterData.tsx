@@ -174,7 +174,7 @@ export function ContractorWorkspace({ contractors, onChanged, onEditingChange, n
 
   return <>
     {confirmationDialog}
-    {price ? <Dialog open title={price.existing ? `修改單價：${price.existing.itemName}` : "設定代工單價"} size="small" dismissible={!busy} onClose={() => setPrice(null)}
+    {price ? <Dialog showCloseButton={false} open title={price.existing ? `修改單價：${price.existing.itemName}` : "設定代工單價"} size="small" dismissible={!busy} onClose={() => setPrice(null)}
       description="同一商品只有一個現行單價；修改後，已計價的代工單不受影響。"
       footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={() => setPrice(null)}>取消</button><button type="submit" form={priceFormId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>儲存單價</button></div>}>
       <form id={priceFormId} className="cy-op-form" onKeyDown={enterAdvancesThenSubmits} onSubmit={(event) => void savePrice(event)}>

@@ -57,7 +57,7 @@ export function useFormPrompt() {
     finish(trimmed);
   }
 
-  const promptDialog = request ? <Dialog open title={request.title} description={request.description} size="small"
+  const promptDialog = request ? <Dialog open showCloseButton={false} title={request.title} description={request.description} size="small"
     onClose={() => finish(null)}
     footer={<div className="cy-dialog-action-row">
       <button type="button" className="cy-op-button" onClick={() => finish(null)}>{request.cancelLabel ?? "取消"}</button>

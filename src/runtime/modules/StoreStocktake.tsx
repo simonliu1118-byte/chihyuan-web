@@ -374,7 +374,7 @@ export function StoreStocktake({role}:{role:string}){
     </div>:<p className="cy-op-empty">目前沒有忽略底稿。</p>}
    </section>
   </Dialog>:null}
-  {batchForm?<Dialog open title="新增批號" onClose={()=>setBatchForm(null)}>
+  {batchForm?<Dialog showCloseButton={false} open title="新增批號" onClose={()=>setBatchForm(null)}>
    <form onKeyDown={enterAdvancesFields} onSubmit={e=>void addBatch(e)}>
     <FormSection>
      <Field label="品號" size="m"><input className="cy-op-input" value={batchForm.itemCode} readOnly/></Field>
