@@ -5,6 +5,9 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.80 — 月度待辦完成勾與日期（2026-11-02）
+- 已完成項目顯示正常17px勾號，9px日期置於下方；固定28px內容高度，保留原39px辦理列高。跨年日期仍顯示年份，完整日期hover／編輯行為不變。
+
 ## CY Web V0.9.79 — 進貨輔助精簡結果與加入版面（WO-0.9.76，2026-11-02，待審查）
 - 預設只顯示品號／品名、銷貨／銷退／淨銷／庫存與加入圖示，桌面抽屜約 780px；每日明細由共用 CheckField 切換並記住偏好，開啟才放寬至最多 1100px。
 - 移除表格獨立高度／捲動區，由抽屜內容統一捲動，表頭與左側品號固定；FeedbackBanner 放在不捲動的底部。

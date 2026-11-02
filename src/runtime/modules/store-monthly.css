@@ -23,8 +23,9 @@
 .cy-monthly-table>tbody>tr>td.cy-monthly-overdue{background-color:var(--cy-danger-surface,#fce8e8)}
 .cy-store-monthly .cy-monthly-cell .cy-store-register{background:var(--cy-surface);color:var(--cy-text);border:1px solid var(--cy-border);border-radius:4px;padding:4px 8px}
 .cy-store-monthly .cy-monthly-cell .cy-store-register:hover{background:var(--cy-surface-muted)}
-.cy-monthly-cell .cy-store-date-stamp{color:var(--cy-success,#198754);font-weight:700}
-.cy-monthly-cell .cy-store-date-check{font-weight:700}
+.cy-monthly-completed{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;height:28px}
+.cy-monthly-completed-check{font-size:17px;font-weight:700;line-height:18px;height:18px}
+.cy-monthly-completed-date{display:block;font-size:9px;font-weight:500;line-height:10px;height:10px}
 .cy-monthly-cell .cy-store-check{color:var(--cy-success,#198754)}
 .cy-monthly-actions{display:inline-flex;align-items:center;justify-content:center;gap:3px}
 .cy-store-monthly svg{display:block;width:18px;height:18px;min-width:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
