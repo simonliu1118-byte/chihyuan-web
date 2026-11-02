@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync,readdirSync} from 'node:fs';
 import {build} from 'esbuild';
-import {monthlyKey,setMonthlyEnabled,activeInMonth,scheduleInMonth,scheduleAppliesInMonth,setMonthlySchedule,STORE_MONTHLY_CRON} from '../shared/store-monthly.ts';
+import {monthlyEditDeadline,monthlyEditLocked,monthlyKey,setMonthlyEnabled,activeInMonth,scheduleInMonth,scheduleAppliesInMonth,setMonthlySchedule,STORE_MONTHLY_CRON} from '../shared/store-monthly.ts';
 const bundle=await build({entryPoints:['worker/http/store-monthly-routes.ts'],bundle:true,write:false,platform:'node',format:'esm'});
 const {handleStoreMonthlyRoute}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
 const workerBundle=await build({entryPoints:['worker/index.ts'],bundle:true,write:false,platform:'node',format:'esm'});
@@ -98,5 +98,27 @@ test('D1 monthly schedule materialization excludes off-month cells, keeps comple
   const before=p.settings.items[0].schedules.length;
   ok(await settings(f,'items',settingsRows('CUSTOM',[12,4])));p=await page(f);
   assert.equal(p.settings.items[0].schedules.length,before);
+ }finally{f.sql.close()}
+});
+
+test('monthly editing closes at the following sixteenth Taipei midnight, including year rollover',async()=>{
+ assert.equal(monthlyEditDeadline('2026-11'),'2026-12-16');
+ assert.equal(monthlyEditLocked('2026-11','2026-12-15T15:59:59.999Z'),false);
+ assert.equal(monthlyEditLocked('2026-11','2026-12-15T16:00:00.000Z'),true);
+ assert.equal(monthlyEditDeadline('2026-12'),'2027-01-16');
+ assert.equal(monthlyEditLocked('2026-12','2027-01-15T15:59:59.999Z'),false);
+ assert.equal(monthlyEditLocked('2026-12','2027-01-15T16:00:00.000Z'),true);
+ const f=monthlyFixture();try{
+  f.setNow('2026-11-01T00:00:00Z');const p=await setup(f),r=p.rows.find(r=>r.month==='2026-11'&&r.storeName==='高雄門市'),item=p.settings.items[0],water=r.cells.find(c=>c.itemId===item.id);
+  f.setNow('2026-12-15T15:59:59.999Z');ok(await mark(f,r,item,water,true,'2026-12-15'));
+  const saved=f.sql.prepare('SELECT * FROM store_monthly_cells WHERE row_id=? AND item_id=?').get(r.id,item.id),events=f.sql.prepare('SELECT count(*) n FROM store_monthly_events WHERE row_id=?').get(r.id).n;
+  f.setNow('2026-12-15T16:00:00.000Z');
+  const other=p.settings.items[1],untouched=r.cells.find(c=>c.itemId===other.id);
+  for(const [role,target,cell,completed,date] of [['USER',other,untouched,true,null],['SUPER_ADMIN',item,{version:saved.version},true,'2026-12-14'],['ADMIN',item,{version:saved.version},false,null]]){
+   f.setRole(role);const result=await mark(f,r,target,cell,completed,date);assert.equal(result.status,409);assert.equal(result.body.error.code,'MONTHLY_EDIT_CLOSED');
+  }
+  assert.deepEqual(f.sql.prepare('SELECT * FROM store_monthly_cells WHERE row_id=? AND item_id=?').get(r.id,item.id),saved);
+  assert.equal(f.sql.prepare('SELECT count(*) n FROM store_monthly_events WHERE row_id=?').get(r.id).n,events);
+  assert.equal((await f.call('/rows/'+encodeURIComponent(r.id)+'/history')).status,200);
  }finally{f.sql.close()}
 });
