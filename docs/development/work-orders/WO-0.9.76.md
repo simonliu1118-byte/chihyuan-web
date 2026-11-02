@@ -85,7 +85,7 @@
   - `FeedbackBanner`；
   - `Dialog`。
 - 抽屜寬度：`SidePanel` 已有 `width="auto"`＋`className="cy-restock-side"` 依內容大小（V0.9.74）。開每日明細時可加一個 class 放寬上限，不要改共用 `SidePanel`。
-- 版本 V0.9.78（V0.9.77 已由 Claude 用掉；若順序不同則接續最新版本）。
+- 版本 V0.9.79（V0.9.77、V0.9.78 已由 Claude 用掉；若順序不同則接續最新版本）。
 
 ## 6. 驗收清單
 
@@ -107,7 +107,7 @@
 
 ## 8. 完成報告（執行者填）
 
-- 實作版本：V0.9.78 Build0，開工基底main 5c2a01c；開發中Claude合併WO-0.9.74（V0.9.76）及V0.9.77未到貨頁籤，已整合main 431a73c，依工單順延至V0.9.78，保留已合併功能。
+- 實作版本：V0.9.79 Build0，開工基底main 5c2a01c；開發中Claude合併WO-0.9.74（V0.9.76）及V0.9.77未到貨頁籤，已整合main 431a73c，先依工單順延至V0.9.78；交審時Claude另合併V0.9.78草稿修正（main 2f9e9f8），再整合並依主線工單指定版本順延V0.9.79，保留已合併功能。
 - 驗收：1440×900／340 個合成品號下抽屜 780px，內容 scrollWidth=clientWidth=763，只有 cy-restock-content 一層上下捲動；顯示每日明細後為 1100px，橫向與上下捲動均由同一內容區承擔，表頭 top=120 與內容頂端一致，固定品號 left=329 與內容左側一致。選擇重新整理後保留。
 - 加入：共用 IconButton/Icons.add（table），FeedbackBanner 作為不捲動 footer，加入後位於視窗底部；公司／廠商僅出現一次，上次來源預選與草稿點保留。80 個合成廠商下列表高度 174px、可見約五行，440px 加入對話框高度約 572px，本身不需捲動。
 - 手機390×844：抽屜寬390、內容無水平溢出、每日欄不建立／切換不顯示；同一表格轉 data-label 卡片，加入圖示在右上。手機加入對話框寬370，只有廠商列表捲動。
@@ -119,6 +119,7 @@
 - 主線整合：只在TODO／CHANGELOG頂端的新版本段落有衝突，保留兩方內容並將本工單順延V0.9.78；RestockAssist的DateInput customError與日期／到貨／未到貨頁籤改動均保留。
 - 整合後重點27/27通過、V0.9.78 build/typecheck通過；首輪CI 41448262542 的來源檢查將所有 localStorage 一概視為業務authority，與工單指定的單一顯示偏好衝突。已直接更新既有validate_operational_runtime.py，僅允許RestockAssist的cy-restock-daily兩個literal存取，其他業務儲存禁用照舊；沒有新增storage wrapper或改掉工單要求。
 - 程式提交65acc04： [Runtime Check 41448660942](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41448660942)四個jobs全綠、完整Node **591/591通過、0失敗**，含Local D1與來源契約／Vite build；[Governance 41448660917](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41448660917)與[部署契約41448661032](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41448661032)全通過，實際deploy/audit未執行。
+- 第二次整合：完整保留main 2f9e9f8的草稿紅框、手填廠商值及原有測試；僅TODO／CHANGELOG新版本段落有衝突，兩方內容都保留，版本順延V0.9.79。先前交接提交504965b亦已完整Linux591/591、來源／型別／治理／部署契約全通過；整合後最新head仍以以下檢查入口為準。
 - 最終交審檢查入口：[PR #365 checks](https://github.com/simonliu1118-byte/chihyuan-web/pull/365/checks)，本輪只回填完成報告／交接，仍須確認該最終head的必要CI全綠再轉Ready。Claude最終審查待填；未合併、未部署、未發Release。
 
 

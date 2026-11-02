@@ -57,7 +57,8 @@ function mount(transport, pageProps={}) {
     const path = url.replace("/api/business/ordering", ""); calls.push({ path, ...options });
     if (path === "/sources") return sources;
     if (path === "/preferences/vendors") return [];
-    if (path === "/pending" || path.startsWith("/orders?history=")) return [];
+    if (path === "/pending") return globalThis.orderingPagePending ?? [];
+    if (path.startsWith("/orders?history=")) return [];
     return transport(path, options);
   };
   globalThis.orderingPageConfirm = async options => { confirmations.push(options); return false; };
@@ -351,4 +352,16 @@ test("receipt history shows quantities and actor; edit reuses receipt dialog and
  assert.equal(page.confirmations.at(-1)?.confirmTone,"danger");
  assert.match(page.confirmations.at(-1)?.description,/已到數量會扣回/);
  assert.equal(page.calls.some(c=>c.method==="DELETE"),false);
+});
+
+test("a draft row naming an item still waiting to arrive is flagged by 品號, 品名, 廠商品號 or 廠商品名",async()=>{
+ const waiting=[{orderId:5,lineId:9,sourceName:"測試來源乙",orderDate:"2026-10-14",itemCode:"T001",itemName:"測試商品一",vendorItemCode:"V9",vendorItemName:"廠商名九",quantity:10,unit:"箱",received:4,remaining:6}];
+ globalThis.orderingPagePending=waiting;
+ const page=mount(normalTransport);delete globalThis.orderingPagePending;
+ await page.tick();page.click("測試來源甲");await page.tick();
+ const warn=page.grid.warnRow;assert.ok(warn,"drafts check rows against 未到貨");
+ const row={itemCode:"",itemName:"",vendorItemCode:"",vendorItemName:""};
+ assert.match(warn({...row,itemCode:"t001"}),/測試來源乙 10\/14 測試商品一 未到 6 箱/);
+ assert.ok(warn({...row,itemName:"測試商品一"}));assert.ok(warn({...row,vendorItemCode:"V9"}));assert.ok(warn({...row,vendorItemName:"廠商名九"}));
+ assert.equal(warn({...row,itemCode:"T002",itemName:"別的"}),undefined);
 });

@@ -531,3 +531,16 @@ test("receipt changes exclude other receipts and cannot increase a closed line o
   assert.equal((await call(edit,"PUT",{expectedVersion:o.version,erpPurchaseNo:"20261023001",receivedDate:"2026-10-23",lines:[{lineId,quantity:1}]})).status,409);
  }finally{sql.close()}
 });
+
+test("a typed 廠商品號 sent along with a later 品號 stays on the line and is remembered under the 品號",async()=>{
+ const {sql,call}=fixture();try{
+  const source=(await call("/sources")).body.data.find(x=>x.name==="台中");
+  let o=(await call("/orders","POST",{sourceId:source.id})).body.data;
+  const save=async(line,lineId)=>{const r=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,operation:"save",lineId,line,final:true});assert.equal(r.status,200,JSON.stringify(r.body));o=r.body.data;return o.lines.find(x=>x.id===(lineId??r.body.data.savedLineId))};
+  let l=await save({itemName:"測試梳"});
+  l=await save({vendorItemCode:"A43"},l.id);assert.equal(l.vendorItemCode,"A43");
+  // The grid carries the value the member typed (user 2026-11-03: it vanished when the 品號 came after).
+  l=await save({vendorItemCode:"A43",itemCode:"C00275"},l.id);assert.equal(l.vendorItemCode,"A43");
+  const next=await save({itemCode:"C00275"});assert.equal(next.vendorItemCode,"A43","remembered under the new 品號");
+ }finally{sql.close()}
+});

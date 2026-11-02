@@ -202,11 +202,11 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
    await run(ctx,[audit(ctx,Number(row.meta.last_row_id),"created",{sourceId})]);return success(await getOrder(ctx,Number(row.meta.last_row_id)),requestId);
   }
   if(path==="pending"&&method==="GET"){
-   const all=await rows<{order_id:number;id:number;item_code:string;item_name:string;vendor_item_name:string;quantity:number|null;unit:string;closed_as:string|null;received:number;source_name:string;order_date:string}>(ctx.db,
-    "SELECT l.id,l.order_id,l.item_code,l.item_name,l.vendor_item_name,l.quantity,l.unit,l.closed_as,COALESCE((SELECT SUM(quantity) FROM ordering_receipt_lines rl WHERE rl.line_id=l.id),0) received,s.name source_name,COALESCE(o.planned_send_date,substr(o.created_at,1,10)) order_date FROM ordering_lines l JOIN ordering_orders o ON o.id=l.order_id JOIN ordering_sources s ON s.id=o.source_id WHERE o.status='SENT' AND l.closed_as IS NULL ORDER BY o.sent_at DESC,o.id DESC,l.section,l.sort_order,l.id LIMIT 1501");
+   const all=await rows<{order_id:number;id:number;item_code:string;item_name:string;vendor_item_code:string;vendor_item_name:string;quantity:number|null;unit:string;closed_as:string|null;received:number;source_name:string;order_date:string}>(ctx.db,
+    "SELECT l.id,l.order_id,l.item_code,l.item_name,l.vendor_item_code,l.vendor_item_name,l.quantity,l.unit,l.closed_as,COALESCE((SELECT SUM(quantity) FROM ordering_receipt_lines rl WHERE rl.line_id=l.id),0) received,s.name source_name,COALESCE(o.planned_send_date,substr(o.created_at,1,10)) order_date FROM ordering_lines l JOIN ordering_orders o ON o.id=l.order_id JOIN ordering_sources s ON s.id=o.source_id WHERE o.status='SENT' AND l.closed_as IS NULL ORDER BY o.sent_at DESC,o.id DESC,l.section,l.sort_order,l.id LIMIT 1501");
    const result=all.filter(x=>x.quantity!==null&&x.received<x.quantity);
    if(all.length>1500)throw new Bad("ORDERING_LIMIT","未到貨查詢超過安全上限",409);
-   return success(result.map(x=>({orderId:x.order_id,lineId:x.id,itemCode:x.item_code,itemName:x.item_name,vendorItemName:x.vendor_item_name,sourceName:x.source_name,orderDate:x.order_date,quantity:x.quantity,unit:x.unit,received:x.received,remaining:(x.quantity??0)-x.received})),requestId);
+   return success(result.map(x=>({orderId:x.order_id,lineId:x.id,itemCode:x.item_code,itemName:x.item_name,vendorItemCode:x.vendor_item_code,vendorItemName:x.vendor_item_name,sourceName:x.source_name,orderDate:x.order_date,quantity:x.quantity,unit:x.unit,received:x.received,remaining:(x.quantity??0)-x.received})),requestId);
   }
   if(path==="vendor-memory"&&method==="GET"){
    const sourceId=int(Number(url.searchParams.get("sourceId")),"來源"),key=vendorItemKey(url.searchParams.get("itemCode")??"",url.searchParams.get("itemName")??"");if(!key)return success(null,requestId);
