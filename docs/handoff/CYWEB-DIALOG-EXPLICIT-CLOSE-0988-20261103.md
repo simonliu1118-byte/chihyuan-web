@@ -1,7 +1,7 @@
 # V0.9.88 全系統視窗明確關閉交接（2026-11-03）
 
 - 使用者直接交辦：全系統彈出工作視窗不能點旁邊就取消；同時有右上X與取消按鈕時移除X。沿用本對話單純UI修正可合併部署授權。不是Claude開立的工單；Claude最終複審待填，執行者不代簽。
-- 分支 `cyweb/dialog-explicit-close-0988`，基底 main `ba1e4e6`（V0.9.87客戶頁），保留之前全部修改。PR、最終CI及部署證據待回填。
+- 分支 `cyweb/dialog-explicit-close-0988`，基底 main `ba1e4e6`（V0.9.87客戶頁），保留之前全部修改。PR [#379](https://github.com/simonliu1118-byte/chihyuan-web/pull/379)，最終CI／發布結果見下方。
 
 ## 修改與責任邊界
 
@@ -26,7 +26,7 @@
 - 正式React CustomerOperationalPage＋合成API桌面1280：新增拜訪輸入合成內容，分別點同高度dialog空白區及上方backdrop，視窗保持open、文字原封保留、X數0、取消可見；按取消後dialog數0。
 - 同一視窗查看→新增→取消編輯回查看，X數1→0→1；最終X可退出，焦點返回「查看全部」。
 - 手機390：點背景後open與文字均保留，X數0、無document水平溢出，取消仍可退出。截圖repo外 outputs/dialog-explicit-close-0988.png、dialog-explicit-close-0988-mobile.png，全為合成資料，不放Public Git。驗收分頁已關閉、viewport還原、預覽服務停止。
-- 全程合成GET、fixture禁止寫入，未接觸正式資料，實作驗收正式D1讀0寫0。CI與部署待回填；Claude複審待填。
+- 全程合成GET、fixture禁止寫入，未接觸正式資料，實作驗收正式D1讀0寫0。CI／發布結果見下方；Claude複審仍待填。
 
 ## 逐項入口盤點
 
@@ -99,3 +99,13 @@
 | 63 | `src/ui/overlays/ConfirmDialog.tsx:33` | 隱藏重複X |
 | 64 | `src/ui/overlays/useFormPrompt.tsx:60` | 隱藏重複X |
 | 65 | `src/ui/shell/AppShell.tsx:121` | 無同層取消，保留X |
+
+## 最終CI與發布狀態
+
+- Source head `13491b9954e6db35547ebd8039ec41559b235436`；[Runtime CI41482039610](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41482039610)完整Node **606/606**、本機D1 acceptance、browser／worker typecheck、source contracts及Vite build通過。Governance41482039410、deployment contract41482039591通過。
+- PR379合併source `59ac3db8213b2e0df3b41ecf4cf1bd75c05320b3`；[部署41482521513](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41482521513)已成功上傳／啟用，但整體workflow為 **failure**：90秒健康觀測窗內兩入口仍回V0.9.87／舊source，正確擋下驗證；不能把此run寫成成功。
+- Cloudflare唯讀控制面確認本次上傳為最新部署、流量100%，沒有其他同時部署。未盲目重傳；稍後同source唯讀複查canonical及workers.dev皆HTTP200、**V0.9.88／consumer1.0.5／sourceCommit精確一致／database ok／ready**，確認入口稍後已生效。發布生效超過既有90秒窗口，未在本UI任務修改等待窗口或部署pipeline。
+- 接續以現有verify-secure-entry.mjs唯讀補驗，雙入口HTTPS／HSTS／靜態資源通過；兩入口以合成無效session補驗均401 AUTH_INVALID且清除cookie，未使用真實憑證。
+- 剩餘production Identity authority以既有受控audit-identity唯讀operation補驗：[41484034477](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41484034477)，結果success，report明確productionPortalReady=true、canonicalProductionProviderVerified=true、healthMatchesRuntime=true、failureCode=null、mutationPerformed=false。沒有再次部署。
+- 沒有新增schema/migration；標準部署migration metadata／health及補驗接觸D1，不提供列讀寫計數，不能將整個部署宣稱為D1零讀寫。新增UI判斷本身無D1 I/O；未執行正式業務異動、備份／還原或資源建立。
+- 後續提交僅回填本handoff／TODO，不需重部署；Claude最終複審仍待填，未代簽。
