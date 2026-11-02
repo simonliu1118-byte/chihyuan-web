@@ -59,6 +59,7 @@ function mount(transport, pageProps={}) {
   };
   globalThis.orderingPageConfirm = async options => { confirmations.push(options); return false; };
   globalThis.orderingPageErrors = [];
+  globalThis.window={addEventListener(){},removeEventListener(){}};
   const host = {
     useRef(value) { const i = cursor++; return slots[i] ??= { current: value }; },
     useState(value) { const i = cursor++; slots[i] ??= { value: typeof value === "function" ? value() : value };
@@ -85,7 +86,7 @@ function mount(transport, pageProps={}) {
 }
 test.afterEach(() => {
   activeHost?.dispose(); activeHost = null;
-  for (const key of ["orderingPageHost", "orderingPageTransport", "orderingPageConfirm", "orderingPageErrors", "orderingPageGuard"]) delete globalThis[key];
+  for (const key of ["orderingPageHost", "orderingPageTransport", "orderingPageConfirm", "orderingPageErrors", "orderingPageGuard","window"]) delete globalThis[key];
 });
 const normalTransport = (path, options) => path.startsWith("/orders?sourceId=") ? [order(Number(new URLSearchParams(path.split("?")[1]).get("sourceId")))] :
   path === "/orders" && options.method === "POST" ? order(options.json.sourceId) : order(Number(path.split("/")[2]) / 10);
