@@ -5,6 +5,9 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.73 — 已到貨的叫貨單不能再修改（2026-11-03，Claude）
+- 已送出的叫貨單只要有任何到貨或結掉的品項，就不再顯示「修改」；後端 `revise` 也回 409。只有「已送出、尚未到貨」的單可以修改。
+
 ## CY Web V0.9.72 — 進貨輔助移入叫貨抽屜（WO-0.9.71，2026-11-03 Claude 審查通過）
 - ERP 查詢不再列出進貨輔助，叫貨模組頁籤列新增權限控管的進貨輔助右側 SidePanel。
 - 共用排程佇列 SidePanel 外框、保留 ERP Job 接回和完成通知。
