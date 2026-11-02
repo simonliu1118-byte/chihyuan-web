@@ -1,6 +1,6 @@
 # CYWEB WO-0.9.68 — 給 Claude 的 GPT 實作交接（2026-11-02）
 ## 身分與範圍
-- base：main ba5c50cc25bb；分支：cyweb/wo-0.9.68-monthly-layout；PR 建立後於工單回填。
+- base：main ba5c50cc25bb；分支：cyweb/wo-0.9.68-monthly-layout；PR #351：https://github.com/simonliu1118-byte/chihyuan-web/pull/351。
 - 唯一需求來源：docs/development/work-orders/WO-0.9.68.md；不合併、不部署。
 ## 修改檔案與原因
 - shared/store-monthly.ts：新增週期歷史型別、當月有效週期、單月/雙月/自訂判斷，統一 monthlyApplicable。
@@ -14,5 +14,6 @@
 - 不新增 migration：沿用 items_json 中 schedules；過去月份使用既有資料與 fallback。
 - 請檢查 desktop/tablet/mobile 分組、sticky 年月與操作、date popover、日期可修正／無日期、設定週期選擇與完成紀錄回讀。
 ## 驗收與尚待事項
-- 待 PR CI 結果回填。工作單要求的 1440、1024、390 真瀏覽器截圖尚未執行；不得視為驗收通過。
+- 首輪 Runtime Check #41414923761：564 項中通過 562 項，兩項舊 UI 預期值失敗（完成日期新增勾號、設定標題新增週期）；已修正測試預期後待重跑。前端／Worker 型別、source contracts、Governance、deploy contract 驗證通過，不代表整體通過。
+- 工作單要求的 1440、1024、390 真瀏覽器截圖尚未執行；不得視為驗收通過。
 - 若 Claude 發現問題請寫入工單 §9，返修由 GPT 進行。未合併、未部署。
