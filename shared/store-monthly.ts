@@ -37,3 +37,7 @@ export function setMonthlySchedule(history:readonly MonthlySchedule[]|undefined,
 /** The sixteenth Taipei calendar day pre-generates the next month. */
 export const monthlyGenerationMonth=(at:string|number=Date.now())=>Number(taipeiDate(at).slice(8))>=16?shiftMonth(monthlyKey(at),1):monthlyKey(at);
 export const monthlyApplicable=(c:MonthlySettings,month:string,storeId:string,itemId:string)=>{const store=c.stores.find(s=>s.id===storeId),item=c.items.find(i=>i.id===itemId);return !!store&&!!item&&activeInMonth(store.periods,month)&&activeInMonth(item.periods,month)&&activeInMonth(item.stores[storeId]??[],month)&&scheduleAppliesInMonth(item,month)};
+
+/** The following month's sixteenth at 00:00 Asia/Taipei is the exclusive editing deadline. */
+export const monthlyEditDeadline=(month:string)=>shiftMonth(month,1)+"-16";
+export const monthlyEditLocked=(month:string,at:string|number=Date.now())=>taipeiDate(at)>=monthlyEditDeadline(month);

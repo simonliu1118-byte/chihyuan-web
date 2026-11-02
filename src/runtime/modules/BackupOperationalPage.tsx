@@ -52,8 +52,8 @@ export function BackupHistoryView({ history, busy, retry, rehearse }: { history:
     <dt>資料摘要</dt><dd>{row.dataSha256 === "pending" ? "尚未產生" : row.dataSha256}</dd>
   </dl>;
   return <DataView ariaLabel="備份紀錄" items={history.sets} getKey={row => row.backupId}
-    columns={[{ key: "event", header: "備份時間（台灣）", render: event, width: "20%" },
-      { key: "identity", header: "備份資訊", render: identity, width: "34%" },
+    columns={[{ key: "event", header: "備份時間（台灣）", render: event, width: "16%" },
+      { key: "identity", header: "備份資訊", render: identity, width: "38%" },
       { key: "copies", header: "儲存副本", render: providerStatus, width: "18%" },
       { key: "size", header: "資料量", render: row => <>{row.recordCount.toLocaleString()} 筆<br />{size(row.byteLength)}</>, width: "12%" },
       { key: "action", header: "操作", render: action, width: "16%" }]}

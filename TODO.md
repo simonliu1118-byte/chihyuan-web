@@ -1,3 +1,7 @@
+## V0.9.83 月度截止與備份清單（2026-11-02）
+- [x] 月度隔月16日台灣午夜鎖定，前後端共用判斷；備份時間縮20%、資訊增加、標題內容同行。重點38/38、build/typecheck及完整validate:source通過，合成畫面驗收完成。
+- [ ] CI／合併部署與Claude複審；見[交接](docs/handoff/CYWEB-MONTHLY-DEADLINE-BACKUP-0983-20261102.md)。
+
 ## V0.9.81 備份改記 migration 名稱（2026-11-03，Claude）
 - [x] 新備份記錄 migration 名稱、依欄位名稱還原；舊備份走凍結的 v1 升級；每支 migration 只要更新 `CURRENT_MIGRATION`。
 - [ ] 部署後下一次排程備份：在備份管理確認新備份可驗證；有空時做一次還原演練（隔離目標）。
