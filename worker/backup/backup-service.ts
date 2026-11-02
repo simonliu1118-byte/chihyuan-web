@@ -191,15 +191,17 @@ export class BackupService {
       throw new Error(code);
     }
   }
-  async create(kind: "manual" | "scheduled" | "pre_restore", context: Context): Promise<string> {
+  /** `retry`: the scheduled backup's one same-day second attempt, recorded under its own key. */
+  async create(kind: "manual" | "scheduled" | "pre_restore", context: Context, attempt?: "retry"): Promise<string> {
     const policy = taiwanBackupPolicy(context.now), id = crypto.randomUUID();
+    const triggerKey = kind === "scheduled" ? `daily:${policy.date}${attempt ? ":retry" : ""}` : `${kind}:${context.requestId}`;
     const claim = await this.db.prepare(`INSERT OR IGNORE INTO backup_sets
       (backup_id,created_at,schema_version,data_sha256,data_byte_length,total_record_count,status_code,
        workspace_scope,app_version,trigger_kind,trigger_key) VALUES (?,?,'0007_retired_entity_ids','pending',0,0,'creating',?,?,?,?)`)
-      .bind(id, context.now, this.workspace, this.version, kind, kind === "scheduled" ? `daily:${policy.date}` : `${kind}:${context.requestId}`).run();
+      .bind(id, context.now, this.workspace, this.version, kind, triggerKey).run();
     if (claim.meta.changes === 0) {
       const previous = await this.db.prepare("SELECT backup_id FROM backup_sets WHERE workspace_scope=? AND trigger_key=?")
-        .bind(this.workspace, kind === "scheduled" ? `daily:${policy.date}` : `${kind}:${context.requestId}`).first<{ backup_id: string }>();
+        .bind(this.workspace, triggerKey).first<{ backup_id: string }>();
       storageCheck(previous, "BACKUP_CLAIM_FAILED"); return previous.backup_id;
     }
     try {
@@ -265,8 +267,16 @@ export class BackupService {
     await this.copy(id, "gcs", bundle, context);
     await this.retain("gcs", id, context);
   }
+  /**
+   * Runs at Taiwan 03:30 and again at 03:45 (shared/backup-schedule.ts). The first run makes the day's
+   * backup; a later run makes one fresh attempt only if that backup failed outright (no copy verified).
+   * A backup with only its GCS copy failed is not redone: the pending-copy retry below handles it.
+   */
   async scheduled(context: Context): Promise<void> {
-    await this.create("scheduled", context);
+    const today = await this.db.prepare("SELECT status_code FROM backup_sets WHERE workspace_scope=? AND trigger_key=?")
+      .bind(this.workspace, `daily:${taiwanBackupPolicy(context.now).date}`).first<{ status_code: string }>();
+    if (!today) await this.create("scheduled", context);
+    else if (today.status_code === "failed") await this.create("scheduled", context, "retry");
     const pending = await this.db.prepare(`SELECT bs.backup_id FROM backup_sets bs JOIN backup_copies bc ON bc.backup_id=bs.backup_id
       WHERE bs.workspace_scope=? AND bc.provider_code='gcs' AND bc.status_code IN ('pending','failed')
       AND (bc.lease_until IS NULL OR bc.lease_until<=?)

@@ -85,4 +85,23 @@ export async function acceptTieredBackup(db: D1Database, bucket: R2Bucket): Prom
   const failedId = await isolated.create("manual", { ...context, now: "2026-10-12T04:00:00.000Z", requestId: "synthetic-both-outage" });
   const failed = (await isolated.list()).sets.find(row => row.backupId === failedId);
   assert(failed?.status === "failed" && failed.copies.every(copy => copy.status === "failed"), "ACCEPT_BACKUP_BOTH_FAILURES_MASKED");
+
+  // 03:30 fails outright; 03:45 makes one fresh attempt; later runs that day do nothing more.
+  let down = true;
+  const flaky: BackupStorageProvider = {
+    async putObject(key, bytes) { if (down) throw new Error("Synthetic R2 outage"); await r2.putObject(key, bytes); },
+    getObject: key => r2.getObject(key), listObjects: prefix => r2.listObjects(prefix),
+    deleteObject: (key, token) => r2.deleteObject(key, token),
+  };
+  const nightly = new BackupService(db, scope, "0.7.2", { r2: flaky, gcs });
+  const day = (time: string) => ({ ...context, now: "2026-10-12T" + time + ":00.000Z", requestId: "synthetic-nightly-" + time });
+  const keys = async () => (await db.prepare("SELECT trigger_key,status_code FROM backup_sets WHERE workspace_scope=? AND trigger_key LIKE 'daily:2026-10-13%' ORDER BY trigger_key").bind(scope).all<{ trigger_key: string; status_code: string }>()).results;
+  await nightly.scheduled(day("19:30"));
+  assert(JSON.stringify((await keys()).map(k => k.status_code)) === '["failed"]', "ACCEPT_BACKUP_NIGHTLY_FIRST_FAILURE");
+  down = false; fail = false;
+  await nightly.scheduled(day("19:45"));
+  const after = await keys();
+  assert(after.length === 2 && after[1].trigger_key === "daily:2026-10-13:retry" && after[1].status_code === "verified", "ACCEPT_BACKUP_NIGHTLY_RETRY");
+  await nightly.scheduled({ ...day("19:45"), requestId: "synthetic-nightly-again" });
+  assert((await keys()).length === 2, "ACCEPT_BACKUP_NIGHTLY_RETRY_ONCE");
 }
