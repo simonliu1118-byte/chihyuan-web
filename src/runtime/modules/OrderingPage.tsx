@@ -193,11 +193,14 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
  async function openDraft(sourceId:number){
   if(!await prepareSwitch())return;
   const sequence=++loadSequence.current;
-  setTab(sourceId);setVendorMode(sourceId,sources.find(x=>x.id===sourceId)?.kind==="VENDOR");setSelected(null);
+  // The tab switches at once and shows Loading (user 2026-11-03: from 未到貨 the old view stayed until the
+  // data came back, so the first switch felt unanswered).
+  setTab(sourceId);setVendorMode(sourceId,sources.find(x=>x.id===sourceId)?.kind==="VENDOR");setSelected(null);setViewPending(false);
   setBusy(true);setError("");try{
-   const all=await call<OrderingListRow[]>("/orders?sourceId="+sourceId+"&status=DRAFT");if(sequence!==loadSequence.current)return;setDrafts(all);
-   const chosen=pickDraft(all.map(x=>({id:x.id,plannedSendDate:x.plannedSendDate,createdAt:x.createdAt})),nowDate());
-   const x=chosen?await call<DisplayOrder>("/orders/"+chosen.id):await call<DisplayOrder>("/orders","POST",{sourceId});
+   // One request returns the drafts and the one to show; only a source without a draft needs a second (create).
+   const open=await call<{drafts:OrderingListRow[];order:DisplayOrder|null}>("/drafts/open?sourceId="+sourceId);if(sequence!==loadSequence.current)return;setDrafts(open.drafts);
+   const chosen=open.order;
+   const x=chosen??await call<DisplayOrder>("/orders","POST",{sourceId});
    if(sequence!==loadSequence.current)return;showOrder(remember(x));
    if(!chosen)setDrafts([{...x}]);setViewPending(false);pane.open();
   }catch(e){if(sequence===loadSequence.current)setError(errorOf(e))}finally{if(sequence===loadSequence.current)setBusy(false)}

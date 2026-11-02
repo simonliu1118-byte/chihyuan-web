@@ -195,6 +195,18 @@ async function orderingRoute(request:Request,env:IdentityRuntimeEnv,requestId:st
    return success(selection.map(x=>({sourceId:x.source.id,sourceName:x.source.name,conditions:x.source.conditions,paymentTerms:x.source.payment_terms,orderId:x.order?.id??null,orderVersion:orders.find(o=>o.id===x.order?.id)?.version??null,
     lines:lines.filter(l=>l.order_id===x.order?.id).map(l=>({id:l.id,section:l.section,sortOrder:l.sort_order,itemCode:l.item_code,itemName:l.item_name,vendorItemCode:l.vendor_item_code,vendorItemName:l.vendor_item_name,spec:l.spec,quantityText:l.quantity_text,quantity:l.quantity,unit:l.unit,note:l.note}))})),requestId);
   }
+  // Opening a source tab: its drafts and the draft to show, in ONE request (user 2026-11-03: two requests
+  // in a row, each with its own login check, made the switch slow). The same draft the client picked.
+  if(path==="drafts/open"&&method==="GET"){
+   const sourceId=int(Number(url.searchParams.get("sourceId")),"來源");
+   const list=await rows<Ord&{source_name:string;source_kind:Source["kind"]}>(ctx.db,"SELECT o.*,s.name AS source_name,s.kind AS source_kind FROM ordering_orders o JOIN ordering_sources s ON s.id=o.source_id WHERE o.source_id=? AND o.status='DRAFT' ORDER BY o.created_at DESC,o.id DESC LIMIT 201",sourceId);
+   if(list.length>200)throw new Bad("ORDERING_LIMIT","請縮小搜尋條件",409);
+   const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);
+   const chosen=pickDraft(list.map(o=>({id:o.id,plannedSendDate:o.planned_send_date,createdAt:o.created_at})),today);
+   const known=chosen?list.find(o=>o.id===chosen.id):undefined;
+   return success({drafts:list.map(x=>({id:x.id,sourceId:x.source_id,sourceName:x.source_name,sourceKind:x.source_kind,status:"DRAFT",plannedSendDate:x.planned_send_date,sentAt:x.sent_at,createdAt:x.created_at,version:x.version})),
+    order:known?await getOrder(ctx,known.id,known):null},requestId);
+  }
   if(path==="orders"&&method==="GET"){
    const clauses:string[]=[],args:unknown[]=[];
    if(url.searchParams.has("sourceId")){clauses.push("o.source_id=?");args.push(int(Number(url.searchParams.get("sourceId")),"來源"))}
