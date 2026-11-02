@@ -20,6 +20,7 @@ import {FeedbackBanner,useFeedbackMessage} from "../../ui/feedback/FeedbackProvi
 import {enterAdvancesFields,enterAdvancesThenSubmits} from "../../ui/foundation/enter-advance";
 import {STORE_PICKUP_OVERDUE_DAYS,STORE_ORDER_STATUSES,STORE_ORDER_STATUS_LABELS,STORE_BLACKLIST_ACTIONS,STORE_BLACKLIST_ACTION_LABELS,STORE_STEPS,STORE_MILESTONES,STORE_MILESTONE_LABELS,STORE_CALL_RESULTS,STORE_CANCEL_REASONS,STORE_EDIT_REASONS,isSupplyUnavailable,isOrderClosed,canAmendClosure,pricesComplete,displayOrderItem,displayCustomerName,orderCancellationReason,daysSinceNotified,lineAmount,orderTotal,type Honorific,type StoreCallResult,type StoreOrder,type StoreBlacklistEntry,type StoreBlacklistAction,type StoreMilestone,type StoreContactMatch} from "../../../shared/store";
 import {StoreOperationHistory as History} from "./StoreOperationHistory";
+import {ContactCells,HonorificCell,Reason} from "./store-workflow/StoreFields";
 import type {StatusTone} from "./status-flow";
 const ROOT="/api/business/store";
 const call=<T,>(path:string,method="GET",json?:unknown)=>apiRequest<T>(ROOT+path,{method,json});
@@ -39,10 +40,6 @@ type Form={order?:StoreOrder;customerCode:string;orderDate:string;customerName:s
 type Cancel={order:StoreOrder;reasonKind:string;reason:string;key:string;lineDecisions?:Decision[];blacklistId?:number};
 type BlackForm={entry?:StoreBlacklistEntry;restore?:boolean;joinedDate:string;actionDetail:string;name:string;honorific:Honorific;reason:string;action:StoreBlacklistAction;changeReason:string;origin?:Cancel}&Contact;
 const emptyLine=():Line=>({key:Math.random(),itemCode:"",itemName:"",quantity:"1",unitPrice:"",metadataMode:"",publisher:"",author:"",specification:"",expanded:false});
-function ContactCells({value,onChange}:{value:Contact;onChange:(patch:Partial<Contact>)=>void}){
- const missing=!value.phone.trim()&&!value.mobile.trim()&&!value.lineName.trim();return <>{(["mobile","phone","lineName"] as const).map((k,i)=><td key={k}><Field label={["連絡電話1","連絡電話2","LINE 名稱"][i]} reportAs={i===0?"連絡電話1／連絡電話2／LINE 至少填寫一項":undefined} presentation="cell">{k!=="lineName"?<PhoneInput className="cy-ordering-cell" kind="auto" required={i===0&&missing} value={value[k]} onChange={digits=>onChange({[k]:digits})}/>:<input className="cy-ordering-cell" maxLength={60} value={value[k]} onChange={e=>onChange({[k]:e.target.value})}/>}</Field></td>)}</>;
-}
-function HonorificCell({value,onChange}:{value:Honorific;onChange:(value:Honorific)=>void}){return <td><Field label="稱謂" presentation="cell"><select className="cy-ordering-cell" value={value} onChange={e=>onChange(e.target.value as Honorific)}><option value=""></option><option value="MR">先生</option><option value="MS">小姐</option></select></Field></td>}
 export function CustomerOrders(){
  const [orders,setOrders]=useState<StoreOrder[]>([]),[blacks,setBlacks]=useState<StoreBlacklistEntry[]>([]),[loading,setLoading]=useState(true),[loaded,setLoaded]=useState(false);
  const [view,setView]=useState<"orders"|"blacklist">("orders"),[search,setSearch]=useState(""),[filter,setFilter]=useState("");
@@ -168,4 +165,3 @@ export function CustomerOrders(){
   {confirmationDialog}
  </div>;
 }
-function Reason({kind,detail,options,onChange,inline=false}:{kind:string;detail:string;options:readonly string[];onChange:(kind:string,detail:string)=>void;inline?:boolean}){const fields=<><Field label={inline?"修改理由":"理由類別"} required size="m"><select className="cy-op-input" autoFocus={inline} value={kind} onChange={e=>onChange(e.target.value,detail)}><option value="">請選擇</option>{options.map(o=><option key={o}>{o}</option>)}</select></Field><Field label="補充說明" required={kind==="其他"} size="l"><input className="cy-op-input" maxLength={240} value={detail} onChange={e=>onChange(kind,e.target.value)}/></Field></>;return inline?<div className="cy-store-edit-reason">{fields}</div>:<FormSection>{fields}</FormSection>}
