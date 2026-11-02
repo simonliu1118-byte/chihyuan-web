@@ -182,7 +182,7 @@ export function RestockAssist({ job, canQueryItem, canOrdering }: { job: ErpJob;
   const mine = result?.queryType === "RESTOCK" ? result : null;
   return <>
     <div className="cy-op-panel cy-erp-query-box">
-      <form role="search" className="cy-erp-form" onSubmit={submit} noValidate>
+      <form role="search" className="cy-erp-form" onKeyDown={enterAdvancesFields} onSubmit={submit} noValidate>
         <div className="cy-erp-history-options">
           <Field label="起日" size="s" required><DateInput className="cy-op-input" max={taipeiToday()} value={dateFrom} disabled={busy} onChange={setDateFrom}/></Field>
           <Field label="迄日" size="s" required><DateInput className="cy-op-input" max={taipeiToday()} value={dateTo} disabled={busy} onChange={setDateTo}/></Field>
