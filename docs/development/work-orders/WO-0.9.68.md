@@ -1,7 +1,7 @@
 # WO-0.9.68 月度待辦：換行版面與項目週期
 
-- 狀態：待執行
-- 分支：cyweb/wo-0.9.68-monthly-layout　PR：#（執行者填）
+- 狀態：待審查（GPT 已提交候選，尚未合併部署）
+- 分支：cyweb/wo-0.9.68-monthly-layout　PR：#（建立 PR 後回填）
 
 ## 1. 背景（使用者原話）
 
@@ -73,6 +73,15 @@
 
 - 桌面 1440、1024 寬，手機 390 寬：月度待辦清單（15 個項目）與設定項目對話框（含一個自訂週期展開）。
 
-## 8. 完成報告（執行者填）
+## 8. 完成報告（GPT）
+- 實作：以 shared/store-monthly.ts 的 scheduleInMonth／scheduleAppliesInMonth 作正式週期判斷，Worker settings 保存逐月 schedules，D1 monthlyMaterialization 以 JSON1 查適用月份；舊項目無 schedules 視為每月。無 migration。
+- UI：共用 SegmentedControl、CheckField、Field、EntryTable、DateInput、IconButton、Loading、Dialog；月度清單按容器可用寬度最小 96px 分組（手機 3 項），年月／門市跨列及粗分隔，避免另一套日期或狀態邏輯。
+- 測試：新增週期、歷史、D1 辦理格、錯誤月份、分組與設定交互回歸。遠端 CI 結果待 PR 產生後更新，不得把未執行項目宣稱通過。
+- 差異：沒有自行擴大工單範圍；版本 0.9.68，BUILD=0。
+- 截圖：1440／1024／390 及設定自訂週期畫面尚待真實瀏覽器驗收；尚未提供截圖，不視為通過。
+- 權限：GPT 僅建立獨立分支／PR，不合併、不部署、不發 Release；Claude 於 §9 審查。
+- 交接：docs/handoff/CYWEB-WO-0.9.68-GPT-20261102.md
+
+## 9. 審查紀錄（審查者填）
 
 ## 9. 審查紀錄（審查者填）

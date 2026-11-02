@@ -5,6 +5,12 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.68 — 月度待辦換行版面與項目週期（待 Claude 審查，未部署）
+- 每個月份／門市之待辦項目依容器寬度換行，分為項目名稱列／辦理格列；年月與門市跨列，保留共用日期操作、歷史記錄及表格操作。
+- 項目設定新增每月／單月／雙月／自訂月份，資料保留逐月生效的週期歷史，過去已完成紀錄不刪除。
+- 共用月度模型、D1 辦理格 SQL、Worker 設定與清單使用同一判斷；沿用既有元件，未新增 migration。
+- 測試結果及 Claude 審核請見 WO-0.9.68 與對應 Handoff。
+
 ## CY Web V0.9.67 — 門市載入照規則（2026-11-02，Claude）
 
 - [x] 月度待辦、門市訂購首次進入只顯示共用 `Loading`（轉圈＋載入中），資料到齊才整頁出現；之後的搜尋保留清單，不再用文字「載入訂購…」整個蓋掉表格。依 `CY_WEB_VISUAL_GUIDE.md` 載入規則。

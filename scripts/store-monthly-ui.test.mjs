@@ -6,11 +6,12 @@ const dir=mkdtempSync(fileURLToPath(new URL('../node_modules/.monthly-ui-',impor
  '../../ui/overlays/useConfirmation':'export const useConfirmation=()=>({confirm:async()=>globalThis.monthConfirm,confirmationDialog:null});'
 };
 for(const [p,names] of [['../../ui/forms/Field',['Field','CheckField']],['../../ui/overlays/Dialog',['Dialog']],['./StoreOperationHistory',['StoreOperationHistory']]])stubs[p]=names.map(n=>`export function ${n}(){return null}`).join('\n');
-let StoreMonthlyTodos;try{await build({entryPoints:['src/runtime/modules/StoreMonthlyTodos.tsx'],outfile:join(dir,'page.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',jsx:'automatic',plugins:[{name:'test-boundaries',setup(b){b.onResolve({filter:/.*/},a=>a.path in stubs?{path:a.path,namespace:'stub'}:undefined);b.onLoad({filter:/.*/,namespace:'stub'},a=>({contents:stubs[a.path]}))}}]});({StoreMonthlyTodos}=await import(pathToFileURL(join(dir,'page.mjs'))))}finally{rmSync(dir,{recursive:true,force:true})}
+let StoreMonthlyTodos,monthlyColumnsForWidth;try{await build({entryPoints:['src/runtime/modules/StoreMonthlyTodos.tsx'],outfile:join(dir,'page.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',jsx:'automatic',plugins:[{name:'test-boundaries',setup(b){b.onResolve({filter:/.*/},a=>a.path in stubs?{path:a.path,namespace:'stub'}:undefined);b.onLoad({filter:/.*/,namespace:'stub'},a=>({contents:stubs[a.path]}))}}]});({StoreMonthlyTodos,monthlyColumnsForWidth}=await import(pathToFileURL(join(dir,'page.mjs'))))}finally{rmSync(dir,{recursive:true,force:true})}
 const walk=n=>!n||typeof n!=='object'?[]:[n,...[n.props?.children].flat(Infinity).flatMap(walk)];const text=n=>typeof n==='string'||typeof n==='number'?String(n):Array.isArray(n)?n.map(text).join(''):text(n?.props?.children??'');
 function initial(canManage){return{canManage,currentMonth:'2026-10',nextBefore:'2025-10',settings:{version:2,firstMonth:'2025-01',generatedThrough:'2026-10',stores:[{id:'store1',name:'台北門市',periods:[{from:'2025-01'}]},{id:'store2',name:'高雄門市',periods:[{from:'2025-01'}]}],items:[{id:'water',name:'水費',periods:[{from:'2026-10'}],stores:{store2:[{from:'2026-10'}]}},{id:'power',name:'電費',periods:[{from:'2025-01'}],stores:{store1:[{from:'2025-01'}],store2:[{from:'2025-01'}]}}]},rows:[{id:'2026-10:store1',month:'2026-10',storeId:'store1',storeName:'台北門市',cells:[{itemId:'power',version:1,completed:false,completionDate:null}]},{id:'2026-10:store2',month:'2026-10',storeId:'store2',storeName:'高雄門市',cells:[{itemId:'water',version:1,completed:false,completionDate:null},{itemId:'power',version:1,completed:false,completionDate:null}]}]}}
 let dispose;
-function mount(canManage=true){let slots=[],cursor=0,dirty=false,effects=[],tree;const calls=[],errors=[],messages=[],data=initial(canManage);
+function mount(canManage=true,moreItems=0){let slots=[],cursor=0,dirty=false,effects=[],tree;const calls=[],errors=[],messages=[],data=initial(canManage);
+ for(let i=0;i<moreItems;i++){const id="extra-"+i;data.settings.items.push({id,name:"附加測試項目 "+i,periods:[{from:"2026-10"}],stores:{store2:[{from:"2026-10"}]}});data.rows.find(r=>r.storeId==="store2").cells.push({itemId:id,version:1,completed:false,completionDate:null})}
  globalThis.monthTransport=async(path,opts={})=>{calls.push({path,...opts});if(opts.method==='PATCH'){const ids=path.split('/'),row=data.rows.find(r=>r.id===decodeURIComponent(ids[ids.length-3])),cell=row?.cells.find(c=>c.itemId===ids.at(-1));if(cell)Object.assign(cell,{completed:opts.json.completed,completionDate:opts.json.completionDate,version:cell.version+1});return{rowId:row.id,...structuredClone(cell)}}if(opts.method==='POST')return{};return structuredClone(data)};
  globalThis.monthConfirm=true;globalThis.monthError=v=>errors.push(v);globalThis.monthMessage=v=>messages.push(v);
  const host={useRef(v){const i=cursor++;return slots[i]??={current:v}},useState(v){const i=cursor++;slots[i]??={value:typeof v==='function'?v():v};return[slots[i].value,n=>{slots[i].value=typeof n==='function'?n(slots[i].value):n;dirty=true}]},useCallback(fn,deps){const i=cursor++;if(!slots[i]||deps.some((v,n)=>v!==slots[i].deps[n]))slots[i]={deps,value:fn};return slots[i].value},useEffect(fn,deps){const i=cursor++;if(!slots[i]||deps.some((v,n)=>v!==slots[i].deps[n])){slots[i]?.cleanup?.();slots[i]={deps};effects.push(()=>slots[i].cleanup=fn())}}};
@@ -24,4 +25,26 @@ test('undo confirmation can cancel, then explicitly returns only that cell to pe
 test('administrator settings use cell fields and capture applicability; old records are not deletable',async()=>{const v=mount();await v.tick();v.button('設定項目');assert(v.nodes.some(n=>n.type?.name==='EntryTable'&&n.props.label==='項目設定'));v.field('項目名稱 1','水電費');v.check('台北門市',true);assert(!v.nodes.some(n=>n.type==='button'&&n.props['aria-label']==='刪除第 1 列草稿'));v.button('停用第 1 列');v.button('啟用第 1 列');v.field('備註 1','合成備註');v.submit('設定項目');await v.tick();const c=v.calls.find(c=>c.method==='POST');assert.equal(c.json.expectedVersion,2);assert.equal(c.json.rows[0].name,'水電費');assert.equal(c.json.rows[0].note,'合成備註');assert.deepEqual(c.json.rows[0].storeIds,['store2','store1']);assert(c.json.requestKey)});
 test('older-month pagination stays loaded when a cell is saved',async()=>{const v=mount();await v.tick();v.button('載入更早月份');await v.tick();assert(v.calls.some(c=>c.path.endsWith('?before=2025-10')));v.button('確認辦理：水費');v.check('無日期',true);v.submit('水費辦理日期');await v.tick();assert.equal(v.calls.filter(c=>c.path.endsWith('?before=2025-10')).length,1)});
 
-test('settings use grip order, ordinal and note columns, persisted enable toggles and one header add action',async()=>{const v=mount();await v.tick();v.button('設定項目');assert.deepEqual(v.nodes.filter(n=>n.type==='th').map(text).slice(-5),['項次','項目名稱','適用門市','備註','操作']);assert(!v.nodes.some(n=>n.props?.['aria-label']?.startsWith('上移')||n.props?.['aria-label']?.startsWith('下移')||n.props?.['aria-label']?.includes('下方新增')));const handle=v.nodes.find(n=>n.type==='button'&&n.props['aria-label']==='拖曳第 1 列排序');handle.props.onKeyDown({key:'ArrowDown',preventDefault(){}});v.render();v.submit('設定項目');await v.tick();assert.deepEqual(v.calls.find(c=>c.method==='POST').json.rows.map(r=>r.id),['power','water'])});
+test('settings use grip order, ordinal and note columns, persisted enable toggles and one header add action',async()=>{const v=mount();await v.tick();v.button('設定項目');assert.deepEqual(v.nodes.filter(n=>n.type==='th').map(text).slice(-5),['項次','項目名稱','適用門市','週期','備註','操作']);assert(!v.nodes.some(n=>n.props?.['aria-label']?.startsWith('上移')||n.props?.['aria-label']?.startsWith('下移')||n.props?.['aria-label']?.includes('下方新增')));const handle=v.nodes.find(n=>n.type==='button'&&n.props['aria-label']==='拖曳第 1 列排序');handle.props.onKeyDown({key:'ArrowDown',preventDefault(){}});v.render();v.submit('設定項目');await v.tick();assert.deepEqual(v.calls.find(c=>c.method==='POST').json.rows.map(r=>r.id),['power','water'])});
+
+test('item columns split into two-row groups by width and preserve sticky month/store row span',async()=>{
+ assert.equal(monthlyColumnsForWidth(1440,false),11);
+ assert.equal(Math.ceil(15/monthlyColumnsForWidth(1440,false)),2);
+ assert.equal(monthlyColumnsForWidth(1024,false),7);
+ assert.equal(Math.ceil(15/monthlyColumnsForWidth(1024,false)),3);
+ assert.equal(monthlyColumnsForWidth(390,true),3);
+ assert.equal(Math.ceil(15/monthlyColumnsForWidth(390,true)),5);
+ const v=mount(false,13);await v.tick();
+ const groups=v.nodes.filter(n=>n.type==='tr'&&n.props.className?.includes('cy-monthly-group-heading'));
+ assert.equal(groups.length,4);assert(v.nodes.some(n=>n.type==='td'&&n.props.className==='cy-monthly-month'&&n.props.rowSpan===4));
+ assert(v.nodes.some(n=>n.type==='th'&&text(n)==='附加測試項目 12'));
+});
+test('custom schedule uses shared SegmentedControl and month CheckField, persisted in one settings payload',async()=>{
+ const v=mount();await v.tick();v.button('設定項目');
+ const segment=v.nodes.find(n=>n.type?.name==='SegmentedControl'&&n.props.label==='週期 1');
+ assert(segment);segment.props.onChange('CUSTOM');v.render();
+ v.check('1月',true);v.check('4月',true);
+ v.submit('設定項目');await v.tick();
+ const sent=v.calls.find(c=>c.method==='POST');
+ assert.deepEqual(sent.json.rows[0].schedule,{kind:'CUSTOM',months:[1,4]});
+});

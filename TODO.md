@@ -1,3 +1,9 @@
+## 待 Claude 審查：WO-0.9.68 月度待辦版面與週期
+- [x] 週期歷史、單月／雙月／自訂月份、D1 單一路徑的週期過濾與月份格產生。
+- [x] 共用 SegmentedControl／CheckField 設定，按可用寬度換成兩列一組，保留歷史與原日期修改。
+- [ ] PR 遠端 Runtime／Governance 驗證與 Claude 審查；人工 1440／1024／390 視覺截圖及實機驗收。詳見 [工單](docs/development/work-orders/WO-0.9.68.md)。
+- [ ] 未合併、未部署，正式仍為 V0.9.67。
+
 ## 已部署、待複審：V0.9.64 黑名單與月度待辦（2026-11-02）
 
 - [x] 四處置排序／欄寬／OTHER純內容、移出理由及跨列線；月度16日預產／設定拖曳與備註／停啟用／單格更新及同訂購日期樣式，0041／舊備份保全、Build與合成瀏覽器通過。[Claude交接](docs/handoff/CYWEB-BLACKLIST-MONTHLY-0964-20261102.md)。
@@ -140,7 +146,7 @@
 
 ## 開發待辦
 
-- [ ] **WO-0.9.68 月度待辦換行版面與項目週期**（[工作單](docs/development/work-orders/WO-0.9.68.md)，交 GPT，Claude 審查）。
+- [x] **WO-0.9.68 月度待辦換行版面與項目週期（GPT PR 待 Claude 審查）**（[工作單](docs/development/work-orders/WO-0.9.68.md)，交 GPT，Claude 審查）。
 - [ ] **WO-0.9.69 門市售後維修頁籤**（[工作單](docs/development/work-orders/WO-0.9.69.md)，交 GPT；含 migration，Claude 審查通過才合併部署）。
 
 - [ ] **ERP 查詢完成通知位置**：目前共用 Toast 在桌面顯示於右上角；依使用者 2026-10-28 指示，**ERP 查詢完成通知**要改為畫面右下角。實作時先確認是否影響其他共用通知，避免未授權地把全部 Toast 位置一起改掉。
