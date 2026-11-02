@@ -647,7 +647,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
     {!sources.some(x=>!x.isActive)?<p className="cy-op-empty">目前沒有已隱藏的來源。</p>:null}</div>
    <div className="cy-op-form-footer"><button className="cy-op-button" type="button" onClick={()=>setHiddenSourcesOpen(false)}>關閉</button></div>
   </Dialog>:null}
-  {sourceForm?<Dialog open title={sourceForm.id?"修改叫貨來源":"新增叫貨來源"} onClose={()=>setSourceForm(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void saveSource(e)}>
+  {sourceForm?<Dialog showCloseButton={false} open title={sourceForm.id?"修改叫貨來源":"新增叫貨來源"} onClose={()=>setSourceForm(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void saveSource(e)}>
     <FormSection>
      <Field label="名稱" size="m" required><input className="cy-op-input" maxLength={40} required value={sourceForm.name} onChange={e=>setSourceForm(s=>s?{...s,name:e.target.value}:s)}/></Field>
      {!sourceForm.id?<Field label="類型" size="s"><select className="cy-op-input" value={sourceForm.kind} onChange={e=>setSourceForm(s=>s?{...s,kind:e.target.value as "GENERAL"|"VENDOR"}:s)}><option value="GENERAL">公司內部</option><option value="VENDOR">外部廠商</option></select></Field>:null}
@@ -657,7 +657,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
     </FormSection>
     <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setSourceForm(null)}>取消</button><button type="submit" className="cy-op-button primary" disabled={busy}>儲存</button></div>
    </form></Dialog>:null}
-  {receipt&&selected?<Dialog open title={receipt.receiptId?"修改到貨":"登記到貨"} onClose={()=>setReceipt(null)} size="large" className="cy-ordering-receipt-dialog"><form onKeyDown={enterAdvancesFields} onSubmit={e=>void receive(e)}>
+  {receipt&&selected?<Dialog showCloseButton={false} open title={receipt.receiptId?"修改到貨":"登記到貨"} onClose={()=>setReceipt(null)} size="large" className="cy-ordering-receipt-dialog"><form onKeyDown={enterAdvancesFields} onSubmit={e=>void receive(e)}>
     <FormSection>
    <Field label="ERP 進貨單號 341A-" size="m" required><input className="cy-op-input" inputMode="numeric" pattern="[0-9]{11}" maxLength={11} value={receipt.no} onChange={e=>setReceipt(v=>v?{...v,no:e.target.value}:v)}/></Field>
    <Field label="到貨日期" size="s" required><DateInput density="regular" className="cy-op-input" max="9999-12-31" value={receipt.date} onChange={e=>setReceipt(v=>v?{...v,date:e}:v)}/></Field>
@@ -679,7 +679,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
     </tr>})}</tbody></table></div>
    <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setReceipt(null)}>取消</button><button type="submit" className="cy-op-button primary" disabled={receiptSaving} aria-busy={receiptSaving||undefined}>{receipt.receiptId?"儲存修改":"儲存到貨"}</button></div>
   </form></Dialog>:null}
-  {closing?<Dialog open title="結掉剩餘量" onClose={()=>setClosing(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void closeRemaining(e)}>
+  {closing?<Dialog showCloseButton={false} open title="結掉剩餘量" onClose={()=>setClosing(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void closeRemaining(e)}>
     <FormSection><Field label="處理方式" size="m"><select className="cy-op-input" value={closing.kind} onChange={e=>setClosing(v=>v?{...v,kind:e.target.value as typeof v.kind}:v)}><option value="SHORTAGE">缺貨</option><option value="CANCELLED">取消</option><option value="OTHER">其他</option></select></Field>
    <Field label="原因" size="l" required={closing.kind==="OTHER"}><input className="cy-op-input" value={closing.reason} onChange={e=>setClosing(v=>v?{...v,reason:e.target.value}:v)}/></Field>
     </FormSection>

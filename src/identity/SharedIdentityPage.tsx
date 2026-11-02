@@ -187,7 +187,7 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
         <button type="button" className="cy-op-button" onClick={() => setDialog("password")}>變更</button>
       </div>
     </section>
-    <Dialog open={dialog === "password"} title="變更密碼" size="small" dismissible={!busy} onClose={closeDialog}>
+    <Dialog showCloseButton={false} open={dialog === "password"} title="變更密碼" size="small" dismissible={!busy} onClose={closeDialog}>
       <FeedbackBanner message={message} tone={messageTone} />
       <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={submitPassword}>
     <FormSection>
@@ -206,7 +206,7 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
     </FormSection>
   </form>
     </Dialog>
-    <Dialog open={dialog === "email"} title={verifyingCurrentEmail ? "驗證目前 Email" : "變更 Email"} size="small" dismissible={!busy} onClose={closeDialog}>
+    <Dialog showCloseButton={!!challengeId} open={dialog === "email"} title={verifyingCurrentEmail ? "驗證目前 Email" : "變更 Email"} size="small" dismissible={!busy} onClose={closeDialog}>
       <FeedbackBanner message={message} tone={messageTone} />
       {!challengeId && verifyingCurrentEmail ? <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={closeDialog}>取消</button><button type="button" className="cy-op-button primary" disabled={busy || countdown > 0} onClick={() => void verifyCurrentEmail()}>{countdown > 0 ? String(countdown) + " 秒後可重新寄送" : "重新寄送驗證碼"}</button></div> : !challengeId ? <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={startEmail}>
     <FormSection>
@@ -781,7 +781,7 @@ function CreateUserDialog({ canIdentityAdmin, onClose, onCreated, reportError }:
 
   return <>
     {confirmationDialog}
-    <Dialog open title="新增使用者" size="small" dismissible={!busy} onClose={() => void close()}
+    <Dialog showCloseButton={false} open title="新增使用者" size="small" dismissible={!busy} onClose={() => void close()}
       description="系統會寄出驗證信與一次性首次登入密碼，本人完成驗證後即可使用。"
       footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void close()}>取消</button><button type="submit" form={formId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>新增使用者</button></div>}>
       <form onKeyDown={enterAdvancesFields} id={formId} className="cy-op-form" onSubmit={create}>
@@ -829,7 +829,7 @@ function TransferDialog({ employees, onClose }: { employees: readonly IdentityEm
 
   return <>
     {reloadDialog}
-    <Dialog open title="移交超級管理員" size="small" dismissible={!busy} onClose={onClose}
+    <Dialog showCloseButton={false} open title="移交超級管理員" size="small" dismissible={!busy} onClose={onClose}
       description="移交後立即生效，雙方既有登入都會撤銷。只能移交給已啟用且 Email 已驗證的使用者。"
       footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={onClose}>取消</button>
         <button type="submit" form={formId} className="cy-op-button danger-solid" disabled={busy || (challengeId !== null && otp.length !== 6)} aria-busy={busy || undefined}>{challengeId ? "確認移交" : "寄送移交驗證碼"}</button></div>}>
@@ -1035,7 +1035,7 @@ function ApplicationRegistryPanel({ snapshot, refresh }: { snapshot: IdentityAdm
     <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>系統</th><th>狀態</th></tr></thead>
       <tbody>{snapshot.applications.map((app) => <tr key={app.application_id}><td title={"識別碼：" + app.application_id}>{app.display_name}</td>
         <td><StatusChip tone={app.enabled === 1 ? "success" : "neutral"}>{app.core_access_locked === 1 ? "核心・固定啟用" : app.enabled === 1 ? "啟用" : "停用"}</StatusChip></td></tr>)}</tbody></table></div>
-    {registration ? <Dialog open title="登記並啟用系統" size="small" dismissible={!busy} onClose={() => void close()}
+    {registration ? <Dialog showCloseButton={false} open title="登記並啟用系統" size="small" dismissible={!busy} onClose={() => void close()}
       description="為目前 Workspace 加入系統。超級管理員可直接使用；其他員工仍須另外開放使用權。已停用的系統重新登記後會啟用，原有使用權會保留。"
       footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void close()}>取消</button><button type="submit" form={formId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>登記並啟用</button></div>}>
       <form onKeyDown={enterAdvancesFields} id={formId} onSubmit={(event) => void register(event)}>
@@ -1087,7 +1087,7 @@ function SecurityPanel() {
       <dt>同一 Email 同用途</dt><dd>每小時 {policy.otpMaxSentPerEmailPurposeHour} 封</dd>
       <dt>每日 Email 上限</dt><dd>{policy.emailDailyLimit} 封（系統上限 {view.systemEmailDailyCeiling}）</dd>
     </dl> : <Loading />}
-    {draft && view ? <Dialog open title="變更驗證碼與 Email 安全設定" size="small" dismissible={!busy} onClose={close}
+    {draft && view ? <Dialog showCloseButton={false} open title="變更驗證碼與 Email 安全設定" size="small" dismissible={!busy} onClose={close}
       description="限制驗證碼重寄與 Email 寄送次數，避免被濫用。"
       footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={close}>取消</button><button type="submit" form={formId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>儲存</button></div>}>
       <form onKeyDown={enterAdvancesFields} id={formId} className="cy-identity-policy-form" onSubmit={(event) => void save(event)}>

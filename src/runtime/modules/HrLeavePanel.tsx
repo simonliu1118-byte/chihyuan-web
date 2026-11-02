@@ -115,7 +115,7 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
     </>:<p className="cy-md-empty">選擇員工查看假單、特休與補休。</p>}
    </div>
   </div>
-  <Dialog open={grantOpen} title="給予補休" onClose={()=>setGrantOpen(false)} size="small">
+  <Dialog showCloseButton={false} open={grantOpen} title="給予補休" onClose={()=>setGrantOpen(false)} size="small">
    <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>{e.preventDefault();void submitGrant()}}>
     <FormSection>
     <Field label="來源" size="s"><select className="cy-op-input" value={grantKind} onChange={e=>setGrantKind(e.target.value as "holiday"|"grant")}><option value="holiday">國定假日</option><option value="grant">管理員給予</option></select></Field>
@@ -128,7 +128,7 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
     </FormSection>
   </form>
   </Dialog>
-  <Dialog open={adjust!==null} title="調整特休應給時數" onClose={()=>setAdjust(null)} size="small">
+  <Dialog showCloseButton={false} open={adjust!==null} title="調整特休應給時數" onClose={()=>setAdjust(null)} size="small">
    <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>{e.preventDefault();void submitAdjust()}}>
     <FormSection>
     {adjust?<p>{ymd(adjust.periodStart)}～{ymd(adjust.periodEnd)}。{basisText(adjust)}</p>:null}

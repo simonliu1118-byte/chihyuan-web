@@ -86,7 +86,7 @@ export function HrLeaveDialog({person:given,people,types,initialDate,initialType
    onSaved();onClose();
   }catch(e){setError(e instanceof Error?e.message:"假單儲存失敗")}finally{setBusy(false)}
  }
- return <Dialog open={given!==null} title={completed?"假單／銷假":"請假單"} onClose={onClose} size="medium">
+ return <Dialog open={given!==null} title={completed?"假單／銷假":"請假單"} onClose={onClose} size="medium" showCloseButton={!!completed||!!createdBatchId}>
   {confirmationDialog}
   {person&&completed?<form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>void cancelCompleted(e)}>
     <FormSection>

@@ -5,6 +5,10 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.88 — 工作視窗不再點背景取消（2026-11-03）
+- 全系統共用modal／抽屜／sheet點背景保持開啟；有取消按鈕時移除重複X，查看畫面仍保留明確退出方式。
+- 盤點31個檔案65處入口，包含動態新增／查看、帳號、人事、叫貨、盤點、工作日誌與共用確認／輸入視窗；沿用既有Esc、busy及焦點返回。
+
 ## CY Web V0.9.87 — 客戶清單與資料密度（2026-11-02）
 - 左側客戶編號／簡稱單行、狀態靠右；灰底選取、直線分隔。
 - 統編接全稱，電話與傳真集中、地址獨立整列；補齊部門與聯絡人電話／手機／備註的呈現。

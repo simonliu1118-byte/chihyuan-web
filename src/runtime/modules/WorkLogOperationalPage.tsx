@@ -516,7 +516,7 @@ export function WorkLogOperationalPage() {
   return (
     <div className="cy-worklog-op">
       {confirmationDialog}
-      <Dialog open={reviewDraft !== null} title="審核工作日誌" size="large" dismissible={!busy}
+      <Dialog showCloseButton={false} open={reviewDraft !== null} title="審核工作日誌" size="large" dismissible={!busy}
         onClose={() => void closeReview()} footer={<div className="cy-dialog-action-row">
           <button type="button" className="cy-op-button" disabled={busy} onClick={() => void closeReview()}>取消</button>
           <button type="submit" form={reviewFormId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>完成審核</button>
@@ -544,7 +544,7 @@ export function WorkLogOperationalPage() {
     </FormSection>
   </form> : null}
       </Dialog>
-      <Dialog open={reasonDraft !== null} title={reasonDraft?.kind === "cancel" ? "取消審核" : "撤回審核"}
+      <Dialog showCloseButton={false} open={reasonDraft !== null} title={reasonDraft?.kind === "cancel" ? "取消審核" : "撤回審核"}
         size="small" dismissible={!busy} onClose={() => void closeReason()} footer={<div className="cy-dialog-action-row">
           <button type="button" className="cy-op-button" disabled={busy} onClick={() => void closeReason()}>取消</button>
           <button type="submit" form={reasonFormId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>確認</button>

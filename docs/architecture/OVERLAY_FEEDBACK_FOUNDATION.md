@@ -41,11 +41,26 @@ Shared behavior includes:
 - title/description/body/footer structure;
 - Escape handling;
 - restore focus to the connected invoking control on close/unmount, including nested confirmations;
-- optional backdrop dismissal;
+- backdrop clicks never dismiss modal, drawer or sheet;
 - explicit non-dismissible/busy mode;
 - common close affordance.
 
 Business modules own the actual decision, form and permission rules.
+
+### V0.9.88 explicit closing (2026-11-03)
+
+All shared modal/drawer/sheet surfaces keep the current task open when the surrounding
+area is clicked. `showCloseButton` controls only the header/floating X: a view with an
+explicit cancel action passes false; a read-only view with no cancel action keeps its X.
+Views switching between browse and edit update this property with their actual form state.
+`dismissible` retains its existing Escape/busy behavior, independently of the X.
+Callers keep their existing cancellation, dirty guard, mutation and focus-return ownership.
+
+This applies to task windows. Field selection menus (calendar, EntityPicker, source picker
+and account menu) may still collapse on an outside click: collapsing them does not cancel
+the containing task or discard its fields. Inline store date/price editors already keep
+their task open until their explicit cancel/save action. Non-modal SidePanel has no
+outside-dismiss handler and retains its only close action.
 
 ## `ConfirmDialog`
 
