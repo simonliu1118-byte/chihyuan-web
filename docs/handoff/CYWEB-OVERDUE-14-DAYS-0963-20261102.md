@@ -20,3 +20,7 @@
 ## 待辦
 
 必要CI／PR／合併部署與雙入口source／D1／HTTPS／排程證據追補；Claude事後複審及正式登入／實機驗收。保留功能分支。
+
+## 發布完成（2026-11-02）
+
+PR343合併1f6a7c79a5ede4c837d32f08dabec0e03c589b73；Runtime41336717534完整Linux553/553，治理41336717551及部署契約41336717501成功。[部署41336860713](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41336860713)成功，雙入口0.9.63／精確source／consumer1.0.5／D1／HTTPS／HSTS及排程維持原設定，無migration／bulk作業。完整畫面store-0963-price-no-spinner.png為驗收證據；上方局部截圖有偏移已捨棄，不作證據。Claude複審待填；新增黑名單及月度需求另輪接續。
