@@ -1,6 +1,6 @@
 # WO-0.9.76 進貨輔助抽屜：結果表格與加入叫貨單版面
 
-- 狀態：待執行
+- 狀態：執行完成，待 CI／Claude 審查
 - 分支：cyweb/wo-0.9.76-restock-layout　PR：#（執行者填）
 - 純前端、沒有 API 與 migration：審查通過後合併部署。
 
@@ -89,13 +89,13 @@
 
 ## 6. 驗收清單
 
-- [ ] 1440 有結果時，抽屜約 720～800px，預設不用左右捲；只有一層上下卷軸，表頭固定。
-- [ ] 「顯示每日明細」打開後才有每日欄，抽屜放寬、可左右捲、品號欄固定；重新整理後記得選擇。
-- [ ] 叫貨欄是加入圖示；「已加入」提示在抽屜底部看得到。
-- [ ] 加入對話框沒有「建議」，上次來源仍預選；只有廠商列表捲動，對話框在 1440×900 不必捲。
-- [ ] 手機 390：抽屜滿版，結果為卡片。
+- [x] 1440 有結果時，抽屜約 720～800px，預設不用左右捲；只有一層上下卷軸，表頭固定。
+- [x] 「顯示每日明細」打開後才有每日欄，抽屜放寬、可左右捲、品號欄固定；重新整理後記得選擇。
+- [x] 叫貨欄是加入圖示；「已加入」提示在抽屜底部看得到。
+- [x] 加入對話框沒有「建議」，上次來源仍預選；只有廠商列表捲動，對話框在 1440×900 不必捲。
+- [x] 手機 390：抽屜滿版，結果為卡片。
 - [ ] `npm run typecheck`、`npm run validate:source`、`npm run build` 通過；`node --test scripts/*.test.mjs` 通過，交審前最新 head CI 全綠。
-- [ ] VERSION／package.json、TODO、CHANGELOG 已更新。
+- [x] VERSION／package.json、TODO、CHANGELOG 已更新。
 
 ## 7. 截圖要求
 
@@ -106,5 +106,17 @@
 - 手機 390：結果卡片、加入對話框。
 
 ## 8. 完成報告（執行者填）
+
+- 實作版本：V0.9.77 Build0，基底 main 5c2a01c；WO-0.9.74 的到貨／日期改版另案審查，未混入本分支。
+- 驗收：1440×900／340 個合成品號下抽屜 780px，內容 scrollWidth=clientWidth=763，只有 cy-restock-content 一層上下捲動；顯示每日明細後為 1100px，橫向與上下捲動均由同一內容區承擔，表頭 top=120 與內容頂端一致，固定品號 left=329 與內容左側一致。選擇重新整理後保留。
+- 加入：共用 IconButton/Icons.add（table），FeedbackBanner 作為不捲動 footer，加入後位於視窗底部；公司／廠商僅出現一次，上次來源預選與草稿點保留。80 個合成廠商下列表高度 174px、可見約五行，440px 加入對話框高度約 572px，本身不需捲動。
+- 手機390×844：抽屜寬390、內容無水平溢出、每日欄不建立／切換不顯示；同一表格轉 data-label 卡片，加入圖示在右上。手機加入對話框寬370，只有廠商列表捲動。
+- 主要測試：新增 scripts/restock-layout.test.mjs 三項，實際測試預設／切換、偏好及 compact、來源預選與按需查詢；連同欄位／鍵盤測試6/6通過。npm run build（含前後端 typecheck）通過，既有 bundle 大小／dynamic import 警告未擴大處理。
+- 本機完整 node --test scripts/*.test.mjs：582項571通過11失敗；失敗在未修改的 backup-rehearsal-http Windows URL、secure-entry Windows URL、部署檔CRLF及0043～0045 schema字元換行指紋。Windows未安裝Python，validate:source／validate:d1:local本機無法執行；需以PR的Linux CI執行正式完整驗證，不把本機結果寫成全通過。
+- 截圖：外部交付 outputs/wo76-desktop-compact.png、wo76-desktop-daily.png、wo76-desktop-daily-sticky.png、wo76-desktop-add.png、wo76-desktop-footer.png、wo76-mobile-cards.png、wo76-mobile-add.png，全部是合成資料，未放入Public Git。
+- 偏離說明：每日明細的水平捲動與上下捲動共用抽屜內容區；若給 table wrapper overflow-x:auto，瀏覽器會同時建立上下捲動 ancestor，使 sticky 表頭無法相對抽屜固定。因此直接維持一個 scroll owner，沒有複製表頭／observer／DOM relocation／第二套手機元件，符合單層捲動目的。SidePanel共用元件未修改。
+- 資源：純前端；本輪正式D1讀0列／寫0列、正式ERP呼叫0。合成HTTP在localhost，不接正式服務，API/migration/Worker無變更。
+- 最新head CI：待PR建立後回填。Claude最終審查待填；未合併、未部署、未發Release。
+
 
 ## 9. 審查紀錄（審查者填）

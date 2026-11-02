@@ -108,5 +108,13 @@
 - **到貨**（V0.9.32–0.9.35）：登記到貨為表格，只列剩餘可到貨品項；送出中停用按鈕避免重複登記。
 - **左方清單與未到貨明細**（V0.9.41–0.9.42，V0.9.59 Build2修訂）：叫貨紀錄每筆一列（來源、送出日期、狀態），直角橫線分隔；history=1按實際sent_at新到舊，同時間再created_at／id；未送出即作廢置後，草稿不在history且仍按建立時間排序。左方清單起訖日同一列；未到貨明細每張叫貨單一張可收合的卡片（來源、叫貨日、未到項數、整張登記到貨）。
 - **備份**（V0.9.36）：`ordering_*` 九張表納入可攜備份（不再列於 `EPHEMERAL_TABLES`）。
-- **進貨輔助加入叫貨單**（V0.9.35）：從 ERP 查詢的進貨輔助表把品項加入草稿；定期中國貨需選區段，不同單位不合併。V0.9.42 起來源改為點選標籤（`src/ui/OrderingSourceChips.tsx`）：建議列為該品號上次的來源與目前有草稿的來源，其次公司來源，廠商依個人頁籤順序（`GET /preferences/vendors`）並可搜尋；選好自動帶入草稿。
+- **進貨輔助加入叫貨單**（V0.9.35）：從 ERP 查詢的進貨輔助表把品項加入草稿；定期中國貨需選區段，不同單位不合併。V0.9.42 起來源改為點選標籤（`src/ui/OrderingSourceChips.tsx`）：V0.9.77 起只分公司／廠商兩組，廠商依個人頁籤順序（`GET /preferences/vendors`）並可搜尋，列表最多約五行；有草稿的來源顯示小圓點。上次來源仍由 last-source 預選，選好自動帶入草稿，不另列「建議」。
 - **廠商註記**（V0.9.43）：叫貨來源加 `note`（最多 300 字、可換行，`migrations/0028_ordering_source_note.sql`），在「修改叫貨來源」視窗填寫，廠商條件列顯示；`GET /sources` 回 `note`，POST／PATCH 接受 `note`。
+
+### 進貨輔助結果版面（WO-0.9.76／V0.9.77）
+
+- RestockAssist 持有每日明細偏好（localStorage 讀寫 try/catch）、加入成功提示及查詢日期；ERP Job 仍由 OrderingRestockDrawer 的既有 useErpJob 持有。RestockTable 保留篩選、排序、單品號開啟／加入的唯一 owner。
+- 桌面預設總計六欄，抽屜有結果時以 780px 為內容寬度上限；開每日明細才放寬到 min(1100px, 100vw - 24px)。排序與庫存不足判斷維持原契約。
+- 唯一 scroll owner 是 cy-restock-content；同一區域在每日明細時同時支援橫向移動，表格本身不另建 scroll container，讓單一 thead 的 sticky top:0 相對抽屜內容成立，品號 sticky left 同步固定。沒有複製表頭或第二 renderer。成功 FeedbackBanner 位於內容區外的 flex footer，不受捲動位置影響。
+- 820px 以下沿用共用 useCompactLayout，隱藏每日明細選擇且不產生每日欄；680px 以下同一 tbody/tr 以 data-label 卡片呈現，沿用 SidePanel 手機滿版行為，沒有獨立手機業務 state／action。
+- 來源與草稿／未到貨 API 均不變，仍僅在打開加入對話框時讀該品號的 draft-items；切換每日明細和本機篩選不發出查詢。

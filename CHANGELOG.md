@@ -5,6 +5,11 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.77 — 進貨輔助精簡結果與加入版面（WO-0.9.76，2026-11-02，待審查）
+- 預設只顯示品號／品名、銷貨／銷退／淨銷／庫存與加入圖示，桌面抽屜約 780px；每日明細由共用 CheckField 切換並記住偏好，開啟才放寬至最多 1100px。
+- 移除表格獨立高度／捲動區，由抽屜內容統一捲動，表頭與左側品號固定；FeedbackBanner 放在不捲動的底部。
+- 加入視窗移除「建議」來源分組，保留上次來源預選、草稿小圓點及按需單品號查詢；廠商列表最多約五行。手機使用同一表格 DOM 呈現卡片，不顯示每日明細。
+
 ## CY Web V0.9.75 — 加入叫貨單也顯示未到貨（2026-11-03，Claude）
 - 進貨輔助「加入叫貨單」對話框上方，除了已在哪些草稿，也列出已送出、還沒到齊的叫貨單與未到數量（例如「台北 10/14 送出 未到 20 捲」），避免重複叫貨。`draft-items` 多回傳已送出且有剩餘的行。
 
