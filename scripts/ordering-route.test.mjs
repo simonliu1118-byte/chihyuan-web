@@ -544,3 +544,16 @@ test("a typed 廠商品號 sent along with a later 品號 stays on the line and 
   const next=await save({itemCode:"C00275"});assert.equal(next.vendorItemCode,"A43","remembered under the new 品號");
  }finally{sql.close()}
 });
+
+test("drafts/open returns a source's drafts and the draft to show in one request",async()=>{
+ const {sql,call}=fixture();try{
+  const sources=(await call("/sources")).body.data,taipei=sources.find(x=>x.name==="台北"),taichung=sources.find(x=>x.name==="台中");
+  const a=(await call("/orders","POST",{sourceId:taipei.id})).body.data;
+  const empty=await call("/drafts/open?sourceId="+taichung.id);
+  assert.equal(empty.status,200);assert.deepEqual(empty.body.data,{drafts:[],order:null});
+  const open=await call("/drafts/open?sourceId="+taipei.id);
+  assert.equal(open.status,200,JSON.stringify(open.body));
+  assert.deepEqual(open.body.data.drafts.map(d=>d.id),[a.id]);assert.equal(open.body.data.order.id,a.id);
+  assert.deepEqual(open.body.data.order.lines,[]);
+ }finally{sql.close()}
+});

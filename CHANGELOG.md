@@ -5,6 +5,10 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.90 — 叫貨切頁籤立即反應、一次請求（2026-11-03，Claude）
+- 從「未到貨」點來源頁籤時，原本要等資料回來才切換、期間沒有任何反應，感覺像沒按到；現在立刻切換並顯示載入中。
+- 打開來源頁籤原本連續兩個請求（草稿清單、草稿內容），各自都要登入驗證約 0.3～0.6 秒；改為一個請求 `GET /ordering/drafts/open` 同時回傳。
+
 ## CY Web V0.9.89 — 叫貨 API 時間量測；部署檢查等待延長（2026-11-03，Claude）
 - 為了找出「剛進叫貨後第一次切頁籤要等約 3 秒」的原因，叫貨 API 的每個回應加上 `Server-Timing`（登入驗證時間、整體時間），可在瀏覽器開發者工具的 Network 看到。只有時間，沒有資料。
 - 部署後的版本檢查由等待 90 秒延長為 5 分鐘：V0.9.88 部署時 Cloudflare 新版生效超過 90 秒，檢查誤判失敗。

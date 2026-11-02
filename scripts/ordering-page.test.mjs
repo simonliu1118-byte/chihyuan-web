@@ -59,6 +59,12 @@ function mount(transport, pageProps={}) {
     if (path === "/preferences/vendors") return [];
     if (path === "/pending") return globalThis.orderingPagePending ?? [];
     if (path.startsWith("/orders?history=")) return [];
+    // The server's one-request tab open, composed from each test's list and detail answers.
+    if (path.startsWith("/drafts/open?sourceId=")) {
+      const sourceId = new URLSearchParams(path.split("?")[1]).get("sourceId");
+      const drafts = await transport("/orders?sourceId=" + sourceId + "&status=DRAFT", {});
+      return { drafts, order: drafts.length ? await transport("/orders/" + drafts[0].id, {}) : null };
+    }
     return transport(path, options);
   };
   globalThis.orderingPageConfirm = async options => { confirmations.push(options); return false; };
@@ -153,7 +159,7 @@ test("opening an existing draft needs only list and detail; initial history is n
   assert.equal(page.heading, "未到貨明細"); assert.deepEqual(page.selectedTabs.map(t => t.trim()), ["未到貨"], "未到貨 is the first tab of the source bar");
   assert.equal(page.grid, undefined, "entering the module never loads or creates a draft");
   page.calls.length = 0; page.click("測試來源甲"); await page.tick();
-  assert.deepEqual(page.calls.map(x => x.path), ["/orders?sourceId=1&status=DRAFT", "/orders/10"]);
+  assert.deepEqual(page.calls.map(x => x.path), ["/drafts/open?sourceId=1"], "one request opens a source tab");
   assert.ok(page.grid); assert.equal(page.grid.busy, false);
   page.calls.length = 0; page.click("＋ 新草稿"); await page.tick();
   assert.deepEqual(page.calls.map(x => x.path), ["/orders"], "creation does not refetch unrelated lists or its just-created detail");
@@ -181,7 +187,7 @@ test("successful flush precedes source loading and stale load responses cannot r
   slow.resolve(order(1)); await page.tick(); assert.equal(page.grid.onRegister, newest);
   const gate = deferred(); page.grid.onRegister({ flush: () => gate.promise, discard() {} });
   page.calls.length = 0; page.click("測試來源甲"); await page.tick(); assert.equal(page.calls.length, 0);
-  gate.resolve(true); await page.tick(); assert.equal(page.calls[0].path, "/orders?sourceId=1&status=DRAFT");
+  gate.resolve(true); await page.tick(); assert.equal(page.calls[0].path, "/drafts/open?sourceId=1");
   page.grid.onRegister(null); page.render();
 });
 
@@ -364,4 +370,15 @@ test("a draft row naming an item still waiting to arrive is flagged by 品號, �
  assert.match(warn({...row,itemCode:"t001"}),/測試來源乙 10\/14 測試商品一 未到 6 箱/);
  assert.ok(warn({...row,itemName:"測試商品一"}));assert.ok(warn({...row,vendorItemCode:"V9"}));assert.ok(warn({...row,vendorItemName:"廠商名九"}));
  assert.equal(warn({...row,itemCode:"T002",itemName:"別的"}),undefined);
+});
+
+test("from 未到貨 a source tab switches at once and shows Loading while its draft loads",async()=>{
+ const slow=deferred();
+ const page=mount((path,options)=>path==="/orders/10"?slow.promise:normalTransport(path,options));
+ await page.tick();assert.equal(page.heading,"未到貨明細");
+ page.click("測試來源甲");await page.tick();
+ assert.notEqual(page.heading,"未到貨明細","the pending view is left immediately");
+ assert.deepEqual(page.selectedTabs.map(t=>t.trim()),["測試來源甲"]);
+ assert.ok(page.nodes.some(n=>n.type?.name==="Loading"),"Loading is shown");
+ slow.resolve(order(1));await page.tick();assert.ok(page.grid);
 });
