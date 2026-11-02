@@ -1,6 +1,7 @@
 ## V0.9.88 視窗明確關閉（2026-11-03）
 - [x] 65處工作視窗入口盤點、共用背景不取消、有取消移除X；3/3與build/typecheck／source檢查、桌面及手機合成驗收通過。
-- [ ] 完整CI／合併部署與Claude複審；見[交接](docs/handoff/CYWEB-DIALOG-EXPLICIT-CLOSE-0988-20261103.md)。
+- [x] PR379完整606/606與必要CI通過，合併59ac3db；V0.9.88已生效。首次部署驗證41482521513因90秒內仍回舊版而失敗；稍後同source雙入口health／HTTPS／無效登入補驗通過，唯讀Identity41484034477明確productionPortalReady=true，未重複部署。
+- [ ] Claude最終複審；完整盤點與發布延遲證據見[交接](docs/handoff/CYWEB-DIALOG-EXPLICIT-CLOSE-0988-20261103.md)。
 
 ## V0.9.87 客戶介面密度（2026-11-02）
 - [x] 單行灰底清單、統編接全稱、電話傳真集中、地址整列、聯絡資料完整、三張緊密卡片；build/typecheck／source檢查、桌面與390手機合成驗收通過。
