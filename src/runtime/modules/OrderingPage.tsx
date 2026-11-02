@@ -1,4 +1,5 @@
 import { DateInput } from "../../ui/forms/DateInput";
+import {OpenOnlyToggle} from "../../ui/data/OpenOnlyToggle";
 import {Field,CheckField,FormSection,RequiredRows} from "../../ui/forms/Field";
 import {useContext,useEffect,useMemo,useRef,useState,type FormEvent} from "react";
 import {apiRequest,ApiClientError} from "../../api/client";
@@ -85,6 +86,7 @@ function OrderingRestockJob({open,onClose,canQueryItem}:{open:boolean;onClose:()
 export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:boolean;canQueryItem?:boolean}={}){
  const [sources,setSources]=useState<OrderingSource[]>([]),[list,setList]=useState<OrderingListRow[]>([]),[pending,setPending]=useState<OrderingPendingLine[]>([]);
  const [tab,setTab]=useState<number|null>(null),[vendorAll,setVendorAll]=useState(false),[selected,setSelected]=useState<DisplayOrder|null>(null);
+ const [openOnly,setOpenOnly]=useState(false);
  const [search,setSearch]=useState(""),[status,setStatus]=useState(""),[from,setFrom]=useState(""),[to,setTo]=useState("");
  const [busy,setBusy]=useState(false);
  const [message,setMessage,reportError,messageTone]=useFeedbackMessage<string|null>(null);
@@ -431,8 +433,10 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
   const timer=setTimeout(()=>{void call<OrderingListRow[]>("/orders?"+listQuery.current).then(setList).catch(e=>setError(errorOf(e)))},300);
   return ()=>clearTimeout(timer);
  },[search,sourceFilter,from,to]);
- const counts=useMemo(()=>list.reduce<Record<string,number>>((n,x)=>({...n,[x.status]:(n[x.status]??0)+1}),{}),[list]);
- const shown=status?list.filter(x=>x.status===status):list;
+ // 顯示未結案 keeps 已送出／部分到貨 only (user 2026-11-03), like 門市訂購.
+ const base=useMemo(()=>openOnly?list.filter(x=>x.status==="SENT"||x.status==="PARTIAL"):list,[list,openOnly]);
+ const counts=useMemo(()=>base.reduce<Record<string,number>>((n,x)=>({...n,[x.status]:(n[x.status]??0)+1}),{}),[base]);
+ const shown=status?base.filter(x=>x.status===status):base;
  const sentDate=(o:{sentAt:string|null;plannedSendDate:string|null;createdAt:string})=>displayDate(o.sentAt??o.plannedSendDate??o.createdAt);
  const openLines=current?current.lines.filter(l=>l.quantity!==null&&l.received<l.quantity&&!l.closedAs):[];
  const currentSource=current?sources.find(x=>x.id===current.sourceId):undefined;
@@ -510,7 +514,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
    <section className="cy-op-panel cy-md-list" aria-label="叫貨紀錄">
     <div className="cy-md-toolbar">
      <div className="cy-md-toolbar-lead">
-      <button type="button" className={"cy-op-button"+(viewPending?" primary":"")} onClick={()=>void showPending()}>未到貨 {pending.length}</button>
+      <OpenOnlyToggle value={openOnly} onChange={v=>{setOpenOnly(v);setStatus("")}}/>
       <input className="cy-op-input" type="search" aria-label="搜尋叫貨紀錄" placeholder="搜尋品號、品名、進貨單號" value={search} onChange={e=>setSearch(e.target.value)}/>
      </div>
      <StatusFilter label="叫貨狀態" value={status} onChange={setStatus} counts={counts}
@@ -538,6 +542,9 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
     <MasterDetailBack label="叫貨紀錄" onBack={pane.close} disabled={busy}/>
     <div className="cy-ordering-tabbar">
       <div className="cy-op-tabs" role="tablist" aria-label="叫貨來源">
+       {/* 未到貨 is the first tab, set apart from the sources by a divider (user 2026-11-03). */}
+       <button type="button" role="tab" className={viewPending?"active":""} aria-selected={viewPending} onClick={()=>void showPending()}>未到貨 {pending.length}</button>
+       <span className="cy-ordering-tab-divider" aria-hidden="true"/>
        {visibleSources.map(s=><button key={s.id} type="button" role="tab"
          className={tab===s.id&&!vendorAll&&!viewPending?"active":""} aria-selected={tab===s.id&&!vendorAll&&!viewPending}
          onClick={()=>void selectSource(s)}>{s.name}</button>)}

@@ -149,7 +149,7 @@ test("a selected zero receipt quantity is rejected rather than silently omitted"
 test("opening an existing draft needs only list and detail; initial history is not fetched twice", async () => {
   const page = mount(normalTransport); await page.tick();
   assert.deepEqual(page.calls.map(x => x.path).sort(), ["/sources", "/pending", "/preferences/vendors"].sort());
-  assert.equal(page.heading, "未到貨明細"); assert.deepEqual(page.selectedTabs, []);
+  assert.equal(page.heading, "未到貨明細"); assert.deepEqual(page.selectedTabs.map(t => t.trim()), ["未到貨"], "未到貨 is the first tab of the source bar");
   assert.equal(page.grid, undefined, "entering the module never loads or creates a draft");
   page.calls.length = 0; page.click("測試來源甲"); await page.tick();
   assert.deepEqual(page.calls.map(x => x.path), ["/orders?sourceId=1&status=DRAFT", "/orders/10"]);
@@ -328,7 +328,7 @@ test('authorized restock button opens drawer without changing source tabs',async
  allowed.click('進貨輔助');await allowed.tick();
  const drawer=allowed.nodes.find(n=>n.type?.name==='OrderingRestockDrawer');
  assert.equal(drawer?.props.open,true);
- assert.deepEqual(allowed.selectedTabs,[]);
+ assert.deepEqual(allowed.selectedTabs.map(t=>t.trim()),['未到貨'],'the source tab stays where it was');
 });
 
 test("receipt history shows quantities and actor; edit reuses receipt dialog and deletion needs confirmation",async()=>{
