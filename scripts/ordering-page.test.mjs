@@ -308,11 +308,13 @@ test("a row added in edit mode keeps its local id, so later keystrokes update it
  assert.equal(page.grid.lines.at(-1).itemName,"C00031");
 });
 
-test('restock action is grant-gated and opens the reusable side drawer without changing source tabs',async()=>{
- const denied=mount(normalTransport);await denied.tick();
+test('restock action is hidden when permission is absent',async()=>{
+ const denied=mount(normalTransport);await denied.tick();await denied.tick();
  assert.equal(denied.nodes.some(n=>n.type==='button'&&text(n)==='進貨輔助'),false);
+});
+test('authorized restock button opens drawer without changing source tabs',async()=>{
  const allowed=mount(normalTransport,{canRestock:true,canQueryItem:true});await allowed.tick();
- allowed.click('進貨輔助');
+ allowed.click('進貨輔助');await allowed.tick();
  const drawer=allowed.nodes.find(n=>n.type?.name==='OrderingRestockDrawer');
  assert.equal(drawer?.props.open,true);
  assert.deepEqual(allowed.selectedTabs,[]);
