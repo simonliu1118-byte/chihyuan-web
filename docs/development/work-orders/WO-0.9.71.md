@@ -1,7 +1,7 @@
 # WO-0.9.71 進貨輔助移到叫貨模組（右側抽屜）
 
-- 狀態：待執行
-- 分支：cyweb/wo-0.9.71-restock-drawer　PR：#（執行者填）
+- 狀態：程式與自動測試完成，待 Claude 複審／人工視覺驗收；未合併、未部署
+- 分支：cyweb/wo-0.9.71-restock-drawer　PR：[ #358 ](https://github.com/simonliu1118-byte/chihyuan-web/pull/358)
 - 有新增 API（草稿品項查詢），沒有 migration：**Claude 審查通過後才合併部署**。
 
 ## 1. 背景（使用者原話）
@@ -81,6 +81,57 @@
 - 桌面 1440：叫貨頁頁籤列、進貨輔助抽屜（含結果與「已在草稿」提示）、加入叫貨單對話框。
 - 手機 390：抽屜。
 
-## 8. 完成報告（執行者填）
+## 8. 完成報告（GPT，2026-11-02）
+
+### Git 與交付狀態
+- [PR #358](https://github.com/simonliu1118-byte/chihyuan-web/pull/358)，分支 `cyweb/wo-0.9.71-restock-drawer`，以 `main` SHA `2fc8dc8ec8d8c5cbfdb09c22766cacfc067928b0` 為起點；版本 `V0.9.71`／BUILD `0`。
+- **未合併、未部署、未建立 GitHub Release。** Claude 必須先於第 9 節複審，依使用者授權整合。
+
+### 實作與共用架構
+- [x] `src/ui/overlays/SidePanel.tsx` + `overlay.css`：共用右側無遮罩抽屜、Esc、關閉鍵、寬度與手機滿版；`ErpQueueSidePanel` 改用共用元件，舊專用 CSS 已移除。
+- [x] `ErpItemQueryPage.tsx` 刪除 RESTOCK 類別及獨立分支，保留商品／客戶／供應商／未收款；`shared/modules.ts` 保留 `ERP_RESTOCK_ASSIST` 權限碼並將路由導向 `ordering`。
+- [x] `OrderingPage.tsx`：管理來源與頁籤同列、偏左；最右側在具 `ERP_RESTOCK_ASSIST` 權限時顯示進貨輔助按鈕。抽屜寬 `min(1100px, calc(100vw - 24px))`，結果表格可水平捲動，手機滿版。
+- [x] 抽屜使用原 `useErpJob` 作唯一查詢 owner；`App.tsx` 保持已開啟的叫貨頁掛載，隱藏或關閉抽屜時輪詢不中斷；RESTOCK 完成通知「查看」導向 `ordering` 並開抽屜，其他 ERP 類別保持原行為。
+- [x] `RestockAssist.tsx`：查詢起迄日採既有 `Field`、`DateInput` 與 `enterAdvancesFields`，關閉再開接回查詢、日期與結果；原數據與加單流程不另建。
+- [x] `worker/http/ordering-routes.ts`：`GET /api/business/ordering/draft-items`，既有 ORDERING 權限守門、最多 500 品號，使用 `json_each(?)` 單次查詢所有未結案 DRAFT 明細，不顯示已送出單。
+- [x] 結果逐品號顯示「已在來源 日期 草稿 數量／單位」，同張草稿的多列合併提示，多張草稿分行；確認加入既有列時顯示草稿內容；加入成功後刷新提示。
+- [x] 新增 `migrations/0045_ordering_draft_item_index.sql`：`ordering_lines(item_code,order_id)` 索引；無新資料表或資料列轉換。更新 portable-backup 中已知舊版 schema 的還原相容性、版本指紋測試。
+- [x] 更新 `VERSION`、`package.json`、`TODO.md`、`CHANGELOG.md`、工單及 Claude Handoff。
+
+### 驗證證據
+- [x] [Runtime Check #41437785135](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41437785135)（程式 SHA `f880945857185b4707cc074571311cc58ff71f99`）：**Node 577／577 通過、0 失敗**，`browser-typecheck`、`worker-typecheck`、`source-contracts`、Local D1 runtime acceptance、Vite build 全部成功。
+- [x] [Governance Check #41437785070](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41437785070)：成功。
+- [x] [CY Web Deploy PR preflight #41437785139](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41437785139)：部署契約成功，部署工作因 PR 事件略過，**未部署**。
+- [x] 0045 精確 schema LF `e3f14b04ee560ddb43c98a2c31f2dcfb1c9710f81dd9161d018c1bd5506a1bab`、CRLF `ffd84deca22c432706918692fef76bfe050cda0598f2c6b0f2851f0c55d4e8ad`，已登錄並由整套測試核對；舊 0044 可攜備份可還原至帶索引的 0045。
+- 完整 head 在補齊查詢表單 Enter 後另有 CI 重新執行，以 PR Checks 最新結果為準。先前紅燈包括測試 fixture、頁面 mock 模擬與 index-only 備份標準化，均已返修，不得引用為最終失敗。
+- [ ] 桌面 1440 叫貨頁、抽屜結果／草稿提示／加單對話框，以及手機 390 真實瀏覽器截圖／觸控操作：**尚未完成**，不可當作實機視覺驗收通過。
+
+### Claude 複審重點
+- ERP Query 完全不顯示 RESTOCK 類別；ORDERING 與 ERP_RESTOCK_ASSIST 權限組合、按鈕可見性、Router／notification 導向。
+- 抽屜關閉仍繼續查詢、完成 Toast 可重新開回；重複品號出現在多張草稿的提示與原加單確認；來源頁籤及未到貨功能沒有回歸。
+- 詳細檔案與風險見 [Handoff](../../handoff/CYWEB-WO-0.9.71-GPT-20261102.md)；Claude 審查結果保留第 9 節。
+
+查結論在 §9，Handoff：`docs/handoff/CYWEB-WO-0.9.71-GPT-20261102.md`。
+
+
 
 ## 9. 審查紀錄（審查者填）
+
+### Claude 審查（2026-11-03，通過，版本改為 V0.9.72 合併部署）
+
+版本：V0.9.71 已給 WO-0.9.68（PR #351，先合併），本 PR 改為 **V0.9.72**。
+
+審查時直接修正：
+1. **草稿查詢超過 500 品號會整批失效**：後端一次最多 500 個品號，但進貨輔助查一段期間所有客戶的銷貨，品號很容易超過 500；前端一次全送，被拒後 `catch` 清空，「已在草稿」提示就全部不見、也不報錯。改為每 200 個品號分批查詢再合併。
+2. **叫貨頁常駐後回來不會更新**：為了讓進貨輔助查詢在切模組時不中斷，叫貨頁改成開過就一直掛著，結果切去別的模組再回來，來源、清單、未到貨與目前開著的單都是舊資料（之前每次進來都會重讀）。改為回到叫貨頁時重讀來源與清單；目前開著的單若沒有未儲存的修改，也重讀一次。
+3. 抽屜裡的起訖日用 compact 日期元件（112px），在一般表單字級下「YYYY/MM/DD」被截斷；改用 `density="regular"`。
+4. `DraftHints` 自己又寫了一次草稿文字格式，改用同檔的 `draftText`；`useContext` 合併到既有的 react import。
+5. 本工作單第 7 節標題被完成報告覆蓋（「## 7. 截## 8.」），已還原。
+
+確認無誤：
+- 0045 只加索引，LF／CRLF 指紋用 migration 實算核對相符；0044 → 0045 備份還原測試在套件內。
+- `draft-items` 走叫貨模組權限、`json_each` 參數化、只取草稿未結掉的行。
+- 共用 `SidePanel` 取代排程佇列專用外框，沒有另做一套抽屜（手機改為滿版，原為底部 60vh，可接受）。
+- 實機截圖（合成資料）：桌面 1440 頁籤列「管理來源」在分隔線上、「進貨輔助」在最右；抽屜 1100px 正常。手機叫貨頁頁籤列在明細窗格內，與「管理來源」相同，屬既有版面。
+- typecheck、build、`node --test scripts/*.test.mjs` 581／581 通過。
+

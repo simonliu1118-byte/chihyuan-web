@@ -1,14 +1,15 @@
 import { nonSeedRowCondition } from "../../shared/backup-migration-seeds";
 // App-owned portable snapshot foundation. Guarded isolated rehearsal only; no live overwrite.
 import {STORE_LEGACY_SCHEMAS,STORE_WORKFLOW_SCHEMAS,STORE_LEGACY_COLUMNS} from "./store-workflow-upgrade";
-import {STORE_MONTHLY_SCHEMAS,STORE_PROGRESS_SCHEMAS,STORE_PRE_PROGRESS_COLUMNS,STORE_SEQUENCE_SCHEMAS,STORE_PRE_SEQUENCE_COLUMNS,STORE_UNORDERABLE_SCHEMAS,STORE_BLACKLIST_SCHEMAS,STORE_ORDER_WORKFLOW_SCHEMAS,STORE_BLACKLIST_LIFECYCLE_SCHEMAS,STORE_NO_HOLD_SCHEMAS,STORE_CONTACT_INDEX_SCHEMAS,STORE_REPAIR_SCHEMAS,STORE_REPAIR_PHOTO_SCHEMAS} from "./store-progress-upgrade";
+import {STORE_MONTHLY_SCHEMAS,STORE_PROGRESS_SCHEMAS,STORE_PRE_PROGRESS_COLUMNS,STORE_SEQUENCE_SCHEMAS,STORE_PRE_SEQUENCE_COLUMNS,STORE_UNORDERABLE_SCHEMAS,STORE_BLACKLIST_SCHEMAS,STORE_ORDER_WORKFLOW_SCHEMAS,STORE_BLACKLIST_LIFECYCLE_SCHEMAS,STORE_NO_HOLD_SCHEMAS,STORE_CONTACT_INDEX_SCHEMAS,STORE_REPAIR_SCHEMAS,STORE_REPAIR_PHOTO_SCHEMAS,STORE_ORDERING_ITEM_INDEX_SCHEMAS} from "./store-progress-upgrade";
 import { BACKUP_COLUMNS } from "./schema-columns";
 import { MAX_OBJECT_BYTES } from "./storage-guard";
 export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
 const MONTHLY_TABLES=["store_monthly_settings","store_monthly_rows","store_monthly_cells","store_monthly_events"];
 const REPAIR_TABLES=["store_repairs","store_repair_events"];
 /** The deployed store schema; every upgrade path restores into it. */
-const currentStoreSchema=(hash:string)=>STORE_REPAIR_PHOTO_SCHEMAS.includes(hash);
+const currentStoreSchema=(hash:string)=>STORE_ORDERING_ITEM_INDEX_SCHEMAS.includes(hash);
+const preItemIndex=(hash:string)=>STORE_REPAIR_PHOTO_SCHEMAS.includes(hash)||prePhotos(hash);
 const prePhotos=(hash:string)=>STORE_REPAIR_SCHEMAS.includes(hash)||preRepairs(hash);
 const preRepairs=(hash:string)=>[...STORE_LEGACY_SCHEMAS,...STORE_WORKFLOW_SCHEMAS,...STORE_MONTHLY_SCHEMAS,...STORE_PROGRESS_SCHEMAS,...STORE_SEQUENCE_SCHEMAS,...STORE_UNORDERABLE_SCHEMAS,...STORE_BLACKLIST_SCHEMAS,...STORE_ORDER_WORKFLOW_SCHEMAS,...STORE_BLACKLIST_LIFECYCLE_SCHEMAS,...STORE_NO_HOLD_SCHEMAS,...STORE_CONTACT_INDEX_SCHEMAS].includes(hash);
 const preMonthly=(hash:string)=>STORE_LEGACY_SCHEMAS.includes(hash)||STORE_WORKFLOW_SCHEMAS.includes(hash);
@@ -243,7 +244,7 @@ export async function validateEmptyBackupTarget(db: D1Database, bundle: Portable
     check(currentStoreSchema(targetHash),"BACKUP_SCHEMA_MISMATCH");
     for(const t of MONTHLY_TABLES){data.tables[t]={columns:BACKUP_COLUMNS[t],rows:[]};manifest.recordCounts[t]=0}
     data.tables=Object.fromEntries(BACKUP_TABLES.map(t=>[t,data.tables[t]]));
-  }else if(!preLifecycle(manifest.schemaSha256))check(manifest.schemaSha256===targetHash||prePhotos(manifest.schemaSha256)&&currentStoreSchema(targetHash),"BACKUP_SCHEMA_MISMATCH");
+  }else if(!preLifecycle(manifest.schemaSha256))check(manifest.schemaSha256===targetHash||preItemIndex(manifest.schemaSha256)&&currentStoreSchema(targetHash),"BACKUP_SCHEMA_MISMATCH");
   if(STORE_SEQUENCE_SCHEMAS.includes(manifest.schemaSha256))check(currentStoreSchema(targetHash),"BACKUP_SCHEMA_MISMATCH");
   if(preSequence(manifest.schemaSha256)){
     check(currentStoreSchema(targetHash),"BACKUP_SCHEMA_MISMATCH");
@@ -293,5 +294,5 @@ export async function restoreIntoEmptyDatabase(db: D1Database, bundle: PortableB
   }
   await db.batch(statements);
   const restored = await exportPortableBackup(db, { workspaceScope, appVersion: manifest.appVersion });
-  check(sameBytes(restored.dataBytes, prePhotos(manifest.schemaSha256)?canonicalData(data):bundle.dataBytes), "BACKUP_RECONCILIATION_FAILED");
+  check(sameBytes(restored.dataBytes, preItemIndex(manifest.schemaSha256)?canonicalData(data):bundle.dataBytes), "BACKUP_RECONCILIATION_FAILED");
 }

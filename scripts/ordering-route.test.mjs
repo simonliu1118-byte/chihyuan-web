@@ -449,3 +449,28 @@ test('ordering history sorts by actual send time, with unsent voids last, while 
  const drafts=await call('/orders?status=DRAFT&sourceId='+source.id);assert.deepEqual(drafts.body.data.map(x=>x.id),[draft.id]);
  }finally{sql.close()}
 });
+
+test('draft-items batches codes, returns multiple draft slips with quantities and never sent or closed rows',async()=>{
+ const f=fixture();try{
+  const sources=(await f.call('/sources')).body.data;
+  const first=sources.find(x=>x.name==='台北'),second=sources.find(x=>x.name==='台中'),at='2026-11-02T00:00:00Z';
+  const insertOrder=f.sql.prepare("INSERT INTO ordering_orders(source_id,status,planned_send_date,sent_at,created_at,updated_at) VALUES(?,?,?,?,?,?)");
+  const insertLine=f.sql.prepare("INSERT INTO ordering_lines(order_id,sort_order,item_code,item_name,quantity_text,unit,closed_as) VALUES(?,?,?,?,?,?,?)");
+  insertOrder.run(first.id,'DRAFT','2026-11-05',null,at,at);const a=f.sql.prepare('SELECT last_insert_rowid() id').get().id;
+  insertLine.run(a,1,'P001','測試商品','3','盒',null);
+  insertOrder.run(second.id,'DRAFT',null,null,at,at);const b=f.sql.prepare('SELECT last_insert_rowid() id').get().id;
+  insertLine.run(b,1,'P001','測試商品','8','盒',null);
+  insertOrder.run(first.id,'SENT','2026-11-05',at,at,at);const sent=f.sql.prepare('SELECT last_insert_rowid() id').get().id;
+  insertLine.run(sent,1,'P001','測試商品','100','盒',null);
+  insertLine.run(a,2,'P001','測試商品','4','盒','CANCELLED');
+  const unauthorized=fixture("USER");try{assert.equal((await unauthorized.call('/draft-items?itemCodes=P001')).status,403)}finally{unauthorized.sql.close()}
+  const found=await f.call('/draft-items?itemCodes=P001,P002');
+  assert.equal(found.status,200,JSON.stringify(found.body));
+  assert.deepEqual(found.body.data.map(x=>x.orderId).sort((x,y)=>x-y),[a,b].sort((x,y)=>x-y));
+  assert.equal(found.body.data.find(x=>x.orderId===a).quantityText,'3');
+  assert.equal(found.body.data.find(x=>x.orderId===b).plannedSendDate,null);
+  assert.equal((await f.call('/draft-items?itemCodes='+Array.from({length:501},(_,i)=>'X'+i).join(','))).status,422);
+  assert(f.queries.some(q=>q.includes('json_each(?)')&&q.includes('ordering_lines')));
+  assert(f.sql.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_ordering_lines_item_code'").get());
+ }finally{f.sql.close()}
+});

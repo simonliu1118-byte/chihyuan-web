@@ -1,5 +1,5 @@
 import {Field,CheckField,FormSection,RequiredRows} from "../../ui/forms/Field";
-import {useEffect,useMemo,useRef,useState,type FormEvent} from "react";
+import {useContext,useEffect,useMemo,useRef,useState,type FormEvent} from "react";
 import {apiRequest,ApiClientError} from "../../api/client";
 import {MasterDetailBack,MasterDetailEmpty,useMasterDetailPane} from "../../ui/layout/MasterDetail";
 import {StatusFilter} from "../../ui/data/StatusFilter";
@@ -7,6 +7,9 @@ import {StatusChip} from "../../ui/primitives/StatusChip";
 import type {StatusTone} from "./status-flow";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {Dialog} from "../../ui/overlays/Dialog";
+import {SidePanel} from "../../ui/overlays/SidePanel";
+import {RestockAssist} from "./RestockAssist";
+import {ErpPageVisibleContext,useErpJob} from "./useErpJob";
 import {Loading} from "../../ui/feedback/Loading";
 import {OrderingSourcePicker} from "../../ui/OrderingSourcePicker";
 import {FeedbackBanner,useFeedbackMessage} from "../../ui/feedback/FeedbackProvider";
@@ -63,7 +66,20 @@ function pendingOrders(lines: readonly OrderingPendingLine[]): { orderId: number
  return [...groups].map(([orderId,group])=>({orderId,lines:group}));
 }
 
-export function OrderingPage(){
+export const ORDERING_OPEN_RESTOCK_EVENT="cy-ordering-open-restock";
+function OrderingRestockDrawer({open,onClose,canQueryItem}:{open:boolean;onClose:()=>void;canQueryItem:boolean}){
+ const pageVisible=useContext(ErpPageVisibleContext);
+ return <ErpPageVisibleContext.Provider value={open&&pageVisible}>
+  <OrderingRestockJob open={open} onClose={onClose} canQueryItem={canQueryItem}/>
+ </ErpPageVisibleContext.Provider>;
+}
+function OrderingRestockJob({open,onClose,canQueryItem}:{open:boolean;onClose:()=>void;canQueryItem:boolean}){
+ const job=useErpJob({route:"ordering",key:"RESTOCK",label:"進貨輔助",types:["RESTOCK"]});
+ return open?<SidePanel title="進貨輔助" width="min(1100px, calc(100vw - 24px))" onClose={onClose}>
+  <div className="cy-restock-panel"><RestockAssist job={job} canQueryItem={canQueryItem} canOrdering/></div>
+ </SidePanel>:null;
+}
+export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:boolean;canQueryItem?:boolean}={}){
  const [sources,setSources]=useState<OrderingSource[]>([]),[list,setList]=useState<OrderingListRow[]>([]),[pending,setPending]=useState<OrderingPendingLine[]>([]);
  const [tab,setTab]=useState<number|null>(null),[vendorAll,setVendorAll]=useState(false),[selected,setSelected]=useState<DisplayOrder|null>(null);
  const [search,setSearch]=useState(""),[status,setStatus]=useState(""),[from,setFrom]=useState(""),[to,setTo]=useState("");
@@ -81,6 +97,12 @@ export function OrderingPage(){
  const [sourceForm,setSourceForm]=useState<{id?:number;kind:"GENERAL"|"VENDOR";name:string;conditions:string;paymentTerms:string;note:string;sortOrder?:number}|null>(null);
  const [sourceFilter,setSourceFilter]=useState("");
  const [manageSources,setManageSources]=useState(false);
+ const [restockOpen,setRestockOpen]=useState(false);
+ useEffect(()=>{
+  const open=()=>{if(canRestock)setRestockOpen(true)};
+  window.addEventListener(ORDERING_OPEN_RESTOCK_EVENT,open);
+  return()=>window.removeEventListener(ORDERING_OPEN_RESTOCK_EVENT,open);
+ },[canRestock]);
  const [receipt,setReceipt]=useState<{id:number;no:string;date:string;quantities:Record<number,string>;selectedLineIds:number[]}|null>(null);
  const [receiptSaving,setReceiptSaving]=useState(false),receiptSavingRef=useRef(false);
  type ReceiptForm=NonNullable<typeof receipt>;
@@ -137,6 +159,17 @@ export function OrderingPage(){
   call<OrderingPendingLine[]>("/pending").then(setPending).finally(()=>setPendingLoading(false)),
  ])}
  useEffect(()=>{void refresh().catch(e=>setError(errorOf(e)))},[]);
+ // The page stays mounted while another module is open (so the restock job lives on); coming back
+ // re-reads sources, lists and the open order, unless the user is in the middle of an edit.
+ const pageVisible=useContext(ErpPageVisibleContext),wasVisible=useRef(pageVisible);
+ useEffect(()=>{
+  const back=pageVisible&&!wasVisible.current;wasVisible.current=pageVisible;if(!back)return;
+  void refresh().then(refreshLists).catch(e=>setError(errorOf(e)));
+  const open=selected;
+  const sequence=loadSequence.current;
+  if(open&&!revisingRef.current&&!Object.values(editorStates).some(s=>s.dirty||s.saving)&&!headerDirtyRef.current.date&&!headerDirtyRef.current.note)
+   void call<DisplayOrder>("/orders/"+open.id).then(x=>{if(sequence===loadSequence.current&&!revisingRef.current)showOrder(remember(x))}).catch(()=>{});
+ },[pageVisible]);
  const remember=(x:DisplayOrder)=>{
    cached.current.set(x.id,x);savedHeader.current.set(x.id,{date:x.plannedSendDate,note:x.note});return x;
  };
@@ -479,7 +512,8 @@ export function OrderingPage(){
          onClick={()=>void selectSource(s)}>{s.name}</button>)}
        <button type="button" role="tab" className={vendorAll?"active":""} aria-selected={vendorAll} onClick={()=>void showVendors()}>廠商</button>
       </div>
-      <button type="button" className="cy-op-button quiet" onClick={()=>setManageSources(true)}>管理來源</button>
+      <button type="button" className="cy-op-button quiet cy-ordering-manage-source" onClick={()=>setManageSources(true)}>管理來源</button>
+      {canRestock?<button type="button" className="cy-op-button cy-ordering-restock-trigger" aria-expanded={restockOpen} onClick={()=>setRestockOpen(v=>!v)}>進貨輔助</button>:null}
     </div>
     {viewPending?<>
       <div className="cy-record-header"><div><h2>未到貨明細</h2><p>{pendingLoading?"正在載入未到貨明細…":"已送出、還有剩餘數量的品項，共 "+pending.length+" 項。"}</p></div></div>
@@ -586,5 +620,6 @@ export function OrderingPage(){
    <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setClosing(null)}>取消</button><button type="submit" className="cy-op-button primary">確認</button></div>
   </form></Dialog>:null}
   {confirmationDialog}
+  {canRestock?<OrderingRestockDrawer open={restockOpen} onClose={()=>setRestockOpen(false)} canQueryItem={canQueryItem}/>:null}
  </section>;
 }

@@ -11,12 +11,15 @@ const directory = mkdtempSync(fileURLToPath(new URL("../node_modules/.ordering-p
 const outfile = join(directory, "page.mjs");
 const stubs = {
   "react": ["useState", "useRef", "useEffect", "useMemo"].map(name =>
-    `export const ${name}=(...args)=>globalThis.orderingPageHost.${name}(...args);`).join("\n")+"\nexport const useId=()=>\"ordering-test-picker\";",
+    `export const ${name}=(...args)=>globalThis.orderingPageHost.${name}(...args);`).join("\n")+"\nexport const useContext=()=>true; export const useId=()=>\"ordering-test-picker\";",
   "../../api/client": `export class ApiClientError extends Error{}; export const apiRequest=(...args)=>globalThis.orderingPageTransport(...args);`,
   "../../ui/layout/MasterDetail": `export const MasterDetailBack=()=>null,MasterDetailEmpty=()=>null; export const useMasterDetailPane=()=>({className:'',open(){},close(){}});`,
   "../../ui/overlays/useConfirmation": `export const useConfirmation=()=>({confirm:options=>globalThis.orderingPageConfirm(options),confirmationDialog:null});`,
   "../../ui/feedback/FeedbackProvider": `import {useState} from 'react'; export const FeedbackBanner=()=>null; export function useFeedbackMessage(){const [message,setMessage]=useState(null);return [message,setMessage,value=>{globalThis.orderingPageErrors.push(value);setMessage(value)},'neutral'];}`,
   "../../ui/OrderingGrid": `export function OrderingGrid(){return null}`,
+  "../../ui/overlays/SidePanel": `export function SidePanel(){return null}`,
+  "./RestockAssist": `export function RestockAssist(){return null}`,
+  "./useErpJob": `export const ErpPageVisibleContext={}; export function useErpJob(){return {result:null,busy:false}}`,
   "../../ui/foundation/useUnsavedChangesGuard": `export const useUnsavedChangesGuard=options=>{globalThis.orderingPageGuard=options};`,
 };
 for (const [path, names] of [
@@ -45,7 +48,7 @@ const order = sourceId => ({ id: sourceId * 10, sourceId, sourceName: sources[so
   sentAt: null, lines: [], receipts: [], revisions: [] });
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
 let activeHost;
-function mount(transport) {
+function mount(transport, pageProps={}) {
   const slots = [], calls = [], confirmations = []; let cursor, dirty = true, tree, effects = [];
   globalThis.orderingPageTransport = async (url, options) => {
     const path = url.replace("/api/business/ordering", ""); calls.push({ path, ...options });
@@ -56,6 +59,7 @@ function mount(transport) {
   };
   globalThis.orderingPageConfirm = async options => { confirmations.push(options); return false; };
   globalThis.orderingPageErrors = [];
+  globalThis.window={addEventListener(){},removeEventListener(){}};
   const host = {
     useRef(value) { const i = cursor++; return slots[i] ??= { current: value }; },
     useState(value) { const i = cursor++; slots[i] ??= { value: typeof value === "function" ? value() : value };
@@ -65,7 +69,7 @@ function mount(transport) {
       slots[i]?.cleanup?.(); slots[i] = { deps }; effects.push(() => { slots[i].cleanup = fn(); });
     } },
   };
-  function render() { globalThis.orderingPageHost = host; do { dirty = false; cursor = 0; effects = []; tree = OrderingPage(); effects.forEach(fn => fn()); } while (dirty); }
+  function render() { globalThis.orderingPageHost = host; do { dirty = false; cursor = 0; effects = []; tree = OrderingPage(pageProps); effects.forEach(fn => fn()); } while (dirty); }
   const view = {
     calls, confirmations, render,
     async tick() { await new Promise(resolve => setImmediate(resolve)); render(); },
@@ -82,7 +86,7 @@ function mount(transport) {
 }
 test.afterEach(() => {
   activeHost?.dispose(); activeHost = null;
-  for (const key of ["orderingPageHost", "orderingPageTransport", "orderingPageConfirm", "orderingPageErrors", "orderingPageGuard"]) delete globalThis[key];
+  for (const key of ["orderingPageHost", "orderingPageTransport", "orderingPageConfirm", "orderingPageErrors", "orderingPageGuard","window"]) delete globalThis[key];
 });
 const normalTransport = (path, options) => path.startsWith("/orders?sourceId=") ? [order(Number(new URLSearchParams(path.split("?")[1]).get("sourceId")))] :
   path === "/orders" && options.method === "POST" ? order(options.json.sourceId) : order(Number(path.split("/")[2]) / 10);
@@ -302,4 +306,16 @@ test("a row added in edit mode keeps its local id, so later keystrokes update it
  assert.equal(second.id,first.id);
  assert.equal(page.grid.lines.length,sentOrder().lines.length+1);
  assert.equal(page.grid.lines.at(-1).itemName,"C00031");
+});
+
+test('restock action is hidden when permission is absent',async()=>{
+ const denied=mount(normalTransport);await denied.tick();await denied.tick();
+ assert.equal(denied.nodes.some(n=>n.type==='button'&&text(n)==='進貨輔助'),false);
+});
+test('authorized restock button opens drawer without changing source tabs',async()=>{
+ const allowed=mount(normalTransport,{canRestock:true,canQueryItem:true});await allowed.tick();
+ allowed.click('進貨輔助');await allowed.tick();
+ const drawer=allowed.nodes.find(n=>n.type?.name==='OrderingRestockDrawer');
+ assert.equal(drawer?.props.open,true);
+ assert.deepEqual(allowed.selectedTabs,[]);
 });
