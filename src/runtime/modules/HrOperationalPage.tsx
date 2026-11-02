@@ -1,3 +1,4 @@
+import { DateInput } from "../../ui/forms/DateInput";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { apiRequest } from "../../api/client";
 import { taipeiToday } from "../../../shared/erp-query-history";
@@ -406,13 +407,13 @@ export function HrOperationalPage() {
     <FormSection>
         <div className="cy-f-grid">
           {action === "exclusion" ? <>
-            <FormField label="起日" type="date" required value={form.startDate} onChange={value => setForm({ ...form, startDate: value })} />
-            <FormField label="迄日" type="date" required value={form.endDate} onChange={value => setForm({ ...form, endDate: value })} />
-          </> : <FormField label="生效日" type="date" required value={form.effectiveDate} onChange={value => setForm({ ...form, effectiveDate: value })} />}
+            <FormField label="起日" date required value={form.startDate} onChange={value => setForm({ ...form, startDate: value })} />
+            <FormField label="迄日" date required value={form.endDate} onChange={value => setForm({ ...form, endDate: value })} />
+          </> : <FormField label="生效日" date required value={form.effectiveDate} onChange={value => setForm({ ...form, effectiveDate: value })} />}
           {action === "status" ? <Field label="新狀態" size="s"><select className="cy-op-input" value={form.nextStatus} onChange={event => setForm({ ...form, nextStatus: event.target.value })}>
             {(Object.keys(statusLabels) as HrStatus[]).map(code => <option key={code} value={code}>{statusLabels[code]}</option>)}</select></Field> : null}
           {action === "status" && form.nextStatus === "terminated" ? <>
-            <FormField label="離職日" type="date" required value={form.terminationDate} onChange={value => setForm({ ...form, terminationDate: value })} />
+            <FormField label="離職日" date required value={form.terminationDate} onChange={value => setForm({ ...form, terminationDate: value })} />
             <FormField label="離職原因" required value={form.terminationReason} onChange={value => setForm({ ...form, terminationReason: value })} />
           </> : null}
           {action === "salary" ? <>
@@ -492,12 +493,13 @@ function Fact({ label, value, wide }: { label: string; value: ReactNode; wide?: 
   return <div className={`cy-customer-info${wide ? " cy-hr-fact-wide" : ""}`}><dt>{label}</dt><dd>{value || "—"}</dd></div>;
 }
 
-function FormField({ label, value, onChange, type = "text", required, wide }: {
-  label: string; value: string | undefined; onChange: (value: string) => void; type?: string; required?: boolean; wide?: boolean;
-}) {
-  return <label className={wide ? "wide" : undefined}>{label}
-    <input className="cy-op-input" type={type} required={required} max={type === "date" ? "9999-12-31" : undefined} min={type === "number" ? 0 : undefined} step={type === "number" ? 1 : undefined}
-      value={value ?? ""} onChange={event => onChange(event.target.value)} /></label>;
+function FormField({label,value,onChange,type="text",date=false,required,wide}:{
+ label:string;value:string|undefined;onChange:(value:string)=>void;type?:string;date?:boolean;required?:boolean;wide?:boolean;
+}){
+ if(date)return <Field label={label} size="s" required={required}><DateInput density="regular" className="cy-op-input" value={value??""} onChange={onChange}/></Field>;
+ return <label className={wide?"wide":undefined}>{label}
+  <input className="cy-op-input" type={type} required={required} min={type==="number"?0:undefined} step={type==="number"?1:undefined}
+   value={value??""} onChange={event=>onChange(event.target.value)}/></label>;
 }
 
 /** Every field except 備註 and 學經歷 is required; one of 手機／市話 is enough. */
@@ -519,8 +521,9 @@ function EmployeeForm({ draft, creating, busy, members, stores, jobTitles, patch
   patch: (value: Partial<Draft>) => void; onCancel: () => void; onSubmit: (event: FormEvent) => Promise<void>;
 }) {
   const [picking, setPicking] = useState(false);
-  const text = (key: keyof Draft, type = "text") => <input className="cy-op-input" type={type} max={type === "date" ? "9999-12-31" : undefined} disabled={busy}
-    value={draft[key] as string ?? ""} onChange={event => patch({ [key]: event.target.value } as Partial<Draft>)} />;
+  const text = (key:keyof Draft,type="text")=>type==="date"
+   ?<DateInput density="regular" className="cy-op-input" disabled={busy} value={draft[key] as string??""} onChange={value=>patch({[key]:value} as Partial<Draft>)}/>
+   :<input className="cy-op-input" type={type} disabled={busy} value={draft[key] as string??""} onChange={event=>patch({[key]:event.target.value} as Partial<Draft>)}/>;
   const select = (key: keyof Draft, options: ReactNode) => <select className="cy-op-input" disabled={busy} value={draft[key] as string}
     onChange={event => patch({ [key]: event.target.value } as Partial<Draft>)}><option value="">請選擇</option>{options}</select>;
   const sameAddress = draft.mailingAddress !== "" && draft.registeredAddress === draft.mailingAddress;
