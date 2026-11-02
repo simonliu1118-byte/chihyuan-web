@@ -49,7 +49,7 @@ export async function acceptPortableRecovery(source: D1Database, target: D1Datab
     (_: any, m: any) => { m.appId = "cyacc"; },
     (_: any, m: any) => { m.formatVersion = 99; },
     (_: any, m: any) => { m.totalRecordCount += 1; },
-    (_: any, m: any) => { m.schemaSha256 = "0".repeat(64); },
+    (_: any, m: any) => { m.schemaMigration = "9999_future_schema"; },
     (d: any) => { delete d.tables.customers; },
     (d: any) => { d.tables.customers.columns[0] = "name); DROP TABLE customers;--"; },
     (d: any) => { d.tables.customers.columns[0] = "unknown_column"; },

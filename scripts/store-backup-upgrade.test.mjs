@@ -138,11 +138,13 @@ test('0043 backup restores to 0044 retaining repairs; photos start empty',async(
 test('0045 schema index fingerprints and 0044 portable backup compatibility',async()=>{
  const current=connection(),old=connection(false,false,false,false,false,false,false,false,false,false,false,false,true);
  try{
-  const hash=sha(JSON.stringify(current.sql.prepare(schemaQuery).all()));
+  // Fingerprints of the 0045 chain (the last formatVersion 1 schema), whatever migrations follow.
+  const at0045=new DatabaseSync(':memory:');for(const name of migrations.filter(f=>f<'0046'))at0045.exec(readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8'));
+  const hash=sha(JSON.stringify(at0045.prepare(schemaQuery).all()));at0045.close();
   const crlf=new DatabaseSync(':memory:');
   try{
    crlf.exec('PRAGMA foreign_keys=ON');
-   for(const name of migrations)crlf.exec(readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8').replace(/\r?\n/g,'\r\n'));
+   for(const name of migrations.filter(f=>f<'0046'))crlf.exec(readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8').replace(/\r?\n/g,'\r\n'));
    assert.equal(hash,'e3f14b04ee560ddb43c98a2c31f2dcfb1c9710f81dd9161d018c1bd5506a1bab');
    assert.equal(sha(JSON.stringify(crlf.prepare(schemaQuery).all())),'ffd84deca22c432706918692fef76bfe050cda0598f2c6b0f2851f0c55d4e8ad');
   }finally{crlf.close()}
