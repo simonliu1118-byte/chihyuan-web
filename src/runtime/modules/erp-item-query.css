@@ -364,3 +364,9 @@
 .cy-ordering-grid .cy-grid-divider-before{border-left:var(--cy-grid-divider-width,2px) solid var(--cy-grid-divider-color,var(--cy-border))}
 
 .cy-ordering-grid :is(th,td):has(+.cy-grid-divider-before){border-right:0}
+
+/* WO-0.9.71: draft presence beneath each product's add action, inside the restock drawer. */
+.cy-restock-draft-lines{display:grid;gap:2px;margin-top:5px;text-align:left;font-size:var(--cy-fs-xs);color:var(--cy-text-muted);min-width:150px}
+.cy-restock-draft-lines span{white-space:normal;overflow-wrap:anywhere}
+.cy-restock-panel .cy-erp-query-box{max-width:none}
+.cy-restock-panel .cy-restock-scroller{max-width:100%;overflow-x:auto}
