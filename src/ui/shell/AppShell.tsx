@@ -24,7 +24,10 @@ const navIconPaths: Record<string, string[]> = {
   defects: ["m10.3 3.9-8.4 14.6A2 2 0 0 0 3.6 21h16.8a2 2 0 0 0 1.7-2.5L13.7 3.9a2 2 0 0 0-3.4 0Z","M12 9v4","M12 17h.01"],
   orders: ["M8 2v4","M16 2v4","M4 6h16","M4 4h16v18H4z","M8 11h8","M8 15h6"],
   outsourcing: ["M10 17h4V5H2v12h3","M14 9h4l4 4v4h-3","M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0","M15 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0","M14 17V9"],
-  worklogs: ["M8 2v4","M16 2v4","M4 6h16","M4 4h16v18H4z","m8 14 2 2 5-5"],
+  // Every nav item has its own glyph; add one here when adding a module (no fallback reuse).
+  ordering: ["M3 4h2l2.2 11h10.6L20 7H6.2","M9 20a1 1 0 1 0 0-.01","M17 20a1 1 0 1 0 0-.01"],
+  store: ["M3 9 4.5 4h15L21 9","M3 9h18","M5 9v11h14V9","M10 20v-5h4v5"],
+  worklogs: ["M5 3h11v18H5z","M8 7h5","M8 11h5","m14 18 5-5 2 2-5 5h-2z"],
   hr: ["M3 5h18v14H3z","M9 10a2 2 0 1 0 0-.01","M6 16c.6-1.6 1.7-2.4 3-2.4s2.4.8 3 2.4","M14 10h4","M14 14h4"],
   "erp-item-query": ["M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16","m21 21-4.4-4.4"],
   identity: ["M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z","M9 12l2 2 4-4"],

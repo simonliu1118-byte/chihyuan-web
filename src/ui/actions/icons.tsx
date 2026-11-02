@@ -1,0 +1,19 @@
+import type { ReactNode } from "react";
+
+/** One stroke style for every action glyph; size and colour come from .cy-icon in app.css. */
+function Glyph({ children }: { children: ReactNode }) {
+  return <svg className="cy-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">{children}</svg>;
+}
+
+/** Shared action icons. Add new glyphs here instead of inline SVG in a module. */
+export const Icons = {
+  history: <Glyph><path d="M3 11a9 9 0 1 1 2.5 7M3 4v7h7" /><path d="M12 7v5l3 2" /></Glyph>,
+  edit: <Glyph><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15z" /></Glyph>,
+  cancel: <Glyph><circle cx="12" cy="12" r="9" /><path d="m8 8 8 8m-8 0 8-8" /></Glyph>,
+  back: <Glyph><path d="m9 4-6 6 6 6" /><path d="M3 10h11a6 6 0 0 1 6 6v4" /></Glyph>,
+  check: <Glyph><path d="m5 12 4 4L19 6" /></Glyph>,
+  close: <Glyph><path d="m6 6 12 12M6 18 18 6" /></Glyph>,
+  add: <Glyph><path d="M12 5v14M5 12h14" /></Glyph>,
+  grip: <Glyph><path d="M8 5h.01M8 12h.01M8 19h.01M16 5h.01M16 12h.01M16 19h.01" /></Glyph>,
+  remove: <Glyph><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7" /></Glyph>,
+} as const;

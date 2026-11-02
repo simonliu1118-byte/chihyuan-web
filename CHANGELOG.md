@@ -5,6 +5,13 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.65 — 共用圖示與導覽圖示不重複（2026-11-02，Claude）
+
+- [x] 新增共用圖示 `src/ui/actions/icons.tsx`（修改紀錄、修改、取消、退回、確認、關閉、新增、刪除、拖曳），`IconButton` 加 `variant="table"`（列內 26px，手機 36px）、`tone="danger"`、`expanded`／`controls`。
+- [x] 門市訂購／黑名單、月度待辦、盤點、訂購品項列改用共用元件，移除模組內自寫的 `Icon`／`Glyph`／內嵌 SVG 與四套各自的圖示按鈕 CSS（`cy-store-icon`、`cy-stocktake-list-icon`、`cy-monthly-history-button`、`.cy-store-entry-row-actions .cy-icon-button`）。
+- [x] 側欄：叫貨（購物車）、門市（店面）不再共用 CY 程式的四方格；工作日誌改為筆記本，不再與銷售工單的日曆相似。
+- [x] Claude 事後審查 V0.9.56 Build 1 至 V0.9.64（PR #319–#346），紀錄見 `docs/handoff/CYWEB-CLAUDE-REVIEW-0956-0964-20261102.md`。
+
 ## CY Web V0.9.64 — 黑名單與月度待辦（2026-11-02，已部署）
 
 - 新增不保留商品及處置順序／10字欄寬、OTHER純內容；移出必填理由及整列橫線。

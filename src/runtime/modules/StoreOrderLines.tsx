@@ -1,5 +1,6 @@
 import {Field} from "../../ui/forms/Field";
 import {IconButton} from "../../ui/actions/IconButton";
+import {Icons} from "../../ui/actions/icons";
 import {lineAmount} from "../../../shared/store";
 export type StoreDraftLine={key:number;itemCode:string;itemName:string;quantity:string;unitPrice:string;metadataMode:""|"BOOK"|"SPEC";publisher:string;author:string;specification:string;expanded:boolean};
 export function StoreOrderLines({lines,onChange,onInsert,onRemove,onLookup}:{lines:StoreDraftLine[];onChange:(key:number,patch:Partial<StoreDraftLine>)=>void;onInsert:(index:number)=>void;onRemove:(key:number)=>void;onLookup:(line:StoreDraftLine)=>void}){
@@ -12,6 +13,6 @@ export function StoreOrderLines({lines,onChange,onInsert,onRemove,onLookup}:{lin
   <td><Field label={"數量 "+(index+1)} required presentation="cell"><input className="cy-ordering-cell" type="number" min="0.0001" step="any" value={line.quantity} onChange={e=>onChange(line.key,{quantity:e.target.value})}/></Field></td>
   <td><Field label={"單價 "+(index+1)} presentation="cell"><input className="cy-ordering-cell" type="number" min="0" step="1" value={line.unitPrice} onChange={e=>onChange(line.key,{unitPrice:e.target.value})}/></Field></td>
   <td className="cy-store-entry-line-amount"><span className="cy-ordering-cell-text">{line.unitPrice.trim()===""?"":lineAmount({quantity:Number(line.quantity)||0,unitPrice:Number(line.unitPrice)}).toLocaleString('zh-TW')}</span></td>
-  <td><div className="cy-store-entry-row-actions"><IconButton label={"在品項 "+(index+1)+" 下方新增一列"} icon={<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>} onClick={()=>onInsert(index)}/><IconButton label={"刪除品項 "+(index+1)} disabled={lines.length===1} icon={<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></svg>} onClick={()=>onRemove(line.key)}/></div></td>
+  <td><div className="cy-store-entry-row-actions"><IconButton label={"在品項 "+(index+1)+" 下方新增一列"} variant="table" icon={Icons.add} onClick={()=>onInsert(index)}/><IconButton label={"刪除品項 "+(index+1)} disabled={lines.length===1} variant="table" tone="danger" icon={Icons.remove} onClick={()=>onRemove(line.key)}/></div></td>
  </tr>)}</>;
 }
