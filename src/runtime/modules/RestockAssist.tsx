@@ -1,5 +1,5 @@
 import {Field,CheckField,FormSection} from "../../ui/forms/Field";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {DateInput} from "../../ui/forms/DateInput";
 import {apiRequest} from "../../api/client";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
@@ -32,17 +32,14 @@ const blankZero = (value: number) => value ? quantity(value) : "";
 const giftNote = (gift: string | undefined) => Number(gift ?? 0) ? `含贈品 ${quantity(Number(gift))}` : undefined;
 
 type Row = ErpRestockItem & { net: number; stockValue: number | null; short: boolean };
-const DRAFT_LOOKUP_CHUNK=200;
 type DraftHit={itemCode:string;orderId:number;sourceId:number;sourceName:string;plannedSendDate:string|null;quantityText:string;unit:string;section:string};
 const draftText=(d:Pick<DraftHit,"sourceName"|"plannedSendDate"|"quantityText"|"unit">)=>
   d.sourceName+" "+(d.plannedSendDate?d.plannedSendDate.slice(5).replace("-","/"):"未定日期")+" 草稿 "+d.quantityText+(d.unit?" "+d.unit:"");
-function DraftHints({rows}:{rows:readonly DraftHit[]}){
- if(!rows.length)return null;
+/** One line per draft slip: 「台北 11/05 草稿 3 盒、2 箱」. */
+function draftLines(hits:readonly DraftHit[]){
  const grouped=new Map<number,DraftHit[]>();
- for(const hit of rows)(grouped.get(hit.orderId)??(grouped.set(hit.orderId,[]),grouped.get(hit.orderId)!)).push(hit);
- return <div className="cy-restock-draft-lines">{[...grouped.entries()].map(([orderId,lines])=><span key={orderId}>
-  已在 {draftText({...lines[0],quantityText:lines.map(d=>d.quantityText+(d.unit?" "+d.unit:"")).join("、"),unit:""})}
- </span>)}</div>;
+ for(const hit of hits)(grouped.get(hit.orderId)??(grouped.set(hit.orderId,[]),grouped.get(hit.orderId)!)).push(hit);
+ return [...grouped.values()].map(lines=>draftText({...lines[0],quantityText:lines.map(d=>d.quantityText+(d.unit?" "+d.unit:"")).join("、"),unit:""}));
 }
 type Sort = "CODE" | "NET" | "STOCK" | "SHORT";
 const SORTS: { key: Sort; label: string }[] = [
@@ -72,20 +69,6 @@ function RestockTable({ from, to, items, canQueryItem, canOrdering }: { from: st
   const [sort, setSort] = useState<Sort>("SHORT");
   const [shortOnly, setShortOnly] = useState(false);
   const [opened, setOpened] = useState<string | null>(null);
-  const [draftHits,setDraftHits]=useState<Record<string,DraftHit[]>>({});
-  const reloadDrafts=useCallback(async()=>{
-    if(!canOrdering||!items.length){setDraftHits({});return}
-    try{
-      // A restock period can return more 品號 than one lookup takes (500), so ask in chunks.
-      const codes=[...new Set(items.map(x=>x.itemCode))],grouped:Record<string,DraftHit[]>={};
-      for(let i=0;i<codes.length;i+=DRAFT_LOOKUP_CHUNK){
-        const found=await apiRequest<DraftHit[]>("/api/business/ordering/draft-items?itemCodes="+encodeURIComponent(codes.slice(i,i+DRAFT_LOOKUP_CHUNK).join(",")));
-        found.forEach(hit=>(grouped[hit.itemCode]??=[]).push(hit));
-      }
-      setDraftHits(grouped);
-    }catch{setDraftHits({})}
-  },[canOrdering,items]);
-  useEffect(()=>{void reloadDrafts()},[reloadDrafts]);
   const [addRow,setAddRow]=useState<Row|null>(null);
   const [addedMessage,setAddedMessage,reportAddedError,addedTone]=useFeedbackMessage<string|null>(null);
   const shown = useMemo(() => {
@@ -139,8 +122,7 @@ function RestockTable({ from, to, items, canQueryItem, canOrdering }: { from: st
             <td className="cy-restock-total is-break cy-restock-strong" title={row.stockValue === null ? row.stockNote || "未查到庫存" : row.short ? "庫存不足：庫存不到期間淨銷，或已無庫存" : undefined}>
               {row.stockValue === null ? <span className="cy-restock-none">—</span>
                 : row.short ? <span className="cy-restock-short">{quantity(row.stockValue)}</span> : quantity(row.stockValue)}</td>
-            {canOrdering?<td><button type="button" className="cy-op-button" onClick={()=>setAddRow(row)}>加入叫貨單</button>
-              <DraftHints rows={draftHits[row.itemCode]??[]}/></td>:null}
+            {canOrdering?<td><button type="button" className="cy-op-button" onClick={()=>setAddRow(row)}>加入叫貨單</button></td>:null}
           </tr>;
         })}</tbody>
       </table>
@@ -148,7 +130,7 @@ function RestockTable({ from, to, items, canQueryItem, canOrdering }: { from: st
     {shown.length === 0 && <p className="cy-erp-search-hint">沒有符合篩選條件的品號。</p>}
     {opened && <ErpItemDialog key={opened} itemCode={opened} onClose={() => setOpened(null)} />}
     <FeedbackBanner message={addedMessage} tone={addedTone}/>
-    {addRow&&<AddToOrdering row={addRow} onClose={()=>setAddRow(null)} onAdded={text=>{setAddedMessage(text);setAddRow(null);void reloadDrafts()}}/>}
+    {addRow&&<AddToOrdering row={addRow} onClose={()=>setAddRow(null)} onAdded={text=>{setAddedMessage(text);setAddRow(null)}}/>}
   </>;
 }
 /**
@@ -209,6 +191,8 @@ function AddToOrdering({row,onClose,onAdded}:{row:Row;onClose:()=>void;onAdded:(
  const [section,setSection]=useState<OrderingSection>("");
  // Suggestions for the source tags: the item's last source, sources with a draft, the member's vendor order.
  const [lastSourceId,setLastSourceId]=useState(0),[draftSourceIds,setDraftSourceIds]=useState<number[]>([]),[vendorOrder,setVendorOrder]=useState<number[]>([]);
+ // Which drafts already hold this 品號 is looked up only here, for the one item being added (user 2026-11-03).
+ const [inDrafts,setInDrafts]=useState<string[]>([]);
  const {confirm,confirmationDialog}=useConfirmation();
  const regular=sources.find(s=>s.id===sourceId)?.kind==="CN_REGULAR";
  useEffect(()=>{let valid=true;void Promise.all([
@@ -216,7 +200,9 @@ function AddToOrdering({row,onClose,onAdded}:{row:Row;onClose:()=>void;onAdded:(
   apiRequest<{source_id:number}|null>("/api/business/ordering/last-source?itemCode="+encodeURIComponent(row.itemCode)),
   apiRequest<OrderingListRow[]>("/api/business/ordering/orders?status=DRAFT").catch(()=>[]),
   apiRequest<number[]>("/api/business/ordering/preferences/vendors").catch(()=>[]),
- ]).then(([s,last,allDrafts,order])=>{if(valid){
+  apiRequest<DraftHit[]>("/api/business/ordering/draft-items?itemCodes="+encodeURIComponent(row.itemCode)).catch(()=>[]),
+ ]).then(([s,last,allDrafts,order,hits])=>{if(valid){
+  setInDrafts(draftLines(hits));
   const lastId=s.some(x=>x.id===last?.source_id&&x.isActive)?last!.source_id:0;
   setSources(s.filter(x=>x.isActive));setSourceId(lastId);setLastSourceId(lastId);
   setDraftSourceIds([...new Set(allDrafts.map(x=>x.sourceId))]);setVendorOrder(order);
@@ -240,6 +226,7 @@ function AddToOrdering({row,onClose,onAdded}:{row:Row;onClose:()=>void;onAdded:(
  return <Dialog open size="small" title={"加入叫貨單："+row.itemName} dismissible={false} onClose={onClose}>{error?<p role="alert">{error}</p>:null}
  <form onKeyDown={enterAdvancesFields} onSubmit={e=>void submit(e)}>
     <FormSection>
+ {inDrafts.length?<p className="cy-restock-in-drafts">已在 {inDrafts.join("；")}</p>:null}
  <div className="cy-f cy-f-l" role="group" aria-label="來源"><span className="cy-f-label">來源<span className="cy-field-required" aria-hidden="true">＊</span></span>
   <OrderingSourceChips sources={sources} value={sourceId} onChange={setSourceId} lastSourceId={lastSourceId} draftSourceIds={draftSourceIds} vendorOrder={vendorOrder}/></div>
  {regular?<Field label="區段" size="m" required><select className="cy-op-input" value={section} onChange={e=>setSection(e.target.value as OrderingSection)}><option value="">請選擇</option>{CN_REGULAR_SECTIONS.map(x=><option key={x.key} value={x.key}>{x.label}</option>)}</select></Field>:null}
