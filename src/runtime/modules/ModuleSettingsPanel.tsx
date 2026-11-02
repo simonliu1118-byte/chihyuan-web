@@ -1,4 +1,5 @@
 import {Field,CheckField,FormSection} from "../../ui/forms/Field";
+import { SegmentedControl } from "../../ui/primitives/SegmentedControl";
 import { Loading } from "../../ui/feedback/Loading";
 import { Dialog } from "../../ui/overlays/Dialog";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
@@ -92,7 +93,8 @@ export function ModuleSettingsPanel({ role, only }: { role: "ADMIN" | "SUPER_ADM
           ? <button className="cy-op-button primary" type="button" disabled={busy} onClick={() => setScore({ workLogCategoryId: null, customName: "", scoreValue: "", description: "", note: "", sortOrder: 0, isActive: true })}>＋ 新增參考列</button>
           : <button className="cy-op-button primary" type="button" disabled={busy} onClick={() => setDraft(blank())}>＋ 新增{sections.find(row => row.key === section)?.label}</button>
         : null}
-      {sections.length > 1 ? <div className="cy-segmented" role="group" aria-label="設定項目">{sections.map(row => <button key={row.key} type="button" aria-pressed={section === row.key} disabled={busy} onClick={() => { setSection(row.key); setDraft(null); setScore(null); }}>{row.label}</button>)}</div> : null}
+      {sections.length > 1 ? <SegmentedControl label="設定項目" value={section} disabled={busy}
+        options={sections.map(row => ({ value: row.key, label: row.label }))} onChange={next => { setSection(next); setDraft(null); setScore(null); }} /> : null}
     </div>
     {!snapshot ? <section className="cy-op-panel"><Loading /></section> : section === "scoring" ? <>
       <form onKeyDown={enterAdvancesFields} className="cy-op-panel cy-op-form-card" onSubmit={event => { event.preventDefault(); void save("worklog-scoring-config", "PUT", { targetAverageDailyScore: target || null, minimumAverageDailyScore: minimum || null, expectedRevision: snapshot.workLogScoringConfig?.revision ?? null }); }}>

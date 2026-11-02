@@ -1,4 +1,5 @@
 import { formatDate } from "../../ui/foundation/format";
+import { SegmentedControl } from "../../ui/primitives/SegmentedControl";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { parseErpCode, parseErpNameKeyword, parseErpOrderNo } from "../../../shared/erp-name-search";
 import { ERP_CUSTOMER_SEARCH_FIELDS, type ErpReceivableScope } from "../../../shared/erp-item-query";
@@ -49,10 +50,8 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
   return <>
     <div className="cy-op-panel cy-erp-query-box">
       <form role="search" className="cy-erp-form" onSubmit={event => void submit(event)} noValidate>
-        <div className="cy-segmented" role="group" aria-label="查詢範圍">
-          {SCOPES.map(s => <button key={s.key} type="button" aria-pressed={scope === s.key} disabled={busy}
-            onClick={() => { setScope(s.key); setError(null); }}>{s.label}</button>)}
-        </div>
+        <SegmentedControl label="查詢範圍" value={scope} disabled={busy}
+          options={SCOPES.map(s => ({ value: s.key, label: s.label }))} onChange={next => { setScope(next); setError(null); }} />
         <div className="cy-erp-query-row">
           {scope !== "ALL" && <input className="cy-op-input" value={text} maxLength={40} autoComplete="off" disabled={busy} required
             aria-label={scope === "CUSTOMER" ? "客戶" : "業務員代號"}

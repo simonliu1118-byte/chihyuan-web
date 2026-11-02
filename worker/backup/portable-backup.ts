@@ -1,11 +1,13 @@
 import { nonSeedRowCondition } from "../../shared/backup-migration-seeds";
 // App-owned portable snapshot foundation. Guarded isolated rehearsal only; no live overwrite.
 import {STORE_LEGACY_SCHEMAS,STORE_WORKFLOW_SCHEMAS,STORE_LEGACY_COLUMNS} from "./store-workflow-upgrade";
-import {STORE_MONTHLY_SCHEMAS,STORE_PROGRESS_SCHEMAS,STORE_PRE_PROGRESS_COLUMNS,STORE_SEQUENCE_SCHEMAS,STORE_PRE_SEQUENCE_COLUMNS,STORE_UNORDERABLE_SCHEMAS,STORE_BLACKLIST_SCHEMAS,STORE_ORDER_WORKFLOW_SCHEMAS,STORE_BLACKLIST_LIFECYCLE_SCHEMAS,STORE_NO_HOLD_SCHEMAS} from "./store-progress-upgrade";
+import {STORE_MONTHLY_SCHEMAS,STORE_PROGRESS_SCHEMAS,STORE_PRE_PROGRESS_COLUMNS,STORE_SEQUENCE_SCHEMAS,STORE_PRE_SEQUENCE_COLUMNS,STORE_UNORDERABLE_SCHEMAS,STORE_BLACKLIST_SCHEMAS,STORE_ORDER_WORKFLOW_SCHEMAS,STORE_BLACKLIST_LIFECYCLE_SCHEMAS,STORE_NO_HOLD_SCHEMAS,STORE_CONTACT_INDEX_SCHEMAS} from "./store-progress-upgrade";
 import { BACKUP_COLUMNS } from "./schema-columns";
 import { MAX_OBJECT_BYTES } from "./storage-guard";
 export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
 const MONTHLY_TABLES=["store_monthly_settings","store_monthly_rows","store_monthly_cells","store_monthly_events"];
+/** The deployed store schema; every upgrade path restores into it. */
+const currentStoreSchema=(hash:string)=>STORE_CONTACT_INDEX_SCHEMAS.includes(hash);
 const preMonthly=(hash:string)=>STORE_LEGACY_SCHEMAS.includes(hash)||STORE_WORKFLOW_SCHEMAS.includes(hash);
 const preProgress=(hash:string)=>preMonthly(hash)||STORE_MONTHLY_SCHEMAS.includes(hash);
 const preSequence=(hash:string)=>preProgress(hash)||STORE_PROGRESS_SCHEMAS.includes(hash);
@@ -196,18 +198,18 @@ export async function validateEmptyBackupTarget(db: D1Database, bundle: Portable
   const target = await layout(db);
   const targetHash=await sha256(encoder.encode(target.schema));
   if(preOrderWorkflow(manifest.schemaSha256)){
-    check(STORE_NO_HOLD_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
+    check(currentStoreSchema(targetHash),"BACKUP_SCHEMA_MISMATCH");
     for(const table of ["store_customer_orders","store_customer_order_lines","store_blacklist"]){const old=data.tables[table],defaults=WORKFLOW_DEFAULTS[table]??{},columns=[...new Set([...old.columns,...Object.keys(defaults),...(table!=="store_customer_order_lines"?["mobile"]:[])])].sort();
       data.tables[table]={columns,rows:old.rows.map(row=>{const v:Record<string,Cell>={...defaults,...Object.fromEntries(old.columns.map((k,i)=>[k,row[i]]))};if(table!=="store_customer_order_lines"){const phone=String(v.phone??""),mobile=String(v.mobile??""),swap=/^09\d{8}$/.test(phone)&&!/^09\d{8}$/.test(mobile);v.mobile=!mobile?phone:swap?phone:mobile;v.phone=!mobile?"":swap?mobile:phone}return columns.map(k=>v[k])})};
     }
   }
   if(preBlacklist(manifest.schemaSha256)){
-    check(STORE_NO_HOLD_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
+    check(currentStoreSchema(targetHash),"BACKUP_SCHEMA_MISMATCH");
     const old=data.tables.store_blacklist,columns=[...old.columns,"joined_date","action_detail"].sort();
     data.tables.store_blacklist={columns,rows:old.rows.map(row=>{const v:Record<string,Cell>=Object.fromEntries(old.columns.map((k,i)=>[k,row[i]]));const time=new Date(String(v.created_at)).getTime();v.joined_date=Number.isFinite(time)?new Date(time+8*3600000).toISOString().slice(0,10):"";v.action_detail="";v.reason=String(v.reason).replaceAll(",","，");return columns.map(k=>v[k])})};
   }
   if(STORE_LEGACY_SCHEMAS.includes(manifest.schemaSha256)){
-    check(STORE_NO_HOLD_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
+    check(currentStoreSchema(targetHash),"BACKUP_SCHEMA_MISMATCH");
     for(const table of ["store_customer_orders","store_blacklist"]){
       const old=data.tables[table];
       const migrated=old.rows.map(row=>{
@@ -221,7 +223,7 @@ export async function validateEmptyBackupTarget(db: D1Database, bundle: Portable
     for(const t of ["store_order_events","store_blacklist_events"]){data.tables[t]={columns:BACKUP_COLUMNS[t],rows:[]};manifest.recordCounts[t]=0}
   }
   else if(preProgress(manifest.schemaSha256)){
-    check(STORE_NO_HOLD_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
+    check(currentStoreSchema(targetHash),"BACKUP_SCHEMA_MISMATCH");
     for(const table of ["store_customer_orders","store_blacklist"]){
       const old=data.tables[table];data.tables[table]={columns:BACKUP_COLUMNS[table],rows:old.rows.map(row=>{
         const value:Record<string,Cell>=Object.fromEntries(old.columns.map((k,i)=>[k,row[i]]));value.honorific="";
@@ -235,13 +237,13 @@ export async function validateEmptyBackupTarget(db: D1Database, bundle: Portable
     }
   }
   if(preMonthly(manifest.schemaSha256)){
-    check(STORE_NO_HOLD_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
+    check(currentStoreSchema(targetHash),"BACKUP_SCHEMA_MISMATCH");
     for(const t of MONTHLY_TABLES){data.tables[t]={columns:BACKUP_COLUMNS[t],rows:[]};manifest.recordCounts[t]=0}
     data.tables=Object.fromEntries(BACKUP_TABLES.map(t=>[t,data.tables[t]]));
-  }else if(!preLifecycle(manifest.schemaSha256))check(manifest.schemaSha256===targetHash||STORE_BLACKLIST_LIFECYCLE_SCHEMAS.includes(manifest.schemaSha256)&&STORE_NO_HOLD_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
-  if(STORE_SEQUENCE_SCHEMAS.includes(manifest.schemaSha256))check(STORE_NO_HOLD_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
+  }else if(!preLifecycle(manifest.schemaSha256))check(manifest.schemaSha256===targetHash||(STORE_BLACKLIST_LIFECYCLE_SCHEMAS.includes(manifest.schemaSha256)||STORE_NO_HOLD_SCHEMAS.includes(manifest.schemaSha256))&&currentStoreSchema(targetHash),"BACKUP_SCHEMA_MISMATCH");
+  if(STORE_SEQUENCE_SCHEMAS.includes(manifest.schemaSha256))check(currentStoreSchema(targetHash),"BACKUP_SCHEMA_MISMATCH");
   if(preSequence(manifest.schemaSha256)){
-    check(STORE_NO_HOLD_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
+    check(currentStoreSchema(targetHash),"BACKUP_SCHEMA_MISMATCH");
     const table=data.tables.store_customer_orders;
     const values=table.rows.map(row=>Object.fromEntries(table.columns.map((key,i)=>[key,row[i]])));
     const time=(v:Cell)=>{const n=Date.parse(String(v));return Number.isFinite(n)?n:-Infinity};
@@ -250,7 +252,7 @@ export async function validateEmptyBackupTarget(db: D1Database, bundle: Portable
     data.tables.store_customer_orders={columns:BACKUP_COLUMNS.store_customer_orders,rows:values.map(row=>BACKUP_COLUMNS.store_customer_orders.map(k=>k==="list_sequence"?positions.get(row.id)!:row[k]))};
   }
   if(preLifecycle(manifest.schemaSha256)){
-    check(STORE_NO_HOLD_SCHEMAS.includes(targetHash),"BACKUP_SCHEMA_MISMATCH");
+    check(currentStoreSchema(targetHash),"BACKUP_SCHEMA_MISMATCH");
     const old=data.tables.store_blacklist;data.tables.store_blacklist={columns:BACKUP_COLUMNS.store_blacklist,rows:old.rows.map(row=>{const v=Object.fromEntries(old.columns.map((k,i)=>[k,row[i]]));return BACKUP_COLUMNS.store_blacklist.map(k=>k==="activation_at"?v.created_at:v[k])})};
     const events=data.tables.store_blacklist_events;data.tables.store_blacklist_operations={columns:BACKUP_COLUMNS.store_blacklist_operations,rows:events.rows.map(row=>{const e=Object.fromEntries(events.columns.map((k,i)=>[k,row[i]])),v:Record<string,Cell>={id:e.id,blacklist_id:e.blacklist_id,source_order_id:e.order_id,actor:e.actor,at:e.at,kind:"訂購取消",before_json:"{}",after_json:e.summary_json,reason:e.reason,legacy_event_id:e.id};return BACKUP_COLUMNS.store_blacklist_operations.map(k=>v[k])})};manifest.recordCounts.store_blacklist_operations=events.rows.length;data.tables=Object.fromEntries(BACKUP_TABLES.map(t=>[t,data.tables[t]]));
   }

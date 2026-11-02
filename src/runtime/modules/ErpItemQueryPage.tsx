@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { SegmentedControl } from "../../ui/primitives/SegmentedControl";
 import { HistoryRangeError, resolveHistoryRange, taipeiToday } from "../../../shared/erp-query-history";
 import { useCompactLayout } from "../../ui/foundation/useCompactLayout";
 import { ErpQueryRows } from "./ErpQueryRows";
@@ -72,11 +73,9 @@ function ErpItemQuery({ job }: { job: ErpJob }) {
   return <>
     <div className="cy-op-panel cy-erp-query-box">
       <form role="search" className="cy-erp-form" onSubmit={event => void submit(event)} noValidate>
-        <div className="cy-segmented" role="group" aria-label="查詢方式">
-          {(["ITEM_NO", "ITEM_NAME"] as const).map(type =>
-            <button key={type} type="button" aria-pressed={queryType === type} disabled={busy}  onClick={() => { setQueryType(type); setError(null); }}>
-              {type === "ITEM_NO" ? "品號" : "品名"}</button>)}
-        </div>
+        <SegmentedControl label="查詢方式" value={queryType} disabled={busy}
+          options={[{ value: "ITEM_NO", label: "品號" }, { value: "ITEM_NAME", label: "品名" }] as const}
+          onChange={next => { setQueryType(next); setError(null); }} />
         <div className="cy-erp-query-row">
           <input className="cy-op-input" id="erp-search-term" value={queryType === "ITEM_NO" ? itemNo : keyword} maxLength={40} autoComplete="off"
             aria-label={queryType === "ITEM_NO" ? "品號" : "品名"} placeholder={queryType === "ITEM_NO" ? "請輸入品號" : "請輸入品名"}

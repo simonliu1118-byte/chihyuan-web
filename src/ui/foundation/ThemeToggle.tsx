@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { SegmentedControl } from "../primitives/SegmentedControl";
 
 /**
  * Appearance preference: follow the system (default), or a fixed light/dark choice.
@@ -53,10 +54,7 @@ const options: readonly { value: ThemePreference; label: string }[] = [
 /** Segmented 系統／淺色／深色 control (top bar). */
 export function ThemeSwitch() {
   const current = useThemePreference();
-  return <div className="cy-segmented compact" role="group" aria-label="外觀">
-    {options.map(option => <button key={option.value} type="button" aria-pressed={current === option.value}
-      onClick={() => setPreference(option.value)}>{option.label}</button>)}
-  </div>;
+  return <SegmentedControl label="外觀" compact value={current} options={options} onChange={setPreference} />;
 }
 
 /** Single icon button that cycles 系統 → 淺色 → 深色 (sign-in screen; icon only in the phone top bar). */

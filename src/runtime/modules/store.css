@@ -3,9 +3,6 @@
 .cy-store-page > .cy-op-tabs { border-bottom: 1px solid var(--cy-border); }
 .cy-store-orders { display: grid; gap: 12px; min-width: 0; padding: 16px; border: 1px solid var(--cy-border); border-radius: var(--cy-radius-md); background: var(--cy-surface); }
 .cy-store-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-.cy-store-views { display: inline-flex; padding: 2px; border: 1px solid var(--cy-border); border-radius: var(--cy-radius-sm); background: var(--cy-surface-muted); }
-.cy-store-views button { height: 30px; padding: 0 12px; border: 0; border-radius: calc(var(--cy-radius-sm) - 2px); background: none; color: var(--cy-text-muted); font: inherit; font-size: var(--cy-fs-sm); cursor: pointer; }
-.cy-store-views button[aria-pressed="true"] { background: var(--cy-surface); color: var(--cy-text); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .08); }
 .cy-store-count { color: var(--cy-text-muted); font-weight: 400; }
 .cy-store-search { flex: 1 1 260px; max-width: 420px; }
 .cy-store-search .cy-op-input { width: 100%; }
