@@ -1,7 +1,7 @@
 # WO-0.9.68 月度待辦：換行版面與項目週期
 
-- 狀態：待執行
-- 分支：cyweb/wo-0.9.68-monthly-layout　PR：#（執行者填）
+- 狀態：待審查（GPT 已提交候選，尚未合併部署）
+- 分支：cyweb/wo-0.9.68-monthly-layout　PR：[ #351 ](https://github.com/simonliu1118-byte/chihyuan-web/pull/351)
 
 ## 1. 背景（使用者原話）
 
@@ -73,6 +73,47 @@
 
 - 桌面 1440、1024 寬，手機 390 寬：月度待辦清單（15 個項目）與設定項目對話框（含一個自訂週期展開）。
 
-## 8. 完成報告（執行者填）
+## 8. 完成報告（GPT，2026-11-02）
+
+**Git 交付：** [PR #351](https://github.com/simonliu1118-byte/chihyuan-web/pull/351)；分支 `cyweb/wo-0.9.68-monthly-layout`，目標 `main`，基準 `ba5c50cc25bb`。版本 `0.9.68`／BUILD `0`，**未合併、未部署、未建立 Release**。
+
+### 實作與回歸
+- [x] `shared/store-monthly.ts`：集中 `scheduleInMonth`、`scheduleAppliesInMonth`、`setMonthlySchedule`，提供每月／單月／雙月／自訂及從當月起生效的歷史；舊資料無 `schedules` 預設每月。
+- [x] `worker/store/monthly-service.ts`：原 `monthlyMaterialization` 以 JSON1 讀取生效週期，不另外建立第二套生成路徑；排除不適用月份辦理格，既有歷史格不刪除。
+- [x] `worker/http/store-monthly-routes.ts`：設定 `schedule` 驗證（CUSTOM 月份 1–12 且不可重複、至少一月）、當月更新同月歷史而非重複新增，保留原版本守門、Audit、requestKey。
+- [x] `StoreMonthlyTodos.tsx`／`store-monthly.css`：每組「名稱列＋辦理格列」、年月與門市 `rowSpan`、粗組分隔；容器用 `ResizeObserver` 計算 96px 最小格，手機每組 3 項。首次載入仍用共用 `Loading`，日期、無日期、歷程、操作按鈕沿用現有元件。
+- [x] 項目設定新增「週期」欄，沿用 `SegmentedControl`、`CheckField`、`Field`、`EntryTable`，自訂時展開 1–12 月。
+- [x] 不新增 migration：沿用 `store_monthly_settings.items_json`；不做通知及 Email。
+- [x] 更新 `VERSION`、`package.json`、`TODO.md`、`CHANGELOG.md` 及 Claude Handoff。
+- [x] 主要自動回歸：週期判斷、跨年、歷史保留、舊資料、D1 產生格、錯誤月份、Responsive 組數、設定送出、原日期修正與操作紀錄。
+- [ ] 1440／1024／390 的真實瀏覽器截圖與不同裝置操作：**未執行**，需 Claude 審查／實機驗收。寬度分組數與表格 DOM 已由自動測試驗證，不能替代視覺驗收。
+
+### 遠端 CI 實際結果
+- [x] [Runtime Check #41415275951](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41415275951)：`build`、`browser-typecheck`、`worker-typecheck`、`source-contracts` 全部成功；本機 D1 runtime acceptance 成功；**Node 564／564 通過、0 失敗**；Vite build 成功。
+- [x] [Governance Check #41415275623](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41415275623)：成功。
+- [x] [CY Web Deploy PR 驗證 #41415275634](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41415275634)：`validate-deployment-contract` 成功；**`deploy-development` 已 skipped，未部署**。
+- 首輪 Runtime #41414923761 曾有 2 項 UI 文字／欄數測試與新畫面不符（562／564），已在同分支修正，後續上述完整 CI 564／564 成功。非產品業務邏輯失敗。
+
+### 差異／限制／交接
+- 無超出工單的功能與資料結構變更；依規則優先共用元件，未新增版本殼、Observer 修補鏈或平行業務路徑。
+- 真實登入資料、人工桌面／手機視覺、觸控、日期 popover 位置仍須 Claude／使用者驗證；沒有宣稱已通過。
+- 請 Claude 於本工單 §9 記錄最終審查，複審通過且依使用者授權後再合併部署；若需返修，回給 GPT。
+- 詳細修改檔案、風險與檢查重點：[Claude Handoff](../../handoff/CYWEB-WO-0.9.68-GPT-20261102.md)。
 
 ## 9. 審查紀錄（審查者填）
+
+- 日期：2026-11-03；審查者：Claude；PR #351。
+- 結論：**通過**（含 Claude 直接修正）。
+- 確認無誤：
+  - **週期歷史**：`schedules` 以「from ≤ 該月的最後一筆」判斷，過去月份照當時的週期顯示，紀錄不會因改週期而消失；舊資料沒有 `schedules` 時視為每月。
+  - **一致性**：D1 產生格子（`monthlyMaterialization`）與 Worker、前端的 `monthlyApplicable` 用同一規則。
+  - **驗證**：自訂月份必須是 1–12 不重複，且至少一個。
+  - **共用元件**：使用 `SegmentedControl`；首次載入只顯示 `Loading`。
+  - **桌面版面**：1680、1024 寬的換行分組符合使用者示意圖。
+- Claude 直接修正：
+  1. **設定項目對話框被截斷**：寬度仍是 840px，但表格最小 850px 再加上週期欄，「停用」按鈕被切掉。已改為 `min(1080px, 100vw - 32px)`。
+  2. **手機版只看得到每組第一個項目**：程式有算成每組 3 個，但欄寬寫死在 inline style（表格 584px），其餘兩欄被推出畫面外。已改為 CSS class，手機縮窄年月、門市、操作欄，3 個項目可完整顯示。
+  3. **版號**：合併 main（V0.9.69–0.9.70 已佔用）後改為 **V0.9.71**。
+- 驗證：
+  - `npm run typecheck`、`node --test scripts/*.test.mjs`（575 pass）、`validate:source` 通過；
+  - 本機截圖：1680、1024、390 寬的清單，以及設定項目對話框。

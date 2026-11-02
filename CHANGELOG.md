@@ -1,19 +1,25 @@
-## CY Web V0.9.71 — 進貨輔助移入叫貨抽屜（待審，未部署）
-- ERP 查詢不再列出進貨輔助，叫貨模組頁籤列新增權限控管的進貨輔助右側 SidePanel。
-- 共用排程佇列 SidePanel 外框、保留 ERP Job 接回和完成通知。
-- 新增 GET /api/business/ordering/draft-items 批次查詢，呈現來源／日期／數量之草稿提示；成功加入後立即更新。
-- 0045 建立叫貨明細品號索引，更新相容備份指紋與回歸測試。
-
-## CY Web V0.9.70 — 維修單照片（待審，未部署）
-- 維修單照片：最多三張，1600px／JPEG 品質 0.8、單張 1MB、相機入口及縮圖／大圖。
-- 共用人事相片處理和 R2 失敗補償；0044 metadata migration，備份不含影像檔本體。
-
 # CY Web 版本紀錄
 
 > 各版本當時的完成內容與驗收證據，由 `TODO.md` 移出（2026-10-27 整理）。不是永久規則來源。
 > 未勾選的項目已在整理時逐項核對：已完成的（例如已部署）已勾選或不再追蹤；仍待辦或待使用者確認的，彙整在 `TODO.md`。
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
+
+## CY Web V0.9.72 — 進貨輔助移入叫貨抽屜（WO-0.9.71，2026-11-03 Claude 審查通過）
+- ERP 查詢不再列出進貨輔助，叫貨模組頁籤列新增權限控管的進貨輔助右側 SidePanel。
+- 共用排程佇列 SidePanel 外框、保留 ERP Job 接回和完成通知。
+- 新增 GET /api/business/ordering/draft-items 批次查詢，呈現來源／日期／數量之草稿提示；成功加入後立即更新。
+- 0045 建立叫貨明細品號索引，更新相容備份指紋與回歸測試。
+
+## CY Web V0.9.71 — 月度待辦換行版面與項目週期（WO-0.9.68，2026-11-03 Claude 審查通過）
+- 每個月份／門市之待辦項目依容器寬度換行，分為項目名稱列／辦理格列；年月與門市跨列，保留共用日期操作、歷史記錄及表格操作。
+- 項目設定新增每月／單月／雙月／自訂月份，資料保留逐月生效的週期歷史，過去已完成紀錄不刪除。
+- 共用月度模型、D1 辦理格 SQL、Worker 設定與清單使用同一判斷；沿用既有元件，未新增 migration。
+- 測試結果及 Claude 審核請見 WO-0.9.68 與對應 Handoff。
+
+## CY Web V0.9.70 — 維修單照片（2026-11-03 Claude 審查通過、合併部署）
+- 維修單照片：最多三張，1600px／JPEG 品質 0.8、單張 1MB、相機入口及縮圖／大圖。
+- 共用人事相片處理和 R2 失敗補償；0044 metadata migration，備份不含影像檔本體。
 
 ## CY Web V0.9.69 — 門市售後維修（Claude 複審前、未合併部署）
 - 門市新增獨立授權 STORE_REPAIRS 的售後維修頁籤及完整維修單資料。

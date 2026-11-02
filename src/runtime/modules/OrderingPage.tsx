@@ -1,5 +1,5 @@
 import {Field,CheckField,FormSection,RequiredRows} from "../../ui/forms/Field";
-import {useEffect,useMemo,useRef,useState,type FormEvent} from "react";
+import {useContext,useEffect,useMemo,useRef,useState,type FormEvent} from "react";
 import {apiRequest,ApiClientError} from "../../api/client";
 import {MasterDetailBack,MasterDetailEmpty,useMasterDetailPane} from "../../ui/layout/MasterDetail";
 import {StatusFilter} from "../../ui/data/StatusFilter";
@@ -10,7 +10,6 @@ import {Dialog} from "../../ui/overlays/Dialog";
 import {SidePanel} from "../../ui/overlays/SidePanel";
 import {RestockAssist} from "./RestockAssist";
 import {ErpPageVisibleContext,useErpJob} from "./useErpJob";
-import {useContext} from "react";
 import {Loading} from "../../ui/feedback/Loading";
 import {OrderingSourcePicker} from "../../ui/OrderingSourcePicker";
 import {FeedbackBanner,useFeedbackMessage} from "../../ui/feedback/FeedbackProvider";
@@ -160,6 +159,17 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
   call<OrderingPendingLine[]>("/pending").then(setPending).finally(()=>setPendingLoading(false)),
  ])}
  useEffect(()=>{void refresh().catch(e=>setError(errorOf(e)))},[]);
+ // The page stays mounted while another module is open (so the restock job lives on); coming back
+ // re-reads sources, lists and the open order, unless the user is in the middle of an edit.
+ const pageVisible=useContext(ErpPageVisibleContext),wasVisible=useRef(pageVisible);
+ useEffect(()=>{
+  const back=pageVisible&&!wasVisible.current;wasVisible.current=pageVisible;if(!back)return;
+  void refresh().then(refreshLists).catch(e=>setError(errorOf(e)));
+  const open=selected;
+  const sequence=loadSequence.current;
+  if(open&&!revisingRef.current&&!Object.values(editorStates).some(s=>s.dirty||s.saving)&&!headerDirtyRef.current.date&&!headerDirtyRef.current.note)
+   void call<DisplayOrder>("/orders/"+open.id).then(x=>{if(sequence===loadSequence.current&&!revisingRef.current)showOrder(remember(x))}).catch(()=>{});
+ },[pageVisible]);
  const remember=(x:DisplayOrder)=>{
    cached.current.set(x.id,x);savedHeader.current.set(x.id,{date:x.plannedSendDate,note:x.note});return x;
  };

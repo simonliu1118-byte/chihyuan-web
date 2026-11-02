@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync,readdirSync} from 'node:fs';
 import {build} from 'esbuild';
-import {monthlyKey,setMonthlyEnabled,activeInMonth,STORE_MONTHLY_CRON} from '../shared/store-monthly.ts';
+import {monthlyKey,setMonthlyEnabled,activeInMonth,scheduleInMonth,scheduleAppliesInMonth,setMonthlySchedule,STORE_MONTHLY_CRON} from '../shared/store-monthly.ts';
 const bundle=await build({entryPoints:['worker/http/store-monthly-routes.ts'],bundle:true,write:false,platform:'node',format:'esm'});
 const {handleStoreMonthlyRoute}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
 const workerBundle=await build({entryPoints:['worker/index.ts'],bundle:true,write:false,platform:'node',format:'esm'});
@@ -55,3 +55,48 @@ test('real Worker dispatch uses independent module gate and daily cron creates m
 test('changes after next-month generation hide stopped applicability without deleting completion or history, and re-enable restores it',async()=>{const f=monthlyFixture();try{let p=await setup(f);f.setNow('2026-10-16T00:00:00Z');p=await page(f);const water=p.settings.items[0],next=p.rows.find(r=>r.month==='2026-11'&&r.storeName==='高雄門市');ok(await mark(f,next,water,next.cells.find(c=>c.itemId===water.id),true,'2026-10-15'));const cells=f.sql.prepare('SELECT count(*) n FROM store_monthly_cells').get().n;ok(await settings(f,'items',p.settings.items.map(i=>({id:i.id,name:i.name,note:'保留備註',enabled:i.id!==water.id,storeIds:p.settings.stores.map(s=>s.id)}))));p=await page(f);assert(!p.rows.find(r=>r.id===next.id).cells.some(c=>c.itemId===water.id));assert(p.rows.filter(r=>r.month==='2026-10').some(r=>r.cells.some(c=>c.itemId===water.id)));assert.equal(f.sql.prepare('SELECT completed FROM store_monthly_cells WHERE row_id=? AND item_id=?').get(next.id,water.id).completed,1);assert(f.sql.prepare('SELECT count(*) n FROM store_monthly_cells').get().n>=cells);assert.equal((await mark(f,next,water,{version:2},true,null)).status,404);ok(await settings(f,'items',p.settings.items.map(i=>({id:i.id,name:i.name,note:i.note,enabled:true,storeIds:p.settings.stores.map(s=>s.id)}))));p=await page(f);assert.equal(p.rows.find(r=>r.id===next.id).cells.find(c=>c.itemId===water.id).completed,true);assert.equal(p.settings.items[0].note,'保留備註');assert.equal(f.sql.prepare('SELECT count(*) n FROM store_monthly_events WHERE row_id=?').get(next.id).n,1)}finally{f.sql.close()}});
 
 test('real daily cron pre-generates next month at midnight on the sixteenth and repeats without duplicate cells',async()=>{const f=monthlyFixture();try{await setup(f);const controller={cron:STORE_MONTHLY_CRON,scheduledTime:Date.parse('2026-10-15T16:00:00Z')};await monthlyWorker.scheduled(controller,{DB:f.db,BACKUP_SCHEDULE_ENABLED:'false'});assert.equal(f.sql.prepare('SELECT generated_through FROM store_monthly_settings').get().generated_through,'2026-11');assert.equal(f.sql.prepare('SELECT count(*) n FROM store_monthly_rows').get().n,4);await monthlyWorker.scheduled(controller,{DB:f.db,BACKUP_SCHEDULE_ENABLED:'false'});assert.equal(f.sql.prepare('SELECT count(*) n FROM store_monthly_rows').get().n,4);assert.equal(f.sql.prepare('SELECT count(*) n FROM store_monthly_cells').get().n,6)}finally{f.sql.close()}});
+
+test('monthly schedule history retains past months, supports all kinds and legacy items',()=>{
+ const item={};assert.equal(scheduleAppliesInMonth(item,'2025-12'),true);
+ item.schedules=setMonthlySchedule([], 'ODD', [], '2026-11');
+ assert.equal(scheduleAppliesInMonth(item,'2026-10'),true);
+ assert.equal(scheduleAppliesInMonth(item,'2026-11'),true);
+ assert.equal(scheduleAppliesInMonth(item,'2026-12'),false);
+ item.schedules=setMonthlySchedule(item.schedules,'EVEN',[],'2027-01');
+ assert.equal(scheduleAppliesInMonth(item,'2026-11'),true);
+ assert.equal(scheduleAppliesInMonth(item,'2027-01'),false);
+ assert.equal(scheduleAppliesInMonth(item,'2027-02'),true);
+ item.schedules=setMonthlySchedule(item.schedules,'CUSTOM',[12,3,3].filter((v,i,a)=>a.indexOf(v)===i),'2027-02');
+ assert.equal(scheduleAppliesInMonth(item,'2027-02'),false);
+ assert.equal(scheduleAppliesInMonth(item,'2027-03'),true);
+ assert.equal(scheduleAppliesInMonth(item,'2027-12'),true);
+ item.schedules=setMonthlySchedule(item.schedules,'ALL',[],'2027-02');
+ assert.equal(item.schedules.filter(s=>s.from==='2027-02').length,1);
+ assert.equal(scheduleInMonth(item,'2027-04').kind,'ALL');
+});
+test('D1 monthly schedule materialization excludes off-month cells, keeps completed history and rejects invalid custom months',async()=>{
+ const f=monthlyFixture();try{
+  let p=await setup(f);
+  const water=p.settings.items[0],store=p.settings.stores[1],first=p.rows.find(r=>r.month==='2026-10'&&r.storeId===store.id);
+  ok(await mark(f,first,water,first.cells.find(c=>c.itemId===water.id),true,'2026-10-14'));
+  f.setNow('2026-11-03T00:00:00Z');p=await page(f);
+  const settingsRows=(kind,months)=>p.settings.items.map(i=>({id:i.id,name:i.name,enabled:true,storeIds:[store.id],schedule:i.id===water.id?{kind,...(months?{months}:{})}:{kind:'ALL'}}));
+  assert.equal((await settings(f,'items',settingsRows('CUSTOM',[]))).status,422);
+  assert.equal((await settings(f,'items',settingsRows('CUSTOM',[1,1]))).status,422);
+  assert.equal((await settings(f,'items',settingsRows('CUSTOM',[0,13]))).status,422);
+  ok(await settings(f,'items',settingsRows('ODD')));
+  p=await page(f);assert.equal(p.settings.items[0].schedules.at(-1).from,'2026-11');
+  assert.equal(p.rows.find(r=>r.id===first.id).cells.find(c=>c.itemId===water.id).completed,true);
+  f.setNow('2026-12-02T00:00:00Z');p=await page(f);
+  assert(!p.rows.find(r=>r.month==='2026-12'&&r.storeId===store.id).cells.some(c=>c.itemId===water.id));
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM store_monthly_cells c JOIN store_monthly_rows r ON r.id=c.row_id WHERE r.month='2026-12' AND c.item_id=?").get(water.id).n,0);
+  f.setNow('2027-01-02T00:00:00Z');p=await page(f);
+  assert(p.rows.find(r=>r.month==='2027-01'&&r.storeId===store.id).cells.some(c=>c.itemId===water.id));
+  ok(await settings(f,'items',settingsRows('CUSTOM',[4,12])));p=await page(f);
+  assert.equal(p.settings.items[0].schedules.at(-1).kind,'CUSTOM');
+  assert(p.rows.find(r=>r.id===first.id).cells.find(c=>c.itemId===water.id).completed);
+  const before=p.settings.items[0].schedules.length;
+  ok(await settings(f,'items',settingsRows('CUSTOM',[12,4])));p=await page(f);
+  assert.equal(p.settings.items[0].schedules.length,before);
+ }finally{f.sql.close()}
+});

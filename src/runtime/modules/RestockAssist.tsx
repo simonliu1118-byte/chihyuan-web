@@ -32,6 +32,7 @@ const blankZero = (value: number) => value ? quantity(value) : "";
 const giftNote = (gift: string | undefined) => Number(gift ?? 0) ? `含贈品 ${quantity(Number(gift))}` : undefined;
 
 type Row = ErpRestockItem & { net: number; stockValue: number | null; short: boolean };
+const DRAFT_LOOKUP_CHUNK=200;
 type DraftHit={itemCode:string;orderId:number;sourceId:number;sourceName:string;plannedSendDate:string|null;quantityText:string;unit:string;section:string};
 const draftText=(d:Pick<DraftHit,"sourceName"|"plannedSendDate"|"quantityText"|"unit">)=>
   d.sourceName+" "+(d.plannedSendDate?d.plannedSendDate.slice(5).replace("-","/"):"未定日期")+" 草稿 "+d.quantityText+(d.unit?" "+d.unit:"");
@@ -40,8 +41,7 @@ function DraftHints({rows}:{rows:readonly DraftHit[]}){
  const grouped=new Map<number,DraftHit[]>();
  for(const hit of rows)(grouped.get(hit.orderId)??(grouped.set(hit.orderId,[]),grouped.get(hit.orderId)!)).push(hit);
  return <div className="cy-restock-draft-lines">{[...grouped.entries()].map(([orderId,lines])=><span key={orderId}>
-  已在 {lines[0].sourceName} {lines[0].plannedSendDate?lines[0].plannedSendDate.slice(5).replace("-","/"):"未定日期"} 草稿 {" "}
-  {lines.map(d=>d.quantityText+(d.unit?" "+d.unit:"")).join("、")}
+  已在 {draftText({...lines[0],quantityText:lines.map(d=>d.quantityText+(d.unit?" "+d.unit:"")).join("、"),unit:""})}
  </span>)}</div>;
 }
 type Sort = "CODE" | "NET" | "STOCK" | "SHORT";
@@ -76,10 +76,12 @@ function RestockTable({ from, to, items, canQueryItem, canOrdering }: { from: st
   const reloadDrafts=useCallback(async()=>{
     if(!canOrdering||!items.length){setDraftHits({});return}
     try{
-      const codes=[...new Set(items.map(x=>x.itemCode))];
-      const found=await apiRequest<DraftHit[]>("/api/business/ordering/draft-items?itemCodes="+encodeURIComponent(codes.join(",")));
-      const grouped:Record<string,DraftHit[]>={};
-      found.forEach(hit=>(grouped[hit.itemCode]??=[]).push(hit));
+      // A restock period can return more 品號 than one lookup takes (500), so ask in chunks.
+      const codes=[...new Set(items.map(x=>x.itemCode))],grouped:Record<string,DraftHit[]>={};
+      for(let i=0;i<codes.length;i+=DRAFT_LOOKUP_CHUNK){
+        const found=await apiRequest<DraftHit[]>("/api/business/ordering/draft-items?itemCodes="+encodeURIComponent(codes.slice(i,i+DRAFT_LOOKUP_CHUNK).join(",")));
+        found.forEach(hit=>(grouped[hit.itemCode]??=[]).push(hit));
+      }
       setDraftHits(grouped);
     }catch{setDraftHits({})}
   },[canOrdering,items]);
@@ -184,8 +186,8 @@ export function RestockAssist({ job, canQueryItem, canOrdering }: { job: ErpJob;
     <div className="cy-op-panel cy-erp-query-box">
       <form role="search" className="cy-erp-form" onKeyDown={enterAdvancesFields} onSubmit={submit} noValidate>
         <div className="cy-erp-history-options">
-          <Field label="起日" size="s" required><DateInput className="cy-op-input" max={taipeiToday()} value={dateFrom} disabled={busy} onChange={setDateFrom}/></Field>
-          <Field label="迄日" size="s" required><DateInput className="cy-op-input" max={taipeiToday()} value={dateTo} disabled={busy} onChange={setDateTo}/></Field>
+          <Field label="起日" size="s" required><DateInput className="cy-op-input" density="regular" max={taipeiToday()} value={dateFrom} disabled={busy} onChange={setDateFrom}/></Field>
+          <Field label="迄日" size="s" required><DateInput className="cy-op-input" density="regular" max={taipeiToday()} value={dateTo} disabled={busy} onChange={setDateTo}/></Field>
           <p>起訖都要填，最多 {ERP_RESTOCK_MAX_DAYS} 天。會查這段期間所有客戶的銷貨單與銷退單，依品號、日期加總（含贈品），再查各品號目前庫存。品號可點開查看 ERP 資料。</p>
         </div>
         <div><button className="cy-op-button primary" type="submit" disabled={busy} aria-busy={submitting || busy || undefined}>查詢</button></div>
