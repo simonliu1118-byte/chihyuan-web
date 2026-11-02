@@ -5,6 +5,10 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.67 — 門市載入照規則（2026-11-02，Claude）
+
+- [x] 月度待辦、門市訂購首次進入只顯示共用 `Loading`（轉圈＋載入中），資料到齊才整頁出現；之後的搜尋保留清單，不再用文字「載入訂購…」整個蓋掉表格。依 `CY_WEB_VISUAL_GUIDE.md` 載入規則。
+
 ## CY Web V0.9.66 — 黑名單比對改索引查詢、共用切換元件（2026-11-02，Claude）
 
 - [x] Migration 0042：`store_blacklist` 的連絡電話 1、2 與 LINE 名稱各加索引。新增／修改／取消訂購、黑名單新增與比對，改為只讀「電話或 LINE 相同」的黑名單，不再每次讀整張表（原本上限 1,000 筆）；並發守門也只比對這些相關列。

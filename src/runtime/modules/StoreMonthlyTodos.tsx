@@ -1,4 +1,5 @@
 import type {StoreHistoryCache} from "../../../shared/store-history";
+import {Loading} from "../../ui/feedback/Loading";
 import {useCallback,useEffect,useRef,useState,type PointerEvent,type ReactNode} from "react";
 import {apiRequest} from "../../api/client";
 import {Field,CheckField} from "../../ui/forms/Field";
@@ -38,9 +39,11 @@ export function StoreMonthlyTodos(){
  function dragDraft(e:PointerEvent<HTMLButtonElement>,key:string){if(!e.currentTarget.hasPointerCapture(e.pointerId))return;const row=document.elementFromPoint(e.clientX,e.clientY)?.closest<HTMLTableRowElement>("tr[data-monthly-draft]");if(row?.dataset.monthlyDraft)moveDraftTo(key,row.dataset.monthlyDraft,e.clientY,row.getBoundingClientRect())}
  function showDate(row:MonthlyRow,item:MonthlyItem,cell:MonthlyCell){setDate({row,item,cell,value:cell.completionDate??taipeiDate(),withoutDate:cell.completed&&!cell.completionDate,requestKey:crypto.randomUUID()})}
  async function saveCell(d:DateForm,completed=true){const updated=await call<MonthlyCell&{rowId:string}>(`/rows/${encodeURIComponent(d.row.id)}/cells/${d.item.id}`,"PATCH",{expectedVersion:d.cell.version,requestKey:d.requestKey,completed,completionDate:completed&&!d.withoutDate?d.value:null});setData(old=>old?{...old,rows:old.rows.map(row=>row.id!==updated.rowId?row:{...row,cells:row.cells.map(cell=>cell.itemId===updated.itemId&&cell.version<=updated.version?updated:cell)})}:old);historyCache.current.delete("/monthly/rows/"+encodeURIComponent(d.row.id)+"/history");if(history===d.row.id)setRevision(v=>v+1);setDate(null);setMessage(completed?"辦理紀錄已儲存":"已取消完成")}
+ // First entry shows only the shared Loading (visual guide: 切換模組只顯示 Loading).
+ if(!data&&loading)return <Loading/>;
  return <div className="cy-store-monthly"><FeedbackBanner message={message} tone={tone}/>
   <div className="cy-monthly-toolbar"><div>{data?.canManage?<><button type="button" className="cy-op-button" disabled={busy||loading} onClick={()=>openSettings("stores")}>設定門市</button><button type="button" className="cy-op-button" disabled={busy||loading} onClick={()=>openSettings("items")}>設定項目</button></>:null}</div><button type="button" className="cy-op-button" disabled={busy||loading} onClick={()=>void load()}>重新整理</button></div>
-  {!data?<p>{loading?"載入月度待辦…":"無法載入月度待辦"}</p>:<>
+  {!data?<p>無法載入月度待辦，請按重新整理。</p>:<>
    <div className="cy-ordering-grid-scroll cy-monthly-scroll"><table className="cy-ordering-grid cy-monthly-table" style={{minWidth:298+data.settings.items.length*56,width:298+data.settings.items.length*56}} aria-label="月度待辦">
     <colgroup><col style={{width:100}}/><col style={{width:144}}/>{data.settings.items.map(i=><col key={i.id} style={{width:56}}/>)}<col style={{width:52}}/></colgroup>
     <thead><tr><th scope="col" className="cy-monthly-month">年月</th><th scope="col" className="cy-monthly-store">門市別</th>{data.settings.items.map((i,n)=><th scope="col" key={i.id} title={i.note||undefined} className={n===0?"cy-grid-divider-before":undefined}>{i.name}</th>)}<th scope="col" className="cy-monthly-operations cy-grid-divider-before">操作</th></tr></thead>
