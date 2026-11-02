@@ -1,6 +1,7 @@
 ## V0.9.78 進貨輔助抽屜版面（WO-0.9.76，2026-11-02）
 - [x] 預設精簡表格、每日明細偏好、單一抽屜捲動及固定表頭／品號；圖示加入、固定底部提示、無建議來源及五行廠商列表；390 手機卡片。
-- [ ] 最新 head CI／Claude 審查與後續合併部署；見 [工單](docs/development/work-orders/WO-0.9.76.md) 與 [交接](docs/handoff/CYWEB-WO-0.9.76-GPT-20261102.md)。
+- [x] 程式提交65acc04完整Linux591/591與全部必要CI通過，桌面／手機合成驗收完成。
+- [ ] Claude審查與後續合併部署；見 [工單](docs/development/work-orders/WO-0.9.76.md) 與 [交接](docs/handoff/CYWEB-WO-0.9.76-GPT-20261102.md)。
 
 ## V0.9.77 未到貨頁籤與顯示未結案（2026-11-03，Claude）
 - [x] 未到貨移到來源頁籤列最左（分隔線）；清單加顯示未結案，三處共用 OpenOnlyToggle。

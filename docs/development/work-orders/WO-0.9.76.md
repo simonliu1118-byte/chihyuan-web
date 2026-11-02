@@ -1,6 +1,6 @@
 # WO-0.9.76 進貨輔助抽屜：結果表格與加入叫貨單版面
 
-- 狀態：執行完成，待 CI／Claude 審查
+- 狀態：待 Claude 審查
 - 分支：cyweb/wo-0.9.76-restock-layout　PR：[#365](https://github.com/simonliu1118-byte/chihyuan-web/pull/365)
 - 純前端、沒有 API 與 migration：審查通過後合併部署。
 
@@ -94,7 +94,7 @@
 - [x] 叫貨欄是加入圖示；「已加入」提示在抽屜底部看得到。
 - [x] 加入對話框沒有「建議」，上次來源仍預選；只有廠商列表捲動，對話框在 1440×900 不必捲。
 - [x] 手機 390：抽屜滿版，結果為卡片。
-- [ ] `npm run typecheck`、`npm run validate:source`、`npm run build` 通過；`node --test scripts/*.test.mjs` 通過，交審前最新 head CI 全綠。
+- [x] `npm run typecheck`、`npm run validate:source`、`npm run build` 通過；`node --test scripts/*.test.mjs` 通過，交審前最新 head CI 全綠。
 - [x] VERSION／package.json、TODO、CHANGELOG 已更新。
 
 ## 7. 截圖要求
@@ -118,7 +118,8 @@
 - 資源：純前端；本輪正式D1讀0列／寫0列、正式ERP呼叫0。合成HTTP在localhost，不接正式服務，API/migration/Worker無變更。
 - 主線整合：只在TODO／CHANGELOG頂端的新版本段落有衝突，保留兩方內容並將本工單順延V0.9.78；RestockAssist的DateInput customError與日期／到貨／未到貨頁籤改動均保留。
 - 整合後重點27/27通過、V0.9.78 build/typecheck通過；首輪CI 41448262542 的來源檢查將所有 localStorage 一概視為業務authority，與工單指定的單一顯示偏好衝突。已直接更新既有validate_operational_runtime.py，僅允許RestockAssist的cy-restock-daily兩個literal存取，其他業務儲存禁用照舊；沒有新增storage wrapper或改掉工單要求。
-- 最新head CI：PR #365 checks，返修後待驗證。Claude最終審查待填；未合併、未部署、未發Release。
+- 程式提交65acc04： [Runtime Check 41448660942](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41448660942)四個jobs全綠、完整Node **591/591通過、0失敗**，含Local D1與來源契約／Vite build；[Governance 41448660917](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41448660917)與[部署契約41448661032](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41448661032)全通過，實際deploy/audit未執行。
+- 最終交審檢查入口：[PR #365 checks](https://github.com/simonliu1118-byte/chihyuan-web/pull/365/checks)，本輪只回填完成報告／交接，仍須確認該最終head的必要CI全綠再轉Ready。Claude最終審查待填；未合併、未部署、未發Release。
 
 
 ## 9. 審查紀錄（審查者填）
