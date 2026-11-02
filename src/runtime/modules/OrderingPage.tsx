@@ -1,3 +1,4 @@
+import { DateInput } from "../../ui/forms/DateInput";
 import {Field,CheckField,FormSection,RequiredRows} from "../../ui/forms/Field";
 import {useContext,useEffect,useMemo,useRef,useState,type FormEvent} from "react";
 import {apiRequest,ApiClientError} from "../../api/client";
@@ -455,7 +456,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
       </div>:null}
       {editable?<form onKeyDown={enterAdvancesFields} onSubmit={e=>{e.preventDefault();if(headerDirty.date)void saveHeader("date");if(headerDirty.note)void saveHeader("note")}}>
        <FormSection>
-        <Field label="預計送出日期" size="s"><input type="date" className="cy-op-input" max="9999-12-31" disabled={!editable} value={current.plannedSendDate??""} onChange={e=>{headerEditRevisions.current.date++;headerDirtyRef.current={...headerDirtyRef.current,date:true};setHeaderDirty(v=>({...v,date:true}));setSelected(v=>v?{...v,plannedSendDate:e.target.value||null}:v)}} onBlur={()=>void saveHeader("date")}/></Field>
+        <Field label="預計送出日期" size="s"><DateInput density="regular" className="cy-op-input" max="9999-12-31" disabled={!editable} value={current.plannedSendDate??""} onChange={e=>{headerEditRevisions.current.date++;headerDirtyRef.current={...headerDirtyRef.current,date:true};setHeaderDirty(v=>({...v,date:true}));setSelected(v=>v?{...v,plannedSendDate:e||null}:v)}} onBlur={()=>void saveHeader("date")}/></Field>
         <Field label="單據備註" size="m" hint={headerDirty.date||headerDirty.note?"離開欄位後自動儲存":undefined}><input className="cy-op-input" disabled={!editable} value={current.note} onChange={e=>{headerEditRevisions.current.note++;headerDirtyRef.current={...headerDirtyRef.current,note:true};setHeaderDirty(v=>({...v,note:true}));setSelected(v=>v?{...v,note:e.target.value}:v)}} onBlur={()=>void saveHeader("note")}/></Field>
        </FormSection>
       </form>:null}
@@ -487,9 +488,9 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
       options={(["SENT","PARTIAL","CLOSED","VOID"] as const).map(code=>({code,label:ORDERING_STATUS_LABELS[code],tone:STATUS_TONE[code]}))}/>
      <div className="cy-ordering-list-filters">
       <OrderingSourcePicker sources={sources} value={Number(sourceFilter)||0} onChange={id=>setSourceFilter(id?String(id):"")} includeHidden allowAll label="篩選叫貨來源"/>
-      <input type="date" className="cy-op-input" aria-label="起日" max="9999-12-31" value={from} onChange={e=>setFrom(e.target.value)}/>
+      <DateInput className="cy-op-input" aria-label="起日" max="9999-12-31" value={from} onChange={e=>setFrom(e)}/>
       <span aria-hidden="true">～</span>
-      <input type="date" className="cy-op-input" aria-label="迄日" max="9999-12-31" value={to} onChange={e=>setTo(e.target.value)}/>
+      <DateInput className="cy-op-input" aria-label="迄日" max="9999-12-31" value={to} onChange={e=>setTo(e)}/>
      </div>
      <div className="cy-md-count">共 {shown.length} 筆</div>
     </div>
@@ -601,7 +602,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
   {receipt&&selected?<Dialog open title="登記到貨" onClose={()=>setReceipt(null)} size="large" className="cy-ordering-receipt-dialog"><form onKeyDown={enterAdvancesFields} onSubmit={e=>void receive(e)}>
     <FormSection>
    <Field label="ERP 進貨單號 341A-" size="m" required><input className="cy-op-input" inputMode="numeric" pattern="[0-9]{11}" maxLength={11} value={receipt.no} onChange={e=>setReceipt(v=>v?{...v,no:e.target.value}:v)}/></Field>
-   <Field label="到貨日期" size="s" required><input className="cy-op-input" type="date" max="9999-12-31" value={receipt.date} onChange={e=>setReceipt(v=>v?{...v,date:e.target.value}:v)}/></Field>
+   <Field label="到貨日期" size="s" required><DateInput density="regular" className="cy-op-input" max="9999-12-31" value={receipt.date} onChange={e=>setReceipt(v=>v?{...v,date:e}:v)}/></Field>
     </FormSection>
    <RequiredRows label="至少選擇一項到貨品項" satisfied={receipt.selectedLineIds.length>0}/>
    <div className="cy-op-table-wrap" role="region" aria-label="登記到貨品項" tabIndex={0}><table className="cy-op-table cy-ordering-grid cy-ordering-receipt-table">

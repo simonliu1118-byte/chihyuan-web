@@ -1,3 +1,4 @@
+import { DateInput } from "../../ui/forms/DateInput";
 import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import {useEffect,useState,type FormEvent} from "react";
 import {Dialog} from "../../ui/overlays/Dialog";
@@ -36,7 +37,7 @@ export function HrSettingsButton(){
     {wages.map(x=><p key={x.id} className="cy-hr-setting-row">{formatDate(x.effective_date)}　月薪 {x.monthly_amount.toLocaleString("zh-TW")} 元　時薪 {x.hourly_amount.toLocaleString("zh-TW")} 元</p>)}
     <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={addWage}>
     <FormSection>
-      <Field label="生效日" size="s" required><input className="cy-op-input" type="date" max="9999-12-31" value={date} onChange={e=>setDate(e.target.value)}/></Field>
+      <Field label="生效日" size="s" required><DateInput density="regular" className="cy-op-input" max="9999-12-31" value={date} onChange={e=>setDate(e)}/></Field>
       <Field label="每月最低工資（整數元）" size="s" required><input className="cy-op-input" type="number" min="0" step="1" value={monthly} onChange={e=>setMonthly(e.target.value)}/></Field>
       <Field label="每小時最低工資（整數元）" size="s" required><input className="cy-op-input" type="number" min="0" step="1" value={hourly} onChange={e=>setHourly(e.target.value)}/></Field>
       <div className="cy-op-form-footer"><button className="cy-op-button primary" disabled={busy}>＋ 新增最低工資</button></div>
