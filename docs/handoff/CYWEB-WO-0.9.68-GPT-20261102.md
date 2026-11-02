@@ -13,7 +13,13 @@
 - 不建立第二套狀態／日期元件；既有日期編輯與操作紀錄保持原邏輯。
 - 不新增 migration：沿用 items_json 中 schedules；過去月份使用既有資料與 fallback。
 - 請檢查 desktop/tablet/mobile 分組、sticky 年月與操作、date popover、日期可修正／無日期、設定週期選擇與完成紀錄回讀。
-## 驗收與尚待事項
-- 首輪 Runtime Check #41414923761：564 項中通過 562 項，兩項舊 UI 預期值失敗（完成日期新增勾號、設定標題新增週期）；已修正測試預期後待重跑。前端／Worker 型別、source contracts、Governance、deploy contract 驗證通過，不代表整體通過。
-- 工作單要求的 1440、1024、390 真瀏覽器截圖尚未執行；不得視為驗收通過。
-- 若 Claude 發現問題請寫入工單 §9，返修由 GPT 進行。未合併、未部署。
+## CI／回歸驗證證據
+- [Runtime #41415275951](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41415275951)：完整 Node **564／564 通過、0 失敗**，Local D1 runtime acceptance、Vite Build、前端與 Worker TypeScript、Source Contracts 均通過。
+- [Governance #41415275623](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41415275623)：成功。
+- [CY Web Deploy PR preflight #41415275634](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41415275634)：validate-deployment-contract 成功；deploy-development SKIPPED（**未部署**）。
+- 首輪 #41414923761 為 562／564，失敗僅為新增 ✓ 日期與新增週期標題後兩項舊 UI 文字／欄數預期值，已更新測試並確認後續 564／564 通過。
+## 仍待 Claude 複審／人工驗收
+- 真實瀏覽器 1440／1024／390 截圖：**尚未執行，無截圖附件**；請依工單 §7 驗證 15 項換行、年月／門市跨列、粗線分隔、手機水平捲動、設定自訂週期展開。
+- 登入後的日期 Popover、無日期、取消完成、移動端觸控、深淺背景與資料回讀尚未由真實裝置驗收，不得用合成測試冒充通過。
+- 請重點檢查週期歷史與 D1 物化週期條件一致（從當月生效，過去紀錄保留）、舊 items_json fallback、設定批次原子寫入。
+- 工單 §9 專供 Claude 留審查結果；GPT 尚未合併或部署。

@@ -73,14 +73,32 @@
 
 - 桌面 1440、1024 寬，手機 390 寬：月度待辦清單（15 個項目）與設定項目對話框（含一個自訂週期展開）。
 
-## 8. 完成報告（GPT）
-- 實作：以 shared/store-monthly.ts 的 scheduleInMonth／scheduleAppliesInMonth 作正式週期判斷，Worker settings 保存逐月 schedules，D1 monthlyMaterialization 以 JSON1 查適用月份；舊項目無 schedules 視為每月。無 migration。
-- UI：共用 SegmentedControl、CheckField、Field、EntryTable、DateInput、IconButton、Loading、Dialog；月度清單按容器可用寬度最小 96px 分組（手機 3 項），年月／門市跨列及粗分隔，避免另一套日期或狀態邏輯。
-- 測試：新增週期、歷史、D1 辦理格、錯誤月份、分組與設定交互回歸。首輪 Runtime #41414923761：564 項中 562 通過，兩項既有 UI 文字／標題測試預期值未配合新版顯示，已更新測試後重新驗證中；TypeScript／Worker／source／Governance 通過。完整 CI 結果仍待確認，未通過不得合併。
-- 差異：沒有自行擴大工單範圍；版本 0.9.68，BUILD=0。
-- 截圖：1440／1024／390 及設定自訂週期畫面尚待真實瀏覽器驗收；尚未提供截圖，不視為通過。
-- 權限：GPT 僅建立獨立分支／PR，不合併、不部署、不發 Release；Claude 於 §9 審查。
-- 交接：docs/handoff/CYWEB-WO-0.9.68-GPT-20261102.md
+## 8. 完成報告（GPT，2026-11-02）
+
+**Git 交付：** [PR #351](https://github.com/simonliu1118-byte/chihyuan-web/pull/351)；分支 `cyweb/wo-0.9.68-monthly-layout`，目標 `main`，基準 `ba5c50cc25bb`。版本 `0.9.68`／BUILD `0`，**未合併、未部署、未建立 Release**。
+
+### 實作與回歸
+- [x] `shared/store-monthly.ts`：集中 `scheduleInMonth`、`scheduleAppliesInMonth`、`setMonthlySchedule`，提供每月／單月／雙月／自訂及從當月起生效的歷史；舊資料無 `schedules` 預設每月。
+- [x] `worker/store/monthly-service.ts`：原 `monthlyMaterialization` 以 JSON1 讀取生效週期，不另外建立第二套生成路徑；排除不適用月份辦理格，既有歷史格不刪除。
+- [x] `worker/http/store-monthly-routes.ts`：設定 `schedule` 驗證（CUSTOM 月份 1–12 且不可重複、至少一月）、當月更新同月歷史而非重複新增，保留原版本守門、Audit、requestKey。
+- [x] `StoreMonthlyTodos.tsx`／`store-monthly.css`：每組「名稱列＋辦理格列」、年月與門市 `rowSpan`、粗組分隔；容器用 `ResizeObserver` 計算 96px 最小格，手機每組 3 項。首次載入仍用共用 `Loading`，日期、無日期、歷程、操作按鈕沿用現有元件。
+- [x] 項目設定新增「週期」欄，沿用 `SegmentedControl`、`CheckField`、`Field`、`EntryTable`，自訂時展開 1–12 月。
+- [x] 不新增 migration：沿用 `store_monthly_settings.items_json`；不做通知及 Email。
+- [x] 更新 `VERSION`、`package.json`、`TODO.md`、`CHANGELOG.md` 及 Claude Handoff。
+- [x] 主要自動回歸：週期判斷、跨年、歷史保留、舊資料、D1 產生格、錯誤月份、Responsive 組數、設定送出、原日期修正與操作紀錄。
+- [ ] 1440／1024／390 的真實瀏覽器截圖與不同裝置操作：**未執行**，需 Claude 審查／實機驗收。寬度分組數與表格 DOM 已由自動測試驗證，不能替代視覺驗收。
+
+### 遠端 CI 實際結果
+- [x] [Runtime Check #41415275951](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41415275951)：`build`、`browser-typecheck`、`worker-typecheck`、`source-contracts` 全部成功；本機 D1 runtime acceptance 成功；**Node 564／564 通過、0 失敗**；Vite build 成功。
+- [x] [Governance Check #41415275623](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41415275623)：成功。
+- [x] [CY Web Deploy PR 驗證 #41415275634](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41415275634)：`validate-deployment-contract` 成功；**`deploy-development` 已 skipped，未部署**。
+- 首輪 Runtime #41414923761 曾有 2 項 UI 文字／欄數測試與新畫面不符（562／564），已在同分支修正，後續上述完整 CI 564／564 成功。非產品業務邏輯失敗。
+
+### 差異／限制／交接
+- 無超出工單的功能與資料結構變更；依規則優先共用元件，未新增版本殼、Observer 修補鏈或平行業務路徑。
+- 真實登入資料、人工桌面／手機視覺、觸控、日期 popover 位置仍須 Claude／使用者驗證；沒有宣稱已通過。
+- 請 Claude 於本工單 §9 記錄最終審查，複審通過且依使用者授權後再合併部署；若需返修，回給 GPT。
+- 詳細修改檔案、風險與檢查重點：[Claude Handoff](../../handoff/CYWEB-WO-0.9.68-GPT-20261102.md)。
 
 ## 9. 審查紀錄（審查者填）
 
