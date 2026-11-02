@@ -1,7 +1,7 @@
 # V0.9.87 客戶頁資訊密度交接（2026-11-02）
 
 - 使用者直接交辦與授權：客戶左清單比照叫貨單行、狀態靠右、無藍色、直線分隔；右側依實際資料欄位提高密度，保留三張卡片。統編放全稱右側、傳真與電話一起、地址獨立整列；完成可合併部署。不是 Claude 開立的工作單。Claude 最終複審待填，執行者不代簽。
-- 分支 `cyweb/customer-density-0987`，基底 main `34fd0ed`（V0.9.86 單一排程），保留該正式修改。PR／最終 CI／部署證據待回填。
+- 分支 `cyweb/customer-density-0987`，基底 main `34fd0ed`（V0.9.86 單一排程），保留該正式修改。PR [#377](https://github.com/simonliu1118-byte/chihyuan-web/pull/377)，最終結果見下方。
 
 ## 欄位核對及範圍
 
@@ -29,4 +29,12 @@
 - 手機390：聯絡表317px與容器317px一致，document無水平溢出；沿用清單／明細切換，三張卡片依序排列。缺資料／無編號客戶亦可查看，空值無破折號。
 - 查看全部拜訪可開啟既有視窗。合成預覽直接打包正式元件、所有API由記憶體合成GET回應，寫入一律拒絕，沒有接觸正式D1／客戶資料。本輪實作驗收正式D1讀0寫0。
 - 截圖位於 repo 外 `outputs/customer-density-0987.png`、`customer-density-0987-mobile.png`，全部合成資料，不放Public Git。驗收分頁已關閉、手機viewport已還原。
-- CI與部署結果待回填；Claude複審待填。
+- CI與部署已完成；Claude複審仍待填。
+
+## 最終CI與部署證據
+
+- Source head `f649771429c71c44e0046025f2a517d1f4d01f9c`；[Runtime Check 41475183741](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41475183741)完整Node **603/603**、本機D1 acceptance、browser/worker typecheck、source contracts與Vite build通過。Governance 41475183879、deployment contract 41475183754均通過。
+- PR377合併source `bcc419a4e4aa2aeb3d2fc2206f426509f2641c7f`；[受控部署41475654615](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41475654615)成功。
+- canonical與workers.dev皆HTTP200、V0.9.87／consumer1.0.5／sourceCommit精確一致，database ok、result ready；HTTPS／HSTS／靜態資源及正式Identity authority檢查通過。
+- No migrations to apply。發布沿用既有Worker／D1及pipeline，沒有新增資源、正式客戶寫入、備份或還原操作。既有部署migration metadata／health檢查會接觸D1，workflow不提供列讀寫計數；本次UI呈現本身不增加D1 I/O，不將整個部署宣稱為零讀寫。
+- 此後續提交僅回填handoff／TODO，不改程式，不需重部署。Claude最終複審仍待填，執行者未代簽。
