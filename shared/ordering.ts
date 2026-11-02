@@ -41,6 +41,10 @@ export interface OrderingLine {
   closedAs: OrderingClosedAs | null; closedNote: string;
   received: number;
 }
+/** Format receipt items consistently in the UI and revision summaries. */
+export function receiptItemSummary(items:readonly {itemName:string;quantity:number;unit:string}[]):string {
+ return items.map(x=>x.itemName+" "+x.quantity+(x.unit?" "+x.unit:"")).join("、");
+}
 export interface OrderingReceipt { id: number; erpPurchaseNo: string; receivedDate: string; createdAt: string; createdBy: string; lines: { lineId: number; quantity: number }[] }
 export interface OrderingRevision { revision: number; at: string; by: string; summary: string }
 export interface OrderingOrder {

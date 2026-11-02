@@ -2,7 +2,7 @@ import {requireModuleAccess} from "../auth/guard";
 import {identityClient,type IdentityRuntimeEnv} from "./auth-routes";
 import {success,failure} from "./response";
 import {AuditService} from "../audit/audit-service";
-import {CN_REGULAR_SECTIONS,lineIsOpen,lineState,orderStatus,orderingLineHasName,parseErpPurchaseNo,parseQuantity,pickDraft,vendorItemKey,type OrderingStoredStatus} from "../../shared/ordering";
+import {CN_REGULAR_SECTIONS,lineIsOpen,lineState,orderStatus,orderingLineHasName,parseErpPurchaseNo,parseQuantity,pickDraft,receiptItemSummary,vendorItemKey,type OrderingStoredStatus} from "../../shared/ordering";
 
 type Context={db:D1Database;actor:number;name:string;now:string;requestId:string};
 type Source={id:number;name:string;kind:"GENERAL"|"VENDOR"|"CN_REGULAR"|"CN_CUSTOM";conditions:string;payment_terms:string;note:string;sort_order:number;is_active:number};
@@ -41,7 +41,7 @@ async function getOrder(ctx:Context,id:number,knownOrder?:Ord){
  const [source,lines,receipts,changes]=await Promise.all([
   one<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE id=?",o.source_id),
   rows<Line>(ctx.db,"SELECT l.*,"+(draft?"0":"COALESCE((SELECT SUM(quantity) FROM ordering_receipt_lines WHERE line_id=l.id),0)")+" received FROM ordering_lines l WHERE order_id=? ORDER BY section,sort_order,id LIMIT 501",id),
-  draft?Promise.resolve([]):rows<{id:number;erp_purchase_no:string;received_date:string;created_at:string}>(ctx.db,"SELECT * FROM ordering_receipts WHERE order_id=? ORDER BY received_date DESC,created_at DESC,id DESC LIMIT 101",id),
+  draft?Promise.resolve([]):rows<{id:number;erp_purchase_no:string;received_date:string;created_at:string;actor_name:string|null}>(ctx.db,"SELECT r.id,r.erp_purchase_no,r.received_date,r.created_at,COALESCE(m.display_name,m.employee_no) actor_name FROM ordering_receipts r LEFT JOIN app_members m ON m.id=r.created_by WHERE r.order_id=? ORDER BY r.received_date DESC,r.created_at DESC,r.id DESC LIMIT 101",id),
   draft?Promise.resolve([]):rows<{revision:number;changed_at:string;changed_by:number;actor_name:string|null;summary:string}>(ctx.db,"SELECT r.revision,r.changed_at,r.changed_by,COALESCE(m.display_name,m.employee_no) AS actor_name,r.summary FROM ordering_revisions r LEFT JOIN app_members m ON m.id=r.changed_by WHERE r.order_id=? ORDER BY r.revision DESC LIMIT 501",id),
  ]);
  if(lines.length>500)throw new Bad("ORDERING_LIMIT","單據超過 500 列",409);
@@ -52,7 +52,7 @@ async function getOrder(ctx:Context,id:number,knownOrder?:Ord){
  if(receiptLines.length>5000)throw new Bad("ORDERING_LIMIT","到貨明細超過單次查詢安全上限",409);
  return {id:o.id,sourceId:o.source_id,sourceName:source?.name??"",sourceKind:source?.kind??"GENERAL",status:orderStatus(o.status,lines.map(x=>({quantity:x.quantity,received:x.received,closedAs:x.closed_as}))),
   storedStatus:o.status,plannedSendDate:o.planned_send_date,sentAt:o.sent_at,note:o.note,version:o.version,revision:o.revision,createdAt:o.created_at,
-  lines:lines.map(x=>({id:x.id,section:x.section,sortOrder:x.sort_order,itemCode:x.item_code,itemName:x.item_name,vendorItemCode:x.vendor_item_code,vendorItemName:x.vendor_item_name,vendorNameFollows:!!x.vendor_name_follows,spec:x.spec,quantityText:x.quantity_text,quantity:x.quantity,unit:x.unit,note:x.note,closedAs:x.closed_as,closedNote:x.closed_note,received:x.received,state:lineState({quantity:x.quantity,received:x.received,closedAs:x.closed_as})})),receipts:receipts.map(x=>({id:x.id,erpPurchaseNo:x.erp_purchase_no,receivedDate:x.received_date,createdAt:x.created_at,createdBy:"",lines:receiptLines.filter(l=>l.receipt_id===x.id).map(l=>({lineId:l.line_id,quantity:l.quantity}))})),
+  lines:lines.map(x=>({id:x.id,section:x.section,sortOrder:x.sort_order,itemCode:x.item_code,itemName:x.item_name,vendorItemCode:x.vendor_item_code,vendorItemName:x.vendor_item_name,vendorNameFollows:!!x.vendor_name_follows,spec:x.spec,quantityText:x.quantity_text,quantity:x.quantity,unit:x.unit,note:x.note,closedAs:x.closed_as,closedNote:x.closed_note,received:x.received,state:lineState({quantity:x.quantity,received:x.received,closedAs:x.closed_as})})),receipts:receipts.map(x=>({id:x.id,erpPurchaseNo:x.erp_purchase_no,receivedDate:x.received_date,createdAt:x.created_at,createdBy:x.actor_name??"",lines:receiptLines.filter(l=>l.receipt_id===x.id).map(l=>({lineId:l.line_id,quantity:l.quantity}))})),
   revisions:changes.map(x=>({revision:x.revision,at:x.changed_at,by:x.actor_name??String(x.changed_by),summary:x.summary}))};
 }
 async function mutate(ctx:Context,o:Ord,expected:number,stmts:D1PreparedStatement[],summary:string,action:string,onBatchSuccess?:()=>void){
@@ -433,6 +433,46 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
      stmts.push(ctx.db.prepare("INSERT INTO ordering_receipt_lines(receipt_id,line_id,quantity) VALUES(?,?,?)").bind(receiptId,lineId,qty));
     }
     return success(await mutate(ctx,o,expected,stmts,"到貨 "+no,"received",()=>{receiptPhase.value="readback"}),requestId);
+   }
+   const matchedReceipt=/^receipts\/(\d+)$/.exec(action);
+   if(matchedReceipt&&(method==="PUT"||method==="DELETE")){
+    if(o.status!=="SENT")throw new Bad("ORDERING_INVALID","只有已送出的叫貨單可修改到貨紀錄",409);
+    const receiptId=int(Number(matchedReceipt[1]),"到貨紀錄");
+    const original=await one<{erp_purchase_no:string;received_date:string}>(ctx.db,"SELECT erp_purchase_no,received_date FROM ordering_receipts WHERE id=? AND order_id=?",receiptId,id);
+    if(!original)throw new Bad("ORDERING_NOT_FOUND","找不到這筆到貨紀錄",404);
+    if(method==="DELETE")return success(await mutate(ctx,o,expected,[
+     ctx.db.prepare("DELETE FROM ordering_receipt_lines WHERE receipt_id=?").bind(receiptId),
+     ctx.db.prepare("DELETE FROM ordering_receipts WHERE id=? AND order_id=?").bind(receiptId,id),
+    ],"刪除到貨 "+original.erp_purchase_no,"receipt_deleted"),requestId);
+    const no=parseErpPurchaseNo(String(v.erpPurchaseNo??""));if(!no)throw new Bad("ORDERING_INVALID","進貨單號須為11碼，前8碼須為合法日期");
+    const at=date(v.receivedDate),items=v.lines;
+    if(!Array.isArray(items)||!items.length||items.length>100)throw new Bad("ORDERING_INVALID","本次到貨列數不正確");
+    const [all,old]=await Promise.all([
+     rows<Line>(ctx.db,"SELECT l.*,COALESCE((SELECT SUM(quantity) FROM ordering_receipt_lines WHERE line_id=l.id),0) received FROM ordering_lines l WHERE order_id=? LIMIT 501",id),
+     rows<{line_id:number;quantity:number}>(ctx.db,"SELECT line_id,quantity FROM ordering_receipt_lines WHERE receipt_id=?",receiptId),
+    ]);
+    const prior=new Map(old.map(x=>[x.line_id,x.quantity])),next=new Map<number,number>();
+    for(const raw of items){
+     if(!raw||typeof raw!=="object")throw new Bad("ORDERING_INVALID","到貨品項不正確");
+     const x=raw as Record<string,unknown>,lineId=int(x.lineId,"明細"),qty=x.quantity;
+     const line=all.find(l=>l.id===lineId);
+     if(next.has(lineId)||!line||line.quantity===null||typeof qty!=="number"||!Number.isFinite(qty)||qty<0||
+      qty>line.quantity-line.received+(prior.get(lineId)??0)||
+      !!line.closed_as&&qty>(prior.get(lineId)??0))throw new Bad("ORDERING_INVALID","到貨數量超過可修改上限或明細不正確");
+     next.set(lineId,qty);
+    }
+    if(![...next.values()].some(q=>q>0))throw new Bad("ORDERING_INVALID","本筆到貨不可全部改為0，請使用刪除");
+    const stmts:D1PreparedStatement[]=[
+     ctx.db.prepare("UPDATE ordering_receipts SET erp_purchase_no=?,received_date=? WHERE id=? AND order_id=?").bind(no,at,receiptId,id),
+     ctx.db.prepare("DELETE FROM ordering_receipt_lines WHERE receipt_id=?").bind(receiptId),
+     ...[...next].filter(([,q])=>q>0).map(([lineId,q])=>ctx.db.prepare("INSERT INTO ordering_receipt_lines(receipt_id,line_id,quantity) VALUES(?,?,?)").bind(receiptId,lineId,q)),
+    ];
+    const describe=(lineId:number,q:number)=>{const l=all.find(x=>x.id===lineId)!;return receiptItemSummary([{itemName:l.item_name||l.vendor_item_name||l.item_code,quantity:q,unit:l.unit}])};
+    const diffs=[...new Set([...prior.keys(),...next.keys()])].filter(i=>(prior.get(i)??0)!==(next.get(i)??0)).map(i=>
+     describe(i,prior.get(i)??0)+" → "+(next.get(i)??0)+(all.find(l=>l.id===i)?.unit?" "+all.find(l=>l.id===i)!.unit:""));
+    if(original.erp_purchase_no!==no)diffs.unshift("單號 "+original.erp_purchase_no+" → "+no);
+    if(original.received_date!==at)diffs.push("日期 "+original.received_date.slice(5).replace("-","/")+" → "+at.slice(5).replace("-","/"));
+    return success(await mutate(ctx,o,expected,stmts,"修改到貨 "+original.erp_purchase_no+(diffs.length?"："+diffs.join("、"):""),"receipt_updated"),requestId);
    }
    if(action==="close"&&method==="POST"){
     if(o.status!=="SENT")throw new Bad("ORDERING_INVALID","尚未送出");
