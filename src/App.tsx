@@ -24,7 +24,7 @@ import { ERP_QUERY_DONE_EVENT, ErpPageVisibleContext, type ErpQueryDoneDetail } 
 import { useToastQueue } from "./ui/feedback/useToastQueue";
 import { ErpHeldPrompt } from "./runtime/modules/ErpHeldPrompt";
 import { ToastRegion } from "./ui/feedback/ToastRegion";
-import {OrderingPage} from "./runtime/modules/OrderingPage";
+import {OrderingPage,ORDERING_OPEN_RESTOCK_EVENT} from "./runtime/modules/OrderingPage";
 import {StorePage} from "./runtime/modules/StorePage";
 import { ErpAgentCredentialControl } from "./runtime/modules/ErpAgentCredentialControl";
 import { ItemOperationalPage } from "./runtime/modules/ItemOperationalPage";
@@ -119,8 +119,8 @@ const routes = new Set<AppRoute>([
 
 function currentRoute(): AppRoute {
   const hash = window.location.hash.replace(/^#/, "").split("?")[0];
-  // 進貨輔助 is a category of ERP 查詢 since V0.9.41; its old link still opens it.
-  const value = (hash === "restock-assist" ? "erp-item-query" : hash) as AppRoute;
+  // The old bookmark routes to Ordering, where Restock is now a drawer.
+  const value = (hash === "restock-assist" ? "ordering" : hash) as AppRoute;
   return routes.has(value) ? value : "account";
 }
 
@@ -328,7 +328,7 @@ function OperationalApp({
   else if (route === "outsourcing") content = <OutsourcingOperationalPage />;
   else if (route === "worklogs") content = <WorkLogOperationalPage />;
   else if (route === "erp-item-query") content = null; // the kept ERP 查詢 page below
-  else if (route === "ordering") content = <OrderingPage />;
+  else if (route === "ordering") content = null; // kept-mounted Ordering surface below
   else if (route === "store") content = <StorePage role={role} allowedModules={allowedModules} />;
   else if (route === "identity") content = <SharedIdentityPage session={session}
     showUsage={usageRequested && role === "SUPER_ADMIN"}
@@ -337,6 +337,11 @@ function OperationalApp({
   else if (route === "programs") content = <ProgramCatalogPage />;
   else if (route === "backups") content = session.user.workspaceRole === "SUPER_ADMIN" ? <BackupOperationalPage session={session} /> : <section className="cy-op-panel">需要最高管理員權限。</section>;
   else content = <AuditOperationalPage role={role === "SUPER_ADMIN" ? "SUPER_ADMIN" : "ADMIN"} />;
+
+  // The Ordering drawer's ERP job must stay alive across module switches for notifications and return.
+  const orderingShown=route==="ordering"&&content===null;
+  const [orderingOpened,setOrderingOpened]=useState(false);
+  useEffect(()=>{if(orderingShown)setOrderingOpened(true)},[orderingShown]);
 
   // ERP 查詢 stays mounted once opened (user 2026-10-27: switching modules must not close it); its
   // queries keep running and a finished one is announced while another module or category is open.
@@ -361,8 +366,9 @@ function OperationalApp({
         message: <>{failed && detail.message ? <span>{detail.message} </span> : null}
           <button className="cy-op-button compact" type="button" onClick={() => {
             dismissToast(id);
-            void guardedNavigation.request(detail.route as AppRoute, "link").then(() => {
-              if (!isStocktakeSync) window.dispatchEvent(new CustomEvent(ERP_OPEN_CATEGORY_EVENT, { detail: detail.key }));
+            void guardedNavigation.request(detail.queryType==="RESTOCK"?"ordering":detail.route as AppRoute, "link").then(() => {
+              if(detail.queryType==="RESTOCK")window.setTimeout(()=>window.dispatchEvent(new Event(ORDERING_OPEN_RESTOCK_EVENT)),0);
+              else if(!isStocktakeSync)window.dispatchEvent(new CustomEvent(ERP_OPEN_CATEGORY_EVENT,{detail:detail.key}));
             });
           }}>查看</button></>,
       });
@@ -436,6 +442,11 @@ function OperationalApp({
     >
       {moduleAccessError && route === "account" ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-title">模組權限狀態</div><div className="cy-notice-body">{moduleAccessError}</div></div> : null}
       {content}
+      {allowedModules.has("ORDERING")&&(orderingOpened||orderingShown)?<div className="cy-kept-page" hidden={!orderingShown}>
+        <ErpPageVisibleContext.Provider value={orderingShown}>
+          <OrderingPage canRestock={allowedModules.has("ERP_RESTOCK_ASSIST")} canQueryItem={allowedModules.has("ERP_ITEM_QUERY")}/>
+        </ErpPageVisibleContext.Provider>
+      </div>:null}
       {erpAllowed && (erpOpened || erpShown) && <div className="cy-kept-page" hidden={!erpShown}>
         <ErpPageVisibleContext.Provider value={erpShown}><ErpItemQueryPage allowedModules={allowedModules} /></ErpPageVisibleContext.Provider>
       </div>}

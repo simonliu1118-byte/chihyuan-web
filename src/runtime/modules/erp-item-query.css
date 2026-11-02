@@ -370,3 +370,10 @@
 .cy-restock-draft-lines span{white-space:normal;overflow-wrap:anywhere}
 .cy-restock-panel .cy-erp-query-box{max-width:none}
 .cy-restock-panel .cy-restock-scroller{max-width:100%;overflow-x:auto}
+
+/* Restock action shares the tab baseline; the source manager moves left onto the divider. */
+.cy-ordering-tabbar{align-items:flex-end;border-bottom:1px solid var(--cy-border);flex-wrap:nowrap}
+.cy-ordering-tabbar .cy-op-tabs{margin-bottom:-1px;border-bottom:0}
+.cy-ordering-manage-source{flex:0 0 auto;position:relative;left:-8px;margin-bottom:1px;white-space:nowrap}
+.cy-ordering-restock-trigger{flex:0 0 auto;margin-left:auto;margin-bottom:1px;white-space:nowrap}
+@media(max-width:820px){.cy-ordering-tabbar{gap:3px}.cy-ordering-manage-source{left:0}.cy-ordering-restock-trigger{min-height:40px}}
