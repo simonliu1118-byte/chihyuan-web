@@ -1,5 +1,11 @@
 # CY Web Governance Changelog
 
+## 1.1.26 — 2026/11/03
+
+- 新增 `.github/workflows/cleanup-merged-branches.yml`（比照 CYapps，使用者 2026-11-03 同意）：PR 合併後由 GitHub 刪除其來源分支；手動執行時刪除 `.github/branch-cleanup.txt` 列出的分支，`main` 與有開啟 PR 的分支一律保留。
+- `.github/branch-cleanup.txt` 列出 2026-11-03 盤點的 382 個已無用的遠端分支（已合併、PR 已關閉且內容已由其他 PR 帶入、9 月初的早期分支、使用者決定不採用的 `docs/hr-leave-run-approval`）。各分支刪除前的 SHA 保存在本 PR 說明，可據以找回。
+- 不變更產品 VERSION／BUILD，未部署。
+
 ## 1.1.25 — 2026/11/03
 
 - 使用者同意退役舊發布分支 `deploy/cyweb-development`：該分支停在 10/30 的舊版本，任何人推送都會把舊程式部署到正式站。`PROJECT_RULES.md` §3.1 改為正式更新只從 `main` dispatch `deploy-development`；來源檢查改為事件 SHA、checkout 與當前 main 必須是同一個 commit。
