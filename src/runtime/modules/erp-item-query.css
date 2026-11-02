@@ -366,7 +366,8 @@
 .cy-ordering-grid :is(th,td):has(+.cy-grid-divider-before){border-right:0}
 
 /* 加入叫貨單 dialog: drafts that already hold this 品號 (looked up on open, V0.9.74). */
-.cy-restock-in-drafts{grid-column:1/-1;margin:0;padding:6px 10px;border-radius:var(--cy-radius-sm);background:var(--cy-warning-soft);font-size:var(--cy-fs-sm)}
+.cy-restock-in-drafts{grid-column:1/-1;display:grid;gap:2px;padding:6px 10px;border-radius:var(--cy-radius-sm);background:var(--cy-warning-soft);font-size:var(--cy-fs-sm)}
+.cy-restock-in-drafts p{margin:0}.cy-restock-in-drafts strong{margin-right:6px}
 .cy-restock-panel .cy-erp-query-box{max-width:600px}
 /* The restock drawer fits its content (user 2026-11-03: too big): only the query form → about 630px
    wide and as tall as needed; with results it widens up to 1100px and scrolls inside. Phones stay full screen. */
