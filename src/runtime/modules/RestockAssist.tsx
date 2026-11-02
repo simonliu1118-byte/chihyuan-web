@@ -36,7 +36,13 @@ type DraftHit={itemCode:string;orderId:number;sourceId:number;sourceName:string;
 const draftText=(d:Pick<DraftHit,"sourceName"|"plannedSendDate"|"quantityText"|"unit">)=>
   d.sourceName+" "+(d.plannedSendDate?d.plannedSendDate.slice(5).replace("-","/"):"未定日期")+" 草稿 "+d.quantityText+(d.unit?" "+d.unit:"");
 function DraftHints({rows}:{rows:readonly DraftHit[]}){
- return rows.length?<div className="cy-restock-draft-lines">{rows.map((d,i)=><span key={d.orderId+":"+d.section+":"+i}>已在 {draftText(d)}</span>)}</div>:null;
+ if(!rows.length)return null;
+ const grouped=new Map<number,DraftHit[]>();
+ for(const hit of rows)(grouped.get(hit.orderId)??(grouped.set(hit.orderId,[]),grouped.get(hit.orderId)!)).push(hit);
+ return <div className="cy-restock-draft-lines">{[...grouped.entries()].map(([orderId,lines])=><span key={orderId}>
+  已在 {lines[0].sourceName} {lines[0].plannedSendDate?lines[0].plannedSendDate.slice(5).replace("-","/"):"未定日期"} 草稿 {" "}
+  {lines.map(d=>d.quantityText+(d.unit?" "+d.unit:"")).join("、")}
+ </span>)}</div>;
 }
 type Sort = "CODE" | "NET" | "STOCK" | "SHORT";
 const SORTS: { key: Sort; label: string }[] = [
@@ -158,8 +164,9 @@ const dayClass = (_day: string, index: number, second = false) =>
  */
 /** Restock search and results live together inside the Ordering drawer; query owner persists outside the drawer. */
 export function RestockAssist({ job, canQueryItem, canOrdering }: { job: ErpJob; canQueryItem: boolean; canOrdering: boolean }) {
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const previous=job.result?.queryType==="RESTOCK"?job.result:null;
+  const [dateFrom,setDateFrom]=useState(previous?.dateFrom??"");
+  const [dateTo,setDateTo]=useState(previous?.dateTo??"");
   const { result, busy, submitting, setError } = job;
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
