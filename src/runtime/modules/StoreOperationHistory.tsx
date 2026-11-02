@@ -9,7 +9,7 @@ function display(v:unknown,key=""):string{
  if(typeof v==="boolean")return key==="completed"?v?"已完成":"未完成":v?"是":"否";
  if(Array.isArray(v))return v.map(x=>{const l=x as {itemCode?:string;itemName?:string;metadataMode?:string;publisher?:string;author?:string;specification?:string;quantity?:number;unitPrice?:number|null};return `${l.itemCode??""} ${l.itemName??""} ×${l.quantity??""} @${l.unitPrice??""}`}).join("；");
  if(typeof v==="object")return Object.entries(v).map(([k,x])=>`${STORE_ORDER_STATUS_LABELS[k as StoreOrder["status"]]??labels[k]??k}：${display(x,k)}`).join("；");
- return ({REFUSE:"拒絕訂購",FULL_PAYMENT:"須全額預付",OTHER:"其他",MR:"先生",MS:"小姐",OUT_OF_STOCK:"缺貨",DISCONTINUED:"絕版/停產",UNORDERABLE:"無法訂購"} as Record<string,string>)[String(v)]??STORE_ORDER_STATUS_LABELS[String(v) as StoreOrder["status"]]??String(v);
+ return ({REFUSE:"拒絕訂購",FULL_PAYMENT:"須全額預付",NO_HOLD:"不保留商品",OTHER:"其他",MR:"先生",MS:"小姐",OUT_OF_STOCK:"缺貨",DISCONTINUED:"絕版/停產",UNORDERABLE:"無法訂購"} as Record<string,string>)[String(v)]??STORE_ORDER_STATUS_LABELS[String(v) as StoreOrder["status"]]??String(v);
 }
 type HistoryLine={itemCode?:string;itemName?:string;metadataMode?:string;publisher?:string;author?:string;specification?:string;quantity?:number;unitPrice?:number|null};
 function lineChanges(before:HistoryLine[],after:HistoryLine[]):string[]{
@@ -24,8 +24,10 @@ function lineChanges(before:HistoryLine[],after:HistoryLine[]):string[]{
  return [...result,...before.flatMap((line,i)=>used.has(i)?[]:["刪除品項："+summary(line)])];
 }
 export function historySummary(e:StoreHistory):string{
- if(["建立","加入黑名單","加回黑名單","移出黑名單"].includes(e.kind))return "";
- if(e.kind==="訂購取消")return e.reason;
+ if(["建立","加入黑名單","加回黑名單"].includes(e.kind))return "";
+ if(e.kind==="訂購取消"||e.kind==="移出黑名單")return e.reason;
+ if(e.kind==="確認辦理"||e.kind==="取消完成")return String(e.after.itemName??"");
+ if(e.kind==="修改辦理日期")return String(e.after.itemName??"")+"："+display(e.before.completionDate,"completionDate")+" → "+display(e.after.completionDate,"completionDate");
  if(e.kind.startsWith("登記"))return typeof e.after.customerNote==="string"&&e.after.customerNote?"客戶告知："+e.after.customerNote:"";
  if(e.kind==="撤回取消")return [e.reason,e.after.blacklistReverted?"撤回列入黑名單":""].filter(Boolean).join("；");
  if(e.kind==="撤回列入黑名單")return "";

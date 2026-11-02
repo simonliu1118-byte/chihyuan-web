@@ -14,10 +14,10 @@ export const isSupplyUnavailable=(o:{callResult?:string})=>o.callResult==="OUT_O
 export const isOrderClosed=(o:{status:StoreOrderStatus;callResult?:string})=>o.status==="PICKED_UP"||o.status==="CANCELLED"||isSupplyUnavailable(o)&&o.status==="NOTIFIED";
 export const STORE_MILESTONE_LABELS={ORDERED:"叫貨",NOTIFIED:"通知",PICKED_UP:"取貨"} as const;
 
-export const STORE_BLACKLIST_ACTIONS = ["REFUSE", "FULL_PAYMENT", "OTHER"] as const;
+export const STORE_BLACKLIST_ACTIONS = ["FULL_PAYMENT", "REFUSE", "NO_HOLD", "OTHER"] as const;
 export type StoreBlacklistAction = (typeof STORE_BLACKLIST_ACTIONS)[number];
 export const STORE_BLACKLIST_ACTION_LABELS: Record<StoreBlacklistAction, string> = {
-  REFUSE: "拒絕訂購", FULL_PAYMENT: "須全額預付", OTHER: "其他",
+  FULL_PAYMENT: "須全額預付", REFUSE: "拒絕訂購", NO_HOLD: "不保留商品", OTHER: "其他",
 };
 
 /** Taipei calendar days: notification is day 0; overdue after day 14 ends. */

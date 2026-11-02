@@ -187,7 +187,7 @@ export async function handleStoreRoute(request:Request,env:IdentityRuntimeEnv,re
    }
    if(!b.active)throw new Bad("STORE_INVALID","此筆已移出，請使用加回黑名單",409);
    const v=await body(request);if(Number(v.expectedVersion)!==b.version)throw new Bad("STORE_VERSION_CONFLICT","黑名單已被修改，請重新載入",409);
-   const stmts=[guard(c,"store_blacklist",id,b.version)];if(method==="DELETE")stmts.push(c.db.prepare("UPDATE store_blacklist SET active=0,version=version+1,updated_at=?,updated_by=? WHERE id=?").bind(c.now,c.actor,id),blackOperation(c,id,"移出黑名單"));
+   const stmts=[guard(c,"store_blacklist",id,b.version)];if(method==="DELETE")stmts.push(c.db.prepare("UPDATE store_blacklist SET active=0,version=version+1,updated_at=?,updated_by=? WHERE id=?").bind(c.now,c.actor,id),blackOperation(c,id,"移出黑名單",{},{},text(v.removalReason,"移除理由",300,true)));
    else if(method==="PATCH"){
     const f=blacklistFields(v,b.joined_date||today()),state=await contactState(c,f);if(resolvedMatches({...state,lineCandidates:state.lineCandidates.filter(m=>m.id!==id)},v).some(m=>m.id!==id))throw new Bad("STORE_DUPLICATE","此聯絡方式已在其他黑名單",409);const reason=text(v.changeReason,"修改處置理由",300,f.action!==b.action||f.actionDetail!==b.action_detail);stmts.push(state.check,blackUpdate(c,id,f),blackOperation(c,id,"修改黑名單",{joinedDate:b.joined_date,name:b.name,honorific:b.honorific,phone:b.phone,mobile:b.mobile,lineName:b.line_name,reason:b.reason,action:b.action,actionDetail:b.action_detail},f,reason),audit(c,"store_blacklist",id,"store_blacklist.updated",{from:b.action,to:f.action,joinedDate:f.joinedDate,actionDetail:f.actionDetail,reason}));
    }else throw new Bad("STORE_INVALID","操作方法不正確");

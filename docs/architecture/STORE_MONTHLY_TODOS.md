@@ -1,4 +1,12 @@
-# 門市月度待辦 V0.9.58 契約
+# 門市月度待辦 V0.9.64 契約
+
+## V0.9.64 現行修訂（取代下方衝突舊描述）
+
+- 台北16日起預產次月，原每日午夜cron及頁面fallback同owner。currentMonth仍為實際月份，generatedThrough可為次月，1日不重複生成；最新月份在上。
+- 新增當月生效，停用／取消適用次月生效。16日後儲存設定補當月＋次月；已預產但停用的列／格依periods不顯示可辦理，不刪原cell、完成或歷史，重新啟用能恢復。server cell mutation亦檢查適用並guard設定version。
+- 主表日期欄56px、分組斑馬紋／框線，實心矮登記、裸勾號、純日期；緊湊DateInput／右側無日期／右置操作及Enter直接存同訂購。只在成功後更新該格，不重讀整表；history採精簡chain。跨年年份小字不增列高，hover看完整日期。
+- 設定表有項次／拖曳手把（亦支援鍵盤方向鍵），去上下按鈕及啟用欄；已存資料為停用／啟用toggle、新草稿可刪，＋只在操作表頭最右。項目備註約10字欄寬，300字單行內容存items_json[].note；按儲存套用。沒有項目數上限，仍只有ADMIN以上可設定。
+- 名稱／門市排序更新當月及已預產次月，較舊門市快照不改。共用表格、DateInput及history仍為canonical元件。[驗證交接](../handoff/CYWEB-BLACKLIST-MONTHLY-0964-20261102.md)。
 
 本功能使用既有 React → protected Worker API → D1；目前發布進度由根 TODO 維護。
 
