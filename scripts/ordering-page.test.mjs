@@ -11,12 +11,15 @@ const directory = mkdtempSync(fileURLToPath(new URL("../node_modules/.ordering-p
 const outfile = join(directory, "page.mjs");
 const stubs = {
   "react": ["useState", "useRef", "useEffect", "useMemo"].map(name =>
-    `export const ${name}=(...args)=>globalThis.orderingPageHost.${name}(...args);`).join("\n")+"\nexport const useId=()=>\"ordering-test-picker\";",
+    `export const ${name}=(...args)=>globalThis.orderingPageHost.${name}(...args);`).join("\n")+"\nexport const useContext=()=>true; export const useId=()=>\"ordering-test-picker\";",
   "../../api/client": `export class ApiClientError extends Error{}; export const apiRequest=(...args)=>globalThis.orderingPageTransport(...args);`,
   "../../ui/layout/MasterDetail": `export const MasterDetailBack=()=>null,MasterDetailEmpty=()=>null; export const useMasterDetailPane=()=>({className:'',open(){},close(){}});`,
   "../../ui/overlays/useConfirmation": `export const useConfirmation=()=>({confirm:options=>globalThis.orderingPageConfirm(options),confirmationDialog:null});`,
   "../../ui/feedback/FeedbackProvider": `import {useState} from 'react'; export const FeedbackBanner=()=>null; export function useFeedbackMessage(){const [message,setMessage]=useState(null);return [message,setMessage,value=>{globalThis.orderingPageErrors.push(value);setMessage(value)},'neutral'];}`,
   "../../ui/OrderingGrid": `export function OrderingGrid(){return null}`,
+  "../../ui/overlays/SidePanel": `export function SidePanel(){return null}`,
+  "./RestockAssist": `export function RestockAssist(){return null}`,
+  "./useErpJob": `export const ErpPageVisibleContext={}; export function useErpJob(){return {result:null,busy:false}}`,
   "../../ui/foundation/useUnsavedChangesGuard": `export const useUnsavedChangesGuard=options=>{globalThis.orderingPageGuard=options};`,
 };
 for (const [path, names] of [
