@@ -1,6 +1,6 @@
 import type {StoreHistoryCache} from "../../../shared/store-history";
 import {Loading} from "../../ui/feedback/Loading";
-import {useCallback,useEffect,useRef,useState,type PointerEvent,type RefObject} from "react";
+import {useCallback,useEffect,useRef,useState,type PointerEvent,type RefObject,type CSSProperties} from "react";
 import {apiRequest} from "../../api/client";
 import {Field,CheckField} from "../../ui/forms/Field";
 import {SegmentedControl} from "../../ui/primitives/SegmentedControl";
@@ -70,8 +70,8 @@ export function StoreMonthlyTodos(){
   <div className="cy-monthly-toolbar"><div>{data?.canManage?<><button type="button" className="cy-op-button" disabled={busy||loading} onClick={()=>openSettings("stores")}>設定門市</button><button type="button" className="cy-op-button" disabled={busy||loading} onClick={()=>openSettings("items")}>設定項目</button></>:null}</div><button type="button" className="cy-op-button" disabled={busy||loading} onClick={()=>void load()}>重新整理</button></div>
   {!data?<p>無法載入月度待辦，請按重新整理。</p>:<>
 
-   <div className="cy-ordering-grid-scroll cy-monthly-scroll" ref={scrollRef}><table className="cy-ordering-grid cy-monthly-table" style={{minWidth:296+columnsPerLine*96,width:"100%",tableLayout:"fixed"}} aria-label="月度待辦">
-    <colgroup><col style={{width:100}}/><col style={{width:144}}/>{Array.from({length:columnsPerLine},(_,i)=><col key={i} style={{width:96}}/>)}<col style={{width:52}}/></colgroup>
+   <div className="cy-ordering-grid-scroll cy-monthly-scroll" ref={scrollRef}><table className="cy-ordering-grid cy-monthly-table" style={{"--monthly-items":columnsPerLine} as CSSProperties} aria-label="月度待辦">
+    <colgroup><col className="cy-monthly-col-month"/><col className="cy-monthly-col-store"/>{Array.from({length:columnsPerLine},(_,i)=><col key={i} className="cy-monthly-col-item"/>)}<col className="cy-monthly-col-ops"/></colgroup>
     <thead><tr><th scope="col" className="cy-monthly-month">年月</th><th scope="col" className="cy-monthly-store">門市別</th><th scope="col" colSpan={columnsPerLine}>待辦項目</th><th scope="col" className="cy-monthly-operations cy-grid-divider-before">操作</th></tr></thead>
     {data.rows.map(row=>{
      const visibleItems=data.settings.items.filter(item=>scheduleAppliesInMonth(item,row.month));

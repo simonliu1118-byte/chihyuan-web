@@ -31,7 +31,8 @@
 .cy-monthly-scroll:has(.cy-store-date-popover){padding-bottom:180px}
 .cy-store-monthly .cy-store-date-popover{max-width:none;width:max-content;box-sizing:border-box}
 .cy-monthly-undo{margin-right:auto!important}
-.cy-monthly-settings-dialog .cy-dialog-surface{width:min(840px,calc(100vw - 32px))}
+/* The item table now has a 週期 column; the dialog fits it without horizontal scrolling. */
+.cy-monthly-settings-dialog .cy-dialog-surface{width:min(1080px,calc(100vw - 32px))}
 .cy-monthly-settings-table{min-width:850px!important}
 .cy-monthly-settings-table th{padding:6px 8px}
 .cy-monthly-settings-table td{padding:0;vertical-align:middle}
@@ -53,8 +54,13 @@
 .cy-monthly-settings-table tr[data-disabled="true"]{color:var(--cy-text-muted)}
 .cy-monthly-setting-effective{font-size:var(--cy-fs-xs);color:var(--cy-text-muted);margin:8px 0 0}
 .cy-monthly-more{margin-top:10px}
+/* Column widths: desktop fits as many 96px items as the width allows (computed in JS). */
+.cy-monthly-table{table-layout:fixed;width:100%;min-width:calc(296px + var(--monthly-items,8) * 96px)}
+.cy-monthly-col-month{width:100px}.cy-monthly-col-store{width:144px}.cy-monthly-col-item{width:96px}.cy-monthly-col-ops{width:52px}
 @media(max-width:820px){
- .cy-monthly-table{font-size:var(--cy-fs-sm)}
+ /* Phones: three items per group fit the screen; month and store columns narrow. */
+ .cy-monthly-table{min-width:0;font-size:var(--cy-fs-sm)}
+ .cy-monthly-col-month{width:56px}.cy-monthly-col-store{width:64px}.cy-monthly-col-item{width:auto}.cy-monthly-col-ops{width:40px}
  .cy-monthly-drag-handle{width:28px;height:36px}
  .cy-monthly-table .cy-monthly-store{position:static}
  .cy-monthly-scroll{scroll-padding-left:100px;scroll-padding-right:52px}
