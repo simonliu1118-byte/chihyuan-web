@@ -5,6 +5,9 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.74 — 進貨輔助：按「加入叫貨單」才查是否已在草稿（2026-11-03，Claude）
+- 結果表格不再逐列預先查「已在草稿」（一次查全部品號，讀取量隨品號與歷史叫貨列數增加）；改為打開「加入叫貨單」時只查這一個品號，在對話框上方顯示「已在 台北 11/05 草稿 3 盒」（使用者 2026-11-03）。
+
 ## CY Web V0.9.73 — 已到貨的叫貨單不能再修改（2026-11-03，Claude）
 - 已送出的叫貨單只要有任何到貨或結掉的品項，就不再顯示「修改」；後端 `revise` 也回 409。只有「已送出、尚未到貨」的單可以修改。
 

@@ -365,9 +365,8 @@
 
 .cy-ordering-grid :is(th,td):has(+.cy-grid-divider-before){border-right:0}
 
-/* WO-0.9.71: draft presence beneath each product's add action, inside the restock drawer. */
-.cy-restock-draft-lines{display:grid;gap:2px;margin-top:5px;text-align:left;font-size:var(--cy-fs-xs);color:var(--cy-text-muted);min-width:150px}
-.cy-restock-draft-lines span{white-space:normal;overflow-wrap:anywhere}
+/* 加入叫貨單 dialog: drafts that already hold this 品號 (looked up on open, V0.9.74). */
+.cy-restock-in-drafts{grid-column:1/-1;margin:0;padding:6px 10px;border-radius:var(--cy-radius-sm);background:var(--cy-warning-soft);font-size:var(--cy-fs-sm)}
 .cy-restock-panel .cy-erp-query-box{max-width:none}
 .cy-restock-panel .cy-restock-scroller{max-width:100%;overflow-x:auto}
 
