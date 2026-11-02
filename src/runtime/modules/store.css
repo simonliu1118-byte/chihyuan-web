@@ -273,7 +273,7 @@
 .cy-store-not-applicable{background:linear-gradient(to bottom right,transparent calc(50% - .6px),var(--cy-border) 50%,transparent calc(50% + .6px));background-color:var(--cy-surface-muted)}
 .cy-store-sequence{text-align:center!important;color:var(--cy-text-muted)}
 .cy-store-date-popover{white-space:normal;position:absolute;z-index:5;right:0;top:0;width:max-content;padding:8px;background:var(--cy-surface);border:1px solid var(--cy-border);border-radius:var(--cy-radius-sm);box-shadow:0 4px 16px #0002;text-align:left}
-.cy-store-orders .cy-store-date-popover form{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+:is(.cy-store-orders,.cy-store-monthly) .cy-store-date-popover form{display:flex;flex-direction:column;align-items:stretch;gap:8px}
 .cy-store-date-popover .cy-f{display:grid;gap:4px;min-width:0;max-width:none;width:max-content}
 .cy-store-date-popover .cy-f-label{font-size:var(--cy-fs-xs);white-space:nowrap}
 .cy-store-call-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;min-width:184px}
@@ -341,7 +341,7 @@
 .cy-store-black-change-reason input{box-sizing:border-box}
 .cy-store-black-entry-table select.cy-ordering-cell{padding-right:24px}
 .cy-store-blacklist-table{min-width:1000px;font-size:var(--cy-fs-sm)}
-.cy-store-black-action{width:128px}.cy-store-black-actions{width:94px}
+.cy-store-black-action{width:calc(10em + 13px)}.cy-store-black-actions{width:94px}
 .cy-store-blacklist-table th:last-child{text-align:center}
 @media(max-width:820px){
  .cy-store-edit-reason{grid-template-columns:minmax(100px,1fr) minmax(0,2fr);gap:8px}
@@ -412,5 +412,6 @@
 .cy-store-item-metadata-fields>.cy-f{flex:1;min-width:0;border:1px solid var(--cy-border)}
 .cy-store-entry-summary textarea{line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;resize:none}
 
-.cy-store-blacklist-table .cy-store-black-removed>tr:first-child>td{color:var(--cy-text-muted);text-decoration:line-through}
-.cy-store-blacklist-table .cy-store-black-removed .cy-store-row-actions{color:var(--cy-text);text-decoration:none}
+.cy-store-blacklist-table .cy-store-black-removed>tr:first-child>td{position:relative;color:var(--cy-text-muted)}
+.cy-store-blacklist-table .cy-store-black-removed>tr:first-child>td::after{content:"";position:absolute;top:50%;left:0;right:-1px;height:1px;background:var(--cy-text-muted);pointer-events:none;z-index:3}
+.cy-store-blacklist-table .cy-store-black-removed .cy-store-row-actions{color:var(--cy-text)}

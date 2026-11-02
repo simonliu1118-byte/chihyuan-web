@@ -1,4 +1,4 @@
-import {activeInMonth,monthlyKey,shiftMonth,type MonthlySettings} from "../../shared/store-monthly";
+import {activeInMonth,monthlyKey,monthlyGenerationMonth,shiftMonth,type MonthlySettings} from "../../shared/store-monthly";
 export type SettingsRecord={version:number;first_month:string|null;generated_through:string|null;stores_json:string;items_json:string};
 export async function loadMonthlySettings(db:D1Database):Promise<MonthlySettings>{
  const r=await db.prepare("SELECT * FROM store_monthly_settings WHERE id=1").first<SettingsRecord>();
@@ -19,7 +19,7 @@ export function monthlyMaterialization(db:D1Database,months:string[],now:string)
 }
 /** Daily cron and page fallback share an idempotent, version-guarded materializer. */
 export async function ensureMonthlyRows(db:D1Database,at=new Date().toISOString()):Promise<void>{
- const month=monthlyKey(at);
+ const month=monthlyGenerationMonth(at);
  for(let retry=0;retry<3;retry++){
   const c=await loadMonthlySettings(db);if(!c.firstMonth||c.generatedThrough&&c.generatedThrough>=month)return;
   const months:string[]=[];for(let m=c.generatedThrough?shiftMonth(c.generatedThrough,1):c.firstMonth;m<=month;m=shiftMonth(m,1))months.push(m);

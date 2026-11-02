@@ -1,7 +1,7 @@
 export const STORE_MONTHLY_CRON = "0 16 * * *"; // Taiwan midnight, daily catch-up.
 export type MonthPeriod = {from:string; until?:string}; // exclusive end
 export type MonthlyStore = {id:string; name:string; periods:MonthPeriod[]};
-export type MonthlyItem = MonthlyStore & {stores:Record<string,MonthPeriod[]>};
+export type MonthlyItem = MonthlyStore & {note?:string;stores:Record<string,MonthPeriod[]>};
 export type MonthlySettings = {version:number; firstMonth:string|null; generatedThrough:string|null; stores:MonthlyStore[]; items:MonthlyItem[]};
 export type MonthlyCell = {itemId:string; completed:boolean; completionDate:string|null; version:number};
 export type MonthlyRow = {id:string; month:string; storeId:string; storeName:string; cells:MonthlyCell[]};
@@ -17,3 +17,7 @@ export function setMonthlyEnabled(periods:MonthPeriod[],enabled:boolean,month:st
  else if(current)current.until=shiftMonth(month,1);
  return copy;
 }
+
+/** The sixteenth Taipei calendar day pre-generates the next month. */
+export const monthlyGenerationMonth=(at:string|number=Date.now())=>Number(taipeiDate(at).slice(8))>=16?shiftMonth(monthlyKey(at),1):monthlyKey(at);
+export const monthlyApplicable=(c:MonthlySettings,month:string,storeId:string,itemId:string)=>{const store=c.stores.find(s=>s.id===storeId),item=c.items.find(i=>i.id===itemId);return !!store&&!!item&&activeInMonth(store.periods,month)&&activeInMonth(item.periods,month)&&activeInMonth(item.stores[storeId]??[],month)};

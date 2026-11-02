@@ -2,7 +2,7 @@ import {requireModuleAccess} from "../auth/guard";
 import {identityClient,type IdentityRuntimeEnv} from "./auth-routes";
 import {success,failure} from "./response";
 import {AuditService} from "../audit/audit-service";
-import {activeInMonth,monthlyKey,shiftMonth,taipeiDate,setMonthlyEnabled,type MonthlyStore,type MonthlyItem,type MonthlySettings,type MonthlyRow,type MonthlyCell} from "../../shared/store-monthly";
+import {activeInMonth,monthlyKey,monthlyGenerationMonth,monthlyApplicable,shiftMonth,taipeiDate,setMonthlyEnabled,type MonthlyStore,type MonthlyItem,type MonthlySettings,type MonthlyRow,type MonthlyCell} from "../../shared/store-monthly";
 import {ensureMonthlyRows,loadMonthlySettings,monthlyGuard,monthlyMaterialization,firstMonthlyMonth} from "../store/monthly-service";
 
 const ROOT="/api/business/store/monthly";
@@ -25,7 +25,7 @@ function changedList(raw:unknown,c:MonthlySettings,kind:"stores"|"items",month:s
   if(!Array.isArray(v.storeIds)||v.storeIds.some(x=>typeof x!=="string"||!c.stores.some(s=>s.id===x))||new Set(v.storeIds).size!==v.storeIds.length)throw new Invalid("適用門市不正確");
   const previous=(prior as MonthlyItem|undefined)?.stores??{},stores:Record<string,ReturnType<typeof setMonthlyEnabled>>={};
   for(const s of c.stores)stores[s.id]=setMonthlyEnabled(previous[s.id]??[],v.storeIds.includes(s.id),month);
-  return {...row,stores};
+  const note=v.note??(prior as MonthlyItem|undefined)?.note??"";if(typeof note!=="string"||[...note].length>300)throw new Invalid("備註最多300字");return {...row,stores,note:note.trim()};
  });
  if(old.some(x=>!seen.has(x.id)))throw new Invalid("既有設定請使用停用，不能刪除歷史");return result;
 }
@@ -52,11 +52,11 @@ export async function handleStoreMonthlyRoute(request:Request,env:IdentityRuntim
   await ensureMonthlyRows(db,at);
   const c=await loadMonthlySettings(db);
   if(method==="GET"&&(path===""||path==="/")){
-   const before=url.searchParams.get("before")??month;if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(before)||before>month||before<"0001-01")throw new Invalid("查詢年月不正確");
+   const through=monthlyGenerationMonth(at),before=url.searchParams.get("before")??through;if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(before)||before>through||before<"0001-01")throw new Invalid("查詢年月不正確");
    const from=shiftMonth(before,-11),records=await query<RowRecord>(db,"SELECT * FROM store_monthly_rows WHERE month BETWEEN ? AND ? ORDER BY month DESC,store_order,store_id",from,before);
    const cells=await query<CellRecord>(db,"SELECT x.* FROM store_monthly_cells x JOIN store_monthly_rows r ON r.id=x.row_id WHERE r.month BETWEEN ? AND ?",from,before);
    const byRow=new Map<string,MonthlyCell[]>();for(const cell of cells){const list=byRow.get(cell.row_id)??[];list.push(cellJson(cell));byRow.set(cell.row_id,list)}
-   const rows:MonthlyRow[]=records.map(r=>({id:r.id,month:r.month,storeId:r.store_id,storeName:r.store_name,cells:byRow.get(r.id)??[]}));
+   const rows:MonthlyRow[]=records.filter(r=>{const s=c.stores.find(s=>s.id===r.store_id);return !!s&&activeInMonth(s.periods,r.month)}).map(r=>({id:r.id,month:r.month,storeId:r.store_id,storeName:r.store_name,cells:(byRow.get(r.id)??[]).filter(cell=>monthlyApplicable(c,r.month,r.store_id,cell.itemId))}));
    return success({settings:c,rows,nextBefore:c.firstMonth&&from>c.firstMonth?shiftMonth(from,-1):null,canManage,currentMonth:month},requestId);
   }
   const history=/^\/rows\/([^/]+)\/history$/.exec(path);
@@ -70,35 +70,36 @@ export async function handleStoreMonthlyRoute(request:Request,env:IdentityRuntim
   if(!(settings&&method==="POST"||cellMatch&&method==="PATCH"))throw new Invalid("找不到月度待辦操作",404);
   const v=await requestBody(request),key=v.requestKey;if(typeof key!=="string"||!uuid.test(key))throw new Invalid("操作識別不正確");
   const hash=await requestHash(path,v),duplicate=await db.prepare("SELECT request_hash FROM store_monthly_events WHERE actor=? AND request_key=?").bind(actor,key).first<{request_hash:string}>();
-  if(duplicate){if(duplicate.request_hash!==hash)throw new Invalid("同一操作識別不能重複用於不同內容",409);return success({replayed:true},requestId)}
+  if(duplicate){if(duplicate.request_hash!==hash)throw new Invalid("同一操作識別不能重複用於不同內容",409);if(cellMatch){const rowId=decodeURIComponent(cellMatch[1]),itemId=decodeURIComponent(cellMatch[2]),cell=await db.prepare("SELECT * FROM store_monthly_cells WHERE row_id=? AND item_id=?").bind(rowId,itemId).first<CellRecord>();if(cell)return success({rowId,...cellJson(cell)},requestId)}return success({replayed:true},requestId)}
   const expected=versionOf(v.expectedVersion),audit=new AuditService(db);
   const event=(rowId:string|null,itemId:string|null,kind:string,before:unknown,after:unknown)=>db.prepare("INSERT INTO store_monthly_events(row_id,item_id,actor,at,kind,before_json,after_json,request_key,request_hash) VALUES(?,?,?,?,?,?,?,?,?)").bind(rowId,itemId,actor,at,kind,JSON.stringify(before),JSON.stringify(after),key,hash);
   if(settings){
    if(expected!==c.version)throw new Invalid("設定已被其他人修改，請重新載入",409,"MONTHLY_VERSION_CONFLICT");
    const kind=settings[1] as "stores"|"items",next:MonthlySettings={...c,version:c.version+1};
    if(kind==="stores")next.stores=changedList(v.rows,c,kind,month) as MonthlyStore[];else next.items=changedList(v.rows,c,kind,month) as MonthlyItem[];
-   next.firstMonth=firstMonthlyMonth(next,month);next.generatedThrough=next.firstMonth?month:null;
+   const through=monthlyGenerationMonth(at),months=through===month?[month]:[month,through];next.firstMonth=firstMonthlyMonth(next,month);next.generatedThrough=next.firstMonth?through:null;
    const stores=JSON.stringify(next.stores),items=JSON.stringify(next.items);if(new TextEncoder().encode(stores+items).byteLength>800_000)throw new Invalid("設定資料過大",413);
    await db.batch([monthlyGuard(db,expected),db.prepare("INSERT INTO store_monthly_settings(id,version,first_month,generated_through,stores_json,items_json,updated_at,updated_by) VALUES(1,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET version=excluded.version,first_month=excluded.first_month,generated_through=excluded.generated_through,stores_json=excluded.stores_json,items_json=excluded.items_json,updated_at=excluded.updated_at,updated_by=excluded.updated_by").bind(next.version,next.firstMonth,next.generatedThrough,stores,items,at,actor),
-    ...monthlyMaterialization(db,[month],at),
-    db.prepare("UPDATE store_monthly_rows SET store_name=COALESCE((SELECT json_extract(value,'$.name') FROM json_each(?) WHERE json_extract(value,'$.id')=store_id),store_name),store_order=COALESCE((SELECT CAST(key AS INTEGER) FROM json_each(?) WHERE json_extract(value,'$.id')=store_id),store_order) WHERE month=?").bind(stores,stores,month),
+    ...monthlyMaterialization(db,months,at),
+    db.prepare("UPDATE store_monthly_rows SET store_name=COALESCE((SELECT json_extract(value,'$.name') FROM json_each(?) WHERE json_extract(value,'$.id')=store_id),store_name),store_order=COALESCE((SELECT CAST(key AS INTEGER) FROM json_each(?) WHERE json_extract(value,'$.id')=store_id),store_order) WHERE month IN(SELECT value FROM json_each(?))").bind(stores,stores,JSON.stringify(months)),
     event(null,null,kind==="stores"?"設定門市":"設定項目",{[kind]:c[kind]},{[kind]:next[kind]}),
     audit.prepareRecord({entityType:"store_monthly_settings",entityKey:"1",action:"store_monthly.settings_updated",actorEmployeeId:actor,occurredAt:at,requestId,metadata:{kind,fromVersion:c.version,toVersion:next.version,requestKey:key}})]);
    return success({version:next.version},requestId);
   }
   const rowId=decodeURIComponent(cellMatch![1]),itemId=decodeURIComponent(cellMatch![2]);
   const cell=await db.prepare("SELECT * FROM store_monthly_cells WHERE row_id=? AND item_id=?").bind(rowId,itemId).first<CellRecord>();if(!cell)throw new Invalid("此月份門市不適用這個項目",404);
+  const row=await db.prepare("SELECT * FROM store_monthly_rows WHERE id=?").bind(rowId).first<RowRecord>();if(!row||!monthlyApplicable(c,row.month,row.store_id,itemId))throw new Invalid("此月份門市不適用這個項目",404);
   if(expected!==cell.version)throw new Invalid("此待辦已被其他人修改，請重新載入",409,"MONTHLY_VERSION_CONFLICT");
   if(typeof v.completed!=="boolean")throw new Invalid("辦理狀態不正確");let date:string|null=null;
   if(v.completionDate!==null){if(typeof v.completionDate!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(v.completionDate)||v.completionDate<"0001-01-01")throw new Invalid("日期不正確");const d=new Date(v.completionDate+"T00:00:00Z");if(!Number.isFinite(d.getTime())||d.toISOString().slice(0,10)!==v.completionDate||v.completionDate>taipeiDate(at))throw new Invalid("請選擇有效日期，不可晚於今天");date=v.completionDate}
   if(!v.completed&&date!==null)throw new Invalid("取消完成不能保留日期");
   const before={itemName:c.items.find(i=>i.id===itemId)?.name??itemId,completed:!!cell.completed,completionDate:cell.completion_date},after={...before,completed:v.completed,completionDate:date};
-  if(before.completed===after.completed&&before.completionDate===after.completionDate)return success({unchanged:true},requestId);
-  await db.batch([db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM store_monthly_cells WHERE row_id=? AND item_id=? AND version=?) THEN 1 ELSE json('') END").bind(rowId,itemId,expected),
+  if(before.completed===after.completed&&before.completionDate===after.completionDate)return success({rowId,...cellJson(cell)},requestId);
+  await db.batch([monthlyGuard(db,c.version),db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM store_monthly_cells WHERE row_id=? AND item_id=? AND version=?) THEN 1 ELSE json('') END").bind(rowId,itemId,expected),
    db.prepare("UPDATE store_monthly_cells SET completed=?,completion_date=?,version=version+1,updated_at=?,updated_by=? WHERE row_id=? AND item_id=?").bind(v.completed?1:0,date,at,actor,rowId,itemId),
    event(rowId,itemId,!v.completed?"取消完成":cell.completed?"修改辦理日期":"確認辦理",before,after),
    audit.prepareRecord({entityType:"store_monthly_row",entityKey:rowId,action:"store_monthly.cell_updated",actorEmployeeId:actor,occurredAt:at,requestId,before,after,metadata:{itemId,requestKey:key}})]);
-  return success({version:cell.version+1},requestId);
+  return success({rowId,itemId,version:cell.version+1,completed:v.completed,completionDate:date},requestId);
  }catch(e){
   if(e instanceof Invalid)return failure({code:e.code,message:e.message},requestId,e.status);
   if(/malformed JSON|UNIQUE constraint|MONTHLY_GENERATION_CONFLICT/.test(String(e)))return failure({code:"MONTHLY_VERSION_CONFLICT",message:"資料已變更或操作已送出，請重新載入"},requestId,409);
