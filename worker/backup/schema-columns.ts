@@ -1150,6 +1150,7 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "reason",
     "source_order_id"
   ],
+  "store_repair_photos": ["bytes","created_at","created_by","height","id","object_key","repair_id","width"],
   "store_repairs": ["accessories","cancel_reason","cancelled","cancelled_at","closed_at","created_at","created_by","customer_code","customer_name","fault","honorific","id","inspect_problem","inspect_result","inspected_date","line_name","list_sequence","mobile","notified_at","notified_date","phone","product_kind","product_text","purchase_date","received_date","repaired_date","return_carrier","return_method","return_tracking","returned_date","send_carrier","send_tracking","sent_at","sent_date","serial_no","status","updated_at","updated_by","version"],
   "store_repair_events": ["actor","after_json","at","before_json","id","kind","reason","repair_id","request_key"]
 };
