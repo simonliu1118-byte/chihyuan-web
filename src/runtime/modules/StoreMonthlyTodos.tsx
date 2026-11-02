@@ -25,7 +25,7 @@ const scheduleOptions=[{value:"ALL",label:"每月"},{value:"ODD",label:"單月"}
 export function monthlyColumnsForWidth(width:number,mobile:boolean,minWidth=96,fixedWidth=296){
  return mobile?3:Math.max(1,Math.floor((width-fixedWidth)/minWidth));
 }
-function useColumnsPerLine(ref:RefObject<HTMLDivElement|null>,minWidth:number,fixedWidth:number){
+function useColumnsPerLine(ref:RefObject<HTMLDivElement|null>,minWidth:number,fixedWidth:number,ready:boolean){
  const [columns,setColumns]=useState(8);
  useEffect(()=>{
   const el=ref.current;if(!el)return;
@@ -33,14 +33,14 @@ function useColumnsPerLine(ref:RefObject<HTMLDivElement|null>,minWidth:number,fi
   update();const observer=new ResizeObserver(update);observer.observe(el);
   window.addEventListener("resize",update);
   return()=>{observer.disconnect();window.removeEventListener("resize",update)};
- },[ref,minWidth,fixedWidth]);
+ },[ref,minWidth,fixedWidth,ready]);
  return columns;
 }
 
 export function StoreMonthlyTodos(){
  const [data,setData]=useState<MonthlyPage|null>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[history,setHistory]=useState<string|null>(null),[revision,setRevision]=useState(0);
  const [dragging,setDragging]=useState<string|null>(null);
- const scrollRef=useRef<HTMLDivElement>(null),columnsPerLine=useColumnsPerLine(scrollRef,96,296);
+ const scrollRef=useRef<HTMLDivElement>(null),columnsPerLine=useColumnsPerLine(scrollRef,96,296,!!data);
  const [settings,setSettings]=useState<SettingsForm|null>(null),[date,setDate]=useState<DateForm|null>(null);
  const [message,setMessage,reportError,tone]=useFeedbackMessage<string|null>(null),{confirm,confirmationDialog}=useConfirmation({dismissible:false});
  const pages=useRef<string[]>([""]),sequence=useRef(0),mutation=useRef(false),historyCache=useRef<StoreHistoryCache>(new Map());
