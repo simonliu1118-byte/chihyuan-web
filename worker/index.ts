@@ -1,4 +1,5 @@
 import type { HealthData } from "../shared/api";
+import { isScheduledBackupMinute } from "../shared/backup-schedule";
 import { backupService, type BackupRuntimeEnv } from "./backup/runtime";
 import { handleBackupRoute } from "./http/backup-routes";
 import { handleSettingsAuditRoute } from "./http/settings-audit-routes";
@@ -118,21 +119,28 @@ async function routeRequest(request: Request, env: Env, url: URL): Promise<Respo
   return failure({ code: "NOT_FOUND", message: "Route not found" }, requestId, 404);
 }
 
+async function scheduledBackup(env: Env, scheduledTime: number): Promise<void> {
+  if (env.BACKUP_SCHEDULE_ENABLED !== "true") return;
+  const service = backupService(env);
+  if (service) await service.scheduled({ now: new Date(scheduledTime).toISOString(), actorMemberId: null, requestId: crypto.randomUUID() });
+}
+
 export default {
   async scheduled(controller: ScheduledController, env: Env): Promise<void> {
     if(controller.cron===STORE_MONTHLY_CRON){await ensureMonthlyRows(env.DB,new Date(controller.scheduledTime).toISOString());return;}
     if (controller.cron === ERP_HOUSEKEEPING_CRON) {
-      await runErpHousekeeping(env.DB, controller.scheduledTime);
+      // A housekeeping failure must not cost the day's backup, and the reverse.
+      const housekeeping = runErpHousekeeping(env.DB, controller.scheduledTime);
+      if (!isScheduledBackupMinute(controller.scheduledTime)) { await housekeeping; return; }
+      const results = await Promise.allSettled([housekeeping, scheduledBackup(env, controller.scheduledTime)]);
+      const failed = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
+      if (failed) throw failed.reason; // still reported as a failed cron run
       return;
     }
     if (controller.cron === PROGRAM_CATALOG_CRON) {
       await updateProgramCatalog(env.DB, new Date(controller.scheduledTime).toISOString());
       return;
     }
-    if (controller.cron !== "30 19 * * *") return;
-    if (env.BACKUP_SCHEDULE_ENABLED !== "true") return;
-    const service = backupService(env);
-    if (service) await service.scheduled({ now: new Date(controller.scheduledTime).toISOString(), actorMemberId: null, requestId: crypto.randomUUID() });
   },
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);

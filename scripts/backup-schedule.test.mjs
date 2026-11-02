@@ -16,20 +16,33 @@ try {
   worker = (await import(pathToFileURL(outfile))).default;
 } finally { rmSync(directory, { recursive: true, force: true }); }
 
-test("disabled or absent schedule flag never touches D1 or backup providers", async () => {
+// The daily backup rides the every-minute housekeeping trigger (Free plan: 5 cron triggers per account).
+const at = time => Date.parse("2026-11-03T" + time + ":00Z");
+const quietDb = () => ({ prepare() { return { bind() { return this; }, async first() { return { queued: 0, running: 0 }; },
+  async all() { return { results: [] }; }, async run() { return { meta: { changes: 0 } }; } }; }, async batch() { return []; } });
+
+test("backup minutes are Taiwan 03:30 and 03:45 only", async () => {
+  const { isScheduledBackupMinute } = await import("../shared/backup-schedule.ts");
+  for (const t of ["19:30", "19:45"]) assert.equal(isScheduledBackupMinute(at(t)), true, t);
+  for (const t of ["19:29", "19:31", "03:30", "11:30", "19:00"]) assert.equal(isScheduledBackupMinute(at(t)), false, t);
+});
+
+test("disabled or absent schedule flag never touches backup providers, even at the backup minute", async () => {
   for (const flag of [undefined, "", "false", "TRUE"]) {
-    const env = { BACKUP_SCHEDULE_ENABLED: flag };
-    for (const name of ["DB", "BACKUP_R2", "GCS_SERVICE_ACCOUNT_JSON", "BACKUP_ENABLED"]) {
+    const env = { BACKUP_SCHEDULE_ENABLED: flag, DB: quietDb() };
+    for (const name of ["BACKUP_R2", "GCS_SERVICE_ACCOUNT_JSON", "BACKUP_ENABLED"]) {
       Object.defineProperty(env, name, { get() { throw new Error("Disabled schedule accessed " + name); } });
     }
-    await worker.scheduled({ cron: "30 19 * * *", scheduledTime: Date.now() }, env);
+    await worker.scheduled({ cron: "* * * * *", scheduledTime: at("19:30") }, env);
   }
 });
 
-test("schedule opt-in still requires backup opt-in", async () => {
-  const env = { BACKUP_SCHEDULE_ENABLED: "true", BACKUP_ENABLED: "false" };
-  Object.defineProperty(env, "DB", { get() { throw new Error("Disabled backup accessed D1"); } });
-  await worker.scheduled({ cron: "30 19 * * *", scheduledTime: Date.now() }, env);
+test("schedule opt-in still requires backup opt-in; other minutes never start a backup", async () => {
+  const env = { BACKUP_SCHEDULE_ENABLED: "true", BACKUP_ENABLED: "false", DB: quietDb() };
+  await worker.scheduled({ cron: "* * * * *", scheduledTime: at("19:30") }, env);
+  const busy = { BACKUP_SCHEDULE_ENABLED: "true", DB: quietDb() };
+  Object.defineProperty(busy, "BACKUP_ENABLED", { get() { throw new Error("backup started outside its minute"); } });
+  await worker.scheduled({ cron: "* * * * *", scheduledTime: at("19:31") }, busy);
   assert.equal(env.BACKUP_ENABLED, "false");
 });
 
