@@ -89,12 +89,14 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
    const values=(url.searchParams.get("itemCodes")??"").split(",").map(x=>x.trim()).filter(Boolean);
    if(values.length>500||values.some(x=>x.length>40))throw new Bad("ORDERING_INVALID","品號最多500筆，每筆不超過40字");
    if(!values.length)return success([],requestId);
-   const matches=await rows<{item_code:string;order_id:number;source_id:number;source_name:string;planned_send_date:string|null;quantity_text:string;unit:string;section:string}>(ctx.db,
-     "SELECT l.item_code,o.id order_id,o.source_id,s.name source_name,o.planned_send_date,l.quantity_text,l.unit,l.section"+
+   // Drafts holding the item, and sent orders still waiting for part of it (user 2026-11-03: avoid ordering twice).
+   const matches=await rows<{item_code:string;order_id:number;status:string;source_id:number;source_name:string;planned_send_date:string|null;sent_at:string|null;quantity_text:string;unit:string;section:string;remaining:number|null}>(ctx.db,
+     "SELECT * FROM (SELECT l.item_code,o.id order_id,o.status,o.source_id,s.name source_name,o.planned_send_date,o.sent_at,l.quantity_text,l.unit,l.section,o.created_at,l.sort_order,l.id line_id,"+
+     " CASE WHEN o.status='SENT' THEN l.quantity-COALESCE((SELECT SUM(r.quantity) FROM ordering_receipt_lines r WHERE r.line_id=l.id),0) END remaining"+
      " FROM ordering_lines l JOIN ordering_orders o ON o.id=l.order_id JOIN ordering_sources s ON s.id=o.source_id"+
-     " WHERE l.item_code IN (SELECT value FROM json_each(?)) AND o.status='DRAFT' AND l.closed_as IS NULL"+
-     " ORDER BY o.created_at DESC,o.id DESC,l.sort_order,l.id",JSON.stringify([...new Set(values)]));
-   return success(matches.map(x=>({itemCode:x.item_code,orderId:x.order_id,sourceId:x.source_id,sourceName:x.source_name,plannedSendDate:x.planned_send_date,quantityText:x.quantity_text,unit:x.unit,section:x.section})),requestId);
+     " WHERE l.item_code IN (SELECT value FROM json_each(?)) AND o.status IN ('DRAFT','SENT') AND l.closed_as IS NULL)"+
+     " WHERE status='DRAFT' OR remaining>0 ORDER BY status,created_at DESC,order_id DESC,sort_order,line_id",JSON.stringify([...new Set(values)]));
+   return success(matches.map(x=>({itemCode:x.item_code,orderId:x.order_id,status:x.status,sourceId:x.source_id,sourceName:x.source_name,plannedSendDate:x.planned_send_date,sentAt:x.sent_at,quantityText:x.quantity_text,unit:x.unit,section:x.section,remaining:x.remaining})),requestId);
   }
   if(path==="sources"&&method==="GET"){await init(ctx);const items=await rows<Source>(ctx.db,"SELECT * FROM ordering_sources ORDER BY sort_order,id LIMIT 101");if(items.length>100)throw new Bad("ORDERING_LIMIT","來源超過100筆",409);return success(items.map(x=>({id:x.id,name:x.name,kind:x.kind,conditions:x.conditions,paymentTerms:x.payment_terms,note:x.note,sortOrder:x.sort_order,isActive:!!x.is_active})),requestId)}
   if(path==="sources"&&method==="POST"){

@@ -450,7 +450,7 @@ test('ordering history sorts by actual send time, with unsent voids last, while 
  }finally{sql.close()}
 });
 
-test('draft-items batches codes, returns multiple draft slips with quantities and never sent or closed rows',async()=>{
+test('draft-items returns draft slips and sent orders still waiting, never closed rows',async()=>{
  const f=fixture();try{
   const sources=(await f.call('/sources')).body.data;
   const first=sources.find(x=>x.name==='台北'),second=sources.find(x=>x.name==='台中'),at='2026-11-02T00:00:00Z';
@@ -461,12 +461,19 @@ test('draft-items batches codes, returns multiple draft slips with quantities an
   insertOrder.run(second.id,'DRAFT',null,null,at,at);const b=f.sql.prepare('SELECT last_insert_rowid() id').get().id;
   insertLine.run(b,1,'P001','測試商品','8','盒',null);
   insertOrder.run(first.id,'SENT','2026-11-05',at,at,at);const sent=f.sql.prepare('SELECT last_insert_rowid() id').get().id;
-  insertLine.run(sent,1,'P001','測試商品','100','盒',null);
+  f.sql.prepare("INSERT INTO ordering_lines(order_id,sort_order,item_code,item_name,quantity_text,quantity,unit) VALUES(?,?,?,?,?,?,?)").run(sent,1,'P001','測試商品','100',100,'盒');
   insertLine.run(a,2,'P001','測試商品','4','盒','CANCELLED');
   const unauthorized=fixture("USER");try{assert.equal((await unauthorized.call('/draft-items?itemCodes=P001')).status,403)}finally{unauthorized.sql.close()}
   const found=await f.call('/draft-items?itemCodes=P001,P002');
   assert.equal(found.status,200,JSON.stringify(found.body));
-  assert.deepEqual(found.body.data.map(x=>x.orderId).sort((x,y)=>x-y),[a,b].sort((x,y)=>x-y));
+  // Drafts, plus the sent order still waiting for the item (user 2026-11-03: avoid ordering twice).
+  assert.deepEqual(found.body.data.map(x=>x.orderId).sort((x,y)=>x-y),[a,b,sent].sort((x,y)=>x-y));
+  assert.equal(found.body.data.find(x=>x.orderId===sent).remaining,100);
+  // Once it has all arrived, the sent order drops out.
+  const lineId=f.sql.prepare('SELECT id FROM ordering_lines WHERE order_id=?').get(sent).id;
+  f.sql.prepare("INSERT INTO ordering_receipts(id,order_id,erp_purchase_no,received_date,created_at,created_by) VALUES(9,?,'341A-20261102001','2026-11-02',?,NULL)").run(sent,at);
+  f.sql.prepare('INSERT INTO ordering_receipt_lines(receipt_id,line_id,quantity) VALUES(9,?,100)').run(lineId);
+  assert.equal((await f.call('/draft-items?itemCodes=P001')).body.data.some(x=>x.orderId===sent),false);
   assert.equal(found.body.data.find(x=>x.orderId===a).quantityText,'3');
   assert.equal(found.body.data.find(x=>x.orderId===b).plannedSendDate,null);
   assert.equal((await f.call('/draft-items?itemCodes='+Array.from({length:501},(_,i)=>'X'+i).join(','))).status,422);

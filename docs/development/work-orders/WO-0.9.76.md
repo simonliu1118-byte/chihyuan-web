@@ -85,7 +85,7 @@
   - `FeedbackBanner`；
   - `Dialog`。
 - 抽屜寬度：`SidePanel` 已有 `width="auto"`＋`className="cy-restock-side"` 依內容大小（V0.9.74）。開每日明細時可加一個 class 放寬上限，不要改共用 `SidePanel`。
-- 版本 V0.9.76（WO-0.9.74 為 V0.9.75；若順序不同則接續最新版本）。
+- 版本 V0.9.77（WO-0.9.74 為 V0.9.76；若順序不同則接續最新版本）。
 
 ## 6. 驗收清單
 
