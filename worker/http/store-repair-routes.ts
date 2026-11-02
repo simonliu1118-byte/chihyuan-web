@@ -78,9 +78,9 @@ export async function handleStoreRepairRoute(req:Request,env:IdentityRuntimeEnv,
    const duplicate=await one<{repair_id:number}>(c.db,"SELECT repair_id FROM store_repair_events WHERE actor=? AND request_key=? AND kind='建立'",c.actor,k);
    if(duplicate)return success(json(await get(c,duplicate.repair_id)),requestId);
    const id=Number.parseInt(crypto.randomUUID().replaceAll("-","").slice(0,13),16);
-   const seq=await one<{n:number}>(c.db,"SELECT COALESCE(MAX(list_sequence),0)+1 n FROM store_repairs");
-   const values=[id,seq?.n??1,f.receivedDate,f.customerCode,f.customerName,f.honorific,f.mobile,f.phone,f.lineName,f.productKind,f.productText,f.serialNo,f.fault,f.purchaseDate,f.accessories,c.at,c.actor,c.at,c.actor];
-   const insert=c.db.prepare("INSERT INTO store_repairs(id,list_sequence,received_date,customer_code,customer_name,honorific,mobile,phone,line_name,product_kind,product_text,serial_no,fault,purchase_date,accessories,created_at,created_by,updated_at,updated_by) VALUES("+values.map(()=>"?").join(",")+")").bind(...values);
+   // The display number is taken inside the INSERT, so two simultaneous creations cannot collide.
+   const values=[id,f.receivedDate,f.customerCode,f.customerName,f.honorific,f.mobile,f.phone,f.lineName,f.productKind,f.productText,f.serialNo,f.fault,f.purchaseDate,f.accessories,c.at,c.actor,c.at,c.actor];
+   const insert=c.db.prepare("INSERT INTO store_repairs(id,list_sequence,received_date,customer_code,customer_name,honorific,mobile,phone,line_name,product_kind,product_text,serial_no,fault,purchase_date,accessories,created_at,created_by,updated_at,updated_by) SELECT ?,(SELECT COALESCE(MAX(list_sequence),0)+1 FROM store_repairs),"+values.slice(1).map(()=>"?").join(",")).bind(...values);
    await c.db.batch([insert,event(c,id,k,"建立",{},f),audit(c,id,"store_repair.created",{},f)]);
    return success(json(await get(c,id)),requestId);
   }

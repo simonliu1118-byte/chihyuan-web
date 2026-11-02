@@ -82,3 +82,10 @@ test('pure overdue thresholds and closure window use shared store policy',()=>{
  const at='2026-10-16T03:00:00Z';assert.equal(canUndoRepairClosure({status:'RETURNED',closedAt:at},Date.parse(at)+299999),true);
  assert.equal(canUndoRepairClosure({status:'RETURNED',closedAt:at},Date.parse(at)+300000),false);
 });
+
+test('a repair cancelled before inspection shows inspection as not applicable, not done',()=>{
+ const r={status:'NOTIFIED',cancelled:true,inspectResult:'',sentAt:null};
+ assert.equal(repairStepApplicable(r,'INSPECTED'),false);
+ assert.equal(repairStepApplicable({...r,inspectResult:'BAD'},'INSPECTED'),true);
+ assert.equal(repairStepApplicable({status:'RECEIVED',cancelled:false,inspectResult:'',sentAt:null},'INSPECTED'),true);
+});

@@ -16,7 +16,7 @@ stubs['../../../ui/forms/Field']=stubs['../../ui/forms/Field'];
 let CustomerOrders;
 try{await build({entryPoints:['src/runtime/modules/StoreCustomerOrders.tsx'],outfile:join(dir,'page.mjs'),bundle:true,platform:'node',format:'esm',packages:'external',jsx:'automatic',plugins:[{name:'page-boundaries',setup(b){b.onResolve({filter:/.*/},a=>a.path in stubs?{path:a.path==='../../../ui/forms/Field'?'../../ui/forms/Field':a.path,namespace:'stub'}:undefined);b.onLoad({filter:/.*/,namespace:'stub'},a=>({contents:stubs[a.path]}))}}]});({CustomerOrders}=await import(pathToFileURL(join(dir,'page.mjs'))))}finally{rmSync(dir,{recursive:true,force:true})}
 const walk=n=>!n||typeof n!=='object'?[]:[n,...[n.props?.children].flat(Infinity).flatMap(walk)];
-const text=n=>typeof n==='string'||typeof n==='number'?String(n):Array.isArray(n)?n.map(text).join(''):/StoreMilestoneStamp/.test(n?.type?.name??'')?text(n.type(n.props)):text(n?.props?.children??'');
+const text=n=>typeof n==='string'||typeof n==='number'?String(n):Array.isArray(n)?n.map(text).join(''):/StoreMilestone(Stamp|Button)/.test(n?.type?.name??'')?text(n.type(n.props)):text(n?.props?.children??'');
 const sample=()=>({id:1,customerCode:"",closedAt:null,notificationAttempts:0,lastUnreachedDate:null,orderDate:'2026-10-28',customerName:'合成顧客',phone:'071234567',mobile:'',lineName:'',deposit:0,note:'',status:'REGISTERED',dates:{ORDERED:null,ARRIVED:null,NOTIFIED:null,PICKED_UP:null},hasEverOrdered:false,version:1,total:20,lines:[{id:1,itemCode:'T001',itemName:'合成品項',quantity:1,unitPrice:20}]});
 let dispose;
 function mount({order=sample(),check={matches:[],lineCandidates:[]},fail=false,blacklist=[],transport}={}){

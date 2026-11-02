@@ -40,7 +40,8 @@ export function nextRepairStep(r:Pick<StoreRepair,"status"|"cancelled"|"inspectR
  return "RETURNED";
 }
 export function repairStepApplicable(r:Pick<StoreRepair,"status"|"cancelled"|"inspectResult"|"sentAt">,step:StoreRepairStep):boolean{
- if(step==="INSPECTED")return r.status!=="RECEIVED"||!r.cancelled;
+ // Cancelled before inspection: the inspection never happened (shown as not applicable, not ✓).
+ if(step==="INSPECTED")return !r.cancelled||r.inspectResult!=="";
  if(step==="SENT"||step==="REPAIRED")return !!r.sentAt||!r.cancelled&&r.inspectResult==="BAD";
  return true;
 }
