@@ -15,7 +15,17 @@ export function monthlyMaterialization(db:D1Database,months:string[],now:string)
  db.prepare(`INSERT OR IGNORE INTO store_monthly_cells(row_id,item_id,version,completed,completion_date,updated_at)
  SELECT r.id,json_extract(i.value,'$.id'),1,0,NULL,? FROM store_monthly_rows r,store_monthly_settings c,json_each(c.items_json) i
  WHERE c.id=1 AND r.month IN(SELECT value FROM json_each(?)) AND ${active("json_extract(i.value,'$.periods')","r.month")}
- AND ${active("json_extract(i.value,'$.stores.\"'||r.store_id||'\"')","r.month")}`).bind(now,json)];
+ AND ${active("json_extract(i.value,'$.stores.\"'||r.store_id||'\"')","r.month")} AND COALESCE((
+  SELECT CASE json_extract(s.value,'$.kind')
+   WHEN 'ALL' THEN 1
+   WHEN 'ODD' THEN CAST(substr(r.month,6,2) AS INTEGER)%2
+   WHEN 'EVEN' THEN 1-CAST(substr(r.month,6,2) AS INTEGER)%2
+   WHEN 'CUSTOM' THEN EXISTS(SELECT 1 FROM json_each(json_extract(s.value,'$.months')) sm WHERE CAST(sm.value AS INTEGER)=CAST(substr(r.month,6,2) AS INTEGER))
+   ELSE 0 END
+  FROM json_each(i.value,'$.schedules') s
+  WHERE json_extract(s.value,'$.from')<=r.month
+  ORDER BY json_extract(s.value,'$.from') DESC LIMIT 1
+ ),1)=1`).bind(now,json)];
 }
 /** Daily cron and page fallback share an idempotent, version-guarded materializer. */
 export async function ensureMonthlyRows(db:D1Database,at=new Date().toISOString()):Promise<void>{

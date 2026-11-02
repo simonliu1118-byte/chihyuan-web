@@ -2,7 +2,7 @@ import {requireModuleAccess} from "../auth/guard";
 import {identityClient,type IdentityRuntimeEnv} from "./auth-routes";
 import {success,failure} from "./response";
 import {AuditService} from "../audit/audit-service";
-import {activeInMonth,monthlyKey,monthlyGenerationMonth,monthlyApplicable,shiftMonth,taipeiDate,setMonthlyEnabled,type MonthlyStore,type MonthlyItem,type MonthlySettings,type MonthlyRow,type MonthlyCell} from "../../shared/store-monthly";
+import {activeInMonth,monthlyKey,monthlyGenerationMonth,monthlyApplicable,shiftMonth,taipeiDate,setMonthlyEnabled,scheduleInMonth,setMonthlySchedule,type MonthlyScheduleKind,type MonthlyStore,type MonthlyItem,type MonthlySettings,type MonthlyRow,type MonthlyCell} from "../../shared/store-monthly";
 import {ensureMonthlyRows,loadMonthlySettings,monthlyGuard,monthlyMaterialization,firstMonthlyMonth} from "../store/monthly-service";
 
 const ROOT="/api/business/store/monthly";
@@ -25,7 +25,22 @@ function changedList(raw:unknown,c:MonthlySettings,kind:"stores"|"items",month:s
   if(!Array.isArray(v.storeIds)||v.storeIds.some(x=>typeof x!=="string"||!c.stores.some(s=>s.id===x))||new Set(v.storeIds).size!==v.storeIds.length)throw new Invalid("適用門市不正確");
   const previous=(prior as MonthlyItem|undefined)?.stores??{},stores:Record<string,ReturnType<typeof setMonthlyEnabled>>={};
   for(const s of c.stores)stores[s.id]=setMonthlyEnabled(previous[s.id]??[],v.storeIds.includes(s.id),month);
-  const note=v.note??(prior as MonthlyItem|undefined)?.note??"";if(typeof note!=="string"||[...note].length>300)throw new Invalid("備註最多300字");return {...row,stores,note:note.trim()};
+  const note=v.note??(prior as MonthlyItem|undefined)?.note??"";if(typeof note!=="string"||[...note].length>300)throw new Invalid("備註最多300字");
+  const oldItem=prior as MonthlyItem|undefined,previousSchedule=scheduleInMonth(oldItem??{},month);
+  const rawSchedule=v.schedule;
+  let scheduleKind:MonthlyScheduleKind=previousSchedule.kind,months=previousSchedule.months??[];
+  if(rawSchedule!==undefined){
+   const supplied=object(rawSchedule);
+   if(!["ALL","ODD","EVEN","CUSTOM"].includes(String(supplied.kind)))throw new Invalid("週期不正確");
+   scheduleKind=supplied.kind as MonthlyScheduleKind;
+   if(scheduleKind==="CUSTOM"){
+    if(!Array.isArray(supplied.months)||!supplied.months.length||supplied.months.some(m=>!Number.isInteger(m)||Number(m)<1||Number(m)>12)||new Set(supplied.months).size!==supplied.months.length)throw new Invalid("自訂週期請至少選擇一個有效月份");
+    months=(supplied.months as number[]).slice().sort((a,b)=>a-b);
+   }else months=[];
+  }
+  const changed=previousSchedule.kind!==scheduleKind||(scheduleKind==="CUSTOM"&&JSON.stringify([...(previousSchedule.months??[])].sort((a,b)=>a-b))!==JSON.stringify(months));
+  const schedules=!oldItem?setMonthlySchedule([],scheduleKind,months,month):changed?setMonthlySchedule(oldItem.schedules,scheduleKind,months,month):oldItem.schedules;
+  return {...row,stores,note:note.trim(),...(schedules?{schedules}:{})};
  });
  if(old.some(x=>!seen.has(x.id)))throw new Invalid("既有設定請使用停用，不能刪除歷史");return result;
 }
