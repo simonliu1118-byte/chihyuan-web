@@ -20,9 +20,9 @@ D1 remains the live authoritative database after application cutover. R2 and GCS
 
 The derived public `program_catalog_state` singleton is explicitly excluded from portable business data and schema fingerprints. Its migration does not change the `0007_retired_entity_ids` portable business schema; adding or populating this cache leaves existing business snapshots compatible. Other unknown tables still fail schema coverage checks. Program-catalog cron (03:00 Taiwan) is dispatched independently of the opt-in backup cron (03:30 Taiwan); enabling daily catalog updates does not enable backup or backup schedules.
 
-### CY Web schema level and migrations (V0.9.80)
+### CY Web schema level and migrations (V0.9.81)
 
-- A CY Web package written since V0.9.80 is `formatVersion 2`. Its manifest records `schemaMigration`: the last migration of the source database (for example `0045_ordering_draft_item_index`). The `schemaSha256` of the DDL is still written, for information only.
+- A CY Web package written since V0.9.81 is `formatVersion 2`. Its manifest records `schemaMigration`: the last migration of the source database (for example `0045_ordering_draft_item_index`). The `schemaSha256` of the DDL is still written, for information only.
 - A restore maps data by table and column name into a target that must match this code exactly (every table, every column).
   - A table the backup lacks restores empty. A column it lacks takes the database default, exactly as the migration gave existing rows.
   - A table or column the target does not have is refused, never dropped. A backup from a newer migration than the code is refused.
@@ -33,7 +33,7 @@ The derived public `program_catalog_state` singleton is explicitly excluded from
   - Keep `schema-columns.ts` in step; this is already checked against the migration chain.
   - Add an entry to `UPGRADES` only when the migration changes what existing data means (moves, renames, drops or recomputes values, such as `0036` computing `list_sequence`). New tables, new columns with a default, indexes and wider checks need nothing.
   - No schema fingerprints are pinned any more, and LF/CRLF layouts no longer matter.
-- `formatVersion 1` packages (before V0.9.80) are still restored. `worker/backup/legacy-v1.ts` recognises every deployed v1 fingerprint, applies the historical upgrades to bring the data to the 0045 layout (`v1-columns-0045.ts`), and the name-based restore continues from there. Both files are frozen.
+- `formatVersion 1` packages (before V0.9.81) are still restored. `worker/backup/legacy-v1.ts` recognises every deployed v1 fingerprint, applies the historical upgrades to bring the data to the 0045 layout (`v1-columns-0045.ts`), and the name-based restore continues from there. Both files are frozen.
 
 ## 2. Recovery tiers
 

@@ -1,4 +1,4 @@
-// formatVersion 2 portable backups (V0.9.80): the manifest records the last migration, and a restore
+// formatVersion 2 portable backups (V0.9.81): the manifest records the last migration, and a restore
 // maps data by table and column name instead of matching a schema fingerprint.
 import test from 'node:test';
 import assert from 'node:assert/strict';

@@ -1,4 +1,4 @@
-// formatVersion 1 backups (before V0.9.80) carry only a SHA-256 of the sqlite_master DDL, so the schema
+// formatVersion 1 backups (before V0.9.81) carry only a SHA-256 of the sqlite_master DDL, so the schema
 // they were taken from is known only by matching that hash. This module is FROZEN: it recognises every
 // v1 schema that was ever deployed and brings its data to the 0045 layout (V1_COLUMNS). From there the
 // formatVersion 2 restore (by migration name and column name) takes over. New migrations never touch it.
