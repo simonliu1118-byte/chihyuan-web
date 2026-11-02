@@ -1,0 +1,10 @@
+import {Field,FormSection} from "../../../ui/forms/Field";
+import {PhoneInput} from "../../../ui/forms/PhoneInput";
+import type {Honorific} from "../../../../shared/store";
+export type StoreContact={phone:string;mobile:string;lineName:string};
+export function ContactCells({value,onChange}:{value:StoreContact;onChange:(patch:Partial<StoreContact>)=>void}){
+ const missing=!value.phone.trim()&&!value.mobile.trim()&&!value.lineName.trim();return <>{(["mobile","phone","lineName"] as const).map((k,i)=><td key={k}><Field label={["連絡電話1","連絡電話2","LINE 名稱"][i]} reportAs={i===0?"連絡電話1／連絡電話2／LINE 至少填寫一項":undefined} presentation="cell">{k!=="lineName"?<PhoneInput className="cy-ordering-cell" kind="auto" required={i===0&&missing} value={value[k]} onChange={digits=>onChange({[k]:digits})}/>:<input className="cy-ordering-cell" maxLength={60} value={value[k]} onChange={e=>onChange({[k]:e.target.value})}/>}</Field></td>)}</>;
+}
+export function HonorificCell({value,onChange}:{value:Honorific;onChange:(value:Honorific)=>void}){return <td><Field label="稱謂" presentation="cell"><select className="cy-ordering-cell" value={value} onChange={e=>onChange(e.target.value as Honorific)}><option value=""></option><option value="MR">先生</option><option value="MS">小姐</option></select></Field></td>}
+export function Reason({kind,detail,options,onChange,inline=false}:{kind:string;detail:string;options:readonly string[];onChange:(kind:string,detail:string)=>void;inline?:boolean}){const fields=<><Field label={inline?"修改理由":"理由類別"} required size="m"><select className="cy-op-input" autoFocus={inline} value={kind} onChange={e=>onChange(e.target.value,detail)}><option value="">請選擇</option>{options.map(o=><option key={o}>{o}</option>)}</select></Field><Field label="補充說明" required={kind==="其他"} size="l"><input className="cy-op-input" maxLength={240} value={detail} onChange={e=>onChange(kind,e.target.value)}/></Field></>;return inline?<div className="cy-store-edit-reason">{fields}</div>:<FormSection>{fields}</FormSection>}
+

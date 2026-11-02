@@ -5,6 +5,7 @@ import {AuditService} from "../audit/audit-service";
 import {HrValidationError,date,integer,object,required} from "../hr/hr-validation";
 import type {HrContext} from "../hr/hr-service";
 import {success,failure,json} from "./response";
+import {inspectJpeg,putJpegWithRecords,JpegUploadError} from "../files/jpeg-upload";
 export interface HrFilesEnv { HR_FILES?: R2Bucket }
 export async function handleHrPhase2bRoute(request:Request,db:D1Database,ctx:HrContext,env:HrFilesEnv):Promise<Response|null>{
  const url=new URL(request.url),path=url.pathname,id=ctx.requestId;
@@ -73,15 +74,13 @@ export async function handleHrPhase2bRoute(request:Request,db:D1Database,ctx:HrC
    const count=(await db.prepare("SELECT COUNT(*) AS n FROM hr_leave_attachments WHERE batch_id=?").bind(batch).first<{n:number}>())?.n??0;
    if(count>=3)throw new HrValidationError("files","每次最多三張");
    const bytes=new Uint8Array(await request.arrayBuffer());
-   if(bytes.length===0||bytes.length>1572864||!/^image\/jpeg(?:;|$)/i.test(request.headers.get("content-type")??""))throw new HrValidationError("file","只收 1.5MB 以下 JPEG");
-   const size=jpegSize(bytes);
-   if(Math.max(size.width,size.height)>2000)throw new HrValidationError("file","圖片長邊不可超過 2000px");
+   let size:{width:number;height:number};
+   try{size=inspectJpeg(bytes,request.headers.get("content-type"),1572864)}catch(e){if(e instanceof JpegUploadError)throw new HrValidationError("file",e.message);throw e}
    const key="hr-leave/"+batch+"/"+crypto.randomUUID()+".jpg";
-   await env.HR_FILES.put(key,bytes,{httpMetadata:{contentType:"image/jpeg"}});
-   try{await db.batch([
+   await putJpegWithRecords(env.HR_FILES,db,key,bytes,[
     db.prepare("INSERT INTO hr_leave_attachments(batch_id,object_key,content_type,bytes,width,height,grayscale,created_at,created_by) VALUES(?,?,?,?,?,?,?,?,?)").bind(batch,key,"image/jpeg",bytes.length,size.width,size.height,request.headers.get("x-grayscale")==="1"?1:0,ctx.now,ctx.actor),
     new AuditService(db).prepareRecord({entityType:"hr_leave_attachment",entityKey:batch,action:"hr_leave_attachment.uploaded",actorEmployeeId:ctx.actor,requestId:id,after:{batchId:batch,bytes:bytes.length,width:size.width,height:size.height}})
-   ])}catch(e){await env.HR_FILES.delete(key);throw e}
+   ]);
    return success({uploaded:true},id);
   }
   if(mAttachment&&request.method==="GET"){
@@ -99,17 +98,4 @@ export async function handleHrPhase2bRoute(request:Request,db:D1Database,ctx:HrC
   if(e instanceof HrValidationError)return failure({code:e.status===409?"HR_CONFLICT":"HR_VALIDATION_ERROR",message:e.message,fields:{[e.field]:e.message}},id,e.status);
   return failure({code:"HR_UNAVAILABLE",message:"人事資料處理失敗"},id,500);
  }
-}
-function jpegSize(bytes:Uint8Array):{width:number;height:number}{
- if(bytes[0]!==0xff||bytes[1]!==0xd8||bytes[bytes.length-2]!==0xff||bytes[bytes.length-1]!==0xd9)throw new HrValidationError("file","圖片不是有效 JPEG");
- let i=2;while(i+9<bytes.length){
-  if(bytes[i]!==0xff)break;const marker=bytes[i+1],length=bytes[i+2]*256+bytes[i+3];
-  if(length<2||i+2+length>bytes.length)break;
-  if([0xc0,0xc1,0xc2,0xc3].includes(marker)){
-   const height=bytes[i+5]*256+bytes[i+6],width=bytes[i+7]*256+bytes[i+8];
-   if(width>0&&height>0)return {width,height};
-  }
-  i+=2+length;
- }
- throw new HrValidationError("file","無法讀取 JPEG 尺寸");
 }
