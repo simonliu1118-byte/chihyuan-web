@@ -828,8 +828,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
                 onClick={() => void selectCustomer(customer.id)}
               >
                 <span className="cy-customer-result-main">
-                  <span>{customer.customerNo ?? "未設定編號"}</span>
-                  <strong>{customer.shortName}</strong>
+                  <strong title={[customer.customerNo, customer.shortName].filter(Boolean).join(" ")}>{[customer.customerNo, customer.shortName].filter(Boolean).join(" ")}</strong>
                 </span>
                 <span className={`cy-status-chip ${customer.status ? "cy-status-chip-success" : ""}`}>{customer.status?.name ?? "未設定"}</span>
               </button>
@@ -888,7 +887,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
             <div>
               <div className="cy-record-header">
                 <div>
-                  <h2>{selected.customerNo ? `${selected.customerNo} ` : ""}{selected.shortName}{selected.fullName ? <small className="cy-record-title-note">（{selected.fullName}）</small> : null}</h2>
+                  <h2 className="cy-customer-identity">{selected.customerNo ? `${selected.customerNo} ` : ""}{selected.shortName}{selected.fullName ? <small className="cy-record-title-note">（{selected.fullName}）</small> : null}{selected.taxId ? <span className="cy-customer-tax-id"><span>統編</span> {selected.taxId}</span> : null}</h2>
                   <p className="cy-record-meta">最後修改：{formatDateTime(selected.updatedAt)}{selected.updatedBy ? ` · ${formatPerson(selected.updatedBy)}` : ""}</p>
                 </div>
                 <div className="cy-record-actions">
@@ -900,45 +899,52 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
 
               {selected.notes.length ? <div className="cy-customer-alert" role="note">
                 <strong>重要備註</strong>
-                {selected.notes.map((row) => <p key={row.id}>{row.content}</p>)}
+                <div>{selected.notes.map((row) => <p key={row.id}>{row.content}</p>)}</div>
               </div> : null}
 
               <section className="cy-customer-profile" aria-label="基本資料">
                 <dl className="cy-customer-facts">
-                  <Info label="統編" value={selected.taxId} mono />
                   <Info label="分類" value={selected.category?.name} />
                   <Info label="地區" value={selected.region?.name} />
+                  <Info label="負責部門" value={selected.ownerDepartment?.name} />
                   <Info label="負責業務" value={selected.ownerEmployee ? formatPerson(selected.ownerEmployee) : null} />
-                  <Info label="傳真" value={selected.fax} mono />
                 </dl>
-                <div className="cy-customer-contact-grid">
+                <div className="cy-customer-profile-row">
+                  <h3>電話／傳真</h3>
                   <div>
-                    <h3>電話與聯絡人</h3>
                     {selected.phones.map((row) => <p key={`p${row.id}`} className="cy-customer-line"><span className="cy-mono">{row.phoneNumber}{row.extension ? ` #${row.extension}` : ""}</span>{row.note ? <small>{row.note}</small> : null}</p>)}
-                    {selected.contacts.filter((row) => row.isActive).map((row) => <p key={`c${row.id}`} className="cy-customer-line"><span>{row.name}{row.title ? `（${row.title}）` : ""}</span><small className="cy-mono">{row.mobile ?? row.phone ?? ""}</small></p>)}
-                    {!selected.phones.length && !selected.contacts.some((row) => row.isActive) ? <p className="cy-customer-muted">尚無電話或聯絡人</p> : null}
-                  </div>
-                  <div>
-                    <h3>地址</h3>
-                    {selected.addresses.map((row) => <p key={row.id} className="cy-customer-line"><span>{`${row.postalCode ? `${row.postalCode} ` : ""}${row.address}`}</span>{row.note ? <small>{row.note}</small> : null}</p>)}
-                    {!selected.addresses.length ? <p className="cy-customer-muted">尚無地址</p> : null}
+                    {selected.fax ? <p className="cy-customer-line"><span className="cy-mono">{selected.fax}</span><small>傳真</small></p> : null}
                   </div>
                 </div>
+                <div className="cy-customer-profile-row">
+                  <h3>地址</h3>
+                  <div>
+                    {selected.addresses.map((row) => <p key={row.id} className="cy-customer-line"><span>{`${row.postalCode ? `${row.postalCode} ` : ""}${row.address}`}</span>{row.note ? <small>{row.note}</small> : null}</p>)}
+                  </div>
+                </div>
+                <div className="cy-op-table-wrap"><table className="cy-op-table cy-customer-contact-table" aria-label="聯絡人">
+                  <colgroup><col className="cy-customer-contact-name"/><col className="cy-customer-contact-role"/><col className="cy-customer-contact-phone"/><col className="cy-customer-contact-phone"/><col/></colgroup>
+                  <thead><tr><th>姓名</th><th>部門／職稱</th><th>電話</th><th>手機</th><th>備註</th></tr></thead>
+                  <tbody>{selected.contacts.filter(row => row.isActive).map(row => <tr key={row.id}>
+                    <td data-label="姓名">{row.name}</td><td data-label="部門／職稱">{[row.departmentName, row.title].filter(Boolean).join("／")}</td>
+                    <td data-label="電話" className="cy-mono">{row.phone}</td><td data-label="手機" className="cy-mono">{row.mobile}</td><td data-label="備註">{row.note}</td>
+                  </tr>)}</tbody>
+                </table></div>
               </section>
 
               <section className="cy-customer-cards" aria-label="客戶相關紀錄">
                 <RelatedCard title="拜訪紀錄" count={visits.length} empty="尚無拜訪紀錄。"
                   onView={() => openRelated("visits")} onAdd={() => openRelated("visits", true)}
                   rows={visitsNewestFirst.slice(0, 3).map(row =>
-                    <span key={row.id} title={row.content ?? ""}>{formatDate(row.visitDate)} · {row.personSnapshot || selected.contacts.find(c => c.id === row.contactId)?.name || "未指定對象"} · {row.content?.split("\n")[0] || "—"}</span>)} />
+                    <span key={row.id} className="cy-customer-card-entry" title={[formatPerson(row.employee), row.content].filter(Boolean).join(" · ")}><span>{formatDate(row.visitDate)} · {row.personSnapshot || selected.contacts.find(c => c.id === row.contactId)?.name || "未指定對象"}</span><span>{row.content?.split("\n")[0] || ""}</span></span>)} />
                 <RelatedCard title="報價紀錄" count={quotes.length} empty="尚無報價紀錄。"
                   onView={() => openRelated("quotes")} onAdd={() => openRelated("quotes", true)}
                   rows={quotesNewestFirst.slice(0, 3).map(row =>
-                    <span key={row.id}>{formatDate(row.quoteDate)} {formatItem(row.itemNoSnapshot, row.itemNameSnapshot)}</span>)} />
+                    <span key={row.id} className="cy-customer-card-entry" title={[formatItem(row.itemNoSnapshot, row.itemNameSnapshot), row.specSnapshot, ...row.priceBreaks.map(tier => `${tier.quantity} ${tier.unit} $${tier.unitPrice}`)].filter(Boolean).join(" · ")}><span>{formatDate(row.quoteDate)} · {formatItem(row.itemNoSnapshot, row.itemNameSnapshot)}</span><span>{row.priceBreaks.slice(0, 2).map(tier => `${tier.quantity} ${tier.unit} $${tier.unitPrice}`).join("；")}{row.priceBreaks.length > 2 ? ` ＋${row.priceBreaks.length - 2} 級距` : ""}</span></span>)} />
                 <RelatedCard title="常用商品" count={frequentItems.length} empty="尚無常用商品。"
                   onView={() => openRelated("frequent")} onAdd={() => openRelated("frequent", true)}
                   rows={[...frequentItems].sort((a,b) => a.sortOrder-b.sortOrder).slice(0,3).map(row =>
-                    <span key={row.id}>{row.item ? formatItem(row.item.itemNo, row.item.name) : row.customItemName || "未命名品項"}</span>)} />
+                    <span key={row.id} className="cy-customer-card-entry" title={row.item ? [formatItem(row.item.itemNo, row.item.name), row.item.spec].filter(Boolean).join(" · ") : [row.customItemName, row.customCategoryName].filter(Boolean).join(" · ")}><span>{row.item ? formatItem(row.item.itemNo, row.item.name) : row.customItemName || "未命名品項"}</span>{row.item?.spec || !row.item ? <span>{row.item?.spec || ["未建檔", row.customCategoryName].filter(Boolean).join(" · ")}</span> : null}</span>)} />
               </section>
             </div>
           ) : <MasterDetailEmpty title="尚未選擇客戶" hint="從左側清單選一位客戶，或按清單上方的「＋ 新增客戶」。" />}
@@ -958,7 +964,7 @@ function RemoveRow({ busy, onRemove }: { busy: boolean; onRemove: () => void }) 
 }
 
 function Info({ label, value, mono }: { label: string; value: string | null | undefined; mono?: boolean }) {
-  return <div className="cy-customer-info"><dt>{label}</dt><dd className={mono && value ? "cy-mono" : undefined}>{value || "—"}</dd></div>;
+  return <div className="cy-customer-info"><dt>{label}</dt><dd className={mono && value ? "cy-mono" : undefined}>{value || ""}</dd></div>;
 }
 
 function VisitsPanel({ selected, rows, draft, setDraft, save, edit, remove, busy, mode, filter, onCancel }: {

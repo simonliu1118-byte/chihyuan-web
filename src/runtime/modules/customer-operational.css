@@ -5,13 +5,14 @@
 .cy-customer-result-row {
   appearance: none; width: 100%;
   display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px;
-  padding: 8px 12px; border: 0; border-radius: var(--cy-radius-md);
+  min-height: 36px; padding: 6px 12px; border: 0; border-radius: 0;
   background: transparent; color: var(--cy-text); text-align: left;
 }
 .cy-customer-result-row:hover { background: var(--cy-surface-muted); }
-.cy-customer-result-row.active { background: var(--cy-accent-soft); box-shadow: inset 3px 0 var(--cy-accent); }
+.cy-customer-result-row.active { background: var(--cy-surface-sunken); }
+.cy-customer-result-row + .cy-customer-result-row { border-top: 1px solid var(--cy-border); }
 .cy-customer-result-main { min-width: 0; display: grid; gap: 1px; }
-.cy-customer-result-main strong { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cy-customer-result-main strong { font-size: var(--cy-fs-sm); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cy-customer-result-main span { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Important notes are surfaced first so nobody misses payment or delivery conditions. */
@@ -102,6 +103,54 @@
 }
 
 /* WO-0.9.14: customer identity, related modal modes and quote line editor. */
+/* Customer-only density: RelatedCard / facts are also used by Item and HR. */
+.cy-customer-workspace .cy-record-header { padding-bottom: 8px; }
+.cy-customer-identity { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 6px; }
+.cy-customer-tax-id { display: inline-flex; gap: 5px; font-size: var(--cy-fs-md); font-weight: 400; white-space: nowrap; }
+.cy-customer-tax-id > span { color: var(--cy-text-muted); }
+.cy-customer-workspace .cy-customer-alert { display: flex; align-items: baseline; gap: 10px; margin-top: 8px; padding: 6px 10px; }
+.cy-customer-workspace .cy-customer-alert strong { flex: 0 0 auto; margin: 0; }
+.cy-customer-workspace .cy-customer-alert > div { min-width: 0; overflow-wrap: anywhere; }
+.cy-customer-workspace .cy-customer-profile { gap: 8px; padding: 8px 0; }
+.cy-customer-workspace .cy-customer-facts { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 12px; }
+.cy-customer-workspace .cy-customer-info { display: flex; align-items: baseline; gap: 8px; }
+.cy-customer-workspace .cy-customer-info dt { flex: 0 0 auto; }
+.cy-customer-workspace .cy-customer-info dd { margin: 0; }
+.cy-customer-profile-row { display: grid; grid-template-columns: 5em minmax(0, 1fr); align-items: baseline; gap: 10px; padding-top: 6px; border-top: 1px solid var(--cy-border); }
+.cy-customer-profile-row h3 { margin: 0; font-size: var(--cy-fs-sm); font-weight: 500; color: var(--cy-text-muted); }
+.cy-customer-profile-row .cy-customer-line { margin: 0; gap: 2px 10px; }
+.cy-customer-profile-row .cy-customer-line + .cy-customer-line { margin-top: 3px; }
+.cy-customer-contact-table { table-layout: fixed; }
+.cy-customer-contact-name { width: 7em; }
+.cy-customer-contact-role { width: 9em; }
+.cy-customer-contact-phone { width: 10em; }
+.cy-customer-workspace .cy-customer-contact-table :is(th,td) { padding: 5px 8px; overflow-wrap: anywhere; }
+.cy-customer-workspace .cy-customer-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 8px; padding: 2px 0 0; }
+.cy-customer-workspace .cy-customer-related-card { padding: 8px; gap: 6px; }
+.cy-customer-workspace .cy-customer-related-card-rows { min-height: 0; }
+.cy-customer-workspace .cy-customer-card-row { padding: 5px 0; }
+.cy-customer-workspace .cy-customer-card-entry { display: grid; gap: 1px; }
+.cy-customer-card-entry > span { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cy-customer-workspace .cy-customer-card-view-all { margin-top: 0; padding: 2px 0; }
+.cy-customer-workspace .cy-customer-related-card-rows .cy-customer-muted { margin: 4px 0; }
+@media (max-width: 1180px) {
+  .cy-customer-workspace .cy-customer-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cy-customer-contact-name { width: 5em; }
+  .cy-customer-contact-role { width: 6em; }
+  .cy-customer-contact-phone { width: 9em; }
+  .cy-customer-workspace .cy-customer-related-card-header { flex-wrap: wrap; gap: 4px; }
+}
+@media (max-width: 820px) {
+  .cy-customer-workspace .cy-customer-cards { grid-template-columns: 1fr; }
+  .cy-customer-workspace .cy-customer-contact-table { min-width: 0; width: 100%; }
+  .cy-customer-contact-table colgroup, .cy-customer-contact-table thead { display: none; }
+  .cy-customer-contact-table :is(tbody,tr,td) { display: block; }
+  .cy-customer-contact-table tr + tr { border-top: 1px solid var(--cy-border-strong); }
+  .cy-customer-workspace .cy-customer-contact-table td { display: grid; grid-template-columns: 5em minmax(0,1fr); gap: 10px; border: 0; }
+  .cy-customer-contact-table td::before { content: attr(data-label); color: var(--cy-text-muted); font-family: var(--cy-font); font-size: var(--cy-fs-sm); }
+  .cy-customer-workspace .cy-customer-alert { display: grid; gap: 2px; }
+}
+
 .cy-record-title-note {
   margin-left: 4px;
   color: var(--cy-text-muted);
