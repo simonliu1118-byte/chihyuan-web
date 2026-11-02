@@ -58,6 +58,10 @@ function sanitized(row: Record<string, unknown>) {
 function audit(db:D1Database, ctx:HrContext, type:string, key:string, action:string, before: Record<string, unknown> | null, after:Record<string,unknown>|null) {
   return new AuditService(db).prepareRecord({entityType:type,entityKey:key,action,actorEmployeeId:ctx.actor,requestId:ctx.requestId,before,after});
 }
+// Anything done for an employee after the record was created. Profile rows (contacts, education, work
+// history), the 建檔 status change and the leave entitlement derived on viewing do not count.
+const ACTIVITY_TABLES=["hr_salary_records","hr_leave_records","hr_overtime_days","hr_comp_time_grants","hr_comp_time_settlements","hr_seniority_exclusions","hr_schedule_days","hr_roster_approvals","hr_attendance_days"];
+const HAS_ACTIVITY="("+ACTIVITY_TABLES.map(t=>`EXISTS(SELECT 1 FROM ${t} WHERE employee_id=?1)`).join(" OR ")+" OR (SELECT COUNT(*) FROM hr_status_changes WHERE employee_id=?1)>1)";
 export class HrService {
   constructor(private db:D1Database) {}
   private employeeRow(id:number) { return this.db.prepare("SELECT e.*,COALESCE((SELECT c.next_status FROM hr_status_changes c WHERE c.employee_id=e.id AND c.effective_date<=date('now','+8 hours') ORDER BY c.effective_date DESC,c.id DESC LIMIT 1),e.status) AS effective_status FROM hr_employees e WHERE e.id=?").bind(id).first<Record<string,unknown>>(); }
@@ -85,6 +89,7 @@ export class HrService {
       const allowance=await this.db.prepare("SELECT a.*,t.name AS item_name FROM hr_salary_allowances a JOIN hr_salary_item_types t ON t.id=a.item_type_id WHERE a.salary_record_id=? ORDER BY a.id").bind(item.id).all();
       item.allowances=allowance.results??[];
     }
+    result.deletable=!(await this.db.prepare("SELECT "+HAS_ACTIVITY+" AS busy").bind(id).first<{busy:number}>())?.busy;
     return result;
   }
   async create(raw:unknown,ctx:HrContext) {
@@ -167,7 +172,8 @@ export class HrService {
     await this.db.batch([this.db.prepare("INSERT INTO hr_seniority_exclusions(employee_id,start_date,end_date,reason,created_at,created_by) VALUES(?,?,?,?,?,?)").bind(id,a,b,reason,ctx.now,ctx.actor),audit(this.db,ctx,"hr_seniority_exclusion",String(id),"hr_seniority_exclusion.created",null,{startDate:a,endDate:b,reason})]);
     return this.exclusions(id);
   }
-  // Temporary for testing (BD-059): super admin removes an employee and every HR row under it. Removed before launch.
+  // Super admin removes an employee only while nothing has been done for them yet: a record entered by
+  // mistake (user 2026-11-03; replaces the BD-059 test-only delete). Profile rows go with it.
   async remove(id:number,raw:unknown,ctx:HrContext,files?:R2Bucket) {
     const row=await this.db.prepare("SELECT employee_no,name FROM hr_employees WHERE id=?").bind(id).first<{employee_no:string;name:string}>();
     if(!row)throw new HrValidationError("id","員工不存在",404);
@@ -175,7 +181,11 @@ export class HrService {
     const filesToDelete=(await this.db.prepare("SELECT object_key FROM hr_leave_attachments WHERE batch_id IN (SELECT batch_id FROM hr_leave_records WHERE employee_id=?) LIMIT 1001").bind(id).all<{object_key:string}>()).results??[];
     if(filesToDelete.length>1000)throw new HrValidationError("files","附件超過單次刪除安全上限 1,000 筆；已中止，避免留下無主檔案",422);
     const del=(sql:string)=>this.db.prepare(sql).bind(id);
+    const busy=()=>this.db.prepare("SELECT "+HAS_ACTIVITY+" AS busy").bind(id);
+    if((await busy().first<{busy:number}>())?.busy)throw new HrValidationError("id","已有薪資、請假、班表、出勤或異動等紀錄，不能刪除",409);
     await this.db.batch([
+      // Re-checked inside the batch: a record added meanwhile aborts the whole delete.
+      this.db.prepare("SELECT CASE WHEN "+HAS_ACTIVITY+" THEN json('') END").bind(id),
       del("DELETE FROM hr_salary_allowances WHERE salary_record_id IN (SELECT id FROM hr_salary_records WHERE employee_id=?)"),
       del("DELETE FROM hr_leave_attachments WHERE batch_id IN (SELECT batch_id FROM hr_leave_records WHERE employee_id=?)"),
       del("DELETE FROM hr_comp_time_settlements WHERE employee_id=?"),
