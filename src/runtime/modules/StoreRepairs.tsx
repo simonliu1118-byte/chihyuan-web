@@ -67,8 +67,8 @@ export function StoreRepairs(){
   await run(async()=>{const result=await request<StoreRepair>("/"+a.repair.id+"/status","POST",{action:a.kind,reasonKind:a.reasonKind,reason:a.reason,requestKey:a.requestKey,expectedVersion:a.repair.version});
    apply(result);setAction(null);setMessage(a.kind==="cancel"?"維修已標記取消；仍需通知並歸還機器":a.kind==="undoClose"?"結案已撤回":a.kind==="undoCancel"?"取消已撤回":"已退回上一階段")});
  }
- const matching=rows.filter(r=>!openOnly||r.status!=="RETURNED"),visible=matching.filter(r=>!filter||filter==="OVERDUE"?(!filter||filter!=="OVERDUE"||!!repairOverdue(r)):true).filter(r=>!filter||filter==="OVERDUE"?true:filter==="CANCELLED"?r.cancelled:status(r).code===filter);
- const counts:Record<string,number>={};matching.forEach(r=>{const code=status(r).code;counts[code]=(counts[code]??0)+1;if(repairOverdue(r))counts.OVERDUE=(counts.OVERDUE??0)+1});
+ const matching=rows.filter(r=>!openOnly||r.status!=="RETURNED"),visible=matching.filter(r=>!filter||status(r).code===filter);
+ const counts:Record<string,number>={};matching.forEach(r=>{const code=status(r).code;counts[code]=(counts[code]??0)+1});
  if(!loaded)return <Loading/>;
  return <div className="cy-store-orders cy-store-repairs"><FeedbackBanner message={message} tone={feedbackTone}/>
   <DataViewToolbar searchValue={search} onSearchChange={setSearch} searchLabel="搜尋售後維修" searchPlaceholder="搜尋客戶編號、姓名、電話、LINE、型號、機號、故障、寄送編號"
