@@ -5,6 +5,7 @@ import {apiRequest} from "../../api/client";
 import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import {Dialog} from "../../ui/overlays/Dialog";
 import {taipeiToday} from "../../../shared/erp-query-history";
+import {resizeToJpeg} from "../../ui/forms/photo-upload";
 type LeaveApproval={employeeId:number;kind:"consecutive"|"over_eight";startDate:string;endDate:string;suggestion:string};
 export interface LeaveTypeOption{id:number;code:string;name:string;quota_days?:number|null;requires_reason?:number;accepts_proof?:number;quota_period?:string|null;event_quota_options?:string|null;is_active?:number}
 export interface LeavePerson{id:number;name:string;employee_no:string;employment_type:"full"|"half"|"casual"}
@@ -41,16 +42,7 @@ export function HrLeaveDialog({person:given,people,types,initialDate,initialType
   }catch(err){setError(err instanceof Error?err.message:"銷假失敗")}
   finally{setBusy(false)}
  }
- async function resized(file:File):Promise<Blob>{
-  const image=await createImageBitmap(file);const ratio=Math.min(1,1600/Math.max(image.width,image.height));
-  const canvas=document.createElement("canvas");canvas.width=Math.round(image.width*ratio);canvas.height=Math.round(image.height*ratio);
-  const ctx=canvas.getContext("2d");if(!ctx)throw Error("無法處理照片");
-  ctx.drawImage(image,0,0,canvas.width,canvas.height);image.close();
-  if(gray){const data=ctx.getImageData(0,0,canvas.width,canvas.height);for(let i=0;i<data.data.length;i+=4){
-   const v=Math.round(.299*data.data[i]+.587*data.data[i+1]+.114*data.data[i+2]);data.data[i]=v;data.data[i+1]=v;data.data[i+2]=v;
-  }ctx.putImageData(data,0,0)}
-  return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(Error("照片轉換失敗")),"image/jpeg",.8));
- }
+
  async function submit(e?:FormEvent,approve:LeaveApproval[]=[]){
   e?.preventDefault();if(!person)return;setBusy(true);setError("");
   try{
@@ -84,7 +76,7 @@ export function HrLeaveDialog({person:given,people,types,initialDate,initialType
     setApprovalItems([]);
    }
    for(let i=uploadedCount;i<files.length;i++){
-    const blob=await resized(files[i]);if(blob.size>1572864)throw Error("照片縮圖後仍超過 1.5 MB");
+    const blob=await resizeToJpeg(files[i],{maxSide:1600,quality:0.8,grayscale:gray});if(blob.size>1572864)throw Error("照片縮圖後仍超過 1.5 MB");
     const response=await fetch("/api/business/hr/leave-requests/"+batchId+"/attachments",{method:"POST",credentials:"same-origin",
       headers:{"content-type":"image/jpeg","x-grayscale":gray?"1":"0"},body:blob});
     if(!response.ok){const json=await response.json().catch(()=>({error:{message:"附檔儲存未設定"}}));throw Error(json?.error?.message??"附件上傳失敗")}

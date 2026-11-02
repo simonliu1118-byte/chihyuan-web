@@ -5,6 +5,8 @@ import {FeedbackBanner,useFeedbackMessage} from "../../ui/feedback/FeedbackProvi
 import {DataViewToolbar} from "../../ui/data/DataViewToolbar";
 import {StatusFilter} from "../../ui/data/StatusFilter";
 import {StatusChip} from "../../ui/primitives/StatusChip";
+import {StoreRepairPhotos} from "./StoreRepairPhotos";
+import {Icons} from "../../ui/actions/icons";
 import {SegmentedControl} from "../../ui/primitives/SegmentedControl";
 import {Dialog} from "../../ui/overlays/Dialog";
 import {Field,CheckField,FormSection} from "../../ui/forms/Field";
@@ -36,6 +38,7 @@ export function StoreRepairs(){
  const [rows,setRows]=useState<StoreRepair[]>([]),[loaded,setLoaded]=useState(false),[loading,setLoading]=useState(false),[busy,setBusy]=useState(false);
  const [search,setSearch]=useState(""),[filter,setFilter]=useState(""),[openOnly,setOpenOnly]=useState(false);
  const [form,setForm]=useState<Draft|null>(null),[work,setWork]=useState<Work|null>(null),[action,setAction]=useState<Action|null>(null),[history,setHistory]=useState<number|null>(null);
+ const [photosFor,setPhotosFor]=useState<number|null>(null),[photoCounts,setPhotoCounts]=useState<Record<number,number>>({});
  const [revision,setRevision]=useState(0),[message,setMessage,reportError,feedbackTone]=useFeedbackMessage<string|null>(null);
  const serial=useRef(0),mutating=useRef(false);
  const load=useCallback(async(q:string,initial=false)=>{const current=++serial.current;if(!initial)setLoading(true);try{
@@ -80,7 +83,7 @@ export function StoreRepairs(){
     <td data-label="送修日期" className="cy-grid-divider-before">{r.receivedDate.replaceAll("-","/")}</td>
     <td data-label="客戶姓名">{displayCustomerName(r.customerName,r.honorific)}</td>
     <td data-label="連絡電話／LINE" className="cy-store-contact-cell">{r.mobile?<PhoneText value={r.mobile} kind="auto"/>:null}{r.phone?<PhoneText value={r.phone} kind="auto"/>:null}{r.lineName?<span>{r.lineName}</span>:null}</td>
-    <td data-label="送修產品">{displayRepairProduct(r)}</td><td data-label="產品機號">{r.serialNo}</td><td data-label="故障狀況" className="cy-repair-fault" title={r.fault}>{r.fault}</td>
+    <td data-label="送修產品">{displayRepairProduct(r)} <button type="button" className="cy-repair-photo-entry" aria-label={"維修單照片 "+r.sequence} onClick={()=>setPhotosFor(r.id)}><span className="cy-repair-camera-icon">{Icons.camera}</span>{photoCounts[r.id]??r.photoCount??0}</button></td><td data-label="產品機號">{r.serialNo}</td><td data-label="故障狀況" className="cy-repair-fault" title={r.fault}>{r.fault}</td>
     {STORE_REPAIR_STEPS.map((step,i)=>{const applicable=repairStepApplicable(r,step),reached=STORE_REPAIR_STEPS.indexOf(r.status as StoreRepairStep)>=i,canEdit=reached&&r.status!=="RETURNED",isNext=step===next&&!closed;
      const dateValue=r.dates[step];return <td key={step} data-label={STORE_REPAIR_STEP_LABELS[step]} className={"cy-store-milestone "+(i===0?"cy-grid-divider-before ":"")+(!applicable?"cy-store-not-applicable":"")} aria-label={!applicable?STORE_REPAIR_STEP_LABELS[step]+"不適用":undefined}>
       {applicable&&(reached||isNext)?<StoreMilestoneButton day={dateValue} baseYear={r.receivedDate} pending={isNext} disabled={busy||!isNext&&!canEdit} label={STORE_REPAIR_STEP_LABELS[step]+"日期 "+(dateValue??"無日期")} onClick={()=>showWork(r,step,isNext?"advance":"date")}/>:null}
@@ -88,6 +91,7 @@ export function StoreRepairs(){
     <td data-label="操作" className="cy-grid-divider-before">{storeWorkflowActions({edit:{label:"修改維修",disabled:busy||closed,onClick:()=>setForm(draft(r))},cancel:{label:"取消維修",disabled:busy||closed||r.cancelled,onClick:()=>setAction({repair:r,kind:"cancel",reasonKind:"",reason:"",requestKey:crypto.randomUUID()})},back:{label:closed?"撤回結案":r.cancelled&&r.status!=="NOTIFIED"?"撤回取消":"退回上一步",disabled:busy||(closed?!undoClose:r.cancelled&&r.status==="NOTIFIED"||r.status==="RECEIVED"&&!r.cancelled),onClick:()=>setAction({repair:r,kind:closed?"undoClose":r.cancelled&&r.status!=="NOTIFIED"?"undoCancel":"rollback",reasonKind:"",reason:"",requestKey:crypto.randomUUID()})},history:{label:"維修操作紀錄",controls:"repair-history-"+r.id,expanded:history===r.id,onClick:()=>setHistory(h=>h===r.id?null:r.id)}})}</td>
    </tr>{history===r.id?<tr id={"repair-history-"+r.id}><td colSpan={14}><StoreOperationHistory key={revision} path={"/repairs/"+r.id+"/history"} layout="chain" onError={reportError}/></td></tr>:null}</tbody>})}
    </table>{!visible.length?<p className="cy-op-empty">沒有符合條件的維修單。</p>:null}</div>
+  {photosFor!==null?<StoreRepairPhotos repairId={photosFor} onClose={()=>setPhotosFor(null)} onCountChanged={count=>setPhotoCounts(old=>({...old,[photosFor]:count}))}/>:null}
   {form?<Dialog open dismissible={false} title={form.original?"修改維修單":"新增維修單"} className="cy-repair-form-dialog" onClose={()=>!busy&&setForm(null)} size="large"><form onKeyDown={enterAdvancesFields} onSubmit={e=>void saveForm(e)}>
    <EntryTable label="維修單基本資料" className="cy-repair-entry-table">
     <tbody><tr><th scope="col"><EntryHeading required>送修日期</EntryHeading></th><th scope="col"><EntryHeading>客戶編號</EntryHeading></th><th scope="col"><EntryHeading required>客戶姓名</EntryHeading></th><th scope="col"><EntryHeading>稱謂</EntryHeading></th></tr><tr><td><Field label="送修日期" required presentation="cell"><DateInput className="cy-ordering-cell" min="0001-01-01" max={today()} value={form.receivedDate} onChange={value=>setForm(f=>f?{...f,receivedDate:value}:f)}/></Field></td>

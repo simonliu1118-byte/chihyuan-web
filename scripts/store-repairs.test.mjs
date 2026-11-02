@@ -15,9 +15,10 @@ function fixture(role='ADMIN',grant=true){
  if(grant)sql.prepare("INSERT INTO app_member_module_access(member_id,module_code,enabled,updated_at) VALUES(1,'STORE_REPAIRS',1,?)").run(now);
  const principal={workspaceId:'workspace-test',employeeId:'synthetic-repair',employeeNo:'9999',displayName:'合成同事',workspaceRole:role,isIdentityAdmin:false,emailVerified:true,isWorkspaceSuperAdmin:role==='SUPER_ADMIN',credentialVersion:1,employeeRevision:1};
  const db={prepare(query){const st=sql.prepare(query);let params=[];const execute=()=>({results:st.all(...params),meta:{changes:sql.prepare('SELECT changes() n').get().n}});return {bind(...v){params=v;return this},execute,async first(){return execute().results[0]??null},async all(){return execute()},async run(){return execute()}}},async batch(stmts){sql.exec('BEGIN');try{const result=stmts.map(s=>s.execute());sql.exec('COMMIT');return result}catch(e){sql.exec('ROLLBACK');throw e}}};
- const env={DB:db,IDENTITY_APPLICATION_ID:'APP_TEST',IDENTITY_WORKSPACE_ID:'workspace-test',IDENTITY:{async fetch(){return Response.json({principal,session:{expiresAt:'2999-01-01T00:00:00Z'}})}}};
+ const objects=new Map(); const bucket={async put(k,bytes){objects.set(k,bytes)},async get(k){const bytes=objects.get(k);return bytes?{body:new Blob([bytes]).stream()}:null},async delete(k){objects.delete(k)}};
+ const env={HR_FILES:bucket,DB:db,IDENTITY_APPLICATION_ID:'APP_TEST',IDENTITY_WORKSPACE_ID:'workspace-test',IDENTITY:{async fetch(){return Response.json({principal,session:{expiresAt:'2999-01-01T00:00:00Z'}})}}};
  const call=async(path='',method='GET',data)=>{const r=await handleStoreRepairRoute(new Request('https://test.local/api/business/store/repairs'+path,{method,headers:{cookie:'cyweb_identity_session=cyid_'+'a'.repeat(64),'content-type':'application/json'},body:data===undefined?undefined:JSON.stringify(data)}),env,'repair-test');return {status:r.status,body:await r.json()}};
- return {sql,db,call};
+ return {sql,db,call,env,objects};
 }
 const ok=r=>{assert.equal(r.status,200,JSON.stringify(r.body));return r.body.data};
 const base={receivedDate:'2026-10-15',customerCode:'C-001',customerName:'合成顧客',honorific:'MS',mobile:'0912345678',phone:'',lineName:'',productKind:'LOW_FREQUENCY',productText:'HC-0502',serialNo:'SN-1',fault:'無法啟動',purchaseDate:null,accessories:'充電器'};
@@ -88,4 +89,33 @@ test('a repair cancelled before inspection shows inspection as not applicable, n
  assert.equal(repairStepApplicable(r,'INSPECTED'),false);
  assert.equal(repairStepApplicable({...r,inspectResult:'BAD'},'INSPECTED'),true);
  assert.equal(repairStepApplicable({status:'RECEIVED',cancelled:false,inspectResult:'',sentAt:null},'INSPECTED'),true);
+});
+
+test('repair photo API: scoped access, JPEG size and count, R2 removal and after-closure upload',async()=>{
+ const f=fixture();
+ // Synthetic tiny JPEG with valid SOF dimensions (1x1) accepted by the shared parser.
+ const jpeg=Uint8Array.from([255,216,255,192,0,11,8,0,1,0,1,1,1,17,0,255,217]);
+ const raw=async(path,method,body,contentType="image/jpeg")=>handleStoreRepairRoute(new Request('https://test.local/api/business/store/repairs'+path,{method,headers:{cookie:'cyweb_identity_session=cyid_'+'a'.repeat(64),'content-type':contentType},body}),f.env,'photo-test');
+ try{
+  const repair=ok(await create(f));
+  const root='/'+repair.id+'/photos';
+  const deny=await raw(root,'POST',new Blob(['bad']),"text/plain");assert.equal(deny.status,422);
+  const large=await raw(root,'POST',new Uint8Array(1048577));assert.equal(large.status,422);
+  for(let i=0;i<3;i++){const res=await raw(root,'POST',jpeg);assert.equal(res.status,200,await res.text());}
+  const tooMany=await raw(root,'POST',jpeg);assert.equal(tooMany.status,409);
+  const list=await raw(root,'GET');assert.equal(list.status,200);const photos=(await list.json()).data;assert.equal(photos.length,3);
+  assert.equal(f.objects.size,3);
+  const image=await raw(root+'/'+photos[0].id,'GET');assert.equal(image.status,200);assert.equal(image.headers.get('cache-control'),'private, no-store');
+  const deleted=await raw(root+'/'+photos[0].id,'DELETE');assert.equal(deleted.status,200);assert.equal(f.objects.size,2);
+  assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM store_repair_events WHERE kind=?').get('上傳維修單照片').n,3);
+  assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM store_repair_events WHERE kind=?').get('刪除維修單照片').n,1);
+  const forbidden=fixture('ADMIN',false);
+  try{
+   const res=await handleStoreRepairRoute(new Request('https://test.local/api/business/store/repairs'+root,{headers:{cookie:'cyweb_identity_session=cyid_'+'a'.repeat(64)}}),forbidden.env,'photo-denied');
+   assert.equal(res.status,403);
+  }finally{forbidden.sql.close()}
+  // Closure does not disallow photo upload, unlike normal repair editing.
+  f.sql.prepare("UPDATE store_repairs SET status='RETURNED',closed_at='2026-10-16T03:00:00Z' WHERE id=?").run(repair.id);
+  assert.equal((await raw(root,'POST',jpeg)).status,200);
+ }finally{f.sql.close()}
 });
