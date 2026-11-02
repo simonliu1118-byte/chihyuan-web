@@ -80,7 +80,7 @@ function OrderingRestockJob({open,onClose,canQueryItem}:{open:boolean;onClose:()
   <div className="cy-restock-panel"><RestockAssist job={job} canQueryItem={canQueryItem} canOrdering/></div>
  </SidePanel>:null;
 }
-export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:boolean;canQueryItem?:boolean}){
+export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:boolean;canQueryItem?:boolean}={}){
  const [sources,setSources]=useState<OrderingSource[]>([]),[list,setList]=useState<OrderingListRow[]>([]),[pending,setPending]=useState<OrderingPendingLine[]>([]);
  const [tab,setTab]=useState<number|null>(null),[vendorAll,setVendorAll]=useState(false),[selected,setSelected]=useState<DisplayOrder|null>(null);
  const [search,setSearch]=useState(""),[status,setStatus]=useState(""),[from,setFrom]=useState(""),[to,setTo]=useState("");
