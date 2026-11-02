@@ -1,4 +1,4 @@
-import {useEffect,useState,type ChangeEvent} from "react";
+import {useEffect,useRef,useState,type ChangeEvent} from "react";
 import {Dialog} from "../../ui/overlays/Dialog";
 import {Loading} from "../../ui/feedback/Loading";
 import {IconButton} from "../../ui/actions/IconButton";
@@ -12,23 +12,25 @@ async function responseError(res:Response):Promise<Error>{
 }
 /** Authenticated image fetch keeps photo URLs private and revokes every object URL on close. */
 export function StoreRepairPhotos({repairId,onClose,onCountChanged}:{repairId:number;onClose:()=>void;onCountChanged:(count:number)=>void}){
+ const notify=useRef(onCountChanged);notify.current=onCountChanged;
  const [photos,setPhotos]=useState<RepairPhoto[]>([]),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(""),[selected,setSelected]=useState<number|null>(null),[urls,setUrls]=useState<Record<number,string>>({});
  useEffect(()=>{
   let active=true;
   void (async()=>{try{
    const res=await fetch(base(repairId),{credentials:"same-origin",cache:"no-store"});if(!res.ok)throw await responseError(res);
-   const payload=await res.json() as {data:RepairPhoto[]};if(active){setPhotos(payload.data);onCountChanged(payload.data.length)}
+   const payload=await res.json() as {data:RepairPhoto[]};if(active){setPhotos(payload.data);notify.current(payload.data.length)}
   }catch(e){if(active)setError(e instanceof Error?e.message:"無法載入照片")}finally{if(active)setLoading(false)}})();
   return()=>{active=false};
- },[repairId,onCountChanged]);
+ },[repairId]);
  useEffect(()=>{
   let active=true;const created:string[]=[];
+  setUrls({});
   void Promise.all(photos.map(async photo=>{
-   if(urls[photo.id])return;
    const res=await fetch(base(repairId)+"/"+photo.id,{credentials:"same-origin",cache:"no-store"});
    if(!res.ok)throw await responseError(res);
    const url=URL.createObjectURL(await res.blob());created.push(url);
    if(active)setUrls(old=>({...old,[photo.id]:url}));
+   else URL.revokeObjectURL(url);
   })).catch(e=>{if(active)setError(e instanceof Error?e.message:"照片載入失敗")});
   return()=>{active=false;created.forEach(URL.revokeObjectURL)};
  },[repairId,photos]);
@@ -43,7 +45,7 @@ export function StoreRepairPhotos({repairId,onClose,onCountChanged}:{repairId:nu
    if(!res.ok)throw await responseError(res);
    const list=await fetch(base(repairId),{credentials:"same-origin",cache:"no-store"});
    if(!list.ok)throw await responseError(list);
-   const data=await list.json() as {data:RepairPhoto[]};setPhotos(data.data);onCountChanged(data.data.length);
+   const data=await list.json() as {data:RepairPhoto[]};setPhotos(data.data);notify.current(data.data.length);
   }catch(e){setError(e instanceof Error?e.message:"照片上傳失敗")}finally{setBusy(false)}
  }
  async function remove(photoId:number){
@@ -51,7 +53,7 @@ export function StoreRepairPhotos({repairId,onClose,onCountChanged}:{repairId:nu
   try{
    const res=await fetch(base(repairId)+"/"+photoId,{method:"DELETE",credentials:"same-origin"});
    if(!res.ok)throw await responseError(res);
-   setPhotos(old=>{const remaining=old.filter(p=>p.id!==photoId);onCountChanged(remaining.length);return remaining});
+   setPhotos(old=>{const remaining=old.filter(p=>p.id!==photoId);notify.current(remaining.length);return remaining});
    setSelected(v=>v===photoId?null:v);
   }catch(e){setError(e instanceof Error?e.message:"照片刪除失敗")}finally{setBusy(false)}
  }
