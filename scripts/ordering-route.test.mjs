@@ -463,6 +463,7 @@ test('draft-items batches codes, returns multiple draft slips with quantities an
   insertOrder.run(first.id,'SENT','2026-11-05',at,at,at);const sent=f.sql.prepare('SELECT last_insert_rowid() id').get().id;
   insertLine.run(sent,1,'P001','測試商品','100','盒',null);
   insertLine.run(a,2,'P001','測試商品','4','盒','CANCELLED');
+  const unauthorized=fixture("USER");try{assert.equal((await unauthorized.call('/draft-items?itemCodes=P001')).status,403)}finally{unauthorized.sql.close()}
   const found=await f.call('/draft-items?itemCodes=P001,P002');
   assert.equal(found.status,200,JSON.stringify(found.body));
   assert.deepEqual(found.body.data.map(x=>x.orderId).sort((x,y)=>x-y),[a,b].sort((x,y)=>x-y));
