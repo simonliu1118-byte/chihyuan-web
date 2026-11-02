@@ -43,6 +43,7 @@ Resolution:
 - `CF_IDENTITY_SERVICE` → canonical development lookup seed; the verified production resolver output becomes the private `IDENTITY` Service Binding target on every real deployment;
 - `CF_IDENTITY_APPLICATION_ID` → Worker runtime `IDENTITY_APPLICATION_ID`;
 - `CF_IDENTITY_WORKSPACE_ID` → Worker runtime `IDENTITY_WORKSPACE_ID`.
+- `IDENTITY_RESOLVE_CACHE_SECONDS` is fixed at `30` in the deployment template (user-approved 2026-11-03, CYID standard §11 short-lived server cache). A successful Session resolve is reused for at most 30 s and never past the Session expiry; this site's logout drops it at once. Disable, role change or logout elsewhere takes effect within 30 s. Absent or `0` (tests, local) asks the provider on every request.
 
 Real Workspace IDs, service targets and Cloudflare resource IDs remain deployment-environment data and are not committed to Public source.
 

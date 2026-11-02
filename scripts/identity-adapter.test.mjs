@@ -7,7 +7,7 @@ import { stripTypeScriptTypes } from "node:module";
 import { pathToFileURL } from "node:url";
 
 const directory = mkdtempSync(join(tmpdir(), "cyweb-identity-test-"));
-let CYCloudIdentityClient, handleIdentityManagementRoute, fetchIdentityProvider;
+let CYCloudIdentityClient, clearIdentityResolveCache, handleIdentityManagementRoute, fetchIdentityProvider;
 try {
   for (const name of ["identity/provider-transport", "identity/cycloud-identity-adapter", "http/identity-management-routes", "http/response"]) {
     const source = readFileSync(new URL(`../worker/${name}.ts`, import.meta.url), "utf8");
@@ -17,7 +17,7 @@ try {
       .replace(/from "(\.\.?\/[^"]+)"/g, 'from "$1.mjs"'));
   }
   ({ fetchIdentityProvider } = await import(pathToFileURL(join(directory, "identity/provider-transport.mjs"))));
-  ({ CYCloudIdentityClient } = await import(pathToFileURL(join(directory, "identity/cycloud-identity-adapter.mjs"))));
+  ({ CYCloudIdentityClient, clearIdentityResolveCache } = await import(pathToFileURL(join(directory, "identity/cycloud-identity-adapter.mjs"))));
   ({ handleIdentityManagementRoute } = await import(pathToFileURL(join(directory, "http/identity-management-routes.mjs"))));
 } finally { rmSync(directory, { recursive: true, force: true }); }
 
@@ -113,4 +113,31 @@ test("account deletion forwards only the core cookie Session and preserves provi
   }
   let calls=0;const env={IDENTITY_APPLICATION_ID:"APP_TEST",IDENTITY:{fetch(){calls++;throw Error("not called");}}};
   assert.equal((await handleIdentityManagementRoute(new Request("https://web.test/api/identity/admin/employees/employee-test",{method:"DELETE"}),env,"test")).status,401);assert.equal(calls,0);
+});
+
+test("a successful resolve is reused for the cache window only; logout, failures and expiry are not served from it", async () => {
+  clearIdentityResolveCache();
+  let calls = 0, status = 200, expiresAt = "2999-01-01T00:00:00.000Z";
+  const binding = { async fetch(req) { calls++;
+    if (req.url.endsWith("/logout")) return new Response(null, { status: 204 });
+    return status === 200 ? Response.json({ principal, session: { expiresAt } }) : new Response(null, { status }); } };
+  const cached = new CYCloudIdentityClient(binding, "APP_TEST", "workspace-test", 30000);
+  assert.equal((await cached.resolve(request)).status, "authenticated");
+  assert.equal((await cached.resolve(request)).status, "authenticated");
+  assert.equal(calls, 1, "second request within the window does not ask the provider");
+  await cached.logout(request); calls = 0;
+  status = 401;
+  assert.equal((await cached.resolve(request)).status, "unauthenticated", "logout drops the cached Session");
+  assert.equal((await cached.resolve(request)).status, "unauthenticated");
+  assert.equal(calls, 2, "a refused Session is never cached");
+  // A Session expiring sooner than the window is not reused past its expiry.
+  clearIdentityResolveCache(); status = 200; calls = 0; expiresAt = new Date(Date.now() - 1000).toISOString();
+  await cached.resolve(request); await cached.resolve(request);
+  assert.equal(calls, 2);
+  // Without a configured window every request asks the provider.
+  clearIdentityResolveCache(); calls = 0; expiresAt = "2999-01-01T00:00:00.000Z";
+  const plain = new CYCloudIdentityClient(binding, "APP_TEST", "workspace-test");
+  await plain.resolve(request); await plain.resolve(request);
+  assert.equal(calls, 2);
+  clearIdentityResolveCache();
 });
