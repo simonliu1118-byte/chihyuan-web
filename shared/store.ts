@@ -59,7 +59,8 @@ export const STORE_MILESTONES:StoreMilestone[]=["ORDERED","NOTIFIED","PICKED_UP"
 export const STORE_CANCEL_REASONS=["顧客取消","通知未取","無法聯絡","其他"] as const;
 export const pricesComplete=(lines:readonly {unitPrice:number|null}[])=>lines.every(line=>line.unitPrice!==null);
 export const displayOrderItem=(line:Pick<StoreOrderLine,"itemName"|"metadataMode"|"publisher"|"author"|"specification">)=>[line.itemName,...(line.metadataMode==="SPEC"?[line.specification]:[line.publisher,line.author])].filter(Boolean).join("/");
-export const canAmendClosure=(order:{status:StoreOrderStatus;callResult?:string;closedAt?:string|null},now=Date.now())=>isOrderClosed(order)&&!!order.closedAt&&Number.isFinite(Date.parse(order.closedAt))&&now<Date.parse(order.closedAt)+300000;
+import {withinStoreClosureWindow} from "./store-workflow";
+export const canAmendClosure=(order:{status:StoreOrderStatus;callResult?:string;closedAt?:string|null},now=Date.now())=>isOrderClosed(order)&&withinStoreClosureWindow(order.closedAt,now);
 export const STORE_EDIT_REASONS=["顧客變更需求","品項／數量調整","價格／訂金更正","聯絡資料更正","備註補充","輸入錯誤","其他"] as const;
 export interface StoreHistory {id:number;actorName:string;at:string;kind:string;before:Record<string,unknown>;after:Record<string,unknown>;reason:string}
 export interface StoreHistoryPage {rows:StoreHistory[];nextCursor:number|null}

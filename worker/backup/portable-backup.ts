@@ -1,13 +1,16 @@
 import { nonSeedRowCondition } from "../../shared/backup-migration-seeds";
 // App-owned portable snapshot foundation. Guarded isolated rehearsal only; no live overwrite.
 import {STORE_LEGACY_SCHEMAS,STORE_WORKFLOW_SCHEMAS,STORE_LEGACY_COLUMNS} from "./store-workflow-upgrade";
-import {STORE_MONTHLY_SCHEMAS,STORE_PROGRESS_SCHEMAS,STORE_PRE_PROGRESS_COLUMNS,STORE_SEQUENCE_SCHEMAS,STORE_PRE_SEQUENCE_COLUMNS,STORE_UNORDERABLE_SCHEMAS,STORE_BLACKLIST_SCHEMAS,STORE_ORDER_WORKFLOW_SCHEMAS,STORE_BLACKLIST_LIFECYCLE_SCHEMAS,STORE_NO_HOLD_SCHEMAS,STORE_CONTACT_INDEX_SCHEMAS} from "./store-progress-upgrade";
+import {STORE_MONTHLY_SCHEMAS,STORE_PROGRESS_SCHEMAS,STORE_PRE_PROGRESS_COLUMNS,STORE_SEQUENCE_SCHEMAS,STORE_PRE_SEQUENCE_COLUMNS,STORE_UNORDERABLE_SCHEMAS,STORE_BLACKLIST_SCHEMAS,STORE_ORDER_WORKFLOW_SCHEMAS,STORE_BLACKLIST_LIFECYCLE_SCHEMAS,STORE_NO_HOLD_SCHEMAS,STORE_CONTACT_INDEX_SCHEMAS,STORE_REPAIR_SCHEMAS,STORE_REPAIR_PHOTO_SCHEMAS} from "./store-progress-upgrade";
 import { BACKUP_COLUMNS } from "./schema-columns";
 import { MAX_OBJECT_BYTES } from "./storage-guard";
 export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
 const MONTHLY_TABLES=["store_monthly_settings","store_monthly_rows","store_monthly_cells","store_monthly_events"];
+const REPAIR_TABLES=["store_repairs","store_repair_events"];
 /** The deployed store schema; every upgrade path restores into it. */
-const currentStoreSchema=(hash:string)=>STORE_CONTACT_INDEX_SCHEMAS.includes(hash);
+const currentStoreSchema=(hash:string)=>STORE_REPAIR_PHOTO_SCHEMAS.includes(hash);
+const prePhotos=(hash:string)=>STORE_REPAIR_SCHEMAS.includes(hash)||preRepairs(hash);
+const preRepairs=(hash:string)=>[...STORE_LEGACY_SCHEMAS,...STORE_WORKFLOW_SCHEMAS,...STORE_MONTHLY_SCHEMAS,...STORE_PROGRESS_SCHEMAS,...STORE_SEQUENCE_SCHEMAS,...STORE_UNORDERABLE_SCHEMAS,...STORE_BLACKLIST_SCHEMAS,...STORE_ORDER_WORKFLOW_SCHEMAS,...STORE_BLACKLIST_LIFECYCLE_SCHEMAS,...STORE_NO_HOLD_SCHEMAS,...STORE_CONTACT_INDEX_SCHEMAS].includes(hash);
 const preMonthly=(hash:string)=>STORE_LEGACY_SCHEMAS.includes(hash)||STORE_WORKFLOW_SCHEMAS.includes(hash);
 const preProgress=(hash:string)=>preMonthly(hash)||STORE_MONTHLY_SCHEMAS.includes(hash);
 const preSequence=(hash:string)=>preProgress(hash)||STORE_PROGRESS_SCHEMAS.includes(hash);
@@ -149,7 +152,7 @@ export async function verifyPortableBackup(bundle: PortableBackup, workspaceScop
     && /^[a-f0-9]{64}$/.test(manifest.schemaSha256) && new Date(manifest.createdAtUtc).toISOString() === manifest.createdAtUtc, "BACKUP_METADATA_INVALID");
   check(manifest.dataByteLength === bundle.dataBytes.byteLength && manifest.dataSha256 === await sha256(bundle.dataBytes), "BACKUP_INTEGRITY_FAILED");
   const data = JSON.parse(decoder.decode(bundle.dataBytes)) as Data;
-  const expectedTables = BACKUP_TABLES.filter(t=>!(preLifecycle(manifest.schemaSha256)&&t==="store_blacklist_operations")&&!(preMonthly(manifest.schemaSha256)&&MONTHLY_TABLES.includes(t))&&!(STORE_LEGACY_SCHEMAS.includes(manifest.schemaSha256)&&(t==="store_order_events"||t==="store_blacklist_events")));
+  const expectedTables = BACKUP_TABLES.filter(t=>!(prePhotos(manifest.schemaSha256)&&t==='store_repair_photos')&&!(preRepairs(manifest.schemaSha256)&&REPAIR_TABLES.includes(t))&&!(preLifecycle(manifest.schemaSha256)&&t==="store_blacklist_operations")&&!(preMonthly(manifest.schemaSha256)&&MONTHLY_TABLES.includes(t))&&!(STORE_LEGACY_SCHEMAS.includes(manifest.schemaSha256)&&(t==="store_order_events"||t==="store_blacklist_events")));
   check(data?.tables && same(Object.keys(data.tables).sort(), [...expectedTables].sort()), "BACKUP_TABLE_COVERAGE_MISMATCH");
   check(manifest.recordCounts && same(Object.keys(manifest.recordCounts).sort(), [...expectedTables].sort()), "BACKUP_COUNTS_INVALID");
   let count = 0;
@@ -240,7 +243,7 @@ export async function validateEmptyBackupTarget(db: D1Database, bundle: Portable
     check(currentStoreSchema(targetHash),"BACKUP_SCHEMA_MISMATCH");
     for(const t of MONTHLY_TABLES){data.tables[t]={columns:BACKUP_COLUMNS[t],rows:[]};manifest.recordCounts[t]=0}
     data.tables=Object.fromEntries(BACKUP_TABLES.map(t=>[t,data.tables[t]]));
-  }else if(!preLifecycle(manifest.schemaSha256))check(manifest.schemaSha256===targetHash||(STORE_BLACKLIST_LIFECYCLE_SCHEMAS.includes(manifest.schemaSha256)||STORE_NO_HOLD_SCHEMAS.includes(manifest.schemaSha256))&&currentStoreSchema(targetHash),"BACKUP_SCHEMA_MISMATCH");
+  }else if(!preLifecycle(manifest.schemaSha256))check(manifest.schemaSha256===targetHash||prePhotos(manifest.schemaSha256)&&currentStoreSchema(targetHash),"BACKUP_SCHEMA_MISMATCH");
   if(STORE_SEQUENCE_SCHEMAS.includes(manifest.schemaSha256))check(currentStoreSchema(targetHash),"BACKUP_SCHEMA_MISMATCH");
   if(preSequence(manifest.schemaSha256)){
     check(currentStoreSchema(targetHash),"BACKUP_SCHEMA_MISMATCH");
@@ -256,6 +259,9 @@ export async function validateEmptyBackupTarget(db: D1Database, bundle: Portable
     const old=data.tables.store_blacklist;data.tables.store_blacklist={columns:BACKUP_COLUMNS.store_blacklist,rows:old.rows.map(row=>{const v=Object.fromEntries(old.columns.map((k,i)=>[k,row[i]]));return BACKUP_COLUMNS.store_blacklist.map(k=>k==="activation_at"?v.created_at:v[k])})};
     const events=data.tables.store_blacklist_events;data.tables.store_blacklist_operations={columns:BACKUP_COLUMNS.store_blacklist_operations,rows:events.rows.map(row=>{const e=Object.fromEntries(events.columns.map((k,i)=>[k,row[i]])),v:Record<string,Cell>={id:e.id,blacklist_id:e.blacklist_id,source_order_id:e.order_id,actor:e.actor,at:e.at,kind:"訂購取消",before_json:"{}",after_json:e.summary_json,reason:e.reason,legacy_event_id:e.id};return BACKUP_COLUMNS.store_blacklist_operations.map(k=>v[k])})};manifest.recordCounts.store_blacklist_operations=events.rows.length;data.tables=Object.fromEntries(BACKUP_TABLES.map(t=>[t,data.tables[t]]));
   }
+  if(preRepairs(manifest.schemaSha256))for(const t of REPAIR_TABLES){data.tables[t]={columns:BACKUP_COLUMNS[t],rows:[]};manifest.recordCounts[t]=0}
+  if(prePhotos(manifest.schemaSha256)){data.tables.store_repair_photos={columns:BACKUP_COLUMNS.store_repair_photos,rows:[]};manifest.recordCounts.store_repair_photos=0}
+  data.tables=Object.fromEntries(BACKUP_TABLES.map(t=>[t,data.tables[t]]));
   for (const table of BACKUP_TABLES) check(same(data.tables[table].columns, target.columns[table]), "BACKUP_COLUMNS_MISMATCH");
   const guard = emptyTargetGuard();
   const empty = await db.prepare(`SELECT CASE WHEN ${guard} THEN 1 ELSE 0 END AS empty_target`).first<{ empty_target: number }>();
@@ -287,5 +293,5 @@ export async function restoreIntoEmptyDatabase(db: D1Database, bundle: PortableB
   }
   await db.batch(statements);
   const restored = await exportPortableBackup(db, { workspaceScope, appVersion: manifest.appVersion });
-  check(sameBytes(restored.dataBytes, preLifecycle(manifest.schemaSha256)?canonicalData(data):bundle.dataBytes), "BACKUP_RECONCILIATION_FAILED");
+  check(sameBytes(restored.dataBytes, prePhotos(manifest.schemaSha256)?canonicalData(data):bundle.dataBytes), "BACKUP_RECONCILIATION_FAILED");
 }

@@ -1,9 +1,20 @@
+## CY Web V0.9.70 — 維修單照片（待審，未部署）
+- 維修單照片：最多三張，1600px／JPEG 品質 0.8、單張 1MB、相機入口及縮圖／大圖。
+- 共用人事相片處理和 R2 失敗補償；0044 metadata migration，備份不含影像檔本體。
+
 # CY Web 版本紀錄
 
 > 各版本當時的完成內容與驗收證據，由 `TODO.md` 移出（2026-10-27 整理）。不是永久規則來源。
 > 未勾選的項目已在整理時逐項核對：已完成的（例如已部署）已勾選或不再追蹤；仍待辦或待使用者確認的，彙整在 `TODO.md`。
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
+
+## CY Web V0.9.69 — 門市售後維修（Claude 複審前、未合併部署）
+- 門市新增獨立授權 STORE_REPAIRS 的售後維修頁籤及完整維修單資料。
+- 維修里程碑、物流、取消與歸還、五分鐘撤回、逾期與操作紀錄；單品項、聯絡／稱謂與共用理由欄位。
+- Migration 0043、備份 schema-columns 與舊 0042 → 0043 還原相容流程；共用訂購後端事件／版本守門與結案時限。
+- 測試／已知限制與 Claude 審查證據見 WO-0.9.69 及 docs/handoff/CYWEB-WO-0.9.69-GPT-20261102.md。
+- 訂購與維修統一沿用里程碑日期格／對話框、操作四圖示、requestKey／版本守門與事件寫入共用實作；既有訂購頁回歸測試納入驗證。
 
 ## CY Web V0.9.67 — 門市載入照規則（2026-11-02，Claude）
 

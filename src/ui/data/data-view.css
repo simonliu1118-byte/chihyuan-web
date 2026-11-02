@@ -228,6 +228,11 @@
     flex-direction: column;
   }
 
+  /* In the column layout the 320px basis would become the search box height. */
+  .cy-data-search {
+    flex: 0 0 auto;
+  }
+
   .cy-data-result-summary {
     order: 2;
   }

@@ -11,6 +11,7 @@ import { handleBusinessApiRoute } from "./http/business-api-routes";
 import { handleHrRoute } from "./http/hr-routes";
 import {handleOrderingRoute} from "./http/ordering-routes";
 import {handleStoreRoute} from "./http/store-routes";
+import {handleStoreRepairRoute} from "./http/store-repair-routes";
 import {handleStoreStocktakeRoute} from "./http/store-stocktake-routes";
 import {handleStoreMonthlyRoute} from "./http/store-monthly-routes";
 import {ensureMonthlyRows} from "./store/monthly-service";
@@ -96,6 +97,8 @@ async function routeRequest(request: Request, env: Env, url: URL): Promise<Respo
   if(stocktakeResponse)return stocktakeResponse;
   const monthlyResponse = await handleStoreMonthlyRoute(request,env,requestId);
   if(monthlyResponse)return monthlyResponse;
+  const repairResponse=await handleStoreRepairRoute(request,env,requestId);
+  if(repairResponse)return repairResponse;
   const storeResponse = await handleStoreRoute(request, env, requestId);
   if (storeResponse) return storeResponse;
   const hrResponse = await handleHrRoute(request, env, requestId);

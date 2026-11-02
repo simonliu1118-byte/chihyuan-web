@@ -18,6 +18,7 @@ MIGRATIONS_DIR = ROOT / "migrations"
 
 EXPECTED_TABLES = {
     "store_monthly_settings", "store_monthly_rows", "store_monthly_cells", "store_monthly_events",
+    "store_repairs", "store_repair_events", "store_repair_photos",
     "stocktake_sync_ignored",
     "stocktake_sheets",
     "stocktake_lines",
