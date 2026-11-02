@@ -5,11 +5,12 @@
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
-## CY Web V0.9.64 — 黑名單與月度待辦（2026-11-02，待發布）
+## CY Web V0.9.64 — 黑名單與月度待辦（2026-11-02，已部署）
 
 - 新增不保留商品及處置順序／10字欄寬、OTHER純內容；移出必填理由及整列橫線。
 - 月度16日預產次月、緊湊登記／日期／history與單格更新；設定項次、拖曳、備註、停啟用及表頭唯一＋，保留歷史／適用期間。
 - 0041及精確舊備份保全、Build／整合驗證見[Claude交接](docs/handoff/CYWEB-BLACKLIST-MONTHLY-0964-20261102.md)。
+- PR345／Linux559/559，合併06ea336、部署41393553229成功，50列保全與限定FK／雙入口及排程通過，Claude複審待填。
 
 ## CY Web V0.9.63 — 補價輸入與十四天逾期（2026-11-02，已部署）
 

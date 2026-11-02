@@ -37,3 +37,13 @@
 ## 待辦
 
 必要LinuxCI／PR／已授權合併部署、雙入口source／D1／HTTPS／排程、0041實際範圍／FK／snapshot保全與成本追補，均同分支回寫。Claude最終複審及正式登入／觸控實機驗收待完成；保留分支。
+
+## 正式發布完成（2026-11-02）
+
+- VERSION／package.json為0.9.64，BUILD0未變；STORE_CUSTOMER_ORDERS、STORE_MONTHLY_TODOS、FINAL_DATA_DICTIONARY及根TODO／CHANGELOG同步本輪行為，不以handoff取代canonical契約。
+- Source `4d8570172265ddd4f367c4731c5c2ebf8e6334f5`，Runtime [41393256224](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41393256224)完整Linux **559/559、0失敗**，source contracts／browser與Worker typecheck／build全通過。治理41393256248、部署契約41393256300成功，完整41個migration鏈驗證通過。
+- PR[345](https://github.com/simonliu1118-byte/chihyuan-web/pull/345)合併 `06ea336ff9fce773eee7fd848d443751cd1e05ee`，[部署41393553229](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41393553229)成功。0041正式 **19 commands／29.22ms**、migration記錄1筆；原三表50列均保留，數量16／5／29、ID總和及內容字元總和、名單version和27與兩次發布前聚合相同。這是聚合保全而非逐欄checksum；真SQLite／restore測試另有逐列相等驗證。
+- blacklist／source events／operations三個限定FK check均空集合。月度settings version17、through2026-11、1列15格17事件保持原值；未為驗收新增正式資料，也未在11/2提早產生12月。正式11/16台北午夜將依新upper bound預產。
+- 本輪有metadata的唯讀驗證：發布前84＋50、發布後250，合計**讀384列、寫0**。Migration確實複製50列，符合原資料範圍；Wrangler未輸出計費rows_read／rows_written，不能把19命令或50列冒稱計費寫入量，亦不聲稱含migration的精確成本已量到。無配額錯誤／費用告警或重試批次。
+- canonical／workers.dev均HTTP200、version0.9.64、consumer1.0.5、database ok、精確source如上述merge，393ms內both_targets_ready。HTTPS／HSTS／靜態資產、無效session清cookie及canonical Identity／businessDB authority通過；dailyCatalogSchedule=true、monthlyTodoSchedule=true、backupSchedule=false未改。
+- 本段與TODO／CHANGELOG同分支docs-only追補，不重部署；功能分支保留，Claude最終複審與正式登入／觸控驗收仍待完成。
