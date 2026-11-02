@@ -1,6 +1,6 @@
 # 門市庫存盤點（WO-0.9.52）— 第一階段架構與權威
 
-工單：`docs/development/work-orders/WO-0.9.52.md`。ERP 對接契約：`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`。另一端 WO：`CYapps/apps/CYERPAutoQuery/docs/work-orders/WO-1.3.0.md`。
+工單：[`docs/development/work-orders/WO-0.9.52.md`](https://github.com/simonliu1118-byte/chihyuan-web/blob/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/development/work-orders/WO-0.9.52.md)。ERP 對接契約：`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`。另一端 WO：`CYapps/apps/CYERPAutoQuery/docs/work-orders/WO-1.3.0.md`。
 
 ## 目的與模組
 

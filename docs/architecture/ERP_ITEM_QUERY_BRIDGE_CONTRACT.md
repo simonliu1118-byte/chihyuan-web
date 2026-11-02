@@ -10,7 +10,7 @@
 - **查詢類型**：`ITEM_NO`、`ITEM_NAME`、`CUSTOMER_NO`、`CUSTOMER_NAME`、`SALES`、`SUPPLIER_NO`、`SUPPLIER_NAME`、`PURCHASES`、`RECEIVABLE`、`ORDER`、`RESTOCK`（權限對照見 `MODULES_FOR_TYPE`）。
 - **佇列**：每位成員最多 3 筆 QUEUED／RUNNING；Agent 一次執行一筆，依送入時間領取；ERP 暫停時可加入佇列，暫停結束後才領取（V0.9.43）。排隊工作在 Agent 連線或執行中時等待，Agent 離線（無 RUNNING、60 秒內無 claim）且建立超過 120 秒才 `EXPIRED`，最長 60 分鐘。
 - **RUNNING 逾時**：一般 180 秒、含歷史異動 300 秒、報表類（SALES、PURCHASES、RECEIVABLE、ORDER）600 秒、RESTOCK 1800 秒，逾時為 `FAILED/AGENT_TIMEOUT`。
-- **保存**：結果 JSON 完成後 5 分鐘清除（`resultCleared:true`），metadata 7 天（V0.9.53 起，原 30 天）；清理由每分鐘 Cron 執行（V0.9.53），不在 API 請求中順便執行；進貨輔助另把每日銷貨彙總寫入 `erp_sales_*`（不隨查詢清除）。
+- **保存**：結果 JSON 完成後 5 分鐘清除（`resultCleared:true`），metadata 7 天（V0.9.53 起，原 30 天）；清理由網站排程執行（V0.9.53 起；V0.9.86 起併入唯一的 `*/5` 排程：逾時與結果清除每 5 分鐘、7 天保留期每日台灣 03:15），不在 API 請求中順便執行；使用者查看自己排隊／執行中的查詢時，會當場判斷是否逾時；進貨輔助另把每日銷貨彙總寫入 `erp_sales_*`（不隨查詢清除）。
 - **使用者 API**：`POST /api/erp/item-queries`、`GET /api/erp/item-queries/:id`、`GET /api/erp/item-queries/recent`、`GET /api/erp/queue`、`GET /api/erp/agent-status`、`POST /api/erp/agent-control`、`GET|POST|DELETE /api/erp/agent-credentials`（Super Admin）。
 - **Agent API**：`POST /api/erp-agent/item-queries/claim`（回 `{job,control}`）、`POST /api/erp-agent/item-queries/:id/complete`、`POST /api/erp-agent/item-queries/:id/progress`（RESTOCK）、`POST /api/erp-agent/control`。
 - **前端**：ERP 查詢頁開過後切到其他模組仍保留；每個類別各自保留查詢與結果，每 1.5 秒輪詢；開啟時接回近 24 小時內各類別最新的查詢；類別不在畫面上時完成會出通知。查詢失敗（ERP 未開、畫面不符、匯出失敗、程式錯誤、逾時）時詢問是否強制關閉 ERP。
@@ -53,7 +53,7 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 
 `itemNo` 去前後空白後長 1～40 字，不可含空白／控制字元。同使用者同時最多一筆 QUEUED／RUNNING（V0.9.41 起改為三筆）；衝突 HTTP 409。讀取工作時使用 CYID session 與**每次即時** Module Access 驗證；Agent token 無權使用使用者 API。
 
-工作狀態：`QUEUED → RUNNING → DONE | NOT_FOUND | FAILED`，`QUEUED → EXPIRED`；建立後排隊 120 秒過期（V0.9.41 起改為 Agent 離線才過期，見總覽）、RUNNING 一般工作逾 180 秒、含歷史異動逾 300 秒未回報視為 `FAILED/AGENT_TIMEOUT`。前端每 1.5 秒輪詢直到結束，離線顯示提示。狀態清理 V0.9.53 起改由每分鐘 Cron 執行（見第 13 行），不在讀取／claim 時執行。完成後 5 分鐘清除 fields／warehouses／batches／history，metadata 保留 7 天；清除後 DONE 仍有 `resultCleared:true`。ERP 短期佇列、heartbeat、Agent 憑證 hash 不納入長期備份，復原後須由超級管理員重新產生憑證。Audit 僅記員工、查詢品號、結果與耗時，不記欄位值。
+工作狀態：`QUEUED → RUNNING → DONE | NOT_FOUND | FAILED`，`QUEUED → EXPIRED`；建立後排隊 120 秒過期（V0.9.41 起改為 Agent 離線才過期，見總覽）、RUNNING 一般工作逾 180 秒、含歷史異動逾 300 秒未回報視為 `FAILED/AGENT_TIMEOUT`。前端每 1.5 秒輪詢直到結束，離線顯示提示。狀態清理由網站排程執行（見總覽「保存」），不在 claim 時執行；V0.9.86 起，擁有者讀取自己的查詢時也會套用同一逾時規則（`expireStaleErpQueries`）。完成後 5 分鐘清除 fields／warehouses／batches／history，metadata 保留 7 天；清除後 DONE 仍有 `resultCleared:true`。ERP 短期佇列、heartbeat、Agent 憑證 hash 不納入長期備份，復原後須由超級管理員重新產生憑證。Audit 僅記員工、查詢品號、結果與耗時，不記欄位值。
 
 ## Agent API
 
@@ -226,7 +226,7 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 
 ## 庫存盤點（V0.9.52，CYWEB／CYERPAutoQuery）
 
-> 本節協定逐字摘錄自 `docs/development/work-orders/WO-0.9.52.md`，另一端依 `apps/CYERPAutoQuery/docs/work-orders/WO-1.3.0.md` 實作；此處定義的是 CYWEB Agent claim／complete API 契約，不是 Windows 工具的實際 ERP UI 操作步驟。
+> 本節協定逐字摘錄自 [`docs/development/work-orders/WO-0.9.52.md`](https://github.com/simonliu1118-byte/chihyuan-web/blob/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/development/work-orders/WO-0.9.52.md)，另一端依 `apps/CYERPAutoQuery/docs/work-orders/WO-1.3.0.md` 實作；此處定義的是 CYWEB Agent claim／complete API 契約，不是 Windows 工具的實際 ERP UI 操作步驟。
 
 ### 協定（兩張工單共用，兩邊必須完全一致）
 

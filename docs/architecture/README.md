@@ -29,16 +29,17 @@ Archive、舊 preview、review backlog、readiness checkpoint、已結案舊 han
 
 - 單一 TypeScript + React + Vite Web application，Desktop／Tablet／Mobile 共用一套主要 codebase，以 RWD + Adaptive UI 呈現。
 - Cloudflare Workers 是 runtime/API target；D1 是正式 relational database target。
-- Integrated React operational runtime 的所有業務模組（客戶、商品、瑕疵、銷售工單、委外/代工、工作日誌、叫貨、門市顧客訂購與黑名單、人事、ERP 查詢）與 Settings/Audit 全部使用 protected Worker API → D1；browser-local business authority 已退休。
+- Integrated React operational runtime 的所有業務模組（客戶、商品、瑕疵、銷售工單、委外/代工、工作日誌、叫貨、門市（顧客訂購、黑名單、月度待辦、售後維修、庫存盤點）、人事、ERP 查詢）與 Settings/Audit 全部使用 protected Worker API → D1；browser-local business authority 已退休。
 - Forward schema source of truth 是 `migrations/`；已套用的 migration 不重寫，後續變更持續使用新的 forward migration。
 - **CYCloud Identity** 擁有 Workspace、Employee、Credential、Workspace Role、Identity Admin capability、Application Access、Session、Email verification／OTP／Recovery 與受保護的 Super Admin authority；CY Web 只保存 app-local Module Access 與 domain authorization。
 - Shared CYID consumer contract 以 `../contracts/cyid/` 的 read-only synchronized mirror 作本 repo 工作副本；Governance/Deploy 逐檔對照 CYID `main`，canonical authority 仍在 CYID。
 - Workspace Role 固定為 `SUPER_ADMIN / ADMIN / USER` 並由 CY Web 直接採用；Identity Admin 是 ADMIN capability，不是第四種角色。Identity Group APIs／projection fields 已退休；歷史實體資料只作 migration/history，不是 authorization source。
-- CY Web 不保存 Identity session row；只在 HttpOnly cookie 中傳輸 CYCloud Identity 的 opaque session token，並在後續請求重新向 Identity resolve。
+- CY Web 不保存 Identity session row；只在 HttpOnly cookie 中傳輸 CYCloud Identity 的 opaque session token，並在後續請求重新向 Identity resolve。成功的 resolve 在同一個 Worker isolate 內最多記住 `IDENTITY_RESOLVE_CACHE_SECONDS`（正式部署 30 秒，上限 60 秒，V0.9.91），在本站登出時立即清除。
 - API 使用 same-origin `/api/*`，server-side validation/authorization 才是權威。
 - 一個 shared Audit Core 記錄需要追溯的重要業務動作。
 - Production infrastructure metadata/credentials 不進 Public source；runtime/deployment 透過受控 binding/secret boundary 注入。
-- Backup target architecture 是 D1 live → R2 operational recovery tier → GCS cross-cloud DR tier；同一 logical backup 只 export D1 一次。
+- Backup target architecture 是 D1 live → R2 operational recovery tier → GCS cross-cloud DR tier；同一 logical backup 只 export D1 一次。每日排程備份台灣 03:30、失敗時 03:45 補做一次。
+- 網站所有排程由唯一的 `*/5 * * * *` cron 依時間分派（`shared/cyweb-cron.ts`，V0.9.86）。
 
 最新 implementation status、尚未完成的 gate 與工作順序：讀根 `TODO.md`。
 
@@ -81,7 +82,6 @@ Archive、舊 preview、review backlog、readiness checkpoint、已結案舊 han
 ### Business modules
 
 - `STORE_STOCKTAKE.md` — 門市庫存盤點（V0.9.52、盲盤／複盤／ERP 寫回與第二階段保留資料邊界）。
-
 - `CUSTOMER_MODULE_CONTRACT.md`
 - `CUSTOMER_SERVICE_FOUNDATION.md`
 - `CUSTOMER_RELATED_FOUNDATION.md`
@@ -95,9 +95,10 @@ Archive、舊 preview、review backlog、readiness checkpoint、已結案舊 han
 - `CONTRACTOR_OUTSOURCING_MODULE_CONTRACT.md`
 - `WORK_LOG_MODULE_CONTRACT.md`
 - `SETTINGS_ADMIN_MODULE_CONTRACT.md`
-- `ORDERING_MODULE.md` — 叫貨（草稿、送出、修改、到貨、廠商頁、可攜備份）。
+- `ORDERING_MODULE.md` — 叫貨（草稿、送出、修改、到貨與到貨修改、未到貨、廠商頁、進貨輔助抽屜、可攜備份）。
 - `STORE_CUSTOMER_ORDERS.md` — 門市顧客訂購／黑名單、手動進度日期、逐筆歷程與三選一聯絡方式。叫貨連動仍為 TODO，不是現有能力。
-- `STORE_MONTHLY_TODOS.md` — 門市月度待辦、月份生效區間、管理員設定、獨立日期／無日期辦理、補漏排程與可攜備份。
+- `STORE_MONTHLY_TODOS.md` — 門市月度待辦、月份生效區間、項目週期、換行版面、編輯期限、管理員設定、獨立日期／無日期辦理、補漏排程與可攜備份。
+- `STORE_REPAIRS.md` — 門市售後維修（流程、取消、逾期、維修單照片、API 與資料）。
 - `HR_MODULE_DESIGN.md`、`HR_MODULE_CONTRACT.md` — 人事（主檔、排班出勤、請假特休加班補休）；`HR_LEGAL_WATCH.md` 為每月法規檢查。
 
 Module contract 與適用的最新 Business Decisions 共同定義業務語意；不要從歷史 preview 反推 current business rule。
@@ -108,7 +109,7 @@ Module contract 與適用的最新 Business Decisions 共同定義業務語意�
 - `CLOUDFLARE_PUBLIC_DEPLOYMENT_PRINCIPLES.md` — Public source 與 production infrastructure boundary。
 - `../DOMAIN_STRATEGY.md` — Chihyuan parent-domain namespace、security boundary、rollout sequence。
 - `../development/LOCAL_DEVELOPMENT.md` — local development workflow。
-- `../development/IDENTITY_DEPLOYMENT.md` — CYCloud Identity development deployment and browser acceptance path；也是 CY Web 發布（`deploy/cyweb-development`）的操作文件。
+- `../development/IDENTITY_DEPLOYMENT.md` — CYCloud Identity development deployment and browser acceptance path；也是 CY Web 發布（從 main 執行 `deploy-development`）的操作文件。
 - `../development/work-orders/` — 版本工作單（格式見該目錄 `README.md`）。
 
 ## Historical evidence / archive

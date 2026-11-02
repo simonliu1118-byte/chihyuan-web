@@ -1,57 +1,24 @@
 # 新工作交接入口
 
-本目錄供**接下來新開的、仍在進行的跨對話／跨執行者工作**寫 handoff。舊的已結案交接文件已於 2026-10-28 經整理後移出主線，不需要持續追加到舊檔。
+本目錄只放**仍在進行或等待 Claude 審查**的交接（`PROJECT_RULES.md` §9.1）。審查通過、正式規格與 TODO／CHANGELOG 都同步後，交接就在文件整理 PR 移出主線；原文由 Git 固定快照保留，不改寫歷史。
 
-目前應依下列文件處理，而不是沿用過時交接：
+現行規格與狀態請看：
 
-- **叫貨功能／流程**：[ORDERING_MODULE.md](../architecture/ORDERING_MODULE.md)
-- **ERP 查詢與 CYERPAutoQuery 介接**：[ERP_ITEM_QUERY_BRIDGE_CONTRACT.md](../architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md)
-- **當前狀態與未完成事項**：[根 TODO](../../TODO.md)
-- **已完成版本、歷史問題與驗證**：[根 CHANGELOG](../../CHANGELOG.md)
-- **已結案工作單的 GPT 完成與 Claude 審查原文**：[2026-10-28 前的工作單固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/development/work-orders)（§8／§9 由 Git 歷史保留，不占用現行文件目錄）
-- **未來新工作單的流程與模板**：[工作單 README](../development/work-orders/README.md)（尚未結案的工作單持續留在目錄中）
-- **已結案舊 handoff 原文與舊版截圖**：在 Git 版本歷史仍可存取，參考 [2026-10-28 清理前固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff)；此為歷史資料，不作現行規格依據。
-
-後續新工作如需交接，另建新檔並記錄該工作實際進度、驗收與剩餘事項。正式功能完成後，仍以對應架構契約、CHANGELOG 與 TODO 為準；此目錄不成為平行契約或永久規則。
+- 當前狀態與未完成事項：[根 TODO](../../TODO.md)
+- 已完成版本與驗證：[根 CHANGELOG](../../CHANGELOG.md)
+- 架構與各模組契約：[architecture README](../architecture/README.md)
+- 工作單流程與模板：[工作單 README](../development/work-orders/README.md)
 
 ## 目前待 Claude 審查
 
-- [V0.9.60 Build1～2 登記高度／日期彈窗／歷程換行](CYWEB-STORE-REGISTER-HEIGHT-0960-BUILD1-20261101.md) — 桌面20px登記、黃色點／文案／實心切換、日期與無日期同列／操作靠右、歷程整筆連箭頭換行，Build2隔離月度樣式；最終Linux516/516、PR337／部署41308987671及雙入口驗證成功，待Claude事後複審。
+- [V0.9.88 工作視窗明確關閉](CYWEB-DIALOG-EXPLICIT-CLOSE-0988-20261103.md)：PR #379，已合併部署，待 Claude 事後複審。
+- [V0.9.87 客戶介面密度](CYWEB-CUSTOMER-DENSITY-0987-20261102.md)：PR #377，已合併部署，待 Claude 事後複審。
 
-- [V0.9.60 日期密度／通知備註／訂購紀錄](CYWEB-STORE-DATE-NOTICE-0960-20261101.md) — 納入未部署Build2、四叫貨結果、0037保全與備份、數字日期、單行歷程與LINE6字；Linux516/516、PR334／部署41304711418與雙入口health通過，已補發布及成本證據，待Claude事後複審。
+## 已結案交接的原文
 
-- [V0.9.59 Build 2 登記色塊／叫貨送出排序／日期選項](CYWEB-STORE-REGISTER-FILL-0959-BUILD2-20261101.md) — 無框實心登記、直線分隔、history按實際送出新到舊、112px日期與叫貨三選一。
+| 整理日期 | 範圍 | 固定快照 |
+| --- | --- | --- |
+| 2026-11-03 | V0.9.48–V0.9.85 的交接（盤點、門市訂購／黑名單／月度待辦、備份、ERP 清理、治理 1.1.24、WO-0.9.68～0.9.76 執行交接） | [handoff @ 4cbc554](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/handoff) |
+| 2026-10-28 | 更早的 GPT／Claude／ERP 交接與舊版截圖 | [handoff @ b2d53cd](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) |
 
-- [V0.9.59 Build 1 表格／結案／紀錄與D1讀取](CYWEB-STORE-HISTORY-DENSITY-0959-BUILD1-20261101.md) — PR #332及501/501，已部署；通知等寬、緊湊圖示、結案唯讀、紀錄投影／暫存、持久項次及讀取量審查；取代前版結案允許退回的規則。
-
-- [V0.9.59 顧客訂購／共用電話日期輸入](CYWEB-STORE-CONTACT-PROGRESS-0959-20261101.md) — 與月度待辦同 PR #330 已合併部署，494/494與雙入口health／migration／月度排程通過；Claude 事後複審待完成。
-
-- [V0.9.58 月度待辦](CYWEB-MONTHLY-TODOS-0958-20261101.md) — 第三頁籤、管理員設定、生效月份、獨立日期／無日期、排程與備份；原Draft限制已由最新合併部署授權取代，結果見V0.9.59交接。
-
-- [V0.9.57 Build 4 數字箭頭、操作紀錄與黑名單表格](CYWEB-STORE-HISTORY-BUILD4-20261031.md) — 隱藏原生箭頭，移除舊版提示，紀錄小字與緊行距；黑名單共用儲存格表格。
-
-- [V0.9.57 Build 3 訂購表格小調整](CYWEB-STORE-ENTRY-BUILD3-20261031.md) — 移除基本資料標題列、備註不可拖曳調整尺寸、視窗縮窄20%。
-
-- [V0.9.57 Build 2 訂購新增／修改表格返修](CYWEB-STORE-ENTRY-BUILD2-20261031.md) — 共用儲存格輸入、刪除／加列、備註與金額對位、理由置頂、日期欄收窄；含實際合成瀏覽器及21項測試。
-
-- [V0.9.57 Build 1 訂購清單返修](CYWEB-STORE-LIST-BUILD1-20261031.md) — 欄寬、電話／手機合併、圖示、共通粗線、叫貨無日期、日期與表頭對齊；含實際合成瀏覽器驗收與測試證據。
-
-- [V0.9.57 顧客訂購實作與部署交接](CYWEB-STORE-ORDERS-IMPLEMENTATION-0957-20261031.md) — 設計 PR #323、實作 PR #324，460/460 Node 與 CI 通過；使用者授權後已部署，migration 0033／D1 health／HTTPS 通過；Claude 複審與實機驗收待完成。
-- 本對話盤點 UI 交接：[Build 1](CYWEB-STOCKTAKE-DESKTOP-BUILD1-20261030.md)、[Build 2](CYWEB-STOCKTAKE-DENSITY-INLINE-BUILD2-20261030.md)、[Build 3](CYWEB-STOCKTAKE-DESKTOP-LIST-BUILD3-20261030.md)、[Build 4](CYWEB-STOCKTAKE-LOCATION-CONTROLS-BUILD4-20261030.md)。實際部署結果見 PR #319–#322；早期未部署字樣為首次交付狀態。
-
-- [CYWEB V0.9.51：備份頁面整理與每日季度提醒](CYWEB-V0.9.51-BACKUP-UI-DAILY-REMINDER-CLAUDE-REVIEW.md) — 從已合併 V0.9.50 的 main 開新分支，完成說明、測試證據、風險、Claude 最終審查欄位；不含部署或 Cloudflare 資源變更。
-
-- [CYWEB ERP 清理 SQL 高頻執行改善（2026-10-29）](CYWEB-ERP-HOUSEKEEPING-20261029-CLAUDE-REVIEW.md) — 獨立 PR：以每分鐘 Cron 取代高頻 HTTP 清理，五分鐘結果清空、每日保留處理；附 D1 用量、回歸測試及部署排程審查。
-
-- [WO-0.9.52 門市庫存盤點第一階段—交 Claude 最終審查](CYWEB-WO-0.9.52-STOCKTAKE-CLAUDE-REVIEW.md) — PR #307，399/399 完整 Node、Local D1、七張真 Chromium 合成 UI 截圖已通過；外部真 D1／ERP 限制詳見 handoff §5／§8。未合併未部署。
-
-- [CYWEB V0.9.49：季度隔離還原及超管主動提醒](CYWEB-V0.9.49-QUARTERLY-REHEARSAL-CLAUDE-REVIEW.md) — 功能分支 `feat/cyweb-quarterly-rehearsal-20261028`，含逐檔變更、站內提醒、回歸測試、未完成的物理 D1 解綁風險及 Claude 最終審查欄位。
-
-
-## 歷史已合併交接
-
-- [CYWEB V0.9.49：季度隔離還原及超管主動提醒](CYWEB-V0.9.49-QUARTERLY-REHEARSAL-CLAUDE-REVIEW.md) — PR #303 已合併；階段及後續物理斷開已於 V0.9.50 完成，依 CHANGELOG 及 Git 歷史追溯。
-
-- [CYWEB V0.9.48：隔離還原診斷與驗證紀錄](CYWEB-V0.9.48-REHEARSAL-CLAUDE-REVIEW.md) — PR #300，包含變更清單、測試／CI、Cloudflare 唯讀診斷摘要、風險與 Claude 最終審查欄位。
-
-CYWEB GPT／ChatGPT 每項修正依已合併的 `PROJECT_RULES.md` §9.1，須在同分支 handoff 完整記錄並交 Claude 審查；Claude 通過後，合併與正式部署仍須按使用者授權執行。
+這些原文只作追溯，不作現行規格依據。V0.9.56 Build 1～V0.9.64 的 Claude 事後審查結論在 2026-11-03 快照的 `CYWEB-CLAUDE-REVIEW-0956-0964-20261102.md`。

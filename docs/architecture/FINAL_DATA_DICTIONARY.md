@@ -732,3 +732,27 @@ V0.9.64 / migration0041 adds NO_HOLD to the blacklist action CHECK, preserving a
 - `store_customer_order_lines.price_pending=1` projects unitPrice NULL while the legacy numeric column stores 0; known zero has flag0. Until all lines are priced, displayed total/balance are blank, deposit is allowed, pickup is rejected. `metadata_mode` selects empty/BOOK/SPEC with publisher/author/specification text; presentation joins only populated fields.
 - `store_blacklist_operations` contains immutable parent-scoped timeline entries: id, blacklist_id, optional source_order_id, actor, at, kind, before_json, after_json, reason, optional unique legacy_event_id. Index `(blacklist_id,id DESC)` supports twenty-entry cursor pages. Existing `store_blacklist_events` remains the immutable cancellation source; 0040 copies its IDs and original summary JSON bytes into operations, linked by legacy_event_id. New mutations append operations and audit in the same transaction; cancellations retain the source-event write as well.
 - 0038 bounds blacklist rows at5000, 0039 bounds orders+lines+blacklist at5000, 0040 bounds blacklist+source events at5000 before DDL/copy. Contacts preserve every digit while moving a single number to mobile (contact1) and prioritizing mobile numbers. Old zero prices remain known0; old closed orders get no invented grace period. Portable backup includes all new fields/table; only exact known historical schemas upgrade into an empty current target, preserving FK/source snapshots and enforcing existing scope/integrity checks.
+
+## 26. Store blacklist contact indexes and store repairs (0042–0044)
+
+- 0042 adds partial indexes on `store_blacklist(phone)`, `(mobile)` and `(line_name)` for non-empty values. Blacklist matching reads only rows with an equal phone or LINE name, and the guard compares only those rows (V0.9.66).
+- 0043 rebuilds `app_member_module_access` to add `STORE_REPAIRS` to the module CHECK, keeping every existing grant, and recreates index `(member_id,enabled,module_code)`.
+- `store_repairs`: one repair slip, one product.
+  - Identity: `id`, `list_sequence` (UNIQUE, taken inside the INSERT).
+  - Intake: `received_date`, `customer_code`, `customer_name` (1–40), `honorific` (`''/MR/MS`), `mobile`, `phone`, `line_name` (at least one non-empty), `product_kind` (`LOW_FREQUENCY/STEAM/INFRARED/BLANKET/OTHER`), `product_text`, `serial_no`, `fault`, `purchase_date` (NULL = no date), `accessories`.
+  - Workflow: `status` (`RECEIVED/INSPECTED/SENT/REPAIRED/NOTIFIED/RETURNED`), `inspect_result` (`''/GOOD/BAD`), `inspect_problem`, `cancelled` (0/1, a reason is required when 1), `cancelled_at`, `cancel_reason`.
+  - Shipping: `send_carrier`, `send_tracking`, `sent_at`, `return_method`, `return_carrier`, `return_tracking`.
+  - Milestone dates, NULL meaning "no date": `inspected_date`, `sent_date`, `repaired_date`, `notified_date`, `returned_date`.
+  - Other timestamps: `notified_at`, `closed_at` (starts the five-minute rollback period).
+  - Mutable-row metadata: `version`, `created_at/by`, `updated_at/by`.
+  - Indexes `(status,received_date)` and `(list_sequence DESC)`.
+- `store_repair_events`: immutable timeline with `repair_id`, `actor`, `at`, `kind`, `before_json`, `after_json`, `reason`, `request_key`; UNIQUE `(actor,request_key)` makes retries idempotent; index `(repair_id,id DESC)`.
+- 0044 `store_repair_photos`: metadata only. Columns: `repair_id`, `object_key` (UNIQUE, R2 key under `store-repairs/<id>/`), `bytes` (≤ 1 MiB), `width`/`height` (≤ 2000), `created_at/by`; index `(repair_id,id)`. The JPEG bytes live in the existing `HR_FILES` R2 bucket and are not part of the portable backup.
+
+## 27. Ordering draft item index (0045)
+
+- 0045 adds `ordering_lines(item_code,order_id)` for the add-to-order lookup (`GET /draft-items`), which finds drafts and still-pending sent orders holding the same item code. No data change.
+
+## 28. Portable backup schema level (V0.9.81)
+
+Since V0.9.81 a portable backup records the source database's last migration and restores by table and column name. The "only exact known historical schemas" wording in §21–§25 now applies only to `formatVersion 1` packages, handled by the frozen `worker/backup/legacy-v1.ts`. Each new migration bumps `CURRENT_MIGRATION` in `worker/backup/portable-backup.ts` and no longer pins a schema fingerprint. See `BACKUP_ARCHITECTURE.md`.

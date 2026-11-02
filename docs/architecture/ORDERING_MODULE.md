@@ -118,3 +118,24 @@
 - 唯一 scroll owner 是 cy-restock-content；同一區域在每日明細時同時支援橫向移動，表格本身不另建 scroll container，讓單一 thead 的 sticky top:0 相對抽屜內容成立，品號 sticky left 同步固定。沒有複製表頭或第二 renderer。成功 FeedbackBanner 位於內容區外的 flex footer，不受捲動位置影響。
 - 820px 以下沿用共用 useCompactLayout，隱藏每日明細選擇且不產生每日欄；680px 以下同一 tbody/tr 以 data-label 卡片呈現，沿用 SidePanel 手機滿版行為，沒有獨立手機業務 state／action。
 - 來源與草稿／未到貨 API 均不變，仍僅在打開加入對話框時讀該品號的 draft-items；切換每日明細和本機篩選不發出查詢。
+
+## V0.9.72–V0.9.90 後續變更（2026-11-03）
+
+各版細節見根 `CHANGELOG.md`；工作單原文見 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/development/work-orders)。
+
+- **進貨輔助移入叫貨**（V0.9.72，WO-0.9.71）：
+  - 進貨輔助從 ERP 查詢移到叫貨頁右側抽屜（共用 `SidePanel`），按鈕為藍色。
+  - 抽屜只在打開時，或最近一次進貨輔助查詢仍在執行時才載入結果（V0.9.82）。進叫貨頁時不讀上一次的大筆結果。
+  - 加入叫貨單時才查該品號是否已在草稿（V0.9.74）：`GET /draft-items?itemCodes=`，最多 500 個品號，用 migration 0045 的 `ordering_lines(item_code,order_id)` 索引。
+  - V0.9.75 起，同一查詢也回傳已送出、仍有未到數量的叫貨單與剩餘數量，避免重複叫貨。
+- **送出後的修改限制**（V0.9.73）：已有任何到貨或結掉的品項，就不能再修改（畫面不顯示「修改」，`POST /orders/:id/revise` 回 409）。
+- **到貨紀錄修改與刪除**（V0.9.76，WO-0.9.74）：
+  - 已送出單的每筆到貨紀錄可修改（ERP 單號、日期、各品項數量）或刪除：`PUT`／`DELETE /orders/:id/receipts/:receiptId`。
+  - 數量不得超過「剩餘量＋這筆原本的數量」；已結掉的品項只能減少。
+  - 全站日期欄位改用共用 `DateInput`。
+- **未到貨頁籤**（V0.9.77）：
+  - 「未到貨」是來源頁籤列最左邊的頁籤，與其他來源之間有分隔線。
+  - 左側清單有「顯示未結案」切換，與門市訂購、售後維修共用 `OpenOnlyToggle`。
+- **重複叫貨提醒**（V0.9.78）：草稿列的品號、品名、廠商品號或廠商品名與未到貨品項相同時，該列加紅框並提示（`OrderingGrid` 的 `warnRow`）。先填廠商欄位、後填品號時，已填的廠商值不會被清掉。
+- **切換來源頁籤**（V0.9.90）：點頁籤立即切換並顯示載入中；一個請求 `GET /drafts/open?sourceId=` 同時回傳草稿清單與要顯示的草稿（原本是兩個請求）。
+- **時間量測**（V0.9.89）：每個叫貨 API 回應帶 `Server-Timing: auth;dur=…, total;dur=…`，只有時間，沒有資料。
