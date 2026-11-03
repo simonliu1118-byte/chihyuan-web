@@ -14,7 +14,7 @@
 
 ## 目前工程基礎
 
-正式程式基準為 `main`，版本由根 `VERSION`／`BUILD` 定義（2026-11-03 正式站為 **V0.9.92 Build 0**，最新狀態以 `TODO.md`／受控 Actions 為準）。
+正式程式基準為 `main`，版本由根 `VERSION`／`BUILD` 定義（2026-11-03 正式站為 **V0.9.93 Build 0**，最新狀態以 `TODO.md`／受控 Actions 為準）。
 
 - Frontend：TypeScript + React + Vite，一套程式服務桌機、平板、手機。
 - Runtime/API：TypeScript + Cloudflare Workers；same-origin `/api/*`，共用 success/failure envelope + `requestId`。

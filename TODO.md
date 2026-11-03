@@ -5,7 +5,7 @@
 
 ## 目前狀態（2026-11-03）
 
-- **正式站 V0.9.92 Build 0**（`https://admin.chihyuancm.com`），CYID consumer 1.0.5；D1 migration 到 `0045_ordering_draft_item_index`，正式資料庫結構與 migration 完全一致。
+- **正式站 V0.9.93 Build 0**（`https://admin.chihyuancm.com`），CYID consumer 1.0.5；D1 migration 到 `0045_ordering_draft_item_index`，正式資料庫結構與 migration 完全一致。
 - 模組：客戶、商品、瑕疵、銷售工單、叫貨（含進貨輔助抽屜、未到貨）、門市（顧客訂購、黑名單、月度待辦、售後維修、庫存盤點）、委外/代工、工作日誌、人事、ERP 查詢、帳號與權限、異動紀錄、備份管理、CY 程式、我的帳號。
 - 帳號：CYID 正式服務；成功的登入確認在伺服器記住 30 秒（V0.9.91）。
 - 排程：網站只有一個 `*/5 * * * *` 排程（V0.9.86）。
