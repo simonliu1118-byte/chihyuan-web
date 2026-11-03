@@ -1,5 +1,6 @@
 import { formatDateTime } from "../../ui/foundation/format";
 import { Loading } from "../../ui/feedback/Loading";
+import { Icons } from "../../ui/actions/icons";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
@@ -64,7 +65,7 @@ function BackupRows({ history, action, kind }: { history: BackupHistory; action:
       return <Fragment key={row.backupId}>
         <tr className={"cy-backup-row" + (expanded ? " open" : "")} onClick={event => { if (!(event.target as HTMLElement).closest("button:not(.cy-backup-caret)")) toggle(row.backupId); }}>
           <td className="cy-sheet-seq"><button type="button" className="cy-backup-caret" aria-expanded={expanded}
-            aria-label={(expanded ? "收合" : "展開") + " " + time(row.createdAt) + " 的備份資訊"} onClick={event => { event.stopPropagation(); toggle(row.backupId); }}>{expanded ? "▾" : "▸"}</button></td>
+            aria-label={(expanded ? "收合" : "展開") + " " + time(row.createdAt) + " 的備份資訊"} onClick={event => { event.stopPropagation(); toggle(row.backupId); }}>{Icons.chevronRight}</button></td>
           <td><span className="cy-sheet-value cy-backup-time">{time(row.createdAt)}</span></td>
           <td><span className="cy-sheet-value">{kind(row)}</span></td>
           <td><span className="cy-sheet-value">{label(row.status)}</span></td>
