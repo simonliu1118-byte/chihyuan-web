@@ -238,6 +238,14 @@ test("header autosave failure is red and late input is not declared saved by an 
 });
 
 
+test("saving a draft's planned date updates its draft chip at once", async () => {
+  const page=mount((path,options)=>path==="/orders/10"&&options.method==="PATCH"?{...order(1),plannedSendDate:options.json.plannedSendDate,version:2}:normalTransport(path,options));
+  await page.tick();page.click("測試來源甲");await page.tick();
+  const date=()=>page.nodes.find(n=>n.props?.label==="預計送出日期").props.children.props;
+  date().onChange("2026-11-09");page.render();date().onBlur();await page.tick();
+  assert.ok(page.nodes.some(n=>n.type==="button"&&String(n.props?.className).includes("cy-ordering-draft-chip")&&text(n)==="11/09"));
+});
+
 test("receipt dialog excludes fully received products and retains only outstanding rows",async()=>{
  const sent=sentOrder(),done={...sent.lines[0],id:3,itemCode:"DONE",quantity:10,quantityText:"10",received:10};
  const page=mount((path,options)=>path==="/orders/10"?{...sent,lines:[...sent.lines,done]}:normalTransport(path,options));

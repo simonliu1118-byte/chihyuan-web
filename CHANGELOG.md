@@ -6,6 +6,9 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.96 — 叫貨草稿日期頁籤立即更新（2026-11-03，Claude）
+- 叫貨草稿改了「預計送出日期」並儲存後，上方草稿頁籤（pill）的日期立刻跟著變，不必重新進頁。
+
 ## CY Web V0.9.95 — 客戶改為表格式單據（2026-11-03，Claude）
 - 客戶主頁面與新增、修改改成同一張表（共用 `RecordSheet`），按「修改」原地切換；欄位位置依使用者定案。負責部門、負責業務可在修改時選擇。
 - 聯絡電話與傳真左右並列、有項次；電話與分機打在同一格，自動顯示 `(02)2345-6789 #12345`、`0912-345-678`。傳真可多筆、最多 3 筆（migration 0046，原本單一傳真欄位移成傳真列；舊備份還原時一樣轉換）。
