@@ -1107,8 +1107,7 @@ function CustomerSheet({ draft, editing, busy, lookups, ownerLabel = "", patch, 
             onChange={event => patchRow("notes", index, { content: event.target.value })} /> },
       ]} />
 
-    {/* 業務資料 (user 2026-11-04): what the clinic is like and what we could sell them. */}
-    <h3 className="cy-customer-section-title">業務資料</h3>
+    {/* 客戶描述 and 潛在銷售品項 (user 2026-11-04): what the clinic is like and what we could sell them. */}
     <RecordRows<ProfileNoteDraft> title="客戶描述" editing={editing} busy={busy} rows={draft.profileNotes} max={BUSINESS_PROFILE_LIMITS.rows}
       rowKey={(_row, index) => `p${index}`}
       onInsert={after => insertRow("profileNotes", after)} onRemove={index => removeRow("profileNotes", index)} columns={[

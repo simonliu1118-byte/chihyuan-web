@@ -223,6 +223,3 @@ span.cy-note-star{height:auto;font-size:16px}
 .cy-customer-identity-status { margin-left: 8px; position: relative; top: -0.1em; }
 .cy-customer-edit-title { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
 .cy-customer-edit-title h2 { margin: 0; }
-
-/* 業務資料 group heading above 客戶描述 and 潛在銷售品項 (V0.10.4). */
-.cy-customer-section-title { margin: 22px 0 0; padding-top: 12px; border-top: 1px solid var(--cy-border); font-size: var(--cy-fs-lg); font-weight: 700; }
