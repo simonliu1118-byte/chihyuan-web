@@ -251,6 +251,8 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
   setHeaderSaving(n=>n+1);setHeaderSaveFailed(false);
   try{
    await write("/orders/"+current.id,"PATCH",field==="date"?{plannedSendDate:value}:{note:value});
+   // The draft chip shows the planned date; follow the saved value at once (user 2026-11-03).
+   if(field==="date")setDrafts(prev=>prev.map(d=>d.id===current.id?{...d,plannedSendDate:value}:d));
    if(headerEditRevisions.current[field]===editRevision){setHeaderDirty(prev=>({...prev,[field]:false}));headerDirtyRef.current={...headerDirtyRef.current,[field]:false}}
   }catch{setHeaderSaveFailed(true)/* Banner and modal explain the error; leave the typed value intact. */}
   finally{setHeaderSaving(n=>n-1)}
