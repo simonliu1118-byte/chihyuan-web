@@ -7,6 +7,7 @@ import { ThemeToggle } from "../ui/foundation/ThemeToggle";
 import { ApiClientError } from "../api/client";
 import { subscribeAuthorityRefresh } from "../api/authority-events";
 import { createAuthorityMonitor } from "./authority-monitor";
+import { clearErpResults } from "../runtime/modules/erp-result-cache";
 import {
   confirmPasswordRecovery,
   startPasswordRecovery,
@@ -54,6 +55,8 @@ function passwordLength(value: string): number {
 export function AuthGate({ children }: AuthGateProps) {
   const notify = useFeedback();
   const [state, setState] = useState<AuthState>({ status: "checking" });
+  // Logged out or session ended: ERP results kept in this tab go with it (user 2026-11-03).
+  useEffect(() => { if (state.status === "anonymous") clearErpResults(); }, [state.status]);
   const [mode, setMode] = useState<LoginMode>("login");
   const [employeeNo, setEmployeeNo] = useState(() => getRememberedEmployee());
   const [rememberMe, setRememberMe] = useState(() => getRememberedEmployee().length === 4);
