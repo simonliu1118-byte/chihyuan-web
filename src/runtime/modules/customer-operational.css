@@ -9,7 +9,7 @@
   background: transparent; color: var(--cy-text); text-align: left;
 }
 .cy-customer-result-row:hover { background: var(--cy-surface-muted); }
-.cy-customer-result-row.active { background: var(--cy-surface-sunken); }
+.cy-customer-result-row.active { background: var(--cy-accent-soft); box-shadow: inset 3px 0 var(--cy-accent); }
 .cy-customer-result-row + .cy-customer-result-row { border-top: 1px solid var(--cy-border); }
 .cy-customer-result-main { min-width: 0; display: grid; gap: 1px; }
 .cy-customer-result-main strong { font-size: var(--cy-fs-sm); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -60,15 +60,16 @@
 /* WO-0.9.14: customer identity, related modal modes and quote line editor. */
 /* Customer-only density: RelatedCard / facts are also used by Item and HR. */
 .cy-customer-workspace .cy-record-header { padding-bottom: 8px; }
-.cy-customer-identity { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 6px; }
-.cy-customer-identity-no { margin-right: 6px; font-size: .9em; }
-/* List: the customer number is plain weight with a little more room before the short name (user 2026-11-03). */
-.cy-customer-result-main strong .cy-customer-result-no { margin-right: 8px; font-weight: 400; color: var(--cy-text); }
+/* Inline flow, not flex: separate flex items make Windows double-click selection take a trailing
+   "space" (the item boundary) along with the customer number (user 2026-11-03). */
+.cy-customer-identity { display: block; }
+.cy-customer-identity > * { vertical-align: middle; }
+.cy-customer-identity-no { margin-right: 12px; font-size: .9em; }
 .cy-customer-updated { margin: 0; text-align: right; }
 .cy-record-title-note {
   margin-left: 4px;
   color: var(--cy-text);
-  font-size: var(--cy-fs-md);
+  font-size: inherit;
   font-weight: 400;
 }
 .cy-related-toolbar {
@@ -218,6 +219,6 @@
 span.cy-note-star{height:auto;font-size:16px}
 
 /* Status pill in the record header (V0.9.100). */
-.cy-customer-identity-status { align-self: center; margin-left: 4px; }
+.cy-customer-identity-status { margin-left: 8px; }
 .cy-customer-edit-title { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
 .cy-customer-edit-title h2 { margin: 0; }

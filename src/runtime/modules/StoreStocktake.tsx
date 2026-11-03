@@ -268,10 +268,9 @@ export function StoreStocktake({role}:{role:string}){
   {job.result&&(job.result.status==="QUEUED"||job.result.status==="RUNNING")?<div className="cy-op-panel"><ErpJobStatus result={job.result}/></div>:null}
   <div className="cy-stocktake-layout">
    <nav className="cy-stocktake-sheets" aria-label="盤點單清單">
-    <h3>盤點單</h3>
     <div className="cy-stocktake-list-actions">
-     <button type="button" className="cy-op-button primary compact" disabled={busy||job.busy} onClick={()=>void update()}>同步ERP盤點單</button>
-     {manager?<button type="button" className="cy-op-button compact" onClick={()=>setIgnoreForm("")}>設定忽略底稿</button>:null}
+     <button type="button" className="cy-op-button primary" disabled={busy||job.busy} onClick={()=>void update()}>同步ERP盤點單</button>
+     {manager?<button type="button" className="cy-op-button" onClick={()=>setIgnoreForm("")}>設定忽略底稿</button>:null}
     </div>
     <select className="cy-op-input cy-stocktake-mobile-select" aria-label="選擇盤點底稿"
       value={selected??""} onChange={e=>setSelected(e.target.value||null)}>
