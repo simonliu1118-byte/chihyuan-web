@@ -233,6 +233,14 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
   );
 
   assertAcceptance(created.revision === 1, "ACCEPT_CUSTOMER_CREATE_REVISION");
+  // V0.10.4 business profile: saved with the customer, replaced as a whole on update.
+  const profiled = await customerService.create({ shortName: "業務資料", ...required,
+    profileNotes: [{ category: "EQUIPMENT", content: "電針機", sortOrder: 0 }],
+    prospectItems: [{ itemName: "艾灸盒", stage: "RECOMMEND", sortOrder: 0 }] }, { actorMemberId: 1, now: t0 });
+  assertAcceptance(profiled.profileNotes.length === 1 && profiled.prospectItems[0]?.itemName === "艾灸盒", "ACCEPT_CUSTOMER_PROFILE_CREATE");
+  const reprofiled = await customerService.update(profiled.id, { shortName: "業務資料", ...required, expectedRevision: profiled.revision,
+    profileNotes: [{ category: "CAUTION", content: "午休不拜訪", sortOrder: 0 }, { category: "BRAND", content: "用他牌", sortOrder: 1 }] }, { actorMemberId: 1, now: t1 });
+  assertAcceptance(reprofiled.profileNotes.map(row => row.category).join() === "CAUTION,BRAND" && reprofiled.prospectItems.length === 0, "ACCEPT_CUSTOMER_PROFILE_REPLACE");
   assertAcceptance(created.phones.length === 1, "ACCEPT_CUSTOMER_CHILD_BATCH");
   const firstPhone = created.phones[0];
   assertAcceptance(firstPhone != null, "ACCEPT_CUSTOMER_PHONE_MISSING");

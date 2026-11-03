@@ -272,6 +272,22 @@ function retainReferencedAndDeleteOmittedContacts(
   return [deactivate, remove];
 }
 
+/**
+ * 客戶描述 and 潛在銷售品項 (V0.10.4) are replaced as a whole on every save: nothing refers to these
+ * rows, so their ids need not survive. `customerSql` names the customer (MAX(id) while creating).
+ */
+function businessProfileStatements(db: D1Database, customerSql: string, binds: readonly unknown[], guard: string, guardBinds: readonly unknown[],
+  input: NormalizedCreateCustomerRequest, context: MutationContextLike): D1PreparedStatement[] {
+  const notes = input.profileNotes.map(row => db.prepare(`
+    INSERT INTO customer_profile_notes (customer_id, category, content, sort_order, created_at, created_by)
+    SELECT ${customerSql}, ?, ?, ?, ?, ? ${guard}`).bind(...binds, row.category, row.content, row.sortOrder, context.now, context.actorMemberId, ...guardBinds));
+  const items = input.prospectItems.map(row => db.prepare(`
+    INSERT INTO customer_prospect_items (customer_id, item_id, item_name, stage, brand, note, sort_order, created_at, created_by)
+    SELECT ${customerSql}, ?, ?, ?, ?, ?, ?, ?, ? ${guard}`).bind(...binds, row.itemId ?? null, row.itemName ?? null, row.stage ?? null,
+      row.brand ?? null, row.note ?? null, row.sortOrder, context.now, context.actorMemberId, ...guardBinds));
+  return [...notes, ...items];
+}
+
 export function buildCreateCustomerChildStatements(
   db: D1Database,
   input: NormalizedCreateCustomerRequest,
@@ -282,6 +298,7 @@ export function buildCreateCustomerChildStatements(
     ...input.contacts.map((row) => createContact(db, row, context)),
     ...input.addresses.map((row) => createAddress(db, row, context)),
     ...input.notes.map((row) => createNote(db, row, context)),
+    ...businessProfileStatements(db, "MAX(id)", [], "FROM customers", [], input, context),
   ];
 }
 
@@ -309,5 +326,8 @@ export function buildUpdateCustomerChildStatements(
     ...input.addresses.map((row) => updateAddress(db, customerId, expectedRevision, row, context)),
     deleteOmitted(db, "customer_notes", customerId, expectedRevision, noteIds),
     ...input.notes.map((row) => updateNote(db, customerId, expectedRevision, row, context)),
+    ...(["customer_profile_notes", "customer_prospect_items"] as const).map(table => db.prepare(`
+      DELETE FROM ${table} WHERE customer_id = ?1 AND EXISTS (SELECT 1 FROM customers WHERE id = ?1 AND revision = ?2)`).bind(customerId, expectedRevision)),
+    ...businessProfileStatements(db, "?", [customerId], "WHERE EXISTS (SELECT 1 FROM customers WHERE id = ? AND revision = ?)", [customerId, expectedRevision], input, context),
   ];
 }

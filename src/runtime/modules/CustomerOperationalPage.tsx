@@ -19,7 +19,7 @@ import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { Dialog } from "../../ui/overlays/Dialog";
 import { ChangeLogList } from "./AuditOperationalPage";
@@ -34,7 +34,8 @@ import type {
   CustomerProfileInput,
   CustomerSummary,
 } from "../../../shared/customer";
-import { CUSTOMER_LIMITS, INVOICE_TYPE_PRESETS, PAYMENT_TERMS_PRESETS } from "../../../shared/customer";
+import { BUSINESS_PROFILE_LIMITS, CUSTOMER_LIMITS, INVOICE_TYPE_PRESETS, PAYMENT_TERMS_PRESETS, PROFILE_NOTE_CATEGORIES, PROSPECT_STAGES } from "../../../shared/customer";
+import type { ProfileNoteCategory, ProspectStage } from "../../../shared/customer";
 import { PresetTextInput } from "../../ui/forms/PresetTextInput";
 import type {
   CustomerFrequentItemRecord,
@@ -71,6 +72,8 @@ type RelatedDialog = { view: RelatedView; mode: "create" | "browse" };
 interface PhoneDraft { id?: number; entry: string; note: string }
 interface AddressDraft { id?: number; postalCode: string; postalAuto: boolean; address: string; note: string }
 interface NoteDraft { id?: number; content: string; isImportant: boolean }
+interface ProfileNoteDraft { category: ProfileNoteCategory; content: string }
+interface ProspectDraft { item: { id: number; itemNo: string; name: string } | null; text: string; stage: ProspectStage | ""; brand: string; note: string }
 
 interface CustomerDraft {
   customerNo: string;
@@ -89,6 +92,8 @@ interface CustomerDraft {
   contacts: CustomerContactInput[];
   addresses: AddressDraft[];
   notes: NoteDraft[];
+  profileNotes: ProfileNoteDraft[];
+  prospectItems: ProspectDraft[];
 }
 
 interface VisitDraft {
@@ -141,6 +146,8 @@ function newDraft(lookups: CustomerModuleLookups | null): CustomerDraft {
     contacts: [],
     addresses: [],
     notes: [],
+    profileNotes: [],
+    prospectItems: [],
   };
 }
 
@@ -179,6 +186,8 @@ function draftFromDetail(customer: CustomerDetail): CustomerDraft {
     // Important notes lead the list (user 2026-11-03).
     notes: [...customer.notes].sort((a, b) => Number(b.isImportant) - Number(a.isImportant))
       .map((row) => ({ id: row.id, content: row.content, isImportant: row.isImportant })),
+    profileNotes: customer.profileNotes.map(row => ({ category: row.category, content: row.content })),
+    prospectItems: customer.prospectItems.map(row => ({ item: row.item, text: row.itemName ?? "", stage: row.stage ?? "", brand: row.brand ?? "", note: row.note ?? "" })),
   };
 }
 
@@ -232,6 +241,11 @@ function profileFromDraft(
     notes: draft.notes
       .filter((row) => row.content.trim())
       .map((row, index) => ({ id: row.id, content: row.content.trim(), isImportant: row.isImportant, sortOrder: index })),
+    profileNotes: draft.profileNotes.filter(row => row.content.trim())
+      .map((row, index) => ({ category: row.category, content: row.content.trim(), sortOrder: index })),
+    prospectItems: draft.prospectItems.filter(row => row.item || row.text.trim())
+      .map((row, index) => ({ itemId: row.item?.id ?? null, itemName: row.item ? null : row.text.trim(), stage: row.stage || null,
+        brand: row.brand.trim() || null, note: row.note.trim() || null, sortOrder: index })),
     confirmDuplicateTaxId,
   };
 }
@@ -532,18 +546,20 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
     }
   }
 
-  type RowList = "phones" | "faxes" | "contacts" | "addresses" | "notes";
+  type RowList = "phones" | "faxes" | "contacts" | "addresses" | "notes" | "profileNotes" | "prospectItems";
   const blankRow: { [K in RowList]: () => CustomerDraft[K][number] } = {
     phones: () => ({ entry: "", note: "" }),
     faxes: () => ({ entry: "", note: "" }),
     contacts: () => ({ name: "", departmentName: null, title: null, phone: null, mobile: null, note: null, sortOrder: 0, isActive: true }),
     addresses: () => ({ postalCode: "", postalAuto: true, address: "", note: "" }),
     notes: () => ({ content: "", isImportant: false }),
+    profileNotes: () => ({ category: "CONDITION", content: "" }),
+    prospectItems: () => ({ item: null, text: "", stage: "", brand: "", note: "" }),
   };
   /** Editing opens with one blank row in each list, so nothing needs ＋ first (user 2026-11-03). */
   function withFirstRows(value: CustomerDraft): CustomerDraft {
     const next = { ...value };
-    for (const list of ["phones", "faxes", "contacts", "addresses", "notes"] as const) {
+    for (const list of ["phones", "faxes", "contacts", "addresses", "notes", "profileNotes", "prospectItems"] as const) {
       if (!next[list].length) (next as Record<RowList, unknown[]>)[list] = [blankRow[list]()];
     }
     return next;
@@ -943,7 +959,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
 }
 
 
-type RowList = "phones" | "faxes" | "contacts" | "addresses" | "notes";
+type RowList = "phones" | "faxes" | "contacts" | "addresses" | "notes" | "profileNotes" | "prospectItems";
 
 /** Customer master record as one sheet; the same layout views and edits (PROJECT_RULES §5). */
 /** Width shared by 統一編號, 付款條件 and 發票開立. */
@@ -1090,7 +1106,67 @@ function CustomerSheet({ draft, editing, busy, lookups, ownerLabel = "", patch, 
           edit: (row, index) => <input className={input} value={row.content} maxLength={CUSTOMER_LIMITS.noteLength} disabled={busy}
             onChange={event => patchRow("notes", index, { content: event.target.value })} /> },
       ]} />
+
+    {/* 業務資料 (user 2026-11-04): what the clinic is like and what we could sell them. */}
+    <h3 className="cy-customer-section-title">業務資料</h3>
+    <RecordRows<ProfileNoteDraft> title="客戶描述" editing={editing} busy={busy} rows={draft.profileNotes} max={BUSINESS_PROFILE_LIMITS.rows}
+      rowKey={(_row, index) => `p${index}`}
+      onInsert={after => insertRow("profileNotes", after)} onRemove={index => removeRow("profileNotes", index)} columns={[
+        { label: "類別", width: "7.5em", view: row => PROFILE_NOTE_CATEGORIES.find(c => c.code === row.category)?.label ?? "",
+          edit: (row, index) => <select className={input} value={row.category} disabled={busy}
+            onChange={event => patchRow("profileNotes", index, { category: event.target.value as ProfileNoteCategory })}>
+            {PROFILE_NOTE_CATEGORIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}</select> },
+        { label: "描述", view: row => row.content,
+          edit: (row, index) => <input className={input} value={row.content} maxLength={BUSINESS_PROFILE_LIMITS.content} disabled={busy}
+            onChange={event => patchRow("profileNotes", index, { content: event.target.value })} /> },
+      ]} />
+    <RecordRows<ProspectDraft> title="潛在銷售品項" editing={editing} busy={busy} rows={draft.prospectItems} max={BUSINESS_PROFILE_LIMITS.rows}
+      rowKey={(_row, index) => `s${index}`}
+      onInsert={after => insertRow("prospectItems", after)} onRemove={index => removeRow("prospectItems", index)} columns={[
+        { label: "品項", view: row => row.item ? formatItem(row.item.itemNo, row.item.name) : row.text,
+          edit: (row, index) => <ItemOrTextInput className={input} item={row.item} text={row.text} disabled={busy}
+            onChange={(item, text) => patchRow("prospectItems", index, { item, text })} /> },
+        { label: "現況", width: "7.5em", view: row => PROSPECT_STAGES.find(c => c.code === row.stage)?.label ?? "",
+          edit: (row, index) => <select className={input} value={row.stage} disabled={busy}
+            onChange={event => patchRow("prospectItems", index, { stage: event.target.value as ProspectStage | "" })}>
+            <option value="">未設定</option>{PROSPECT_STAGES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}</select> },
+        { label: "目前使用品牌", width: "9em", view: row => row.brand,
+          edit: (row, index) => <input className={input} value={row.brand} maxLength={BUSINESS_PROFILE_LIMITS.brand} disabled={busy}
+            onChange={event => patchRow("prospectItems", index, { brand: event.target.value })} /> },
+        { label: "備註", width: "28%", view: row => row.note,
+          edit: (row, index) => <input className={input} value={row.note} maxLength={BUSINESS_PROFILE_LIMITS.note} disabled={busy}
+            onChange={event => patchRow("prospectItems", index, { note: event.target.value })} /> },
+      ]} />
   </div>;
+}
+
+/**
+ * 潛在銷售品項's item cell: typing offers our items (pick one to link it), anything else is kept as
+ * a typed name. A native datalist keeps the cell a plain input.
+ */
+function ItemOrTextInput({ item, text, onChange, className, disabled }: {
+  item: ProspectDraft["item"]; text: string; className: string; disabled: boolean;
+  onChange: (item: ProspectDraft["item"], text: string) => void;
+}) {
+  const [options, setOptions] = useState<readonly CustomerItemOption[]>([]);
+  const listId = useId();
+  const value = item ? formatItem(item.itemNo, item.name) : text;
+  useEffect(() => {
+    const query = text.trim();
+    if (item || query.length < 1) return;
+    let active = true;
+    const timer = window.setTimeout(() => { void searchCustomerItemOptions(query, 20).then(rows => { if (active && Array.isArray(rows)) setOptions(rows); }).catch(() => undefined); }, 250);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [text, item]);
+  return <>
+    <input className={className} list={listId} value={value} maxLength={BUSINESS_PROFILE_LIMITS.itemName} disabled={disabled}
+      placeholder="輸入品號或品名" onChange={event => {
+        const typed = event.target.value;
+        const match = options.find(row => formatItem(row.itemNo, row.name) === typed);
+        onChange(match ? { id: match.id, itemNo: match.itemNo, name: match.name } : null, match ? "" : typed);
+      }} />
+    <datalist id={listId}>{options.map(row => <option key={row.id} value={formatItem(row.itemNo, row.name)} />)}</datalist>
+  </>;
 }
 
 function shortDate(value: string): string {

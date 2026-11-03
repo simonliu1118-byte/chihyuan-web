@@ -99,3 +99,15 @@ test("regions and legacy statuses in code match migration 0047 and the restore s
   }
   assert.match(sql, new RegExp(STATUS_LIGHTS.map(l => `'${l.code}'`).join(", ")));
 });
+
+test("business profile: categorised description lines and prospect items (ours or typed)", () => {
+  const ok = normalizeCreateCustomerRequest({ ...base, shortName: "大大",
+    profileNotes: [{ category: "EQUIPMENT", content: "使用電針機兩台" }, { category: "CAUTION", content: "午休不拜訪" }],
+    prospectItems: [{ itemId: 3, stage: "USING_OTHER", brand: "他牌" }, { itemName: "艾灸盒", stage: "RECOMMEND" }] });
+  assert.deepEqual(ok.profileNotes.map(row => row.category), ["EQUIPMENT", "CAUTION"]);
+  assert.equal(ok.prospectItems[0].itemName, null);
+  assert.equal(ok.prospectItems[1].itemId, null);
+  assert.ok(fields(() => normalizeCreateCustomerRequest({ ...base, shortName: "大大", profileNotes: [{ category: "X", content: "a" }] }))["profileNotes.0.category"]);
+  assert.ok(fields(() => normalizeCreateCustomerRequest({ ...base, shortName: "大大", prospectItems: [{ stage: "QUOTED" }] }))["prospectItems.0.itemName"]);
+  assert.ok(fields(() => normalizeCreateCustomerRequest({ ...base, shortName: "大大", prospectItems: [{ itemName: "a", stage: "NOPE" }] }))["prospectItems.0.stage"]);
+});

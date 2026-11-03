@@ -73,12 +73,39 @@ export interface CustomerNote {
   sortOrder: number;
 }
 
+/** 客戶描述 categories and 潛在銷售品項 stages (V0.10.4, user 2026-11-04). */
+export const PROFILE_NOTE_CATEGORIES = [
+  { code: "CONDITION", label: "診所狀況" }, { code: "EQUIPMENT", label: "使用器材" }, { code: "BRAND", label: "使用品牌" },
+  { code: "CAUTION", label: "注意事項" }, { code: "OTHER", label: "其他" },
+] as const;
+export type ProfileNoteCategory = typeof PROFILE_NOTE_CATEGORIES[number]["code"];
+export const PROSPECT_STAGES = [
+  { code: "USING_OTHER", label: "在用他牌" }, { code: "RECOMMEND", label: "可推薦" }, { code: "QUOTED", label: "已報價" }, { code: "OTHER", label: "其他" },
+] as const;
+export type ProspectStage = typeof PROSPECT_STAGES[number]["code"];
+export const BUSINESS_PROFILE_LIMITS = { rows: 30, content: 100, itemName: 60, brand: 40, note: 100 } as const;
+
+export interface CustomerProfileNote { id: number; category: ProfileNoteCategory; content: string; sortOrder: number }
+export interface CustomerProspectItem {
+  id: number;
+  item: { id: number; itemNo: string; name: string } | null;
+  itemName: string | null;
+  stage: ProspectStage | null;
+  brand: string | null;
+  note: string | null;
+  sortOrder: number;
+}
+export interface CustomerProfileNoteInput { category: ProfileNoteCategory; content: string; sortOrder: number }
+export interface CustomerProspectItemInput { itemId?: number | null; itemName?: string | null; stage?: ProspectStage | null; brand?: string | null; note?: string | null; sortOrder: number }
+
 export interface CustomerDetail extends CustomerSummary {
   updatedBy: CustomerEmployeeRef | null;
   phones: readonly CustomerPhone[];
   contacts: readonly CustomerContact[];
   addresses: readonly CustomerAddress[];
   notes: readonly CustomerNote[];
+  profileNotes: readonly CustomerProfileNote[];
+  prospectItems: readonly CustomerProspectItem[];
   createdAt: string;
 }
 
@@ -134,6 +161,8 @@ export interface CustomerProfileInput {
   contacts?: readonly CustomerContactInput[];
   addresses?: readonly CustomerAddressInput[];
   notes?: readonly CustomerNoteInput[];
+  profileNotes?: readonly CustomerProfileNoteInput[];
+  prospectItems?: readonly CustomerProspectItemInput[];
   confirmDuplicateTaxId?: boolean;
 }
 

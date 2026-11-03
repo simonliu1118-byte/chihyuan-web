@@ -10,6 +10,7 @@ import type {
   CustomerSummary,
   CustomerTaxIdMatch,
 } from "../../shared/customer";
+import type { ProfileNoteCategory, ProspectStage } from "../../shared/customer";
 
 type D1Scalar = string | number | null;
 type CustomerChildTable =
@@ -345,6 +346,10 @@ export class CustomerRepository {
          WHERE customer_id = ?
          ORDER BY sort_order ASC, id ASC
       `).bind(customerId),
+      this.db.prepare("SELECT id, category, content, sort_order FROM customer_profile_notes WHERE customer_id = ? ORDER BY sort_order, id").bind(customerId),
+      this.db.prepare(`SELECT p.id, p.item_id, i.item_no, i.name AS item_label, p.item_name, p.stage, p.brand, p.note, p.sort_order
+          FROM customer_prospect_items AS p LEFT JOIN items AS i ON i.id = p.item_id
+         WHERE p.customer_id = ? ORDER BY p.sort_order, p.id`).bind(customerId),
     ];
 
     const results = await this.db.batch(statements);
@@ -355,6 +360,9 @@ export class CustomerRepository {
     const contacts = (results[2]?.results ?? []) as CustomerContactRow[];
     const addresses = (results[3]?.results ?? []) as CustomerAddressRow[];
     const notes = (results[4]?.results ?? []) as CustomerNoteRow[];
+    const profileNotes = (results[5]?.results ?? []) as { id: number; category: ProfileNoteCategory; content: string; sort_order: number }[];
+    const prospects = (results[6]?.results ?? []) as { id: number; item_id: number | null; item_no: string | null; item_label: string | null; item_name: string | null;
+      stage: ProspectStage | null; brand: string | null; note: string | null; sort_order: number }[];
 
     return {
       ...toSummary(master),
@@ -392,6 +400,9 @@ export class CustomerRepository {
         isImportant: Number(row.is_important) === 1,
         sortOrder: row.sort_order,
       })),
+      profileNotes: profileNotes.map(row => ({ id: row.id, category: row.category, content: row.content, sortOrder: row.sort_order })),
+      prospectItems: prospects.map(row => ({ id: row.id, item: row.item_id == null ? null : { id: row.item_id, itemNo: row.item_no ?? "", name: row.item_label ?? "" },
+        itemName: row.item_name, stage: row.stage, brand: row.brand, note: row.note, sortOrder: row.sort_order })),
     };
   }
 
