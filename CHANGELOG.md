@@ -6,6 +6,10 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.10.5 — 備份紀錄一筆一列（2026-11-04，Claude）
+- 備份管理的紀錄改成一筆只佔一列：備份時間／類型／狀態／版本／儲存副本（R2、GCS 左右並排）／筆數／大小／操作。
+- 備份編號與資料摘要收起來，點該列（或左側箭頭）展開才顯示，和修改紀錄的展開方式一樣。
+
 ## CY Web V0.10.4 — 客戶業務資料（2026-11-04，Claude）
 - 客戶表單備註下方新增「業務資料」，與客戶一起修改、一起儲存（migration 0049）：
   - 客戶描述：項次／類別（診所狀況、使用器材、使用品牌、注意事項、其他）／描述，單行、最多 30 筆。
