@@ -16,6 +16,9 @@ export interface CustomerSummary {
   shortName: string;
   fullName: string | null;
   taxId: string | null;
+  /** 付款條件 and 發票開立 (V0.9.97): a preset (月結／收現, 外加／內含) or the user's own text. */
+  paymentTerms: string | null;
+  invoiceType: string | null;
   category: CustomerLookupRef | null;
   region: CustomerLookupRef | null;
   ownerDepartment: CustomerLookupRef | null;
@@ -26,7 +29,10 @@ export interface CustomerSummary {
 }
 
 /** Row limits and formats agreed for the customer sheet (user 2026-11-03); the Worker enforces them. */
-export const CUSTOMER_LIMITS = { customerNo: 10, shortName: 10, faxes: 3, notes: 5, noteLength: 100, visitSubject: 16 } as const;
+export const CUSTOMER_LIMITS = { customerNo: 10, shortName: 10, faxes: 3, notes: 20, importantNotes: 5, noteLength: 100, visitSubject: 16, termsLength: 20 } as const;
+/** Preset choices for 付款條件 and 發票開立; anything else is typed under 其他 (user 2026-11-03). */
+export const PAYMENT_TERMS_PRESETS = ["月結", "收現"] as const;
+export const INVOICE_TYPE_PRESETS = ["外加", "內含"] as const;
 export const CUSTOMER_NO_PATTERN = /^[A-Za-z0-9]+$/;
 export type CustomerPhoneKind = "PHONE" | "FAX";
 
@@ -41,7 +47,7 @@ export interface CustomerPhone {
 
 export interface CustomerContact {
   id: number;
-  name: string;
+  name: string | null;
   departmentName: string | null;
   title: string | null;
   phone: string | null;
@@ -54,7 +60,7 @@ export interface CustomerContact {
 export interface CustomerAddress {
   id: number;
   postalCode: string | null;
-  address: string;
+  address: string | null;
   note: string | null;
   sortOrder: number;
 }
@@ -62,6 +68,8 @@ export interface CustomerAddress {
 export interface CustomerNote {
   id: number;
   content: string;
+  /** Important notes show at the top of the record and lead the 備註 list. */
+  isImportant: boolean;
   sortOrder: number;
 }
 
@@ -85,7 +93,7 @@ export interface CustomerPhoneInput {
 
 export interface CustomerContactInput {
   id?: number;
-  name: string;
+  name?: string | null;
   departmentName?: string | null;
   title?: string | null;
   phone?: string | null;
@@ -98,7 +106,7 @@ export interface CustomerContactInput {
 export interface CustomerAddressInput {
   id?: number;
   postalCode?: string | null;
-  address: string;
+  address?: string | null;
   note?: string | null;
   sortOrder: number;
 }
@@ -106,6 +114,7 @@ export interface CustomerAddressInput {
 export interface CustomerNoteInput {
   id?: number;
   content: string;
+  isImportant?: boolean;
   sortOrder: number;
 }
 
@@ -114,6 +123,8 @@ export interface CustomerProfileInput {
   shortName: string;
   fullName?: string | null;
   taxId?: string | null;
+  paymentTerms?: string | null;
+  invoiceType?: string | null;
   customerCategoryId?: number | null;
   regionId?: number | null;
   ownerDepartmentId?: number | null;

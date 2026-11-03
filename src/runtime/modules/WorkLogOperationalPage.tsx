@@ -13,7 +13,8 @@ import { taipeiToday } from "../../../shared/erp-query-history";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import "./worklog-operational.css";
 import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
-import { FormEvent, useEffect, useId, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useSettingsSaved } from "./settings-events";
 import { Dialog } from "../../ui/overlays/Dialog";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
@@ -189,6 +190,7 @@ export function WorkLogOperationalPage() {
       confirmLabel: "放棄修改", confirmTone: "danger" }))).allowed) setReasonDraft(null);
   }
 
+  useSettingsSaved(useCallback(() => setRefreshEpoch(value => value + 1), []));
   useEffect(() => {
     let cancelled = false;
     void Promise.all([

@@ -44,9 +44,10 @@ export interface RowColumn<T> {
 
 /**
  * Repeating rows under a sheet: 項次 first; while editing, ＋ inserts a row below and the bin removes
- * one. At `max` rows ＋ is no longer offered. A section with no rows is not shown while viewing.
+ * one. At `max` rows ＋ is no longer offered. While viewing, a section with no rows still shows its
+ * header and one row of dashes (user 2026-11-03), unless `hideWhenEmpty`.
  */
-export function RecordRows<T>({ title, editing, columns, rows, rowKey, max, busy = false, onInsert, onRemove, className = "" }: {
+export function RecordRows<T>({ title, editing, columns, rows, rowKey, max, busy = false, hideWhenEmpty = false, onInsert, onRemove, className = "" }: {
   title: string;
   editing: boolean;
   columns: RowColumn<T>[];
@@ -54,11 +55,12 @@ export function RecordRows<T>({ title, editing, columns, rows, rowKey, max, busy
   rowKey: (row: T, index: number) => Key;
   max?: number;
   busy?: boolean;
+  hideWhenEmpty?: boolean;
   onInsert: (after: number) => void;
   onRemove: (index: number) => void;
   className?: string;
 }) {
-  if (!editing && rows.length === 0) return null;
+  if (!editing && rows.length === 0 && hideWhenEmpty) return null;
   const full = max != null && rows.length >= max;
   const add = (after: number) => <IconButton variant="table" icon={Icons.add} label={`在下方新增${title}`}
     disabled={busy || full} onClick={() => onInsert(after)} />;
@@ -84,6 +86,8 @@ export function RecordRows<T>({ title, editing, columns, rows, rowKey, max, busy
         </tr>)}
         {editing && rows.length === 0 ? <tr className="cy-sheet-empty"><td className="cy-sheet-seq" />
           {columns.map(column => <td key={column.label} />)}<td className="cy-sheet-ops">{add(-1)}</td></tr> : null}
+        {!editing && rows.length === 0 ? <tr className="cy-sheet-empty"><td className="cy-sheet-seq" />
+          {columns.map(column => <td key={column.label} data-label={column.label}><span className="cy-sheet-value">—</span></td>)}</tr> : null}
       </tbody>
     </table></div>
   </section>;

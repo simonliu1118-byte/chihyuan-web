@@ -130,7 +130,10 @@ export async function acceptBusinessHttpAuthority(db: D1Database, componentId: n
   check(await snapshot() === initial, "GATE_OR_VALIDATION_BUSINESS_MUTATION");
 
   // Customer HTTP persistence, server-owned actor, and stale 409 without effects.
-  const profile = { shortName: "HTTPCust", customerNo: "ACCHTTP001", ...spoof };
+  // V0.9.97: full name, category, region and status are required (regions and statuses are seeded by 0047).
+  await db.prepare("INSERT OR IGNORE INTO customer_categories(id,code,name,sort_order,is_active,updated_at) VALUES(1,'ACC','驗收分類',0,1,'2026-01-01T00:00:00.000Z')").run();
+  const required = { fullName: "HTTP 驗收客戶", customerCategoryId: 1, regionId: 1, customerStatusId: 1 };
+  const profile = { shortName: "HTTPCust", customerNo: "ACCHTTP001", ...required, ...spoof };
   const createdResponse = await expect("customers", 201, "POST", profile);
   const created = (await createdResponse.json() as { data: { id: number; revision: number } }).data;
   const creator = await db.prepare("SELECT created_by FROM customers WHERE id=?").bind(created.id).first<{ created_by: number }>();
@@ -241,7 +244,7 @@ export async function acceptBusinessHttpAuthority(db: D1Database, componentId: n
   check(await snapshot() === atomicSnapshot, "BATCH_QUOTE_INVALID_ATOMIC_ROLLBACK");
 
   const anotherCustomer = (await (await expect("customers", 201, "POST", {
-    shortName: "AnotherCus", customerNo: "ACCHTTPQ02",
+    shortName: "AnotherCus", customerNo: "ACCHTTPQ02", ...required,
   })).json() as { data: { id: number } }).data;
   await expect("customers/" + anotherCustomer.id + "/quotes/batch", 201, "POST", {
     ...batchRequest, quoteDate: "2026-10-05",

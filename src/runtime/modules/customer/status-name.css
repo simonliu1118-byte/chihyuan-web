@@ -1,0 +1,12 @@
+/* Customer status light (V0.9.97). */
+.cy-status-light-name { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.cy-status-light { flex: none; width: 10px; height: 10px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 12%);
+  display: inline-grid; place-items: center; font-size: 10px; line-height: 1; font-weight: 700; }
+.cy-status-light.green { background: #22a45d; }
+.cy-status-light.blue { background: #2f6fde; }
+.cy-status-light.yellow { background: #f2c230; }
+.cy-status-light.orange { background: #f08a24; }
+.cy-status-light.red { background: #d93a3a; }
+.cy-status-light.purple { background: #8a4fd6; }
+.cy-status-light.black { background: #2a2a2e; }
+.cy-status-light.closed { background: transparent; box-shadow: none; color: #d93a3a; width: auto; }

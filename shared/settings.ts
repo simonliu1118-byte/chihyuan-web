@@ -14,6 +14,8 @@ export interface LookupSetting {
   isActive: boolean;
   updatedAt: string;
   parentId?: number | null;
+  /** Customer statuses only: the light shown beside the name (shared/taiwan-regions.ts). */
+  light?: string;
 }
 
 export interface RegionSetting extends Omit<LookupSetting, "updatedAt"> {
@@ -21,7 +23,9 @@ export interface RegionSetting extends Omit<LookupSetting, "updatedAt"> {
 }
 
 export interface CreateLookupSettingRequest {
-  code: string;
+  /** Not asked for customer statuses: the server assigns one. */
+  code?: string;
+  light?: string;
   name: string;
   sortOrder?: number;
   parentId?: number | null;
@@ -29,6 +33,7 @@ export interface CreateLookupSettingRequest {
 
 export interface UpdateLookupSettingRequest {
   name: string;
+  light?: string;
   sortOrder: number;
   isActive: boolean;
   expectedUpdatedAt: string;

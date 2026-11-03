@@ -1,5 +1,6 @@
 import {useLayoutEffect,useRef,useState,type ClipboardEvent,type InputHTMLAttributes} from "react";
 import {deletePhoneDigit,digitOffset,formatPhone,formatPhoneEntry,joinPhoneEntry,parsePhoneEntry,phoneCaret,phoneDigits,type PhoneKind} from "../../../shared/phone";
+import type {RowColumn} from "./RecordSheet";
 type Props=Omit<InputHTMLAttributes<HTMLInputElement>,"value"|"onChange"|"type"|"maxLength">&{value:string;onChange:(digits:string)=>void;kind?:PhoneKind};
 /** Label/validation belongs to Field; this shared control owns formatting, editing and clipboard. */
 export function PhoneInput({value,onChange,kind="phone",...props}:Props){
@@ -32,4 +33,25 @@ export function phoneEntryText(stored:string|null|undefined):string{
  if(!stored)return "";
  const p=parsePhoneEntry(stored);
  return formatPhoneEntry(p.number,p.extension);
+}
+/**
+ * Phone columns for RecordRows (user 2026-11-03): while editing, the number and its 分機 are two
+ * cells; while viewing, one cell shows "(02)2345-6789 #12345". Every phone with an extension uses
+ * this, so the split is not re-done per page. The stored value stays digits or digits#extension.
+ */
+export function phoneEntryColumns<T>({label,width,extensionWidth="5.5em",editing,busy,className,get,set,extension=true}:{
+ label:string;width?:string;extensionWidth?:string;editing:boolean;busy:boolean;className:string;
+ get:(row:T)=>string;set:(index:number,stored:string)=>void;extension?:boolean;
+}):RowColumn<T>[]{
+ const join=(number:string,ext:string|null)=>number+(ext?"#"+ext:"");
+ const number:RowColumn<T>={label,width,mono:true,view:row=>phoneEntryText(get(row)),
+  edit:(row,index)=>{const p=parsePhoneEntry(get(row));
+   return extension
+    ?<PhoneEntryInput className={className} value={p.number} disabled={busy} onChange={stored=>set(index,join(parsePhoneEntry(stored).number,p.extension))}/>
+    :<PhoneEntryInput className={className} value={get(row)} disabled={busy} onChange={stored=>set(index,stored)}/>}};
+ if(!extension||!editing)return [number];
+ return [number,{label:"分機",width:extensionWidth,mono:true,view:()=>"",
+  edit:(row,index)=>{const p=parsePhoneEntry(get(row));
+   return <input className={className} inputMode="numeric" value={p.extension??""} maxLength={10} disabled={busy}
+    onChange={e=>set(index,join(p.number,e.currentTarget.value.replace(/\D/g,"")||null))}/>}}];
 }
