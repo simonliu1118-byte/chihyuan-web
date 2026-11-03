@@ -1,11 +1,14 @@
 import { DateInput } from "../../ui/forms/DateInput";
 import { Field, FormSection } from "../../ui/forms/Field";
 import { RecordRows, RecordSheet, type RowColumn } from "../../ui/forms/RecordSheet";
-import { PhoneEntryInput, phoneEntryText } from "../../ui/forms/PhoneInput";
+import { phoneEntryColumns, phoneEntryText } from "../../ui/forms/PhoneInput";
 import { Icons } from "../../ui/actions/icons";
 import { SidePanel } from "../../ui/overlays/SidePanel";
 import { SegmentedControl } from "../../ui/primitives/SegmentedControl";
 import { postalCodeForAddress } from "../../../shared/taiwan-postal";
+import { REGION_GROUPS, statusLightEmoji } from "../../../shared/taiwan-regions";
+import { StatusName } from "./customer/StatusName";
+import { useSettingsSaved } from "./settings-events";
 import { joinPhoneEntry, parsePhoneEntry } from "../../../shared/phone";
 import { IconButton } from "../../ui/actions/IconButton";
 import { recordIdFromHash, replaceRouteParams } from "../navigation/route-params";
@@ -16,7 +19,7 @@ import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { Dialog } from "../../ui/overlays/Dialog";
 import { ChangeLogList } from "./AuditOperationalPage";
@@ -31,7 +34,8 @@ import type {
   CustomerProfileInput,
   CustomerSummary,
 } from "../../../shared/customer";
-import { CUSTOMER_LIMITS } from "../../../shared/customer";
+import { CUSTOMER_LIMITS, INVOICE_TYPE_PRESETS, PAYMENT_TERMS_PRESETS } from "../../../shared/customer";
+import { PresetTextInput } from "../../ui/forms/PresetTextInput";
 import type {
   CustomerFrequentItemRecord,
   CustomerItemQuoteDetail,
@@ -66,13 +70,15 @@ type RelatedDialog = { view: RelatedView; mode: "create" | "browse" };
 
 interface PhoneDraft { id?: number; entry: string; note: string }
 interface AddressDraft { id?: number; postalCode: string; postalAuto: boolean; address: string; note: string }
-interface NoteDraft { id?: number; content: string }
+interface NoteDraft { id?: number; content: string; isImportant: boolean }
 
 interface CustomerDraft {
   customerNo: string;
   shortName: string;
   fullName: string;
   taxId: string;
+  paymentTerms: string;
+  invoiceType: string;
   customerCategoryId: number | null;
   regionId: number | null;
   ownerDepartmentId: number | null;
@@ -123,6 +129,8 @@ function newDraft(lookups: CustomerModuleLookups | null): CustomerDraft {
     shortName: "",
     fullName: "",
     taxId: "",
+    paymentTerms: "",
+    invoiceType: "",
     customerCategoryId: activeLookupId(lookups?.customerCategories ?? []),
     regionId: null,
     ownerDepartmentId: null,
@@ -145,6 +153,8 @@ function draftFromDetail(customer: CustomerDetail): CustomerDraft {
     shortName: customer.shortName,
     fullName: customer.fullName ?? "",
     taxId: customer.taxId ?? "",
+    paymentTerms: customer.paymentTerms ?? "",
+    invoiceType: customer.invoiceType ?? "",
     customerCategoryId: customer.category?.id ?? null,
     regionId: customer.region?.id ?? null,
     ownerDepartmentId: customer.ownerDepartment?.id ?? null,
@@ -164,9 +174,11 @@ function draftFromDetail(customer: CustomerDetail): CustomerDraft {
       isActive: row.isActive,
     })),
     addresses: customer.addresses.map((row) => ({
-      id: row.id, postalCode: row.postalCode ?? "", postalAuto: false, address: row.address, note: row.note ?? "",
+      id: row.id, postalCode: row.postalCode ?? "", postalAuto: false, address: row.address ?? "", note: row.note ?? "",
     })),
-    notes: customer.notes.map((row) => ({ id: row.id, content: row.content })),
+    // Important notes lead the list (user 2026-11-03).
+    notes: [...customer.notes].sort((a, b) => Number(b.isImportant) - Number(a.isImportant))
+      .map((row) => ({ id: row.id, content: row.content, isImportant: row.isImportant })),
   };
 }
 
@@ -187,17 +199,20 @@ function profileFromDraft(
     shortName: draft.shortName.trim(),
     fullName: draft.fullName.trim() || null,
     taxId: draft.taxId.trim() || null,
+    paymentTerms: draft.paymentTerms.trim() || null,
+    invoiceType: draft.invoiceType.trim() || null,
     customerCategoryId: draft.customerCategoryId,
     regionId: draft.regionId,
     ownerDepartmentId: draft.ownerDepartmentId,
     ownerEmployeeId: draft.ownerEmployeeId,
     customerStatusId: draft.customerStatusId,
     phones: [...phoneRows(draft.phones, "PHONE"), ...phoneRows(draft.faxes, "FAX")],
+    // A row is kept when anything in it is filled; no single column is required (user 2026-11-03).
     contacts: draft.contacts
-      .filter((row) => row.name.trim())
+      .filter((row) => [row.name, row.departmentName, row.title, row.phone, row.mobile, row.note].some(value => value?.trim()))
       .map((row, index) => ({
         ...row,
-        name: row.name.trim(),
+        name: row.name?.trim() || null,
         departmentName: row.departmentName?.trim() || null,
         title: row.title?.trim() || null,
         phone: row.phone?.trim() || null,
@@ -206,17 +221,17 @@ function profileFromDraft(
         sortOrder: index,
       })),
     addresses: draft.addresses
-      .filter((row) => row.address.trim())
+      .filter((row) => [row.postalCode, row.address, row.note].some(value => value.trim()))
       .map((row, index) => ({
         id: row.id,
         postalCode: row.postalCode.trim() || null,
-        address: row.address.trim(),
+        address: row.address.trim() || null,
         note: row.note.trim() || null,
         sortOrder: index,
       })),
     notes: draft.notes
       .filter((row) => row.content.trim())
-      .map((row, index) => ({ id: row.id, content: row.content.trim(), sortOrder: index })),
+      .map((row, index) => ({ id: row.id, content: row.content.trim(), isImportant: row.isImportant, sortOrder: index })),
     confirmDuplicateTaxId,
   };
 }
@@ -308,6 +323,9 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
     pane.close();
   }
 
+  // Reloaded whenever 設定 saves, so a new category, status or department shows at once (V0.9.97).
+  const [lookupEpoch, setLookupEpoch] = useState(0);
+  useSettingsSaved(useCallback(() => setLookupEpoch(value => value + 1), []));
   useEffect(() => {
     let cancelled = false;
     void loadCustomerLookups()
@@ -321,7 +339,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [lookupEpoch]);
 
   useEffect(() => {
     let cancelled = false;
@@ -434,7 +452,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
     setSelected(null);
     setCreating(true);
     setEditing(true);
-    setDraft(newDraft(lookups));
+    setDraft(withFirstRows(newDraft(lookups)));
     setMessage(null);
   }
 
@@ -442,7 +460,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
     if (!selected) return;
     setCreating(false);
     setEditing(true);
-    setDraft(draftFromDetail(selected));
+    setDraft(withFirstRows(draftFromDetail(selected)));
     setMessage(null);
   }
 
@@ -514,8 +532,16 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
     faxes: () => ({ entry: "", note: "" }),
     contacts: () => ({ name: "", departmentName: null, title: null, phone: null, mobile: null, note: null, sortOrder: 0, isActive: true }),
     addresses: () => ({ postalCode: "", postalAuto: true, address: "", note: "" }),
-    notes: () => ({ content: "" }),
+    notes: () => ({ content: "", isImportant: false }),
   };
+  /** Editing opens with one blank row in each list, so nothing needs ＋ first (user 2026-11-03). */
+  function withFirstRows(value: CustomerDraft): CustomerDraft {
+    const next = { ...value };
+    for (const list of ["phones", "faxes", "contacts", "addresses", "notes"] as const) {
+      if (!next[list].length) (next as Record<RowList, unknown[]>)[list] = [blankRow[list]()];
+    }
+    return next;
+  }
   function insertRow(list: RowList, after: number) {
     setDraft(current => {
       if (!current) return current;
@@ -764,7 +790,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
           onClose={()=>setHistoryOpen(false)}>
           <ChangeLogList role={role} customerId={selected.id}/>
         </Dialog> : null}
-      {selected && relatedView ? <SidePanel title={`${selected.shortName}　相關紀錄`} width="min(calc(100vw - 24px), max(440px, 56vw))"
+      {selected && relatedView ? <SidePanel title={`${selected.shortName}　相關紀錄`} width="min(calc(100vw - 24px), 380px)"
         className="cy-customer-related-side" onClose={() => void closeRelated()}>
         <div className="cy-related-toolbar">
           <SegmentedControl<RelatedView> label="相關紀錄" value={relatedView.view} disabled={busy}
@@ -837,7 +863,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
                 <span className="cy-customer-result-main">
                   <strong title={[customer.customerNo, customer.shortName].filter(Boolean).join(" ")}>{[customer.customerNo, customer.shortName].filter(Boolean).join(" ")}</strong>
                 </span>
-                <span className={`cy-status-chip ${customer.status ? "cy-status-chip-success" : ""}`}>{customer.status?.name ?? "未設定"}</span>
+                <span className="cy-customer-result-status">{customer.status ? <StatusName status={lookups?.customerStatuses.find(row => row.id === customer.status?.id) ?? customer.status} /> : "未設定"}</span>
               </button>
             ))}
             {loadingList && rows.length === 0 ? <Loading /> : null}
@@ -866,15 +892,14 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
                   <p className="cy-record-meta">最後修改：{formatDateTime(selected.updatedAt)}{selected.updatedBy ? ` · ${formatPerson(selected.updatedBy)}` : ""}</p>
                 </div>
                 <div className="cy-record-actions">
-                  {selected.status ? <span className="cy-status-chip cy-status-chip-success">{selected.status.name}</span> : null}
                   <button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
                   {role !== "USER" ? <IconButton icon={Icons.history} label="修改紀錄" onClick={() => setHistoryOpen(true)} disabled={busy} /> : null}
                 </div>
               </div>
 
-              {selected.notes.length ? <div className="cy-customer-alert" role="note">
-                <strong>重要註記</strong>
-                {selected.notes.map((row, index) => <span key={row.id}>{index + 1}. {row.content}</span>)}
+              {selected.notes.some(row => row.isImportant) ? <div className="cy-customer-alert" role="note">
+                <strong>重要備註</strong>
+                {selected.notes.filter(row => row.isImportant).map((row, index) => <span key={row.id}>{index + 1}. {row.content}</span>)}
               </div> : null}
 
               <CustomerSheet draft={draftFromDetail(selected)} editing={false} busy={busy} lookups={lookups}
@@ -922,21 +947,22 @@ function CustomerSheet({ draft, editing, busy, lookups, ownerLabel = "", patch, 
   const input = "cy-sheet-input", mono = "cy-sheet-input mono";
   const name = (rows: readonly { id: number; name: string; isActive: boolean }[] | undefined, id: number | null) =>
     rows?.find(row => row.id === id)?.name ?? "";
-  const select = (rows: readonly { id: number; name: string; isActive: boolean }[] | undefined, value: number | null,
-    onChange: (id: number | null) => void, empty = "未設定") =>
+  type Option = { id: number; name: string; isActive: boolean; light?: string };
+  const select = (rows: readonly Option[] | undefined, value: number | null,
+    onChange: (id: number | null) => void, empty = "未設定", text: (row: Option) => string = row => row.name) =>
     <select className={input} value={value ?? ""} disabled={busy} onChange={event => onChange(event.target.value ? Number(event.target.value) : null)}>
       <option value="">{empty}</option>
-      {(rows ?? []).filter(row => row.isActive || row.id === value).map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
+      {(rows ?? []).filter(row => row.isActive || row.id === value).map(row => <option key={row.id} value={row.id}>{text(row)}</option>)}
     </select>;
   const owners = lookups?.owners ?? [];
   const ownerName = (id: number | null) => {
     const owner = owners.find(row => row.id === id);
     return owner ? [owner.employeeNo, owner.displayName].filter(Boolean).join(" ") : ownerLabel;
   };
+  // Phones take a 分機 column while editing (shared phoneEntryColumns); faxes have no extension.
   const phoneColumns = (label: string, width: string, list: "phones" | "faxes"): RowColumn<PhoneDraft>[] => [
-    { label, width, mono: true, view: row => phoneEntryText(row.entry),
-      edit: (row, index) => <PhoneEntryInput className={mono} value={row.entry} disabled={busy}
-        onChange={entry => patchRow(list, index, { entry })} /> },
+    ...phoneEntryColumns<PhoneDraft>({ label, width: editing && list === "phones" ? "10em" : width, editing, busy, className: mono,
+      extension: list === "phones", get: row => row.entry, set: (index, entry) => patchRow(list, index, { entry }) }),
     { label: "備註", view: row => row.note,
       edit: (row, index) => <input className={input} value={row.note} maxLength={240} disabled={busy}
         onChange={event => patchRow(list, index, { note: event.target.value })} /> },
@@ -950,20 +976,34 @@ function CustomerSheet({ draft, editing, busy, lookups, ownerLabel = "", patch, 
         { label: "客戶簡稱", required: true, view: draft.shortName,
           edit: <input className={input} value={draft.shortName} disabled={busy} maxLength={CUSTOMER_LIMITS.shortName}
             onChange={event => patch({ shortName: event.target.value })} /> },
-        { label: "客戶全稱", view: draft.fullName,
+        { label: "客戶全稱", required: true, view: draft.fullName,
           edit: <input className={input} value={draft.fullName} disabled={busy} maxLength={240}
             onChange={event => patch({ fullName: event.target.value })} /> },
         { label: "統一編號", mono: true, view: draft.taxId,
           edit: <input className={mono} inputMode="numeric" value={draft.taxId} disabled={busy} maxLength={8} pattern="[0-9]{8}"
             onChange={event => patch({ taxId: event.target.value.replace(/\D/g, "") })} /> },
-        { label: "狀態", view: name(lookups?.customerStatuses, draft.customerStatusId),
-          edit: select(lookups?.customerStatuses, draft.customerStatusId, customerStatusId => patch({ customerStatusId })) },
+        { label: "狀態", required: true, view: <StatusName status={lookups?.customerStatuses.find(row => row.id === draft.customerStatusId)} />,
+          edit: select(lookups?.customerStatuses, draft.customerStatusId, customerStatusId => patch({ customerStatusId }), "請選擇", row => `${statusLightEmoji(row.light)} ${row.name}`) },
       ] },
-      { columns: "repeat(4, minmax(0,1fr))", cells: [
-        { label: "分類", view: name(lookups?.customerCategories, draft.customerCategoryId),
-          edit: select(lookups?.customerCategories, draft.customerCategoryId, customerCategoryId => patch({ customerCategoryId }), "未分類") },
-        { label: "地區", view: name(lookups?.regions, draft.regionId),
-          edit: select(lookups?.regions, draft.regionId, regionId => patch({ regionId })) },
+      // 負責業務 keeps the last quarter so its edge lines up with 統一編號 above.
+      { columns: "repeat(5, minmax(0,1fr)) 25%", cells: [
+        { label: "分類", required: true, view: name(lookups?.customerCategories, draft.customerCategoryId),
+          edit: select(lookups?.customerCategories, draft.customerCategoryId, customerCategoryId => patch({ customerCategoryId }), "請選擇") },
+        { label: "地區", required: true, view: name(lookups?.regions, draft.regionId),
+          edit: <select className={input} value={draft.regionId ?? ""} disabled={busy}
+            onChange={event => patch({ regionId: event.target.value ? Number(event.target.value) : null })}>
+            <option value="">請選擇</option>
+            {REGION_GROUPS.map(group => <optgroup key={group.code} label={group.label}>
+              {(lookups?.regions ?? []).filter(row => row.groupCode === group.code && (row.isActive || row.id === draft.regionId))
+                .map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
+            </optgroup>)}
+          </select> },
+        { label: "付款條件", view: draft.paymentTerms,
+          edit: <PresetTextInput className={input} presets={PAYMENT_TERMS_PRESETS} value={draft.paymentTerms} disabled={busy}
+            maxLength={CUSTOMER_LIMITS.termsLength} onChange={paymentTerms => patch({ paymentTerms })} /> },
+        { label: "發票開立", view: draft.invoiceType,
+          edit: <PresetTextInput className={input} presets={INVOICE_TYPE_PRESETS} value={draft.invoiceType} disabled={busy}
+            maxLength={CUSTOMER_LIMITS.termsLength} onChange={invoiceType => patch({ invoiceType })} /> },
         { label: "負責部門", view: name(lookups?.departments, draft.ownerDepartmentId),
           edit: select(lookups?.departments, draft.ownerDepartmentId, ownerDepartmentId => patch({ ownerDepartmentId })) },
         { label: "負責業務", view: ownerName(draft.ownerEmployeeId),
@@ -976,7 +1016,7 @@ function CustomerSheet({ draft, editing, busy, lookups, ownerLabel = "", patch, 
       ] },
     ]} />
 
-    <div className={"cy-customer-phonefax" + (editing ? " editing" : "") + (!editing && !draft.faxes.length ? " phones-only" : "")}>
+    <div className={"cy-customer-phonefax" + (editing ? " editing" : "")}>
       <RecordRows title="聯絡電話" editing={editing} busy={busy} columns={phoneColumns("電話", "14.5em", "phones")}
         rows={draft.phones} rowKey={(row, index) => row.id ?? `n${index}`}
         onInsert={after => insertRow("phones", after)} onRemove={index => removeRow("phones", index)} />
@@ -988,8 +1028,8 @@ function CustomerSheet({ draft, editing, busy, lookups, ownerLabel = "", patch, 
     <RecordRows<CustomerContactInput> title="聯絡人" editing={editing} busy={busy} rows={draft.contacts}
       rowKey={(row, index) => row.id ?? `n${index}`}
       onInsert={after => insertRow("contacts", after)} onRemove={index => removeRow("contacts", index)} columns={[
-        { label: "姓名", width: "6.5em", required: true, view: row => row.name,
-          edit: (row, index) => <input className={input} value={row.name} maxLength={120} disabled={busy}
+        { label: "姓名", width: "6.5em", view: row => row.name,
+          edit: (row, index) => <input className={input} value={row.name ?? ""} maxLength={120} disabled={busy}
             onChange={event => patchRow("contacts", index, { name: event.target.value })} /> },
         { label: "部門", width: "7em", view: row => row.departmentName,
           edit: (row, index) => <input className={input} value={row.departmentName ?? ""} maxLength={120} disabled={busy}
@@ -997,12 +1037,10 @@ function CustomerSheet({ draft, editing, busy, lookups, ownerLabel = "", patch, 
         { label: "職稱", width: "7em", view: row => row.title,
           edit: (row, index) => <input className={input} value={row.title ?? ""} maxLength={120} disabled={busy}
             onChange={event => patchRow("contacts", index, { title: event.target.value })} /> },
-        { label: "電話", width: "13em", mono: true, view: row => phoneEntryText(row.phone),
-          edit: (row, index) => <PhoneEntryInput className={mono} value={row.phone ?? ""} disabled={busy}
-            onChange={phone => patchRow("contacts", index, { phone })} /> },
-        { label: "手機", width: "8.5em", mono: true, view: row => phoneEntryText(row.mobile),
-          edit: (row, index) => <PhoneEntryInput className={mono} value={row.mobile ?? ""} disabled={busy}
-            onChange={mobile => patchRow("contacts", index, { mobile })} /> },
+        ...phoneEntryColumns<CustomerContactInput>({ label: "電話", width: editing ? "9.5em" : "13em", extensionWidth: "4.5em", editing, busy,
+          className: mono, get: row => row.phone ?? "", set: (index, phone) => patchRow("contacts", index, { phone: phone || null }) }),
+        ...phoneEntryColumns<CustomerContactInput>({ label: "手機", width: "8.5em", editing, busy, className: mono, extension: false,
+          get: row => row.mobile ?? "", set: (index, mobile) => patchRow("contacts", index, { mobile: mobile || null }) }),
         { label: "備註", view: row => row.note,
           edit: (row, index) => <input className={input} value={row.note ?? ""} maxLength={240} disabled={busy}
             onChange={event => patchRow("contacts", index, { note: event.target.value })} /> },
@@ -1014,7 +1052,7 @@ function CustomerSheet({ draft, editing, busy, lookups, ownerLabel = "", patch, 
         { label: "郵遞區號", width: "6.5em", mono: true, view: row => row.postalCode,
           edit: (row, index) => <input className={mono} inputMode="numeric" value={row.postalCode} maxLength={6} pattern="[0-9]{3}([0-9]{3})?" disabled={busy}
             onChange={event => patchRow("addresses", index, { postalCode: event.target.value.replace(/\D/g, ""), postalAuto: false })} /> },
-        { label: "地址", required: true, view: row => row.address,
+        { label: "地址", view: row => row.address,
           edit: (row, index) => <input className={input} value={row.address} maxLength={500} disabled={busy}
             onChange={event => {
               const address = event.target.value, auto = row.postalAuto || !row.postalCode;
@@ -1025,13 +1063,18 @@ function CustomerSheet({ draft, editing, busy, lookups, ownerLabel = "", patch, 
             onChange={event => patchRow("addresses", index, { note: event.target.value })} /> },
       ]} />
 
-    {editing ? <RecordRows<NoteDraft> title="重要註記" editing busy={busy} rows={draft.notes} max={CUSTOMER_LIMITS.notes}
+    {/* 備註 (user 2026-11-03): ★ marks an important note, shown at the top of the record and first here. */}
+    <RecordRows<NoteDraft> title="備註" editing={editing} busy={busy} rows={draft.notes} max={CUSTOMER_LIMITS.notes} hideWhenEmpty
       rowKey={(row, index) => row.id ?? `n${index}`}
       onInsert={after => insertRow("notes", after)} onRemove={index => removeRow("notes", index)} columns={[
-        { label: "重要註記", view: row => row.content,
+        { label: "重要", width: "4em", view: row => row.isImportant ? <span className="cy-note-star on" aria-label="重要">★</span> : "",
+          edit: (row, index) => <button type="button" className={"cy-note-star" + (row.isImportant ? " on" : "")} disabled={busy}
+            aria-pressed={row.isImportant} aria-label={row.isImportant ? "取消重要" : "標為重要"}
+            onClick={() => patchRow("notes", index, { isImportant: !row.isImportant })}>{row.isImportant ? "★" : "☆"}</button> },
+        { label: "備註", view: row => row.content,
           edit: (row, index) => <input className={input} value={row.content} maxLength={CUSTOMER_LIMITS.noteLength} disabled={busy}
             onChange={event => patchRow("notes", index, { content: event.target.value })} /> },
-      ]} /> : null}
+      ]} />
   </div>;
 }
 
@@ -1087,7 +1130,7 @@ function VisitsPanel({ selected, rows, draft, setDraft, save, edit, remove, busy
             onChange={event => setDraft({ ...draft, contactId: event.target.value ? Number(event.target.value) : null,
               personSnapshot: event.target.value ? "" : draft.personSnapshot })}>
             <option value="">自由輸入</option>
-            {contacts.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
+            {contacts.map(row => <option key={row.id} value={row.id}>{row.name || [row.departmentName, row.title].filter(Boolean).join(" ") || `聯絡人 ${row.sortOrder + 1}`}</option>)}
           </select> },
           { label: "拜訪對象", view: "", edit: <input className={input} value={draft.personSnapshot} maxLength={200}
             disabled={busy || draft.contactId != null} onChange={event => setDraft({ ...draft, personSnapshot: event.target.value })} /> },
@@ -1106,7 +1149,7 @@ function VisitsPanel({ selected, rows, draft, setDraft, save, edit, remove, busy
       </div>
     </form> : null}
     <table className="cy-customer-card-table cy-customer-related-list">
-      <colgroup><col style={{ width: "7.2em" }} /><col style={{ width: "5.5em" }} /><col /><col style={{ width: "6em" }} /></colgroup>
+      <colgroup><col style={{ width: "6.4em" }} /><col style={{ width: "4.8em" }} /><col /><col style={{ width: "4.4em" }} /></colgroup>
       <thead><tr><th scope="col">日期</th><th scope="col">對象</th><th scope="col">主旨</th><th scope="col">業務</th></tr></thead>
       <tbody>{visible.map(visit => <tr key={visit.id} className={draft?.record?.id === visit.id ? "active" : undefined}
         tabIndex={0} onClick={() => { if (!busy) edit(visit); }} onKeyDown={event => { if (event.key === "Enter" && !busy) edit(visit); }}>
@@ -1182,7 +1225,7 @@ function QuotesPanel({ customerId, rows, draft, setDraft, save, correct, busy, m
     </FormSection>
   </form> : null}
     {mode === "browse" ? <table className="cy-customer-card-table cy-customer-related-list">
-      <colgroup><col style={{ width: "7.2em" }} /><col /><col style={{ width: "9em" }} /><col style={{ width: "5.5em" }} /></colgroup>
+      <colgroup><col style={{ width: "6.4em" }} /><col /><col style={{ width: "7.5em" }} /><col style={{ width: "4.4em" }} /></colgroup>
       <thead><tr><th scope="col">日期</th><th scope="col">商品</th><th scope="col">價格</th><th scope="col">業務</th></tr></thead>
       <tbody>{visible.map(quote => <tr key={quote.id} className={draft?.corrected?.id === quote.id ? "active" : undefined} tabIndex={0}
         onClick={() => { if (!busy) void correct(quote); }} onKeyDown={event => { if (event.key === "Enter" && !busy) void correct(quote); }}>
@@ -1232,10 +1275,11 @@ function FrequentPanel({ rows, itemId, setItemId, freeText, setFreeText, add, re
     </FormSection>
   </form> : null}
     {mode === "browse" ? <table className="cy-customer-card-table">
-      <colgroup><col style={{ width: "7.2em" }} /><col style={{ width: "6em" }} /><col /><col style={{ width: "3em" }} /></colgroup>
-      <thead><tr><th scope="col">加入日期</th><th scope="col">品號</th><th scope="col">品名</th><th scope="col"><span className="cy-visually-hidden">操作</span></th></tr></thead>
-      <tbody>{visible.map(row => <tr key={row.id}>
-        <td>{formatDate(row.createdAt)}</td><td>{row.item?.itemNo ?? "—"}</td><td>{row.item?.name ?? row.customItemName ?? ""}</td>
+      {/* 項次／品號／品名／加入日期 (user 2026-11-03); the date is the system's, set when the item is added. */}
+      <colgroup><col style={{ width: "2.6em" }} /><col style={{ width: "5.6em" }} /><col /><col style={{ width: "7.4em" }} /><col style={{ width: "2.6em" }} /></colgroup>
+      <thead><tr><th scope="col" className="cy-sheet-seq">項次</th><th scope="col">品號</th><th scope="col">品名</th><th scope="col">加入日期</th><th scope="col"><span className="cy-visually-hidden">操作</span></th></tr></thead>
+      <tbody>{visible.map((row, index) => <tr key={row.id}>
+        <td className="cy-sheet-seq">{index + 1}</td><td>{row.item?.itemNo ?? "—"}</td><td>{row.item?.name ?? row.customItemName ?? ""}</td><td>{formatDate(row.createdAt)}</td>
         <td><IconButton variant="table" tone="danger" icon={Icons.remove} label="移除常用商品" disabled={busy} onClick={() => void remove(row)} /></td>
       </tr>)}</tbody>
     </table> : null}

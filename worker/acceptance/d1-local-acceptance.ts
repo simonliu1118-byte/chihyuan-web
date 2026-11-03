@@ -194,11 +194,15 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
     ) VALUES (1, 'acceptance-employee-1', 'T0001', 1, ?1, ?1)
   `).bind(t0).run();
 
+  // V0.9.97: full name, category, region and status are required (regions and statuses are seeded by 0047).
+  await db.prepare("INSERT OR IGNORE INTO customer_categories(id,code,name,sort_order,is_active,updated_at) VALUES(1,'ACC','驗收分類',0,1,?1)").bind(t0).run();
+  const required = { fullName: "D1 驗收客戶", customerCategoryId: 1, regionId: 1, customerStatusId: 1 };
   const customerService = new CustomerService(db);
   const created = await customerService.create(
     {
       customerNo: "ACCEPT001",
       shortName: "D1Accept",
+      ...required,
       phones: [{ phoneNumber: "070000000", sortOrder: 0 }],
     },
     { actorMemberId: 1, now: t0 },
@@ -214,6 +218,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
     {
       customerNo: created.customerNo,
       shortName: "D1Updated",
+      ...required,
       expectedRevision: created.revision,
       phones: [
         {
@@ -239,6 +244,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
       {
         customerNo: created.customerNo,
         shortName: "StaleWrite",
+        ...required,
         expectedRevision: 1,
       },
       { actorMemberId: 1, now: t2 },

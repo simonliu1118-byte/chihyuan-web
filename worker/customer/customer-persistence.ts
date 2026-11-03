@@ -43,11 +43,11 @@ export class CustomerPersistence {
         INSERT INTO customers (id,
           customer_no, short_name, full_name, tax_id, customer_category_id,
           region_id, owner_department_id, owner_employee_id, customer_status_id,
-          created_at, created_by, updated_at, updated_by, revision
+          created_at, created_by, updated_at, updated_by, revision, payment_terms, invoice_type
         ) VALUES (${nextEntityIdSql("customers")},
           ?1, ?2, ?3, ?4, ?5,
           ?6, ?7, ?8, ?9,
-          ?10, ?11, ?10, ?11, 1
+          ?10, ?11, ?10, ?11, 1, ?12, ?13
         )
       `).bind(
         input.customerNo,
@@ -61,6 +61,8 @@ export class CustomerPersistence {
         input.customerStatusId,
         context.now,
         context.actorMemberId,
+        input.paymentTerms,
+        input.invoiceType,
       ),
       ...buildCreateCustomerChildStatements(this.db, input, context),
     ];
@@ -147,7 +149,9 @@ export class CustomerPersistence {
                customer_status_id = ?8,
                updated_at = ?9,
                updated_by = ?10,
-               revision = revision + 1
+               revision = revision + 1,
+               payment_terms = ?13,
+               invoice_type = ?14
          WHERE id = ?11
            AND revision = ?12
       `).bind(
@@ -163,6 +167,8 @@ export class CustomerPersistence {
         context.actorMemberId,
         customerId,
         input.expectedRevision,
+        input.paymentTerms,
+        input.invoiceType,
       ),
     ];
 

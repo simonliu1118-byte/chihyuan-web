@@ -69,10 +69,10 @@ function createAddress(db: D1Database, row: CustomerAddressInput, context: Mutat
 function createNote(db: D1Database, row: CustomerNoteInput, context: MutationContextLike): D1PreparedStatement {
   return db.prepare(`
     INSERT INTO customer_notes (
-      customer_id, content, sort_order, created_at, created_by, updated_at, updated_by
+      customer_id, content, sort_order, created_at, created_by, updated_at, updated_by, is_important
     )
-    SELECT MAX(id), ?1, ?2, ?3, ?4, ?3, ?4 FROM customers
-  `).bind(row.content, row.sortOrder, context.now, context.actorMemberId);
+    SELECT MAX(id), ?1, ?2, ?3, ?4, ?3, ?4, ?5 FROM customers
+  `).bind(row.content, row.sortOrder, context.now, context.actorMemberId, row.isImportant ? 1 : 0);
 }
 
 function updatePhone(
@@ -213,19 +213,19 @@ function updateNote(
   if (row.id == null) {
     return db.prepare(`
       INSERT INTO customer_notes (
-        customer_id, content, sort_order, created_at, created_by, updated_at, updated_by
+        customer_id, content, sort_order, created_at, created_by, updated_at, updated_by, is_important
       )
-      SELECT ?1, ?2, ?3, ?4, ?5, ?4, ?5
+      SELECT ?1, ?2, ?3, ?4, ?5, ?4, ?5, ?7
        WHERE EXISTS (SELECT 1 FROM customers WHERE id = ?1 AND revision = ?6)
-    `).bind(customerId, row.content, row.sortOrder, context.now, context.actorMemberId, expectedRevision);
+    `).bind(customerId, row.content, row.sortOrder, context.now, context.actorMemberId, expectedRevision, row.isImportant ? 1 : 0);
   }
 
   return db.prepare(`
     UPDATE customer_notes
-       SET content = ?1, sort_order = ?2, updated_at = ?3, updated_by = ?4
+       SET content = ?1, sort_order = ?2, updated_at = ?3, updated_by = ?4, is_important = ?8
      WHERE id = ?5 AND customer_id = ?6
        AND EXISTS (SELECT 1 FROM customers WHERE id = ?6 AND revision = ?7)
-  `).bind(row.content, row.sortOrder, context.now, context.actorMemberId, row.id, customerId, expectedRevision);
+  `).bind(row.content, row.sortOrder, context.now, context.actorMemberId, row.id, customerId, expectedRevision, row.isImportant ? 1 : 0);
 }
 
 function deleteOmitted(

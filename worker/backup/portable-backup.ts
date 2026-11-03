@@ -1,4 +1,5 @@
 import { nonSeedRowCondition } from "../../shared/backup-migration-seeds";
+import { TAIWAN_REGIONS } from "../../shared/taiwan-regions";
 // App-owned portable snapshot foundation. Guarded isolated rehearsal only; no live overwrite.
 import {upgradeV1,v1Columns,v1Tables,V1_LEVEL} from "./legacy-v1";
 import { BACKUP_COLUMNS } from "./schema-columns";
@@ -8,7 +9,7 @@ export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
  * The latest migration in migrations/ (file name without .sql). Bump it with every migration; a test
  * keeps it in step. A backup records it, and a restore maps its data by table and column name.
  */
-export const CURRENT_MIGRATION = "0046_customer_fax_rows_visit_subject";
+export const CURRENT_MIGRATION = "0047_customer_regions_status_lights";
 /**
  * Only for a migration that changes what existing data means (moves, renames, drops or recomputes
  * values). New tables, new columns with a default, new indexes and wider checks need nothing here:
@@ -34,6 +35,17 @@ const UPGRADES: { migration: string; apply: (data: Data) => void }[] = [
     const at = c("fax");
     customers.columns.splice(at, 1);
     customers.rows.forEach(row => row.splice(at, 1));
+  } },
+  // 0047: notes gained an important flag (older notes were all important); regions became fixed
+  // (shared/taiwan-regions.ts), so an older backup without regions takes the seeded list.
+  { migration: "0047_customer_regions_status_lights", apply: data => {
+    // Every note in an older backup was a 重要註記.
+    const notes = data.tables.customer_notes;
+    if (notes && !notes.columns.includes("is_important")) { notes.columns.push("is_important"); notes.rows.forEach(row => row.push(1)); }
+    const regions = data.tables.regions;
+    if (regions?.rows.length) return;
+    const columns = ["code", "group_code", "id", "is_active", "name", "sort_order"];
+    data.tables.regions = { columns, rows: TAIWAN_REGIONS.map((row, i) => [row.code, row.group, i + 1, 1, row.name, i + 1]) };
   } },
 ];
 // Operational queue, heartbeat and revocable credential hashes are intentionally
@@ -257,7 +269,7 @@ export async function restoreIntoEmptyDatabase(db: D1Database, bundle: PortableB
   const emptyGuard = emptyTargetGuard();
   const statements = [db.prepare(`SELECT CASE WHEN ${emptyGuard} THEN 1 ELSE json('') END AS empty_target`),
     db.prepare("PRAGMA defer_foreign_keys = ON")];
-  for(const table of ["hr_leave_types","hr_shift_types","hr_job_titles","hr_stores"])
+  for(const table of ["hr_leave_types","hr_shift_types","hr_job_titles","hr_stores","regions","customer_statuses"])
     statements.push(db.prepare(`DELETE FROM ${identifier(table)}`));
   for (const table of BACKUP_TABLES) {
     const value = data.tables[table];

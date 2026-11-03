@@ -19,6 +19,7 @@ import type {
   WorkLogScoringRowSetting,
 } from "../../shared/settings";
 import { formatScaled4, parseScaled4 } from "../../shared/fixed-point";
+import { isStatusLight } from "../../shared/taiwan-regions";
 import { AuditService, type AuditEventInput } from "../audit/audit-service";
 import { FieldValidationError } from "../validation/fields";
 
@@ -107,6 +108,12 @@ function requiredBoolean(value: unknown, path: string, errors: Record<string, st
   return value;
 }
 
+function statusLight(value: unknown, errors: Record<string, string>): string {
+  if (value == null || value === "") return "GREEN";
+  if (!isStatusLight(value)) errors.light = "燈號無效";
+  return String(value);
+}
+
 function expectedUpdatedAt(value: unknown, errors: Record<string, string>): string {
   const text = requiredText(value, "expectedUpdatedAt", 80, errors);
   if (text && Number.isNaN(Date.parse(text))) errors.expectedUpdatedAt = "時間格式無效";
@@ -147,7 +154,7 @@ export class SettingsService {
     const results = await this.db.batch([
       this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM departments ORDER BY sort_order,id"),
       this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM customer_categories ORDER BY sort_order,id"),
-      this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM customer_statuses ORDER BY sort_order,id"),
+      this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at,light FROM customer_statuses ORDER BY sort_order,id"),
       this.db.prepare("SELECT id,code,name,group_code,sort_order,is_active FROM regions ORDER BY sort_order,id"),
       this.db.prepare("SELECT id,code,name,parent_id,sort_order,is_active,updated_at FROM item_categories ORDER BY sort_order,id"),
       this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM app_tags ORDER BY sort_order,id"),
@@ -161,6 +168,7 @@ export class SettingsService {
       id: Number(row.id), code: String(row.code), name: String(row.name), sortOrder: Number(row.sort_order),
       isActive: Number(row.is_active) === 1, updatedAt: String(row.updated_at),
       ...(Object.prototype.hasOwnProperty.call(row, "parent_id") ? { parentId: row.parent_id == null ? null : Number(row.parent_id) } : {}),
+      ...(row.light != null ? { light: String(row.light) } : {}),
     }));
     const tagRows = (results[5]?.results ?? []) as Array<{id:number;code:string;name:string;sort_order:number;is_active:number;updated_at:string}>;
     const tagModules = (results[6]?.results ?? []) as Array<{tag_id:number;module_code:string}>;
@@ -188,16 +196,21 @@ export class SettingsService {
     this.assertSuperAdmin(context);
     const meta = LOOKUP_TABLES[kind];
     const errors: Record<string, string> = {};
-    const code = requiredText(raw.code, "code", 80, errors);
+    const status = kind === "customer_status";
+    // Customer statuses (user 2026-11-03): the user names a status and picks its light; the code is assigned here.
+    const code = status ? await this.nextStatusCode() : requiredText(raw.code, "code", 80, errors);
     const name = requiredText(raw.name, "name", 200, errors);
     const sortOrder = nonNegativeInteger(raw.sortOrder, "sortOrder", errors, 0);
     const parentId = meta.hasParent ? positiveId(raw.parentId, "parentId", errors, true) : null;
+    const light = status ? statusLight(raw.light, errors) : null;
     if (Object.keys(errors).length > 0) throw new FieldValidationError(errors);
     if (meta.hasParent && parentId != null) await this.assertItemCategoryParent(null, parentId);
     const mutation = meta.hasParent
       ? this.db.prepare(`INSERT INTO ${meta.table}(code,name,parent_id,sort_order,is_active,updated_at,updated_by) VALUES(?1,?2,?3,?4,1,?5,?6)`).bind(code,name,parentId,sortOrder,context.now,context.actorMemberId)
-      : this.db.prepare(`INSERT INTO ${meta.table}(code,name,sort_order,is_active,updated_at,updated_by) VALUES(?1,?2,?3,1,?4,?5)`).bind(code,name,sortOrder,context.now,context.actorMemberId);
-    try { await this.commitAudited(mutation, {entityType:meta.entityType,entityKey:code,action:"setting.created",actorEmployeeId:context.actorMemberId,occurredAt:context.now,requestId:context.requestId,after:{name,sortOrder,isActive:true,parentId}}); }
+      : status
+        ? this.db.prepare("INSERT INTO customer_statuses(code,name,light,sort_order,is_active,updated_at,updated_by) VALUES(?1,?2,?3,?4,1,?5,?6)").bind(code,name,light,sortOrder,context.now,context.actorMemberId)
+        : this.db.prepare(`INSERT INTO ${meta.table}(code,name,sort_order,is_active,updated_at,updated_by) VALUES(?1,?2,?3,1,?4,?5)`).bind(code,name,sortOrder,context.now,context.actorMemberId);
+    try { await this.commitAudited(mutation, {entityType:meta.entityType,entityKey:code,action:"setting.created",actorEmployeeId:context.actorMemberId,occurredAt:context.now,requestId:context.requestId,after:{name,sortOrder,isActive:true,parentId,...(status?{light}:{})}}); }
     catch { throw new SettingsServiceError("SETTINGS_CONFLICT",409,"設定代碼已存在或參照無效"); }
   }
 
@@ -211,15 +224,19 @@ export class SettingsService {
     const isActive = requiredBoolean(raw.isActive, "isActive", errors);
     const expected = expectedUpdatedAt(raw.expectedUpdatedAt, errors);
     const parentId = meta.hasParent ? positiveId(raw.parentId, "parentId", errors, true) : null;
+    const status = kind === "customer_status";
+    const light = status ? statusLight(raw.light, errors) : null;
     if (Object.keys(errors).length > 0) throw new FieldValidationError(errors);
     if (meta.hasParent && parentId != null) await this.assertItemCategoryParent(settingId, parentId);
-    const before = await this.db.prepare(`SELECT code,name,sort_order,is_active,updated_at${meta.hasParent?',parent_id':''} FROM ${meta.table} WHERE id=?`).bind(settingId).first<Record<string, unknown>>();
+    const before = await this.db.prepare(`SELECT code,name,sort_order,is_active,updated_at${meta.hasParent?',parent_id':''}${status?',light':''} FROM ${meta.table} WHERE id=?`).bind(settingId).first<Record<string, unknown>>();
     if (!before) throw new SettingsServiceError("SETTINGS_NOT_FOUND",404,"設定不存在");
     if (String(before.updated_at) !== expected) throw new SettingsServiceError("SETTINGS_CONFLICT",409,"設定已被其他人修改");
     const mutation = meta.hasParent
       ? this.db.prepare(`UPDATE ${meta.table} SET name=?1,parent_id=?2,sort_order=?3,is_active=?4,updated_at=?5,updated_by=?6 WHERE id=?7 AND updated_at=?8`).bind(name,parentId,sortOrder,isActive?1:0,context.now,context.actorMemberId,settingId,expected)
-      : this.db.prepare(`UPDATE ${meta.table} SET name=?1,sort_order=?2,is_active=?3,updated_at=?4,updated_by=?5 WHERE id=?6 AND updated_at=?7`).bind(name,sortOrder,isActive?1:0,context.now,context.actorMemberId,settingId,expected);
-    await this.commitAudited(mutation, {entityType:meta.entityType,entityKey:String(settingId),action:"setting.changed",actorEmployeeId:context.actorMemberId,occurredAt:context.now,requestId:context.requestId,before:{name:before.name,sortOrder:before.sort_order,isActive:Number(before.is_active)===1,parentId:before.parent_id??null},after:{name,sortOrder,isActive,parentId}});
+      : status
+        ? this.db.prepare("UPDATE customer_statuses SET name=?1,light=?2,sort_order=?3,is_active=?4,updated_at=?5,updated_by=?6 WHERE id=?7 AND updated_at=?8").bind(name,light,sortOrder,isActive?1:0,context.now,context.actorMemberId,settingId,expected)
+        : this.db.prepare(`UPDATE ${meta.table} SET name=?1,sort_order=?2,is_active=?3,updated_at=?4,updated_by=?5 WHERE id=?6 AND updated_at=?7`).bind(name,sortOrder,isActive?1:0,context.now,context.actorMemberId,settingId,expected);
+    await this.commitAudited(mutation, {entityType:meta.entityType,entityKey:String(settingId),action:"setting.changed",actorEmployeeId:context.actorMemberId,occurredAt:context.now,requestId:context.requestId,before:{name:before.name,sortOrder:before.sort_order,isActive:Number(before.is_active)===1,parentId:before.parent_id??null,...(status?{light:before.light}:{})},after:{name,sortOrder,isActive,parentId,...(status?{light}:{})}});
   }
 
   async createAppTag(raw: CreateAppTagRequest, context: SettingsMutationContext): Promise<void> {
@@ -291,6 +308,12 @@ export class SettingsService {
     }
     if (raw.expectedRevision !== before.revision) throw new SettingsServiceError("SETTINGS_CONFLICT",409,"WorkLog 計分設定已被其他人修改");
     await this.commitAudited(this.db.prepare("UPDATE work_log_scoring_config SET target_average_daily_score=?1,minimum_average_daily_score=?2,updated_at=?3,updated_by=?4,revision=revision+1 WHERE id=1 AND revision=?5").bind(target,minimum,context.now,context.actorMemberId,before.revision), { ...event, action:"setting.changed",before:{targetAverageDailyScore:before.target_average_daily_score,minimumAverageDailyScore:before.minimum_average_daily_score} });
+  }
+
+  /** S + the next number, above every S-number already used (the legacy seed is S01–S10). */
+  private async nextStatusCode(): Promise<string> {
+    const row = await this.db.prepare("SELECT COALESCE(MAX(CAST(substr(code,2) AS INTEGER)),0)+1 AS next FROM customer_statuses WHERE code GLOB 'S[0-9]*' AND substr(code,2) NOT GLOB '*[^0-9]*'").first<{ next: number }>();
+    return "S" + String(row?.next ?? 1).padStart(2, "0");
   }
 
   private async commitAudited(mutation: D1PreparedStatement, event: AuditEventInput): Promise<void> {

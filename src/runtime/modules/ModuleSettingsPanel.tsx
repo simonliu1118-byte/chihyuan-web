@@ -5,8 +5,13 @@ import { Loading } from "../../ui/feedback/Loading";
 import { Dialog } from "../../ui/overlays/Dialog";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
-import { useNavigationGuard, useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
-import { useEffect, useState, type FormEvent } from "react";
+import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
+import { useConfirmation } from "../../ui/overlays/useConfirmation";
+import { STATUS_LIGHTS } from "../../../shared/taiwan-regions";
+import { StatusName } from "./customer/StatusName";
+import "./module-settings.css";
+import { SETTINGS_SAVED_EVENT } from "./settings-events";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { SettingsSnapshot, LookupSetting, WorkLogScoringRowSetting } from "../../../shared/settings";
 import { ApiClientError } from "../../api/client";
 import { loadSettings, saveSetting } from "../api/settings-audit-client";
@@ -25,9 +30,10 @@ const allSections: { key: Section; label: string; structural?: boolean }[] = [
 ];
 interface Draft {
   id?: number; code: string; name: string; sortOrder: number; isActive: boolean; expectedUpdatedAt?: string;
-  parentId: number | null; inputMode: "boolean" | "quantity"; unitLabel: string;
+  parentId: number | null; inputMode: "boolean" | "quantity"; unitLabel: string; light: string;
 }
-const blank = (): Draft => ({ code: "", name: "", sortOrder: 0, isActive: true, parentId: null, inputMode: "boolean", unitLabel: "" });
+const blank = (): Draft => ({ code: "", name: "", sortOrder: 0, isActive: true, parentId: null, inputMode: "boolean", unitLabel: "", light: "GREEN" });
+
 function message(error: unknown): string {
   if (error instanceof ApiClientError && error.fields) return Object.values(error.fields).join("；");
   return error instanceof Error ? error.message : "資料暫時無法讀取";
@@ -43,7 +49,9 @@ function rowsFor(snapshot: SettingsSnapshot, section: Section): readonly LookupS
     default: return [];
   }
 }
-export function ModuleSettingsPanel({ role, only }: { role: "ADMIN" | "SUPER_ADMIN" | "USER"; only: readonly SettingsSection[] }) {
+export function ModuleSettingsPanel({ role, only, onDirtyChange }: {
+  role: "ADMIN" | "SUPER_ADMIN" | "USER"; only: readonly SettingsSection[]; onDirtyChange?: (dirty: boolean) => void;
+}) {
   const sections = allSections.filter((row) => only.includes(row.key));
   const [snapshot, setSnapshot] = useState<SettingsSnapshot | null>(null);
   const [section, setSection] = useState<Section>(sections[0].key);
@@ -54,7 +62,9 @@ export function ModuleSettingsPanel({ role, only }: { role: "ADMIN" | "SUPER_ADM
   const [target, setTarget] = useState("");
   const [minimum, setMinimum] = useState("");
   const [score, setScore] = useState<Partial<WorkLogScoringRowSetting> | null>(null);
-  useUnsavedChangesGuard({ active: draft !== null || score !== null || (!!snapshot && (target !== (snapshot.workLogScoringConfig?.targetAverageDailyScore ?? "") || minimum !== (snapshot.workLogScoringConfig?.minimumAverageDailyScore ?? ""))), blocked: busy });
+  const dirty = draft !== null || score !== null || (!!snapshot && (target !== (snapshot.workLogScoringConfig?.targetAverageDailyScore ?? "") || minimum !== (snapshot.workLogScoringConfig?.minimumAverageDailyScore ?? "")));
+  useUnsavedChangesGuard({ active: dirty, blocked: busy });
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
   function install(data: SettingsSnapshot) {
     setSnapshot(data); setTarget(data.workLogScoringConfig?.targetAverageDailyScore ?? ""); setMinimum(data.workLogScoringConfig?.minimumAverageDailyScore ?? "");
   }
@@ -65,24 +75,30 @@ export function ModuleSettingsPanel({ role, only }: { role: "ADMIN" | "SUPER_ADM
   }, []);
   async function save(path: string, method: "POST" | "PATCH" | "PUT", input: unknown) {
     setBusy(true); setError(""); setNotice("");
-    try { await saveSetting(path, method, input); install(await loadSettings()); setDraft(null); setScore(null); setNotice("設定已儲存"); }
+    try {
+      await saveSetting(path, method, input); install(await loadSettings()); setDraft(null); setScore(null); setNotice("設定已儲存");
+      window.dispatchEvent(new CustomEvent(SETTINGS_SAVED_EVENT));
+    }
     catch (e) { setError(message(e)); }
     finally { setBusy(false); }
   }
   async function submit(event: FormEvent) {
     event.preventDefault(); if (!draft) return;
     const prefix = sections.find(row => row.key === section)?.structural ? `lookups/${section}` : section;
+    const { light, ...rest } = draft;
     await save(`${prefix}${draft.id ? `/${draft.id}` : ""}`, draft.id ? "PATCH" : "POST", {
-      ...draft, unitLabel: draft.unitLabel || null,
+      ...rest, unitLabel: draft.unitLabel || null, ...(section === "customer_status" ? { light } : {}),
     });
   }
   function edit(row: LookupSetting) {
     const category = snapshot?.workLogCategories.find(item => item.id === row.id);
-    setDraft({ ...blank(), ...row, parentId: row.parentId ?? null, expectedUpdatedAt: row.updatedAt,
+    setDraft({ ...blank(), ...row, parentId: row.parentId ?? null, light: row.light ?? "GREEN", expectedUpdatedAt: row.updatedAt,
       ...(section === "worklog-categories" ? { inputMode: category?.inputMode ?? "boolean", unitLabel: category?.unitLabel ?? "" } : {}) });
     setNotice("");
   }
   const structural = sections.find(row => row.key === section)?.structural;
+  // Customer statuses (user 2026-11-03): a name and a light; the server assigns the code.
+  const status = section === "customer_status";
   const editable = !structural || role === "SUPER_ADMIN";
   const rows = snapshot ? rowsFor(snapshot, section) : [];
   return <>
@@ -110,31 +126,44 @@ export function ModuleSettingsPanel({ role, only }: { role: "ADMIN" | "SUPER_ADM
     </FormSection>
   </form> : null}
     </> : <>
-      <section className="cy-op-panel"><div className="cy-op-panel-header"><h2>{sections.find(row => row.key === section)?.label}</h2>{!editable ? <span>僅超級管理員可修改</span> : null}</div><table className="cy-op-table"><thead><tr><th>代碼</th><th>名稱</th><th>排序</th><th>狀態</th><th></th></tr></thead><tbody>{rows.map(row => <tr key={row.id}><td>{row.code}</td><td>{row.name}</td><td>{row.sortOrder}</td><td>{row.isActive ? "啟用" : "停用"}</td><td>{editable ? <button className="cy-op-button" disabled={busy} onClick={() => edit(row)}>修改</button> : null}</td></tr>)}</tbody></table>{!rows.length ? <p>尚無設定資料。</p> : null}</section>
+      <section className="cy-op-panel"><div className="cy-op-panel-header"><h2>{sections.find(row => row.key === section)?.label}</h2>{!editable ? <span>僅超級管理員可修改</span> : null}</div><table className="cy-op-table"><thead><tr>{status ? null : <th>代碼</th>}<th>名稱</th><th>排序</th><th>狀態</th><th></th></tr></thead><tbody>{rows.map(row => <tr key={row.id}>{status ? null : <td>{row.code}</td>}<td>{status ? <StatusName status={row} /> : row.name}</td><td>{row.sortOrder}</td><td>{row.isActive ? "啟用" : "停用"}</td><td>{editable ? <button className="cy-op-button" disabled={busy} onClick={() => edit(row)}>修改</button> : null}</td></tr>)}</tbody></table>{!rows.length ? <p>尚無設定資料。</p> : null}</section>
       {draft ? <form onKeyDown={enterAdvancesFields} className="cy-op-panel cy-op-form-card" onSubmit={submit}>
-    <FormSection><h2>{draft.id ? "編輯" : "新增"}設定</h2><div className="cy-op-grid-two"><Field label="代碼" size="m" required><input className="cy-op-input" maxLength={80} disabled={draft.id != null || busy} value={draft.code} onChange={e => setDraft({ ...draft, code: e.target.value })} /></Field><Field label="名稱" size="m" required><input className="cy-op-input" maxLength={200} value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} /></Field><Field label="排序" size="s"><input className="cy-op-input" type="number" min="0" step="1" value={draft.sortOrder} onChange={e => setDraft({ ...draft, sortOrder: Number(e.target.value) })} /></Field>{section === "item_category" ? <Field label="上層分類" size="m"><select className="cy-op-input" value={draft.parentId ?? ""} onChange={e => setDraft({ ...draft, parentId: e.target.value ? Number(e.target.value) : null })}><option value="">無</option>{snapshot.itemCategories.filter(c => c.id !== draft.id).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field> : null}{section === "worklog-categories" ? <><Field label="輸入方式" size="m"><select className="cy-op-input" value={draft.inputMode} onChange={e => setDraft({ ...draft, inputMode: e.target.value as "boolean" | "quantity" })}><option value="boolean">是否完成</option><option value="quantity">數量</option></select></Field><Field label="數量單位" size="s"><input className="cy-op-input" value={draft.unitLabel} onChange={e => setDraft({ ...draft, unitLabel: e.target.value })} /></Field></> : null}{draft.id ? <CheckField  label="啟用" size="s"  checked={draft.isActive} onChange={e => setDraft({ ...draft, isActive: e.target.checked })} /> : null}</div><div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => setDraft(null)}>取消</button><button className="cy-op-button primary" disabled={busy}>儲存</button></div>
+    <FormSection><h2>{draft.id ? "編輯" : "新增"}設定</h2><div className="cy-op-grid-two">{status ? null : <Field label="代碼" size="m" required><input className="cy-op-input" maxLength={80} disabled={draft.id != null || busy} value={draft.code} onChange={e => setDraft({ ...draft, code: e.target.value })} /></Field>}<Field label="名稱" size="m" required><input className="cy-op-input" maxLength={200} value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} /></Field><Field label="排序" size="s"><input className="cy-op-input" type="number" min="0" step="1" value={draft.sortOrder} onChange={e => setDraft({ ...draft, sortOrder: Number(e.target.value) })} /></Field>{status ? <div className="cy-settings-lights" role="radiogroup" aria-label="燈號"><span className="cy-settings-lights-label">燈號</span>
+      {STATUS_LIGHTS.map(light => <button key={light.code} type="button" role="radio" aria-checked={draft.light === light.code}
+        className={"cy-settings-light-option" + (draft.light === light.code ? " selected" : "")} disabled={busy}
+        onClick={() => setDraft({ ...draft, light: light.code })}><StatusName status={{ name: light.label, light: light.code }} /></button>)}</div> : null}{section === "item_category" ? <Field label="上層分類" size="m"><select className="cy-op-input" value={draft.parentId ?? ""} onChange={e => setDraft({ ...draft, parentId: e.target.value ? Number(e.target.value) : null })}><option value="">無</option>{snapshot.itemCategories.filter(c => c.id !== draft.id).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field> : null}{section === "worklog-categories" ? <><Field label="輸入方式" size="m"><select className="cy-op-input" value={draft.inputMode} onChange={e => setDraft({ ...draft, inputMode: e.target.value as "boolean" | "quantity" })}><option value="boolean">是否完成</option><option value="quantity">數量</option></select></Field><Field label="數量單位" size="s"><input className="cy-op-input" value={draft.unitLabel} onChange={e => setDraft({ ...draft, unitLabel: e.target.value })} /></Field></> : null}{draft.id ? <CheckField  label="啟用" size="s"  checked={draft.isActive} onChange={e => setDraft({ ...draft, isActive: e.target.checked })} /> : null}</div><div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={() => setDraft(null)}>取消</button><button className="cy-op-button primary" disabled={busy}>儲存</button></div>
     </FormSection>
   </form> : null}
     </>}
   </>;
 }
 
-/** Open module-specific settings in a large dialog, preserving existing permissions and forms. */
+/**
+ * Open module-specific settings in a dialog. Closing asks only about this dialog's own unsaved edits:
+ * the app-wide guard ("切換模組？") is for leaving a module, not for closing a dialog (V0.9.97 bug).
+ */
 export function ModuleSettingsButton({ role, label, only }: {
   role: "ADMIN" | "SUPER_ADMIN" | "USER"; label: string; only: readonly SettingsSection[];
 }) {
   const [open, setOpen] = useState(false);
-  const { canLeave } = useNavigationGuard();
+  const dirty = useRef(false);
+  const onDirtyChange = useCallback((value: boolean) => { dirty.current = value; }, []);
+  const { confirm, confirmationDialog } = useConfirmation();
   async function close() {
-    if (await canLeave()) setOpen(false);
+    if (dirty.current && !(await confirm({ title: "放棄尚未儲存的設定？", description: "目前新增或修改的設定尚未儲存，確定關閉？",
+      confirmLabel: "放棄並關閉", confirmTone: "danger" }))) return;
+    dirty.current = false;
+    setOpen(false);
   }
   if (role === "USER") return null;
+  const wide = only.includes("scoring");
   return <>
     <button className="cy-op-button cy-module-settings-trigger" type="button" onClick={() => setOpen(true)}>
       <span aria-hidden="true">{Icons.settings}</span> 設定
     </button>
-    {open ? <Dialog open title={label + "設定"} size="large" onClose={() => void close()}>
-      <ModuleSettingsPanel role={role} only={only} />
+    {open ? <Dialog open title={label + "設定"} size={wide ? "large" : "medium"} className="cy-module-settings-dialog" onClose={() => void close()}>
+      <ModuleSettingsPanel role={role} only={only} onDirtyChange={onDirtyChange} />
     </Dialog> : null}
+    {confirmationDialog}
   </>;
 }

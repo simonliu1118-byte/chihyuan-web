@@ -17,6 +17,8 @@ export interface NormalizedCustomerProfile {
   shortName: string;
   fullName: string | null;
   taxId: string | null;
+  paymentTerms: string | null;
+  invoiceType: string | null;
   customerCategoryId: number | null;
   regionId: number | null;
   ownerDepartmentId: number | null;
@@ -182,7 +184,7 @@ function normalizeContacts(input: Record<string, unknown>, errors: Record<string
     if (typeof isActive !== "boolean") errors[`${path}.isActive`] = "必須是布林值";
     return {
       id: optionalChildId(row, path, errors),
-      name: requiredTextFrom(row, "name", errors, 120),
+      name: optionalTextFrom(row, "name", errors, 120),
       departmentName: optionalTextFrom(row, "departmentName", errors, 120),
       title: optionalTextFrom(row, "title", errors, 120),
       phone: optionalTextFrom(row, "phone", errors, 120),
@@ -206,7 +208,7 @@ function normalizeAddresses(input: Record<string, unknown>, errors: Record<strin
     return {
       id: optionalChildId(row, path, errors),
       postalCode,
-      address: requiredTextFrom(row, "address", errors, 500),
+      address: optionalTextFrom(row, "address", errors, 500),
       note: optionalTextFrom(row, "note", errors, 240),
       sortOrder: sortOrderFrom(row, path, index, errors),
     };
@@ -221,10 +223,13 @@ function normalizeNotes(input: Record<string, unknown>, errors: Record<string, s
       : {};
     if (Object.keys(row).length === 0) errors[path] = "格式錯誤";
     const content = requiredTextFrom(row, "content", errors, CUSTOMER_LIMITS.noteLength);
-    if (/[\r\n]/.test(content)) errors[`${path}.content`] = "重要註記為單行";
+    if (/[\r\n]/.test(content)) errors[`${path}.content`] = "備註為單行";
+    const isImportant = row.isImportant == null ? false : row.isImportant;
+    if (typeof isImportant !== "boolean") errors[`${path}.isImportant`] = "必須是布林值";
     return {
       id: optionalChildId(row, path, errors),
       content,
+      isImportant: isImportant === true,
       sortOrder: sortOrderFrom(row, path, index, errors),
     };
   });
@@ -237,13 +242,16 @@ function normalizeProfile(raw: unknown): NormalizedCustomerProfile {
 
   const customerNo = bag.optionalText("customerNo", { maxLength: CUSTOMER_LIMITS.customerNo });
   const shortName = bag.requiredText("shortName", { maxLength: CUSTOMER_LIMITS.shortName }) ?? "";
-  const fullName = bag.optionalText("fullName", { maxLength: 240 });
+  // Required (user 2026-11-03): 簡稱、全稱、分類、地區、狀態. Contacts and addresses are optional throughout.
+  const fullName = bag.requiredText("fullName", { maxLength: 240 });
   const taxId = bag.optionalText("taxId", { maxLength: 8 });
-  const customerCategoryId = bag.optionalPositiveInteger("customerCategoryId");
-  const regionId = bag.optionalPositiveInteger("regionId");
+  const paymentTerms = bag.optionalText("paymentTerms", { maxLength: CUSTOMER_LIMITS.termsLength });
+  const invoiceType = bag.optionalText("invoiceType", { maxLength: CUSTOMER_LIMITS.termsLength });
+  const customerCategoryId = bag.requiredPositiveInteger("customerCategoryId");
+  const regionId = bag.requiredPositiveInteger("regionId");
   const ownerDepartmentId = bag.optionalPositiveInteger("ownerDepartmentId");
   const ownerEmployeeId = bag.optionalPositiveInteger("ownerEmployeeId");
-  const customerStatusId = bag.optionalPositiveInteger("customerStatusId");
+  const customerStatusId = bag.requiredPositiveInteger("customerStatusId");
 
   Object.assign(errors, bag.fields());
 
@@ -257,7 +265,8 @@ function normalizeProfile(raw: unknown): NormalizedCustomerProfile {
   const addresses = normalizeAddresses(input, errors);
   const notes = normalizeNotes(input, errors);
   if (phones.filter(row => row.kind === "FAX").length > CUSTOMER_LIMITS.faxes) errors.phones = `傳真最多 ${CUSTOMER_LIMITS.faxes} 筆`;
-  if (notes.length > CUSTOMER_LIMITS.notes) errors.notes = `重要註記最多 ${CUSTOMER_LIMITS.notes} 筆`;
+  if (notes.length > CUSTOMER_LIMITS.notes) errors.notes = `備註最多 ${CUSTOMER_LIMITS.notes} 筆`;
+  else if (notes.filter(row => row.isImportant).length > CUSTOMER_LIMITS.importantNotes) errors.notes = `重要備註最多 ${CUSTOMER_LIMITS.importantNotes} 筆`;
   const confirmDuplicateTaxId = optionalBoolean(input, "confirmDuplicateTaxId", errors);
 
   if (Object.keys(errors).length > 0) throw new FieldValidationError(errors);
@@ -267,6 +276,8 @@ function normalizeProfile(raw: unknown): NormalizedCustomerProfile {
     shortName,
     fullName,
     taxId,
+    paymentTerms,
+    invoiceType,
     customerCategoryId,
     regionId,
     ownerDepartmentId,

@@ -28,7 +28,8 @@ import { useFormPrompt } from "../../ui/overlays/useFormPrompt";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useSettingsSaved } from "./settings-events";
 import type { ItemModuleLookups } from "../../../shared/business-lookups";
 import type {
   ItemCostTaxMode,
@@ -290,6 +291,8 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
   }
 
 
+  const [lookupEpoch, setLookupEpoch] = useState(0);
+  useSettingsSaved(useCallback(() => setLookupEpoch(value => value + 1), []));
   useEffect(() => {
     let cancelled = false;
     void loadItemLookups()
@@ -302,7 +305,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [lookupEpoch]);
 
   useEffect(() => {
     let cancelled = false;

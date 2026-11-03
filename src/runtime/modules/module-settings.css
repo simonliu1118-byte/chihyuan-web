@@ -1,0 +1,7 @@
+/* Module settings dialog (V0.9.97): narrower than the earlier large dialog; light picker for statuses. */
+.cy-module-settings-dialog.cy-dialog-medium .cy-dialog-surface { width: min(540px, calc(100vw - 32px)); }
+.cy-settings-lights { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.cy-settings-lights-label { flex: 1 1 100%; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 600; }
+.cy-settings-light-option { display: inline-flex; align-items: center; padding: 4px 8px; border: 1px solid var(--cy-border);
+  border-radius: 999px; background: var(--cy-surface); color: var(--cy-text); font: inherit; cursor: pointer; }
+.cy-settings-light-option.selected { border-color: var(--cy-accent); box-shadow: inset 0 0 0 1px var(--cy-accent); background: var(--cy-accent-soft); }

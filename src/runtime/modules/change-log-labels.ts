@@ -103,7 +103,7 @@ const fields:Record<string,string> = {
   graduationMonth:"畢業年月",jobTitle:"職稱",startMonth:"開始年月",endMonth:"結束年月",name:"名稱",
   shortName:"簡稱",fullName:"完整名稱",displayName:"姓名",code:"代碼",customerNo:"客戶編號",
   itemNo:"品號",workOrderRef:"工單編號",outsourcingRef:"代工單號",customerNameSnapshot:"客戶名稱",itemNameSnapshot:"商品名稱",
-  taxId:"統一編號",phone:"電話",mobile:"手機",fax:"傳真",address:"地址",
+  taxId:"統一編號",paymentTerms:"付款條件",invoiceType:"發票開立",light:"燈號",isImportant:"重要",phone:"電話",mobile:"手機",fax:"傳真",address:"地址",
   note:"備註",description:"說明",content:"內容",reason:"原因",quantity:"數量",
   unit:"單位",unitPrice:"單價",totalAmount:"總金額",amount:"金額",scoreValue:"分數",
   categoryId:"分類",customerCategoryId:"客戶分類",customerStatusId:"客戶狀態",regionId:"地區",ownerDepartmentId:"負責部門",

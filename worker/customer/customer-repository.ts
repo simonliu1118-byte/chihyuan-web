@@ -24,6 +24,8 @@ type CustomerSummaryRow = {
   short_name: string;
   full_name: string | null;
   tax_id: string | null;
+  payment_terms: string | null;
+  invoice_type: string | null;
   category_id: number | null;
   category_code: string | null;
   category_name: string | null;
@@ -82,6 +84,7 @@ type CustomerAddressRow = {
 type CustomerNoteRow = {
   id: number;
   content: string;
+  is_important: number;
   sort_order: number;
 };
 
@@ -145,6 +148,8 @@ const CUSTOMER_SELECT_FIELDS = `
     c.short_name,
     c.full_name,
     c.tax_id,
+    c.payment_terms,
+    c.invoice_type,
     cc.id AS category_id,
     cc.code AS category_code,
     cc.name AS category_name,
@@ -194,6 +199,8 @@ function toSummary(row: CustomerSummaryRow): CustomerSummary {
     shortName: row.short_name,
     fullName: row.full_name,
     taxId: row.tax_id,
+    paymentTerms: row.payment_terms,
+    invoiceType: row.invoice_type,
     category: toLookup(row.category_id, row.category_code, row.category_name),
     region: toLookup(row.region_id, row.region_code, row.region_name),
     ownerDepartment: toLookup(
@@ -333,7 +340,7 @@ export class CustomerRepository {
          ORDER BY sort_order ASC, id ASC
       `).bind(customerId),
       this.db.prepare(`
-        SELECT id, content, sort_order
+        SELECT id, content, is_important, sort_order
           FROM customer_notes
          WHERE customer_id = ?
          ORDER BY sort_order ASC, id ASC
@@ -382,6 +389,7 @@ export class CustomerRepository {
       notes: notes.map<CustomerNote>((row) => ({
         id: row.id,
         content: row.content,
+        isImportant: Number(row.is_important) === 1,
         sortOrder: row.sort_order,
       })),
     };

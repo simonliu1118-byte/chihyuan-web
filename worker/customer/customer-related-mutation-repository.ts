@@ -116,8 +116,9 @@ export class CustomerRelatedMutationRepository {
   }
 
   async activeContactName(customerId: number, contactId: number): Promise<string | null> {
+    // A contact's name is optional (0047); the snapshot then names it by department or title.
     const row = await this.db.prepare(`
-      SELECT name
+      SELECT COALESCE(NULLIF(trim(name), ''), NULLIF(trim(department_name), ''), NULLIF(trim(title), ''), '聯絡人') AS name
         FROM customer_contacts
        WHERE id = ?1
          AND customer_id = ?2
