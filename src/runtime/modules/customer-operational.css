@@ -61,9 +61,13 @@
 /* Customer-only density: RelatedCard / facts are also used by Item and HR. */
 .cy-customer-workspace .cy-record-header { padding-bottom: 8px; }
 .cy-customer-identity { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 6px; }
+.cy-customer-identity-no { margin-right: 6px; font-size: .9em; }
+/* List: the customer number is plain weight with a little more room before the short name (user 2026-11-03). */
+.cy-customer-result-main strong .cy-customer-result-no { margin-right: 8px; font-weight: 400; color: var(--cy-text); }
+.cy-customer-updated { margin: 0; text-align: right; }
 .cy-record-title-note {
   margin-left: 4px;
-  color: var(--cy-text-muted);
+  color: var(--cy-text);
   font-size: var(--cy-fs-md);
   font-weight: 400;
 }

@@ -6,6 +6,11 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.98 — 客戶抬頭微調（2026-11-03，Claude）
+- 「最後修改」移到三張紀錄卡片下方（靠右）。
+- 抬頭的客戶全稱改黑字（粗細不變）；客戶編號字略小，與簡稱距離加大。
+- 左側清單：客戶編號不加粗，與簡稱距離加大。
+
 ## CY Web V0.9.97 — 客戶設定、地區、狀態燈號與欄位調整（2026-11-03，Claude）
 - 修正：模組「設定」視窗按 X 會跳「切換模組？」。設定視窗改成只問自己尚未儲存的設定；全站檢查後只有這一處誤用全域離開提醒。
 - 在設定新增或修改客戶分類、狀態、負責部門後，客戶頁的下拉選單立即更新，不必重新整理（商品分類、工作日誌設定同樣立即更新）。
