@@ -32,7 +32,7 @@ test("backup history groups both provider states under one table event and uses 
 });
 test("server retry capability and busy state gate both desktop and mobile controls", () => {
   assert.doesNotMatch(render({ ...row, canRetry: false }), /重試 GCS/);
-  assert.match(render(row, true), /button[^>]*disabled=""[^>]*>重試 GCS/);
+  assert.match(render(row, true), /aria-label="重試 GCS"[^>]*disabled=""|disabled=""[^>]*aria-label="重試 GCS"/);
 });
 test("empty and unknown-state history gives bounded explanatory text", () => {
   assert.match(render(null, false, false), /儲存設定完成後才能建立備份/);
@@ -42,7 +42,7 @@ test("rehearsal control requires server capability and a verified copy; busy dis
   assert.doesNotMatch(render(), /驗證隔離還原/);
   assert.doesNotMatch(render({ ...row, copies: [] }, false, true, true), /驗證隔離還原/);
   assert.match(render(row, false, true, true), /驗證隔離還原/);
-  assert.match(render(row, true, true, true), /button[^>]*disabled=""[^>]*>驗證隔離還原/);
+  assert.match(render(row, true, true, true), /aria-label="驗證隔離還原"[^>]*disabled=""|disabled=""[^>]*aria-label="驗證隔離還原"/);
 });
 
 test("rehearsal history shows failed phase and safe error without exposing technical exception", () => {

@@ -6,6 +6,9 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.10.9 — 備份操作欄改圖示（2026-11-04，Claude）
+- 備份紀錄的「重試 GCS」「驗證隔離還原」改為並排的小圖示按鈕（滑鼠移上顯示名稱；新增共用圖示 `retry`、`verify`），欄位內距與編號字級微調。實測 1700 寬、兩種動作同時出現時整列仍完整放下、不換行；更窄時表格左右捲動。
+
 ## CY Web V0.10.8 — 備份操作欄、客戶業務資料標題（2026-11-04，Claude）
 - 備份紀錄的「操作」移到最右邊，且只有某筆備份可重試 GCS 或驗證隔離還原時才出現；儲存副本欄縮窄。
 - 隔離還原驗證紀錄的「requestId」改稱「請求編號」。

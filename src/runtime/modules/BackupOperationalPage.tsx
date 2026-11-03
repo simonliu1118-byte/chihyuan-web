@@ -10,6 +10,8 @@ import { Dialog } from "../../ui/overlays/Dialog";
 import { CyInvoiceRecoveryAdminPanel } from "../../identity/CyInvoiceRecoveryAdminPanel";
 import type { AuthSession } from "../../auth/auth-client";
 import "./backup-operational.css";
+import { IconButton } from "../../ui/actions/IconButton";
+import { Icons } from "../../ui/actions/icons";
 
 const statuses: Record<string, string> = { creating: "建立中", verified: "已驗證", failed: "失敗", pending: "待完成",
   absent: "本次未排定", deleting: "到期處理中", deleted: "已到期移除", expired: "已到期" };
@@ -37,11 +39,11 @@ function completion(row: BackupHistoryEntry | undefined): string {
 }
 export function BackupHistoryView({ history, busy, retry, rehearse }: { history: BackupHistory; busy: boolean; retry: (id: string) => void;
   rehearse?: (row: BackupHistoryEntry) => void }) {
-  const action = (row: BackupHistoryEntry) => <div className="cy-op-page-actions">
-    {row.canRetry ? <button className="cy-op-button" type="button" disabled={busy} onClick={() => retry(row.backupId)}>重試 GCS</button> : null}
+  // Compact icon buttons side by side, so the one-line table still fits (user 2026-11-04); the name shows on hover.
+  const action = (row: BackupHistoryEntry) => <div className="cy-backup-actions">
+    {row.canRetry ? <IconButton variant="table" icon={Icons.retry} label="重試 GCS" disabled={busy} onClick={() => retry(row.backupId)} /> : null}
     {history.recoveryReady && rehearse && row.copies.some(copy => copy.status === "verified")
-      ? <button className="cy-op-button" type="button" disabled={busy} onClick={() => rehearse(row)}>驗證隔離還原</button> : null}
-    {!row.canRetry && !(history.recoveryReady && rehearse && row.copies.some(copy => copy.status === "verified")) ? <span>—</span> : null}
+      ? <IconButton variant="table" icon={Icons.verify} label="驗證隔離還原" disabled={busy} onClick={() => rehearse(row)} /> : null}
   </div>;
   // One line per backup (user 2026-11-04); 備份編號 and 資料摘要 open under the row on click, like 修改紀錄.
   const kind = (row: BackupHistoryEntry) => row.triggerKind === "scheduled" ? "排程備份" : row.triggerKind === "pre_restore" ? "還原前安全備份" : "手動備份";
