@@ -47,7 +47,10 @@
 .cy-backup-row:hover>td{background:var(--cy-surface-muted)}
 .cy-backup-row.open>td{background:var(--cy-accent-soft)}
 .cy-backup-time{font-variant-numeric:tabular-nums;white-space:nowrap}
-.cy-backup-caret{width:100%;height:30px;padding:0;border:0;background:transparent;color:var(--cy-text-muted);cursor:pointer;font-size:12px}
+.cy-backup-caret{display:grid;place-items:center;width:100%;height:30px;padding:0;border:0;background:transparent;color:var(--cy-text);cursor:pointer}
+.cy-backup-caret .cy-icon{width:18px;height:18px;transition:transform .15s}
+.cy-backup-caret[aria-expanded="true"] .cy-icon{transform:rotate(90deg)}
+@media (prefers-reduced-motion:reduce){.cy-backup-caret .cy-icon{transition:none}}
 .cy-backup-caret:focus-visible{outline:2px solid var(--cy-accent);outline-offset:-2px}
 .cy-backup-table .cy-backup-copies{display:flex;gap:6px;flex-wrap:nowrap}
 .cy-backup-table .cy-backup-copy{padding:1px 8px;font-size:var(--cy-fs-sm);white-space:nowrap;flex-wrap:nowrap;gap:.35rem}
