@@ -53,7 +53,11 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  useEffect(()=>{cancelAllTimers();draftsRef.current=[empty(section,-1)];setDrafts(draftsRef.current);nextTemp.current=-2;inFlight.current.clear();savedDrafts.current.clear();savedRowKeys.current.clear();cellSaves.current.clear();wantFinal.current.clear();unfinal.current.clear();editingRef.current={};setEditing({});setSaveError(false)},[section,kind]);
  const fields=columns[kind];
  const mappedIds=new Set([...savedDrafts.current.values()].map(x=>x.line.id));
- const sectionLines=lines.filter(x=>x.section===section);
+ // Drag ordering is optimistic (user 2026-11-03): the dropped order shows at once and stays while it
+ // saves in the background; new lines from the server (or a failed save) replace it.
+ const [localOrder,setLocalOrder]=useState<number[]|null>(null);
+ useEffect(()=>{setLocalOrder(null)},[lines]);
+ const sectionLines=(()=>{const rows=lines.filter(x=>x.section===section);if(!localOrder)return rows;const at=new Map(localOrder.map((id,i)=>[id,i]));return rows.slice().sort((a,b)=>(at.get(a.id)??1e9)-(at.get(b.id)??1e9))})();
  const sorted=(rows:GridLine[])=>sort?rows.slice().sort((a,b)=>sort.dir*collator.compare(String(a[sort.field as keyof GridLine]??""),String(b[sort.field as keyof GridLine]??""))||a.sortOrder-b.sortOrder):rows;
  const visible=readOnly?sorted(sectionLines):[...sorted(sectionLines.filter(x=>!mappedIds.has(x.id))),...drafts];
  const canDrag=!readOnly&&!sort&&!!onReorder&&!busy;
@@ -63,7 +67,8 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
   if(from===null||from===targetId||!onReorder)return;
   const ids=sectionLines.map(x=>x.id),a=ids.indexOf(from),b=ids.indexOf(targetId);if(a<0||b<0)return;
   ids.splice(a,1);ids.splice(b,0,from);
-  runAction(()=>onReorder(ids));
+  setLocalOrder(ids);
+  runAction(()=>onReorder(ids).catch(error=>{setLocalOrder(null);throw error}));
  };
  // A saved 廠商品名 that still follows 品名 edits as empty (品名 shows as its placeholder), so typing
  // your own never starts by deleting a copy; leaving it empty keeps following 品名.

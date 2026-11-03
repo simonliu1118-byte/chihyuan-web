@@ -216,3 +216,8 @@
 .cy-note-star{display:block;width:100%;height:34px;border:0;background:transparent;color:var(--cy-text-muted);font-size:18px;line-height:1;cursor:pointer;text-align:center}
 .cy-note-star.on{color:#e0a100}
 span.cy-note-star{height:auto;font-size:16px}
+
+/* Status pill in the record header (V0.9.100). */
+.cy-customer-identity-status { align-self: center; margin-left: 4px; }
+.cy-customer-edit-title { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
+.cy-customer-edit-title h2 { margin: 0; }

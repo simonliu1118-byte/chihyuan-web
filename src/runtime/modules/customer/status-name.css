@@ -1,12 +1,24 @@
-/* Customer status light (V0.9.97). */
-.cy-status-light-name { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.cy-status-light { flex: none; width: 10px; height: 10px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 12%);
-  display: inline-grid; place-items: center; font-size: 10px; line-height: 1; font-weight: 700; }
-.cy-status-light.green { background: #22a45d; }
-.cy-status-light.blue { background: #2f6fde; }
-.cy-status-light.yellow { background: #f2c230; }
-.cy-status-light.orange { background: #f08a24; }
-.cy-status-light.red { background: #d93a3a; }
-.cy-status-light.purple { background: #8a4fd6; }
-.cy-status-light.black { background: #2a2a2e; }
-.cy-status-light.closed { background: transparent; box-shadow: none; color: #d93a3a; width: auto; }
+/* Customer status pill (V0.9.100): tinted by the status colour, like the 叫貨／門市 status pills. */
+.cy-status-pill { --pill: #22a45d; display: inline-flex; align-items: center; gap: 4px; min-height: 22px; padding: 1px 9px; border-radius: 999px;
+  background: color-mix(in srgb, var(--pill) 15%, var(--cy-surface)); color: color-mix(in srgb, var(--pill) 82%, var(--cy-text));
+  font-size: var(--cy-fs-sm); font-weight: 600; line-height: 1.3; white-space: nowrap; }
+.cy-status-pill.green { --pill: #1f9a55; }
+.cy-status-pill.blue { --pill: #2f6fde; }
+.cy-status-pill.yellow { --pill: #b98a00; }
+.cy-status-pill.orange { --pill: #e07a12; }
+.cy-status-pill.red { --pill: #d93a3a; }
+.cy-status-pill.purple { --pill: #8a4fd6; }
+.cy-status-pill.black { --pill: #3a3d45; }
+.cy-status-pill.closed { --pill: #7a808c; }
+.cy-status-pill.empty { --pill: #7a808c; background: transparent; border: 1px dashed var(--cy-border-strong, var(--cy-border)); font-weight: 500; }
+.cy-status-picker { position: relative; display: inline-block; }
+.cy-status-picker-button { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px; border: 1px solid transparent; border-radius: 999px;
+  background: transparent; font: inherit; cursor: pointer; }
+.cy-status-picker-button:hover, .cy-status-picker-button[aria-expanded="true"] { border-color: var(--cy-border); }
+.cy-status-picker-button:focus-visible { outline: 2px solid var(--cy-accent); outline-offset: 1px; }
+.cy-status-picker-button.missing .cy-status-pill.empty { border-color: var(--cy-danger); color: var(--cy-danger); }
+.cy-status-picker-caret { color: var(--cy-text-muted); font-size: 11px; }
+.cy-status-picker-list { position: absolute; z-index: 50; top: calc(100% + 4px); left: 0; display: grid; gap: 2px; min-width: 100%; padding: 6px;
+  border: 1px solid var(--cy-border); border-radius: var(--cy-radius-sm); background: var(--cy-surface); box-shadow: var(--cy-shadow-lg); }
+.cy-status-picker-option { display: flex; padding: 3px 6px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; text-align: left; }
+.cy-status-picker-option:hover, .cy-status-picker-option:focus-visible, .cy-status-picker-option.selected { background: var(--cy-surface-muted); outline: 0; }

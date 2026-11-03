@@ -13,7 +13,7 @@ import { SETTINGS_SAVED_EVENT } from "./settings-events";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { SettingsSnapshot, LookupSetting, WorkLogScoringRowSetting } from "../../../shared/settings";
 import { ApiClientError } from "../../api/client";
-import { loadSettings, saveSetting } from "../api/settings-audit-client";
+import { deleteSetting, loadSettings, saveSetting } from "../api/settings-audit-client";
 
 /**
  * A module's own settings (BD-043 authority unchanged): structural lookups are Super Admin-only,
@@ -62,6 +62,7 @@ export function ModuleSettingsPanel({ role, only, onDirtyChange }: {
   const [minimum, setMinimum] = useState("");
   const [score, setScore] = useState<Partial<WorkLogScoringRowSetting> | null>(null);
   const [lookupDraft, setLookupDraft] = useState<LookupDraft | null>(null);
+  const { confirm, confirmationDialog } = useConfirmation();
   const dirty = draft !== null || lookupDraft !== null || score !== null || (!!snapshot && (target !== (snapshot.workLogScoringConfig?.targetAverageDailyScore ?? "") || minimum !== (snapshot.workLogScoringConfig?.minimumAverageDailyScore ?? "")));
   useUnsavedChangesGuard({ active: dirty, blocked: busy });
   useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
@@ -98,6 +99,26 @@ export function ModuleSettingsPanel({ role, only, onDirtyChange }: {
       ...(lookupDraft.id == null ? (status ? {} : { code: lookupDraft.code }) : { expectedUpdatedAt: lookupDraft.expectedUpdatedAt }) };
     void save(`lookups/${section}${lookupDraft.id ? `/${lookupDraft.id}` : ""}`, lookupDraft.id ? "PATCH" : "POST", body);
   }
+  /** Drag order saves in the background: the table keeps the new order and nothing is locked. */
+  async function reorderLookup(ids: number[]): Promise<boolean> {
+    setError(""); setNotice("");
+    try {
+      await saveSetting(`lookups/${section}/order`, "PUT", { ids }); install(await loadSettings());
+      window.dispatchEvent(new CustomEvent(SETTINGS_SAVED_EVENT));
+      return true;
+    } catch (e) { setError(message(e)); return false; }
+  }
+  function toggleLookup(row: LookupSetting) {
+    void save(`lookups/${section}/${row.id}`, "PATCH", { name: row.name, isActive: !row.isActive, parentId: row.parentId ?? null,
+      expectedUpdatedAt: row.updatedAt, ...(status ? { light: row.light ?? "GREEN" } : {}) });
+  }
+  async function deleteLookup(row: LookupSetting) {
+    if (!(await confirm({ title: "刪除設定", description: `確定刪除「${row.name}」？目前沒有任何資料使用它。`, confirmLabel: "刪除", confirmTone: "danger" }))) return;
+    setBusy(true); setError(""); setNotice("");
+    try { await deleteSetting(`lookups/${section}/${row.id}`); install(await loadSettings()); setNotice("已刪除"); window.dispatchEvent(new CustomEvent(SETTINGS_SAVED_EVENT)); }
+    catch (e) { setError(message(e)); }
+    finally { setBusy(false); }
+  }
   function edit(row: LookupSetting) {
     const category = snapshot?.workLogCategories.find(item => item.id === row.id);
     setDraft({ ...blank(), ...row, parentId: row.parentId ?? null, light: row.light ?? "GREEN", expectedUpdatedAt: row.updatedAt,
@@ -130,7 +151,8 @@ export function ModuleSettingsPanel({ role, only, onDirtyChange }: {
       <LookupSettingsTable label={sections.find(row => row.key === section)?.label ?? ""} rows={rows} editable={editable} busy={busy}
         status={status} withCode={!status} parents={section === "item_category" ? snapshot.itemCategories : undefined}
         draft={lookupDraft} setDraft={setLookupDraft} onSave={saveLookup}
-        onReorder={ids => void save(`lookups/${section}/order`, "PUT", { ids })} />
+        onReorder={reorderLookup} onToggle={toggleLookup} onDelete={row => void deleteLookup(row)} />
+      {confirmationDialog}
     </> : section === "scoring" ? <>
       <form onKeyDown={enterAdvancesFields} className="cy-op-panel cy-op-form-card" onSubmit={event => { event.preventDefault(); void save("worklog-scoring-config", "PUT", { targetAverageDailyScore: target || null, minimumAverageDailyScore: minimum || null, expectedRevision: snapshot.workLogScoringConfig?.revision ?? null }); }}>
     <FormSection>

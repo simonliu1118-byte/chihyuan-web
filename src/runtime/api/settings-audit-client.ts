@@ -17,6 +17,10 @@ export function loadSettings(): Promise<SettingsSnapshot> {
 export function saveSetting(path: string, method: "POST" | "PATCH" | "PUT", input: unknown): Promise<{ saved: true }> {
   return apiRequest(`/api/admin/settings/${path}`, { method, json: input });
 }
+/** Delete one unused structural lookup (V0.9.100). */
+export function deleteSetting(path: string): Promise<{ deleted: true }> {
+  return apiRequest(`/api/admin/settings/${path}`, { method: "DELETE" });
+}
 export function loadAudit(query: Record<string, string>): Promise<{ events: AuditEvent[]; nextCursor: string | null; actors: AuditActor[] }> {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) if (value.trim()) params.set(key, value.trim());

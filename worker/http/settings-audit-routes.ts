@@ -89,6 +89,11 @@ export async function handleSettingsAuditRoute(request: Request, env: IdentityRu
     }
     const service = new SettingsService(env.DB);
     if (url.pathname === "/api/admin/settings" && request.method === "GET") return success(await service.snapshot(), requestId);
+    const removal = /^\/api\/admin\/settings\/lookups\/(department|customer_category|customer_status|item_category)\/(\d+)$/.exec(url.pathname);
+    if (removal && request.method === "DELETE") {
+      await service.deleteStructuralLookup(removal[1] as StructuralLookupKind, integer(removal[2], "id")!, { actorMemberId: member.id, role, now: new Date().toISOString(), requestId });
+      return success({ deleted: true }, requestId);
+    }
     if (!["POST", "PATCH", "PUT"].includes(request.method)) return failure({ code: "METHOD_NOT_ALLOWED", message: "Unsupported method" }, requestId, 405);
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== "object" || Array.isArray(body)) throw new FieldValidationError({ body: "必須是 JSON 物件" });

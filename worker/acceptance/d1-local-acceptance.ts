@@ -150,6 +150,16 @@ async function acceptSettingsAuditHttp(db: D1Database): Promise<void> {
   list = await statuses();
   assertAcceptance(list[0]?.pin === "TOP" && list[1]?.id === added?.id && list[list.length - 1]?.pin === "BOTTOM", "ACCEPT_STATUS_REORDER_PERSISTED");
   assertAcceptance((await call("/api/admin/settings/lookups/customer_status/order", "PUT", { ids: reordered.slice(1) })).status === 409, "ACCEPT_STATUS_REORDER_STALE");
+  // V0.9.100: names fit the pill (7), only unused rows delete, pinned statuses never do.
+  assertAcceptance((await call("/api/admin/settings/lookups/customer_status", "POST", { name: "一二三四五六七八" })).status === 422, "ACCEPT_STATUS_NAME_LIMIT");
+  assertAcceptance((await call(`/api/admin/settings/lookups/customer_status/${list[0]!.id}`, "DELETE")).status === 422, "ACCEPT_STATUS_PINNED_DELETE");
+  await db.prepare("INSERT INTO customers(short_name, customer_status_id, created_at, updated_at) VALUES('用狀態', ?1, ?2, ?2)").bind(added!.id, new Date().toISOString()).run();
+  const used = (await statuses()).find(value => value.id === added?.id) as StatusRow & { usageCount?: number };
+  assertAcceptance(used?.usageCount === 1, "ACCEPT_STATUS_USAGE_COUNT");
+  assertAcceptance((await call(`/api/admin/settings/lookups/customer_status/${added!.id}`, "DELETE")).status === 409, "ACCEPT_STATUS_USED_DELETE");
+  await db.prepare("DELETE FROM customers WHERE short_name='用狀態'").run();
+  assertAcceptance((await call(`/api/admin/settings/lookups/customer_status/${added!.id}`, "DELETE")).status === 200, "ACCEPT_STATUS_UNUSED_DELETE");
+  assertAcceptance(!(await statuses()).some(value => value.id === added?.id), "ACCEPT_STATUS_DELETED");
   await db.prepare("INSERT INTO regions(code,name,group_code,sort_order,is_active) VALUES('ACCEPT_REGION_HTTP','Region read model','TEST',0,1)").run();
   const references = await new BusinessLookupService(db).customerLookups({ appMemberId: 1, employeeNo: "T0001", displayName: "Acceptance" });
   assertAcceptance(references.regions.some(value => value.code === "ACCEPT_REGION_HTTP" && value.groupCode === "TEST" && !("updatedAt" in value)), "ACCEPT_REGION_LOOKUP_SCHEMA");
