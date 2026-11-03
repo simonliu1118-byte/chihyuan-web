@@ -1,5 +1,9 @@
 # CY Web Governance Changelog
 
+## 1.1.28 — 2026/11/03
+
+- `PROJECT_RULES.md` §5 新增「主檔頁採表格式單據」（使用者 2026-11-03）：主檔的新增、修改與主頁面逐模組改用共用 `RecordSheet`，欄名在上、內容在下，修改原地切換；重複資料用有項次的子表，到上限不顯示 ＋。格內仍用 `Field`，原有必填、一次提醒與 Enter 規則不變；小視窗維持直排。
+
 ## 1.1.27 — 2026/11/03
 
 - 使用者已在 GitHub 開啟「Automatically delete head branches」，PR 合併後由 GitHub 刪除來源分支。1.1.26 的 `cleanup-merged-branches.yml` 與此重複，而且一次性的分支清理已完成（遠端只剩 `main`），因此移除，維持單一做法。
