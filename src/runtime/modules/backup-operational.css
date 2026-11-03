@@ -61,10 +61,12 @@
 .cy-backup-table{table-layout:auto;min-width:0}
 .cy-backup-table th,.cy-backup-table td{white-space:nowrap}
 .cy-backup-table{font-size:var(--cy-fs-sm)}
-.cy-backup-table .cy-sheet-value{padding:5px 7px}
+.cy-backup-table .cy-sheet-value{padding:5px 6px}
 /* Identifiers in full (user 2026-11-04): small monospace, never cut; a narrow screen scrolls sideways. */
-.cy-backup-table td.code .cy-sheet-value{font-family:var(--cy-font-mono);font-size:11px;letter-spacing:-.01em;color:var(--cy-text-muted)}
+.cy-backup-table td.code .cy-sheet-value{font-family:var(--cy-font-mono);font-size:10.5px;letter-spacing:-.02em;color:var(--cy-text-muted)}
 .cy-backup-table .cy-backup-copy{font-size:var(--cy-fs-xs);padding:1px 5px;gap:.25rem}
 .cy-backup-table .cy-backup-copies{gap:3px}
 .cy-backup-table tbody tr:hover>td{background:var(--cy-surface-muted)}
 .cy-backup-more{margin-top:8px}
+
+.cy-backup-actions{display:flex;gap:2px;white-space:nowrap}
