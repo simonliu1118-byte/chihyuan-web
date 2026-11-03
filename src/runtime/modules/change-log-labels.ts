@@ -73,7 +73,7 @@ export const actionLabels: Record<string,string> = {
   "work_log.review.submitted":"送出工作日誌審核","work_log.review.withdrawn":"撤回工作日誌審核",
   "work_log.reviewed":"審核工作日誌","work_log.review.cancelled":"取消工作日誌審核",
   "work_log.deleted":"刪除工作日誌",
-  "setting.created":"新增設定","setting.changed":"修改設定","setting.reordered":"調整排序",
+  "setting.created":"新增設定","setting.changed":"修改設定","setting.reordered":"調整排序","setting.deleted":"刪除設定",
   "app_tag.created":"新增標籤","app_tag.changed":"修改標籤",
   "module_access.updated":"修改使用權","module_access.group_assigned":"指派權限群組",
   "module_access_group.created":"新增權限群組","module_access_group.updated":"修改權限群組",

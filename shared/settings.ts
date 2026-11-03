@@ -18,6 +18,8 @@ export interface LookupSetting {
   light?: string;
   /** Customer statuses only: 正常 is pinned first and 已歇業 last; pinned rows are not dragged. */
   pin?: "TOP" | "BOTTOM";
+  /** Settings snapshot only: how many records use it; 0 means it can be deleted. */
+  usageCount?: number;
 }
 
 export interface RegionSetting extends Omit<LookupSetting, "updatedAt"> {

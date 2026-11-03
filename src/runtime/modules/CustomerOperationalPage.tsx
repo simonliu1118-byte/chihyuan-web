@@ -6,8 +6,8 @@ import { Icons } from "../../ui/actions/icons";
 import { SidePanel } from "../../ui/overlays/SidePanel";
 import { SegmentedControl } from "../../ui/primitives/SegmentedControl";
 import { postalCodeForAddress } from "../../../shared/taiwan-postal";
-import { REGION_GROUPS, statusLightEmoji } from "../../../shared/taiwan-regions";
-import { StatusName } from "./customer/StatusName";
+import { REGION_GROUPS } from "../../../shared/taiwan-regions";
+import { StatusPicker, StatusPill } from "./customer/StatusName";
 import { useSettingsSaved } from "./settings-events";
 import { joinPhoneEntry, parsePhoneEntry } from "../../../shared/phone";
 import { IconButton } from "../../ui/actions/IconButton";
@@ -481,6 +481,8 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
   async function saveCustomer(event: FormEvent) {
     event.preventDefault();
     if (!draft?.shortName.trim()) return;
+    // 客戶狀態 is not a sheet field (it is the header pill), so it is checked here.
+    if (!draft.customerStatusId) { reportError("請選擇客戶狀態（標題旁的狀態）。"); return; }
 
     setBusy(true);
     setMessage(null);
@@ -863,7 +865,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
                 <span className="cy-customer-result-main">
                   <strong title={[customer.customerNo, customer.shortName].filter(Boolean).join(" ")}>{customer.customerNo ? <span className="cy-customer-result-no">{customer.customerNo}</span> : null}{customer.shortName}</strong>
                 </span>
-                <span className="cy-customer-result-status">{customer.status ? <StatusName status={lookups?.customerStatuses.find(row => row.id === customer.status?.id) ?? customer.status} /> : "未設定"}</span>
+                <span className="cy-customer-result-status">{customer.status ? <StatusPill status={lookups?.customerStatuses.find(row => row.id === customer.status?.id) ?? customer.status} /> : null}</span>
               </button>
             ))}
             {loadingList && rows.length === 0 ? <Loading /> : null}
@@ -877,7 +879,10 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
           {editing && draft ? (
             <form onKeyDown={enterAdvancesFields} className="cy-op-form cy-customer-sheet-form" onSubmit={(event) => void saveCustomer(event)}>
               <div className="cy-record-header cy-edit-header">
-                <div><h2>{creating ? "新增客戶" : `修改 ${selected?.shortName ?? "客戶"}`}</h2></div>
+                <div className="cy-customer-edit-title"><h2>{creating ? "新增客戶" : `修改 ${selected?.shortName ?? "客戶"}`}</h2>
+                  {/* 客戶狀態 is chosen from its pill in the header (user 2026-11-03). */}
+                  <StatusPicker statuses={lookups?.customerStatuses ?? []} value={draft.customerStatusId} disabled={busy} required
+                    onChange={customerStatusId => patchDraft({ customerStatusId })} /></div>
                 <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
                   <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立客戶" : "儲存修改"}</button></div>
               </div>
@@ -888,7 +893,8 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
             <div>
               <div className="cy-record-header">
                 <div>
-                  <h2 className="cy-customer-identity">{selected.customerNo ? <span className="cy-customer-identity-no">{selected.customerNo}</span> : null}{selected.shortName}{selected.fullName ? <small className="cy-record-title-note">（{selected.fullName}）</small> : null}</h2>
+                  <h2 className="cy-customer-identity">{selected.customerNo ? <span className="cy-customer-identity-no">{selected.customerNo}</span> : null}{selected.shortName}{selected.fullName ? <small className="cy-record-title-note">（{selected.fullName}）</small> : null}
+                    {selected.status ? <StatusPill className="cy-customer-identity-status" status={lookups?.customerStatuses.find(row => row.id === selected.status?.id) ?? selected.status} /> : null}</h2>
                 </div>
                 <div className="cy-record-actions">
                   <button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
@@ -934,8 +940,8 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
 type RowList = "phones" | "faxes" | "contacts" | "addresses" | "notes";
 
 /** Customer master record as one sheet; the same layout views and edits (PROJECT_RULES §5). */
-/** Width shared by 統一編號／客戶狀態 and 付款條件／發票開立. */
-const TAIL = "12em";
+/** Width shared by 統一編號, 付款條件 and 發票開立. */
+const TAIL = "11em";
 
 function CustomerSheet({ draft, editing, busy, lookups, ownerLabel = "", patch, insertRow, removeRow, patchRow }: {
   draft: CustomerDraft;
@@ -973,9 +979,9 @@ function CustomerSheet({ draft, editing, busy, lookups, ownerLabel = "", patch, 
   ];
   return <div className="cy-customer-sheet">
     <RecordSheet label="客戶基本資料" editing={editing} rows={[
-      // 統一編號 and 客戶狀態 share one width (just enough that the longest status does not wrap); 付款條件
-      // and 發票開立 sit under them (user 2026-11-03).
-      { columns: `9.5em 12em minmax(0,1fr) ${TAIL} ${TAIL}`, cells: [
+      // 客戶狀態 is a pill in the header (user 2026-11-03); 統一編號 lines up with 發票開立 below it and
+      // 客戶全稱 ends where 付款條件 ends.
+      { columns: `9.5em 12em minmax(0,1fr) ${TAIL}`, cells: [
         { label: "客戶編號", mono: true, view: draft.customerNo,
           edit: <input className={mono} value={draft.customerNo} disabled={busy} maxLength={CUSTOMER_LIMITS.customerNo}
             pattern="[A-Za-z0-9]+" onChange={event => patch({ customerNo: event.target.value.replace(/[^A-Za-z0-9]/g, "") })} /> },
@@ -988,8 +994,6 @@ function CustomerSheet({ draft, editing, busy, lookups, ownerLabel = "", patch, 
         { label: "統一編號", mono: true, view: draft.taxId,
           edit: <input className={mono} inputMode="numeric" value={draft.taxId} disabled={busy} maxLength={8} pattern="[0-9]{8}"
             onChange={event => patch({ taxId: event.target.value.replace(/\D/g, "") })} /> },
-        { label: "客戶狀態", required: true, view: <StatusName status={lookups?.customerStatuses.find(row => row.id === draft.customerStatusId)} />,
-          edit: select(lookups?.customerStatuses, draft.customerStatusId, customerStatusId => patch({ customerStatusId }), "請選擇", row => `${statusLightEmoji(row.light)} ${row.name}`) },
       ] },
       { columns: `repeat(4, minmax(0,1fr)) ${TAIL} ${TAIL}`, cells: [
         { label: "分類", required: true, view: name(lookups?.customerCategories, draft.customerCategoryId),

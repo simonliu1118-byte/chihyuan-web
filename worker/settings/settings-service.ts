@@ -108,6 +108,9 @@ function requiredBoolean(value: unknown, path: string, errors: Record<string, st
   return value;
 }
 
+/** Customer status names fit the status pill (user 2026-11-03). */
+const STATUS_NAME_LIMIT = 7;
+
 function statusLight(value: unknown, errors: Record<string, string>): string {
   if (value == null || value === "") return "GREEN";
   if (!isStatusLight(value)) errors.light = "燈號無效";
@@ -163,7 +166,16 @@ export class SettingsService {
       this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM work_log_platforms ORDER BY sort_order,id"),
       this.db.prepare("SELECT id,work_log_category_id,custom_name,score_value,description,note,sort_order,is_active,updated_at FROM work_log_scoring_rows ORDER BY sort_order,id"),
       this.db.prepare("SELECT target_average_daily_score,minimum_average_daily_score,revision,updated_at FROM work_log_scoring_config WHERE id=1 LIMIT 1"),
+      // How often each structural lookup is in use, so an unused one can be deleted (V0.9.100).
+      this.db.prepare(`SELECT 'department' AS kind, owner_department_id AS id, COUNT(*) AS n FROM customers WHERE owner_department_id IS NOT NULL GROUP BY owner_department_id
+        UNION ALL SELECT 'customer_category', customer_category_id, COUNT(*) FROM customers WHERE customer_category_id IS NOT NULL GROUP BY customer_category_id
+        UNION ALL SELECT 'customer_status', customer_status_id, COUNT(*) FROM customers WHERE customer_status_id IS NOT NULL GROUP BY customer_status_id
+        UNION ALL SELECT 'item_category', item_category_id, COUNT(*) FROM items WHERE item_category_id IS NOT NULL GROUP BY item_category_id
+        UNION ALL SELECT 'item_category', parent_id, COUNT(*) FROM item_categories WHERE parent_id IS NOT NULL GROUP BY parent_id`),
     ]);
+    const usage = new Map<string, number>();
+    for (const row of (results[11]?.results ?? []) as { kind: string; id: number; n: number }[]) usage.set(`${row.kind}:${row.id}`, (usage.get(`${row.kind}:${row.id}`) ?? 0) + Number(row.n));
+    const withUsage = (kind: StructuralLookupKind, rows: LookupSetting[]) => rows.map(row => ({ ...row, usageCount: usage.get(`${kind}:${row.id}`) ?? 0 }));
     const mapLookup = (rows: readonly Record<string, unknown>[]): LookupSetting[] => rows.map((row) => ({
       id: Number(row.id), code: String(row.code), name: String(row.name), sortOrder: Number(row.sort_order),
       isActive: Number(row.is_active) === 1, updatedAt: String(row.updated_at),
@@ -180,11 +192,11 @@ export class SettingsService {
     const scoringRows = (results[9]?.results ?? []) as Array<{id:number;work_log_category_id:number|null;custom_name:string|null;score_value:number|null;description:string|null;note:string|null;sort_order:number;is_active:number;updated_at:string}>;
     const scoringConfig = (results[10]?.results?.[0] ?? null) as {target_average_daily_score:number|null;minimum_average_daily_score:number|null;revision:number;updated_at:string}|null;
     return {
-      departments: mapLookup((results[0]?.results ?? []) as Record<string, unknown>[]),
-      customerCategories: mapLookup((results[1]?.results ?? []) as Record<string, unknown>[]),
-      customerStatuses: mapLookup((results[2]?.results ?? []) as Record<string, unknown>[]),
+      departments: withUsage("department", mapLookup((results[0]?.results ?? []) as Record<string, unknown>[])),
+      customerCategories: withUsage("customer_category", mapLookup((results[1]?.results ?? []) as Record<string, unknown>[])),
+      customerStatuses: withUsage("customer_status", mapLookup((results[2]?.results ?? []) as Record<string, unknown>[])),
       regions: ((results[3]?.results ?? []) as { id: number; code: string; name: string; group_code: string | null; sort_order: number; is_active: number }[]).map(row => ({ id: row.id, code: row.code, name: row.name, groupCode: row.group_code, sortOrder: row.sort_order, isActive: row.is_active === 1 })),
-      itemCategories: mapLookup((results[4]?.results ?? []) as Record<string, unknown>[]),
+      itemCategories: withUsage("item_category", mapLookup((results[4]?.results ?? []) as Record<string, unknown>[])),
       appTags: tagRows.map<AppTagSetting>((row) => ({id:row.id,code:row.code,name:row.name,sortOrder:row.sort_order,isActive:row.is_active===1,moduleCodes:moduleMap.get(row.id)??[],updatedAt:row.updated_at})),
       workLogCategories: workCategories.map<WorkLogCategorySetting>((row) => ({id:row.id,code:row.code,name:row.name,inputMode:row.input_mode,unitLabel:row.unit_label,sortOrder:row.sort_order,isActive:row.is_active===1,updatedAt:row.updated_at})),
       workLogPlatforms: workPlatforms.map<WorkLogPlatformSetting>((row) => ({id:row.id,code:row.code,name:row.name,sortOrder:row.sort_order,isActive:row.is_active===1,updatedAt:row.updated_at})),
@@ -200,7 +212,7 @@ export class SettingsService {
     const status = kind === "customer_status";
     // Customer statuses (user 2026-11-03): the user names a status and picks its light; the code is assigned here.
     const code = status ? await this.nextStatusCode() : requiredText(raw.code, "code", 80, errors);
-    const name = requiredText(raw.name, "name", 200, errors);
+    const name = requiredText(raw.name, "name", status ? STATUS_NAME_LIMIT : 200, errors);
     // Without an explicit order a new row goes last (drag ordering, V0.9.99).
     const sortOrder = raw.sortOrder == null ? await this.nextSortOrder(meta.table) : nonNegativeInteger(raw.sortOrder, "sortOrder", errors, 0);
     const parentId = meta.hasParent ? positiveId(raw.parentId, "parentId", errors, true) : null;
@@ -221,7 +233,7 @@ export class SettingsService {
     const meta = LOOKUP_TABLES[kind];
     const errors: Record<string, string> = {};
     const settingId = positiveId(id, "id", errors) ?? 0;
-    const name = requiredText(raw.name, "name", 200, errors);
+    const name = requiredText(raw.name, "name", kind === "customer_status" ? STATUS_NAME_LIMIT : 200, errors);
     const keepOrder = raw.sortOrder == null;
     let sortOrder = keepOrder ? 0 : nonNegativeInteger(raw.sortOrder, "sortOrder", errors, 0);
     const isActive = requiredBoolean(raw.isActive, "isActive", errors);
@@ -330,6 +342,22 @@ export class SettingsService {
     statements.push(this.audit.prepareRecord({ entityType: meta.entityType, entityKey: "order", action: "setting.reordered", actorEmployeeId: context.actorMemberId,
       occurredAt: context.now, requestId: context.requestId, before: { ids: current.map(row => row.id) }, after: { ids } }));
     await this.db.batch(statements);
+  }
+
+  /** Delete a lookup nobody uses (V0.9.100). Pinned statuses stay; a row still in use is refused. */
+  async deleteStructuralLookup(kind: StructuralLookupKind, id: number, context: SettingsMutationContext): Promise<void> {
+    this.assertSuperAdmin(context);
+    const meta = LOOKUP_TABLES[kind];
+    const before = await this.db.prepare(`SELECT code,name${kind === "customer_status" ? ",pin" : ""} FROM ${meta.table} WHERE id=?`).bind(id).first<{ code: string; name: string; pin?: string | null }>();
+    if (!before) throw new SettingsServiceError("SETTINGS_NOT_FOUND", 404, "設定不存在");
+    if (before.pin) throw new SettingsServiceError("SETTINGS_REFERENCE_INVALID", 422, "「正常」和「已歇業」固定保留，不能刪除");
+    try {
+      await this.commitAudited(this.db.prepare(`DELETE FROM ${meta.table} WHERE id=?1`).bind(id), { entityType: meta.entityType, entityKey: String(id),
+        action: "setting.deleted", actorEmployeeId: context.actorMemberId, occurredAt: context.now, requestId: context.requestId, before: { code: before.code, name: before.name } });
+    } catch (error) {
+      if (error instanceof SettingsServiceError) throw error;
+      throw new SettingsServiceError("SETTINGS_CONFLICT", 409, "這個項目已被使用，不能刪除；可改為停用");
+    }
   }
 
   private async nextSortOrder(table: string): Promise<number> {
