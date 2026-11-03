@@ -42,9 +42,12 @@ test("ERP query display is server-gated and every Audit row is a single-line sen
  assert.match(query,/ae\.entity_type <> 'erp_item_query'/);
  assert.match(query,/ae\.action <> 'erp_item_query\.created'/);
  assert.match(route,/role === "SUPER_ADMIN" && query\.includeErpQueries/);
- assert.match(page,/role === "SUPER_ADMIN" \? <label className="cy-change-log-erp-toggle"/);
+ // V0.10.10: ERP rows are a module choice only Super Admin gets; one table line per change, oldest first.
+ assert.match(page,/role==="SUPER_ADMIN"\?moduleOptions:moduleOptions\.filter/);
+ assert.match(page,/includeErpQueries:value===ERP_MODULES/);
  assert.match(page,/formatDateTime\(item\.occurredAt\)/);
- assert.match(styles,/\.cy-change-log-row \{/);
- assert.match(styles,/height: 30px/);
+ assert.match(page,/\[\.\.\.events\]\.reverse\(\)/);
+ assert.match(page,/<ExpandToggle /);
+ assert.match(styles,/\.cy-change-log-sub \.cy-sheet-value\{padding:1px 8px;font-size:var\(--cy-fs-xs\)/);
  assert.doesNotMatch(source,/entityLabel\(event\.entityType\) \+ " #"/);
 });

@@ -117,7 +117,8 @@ const fields:Record<string,string> = {
   phones:"電話",addresses:"地址",notes:"備註",parts:"出庫料件",spec:"規格",
   baseUnit:"基準單位",cost:"成本",costTaxMode:"成本稅別",storePrice:"門市價",clinicPrice:"診所價",
   unitConversions:"單位換算",defectDescription:"瑕疵內容",handling:"處理方式",employeeId:"人員",contractorId:"協力廠商",
-  pricingUnit:"計價單位",
+  pricingUnit:"計價單位",subject:"主旨",personSnapshot:"拜訪對象",contactId:"聯絡人",
+  profileNotes:"客戶描述",prospectItems:"潛在銷售品項",fullNameSnapshot:"客戶全稱",
 };
 // An unmapped key is never shown raw (BD-054 readability); add it to the map above instead.
 export function fieldLabel(_entityType:string,key:string):string { return fields[key] ?? "其他欄位"; }
@@ -152,7 +153,7 @@ export function fieldValue(type:string,key:string,value:unknown,lookups:FieldLoo
   if(typeof value==="object")return "資料內容";
   return String(value);
 }
-const names = ["shortName", "name", "displayName", "customerNameSnapshot", "itemNameSnapshot",
+const names = ["shortName", "name", "displayName", "customerNameSnapshot", "itemNameSnapshot", "subject",
   "fullName", "workOrderRef", "outsourcingRef", "itemNo", "customerNo", "code"];
 const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i;
 // UPPER_SNAKE enum codes and bare ids are internal; business numbers such as AC0001 are not.
