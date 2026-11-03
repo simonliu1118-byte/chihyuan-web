@@ -46,6 +46,7 @@ function visitAuditPayload(visit: CustomerVisitRecord): AuditPayload {
     contactId: visit.contactId,
     personSnapshot: visit.personSnapshot,
     employeeId: visit.employee.id,
+    subject: visit.subject,
     contentPreview,
     contentLength: content.length,
     contentTruncated: content.length > contentPreview.length,
@@ -153,8 +154,8 @@ export class CustomerRelatedMutationRepository {
     const result = await this.db.prepare(`
       INSERT INTO customer_visits (id,
         customer_id, visit_date, contact_id, person_snapshot, employee_id, content,
-        created_at, created_by, updated_at, updated_by, revision
-      ) VALUES (${nextEntityIdSql("customer_visits")}, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?7, ?8, 1)
+        created_at, created_by, updated_at, updated_by, revision, subject
+      ) VALUES (${nextEntityIdSql("customer_visits")}, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?7, ?8, 1, ?9)
     `).bind(
       customerId,
       input.visitDate,
@@ -164,6 +165,7 @@ export class CustomerRelatedMutationRepository {
       input.content,
       context.now,
       context.actorMemberId,
+      input.subject,
     ).run();
     const id = Number(result.meta.last_row_id);
     if (!Number.isSafeInteger(id) || id <= 0) throw new Error("CUSTOMER_VISIT_CREATE_FAILED");
@@ -186,6 +188,7 @@ export class CustomerRelatedMutationRepository {
              person_snapshot = ?3,
              employee_id = ?4,
              content = ?5,
+             subject = ?11,
              updated_at = ?6,
              updated_by = ?7,
              revision = revision + 1
@@ -203,6 +206,7 @@ export class CustomerRelatedMutationRepository {
       visitId,
       customerId,
       input.expectedRevision,
+      input.subject,
     ).run();
     return Number(result.meta.changes ?? 0) === 1;
   }

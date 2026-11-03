@@ -17,6 +17,7 @@ export interface CustomerVisitRecord {
   contactId: number | null;
   personSnapshot: string | null;
   employee: CustomerEmployeeRef;
+  subject: string;
   content: string | null;
   createdAt: string;
   updatedAt: string;
@@ -28,6 +29,7 @@ export interface CustomerVisitInput {
   contactId?: number | null;
   personSnapshot?: string | null;
   employeeId?: number | null;
+  subject: string;
   content: string;
 }
 

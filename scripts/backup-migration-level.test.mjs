@@ -51,3 +51,17 @@ test('a backup is refused for a newer migration, a column or table the target la
   assert.deepEqual(target.sql.prepare('SELECT * FROM store_customer_orders').all(),source.sql.prepare('SELECT * FROM store_customer_orders').all());
  }finally{source.sql.close();target.sql.close()}
 });
+
+test('a 0045 backup with customers.fax restores the fax as a FAX phone row (0046)',async()=>{
+ const source=connection(),target=connection();try{seed(source.sql);
+  source.sql.prepare("INSERT INTO customers(id,short_name,created_at,created_by,updated_at,updated_by,revision) VALUES(5,'合成客戶',?,1,?,1,1)").run(now,now);
+  source.sql.prepare("INSERT INTO customer_phones(id,customer_id,phone_number,sort_order,created_at,updated_at,kind) VALUES(9,5,'0223456789',0,?,?,'PHONE')").run(now,now);
+  const older=edited(await exportPortableBackup(source.db,scope),(d,m)=>{m.schemaMigration='0045_ordering_draft_item_index';
+   const c=d.tables.customers;c.columns.push('fax');c.rows.forEach(r=>r.push('0223456790'));
+   dropColumn(d.tables.customer_phones,'kind');dropColumn(d.tables.customer_visits,'subject')});
+  await verifyPortableBackup(older,'synthetic');await restoreIntoEmptyDatabase(target.db,older,'synthetic');
+  assert.deepEqual(target.sql.prepare('SELECT id,phone_number,kind FROM customer_phones WHERE customer_id=5 ORDER BY id').all().map(r=>({...r})),
+   [{id:9,phone_number:'0223456789',kind:'PHONE'},{id:10,phone_number:'0223456790',kind:'FAX'}]);
+  assert.deepEqual(target.sql.prepare('PRAGMA foreign_key_check').all(),[]);
+ }finally{source.sql.close();target.sql.close()}
+});

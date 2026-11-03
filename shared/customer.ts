@@ -25,8 +25,14 @@ export interface CustomerSummary {
   updatedAt: string;
 }
 
+/** Row limits and formats agreed for the customer sheet (user 2026-11-03); the Worker enforces them. */
+export const CUSTOMER_LIMITS = { customerNo: 10, shortName: 10, faxes: 3, notes: 5, noteLength: 100, visitSubject: 16 } as const;
+export const CUSTOMER_NO_PATTERN = /^[A-Za-z0-9]+$/;
+export type CustomerPhoneKind = "PHONE" | "FAX";
+
 export interface CustomerPhone {
   id: number;
+  kind: CustomerPhoneKind;
   phoneNumber: string;
   extension: string | null;
   note: string | null;
@@ -61,7 +67,6 @@ export interface CustomerNote {
 
 export interface CustomerDetail extends CustomerSummary {
   updatedBy: CustomerEmployeeRef | null;
-  fax: string | null;
   phones: readonly CustomerPhone[];
   contacts: readonly CustomerContact[];
   addresses: readonly CustomerAddress[];
@@ -71,6 +76,7 @@ export interface CustomerDetail extends CustomerSummary {
 
 export interface CustomerPhoneInput {
   id?: number;
+  kind?: CustomerPhoneKind;
   phoneNumber: string;
   extension?: string | null;
   note?: string | null;
@@ -112,7 +118,6 @@ export interface CustomerProfileInput {
   regionId?: number | null;
   ownerDepartmentId?: number | null;
   ownerEmployeeId?: number | null;
-  fax?: string | null;
   customerStatusId?: number | null;
   phones?: readonly CustomerPhoneInput[];
   contacts?: readonly CustomerContactInput[];

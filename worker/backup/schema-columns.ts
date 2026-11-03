@@ -200,6 +200,7 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "customer_id",
     "extension",
     "id",
+    "kind",
     "note",
     "phone_number",
     "sort_order",
@@ -224,6 +225,7 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "id",
     "person_snapshot",
     "revision",
+    "subject",
     "updated_at",
     "updated_by",
     "visit_date"
@@ -234,7 +236,6 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "customer_category_id",
     "customer_no",
     "customer_status_id",
-    "fax",
     "full_name",
     "id",
     "owner_department_id",

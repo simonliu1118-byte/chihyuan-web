@@ -47,12 +47,12 @@ type CustomerDetailRow = CustomerSummaryRow & {
   updated_by_id: number | null;
   updated_by_employee_no: string | null;
   updated_by_display_name: string | null;
-  fax: string | null;
   created_at: string;
 };
 
 type CustomerPhoneRow = {
   id: number;
+  kind: "PHONE" | "FAX";
   phone_number: string;
   extension: string | null;
   note: string | null;
@@ -175,7 +175,7 @@ const CUSTOMER_FROM = `
 
 const CUSTOMER_SUMMARY_SELECT = `SELECT ${CUSTOMER_SELECT_FIELDS} ${CUSTOMER_FROM}`;
 const CUSTOMER_DETAIL_SELECT = `SELECT ${CUSTOMER_SELECT_FIELDS},
-  c.fax, c.created_at, ub.id AS updated_by_id, ub.employee_no AS updated_by_employee_no, ub.display_name AS updated_by_display_name
+  c.created_at, ub.id AS updated_by_id, ub.employee_no AS updated_by_employee_no, ub.display_name AS updated_by_display_name
   ${CUSTOMER_FROM} LEFT JOIN app_members AS ub ON ub.id = c.updated_by`;
 
 function toLookup(
@@ -315,7 +315,7 @@ export class CustomerRepository {
     const statements = [
       this.db.prepare(`${CUSTOMER_DETAIL_SELECT} WHERE c.id = ? LIMIT 1`).bind(customerId),
       this.db.prepare(`
-        SELECT id, phone_number, extension, note, sort_order
+        SELECT id, kind, phone_number, extension, note, sort_order
           FROM customer_phones
          WHERE customer_id = ?
          ORDER BY sort_order ASC, id ASC
@@ -351,11 +351,11 @@ export class CustomerRepository {
 
     return {
       ...toSummary(master),
-      fax: master.fax,
       createdAt: master.created_at,
       updatedBy: master.updated_by_id == null ? null : { id: master.updated_by_id, employeeNo: master.updated_by_employee_no, displayName: master.updated_by_display_name },
       phones: phones.map<CustomerPhone>((row) => ({
         id: row.id,
+        kind: row.kind,
         phoneNumber: row.phone_number,
         extension: row.extension,
         note: row.note,

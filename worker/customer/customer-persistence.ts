@@ -42,12 +42,12 @@ export class CustomerPersistence {
       this.db.prepare(`
         INSERT INTO customers (id,
           customer_no, short_name, full_name, tax_id, customer_category_id,
-          region_id, owner_department_id, owner_employee_id, fax, customer_status_id,
+          region_id, owner_department_id, owner_employee_id, customer_status_id,
           created_at, created_by, updated_at, updated_by, revision
         ) VALUES (${nextEntityIdSql("customers")},
           ?1, ?2, ?3, ?4, ?5,
-          ?6, ?7, ?8, ?9, ?10,
-          ?11, ?12, ?11, ?12, 1
+          ?6, ?7, ?8, ?9,
+          ?10, ?11, ?10, ?11, 1
         )
       `).bind(
         input.customerNo,
@@ -58,7 +58,6 @@ export class CustomerPersistence {
         input.regionId,
         input.ownerDepartmentId,
         input.ownerEmployeeId,
-        input.fax,
         input.customerStatusId,
         context.now,
         context.actorMemberId,
@@ -145,13 +144,12 @@ export class CustomerPersistence {
                region_id = ?5,
                owner_department_id = ?6,
                owner_employee_id = ?7,
-               fax = ?8,
-               customer_status_id = ?9,
-               updated_at = ?10,
-               updated_by = ?11,
+               customer_status_id = ?8,
+               updated_at = ?9,
+               updated_by = ?10,
                revision = revision + 1
-         WHERE id = ?12
-           AND revision = ?13
+         WHERE id = ?11
+           AND revision = ?12
       `).bind(
         input.shortName,
         input.fullName,
@@ -160,7 +158,6 @@ export class CustomerPersistence {
         input.regionId,
         input.ownerDepartmentId,
         input.ownerEmployeeId,
-        input.fax,
         input.customerStatusId,
         context.now,
         context.actorMemberId,

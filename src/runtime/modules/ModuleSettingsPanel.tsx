@@ -1,3 +1,4 @@
+import { Icons } from "../../ui/actions/icons";
 import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import { SegmentedControl } from "../../ui/primitives/SegmentedControl";
 import { Loading } from "../../ui/feedback/Loading";
@@ -130,7 +131,7 @@ export function ModuleSettingsButton({ role, label, only }: {
   if (role === "USER") return null;
   return <>
     <button className="cy-op-button cy-module-settings-trigger" type="button" onClick={() => setOpen(true)}>
-      <span aria-hidden="true">⚙️</span> 設定
+      <span aria-hidden="true">{Icons.settings}</span> 設定
     </button>
     {open ? <Dialog open title={label + "設定"} size="large" onClose={() => void close()}>
       <ModuleSettingsPanel role={role} only={only} />

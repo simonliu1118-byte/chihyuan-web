@@ -1,3 +1,4 @@
+import {Icons} from "../../ui/actions/icons";
 import { DateInput } from "../../ui/forms/DateInput";
 import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import {useEffect,useState,type FormEvent} from "react";
@@ -20,7 +21,7 @@ export function HrSettingsButton(){
  function addItem(e:FormEvent){e.preventDefault();void run(()=>apiRequest(ROOT+"/salary-item-types",{method:"POST",json:{name}}));}
  function addWage(e:FormEvent){e.preventDefault();void run(()=>apiRequest(ROOT+"/minimum-wages",{method:"POST",json:{effectiveDate:date,monthlyAmount:Number(monthly),hourlyAmount:Number(hourly)}}));}
  return <>
-  <button className="cy-op-button" type="button" onClick={()=>setOpen(true)}><span aria-hidden="true">⚙️</span> 設定</button>
+  <button className="cy-op-button" type="button" onClick={()=>setOpen(true)}><span aria-hidden="true">{Icons.settings}</span> 設定</button>
   <Dialog open={open} title="人事設定" size="large" onClose={()=>setOpen(false)}>
    <FeedbackBanner message={error||null} tone="danger" />
    <HrPhase2aSettings />

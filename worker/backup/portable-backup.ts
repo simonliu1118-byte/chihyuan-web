@@ -8,14 +8,34 @@ export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
  * The latest migration in migrations/ (file name without .sql). Bump it with every migration; a test
  * keeps it in step. A backup records it, and a restore maps its data by table and column name.
  */
-export const CURRENT_MIGRATION = "0045_ordering_draft_item_index";
+export const CURRENT_MIGRATION = "0046_customer_fax_rows_visit_subject";
 /**
  * Only for a migration that changes what existing data means (moves, renames, drops or recomputes
  * values). New tables, new columns with a default, new indexes and wider checks need nothing here:
  * a missing table restores empty and a missing column takes the database default. Each step runs on
  * a backup taken before its migration, in order, before the column-name restore.
  */
-const UPGRADES: { migration: string; apply: (data: Data) => void }[] = [];
+const UPGRADES: { migration: string; apply: (data: Data) => void }[] = [
+  // 0046: the single customers.fax column becomes customer_phones rows of kind FAX.
+  { migration: "0046_customer_fax_rows_visit_subject", apply: data => {
+    const customers = data.tables.customers, phones = data.tables.customer_phones;
+    if (!customers?.columns.includes("fax") || !phones) return;
+    if (!phones.columns.includes("kind")) { phones.columns.push("kind"); phones.rows.forEach(row => row.push("PHONE")); }
+    const c = (name: string) => customers.columns.indexOf(name), p = (name: string) => phones.columns.indexOf(name);
+    let next = phones.rows.reduce((max, row) => Math.max(max, Number(row[p("id")]) || 0), 0);
+    for (const row of customers.rows) {
+      const fax = typeof row[c("fax")] === "string" ? (row[c("fax")] as string).trim() : "";
+      if (!fax) continue;
+      const added: Cell[] = phones.columns.map(() => null);
+      added[p("id")] = ++next; added[p("customer_id")] = row[c("id")]; added[p("phone_number")] = fax; added[p("sort_order")] = 0;
+      added[p("kind")] = "FAX"; added[p("created_at")] = row[c("updated_at")]; added[p("updated_at")] = row[c("updated_at")];
+      phones.rows.push(added);
+    }
+    const at = c("fax");
+    customers.columns.splice(at, 1);
+    customers.rows.forEach(row => row.splice(at, 1));
+  } },
+];
 // Operational queue, heartbeat and revocable credential hashes are intentionally
 // excluded from durable backup (also the ERP 關閉／暫停 request). After recovery the Super Admin
 // reissues the Agent token.

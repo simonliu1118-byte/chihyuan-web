@@ -19,6 +19,7 @@ type VisitRow = {
   created_at: string;
   updated_at: string;
   revision: number;
+  subject: string;
 };
 
 export class CustomerRelatedMutationLookups {
@@ -35,6 +36,7 @@ export class CustomerRelatedMutationLookups {
         v.employee_id,
         m.employee_no,
         m.display_name,
+        v.subject,
         v.content,
         v.created_at,
         v.updated_at,
@@ -57,6 +59,7 @@ export class CustomerRelatedMutationLookups {
         employeeNo: row.employee_no,
         displayName: row.display_name,
       },
+      subject: row.subject,
       content: row.content,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
