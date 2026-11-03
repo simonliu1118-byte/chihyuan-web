@@ -93,7 +93,7 @@ export function useErpJob(home?: ErpJobHome) {
         if (cancelled) return;
         if (job.status === "DONE") {
           if (!job.resultCleared) keepErpResult(job);
-          else job = keptErpResult(job.id) ?? job;
+          else job = keptErpResult(job.id, job.queryType) ?? job;
         }
         setResult(job);
         if (visibleRef.current) setError(null);

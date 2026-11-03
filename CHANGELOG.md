@@ -6,6 +6,9 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.9.93 — 瀏覽器每種查詢只留最新一筆（2026-11-03，Claude）
+- 瀏覽器分頁保留的 ERP 查詢結果，從「每分頁最多 30 筆」改為每種查詢只留最新一筆（使用者 2026-11-03）。頁面本來就只顯示最新那筆。
+
 ## CY Web V0.9.92 — ERP 查詢結果保留在瀏覽器（2026-11-03，Claude）
 - 查詢結果在伺服器完成 5 分鐘後就清除，之後頁面只剩「結果已清除」。現在瀏覽器分頁（sessionStorage）會自留一份，直到關掉分頁或瀏覽器、登出，或登入狀態結束為止。
 - 存不進瀏覽器的大報表（約超過 5 MB）不另外保存，照舊向伺服器拿，5 分鐘後一樣會清除。伺服器的保存規則不變。
