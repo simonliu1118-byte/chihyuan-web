@@ -861,7 +861,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
                 onClick={() => void selectCustomer(customer.id)}
               >
                 <span className="cy-customer-result-main">
-                  <strong title={[customer.customerNo, customer.shortName].filter(Boolean).join(" ")}>{[customer.customerNo, customer.shortName].filter(Boolean).join(" ")}</strong>
+                  <strong title={[customer.customerNo, customer.shortName].filter(Boolean).join(" ")}>{customer.customerNo ? <span className="cy-customer-result-no">{customer.customerNo}</span> : null}{customer.shortName}</strong>
                 </span>
                 <span className="cy-customer-result-status">{customer.status ? <StatusName status={lookups?.customerStatuses.find(row => row.id === customer.status?.id) ?? customer.status} /> : "未設定"}</span>
               </button>
@@ -888,8 +888,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
             <div>
               <div className="cy-record-header">
                 <div>
-                  <h2 className="cy-customer-identity">{selected.customerNo ? `${selected.customerNo} ` : ""}{selected.shortName}{selected.fullName ? <small className="cy-record-title-note">（{selected.fullName}）</small> : null}</h2>
-                  <p className="cy-record-meta">最後修改：{formatDateTime(selected.updatedAt)}{selected.updatedBy ? ` · ${formatPerson(selected.updatedBy)}` : ""}</p>
+                  <h2 className="cy-customer-identity">{selected.customerNo ? <span className="cy-customer-identity-no">{selected.customerNo}</span> : null}{selected.shortName}{selected.fullName ? <small className="cy-record-title-note">（{selected.fullName}）</small> : null}</h2>
                 </div>
                 <div className="cy-record-actions">
                   <button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
@@ -921,6 +920,8 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
                   rows={frequentNewestFirst.slice(0, 5).map(row => ({ key: row.id, cells: [row.item?.itemNo ?? "—",
                     row.item?.name ?? row.customItemName ?? ""] }))} />
               </section>
+              {/* 最後修改 sits under the record cards (user 2026-11-03). */}
+              <p className="cy-record-meta cy-customer-updated">最後修改：{formatDateTime(selected.updatedAt)}{selected.updatedBy ? ` · ${formatPerson(selected.updatedBy)}` : ""}</p>
             </div>
           ) : <MasterDetailEmpty title="尚未選擇客戶" hint="從左側清單選一位客戶，或按清單上方的「＋ 新增客戶」。" />}
         </section>
