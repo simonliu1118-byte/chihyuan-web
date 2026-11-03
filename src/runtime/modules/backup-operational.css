@@ -41,7 +41,6 @@
 
 /* V0.10.5 backup history: one line per backup, details open under the row (user 2026-11-04). */
 .cy-backup-table-wrap{overflow-x:auto}
-.cy-backup-table{min-width:880px}
 .cy-backup-table th.num,.cy-backup-table td.num{text-align:right;font-variant-numeric:tabular-nums}
 .cy-backup-row{cursor:pointer}
 .cy-backup-row:hover>td{background:var(--cy-surface-muted)}
@@ -58,3 +57,13 @@
 .cy-backup-table .cy-op-page-actions .cy-op-button{min-height:var(--cy-control-h-sm);padding:2px 10px;font-size:var(--cy-fs-sm)}
 .cy-backup-detail>td{background:var(--cy-surface-muted)}
 .cy-backup-detail .cy-backup-identity{padding:6px 8px;font-size:var(--cy-fs-sm)}
+/* V0.10.7: identifiers in the same line; long codes end in … and show whole on hover. */
+.cy-backup-table{table-layout:auto;min-width:0}
+.cy-backup-table th,.cy-backup-table td{white-space:nowrap}
+.cy-backup-table{font-size:var(--cy-fs-sm)}
+.cy-backup-table .cy-sheet-value{padding:5px 7px}
+/* Identifiers in full (user 2026-11-04): small monospace, never cut; a narrow screen scrolls sideways. */
+.cy-backup-table td.code .cy-sheet-value{font-family:var(--cy-font-mono);font-size:11px;letter-spacing:-.01em;color:var(--cy-text-muted)}
+.cy-backup-table .cy-backup-copy{font-size:var(--cy-fs-xs);padding:1px 6px}
+.cy-backup-table tbody tr:hover>td{background:var(--cy-surface-muted)}
+.cy-backup-more{margin-top:8px}

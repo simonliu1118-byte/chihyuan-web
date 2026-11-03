@@ -6,6 +6,11 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.10.7 — 備份紀錄單列完整顯示（2026-11-04，Claude）
+- 備份紀錄每筆一列，備份編號與資料摘要直接放在同一列（不需展開）：表格改依內容決定欄寬，編號與摘要以等寬小字完整顯示、不截斷；螢幕太窄時表格可左右捲動。「操作」移到大小後面。
+- 預設只顯示最新 10 筆，其餘用「顯示較早的備份」展開；拿掉「顯示最新 50 筆…」說明。
+- 隔離還原驗證紀錄同樣改成一筆一列：驗證時間／結果／副本／階段／說明（含錯誤代碼）／來源備份／requestId。
+
 ## CY Web V0.10.6 — 備份紀錄展開箭頭加大（2026-11-04，Claude）
 - 備份紀錄左側展開箭頭改用共用圖示（新增 `chevronRight`），加大並以正常文字色顯示，展開時轉向下。
 

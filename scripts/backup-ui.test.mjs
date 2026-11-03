@@ -102,15 +102,16 @@ test("Claude N3: a reused generation has its own target lock phase label", () =>
   assert.match(html, /BACKUP_TARGET_ALREADY_REHEARSED/);
 });
 
-test("V0.10.5 one line per backup; 備份編號 and 資料摘要 open under the row (user 2026-11-04)", () => {
+test("V0.10.7 one line per backup with 備份編號 and 資料摘要 in the line; at most 10 shown first (user 2026-11-04)", () => {
   const html = render();
   assert.match(html, /<th[^>]*>備份時間（台灣）<\/th><th[^>]*>類型<\/th><th[^>]*>狀態<\/th><th[^>]*>版本<\/th><th[^>]*>儲存副本<\/th>/);
+  assert.match(html, /<th[^>]*>備份編號<\/th><th[^>]*>資料摘要<\/th>/);
+  assert.match(html, new RegExp(row.backupId));
   assert.match(html, /V0\.7\.3/);
-  assert.match(html, /aria-expanded="false"/);
-  assert.doesNotMatch(html, /<dt>備份編號<\/dt>|<dt>資料摘要<\/dt>/, "identifiers stay folded until the row is opened");
-  const source = readFileSync(new URL("../src/runtime/modules/BackupOperationalPage.tsx", import.meta.url), "utf8");
-  assert.match(source, /<dt>備份編號<\/dt><dd>\{row\.backupId\}<\/dd>/);
-  assert.match(source, /<dt>資料摘要<\/dt>/);
+  const many = renderToStaticMarkup(createElement(BackupHistoryView, { history: { configured: true, recoveryConfigured: false, recoveryReady: false,
+    sets: Array.from({ length: 12 }, (_, i) => ({ ...row, backupId: "b" + i })) }, busy: false, retry() {}, rehearse() {} }));
+  assert.equal((many.match(/<tbody>[\s\S]*<\/tbody>/)[0].match(/<tr/g) ?? []).length, 10);
+  assert.match(many, /顯示較早的備份（共 12 筆）/);
 });
 test("V0.9.51 verified result is inside the rehearsal history panel, not a detached panel", () => {
   const source = readFileSync(new URL("../src/runtime/modules/BackupOperationalPage.tsx", import.meta.url), "utf8");
