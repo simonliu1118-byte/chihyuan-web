@@ -281,6 +281,10 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
   const [historyOpen,setHistoryOpen] = useState(false);
   const pane = useMasterDetailPane();
   const [visitDraft, setVisitDraft] = useState<VisitDraft | null>(null);
+  // A visit removed elsewhere (or by another person) must not stay open in the form.
+  useEffect(() => {
+    if (visitDraft?.record && !visits.some(row => row.id === visitDraft.record?.id)) setVisitDraft(null);
+  }, [visits]); // eslint-disable-line react-hooks/exhaustive-deps
   const [quoteDraft, setQuoteDraft] = useState<QuoteDraft | null>(null);
   const [frequentItemId, setFrequentItemId] = useState<number | null>(null);
   const [frequentText, setFrequentText] = useState("");
@@ -610,11 +614,13 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
     setMessage(null);
     try {
       await deleteCustomerVisit(selected.id, visit.id, { expectedRevision: visit.revision });
+      // The form showed the deleted visit; clear it so it cannot be saved or deleted again.
+      setVisitDraft(null);
       setRelatedEpoch((value) => value + 1);
       setMessage("拜訪紀錄已刪除。");
     } catch (error) {
       reportError(errorMessage(error));
-      if (error instanceof ApiClientError && error.status === 409) setRelatedEpoch((value) => value + 1);
+      if (error instanceof ApiClientError && (error.status === 409 || error.status === 404)) { setVisitDraft(null); setRelatedEpoch((value) => value + 1); }
     } finally {
       setBusy(false);
     }
@@ -1131,18 +1137,15 @@ function VisitsPanel({ selected, rows, draft, setDraft, save, edit, remove, busy
   return <div className="cy-customer-related-content">
     {draft ? <form onKeyDown={enterAdvancesFields} className="cy-customer-related-form" onSubmit={save}>
       <RecordSheet label="拜訪紀錄" editing rows={[
-        { columns: "repeat(3, minmax(0,1fr))", cells: [
+        // 拜訪對象 is typed; the contact picker was dropped (user 2026-11-04). An older visit linked to a
+        // contact keeps that link until its 拜訪對象 is edited.
+        { columns: "9.5em minmax(0,1fr)", cells: [
           { label: "日期", required: true, view: draft.visitDate,
             edit: <DateInput density="regular" className={input} max="9999-12-31" value={draft.visitDate} disabled={busy}
               onChange={visitDate => setDraft({ ...draft, visitDate })} /> },
-          { label: "聯絡人", view: "", edit: <select className={input} value={draft.contactId ?? ""} disabled={busy}
-            onChange={event => setDraft({ ...draft, contactId: event.target.value ? Number(event.target.value) : null,
-              personSnapshot: event.target.value ? "" : draft.personSnapshot })}>
-            <option value="">自由輸入</option>
-            {contacts.map(row => <option key={row.id} value={row.id}>{row.name || [row.departmentName, row.title].filter(Boolean).join(" ") || `聯絡人 ${row.sortOrder + 1}`}</option>)}
-          </select> },
-          { label: "拜訪對象", view: "", edit: <input className={input} value={draft.personSnapshot} maxLength={200}
-            disabled={busy || draft.contactId != null} onChange={event => setDraft({ ...draft, personSnapshot: event.target.value })} /> },
+          { label: "拜訪對象", view: "", edit: <input className={input} maxLength={200} disabled={busy}
+            value={draft.contactId != null && !draft.personSnapshot ? contacts.find(row => row.id === draft.contactId)?.name ?? "" : draft.personSnapshot}
+            onChange={event => setDraft({ ...draft, contactId: null, personSnapshot: event.target.value })} /> },
         ] },
         { columns: "minmax(0,1fr)", cells: [{ label: "主旨", required: true, view: "",
           edit: <input className={input} value={draft.subject} maxLength={CUSTOMER_LIMITS.visitSubject} disabled={busy}
