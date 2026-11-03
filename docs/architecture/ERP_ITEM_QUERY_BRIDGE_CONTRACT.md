@@ -53,7 +53,7 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 
 `itemNo` 去前後空白後長 1～40 字，不可含空白／控制字元。同使用者同時最多一筆 QUEUED／RUNNING（V0.9.41 起改為三筆）；衝突 HTTP 409。讀取工作時使用 CYID session 與**每次即時** Module Access 驗證；Agent token 無權使用使用者 API。
 
-工作狀態：`QUEUED → RUNNING → DONE | NOT_FOUND | FAILED`，`QUEUED → EXPIRED`；建立後排隊 120 秒過期（V0.9.41 起改為 Agent 離線才過期，見總覽）、RUNNING 一般工作逾 180 秒、含歷史異動逾 300 秒未回報視為 `FAILED/AGENT_TIMEOUT`。前端每 1.5 秒輪詢直到結束，離線顯示提示。狀態清理由網站排程執行（見總覽「保存」），不在 claim 時執行；V0.9.86 起，擁有者讀取自己的查詢時也會套用同一逾時規則（`expireStaleErpQueries`）。完成後 5 分鐘清除 fields／warehouses／batches／history，metadata 保留 7 天；清除後 DONE 仍有 `resultCleared:true`。ERP 短期佇列、heartbeat、Agent 憑證 hash 不納入長期備份，復原後須由超級管理員重新產生憑證。Audit 僅記員工、查詢品號、結果與耗時，不記欄位值。
+工作狀態：`QUEUED → RUNNING → DONE | NOT_FOUND | FAILED`，`QUEUED → EXPIRED`；建立後排隊 120 秒過期（V0.9.41 起改為 Agent 離線才過期，見總覽）、RUNNING 一般工作逾 180 秒、含歷史異動逾 300 秒未回報視為 `FAILED/AGENT_TIMEOUT`。前端每 1.5 秒輪詢直到結束，離線顯示提示。狀態清理由網站排程執行（見總覽「保存」），不在 claim 時執行；V0.9.86 起，擁有者讀取自己的查詢時也會套用同一逾時規則（`expireStaleErpQueries`）。完成後 5 分鐘清除 fields／warehouses／batches／history，metadata 保留 7 天；清除後 DONE 仍有 `resultCleared:true`。V0.9.92 起，前端在瀏覽器分頁的 sessionStorage 保留完成結果（每分頁最多 30 筆；登出或登入狀態結束時清除；放不下就不存），遇到 `resultCleared` 時改顯示這份；伺服器規則不變。ERP 短期佇列、heartbeat、Agent 憑證 hash 不納入長期備份，復原後須由超級管理員重新產生憑證。Audit 僅記員工、查詢品號、結果與耗時，不記欄位值。
 
 ## Agent API
 

@@ -4,6 +4,7 @@ import type { ErpQueryResult, ErpQueryStatus, ErpQueryType } from "../../../shar
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { createErpQuery, loadErpItemQuery, loadRecentErpJobs, type ErpQueryRequest, type RecentErpJob } from "../api/erp-item-query-client";
 import { ERP_QUERY_FAILED_EVENT, type ErpQueryFailedDetail } from "./ErpAgentCredentialControl";
+import { keepErpResult, keptErpResult } from "./erp-result-cache";
 
 export const runningStatus = (status: ErpQueryStatus) => status === "QUEUED" || status === "RUNNING";
 
@@ -60,7 +61,8 @@ export function recentJobs(): Promise<RecentErpJob[]> {
 /**
  * One ERP job owner (a member may have three queued or running; one per owner): create, poll every 1.5 s until it
  * ends, keep the result. With a home, the page's newest job of the last 24 hours is loaded when the
- * page opens (CY Web keeps a finished result for 5 minutes, its status longer).
+ * page opens (CY Web keeps a finished result for 5 minutes, its status longer; this tab keeps its own
+ * copy, see erp-result-cache).
  */
 export function useErpJob(home?: ErpJobHome) {
   const [submitting, setSubmitting] = useState(false);
@@ -89,6 +91,10 @@ export function useErpJob(home?: ErpJobHome) {
       if (pending) return; pending = true;
       void loadErpItemQuery(queryId).then(job => {
         if (cancelled) return;
+        if (job.status === "DONE") {
+          if (!job.resultCleared) keepErpResult(job);
+          else job = keptErpResult(job.id) ?? job;
+        }
         setResult(job);
         if (visibleRef.current) setError(null);
         if (runningStatus(job.status)) { sawRunning.current = true; return; }
