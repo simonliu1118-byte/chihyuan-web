@@ -45,7 +45,8 @@ export function BackupHistoryView({ history, busy, retry, rehearse }: { history:
   </div>;
   // One line per backup (user 2026-11-04); 備份編號 and 資料摘要 open under the row on click, like 修改紀錄.
   const kind = (row: BackupHistoryEntry) => row.triggerKind === "scheduled" ? "排程備份" : row.triggerKind === "pre_restore" ? "還原前安全備份" : "手動備份";
-  return <BackupRows history={history} action={action} kind={kind} />;
+  const hasAction = (row: BackupHistoryEntry) => row.canRetry || !!(history.recoveryReady && rehearse && row.copies.some(copy => copy.status === "verified"));
+  return <BackupRows history={history} action={action} kind={kind} hasAction={hasAction} />;
 }
 
 /** How many backups show before 顯示較早的備份 (user 2026-11-04: 50 at once is too many). */
@@ -65,8 +66,8 @@ function LineTable<T>({ label, rows, getKey, columns }: { label: string; rows: r
   </table></div>;
 }
 
-function BackupRows({ history, action, kind }: { history: BackupHistory; action: (row: BackupHistoryEntry) => ReactNode;
-  kind: (row: BackupHistoryEntry) => string }) {
+function BackupRows({ history, action, kind, hasAction }: { history: BackupHistory; action: (row: BackupHistoryEntry) => ReactNode;
+  kind: (row: BackupHistoryEntry) => string; hasAction: (row: BackupHistoryEntry) => boolean }) {
   const [all, setAll] = useState(false);
   if (!history.sets.length) return <div className="cy-op-empty">{history.configured ? "尚無備份紀錄" : "儲存設定完成後才能建立備份。"}</div>;
   const rows = all ? history.sets : history.sets.slice(0, BACKUP_ROWS_SHOWN);
@@ -78,9 +79,10 @@ function BackupRows({ history, action, kind }: { history: BackupHistory; action:
         { header: "版本", width: "5.5em", render: row => "V" + row.appVersion }, { header: "儲存副本", width: "16em", render: providerStatus },
         { header: "筆數", width: "5.5em", numeric: true, render: row => row.recordCount.toLocaleString() },
         { header: "大小", width: "6em", numeric: true, render: row => size(row.byteLength) },
-        { header: "操作", render: action },
         { header: "備份編號", code: true, render: row => row.backupId, full: row => row.backupId },
-        { header: "資料摘要", code: true, render: digest, full: digest }]} />
+        { header: "資料摘要", code: true, render: digest, full: digest },
+        // 操作 only when some backup has something to do (重試 GCS, 驗證隔離還原) (user 2026-11-04).
+        ...(rows.some(hasAction) ? [{ header: "操作", render: action }] : [])]} />
     {history.sets.length > BACKUP_ROWS_SHOWN ? <button type="button" className="cy-op-button quiet cy-backup-more" onClick={() => setAll(value => !value)}>
       {all ? "只顯示最新 " + BACKUP_ROWS_SHOWN + " 筆" : "顯示較早的備份（共 " + history.sets.length + " 筆）"}</button> : null}
   </>;
@@ -106,7 +108,7 @@ export function BackupRehearsalHistoryView({ items }: { items: readonly BackupRe
       { header: "階段", width: "9.5em", render: row => row.phase ? rehearsalPhaseLabels[row.phase] ?? "階段待確認" : "歷史紀錄" },
       { header: "說明", render: row => <>{explanation(row)}{row.errorCode ? "（" + row.errorCode + "）" : ""}</> },
       { header: "來源備份", code: true, render: row => row.backupId, full: row => row.backupId },
-      { header: "requestId", code: true, render: row => row.requestId ?? "未記錄", full: row => row.requestId ?? "" }]} />;
+      { header: "請求編號", code: true, render: row => row.requestId ?? "未記錄", full: row => row.requestId ?? "" }]} />;
 }
 /** Prevent an old successful rehearsal from appearing as the status of a fresh
  * recovery target after the next quarter's approved rotation. */
