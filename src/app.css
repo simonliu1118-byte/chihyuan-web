@@ -373,13 +373,19 @@ h1, h2, h3, h4, h5 { line-height: 1.35; }
 .cy-button:disabled, .cy-op-button:disabled { opacity: .5; }
 
 /* ---------- Lists (record pickers in list panes) ---------- */
-.cy-op-list { display: grid; align-content: start; gap: 2px; margin-top: 8px; max-height: 72vh; overflow: auto; }
+/* One list look for every module (user 2026-11-03, from 叫貨): flat rows split by a hairline; the
+   selected row has an accent bar on the left and an accent tint. */
+.cy-op-list { display: grid; align-content: start; gap: 0; margin-top: 8px; max-height: 72vh; overflow: auto; }
 .cy-op-list-row {
-  appearance: none; width: 100%; display: grid; gap: 2px; padding: 8px 12px;
-  border: 0; border-radius: var(--cy-radius-md); background: transparent; color: var(--cy-text); text-align: left;
+  appearance: none; width: 100%; display: grid; gap: 2px; padding: 7px 12px; min-height: 36px;
+  border: 0; border-radius: 0; background: transparent; color: var(--cy-text); text-align: left; cursor: pointer;
 }
+.cy-op-list-row + .cy-op-list-row { border-top: 1px solid var(--cy-border); }
 .cy-op-list-row:hover { background: var(--cy-surface-muted); }
-.cy-op-list-row.active { background: var(--cy-accent-soft); box-shadow: inset 3px 0 var(--cy-accent); }
+.cy-op-list-row.active, .cy-op-list-row[aria-current="true"] { background: var(--cy-accent-soft); box-shadow: inset 3px 0 var(--cy-accent); }
+.cy-op-list-row:focus-visible { outline: 2px solid var(--cy-accent); outline-offset: -2px; }
+/* Code before the name on one line (客戶編號、品號): plain weight, a fixed gap, no space character. */
+.cy-list-row-no, .cy-customer-result-no { margin-right: 10px; font-weight: 400; color: var(--cy-text); }
 .cy-op-list-row strong { font-size: var(--cy-fs-md); font-weight: 600; }
 .cy-op-list-row span, .cy-op-list-row small { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
 .cy-op-read-row { padding: 8px 0; border-bottom: 1px solid var(--cy-border); }
