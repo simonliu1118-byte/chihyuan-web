@@ -199,7 +199,6 @@ Unique `(item_id, from_unit, to_unit)`. Cycles/unresolved conversion paths are r
 | `region_id` | INTEGER FK regions | yes | RESTRICT |
 | `owner_department_id` | INTEGER FK departments | yes | RESTRICT |
 | `owner_employee_id` | INTEGER FK app_members | yes | RESTRICT |
-| `fax` | TEXT | yes | |
 | `customer_status_id` | INTEGER FK | yes | RESTRICT |
 | `created_at`, `created_by` | metadata |  | |
 | `updated_at`, `updated_by` | metadata |  | last modification only |
@@ -211,7 +210,7 @@ Indexes include Customer number partial unique, `tax_id`, `short_name`, owner, s
 
 ### `customer_phones`
 
-`id`, `customer_id`, `phone_number`, `extension`, `note`, `sort_order`, `created_at`, `updated_at`.
+`id`, `customer_id`, `kind` (`PHONE`/`FAX`, 0046), `phone_number`, `extension`, `note`, `sort_order`, `created_at`, `updated_at`.
 
 ### `customer_contacts`
 
@@ -756,3 +755,10 @@ V0.9.64 / migration0041 adds NO_HOLD to the blacklist action CHECK, preserving a
 ## 28. Portable backup schema level (V0.9.81)
 
 Since V0.9.81 a portable backup records the source database's last migration and restores by table and column name. The "only exact known historical schemas" wording in §21–§25 now applies only to `formatVersion 1` packages, handled by the frozen `worker/backup/legacy-v1.ts`. Each new migration bumps `CURRENT_MIGRATION` in `worker/backup/portable-backup.ts` and no longer pins a schema fingerprint. See `BACKUP_ARCHITECTURE.md`.
+
+## 29. Customer faxes and visit subject (0046, V0.9.95)
+
+- `customer_phones.kind` is `PHONE` or `FAX` (default `PHONE`). A customer keeps up to three faxes as `FAX` rows; `customers.fax` is dropped and its value moved to a `FAX` row. A portable backup from before 0046 is upgraded the same way on restore (`UPGRADES` in `worker/backup/portable-backup.ts`).
+- Phones store digits only; an extension stays in `extension`. Contact `phone` stores `digits` or `digits#extension`; the screen shows `(02)2345-6789 #12345` and `0912-345-678`.
+- `customer_visits.subject` is a required short subject of at most 16 characters for new and edited visits (existing rows default to an empty string); `content` keeps the full text.
+- Worker limits (user 2026-11-03): `customer_no` at most 10 letters or digits (case kept, as in ERP), `short_name` at most 10 characters, `tax_id` exactly 8 digits, important notes single-line, at most 5, postal code 3 or 6 digits.

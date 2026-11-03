@@ -7,6 +7,7 @@ import type {
   CustomerPhoneInput,
   UpdateCustomerRequest,
 } from "../../shared/customer";
+import { CUSTOMER_LIMITS, CUSTOMER_NO_PATTERN } from "../../shared/customer";
 import { FieldValidationError, ValidationBag } from "../validation/fields";
 
 const MAX_PROFILE_ROWS = 50;
@@ -20,7 +21,6 @@ export interface NormalizedCustomerProfile {
   regionId: number | null;
   ownerDepartmentId: number | null;
   ownerEmployeeId: number | null;
-  fax: string | null;
   customerStatusId: number | null;
   phones: readonly CustomerPhoneInput[];
   contacts: readonly CustomerContactInput[];
@@ -154,10 +154,17 @@ function normalizePhones(input: Record<string, unknown>, errors: Record<string, 
       ? (raw as Record<string, unknown>)
       : {};
     if (Object.keys(row).length === 0) errors[path] = "格式錯誤";
+    const kind = row.kind == null ? "PHONE" : row.kind;
+    if (kind !== "PHONE" && kind !== "FAX") errors[`${path}.kind`] = "格式錯誤";
+    const phoneNumber = requiredTextFrom(row, "phoneNumber", errors, 20);
+    if (phoneNumber && !/^\d{6,15}$/.test(phoneNumber)) errors[`${path}.phoneNumber`] = "電話需為 6～15 位數字";
+    const extension = optionalTextFrom(row, "extension", errors, 10);
+    if (extension && !/^\d+$/.test(extension)) errors[`${path}.extension`] = "分機需為數字";
     return {
       id: optionalChildId(row, path, errors),
-      phoneNumber: requiredTextFrom(row, "phoneNumber", errors, 120),
-      extension: optionalTextFrom(row, "extension", errors, 40),
+      kind: kind === "FAX" ? "FAX" as const : "PHONE" as const,
+      phoneNumber,
+      extension: kind === "FAX" ? null : extension,
       note: optionalTextFrom(row, "note", errors, 240),
       sortOrder: sortOrderFrom(row, path, index, errors),
     };
@@ -194,9 +201,11 @@ function normalizeAddresses(input: Record<string, unknown>, errors: Record<strin
       ? (raw as Record<string, unknown>)
       : {};
     if (Object.keys(row).length === 0) errors[path] = "格式錯誤";
+    const postalCode = optionalTextFrom(row, "postalCode", errors, 6);
+    if (postalCode && !/^\d{3}(\d{3})?$/.test(postalCode)) errors[`${path}.postalCode`] = "郵遞區號需為 3 碼或 6 碼數字";
     return {
       id: optionalChildId(row, path, errors),
-      postalCode: optionalTextFrom(row, "postalCode", errors, 16),
+      postalCode,
       address: requiredTextFrom(row, "address", errors, 500),
       note: optionalTextFrom(row, "note", errors, 240),
       sortOrder: sortOrderFrom(row, path, index, errors),
@@ -211,9 +220,11 @@ function normalizeNotes(input: Record<string, unknown>, errors: Record<string, s
       ? (raw as Record<string, unknown>)
       : {};
     if (Object.keys(row).length === 0) errors[path] = "格式錯誤";
+    const content = requiredTextFrom(row, "content", errors, CUSTOMER_LIMITS.noteLength);
+    if (/[\r\n]/.test(content)) errors[`${path}.content`] = "重要註記為單行";
     return {
       id: optionalChildId(row, path, errors),
-      content: requiredTextFrom(row, "content", errors, 2000),
+      content,
       sortOrder: sortOrderFrom(row, path, index, errors),
     };
   });
@@ -224,11 +235,10 @@ function normalizeProfile(raw: unknown): NormalizedCustomerProfile {
   const bag = new ValidationBag(input);
   const errors: Record<string, string> = {};
 
-  const customerNo = bag.optionalText("customerNo", { maxLength: 64 });
-  const shortName = bag.requiredText("shortName", { maxLength: 120 }) ?? "";
+  const customerNo = bag.optionalText("customerNo", { maxLength: CUSTOMER_LIMITS.customerNo });
+  const shortName = bag.requiredText("shortName", { maxLength: CUSTOMER_LIMITS.shortName }) ?? "";
   const fullName = bag.optionalText("fullName", { maxLength: 240 });
   const taxId = bag.optionalText("taxId", { maxLength: 8 });
-  const fax = bag.optionalText("fax", { maxLength: 120 });
   const customerCategoryId = bag.optionalPositiveInteger("customerCategoryId");
   const regionId = bag.optionalPositiveInteger("regionId");
   const ownerDepartmentId = bag.optionalPositiveInteger("ownerDepartmentId");
@@ -240,11 +250,14 @@ function normalizeProfile(raw: unknown): NormalizedCustomerProfile {
   if (taxId != null && !/^\d{8}$/.test(taxId)) {
     errors.taxId = "統一編號需為 8 碼數字";
   }
+  if (customerNo != null && !CUSTOMER_NO_PATTERN.test(customerNo)) errors.customerNo = "客戶編號只能是英文或數字";
 
   const phones = normalizePhones(input, errors);
   const contacts = normalizeContacts(input, errors);
   const addresses = normalizeAddresses(input, errors);
   const notes = normalizeNotes(input, errors);
+  if (phones.filter(row => row.kind === "FAX").length > CUSTOMER_LIMITS.faxes) errors.phones = `傳真最多 ${CUSTOMER_LIMITS.faxes} 筆`;
+  if (notes.length > CUSTOMER_LIMITS.notes) errors.notes = `重要註記最多 ${CUSTOMER_LIMITS.notes} 筆`;
   const confirmDuplicateTaxId = optionalBoolean(input, "confirmDuplicateTaxId", errors);
 
   if (Object.keys(errors).length > 0) throw new FieldValidationError(errors);
@@ -258,7 +271,6 @@ function normalizeProfile(raw: unknown): NormalizedCustomerProfile {
     regionId,
     ownerDepartmentId,
     ownerEmployeeId,
-    fax,
     customerStatusId,
     phones,
     contacts,
@@ -284,10 +296,11 @@ export function normalizeUpdateCustomerRequest(raw: unknown): NormalizedUpdateCu
 export function normalizeChangeCustomerNumberRequest(raw: unknown): NormalizedChangeCustomerNumberRequest {
   const input = asObject(raw as ChangeCustomerNumberRequest);
   const bag = new ValidationBag(input);
-  const newCustomerNo = bag.optionalText("newCustomerNo", { maxLength: 64 });
+  const newCustomerNo = bag.optionalText("newCustomerNo", { maxLength: CUSTOMER_LIMITS.customerNo });
   const expectedRevision = bag.requiredPositiveInteger("expectedRevision");
   const changeReason = bag.optionalText("changeReason", { maxLength: 240 });
   bag.throwIfInvalid();
+  if (newCustomerNo != null && !CUSTOMER_NO_PATTERN.test(newCustomerNo)) throw new FieldValidationError({ newCustomerNo: "客戶編號只能是英文或數字" });
   return {
     newCustomerNo,
     expectedRevision: expectedRevision ?? 0,

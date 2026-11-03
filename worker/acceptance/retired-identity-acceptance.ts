@@ -33,7 +33,7 @@ export async function acceptRetiredIdentitySource(db: D1Database): Promise<void>
   check(customer, "CUSTOMER_SAMPLE");
   const context = { actorMemberId: 1, now: "2026-10-02T12:30:00Z" };
   const related = new CustomerRelatedService(db);
-  const visitInput = { visitDate: "2026-10-02", employeeId: 1, content: "Isolated identity sample" };
+  const visitInput = { visitDate: "2026-10-02", employeeId: 1, subject: "Identity sample", content: "Isolated identity sample" };
   const visit = await related.createVisit(customer.id, visitInput, context);
   await related.deleteVisit(customer.id, visit.id, { expectedRevision: visit.revision }, context);
   const nextVisit = await related.createVisit(customer.id, visitInput, context);

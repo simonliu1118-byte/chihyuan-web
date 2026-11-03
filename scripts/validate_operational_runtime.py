@@ -60,7 +60,7 @@ def main() -> int:
 
     for token in [
         "新增拜訪",
-        "修正紀錄",
+        "startQuoteCorrection",
         "常用商品",
         "changeCustomerNumber",
         "checkCustomerTaxId",

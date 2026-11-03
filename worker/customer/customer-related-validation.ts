@@ -9,6 +9,7 @@ import type {
   UpdateCustomerFrequentItemRequest,
   UpdateCustomerVisitRequest,
 } from "../../shared/customer-related";
+import { CUSTOMER_LIMITS } from "../../shared/customer";
 import { parseScaled4 } from "../../shared/fixed-point";
 import { FieldValidationError, ValidationBag } from "../validation/fields";
 
@@ -19,6 +20,7 @@ export interface NormalizedVisitInput {
   contactId: number | null;
   personSnapshot: string | null;
   employeeId: number | null;
+  subject: string;
   content: string;
 }
 
@@ -112,9 +114,10 @@ function normalizeVisit(raw: unknown): NormalizedVisitInput {
   const contactId = bag.optionalPositiveInteger("contactId");
   const personSnapshot = bag.optionalText("personSnapshot", { maxLength: 200 });
   const employeeId = bag.optionalPositiveInteger("employeeId");
+  const subject = bag.requiredText("subject", { maxLength: CUSTOMER_LIMITS.visitSubject }) ?? "";
   const content = bag.requiredText("content", { maxLength: 10000 }) ?? "";
   bag.throwIfInvalid();
-  return { visitDate, contactId, personSnapshot, employeeId, content };
+  return { visitDate, contactId, personSnapshot, employeeId, subject, content };
 }
 
 export function normalizeCreateVisitRequest(raw: unknown): NormalizedCreateVisitRequest {

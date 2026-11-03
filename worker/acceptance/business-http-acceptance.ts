@@ -130,12 +130,12 @@ export async function acceptBusinessHttpAuthority(db: D1Database, componentId: n
   check(await snapshot() === initial, "GATE_OR_VALIDATION_BUSINESS_MUTATION");
 
   // Customer HTTP persistence, server-owned actor, and stale 409 without effects.
-  const profile = { shortName: "Isolated HTTP Customer", customerNo: "ACC-HTTP-001", ...spoof };
+  const profile = { shortName: "HTTPCust", customerNo: "ACCHTTP001", ...spoof };
   const createdResponse = await expect("customers", 201, "POST", profile);
   const created = (await createdResponse.json() as { data: { id: number; revision: number } }).data;
   const creator = await db.prepare("SELECT created_by FROM customers WHERE id=?").bind(created.id).first<{ created_by: number }>();
   check(creator?.created_by === await memberId(), "CLIENT_SPOOFED_CUSTOMER_ACTOR");
-  const edit = { ...profile, shortName: "Isolated HTTP Customer corrected", expectedRevision: created.revision };
+  const edit = { ...profile, shortName: "HTTPCust2", expectedRevision: created.revision };
   await expect("customers/" + created.id, 200, "PATCH", edit);
   const saved = await snapshot();
   await expect("customers/" + created.id, 409, "PATCH", edit, true, "CUSTOMER_REVISION_CONFLICT");
@@ -241,7 +241,7 @@ export async function acceptBusinessHttpAuthority(db: D1Database, componentId: n
   check(await snapshot() === atomicSnapshot, "BATCH_QUOTE_INVALID_ATOMIC_ROLLBACK");
 
   const anotherCustomer = (await (await expect("customers", 201, "POST", {
-    shortName: "Another synthetic customer", customerNo: "ACC-HTTP-QUOTES-02",
+    shortName: "AnotherCus", customerNo: "ACCHTTPQ02",
   })).json() as { data: { id: number } }).data;
   await expect("customers/" + anotherCustomer.id + "/quotes/batch", 201, "POST", {
     ...batchRequest, quoteDate: "2026-10-05",
@@ -264,7 +264,7 @@ export async function acceptBusinessHttpAuthority(db: D1Database, componentId: n
     && latestSummary.groups.every(group => group.customers.length === 1)
     && latestSummary.groups.some(group => group.customers[0].customerId === created.id
       && group.customers[0].quoteDate === "2026-10-06"), "ITEM_QUOTE_LATEST_PER_CUSTOMER");
-  const visitProfile = { visitDate: "2026-11-01", employeeId: await memberId(), personSnapshot: "Isolated visitor", content: "HTTP Visit" };
+  const visitProfile = { visitDate: "2026-11-01", employeeId: await memberId(), personSnapshot: "Isolated visitor", subject: "HTTP Visit", content: "HTTP Visit" };
   const visit = (await (await expect(customerPath + "/visits", 201, "POST", visitProfile)).json() as { data: { id: number; revision: number } }).data;
   const visitPath = customerPath + "/visits/" + visit.id;
   const visitEdit = { ...visitProfile, content: "HTTP Visit corrected", expectedRevision: visit.revision };

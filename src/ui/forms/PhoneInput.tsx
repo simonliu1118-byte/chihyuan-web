@@ -1,5 +1,5 @@
-import {useLayoutEffect,useRef,type ClipboardEvent,type InputHTMLAttributes} from "react";
-import {deletePhoneDigit,digitOffset,formatPhone,phoneCaret,phoneDigits,type PhoneKind} from "../../../shared/phone";
+import {useLayoutEffect,useRef,useState,type ClipboardEvent,type InputHTMLAttributes} from "react";
+import {deletePhoneDigit,digitOffset,formatPhone,formatPhoneEntry,joinPhoneEntry,parsePhoneEntry,phoneCaret,phoneDigits,type PhoneKind} from "../../../shared/phone";
 type Props=Omit<InputHTMLAttributes<HTMLInputElement>,"value"|"onChange"|"type"|"maxLength">&{value:string;onChange:(digits:string)=>void;kind?:PhoneKind};
 /** Label/validation belongs to Field; this shared control owns formatting, editing and clipboard. */
 export function PhoneInput({value,onChange,kind="phone",...props}:Props){
@@ -14,4 +14,22 @@ export function PhoneInput({value,onChange,kind="phone",...props}:Props){
 /** Read-only phone selections also copy digits, without changing unrelated page selections. */
 export function PhoneText({value,kind="phone"}:{value:string;kind?:PhoneKind}){
  return <span onCopy={e=>{const selection=window.getSelection();if(!selection||!selection.rangeCount||!e.currentTarget.contains(selection.anchorNode)||!e.currentTarget.contains(selection.focusNode))return;e.clipboardData.setData("text/plain",phoneDigits(selection.toString()));e.preventDefault()}}>{formatPhone(value,kind)}</span>;
+}
+/**
+ * A phone with an optional extension typed after "#" (user 2026-11-03). The stored value is digits,
+ * or digits#extension; it shows as (02)2345-6789 #12345 or 0912-345-678 once the cell is left.
+ */
+export function PhoneEntryInput({value,onChange,...props}:Omit<InputHTMLAttributes<HTMLInputElement>,"value"|"onChange"|"type">&{value:string;onChange:(stored:string)=>void}){
+ const [typing,setTyping]=useState<string|null>(null);
+ const shown=typing??phoneEntryText(value);
+ return <input {...props} type="tel" inputMode="tel" autoComplete="off" value={shown}
+  onFocus={e=>{setTyping(shown);props.onFocus?.(e)}}
+  onBlur={e=>{setTyping(null);props.onBlur?.(e)}}
+  onChange={e=>{const text=e.currentTarget.value.replace(/[^\d#()\- ]/g,"");setTyping(text);const p=parsePhoneEntry(text);onChange(joinPhoneEntry(p.number,p.extension))}}/>;
+}
+/** Display text for a stored digits#extension value. */
+export function phoneEntryText(stored:string|null|undefined):string{
+ if(!stored)return "";
+ const p=parsePhoneEntry(stored);
+ return formatPhoneEntry(p.number,p.extension);
 }

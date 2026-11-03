@@ -1,3 +1,5 @@
+import { IconButton } from "../../ui/actions/IconButton";
+import { Icons } from "../../ui/actions/icons";
 import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import { Dialog } from "../../ui/overlays/Dialog";
 import { RelatedCard } from "../../ui/records/RelatedCard";
@@ -681,8 +683,8 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
                     <input className="cy-op-input" aria-label="換算數量" inputMode="decimal" value={row.quantity} disabled={busy}
                       onChange={event => updateConversion(index, "quantity", event.target.value)} />
                     <span>{draft.baseUnit}</span>
-                    <button type="button" className="cy-op-button compact quiet" disabled={busy}
-                      aria-label="移除換算" onClick={() => patch({ unitConversions: draft.unitConversions.filter((_, n) => n !== index) })}>✕</button>
+                    <IconButton variant="table" tone="danger" icon={Icons.remove} label="移除換算" disabled={busy}
+                      onClick={() => patch({ unitConversions: draft.unitConversions.filter((_, n) => n !== index) })} />
                   </div>
                 ))}
                 <button type="button" className="cy-item-add-conversion" disabled={busy} onClick={addConversion}>＋ 換算</button>

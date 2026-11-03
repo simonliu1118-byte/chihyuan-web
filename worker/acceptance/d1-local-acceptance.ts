@@ -197,9 +197,9 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
   const customerService = new CustomerService(db);
   const created = await customerService.create(
     {
-      customerNo: "ACCEPT-001",
-      shortName: "D1 Acceptance",
-      phones: [{ phoneNumber: "07-0000000", sortOrder: 0 }],
+      customerNo: "ACCEPT001",
+      shortName: "D1Accept",
+      phones: [{ phoneNumber: "070000000", sortOrder: 0 }],
     },
     { actorMemberId: 1, now: t0 },
   );
@@ -213,17 +213,17 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
     created.id,
     {
       customerNo: created.customerNo,
-      shortName: "D1 Acceptance Updated",
+      shortName: "D1Updated",
       expectedRevision: created.revision,
       phones: [
         {
           id: firstPhone.id,
-          phoneNumber: "07-1111111",
+          phoneNumber: "071111111",
           extension: firstPhone.extension,
           note: firstPhone.note,
           sortOrder: 0,
         },
-        { phoneNumber: "07-2222222", sortOrder: 1 },
+        { phoneNumber: "072222222", sortOrder: 1 },
       ],
     },
     { actorMemberId: 1, now: t1 },
@@ -238,7 +238,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
       created.id,
       {
         customerNo: created.customerNo,
-        shortName: "Stale write must not win",
+        shortName: "StaleWrite",
         expectedRevision: 1,
       },
       { actorMemberId: 1, now: t2 },
@@ -263,18 +263,18 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
   await ensureAppMemberProjection(db, "acceptance-employee-1", "T0001", new Date().toISOString(), "驗收姓名");
     const afterStale = await customerService.getDetail(created.id);
   assertAcceptance(afterStale.revision === 2, "ACCEPT_STALE_REVISION_MUTATED");
-  assertAcceptance(afterStale.shortName === "D1 Acceptance Updated", "ACCEPT_STALE_WRITE_MUTATED");
+  assertAcceptance(afterStale.shortName === "D1Updated", "ACCEPT_STALE_WRITE_MUTATED");
 
   const beforeRollback = await db
-    .prepare("SELECT fax, revision FROM customers WHERE id = ?1")
+    .prepare("SELECT full_name, revision FROM customers WHERE id = ?1")
     .bind(created.id)
-    .first<{ fax: string | null; revision: number }>();
+    .first<{ full_name: string | null; revision: number }>();
   assertAcceptance(beforeRollback != null, "ACCEPT_ROLLBACK_CUSTOMER_MISSING");
 
   let rollbackRejected = false;
   try {
     await db.batch([
-      db.prepare("UPDATE customers SET fax = 'ROLLBACK-MUST-NOT-PERSIST' WHERE id = ?1").bind(created.id),
+      db.prepare("UPDATE customers SET full_name = 'ROLLBACK-MUST-NOT-PERSIST' WHERE id = ?1").bind(created.id),
       db.prepare(`
         INSERT INTO audit_events (
           entity_type, entity_key, action, actor_employee_id, occurred_at
@@ -287,18 +287,18 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
   assertAcceptance(rollbackRejected, "ACCEPT_BATCH_FAILURE_NOT_REJECTED");
 
   const afterRollback = await db
-    .prepare("SELECT fax, revision FROM customers WHERE id = ?1")
+    .prepare("SELECT full_name, revision FROM customers WHERE id = ?1")
     .bind(created.id)
-    .first<{ fax: string | null; revision: number }>();
+    .first<{ full_name: string | null; revision: number }>();
   assertAcceptance(afterRollback != null, "ACCEPT_ROLLBACK_READ_FAILED");
-  assertAcceptance(afterRollback.fax === beforeRollback.fax, "ACCEPT_BATCH_ROLLBACK_FAILED");
+  assertAcceptance(afterRollback.full_name === beforeRollback.full_name, "ACCEPT_BATCH_ROLLBACK_FAILED");
   assertAcceptance(afterRollback.revision === beforeRollback.revision, "ACCEPT_BATCH_ROLLBACK_REVISION_CHANGED");
 
   const audit = new AuditService(db);
   const atomicResults = await db.batch([
     db.prepare(`
       UPDATE customers
-         SET fax = ?1, revision = revision + 1, updated_at = ?2, updated_by = 1
+         SET full_name = ?1, revision = revision + 1, updated_at = ?2, updated_by = 1
        WHERE id = ?3 AND revision = 2
     `).bind("07-3333333", t2, created.id),
     audit.prepareRecord(
@@ -308,7 +308,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
         action: "acceptance.atomic",
         actorEmployeeId: 1,
         occurredAt: t2,
-        after: { fax: "07-3333333" },
+        after: { fullName: "07-3333333" },
       },
       {
         sql: "EXISTS (SELECT 1 FROM customers WHERE id = ? AND revision = ?)",
@@ -320,10 +320,10 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
   assertAcceptance(Number(atomicResults[1]?.meta?.changes ?? 0) === 1, "ACCEPT_ATOMIC_AUDIT_FAILED");
 
   const atomicRow = await db
-    .prepare("SELECT fax, revision FROM customers WHERE id = ?1")
+    .prepare("SELECT full_name, revision FROM customers WHERE id = ?1")
     .bind(created.id)
-    .first<{ fax: string | null; revision: number }>();
-  assertAcceptance(atomicRow?.fax === "07-3333333" && atomicRow.revision === 3, "ACCEPT_ATOMIC_RESULT_MISMATCH");
+    .first<{ full_name: string | null; revision: number }>();
+  assertAcceptance(atomicRow?.full_name === "07-3333333" && atomicRow.revision === 3, "ACCEPT_ATOMIC_RESULT_MISMATCH");
 
   const auditRow = await db
     .prepare(`

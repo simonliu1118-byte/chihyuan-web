@@ -42,6 +42,7 @@ export class BusinessLookupService {
       this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM customer_categories ORDER BY sort_order,id"),
       this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM customer_statuses ORDER BY sort_order,id"),
       this.db.prepare("SELECT id,code,name,group_code,sort_order,is_active FROM regions ORDER BY sort_order,id"),
+      this.db.prepare("SELECT id, employee_no, display_name, is_active FROM app_members ORDER BY is_active DESC, COALESCE(employee_no, ''), id LIMIT 500"),
     ]);
     return {
       actor,
@@ -49,6 +50,8 @@ export class BusinessLookupService {
       customerCategories: ((results[1]?.results ?? []) as LookupRow[]).map(toLookup),
       customerStatuses: ((results[2]?.results ?? []) as LookupRow[]).map(toLookup),
       regions: ((results[3]?.results ?? []) as (Omit<LookupRow, "updated_at"> & { group_code: string | null })[]).map<RegionSetting>(row => ({ id: row.id, code: row.code, name: row.name, groupCode: row.group_code, sortOrder: row.sort_order, isActive: row.is_active === 1 })),
+      owners: ((results[4]?.results ?? []) as { id: number; employee_no: string | null; display_name: string | null; is_active: number }[])
+        .map(row => ({ id: row.id, employeeNo: row.employee_no, displayName: row.display_name, isActive: row.is_active === 1 })),
     };
   }
 

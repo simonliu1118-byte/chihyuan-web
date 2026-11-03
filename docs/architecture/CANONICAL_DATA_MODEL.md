@@ -105,7 +105,6 @@ Candidate fields:
 - `region_id` — customer-level county/city classification (BD-008/009)
 - `owner_department_id`
 - `owner_employee_id`
-- `fax`
 - `customer_status_id`
 - `created_at`, `updated_at`, `created_by`, `updated_by`, `revision`
 

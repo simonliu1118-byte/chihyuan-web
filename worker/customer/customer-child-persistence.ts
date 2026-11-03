@@ -31,10 +31,10 @@ function omissionClause(ids: readonly number[]): { sql: string; params: readonly
 function createPhone(db: D1Database, row: CustomerPhoneInput, context: MutationContextLike): D1PreparedStatement {
   return db.prepare(`
     INSERT INTO customer_phones (
-      customer_id, phone_number, extension, note, sort_order, created_at, updated_at
+      customer_id, phone_number, extension, note, sort_order, created_at, updated_at, kind
     )
-    SELECT MAX(id), ?1, ?2, ?3, ?4, ?5, ?5 FROM customers
-  `).bind(row.phoneNumber, row.extension ?? null, row.note ?? null, row.sortOrder, context.now);
+    SELECT MAX(id), ?1, ?2, ?3, ?4, ?5, ?5, ?6 FROM customers
+  `).bind(row.phoneNumber, row.extension ?? null, row.note ?? null, row.sortOrder, context.now, row.kind ?? "PHONE");
 }
 
 function createContact(db: D1Database, row: CustomerContactInput, context: MutationContextLike): D1PreparedStatement {
@@ -85,9 +85,9 @@ function updatePhone(
   if (row.id == null) {
     return db.prepare(`
       INSERT INTO customer_phones (
-        customer_id, phone_number, extension, note, sort_order, created_at, updated_at
+        customer_id, phone_number, extension, note, sort_order, created_at, updated_at, kind
       )
-      SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?6
+      SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?6, ?8
        WHERE EXISTS (SELECT 1 FROM customers WHERE id = ?1 AND revision = ?7)
     `).bind(
       customerId,
@@ -97,12 +97,13 @@ function updatePhone(
       row.sortOrder,
       context.now,
       expectedRevision,
+      row.kind ?? "PHONE",
     );
   }
 
   return db.prepare(`
     UPDATE customer_phones
-       SET phone_number = ?1, extension = ?2, note = ?3, sort_order = ?4, updated_at = ?5
+       SET phone_number = ?1, extension = ?2, note = ?3, sort_order = ?4, updated_at = ?5, kind = ?9
      WHERE id = ?6 AND customer_id = ?7
        AND EXISTS (SELECT 1 FROM customers WHERE id = ?7 AND revision = ?8)
   `).bind(
@@ -114,6 +115,7 @@ function updatePhone(
     row.id,
     customerId,
     expectedRevision,
+    row.kind ?? "PHONE",
   );
 }
 

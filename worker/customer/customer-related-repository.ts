@@ -24,6 +24,7 @@ type VisitRow = {
   employee_id: number;
   employee_no: string | null;
   display_name: string | null;
+  subject: string;
   content: string | null;
   created_at: string;
   updated_at: string;
@@ -108,6 +109,7 @@ function toVisit(row: VisitRow): CustomerVisitRecord {
       employeeNo: row.employee_no,
       displayName: row.display_name,
     },
+    subject: row.subject,
     content: row.content,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -176,6 +178,7 @@ export class CustomerRelatedRepository {
         v.employee_id,
         m.employee_no,
         m.display_name,
+        v.subject,
         v.content,
         v.created_at,
         v.updated_at,

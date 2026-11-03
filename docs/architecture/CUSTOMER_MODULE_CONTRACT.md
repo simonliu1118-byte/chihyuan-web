@@ -64,7 +64,6 @@ Initial API/domain names use camelCase while D1 remains snake_case:
 | `regionId` | `region_id` | nullable controlled geographic classification |
 | `ownerDepartmentId` | `owner_department_id` | nullable organizational ownership |
 | `ownerEmployeeId` | `owner_employee_id` | nullable responsible employee |
-| `fax` | `fax` | nullable |
 | `customerStatusId` | `customer_status_id` | nullable lookup FK |
 | `revision` | `revision` | optimistic concurrency token |
 | `createdAt` / `updatedAt` | timestamps | server-owned metadata |

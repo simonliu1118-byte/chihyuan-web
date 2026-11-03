@@ -12,6 +12,8 @@ export interface CustomerModuleLookups {
   customerCategories: readonly LookupSetting[];
   customerStatuses: readonly LookupSetting[];
   regions: readonly RegionSetting[];
+  /** Active members for 負責業務; a customer's current owner is always included in its own list. */
+  owners: readonly DefectOwnerOption[];
 }
 
 export interface ItemModuleLookups {
