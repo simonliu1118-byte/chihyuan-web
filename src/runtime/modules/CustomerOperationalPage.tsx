@@ -941,7 +941,7 @@ type RowList = "phones" | "faxes" | "contacts" | "addresses" | "notes";
 
 /** Customer master record as one sheet; the same layout views and edits (PROJECT_RULES §5). */
 /** Width shared by 統一編號, 付款條件 and 發票開立. */
-const TAIL = "11em";
+const TAIL = "13em";
 
 function CustomerSheet({ draft, editing, busy, lookups, ownerLabel = "", patch, insertRow, removeRow, patchRow }: {
   draft: CustomerDraft;

@@ -63,7 +63,7 @@
 /* Inline flow, not flex: separate flex items make Windows double-click selection take a trailing
    "space" (the item boundary) along with the customer number (user 2026-11-03). */
 .cy-customer-identity { display: block; }
-.cy-customer-identity > * { vertical-align: middle; }
+.cy-customer-identity > * { vertical-align: baseline; }
 .cy-customer-identity-no { margin-right: 12px; font-size: .9em; }
 .cy-customer-updated { margin: 0; text-align: right; }
 .cy-record-title-note {
@@ -170,7 +170,7 @@
   grid-template-columns: calc(var(--cy-phone) + (100% - 12px - var(--cy-phone) - var(--cy-fax)) * 2 / 3) calc(var(--cy-fax) + (100% - 12px - var(--cy-phone) - var(--cy-fax)) / 3);
 }
 .cy-customer-phonefax.editing { --cy-ops: 64px; }
-.cy-customer-workspace .cy-customer-cards { grid-template-columns: 19em minmax(0, 1fr) 15em; align-items: stretch; gap: 10px; padding: 14px 0 0; }
+.cy-customer-workspace .cy-customer-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; gap: 10px; padding: 14px 0 0; }
 .cy-customer-card { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 10px; border: 1px solid var(--cy-border); border-radius: var(--cy-radius-md); background: var(--cy-surface); }
 .cy-customer-card > header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .cy-customer-card h3 { margin: 0; font-size: var(--cy-fs-md); font-weight: 700; white-space: nowrap; }
@@ -219,6 +219,7 @@
 span.cy-note-star{height:auto;font-size:16px}
 
 /* Status pill in the record header (V0.9.100). */
-.cy-customer-identity-status { margin-left: 8px; }
+/* The pill sits on the text baseline; lifted so its centre meets the centre of the CJK name. */
+.cy-customer-identity-status { margin-left: 8px; position: relative; top: -0.1em; }
 .cy-customer-edit-title { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
 .cy-customer-edit-title h2 { margin: 0; }

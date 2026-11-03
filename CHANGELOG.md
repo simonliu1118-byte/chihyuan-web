@@ -6,6 +6,11 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.10.2 — 客戶抬頭對齊修正（2026-11-03，Claude）
+- 客戶抬頭的編號、簡稱、全稱改為以文字基線對齊（V0.10.1 的置中會因中英文字型高度不同而上下錯開），狀態 pill 微調到與文字中心同高。
+- 付款條件、發票開立（與上方統一編號）加寬，前四欄稍窄，選「其他」時自行輸入欄不再太窄。
+- 三張紀錄卡片真正改為三等分（V0.9.97 的設定被另一條舊樣式蓋掉）。
+
 ## CY Web V0.10.1 — 清單統一、客戶抬頭（2026-11-03，Claude）
 - 全系統左側清單（客戶、商品、瑕疵、銷售工單、代工與協力廠商／BOM、工作日誌、人事、叫貨、盤點單）改用同一種樣式：平直列、列間細線、選中的列左側藍線加淡藍底（原本只有叫貨這樣）；共用在 `.cy-op-list-row`。
 - 叫貨切到「廠商」頁時，左側選中的叫貨單也會標示。
