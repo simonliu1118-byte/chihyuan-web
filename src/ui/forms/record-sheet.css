@@ -63,4 +63,4 @@ textarea.cy-sheet-input{height:auto;min-height:64px;resize:vertical}
 /* Preset or own text (PresetTextInput): the select narrows when 其他 shows its text box. */
 .cy-preset-text{display:flex;min-width:0;width:100%}
 .cy-preset-text>.cy-sheet-input{flex:1 1 0;min-width:0}
-.cy-preset-text.other>select.cy-sheet-input{flex:0 0 5.2em;border-right:1px solid var(--cy-border)}
+.cy-preset-text.other>select.cy-sheet-input{flex:0 0 6.4em;padding-right:20px;border-right:1px solid var(--cy-border)}

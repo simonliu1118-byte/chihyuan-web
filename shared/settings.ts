@@ -16,11 +16,16 @@ export interface LookupSetting {
   parentId?: number | null;
   /** Customer statuses only: the light shown beside the name (shared/taiwan-regions.ts). */
   light?: string;
+  /** Customer statuses only: 正常 is pinned first and 已歇業 last; pinned rows are not dragged. */
+  pin?: "TOP" | "BOTTOM";
 }
 
 export interface RegionSetting extends Omit<LookupSetting, "updatedAt"> {
   groupCode: string | null;
 }
+
+/** Drag order for one structural lookup: every unpinned id, in the new order. */
+export interface ReorderLookupSettingsRequest { ids: number[] }
 
 export interface CreateLookupSettingRequest {
   /** Not asked for customer statuses: the server assigns one. */

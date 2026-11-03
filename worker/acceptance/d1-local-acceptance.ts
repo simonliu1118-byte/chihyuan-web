@@ -136,6 +136,20 @@ async function acceptSettingsAuditHttp(db: D1Database): Promise<void> {
   const absent = await db.prepare("SELECT COUNT(*) AS count FROM departments WHERE code='ACCEPT_SETTINGS_ROLLBACK'").first<{ count: number }>();
   assertAcceptance(absent?.count === 0, "ACCEPT_SETTINGS_ATOMIC_ROLLBACK");
   await db.prepare("DROP TRIGGER acceptance_settings_audit_failure").run();
+  // V0.9.99: statuses get a code from the server, 正常／已歇業 stay pinned, the rest reorder by drag.
+  assertAcceptance((await call("/api/admin/settings/lookups/customer_status", "POST", { name: "驗收狀態", light: "PURPLE" })).status === 200, "ACCEPT_STATUS_CREATE_WITHOUT_CODE");
+  type StatusRow = { id: number; code: string; name: string; pin?: string; light?: string };
+  const statuses = async () => (await (await call("/api/admin/settings")).json() as { data: { customerStatuses: StatusRow[] } }).data.customerStatuses;
+  let list = await statuses();
+  const added = list.find(value => value.name === "驗收狀態");
+  assertAcceptance(added?.code === "S11" && added.light === "PURPLE", "ACCEPT_STATUS_AUTO_CODE");
+  assertAcceptance(list[0]?.pin === "TOP" && list[list.length - 1]?.pin === "BOTTOM" && list[list.length - 2]?.id === added?.id, "ACCEPT_STATUS_PINNED_ORDER");
+  const movable = list.filter(value => !value.pin).map(value => value.id);
+  const reordered = [movable[movable.length - 1]!, ...movable.slice(0, -1)];
+  assertAcceptance((await call("/api/admin/settings/lookups/customer_status/order", "PUT", { ids: reordered })).status === 200, "ACCEPT_STATUS_REORDER");
+  list = await statuses();
+  assertAcceptance(list[0]?.pin === "TOP" && list[1]?.id === added?.id && list[list.length - 1]?.pin === "BOTTOM", "ACCEPT_STATUS_REORDER_PERSISTED");
+  assertAcceptance((await call("/api/admin/settings/lookups/customer_status/order", "PUT", { ids: reordered.slice(1) })).status === 409, "ACCEPT_STATUS_REORDER_STALE");
   await db.prepare("INSERT INTO regions(code,name,group_code,sort_order,is_active) VALUES('ACCEPT_REGION_HTTP','Region read model','TEST',0,1)").run();
   const references = await new BusinessLookupService(db).customerLookups({ appMemberId: 1, employeeNo: "T0001", displayName: "Acceptance" });
   assertAcceptance(references.regions.some(value => value.code === "ACCEPT_REGION_HTTP" && value.groupCode === "TEST" && !("updatedAt" in value)), "ACCEPT_REGION_LOOKUP_SCHEMA");

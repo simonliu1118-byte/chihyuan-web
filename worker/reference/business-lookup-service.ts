@@ -18,6 +18,7 @@ type LookupRow = {
   updated_at: string;
   parent_id?: number | null;
   light?: string | null;
+  pin?: string | null;
 };
 
 function toLookup(row: LookupRow): LookupSetting {
@@ -32,6 +33,7 @@ function toLookup(row: LookupRow): LookupSetting {
       ? { parentId: row.parent_id ?? null }
       : {}),
     ...(row.light != null ? { light: row.light } : {}),
+    ...(row.pin != null ? { pin: row.pin as "TOP" | "BOTTOM" } : {}),
   };
 }
 
@@ -42,7 +44,7 @@ export class BusinessLookupService {
     const results = await this.db.batch([
       this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM departments ORDER BY sort_order,id"),
       this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM customer_categories ORDER BY sort_order,id"),
-      this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at,light FROM customer_statuses ORDER BY sort_order,id"),
+      this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at,light,pin FROM customer_statuses ORDER BY CASE pin WHEN 'TOP' THEN 0 WHEN 'BOTTOM' THEN 2 ELSE 1 END,sort_order,id"),
       this.db.prepare("SELECT id,code,name,group_code,sort_order,is_active FROM regions ORDER BY sort_order,id"),
       this.db.prepare("SELECT id, employee_no, display_name, is_active FROM app_members ORDER BY is_active DESC, COALESCE(employee_no, ''), id LIMIT 500"),
     ]);
