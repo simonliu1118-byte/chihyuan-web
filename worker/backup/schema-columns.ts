@@ -213,6 +213,7 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "is_active",
     "light",
     "name",
+    "pin",
     "sort_order",
     "updated_at",
     "updated_by"

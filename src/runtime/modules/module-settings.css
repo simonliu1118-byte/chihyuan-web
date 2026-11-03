@@ -1,7 +1,26 @@
-/* Module settings dialog (V0.9.97): narrower than the earlier large dialog; light picker for statuses. */
-.cy-module-settings-dialog.cy-dialog-medium .cy-dialog-surface { width: min(540px, calc(100vw - 32px)); }
-.cy-settings-lights { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
-.cy-settings-lights-label { flex: 1 1 100%; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 600; }
-.cy-settings-light-option { display: inline-flex; align-items: center; padding: 4px 8px; border: 1px solid var(--cy-border);
-  border-radius: 999px; background: var(--cy-surface); color: var(--cy-text); font: inherit; cursor: pointer; }
-.cy-settings-light-option.selected { border-color: var(--cy-accent); box-shadow: inset 0 0 0 1px var(--cy-accent); background: var(--cy-accent-soft); }
+/* Module settings dialog (V0.9.97–0.9.99): narrow, and the structural lookups are one dense table
+   in the same look as the record sheets (borders, grey header, inline editing). */
+.cy-module-settings-dialog.cy-dialog-medium .cy-dialog-surface { width: min(520px, calc(100vw - 32px)); }
+.cy-module-settings-dialog .cy-page-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.cy-module-settings-dialog .cy-settings-add { margin-left: auto; }
+.cy-settings-readonly { margin: 0 0 8px; font-size: var(--cy-fs-sm); }
+.cy-lookup-table { font-size: var(--cy-fs-md); }
+.cy-lookup-table td { height: 30px; }
+.cy-lookup-table .cy-sheet-value { padding: 4px 8px; }
+.cy-lookup-table .cy-sheet-input { height: 30px; padding: 4px 8px; }
+.cy-lookup-table col.cy-lookup-grip { width: 30px; }
+.cy-lookup-table col.cy-sheet-ops { width: 64px; }
+.cy-lookup-table .cy-lookup-grip, .cy-lookup-table .cy-lookup-active { text-align: center; }
+.cy-lookup-table td.cy-lookup-active .cy-f-cell { display: flex; justify-content: center; }
+.cy-lookup-handle { display: grid; place-items: center; width: 100%; height: 30px; padding: 0; border: 0; background: transparent;
+  color: var(--cy-text-muted); cursor: grab; }
+.cy-lookup-handle:active { cursor: grabbing; }
+.cy-lookup-handle:focus-visible { outline: 2px solid var(--cy-accent); outline-offset: -2px; }
+.cy-lookup-handle svg { width: 16px; height: 16px; }
+.cy-lookup-table tr.inactive td:not(.cy-sheet-ops) { color: var(--cy-text-muted); }
+.cy-lookup-table tr.dragging td { background: var(--cy-accent-soft); }
+.cy-lookup-table tr.editing td { background: color-mix(in srgb, var(--cy-accent-soft) 60%, var(--cy-surface)); }
+.cy-lookup-name-edit { display: flex; min-width: 0; }
+.cy-lookup-name-edit > .cy-f-cell { flex: 1 1 0; }
+.cy-lookup-name-edit > .cy-f-cell:has(.cy-lookup-light) { flex: 0 0 5.6em; border-right: 1px solid var(--cy-border); }
+.cy-lookup-empty { padding: 10px; text-align: center; }

@@ -934,6 +934,9 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
 type RowList = "phones" | "faxes" | "contacts" | "addresses" | "notes";
 
 /** Customer master record as one sheet; the same layout views and edits (PROJECT_RULES §5). */
+/** Width shared by 統一編號／客戶狀態 and 付款條件／發票開立. */
+const TAIL = "12em";
+
 function CustomerSheet({ draft, editing, busy, lookups, ownerLabel = "", patch, insertRow, removeRow, patchRow }: {
   draft: CustomerDraft;
   editing: boolean;
@@ -970,7 +973,9 @@ function CustomerSheet({ draft, editing, busy, lookups, ownerLabel = "", patch, 
   ];
   return <div className="cy-customer-sheet">
     <RecordSheet label="客戶基本資料" editing={editing} rows={[
-      { columns: "9.5em 12em minmax(0,1fr) 7em calc(25% - 7em)", cells: [
+      // 統一編號 and 客戶狀態 share one width (just enough that the longest status does not wrap); 付款條件
+      // and 發票開立 sit under them (user 2026-11-03).
+      { columns: `9.5em 12em minmax(0,1fr) ${TAIL} ${TAIL}`, cells: [
         { label: "客戶編號", mono: true, view: draft.customerNo,
           edit: <input className={mono} value={draft.customerNo} disabled={busy} maxLength={CUSTOMER_LIMITS.customerNo}
             pattern="[A-Za-z0-9]+" onChange={event => patch({ customerNo: event.target.value.replace(/[^A-Za-z0-9]/g, "") })} /> },
@@ -983,11 +988,10 @@ function CustomerSheet({ draft, editing, busy, lookups, ownerLabel = "", patch, 
         { label: "統一編號", mono: true, view: draft.taxId,
           edit: <input className={mono} inputMode="numeric" value={draft.taxId} disabled={busy} maxLength={8} pattern="[0-9]{8}"
             onChange={event => patch({ taxId: event.target.value.replace(/\D/g, "") })} /> },
-        { label: "狀態", required: true, view: <StatusName status={lookups?.customerStatuses.find(row => row.id === draft.customerStatusId)} />,
+        { label: "客戶狀態", required: true, view: <StatusName status={lookups?.customerStatuses.find(row => row.id === draft.customerStatusId)} />,
           edit: select(lookups?.customerStatuses, draft.customerStatusId, customerStatusId => patch({ customerStatusId }), "請選擇", row => `${statusLightEmoji(row.light)} ${row.name}`) },
       ] },
-      // 負責業務 keeps the last quarter so its edge lines up with 統一編號 above.
-      { columns: "repeat(5, minmax(0,1fr)) 25%", cells: [
+      { columns: `repeat(4, minmax(0,1fr)) ${TAIL} ${TAIL}`, cells: [
         { label: "分類", required: true, view: name(lookups?.customerCategories, draft.customerCategoryId),
           edit: select(lookups?.customerCategories, draft.customerCategoryId, customerCategoryId => patch({ customerCategoryId }), "請選擇") },
         { label: "地區", required: true, view: name(lookups?.regions, draft.regionId),
@@ -999,12 +1003,6 @@ function CustomerSheet({ draft, editing, busy, lookups, ownerLabel = "", patch, 
                 .map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
             </optgroup>)}
           </select> },
-        { label: "付款條件", view: draft.paymentTerms,
-          edit: <PresetTextInput className={input} presets={PAYMENT_TERMS_PRESETS} value={draft.paymentTerms} disabled={busy}
-            maxLength={CUSTOMER_LIMITS.termsLength} onChange={paymentTerms => patch({ paymentTerms })} /> },
-        { label: "發票開立", view: draft.invoiceType,
-          edit: <PresetTextInput className={input} presets={INVOICE_TYPE_PRESETS} value={draft.invoiceType} disabled={busy}
-            maxLength={CUSTOMER_LIMITS.termsLength} onChange={invoiceType => patch({ invoiceType })} /> },
         { label: "負責部門", view: name(lookups?.departments, draft.ownerDepartmentId),
           edit: select(lookups?.departments, draft.ownerDepartmentId, ownerDepartmentId => patch({ ownerDepartmentId })) },
         { label: "負責業務", view: ownerName(draft.ownerEmployeeId),
@@ -1014,6 +1012,12 @@ function CustomerSheet({ draft, editing, busy, lookups, ownerLabel = "", patch, 
             {owners.filter(row => row.isActive || row.id === draft.ownerEmployeeId).map(row =>
               <option key={row.id} value={row.id}>{[row.employeeNo, row.displayName].filter(Boolean).join(" ")}</option>)}
           </select> },
+        { label: "付款條件", view: draft.paymentTerms,
+          edit: <PresetTextInput className={input} presets={PAYMENT_TERMS_PRESETS} value={draft.paymentTerms} disabled={busy}
+            maxLength={CUSTOMER_LIMITS.termsLength} onChange={paymentTerms => patch({ paymentTerms })} /> },
+        { label: "發票開立", view: draft.invoiceType,
+          edit: <PresetTextInput className={input} presets={INVOICE_TYPE_PRESETS} value={draft.invoiceType} disabled={busy}
+            maxLength={CUSTOMER_LIMITS.termsLength} onChange={invoiceType => patch({ invoiceType })} /> },
       ] },
     ]} />
 

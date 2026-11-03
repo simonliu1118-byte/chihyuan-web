@@ -154,7 +154,7 @@ export class SettingsService {
     const results = await this.db.batch([
       this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM departments ORDER BY sort_order,id"),
       this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM customer_categories ORDER BY sort_order,id"),
-      this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at,light FROM customer_statuses ORDER BY sort_order,id"),
+      this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at,light,pin FROM customer_statuses ORDER BY CASE pin WHEN 'TOP' THEN 0 WHEN 'BOTTOM' THEN 2 ELSE 1 END,sort_order,id"),
       this.db.prepare("SELECT id,code,name,group_code,sort_order,is_active FROM regions ORDER BY sort_order,id"),
       this.db.prepare("SELECT id,code,name,parent_id,sort_order,is_active,updated_at FROM item_categories ORDER BY sort_order,id"),
       this.db.prepare("SELECT id,code,name,sort_order,is_active,updated_at FROM app_tags ORDER BY sort_order,id"),
@@ -169,6 +169,7 @@ export class SettingsService {
       isActive: Number(row.is_active) === 1, updatedAt: String(row.updated_at),
       ...(Object.prototype.hasOwnProperty.call(row, "parent_id") ? { parentId: row.parent_id == null ? null : Number(row.parent_id) } : {}),
       ...(row.light != null ? { light: String(row.light) } : {}),
+      ...(row.pin != null ? { pin: String(row.pin) as "TOP" | "BOTTOM" } : {}),
     }));
     const tagRows = (results[5]?.results ?? []) as Array<{id:number;code:string;name:string;sort_order:number;is_active:number;updated_at:string}>;
     const tagModules = (results[6]?.results ?? []) as Array<{tag_id:number;module_code:string}>;
@@ -200,7 +201,8 @@ export class SettingsService {
     // Customer statuses (user 2026-11-03): the user names a status and picks its light; the code is assigned here.
     const code = status ? await this.nextStatusCode() : requiredText(raw.code, "code", 80, errors);
     const name = requiredText(raw.name, "name", 200, errors);
-    const sortOrder = nonNegativeInteger(raw.sortOrder, "sortOrder", errors, 0);
+    // Without an explicit order a new row goes last (drag ordering, V0.9.99).
+    const sortOrder = raw.sortOrder == null ? await this.nextSortOrder(meta.table) : nonNegativeInteger(raw.sortOrder, "sortOrder", errors, 0);
     const parentId = meta.hasParent ? positiveId(raw.parentId, "parentId", errors, true) : null;
     const light = status ? statusLight(raw.light, errors) : null;
     if (Object.keys(errors).length > 0) throw new FieldValidationError(errors);
@@ -220,7 +222,8 @@ export class SettingsService {
     const errors: Record<string, string> = {};
     const settingId = positiveId(id, "id", errors) ?? 0;
     const name = requiredText(raw.name, "name", 200, errors);
-    const sortOrder = nonNegativeInteger(raw.sortOrder, "sortOrder", errors, 0);
+    const keepOrder = raw.sortOrder == null;
+    let sortOrder = keepOrder ? 0 : nonNegativeInteger(raw.sortOrder, "sortOrder", errors, 0);
     const isActive = requiredBoolean(raw.isActive, "isActive", errors);
     const expected = expectedUpdatedAt(raw.expectedUpdatedAt, errors);
     const parentId = meta.hasParent ? positiveId(raw.parentId, "parentId", errors, true) : null;
@@ -231,6 +234,7 @@ export class SettingsService {
     const before = await this.db.prepare(`SELECT code,name,sort_order,is_active,updated_at${meta.hasParent?',parent_id':''}${status?',light':''} FROM ${meta.table} WHERE id=?`).bind(settingId).first<Record<string, unknown>>();
     if (!before) throw new SettingsServiceError("SETTINGS_NOT_FOUND",404,"設定不存在");
     if (String(before.updated_at) !== expected) throw new SettingsServiceError("SETTINGS_CONFLICT",409,"設定已被其他人修改");
+    if (keepOrder) sortOrder = Number(before.sort_order);
     const mutation = meta.hasParent
       ? this.db.prepare(`UPDATE ${meta.table} SET name=?1,parent_id=?2,sort_order=?3,is_active=?4,updated_at=?5,updated_by=?6 WHERE id=?7 AND updated_at=?8`).bind(name,parentId,sortOrder,isActive?1:0,context.now,context.actorMemberId,settingId,expected)
       : status
@@ -308,6 +312,29 @@ export class SettingsService {
     }
     if (raw.expectedRevision !== before.revision) throw new SettingsServiceError("SETTINGS_CONFLICT",409,"WorkLog 計分設定已被其他人修改");
     await this.commitAudited(this.db.prepare("UPDATE work_log_scoring_config SET target_average_daily_score=?1,minimum_average_daily_score=?2,updated_at=?3,updated_by=?4,revision=revision+1 WHERE id=1 AND revision=?5").bind(target,minimum,context.now,context.actorMemberId,before.revision), { ...event, action:"setting.changed",before:{targetAverageDailyScore:before.target_average_daily_score,minimumAverageDailyScore:before.minimum_average_daily_score} });
+  }
+
+  /**
+   * Drag ordering (V0.9.99): `ids` lists every unpinned row of the lookup in its new order; they are
+   * numbered 1, 2, 3 … Pinned statuses (正常, 已歇業) keep their place. One audit event per reorder.
+   */
+  async reorderStructuralLookup(kind: StructuralLookupKind, raw: { ids?: unknown }, context: SettingsMutationContext): Promise<void> {
+    this.assertSuperAdmin(context);
+    const meta = LOOKUP_TABLES[kind];
+    const ids = Array.isArray(raw.ids) ? raw.ids : null;
+    if (!ids || !ids.every(id => Number.isInteger(id) && (id as number) > 0) || new Set(ids).size !== ids.length) throw new FieldValidationError({ ids: "排序資料無效" });
+    const pinned = kind === "customer_status" ? " WHERE pin IS NULL" : "";
+    const current = ((await this.db.prepare(`SELECT id, sort_order FROM ${meta.table}${pinned} ORDER BY sort_order, id`).all<{ id: number; sort_order: number }>()).results ?? []);
+    if (current.length !== ids.length || current.some(row => !ids.includes(row.id))) throw new SettingsServiceError("SETTINGS_CONFLICT", 409, "設定已被其他人修改，請重新開啟");
+    const statements = (ids as number[]).map((id, index) => this.db.prepare(`UPDATE ${meta.table} SET sort_order=?1,updated_at=?2,updated_by=?3 WHERE id=?4`).bind(index + 1, context.now, context.actorMemberId, id));
+    statements.push(this.audit.prepareRecord({ entityType: meta.entityType, entityKey: "order", action: "setting.reordered", actorEmployeeId: context.actorMemberId,
+      occurredAt: context.now, requestId: context.requestId, before: { ids: current.map(row => row.id) }, after: { ids } }));
+    await this.db.batch(statements);
+  }
+
+  private async nextSortOrder(table: string): Promise<number> {
+    const row = await this.db.prepare(`SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM ${table}`).first<{ next: number }>();
+    return Number(row?.next ?? 1);
   }
 
   /** S + the next number, above every S-number already used (the legacy seed is S01–S10). */

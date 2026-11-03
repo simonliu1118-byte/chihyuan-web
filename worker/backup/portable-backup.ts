@@ -9,7 +9,7 @@ export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
  * The latest migration in migrations/ (file name without .sql). Bump it with every migration; a test
  * keeps it in step. A backup records it, and a restore maps its data by table and column name.
  */
-export const CURRENT_MIGRATION = "0047_customer_regions_status_lights";
+export const CURRENT_MIGRATION = "0048_customer_status_pin";
 /**
  * Only for a migration that changes what existing data means (moves, renames, drops or recomputes
  * values). New tables, new columns with a default, new indexes and wider checks need nothing here:
@@ -46,6 +46,14 @@ const UPGRADES: { migration: string; apply: (data: Data) => void }[] = [
     if (regions?.rows.length) return;
     const columns = ["code", "group_code", "id", "is_active", "name", "sort_order"];
     data.tables.regions = { columns, rows: TAIWAN_REGIONS.map((row, i) => [row.code, row.group, i + 1, 1, row.name, i + 1]) };
+  } },
+  // 0048: 正常 is pinned first and 已歇業 last, as the migration does by name.
+  { migration: "0048_customer_status_pin", apply: data => {
+    const statuses = data.tables.customer_statuses;
+    if (!statuses || statuses.columns.includes("pin")) return;
+    const name = statuses.columns.indexOf("name");
+    statuses.columns.push("pin");
+    statuses.rows.forEach(row => row.push(row[name] === "正常" ? "TOP" : row[name] === "已歇業" ? "BOTTOM" : null));
   } },
 ];
 // Operational queue, heartbeat and revocable credential hashes are intentionally
