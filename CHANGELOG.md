@@ -6,6 +6,12 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.10.25 — 售後維修清單微調（2026-11-05，GPT）
+
+- 客戶編號/姓名欄加寬至 12em，差額從故障狀況欄吸收；列印移至操作紀錄左邊。
+- 型別、建置與相關 40 項測試通過；合成畫面驗證六碼編號＋七字名稱單行，列印及紀錄按鈕正常。
+- 使用者授權合併部署，Claude 待事後複審；驗證與發布證據見 [handoff](docs/handoff/CYWEB-REPAIR-LIST-01025-20261105.md)。
+
 ## CY Web V0.10.24 — 門市步驟鎖定與物流顯示（2026-11-04，GPT，待 Claude 審查）
 
 - 售後維修及訂購登記下一步後，前一步日期與細節唯讀；維修仍可開格子檢視，API 同步拒絕更正。無日期同樣鎖定，退回後恢復修改，既有取消及猶豫規則不變。
