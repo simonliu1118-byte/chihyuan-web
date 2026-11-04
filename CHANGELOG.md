@@ -6,6 +6,12 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.10.12 — WO-0.9.94 第二段：依確認移除說明文字（2026-11-04，GPT，Claude 審查）
+
+- 依工作單 §2.1 刪除 70 項建議文字與 #138；保留 190 項及 #250、#259，不改其他用語。
+- 來源註記字數改為欄位右側的 `目前字數/300`；移除刪字後的空提示容器，保留驗證與重要提醒。
+- GPT 以 main V0.10.10 為基準；Claude 合併 main V0.10.11 後順延為 V0.10.12，保留最新客戶／設定／清單改版。建置與來源驗證通過；完整測試的 11 個原有失敗及合成畫面證據見 [handoff](docs/handoff/CYWEB-WO-0.9.94-PHASE2-01011-20261104.md)。Claude 審查通過，合併部署。
+
 ## CY Web V0.10.11 — 異動紀錄排序與預設期間（2026-11-04，Claude）
 - 修改紀錄／異動紀錄改為最新的在最上面（項次由上往下），「載入較早的紀錄」移到表格下方。
 - 異動紀錄預設期間改為「今天」。

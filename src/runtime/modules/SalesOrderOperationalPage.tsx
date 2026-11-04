@@ -3,8 +3,7 @@ import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import { formatItem } from "../../ui/foundation/format";
 import { formatDate } from "../../ui/foundation/format";
 import { StatusFilter } from "../../ui/data/StatusFilter";
-import { orderNextStep, orderTone } from "./status-flow";
-import { NextStep } from "../../ui/feedback/NextStep";
+import { orderTone } from "./status-flow";
 import { StatusChip } from "../../ui/primitives/StatusChip";
 import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
@@ -423,7 +422,6 @@ export function SalesOrderOperationalPage() {
     const correction = selected.erpNo != null;
     const answer = await ask({
       title: correction ? "更正 ERP 資料" : "ERP 回填／開單",
-      description: correction ? "修改已回填的 客戶編號或銷售單號，並保留更正紀錄。" : "填入 SMART ERP 開單後的資料，工單會改為「已開單」。",
       fields: [
         { name: "customerNo", label: "客戶編號", defaultValue: selected.customerNoSnapshot ?? "", required: true, description: "必須與 CY Web 客戶資料中的 客戶編號相同。" },
         { name: "erpNo", label: "SMART ERP 銷售單號", defaultValue: selected.erpNo ?? "", required: true },
@@ -552,7 +550,7 @@ export function SalesOrderOperationalPage() {
             <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void save(event)}>
     <FormSection>
               <div className="cy-record-header cy-edit-header">
-                <div><h2>{creating ? "新增銷售工單" : `修改 ${selected?.workOrderRef ?? "工單"}`}</h2><p>ERP 開單前可以修改；開單後只能更正 ERP 資料。</p></div>
+                <div><h2>{creating ? "新增銷售工單" : `修改 ${selected?.workOrderRef ?? "工單"}`}</h2></div>
               <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立工單" : "儲存修改"}</button></div></div>
 
               <div className="cy-f-grid cy-form-grid-spaced">
@@ -561,7 +559,7 @@ export function SalesOrderOperationalPage() {
                   onSelect={(row) => { setPickedCustomer(row); setDraft({ ...draft, customerId: row?.id ?? null }); }}
                   search={async (query) => (await loadSalesOrderLookups({ customerQuery: query, limit: 20 })).customers}
                   getKey={(row) => row.id} getLabel={(row) => `${row.customerNo ? `${row.customerNo} · ` : ""}${row.shortName}`}
-                  placeholder="輸入客戶編號或名稱" description="未建檔的現場客戶可留空，改填下方名稱。" />
+                  placeholder="輸入客戶編號或名稱" />
                 {draft.customerId == null ? <Field label="現場客戶名稱" size="m" required><input className="cy-op-input" value={draft.customerName} disabled={busy} onChange={(event) => setDraft({ ...draft, customerName: event.target.value })} /></Field> : null}
                 <Field label="工單日期" size="s"><DateInput density="regular" className="cy-op-input" max="9999-12-31" value={draft.orderDate} disabled={busy} onChange={(event) => setDraft({ ...draft, orderDate: event })} /></Field>
                 <Field label="操作人員" size="m"><select className="cy-op-input" value={draft.operatorEmployeeId ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, operatorEmployeeId: Number(event.target.value) || null })}>
@@ -579,7 +577,7 @@ export function SalesOrderOperationalPage() {
               </div>
 
               <section className="cy-form-block">
-                <div className="cy-form-block-head"><div><h3>工單明細</h3><p>數量與單價最多四位小數。</p></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={addLine}>＋ 增加明細</button></div>
+                <div className="cy-form-block-head"><div><h3>工單明細</h3></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={addLine}>＋ 增加明細</button></div>
                 <div className="cy-form-block-body">
                 <div className="cy-order-line cy-order-line-head" aria-hidden="true"><span>商品</span><span>數量</span><span>單位</span><span>單價</span><span>備註</span><span /></div>
                 {draft.lines.map((line, index) => {
@@ -631,7 +629,6 @@ export function SalesOrderOperationalPage() {
                 </div>
               </div>
               <OrderProgress status={selected.statusCode} />
-              {selected.statusCode !== "voided" ? <NextStep tone={orderTone[selected.statusCode]}>{orderNextStep[selected.statusCode]}</NextStep> : null}
               <div className="cy-op-detail-grid">
                 <div><span>ERP 單號</span><strong>{selected.erpNo ?? "尚未回填"}</strong></div>
                 <div><span>客戶編號</span><strong>{selected.customerNoSnapshot ?? "—"}</strong></div>
@@ -651,7 +648,7 @@ export function SalesOrderOperationalPage() {
               </div>
 
             </div>
-          ) : <MasterDetailEmpty title="尚未選擇工單" hint="從左側清單選一張工單，或按清單上方的「＋ 新增工單」。" />}
+          ) : <MasterDetailEmpty title="尚未選擇工單" />}
         </section>
       </div>
     </div>

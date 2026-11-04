@@ -38,7 +38,7 @@ function InlineLocation({location,label,onSave,onCancel,desktopControls=false}:{
    <IconButton variant="table" icon={Icons.check} label="儲存儲位" disabled={saving}
     onClick={()=>{if(inputRef.current)void save(inputRef.current)}}/>
    <IconButton variant="table" icon={Icons.close} label="取消修改儲位" disabled={saving} onClick={onCancel}/>
-  </>:<><small>{saving?"儲存中…":"Enter 儲存 · Esc 取消"}</small>
+  </>:<>{saving?<small>儲存中…</small>:null}
    <small>僅修改 WEB，ERP 儲位待人工處理</small></>}
  </div>;
 }

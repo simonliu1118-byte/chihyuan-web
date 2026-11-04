@@ -441,3 +441,6 @@
 
 /* Draft row whose item is still waiting to arrive on a sent order (V0.9.78). */
 .cy-ordering-grid tbody tr[data-warning]{outline:2px solid var(--cy-danger);outline-offset:-2px}
+
+.cy-ordering-source-note-label { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+.cy-ordering-source-note-count { font-size:var(--cy-fs-xs); font-weight:400; font-variant-numeric:tabular-nums; }

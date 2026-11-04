@@ -4,7 +4,7 @@
 
 **結案工作單的保存方式（使用者 2026-10-28 核准）**：共通規則 §11.4 要求**執行及審查期間**在同一工作單記錄需求、§8 GPT 完成報告、§9 Claude 審查紀錄；通過審查及合併、正式規格與剩餘待辦同步後，已結案版本可移出 active tree。原文、原始 §8／§9 與 PR 證據**必須由 Git 固定 SHA 保留**，不可改寫歷史；本次移除的 12 份已結案 `WO-0.9.12～0.9.27` 文件可於 [清理前固定工作單快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/development/work-orders) 找回。原單 §0「不合併／部署」只描述執行當時的權限，不得反推現行狀態。
 
-**2026-11-03 整理**：已審查通過並合併部署的 `WO-0.9.52`、`WO-0.9.68～0.9.71`、`WO-0.9.74`、`WO-0.9.76` 移出主線，有效規格已併入 `STORE_STOCKTAKE.md`、`STORE_MONTHLY_TODOS.md`、`STORE_REPAIRS.md`、`ORDERING_MODULE.md`；原文見 [2026-11-03 固定工作單快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/development/work-orders)。進行中：`WO-0.9.94`（全系統灰色說明小字：第一段盤點已確認，第二段刪除待 GPT 執行）。
+**2026-11-03 整理**：已審查通過並合併部署的 `WO-0.9.52`、`WO-0.9.68～0.9.71`、`WO-0.9.74`、`WO-0.9.76` 移出主線，有效規格已併入 `STORE_STOCKTAKE.md`、`STORE_MONTHLY_TODOS.md`、`STORE_REPAIRS.md`、`ORDERING_MODULE.md`；原文見 [2026-11-03 固定工作單快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/development/work-orders)。`WO-0.9.94`（全系統灰色說明小字）已完成（V0.10.12）。
 
 **後續新工作**：進行中／待審查／需修正的工作單繼續保留在本目錄（含 §8／§9）；完成後先核對現行 [架構規格](../../architecture/README.md)、[TODO](../../../TODO.md)、[CHANGELOG](../../../CHANGELOG.md) 及 PR／部署證據，再於文件整理 PR 移出主線。不得直接刪除未審查或仍含獨有未完成需求的工作單。[新 handoff 入口](../../handoff/README.md) 與工作單依用途分開。
 

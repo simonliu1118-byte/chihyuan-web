@@ -81,8 +81,7 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
      </tr>)}</tbody></table></div>
     {loading?<p>資料讀取中…</p>:summary&&!summary.employees.length?<p>沒有員工。</p>:null}
    </div>
-   <div className="cy-op-panel cy-md-detail">
-    {person?<>
+   {person?<div className="cy-op-panel cy-md-detail">
      <button type="button" className="cy-op-button quiet cy-md-back" onClick={()=>setPerson(null)}>← 請假總表</button>
      <div className="cy-record-header"><h3>{person.employee_no} {person.name}　{year} 年</h3>
       <button type="button" className="cy-op-button primary" onClick={()=>setRequest({person})}>＋ 請假</button></div>
@@ -112,8 +111,7 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
        {x.kind==="overtime"&&x.expired&&x.remainingMinutes>0?<button type="button" className="cy-op-button compact" onClick={()=>void act(()=>apiRequest("/api/business/hr/comp-time/overtime/"+x.id+"/settle",{method:"POST"}),"結清失敗")}>轉加班費</button>:null}</span>
      </div>)}
      <button type="button" className="cy-op-button" onClick={()=>{setGrantKind("holiday");setHolidayDate(owed[0]?.holidayDate??"");setGrantHours(partTime?"4":"8");setGrantOpen(true)}}>＋ 給予補休</button>
-    </>:<p className="cy-md-empty">選擇員工查看假單、特休與補休。</p>}
-   </div>
+   </div>:null}
   </div>
   <Dialog showCloseButton={false} open={grantOpen} title="給予補休" onClose={()=>setGrantOpen(false)} size="small">
    <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>{e.preventDefault();void submitGrant()}}>
@@ -133,7 +131,6 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
     <FormSection>
     {adjust?<p>{ymd(adjust.periodStart)}～{ymd(adjust.periodEnd)}。{basisText(adjust)}</p>:null}
     <Field label="應給時數（空白＝依出勤工時比例計算）" size="s"><input className="cy-op-input" type="number" min="0" step=".5" value={adjustHours} onChange={e=>setAdjustHours(e.target.value)}/></Field>
-    <p>用於 CY Web 上線前的工時（沒有出勤紀錄）等情況。</p>
     <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setAdjust(null)}>取消</button><button className="cy-op-button primary">儲存</button></div>
    
     </FormSection>

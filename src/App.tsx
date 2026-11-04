@@ -41,23 +41,23 @@ import { FeedbackProvider, useFeedback, useFeedbackMessage } from "./ui/feedback
 
 type AppRoute = "hr" | "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "erp-item-query" | "ordering" | "store" | "audit" | "identity" | "account" | "backups" | "programs";
 
-// One source of truth for the topbar titles and on-demand module descriptions.
-const PAGE_META: Record<AppRoute, { title: string; description: string }> = {
-  hr: { title:"人事", description:"人事資料、年資特休與薪資紀錄" },
-  customers: { title:"客戶", description:"客戶資料、聯絡人、拜訪與報價紀錄" },
-  items: { title:"商品", description:"商品資料、品號、價格與單位換算" },
-  defects: { title:"瑕疵", description:"瑕疵回報、處理進度與作廢" },
-  orders: { title:"銷售工單", description:"銷售工單與出貨流程，正式單號由 ERP 提供" },
-  outsourcing: { title:"委外/代工", description:"代工單、協力廠商、單價、BOM 與庫存" },
-  worklogs: { title:"工作日誌", description:"填寫日誌、送審與評分統計" },
-  "erp-item-query": { title:"ERP 查詢", description:"查閱 SMART ERP 資料，只讀不改" },
-  ordering: {title:"叫貨",description:"叫貨草稿、送出、到貨紀錄與未到貨管理"},
-  store: {title:"門市",description:"門市訂購、通知取貨與黑名單，庫存盤點及月度待辦"},
-  identity: { title:"帳號與權限", description:"使用者、權限群組與系統安全" },
-  account: { title:"我的帳號", description:"變更自己的密碼與 Email" },
-  audit: { title:"異動紀錄", description:"誰在什麼時候改了什麼" },
-  backups: { title:"備份管理", description:"備份狀態、手動備份與重試副本" },
-  programs: { title:"CY 程式", description:"CY 程式的功能、版本與使用入口" },
+// One source of truth for the topbar titles.
+const PAGE_META: Record<AppRoute, { title: string }> = {
+  hr: { title:"人事" },
+  customers: { title:"客戶" },
+  items: { title:"商品" },
+  defects: { title:"瑕疵" },
+  orders: { title:"銷售工單" },
+  outsourcing: { title:"委外/代工" },
+  worklogs: { title:"工作日誌" },
+  "erp-item-query": { title:"ERP 查詢" },
+  ordering: {title:"叫貨"},
+  store: {title:"門市"},
+  identity: { title:"帳號與權限" },
+  account: { title:"我的帳號" },
+  audit: { title:"異動紀錄" },
+  backups: { title:"備份管理" },
+  programs: { title:"CY 程式" },
 };
 
 const baseNavigation: readonly NavigationGroup[] = [
@@ -423,7 +423,6 @@ function OperationalApp({
       systemNotice={usageBanner || quarterlyBanner ? <>{quarterlyBanner}{usageBanner}</> : null}
       appName="CY Web"
       pageTitle={PAGE_META[route].title}
-      pageDescription={PAGE_META[route].description}
       pageTools={route === "hr" ? <HrSettingsButton />
         : route === "erp-item-query"
         ? <ErpAgentCredentialControl isSuperAdmin={session.user.workspaceRole === "SUPER_ADMIN"} />

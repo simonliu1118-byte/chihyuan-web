@@ -621,7 +621,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
       </div>
       {current&&current.sourceId===activeVendorId?orderView:busy?<Loading/>:!orderedVendors.length?<p className="cy-op-empty">目前沒有可使用的廠商來源。</p>:null}
     </>
-    :current?orderView:busy?<Loading/>:<MasterDetailEmpty title="選擇叫貨來源" hint="從上方頁籤選擇來源開始叫貨，或從左側開啟已送出的叫貨單。"/>}
+    :current?orderView:busy?<Loading/>:<MasterDetailEmpty title="選擇叫貨來源"/>}
    </section>
   </div>
   {manageSources?<Dialog open title="管理叫貨來源" onClose={()=>setManageSources(false)} size="large">
@@ -658,7 +658,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
      {!sourceForm.id?<Field label="類型" size="s"><select className="cy-op-input" value={sourceForm.kind} onChange={e=>setSourceForm(s=>s?{...s,kind:e.target.value as "GENERAL"|"VENDOR"}:s)}><option value="GENERAL">公司內部</option><option value="VENDOR">外部廠商</option></select></Field>:null}
      <Field label="叫貨條件" size="m"><input className="cy-op-input" maxLength={500} value={sourceForm.conditions} onChange={e=>setSourceForm(s=>s?{...s,conditions:e.target.value}:s)}/></Field>
      <Field label="付款條件" size="m"><input className="cy-op-input" maxLength={200} placeholder="例如：月結30天、貨到付款" value={sourceForm.paymentTerms} onChange={e=>setSourceForm(s=>s?{...s,paymentTerms:e.target.value}:s)}/></Field>
-     <Field label="註記" size="l" hint={`${[...sourceForm.note].length}／300 字，可換行`}><textarea className="cy-op-input" rows={4} maxLength={300} value={sourceForm.note} onChange={e=>setSourceForm(s=>s?{...s,note:e.target.value}:s)}/></Field>
+     <Field label={<span className="cy-ordering-source-note-label">註記<span className="cy-ordering-source-note-count">{[...sourceForm.note].length}/300</span></span>} reportAs="註記" size="l"><textarea aria-label="註記" className="cy-op-input" rows={4} maxLength={300} value={sourceForm.note} onChange={e=>setSourceForm(s=>s?{...s,note:e.target.value}:s)}/></Field>
     </FormSection>
     <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setSourceForm(null)}>取消</button><button type="submit" className="cy-op-button primary" disabled={busy}>儲存</button></div>
    </form></Dialog>:null}

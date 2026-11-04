@@ -81,7 +81,7 @@ export function DefectForm({ mode, initial, fixedItem, onSaved, onCancel }: Defe
     <FormSection>
     {inDialog ? null : <div className="cy-record-header cy-edit-header">
       <div><h2>{mode === "create" ? "新增瑕疵" : `修改瑕疵 #${initial?.id ?? ""}`}</h2>
-        <p>已建檔與處理中的瑕疵可以修改；已處理的需先重新開啟。</p></div>
+        </div>
       <div className="cy-record-actions">{actions}</div>
     </div>}
     <div className="cy-defect-form-body"><div className="cy-f-grid">

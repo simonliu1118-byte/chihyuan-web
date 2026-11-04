@@ -43,7 +43,6 @@ export function OrderingSourcePicker({sources,value,onChange,allowAll=false,incl
     {level==="root"&&allowAll&&!search?<button type="button" onClick={()=>pick(0)}>全部來源</button>:null}
     {choices.map(s=><button type="button" key={s.id} aria-current={value===s.id?"true":undefined} onClick={()=>pick(s.id)}>{s.name}{!s.isActive?"（已隱藏）":""}{value===s.id?" ✓":""}</button>)}
     {level==="root"&&(!search||"廠商".includes(search)||vendorSearch.length>0)?<button type="button" className="cy-ordering-source-picker-vendor" onClick={()=>{setLevel("vendor");setQuery("");setTyping(false);input.current?.focus()}}>廠商 <span aria-hidden="true">›</span></button>:null}
-    {level==="root"&&search&&vendorSearch.length>0?<div className="cy-ordering-source-picker-search-hint">符合搜尋的廠商</div>:null}
     {level==="root"&&search? vendorSearch.map(s=><button type="button" key={"search-"+s.id} onClick={()=>pick(s.id)}>{s.name}{!s.isActive?"（已隱藏）":""}</button>):null}
     {search&&level==="root"&&internalSearch.length===0&&vendorSearch.length===0?<span className="cy-ordering-source-picker-empty">找不到符合的來源</span>:null}
     {level==="vendor"&&choices.length===0?<span className="cy-ordering-source-picker-empty">沒有符合的廠商</span>:null}

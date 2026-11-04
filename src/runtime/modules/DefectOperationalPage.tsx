@@ -2,8 +2,7 @@ import { recordIdFromHash, replaceRouteParams } from "../navigation/route-params
 import { DefectForm } from "./defect/DefectForm";
 import { formatItem } from "../../ui/foundation/format";
 import { StatusFilter } from "../../ui/data/StatusFilter";
-import { defectNextStep, defectTone } from "./status-flow";
-import { NextStep } from "../../ui/feedback/NextStep";
+import { defectTone } from "./status-flow";
 import { StatusChip } from "../../ui/primitives/StatusChip";
 import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
@@ -452,7 +451,6 @@ export function DefectOperationalPage() {
               </div>
 
               <div className="cy-defect-body">
-                <NextStep tone={defectTone[selected.invalidatedAt ? "voided" : selected.statusCode]}>{defectNextStep[selected.invalidatedAt ? "voided" : selected.statusCode]}</NextStep>
                 <div className="cy-op-detail-grid">
                   <div><span>回報日期</span><strong>{formatDate(selected.reportedDate)}</strong></div>
                   <div><span>負責人</span><strong>{selected.ownerEmployee.displayName || ownerLabel(selected.ownerEmployee.id, selected.ownerEmployee.employeeNo)}</strong></div>
@@ -465,7 +463,7 @@ export function DefectOperationalPage() {
 
               </div>
             </div>
-          ) : <MasterDetailEmpty title="尚未選擇瑕疵紀錄" hint="從左側清單選一筆，或按清單上方的「＋ 新增瑕疵」。" />}
+          ) : <MasterDetailEmpty title="尚未選擇瑕疵紀錄" />}
         </section>
       </div>
     </div>

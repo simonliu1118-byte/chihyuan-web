@@ -318,7 +318,7 @@ export function AuthGate({ children }: AuthGateProps) {
   return <main className="cy-auth-screen cy-auth-login-screen">
     <div className="cy-auth-theme-position"><ThemeToggle /></div>
     <section className="cy-auth-card" aria-labelledby="cy-auth-title">
-      <div className="cy-auth-heading"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><div><h1 id="cy-auth-title">{mode === "login" ? "志遠企業管理系統" : mode === "first_login" ? "完成 Email 驗證" : "帳號協助"}</h1>{mode === "login" ? null : <p>依照畫面指示完成帳號驗證</p>}</div></div>
+      <div className="cy-auth-heading"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><div><h1 id="cy-auth-title">{mode === "login" ? "志遠企業管理系統" : mode === "first_login" ? "完成 Email 驗證" : "帳號協助"}</h1></div></div>
 
     {mode === "login" ? <form className="cy-auth-form" onSubmit={handleLogin} onKeyDown={advanceFocusOnEnter}>
     <FormSection>
@@ -337,7 +337,7 @@ export function AuthGate({ children }: AuthGateProps) {
     <FormSection>
       <div className="cy-auth-flow-title">
         <h2>完成 Email 驗證</h2>
-        <p>{firstLogin?.displayName ? `${firstLogin.displayName} · ${firstLogin.employeeNo ?? employeeNo}` : employeeNo ? `員工編號 ${employeeNo}` : "請設定您的正式登入密碼。"}</p>
+        {firstLogin?.displayName || employeeNo ? <p>{firstLogin?.displayName ? `${firstLogin.displayName} · ${firstLogin.employeeNo ?? employeeNo}` : `員工編號 ${employeeNo}`}</p> : null}
       </div>
       <p className="cy-auth-note-inline">首次登入密碼已完成一次性驗證。請在驗證時效內設定正式密碼；設定成功後會回到登入頁，並需使用新密碼重新登入。</p>
       <Field label="正式密碼" size="m" required><input type="password" autoComplete="new-password" maxLength={16} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={submitting} autoFocus /></Field>
