@@ -11,12 +11,13 @@ const entityNames: Record<string,string> = {
   work_log_platform:"日誌平台",work_log_scoring_row:"計分參考列",work_log_scoring_config:"計分門檻",
   module_access:"使用權",module_access_group:"權限群組",app_tag:"標籤",
   hr_leave:"請假紀錄",hr_leave_attachment:"請假證明",hr_annual_leave:"特休通知",hr_overtime:"加班紀錄",hr_comp_time:"補休帳戶",hr_employee:"人事員工",hr_roster:"人事排班",hr_attendance:"出勤紀錄",hr_status_change:"人事狀態異動",hr_salary_record:"薪資異動",hr_seniority_exclusion:"年資不計期間",hr_setting:"人事設定",
-  ordering:"叫貨單",stocktake:"門市庫存盤點",
+  ordering:"叫貨單",stocktake:"門市庫存盤點",store_equipment:"出機紀錄",store_maintenance:"定期維護",
   store_monthly_settings:"月度待辦設定",store_repair_print_settings:"維修單列印設定",store_monthly_row:"月度待辦",
   backup:"備份",erp_item_query:"ERP 查詢",erp_item_agent:"ERP 連線服務",
 };
 export const entityLabel = (type: string): string => entityNames[type] ?? "資料";
 export const actionLabels: Record<string,string> = {
+  "store_equipment.created":"新增出機紀錄","store_equipment.updated":"修改出機紀錄","store_maintenance.updated":"修改維護紀錄",
   "store_monthly.settings_updated":"修改月度待辦設定","store_repair.print_settings_updated":"修改維修單列印設定",
   "store_monthly.cell_updated":"修改月度待辦辦理紀錄",
   "stocktake.sheet_synced":"更新盤點底稿",
@@ -96,6 +97,7 @@ export function actionLabel(action: string, type = ""): string {
   return verb + entityLabel(type || action.split(".")[0]);
 }
 const fields:Record<string,string> = {
+  customerCode:"客戶編號",customerName:"客戶名稱",brand:"品牌",model:"機型",saleDate:"銷售日期",warrantyStart:"保固起日",warrantyEnd:"保固迄日",maintenance:"需要維護",months:"預計維護年月",machines:"機身資料",completed:"維護狀態",completionDate:"維護日期",
   nationalIdMasked:"身分證字號（遮罩）",baseAmount:"本薪",allowanceTotal:"津貼合計",paymentType:"計薪方式",effectiveDate:"生效日",
   nextStatus:"新狀態",startDate:"起日",endDate:"迄日",employeeNo:"員工編號",memberId:"綁定使用者",
   birthDate:"出生日期",gender:"性別",mailingAddress:"通訊地址",registeredAddress:"戶籍地址",hireDate:"到職日",

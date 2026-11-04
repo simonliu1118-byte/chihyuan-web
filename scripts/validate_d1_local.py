@@ -269,6 +269,7 @@ def main() -> int:
 
         checks = payload.get("checks")
         expected_checks = {
+            "equipmentMaintenance",
             "customerBatchCreate",
             "optimisticRevision",
             "batchRollback",

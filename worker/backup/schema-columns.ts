@@ -1037,6 +1037,63 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "updated_by",
     "version"
   ],
+  "store_equipment_events": [
+    "actor",
+    "after_json",
+    "at",
+    "before_json",
+    "equipment_id",
+    "id",
+    "kind",
+    "reason",
+    "request_hash",
+    "request_key",
+    "visit_id"
+  ],
+  "store_equipment_plans": [
+    "active",
+    "equipment_id",
+    "retained",
+    "snapshot_json",
+    "visit_id"
+  ],
+  "store_equipment_records": [
+    "brand",
+    "created_at",
+    "created_by",
+    "customer_code",
+    "customer_name",
+    "id",
+    "list_sequence",
+    "machines_json",
+    "maintenance",
+    "model",
+    "quantity",
+    "sale_date",
+    "updated_at",
+    "updated_by",
+    "version",
+    "warranty_end",
+    "warranty_start"
+  ],
+  "store_equipment_state": [
+    "id",
+    "version"
+  ],
+  "store_maintenance_visits": [
+    "completed",
+    "completion_date",
+    "created_at",
+    "created_by",
+    "customer_code",
+    "customer_name",
+    "id",
+    "note",
+    "planned_month",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
   "store_monthly_cells": [
     "completed",
     "completion_date",

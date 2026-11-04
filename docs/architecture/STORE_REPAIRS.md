@@ -111,3 +111,7 @@
 - 表單：單一表格式彈窗（9 欄網格）；購買日期必填或勾「無日期」；新增「備註」（`store_repairs.note`）。
 - 列印：維修單（點陣式，中一刀 241×140mm）與維修資訊卡（熱感紙 80mm；送修日期、處理人員留空手寫；銷售日期＝購買日期；保固內／外手勾）。不印單號。
 - 列印設定（`store_repair_print_settings`，單列 id=1）：維修單標題／聯絡資訊（≤3 行）／注意事項（≤6 行，自動編號）、資訊卡標題／下方文字（≤6 行）。API：`GET/PUT /api/business/store/repairs/print-settings`（PUT 帶 `expectedVersion`）。業務資訊只存在資料庫，不寫進 repo。
+
+## 售後維修入口（2026-11-05）
+
+原維修功能顯示為「門市送修」，同層增加「出機紀錄／定期維護」，均沿用 STORE_REPAIRS 使用權，詳見 [出機與維護契約](STORE_EQUIPMENT_MAINTENANCE.md)。原流程與五分鐘結案規則不變。門市送修的客戶編號／姓名欄加為13em，差額仍由故障狀況吸收。

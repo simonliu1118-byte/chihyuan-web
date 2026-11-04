@@ -1,4 +1,5 @@
 import { acceptSalesOrderStaleAudit } from "./sales-order-stale-acceptance";
+import {acceptEquipmentMaintenance} from './equipment-acceptance';
 import { acceptCustomerQuoteStaleMutation } from "./customer-quote-stale-acceptance";
 import { acceptBusinessHttpAuthority } from "./business-http-acceptance";
 import { acceptModuleAccessGroups } from "./module-access-group-acceptance";
@@ -37,6 +38,7 @@ interface Env {
 }
 
 interface AcceptanceChecks {
+  equipmentMaintenance: boolean;
   portableBackupRecovery: boolean;
   tieredBackup: boolean;
   isolatedRecovery: boolean;
@@ -812,6 +814,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
   await acceptModuleAccessGroups(db);
   await acceptProgramCatalog(db);
   await acceptRetiredIdentitySource(db);
+  await acceptEquipmentMaintenance(db);
   await acceptPortableRecovery(db, restoreDb);
   await acceptRetiredIdentityRestore(db, restoreDb);
   await acceptTieredBackup(db, bucket);
@@ -819,6 +822,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
 
   return {
     portableBackupRecovery: true,
+    equipmentMaintenance: true,
     tieredBackup: true,
     isolatedRecovery: true,
     settingsAuditHttpAuthority: true,

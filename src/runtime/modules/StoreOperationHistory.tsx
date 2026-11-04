@@ -3,7 +3,7 @@ import {apiRequest} from "../../api/client";
 import {STORE_ORDER_STATUS_LABELS,type StoreOrder,type StoreHistoryPage,type StoreHistory} from "../../../shared/store";
 import {formatDateTime} from "../../ui/foundation/format";
 import {cacheHistory,cachedHistory,type StoreHistoryCache} from "../../../shared/store-history";
-const labels:Record<string,string>={joinedDate:"加入日期",name:"客戶姓名",reason:"理由",action:"處置",actionDetail:"處置方式",orderDate:"訂購日期",customerName:"客戶姓名",customerCode:"客戶編號",honorific:"稱謂",callResult:"叫貨結果",ORDERED:"叫貨日期",ARRIVED:"到貨（歷史）",NOTIFIED:"通知日期",PICKED_UP:"取貨日期",phone:"連絡電話2",mobile:"連絡電話1",lineName:"LINE 名稱",deposit:"訂金",note:"備註",lines:"品項",total:"金額合計",status:"處理狀態",dates:"進度日期",date:"作業日期",blacklistId:"黑名單編號",blacklistEvent:"黑名單事件",orderId:"來源訂購",itemName:"項目",completed:"辦理狀態",completionDate:"辦理日期",receivedDate:"送修日期",productKind:"類別",productText:"產品",serialNo:"產品機號",fault:"故障狀況",purchaseDate:"購買日期",accessories:"配件備註",inspectResult:"檢測結果",inspectProblem:"補充說明",carrier:"貨運",tracking:"寄送編號",returnMethod:"歸還方式",step:"步驟",unitPrice:"單價",quantity:"數量",itemCode:"品號",specification:"規格",publisher:"出版社",author:"作者",cancelReason:"取消原因",version:"版本"};
+const labels:Record<string,string>={brand:"品牌",model:"機型",saleDate:"銷售日期",warrantyStart:"保固起日",warrantyEnd:"保固迄日",maintenance:"需要維護",months:"預計維護年月",machines:"機身資料",joinedDate:"加入日期",name:"客戶姓名",reason:"理由",action:"處置",actionDetail:"處置方式",orderDate:"訂購日期",customerName:"客戶姓名",customerCode:"客戶編號",honorific:"稱謂",callResult:"叫貨結果",ORDERED:"叫貨日期",ARRIVED:"到貨（歷史）",NOTIFIED:"通知日期",PICKED_UP:"取貨日期",phone:"連絡電話2",mobile:"連絡電話1",lineName:"LINE 名稱",deposit:"訂金",note:"備註",lines:"品項",total:"金額合計",status:"處理狀態",dates:"進度日期",date:"作業日期",blacklistId:"黑名單編號",blacklistEvent:"黑名單事件",orderId:"來源訂購",itemName:"項目",completed:"辦理狀態",completionDate:"辦理日期",receivedDate:"送修日期",productKind:"類別",productText:"產品",serialNo:"產品機號",fault:"故障狀況",purchaseDate:"購買日期",accessories:"配件備註",inspectResult:"檢測結果",inspectProblem:"補充說明",carrier:"貨運",tracking:"寄送編號",returnMethod:"歸還方式",step:"步驟",unitPrice:"單價",quantity:"數量",itemCode:"品號",specification:"規格",publisher:"出版社",author:"作者",cancelReason:"取消原因",version:"版本"};
 function display(v:unknown,key=""):string{
  if(v===null||v===undefined||v==="")return ["date","completionDate","ORDERED","NOTIFIED","PICKED_UP"].includes(key)?"無日期":"";
  if(typeof v==="boolean")return key==="completed"?v?"已完成":"未完成":v?"是":"否";
@@ -24,6 +24,7 @@ function lineChanges(before:HistoryLine[],after:HistoryLine[]):string[]{
  return [...result,...before.flatMap((line,i)=>used.has(i)?[]:["刪除品項："+summary(line)])];
 }
 export function historySummary(e:StoreHistory):string{
+ if(['登記維護','修改維護','取消維護登記'].includes(e.kind)){const day=(value:unknown)=>display(value,'completionDate').replaceAll('-','/');return [e.kind!=='取消維護登記'&&Object.hasOwn(e.after,'completionDate')?'日期：'+(e.kind==='修改維護'&&Object.hasOwn(e.before,'completionDate')?day(e.before.completionDate)+' → ':'')+day(e.after.completionDate):'',typeof e.after.note==='string'&&e.after.note?'備註：'+e.after.note:''].filter(Boolean).join('；')}
  if(["建立","加入黑名單","加回黑名單"].includes(e.kind))return "";
  if(e.kind==="訂購取消"||e.kind==="移出黑名單")return e.reason;
  if(e.kind==="確認辦理"||e.kind==="取消完成")return String(e.after.itemName??"");
