@@ -17,18 +17,18 @@ export function repairSlipHtml(r:StoreRepair,s:StoreRepairPrintSettings):string{
  const product=esc(STORE_REPAIR_PRODUCTS[r.productKind])+"　"+esc(r.productText);
  const notes=lines(s.notes);
  return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>機器維修單</title><style>
-@page{size:241mm 140mm;margin:6mm 8mm}
+@page{size:241mm 140mm;margin:0}
 *{box-sizing:border-box}
-body{margin:0;color:#000;background:#fff;font:11pt/1.3 "Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif}
+body{margin:0;padding:20mm 15mm 0;color:#000;background:#fff;font:12pt/1.3 "Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif}
 .head{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;border:1px solid #000;border-bottom:0;padding:6px 10px}
-.head h1{grid-column:2;margin:0;font-size:17pt;text-align:center;letter-spacing:.1em}
+.head h1{grid-column:2;margin:0;font-size:18pt;text-align:center;letter-spacing:.1em}
 .head h2{grid-column:2;margin:1px 0 0;font-size:13pt;text-align:center;letter-spacing:.2em}
-.contact{grid-column:3;grid-row:1/3;justify-self:end;align-self:end;font-size:10pt;text-align:left;white-space:pre-line}
+.contact{grid-column:3;grid-row:1/3;justify-self:end;align-self:end;font-size:11pt;text-align:left;white-space:pre-line}
 table{width:100%;border-collapse:collapse;table-layout:fixed}
 td,th{border:1px solid #000;padding:2px 8px;height:10mm;vertical-align:middle;word-break:break-all}
 th{font-weight:normal;text-align:center;white-space:nowrap}
 .tall{vertical-align:top;padding-top:5px}
-.step{height:22mm;text-align:center}
+.step{height:18mm;text-align:center}
 .notes{height:auto;padding:5px 8px}
 ol{margin:0;padding-left:1.4em}
 </style></head><body>
