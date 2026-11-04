@@ -99,6 +99,8 @@ EXPECTED_TABLES = {
     "customer_frequent_items",
     "customer_item_quotes",
     "customer_notes",
+    "customer_profile_notes",
+    "customer_prospect_items",
     "customer_phones",
     "customer_statuses",
     "customer_visits",

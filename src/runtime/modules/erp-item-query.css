@@ -325,7 +325,9 @@
 .cy-ordering-pending-head { display: flex; align-items: center; gap: 8px; padding: 4px 8px 4px 4px; background: var(--cy-surface-muted); }
 .cy-ordering-pending-toggle { display: flex; flex: 1; align-items: baseline; gap: 10px; min-width: 0; padding: 4px 6px; border: 0; background: none; color: var(--cy-text); font: inherit; text-align: left; cursor: pointer; }
 .cy-ordering-pending-toggle span { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
-.cy-ordering-pending-caret { width: 12px; }
+.cy-ordering-pending-toggle .cy-ordering-pending-caret { display: inline-grid; place-items: center; width: 18px; align-self: center; color: var(--cy-text); }
+.cy-ordering-pending-caret .cy-icon { width: 18px; height: 18px; transition: transform .15s; }
+.cy-ordering-pending-caret.open .cy-icon { transform: rotate(90deg); }
 .cy-ordering-pending-count { margin-left: auto; }
 .cy-ordering-pending-table { font-size: var(--cy-fs-sm); }
 .cy-ordering-pending-table :is(th, td) { padding-block: 4px; }

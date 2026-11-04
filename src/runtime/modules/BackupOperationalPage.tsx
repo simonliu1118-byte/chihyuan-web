@@ -2,15 +2,16 @@ import { formatDateTime } from "../../ui/foundation/format";
 import { Loading } from "../../ui/feedback/Loading";
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BACKUP_REHEARSAL_CONFIRMATION, BACKUP_REHEARSAL_ERROR_MESSAGES, type BackupHistory, type BackupHistoryEntry, type BackupProvider, type BackupRehearsalHistoryEntry } from "../../../shared/backups";
 import { ApiClientError } from "../../api/client";
-import { DataView } from "../../ui/data/DataView";
 import { createBackup, loadBackups, retryBackup, rehearseBackup } from "../api/backup-client";
 import { Dialog } from "../../ui/overlays/Dialog";
 import { CyInvoiceRecoveryAdminPanel } from "../../identity/CyInvoiceRecoveryAdminPanel";
 import type { AuthSession } from "../../auth/auth-client";
 import "./backup-operational.css";
+import { IconButton } from "../../ui/actions/IconButton";
+import { Icons } from "../../ui/actions/icons";
 
 const statuses: Record<string, string> = { creating: "建立中", verified: "已驗證", failed: "失敗", pending: "待完成",
   absent: "本次未排定", deleting: "到期處理中", deleted: "已到期移除", expired: "已到期" };
@@ -38,27 +39,55 @@ function completion(row: BackupHistoryEntry | undefined): string {
 }
 export function BackupHistoryView({ history, busy, retry, rehearse }: { history: BackupHistory; busy: boolean; retry: (id: string) => void;
   rehearse?: (row: BackupHistoryEntry) => void }) {
-  const action = (row: BackupHistoryEntry) => <div className="cy-op-page-actions">
-    {row.canRetry ? <button className="cy-op-button" type="button" disabled={busy} onClick={() => retry(row.backupId)}>重試 GCS</button> : null}
+  // Compact icon buttons side by side, so the one-line table still fits (user 2026-11-04); the name shows on hover.
+  const action = (row: BackupHistoryEntry) => <div className="cy-backup-actions">
+    {row.canRetry ? <IconButton variant="table" icon={Icons.retry} label="重試 GCS" disabled={busy} onClick={() => retry(row.backupId)} /> : null}
     {history.recoveryReady && rehearse && row.copies.some(copy => copy.status === "verified")
-      ? <button className="cy-op-button" type="button" disabled={busy} onClick={() => rehearse(row)}>驗證隔離還原</button> : null}
-    {!row.canRetry && !(history.recoveryReady && rehearse && row.copies.some(copy => copy.status === "verified")) ? <span>—</span> : null}
+      ? <IconButton variant="table" icon={Icons.verify} label="驗證隔離還原" disabled={busy} onClick={() => rehearse(row)} /> : null}
   </div>;
-  const event = (row: BackupHistoryEntry) => <div className="cy-backup-event"><strong>{time(row.createdAt)}</strong>
-    <span>{row.triggerKind === "scheduled" ? "排程備份" : row.triggerKind === "pre_restore" ? "還原前安全備份" : "手動備份"} · {label(row.status)}</span></div>;
-  const identity = (row: BackupHistoryEntry) => <dl className="cy-backup-identity">
-    <dt>備份編號</dt><dd>{row.backupId}</dd>
-    <dt>版本</dt><dd>V{row.appVersion}</dd>
-    <dt>資料摘要</dt><dd>{row.dataSha256 === "pending" ? "尚未產生" : row.dataSha256}</dd>
-  </dl>;
-  return <DataView ariaLabel="備份紀錄" items={history.sets} getKey={row => row.backupId}
-    columns={[{ key: "event", header: "備份時間（台灣）", render: event, width: "16%" },
-      { key: "identity", header: "備份資訊", render: identity, width: "38%" },
-      { key: "copies", header: "儲存副本", render: providerStatus, width: "18%" },
-      { key: "size", header: "資料量", render: row => <>{row.recordCount.toLocaleString()} 筆<br />{size(row.byteLength)}</>, width: "12%" },
-      { key: "action", header: "操作", render: action, width: "16%" }]}
-    renderCard={row => <>{event(row)}{identity(row)}{providerStatus(row)}<div className="cy-backup-card-footer"><span>{row.recordCount.toLocaleString()} 筆 · {size(row.byteLength)}</span>{action(row)}</div></>}
-    emptyTitle="尚無備份紀錄" emptyDescription={!history.configured ? "儲存設定完成後才能建立備份。" : undefined} />;
+  // One line per backup (user 2026-11-04); 備份編號 and 資料摘要 open under the row on click, like 修改紀錄.
+  const kind = (row: BackupHistoryEntry) => row.triggerKind === "scheduled" ? "排程備份" : row.triggerKind === "pre_restore" ? "還原前安全備份" : "手動備份";
+  const hasAction = (row: BackupHistoryEntry) => row.canRetry || !!(history.recoveryReady && rehearse && row.copies.some(copy => copy.status === "verified"));
+  return <BackupRows history={history} action={action} kind={kind} hasAction={hasAction} />;
+}
+
+/** How many backups show before 顯示較早的備份 (user 2026-11-04: 50 at once is too many). */
+const BACKUP_ROWS_SHOWN = 10;
+
+interface LineColumn<T> { header: string; width?: string; numeric?: boolean; code?: boolean; render: (row: T) => ReactNode; full?: (row: T) => string }
+/**
+ * One line per record, identifiers included (user 2026-11-04). Long codes take the room left over and
+ * end in … when it runs out; the whole value stays selectable and shows on hover.
+ */
+function LineTable<T>({ label, rows, getKey, columns }: { label: string; rows: readonly T[]; getKey: (row: T) => string; columns: LineColumn<T>[] }) {
+  return <div className="cy-backup-table-wrap"><table className="cy-sheet-table cy-backup-table" aria-label={label}>
+        <thead><tr>{columns.map(column => <th key={column.header} scope="col" className={column.numeric ? "num" : undefined}>{column.header}</th>)}</tr></thead>
+    <tbody>{rows.map(row => <tr key={getKey(row)}>{columns.map(column => <td key={column.header}
+      className={[column.numeric ? "num" : "", column.code ? "code" : ""].filter(Boolean).join(" ") || undefined}>
+      <span className="cy-sheet-value" title={column.full?.(row)}>{column.render(row)}</span></td>)}</tr>)}</tbody>
+  </table></div>;
+}
+
+function BackupRows({ history, action, kind, hasAction }: { history: BackupHistory; action: (row: BackupHistoryEntry) => ReactNode;
+  kind: (row: BackupHistoryEntry) => string; hasAction: (row: BackupHistoryEntry) => boolean }) {
+  const [all, setAll] = useState(false);
+  if (!history.sets.length) return <div className="cy-op-empty">{history.configured ? "尚無備份紀錄" : "儲存設定完成後才能建立備份。"}</div>;
+  const rows = all ? history.sets : history.sets.slice(0, BACKUP_ROWS_SHOWN);
+  const digest = (row: BackupHistoryEntry) => row.dataSha256 === "pending" ? "尚未產生" : row.dataSha256;
+  return <>
+    <LineTable label="備份紀錄" rows={rows} getKey={row => row.backupId}
+      columns={[{ header: "備份時間（台灣）", width: "10.5em", render: row => <span className="cy-backup-time">{time(row.createdAt)}</span> },
+        { header: "類型", width: "8.5em", render: kind }, { header: "狀態", width: "5em", render: row => label(row.status) },
+        { header: "版本", width: "5.5em", render: row => "V" + row.appVersion }, { header: "儲存副本", width: "16em", render: providerStatus },
+        { header: "筆數", width: "5.5em", numeric: true, render: row => row.recordCount.toLocaleString() },
+        { header: "大小", width: "6em", numeric: true, render: row => size(row.byteLength) },
+        { header: "備份編號", code: true, render: row => row.backupId, full: row => row.backupId },
+        { header: "資料摘要", code: true, render: digest, full: digest },
+        // 操作 only when some backup has something to do (重試 GCS, 驗證隔離還原) (user 2026-11-04).
+        ...(rows.some(hasAction) ? [{ header: "操作", render: action }] : [])]} />
+    {history.sets.length > BACKUP_ROWS_SHOWN ? <button type="button" className="cy-op-button quiet cy-backup-more" onClick={() => setAll(value => !value)}>
+      {all ? "只顯示最新 " + BACKUP_ROWS_SHOWN + " 筆" : "顯示較早的備份（共 " + history.sets.length + " 筆）"}</button> : null}
+  </>;
 }
 const rehearsalPhaseLabels: Record<string, string> = {
   completed: "完成", target_lock: "隔離目標使用狀態", source_read: "來源備份核對", target_validation: "隔離目標檢查",
@@ -73,18 +102,15 @@ export function BackupRehearsalHistoryView({ items }: { items: readonly BackupRe
     : row.errorCode ? BACKUP_REHEARSAL_ERROR_MESSAGES[row.errorCode] ?? BACKUP_REHEARSAL_ERROR_MESSAGES.BACKUP_RECOVERY_UNAVAILABLE
     : row.status === "unconfirmed" ? "已有演練啟動紀錄，但沒有確認的最終結果；不可直接重送。"
     : "此筆舊驗證紀錄未附錯誤代碼，請核對 Audit；不可直接重送。";
-  const detail = (row: BackupRehearsalHistoryEntry) => <div className="cy-backup-event">
-    <strong>{time(row.occurredAt)} · {status(row)}</strong>
-    <span>{row.provider ? row.provider.toUpperCase() : "來源未確認"} · {row.phase ? rehearsalPhaseLabels[row.phase] ?? "階段待確認" : "歷史紀錄"}</span>
-    <span>{explanation(row)}</span>
-    {row.errorCode ? <span>錯誤代碼：{row.errorCode}</span> : null}
-    <details><summary>診斷識別資訊</summary><dl><dt>來源備份</dt><dd>{row.backupId}</dd>
-      <dt>requestId</dt><dd>{row.requestId ?? "未記錄"}</dd></dl></details>
-  </div>;
-  return <DataView ariaLabel="隔離還原驗證紀錄" items={[...items]} getKey={row => String(row.eventId)}
-    columns={[{ key: "time", header: "驗證時間／結果（台灣）", render: detail }]}
-    renderCard={detail} emptyTitle="尚無隔離還原驗證紀錄"
-    emptyDescription="此處顯示近 90 天已記錄的演練，最多 30 筆；早期失敗若發生在記錄前，可能無法追溯。" />;
+  if (!items.length) return <div className="cy-op-empty">尚無隔離還原驗證紀錄</div>;
+  return <LineTable label="隔離還原驗證紀錄" rows={items} getKey={row => String(row.eventId)}
+    columns={[{ header: "驗證時間（台灣）", width: "10.5em", render: row => <span className="cy-backup-time">{time(row.occurredAt)}</span> },
+      { header: "結果", width: "6.5em", render: status },
+      { header: "副本", width: "4.5em", render: row => row.provider ? row.provider.toUpperCase() : "未確認" },
+      { header: "階段", width: "9.5em", render: row => row.phase ? rehearsalPhaseLabels[row.phase] ?? "階段待確認" : "歷史紀錄" },
+      { header: "說明", render: row => <>{explanation(row)}{row.errorCode ? "（" + row.errorCode + "）" : ""}</> },
+      { header: "來源備份", code: true, render: row => row.backupId, full: row => row.backupId },
+      { header: "請求編號", code: true, render: row => row.requestId ?? "未記錄", full: row => row.requestId ?? "" }]} />;
 }
 /** Prevent an old successful rehearsal from appearing as the status of a fresh
  * recovery target after the next quarter's approved rotation. */

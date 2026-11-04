@@ -7,7 +7,8 @@ import type {
   CustomerPhoneInput,
   UpdateCustomerRequest,
 } from "../../shared/customer";
-import { CUSTOMER_LIMITS, CUSTOMER_NO_PATTERN } from "../../shared/customer";
+import { BUSINESS_PROFILE_LIMITS, CUSTOMER_LIMITS, CUSTOMER_NO_PATTERN, PROFILE_NOTE_CATEGORIES, PROSPECT_STAGES } from "../../shared/customer";
+import type { CustomerProfileNoteInput, CustomerProspectItemInput, ProfileNoteCategory, ProspectStage } from "../../shared/customer";
 import { FieldValidationError, ValidationBag } from "../validation/fields";
 
 const MAX_PROFILE_ROWS = 50;
@@ -28,6 +29,8 @@ export interface NormalizedCustomerProfile {
   contacts: readonly CustomerContactInput[];
   addresses: readonly CustomerAddressInput[];
   notes: readonly CustomerNoteInput[];
+  profileNotes: readonly CustomerProfileNoteInput[];
+  prospectItems: readonly CustomerProspectItemInput[];
   confirmDuplicateTaxId: boolean;
 }
 
@@ -235,6 +238,46 @@ function normalizeNotes(input: Record<string, unknown>, errors: Record<string, s
   });
 }
 
+const NOTE_CATEGORIES = new Set<string>(PROFILE_NOTE_CATEGORIES.map(row => row.code));
+const STAGES = new Set<string>(PROSPECT_STAGES.map(row => row.code));
+
+/** 客戶描述: a category and one line each (V0.10.4). */
+function normalizeProfileNotes(input: Record<string, unknown>, errors: Record<string, string>): readonly CustomerProfileNoteInput[] {
+  const rows = arrayFrom(input, "profileNotes", errors);
+  if (rows.length > BUSINESS_PROFILE_LIMITS.rows) errors.profileNotes = `客戶描述最多 ${BUSINESS_PROFILE_LIMITS.rows} 筆`;
+  return rows.map((raw, index) => {
+    const path = `profileNotes.${index}`;
+    const row = raw != null && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+    const category = typeof row.category === "string" && NOTE_CATEGORIES.has(row.category) ? row.category as ProfileNoteCategory : "OTHER";
+    if (row.category != null && !NOTE_CATEGORIES.has(String(row.category))) errors[`${path}.category`] = "類別無效";
+    const content = requiredTextFrom(row, "content", errors, BUSINESS_PROFILE_LIMITS.content);
+    if (/[\r\n]/.test(content)) errors[`${path}.content`] = "客戶描述為單行";
+    return { category, content, sortOrder: index };
+  });
+}
+
+/** 潛在銷售品項: one of our items or a typed name, plus stage, brand and note (V0.10.4). */
+function normalizeProspectItems(input: Record<string, unknown>, errors: Record<string, string>): readonly CustomerProspectItemInput[] {
+  const rows = arrayFrom(input, "prospectItems", errors);
+  if (rows.length > BUSINESS_PROFILE_LIMITS.rows) errors.prospectItems = `潛在銷售品項最多 ${BUSINESS_PROFILE_LIMITS.rows} 筆`;
+  return rows.map((raw, index) => {
+    const path = `prospectItems.${index}`;
+    const row = raw != null && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+    const itemId = row.itemId == null ? null : Number(row.itemId);
+    if (itemId != null && (!Number.isInteger(itemId) || itemId <= 0)) errors[`${path}.itemId`] = "商品無效";
+    const itemName = optionalTextFrom(row, "itemName", errors, BUSINESS_PROFILE_LIMITS.itemName);
+    if (itemId == null && !itemName) errors[`${path}.itemName`] = "請選商品或填寫品項名稱";
+    const stage = row.stage == null || row.stage === "" ? null : String(row.stage);
+    if (stage != null && !STAGES.has(stage)) errors[`${path}.stage`] = "現況無效";
+    return {
+      itemId, itemName: itemId != null ? null : itemName, stage: stage as ProspectStage | null,
+      brand: optionalTextFrom(row, "brand", errors, BUSINESS_PROFILE_LIMITS.brand),
+      note: optionalTextFrom(row, "note", errors, BUSINESS_PROFILE_LIMITS.note),
+      sortOrder: index,
+    };
+  });
+}
+
 function normalizeProfile(raw: unknown): NormalizedCustomerProfile {
   const input = asObject(raw);
   const bag = new ValidationBag(input);
@@ -264,6 +307,8 @@ function normalizeProfile(raw: unknown): NormalizedCustomerProfile {
   const contacts = normalizeContacts(input, errors);
   const addresses = normalizeAddresses(input, errors);
   const notes = normalizeNotes(input, errors);
+  const profileNotes = normalizeProfileNotes(input, errors);
+  const prospectItems = normalizeProspectItems(input, errors);
   if (phones.filter(row => row.kind === "FAX").length > CUSTOMER_LIMITS.faxes) errors.phones = `傳真最多 ${CUSTOMER_LIMITS.faxes} 筆`;
   if (notes.length > CUSTOMER_LIMITS.notes) errors.notes = `備註最多 ${CUSTOMER_LIMITS.notes} 筆`;
   else if (notes.filter(row => row.isImportant).length > CUSTOMER_LIMITS.importantNotes) errors.notes = `重要備註最多 ${CUSTOMER_LIMITS.importantNotes} 筆`;
@@ -287,6 +332,8 @@ function normalizeProfile(raw: unknown): NormalizedCustomerProfile {
     contacts,
     addresses,
     notes,
+    profileNotes,
+    prospectItems,
     confirmDuplicateTaxId,
   };
 }

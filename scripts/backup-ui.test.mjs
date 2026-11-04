@@ -28,12 +28,11 @@ test("backup history groups both provider states under one table event and uses 
   assert.match(html, /GCS<\/strong> 失敗/);
   assert.match(html, /2026\/10\/02\s03:30/);
   assert.match(html, /重試 GCS/);
-  assert.match(html, /cy-data-cards/);
   assert.doesNotMatch(html, /<button[^>]*>.*清空|下載|匯入|還原現在資料/);
 });
 test("server retry capability and busy state gate both desktop and mobile controls", () => {
   assert.doesNotMatch(render({ ...row, canRetry: false }), /重試 GCS/);
-  assert.match(render(row, true), /button[^>]*disabled=""[^>]*>重試 GCS/);
+  assert.match(render(row, true), /aria-label="重試 GCS"[^>]*disabled=""|disabled=""[^>]*aria-label="重試 GCS"/);
 });
 test("empty and unknown-state history gives bounded explanatory text", () => {
   assert.match(render(null, false, false), /儲存設定完成後才能建立備份/);
@@ -43,7 +42,7 @@ test("rehearsal control requires server capability and a verified copy; busy dis
   assert.doesNotMatch(render(), /驗證隔離還原/);
   assert.doesNotMatch(render({ ...row, copies: [] }, false, true, true), /驗證隔離還原/);
   assert.match(render(row, false, true, true), /驗證隔離還原/);
-  assert.match(render(row, true, true, true), /button[^>]*disabled=""[^>]*>驗證隔離還原/);
+  assert.match(render(row, true, true, true), /aria-label="驗證隔離還原"[^>]*disabled=""|disabled=""[^>]*aria-label="驗證隔離還原"/);
 });
 
 test("rehearsal history shows failed phase and safe error without exposing technical exception", () => {
@@ -103,15 +102,16 @@ test("Claude N3: a reused generation has its own target lock phase label", () =>
   assert.match(html, /BACKUP_TARGET_ALREADY_REHEARSED/);
 });
 
-test("V0.9.51 backup identifiers always occupy a dedicated table column and responsive card", () => {
+test("V0.10.7 one line per backup with 備份編號 and 資料摘要 in the line; at most 10 shown first (user 2026-11-04)", () => {
   const html = render();
-  assert.match(html, /<th[^>]*>備份時間（台灣）<\/th><th[^>]*>備份資訊<\/th><th[^>]*>儲存副本<\/th>/);
-  assert.match(html, /<dt>備份編號<\/dt>/);
-  assert.match(html, /<dt>版本<\/dt>/);
-  assert.match(html, /<dt>資料摘要<\/dt>/);
-  assert.match(html, /<dd>V0\.7\.3<\/dd>/);
-  assert.doesNotMatch(html, /備份識別資訊|<details>/);
-  assert.equal((html.match(/class="cy-backup-identity"/g) ?? []).length, 2, "both desktop table and mobile card show full metadata");
+  assert.match(html, /<th[^>]*>備份時間（台灣）<\/th><th[^>]*>類型<\/th><th[^>]*>狀態<\/th><th[^>]*>版本<\/th><th[^>]*>儲存副本<\/th>/);
+  assert.match(html, /<th[^>]*>備份編號<\/th><th[^>]*>資料摘要<\/th>/);
+  assert.match(html, new RegExp(row.backupId));
+  assert.match(html, /V0\.7\.3/);
+  const many = renderToStaticMarkup(createElement(BackupHistoryView, { history: { configured: true, recoveryConfigured: false, recoveryReady: false,
+    sets: Array.from({ length: 12 }, (_, i) => ({ ...row, backupId: "b" + i })) }, busy: false, retry() {}, rehearse() {} }));
+  assert.equal((many.match(/<tbody>[\s\S]*<\/tbody>/)[0].match(/<tr/g) ?? []).length, 10);
+  assert.match(many, /顯示較早的備份（共 12 筆）/);
 });
 test("V0.9.51 verified result is inside the rehearsal history panel, not a detached panel", () => {
   const source = readFileSync(new URL("../src/runtime/modules/BackupOperationalPage.tsx", import.meta.url), "utf8");

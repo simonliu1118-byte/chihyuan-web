@@ -207,6 +207,27 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "sort_order",
     "updated_at"
   ],
+  "customer_profile_notes": [
+    "category",
+    "content",
+    "created_at",
+    "created_by",
+    "customer_id",
+    "id",
+    "sort_order"
+  ],
+  "customer_prospect_items": [
+    "brand",
+    "created_at",
+    "created_by",
+    "customer_id",
+    "id",
+    "item_id",
+    "item_name",
+    "note",
+    "sort_order",
+    "stage"
+  ],
   "customer_statuses": [
     "code",
     "id",

@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { applyStoredTheme } from "./ui/foundation/ThemeToggle";
+import { installTextAutosize } from "./ui/foundation/text-autosize";
 import "./app.css";
 import "./auth/auth.css";
 import "./identity/identity.css";
@@ -13,6 +14,7 @@ import "./ui/feedback/toast.css";
 import "./ui/related/related-record-panel.css";
 
 applyStoredTheme();
+installTextAutosize();
 
 const root = document.getElementById("root");
 

@@ -587,7 +587,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
         <div className="cy-ordering-pending-head">
          <button type="button" className="cy-ordering-pending-toggle" aria-expanded={open}
           onClick={()=>setCollapsedPending(prev=>{const next=new Set(prev);if(next.has(group.orderId))next.delete(group.orderId);else next.add(group.orderId);return next})}>
-          <span className="cy-ordering-pending-caret" aria-hidden="true">{open?"▾":"▸"}</span>
+          <span className={"cy-ordering-pending-caret"+(open?" open":"")} aria-hidden="true">{Icons.chevronRight}</span>
           <strong>{first.sourceName}</strong><span>{displayDate(first.orderDate)}</span><span className="cy-ordering-pending-count">{group.lines.length} 項未到</span>
          </button>
          <button type="button" className="cy-op-button compact" onClick={()=>void reloadOrder(group.orderId).then(order=>{if(order)setReceipt({id:group.orderId,no:"",date:nowDate(),
