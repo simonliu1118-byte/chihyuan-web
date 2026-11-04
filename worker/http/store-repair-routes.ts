@@ -179,7 +179,7 @@ export async function handleStoreRepairRoute(req:Request,env:IdentityRuntimeEnv 
    if(step==="INSPECTED"&&v.inspectResult!==undefined){
     if(v.inspectResult!=="GOOD"&&v.inspectResult!=="BAD")throw new Invalid("檢測結果不正確");
     if(v.inspectResult!==o.inspect_result&&(o.status!=="INSPECTED"||o.cancelled))throw new Invalid("已進入下一步，不能改檢測結果",409);
-    inspect={result:v.inspectResult,problem:v.inspectResult==="BAD"?text(v.inspectProblem,"問題說明",200,true):""};
+    inspect={result:v.inspectResult,problem:v.inspectResult==="BAD"?text(v.inspectProblem,"補充說明",200):""};
    }
    const sql="UPDATE store_repairs SET "+column+"=?"+(extra?", "+extra+"=COALESCE("+extra+",?)":"")+(inspect?",inspect_result=?,inspect_problem=?":"")+",version=version+1,updated_at=?,updated_by=? WHERE id=?";
    const args=[day,...(extra?[c.at]:[]),...(inspect?[inspect.result,inspect.problem]:[]),c.at,c.actor,id];
@@ -195,7 +195,7 @@ export async function handleStoreRepairRoute(req:Request,env:IdentityRuntimeEnv 
     const changes:Record<string,unknown>={[dateColumns[step]]:day,status:step};
     if(step==="INSPECTED"){
      if(v.inspectResult!=="GOOD"&&v.inspectResult!=="BAD")throw new Invalid("請選擇檢測結果");
-     changes.inspect_result=v.inspectResult;changes.inspect_problem=v.inspectResult==="BAD"?text(v.inspectProblem,"問題說明",200,true):"";
+     changes.inspect_result=v.inspectResult;changes.inspect_problem=v.inspectResult==="BAD"?text(v.inspectProblem,"補充說明",200):"";
     }
     if(step==="SENT"){
      const s=shipping(obj(v.shipping),"send");changes.send_carrier=s.carrier;changes.send_tracking=s.tracking;changes.sent_at=c.at;
