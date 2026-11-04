@@ -26,7 +26,13 @@
 
 ## 發布與 Claude 接續
 
-PR、CI 及正式部署結果於發布後回填。本次使用者授權 UI 直接合併部署，Claude 請事後核對欄寬分配、共用插槽的其他呼叫者及圖示功能；未擴大到業務行為修改。
+- UI PR [#427](https://github.com/simonliu1118-byte/chihyuan-web/pull/427) 已合併；正式部署 sourceCommit `26965a92ad39998d203f6954e78158e8928aa974`。
+- PR [Runtime Check](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41872518162) 全部 success，包含 Full Node test suite、Local D1 runtime acceptance、Vite build；[Governance](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41872518220) 及 [部署契約檢查](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41872518160) 通過。
+- 正式發布 [run 41873019203](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41873019203)：從 main dispatch `development-deploy.yml`、operation `deploy-development`；validate-deployment-contract 與 deploy-development 均 success，實際部署未跳過。排程、兩個入口的版本／來源與 D1 健康、HTTPS、失效 session、正式 portal authority 檢查全部 success。
+- 2026-11-05 01:01（台灣）直接唯讀確認正式域名 `/api/health`：`version=0.10.25`、`sourceCommit=26965a92ad39998d203f6954e78158e8928aa974`、`database=ok`、`identityConsumerVersion=1.0.5`。
+- 本次圖片已由 Git read-back：104029 bytes，SHA-256 與上方相同。發布後只回填文件，不改產品、版本或再部署。
+
+本次使用者授權 UI 直接合併部署，Claude 請事後核對欄寬分配、共用插槽的其他呼叫者及圖示功能；未擴大到業務行為修改。
 
 ### Claude 最終審查
 
