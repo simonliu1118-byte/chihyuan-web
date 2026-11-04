@@ -33,7 +33,7 @@ test('module is independent: denied without repairs grant, and existing grants s
 test('normal repair flow, shipment rules, no-date and revisioned history',async()=>{
  const f=fixture();try{
   let r=ok(await create(f));assert.equal(r.status,'RECEIVED');assert.equal(r.sequence,1);
-  assert.equal((await advance(f,r,'INSPECTED',{inspectResult:'BAD'})).status,422);
+  // 補充說明 is optional (user 2026-11-04): BAD without a note is accepted, so no 422 here.
   r=ok(await advance(f,r,'INSPECTED',{inspectResult:'BAD',inspectProblem:'主機故障'}));
   assert.equal(nextRepairStep(r),'SENT');
   assert.equal((await advance(f,r,'SENT',{shipping:{carrier:'POST',tracking:''}})).status,422);
