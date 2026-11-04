@@ -55,3 +55,23 @@ export function repairStepApplicable(r:Pick<StoreRepair,"status"|"cancelled"|"in
  if(step==="SENT"||step==="REPAIRED")return !(r.inspectResult==="GOOD"||r.cancelled&&!r.sentAt);
  return true;
 }
+
+/**
+ * History read projection (user 2026-11-04): source events stay whole for rollback and audit, but the
+ * list shows only what each step changed — 登記<步驟> with its date and details, and edits as a diff.
+ */
+export function repairHistoryPresentation<E extends {kind:string;before:Record<string,unknown>;after:Record<string,unknown>}>(e:E):E{
+ if(e.kind==="建立")return {...e,before:{},after:{}};
+ if(e.kind==="推進"){
+  const a=e.after,step=a.status as StoreRepairStep,col:Record<StoreRepairStep,string>={INSPECTED:"inspected_date",SENT:"sent_date",REPAIRED:"repaired_date",NOTIFIED:"notified_date",RETURNED:"returned_date"};
+  const out:Record<string,unknown>={date:a[col[step]]??null};
+  if(a.inspect_result)out.inspectResult=a.inspect_result==="BAD"?"異常":"無異常";
+  if(a.inspect_problem)out.inspectProblem=a.inspect_problem;
+  const carrier=a.send_carrier??a.return_carrier;if(carrier)out.carrier=STORE_REPAIR_CARRIERS[carrier as StoreRepairCarrier]??carrier;
+  const tracking=a.send_tracking??a.return_tracking;if(tracking)out.tracking=tracking;
+  if(a.return_method)out.returnMethod=a.return_method==="SHIPPING"?"寄送":"自取";
+  return {...e,kind:STORE_REPAIR_STEP_LABELS[step]?"登記"+STORE_REPAIR_STEP_LABELS[step]:e.kind,before:{},after:out};
+ }
+ const keys=Object.keys(e.after).filter(k=>JSON.stringify(e.before[k])!==JSON.stringify(e.after[k]));
+ return {...e,before:Object.fromEntries(keys.map(k=>[k,e.before[k]])),after:Object.fromEntries(keys.map(k=>[k,e.after[k]]))};
+}

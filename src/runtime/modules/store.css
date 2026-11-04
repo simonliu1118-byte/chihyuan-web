@@ -406,12 +406,9 @@
  .cy-store-repairs .cy-repair-list td{vertical-align:middle}
 }
 .cy-repair-list .cy-repair-fault{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
-.cy-repair-inspect-flag{position:absolute;top:50%;right:4px;z-index:1;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;padding:0;border:1px solid var(--cy-success);border-radius:50%;background:var(--cy-surface);color:var(--cy-success);font:700 11px/1 inherit;cursor:pointer}
-.cy-repair-inspect-flag.bad{border-color:var(--cy-danger);color:var(--cy-danger)}
-.cy-repair-has-flag .cy-store-date-link{padding-right:20px}
-.cy-repair-inspect-flag:hover{background:var(--cy-surface-muted)}
-.cy-repair-inspect-text.bad{color:var(--cy-danger)}
-.cy-repair-customer-code{margin-right:.5em;color:var(--cy-text-muted);font-variant-numeric:tabular-nums}
+.cy-repair-inspect-good .cy-store-date-link{color:var(--cy-success)}
+.cy-repair-inspect-bad .cy-store-date-link{color:var(--cy-danger)}
+.cy-repair-customer-code{margin-right:.5em;font-variant-numeric:tabular-nums}
 @media(min-width:821px){
  .cy-store-repairs .cy-repair-list td{text-align:left}
  .cy-store-repairs .cy-repair-list td.cy-store-sequence,.cy-store-repairs .cy-repair-list td.cy-store-status-cell,

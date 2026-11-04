@@ -6,7 +6,7 @@ import {inspectJpeg,putJpegWithRecords,JpegUploadError} from "../files/jpeg-uplo
 import {normalizeStoreContacts} from "../../shared/phone";
 import {normalizePhone,type Honorific} from "../../shared/store";
 import {STORE_EDIT_REASONS} from "../../shared/store";
-import {STORE_REPAIR_PRODUCTS,STORE_REPAIR_CARRIERS,STORE_REPAIR_CANCEL_REASONS,STORE_REPAIR_PHOTO_LIMIT,STORE_REPAIR_PRINT_LIMITS,type StoreRepairPrintSettings,STORE_REPAIR_STEPS,nextRepairStep,canUndoRepairClosure,type StoreRepair,type StoreRepairStatus,type StoreRepairStep,type StoreRepairCarrier,type StoreRepairInspectResult,type StoreRepairReturnMethod} from "../../shared/store-repairs";
+import {STORE_REPAIR_PRODUCTS,STORE_REPAIR_CARRIERS,STORE_REPAIR_CANCEL_REASONS,STORE_REPAIR_PHOTO_LIMIT,STORE_REPAIR_PRINT_LIMITS,type StoreRepairPrintSettings,STORE_REPAIR_STEPS,nextRepairStep,canUndoRepairClosure,repairHistoryPresentation,type StoreRepair,type StoreRepairStatus,type StoreRepairStep,type StoreRepairCarrier,type StoreRepairInspectResult,type StoreRepairReturnMethod} from "../../shared/store-repairs";
 import {storeVersionGuard,storeEvent,validStoreRequestKey} from "../store/workflow-service";
 const ROOT="/api/business/store/repairs";
 type Context={db:D1Database;actor:number;at:string;requestId:string};
@@ -155,7 +155,7 @@ export async function handleStoreRepairRoute(req:Request,env:IdentityRuntimeEnv 
   if(m[2]==="history"&&method==="GET"){
    const cursor=Number(u.searchParams.get("cursor")??0);if(!Number.isSafeInteger(cursor)||cursor<0)throw new Invalid("游標不正確");
    const list=await rows<{id:number;at:string;kind:string;actor_name:string;before_json:string;after_json:string;reason:string}>(c.db,"SELECT e.*,m.display_name actor_name FROM store_repair_events e JOIN app_members m ON m.id=e.actor WHERE repair_id=?"+(cursor?" AND e.id<?":"")+" ORDER BY e.id DESC LIMIT 21",...(cursor?[id,cursor]:[id]));
-   return success({rows:list.slice(0,20).map(e=>({id:e.id,actorName:e.actor_name,at:e.at,kind:e.kind,before:JSON.parse(e.before_json),after:JSON.parse(e.after_json),reason:e.reason})),nextCursor:list.length>20?list[19].id:null},requestId);
+   return success({rows:list.slice(0,20).map(e=>repairHistoryPresentation({id:e.id,actorName:e.actor_name,at:e.at,kind:e.kind,before:JSON.parse(e.before_json),after:JSON.parse(e.after_json),reason:e.reason})),nextCursor:list.length>20?list[19].id:null},requestId);
   }
   if(method==="GET"&&!m[2])return success(json(o),requestId);
   if(!(method==="PATCH"&&!m[2]||method==="POST"&&m[2]==="status"||method==="PATCH"&&m[2]==="date"))throw new Invalid("操作方法不正確",404);
@@ -174,9 +174,16 @@ export async function handleStoreRepairRoute(req:Request,env:IdentityRuntimeEnv 
    const step=v.step as StoreRepairStep;if(!STORE_REPAIR_STEPS.includes(step)||o.status==="RETURNED"&&!canUndoRepairClosure(json(o),Date.parse(c.at))||!(o[dateColumns[step]]||STORE_REPAIR_STEPS.indexOf(step)<=STORE_REPAIR_STEPS.indexOf(o.status as StoreRepairStep)))throw new Invalid("不能修改該日期",409);
    const day=date(v.milestoneDate,"辦理日期",c.at,true);validateOrder(o,step,day);
    const column=dateColumns[step],extra=step==="NOTIFIED"?"notified_at":step==="SENT"?"sent_at":null;
-   const sql="UPDATE store_repairs SET "+column+"=?"+(extra?", "+extra+"=COALESCE("+extra+",?)":"")+",version=version+1,updated_at=?,updated_by=? WHERE id=?";
-   const args=extra?[day,c.at,c.at,c.actor,id]:[day,c.at,c.actor,id];
-   after={step,date:day};kind="修改日期";
+   // 檢測 opens date and result together (V0.10.19): the result itself changes only before the next step.
+   let inspect:{result:string;problem:string}|null=null;
+   if(step==="INSPECTED"&&v.inspectResult!==undefined){
+    if(v.inspectResult!=="GOOD"&&v.inspectResult!=="BAD")throw new Invalid("檢測結果不正確");
+    if(v.inspectResult!==o.inspect_result&&(o.status!=="INSPECTED"||o.cancelled))throw new Invalid("已進入下一步，不能改檢測結果",409);
+    inspect={result:v.inspectResult,problem:v.inspectResult==="BAD"?text(v.inspectProblem,"問題說明",200,true):""};
+   }
+   const sql="UPDATE store_repairs SET "+column+"=?"+(extra?", "+extra+"=COALESCE("+extra+",?)":"")+(inspect?",inspect_result=?,inspect_problem=?":"")+",version=version+1,updated_at=?,updated_by=? WHERE id=?";
+   const args=[day,...(extra?[c.at]:[]),...(inspect?[inspect.result,inspect.problem]:[]),c.at,c.actor,id];
+   after={step,date:day,...(inspect?{inspectResult:inspect.result,inspectProblem:inspect.problem}:{})};kind="修改日期";
    await c.db.batch([guard(c,o),c.db.prepare(sql).bind(...args),event(c,id,k,kind,{step,date:o[column]},after),audit(c,id,"store_repair.date",before,after)]);
   }else{
    const action=String(v.action??"advance");

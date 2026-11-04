@@ -45,7 +45,6 @@ export function StoreRepairs(){
  const [rows,setRows]=useState<StoreRepair[]>([]),[loaded,setLoaded]=useState(false),[loading,setLoading]=useState(false),[busy,setBusy]=useState(false);
  const [search,setSearch]=useState(""),[filter,setFilter]=useState(""),[openOnly,setOpenOnly]=useState(false);
  const [form,setForm]=useState<Draft|null>(null),[work,setWork]=useState<Work|null>(null),[action,setAction]=useState<Action|null>(null),[history,setHistory]=useState<number|null>(null);
- const [inspectView,setInspectView]=useState<StoreRepair|null>(null);
  const [printSettings,setPrintSettings]=useState<StoreRepairPrintSettings|null>(null);
  const [photosFor,setPhotosFor]=useState<number|null>(null),[photoCounts,setPhotoCounts]=useState<Record<number,number>>({});
  const [revision,setRevision]=useState(0),[message,setMessage,reportError,feedbackTone]=useFeedbackMessage<string|null>(null);
@@ -73,7 +72,7 @@ export function StoreRepairs(){
   printAfter.current=false;
  }
  async function saveWork(e:FormEvent){e.preventDefault();if(!work)return;const w=work;
-  await run(async()=>{const json=w.mode==="date"?{step:w.step,milestoneDate:w.withoutDate?null:w.value,requestKey:w.requestKey,expectedVersion:w.repair.version}:
+  await run(async()=>{const json=w.mode==="date"?{step:w.step,milestoneDate:w.withoutDate?null:w.value,...(w.step==="INSPECTED"?{inspectResult:w.inspectResult,inspectProblem:w.inspectProblem}:{}),requestKey:w.requestKey,expectedVersion:w.repair.version}:
    {action:"advance",step:w.step,milestoneDate:w.withoutDate?null:w.value,inspectResult:w.inspectResult,inspectProblem:w.inspectProblem,shipping:{carrier:w.carrier,tracking:w.tracking},returnMethod:w.returnMethod,requestKey:w.requestKey,expectedVersion:w.repair.version};
    const result=await request<StoreRepair>("/"+w.repair.id+(w.mode==="date"?"/date":"/status"),w.mode==="date"?"PATCH":"POST",json);
    apply(result);setWork(null);setMessage(w.mode==="date"?"日期已修改":"維修進度已儲存")});
@@ -106,10 +105,9 @@ export function StoreRepairs(){
     <td data-label="連絡電話／LINE" className="cy-store-contact-cell">{r.mobile?<PhoneText value={r.mobile} kind="auto"/>:null}{r.phone?<PhoneText value={r.phone} kind="auto"/>:null}{r.lineName?<span>{r.lineName}</span>:null}</td>
     <td data-label="類別">{STORE_REPAIR_PRODUCTS[r.productKind]}</td><td data-label="產品">{r.productText}</td><td data-label="產品機號">{r.serialNo}</td><td data-label="故障狀況" className="cy-repair-fault" title={r.fault}>{r.fault}</td>
     {STORE_REPAIR_STEPS.map((step,i)=>{const applicable=repairStepApplicable(r,step),reached=STORE_REPAIR_STEPS.indexOf(r.status as StoreRepairStep)>=i,canEdit=reached&&r.status!=="RETURNED",isNext=step===next&&!closed;
-     const dateValue=r.dates[step];const cell=<td key={step} data-label={STORE_REPAIR_STEP_LABELS[step]} className={"cy-store-milestone "+(i===0?"cy-grid-divider-before ":"")+(!applicable?"cy-store-not-applicable":"")+(step==="INSPECTED"&&r.inspectResult?" cy-repair-has-flag":"")} aria-label={!applicable?STORE_REPAIR_STEP_LABELS[step]+"不適用":undefined}>
-      {applicable&&(reached||isNext)?<StoreMilestoneButton day={dateValue} baseYear={r.receivedDate} pending={isNext} disabled={busy||!isNext&&!canEdit} label={STORE_REPAIR_STEP_LABELS[step]+"日期 "+(dateValue??"無日期")} onClick={()=>showWork(r,step,isNext?"advance":"date")}/>:null}
-      {/* 檢測狀況 folded into the 檢測 cell (user 2026-11-04): a small mark that opens the finding. */}
-      {step==="INSPECTED"&&r.inspectResult?<button type="button" className={"cy-repair-inspect-flag"+(r.inspectResult==="BAD"?" bad":"")} title={inspection(r)} aria-label={"檢測狀況："+inspection(r)} onClick={()=>setInspectView(r)}>{r.inspectResult==="BAD"?"!":"✓"}</button>:null}
+     const dateValue=r.dates[step];const cell=<td key={step} data-label={STORE_REPAIR_STEP_LABELS[step]} className={"cy-store-milestone "+(i===0?"cy-grid-divider-before ":"")+(!applicable?"cy-store-not-applicable":"")+(step==="INSPECTED"&&r.inspectResult?(r.inspectResult==="BAD"?" cy-repair-inspect-bad":" cy-repair-inspect-good"):"")} aria-label={!applicable?STORE_REPAIR_STEP_LABELS[step]+"不適用":undefined}>
+      {applicable&&(reached||isNext)?<StoreMilestoneButton day={dateValue} baseYear={r.receivedDate} pending={isNext} disabled={busy||!isNext&&!canEdit} label={STORE_REPAIR_STEP_LABELS[step]+"日期 "+(dateValue??"無日期")+(step==="INSPECTED"&&r.inspectResult?"，"+inspection(r):"")} title={step==="INSPECTED"&&r.inspectResult?inspection(r):undefined} onClick={()=>showWork(r,step,isNext?"advance":"date")}/>:null}
+      {/* 檢測 date green for 無異常, red for 異常 (user 2026-11-04); the cell opens date and result together. */}
      </td>;
      return cell})}
     <td data-label="照片" className="cy-grid-divider-before"><button type="button" className="cy-repair-photo-entry" aria-label={"維修單照片 "+r.sequence} onClick={()=>setPhotosFor(r.id)}><span className="cy-repair-camera-icon">{Icons.camera}</span>{photoCounts[r.id]??r.photoCount??0}</button></td>
@@ -150,20 +148,16 @@ export function StoreRepairs(){
    {form.original&&form.original.status!=="RECEIVED"?<Reason inline kind={form.reasonKind} detail={form.reason} options={STORE_EDIT_REASONS} onChange={(reasonKind,reason)=>setForm(f=>f?{...f,reasonKind,reason}:f)}/>:null}
    <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={()=>setForm(null)}>取消</button>{form.original?null:<button type="submit" className="cy-op-button" disabled={busy} onClick={()=>{printAfter.current=true}}>{Icons.print} 儲存並列印</button>}<button type="submit" className="cy-op-button primary" disabled={busy} onClick={()=>{printAfter.current=false}}>儲存</button></div>
   </form></Dialog>:null}
-  {inspectView?<Dialog open title="檢測狀況" onClose={()=>setInspectView(null)}>
-   <p className={inspectView.inspectResult==="BAD"?"cy-repair-inspect-text bad":"cy-repair-inspect-text"}>{inspectView.inspectResult==="BAD"?"異常："+(inspectView.inspectProblem||"未填說明"):"無異常"}</p>
-   <div className="cy-op-form-footer"><button type="button" className="cy-op-button primary" onClick={()=>setInspectView(null)}>關閉</button></div>
-  </Dialog>:null}
   {printSettings?<StoreRepairPrintSettingsDialog value={printSettings} busy={busy} onClose={()=>setPrintSettings(null)} onSave={next=>run(async()=>{
    await request<StoreRepairPrintSettings>("/print-settings","PUT",next);setPrintSettings(null);setMessage("列印設定已儲存")})}/>:null}
-  {work?<Dialog open dismissible={false} title={STORE_REPAIR_STEP_LABELS[work.step]+"日期"} onClose={()=>!busy&&setWork(null)}><form onKeyDown={enterAdvancesThenSubmits} onSubmit={e=>void saveWork(e)}>
+  {work?<Dialog open dismissible={false} size="small" title={work.step==="INSPECTED"?"檢測":STORE_REPAIR_STEP_LABELS[work.step]+"日期"} onClose={()=>!busy&&setWork(null)}><form onKeyDown={enterAdvancesThenSubmits} onSubmit={e=>void saveWork(e)}>
    <StoreMilestoneDateFields label={STORE_REPAIR_STEP_LABELS[work.step]} value={work.value} withoutDate={work.withoutDate} min={work.repair.receivedDate} max={today()} onChange={patch=>setWork(w=>w?{...w,...patch}:w)}/>
-   {work.mode==="advance"&&work.step==="INSPECTED"?<><SegmentedControl label="檢測結果" options={[{value:"GOOD",label:"無異常"},{value:"BAD",label:"異常"}]} value={work.inspectResult} onChange={inspectResult=>setWork(w=>w?{...w,inspectResult}:w)}/>{work.inspectResult==="BAD"?<Field label="問題說明" required size="l"><input className="cy-op-input" maxLength={200} value={work.inspectProblem} onChange={e=>setWork(w=>w?{...w,inspectProblem:e.target.value}:w)}/></Field>:null}</>:null}
+   {work.step==="INSPECTED"?<><SegmentedControl label="檢測結果" disabled={work.mode==="date"&&(work.repair.status!=="INSPECTED"||work.repair.cancelled)} options={[{value:"GOOD",label:"無異常"},{value:"BAD",label:"異常"}]} value={work.inspectResult} onChange={inspectResult=>setWork(w=>w?{...w,inspectResult}:w)}/>{work.inspectResult==="BAD"?<Field label="問題說明" required size="l"><input className="cy-op-input" maxLength={200} value={work.inspectProblem} onChange={e=>setWork(w=>w?{...w,inspectProblem:e.target.value}:w)}/></Field>:null}</>:null}
    {work.mode==="advance"&&work.step==="SENT"?<StoreShippingFields carrier={work.carrier} tracking={work.tracking} onChange={patch=>setWork(w=>w?{...w,...patch}:w)}/>:null}
    {work.mode==="advance"&&work.step==="RETURNED"?<><SegmentedControl label="歸還方式" options={[{value:"PICKUP",label:"自取"},{value:"SHIPPING",label:"寄送"}]} value={work.returnMethod} onChange={returnMethod=>setWork(w=>w?{...w,returnMethod}:w)}/>{work.returnMethod==="SHIPPING"?<StoreShippingFields carrier={work.carrier} tracking={work.tracking} onChange={patch=>setWork(w=>w?{...w,...patch}:w)}/>:null}</>:null}
    <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={()=>setWork(null)}>取消</button><button type="submit" className="cy-op-button primary" disabled={busy}>{work.step==="RETURNED"&&work.mode==="advance"?"儲存並結案":"儲存"}</button></div>
   </form></Dialog>:null}
-  {action?<Dialog open dismissible={false} title={{cancel:"取消維修",undoCancel:"撤回取消維修",undoClose:"撤回結案",rollback:"退回上一步"}[action.kind]} onClose={()=>!busy&&setAction(null)}><form onKeyDown={enterAdvancesThenSubmits} onSubmit={e=>void saveAction(e)}>
+  {action?<Dialog open dismissible={false} size="small" title={{cancel:"取消維修",undoCancel:"撤回取消維修",undoClose:"撤回結案",rollback:"退回上一步"}[action.kind]} onClose={()=>!busy&&setAction(null)}><form onKeyDown={enterAdvancesThenSubmits} onSubmit={e=>void saveAction(e)}>
    {action.kind==="cancel"?<><p>取消維修後仍必須通知顧客，並完成機器歸還才會結案。</p><Reason kind={action.reasonKind} detail={action.reason} options={STORE_REPAIR_CANCEL_REASONS} onChange={(reasonKind,reason)=>setAction(a=>a?{...a,reasonKind,reason}:a)}/></>:action.kind==="rollback"?<Field label="退回理由" required size="l"><input className="cy-op-input" maxLength={300} value={action.reason} onChange={e=>setAction(a=>a?{...a,reason:e.target.value}:a)}/></Field>:<p>確定撤回此操作嗎？</p>}
    <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={()=>setAction(null)}>取消</button><button type="submit" className="cy-op-button primary" disabled={busy}>確認</button></div>
   </form></Dialog>:null}
