@@ -3,9 +3,9 @@
 > 本檔是 CY Web 唯一的現況與待辦清單，不是永久規則來源。各版本完成內容與驗證見 `CHANGELOG.md`；規格見 `docs/architecture/README.md`。
 > 2026-11-03 整理：已完成且已記入 CHANGELOG 的版本段落移除；已結案的交接與工作單移到 Git 固定快照（見 `docs/handoff/README.md`）。
 
-## 目前狀態（2026-11-04）
+## 目前狀態（2026-11-05）
 
-- **正式站 V0.10.16**（`https://admin.chihyuancm.com`），CYID consumer 1.0.5；D1 migration 到 `0050_store_repair_print_settings`。
+- **正式站 V0.10.24**（`https://admin.chihyuancm.com`），CYID consumer 1.0.5；D1 migration 到 `0050_store_repair_print_settings`。
 - **接手 UI 前必讀** `docs/architecture/UI_COMPONENT_CATALOG.md`：共用元件清單與已定案畫面樣式，不要在模組內另做元件。
 - 模組：客戶、商品、瑕疵、銷售工單、叫貨（含進貨輔助抽屜、未到貨）、門市（顧客訂購、黑名單、月度待辦、售後維修、庫存盤點）、委外/代工、工作日誌、人事、ERP 查詢、帳號與權限、異動紀錄、備份管理、CY 程式、我的帳號。
 - 帳號：CYID 正式服務；成功的登入確認在伺服器記住 30 秒（V0.9.91）。
@@ -17,6 +17,8 @@
   - 03:30：每日備份；失敗時 03:45 補做一次。
 - 備份：R2 每日＋GCS 週三／週日；可攜備份 formatVersion 2（記 migration 名稱、依欄位名稱還原，V0.9.81）。手動備份 R2／GCS 皆已驗證。
 - 部署：合併 main 不會部署；從 main 執行 `development-deploy.yml` 的 `deploy-development`。操作見 `docs/development/IDENTITY_DEPLOYMENT.md`。
+
+- V0.10.25 售後維修清單微調：已完成驗證，依使用者授權合併部署；Claude 待事後複審，見 [handoff](docs/handoff/CYWEB-REPAIR-LIST-01025-20261105.md)。
 
 ## 上線檢核
 
