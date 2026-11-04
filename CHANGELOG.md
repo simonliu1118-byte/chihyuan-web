@@ -11,7 +11,7 @@
 - 售後維修同層切換門市送修／出機紀錄／定期維護；完整新增出機、保固、跨年維護排程與同院同月到訪彙整，故升 Minor。
 - 客戶編號可空；未填時鎖定不需維護並有tooltip。到訪沿用共用日期／無日期＋單行備註，不逐台檢核；完成摘要與日期保留，可更正與追溯。
 - 五個新表納入0051 migration與portable backup；既有售後維修使用權、原子版本防護及防重送。清單／歷程分頁，不預抓所有序號或操作紀錄。
-- 61項相關測試、來源驗證、型別與建置通過；本機19組D1驗收PASS，Windows限制及畫面見 [handoff](docs/handoff/CYWEB-EQUIPMENT-MAINTENANCE-0110-20261105.md)。使用者特例授權合併部署，Claude待事後複審，發布結果待回填。
+- 61項相關測試、來源驗證、型別與建置通過；本機19組D1驗收PASS，Windows限制及畫面見 [handoff](docs/handoff/CYWEB-EQUIPMENT-MAINTENANCE-0110-20261105.md)。PR #429 已依使用者特例合併部署；完整Linux CI及正式健康檢查通過，Claude待事後複審。
 
 ## CY Web V0.10.25 — 售後維修清單微調（2026-11-05，GPT）
 

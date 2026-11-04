@@ -5,9 +5,9 @@
 
 ## 目前狀態（2026-11-05）
 
-- **正式站 V0.10.25**（`https://admin.chihyuancm.com`），CYID consumer 1.0.5；D1 migration 到 `0050_store_repair_print_settings`。
+- **正式站 V0.11.0**（`https://admin.chihyuancm.com`），CYID consumer 1.0.5；D1 migration 到 `0051_store_equipment_maintenance`。
 - **接手 UI 前必讀** `docs/architecture/UI_COMPONENT_CATALOG.md`：共用元件清單與已定案畫面樣式，不要在模組內另做元件。
-- 模組：客戶、商品、瑕疵、銷售工單、叫貨（含進貨輔助抽屜、未到貨）、門市（顧客訂購、黑名單、月度待辦、售後維修、庫存盤點）、委外/代工、工作日誌、人事、ERP 查詢、帳號與權限、異動紀錄、備份管理、CY 程式、我的帳號。
+- 模組：客戶、商品、瑕疵、銷售工單、叫貨（含進貨輔助抽屜、未到貨）、門市（顧客訂購、黑名單、月度待辦、售後維修（門市送修／出機紀錄／定期維護）、庫存盤點）、委外/代工、工作日誌、人事、ERP 查詢、帳號與權限、異動紀錄、備份管理、CY 程式、我的帳號。
 - 帳號：CYID 正式服務；成功的登入確認在伺服器記住 30 秒（V0.9.91）。
 - 排程：網站只有一個 `*/5 * * * *` 排程（V0.9.86）。
   - 每次：ERP 逾時與結果清理。
@@ -20,7 +20,7 @@
 
 - V0.10.25 售後維修清單微調：已依使用者授權合併並部署，正式健康檢查通過；Claude 待事後複審，見 [handoff](docs/handoff/CYWEB-REPAIR-LIST-01025-20261105.md)。
 
-- V0.11.0 出機與定期維護：實作及本機驗證完成，依使用者本次特例授權，CI通過後合併並部署；Claude待事後複審。正式站仍以本檔上方版本為準，見 [handoff](docs/handoff/CYWEB-EQUIPMENT-MAINTENANCE-0110-20261105.md)。
+- V0.11.0 出機與定期維護：PR #429 已依使用者本次特例合併部署，完整CI與正式健康檢查通過；Claude待事後複審，見 [handoff](docs/handoff/CYWEB-EQUIPMENT-MAINTENANCE-0110-20261105.md)。
 
 ## 上線檢核
 
