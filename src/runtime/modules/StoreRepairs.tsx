@@ -10,7 +10,7 @@ import {StoreRepairPhotos} from "./StoreRepairPhotos";
 import {Icons} from "../../ui/actions/icons";
 import {SegmentedControl} from "../../ui/primitives/SegmentedControl";
 import {Dialog} from "../../ui/overlays/Dialog";
-import {Field,CheckField,FormSection} from "../../ui/forms/Field";
+import {Field} from "../../ui/forms/Field";
 import {DateInput} from "../../ui/forms/DateInput";
 import {EntryTable,EntryHeading} from "../../ui/forms/EntryTable";
 import {PhoneText} from "../../ui/forms/PhoneInput";
@@ -26,11 +26,11 @@ import "./store.css";
 const ROOT="/api/business/store/repairs";
 const request=<T,>(path:string,method="GET",json?:unknown)=>apiRequest<T>(ROOT+path,{method,json});
 const today=()=>new Date(Date.now()+8*3600000).toISOString().slice(0,10);
-type Draft={original?:StoreRepair;receivedDate:string;customerCode:string;customerName:string;honorific:Honorific;mobile:string;phone:string;lineName:string;productKind:StoreRepairProductKind;productText:string;serialNo:string;fault:string;purchaseDate:string;withoutPurchase:boolean;accessories:string;reasonKind:string;reason:string;requestKey:string};
+type Draft={original?:StoreRepair;receivedDate:string;customerCode:string;customerName:string;honorific:Honorific;mobile:string;phone:string;lineName:string;productKind:StoreRepairProductKind;productText:string;serialNo:string;fault:string;purchaseDate:string;accessories:string;reasonKind:string;reason:string;requestKey:string};
 type Work={repair:StoreRepair;step:StoreRepairStep;mode:"advance"|"date";value:string;withoutDate:boolean;inspectResult:"GOOD"|"BAD";inspectProblem:string;carrier:StoreRepairCarrier|"";tracking:string;returnMethod:"PICKUP"|"SHIPPING";requestKey:string};
 type Action={repair:StoreRepair;kind:"cancel"|"undoCancel"|"undoClose"|"rollback";reasonKind:string;reason:string;requestKey:string};
-const draft=(r?:StoreRepair):Draft=>({original:r,receivedDate:r?.receivedDate??today(),customerCode:r?.customerCode??"",customerName:r?.customerName??"",honorific:r?.honorific??"",mobile:r?.mobile??"",phone:r?.phone??"",lineName:r?.lineName??"",productKind:r?.productKind??"LOW_FREQUENCY",productText:r?.productText??"",serialNo:r?.serialNo??"",fault:r?.fault??"",purchaseDate:r?.purchaseDate??"",withoutPurchase:!r?.purchaseDate,accessories:r?.accessories??"",reasonKind:"",reason:"",requestKey:crypto.randomUUID()});
-const tone={RECEIVED:"info",INSPECTED:"info",SENT:"warning",REPAIRED:"info",NOTIFIED:"warning",RETURNED:"success"} as const;
+const draft=(r?:StoreRepair):Draft=>({original:r,receivedDate:r?.receivedDate??today(),customerCode:r?.customerCode??"",customerName:r?.customerName??"",honorific:r?.honorific??"",mobile:r?.mobile??"",phone:r?.phone??"",lineName:r?.lineName??"",productKind:r?.productKind??"LOW_FREQUENCY",productText:r?.productText??"",serialNo:r?.serialNo??"",fault:r?.fault??"",purchaseDate:r?.purchaseDate??"",accessories:r?.accessories??"",reasonKind:"",reason:"",requestKey:crypto.randomUUID()});
+const tone={RECEIVED:"info",INSPECTED:"info",SENT:"warning",REPAIRED:"warning",NOTIFIED:"warning",RETURNED:"success"} as const;
 const status=(r:StoreRepair)=>r.cancelled?{code:"CANCELLED",label:"取消維修",tone:"neutral" as const}:
  repairOverdue(r)==="FACTORY"?{code:"OVERDUE",label:"逾期未修回",tone:"danger" as const}:
  repairOverdue(r)==="PICKUP"?{code:"OVERDUE",label:"逾期未取",tone:"danger" as const}:
@@ -58,7 +58,7 @@ export function StoreRepairs(){
   setWork({repair:r,step,mode,value:r.dates[step]??today(),withoutDate:mode==="date"&&!r.dates[step],inspectResult:r.inspectResult==="BAD"?"BAD":"GOOD",inspectProblem:r.inspectProblem,carrier:step==="RETURNED"?r.returnCarrier:r.sendCarrier,tracking:step==="RETURNED"?r.returnTracking:r.sendTracking,returnMethod:r.returnMethod==="SHIPPING"?"SHIPPING":"PICKUP",requestKey:crypto.randomUUID()});
  }
  async function saveForm(e:FormEvent){e.preventDefault();if(!form)return;const f=form;
-  await run(async()=>{const json={...f,purchaseDate:f.withoutPurchase?null:f.purchaseDate,...(f.original&&f.original.status!=="RECEIVED"?{reasonKind:f.reasonKind,reason:f.reason}:{}),requestKey:f.requestKey,expectedVersion:f.original?.version};
+  await run(async()=>{const json={...f,purchaseDate:f.purchaseDate||null,...(f.original&&f.original.status!=="RECEIVED"?{reasonKind:f.reasonKind,reason:f.reason}:{}),requestKey:f.requestKey,expectedVersion:f.original?.version};
    const result=await request<StoreRepair>(f.original?"/"+f.original.id:"",f.original?"PATCH":"POST",json);
    apply(result);setForm(null);setMessage(f.original?"維修單已修改":"維修單已新增")});
  }
@@ -105,24 +105,28 @@ export function StoreRepairs(){
    </table>{!visible.length?<p className="cy-op-empty">沒有符合條件的維修單。</p>:null}</div>
   {photosFor!==null?<StoreRepairPhotos repairId={photosFor} onClose={()=>setPhotosFor(null)} onCountChanged={count=>setPhotoCounts(old=>({...old,[photosFor]:count}))}/>:null}
   {form?<Dialog open dismissible={false} title={form.original?"修改維修單":"新增維修單"} className="cy-repair-form-dialog" onClose={()=>!busy&&setForm(null)} size="large"><form onKeyDown={enterAdvancesFields} onSubmit={e=>void saveForm(e)}>
-   <EntryTable label="維修單基本資料" className="cy-repair-entry-table">
-    <tbody><tr><th scope="col"><EntryHeading required>送修日期</EntryHeading></th><th scope="col"><EntryHeading>客戶編號</EntryHeading></th><th scope="col"><EntryHeading required>客戶姓名</EntryHeading></th><th scope="col"><EntryHeading>稱謂</EntryHeading></th></tr><tr><td><Field label="送修日期" required presentation="cell"><DateInput className="cy-ordering-cell" min="0001-01-01" max={today()} value={form.receivedDate} onChange={value=>setForm(f=>f?{...f,receivedDate:value}:f)}/></Field></td>
-     <td><Field label="客戶編號" presentation="cell"><input className="cy-ordering-cell" maxLength={40} value={form.customerCode} onChange={e=>setForm(f=>f?{...f,customerCode:e.target.value}:f)}/></Field></td>
-     <td><Field label="客戶姓名" required presentation="cell"><input className="cy-ordering-cell" maxLength={40} value={form.customerName} onChange={e=>setForm(f=>f?{...f,customerName:e.target.value}:f)}/></Field></td>
-     <HonorificCell value={form.honorific} onChange={honorific=>setForm(f=>f?{...f,honorific}:f)}/></tr>
-     <tr><th scope="col"><EntryHeading>連絡電話1</EntryHeading></th><th scope="col"><EntryHeading>連絡電話2</EntryHeading></th><th scope="col"><EntryHeading>LINE 名稱</EntryHeading></th><th scope="col"><EntryHeading>產品機號</EntryHeading></th></tr>
-     <tr><ContactCells value={form} onChange={patch=>setForm(f=>f?{...f,...patch}:f)}/><td><Field label="產品機號" presentation="cell"><input className="cy-ordering-cell" maxLength={60} value={form.serialNo} onChange={e=>setForm(f=>f?{...f,serialNo:e.target.value}:f)}/></Field></td></tr>
-     {/* 類別／產品 (user 2026-11-04): one repair slip holds one product. */}
-     <tr><th scope="col"><EntryHeading required>類別</EntryHeading></th><th scope="col" colSpan={3}><EntryHeading required>{form.productKind==="OTHER"?"產品名稱":"產品型號"}</EntryHeading></th></tr>
+   {/* One entry table (user 2026-11-04): customer and contact on row 1, product on row 2, fault and accessories below. */}
+   <EntryTable label="維修單資料" className="cy-repair-entry-table">
+    <colgroup><col style={{width:"9.6em"}}/><col style={{width:"7em"}}/><col/><col style={{width:"5em"}}/><col style={{width:"9.6em"}}/><col style={{width:"9.6em"}}/><col/></colgroup>
+    <tbody>
+     <tr><th scope="col"><EntryHeading required>送修日期</EntryHeading></th><th scope="col"><EntryHeading>客戶編號</EntryHeading></th><th scope="col"><EntryHeading required>客戶姓名</EntryHeading></th><th scope="col"><EntryHeading>稱謂</EntryHeading></th><th scope="col"><EntryHeading>連絡電話1</EntryHeading></th><th scope="col"><EntryHeading>連絡電話2</EntryHeading></th><th scope="col"><EntryHeading>LINE 名稱</EntryHeading></th></tr>
+     <tr><td><Field label="送修日期" required presentation="cell"><DateInput className="cy-ordering-cell" min="0001-01-01" max={today()} value={form.receivedDate} onChange={value=>setForm(f=>f?{...f,receivedDate:value}:f)}/></Field></td>
+      <td><Field label="客戶編號" presentation="cell"><input className="cy-ordering-cell" maxLength={40} value={form.customerCode} onChange={e=>setForm(f=>f?{...f,customerCode:e.target.value}:f)}/></Field></td>
+      <td><Field label="客戶姓名" required presentation="cell"><input className="cy-ordering-cell" maxLength={40} value={form.customerName} onChange={e=>setForm(f=>f?{...f,customerName:e.target.value}:f)}/></Field></td>
+      <HonorificCell value={form.honorific} onChange={honorific=>setForm(f=>f?{...f,honorific}:f)}/>
+      <ContactCells value={form} onChange={patch=>setForm(f=>f?{...f,...patch}:f)}/></tr>
+     <tr><th scope="col"><EntryHeading required>類別</EntryHeading></th><th scope="col" colSpan={4}><EntryHeading required>{form.productKind==="OTHER"?"產品名稱":"產品型號"}</EntryHeading></th><th scope="col" colSpan={2}><EntryHeading>產品機號</EntryHeading></th></tr>
      <tr><td><Field label="類別" required presentation="cell"><select className="cy-ordering-cell" required value={form.productKind} onChange={e=>setForm(f=>f?{...f,productKind:e.target.value as StoreRepairProductKind}:f)}>
       {Object.entries(STORE_REPAIR_PRODUCTS).map(([kind,label])=><option key={kind} value={kind}>{label}</option>)}</select></Field></td>
-      <td colSpan={3}><Field label={form.productKind==="OTHER"?"產品名稱":"產品型號"} required presentation="cell"><input className="cy-ordering-cell" maxLength={120} value={form.productText} onChange={e=>setForm(f=>f?{...f,productText:e.target.value}:f)}/></Field></td></tr>
+      <td colSpan={4}><Field label={form.productKind==="OTHER"?"產品名稱":"產品型號"} required presentation="cell"><input className="cy-ordering-cell" maxLength={120} value={form.productText} onChange={e=>setForm(f=>f?{...f,productText:e.target.value}:f)}/></Field></td>
+      <td colSpan={2}><Field label="產品機號" presentation="cell"><input className="cy-ordering-cell" maxLength={60} value={form.serialNo} onChange={e=>setForm(f=>f?{...f,serialNo:e.target.value}:f)}/></Field></td></tr>
+     <tr><th scope="col" colSpan={7}><EntryHeading required>故障狀況</EntryHeading></th></tr>
+     <tr><td colSpan={7}><Field label="故障狀況" required presentation="cell"><textarea className="cy-ordering-cell" rows={2} maxLength={300} value={form.fault} onChange={e=>setForm(f=>f?{...f,fault:e.target.value}:f)}/></Field></td></tr>
+     <tr><th scope="col"><EntryHeading>購買日期</EntryHeading></th><th scope="col" colSpan={6}><EntryHeading>配件備註</EntryHeading></th></tr>
+     <tr><td><Field label="購買日期" presentation="cell"><DateInput className="cy-ordering-cell" value={form.purchaseDate} min="0001-01-01" max={today()} onChange={value=>setForm(f=>f?{...f,purchaseDate:value}:f)}/></Field></td>
+      <td colSpan={6}><Field label="配件備註" presentation="cell"><textarea className="cy-ordering-cell" rows={1} maxLength={300} value={form.accessories} onChange={e=>setForm(f=>f?{...f,accessories:e.target.value}:f)}/></Field></td></tr>
     </tbody>
    </EntryTable>
-   <FormSection title="故障與配件"><Field label="故障狀況" required size="l"><textarea className="cy-op-input" maxLength={300} value={form.fault} onChange={e=>setForm(f=>f?{...f,fault:e.target.value}:f)}/></Field>
-    <Field label="購買日期" size="s"><DateInput className="cy-op-input" disabled={form.withoutPurchase} value={form.withoutPurchase?"":form.purchaseDate} min="0001-01-01" max={today()} onChange={value=>setForm(f=>f?{...f,purchaseDate:value}:f)}/></Field>
-    <CheckField label="無日期" data-enter-skip="true" checked={form.withoutPurchase} onChange={e=>setForm(f=>f?{...f,withoutPurchase:e.target.checked}:f)}/>
-    <Field label="配件備註" size="l"><textarea className="cy-op-input" maxLength={300} value={form.accessories} onChange={e=>setForm(f=>f?{...f,accessories:e.target.value}:f)}/></Field></FormSection>
    {form.original&&form.original.status!=="RECEIVED"?<Reason inline kind={form.reasonKind} detail={form.reason} options={STORE_EDIT_REASONS} onChange={(reasonKind,reason)=>setForm(f=>f?{...f,reasonKind,reason}:f)}/>:null}
    <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={()=>setForm(null)}>取消</button><button type="submit" className="cy-op-button primary" disabled={busy}>儲存</button></div>
   </form></Dialog>:null}
