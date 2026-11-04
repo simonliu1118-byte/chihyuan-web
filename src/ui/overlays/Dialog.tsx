@@ -1,3 +1,4 @@
+import { Icons } from "../actions/icons";
 import { useLayoutEffect, useId, useRef, type PropsWithChildren, type ReactNode, type CSSProperties } from "react";
 
 export type DialogPresentation = "modal" | "drawer" | "sheet";
@@ -101,7 +102,7 @@ export function Dialog({
       <div className="cy-dialog-surface">
         {hideHeader ? <>
           <h2 id={titleId} className="cy-visually-hidden">{title}</h2>
-          {dismissible && showCloseButton ? <button type="button" className="cy-dialog-close cy-dialog-floating-close" onClick={onClose} aria-label={closeLabel}>×</button> : null}
+          {dismissible && showCloseButton ? <button type="button" className="cy-dialog-close cy-dialog-floating-close" onClick={onClose} aria-label={closeLabel}>{Icons.close}</button> : null}
         </> : <header className="cy-dialog-header">
           <div className="cy-dialog-heading">
             <h2 className="cy-dialog-title" id={titleId}>
@@ -115,7 +116,7 @@ export function Dialog({
           </div>
           {dismissible && showCloseButton ? (
             <button className="cy-dialog-close" type="button" onClick={onClose} aria-label={closeLabel}>
-              ×
+              {Icons.close}
             </button>
           ) : null}
         </header>}
