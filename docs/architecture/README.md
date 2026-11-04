@@ -68,6 +68,7 @@ Archive、舊 preview、review backlog、readiness checkpoint、已結案舊 han
 
 - `CY_WEB_VISUAL_GUIDE.md` — 志遠網頁程式標準視覺規範（字型、顏色、狀態語意、元件、載入、鍵盤、響應式、驗收）；canonical 候選，確認後升格至 AITeam `shared/cy-visual/web/`。
 - `UI_FOUNDATION.md`
+- `UI_COMPONENT_CATALOG.md`（共用元件清單與已定案畫面樣式，接手 UI 前必讀）
 - `APP_SHELL_FOUNDATION.md`
 - `FORM_FOUNDATION.md`
 - `CONTACT_DATE_INPUTS.md` — 共用電話格式／純數字剪貼簿與 CYACCWEB 互動式日期輸入。

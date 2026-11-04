@@ -1,0 +1,78 @@
+# CY Web 共用元件與畫面做法（UI Component Catalog）
+
+> 2026-11-04 Claude 整理。給接手 UI 的人（GPT 或其他 AI）：**做任何畫面前先查這份，能用共用元件就用，不准在模組裡另做一份相似元件。**
+> 缺元件時：先在 `src/ui/` 加共用元件（或擴充既有元件的 props），再給模組用；不要在模組檔案內寫一次性的按鈕、圖示、表格樣式。
+> 規則來源：`PROJECT_RULES.md`、`UI_FOUNDATION.md`、`FORM_FOUNDATION.md`、`CY_WEB_VISUAL_GUIDE.md`。本檔是「目前實作」的地圖，與規則衝突時以規則檔為準並回報。
+
+## 1. 已定案的畫面樣式（使用者逐一確認過）
+
+| 樣式 | 範本（照著做） | 重點 |
+|---|---|---|
+| 表格式單據（主檔明細／新增修改） | 客戶 `CustomerOperationalPage.tsx`（V0.9.95 起） | `RecordSheet`＋`RecordRows`；檢視與修改同一個版面，修改時格子變輸入框；第一列自動帶出空白列 |
+| 表格式彈窗表單 | 售後維修 `StoreRepairs.tsx` 新增維修單（V0.10.16）、`StoreRepairPrintSettings.tsx` | 一個 `EntryTable` 包全部欄位；表頭列＋輸入列交替；用 colgroup 細網格＋`colSpan` 讓每列依內容配寬度；**不要上半表格、下半一般表單混用** |
+| 設定清單（分類、狀態、部門等） | `LookupSettingsTable.tsx`、`ModuleSettingsPanel.tsx` | 密集表格、項次、操作欄（修改／停用／刪除，刪除只給未被使用的）；握把拖拉排序，畫面立即生效、背景儲存，失敗才還原 |
+| 左側清單 | `.cy-op-list-row`（app.css） | 全系統一致：選取＝藍色左邊條＋淺藍底；不要自訂另一種選取樣式 |
+| 一般資料表 | `.cy-op-table`（app.css） | 項次欄、精簡內距；需要展開時用同表格內展開（見修改紀錄 `ChangeLogList`） |
+| 作業清單（叫貨、門市各頁） | `OrderingGrid`、`.cy-ordering-grid`、門市 `store.css` | 叫貨與門市樣式使用者已定，不要動，除非使用者點名 |
+| 列印 | `store-repair-print.ts` | 產生獨立 HTML，用隱藏 iframe 叫瀏覽器列印視窗；只用黑線、不用底色（點陣式／熱感紙）；`@page size` 指定紙張；店名、電話等業務資訊一律從設定讀，**不得寫死在程式碼**（repo 是 public） |
+
+## 2. 共用元件清單（`src/ui/`）
+
+### 表單
+- `forms/Field.tsx`：`Field`（每個輸入都要包；表格格子內用 `presentation="cell"`）、`CheckField`（勾選框，**不要用原生 `<label>`**，測試會擋）、`FormSection`、`RequiredRows`。
+- `forms/EntryTable.tsx`：`EntryTable`、`EntryHeading`（必填星號用 `required`）。表格式表單的外框。
+- `forms/RecordSheet.tsx`：`RecordSheet`、`RecordRows`（`hideWhenEmpty`；檢視模式空值顯示「—」）。
+- `forms/DateInput.tsx`：所有日期輸入（YYYY/MM/DD）。日期可為「無」時，旁邊放 `CheckField label="無日期"`。
+- `forms/PhoneInput.tsx`：`PhoneInput`（輸入）、`PhoneText`（顯示）、`PhoneEntryInput`／`phoneEntryColumns`（含分機欄）。電話一律用這組。
+- `forms/PresetTextInput.tsx`：預設選項＋「其他」自填（例：付款條件、發票開立；選其他沒填就存「其他」）。
+- `primitives/TextInput`、`TextArea`、`SelectField`、`SegmentedControl`（2–4 個互斥選項）。
+- textarea 不可手動拉大，會隨內容自動長高（`foundation/text-autosize.ts` 全域安裝，不用另外處理）。
+- 鍵盤：每個資料輸入 `<form>` 必須 `onKeyDown={enterAdvancesFields}`（或 `enterAdvancesThenSubmits`），查詢表單用 `role="search"`。`scripts/form-keyboard.test.mjs` 會檢查。中文輸入法組字中的 Enter 要忽略（`isComposing`）。
+
+### 按鈕與圖示
+- `actions/IconButton.tsx`：表格內操作一律用它（`variant="table"`，危險操作 `tone="danger"`，展開用 `expanded`/`controls`）。
+- `actions/icons.tsx`：`Icons.*` 唯一圖示來源（edit、cancel、back、history、camera、print、check、close、add、remove、retry、verify、chevronRight、grip、settings、eye）。**新圖示加在這裡**，不要在模組內寫 inline SVG。
+- 一般按鈕：`cy-op-button`（`primary`、`compact`）。忙碌中的按鈕用 `feedback/usePendingAction`。
+- 展開箭頭：`data/ExpandToggle.tsx`（全系統同一個箭頭）。
+
+### 清單與資料
+- `data/DataViewToolbar.tsx`：清單上方工具列（搜尋＋左側切換＋右側動作按鈕）。
+- `data/StatusFilter.tsx`：狀態篩選籤（含數量、色點）。`data/OpenOnlyToggle.tsx`：「顯示未結案」。
+- `data/DataPagination.tsx`、`data/useLoadMore.tsx`、`data/DataView.tsx`。
+- `primitives/StatusChip.tsx`：狀態膠囊（tone：info／warning／success／danger／neutral）。客戶狀態用 `customer/StatusName.tsx` 的 `StatusPill`／`StatusPicker`。
+- `pickers/EntityPicker.tsx`：選客戶／商品等主檔。
+
+### 彈窗、抽屜、回饋
+- `overlays/Dialog.tsx`：`Dialog`（精簡框、右上 X 圖示）、`Drawer`（右側抽屜，客戶頁為 380px）、`BottomSheet`。不要巢狀面板。
+- `overlays/ConfirmDialog`、`useConfirmation`、`useFormPrompt`（要理由的確認）。
+- 有未儲存變更的畫面：`foundation/useUnsavedChangesGuard`；設定視窗關閉前自己確認（見 `ModuleSettingsPanel`）。
+- `feedback/FeedbackProvider`：`useFeedbackMessage`＋`FeedbackBanner`（頁面訊息）；`Loading`；`ToastRegion`。
+- 設定存檔後通知其他畫面重抓下拉選單：`runtime/modules/settings-events.ts`（`SETTINGS_SAVED_EVENT`、`useSettingsSaved`）。
+
+### 版面與關聯
+- `layout/MasterDetail.tsx`：左清單＋右明細。
+- `records/RelatedCard.tsx`、`related/RelatedRecordPanel.tsx`：明細下方關聯卡片（客戶頁三張卡片三等分）。
+- `foundation/format.ts`：`formatDate`、`formatDateTime`、`formatPerson`、`formatItem`（顯示格式統一用這些）。
+
+### 門市共用（`runtime/modules/store-workflow/`）
+- `StoreFields.tsx`：`ContactCells`（電話1／電話2／LINE，可用 `spans` 跨欄）、`HonorificCell`、`Reason`。
+- `StoreMilestoneFields.tsx`：`StoreMilestoneButton`（流程格「登記」與日期戳記，訂購與維修共用）、`StoreMilestoneDateFields`。
+- `StoreWorkflowActions.tsx`：`storeWorkflowActions`（修改／取消／退回／紀錄 四個圖示）。
+- `StoreShippingFields.tsx`、`StoreOperationHistory.tsx`、`StoreNoteInput.tsx`。
+
+## 3. 做畫面時的固定做法
+
+1. **欄寬要設計**：表格用 `<colgroup>`；短值（日期、狀態、項次、按鈕）固定寬度，長文字欄吃剩餘寬度；文字欄靠左，項次／狀態／日期／按鈕置中（表頭跟著內容對齊）。做完要截圖檢查不截斷、不重疊。
+2. **檢視時空欄位也顯示**（除了使用者指定可隱藏的，例如備註）。
+3. **必填只標使用者指定的欄位**；其他一律選填。
+4. **長度限制**放在 `shared/*.ts` 的 `*_LIMITS` 常數，前後端共用。
+5. **下拉選項來自設定**時，存檔後要能立即更新（`useSettingsSaved`）。
+6. **不要寫灰色說明小字**（V0.10.12 已全系統刪除）。
+7. 版號：AI 可升 Y（`REPOSITORY_RULES.md` §6）；每次改版更新 `VERSION`、`package.json`、`CHANGELOG.md`。
+8. 新資料表或欄位：migration＋`worker/backup/portable-backup.ts` 的 `CURRENT_MIGRATION`＋`worker/backup/schema-columns.ts`＋`scripts/validate_schema.py`；資料意義改變才需要 `UPGRADES`。
+9. 驗證：`npx tsc --noEmit -p .`、`npm run validate:source`、`node --test scripts/*.test.mjs`、`npm run validate:d1:local`，並以實際元件截圖給使用者看過再合併。
+
+## 4. 還沒共用化、接手時優先做的
+
+- 主檔明細頁標題列（客戶頁的編號／名稱／狀態膠囊）與「關聯卡片＋抽屜」：商品、瑕疵、報價改版時抽成共用元件，不要各模組複製客戶頁的程式碼。
+- 舊彈窗（修改紀錄、報價新增／修正、商品單位換算、人事各對話框）統一改成表格式彈窗（見 `TODO.md`）。
