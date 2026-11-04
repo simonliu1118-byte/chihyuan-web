@@ -65,7 +65,7 @@ h1{margin:0 0 3mm;font-size:16pt;text-align:center}
 table{width:100%;flex:1;border-collapse:collapse;table-layout:fixed}
 td,th{border:1px solid #000;padding:1.5mm 2.5mm;height:10mm;vertical-align:middle;word-break:break-all}
 th{width:22mm;font-weight:normal;text-align:center;white-space:nowrap}
-.problem{height:auto;vertical-align:top;white-space:pre-wrap}
+.problem{height:auto;vertical-align:middle;white-space:pre-wrap}
 footer{margin-top:3mm;text-align:center;font-size:11pt;white-space:pre-line}
 </style></head><body>
 <h1>${esc(s.cardTitle||"維修資訊卡")}</h1>
