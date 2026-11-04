@@ -102,7 +102,7 @@ export function StoreRepairs(){
   <div className="cy-ordering-grid-scroll"><table className="cy-ordering-grid cy-store-workflow-table cy-repair-list">
    {/* Designed widths (user 2026-11-04): fixed for short values, 故障狀況 takes the rest; 檢測狀況 follows 檢測; 照片 and the two print buttons (維修單, 維修資訊卡) sit before 操作. */}
    <colgroup><col style={{width:"3.4em"}}/><col style={{width:"6.6em"}}/><col style={{width:"6.8em"}}/><col style={{width:"9.6em"}}/><col style={{width:"9.4em"}}/>
-    <col style={{width:"4.6em"}}/><col style={{width:"11em"}}/><col style={{width:"7.6em"}}/><col/>
+    <col style={{width:"4.6em"}}/><col style={{width:"13.5em"}}/><col style={{width:"7.6em"}}/><col/>
     {STORE_REPAIR_STEPS.map(s=><col key={s} style={{width:"4.6em"}}/>)}<col style={{width:"4.6em"}}/><col style={{width:"10.4em"}}/></colgroup>
    <thead><tr>{LIST_HEADINGS.map((h,i)=><th key={h} className={[i===2||i===9||i===LIST_HEADINGS.length-2?"cy-grid-divider-before":"",CENTERED_HEADINGS.has(h)?"cy-repair-center":""].join(" ").trim()||undefined}>{h}</th>)}</tr></thead>
    {visible.map(r=>{const state=status(r),next=nextRepairStep(r),closed=r.status==="RETURNED",undoClose=canUndoRepairClosure(r),overdue=!!repairOverdue(r);return <tbody key={r.id}><tr data-overdue={overdue||undefined}>
