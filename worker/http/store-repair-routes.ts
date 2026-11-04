@@ -6,12 +6,12 @@ import {inspectJpeg,putJpegWithRecords,JpegUploadError} from "../files/jpeg-uplo
 import {normalizeStoreContacts} from "../../shared/phone";
 import {normalizePhone,type Honorific} from "../../shared/store";
 import {STORE_EDIT_REASONS} from "../../shared/store";
-import {STORE_REPAIR_PRODUCTS,STORE_REPAIR_CARRIERS,STORE_REPAIR_CANCEL_REASONS,STORE_REPAIR_PHOTO_LIMIT,STORE_REPAIR_STEPS,nextRepairStep,canUndoRepairClosure,type StoreRepair,type StoreRepairStatus,type StoreRepairStep,type StoreRepairCarrier,type StoreRepairInspectResult,type StoreRepairReturnMethod} from "../../shared/store-repairs";
+import {STORE_REPAIR_PRODUCTS,STORE_REPAIR_CARRIERS,STORE_REPAIR_CANCEL_REASONS,STORE_REPAIR_PHOTO_LIMIT,STORE_REPAIR_PRINT_LIMITS,type StoreRepairPrintSettings,STORE_REPAIR_STEPS,nextRepairStep,canUndoRepairClosure,type StoreRepair,type StoreRepairStatus,type StoreRepairStep,type StoreRepairCarrier,type StoreRepairInspectResult,type StoreRepairReturnMethod} from "../../shared/store-repairs";
 import {storeVersionGuard,storeEvent,validStoreRequestKey} from "../store/workflow-service";
 const ROOT="/api/business/store/repairs";
 type Context={db:D1Database;actor:number;at:string;requestId:string};
 class Invalid extends Error{constructor(message:string,public status=422,public code="STORE_REPAIR_INVALID"){super(message)}}
-type Row={id:number;list_sequence:number;received_date:string;customer_code:string;customer_name:string;honorific:Honorific;mobile:string;phone:string;line_name:string;product_kind:StoreRepair["productKind"];product_text:string;serial_no:string;fault:string;purchase_date:string|null;accessories:string;status:StoreRepairStatus;inspect_result:StoreRepairInspectResult;inspect_problem:string;cancelled:number;cancelled_at:string|null;cancel_reason:string;send_carrier:StoreRepairCarrier|"";send_tracking:string;sent_at:string|null;return_method:StoreRepairReturnMethod;return_carrier:StoreRepairCarrier|"";return_tracking:string;inspected_date:string|null;sent_date:string|null;repaired_date:string|null;notified_date:string|null;returned_date:string|null;notified_at:string|null;closed_at:string|null;version:number;created_at:string;updated_at:string;photo_count?:number};
+type Row={id:number;list_sequence:number;received_date:string;customer_code:string;customer_name:string;honorific:Honorific;mobile:string;phone:string;line_name:string;product_kind:StoreRepair["productKind"];product_text:string;serial_no:string;fault:string;purchase_date:string|null;accessories:string;note:string;status:StoreRepairStatus;inspect_result:StoreRepairInspectResult;inspect_problem:string;cancelled:number;cancelled_at:string|null;cancel_reason:string;send_carrier:StoreRepairCarrier|"";send_tracking:string;sent_at:string|null;return_method:StoreRepairReturnMethod;return_carrier:StoreRepairCarrier|"";return_tracking:string;inspected_date:string|null;sent_date:string|null;repaired_date:string|null;notified_date:string|null;returned_date:string|null;notified_at:string|null;closed_at:string|null;version:number;created_at:string;updated_at:string;photo_count?:number};
 const dateColumns:Record<StoreRepairStep,keyof Row>={INSPECTED:"inspected_date",SENT:"sent_date",REPAIRED:"repaired_date",NOTIFIED:"notified_date",RETURNED:"returned_date"};
 const today=(at:string)=>new Date(Date.parse(at)+8*3600000).toISOString().slice(0,10);
 const text=(v:unknown,label:string,max:number,required=false)=>{if(v===undefined||v===null)v="";if(typeof v!=="string"||[...v.trim()].length>max)throw new Invalid(label+"不正確");const s=v.trim();if(required&&!s)throw new Invalid(label+"必填");return s};
@@ -34,16 +34,16 @@ const shipping=(v:Record<string,unknown>,prefix:"send"|"return")=>{
 };
 const fields=(v:Record<string,unknown>,at:string)=>{
  const name=text(v.customerName,"客戶姓名",40,true),kind=v.productKind;
- if(typeof kind!=="string"||!(kind in STORE_REPAIR_PRODUCTS))throw new Invalid("送修產品需五選一");
+ if(typeof kind!=="string"||!(kind in STORE_REPAIR_PRODUCTS))throw new Invalid("請選擇送修類別");
  const honorific=v.honorific??"";if(!["","MR","MS"].includes(String(honorific)))throw new Invalid("稱謂不正確");
  const mobile=normalizePhone(text(v.mobile,"手機",30)),phone=normalizePhone(text(v.phone,"電話",30)),lineName=text(v.lineName,"LINE 名稱",60);
  if(!mobile&&!phone&&!lineName)throw new Invalid("連絡電話或 LINE 至少填寫一項");
  if([mobile,phone].some(n=>n&&!/^\d{6,20}$/.test(n)))throw new Invalid("電話格式不正確");
  const normalized=normalizeStoreContacts(phone,mobile);
  return {receivedDate:date(v.receivedDate,"送修日期",at)!,customerCode:text(v.customerCode,"客戶編號",40),customerName:name,honorific:honorific as Honorific,phone:normalized.phone,mobile:normalized.mobile,lineName,
-  productKind:kind as StoreRepair["productKind"],productText:text(v.productText,kind==="OTHER"?"產品名稱":"產品型號",120,true),serialNo:text(v.serialNo,"產品機號",60),fault:text(v.fault,"故障狀況",300,true),purchaseDate:date(v.purchaseDate,"購買日期",at,true),accessories:text(v.accessories,"配件備註",300)};
+  productKind:kind as StoreRepair["productKind"],productText:text(v.productText,kind==="OTHER"?"產品名稱":"產品型號",120,true),serialNo:text(v.serialNo,"產品機號",60),fault:text(v.fault,"故障狀況",300,true),purchaseDate:date(v.purchaseDate,"購買日期",at,true),accessories:text(v.accessories,"配件備註",300),note:text(v.note,"備註",300)};
 };
-const json=(o:Row):StoreRepair=>({id:o.id,sequence:o.list_sequence,photoCount:o.photo_count,receivedDate:o.received_date,customerCode:o.customer_code,customerName:o.customer_name,honorific:o.honorific,mobile:o.mobile,phone:o.phone,lineName:o.line_name,productKind:o.product_kind,productText:o.product_text,serialNo:o.serial_no,fault:o.fault,purchaseDate:o.purchase_date,accessories:o.accessories,status:o.status,inspectResult:o.inspect_result,inspectProblem:o.inspect_problem,cancelled:!!o.cancelled,cancelledAt:o.cancelled_at,cancelReason:o.cancel_reason,sentAt:o.sent_at,notifiedAt:o.notified_at,closedAt:o.closed_at,sendCarrier:o.send_carrier,sendTracking:o.send_tracking,returnMethod:o.return_method,returnCarrier:o.return_carrier,returnTracking:o.return_tracking,dates:{INSPECTED:o.inspected_date,SENT:o.sent_date,REPAIRED:o.repaired_date,NOTIFIED:o.notified_date,RETURNED:o.returned_date},version:o.version,createdAt:o.created_at,updatedAt:o.updated_at});
+const json=(o:Row):StoreRepair=>({id:o.id,sequence:o.list_sequence,photoCount:o.photo_count,receivedDate:o.received_date,customerCode:o.customer_code,customerName:o.customer_name,honorific:o.honorific,mobile:o.mobile,phone:o.phone,lineName:o.line_name,productKind:o.product_kind,productText:o.product_text,serialNo:o.serial_no,fault:o.fault,purchaseDate:o.purchase_date,accessories:o.accessories,note:o.note,status:o.status,inspectResult:o.inspect_result,inspectProblem:o.inspect_problem,cancelled:!!o.cancelled,cancelledAt:o.cancelled_at,cancelReason:o.cancel_reason,sentAt:o.sent_at,notifiedAt:o.notified_at,closedAt:o.closed_at,sendCarrier:o.send_carrier,sendTracking:o.send_tracking,returnMethod:o.return_method,returnCarrier:o.return_carrier,returnTracking:o.return_tracking,dates:{INSPECTED:o.inspected_date,SENT:o.sent_date,REPAIRED:o.repaired_date,NOTIFIED:o.notified_date,RETURNED:o.returned_date},version:o.version,createdAt:o.created_at,updatedAt:o.updated_at});
 const get=async(c:Context,id:number)=>{const r=await one<Row>(c.db,"SELECT * FROM store_repairs WHERE id=?",id);if(!r)throw new Invalid("維修單不存在",404);return r};
 const audit=(c:Context,id:number,action:string,before:unknown,after:unknown)=>new AuditService(c.db).prepareRecord({entityType:"store_repair",entityKey:String(id),action,actorEmployeeId:c.actor,occurredAt:c.at,requestId:c.requestId,before:before as Record<string,unknown>,after:after as Record<string,unknown>});
 const event=(c:Context,id:number,k:string,kind:string,before:unknown,after:unknown,reason="")=>storeEvent(c.db,"store_repair_events","repair_id",id,c.actor,c.at,kind,before,after,reason,k);
@@ -80,10 +80,26 @@ export async function handleStoreRepairRoute(req:Request,env:IdentityRuntimeEnv 
    if(duplicate)return success(json(await get(c,duplicate.repair_id)),requestId);
    const id=Number.parseInt(crypto.randomUUID().replaceAll("-","").slice(0,13),16);
    // The display number is taken inside the INSERT, so two simultaneous creations cannot collide.
-   const values=[id,f.receivedDate,f.customerCode,f.customerName,f.honorific,f.mobile,f.phone,f.lineName,f.productKind,f.productText,f.serialNo,f.fault,f.purchaseDate,f.accessories,c.at,c.actor,c.at,c.actor];
-   const insert=c.db.prepare("INSERT INTO store_repairs(id,list_sequence,received_date,customer_code,customer_name,honorific,mobile,phone,line_name,product_kind,product_text,serial_no,fault,purchase_date,accessories,created_at,created_by,updated_at,updated_by) SELECT ?,(SELECT COALESCE(MAX(list_sequence),0)+1 FROM store_repairs),"+values.slice(1).map(()=>"?").join(",")).bind(...values);
+   const values=[id,f.receivedDate,f.customerCode,f.customerName,f.honorific,f.mobile,f.phone,f.lineName,f.productKind,f.productText,f.serialNo,f.fault,f.purchaseDate,f.accessories,f.note,c.at,c.actor,c.at,c.actor];
+   const insert=c.db.prepare("INSERT INTO store_repairs(id,list_sequence,received_date,customer_code,customer_name,honorific,mobile,phone,line_name,product_kind,product_text,serial_no,fault,purchase_date,accessories,note,created_at,created_by,updated_at,updated_by) SELECT ?,(SELECT COALESCE(MAX(list_sequence),0)+1 FROM store_repairs),"+values.slice(1).map(()=>"?").join(",")).bind(...values);
    await c.db.batch([insert,event(c,id,k,"建立",{},f),audit(c,id,"store_repair.created",{},f)]);
    return success(json(await get(c,id)),requestId);
+  }
+  if(path==="/print-settings"){
+   const current=await one<StoreRepairPrintSettings>(c.db,"SELECT title,contact,notes,card_title cardTitle,card_footer cardFooter,version FROM store_repair_print_settings WHERE id=1")??{title:"",contact:"",notes:"",cardTitle:"",cardFooter:"",version:0};
+   if(method==="GET")return success(current,requestId);
+   if(method!=="PUT")throw new Invalid("找不到維修操作",404);
+   const v=await body(req);if(v.expectedVersion!==current.version)throw new Invalid("列印設定已被其他人修改，請重新載入",409,"STORE_REPAIR_CONFLICT");
+   const lines=(raw:unknown,label:string,max:number,count:number)=>{const value=text(raw,label,max);const rows=value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);if(rows.length>count)throw new Invalid(label+"最多"+count+"行");return rows.join("\n")};
+   const next={title:text(v.title,"標題",STORE_REPAIR_PRINT_LIMITS.title),contact:lines(v.contact,"聯絡資訊",STORE_REPAIR_PRINT_LIMITS.contact,STORE_REPAIR_PRINT_LIMITS.contactLines),
+    notes:lines(v.notes,"注意事項",STORE_REPAIR_PRINT_LIMITS.notes,STORE_REPAIR_PRINT_LIMITS.noteLines),
+    cardTitle:text(v.cardTitle,"資訊卡標題",STORE_REPAIR_PRINT_LIMITS.cardTitle),cardFooter:lines(v.cardFooter,"資訊卡下方文字",STORE_REPAIR_PRINT_LIMITS.cardFooter,STORE_REPAIR_PRINT_LIMITS.cardFooterLines),version:current.version+1};
+   const write=current.version===0
+    ?c.db.prepare("INSERT INTO store_repair_print_settings(id,title,contact,notes,card_title,card_footer,version,updated_at,updated_by) VALUES(1,?,?,?,?,?,1,?,?)").bind(next.title,next.contact,next.notes,next.cardTitle,next.cardFooter,c.at,c.actor)
+    :c.db.prepare("UPDATE store_repair_print_settings SET title=?,contact=?,notes=?,card_title=?,card_footer=?,version=?,updated_at=?,updated_by=? WHERE id=1 AND version=?").bind(next.title,next.contact,next.notes,next.cardTitle,next.cardFooter,next.version,c.at,c.actor,current.version);
+   const [result]=await c.db.batch([write,new AuditService(c.db).prepareRecord({entityType:"store_repair_print_settings",entityKey:"1",action:"store_repair.print_settings_updated",actorEmployeeId:c.actor,occurredAt:c.at,requestId,metadata:{fromVersion:current.version,toVersion:next.version}})]);
+   if(!result.meta.changes)throw new Invalid("列印設定已被其他人修改，請重新載入",409,"STORE_REPAIR_CONFLICT");
+   return success(next,requestId);
   }
   const photoRoute=/^\/(\d+)\/photos(?:\/(\d+))?$/.exec(path);
   if(photoRoute){
@@ -151,7 +167,7 @@ export async function handleStoreRepairRoute(req:Request,env:IdentityRuntimeEnv 
   if(!m[2]&&method==="PATCH"){
    if(o.status==="RETURNED")throw new Invalid("結案不能修改");
    const f=fields(v,c.at);if(o.status!=="RECEIVED")eventReason=reason(v,STORE_EDIT_REASONS);
-   const stmt=c.db.prepare("UPDATE store_repairs SET received_date=?,customer_code=?,customer_name=?,honorific=?,mobile=?,phone=?,line_name=?,product_kind=?,product_text=?,serial_no=?,fault=?,purchase_date=?,accessories=?,version=version+1,updated_at=?,updated_by=? WHERE id=?").bind(f.receivedDate,f.customerCode,f.customerName,f.honorific,f.mobile,f.phone,f.lineName,f.productKind,f.productText,f.serialNo,f.fault,f.purchaseDate,f.accessories,c.at,c.actor,id);
+   const stmt=c.db.prepare("UPDATE store_repairs SET received_date=?,customer_code=?,customer_name=?,honorific=?,mobile=?,phone=?,line_name=?,product_kind=?,product_text=?,serial_no=?,fault=?,purchase_date=?,accessories=?,note=?,version=version+1,updated_at=?,updated_by=? WHERE id=?").bind(f.receivedDate,f.customerCode,f.customerName,f.honorific,f.mobile,f.phone,f.lineName,f.productKind,f.productText,f.serialNo,f.fault,f.purchaseDate,f.accessories,f.note,c.at,c.actor,id);
    after={...json(o),...f};kind="修改維修";
    await c.db.batch([guard(c,o),stmt,event(c,id,k,kind,before,after,eventReason),audit(c,id,"store_repair.edited",before,after)]);
   }else if(m[2]==="date"){

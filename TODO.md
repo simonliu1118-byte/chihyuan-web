@@ -3,9 +3,10 @@
 > 本檔是 CY Web 唯一的現況與待辦清單，不是永久規則來源。各版本完成內容與驗證見 `CHANGELOG.md`；規格見 `docs/architecture/README.md`。
 > 2026-11-03 整理：已完成且已記入 CHANGELOG 的版本段落移除；已結案的交接與工作單移到 Git 固定快照（見 `docs/handoff/README.md`）。
 
-## 目前狀態（2026-11-03）
+## 目前狀態（2026-11-04）
 
-- **正式站 V0.10.0 Build 0**（`https://admin.chihyuancm.com`），CYID consumer 1.0.5；D1 migration 到 `0048_customer_status_pin`，正式資料庫結構與 migration 完全一致。
+- **正式站 V0.10.16**（`https://admin.chihyuancm.com`），CYID consumer 1.0.5；D1 migration 到 `0050_store_repair_print_settings`。
+- **接手 UI 前必讀** `docs/architecture/UI_COMPONENT_CATALOG.md`：共用元件清單與已定案畫面樣式，不要在模組內另做元件。
 - 模組：客戶、商品、瑕疵、銷售工單、叫貨（含進貨輔助抽屜、未到貨）、門市（顧客訂購、黑名單、月度待辦、售後維修、庫存盤點）、委外/代工、工作日誌、人事、ERP 查詢、帳號與權限、異動紀錄、備份管理、CY 程式、我的帳號。
 - 帳號：CYID 正式服務；成功的登入確認在伺服器記住 30 秒（V0.9.91）。
 - 排程：網站只有一個 `*/5 * * * *` 排程（V0.9.86）。
@@ -84,6 +85,12 @@
 ## 開發待辦
 
 - [x] **全系統灰色說明小字**（[WO-0.9.94](docs/development/work-orders/WO-0.9.94.md)）：第一段盤點（PR #396）與第二段刪除（PR #413，V0.10.12）皆完成並部署。
+- [ ] **商品主檔改版（下一個，版面已與使用者定案 2026-11-04）**：
+  - 第一列：品號／品名／規格（品名與規格同寬）／基準單位（最右，與單位換算合併：檢視「個 盒=10個 箱=200個」；修改時基準單位輸入＋「＋換算」，每行「1 [盒] = [10] 個 ×」）。
+  - 第二列：分類／成本／成本稅別（未稅時同格顯示「(含稅$11.53)」，5%、四捨五入到小數 2 位）／門市價／診所價／批發價／網路價（寬欄）。
+  - 批發價：自填單位與價格，顯示「盒$1500 / 箱$6000」。網路價：顯示「蝦$50 / MO$60 / 酷$100」，沒填的平台隱藏；修改時是格子內小表格（平台表頭列，輸入框寬度夠 5 位數）。平台在商品設定可維護，預設 蝦、MO、酷、露、好賣、iOPEN。
+  - 曾用品號移到商品「修改紀錄」視窗內固定位置，不放主畫面。
+  - 需要 migration（平台、網路價、批發價三張表）；先抽出共用的明細標題列與關聯卡片＋抽屜元件。
 - [ ] **其他主檔改成表格式單據**：商品、瑕疵、銷售工單、代工、工作日誌、人事，依客戶（V0.9.95）定下的樣式，各模組開工單前先與使用者定欄位排列；報價新增／修正表單隨商品一起改。
 - [ ] **彈窗統一成表格式樣式**（使用者 2026-11-04）：修改紀錄、報價新增／修正、商品單位換算、人事各對話框等舊彈窗，改用與設定視窗相同的表格式共用元件，一次改完；修改紀錄的「其他欄位」改成逐欄列出。
 - [ ] **工作台（次模組）**（使用者 2026-11-04，等這輪表格式改版完成後才開始）：自己不存主資料，把各主檔的紀錄集中成角色的快速入口；左側選單在「業務模組」下另開「工作台」。
@@ -104,6 +111,7 @@
   - 國定假日補休目前由超管手動給予，若要依排班自動產生另行確認規則；
   - 使用者測試發現的問題記在這裡，下一輪一起修。
 - [ ] 共用 UI 整理：導覽、清單密度、表單／明細、dialog／drawer、loading／error／empty、鍵盤與觸控；刪除、權限、金額與庫存等高風險操作不先顯示成功。
+- [ ] **CYID 測試帳號（CYACC 9900/9901）清除**：使用者 2026-11-04 指示等介面全部改完再處理；同時關閉 `testingAccountDeletionAllowed`。
 - [ ] 資料變大時評估門市訂購模糊搜尋與黑名單比對的讀取量（V0.9.66 已改索引查詢）。
 
 ## CYInvoice 復原接線（2026-10-18 起）
@@ -135,4 +143,5 @@
 - 資料模型：`CANONICAL_DATA_MODEL.md`、`FINAL_DATA_DICTIONARY.md`、`migrations/`；Worker API：`API_CONTRACT.md`
 - CYID consumer contract 鏡像：`docs/contracts/cyid/`；Identity adapter：`IDENTITY_ADAPTER.md`
 - 部署：`docs/development/IDENTITY_DEPLOYMENT.md`；本機開發：`docs/development/LOCAL_DEVELOPMENT.md`；備份：`BACKUP_ARCHITECTURE.md`；隔離還原輪替：`docs/development/CYWEB_RECOVERY_ROTATION_RUNBOOK.md`
+- UI 共用元件與畫面做法：`docs/architecture/UI_COMPONENT_CATALOG.md`
 - 歷史：`docs/architecture/archive/` 與 Git 固定快照，只作追溯。

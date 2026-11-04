@@ -401,27 +401,35 @@
 /* Repairs use the canonical store workflow grid, common controls, and responsive form cells. */
 /* Desktop table only; at phone width the shared workflow cards apply. */
 @media(min-width:821px){
- .cy-store-repairs .cy-repair-list{min-width:1250px}
+ .cy-store-repairs .cy-repair-list{min-width:1600px}
  .cy-store-repairs .cy-repair-list th{white-space:normal}
- .cy-store-repairs .cy-repair-list td{vertical-align:middle;text-align:center}
+ .cy-store-repairs .cy-repair-list td{vertical-align:middle}
 }
-.cy-repair-list .cy-repair-fault{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
-.cy-store-repairs .cy-store-row-actions{display:flex;align-items:center;justify-content:center}
+.cy-repair-list .cy-repair-fault,.cy-repair-list .cy-repair-inspection{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.cy-repair-list .cy-repair-inspection.bad{color:var(--cy-danger)}
+.cy-repair-customer-code{margin-right:.5em;color:var(--cy-text-muted);font-variant-numeric:tabular-nums}
+@media(min-width:821px){
+ .cy-store-repairs .cy-repair-list td{text-align:left}
+ .cy-store-repairs .cy-repair-list td.cy-store-sequence,.cy-store-repairs .cy-repair-list td.cy-store-status-cell,
+ .cy-store-repairs .cy-repair-list td.cy-store-milestone,.cy-store-repairs .cy-repair-list td[data-label="照片"],
+ .cy-store-repairs .cy-repair-list td[data-label="操作"],.cy-store-repairs .cy-repair-list td[data-label="列印"],.cy-store-repairs .cy-repair-list th.cy-repair-center{text-align:center}
+}
 .cy-repair-form-dialog .cy-dialog-surface{width:min(1080px,calc(100vw - 20px))}
-.cy-repair-entry-table{min-width:660px}
+.cy-repair-entry-table{min-width:660px;margin-bottom:14px}
 .cy-repair-entry-table td{padding:3px}
-.cy-repair-products{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.cy-repair-product-option{display:flex;gap:8px;align-items:end;border:1px solid var(--cy-border);border-radius:6px;padding:6px}
-.cy-repair-product-option .cy-f-m{flex:1}
 .cy-repair-shipping-fields{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:8px}
 .cy-repair-shipping-fields .cy-f{flex:1;min-width:130px}
 .cy-store-repairs .cy-store-milestone .cy-store-date-link{min-width:48px}
 @media(max-width:820px){
- .cy-repair-products{grid-template-columns:1fr}
  .cy-repair-form-dialog .cy-dialog-surface{width:calc(100vw - 16px)}
 }
 
-.cy-repair-photo-entry{display:inline-flex;align-items:center;gap:3px;margin-left:5px;padding:2px 4px;border:0;border-radius:4px;background:transparent;color:var(--cy-text-muted);cursor:pointer}
+.cy-repair-print-actions{display:inline-flex;gap:4px}
+.cy-repair-date-cell{display:flex;align-items:center}
+.cy-repair-date-cell>:first-child{flex:1;min-width:0}
+.cy-repair-date-cell .cy-check-field,.cy-repair-date-cell>:last-child{flex:none;padding:0 6px;white-space:nowrap}
+.cy-repair-print-settings textarea{min-height:4.5em}
+.cy-repair-photo-entry{display:inline-flex;align-items:center;gap:3px;padding:2px 4px;border:0;border-radius:4px;background:transparent;color:var(--cy-text-muted);cursor:pointer}
 .cy-repair-photo-entry:hover{background:var(--cy-surface-muted)}
 .cy-repair-camera-icon .cy-icon{vertical-align:middle}
 .cy-repair-photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}

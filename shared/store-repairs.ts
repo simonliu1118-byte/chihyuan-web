@@ -15,12 +15,18 @@ export const STORE_REPAIR_CANCEL_REASONS=["顧客不修（費用考量）","無�
 export const STORE_REPAIR_FACTORY_OVERDUE_DAYS=30;
 /** Repair-slip photos per repair (user 2026-11-03). */
 export const STORE_REPAIR_PHOTO_LIMIT=3;
+/**
+ * Printed repair slip (user 2026-11-04): heading, contact lines and notes are the store's own text,
+ * kept in the database so the public repository carries no business contact details.
+ */
+export interface StoreRepairPrintSettings {title:string;contact:string;notes:string;cardTitle:string;cardFooter:string;version:number}
+export const STORE_REPAIR_PRINT_LIMITS={title:30,contact:150,contactLines:3,notes:500,noteLines:6,cardTitle:30,cardFooter:300,cardFooterLines:6} as const;
 export type StoreRepairInspectResult="GOOD"|"BAD"|"";
 export type StoreRepairReturnMethod=""|"PICKUP"|"SHIPPING";
 export interface StoreRepair {
  id:number;sequence:number;photoCount?:number;receivedDate:string;customerCode:string;customerName:string;honorific:Honorific;
  mobile:string;phone:string;lineName:string;productKind:StoreRepairProductKind;productText:string;serialNo:string;fault:string;
- purchaseDate:string|null;accessories:string;status:StoreRepairStatus;inspectResult:StoreRepairInspectResult;inspectProblem:string;
+ purchaseDate:string|null;accessories:string;note:string;status:StoreRepairStatus;inspectResult:StoreRepairInspectResult;inspectProblem:string;
  cancelled:boolean;cancelReason:string;cancelledAt:string|null;sentAt:string|null;notifiedAt:string|null;closedAt:string|null;
  sendCarrier:StoreRepairCarrier|"";sendTracking:string;returnMethod:StoreRepairReturnMethod;returnCarrier:StoreRepairCarrier|"";returnTracking:string;
  dates:Record<StoreRepairStep,string|null>;version:number;createdAt:string;updatedAt:string;
