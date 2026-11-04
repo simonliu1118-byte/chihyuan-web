@@ -6,7 +6,7 @@ import {inspectJpeg,putJpegWithRecords,JpegUploadError} from "../files/jpeg-uplo
 import {normalizeStoreContacts} from "../../shared/phone";
 import {normalizePhone,type Honorific} from "../../shared/store";
 import {STORE_EDIT_REASONS} from "../../shared/store";
-import {STORE_REPAIR_PRODUCTS,STORE_REPAIR_CARRIERS,STORE_REPAIR_CANCEL_REASONS,STORE_REPAIR_PHOTO_LIMIT,STORE_REPAIR_STEPS,nextRepairStep,canUndoRepairClosure,type StoreRepair,type StoreRepairStatus,type StoreRepairStep,type StoreRepairCarrier,type StoreRepairInspectResult,type StoreRepairReturnMethod} from "../../shared/store-repairs";
+import {STORE_REPAIR_PRODUCTS,STORE_REPAIR_CARRIERS,STORE_REPAIR_CANCEL_REASONS,STORE_REPAIR_PHOTO_LIMIT,STORE_REPAIR_PRINT_LIMITS,type StoreRepairPrintSettings,STORE_REPAIR_STEPS,nextRepairStep,canUndoRepairClosure,type StoreRepair,type StoreRepairStatus,type StoreRepairStep,type StoreRepairCarrier,type StoreRepairInspectResult,type StoreRepairReturnMethod} from "../../shared/store-repairs";
 import {storeVersionGuard,storeEvent,validStoreRequestKey} from "../store/workflow-service";
 const ROOT="/api/business/store/repairs";
 type Context={db:D1Database;actor:number;at:string;requestId:string};
@@ -84,6 +84,22 @@ export async function handleStoreRepairRoute(req:Request,env:IdentityRuntimeEnv 
    const insert=c.db.prepare("INSERT INTO store_repairs(id,list_sequence,received_date,customer_code,customer_name,honorific,mobile,phone,line_name,product_kind,product_text,serial_no,fault,purchase_date,accessories,created_at,created_by,updated_at,updated_by) SELECT ?,(SELECT COALESCE(MAX(list_sequence),0)+1 FROM store_repairs),"+values.slice(1).map(()=>"?").join(",")).bind(...values);
    await c.db.batch([insert,event(c,id,k,"建立",{},f),audit(c,id,"store_repair.created",{},f)]);
    return success(json(await get(c,id)),requestId);
+  }
+  if(path==="/print-settings"){
+   const current=await one<StoreRepairPrintSettings>(c.db,"SELECT title,contact,notes,card_title cardTitle,card_footer cardFooter,version FROM store_repair_print_settings WHERE id=1")??{title:"",contact:"",notes:"",cardTitle:"",cardFooter:"",version:0};
+   if(method==="GET")return success(current,requestId);
+   if(method!=="PUT")throw new Invalid("找不到維修操作",404);
+   const v=await body(req);if(v.expectedVersion!==current.version)throw new Invalid("列印設定已被其他人修改，請重新載入",409,"STORE_REPAIR_CONFLICT");
+   const lines=(raw:unknown,label:string,max:number,count:number)=>{const value=text(raw,label,max);const rows=value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);if(rows.length>count)throw new Invalid(label+"最多"+count+"行");return rows.join("\n")};
+   const next={title:text(v.title,"標題",STORE_REPAIR_PRINT_LIMITS.title),contact:lines(v.contact,"聯絡資訊",STORE_REPAIR_PRINT_LIMITS.contact,STORE_REPAIR_PRINT_LIMITS.contactLines),
+    notes:lines(v.notes,"注意事項",STORE_REPAIR_PRINT_LIMITS.notes,STORE_REPAIR_PRINT_LIMITS.noteLines),
+    cardTitle:text(v.cardTitle,"資訊卡標題",STORE_REPAIR_PRINT_LIMITS.cardTitle),cardFooter:lines(v.cardFooter,"資訊卡下方文字",STORE_REPAIR_PRINT_LIMITS.cardFooter,STORE_REPAIR_PRINT_LIMITS.cardFooterLines),version:current.version+1};
+   const write=current.version===0
+    ?c.db.prepare("INSERT INTO store_repair_print_settings(id,title,contact,notes,card_title,card_footer,version,updated_at,updated_by) VALUES(1,?,?,?,?,?,1,?,?)").bind(next.title,next.contact,next.notes,next.cardTitle,next.cardFooter,c.at,c.actor)
+    :c.db.prepare("UPDATE store_repair_print_settings SET title=?,contact=?,notes=?,card_title=?,card_footer=?,version=?,updated_at=?,updated_by=? WHERE id=1 AND version=?").bind(next.title,next.contact,next.notes,next.cardTitle,next.cardFooter,next.version,c.at,c.actor,current.version);
+   const [result]=await c.db.batch([write,new AuditService(c.db).prepareRecord({entityType:"store_repair_print_settings",entityKey:"1",action:"store_repair.print_settings_updated",actorEmployeeId:c.actor,occurredAt:c.at,requestId,metadata:{fromVersion:current.version,toVersion:next.version}})]);
+   if(!result.meta.changes)throw new Invalid("列印設定已被其他人修改，請重新載入",409,"STORE_REPAIR_CONFLICT");
+   return success(next,requestId);
   }
   const photoRoute=/^\/(\d+)\/photos(?:\/(\d+))?$/.exec(path);
   if(photoRoute){

@@ -15,6 +15,12 @@ export const STORE_REPAIR_CANCEL_REASONS=["顧客不修（費用考量）","無�
 export const STORE_REPAIR_FACTORY_OVERDUE_DAYS=30;
 /** Repair-slip photos per repair (user 2026-11-03). */
 export const STORE_REPAIR_PHOTO_LIMIT=3;
+/**
+ * Printed repair slip (user 2026-11-04): heading, contact lines and notes are the store's own text,
+ * kept in the database so the public repository carries no business contact details.
+ */
+export interface StoreRepairPrintSettings {title:string;contact:string;notes:string;cardTitle:string;cardFooter:string;version:number}
+export const STORE_REPAIR_PRINT_LIMITS={title:30,contact:150,contactLines:3,notes:500,noteLines:6,cardTitle:30,cardFooter:300,cardFooterLines:6} as const;
 export type StoreRepairInspectResult="GOOD"|"BAD"|"";
 export type StoreRepairReturnMethod=""|"PICKUP"|"SHIPPING";
 export interface StoreRepair {

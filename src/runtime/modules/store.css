@@ -401,7 +401,7 @@
 /* Repairs use the canonical store workflow grid, common controls, and responsive form cells. */
 /* Desktop table only; at phone width the shared workflow cards apply. */
 @media(min-width:821px){
- .cy-store-repairs .cy-repair-list{min-width:1560px}
+ .cy-store-repairs .cy-repair-list{min-width:1600px}
  .cy-store-repairs .cy-repair-list th{white-space:normal}
  .cy-store-repairs .cy-repair-list td{vertical-align:middle}
 }
@@ -411,8 +411,8 @@
 @media(min-width:821px){
  .cy-store-repairs .cy-repair-list td{text-align:left}
  .cy-store-repairs .cy-repair-list td.cy-store-sequence,.cy-store-repairs .cy-repair-list td.cy-store-status-cell,
- .cy-store-repairs .cy-repair-list td.cy-store-milestone,.cy-store-repairs .cy-repair-list td[data-label="維修單"],
- .cy-store-repairs .cy-repair-list td[data-label="操作"],.cy-store-repairs .cy-repair-list th.cy-repair-center{text-align:center}
+ .cy-store-repairs .cy-repair-list td.cy-store-milestone,.cy-store-repairs .cy-repair-list td[data-label="照片"],
+ .cy-store-repairs .cy-repair-list td[data-label="操作"],.cy-store-repairs .cy-repair-list td[data-label="列印"],.cy-store-repairs .cy-repair-list th.cy-repair-center{text-align:center}
 }
 .cy-repair-form-dialog .cy-dialog-surface{width:min(1080px,calc(100vw - 20px))}
 .cy-repair-entry-table{min-width:660px;margin-bottom:14px}
@@ -424,6 +424,11 @@
  .cy-repair-form-dialog .cy-dialog-surface{width:calc(100vw - 16px)}
 }
 
+.cy-repair-print-actions{display:inline-flex;gap:4px}
+.cy-repair-date-cell{display:flex;align-items:center}
+.cy-repair-date-cell>:first-child{flex:1;min-width:0}
+.cy-repair-date-cell .cy-check-field,.cy-repair-date-cell>:last-child{flex:none;padding:0 6px;white-space:nowrap}
+.cy-repair-print-settings textarea{min-height:4.5em}
 .cy-repair-photo-entry{display:inline-flex;align-items:center;gap:3px;padding:2px 4px;border:0;border-radius:4px;background:transparent;color:var(--cy-text-muted);cursor:pointer}
 .cy-repair-photo-entry:hover{background:var(--cy-surface-muted)}
 .cy-repair-camera-icon .cy-icon{vertical-align:middle}
