@@ -636,7 +636,7 @@ a.cy-op-button, a.cy-button { text-decoration: none; }
 .cy-change-log-sub>td:nth-child(-n+4){border-right-color:transparent}
 .cy-change-log-sub .cy-sheet-value{padding:1px 8px;font-size:var(--cy-fs-xs);line-height:1.5}
 .cy-change-log-sub.head .cy-sheet-value{color:var(--cy-text-muted);font-weight:600}
-.cy-change-log-more{justify-self:start;margin-bottom:6px}
+.cy-change-log-more{justify-self:start;margin-top:8px}
 .cy-change-log-technical{margin:2px 0;font-size:var(--cy-fs-xs);color:var(--cy-text-muted)}
 .cy-change-log-technical pre{max-width:100%;overflow:auto;white-space:pre}
 @media(max-width:820px){.cy-change-log-filters{display:grid;grid-template-columns:1fr}.cy-change-log-filters .cy-op-input{width:100%}}
