@@ -6,6 +6,11 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.10.18 — 售後維修列表與維修單微調（2026-11-04，Claude）
+- 檢測狀況收進「檢測」欄的小標記（✓ 無異常／! 異常），點開看內容；空間讓給故障狀況。
+- 表頭改為「客戶編號/姓名」。
+- 維修單上緣改留 1 公分；送廠維修／維修完成／機器歸還日期改成小字年份在上、MM/DD 放大。
+
 ## CY Web V0.10.17 — 維修單與資訊卡邊界（2026-11-04，Claude）
 - 維修單上緣留 2 公分、左右各 1.5 公分，字級改 12pt（使用者實印回報）。
 - 列表表頭「客戶號」改為「客戶編號」。
