@@ -53,9 +53,9 @@ export function repairCardHtml(r:StoreRepair,s:StoreRepairPrintSettings):string{
  const inspection=r.inspectResult==="BAD"?r.inspectProblem||"異常":r.inspectResult==="GOOD"?"無異常":"";
  const footer=lines(s.cardFooter);
  return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>維修資訊卡</title><style>
-@page{size:80mm auto;margin:3mm 4mm}
+@page{size:80mm auto;margin:4mm 0}
 *{box-sizing:border-box}
-body{margin:0;width:72mm;color:#000;background:#fff;font:10pt/1.4 "Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif}
+body{margin:0 auto;padding:0 5mm;width:80mm;color:#000;background:#fff;font:10pt/1.4 "Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif}
 h1{margin:0 0 1.5mm;font-size:13pt;text-align:center}
 table{width:100%;border-collapse:collapse;table-layout:fixed}
 td,th{border:1px solid #000;padding:1.2mm 1.5mm;vertical-align:top;word-break:break-all}
