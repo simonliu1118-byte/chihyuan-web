@@ -1,6 +1,7 @@
 import type {Honorific} from "./store";
 import {STORE_PICKUP_OVERDUE_DAYS} from "./store";
 import {storeDaysElapsed,withinStoreClosureWindow} from "./store-workflow";
+import {changedFields} from "./store-history";
 export const STORE_REPAIR_STATUSES=["RECEIVED","INSPECTED","SENT","REPAIRED","NOTIFIED","RETURNED"] as const;
 export type StoreRepairStatus=typeof STORE_REPAIR_STATUSES[number];
 export const STORE_REPAIR_STEPS=["INSPECTED","SENT","REPAIRED","NOTIFIED","RETURNED"] as const;
@@ -72,6 +73,7 @@ export function repairHistoryPresentation<E extends {kind:string;before:Record<s
   if(a.return_method)out.returnMethod=a.return_method==="SHIPPING"?"寄送":"自取";
   return {...e,kind:STORE_REPAIR_STEP_LABELS[step]?"登記"+STORE_REPAIR_STEP_LABELS[step]:e.kind,before:{},after:out};
  }
- const keys=Object.keys(e.after).filter(k=>JSON.stringify(e.before[k])!==JSON.stringify(e.after[k]));
- return {...e,before:Object.fromEntries(keys.map(k=>[k,e.before[k]])),after:Object.fromEntries(keys.map(k=>[k,e.after[k]]))};
+ const kind=(v:unknown)=>typeof v==="string"&&v in STORE_REPAIR_PRODUCTS?STORE_REPAIR_PRODUCTS[v as StoreRepairProductKind]:v;
+ const {before,after}=changedFields({...e.before,productKind:kind(e.before.productKind)},{...e.after,...(Object.hasOwn(e.after,"productKind")?{productKind:kind(e.after.productKind)}:{})});
+ return {...e,before,after};
 }
