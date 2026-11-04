@@ -405,7 +405,7 @@
  .cy-store-repairs .cy-repair-list th{white-space:normal}
  .cy-store-repairs .cy-repair-list td{vertical-align:middle}
 }
-.cy-repair-list .cy-repair-fault{white-space:normal;overflow-wrap:anywhere;text-align:left}
+.cy-store-repairs .cy-repair-list td.cy-repair-fault{white-space:normal;overflow-wrap:anywhere;text-align:left;vertical-align:middle}
 .cy-repair-inspect-good .cy-store-date-link{color:var(--cy-success)}
 .cy-repair-inspect-bad .cy-store-date-link{color:var(--cy-danger)}
 .cy-repair-customer-code{margin-right:.5em;font-variant-numeric:tabular-nums}

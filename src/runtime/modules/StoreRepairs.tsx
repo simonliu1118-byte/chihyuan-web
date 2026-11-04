@@ -47,6 +47,12 @@ export function StoreRepairs(){
  const [search,setSearch]=useState(""),[filter,setFilter]=useState(""),[openOnly,setOpenOnly]=useState(false);
  const [form,setForm]=useState<Draft|null>(null),[work,setWork]=useState<Work|null>(null),[action,setAction]=useState<Action|null>(null),[history,setHistory]=useState<number|null>(null);
  const [printMenu,setPrintMenu]=useState<number|null>(null);
+ // The print menu closes on any click outside it or on Escape (user 2026-11-04).
+ useEffect(()=>{if(printMenu===null)return;
+  const outside=(e:PointerEvent)=>{if(!(e.target instanceof Element&&e.target.closest(".cy-repair-ops")))setPrintMenu(null)};
+  const escape=(e:KeyboardEvent)=>{if(e.key==="Escape")setPrintMenu(null)};
+  document.addEventListener("pointerdown",outside);document.addEventListener("keydown",escape);
+  return()=>{document.removeEventListener("pointerdown",outside);document.removeEventListener("keydown",escape)}},[printMenu]);
  const [printSettings,setPrintSettings]=useState<StoreRepairPrintSettings|null>(null);
  const [photosFor,setPhotosFor]=useState<number|null>(null),[photoCounts,setPhotoCounts]=useState<Record<number,number>>({});
  const [revision,setRevision]=useState(0),[message,setMessage,reportError,feedbackTone]=useFeedbackMessage<string|null>(null);
