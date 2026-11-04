@@ -46,7 +46,9 @@ test("ERP query display is server-gated and every Audit row is a single-line sen
  assert.match(page,/role==="SUPER_ADMIN"\?moduleOptions:moduleOptions\.filter/);
  assert.match(page,/includeErpQueries:value===ERP_MODULES/);
  assert.match(page,/formatDateTime\(item\.occurredAt\)/);
- assert.match(page,/\[\.\.\.events\]\.reverse\(\)/);
+ assert.match(page,/const rows=events;/);
+ assert.match(page,/period:"today"/);
+ assert.match(page,/item\.actor\?formatPerson\(item\.actor\):"系統"/);
  assert.match(page,/<ExpandToggle /);
  assert.match(styles,/\.cy-change-log-sub \.cy-sheet-value\{padding:1px 8px;font-size:var\(--cy-fs-xs\)/);
  assert.doesNotMatch(source,/entityLabel\(event\.entityType\) \+ " #"/);
