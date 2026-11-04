@@ -1,6 +1,14 @@
 import {STORE_MILESTONE_LABELS,type StoreHistory,type StoreHistoryPage,type StoreMilestone} from "./store";
 
 const record=(v:unknown):Record<string,unknown>=>v&&typeof v==="object"&&!Array.isArray(v)?v as Record<string,unknown>:{};
+/**
+ * Shared by every store history (orders, repairs): an edit shows only the fields whose value changed,
+ * so the chain reads 「欄位：舊→新」 instead of repeating the whole record.
+ */
+export function changedFields(before:Record<string,unknown>,after:Record<string,unknown>){
+ const keys=Object.keys({...before,...after}).filter(k=>Object.hasOwn(after,k)&&JSON.stringify(before[k])!==JSON.stringify(after[k]));
+ return {before:Object.fromEntries(keys.map(k=>[k,before[k]])),after:Object.fromEntries(keys.map(k=>[k,after[k]]))};
+}
 // Read projection only: immutable source events remain available for audit/backup.
 export function retiredArrivalEvent(e:StoreHistory){
  if(e.kind==="推進")return e.after.status==="ARRIVED";
@@ -20,6 +28,7 @@ export function orderHistoryPresentation(e:StoreHistory):StoreHistory{
   const step=e.after.status as StoreMilestone,label=STORE_MILESTONE_LABELS[step];
   if(label){kind="登記"+label;after={...(typeof e.after.customerNote==="string"&&e.after.customerNote?{customerNote:e.after.customerNote}:{}),date:Object.hasOwn(e.after,"date")?e.after.date:record(e.after.dates)[step]??null,...(kind==="登記叫貨"&&e.after.callResult&&e.after.callResult!=="ORDERED"?{callResult:e.after.callResult}:{})};before={}}
  }
+ if(kind==="修改訂購")({before,after}=changedFields(before,after));
  return {...e,kind,before,after};
 }
 

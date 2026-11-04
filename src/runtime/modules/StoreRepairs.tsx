@@ -22,6 +22,7 @@ import {StoreMilestoneButton,StoreMilestoneDateFields} from "./store-workflow/St
 import {storeWorkflowActions} from "./store-workflow/StoreWorkflowActions";
 import {STORE_EDIT_REASONS,displayCustomerName,type Honorific} from "../../../shared/store";
 import {STORE_REPAIR_STATUSES,STORE_REPAIR_STATUS_LABELS,STORE_REPAIR_STEPS,STORE_REPAIR_STEP_LABELS,STORE_REPAIR_PRODUCTS,STORE_REPAIR_CANCEL_REASONS,repairOverdue,nextRepairStep,repairStepApplicable,canUndoRepairClosure,type StoreRepair,type StoreRepairStep,type StoreRepairCarrier,type StoreRepairProductKind,type StoreRepairPrintSettings} from "../../../shared/store-repairs";
+import {IconButton} from "../../ui/actions/IconButton";
 import {printHtml,repairCardHtml,repairSlipHtml} from "./store-repair-print";
 import {StoreRepairPrintSettingsDialog} from "./StoreRepairPrintSettings";
 import "./store.css";
@@ -37,14 +38,15 @@ const status=(r:StoreRepair)=>r.cancelled?{code:"CANCELLED",label:"取消維修"
  repairOverdue(r)==="FACTORY"?{code:"OVERDUE",label:"逾期未修回",tone:"danger" as const}:
  repairOverdue(r)==="PICKUP"?{code:"OVERDUE",label:"逾期未取",tone:"danger" as const}:
  {code:r.status,label:STORE_REPAIR_STATUS_LABELS[r.status],tone:tone[r.status]};
-const LIST_HEADINGS=["項次","處理狀態","送修日期","客戶編號/姓名","連絡電話／LINE","類別","產品","產品機號","故障狀況",...STORE_REPAIR_STEPS.map(s=>STORE_REPAIR_STEP_LABELS[s]),"照片","列印","操作"];
+const LIST_HEADINGS=["項次","處理狀態","送修日期","客戶編號/姓名","連絡電話／LINE","類別","產品","產品機號","故障狀況",...STORE_REPAIR_STEPS.map(s=>STORE_REPAIR_STEP_LABELS[s]),"照片","操作"];
 /** Headings over centred values (user 2026-11-04): 項次, 處理狀態 and the milestone, photo and action columns. */
-const CENTERED_HEADINGS=new Set(["項次","處理狀態",...STORE_REPAIR_STEPS.map(s=>STORE_REPAIR_STEP_LABELS[s]),"照片","列印","操作"]);
+const CENTERED_HEADINGS=new Set(["項次","處理狀態",...STORE_REPAIR_STEPS.map(s=>STORE_REPAIR_STEP_LABELS[s]),"照片","操作"]);
 const inspection=(r:StoreRepair)=>r.inspectResult==="GOOD"?"無異常":r.inspectResult==="BAD"?r.inspectProblem||"異常":"";
 export function StoreRepairs(){
  const [rows,setRows]=useState<StoreRepair[]>([]),[loaded,setLoaded]=useState(false),[loading,setLoading]=useState(false),[busy,setBusy]=useState(false);
  const [search,setSearch]=useState(""),[filter,setFilter]=useState(""),[openOnly,setOpenOnly]=useState(false);
  const [form,setForm]=useState<Draft|null>(null),[work,setWork]=useState<Work|null>(null),[action,setAction]=useState<Action|null>(null),[history,setHistory]=useState<number|null>(null);
+ const [printMenu,setPrintMenu]=useState<number|null>(null);
  const [printSettings,setPrintSettings]=useState<StoreRepairPrintSettings|null>(null);
  const [photosFor,setPhotosFor]=useState<number|null>(null),[photoCounts,setPhotoCounts]=useState<Record<number,number>>({});
  const [revision,setRevision]=useState(0),[message,setMessage,reportError,feedbackTone]=useFeedbackMessage<string|null>(null);
@@ -71,7 +73,7 @@ export function StoreRepairs(){
    if(printAfter.current)await print(result)});
   printAfter.current=false;
  }
- async function saveWork(e:FormEvent){e.preventDefault();if(!work)return;const w=work;
+ async function saveWork(){if(!work)return;const w=work;
   await run(async()=>{const json=w.mode==="date"?{step:w.step,milestoneDate:w.withoutDate?null:w.value,...(w.step==="INSPECTED"?{inspectResult:w.inspectResult,inspectProblem:w.inspectProblem}:{}),requestKey:w.requestKey,expectedVersion:w.repair.version}:
    {action:"advance",step:w.step,milestoneDate:w.withoutDate?null:w.value,inspectResult:w.inspectResult,inspectProblem:w.inspectProblem,shipping:{carrier:w.carrier,tracking:w.tracking},returnMethod:w.returnMethod,requestKey:w.requestKey,expectedVersion:w.repair.version};
    const result=await request<StoreRepair>("/"+w.repair.id+(w.mode==="date"?"/date":"/status"),w.mode==="date"?"PATCH":"POST",json);
@@ -95,8 +97,8 @@ export function StoreRepairs(){
    {/* Designed widths (user 2026-11-04): fixed for short values, 故障狀況 takes the rest; 檢測狀況 follows 檢測; 照片 and the two print buttons (維修單, 維修資訊卡) sit before 操作. */}
    <colgroup><col style={{width:"3.4em"}}/><col style={{width:"6.6em"}}/><col style={{width:"6.8em"}}/><col style={{width:"9.6em"}}/><col style={{width:"9.4em"}}/>
     <col style={{width:"4.6em"}}/><col style={{width:"11em"}}/><col style={{width:"7.6em"}}/><col/>
-    {STORE_REPAIR_STEPS.map(s=><col key={s} style={{width:s==="INSPECTED"?"6.2em":"4.6em"}}/>)}<col style={{width:"4.6em"}}/><col style={{width:"10.4em"}}/><col style={{width:"8.8em"}}/></colgroup>
-   <thead><tr>{LIST_HEADINGS.map((h,i)=><th key={h} className={[i===2||i===9||i===LIST_HEADINGS.length-3?"cy-grid-divider-before":"",CENTERED_HEADINGS.has(h)?"cy-repair-center":""].join(" ").trim()||undefined}>{h}</th>)}</tr></thead>
+    {STORE_REPAIR_STEPS.map(s=><col key={s} style={{width:"4.6em"}}/>)}<col style={{width:"4.6em"}}/><col style={{width:"10.4em"}}/></colgroup>
+   <thead><tr>{LIST_HEADINGS.map((h,i)=><th key={h} className={[i===2||i===9||i===LIST_HEADINGS.length-2?"cy-grid-divider-before":"",CENTERED_HEADINGS.has(h)?"cy-repair-center":""].join(" ").trim()||undefined}>{h}</th>)}</tr></thead>
    {visible.map(r=>{const state=status(r),next=nextRepairStep(r),closed=r.status==="RETURNED",undoClose=canUndoRepairClosure(r),overdue=!!repairOverdue(r);return <tbody key={r.id}><tr data-overdue={overdue||undefined}>
     <td data-label="項次" className="cy-store-sequence">{r.sequence}</td>
     <td data-label="處理狀態" className="cy-store-status-cell"><StatusChip tone={state.tone} className={state.code==="OVERDUE"?"cy-store-overdue-pill":undefined}>{state.label}</StatusChip></td>
@@ -107,14 +109,22 @@ export function StoreRepairs(){
     {STORE_REPAIR_STEPS.map((step,i)=>{const applicable=repairStepApplicable(r,step),reached=STORE_REPAIR_STEPS.indexOf(r.status as StoreRepairStep)>=i,canEdit=reached&&r.status!=="RETURNED",isNext=step===next&&!closed;
      const dateValue=r.dates[step];const cell=<td key={step} data-label={STORE_REPAIR_STEP_LABELS[step]} className={"cy-store-milestone "+(i===0?"cy-grid-divider-before ":"")+(!applicable?"cy-store-not-applicable":"")+(step==="INSPECTED"&&r.inspectResult?(r.inspectResult==="BAD"?" cy-repair-inspect-bad":" cy-repair-inspect-good"):"")} aria-label={!applicable?STORE_REPAIR_STEP_LABELS[step]+"不適用":undefined}>
       {applicable&&(reached||isNext)?<StoreMilestoneButton day={dateValue} baseYear={r.receivedDate} pending={isNext} disabled={busy||!isNext&&!canEdit} label={STORE_REPAIR_STEP_LABELS[step]+"日期 "+(dateValue??"無日期")+(step==="INSPECTED"&&r.inspectResult?"，"+inspection(r):"")} title={step==="INSPECTED"&&r.inspectResult?inspection(r):undefined} onClick={()=>showWork(r,step,isNext?"advance":"date")}/>:null}
+      {/* Same in-cell date popover as 顧客訂購 (user 2026-11-04), never a full dialog. */}
+      {work&&work.repair.id===r.id&&work.step===step?<div className="cy-store-date-popover" role="dialog" aria-label={step==="INSPECTED"?"檢測":STORE_REPAIR_STEP_LABELS[step]+"日期"}><form onKeyDown={enterAdvancesThenSubmits} onSubmit={e=>{e.preventDefault();void saveWork()}}>
+   <StoreMilestoneDateFields disabled={busy} label={STORE_REPAIR_STEP_LABELS[work.step]} value={work.value} withoutDate={work.withoutDate} min={work.repair.receivedDate} max={today()} onChange={patch=>setWork(w=>w?{...w,...patch}:w)}/>
+   {work.step==="INSPECTED"?<><SegmentedControl label="檢測結果" disabled={work.mode==="date"&&(work.repair.status!=="INSPECTED"||work.repair.cancelled)} options={[{value:"GOOD",label:"無異常"},{value:"BAD",label:"異常"}]} value={work.inspectResult} onChange={inspectResult=>setWork(w=>w?{...w,inspectResult}:w)}/>{work.inspectResult==="BAD"?<Field label="問題說明" required size="l"><input className="cy-op-input" maxLength={200} value={work.inspectProblem} onChange={e=>setWork(w=>w?{...w,inspectProblem:e.target.value}:w)}/></Field>:null}</>:null}
+   {work.mode==="advance"&&work.step==="SENT"?<StoreShippingFields carrier={work.carrier} tracking={work.tracking} onChange={patch=>setWork(w=>w?{...w,...patch}:w)}/>:null}
+   {work.mode==="advance"&&work.step==="RETURNED"?<><SegmentedControl label="歸還方式" options={[{value:"PICKUP",label:"自取"},{value:"SHIPPING",label:"寄送"}]} value={work.returnMethod} onChange={returnMethod=>setWork(w=>w?{...w,returnMethod}:w)}/>{work.returnMethod==="SHIPPING"?<StoreShippingFields carrier={work.carrier} tracking={work.tracking} onChange={patch=>setWork(w=>w?{...w,...patch}:w)}/>:null}</>:null}
+       <div className="cy-store-date-actions"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>setWork(null)}>取消</button><button type="submit" className="cy-op-button compact primary" disabled={busy}>{step==="RETURNED"&&work.mode==="advance"?"儲存並結案":"儲存"}</button></div>
+      </form></div>:null}
       {/* 檢測 date green for 無異常, red for 異常 (user 2026-11-04); the cell opens date and result together. */}
      </td>;
      return cell})}
     <td data-label="照片" className="cy-grid-divider-before"><button type="button" className="cy-repair-photo-entry" aria-label={"維修單照片 "+r.sequence} onClick={()=>setPhotosFor(r.id)}><span className="cy-repair-camera-icon">{Icons.camera}</span>{photoCounts[r.id]??r.photoCount??0}</button></td>
-    <td data-label="列印"><div className="cy-repair-print-actions">
-     <button type="button" className="cy-op-button compact" disabled={busy} aria-label={"列印維修單 "+r.sequence} onClick={()=>void print(r,"slip")}>維修單</button>
-     <button type="button" className="cy-op-button compact" disabled={busy} aria-label={"列印維修資訊卡 "+r.sequence} onClick={()=>void print(r,"card")}>資訊卡</button></div></td>
-    <td data-label="操作">{storeWorkflowActions({edit:{label:"修改維修",disabled:busy||closed,onClick:()=>setForm(draft(r))},cancel:{label:"取消維修",disabled:busy||closed||r.cancelled,onClick:()=>setAction({repair:r,kind:"cancel",reasonKind:"",reason:"",requestKey:crypto.randomUUID()})},back:{label:closed?"撤回結案":r.cancelled&&r.status!=="NOTIFIED"?"撤回取消":"退回上一步",disabled:busy||(closed?!undoClose:r.cancelled&&r.status==="NOTIFIED"||r.status==="RECEIVED"&&!r.cancelled),onClick:()=>setAction({repair:r,kind:closed?"undoClose":r.cancelled&&r.status!=="NOTIFIED"?"undoCancel":"rollback",reasonKind:"",reason:"",requestKey:crypto.randomUUID()})},history:{label:"維修操作紀錄",controls:"repair-history-"+r.id,expanded:history===r.id,onClick:()=>setHistory(h=>h===r.id?null:r.id)}})}</td>
+    <td data-label="操作" className="cy-repair-ops"><div className="cy-repair-ops-row">{storeWorkflowActions({edit:{label:"修改維修",disabled:busy||closed,onClick:()=>setForm(draft(r))},cancel:{label:"取消維修",disabled:busy||closed||r.cancelled,onClick:()=>setAction({repair:r,kind:"cancel",reasonKind:"",reason:"",requestKey:crypto.randomUUID()})},back:{label:closed?"撤回結案":r.cancelled&&r.status!=="NOTIFIED"?"撤回取消":"退回上一步",disabled:busy||(closed?!undoClose:r.cancelled&&r.status==="NOTIFIED"||r.status==="RECEIVED"&&!r.cancelled),onClick:()=>setAction({repair:r,kind:closed?"undoClose":r.cancelled&&r.status!=="NOTIFIED"?"undoCancel":"rollback",reasonKind:"",reason:"",requestKey:crypto.randomUUID()})},history:{label:"維修操作紀錄",controls:"repair-history-"+r.id,expanded:history===r.id,onClick:()=>setHistory(h=>h===r.id?null:r.id)}})}<IconButton variant="table" icon={Icons.print} label="列印" disabled={busy} expanded={printMenu===r.id} onClick={()=>setPrintMenu(m=>m===r.id?null:r.id)}/></div>
+     {printMenu===r.id?<div className="cy-store-date-popover cy-repair-print-menu" role="menu" aria-label="列印">
+      <button type="button" role="menuitem" className="cy-op-button compact" onClick={()=>{setPrintMenu(null);void print(r,"slip")}}>維修單</button>
+      <button type="button" role="menuitem" className="cy-op-button compact" onClick={()=>{setPrintMenu(null);void print(r,"card")}}>資訊卡</button></div>:null}</td>
    </tr>{history===r.id?<tr id={"repair-history-"+r.id}><td colSpan={LIST_HEADINGS.length}><StoreOperationHistory key={revision} path={"/repairs/"+r.id+"/history"} layout="chain" onError={reportError}/></td></tr>:null}</tbody>})}
    </table>{!visible.length?<p className="cy-op-empty">沒有符合條件的維修單。</p>:null}</div>
   {photosFor!==null?<StoreRepairPhotos repairId={photosFor} onClose={()=>setPhotosFor(null)} onCountChanged={count=>setPhotoCounts(old=>({...old,[photosFor]:count}))}/>:null}
@@ -150,13 +160,6 @@ export function StoreRepairs(){
   </form></Dialog>:null}
   {printSettings?<StoreRepairPrintSettingsDialog value={printSettings} busy={busy} onClose={()=>setPrintSettings(null)} onSave={next=>run(async()=>{
    await request<StoreRepairPrintSettings>("/print-settings","PUT",next);setPrintSettings(null);setMessage("列印設定已儲存")})}/>:null}
-  {work?<Dialog open dismissible={false} size="small" title={work.step==="INSPECTED"?"檢測":STORE_REPAIR_STEP_LABELS[work.step]+"日期"} onClose={()=>!busy&&setWork(null)}><form onKeyDown={enterAdvancesThenSubmits} onSubmit={e=>void saveWork(e)}>
-   <StoreMilestoneDateFields label={STORE_REPAIR_STEP_LABELS[work.step]} value={work.value} withoutDate={work.withoutDate} min={work.repair.receivedDate} max={today()} onChange={patch=>setWork(w=>w?{...w,...patch}:w)}/>
-   {work.step==="INSPECTED"?<><SegmentedControl label="檢測結果" disabled={work.mode==="date"&&(work.repair.status!=="INSPECTED"||work.repair.cancelled)} options={[{value:"GOOD",label:"無異常"},{value:"BAD",label:"異常"}]} value={work.inspectResult} onChange={inspectResult=>setWork(w=>w?{...w,inspectResult}:w)}/>{work.inspectResult==="BAD"?<Field label="問題說明" required size="l"><input className="cy-op-input" maxLength={200} value={work.inspectProblem} onChange={e=>setWork(w=>w?{...w,inspectProblem:e.target.value}:w)}/></Field>:null}</>:null}
-   {work.mode==="advance"&&work.step==="SENT"?<StoreShippingFields carrier={work.carrier} tracking={work.tracking} onChange={patch=>setWork(w=>w?{...w,...patch}:w)}/>:null}
-   {work.mode==="advance"&&work.step==="RETURNED"?<><SegmentedControl label="歸還方式" options={[{value:"PICKUP",label:"自取"},{value:"SHIPPING",label:"寄送"}]} value={work.returnMethod} onChange={returnMethod=>setWork(w=>w?{...w,returnMethod}:w)}/>{work.returnMethod==="SHIPPING"?<StoreShippingFields carrier={work.carrier} tracking={work.tracking} onChange={patch=>setWork(w=>w?{...w,...patch}:w)}/>:null}</>:null}
-   <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={()=>setWork(null)}>取消</button><button type="submit" className="cy-op-button primary" disabled={busy}>{work.step==="RETURNED"&&work.mode==="advance"?"儲存並結案":"儲存"}</button></div>
-  </form></Dialog>:null}
   {action?<Dialog open dismissible={false} size="small" title={{cancel:"取消維修",undoCancel:"撤回取消維修",undoClose:"撤回結案",rollback:"退回上一步"}[action.kind]} onClose={()=>!busy&&setAction(null)}><form onKeyDown={enterAdvancesThenSubmits} onSubmit={e=>void saveAction(e)}>
    {action.kind==="cancel"?<><p>取消維修後仍必須通知顧客，並完成機器歸還才會結案。</p><Reason kind={action.reasonKind} detail={action.reason} options={STORE_REPAIR_CANCEL_REASONS} onChange={(reasonKind,reason)=>setAction(a=>a?{...a,reasonKind,reason}:a)}/></>:action.kind==="rollback"?<Field label="退回理由" required size="l"><input className="cy-op-input" maxLength={300} value={action.reason} onChange={e=>setAction(a=>a?{...a,reason:e.target.value}:a)}/></Field>:<p>確定撤回此操作嗎？</p>}
    <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={()=>setAction(null)}>取消</button><button type="submit" className="cy-op-button primary" disabled={busy}>確認</button></div>

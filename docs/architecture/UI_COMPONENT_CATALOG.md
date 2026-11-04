@@ -56,7 +56,8 @@
 
 ### 門市共用（`runtime/modules/store-workflow/`）
 - `StoreFields.tsx`：`ContactCells`（電話1／電話2／LINE，可用 `spans` 跨欄）、`HonorificCell`、`Reason`。
-- `StoreMilestoneFields.tsx`：`StoreMilestoneButton`（流程格「登記」與日期戳記，訂購與維修共用）、`StoreMilestoneDateFields`。
+- `StoreMilestoneFields.tsx`：`StoreMilestoneButton`（流程格「登記」與日期戳記，訂購與維修共用）、`StoreMilestoneDateFields`。流程格內改日期一律用 `.cy-store-date-popover` 格內小視窗（照顧客訂購／售後維修寫法），不開整個對話框。
+- 操作紀錄：`StoreOperationHistory.tsx`（顯示，欄名中文對照也在這）＋`shared/store-history.ts` 的 `changedFields`（只列有變動的欄位）；新模組的紀錄照這組做。
 - `StoreWorkflowActions.tsx`：`storeWorkflowActions`（修改／取消／退回／紀錄 四個圖示）。
 - `StoreShippingFields.tsx`、`StoreOperationHistory.tsx`、`StoreNoteInput.tsx`。
 

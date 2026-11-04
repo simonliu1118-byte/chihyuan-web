@@ -6,6 +6,12 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.10.20 — 門市日期小視窗共用、紀錄中文化（2026-11-04，Claude）
+- 售後維修各步驟（含檢測結果）改用與顧客訂購相同的格內日期小視窗；「登記」按鈕樣式與顧客訂購一致。
+- 拿掉列印欄，改在操作欄加列印圖示，點開選維修單或資訊卡；多出的寬度都給故障狀況。
+- 操作紀錄的變動顯示邏輯共用（`changedFields`）：修改只列有變動的欄位；補上單價、數量等中文欄名。
+- 檢測欄恢復一般寬度；故障狀況過長改折行。
+
 ## CY Web V0.10.19 — 檢測欄與維修紀錄（2026-11-04，Claude）
 - 檢測日期改用顏色表示結果（綠＝無異常、紅＝異常）；點檢測格開啟同時有日期與檢測結果的視窗（進入下一步後只能改日期與說明）。
 - 售後維修的小視窗（檢測／各步驟日期、取消、退回）改窄版。
