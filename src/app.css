@@ -422,6 +422,18 @@ h1, h2, h3, h4, h5 { line-height: 1.35; }
 .cy-op-table tbody tr:hover td { background: var(--cy-surface-muted); }
 .cy-op-table .num { text-align: right; }
 .cy-op-table-wrap { max-width: 100%; overflow-x: auto; }
+/* V0.10.14: every general table (not 叫貨／門市／盤點, user 2026-11-03) takes the record-sheet look —
+   outer frame, cell rules, grey header, compact rows — like 備份紀錄 and 修改紀錄. */
+.cy-op-table:not(:where(.cy-ordering-page,.cy-store-page,.cy-store-stocktake) *) {
+  border-collapse: separate; border-spacing: 0; border: 1px solid var(--cy-border); border-radius: var(--cy-radius-sm);
+  background: var(--cy-surface); font-size: var(--cy-fs-md);
+}
+.cy-op-table:not(:where(.cy-ordering-page,.cy-store-page,.cy-store-stocktake) *) :is(th,td) {
+  padding: 5px 8px; border-bottom: 1px solid var(--cy-border); border-right: 1px solid var(--cy-border); vertical-align: middle;
+}
+.cy-op-table:not(:where(.cy-ordering-page,.cy-store-page,.cy-store-stocktake) *) tr > :last-child { border-right: 0; }
+.cy-op-table:not(:where(.cy-ordering-page,.cy-store-page,.cy-store-stocktake) *) tbody tr:last-child > td { border-bottom: 0; }
+.cy-op-table:not(:where(.cy-ordering-page,.cy-store-page,.cy-store-stocktake) *) th { padding-block: 5px; }
 .cy-op-total { margin-top: 12px; font-size: var(--cy-fs-lg); font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ---------- Tabs (one style for every module) ---------- */

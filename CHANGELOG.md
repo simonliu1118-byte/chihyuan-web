@@ -6,6 +6,9 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.10.14 — 一般資料表統一（2026-11-04，Claude）
+- 叫貨、門市、盤點以外的一般資料表（帳號與權限、人事、委外／代工、銷售工單、各模組設定等）改成和備份紀錄、修改紀錄相同的樣式：外框、格線、灰色表頭、較緊湊的列高。
+
 ## CY Web V0.10.13 — 彈窗外框統一（2026-11-04，Claude）
 - 全系統彈窗外框改成表格式單據的樣子：標題列較精簡（標題小一號、內距縮小），關閉鈕改用共用 × 圖示。
 - 確認視窗的說明改為一般內文顏色與字級，不再是灰色小字。
