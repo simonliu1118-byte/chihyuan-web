@@ -4,6 +4,7 @@ import {success,failure} from './response';
 import {AuditService} from '../audit/audit-service';
 import {validStoreRequestKey} from '../store/workflow-service';
 import {changedFields} from '../../shared/store-history';
+import {maintenanceWindow,type MaintenanceMatrixCustomer} from '../../shared/maintenance-matrix';
 import {EQUIPMENT_LIMITS as L,equipmentCustomerCode,equipmentSnapshot,validEquipmentDate,validEquipmentMonth,type EquipmentFields,type EquipmentRecord,type MaintenanceVisit} from '../../shared/store-equipment';
 const ROOT='/api/business/store/equipment';
 class Invalid extends Error{constructor(message:string,public status=422,public code='EQUIPMENT_INVALID'){super(message)}}
@@ -76,6 +77,41 @@ export async function handleStoreEquipmentRoute(req:Request,env:IdentityRuntimeE
    const list=await all<RecordRow>(c.db,recordListSelect+" WHERE r.list_sequence<? AND (?='' OR r.customer_code LIKE ? ESCAPE '\\' OR r.customer_name LIKE ? ESCAPE '\\' OR r.brand LIKE ? ESCAPE '\\' OR r.model LIKE ? ESCAPE '\\' OR EXISTS(SELECT 1 FROM json_each(r.machines_json) m WHERE json_extract(m.value,'$.serialNo') LIKE ? ESCAPE '\\')) ORDER BY r.list_sequence DESC LIMIT 101",Number(before),q,like,like,like,like,like);
    return success({rows:list.slice(0,100).map(recordJson),nextBefore:list.length>100?list[99].list_sequence:null},requestId);
   }
+  if(method==='GET'&&path==='/matrix'){
+   const rawYear=u.searchParams.get('year')??today(at).slice(0,4),year=Number(rawYear);
+   if(!/^\d{4}$/.test(rawYear)||year<2||year>9998)throw new Invalid('維護年度不正確');
+   const window=maintenanceWindow(year),before=u.searchParams.get('before')??'',q=(u.searchParams.get('q')??'').trim().slice(0,80),like='%'+q.replace(/[\\%_]/g,x=>'\\'+x)+'%',open=u.searchParams.get('open')==='1';
+   if([...before].length>L.customerCode)throw new Invalid('分頁不正確');
+   const relevant="(v.completed=1 OR EXISTS(SELECT 1 FROM store_equipment_plans p WHERE p.visit_id=v.id AND p.active=1))";
+   const candidates=await all<{customer_code:string;customer_name:string;active:number;equipment_json:string}>(c.db,`WITH candidates AS (
+    SELECT customer_code FROM store_equipment_records WHERE maintenance=1
+    UNION SELECT v.customer_code FROM store_maintenance_visits v WHERE ${relevant} AND v.planned_month BETWEEN ? AND ?
+    UNION SELECT v.customer_code FROM store_maintenance_visits v WHERE v.completed=1 AND v.completion_date BETWEEN ? AND ?
+   ),named AS (SELECT customer_code,COALESCE((SELECT customer_name FROM store_equipment_records r WHERE r.customer_code=candidates.customer_code ORDER BY updated_at DESC,id DESC LIMIT 1),(SELECT customer_name FROM store_maintenance_visits v WHERE v.customer_code=candidates.customer_code ORDER BY updated_at DESC,id DESC LIMIT 1),'') customer_name FROM candidates)
+   SELECT n.*,EXISTS(SELECT 1 FROM store_equipment_records r WHERE r.customer_code=n.customer_code AND r.maintenance=1) active,
+    (SELECT json_group_array(json_object('id',r.id,'sequence',r.list_sequence,'brand',r.brand,'model',r.model,'quantity',r.quantity,'saleDate',r.sale_date)) FROM store_equipment_records r WHERE r.customer_code=n.customer_code AND r.maintenance=1) equipment_json
+   FROM named n WHERE n.customer_code>? AND (?='' OR n.customer_code LIKE ? ESCAPE '\\' OR n.customer_name LIKE ? ESCAPE '\\')
+    AND (?=0 OR EXISTS(SELECT 1 FROM store_maintenance_visits v WHERE v.customer_code=n.customer_code AND v.completed=0 AND v.planned_month BETWEEN ? AND ? AND EXISTS(SELECT 1 FROM store_equipment_plans p WHERE p.visit_id=v.id AND p.active=1)))
+   ORDER BY n.customer_code LIMIT 51`,window.from,window.to,window.from+'-01',window.to+'-31',before,q,like,like,open?1:0,window.from,window.to);
+   const selected=candidates.slice(0,50),codes=JSON.stringify(selected.map(r=>r.customer_code));
+   // Two index ranges (planned and actual), rather than a full visit scan or one request per cell.
+   const visits=await all<VisitRow>(c.db,`SELECT v.*,'[]' equipment_json FROM store_maintenance_visits v WHERE v.id IN(
+    SELECT v.id FROM store_maintenance_visits v WHERE v.customer_code IN(SELECT value FROM json_each(?)) AND ${relevant} AND v.planned_month BETWEEN ? AND ?
+    UNION SELECT v.id FROM store_maintenance_visits v WHERE v.customer_code IN(SELECT value FROM json_each(?)) AND v.completed=1 AND v.completion_date BETWEEN ? AND ?
+   ) ORDER BY v.planned_month,v.id`,codes,window.from,window.to,codes,window.from+'-01',window.to+'-31');
+   // Read retained source summaries once per customer page, not once per monthly cell.
+   const retained=await all<{customer_code:string;snapshot_json:string}>(c.db,`SELECT DISTINCT v.customer_code,p.snapshot_json FROM store_equipment_plans p JOIN store_maintenance_visits v ON v.id=p.visit_id WHERE v.id IN(SELECT value FROM json_each(?)) AND p.retained=1`,JSON.stringify(visits.filter(v=>v.completed).map(v=>v.id)));
+   const rows:MaintenanceMatrixCustomer[]=selected.map(r=>({customerCode:r.customer_code,customerName:r.customer_name,activeMaintenance:!!r.active,equipment:[...new Map([...retained.filter(p=>p.customer_code===r.customer_code).map(p=>JSON.parse(p.snapshot_json)),...JSON.parse(r.equipment_json)].map(e=>[e.id,e])).values()],visits:visits.filter(v=>v.customer_code===r.customer_code).map(visitJson)}));
+   return success({rows,nextBefore:candidates.length>50?selected[49].customer_code:null,centerYear:year},requestId);
+  }
+  const customerHistory=/^\/customers\/([^/]+)\/history$/.exec(path);
+  if(method==='GET'&&customerHistory){
+   let code:string;try{code=equipmentCustomerCode(decodeURIComponent(customerHistory[1]))}catch{throw new Invalid('客戶編號不正確')}
+   if(!code||[...code].length>L.customerCode)throw new Invalid('客戶編號不正確');
+   const cursor=u.searchParams.get('cursor')??String(Number.MAX_SAFE_INTEGER);if(!/^\d+$/.test(cursor)||!Number.isSafeInteger(Number(cursor)))throw new Invalid('分頁不正確');
+   const list=await all<{id:number;actor:number;actorName:string;at:string;kind:string;before_json:string;after_json:string;month:string;reason:string}>(c.db,`SELECT e.*,m.display_name actorName,v.planned_month month FROM store_equipment_events e JOIN app_members m ON m.id=e.actor JOIN store_maintenance_visits v ON v.id=e.visit_id WHERE v.customer_code=? AND e.id<? ORDER BY e.id DESC LIMIT 51`,code,Number(cursor));
+   return success({rows:list.slice(0,50).map(e=>({id:e.id,actor:e.actor,actorName:e.actorName,at:e.at,kind:e.kind,before:JSON.parse(e.before_json),after:{...JSON.parse(e.after_json),plannedMonth:e.month},reason:e.reason})),nextCursor:list.length>50?list[49].id:null},requestId);
+  }
   if(method==='GET'&&path==='/visits'){
    const year=u.searchParams.get('year')??'',before=u.searchParams.get('before')??'9999-12|9007199254740991',parts=before.split('|');
    if(year&&!/^[0-9]{4}$/.test(year)||parts.length!==2||!validEquipmentMonth(parts[0])||!/^\d+$/.test(parts[1])||!Number.isSafeInteger(Number(parts[1])))throw new Invalid('查詢年月或分頁不正確');
@@ -104,6 +140,7 @@ export async function handleStoreEquipmentRoute(req:Request,env:IdentityRuntimeE
    if(typeof v.completed!=='boolean')throw new Invalid('維護狀態不正確');
    const date=v.completionDate;if(date!==null&&(typeof date!=='string'||!validEquipmentDate(date)||date>today(at)))throw new Invalid('維護日期不正確或晚於今天');
    if(!v.completed&&date!==null)throw new Invalid('取消完成不能保留日期');
+   if(v.completed&&date===null)throw new Invalid('請填寫實際維護日期，不支援無日期');
    const note=text(v.note,'備註',L.note);if(/[\r\n]/.test(note))throw new Invalid('備註請填寫單行');
    const before={completed:old.completed,completionDate:old.completionDate,note:old.note},after={completed:v.completed,completionDate:date,note};
    if(JSON.stringify(before)===JSON.stringify(after))return success(old,requestId);

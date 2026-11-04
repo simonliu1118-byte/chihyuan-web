@@ -1,42 +1,32 @@
-import {useCallback,useEffect,useRef,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {apiRequest} from '../../api/client';
 import {DataViewToolbar} from '../../ui/data/DataViewToolbar';
 import {ExpandToggle} from '../../ui/data/ExpandToggle';
-import {OpenOnlyToggle} from '../../ui/data/OpenOnlyToggle';
 import {IconButton} from '../../ui/actions/IconButton';
 import {Icons} from '../../ui/actions/icons';
 import {Dialog} from '../../ui/overlays/Dialog';
-import {useConfirmation} from '../../ui/overlays/useConfirmation';
 import {Field,CheckField} from '../../ui/forms/Field';
 import {EntryTable,EntryHeading} from '../../ui/forms/EntryTable';
 import {DateInput} from '../../ui/forms/DateInput';
 import {Loading} from '../../ui/feedback/Loading';
-import {FeedbackBanner,useFeedbackMessage} from '../../ui/feedback/FeedbackProvider';
-import {enterAdvancesFields,enterAdvancesThenSubmits} from '../../ui/foundation/enter-advance';
+import {FeedbackBanner} from '../../ui/feedback/FeedbackProvider';
+import {enterAdvancesFields} from '../../ui/foundation/enter-advance';
 import {useUnsavedChangesGuard} from '../../ui/foundation/useUnsavedChangesGuard';
-import {StoreMilestoneButton,StoreMilestoneDateFields} from './store-workflow/StoreMilestoneFields';
 import {StoreOperationHistory} from './StoreOperationHistory';
 import type {StoreHistoryCache} from '../../../shared/store-history';
-import {EQUIPMENT_LIMITS as L,equipmentWarrantyEnd,equipmentWarrantyMonths,halfYearMonths,validEquipmentDate,type EquipmentFields,type EquipmentRecord,type MaintenanceVisit} from '../../../shared/store-equipment';
+import {EQUIPMENT_LIMITS as L,equipmentWarrantyEnd,equipmentWarrantyMonths,halfYearMonths,validEquipmentDate,type EquipmentFields,type EquipmentRecord} from '../../../shared/store-equipment';
 import {taipeiToday} from '../../../shared/date-input';
+import {useStorePagedList} from './store-workflow/useStorePagedList';
 import './store-equipment.css';
 const ROOT='/api/business/store/equipment';
 const request=<T,>(path:string,method='GET',json?:unknown)=>apiRequest<T>(ROOT+path,{method,json});
 const display=(d:string)=>d.replaceAll('-','/');
-type Page<T>={rows:T[];nextBefore:number|string|null};
-/** Bounded keyset pages, debounced server search; no recurring polling or per-row fetch. */
-function useEquipmentList<T extends {id:number}>(query:string){
- const [rows,setRows]=useState<T[]>([]),[cursor,setCursor]=useState<number|string|null>(null),[loading,setLoading]=useState(true),[loaded,setLoaded]=useState(false);
- const [message,setMessage,reportError,tone]=useFeedbackMessage<string|null>(null),serial=useRef(0);
- const load=useCallback(async(more?:number|string)=>{const sequence=++serial.current;setLoading(true);try{const result=await request<Page<T>>(query+(more===undefined?'':(query.includes('?')?'&':'?')+'before='+encodeURIComponent(more)));if(sequence!==serial.current)return;setRows(old=>{const all=more===undefined?result.rows:[...old,...result.rows];return [...new Map(all.map(r=>[r.id,r])).values()]});setCursor(result.nextBefore)}catch(e){if(sequence===serial.current)reportError(e instanceof Error?e.message:'載入失敗')}finally{if(sequence===serial.current){setLoading(false);setLoaded(true)}}},[query,reportError]);
- useEffect(()=>{serial.current++;setRows([]);setCursor(null);setLoading(true);const timer=window.setTimeout(()=>void load(),200);return()=>{clearTimeout(timer);serial.current++}},[load]);
- return {rows,setRows,cursor,loading,loaded,load,message,setMessage,reportError,tone};
-}
+const equipmentKey=(r:EquipmentRecord)=>r.id;
 type Draft=EquipmentFields&{original?:EquipmentRecord;requestKey:string};
 const draft=(r?:EquipmentRecord):Draft=>({customerCode:r?.customerCode??'',customerName:r?.customerName??'',brand:r?.brand??'',model:r?.model??'',saleDate:r?.saleDate??taipeiToday(),quantity:r?.quantity??1,warrantyStart:r?.warrantyStart??'',warrantyEnd:r?.warrantyEnd??'',machines:r?.machines.map(x=>({...x}))??[{serialNo:'',manufacturedMonth:''}],maintenance:r?.maintenance??false,months:[...(r?.months??[])],original:r,requestKey:crypto.randomUUID()});
 function monthYears(f:Draft){if(!validEquipmentDate(f.warrantyStart)||!validEquipmentDate(f.warrantyEnd)||f.warrantyStart>f.warrantyEnd)return [];const first=Number(f.warrantyStart.slice(0,4)),last=Number(f.warrantyEnd.slice(0,4));return Array.from({length:Math.min(51,last-first+1)},(_,i)=>String(first+i).padStart(4,'0'))}
 export function StoreEquipmentRecords({onVisits,selectedId}:{onVisits:(code:string)=>void;selectedId?:number}){
- const [q,setQ]=useState(''),list=useEquipmentList<EquipmentRecord>('?q='+encodeURIComponent(q)),[form,setForm]=useState<Draft|null>(null),[expanded,setExpanded]=useState<number|null>(null),[history,setHistory]=useState<number|null>(null),[busy,setBusy]=useState(false),[revision,setRevision]=useState(0);
+ const [q,setQ]=useState(''),list=useStorePagedList<EquipmentRecord>(ROOT+'?q='+encodeURIComponent(q),equipmentKey),[form,setForm]=useState<Draft|null>(null),[expanded,setExpanded]=useState<number|null>(null),[history,setHistory]=useState<number|null>(null),[busy,setBusy]=useState(false),[revision,setRevision]=useState(0);
  const lock=useRef(false),cache=useRef<StoreHistoryCache>(new Map());
  useUnsavedChangesGuard({active:!!form,blocked:busy});
  useEffect(()=>{if(!selectedId||!list.loaded)return;let current=true;void request<EquipmentRecord>('/'+selectedId).then(r=>{if(current){list.setRows(old=>old.some(x=>x.id===r.id)?old:[r,...old]);setExpanded(r.id)}}).catch(e=>current&&list.reportError(e instanceof Error?e.message:'載入失敗'));return()=>{current=false}},[selectedId,list.loaded,list.reportError,list.setRows]);
@@ -70,22 +60,5 @@ export function StoreEquipmentRecords({onVisits,selectedId}:{onVisits:(code:stri
     {form.maintenance?<tr><td colSpan={12}><div className="cy-equipment-planned"><span>預計維護年月</span><button type="button" className="cy-op-button compact" disabled={!monthYears(form).length} onClick={()=>patch({months:halfYearMonths(form.warrantyStart,form.warrantyEnd)})}>帶入每半年月份</button></div><EntryTable embedded label="預計維護月份" className="cy-equipment-months"><thead><tr><th>年份</th>{Array.from({length:12},(_,i)=><th key={i}>{i+1}月</th>)}</tr></thead><tbody>{monthYears(form).map(y=><tr key={y}><th>{y}</th>{Array.from({length:12},(_,i)=>{const m=y+'-'+String(i+1).padStart(2,'0'),allowed=m>=form.warrantyStart.slice(0,7)&&m<=form.warrantyEnd.slice(0,7);return <td key={m} className={allowed?undefined:'cy-monthly-inapplicable'}>{allowed?<CheckField aria-label={'預計 '+display(m)+' 維護'} label={<span className="cy-visually-hidden">{display(m)}</span>} checked={form.months.includes(m)} onChange={e=>patch({months:e.target.checked?[...form.months,m].sort():form.months.filter(x=>x!==m)})}/>:null}</td>})}</tr>)}</tbody></EntryTable></td></tr>:null}
    </tbody></EntryTable><div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={()=>setForm(null)}>取消</button><button type="submit" className="cy-op-button primary" disabled={busy}>儲存</button></div>
   </form></Dialog>:null}
- </div>;
-}
-
-type VisitDraft={visit:MaintenanceVisit;value:string;withoutDate:boolean;note:string;requestKey:string};
-export function StoreMaintenanceVisits({initialCustomer='',onEquipment}:{initialCustomer?:string;onEquipment:(id:number)=>void}){
- const [q,setQ]=useState(initialCustomer),[year,setYear]=useState(''),[openOnly,setOpenOnly]=useState(false),[expanded,setExpanded]=useState<number|null>(null),[history,setHistory]=useState<number|null>(null),[work,setWork]=useState<VisitDraft|null>(null),[busy,setBusy]=useState(false),[revision,setRevision]=useState(0);
- const list=useEquipmentList<MaintenanceVisit>('/visits?q='+encodeURIComponent(q)+'&year='+year+'&open='+(openOnly?'1':'0')),cache=useRef<StoreHistoryCache>(new Map()),lock=useRef(false),{confirm,confirmationDialog}=useConfirmation({dismissible:false});
- useUnsavedChangesGuard({active:!!work,blocked:busy});
- async function save(completed=true){if(!work||lock.current)return;const w=work;lock.current=true;setBusy(true);try{const result=await request<MaintenanceVisit>('/visits/'+w.visit.id,'PUT',{expectedVersion:w.visit.version,requestKey:w.requestKey,completed,completionDate:completed&&!w.withoutDate?w.value:null,note:w.note});list.setRows(old=>old.flatMap(v=>v.id!==result.id?[v]:openOnly&&result.completed?[]:[result]));cache.current.delete('/equipment/visits/'+result.id+'/history');setRevision(x=>x+1);setWork(null);list.setMessage(completed?'維護紀錄已儲存':'已取消維護登記')}catch(e){list.reportError(e instanceof Error?e.message:'儲存失敗')}finally{lock.current=false;setBusy(false)}}
- if(!list.loaded)return <Loading/>;
- return <div className="cy-store-orders cy-store-equipment"><FeedbackBanner message={list.message} tone={list.tone}/><DataViewToolbar searchValue={q} onSearchChange={value=>{setWork(null);setQ(value)}} searchPlaceholder="搜尋客戶編號、名稱" beforeSearch={<OpenOnlyToggle value={openOnly} openLabel="顯示未完成" onChange={value=>{setWork(null);setOpenOnly(value)}}/>} filters={<Field label="維護年度" presentation="cell"><select className="cy-op-input" value={year} onChange={e=>{setWork(null);setYear(e.target.value)}}><option value="">全部年度</option>{Array.from({length:81},(_,i)=>String(new Date().getFullYear()-30+i)).map(y=><option key={y} value={y}>{y}</option>)}</select></Field>} actions={<button type="button" className="cy-op-button" disabled={busy||list.loading} onClick={()=>void list.load()}>重新整理</button>}/>
-  {list.loading?<Loading inline/>:null}<div className="cy-ordering-grid-scroll"><table className="cy-ordering-grid cy-store-workflow-table cy-equipment-visits" aria-label="定期維護總表"><colgroup><col style={{width:85}}/><col style={{width:'15em'}}/><col/><col style={{width:90}}/><col/><col style={{width:72}}/></colgroup><thead><tr>{['預計年月','客戶編號/名稱','品牌／機型及數量','實際維護日期','備註','操作'].map(h=><th key={h} className={['預計年月','實際維護日期','操作'].includes(h)?'cy-store-head-center':undefined}>{h}</th>)}</tr></thead>
-  {list.rows.map(v=><tbody key={v.id}><tr><td data-label="預計年月" className="cy-equipment-center">{display(v.month)}</td><td data-label="客戶編號/名稱"><span className="cy-repair-customer-code">{v.customerCode}</span>{v.customerName}</td><td data-label="品牌／機型及數量">{v.equipment.map((e,i)=><div key={e.id}>{[e.brand,e.model].filter(Boolean).join('／')} ×{e.quantity}</div>)}</td><td data-label="實際維護日期" className="cy-store-milestone"><StoreMilestoneButton day={v.completionDate} baseYear={v.month} pending={!v.completed} disabled={busy} label={(v.completed?'修改':'登記')+' '+v.customerName+' '+display(v.month)+' 維護'} title={v.completionDate?display(v.completionDate):undefined} onClick={()=>setWork({visit:v,value:v.completionDate??taipeiToday(),withoutDate:v.completed&&!v.completionDate,note:v.note,requestKey:crypto.randomUUID()})}/>
-   {work?.visit.id===v.id?<div className="cy-store-date-popover" role="dialog" aria-label="維護登記"><form onKeyDown={enterAdvancesThenSubmits} onSubmit={e=>{e.preventDefault();void save()}}><StoreMilestoneDateFields label="維護" min="0001-01-01" max={taipeiToday()} value={work.value} withoutDate={work.withoutDate} disabled={busy} onChange={p=>setWork(w=>w?{...w,...p}:w)}/><Field label="備註" size="l"><input className="cy-op-input cy-equipment-visit-note" aria-label="維護備註" maxLength={L.note} value={work.note} disabled={busy} onChange={e=>setWork(w=>w?{...w,note:e.target.value}:w)}/></Field><div className="cy-store-date-actions">{v.completed?<button type="button" className="cy-op-button compact danger" disabled={busy} onClick={()=>void(async()=>{if(await confirm({title:'取消維護登記？',confirmLabel:'取消登記',cancelLabel:'返回'}))await save(false)})()}>取消登記</button>:null}<button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>setWork(null)}>取消</button><button type="submit" className="cy-op-button compact primary" disabled={busy}>儲存</button></div></form></div>:null}</td><td data-label="備註">{v.note}</td><td data-label="操作"><div className="cy-store-row-actions"><ExpandToggle expanded={expanded===v.id} label={display(v.month)+' '+v.customerName+' 涵蓋出機'} onToggle={()=>setExpanded(x=>x===v.id?null:v.id)}/><IconButton variant="table" icon={Icons.history} label={display(v.month)+' '+v.customerName+' 操作紀錄'} expanded={history===v.id} controls={'visit-history-'+v.id} onClick={()=>setHistory(x=>x===v.id?null:v.id)}/></div></td></tr>
-   {expanded===v.id?<tr className="cy-equipment-detail"><td colSpan={6}><EntryTable embedded label="涵蓋出機紀錄"><thead><tr><th>項次</th><th>銷售日期</th><th>品牌</th><th>機型</th><th>數量</th><th>操作</th></tr></thead><tbody>{v.equipment.map(e=><tr key={e.id}><td>{e.sequence}</td><td>{display(e.saleDate)}</td><td>{e.brand}</td><td>{e.model}</td><td>{e.quantity}</td><td><button type="button" className="cy-op-button compact" onClick={()=>onEquipment(e.id)}>查看出機</button></td></tr>)}</tbody></EntryTable></td></tr>:null}
-   {history===v.id?<tr><td id={'visit-history-'+v.id} colSpan={6}><StoreOperationHistory key={revision} layout="chain" path={'/equipment/visits/'+v.id+'/history'} cache={cache.current} onError={list.reportError}/></td></tr>:null}
-  </tbody>)}{!list.rows.length?<tbody><tr><td colSpan={6}>尚無符合條件的維護排程</td></tr></tbody>:null}</table></div>{list.cursor!==null?<button type="button" className="cy-op-button" disabled={list.loading} onClick={()=>void list.load(list.cursor!)}>載入更多</button>:null}{confirmationDialog}
  </div>;
 }

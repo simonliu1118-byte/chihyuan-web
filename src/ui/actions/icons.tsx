@@ -7,6 +7,8 @@ function Glyph({ children }: { children: ReactNode }) {
 
 /** Shared action icons. Add new glyphs here instead of inline SVG in a module. */
 export const Icons = {
+  circle: <Glyph><circle cx="12" cy="12" r="8" /></Glyph>,
+  warning: <Glyph><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5m0 3h.01"/></Glyph>,
   print: <Glyph><path d="M7 9V3h10v6" /><rect x="3" y="9" width="18" height="8" rx="2" /><path d="M7 14h10v7H7z" /></Glyph>,
   camera: <Glyph><rect x="3" y="6" width="18" height="14" rx="2" /><circle cx="12" cy="13" r="4"/><path d="m8 6 1-2h6l1 2"/></Glyph>,
   history: <Glyph><path d="M3 11a9 9 0 1 1 2.5 7M3 4v7h7" /><path d="M12 7v5l3 2" /></Glyph>,

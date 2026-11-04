@@ -81,3 +81,8 @@
 ## 出機與維護（V0.11.0）
 
 `StoreAfterSales` 在售後維修內只用一組 SegmentedControl 切換門市送修／出機紀錄／定期維護。新增修改沿用 EntryTable＋Field；到訪沿用 StoreMilestoneButton、StoreMilestoneDateFields、單行 Field 與既有格內小視窗。OpenOnlyToggle 的 openLabel 可換成「顯示未完成」，舊呼叫者預設文字不變。沒有新增日期／登記元件。
+
+
+## 三年維護矩陣（V0.11.1）
+
+`StoreMaintenanceMatrix` 只改維護呈現：共用 cy-ordering-grid 雙層表頭、客戶固定欄、36月份、IconButton 圓圈／警示、StoreMilestoneButton 實際日期；同日多筆點開用EntryTable。日期與單行備註沿用StoreMilestoneDateFields（allowWithoutDate=false）及Field，不另建選擇器。`store-workflow/useStorePagedList` 抽取原出機的游標／防舊回應邏輯，出機和矩陣共用；不背景輪詢。詳細資料與行為以[維護契約](STORE_EQUIPMENT_MAINTENANCE.md)為準。

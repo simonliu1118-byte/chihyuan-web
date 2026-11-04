@@ -6,6 +6,12 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.11.1 — 三年定期維護矩陣（2026-11-05，GPT）
+
+- 依後續新設計改成客戶×三年月份矩陣：預計圓圈、逾期警示、跨月去向與實際月份日期；同日多筆只顯示一個日期，點開逐筆修改，不同日期分行。
+- 沿用共用日期／備註與操作紀錄；新登記日期必填，舊無日期資料保留補填入口。客戶50筆分頁，歷程展開才讀，儲存直接更新單筆回應。
+- 0052只新增索引、備份版本同步；本機23項相關測試、型別、來源檢查與建置通過。完整測試的平台限制及CI／部署狀態見 [handoff](docs/handoff/CYWEB-MAINTENANCE-MATRIX-0111-20261105.md)。Claude待審查。
+
 ## CY Web V0.11.0 — 出機紀錄與定期維護（2026-11-05，GPT）
 
 - 售後維修同層切換門市送修／出機紀錄／定期維護；完整新增出機、保固、跨年維護排程與同院同月到訪彙整，故升 Minor。

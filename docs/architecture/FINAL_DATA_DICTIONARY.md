@@ -766,3 +766,8 @@ Since V0.9.81 a portable backup records the source database's last migration and
 ## 0051 出機與定期維護
 
 新增 `store_equipment_records`（含 machines_json、maintenance、version）、`store_maintenance_visits`（UNIQUE customer_code＋planned_month；completed、completion_date、note、version）、`store_equipment_plans`（equipment_id＋visit_id、active、retained、snapshot_json）、`store_equipment_events`（equipment_id／visit_id二擇一、actor＋request_key唯一、request_hash）與 `store_equipment_state`（id=1、version）。完整欄位／FK／CHECK以 `migrations/0051_store_equipment_maintenance.sql` 為唯一實體來源；業務語意見 [出機與維護](STORE_EQUIPMENT_MAINTENANCE.md)。全部納入 portable backup。
+
+
+## 0052 維護矩陣索引
+
+僅新增 `store_equipment_records(maintenance,customer_code)` 與已完成 `store_maintenance_visits(completion_date,customer_code)` 索引。沿用0051的表與欄位，不刪除或改寫既有無日期到訪；矩陣和新登記必填日期語意見[維護契約](STORE_EQUIPMENT_MAINTENANCE.md)。
