@@ -39,6 +39,11 @@ export function repairOverdue(r:Pick<StoreRepair,"status"|"cancelled"|"sentAt"|"
  if(r.status==="NOTIFIED"&&(storeDaysElapsed(r.notifiedAt,now)??0)>STORE_PICKUP_OVERDUE_DAYS)return "PICKUP";
  return null;
 }
+/** A completed later step locks all details, including steps registered without a date. */
+export function repairStepLocked(r:Pick<StoreRepair,"status"|"dates">,step:StoreRepairStep):boolean{
+ const index=STORE_REPAIR_STEPS.indexOf(step);
+ return STORE_REPAIR_STEPS.indexOf(r.status as StoreRepairStep)>index||STORE_REPAIR_STEPS.slice(index+1).some(next=>!!r.dates[next]);
+}
 /** Cancelled repairs still move through notification and return; sent units require factory receipt first. */
 export function nextRepairStep(r:Pick<StoreRepair,"status"|"cancelled"|"inspectResult">):StoreRepairStep|null{
  if(r.status==="RETURNED")return null;

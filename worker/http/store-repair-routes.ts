@@ -6,7 +6,7 @@ import {inspectJpeg,putJpegWithRecords,JpegUploadError} from "../files/jpeg-uplo
 import {normalizeStoreContacts} from "../../shared/phone";
 import {normalizePhone,type Honorific} from "../../shared/store";
 import {STORE_EDIT_REASONS} from "../../shared/store";
-import {STORE_REPAIR_PRODUCTS,STORE_REPAIR_CARRIERS,STORE_REPAIR_CANCEL_REASONS,STORE_REPAIR_PHOTO_LIMIT,STORE_REPAIR_PRINT_LIMITS,type StoreRepairPrintSettings,STORE_REPAIR_STEPS,nextRepairStep,canUndoRepairClosure,repairHistoryPresentation,type StoreRepair,type StoreRepairStatus,type StoreRepairStep,type StoreRepairCarrier,type StoreRepairInspectResult,type StoreRepairReturnMethod} from "../../shared/store-repairs";
+import {STORE_REPAIR_PRODUCTS,STORE_REPAIR_CARRIERS,STORE_REPAIR_CANCEL_REASONS,STORE_REPAIR_PHOTO_LIMIT,STORE_REPAIR_PRINT_LIMITS,type StoreRepairPrintSettings,STORE_REPAIR_STEPS,repairStepLocked,repairStepApplicable,nextRepairStep,canUndoRepairClosure,repairHistoryPresentation,type StoreRepair,type StoreRepairStatus,type StoreRepairStep,type StoreRepairCarrier,type StoreRepairInspectResult,type StoreRepairReturnMethod} from "../../shared/store-repairs";
 import {storeVersionGuard,storeEvent,validStoreRequestKey} from "../store/workflow-service";
 const ROOT="/api/business/store/repairs";
 type Context={db:D1Database;actor:number;at:string;requestId:string};
@@ -171,20 +171,35 @@ export async function handleStoreRepairRoute(req:Request,env:IdentityRuntimeEnv 
    after={...json(o),...f};kind="修改維修";
    await c.db.batch([guard(c,o),stmt,event(c,id,k,kind,before,after,eventReason),audit(c,id,"store_repair.edited",before,after)]);
   }else if(m[2]==="date"){
-   const step=v.step as StoreRepairStep;if(!STORE_REPAIR_STEPS.includes(step)||o.status==="RETURNED"&&!canUndoRepairClosure(json(o),Date.parse(c.at))||!(o[dateColumns[step]]||STORE_REPAIR_STEPS.indexOf(step)<=STORE_REPAIR_STEPS.indexOf(o.status as StoreRepairStep)))throw new Invalid("不能修改該日期",409);
+   const step=v.step as StoreRepairStep,current=json(o);
+   if(!STORE_REPAIR_STEPS.includes(step))throw new Invalid("不能修改該日期",409);
+   if(repairStepLocked(current,step))throw new Invalid("下一步已登記，不能修改",409);
+   if(!repairStepApplicable(current,step)||o.status==="RETURNED"&&!canUndoRepairClosure(current,Date.parse(c.at))||!(o[dateColumns[step]]||STORE_REPAIR_STEPS.indexOf(step)<=STORE_REPAIR_STEPS.indexOf(o.status as StoreRepairStep)))throw new Invalid("不能修改該日期",409);
    const day=date(v.milestoneDate,"辦理日期",c.at,true);validateOrder(o,step,day);
-   const column=dateColumns[step],extra=step==="NOTIFIED"?"notified_at":step==="SENT"?"sent_at":null;
-   // 檢測 opens date and result together (V0.10.19): the result itself changes only before the next step.
-   let inspect:{result:string;problem:string}|null=null;
+   const column=dateColumns[step],changes:Record<string,unknown>={[column]:day};
+   const eventBefore:Record<string,unknown>={step,date:o[column]};after={step,date:day};kind="修改日期";
+   if(step==="NOTIFIED")changes.notified_at=o.notified_at??c.at;
+   if(step==="SENT")changes.sent_at=o.sent_at??c.at;
    if(step==="INSPECTED"&&v.inspectResult!==undefined){
     if(v.inspectResult!=="GOOD"&&v.inspectResult!=="BAD")throw new Invalid("檢測結果不正確");
-    if(v.inspectResult!==o.inspect_result&&(o.status!=="INSPECTED"||o.cancelled))throw new Invalid("已進入下一步，不能改檢測結果",409);
-    inspect={result:v.inspectResult,problem:v.inspectResult==="BAD"?text(v.inspectProblem,"補充說明",200):""};
+    if(v.inspectResult!==o.inspect_result&&o.cancelled)throw new Invalid("已進入下一步，不能改檢測結果",409);
+    changes.inspect_result=v.inspectResult;changes.inspect_problem=v.inspectResult==="BAD"?text(v.inspectProblem,"補充說明",200):"";
+    Object.assign(eventBefore,{inspectResult:o.inspect_result,inspectProblem:o.inspect_problem});Object.assign(after,{inspectResult:changes.inspect_result,inspectProblem:changes.inspect_problem});
    }
-   const sql="UPDATE store_repairs SET "+column+"=?"+(extra?", "+extra+"=COALESCE("+extra+",?)":"")+(inspect?",inspect_result=?,inspect_problem=?":"")+",version=version+1,updated_at=?,updated_by=? WHERE id=?";
-   const args=[day,...(extra?[c.at]:[]),...(inspect?[inspect.result,inspect.problem]:[]),c.at,c.actor,id];
-   after={step,date:day,...(inspect?{inspectResult:inspect.result,inspectProblem:inspect.problem}:{})};kind="修改日期";
-   await c.db.batch([guard(c,o),c.db.prepare(sql).bind(...args),event(c,id,k,kind,{step,date:o[column]},after),audit(c,id,"store_repair.date",before,after)]);
+   if(step==="SENT"&&v.shipping!==undefined){
+    const shipment=shipping(obj(v.shipping),"send");changes.send_carrier=shipment.carrier;changes.send_tracking=shipment.tracking;
+    Object.assign(eventBefore,{carrier:STORE_REPAIR_CARRIERS[o.send_carrier as StoreRepairCarrier]??o.send_carrier,tracking:o.send_tracking});
+    Object.assign(after,{carrier:STORE_REPAIR_CARRIERS[shipment.carrier],tracking:shipment.tracking});
+   }
+   if(step==="RETURNED"&&(v.returnMethod!==undefined||v.shipping!==undefined)){
+    const method=v.returnMethod??o.return_method;if(method!=="PICKUP"&&method!=="SHIPPING")throw new Invalid("請選擇歸還方式");
+    changes.return_method=method;changes.return_carrier="";changes.return_tracking="";
+    if(method==="SHIPPING"){const shipment=shipping(obj(v.shipping??{carrier:o.return_carrier,tracking:o.return_tracking}),"return");changes.return_carrier=shipment.carrier;changes.return_tracking=shipment.tracking}
+    Object.assign(eventBefore,{returnMethod:o.return_method==="SHIPPING"?"寄送":"自取",carrier:STORE_REPAIR_CARRIERS[o.return_carrier as StoreRepairCarrier]??o.return_carrier,tracking:o.return_tracking});
+    Object.assign(after,{returnMethod:method==="SHIPPING"?"寄送":"自取",carrier:STORE_REPAIR_CARRIERS[changes.return_carrier as StoreRepairCarrier]??"",tracking:changes.return_tracking});
+   }
+   const keys=Object.keys(changes),sql="UPDATE store_repairs SET "+keys.map(x=>x+"=?").join(",")+",version=version+1,updated_at=?,updated_by=? WHERE id=?";
+   await c.db.batch([guard(c,o),c.db.prepare(sql).bind(...keys.map(x=>changes[x]),c.at,c.actor,id),event(c,id,k,kind,eventBefore,after),audit(c,id,"store_repair.date",before,after)]);
   }else{
    const action=String(v.action??"advance");
    const current=json(o);

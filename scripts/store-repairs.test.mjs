@@ -68,8 +68,7 @@ test('cancelled factory unit must be repaired before notice; rollback and date e
   assert.equal((await advance(f,r,'NOTIFIED')).status,409);
   r=ok(await advance(f,r,'REPAIRED'));
   r=ok(await action(f,r,'undoCancel'));
-  r=ok(await f.call('/'+r.id+'/date','PATCH',{step:'INSPECTED',milestoneDate:'2026-10-15',expectedVersion:r.version,requestKey:key()}));
-  assert.equal(r.dates.INSPECTED,'2026-10-15');
+  assert.equal((await f.call('/'+r.id+'/date','PATCH',{step:'INSPECTED',milestoneDate:'2026-10-15',expectedVersion:r.version,requestKey:key()})).status,409);
   const stale=await f.call('/'+r.id+'/date','PATCH',{step:'INSPECTED',milestoneDate:null,expectedVersion:r.version-1,requestKey:key()});
   assert.equal(stale.status,409);
   r=ok(await action(f,r,'rollback',{reason:'重新評估'}));assert.equal(r.status,'SENT');
@@ -117,5 +116,41 @@ test('repair photo API: scoped access, JPEG size and count, R2 removal and after
   // Closure does not disallow photo upload, unlike normal repair editing.
   f.sql.prepare("UPDATE store_repairs SET status='RETURNED',closed_at='2026-10-16T03:00:00Z' WHERE id=?").run(repair.id);
   assert.equal((await raw(root,'POST',jpeg)).status,200);
+ }finally{f.sql.close()}
+});
+
+
+test('later repair steps lock inspection and shipping even without dates; rollback unlocks the last step',async()=>{
+ const f=fixture();try{
+  let r=ok(await create(f));r=ok(await advance(f,r,'INSPECTED',{inspectResult:'BAD',inspectProblem:'原補充'}));
+  r=ok(await advance(f,r,'SENT',{milestoneDate:null,shipping:{carrier:'SELF',tracking:'原註記'}}));
+  const patch=(step,more={})=>f.call('/'+r.id+'/date','PATCH',{step,milestoneDate:null,expectedVersion:r.version,requestKey:key(),...more});
+  const events=()=>f.sql.prepare('SELECT COUNT(*) n FROM store_repair_events').get().n;
+  let count=events();const locked=await patch('INSPECTED',{inspectResult:'GOOD',inspectProblem:'不應修改'});
+  assert.equal(locked.status,409);assert.match(JSON.stringify(locked.body),/下一步已登記，不能修改/);assert.equal(events(),count);
+  assert.equal((await patch('SENT',{shipping:{carrier:'POST',tracking:''}})).status,422);
+  r=ok(await patch('SENT',{shipping:{carrier:'POST',tracking:'NEW-123'}}));assert.equal(r.sendCarrier,'POST');assert.equal(r.sendTracking,'NEW-123');
+  const event=ok(await f.call('/'+r.id+'/history')).rows[0];assert.equal(event.after.tracking,'NEW-123');assert.equal(event.after.carrier,'郵局');
+  assert(f.sql.prepare("SELECT COUNT(*) n FROM audit_events WHERE action='store_repair.date'").get().n>0);
+  r=ok(await advance(f,r,'REPAIRED',{milestoneDate:null}));count=events();
+  assert.equal((await patch('SENT',{shipping:{carrier:'HCT',tracking:'BLOCKED'}})).status,409);assert.equal(events(),count);
+  r=ok(await action(f,r,'rollback',{reason:'更正送廠資料'}));assert.equal(r.status,'SENT');
+  r=ok(await patch('SENT',{shipping:{carrier:'SELF',tracking:'更正註記'}}));assert.equal(r.sendTracking,'更正註記');
+  r=ok(await action(f,r,'rollback',{reason:'更正檢測'}));
+  r=ok(await patch('INSPECTED',{inspectResult:'BAD',inspectProblem:'更正補充'}));assert.equal(r.inspectProblem,'更正補充');
+ }finally{f.sql.close()}
+});
+
+test('returned shipping is viewable and amendable only within the existing closure window',async()=>{
+ const f=fixture();try{
+  let r=ok(await create(f));r=ok(await advance(f,r,'INSPECTED',{inspectResult:'GOOD'}));r=ok(await advance(f,r,'NOTIFIED'));
+  r=ok(await advance(f,r,'RETURNED',{returnMethod:'SHIPPING',shipping:{carrier:'POST',tracking:'RETURN-1'}}));const closedAt=r.closedAt;
+  const patch=more=>f.call('/'+r.id+'/date','PATCH',{step:'RETURNED',milestoneDate:null,requestKey:key(),expectedVersion:r.version,...more});
+  r=ok(await patch({returnMethod:'SHIPPING',shipping:{carrier:'HCT',tracking:'RETURN-2'}}));assert.equal(r.returnTracking,'RETURN-2');assert.equal(r.closedAt,closedAt);
+  r=ok(await patch({returnMethod:'PICKUP'}));assert.equal(r.returnCarrier,'');assert.equal(r.returnTracking,'');
+  assert.equal((await patch({returnMethod:'SHIPPING'})).status,422);
+  f.sql.prepare("UPDATE store_repairs SET closed_at='2000-01-01T00:00:00Z' WHERE id=?").run(r.id);
+  assert.equal((await patch({returnMethod:'SHIPPING',shipping:{carrier:'POST',tracking:'BLOCKED'}})).status,409);
+  assert.equal(ok(await f.call('/'+r.id)).returnMethod,'PICKUP');
  }finally{f.sql.close()}
 });
