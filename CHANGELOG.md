@@ -6,6 +6,12 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.10.24 — 門市步驟鎖定與物流顯示（2026-11-04，GPT，待 Claude 審查）
+
+- 售後維修及訂購登記下一步後，前一步日期與細節唯讀；維修仍可開格子檢視，API 同步拒絕更正。無日期同樣鎖定，退回後恢復修改，既有取消及猶豫規則不變。
+- 送廠與寄送歸還帶回物流及寄送編號，目前最後一步可更正並留下事件及稽核；手機展開流程格佔整欄，避免物流欄擠壓及日期按鈕撐高。
+- 相關測試 79/79、型別／建置／來源檢查通過；完整測試與本機 D1 的 Windows 限制及畫面證據見 [handoff](docs/handoff/CYWEB-WO-0.10.24-STEP-LOCK-20261104.md)。未合併、未部署。
+
 ## CY Web V0.10.23 — 售後維修產品欄加寬（2026-11-04，Claude）
 - 產品欄加寬，例如「明宏低周波Alpha-2000」可一行放下；多出空間仍由故障狀況吸收。
 

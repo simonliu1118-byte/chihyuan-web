@@ -337,7 +337,8 @@
  .cy-store-workflow-table tbody>tr>td:is([data-label="訂購品項"],[data-label="備註"],[data-label="操作"]){grid-column:1/-1}
  .cy-store-workflow-table tbody>tr.cy-store-item-continuation{grid-template-columns:minmax(0,1fr)70px 50px}
  .cy-store-workflow-table tbody>tr.cy-store-item-continuation>td{grid-column:auto}
- .cy-store-date-link{position:static;min-height:36px}
+ .cy-store-date-link{position:static;height:36px;min-height:36px}
+ .cy-store-workflow-table td.cy-store-milestone:has(>.cy-store-date-popover){grid-column:1/-1}
  .cy-store-orders .cy-store-workflow-table .cy-grid-divider-before{border-left:0}
  .cy-store-workflow-table td[colspan]{grid-column:1/-1}
  .cy-store-date-popover{position:relative;right:auto;max-width:100%;box-sizing:border-box}

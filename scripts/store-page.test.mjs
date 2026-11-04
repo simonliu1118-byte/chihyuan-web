@@ -139,3 +139,11 @@ test('overdue starts after the fourteenth Taipei calendar day, counting from the
  assert.equal(v.nodes.find(n=>n.type?.name==='StatusChip').props.children,'待取貨');
  t.mock.timers.tick(1000);v.render();assert.equal(v.nodes.find(n=>n.type?.name==='StatusChip').props.children,'逾期未取');
 });
+
+
+test('order milestone keeps prior dates visible but disabled after the next no-date step',async()=>{
+ const o={...sample(),status:'NOTIFIED',hasEverOrdered:true,dates:{ORDERED:'2026-10-28',NOTIFIED:null,PICKED_UP:null}};
+ const v=mount({order:o});await v.tick(true);
+ assert.equal(v.nodes.find(n=>n.type==='button'&&n.props['aria-label']==='叫貨日期 2026/10/28').props.disabled,true);
+ assert.equal(v.nodes.find(n=>n.type==='button'&&n.props['aria-label']==='通知日期 無日期').props.disabled,false);
+});

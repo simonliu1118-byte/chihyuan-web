@@ -122,6 +122,8 @@ export async function handleStoreRoute(request:Request,env:IdentityRuntimeEnv,re
     const closed=isOrderClosed({status:o.status,callResult:o.call_result}),amend=canAmendClosure({status:o.status,callResult:o.call_result,closedAt:o.closed_at},Date.parse(c.now)),step=String(v.step) as StoreMilestone,finalStep=o.status==="PICKED_UP"?"PICKED_UP":"NOTIFIED";
     if(closed&&(!amend||step!==finalStep))throw new Bad("STORE_INVALID","結案修正時間已過，或非最後一步日期",409);
     const unavailable=isSupplyUnavailable({callResult:o.call_result});if(!STORE_MILESTONES.includes(step)||o.status==="CANCELLED"||unavailable&&step!=="NOTIFIED"||!o[dateColumns[step]]&&STORE_STEPS.indexOf(step)>STORE_STEPS.indexOf(o.status as typeof STORE_STEPS[number]))throw new Bad("STORE_INVALID","此步驟尚未到達或不可修改");
+    // Rollback retains dates as history; only the current status determines which step is active.
+    if(STORE_STEPS.indexOf(o.status as typeof STORE_STEPS[number])>STORE_STEPS.indexOf(step))throw new Bad("STORE_INVALID","下一步已登記，不能修改",409);
     const d=v.milestoneDate===null||v.milestoneDate===""?null:dateOf(v.milestoneDate);validateDates(o,step,d);before=dates(o);after={...dates(o),[step]:d};if(o[dateColumns[step]]===d)return success(await getOrder(c,id),requestId);
     stmts.push(c.db.prepare(`UPDATE store_customer_orders SET ${dateColumns[step]}=?,closed_at=CASE WHEN ?=1 THEN ? ELSE closed_at END,version=version+1,updated_at=?,updated_by=? WHERE id=?`).bind(d,closed?1:0,c.now,c.now,c.actor,id));kind="更正日期";
    }else{

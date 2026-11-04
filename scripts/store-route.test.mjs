@@ -98,9 +98,9 @@ test("rollback keeps dates and ever-ordered rule, date correction never advances
  const h=ok(await call(`/orders/${o.id}/history`));assert.ok(h.rows.some(e=>e.kind==="更正日期"));assert.ok(h.rows.some(e=>e.reason==="輸入錯誤"));
  }finally{sql.close()}
 });
-test("date correction validates neighboring dates before closure; closed orders reject every mutation",async()=>{
+test("later steps lock prior dates; closed orders reject every mutation",async()=>{
  const {call,sql}=fixture();try{let o=ok(await call("/orders","POST",payload()));o=await advance(call,o);o=await advance(call,o);
- assert.equal((await call(`/orders/${o.id}/date`,"PATCH",{requestKey:key(),expectedVersion:o.version,step:"ORDERED",milestoneDate:"2026-10-29"})).status,422);
+ assert.equal((await call(`/orders/${o.id}/date`,"PATCH",{requestKey:key(),expectedVersion:o.version,step:"ORDERED",milestoneDate:"2026-10-29"})).status,409);
  o=await advance(call,o);sql.prepare("UPDATE store_customer_orders SET closed_at='2000-01-01T00:00:00Z' WHERE id=?").run(o.id);for(const step of ['ORDERED','NOTIFIED','PICKED_UP'])assert.equal((await call(`/orders/${o.id}/date`,"PATCH",{requestKey:key(),expectedVersion:o.version,step,milestoneDate:null})).status,409);
  assert.equal((await call(`/orders/${o.id}/status`,"POST",{requestKey:key(),expectedVersion:o.version,action:'rollback',reason:'誤按'})).status,409);
  assert.equal((await call(`/orders/${o.id}`,"PATCH",payload({expectedVersion:o.version,note:"不應改"}))).status,409);
@@ -271,3 +271,14 @@ test('later blacklist changes or another cancellation prevent automatic undo wit
 });
 
 test('NO_HOLD is a distinct manual disposition, and manual removal requires a history-only reason',async()=>{const {call,sql}=fixture();try{const id=ok(await call('/blacklist','POST',{name:'不保留驗收',mobile:'0912345678',reason:'名單原理由',action:'NO_HOLD'})).id;ok(await call('/orders','POST',payload({lineName:''})));assert.equal((await call('/blacklist/'+id,'DELETE',{expectedVersion:1,removalReason:''})).status,422);assert.equal(ok(await call('/blacklist'))[0].active,true);ok(await call('/blacklist/'+id,'DELETE',{expectedVersion:1,removalReason:'人工核對後解除'}));const b=ok(await call('/blacklist'))[0];assert.equal(b.active,false);assert.equal(b.reason,'名單原理由');assert.equal(ok(await call('/blacklist/'+id+'/history')).rows[0].reason,'人工核對後解除')}finally{sql.close()}});
+
+
+test('order no-date notification locks calling and rollback restores calling edits without clearing history',async()=>{
+ const {call,sql}=fixture();try{
+  let o=ok(await call('/orders','POST',payload()));o=await advance(call,o);o=await advance(call,o,null);
+  const patch=(step,date)=>call('/orders/'+o.id+'/date','PATCH',{step,milestoneDate:date,expectedVersion:o.version,requestKey:key()});
+  const blocked=await patch('ORDERED','2026-10-28');assert.equal(blocked.status,409);assert.match(JSON.stringify(blocked.body),/下一步已登記，不能修改/);
+  o=ok(await patch('NOTIFIED','2026-10-29'));o=await rollback(call,o);assert.equal(o.dates.NOTIFIED,'2026-10-29');
+  o=ok(await patch('ORDERED','2026-10-29'));assert.equal(o.status,'ORDERED');assert.equal(o.dates.ORDERED,'2026-10-29');
+ }finally{sql.close()}
+});
