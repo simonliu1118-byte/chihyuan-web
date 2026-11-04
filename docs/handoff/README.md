@@ -11,7 +11,7 @@
 
 ## 目前待 Claude 審查
 
-- [V0.11.0 出機與定期維護](CYWEB-EQUIPMENT-MAINTENANCE-0110-20261105.md)：使用者本次特例授權合併部署，Claude待事後複審。
+- [V0.11.0 出機與定期維護](CYWEB-EQUIPMENT-MAINTENANCE-0110-20261105.md)：PR #429，已依使用者本次特例合併部署，Claude待事後複審。
 
 - [V0.10.25 售後維修清單微調](CYWEB-REPAIR-LIST-01025-20261105.md)：PR #427，已依使用者授權合併部署，Claude 待事後複審。
 

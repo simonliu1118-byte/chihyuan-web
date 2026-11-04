@@ -3,7 +3,7 @@
 - 2026-11-05（台灣），GPT；分支 `cyweb/equipment-maintenance`；基準 main `1e7ff249a1f0fea7ef0ff6e927934c2a2b1800b7`（V0.10.25）。
 - 使用者直接交辦、確認設計後實作；**後續明確特例授權「可以合併部署（寫 handoff）」**。本次依授權在檢查通過後合併及受控部署；Claude 事後複審待填，GPT 不代填通過。
 - 新能力包含出機建檔、跨年排程、同院同月彙整及到訪登記，屬完整功能階段，依共通版本規則升 Minor 為 **V0.11.0 Build 0**。不是單純 UI 升 Minor。
-- 現行業務契約：[STORE_EQUIPMENT_MAINTENANCE](../architecture/STORE_EQUIPMENT_MAINTENANCE.md)。PR、CI、正式部署結果在完成後回填。
+- 現行業務契約：[STORE_EQUIPMENT_MAINTENANCE](../architecture/STORE_EQUIPMENT_MAINTENANCE.md)。PR [#429](https://github.com/simonliu1118-byte/chihyuan-web/pull/429) 已合併並部署，詳細證據見下方。
 
 ## 已完成及使用者更正
 
@@ -48,7 +48,10 @@
 - `npm run validate:d1:local`：全部 migrations至0051、**19組 Worker＋真實D1驗收全部 PASS**，亦通過正式身分 session 表退休檢查。最後 Windows TemporaryDirectory 清理因 Miniflare metadata.sqlite占用報WinError32，指令exit1；不把它寫成exit0，完整指令另由Linux CI驗證。
 - 本機瀏覽器使用真實 React 元件與真實 handler＋SQLite（只有 Identity 與其他模組回應為合成替身），未接正式ERP／D1／R2；合成建檔、保固帶入、未填編號停用tooltip、兩筆出機合併、登記、更正無日期／有日期、歷程、雙向查看、Enter順序與390px手機均確認。
 - 桌面姓名欄169px且只有一個文字行；手機 viewport390px、body.scrollWidth375px，頁面無橫向溢出。新增修改表格內可水平捲動以容納機身欄位。
-- `git diff --check` 通過。圖片已逐張檢視；尺寸、bytes、SHA-256如下，提交後再read-back核對。
+- `git diff --check` 通過。圖片已逐張檢視；六張均由 Git read-back 核對 bytes／SHA-256 與下表相同。
+
+- PR [Runtime Check](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41883673075) 的 source-contracts、browser-typecheck、worker-typecheck、build 全部 success；build 內 Local D1 runtime acceptance、Full Node test suite、Vite build 均 success，包含本機有 Windows 限制的完整檢查。
+- [Governance](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41883673112) 及 [部署契約檢查](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41883673196) 成功。PR中的部署job跳過，真正發布證據如下。
 
 ## 合成畫面證據
 
@@ -63,7 +66,13 @@
 
 ## 發布與 Claude 接續
 
-實作完成；依使用者本次特例，在必要CI成功後合併並以 main 的受控 `development-deploy.yml / deploy-development` 發布。實際PR、CI、main SHA、run與正式健康確認將回填本檔。
+已依使用者本次特例完成：
+
+- 產品 PR [#429](https://github.com/simonliu1118-byte/chihyuan-web/pull/429)，產品提交 `49a60cc1ecaec003f3f1cbc3f15b0b32a85b6793`，合併及部署來源 main **`22c1b7a44d4b27e12ebe9977063389eab0ae550f`**。
+- 正式發布 [run 41884193637](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41884193637)，從 main dispatch `development-deploy.yml`、operation `deploy-development`；validate-deployment-contract 與實際 deploy-development 均 success，沒有把skipped當部署成功。
+- D1 migrations（含0051）、Worker／assets發布、排程、兩個入口版本／sourceCommit／D1健康、HTTPS與靜態資源、Custom Domain、失效session及正式portal authority檢查全部 success。
+- 2026-11-05 02:10（台灣）唯讀正式域名 `/api/health` 再確認：version **0.11.0**、sourceCommit **22c1b7a44d4b27e12ebe9977063389eab0ae550f**、database **ok**、identityConsumerVersion **1.0.5**。
+- 部署後這輪只補記 TODO／CHANGELOG／handoff 文件，不改產品或版本、不再次部署。正式執行資料未經測試新增或修改；合成驗收只在本機／CI隔離庫。
 
 Claude 請事後核對：客戶碼可空但不可維護、同客戶同月彙整、完成摘要 retained、不能把新出機默認已維護、同步修改衝突與整批rollback、舊備份缺表升級，以及共用元件／手機操作。
 
