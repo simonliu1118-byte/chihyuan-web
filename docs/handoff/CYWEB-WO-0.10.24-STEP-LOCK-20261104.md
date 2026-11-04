@@ -1,6 +1,6 @@
 # WO-0.10.24 門市步驟鎖定與物流顯示交接
 
-- 2026-11-04（台灣時間），GPT；分支 `cyweb/wo-0.10.24-step-lock`；V0.10.24 Build 0；PR 待建立。
+- 2026-11-04（台灣時間），GPT；分支 `cyweb/wo-0.10.24-step-lock`；V0.10.24 Build 0；PR [#426](https://github.com/simonliu1118-byte/chihyuan-web/pull/426)。
 - 基準 main `3a662d7f`（V0.10.23），另承接工單分支 `d6e6b679` 的文件提交。工單當時尚未進 main，因此本 PR 包含工單原文。
 - 需求唯一來源：[WO-0.10.24](../development/work-orders/WO-0.10.24.md)。狀態：實作完成，待 Claude 審查；未合併、未部署。
 
@@ -33,10 +33,12 @@
 - `npx tsc --noEmit -p .`、`npm run typecheck`、`npm run build`、`npm run validate:source` 通過；來源驗證使用既有 portable Python 並設 PYTHONUTF8=1。建置只有既有 bundle 大小提醒。
 - 相關三支測試：**79/79 通過**，涵蓋舊的未接通、缺價、取消、黑名單、結案猶豫等行為。
 - 完整 Node 本機：622 項，611 通過、11 失敗。使用最新 main 原文建立隔離複本，重跑失敗所在四支：37 項中同樣 26 通過、11 失敗，確認非本單造成。既有 Windows 問題是：backup-rehearsal-http 6 項回 503、deployment-source 1 項以 LF 切 CRLF、secure-entry 1 支 /C:/ URL pathname、store-backup-upgrade 3 項 LF／CRLF migration 指紋。沒有修改這些測試或其產品流程來規避。
-- `npm run validate:d1:local`：migrations（至 0050）、18 組 Worker＋D1 驗收、舊 Identity session 表移除全部 PASS；指令最後因 Windows Miniflare 的 metadata.sqlite 仍占用而在 TemporaryDirectory 清理回 WinError 32，故不把本機指令寫成 exit 0。待 PR Linux CI 核對完整命令與完整 Node suite。
+- `npm run validate:d1:local`：migrations（至 0050）、18 組 Worker＋D1 驗收、舊 Identity session 表移除全部 PASS；指令最後因 Windows Miniflare 的 metadata.sqlite 仍占用而在 TemporaryDirectory 清理回 WinError 32，故不把本機指令寫成 exit 0。完整命令與完整 Node suite 已由 PR Linux CI 通過（見下方）。
 - 正式 API／ERP／Identity／D1 未操作。本機預覽使用實際 React 元件及被忽略的合成資料替身；畫面驗證帶回的物流值、唯讀控制項、唯一關閉按鈕、目前通知可改、舊叫貨停用，以及 390 寬版面。實際寫入語義由呼叫原 Worker handler 的記憶體資料庫測試驗證。
 - 沒有新增資料表、migration、背景輪詢或額外 D1 讀取；鎖定只用現有單筆資料，既有版本及原子 guard 保留。
-- `git diff --check` 通過；遠端 CI 結果在 PR 核對後補記。
+- `git diff --check` 通過；六張圖片已從 Git read-back，bytes／SHA-256 與交接一致。
+- 產品提交 `606cfaee` 的 [Runtime Check #950](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41833994288) 全部成功：source-contracts、browser-typecheck、worker-typecheck、build；build 中 Local D1 runtime acceptance、Full Node test suite、Vite build 三個步驟均 success。
+- [Governance #1077](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41833994437) 與 [部署契約檢查 #939](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41833994278) 成功，實際 deploy-development／audit-identity／audit-backup 均 skipped。最後一筆提交僅回填 PR／CI 文件，不改產品或版本。
 
 ## 合成畫面證據
 

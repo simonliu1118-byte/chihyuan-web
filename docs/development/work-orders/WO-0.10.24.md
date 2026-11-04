@@ -52,13 +52,15 @@
 
 ## 8. 完成報告（GPT，2026-11-04）
 
-- V0.10.24 Build 0，基準 main 3a662d7f（V0.10.23），承接工單提交 d6e6b679；PR 待建立。
+- V0.10.24 Build 0，基準 main 3a662d7f（V0.10.23），承接工單提交 d6e6b679；PR [#426](https://github.com/simonliu1118-byte/chihyuan-web/pull/426)。
 - 已完成：維修及訂購前一步鎖定（含無日期）、物流帶回與目前步驟更正、較早維修步驟只讀／關閉、物流事件與稽核、退回恢復修改；取消、未接通及五分鐘猶豫規則保留。
 - 訂購退回會保留日期，因此依有效狀態判定鎖定，沒有刪除歷史日期。手機展開格佔整欄，修正日期按鈕 height:100% 撐高問題。
 - 指定 tsc、typecheck、build、validate:source 通過；三支相關測試 79/79。完整測試 622 項中 611 通過、11 個失敗在 main 原版重現。
-- 本機 D1 migrations、18 組 Worker／D1 及舊 session 表檢查均 PASS，但清理暫存檔遇 Windows WinError 32，指令非 exit 0；完整 Node 與 D1 命令待 Linux CI 核對。
+- 本機 D1 migrations、18 組 Worker／D1 及舊 session 表檢查均 PASS，但清理暫存檔遇 Windows WinError 32，指令非 exit 0；完整 Node 與 D1 命令已由 Linux CI 通過。
 - 實際元件合成畫面：送廠可改／鎖定、檢測鎖定、訂購上一步停用、歸還物流及手機版。沒有操作正式資料。
 - [handoff](../../handoff/CYWEB-WO-0.10.24-STEP-LOCK-20261104.md) 列出逐檔影響、測試限制、六張截圖及雜湊；未合併、未部署。
+
+- [x] [Runtime Check #950](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41833994288)：指定型別、來源驗證、完整 Node、本機 D1、建置均成功（產品提交 606cfaee）；Governance 與部署契約檢查成功。部署工作為 skipped，沒有正式操作。
 
 ## 9. 審查紀錄（Claude 填寫）
 
