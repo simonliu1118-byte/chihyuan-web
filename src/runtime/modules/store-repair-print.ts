@@ -4,6 +4,8 @@ import {formatPhone} from "../../../shared/phone";
 
 const esc=(v:string)=>v.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c]!);
 const day=(v:string|null|undefined)=>v?v.replaceAll("-","/"):"";
+/** 送廠／完修／歸還 boxes: a small year over a large MM/DD (user 2026-11-04). */
+const stamp=(v:string|null|undefined)=>v?`<small class="year">${v.slice(0,4)}</small><span class="md">${v.slice(5).replace("-","/")}</span>`:"";
 const lines=(v:string)=>v.split("\n").map(x=>x.trim()).filter(Boolean);
 
 /**
@@ -19,7 +21,7 @@ export function repairSlipHtml(r:StoreRepair,s:StoreRepairPrintSettings):string{
  return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>機器維修單</title><style>
 @page{size:241mm 140mm;margin:0}
 *{box-sizing:border-box}
-body{margin:0;padding:20mm 15mm 0;color:#000;background:#fff;font:12pt/1.3 "Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif}
+body{margin:0;padding:10mm 15mm 0;color:#000;background:#fff;font:12pt/1.3 "Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif}
 .head{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;border:1px solid #000;border-bottom:0;padding:6px 10px}
 .head h1{grid-column:2;margin:0;font-size:18pt;text-align:center;letter-spacing:.1em}
 .head h2{grid-column:2;margin:1px 0 0;font-size:13pt;text-align:center;letter-spacing:.2em}
@@ -30,6 +32,8 @@ th{font-weight:normal;text-align:center;white-space:nowrap}
 .tall{vertical-align:top;padding-top:5px}
 .step{height:18mm;text-align:center}
 .notes{height:auto;padding:5px 8px}
+.year{display:block;font-size:9pt;line-height:1}
+.md{display:block;font-size:15pt;line-height:1.2}
 ol{margin:0;padding-left:1.4em}
 </style></head><body>
 <div class="head">${s.title?`<h1>${esc(s.title)}</h1>`:""}<h2>機器維修單</h2>${s.contact?`<div class="contact">${esc(s.contact)}</div>`:""}</div>
@@ -39,7 +43,7 @@ ol{margin:0;padding-left:1.4em}
 <tr><th>送修產品</th><td colspan="2">${product}</td><th>產品機號</th><td colspan="2">${esc(r.serialNo)}</td></tr>
 <tr><th>配件備註</th><td colspan="2">${esc(r.accessories)}</td><th>備註</th><td colspan="2">${esc(r.note)}</td></tr>
 <tr><th rowspan="2">故障狀況</th><td rowspan="2" colspan="2" class="tall">${esc(r.fault)}</td><th>送廠維修</th><th>維修完成</th><th>機器歸還</th></tr>
-<tr><td class="step">${day(r.dates.SENT)}</td><td class="step">${day(r.dates.REPAIRED)}</td><td class="step">${day(r.dates.RETURNED)}</td></tr>
+<tr><td class="step">${stamp(r.dates.SENT)}</td><td class="step">${stamp(r.dates.REPAIRED)}</td><td class="step">${stamp(r.dates.RETURNED)}</td></tr>
 ${notes.length?`<tr><th>注意事項</th><td colspan="5" class="notes"><ol>${notes.map(n=>`<li>${esc(n)}</li>`).join("")}</ol></td></tr>`:""}
 </table></body></html>`;
 }
