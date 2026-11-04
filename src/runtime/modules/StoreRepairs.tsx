@@ -38,7 +38,7 @@ const status=(r:StoreRepair)=>r.cancelled?{code:"CANCELLED",label:"取消維修"
  repairOverdue(r)==="PICKUP"?{code:"OVERDUE",label:"逾期未取",tone:"danger" as const}:
  {code:r.status,label:STORE_REPAIR_STATUS_LABELS[r.status],tone:tone[r.status]};
 const STEP_HEADINGS=STORE_REPAIR_STEPS.flatMap(s=>s==="INSPECTED"?[STORE_REPAIR_STEP_LABELS[s],"檢測狀況"]:[STORE_REPAIR_STEP_LABELS[s]]);
-const LIST_HEADINGS=["項次","處理狀態","送修日期","客戶號／客戶姓名","連絡電話／LINE","類別","產品","產品機號","故障狀況",...STEP_HEADINGS,"照片","列印","操作"];
+const LIST_HEADINGS=["項次","處理狀態","送修日期","客戶編號／客戶姓名","連絡電話／LINE","類別","產品","產品機號","故障狀況",...STEP_HEADINGS,"照片","列印","操作"];
 /** Headings over centred values (user 2026-11-04): 項次, 處理狀態 and the milestone, photo and action columns. */
 const CENTERED_HEADINGS=new Set(["項次","處理狀態",...STORE_REPAIR_STEPS.map(s=>STORE_REPAIR_STEP_LABELS[s]),"照片","列印","操作"]);
 const inspection=(r:StoreRepair)=>r.inspectResult==="GOOD"?"無異常":r.inspectResult==="BAD"?r.inspectProblem||"異常":"";
@@ -102,7 +102,7 @@ export function StoreRepairs(){
     <td data-label="項次" className="cy-store-sequence">{r.sequence}</td>
     <td data-label="處理狀態" className="cy-store-status-cell"><StatusChip tone={state.tone} className={state.code==="OVERDUE"?"cy-store-overdue-pill":undefined}>{state.label}</StatusChip></td>
     <td data-label="送修日期" className="cy-grid-divider-before">{r.receivedDate.replaceAll("-","/")}</td>
-    <td data-label="客戶號／客戶姓名">{r.customerCode?<span className="cy-repair-customer-code">{r.customerCode}</span>:null}{displayCustomerName(r.customerName,r.honorific)}</td>
+    <td data-label="客戶編號／客戶姓名">{r.customerCode?<span className="cy-repair-customer-code">{r.customerCode}</span>:null}{displayCustomerName(r.customerName,r.honorific)}</td>
     <td data-label="連絡電話／LINE" className="cy-store-contact-cell">{r.mobile?<PhoneText value={r.mobile} kind="auto"/>:null}{r.phone?<PhoneText value={r.phone} kind="auto"/>:null}{r.lineName?<span>{r.lineName}</span>:null}</td>
     <td data-label="類別">{STORE_REPAIR_PRODUCTS[r.productKind]}</td><td data-label="產品">{r.productText}</td><td data-label="產品機號">{r.serialNo}</td><td data-label="故障狀況" className="cy-repair-fault" title={r.fault}>{r.fault}</td>
     {STORE_REPAIR_STEPS.map((step,i)=>{const applicable=repairStepApplicable(r,step),reached=STORE_REPAIR_STEPS.indexOf(r.status as StoreRepairStep)>=i,canEdit=reached&&r.status!=="RETURNED",isNext=step===next&&!closed;
