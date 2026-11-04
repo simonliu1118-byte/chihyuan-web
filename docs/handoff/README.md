@@ -11,6 +11,8 @@
 
 ## 目前待 Claude 審查
 
+- [V0.10.2 WO-0.9.94 第二段](CYWEB-WO-0.9.94-PHASE2-0102-20261104.md)：依 §2.1 刪除文字及調整註記計數，待審查，未合併部署。
+
 - [V0.9.88 工作視窗明確關閉](CYWEB-DIALOG-EXPLICIT-CLOSE-0988-20261103.md)：PR #379，已合併部署，待 Claude 事後複審。
 - [V0.9.87 客戶介面密度](CYWEB-CUSTOMER-DENSITY-0987-20261102.md)：PR #377，已合併部署，待 Claude 事後複審。
 

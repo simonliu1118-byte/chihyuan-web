@@ -2,8 +2,7 @@ import { DateInput } from "../../ui/forms/DateInput";
 import {Field,CheckField,FormSection,RequiredRows} from "../../ui/forms/Field";
 import { formatDate } from "../../ui/foundation/format";
 import { StatusFilter } from "../../ui/data/StatusFilter";
-import { workLogNextStep, workLogTone } from "./status-flow";
-import { NextStep } from "../../ui/feedback/NextStep";
+import { workLogTone } from "./status-flow";
 import { StatusChip } from "../../ui/primitives/StatusChip";
 import { usePendingAction } from "../../ui/feedback/usePendingAction";
 import { Loading } from "../../ui/feedback/Loading";
@@ -620,7 +619,7 @@ export function WorkLogOperationalPage() {
 
             <RequiredRows label="工作項目" satisfied={draft.entries.length>0}/>
             <section className="cy-form-block">
-              <div className="cy-form-block-head"><div><h3>工作內容<span className="cy-field-required" aria-hidden="true">＊</span><small>至少一個工作項目；每列內容或計分分類擇一</small></h3></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={addEntry}>＋ 增加工作項目</button></div>
+              <div className="cy-form-block-head"><div><h3>工作內容<span className="cy-field-required" aria-hidden="true">＊</span></h3></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={addEntry}>＋ 增加工作項目</button></div>
               <div className="cy-form-block-body">
               {draft.entries.map((entry, entryIndex) => (
                 <div className="cy-worklog-entry" key={entry.key}>
@@ -670,7 +669,6 @@ export function WorkLogOperationalPage() {
               {selected.statusCode === "reviewed" ? <button className="cy-op-button danger" disabled={busy} onClick={() => cancelReview()}>取消審核</button> : null}
               </div></div>
             <ol className="cy-progress" aria-label="日誌進度">{progressSteps.map((step, index) => { const current = progressSteps.findIndex(item => item.code === selected.statusCode); return <li key={step.code} data-state={index < current ? "done" : index === current ? "current" : "todo"} aria-current={index === current ? "step" : undefined}>{step.label}</li>; })}</ol>
-            <NextStep tone={workLogTone[selected.statusCode]}>{workLogNextStep[selected.statusCode]}</NextStep>
             <div className="cy-op-detail-grid">
               <div><span>日誌日期</span><strong>{formatDate(selected.logDate)}</strong></div>
               <div><span>期間</span><strong>{formatDate(selected.dateFrom)} ～ {formatDate(selected.dateTo)}</strong></div>
@@ -689,7 +687,7 @@ export function WorkLogOperationalPage() {
                 {entry.reviewScore != null || entry.reviewRemark ? <div className="cy-op-read-row">審核：{entry.reviewScore ?? "未計分"}{entry.reviewRemark ? ` · ${entry.reviewRemark}` : ""}</div> : null}
               </div>)}
             </div>
-          </div> : <MasterDetailEmpty title="尚未選擇工作日誌" hint="從左側清單選一筆，或按清單上方的「＋ 新增日誌」。" />}
+          </div> : <MasterDetailEmpty title="尚未選擇工作日誌" />}
         </section>
       </div>
     </div>

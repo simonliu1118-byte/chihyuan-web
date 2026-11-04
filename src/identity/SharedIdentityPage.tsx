@@ -637,9 +637,7 @@ function UserDrawer({ employee, snapshot, session, refresh, columns, allowed, lo
     finally { setBusy(false); }
   }
 
-  const nextStep = own ? null : isPending ? "等待本人用驗證信完成首次登入；沒收到可以「重寄驗證 Email」。"
-    : accountState(employee) === "unverified" ? "Email 尚未驗證，密碼找回等功能暫停；可以「重寄 Email 驗證」。"
-    : accountState(employee) === "disabled" ? "已停用，無法登入；使用權仍保留，需要時按「啟用」。" : null;
+  const nextStep = !own && accountState(employee) === "unverified" ? "Email 尚未驗證，密碼找回等功能暫停；可以「重寄 Email 驗證」。" : null;
   const button = (key: string, label: string, onClick: () => Promise<void>, tone = "") =>
     <button type="button" className={`cy-op-button ${tone}`} disabled={busy} aria-busy={(busy && pending === key) || undefined}
       onClick={() => track(key, onClick())}>{label}</button>;
@@ -686,8 +684,7 @@ function UserDrawer({ employee, snapshot, session, refresh, columns, allowed, lo
       {canIdentityAdmin ? <div className="cy-op-subsection">
         <h3>權限群組</h3>
         <label className="cy-identity-group-row">群組{groupControl}</label>
-        <p className="cy-identity-intro">{group ? `系統與模組使用權由群組「${group.name}」決定，不能個別修改；要調整請到「權限群組」，或改回「個人設定」（保留目前的勾選）。`
-          : "個人設定：下面逐項勾選，立即生效。加入群組後改由群組決定。"}</p>
+        {group ? <p className="cy-identity-intro">{`系統與模組使用權由群組「${group.name}」決定，不能個別修改；要調整請到「權限群組」，或改回「個人設定」（保留目前的勾選）。`}</p> : null}
       </div> : null}
       {canIdentityAdmin ? accessGroups.map((item) => item.group === "系統使用權"
         ? <ApplicationAccessSection key={item.group} employee={employee} columns={item.columns} allowed={allowed} lockReason={lockReason} saving={saving} onToggle={onToggle} quiet={!!group} />
@@ -782,7 +779,6 @@ function CreateUserDialog({ canIdentityAdmin, onClose, onCreated, reportError }:
   return <>
     {confirmationDialog}
     <Dialog showCloseButton={false} open title="新增使用者" size="small" dismissible={!busy} onClose={() => void close()}
-      description="系統會寄出驗證信與一次性首次登入密碼，本人完成驗證後即可使用。"
       footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void close()}>取消</button><button type="submit" form={formId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>新增使用者</button></div>}>
       <form onKeyDown={enterAdvancesFields} id={formId} className="cy-op-form" onSubmit={create}>
     <FormSection>
@@ -926,7 +922,7 @@ function GroupWorkspace({ snapshot, session, view, columns, reload, switcher }: 
     finally { setSavingId(null); }
   }
   async function create() {
-    const answer = await ask({ title: "新增權限群組", description: "例如「業務」「倉管」。建立後勾選要開放的系統與模組，再到「人員」把人加入群組。",
+    const answer = await ask({ title: "新增權限群組",
       fields: [{ name: "name", label: "群組名稱", required: true }], confirmLabel: "建立" });
     if (!answer) return;
     setMessage(null);
@@ -1088,7 +1084,6 @@ function SecurityPanel() {
       <dt>每日 Email 上限</dt><dd>{policy.emailDailyLimit} 封（系統上限 {view.systemEmailDailyCeiling}）</dd>
     </dl> : <Loading />}
     {draft && view ? <Dialog showCloseButton={false} open title="變更驗證碼與 Email 安全設定" size="small" dismissible={!busy} onClose={close}
-      description="限制驗證碼重寄與 Email 寄送次數，避免被濫用。"
       footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={close}>取消</button><button type="submit" form={formId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>儲存</button></div>}>
       <form onKeyDown={enterAdvancesFields} id={formId} className="cy-identity-policy-form" onSubmit={(event) => void save(event)}>
     <FormSection>

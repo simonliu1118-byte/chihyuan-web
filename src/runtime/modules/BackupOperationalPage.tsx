@@ -58,7 +58,7 @@ export function BackupHistoryView({ history, busy, retry, rehearse }: { history:
       { key: "size", header: "資料量", render: row => <>{row.recordCount.toLocaleString()} 筆<br />{size(row.byteLength)}</>, width: "12%" },
       { key: "action", header: "操作", render: action, width: "16%" }]}
     renderCard={row => <>{event(row)}{identity(row)}{providerStatus(row)}<div className="cy-backup-card-footer"><span>{row.recordCount.toLocaleString()} 筆 · {size(row.byteLength)}</span>{action(row)}</div></>}
-    emptyTitle="尚無備份紀錄" emptyDescription={history.configured ? "建立手動備份後，這裡會顯示各儲存副本的驗證結果。" : "儲存設定完成後才能建立備份。"} />;
+    emptyTitle="尚無備份紀錄" emptyDescription={!history.configured ? "儲存設定完成後才能建立備份。" : undefined} />;
 }
 const rehearsalPhaseLabels: Record<string, string> = {
   completed: "完成", target_lock: "隔離目標使用狀態", source_read: "來源備份核對", target_validation: "隔離目標檢查",
@@ -182,7 +182,7 @@ export function BackupOperationalPage({ session }: { session: AuthSession }) {
     {history && history.recoveryReady === false
       ? <div className="cy-op-notice" role="status">{history.recoveryBlockedReason ?? "隔離目標已使用或尚未準備，驗證按鈕已停用。"}</div> : null}
     <section className="cy-op-panel cy-backup-history" aria-busy={loading || busy}>{loading ? <Loading />
-      : history ? <><BackupHistoryView history={history} busy={busy} retry={id => void run("retry", id)} rehearse={selectRehearsal} /><p className="cy-backup-history-note">顯示最新 50 筆備份；每次備份只列一次，副本驗證結果分開顯示。</p></>
+      : history ? <><BackupHistoryView history={history} busy={busy} retry={id => void run("retry", id)} rehearse={selectRehearsal} /></>
         : <p>尚未取得備份紀錄，請使用「更新紀錄」。</p>}</section>
     <section className="cy-op-panel cy-backup-history">
       <h3>隔離還原驗證紀錄</h3>

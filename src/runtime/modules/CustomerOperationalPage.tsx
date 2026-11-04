@@ -929,7 +929,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
               {/* 最後修改 sits under the record cards (user 2026-11-03). */}
               <p className="cy-record-meta cy-customer-updated">最後修改：{formatDateTime(selected.updatedAt)}{selected.updatedBy ? ` · ${formatPerson(selected.updatedBy)}` : ""}</p>
             </div>
-          ) : <MasterDetailEmpty title="尚未選擇客戶" hint="從左側清單選一位客戶，或按清單上方的「＋ 新增客戶」。" />}
+          ) : <MasterDetailEmpty title="尚未選擇客戶" />}
         </section>
       </div>
     </div>

@@ -664,7 +664,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
             <div className="cy-record-header cy-edit-header">
               <div>
                 <h2>{creating ? "新增商品" : `修改 ${selected?.itemNo ?? "商品"}`}</h2>
-                <p>{creating ? "品號必須是 SMART ERP 中已存在的品號。" : "品號請用「更改品號」修改，會保留歷史品號。"}</p>
+                {creating ? <p>品號必須是 SMART ERP 中已存在的品號。</p> : null}
               </div>
             <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
               <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立商品" : "儲存修改"}</button></div></div>
@@ -760,7 +760,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
             </div>
           </div>
         ) : (
-          <MasterDetailEmpty title="尚未選擇商品" hint="從左側清單選一項商品，或按清單上方的「＋ 新增商品」。" />
+          <MasterDetailEmpty title="尚未選擇商品" />
         )}
       </section>
     </div>

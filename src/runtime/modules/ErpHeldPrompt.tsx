@@ -24,6 +24,5 @@ export function ErpHeldPrompt() {
       <button type="button" className="cy-op-button primary" onClick={() => answer(true)}>加入佇列，暫停結束自動查</button>
     </div>}>
     <p>{ask?.message}。</p>
-    <p>加入佇列後，暫停結束時會自動查詢，查完會通知你。</p>
   </Dialog>;
 }

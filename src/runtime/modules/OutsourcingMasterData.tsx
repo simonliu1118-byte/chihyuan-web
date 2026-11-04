@@ -247,7 +247,7 @@ export function ContractorWorkspace({ contractors, onChanged, onEditingChange, n
                 <td className="num"><button type="button" className="cy-op-button compact quiet" disabled={busy} onClick={() => void openPrice(row)}>修改</button></td></tr>)}</tbody></table></div>
               : <p className="cy-out-hint">尚未設定現行單價。計價時會依這裡的單價計算。</p>}
           </div>
-        </div> : <MasterDetailEmpty title="尚未選擇代工對象" hint="從左側清單選一位，或按清單上方的「＋ 新增代工對象」。" />}
+        </div> : <MasterDetailEmpty title="尚未選擇代工對象" />}
       </section>
     </div>
   </>;
@@ -346,7 +346,7 @@ export function BomWorkspace({ boms, onChanged, onEditingChange, notify, reportE
         <MasterDetailBack label="BOM 清單" disabled={busy} onBack={async () => { if (draft && !(await canLeave())) return; setDraft(null); setCreating(false); pane.close(); }} />
         {draft ? <form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={(event) => void save(event)}>
     <FormSection>
-          <div className="cy-record-header cy-edit-header"><div><h2>{creating ? "新增 BOM" : `修改 ${detail?.recipeRef ?? "BOM"}`}</h2><p>一個成品可以有多個 BOM；入庫時若有多個使用中的 BOM，需要選擇實際用的那一個。</p></div><div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
+          <div className="cy-record-header cy-edit-header"><div><h2>{creating ? "新增 BOM" : `修改 ${detail?.recipeRef ?? "BOM"}`}</h2></div><div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
             <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立 BOM" : "儲存修改"}</button></div></div>
           <div className="cy-f-grid">
             <Field label="BOM 代號" size="s" required><input className="cy-op-input" value={draft.recipeRef} disabled={busy} onChange={(event) => patch({ recipeRef: event.target.value })} placeholder="例如：紙袋-標準" /></Field>
@@ -381,7 +381,7 @@ export function BomWorkspace({ boms, onChanged, onEditingChange, notify, reportE
           <div className="cy-op-detail-grid"><div><span>產出</span><strong>{detail.outputQuantity} {detail.outputUnit}</strong></div></div>
           <div className="cy-op-subsection"><h3>料件</h3><div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">數量</th><th>單位</th></tr></thead>
             <tbody>{detail.components.map((row) => <tr key={row.id}><td className="cy-mono">{row.itemNo}</td><td>{row.itemName}</td><td className="num">{row.quantity}</td><td>{row.unit}</td></tr>)}</tbody></table></div></div>
-        </div> : <MasterDetailEmpty title="尚未選擇 BOM" hint="從左側清單選一個，或按清單上方的「＋ 新增 BOM」。" />}
+        </div> : <MasterDetailEmpty title="尚未選擇 BOM" />}
       </section>
     </div>
   </>;

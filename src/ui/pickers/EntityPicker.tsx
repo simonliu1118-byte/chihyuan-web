@@ -221,6 +221,8 @@ export function EntityPicker<T>({
       ? `${inputId}-description`
       : undefined;
 
+  const popoverOpen = open && !disabled && (minQueryLength > 1 || debouncedQuery.length >= minQueryLength);
+
   return (
     <FieldFrame
       label={label}
@@ -247,9 +249,9 @@ export function EntityPicker<T>({
             role="combobox"
             autoComplete="off"
             aria-autocomplete="list"
-            aria-expanded={open}
+            aria-expanded={popoverOpen}
             aria-controls={listboxId}
-            aria-activedescendant={open ? activeOptionId : undefined}
+            aria-activedescendant={popoverOpen ? activeOptionId : undefined}
             aria-describedby={describedBy}
             aria-invalid={error ? true : undefined}
             aria-busy={status === "loading" || undefined}
@@ -261,12 +263,12 @@ export function EntityPicker<T>({
           ) : null}
         </div>
 
-        {open && !disabled ? (
+        {popoverOpen ? (
           <div className="cy-entity-picker-popover">
             <div className="cy-entity-picker-list" id={listboxId} role="listbox">
-              {debouncedQuery.length < minQueryLength ? (
+              {minQueryLength > 1 && debouncedQuery.length < minQueryLength ? (
                 <div className="cy-entity-picker-message">
-                  {minQueryLength <= 1 ? "請輸入關鍵字" : `請至少輸入 ${minQueryLength} 個字元`}
+                  {`請至少輸入 ${minQueryLength} 個字元`}
                 </div>
               ) : null}
 

@@ -398,7 +398,7 @@ export function HrOperationalPage() {
               </section>
             </div>
           </div>
-          : <MasterDetailEmpty title="尚未選擇員工" hint="從左側清單選一位員工，或按清單上方的「＋ 新增員工」。" />}
+          : <MasterDetailEmpty title="尚未選擇員工" />}
       </section>
     </div>
 
@@ -582,7 +582,7 @@ function EmployeeForm({ draft, creating, busy, members, stores, jobTitles, patch
       </FormSection>
 
       <RequiredRows label="緊急聯絡人" satisfied={draft.contacts.length > 0} />
-      <RowsBlock title={<>緊急聯絡人<span className="cy-field-required" aria-hidden="true">＊</span><small>至少一位</small></>} addLabel="增加聯絡人" busy={busy} empty={!draft.contacts.length}
+      <RowsBlock title={<>緊急聯絡人<span className="cy-field-required" aria-hidden="true">＊</span></>} addLabel="增加聯絡人" busy={busy} empty={!draft.contacts.length}
         onAdd={() => patch({ contacts: [...draft.contacts, { name: "", relationship: "", phone: "" }] })}>
         {draft.contacts.map((row, index) => <div className="cy-hr-edit-row contact" key={index}>
           <RowInput label="姓名" value={row.name} required onChange={name => patch({ contacts: draft.contacts.map((item, n) => n === index ? { ...item, name } : item) })} />

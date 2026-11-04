@@ -2,8 +2,7 @@ import { DateInput } from "../../ui/forms/DateInput";
 import {Field,CheckField,FormSection,RequiredRows} from "../../ui/forms/Field";
 import { formatItem } from "../../ui/foundation/format";
 import { StatusFilter } from "../../ui/data/StatusFilter";
-import { outsourcingNextStep, outsourcingTone } from "./status-flow";
-import { NextStep } from "../../ui/feedback/NextStep";
+import { outsourcingTone } from "./status-flow";
 import { StatusChip } from "../../ui/primitives/StatusChip";
 import { BomWorkspace, ContractorWorkspace, outsourcingErrorMessage } from "./OutsourcingMasterData";
 import { usePendingAction } from "../../ui/feedback/usePendingAction";
@@ -571,7 +570,7 @@ export function OutsourcingOperationalPage() {
               <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void saveOrder(event)}>
     <FormSection>
                 <div className="cy-record-header cy-edit-header">
-                  <div><h2>{creating ? "新增代工單" : correctingOutbound ? "更正已確認的出庫" : "修改代工單"}</h2><p>{correctingOutbound ? "儲存後會以新的出庫資料取代原本的出庫，並保留更正紀錄。" : "確認出庫前可以修改內容。"}</p></div>
+                  <div><h2>{creating ? "新增代工單" : correctingOutbound ? "更正已確認的出庫" : "修改代工單"}</h2>{correctingOutbound ? <p>儲存後會以新的出庫資料取代原本的出庫，並保留更正紀錄。</p> : null}</div>
                 <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立代工單" : "儲存修改"}</button></div></div>
                 <div className="cy-f-grid cy-form-grid-spaced">
                   <Field label="協力廠商" size="s" required><select className="cy-op-input" value={draft.contractorId ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, contractorId: Number(event.target.value) || null })}>
@@ -584,7 +583,7 @@ export function OutsourcingOperationalPage() {
 
                 <RequiredRows label="出庫料件" satisfied={draft.parts.length>0}/>
                 <section className="cy-form-block">
-                  <div className="cy-form-block-head"><div><h3>出庫料件<span className="cy-field-required" aria-hidden="true">＊</span><small>每列料件、數量與單位必填</small></h3></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={addPart}>＋ 增加料件</button></div>
+                  <div className="cy-form-block-head"><div><h3>出庫料件<span className="cy-field-required" aria-hidden="true">＊</span></h3></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={addPart}>＋ 增加料件</button></div>
                   <div className="cy-form-block-body">
                   <div className="cy-out-part cy-out-part-head" aria-hidden="true"><span>料件</span><span>數量</span><span>單位</span><span>預計成品</span><span>BOM</span><span /></div>
                   {draft.parts.map((part, index) => {
@@ -637,7 +636,6 @@ export function OutsourcingOperationalPage() {
                   {selectedOrder.statusCode === "paid" ? <button className="cy-op-button danger" disabled={busy} aria-busy={(busy && pending === "reverse:payment") || undefined} onClick={() => track("reverse:payment", reverse("payment"))}>取消付款</button> : null}
                 </div></div>
                 <OutsourcingProgress status={selectedOrder.statusCode} />
-                {selectedOrder.statusCode !== "voided" ? <NextStep tone={outsourcingTone[selectedOrder.statusCode]}>{outsourcingNextStep[selectedOrder.statusCode]}</NextStep> : null}
                 <div className="cy-op-detail-grid"><div><span>工單日期</span><strong>{formatDate(selectedOrder.orderDate)}</strong></div><div><span>出庫日期</span><strong>{formatDate(selectedOrder.outboundDate)}</strong></div><div><span>付款時間</span><strong>{selectedOrder.paidAt ? formatDateTime(selectedOrder.paidAt) : "—"}</strong></div></div>
                 <div className="cy-op-subsection"><h3>出庫料件</h3><div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">數量</th><th>單位</th></tr></thead><tbody>{selectedOrder.parts.map((part) => <tr key={part.id}><td className="cy-mono">{part.componentItemNoSnapshot}</td><td>{part.componentItemNameSnapshot}</td><td className="num">{part.quantity}</td><td>{part.unitSnapshot}</td></tr>)}</tbody></table></div></div>
                 {selectedOrder.receipt ? <div className="cy-op-subsection"><h3>入庫</h3>{selectedOrder.receipt.items.map((item) => <div className="cy-op-read-row" key={item.id}>{formatItem(item.itemNoSnapshot, item.itemNameSnapshot)} · {item.quantity} {item.unitSnapshot}{item.bomRecipeId ? ` · BOM #${item.bomRecipeId}` : ""}</div>)}</div> : null}
@@ -659,7 +657,7 @@ export function OutsourcingOperationalPage() {
                   </div>
                 </div> : null}
 
-              </div> : <MasterDetailEmpty title="尚未選擇代工單" hint="從左側清單選一張代工單，或按清單上方的「＋ 新增代工單」。" />}
+              </div> : <MasterDetailEmpty title="尚未選擇代工單" />}
             </section>
           </div>
         </>
