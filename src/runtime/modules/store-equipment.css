@@ -1,0 +1,30 @@
+/* Layout only; tables, switches, fields and milestone controls use their shared styles. */
+.cy-store-after-sales{display:grid;gap:12px;min-width:0}
+.cy-store-after-sales>.cy-segmented{justify-self:start}
+.cy-equipment-list{min-width:1050px}
+.cy-equipment-visits{min-width:850px}
+.cy-store-equipment .cy-store-workflow-table>tbody>tr:focus-within{background:transparent}
+.cy-equipment-center{text-align:center!important;font-variant-numeric:tabular-nums}
+.cy-equipment-planned{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:6px}
+.cy-equipment-detail>td{padding:8px!important}
+.cy-equipment-detail .cy-entry-table td{background:var(--cy-surface)!important;text-align:left}
+.cy-equipment-detail .cy-entry-table td:first-child{text-align:center}
+.cy-equipment-form-dialog .cy-dialog-surface{width:min(1000px,calc(100vw - 24px))}
+.cy-equipment-entry{min-width:760px;table-layout:fixed}
+.cy-equipment-entry td{padding:2px}
+.cy-equipment-entry .cy-entry-table{table-layout:fixed}
+.cy-equipment-number{text-align:right}
+.cy-equipment-maintenance-switch{display:flex;padding:4px;align-items:center}
+.cy-equipment-months th,.cy-equipment-months td{text-align:center}
+.cy-equipment-months .cy-f-check{display:inline-flex;justify-content:center;padding:3px}
+.cy-equipment-months input{margin:0}
+.cy-equipment-visit-note{width:250px!important}
+@media(max-width:820px){
+ .cy-store-equipment .cy-equipment-detail .cy-entry-table{display:table;min-width:540px}
+ .cy-store-equipment .cy-equipment-detail .cy-entry-table thead{display:table-header-group}
+ .cy-store-equipment .cy-equipment-detail .cy-entry-table tbody{display:table-row-group;border:0}
+ .cy-store-equipment .cy-equipment-detail .cy-entry-table tr{display:table-row}
+ .cy-store-equipment .cy-equipment-detail .cy-entry-table td{display:table-cell;border:1px solid var(--cy-border)}
+ .cy-store-equipment .cy-equipment-detail .cy-entry-table td::before{display:none}
+ .cy-equipment-detail>td{overflow-x:auto}
+}

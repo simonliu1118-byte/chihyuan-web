@@ -77,3 +77,7 @@
 
 - 主檔明細頁標題列（客戶頁的編號／名稱／狀態膠囊）與「關聯卡片＋抽屜」：商品、瑕疵、報價改版時抽成共用元件，不要各模組複製客戶頁的程式碼。
 - 舊彈窗（修改紀錄、報價新增／修正、商品單位換算、人事各對話框）統一改成表格式彈窗（見 `TODO.md`）。
+
+## 出機與維護（V0.11.0）
+
+`StoreAfterSales` 在售後維修內只用一組 SegmentedControl 切換門市送修／出機紀錄／定期維護。新增修改沿用 EntryTable＋Field；到訪沿用 StoreMilestoneButton、StoreMilestoneDateFields、單行 Field 與既有格內小視窗。OpenOnlyToggle 的 openLabel 可換成「顯示未完成」，舊呼叫者預設文字不變。沒有新增日期／登記元件。

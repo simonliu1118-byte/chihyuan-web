@@ -20,6 +20,8 @@
 
 - V0.10.25 售後維修清單微調：已依使用者授權合併並部署，正式健康檢查通過；Claude 待事後複審，見 [handoff](docs/handoff/CYWEB-REPAIR-LIST-01025-20261105.md)。
 
+- V0.11.0 出機與定期維護：實作及本機驗證完成，依使用者本次特例授權，CI通過後合併並部署；Claude待事後複審。正式站仍以本檔上方版本為準，見 [handoff](docs/handoff/CYWEB-EQUIPMENT-MAINTENANCE-0110-20261105.md)。
+
 ## 上線檢核
 
 - [x] 手動備份（使用者 2026-11-03 確認）。

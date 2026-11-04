@@ -762,3 +762,7 @@ Since V0.9.81 a portable backup records the source database's last migration and
 - Phones store digits only; an extension stays in `extension`. Contact `phone` stores `digits` or `digits#extension`; the screen shows `(02)2345-6789 #12345` and `0912-345-678`.
 - `customer_visits.subject` is a required short subject of at most 16 characters for new and edited visits (existing rows default to an empty string); `content` keeps the full text.
 - Worker limits (user 2026-11-03): `customer_no` at most 10 letters or digits (case kept, as in ERP), `short_name` at most 10 characters, `tax_id` exactly 8 digits, important notes single-line, at most 5, postal code 3 or 6 digits.
+
+## 0051 出機與定期維護
+
+新增 `store_equipment_records`（含 machines_json、maintenance、version）、`store_maintenance_visits`（UNIQUE customer_code＋planned_month；completed、completion_date、note、version）、`store_equipment_plans`（equipment_id＋visit_id、active、retained、snapshot_json）、`store_equipment_events`（equipment_id／visit_id二擇一、actor＋request_key唯一、request_hash）與 `store_equipment_state`（id=1、version）。完整欄位／FK／CHECK以 `migrations/0051_store_equipment_maintenance.sql` 為唯一實體來源；業務語意見 [出機與維護](STORE_EQUIPMENT_MAINTENANCE.md)。全部納入 portable backup。

@@ -99,6 +99,7 @@ Archive、舊 preview、review backlog、readiness checkpoint、已結案舊 han
 - `ORDERING_MODULE.md` — 叫貨（草稿、送出、修改、到貨與到貨修改、未到貨、廠商頁、進貨輔助抽屜、可攜備份）。
 - `STORE_CUSTOMER_ORDERS.md` — 門市顧客訂購／黑名單、手動進度日期、逐筆歷程與三選一聯絡方式。叫貨連動仍為 TODO，不是現有能力。
 - `STORE_MONTHLY_TODOS.md` — 門市月度待辦、月份生效區間、項目週期、換行版面、編輯期限、管理員設定、獨立日期／無日期辦理、補漏排程與可攜備份。
+- `STORE_EQUIPMENT_MAINTENANCE.md` — 售後維修下的出機紀錄、同客戶同月到訪彙整、共用登記與歷程。
 - `STORE_REPAIRS.md` — 門市售後維修（流程、取消、逾期、維修單照片、API 與資料）。
 - `HR_MODULE_DESIGN.md`、`HR_MODULE_CONTRACT.md` — 人事（主檔、排班出勤、請假特休加班補休）；`HR_LEGAL_WATCH.md` 為每月法規檢查。
 

@@ -716,3 +716,7 @@ D1 migration `0017_hr_phase1.sql` 新增 `hr_employees`、`hr_emergency_contacts
 
 ## WO-0.9.25 2b 資料模型
 0019_hr_phase2b.sql 新增 hr_leave_records（batch_id 聚合同次申請、取消不刪除）、hr_leave_attachments（metadata only，R2 實體備份未納入）、hr_annual_leave_years（員工／服務年度唯一）、hr_overtime_days（員工／日期唯一與 revision）、hr_comp_time_grants（補休與國定假日換休）、hr_comp_time_settlements（轉加班費結清）。hr_leave_types 增加額度、合併、附件及法規資訊並新增「院」；查詢期間即時計算遞延與到期，不使用排程。
+
+## 出機與定期維護（0051）
+
+`store_equipment_records` 保存一批出機及各機身資料；`store_maintenance_visits` 是客戶編號＋預計年月唯一到訪；`store_equipment_plans` 建立多筆出機對一次到訪的關聯與已完成摘要；`store_equipment_events` 保存精簡操作歷程；`store_equipment_state` 協調原子修改。沿用 STORE_REPAIRS 使用權與共用 Audit。詳細語意見 [STORE_EQUIPMENT_MAINTENANCE](STORE_EQUIPMENT_MAINTENANCE.md)，forward schema 以0051為準。

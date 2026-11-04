@@ -16,6 +16,7 @@ const moduleOptions: readonly { value:string; label:string }[] = [
   {value:"sales_work_order",label:"銷售工單"},
   {value:"outsourcing_order,contractor,contractor_price,bom_recipe",label:"委外/代工"},
   {value:"work_log",label:"工作日誌"},
+  {value:"store_equipment,store_maintenance",label:"出機與維護"},
   {value:"customer_category,customer_status,department,item_category,work_log_category,work_log_platform,work_log_scoring_row,work_log_scoring_config,setting",label:"設定"},
   {value:"module_access,module_access_group,app_tag",label:"使用權"},
   {value:"backup",label:"備份"},{value:"erp_item_query,erp_item_agent",label:"ERP 查詢（含查詢紀錄）"},
