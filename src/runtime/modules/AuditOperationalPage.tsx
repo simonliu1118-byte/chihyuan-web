@@ -23,7 +23,7 @@ const moduleOptions: readonly { value:string; label:string }[] = [
 const ERP_MODULES = "erp_item_query,erp_item_agent";
 type Period = "today" | "7" | "30" | "custom";
 type Filters = {entityTypes:string;period:Period;from:string;to:string;actorEmployeeId:string;q:string;includeErpQueries:boolean};
-const initialFilters:Filters = {entityTypes:"",period:"7",from:"",to:"",actorEmployeeId:"",q:"",includeErpQueries:false};
+const initialFilters:Filters = {entityTypes:"",period:"today",from:"",to:"",actorEmployeeId:"",q:"",includeErpQueries:false};
 function isoWindow(filters:Filters):{occurredFrom:string;occurredTo:string} {
   const today = taipeiToday();
   const day = new Date(today+"T00:00:00+08:00");
@@ -102,8 +102,10 @@ export function ChangeLogList({role,customerId}:{
   },[filters]); // eslint-disable-line react-hooks/exhaustive-deps
   const [open,setOpen]=useState<ReadonlySet<number>>(new Set());
   const toggle=(id:number)=>setOpen(prev=>{const next=new Set(prev);if(next.has(id))next.delete(id);else next.add(id);return next;});
-  // Oldest first with 項次 (user 2026-11-04); the API pages newest first, so 載入較早的紀錄 sits on top.
-  const rows=[...events].reverse();
+  // Newest first with 項次; it opens on 今天 (user 2026-11-04). 載入較早的紀錄 sits under the table.
+  const rows=events;
+  // Scheduled jobs (backups, ERP agent) have no person behind them.
+  const who=(item:AuditEvent)=>item.actor?formatPerson(item.actor):"系統";
   const moduleChoices=role==="SUPER_ADMIN"?moduleOptions:moduleOptions.filter(option=>option.value!==ERP_MODULES);
   return <div className="cy-change-log">
     {!customerId ? <div role="search" className="cy-op-panel cy-change-log-filters" aria-label="異動紀錄查詢">
@@ -128,8 +130,6 @@ export function ChangeLogList({role,customerId}:{
     {error?<div role="alert" className="cy-op-notice danger">{error}</div>:null}
     <section className={customerId?"cy-change-log-list":"cy-op-panel cy-change-log-list"} aria-label="異動清單">
       {loading?<Loading/>:<>
-        {nextCursor?<button type="button" className="cy-op-button quiet cy-change-log-more" disabled={moreLoading}
-          onClick={()=>void loadMore()}>{moreLoading?"載入中…":"載入較早的紀錄"}</button>:null}
         {rows.length?<div className="cy-change-log-wrap"><table className="cy-sheet-table cy-change-log-table" aria-label="異動紀錄">
           <thead><tr><th scope="col"><span className="cy-visually-hidden">展開</span></th><th scope="col" className="cy-sheet-seq">項次</th>
             <th scope="col">時間（台灣）</th><th scope="col">人員</th><th scope="col">動作</th><th scope="col">對象</th><th scope="col">變更內容</th></tr></thead>
@@ -140,12 +140,12 @@ export function ChangeLogList({role,customerId}:{
             const name=recordName(item);
             const target=item.entityType==="erp_item_query"?auditSentence(item, lookups):name===entityLabel(item.entityType)?"—":name;
             return <Fragment key={item.id}>
-              <tr className={"cy-change-log-row"+(expanded?" open":"")} title={formatDateTime(item.occurredAt)+"　"+formatPerson(item.actor)+"　"+auditSentence(item, lookups)}
+              <tr className={"cy-change-log-row"+(expanded?" open":"")} title={formatDateTime(item.occurredAt)+"　"+who(item)+"　"+auditSentence(item, lookups)}
                 onClick={()=>{if(expandable)toggle(item.id);}}>
                 <td className="cy-change-log-toggle">{expandable?<ExpandToggle expanded={expanded} onToggle={()=>toggle(item.id)} label={auditSentence(item, lookups)}/>:null}</td>
                 <td className="cy-sheet-seq">{index+1}</td>
                 <td><span className="cy-sheet-value cy-change-log-time">{formatDateTime(item.occurredAt)}</span></td>
-                <td><span className="cy-sheet-value">{formatPerson(item.actor)}</span></td>
+                <td><span className="cy-sheet-value">{who(item)}</span></td>
                 <td><span className="cy-sheet-value">{item.entityType==="erp_item_query"?"ERP 查詢":actionLabel(item.action,item.entityType)}</span></td>
                 <td><span className="cy-sheet-value">{target}</span></td>
                 <td><span className="cy-sheet-value cy-change-log-fields">{[...new Set(changes.map(row=>row.label))].join("、")||"—"}</span></td>
@@ -159,6 +159,9 @@ export function ChangeLogList({role,customerId}:{
                   before:item.before,after:item.after,metadata:item.metadata},null,2)}</pre></details></td></tr>:null}
             </Fragment>;
           })}</tbody></table></div>:<p className="cy-op-empty">此範圍尚無異動紀錄。</p>}
+        {nextCursor?<button type="button" className="cy-op-button quiet cy-change-log-more" disabled={moreLoading}
+          onClick={()=>void loadMore()}>{moreLoading?"載入中…":"載入較早的紀錄"}</button>:null}
+
       </>}
     </section>
   </div>;

@@ -1,6 +1,6 @@
 # WO-0.9.94 全系統灰色說明小字：先盤點列表
 
-- 狀態：第一段完成並經使用者確認（2026-11-03）；**第二段實作完成，待 Claude 審查（V0.10.11，2026-11-04）**
+- 狀態：**已完成**（第一段 2026-11-03 使用者確認；第二段 2026-11-04 Claude 審查通過，V0.10.12 合併部署）
 - 第二段分支：`cyweb/wo-0.9.94-phase2`；PR：[#413](https://github.com/simonliu1118-byte/chihyuan-web/pull/413)。
 - 第一段分支：cyweb/wo-0.9.94-gray-text-inventory　PR：[#396](https://github.com/simonliu1118-byte/chihyuan-web/pull/396)（原工單 #392 已合併）
 
@@ -529,3 +529,4 @@
 ## 9. 審查紀錄（審查者填）
 
 - 2026-11-03 Claude：第一段（PR #396）審查通過並合併。僅文件、截圖與 handoff，無產品變更；264 項分類與理由合理。使用者確認結果見 §2.1。
+- 2026-11-04 Claude：第二段（PR #413）審查通過。改動限於 §2.1 確認的文字與 #106 字數顯示，未改其他用語、測試或後端；刪字後的空容器一併移除。合併 main V0.10.11 後版本順延為 **V0.10.12**。Linux 上完整 Node 測試 622 項全過（GPT 回報的 11 項失敗為其 Windows／CRLF 環境特有）、兩組型別檢查、validate:source、validate:deploy、build 通過。
