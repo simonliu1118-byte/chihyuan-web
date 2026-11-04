@@ -17,18 +17,18 @@ export function repairSlipHtml(r:StoreRepair,s:StoreRepairPrintSettings):string{
  const product=esc(STORE_REPAIR_PRODUCTS[r.productKind])+"　"+esc(r.productText);
  const notes=lines(s.notes);
  return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>機器維修單</title><style>
-@page{size:241mm 140mm;margin:6mm 8mm}
+@page{size:241mm 140mm;margin:0}
 *{box-sizing:border-box}
-body{margin:0;color:#000;background:#fff;font:11pt/1.3 "Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif}
+body{margin:0;padding:20mm 15mm 0;color:#000;background:#fff;font:12pt/1.3 "Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif}
 .head{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;border:1px solid #000;border-bottom:0;padding:6px 10px}
-.head h1{grid-column:2;margin:0;font-size:17pt;text-align:center;letter-spacing:.1em}
+.head h1{grid-column:2;margin:0;font-size:18pt;text-align:center;letter-spacing:.1em}
 .head h2{grid-column:2;margin:1px 0 0;font-size:13pt;text-align:center;letter-spacing:.2em}
-.contact{grid-column:3;grid-row:1/3;justify-self:end;align-self:end;font-size:10pt;text-align:left;white-space:pre-line}
+.contact{grid-column:3;grid-row:1/3;justify-self:end;align-self:end;font-size:11pt;text-align:left;white-space:pre-line}
 table{width:100%;border-collapse:collapse;table-layout:fixed}
 td,th{border:1px solid #000;padding:2px 8px;height:10mm;vertical-align:middle;word-break:break-all}
 th{font-weight:normal;text-align:center;white-space:nowrap}
 .tall{vertical-align:top;padding-top:5px}
-.step{height:22mm;text-align:center}
+.step{height:18mm;text-align:center}
 .notes{height:auto;padding:5px 8px}
 ol{margin:0;padding-left:1.4em}
 </style></head><body>
@@ -45,24 +45,24 @@ ${notes.length?`<tr><th>注意事項</th><td colspan="5" class="notes"><ol>${not
 }
 
 /**
- * 維修資訊卡 (user 2026-11-04): travels with the machine to the factory, printed on an 80 mm thermal
- * roll. Heading and footer are the store's own text; 送修問題 is the fault plus the inspection finding.
+ * 維修資訊卡 (user 2026-11-04): travels with the machine to the factory, printed on the thermal printer's
+ * label and filling the whole page (the 送修問題 box takes the remaining height). Heading and footer are the store's own text; 送修問題 is the fault plus the inspection finding.
  * 送修日期 and 處理人員 are left blank for the factory hand-off; 保固內／外 is ticked by hand.
  */
 export function repairCardHtml(r:StoreRepair,s:StoreRepairPrintSettings):string{
  const inspection=r.inspectResult==="BAD"?r.inspectProblem||"異常":r.inspectResult==="GOOD"?"無異常":"";
  const footer=lines(s.cardFooter);
  return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>維修資訊卡</title><style>
-@page{size:80mm auto;margin:3mm 4mm}
+@page{margin:0}
 *{box-sizing:border-box}
-body{margin:0;width:72mm;color:#000;background:#fff;font:10pt/1.4 "Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif}
-h1{margin:0 0 1.5mm;font-size:13pt;text-align:center}
-table{width:100%;border-collapse:collapse;table-layout:fixed}
-td,th{border:1px solid #000;padding:1.2mm 1.5mm;vertical-align:top;word-break:break-all}
-th{width:19mm;font-weight:normal;text-align:center;white-space:nowrap}
-.blank{height:7mm}
-.problem{min-height:24mm;height:24mm;white-space:pre-wrap}
-footer{margin-top:2mm;text-align:center;font-size:9.5pt;white-space:pre-line}
+html,body{height:100%}
+body{margin:0;padding:10mm 10mm 6mm;display:flex;flex-direction:column;color:#000;background:#fff;font:12pt/1.35 "Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif}
+h1{margin:0 0 3mm;font-size:16pt;text-align:center}
+table{width:100%;flex:1;border-collapse:collapse;table-layout:fixed}
+td,th{border:1px solid #000;padding:1.5mm 2.5mm;height:10mm;vertical-align:middle;word-break:break-all}
+th{width:22mm;font-weight:normal;text-align:center;white-space:nowrap}
+.problem{height:auto;vertical-align:top;white-space:pre-wrap}
+footer{margin-top:3mm;text-align:center;font-size:11pt;white-space:pre-line}
 </style></head><body>
 <h1>${esc(s.cardTitle||"維修資訊卡")}</h1>
 <table>
