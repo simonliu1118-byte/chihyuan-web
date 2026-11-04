@@ -34,7 +34,7 @@ const shipping=(v:Record<string,unknown>,prefix:"send"|"return")=>{
 };
 const fields=(v:Record<string,unknown>,at:string)=>{
  const name=text(v.customerName,"客戶姓名",40,true),kind=v.productKind;
- if(typeof kind!=="string"||!(kind in STORE_REPAIR_PRODUCTS))throw new Invalid("送修產品需五選一");
+ if(typeof kind!=="string"||!(kind in STORE_REPAIR_PRODUCTS))throw new Invalid("請選擇送修類別");
  const honorific=v.honorific??"";if(!["","MR","MS"].includes(String(honorific)))throw new Invalid("稱謂不正確");
  const mobile=normalizePhone(text(v.mobile,"手機",30)),phone=normalizePhone(text(v.phone,"電話",30)),lineName=text(v.lineName,"LINE 名稱",60);
  if(!mobile&&!phone&&!lineName)throw new Invalid("連絡電話或 LINE 至少填寫一項");
