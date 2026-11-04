@@ -56,11 +56,11 @@ export function repairCardHtml(r:StoreRepair,s:StoreRepairPrintSettings):string{
 @page{margin:0}
 *{box-sizing:border-box}
 html,body{height:100%}
-body{margin:0;padding:6mm 6mm 5mm;display:flex;flex-direction:column;color:#000;background:#fff;font:12pt/1.35 "Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif}
+body{margin:0;padding:10mm 10mm 6mm;display:flex;flex-direction:column;color:#000;background:#fff;font:12pt/1.35 "Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif}
 h1{margin:0 0 3mm;font-size:16pt;text-align:center}
 table{width:100%;flex:1;border-collapse:collapse;table-layout:fixed}
 td,th{border:1px solid #000;padding:1.5mm 2.5mm;height:10mm;vertical-align:middle;word-break:break-all}
-th{width:25mm;font-weight:normal;text-align:center;white-space:nowrap}
+th{width:22mm;font-weight:normal;text-align:center;white-space:nowrap}
 .problem{height:auto;vertical-align:top;white-space:pre-wrap}
 footer{margin-top:3mm;text-align:center;font-size:11pt;white-space:pre-line}
 </style></head><body>
