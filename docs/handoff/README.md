@@ -11,6 +11,8 @@
 
 ## 目前待 Claude 審查
 
+- [V0.11.3 ERP 未收款共用表格](CYWEB-ERP-RECEIVABLE-TABLE-0113-20261105.md)：新工作，待 CI／Claude 審查，未合併部署。
+
 - [V0.11.2 出機表單與保固年月](CYWEB-EQUIPMENT-FORM-0112-20261105.md)：GPT 新工作分支，待 PR 自動驗證與 Claude 審查；未合併、未部署。
 
 - [V0.11.1 三年維護矩陣](CYWEB-MAINTENANCE-MATRIX-0111-20261105.md)：PR #431 已依使用者特例合併部署，完整CI／正式健康檢查通過，Claude待事後複審。

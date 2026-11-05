@@ -6,6 +6,12 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.11.3 — ERP 未收款共用表格（2026-11-05，GPT）
+
+- 未收款客戶清單與展開明細統一共用 `cy-op-table`，並採用共用 `ExpandToggle`；客戶編號10碼、名稱10中文字、金額6位數不折行。
+- `ErpQueryRows` 加入可選共用表格模式，保留既有25筆分頁及憑證點擊；其他 ERP 查詢預設呈現不變。
+- 不變更 ERP Agent／API／D1／查詢計算；待 PR CI 與 Claude 審查，未合併部署。詳見 [handoff](docs/handoff/CYWEB-ERP-RECEIVABLE-TABLE-0113-20261105.md)。
+
 ## CY Web V0.11.2 — 出機表單與保固年月交互調整（2026-11-05，GPT，待審查）
 
 - 出機第一列併入銷售日期、數量；保固起訖同欄與月數雙向日曆計算，定期維護使用需／無須互斥單選，機身列直接接續表頭表身。

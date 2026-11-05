@@ -1,11 +1,12 @@
 import { formatDate } from "../../ui/foundation/format";
 import { SegmentedControl } from "../../ui/primitives/SegmentedControl";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, Fragment, useEffect, useRef, useState } from "react";
 import { parseErpCode, parseErpNameKeyword, parseErpOrderNo } from "../../../shared/erp-name-search";
 import { ERP_CUSTOMER_SEARCH_FIELDS, type ErpReceivableScope } from "../../../shared/erp-item-query";
 import { erpMoney, erpNumber, groupBills } from "../../../shared/erp-sales-links";
 import { ErpOrderDialog } from "./ErpOrderDialog";
 import { ErpQueryRows } from "./ErpQueryRows";
+import { ExpandToggle } from "../../ui/data/ExpandToggle";
 import { ErpJobStatus, showsData } from "./ErpJobStatus";
 import type { ErpJob } from "./useErpJob";
 
@@ -13,6 +14,7 @@ const SCOPES: { key: ErpReceivableScope; label: string }[] = [
   { key: "CUSTOMER", label: "客戶" }, { key: "SALESPERSON", label: "業務員" }, { key: "ALL", label: "全部" },
 ];
 const BILL_COLUMNS = ["結帳單號", "日期", "業務員", "發票號碼", "應收帳款", "應收稅額", "未收帳款", "憑證"];
+const BILL_WIDTHS = ["175px","110px","180px","135px","130px","115px","130px","auto"];
 
 /**
  * 未收款 (ACRR18, user 2026-10-17): one customer (at the customer's), one 業務員 (what that person has
@@ -23,6 +25,7 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
   const [text, setText] = useState("");
   // The 憑證 opened in its own dialog; the 未收款 result above stays as it is.
   const [openOrder, setOpenOrder] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<{id:string;codes:Set<string>}|null>(null);
   const autoFollowed = useRef<string | null>(null);
   const { result, busy, submitting, setError } = job;
   const queryCustomer = (code: string) => job.start({ queryType: "RECEIVABLE", scope: "CUSTOMER", code });
@@ -47,6 +50,15 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
   }, [mine, busy]);
   const groups = mine?.queryType === "RECEIVABLE" ? groupBills(mine.bills) : [];
   const totalUnpaid = groups.reduce((acc, g) => acc + g.unpaid, 0);
+  const isOpen = (code:string) => expanded?.id===mine?.id ? expanded.codes.has(code) : groups.length===1;
+  const toggle = (code:string) => {
+    if(!mine||mine.queryType!=="RECEIVABLE")return;
+    setExpanded(current=>{
+      const codes=current?.id===mine.id?new Set(current.codes):new Set(groups.length===1?groups.map(g=>g.customerCode):[]);
+      if(codes.has(code))codes.delete(code);else codes.add(code);
+      return {id:mine.id,codes};
+    });
+  };
   return <>
     <div className="cy-op-panel cy-erp-query-box">
       <form role="search" className="cy-erp-form" onSubmit={event => void submit(event)} noValidate>
@@ -74,27 +86,41 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
       {showsData(mine) && mine.queryType === "RECEIVABLE" && <>
         <h3>未收合計 {erpMoney(totalUnpaid)}（{groups.length} 位客戶、{mine.bills.length} 張結帳單）</h3>
         {mine.truncated && <p className="cy-notice cy-notice-warning">共 {mine.total} 張，只顯示 {mine.bills.length} 張。</p>}
-        <div className="cy-erp-orders">
-          {groups.map(group => <details key={group.customerCode} className="cy-erp-order" open={groups.length === 1}>
-            <summary>
-              <strong>{group.customerCode}</strong><span>{group.customerName}</span>
-              <span>{group.bills.length} 張</span><span className="cy-erp-order-total">{erpMoney(group.unpaid)}</span>
-            </summary>
-            <div className="cy-erp-order-body">
-              <ErpQueryRows label={group.customerCode + " 結帳單"} columns={BILL_COLUMNS} summaryColumns={[0, 1, 6]}
-                rows={group.bills.map(b => [b.billNo, formatDate(b.date), [b.salespersonCode, b.salespersonName].filter(Boolean).join(" "),
-                  b.invoiceNo, erpMoney(b.receivable), erpMoney(b.receivableTax), erpMoney(b.unpaid),
-                  b.vouchers.map(v => `${v.voucherNo}（${formatDate(v.date)} ${erpMoney(v.amount)}）`).join("\n")])}
-                cell={(row, column) => column !== 7 ? undefined : <span className="cy-erp-vouchers">
-                  {group.bills[row].vouchers.map(v => {
-                    const orderNo = parseErpOrderNo(v.voucherNo);
-                    return <span key={v.voucherNo}>
-                      {orderNo ? <button type="button" className="cy-erp-item-link" disabled={busy}
-                        onClick={() => setOpenOrder(orderNo)}>{v.voucherNo}</button> : v.voucherNo}
-                      （{formatDate(v.date)} {erpMoney(v.amount)}）</span>;
-                  })}</span>} />
-            </div>
-          </details>)}
+        <div className="cy-op-table-wrap cy-erp-receivable-wrap">
+          <table className="cy-op-table cy-erp-receivable-table" aria-label="未收款客戶清單">
+            <colgroup><col style={{width:40}}/><col style={{width:160}}/><col/><col style={{width:100}}/><col style={{width:160}}/></colgroup>
+            <thead><tr><th scope="col"><span className="cy-visually-hidden">展開</span></th>
+              <th scope="col">客戶編號</th><th scope="col">客戶名稱</th><th scope="col" className="cy-erp-receivable-count">結帳單</th><th scope="col" className="num">未收款小計</th></tr></thead>
+            <tbody>{groups.map(group=>{
+              const opened=isOpen(group.customerCode);
+              return <Fragment key={group.customerCode}>
+                <tr className="cy-erp-receivable-customer" data-open={opened||undefined}
+                  tabIndex={0} onClick={()=>toggle(group.customerCode)}
+                  onKeyDown={event=>{if(event.target===event.currentTarget&&(event.key==="Enter"||event.key===" ")){event.preventDefault();toggle(group.customerCode)}}}>
+                  <td><ExpandToggle expanded={opened} onToggle={()=>toggle(group.customerCode)} label={group.customerCode+" "+group.customerName+" 結帳單"}/></td>
+                  <td className="cy-erp-receivable-code" title={group.customerCode}><strong>{group.customerCode}</strong></td>
+                  <td className="cy-erp-receivable-name" title={group.customerName}>{group.customerName}</td>
+                  <td className="cy-erp-receivable-count">{group.bills.length} 張</td>
+                  <td className="num cy-erp-receivable-money">{erpMoney(group.unpaid)}</td>
+                </tr>
+                {opened?<tr className="cy-erp-receivable-detail"><td colSpan={5}>
+                  <ErpQueryRows key={mine.id+":"+group.customerCode} label={group.customerCode+" 結帳單"} columns={BILL_COLUMNS}
+                    summaryColumns={[0,1,6]} tableMode="shared" columnWidths={BILL_WIDTHS} numericColumns={[4,5,6]}
+                    rows={group.bills.map(b=>[b.billNo,formatDate(b.date),[b.salespersonCode,b.salespersonName].filter(Boolean).join(" "),
+                      b.invoiceNo,erpMoney(b.receivable),erpMoney(b.receivableTax),erpMoney(b.unpaid),
+                      b.vouchers.map(v=>v.voucherNo+"（"+formatDate(v.date)+" "+erpMoney(v.amount)+"）").join("\n")])}
+                    cell={(row,column)=>column!==7?undefined:<span className="cy-erp-vouchers">
+                      {group.bills[row].vouchers.map(v=>{
+                        const orderNo=parseErpOrderNo(v.voucherNo);
+                        return <span key={v.voucherNo}>
+                          {orderNo?<button type="button" className="cy-erp-item-link" disabled={busy} onClick={()=>setOpenOrder(orderNo)}>{v.voucherNo}</button>:v.voucherNo}
+                          <span className="cy-erp-voucher-meta">（{formatDate(v.date)} {erpMoney(v.amount)}）</span>
+                        </span>;
+                      })}</span>}/>
+                </td></tr>:null}
+              </Fragment>
+            })}</tbody>
+          </table>
         </div>
         <p className="cy-erp-search-hint">金額為 ERP 原幣；未收合計由各結帳單未收帳款相加（{erpMoney(mine.bills.reduce((a, b) => a + erpNumber(b.unpaid), 0))}）。</p>
       </>}
