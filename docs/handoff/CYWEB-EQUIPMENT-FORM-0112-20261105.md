@@ -30,3 +30,11 @@
 - 自動驗證：以 PR 的 Runtime Check／Governance Check／部署契約檢查為準；PR 驗證不等於部署。
 - 真實桌面／手機外觀及日期選擇器的互動仍待人工驗收，未以 CI 冒充已驗收。
 - Claude 最終審查：**待審查**；GPT 不代填通過。使用者尚未授權合併／正式部署。
+
+## 2026-11-05 使用者授權及正式部署
+
+- 使用者本輪明確授權 PR #433 合併部署；上文「尚未授權」為建立 PR 時的狀態。Claude 事後複審仍待，GPT 不代填通過。
+- PR #433 全部 Runtime／Governance／部署契約檢查成功後合併，正式來源 main：`5e6df7f2e9873151d15cd0398e3649208843f168`，版本 V0.11.2 Build 0。
+- 從 main dispatch [CY Web Deploy 42039940207](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42039940207)，validate-deployment-contract 與 deploy-development 均 success；非部署 audit jobs skipped。
+- 獨立唯讀回讀正式 /api/health：version=0.11.2、sourceCommit 與上述 SHA 相同、database=ok。既有部署內的雙入口、HTTPS／資產、排程及正式 Identity gate 也成功。
+- 本次沒有修改正式業務資料，沒有新增 migration、Worker、金鑰或 Release；桌面／手機人工外觀驗收仍不由 CI 冒充。
