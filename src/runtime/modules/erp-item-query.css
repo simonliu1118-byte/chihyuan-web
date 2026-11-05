@@ -54,6 +54,23 @@
 .cy-erp-pagination{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;flex-wrap:wrap}
 .cy-erp-pagination button{min-height:var(--cy-control-h)}
 
+/* ERP RECEIVABLE shared table: local layout only. */
+.cy-erp-receivable-wrap{max-width:100%;overflow-x:auto}
+.cy-op-table.cy-erp-receivable-table{table-layout:fixed;min-width:780px}
+.cy-erp-receivable-customer{cursor:pointer}
+.cy-erp-receivable-customer:focus-visible{outline:2px solid var(--cy-accent);outline-offset:-2px}
+.cy-erp-receivable-customer[data-open=true]>td{background:var(--cy-accent-soft)}
+.cy-erp-receivable-table .cy-erp-receivable-code,.cy-erp-receivable-table .cy-erp-receivable-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cy-erp-receivable-table .cy-erp-receivable-count{text-align:center;white-space:nowrap}
+.cy-erp-receivable-table .cy-erp-receivable-money{white-space:nowrap;font-variant-numeric:tabular-nums}
+.cy-op-table.cy-erp-receivable-table>tbody>tr.cy-erp-receivable-detail>td{max-width:0;overflow:hidden;padding:6px 8px;background:var(--cy-surface)}
+.cy-erp-receivable-detail .cy-erp-result-list{min-width:0;max-width:100%}
+.cy-erp-receivable-detail .cy-erp-table-scroller{max-width:100%;overflow-x:auto}
+.cy-erp-receivable-detail .cy-op-table{table-layout:fixed;min-width:1350px}
+.cy-erp-receivable-detail .cy-op-table .num{white-space:nowrap;font-variant-numeric:tabular-nums}
+.cy-erp-receivable-detail .cy-erp-vouchers>span{display:block}
+.cy-erp-receivable-detail .cy-erp-item-link,.cy-erp-receivable-detail .cy-erp-voucher-meta{white-space:nowrap}
+
 /* ERP 查詢 categories: tabs on desktop, the select above on mobile (same category state). */
 .cy-erp-page>.cy-erp-category{margin-bottom:1rem}
 .cy-erp-follow{margin-top:1rem}
