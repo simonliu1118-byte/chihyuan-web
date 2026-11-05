@@ -17,3 +17,11 @@
 - 新工作結果不承接前次展開狀態；收合時明細會卸載，重新展開回到明細第一頁。
 - 第一輪 CI：Governance、Worker Typecheck、Build、Source Contracts、部署契約檢查通過；Browser Typecheck 發現 `TS18047: expanded 可能為 null`（`ErpReceivableQuery.tsx:53`），修正為顯式判斷非 null，已加入同工作分支重新驗證。CI 新結果待核對。
 - GitHub CI 結果待補；桌面／手機、10碼、10中文字、金額與展開憑證的實際目視驗收待補。Claude 結論不得由 GPT 代填。
+
+## 2026-11-06 正式部署驗收
+
+- 使用者明確要求部署 PR #435；該 PR 已合併，產品來源 main 為 `95bcbd895dd11f4c31111240f76bf325a3b91d38`，版本 V0.11.3。上文尚未合併、部署與 CI 待核對均為原交接當時狀態。
+- 最終 PR head `b56ba04a099becd254fec1296c0162898d7a3c30` 的 [Runtime 42053275413](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42053275413)、[Governance 42053275260](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42053275260)、[部署契約 42053275324](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42053275324) 均成功；原 TypeScript null 檢查問題已修正並通過。
+- 從 main dispatch [正式部署 42066049745](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42066049745)，validate-deployment-contract 與 deploy-development 皆 success；非本次執行的 audit jobs skipped。
+- 獨立唯讀回讀正式 /api/health：ok=true、version=0.11.3、sourceCommit 與上述產品 SHA 相同、database=ok。既有部署內的雙入口版本、HTTPS／資產、排程及 Identity gates 亦通過。
+- 本次只發布已合併的程式，沒有新增 migration、Worker、正式資料匯入、金鑰或 Release；未查閱 ERP 真實客戶明細。桌面／手機的實際目視驗收及 Claude 事後複審仍待，不由 CI 或 GPT 代填通過。
