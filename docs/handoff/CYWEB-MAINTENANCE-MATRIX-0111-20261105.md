@@ -50,14 +50,18 @@
 
 | 圖片 | 尺寸 | bytes | SHA-256 |
 | --- | --- | --- | --- |
-| 01-three-years.png | 65536×4292542531 | 82628 | 615783db0a05f2d0adc225452579232106c05be7dda3eccd73450395e0f5c435 |
-| 02-same-day-records.png | 65536×4292542531 | 91717 | 023ab145848e2b5ca54b465168d6ead7f36275c9021859b3f440d3cd5bb48323 |
-| 03-mobile.png | 65536×4292542531 | 25095 | 4493005baa1c34ce87b178a8370abb1985b0016b743627db926eed6206a20529 |
-| 04-two-line-direction.png | 65536×4292542531 | 78633 | 8f219a8f599b79f40c383475bbc267bfe439a75480d4ebd597ab3da54bd6fc9c |
+| 01-three-years.jpg | 1920×1080 | 82628 | 615783db0a05f2d0adc225452579232106c05be7dda3eccd73450395e0f5c435 |
+| 02-same-day-records.jpg | 1920×1080 | 91717 | 023ab145848e2b5ca54b465168d6ead7f36275c9021859b3f440d3cd5bb48323 |
+| 03-mobile.jpg | 390×844 | 25095 | 4493005baa1c34ce87b178a8370abb1985b0016b743627db926eed6206a20529 |
+| 04-two-line-direction.jpg | 1920×1080 | 78633 | 8f219a8f599b79f40c383475bbc267bfe439a75480d4ebd597ab3da54bd6fc9c |
 
 ## 遠端檢查與發布
 
-待填PR、CI、合併SHA與受控部署／正式健康檢查證據。未以PR裡跳過的deploy job當作發布成功。
+PR [#431](https://github.com/simonliu1118-byte/chihyuan-web/pull/431) 已建立；CI／合併SHA與受控部署／正式健康檢查證據待填。未以PR裡跳過的deploy job當作發布成功。
+
+## 本輪文件校正
+
+- 瀏覽器截圖回傳實際為JPEG，原先檔名誤用PNG、尺寸誤按PNG header讀取；已按JPEG實際格式改為.jpg並重新解析SOF尺寸，bytes與SHA-256不變。此提交只有證據文件及檔名，無產品source變動。
 
 ## Claude審查
 
