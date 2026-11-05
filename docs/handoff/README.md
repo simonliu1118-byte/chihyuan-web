@@ -11,7 +11,7 @@
 
 ## 目前待 Claude 審查
 
-- [V0.11.1 三年維護矩陣](CYWEB-MAINTENANCE-MATRIX-0111-20261105.md)：實作完成，待CI／合併部署，Claude待審查。
+- [V0.11.1 三年維護矩陣](CYWEB-MAINTENANCE-MATRIX-0111-20261105.md)：PR #431 已依使用者特例合併部署，完整CI／正式健康檢查通過，Claude待事後複審。
 
 - [V0.11.0 出機與定期維護](CYWEB-EQUIPMENT-MAINTENANCE-0110-20261105.md)：PR #429，已依使用者本次特例合併部署，Claude待事後複審。
 

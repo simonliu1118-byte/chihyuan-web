@@ -57,7 +57,13 @@
 
 ## 遠端檢查與發布
 
-PR [#431](https://github.com/simonliu1118-byte/chihyuan-web/pull/431) 已建立；CI／合併SHA與受控部署／正式健康檢查證據待填。未以PR裡跳過的deploy job當作發布成功。
+- 產品PR [#431](https://github.com/simonliu1118-byte/chihyuan-web/pull/431)，最終head `512451e98f45358f4a84a036746747d3ca215a7a`；合併並部署來源main **`1e1f2e5a9f87efc175723d66c8e1e439d8c1b190`**。
+- 最新[Runtime Check 41964282381](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41964282381) 全部success：source-contracts、browser-typecheck、worker-typecheck、build；build內真實Local D1 runtime acceptance、Full Node test suite及Vite build均success。完整Linux檢查通過，前述Windows平台限制未出現。
+- [Governance 41964282384](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41964282384) 與[部署契約41964282385](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41964282385) success；PR中的deploy跳過，沒有拿它當發布。
+- 正式[部署41964606911](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41964606911)，從main dispatch `development-deploy.yml` operation=deploy-development；validate-deployment-contract及實際deploy-development **success**。0052 migration、Worker/assets、排程、兩入口來源版本／D1健康、HTTPS靜態資源、Custom Domain、失效session與正式portal authority檢查全部success。
+- 2026-11-05 **11:58（台灣）** 唯讀正式域名 `/api/health` 再確認：version **0.11.1**、sourceCommit **1e1f2e5a9f87efc175723d66c8e1e439d8c1b190**、database **ok**、identityConsumerVersion **1.0.5**。
+- 發布後只補記本交接／TODO／CHANGELOG／handoff入口，不再變動產品或重複部署。與原分支同步main後，確認產品source與main相同；圖片Git read-back的bytes／SHA-256再次一致。
+
 
 ## 本輪文件校正
 
