@@ -22,6 +22,8 @@
 
 - V0.11.0 出機與定期維護：PR #429 已依使用者本次特例合併部署，完整CI與正式健康檢查通過；Claude待事後複審，見 [handoff](docs/handoff/CYWEB-EQUIPMENT-MAINTENANCE-0110-20261105.md)。
 
+- V0.11.1 三年維護矩陣：實作及本機驗證完成，待遠端CI／合併部署；使用者先前本功能特例授權持續適用，Claude待審查，見 [handoff](docs/handoff/CYWEB-MAINTENANCE-MATRIX-0111-20261105.md)。
+
 ## 上線檢核
 
 - [x] 手動備份（使用者 2026-11-03 確認）。

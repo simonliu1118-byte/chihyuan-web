@@ -13,12 +13,15 @@ export async function acceptEquipmentMaintenance(db:D1Database){
  const replay=await call<EquipmentRecord>('','POST',{...fields,requestKey:key});if(first.id!==replay.id)throw new Error('EQUIPMENT_D1_REPLAY');
  await call<EquipmentRecord>('','POST',{...fields,model:'第二型號',requestKey:crypto.randomUUID()});
  const list=await call<MaintenancePage>('/visits');if(list.rows.length!==2||list.rows.some(r=>r.equipment.length!==2))throw new Error('EQUIPMENT_D1_GROUP');
- const v=list.rows[0],payload={expectedVersion:v.version,requestKey:crypto.randomUUID(),completed:true,completionDate:null,note:'已前往維護'};
- const done=await call<MaintenanceVisit>('/visits/'+v.id,'PUT',payload);if(!done.completed||done.note!==payload.note||done.completionDate!==null)throw new Error('EQUIPMENT_D1_COMPLETION');
+ const v=list.rows[0],payload={expectedVersion:v.version,requestKey:crypto.randomUUID(),completed:true,completionDate:'2026-11-05',note:'已前往維護'};
+ const done=await call<MaintenanceVisit>('/visits/'+v.id,'PUT',payload);if(!done.completed||done.note!==payload.note||done.completionDate!==payload.completionDate)throw new Error('EQUIPMENT_D1_COMPLETION');
  await call('/visits/'+v.id,'PUT',{...payload,requestKey:crypto.randomUUID()},409);
  await call('','POST',{...fields,requestKey:crypto.randomUUID()},409);
  const count=await db.prepare('SELECT COUNT(*) n FROM store_equipment_records').first<{n:number}>();if(count?.n!==2)throw new Error('EQUIPMENT_D1_ROLLBACK');
  const disabled=await call<EquipmentRecord>('','POST',{...fields,customerCode:'',maintenance:false,months:[],requestKey:crypto.randomUUID()});
  await call('/'+disabled.id,'PUT',{...disabled,maintenance:true,months:['2026-11'],expectedVersion:disabled.version,requestKey:crypto.randomUUID()},422);
+ await call('/visits/'+v.id,'PUT',{...payload,expectedVersion:done.version,completionDate:null,requestKey:crypto.randomUUID()},422);
+ const matrix=await call<{rows:{visits:MaintenanceVisit[]}[]}>('/matrix?year=2026');if(matrix.rows.length!==1||matrix.rows[0].visits.length!==2)throw new Error('EQUIPMENT_D1_MATRIX');
+ const aggregated=await call<{rows:{after:{plannedMonth:string}}[]}>('/customers/SYNTHETIC-EQ/history');if(aggregated.rows[0]?.after.plannedMonth!==v.month)throw new Error('EQUIPMENT_D1_CUSTOMER_HISTORY');
  const history=await call<{rows:unknown[]}>('/visits/'+v.id+'/history');if(history.rows.length!==1)throw new Error('EQUIPMENT_D1_HISTORY');
 }

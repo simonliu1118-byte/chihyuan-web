@@ -24,7 +24,7 @@ function lineChanges(before:HistoryLine[],after:HistoryLine[]):string[]{
  return [...result,...before.flatMap((line,i)=>used.has(i)?[]:["刪除品項："+summary(line)])];
 }
 export function historySummary(e:StoreHistory):string{
- if(['登記維護','修改維護','取消維護登記'].includes(e.kind)){const day=(value:unknown)=>display(value,'completionDate').replaceAll('-','/');return [e.kind!=='取消維護登記'&&Object.hasOwn(e.after,'completionDate')?'日期：'+(e.kind==='修改維護'&&Object.hasOwn(e.before,'completionDate')?day(e.before.completionDate)+' → ':'')+day(e.after.completionDate):'',typeof e.after.note==='string'&&e.after.note?'備註：'+e.after.note:''].filter(Boolean).join('；')}
+ if(['登記維護','修改維護','取消維護登記'].includes(e.kind)){const day=(value:unknown)=>display(value,'completionDate').replaceAll('-','/');return [typeof e.after.plannedMonth==='string'?'預計：'+e.after.plannedMonth.replaceAll('-','/'):'',e.kind!=='取消維護登記'&&Object.hasOwn(e.after,'completionDate')?'日期：'+(e.kind==='修改維護'&&Object.hasOwn(e.before,'completionDate')?day(e.before.completionDate)+' → ':'')+day(e.after.completionDate):'',typeof e.after.note==='string'&&e.after.note?'備註：'+e.after.note:''].filter(Boolean).join('；')}
  if(["建立","加入黑名單","加回黑名單"].includes(e.kind))return "";
  if(e.kind==="訂購取消"||e.kind==="移出黑名單")return e.reason;
  if(e.kind==="確認辦理"||e.kind==="取消完成")return String(e.after.itemName??"");

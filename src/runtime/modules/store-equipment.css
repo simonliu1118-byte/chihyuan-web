@@ -2,7 +2,6 @@
 .cy-store-after-sales{display:grid;gap:12px;min-width:0}
 .cy-store-after-sales>.cy-segmented{justify-self:start}
 .cy-equipment-list{min-width:1050px}
-.cy-equipment-visits{min-width:850px}
 .cy-store-equipment .cy-store-workflow-table>tbody>tr:focus-within{background:transparent}
 .cy-equipment-center{text-align:center!important;font-variant-numeric:tabular-nums}
 .cy-equipment-planned{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:6px}
@@ -19,6 +18,35 @@
 .cy-equipment-months .cy-f-check{display:inline-flex;justify-content:center;padding:3px}
 .cy-equipment-months input{margin:0}
 .cy-equipment-visit-note{width:250px!important}
+.cy-store-maintenance .cy-data-actions{flex-flow:row wrap;align-items:center;gap:6px}
+.cy-ordering-grid.cy-maintenance-matrix{table-layout:fixed;min-width:1606px;font-size:var(--cy-fs-sm)}
+.cy-maintenance-matrix th,.cy-maintenance-matrix td{text-align:center!important;padding:2px;vertical-align:middle}
+.cy-maintenance-matrix th{white-space:nowrap}
+.cy-maintenance-matrix>tbody:nth-of-type(even){background:var(--cy-surface-muted)}
+.cy-maintenance-matrix>tbody>tr:last-child>td{border-bottom:1px solid var(--cy-border)}
+.cy-maintenance-matrix>tbody:last-child>tr:last-child>td{border-bottom:0}
+.cy-maintenance-matrix>tbody>tr:focus-within{background:transparent}
+.cy-maintenance-matrix .cy-matrix-sequence,.cy-maintenance-matrix .cy-matrix-customer,.cy-maintenance-matrix .cy-matrix-operations{position:sticky;z-index:2;background:var(--cy-surface)}
+.cy-maintenance-matrix>tbody:nth-of-type(even)>tr>.cy-matrix-sequence,.cy-maintenance-matrix>tbody:nth-of-type(even)>tr>.cy-matrix-customer,.cy-maintenance-matrix>tbody:nth-of-type(even)>tr>.cy-matrix-operations{background:var(--cy-surface-muted)}
+.cy-maintenance-matrix .cy-matrix-sequence{left:0}
+.cy-maintenance-matrix .cy-matrix-customer{left:32px;text-align:left!important}
+.cy-maintenance-matrix .cy-matrix-operations{right:0}
+.cy-maintenance-matrix thead .cy-matrix-sequence,.cy-maintenance-matrix thead .cy-matrix-customer,.cy-maintenance-matrix thead .cy-matrix-operations{z-index:3;background:var(--cy-surface-muted)}
+.cy-maintenance-matrix .cy-matrix-current{background:var(--cy-accent-soft);color:var(--cy-accent)}
+.cy-matrix-customer-content{display:flex;align-items:center;justify-content:space-between;gap:4px;min-height:28px}
+.cy-matrix-customer-content>span{overflow-wrap:anywhere}
+.cy-matrix-cell-items{display:flex;flex-direction:column;align-items:center;gap:2px;min-height:26px;justify-content:center}
+.cy-maintenance-matrix .cy-store-date-link{position:static;inset:auto;min-height:24px;height:auto;width:100%;font-size:11px}
+.cy-maintenance-matrix .cy-matrix-reference{font-size:10px;color:var(--cy-text-muted)}
+.cy-maintenance-matrix .cy-matrix-moved{flex-direction:column;justify-content:center;align-items:center;height:24px;min-height:24px;max-height:24px;font-size:10px;line-height:11px}
+.cy-matrix-overdue{color:var(--cy-danger)}
+.cy-matrix-overdue .cy-icon-button{color:inherit}
+.cy-maintenance-matrix .cy-matrix-detail>td{padding:6px;text-align:left!important}
+.cy-matrix-panel{position:sticky;left:0;width:min(650px,calc(100vw - 70px));display:grid;gap:6px}
+.cy-matrix-panel .cy-entry-table th,.cy-matrix-panel .cy-entry-table td{text-align:left!important;padding:3px 6px}
+.cy-matrix-panel .cy-store-date-popover{position:static;width:max-content;max-width:100%;box-shadow:none}
+.cy-matrix-panel .cy-store-date-popover form{display:grid;gap:6px}
+.cy-matrix-scroll:has(.cy-store-date-popover){padding-bottom:0!important}
 @media(max-width:820px){
  .cy-store-equipment .cy-equipment-detail .cy-entry-table{display:table;min-width:540px}
  .cy-store-equipment .cy-equipment-detail .cy-entry-table thead{display:table-header-group}
