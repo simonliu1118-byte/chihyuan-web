@@ -22,3 +22,20 @@ test('invalid numeric days do not become a valid saved value and density is conf
 
 
 test('date validation prevents the native invalid bubble while marking its controlled invalid state',()=>{const {input}=field();let prevented=false;input.props.onInvalid({preventDefault(){prevented=true}});assert.equal(prevented,true);assert.equal(drafts.at(-1),true)});
+
+test('shared year/month DateInput displays YYYY/MM and emits normalized calendar month',()=>{
+ assert.equal(dates.parseMonthInput('2024/08'),'2024-08');
+ assert.equal(dates.parseMonthInput('2024/13'),'');
+ assert.equal(dates.monthInputDisplay('202408'),'2024/08');
+ assert.equal(dates.shiftMonthInput('2024-12',1),'2025-01');
+ const changes=[];globalThis.dateDrafts=[];
+ const root=DateInput({value:'2024-05',precision:'month',onChange:v=>changes.push(v)});
+ assert.equal(root.props['data-precision'],'month');
+ const input=root.props.children[0];
+ assert.equal(input.props.value,'2024/05');
+ assert.equal(input.props.placeholder,'YYYY/MM');
+ input.props.onChange({currentTarget:{value:'2024/08',selectionStart:7},nativeEvent:{inputType:'insertText'}});
+ assert.equal(changes.at(-1),'2024-08');
+ input.props.onChange({currentTarget:{value:'2024/13',selectionStart:7},nativeEvent:{inputType:'insertText'}});
+ assert.equal(changes.at(-1),'');
+});

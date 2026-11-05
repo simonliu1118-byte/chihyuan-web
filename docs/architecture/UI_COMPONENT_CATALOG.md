@@ -19,10 +19,11 @@
 ## 2. 共用元件清單（`src/ui/`）
 
 ### 表單
+- `forms/Field.tsx`：`CheckField type="radio"` 可讓互斥選項沿用共用欄位外觀，預設仍為 checkbox。
 - `forms/Field.tsx`：`Field`（每個輸入都要包；表格格子內用 `presentation="cell"`）、`CheckField`（勾選框，**不要用原生 `<label>`**，測試會擋）、`FormSection`、`RequiredRows`。
 - `forms/EntryTable.tsx`：`EntryTable`、`EntryHeading`（必填星號用 `required`）。表格式表單的外框。
 - `forms/RecordSheet.tsx`：`RecordSheet`、`RecordRows`（`hideWhenEmpty`；檢視模式空值顯示「—」）。
-- `forms/DateInput.tsx`：所有日期輸入（YYYY/MM/DD）。日期可為「無」時，旁邊放 `CheckField label="無日期"`。
+- `forms/DateInput.tsx`：所有日期輸入（YYYY/MM/DD）；`precision="month"` 為共用 YYYY/MM 年月選擇模式，對外值是 YYYY-MM。日期可為「無」時，旁邊放 `CheckField label="無日期"`。
 - `forms/PhoneInput.tsx`：`PhoneInput`（輸入）、`PhoneText`（顯示）、`PhoneEntryInput`／`phoneEntryColumns`（含分機欄）。電話一律用這組。
 - `forms/PresetTextInput.tsx`：預設選項＋「其他」自填（例：付款條件、發票開立；選其他沒填就存「其他」）。
 - `primitives/TextInput`、`TextArea`、`SelectField`、`SegmentedControl`（2–4 個互斥選項）。

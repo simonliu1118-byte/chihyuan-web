@@ -9,11 +9,16 @@
 .cy-equipment-detail .cy-entry-table td{background:var(--cy-surface)!important;text-align:left}
 .cy-equipment-detail .cy-entry-table td:first-child{text-align:center}
 .cy-equipment-form-dialog .cy-dialog-surface{width:min(1000px,calc(100vw - 24px))}
-.cy-equipment-entry{min-width:760px;table-layout:fixed}
+.cy-equipment-entry{min-width:940px;table-layout:fixed}
 .cy-equipment-entry td{padding:2px}
 .cy-equipment-entry .cy-entry-table{table-layout:fixed}
 .cy-equipment-number{text-align:right}
-.cy-equipment-maintenance-switch{display:flex;padding:4px;align-items:center}
+.cy-equipment-maintenance-switch{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:4px;margin:0;border:0;min-width:0}
+.cy-equipment-maintenance-switch .cy-f-check{white-space:nowrap}
+.cy-equipment-warranty-period{display:flex;align-items:center;gap:5px;min-width:0}
+.cy-equipment-warranty-period>.cy-f-cell{flex:1;min-width:0}
+.cy-equipment-warranty-period .cy-date-input{width:100%;max-width:none}
+.cy-equipment-entry .cy-date-input[data-precision=month]{width:100%;max-width:210px}
 .cy-equipment-months th,.cy-equipment-months td{text-align:center}
 .cy-equipment-months .cy-f-check{display:inline-flex;justify-content:center;padding:3px}
 .cy-equipment-months input{margin:0}

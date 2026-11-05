@@ -6,6 +6,7 @@
 ## 目前狀態（2026-11-05）
 
 - **正式站 V0.11.1**（`https://admin.chihyuancm.com`），CYID consumer 1.0.5；D1 migration 到 `0052_maintenance_matrix_indexes`。
+- **V0.11.2 出機表單改版進行中**：第一列六欄、保固日曆月雙向計算、維護互斥選擇、機身資料整合表格、共用年月選擇器。待 CI、Claude 審查、使用者確認後才可合併部署；[handoff](docs/handoff/CYWEB-EQUIPMENT-FORM-0112-20261105.md)。
 - **接手 UI 前必讀** `docs/architecture/UI_COMPONENT_CATALOG.md`：共用元件清單與已定案畫面樣式，不要在模組內另做元件。
 - 模組：客戶、商品、瑕疵、銷售工單、叫貨（含進貨輔助抽屜、未到貨）、門市（顧客訂購、黑名單、月度待辦、售後維修（門市送修／出機紀錄／定期維護）、庫存盤點）、委外/代工、工作日誌、人事、ERP 查詢、帳號與權限、異動紀錄、備份管理、CY 程式、我的帳號。
 - 帳號：CYID 正式服務；成功的登入確認在伺服器記住 30 秒（V0.9.91）。

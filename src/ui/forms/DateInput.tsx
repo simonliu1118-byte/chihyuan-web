@@ -1,24 +1,25 @@
 import {useEffect,useId,useLayoutEffect,useRef,useState,type InputHTMLAttributes} from "react";
-import {dateValue,monthDays,parseDateInput,shiftDate,taipeiToday,dateInputDisplay} from "../../../shared/date-input";
+import {dateValue,monthDays,parseDateInput,parseMonthInput,shiftDate,shiftMonthInput,taipeiToday,dateInputDisplay,monthInputDisplay} from "../../../shared/date-input";
 import {digitsOnly,digitOffset,digitCaret,deleteDigit} from "../../../shared/digit-input";
 import "./date-input.css";
-type Props=Omit<InputHTMLAttributes<HTMLInputElement>,"type"|"value"|"onChange"|"min"|"max">&{value:string;onChange:(iso:string)=>void;min?:string;max?:string;density?:"compact"|"regular"};
+type Props=Omit<InputHTMLAttributes<HTMLInputElement>,"type"|"value"|"onChange"|"min"|"max">&{value:string;onChange:(iso:string)=>void;min?:string;max?:string;density?:"compact"|"regular";precision?:"day"|"month"};
 /** CYACCWEB interaction model, adapted to CYWEB controlled fields, bounds and keyboard flow. */
-export function DateInput({value,onChange,min="0001-01-01",max="9999-12-31",disabled,required,className="",density="compact",...props}:Props){
+export function DateInput({value,onChange,min="0001-01-01",max="9999-12-31",disabled,required,className="",density="compact",precision="day",...props}:Props){
+ const monthOnly=precision==="month";
  const [draft,setDraft]=useState(value.replaceAll("-","/")),[open,setOpen]=useState(false),[view,setView]=useState<"days"|"months"|"years">("days");
  const [month,setMonth]=useState((value||taipeiToday()).slice(0,7)),[yearStart,setYearStart]=useState(2020);
  const root=useRef<HTMLDivElement>(null),field=useRef<HTMLInputElement>(null),trigger=useRef<HTMLButtonElement>(null),panel=useRef<HTMLDivElement>(null),id=useId(),typing=useRef(false);
- const y=Number(month.slice(0,4)),m=Number(month.slice(5)),selected=parseDateInput(value),today=taipeiToday();
+ const y=Number(month.slice(0,4)),m=Number(month.slice(5)),selected=monthOnly?parseMonthInput(value):parseDateInput(value),today=taipeiToday(),todayValue=monthOnly?today.slice(0,7):today;
  const caret=useRef<number|null>(null),[invalidShown,setInvalidShown]=useState(false);
- const allowed=(iso:string)=>!!iso&&iso>=min&&iso<=max;
- function validity(text:string){const iso=parseDateInput(text);return text&&!iso?"請輸入有效日期（YYYY/MM/DD、四碼月日或八碼日期）":iso&&!allowed(iso)?"日期超出允許範圍":""}
+ const allowed=(iso:string)=>!!iso&&iso>=min.slice(0,iso.length)&&iso<=max.slice(0,iso.length);
+ function validity(text:string){const iso=monthOnly?parseMonthInput(text):parseDateInput(text);return text&&!iso?(monthOnly?"請輸入有效年月（YYYY/MM）":"請輸入有效日期（YYYY/MM/DD、四碼月日或八碼日期）"):iso&&!allowed(iso)?"日期超出允許範圍":""}
  useEffect(()=>{if(!typing.current)setDraft(value.replaceAll("-","/"))},[value]);
- useLayoutEffect(()=>{field.current?.setCustomValidity(disabled?"":validity(draft))},[draft,min,max,disabled]);
+ useLayoutEffect(()=>{field.current?.setCustomValidity(disabled?"":validity(draft))},[draft,min,max,disabled,monthOnly]);
  useLayoutEffect(()=>{if(caret.current!==null&&field.current){const at=digitCaret(draft,caret.current);field.current.setSelectionRange(at,at);caret.current=null}},[draft]);
- function edit(digits:string,position:number,expand=true){const text=dateInputDisplay(digits.slice(0,8),expand),iso=parseDateInput(text);typing.current=true;caret.current=position+(digits.length===4&&text.length===10?4:0);setDraft(text);onChange(allowed(iso)?iso:"")}
+ function edit(digits:string,position:number,expand=true){const text=monthOnly?monthInputDisplay(digits.slice(0,6)):dateInputDisplay(digits.slice(0,8),expand),iso=monthOnly?parseMonthInput(text):parseDateInput(text);typing.current=true;caret.current=position+(!monthOnly&&digits.length===4&&text.length===10?4:0);setDraft(text);onChange(allowed(iso)?iso:"")}
  function close(focus=false){setOpen(false);if(focus)field.current?.focus()}
  function choose(iso:string){if(!allowed(iso))return;typing.current=false;setDraft(iso.replaceAll("-","/"));onChange(iso);close(true)}
- function show(){const current=allowed(selected)?selected:today<min?min:today>max?max:today;setMonth(current.slice(0,7));setYearStart(Math.max(1,Math.min(9988,Number(current.slice(0,4))-5)));setView("days");setOpen(true)}
+ function show(){const current=allowed(selected)?selected:todayValue<min.slice(0,todayValue.length)?min:todayValue>max.slice(0,todayValue.length)?max:todayValue;setMonth(current.slice(0,7));setYearStart(Math.max(1,Math.min(9988,Number(current.slice(0,4))-5)));setView(monthOnly?"months":"days");setOpen(true)}
  useLayoutEffect(()=>{
   const popover=panel.current;if(!open||!popover)return;
   popover.showPopover?.();
@@ -32,23 +33,23 @@ export function DateInput({value,onChange,min="0001-01-01",max="9999-12-31",disa
  useEffect(()=>{if(disabled)setOpen(false)},[disabled]);
  function navigate(delta:number){if(view==="years"){setYearStart(v=>Math.max(1,Math.min(9988,v+delta*12)));return}const target=view==="months"?dateValue(y+delta,m,1):shiftDate(dateValue(y,m,1),delta<0?-1:32);if(target)setMonth(target.slice(0,7))}
  const months=Array.from({length:12},(_,i)=>dateValue(y,i+1,1));
- return <div className="cy-date-input" data-density={density} data-invalid={!disabled&&(!!validity(draft)||invalidShown&&!!required&&!draft)||undefined} ref={root}>
-  <input {...props} ref={field} className={className} type="text" inputMode="numeric" autoComplete="off" maxLength={10} disabled={disabled} required={required} placeholder={props.placeholder??"YYYY/MM/DD"} value={draft}
+ return <div className="cy-date-input" data-density={density} data-precision={precision} data-invalid={!disabled&&(!!validity(draft)||invalidShown&&!!required&&!draft)||undefined} ref={root}>
+  <input {...props} ref={field} className={className} type="text" inputMode="numeric" autoComplete="off" maxLength={monthOnly?7:10} disabled={disabled} required={required} placeholder={props.placeholder??(monthOnly?"YYYY/MM":"YYYY/MM/DD")} value={draft}
    onFocus={e=>{typing.current=true;props.onFocus?.(e)}}
    onChange={e=>edit(digitsOnly(e.currentTarget.value),digitOffset(e.currentTarget.value,e.currentTarget.selectionStart??e.currentTarget.value.length),!(e.nativeEvent as InputEvent).inputType?.startsWith("delete"))}
    onCopy={e=>{const start=e.currentTarget.selectionStart??0,end=e.currentTarget.selectionEnd??0;if(start!==end){e.clipboardData.setData("text/plain",digitsOnly(e.currentTarget.value.slice(start,end)));e.preventDefault()}}}
    onCut={e=>{const node=e.currentTarget,start=node.selectionStart??0,end=node.selectionEnd??0;if(start===end)return;e.clipboardData.setData("text/plain",digitsOnly(node.value.slice(start,end)));e.preventDefault();const next=deleteDigit(node.value,start,end,false);edit(next.value,next.caret,false)}}
    onInvalid={e=>{e.preventDefault();setInvalidShown(true);props.onInvalid?.(e)}}
-   onBlur={e=>{typing.current=false;setInvalidShown(true);const iso=parseDateInput(draft);if(allowed(iso))setDraft(iso.replaceAll("-","/"));props.onBlur?.(e)}}
-   onKeyDown={e=>{props.onKeyDown?.(e);if(e.defaultPrevented||e.nativeEvent.isComposing)return;if(!e.ctrlKey&&!e.metaKey&&!e.altKey&&["Backspace","Delete"].includes(e.key)){e.preventDefault();const node=e.currentTarget,next=deleteDigit(node.value,node.selectionStart??0,node.selectionEnd??0,e.key==="Backspace");edit(next.value,next.caret,false);return}if(e.ctrlKey&&!e.altKey&&!e.metaKey&&!e.shiftKey&&["ArrowUp","ArrowDown"].includes(e.key)){e.preventDefault();const current=parseDateInput(draft);if(current)choose(shiftDate(current,e.key==="ArrowUp"?1:-1))}if(e.key==="Enter"&&!e.ctrlKey&&!e.metaKey){const error=validity(draft);if(error||required&&!draft){e.preventDefault();e.stopPropagation();setInvalidShown(true)}}}}/>
-  <button type="button" ref={trigger} className="cy-date-trigger" disabled={disabled} aria-label="開啟日期選擇器" aria-haspopup="dialog" aria-controls={id} aria-expanded={open} onClick={()=>open?close():show()}>
+   onBlur={e=>{typing.current=false;setInvalidShown(true);const iso=monthOnly?parseMonthInput(draft):parseDateInput(draft);if(allowed(iso))setDraft(iso.replaceAll("-","/"));props.onBlur?.(e)}}
+   onKeyDown={e=>{props.onKeyDown?.(e);if(e.defaultPrevented||e.nativeEvent.isComposing)return;if(!e.ctrlKey&&!e.metaKey&&!e.altKey&&["Backspace","Delete"].includes(e.key)){e.preventDefault();const node=e.currentTarget,next=deleteDigit(node.value,node.selectionStart??0,node.selectionEnd??0,e.key==="Backspace");edit(next.value,next.caret,false);return}if(e.ctrlKey&&!e.altKey&&!e.metaKey&&!e.shiftKey&&["ArrowUp","ArrowDown"].includes(e.key)){e.preventDefault();const current=monthOnly?parseMonthInput(draft):parseDateInput(draft);if(current)choose(monthOnly?shiftMonthInput(current,e.key==="ArrowUp"?1:-1):shiftDate(current,e.key==="ArrowUp"?1:-1))}if(e.key==="Enter"&&!e.ctrlKey&&!e.metaKey){const error=validity(draft);if(error||required&&!draft){e.preventDefault();e.stopPropagation();setInvalidShown(true)}}}}/>
+  <button type="button" ref={trigger} className="cy-date-trigger" disabled={disabled} aria-label={monthOnly?"開啟年月選擇器":"開啟日期選擇器"} aria-haspopup="dialog" aria-controls={id} aria-expanded={open} onClick={()=>open?close():show()}>
    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></svg>
   </button>
-  {open?<div id={id} ref={panel} popover="manual" role="dialog" aria-label="選擇日期" className="cy-date-calendar" data-density={density}>
-   <div className="cy-date-calendar-head"><button type="button" aria-label="上一個" disabled={view==="years"?yearStart===1:view==="months"?y===1:month==="0001-01"} onClick={()=>navigate(-1)}>‹</button><button type="button" aria-label="切換年月選擇" onClick={()=>setView(v=>v==="days"?"months":v==="months"?"years":"months")}>{view==="days"?`${y}年${String(m).padStart(2,"0")}月`:view==="months"?y:`${yearStart}–${yearStart+11}`}</button><button type="button" aria-label="下一個" disabled={view==="years"?yearStart===9988:view==="months"?y===9999:month==="9999-12"} onClick={()=>navigate(1)}>›</button></div>
+  {open?<div id={id} ref={panel} popover="manual" role="dialog" aria-label={monthOnly?"選擇年月":"選擇日期"} className="cy-date-calendar" data-density={density}>
+   <div className="cy-date-calendar-head"><button type="button" aria-label="上一個" disabled={view==="years"?yearStart===1:view==="months"?y===1:month==="0001-01"} onClick={()=>navigate(-1)}>‹</button><button type="button" aria-label="切換年月選擇" onClick={()=>setView(v=>monthOnly?(v==="months"?"years":"months"):v==="days"?"months":v==="months"?"years":"months")}>{view==="days"?`${y}年${String(m).padStart(2,"0")}月`:view==="months"?y:`${yearStart}–${yearStart+11}`}</button><button type="button" aria-label="下一個" disabled={view==="years"?yearStart===9988:view==="months"?y===9999:month==="9999-12"} onClick={()=>navigate(1)}>›</button></div>
    {view==="days"?<><div className="cy-date-weekdays" aria-hidden="true">{["日","一","二","三","四","五","六"].map(d=><span key={d}>{d}</span>)}</div><div className="cy-date-days">{monthDays(y,m).map((iso,i)=><button type="button" key={i} disabled={!allowed(iso)} aria-label={iso?iso.replaceAll("-","/"):"超出日期範圍"} aria-pressed={selected===iso} className={(iso.slice(0,7)!==month?"other-month ":"")+(iso===today?"is-today":"")} onClick={()=>choose(iso)}>{iso?Number(iso.slice(-2)):""}</button>)}</div></>:
-    <div className="cy-date-choices">{view==="months"?months.map((iso,i)=><button type="button" key={iso} disabled={iso.slice(0,7)<min.slice(0,7)||iso.slice(0,7)>max.slice(0,7)} onClick={()=>{setMonth(iso.slice(0,7));setView("days")}}>{i+1}月</button>):Array.from({length:12},(_,i)=>yearStart+i).map(year=><button type="button" key={year} disabled={year<Number(min.slice(0,4))||year>Number(max.slice(0,4))} onClick={()=>{setMonth(`${String(year).padStart(4,"0")}-${String(m).padStart(2,"0")}`);setView("months")}}>{year}</button>)}</div>}
-   <div className="cy-date-calendar-footer"><button type="button" disabled={!allowed(today)} onClick={()=>choose(today)}>今天</button></div>
+    <div className="cy-date-choices">{view==="months"?months.map((iso,i)=><button type="button" key={iso} disabled={iso.slice(0,7)<min.slice(0,7)||iso.slice(0,7)>max.slice(0,7)} onClick={()=>{if(monthOnly)choose(iso.slice(0,7));else{setMonth(iso.slice(0,7));setView("days")}}}>{i+1}月</button>):Array.from({length:12},(_,i)=>yearStart+i).map(year=><button type="button" key={year} disabled={year<Number(min.slice(0,4))||year>Number(max.slice(0,4))} onClick={()=>{setMonth(`${String(year).padStart(4,"0")}-${String(m).padStart(2,"0")}`);setView("months")}}>{year}</button>)}</div>}
+   <div className="cy-date-calendar-footer"><button type="button" disabled={!allowed(todayValue)} onClick={()=>choose(todayValue)}>{monthOnly?"本月":"今天"}</button></div>
   </div>:null}
  </div>;
 }

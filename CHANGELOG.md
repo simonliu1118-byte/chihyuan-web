@@ -6,6 +6,12 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.11.2 — 出機表單與保固年月交互調整（2026-11-05，GPT，待審查）
+
+- 出機第一列併入銷售日期、數量；保固起訖同欄與月數雙向日曆計算，定期維護使用需／無須互斥單選，機身列直接接續表頭表身。
+- 共用 DateInput 新增 YYYY/MM 年月模式供製造年月使用；保固月數維持含起日、到期日前一天（5/15＋3月＝8/14），起訖回算月數無條件進位。
+- 僅調整前端、共用日期／計算、測試與現行契約；無 D1 migration、API 資料格式與正式部署變動。驗證結果與 Claude 審查見 [handoff](docs/handoff/CYWEB-EQUIPMENT-FORM-0112-20261105.md)。本版尚未合併與部署。
+
 ## CY Web V0.11.1 — 三年定期維護矩陣（2026-11-05，GPT）
 
 - 依後續新設計改成客戶×三年月份矩陣：預計圓圈、逾期警示、跨月去向與實際月份日期；同日多筆只顯示一個日期，點開逐筆修改，不同日期分行。
