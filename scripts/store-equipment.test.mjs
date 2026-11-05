@@ -25,12 +25,18 @@ const visits=async(f,query='')=>ok(await f.call('/visits'+query)).rows;
 const complete=(f,v,more={})=>f.call('/visits/'+v.id,'PUT',{expectedVersion:v.version,requestKey:key(),completed:true,completionDate:'2027-07-06',note:'已前往例行維護',...more});
 const count=(f,t)=>f.sql.prepare('SELECT COUNT(*) n FROM '+t).get().n;
 
-test('calendar suggestions preserve original six-month cadence and warranty month ends',()=>{
+test('calendar suggestions and same-day warranty month arithmetic',()=>{
  assert.deepEqual(halfYearMonths('2026-07-01','2028-06-30'),['2027-01','2027-07','2028-01']);
  assert.deepEqual(halfYearMonths('2026-02-30','2028-01-01'),[]);
- assert.equal(equipmentWarrantyEnd('2026-07-01',24),'2028-06-30');
+ assert.equal(equipmentWarrantyEnd('2026-07-01',24),'2028-07-01');
  assert.equal(equipmentWarrantyEnd('2024-02-29',12),'2025-02-28');
  assert.equal(equipmentWarrantyMonths('2026-07-01','2028-06-30'),'24');
+ assert.equal(equipmentWarrantyEnd('2024-05-15',3),'2024-08-15');
+ assert.equal(equipmentWarrantyMonths('2024-05-15','2024-08-15'),'3');
+ assert.equal(equipmentWarrantyMonths('2024-05-15','2024-08-16'),'4');
+ assert.equal(equipmentWarrantyMonths('2024-05-15','2024-08-14'),'3');
+ assert.equal(equipmentWarrantyEnd('2024-01-31',1),'2024-02-29');
+ assert.equal(equipmentWarrantyMonths('2024-08-15','2024-05-15'),'');
  assert.equal(shiftEquipmentMonth('2026-12',6),'2027-06');
 });
 test('all equipment and visit routes enforce existing repairs access before reading data',async()=>{

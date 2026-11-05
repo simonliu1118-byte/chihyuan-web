@@ -25,8 +25,8 @@ export function Field({ label, required, oneOf, reportAs, size = "m", hint, chil
 }
 
 /** A checkbox laid out as a short field. */
-export function CheckField({ label, size = "s", ...input }: { label: ReactNode; size?: FieldSize } & Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "size">) {
-  return <label className={`cy-f-check cy-f-${size}`}><input type="checkbox" {...input} />{label}</label>;
+export function CheckField({ label, size = "s", type = "checkbox", ...input }: { label: ReactNode; size?: FieldSize; type?: "checkbox" | "radio" } & Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "size">) {
+  return <label className={`cy-f-check cy-f-${size}`}><input type={type} {...input} />{label}</label>;
 }
 
 /** A titled group of fields on the form grid; long forms use one per topic. */
