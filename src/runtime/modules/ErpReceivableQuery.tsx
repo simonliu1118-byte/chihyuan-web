@@ -50,7 +50,7 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
   }, [mine, busy]);
   const groups = mine?.queryType === "RECEIVABLE" ? groupBills(mine.bills) : [];
   const totalUnpaid = groups.reduce((acc, g) => acc + g.unpaid, 0);
-  const isOpen = (code:string) => expanded?.id===mine?.id ? expanded.codes.has(code) : groups.length===1;
+  const isOpen = (code:string) => expanded && expanded.id===mine?.id ? expanded.codes.has(code) : groups.length===1;
   const toggle = (code:string) => {
     if(!mine||mine.queryType!=="RECEIVABLE")return;
     setExpanded(current=>{

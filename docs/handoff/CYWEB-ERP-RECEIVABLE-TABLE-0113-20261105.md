@@ -15,4 +15,5 @@
 - 未改 ERP Agent、Worker、API、DB、權限或真實客戶資料；Public source 不包含使用者截圖真實資訊。
 - 客戶編號160px，客戶名稱在最小780px表格內約320px；小計160px。明細最小1350px，長憑證橫向捲動。
 - 新工作結果不承接前次展開狀態；收合時明細會卸載，重新展開回到明細第一頁。
+- 第一輪 CI：Governance、Worker Typecheck、Build、Source Contracts、部署契約檢查通過；Browser Typecheck 發現 `TS18047: expanded 可能為 null`（`ErpReceivableQuery.tsx:53`），修正為顯式判斷非 null，已加入同工作分支重新驗證。CI 新結果待核對。
 - GitHub CI 結果待補；桌面／手機、10碼、10中文字、金額與展開憑證的實際目視驗收待補。Claude 結論不得由 GPT 代填。
