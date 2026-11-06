@@ -51,4 +51,4 @@ V0.12.0 Build 1。頁面在既有 CY Web 殼層，路由 `#bot-center`，左側�
 | GET | `/api/bot-ingest/drafts?botCode=&externalRef=` | 用外部編號讀審核結果 |
 | POST | `/api/bot-ingest/completions` | `{botCode,title,detail?,completedAt?}`。時間缺省為伺服器當下 |
 
-未知的 BOT 代碼會被拒絕，先在頁面新增。實體欄位以 `migrations/0054_bot_center.sql` 為準。出機原有的 `0053_store_equipment_category.sql` 不變；BOT 的正式 forward migration 必須在其後順序套用。本版未操作正式 D1。
+未知的 BOT 代碼會被拒絕，先在頁面新增。實體欄位以 `migrations/0054_bot_center.sql` 為準。出機原有的 `0053_store_equipment_category.sql` 不變；BOT 的 `0054` 由既有 main-only 部署流程接續套用。正式版本、migration 與發布證據統一見 [TODO](../../TODO.md) 及 [handoff](../handoff/CYWEB-BOT-CENTER-0120-20261106.md)，不以 PR 驗證是否觸及正式 D1 代表目前部署狀態。

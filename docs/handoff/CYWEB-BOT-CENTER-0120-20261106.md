@@ -1,4 +1,6 @@
-# CY Web V0.12.0 BOT 管理中心交接
+# CY Web V0.12.0 Build 1 BOT 管理中心交接
+
+> 最新狀態（2026-11-07）：PR #438 已合併，V0.12.0 Build 1 已正式部署；最新 CI、並行審稿返修與正式健康證據見本檔末節。Claude 事後複審及登入後實機驗收仍待完成。 發布證據見 [Deployment #42253210792](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42253210792)。下方各輪的日期、基準與驗證結果是當時紀錄，不覆蓋此摘要。
 
 - 日期：2026-11-06。初始基準 `main@dc475720`；本輪依最新 `main@5982b09ee0de2d9c06e47e3c7a47e4f72b4c1a06`（V0.11.5）重新整合，保留 PR #437／#439 的已合併內容。
 - 工作分支 `cursor/bot-center-5273`，PR #438。Claude 審查待填。

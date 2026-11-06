@@ -1,8 +1,10 @@
 # CY Web V0.11.5：ERP 完成結果無 Session 時隱藏空白卡
 
+> 最新狀態（2026-11-07）：PR #439 已合併並隨 V0.12.0 Build 1 正式部署；BOT 的 migration 碰撞已由 #438 改為 0054 解決。Claude 事後複審與實機驗收仍待完成。 發布證據見 [Deployment #42253210792](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42253210792)。下方各輪的日期、基準與驗證結果是當時紀錄，不覆蓋此摘要。
+
 - 日期：2026-11-06；執行：GPT。原始基準 main `dc47572026749f4dd4d942064d44598e64aa6c94`（V0.11.3），整合於 #437 合併後的 `main@1e6b1436d3cb32d5c2df67c78d2bf3756f3a4795`（V0.11.4）。
 - 工作分支：`cyweb/erp-hide-missing-session-result-0115`。
-- 發版順序：V0.11.4 PR #437 已合併；PR #439 重新以合併後 main 為基準，完成 V0.11.5 的 VERSION、TODO、CHANGELOG 及 handoff 整合。PR #438 不包含在發布範圍，且需另處理 0053 migration 碰撞。
+- 初次發版規劃（歷史）：V0.11.4 PR #437 已合併；PR #439 重新以合併後 main 為基準，完成 V0.11.5 的 VERSION、TODO、CHANGELOG 及 handoff 整合。PR #438 不包含在發布範圍，且需另處理 0053 migration 碰撞。
 - Claude 最終審查：**待審查**；不由執行者代填結論。
 
 ## 使用者意見與原因

@@ -14,14 +14,14 @@
 
 ## 目前工程基礎
 
-正式程式基準為 `main`，版本由根 `VERSION`／`BUILD` 定義（2026-11-03 正式站為 **V0.9.93 Build 0**，最新狀態以 `TODO.md`／受控 Actions 為準）。
+正式程式基準為 `main`，版本由根 `VERSION`／`BUILD` 定義。**正式站版本、實際發布的 source commit 與部署證據統一見 [TODO.md](TODO.md)**；合併 main 不代表已部署，README 不另保存會過時的版本快照。
 
 - Frontend：TypeScript + React + Vite，一套程式服務桌機、平板、手機。
 - Runtime/API：TypeScript + Cloudflare Workers；same-origin `/api/*`，共用 success/failure envelope + `requestId`。
-- Database：Cloudflare D1；schema 由 `migrations/` 的 forward migrations 定義（目前到 0045）。
+- Database：Cloudflare D1；schema 以 `migrations/` 的 forward migrations 為準，正式已套用版本與發布證據見 `TODO.md`。
 - Static delivery：Workers Static Assets／SPA fallback，所有請求先經 Worker（HTTPS 轉址與 HSTS）。
 - 帳號：CYCloud Identity（CYID）管理帳號、Session 與系統使用權；CY Web 只保存模組權限（Module Access）與業務授權。
-- 模組：客戶、商品、瑕疵、銷售工單、叫貨（含進貨輔助）、門市（顧客訂購、黑名單、月度待辦、售後維修、庫存盤點）、委外/代工、工作日誌、人事、ERP 查詢（經公司電腦上的 CYERPAutoQuery 只讀查 SMART ERP）、帳號與權限、異動紀錄、備份管理、CY 程式、我的帳號。
+- 模組：客戶、商品、瑕疵、銷售工單、叫貨（含進貨輔助）、門市（顧客訂購、黑名單、月度待辦、售後維修（門市送修／出機紀錄／三年定期維護矩陣）、庫存盤點）、委外/代工、工作日誌、人事、BOT 管理中心、ERP 查詢（經公司電腦上的 CYERPAutoQuery 只讀查 SMART ERP）、帳號與權限、異動紀錄、備份管理、CY 程式、我的帳號。
 - 排程：單一 `*/5` cron 依時間分派所有排程工作（`shared/cyweb-cron.ts`）。
 - 備份：D1 → R2（每日台灣 03:30）＋ GCS（週三／週日）；手動備份與隔離還原已驗收，自動排程已啟用（2026-11-03）。
 - 部署：合併 main 不會部署；授權後從 main 執行「CY Web Deploy」的 `deploy-development`，流程與成功判定見 `docs/development/IDENTITY_DEPLOYMENT.md`。
