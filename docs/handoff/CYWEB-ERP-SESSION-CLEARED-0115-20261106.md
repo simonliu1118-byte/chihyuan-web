@@ -24,3 +24,7 @@
 - PR #439 第一輪（head `5e5c36a77d4923414389583908f97556b368ed94`）：[Runtime Check #42172787370](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42172787370) **success**（browser-typecheck、worker-typecheck、source-contracts、Local D1 runtime acceptance、654/654 Node 測試、Vite build 均成功）；[Governance #42172787322](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42172787322) **success**；[部署契約 #42172787293](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42172787293) **success**。
 - PR 內 deploy-development 與正式 audit jobs skipped，**沒有部署正式站**。待 Claude 對照 PR、測試結果及相鄰 V0.11.4／V0.12.0 版本整合檢查；待使用者實機確認「登出→重新登入→無結果卡」。
 - 使用者於 2026-11-06 明確要求合併部署 #437 及 #439；Claude 最終審查紀錄仍不存在，依當次指示先合併，保留事後複審待辦，**不宣稱 Claude 已通過**。正式站尚未部署，最新已確認版本仍為 V0.11.3。
+
+## 2026-11-07 main 累積變更已正式部署
+
+本版已包含於 main source `e7530c07c97b6f8a9428335b85d9ba318842f165`，隨 **V0.12.0 Build 1** 發布。[Deployment #42253210792](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42253210792) **success**；正式健康回讀 version=0.12.0、sourceCommit 相符、database=ok。較早「待部署」屬當時狀態；Claude 事後複審與實機目視仍待完成，完整證據見 [BOT handoff](CYWEB-BOT-CENTER-0120-20261106.md)。

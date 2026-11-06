@@ -5,16 +5,15 @@
 
 ## 目前狀態（2026-11-07）
 
-- **V0.11.6 盤點 UI 已合併**：PR #440 已依使用者授權合併 main（197f0a67），CI 及本機 36 項測試通過，納入 V0.12.0 Build 1 一併部署；Claude 事後複審與桌機／手機目視驗收待辦。[handoff](docs/handoff/CYWEB-STOCKTAKE-BATCH-DELETE-0116-20261106.md)。
-- **待正式部署 V0.11.5**：PR #437（V0.11.4 出機類別、財產編號及維護浮窗）已合併 main；PR #439（V0.11.5 ERP Session 空白完成卡）排在其後。使用者本次同意兩項合併發布，Claude 複審仍待辦。
-- **PR #438 BOT 管理中心 V0.12.0 Build 1**：已修正同毫秒並行審稿重複紀錄及每 30 秒輪詢多餘讀取，BOT 9 項測試與型別檢查通過。使用者已授權修好後合併部署，整合 #440 後重新跑 CI；Claude 未登入，事後複審及實機驗收待辦。[handoff](docs/handoff/CYWEB-BOT-CENTER-0120-20261106.md)。
-- **V0.11.4 已合併（待部署及 Claude 事後複審）**：出機類別選單與「其他」自填、製造年月旁的財產編號、獨立補填按鈕、清單／展開表調整、維護年月黑字與矩陣格內日期浮窗、年度箭頭及工具列載入提示。[handoff](docs/handoff/CYWEB-EQUIPMENT-CATEGORY-ASSETS-0114-20261106.md)。
-- **最新正式站 V0.11.3**（2026-11-06，正式部署 Run #42066049745 成功；正式健康回讀 version=0.11.3、database=ok）。本檔舊有 V0.11.1／V0.11.2 待部署描述為歷史進行中記錄，以較新的 handoff 及部署證據為準。
+- **V0.11.6 盤點 UI 已部署**：PR #440 已合併（197f0a67），CI／本機 36 項測試通過，隨 V0.12.0 Build 1 正式發布；Claude 事後複審與桌機／手機目視驗收待辦。[handoff](docs/handoff/CYWEB-STOCKTAKE-BATCH-DELETE-0116-20261106.md)。
+- **V0.11.4／V0.11.5 已部署**：main 的 PR #437（出機類別／財產編號／維護浮窗）及 #439（ERP Session 空白完成卡）隨本輪 V0.12.0 Build 1 一併發布；各版 handoff 已補正式證據，Claude 事後複審仍待辦。
+- **PR #438 BOT 管理中心 V0.12.0 Build 1 已合併部署**：並行審稿與輪詢讀取返修、BOT 9 項測試、本機 D1 smoke、最新 Ubuntu 完整 CI 及正式發布皆通過。Claude 未登入，事後複審及登入後實機驗收待辦。[handoff](docs/handoff/CYWEB-BOT-CENTER-0120-20261106.md)。
+- **最新正式站 V0.12.0 Build 1**（2026-11-07）：[Deployment #42253210792](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42253210792) 成功；正式 source=e7530c07、健康回讀 version=0.12.0、database=ok、CYID consumer=1.0.5。
 
 
-- **正式站 V0.11.1**（`https://admin.chihyuancm.com`），CYID consumer 1.0.5；D1 migration 到 `0052_maintenance_matrix_indexes`。
-- **V0.11.3 ERP 未收款表格改版待審查**：主清單及展開明細統一共用表格、最小欄寬、不折行；待 CI、Claude 審查與實機確認。[handoff](docs/handoff/CYWEB-ERP-RECEIVABLE-TABLE-0113-20261105.md)。
-- **V0.11.2 出機表單改版進行中**：第一列六欄、保固日曆月雙向計算、維護互斥選擇、機身資料整合表格、共用年月選擇器。待 CI、Claude 審查、使用者確認後才可合併部署；[handoff](docs/handoff/CYWEB-EQUIPMENT-FORM-0112-20261105.md)。
+- **目前正式 D1 migration**：本輪受控 workflow 已成功套用 source 的 forward migrations，最新為 `0054_bot_center`；未重寫舊 migration。
+- **V0.11.3 ERP 未收款表格**：已部署；Claude 事後複審及使用者實機確認仍待辦。[handoff](docs/handoff/CYWEB-ERP-RECEIVABLE-TABLE-0113-20261105.md)。
+- **V0.11.2 出機表單與保固年月**：已部署；Claude 事後複審及使用者實機確認仍待辦。[handoff](docs/handoff/CYWEB-EQUIPMENT-FORM-0112-20261105.md)。
 - **接手 UI 前必讀** `docs/architecture/UI_COMPONENT_CATALOG.md`：共用元件清單與已定案畫面樣式，不要在模組內另做元件。
 - 模組：客戶、商品、瑕疵、銷售工單、叫貨（含進貨輔助抽屜、未到貨）、門市（顧客訂購、黑名單、月度待辦、售後維修（門市送修／出機紀錄／定期維護）、庫存盤點）、委外/代工、工作日誌、人事、ERP 查詢、帳號與權限、異動紀錄、備份管理、CY 程式、我的帳號。
 - 帳號：CYID 正式服務；成功的登入確認在伺服器記住 30 秒（V0.9.91）。
