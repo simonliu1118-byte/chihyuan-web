@@ -6,6 +6,7 @@ import {parseStocktakeQuantity,stocktakeItemTotals,stocktakeWriteRows,stocktakeA
   stocktakeLocations,STOCKTAKE_NO,
   type StocktakeLine,type StocktakeLocationCount,type StocktakeSheet,type StocktakeStatus} from "../../shared/stocktake";
 import {stocktakeJobStatements,StocktakeInputError} from "./stocktake-erp";
+import {stocktakeRecords,stocktakeRecordDifferences} from "./stocktake-records";
 
 type Sheet={sheet_no:string;sheet_date:string|null;status:StocktakeStatus;version:number;
  detail_read_at:string|null;first_confirmed_at:string|null;second_confirmed_at:string|null;
@@ -116,6 +117,9 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
  const member=gate.member.id,role=gate.principal.workspaceRole,admin=role==="ADMIN"||role==="SUPER_ADMIN";
  const method=request.method,path=url.pathname.slice(root.length).replace(/^\//,""),db=env.DB,now=nowIso();
  try{
+  if(path==="records"&&method==="GET")return success(await stocktakeRecords(db,url.searchParams.get("before")),requestId);
+  const recordMatch=/^records\/([1-9][0-9]*)$/.exec(path);
+  if(recordMatch&&method==="GET")return success(await stocktakeRecordDifferences(db,Number(recordMatch[1]),url.searchParams.get("before")),requestId);
   if(!path&&method==="GET"){
    const ignored=url.searchParams.get("ignored")==="true";
    if(ignored){
@@ -142,11 +146,12 @@ export async function handleStoreStocktakeRoute(request:Request,env:IdentityRunt
    return success({sheetNo:sheet,ignored:false},requestId);
   }
   if(path==="sync"&&method==="POST"){
-   const sheets=await all<{sheet_no:string;detail_read_at:string|null}>(db,"SELECT sheet_no,detail_read_at FROM stocktake_sheets ORDER BY sheet_no LIMIT 501");
+   const sheets=await all<{sheet_no:string;detail_read_at:string|null;created_at:string}>(db,"SELECT sheet_no,detail_read_at,created_at FROM stocktake_sheets ORDER BY sheet_no LIMIT 501");
    const ignored=await all<{sheet_no:string}>(db,"SELECT sheet_no FROM stocktake_sync_ignored ORDER BY sheet_no LIMIT 501");
    if(sheets.length>500||ignored.length>500)fail("STOCKTAKE_LIMIT","底稿或忽略清單超過 500 筆",409);
    const skip=[...new Set([...sheets.filter(s=>s.detail_read_at!==null).map(s=>s.sheet_no),...ignored.map(s=>s.sheet_no)])];
-   return success(await createJob(db,member,requestId,"STOCKTAKE_SYNC",{skipSheets:skip,onlySheet:null},null),requestId);
+   const knownSheets=sheets.map(s=>({sheetNo:s.sheet_no,createdAt:s.created_at}));
+   return success(await createJob(db,member,requestId,"STOCKTAKE_SYNC",{skipSheets:skip,onlySheet:null,knownSheets},null),requestId);
   }
   const match=/^([A-Za-z0-9]{1,20})(?:\/(.*))?$/.exec(path);
   if(!match)return failure({code:"NOT_FOUND",message:"盤點路徑不存在"},requestId,404);

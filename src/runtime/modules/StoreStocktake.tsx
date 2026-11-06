@@ -15,6 +15,7 @@ import {ErpJobStatus} from "./ErpJobStatus";
 import {STOCKTAKE_LABELS,stocktakeAggregateLines,stocktakeWriteRows,
  type StocktakeDetail,type StocktakeLine,type StocktakeLocationCount,type StocktakeSheet,type StocktakeStatus} from "../../../shared/stocktake";
 import {StocktakeGroupedDetail} from "./StocktakeGroupedDetail";
+import {StocktakeRecordsDialog} from "./StocktakeRecordsDialog";
 
 const ROOT="/api/business/store/stocktake";
 const call=<T,>(path:string,method="GET",json?:unknown)=>apiRequest<T>(ROOT+path,{method,json});
@@ -52,6 +53,7 @@ export function StoreStocktake({role}:{role:string}){
  const [ignoreForm,setIgnoreForm]=useState<string|null>(null);
  const [batchForm,setBatchForm]=useState<{itemCode:string;warehouseName:string;locationCode:string;batch:string;quantity:string}|null>(null);
  const [manualOpen,setManualOpen]=useState(false);
+ const [recordsOpen,setRecordsOpen]=useState(false);
  type ManualRow={locationCountId:number;lineKey:string;itemCode:string;batch:string;isAdded:number;
   warehouseName:string;erpLocationCode:string;locationCode:string;verifiedAt:string|null;verifiedBy:number|null};
  const [manualRows,setManualRows]=useState<ManualRow[]>([]);
@@ -68,6 +70,10 @@ export function StoreStocktake({role}:{role:string}){
  const loadSheets=useCallback(async()=>{
    const [normal,excluded]=await Promise.all([call<StocktakeSheet[]>(""),manager?call<{sheetNo:string;createdAt:string}[]>("?ignored=true"):Promise.resolve([])]);
    setSheets(normal);setIgnored(excluded);
+   if(selectedRef.current&&!normal.some(s=>s.sheetNo===selectedRef.current)){
+    selectedRef.current=null;setSelected(null);setDetail(null);setDrafts({});setConflict(null);
+    setBatchForm(null);setManualOpen(false);setHistory(null);
+   }
  },[manager]);
  const detailRef=useRef<StocktakeDetail|null>(null);detailRef.current=detail;
  const loadDetail=useCallback(async(sheet:string,incremental=false):Promise<StocktakeDetail>=>{
@@ -271,6 +277,7 @@ export function StoreStocktake({role}:{role:string}){
     <div className="cy-stocktake-list-actions">
      <button type="button" className="cy-op-button primary" disabled={busy||job.busy} onClick={()=>void update()}>同步ERP盤點單</button>
      {manager?<button type="button" className="cy-op-button" onClick={()=>setIgnoreForm("")}>設定忽略底稿</button>:null}
+     <button type="button" className="cy-op-button" onClick={()=>setRecordsOpen(true)}>盤點紀錄</button>
     </div>
     <select className="cy-op-input cy-stocktake-mobile-select" aria-label="選擇盤點底稿"
       value={selected??""} onChange={e=>setSelected(e.target.value||null)}>
@@ -407,6 +414,7 @@ export function StoreStocktake({role}:{role:string}){
     {history.rows.length? <ul>{history.rows.map(h=><li key={h.id}>{date(h.at)} {h.actorName}：{h.field} {h.beforeValue??"未填"} → {h.afterValue??"空"}</li>)}</ul>:
      <p>尚無修改紀錄。</p>}
    </Dialog>:null}
+  {recordsOpen?<StocktakeRecordsDialog onClose={()=>setRecordsOpen(false)}/>:null}
   {confirmationDialog}
  </section>;
 }

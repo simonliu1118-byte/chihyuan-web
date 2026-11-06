@@ -9,6 +9,8 @@ import {
 import { expireStaleErpQueries } from "./erp-housekeeping";
 import { AuditService } from "../audit/audit-service";
 import {validateSyncResult,validateWriteResult,syncStatements,writeResultStatements,StocktakeInputError} from "./stocktake-erp";
+import {stocktakeArchiveStatements} from "./stocktake-records";
+import type {StocktakeKnownSheet} from "../../shared/stocktake";
 import type {StocktakeWriteRow} from "../../shared/stocktake";
 import { salesHistoryStatements } from "./erp-sales-history";
 import { HistoryRangeError, daysInclusive, resolveDateRange, resolveHistoryRange, resolveRestockRange } from "../../shared/erp-query-history";
@@ -990,7 +992,7 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
       : row.include_history || NAME_TYPES.has(row.query_type) ? 256 * 1024 : 96 * 1024;
     const body = await readJsonObject(request, limit);
     const stocktakeInput = row.query_type === "STOCKTAKE_SYNC" || row.query_type === "STOCKTAKE_WRITE"
-      ? JSON.parse(row.keyword ?? "{}") as {skipSheets?:string[];onlySheet?:string|null;sheetNo?:string;rows?:StocktakeWriteRow[]} : null;
+      ? JSON.parse(row.keyword ?? "{}") as {skipSheets?:string[];onlySheet?:string|null;sheetNo?:string;rows?:StocktakeWriteRow[];knownSheets?:StocktakeKnownSheet[]} : null;
     const syncResult = row.query_type === "STOCKTAKE_SYNC"
       ? validateSyncResult(body,stocktakeInput?.skipSheets ?? [],stocktakeInput?.onlySheet ?? null):null;
     const writeResult = row.query_type === "STOCKTAKE_WRITE"
@@ -1050,6 +1052,8 @@ async function agentRoutes(request: Request, env: ErpBridgeEnv, requestId: strin
            samples=samples+1, updated_at=excluded.updated_at`
       ).bind(row.query_type, row.include_history ? 1 : 0, tookSeconds, completedAt, row.id, result.status));
     statements.push(...syncStmts);
+    if(syncResult?.listComplete&&result.status!=="FAILED"&&!stocktakeInput?.onlySheet)
+      statements.push(...stocktakeArchiveStatements(env.DB,stocktakeInput?.knownSheets??[],syncResult.sheets.map(s=>s.sheetNo),row.id,completedAt));
     if(writeResult)statements.push(...await writeResultStatements(env.DB,writeResult,row.id,completedAt));
     // 銷貨資料保存 (user 2026-10-21): a finished RESTOCK keeps the per-day sales for later analysis.
     if (row.query_type === "RESTOCK" && (result.status === "DONE" || result.status === "NOT_FOUND") && row.history_from && row.history_to) {

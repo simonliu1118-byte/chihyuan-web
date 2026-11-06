@@ -164,6 +164,15 @@
 .cy-stocktake-batch-inline>.cy-icon-button{flex-shrink:0}
 .cy-stocktake-book-mobile{display:block;margin-top:3px;color:var(--cy-text);font-size:var(--cy-fs-xs);overflow-wrap:anywhere}
 .cy-stocktake-book-mobile strong{font-variant-numeric:tabular-nums}
+.cy-dialog.cy-stocktake-records-dialog .cy-dialog-surface{width:min(1700px,calc(100vw - 32px))}
+.cy-stocktake-records-table{table-layout:fixed;min-width:1080px}
+.cy-stocktake-records-table th,.cy-stocktake-records-table td{white-space:normal;overflow-wrap:anywhere;vertical-align:top}
+.cy-stocktake-records-table .cy-stocktake-record-items{white-space:normal;overflow-wrap:anywhere;line-height:1.5}
+.cy-stocktake-records-table .cy-stocktake-record-date{white-space:nowrap}
+.cy-stocktake-record-number{display:flex;align-items:center;gap:3px;white-space:nowrap}
+.cy-stocktake-record-confirmation{display:flex;flex-wrap:wrap;gap:4px 16px;margin-bottom:4px}
+.cy-stocktake-record-confirmation,.cy-stocktake-record-meta{font-size:var(--cy-fs-xs);line-height:1.35}
+.cy-stocktake-record-meta{margin-bottom:6px}
 .cy-stocktake-batch-row .cy-stocktake-cell-editor{min-width:0}
 .cy-stocktake-batch-row .cy-stocktake-cell-editor .cy-ordering-cell{height:48px;min-height:48px;font-size:16px;box-sizing:border-box;padding:8px}
 .cy-stocktake-mobile-actions{font-size:var(--cy-fs-xs);color:var(--cy-text-muted)}

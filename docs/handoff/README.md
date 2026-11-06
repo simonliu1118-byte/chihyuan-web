@@ -11,6 +11,8 @@
 
 ## 目前待 Claude 審查
 
+- [V0.12.1 盤點紀錄與 ERP 清除同步歸檔](CYWEB-STOCKTAKE-RECORDS-0121-20261107.md)：配套 Agent V1.3.1，兩邊待 CI／Claude 審查；未合併部署／發行。
+
 - [V0.12.0 Build 1 文件現況同步](CYWEB-DOCS-CURRENT-0120-20261107.md)：只更新文件與歸檔已完成的 WO-0.9.94 交接，不改產品／版本／部署；待 Claude 複審。
 
 - [V0.12.0 Build 1 BOT 管理中心](CYWEB-BOT-CENTER-0120-20261106.md)：PR #438 已修正並行審稿及輪詢讀取，與 #440 一併合併部署成功（Run #42253210792）；Claude 事後複審及實機驗收待辦。

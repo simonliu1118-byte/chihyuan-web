@@ -95,7 +95,21 @@ export function stocktakeLocations(source:string):string[]{
 export type StocktakeSyncRow = {seq:string;itemCode:string;itemName:string;spec:string;
   warehouseName:string;location:string;unit:string;batch:string;bookQty:string};
 export type StocktakeSyncResult = {outcome:"FOUND"|"NOT_FOUND"|"FAILED";sheets:{sheetNo:string;date:string}[];
-  details:{sheetNo:string;rows:StocktakeSyncRow[]}[]};
+  details:{sheetNo:string;rows:StocktakeSyncRow[]}[];listComplete:boolean};
+export type StocktakeKnownSheet = {sheetNo:string;createdAt:string};
+export type StocktakeRecord = {
+ id:number;sheetNo:string;sheetDate:string|null;archivedAt:string;sourceStatus:StocktakeStatus;
+ firstConfirmedName:string|null;firstConfirmedAt:string|null;
+ secondConfirmedName:string|null;secondConfirmedAt:string|null;erpConfirmedAt:string|null;
+ items:{itemCode:string;itemName:string}[];
+ participants:{memberId:number;name:string;firstAt:string|null;lastAt:string|null;firstCountAt:string|null;recountAt:string|null}[];
+};
+export type StocktakeRecordPage = {records:StocktakeRecord[];nextBefore:string|null};
+export type StocktakeRecordDifference = {
+ lineKey:string;itemCode:string;itemName:string;batch:string;bookQty:string;firstQty:string|null;
+ recountQty:string|null;actualQty:string|null;difference:string|null;firstPeople:string[];recountPeople:string[];
+};
+export type StocktakeRecordDifferencePage = {rows:StocktakeRecordDifference[];nextBefore:string|null};
 export type StocktakeWriteResult = {outcome:"FOUND"|"FAILED";sheetNo:string;
   results:{key:string;ok:boolean;erpSeq:string|null;message:string}[];
   confirmed:boolean;mismatches:{key:string;seq:string|null;itemCode:string;batch:string;expected:string;actual:string}[]};

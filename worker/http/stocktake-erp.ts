@@ -26,7 +26,8 @@ const date=(v:unknown)=>{const n=str(v,"日期",10,true);if(!/^\d{4}-\d{2}-\d{2}
 export function validateSyncResult(body:Record<string,unknown>,skip:string[],onlySheet:string|null):StocktakeSyncResult {
  const outcome=body.outcome;if(outcome!=="FOUND"&&outcome!=="NOT_FOUND"&&outcome!=="FAILED")return invalid("同步狀態不正確");
  // A failed run (ERP not open, seats full…) may stop before it read the list: nothing is stored.
- if(outcome==="FAILED")return {outcome,sheets:[],details:[]};
+ if(outcome==="FAILED")return {outcome,sheets:[],details:[],listComplete:false};
+ if(body.listComplete!==undefined&&typeof body.listComplete!=="boolean")return invalid("盤點單清單完整標記不正確");
  const sheets=list(body.sheets,"盤點單清單",200).map(raw=>{const row=record(raw,"盤點單");return {sheetNo:sheetNo(row.sheetNo),date:date(row.date)}});
  const sheetKeys=new Set<string>();
  for(const sh of sheets){if(sheetKeys.has(sh.sheetNo))invalid("底稿不可重複");sheetKeys.add(sh.sheetNo)}
@@ -55,7 +56,7 @@ export function validateSyncResult(body:Record<string,unknown>,skip:string[],onl
  if(outcome==="NOT_FOUND"&&details.length)invalid("NOT_FOUND 不可有明細");
  if(outcome==="FOUND"&&!details.length)invalid("FOUND 必須有明細");
  // FAILED returned above.
- return {outcome,sheets,details};
+ return {outcome,sheets,details,listComplete:body.listComplete===true};
 }
 export function validateWriteResult(body:Record<string,unknown>,sheet:string,expected:readonly StocktakeWriteRow[]):StocktakeWriteResult{
  if(body.outcome!=="FOUND"&&body.outcome!=="FAILED")return invalid("寫回狀態不正確");

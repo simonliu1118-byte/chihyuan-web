@@ -247,7 +247,8 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
   - `sheets: [{ sheetNo, date }]`：F2 開窗清單看到的**所有**底稿（最多 200 筆）。`onlySheet` 模式可只回該張。
   - `details: [{ sheetNo, rows: [...] }]`：這次實際讀了明細的底稿（`onlySheet` 模式恰好一張；更新模式＝清單中不在 skip 的每一張）。
   - `rows` 每列（最多 3,000 列／張）：`{ seq, itemCode, itemName, spec, warehouseName, location, unit, batch, bookQty }`。`seq` 為 INVR11 的「底稿序號」（5 位數字字串，張內唯一）；`bookQty` 為 INVR11 的「盤點數量」（ERP 預設帶入帳面數量）；`location`、`batch` 可為空字串。
-  - `NOT_FOUND`：沒有任何需要讀的底稿（清單全在 skip 內）；此時仍回 `sheets`、`details:[]`。
+  - `NOT_FOUND`：沒有任何需要讀的底稿（清單全在 skip 內，或已確認的完整清單為空）；此時仍回 `sheets`、`details:[]`。
+  - V0.12.1／Agent V1.3.1：成功同步可帶 `listComplete:true`，代表 F2 總數已確認且全部讀齊，明確 0/0 空清單也可成立。缺此標記的舊 Agent 照常匯入，但 WEB 不據以歸檔。full sync 才會將本次請求已知、ERP 已消失的同代底稿轉入過去紀錄；`onlySheet` 不觸發。`knownSheets` 為 WEB server-only 快照，不加入 claim。完整行為見 [STORE_STOCKTAKE](STORE_STOCKTAKE.md#erp-已清除的盤點單與過去盤點紀錄v0121)。
 - RUNNING 逾時 1,800 秒；complete 上限 900 KiB。
 
 **`STOCKTAKE_WRITE`：寫回 ERP（INVI14 逐筆、INVI06 新增批號與確認）**

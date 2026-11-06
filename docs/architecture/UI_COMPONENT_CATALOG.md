@@ -91,3 +91,7 @@
 ## BOT 管理中心（V0.12.0）
 
 `BotCenterPage` 用四個既有 `cy-op-panel`／`cy-op-table`：進度、待審稿、回報、今日完成。狀態用 `StatusChip`，待審篩選用 `StatusFilter`，展開用 `ExpandToggle`，新增 BOT 用 `Field`／`FormSection`，通過／退回理由用 `useFormPrompt`，憑證確認用 `useConfirmation`。沒有另做儀表板或新的視覺語言。行為以 [BOT_CENTER.md](BOT_CENTER.md) 為準。
+
+## 盤點紀錄（V0.12.1）
+
+`StocktakeRecordsDialog` 沿用共用 `Dialog`、`cy-op-table` 及 `ExpandToggle`，一張底稿一列，30% 放日期／單號／初盤與複盤人員，70% 放去重品號＋品名並折行；確認時間與差異按需展開，不讓窄資訊欄撐高主列。紀錄及差異各自游標分頁，沒有歷史背景輪詢；只有明確「關閉」按鈕，點背景不關閉。
