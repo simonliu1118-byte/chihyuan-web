@@ -1,7 +1,7 @@
 # CY Web V0.11.4 出機與維護操作交接
 
 - 日期：2026-11-06；執行 GPT；基準：main @ dc47572026749f4dd4d942064d44598e64aa6c94。
-- 工作分支：cyweb/equipment-category-assets-matrix-popover；未合併、未部署。Claude 最終審查尚未執行；不得代填通過。
+- 工作分支：cyweb/equipment-category-assets-matrix-popover；PR #437 於 2026-11-06 合併 main（1e6b1436），尚待正式部署。Claude 事後複審未執行；不代填通過。
 - 使用者確認：出機「品牌／類別／機型」，類別與門市維修同源，選其他有至少五中文字寬自填；預計維護年月標題及月份黑字；機身加財產編號與單獨補填操作；主清單縮窄品牌機型並顯示預計維護，展開保留項次及三個機身欄位且適當窄；矩陣上一年／下一年改左右箭頭、載入圈在搜尋旁不推動表格、維護日期編輯改門市訂購式格內浮動視窗。
 
 ## 修改檔案及行為
@@ -32,3 +32,4 @@
 - 尚無 Claude 最終審查紀錄；**不可把 CI 成功視為 Claude 通過**。使用者本次要求先合併發布，這項偏離既定 Claude 先審查流程必須在追蹤紀錄中保留，Claude 事後複審仍待辦。
 - 正式部署必須在 #437 及整合後 #439 均合併且 main CI／部署契約核對後，以 main 的 workflow_dispatch operation=deploy-development 執行。PR 自動 workflow 的成功不是正式部署證據。
 - #438 與 #437 均佔用 0053 migration 序號，**PR #438 不得直接接著合併**；後續開發者必須依實際 main schema 重新編排 BOT 管理中心 migration、CURRENT_MIGRATION、測試與備份契約。
+- PR #437 最後 head `cf4d431fb442fdc97d9c3443b87dba2389c30b87`：Runtime #42174301833 成功（654/654），Governance #42174301760 成功，部署契約 #42174301778 成功；合併 SHA `1e6b1436d3cb32d5c2df67c78d2bf3756f3a4795`，尚未觸發正式部署。

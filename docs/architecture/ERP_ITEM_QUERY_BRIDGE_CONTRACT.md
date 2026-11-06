@@ -264,3 +264,10 @@ CYapps `apps/CYERPAutoQuery/ItemFieldCatalog.cs`：
 - RUNNING 逾時 3,600 秒；complete 上限 900 KiB。
 - Agent 每寫完一列以既有 `POST /api/erp-agent/item-queries/{id}/progress` 回報 `{ stage:"STOCK", done, total }`，CY Web 顯示「已寫入 x / y 列」。
 
+
+
+### ERP 查詢舊結果卡顯示（V0.11.5，2026-11-06）
+
+- 查詢已 DONE、伺服器只剩狀態（`resultCleared:true`）時，若當前瀏覽器分頁的 `sessionStorage` 仍留有相同查詢 ID 的結果，沿用那份結果。
+- 若伺服器已清理且本機 Session 無同 ID 結果，隱藏該筆「查詢完成」空白卡；不要求使用者在一個無意義的結果卡裡再次查詢。
+- 不改動伺服器清理期限、查詢歷程、Agent、登入／登出、資料復原規則。進行中、失敗、查無資料等狀態照常顯示。

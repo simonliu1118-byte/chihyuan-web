@@ -6,6 +6,12 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.11.5 — ERP Session 無結果時不顯示舊查詢卡（2026-11-06，GPT）
+
+- 已完成的 ERP 查詢若伺服器結果已清除，且此分頁 Session 沒有相同查詢 ID 的結果，就隱藏整張空白完成卡；有相同 ID 的本機資料仍可恢復。
+- 保留查詢中、失敗、查無資料及未清除的結果，不改 ERP Worker、Agent、D1 或資料保存期限。
+- PR #439 依使用者本次合併發布指示處理；Claude 事後複審與實機驗收仍待辦，見 [handoff](docs/handoff/CYWEB-ERP-SESSION-CLEARED-0115-20261106.md)。
+
 ## CY Web V0.11.4 — 出機類別、財產編號與維護視窗改善（2026-11-06，GPT，待審查）
 
 - 出機第一列在品牌與機型之間新增與門市維修共用的類別選單；選「其他」才出現足夠五個中文字寬的自訂輸入。舊資料類別維持空值，無強制回填。
@@ -13,7 +19,7 @@
 - 清單縮窄品牌／機型並將預計維護月份移至主表；明細展開只保留項次、機身序號、製造年月及財產編號四欄，限制展開表寬度。預計維護標題及年月改為正常黑字。
 - 三年維護矩陣的年度切換改用 〈／〉，搜尋工具列內顯示載入狀態、不額外插入會推動表格的載入列；維護日期編輯器沿用門市顧客訂購格內浮動視窗，不再增加展開編輯列。
 - Forward migration 0053 為出機主檔增加類別與自訂類別欄位；財產編號存於現有 machines_json，補齊 portable backup migration／欄位契約。驗收狀態及風險見 [handoff](docs/handoff/CYWEB-EQUIPMENT-CATEGORY-ASSETS-0114-20261106.md)。
-- 本版仍待 PR CI、Claude 最終審查與使用者實機確認；未合併、未部署。
+- PR #437 已於 2026-11-06 合併 main（1e6b1436），CI 654/654 成功；正式部署、Claude 事後複審及使用者實機確認仍待辦。
 
 ## CY Web V0.11.3 — ERP 未收款共用表格（2026-11-05，GPT）
 
