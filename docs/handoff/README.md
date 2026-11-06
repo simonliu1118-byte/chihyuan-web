@@ -11,6 +11,8 @@
 
 ## 目前待 Claude 審查
 
+- [V0.11.6 盤點批號刪除圖示](CYWEB-STOCKTAKE-BATCH-DELETE-0116-20261106.md)：GPT 分支僅調整桌機與手機 UI，待 CI／Claude 最終審查；未合併部署。
+
 - [V0.11.5 ERP Session 無資料時隱藏查詢完成卡](CYWEB-ERP-SESSION-CLEARED-0115-20261106.md)：PR #439，已與 V0.11.4 整合，待正式部署及 Claude 事後複審。
 
 - [V0.11.4 出機類別、財產編號及維護浮窗](CYWEB-EQUIPMENT-CATEGORY-ASSETS-0114-20261106.md)：PR #437 已合併 main（1e6b1436），待正式部署及 Claude 事後複審。

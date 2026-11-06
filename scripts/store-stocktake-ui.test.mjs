@@ -56,7 +56,7 @@ test("stocktake grouped inventory uses location cells for save, history and desk
  assert.match(stocktake,/locationCountId:cell\.id/);
  assert.match(stocktake,/expectedVersion:cell\.version/);
  assert.match(stocktake,/const resolved=stocktakeAggregateLines\(lines,cells\)/);
- assert.match(grouped,/className="cy-ordering-grid cy-stocktake-grouped-table cy-stocktake-list-table"/);
+ assert.match(grouped,/cy-ordering-grid cy-stocktake-grouped-table cy-stocktake-list-table/);
  assert.match(grouped,/onBlur=\{\(\)=>onSave\(r\.cell\)\}/);
  assert.match(grouped,/data-stocktake-qty type="text"/);
 });
@@ -102,4 +102,26 @@ test("old global location dropdown remains absent; search and ALL filter stay in
  assert.match(stocktake,/searchLabel="搜尋儲位、品號、品名、批號"/);
  assert.match(css,/\.cy-stocktake-main \.cy-data-toolbar-primary\{display:flex;flex-direction:row;align-items:center/);
  assert.match(css,/\.cy-stocktake-main \.cy-data-filters\{display:flex;flex:0 0 106px;flex-direction:row/);
+});
+
+test("new stocktake batch deletion is an icon beside the batch, never a wrapped action-column button",()=>{
+ assert.match(grouped,/const deleteBatchButton=\(r:Row\)=>r\.line\.isAdded&&editable&&!r\.line\.locked\?/);
+ assert.match(grouped,/<IconButton variant="table" tone="danger" icon=\{Icons\.remove\}/);
+ assert.match(grouped,/label=\{"刪除批號 "\+\(r\.line\.batch\|\|"無"\)\} onClick=\{\(\)=>onDeleteBatch\(r\.line\)\}/);
+ assert.match(grouped,/<td><div className="cy-stocktake-batch-inline"><span>\{r\.line\.batch\|\|"無"\}<\/span>\{deleteBatchButton\(r\)\}<\/div><\/td>/);
+ assert.match(grouped,/className="cy-stocktake-batch-name cy-stocktake-batch-inline"/);
+ assert.match(grouped,/<summary>修改紀錄<\/summary>/);
+ assert.doesNotMatch(grouped,/<button className="cy-op-button compact danger" type="button" onClick=\{\(\)=>onDeleteBatch\(r\.line\)\}>刪除批號<\/button>/);
+ assert.match(css,/\.cy-stocktake-batch-inline\{display:flex;align-items:center;gap:4px;min-width:0;white-space:nowrap\}/);
+ assert.match(css,/\.cy-stocktake-batch-inline>span\{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap\}/);
+});
+
+test("ERP book quantities appear in desktop and mobile only after first-count release",()=>{
+ assert.match(grouped,/const showBookQty=detail\.sheet\.status!=="COUNTING"&&detail\.sheet\.status!=="IGNORED"/);
+ assert.match(grouped,/showBookQty\?<th scope="col"[^>]*>ERP 帳面數量<\/th>:null/);
+ assert.match(grouped,/showBookQty\?<td className="cy-stocktake-list-book-qty"[^>]*>\{r\.line\.bookQty\?\?"—"\}<\/td>:null/);
+ assert.match(grouped,/showBookQty\?<small className="cy-stocktake-book-mobile">ERP 帳面數量（批號合計）：<strong>\{r\.line\.bookQty\?\?"—"\}<\/strong><\/small>:null/);
+ assert.match(grouped,/\[8,16,14,9,16,11,9,9,3,5\]:\[8,18,16,9,18,12,9,4,6\]/);
+ assert.match(css,/\.cy-ordering-grid\.cy-stocktake-list-table\.cy-stocktake-show-book\{min-width:1120px\}/);
+ assert.match(css,/\.cy-stocktake-batch-inline\{display:flex;align-items:center;gap:4px;min-width:0;white-space:nowrap\}/);
 });

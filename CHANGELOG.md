@@ -6,6 +6,13 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.11.6 — 盤點批號刪除圖示位置（2026-11-06，GPT，待審查）
+
+- 門市庫存盤點中，原本在「操作」欄容易折行的「刪除批號」文字按鈕改為「批號」欄旁的共用垃圾桶圖示，與批號同列不折行；右側操作欄只保留修改紀錄等操作。
+- 手機版盤點卡的新增批號旁也直接呈現刪除圖示，不需展開操作選單。按鈕保留無障礙名稱、危險操作提示、既有刪除確認流程及新增批號／盤點狀態限制。
+- 返修：補上「初盤確認後」複盤表格漏顯示的 ERP 帳面數量欄，手機亦在批號下方顯示。批號合計不是單一儲位量；初盤盲盤及 Worker 權限不變。
+- UI-only 變更，不涉及 Worker、ERP、D1 或備份契約。尚待 PR CI、Claude 最終審查與實際桌機／手機目視驗收；未合併、未部署。[handoff](docs/handoff/CYWEB-STOCKTAKE-BATCH-DELETE-0116-20261106.md)。
+
 ## CY Web V0.11.5 — ERP Session 無結果時不顯示舊查詢卡（2026-11-06，GPT）
 
 - 已完成的 ERP 查詢若伺服器結果已清除，且此分頁 Session 沒有相同查詢 ID 的結果，就隱藏整張空白完成卡；有相同 ID 的本機資料仍可恢復。
