@@ -114,14 +114,15 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
  const actions=(r:Row,iconOnly=false)=><div className="cy-stocktake-cell-actions">
   {iconOnly?<IconButton variant="table" icon={Icons.history} label="修改紀錄" onClick={()=>onHistory(r.line,r.cell)}/>
    :<button className="cy-op-button compact" type="button" onClick={()=>onHistory(r.line,r.cell)}>修改紀錄</button>}
-  {r.line.isAdded&&editable&&!r.line.locked?
-   <button className="cy-op-button compact danger" type="button" onClick={()=>onDeleteBatch(r.line)}>刪除批號</button>:null}
   {conflictKey===String(r.cell.id)?<div className="cy-notice cy-notice-warning" role="alert">
     此儲位數量已被其他人修改。
     <button className="cy-op-button compact" type="button" onClick={()=>onConflictUseLatest(r.cell)}>採用最新結果</button>
     <button className="cy-op-button compact" type="button" onClick={()=>onSave(r.cell,true)}>覆蓋為我的數量</button>
    </div>:null}
  </div>;
+ const deleteBatchButton=(r:Row)=>r.line.isAdded&&editable&&!r.line.locked?
+  <IconButton variant="table" tone="danger" icon={Icons.remove}
+   label={"刪除批號 "+(r.line.batch||"無")} onClick={()=>onDeleteBatch(r.line)}/>:null;
  if(!groups.length)return <p className="cy-op-empty">目前沒有符合篩選的盤點列。</p>;
  if(!compact)return <div className="cy-stocktake-lines cy-stocktake-desktop-list">
   <div className="cy-ordering-grid-scroll"><table className="cy-ordering-grid cy-stocktake-grouped-table cy-stocktake-list-table">
@@ -143,7 +144,7 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
         onClick={()=>onAddBatch(group.code,loc.warehouse,loc.location)}>新增批號</button>:null}
       </div>
      </td></>:null}
-     <td>{r.line.batch||"無"}</td><td>{editor(r,false)}</td><td className="cy-stocktake-list-unit">{r.line.unit||"—"}</td><td>{actions(r,true)}</td>
+     <td><div className="cy-stocktake-batch-inline"><span>{r.line.batch||"無"}</span>{deleteBatchButton(r)}</div></td><td>{editor(r,false)}</td><td className="cy-stocktake-list-unit">{r.line.unit||"—"}</td><td>{actions(r,true)}</td>
     </tr>))}</tbody>;
    })}
   </table></div>
@@ -186,7 +187,7 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
     </div>
     <div className="cy-stocktake-batch-rows">
      {selected.rows.map(r=><div className="cy-stocktake-batch-row" key={r.cell.id}>
-      <div className="cy-stocktake-batch-name">批號 {r.line.batch||"無"}</div>
+      <div className="cy-stocktake-batch-name cy-stocktake-batch-inline"><span>批號 {r.line.batch||"無"}</span>{deleteBatchButton(r)}</div>
       {editor(r)}
      </div>)}
     </div>
@@ -196,7 +197,7 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
      <small>儲位小計 {qtySum(selected.rows,locked?"firstQty":phase).total}{qtySum(selected.rows,locked?"firstQty":phase).complete?"":"（尚未填完）"}</small>
     </div>
     <details className="cy-stocktake-mobile-actions">
-     <summary>修改紀錄與批號操作</summary>
+     <summary>修改紀錄</summary>
      {selected.rows.map(r=><div key={r.cell.id} className="cy-stocktake-mobile-action-row">
       <small>批號 {r.line.batch||"無"}</small>{actions(r)}
      </div>)}

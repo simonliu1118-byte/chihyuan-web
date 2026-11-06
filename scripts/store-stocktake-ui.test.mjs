@@ -103,3 +103,15 @@ test("old global location dropdown remains absent; search and ALL filter stay in
  assert.match(css,/\.cy-stocktake-main \.cy-data-toolbar-primary\{display:flex;flex-direction:row;align-items:center/);
  assert.match(css,/\.cy-stocktake-main \.cy-data-filters\{display:flex;flex:0 0 106px;flex-direction:row/);
 });
+
+test("new stocktake batch deletion is an icon beside the batch, never a wrapped action-column button",()=>{
+ assert.match(grouped,/const deleteBatchButton=\(r:Row\)=>r\.line\.isAdded&&editable&&!r\.line\.locked\?/);
+ assert.match(grouped,/<IconButton variant="table" tone="danger" icon=\{Icons\.remove\}/);
+ assert.match(grouped,/label=\{"刪除批號 "\+\(r\.line\.batch\|\|"無"\)\} onClick=\{\(\)=>onDeleteBatch\(r\.line\)\}/);
+ assert.match(grouped,/<td><div className="cy-stocktake-batch-inline"><span>\{r\.line\.batch\|\|"無"\}<\/span>\{deleteBatchButton\(r\)\}<\/div><\/td>/);
+ assert.match(grouped,/className="cy-stocktake-batch-name cy-stocktake-batch-inline"/);
+ assert.match(grouped,/<summary>修改紀錄<\/summary>/);
+ assert.doesNotMatch(grouped,/<button className="cy-op-button compact danger" type="button" onClick=\{\(\)=>onDeleteBatch\(r\.line\)\}>刪除批號<\/button>/);
+ assert.match(css,/\.cy-stocktake-batch-inline\{display:flex;align-items:center;gap:4px;min-width:0;white-space:nowrap\}/);
+ assert.match(css,/\.cy-stocktake-batch-inline>span\{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap\}/);
+});
