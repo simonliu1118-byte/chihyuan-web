@@ -33,3 +33,7 @@
 - 正式部署必須在 #437 及整合後 #439 均合併且 main CI／部署契約核對後，以 main 的 workflow_dispatch operation=deploy-development 執行。PR 自動 workflow 的成功不是正式部署證據。
 - #438 與 #437 均佔用 0053 migration 序號，**PR #438 不得直接接著合併**；後續開發者必須依實際 main schema 重新編排 BOT 管理中心 migration、CURRENT_MIGRATION、測試與備份契約。
 - PR #437 最後 head `cf4d431fb442fdc97d9c3443b87dba2389c30b87`：Runtime #42174301833 成功（654/654），Governance #42174301760 成功，部署契約 #42174301778 成功；合併 SHA `1e6b1436d3cb32d5c2df67c78d2bf3756f3a4795`，尚未觸發正式部署。
+
+## 2026-11-07 main 累積變更已正式部署
+
+本版已包含於 main source `e7530c07c97b6f8a9428335b85d9ba318842f165`，隨 **V0.12.0 Build 1** 發布。[Deployment #42253210792](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42253210792) **success**；正式健康回讀 version=0.12.0、sourceCommit 相符、database=ok。較早「待部署」屬當時狀態；Claude 事後複審與實機目視仍待完成，完整證據見 [BOT handoff](CYWEB-BOT-CENTER-0120-20261106.md)。

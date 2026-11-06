@@ -66,3 +66,10 @@
 - #440 已合併 main：`197f0a6704cf7002af243b338cd2f0b009278a69`。先合 V0.11.6，再由 #438 整合為 V0.12.0 Build 1，共同發布，避免版本倒退。
 - 完整合併後 CI／正式部署／健康回讀證據將補在本節與 [BOT handoff](CYWEB-BOT-CENTER-0120-20261106.md)。此時尚未宣稱正式發布成功。
 - Claude 未登入，事後複審與桌機／手機視覺驗收仍待辦；沒有代填 Claude 通過。
+
+## 2026-11-07 正式發布結果
+
+- #440 合併 `197f0a6704cf7002af243b338cd2f0b009278a69`，再由 #438 併入正式 source `e7530c07c97b6f8a9428335b85d9ba318842f165`，已隨 **V0.12.0 Build 1** 發布。
+- [Deployment #42253210792](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42253210792) validate-deployment-contract／deploy-development **success**；正式站獨立健康回讀 version=0.12.0、sourceCommit 相符、database=ok。
+- 整合後 Runtime [#42252681680](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42252681680) 的 Local D1、Full Node test suite、Vite build 及前後端 TypeScript 均 success；Governance／Deployment Contract 也成功，詳見 [BOT handoff](CYWEB-BOT-CENTER-0120-20261106.md)。
+- Claude 事後複審與登入後桌機／手機目視驗收仍待完成，未代填通過。

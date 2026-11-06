@@ -107,3 +107,21 @@
 - 整合後完整 Node 測試、最新 PR CI、正式部署及健康回讀：完成後補記證據，不以舊 head 的成功代替。
 - 本機 Claude Code 存在但 `claude auth status --json` 回報未登入；**Claude 最終／事後複審仍待辦，執行者不代填通過**。依使用者本輪明確授權繼續合併部署。登入後的桌機／手機目視驗收仍待完成。
 - 無新增 production identifier／token；沒有在本機執行正式 D1 寫入。正式 0053 → 0054 migration 及發布只交由既有 main-only 受控 workflow 執行。
+
+### 最新正式 CI 與合併證據
+
+- 修正／整合 head：`4a8fba877eabb3e1a9b2ee93aaa7cb0a5b04d6a7`。
+- [Runtime #42252681680](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42252681680) **success**：browser／Worker typecheck、source contracts、Local D1 runtime acceptance、Full Node test suite、Vite build 全部成功；這是本輪 Ubuntu 完整驗收，與上方明列失敗項的 Windows 本機結果分開記錄。
+- [Governance #42252681881](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42252681881) **success**；[Deployment Contract #42252681782](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42252681782) **success**。PR 工作中的正式 deploy／audit skipped，沒有冒充部署完成。
+- #438 已依本輪使用者授權合併，main source commit：`e7530c07c97b6f8a9428335b85d9ba318842f165`，包含先合併的 #440。
+- main-only 正式部署 [#42253210792](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42253210792) 已啟動；完成後追加結果與健康回讀，未成功前不宣稱正式站已更新。
+
+## 2026-11-07 正式部署完成
+
+- 使用者本輪授權的 #440、#438 均已合併，正式產品身分 **V0.12.0 Build 1**（VERSION=0.12.0、BUILD=1）。
+- 正式 source commit：`e7530c07c97b6f8a9428335b85d9ba318842f165`。
+- [Deployment #42253210792](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42253210792) **success**：validate-deployment-contract 及 deploy-development 成功；正式 D1 migration、Worker／assets 建置發布、排程、來源版本／CYID consumer／D1 健康、HTTPS／靜態資源及正式 Identity authority 驗證均通過。正式目標沿用既有 main-only workflow，沒有另建正式服務。
+- 獨立回讀正式站 /api/health：HTTP 200、version=0.12.0、sourceCommit 與上列完全一致、database=ok、identityConsumerVersion=1.0.5。健康 API 既有契約只回傳基礎版本，Build 1 身分由同一 source 的 BUILD 檔追溯。
+- 獨立無憑證／未登入唯讀檢查：/api/bot-center 與 /api/bot-center/progress 均 401 AUTH_REQUIRED；/api/bot-ingest/drafts/1 為 401 BOT_UNAUTHORIZED，均沒有回傳業務資料。
+- 本次正式內容也包含 main 已合併的 #437／#439（V0.11.4／V0.11.5）及本輪 #440，沒有倒退版本或遺漏盤點修正。
+- **Claude 事後複審及登入後桌機／手機目視驗收仍待完成**；此處是執行者的部署證據，不是 Claude 審查通過。未產生機器連線憑證或用正式資料操作審稿。
