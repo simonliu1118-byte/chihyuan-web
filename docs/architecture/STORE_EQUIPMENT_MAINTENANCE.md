@@ -81,3 +81,12 @@ Forward migration `0051_store_equipment_maintenance`：
 | store_equipment_state | 首次修改才建立的單列版本 guard，協調彙整原子修改 |
 
 所有表納入 portable backup 的欄位清單；CURRENT_MIGRATION 同步0052（0052只增加維護客戶及實際日期索引）。純新增表不需資料語意轉換，舊備份缺表還原為空；表與關聯、完成日期、單行備註及歷程有還原 round-trip 驗證。照片、R2、Identity、既有排程及正式資料皆未改動。
+
+## V0.11.4 — 類別、財產編號與畫面調整
+
+- 出機主檔增加可空 category／category_other（舊紀錄空白）；選項直接沿用門市維修 `STORE_REPAIR_PRODUCTS`；OTHER 必須輸入自訂類別，非 OTHER 不保留自訂值。畫面第一列品牌與機型之間放類別，其他自填可見至少五個中文字寬。
+- machines_json 各機身增加可空 assetNumber；舊機身沒有該 key 時解讀為空字串。新增／修改表單及獨立補填均使用同一份原始機身 JSON，不建平行表格或資產 authority。
+- `PATCH /:id/assets` 只接受 assetNumbers（對應既有機身順序）、expectedVersion、requestKey；只更新 machines_json、紀錄版本及更新者與時間，保留保固／維護月份與計畫關聯，並寫出機事件與共用 Audit；用既有 STORE_REPAIRS 後端權限及原子 guard。
+- 主清單有類別及預計維護欄，品牌機型縮短；展開只顯示四欄的機身明細。維護年月文字及選月表標題改正常黑色。
+- 三年矩陣用 〈／〉 換年；載入指示放工具列、不額外推動表格；維護日期與備註沿用門市訂購 `.cy-store-date-popover`，錨定選取的月份儲存格，不以展開列編輯。
+- Migration `0053_store_equipment_category` 僅增加主檔欄位；備份 migration level 與 BACKUP_COLUMNS 同步，舊備份的缺欄使用預設空字串。

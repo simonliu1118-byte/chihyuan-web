@@ -11,6 +11,8 @@
 
 ## 目前待 Claude 審查
 
+- [V0.11.4 出機類別、財產編號及維護浮窗](CYWEB-EQUIPMENT-CATEGORY-ASSETS-0114-20261106.md)：GPT 工作分支，等待 CI／Claude 審查，未合併部署。
+
 - [V0.11.3 ERP 未收款共用表格](CYWEB-ERP-RECEIVABLE-TABLE-0113-20261105.md)：新工作，待 CI／Claude 審查，未合併部署。
 
 - [V0.11.2 出機表單與保固年月](CYWEB-EQUIPMENT-FORM-0112-20261105.md)：GPT 新工作分支，待 PR 自動驗證與 Claude 審查；未合併、未部署。

@@ -1,0 +1,25 @@
+# CY Web V0.11.4 出機與維護操作交接
+
+- 日期：2026-11-06；執行 GPT；基準：main @ dc47572026749f4dd4d942064d44598e64aa6c94。
+- 工作分支：cyweb/equipment-category-assets-matrix-popover；未合併、未部署。Claude 最終審查尚未執行；不得代填通過。
+- 使用者確認：出機「品牌／類別／機型」，類別與門市維修同源，選其他有至少五中文字寬自填；預計維護年月標題及月份黑字；機身加財產編號與單獨補填操作；主清單縮窄品牌機型並顯示預計維護，展開保留項次及三個機身欄位且適當窄；矩陣上一年／下一年改左右箭頭、載入圈在搜尋旁不推動表格、維護日期編輯改門市訂購式格內浮動視窗。
+
+## 修改檔案及行為
+
+- `shared/store-equipment.ts`：擴充 category、categoryOther、assetNumber 的共用資料契約與限制。
+- `worker/http/store-equipment-routes.ts`：讀寫 category/other；舊機身資產號缺值正規化；新增 `PATCH /:id/assets` 獨立補填（不調用排程變更流程）、原版本、requestKey、事件與 Audit；類別其他驗證。
+- `migrations/0053_store_equipment_category.sql`：出機主檔兩個字串欄位，預設空值；既有資料與機身 JSON 不重寫。
+- `worker/backup/portable-backup.ts`、`schema-columns.ts`：正式 forward migration 與 portable 欄位契約同步。
+- `src/runtime/modules/StoreEquipment.tsx`、`store-equipment.css`：表單類別／其他自填／資產編號、主清單、精簡四欄展開、黑字與獨立補填視窗。
+- `src/runtime/modules/StoreMaintenanceMatrix.tsx`：格內浮窗、年切換箭頭、載入狀態移至搜尋工具列；`src/ui/actions/icons.tsx` 在共用圖示加入財產標籤圖示。
+- `scripts/store-equipment.test.mjs`：新增主要 API 行為的測試，確認自訂類別、資產號補填、既有資料保留、過期版本拒絕及非法類別拒絕。
+- `VERSION`、`package.json`、`CHANGELOG.md`、`TODO.md`、架構契約與 handoff 更新為 V0.11.4。
+
+## 主要風險及驗收
+
+- 新增 migration 需正式發布時依原本受控流程套用；這次 PR 不部署、不碰正式 D1。
+- 舊出機記錄可保留空白類別；舊 machines_json 缺財產編號讀取為空值，只有使用者修改才保存新欄位。
+- 補填財產編號只更新該筆出機資料及歷程，不改 planWrites、維護日期或已完成到訪快照。
+- 待核對：本次 PR 自動 Runtime Check、Governance Check、部署契約檢查。
+- 待使用者實機目視：其他類別中文字寬、主清單與四欄展開、財產號補填、手機橫向捲動、維護月份浮窗的定位與編輯、載入不跳動。
+- Claude 最終審查：**待審查**，請審核 migration／backup、後端更新 scope、權限／版本與畫面；審查結論由 Claude 本人寫回。
