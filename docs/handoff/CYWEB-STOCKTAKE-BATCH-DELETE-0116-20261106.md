@@ -30,3 +30,15 @@
   - [部署契約 #42187295305](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42187295305) **success**；PR 的 `deploy-development` 與正式稽核工作被跳過，**並非正式部署**。
 - Claude 最終審查：**待審查**（審查者補日期／通過或需修正／意見）。
 - **未合併、未部署**；正式站仍以最後一次成功的受控部署紀錄為準。
+
+
+## 返修：複盤漏顯示 ERP 帳面數量（2026-11-06）
+
+- 使用者回報並提供畫面：初盤確認後，盤點單狀態已進入「複盤中」，但表格只有「複盤數量」欄，沒有 ERP 帳面數量供對照。
+- 原因：Worker `worker/http/store-stocktake-routes.ts` 的 `toLine` 在 `COUNTING`／`IGNORED` 隱藏帳面量、初盤確認後已回傳 `bookQty`；但是 `StocktakeGroupedDetail.tsx` 沒有將這個欄位渲染到 UI。**不是 ERP 或 D1 資料遺失**。
+- `src/runtime/modules/StocktakeGroupedDetail.tsx`：解除盲盤後在桌機表格「複盤數量」左側新增「ERP 帳面數量」，手機在批號下方顯示「ERP 帳面數量（批號合計）」，缺值用「—」、零仍為 0；初盤仍不顯示帳面量，且後端盲盤保護不變。
+- `src/runtime/modules/store.css`：重新分配複盤十欄寬度，狹窄桌機可橫向捲動；將上輪批號／刪除圖示共用同列樣式由桌機專用 media query 移至全裝置，避免手機圖示錯位；加上手機帳面字體樣式。
+- `scripts/store-stocktake-ui.test.mjs`：新增解盲顯示條件、桌機／手機呈現、欄寬與 CSS 規則測試。既有 `scripts/store-stocktake.test.mjs` 已涵蓋「初盤不回傳 `bookQty`、第一次確認後回傳」的後端資料契約。
+- `docs/architecture/STORE_STOCKTAKE.md`、`CHANGELOG.md`、`TODO.md`、本 handoff：同步既定 UI 行為及差異。
+- 風險：`bookQty` 是 ERP **原始批號合計**，不是單一儲位帳面；若同批號有多個儲位，會在各儲位畫面重複顯示作為參照，但不參與加總。仍需桌機／手機實際畫面驗收。
+- 此輪程式提交 `c696716785749d856020ad3c3b278ef001b56e81`，PR #440 最新 CI 結果：**待核對**。Claude 最終審查：**待審查**。未合併、未部署、未操作正式 D1。
