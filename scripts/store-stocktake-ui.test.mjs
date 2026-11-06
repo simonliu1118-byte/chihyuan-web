@@ -115,3 +115,13 @@ test("new stocktake batch deletion is an icon beside the batch, never a wrapped 
  assert.match(css,/\.cy-stocktake-batch-inline\{display:flex;align-items:center;gap:4px;min-width:0;white-space:nowrap\}/);
  assert.match(css,/\.cy-stocktake-batch-inline>span\{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap\}/);
 });
+
+test("ERP book quantities appear in desktop and mobile only after first-count release",()=>{
+ assert.match(grouped,/const showBookQty=detail\.sheet\.status!=="COUNTING"&&detail\.sheet\.status!=="IGNORED"/);
+ assert.match(grouped,/showBookQty\?<th scope="col"[^>]*>ERP 帳面數量<\/th>:null/);
+ assert.match(grouped,/showBookQty\?<td className="cy-stocktake-list-book-qty"[^>]*>\{r\.line\.bookQty\?\?"—"\}<\/td>:null/);
+ assert.match(grouped,/showBookQty\?<small className="cy-stocktake-book-mobile">ERP 帳面數量（批號合計）：<strong>\{r\.line\.bookQty\?\?"—"\}<\/strong><\/small>:null/);
+ assert.match(grouped,/\[8,16,14,9,16,11,9,9,3,5\]:\[8,18,16,9,18,12,9,4,6\]/);
+ assert.match(css,/\.cy-ordering-grid\.cy-stocktake-list-table\.cy-stocktake-show-book\{min-width:1120px\}/);
+ assert.match(css,/\.cy-stocktake-batch-inline\{display:flex;align-items:center;gap:4px;min-width:0;white-space:nowrap\}/);
+});

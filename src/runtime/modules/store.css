@@ -158,6 +158,12 @@
 .cy-stocktake-batch-rows{display:grid;gap:8px;min-width:0}
 .cy-stocktake-batch-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(124px,40%);gap:5px 8px;align-items:center;min-width:0}
 .cy-stocktake-batch-name{font-size:var(--cy-fs-sm);overflow-wrap:anywhere;min-width:0}
+.cy-stocktake-batch-context{min-width:0}
+.cy-stocktake-batch-inline{display:flex;align-items:center;gap:4px;min-width:0;white-space:nowrap}
+.cy-stocktake-batch-inline>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cy-stocktake-batch-inline>.cy-icon-button{flex-shrink:0}
+.cy-stocktake-book-mobile{display:block;margin-top:3px;color:var(--cy-text);font-size:var(--cy-fs-xs);overflow-wrap:anywhere}
+.cy-stocktake-book-mobile strong{font-variant-numeric:tabular-nums}
 .cy-stocktake-batch-row .cy-stocktake-cell-editor{min-width:0}
 .cy-stocktake-batch-row .cy-stocktake-cell-editor .cy-ordering-cell{height:48px;min-height:48px;font-size:16px;box-sizing:border-box;padding:8px}
 .cy-stocktake-mobile-actions{font-size:var(--cy-fs-xs);color:var(--cy-text-muted)}
@@ -218,9 +224,8 @@
  .cy-stocktake-list-table tbody+tbody tr:first-child>td{border-top:var(--cy-grid-divider-width,2px) solid var(--cy-grid-divider-color,var(--cy-border))}
  .cy-stocktake-list-table .cy-stocktake-list-location-content{display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px}
  .cy-stocktake-list-table .cy-stocktake-list-unit{text-align:center;white-space:nowrap}
-.cy-stocktake-batch-inline{display:flex;align-items:center;gap:4px;min-width:0;white-space:nowrap}
-.cy-stocktake-batch-inline>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cy-stocktake-batch-inline>.cy-icon-button{flex-shrink:0}
+ .cy-ordering-grid.cy-stocktake-list-table.cy-stocktake-show-book{min-width:1120px}
+ .cy-stocktake-list-table .cy-stocktake-list-book-qty{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--cy-text);font-weight:600}
  .cy-stocktake-list-table .cy-stocktake-cell-editor .cy-ordering-cell{text-align:right;height:28px;font-size:inherit;max-width:none}
  .cy-stocktake-list-table .cy-stocktake-list-add{padding:2px 5px;min-height:24px;font-size:var(--cy-fs-xs)}
  .cy-stocktake-list-table .cy-stocktake-cell-actions{position:relative}
