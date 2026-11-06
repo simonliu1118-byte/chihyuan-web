@@ -20,8 +20,8 @@
 .cy-equipment-detail>td{padding:8px!important}
 .cy-equipment-detail .cy-entry-table td{background:var(--cy-surface)!important;text-align:left}
 .cy-equipment-detail .cy-entry-table td:first-child{text-align:center}
-.cy-equipment-form-dialog .cy-dialog-surface{width:min(1000px,calc(100vw - 24px))}
-.cy-equipment-entry{min-width:940px;table-layout:fixed}
+.cy-equipment-form-dialog .cy-dialog-surface{width:min(1160px,calc(100vw - 24px))}
+.cy-equipment-entry{min-width:1060px;table-layout:fixed}
 .cy-equipment-entry td{padding:2px}
 .cy-equipment-entry .cy-entry-table{table-layout:fixed}
 .cy-equipment-number{text-align:right}

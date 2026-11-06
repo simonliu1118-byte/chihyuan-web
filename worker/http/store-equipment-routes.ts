@@ -79,7 +79,7 @@ export async function handleStoreEquipmentRoute(req:Request,env:IdentityRuntimeE
   if(method==='GET'&&(path===''||path==='/')){
    const before=u.searchParams.get('before')??String(Number.MAX_SAFE_INTEGER);if(!/^\d+$/.test(before)||!Number.isSafeInteger(Number(before)))throw new Invalid('分頁不正確');
    const q=(u.searchParams.get('q')??'').trim().slice(0,80),like='%'+q.replace(/[\\%_]/g,x=>'\\'+x)+'%';
-   const list=await all<RecordRow>(c.db,recordListSelect+" WHERE r.list_sequence<? AND (?='' OR r.customer_code LIKE ? ESCAPE '\\' OR r.customer_name LIKE ? ESCAPE '\\' OR r.brand LIKE ? ESCAPE '\\' OR r.model LIKE ? ESCAPE '\\' OR EXISTS(SELECT 1 FROM json_each(r.machines_json) m WHERE json_extract(m.value,'$.serialNo') LIKE ? ESCAPE '\\')) ORDER BY r.list_sequence DESC LIMIT 101",Number(before),q,like,like,like,like,like);
+   const list=await all<RecordRow>(c.db,recordListSelect+" WHERE r.list_sequence<? AND (?='' OR r.customer_code LIKE ? ESCAPE '\\' OR r.customer_name LIKE ? ESCAPE '\\' OR r.brand LIKE ? ESCAPE '\\' OR r.category_other LIKE ? ESCAPE '\\' OR r.model LIKE ? ESCAPE '\\' OR EXISTS(SELECT 1 FROM json_each(r.machines_json) m WHERE json_extract(m.value,'$.serialNo') LIKE ? ESCAPE '\\')) ORDER BY r.list_sequence DESC LIMIT 101",Number(before),q,like,like,like,like,like,like);
    return success({rows:list.slice(0,100).map(recordJson),nextBefore:list.length>100?list[99].list_sequence:null},requestId);
   }
   if(method==='GET'&&path==='/matrix'){
