@@ -1,7 +1,7 @@
 # CY Web V0.12.0 BOT 管理中心交接
 
 - 日期：2026-11-06。基準 `main` @ `dc47572026749f4dd4d942064d44598e64aa6c94`。
-- 工作分支 `cursor/bot-center-5273`。Claude 審查待填。
+- 工作分支 `cursor/bot-center-5273`，PR #438。Claude 審查待填。
 - **不合併、不部署、不執行正式 migration。**
 
 ## 使用者看到的範圍
