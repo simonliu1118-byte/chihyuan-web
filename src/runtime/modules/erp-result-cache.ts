@@ -37,3 +37,13 @@ export function clearErpResults(): void {
     for (const key of keys(storage)) storage.removeItem(key);
   } catch { /* storage blocked */ }
 }
+
+/** Keep the original completion only while data exists on the server or in this tab. */
+export function erpResultForDisplay(result: ErpQueryResult): ErpQueryResult | null {
+  if (result.status !== "DONE") return result;
+  if (!result.resultCleared) {
+    keepErpResult(result);
+    return result;
+  }
+  return keptErpResult(result.id, result.queryType);
+}

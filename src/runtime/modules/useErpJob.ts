@@ -4,7 +4,7 @@ import type { ErpQueryResult, ErpQueryStatus, ErpQueryType } from "../../../shar
 import { useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { createErpQuery, loadErpItemQuery, loadRecentErpJobs, type ErpQueryRequest, type RecentErpJob } from "../api/erp-item-query-client";
 import { ERP_QUERY_FAILED_EVENT, type ErpQueryFailedDetail } from "./ErpAgentCredentialControl";
-import { keepErpResult, keptErpResult } from "./erp-result-cache";
+import { erpResultForDisplay } from "./erp-result-cache";
 
 export const runningStatus = (status: ErpQueryStatus) => status === "QUEUED" || status === "RUNNING";
 
@@ -91,10 +91,17 @@ export function useErpJob(home?: ErpJobHome) {
       if (pending) return; pending = true;
       void loadErpItemQuery(queryId).then(job => {
         if (cancelled) return;
-        if (job.status === "DONE") {
-          if (!job.resultCleared) keepErpResult(job);
-          else job = keptErpResult(job.id, job.queryType) ?? job;
+        const displayJob = erpResultForDisplay(job);
+        if (!displayJob) {
+          // The server retained only job metadata and this tab has no saved result.
+          // Hide the obsolete completed card rather than asking to rerun inside it.
+          setResult(null);
+          setQueryId(null);
+          sawRunning.current = false;
+          if (visibleRef.current) setError(null);
+          return;
         }
+        job = displayJob;
         setResult(job);
         if (visibleRef.current) setError(null);
         if (runningStatus(job.status)) { sawRunning.current = true; return; }
