@@ -1,12 +1,12 @@
 # BOT 管理中心
 
-V0.12.0。頁面在既有 CY Web 殼層，路由 `#bot-center`，左側「ERP 查詢」同一組（`erp-query`，沒有組名）的下一項。模組代碼 `BOT_CENTER`，標籤「BOT 管理中心」。超級管理員沿用既有全模組權限；其他人要在「帳號與權限」授權後才看得到。不使用 `MODULE_REQUIREMENTS`。
+V0.12.0 Build 1。頁面在既有 CY Web 殼層，路由 `#bot-center`，左側「ERP 查詢」同一組（`erp-query`，沒有組名）的下一項。模組代碼 `BOT_CENTER`，標籤「BOT 管理中心」。超級管理員沿用既有全模組權限；其他人要在「帳號與權限」授權後才看得到。不使用 `MODULE_REQUIREMENTS`。
 
 ## 畫面
 
 四個區塊，沿用共用表格、狀態膠囊、欄位與短視窗：
 
-1. 各 BOT 進度狀態。初始身份是社群小編、內容專家、CEO、IT。同一個畫面可再新增代碼與名稱，不必改表。進度在頁面可見時每 30 秒刷新；「重新整理全部」可立即更新全部四區。
+1. 各 BOT 進度狀態。初始身份是社群小編、內容專家、CEO、IT。同一個畫面可再新增代碼與名稱，不必改表。進度在頁面可見時每 30 秒透過 `/api/bot-center/progress` 刷新，只讀 BOT 主檔及憑證狀態，不掃描歷史審稿統計或載入審稿／回報／完成內容；「重新整理全部」可立即更新全部四區。
 2. 待審稿。通過或退回，理由可空白；超過 50 筆以「載入更多審稿」分頁載入。
 3. 回報。超過 50 筆以「載入更多回報」分頁載入。
 4. 今日完成時間軸。今天以 Asia/Taipei 計算；超過 50 筆以「載入更多今日完成項目」分頁載入。時間軸依完成時間 DESC／ID DESC 的複合游標，避免回填日期後跳漏筆。
@@ -14,6 +14,8 @@ V0.12.0。頁面在既有 CY Web 殼層，路由 `#bot-center`，左側「ERP �
 ## 審核邊界
 
 通過或退回只更新該篇審稿的狀態、選填理由、審核人與時間，並寫一筆共用稽核。原 BOT 用連線憑證把這筆結果讀回去。
+
+審稿更新與 Audit 在同一個 D1 原子批次內；以條件更新的實際筆數判斷勝出者，只有實際更新的一筆才寫 Audit。即使兩個請求同毫秒作出相同決定，另一個仍回傳 409，不會重複紀錄或把未儲存的理由當成成功。
 
 這個動作不會發到 Facebook、Instagram 或 Threads，不會建立正式發布工作，也不會打開自動回覆。BOT 管理中心是審核畫面，不是自動發布開關。
 
@@ -31,6 +33,7 @@ V0.12.0。頁面在既有 CY Web 殼層，路由 `#bot-center`，左側「ERP �
 | 方法 | 路徑 | 作用 |
 | --- | --- | --- |
 | GET | `/api/bot-center` | 四個區塊、憑證設定狀態與 `canManageCredentials`。`draftStatus` 為 `pending`（預設）、`approved`、`rejected`、`all`；分頁參數 `draftBefore`、`reportBefore` 用 ID，`timelineBefore` 用 `completedAt|id`。回應含 `draftNextBefore`、`reportNextBefore`、`timelineNextBefore` 及對應 `More` 旗標。 |
+| GET | `/api/bot-center/progress` | 相同 session／模組授權；只回傳 `bots`、`credential`、`canManageCredentials`，供 30 秒自動刷新。 |
 | POST | `/api/bot-center/bots` | `{code,label}` 新增身份 |
 | POST | `/api/bot-center/drafts/:id/review` | `{decision:"approved"\|"rejected",reason?}` |
 | GET | `/api/bot-center/credentials` | 是否已設定，不含明文 |

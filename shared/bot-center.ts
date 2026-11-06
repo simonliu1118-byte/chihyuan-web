@@ -89,8 +89,13 @@ export interface BotCredentialView {
   revokedAt: string | null;
 }
 
-export interface BotCenterState {
+export interface BotProgressState {
   bots: BotProfileView[];
+  credential: BotCredentialView;
+  canManageCredentials: boolean;
+}
+
+export interface BotCenterState extends BotProgressState {
   drafts: BotDraftView[];
   draftStatus: BotReviewStatus | "all";
   draftCounts: Record<BotReviewStatus, number>;
@@ -103,8 +108,6 @@ export interface BotCenterState {
   timelineDate: string;
   timelineMore: boolean;
   timelineNextBefore: string | null;
-  credential: BotCredentialView;
-  canManageCredentials: boolean;
 }
 
 /** Inclusive start and exclusive end of a Taipei calendar day, as UTC ISO timestamps. */

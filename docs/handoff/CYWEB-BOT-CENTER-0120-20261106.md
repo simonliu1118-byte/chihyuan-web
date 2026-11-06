@@ -2,7 +2,7 @@
 
 - 日期：2026-11-06。初始基準 `main@dc475720`；本輪依最新 `main@5982b09ee0de2d9c06e47e3c7a47e4f72b4c1a06`（V0.11.5）重新整合，保留 PR #437／#439 的已合併內容。
 - 工作分支 `cursor/bot-center-5273`，PR #438。Claude 審查待填。
-- **不合併、不部署、不執行正式 migration。**
+- **最新授權（2026-11-07）**：使用者明確指示「438交給你修好，然後兩個都可以合併部署」。先合併 #440，再整合 #438，正式 migration 只由 main 的受控部署工作執行。下方先前的「不合併／不部署」是當時狀態；目前結果以本文件最後一節為準。
 
 ## 使用者看到的範圍
 
@@ -80,3 +80,30 @@
 - [部署契約檢查 #42181427989](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42181427989) **success**；正式 `deploy-development`、身份／備份稽核工作在 PR 驗證中被 skipped，**沒有正式部署**。
 - 新增回歸測試：受授權一般員工不可產生／撤銷憑證、50 筆以上的審稿／回報／完成項目分頁、完成時間＋ID 游標不漏頁、正常重複 GET 不再對初始身份寫入。
 - 目前為 PR 階段，**不合併、不部署、不操作正式 D1**；Claude 最終審查與登入後桌機／手機畫面驗收尚未完成。待本機有 MCP 連線時，依 `0053_store_equipment_category` → `0054_bot_center` 的正式順序檢查 schema／備份契約，勿改動已套用 migration。
+
+## 2026-11-07 Build 1 返修與合併部署授權
+
+使用者本輪明確指示修好 #438，再把 #438、#440 合併部署。#440 已先合併為 `197f0a6704cf7002af243b338cd2f0b009278a69`，本分支整合該版後保留其盤點 UI，產品版本為 **V0.12.0 Build 1**；不倒退為 V0.11.6。先前不合併／不部署的記載僅為各輪歷史狀態。
+
+### 問題與修正
+
+1. 並行審稿：舊程式用決定及毫秒時間判斷是否自己成功。兩次同毫秒、同決定的請求都可回報成功並寫兩筆 Audit，即使第二次理由沒有儲存。`worker/http/bot-center-routes.ts` 改用同一 D1 batch 的 UPDATE `meta.changes` 判斷；緊接的 Audit SQL 以 `changes()=1` 保證只記真正更新者。輸家回傳 409，時間不再作請求身分。兩個寫入保持同一交易，Audit 失敗會連同審稿回滾。
+2. 進度輪詢：舊 30 秒輪詢呼叫完整 state，卻只採用 BOT／憑證，連帶掃描所有歷史審稿計數與讀取三份內容列表。新增同樣 session／模組授權的 GET `/api/bot-center/progress`，只讀 BOT 主檔及憑證狀態；`shared/bot-center.ts`、API client 與 `BotCenterPage.tsx` 共用 `BotProgressState`。完整載入／手動刷新／分頁仍走既有 endpoint，既有審稿清單與游標不被輪詢覆蓋。這項修正消除輪詢造成的歷史掃描，不宣稱完整載入的計數查詢沒有讀取成本。
+
+官方依據：[D1 batch 順序與交易](https://developers.cloudflare.com/d1/worker-api/d1-database/#batch)、[SQLite changes()](https://www.sqlite.org/lang_corefunc.html#changes)。條件 Audit 必須緊接 UPDATE，後續不得在兩者間插入其他寫入。
+
+### 修改範圍
+
+- 程式：`worker/http/bot-center-routes.ts`、`shared/bot-center.ts`、`src/runtime/api/bot-center-client.ts`、`src/runtime/modules/BotCenterPage.tsx`。
+- 測試：`scripts/bot-center.test.mjs` 增加可追蹤查詢的合成 D1 fixture、權限／查詢範圍驗證、固定毫秒並行送出及 Audit 失敗回滾驗證；既有路徑繼續驗證。
+- 文件／版本：`BUILD` 改為 1；`VERSION`／`package.json` 維持 0.12.0；`BOT_CENTER.md`、`CHANGELOG.md`、`TODO.md`、handoff 索引與本文件同步。整合 #440 時保留其完整 changelog／handoff／測試／盤點修改，不改寫 0053／0054 migration。
+
+### 驗證與審查狀態
+
+- BOT 相關測試 **9/9**、前端／Worker TypeScript、`npm run build` 通過。建置僅出現既有 bundle size／fixed-point 動態匯入提示，不是錯誤。
+- 另外使用專案安裝的 Miniflare／workerd 本機 D1 進行批次驗證：第一次更新 `meta.changes=1`、第二次為 0，Audit 只保留第一次理由一筆，通過；未連線正式 D1。
+- 整合後 Windows 完整 Node 測試：**662 項中 651 通過、11 失敗**，不得稱為全通過。失敗集中於既有測試的 Windows 限制：備份 rehearsal 的 esbuild onLoad 以斜線路徑比對（Windows 沒有替換合成 service，6 項 503）、secure-entry 使用 URL pathname 當 Windows 檔案路徑（檔案層級載入失敗）、deployment-source 寫死 LF 文字切分（1 項）、0043／0044／0045 schema fingerprint 對 LF 原文與 CRLF 原文的預期（3 項；本機 `core.autocrlf=true`）。這些檔案本輪未更動；不為此次 BOT 修正放寬測試。正式驗收以本輪推送後 Ubuntu CI 的完整測試結果為準。
+- #440 最新 PR CI 三組檢查通過；隔離快照本機盤點相關測試 **36/36**。
+- 整合後完整 Node 測試、最新 PR CI、正式部署及健康回讀：完成後補記證據，不以舊 head 的成功代替。
+- 本機 Claude Code 存在但 `claude auth status --json` 回報未登入；**Claude 最終／事後複審仍待辦，執行者不代填通過**。依使用者本輪明確授權繼續合併部署。登入後的桌機／手機目視驗收仍待完成。
+- 無新增 production identifier／token；沒有在本機執行正式 D1 寫入。正式 0053 → 0054 migration 及發布只交由既有 main-only 受控 workflow 執行。

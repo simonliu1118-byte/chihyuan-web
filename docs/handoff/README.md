@@ -11,7 +11,9 @@
 
 ## 目前待 Claude 審查
 
-- [V0.12.0 BOT 管理中心](CYWEB-BOT-CENTER-0120-20261106.md)：PR #438，正在修正 migration 0054、憑證授權、資料刷新與分頁；未合併部署、未操作正式 D1。
+- [V0.12.0 Build 1 BOT 管理中心](CYWEB-BOT-CENTER-0120-20261106.md)：PR #438，已修正並行審稿紀錄與輪詢多餘讀取；使用者授權與 #440 合併部署，CI／正式部署結果見 handoff，Claude 事後複審待辦。
+
+- [V0.11.6 盤點批號刪除圖示](CYWEB-STOCKTAKE-BATCH-DELETE-0116-20261106.md)：PR #440 已合併 main，CI／本機測試通過；隨 V0.12.0 Build 1 發布，Claude 事後複審與實機驗收待辦。
 
 - [V0.11.5 ERP Session 無資料時隱藏查詢完成卡](CYWEB-ERP-SESSION-CLEARED-0115-20261106.md)：PR #439，已與 V0.11.4 整合，待正式部署及 Claude 事後複審。
 

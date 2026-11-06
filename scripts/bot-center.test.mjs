@@ -9,6 +9,7 @@ const { handleBotCenterRoute } = await import("data:text/javascript;base64," + B
 
 function fixture(role = "SUPER_ADMIN", grant = false) {
   const sql = new DatabaseSync(":memory:");
+  const queries = [];
   sql.exec("PRAGMA foreign_keys=ON");
   for (const file of readdirSync(new URL("../migrations/", import.meta.url)).filter(name => name.endsWith(".sql")).sort())
     sql.exec(readFileSync(new URL("../migrations/" + file, import.meta.url), "utf8"));
@@ -20,7 +21,10 @@ function fixture(role = "SUPER_ADMIN", grant = false) {
     prepare(query) {
       let bind = [];
       const statement = sql.prepare(query);
-      const exec = () => ({ results: statement.all(...bind), meta: { changes: sql.prepare("SELECT changes() n").get().n, last_row_id: sql.prepare("SELECT last_insert_rowid() n").get().n } });
+      const exec = () => {
+        queries.push(query);
+        return { results: statement.all(...bind), meta: { changes: sql.prepare("SELECT changes() n").get().n, last_row_id: sql.prepare("SELECT last_insert_rowid() n").get().n } };
+      };
       return { bind(...params) { bind = params; return this; }, async first() { return exec().results[0] ?? null; }, async all() { return exec(); }, async run() { return exec(); }, execute: exec };
     },
     async batch(statements) {
@@ -46,7 +50,7 @@ function fixture(role = "SUPER_ADMIN", grant = false) {
     }), env, "bot-center-test");
     return { status: response.status, body: await response.json() };
   };
-  return { sql, call };
+  return { sql, call, db, queries };
 }
 const ok = result => { assert.equal(result.status, 200, JSON.stringify(result.body)); return result.body.data; };
 const taipeiNoon = shift => {
@@ -184,6 +188,77 @@ test("initialized BOT page reads do not write the four default identities again"
   } finally { sql.close(); }
 });
 
+test("progress polling reads no drafts, reports, completions or historical counts", async () => {
+  const { sql, call, queries } = fixture();
+  try {
+    ok(await call("/api/bot-center"));
+    const token = ok(await call("/api/bot-center/credentials", "POST")).token;
+    ok(await call("/api/bot-ingest/progress", "POST", { botCode: "IT", status: "working", summary: "合成進度" }, { authorization: "Bearer " + token }));
+    const before = sql.prepare("SELECT total_changes() n").get().n;
+    queries.length = 0;
+    const page = ok(await call("/api/bot-center/progress"));
+    assert.deepEqual(Object.keys(page).sort(), ["bots", "canManageCredentials", "credential"]);
+    assert.equal(page.bots.find(bot => bot.code === "IT").summary, "合成進度");
+    assert.equal(page.credential.configured, true);
+    assert.equal(page.canManageCredentials, true);
+    assert.equal(sql.prepare("SELECT total_changes() n").get().n, before);
+    assert.equal(queries.filter(query => /FROM bot_profiles/i.test(query)).length, 1);
+    assert.equal(queries.filter(query => /FROM bot_ingest_credentials/i.test(query)).length, 1);
+    assert.equal(queries.some(query => /bot_drafts|bot_reports|bot_completions|count\s*\(/i.test(query)), false);
+  } finally { sql.close(); }
+  const denied = fixture("USER");
+  try { assert.equal((await denied.call("/api/bot-center/progress")).status, 403); }
+  finally { denied.sql.close(); }
+  const granted = fixture("USER", true);
+  try { assert.equal(ok(await granted.call("/api/bot-center/progress")).canManageCredentials, false); }
+  finally { granted.sql.close(); }
+});
+
+test("concurrent reviews in the same millisecond have one winner and one matching audit", { timeout: 5000 }, async t => {
+  const { sql, call, db } = fixture();
+  try {
+    const token = ok(await call("/api/bot-center/credentials", "POST")).token;
+    const draft = ok(await call("/api/bot-ingest/drafts", "POST", { botCode: "IT", title: "合成並行審稿", body: "測試" }, { authorization: "Bearer " + token }));
+    t.mock.method(Date.prototype, "toISOString", () => "2026-11-07T01:00:00.000Z");
+    // Hold both requests after the pending read, before either atomic batch runs.
+    const batch = db.batch.bind(db);
+    let arrivals = 0;
+    let release;
+    const ready = new Promise(resolve => { release = resolve; });
+    db.batch = async statements => {
+      if (++arrivals === 2) release();
+      await ready;
+      return batch(statements);
+    };
+    const results = await Promise.all([
+      call(`/api/bot-center/drafts/${draft.id}/review`, "POST", { decision: "approved", reason: "第一位" }),
+      call(`/api/bot-center/drafts/${draft.id}/review`, "POST", { decision: "approved", reason: "第二位" }),
+    ]);
+    assert.deepEqual(results.map(result => result.status).sort(), [200, 409]);
+    assert.equal(results.find(result => result.status === 409).body.error.code, "ALREADY_REVIEWED");
+    const saved = sql.prepare("SELECT review_reason FROM bot_drafts WHERE id=?").get(draft.id);
+    const audits = sql.prepare("SELECT after_json FROM audit_events WHERE entity_type='bot_draft' AND entity_key=?").all(String(draft.id));
+    assert.equal(audits.length, 1);
+    assert.equal(JSON.parse(audits[0].after_json).reason, saved.review_reason);
+    assert.equal(results.find(result => result.status === 200).body.data.reason, saved.review_reason);
+  } finally { sql.close(); }
+});
+
+test("review and audit still roll back together when recording the audit fails", async () => {
+  const { sql, call } = fixture();
+  try {
+    const token = ok(await call("/api/bot-center/credentials", "POST")).token;
+    const draft = ok(await call("/api/bot-ingest/drafts", "POST", { botCode: "IT", title: "合成回滾", body: "測試" }, { authorization: "Bearer " + token }));
+    sql.exec("CREATE TRIGGER reject_bot_audit BEFORE INSERT ON audit_events WHEN NEW.entity_type='bot_draft' BEGIN SELECT RAISE(ABORT,'synthetic audit failure'); END");
+    assert.equal((await call(`/api/bot-center/drafts/${draft.id}/review`, "POST", { decision: "approved" })).status, 500);
+    const saved = sql.prepare("SELECT review_status,reviewed_by,reviewed_at FROM bot_drafts WHERE id=?").get(draft.id);
+    assert.equal(saved.review_status, "pending");
+    assert.equal(saved.reviewed_by, null);
+    assert.equal(saved.reviewed_at, null);
+    assert.equal(sql.prepare("SELECT count(*) n FROM audit_events WHERE entity_type='bot_draft'").get().n, 0);
+  } finally { sql.close(); }
+});
+
 test("the shell registers the page under ERP 查詢 and review does not publish", () => {
   const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
   const modules = readFileSync(new URL("../shared/modules.ts", import.meta.url), "utf8");
@@ -195,4 +270,8 @@ test("the shell registers the page under ERP 查詢 and review does not publish"
   assert.equal(group.includes("#bot-center"), true);
   assert.doesNotMatch(route, /facebook|instagram|threads|enqueue|auto-?reply|publish/i);
   assert.match(route, /review_status=\?/);
+  const page = readFileSync(new URL("../src/runtime/modules/BotCenterPage.tsx", import.meta.url), "utf8");
+  const polling = page.slice(page.indexOf("const timer = window.setInterval"), page.indexOf("async function run"));
+  assert.match(polling, /loadBotProgress\(\)/);
+  assert.doesNotMatch(polling, /loadBotCenter\(/);
 });

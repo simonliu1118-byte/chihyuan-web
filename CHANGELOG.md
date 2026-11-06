@@ -6,12 +6,21 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
-## CY Web V0.12.0 — BOT 管理中心（2026-11-06，待審查）
+## CY Web V0.12.0 Build 1 — BOT 管理中心（2026-11-07，GPT）
 
 - 新增獨立 BOT 管理中心模組 `#bot-center`，接在 ERP 查詢後。超級管理員可直接使用；一般使用者需 `BOT_CENTER` 授權。
 - 顯示 BOT 進度、審稿、回報及今日完成時間軸。審稿通過或退回只寫入結果，供原 BOT 讀取，不發布、不排隊、不啟用自動回覆。
 - 修正初版的五項整合審核：BOT migration 排為 `0054_bot_center` 並保留已合併的 `0053_store_equipment_category`；機器憑證輪換／撤銷只允許超級管理員；進度自動及手動更新；審稿／回報／時間軸加入可用的逐頁載入；初始 BOT 僅在缺漏時寫入。
-- 同步 portable backup、資料字典、權限與測試。未合併、未部署、不操作正式 D1；CI／Claude 最終審查與使用者實機驗收待辦。詳見 [handoff](docs/handoff/CYWEB-BOT-CENTER-0120-20261106.md)。
+- Build 1 修正並行審稿：以同一原子批次的實際更新筆數判定勝出者，只有真正更新者寫入一筆 Audit；同毫秒重複送出回傳 409，不再把未儲存的理由記成成功。
+- 自動刷新改走只讀 BOT 進度及憑證狀態的 `/api/bot-center/progress`，不再每 30 秒掃描歷史審稿統計或讀取審稿／回報／完成內容。初次載入、手動完整刷新及分頁行為不變。
+- 同步 portable backup、資料字典、權限與測試；使用者已授權修好後與 #440 一併合併部署。本機 Claude 未登入，Claude 事後複審及使用者實機驗收仍待辦；實際 CI／部署結果見 [handoff](docs/handoff/CYWEB-BOT-CENTER-0120-20261106.md)。
+
+## CY Web V0.11.6 — 盤點批號刪除圖示位置（2026-11-06，GPT，待審查）
+
+- 門市庫存盤點中，原本在「操作」欄容易折行的「刪除批號」文字按鈕改為「批號」欄旁的共用垃圾桶圖示，與批號同列不折行；右側操作欄只保留修改紀錄等操作。
+- 手機版盤點卡的新增批號旁也直接呈現刪除圖示，不需展開操作選單。按鈕保留無障礙名稱、危險操作提示、既有刪除確認流程及新增批號／盤點狀態限制。
+- 返修：補上「初盤確認後」複盤表格漏顯示的 ERP 帳面數量欄，手機亦在批號下方顯示。批號合計不是單一儲位量；初盤盲盤及 Worker 權限不變。
+- UI-only 變更，不涉及 Worker、ERP、D1 或備份契約。PR #440 已依使用者授權合併 main（197f0a67）；CI 與本機 36 項相關測試通過，併入 V0.12.0 Build 1 發布，Claude 事後複審與桌機／手機目視驗收仍待辦。[handoff](docs/handoff/CYWEB-STOCKTAKE-BATCH-DELETE-0116-20261106.md)。
 
 ## CY Web V0.11.5 — ERP Session 無結果時不顯示舊查詢卡（2026-11-06，GPT）
 

@@ -3,7 +3,7 @@ import { ApiClientError } from "../../api/client";
 import {
   BOT_LIMITS, BOT_REVIEW_LABELS, BOT_STATUS_LABELS, type BotCenterState, type BotReviewStatus, type BotStatus,
 } from "../../../shared/bot-center";
-import { createBot, issueBotCredential, loadBotCenter, reviewDraft, revokeBotCredential } from "../api/bot-center-client";
+import { createBot, issueBotCredential, loadBotCenter, loadBotProgress, reviewDraft, revokeBotCredential } from "../api/bot-center-client";
 import { ExpandToggle } from "../../ui/data/ExpandToggle";
 import { StatusFilter } from "../../ui/data/StatusFilter";
 import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
@@ -60,15 +60,15 @@ export function BotCenterPage() {
     let active = true;
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
-      void loadBotCenter(draftStatus).then(next => {
+      void loadBotProgress().then(next => {
         if (active) setState(previous => previous ? {
           ...previous, bots: next.bots, credential: next.credential,
           canManageCredentials: next.canManageCredentials,
-        } : next);
+        } : previous);
       }).catch(() => { /* Optional polling must not replace a user's current data with an error. */ });
     }, 30_000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [draftStatus]);
+  }, []);
 
   async function run(action: () => Promise<void>) {
     if (busy) return;

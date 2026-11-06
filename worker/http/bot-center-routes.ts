@@ -3,7 +3,7 @@ import { requireModuleAccess } from "../auth/guard";
 import {
   BOT_LIMITS, BOT_PAGE_SIZE, BOT_REVIEW_STATUSES, BOT_STATUSES, INITIAL_BOTS,
   taipeiTodayRange, type BotCenterState, type BotCompletionView, type BotCredentialView,
-  type BotDraftView, type BotProfileView, type BotReportView, type BotReviewStatus, type BotStatus,
+  type BotDraftView, type BotProfileView, type BotProgressState, type BotReportView, type BotReviewStatus, type BotStatus,
 } from "../../shared/bot-center";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
 import { failure, success } from "./response";
@@ -132,6 +132,11 @@ async function credential(db: D1Database): Promise<BotCredentialView> {
   return { configured: !!row?.token_hash, createdAt: row?.created_at ?? null, revokedAt: row?.revoked_at ?? null };
 }
 
+async function progress(db: D1Database, canManageCredentials: boolean): Promise<BotProgressState> {
+  const bots = await many<ProfileRow>(db, "SELECT id,code,label,status,summary,updated_at FROM bot_profiles ORDER BY id");
+  return { bots: bots.map(profileView), credential: await credential(db), canManageCredentials };
+}
+
 async function state(db: D1Database, url: URL, now: string, canManageCredentials: boolean): Promise<BotCenterState> {
   await ensureInitialBots(db, now);
   const requested = url.searchParams.get("draftStatus") ?? "pending";
@@ -141,7 +146,7 @@ async function state(db: D1Database, url: URL, now: string, canManageCredentials
   const draftBefore = cursor(url.searchParams.get("draftBefore"));
   const timelineBefore = timelineCursor(url.searchParams.get("timelineBefore"));
   const today = taipeiTodayRange(new Date(now));
-  const bots = await many<ProfileRow>(db, "SELECT id,code,label,status,summary,updated_at FROM bot_profiles ORDER BY id");
+  const currentProgress = await progress(db, canManageCredentials);
   const draftRows = await many<DraftRow>(db, `${DRAFT_SQL} WHERE (?='all' OR d.review_status=?) AND (?=0 OR d.id<?) ORDER BY d.id DESC LIMIT ?`,
     draftStatus, draftStatus, draftBefore, draftBefore, BOT_PAGE_SIZE + 1);
   const counts = await many<{ review_status: BotReviewStatus; n: number }>(db, "SELECT review_status,count(*) n FROM bot_drafts GROUP BY review_status");
@@ -151,14 +156,13 @@ async function state(db: D1Database, url: URL, now: string, canManageCredentials
     WHERE c.completed_at>=? AND c.completed_at<? AND (?='' OR c.completed_at<? OR (c.completed_at=? AND c.id<?))
     ORDER BY c.completed_at DESC,c.id DESC LIMIT ?`,
     today.start, today.end, timelineBefore?.at ?? "", timelineBefore?.at ?? "", timelineBefore?.at ?? "", timelineBefore?.id ?? 0, BOT_PAGE_SIZE + 1);
-  const credentialView = await credential(db);
   const draftCounts = { pending: 0, approved: 0, rejected: 0 };
   for (const row of counts) draftCounts[row.review_status] = row.n;
   const visibleDrafts = draftRows.slice(0, BOT_PAGE_SIZE);
   const visibleReports = reportRows.slice(0, BOT_PAGE_SIZE);
   const visibleTimeline = timelineRows.slice(0, BOT_PAGE_SIZE);
   return {
-    bots: bots.map(profileView),
+    ...currentProgress,
     drafts: visibleDrafts.map(draftView), draftStatus, draftCounts,
     draftsMore: draftRows.length > BOT_PAGE_SIZE,
     draftNextBefore: draftRows.length > BOT_PAGE_SIZE ? visibleDrafts.at(-1)!.id : null,
@@ -168,7 +172,6 @@ async function state(db: D1Database, url: URL, now: string, canManageCredentials
     timeline: visibleTimeline.map(completionView), timelineDate: today.day,
     timelineMore: timelineRows.length > BOT_PAGE_SIZE,
     timelineNextBefore: timelineRows.length > BOT_PAGE_SIZE ? visibleTimeline.at(-1)!.completed_at + "|" + visibleTimeline.at(-1)!.id : null,
-    credential: credentialView, canManageCredentials,
   };
 }
 
@@ -183,6 +186,7 @@ async function human(request: Request, env: IdentityRuntimeEnv, requestId: strin
   const canManageCredentials = gate.principal.workspaceRole === "SUPER_ADMIN";
   const path = url.pathname.replace(/^\/api\/bot-center\/?/, "");
   if ((path === "" || path === "/") && request.method === "GET") return success(await state(db, url, now, canManageCredentials), requestId);
+  if (path === "progress" && request.method === "GET") return success(await progress(db, canManageCredentials), requestId);
 
   if (path === "bots" && request.method === "POST") {
     await ensureInitialBots(db, now);
@@ -213,17 +217,19 @@ async function human(request: Request, env: IdentityRuntimeEnv, requestId: strin
     const current = await draftById(db, id);
     if (current.review_status !== "pending") throw new Bad("ALREADY_REVIEWED", "這篇審稿已經有結果", 409);
     // The only write is this review result plus its audit row.
-    await db.batch([
+    const [updated] = await db.batch([
       db.prepare("UPDATE bot_drafts SET review_status=?,review_reason=?,reviewed_by=?,reviewed_at=? WHERE id=? AND review_status='pending'")
         .bind(decision, reason, actor, now, id),
       new AuditService(db).prepareRecord({
         entityType: "bot_draft", entityKey: String(id), action: decision === "approved" ? "bot_draft.approved" : "bot_draft.rejected",
         actorEmployeeId: actor, requestId, statusFrom: "pending", statusTo: decision,
         after: { name: current.title, ...(reason ? { reason } : {}) },
-      }, { sql: "EXISTS(SELECT 1 FROM bot_drafts WHERE id=? AND review_status=? AND reviewed_at=?)", values: [id, decision, now] }),
+      // This must immediately follow the UPDATE in the same atomic batch.
+      // A concurrent loser changes zero rows, even when its timestamp matches.
+      }, { sql: "changes()=1" }),
     ]);
+    if (updated.meta.changes !== 1) throw new Bad("ALREADY_REVIEWED", "這篇審稿已經有結果", 409);
     const saved = await draftById(db, id);
-    if (saved.review_status !== decision || saved.reviewed_at !== now) throw new Bad("ALREADY_REVIEWED", "這篇審稿已經有結果", 409);
     return success(draftView(saved), requestId);
   }
 

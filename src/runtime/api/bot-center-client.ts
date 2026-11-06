@@ -1,9 +1,13 @@
 import { apiRequest } from "../../api/client";
 import type {
-  BotCenterState, BotCredentialView, BotDraftView, BotProfileView, BotReviewStatus,
+  BotCenterState, BotCredentialView, BotDraftView, BotProfileView, BotProgressState, BotReviewStatus,
 } from "../../../shared/bot-center";
 
 export type BotCenterPageCursor = { draftBefore?: number; reportBefore?: number; timelineBefore?: string };
+
+export function loadBotProgress(): Promise<BotProgressState> {
+  return apiRequest<BotProgressState>("/api/bot-center/progress");
+}
 
 export function loadBotCenter(
   draftStatus: BotReviewStatus | "all" = "pending",
