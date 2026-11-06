@@ -14,6 +14,7 @@ const entityNames: Record<string,string> = {
   ordering:"叫貨單",stocktake:"門市庫存盤點",store_equipment:"出機紀錄",store_maintenance:"定期維護",
   store_monthly_settings:"月度待辦設定",store_repair_print_settings:"維修單列印設定",store_monthly_row:"月度待辦",
   backup:"備份",erp_item_query:"ERP 查詢",erp_item_agent:"ERP 連線服務",
+  bot_draft:"審稿",bot_profile:"BOT",bot_ingest:"BOT 連線",
 };
 export const entityLabel = (type: string): string => entityNames[type] ?? "資料";
 export const actionLabels: Record<string,string> = {
@@ -83,6 +84,10 @@ export const actionLabels: Record<string,string> = {
   "erp_item_query.failed":"ERP 查詢失敗","erp_item_query.expired":"ERP 查詢逾時",
   "erp_item_agent.credential_rotated":"更新 ERP 連線密鑰",
   "erp_item_agent.credential_revoked":"撤銷 ERP 連線密鑰",
+  "bot_draft.approved":"通過審稿","bot_draft.rejected":"退回審稿",
+  "bot_profile.created":"新增 BOT",
+  "bot_ingest.credential_rotated":"輪換 BOT 連線憑證",
+  "bot_ingest.credential_revoked":"撤銷 BOT 連線憑證",
   "backup.started":"開始備份","backup.completed":"完成備份","backup.failed":"備份失敗",
   "backup.rehearsal.started":"開始還原演練","backup.rehearsal.verified":"還原演練驗證成功",
   "backup.rehearsal.failed":"還原演練失敗","backup.copy.failed":"備份副本失敗",
@@ -132,6 +137,7 @@ const statusText:Record<string,string> = {
   pending_outbound:"待出庫",outbound:"已出庫",received:"已入庫",priced:"已計價",paid:"已付款",
   pending_review:"待審核",reviewed:"已審核",QUEUED:"排隊中",RUNNING:"查詢中",DONE:"已完成",
   FAILED:"失敗",EXPIRED:"逾時",NOT_FOUND:"查無資料",
+  pending:"待審",approved:"通過",rejected:"退回",
 };
 const lookupKey:Record<string,string> = {
   categoryId:"customerCategories",customerCategoryId:"customerCategories",

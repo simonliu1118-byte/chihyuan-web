@@ -6,7 +6,7 @@
 ## 目前狀態（2026-11-06）
 
 - **待正式部署 V0.11.5**：PR #437（V0.11.4 出機類別、財產編號及維護浮窗）已合併 main；PR #439（V0.11.5 ERP Session 空白完成卡）排在其後。使用者本次同意兩項合併發布，Claude 複審仍待辦。
-- **PR #438 BOT 管理中心 V0.12.0**：此次僅確認，不納入發布。其 0053 migration 序號與已合併 #437 重複，後續須重新編排 BOT migration 與備份／測試契約。
+- **PR #438 BOT 管理中心 V0.12.0**：已以 V0.11.5 的 main 整合 BOT 管理中心，migration 由衝突的 0053 重編為 0054，增加憑證超管限制、進度刷新及分頁，仍待 CI、Claude 最終審查、實機驗收；**未合併、未部署，未操作正式 D1**。[handoff](docs/handoff/CYWEB-BOT-CENTER-0120-20261106.md)。
 - **V0.11.4 已合併（待部署及 Claude 事後複審）**：出機類別選單與「其他」自填、製造年月旁的財產編號、獨立補填按鈕、清單／展開表調整、維護年月黑字與矩陣格內日期浮窗、年度箭頭及工具列載入提示。[handoff](docs/handoff/CYWEB-EQUIPMENT-CATEGORY-ASSETS-0114-20261106.md)。
 - **最新正式站 V0.11.3**（2026-11-06，正式部署 Run #42066049745 成功；正式健康回讀 version=0.11.3、database=ok）。本檔舊有 V0.11.1／V0.11.2 待部署描述為歷史進行中記錄，以較新的 handoff 及部署證據為準。
 
@@ -59,6 +59,7 @@
 
 ## 待 Claude 審查
 
+- [ ] V0.12.0 BOT 管理中心 PR #438：migration 0054、權限／分頁／進度刷新的整合修正，[handoff](docs/handoff/CYWEB-BOT-CENTER-0120-20261106.md)，未合併部署。
 - [ ] V0.10.24 門市步驟鎖定與物流顯示：[handoff](docs/handoff/CYWEB-WO-0.10.24-STEP-LOCK-20261104.md)，未合併部署。
 
 

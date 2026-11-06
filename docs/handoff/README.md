@@ -11,6 +11,8 @@
 
 ## 目前待 Claude 審查
 
+- [V0.12.0 BOT 管理中心](CYWEB-BOT-CENTER-0120-20261106.md)：PR #438，正在修正 migration 0054、憑證授權、資料刷新與分頁；未合併部署、未操作正式 D1。
+
 - [V0.11.5 ERP Session 無資料時隱藏查詢完成卡](CYWEB-ERP-SESSION-CLEARED-0115-20261106.md)：PR #439，已與 V0.11.4 整合，待正式部署及 Claude 事後複審。
 
 - [V0.11.4 出機類別、財產編號及維護浮窗](CYWEB-EQUIPMENT-CATEGORY-ASSETS-0114-20261106.md)：PR #437 已合併 main（1e6b1436），待正式部署及 Claude 事後複審。
