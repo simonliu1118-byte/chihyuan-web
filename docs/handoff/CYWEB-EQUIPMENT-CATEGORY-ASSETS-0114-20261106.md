@@ -20,6 +20,8 @@
 - 新增 migration 需正式發布時依原本受控流程套用；這次 PR 不部署、不碰正式 D1。
 - 舊出機記錄可保留空白類別；舊 machines_json 缺財產編號讀取為空值，只有使用者修改才保存新欄位。
 - 補填財產編號只更新該筆出機資料及歷程，不改 planWrites、維護日期或已完成到訪快照。
-- 待核對：本次 PR 自動 Runtime Check、Governance Check、部署契約檢查。
+- PR #437 第一輪：Runtime #42169407163 的 654 項 Node 測試中 653 通過、1 失敗，原因是舊備份測試寫死預期 migration 0052，而本版已新增 migration 0053；修正測試期望為 0053，原資料與功能路徑無需變動。
+- PR #437 第二輪（head `2066fb6c9ec871e247e119cc3a3922a10711a522`）：[Runtime Check #42169639226](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42169639226) **success**（browser-typecheck、worker-typecheck、source-contracts、Local D1 runtime acceptance、**654/654 Node 測試**、Vite build 均成功）；[Governance #42169639239](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42169639239) **success**；[部署契約 #42169639270](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42169639270) **success**。
+- 這三項皆為 PR 驗證：正式 deploy-development、audit-backup、audit-identity jobs skipped，**未部署正式站**。
 - 待使用者實機目視：其他類別中文字寬、主清單與四欄展開、財產號補填、手機橫向捲動、維護月份浮窗的定位與編輯、載入不跳動。
 - Claude 最終審查：**待審查**，請審核 migration／backup、後端更新 scope、權限／版本與畫面；審查結論由 Claude 本人寫回。
