@@ -1,6 +1,6 @@
 # WO-0.10.24 門市流程：下一步登記後上一步鎖定、送廠物流顯示
 
-- 狀態：**待審查**（2026-11-04 Claude 開立，執行者：GPT）
+- 狀態：**已合併部署，待 Claude 事後複審**（2026-11-07 核對；原工單 2026-11-04 Claude 開立，執行者：GPT）。PR #426 已合併，包含於目前 V0.12.0 Build 1；發布證據見 [Deployment #42253210792](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42253210792)。本次僅同步狀態，不代填 §9 審查結論。
 - 分支：`cyweb/wo-0.10.24-step-lock`；版號：V0.10.24（若已被占用就用下一個空號，CHANGELOG 同步）
 - 開工前必讀：`docs/architecture/UI_COMPONENT_CATALOG.md`、`docs/architecture/STORE_REPAIRS.md`、`docs/architecture/STORE_CUSTOMER_ORDERS.md`
 
@@ -43,7 +43,7 @@
   - `scripts/store-page.test.mjs`（以及顧客訂購相關測試）：補上「下一步登記後更正上一步日期 → 409」。
 - **文件**：`STORE_REPAIRS.md`、`STORE_CUSTOMER_ORDERS.md` 補鎖定規則；`CHANGELOG.md`；`TODO.md` 勾掉本項。
 
-## 4. 驗收
+## 4. 驗收（原交付要求）
 
 - `npx tsc --noEmit -p .`、`npm run validate:source`、`node --test scripts/*.test.mjs`、`npm run validate:d1:local` 全部通過。
 - 附截圖：送廠格小視窗顯示物流（可改／鎖定兩種）、檢測格鎖定、顧客訂購上一步鎖定。
@@ -58,7 +58,7 @@
 - 指定 tsc、typecheck、build、validate:source 通過；三支相關測試 79/79。完整測試 622 項中 611 通過、11 個失敗在 main 原版重現。
 - 本機 D1 migrations、18 組 Worker／D1 及舊 session 表檢查均 PASS，但清理暫存檔遇 Windows WinError 32，指令非 exit 0；完整 Node 與 D1 命令已由 Linux CI 通過。
 - 實際元件合成畫面：送廠可改／鎖定、檢測鎖定、訂購上一步停用、歸還物流及手機版。沒有操作正式資料。
-- [handoff](../../handoff/CYWEB-WO-0.10.24-STEP-LOCK-20261104.md) 列出逐檔影響、測試限制、六張截圖及雜湊；未合併、未部署。
+- [handoff](../../handoff/CYWEB-WO-0.10.24-STEP-LOCK-20261104.md) 列出逐檔影響、測試限制、六張截圖及雜湊；PR #426 已合併部署，Claude 事後複審與實機驗收待辦。
 
 - [x] [Runtime Check #950](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41833994288)：指定型別、來源驗證、完整 Node、本機 D1、建置均成功（產品提交 606cfaee）；Governance 與部署契約檢查成功。部署工作為 skipped，沒有正式操作。
 

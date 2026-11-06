@@ -1,8 +1,10 @@
 # WO-0.10.24 門市步驟鎖定與物流顯示交接
 
+> 最新狀態（2026-11-07）：PR #426 已合併（0e46bb8e），其行為包含於目前 V0.12.0 Build 1 並已部署。Claude 最終審查尚未填寫，保留事後複審及實機驗收，不代填通過。 發布證據見 [Deployment #42253210792](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42253210792)。下方各輪的日期、基準與驗證結果是當時紀錄，不覆蓋此摘要。
+
 - 2026-11-04（台灣時間），GPT；分支 `cyweb/wo-0.10.24-step-lock`；V0.10.24 Build 0；PR [#426](https://github.com/simonliu1118-byte/chihyuan-web/pull/426)。
 - 基準 main `3a662d7f`（V0.10.23），另承接工單分支 `d6e6b679` 的文件提交。工單最初尚未進 main；交付前已整合 main `c03b5c2e`（PR #425），其工單內容與承接版本相同，保留本次完成報告與已完成標記。產品程式沒有變更。
-- 需求唯一來源：[WO-0.10.24](../development/work-orders/WO-0.10.24.md)。狀態：實作完成，待 Claude 審查；未合併、未部署。
+- 需求唯一來源：[WO-0.10.24](../development/work-orders/WO-0.10.24.md)。狀態：已合併部署，待 Claude 事後複審及實機驗收。
 
 ## 已完成行為
 

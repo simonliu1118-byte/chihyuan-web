@@ -1,7 +1,9 @@
 # CY Web V0.11.3 ERP 未收款共用表格交接
 
+> 最新狀態（2026-11-07）：PR #435 已合併，V0.11.3 已於 Deployment #42066049745 發布，並保留於目前 V0.12.0 Build 1。Claude 事後複審與實機驗收仍待完成。 發布證據見 [Deployment #42253210792](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42253210792)。下方各輪的日期、基準與驗證結果是當時紀錄，不覆蓋此摘要。
+
 - 日期：2026-11-05，GPT；基準 `main` @ `5782670bbcd841518f3415002d418f3ba4ac34e2`。
-- 工作分支 `cyweb/erp-receivable-shared-table`，Claude 審查待填，尚未合併、部署。
+- 工作分支 `cyweb/erp-receivable-shared-table`，PR #435 已合併部署，Claude 事後複審待填；早期 CI 經過與發布證據見下文。
 - 使用者需求：未收款客戶清單及展開明細都用共用表格；客戶編號至少10碼、名稱至少10中文字、金額六位數不折行，展開沿用共用箭頭。
 
 ## 修改

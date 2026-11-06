@@ -11,6 +11,8 @@
 
 ## 目前待 Claude 審查
 
+- [V0.12.0 Build 1 文件現況同步](CYWEB-DOCS-CURRENT-0120-20261107.md)：只更新文件與歸檔已完成的 WO-0.9.94 交接，不改產品／版本／部署；待 Claude 複審。
+
 - [V0.12.0 Build 1 BOT 管理中心](CYWEB-BOT-CENTER-0120-20261106.md)：PR #438 已修正並行審稿及輪詢讀取，與 #440 一併合併部署成功（Run #42253210792）；Claude 事後複審及實機驗收待辦。
 
 - [V0.11.6 盤點批號刪除圖示](CYWEB-STOCKTAKE-BATCH-DELETE-0116-20261106.md)：PR #440 已合併並隨 V0.12.0 Build 1 部署成功；CI／本機測試通過，Claude 事後複審及實機驗收待辦。
@@ -29,9 +31,8 @@
 
 - [V0.10.25 售後維修清單微調](CYWEB-REPAIR-LIST-01025-20261105.md)：PR #427，已依使用者授權合併部署，Claude 待事後複審。
 
-- [V0.10.24 門市步驟鎖定與物流顯示](CYWEB-WO-0.10.24-STEP-LOCK-20261104.md)：待審查，未合併部署。
+- [V0.10.24 門市步驟鎖定與物流顯示](CYWEB-WO-0.10.24-STEP-LOCK-20261104.md)：PR #426 已合併部署，待 Claude 事後複審與實機驗收。
 
-- [V0.10.11 WO-0.9.94 第二段](CYWEB-WO-0.9.94-PHASE2-01011-20261104.md)：依 §2.1 刪除文字及調整註記計數，待審查，未合併部署。
 
 - [V0.9.88 工作視窗明確關閉](CYWEB-DIALOG-EXPLICIT-CLOSE-0988-20261103.md)：PR #379，已合併部署，待 Claude 事後複審。
 - [V0.9.87 客戶介面密度](CYWEB-CUSTOMER-DENSITY-0987-20261102.md)：PR #377，已合併部署，待 Claude 事後複審。
@@ -40,6 +41,7 @@
 
 | 整理日期 | 範圍 | 固定快照 |
 | --- | --- | --- |
+| 2026-11-07 | WO-0.9.94 兩段均已由 Claude 審查通過並完成合併；第二段正式版本 V0.10.12。當前結論見 [工單 §9](../development/work-orders/WO-0.9.94.md#9-審查紀錄審查者填)；[第一段原交接](https://github.com/simonliu1118-byte/chihyuan-web/blob/c870278f36ad847a44c3d839bf822e47fbe30dd1/docs/handoff/CYWEB-WO-0.9.94-GPT-20261103.md)、[第二段原交接](https://github.com/simonliu1118-byte/chihyuan-web/blob/c870278f36ad847a44c3d839bf822e47fbe30dd1/docs/handoff/CYWEB-WO-0.9.94-PHASE2-01011-20261104.md) | [固定快照 c870278](https://github.com/simonliu1118-byte/chihyuan-web/tree/c870278f36ad847a44c3d839bf822e47fbe30dd1/docs/handoff) |
 | 2026-11-03 | V0.9.48–V0.9.85 的交接（盤點、門市訂購／黑名單／月度待辦、備份、ERP 清理、治理 1.1.24、WO-0.9.68～0.9.76 執行交接） | [handoff @ 4cbc554](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/handoff) |
 | 2026-10-28 | 更早的 GPT／Claude／ERP 交接與舊版截圖 | [handoff @ b2d53cd](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) |
 

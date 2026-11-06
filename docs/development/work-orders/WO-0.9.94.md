@@ -97,7 +97,7 @@
 - 共 148 個已記錄的有效畫面狀態；可見候選皆核對到實際畫面文字，未顯示者改由呼叫條件與 CSS 交叉確認。較難由主頁操作抵達的條件，直接掛載同一實際元件並傳入合成 props，未複製或重寫產品文案。
 - API 替身及紅框標記僅存在於被忽略的本機暫存預覽；沒有連線正式 API、ERP、Cloudflare 或 Identity，沒有正式 D1 讀寫。截圖均為合成資料。字級常見 12／13px，色彩依原有主題的 muted token，未改產品字體、顏色或間距。
 - 原文中的「〈…〉」代表動態資料，不代表改寫文案。同文合併並列出所有已找到的呼叫位置；空狀態主句及其操作提示分成兩段。
-- 另附 [GPT handoff](../../handoff/CYWEB-WO-0.9.94-GPT-20261103.md)，依 PROJECT_RULES §9.1 交給 Claude 審查；沒有額外建立業務規格。
+- 另附 [GPT handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/c870278f36ad847a44c3d839bf822e47fbe30dd1/docs/handoff/CYWEB-WO-0.9.94-GPT-20261103.md)，依 PROJECT_RULES §9.1 交給 Claude 審查；沒有額外建立業務規格。
 
 ### 8.2 邊界與未顯示項目
 
@@ -510,7 +510,7 @@
 | 共用／搜尋空結果 | [21a-picker-empty.jpg](../../handoff/WO-0.9.94/21a-picker-empty.jpg) | 1440×1000 | `926e58fca5bf5bdbe45bfd14bc04b6c72f7c9bc473ad4ea1044b082c9f5564c6` |
 | 共用／搜尋字數提示 | [21b-picker-two-characters.jpg](../../handoff/WO-0.9.94/21b-picker-two-characters.jpg) | 1440×1000 | `86544cfbab1481c2691d3b9214064d4b083a63381427f2afb20ce562a9f6716f` |
 
-### 8.5 本次差異與待辦
+### 8.5 第一段交付時的差異與待辦（歷史；已依 §2.1／§9 完成）
 
 - 僅修改本工作單、合成紅框截圖及 §9.1 必要 handoff；src、shared、worker、樣式、版本及 BUILD 均無變更。
 - 驗證：候選逐項畫面核對、來源行號與連結檢查、截圖尺寸及 SHA-256 回讀、Git 差異邊界與 diff --check。產品沒有變更，因此未新增測試、未執行產品建置或正式資料操作。
@@ -518,13 +518,13 @@
 
 ### 8.6 第二段完成報告（2026-11-04）
 
-- 最終基準 main `56834b3e`（V0.10.10；同步至 PR #411），交付 **V0.10.11 Build 0**；分支 `cyweb/wo-0.9.94-phase2`，PR [#413](https://github.com/simonliu1118-byte/chihyuan-web/pull/413)。
+- 最終基準 main `56834b3e`（V0.10.10；同步至 PR #411），初次交付 V0.10.11 Build 0，合併 main 後正式版本為 **V0.10.12**（依 §9 Claude 原有結論）；分支 `cyweb/wo-0.9.94-phase2`，PR [#413](https://github.com/simonliu1118-byte/chihyuan-web/pull/413)。
 - 依 §2.1 重新以原文定位：70 項「刪除」＋#138 核對清除，原文掃描剩餘 0（#234、236 已由最新 main 移除，本 PR 刪除其餘 69 項）；190 項「保留」＋#250／#259 保留，含新版客戶最後修改與設定空狀態。
 - #106 在註記標題右側顯示 `目前字數/300`，其餘用語不改。刪除所屬空標籤／區塊；預設搜尋在空白時不留空 popup、ERP 查詢在待命時不留空結果容器、人事未選員工不留空明細卡。
 - 型別／建置、來源驗證、diff --check 通過。既有完整 Node 測試 618 項：607 通過，11 個失敗也在 main 原版重現；原因、名稱與比對方式見 handoff，未為本單修改測試或後端。
 - 實際 React 元件的本機合成預覽補驗桌面／手機計數、客戶空清單、搜尋選擇器、ERP 待命、手機盤點及首次登入。未操作正式資料。
-- [第二段 handoff](../../handoff/CYWEB-WO-0.9.94-PHASE2-01011-20261104.md) 記錄逐檔項目、保留分支、驗證與截圖。§8.3 原盤點表與第一段截圖保持歷史原貌，第二段結果以本節及 §2.1 為準。
-- 待 Claude 在 §9 及 handoff 填寫最終審查；未合併、未部署。
+- [第二段 handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/c870278f36ad847a44c3d839bf822e47fbe30dd1/docs/handoff/CYWEB-WO-0.9.94-PHASE2-01011-20261104.md) 記錄逐檔項目、保留分支、驗證與截圖。§8.3 原盤點表與第一段截圖保持歷史原貌，第二段結果以本節及 §2.1 為準。
+- Claude 已於 2026-11-04 在 §9 記錄第二段審查通過，PR #413 已以 V0.10.12 合併部署；初次交付的等待事項已完成。本輪只同步既有結論，沒有新增審查結論。
 
 ## 9. 審查紀錄（審查者填）
 
