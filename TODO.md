@@ -3,7 +3,11 @@
 > 本檔是 CY Web 唯一的現況與待辦清單，不是永久規則來源。各版本完成內容與驗證見 `CHANGELOG.md`；規格見 `docs/architecture/README.md`。
 > 2026-11-03 整理：已完成且已記入 CHANGELOG 的版本段落移除；已結案的交接與工作單移到 Git 固定快照（見 `docs/handoff/README.md`）。
 
-## 目前狀態（2026-11-05）
+## 目前狀態（2026-11-06）
+
+- **V0.11.4 待審查（未部署）**：出機類別選單與「其他」自填、製造年月旁的財產編號、獨立補填按鈕、清單／展開表調整、維護年月黑字與矩陣格內日期浮窗、年度箭頭及工具列載入提示。[handoff](docs/handoff/CYWEB-EQUIPMENT-CATEGORY-ASSETS-0114-20261106.md)。
+- **最新正式站 V0.11.3**（2026-11-06，正式部署 Run #42066049745 成功；正式健康回讀 version=0.11.3、database=ok）。本檔舊有 V0.11.1／V0.11.2 待部署描述為歷史進行中記錄，以較新的 handoff 及部署證據為準。
+
 
 - **正式站 V0.11.1**（`https://admin.chihyuancm.com`），CYID consumer 1.0.5；D1 migration 到 `0052_maintenance_matrix_indexes`。
 - **V0.11.3 ERP 未收款表格改版待審查**：主清單及展開明細統一共用表格、最小欄寬、不折行；待 CI、Claude 審查與實機確認。[handoff](docs/handoff/CYWEB-ERP-RECEIVABLE-TABLE-0113-20261105.md)。

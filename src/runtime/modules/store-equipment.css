@@ -1,15 +1,27 @@
 /* Layout only; tables, switches, fields and milestone controls use their shared styles. */
 .cy-store-after-sales{display:grid;gap:12px;min-width:0}
 .cy-store-after-sales>.cy-segmented{justify-self:start}
-.cy-equipment-list{min-width:1050px}
+.cy-equipment-list{min-width:1160px;table-layout:fixed}
+.cy-equipment-list td{overflow-wrap:anywhere}
+.cy-equipment-planned-inline{color:var(--cy-text);display:flex;gap:4px;align-items:flex-start;flex-direction:column}
+.cy-equipment-detail-compact{width:min(100%,520px);max-width:520px}
+.cy-equipment-detail-compact .cy-entry-table{width:100%;min-width:0;table-layout:fixed}
+.cy-equipment-detail-compact td{overflow-wrap:anywhere}
+.cy-equipment-category-cell{display:flex;align-items:center;gap:4px;min-width:0}
+.cy-equipment-category-cell select{flex:0 1 auto;min-width:0}
+.cy-equipment-category-other{flex:1 0 10em;min-width:10em!important}
+.cy-equipment-asset-dialog .cy-dialog-surface{width:min(620px,calc(100vw - 24px))}
+.cy-equipment-asset-dialog .cy-entry-table{table-layout:fixed}
+.cy-equipment-asset-dialog .cy-entry-table th:first-child{width:55px}
+.cy-equipment-asset-dialog .cy-entry-table th:nth-child(2){width:36%}
 .cy-store-equipment .cy-store-workflow-table>tbody>tr:focus-within{background:transparent}
 .cy-equipment-center{text-align:center!important;font-variant-numeric:tabular-nums}
-.cy-equipment-planned{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:6px}
+.cy-equipment-planned{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:6px;color:var(--cy-text)}
 .cy-equipment-detail>td{padding:8px!important}
 .cy-equipment-detail .cy-entry-table td{background:var(--cy-surface)!important;text-align:left}
 .cy-equipment-detail .cy-entry-table td:first-child{text-align:center}
-.cy-equipment-form-dialog .cy-dialog-surface{width:min(1000px,calc(100vw - 24px))}
-.cy-equipment-entry{min-width:940px;table-layout:fixed}
+.cy-equipment-form-dialog .cy-dialog-surface{width:min(1160px,calc(100vw - 24px))}
+.cy-equipment-entry{min-width:1060px;table-layout:fixed}
 .cy-equipment-entry td{padding:2px}
 .cy-equipment-entry .cy-entry-table{table-layout:fixed}
 .cy-equipment-number{text-align:right}
@@ -20,10 +32,19 @@
 .cy-equipment-warranty-period .cy-date-input{width:100%;max-width:none}
 .cy-equipment-entry .cy-date-input[data-precision=month]{width:100%;max-width:210px}
 .cy-equipment-months th,.cy-equipment-months td{text-align:center}
+.cy-equipment-months th{color:var(--cy-text)}
 .cy-equipment-months .cy-f-check{display:inline-flex;justify-content:center;padding:3px}
 .cy-equipment-months input{margin:0}
 .cy-equipment-visit-note{width:250px!important}
 .cy-store-maintenance .cy-data-actions{flex-flow:row wrap;align-items:center;gap:6px}
+.cy-matrix-toolbar-loading{min-width:88px;min-height:26px;display:inline-flex;align-items:center}
+.cy-matrix-toolbar-loading .cy-loading.inline{margin:0;padding:0;font-size:var(--cy-fs-xs)}
+.cy-store-maintenance .cy-matrix-month{position:relative}
+.cy-store-maintenance .cy-matrix-month>.cy-matrix-popover{position:absolute;top:100%;left:0;right:auto;z-index:30;max-width:min(310px,calc(100vw - 30px));width:max-content;text-align:left!important;white-space:normal}
+.cy-store-maintenance .cy-matrix-month>.cy-matrix-popover[data-align="end"]{left:auto;right:0}
+.cy-store-maintenance .cy-matrix-popover .cy-entry-table{min-width:270px}
+.cy-store-maintenance .cy-matrix-popover .cy-entry-table th,.cy-store-maintenance .cy-matrix-popover .cy-entry-table td{padding:3px 5px;text-align:left!important}
+.cy-store-maintenance .cy-matrix-scroll:has(.cy-matrix-popover){padding-bottom:210px!important}
 .cy-ordering-grid.cy-maintenance-matrix{table-layout:fixed;min-width:1606px;font-size:var(--cy-fs-sm)}
 .cy-maintenance-matrix th,.cy-maintenance-matrix td{text-align:center!important;padding:2px;vertical-align:middle}
 .cy-maintenance-matrix th{white-space:nowrap}
@@ -53,7 +74,7 @@
 .cy-matrix-panel .cy-store-date-popover form{display:grid;gap:6px}
 .cy-matrix-scroll:has(.cy-store-date-popover){padding-bottom:0!important}
 @media(max-width:820px){
- .cy-store-equipment .cy-equipment-detail .cy-entry-table{display:table;min-width:540px}
+ .cy-store-equipment .cy-equipment-detail .cy-entry-table{display:table;min-width:0}
  .cy-store-equipment .cy-equipment-detail .cy-entry-table thead{display:table-header-group}
  .cy-store-equipment .cy-equipment-detail .cy-entry-table tbody{display:table-row-group;border:0}
  .cy-store-equipment .cy-equipment-detail .cy-entry-table tr{display:table-row}
