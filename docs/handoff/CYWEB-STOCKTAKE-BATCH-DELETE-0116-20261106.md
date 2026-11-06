@@ -24,6 +24,9 @@
 
 - UI-only：無 DB schema、migration、backup、ERP Agent、Worker API 或新的授權邏輯。
 - 實際桌面／手機視覺位置、極長批號省略及觸控區域仍需實機目視驗收。
-- PR Runtime、Governance、部署契約檢查：**待最新 CI**，不得先宣稱成功。
+- PR #440 初次提交 `cc9fbcf1808534a575a2d1694680d55e7fbc7685` 的 CI：
+  - [Runtime Check #42187295363](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42187295363) **success**：前端／Worker TypeScript、來源契約、Local D1 runtime acceptance、**656/656 Node 測試**與 Vite build 全部通過。
+  - [Governance Check #42187295268](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42187295268) **success**。
+  - [部署契約 #42187295305](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42187295305) **success**；PR 的 `deploy-development` 與正式稽核工作被跳過，**並非正式部署**。
 - Claude 最終審查：**待審查**（審查者補日期／通過或需修正／意見）。
 - **未合併、未部署**；正式站仍以最後一次成功的受控部署紀錄為準。
