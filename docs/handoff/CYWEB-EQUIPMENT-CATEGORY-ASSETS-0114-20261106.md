@@ -25,3 +25,10 @@
 - 這三項皆為 PR 驗證：正式 deploy-development、audit-backup、audit-identity jobs skipped，**未部署正式站**。
 - 待使用者實機目視：其他類別中文字寬、主清單與四欄展開、財產號補填、手機橫向捲動、維護月份浮窗的定位與編輯、載入不跳動。
 - Claude 最終審查：**待審查**，請審核 migration／backup、後端更新 scope、權限／版本與畫面；審查結論由 Claude 本人寫回。
+
+## 2026-11-06 合併發布指示與審查狀態
+
+- 使用者當次明確授權「可以合併部署，並確認 PR438」；本 PR #437 與獨立 ERP Session PR #439 納入本次發布範圍；PR #438 只核對、不納入。
+- 尚無 Claude 最終審查紀錄；**不可把 CI 成功視為 Claude 通過**。使用者本次要求先合併發布，這項偏離既定 Claude 先審查流程必須在追蹤紀錄中保留，Claude 事後複審仍待辦。
+- 正式部署必須在 #437 及整合後 #439 均合併且 main CI／部署契約核對後，以 main 的 workflow_dispatch operation=deploy-development 執行。PR 自動 workflow 的成功不是正式部署證據。
+- #438 與 #437 均佔用 0053 migration 序號，**PR #438 不得直接接著合併**；後續開發者必須依實際 main schema 重新編排 BOT 管理中心 migration、CURRENT_MIGRATION、測試與備份契約。
