@@ -42,3 +42,10 @@
 - `docs/architecture/STORE_STOCKTAKE.md`、`CHANGELOG.md`、`TODO.md`、本 handoff：同步既定 UI 行為及差異。
 - 風險：`bookQty` 是 ERP **原始批號合計**，不是單一儲位帳面；若同批號有多個儲位，會在各儲位畫面重複顯示作為參照，但不參與加總。仍需桌機／手機實際畫面驗收。
 - 此輪程式提交 `c696716785749d856020ad3c3b278ef001b56e81`，PR #440 最新 CI 結果：**待核對**。Claude 最終審查：**待審查**。未合併、未部署、未操作正式 D1。
+
+
+## 返修 CI 第一輪失敗與調整
+
+- 返修 head `e68117aa69dd83f403de94ef3ed1fe17014a9942`：[Runtime #42189056008](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42189056008) 的前端／Worker TypeScript、來源契約與 Local D1 驗收均成功；Full Node test suite 僅有 `scripts/store-stocktake-ui.test.mjs` 中既有「stocktake grouped inventory uses location cells for save, history and desktop ordering styles」的來源字串斷言失敗。舊斷言寫死 `className="cy-ordering-grid cy-stocktake-grouped-table cy-stocktake-list-table"`，而因複盤動態追加 `cy-stocktake-show-book` 類別，原 JSX 表達式改為條件式組合。這是**測試對固定語法的耦合**，不是資料操作／Worker 測試失敗。
+- 修正測試改檢查既有三個表格類別 token 仍存在；新增測試繼續檢查 `showBookQty` 解盲條件、桌機／手機 ERP 帳面呈現以及寬度。未更動程式行為。
+- 重新執行 CI 的結果須以最新分支 head 為準；Claude 最終審查及正式合併部署仍待辦。
