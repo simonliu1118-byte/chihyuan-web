@@ -49,3 +49,12 @@
 - 返修 head `e68117aa69dd83f403de94ef3ed1fe17014a9942`：[Runtime #42189056008](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42189056008) 的前端／Worker TypeScript、來源契約與 Local D1 驗收均成功；Full Node test suite 僅有 `scripts/store-stocktake-ui.test.mjs` 中既有「stocktake grouped inventory uses location cells for save, history and desktop ordering styles」的來源字串斷言失敗。舊斷言寫死 `className="cy-ordering-grid cy-stocktake-grouped-table cy-stocktake-list-table"`，而因複盤動態追加 `cy-stocktake-show-book` 類別，原 JSX 表達式改為條件式組合。這是**測試對固定語法的耦合**，不是資料操作／Worker 測試失敗。
 - 修正測試改檢查既有三個表格類別 token 仍存在；新增測試繼續檢查 `showBookQty` 解盲條件、桌機／手機 ERP 帳面呈現以及寬度。未更動程式行為。
 - 重新執行 CI 的結果須以最新分支 head 為準；Claude 最終審查及正式合併部署仍待辦。
+
+
+## 返修最新 CI 通過證據
+
+- 程式與測試修正後 head `dd37e6944c7c446a3119ba61a0da400fe7cd6d81`：[Runtime Check #42189371683](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42189371683) **success**：browser-typecheck、worker-typecheck、source-contracts、Local D1 runtime acceptance、**657/657 Node 測試**、Vite build 均成功。
+- [Governance Check #42189371689](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42189371689) **success**。
+- [Deployment Contract #42189371753](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42189371753) **success**，PR 驗證中正式 `deploy-development` 與稽核工作 skipped；**沒有正式部署**。
+- 先前失敗是來源檢查寫死舊 `className` 字串，修正測試後全數通過。後端解盲原本即正常，沒有變動 ERP 資料／D1 schema／權限。
+- **Claude 最終審查與桌機／手機視覺驗收尚待完成**。依使用者這次的 UI 修正指示，只更新原 PR #440，不合併、不部署、不碰正式 D1。
