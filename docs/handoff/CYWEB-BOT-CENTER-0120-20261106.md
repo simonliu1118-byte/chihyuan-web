@@ -71,3 +71,12 @@
 
 - 對上述修正追加迴歸測試，待最新 GitHub Actions 結果寫回，不偽稱已執行正式 D1 驗收。
 - PR #438 仍由 Claude 作最終審查；本文件此段是執行者修正紀錄，不代填下方的審查者結論。
+
+## PR #438 最新整合與自動驗證（2026-11-06）
+
+- 整合提交 `4c0cf12d1b0321ed6ec4fdb0cfed8fe3a14a7f11`，以 `main@5982b09ee0de2d9c06e47e3c7a47e4f72b4c1a06` 為基準，將原工作分支 `4f7993cbed4263a1e1d7fa74657dc2f13fde9e20` 併入整合提交，保留原歷史。GitHub compare 的 merge-base 為此版 main，只修改 BOT 相關檔案／必要共用契約；`0053_store_equipment_category.sql` 及 ERP Session 修正保持不變。
+- [Runtime Check #42181427921](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42181427921) **success**：browser-typecheck、worker-typecheck、source-contracts、Local D1 runtime acceptance、完整 Node **661/661**、Vite build 均通過。
+- [Governance Check #42181427996](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42181427996) **success**。
+- [部署契約檢查 #42181427989](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42181427989) **success**；正式 `deploy-development`、身份／備份稽核工作在 PR 驗證中被 skipped，**沒有正式部署**。
+- 新增回歸測試：受授權一般員工不可產生／撤銷憑證、50 筆以上的審稿／回報／完成項目分頁、完成時間＋ID 游標不漏頁、正常重複 GET 不再對初始身份寫入。
+- 目前為 PR 階段，**不合併、不部署、不操作正式 D1**；Claude 最終審查與登入後桌機／手機畫面驗收尚未完成。待本機有 MCP 連線時，依 `0053_store_equipment_category` → `0054_bot_center` 的正式順序檢查 schema／備份契約，勿改動已套用 migration。
