@@ -3,11 +3,11 @@
 > 本檔是 CY Web 唯一的現況與待辦清單，不是永久規則來源。各版本完成內容與驗證見 `CHANGELOG.md`；規格見 `docs/architecture/README.md`。
 > 2026-11-03 整理：已完成且已記入 CHANGELOG 的版本段落移除；已結案的交接與工作單移到 Git 固定快照（見 `docs/handoff/README.md`）。
 
-## 目前狀態（2026-11-06）
+## 目前狀態（2026-11-07）
 
-- **V0.11.6 盤點 UI 修正（待審查／未部署）**：新增批號垃圾桶圖示移至批號旁；初盤確認後的複盤新增 ERP 帳面數量供對照（手機也顯示批號合計），初盤仍盲盤。CI／Claude 審查與桌機／手機目視驗收待辦。[handoff](docs/handoff/CYWEB-STOCKTAKE-BATCH-DELETE-0116-20261106.md)。
+- **V0.11.6 盤點 UI 已合併**：PR #440 已依使用者授權合併 main（197f0a67），CI 及本機 36 項測試通過，納入 V0.12.0 Build 1 一併部署；Claude 事後複審與桌機／手機目視驗收待辦。[handoff](docs/handoff/CYWEB-STOCKTAKE-BATCH-DELETE-0116-20261106.md)。
 - **待正式部署 V0.11.5**：PR #437（V0.11.4 出機類別、財產編號及維護浮窗）已合併 main；PR #439（V0.11.5 ERP Session 空白完成卡）排在其後。使用者本次同意兩項合併發布，Claude 複審仍待辦。
-- **PR #438 BOT 管理中心 V0.12.0**：此次僅確認，不納入發布。其 0053 migration 序號與已合併 #437 重複，後續須重新編排 BOT migration 與備份／測試契約。
+- **PR #438 BOT 管理中心 V0.12.0 Build 1**：已修正同毫秒並行審稿重複紀錄及每 30 秒輪詢多餘讀取，BOT 9 項測試與型別檢查通過。使用者已授權修好後合併部署，整合 #440 後重新跑 CI；Claude 未登入，事後複審及實機驗收待辦。[handoff](docs/handoff/CYWEB-BOT-CENTER-0120-20261106.md)。
 - **V0.11.4 已合併（待部署及 Claude 事後複審）**：出機類別選單與「其他」自填、製造年月旁的財產編號、獨立補填按鈕、清單／展開表調整、維護年月黑字與矩陣格內日期浮窗、年度箭頭及工具列載入提示。[handoff](docs/handoff/CYWEB-EQUIPMENT-CATEGORY-ASSETS-0114-20261106.md)。
 - **最新正式站 V0.11.3**（2026-11-06，正式部署 Run #42066049745 成功；正式健康回讀 version=0.11.3、database=ok）。本檔舊有 V0.11.1／V0.11.2 待部署描述為歷史進行中記錄，以較新的 handoff 及部署證據為準。
 
@@ -60,6 +60,7 @@
 
 ## 待 Claude 審查
 
+- [ ] V0.12.0 BOT 管理中心 PR #438：migration 0054、權限／分頁／進度刷新的整合修正，[handoff](docs/handoff/CYWEB-BOT-CENTER-0120-20261106.md)，未合併部署。
 - [ ] V0.10.24 門市步驟鎖定與物流顯示：[handoff](docs/handoff/CYWEB-WO-0.10.24-STEP-LOCK-20261104.md)，未合併部署。
 
 

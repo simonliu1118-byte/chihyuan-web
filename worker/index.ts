@@ -21,6 +21,7 @@ import { handleUsageRoute } from "./http/usage-routes";
 import { handleBusinessApiPhase2Route } from "./http/business-api-phase2-routes";
 import { handleProgramCatalogRoute } from "./http/program-catalog-routes";
 import { handleErpItemQueryRoute, type ErpBridgeEnv } from "./http/erp-item-query-routes";
+import { handleBotCenterRoute } from "./http/bot-center-routes";
 import { runErpHousekeeping } from "./http/erp-housekeeping";
 import { failure, success } from "./http/response";
 import { updateProgramCatalog } from "./programs/release-catalog";
@@ -104,6 +105,9 @@ async function routeRequest(request: Request, env: Env, url: URL): Promise<Respo
   if (storeResponse) return storeResponse;
   const hrResponse = await handleHrRoute(request, env, requestId);
   if (hrResponse) return hrResponse;
+
+  const botResponse = await handleBotCenterRoute(request, env, requestId);
+  if (botResponse) return botResponse;
 
   const businessResponse = await handleBusinessApiRoute(request, env, requestId);
   if (businessResponse) return businessResponse;

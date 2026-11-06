@@ -720,3 +720,7 @@ D1 migration `0017_hr_phase1.sql` 新增 `hr_employees`、`hr_emergency_contacts
 ## 出機與定期維護（0051）
 
 `store_equipment_records` 保存一批出機及各機身資料；`store_maintenance_visits` 是客戶編號＋預計年月唯一到訪；`store_equipment_plans` 建立多筆出機對一次到訪的關聯與已完成摘要；`store_equipment_events` 保存精簡操作歷程；`store_equipment_state` 協調原子修改。沿用 STORE_REPAIRS 使用權與共用 Audit。詳細語意見 [STORE_EQUIPMENT_MAINTENANCE](STORE_EQUIPMENT_MAINTENANCE.md)，forward schema 以0051為準。
+
+## BOT 管理中心（0054）
+
+`bot_profiles` 保存 BOT 身份與目前進度；`bot_drafts` 保存待審稿與審核結果；`bot_reports` 保存回報；`bot_completions` 保存完成項目。`bot_ingest_credentials` 只存連線憑證雜湊，不進可攜備份。通過或退回只寫審稿結果。詳見 [BOT_CENTER.md](BOT_CENTER.md)，forward schema 以 0054 為準。

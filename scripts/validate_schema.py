@@ -18,6 +18,7 @@ MIGRATIONS_DIR = ROOT / "migrations"
 
 EXPECTED_TABLES = {
     "store_equipment_state", "store_equipment_records", "store_maintenance_visits", "store_equipment_plans", "store_equipment_events",
+    "bot_profiles", "bot_drafts", "bot_reports", "bot_completions", "bot_ingest_credentials",
     "store_monthly_settings", "store_monthly_rows", "store_monthly_cells", "store_monthly_events",
     "store_repairs", "store_repair_events", "store_repair_photos", "store_repair_print_settings",
     "stocktake_sync_ignored",
@@ -190,7 +191,7 @@ def validate_schema_shape(schema: str) -> None:
     source = (ROOT / "worker/backup/schema-columns.ts").read_text()
     declared = json.loads(source.split(" = ", 1)[1].rstrip().removesuffix(";"))
     actual = {table: sorted(row[1] for row in conn.execute(f'PRAGMA table_info("{table}")'))
-              for table in sorted(EXPECTED_TABLES - {"backup_sets", "backup_copies", "program_catalog_state", "erp_item_queries", "erp_item_agent_status", "erp_item_agent_control", "erp_query_duration_stats", "erp_item_agent_credentials", "erp_sales_daily", "erp_sales_days", "erp_sales_items"})}
+              for table in sorted(EXPECTED_TABLES - {"backup_sets", "backup_copies", "program_catalog_state", "erp_item_queries", "erp_item_agent_status", "erp_item_agent_control", "erp_query_duration_stats", "erp_item_agent_credentials", "erp_sales_daily", "erp_sales_days", "erp_sales_items", "bot_ingest_credentials"})}
     if declared != actual:
         raise AssertionError("backup schema columns differ from canonical migrations")
     conn.close()

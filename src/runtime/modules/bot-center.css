@@ -1,0 +1,7 @@
+.cy-bot-center { display: grid; gap: 16px; }
+.cy-bot-center .is-center { text-align: center; }
+.cy-bot-center .cy-bot-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.cy-bot-center .cy-bot-actions { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.cy-bot-center .cy-op-table { min-width: 720px; }
+.cy-bot-center .cy-bot-refresh { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 10px; color: var(--cy-text-secondary); font-size: var(--cy-fs-sm); }
+.cy-bot-center .cy-bot-more { display: flex; justify-content: center; padding-top: 10px; }

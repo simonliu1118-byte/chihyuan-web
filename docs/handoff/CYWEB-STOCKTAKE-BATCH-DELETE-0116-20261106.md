@@ -58,3 +58,11 @@
 - [Deployment Contract #42189371753](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42189371753) **success**，PR 驗證中正式 `deploy-development` 與稽核工作 skipped；**沒有正式部署**。
 - 先前失敗是來源檢查寫死舊 `className` 字串，修正測試後全數通過。後端解盲原本即正常，沒有變動 ERP 資料／D1 schema／權限。
 - **Claude 最終審查與桌機／手機視覺驗收尚待完成**。依使用者這次的 UI 修正指示，只更新原 PR #440，不合併、不部署、不碰正式 D1。
+
+## 2026-11-07 使用者授權合併與共同發布
+
+- 使用者明確授權修好 #438 後將兩張 PR 合併部署；本節取代上方先前輪次的「不合併／不部署」狀態。
+- #440 最新 head `69bb2a9fb30db1a6b229c9bd4cf1fa53d200ba47` 的 Runtime [#42189825617](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42189825617)、Governance [#42189825429](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42189825429)、Deployment Contract [#42189825405](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42189825405) 均 success；隔離快照本機 `store-stocktake-ui.test.mjs`／`store-stocktake.test.mjs` **36/36 通過**。
+- #440 已合併 main：`197f0a6704cf7002af243b338cd2f0b009278a69`。先合 V0.11.6，再由 #438 整合為 V0.12.0 Build 1，共同發布，避免版本倒退。
+- 完整合併後 CI／正式部署／健康回讀證據將補在本節與 [BOT handoff](CYWEB-BOT-CENTER-0120-20261106.md)。此時尚未宣稱正式發布成功。
+- Claude 未登入，事後複審與桌機／手機視覺驗收仍待辦；沒有代填 Claude 通過。
