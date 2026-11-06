@@ -38,4 +38,6 @@
 - 新元件使用共用表格樣式；合成畫面預覽不是正式資料驗收。尚待登入後桌機／手機與 ERP 真正空清單／翻頁驗收，不能用合成結果代稱正式驗證。
 - 大量 200 張 × 3000 行的歸檔仍需受控壓測。固定 SQL 次數不等於 D1 不讀資料；必要的摘要／差異掃描與寫入仍有成本，不宣稱免費或無限負載。
 - 本機 Agent `dotnet test` 因沒有 .NET SDK 無法執行；配套 PR #604 的 Windows CI 已通過（含 Unit tests、Build、Publish；run `42263544302`），governance 亦通過。WEB 完整 CI 於開 PR 後執行。
+- 本輪 [WEB PR #443](https://github.com/simonliu1118-byte/chihyuan-web/pull/443)，程式提交 `323e5ffe`：完整 [Runtime Check](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42264333244) 通過，包含 source contracts、瀏覽器／Worker TypeScript、Local D1 runtime acceptance、Full Node test suite 與 Vite build；治理及部署契約檢查亦通過。本次追加交接證據，沒有程式改動；最新 head 狀態以 PR 為準。
+- 已核對 [D1 batch 契約](https://developers.cloudflare.com/d1/worker-api/d1-database/#batch)：同批依序執行，失敗整批回滾。本機新歸檔測試使用真 Worker 路由＋SQLite 交易；CI 的既有 Local D1 驗收通過，不把它誇稱為新歸檔路徑的 Miniflare 專項測試。
 - 沒有正式資料、ERP 匯出、憑證或 infrastructure ID 進 Git。Claude 最終審查待填，執行者不代填通過。重點請核對完整旗標、knownSheets 代次、原子保存後清除、精確量與備份、資料量、兩端相容以及待發布狀態。
