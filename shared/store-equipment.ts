@@ -1,7 +1,8 @@
 /** Equipment dispatches and customer/month visits share one source of schedule data. */
-export const EQUIPMENT_LIMITS={customerCode:40,customerName:80,brand:80,model:120,serialNo:80,note:300,quantity:1000,months:600} as const;
-export type EquipmentMachine={serialNo:string;manufacturedMonth:string};
-export type EquipmentFields={customerCode:string;customerName:string;brand:string;model:string;saleDate:string;quantity:number;warrantyStart:string;warrantyEnd:string;machines:EquipmentMachine[];maintenance:boolean;months:string[]};
+export const EQUIPMENT_LIMITS={customerCode:40,customerName:80,brand:80,model:120,categoryOther:80,serialNo:80,assetNumber:80,note:300,quantity:1000,months:600} as const;
+export type EquipmentMachine={serialNo:string;manufacturedMonth:string;assetNumber:string};
+import type {StoreRepairProductKind} from './store-repairs';
+export type EquipmentFields={customerCode:string;customerName:string;brand:string;category:StoreRepairProductKind|'';categoryOther:string;model:string;saleDate:string;quantity:number;warrantyStart:string;warrantyEnd:string;machines:EquipmentMachine[];maintenance:boolean;months:string[]};
 export type EquipmentRecord=EquipmentFields&{id:number;sequence:number;version:number;createdAt:string;updatedAt:string};
 export type EquipmentSnapshot={id:number;sequence:number;brand:string;model:string;quantity:number;saleDate:string};
 export type MaintenanceVisit={id:number;customerCode:string;customerName:string;month:string;completed:boolean;completionDate:string|null;note:string;version:number;equipment:EquipmentSnapshot[]};

@@ -17,13 +17,34 @@ function fixture({grant=true,seed=true}={}){
  const call=async(path='',method='GET',data)=>{const r=await handleStoreEquipmentRoute(new Request('https://test.local/api/business/store/equipment'+path,{method,headers:{cookie:'cyweb_identity_session=cyid_'+'a'.repeat(64),'content-type':'application/json'},...(data===undefined?{}:{body:JSON.stringify(data)})}),env,'equipment-test',now);return {status:r.status,body:await r.json()}};
  return {sql,db,env,call};
 }
-const base={customerCode:'DE0001',customerName:'合成醫院',brand:'合成品牌',model:'T-2000',saleDate:'2026-07-01',quantity:2,warrantyStart:'2026-07-01',warrantyEnd:'2028-06-30',machines:[{serialNo:'SN-001',manufacturedMonth:'2026-05'},{serialNo:'SN-002',manufacturedMonth:'2026-05'}],maintenance:true,months:['2027-01','2027-07']};
+const base={customerCode:'DE0001',customerName:'合成醫院',brand:'合成品牌',category:'STEAM',categoryOther:'',model:'T-2000',saleDate:'2026-07-01',quantity:2,warrantyStart:'2026-07-01',warrantyEnd:'2028-06-30',machines:[{serialNo:'SN-001',manufacturedMonth:'2026-05',assetNumber:''},{serialNo:'SN-002',manufacturedMonth:'2026-05',assetNumber:''}],maintenance:true,months:['2027-01','2027-07']};
 const ok=r=>{assert.equal(r.status,200,JSON.stringify(r.body));return r.body.data};
 const create=(f,more={})=>f.call('','POST',{...base,...more,requestKey:key()});
 const update=(f,r,more={})=>f.call('/'+r.id,'PUT',{...r,...more,expectedVersion:r.version,requestKey:key()});
 const visits=async(f,query='')=>ok(await f.call('/visits'+query)).rows;
 const complete=(f,v,more={})=>f.call('/visits/'+v.id,'PUT',{expectedVersion:v.version,requestKey:key(),completed:true,completionDate:'2027-07-06',note:'已前往例行維護',...more});
 const count=(f,t)=>f.sql.prepare('SELECT COUNT(*) n FROM '+t).get().n;
+
+
+test('repair category choices, custom category and asset-only patch preserve other equipment and visits',async()=>{
+ const f=fixture();try{
+  let r=ok(await create(f,{category:'OTHER',categoryOther:'合成設備類別'}));
+  assert.equal(r.category,'OTHER');
+  assert.equal(r.categoryOther,'合成設備類別');
+  assert.equal(ok(await f.call('?q=DE0001')).rows[0].categoryOther,'合成設備類別');
+  const visit=(await visits(f))[0];
+  const patched=ok(await f.call('/'+r.id+'/assets','PATCH',{assetNumbers:['AS-001','AS-002'],expectedVersion:r.version,requestKey:key()}));
+  assert.deepEqual(patched.machines.map(m=>m.assetNumber),['AS-001','AS-002']);
+  assert.equal(patched.model,r.model);
+  assert.equal(patched.categoryOther,r.categoryOther);
+  assert.equal((await visits(f))[0].version,visit.version);
+  assert.equal((await f.call('/'+r.id+'/assets','PATCH',{assetNumbers:['STALE',''],expectedVersion:r.version,requestKey:key()})).status,409);
+  r=ok(await f.call('/'+r.id));
+  assert.deepEqual(r.machines.map(m=>m.assetNumber),['AS-001','AS-002']);
+  assert.equal((await create(f,{category:'INVALID'})).status,422);
+  assert.equal((await create(f,{category:'OTHER',categoryOther:''})).status,422);
+ }finally{f.sql.close()}
+});
 
 test('calendar suggestions and inclusive warranty month arithmetic',()=>{
  assert.deepEqual(halfYearMonths('2026-07-01','2028-06-30'),['2027-01','2027-07','2028-01']);

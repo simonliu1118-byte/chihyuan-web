@@ -4,12 +4,13 @@ import {success,failure} from './response';
 import {AuditService} from '../audit/audit-service';
 import {validStoreRequestKey} from '../store/workflow-service';
 import {changedFields} from '../../shared/store-history';
+import {STORE_REPAIR_PRODUCTS} from '../../shared/store-repairs';
 import {maintenanceWindow,type MaintenanceMatrixCustomer} from '../../shared/maintenance-matrix';
 import {EQUIPMENT_LIMITS as L,equipmentCustomerCode,equipmentSnapshot,validEquipmentDate,validEquipmentMonth,type EquipmentFields,type EquipmentRecord,type MaintenanceVisit} from '../../shared/store-equipment';
 const ROOT='/api/business/store/equipment';
 class Invalid extends Error{constructor(message:string,public status=422,public code='EQUIPMENT_INVALID'){super(message)}}
 type Context={db:D1Database;actor:number;at:string;requestId:string};
-type RecordRow={id:number;list_sequence:number;customer_code:string;customer_name:string;brand:string;model:string;sale_date:string;quantity:number;warranty_start:string;warranty_end:string;machines_json:string;maintenance:number;version:number;created_at:string;updated_at:string;months_json:string};
+type RecordRow={id:number;list_sequence:number;customer_code:string;customer_name:string;brand:string;category:string;category_other:string;model:string;sale_date:string;quantity:number;warranty_start:string;warranty_end:string;machines_json:string;maintenance:number;version:number;created_at:string;updated_at:string;months_json:string};
 type VisitRow={id:number;customer_code:string;customer_name:string;planned_month:string;completed:number;completion_date:string|null;note:string;version:number;equipment_json:string};
 const all=async<T>(db:D1Database,sql:string,...v:unknown[])=>((await db.prepare(sql).bind(...v).all<T>()).results??[]);
 const one=async<T>(db:D1Database,sql:string,...v:unknown[])=>db.prepare(sql).bind(...v).first<T>();
@@ -30,7 +31,7 @@ function fields(v:Record<string,unknown>,at:string):EquipmentFields{
  if(warrantyStart&&(Number(warrantyEnd.slice(0,4))-Number(warrantyStart.slice(0,4)))*12+Number(warrantyEnd.slice(5,7))-Number(warrantyStart.slice(5,7))>L.months)throw new Invalid('保固期間最多50年');
  if(!Number.isSafeInteger(v.quantity)||Number(v.quantity)<1||Number(v.quantity)>L.quantity)throw new Invalid('數量不正確');const quantity=Number(v.quantity);
  if(!Array.isArray(v.machines)||v.machines.length!==quantity)throw new Invalid('機身資料筆數必須與數量相同');
- const serials=new Set<string>(),machines=v.machines.map(raw=>{const m=object(raw),serialNo=text(m.serialNo,'機身序號',L.serialNo),manufacturedMonth=text(m.manufacturedMonth,'製造年月',7);if(manufacturedMonth&&(!validEquipmentMonth(manufacturedMonth)||manufacturedMonth>today(at).slice(0,7)))throw new Invalid('製造年月不正確');if(serialNo&&serials.has(serialNo.toUpperCase()))throw new Invalid('同筆出機的機身序號不可重複');if(serialNo)serials.add(serialNo.toUpperCase());return {serialNo,manufacturedMonth}});
+ const serials=new Set<string>(),machines=v.machines.map(raw=>{const m=object(raw),serialNo=text(m.serialNo,'機身序號',L.serialNo),manufacturedMonth=text(m.manufacturedMonth,'製造年月',7),assetNumber=text(m.assetNumber,'財產編號',L.assetNumber);if(manufacturedMonth&&(!validEquipmentMonth(manufacturedMonth)||manufacturedMonth>today(at).slice(0,7)))throw new Invalid('製造年月不正確');if(serialNo&&serials.has(serialNo.toUpperCase()))throw new Invalid('同筆出機的機身序號不可重複');if(serialNo)serials.add(serialNo.toUpperCase());return {serialNo,manufacturedMonth,assetNumber}});
  if(typeof v.maintenance!=='boolean')throw new Invalid('定期維護設定不正確');
  if(v.maintenance&&!customerCode)throw new Invalid('請先填寫客戶編號，才能啟用定期維護');
  if(!Array.isArray(v.months)||v.months.length>L.months||v.months.some(m=>typeof m!=='string'||!validEquipmentMonth(m))||new Set(v.months).size!==v.months.length)throw new Invalid('預計維護年月不正確');
@@ -38,13 +39,17 @@ function fields(v:Record<string,unknown>,at:string):EquipmentFields{
  if(!v.maintenance&&months.length)throw new Invalid('不需維護時不能保留預計月份');
  if(v.maintenance&&(!warrantyStart||!warrantyEnd||!months.length))throw new Invalid('啟用維護請填寫保固起訖並選擇預計月份');
  if(months.some(m=>m<warrantyStart.slice(0,7)||m>warrantyEnd.slice(0,7)))throw new Invalid('預計維護月份須在保固期間內');
- return {customerCode,customerName,brand:text(v.brand,'品牌',L.brand),model:text(v.model,'機型',L.model),saleDate,quantity,warrantyStart,warrantyEnd,machines,maintenance:v.maintenance,months};
+ const category=text(v.category,'類別',20);
+  if(category&&!Object.prototype.hasOwnProperty.call(STORE_REPAIR_PRODUCTS,category))throw new Invalid('類別不正確');
+  const categoryOther=text(v.categoryOther,'其他類別',L.categoryOther,category==='OTHER');
+  if(category!=='OTHER'&&categoryOther)throw new Invalid('非其他類別不可填自訂類別');
+  return {customerCode,customerName,brand:text(v.brand,'品牌',L.brand),category:category as EquipmentFields['category'],categoryOther,model:text(v.model,'機型',L.model),saleDate,quantity,warrantyStart,warrantyEnd,machines,maintenance:v.maintenance,months};
 }
 const recordSelect="SELECT r.*,(SELECT json_group_array(v.planned_month) FROM store_equipment_plans p JOIN store_maintenance_visits v ON v.id=p.visit_id WHERE p.equipment_id=r.id AND p.active=1) months_json FROM store_equipment_records r";
 // Machine arrays can be large. Fetch them only for one expanded/edited dispatch.
-const recordListSelect=recordSelect.replace('r.*',"r.id,r.list_sequence,r.customer_code,r.customer_name,r.brand,r.model,r.sale_date,r.quantity,r.warranty_start,r.warranty_end,r.maintenance,r.version,r.created_at,r.updated_at,'[]' machines_json");
+const recordListSelect=recordSelect.replace('r.*',"r.id,r.list_sequence,r.customer_code,r.customer_name,r.brand,r.category,r.category_other,r.model,r.sale_date,r.quantity,r.warranty_start,r.warranty_end,r.maintenance,r.version,r.created_at,r.updated_at,'[]' machines_json");
 const visitSelect="SELECT v.*,(SELECT json_group_array(json(p.snapshot_json)) FROM store_equipment_plans p WHERE p.visit_id=v.id AND (p.active=1 OR p.retained=1)) equipment_json FROM store_maintenance_visits v";
-const recordJson=(r:RecordRow):EquipmentRecord=>({id:r.id,sequence:r.list_sequence,customerCode:r.customer_code,customerName:r.customer_name,brand:r.brand,model:r.model,saleDate:r.sale_date,quantity:r.quantity,warrantyStart:r.warranty_start,warrantyEnd:r.warranty_end,machines:JSON.parse(r.machines_json),maintenance:!!r.maintenance,months:JSON.parse(r.months_json).sort(),version:r.version,createdAt:r.created_at,updatedAt:r.updated_at});
+const recordJson=(r:RecordRow):EquipmentRecord=>({id:r.id,sequence:r.list_sequence,customerCode:r.customer_code,customerName:r.customer_name,brand:r.brand,category:r.category as EquipmentFields['category'],categoryOther:r.category_other,model:r.model,saleDate:r.sale_date,quantity:r.quantity,warrantyStart:r.warranty_start,warrantyEnd:r.warranty_end,machines:(JSON.parse(r.machines_json) as EquipmentRecord['machines']).map(m=>({...m,assetNumber:m.assetNumber??''})),maintenance:!!r.maintenance,months:JSON.parse(r.months_json).sort(),version:r.version,createdAt:r.created_at,updatedAt:r.updated_at});
 const visitJson=(r:VisitRow):MaintenanceVisit=>({id:r.id,customerCode:r.customer_code,customerName:r.customer_name,month:r.planned_month,completed:!!r.completed,completionDate:r.completion_date,note:r.note,version:r.version,equipment:JSON.parse(r.equipment_json)});
 async function getRecord(c:Context,id:number){const r=await one<RecordRow>(c.db,recordSelect+' WHERE r.id=?',id);if(!r)throw new Invalid('出機紀錄不存在',404);return recordJson(r)}
 async function getVisit(c:Context,id:number){const r=await one<VisitRow>(c.db,visitSelect+' WHERE v.id=?',id);if(!r)throw new Invalid('維護排程不存在',404);return visitJson(r)}
@@ -52,7 +57,7 @@ async function revision(c:Context){return (await one<{version:number}>(c.db,'SEL
 function guards(c:Context,version:number){return [c.db.prepare("SELECT CASE WHEN COALESCE((SELECT version FROM store_equipment_state WHERE id=1),0)=? THEN 1 ELSE json('') END").bind(version),c.db.prepare('INSERT INTO store_equipment_state(id,version) VALUES(1,1) ON CONFLICT(id) DO UPDATE SET version=version+1')]}
 function event(c:Context,type:'equipment'|'visit',id:number,k:string,digest:string,kind:string,before:Record<string,unknown>,after:Record<string,unknown>){return c.db.prepare('INSERT INTO store_equipment_events(equipment_id,visit_id,actor,at,kind,before_json,after_json,request_key,request_hash) VALUES(?,?,?,?,?,?,?,?,?)').bind(type==='equipment'?id:null,type==='visit'?id:null,c.actor,c.at,kind,JSON.stringify(before),JSON.stringify(after),k,digest)}
 function audit(c:Context,type:'equipment'|'visit',id:number,action:string,before:Record<string,unknown>,after:Record<string,unknown>){return new AuditService(c.db).prepareRecord({entityType:type==='equipment'?'store_equipment':'store_maintenance',entityKey:String(id),action:(type==='equipment'?'store_equipment':'store_maintenance')+'.'+action,actorEmployeeId:c.actor,occurredAt:c.at,requestId:c.requestId,before,after})}
-function summarize(r:EquipmentFields){return {customerCode:r.customerCode,customerName:r.customerName,brand:r.brand,model:r.model,saleDate:r.saleDate,quantity:r.quantity,warrantyStart:r.warrantyStart,warrantyEnd:r.warrantyEnd,maintenance:r.maintenance,months:r.months.join('、'),machines:r.machines.map((m,i)=>(i+1)+':'+m.serialNo+'/'+m.manufacturedMonth).join('；')}}
+function summarize(r:EquipmentFields){return {customerCode:r.customerCode,customerName:r.customerName,brand:r.brand,category:r.category,categoryOther:r.categoryOther,model:r.model,saleDate:r.saleDate,quantity:r.quantity,warrantyStart:r.warrantyStart,warrantyEnd:r.warrantyEnd,maintenance:r.maintenance,months:r.months.join('、'),machines:r.machines.map((m,i)=>(i+1)+':'+m.serialNo+'/'+m.manufacturedMonth+'/'+m.assetNumber).join('；')}}
 /** A single guarded batch updates the record, aggregate memberships, history and audit. */
 function planWrites(c:Context,r:EquipmentRecord){
  const months=JSON.stringify(r.months),targets=JSON.stringify(r.months.map(month=>({month,id:newId()}))),snapshot=JSON.stringify(equipmentSnapshot(r));
@@ -119,6 +124,7 @@ export async function handleStoreEquipmentRoute(req:Request,env:IdentityRuntimeE
    const list=await all<VisitRow>(c.db,visitSelect+" WHERE (v.completed=1 OR EXISTS(SELECT 1 FROM store_equipment_plans p WHERE p.visit_id=v.id AND p.active=1)) AND (v.planned_month,v.id)<(?,?) AND v.planned_month BETWEEN ? AND ? AND (?=0 OR v.completed=0) AND (?='' OR v.customer_code LIKE ? ESCAPE '\\' OR v.customer_name LIKE ? ESCAPE '\\') ORDER BY v.planned_month DESC,v.id DESC LIMIT 101",parts[0],Number(parts[1]),year?year+'-01':'0001-01',year?year+'-12':'9999-12',open?1:0,q,like,like);
    return success({rows:list.slice(0,100).map(visitJson),nextBefore:list.length>100?list[99].planned_month+'|'+list[99].id:null},requestId);
   }
+  const assetMatch=/^\/([0-9]+)\/assets$/.exec(path);
   const match=/^\/(visits\/)?([0-9]+)(\/history)?$/.exec(path);
   if(match&&(!Number.isSafeInteger(Number(match[2]))||Number(match[2])<1))throw new Invalid('紀錄不正確');
   if(method==='GET'&&match){
@@ -129,11 +135,25 @@ export async function handleStoreEquipmentRoute(req:Request,env:IdentityRuntimeE
    const list=await all<{id:number;actor:number;actorName:string;at:string;kind:string;before_json:string;after_json:string;reason:string}>(c.db,`SELECT e.*,m.display_name actorName FROM store_equipment_events e JOIN app_members m ON m.id=e.actor WHERE e.${column}=? AND e.id<? ORDER BY e.id DESC LIMIT 51`,id,Number(cursor));
    return success({rows:list.slice(0,50).map(e=>({id:e.id,actor:e.actor,actorName:e.actorName,at:e.at,kind:e.kind,before:JSON.parse(e.before_json),after:JSON.parse(e.after_json),reason:e.reason})),nextCursor:list.length>50?list[49].id:null},requestId);
   }
-  if(!((method==='POST'&&(path===''||path==='/'))||(method==='PUT'&&match&&!match[3])))throw new Invalid('找不到出機或維護操作',404);
+  if(!((method==='POST'&&(path===''||path==='/'))||(method==='PUT'&&match&&!match[3])||(method==='PATCH'&&assetMatch)))throw new Invalid('找不到出機或維護操作',404);
   const v=await body(req),k=keyOf(v),digest=await hash(path,v);
   const prior=await one<{equipment_id:number|null;visit_id:number|null;request_hash:string}>(c.db,'SELECT equipment_id,visit_id,request_hash FROM store_equipment_events WHERE actor=? AND request_key=?',c.actor,k);
   if(prior){if(prior.request_hash!==digest)throw new Invalid('操作識別已用於其他內容',409,'EQUIPMENT_CONFLICT');return success(prior.equipment_id?await getRecord(c,prior.equipment_id):await getVisit(c,prior.visit_id!),requestId)}
   const rev=await revision(c);
+  if(assetMatch){
+   const id=Number(assetMatch[1]),old=await getRecord(c,id);
+   if(old.version!==expected(v))throw new Invalid('出機資料已變更，請重新整理',409,'EQUIPMENT_CONFLICT');
+   if(!Array.isArray(v.assetNumbers)||v.assetNumbers.length!==old.machines.length)throw new Invalid('財產編號筆數不正確');
+   const numbers=v.assetNumbers.map(x=>text(x,'財產編號',L.assetNumber));
+   const machines=old.machines.map((m,i)=>({...m,assetNumber:numbers[i]}));
+   if(machines.every((m,i)=>m.assetNumber===old.machines[i].assetNumber))return success(old,requestId);
+   const before={assetNumbers:old.machines.map(m=>m.assetNumber).join('、')},after={assetNumbers:numbers.join('、')},change=changedFields(before,after);
+   await c.db.batch([...guards(c,rev),c.db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM store_equipment_records WHERE id=? AND version=?) THEN 1 ELSE json('') END").bind(id,old.version),
+    c.db.prepare('UPDATE store_equipment_records SET machines_json=?,version=version+1,updated_at=?,updated_by=? WHERE id=?').bind(JSON.stringify(machines),at,c.actor,id),
+    event(c,'equipment',id,k,digest,'補填財產編號',change.before,change.after),
+    audit(c,'equipment',id,'asset_number_updated',change.before,change.after)]);
+   return success(await getRecord(c,id),requestId);
+  }
   if(match?.[1]){
    const id=Number(match[2]),old=await getVisit(c,id);if(old.version!==expected(v))throw new Invalid('維護資料已變更，請重新整理',409,'EQUIPMENT_CONFLICT');
    if(!old.completed&&!old.equipment.length)throw new Invalid('排程已取消，請重新整理',409);
@@ -151,8 +171,8 @@ export async function handleStoreEquipmentRoute(req:Request,env:IdentityRuntimeE
   const f=fields(v,at),old=match?await getRecord(c,Number(match[2])):null;
   if(old&&old.version!==expected(v))throw new Invalid('出機資料已變更，請重新整理',409,'EQUIPMENT_CONFLICT');
   const id=old?.id??newId(),next:EquipmentRecord={...f,id,sequence:old?.sequence??0,version:(old?.version??0)+1,createdAt:old?.createdAt??at,updatedAt:at};
-  const values=[f.customerCode,f.customerName,f.brand,f.model,f.saleDate,f.quantity,f.warrantyStart,f.warrantyEnd,JSON.stringify(f.machines),f.maintenance?1:0,at,c.actor];
-  const write=old?c.db.prepare('UPDATE store_equipment_records SET customer_code=?,customer_name=?,brand=?,model=?,sale_date=?,quantity=?,warranty_start=?,warranty_end=?,machines_json=?,maintenance=?,updated_at=?,updated_by=?,version=version+1 WHERE id=?').bind(...values,id):c.db.prepare('INSERT INTO store_equipment_records(id,list_sequence,customer_code,customer_name,brand,model,sale_date,quantity,warranty_start,warranty_end,machines_json,maintenance,updated_at,updated_by,created_at,created_by) SELECT ?,(SELECT COALESCE(MAX(list_sequence),0)+1 FROM store_equipment_records),'+values.map(()=>'?').join(',')+',?,?').bind(id,...values,at,c.actor);
+  const values=[f.customerCode,f.customerName,f.brand,f.category,f.categoryOther,f.model,f.saleDate,f.quantity,f.warrantyStart,f.warrantyEnd,JSON.stringify(f.machines),f.maintenance?1:0,at,c.actor];
+  const write=old?c.db.prepare('UPDATE store_equipment_records SET customer_code=?,customer_name=?,brand=?,category=?,category_other=?,model=?,sale_date=?,quantity=?,warranty_start=?,warranty_end=?,machines_json=?,maintenance=?,updated_at=?,updated_by=?,version=version+1 WHERE id=?').bind(...values,id):c.db.prepare('INSERT INTO store_equipment_records(id,list_sequence,customer_code,customer_name,brand,category,category_other,model,sale_date,quantity,warranty_start,warranty_end,machines_json,maintenance,updated_at,updated_by,created_at,created_by) SELECT ?,(SELECT COALESCE(MAX(list_sequence),0)+1 FROM store_equipment_records),'+values.map(()=>'?').join(',')+',?,?').bind(id,...values,at,c.actor);
   const before=old?summarize(old):{},after=summarize(f),change=changedFields(before,after);
   // Large serial lists stay in the business row; audit records count the change, not a second payload.
   for(const target of [change.before,change.after])for(const field of ['machines','months'])if(typeof target[field]==='string'&&String(target[field]).length>300)target[field]=field==='machines'?'機身資料已調整':'維護月份已調整';

@@ -1059,6 +1059,8 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
   ],
   "store_equipment_records": [
     "brand",
+    "category",
+    "category_other",
     "created_at",
     "created_by",
     "customer_code",
