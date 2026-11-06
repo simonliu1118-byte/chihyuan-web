@@ -21,6 +21,7 @@ export const CYWEB_MODULES = [
   { code: "STORE_MONTHLY_TODOS", route: "store", label: "門市月度待辦" },
   // A permission inside ERP 商品查詢 (標準進價), not a page of its own.
   { code: "ERP_ITEM_COST", route: null, label: "ERP 商品成本" },
+  { code: "BOT_CENTER", route: "bot-center", label: "BOT 管理中心" },
 ] as const;
 
 export type CyWebModuleCode = (typeof CYWEB_MODULES)[number]["code"];

@@ -6,6 +6,7 @@
 ## 目前狀態（2026-11-05）
 
 - **正式站 V0.11.1**（`https://admin.chihyuancm.com`），CYID consumer 1.0.5；D1 migration 到 `0052_maintenance_matrix_indexes`。
+- **V0.12.0 BOT 管理中心待審查**：左側「ERP 查詢」下一項、`#bot-center`、四個區塊與審核回寫。不合併、不部署、不執行正式 migration。[handoff](docs/handoff/CYWEB-BOT-CENTER-0120-20261106.md)。
 - **V0.11.3 ERP 未收款表格改版待審查**：主清單及展開明細統一共用表格、最小欄寬、不折行；待 CI、Claude 審查與實機確認。[handoff](docs/handoff/CYWEB-ERP-RECEIVABLE-TABLE-0113-20261105.md)。
 - **V0.11.2 出機表單改版進行中**：第一列六欄、保固日曆月雙向計算、維護互斥選擇、機身資料整合表格、共用年月選擇器。待 CI、Claude 審查、使用者確認後才可合併部署；[handoff](docs/handoff/CYWEB-EQUIPMENT-FORM-0112-20261105.md)。
 - **接手 UI 前必讀** `docs/architecture/UI_COMPONENT_CATALOG.md`：共用元件清單與已定案畫面樣式，不要在模組內另做元件。
@@ -53,6 +54,7 @@
 
 ## 待 Claude 審查
 
+- [ ] V0.12.0 BOT 管理中心：[handoff](docs/handoff/CYWEB-BOT-CENTER-0120-20261106.md)，未合併、未部署、未執行正式 migration。
 - [ ] V0.10.24 門市步驟鎖定與物流顯示：[handoff](docs/handoff/CYWEB-WO-0.10.24-STEP-LOCK-20261104.md)，未合併部署。
 
 

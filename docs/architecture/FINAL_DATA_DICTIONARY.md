@@ -771,3 +771,7 @@ Since V0.9.81 a portable backup records the source database's last migration and
 ## 0052 維護矩陣索引
 
 僅新增 `store_equipment_records(maintenance,customer_code)` 與已完成 `store_maintenance_visits(completion_date,customer_code)` 索引。沿用0051的表與欄位，不刪除或改寫既有無日期到訪；矩陣和新登記必填日期語意見[維護契約](STORE_EQUIPMENT_MAINTENANCE.md)。
+
+## 0053 BOT 管理中心
+
+`app_member_module_access.module_code` 增加 `BOT_CENTER`，既有授權原列搬回。新增 `bot_profiles`、`bot_drafts`、`bot_reports`、`bot_completions`（納入可攜備份）與 `bot_ingest_credentials`（只存憑證雜湊，不進備份）。審核只更新 `bot_drafts` 的狀態、理由、審核人與時間。完整欄位以 `migrations/0053_bot_center.sql` 為準，語意見 [BOT_CENTER.md](BOT_CENTER.md)。

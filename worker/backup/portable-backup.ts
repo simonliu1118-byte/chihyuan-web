@@ -9,7 +9,7 @@ export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
  * The latest migration in migrations/ (file name without .sql). Bump it with every migration; a test
  * keeps it in step. A backup records it, and a restore maps its data by table and column name.
  */
-export const CURRENT_MIGRATION = "0052_maintenance_matrix_indexes";
+export const CURRENT_MIGRATION = "0053_bot_center";
 /**
  * Only for a migration that changes what existing data means (moves, renames, drops or recomputes
  * values). New tables, new columns with a default, new indexes and wider checks need nothing here:
@@ -57,12 +57,13 @@ const UPGRADES: { migration: string; apply: (data: Data) => void }[] = [
   } },
 ];
 // Operational queue, heartbeat and revocable credential hashes are intentionally
-// excluded from durable backup (also the ERP 關閉／暫停 request). After recovery the Super Admin
-// reissues the Agent token.
+// excluded from durable backup (also the ERP 關閉／暫停 request and the BOT ingest token).
+// After recovery the Super Admin reissues the Agent token, and a BOT 管理中心 member reissues
+// the ingest token from that page.
 // The ERP sales history (進貨輔助, 2026-10-21) is copied from SMART ERP, which stays its source:
 // it is rebuilt by running 進貨輔助 again, and is far larger than this snapshot allows.
 const EPHEMERAL_TABLES = ["erp_item_queries", "erp_query_duration_stats", "erp_item_agent_status", "erp_item_agent_credentials", "erp_item_agent_control",
-  "erp_sales_daily", "erp_sales_days", "erp_sales_items"] as const;
+  "erp_sales_daily", "erp_sales_days", "erp_sales_items", "bot_ingest_credentials"] as const;
 const ALL_TABLES = [...BACKUP_TABLES, "backup_copies", "backup_sets", ...EPHEMERAL_TABLES].sort();
 function balancedAnd(items:string[]):string {
   if(items.length===0)return "1=1";

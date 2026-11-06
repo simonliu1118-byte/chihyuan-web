@@ -1,0 +1,5 @@
+.cy-bot-center { display: grid; gap: 16px; }
+.cy-bot-center .is-center { text-align: center; }
+.cy-bot-center .cy-bot-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.cy-bot-center .cy-bot-actions { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.cy-bot-center .cy-op-table { min-width: 720px; }

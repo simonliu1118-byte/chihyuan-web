@@ -6,6 +6,13 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.12.0 — BOT 管理中心（2026-11-06）
+
+- 新增獨立模組「BOT 管理中心」（`#bot-center`），放在左側「ERP 查詢」同一組的下一項。超級管理員沿用既有全模組權限；其他人可在「帳號與權限」授權 `BOT_CENTER`。這是使用者可直接使用的新能力，故升 Minor，並避開進行中的 V0.11.2–V0.11.4。
+- 頁面四區：各 BOT 進度、待審稿（通過／退回，理由可空白）、回報、今日完成時間軸（Asia/Taipei）。初始身份為社群小編、內容專家、CEO、IT，之後可再新增。
+- 通過或退回只把審核結果寫回給原 BOT 讀取，不發布、不排隊、不開啟自動回覆。機器送件使用可輪換的雜湊憑證，沿用既有 CY Web session，不另建身份。
+- 待審查，不合併、不部署、不執行正式 migration。詳見 [handoff](docs/handoff/CYWEB-BOT-CENTER-0120-20261106.md)。
+
 ## CY Web V0.11.3 — ERP 未收款共用表格（2026-11-05，GPT）
 
 - 未收款客戶清單與展開明細統一共用 `cy-op-table`，並採用共用 `ExpandToggle`；客戶編號10碼、名稱10中文字、金額6位數不折行。

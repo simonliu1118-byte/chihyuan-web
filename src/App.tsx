@@ -33,13 +33,14 @@ import { SalesOrderOperationalPage } from "./runtime/modules/SalesOrderOperation
 import { WorkLogOperationalPage } from "./runtime/modules/WorkLogOperationalPage";
 import { BackupOperationalPage } from "./runtime/modules/BackupOperationalPage";
 import { ProgramCatalogPage } from "./runtime/modules/ProgramCatalogPage";
+import { BotCenterPage } from "./runtime/modules/BotCenterPage";
 import { HrOperationalPage } from "./runtime/modules/HrOperationalPage";
 import { HrSettingsButton } from "./runtime/modules/HrSettingsButton";
 import { UnsavedChangesBoundary, useNavigationGuard } from "./ui/foundation/useUnsavedChangesGuard";
 import { createGuardedHashNavigation } from "./ui/foundation/guarded-hash-navigation";
 import { FeedbackProvider, useFeedback, useFeedbackMessage } from "./ui/feedback/FeedbackProvider";
 
-type AppRoute = "hr" | "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "erp-item-query" | "ordering" | "store" | "audit" | "identity" | "account" | "backups" | "programs";
+type AppRoute = "hr" | "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "erp-item-query" | "bot-center" | "ordering" | "store" | "audit" | "identity" | "account" | "backups" | "programs";
 
 // One source of truth for the topbar titles.
 const PAGE_META: Record<AppRoute, { title: string }> = {
@@ -51,6 +52,7 @@ const PAGE_META: Record<AppRoute, { title: string }> = {
   outsourcing: { title:"委外/代工" },
   worklogs: { title:"工作日誌" },
   "erp-item-query": { title:"ERP 查詢" },
+  "bot-center": { title:"BOT 管理中心" },
   ordering: {title:"叫貨"},
   store: {title:"門市"},
   identity: { title:"帳號與權限" },
@@ -64,6 +66,7 @@ const baseNavigation: readonly NavigationGroup[] = [
   {
     key: "erp-query", items: [
       { key: "erp-item-query", label: "ERP 查詢", href: "#erp-item-query" },
+      { key: "bot-center", label: "BOT 管理中心", href: "#bot-center" },
     ],
   },
   {
@@ -108,6 +111,7 @@ const routes = new Set<AppRoute>([
   "outsourcing",
   "worklogs",
   "erp-item-query",
+  "bot-center",
   "ordering",
   "store",
   "identity",
@@ -328,6 +332,7 @@ function OperationalApp({
   else if (route === "outsourcing") content = <OutsourcingOperationalPage />;
   else if (route === "worklogs") content = <WorkLogOperationalPage />;
   else if (route === "erp-item-query") content = null; // the kept ERP 查詢 page below
+  else if (route === "bot-center") content = <BotCenterPage />;
   else if (route === "ordering") content = null; // kept-mounted Ordering surface below
   else if (route === "store") content = <StorePage role={role} allowedModules={allowedModules} />;
   else if (route === "identity") content = <SharedIdentityPage session={session}

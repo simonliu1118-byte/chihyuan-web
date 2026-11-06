@@ -11,6 +11,8 @@
 
 ## 目前待 Claude 審查
 
+- [V0.12.0 BOT 管理中心](CYWEB-BOT-CENTER-0120-20261106.md)：新模組，待 CI／Claude 審查。不合併、不部署、不執行正式 migration。
+
 - [V0.11.3 ERP 未收款共用表格](CYWEB-ERP-RECEIVABLE-TABLE-0113-20261105.md)：新工作，待 CI／Claude 審查，未合併部署。
 
 - [V0.11.2 出機表單與保固年月](CYWEB-EQUIPMENT-FORM-0112-20261105.md)：GPT 新工作分支，待 PR 自動驗證與 Claude 審查；未合併、未部署。

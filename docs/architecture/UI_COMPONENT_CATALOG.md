@@ -87,3 +87,7 @@
 ## 三年維護矩陣（V0.11.1）
 
 `StoreMaintenanceMatrix` 只改維護呈現：共用 cy-ordering-grid 雙層表頭、客戶固定欄、36月份、IconButton 圓圈／警示、StoreMilestoneButton 實際日期；同日多筆點開用EntryTable。日期與單行備註沿用StoreMilestoneDateFields（allowWithoutDate=false）及Field，不另建選擇器。`store-workflow/useStorePagedList` 抽取原出機的游標／防舊回應邏輯，出機和矩陣共用；不背景輪詢。詳細資料與行為以[維護契約](STORE_EQUIPMENT_MAINTENANCE.md)為準。
+
+## BOT 管理中心（V0.12.0）
+
+`BotCenterPage` 用四個既有 `cy-op-panel`／`cy-op-table`：進度、待審稿、回報、今日完成。狀態用 `StatusChip`，待審篩選用 `StatusFilter`，展開用 `ExpandToggle`，新增 BOT 用 `Field`／`FormSection`，通過／退回理由用 `useFormPrompt`，憑證確認用 `useConfirmation`。沒有另做儀表板或新的視覺語言。行為以 [BOT_CENTER.md](BOT_CENTER.md) 為準。
