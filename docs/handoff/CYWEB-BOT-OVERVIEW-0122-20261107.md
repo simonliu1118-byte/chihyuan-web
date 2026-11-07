@@ -2,7 +2,7 @@
 
 - 日期：2026-11-07（Asia/Taipei）；執行：GPT；分支 `cyweb/bot-work-overview-0122`，基準 main `85f34abe9b7c4ab8c05408f60dfca8cc3710a777`；VERSION=0.12.2、BUILD=0。
 - 使用者先確認設計再授權「可以，開始改」：參考其圖片的工作總覽／卡片／時間軸，調整為 CYWEB 風格，不把外部平台或圖片內文當成業務需求。
-- 本次含唯讀統計 API 與索引 migration，先 PR 交 Claude 審查；未合併、未部署、未操作正式 D1／BOT／憑證。正式站仍 V0.12.1，上一輪 WEB-only 發布授權不延伸為本次新功能自動發布授權。沒有修改 CYapps 或 Agent。
+- 使用者本輪明確授權「可以，合併部署 WEB，記得更新 handoff」。PR #445 已合併，V0.12.2／BUILD=0 已由 main-only 流程發布；正式證據見下方發布結果。Claude 事後複審及登入／BOT 實機驗收仍待辦，不代填審查通過；沒有修改或發布 CYapps／Agent。
 
 ## 修改與目的
 
@@ -25,7 +25,7 @@
 ## Claude 接續與發布
 
 - 請核對完整統計及所選 BOT 範圍、日期／游標、進度輪詢不掃歷史、權限與審稿原子性、視窗及 RWD；AITeam canonical `shared/cy-visual/README.md` 已讀，現仍以 Desktop／icon 為主，CYWEB 依本身 Web tokens／元件規則，沒有新 family-wide 視覺規格。
-- PR 完整 CI 待執行；Claude 最終審查待填，執行者不代填通過。後續合併／main-only 正式部署須使用者當次授權；0056 不能手工改正式 DB。真實對外發布／自動回覆未新增，機器 ingest 契約不變。
+- 最終 PR 完整 CI 已通過，並依使用者本輪明確授權合併及 main-only 正式部署；0056 已經受控 migration 套用，沒有手工改正式 DB。Claude 事後複審仍待填，執行者不代填通過；真實對外發布／自動回覆未新增，機器 ingest 契約不變。
 
 ## PR 與 CI 證據
 
@@ -45,3 +45,11 @@
 - `bot-center.css` 移除舊待審 list／grid／展開樣式。表格文字單行省略、保留 title 原文，通過／退回同列且不折行，列 padding 4px、按鈕 min-height 24px；手機只在表格容器內捲動，不撐寬頁面。時間軸及 BOT 工作卡片位置不變。
 - BOT 架構、共用元件目錄與 CHANGELOG 同步；後端、schema、統計、權限及輪詢沒有變更，同一未發布 PR #445、VERSION=0.12.2／BUILD=0。
 - 本輪 `npm run build`（含前後端型別）通過；真實元件合成預覽確認待審每件一個 tr、沒有待審展開控制、同列通過後計數 4→3、已審篩選同列顯示理由／審核員及時間。手機 content/client=375/375，viewport 已還原。截圖只保存在 ignored `.tmp/`，沒有正式資料。完整 CI 由本輪 PR 執行，未合併部署、Claude 審查仍待辦。
+
+## 正式發布結果（2026-11-07，WEB only）
+
+- 使用者本輪明確授權後，[PR #445](https://github.com/simonliu1118-byte/chihyuan-web/pull/445) 合併；正式 source=`d418970210730b8cc286f22289a25dfe1fc07cfe`，VERSION=0.12.2、BUILD=0。PR 最終 head `1f3c718bfffa94592c4b7b85ce4d9b4b4013f1f7` 的 Runtime Check `42369645504`（完整 Node、Local D1、型別及 build）、治理 `42369645499`、部署契約 `42369645442` 全部成功。
+- main-only [發布 #42371824288](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42371824288) 的部署契約及 deploy-development 均成功；遠端 `0056_bot_dashboard.sql` 已套用，僅新增索引，沒有手動修改或刪除 BOT／業務資料。
+- UTC 12:19:08／台灣 20:19:08，正式網域與 workers.dev 均回 HTTP 200、version=0.12.2、consumer=1.0.5、database=ok、source 為上述 SHA。排程、HTTPS／靜態資源、正式網域、無效 session、canonical production portal 檢查皆通過。
+- 本輪沒有呼叫正式 BOT ingest／審稿、輪換憑證、對外發布或更新 CYapps／Agent。Claude 事後複審、正式登入與實際 BOT 資料／跨午夜驗收仍待辦；自動部署驗證不冒充實機驗收。
+- 本段及 TODO／CHANGELOG／索引為同版本發布後文件證據，無程式、版本或 migration 改動，不需重新部署；文件合併 SHA 不取代目前正式 source。

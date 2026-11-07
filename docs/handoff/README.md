@@ -11,7 +11,7 @@
 
 ## 目前待 Claude 審查
 
-- [V0.12.2 BOT 工作總覽](CYWEB-BOT-OVERVIEW-0122-20261107.md)：使用者確認後重排總覽／卡片／時間軸，增加完整統計與 BOT 篩選；相關測試及預覽通過，待完整 CI／Claude 審查，未合併部署。
+- [V0.12.2 BOT 工作總覽](CYWEB-BOT-OVERVIEW-0122-20261107.md)：PR #445 已依當次使用者授權合併部署，發布 #42371824288 成功；完整 CI、0056 索引、兩端健康與 HTTPS／排程／portal 檢查通過。待審共用表格每件一列、無展開。Claude 事後複審與正式 BOT 實機驗收仍待辦。
 
 - [V0.12.1 盤點紀錄與 ERP 清除同步歸檔](CYWEB-STOCKTAKE-RECORDS-0121-20261107.md)：只合併部署 WEB，PR #443／發布 #42347693527 成功，migration 0055 及健康驗證通過；Claude 事後複審與實機驗收待辦。CYERPAutoQuery 只留專案需求 handoff，程式變更已撤回、不合併發行；舊 Agent 暫不觸發自動歸檔。
 
