@@ -3,7 +3,7 @@ import type {
   BotCenterState, BotCredentialView, BotDraftView, BotProfileView, BotProgressState, BotReviewStatus,
 } from "../../../shared/bot-center";
 
-export type BotCenterPageCursor = { draftBefore?: number; reportBefore?: number; timelineBefore?: string };
+export type BotCenterPageCursor = { botCode?: string; draftBefore?: number; reportBefore?: number; timelineBefore?: string };
 
 export function loadBotProgress(): Promise<BotProgressState> {
   return apiRequest<BotProgressState>("/api/bot-center/progress");
@@ -14,6 +14,7 @@ export function loadBotCenter(
   cursor: BotCenterPageCursor = {},
 ): Promise<BotCenterState> {
   const params = new URLSearchParams();
+  if (cursor.botCode) params.set("botCode", cursor.botCode);
   if (draftStatus !== "pending") params.set("draftStatus", draftStatus);
   if (cursor.draftBefore != null) params.set("draftBefore", String(cursor.draftBefore));
   if (cursor.reportBefore != null) params.set("reportBefore", String(cursor.reportBefore));

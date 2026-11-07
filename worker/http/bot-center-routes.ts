@@ -147,22 +147,38 @@ async function state(db: D1Database, url: URL, now: string, canManageCredentials
   const timelineBefore = timelineCursor(url.searchParams.get("timelineBefore"));
   const today = taipeiTodayRange(new Date(now));
   const currentProgress = await progress(db, canManageCredentials);
-  const draftRows = await many<DraftRow>(db, `${DRAFT_SQL} WHERE (?='all' OR d.review_status=?) AND (?=0 OR d.id<?) ORDER BY d.id DESC LIMIT ?`,
-    draftStatus, draftStatus, draftBefore, draftBefore, BOT_PAGE_SIZE + 1);
-  const counts = await many<{ review_status: BotReviewStatus; n: number }>(db, "SELECT review_status,count(*) n FROM bot_drafts GROUP BY review_status");
+  const requestedBot = url.searchParams.get("botCode");
+  const requestedCode = requestedBot === null ? null : botCode(requestedBot);
+  const selected = requestedCode === null ? null : currentProgress.bots.find(bot => bot.code === requestedCode);
+  if (requestedBot !== null && !selected) throw new Bad("BOT_NOT_FOUND", "沒有這個 BOT", 404);
+  const scopedArgs = selected ? [selected.id] : [];
+  // Static clauses with bound IDs let the per-BOT indexes serve every page.
+  const draftRows = await many<DraftRow>(db, `${DRAFT_SQL} WHERE (?='all' OR d.review_status=?) AND (?=0 OR d.id<?) ${selected ? "AND d.bot_id=?" : ""} ORDER BY d.id DESC LIMIT ?`,
+    draftStatus, draftStatus, draftBefore, draftBefore, ...scopedArgs, BOT_PAGE_SIZE + 1);
+  const counts = await many<{ bot_id: number; review_status: BotReviewStatus; n: number }>(db,
+    "SELECT bot_id,review_status,count(*) n FROM bot_drafts GROUP BY bot_id,review_status");
+  const completions = await many<{bot_id:number;n:number}>(db,
+    "SELECT bot_id,count(*) n FROM bot_completions WHERE completed_at>=? AND completed_at<? GROUP BY bot_id",today.start,today.end);
   const reportRows = await many<ReportRow>(db, `SELECT r.id,b.code,b.label,r.title,r.body,r.reported_at FROM bot_reports r JOIN bot_profiles b ON b.id=r.bot_id
-    WHERE (?=0 OR r.id<?) ORDER BY r.id DESC LIMIT ?`, reportBefore, reportBefore, BOT_PAGE_SIZE + 1);
+    WHERE (?=0 OR r.id<?) ${selected ? "AND r.bot_id=?" : ""} ORDER BY r.id DESC LIMIT ?`, reportBefore, reportBefore, ...scopedArgs, BOT_PAGE_SIZE + 1);
   const timelineRows = await many<CompletionRow>(db, `SELECT c.id,b.code,b.label,c.title,c.detail,c.completed_at FROM bot_completions c JOIN bot_profiles b ON b.id=c.bot_id
     WHERE c.completed_at>=? AND c.completed_at<? AND (?='' OR c.completed_at<? OR (c.completed_at=? AND c.id<?))
-    ORDER BY c.completed_at DESC,c.id DESC LIMIT ?`,
-    today.start, today.end, timelineBefore?.at ?? "", timelineBefore?.at ?? "", timelineBefore?.at ?? "", timelineBefore?.id ?? 0, BOT_PAGE_SIZE + 1);
+    ${selected ? "AND c.bot_id=?" : ""} ORDER BY c.completed_at DESC,c.id DESC LIMIT ?`,
+    today.start, today.end, timelineBefore?.at ?? "", timelineBefore?.at ?? "", timelineBefore?.at ?? "", timelineBefore?.id ?? 0, ...scopedArgs, BOT_PAGE_SIZE + 1);
   const draftCounts = { pending: 0, approved: 0, rejected: 0 };
-  for (const row of counts) draftCounts[row.review_status] = row.n;
+  const botStats: BotCenterState["botStats"] = {};
+  for (const bot of currentProgress.bots) {
+    const totals = {pending:0,approved:0,rejected:0};
+    for (const row of counts.filter(row=>row.bot_id===bot.id)) totals[row.review_status]=row.n;
+    botStats[bot.code]={todayCompleted:completions.find(row=>row.bot_id===bot.id)?.n??0,draftCounts:totals};
+    if (!selected || selected.id===bot.id) for (const status of BOT_REVIEW_STATUSES) draftCounts[status]+=totals[status];
+  }
   const visibleDrafts = draftRows.slice(0, BOT_PAGE_SIZE);
   const visibleReports = reportRows.slice(0, BOT_PAGE_SIZE);
   const visibleTimeline = timelineRows.slice(0, BOT_PAGE_SIZE);
   return {
     ...currentProgress,
+    botCode: selected?.code ?? null, botStats,
     drafts: visibleDrafts.map(draftView), draftStatus, draftCounts,
     draftsMore: draftRows.length > BOT_PAGE_SIZE,
     draftNextBefore: draftRows.length > BOT_PAGE_SIZE ? visibleDrafts.at(-1)!.id : null,
