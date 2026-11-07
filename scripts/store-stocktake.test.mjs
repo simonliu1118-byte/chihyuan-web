@@ -103,6 +103,167 @@ test("access denied without STOCKTAKE grant; normal user cannot confirm",async()
   assert.equal((await g.user("/ignore","POST",{sheetNo:"999888"})).status,403);
  }finally{g.sql.close()}
 });
+
+async function completeInventory(f,{sheets=[],details=[],listComplete=true,extra={}}={}){
+ const job=await f.user("/sync","POST");assert.equal(job.status,200,JSON.stringify(job));
+ const claim=await f.agent("/item-queries/claim",{agentVersion:"synthetic",erpState:"BROWSE",queryTypes:["STOCKTAKE_SYNC"]});
+ assert.equal(claim.data.job.id,job.data.id);
+ const result=await f.agent("/item-queries/"+job.data.id+"/complete",{
+  outcome:details.length?"FOUND":"NOT_FOUND",sheets,details,listComplete,elapsedMs:20,agentVersion:"synthetic",...extra});
+ return {result,id:job.data.id};
+}
+
+test("complete ERP inventory archives a disappeared sheet atomically and retains people, item summary and exact differences",async()=>{
+ const f=fixture();try{
+  f.insert("990001",[f.row("00001","B1","2"),f.row("00002","B2","3")]);
+  for(const [lineKey,quantity] of [["00001","5"],["00002","3"]]){
+   const save=await f.user("/990001/line","PATCH",{lineKey,expectedVersion:1,quantity});assert.equal(save.status,200,JSON.stringify(save));
+  }
+  f.sql.prepare("UPDATE stocktake_sheets SET first_confirmed_by=1,first_confirmed_at=?,second_confirmed_by=1,second_confirmed_at=?,erp_confirmed_at=? WHERE sheet_no='990001'")
+   .run("2026-10-29T01:00:00Z","2026-10-29T02:00:00Z","2026-10-29T03:00:00Z");
+  f.sql.exec("UPDATE stocktake_lines SET locked=1");
+  const {result,id}=await completeInventory(f);assert.equal(result.status,200,JSON.stringify(result));
+  assert.deepEqual((await f.user("")).data,[]);
+  assert.equal((await f.sheet()).status,404);
+  for(const table of ["stocktake_sheets","stocktake_lines","stocktake_location_counts","stocktake_line_history","stocktake_participants"])
+   assert.equal(f.sql.prepare("SELECT count(*) n FROM "+table).get().n,0,table);
+  const page=await f.user("/records");assert.equal(page.status,200,JSON.stringify(page));
+  assert.equal(page.data.records.length,1);const record=page.data.records[0];
+  assert.equal(record.sheetNo,"990001");assert.equal(record.sheetDate,"2026-10-28");
+  assert.deepEqual(record.items,[{itemCode:"X0001",itemName:"合成品名"}],"one item summary despite two batches");
+  assert.equal(record.firstConfirmedName,"合成盤點員甲");assert.equal(record.erpConfirmedAt,"2026-10-29T03:00:00Z");
+  assert.equal(record.participants[0].name,"合成盤點員甲");assert.ok(record.participants[0].firstCountAt);
+  const diff=await f.user("/records/"+record.id);assert.equal(diff.status,200,JSON.stringify(diff));
+  assert.equal(diff.data.rows.length,1);assert.equal(diff.data.rows[0].bookQty,"2");assert.equal(diff.data.rows[0].actualQty,"5");
+  assert.equal(diff.data.rows[0].difference,"3");assert.deepEqual(diff.data.rows[0].firstPeople,["合成盤點員甲"]);
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM audit_events WHERE entity_type='stocktake_sync' AND entity_key=?").get(id).n,1);
+  assert.deepEqual(f.sql.prepare("PRAGMA foreign_key_check").all(),[]);
+  const retry=await f.agent("/item-queries/"+id+"/complete",{outcome:"NOT_FOUND",sheets:[],details:[],listComplete:true,elapsedMs:20,agentVersion:"synthetic"});
+  assert.equal(retry.status,409);assert.equal(f.sql.prepare("SELECT count(*) n FROM stocktake_records").get().n,1);
+ }finally{f.sql.close()}
+});
+
+test("legacy or incomplete and failed syncs never archive; a complete all-skipped list preserves present sheets",async()=>{
+ const f=fixture();try{
+  f.insert();
+  for(const listComplete of [false,undefined]){
+   const {result}=await completeInventory(f,{extra:{listComplete}});assert.equal(result.status,200,JSON.stringify(result));
+   assert.equal((await f.sheet()).status,200);
+  }
+  const {result}=await completeInventory(f,{extra:{outcome:"FAILED",errorCode:"ERP_STATE",errorMessage:null}});
+  assert.equal(result.status,200);assert.equal((await f.sheet()).status,200);
+  const present=await completeInventory(f,{sheets:[{sheetNo:"990001",date:"2026-10-28"}]});
+  assert.equal(present.result.status,200);assert.equal((await f.sheet()).status,200);
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM stocktake_records").get().n,0);
+ }finally{f.sql.close()}
+});
+
+test("archive rollback preserves the active sheet and sync job when snapshot persistence fails",async()=>{
+ const f=fixture();try{
+  f.insert();f.sql.exec("CREATE TRIGGER synthetic_archive_failure BEFORE INSERT ON stocktake_record_items BEGIN SELECT RAISE(ABORT,'synthetic archive failure'); END");
+  const {result,id}=await completeInventory(f);assert.equal(result.status,500);
+  assert.equal((await f.sheet()).status,200);
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM stocktake_records").get().n,0);
+  assert.equal(f.sql.prepare("SELECT status FROM erp_item_queries WHERE id=?").get(id).status,"RUNNING");
+ }finally{f.sql.close()}
+});
+
+test("archive respects request generations and pending ERP writes, and a reused sheet number gets its own history",async()=>{
+ const f=fixture();try{
+  f.insert();
+  const job=await f.user("/sync","POST");await f.agent("/item-queries/claim",{agentVersion:"synthetic",erpState:"BROWSE",queryTypes:["STOCKTAKE_SYNC"]});
+  f.insert("990002");
+  const done=await f.agent("/item-queries/"+job.data.id+"/complete",{outcome:"NOT_FOUND",sheets:[],details:[],listComplete:true,elapsedMs:20,agentVersion:"synthetic"});
+  assert.equal(done.status,200,JSON.stringify(done));assert.equal((await f.sheet("990002")).status,200);
+  assert.equal((await f.sheet()).status,404);
+  // Re-create the same ERP sheet number with a different generation after it was archived.
+  f.insert();f.sql.exec("UPDATE stocktake_sheets SET created_at='2026-11-01T00:00:00Z' WHERE sheet_no='990001'");
+  const again=await completeInventory(f);assert.equal(again.result.status,200,JSON.stringify(again.result));
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM stocktake_records WHERE sheet_no='990001'").get().n,2);
+ }finally{f.sql.close()}
+ const writing=fixture();try{
+  await prepareWrite(writing);
+  writing.sql.exec("UPDATE erp_item_queries SET status='QUEUED',claim_hash=NULL,started_at=NULL WHERE query_type='STOCKTAKE_WRITE'");
+  const {result}=await completeInventory(writing);assert.equal(result.status,200,JSON.stringify(result));
+  assert.equal((await writing.sheet()).status,200);assert.equal(writing.sql.prepare("SELECT count(*) n FROM stocktake_records").get().n,0);
+ }finally{writing.sql.close()}
+});
+
+test("record reads require module access, have stable date/id pagination, and do not expose raw count history",async()=>{
+ const denied=fixture("USER",false);try{assert.equal((await denied.user("/records")).status,403)}finally{denied.sql.close()}
+ const f=fixture("USER");try{
+  for(let i=1;i<=12;i++)f.insert(String(990000+i));
+  const {result}=await completeInventory(f);assert.equal(result.status,200,JSON.stringify(result));
+  const first=(await f.user("/records")).data;assert.equal(first.records.length,10);assert.ok(first.nextBefore);
+  const last=(await f.user("/records?before="+encodeURIComponent(first.nextBefore))).data;
+  assert.equal(last.records.length,2);assert.equal(last.nextBefore,null);
+  assert.equal(new Set([...first.records,...last.records].map(r=>r.id)).size,12);
+  assert.equal(first.records[0].sheetNo,"990012");
+  assert.equal(JSON.stringify(first).includes("bookQty"),false,"list reads items/participants, differences are lazy");
+  assert.equal((await f.user("/records?before=invalid")).status,422);
+  assert.equal((await f.user("/records/999999")).status,404);
+  assert.equal((await f.user("/records/"+first.records[0].id+"?before=bad%7Ccursor")).status,422);
+ }finally{f.sql.close()}
+});
+
+test("multi-location archive sums each ERP batch once, preserves fractional/negative differences and leaves incomplete recount unknown",async()=>{
+ const f=fixture();try{
+  f.insert("990001",[{...f.row("00001","B1","1.0001"),location:"1324;1325"},f.row("00002","B2","2")]);
+  f.sql.exec("UPDATE stocktake_location_counts SET first_qty='0.25',first_by=1,first_at='2026-10-29T01:00:00Z' WHERE source_line_key='00001'");
+  f.sql.exec("UPDATE stocktake_location_counts SET first_qty='2',first_by=1,first_at='2026-10-29T01:00:00Z' WHERE source_line_key='00002'");
+  f.sql.exec("UPDATE stocktake_sheets SET first_confirmed_at='2026-10-29T02:00:00Z'; UPDATE stocktake_lines SET locked=1 WHERE line_key='00001'");
+  const {result}=await completeInventory(f);assert.equal(result.status,200,JSON.stringify(result));
+  const record=(await f.user("/records")).data.records[0];
+  const rows=(await f.user("/records/"+record.id)).data.rows;
+  assert.equal(rows[0].firstQty,"0.5");assert.equal(rows[0].bookQty,"1.0001");assert.equal(rows[0].difference,"-0.5001");
+  assert.equal(rows[1].firstQty,"2");assert.equal(rows[1].actualQty,null);assert.equal(rows[1].difference,null);
+ }finally{f.sql.close()}
+});
+
+test("single-sheet refresh cannot archive other sheets and archive data survives portable backup/restore",async()=>{
+ const f=fixture(),target=fixture();try{
+  f.insert();f.insert("990002");
+  const job=await f.user("/990001/refresh","POST");assert.equal(job.status,200);
+  await f.agent("/item-queries/claim",{agentVersion:"synthetic",erpState:"BROWSE",queryTypes:["STOCKTAKE_SYNC"]});
+  const done=await f.agent("/item-queries/"+job.data.id+"/complete",{outcome:"FOUND",listComplete:true,sheets:[{sheetNo:"990001",date:"2026-10-28"}],
+   details:[{sheetNo:"990001",rows:[f.row("00001","B1","2")]}],elapsedMs:20,agentVersion:"synthetic"});
+  assert.equal(done.status,200,JSON.stringify(done));assert.equal((await f.sheet("990002")).status,200);
+  await completeInventory(f);
+  const backup=await build({entryPoints:["worker/backup/portable-backup.ts"],bundle:true,write:false,platform:"node",format:"esm"});
+  const {exportPortableBackup,restoreIntoEmptyDatabase}=await import("data:text/javascript;base64,"+Buffer.from(backup.outputFiles[0].text).toString("base64"));
+  const bundle=await exportPortableBackup(f.db,{workspaceScope:"synthetic",appVersion:"0.12.1"});
+  // Restore targets must be empty; fixture's member/grant/credential rows are synthetic seeds.
+  target.sql.exec("DELETE FROM app_member_module_access; DELETE FROM app_members; DELETE FROM erp_item_agent_credentials");
+  await restoreIntoEmptyDatabase(target.db,bundle,"synthetic");
+  for(const table of ["stocktake_records","stocktake_record_items","stocktake_record_participants","stocktake_record_differences"])
+   assert.deepEqual(target.sql.prepare("SELECT * FROM "+table+" ORDER BY 1,2").all(),f.sql.prepare("SELECT * FROM "+table+" ORDER BY 1,2").all());
+  assert.deepEqual(target.sql.prepare("PRAGMA foreign_key_check").all(),[]);
+ }finally{f.sql.close();target.sql.close()}
+});
+
+test("archive totals above JSON safe integers remain exact, and lazy difference pages can reach every row",async()=>{
+ const f=fixture();try{
+  f.insert("990001",[f.row("00001","B1","1")]);
+  f.sql.exec("DELETE FROM stocktake_location_counts; WITH RECURSIVE n(i) AS (SELECT 1000 UNION ALL SELECT i+1 FROM n WHERE i<2000) INSERT INTO stocktake_location_counts(sheet_no,source_line_key,warehouse_name,location_code,erp_location_code,first_qty,first_by,first_at) SELECT '990001','00001','倉甲',printf('%04d',i),'1324','999999999.9999',1,'2026-10-29T01:00:00Z' FROM n");
+  const {result}=await completeInventory(f);assert.equal(result.status,200,JSON.stringify(result));
+  const stored=f.sql.prepare("SELECT first_units,difference_units FROM stocktake_record_differences").get();
+  const expected=9999999999999n*1001n;
+  assert.equal(stored.first_units,String(expected));assert.equal(stored.difference_units,String(expected-10000n));
+  const record=(await f.user("/records")).data.records[0];
+  assert.equal((await f.user("/records/"+record.id)).data.rows[0].actualQty,"1000999999999.8999");
+ }finally{f.sql.close()}
+ const pages=fixture();try{
+  pages.insert("990001",Array.from({length:105},(_,i)=>pages.row(String(i+1).padStart(5,"0"),"B"+i,"1")));
+  pages.sql.exec("UPDATE stocktake_location_counts SET first_qty='0',first_by=1,first_at='2026-10-29T01:00:00Z'");
+  await completeInventory(pages);
+  const record=(await pages.user("/records")).data.records[0];
+  const first=(await pages.user("/records/"+record.id)).data;
+  assert.equal(first.rows.length,100);assert.equal(first.nextBefore,"00100");
+  const second=(await pages.user("/records/"+record.id+"?before="+first.nextBefore)).data;
+  assert.equal(second.rows.length,5);assert.equal(second.nextBefore,null);
+  assert.equal(new Set([...first.rows,...second.rows].map(r=>r.lineKey)).size,105);
+ }finally{pages.sql.close()}
+});
 test("blind COUNTING API has no bookQty, audit does not include per-line changes, conflict is per row",async()=>{
  const f=fixture();try{
   f.insert();

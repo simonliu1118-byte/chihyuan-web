@@ -775,3 +775,7 @@ Since V0.9.81 a portable backup records the source database's last migration and
 ## 0054 BOT 管理中心
 
 `app_member_module_access.module_code` 增加 `BOT_CENTER`，既有授權原列搬回。新增 `bot_profiles`、`bot_drafts`、`bot_reports`、`bot_completions`（納入可攜備份）與 `bot_ingest_credentials`（只存憑證雜湊，不進備份）。審核只更新 `bot_drafts` 的狀態、理由、審核人與時間。完整欄位以 `migrations/0054_bot_center.sql` 為準，語意見 [BOT_CENTER.md](BOT_CENTER.md)。
+
+## 0055 盤點紀錄
+
+`stocktake_records` 保留 ERP 已清除底稿的單號、日期、原代次、來源狀態、歸檔同步 ID、確認者／時間及 ERP 完成時間；`stocktake_record_items` 每個品號一筆名稱摘要；`stocktake_record_participants` 保留參與者名稱快照及初盤／複盤時間；`stocktake_record_differences` 只保存差異／未完成列及填寫人，精確萬分位合計存 TEXT。四表納入 portable backup。完整欄位／FK 以 `migrations/0055_stocktake_records.sql` 為準；歸檔條件、清除邊界及 API 見 [盤點契約](STORE_STOCKTAKE.md#erp-已清除的盤點單與過去盤點紀錄v0121)。

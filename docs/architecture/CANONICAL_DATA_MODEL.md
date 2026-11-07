@@ -724,3 +724,7 @@ D1 migration `0017_hr_phase1.sql` 新增 `hr_employees`、`hr_emergency_contacts
 ## BOT 管理中心（0054）
 
 `bot_profiles` 保存 BOT 身份與目前進度；`bot_drafts` 保存待審稿與審核結果；`bot_reports` 保存回報；`bot_completions` 保存完成項目。`bot_ingest_credentials` 只存連線憑證雜湊，不進可攜備份。通過或退回只寫審稿結果。詳見 [BOT_CENTER.md](BOT_CENTER.md)，forward schema 以 0054 為準。
+
+## 0055 盤點紀錄
+
+`stocktake_records` 保留 ERP 已清除底稿的單號、日期、原代次、來源狀態、歸檔同步 ID、確認者／時間及 ERP 完成時間；`stocktake_record_items` 每個品號一筆名稱摘要；`stocktake_record_participants` 保留參與者名稱快照及初盤／複盤時間；`stocktake_record_differences` 只保存差異／未完成列及填寫人，精確萬分位合計存 TEXT。四表納入 portable backup。完整欄位／FK 以 `migrations/0055_stocktake_records.sql` 為準；歸檔條件、清除邊界及 API 見 [盤點契約](STORE_STOCKTAKE.md#erp-已清除的盤點單與過去盤點紀錄v0121)。

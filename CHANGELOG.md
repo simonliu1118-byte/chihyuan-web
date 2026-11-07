@@ -6,6 +6,13 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.12.1 — 盤點紀錄與 ERP 清除同步歸檔（2026-11-07，待審查／未部署）
+
+- 新增「盤點紀錄」共用表格視窗，日期／單號／初盤與複盤人員占 30%，盤點內容 70% 顯示品號品名並折行；展開區沿用門市訂購的紀錄串呈現確認及歸檔事件，移除品項差異明細表，展開不另讀資料。
+- 完整同步成功且新版 Agent 明確回報 listComplete=true，才將本次請求已知、ERP 已消失的同代底稿轉入紀錄；保存摘要與差異後才清除作業明細及逐列修改紀錄。同一 D1 batch，失敗整批回滾。
+- 0055 新增四張紀錄表，納入備份；多人／多儲位數量用精確萬分位，未完成複盤不冒充最終數量。單號重用可保留多次歷史，寫回中不歸檔，單張刷新不影響其他底稿。
+- 使用者授權只合併部署 WEB；CYERPAutoQuery 程式變更已撤回，只在該專案留需求 handoff 交 Claude。配套須驗證 F2 完整清單及明確 0/0，版本由 Claude 決定；舊 Agent 可同步但不觸發歸檔。WEB 程式完整 CI 通過，待本輪受控發布，Claude 事後複審仍待辦，見 [handoff](docs/handoff/CYWEB-STOCKTAKE-RECORDS-0121-20261107.md)。
+
 ## CY Web V0.12.0 Build 1 — BOT 管理中心（2026-11-07，GPT）
 
 - 文件現況同步（2026-11-07）：README 改指向 TODO 的唯一正式版本／部署證據，移除 V0.9.93／migration 0045 過時快照；補齊 BOT／盤點等已部署功能的現況、待 Claude 複審與實機驗收。WO-0.9.94 兩段既有審查已完成，交接移至固定 Git 快照；WO-0.10.24 同步為已部署、待事後複審。只改文件，不升版、不重新部署，詳見 [handoff](docs/handoff/CYWEB-DOCS-CURRENT-0120-20261107.md)。

@@ -1243,5 +1243,9 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
   "bot_completions": ["bot_id", "completed_at", "detail", "id", "title"],
   "bot_drafts": ["body", "bot_id", "created_at", "external_ref", "id", "review_reason", "review_status", "reviewed_at", "reviewed_by", "title"],
   "bot_profiles": ["code", "id", "label", "status", "summary", "updated_at"],
-  "bot_reports": ["body", "bot_id", "id", "reported_at", "title"]
+  "bot_reports": ["body", "bot_id", "id", "reported_at", "title"],
+  "stocktake_records": ["archived_at","erp_confirmed_at","first_confirmed_at","first_confirmed_by","first_confirmed_name","id","second_confirmed_at","second_confirmed_by","second_confirmed_name","sheet_date","sheet_no","source_created_at","source_status","sync_job_id"],
+  "stocktake_record_items": ["item_code","item_name","record_id"],
+  "stocktake_record_participants": ["display_name","first_at","first_count_at","last_at","member_id","record_id","recount_at"],
+  "stocktake_record_differences": ["actual_units","batch","book_units","difference_units","first_people_json","first_units","item_code","item_name","line_key","record_id","recount_people_json","recount_units"]
 };
