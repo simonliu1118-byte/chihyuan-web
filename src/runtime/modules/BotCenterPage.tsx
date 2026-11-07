@@ -175,38 +175,65 @@ export function BotCenterPage(){
    <article className="cy-op-panel cy-bot-work-card"><h3>待核准</h3><div className="cy-bot-work-count"><strong>{state.workSummary.pending.count}</strong> 件</div>
     <p>{state.workSummary.pending.latest?.title??"尚無待審事項"}</p></article>
   </section>
-   <section className="cy-op-panel" aria-label="今日完成時間軸">
-    <div className="cy-op-panel-header"><h2>今日完成時間軸</h2><span className="cy-bot-scope">{scope}</span></div>
-    {state.timeline.length?<ol className="cy-bot-timeline">{state.timeline.map(item=><li key={item.id}>
-     <time dateTime={item.completedAt}>{formatDateTime(item.completedAt).slice(11)}</time><span className="cy-bot-timeline-bot">{item.botLabel}</span>
-     <strong>{item.title}</strong>{item.detail?<span className="cy-bot-timeline-detail">{item.detail}</span>:null}
-    </li>)}</ol>:<p className="cy-bot-empty">今天還沒有完成項目</p>}
-    {state.timelineMore?<div className="cy-bot-more"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void loadMore("timeline")}>載入更多今日完成項目</button></div>:null}
+      <section className="cy-op-panel cy-bot-list" aria-label="BOT 列表">
+    <div className="cy-op-panel-header"><h2>BOT 列表</h2><button type="button" className="cy-op-button compact primary" disabled={busy} onClick={()=>setAddOpen(true)}>新增 BOT</button></div>
+    <div className="cy-op-table-wrap"><table className="cy-op-table cy-bot-list-table">
+     <thead><tr><th>代碼</th><th>名稱</th><th className="is-center">狀態</th><th>當日摘要</th><th className="is-center">推播設定</th><th className="is-center">操作</th></tr></thead>
+     <tbody>{state.bots.map(bot=>{
+      const setting=state.pushSettings.find(item=>item.botCode===bot.code),configured=!!setting?.configured,enabled=!!setting?.enabled;
+      return <tr key={bot.id}><td>{bot.code}</td><td>{bot.label}</td>
+       <td className="is-center"><StatusChip tone={STATUS_TONE[bot.status]}>{BOT_STATUS_LABELS[bot.status]}</StatusChip></td>
+       <td className="cy-bot-list-summary">{bot.summary&&taipeiTodayRange(new Date(bot.updatedAt)).day===state.timelineDate?bot.summary:"今日尚無回報"}</td>
+       <td className="is-center"><StatusChip tone={enabled?"success":"neutral"}>
+        {!state.pushReady?"服務未啟用":enabled?"已啟用":configured?"已停用":"未設定"}</StatusChip></td>
+       <td><div className="cy-bot-actions cy-bot-list-actions">{state.canManageCredentials?<>
+        <button type="button" className={"cy-op-button compact"+(enabled?" danger":"")} disabled={busy||!state.pushReady||!configured}
+         title={!state.pushReady?"推播服務尚未啟用":!configured?"請先完成推播設定":undefined}
+         onClick={()=>void togglePush(bot.code)}>{enabled?"停用":"啟用"}</button>
+        <button type="button" className="cy-op-button compact" disabled={busy||!state.pushReady} onClick={()=>setPushCode(bot.code)}>推播設定</button>
+       </>:<span>—</span>}</div></td>
+      </tr>;
+     })}</tbody>
+    </table></div>
    </section>
-  <section className="cy-bot-cards" aria-label="BOT 當日摘要">
-   {state.bots.map(bot=><article key={bot.id} className="cy-op-panel cy-bot-card" aria-label={bot.label+"當日摘要"}>
-    <div className="cy-bot-card-heading"><h3>{bot.label}</h3><StatusChip tone={STATUS_TONE[bot.status]}>{BOT_STATUS_LABELS[bot.status]}</StatusChip></div>
-    <p className="cy-bot-summary">{bot.summary&&taipeiTodayRange(new Date(bot.updatedAt)).day===state.timelineDate?bot.summary:"今日尚無回報"}</p>
-   </article>)}
-  </section>
-  {reportsOpen?<Dialog open title="BOT 回報紀錄" size="large" dismissible={false} showCloseButton={false} onClose={()=>setReportsOpen(false)} footer={<button type="button" className="cy-op-button" onClick={()=>setReportsOpen(false)}>關閉</button>}>
+   {timelineOpen?<Dialog open title="今日完成時間軸－全部" size="large" dismissible={false} showCloseButton={false}
+    onClose={()=>setTimelineOpen(false)} footer={<button type="button" className="cy-op-button" onClick={()=>setTimelineOpen(false)}>關閉</button>}>
+    {state.timeline.length?<TimelineList items={state.timeline}/>:<p className="cy-bot-empty">今天還沒有完成項目</p>}
+    {state.timelineMore?<div className="cy-bot-more"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void loadMore("timeline")}>載入更多今日完成項目</button></div>:null}
+   </Dialog>:null}
+{reportsOpen?<Dialog open title="BOT 回報紀錄" size="large" dismissible={false} showCloseButton={false} onClose={()=>setReportsOpen(false)} footer={<button type="button" className="cy-op-button" onClick={()=>setReportsOpen(false)}>關閉</button>}>
    <ul className="cy-bot-report-list">{state.reports.map(report=><li key={report.id}><div className="cy-bot-item-meta"><time dateTime={report.reportedAt}>{formatDateTime(report.reportedAt)}</time><span>{report.botLabel}</span></div>
     <div className="cy-bot-review-title"><ExpandToggle expanded={openReport===report.id} label={report.title} onToggle={()=>setOpenReport(openReport===report.id?null:report.id)}/><strong>{report.title}</strong></div>{openReport===report.id?<p className="cy-bot-text">{report.body}</p>:null}</li>)}</ul>
    {!state.reports.length?<p className="cy-bot-empty">尚無回報</p>:null}{state.reportsMore?<div className="cy-bot-more"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void loadMore("reports")}>載入更多回報</button></div>:null}
   </Dialog>:null}
-  {settingsOpen?<Dialog open title="BOT 設定" size="medium" dismissible={false} showCloseButton={false} onClose={()=>setSettingsOpen(false)} footer={<button type="button" className="cy-op-button" disabled={busy} onClick={()=>setSettingsOpen(false)}>關閉</button>}>
-   <div className="cy-bot-settings"><section><h3>連線憑證</h3><div className="cy-op-table-wrap"><table className="cy-op-table cy-bot-credential-table">
-    <thead><tr><th>BOT</th><th>連線狀態</th><th>產生時間</th><th className="is-center">推播</th><th className="is-center">操作</th></tr></thead>
-    <tbody>{state.credentials.map(item=><tr key={item.botCode}><td>{item.botLabel}</td><td><StatusChip tone={item.configured?"success":"neutral"}>{item.configured?"已設定":item.revokedAt?"已撤銷":"未設定"}</StatusChip></td>
-     <td>{item.createdAt?formatDateTime(item.createdAt):""}</td><td className="is-center">{!state.pushReady?'未啟用':state.pushSettings.find(s=>s.botCode===item.botCode)?.enabled?'已啟用':state.pushSettings.find(s=>s.botCode===item.botCode)?.configured?'已停用':'未設定'}</td><td>{state.canManageCredentials?<div className="cy-bot-actions"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void issue(item.botCode)}>{item.configured?"輪換":"產生"}</button>
-      {item.configured?<button type="button" className="cy-op-button compact danger" disabled={busy} onClick={()=>void revoke(item.botCode)}>撤銷</button>:null}<button type="button" className="cy-op-button compact" disabled={busy||!state.pushReady} title={state.pushReady?'':'推播服務尚未啟用'} onClick={()=>setPushCode(item.botCode)}>推播設定</button></div>:null}</td></tr>)}</tbody>
-   </table></div></section>
-    <form onKeyDown={enterAdvancesFields} onSubmit={event=>void addBot(event)}><h3>新增 BOT</h3><FormSection>
-     <Field label="代碼" size="s" required><input className="cy-op-input" required maxLength={BOT_LIMITS.code} value={code} onChange={event=>setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9_]/g,"").slice(0,BOT_LIMITS.code))}/></Field>
-     <Field label="名稱" size="m" required><input className="cy-op-input" required maxLength={BOT_LIMITS.label} value={label} onChange={event=>setLabel(event.target.value)}/></Field>
-    </FormSection><div className="cy-op-form-footer"><button type="submit" className="cy-op-button primary" disabled={busy}>新增</button></div></form></div>
-  </Dialog>:null}
-  {pushCode?<BotPushSettingsDialog label={state.bots.find(bot=>bot.code===pushCode)?.label??pushCode} configured={state.pushSettings.find(item=>item.botCode===pushCode)?.configured??false} enabled={state.pushSettings.find(item=>item.botCode===pushCode)?.enabled??false}
+     {settingsOpen?<Dialog open title="BOT 設定" size="large" dismissible={false} showCloseButton={false} onClose={()=>setSettingsOpen(false)}
+    footer={<button type="button" className="cy-op-button" disabled={busy} onClick={()=>setSettingsOpen(false)}>關閉</button>}>
+    <div className="cy-bot-settings"><h3>連線憑證</h3><div className="cy-op-table-wrap"><table className="cy-op-table cy-bot-credential-table">
+     <thead><tr><th>BOT</th><th>連線狀態</th><th>產生時間</th><th className="is-center">憑證操作</th></tr></thead>
+     <tbody>{state.credentials.map(item=><tr key={item.botCode}><td>{item.botLabel}</td>
+      <td><StatusChip tone={item.configured?"success":"neutral"}>{item.configured?"已設定":item.revokedAt?"已撤銷":"未設定"}</StatusChip></td>
+      <td>{item.createdAt?formatDateTime(item.createdAt):""}</td>
+      <td>{state.canManageCredentials?<div className="cy-bot-actions">
+       <button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void issue(item.botCode)}>{item.configured?"輪換":"產生"}</button>
+       {item.configured?<button type="button" className="cy-op-button compact danger" disabled={busy} onClick={()=>void revoke(item.botCode)}>撤銷</button>:null}
+      </div>:null}</td></tr>)}</tbody>
+    </table></div></div>
+   </Dialog>:null}
+   {addOpen?<Dialog open title="新增 BOT" size="medium" dismissible={false} showCloseButton={false} onClose={()=>{if(!busy)setAddOpen(false)}}
+    footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={()=>setAddOpen(false)}>取消</button>
+     <button type="submit" form="cy-bot-add-form" className="cy-op-button primary" disabled={busy}>新增</button></div>}>
+    <form id="cy-bot-add-form" onKeyDown={enterAdvancesFields} onSubmit={event=>void addBot(event)}>
+     <EntryTable label="新增 BOT" className="cy-bot-form-table"><colgroup><col style={{width:"8em"}}/><col/></colgroup>
+      <tbody><tr><th scope="row"><EntryHeading required>代碼</EntryHeading></th>
+       <td><Field label="代碼" required presentation="cell"><input className="cy-ordering-cell" maxLength={BOT_LIMITS.code} value={code}
+        onChange={event=>setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9_]/g,"").slice(0,BOT_LIMITS.code))}/></Field></td></tr>
+       <tr><th scope="row"><EntryHeading required>名稱</EntryHeading></th>
+       <td><Field label="名稱" required presentation="cell"><input className="cy-ordering-cell" maxLength={BOT_LIMITS.label} value={label}
+        onChange={event=>setLabel(event.target.value)}/></Field></td></tr></tbody>
+     </EntryTable>
+    </form>
+   </Dialog>:null}
+{pushCode?<BotPushSettingsDialog label={state.bots.find(bot=>bot.code===pushCode)?.label??pushCode} configured={state.pushSettings.find(item=>item.botCode===pushCode)?.configured??false} enabled={state.pushSettings.find(item=>item.botCode===pushCode)?.enabled??false}
    onClose={()=>setPushCode(null)} onSave={async value=>{await saveBotPush(pushCode,value);await refresh(draftStatus);setPushCode(null);setMessage('已儲存推播設定')}}/>:null}
   {token?<Dialog open size="small" title={tokenOwner+"連線憑證（只顯示這一次）"} dismissible={false} showCloseButton={false} onClose={()=>setToken(null)} footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" onClick={()=>void navigator.clipboard?.writeText(token)}>複製</button><button type="button" className="cy-op-button primary" onClick={()=>setToken(null)}>關閉</button></div>}>
    <FormSection><Field label="憑證" size="l"><input className="cy-op-input" readOnly value={token}/></Field></FormSection>
