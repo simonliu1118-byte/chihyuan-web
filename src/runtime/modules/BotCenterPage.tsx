@@ -23,7 +23,7 @@ const weekday=new Intl.DateTimeFormat("zh-TW",{timeZone:"Asia/Taipei",weekday:"l
 export function BotCenterPage(){
  const [state,setState]=useState<BotCenterState|null>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
  const [settingsOpen,setSettingsOpen]=useState(false),[reportsOpen,setReportsOpen]=useState(false);
- const [openDraft,setOpenDraft]=useState<number|null>(null),[openReport,setOpenReport]=useState<number|null>(null);
+ const [openReport,setOpenReport]=useState<number|null>(null);
  const [openCompletion,setOpenCompletion]=useState<number|null>(null),[openSummary,setOpenSummary]=useState<number|null>(null);
  const [code,setCode]=useState(""),[label,setLabel]=useState(""),[token,setToken]=useState<string|null>(null);
  const [updatedAt,setUpdatedAt]=useState<string|null>(null);
@@ -36,7 +36,7 @@ export function BotCenterPage(){
   const serial=++sequence.current;
   const next=await loadBotCenter(status,{botCode:selected??undefined});
   if(serial!==sequence.current)return;
-  setState(next);setUpdatedAt(new Date().toISOString());setOpenDraft(null);setOpenReport(null);setOpenCompletion(null);
+  setState(next);setUpdatedAt(new Date().toISOString());setOpenReport(null);setOpenCompletion(null);
  },[]);
  useEffect(()=>{let active=true;void refresh("pending",null).catch(e=>{if(active)reportError(messageOf(e))}).finally(()=>{if(active)setLoading(false)});
   return()=>{active=false;sequence.current++};},[refresh,reportError]);
@@ -116,12 +116,17 @@ export function BotCenterPage(){
    <section ref={reviewSection} className="cy-op-panel cy-bot-review" aria-label="審稿清單">
     <div className="cy-op-panel-header"><h2>{draftStatus==="pending"?"待我審核":"審稿紀錄"}</h2><span className="cy-bot-scope">{scope}</span></div>
     <StatusFilter label="審稿狀態" value={draftStatus==="all"?"":draftStatus} counts={state.draftCounts} options={(["pending","approved","rejected"] as const).map(status=>({code:status,label:BOT_REVIEW_LABELS[status],tone:REVIEW_TONE[status]}))} onChange={status=>{if(!busy)void filter(botCode,(status||"all") as BotReviewStatus|"all")}}/>
-    {state.drafts.length?<ul className="cy-bot-review-list">{state.drafts.map(draft=><li key={draft.id}>
-     <div className="cy-bot-item-meta"><span>{draft.botLabel}</span><time dateTime={draft.createdAt}>{formatDateTime(draft.createdAt)}</time><StatusChip tone={REVIEW_TONE[draft.status]}>{BOT_REVIEW_LABELS[draft.status]}</StatusChip></div>
-     <div className="cy-bot-review-title"><ExpandToggle expanded={openDraft===draft.id} label={draft.title} onToggle={()=>setOpenDraft(openDraft===draft.id?null:draft.id)}/><strong>{draft.title}</strong></div>
-     {openDraft===draft.id?<div className="cy-bot-review-body"><p className="cy-bot-text">{draft.body}</p>{draft.reason?<p>理由：{draft.reason}</p>:null}{draft.reviewer?<p>審核：{draft.reviewer.displayName||draft.reviewer.employeeNo||"使用者"} {formatDateTime(draft.reviewedAt)}</p>:null}</div>:null}
-     {draft.status==="pending"?<div className="cy-bot-actions"><button type="button" className="cy-op-button compact primary" disabled={busy} onClick={()=>void decide(draft.id,"approved")}>通過</button><button type="button" className="cy-op-button compact danger" disabled={busy} onClick={()=>void decide(draft.id,"rejected")}>退回</button></div>:null}
-    </li>)}</ul>:<p className="cy-bot-empty">尚無{draftStatus==="pending"?"待審稿件":"審稿紀錄"}</p>}
+    <div className="cy-op-table-wrap"><table className="cy-op-table cy-bot-review-table" aria-label="審稿清單">
+     <colgroup><col style={{width:"10em"}}/><col style={{width:"7em"}}/><col style={{width:"21%"}}/><col/><col style={{width:"5em"}}/>{draftStatus!=="pending"?<col style={{width:"14em"}}/>:null}<col style={{width:"9em"}}/></colgroup>
+     <thead><tr><th>送審時間</th><th>BOT</th><th>事項</th><th>內容</th><th className="is-center">狀態</th>{draftStatus!=="pending"?<th>審核資訊</th>:null}<th className="is-center">操作</th></tr></thead>
+     <tbody>{state.drafts.length?state.drafts.map(draft=>{
+      const reviewInfo=[draft.reason?"理由："+draft.reason:"",draft.reviewer?(draft.reviewer.displayName||draft.reviewer.employeeNo||"使用者")+" "+formatDateTime(draft.reviewedAt):""].filter(Boolean).join("；");
+      return <tr key={draft.id}><td><time dateTime={draft.createdAt}>{formatDateTime(draft.createdAt)}</time></td><td title={draft.botLabel}>{draft.botLabel}</td>
+       <td title={draft.title}>{draft.title}</td><td title={draft.body}>{draft.body}</td><td className="is-center"><StatusChip tone={REVIEW_TONE[draft.status]}>{BOT_REVIEW_LABELS[draft.status]}</StatusChip></td>
+       {draftStatus!=="pending"?<td title={reviewInfo}>{reviewInfo}</td>:null}<td>{draft.status==="pending"?<div className="cy-bot-actions"><button type="button" className="cy-op-button compact primary" disabled={busy} onClick={()=>void decide(draft.id,"approved")}>通過</button><button type="button" className="cy-op-button compact danger" disabled={busy} onClick={()=>void decide(draft.id,"rejected")}>退回</button></div>:null}</td>
+      </tr>;
+     }):<tr><td colSpan={draftStatus==="pending"?6:7}>尚無{draftStatus==="pending"?"待審稿件":"審稿紀錄"}</td></tr>}</tbody>
+    </table></div>
     {state.draftsMore?<div className="cy-bot-more"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void loadMore("drafts")}>載入更多審稿</button></div>:null}
    </section>
   <section className="cy-bot-cards" aria-label="BOT 工作卡片">

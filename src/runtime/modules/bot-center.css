@@ -32,18 +32,17 @@
 .cy-bot-timeline-title,.cy-bot-review-title{display:flex;align-items:baseline;gap:3px;overflow-wrap:anywhere}
 .cy-bot-timeline-title>strong,.cy-bot-review-title>strong{min-width:0}
 .cy-bot-timeline-title>button,.cy-bot-review-title>button{flex-shrink:0}
-.cy-bot-review-list,.cy-bot-report-list{list-style:none;padding:0;margin:8px 0 0}
-.cy-bot-review-list>li,.cy-bot-report-list>li{padding:10px 0;border-bottom:1px solid var(--cy-border)}
-.cy-bot-review-list>li:first-child,.cy-bot-report-list>li:first-child{padding-top:0}
-.cy-bot-review-list>li:last-child,.cy-bot-report-list>li:last-child{border:0;padding-bottom:0}
+.cy-bot-report-list{list-style:none;padding:0;margin:8px 0 0}
+.cy-bot-report-list>li{padding:10px 0;border-bottom:1px solid var(--cy-border)}
+.cy-bot-report-list>li:first-child{padding-top:0}
+.cy-bot-report-list>li:last-child{border:0;padding-bottom:0}
 .cy-bot-item-meta{justify-content:flex-start;gap:6px 10px;margin-bottom:4px}
-.cy-bot-review-list>li{display:grid;grid-template-columns:minmax(160px,220px) minmax(0,1fr) auto;align-items:center;gap:4px 12px}
-.cy-bot-review-list .cy-bot-item-meta{margin-bottom:0}
-.cy-bot-review-list .cy-bot-review-body{grid-column:1/-1;grid-row:2}
-.cy-bot-review-list .cy-bot-actions{grid-column:3;grid-row:1;justify-content:flex-end}
+.cy-bot-center .cy-bot-review-table{table-layout:fixed;min-width:900px;margin-top:8px}
+.cy-bot-center .cy-bot-review-table th,.cy-bot-center .cy-bot-review-table td{padding:4px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.cy-bot-review-table .is-center{text-align:center}
+.cy-bot-review-table .cy-bot-actions{justify-content:center;flex-wrap:nowrap}
+.cy-bot-center .cy-bot-review-table .cy-op-button{padding:2px 7px;min-height:24px}
 .cy-bot-text{white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0;line-height:1.5}
-.cy-bot-review-body{margin:6px 0;font-size:var(--cy-fs-sm)}
-.cy-bot-review-body>p{overflow-wrap:anywhere}
 .cy-bot-empty{margin:12px 0;color:var(--cy-text-muted)}
 .cy-bot-more{display:flex;justify-content:center;padding-top:10px}
 .cy-bot-settings{display:grid;gap:16px}
@@ -57,9 +56,4 @@
  .cy-bot-updated{margin-left:0;flex-basis:100%}
  .cy-bot-card-footer .cy-op-button{min-height:34px}
  .cy-bot-center .cy-status-filter{gap:5px}
- .cy-bot-review-list>li{grid-template-columns:minmax(0,1fr) auto}
- .cy-bot-review-list .cy-bot-item-meta{grid-column:1/-1;grid-row:1}
- .cy-bot-review-list .cy-bot-review-title{grid-column:1;grid-row:2}
- .cy-bot-review-list .cy-bot-actions{grid-column:2;grid-row:2}
- .cy-bot-review-list .cy-bot-review-body{grid-row:3}
 }

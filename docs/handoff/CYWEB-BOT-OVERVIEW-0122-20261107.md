@@ -38,3 +38,10 @@
 - `BotCenterPage.tsx` 移動既有 section 並移除原雙欄 workspace 容器；`bot-center.css` 移除不用的 workspace 規則，待審每筆桌機改為來源／時間／狀態、標題、操作三欄，詳情展開占下一列；手機將來源放上行，標題與按鈕並排，詳情獨立下一行。
 - BOT 架構、共用元件目錄及 CHANGELOG 同步；後端、統計、權限、輪詢、schema 及版本皆不變，同一未發布 V0.12.2 PR #445。
 - 本輪 `npm run build`（含前後端 TypeScript）成功。真實 React 元件合成預覽確認桌機的區塊順序與全寬卡片、待審展開、手機按鈕與全文；手機 content/client=375/375 無水平溢出，viewport 已還原。僅 UI 重排，不新增鏡像實作的測試；完整 CI 由 PR 重新執行。未合併部署、Claude 審查仍待辦。
+
+## 2026-11-07 版面返修：待我審核改為單列表格
+
+- 使用者要求共用表格清單，每件一列、不要再展開。`BotCenterPage.tsx` 改用 `cy-op-table`／table wrap，欄位為送審時間、BOT、事項、內容、狀態、操作；非待審篩選同列增加審核資訊，保留理由／人員／時間。移除 `openDraft` 狀態、ExpandToggle 及條件明細區，沒有第二個明細 tr。
+- `bot-center.css` 移除舊待審 list／grid／展開樣式。表格文字單行省略、保留 title 原文，通過／退回同列且不折行，列 padding 4px、按鈕 min-height 24px；手機只在表格容器內捲動，不撐寬頁面。時間軸及 BOT 工作卡片位置不變。
+- BOT 架構、共用元件目錄與 CHANGELOG 同步；後端、schema、統計、權限及輪詢沒有變更，同一未發布 PR #445、VERSION=0.12.2／BUILD=0。
+- 本輪 `npm run build`（含前後端型別）通過；真實元件合成預覽確認待審每件一個 tr、沒有待審展開控制、同列通過後計數 4→3、已審篩選同列顯示理由／審核員及時間。手機 content/client=375/375，viewport 已還原。截圖只保存在 ignored `.tmp/`，沒有正式資料。完整 CI 由本輪 PR 執行，未合併部署、Claude 審查仍待辦。
