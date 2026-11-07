@@ -55,8 +55,8 @@
 - 歸檔在同步 complete 的同一 D1 batch：先保存單號／盤點日期、參與者與初盤／複盤人員、兩次確認者及時間、ERP 確認完成時間、品號＋品名去重摘要、差異及未完成列；成功後才刪 `stocktake_sheets`。FK cascade 清除作業明細、儲位盤點格、逐列修改紀錄及舊參與表；原共用 Audit 不刪除。任何快照寫入失敗整批回滾。
 - `0055_stocktake_records.sql` 新四表：`stocktake_records`、`stocktake_record_items`、`stocktake_record_participants`、`stocktake_record_differences`；全部納入 portable backup。單號相同但 created_at 不同可留多次紀錄，ERP 重用單號仍可正常匯入成新作業單。
 - 每個 ERP seq 的帳面只比較一次；實際數量為其 WEB 儲位數量完整合計，已要求複盤但未填齊者不以初盤冒充最終實際。只保存有差異或尚未完整的列；小數使用整數萬分位，持久化合計為 TEXT，避免 D1 JSON／JS 超過 2^53 遺失精度。
-- 工具列「盤點紀錄」對有 `STORE_STOCKTAKE` 使用權者開放，不另設管理權。共用 `Dialog`／`cy-op-table`／`ExpandToggle`，一列一張；盤點日期、單號、初盤人員、複盤人員共 30%，**盤點內容 70%**，以 `品號品名、品號品名` 顯示並自然折行。展開才顯示確認資訊、參與者及差異，日期不推擠主表；只有關閉按鈕，點背景不關閉。
-- GET `/api/business/store/stocktake/records` 以盤點日期 DESC／ID DESC 游標每頁 10 張；GET `/records/:id` 展開才讀差異，每頁 100 列。紀錄視窗不背景輪詢，也不在現有 10／30 秒盤點輪詢載入歷史內容。同步歸檔使用固定六個 bulk SQL statements，不逐行發 D1 query；仍需正式環境大資料量驗收，不據合成測試聲稱無限負載。
+- 工具列「盤點紀錄」對有 `STORE_STOCKTAKE` 使用權者開放，不另設管理權。共用 `Dialog`／`cy-op-table`／`ExpandToggle`，一列一張；盤點日期、單號、初盤人員、複盤人員共 30%，**盤點內容 70%**，以 `品號品名、品號品名` 顯示並自然折行。展開區與門市訂購共用 `StoreHistoryChain`，依時間串接初盤確認、複盤確認、寫回 ERP、ERP 清除歸檔；無紀錄的事件不補造，無人員的事件只顯示時間及動作。不顯示品項差異表或重複參與人員；只有關閉按鈕，點背景不關閉。
+- GET `/api/business/store/stocktake/records` 以盤點日期 DESC／ID DESC 游標每頁 10 張；展開紀錄直接使用已載入的時間與確認人員，不另發請求。差異摘要仍依保存契約保留，GET `/records/:id` 的 100 列游標介面不在本視窗呼叫。紀錄視窗不背景輪詢，也不在現有 10／30 秒盤點輪詢載入歷史內容。同步歸檔使用固定六個 bulk SQL statements，不逐行發 D1 query；仍需正式環境大資料量驗收，不據合成測試聲稱無限負載。
 
 
 ## 批號刪除按鈕位置（V0.11.6，2026-11-06）

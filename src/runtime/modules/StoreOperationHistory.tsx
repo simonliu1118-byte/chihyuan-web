@@ -45,14 +45,22 @@ export function historySummary(e:StoreHistory):string{
  });
  return [typeof e.after.itemName==="string"?e.after.itemName:"",...changes(e.before,e.after),e.reason?"理由："+e.reason:""].filter(Boolean).join("；");
 }
+export type StoreHistoryChainEntry={key:string|number;at:string;actorName?:string|null;kind:string;summary?:string};
+/** Shared compact event chain; wrapping keeps the arrow with the following event. */
+export function StoreHistoryChain({entries}:{entries:readonly StoreHistoryChainEntry[]}){
+ return <ol className="cy-store-history-chain">{entries.map(e=><li key={e.key}>
+  <time dateTime={e.at}>{formatDateTime(e.at)}</time>{e.actorName?<span title={e.actorName}>{e.actorName}</span>:null}
+  <strong title={e.kind}>{e.kind}</strong>{e.summary?<span className="cy-store-history-summary" title={e.summary}>({e.summary})</span>:null}
+ </li>)}</ol>;
+}
 /** Shared per-record timeline for orders, blacklist and monthly todos. Paths are store-relative. */
 export function StoreOperationHistory({path,onError,cache,layout="rows"}:{path:string;onError:(s:string)=>void;cache?:StoreHistoryCache;layout?:"rows"|"chain"}){
  const [events,setEvents]=useState<StoreHistory[]>([]),[cursor,setCursor]=useState<number|null>(null),[loading,setLoading]=useState(true),sequence=useRef(0);
  const load=useCallback(async(next?:number)=>{const serial=++sequence.current;setLoading(true);try{const p=await apiRequest<StoreHistoryPage>("/api/business/store"+path+(next?"?cursor="+next:""));if(serial===sequence.current){setEvents(old=>{const rows=next?[...old,...p.rows]:p.rows;if(cache)cacheHistory(cache,path,{rows,nextCursor:p.nextCursor});return rows});setCursor(p.nextCursor)}}catch(e){if(serial===sequence.current)onError(e instanceof Error?e.message:"紀錄載入失敗")}finally{if(serial===sequence.current)setLoading(false)}},[path,onError,cache]);
  useEffect(()=>{const saved=cache?cachedHistory(cache,path):null;if(saved){setEvents(saved.rows);setCursor(saved.nextCursor);setLoading(false)}else{setEvents([]);setCursor(null);void load()}return()=>{sequence.current++}},[load,path,cache]);
  return <div className="cy-store-history">
-  {!events.length?<p>{loading?"載入紀錄…":"尚無操作紀錄"}</p>:<ol className={layout==="chain"?"cy-store-history-chain":undefined}>{(layout==="chain"?[...events].sort((a,b)=>a.id-b.id):events).map(e=><li key={e.id}>
-   <time dateTime={e.at}>{formatDateTime(e.at)}</time><span title={e.actorName}>{e.actorName}</span><strong title={e.kind}>{e.kind}</strong>{historySummary(e)?<span className="cy-store-history-summary" title={historySummary(e)}>{layout==="chain"?"("+historySummary(e)+")":historySummary(e)}</span>:null}
+  {!events.length?<p>{loading?"載入紀錄…":"尚無操作紀錄"}</p>:layout==="chain"?<StoreHistoryChain entries={[...events].sort((a,b)=>a.id-b.id).map(e=>({key:e.id,at:e.at,actorName:e.actorName,kind:e.kind,summary:historySummary(e)}))}/>:<ol>{events.map(e=><li key={e.id}>
+   <time dateTime={e.at}>{formatDateTime(e.at)}</time><span title={e.actorName}>{e.actorName}</span><strong title={e.kind}>{e.kind}</strong>{historySummary(e)?<span className="cy-store-history-summary" title={historySummary(e)}>{historySummary(e)}</span>:null}
   </li>)}</ol>}{cursor?<button type="button" className="cy-op-button compact" disabled={loading} onClick={()=>void load(cursor)}>載入更多</button>:null}
  </div>;
 }

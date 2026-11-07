@@ -15,9 +15,9 @@
 ## UI 與讀取成本
 
 - 「同步ERP盤點單」「設定忽略底稿」旁加入「盤點紀錄」；具有 STOCKTAKE 模組使用權者可看，不另設權限。自動歸檔後，當前選擇及相關表單清空，不繼續顯示已消失的作業明細。
-- 沿用共用 Dialog、cy-op-table、ExpandToggle。主表日期 8%、單號 7%、初盤 7.5%、複盤 7.5%、盤點內容 70%；品號＋品名以「、」串接折行。確認資訊與差異放在同表展開列，避免左邊 30% 被多組時間撐高。
-- 紀錄依盤點日期／ID DESC 每頁 10 張，差異展開才讀、每頁 100 列；只有使用者開啟視窗／載入更多才讀歷史，不加背景輪詢、不把歷史塞進原 10／30 秒刷新，也不為總頁數 COUNT 全部歷史。
-- 點背景不關閉，右上沒有 X，僅明確「關閉」。本機用真實元件及合成 API 預覽確認長內容折行、差異展開、確認資訊及關閉；沒有登入或操作正式站。
+- 沿用共用 Dialog、cy-op-table、ExpandToggle。主表日期 8%、單號 7%、初盤 7.5%、複盤 7.5%、盤點內容 70%；品號＋品名以「、」串接折行。展開區改用與門市訂購共用的 `StoreHistoryChain`，由舊至新呈現確認／寫回／清除歸檔，不顯示品項差異表或重複參與人員。
+- 紀錄依盤點日期／ID DESC 每頁 10 張；展開直接使用已載入資料，沒有額外請求。差異摘要及原有 API 仍保留於資料保存契約，不在本視窗呼叫。不加背景輪詢、不把歷史塞進原 10／30 秒刷新，也不為總頁數 COUNT 全部歷史。
+- 點背景不關閉，右上沒有 X，僅明確「關閉」。本機用真實元件及合成 API 預覽確認長內容折行、操作紀錄串與差異表移除；沒有登入或操作正式站。
 
 ## 檔案與契約
 
@@ -41,3 +41,11 @@
 - 本輪 [WEB PR #443](https://github.com/simonliu1118-byte/chihyuan-web/pull/443)，程式提交 `323e5ffe`：完整 [Runtime Check](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42264333244) 通過，包含 source contracts、瀏覽器／Worker TypeScript、Local D1 runtime acceptance、Full Node test suite 與 Vite build；治理及部署契約檢查亦通過。本次追加交接證據，沒有程式改動；最新 head 狀態以 PR 為準。
 - 已核對 [D1 batch 契約](https://developers.cloudflare.com/d1/worker-api/d1-database/#batch)：同批依序執行，失敗整批回滾。本機新歸檔測試使用真 Worker 路由＋SQLite 交易；CI 的既有 Local D1 驗收通過，不把它誇稱為新歸檔路徑的 Miniflare 專項測試。
 - 沒有正式資料、ERP 匯出、憑證或 infrastructure ID 進 Git。Claude 最終審查待填，執行者不代填通過。重點請核對完整旗標、knownSheets 代次、原子保存後清除、精確量與備份、資料量、兩端相容以及待發布狀態。
+
+## 2026-11-07 使用者 UI 返修
+
+- 使用者確認：移除展開的品號／批號／帳面／初盤／複盤／實際／差異／填寫人員明細表；確認資訊改為門市訂購相同的小字紀錄串。
+- `StocktakeRecordsDialog.tsx` 移除 Differences 元件、分頁及請求；初盤確認、複盤確認、寫回 ERP、ERP 已清除／移入紀錄依時間排序，缺事件不補造、缺人員只顯示時間及動作。移除重複參與者與歸檔前狀態小字，單號展開按鈕改標示操作紀錄。
+- `StoreOperationHistory.tsx` 抽出無請求的共用 `StoreHistoryChain`，門市訂購原 chain layout 與盤點共用。沿用現有小字、粗體動作及箭頭連同下一筆整段換行 CSS；原 rows layout、排序及歷史讀取／快取不變。`store.css` 刪除不再使用的確認資訊樣式。
+- 架構／共用元件目錄／CHANGELOG 同步。僅調整 UI，歸檔保存、差異摘要、schema、ERP Agent 不變；同一未發佈 PR #443 仍 VERSION=0.12.1／BUILD=0，未合併部署。
+- 本輪 `npm run build`（含前後端 TypeScript）成功；盤點 UI／門市歷史／聯絡與日期相關測試 **22/22 通過**。本機真元件合成畫面已確認四事件、時間與動作、差異表不再顯示；新提交 CI 待 PR 執行，Claude 最終審查仍待辦。
