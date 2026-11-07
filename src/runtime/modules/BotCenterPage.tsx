@@ -119,7 +119,7 @@ export function BotCenterPage(){
     <p className={"cy-bot-summary"+(expanded?" is-expanded":"")}>{bot.summary||"尚無工作摘要"}</p>
     {bot.summary?<button type="button" className="cy-bot-text-button" aria-expanded={expanded} onClick={()=>setOpenSummary(expanded?null:bot.id)}>{expanded?"收合摘要":"完整摘要"}</button>:null}
     <div className="cy-bot-card-bottom"><div className="cy-bot-metrics">{stats?<><span><strong>{stats.todayCompleted}</strong> 今日完成</span><span><strong>{stats.draftCounts.pending}</strong> 待審</span></>:<span>統計待更新</span>}</div>
-     <span className="cy-bot-last-report">最近回報 {formatDateTime(bot.updatedAt)}</span></div>
+     <span className="cy-bot-last-report">狀態更新 {formatDateTime(bot.updatedAt)}</span></div>
     <div className="cy-bot-card-footer"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void showReports(bot.code)}>查看回報</button>
      <button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void showPending(bot.code)}>查看待審</button></div>
    </article>})}
