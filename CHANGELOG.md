@@ -6,13 +6,13 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
-## CY Web V0.12.3 Build 1 — BOT 獨立憑證、工作摘要與 Grok 共用工具（待審）
+## CY Web V0.12.3 Build 1 — BOT 獨立憑證、工作摘要與 Grok 共用工具（2026-11-08，已部署）
 
 - 提供 Node.js 22+ 無第三方執行套件的 CLI 與 Grok 私人共用技能，供 BOT 回報進度、送審、讀回結果及記錄完成；首輪限定小編的合成連線測試，不對外發文。技能、設定說明及契約可獨立打包帶入 Grok 的持久電腦。
 - 每 BOT 的獨立憑證由伺服器綁定身份，輪換／撤銷互不影響，禁止跨 BOT 讀寫。0057 原樣保存小編原憑證的雜湊及時間，不重新產生；明文仍只顯示一次、可攜備份仍排除憑證。
 - 版面改為待審核 → 四張工作摘要 → 同行完成時間軸 → 四張當日 BOT 摘要；移除提示灰字與卡片操作／展開。通過直接儲存、退回必填理由。新文章／Threads 巡視按明確完成分類及完整台灣當日統計；拍板結案只保留卡片，不接後臺。
 - complete 增工作分類與 eventRef 伺服器去重，舊資料仍為 general；回報仍使用持久收據，斷線結果不明不重送。Grok check 驗證實際憑證歸屬、general 舊收據相容，工具／技能／設定說明同步。WEB＋0057 須先部署，再用新版工具；推播留下一輪。
-- 本機隔離測試與建置驗證，不操作正式憑證／D1、不改 CYapps；Claude 複審與新版實機驗收待辦，未合併部署。[handoff](docs/handoff/CYWEB-GROK-REPORTER-0123-20261107.md)。
+- 本機54項、技能／schema／build及完整CI通過。使用者本輪授權後PR #447合併，[部署 #42391275622](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42391275622)成功；0057、兩端健康／來源及HTTPS／session／排程／portal驗證通過，正式source=`e2f50177d4e4d1162644c604a40dc41a4cb3f39e`。未取得／輪換明文key、不改CYapps；Claude事後複審與新版UI／原key實機驗收待辦。[handoff](docs/handoff/CYWEB-GROK-REPORTER-0123-20261107.md)。
 
 ## CY Web V0.12.2 — BOT 工作總覽（2026-11-07，已部署）
 
