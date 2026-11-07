@@ -11,6 +11,8 @@
 
 ## 目前待 Claude 審查
 
+- [CYWEB Chat 部署入口恢復](CYWEB-CHAT-DEPLOY-20261108.md)：恢復受控發布分支 `deploy/cyweb-development`；保留 main dispatch、SHA 與既有部署安全驗證，GitHub Connector `update_ref` 觸發實測與正式部署結果需以實際 Action Run 為準。
+
 - [V0.12.5 Build 0 BOT 管理中心介面精簡](CYWEB-BOT-CENTER-UI-0125-20261108.md)：PR #453 已合併 main（8cbd17da），**718/718 Node 測試及全部 CI 通過，正式部署尚未觸發**。狀態 pills、時間軸五筆／全部 Modal、兩組 EntryTable、原 BOT 設定表格推播啟停；Claude 事後審查及桌機／手機驗收待辦。
 
 - [V0.12.4 Build 1 BOT 審核推播](CYWEB-BOT-REVIEW-PUSH-0124-20261108.md)：PR #449 已依本輪授權合併 main（4352a9f9），完整 CI 713/713 通過；[受控部署 #42401625125](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42401625125)成功，0058／兩端健康來源與傳輸驗證通過、獨立主金鑰已配置；Claude事後複審、UI與Grok私密設定／實機啟用待辦。

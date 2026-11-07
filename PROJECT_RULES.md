@@ -33,7 +33,7 @@
 - 正式部署所需的 infrastructure metadata 與 deployment/runtime secrets 由核准的部署環境或平台 secret store 注入；程式只依賴抽象 binding／environment contract。
 - 正式部署可在受控 runner/workspace 動態產生 deployment-only config，但不得把該 production-resolved config 回寫 Public repo。
 - PR／一般 CI 不得取得 production deployment secrets，也不得部署 production；production deploy 只由核准 branch/environment 執行。
-- CY Web 合併 `main` 不自動發布；正式更新只從 `main` dispatch `development-deploy.yml` 的 `deploy-development` operation（使用者 2026-11-03：舊發布分支 `deploy/cyweb-development` 退役，workflow 不再有 push 觸發）。既有 job、Worker、D1 與 Environment 的 development／dev 名稱是歷史標籤，不另建測試 Worker／D1。唯讀 `audit-identity` 同樣只從 `main` dispatch，與部署入口分離。
+- CY Web 合併 `main` 不自動發布；一般正式更新有兩個經使用者授權的入口：從 `main` dispatch `development-deploy.yml` 的 `deploy-development` operation，或將 `deploy/cyweb-development` 分支以非強制快轉方式更新到最新 `main` 的完整 SHA，以專用 `push` 觸發相同的部署工作。兩種入口都必須驗證事件 SHA／checkout 與當前 main 完全一致，PR 或其他 push 不得部署。使用者於 2026-11-08 同意恢復發布分支供 ChatGPT／Claude 操作；不得將一般合併視為部署授權。既有 job、Worker、D1 與 Environment 的 development／dev 名稱是歷史標籤，不另建測試 Worker／D1。唯讀 `audit-identity`、`audit-backup` 及 `rotate-recovery` 仍只從 `main` dispatch；發布分支 push 不得啟動這些特殊操作。
 - 同一正式目標的發布共用固定 concurrency group，進行中的 deploy 不因新 run 取消；驗證及唯讀 audit 使用獨立鎖。遠端 migration 前核對事件 SHA、checkout 與當前遠端 main 為同一個 commit；main 已前進時停止，改以新的 main 重新 dispatch。
 - 同一份 Public source 應可由其他 deployer 接到自己的 Cloudflare、D1、Identity、Storage、第三方 API 與 secret configuration，不預設共享志遠正式資源。
 - 後續新增任何外部服務前，必須先設計 Public-safe binding 與部署注入邊界，不得先把 production identifier 寫進 Public source 再事後清除。

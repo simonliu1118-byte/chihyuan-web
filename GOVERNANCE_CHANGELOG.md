@@ -1,5 +1,11 @@
 # CY Web Governance Changelog
 
+## 1.1.29 — 2026/11/08
+
+- 使用者同意恢復 ChatGPT／Claude 可用的受控發布分支 `deploy/cyweb-development`。`development-deploy.yml` 允許僅此分支的 `push` 啟動既有正式部署，保留 `main` 的 `workflow_dispatch` 手動入口；不因一般 PR 合併或 main push 自動發布。
+- `verify-deployment-source.mjs` 只接受 main dispatch 或發布分支 push，而且兩者都要事件／checkout／最新 main 的完整 SHA 一致；既有 `cyweb-production` 鎖、正式環境、D1 與健康驗證不變。輪替與唯讀稽核仍由 main 手動 dispatch，不隨發布分支執行。
+- 本次只恢復部署入口，不增加 Worker、D1 或 Secret、不改動業務功能與產品 VERSION／BUILD。以 GitHub Connector `update_ref(force=false)` 發布，失敗仍須檢查 Action 結果及正式 `/api/health`；Worker 程式退版使用新 main Revert commit，D1 只向前遷移。
+
 ## 1.1.28 — 2026/11/03
 
 - `PROJECT_RULES.md` §5 新增「主檔頁採表格式單據」（使用者 2026-11-03）：主檔的新增、修改與主頁面逐模組改用共用 `RecordSheet`，欄名在上、內容在下，修改原地切換；重複資料用有項次的子表，到上限不顯示 ＋。格內仍用 `Field`，原有必填、一次提醒與 Enter 規則不變；小視窗維持直排。
