@@ -1,16 +1,16 @@
 # Grok Bot 安裝與小編測試
 
-這是 Grok Bot 的共用技能與命令工具，不是 Grok Build 的 `.grok/skills` 安裝包，也不需要額外 MCP 服務。Node.js 22+，沒有第三方執行套件。
+這是 Grok Bot 的共用技能與命令工具，不是 Grok Build 的 `.grok/skills` 安裝包，也不需要額外 MCP 服務。Node.js 22+，沒有第三方執行套件。新版須先部署 WEB V0.12.3 Build 1 與 migration 0057，再替換工具；不是直接拿新版工具測試舊 WEB。
 
 ## 1. 準備 CYWEB 連線
 
-由超級管理員在 CYWEB「BOT 管理中心 → 設定」確認連線憑證已設定，並確認有 `SOCIAL_EDITOR`（社群小編）。已有安全保存的憑證就使用原憑證；不要為測試直接重新產生，輪換會使其他 BOT 的舊憑證一起失效。若尚未設定，由超級管理員產生一次，再直接存入 Grok 的安全祕密欄。
+由超級管理員在 CYWEB「BOT 管理中心 → 設定 → 連線憑證表格」查看各 BOT。現有小編憑證會在 migration 0057 原樣綁定 `SOCIAL_EDITOR`，Grok 不必重填；不要為這次更新重新產生。只有尚未設定的 BOT 才按該列「產生」，直接存進 Grok 安全祕密欄。以後輪換／撤銷只影響該列 BOT。
 
-這組憑證目前對所有 BOT 共用，**不是逐 BOT 隔離權限**；代碼由工具的環境設定固定。不要把它給不受信任的 BOT／外部帳號，也不要提供 CYID 員工帳密或 session。
+每組憑證只屬於一隻 BOT；伺服器禁止跨 BOT 回報與讀審稿結果。不同 BOT 不要共用憑證，也不要提供 CYID 員工帳密或 session。Grok 同帳號的電腦與祕密存取仍須按其平台實際邊界管理，不能把不同 BOT 當成彼此完全隔離的電腦。
 
 ## 2. 放工具、建立共用技能
 
-把 `cyweb-work-reporter-v0.12.3.zip` 附給 Grok Bot，請它解壓，使檔案位於：
+把 `cyweb-work-reporter-v0.12.3-build1.zip` 附給 Grok Bot，請它解壓，使檔案位於：
 
 ```text
 /workspace/cyweb-work-reporter/SKILL.md
@@ -31,9 +31,9 @@ Grok Bots 共用雲端電腦；持久檔案放在 `/workspace`，不要放臨時
 | `CYWEB_BASE_URL` | 你的 CYWEB HTTPS 根網址，不含 `/api`、路徑、帳密或參數 |
 | `CYWEB_BOT_CODE` | `SOCIAL_EDITOR` |
 | `CYWEB_REPORTER_STATE_DIR` | `/workspace/cyweb-report-receipts`，保留不刪，勿放在可定期清理的目錄 |
-| `CYWEB_BOT_TOKEN` | 從 Grok 安全 Secrets 欄設定，安全注入執行工具的環境；值不要傳聊天 |
+| `CYWEB_BOT_TOKEN` | 此 BOT 自己的憑證，由 Grok 安全 Secrets 注入工具環境；小編保留原值，值不要傳聊天 |
 
-前三項不是祕密，可以由小編的工作環境設定提供；不要把全機 `CYWEB_BOT_CODE` 設成小編而讓其他 BOT 沿用。其他 BOT 分別配置自己的代碼（`CONTENT_EXPERT`、`CEO`、`IT`）。收據可共用同一持久目錄，檔名已依網址、BOT、類型與事件分開。
+前三項不是祕密，可以由小編的每次執行環境提供；不要把全機 `CYWEB_BOT_CODE` 設成小編而讓其他 BOT 沿用。其他 BOT 各自配置代碼（`CONTENT_EXPERT`、`CEO`、`IT`）與對應獨立憑證。收據可共用同一持久目錄，檔名已依網址、BOT、類型與事件分開。更新程式不刪除收據，舊版 general 完成事件的收據仍相容。
 
 官方文件提供安全 secret card，以及共用 BOT 詳情 → Secrets → Add secret 的方式。不同帳號／版本的可用介面可能不同。請確認安全值確實能注入 shell 程序環境；只檢查工具 `check` 的成功或錯誤，**不要列出環境值**。若該版本只能安全登入網站、不能注入自訂程序環境，先停止並回報缺少此能力；不要把值改存明文檔或貼入命令。Team Secrets 的 setup script 是另一項企業能力，不作本工具前提。
 
@@ -47,7 +47,7 @@ Grok Bots 共用雲端電腦；持久檔案放在 `/workspace`，不要放臨時
 
 ## 5. 驗收
 
-1. `check` 成功：服務為 CYWEB、資料庫健康、憑證獲接受；不等於 Grok 已獲所有外部操作權。
+1. `check` 成功：服務為 CYWEB、資料庫健康、憑證歸屬為 SOCIAL_EDITOR；不等於 Grok 已獲外部操作權。若身分不符會停止。
 2. `pilot-start` 後管理中心有一篇測試待審、一筆測試回報；小編摘要待人工核准。
 3. 未核准 `pilot-finish` 必須失敗；人工核准後可以完成。
 4. 管理中心今日完成時間軸出現一筆測試完成，小編狀態為完成；重跑同輪不增加重複測試回報或完成項目。
@@ -56,6 +56,6 @@ Grok Bots 共用雲端電腦；持久檔案放在 `/workspace`，不要放臨時
 
 ## 6. 後續讓其他 BOT 使用
 
-小編實機驗收後，再為其他 BOT 啟用同一技能及各自的 BOT 代碼。若要待審核准後自動恢復工作，可另設例行工作，只讀已知未決 `externalRef`；WEB 現在不主動推送喚醒。Grok 例行工作有用量成本與平台最低間隔，這次不建立輪詢排程。
+小編實機驗收後，再為其他 BOT 啟用同一技能及各自的代碼／憑證。核准結果目前由 BOT 主動讀取；使用者指定推播留到下一輪，本次不設定 webhook 或輪詢排程。文章發布完成用 `complete.workType=article_published`，Threads 巡視完成用 `threads_patrol`；其他完成用 general，連線測試不進文章／巡視卡片。拍板結案僅畫面保留，沒有後臺串接。
 
 參考官方文件：[自訂工具與電腦](https://docs.x.ai/grok-bot/computer-and-apps)、[共用私人技能](https://docs.x.ai/grok-bot/skills-routines-and-automations)、[安全祕密](https://docs.x.ai/grok-bot/vault)。

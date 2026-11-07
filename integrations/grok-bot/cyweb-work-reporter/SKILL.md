@@ -11,8 +11,8 @@ description: Report BOT work progress, submit drafts for human review, read revi
 
 1. 工具保存在 `/workspace/cyweb-work-reporter`，使用 Node.js 22 或以上，不需安裝 npm 套件。用 `node --version` 確認；若未具備執行環境，先回報阻礙。
 2. 由平台安全注入 `CYWEB_BOT_TOKEN`，其餘環境設定為 `CYWEB_BASE_URL`、本 BOT 的 `CYWEB_BOT_CODE`、持久收據目錄 `CYWEB_REPORTER_STATE_DIR`。不可把憑證寫進聊天、命令參數、JSON、技能或普通檔案；不可用 `env`、`printenv`、`echo` 印出或檢查值。若無法安全注入，停止連線並告知使用者，不改用明文 `.env`。
-3. 技能可共用，但執行時必須使用自己固定的 BOT 代碼。小編為 `SOCIAL_EDITOR`；其他角色必須事先在 CYWEB 設定，不猜測或冒用。共用電腦上的環境設定不要互相覆寫。
-4. 執行 `node /workspace/cyweb-work-reporter/scripts/cyweb-reporter.mjs check`。這只檢查健康與憑證，不建立正式工作；成功不代表所有角色或外部發布都已授權。
+3. WEB 須先更新到 V0.12.3 Build 1（migration 0057）。每隻 BOT 使用自己的獨立憑證，伺服器依憑證認定身份。小編既有憑證原樣保留並歸屬 `SOCIAL_EDITOR`，不要重新產生。其他角色先在 CYWEB 建立並取得各自憑證；不能共用小編的憑證。技能與程式可共用，共用電腦的非機密 BOT 代碼以每次執行的環境提供，不互相覆寫。
+4. 執行 `node /workspace/cyweb-work-reporter/scripts/cyweb-reporter.mjs check`。這會檢查健康與憑證實際歸屬，設定代碼不符會拒絕；不建立正式工作，也不代表外部發布已授權。
 
 ## 回報流程
 
@@ -31,14 +31,16 @@ JSON
 - 使用者告知已審或工作恢復時：用 `review` 讀取原編號。只有 `approved` 才能處理該份已核准內容；`pending` 繼續等待；`rejected` 先處理理由，以新版本再送審。不能自行呼叫人員審核 API、使用員工 session，或把等待視為核准。
 - CYWEB 核准僅是這份內容的審核結果；對外發文仍須符合使用者指示及 Grok 平台權限。實際工作成功才 `complete`；若該事項經過送審，**必填對應 `reviewRef`**，工具會重新確認核准。未曾需要審核的已授權工作可省略。
 - 完成後 `progress` 設為 `done`，摘要講實際成果。送審、排程、回報成功不等於外部工作完成。
+- `complete.workType`：一般工作或連線測試用 `general`（預設）；文章**實際發布成功**用 `article_published`，詳情可含平台；Threads 一次巡視**完成**用 `threads_patrol`。只有這兩種明確分類會進各自今日卡片，不由標題猜分類。每篇發布／每次巡視各用固定唯一的 eventId，重複回報不新建事件。拍板結案目前沒有串接，不建立該分類或替它計數。
 
 ## 防重複與失敗處理
 
-- `report`／`complete` 必須使用固定且唯一的 `eventId`，同一事件的再次執行保持內容與編號不變。持久收據會阻止重複送出；這不是跨電腦或伺服器的 exactly-once 保證。
+- `report`／`complete` 必須使用固定且唯一的 `eventId`，同一事件的再次執行保持內容與編號不變。持久收據會阻止重複送出；新版 complete 另將同一 eventId 傳為伺服器 eventRef 去重。report 仍只有本機收據保護，不能宣稱所有操作都是跨主機 exactly-once。
 - 每次查看 `{ok:true}` 才能稱回報成功；錯誤或中斷不可聲稱已完成。
 - `DELIVERY_UNCERTAIN` 表示可能已送達。停止重送，請使用者在 CYWEB 核對；不能刪收據、更換 `eventId` 或換另一台電腦盲目重送。收據遺失也先核對。
 - `EVENT_CONFLICT` 表示同編號內容不同，先查明事件與原內容。不能為繞過錯誤無限制建立新事件。
 - `BOT_UNAUTHORIZED` 交由使用者確認安全憑證；不可自行輪換或撤銷。輸出或貼回錯誤時不得加上環境值、Authorization、原始請求或其他祕密。
+- `BOT_SCOPE_MISMATCH` 代表憑證與 BOT 代碼不相符，停止並確認設定；不要改代碼冒用憑證的主人。`BOT_EVENT_CONFLICT` 代表伺服器同事件已存在不同內容，人工核對，不換事件編號繞過。
 - 只回報必要工作內容，不含客戶個資、登入資訊、金鑰或未經允許的資料。工具只能辨識並阻擋目前的 BOT 憑證，不能替代其他資料的人工判斷。
 
 ## 小編首輪測試

@@ -8,7 +8,7 @@ Commands:
   submit       {externalRef,title,body}
   review       {externalRef}
   report       {eventId,title,body}
-  complete     {eventId,title,detail?,completedAt?,reviewRef?}
+  complete     {eventId,title,detail?,completedAt?,reviewRef?,workType?}
   pilot-start  {reference} (SOCIAL_EDITOR test only)
   pilot-finish {reference} (requires the same test to be approved in CYWEB)
 Configuration (environment):

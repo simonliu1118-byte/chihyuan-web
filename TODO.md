@@ -5,7 +5,7 @@
 
 ## 目前狀態（2026-11-07）
 
-- **V0.12.3 Grok Bot 回報工具與共用技能待審**：準備小編的送審／人工核准／完成測試流程；本機真實 Worker + 合成 SQLite 驗證通過。待 Claude 複審、使用者在 Grok 安全設定憑證、啟用私人技能及實機驗收，尚未聲稱已接上 Grok；現有 V0.12.2 API 可使用，不需為工具另改伺服器。未合併部署，不改目前正式版本／來源。[設定說明](integrations/grok-bot/cyweb-work-reporter/references/grok-setup.md)、[handoff](docs/handoff/CYWEB-GROK-REPORTER-0123-20261107.md)。
+- **V0.12.3 Build 1 BOT 管理中心與 Grok 工具返修待審（PR #447）**：每 BOT 獨立憑證，0057 原樣保存現有小編憑證；通過直接儲存、退回必填理由；待審核 → 四張工作摘要 → 同行完成時間軸 → 四張 BOT 當日摘要。新文章／Threads 巡視用分類完成事件統計及固定編號去重；拍板結案僅保留畫面、不接後臺。工具／技能已配合，WEB＋0057 須先部署，再更新工具，小編原憑證與收據不重設。待 Claude 複審及新版實機驗收，未合併部署；**推播依使用者指定留下一輪**。[設定說明](integrations/grok-bot/cyweb-work-reporter/references/grok-setup.md)、[handoff](docs/handoff/CYWEB-GROK-REPORTER-0123-20261107.md)。
 
 - **V0.12.2 BOT 工作總覽已合併部署**：PR #445／[發布 #42371824288](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42371824288) 成功；總覽 → 全寬待審表格（每件一列、無展開）→ BOT 卡片 → 全寬時間軸，完整統計與 BOT 篩選、輕量進度輪詢。相關 38 項測試、最終完整 CI 及桌機／手機合成預覽通過；Claude 事後複審與正式 BOT 實機驗收仍待辦。[handoff](docs/handoff/CYWEB-BOT-OVERVIEW-0122-20261107.md)。
 

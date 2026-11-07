@@ -1,32 +1,45 @@
-# CYWEB V0.12.3 Grok Bot 共用回報交接
+# CYWEB V0.12.3 Build 1 BOT 管理中心與 Grok 回報交接
 
-- 日期：2026-11-07（Asia/Taipei）；執行：GPT；分支 `cyweb/grok-reporting-kit-0123`，基準 main `79a9138b6082a1d32c8392dec7bc61326cdf963e`。
-- 使用者本輪授權：「先幫我準備共用回報工具和技能，接小編測試，告訴我需要在 Grok Bot 那邊做哪些設定」。本輪沒有重新授權合併部署；完成後開 PR 給 Claude 審查，不借用前輪 dashboard 的授權。
-- VERSION／package.json=0.12.3，BUILD=0；沒有 Worker、D1、UI 或 CYapps 變更。正式站仍為 V0.12.2，來源／發布證據見 TODO。不操作正式 BOT 憑證或真實工作紀錄。
+- 執行：GPT；同分支 `cyweb/grok-reporting-kit-0123`、[PR #447](https://github.com/simonliu1118-byte/chihyuan-web/pull/447)。基準 main `79a9138b6082a1d32c8392dec7bc61326cdf963e`；VERSION／package.json=0.12.3，BUILD=1。同一回報整合與原參考圖驗收返修，依規則增加 Build，不另開平行工具 PR。
+- 使用者確認設計並授權開工：每 BOT 獨立憑證；**小編現在的憑證保留**；更新工具、技能、handoff；通過不問理由、退回才必填；待審核 → 四張工作摘要 → 同行時間軸 → 四張當日 BOT 摘要。拍板結案後臺先不接，使用者另外明確指定**推播下一輪**。
+- 本輪未授權合併部署；待 Claude 最終審查，不代填通過。正式站仍 V0.12.2，發布證據見 TODO。沒有讀取／重設正式憑證或操作正式 D1，沒有修改／部署 CYapps、CYERPAutoQuery 或其他專案。
 
-## 檔案與行為
+## 憑證與 migration
 
-1. `integrations/grok-bot/cyweb-work-reporter/scripts/client.mjs`：只支援固定 CYWEB ingest 與 health 路徑；HTTPS 根網址、固定 BOT 環境代碼、Bearer 僅安全注入，禁止轉址，15 秒逾時，不盲目重試寫入。JSON 欄位／長度檢查、已知憑證阻擋與輸出遮蔽；未提供員工登入、核准、憑證管理、任意 URL 或對外發布操作。
-2. `scripts/cyweb-reporter.mjs`（位於上述技能資料夾）：Node22+ 命令入口，JSON 標準輸入上限64KB；標準輸出為成功／失敗 JSON，失敗非零狀態，沒有堆疊或原始回應內容。無第三方執行依賴，工具可從 repo 外執行。
-3. 送審固定 externalRef，先查後送，既有內容不同就要求新版本編號。review 只讀本 BOT 的外部編號。complete 若附 reviewRef 會重新確認核准；技能規定曾送審工作必填。沒有更改伺服器 API，不能宣稱所有持憑證客戶端都被強制先審或外部發布原子同步。
-4. report／complete 固定 eventId + 雜湊 payload fingerprint；在持久目錄獨占建立 pending 收據、sync 後才 POST，成功原子替換 delivered。收據不含正文、標題、eventId 明文或 token。已確認4xx可修正後同事件重試；不明回應／斷線／5xx保留 pending 並阻止重送。同一持久目錄可防並行重複；不是伺服器、跨主機或收據遺失後的 exactly-once。
-5. `SKILL.md`／`references/grok-setup.md`／`wire-contract.md`：共用回報流程、Grok 私人技能啟用、持久路徑、憑證安全設定、小編人工核准測試及錯誤處理。依 Grok Bot 官方文件，不套用 Grok Build `.grok/skills` 或 Codex metadata。API key 可用 secure secret card，共用 BOT 可於 Details → Secrets 加環境名稱；能否安全注入 shell 要在實機確認，無此能力即停止，不降級明文。
-6. `scripts/test-support/bot-center-fixture.mjs`：抽出原 BOT 測試的 Worker bundle／完整 migrations SQLite fixture，供原 `bot-center.test.mjs` 及新增 `grok-bot-reporter.test.mjs` 共用。原測試內容不改。
-7. VERSION／package.json、CHANGELOG／TODO、BOT_CENTER 架構與 handoff 索引同步。`runtime-check.yml` 路徑加入 `integrations/grok-bot/**`，未來只修改工具時亦會跑完整既有 Node suite（含新增測試），無新增 workflow／權限／套件。可攜 ZIP 僅在工作區 outputs 產出，不進 Public Git，內含五個工具／技能檔案，沒有環境設定、祕密或真實資料。
+1. `0057_bot_scoped_credentials.sql` 重建原 ephemeral 憑證表，以 bot_id 作主鍵、token_hash 唯一。舊 singleton 的**同一雜湊、產生／撤銷時間、操作人**直接綁到 code=SOCIAL_EDITOR，不假定ID=1，不重新產生，不需明文；小編在 Grok 的原值保持不變。只有舊憑證列存在才補小編主檔，空白還原目標不預先種 BOT。
+2. `bot-center-routes.ts`：產生／輪換／撤銷改到 `/bots/:code/credential`，僅 SUPER_ADMIN 可寫，一個 BOT 一筆。憑證與 Audit 同 batch；Audit 僅記 BOT 代碼及操作，不含明文或雜湊。舊全域 `/credentials` 不再提供，不能誤輪換全體；狀態回傳 credentials 陣列，無祕密。
+3. ingest 以雜湊唯一索引查詢所屬 profile，Bearer 只能操作自己。body／query 可省 botCode；有傳但不符403。按 ID 讀另一 BOT 草稿404、按外部編號冒用另一 BOT403。`GET /api/bot-ingest/identity` 只回 botCode／botLabel。沒有每次呼叫寫 last_used，不新增心跳成本。
 
-## 驗證
+## 版面與審核
 
-- `node --test scripts/bot-center.test.mjs scripts/grok-bot-reporter.test.mjs`：18/18 通過。新增8項覆蓋技能 metadata／資源完整、HTTPS／設定／輸入及身份覆寫拒絕、實際 Worker 小編送審 → pending 阻擋 → 人工核准 → 完成／去重、退回阻擋、收據隱私與事件衝突、寫入後斷線跨 client 不重送、401修正及並行送出、實際 HTTP + CLI JSON／錯誤不洩漏憑證。
-- 以上全部為本機合成資料；憑證亦由隔離 fixture 臨時產生，未接正式 D1／Grok 或真實發布平台。沒有宣稱 Grok 實機已連通。
-- `npm run build`（包含 browser／Worker TypeScript）成功；既有 dynamic import 與 bundle-size 提示仍在，本輪沒有新增套件。
-- 本機沒有可用 Python，未執行 host skill 的 `quick_validate.py`；以 Node 檢查這份僅含 name／description 純量的 YAML frontmatter、命名／長度／無未完成佔位文字及本地 references／scripts 完整，且實際執行工具驗證行為。不將結構檢查冒充 Grok 平台已匯入技能。
-- ZIP 五個檔案白名單已核對，從 repo 外的全新 OS 暫存目錄解壓執行 CLI `--help` 成功，無 npm 安裝。檔名 `cyweb-work-reporter-v0.12.3.zip`，15,638 bytes，SHA-256 `3e8f2a7ce87b06b8a263cecd48fd9e9aa078c1771fe9c0ad3617983f3f619cdb`；外部 outputs 交付、不提交 binary。
-- [PR #447](https://github.com/simonliu1118-byte/chihyuan-web/pull/447)，工具／測試提交 `6b97f4d50d92b4f3067b5ba6ede3176dc8030212`：[Runtime Check #42374640558](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42374640558) 全部成功，含完整 Node suite、新增 Grok 測試、Local D1 acceptance、browser／Worker TypeScript 與 Vite build；[Governance #42374640613](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42374640613) 及 [部署契約檢查 #42374640567](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42374640567) 成功。後者只是 PR 驗證，沒有發布。追加本段僅更新交接證據，最終 head checks 依 PR 為準；Claude 尚未審查，未合併部署。
+4. `BotCenterPage.tsx`／`bot-center.css`／client：標題旁灰字與提示性文字移除，日期是實際資訊仍保留；「待我審核」改「待審核」。通過直接送出且不保存理由；退回共用 prompt 必填理由，Worker 也驗證。既有並行勝出者與 Audit 原子回滾保留，沒有發布操作。
+5. 工作摘要位於待審核與時間軸之間，桌機四欄。新文章與巡視取明確完成分類的台灣當日完整數量及最新摘要；待核准含舊日未處理稿件。**拍板結案只顯示標題與「—」，沒有後臺欄位／分類／查詢／計數**。
+6. 時間軸每項時間、BOT、標題、詳情同行直接顯示，無展開或第二段縮排；長文字可自然換行，空白換行不強制撐第二段。其下各 BOT 只顯示名稱、狀態與當日摘要，桌機四欄、中等寬度兩欄、手機單欄；沒有卡片回報／待審按鈕、統計或摘要展開。過期摘要顯示今日尚無回報，BOT 卡固定保留全體。
+7. 設定使用共用表格，每 BOT 一列狀態／產生時間／操作；憑證一次性視窗標明 BOT 名稱。沿用 Dialog／Field／StatusChip／StatusFilter 等，不另做 UI 元件。所有視窗無 X、背景與 Escape 不關閉。
 
-## Claude 審查重點／剩餘事項
+## 分類、去重、讀取與備份
 
-- 核對客户端只使用原機器契約、無自行審核與發文、共享憑證風險描述正確；送審新版本與完成時 reviewRef 的合作式限制不誤稱伺服器防線。
-- 核對首次 pending 收據失敗、併發、API拒絕與不確定結果的處理；無法確認時必須人工核對，不刪收據／換編號盲目重送。收據只存本機投遞狀態，不是另一套業務權威。
-- 小編實機：使用者在 Grok 安全卡／Secrets 設定 CYWEB_BOT_TOKEN（不回傳聊天），提供 HTTPS 根網址、SOCIAL_EDITOR、持久收據目錄；工具與私人技能啟用後 check → pilot-start → 使用者 WEB 核准 → pilot-finish。若安全注入不可用就先停。測試會在正式管理中心留下標記明確的測試稿／回報／完成，不含正式文案，不發文。
-- 人工測試過關後才能宣稱實機已接上，其他 BOT 各自配置 code；是否增加待審核准自動恢復的 routine 另由使用者決定，本輪沒有新增輪詢。
-- Claude 最終審查：**待審，不由執行者代填通過**。未合併／未部署，亦不需為現有 V0.12.2 API 額外部署才能使用 CLI。
+8. 完成事件增加 `work_type`（general／article_published／threads_patrol）、`event_ref`。舊資料維持 general，不猜標題或把送審、核准當發布。非 general 必填 eventRef；同 BOT＋eventRef 唯一，相同內容回原紀錄、異內容409。明確 supplied completedAt 也須相同，不填則不把重試當下時間當衝突。
+9. `workSummary` 為目前 BOT 範圍的 articles／patrols／pending，不受50筆分頁截斷；pending跨日。原當日完成GROUP BY加分類，新增兩筆分類索引LIMIT1及一筆最新待審讀取；有日期／分類與BOT日期／分類索引。30秒仍只讀progress主檔與憑證，沒有歷史／完整統計輪詢。
+10. `schema-columns.ts`／`portable-backup.ts` 納入完成新欄位及0057 marker，舊備份缺欄位用general／null預設。憑證表依舊排除，還原後重新逐BOT發行；正式migration保留小編原憑證與備份還原是不同情境。
+
+## 共用工具、技能與封裝
+
+11. CLI `check` 改以identity驗證實際憑證歸屬，不再用查不到稿件的404推論連線成功。complete接受workType，固定eventId作eventRef送伺服器；general舊收據fingerprint維持相容，更新不刪收據、不重送或把舊事件改算文章。report仍只有本機收據，不泛稱所有操作有跨主機exactly-once。
+12. `SKILL.md`及兩份reference同步獨立憑證、工作分類、錯誤處理與啟用順序。Node22+無第三方執行依賴，僅安全環境注入；無員工登入／自行核准／憑證管理／任意URL／對外發布命令。文章實際發布與巡視完成才送指定分類，測試用general。新版ZIP名含Build1，五檔白名單，不含設定或真實資料，不進Git。
+13. **先部署 WEB＋0057，再更新 Grok 工具／私人技能；保留小編原secret與持久收據，不按輪換。**其他 BOT 各自產生自己的key。新版check確認SOCIAL_EDITOR歸屬，原送審／核准流程仍是BOT主動讀取；推播、webhook與routine留下一輪，本輪沒有背景發送。
+
+## 驗證與限制
+
+- `node --test scripts/bot-center.test.mjs scripts/bot-scoped-credentials.test.mjs scripts/grok-bot-reporter.test.mjs scripts/store-equipment.test.mjs scripts/backup-migration-level.test.mjs`：**54/54通過**。覆蓋舊key雜湊／時間原樣遷移且code不等於ID、跨BOT所有寫入／兩種草稿讀取拒絕、單BOT輪換撤銷、超管限制、機器不能用key審稿、通過無理由／退回必填、並行審核及Audit失敗回滾、分類去重與內容衝突、超50筆完整統計／台灣日邊界／篩選、分類資料備份還原及憑證排除、舊general收據相容、CLI實際HTTP及錯誤不洩漏token。
+- `npm run build`（含browser／Worker TypeScript）通過；既有dynamic import與bundle size提示仍在，沒有新依賴。
+- 初輪原工具提交`6b97f4d5`及交接提交`9f99b4ca`的[Runtime #42374905873](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42374905873)、治理與部署契約檢查已通過；**不是本輪Build1 CI證據**。本輪最終head完整CI以[PR #447檢查頁](https://github.com/simonliu1118-byte/chihyuan-web/pull/447/checks)及PR說明中的精確run證據為準。
+- 實際React元件配合本機合成API，已觀察到待審核 → 四張分類卡（拍板僅—）→ 詳情直接顯示的時間軸 → 四張無操作BOT摘要。舊CUA工具在測試中途被停用，新browser技能檔在安裝目錄缺失（已搜尋），因此未冒充已完成新版互動／手機視覺驗證；請Claude補驗通過直接儲存、退回必填、設定表及窄螢幕。合成預覽仍在ignored .tmp，不進公開Git。
+- 後續找到桌面工具提供的Python；PyYAML只裝在ignored .tmp測試目錄，官方`quick_validate.py`通過。Node亦檢查frontmatter／命名／references與scripts完整性。`validate_schema.py`以UTF-8執行通過：58 migrations、131 tables、10組驗證。沒有增加應用依賴，也未宣稱已更新Grok私人技能。
+- 新版`cyweb-work-reporter-v0.12.3-build1.zip`共五檔、17,166 bytes，SHA-256=`fb6732d784cb08f144b5b3cf12b50ce28dae6e5df57168d8b2483e6f74f3736f`。獨立OS暫存目錄解壓執行CLI成功，無npm安裝；ZIP僅外部outputs交付，不進Git。使用者的小編曾使用舊key，不代表新版已正式部署或完成實機驗收。
+
+## Claude 接續
+
+- 請核對 migration 原樣保存與機器所屬權限、單BOT輪換／撤銷、草稿ID不洩漏、審核原子性、分類去重／完整統計與backup契約。
+- 補完上述實際UI／手機驗證。正式部署須另有使用者當次授權，從main受控workflow套0057，不手工改正式DB或取出key。部署後請使用原小編安全key跑新版check驗證身份，不需將key或雜湊貼到聊天／PR。
+- **Claude最終審查待辦；未合併／未部署，不由GPT代填通過。**

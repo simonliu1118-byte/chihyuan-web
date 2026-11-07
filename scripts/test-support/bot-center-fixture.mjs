@@ -5,14 +5,16 @@ import { build } from "esbuild";
 const compiled = await build({ entryPoints: ["worker/http/bot-center-routes.ts"], bundle: true, write: false, platform: "node", format: "esm" });
 const { handleBotCenterRoute } = await import("data:text/javascript;base64," + Buffer.from(compiled.outputFiles[0].text).toString("base64"));
 
-export function botCenterFixture(role = "SUPER_ADMIN", grant = false) {
+export function botCenterFixture(role = "SUPER_ADMIN", grant = false, {beforeScopedMigration, seedMember = true} = {}) {
   const sql = new DatabaseSync(":memory:");
   const queries = [];
   sql.exec("PRAGMA foreign_keys=ON");
-  for (const file of readdirSync(new URL("../../migrations/", import.meta.url)).filter(name => name.endsWith(".sql")).sort())
+  for (const file of readdirSync(new URL("../../migrations/", import.meta.url)).filter(name => name.endsWith(".sql")).sort()) {
+    if (file.startsWith("0057_")) beforeScopedMigration?.(sql);
     sql.exec(readFileSync(new URL("../../migrations/" + file, import.meta.url), "utf8"));
+  }
   const t = "2026-11-06T00:00:00.000Z";
-  sql.prepare("INSERT INTO app_members(identity_employee_id,employee_no,display_name,is_active,created_at,updated_at) VALUES(?,?,?,?,?,?)")
+  if (seedMember) sql.prepare("INSERT INTO app_members(identity_employee_id,employee_no,display_name,is_active,created_at,updated_at) VALUES(?,?,?,?,?,?)")
     .run("bot-center-synthetic", "9999", "合成同事", 1, t, t);
   if (grant) sql.prepare("INSERT INTO app_member_module_access(member_id,module_code,enabled,updated_at,updated_by) VALUES(1,'BOT_CENTER',1,?,1)").run(t);
   const db = {

@@ -101,7 +101,7 @@ function createReporter(config, { fetchImpl = fetch, timeoutMs = 15e3 } = {}) {
     return reviewView(data);
   }
   async function append(kind, input) {
-    fields(input, kind === "reports" ? ["eventId", "title", "body"] : ["eventId", "title", "detail", "completedAt", "reviewRef"]);
+    fields(input, kind === "reports" ? ["eventId", "title", "body"] : ["eventId", "title", "detail", "completedAt", "reviewRef", "workType"]);
     const eventId = string(input.eventId, "固定事件編號", 120);
     const payload = { botCode, title: string(input.title, "標題", 120) };
     let approvalRef;
@@ -120,7 +120,16 @@ function createReporter(config, { fetchImpl = fetch, timeoutMs = 15e3 } = {}) {
       }
     }
     if (JSON.stringify({ eventId, payload, approvalRef }).includes(token)) bad("INPUT_CONTAINS_SECRET", "回報內容不可包含連線憑證");
-    const fingerprint = hash(JSON.stringify({ payload, approvalRef }));
+    const fingerprintPayload = {...payload};
+    if (kind === "completions") {
+      const workType = input.workType ?? "general";
+      if (!["general", "article_published", "threads_patrol"].includes(workType)) bad("INPUT_INVALID", "工作分類不正確");
+      payload.workType = workType;
+      payload.eventRef = eventId;
+      // Preserve receipts made by the original general-completion client.
+      if (workType !== "general") fingerprintPayload.workType = workType;
+    }
+    const fingerprint = hash(JSON.stringify({ payload: fingerprintPayload, approvalRef }));
     const name = hash(JSON.stringify([origin, botCode, kind, eventId])) + ".json", path = join(stateDir, name);
     try {
       await mkdir(stateDir, { recursive: true, mode: 448 });
@@ -179,13 +188,10 @@ function createReporter(config, { fetchImpl = fetch, timeoutMs = 15e3 } = {}) {
       fields(input, []);
       const health = await request("/api/health", void 0, { publicHealth: true });
       if (health.service !== "cyweb" || health.database !== "ok") bad("SERVICE_UNAVAILABLE", "目標不是可用的 CYWEB");
-      try {
-        await rawReview("cyweb-connectivity-probe");
-      } catch (error) {
-        if (error.code !== "BOT_NOT_FOUND") throw error;
-      }
+      const identity = await request("/api/bot-ingest/identity");
+      if (identity.botCode !== botCode) bad("BOT_SCOPE_MISMATCH", "這組憑證不屬於設定的 BOT");
       await mkdir(stateDir, { recursive: true, mode: 448 });
-      return { service: "cyweb", version: health.version, credentialAccepted: true, botCode, probe: "read-only", note: "未寫入業務資料；BOT 代碼須事先存在" };
+      return { service: "cyweb", version: health.version, credentialAccepted: true, botCode, botLabel: identity.botLabel, probe: "read-only" };
     }
     if (command === "pilot-start" || command === "pilot-finish") {
       fields(input, ["reference"]);

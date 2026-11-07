@@ -1,68 +1,61 @@
 # BOT 管理中心
 
-頁面在既有 CY Web 殼層，路由 `#bot-center`，左側「ERP 查詢」同一組（`erp-query`，沒有組名）的下一項。模組代碼 `BOT_CENTER`，標籤「BOT 管理中心」。超級管理員沿用既有全模組權限；其他人要在「帳號與權限」授權後才看得到。不使用 `MODULE_REQUIREMENTS`。本文件描述 V0.12.2 工作總覽契約；正式發布現況以根 TODO 為準。
+沿用 CYWEB 殼層、`#bot-center` 路由及 `BOT_CENTER` 模組，在左側 ERP 查詢下一項。SUPER_ADMIN 自動具有模組權限；其他人須取得模組權限。以下為 V0.12.3 Build 1 契約，正式部署狀態以根 TODO 為準。
 
 ## 畫面
 
-依使用者確認的參考圖，改為高密度工作總覽，沿用 CYWEB 色彩／字級、`cy-op-panel`、`StatusChip`、`StatusFilter`、`ExpandToggle`、共用欄位及 Dialog，不套用外部站點的品牌或大字廣告樣式。
+1. 標題、台灣日期／星期、工作狀態與 BOT 篩選。移除標題旁「今日工作總覽」及提示性灰字；保留實際日期與資料。頁首仍可查看回報紀錄與設定。
+2. **待審核**：共用 `cy-op-table` 全寬表格，每件一列、不展開。時間、BOT、事項、內容、狀態、操作；非待審篩選另顯示審核資訊。文字過長依共用表格省略、title 保留原文。按「通過」直接送出，不詢問／保存理由；「退回」才開共用短視窗，理由必填，Worker 同樣強制驗證。審核與 Audit 保持原子性及並行勝出者檢查，不發布內容。
+3. **工作摘要**：桌機一排四張「新文章通知／Threads 巡視回報／拍板結案／待核准」。前兩張只統計台灣當日對應分類的實際完成事件，顯示完整數量與最新事項／結果。待核准包含所有日期尚未處理的稿件，依目前 BOT 範圍統計。拍板結案僅保留標題與 `—`，沒有計數、查詢、事件分類或後臺串接；不得拿一般完成數冒充。
+4. **今日完成時間軸**：獨立全寬，最新在上；每項時間、BOT、標題與詳情同行直接顯示，不設展開／收合或縮排第二段。一般長內容自然換行，不隱藏內容。游標仍為完成時間 DESC／ID DESC，今天以 Asia/Taipei 計算。
+5. **BOT 當日摘要**：移至時間軸下方，桌機一排四張；各卡只顯示名稱、最後回報狀態及當日摘要，移除卡片的回報／待審按鈕、數字及展開。昨日摘要不當成今日資料；沒有今日摘要顯示「今日尚無回報」。此區保留全部 BOT，不因上方篩選隱去其他身份。新增 BOT 自然往下排列；中等寬度兩欄、手機單欄。
+6. 沿用 CYWEB panel／StatusChip／StatusFilter／Field／共用 Dialog，不引入第二套元件。回報紀錄維持共用視窗及按需展開；設定用共用表格逐 BOT 管理憑證。視窗沒有右上 X，背景與 Escape 不關閉，只按明確按鈕關閉。
 
-1. 上方顯示台灣日期／星期、所有 BOT 的進行中／受阻／待命數及待審總數、統計更新時間；「全部／各 BOT」膠囊同步篩選卡片、時間軸、審稿及回報。狀態僅代表最後回報，不宣稱在線或全員上班。
-2. 初始身份社群小編、內容專家、CEO、IT 各一張工作卡片，桌機兩欄、手機單欄；新增 BOT 後自然增加。卡片包含狀態、兩行摘要（可展開全文）、完整今日完成數、待審數、狀態更新時間及查看回報／待審入口。進度輪詢發現新身份、統計尚未重新整理時顯示「統計待更新」，不以零冒充。
-3. 「待我審核」在 BOT 工作卡片上方獨立占滿一列，使用共用 `cy-op-table`，每件一個 tr，不設展開按鈕或明細列。欄位為送審時間、BOT、事項、內容、狀態、操作；非待審篩選另顯示審核資訊。文字過長單行省略，原文與審核資訊保留在 DOM 及 title，滑鼠停留可看全文；手機在共用表格容器內水平捲動，不撐開頁面。通過／退回在同一列，理由可空白，可切換全部／通過／退回紀錄。今日完成時間軸在 BOT 卡片下方獨立占滿一列，沿用直線／圓點，最新在上，依完成時間 DESC／ID DESC 複合游標，詳情按需展開。今天以 Asia/Taipei 計算。審稿仍只回寫審核結果，不發布內容。
-4. 「查看回報」使用共用 Dialog，保持目前 BOT 範圍，展開全文及每頁 50 筆游標載入。「設定」集中新增 BOT 與憑證狀態／管理，原超管權限不變。回報、設定及一次性憑證視窗均只用明確關閉按鈕，無右上 X、背景及 Escape 不關閉。
+## 逐 BOT 憑證
 
-## 統計、篩選及讀取成本
+`bot_ingest_credentials` 以 `bot_id` 為主鍵，保存唯一 SHA-256 token_hash、產生／撤銷時間及操作人。明文僅產生時顯示一次，不進資料庫、Audit、檔案或可攜備份。只有 SUPER_ADMIN 可以產生／輪換／撤銷；其他有模組權限的人可讀狀態、審稿與新增 BOT。
 
-- GET `/api/bot-center` 的 `botCode` 可選，省略為全部；代碼需符合格式且存在。回應 `botCode` 為目前範圍，`draftCounts` 為該範圍完整三種審稿統計，與目前分頁或所選審稿狀態無關。
-- `botStats` 以 BOT code 為 key，含 `todayCompleted` 與 `draftCounts`。它保留所有 BOT 的完整統計，即使目前只選一個 BOT；不得以已載入的前 50 筆代替總數。今日完成使用台灣日的 UTC 半開區間。全 BOT 審稿統計及今日完成各一支 GROUP BY，沒有每 BOT 一支 SQL 的迴圈。
-- 0056 僅新增 `(bot_id,review_status,id)`、`(bot_id,id)`、`(bot_id,completed_at,id)` 索引，供審稿、回報、完成清單的篩選與游標讀取。沒有新增業務表或改寫既有資料；portable backup migration marker 同步更新，欄位／保存契約不變。
-- 進度在頁面可見時每 30 秒只呼叫 `/progress`，不掃描歷史或重算完整統計。完整載入、切換篩選、手動重新整理及操作成功後更新統計；跨台灣午夜時在下一次可見檢查更新日期與完整總覽。歷史各自載入更多，維持目前 BOT／狀態範圍並去重；跨日分頁改回新日期，避免混入昨天。
-- 「統計更新」及「狀態更新」分開顯示。完整統計仍需讀取相符歷史索引，不宣稱零 D1 成本；不因新畫面提高輪詢頻率。
+0057 forward migration 將原 singleton 憑證的雜湊、時間及操作人**原樣歸屬 SOCIAL_EDITOR**，不重新產生、不取得明文；社群小編在 Grok 的原值不變。以 code 定位，不假設 bot_id=1。其他 BOT 要各自產生憑證，輪換或撤銷僅影響該 BOT。舊全域憑證操作路徑不再提供，避免誤輪換全體。
 
-## Grok Bot 共用回報工具
+機器憑證在 Worker 辨識所屬 BOT；寫入省略 botCode 可直接採憑證身份，有傳但不相符回 403。讀取審稿亦受所屬 BOT 限制：按 ID 讀他人稿回 404，按外部編號冒用另一 botCode 回 403。這是機器回報授權，不是 CYID 員工帳號／session 或另一套人員登入系統。
 
-`integrations/grok-bot/cyweb-work-reporter/` 提供 Node.js 22+ 無第三方執行套件的 CLI、Grok 私人共用技能與[設定／小編測試說明](../../integrations/grok-bot/cyweb-work-reporter/references/grok-setup.md)。使用既有 ingest 契約，不新增 Worker 路由、migration、憑證或發布能力。各 BOT 使用自己的環境代碼，憑證只從平台安全環境注入；不是把技能安裝到 Codex 或 Grok Build。
+## 工作分類、防重複與讀取成本
 
-首輪 SOCIAL_EDITOR 的測試為送出測試稿 → 人工核准 → 讀回結果 → 測試完成，不對外發文。稿件同 externalRef 不覆寫；回報／完成以持久收據及固定事件編號防止同一工具重送，未確認送達時停止交人工核對，不宣稱 API exactly-once 或逐 BOT 權限隔離。WEB 不主動喚醒 BOT，本輪不自動建立輪詢排程。核准前的停止、核准後對外操作仍須依使用者及平台授權；CLI 不取代伺服器權限。
-
-## 審核邊界
-
-通過或退回只更新該篇審稿的狀態、選填理由、審核人與時間，並寫一筆共用稽核。原 BOT 用連線憑證把這筆結果讀回去。
-
-審稿更新與 Audit 在同一個 D1 原子批次內；以條件更新的實際筆數判斷勝出者，只有實際更新的一筆才寫 Audit。即使兩個請求同毫秒作出相同決定，另一個仍回傳 409，不會重複紀錄或把未儲存的理由當成成功。
-
-這個動作不會發到 Facebook、Instagram 或 Threads，不會建立正式發布工作，也不會打開自動回覆。BOT 管理中心是審核畫面，不是自動發布開關。
-
-## 誰可以呼叫
-
-- 人：既有 CY Web session。Worker 以 `requireModuleAccess(..., "BOT_CENTER")` 判斷，不另做一套帳號。**只有 Workspace SUPER_ADMIN** 可以產生、輪換與撤銷 BOT 連線憑證（Worker 強制 403、UI 不顯示操作按鈕）；其他獲授權員工仍可檢視 BOT、審稿及新增 BOT。
-- 機器：一組可輪換的連線憑證，做法與 ERP 查詢程式的憑證相同。頁面上產生時只顯示一次明文；資料庫只留 SHA-256。撤銷或輪換後舊憑證立即失效。這不是員工、不是 CYID session，也不是第二套身份系統。沒有憑證的公開請求會被拒絕。
-
-憑證雜湊表 `bot_ingest_credentials` 不進可攜備份（與 ERP 連線憑證相同）。還原後由超級管理員在這個頁面重新產生。進度、審稿、回報與完成項目會進可攜備份。初始四筆身份採讀取比對，只有資料缺漏才 `INSERT OR IGNORE`，正常 GET 不再重複寫入。
+- `bot_completions.work_type` 為 general（舊資料及預設）、article_published、threads_patrol。只有實際發布／完成巡視才送出對應分類，不靠標題、BOT 身份、送審或核准推論；沒有拍板結案分類。
+- `event_ref` 在同 BOT 內唯一。重送相同事件與內容回傳原紀錄；換內容／分類或明確完成時間不符回 409 BOT_EVENT_CONFLICT。非 general 必填，避免分類計件重複；既有無 eventRef 的一般 API 仍可用，但不具伺服器去重。
+- GET `/api/bot-center` 支援 botCode 篩選審稿、回報、時間軸與工作摘要。完整審稿／完成統計不受 50 筆分頁限制；`workSummary` 回 articles／patrols 的完整數量及最新完成、pending 的跨日完整數量及最新待審。`botStats` 保留全部 BOT 的完整統計。
+- 原今日完成 GROUP BY 加入 work_type，不逐 BOT 發 SQL。工作摘要增加兩筆索引 LIMIT 1 及一筆最新待審讀取；0057 補分類＋日期索引與事件唯一索引。不讀完全部正文、不把第一頁長度當總數。
+- 30 秒可見頁面仍只讀 `/progress` 的 BOT 主檔與憑證狀態，不掃歷史／分類統計；跨台灣午夜下一次檢查完整刷新。沒有每次 API 呼叫寫 last_used，沒有增加固定輪詢或推播。
+- 可攜備份納入完成事件的新欄位、CURRENT_MIGRATION=0057，舊備份缺欄位取 general／null 預設；憑證仍排除，還原後各 BOT 由超管重新產生。空白目標不因 migration 預先建立 BOT 而阻擋還原。
 
 ## API
 
-人（需登入與模組權限）：
+人（既有 CYWEB session＋BOT_CENTER 權限）：
 
 | 方法 | 路徑 | 作用 |
 | --- | --- | --- |
-| GET | `/api/bot-center` | 工作總覽、`botStats` 完整統計、憑證狀態與 `canManageCredentials`。可選 `botCode` 篩選所有歷史區塊；`draftStatus` 為 `pending`（預設）、`approved`、`rejected`、`all`；分頁參數 `draftBefore`、`reportBefore` 用 ID，`timelineBefore` 用 `completedAt|id`，分頁時須保留相同 BOT／審稿範圍。回應含目前 `botCode`、三個 NextBefore 及對應 More 旗標。 |
-| GET | `/api/bot-center/progress` | 相同 session／模組授權；只回傳 `bots`、`credential`、`canManageCredentials`，供 30 秒自動刷新。 |
+| GET | `/api/bot-center` | 工作總覽／完整統計／憑證狀態；botCode、draftStatus 及三種既有游標不變 |
+| GET | `/api/bot-center/progress` | bots、credentials 陣列、canManageCredentials，不回歷史／統計 |
 | POST | `/api/bot-center/bots` | `{code,label}` 新增身份 |
-| POST | `/api/bot-center/drafts/:id/review` | `{decision:"approved"\|"rejected",reason?}` |
-| GET | `/api/bot-center/credentials` | 是否已設定，不含明文 |
-| POST | `/api/bot-center/credentials` | 僅超級管理員可產生或輪換；回應只此一次含 `token` |
-| DELETE | `/api/bot-center/credentials` | 僅超級管理員可撤銷 |
+| POST | `/api/bot-center/drafts/:id/review` | `{decision:"approved"\|"rejected",reason?}`；退回必填，通過忽略理由 |
+| GET／POST／DELETE | `/api/bot-center/bots/:code/credential` | 讀該 BOT 狀態／產生或輪換／撤銷；寫入僅 SUPER_ADMIN |
 
-機器（`Authorization: Bearer <token>`）：
+機器（自己獨立的 `Authorization: Bearer <token>`）：
 
 | 方法 | 路徑 | 作用 |
 | --- | --- | --- |
-| POST | `/api/bot-ingest/progress` | `{botCode,status,summary?}`，status 為 `idle`／`working`／`blocked`／`done` |
-| POST | `/api/bot-ingest/reports` | `{botCode,title,body}` |
-| POST | `/api/bot-ingest/drafts` | `{botCode,title,body,externalRef?}`。同一 BOT 的同一個 `externalRef` 回傳原來那篇，不把已審結果改回待審 |
-| GET | `/api/bot-ingest/drafts/:id` | 讀審核結果 |
-| GET | `/api/bot-ingest/drafts?botCode=&externalRef=` | 用外部編號讀審核結果 |
-| POST | `/api/bot-ingest/completions` | `{botCode,title,detail?,completedAt?}`。時間缺省為伺服器當下 |
+| GET | `/api/bot-ingest/identity` | 回傳憑證實際 botCode／botLabel，供工具核對設定 |
+| POST | `/api/bot-ingest/progress` | `{botCode?,status,summary?}`；idle／working／blocked／done |
+| POST | `/api/bot-ingest/reports` | `{botCode?,title,body}` |
+| POST | `/api/bot-ingest/drafts` | `{botCode?,title,body,externalRef?}`，同 BOT＋externalRef 回原稿、不覆寫 |
+| GET | `/api/bot-ingest/drafts/:id` | 只可讀自己的審核結果 |
+| GET | `/api/bot-ingest/drafts?botCode=&externalRef=` | 同上；botCode 可省略，帶入時必須相符 |
+| POST | `/api/bot-ingest/completions` | `{botCode?,title,detail?,completedAt?,workType?,eventRef?}`；completedAt 預設現在 |
 
-未知的 BOT 代碼會被拒絕，先在頁面新增。實體欄位以 `migrations/0054_bot_center.sql` 為準。出機原有的 `0053_store_equipment_category.sql` 不變；BOT 的 `0054` 由既有 main-only 部署流程接續套用。正式版本、migration 與發布證據統一見 [TODO](../../TODO.md) 及 [handoff](../handoff/CYWEB-BOT-CENTER-0120-20261106.md)，不以 PR 驗證是否觸及正式 D1 代表目前部署狀態。
+## Grok 工具、技能與啟用順序
+
+[工具與共用技能](../../integrations/grok-bot/cyweb-work-reporter/SKILL.md)、[Grok 設定](../../integrations/grok-bot/cyweb-work-reporter/references/grok-setup.md)為 Node22+、無第三方執行套件的可攜包。WEB／0057 先部署，再更新工具；小編的原安全憑證與持久收據保持不變，其他 BOT 分別提供自己的憑證。
+
+`check` 用 identity 驗證歸屬；complete 將固定 eventId 傳為 eventRef，general 舊收據相容。report 仍只有本機收據，斷線結果不明時不刪收據或換編號重送。工具沒有員工登入、自行審核或發布命令；核准後的外部操作仍按使用者與 Grok 授權。
+
+使用者指定推播留下一輪，本輪不建立 webhook／routine 或增加背景發送。核准結果目前仍由 BOT 主動讀取。小編 pilot 只測試送審 → 人工核准 → 完成回報，不對外發文、不計入文章／巡視卡片。發布與審查證據見 [TODO](../../TODO.md)、[handoff](../handoff/CYWEB-GROK-REPORTER-0123-20261107.md)。

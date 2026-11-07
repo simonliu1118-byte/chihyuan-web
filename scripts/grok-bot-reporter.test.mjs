@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { access, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { access, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { createServer } from "node:http";
@@ -46,7 +47,7 @@ async function setup(t) {
   const fixture = botCenterFixture();
   t.after(() => fixture.sql.close());
   data(await fixture.call("/api/bot-center"));
-  const token = data(await fixture.call("/api/bot-center/credentials", "POST")).token;
+  const token = data(await fixture.call("/api/bot-center/bots/SOCIAL_EDITOR/credential", "POST")).token;
   const config = { origin: "https://synthetic.test", token, botCode: "SOCIAL_EDITOR", stateDir: await sandbox(t) };
   const calls = [];
   const fetchImpl = async (url, options) => {
@@ -151,6 +152,29 @@ test("known authentication rejection allows a corrected retry, while simultaneou
   for (const result of results) if (result.status === "rejected") assert.equal(result.reason.code, "DELIVERY_UNCERTAIN");
   assert.equal(f.sql.prepare("SELECT count(*) n FROM bot_reports").get().n, 2);
 });
+test('check verifies the token owner and typed completions retain server deduplication across clients',async t=>{
+ const f=await setup(t);
+ await assert.rejects(createReporter({...f.config,botCode:'IT'},{fetchImpl:f.fetchImpl}).run('check'),code('BOT_SCOPE_MISMATCH'));
+ const input={eventId:'synthetic-article-1',title:'合成文章已發布',detail:'合成平台',workType:'article_published'};
+ const first=await f.client.run('complete',input);
+ const another=createReporter({...f.config,stateDir:await sandbox(t)},{fetchImpl:f.fetchImpl});
+ assert.equal((await another.run('complete',input)).id,first.id);
+ const page=data(await f.call('/api/bot-center'));
+ assert.equal(page.workSummary.articles.count,1);assert.equal(page.timeline[0].workType,'article_published');
+ await assert.rejects(f.client.run('complete',{...input,eventId:'invalid',workType:'arbitration'}),code('INPUT_INVALID'));
+});
+
+test('old general-completion receipts remain usable after the classified-client upgrade',async t=>{
+ const f=await setup(t),input={eventId:'synthetic-old-receipt',title:'合成舊版完成',detail:'合成內容'};
+ const hash=value=>createHash('sha256').update(value).digest('hex');
+ const fingerprint=hash(JSON.stringify({payload:{botCode:f.config.botCode,title:input.title,detail:input.detail}}));
+ const filename=hash(JSON.stringify([f.config.origin,f.config.botCode,'completions',input.eventId]))+'.json';
+ await writeFile(join(f.config.stateDir,filename),JSON.stringify({status:'delivered',fingerprint,id:123}));
+ const completed=await f.client.run('complete',input);assert.equal(completed.id,123);assert.equal(completed.duplicateSuppressed,true);
+ assert.equal(f.calls.length,0);
+ await assert.rejects(f.client.run('complete',{...input,workType:'article_published'}),code('EVENT_CONFLICT'));
+});
+
 function cli(args, input, env) {
   return new Promise((resolveResult, reject) => {
     const child = spawn(process.execPath, ["integrations/grok-bot/cyweb-work-reporter/scripts/cyweb-reporter.mjs", ...args], { env: { ...process.env, CYWEB_BASE_URL: "", CYWEB_BOT_TOKEN: "", CYWEB_BOT_CODE: "", CYWEB_REPORTER_STATE_DIR: "", ...env }, windowsHide: true });
@@ -168,6 +192,7 @@ test("portable CLI works via real HTTP, consumes JSON stdin, and does not reveal
     requests.push({ url: req.url, auth: req.headers.authorization });
     res.setHeader("content-type", "application/json");
     if (req.url === "/api/health") res.end(JSON.stringify({ ok: true, data: { service: "cyweb", database: "ok", version: "synthetic" } }));
+    else if (req.url === "/api/bot-ingest/identity") res.end(JSON.stringify({ok:true,data:{botCode:"SOCIAL_EDITOR",botLabel:"合成小編"}}));
     else {
       res.statusCode = 404;
       res.end(JSON.stringify({ ok: false, error: { code: "BOT_NOT_FOUND", message: "\u5408\u6210\u4E0D\u5B58\u5728" } }));
