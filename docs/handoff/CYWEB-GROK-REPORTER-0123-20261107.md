@@ -3,6 +3,7 @@
 - 執行：GPT；同分支 `cyweb/grok-reporting-kit-0123`、[PR #447](https://github.com/simonliu1118-byte/chihyuan-web/pull/447)。基準 main `79a9138b6082a1d32c8392dec7bc61326cdf963e`；VERSION／package.json=0.12.3，BUILD=1。同一回報整合與原參考圖驗收返修，依規則增加 Build，不另開平行工具 PR。
 - 使用者確認設計並授權開工：每 BOT 獨立憑證；**小編現在的憑證保留**；更新工具、技能、handoff；通過不問理由、退回才必填；待審核 → 四張工作摘要 → 同行時間軸 → 四張當日 BOT 摘要。拍板結案後臺先不接，使用者另外明確指定**推播下一輪**。
 - 本輪未授權合併部署；待 Claude 最終審查，不代填通過。正式站仍 V0.12.2，發布證據見 TODO。沒有讀取／重設正式憑證或操作正式 D1，沒有修改／部署 CYapps、CYERPAutoQuery 或其他專案。
+- 交付前逐檔核對發現首個Build1提交漏帶後臺檔案；補提交`bot-center-routes.ts`為同一份已通過本機測試的內容，未擴充行為。`ce360513`的中間CI不作驗收依據，僅以補齊後最終head為準。
 
 ## 憑證與 migration
 

@@ -1,9 +1,9 @@
 import { AuditService } from "../audit/audit-service";
 import { requireModuleAccess } from "../auth/guard";
 import {
-  BOT_LIMITS, BOT_PAGE_SIZE, BOT_REVIEW_STATUSES, BOT_STATUSES, INITIAL_BOTS,
+  BOT_WORK_TYPES, BOT_LIMITS, BOT_PAGE_SIZE, BOT_REVIEW_STATUSES, BOT_STATUSES, INITIAL_BOTS,
   taipeiTodayRange, type BotCenterState, type BotCompletionView, type BotCredentialView,
-  type BotDraftView, type BotProfileView, type BotProgressState, type BotReportView, type BotReviewStatus, type BotStatus,
+  type BotDraftView, type BotProfileView, type BotProgressState, type BotReportView, type BotReviewStatus, type BotStatus, type BotWorkType,
 } from "../../shared/bot-center";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
 import { failure, success } from "./response";
@@ -19,7 +19,7 @@ type DraftRow = {
   display_name: string | null; employee_no: string | null; created_at: string;
 };
 type ReportRow = { id: number; code: string; label: string; title: string; body: string; reported_at: string };
-type CompletionRow = { id: number; code: string; label: string; title: string; detail: string; completed_at: string };
+type CompletionRow = { id: number; code: string; label: string; title: string; detail: string; completed_at: string; work_type: BotWorkType; event_ref: string | null };
 
 const chars = (value: string) => [...value].length;
 const text = (value: unknown, name: string, max: number, required = false) => {
@@ -45,12 +45,7 @@ async function digestToken(token: string): Promise<string> {
   const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)));
   return [...bytes].map(value => value.toString(16).padStart(2, "0")).join("");
 }
-function sameDigest(a: string, b: string): boolean {
-  if (a.length !== 64 || b.length !== 64) return false;
-  let diff = 0;
-  for (let i = 0; i < 64; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
+
 function botCode(value: unknown): string {
   const code = text(value, "BOT 代碼", BOT_LIMITS.code, true).toUpperCase();
   if (!/^[A-Z][A-Z0-9_]{1,31}$/.test(code)) throw new Bad("BOT_INVALID", "BOT 代碼需為大寫英數，可含底線");
@@ -97,7 +92,7 @@ const reportView = (row: ReportRow): BotReportView => ({
   id: row.id, botCode: row.code, botLabel: row.label, title: row.title, body: row.body, reportedAt: row.reported_at,
 });
 const completionView = (row: CompletionRow): BotCompletionView => ({
-  id: row.id, botCode: row.code, botLabel: row.label, title: row.title, detail: row.detail, completedAt: row.completed_at,
+  id: row.id, botCode: row.code, botLabel: row.label, title: row.title, detail: row.detail, completedAt: row.completed_at, workType: row.work_type, eventRef: row.event_ref,
 });
 
 const DRAFT_SQL = `SELECT d.id,b.code,b.label,d.external_ref,d.title,d.body,d.review_status,d.review_reason,d.reviewed_at,d.created_at,m.display_name,m.employee_no
@@ -119,23 +114,28 @@ async function profileByCode(db: D1Database, code: string): Promise<ProfileRow> 
   if (!row) throw new Bad("BOT_NOT_FOUND", "沒有這個 BOT，請先在 BOT 管理中心新增", 404);
   return row;
 }
-async function draftById(db: D1Database, id: number): Promise<DraftRow> {
-  const row = await one<DraftRow>(db, `${DRAFT_SQL} WHERE d.id=?`, id);
+async function draftById(db: D1Database, id: number, owner?: number): Promise<DraftRow> {
+  const row = await one<DraftRow>(db, `${DRAFT_SQL} WHERE d.id=?${owner === undefined ? "" : " AND d.bot_id=?"}`, id, ...(owner === undefined ? [] : [owner]));
   if (!row) throw new Bad("BOT_NOT_FOUND", "找不到這篇審稿", 404);
   return row;
 }
 
-async function credential(db: D1Database): Promise<BotCredentialView> {
-  const row = await one<{ token_hash: string | null; created_at: string | null; revoked_at: string | null }>(
-    db, "SELECT token_hash,created_at,revoked_at FROM bot_ingest_credentials WHERE id=1",
-  );
-  return { configured: !!row?.token_hash, createdAt: row?.created_at ?? null, revokedAt: row?.revoked_at ?? null };
+type CredentialRow = { bot_id: number; configured: number; created_at: string | null; revoked_at: string | null };
+const credentialView = (bot: ProfileRow, row?: CredentialRow): BotCredentialView => ({
+  botCode: bot.code, botLabel: bot.label, configured: !!row?.configured,
+  createdAt: row?.created_at ?? null, revokedAt: row?.revoked_at ?? null,
+});
+const CREDENTIAL_SQL = "SELECT bot_id,(token_hash IS NOT NULL AND revoked_at IS NULL) AS configured,created_at,revoked_at FROM bot_ingest_credentials";
+async function credential(db: D1Database, bot: ProfileRow): Promise<BotCredentialView> {
+  const row = await one<CredentialRow>(db, CREDENTIAL_SQL + " WHERE bot_id=?", bot.id);
+  return credentialView(bot, row ?? undefined);
 }
-
 async function progress(db: D1Database, canManageCredentials: boolean): Promise<BotProgressState> {
   const bots = await many<ProfileRow>(db, "SELECT id,code,label,status,summary,updated_at FROM bot_profiles ORDER BY id");
-  return { bots: bots.map(profileView), credential: await credential(db), canManageCredentials };
+  const rows = await many<CredentialRow>(db, CREDENTIAL_SQL);
+  return { bots: bots.map(profileView), credentials: bots.map(bot => credentialView(bot, rows.find(row => row.bot_id === bot.id))), canManageCredentials };
 }
+const COMPLETION_SQL = "SELECT c.id,b.code,b.label,c.title,c.detail,c.completed_at,c.work_type,c.event_ref FROM bot_completions c JOIN bot_profiles b ON b.id=c.bot_id";
 
 async function state(db: D1Database, url: URL, now: string, canManageCredentials: boolean): Promise<BotCenterState> {
   await ensureInitialBots(db, now);
@@ -157,11 +157,11 @@ async function state(db: D1Database, url: URL, now: string, canManageCredentials
     draftStatus, draftStatus, draftBefore, draftBefore, ...scopedArgs, BOT_PAGE_SIZE + 1);
   const counts = await many<{ bot_id: number; review_status: BotReviewStatus; n: number }>(db,
     "SELECT bot_id,review_status,count(*) n FROM bot_drafts GROUP BY bot_id,review_status");
-  const completions = await many<{bot_id:number;n:number}>(db,
-    "SELECT bot_id,count(*) n FROM bot_completions WHERE completed_at>=? AND completed_at<? GROUP BY bot_id",today.start,today.end);
+  const completions = await many<{bot_id:number;work_type:BotWorkType;n:number}>(db,
+    "SELECT bot_id,work_type,count(*) n FROM bot_completions WHERE completed_at>=? AND completed_at<? GROUP BY bot_id,work_type",today.start,today.end);
   const reportRows = await many<ReportRow>(db, `SELECT r.id,b.code,b.label,r.title,r.body,r.reported_at FROM bot_reports r JOIN bot_profiles b ON b.id=r.bot_id
     WHERE (?=0 OR r.id<?) ${selected ? "AND r.bot_id=?" : ""} ORDER BY r.id DESC LIMIT ?`, reportBefore, reportBefore, ...scopedArgs, BOT_PAGE_SIZE + 1);
-  const timelineRows = await many<CompletionRow>(db, `SELECT c.id,b.code,b.label,c.title,c.detail,c.completed_at FROM bot_completions c JOIN bot_profiles b ON b.id=c.bot_id
+  const timelineRows = await many<CompletionRow>(db, `${COMPLETION_SQL}
     WHERE c.completed_at>=? AND c.completed_at<? AND (?='' OR c.completed_at<? OR (c.completed_at=? AND c.id<?))
     ${selected ? "AND c.bot_id=?" : ""} ORDER BY c.completed_at DESC,c.id DESC LIMIT ?`,
     today.start, today.end, timelineBefore?.at ?? "", timelineBefore?.at ?? "", timelineBefore?.at ?? "", timelineBefore?.id ?? 0, ...scopedArgs, BOT_PAGE_SIZE + 1);
@@ -170,14 +170,25 @@ async function state(db: D1Database, url: URL, now: string, canManageCredentials
   for (const bot of currentProgress.bots) {
     const totals = {pending:0,approved:0,rejected:0};
     for (const row of counts.filter(row=>row.bot_id===bot.id)) totals[row.review_status]=row.n;
-    botStats[bot.code]={todayCompleted:completions.find(row=>row.bot_id===bot.id)?.n??0,draftCounts:totals};
+    botStats[bot.code]={todayCompleted:completions.filter(row=>row.bot_id===bot.id).reduce((sum,row)=>sum+row.n,0),draftCounts:totals};
     if (!selected || selected.id===bot.id) for (const status of BOT_REVIEW_STATUSES) draftCounts[status]+=totals[status];
   }
+  const latestWork = async (type: BotWorkType) => {
+    const row = await one<CompletionRow>(db, `${COMPLETION_SQL} WHERE c.work_type=? AND c.completed_at>=? AND c.completed_at<? ${selected ? "AND c.bot_id=?" : ""} ORDER BY c.completed_at DESC,c.id DESC LIMIT 1`, type, today.start, today.end, ...scopedArgs);
+    return row ? completionView(row) : null;
+  };
+  const countWork = (type: BotWorkType) => completions.filter(row => row.work_type===type && (!selected || row.bot_id===selected.id)).reduce((sum,row)=>sum+row.n,0);
+  const latestPending = await one<DraftRow>(db, `${DRAFT_SQL} WHERE d.review_status='pending' ${selected ? "AND d.bot_id=?" : ""} ORDER BY d.id DESC LIMIT 1`, ...scopedArgs);
+  const workSummary: BotCenterState["workSummary"] = {
+    articles: { count: countWork("article_published"), latest: await latestWork("article_published") },
+    patrols: { count: countWork("threads_patrol"), latest: await latestWork("threads_patrol") },
+    pending: { count: draftCounts.pending, latest: latestPending ? draftView(latestPending) : null },
+  };
   const visibleDrafts = draftRows.slice(0, BOT_PAGE_SIZE);
   const visibleReports = reportRows.slice(0, BOT_PAGE_SIZE);
   const visibleTimeline = timelineRows.slice(0, BOT_PAGE_SIZE);
   return {
-    ...currentProgress,
+    ...currentProgress, workSummary,
     botCode: selected?.code ?? null, botStats,
     drafts: visibleDrafts.map(draftView), draftStatus, draftCounts,
     draftsMore: draftRows.length > BOT_PAGE_SIZE,
@@ -229,7 +240,7 @@ async function human(request: Request, env: IdentityRuntimeEnv, requestId: strin
     const body = await readBody(request);
     if (body.decision !== "approved" && body.decision !== "rejected") throw new Bad("BOT_INVALID", "請選擇通過或退回");
     const decision = body.decision;
-    const reason = text(body.reason, "理由", BOT_LIMITS.reason) || null;
+    const reason = decision === "rejected" ? text(body.reason, "退回理由", BOT_LIMITS.reason, true) : null;
     const current = await draftById(db, id);
     if (current.review_status !== "pending") throw new Bad("ALREADY_REVIEWED", "這篇審稿已經有結果", 409);
     // The only write is this review result plus its audit row.
@@ -249,47 +260,44 @@ async function human(request: Request, env: IdentityRuntimeEnv, requestId: strin
     return success(draftView(saved), requestId);
   }
 
-  if (path === "credentials" && (request.method === "GET" || request.method === "POST" || request.method === "DELETE")) {
+  const credentialRoute = /^bots\/([A-Z][A-Z0-9_]{1,31})\/credential$/.exec(path);
+  if (credentialRoute && ["GET","POST","DELETE"].includes(request.method)) {
     if (request.method !== "GET" && !canManageCredentials)
-      return failure({ code: "ACCESS_DENIED", message: "只有超級管理員可以管理 BOT 連線憑證" }, requestId, 403);
-    const current = await credential(db);
-    if (request.method === "GET") return success(current, requestId);
+      return failure({code:"ACCESS_DENIED",message:"只有超級管理員可以管理 BOT 連線憑證"},requestId,403);
+    await ensureInitialBots(db, now);
+    const bot = await profileByCode(db, botCode(credentialRoute[1]));
+    if (request.method === "GET") return success(await credential(db, bot), requestId);
     if (request.method === "POST") {
       const bytes = crypto.getRandomValues(new Uint8Array(32));
-      const token = btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-      const hash = await digestToken(token);
+      const token = btoa(String.fromCharCode(...bytes)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""), hash = await digestToken(token);
       await db.batch([
-        db.prepare(`INSERT INTO bot_ingest_credentials(id,token_hash,created_at,revoked_at,updated_by) VALUES(1,?,?,NULL,?)
-          ON CONFLICT(id) DO UPDATE SET token_hash=excluded.token_hash,created_at=excluded.created_at,revoked_at=NULL,updated_by=excluded.updated_by`)
-          .bind(hash, now, actor),
-        new AuditService(db).prepareRecord({
-          entityType: "bot_ingest", entityKey: "primary", action: "bot_ingest.credential_rotated",
-          actorEmployeeId: actor, requestId, metadata: { operation: current.configured ? "rotated" : "created" },
-        }),
+        db.prepare(`INSERT INTO bot_ingest_credentials(bot_id,token_hash,created_at,revoked_at,updated_by) VALUES(?,?,?,NULL,?)
+          ON CONFLICT(bot_id) DO UPDATE SET token_hash=excluded.token_hash,created_at=excluded.created_at,revoked_at=NULL,updated_by=excluded.updated_by`).bind(bot.id,hash,now,actor),
+        new AuditService(db).prepareRecord({entityType:"bot_ingest",entityKey:bot.code,action:"bot_ingest.credential_rotated",actorEmployeeId:actor,requestId,metadata:{botCode:bot.code}}),
       ]);
-      return success({ token, createdAt: now }, requestId);
+      return success({token,botCode:bot.code,createdAt:now}, requestId);
     }
     await db.batch([
-      db.prepare("UPDATE bot_ingest_credentials SET token_hash=NULL,revoked_at=?,updated_by=? WHERE id=1").bind(now, actor),
-      new AuditService(db).prepareRecord({
-        entityType: "bot_ingest", entityKey: "primary", action: "bot_ingest.credential_revoked",
-        actorEmployeeId: actor, requestId,
-      }),
+      db.prepare("UPDATE bot_ingest_credentials SET token_hash=NULL,revoked_at=?,updated_by=? WHERE bot_id=?").bind(now,actor,bot.id),
+      new AuditService(db).prepareRecord({entityType:"bot_ingest",entityKey:bot.code,action:"bot_ingest.credential_revoked",actorEmployeeId:actor,requestId,metadata:{botCode:bot.code}}),
     ]);
-    return success({ configured: false, revokedAt: now }, requestId);
+    return success(await credential(db,bot),requestId);
   }
+
   return failure({ code: "NOT_FOUND", message: "找不到這個操作" }, requestId, request.method === "GET" || request.method === "POST" || request.method === "DELETE" ? 404 : 405);
 }
 
-async function ingestGuard(request: Request, env: IdentityRuntimeEnv, requestId: string): Promise<true | Response> {
-  const header = request.headers.get("authorization") ?? "";
-  const match = /^Bearer ([\x21-\x7e]{32,256})$/.exec(header);
-  if (!match) return failure({ code: "BOT_UNAUTHORIZED", message: "需要有效的 BOT 連線憑證" }, requestId, 401);
-  const digest = await digestToken(match[1]);
-  const row = await one<{ token_hash: string | null }>(env.DB, "SELECT token_hash FROM bot_ingest_credentials WHERE id=1");
-  if (!row?.token_hash || !sameDigest(digest, row.token_hash))
-    return failure({ code: "BOT_UNAUTHORIZED", message: "需要有效的 BOT 連線憑證" }, requestId, 401);
-  return true;
+async function ingestGuard(request: Request, env: IdentityRuntimeEnv, requestId: string): Promise<ProfileRow | Response> {
+  const token = /^Bearer ([A-Za-z0-9_-]{32,256})$/.exec(request.headers.get("Authorization") ?? "")?.[1];
+  const denied = () => failure({code:"BOT_UNAUTHORIZED",message:"BOT 連線憑證無效"},requestId,401);
+  if (!token) return denied();
+  const digest = await digestToken(token);
+  const bot = await one<ProfileRow>(env.DB,
+    "SELECT b.id,b.code,b.label,b.status,b.summary,b.updated_at FROM bot_ingest_credentials c JOIN bot_profiles b ON b.id=c.bot_id WHERE c.token_hash=? AND c.revoked_at IS NULL",digest);
+  return bot ?? denied();
+}
+function requireBotScope(value: unknown, owner: ProfileRow): void {
+  if (value != null && botCode(value) !== owner.code) throw new Bad("BOT_SCOPE_MISMATCH","這組憑證不屬於指定 BOT",403);
 }
 
 async function saveDraft(db: D1Database, botId: number, externalRef: string | null, title: string, body: string, now: string): Promise<DraftRow> {
@@ -313,14 +321,16 @@ async function saveDraft(db: D1Database, botId: number, externalRef: string | nu
 
 async function ingest(request: Request, env: IdentityRuntimeEnv, requestId: string, url: URL): Promise<Response> {
   const allowed = await ingestGuard(request, env, requestId);
-  if (allowed !== true) return allowed;
+  if (allowed instanceof Response) return allowed;
+  const bot = allowed;
   const db = env.DB;
   const now = new Date().toISOString();
   await ensureInitialBots(db, now);
   const path = url.pathname.replace(/^\/api\/bot-ingest\/?/, "");
+  if (path === "identity" && request.method === "GET") return success({botCode:bot.code,botLabel:bot.label},requestId);
   if (path === "reports" && request.method === "POST") {
     const body = await readBody(request);
-    const bot = await profileByCode(db, botCode(body.botCode));
+    requireBotScope(body.botCode,bot);
     const title = text(body.title, "標題", BOT_LIMITS.title, true);
     const report = text(body.body, "內容", BOT_LIMITS.body, true);
     const inserted = await db.prepare("INSERT INTO bot_reports(bot_id,title,body,reported_at) VALUES(?,?,?,?)").bind(bot.id, title, report, now).run();
@@ -329,24 +339,24 @@ async function ingest(request: Request, env: IdentityRuntimeEnv, requestId: stri
   }
   if (path === "drafts" && request.method === "POST") {
     const body = await readBody(request);
-    const bot = await profileByCode(db, botCode(body.botCode));
+    requireBotScope(body.botCode,bot);
     const externalRef = text(body.externalRef, "外部編號", BOT_LIMITS.externalRef) || null;
     const title = text(body.title, "標題", BOT_LIMITS.title, true);
     const draft = text(body.body, "內容", BOT_LIMITS.body, true);
     return success(draftView(await saveDraft(db, bot.id, externalRef, title, draft, now)), requestId);
   }
   if (path === "drafts" && request.method === "GET") {
-    const bot = await profileByCode(db, botCode(url.searchParams.get("botCode")));
+    requireBotScope(url.searchParams.get("botCode"),bot);
     const externalRef = text(url.searchParams.get("externalRef"), "外部編號", BOT_LIMITS.externalRef, true);
     const row = await one<DraftRow>(db, `${DRAFT_SQL} WHERE d.bot_id=? AND d.external_ref=?`, bot.id, externalRef);
     if (!row) throw new Bad("BOT_NOT_FOUND", "找不到這篇審稿", 404);
     return success(draftView(row), requestId);
   }
   const draft = /^drafts\/(\d+)$/.exec(path);
-  if (draft && request.method === "GET") return success(draftView(await draftById(db, Number(draft[1]))), requestId);
+  if (draft && request.method === "GET") return success(draftView(await draftById(db, Number(draft[1]),bot.id)), requestId);
   if (path === "progress" && request.method === "POST") {
     const body = await readBody(request);
-    const bot = await profileByCode(db, botCode(body.botCode));
+    requireBotScope(body.botCode,bot);
     const status = statusOf(body.status);
     const summary = text(body.summary, "進度", BOT_LIMITS.summary);
     await db.prepare("UPDATE bot_profiles SET status=?,summary=?,updated_at=? WHERE id=?").bind(status, summary, now, bot.id).run();
@@ -355,13 +365,20 @@ async function ingest(request: Request, env: IdentityRuntimeEnv, requestId: stri
   }
   if (path === "completions" && request.method === "POST") {
     const body = await readBody(request);
-    const bot = await profileByCode(db, botCode(body.botCode));
+    requireBotScope(body.botCode,bot);
     const title = text(body.title, "完成項目", BOT_LIMITS.title, true);
     const detail = text(body.detail, "內容", BOT_LIMITS.body);
     const completedAt = completedAtOf(body.completedAt, now);
-    const inserted = await db.prepare("INSERT INTO bot_completions(bot_id,title,detail,completed_at) VALUES(?,?,?,?)").bind(bot.id, title, detail, completedAt).run();
-    const row = await one<CompletionRow>(db, `SELECT c.id,b.code,b.label,c.title,c.detail,c.completed_at FROM bot_completions c JOIN bot_profiles b ON b.id=c.bot_id WHERE c.id=?`, Number(inserted.meta.last_row_id));
-    return success(completionView(row!), requestId);
+    const workType = body.workType ?? "general";
+    if (typeof workType !== "string" || !(BOT_WORK_TYPES as readonly string[]).includes(workType)) throw new Bad("BOT_INVALID","工作分類不正確");
+    const eventRef = text(body.eventRef,"固定事件編號",120,workType!=="general") || null;
+    const inserted = await db.prepare("INSERT INTO bot_completions(bot_id,title,detail,completed_at,work_type,event_ref) VALUES(?,?,?,?,?,?) ON CONFLICT DO NOTHING")
+      .bind(bot.id,title,detail,completedAt,workType,eventRef).run();
+    const row = await one<CompletionRow>(db, eventRef ? `${COMPLETION_SQL} WHERE c.bot_id=? AND c.event_ref=?` : `${COMPLETION_SQL} WHERE c.id=?`,
+      ...(eventRef ? [bot.id,eventRef] : [Number(inserted.meta.last_row_id)]));
+    if (!row) throw new Bad("BOT_UNAVAILABLE","無法確認完成紀錄",500);
+    if (row.title!==title || row.detail!==detail || row.work_type!==workType || (body.completedAt && row.completed_at!==completedAt)) throw new Bad("BOT_EVENT_CONFLICT","同一事件編號已有不同內容",409);
+    return success(completionView(row),requestId);
   }
   return failure({ code: "NOT_FOUND", message: "找不到這個操作" }, requestId, 404);
 }
