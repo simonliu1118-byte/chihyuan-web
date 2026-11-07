@@ -38,3 +38,10 @@ export function issueBotCredential(code: string): Promise<{ token: string; botCo
 export function revokeBotCredential(code: string): Promise<BotCredentialView> {
   return apiRequest(`/api/bot-center/bots/${encodeURIComponent(code)}/credential`, { method: "DELETE" });
 }
+
+export function saveBotPush(code:string,json:{enabled:boolean;url?:string;key?:string}):Promise<BotProgressState['pushSettings'][number]>{
+  return apiRequest(`/api/bot-center/bots/${encodeURIComponent(code)}/push`,{method:'PUT',json});
+}
+export function retryBotPush(id:number):Promise<BotDraftView>{
+  return apiRequest(`/api/bot-center/drafts/${id}/push/retry`,{method:'POST'});
+}

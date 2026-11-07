@@ -7,16 +7,18 @@ import {
 } from "../../shared/bot-center";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
 import { failure, success } from "./response";
+import {deliverReviewPushes,openPushTarget,pushAvailable,sealPushTarget,PushError,type BotPushEnv} from "../bot/review-push";
+type BotEnv = IdentityRuntimeEnv & BotPushEnv;
 
 class Bad extends Error {
   constructor(readonly code: string, message: string, readonly status = 422) { super(message); }
 }
 
-type ProfileRow = { id: number; code: string; label: string; status: BotStatus; summary: string; updated_at: string };
+type ProfileRow = { id: number; code: string; label: string; status: BotStatus; summary: string; updated_at: string; push_enabled?:number;push_configured?:number;push_updated_at?:string|null };
 type DraftRow = {
   id: number; code: string; label: string; external_ref: string | null; title: string; body: string;
   review_status: BotReviewStatus; review_reason: string | null; reviewed_at: string | null;
-  display_name: string | null; employee_no: string | null; created_at: string;
+  display_name: string | null; employee_no: string | null; created_at: string;bot_id:number;push_status:BotDraftView["pushStatus"];
 };
 type ReportRow = { id: number; code: string; label: string; title: string; body: string; reported_at: string };
 type CompletionRow = { id: number; code: string; label: string; title: string; detail: string; completed_at: string; work_type: BotWorkType; event_ref: string | null };
@@ -87,6 +89,7 @@ const draftView = (row: DraftRow): BotDraftView => ({
   id: row.id, botCode: row.code, botLabel: row.label, externalRef: row.external_ref, title: row.title, body: row.body,
   status: row.review_status, reason: row.review_reason, reviewedAt: row.reviewed_at, createdAt: row.created_at,
   reviewer: row.reviewed_at ? { displayName: row.display_name, employeeNo: row.employee_no } : null,
+  pushStatus:row.push_status,
 });
 const reportView = (row: ReportRow): BotReportView => ({
   id: row.id, botCode: row.code, botLabel: row.label, title: row.title, body: row.body, reportedAt: row.reported_at,
@@ -95,8 +98,8 @@ const completionView = (row: CompletionRow): BotCompletionView => ({
   id: row.id, botCode: row.code, botLabel: row.label, title: row.title, detail: row.detail, completedAt: row.completed_at, workType: row.work_type, eventRef: row.event_ref,
 });
 
-const DRAFT_SQL = `SELECT d.id,b.code,b.label,d.external_ref,d.title,d.body,d.review_status,d.review_reason,d.reviewed_at,d.created_at,m.display_name,m.employee_no
- FROM bot_drafts d JOIN bot_profiles b ON b.id=d.bot_id LEFT JOIN app_members m ON m.id=d.reviewed_by`;
+const DRAFT_SQL = `SELECT d.id,d.bot_id,b.code,b.label,d.external_ref,d.title,d.body,d.review_status,d.review_reason,d.reviewed_at,d.created_at,m.display_name,m.employee_no,p.status AS push_status
+ FROM bot_drafts d JOIN bot_profiles b ON b.id=d.bot_id LEFT JOIN app_members m ON m.id=d.reviewed_by LEFT JOIN bot_review_push_outbox p ON p.draft_id=d.id`;
 
 async function ensureInitialBots(db: D1Database, now: string): Promise<void> {
   // Read-only when already initialized. Needed after recovery of an older backup.
@@ -130,14 +133,15 @@ async function credential(db: D1Database, bot: ProfileRow): Promise<BotCredentia
   const row = await one<CredentialRow>(db, CREDENTIAL_SQL + " WHERE bot_id=?", bot.id);
   return credentialView(bot, row ?? undefined);
 }
-async function progress(db: D1Database, canManageCredentials: boolean): Promise<BotProgressState> {
-  const bots = await many<ProfileRow>(db, "SELECT id,code,label,status,summary,updated_at FROM bot_profiles ORDER BY id");
+async function progress(db: D1Database, canManageCredentials: boolean, ready:boolean): Promise<BotProgressState> {
+  const bots = await many<ProfileRow>(db, "SELECT b.id,b.code,b.label,b.status,b.summary,b.updated_at,p.enabled AS push_enabled,(p.encrypted_target IS NOT NULL) AS push_configured,p.updated_at AS push_updated_at FROM bot_profiles b LEFT JOIN bot_review_push_settings p ON p.bot_id=b.id ORDER BY b.id");
   const rows = await many<CredentialRow>(db, CREDENTIAL_SQL);
-  return { bots: bots.map(profileView), credentials: bots.map(bot => credentialView(bot, rows.find(row => row.bot_id === bot.id))), canManageCredentials };
+  return { bots: bots.map(profileView), credentials: bots.map(bot => credentialView(bot, rows.find(row => row.bot_id === bot.id))), canManageCredentials,pushReady:ready,
+    pushSettings:bots.map(bot=>({botCode:bot.code,configured:!!bot.push_configured,enabled:!!bot.push_enabled,updatedAt:bot.push_updated_at??null})) };
 }
 const COMPLETION_SQL = "SELECT c.id,b.code,b.label,c.title,c.detail,c.completed_at,c.work_type,c.event_ref FROM bot_completions c JOIN bot_profiles b ON b.id=c.bot_id";
 
-async function state(db: D1Database, url: URL, now: string, canManageCredentials: boolean): Promise<BotCenterState> {
+async function state(db: D1Database, url: URL, now: string, canManageCredentials: boolean,ready:boolean): Promise<BotCenterState> {
   await ensureInitialBots(db, now);
   const requested = url.searchParams.get("draftStatus") ?? "pending";
   if (requested !== "all" && !(BOT_REVIEW_STATUSES as readonly string[]).includes(requested)) throw new Bad("BOT_INVALID", "審稿狀態不正確");
@@ -146,7 +150,7 @@ async function state(db: D1Database, url: URL, now: string, canManageCredentials
   const draftBefore = cursor(url.searchParams.get("draftBefore"));
   const timelineBefore = timelineCursor(url.searchParams.get("timelineBefore"));
   const today = taipeiTodayRange(new Date(now));
-  const currentProgress = await progress(db, canManageCredentials);
+  const currentProgress = await progress(db, canManageCredentials,ready);
   const requestedBot = url.searchParams.get("botCode");
   const requestedCode = requestedBot === null ? null : botCode(requestedBot);
   const selected = requestedCode === null ? null : currentProgress.bots.find(bot => bot.code === requestedCode);
@@ -202,7 +206,7 @@ async function state(db: D1Database, url: URL, now: string, canManageCredentials
   };
 }
 
-async function human(request: Request, env: IdentityRuntimeEnv, requestId: string, url: URL): Promise<Response> {
+async function human(request: Request, env: BotEnv, requestId: string, url: URL,ctx?:Pick<ExecutionContext,'waitUntil'>): Promise<Response> {
   const provider = identityClient(env);
   if (!provider) return failure({ code: "IDENTITY_UNAVAILABLE", message: "帳號服務暫時無法使用" }, requestId, 503);
   const gate = await requireModuleAccess(provider, env.DB, request, "BOT_CENTER");
@@ -212,8 +216,8 @@ async function human(request: Request, env: IdentityRuntimeEnv, requestId: strin
   const actor = gate.member.id;
   const canManageCredentials = gate.principal.workspaceRole === "SUPER_ADMIN";
   const path = url.pathname.replace(/^\/api\/bot-center\/?/, "");
-  if ((path === "" || path === "/") && request.method === "GET") return success(await state(db, url, now, canManageCredentials), requestId);
-  if (path === "progress" && request.method === "GET") return success(await progress(db, canManageCredentials), requestId);
+  if ((path === "" || path === "/") && request.method === "GET") return success(await state(db, url, now, canManageCredentials,pushAvailable(env)), requestId);
+  if (path === "progress" && request.method === "GET") return success(await progress(db, canManageCredentials,pushAvailable(env)), requestId);
 
   if (path === "bots" && request.method === "POST") {
     await ensureInitialBots(db, now);
@@ -243,7 +247,8 @@ async function human(request: Request, env: IdentityRuntimeEnv, requestId: strin
     const reason = decision === "rejected" ? text(body.reason, "退回理由", BOT_LIMITS.reason, true) : null;
     const current = await draftById(db, id);
     if (current.review_status !== "pending") throw new Bad("ALREADY_REVIEWED", "這篇審稿已經有結果", 409);
-    // The only write is this review result plus its audit row.
+    const notify=await one<{enabled:number}>(db,"SELECT enabled FROM bot_review_push_settings WHERE bot_id=?",current.bot_id);
+    // Commit the review, its audit and optional notification atomically before attempting delivery.
     const [updated] = await db.batch([
       db.prepare("UPDATE bot_drafts SET review_status=?,review_reason=?,reviewed_by=?,reviewed_at=? WHERE id=? AND review_status='pending'")
         .bind(decision, reason, actor, now, id),
@@ -254,12 +259,48 @@ async function human(request: Request, env: IdentityRuntimeEnv, requestId: strin
       // This must immediately follow the UPDATE in the same atomic batch.
       // A concurrent loser changes zero rows, even when its timestamp matches.
       }, { sql: "changes()=1" }),
+      ...(notify?.enabled===1?[db.prepare("INSERT INTO bot_review_push_outbox(draft_id,next_attempt_at,created_at,updated_at) SELECT ?,?,?,? WHERE changes()=1 ON CONFLICT DO NOTHING").bind(id,now,now,now)]:[]),
     ]);
     if (updated.meta.changes !== 1) throw new Bad("ALREADY_REVIEWED", "這篇審稿已經有結果", 409);
+    if(notify?.enabled===1)ctx?.waitUntil(deliverReviewPushes(env,{draftId:id}).catch(()=>undefined));
     const saved = await draftById(db, id);
     return success(draftView(saved), requestId);
   }
 
+  const pushRoute=/^bots\/([A-Z][A-Z0-9_]{1,31})\/push$/.exec(path);
+  if(pushRoute&&request.method==='PUT'){
+    if(!canManageCredentials)throw new Bad('ACCESS_DENIED','只有超級管理員可以設定推播',403);
+    if(!pushAvailable(env))throw new Bad('PUSH_NOT_READY','推播服務尚未啟用',503);
+    const bot=await profileByCode(db,botCode(pushRoute[1])),body=await readBody(request);
+    if(typeof body.enabled!=='boolean')throw new Bad('BOT_INVALID','請選擇是否啟用推播');
+    const current=await one<{encrypted_target:string|null}>(db,'SELECT encrypted_target FROM bot_review_push_settings WHERE bot_id=?',bot.id);
+    const url=text(body.url,'Webhook 網址',2048),key=text(body.key,'Webhook 密鑰',1024);
+    let sealed=current?.encrypted_target??null;
+    if(url||key){
+      const prior=sealed&&(!url||!key)?await openPushTarget(env,bot.id,sealed):null;
+      sealed=await sealPushTarget(env,bot.id,{url:url||prior?.url||'',key:key||prior?.key||''});
+    }
+    if(body.enabled&&!sealed)throw new Bad('BOT_INVALID','請設定 Webhook 網址與密鑰');
+    await db.batch([
+      db.prepare('INSERT INTO bot_review_push_settings(bot_id,enabled,encrypted_target,updated_at,updated_by) VALUES(?,?,?,?,?) ON CONFLICT(bot_id) DO UPDATE SET enabled=excluded.enabled,encrypted_target=excluded.encrypted_target,updated_at=excluded.updated_at,updated_by=excluded.updated_by').bind(bot.id,body.enabled?1:0,sealed,now,actor),
+      new AuditService(db).prepareRecord({entityType:'bot_review_push',entityKey:bot.code,action:'bot_review_push.configured',actorEmployeeId:actor,requestId,after:{enabled:body.enabled,configured:!!sealed}}),
+    ]);
+    return success({botCode:bot.code,configured:!!sealed,enabled:body.enabled,updatedAt:now},requestId);
+  }
+  const retryPush=/^drafts\/(\d+)\/push\/retry$/.exec(path);
+  if(retryPush&&request.method==='POST'){
+    if(!canManageCredentials)throw new Bad('ACCESS_DENIED','只有超級管理員可以重送推播',403);
+    const id=Number(retryPush[1]),draft=await draftById(db,id);
+    const enabled=await one<{enabled:number}>(db,'SELECT enabled FROM bot_review_push_settings WHERE bot_id=?',draft.bot_id);
+    if(!pushAvailable(env)||enabled?.enabled!==1)throw new Bad('PUSH_NOT_READY','此 BOT 推播尚未啟用',409);
+    const result=await db.batch([
+      db.prepare("UPDATE bot_review_push_outbox SET status='queued',attempts=0,next_attempt_at=?,lease_token=NULL,lease_until=NULL,last_error_code=NULL,updated_at=? WHERE draft_id=? AND status='failed'").bind(now,now,id),
+      new AuditService(db).prepareRecord({entityType:'bot_review_push',entityKey:String(id),action:'bot_review_push.retried',actorEmployeeId:actor,requestId},{sql:'changes()=1'}),
+    ]);
+    if(result[0].meta.changes!==1)throw new Bad('PUSH_NOT_RETRYABLE','這筆推播目前不需重送',409);
+    ctx?.waitUntil(deliverReviewPushes(env,{draftId:id}).catch(()=>undefined));
+    return success(draftView(await draftById(db,id)),requestId);
+  }
   const credentialRoute = /^bots\/([A-Z][A-Z0-9_]{1,31})\/credential$/.exec(path);
   if (credentialRoute && ["GET","POST","DELETE"].includes(request.method)) {
     if (request.method !== "GET" && !canManageCredentials)
@@ -383,14 +424,15 @@ async function ingest(request: Request, env: IdentityRuntimeEnv, requestId: stri
   return failure({ code: "NOT_FOUND", message: "找不到這個操作" }, requestId, 404);
 }
 
-export async function handleBotCenterRoute(request: Request, env: IdentityRuntimeEnv, requestId: string): Promise<Response | null> {
+export async function handleBotCenterRoute(request: Request, env: BotEnv, requestId: string,ctx?:Pick<ExecutionContext,'waitUntil'>): Promise<Response | null> {
   const url = new URL(request.url);
   try {
     if (url.pathname.startsWith("/api/bot-ingest/") || url.pathname === "/api/bot-ingest") return await ingest(request, env, requestId, url);
-    if (url.pathname.startsWith("/api/bot-center")) return await human(request, env, requestId, url);
+    if (url.pathname.startsWith("/api/bot-center")) return await human(request, env, requestId, url,ctx);
     return null;
   } catch (error) {
     if (error instanceof Bad) return failure({ code: error.code, message: error.message }, requestId, error.status);
+    if(error instanceof PushError)return failure({code:error.code,message:'推播設定無法儲存，請確認網址與密鑰'},requestId,422);
     return failure({ code: "BOT_UNAVAILABLE", message: "BOT 管理中心暫時無法使用" }, requestId, 500);
   }
 }

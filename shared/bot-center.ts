@@ -65,6 +65,7 @@ export interface BotDraftView {
   reviewedAt: string | null;
   reviewer: BotReviewerView | null;
   createdAt: string;
+  pushStatus: "queued" | "sending" | "accepted" | "failed" | null;
 }
 
 export interface BotReportView {
@@ -99,6 +100,8 @@ export interface BotProgressState {
   bots: BotProfileView[];
   credentials: BotCredentialView[];
   canManageCredentials: boolean;
+  pushReady: boolean;
+  pushSettings: {botCode:string;configured:boolean;enabled:boolean;updatedAt:string|null}[];
 }
 
 export interface BotCenterState extends BotProgressState {

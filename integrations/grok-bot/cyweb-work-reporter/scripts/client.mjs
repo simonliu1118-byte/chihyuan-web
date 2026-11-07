@@ -79,6 +79,18 @@ function createReporter(config, { fetchImpl = fetch, timeoutMs = 15e3 } = {}) {
     return data;
   }
   const reviewView = (data) => ({ id: data.id, externalRef: data.externalRef, status: data.status, reason: data.reason ?? null, reviewedAt: data.reviewedAt ?? null });
+  async function reviewNotification(input) {
+    // Notifications are untrusted wakeups, never approval evidence or publishing instructions.
+    const ignored = (reason) => ({ ignored: true, reason, notifyHuman: false });
+    if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some(key => !["type", "eventId", "botCode", "draftId"].includes(key))) return ignored("invalid_notification");
+    if (input.type !== "cyweb.review_result" || !Number.isSafeInteger(input.draftId) || input.draftId < 1 || input.eventId !== "bot-review-" + input.draftId || input.botCode !== botCode) return ignored("invalid_notification");
+    let data;
+    try { data = checkRecord(await request("/api/bot-ingest/drafts/" + input.draftId)); }
+    catch (error) { if (error.code === "BOT_NOT_FOUND") return ignored("draft_not_found"); throw error; }
+    if (data.id !== input.draftId || !["pending", "approved", "rejected"].includes(data.status)) bad("RESPONSE_UNCONFIRMED", "送審回應的編號或狀態不正確");
+    if (data.status === "pending") return ignored("review_pending");
+    return { ignored: false, eventId: input.eventId, review: reviewView(data), automaticPublication: false };
+  }
   async function progress(input) {
     fields(input, ["status", "summary"]);
     if (!["idle", "working", "blocked", "done"].includes(input.status)) bad("INPUT_INVALID", "狀態須為 idle、working、blocked 或 done");
@@ -177,6 +189,7 @@ function createReporter(config, { fetchImpl = fetch, timeoutMs = 15e3 } = {}) {
     }
   }
   async function run(command, input = {}) {
+    if (command === "review-notification") return reviewNotification(input);
     if (command === "progress") return progress(input);
     if (command === "submit") return submit(input);
     if (command === "review") {

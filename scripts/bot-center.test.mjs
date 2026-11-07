@@ -188,7 +188,7 @@ test("progress polling reads no drafts, reports, completions or historical count
     const before = sql.prepare("SELECT total_changes() n").get().n;
     queries.length = 0;
     const page = ok(await call("/api/bot-center/progress"));
-    assert.deepEqual(Object.keys(page).sort(), ["bots", "canManageCredentials", "credentials"]);
+    assert.deepEqual(Object.keys(page).sort(), ["bots", "canManageCredentials", "credentials", "pushReady", "pushSettings"]);
     assert.equal(page.bots.find(bot => bot.code === "IT").summary, "合成進度");
     assert.equal(page.credentials.find(row=>row.botCode==="IT").configured, true);
     assert.equal(page.canManageCredentials, true);

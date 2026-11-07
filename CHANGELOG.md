@@ -6,6 +6,12 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.12.4 Build 1 — BOT 審核結果推播（2026-11-08，待審／未部署）
+
+- 逐 BOT 設定加密 webhook，審核與通知佇列原子儲存；只傳稿件識別資料，BOT 必須用原獨立憑證讀取正式結果。小編原key不輪換，拍板結案仍不接後臺。
+- 首次背景送出、既有五分鐘排程限次重試、失敗手動重送及30天技術通知清理；不增加歷史輪詢。設定／通知不進可攜備份，0058只新增技術表。
+- 更新共用工具／技能及安全設定流程，提供 review-notification；pending／無效喚醒安靜略過，無自動發布。受控部署支援可選主金鑰、建立工具預設只讀且保留既有值。[handoff](docs/handoff/CYWEB-BOT-REVIEW-PUSH-0124-20261108.md)。
+
 ## CY Web V0.12.3 Build 1 — BOT 獨立憑證、工作摘要與 Grok 共用工具（2026-11-08，已部署）
 
 - 提供 Node.js 22+ 無第三方執行套件的 CLI 與 Grok 私人共用技能，供 BOT 回報進度、送審、讀回結果及記錄完成；首輪限定小編的合成連線測試，不對外發文。技能、設定說明及契約可獨立打包帶入 Grok 的持久電腦。

@@ -1,6 +1,6 @@
 # BOT 管理中心
 
-沿用 CYWEB 殼層、`#bot-center` 路由及 `BOT_CENTER` 模組，在左側 ERP 查詢下一項。SUPER_ADMIN 自動具有模組權限；其他人須取得模組權限。以下為 V0.12.3 Build 1 契約，正式部署狀態以根 TODO 為準。
+沿用 CYWEB 殼層、`#bot-center` 路由及 `BOT_CENTER` 模組，在左側 ERP 查詢下一項。SUPER_ADMIN 自動具有模組權限；其他人須取得模組權限。以下為 V0.12.4 Build 1 契約（待審／未部署），正式部署狀態以根 TODO 為準。
 
 ## 畫面
 
@@ -25,8 +25,8 @@
 - `event_ref` 在同 BOT 內唯一。重送相同事件與內容回傳原紀錄；換內容／分類或明確完成時間不符回 409 BOT_EVENT_CONFLICT。非 general 必填，避免分類計件重複；既有無 eventRef 的一般 API 仍可用，但不具伺服器去重。
 - GET `/api/bot-center` 支援 botCode 篩選審稿、回報、時間軸與工作摘要。完整審稿／完成統計不受 50 筆分頁限制；`workSummary` 回 articles／patrols 的完整數量及最新完成、pending 的跨日完整數量及最新待審。`botStats` 保留全部 BOT 的完整統計。
 - 原今日完成 GROUP BY 加入 work_type，不逐 BOT 發 SQL。工作摘要增加兩筆索引 LIMIT 1 及一筆最新待審讀取；0057 補分類＋日期索引與事件唯一索引。不讀完全部正文、不把第一頁長度當總數。
-- 30 秒可見頁面仍只讀 `/progress` 的 BOT 主檔與憑證狀態，不掃歷史／分類統計；跨台灣午夜下一次檢查完整刷新。沒有每次 API 呼叫寫 last_used，沒有增加固定輪詢或推播。
-- 可攜備份納入完成事件的新欄位、CURRENT_MIGRATION=0057，舊備份缺欄位取 general／null 預設；憑證仍排除，還原後各 BOT 由超管重新產生。空白目標不因 migration 預先建立 BOT 而阻擋還原。
+- 30 秒可見頁面仍只讀 `/progress` 的 BOT 主檔與憑證狀態，不掃歷史／分類統計；跨台灣午夜下一次檢查完整刷新。沒有每次 API 呼叫寫 last_used，沒有增加固定輪詢；推播的重試僅用既有五分鐘排程。
+- 可攜備份納入完成事件的新欄位、CURRENT_MIGRATION=0058，舊備份缺欄位取 general／null 預設；憑證仍排除，還原後各 BOT 由超管重新產生。空白目標不因 migration 預先建立 BOT 而阻擋還原。
 
 ## API
 
@@ -35,7 +35,9 @@
 | 方法 | 路徑 | 作用 |
 | --- | --- | --- |
 | GET | `/api/bot-center` | 工作總覽／完整統計／憑證狀態；botCode、draftStatus 及三種既有游標不變 |
-| GET | `/api/bot-center/progress` | bots、credentials 陣列、canManageCredentials，不回歷史／統計 |
+| GET | `/api/bot-center/progress` | bots、credentials、canManageCredentials、pushReady、pushSettings，不回歷史／統計 |
+| PUT | `/api/bot-center/bots/:code/push` | SUPER_ADMIN 設定逐 BOT webhook；網址／key 留白保留，不回傳原值 |
+| POST | `/api/bot-center/drafts/:id/push/retry` | SUPER_ADMIN 重送 failed 推播；不重做審核，同 eventId |
 | POST | `/api/bot-center/bots` | `{code,label}` 新增身份 |
 | POST | `/api/bot-center/drafts/:id/review` | `{decision:"approved"\|"rejected",reason?}`；退回必填，通過忽略理由 |
 | GET／POST／DELETE | `/api/bot-center/bots/:code/credential` | 讀該 BOT 狀態／產生或輪換／撤銷；寫入僅 SUPER_ADMIN |
@@ -54,8 +56,21 @@
 
 ## Grok 工具、技能與啟用順序
 
-[工具與共用技能](../../integrations/grok-bot/cyweb-work-reporter/SKILL.md)、[Grok 設定](../../integrations/grok-bot/cyweb-work-reporter/references/grok-setup.md)為 Node22+、無第三方執行套件的可攜包。WEB／0057 先部署，再更新工具；小編的原安全憑證與持久收據保持不變，其他 BOT 分別提供自己的憑證。
+[工具與共用技能](../../integrations/grok-bot/cyweb-work-reporter/SKILL.md)、[Grok 設定](../../integrations/grok-bot/cyweb-work-reporter/references/grok-setup.md)為 Node22+、無第三方執行套件的可攜包。WEB／0058 先部署，再更新工具；小編的原安全憑證與持久收據保持不變，其他 BOT 分別提供自己的憑證。
 
 `check` 用 identity 驗證歸屬；complete 將固定 eventId 傳為 eventRef，general 舊收據相容。report 仍只有本機收據，斷線結果不明時不刪收據或換編號重送。工具沒有員工登入、自行審核或發布命令；核准後的外部操作仍按使用者與 Grok 授權。
 
-使用者指定推播留下一輪，本輪不建立 webhook／routine 或增加背景發送。核准結果目前仍由 BOT 主動讀取。小編 pilot 只測試送審 → 人工核准 → 完成回報，不對外發文、不計入文章／巡視卡片。發布與審查證據見 [TODO](../../TODO.md)、[handoff](../handoff/CYWEB-GROK-REPORTER-0123-20261107.md)。
+V0.12.4 Build 1 在審核落庫後喚醒既有 Grok routine；推播沒有核准權威，BOT 仍須認證讀取結果。小編 pilot 只測試送審 → 人工核准 → 完成回報，不對外發文、不計入文章／巡視卡片。發布與審查證據見 [TODO](../../TODO.md)、[handoff](../handoff/CYWEB-GROK-REPORTER-0123-20261107.md)。
+
+## 審核結果推播（0058）
+
+- 逐 BOT 設定由 SUPER_ADMIN 管理，WEB 使用共用 Dialog／EntryTable／Field。完整 URL 和 key 只在安全輸入中提交；API／Audit 只回 configured、enabled、updatedAt，不回 URL、key 或密文。既有小編 CYWEB 憑證不動。
+- 目的地固定 HTTPS api2.cursor.sh、預設443、禁止帳密／fragment／根路徑，禁止重導向。AES-256-GCM 隨機96bit IV＋BOT身份AAD加密完整設定；Worker secret BOT_PUSH_ENCRYPTION_KEY 由受保護 GH Environment 的 CF_BOT_PUSH_ENCRYPTION_KEY 注入。更換主金鑰會使舊設定不可解，不能自動輪換。
+- 審核 UPDATE、Audit 與 outbox 同一 batch；只有審核勝出者建立一次推播。回應成功後 ctx.waitUntil 首送，網路錯誤不回滾已儲存的審核。每次通知只帶 type=cyweb.review_result、eventId=bot-review-ID、botCode、draftId，不送標題、內容、決定、理由或 CYWEB token。
+- 既有 */5 排程每次最多3筆、每筆HTTP上限7秒，CAS租約60秒；最多6次，間隔5／15／60／240／1440分鐘。429 Retry-After 限5分鐘至24小時；3xx、一般4xx直接失敗，408／429／5xx／網路可重試。第6次租約過期會轉 failed，避免永久 sending。HTTP200只表示平台接受並開始 routine，不表示工作完成；不讀取回應正文。
+- 未啟用不建立新通知；停用略過待送，重啟可續送既有待送。沒有主金鑰時不發送，原工作／審核不受影響。超管可重送 failed，保持原 eventId；逾時可能已喚醒，不能宣稱 exactly-once。Grok 用固定工作ID辨識實際工作，外部發布另守既有授權。
+- 30秒 progress 仍只讀 profile／credential，push flags 加在原 profile LEFT JOIN，沒有新增歷史或outbox輪詢；已審稿件列表以主鍵LEFT JOIN一筆推播狀態，不掃全部通知。每次排程有固定上限 due查詢／CAS／結果寫入；啟用時另清除最多100筆30天舊技術通知，業務審稿不刪。
+- 新增 bot_review_push_settings／bot_review_push_outbox 均為 ephemeral，不進可攜備份，還原後重設整合；完成分類與審稿等業務資料仍備份。0058僅加表／索引，不更動小編key或舊業務欄位。
+- 共用工具 review-notification 只認固定四欄，驗證自己的BOT與正整數ID，再以自己的Bearer認證GET；missing／foreign／pending安靜忽略，approved／rejected以最新讀回為準，無自動發布命令。
+
+協定依據：[Grok webhooks](https://docs.x.ai/grok-bot/skills-routines-and-automations#webhooks)、[Cloudflare waitUntil](https://developers.cloudflare.com/workers/runtime-apis/context/#waituntil)。交接與啟用證據見 [V0.12.4 Build 1 handoff](../handoff/CYWEB-BOT-REVIEW-PUSH-0124-20261108.md)。

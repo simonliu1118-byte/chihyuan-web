@@ -50,7 +50,7 @@ test("CLI uses real Git history: current main passes, stale main fails", () => {
 });
 
 test("workflow serializes writes, limits dispatch, and guards before migration", () => {
-  const workflow = fs.readFileSync(path.join(root, ".github/workflows/development-deploy.yml"), "utf8");
+  const workflow = fs.readFileSync(path.join(root, ".github/workflows/development-deploy.yml"), "utf8").replaceAll('\r\n', '\n');
   const deploy = workflow.split("\n  deploy-development:\n")[1].split("\n  audit-identity:\n")[0];
   assert.match(deploy, /\(inputs\.operation == 'deploy-development' \|\| inputs\.operation == 'rotate-recovery'\) && github\.ref == 'refs\/heads\/main'/);
   assert.match(deploy, /if: github\.event_name == 'workflow_dispatch' && inputs\.operation == 'rotate-recovery'/);

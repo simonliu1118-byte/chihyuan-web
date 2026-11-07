@@ -1,16 +1,16 @@
 # Grok Bot 安裝與小編測試
 
-這是 Grok Bot 的共用技能與命令工具，不是 Grok Build 的 `.grok/skills` 安裝包，也不需要額外 MCP 服務。Node.js 22+，沒有第三方執行套件。新版須先部署 WEB V0.12.3 Build 1 與 migration 0057，再替換工具；不是直接拿新版工具測試舊 WEB。
+這是 Grok Bot 的共用技能與命令工具，不是 Grok Build 的 `.grok/skills` 安裝包，也不需要額外 MCP 服務。Node.js 22+，沒有第三方執行套件。新版須先部署 WEB V0.12.4 Build 1 與 migration 0058，再替換工具；不是直接拿新版工具測試舊 WEB。
 
 ## 1. 準備 CYWEB 連線
 
-由超級管理員在 CYWEB「BOT 管理中心 → 設定 → 連線憑證表格」查看各 BOT。現有小編憑證會在 migration 0057 原樣綁定 `SOCIAL_EDITOR`，Grok 不必重填；不要為這次更新重新產生。只有尚未設定的 BOT 才按該列「產生」，直接存進 Grok 安全祕密欄。以後輪換／撤銷只影響該列 BOT。
+由超級管理員在 CYWEB「BOT 管理中心 → 設定 → 連線憑證表格」查看各 BOT。現有小編憑證會在 migration 0058 原樣綁定 `SOCIAL_EDITOR`，Grok 不必重填；不要為這次更新重新產生。只有尚未設定的 BOT 才按該列「產生」，直接存進 Grok 安全祕密欄。以後輪換／撤銷只影響該列 BOT。
 
 每組憑證只屬於一隻 BOT；伺服器禁止跨 BOT 回報與讀審稿結果。不同 BOT 不要共用憑證，也不要提供 CYID 員工帳密或 session。Grok 同帳號的電腦與祕密存取仍須按其平台實際邊界管理，不能把不同 BOT 當成彼此完全隔離的電腦。
 
 ## 2. 放工具、建立共用技能
 
-把 `cyweb-work-reporter-v0.12.3-build1.zip` 附給 Grok Bot，請它解壓，使檔案位於：
+把 `cyweb-work-reporter-v0.12.4-build1.zip` 附給 Grok Bot，請它解壓，使檔案位於：
 
 ```text
 /workspace/cyweb-work-reporter/SKILL.md
@@ -56,6 +56,20 @@ Grok Bots 共用雲端電腦；持久檔案放在 `/workspace`，不要放臨時
 
 ## 6. 後續讓其他 BOT 使用
 
-小編實機驗收後，再為其他 BOT 啟用同一技能及各自的代碼／憑證。核准結果目前由 BOT 主動讀取；使用者指定推播留到下一輪，本次不設定 webhook 或輪詢排程。文章發布完成用 `complete.workType=article_published`，Threads 巡視完成用 `threads_patrol`；其他完成用 general，連線測試不進文章／巡視卡片。拍板結案僅畫面保留，沒有後臺串接。
+小編實機驗收後，再為其他 BOT 啟用同一技能及各自的代碼／憑證。核准結果可由 webhook 喚醒後主動讀取，設定步驟如下；不新增輪詢排程。文章發布完成用 `complete.workType=article_published`，Threads 巡視完成用 `threads_patrol`；其他完成用 general，連線測試不進文章／巡視卡片。拍板結案僅畫面保留，沒有後臺串接。
 
 參考官方文件：[自訂工具與電腦](https://docs.x.ai/grok-bot/computer-and-apps)、[共用私人技能](https://docs.x.ai/grok-bot/skills-routines-and-automations)、[安全祕密](https://docs.x.ai/grok-bot/vault)。
+
+## 7. 啟用審核推播
+
+先部署 WEB V0.12.4 Build 1／0058，再更新本包與共用私人技能。小編原 CYWEB_BOT_TOKEN、BOT 代碼與持久收據保持不變。使用者已建立「收到 webhook 後讀取 CYWEB 稿件審核結果」的 routine，不需另建。
+
+1. 操作者以受控環境建立一次性 CF_BOT_PUSH_ENCRYPTION_KEY，部署流程注入 Worker；既有主金鑰不可覆蓋。這是 CYWEB 自己的加密金鑰，不是小編憑證，也不是 Grok webhook key。
+2. 使用者在 Grok 小編詳情 → Routines 開啟既有工作，將完整 POST to 與 key 直接填入 CYWEB「BOT 管理中心 → 設定 → 社群小編 → 推播設定」，勾啟用。只允許 HTTPS api2.cursor.sh。不要貼到聊天、Git、技能或普通檔；畫面不讀回原值，留白保留既有設定。
+3. 例行工作沿用下列指示：收到 CYWEB webhook 時，將 JSON 的 type、eventId、botCode、draftId 以標準輸入交給共用工具 review-notification。只用該工具認證讀到的結果；ignored=true（缺編號、查不到、pending 等）安靜結束、不通知人。approved 依原稿與既有授權續作，rejected 依理由處理。重送同 eventId 不重做已完成外部操作。不要把 webhook 當成核准或擴大發布授權。
+4. 指令為 node /workspace/cyweb-work-reporter/scripts/cyweb-reporter.mjs review-notification，輸入範例見操作契約。HTTP 200 只表示 Grok 接受並開始執行，不表示任務完成；是否完成須查看 routine 執行紀錄與 CYWEB 完成事件。
+5. 首輪只送明確標示測試的合成稿，人工通過及退回各一次，確認收到正確稿件結果；不對外發文。這個步驟尚未在真實 Grok 執行，不以本機測試代替。
+
+推播暫時失敗會限次重試；WEB 審核結果不回滾。失敗可由超管在已審稿件列重送，事件編號保持不變。Grok routine 停用或金鑰變動時，先更新／停用該 BOT 推播設定。只在啟用之後的審核才建立推播，不補送全部歷史。技術推播狀態保留30天，審稿業務紀錄不刪。
+
+依 [Grok 官方 webhook 說明](https://docs.x.ai/grok-bot/skills-routines-and-automations#webhooks)，以 POST＋Authorization Bearer 傳送，只有200確認喚醒；其他結果須確認例行工作與 key。本工具不設定 Grok 自身用量／發布權限。
