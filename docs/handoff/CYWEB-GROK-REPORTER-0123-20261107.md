@@ -20,7 +20,8 @@
 - 以上全部為本機合成資料；憑證亦由隔離 fixture 臨時產生，未接正式 D1／Grok 或真實發布平台。沒有宣稱 Grok 實機已連通。
 - `npm run build`（包含 browser／Worker TypeScript）成功；既有 dynamic import 與 bundle-size 提示仍在，本輪沒有新增套件。
 - 本機沒有可用 Python，未執行 host skill 的 `quick_validate.py`；以 Node 檢查這份僅含 name／description 純量的 YAML frontmatter、命名／長度／無未完成佔位文字及本地 references／scripts 完整，且實際執行工具驗證行為。不將結構檢查冒充 Grok 平台已匯入技能。
-- ZIP 五個檔案白名單已核對，從 repo 外的全新 OS 暫存目錄解壓執行 CLI `--help` 成功，無 npm 安裝。檔名 `cyweb-work-reporter-v0.12.3.zip`，15,638 bytes，SHA-256 `3e8f2a7ce87b06b8a263cecd48fd9e9aa078c1771fe9c0ad3617983f3f619cdb`；外部 outputs 交付、不提交 binary。PR CI 結果待補。
+- ZIP 五個檔案白名單已核對，從 repo 外的全新 OS 暫存目錄解壓執行 CLI `--help` 成功，無 npm 安裝。檔名 `cyweb-work-reporter-v0.12.3.zip`，15,638 bytes，SHA-256 `3e8f2a7ce87b06b8a263cecd48fd9e9aa078c1771fe9c0ad3617983f3f619cdb`；外部 outputs 交付、不提交 binary。
+- [PR #447](https://github.com/simonliu1118-byte/chihyuan-web/pull/447)，工具／測試提交 `6b97f4d50d92b4f3067b5ba6ede3176dc8030212`：[Runtime Check #42374640558](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42374640558) 全部成功，含完整 Node suite、新增 Grok 測試、Local D1 acceptance、browser／Worker TypeScript 與 Vite build；[Governance #42374640613](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42374640613) 及 [部署契約檢查 #42374640567](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42374640567) 成功。後者只是 PR 驗證，沒有發布。追加本段僅更新交接證據，最終 head checks 依 PR 為準；Claude 尚未審查，未合併部署。
 
 ## Claude 審查重點／剩餘事項
 
