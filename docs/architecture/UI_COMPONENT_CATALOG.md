@@ -97,3 +97,8 @@
 `StocktakeRecordsDialog` 沿用共用 `Dialog`、`cy-op-table` 及 `ExpandToggle`，一張底稿一列，30% 放日期／單號／初盤與複盤人員，70% 放去重品號＋品名並折行。展開區與門市訂購共用 `StoreHistoryChain`，由舊至新串接初盤確認、複盤確認、寫回 ERP 與 ERP 清除歸檔；小字、動作粗體，從箭頭連同下一筆整段換行。不顯示品項差異表或重複參與人員，展開不另發請求。主紀錄游標分頁，沒有歷史背景輪詢；只有明確「關閉」按鈕，點背景不關閉。
 
 `BotPushSettingsDialog` 亦使用既有 Dialog／EntryTable／EntryHeading／Field／CheckField 與 Enter 導航；不另建元件庫。逐 BOT 密碼型網址／密鑰輸入、啟用勾選、明確取消／儲存；設定不回填原值，沒有 X／背景／Escape 關閉。已審列表推播狀態用既有 StatusChip，超管失敗重送沿用 cy-op-button。
+
+
+## BOT 管理中心（V0.12.5 Build 0，待審查）
+
+頁首工作狀態與逐 BOT 身份用共用 `StatusChip` 呈現（不可作篩選）；五筆時間軸用既有共用 `Dialog` 顯示全部，時間點依台灣同分鐘合併一個藍點。底部 `cy-op-table` 是 BOT 列表及啟停按鈕；推播設定／新增 BOT 均使用 `Dialog` 包住單一 `EntryTable` 與 `EntryHeading`／`Field presentation="cell"`（左表頭、右輸入），不用一般 `FormSection` 表單取代。相關 UI 與權限參見 [BOT_CENTER.md](BOT_CENTER.md)。

@@ -74,3 +74,13 @@ V0.12.4 Build 1 在審核落庫後喚醒既有 Grok routine；推播沒有核准
 - 共用工具 review-notification 只認固定四欄，驗證自己的BOT與正整數ID，再以自己的Bearer認證GET；missing／foreign／pending安靜忽略，approved／rejected以最新讀回為準，無自動發布命令。
 
 協定依據：[Grok webhooks](https://docs.x.ai/grok-bot/skills-routines-and-automations#webhooks)、[Cloudflare waitUntil](https://developers.cloudflare.com/workers/runtime-apis/context/#waituntil)。交接與啟用證據見 [V0.12.4 Build 1 handoff](../handoff/CYWEB-BOT-REVIEW-PUSH-0124-20261108.md)。
+
+
+## V0.12.5 BOT 管理中心版面修訂（先於 PR 審查，尚未部署）
+
+- 主頁維持既有 CYWEB 外層標題，頂部工作總覽卡不重複寫標題與日期；三個狀態計數及每個 BOT 名稱／狀態以 `StatusChip` 顯示，**沒有 BOT 身份篩選器**。審稿狀態（全部／待審／通過／退回）仍保留操作，原來「全部 BOT」範圍字樣刪除；後端既有 `botCode` 篩選 API 不移除、不更改權限。
+- 今日完成移到頂部總覽卡，主頁只呈現依 `completed_at DESC,id DESC` 排序的最新五個事件，不是五個時間群組。「查看全部」使用共用 `Dialog`，載入既有首批 50 筆與 `timelineBefore` 續頁。用 `formatDateTime` 的台北年月日＋分鐘群組，同分鐘事件在一個時間與一個藍點下各自展示，事件不去重、不隱藏。
+- 原底部逐 BOT 摘要卡調整為 BOT 列表 `.cy-op-table`，包含代碼、名稱、狀態、當日摘要、推播設定狀態及操作。所有身份都顯示；沒有 BOT 篩選，只有 30 秒原進度輪詢，不增加背景查詢。
+- 推播設定 `BotPushSettingsDialog` 用共用 `Dialog`、`EntryTable`、`EntryHeading`、`Field presentation="cell"` 形成兩行「左表頭／右輸入」；只改 Webhook URL 和 key，密碼型輸入不回填原值，留空沿用已儲存值。儲存沿用原 `PUT /api/bot-center/bots/:code/push`，把舊 `enabled` 原值原樣提交。新設定預設停用，必須在 BOT 列表明確啟用；不輪換既有 Grok key／加密金鑰／CYWEB 機器憑證。
+- 推播啟停在 BOT 列表操作欄，僅 `SUPER_ADMIN` 可操作；未設定 webhook 或服務未就緒時停用按鈕，停用先經共用 `useConfirmation`，再向既有 API 只提交 `enabled` 布林值，後端保留已加密 target 和獨立憑證。設定管理視窗仍只處理 BOT 的獨立連線憑證。
+- 新增 BOT 改獨立 Dialog，以同一組共用 EntryTable／EntryHeading／Field 兩列顯示代碼／名稱，沿用原長度與代碼字元限制、Enter 跳格、原新增 API。只修改前端、文件與測試，**不改 D1、Worker、migration、備份**。
