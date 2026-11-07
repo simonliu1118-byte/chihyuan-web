@@ -99,6 +99,6 @@
 `BotPushSettingsDialog` 亦使用既有 Dialog／EntryTable／EntryHeading／Field／CheckField 與 Enter 導航；不另建元件庫。逐 BOT 密碼型網址／密鑰輸入、啟用勾選、明確取消／儲存；設定不回填原值，沒有 X／背景／Escape 關閉。已審列表推播狀態用既有 StatusChip，超管失敗重送沿用 cy-op-button。
 
 
-## BOT 管理中心（V0.12.5 Build 0，待審查）
+## BOT 管理中心（V0.12.5 Build 0，PR #453 已合併、待正式部署）
 
 頁首工作狀態與逐 BOT 身份用共用 `StatusChip` 呈現（不可作篩選）；五筆時間軸用既有共用 `Dialog` 顯示全部，時間點依台灣同分鐘合併一個藍點。底部 `cy-op-table` 是 BOT 列表及啟停按鈕；推播設定／新增 BOT 均使用 `Dialog` 包住單一 `EntryTable` 與 `EntryHeading`／`Field presentation="cell"`（左表頭、右輸入），不用一般 `FormSection` 表單取代。相關 UI 與權限參見 [BOT_CENTER.md](BOT_CENTER.md)。
