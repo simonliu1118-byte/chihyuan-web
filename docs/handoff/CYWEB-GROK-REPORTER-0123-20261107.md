@@ -2,7 +2,7 @@
 
 - 執行：GPT；同分支 `cyweb/grok-reporting-kit-0123`、[PR #447](https://github.com/simonliu1118-byte/chihyuan-web/pull/447)。基準 main `79a9138b6082a1d32c8392dec7bc61326cdf963e`；VERSION／package.json=0.12.3，BUILD=1。同一回報整合與原參考圖驗收返修，依規則增加 Build，不另開平行工具 PR。
 - 使用者確認設計並授權開工：每 BOT 獨立憑證；**小編現在的憑證保留**；更新工具、技能、handoff；通過不問理由、退回才必填；待審核 → 四張工作摘要 → 同行時間軸 → 四張當日 BOT 摘要。拍板結案後臺先不接，使用者另外明確指定**推播下一輪**。
-- 本輪未授權合併部署；待 Claude 最終審查，不代填通過。正式站仍 V0.12.2，發布證據見 TODO。沒有讀取／重設正式憑證或操作正式 D1，沒有修改／部署 CYapps、CYERPAutoQuery 或其他專案。
+- 使用者2026-11-08明確授權「PR447可以合併部署，記得更新handoff，完成後再來處理推播」。PR #447已合併、V0.12.3 Build1正式部署成功，受控workflow套用0057；沒有取得或輪換小編明文憑證，沒有修改／部署CYapps或CYERPAutoQuery。Claude事後複審及新版UI／原key實機驗收仍待辦，不代填通過。
 - 交付前逐檔核對發現首個Build1提交漏帶後臺檔案；補提交`bot-center-routes.ts`為同一份已通過本機測試的內容，未擴充行為。`ce360513`的中間CI不作驗收依據，僅以補齊後最終head為準。
 
 ## 憑證與 migration
@@ -44,4 +44,13 @@
 - 請核對 migration 原樣保存與機器所屬權限、單BOT輪換／撤銷、草稿ID不洩漏、審核原子性、分類去重／完整統計與backup契約。
 - 0057把憑證主鍵由singleton id改為bot_id，舊Worker不相容；受控流程套migration後須接續部署新版。兩者之間BOT API可能短暫不可用，部署前暫停BOT寫入、健康與原key身份確認後恢復；若部署失敗，應完成新版forward修復，不能只退回仍查singleton欄位的舊Worker。其他業務表不受此主鍵調整影響。
 - 補完上述實際UI／手機驗證。正式部署須另有使用者當次授權，從main受控workflow套0057，不手工改正式DB或取出key。部署後請使用原小編安全key跑新版check驗證身份，不需將key或雜湊貼到聊天／PR。
-- **Claude最終審查待辦；未合併／未部署，不由GPT代填通過。**
+- **Claude事後複審及新版UI／原key實機驗收待辦；PR #447已依使用者本輪授權合併部署，不由GPT代填審查通過。**
+
+## 2026-11-08 正式發布結果
+
+- [PR #447](https://github.com/simonliu1118-byte/chihyuan-web/pull/447)已合併；正式source=`e2f50177d4e4d1162644c604a40dc41a4cb3f39e`，VERSION=0.12.3、BUILD=1。從main dispatch既有`development-deploy.yml`，沒有改部署入口或建立新服務／資料庫。
+- [部署 #42391275622](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42391275622)成功；validate-deployment-contract與deploy-development兩個job成功，其他audit分支按operation跳過，不將skipped當發布證據。
+- 正式migration步驟確認`0057_bot_scoped_credentials.sql ✅`。既有singleton雜湊依migration原樣歸屬SOCIAL_EDITOR，未重新發行小編key。新版schema／Worker均已上線，不可單獨退回查舊singleton欄位的Worker。
+- canonical與workers.dev兩端HTTP200，version=0.12.3、consumer=1.0.5、database=ok、sourceCommit均為上述e2f50177；HTTPS／靜態資產、無效session拒絕、排程及正式portal authority檢查通過。Build1由該正式source的BUILD檔核對；health契約只回基礎版本，不冒充它有build欄位。
+- 這輪只新增部署證據文件，不升版、不再次發布。正式source仍是e2f50177，即使後續main因文件提交前進也不把文件commit寫成已部署source。
+- 下一步可更新Grok工具／技能並以原小編secret跑check，不刪舊收據；正式key回讀與UI／手機視覺仍需驗收。使用者要求本輪發布與交接完成後再處理推播，推播另起後續工作，不在這次已部署source內。
