@@ -140,3 +140,14 @@ test('rate limits respect bounded Retry-After and a crashed final attempt become
  ok(await f.call(`/api/bot-center/drafts/${draft.id}/push/retry`,'POST'));
  assert.equal(delivery(f,draft.id).attempts,0);
 });
+
+test('turning an existing BOT push configuration off and back on keeps encrypted destination and BOT token', async t=>{
+ const f=await setup(t);
+ const previous=f.sql.prepare("SELECT p.encrypted_target,p.enabled,c.token_hash FROM bot_review_push_settings p JOIN bot_ingest_credentials c ON c.bot_id=p.bot_id JOIN bot_profiles b ON b.id=p.bot_id WHERE b.code='SOCIAL_EDITOR'").get();
+ ok(await f.configure({enabled:false}));
+ ok(await f.configure({enabled:true}));
+ const after=f.sql.prepare("SELECT p.encrypted_target,p.enabled,c.token_hash FROM bot_review_push_settings p JOIN bot_ingest_credentials c ON c.bot_id=p.bot_id JOIN bot_profiles b ON b.id=p.bot_id WHERE b.code='SOCIAL_EDITOR'").get();
+ assert.equal(previous.encrypted_target,after.encrypted_target);
+ assert.equal(previous.token_hash,after.token_hash);
+ assert.equal(after.enabled,1);
+});

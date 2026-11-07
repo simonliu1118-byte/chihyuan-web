@@ -6,6 +6,14 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.12.5 Build 0 — BOT 管理中心資訊密度與表格式視窗（2026-11-08，GPT，待審查）
+
+- 頂部卡片去除重複標題和日期。進行中／受阻／待命及逐 BOT 狀態改共用 StatusChip 純顯示，不再使用 BOT 篩選器；審稿狀態篩選仍保留，審稿表不再顯示右上灰色「全部 BOT」。
+- 今日完成時間軸移入頂部卡片，僅呈現最新五筆；「查看全部」開共用 Dialog，依既有游標載入更多。相同台灣時間分鐘的事件共用一個時間／藍點，逐件內容仍全部呈現。
+- 保留原底部 BOT 當日摘要卡；超級管理員可在原「BOT 設定」表格操作欄「啟用／停用」推播（停用需確認），另可進入「推播設定」或產生／輪換／撤銷獨立憑證，沒有自動更動憑證。
+- 推播設定 Modal 和新增 BOT Modal 都採共用 EntryTable／EntryHeading／Field 的「左表頭右輸入」兩列表格式；推播設定不再含啟用 checkbox，編輯 URL／key 時保持既有 enabled 狀態，新增設定先維持停用，啟用須從 BOT 列表明確操作。原 Webhook URL、key 空白保留，不讀回明文。
+- 純前端調整，未修改 Worker、API、D1 migration 或主加密金鑰。CI、Claude 最終審查、桌機／手機 UI 驗收待辦；**未合併、未部署**。詳見 [handoff](docs/handoff/CYWEB-BOT-CENTER-UI-0125-20261108.md)。
+
 ## CY Web V0.12.4 Build 1 — BOT 審核結果推播（2026-11-08，已部署／Claude 事後複審待辦）
 
 - 逐 BOT 設定加密 webhook，審核與通知佇列原子儲存；只傳稿件識別資料，BOT 必須用原獨立憑證讀取正式結果。小編原key不輪換，拍板結案仍不接後臺。

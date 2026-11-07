@@ -5,6 +5,8 @@
 
 ## 目前狀態（2026-11-08）
 
+- **V0.12.5 Build 0（PR 待審查／未部署）**：BOT 管理中心頂部精簡為純狀態 pills 與五筆時間軸，同分鐘共用一個時間點，完整時間軸改 Modal；推播設定與新增 BOT 改共用左表頭／右輸入 EntryTable，啟停移至原 BOT 設定表格操作。保留原 Grok webhook 設定和小編 CYWEB 憑證。Claude 審查、CI、桌機／手機驗收待辦。[handoff](docs/handoff/CYWEB-BOT-CENTER-UI-0125-20261108.md)。
+
 - **V0.12.4 Build 1 已正式部署（PR #449）**：[發布 #42401625125](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42401625125)成功，遠端D1已套用0058，canonical／workers.dev健康version=0.12.4、consumer=1.0.5、database=ok、source一致；正式source=`90100f726a999ce3ad24c63b752178df6899bc8d`，BUILD=1由source核對。已建立獨立推播加密主金鑰，未讀取／輪換小編原CYWEB憑證。Grok完整URL／key仍須使用者在WEB安全輸入；Claude事後複審、UI與真實Grok端到端待辦。[handoff](docs/handoff/CYWEB-BOT-REVIEW-PUSH-0124-20261108.md)。
 - [ ] V0.12.4 Build 1：Claude審查、UI／窄螢幕驗收、使用者在WEB安全輸入小編POST to／key、更新Grok共用技能／既有routine、合成稿通過及退回各一次實機驗證。小編原CYWEB憑證及收據保持不變。
 
