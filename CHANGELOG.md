@@ -6,6 +6,12 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.12.3 — Grok Bot 共用回報工具與技能（2026-11-07，待審）
+
+- 提供 Node.js 22+ 無第三方執行套件的 CLI 與 Grok 私人共用技能，供 BOT 回報進度、送審、讀回結果及記錄完成；首輪限定小編的合成連線測試，不對外發文。技能、設定說明及契約可獨立打包帶入 Grok 的持久電腦。
+- 固定外部編號防送審重複；回報／完成使用持久收據，並行與斷線結果不明時停止重送。憑證只用安全環境注入，不提供登入、審核、輪換、任意 URL 或發布命令。共享憑證仍非逐 BOT 隔離，不宣稱伺服器 exactly-once。
+- 真實 Worker 路由搭配本機 SQLite 合成測試通過；正式 Grok 的安全設定、人工核准與實機驗收待使用者完成。不改伺服器／schema 或 CYapps，不操作正式憑證、不合併部署；[handoff](docs/handoff/CYWEB-GROK-REPORTER-0123-20261107.md)。
+
 ## CY Web V0.12.2 — BOT 工作總覽（2026-11-07，已部署）
 
 - BOT 管理中心由上至下為今日總覽、全寬「待我審核」共用表格（每件一列、無展開）、各 BOT 工作卡片、獨立全寬完成時間軸；BOT 篩選同步連動，回報與設定使用共用短視窗，BOT 卡片桌機兩欄、手機單欄，沿用 CYWEB 色彩與元件。

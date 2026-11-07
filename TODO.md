@@ -5,6 +5,8 @@
 
 ## 目前狀態（2026-11-07）
 
+- **V0.12.3 Grok Bot 回報工具與共用技能待審**：準備小編的送審／人工核准／完成測試流程；本機真實 Worker + 合成 SQLite 驗證通過。待 Claude 複審、使用者在 Grok 安全設定憑證、啟用私人技能及實機驗收，尚未聲稱已接上 Grok；現有 V0.12.2 API 可使用，不需為工具另改伺服器。未合併部署，不改目前正式版本／來源。[設定說明](integrations/grok-bot/cyweb-work-reporter/references/grok-setup.md)、[handoff](docs/handoff/CYWEB-GROK-REPORTER-0123-20261107.md)。
+
 - **V0.12.2 BOT 工作總覽已合併部署**：PR #445／[發布 #42371824288](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42371824288) 成功；總覽 → 全寬待審表格（每件一列、無展開）→ BOT 卡片 → 全寬時間軸，完整統計與 BOT 篩選、輕量進度輪詢。相關 38 項測試、最終完整 CI 及桌機／手機合成預覽通過；Claude 事後複審與正式 BOT 實機驗收仍待辦。[handoff](docs/handoff/CYWEB-BOT-OVERVIEW-0122-20261107.md)。
 
 - **V0.12.1 盤點紀錄／ERP 清除歸檔，WEB 已合併部署**：PR #443、[發布 #42347693527](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42347693527) 成功，紀錄視窗使用精簡共用紀錄串。Agent 原程式變更已撤回，只留 [CYERPAutoQuery 專案 handoff](https://github.com/simonliu1118-byte/CYapps/blob/cyerp/stocktake-complete-list-131/apps/CYERPAutoQuery/docs/handoff/CYERPAutoQuery-STOCKTAKE-ARCHIVE-HANDOFF-20261107.md) 交 Claude，PR #604 維持草稿、不合併發行。**舊 Agent 可同步，但自動歸檔須待 Claude 完成配套並授權更新後才啟用**。Claude 事後複審與實機驗收仍待辦。[WEB handoff](docs/handoff/CYWEB-STOCKTAKE-RECORDS-0121-20261107.md)。

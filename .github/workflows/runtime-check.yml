@@ -8,6 +8,7 @@ on:
       - "worker/**"
       - "migrations/**"
       - "scripts/**"
+      - "integrations/grok-bot/**"
       - "package.json"
       - "vite.config.ts"
       - "wrangler*.jsonc"
