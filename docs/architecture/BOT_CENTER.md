@@ -76,7 +76,7 @@ V0.12.4 Build 1 在審核落庫後喚醒既有 Grok routine；推播沒有核准
 協定依據：[Grok webhooks](https://docs.x.ai/grok-bot/skills-routines-and-automations#webhooks)、[Cloudflare waitUntil](https://developers.cloudflare.com/workers/runtime-apis/context/#waituntil)。交接與啟用證據見 [V0.12.4 Build 1 handoff](../handoff/CYWEB-BOT-REVIEW-PUSH-0124-20261108.md)。
 
 
-## V0.12.5 BOT 管理中心版面修訂（先於 PR 審查，尚未部署）
+## V0.12.5 BOT 管理中心版面修訂（PR #453 已合併、尚未部署）
 
 - 主頁維持既有 CYWEB 外層標題，頂部工作總覽卡不重複寫標題與日期；三個狀態計數及每個 BOT 名稱／狀態以 `StatusChip` 顯示，**沒有 BOT 身份篩選器**。審稿狀態（全部／待審／通過／退回）仍保留操作，原來「全部 BOT」範圍字樣刪除；後端既有 `botCode` 篩選 API 不移除、不更改權限。
 - 今日完成移到頂部總覽卡，主頁只呈現依 `completed_at DESC,id DESC` 排序的最新五個事件，不是五個時間群組。「查看全部」使用共用 `Dialog`，載入既有首批 50 筆與 `timelineBefore` 續頁。用 `formatDateTime` 的台北年月日＋分鐘群組，同分鐘事件在一個時間與一個藍點下各自展示，事件不去重、不隱藏。
