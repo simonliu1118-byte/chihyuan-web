@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useRef,useState,type FormEvent} from "react";
 import {ApiClientError} from "../../api/client";
-import {BOT_LIMITS,BOT_REVIEW_LABELS,BOT_STATUS_LABELS,taipeiTodayRange,type BotCenterState,type BotReviewStatus,type BotStatus} from "../../../shared/bot-center";
+import {BOT_LIMITS,BOT_REVIEW_LABELS,BOT_STATUS_LABELS,taipeiTodayRange,type BotCenterState,type BotCompletionView,type BotReviewStatus,type BotStatus} from "../../../shared/bot-center";
 import {createBot,issueBotCredential,loadBotCenter,loadBotProgress,reviewDraft,revokeBotCredential,saveBotPush,retryBotPush} from "../api/bot-center-client";
 import {ExpandToggle} from "../../ui/data/ExpandToggle";
 import {StatusFilter} from "../../ui/data/StatusFilter";
@@ -9,6 +9,7 @@ import {Loading} from "../../ui/feedback/Loading";
 import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import {formatDateTime} from "../../ui/foundation/format";
 import {Field,FormSection} from "../../ui/forms/Field";
+import {EntryTable,EntryHeading} from "../../ui/forms/EntryTable";
 import {Dialog} from "../../ui/overlays/Dialog";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {useFormPrompt} from "../../ui/overlays/useFormPrompt";
@@ -20,11 +21,28 @@ const STATUS_TONE:Record<BotStatus,"neutral"|"info"|"warning"|"success">={idle:"
 const REVIEW_TONE:Record<BotReviewStatus,"warning"|"success"|"danger">={pending:"warning",approved:"success",rejected:"danger"};
 const messageOf=(error:unknown)=>error instanceof ApiClientError?error.message||error.code:"BOT 管理中心暫時無法使用";
 const PUSH_LABELS={queued:'待送出',sending:'傳送中',accepted:'已送出',failed:'失敗'};
-const weekday=new Intl.DateTimeFormat("zh-TW",{timeZone:"Asia/Taipei",weekday:"long"});
+/** Group consecutive completion events by local minute so each minute has one timeline marker. */
+function TimelineList({items}:{items:BotCompletionView[]}){
+ const groups:{minute:string;clock:string;items:BotCompletionView[]}[]=[];
+ for(const item of items){
+  const dateTime=formatDateTime(item.completedAt),minute=dateTime.slice(0,16);
+  const last=groups.at(-1);
+  if(last?.minute===minute)last.items.push(item);
+  else groups.push({minute,clock:dateTime.slice(11),items:[item]});
+ }
+ return <ol className="cy-bot-timeline">{groups.map(group=><li key={group.minute} className="cy-bot-timeline-group">
+  <time dateTime={group.items[0].completedAt}>{group.clock}</time>
+  <ul className="cy-bot-timeline-events">{group.items.map(item=><li key={item.id}>
+   <span className="cy-bot-timeline-bot">{item.botLabel}</span>
+   <strong>{item.title}</strong>{item.detail?<span className="cy-bot-timeline-detail">{item.detail}</span>:null}
+  </li>)}</ul>
+ </li>)}</ol>;
+}
 
 export function BotCenterPage(){
  const [state,setState]=useState<BotCenterState|null>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
  const [settingsOpen,setSettingsOpen]=useState(false),[reportsOpen,setReportsOpen]=useState(false);
+ const [timelineOpen,setTimelineOpen]=useState(false),[addOpen,setAddOpen]=useState(false);
  const [openReport,setOpenReport]=useState<number|null>(null);
  const [code,setCode]=useState(""),[label,setLabel]=useState(""),[token,setToken]=useState<string|null>(null);
  const [tokenOwner,setTokenOwner]=useState("");
@@ -32,15 +50,15 @@ export function BotCenterPage(){
  const [message,setMessage,reportError,tone]=useFeedbackMessage<string|null>(null);
  const {confirm,confirmationDialog}=useConfirmation(),{ask,promptDialog}=useFormPrompt();
  const sequence=useRef(0),actionBusy=useRef(false);
- const draftStatus=state?.draftStatus??"pending",botCode=state?.botCode??null;
+ const draftStatus=state?.draftStatus??"pending";
 
- const refresh=useCallback(async(status:BotReviewStatus|"all",selected:string|null)=>{
+ const refresh=useCallback(async(status:BotReviewStatus|"all")=>{
   const serial=++sequence.current;
-  const next=await loadBotCenter(status,{botCode:selected??undefined});
+  const next=await loadBotCenter(status);
   if(serial!==sequence.current)return;
   setState(next);setOpenReport(null);
  },[]);
- useEffect(()=>{let active=true;void refresh("pending",null).catch(e=>{if(active)reportError(messageOf(e))}).finally(()=>{if(active)setLoading(false)});
+ useEffect(()=>{let active=true;void refresh("pending").catch(e=>{if(active)reportError(messageOf(e))}).finally(()=>{if(active)setLoading(false)});
   return()=>{active=false;sequence.current++};},[refresh,reportError]);
  // Keep lightweight polling: statistics and historical pages are not reloaded every 30 seconds.
  useEffect(()=>{let active=true,poll=0;
@@ -48,32 +66,30 @@ export function BotCenterPage(){
    if(document.visibilityState!=="visible"||actionBusy.current)return;
    if(state&&state.timelineDate!==taipeiTodayRange().day){
     actionBusy.current=true;setBusy(true);
-    void refresh(draftStatus,botCode).catch(()=>{}).finally(()=>{actionBusy.current=false;setBusy(false)});return;
+    void refresh(draftStatus).catch(()=>{}).finally(()=>{actionBusy.current=false;setBusy(false)});return;
    }
    const serial=sequence.current,request=++poll;
    void loadBotProgress().then(next=>{if(active&&serial===sequence.current&&request===poll)setState(previous=>previous?{...previous,...next}:previous)}).catch(()=>{});
   },30_000);
   return()=>{active=false;window.clearInterval(timer)};
- },[state?.timelineDate,draftStatus,botCode,refresh]);
+ },[state?.timelineDate,draftStatus,refresh]);
 
  async function run(action:()=>Promise<void>){
   if(actionBusy.current)return;actionBusy.current=true;setBusy(true);
   try{await action()}catch(e){reportError(messageOf(e))}finally{actionBusy.current=false;setBusy(false)}
  }
- async function filter(selected:string|null,status:BotReviewStatus|"all"=draftStatus){
-  await run(()=>refresh(status,selected));
- }
- async function showReports(selected:string|null){await run(async()=>{await refresh(draftStatus,selected);setReportsOpen(true)})}
+ async function filter(status:BotReviewStatus|"all"){await run(()=>refresh(status))}
+ async function showReports(){await run(async()=>{await refresh(draftStatus);setReportsOpen(true)})}
 
  async function loadMore(section:"drafts"|"reports"|"timeline"){
   if(!state)return;
   const current=state,before=section==="drafts"?current.draftNextBefore:section==="reports"?current.reportNextBefore:current.timelineNextBefore;
   if(before==null)return;
   await run(async()=>{
-   const page=await loadBotCenter(current.draftStatus,{botCode:current.botCode??undefined,
+   const page=await loadBotCenter(current.draftStatus,{
     ...(section==="drafts"?{draftBefore:Number(before)}:section==="reports"?{reportBefore:Number(before)}:{timelineBefore:String(before)})});
    setState(previous=>{
-    if(!previous||previous.draftStatus!==current.draftStatus||previous.botCode!==current.botCode)return previous;
+    if(!previous||previous.draftStatus!==current.draftStatus)return previous;
     if(page.timelineDate!==previous.timelineDate)return page;
     if(section==="drafts")return {...previous,drafts:[...previous.drafts,...page.drafts.filter(row=>!previous.drafts.some(old=>old.id===row.id))],draftsMore:page.draftsMore,draftNextBefore:page.draftNextBefore};
     if(section==="reports")return {...previous,reports:[...previous.reports,...page.reports.filter(row=>!previous.reports.some(old=>old.id===row.id))],reportsMore:page.reportsMore,reportNextBefore:page.reportNextBefore};
@@ -88,42 +104,55 @@ export function BotCenterPage(){
    const values=await ask({title:"退回審稿",fields:[{name:"reason",label:"退回理由",multiline:true,required:true}],confirmLabel:"退回",confirmTone:"danger"});
    if(!values)return;reason=values.reason;
   }
-  await run(async()=>{await reviewDraft(id,decision,reason);await refresh(draftStatus,botCode);setMessage(decision==="approved"?"已通過":"已退回")});
+  await run(async()=>{await reviewDraft(id,decision,reason);await refresh(draftStatus);setMessage(decision==="approved"?"已通過":"已退回")});
  }
 
- async function addBot(event:FormEvent){event.preventDefault();await run(async()=>{await createBot(code,label);setCode("");setLabel("");await refresh(draftStatus,botCode);setMessage("已新增 BOT")})}
- async function retryPush(id:number){await run(async()=>{await retryBotPush(id);await refresh(draftStatus,botCode);setMessage('已排入推播重送')})}
+ async function addBot(event:FormEvent){event.preventDefault();await run(async()=>{await createBot(code,label);setCode("");setLabel("");setAddOpen(false);await refresh(draftStatus);setMessage("已新增 BOT")})}
+ async function retryPush(id:number){await run(async()=>{await retryBotPush(id);await refresh(draftStatus);setMessage('已排入推播重送')})}
+ async function togglePush(code:string){
+  const setting=state?.pushSettings.find(item=>item.botCode===code);
+  if(!setting?.configured||!state?.pushReady||!state.canManageCredentials)return;
+  const name=state.bots.find(bot=>bot.code===code)?.label??code;
+  if(setting.enabled&&!await confirm({title:"停用"+name+"推播",description:"停用後不發送新通知；已有的待送通知暫停，重新啟用後可繼續。Webhook 設定和 BOT 憑證都會保留。",confirmLabel:"停用推播",confirmTone:"danger"}))return;
+  await run(async()=>{await saveBotPush(code,{enabled:!setting.enabled});await refresh(draftStatus);setMessage(name+(setting.enabled?"推播已停用":"推播已啟用"))});
+ }
  async function issue(code:string){
   const current=state?.credentials.find(item=>item.botCode===code),configured=!!current?.configured,name=current?.botLabel??code;
   if(!await confirm({title:(configured?"輪換":"產生")+name+"連線憑證",description:configured?"此 BOT 的舊憑證會立即失效。":"憑證只顯示一次。",confirmLabel:configured?"輪換":"產生",confirmTone:configured?"danger":"primary"}))return;
-  await run(async()=>{const issued=await issueBotCredential(code);setTokenOwner(name);setToken(issued.token);await refresh(draftStatus,botCode)});
+  await run(async()=>{const issued=await issueBotCredential(code);setTokenOwner(name);setToken(issued.token);await refresh(draftStatus)});
  }
  async function revoke(code:string){
   const name=state?.bots.find(bot=>bot.code===code)?.label??code;
   if(!await confirm({title:"撤銷"+name+"連線憑證",description:"此 BOT 將無法回報或讀取審核結果。",confirmLabel:"撤銷",confirmTone:"danger"}))return;
-  await run(async()=>{await revokeBotCredential(code);await refresh(draftStatus,botCode);setMessage("已撤銷"+name+"連線憑證")});
+  await run(async()=>{await revokeBotCredential(code);await refresh(draftStatus);setMessage("已撤銷"+name+"連線憑證")});
  }
 
  if(loading&&!state)return <Loading/>;
  if(!state)return <section className="cy-op-panel"><h2>BOT 管理中心</h2><p>{message??"目前無法載入。"}</p></section>;
- const scope=botCode?state.bots.find(bot=>bot.code===botCode)?.label:"全部 BOT";
  return <div className="cy-bot-center">
   <FeedbackBanner message={message} tone={tone}/>{confirmationDialog}{promptDialog}
   <section className="cy-op-panel cy-bot-overview" aria-label="今日工作總覽">
-   <div className="cy-bot-heading"><div><h2>BOT 管理中心</h2>
-    <p className="cy-bot-date">{state.timelineDate.replaceAll("-","/")}（{weekday.format(new Date(state.timelineDate+"T12:00:00+08:00"))}）</p></div>
-    <div className="cy-bot-actions"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void run(()=>refresh(draftStatus,botCode))}>重新整理</button>
-     <button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void showReports(botCode)}>查看回報</button>
-     <button type="button" className="cy-op-button compact" onClick={()=>setSettingsOpen(true)}>設定</button></div></div>
-   <div className="cy-bot-totals"><StatusChip tone="info">進行中 {state.bots.filter(bot=>bot.status==="working").length}</StatusChip>
-    <StatusChip tone="warning">受阻 {state.bots.filter(bot=>bot.status==="blocked").length}</StatusChip>
-    <StatusChip tone="neutral">待命 {state.bots.filter(bot=>bot.status==="idle").length}</StatusChip>
-</div>
-   <StatusFilter label="選擇 BOT" value={botCode??""} counts={null} options={state.bots.map(bot=>({code:bot.code,label:bot.label,tone:STATUS_TONE[bot.status]}))} onChange={value=>{if(!busy)void filter(value||null)}}/>
+   <div className="cy-bot-overview-toolbar">
+    <div className="cy-bot-status-strip" aria-label="BOT 狀態總覽（只供顯示）">
+     <StatusChip tone="info">進行中 {state.bots.filter(bot=>bot.status==="working").length}</StatusChip>
+     <StatusChip tone="warning">受阻 {state.bots.filter(bot=>bot.status==="blocked").length}</StatusChip>
+     <StatusChip tone="neutral">待命 {state.bots.filter(bot=>bot.status==="idle").length}</StatusChip>
+     <span className="cy-bot-status-separator" aria-hidden="true"/>
+     {state.bots.map(bot=><StatusChip key={bot.code} tone={STATUS_TONE[bot.status]}>{bot.label} · {BOT_STATUS_LABELS[bot.status]}</StatusChip>)}
+    </div>
+    <div className="cy-bot-actions">
+     <button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void run(()=>refresh(draftStatus))}>重新整理</button>
+     <button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void showReports()}>查看回報</button>
+     <button type="button" className="cy-op-button compact" onClick={()=>setSettingsOpen(true)}>設定</button>
+    </div>
+   </div>
+   <div className="cy-op-panel-header cy-bot-timeline-heading"><h2>今日完成時間軸（最新 5 筆）</h2>
+    <button type="button" className="cy-op-button compact" onClick={()=>setTimelineOpen(true)}>查看全部</button></div>
+   {state.timeline.length?<TimelineList items={state.timeline.slice(0,5)}/>:<p className="cy-bot-empty">今天還沒有完成項目</p>}
   </section>
    <section className="cy-op-panel cy-bot-review" aria-label="審稿清單">
-    <div className="cy-op-panel-header"><h2>{draftStatus==="pending"?"待審核":"審稿紀錄"}</h2><span className="cy-bot-scope">{scope}</span></div>
-    <StatusFilter label="審稿狀態" value={draftStatus==="all"?"":draftStatus} counts={state.draftCounts} options={(["pending","approved","rejected"] as const).map(status=>({code:status,label:BOT_REVIEW_LABELS[status],tone:REVIEW_TONE[status]}))} onChange={status=>{if(!busy)void filter(botCode,(status||"all") as BotReviewStatus|"all")}}/>
+    <div className="cy-op-panel-header"><h2>{draftStatus==="pending"?"待審核":"審稿紀錄"}</h2></div>
+    <StatusFilter label="審稿狀態" value={draftStatus==="all"?"":draftStatus} counts={state.draftCounts} options={(["pending","approved","rejected"] as const).map(status=>({code:status,label:BOT_REVIEW_LABELS[status],tone:REVIEW_TONE[status]}))} onChange={status=>{if(!busy)void filter((status||"all") as BotReviewStatus|"all")}}/>
     <div className="cy-op-table-wrap"><table className="cy-op-table cy-bot-review-table" aria-label="審稿清單">
      <colgroup><col style={{width:"10em"}}/><col style={{width:"7em"}}/><col style={{width:"21%"}}/><col/><col style={{width:"5em"}}/>{draftStatus!=="pending"?<><col style={{width:"14em"}}/><col style={{width:'5.5em'}}/></>:null}<col style={{width:"9em"}}/></colgroup>
      <thead><tr><th>送審時間</th><th>BOT</th><th>事項</th><th>內容</th><th className="is-center">狀態</th>{draftStatus!=="pending"?<><th>審核資訊</th><th className="is-center">推播</th></>:null}<th className="is-center">操作</th></tr></thead>
@@ -160,7 +189,7 @@ export function BotCenterPage(){
     <p className="cy-bot-summary">{bot.summary&&taipeiTodayRange(new Date(bot.updatedAt)).day===state.timelineDate?bot.summary:"今日尚無回報"}</p>
    </article>)}
   </section>
-  {reportsOpen?<Dialog open title={scope+"回報"} size="large" dismissible={false} showCloseButton={false} onClose={()=>setReportsOpen(false)} footer={<button type="button" className="cy-op-button" onClick={()=>setReportsOpen(false)}>關閉</button>}>
+  {reportsOpen?<Dialog open title="BOT 回報紀錄" size="large" dismissible={false} showCloseButton={false} onClose={()=>setReportsOpen(false)} footer={<button type="button" className="cy-op-button" onClick={()=>setReportsOpen(false)}>關閉</button>}>
    <ul className="cy-bot-report-list">{state.reports.map(report=><li key={report.id}><div className="cy-bot-item-meta"><time dateTime={report.reportedAt}>{formatDateTime(report.reportedAt)}</time><span>{report.botLabel}</span></div>
     <div className="cy-bot-review-title"><ExpandToggle expanded={openReport===report.id} label={report.title} onToggle={()=>setOpenReport(openReport===report.id?null:report.id)}/><strong>{report.title}</strong></div>{openReport===report.id?<p className="cy-bot-text">{report.body}</p>:null}</li>)}</ul>
    {!state.reports.length?<p className="cy-bot-empty">尚無回報</p>:null}{state.reportsMore?<div className="cy-bot-more"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void loadMore("reports")}>載入更多回報</button></div>:null}
@@ -178,7 +207,7 @@ export function BotCenterPage(){
     </FormSection><div className="cy-op-form-footer"><button type="submit" className="cy-op-button primary" disabled={busy}>新增</button></div></form></div>
   </Dialog>:null}
   {pushCode?<BotPushSettingsDialog label={state.bots.find(bot=>bot.code===pushCode)?.label??pushCode} configured={state.pushSettings.find(item=>item.botCode===pushCode)?.configured??false} enabled={state.pushSettings.find(item=>item.botCode===pushCode)?.enabled??false}
-   onClose={()=>setPushCode(null)} onSave={async value=>{await saveBotPush(pushCode,value);await refresh(draftStatus,botCode);setPushCode(null);setMessage('已儲存推播設定')}}/>:null}
+   onClose={()=>setPushCode(null)} onSave={async value=>{await saveBotPush(pushCode,value);await refresh(draftStatus);setPushCode(null);setMessage('已儲存推播設定')}}/>:null}
   {token?<Dialog open size="small" title={tokenOwner+"連線憑證（只顯示這一次）"} dismissible={false} showCloseButton={false} onClose={()=>setToken(null)} footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" onClick={()=>void navigator.clipboard?.writeText(token)}>複製</button><button type="button" className="cy-op-button primary" onClick={()=>setToken(null)}>關閉</button></div>}>
    <FormSection><Field label="憑證" size="l"><input className="cy-op-input" readOnly value={token}/></Field></FormSection>
   </Dialog>:null}
