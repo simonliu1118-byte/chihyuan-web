@@ -2,7 +2,7 @@
 
 - 執行：GPT；分支 `cyweb/bot-review-push-0124`，基準 main `97a2acced3823e665991759b4dd33c2d8dee5223`。新獨立功能，VERSION／package=0.12.4、BUILD=1。
 - 使用者授權：PR #447 合併部署後處理推播；已確認 Grok webhook 允許網域 `api2.cursor.sh`，小編已建立「收到 webhook 後讀取 CYWEB 稿件審核結果」routine。沒有提供完整路徑／key，也不向聊天索取。小編現有 CYWEB 憑證維持原值，拍板結案不接後臺。
-- **本輪待 Claude 審查，未合併部署、未設定真實 webhook、未建立正式主金鑰。PR #447 的合併部署授權不延用到本輪。**正式站仍 V0.12.3 Build1，發布 #42391275622、source `e2f50177d4e4d1162644c604a40dc41a4cb3f39e`；證據已由 docs-only PR #448 更新，不重部署舊版本。
+- **PR #449 已由使用者直接授權，於 2026-11-08 合併 main；正式部署仍未觸發、Claude 事後審查待辦。** 此對話沒有取得或輪換社群小編既有 CYWEB 憑證，也未操作 Grok webhook 或正式加密金鑰。正式站上次已驗證的版本仍是 V0.12.3 Build1，發布 #42391275622、source `e2f50177d4e4d1162644c604a40dc41a4cb3f39e`；不以 PR 驗證冒充新正式發布。
 
 ## 實作
 
@@ -52,3 +52,12 @@
 - 正式發布只能使用 `main` 上的 `development-deploy.yml`、`workflow_dispatch`、operation=`deploy-development`；確認受保護 Environment `development`。受控 workflow 必須完成 remote D1 0058、Worker+assets 部署、來源／健康驗證並記錄 run ID 與實際 SHA，才可標成已部署。
 - `CF_BOT_PUSH_ENCRYPTION_KEY` 是**全新且獨立**的推播設定加密金鑰，不等於社群小編 CYWEB 機器憑證或 Grok webhook key；若尚未配置，本次可以保留推播停用，不應默認可送。不可在 PR、聊天、log、檔案印出任何 secret；若已存在不得輪換。
 - 若目前執行通道不支援 GitHub Actions workflow dispatch，不可用更動 workflow 的 push 觸發方式繞過 main-only 發布限制，也不可回報已完成部署；應在 handoff 明列合併、部署、金鑰／webhook 各自真實狀態與後續受控操作入口。
+
+
+## 合併完成、正式部署尚待受控執行（2026-11-08）
+
+- PR [#449](https://github.com/simonliu1118-byte/chihyuan-web/pull/449) 已 squash merge 到 `main@4352a9f90b2c0321d07b0e32ea1e461dee767fbb`。最新來源 `841f5208de3ca9a4f14f728e6dc362852d52ddbb` 的 [Runtime #42400319701](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42400319701) **success**（713/713、local D1、TypeScript、source contracts、Vite build）；[Governance #42400320010](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42400320010) **success**；[Deployment Contract #42400319772](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42400319772) **success**。
+- 使用者明確授權直接合併與部署，Claude 改事後審查。本次工具只有 GitHub 讀取／合併與 PR 檔案寫入，**沒有 workflow_dispatch 動作**；此對話也沒有可用的已登入 `gh` CLI。依專案治理，不會把 `development-deploy.yml` 偷改成 push 部署或重跑舊 SHA。**尚無 V0.12.4 Build1 的正式 workflow_dispatch run、未確認正式 0058 migration/Worker/健康**。
+- 下個受控步驟：到 GitHub [CY Web Deploy](https://github.com/simonliu1118-byte/chihyuan-web/actions/workflows/development-deploy.yml) 以 `main` 執行 `Run workflow`，`operation=deploy-development`。這會使用當時 `main` 的最新 SHA（若另有 docs-only commit，以該 SHA 為準）；必須完成 D1 remote 0058、部署與 canonical／workers.dev 健康與來源驗證，才寫入成功結果。
+- 不可任意重設或輪換既有 `SOCIAL_EDITOR` 機器憑證。可選 `CF_BOT_PUSH_ENCRYPTION_KEY` 為新的推播 webhook 設定主金鑰，應在 GitHub Environment `development` 安全設定／確認已存在；不得以此金鑰取代 `CYWEB_BOT_TOKEN` 或 Grok webhook key。若尚無主金鑰，先保持推播停用；當次合併不表示功能已可發送。
+- 待辦：Claude 事後複審、正式部署與 0058/來源健康回讀、WEB UI／手機目視、Grok webhook 與原共用工具實機通過／退回測試。**此段只記錄已驗證的合併及仍待完成事項。**
