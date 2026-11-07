@@ -38,7 +38,7 @@ test("push settings use shared table cells only and keep enabled flag unchanged"
  assert.match(page,/saveBotPush\(code,\{enabled:!setting\.enabled\}\)/);
  assert.match(page,/if\(setting\.enabled&&!await confirm/);
  assert.match(page,/!state\.canManageCredentials\)return/);
- assert.match(page,/disabled=\{busy\|\|!state\.pushReady\|\|!configured\}/);
+ assert.match(page,/disabled=\{busy\|\|!state\.pushReady\|\|!state\.pushSettings\.find/);
 });
 test("new BOT uses shared table dialog and keeps existing credential management separate",()=>{
  assert.match(page,/addOpen\?<Dialog open title="新增 BOT"/);
