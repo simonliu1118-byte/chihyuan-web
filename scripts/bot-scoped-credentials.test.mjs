@@ -111,10 +111,13 @@ test('work cards use complete scoped Taipei-day counts beyond pagination; pendin
 test('portable backup retains work classifications and event IDs but excludes every BOT credential',async()=>{
  const source=fixture(),target=fixture('SUPER_ADMIN',false,{seedMember:false});try{
   const token=await issue(source,'SOCIAL_EDITOR');
+  source.sql.prepare('INSERT INTO bot_review_push_settings(bot_id,enabled,encrypted_target,updated_at) SELECT id,1,?,? FROM bot_profiles WHERE code=?').run('synthetic-encrypted-target','2026-11-08T00:00:00Z','SOCIAL_EDITOR');
   ok(await source.call('/api/bot-ingest/completions','POST',{title:'合成發布',detail:'合成平台',eventRef:'backup-article',workType:'article_published'},auth(token)));
   const saved=await backup.exportPortableBackup(source.db,{workspaceScope:'synthetic',appVersion:'0.12.3'});
   const text=new TextDecoder().decode(saved.dataBytes),snapshot=JSON.parse(text);
   assert.equal(text.includes(token),false);assert.equal('bot_ingest_credentials' in snapshot.tables,false);
+  assert.equal('bot_review_push_settings' in snapshot.tables,false);assert.equal('bot_review_push_outbox' in snapshot.tables,false);
+  assert.equal(text.includes('synthetic-encrypted-target'),false);
   assert.equal(await backup.isEmptyRecoveryTarget(target.db),true);
   await backup.restoreIntoEmptyDatabase(target.db,saved,'synthetic');
   assert.deepEqual(target.sql.prepare('SELECT * FROM bot_completions').all(),source.sql.prepare('SELECT * FROM bot_completions').all());

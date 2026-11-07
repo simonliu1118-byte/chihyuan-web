@@ -14,6 +14,7 @@ on:
       - "scripts/audit-account-portal.mjs"
       - "scripts/audit-account-portal.test.mjs"
       - "scripts/render-backup-secrets.mjs"
+      - "scripts/render-runtime-secrets.mjs"
       - "scripts/audit-backup-configuration.mjs"
       - "scripts/backup-configuration.test.mjs"
       - "scripts/backup-provider-worker.test.mjs"
@@ -85,6 +86,7 @@ jobs:
           node scripts/validate-deploy-config.mjs
           node --test scripts/provision-backup-recovery.test.mjs
           node --test scripts/test-deployed-health.mjs scripts/program-schedule-deployment.test.mjs scripts/deployment-source.test.mjs
+          node --test scripts/bot-push-secrets.test.mjs
 
       - name: Test HTTPS entry and deployed transport checks
         run: node --test scripts/secure-entry.test.mjs scripts/secure-deployment.test.mjs
@@ -210,11 +212,12 @@ jobs:
       - name: Resolve canonical production Identity without changing business D1
         run: node scripts/resolve-production-identity.mjs
 
-      - name: Validate and prepare protected backup credential
+      - name: Validate and prepare protected runtime credentials
         env:
           GCS_SERVICE_ACCOUNT_JSON: ${{ secrets.GCS_SERVICE_ACCOUNT_JSON }}
           CF_USAGE_API_TOKEN: ${{ secrets.CF_USAGE_API_TOKEN }}
-        run: node scripts/render-backup-secrets.mjs --output "$RUNNER_TEMP/cyweb-backup-secrets.json"
+          CF_BOT_PUSH_ENCRYPTION_KEY: ${{ secrets.CF_BOT_PUSH_ENCRYPTION_KEY }}
+        run: node scripts/render-runtime-secrets.mjs --output "$RUNNER_TEMP/cyweb-backup-secrets.json"
 
       - name: Require reviewed rotation implementation before any remote mutation
         if: github.event_name == 'workflow_dispatch' && inputs.operation == 'rotate-recovery'
@@ -252,7 +255,7 @@ jobs:
           OUTPUT_CONFIG="$(find dist -type f -name wrangler.json | head -n 1)"
           test -n "$OUTPUT_CONFIG"
           BACKUP_ARGS=()
-          if [ "$CF_BACKUP_ENABLED" = "true" ]; then
+          if [ -f "$RUNNER_TEMP/cyweb-backup-secrets.json" ]; then
             BACKUP_ARGS=(--secrets-file "$RUNNER_TEMP/cyweb-backup-secrets.json")
           fi
           DEPLOY_OUTPUT="$(npx wrangler deploy --config "$OUTPUT_CONFIG" "${BACKUP_ARGS[@]}")"

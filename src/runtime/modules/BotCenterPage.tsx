@@ -1,7 +1,7 @@
 import {useCallback,useEffect,useRef,useState,type FormEvent} from "react";
 import {ApiClientError} from "../../api/client";
 import {BOT_LIMITS,BOT_REVIEW_LABELS,BOT_STATUS_LABELS,taipeiTodayRange,type BotCenterState,type BotReviewStatus,type BotStatus} from "../../../shared/bot-center";
-import {createBot,issueBotCredential,loadBotCenter,loadBotProgress,reviewDraft,revokeBotCredential} from "../api/bot-center-client";
+import {createBot,issueBotCredential,loadBotCenter,loadBotProgress,reviewDraft,revokeBotCredential,saveBotPush,retryBotPush} from "../api/bot-center-client";
 import {ExpandToggle} from "../../ui/data/ExpandToggle";
 import {StatusFilter} from "../../ui/data/StatusFilter";
 import {FeedbackBanner,useFeedbackMessage} from "../../ui/feedback/FeedbackProvider";
@@ -13,11 +13,13 @@ import {Dialog} from "../../ui/overlays/Dialog";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {useFormPrompt} from "../../ui/overlays/useFormPrompt";
 import {StatusChip} from "../../ui/primitives/StatusChip";
+import {BotPushSettingsDialog} from "./BotPushSettingsDialog";
 import "./bot-center.css";
 
 const STATUS_TONE:Record<BotStatus,"neutral"|"info"|"warning"|"success">={idle:"neutral",working:"info",blocked:"warning",done:"success"};
 const REVIEW_TONE:Record<BotReviewStatus,"warning"|"success"|"danger">={pending:"warning",approved:"success",rejected:"danger"};
 const messageOf=(error:unknown)=>error instanceof ApiClientError?error.message||error.code:"BOT 管理中心暫時無法使用";
+const PUSH_LABELS={queued:'待送出',sending:'傳送中',accepted:'已送出',failed:'失敗'};
 const weekday=new Intl.DateTimeFormat("zh-TW",{timeZone:"Asia/Taipei",weekday:"long"});
 
 export function BotCenterPage(){
@@ -26,6 +28,7 @@ export function BotCenterPage(){
  const [openReport,setOpenReport]=useState<number|null>(null);
  const [code,setCode]=useState(""),[label,setLabel]=useState(""),[token,setToken]=useState<string|null>(null);
  const [tokenOwner,setTokenOwner]=useState("");
+ const [pushCode,setPushCode]=useState<string|null>(null);
  const [message,setMessage,reportError,tone]=useFeedbackMessage<string|null>(null);
  const {confirm,confirmationDialog}=useConfirmation(),{ask,promptDialog}=useFormPrompt();
  const sequence=useRef(0),actionBusy=useRef(false);
@@ -89,6 +92,7 @@ export function BotCenterPage(){
  }
 
  async function addBot(event:FormEvent){event.preventDefault();await run(async()=>{await createBot(code,label);setCode("");setLabel("");await refresh(draftStatus,botCode);setMessage("已新增 BOT")})}
+ async function retryPush(id:number){await run(async()=>{await retryBotPush(id);await refresh(draftStatus,botCode);setMessage('已排入推播重送')})}
  async function issue(code:string){
   const current=state?.credentials.find(item=>item.botCode===code),configured=!!current?.configured,name=current?.botLabel??code;
   if(!await confirm({title:(configured?"輪換":"產生")+name+"連線憑證",description:configured?"此 BOT 的舊憑證會立即失效。":"憑證只顯示一次。",confirmLabel:configured?"輪換":"產生",confirmTone:configured?"danger":"primary"}))return;
@@ -121,15 +125,15 @@ export function BotCenterPage(){
     <div className="cy-op-panel-header"><h2>{draftStatus==="pending"?"待審核":"審稿紀錄"}</h2><span className="cy-bot-scope">{scope}</span></div>
     <StatusFilter label="審稿狀態" value={draftStatus==="all"?"":draftStatus} counts={state.draftCounts} options={(["pending","approved","rejected"] as const).map(status=>({code:status,label:BOT_REVIEW_LABELS[status],tone:REVIEW_TONE[status]}))} onChange={status=>{if(!busy)void filter(botCode,(status||"all") as BotReviewStatus|"all")}}/>
     <div className="cy-op-table-wrap"><table className="cy-op-table cy-bot-review-table" aria-label="審稿清單">
-     <colgroup><col style={{width:"10em"}}/><col style={{width:"7em"}}/><col style={{width:"21%"}}/><col/><col style={{width:"5em"}}/>{draftStatus!=="pending"?<col style={{width:"14em"}}/>:null}<col style={{width:"9em"}}/></colgroup>
-     <thead><tr><th>送審時間</th><th>BOT</th><th>事項</th><th>內容</th><th className="is-center">狀態</th>{draftStatus!=="pending"?<th>審核資訊</th>:null}<th className="is-center">操作</th></tr></thead>
+     <colgroup><col style={{width:"10em"}}/><col style={{width:"7em"}}/><col style={{width:"21%"}}/><col/><col style={{width:"5em"}}/>{draftStatus!=="pending"?<><col style={{width:"14em"}}/><col style={{width:'5.5em'}}/></>:null}<col style={{width:"9em"}}/></colgroup>
+     <thead><tr><th>送審時間</th><th>BOT</th><th>事項</th><th>內容</th><th className="is-center">狀態</th>{draftStatus!=="pending"?<><th>審核資訊</th><th className="is-center">推播</th></>:null}<th className="is-center">操作</th></tr></thead>
      <tbody>{state.drafts.length?state.drafts.map(draft=>{
       const reviewInfo=[draft.reason?"理由："+draft.reason:"",draft.reviewer?(draft.reviewer.displayName||draft.reviewer.employeeNo||"使用者")+" "+formatDateTime(draft.reviewedAt):""].filter(Boolean).join("；");
       return <tr key={draft.id}><td><time dateTime={draft.createdAt}>{formatDateTime(draft.createdAt)}</time></td><td title={draft.botLabel}>{draft.botLabel}</td>
        <td title={draft.title}>{draft.title}</td><td title={draft.body}>{draft.body}</td><td className="is-center"><StatusChip tone={REVIEW_TONE[draft.status]}>{BOT_REVIEW_LABELS[draft.status]}</StatusChip></td>
-       {draftStatus!=="pending"?<td title={reviewInfo}>{reviewInfo}</td>:null}<td>{draft.status==="pending"?<div className="cy-bot-actions"><button type="button" className="cy-op-button compact primary" disabled={busy} onClick={()=>void decide(draft.id,"approved")}>通過</button><button type="button" className="cy-op-button compact danger" disabled={busy} onClick={()=>void decide(draft.id,"rejected")}>退回</button></div>:null}</td>
+       {draftStatus!=="pending"?<><td title={reviewInfo}>{reviewInfo}</td><td className="is-center">{draft.pushStatus?<StatusChip tone={draft.pushStatus==='failed'?'danger':draft.pushStatus==='accepted'?'success':'warning'}>{PUSH_LABELS[draft.pushStatus]}</StatusChip>:null}</td></>:null}<td>{draft.status==="pending"?<div className="cy-bot-actions"><button type="button" className="cy-op-button compact primary" disabled={busy} onClick={()=>void decide(draft.id,"approved")}>通過</button><button type="button" className="cy-op-button compact danger" disabled={busy} onClick={()=>void decide(draft.id,"rejected")}>退回</button></div>:draft.pushStatus==='failed'&&state.canManageCredentials?<button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void retryPush(draft.id)}>重送</button>:null}</td>
       </tr>;
-     }):<tr><td colSpan={draftStatus==="pending"?6:7}>尚無{draftStatus==="pending"?"待審稿件":"審稿紀錄"}</td></tr>}</tbody>
+     }):<tr><td colSpan={draftStatus==="pending"?6:8}>尚無{draftStatus==="pending"?"待審稿件":"審稿紀錄"}</td></tr>}</tbody>
     </table></div>
     {state.draftsMore?<div className="cy-bot-more"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void loadMore("drafts")}>載入更多審稿</button></div>:null}
    </section>
@@ -163,16 +167,18 @@ export function BotCenterPage(){
   </Dialog>:null}
   {settingsOpen?<Dialog open title="BOT 設定" size="medium" dismissible={false} showCloseButton={false} onClose={()=>setSettingsOpen(false)} footer={<button type="button" className="cy-op-button" disabled={busy} onClick={()=>setSettingsOpen(false)}>關閉</button>}>
    <div className="cy-bot-settings"><section><h3>連線憑證</h3><div className="cy-op-table-wrap"><table className="cy-op-table cy-bot-credential-table">
-    <thead><tr><th>BOT</th><th>連線狀態</th><th>產生時間</th><th className="is-center">操作</th></tr></thead>
+    <thead><tr><th>BOT</th><th>連線狀態</th><th>產生時間</th><th className="is-center">推播</th><th className="is-center">操作</th></tr></thead>
     <tbody>{state.credentials.map(item=><tr key={item.botCode}><td>{item.botLabel}</td><td><StatusChip tone={item.configured?"success":"neutral"}>{item.configured?"已設定":item.revokedAt?"已撤銷":"未設定"}</StatusChip></td>
-     <td>{item.createdAt?formatDateTime(item.createdAt):""}</td><td>{state.canManageCredentials?<div className="cy-bot-actions"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void issue(item.botCode)}>{item.configured?"輪換":"產生"}</button>
-      {item.configured?<button type="button" className="cy-op-button compact danger" disabled={busy} onClick={()=>void revoke(item.botCode)}>撤銷</button>:null}</div>:null}</td></tr>)}</tbody>
+     <td>{item.createdAt?formatDateTime(item.createdAt):""}</td><td className="is-center">{!state.pushReady?'未啟用':state.pushSettings.find(s=>s.botCode===item.botCode)?.enabled?'已啟用':state.pushSettings.find(s=>s.botCode===item.botCode)?.configured?'已停用':'未設定'}</td><td>{state.canManageCredentials?<div className="cy-bot-actions"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void issue(item.botCode)}>{item.configured?"輪換":"產生"}</button>
+      {item.configured?<button type="button" className="cy-op-button compact danger" disabled={busy} onClick={()=>void revoke(item.botCode)}>撤銷</button>:null}<button type="button" className="cy-op-button compact" disabled={busy||!state.pushReady} title={state.pushReady?'':'推播服務尚未啟用'} onClick={()=>setPushCode(item.botCode)}>推播設定</button></div>:null}</td></tr>)}</tbody>
    </table></div></section>
     <form onKeyDown={enterAdvancesFields} onSubmit={event=>void addBot(event)}><h3>新增 BOT</h3><FormSection>
      <Field label="代碼" size="s" required><input className="cy-op-input" required maxLength={BOT_LIMITS.code} value={code} onChange={event=>setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9_]/g,"").slice(0,BOT_LIMITS.code))}/></Field>
      <Field label="名稱" size="m" required><input className="cy-op-input" required maxLength={BOT_LIMITS.label} value={label} onChange={event=>setLabel(event.target.value)}/></Field>
     </FormSection><div className="cy-op-form-footer"><button type="submit" className="cy-op-button primary" disabled={busy}>新增</button></div></form></div>
   </Dialog>:null}
+  {pushCode?<BotPushSettingsDialog label={state.bots.find(bot=>bot.code===pushCode)?.label??pushCode} configured={state.pushSettings.find(item=>item.botCode===pushCode)?.configured??false} enabled={state.pushSettings.find(item=>item.botCode===pushCode)?.enabled??false}
+   onClose={()=>setPushCode(null)} onSave={async value=>{await saveBotPush(pushCode,value);await refresh(draftStatus,botCode);setPushCode(null);setMessage('已儲存推播設定')}}/>:null}
   {token?<Dialog open size="small" title={tokenOwner+"連線憑證（只顯示這一次）"} dismissible={false} showCloseButton={false} onClose={()=>setToken(null)} footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" onClick={()=>void navigator.clipboard?.writeText(token)}>複製</button><button type="button" className="cy-op-button primary" onClick={()=>setToken(null)}>關閉</button></div>}>
    <FormSection><Field label="憑證" size="l"><input className="cy-op-input" readOnly value={token}/></Field></FormSection>
   </Dialog>:null}

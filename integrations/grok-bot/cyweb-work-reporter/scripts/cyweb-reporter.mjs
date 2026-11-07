@@ -7,6 +7,7 @@ Commands:
   progress     {status,summary?}
   submit       {externalRef,title,body}
   review       {externalRef}
+  review-notification {type,eventId,botCode,draftId} (read fresh review after webhook)
   report       {eventId,title,body}
   complete     {eventId,title,detail?,completedAt?,reviewRef?,workType?}
   pilot-start  {reference} (SOCIAL_EDITOR test only)

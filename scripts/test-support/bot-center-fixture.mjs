@@ -43,12 +43,12 @@ export function botCenterFixture(role = "SUPER_ADMIN", grant = false, {beforeSco
     IDENTITY: { async fetch() { return Response.json({ principal, session: { expiresAt: "2999-01-01T00:00:00Z" } }); } },
   };
   const cookie = "cyweb_identity_session=cyid_" + "a".repeat(64);
-  const call = async (path, method = "GET", json, headers = {}) => {
+  const call = async (path, method = "GET", json, headers = {}, ctx) => {
     const response = await handleBotCenterRoute(new Request("https://acceptance.test" + path, {
       method, headers: { cookie, "content-type": "application/json", ...headers },
       body: json === undefined ? undefined : JSON.stringify(json),
-    }), env, "bot-center-test");
+    }), env, "bot-center-test", ctx);
     return { status: response.status, body: await response.json() };
   };
-  return { sql, call, db, queries };
+  return { sql, call, db, queries, env };
 }

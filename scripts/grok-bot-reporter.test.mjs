@@ -29,6 +29,28 @@ test("distributed skill has complete metadata and all referenced local resources
   }
 });
 const code = (expected) => (error) => error.code === expected;
+test("webhook wakeups read only their own fresh result and never approve or publish", async t => {
+  const f = await setup(t);
+  const draft = await f.client.run("submit", {externalRef:"synthetic-push",title:"合成稿",body:"合成內容"});
+  const event = {type:"cyweb.review_result",eventId:"bot-review-"+draft.id,botCode:"SOCIAL_EDITOR",draftId:draft.id};
+  const before = f.calls.length;
+  for (const invalid of [{},null,{...event,draftId:undefined},{...event,botCode:"IT"},{...event,eventId:"other"},{...event,decision:"approved"}]) {
+    assert.deepEqual(await f.client.run("review-notification", invalid), {ignored:true,reason:"invalid_notification",notifyHuman:false});
+  }
+  assert.equal(f.calls.length,before,"untrusted payloads must not query");
+  assert.deepEqual(await f.client.run("review-notification",event), {ignored:true,reason:"review_pending",notifyHuman:false});
+  data(await f.call(`/api/bot-center/drafts/${draft.id}/review`,"POST",{decision:"rejected",reason:"合成退回理由"}));
+  const result = await f.client.run("review-notification",event);
+  assert.equal(result.ignored,false); assert.equal(result.review.status,"rejected"); assert.equal(result.review.reason,"合成退回理由");
+  assert.equal(result.automaticPublication,false);
+  assert.deepEqual(await f.client.run("review-notification",event),result,"repeat wakeups still read the authoritative result");
+  assert.equal(f.calls.at(-1).path,`/api/bot-ingest/drafts/${draft.id}`);
+  assert.deepEqual(await f.client.run("review-notification",{...event,draftId:99999,eventId:"bot-review-99999"}),{ignored:true,reason:"draft_not_found",notifyHuman:false});
+  const other = data(await f.call('/api/bot-center/bots/IT/credential','POST')).token;
+  const foreign = data(await f.call('/api/bot-ingest/drafts','POST',{title:"別人",body:"別人內容",externalRef:"foreign"},{authorization:'Bearer '+other}));
+  assert.equal((await f.client.run("review-notification",{...event,draftId:foreign.id,eventId:"bot-review-"+foreign.id})).ignored,true);
+  assert.equal(f.sql.prepare('SELECT count(*) n FROM bot_completions').get().n,0);
+});
 const data = (result) => {
   assert.equal(result.status, 200);
   return result.body.data;

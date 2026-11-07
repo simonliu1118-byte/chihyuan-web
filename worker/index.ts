@@ -22,11 +22,12 @@ import { handleBusinessApiPhase2Route } from "./http/business-api-phase2-routes"
 import { handleProgramCatalogRoute } from "./http/program-catalog-routes";
 import { handleErpItemQueryRoute, type ErpBridgeEnv } from "./http/erp-item-query-routes";
 import { handleBotCenterRoute } from "./http/bot-center-routes";
+import {deliverReviewPushes,cleanupReviewPushes,type BotPushEnv} from "./bot/review-push";
 import { runErpHousekeeping } from "./http/erp-housekeeping";
 import { failure, success } from "./http/response";
 import { updateProgramCatalog } from "./programs/release-catalog";
 
-interface Env extends IdentityRuntimeEnv, BackupRuntimeEnv, ErpBridgeEnv, CyInvoiceRecoveryEnv {
+interface Env extends IdentityRuntimeEnv, BackupRuntimeEnv, ErpBridgeEnv, CyInvoiceRecoveryEnv, BotPushEnv {
   ASSETS?: Fetcher;
   HR_FILES?: R2Bucket;
   CF_ACCOUNT_ID?: string;
@@ -54,7 +55,7 @@ async function health(env: Env, requestId: string): Promise<Response> {
   }
 }
 
-async function routeRequest(request: Request, env: Env, url: URL): Promise<Response> {
+async function routeRequest(request: Request, env: Env, url: URL,ctx?:ExecutionContext): Promise<Response> {
   const requestId = crypto.randomUUID();
 
   if (request.method === "GET" && url.pathname === "/api/health") {
@@ -106,7 +107,7 @@ async function routeRequest(request: Request, env: Env, url: URL): Promise<Respo
   const hrResponse = await handleHrRoute(request, env, requestId);
   if (hrResponse) return hrResponse;
 
-  const botResponse = await handleBotCenterRoute(request, env, requestId);
+  const botResponse = await handleBotCenterRoute(request, env, requestId,ctx);
   if (botResponse) return botResponse;
 
   const businessResponse = await handleBusinessApiRoute(request, env, requestId);
@@ -135,13 +136,14 @@ export default {
     const tasks = cywebCronTasks(controller.scheduledTime), now = new Date(controller.scheduledTime).toISOString();
     // Independent jobs on one tick: one failing never skips another; any failure still fails the run.
     const jobs: Promise<unknown>[] = [runErpHousekeeping(env.DB, controller.scheduledTime)];
+    if(env.BOT_PUSH_ENCRYPTION_KEY)jobs.push((async()=>{await deliverReviewPushes(env,{now});await cleanupReviewPushes(env,now)})());
     if (tasks.storeMonthly) jobs.push(ensureMonthlyRows(env.DB, now));
     if (tasks.programCatalog) jobs.push(updateProgramCatalog(env.DB, now));
     if (tasks.backup) jobs.push(scheduledBackup(env, controller.scheduledTime));
     const failed = (await Promise.allSettled(jobs)).find((r): r is PromiseRejectedResult => r.status === "rejected");
     if (failed) throw failed.reason;
   },
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env,ctx:ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
     if (url.protocol === "http:" && !loopback) {
@@ -151,7 +153,7 @@ export default {
         headers: { location: url.toString(), "cache-control": "no-store" },
       });
     }
-    const response = await routeRequest(request, env, url);
+    const response = await routeRequest(request, env, url,ctx);
     if (url.protocol !== "https:" || loopback) return response;
     const secured = new Response(response.body, response);
     secured.headers.set("strict-transport-security", "max-age=31536000");

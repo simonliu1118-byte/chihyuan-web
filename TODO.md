@@ -5,6 +5,9 @@
 
 ## 目前狀態（2026-11-08）
 
+- **V0.12.4 審核推播待審／未部署**：逐BOT加密webhook、審核後喚醒及限次重試、共用工具review-notification與Grok技能。允許目的地經使用者確認為api2.cursor.sh；完整路徑／key未取得、不進Git。先完成Claude審查，再依另次授權合併部署；正式站仍為下列V0.12.3 Build1。[handoff](docs/handoff/CYWEB-BOT-REVIEW-PUSH-0124-20261108.md)。
+- [ ] V0.12.4：Claude審查、UI／窄螢幕驗收、受控環境主加密金鑰設定、使用者在WEB安全輸入小編POST to／key、更新Grok共用技能／既有routine、合成稿通過及退回各一次實機驗證。小編原CYWEB憑證及收據保持不變。
+
 - **V0.12.3 Build 1 已合併部署（PR #447）**：[發布 #42391275622](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42391275622)成功，0057原樣保存小編憑證並改為逐BOT隔離；新版審核／摘要／時間軸及工具／技能上線。canonical與workers.dev健康／來源、HTTPS／session／排程／portal檢查通過，拍板結案未接後臺。現在可更新Grok工具並保留小編原secret與收據；Claude事後複審、原key回讀與UI／手機驗收仍待辦。使用者指定**部署及交接完成後再處理推播**，尚未在正式版加入推播。[設定](integrations/grok-bot/cyweb-work-reporter/references/grok-setup.md)、[handoff](docs/handoff/CYWEB-GROK-REPORTER-0123-20261107.md)。
 
 - **V0.12.2 BOT 工作總覽已合併部署**：PR #445／[發布 #42371824288](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42371824288) 成功；總覽 → 全寬待審表格（每件一列、無展開）→ BOT 卡片 → 全寬時間軸，完整統計與 BOT 篩選、輕量進度輪詢。相關 38 項測試、最終完整 CI 及桌機／手機合成預覽通過；Claude 事後複審與正式 BOT 實機驗收仍待辦。[handoff](docs/handoff/CYWEB-BOT-OVERVIEW-0122-20261107.md)。
