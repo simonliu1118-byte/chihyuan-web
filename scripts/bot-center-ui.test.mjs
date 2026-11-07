@@ -13,7 +13,7 @@ test("dashboard top displays status without old title, date or BOT filter",()=>{
  assert.match(page,/待命 \{state\.bots\.filter/);
  assert.match(page,/state\.bots\.map\(bot=><StatusChip/);
  assert.doesNotMatch(page,/<p className="cy-bot-date">/);
- assert.doesNotMatch(page,/<h2>BOT 管理中心<\/h2>\s*<p/);
+ assert.doesNotMatch(page.split('return <div className="cy-bot-center">')[1],/<h2>BOT 管理中心<\/h2>/);
  assert.doesNotMatch(page,/<StatusFilter label="選擇 BOT"/);
  assert.doesNotMatch(page,/<span className="cy-bot-scope">/);
 });

@@ -29,3 +29,10 @@
 - 不變更既有已啟用的小編推播設定、連線憑證、加密金鑰、後端、D1；需使用者主動按下啟停才變更 enabled。最新測試／發布證據待新 head 完成後回填。
 
 - 返修測試同步：原先 UI 來源測試的啟停按鈕斷言針對獨立 BOT 列表中的局部 `configured` 變數；操作移回既有「BOT 設定」表格後，改檢查 `state.pushSettings.find(...).configured` 的停用保護。此項是測試跟隨正確 UI 歸位，無 API 或憑證操作變更。
+
+
+## UI 來源測試誤判與修復（最新修正）
+
+- [Runtime Check #42408023081](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42408023081) 在 head `429fbd9a48c92d6de2439da66a13b2b91f272e5e` 的 browser-typecheck、worker-typecheck、source-contracts、Local D1 驗收均成功；全套 Node 測試 **718 項中 717 通過／1 項失敗**，Vite build 未執行。
+- 失敗的唯一來源檢查在 `scripts/bot-center-ui.test.mjs`：`doesNotMatch(page, /<h2>BOT 管理中心<\/h2>\s*<p/)` 原本掃描**整個來源碼**，誤將前端載入失敗時保留的備用錯誤畫面（`if(!state)return ...`）當成新版頂部卡的標題。備用錯誤提示應保留，正常主畫面已沒有重複標題。
+- 將測試檢查限縮到 `return <div className="cy-bot-center">` 後的主畫面，維持「正常頂部不重複標題」驗收，不刪除錯誤提示、不更動應用程式、憑證或 API。以最新 CI 實際通過結果為準，不以失敗輪宣稱成功。
