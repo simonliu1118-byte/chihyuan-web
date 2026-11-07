@@ -11,7 +11,7 @@
 
 ## 目前待 Claude 審查
 
-- [V0.12.1 盤點紀錄與 ERP 清除同步歸檔](CYWEB-STOCKTAKE-RECORDS-0121-20261107.md)：使用者授權只合併部署 WEB，程式完整 CI 通過、待執行發布；Claude 事後複審待辦。CYERPAutoQuery 只留專案需求 handoff，程式變更已撤回、不合併發行；舊 Agent 暫不觸發自動歸檔。
+- [V0.12.1 盤點紀錄與 ERP 清除同步歸檔](CYWEB-STOCKTAKE-RECORDS-0121-20261107.md)：只合併部署 WEB，PR #443／發布 #42347693527 成功，migration 0055 及健康驗證通過；Claude 事後複審與實機驗收待辦。CYERPAutoQuery 只留專案需求 handoff，程式變更已撤回、不合併發行；舊 Agent 暫不觸發自動歸檔。
 
 - [V0.12.0 Build 1 文件現況同步](CYWEB-DOCS-CURRENT-0120-20261107.md)：只更新文件與歸檔已完成的 WO-0.9.94 交接，不改產品／版本／部署；待 Claude 複審。
 

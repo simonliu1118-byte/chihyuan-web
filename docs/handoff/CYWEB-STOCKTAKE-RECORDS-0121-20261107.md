@@ -54,3 +54,11 @@
 
 - 使用者明確指定 Agent 只交接、WEB 可合併部署。GPT 已撤回 CYapps 原程式及版本變更；未操作伺服器 Agent、未建立正式 Release，也不合併 CYapps PR。
 - 本輪只更新 WEB 文件的配套狀態與授權界線，WEB 程式仍為已通過完整 CI 的 `0c21a257`。正式部署只從 main 的受控 `development-deploy.yml` 執行，版本 0.12.1／BUILD 0，包含 forward migration 0055；不另行手動刪除盤點資料。
+
+## WEB 正式發布結果（2026-11-07）
+
+- 使用者當次明確授權只合併部署 WEB；[PR #443](https://github.com/simonliu1118-byte/chihyuan-web/pull/443) 已合併，source=`4509f93ab6bd444f725cdebfdf0a2f9c36f7b1f5`。最終文件提交 `1167bf2f` 的完整 Runtime Check `42347544904`、治理 `42347544822`、部署契約 `42347544837` 全部成功。
+- main-only [正式發布 #42347693527](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42347693527) 成功；本地及遠端 migration 0055 成功，未更改既有正式資源或手動刪除業務資料。
+- 正式網域與 workers.dev 均回讀 HTTP 200、version=0.12.1、consumer=1.0.5、database=ok、source 為上述 SHA（UTC 06:36:53／台灣 14:36:53）。排程、HTTPS／靜態資源、正式網域、無效 session 及 canonical portal 檢查皆通過。
+- CYapps #604 最終僅兩份文件：`WORK_HANDOFF.md` 與 `docs/handoff/CYERPAutoQuery-STOCKTAKE-ARCHIVE-HANDOFF-20261107.md`，維持 draft，未合併、未發行、未更新 Agent。自動歸檔仍等待 Claude 完成配套；WEB 紀錄介面已上線，舊 Agent 原同步可用。
+- 本段與 TODO／CHANGELOG／索引為發布後文件證據，沒有程式／版本變更，不需再次部署；目前正式 source 不隨這份文件的合併 SHA 改寫。Claude 事後複審及登入／ERP 實機驗收仍待辦，不以 CI／部署代替。

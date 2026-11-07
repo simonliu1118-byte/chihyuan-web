@@ -5,12 +5,12 @@
 
 ## 目前狀態（2026-11-07）
 
-- **V0.12.1 盤點紀錄／ERP 清除歸檔，WEB 已獲合併部署授權**：紀錄視窗、同步歸檔、保存／備份及測試完成，程式完整 CI 通過；本輪僅發布 WEB，待執行部署。Agent 原程式變更已撤回，只留 [CYERPAutoQuery 專案 handoff](https://github.com/simonliu1118-byte/CYapps/blob/cyerp/stocktake-complete-list-131/apps/CYERPAutoQuery/docs/handoff/CYERPAutoQuery-STOCKTAKE-ARCHIVE-HANDOFF-20261107.md) 交 Claude。**舊 Agent 可同步，但自動歸檔須待 Claude 完成配套並授權更新後才啟用**。Claude 事後複審仍待辦。[WEB handoff](docs/handoff/CYWEB-STOCKTAKE-RECORDS-0121-20261107.md)。
+- **V0.12.1 盤點紀錄／ERP 清除歸檔，WEB 已合併部署**：PR #443、[發布 #42347693527](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42347693527) 成功，紀錄視窗使用精簡共用紀錄串。Agent 原程式變更已撤回，只留 [CYERPAutoQuery 專案 handoff](https://github.com/simonliu1118-byte/CYapps/blob/cyerp/stocktake-complete-list-131/apps/CYERPAutoQuery/docs/handoff/CYERPAutoQuery-STOCKTAKE-ARCHIVE-HANDOFF-20261107.md) 交 Claude，PR #604 維持草稿、不合併發行。**舊 Agent 可同步，但自動歸檔須待 Claude 完成配套並授權更新後才啟用**。Claude 事後複審與實機驗收仍待辦。[WEB handoff](docs/handoff/CYWEB-STOCKTAKE-RECORDS-0121-20261107.md)。
 
-- **正式站 V0.12.0 Build 1**：[Deployment #42253210792](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42253210792) 成功；正式 source=`e7530c07c97b6f8a9428335b85d9ba318842f165`，健康回讀 version=0.12.0、database=ok、CYID consumer=1.0.5。main 已包含部署證據文件 PR #441；該文件提交不需要再次部署。
+- **正式站 V0.12.1（BUILD=0）**：[Deployment #42347693527](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42347693527) 成功；正式 source=`4509f93ab6bd444f725cdebfdf0a2f9c36f7b1f5`，正式網域與 workers.dev 健康回讀 version=0.12.1、database=ok、CYID consumer=1.0.5，source 一致。後續本輪發布證據只改文件，不需再次部署。
 - **PR #438／#440 已合併部署**：BOT 管理中心包含並行審稿及輪詢讀取返修；盤點刪除圖示移到批號旁，解盲後顯示 ERP 帳面批號合計。最新 Ubuntu CI 全部成功，本機 BOT 9 項及盤點 36 項測試通過。證據見 [BOT handoff](docs/handoff/CYWEB-BOT-CENTER-0120-20261106.md)／[盤點 handoff](docs/handoff/CYWEB-STOCKTAKE-BATCH-DELETE-0116-20261106.md)。
 - 本次正式 source 也包含已合併的 #437／#439（V0.11.4／V0.11.5）。**合併／部署／自動驗證已完成，不等於 Claude 複審或使用者實機驗收完成**；尚未完成的項目分別列於下方清單。
-- **正式 D1 migration：`0054_bot_center`**；本輪受控 workflow 已成功套用 0053 → 0054，沒有重寫舊 migration。
+- **正式 D1 migration：`0055_stocktake_records`**；本輪受控 workflow 已成功套用 0055，沒有重寫舊 migration，也沒有手動刪除盤點資料。
 - 模組：客戶、商品、瑕疵、銷售工單、叫貨（含進貨輔助抽屜、未到貨）、門市（顧客訂購、黑名單、月度待辦、售後維修（門市送修／出機紀錄／三年定期維護矩陣）、庫存盤點）、委外/代工、工作日誌、人事、ERP 查詢、BOT 管理中心、帳號與權限、異動紀錄、備份管理、CY 程式、我的帳號。
 - 帳號：CYID 正式服務；成功的登入確認在伺服器記住 30 秒（V0.9.91）。
 - 排程：網站只有一個 `*/5 * * * *` 排程（V0.9.86），每次做 ERP 逾時與結果清理；台灣 00:00 門市月度、03:00 CY 程式清單、03:15 ERP 保留期清理、03:30 每日備份，失敗時 03:45 補做一次。
