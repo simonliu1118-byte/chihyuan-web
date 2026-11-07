@@ -42,5 +42,6 @@
 ## Claude 接續
 
 - 請核對 migration 原樣保存與機器所屬權限、單BOT輪換／撤銷、草稿ID不洩漏、審核原子性、分類去重／完整統計與backup契約。
+- 0057把憑證主鍵由singleton id改為bot_id，舊Worker不相容；受控流程套migration後須接續部署新版。兩者之間BOT API可能短暫不可用，部署前暫停BOT寫入、健康與原key身份確認後恢復；若部署失敗，應完成新版forward修復，不能只退回仍查singleton欄位的舊Worker。其他業務表不受此主鍵調整影響。
 - 補完上述實際UI／手機驗證。正式部署須另有使用者當次授權，從main受控workflow套0057，不手工改正式DB或取出key。部署後請使用原小編安全key跑新版check驗證身份，不需將key或雜湊貼到聊天／PR。
 - **Claude最終審查待辦；未合併／未部署，不由GPT代填通過。**
