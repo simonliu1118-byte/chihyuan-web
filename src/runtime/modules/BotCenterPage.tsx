@@ -113,26 +113,6 @@ export function BotCenterPage(){
     <span className="cy-bot-updated">統計更新 {formatDateTime(updatedAt)}</span></div>
    <StatusFilter label="選擇 BOT" value={botCode??""} counts={null} options={state.bots.map(bot=>({code:bot.code,label:bot.label,tone:STATUS_TONE[bot.status]}))} onChange={value=>{if(!busy)void filter(value||null)}}/>
   </section>
-  <section className="cy-bot-cards" aria-label="BOT 工作卡片">
-   {visibleBots.map(bot=>{const stats=state.botStats[bot.code],expanded=openSummary===bot.id;return <article key={bot.id} className="cy-op-panel cy-bot-card" aria-label={bot.label+"工作狀態"}>
-    <div className="cy-bot-card-heading"><h3>{bot.label}</h3><StatusChip tone={STATUS_TONE[bot.status]}>{BOT_STATUS_LABELS[bot.status]}</StatusChip></div>
-    <p className={"cy-bot-summary"+(expanded?" is-expanded":"")}>{bot.summary||"尚無工作摘要"}</p>
-    {bot.summary?<button type="button" className="cy-bot-text-button" aria-expanded={expanded} onClick={()=>setOpenSummary(expanded?null:bot.id)}>{expanded?"收合摘要":"完整摘要"}</button>:null}
-    <div className="cy-bot-card-bottom"><div className="cy-bot-metrics">{stats?<><span><strong>{stats.todayCompleted}</strong> 今日完成</span><span><strong>{stats.draftCounts.pending}</strong> 待審</span></>:<span>統計待更新</span>}</div>
-     <span className="cy-bot-last-report">狀態更新 {formatDateTime(bot.updatedAt)}</span></div>
-    <div className="cy-bot-card-footer"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void showReports(bot.code)}>查看回報</button>
-     <button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void showPending(bot.code)}>查看待審</button></div>
-   </article>})}
-  </section>
-  <div className="cy-bot-workspace">
-   <section className="cy-op-panel" aria-label="今日完成時間軸">
-    <div className="cy-op-panel-header"><h2>今日完成時間軸</h2><span className="cy-bot-scope">{scope}</span></div>
-    {state.timeline.length?<ol className="cy-bot-timeline">{state.timeline.map(item=><li key={item.id}><div className="cy-bot-timeline-heading">
-     <time dateTime={item.completedAt}>{formatDateTime(item.completedAt).slice(11)}</time><span>{item.botLabel}</span></div>
-     <div className="cy-bot-timeline-title">{item.detail?<ExpandToggle expanded={openCompletion===item.id} label={item.title} onToggle={()=>setOpenCompletion(openCompletion===item.id?null:item.id)}/>:null}<strong>{item.title}</strong></div>
-     {openCompletion===item.id?<p className="cy-bot-text">{item.detail}</p>:null}</li>)}</ol>:<p className="cy-bot-empty">今天還沒有完成項目</p>}
-    {state.timelineMore?<div className="cy-bot-more"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void loadMore("timeline")}>載入更多今日完成項目</button></div>:null}
-   </section>
    <section ref={reviewSection} className="cy-op-panel cy-bot-review" aria-label="審稿清單">
     <div className="cy-op-panel-header"><h2>{draftStatus==="pending"?"待我審核":"審稿紀錄"}</h2><span className="cy-bot-scope">{scope}</span></div>
     <StatusFilter label="審稿狀態" value={draftStatus==="all"?"":draftStatus} counts={state.draftCounts} options={(["pending","approved","rejected"] as const).map(status=>({code:status,label:BOT_REVIEW_LABELS[status],tone:REVIEW_TONE[status]}))} onChange={status=>{if(!busy)void filter(botCode,(status||"all") as BotReviewStatus|"all")}}/>
@@ -144,7 +124,25 @@ export function BotCenterPage(){
     </li>)}</ul>:<p className="cy-bot-empty">尚無{draftStatus==="pending"?"待審稿件":"審稿紀錄"}</p>}
     {state.draftsMore?<div className="cy-bot-more"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void loadMore("drafts")}>載入更多審稿</button></div>:null}
    </section>
-  </div>
+  <section className="cy-bot-cards" aria-label="BOT 工作卡片">
+   {visibleBots.map(bot=>{const stats=state.botStats[bot.code],expanded=openSummary===bot.id;return <article key={bot.id} className="cy-op-panel cy-bot-card" aria-label={bot.label+"工作狀態"}>
+    <div className="cy-bot-card-heading"><h3>{bot.label}</h3><StatusChip tone={STATUS_TONE[bot.status]}>{BOT_STATUS_LABELS[bot.status]}</StatusChip></div>
+    <p className={"cy-bot-summary"+(expanded?" is-expanded":"")}>{bot.summary||"尚無工作摘要"}</p>
+    {bot.summary?<button type="button" className="cy-bot-text-button" aria-expanded={expanded} onClick={()=>setOpenSummary(expanded?null:bot.id)}>{expanded?"收合摘要":"完整摘要"}</button>:null}
+    <div className="cy-bot-card-bottom"><div className="cy-bot-metrics">{stats?<><span><strong>{stats.todayCompleted}</strong> 今日完成</span><span><strong>{stats.draftCounts.pending}</strong> 待審</span></>:<span>統計待更新</span>}</div>
+     <span className="cy-bot-last-report">狀態更新 {formatDateTime(bot.updatedAt)}</span></div>
+    <div className="cy-bot-card-footer"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void showReports(bot.code)}>查看回報</button>
+     <button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void showPending(bot.code)}>查看待審</button></div>
+   </article>})}
+  </section>
+   <section className="cy-op-panel" aria-label="今日完成時間軸">
+    <div className="cy-op-panel-header"><h2>今日完成時間軸</h2><span className="cy-bot-scope">{scope}</span></div>
+    {state.timeline.length?<ol className="cy-bot-timeline">{state.timeline.map(item=><li key={item.id}><div className="cy-bot-timeline-heading">
+     <time dateTime={item.completedAt}>{formatDateTime(item.completedAt).slice(11)}</time><span>{item.botLabel}</span></div>
+     <div className="cy-bot-timeline-title">{item.detail?<ExpandToggle expanded={openCompletion===item.id} label={item.title} onToggle={()=>setOpenCompletion(openCompletion===item.id?null:item.id)}/>:null}<strong>{item.title}</strong></div>
+     {openCompletion===item.id?<p className="cy-bot-text">{item.detail}</p>:null}</li>)}</ol>:<p className="cy-bot-empty">今天還沒有完成項目</p>}
+    {state.timelineMore?<div className="cy-bot-more"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void loadMore("timeline")}>載入更多今日完成項目</button></div>:null}
+   </section>
   {reportsOpen?<Dialog open title={scope+"回報"} size="large" dismissible={false} showCloseButton={false} onClose={()=>setReportsOpen(false)} footer={<button type="button" className="cy-op-button" onClick={()=>setReportsOpen(false)}>關閉</button>}>
    <ul className="cy-bot-report-list">{state.reports.map(report=><li key={report.id}><div className="cy-bot-item-meta"><time dateTime={report.reportedAt}>{formatDateTime(report.reportedAt)}</time><span>{report.botLabel}</span></div>
     <div className="cy-bot-review-title"><ExpandToggle expanded={openReport===report.id} label={report.title} onToggle={()=>setOpenReport(openReport===report.id?null:report.id)}/><strong>{report.title}</strong></div>{openReport===report.id?<p className="cy-bot-text">{report.body}</p>:null}</li>)}</ul>

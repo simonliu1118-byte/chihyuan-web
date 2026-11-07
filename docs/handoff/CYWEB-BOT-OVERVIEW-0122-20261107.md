@@ -6,7 +6,7 @@
 
 ## 修改與目的
 
-1. `BotCenterPage.tsx`／`bot-center.css`：總覽放台灣日期／星期、真實狀態數、待審總數、統計更新時間、BOT 篩選。各 BOT 一張卡，含狀態／兩行摘要／全文展開／完整統計／狀態更新及查看回報／待審；桌機兩欄、手機單欄。桌機下方時間軸與待審清單並列，窄畫面上下排列。新增 BOT 自然增加卡片；輪詢新身份尚無統計時顯示待更新，不冒充零。
+1. `BotCenterPage.tsx`／`bot-center.css`：總覽放台灣日期／星期、真實狀態數、待審總數、統計更新時間、BOT 篩選。其下依序為全寬待我審核、BOT 工作卡片、全寬時間軸。各 BOT 一張卡，含狀態／兩行摘要／全文展開／完整統計／狀態更新及查看回報／待審；桌機兩欄、手機單欄。新增 BOT 自然增加卡片；輪詢新身份尚無統計時顯示待更新，不冒充零。
 2. 回報、設定及一次性憑證沿用 `Dialog`，無 X、背景或 Escape 不關閉，僅明確關閉。新增 BOT 沿用共用 Field／FormSection／Enter 操作；審核理由與憑證確認沿用原 prompt／confirmation，超管憑證權限及 Worker 審稿原子性不變。
 3. `shared/bot-center.ts`／`bot-center-client.ts`／`bot-center-routes.ts`：GET 可選 `botCode`，回傳目前範圍及所有 BOT 的 `botStats`（完整今日完成與三種審稿計數）。清單由伺服器依 BOT 篩選，游標保留相同 scope，不在前端只篩第一頁；`draftCounts` 為該 BOT 範圍完整計數。無效代碼 422／不存在 404，原權限檢查不變。
 4. 統計只在完整載入／篩選／操作成功／手動整理時更新；同日 30 秒輪詢仍只讀 `/progress` 的 BOT 主檔及憑證，不讀歷史／統計。跨台灣午夜在下一次可見檢查更新完整總覽。歷史載入更多依 scope 去重；跨日回新頁，避免混日。請求代次避免舊的進度結果覆寫新完整刷新，送出鎖避免重複操作。
@@ -31,3 +31,10 @@
 
 - [PR #445](https://github.com/simonliu1118-byte/chihyuan-web/pull/445)，程式提交 `a8a19367834283b1821fef6051d59f25efb09a59`：[Runtime Check #42349550827](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42349550827) 全部通過，包含完整 Node suite、Local D1 runtime acceptance、browser／Worker TypeScript、source contracts 與 Vite build；治理 `42349550727` 及部署契約 `42349550755` 通過。
 - 本次追加上述證據並將卡片時間標籤改成「狀態更新」，避免誤稱初建 BOT 已回報；無資料邏輯變更。最終 head 檢查以 PR 為準，Claude 審查仍待辦；未合併、未部署。
+
+## 2026-11-07 版面返修：獨立全寬待審與時間軸
+
+- 使用者要求「待我審核」移至小編／內容專家上方，獨立橫向卡片；時間軸也獨立橫向卡片。DOM 順序改為總覽 → 全寬待審 → 兩欄 BOT 工作卡片 → 全寬時間軸，不用 CSS 排序造成鍵盤／讀屏順序不同。
+- `BotCenterPage.tsx` 移動既有 section 並移除原雙欄 workspace 容器；`bot-center.css` 移除不用的 workspace 規則，待審每筆桌機改為來源／時間／狀態、標題、操作三欄，詳情展開占下一列；手機將來源放上行，標題與按鈕並排，詳情獨立下一行。
+- BOT 架構、共用元件目錄及 CHANGELOG 同步；後端、統計、權限、輪詢、schema 及版本皆不變，同一未發布 V0.12.2 PR #445。
+- 本輪 `npm run build`（含前後端 TypeScript）成功。真實 React 元件合成預覽確認桌機的區塊順序與全寬卡片、待審展開、手機按鈕與全文；手機 content/client=375/375 無水平溢出，viewport 已還原。僅 UI 重排，不新增鏡像實作的測試；完整 CI 由 PR 重新執行。未合併部署、Claude 審查仍待辦。

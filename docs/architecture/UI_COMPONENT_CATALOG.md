@@ -90,7 +90,7 @@
 
 ## BOT 管理中心（V0.12.2）
 
-`BotCenterPage` 依使用者確認的參考圖，改用既有 `cy-op-panel`、CYWEB tokens 的總覽／兩欄 BOT 卡片／直線時間軸及待審清單；窄畫面改單欄。狀態用 `StatusChip`，BOT 與待審篩選用 `StatusFilter`，展開用 `ExpandToggle`。回報與設定收進共用 `Dialog`；新增 BOT 用 `Field`／`FormSection`，理由用 `useFormPrompt`，憑證確認用 `useConfirmation`。無外部品牌、獨立配色或新 UI library。完整統計由 Worker 計算，進度仍用輕量輪詢。行為以 [BOT_CENTER.md](BOT_CENTER.md) 為準。
+`BotCenterPage` 依使用者確認的參考圖，改用既有 `cy-op-panel`、CYWEB tokens；由上至下為總覽、全寬待審卡片、兩欄 BOT 工作卡片、全寬直線時間軸，窄畫面 BOT 卡片改單欄。狀態用 `StatusChip`，BOT 與待審篩選用 `StatusFilter`，展開用 `ExpandToggle`。回報與設定收進共用 `Dialog`；新增 BOT 用 `Field`／`FormSection`，理由用 `useFormPrompt`，憑證確認用 `useConfirmation`。無外部品牌、獨立配色或新 UI library。完整統計由 Worker 計算，進度仍用輕量輪詢。行為以 [BOT_CENTER.md](BOT_CENTER.md) 為準。
 
 ## 盤點紀錄（V0.12.1）
 

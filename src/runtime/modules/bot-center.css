@@ -22,7 +22,6 @@
 .cy-bot-metrics{display:flex;gap:20px;align-items:baseline;color:var(--cy-text-muted);font-size:var(--cy-fs-xs)}
 .cy-bot-metrics strong{color:var(--cy-text);font-size:24px;font-weight:650;margin-right:3px}
 .cy-bot-card-footer{padding-top:7px;border-top:1px solid var(--cy-border)}
-.cy-bot-workspace{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(320px,1fr);gap:12px;align-items:start}
 .cy-bot-center .cy-op-panel-header h2{font-size:var(--cy-fs-md)}
 .cy-bot-timeline{list-style:none;padding:0 0 0 19px;margin:8px 0}
 .cy-bot-timeline>li{position:relative;padding:0 0 16px 17px;border-left:1px solid var(--cy-border)}
@@ -38,7 +37,10 @@
 .cy-bot-review-list>li:first-child,.cy-bot-report-list>li:first-child{padding-top:0}
 .cy-bot-review-list>li:last-child,.cy-bot-report-list>li:last-child{border:0;padding-bottom:0}
 .cy-bot-item-meta{justify-content:flex-start;gap:6px 10px;margin-bottom:4px}
-.cy-bot-review-list .cy-bot-actions{justify-content:flex-end;margin-top:7px}
+.cy-bot-review-list>li{display:grid;grid-template-columns:minmax(160px,220px) minmax(0,1fr) auto;align-items:center;gap:4px 12px}
+.cy-bot-review-list .cy-bot-item-meta{margin-bottom:0}
+.cy-bot-review-list .cy-bot-review-body{grid-column:1/-1;grid-row:2}
+.cy-bot-review-list .cy-bot-actions{grid-column:3;grid-row:1;justify-content:flex-end}
 .cy-bot-text{white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0;line-height:1.5}
 .cy-bot-review-body{margin:6px 0;font-size:var(--cy-fs-sm)}
 .cy-bot-review-body>p{overflow-wrap:anywhere}
@@ -48,7 +50,6 @@
 .cy-bot-settings h3{margin:0 0 8px}
 .cy-bot-settings .cy-bot-actions{margin-top:8px}
 .cy-bot-settings form{padding-top:12px;border-top:1px solid var(--cy-border)}
-@media(max-width:1050px){.cy-bot-workspace{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:640px){
  .cy-bot-cards{grid-template-columns:minmax(0,1fr)}
  .cy-bot-heading{align-items:flex-start}
@@ -56,4 +57,9 @@
  .cy-bot-updated{margin-left:0;flex-basis:100%}
  .cy-bot-card-footer .cy-op-button{min-height:34px}
  .cy-bot-center .cy-status-filter{gap:5px}
+ .cy-bot-review-list>li{grid-template-columns:minmax(0,1fr) auto}
+ .cy-bot-review-list .cy-bot-item-meta{grid-column:1/-1;grid-row:1}
+ .cy-bot-review-list .cy-bot-review-title{grid-column:1;grid-row:2}
+ .cy-bot-review-list .cy-bot-actions{grid-column:2;grid-row:2}
+ .cy-bot-review-list .cy-bot-review-body{grid-row:3}
 }
