@@ -2,10 +2,12 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-/** Deployment runs only from a main dispatch, on the exact current main commit (2026-11-03: the
- * deploy/cyweb-development publish branch is retired). */
+/** The reviewed current main commit is the only allowed deployment source.
+ * A main dispatch or the dedicated release-branch push may request deployment. */
 export function verifyDeploymentSource({ event, ref, eventSha, checkoutSha, mainSha, checkoutTree, mainTree, containsMain }) {
-  if (!(event === "workflow_dispatch" && ref === "refs/heads/main"))
+  const mainDispatch = event === "workflow_dispatch" && ref === "refs/heads/main";
+  const releasePush = event === "push" && ref === "refs/heads/deploy/cyweb-development";
+  if (!mainDispatch && !releasePush)
     throw Error("DEPLOYMENT_EVENT_NOT_ALLOWED");
   if (![eventSha, checkoutSha, mainSha, checkoutTree, mainTree].every(value => /^[0-9a-f]{40}$/.test(value ?? "")))
     throw Error("DEPLOYMENT_SOURCE_REQUIRED");

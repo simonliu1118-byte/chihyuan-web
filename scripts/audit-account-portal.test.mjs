@@ -102,13 +102,14 @@ test("read adapter rejects canonical mutations and credential forwarding to non-
   g.options.resolveProductionRuntime=async({fetchImpl})=>fetchImpl("https://api.cloudflare.com/client/v4/accounts/synthetic-account/d1/database/id",{method:"POST"});
   await assert.rejects(auditAccountPortal(g.options),/CYWEB_AUDIT_NON_READ_REQUEST/);
 });
-test("audit workflow has no PR credentials or deployment path for audit operation",()=>{
+test("audit is main-dispatch-only despite a dedicated release push entrypoint",()=>{
   const raw=fs.readFileSync(".github/workflows/development-deploy.yml","utf8");
   assert.match(raw,/inputs\.operation == 'deploy-development'/);
   const audit=raw.slice(raw.indexOf("\n  audit-identity:"));
   assert.match(audit,/inputs\.operation == 'audit-identity'/);
   assert.match(audit,/github\.ref == 'refs\/heads\/main'/);
-  assert.doesNotMatch(raw,/\n  push:/);
+  assert.match(raw,/\n  push:\s*\n    branches: \[deploy\/cyweb-development\]/);
+  assert.match(audit,/github\.event_name == 'workflow_dispatch'/);
   assert.doesNotMatch(audit,/wrangler|migrations apply|secrets put|deploy --|pull_request/);
 });
 

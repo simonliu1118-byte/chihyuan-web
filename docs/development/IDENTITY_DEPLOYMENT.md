@@ -73,9 +73,9 @@ Pull-request validation never receives real Workspace IDs, Identity service targ
 
 ## Existing portal deployment gate
 
-The existing portal deployment uses the protected GitHub `development` Environment and starts in one way only: `workflow_dispatch` from **main**, operation **deploy-development**. The former `deploy/cyweb-development` publish branch was retired on 2026-11-03 (a push to it would have deployed whatever that branch held); the workflow no longer has a push trigger.
+The existing portal deployment uses the protected GitHub `development` Environment. Authorized releases have two supported entrypoints: `workflow_dispatch` from **main** with operation **deploy-development**, or a `push` to the exact `deploy/cyweb-development` branch (restored 2026-11-08 for ChatGPT/Claude GitHub Connector deployment). Both paths require the event and checkout commit to be identical to current reviewed **main** before any remote migration. Publishing an old branch commit is rejected.
 
-Normal pushes to `main` never deploy automatically. After the relevant PR checks and merge, Work can publish when instructed:
+Normal pushes to `main`, branch creation alone, or merging a PR never automatically deploy. After the relevant PR checks and merge, Work can publish when instructed:
 
 ```bash
 gh workflow run development-deploy.yml --ref main -f operation=deploy-development
@@ -83,7 +83,11 @@ gh workflow run development-deploy.yml --ref main -f operation=deploy-developmen
 
 GitHub UI: Actions → **CY Web Deploy** → Run workflow → Branch **main** → operation **deploy-development**. The `audit-identity` operation is read-only and does not publish. Dispatching again republishes the same source.
 
-All real deployments share the fixed `cyweb-production` lock with `cancel-in-progress: false`. PR validation may cancel older validation, while identity audits have a separate lock. Immediately before remote migration the source guard fetches current main and requires the event SHA, the checkout and current main to be the same commit. If main advances while a run waits, the run stops; dispatch again for the newly reviewed main. GitHub concurrency does not lock a manual Dashboard deployment or a separate Cloudflare Builds writer.
+ChatGPT/Claude alternative: read the latest full `main` commit SHA, then use the GitHub Connector `update_ref` on `deploy/cyweb-development` with that SHA and `force=false`. A genuine fast-forward push starts the same `CY Web Deploy` workflow; a no-op to an unchanged SHA creates no new run. The release branch is a long-lived pointer to reviewed main, not a separate development line; never commit directly to it or force-update it. The `rotate-recovery`, `audit-identity`, and `audit-backup` operations remain main-dispatch-only.
+
+After release-branch push, find the new `push` run on the exact SHA, ensure both `validate-deployment-contract` and `deploy-development` pass, and confirm canonical and workers.dev `/api/health` report expected version, sourceCommit and database=ok. If a deployed UI must be reverted, make a reviewed revert commit on main and fast-forward the release branch to that new commit. D1 migrations do not automatically roll back. If the release branch is already at current main, use the manual main dispatch for republishing the identical SHA.
+
+All real deployments share the fixed `cyweb-production` lock with `cancel-in-progress: false`. PR validation may cancel older validation, while identity audits have a separate lock. Immediately before remote migration the source guard fetches current main and requires the event SHA, the checkout and current main to be the same commit. If main advances while a run waits, the run stops; dispatch again from main or fast-forward the release branch for the newly reviewed main. GitHub concurrency does not lock a manual Dashboard deployment or a separate Cloudflare Builds writer.
 
 After the run, `/api/health` at both entry points must report the new `version`, the main commit as `sourceCommit` and `database: ok`. Confirm the run's source SHA, successful `validate-deployment-contract` **and** `deploy-development` jobs, plus the existing health, schedule, invalid-session and production portal checks. A green PR or skipped deploy is not deployment evidence:
 

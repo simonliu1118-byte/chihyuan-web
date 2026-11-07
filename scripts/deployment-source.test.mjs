@@ -12,18 +12,26 @@ const sha = "a".repeat(40), other = "b".repeat(40), tree = "c".repeat(40);
 const source = { event: "workflow_dispatch", ref: "refs/heads/main", eventSha: sha, checkoutSha: sha, mainSha: sha,
   checkoutTree: tree, mainTree: tree, containsMain: true };
 
-test("only a main dispatch may deploy", () => {
+test("only current main dispatch or dedicated release-branch push may deploy", () => {
   verifyDeploymentSource(source);
-  for (const override of [{ event: "pull_request" }, { event: "push" },
-    { ref: "refs/heads/deploy/cyweb-development" }, { ref: "refs/heads/audit/cyweb-identity" },
-    { ref: "refs/tags/main" }])
-    assert.throws(() => verifyDeploymentSource({ ...source, ...override }), /EVENT_NOT_ALLOWED/);
+  verifyDeploymentSource({ ...source, event: "push", ref: "refs/heads/deploy/cyweb-development" });
+  for (const override of [
+    { event: "pull_request" }, { event: "push" },
+    { event: "push", ref: "refs/heads/main" },
+    { event: "workflow_dispatch", ref: "refs/heads/deploy/cyweb-development" },
+    { event: "push", ref: "refs/heads/audit/cyweb-identity" },
+    { ref: "refs/tags/main" },
+  ]) assert.throws(() => verifyDeploymentSource({ ...source, ...override }), /EVENT_NOT_ALLOWED/);
 });
 
 test("the checkout must be the current main commit", () => {
   for (const override of [{ eventSha: other }, { mainSha: other }, { checkoutTree: other }, { containsMain: false }])
     assert.throws(() => verifyDeploymentSource({ ...source, ...override }), /MUST_MATCH_CURRENT_MAIN/);
   assert.throws(() => verifyDeploymentSource({ ...source, mainSha: "" }), /SOURCE_REQUIRED/);
+  const published = { ...source, event: "push", ref: "refs/heads/deploy/cyweb-development" };
+  for (const override of [{ eventSha: other }, { checkoutSha: other }, { mainSha: other },
+    { checkoutTree: other }, { mainTree: other }, { containsMain: false }])
+    assert.throws(() => verifyDeploymentSource({ ...published, ...override }), /MUST_MATCH_CURRENT_MAIN/);
 });
 
 test("CLI uses real Git history: current main passes, stale main fails", () => {
@@ -52,7 +60,10 @@ test("CLI uses real Git history: current main passes, stale main fails", () => {
 test("workflow serializes writes, limits dispatch, and guards before migration", () => {
   const workflow = fs.readFileSync(path.join(root, ".github/workflows/development-deploy.yml"), "utf8").replaceAll('\r\n', '\n');
   const deploy = workflow.split("\n  deploy-development:\n")[1].split("\n  audit-identity:\n")[0];
+  assert.match(workflow, /push:\s*\n\s*branches: \[deploy\/cyweb-development\]/);
   assert.match(deploy, /\(inputs\.operation == 'deploy-development' \|\| inputs\.operation == 'rotate-recovery'\) && github\.ref == 'refs\/heads\/main'/);
+  assert.match(deploy, /github\.event_name == 'push' && github\.ref == 'refs\/heads\/deploy\/cyweb-development'/);
+  assert.doesNotMatch(deploy, /github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'/);
   assert.match(deploy, /if: github\.event_name == 'workflow_dispatch' && inputs\.operation == 'rotate-recovery'/);
   assert.match(deploy, /grep -q 'RECOVERY_NEW_TARGET_PREPARED_OLD_PRESERVED'/);
   assert.match(deploy, /grep -q 'RECOVERY_ROTATION_PRIMARY_MIGRATIONS_OUTDATED'/);
