@@ -43,3 +43,12 @@
 ## 首輪完整 CI 返修（Build 1）
 
 首輪source `3949f394` 的完整713項中712通過，唯一失敗是新Audit動作漏補中文名稱（Runtime #42394587946）；已補bot_review_push實體與configured／retried動作，針對相關16項通過。依同項目返修規則增加BUILD=1，不更動VERSION。原98項測試證據仍適用，最終完整CI以PR #449最新head為準；首輪Ubuntu部署契約／型別／source-contracts／治理已通過，但不能把失敗的完整run當驗收。
+
+## 2026-11-08 使用者直接發布授權與驗證基準
+
+- 使用者明確補充授權：**PR #449（V0.12.4 Build 1）可先合併與正式部署，Claude 改為事後審查**。此授權取代本輪「必須先 Claude 審查」的作業順序；但 Claude 事後複審、推播真實端到端／手機 UI 驗收仍為待辦，絕不可填成已完成。
+- 使用者再次要求**保留社群小編既有 CYWEB 憑證**，不重新產生、不撤銷、不輪換或修改 Grok 原有 `CYWEB_BOT_TOKEN`、routine 排程及持久收據。這次 0058 只新增技術推播資料表，未修改 `bot_ingest_credentials`。
+- 合併前 head `533a619a1c64867435f0f5b77166d9c8de782ecc`：Runtime [#42394990866](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42394990866) **success**（713/713 Node、browser/Worker TS、來源契約、local D1、Vite），Governance [#42394990869](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42394990869) **success**，部署契約 [#42394990954](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42394990954) **success**。PR 的 deploy job 依規則 skipped，不能稱為正式部署。
+- 正式發布只能使用 `main` 上的 `development-deploy.yml`、`workflow_dispatch`、operation=`deploy-development`；確認受保護 Environment `development`。受控 workflow 必須完成 remote D1 0058、Worker+assets 部署、來源／健康驗證並記錄 run ID 與實際 SHA，才可標成已部署。
+- `CF_BOT_PUSH_ENCRYPTION_KEY` 是**全新且獨立**的推播設定加密金鑰，不等於社群小編 CYWEB 機器憑證或 Grok webhook key；若尚未配置，本次可以保留推播停用，不應默認可送。不可在 PR、聊天、log、檔案印出任何 secret；若已存在不得輪換。
+- 若目前執行通道不支援 GitHub Actions workflow dispatch，不可用更動 workflow 的 push 觸發方式繞過 main-only 發布限制，也不可回報已完成部署；應在 handoff 明列合併、部署、金鑰／webhook 各自真實狀態與後續受控操作入口。
