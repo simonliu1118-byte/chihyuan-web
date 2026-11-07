@@ -11,9 +11,9 @@
 
 ## 目前待 Claude 審查
 
-- [V0.12.4 Build 1 BOT 審核推播](CYWEB-BOT-REVIEW-PUSH-0124-20261108.md)：PR #449 已依本輪授權合併 main（4352a9f9），完整 CI 713/713 通過；**正式受控部署未觸發**，Claude 事後複審、0058 正式驗證與 Grok 實機啟用待辦。
+- [V0.12.4 Build 1 BOT 審核推播](CYWEB-BOT-REVIEW-PUSH-0124-20261108.md)：PR #449 已依本輪授權合併 main（4352a9f9），完整 CI 713/713 通過；[受控部署 #42401625125](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42401625125)成功，0058／兩端健康來源與傳輸驗證通過、獨立主金鑰已配置；Claude事後複審、UI與Grok私密設定／實機啟用待辦。
 
-- [V0.12.3 Build 1 BOT 獨立憑證、摘要及 Grok 工具](CYWEB-GROK-REPORTER-0123-20261107.md)：PR #447已依使用者本輪授權合併部署，發布#42391275622成功；0057原樣保留小編憑證、逐BOT隔離，健康／來源與HTTPS／session／排程／portal驗證通過。拍板結案不接後臺；Claude事後複審及新版UI／原key實機驗收待辦。推播在本輪發布交接完成後接續，尚未上線。
+- [V0.12.3 Build 1 BOT 獨立憑證、摘要及 Grok 工具](CYWEB-GROK-REPORTER-0123-20261107.md)：PR #447已依使用者本輪授權合併部署，發布#42391275622成功；0057原樣保留小編憑證、逐BOT隔離，健康／來源與HTTPS／session／排程／portal驗證通過。拍板結案不接後臺；Claude事後複審及新版UI／原key實機驗收待辦。推播已接續於V0.12.4部署，Grok私密設定／實機驗收待辦。
 
 - [V0.12.2 BOT 工作總覽](CYWEB-BOT-OVERVIEW-0122-20261107.md)：PR #445 已依當次使用者授權合併部署，發布 #42371824288 成功；完整 CI、0056 索引、兩端健康與 HTTPS／排程／portal 檢查通過。待審共用表格每件一列、無展開。Claude 事後複審與正式 BOT 實機驗收仍待辦。
 

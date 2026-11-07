@@ -1,6 +1,6 @@
 # BOT 管理中心
 
-沿用 CYWEB 殼層、`#bot-center` 路由及 `BOT_CENTER` 模組，在左側 ERP 查詢下一項。SUPER_ADMIN 自動具有模組權限；其他人須取得模組權限。以下為 V0.12.4 Build 1 契約（待審／未部署），正式部署狀態以根 TODO 為準。
+沿用 CYWEB 殼層、`#bot-center` 路由及 `BOT_CENTER` 模組，在左側 ERP 查詢下一項。SUPER_ADMIN 自動具有模組權限；其他人須取得模組權限。以下為 V0.12.4 Build 1 契約（已部署、Claude事後複審待辦），正式部署狀態以根 TODO 為準。
 
 ## 畫面
 

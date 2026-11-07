@@ -5,19 +5,19 @@
 
 ## 目前狀態（2026-11-08）
 
-- **V0.12.4 Build 1 審核推播已合併、待受控部署（PR #449）**：逐BOT加密webhook、審核後喚醒及限次重試、共用工具review-notification與Grok技能。CI 713/713 成功，main 合併 SHA `4352a9f9`；使用者授權 Claude 事後複審。尚無正式 workflow_dispatch、0058 遠端驗收或新版正式健康證據；正式站最後已確認仍為 V0.12.3 Build1。小編原憑證不輪換，完整 Grok URL／key 不入 Git。[handoff](docs/handoff/CYWEB-BOT-REVIEW-PUSH-0124-20261108.md)。
-- [ ] V0.12.4 Build 1：Claude審查、UI／窄螢幕驗收、受控環境主加密金鑰設定、使用者在WEB安全輸入小編POST to／key、更新Grok共用技能／既有routine、合成稿通過及退回各一次實機驗證。小編原CYWEB憑證及收據保持不變。
+- **V0.12.4 Build 1 已正式部署（PR #449）**：[發布 #42401625125](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42401625125)成功，遠端D1已套用0058，canonical／workers.dev健康version=0.12.4、consumer=1.0.5、database=ok、source一致；正式source=`90100f726a999ce3ad24c63b752178df6899bc8d`，BUILD=1由source核對。已建立獨立推播加密主金鑰，未讀取／輪換小編原CYWEB憑證。Grok完整URL／key仍須使用者在WEB安全輸入；Claude事後複審、UI與真實Grok端到端待辦。[handoff](docs/handoff/CYWEB-BOT-REVIEW-PUSH-0124-20261108.md)。
+- [ ] V0.12.4 Build 1：Claude審查、UI／窄螢幕驗收、使用者在WEB安全輸入小編POST to／key、更新Grok共用技能／既有routine、合成稿通過及退回各一次實機驗證。小編原CYWEB憑證及收據保持不變。
 
-- **V0.12.3 Build 1 已合併部署（PR #447）**：[發布 #42391275622](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42391275622)成功，0057原樣保存小編憑證並改為逐BOT隔離；新版審核／摘要／時間軸及工具／技能上線。canonical與workers.dev健康／來源、HTTPS／session／排程／portal檢查通過，拍板結案未接後臺。現在可更新Grok工具並保留小編原secret與收據；Claude事後複審、原key回讀與UI／手機驗收仍待辦。使用者指定**部署及交接完成後再處理推播**，尚未在正式版加入推播。[設定](integrations/grok-bot/cyweb-work-reporter/references/grok-setup.md)、[handoff](docs/handoff/CYWEB-GROK-REPORTER-0123-20261107.md)。
+- **V0.12.3 Build 1 已合併部署（PR #447）**：[發布 #42391275622](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42391275622)成功，0057原樣保存小編憑證並改為逐BOT隔離；新版審核／摘要／時間軸及工具／技能上線。canonical與workers.dev健康／來源、HTTPS／session／排程／portal檢查通過，拍板結案未接後臺。現在可更新Grok工具並保留小編原secret與收據；Claude事後複審、原key回讀與UI／手機驗收仍待辦。後續推播已由V0.12.4實作部署。[設定](integrations/grok-bot/cyweb-work-reporter/references/grok-setup.md)、[handoff](docs/handoff/CYWEB-GROK-REPORTER-0123-20261107.md)。
 
 - **V0.12.2 BOT 工作總覽已合併部署**：PR #445／[發布 #42371824288](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42371824288) 成功；總覽 → 全寬待審表格（每件一列、無展開）→ BOT 卡片 → 全寬時間軸，完整統計與 BOT 篩選、輕量進度輪詢。相關 38 項測試、最終完整 CI 及桌機／手機合成預覽通過；Claude 事後複審與正式 BOT 實機驗收仍待辦。[handoff](docs/handoff/CYWEB-BOT-OVERVIEW-0122-20261107.md)。
 
 - **V0.12.1 盤點紀錄／ERP 清除歸檔，WEB 已合併部署**：PR #443、[發布 #42347693527](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42347693527) 成功，紀錄視窗使用精簡共用紀錄串。Agent 原程式變更已撤回，只留 [CYERPAutoQuery 專案 handoff](https://github.com/simonliu1118-byte/CYapps/blob/cyerp/stocktake-complete-list-131/apps/CYERPAutoQuery/docs/handoff/CYERPAutoQuery-STOCKTAKE-ARCHIVE-HANDOFF-20261107.md) 交 Claude，PR #604 維持草稿、不合併發行。**舊 Agent 可同步，但自動歸檔須待 Claude 完成配套並授權更新後才啟用**。Claude 事後複審與實機驗收仍待辦。[WEB handoff](docs/handoff/CYWEB-STOCKTAKE-RECORDS-0121-20261107.md)。
 
-- **正式站 V0.12.3 Build 1**：[Deployment #42391275622](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42391275622)成功；正式source=`e2f50177d4e4d1162644c604a40dc41a4cb3f39e`，兩端健康version=0.12.3、database=ok、CYID consumer=1.0.5、source一致，BUILD=1由該source核對。發布證據只改文件，不需再次部署。
+- **正式站 V0.12.4 Build 1**：[Deployment #42401625125](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42401625125)成功，source=`90100f726a999ce3ad24c63b752178df6899bc8d`；兩端版本／D1／CYID consumer／來源、HTTPS／無效session／排程／portal驗證通過。本次發布證據只改文件，不需再次部署。
 - **PR #438／#440 已合併部署**：BOT 管理中心包含並行審稿及輪詢讀取返修；盤點刪除圖示移到批號旁，解盲後顯示 ERP 帳面批號合計。最新 Ubuntu CI 全部成功，本機 BOT 9 項及盤點 36 項測試通過。證據見 [BOT handoff](docs/handoff/CYWEB-BOT-CENTER-0120-20261106.md)／[盤點 handoff](docs/handoff/CYWEB-STOCKTAKE-BATCH-DELETE-0116-20261106.md)。
 - 本次正式 source 也包含已合併的 #437／#439（V0.11.4／V0.11.5）。**合併／部署／自動驗證已完成，不等於 Claude 複審或使用者實機驗收完成**；尚未完成的項目分別列於下方清單。
-- **正式 D1 migration：`0057_bot_scoped_credentials`**；受控workflow已套用逐BOT憑證及工作分類／事件編號，沒有重新產生小編key、重寫舊migration或手動改正式業務資料。
+- **正式 D1 migration：`0058_bot_review_push`**；受控workflow已套用推播設定／通知技術表，並保留0057逐BOT憑證及工作分類／事件編號，沒有重新產生小編key、重寫舊migration或手動改正式業務資料。
 - 模組：客戶、商品、瑕疵、銷售工單、叫貨（含進貨輔助抽屜、未到貨）、門市（顧客訂購、黑名單、月度待辦、售後維修（門市送修／出機紀錄／三年定期維護矩陣）、庫存盤點）、委外/代工、工作日誌、人事、ERP 查詢、BOT 管理中心、帳號與權限、異動紀錄、備份管理、CY 程式、我的帳號。
 - 帳號：CYID 正式服務；成功的登入確認在伺服器記住 30 秒（V0.9.91）。
 - 排程：網站只有一個 `*/5 * * * *` 排程（V0.9.86），每次做 ERP 逾時與結果清理；台灣 00:00 門市月度、03:00 CY 程式清單、03:15 ERP 保留期清理、03:30 每日備份，失敗時 03:45 補做一次。

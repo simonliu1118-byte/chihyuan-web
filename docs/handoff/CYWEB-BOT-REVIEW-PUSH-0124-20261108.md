@@ -2,7 +2,7 @@
 
 - 執行：GPT；分支 `cyweb/bot-review-push-0124`，基準 main `97a2acced3823e665991759b4dd33c2d8dee5223`。新獨立功能，VERSION／package=0.12.4、BUILD=1。
 - 使用者授權：PR #447 合併部署後處理推播；已確認 Grok webhook 允許網域 `api2.cursor.sh`，小編已建立「收到 webhook 後讀取 CYWEB 稿件審核結果」routine。沒有提供完整路徑／key，也不向聊天索取。小編現有 CYWEB 憑證維持原值，拍板結案不接後臺。
-- **PR #449 已由使用者直接授權，於 2026-11-08 合併 main；正式部署仍未觸發、Claude 事後審查待辦。** 此對話沒有取得或輪換社群小編既有 CYWEB 憑證，也未操作 Grok webhook 或正式加密金鑰。正式站上次已驗證的版本仍是 V0.12.3 Build1，發布 #42391275622、source `e2f50177d4e4d1162644c604a40dc41a4cb3f39e`；不以 PR 驗證冒充新正式發布。
+- **PR #449已合併，V0.12.4 Build1於2026-11-08正式部署成功**：[受控發布 #42401625125](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42401625125)，source=`90100f726a999ce3ad24c63b752178df6899bc8d`；遠端0058、兩端健康／來源、HTTPS／session／排程／portal驗證通過。新獨立主加密金鑰已配置；小編原CYWEB憑證未讀取／輪換。Grok完整URL／key仍待使用者安全輸入，Claude事後複審及實機驗收仍待辦。
 
 ## 實作
 
@@ -28,12 +28,12 @@
 - 最終 `npm run build`（browser／Worker typecheck＋Vite）通過；原有dynamic import與bundle size提示保留，沒有新執行依賴。
 - 官方 skill `quick_validate.py` 通過；schema通過 **59 migrations／133 tables／10組**。部署驗證腳本在Windows既有POSIX0600檢查不適用，未放寬安全條件，交Ubuntu PR CI驗證；其餘推播secret測試已單獨通過。完整CI以PR最終head的run為準，不能把本機98項當全部CI。
 - 無法完成真實UI／窄螢幕互動：本機browser技能檔缺失、舊CUA工具已不再提供；沒有繞過限制或用source inspection宣稱視覺通過。請Claude補驗推播設定、留空保留、儲存錯誤、已審狀態／重送與手機。
-- Grok原key、完整POST to／key皆未讀取；主金鑰未寫入正式環境，沒有改或部署CYapps。沒有實際喚醒Grok／對外發文／自動核准。實機端到端驗證尚待安全設定後進行。
+- Grok原key、完整POST to／key皆未讀取；開發驗證時主金鑰尚未寫入正式環境（本輪發布已完成配置），沒有改或部署CYapps。沒有實際喚醒Grok／對外發文／自動核准。實機端到端驗證尚待安全設定後進行。
 
 ## Claude 審查與後續啟用
 
 - 審查重點：金鑰不洩漏／逐BOT AAD、允許目的地／不重導向、winner-only原子審核、租約與最多6次、暫停／保留、可攜備份排除、受控部署secret保留、CLI只以新鮮認證結果為準。補上述UI驗證。
-- 審查通過並取得使用者本輪合併部署授權後，再準備主金鑰：`node scripts/prepare-bot-push-key.mjs --repo simonliu1118-byte/chihyuan-web --environment development` 預設只讀；確定缺值時加 `--create`。不要用此流程覆蓋既有主金鑰，也不要印出值。保護環境的管理／發行者仍有能力讀取runtime資料，不能宣稱對維運者不可解。
+- 本輪已依使用者明確授權建立獨立主金鑰並部署。未來其他環境查詢／準備方式：`node scripts/prepare-bot-push-key.mjs --repo simonliu1118-byte/chihyuan-web --environment development` 預設只讀；確定缺值時加 `--create`。不要用此流程覆蓋既有主金鑰，也不要印出值。保護環境的管理／發行者仍有能力讀取runtime資料，不能宣稱對維運者不可解。
 - 按既有main-only `development-deploy.yml` 受控發布、套0058並核對兩端健康及source；沒有新Cloudflare產品／cron。若未配置主金鑰，本版可保持推播關閉，原審核正常。
 - 使用者直接在WEB「設定→社群小編→推播設定」貼入完整POST to及key，啟用；不要貼聊天／PR。更新Grok ZIP／共用私人技能和既有routine指示；原CYWEB token與持久收據保留。Grok webhook key與CYWEB token不能混用。
 - 使用明確合成稿做通過／退回各一次，核對推播200、routine執行與認證讀回指定結果，pending／無編號不另通知。維持不對外發文；完成後更新本handoff、TODO、CHANGELOG的正式證據。真實設定未完成前不要宣稱推播已上線。
@@ -61,3 +61,13 @@
 - 下個受控步驟：到 GitHub [CY Web Deploy](https://github.com/simonliu1118-byte/chihyuan-web/actions/workflows/development-deploy.yml) 以 `main` 執行 `Run workflow`，`operation=deploy-development`。這會使用當時 `main` 的最新 SHA（若另有 docs-only commit，以該 SHA 為準）；必須完成 D1 remote 0058、部署與 canonical／workers.dev 健康與來源驗證，才寫入成功結果。
 - 不可任意重設或輪換既有 `SOCIAL_EDITOR` 機器憑證。可選 `CF_BOT_PUSH_ENCRYPTION_KEY` 為新的推播 webhook 設定主金鑰，應在 GitHub Environment `development` 安全設定／確認已存在；不得以此金鑰取代 `CYWEB_BOT_TOKEN` 或 Grok webhook key。若尚無主金鑰，先保持推播停用；當次合併不表示功能已可發送。
 - 待辦：Claude 事後複審、正式部署與 0058/來源健康回讀、WEB UI／手機目視、Grok webhook 與原共用工具實機通過／退回測試。**此段只記錄已驗證的合併及仍待完成事項。**
+
+
+## 正式發布完成（2026-11-08）
+
+- 使用者補充「chat沒辦法更新D1，因此449的部署和D1migration需要你處理」，本輪承接既有合併，未重複合併PR449。已讀取main上PR450的待部署交接，發布以當時最新main 90100f726a999ce3ad24c63b752178df6899bc8d 為source；其與已驗證產品head533a619a差異僅文件。沒有變更VERSION／BUILD或業務程式。
+- GitHub Environment development原先未有CF_BOT_PUSH_ENCRYPTION_KEY；受控helper先只讀確認，再--create建立全新32bytes加密key，透過stdin交gh secret set，輸出只有configured/created旗標。未顯示、落檔、讀回或輪換secret。這不是SOCIAL_EDITOR的CYWEB機器憑證，也不是Grok webhook key。
+- 僅以main手動dispatch development-deploy.yml、operation=deploy-development。[Run #42401625125](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42401625125)的部署契約與正式部署均success；remote D1 **0058_bot_review_push.sql ✅**，Worker與assets發布成功。沒有手工修改正式業務表、重寫舊migration或更動Grok routine。
+- canonical與workers.dev最終HTTP200、version0.12.4、identityConsumerVersion1.0.5、databaseok、source皆為上述90100f72；BUILD1由該source檔核對（health沒有build欄位）。既有每日排程、HTTPS／靜態資源、兩入口無效session拒絕及canonical portal authority全部通過。
+- 本次僅更新handoff／TODO／CHANGELOG／索引及架構狀態，不改產品source，不需為文件證據再部署。Claude事後複審、登入後UI／手機、Grok實機通過與退回尚待驗收，不能把部署成功當端到端成功。
+- 使用者下一步：把V0.12.4 Build1 ZIP交Grok更新工具／共用私人技能；既有SOCIAL_EDITOR的CYWEB_BOT_TOKEN與收據保留。到WEB設定→社群小編→推播設定，直接貼Grok既有routine的完整POST to與key本體（不是整串Authorization header），啟用。routine用review-notification讀指定ID，無編號／pending不另通知，重送不重做已完成外部工作。先用合成稿驗證通過／退回、不對外發文。完整URL／key不貼聊天或Git。
