@@ -72,3 +72,18 @@
 - 本次僅更新handoff／TODO／CHANGELOG／索引及架構狀態，不改產品source，不需為文件證據再部署。Claude事後複審、登入後UI／手機、Grok實機通過與退回尚待驗收，不能把部署成功當端到端成功。
 - 使用者下一步：把V0.12.4 Build1 ZIP交Grok更新工具／共用私人技能；既有SOCIAL_EDITOR的CYWEB_BOT_TOKEN與收據保留。到WEB設定→社群小編→推播設定，直接貼Grok既有routine的完整POST to與key本體（不是整串Authorization header），啟用。routine用review-notification讀指定ID，無編號／pending不另通知，重送不重做已完成外部工作。先用合成稿驗證通過／退回、不對外發文。完整URL／key不貼聊天或Git。
 - 發布後重新交付同版五檔工具包 `cyweb-work-reporter-v0.12.4-build1.zip`，18,747 bytes，當次ZIP SHA-256=`13ae462c0d03b12aff550b11bbbdb6b80f5aa0b09e1ca2a3f0705d5e2d4bb71e`。重新封裝的ZIP時間metadata與先前包不同，先前hash保留在上方作歷史；本輪以此hash為準。已獨立解壓、逐檔bytes與當前source核對、CLI --help通過；不含正式網址、token或key，不進Git。
+
+## Grok 社群小編推播兩路實機驗收回報（2026-11-08）
+
+此段根據**使用者於本次對話提供的 Grok 社群小編實際回報**記錄；不是此文件提交者親自登入 Grok 或查詢正式 D1 outbox 所取得的獨立紀錄。測試使用全新合成稿，不改既有真實稿件，不對外發布，不輪換／撤銷原有 `SOCIAL_EDITOR` CYWEB 機器憑證。
+
+| 路徑 | Grok webhook eventId | draftId | externalRef | Grok 認證讀回 | 測試安全限制 |
+| --- | --- | --- | --- | --- | --- |
+| 審核**通過** | `bot-review-2` | `2` | `push-test-approved-20261108-01` | `status=approved` | `automaticPublication=false`，不對外發文 |
+| 審核**退回** | `bot-review-3` | `3` | `push-test-rejected-20261108-01` | `status=rejected`，理由「推播功能測試」 | 不改稿、不重新送審、不對外發文 |
+
+- 通過路徑：Grok 社群小編回報約 02:55 已處理 webhook `bot-review-2`，使用既有 CYWEB 認證成功讀回 `draftId=2` 的 `approved`；`automaticPublication=false`，未發布。
+- 退回路徑：Grok 社群小編回報 webhook `bot-review-3`，使用既有 CYWEB 認證成功讀回 `draftId=3` 的 `rejected` 及退回理由「推播功能測試」；不修改稿件、不重送審、不發布。
+- **實機讀回結論：通過／退回兩條 Grok Webhook → CYWEB 認證讀回路徑，依兩筆使用者提供的 Grok 結果皆成功。** 已驗證回傳狀態與測試 externalRef 相符；推播並未授權 Grok 自動發布。
+- **尚未獨立核對**：CYWEB 正式 D1 `bot_review_push_outbox` 的投遞時戳、HTTP 回應碼、重試次數及是否已標記送達。雖然 Grok 已處理兩筆事件，但不可把此回報等同已由伺服器日誌證實兩筆 HTTP 200。若需完整營運驗收，後續以受權 MCP／管理介面讀取這兩筆 outbox 狀態，避免重送或建立真實稿件。
+- 本段**僅新增 handoff 驗收證據**：沒有修改推播程式、設定、GitHub Secrets、Grok Routine、Webhook、測試稿、D1 migration 或正式部署。Claude 事後程式審查與 outbox 獨立核對仍為待辦。
