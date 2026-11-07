@@ -27,14 +27,14 @@ export function createBot(code: string, label: string): Promise<BotProfileView> 
   return apiRequest<BotProfileView>("/api/bot-center/bots", { method: "POST", json: { code, label } });
 }
 
-export function reviewDraft(id: number, decision: "approved" | "rejected", reason: string): Promise<BotDraftView> {
+export function reviewDraft(id: number, decision: "approved" | "rejected", reason?: string): Promise<BotDraftView> {
   return apiRequest<BotDraftView>(`/api/bot-center/drafts/${id}/review`, { method: "POST", json: { decision, reason } });
 }
 
-export function issueBotCredential(): Promise<{ token: string; createdAt: string }> {
-  return apiRequest("/api/bot-center/credentials", { method: "POST" });
+export function issueBotCredential(code: string): Promise<{ token: string; botCode: string; createdAt: string }> {
+  return apiRequest(`/api/bot-center/bots/${encodeURIComponent(code)}/credential`, { method: "POST" });
 }
 
-export function revokeBotCredential(): Promise<BotCredentialView> {
-  return apiRequest("/api/bot-center/credentials", { method: "DELETE" });
+export function revokeBotCredential(code: string): Promise<BotCredentialView> {
+  return apiRequest(`/api/bot-center/bots/${encodeURIComponent(code)}/credential`, { method: "DELETE" });
 }

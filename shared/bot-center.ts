@@ -36,6 +36,8 @@ export const BOT_LIMITS = {
 } as const;
 
 export const BOT_PAGE_SIZE = 50;
+export const BOT_WORK_TYPES = ["general", "article_published", "threads_patrol"] as const;
+export type BotWorkType = (typeof BOT_WORK_TYPES)[number];
 
 export interface BotProfileView {
   id: number;
@@ -81,9 +83,13 @@ export interface BotCompletionView {
   title: string;
   detail: string;
   completedAt: string;
+  workType: BotWorkType;
+  eventRef: string | null;
 }
 
 export interface BotCredentialView {
+  botCode: string;
+  botLabel: string;
   configured: boolean;
   createdAt: string | null;
   revokedAt: string | null;
@@ -91,11 +97,16 @@ export interface BotCredentialView {
 
 export interface BotProgressState {
   bots: BotProfileView[];
-  credential: BotCredentialView;
+  credentials: BotCredentialView[];
   canManageCredentials: boolean;
 }
 
 export interface BotCenterState extends BotProgressState {
+  workSummary: {
+    articles: { count: number; latest: BotCompletionView | null };
+    patrols: { count: number; latest: BotCompletionView | null };
+    pending: { count: number; latest: BotDraftView | null };
+  };
   botCode: string | null;
   botStats: Record<string, { todayCompleted: number; draftCounts: Record<BotReviewStatus, number> }>;
   drafts: BotDraftView[];
