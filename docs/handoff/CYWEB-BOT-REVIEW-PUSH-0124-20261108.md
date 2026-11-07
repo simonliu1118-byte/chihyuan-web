@@ -71,3 +71,4 @@
 - canonical與workers.dev最終HTTP200、version0.12.4、identityConsumerVersion1.0.5、databaseok、source皆為上述90100f72；BUILD1由該source檔核對（health沒有build欄位）。既有每日排程、HTTPS／靜態資源、兩入口無效session拒絕及canonical portal authority全部通過。
 - 本次僅更新handoff／TODO／CHANGELOG／索引及架構狀態，不改產品source，不需為文件證據再部署。Claude事後複審、登入後UI／手機、Grok實機通過與退回尚待驗收，不能把部署成功當端到端成功。
 - 使用者下一步：把V0.12.4 Build1 ZIP交Grok更新工具／共用私人技能；既有SOCIAL_EDITOR的CYWEB_BOT_TOKEN與收據保留。到WEB設定→社群小編→推播設定，直接貼Grok既有routine的完整POST to與key本體（不是整串Authorization header），啟用。routine用review-notification讀指定ID，無編號／pending不另通知，重送不重做已完成外部工作。先用合成稿驗證通過／退回、不對外發文。完整URL／key不貼聊天或Git。
+- 發布後重新交付同版五檔工具包 `cyweb-work-reporter-v0.12.4-build1.zip`，18,747 bytes，當次ZIP SHA-256=`13ae462c0d03b12aff550b11bbbdb6b80f5aa0b09e1ca2a3f0705d5e2d4bb71e`。重新封裝的ZIP時間metadata與先前包不同，先前hash保留在上方作歷史；本輪以此hash為準。已獨立解壓、逐檔bytes與當前source核對、CLI --help通過；不含正式網址、token或key，不進Git。
