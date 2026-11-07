@@ -50,7 +50,7 @@
 ## ERP 已清除的盤點單與過去盤點紀錄（V0.12.1）
 
 - 同步請求在 server-only `knownSheets` 保存當時已知的底稿編號及 created_at 代次，不傳給 Agent。只有 **full sync**、成功回報且 `listComplete:true` 才比較 ERP 完整 `sheets`，將快照內已不在 ERP 的同代底稿轉入紀錄；之後新建的底稿不受舊同步影響。單張 `onlySheet` refresh、FAILED、缺完整標記均不歸檔。
-- 新 Agent V1.3.1 會先確認 F2 footer 總數與實讀張數相符；未知、缺頁、筆數變動或超過 200 張會失敗。明確 0/0 是完整空清單，可歸檔最後一張。舊 Agent 未帶標記仍可同步，暫不歸檔；兩端都更新後才啟用。提升正式最低支援版本並停用舊 Agent 後，才可移除此 rollout 相容窗口。
+- Agent 配套交由 Claude 依專案 handoff 實作，版本未定、目前未發行：須先確認 F2 footer 總數與實讀張數相符；未知、缺頁、筆數變動或超過 200 張必須失敗。明確 0/0 是完整空清單，可歸檔最後一張。使用者本輪只授權發布 WEB，Agent 未帶標記仍可同步但不歸檔；兩端都更新後才啟用。提升正式最低支援版本並停用舊 Agent 後，才可移除此 rollout 相容窗口。
 - 尚有 QUEUED／RUNNING `STOCKTAKE_WRITE` 的單，留到該工作結束後的下一次完整同步再比對，不讓尚在處理的 ERP 寫回失去來源。WEB 不清除或更改 ERP 資料。
 - 歸檔在同步 complete 的同一 D1 batch：先保存單號／盤點日期、參與者與初盤／複盤人員、兩次確認者及時間、ERP 確認完成時間、品號＋品名去重摘要、差異及未完成列；成功後才刪 `stocktake_sheets`。FK cascade 清除作業明細、儲位盤點格、逐列修改紀錄及舊參與表；原共用 Audit 不刪除。任何快照寫入失敗整批回滾。
 - `0055_stocktake_records.sql` 新四表：`stocktake_records`、`stocktake_record_items`、`stocktake_record_participants`、`stocktake_record_differences`；全部納入 portable backup。單號相同但 created_at 不同可留多次紀錄，ERP 重用單號仍可正常匯入成新作業單。

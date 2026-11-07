@@ -2,7 +2,7 @@
 
 - 日期：2026-11-07（Asia/Taipei）；執行：GPT；分支 `cyweb/stocktake-records-0121`，基準 main `9363e05f138b57e2064f4af108b98f793b3d1b51`。VERSION=0.12.1、BUILD=0。
 - 使用者授權實作：ERP 已不存在的盤點單移出左側清單，轉入「盤點紀錄」視窗；保留先前定案的人員／確認／差異，主列 70% 顯示品號品名並折行。
-- 這次涉及 schema 及歷史清除，**未合併、未部署、不執行正式 migration／資料清除**；依既有複雜變更流程先交 Claude 審查，另待使用者發布授權。正式站仍為 V0.12.0 Build 1。
+- 使用者最新授權（2026-11-07）：**只合併部署 WEB**；CYERPAutoQuery 僅寫專案內 handoff，交 Claude 實作，不合併或發行 Agent。WEB 本輪先依明確授權發布，Claude 事後複審仍待辦，不代填審查通過；發布證據於完成後補記。
 
 ## 核心實作與原因
 
@@ -28,16 +28,16 @@
 
 ## 跨 Repo 依賴與 rollout
 
-- 配套 CYapps `apps/CYERPAutoQuery` V1.3.1：舊 Win32 流程在 footer 總數未知時可能接受第一頁，零張又一律失敗，不能直接用舊結果判斷 ERP 清除。新 Agent 有上限重讀，總數與實讀一致才回 `listComplete:true`，支援明確 0/0；讀不全／總數變動／超限停止。
+- 配套需求交 Claude：舊 Win32 流程在 footer 總數未知時可能接受第一頁，零張又一律失敗，不能直接用舊結果判斷 ERP 清除。Agent 須有上限重讀，總數與實讀一致才回 `listComplete:true`，支援明確 0/0；讀不全／總數變動／超限停止。版本由 Claude 依當時 main 決定，不能把先前撤回的 V1.3.1 實作當成現況。
 - 舊 Agent＋新 WEB 仍同步但不歸檔；新 Agent＋舊 WEB 忽略新增旗標。兩端都更新後才啟用完整歸檔；這是 protocol rollout 的最小相容窗口，正式最低支援 Agent 升級、舊 Agent 停用後可移除接受缺旗標的路徑，不另立平行同步邏輯。
-- Agent 分支 `cyerp/stocktake-complete-list-131`；配套 [CYapps PR #604](https://github.com/simonliu1118-byte/CYapps/pull/604)，handoff：`apps/CYERPAutoQuery/docs/handoff/CYERPAutoQuery-STOCKTAKE-INVENTORY-131-20261107.md`。兩邊都待 Claude 審查；Agent 正式 Release／WEB 部署均須後續授權。
+- [CYapps PR #604](https://github.com/simonliu1118-byte/CYapps/pull/604) 已撤回 GPT 的 Agent 程式／測試／版本變更，相對原 main 僅保留 `apps/CYERPAutoQuery/WORK_HANDOFF.md` 及 [需求 handoff](https://github.com/simonliu1118-byte/CYapps/blob/cyerp/stocktake-complete-list-131/apps/CYERPAutoQuery/docs/handoff/CYERPAutoQuery-STOCKTAKE-ARCHIVE-HANDOFF-20261107.md)，交 Claude 處理。該 PR 不合併，不發行 Agent。WEB 先發布後，舊 Agent 可同步但不觸發自動歸檔，須待 Claude 完成配套並經使用者授權升級才生效。
 
 ## 驗證、風險及 Claude 接續
 
 - 本機 TypeScript／`npm run build` 成功；初輪盤點／出機／備份三支相關測試 **61/61 通過**，追加超過 2^53 精確合計及差異分頁驗證後盤點為 34 項；最後盤點、UI、Audit 標籤、表單欄位及鍵盤相關合計 **51/51 通過**。涵蓋歸檔、回滾、舊旗標、全 skip、空清單、請求代次、單號重用、寫回中保護、分頁、多人多儲位小數及備份往返。
 - 新元件使用共用表格樣式；合成畫面預覽不是正式資料驗收。尚待登入後桌機／手機與 ERP 真正空清單／翻頁驗收，不能用合成結果代稱正式驗證。
 - 大量 200 張 × 3000 行的歸檔仍需受控壓測。固定 SQL 次數不等於 D1 不讀資料；必要的摘要／差異掃描與寫入仍有成本，不宣稱免費或無限負載。
-- 本機 Agent `dotnet test` 因沒有 .NET SDK 無法執行；配套 PR #604 的 Windows CI 已通過（含 Unit tests、Build、Publish；run `42263544302`），governance 亦通過。WEB 完整 CI 於開 PR 後執行。
+- 先前撤回的 Agent 實作曾跑 Windows CI，不代表目前文件交接已完成 Agent；後續測試及實機驗收交 Claude。本輪 WEB `0c21a257` 完整 CI 已通過（Runtime Check `42346701942`、治理 `42346701928`、部署契約 `42346702005`）。
 - 本輪 [WEB PR #443](https://github.com/simonliu1118-byte/chihyuan-web/pull/443)，程式提交 `323e5ffe`：完整 [Runtime Check](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42264333244) 通過，包含 source contracts、瀏覽器／Worker TypeScript、Local D1 runtime acceptance、Full Node test suite 與 Vite build；治理及部署契約檢查亦通過。本次追加交接證據，沒有程式改動；最新 head 狀態以 PR 為準。
 - 已核對 [D1 batch 契約](https://developers.cloudflare.com/d1/worker-api/d1-database/#batch)：同批依序執行，失敗整批回滾。本機新歸檔測試使用真 Worker 路由＋SQLite 交易；CI 的既有 Local D1 驗收通過，不把它誇稱為新歸檔路徑的 Miniflare 專項測試。
 - 沒有正式資料、ERP 匯出、憑證或 infrastructure ID 進 Git。Claude 最終審查待填，執行者不代填通過。重點請核對完整旗標、knownSheets 代次、原子保存後清除、精確量與備份、資料量、兩端相容以及待發布狀態。
@@ -49,3 +49,8 @@
 - `StoreOperationHistory.tsx` 抽出無請求的共用 `StoreHistoryChain`，門市訂購原 chain layout 與盤點共用。沿用現有小字、粗體動作及箭頭連同下一筆整段換行 CSS；原 rows layout、排序及歷史讀取／快取不變。`store.css` 刪除不再使用的確認資訊樣式。
 - 架構／共用元件目錄／CHANGELOG 同步。僅調整 UI，歸檔保存、差異摘要、schema、ERP Agent 不變；同一未發佈 PR #443 仍 VERSION=0.12.1／BUILD=0，未合併部署。
 - 本輪 `npm run build`（含前後端 TypeScript）成功；盤點 UI／門市歷史／聯絡與日期相關測試 **22/22 通過**。本機真元件合成畫面已確認四事件、時間與動作、差異表不再顯示；新提交 CI 待 PR 執行，Claude 最終審查仍待辦。
+
+## 2026-11-07 發布範圍更正
+
+- 使用者明確指定 Agent 只交接、WEB 可合併部署。GPT 已撤回 CYapps 原程式及版本變更；未操作伺服器 Agent、未建立正式 Release，也不合併 CYapps PR。
+- 本輪只更新 WEB 文件的配套狀態與授權界線，WEB 程式仍為已通過完整 CI 的 `0c21a257`。正式部署只從 main 的受控 `development-deploy.yml` 執行，版本 0.12.1／BUILD 0，包含 forward migration 0055；不另行手動刪除盤點資料。

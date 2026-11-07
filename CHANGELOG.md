@@ -11,7 +11,7 @@
 - 新增「盤點紀錄」共用表格視窗，日期／單號／初盤與複盤人員占 30%，盤點內容 70% 顯示品號品名並折行；展開區沿用門市訂購的紀錄串呈現確認及歸檔事件，移除品項差異明細表，展開不另讀資料。
 - 完整同步成功且新版 Agent 明確回報 listComplete=true，才將本次請求已知、ERP 已消失的同代底稿轉入紀錄；保存摘要與差異後才清除作業明細及逐列修改紀錄。同一 D1 batch，失敗整批回滾。
 - 0055 新增四張紀錄表，納入備份；多人／多儲位數量用精確萬分位，未完成複盤不冒充最終數量。單號重用可保留多次歷史，寫回中不歸檔，單張刷新不影響其他底稿。
-- 配套 CYERPAutoQuery V1.3.1 嚴格驗證 F2 清單及明確 0/0 空清單；舊 Agent 可同步但不觸發歸檔。兩端均待 CI／Claude 審查，尚未合併部署或發行，見 [handoff](docs/handoff/CYWEB-STOCKTAKE-RECORDS-0121-20261107.md)。
+- 使用者授權只合併部署 WEB；CYERPAutoQuery 程式變更已撤回，只在該專案留需求 handoff 交 Claude。配套須驗證 F2 完整清單及明確 0/0，版本由 Claude 決定；舊 Agent 可同步但不觸發歸檔。WEB 程式完整 CI 通過，待本輪受控發布，Claude 事後複審仍待辦，見 [handoff](docs/handoff/CYWEB-STOCKTAKE-RECORDS-0121-20261107.md)。
 
 ## CY Web V0.12.0 Build 1 — BOT 管理中心（2026-11-07，GPT）
 

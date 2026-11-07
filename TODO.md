@@ -5,7 +5,7 @@
 
 ## 目前狀態（2026-11-07）
 
-- **開發中 V0.12.1 盤點紀錄／ERP 清除歸檔**：已實作紀錄視窗、完整同步歸檔、摘要／差異保存、備份與測試；配套 Agent V1.3.1 增加完整清單標記及 0/0 支援。待兩邊最新 CI、Claude 審查及發布授權，未合併、未部署／發行。[handoff](docs/handoff/CYWEB-STOCKTAKE-RECORDS-0121-20261107.md)。
+- **V0.12.1 盤點紀錄／ERP 清除歸檔，WEB 已獲合併部署授權**：紀錄視窗、同步歸檔、保存／備份及測試完成，程式完整 CI 通過；本輪僅發布 WEB，待執行部署。Agent 原程式變更已撤回，只留 [CYERPAutoQuery 專案 handoff](https://github.com/simonliu1118-byte/CYapps/blob/cyerp/stocktake-complete-list-131/apps/CYERPAutoQuery/docs/handoff/CYERPAutoQuery-STOCKTAKE-ARCHIVE-HANDOFF-20261107.md) 交 Claude。**舊 Agent 可同步，但自動歸檔須待 Claude 完成配套並授權更新後才啟用**。Claude 事後複審仍待辦。[WEB handoff](docs/handoff/CYWEB-STOCKTAKE-RECORDS-0121-20261107.md)。
 
 - **正式站 V0.12.0 Build 1**：[Deployment #42253210792](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42253210792) 成功；正式 source=`e7530c07c97b6f8a9428335b85d9ba318842f165`，健康回讀 version=0.12.0、database=ok、CYID consumer=1.0.5。main 已包含部署證據文件 PR #441；該文件提交不需要再次部署。
 - **PR #438／#440 已合併部署**：BOT 管理中心包含並行審稿及輪詢讀取返修；盤點刪除圖示移到批號旁，解盲後顯示 ERP 帳面批號合計。最新 Ubuntu CI 全部成功，本機 BOT 9 項及盤點 36 項測試通過。證據見 [BOT handoff](docs/handoff/CYWEB-BOT-CENTER-0120-20261106.md)／[盤點 handoff](docs/handoff/CYWEB-STOCKTAKE-BATCH-DELETE-0116-20261106.md)。
