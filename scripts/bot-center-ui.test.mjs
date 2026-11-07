@@ -47,6 +47,8 @@ test("new BOT uses shared table dialog and keeps existing credential management 
  assert.match(page,/<th scope="row"><EntryHeading required>名稱/);
  assert.match(page,/id="cy-bot-add-form" onKeyDown=\{enterAdvancesFields\}/);
  assert.match(page,/setAddOpen\(false\);await refresh/);
- assert.match(page,/<section className="cy-op-panel cy-bot-list"/);
+ assert.match(page,/<section className="cy-bot-cards" aria-label="BOT 當日摘要"/);
+ assert.match(page,/className="cy-bot-settings-heading"/);
+ assert.match(page,/onClick=\{\(\)=>void togglePush\(item\.botCode\)\}/);
  assert.match(css,/\.cy-bot-form-table th\[scope="row"\]/);
 });
