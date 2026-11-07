@@ -1,6 +1,6 @@
 # Grok Bot 安裝與小編測試
 
-這是 Grok Bot 的共用技能與命令工具，不是 Grok Build 的 `.grok/skills` 安裝包，也不需要額外 MCP 服務。Node.js 22+，沒有第三方執行套件。新版須先部署 WEB V0.12.4 與 migration 0058，再替換工具；不是直接拿新版工具測試舊 WEB。
+這是 Grok Bot 的共用技能與命令工具，不是 Grok Build 的 `.grok/skills` 安裝包，也不需要額外 MCP 服務。Node.js 22+，沒有第三方執行套件。新版須先部署 WEB V0.12.4 Build 1 與 migration 0058，再替換工具；不是直接拿新版工具測試舊 WEB。
 
 ## 1. 準備 CYWEB 連線
 
@@ -10,7 +10,7 @@
 
 ## 2. 放工具、建立共用技能
 
-把 `cyweb-work-reporter-v0.12.4.zip` 附給 Grok Bot，請它解壓，使檔案位於：
+把 `cyweb-work-reporter-v0.12.4-build1.zip` 附給 Grok Bot，請它解壓，使檔案位於：
 
 ```text
 /workspace/cyweb-work-reporter/SKILL.md
@@ -62,7 +62,7 @@ Grok Bots 共用雲端電腦；持久檔案放在 `/workspace`，不要放臨時
 
 ## 7. 啟用審核推播
 
-先部署 WEB V0.12.4／0058，再更新本包與共用私人技能。小編原 CYWEB_BOT_TOKEN、BOT 代碼與持久收據保持不變。使用者已建立「收到 webhook 後讀取 CYWEB 稿件審核結果」的 routine，不需另建。
+先部署 WEB V0.12.4 Build 1／0058，再更新本包與共用私人技能。小編原 CYWEB_BOT_TOKEN、BOT 代碼與持久收據保持不變。使用者已建立「收到 webhook 後讀取 CYWEB 稿件審核結果」的 routine，不需另建。
 
 1. 操作者以受控環境建立一次性 CF_BOT_PUSH_ENCRYPTION_KEY，部署流程注入 Worker；既有主金鑰不可覆蓋。這是 CYWEB 自己的加密金鑰，不是小編憑證，也不是 Grok webhook key。
 2. 使用者在 Grok 小編詳情 → Routines 開啟既有工作，將完整 POST to 與 key 直接填入 CYWEB「BOT 管理中心 → 設定 → 社群小編 → 推播設定」，勾啟用。只允許 HTTPS api2.cursor.sh。不要貼到聊天、Git、技能或普通檔；畫面不讀回原值，留白保留既有設定。

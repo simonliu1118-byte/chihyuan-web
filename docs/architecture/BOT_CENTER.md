@@ -1,6 +1,6 @@
 # BOT 管理中心
 
-沿用 CYWEB 殼層、`#bot-center` 路由及 `BOT_CENTER` 模組，在左側 ERP 查詢下一項。SUPER_ADMIN 自動具有模組權限；其他人須取得模組權限。以下為 V0.12.4 契約（待審／未部署），正式部署狀態以根 TODO 為準。
+沿用 CYWEB 殼層、`#bot-center` 路由及 `BOT_CENTER` 模組，在左側 ERP 查詢下一項。SUPER_ADMIN 自動具有模組權限；其他人須取得模組權限。以下為 V0.12.4 Build 1 契約（待審／未部署），正式部署狀態以根 TODO 為準。
 
 ## 畫面
 
@@ -60,7 +60,7 @@
 
 `check` 用 identity 驗證歸屬；complete 將固定 eventId 傳為 eventRef，general 舊收據相容。report 仍只有本機收據，斷線結果不明時不刪收據或換編號重送。工具沒有員工登入、自行審核或發布命令；核准後的外部操作仍按使用者與 Grok 授權。
 
-V0.12.4 在審核落庫後喚醒既有 Grok routine；推播沒有核准權威，BOT 仍須認證讀取結果。小編 pilot 只測試送審 → 人工核准 → 完成回報，不對外發文、不計入文章／巡視卡片。發布與審查證據見 [TODO](../../TODO.md)、[handoff](../handoff/CYWEB-GROK-REPORTER-0123-20261107.md)。
+V0.12.4 Build 1 在審核落庫後喚醒既有 Grok routine；推播沒有核准權威，BOT 仍須認證讀取結果。小編 pilot 只測試送審 → 人工核准 → 完成回報，不對外發文、不計入文章／巡視卡片。發布與審查證據見 [TODO](../../TODO.md)、[handoff](../handoff/CYWEB-GROK-REPORTER-0123-20261107.md)。
 
 ## 審核結果推播（0058）
 
@@ -73,4 +73,4 @@ V0.12.4 在審核落庫後喚醒既有 Grok routine；推播沒有核准權威�
 - 新增 bot_review_push_settings／bot_review_push_outbox 均為 ephemeral，不進可攜備份，還原後重設整合；完成分類與審稿等業務資料仍備份。0058僅加表／索引，不更動小編key或舊業務欄位。
 - 共用工具 review-notification 只認固定四欄，驗證自己的BOT與正整數ID，再以自己的Bearer認證GET；missing／foreign／pending安靜忽略，approved／rejected以最新讀回為準，無自動發布命令。
 
-協定依據：[Grok webhooks](https://docs.x.ai/grok-bot/skills-routines-and-automations#webhooks)、[Cloudflare waitUntil](https://developers.cloudflare.com/workers/runtime-apis/context/#waituntil)。交接與啟用證據見 [V0.12.4 handoff](../handoff/CYWEB-BOT-REVIEW-PUSH-0124-20261108.md)。
+協定依據：[Grok webhooks](https://docs.x.ai/grok-bot/skills-routines-and-automations#webhooks)、[Cloudflare waitUntil](https://developers.cloudflare.com/workers/runtime-apis/context/#waituntil)。交接與啟用證據見 [V0.12.4 Build 1 handoff](../handoff/CYWEB-BOT-REVIEW-PUSH-0124-20261108.md)。

@@ -14,7 +14,7 @@ const entityNames: Record<string,string> = {
   ordering:"叫貨單",stocktake:"門市庫存盤點",stocktake_sync:"盤點同步",store_equipment:"出機紀錄",store_maintenance:"定期維護",
   store_monthly_settings:"月度待辦設定",store_repair_print_settings:"維修單列印設定",store_monthly_row:"月度待辦",
   backup:"備份",erp_item_query:"ERP 查詢",erp_item_agent:"ERP 連線服務",
-  bot_draft:"審稿",bot_profile:"BOT",bot_ingest:"BOT 連線",
+  bot_draft:"審稿",bot_profile:"BOT",bot_ingest:"BOT 連線",bot_review_push:"BOT 推播",
 };
 export const entityLabel = (type: string): string => entityNames[type] ?? "資料";
 export const actionLabels: Record<string,string> = {
@@ -89,6 +89,7 @@ export const actionLabels: Record<string,string> = {
   "bot_profile.created":"新增 BOT",
   "bot_ingest.credential_rotated":"輪換 BOT 連線憑證",
   "bot_ingest.credential_revoked":"撤銷 BOT 連線憑證",
+  "bot_review_push.configured":"設定 BOT 推播","bot_review_push.retried":"重送審核結果推播",
   "backup.started":"開始備份","backup.completed":"完成備份","backup.failed":"備份失敗",
   "backup.rehearsal.started":"開始還原演練","backup.rehearsal.verified":"還原演練驗證成功",
   "backup.rehearsal.failed":"還原演練失敗","backup.copy.failed":"備份副本失敗",

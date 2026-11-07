@@ -88,7 +88,7 @@
 
 `StoreMaintenanceMatrix` 只改維護呈現：共用 cy-ordering-grid 雙層表頭、客戶固定欄、36月份、IconButton 圓圈／警示、StoreMilestoneButton 實際日期；同日多筆點開用EntryTable。日期與單行備註沿用StoreMilestoneDateFields（allowWithoutDate=false）及Field，不另建選擇器。`store-workflow/useStorePagedList` 抽取原出機的游標／防舊回應邏輯，出機和矩陣共用；不背景輪詢。詳細資料與行為以[維護契約](STORE_EQUIPMENT_MAINTENANCE.md)為準。
 
-## BOT 管理中心（V0.12.4）
+## BOT 管理中心（V0.12.4 Build 1）
 
 `BotCenterPage` 沿用 `cy-op-panel`、CYWEB tokens；順序為總覽、全寬待審核表格、四張工作摘要、全寬同行時間軸、四張 BOT 當日摘要。兩組卡片桌機四欄，中等寬度兩欄、手機單欄；BOT 卡無操作與展開，時間軸直接顯示詳情。拍板結案卡不接後臺。待審核及逐 BOT 憑證設定沿用 `cy-op-table`／table wrap。狀態用 `StatusChip`、篩選用 `StatusFilter`；僅回報紀錄保留 `ExpandToggle`。視窗沿用 `Dialog`、新增 BOT 用 `Field`／`FormSection`、退回理由用必填 `useFormPrompt`、憑證確認用 `useConfirmation`，通過不開視窗。無新 UI library；完整統計由 Worker 計算，進度仍輕量輪詢。契約見 [BOT_CENTER.md](BOT_CENTER.md)。
 

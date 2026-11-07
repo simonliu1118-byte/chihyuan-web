@@ -1,6 +1,6 @@
-# CYWEB V0.12.4 BOT 審核結果推播交接
+# CYWEB V0.12.4 Build 1 BOT 審核結果推播交接
 
-- 執行：GPT；分支 `cyweb/bot-review-push-0124`，基準 main `97a2acced3823e665991759b4dd33c2d8dee5223`。新獨立功能，VERSION／package=0.12.4、BUILD=0。
+- 執行：GPT；分支 `cyweb/bot-review-push-0124`，基準 main `97a2acced3823e665991759b4dd33c2d8dee5223`。新獨立功能，VERSION／package=0.12.4、BUILD=1。
 - 使用者授權：PR #447 合併部署後處理推播；已確認 Grok webhook 允許網域 `api2.cursor.sh`，小編已建立「收到 webhook 後讀取 CYWEB 稿件審核結果」routine。沒有提供完整路徑／key，也不向聊天索取。小編現有 CYWEB 憑證維持原值，拍板結案不接後臺。
 - **本輪待 Claude 審查，未合併部署、未設定真實 webhook、未建立正式主金鑰。PR #447 的合併部署授權不延用到本輪。**正式站仍 V0.12.3 Build1，發布 #42391275622、source `e2f50177d4e4d1162644c604a40dc41a4cb3f39e`；證據已由 docs-only PR #448 更新，不重部署舊版本。
 
@@ -20,7 +20,7 @@
 
 10. 共用CLI新增 `review-notification`，只接受type/eventId/botCode/draftId，驗證自己的BOT與ID後使用自己的CYWEB Bearer GET該稿件；無編號／無效／他人／查不到／pending回 ignored且notifyHuman=false，安靜結束。approved/rejected使用最新讀回結果；不接受payload內決定，不呼叫發布。舊回報收據、complete事件編號與原小編key不動。
 11. SKILL及兩份references同步安全設定、routine指示及啟用順序；已有routine直接更新，不重建／重複排程。重複喚醒可重讀結果，但實際外部工作須以原固定工作ID核對，complete去重不能代替外部發布去重。此功能不給予新的對外發布授權。
-12. `cyweb-work-reporter-v0.12.4.zip` 在工作區外部outputs交付，不進Git；五檔白名單，**18,721 bytes**，SHA-256=`3940b135d29efb9657b0f9604dae8e96bd1b7abab651ffe2d143c0cf72474a4c`。OS暫存目錄獨立解壓逐檔核對並執行CLI --help通過，不安裝npm執行依賴。舊V0.12.3包不覆蓋。
+12. `cyweb-work-reporter-v0.12.4-build1.zip` 在工作區外部outputs交付，不進Git；五檔白名單，**18,747 bytes**，SHA-256=`b4d3adbc5b888a5fe18b44379ef7cd1b2c36ecb8a6e4765122a51a500a47bca1`。OS暫存目錄獨立解壓逐檔核對並執行CLI --help通過，不安裝npm執行依賴。舊V0.12.3包不覆蓋。
 
 ## 已驗證與限制
 
@@ -39,3 +39,7 @@
 - 使用明確合成稿做通過／退回各一次，核對推播200、routine執行與認證讀回指定結果，pending／無編號不另通知。維持不對外發文；完成後更新本handoff、TODO、CHANGELOG的正式證據。真實設定未完成前不要宣稱推播已上線。
 
 協定核對：[Grok webhooks](https://docs.x.ai/grok-bot/skills-routines-and-automations#webhooks)（200才確認run開始、Bearer key）、[Cloudflare waitUntil](https://developers.cloudflare.com/workers/runtime-apis/context/#waituntil)（HTTP後最多30秒，首送只針對單筆，cron上限3筆）。
+
+## 首輪完整 CI 返修（Build 1）
+
+首輪source `3949f394` 的完整713項中712通過，唯一失敗是新Audit動作漏補中文名稱（Runtime #42394587946）；已補bot_review_push實體與configured／retried動作，針對相關16項通過。依同項目返修規則增加BUILD=1，不更動VERSION。原98項測試證據仍適用，最終完整CI以PR #449最新head為準；首輪Ubuntu部署契約／型別／source-contracts／治理已通過，但不能把失敗的完整run當驗收。

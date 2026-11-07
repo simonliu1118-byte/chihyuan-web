@@ -11,7 +11,7 @@
 
 ## 目前待 Claude 審查
 
-- [V0.12.4 BOT 審核推播](CYWEB-BOT-REVIEW-PUSH-0124-20261108.md)：逐BOT安全設定／outbox、共用工具與技能；待審，未合併部署。
+- [V0.12.4 Build 1 BOT 審核推播](CYWEB-BOT-REVIEW-PUSH-0124-20261108.md)：逐BOT安全設定／outbox、共用工具與技能；待審，未合併部署。
 
 - [V0.12.3 Build 1 BOT 獨立憑證、摘要及 Grok 工具](CYWEB-GROK-REPORTER-0123-20261107.md)：PR #447已依使用者本輪授權合併部署，發布#42391275622成功；0057原樣保留小編憑證、逐BOT隔離，健康／來源與HTTPS／session／排程／portal驗證通過。拍板結案不接後臺；Claude事後複審及新版UI／原key實機驗收待辦。推播在本輪發布交接完成後接續，尚未上線。
 

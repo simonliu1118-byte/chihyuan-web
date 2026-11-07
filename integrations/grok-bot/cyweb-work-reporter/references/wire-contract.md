@@ -22,7 +22,7 @@
 
 ## 實際使用的 API
 
-只呼叫 `/api/health` 與 `/api/bot-ingest/identity|progress|reports|drafts|completions`，機器 Authorization 由工具加入；健康檢查不帶憑證。禁止轉址，不提供員工登入、審核、輪換憑證、任意 URL 或對外發布命令。HTTP 逾時 15 秒，不自動重試寫入。要求 WEB V0.12.4／0058，identity 會回傳憑證實際歸屬。
+只呼叫 `/api/health` 與 `/api/bot-ingest/identity|progress|reports|drafts|completions`，機器 Authorization 由工具加入；健康檢查不帶憑證。禁止轉址，不提供員工登入、審核、輪換憑證、任意 URL 或對外發布命令。HTTP 逾時 15 秒，不自動重試寫入。要求 WEB V0.12.4 Build 1／0058，identity 會回傳憑證實際歸屬。
 
 伺服器送審以同 BOT + externalRef 去重，只回傳原資料。新版 complete 把 eventId 傳為 eventRef，伺服器以同 BOT + eventRef 唯一索引去重；相同內容回原紀錄，不同內容回 409 BOT_EVENT_CONFLICT，未分類舊完成紀錄不猜測分類。非 general 分類必須有 eventRef，同一實際發布／巡視始終保持相同編號。完成 API 仍允許舊客戶端不帶 eventRef 的一般紀錄，此時沒有伺服器去重。
 

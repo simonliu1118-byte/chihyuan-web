@@ -6,7 +6,7 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
-## CY Web V0.12.4 — BOT 審核結果推播（2026-11-08，待審／未部署）
+## CY Web V0.12.4 Build 1 — BOT 審核結果推播（2026-11-08，待審／未部署）
 
 - 逐 BOT 設定加密 webhook，審核與通知佇列原子儲存；只傳稿件識別資料，BOT 必須用原獨立憑證讀取正式結果。小編原key不輪換，拍板結案仍不接後臺。
 - 首次背景送出、既有五分鐘排程限次重試、失敗手動重送及30天技術通知清理；不增加歷史輪詢。設定／通知不進可攜備份，0058只新增技術表。

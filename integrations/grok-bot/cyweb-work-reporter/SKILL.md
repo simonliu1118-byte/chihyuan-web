@@ -11,7 +11,7 @@ description: Report BOT work progress, submit drafts for human review, read revi
 
 1. 工具保存在 `/workspace/cyweb-work-reporter`，使用 Node.js 22 或以上，不需安裝 npm 套件。用 `node --version` 確認；若未具備執行環境，先回報阻礙。
 2. 由平台安全注入 `CYWEB_BOT_TOKEN`，其餘環境設定為 `CYWEB_BASE_URL`、本 BOT 的 `CYWEB_BOT_CODE`、持久收據目錄 `CYWEB_REPORTER_STATE_DIR`。不可把憑證寫進聊天、命令參數、JSON、技能或普通檔案；不可用 `env`、`printenv`、`echo` 印出或檢查值。若無法安全注入，停止連線並告知使用者，不改用明文 `.env`。
-3. WEB 須先更新到 V0.12.4（migration 0058）。每隻 BOT 使用自己的獨立憑證，伺服器依憑證認定身份。小編既有憑證原樣保留並歸屬 `SOCIAL_EDITOR`，不要重新產生。其他角色先在 CYWEB 建立並取得各自憑證；不能共用小編的憑證。技能與程式可共用，共用電腦的非機密 BOT 代碼以每次執行的環境提供，不互相覆寫。
+3. WEB 須先更新到 V0.12.4 Build 1（migration 0058）。每隻 BOT 使用自己的獨立憑證，伺服器依憑證認定身份。小編既有憑證原樣保留並歸屬 `SOCIAL_EDITOR`，不要重新產生。其他角色先在 CYWEB 建立並取得各自憑證；不能共用小編的憑證。技能與程式可共用，共用電腦的非機密 BOT 代碼以每次執行的環境提供，不互相覆寫。
 4. 執行 `node /workspace/cyweb-work-reporter/scripts/cyweb-reporter.mjs check`。這會檢查健康與憑證實際歸屬，設定代碼不符會拒絕；不建立正式工作，也不代表外部發布已授權。
 
 ## 回報流程
