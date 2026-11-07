@@ -5,6 +5,8 @@
 
 ## 目前狀態（2026-11-07）
 
+- **開發 V0.12.2 BOT 工作總覽**：總覽、BOT 卡片、時間軸／審稿及設定／回報視窗已重排；完整統計、BOT 篩選及索引 0056 已實作，進度仍為輕量輪詢。相關 38 項測試與建置通過，桌機／手機合成預覽完成，待 PR 完整 CI、Claude 審查與當次發布授權；未合併部署。[handoff](docs/handoff/CYWEB-BOT-OVERVIEW-0122-20261107.md)。
+
 - **V0.12.1 盤點紀錄／ERP 清除歸檔，WEB 已合併部署**：PR #443、[發布 #42347693527](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42347693527) 成功，紀錄視窗使用精簡共用紀錄串。Agent 原程式變更已撤回，只留 [CYERPAutoQuery 專案 handoff](https://github.com/simonliu1118-byte/CYapps/blob/cyerp/stocktake-complete-list-131/apps/CYERPAutoQuery/docs/handoff/CYERPAutoQuery-STOCKTAKE-ARCHIVE-HANDOFF-20261107.md) 交 Claude，PR #604 維持草稿、不合併發行。**舊 Agent 可同步，但自動歸檔須待 Claude 完成配套並授權更新後才啟用**。Claude 事後複審與實機驗收仍待辦。[WEB handoff](docs/handoff/CYWEB-STOCKTAKE-RECORDS-0121-20261107.md)。
 
 - **正式站 V0.12.1（BUILD=0）**：[Deployment #42347693527](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42347693527) 成功；正式 source=`4509f93ab6bd444f725cdebfdf0a2f9c36f7b1f5`，正式網域與 workers.dev 健康回讀 version=0.12.1、database=ok、CYID consumer=1.0.5，source 一致。後續本輪發布證據只改文件，不需再次部署。

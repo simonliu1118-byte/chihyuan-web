@@ -96,6 +96,8 @@ export interface BotProgressState {
 }
 
 export interface BotCenterState extends BotProgressState {
+  botCode: string | null;
+  botStats: Record<string, { todayCompleted: number; draftCounts: Record<BotReviewStatus, number> }>;
   drafts: BotDraftView[];
   draftStatus: BotReviewStatus | "all";
   draftCounts: Record<BotReviewStatus, number>;

@@ -6,6 +6,12 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.12.2 — BOT 工作總覽（2026-11-07，待審查／未部署）
+
+- BOT 管理中心改為今日總覽、各 BOT 工作卡片、完成時間軸及待審清單；BOT 篩選同步連動，回報與設定使用共用短視窗，桌機兩欄、手機單欄，沿用 CYWEB 色彩與元件。
+- 每 BOT 今日完成／待審與各審稿狀態使用完整統計，不受 50 筆游標分頁截斷；台灣午夜日期邊界、BOT 篩選及分頁維持一致。0056 僅新增篩選／統計索引，備份 migration marker 同步，沒有新業務表或外部服務。
+- 30 秒仍僅讀進度，沒有歷史輪詢；審稿、憑證與模組權限邊界不變。相關 38 項測試、型別及建置通過，桌機／手機合成真元件預覽完成，詳見 [handoff](docs/handoff/CYWEB-BOT-OVERVIEW-0122-20261107.md)。未合併部署，待 Claude 審查。
+
 ## CY Web V0.12.1 — 盤點紀錄與 ERP 清除同步歸檔（2026-11-07，已部署）
 
 - 新增「盤點紀錄」共用表格視窗，日期／單號／初盤與複盤人員占 30%，盤點內容 70% 顯示品號品名並折行；展開區沿用門市訂購的紀錄串呈現確認及歸檔事件，移除品項差異明細表，展開不另讀資料。

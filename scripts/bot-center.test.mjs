@@ -178,6 +178,48 @@ test("pagination can reach older drafts, reports and completed events without du
   } finally { sql.close(); }
 });
 
+test("dashboard counts are complete, Taipei-day bounded and independent of bot-filtered keyset pages", async () => {
+ const {sql,call}=fixture();
+ try{
+  ok(await call('/api/bot-center'));
+  const it=sql.prepare("SELECT id FROM bot_profiles WHERE code='IT'").get().id;
+  const ceo=sql.prepare("SELECT id FROM bot_profiles WHERE code='CEO'").get().id;
+  const day=taipeiNoon(0),start=new Date(Date.parse(day)-12*3600000).toISOString(),end=new Date(Date.parse(start)+86400000).toISOString();
+  const draft=sql.prepare('INSERT INTO bot_drafts(bot_id,title,body,created_at) VALUES(?,?,?,?)');
+  const report=sql.prepare('INSERT INTO bot_reports(bot_id,title,body,reported_at) VALUES(?,?,?,?)');
+  const complete=sql.prepare('INSERT INTO bot_completions(bot_id,title,completed_at) VALUES(?,?,?)');
+  for(let i=0;i<65;i++)draft.run(it,'合成待審 '+i,'本文',day);
+  for(let i=0;i<3;i++)draft.run(ceo,'其他待審 '+i,'本文',day);
+  sql.prepare("INSERT INTO bot_drafts(bot_id,title,body,review_status,reviewed_by,reviewed_at,created_at) VALUES(?,'合成已審','本文','approved',1,?,?)").run(it,day,day);
+  for(let i=0;i<55;i++)report.run(it,'合成回報 '+i,'本文',day);
+  report.run(ceo,'其他回報','本文',day);
+  for(let i=0;i<60;i++)complete.run(it,'合成完成 '+i,day);
+  for(let i=0;i<5;i++)complete.run(ceo,'其他完成 '+i,day);
+  complete.run(it,'當日邊界',start);
+  complete.run(it,'隔日邊界',end);
+  complete.run(it,'昨日',new Date(Date.parse(start)-1).toISOString());
+  const global=ok(await call('/api/bot-center'));
+  assert.equal(global.botCode,null);
+  assert.equal(global.draftCounts.pending,68);
+  assert.equal(global.botStats.IT.todayCompleted,61);
+  assert.equal(global.botStats.CEO.todayCompleted,5);
+  assert.deepEqual(global.botStats.SOCIAL_EDITOR,{todayCompleted:0,draftCounts:{pending:0,approved:0,rejected:0}});
+  const page=ok(await call('/api/bot-center?botCode=IT'));
+  assert.equal(page.botCode,'IT');
+  assert.deepEqual(page.draftCounts,{pending:65,approved:1,rejected:0});
+  assert.equal(page.botStats.CEO.todayCompleted,5,'global card totals remain available when one bot is selected');
+  for(const key of ['drafts','reports','timeline']){assert.equal(page[key].length,50);assert(page[key].every(row=>row.botCode==='IT'))}
+  const older=ok(await call('/api/bot-center?botCode=IT&draftBefore='+page.draftNextBefore+'&reportBefore='+page.reportNextBefore+'&timelineBefore='+encodeURIComponent(page.timelineNextBefore)));
+  assert.deepEqual([older.drafts.length,older.reports.length,older.timeline.length],[15,5,11]);
+  for(const key of ['drafts','reports','timeline'])assert.equal(new Set([...page[key],...older[key]].map(row=>row.id)).size,page[key].length+older[key].length);
+  assert.deepEqual(older.botStats,page.botStats);
+  const approved=ok(await call('/api/bot-center?botCode=IT&draftStatus=approved'));
+  assert.equal(approved.drafts.length,1);assert.equal(approved.drafts[0].status,'approved');
+  assert.equal((await call('/api/bot-center?botCode=UNKNOWN')).status,404);
+  assert.equal((await call('/api/bot-center?botCode=')).status,422);
+ }finally{sql.close()}
+});
+
 test("initialized BOT page reads do not write the four default identities again", async () => {
   const { sql, call } = fixture();
   try {
