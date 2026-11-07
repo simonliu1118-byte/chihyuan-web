@@ -7,7 +7,7 @@
 ## 本次修改
 1. `.github/workflows/development-deploy.yml`：只增加特定發布分支的 push 觸發與 deploy-development 的分支條件；保留 main 手動 dispatch 和既有 validate、Environment、正式鎖、D1/Identity/Worker/health jobs。
 2. `scripts/verify-deployment-source.mjs`：允許 main dispatch 或指定發布分支 push；兩者都須事件 SHA = checkout SHA = 最新遠端 main SHA、tree 一致且 main 可追溯。遠端 migration 前失敗即停止。
-3. `scripts/deployment-source.test.mjs`：新增允許及拒絕事件、錯誤／舊 SHA 與部署工作契約測試。禁止 main push、其他分支 push、PR 及 release branch dispatch 直接部署。
+3. `scripts/deployment-source.test.mjs`、`scripts/audit-account-portal.test.mjs`：新增允許及拒絕事件、錯誤／舊 SHA 與部署工作契約測試；修正 11/03 舊測試的「完全禁止 push」假設。禁止 main push、其他分支 push、PR 及 release branch dispatch 直接部署；唯讀身分稽核仍只准 main dispatch。
 4. `PROJECT_RULES.md`、`GOVERNANCE_VERSION`、`GOVERNANCE_CHANGELOG.md`：新增正式部署入口的專案特例，治理版本 1.1.29。
 5. `docs/development/IDENTITY_DEPLOYMENT.md`、`TODO.md`、`docs/handoff/README.md`：更新 Chat 部署、同 SHA 重試與程式碼退版流程，保留 D1 正向遷移注意事項。
 
@@ -22,4 +22,4 @@
 - 發布分支建立時先指向尚無 push deploy 觸發的舊 main。治理 PR 合併後才允許 `update_ref(force=false)` 推進至受審核最新 main，避免提前部署舊版本。
 - 即使 PR 驗證成功，還須實際觸發及檢視正式 Action Run／兩端健康，不能以合併 PR 代替部署。
 - 本次沒有新增 Worker、D1、Migration、正式 Secret、Grok webhook 或 BOT 憑證；`VERSION=0.12.5`、`BUILD=0` 不變。
-- **CI 與正式部署證據待寫入**：此文件於治理 PR 準備時先記錄變更；以後續 GitHub Run 與正式健康結果為準，Claude 事後審查待辦。
+- **CI 與正式部署證據待寫入**：PR #455 第一輪 Governance #42414632652 success，部署契約 #42414632608 因舊 `audit-account-portal.test.mjs` 仍禁止任何 push 而失敗。已同步修正該測試並等待新一輪 CI，未觸發正式部署。以後續 GitHub Run 與正式健康結果為準，Claude 事後審查待辦。
