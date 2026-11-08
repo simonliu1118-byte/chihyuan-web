@@ -130,9 +130,10 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
  const [hiddenSourcesOpen,setHiddenSourcesOpen]=useState(false);
  const pane=useMasterDetailPane(),{confirm,confirmationDialog}=useConfirmation();
  const compact=useCompactLayout();
- const [mobileListMode,setMobileListMode]=useState<"drafts"|"history">("drafts");
- const [mobileDrafts,setMobileDrafts]=useState<OrderingListRow[]>([]),[mobileDraftsLoading,setMobileDraftsLoading]=useState(false),[draftRefreshKey,setDraftRefreshKey]=useState(0);
- const [mobileDraftSearch,setMobileDraftSearch]=useState("");
+ // Mobile layout uses the same source and order owners as desktop.
+ const [mobileListMode,setMobileListMode]=useState<"drafts"|"history">("history");
+ const [mobileSourceSearch,setMobileSourceSearch]=useState("");
+ const [mobileHistoryFiltersOpen,setMobileHistoryFiltersOpen]=useState(false);
  const editors=useRef(new Map<string,OrderingGridEditor>());
  const bindings=useRef(new Map<string,{onRegister:(editor:OrderingGridEditor|null)=>void;onStateChange:(state:OrderingGridState)=>void}>());
  const [editorStates,setEditorStates]=useState<Record<string,OrderingGridState>>({});
@@ -167,13 +168,9 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
   if(!await prepareSwitch())return;
   setMobileListMode(mode);pane.close();
  }
- async function chooseNewSource(){
-  if(!await prepareSwitch())return;
-  setMobileListMode("drafts");setSelected(null);setTab(null);setVendorAll(false);setViewPending(false);pane.open();
- }
  async function backToMobileList(){
   if(!await prepareSwitch())return;
-  setMobileListMode(selected?.storedStatus==="DRAFT"||viewPending?"drafts":"history");pane.close();
+  setMobileListMode(selected?.storedStatus==="DRAFT"?"drafts":"history");pane.close();
  }
  const source=sources.find(x=>x.id===tab);
  const active=sources.filter(x=>x.isActive),vendors=active.filter(x=>x.kind==="VENDOR");
@@ -190,7 +187,6 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
  // The page stays mounted while another module is open (so the restock job lives on); coming back
  // re-reads sources, lists and the open order, unless the user is in the middle of an edit.
  const pageVisible=useContext(ErpPageVisibleContext),wasVisible=useRef(pageVisible);
- // Phone-only draft list reuses the existing bounded ordering list API. No background polling.
  useEffect(()=>{
   if(!compact||!pageVisible||pane.pane!=="list"||mobileListMode!=="drafts")return;
   let live=true;setMobileDraftsLoading(true);
@@ -231,7 +227,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
    const chosen=open.order;
    const x=chosen??await call<DisplayOrder>("/orders","POST",{sourceId});
    if(sequence!==loadSequence.current)return;showOrder(remember(x));
-   if(!chosen){setDrafts([{...x}]);setDraftRefreshKey(n=>n+1)}setViewPending(false);pane.open();
+   if(!chosen)setDrafts([{...x}]);setViewPending(false);pane.open();
   }catch(e){if(sequence===loadSequence.current)setError(errorOf(e))}finally{if(sequence===loadSequence.current)setBusy(false)}
  }
  async function selectSource(s:OrderingSource){await openDraft(s.id)}
@@ -239,7 +235,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
   if(!await prepareSwitch())return;
   const sequence=++loadSequence.current;setBusy(true);
   try{const x=remember(await call<DisplayOrder>("/orders","POST",{sourceId}));
-   if(sequence!==loadSequence.current)return;setDrafts(prev=>[x,...prev]);setDraftRefreshKey(n=>n+1);
+   if(sequence!==loadSequence.current)return;setDrafts(prev=>[x,...prev]);
    showOrder(x);setViewPending(false);pane.open();
   }catch(e){setError(errorOf(e))}finally{if(sequence===loadSequence.current)setBusy(false)}
  }
@@ -264,7 +260,6 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
     // A row commit never disables any editor or steals focus while the network is pending.
     if(method!=="PATCH"&&!path.endsWith("/lines"))setNotice("已儲存");
     if(path.endsWith("/send")||path.endsWith("/void")){
-     setDraftRefreshKey(n=>n+1);
      void call<OrderingListRow[]>("/orders?sourceId="+data.sourceId+"&status=DRAFT").then(setDrafts).catch(e=>setError(errorOf(e)));
     }
     if(data.storedStatus!=="DRAFT")void refreshLists().catch(e=>setError(errorOf(e)));
@@ -282,7 +277,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
   try{
    await write("/orders/"+current.id,"PATCH",field==="date"?{plannedSendDate:value}:{note:value});
    // The draft chip shows the planned date; follow the saved value at once (user 2026-11-03).
-   if(field==="date"){setDrafts(prev=>prev.map(d=>d.id===current.id?{...d,plannedSendDate:value}:d));setMobileDrafts(prev=>prev.map(d=>d.id===current.id?{...d,plannedSendDate:value}:d))}
+   if(field==="date")setDrafts(prev=>prev.map(d=>d.id===current.id?{...d,plannedSendDate:value}:d));
    if(headerEditRevisions.current[field]===editRevision){setHeaderDirty(prev=>({...prev,[field]:false}));headerDirtyRef.current={...headerDirtyRef.current,[field]:false}}
   }catch{setHeaderSaveFailed(true)/* Banner and modal explain the error; leave the typed value intact. */}
   finally{setHeaderSaving(n=>n-1)}
@@ -419,7 +414,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
   editors.current.forEach(e=>e.discard());headerDirtyRef.current={date:false,note:false};setHeaderDirty({date:false,note:false});
   try{
    await enqueue("order:"+current.id,()=>call("/orders/"+current.id,"DELETE",{expectedVersion:cached.current.get(current.id)?.version??current.version}));
-   cached.current.delete(current.id);setDraftRefreshKey(n=>n+1);setNotice("草稿已刪除");await openDraft(current.sourceId);
+   cached.current.delete(current.id);setNotice("草稿已刪除");await openDraft(current.sourceId);
   }catch(e){setError(errorOf(e))}
  }
  // A draft row naming an item still waiting to arrive (same 品號, 品名, 廠商品號 or 廠商品名) is framed in
@@ -494,8 +489,10 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
  const base=useMemo(()=>openOnly?list.filter(x=>x.status==="SENT"||x.status==="PARTIAL"):list,[list,openOnly]);
  const counts=useMemo(()=>base.reduce<Record<string,number>>((n,x)=>({...n,[x.status]:(n[x.status]??0)+1}),{}),[base]);
  const shown=status?base.filter(x=>x.status===status):base;
- const matchingMobileDrafts=mobileDrafts.filter(d=>d.sourceName.toLocaleLowerCase().includes(mobileDraftSearch.trim().toLocaleLowerCase())||
-  (d.plannedSendDate??"").includes(mobileDraftSearch.trim()));
+ const sourceNeedle=mobileSourceSearch.trim().toLocaleLowerCase();
+ const mobileGeneralSources=active.filter(v=>v.kind!=="VENDOR"&&v.name.toLocaleLowerCase().includes(sourceNeedle));
+ const mobileVendors=orderedVendors.filter(v=>v.name.toLocaleLowerCase().includes(sourceNeedle));
+ const mobileSection=pane.pane==="list"?mobileListMode:viewPending?"pending":current?.storedStatus==="DRAFT"||!current?"drafts":"history";
  const sentDate=(o:{sentAt:string|null;plannedSendDate:string|null;createdAt:string})=>displayDate(o.sentAt??o.plannedSendDate??o.createdAt);
  const openLines=current?current.lines.filter(l=>l.quantity!==null&&l.received<l.quantity&&!l.closedAs):[];
  const currentSource=current?sources.find(x=>x.id===current.sourceId):undefined;
