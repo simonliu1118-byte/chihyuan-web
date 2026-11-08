@@ -22,6 +22,7 @@ import { handleBusinessApiPhase2Route } from "./http/business-api-phase2-routes"
 import { handleProgramCatalogRoute } from "./http/program-catalog-routes";
 import { handleErpItemQueryRoute, type ErpBridgeEnv } from "./http/erp-item-query-routes";
 import { handleBotCenterRoute } from "./http/bot-center-routes";
+import { handleHomeHubRoute } from "./http/home-hub-routes";
 import {deliverReviewPushes,cleanupReviewPushes,type BotPushEnv} from "./bot/review-push";
 import { runErpHousekeeping } from "./http/erp-housekeeping";
 import { failure, success } from "./http/response";
@@ -106,6 +107,9 @@ async function routeRequest(request: Request, env: Env, url: URL,ctx?:ExecutionC
   if (storeResponse) return storeResponse;
   const hrResponse = await handleHrRoute(request, env, requestId);
   if (hrResponse) return hrResponse;
+
+  const hubResponse = await handleHomeHubRoute(request, env, requestId);
+  if (hubResponse) return hubResponse;
 
   const botResponse = await handleBotCenterRoute(request, env, requestId,ctx);
   if (botResponse) return botResponse;
