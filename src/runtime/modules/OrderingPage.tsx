@@ -188,13 +188,6 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
  // re-reads sources, lists and the open order, unless the user is in the middle of an edit.
  const pageVisible=useContext(ErpPageVisibleContext),wasVisible=useRef(pageVisible);
  useEffect(()=>{
-  if(!compact||!pageVisible||pane.pane!=="list"||mobileListMode!=="drafts")return;
-  let live=true;setMobileDraftsLoading(true);
-  void call<OrderingListRow[]>("/orders?status=DRAFT").then(rows=>{if(live)setMobileDrafts(rows)})
-   .catch(e=>{if(live)setError(errorOf(e))}).finally(()=>{if(live)setMobileDraftsLoading(false)});
-  return()=>{live=false};
- },[compact,pageVisible,pane.pane,mobileListMode,draftRefreshKey]);
- useEffect(()=>{
   const back=pageVisible&&!wasVisible.current;wasVisible.current=pageVisible;if(!back)return;
   void refresh().then(refreshLists).catch(e=>setError(errorOf(e)));
   const open=selected;
