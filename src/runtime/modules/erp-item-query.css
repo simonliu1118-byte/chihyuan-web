@@ -2,7 +2,6 @@
 .cy-erp-query-box{max-width:900px}
 .cy-erp-form{display:grid;grid-template-columns:minmax(0,1fr);gap:.75rem}
 .cy-erp-form>*,.cy-erp-query-row{min-width:0}
-.cy-erp-category{max-width:240px}
 .cy-erp-query-row{display:flex;gap:.7rem;align-items:center}
 .cy-erp-query-row input{flex:1;max-width:480px}
 .cy-erp-query-row button{min-height:var(--cy-control-h);flex:0 0 auto;min-width:76px;white-space:nowrap}
@@ -33,7 +32,6 @@
 @media(max-width:820px){
   .cy-erp-item-lead,.cy-erp-fields{grid-template-columns:minmax(0,1fr)}
   .cy-erp-query-row input{flex:1;max-width:480px}
-  .cy-erp-category{max-width:none}
   .cy-erp-form .cy-segmented{width:100%}
 }
 @media(max-width:360px){.cy-erp-history-options{grid-template-columns:minmax(0,1fr)}}
@@ -71,8 +69,7 @@
 .cy-erp-receivable-detail .cy-erp-vouchers>span{display:block}
 .cy-erp-receivable-detail .cy-erp-item-link,.cy-erp-receivable-detail .cy-erp-voucher-meta{white-space:nowrap}
 
-/* ERP 查詢 categories: tabs on desktop, the select above on mobile (same category state). */
-.cy-erp-page>.cy-erp-category{margin-bottom:1rem}
+/* ERP 查詢 categories share a single tab owner; phones scroll the row instead of showing a select. */
 .cy-erp-follow{margin-top:1rem}
 /* 銷貨銷退單／進貨退貨單: a compact list, one row per order (user 2026-10-19), each row opens in place. */
 .cy-erp-orders-tools{display:flex;gap:6px;justify-content:flex-end;margin:0 0 6px}
@@ -358,10 +355,9 @@
 .cy-erp-tab-running{display:inline-block;width:8px;height:8px;margin-left:6px;border-radius:50%;background:var(--cy-accent);vertical-align:middle;animation:cy-erp-pulse 1.4s ease-in-out infinite}
 @keyframes cy-erp-pulse{50%{opacity:.35}}
 @media(prefers-reduced-motion:reduce){.cy-erp-tab-running{animation:none}}
-/* The category tabs (or drop-down) with the 排程佇列 drawer button at the right. */
+/* Same ERP category tabs on desktop and phone, with 排程佇列 alongside. */
 .cy-erp-tabbar{display:flex;align-items:flex-end;gap:.75rem;margin-bottom:16px;border-bottom:1px solid var(--cy-border)}
 .cy-erp-tabbar .cy-op-tabs{flex:1 1 auto;min-width:0;margin-bottom:0;border-bottom:0}
-.cy-erp-tabbar .cy-erp-category{flex:1 1 auto;margin-bottom:.5rem}
 .cy-erp-queue-button{flex:0 0 auto;margin-bottom:.4rem;white-space:nowrap}
 /* 排程佇列: one row per query, in the order the Agent runs them. */
 .cy-erp-queue{display:grid;gap:.75rem}
@@ -461,3 +457,14 @@
 
 .cy-ordering-source-note-label { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
 .cy-ordering-source-note-count { font-size:var(--cy-fs-xs); font-weight:400; font-variant-numeric:tabular-nums; }
+
+/* Phone-only ERP navigation: one horizontally scrollable tab row, no duplicate category control. */
+@media(max-width:820px){
+  .cy-erp-tabbar{min-width:0;gap:6px;margin-bottom:14px}
+  .cy-erp-tabbar .cy-op-tabs{flex:1 1 auto;min-width:0;display:flex;overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:none;white-space:nowrap;scroll-snap-type:x proximity}
+  .cy-erp-tabbar .cy-op-tabs::-webkit-scrollbar{display:none}
+  .cy-erp-tabbar .cy-op-tabs button{flex:0 0 auto;min-height:40px;padding:8px 10px;white-space:nowrap;scroll-snap-align:start}
+  .cy-erp-queue-button{margin-bottom:0;min-height:38px;padding:4px 9px;font-size:var(--cy-fs-sm)}
+  .cy-erp-agent-trigger.cy-op-button.compact{min-width:0;min-height:29px;padding:3px 8px;gap:5px;border-radius:999px;font-size:var(--cy-fs-xs);white-space:nowrap;background:var(--cy-surface-muted)}
+  .cy-erp-agent-trigger .cy-status-dot{width:7px;height:7px;flex:0 0 7px}
+}
