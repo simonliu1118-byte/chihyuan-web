@@ -104,3 +104,9 @@
 頁首工作狀態與逐 BOT 身份用共用 `StatusChip` 呈現（不可作篩選）；五筆時間軸用既有共用 `Dialog` 顯示全部，時間點依台灣同分鐘合併一個藍點。底部 `cy-op-table` 是 BOT 列表及啟停按鈕；推播設定／新增 BOT 均使用 `Dialog` 包住單一 `EntryTable` 與 `EntryHeading`／`Field presentation="cell"`（左表頭、右輸入），不用一般 `FormSection` 表單取代。相關 UI 與權限參見 [BOT_CENTER.md](BOT_CENTER.md)。
 
 V0.12.6：BOT 時間軸單行省略／內容溢出時用共用 `ExpandToggle`；Threads 巡視回報卡只顯示最新事項標題。推播設定／BOT 設定視窗分別為 414px／720px 的專屬寬度，不影響其他共用 Dialog。
+
+## V0.12.7 Build 0 — 手機 UI 與叫貨草稿
+
+- 手機 ThemeToggle 無框日月一鍵切換，原 ThemePreference 為唯一設定 owner；只有 `cy-shell-navigation-drawer` 使用 264px 寬。
+- ERP 查詢的桌機與手機共用唯一 `cy-op-tabs` + kept-mounted panel，手機 CSS 左右捲動，不新增 mobile select 或不同查詢 state。原 ERP 管理視窗以帶狀態點的小 pill 開啟。
+- 手機叫貨預設可見草稿清單（`GET /orders?status=DRAFT`），與未到貨、叫貨紀錄共用唯一 `OrderingPage`／`useMasterDetailPane` 和 `prepareSwitch`。Grid 只增加 data-label / data-col，手機以範圍限定 CSS 卡片排版，不新增第二編輯器。其他共用 Grid 的桌機與門市畫面不變。
