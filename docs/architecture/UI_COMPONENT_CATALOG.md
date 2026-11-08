@@ -111,3 +111,9 @@ V0.12.6：BOT 時間軸單行省略／內容溢出時用共用 `ExpandToggle`；
 - MyTodosPage 使用共用 Field、SegmentedControl、確認與未存 guard。
 - AnnouncementsPage 是一個模組的兩個固定頁籤，各自發送權限與表單；沿用 Field、CheckField、ExpandToggle。
 - NotificationBell 小浮窗先五筆，每次載入十筆，只連結到原頁；新增 bell 圖示集中於共用 Icons。
+
+## V0.12.7 Build 1 手機共用介面
+
+- ThemeToggle 在手機頭部採無框日月按鈕，沿用共用 ThemePreference；AppShell 的 navigation 專用 Drawer 寬度 264px。
+- ErpItemQueryPage 桌機手機統一同一 tablist 與已掛載 panel，手機只讓頁籤橫向捲動；右上狀態控制沿用原 ERP Dialog。
+- OrderingPage 沿用既有 MasterDetail、prepareSwitch、reloadOrder 與 OrderingGrid；手機有草稿／未到貨／叫貨紀錄入口，drafts 只用既有 API 在清單可見時載入。OrderingGrid 單一 table 加 data-label，手機以 scope CSS 卡片呈現，沒有第二套編輯器。

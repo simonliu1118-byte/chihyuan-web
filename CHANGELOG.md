@@ -6,6 +6,13 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.12.7 Build 1 — 手機導覽、ERP 與叫貨草稿（2026-11-08，草稿 PR，未部署）
+
+- 手機外觀切換改無框日月按鈕，一按切換實際深淺；導覽選單由 320px 改 264px，保留桌機模式、CY 首頁和通知鈴鐺。
+- ERP 手機連線狀態縮成小 pill，原控制視窗仍可點開；查詢類別改同一組橫滑頁籤，保留權限、查詢背景狀態和結果。
+- 叫貨手機頁預設草稿清單，明確「草稿／未到貨／叫貨紀錄」三入口；直接搜尋／開啟草稿、新增叫貨；叫貨與未到貨品項以可讀可編輯卡片顯示，未改原資料 owner 或送出流程。
+- 本版從未合併的首頁 PR #457 分支接續，為後續 Draft PR。無 Worker、D1、CYID、正式部署變更；Claude 審查待辦。[handoff](docs/handoff/CYWEB-MOBILE-ERP-ORDERING-0127B1-20261108.md)。
+
 ## CY Web V0.12.7 Build 0 — 首頁、公告通知、個人待辦與鈴鐺（2026-11-08，待 Claude 複審，未部署）
 
 - 登入預設開啟首頁，桌機／手機左上 CY 返回首頁；書籤仍直達原模組，路由更換沿用既有未儲存確認。

@@ -5,6 +5,9 @@
 
 ## 目前狀態（2026-11-08）
 
+- [ ] **V0.12.7 Build 1 手機 UI／ERP／叫貨草稿**：獨立後續 Draft PR，依賴首頁 #457；縮窄導覽、日月切換、ERP 小狀態及頁籤、叫貨草稿入口與卡片。CI、Claude 複審及 iPhone 實機待辦，**不合併、不部署**。[handoff](docs/handoff/CYWEB-MOBILE-ERP-ORDERING-0127B1-20261108.md)。
+
+
 - [ ] V0.12.7 Build 0 首頁／公告通知／個人待辦／鈴鐺，開發 PR 與 Claude 複審待辦，未合併未部署。D1 0059 尚未套用，正式站不變。[規格](docs/architecture/HOME_HUB.md)／[handoff](docs/handoff/CYWEB-HOME-HUB-0127-20261108.md)。
 
 
