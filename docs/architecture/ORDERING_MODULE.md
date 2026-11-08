@@ -147,3 +147,10 @@
 - 切換與返回先走 `prepareSwitch`，保留既有 autosave、未存確認、version conflict、送出／刪除確認及 ERP 加入草稿流程。
 - 同一 `OrderingGrid` HTML 只增加 data-label / data-col，在 `.cy-ordering-page` 的手機 CSS 用卡片版面；桌機表格及其他共用 Grid 的顯示與行為不變。未到貨明細同理有標籤卡片。
 - 來源 tabs、廠商 tabs 可橫滑；管理來源、進貨輔助在手機版分列顯示。既有 API 最多 200 張，超量目前仍回 409，不自行增加高耗 D1 讀取。
+
+## V0.12.7 Build 1 — 手機導覽更正（取代 Build 0 手機頁籤順序及草稿清單）
+
+- **電腦版所有清單與來源操作都不變**。其 `history=1` 查詢只列已送出及作廢單，不含 `DRAFT`；`GET /pending` 是所有未到貨品項單一資料清單，右側仍依叫貨單收合呈現；草稿透過來源／廠商切換並使用 `GET /drafts/open?sourceId=`。
+- 手機三個主要頁籤改為「**叫貨清單／未到貨／草稿**」，預設叫貨清單。清單沿用 `history=1` 的全部查詢／篩選欄位，只在手機收合進階條件。未到貨直接開右側原 `pendingOrders` 明細，不顯示第二層來源 tabs 或返回草稿標籤。
+- 手機草稿頁先顯示既有啟用公司來源與廠商列表（含搜尋、廠商個人順序、原狀態點）。點選後使用同一 `openDraft`、`OrderingGrid` 與草稿 chips，無草稿依原本建立。手機**不再預先查所有草稿**，取消原 `GET /orders?status=DRAFT` 全量請求與獨立 mobileDrafts 狀態。
+- 手機來源管理與進貨輔助放在草稿來源列表；桌機的 `cy-ordering-tabbar`、原左右雙欄及所有控制、文字與流程維持不變。CSS 修改集中於叫貨手機版斷點，篩選容器桌機 `display:contents` 維持原排版，不增設平行資料 owner。
