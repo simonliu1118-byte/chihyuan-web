@@ -12,7 +12,7 @@ export function supportsFileShare(file:File,host:FileShareHost=navigator):boolea
  catch{return false}
 }
 
-/** Download fallback (and unchanged desktop workflow). Let Safari consume the object URL before revoking. */
+/** Download fallback on phones without native file sharing. Let Safari consume the URL before revoking. */
 export function downloadExcelFile(file:File):void{
  const url=URL.createObjectURL(file);
  const anchor=document.createElement("a");
@@ -21,7 +21,7 @@ export function downloadExcelFile(file:File):void{
  document.body.appendChild(anchor);
  try{anchor.click()}finally{
   anchor.remove();
-  window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+  window.setTimeout(()=>URL.revokeObjectURL(url),30_000);
  }
 }
 
