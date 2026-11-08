@@ -477,6 +477,32 @@ def validate_ordering_receipt_d1_pattern_limit(schema: str) -> None:
         raise AssertionError("Invalid ERP purchase number bypassed CHECK: " + invalid)
     conn.close()
 
+def validate_home_hub_data_and_grants(schema: str) -> None:
+    conn = new_db(schema)
+    seed_member(conn)
+    now = "2026-11-08T09:00:00.000Z"
+    conn.execute("INSERT INTO app_members(identity_employee_id,employee_no,is_active,created_at,updated_at) VALUES('emp-2','E002',1,?,?)",(now,now))
+    conn.execute("INSERT INTO app_member_module_access(member_id,module_code,enabled,updated_at) VALUES(1,'ANNOUNCEMENT_PUBLISH',1,?)",(now,))
+    conn.execute("INSERT INTO app_member_module_access(member_id,module_code,enabled,updated_at) VALUES(1,'PERSONAL_NOTICE_SEND',1,?)",(now,))
+    assert_integrity_error(conn,"INSERT INTO app_member_module_access(member_id,module_code,enabled,updated_at) VALUES(1,'NOT_REAL',1,?)",(now,))
+    conn.execute("INSERT INTO personal_todos(member_id,title,due_date,created_at,updated_at) VALUES(1,'今日工作','2026-11-08',?,?)",(now,now))
+    conn.execute("INSERT INTO personal_todos(member_id,title,created_at,updated_at) VALUES(2,'私人工作',?,?)",(now,now))
+    assert conn.execute("SELECT COUNT(*) FROM personal_todos WHERE member_id=1 AND completed_at IS NULL").fetchone()[0]==1
+    assert conn.execute("SELECT COUNT(*) FROM personal_todos WHERE member_id=2 AND completed_at IS NULL").fetchone()[0]==1
+    assert_integrity_error(conn,"INSERT INTO personal_todos(member_id,title,priority,created_at,updated_at) VALUES(1,'非法','urgent',?,?)",(now,now))
+    assert_integrity_error(conn,"INSERT INTO personal_todos(member_id,title,due_time,created_at,updated_at) VALUES(1,'缺日期','10:30',?,?)",(now,now))
+    conn.execute("INSERT INTO hub_notices(id,kind,title,body,created_by,author_name,created_at) VALUES('11111111-1111-4111-8111-111111111111','personal','私訊','內容',1,'管理員',?)",(now,))
+    conn.execute("INSERT INTO hub_notices(id,kind,title,body,created_by,author_name,created_at) VALUES('22222222-2222-4222-8222-222222222222','company','公告','內容',1,'管理員',?)",(now,))
+    conn.execute("INSERT INTO hub_notice_recipients(notice_id,member_id) VALUES('11111111-1111-4111-8111-111111111111',2)")
+    assert conn.execute("SELECT COUNT(*) FROM hub_notices n WHERE n.kind='personal' AND EXISTS(SELECT 1 FROM hub_notice_recipients r WHERE r.notice_id=n.id AND r.member_id=1)").fetchone()[0]==0
+    assert conn.execute("SELECT COUNT(*) FROM hub_notices n WHERE n.kind='personal' AND EXISTS(SELECT 1 FROM hub_notice_recipients r WHERE r.notice_id=n.id AND r.member_id=2)").fetchone()[0]==1
+    conn.execute("INSERT INTO hub_notice_reads(notice_id,member_id,read_at) VALUES('11111111-1111-4111-8111-111111111111',2,?)",(now,))
+    assert_integrity_error(conn,"INSERT INTO hub_notice_reads(notice_id,member_id,read_at) VALUES('11111111-1111-4111-8111-111111111111',2,?)",(now,))
+    assert_integrity_error(conn,"INSERT INTO hub_notices(id,kind,title,body,created_by,author_name,created_at) VALUES('33333333-3333-4333-8333-333333333333','chat','不能聊天','內容',1,'管理員',?)",(now,))
+    assert not conn.execute("PRAGMA foreign_key_check").fetchall()
+    conn.close()
+
+
 def main() -> int:
     schema = load_schema()
     checks = [
@@ -490,6 +516,7 @@ def main() -> int:
         validate_no_local_identity_session,
         validate_retired_identity_migration,
         validate_ordering_receipt_d1_pattern_limit,
+        validate_home_hub_data_and_grants,
     ]
     for check in checks:
         check(schema)

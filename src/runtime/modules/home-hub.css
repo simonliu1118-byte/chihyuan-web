@@ -48,3 +48,9 @@
 .cy-hub-bell-more{width:100%;margin-top:8px}
 @media(max-width:860px){.cy-home-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:640px){.cy-home-stat-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.cy-home-stat{padding:10px}.cy-home-stat strong{font-size:24px}.cy-home-notices{grid-template-columns:minmax(0,1fr)}}
+
+.cy-hub-form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.cy-hub-list-note{margin:6px 0 0 38px;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--cy-text-muted);font-size:var(--cy-fs-sm)}
+.cy-hub-recipient-group{display:grid;gap:8px}
+.cy-hub-receipts{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:4px}
+@media(max-width:680px){.cy-hub-form-grid{grid-template-columns:minmax(0,1fr)}}

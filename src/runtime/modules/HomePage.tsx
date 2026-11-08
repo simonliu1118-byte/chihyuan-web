@@ -2,6 +2,7 @@ import {useEffect,useState} from "react";
 import {getHomeSummary,HUB_UPDATED_EVENT} from "../api/home-hub-client";
 import type {HubSummary,HubNotice,PersonalTodo} from "../../../shared/home-hub";
 import {formatDateTime} from "../../ui/foundation/format";
+import {taipeiTodayRange} from "../../../shared/bot-center";
 import "./home-hub.css";
 
 export interface HubLink {key:string;label:string;}
@@ -13,7 +14,7 @@ function noticePreview(items:HubNotice[],empty:string,onNavigate:HubNavigate,kin
 }
 function todoLabel(item:PersonalTodo){
  if(!item.dueDate)return "未設定期限";
- const day=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Taipei",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()).replaceAll("/","-");
+ const day=taipeiTodayRange().day;
  return item.dueDate<day?"已逾期":item.dueDate===day?"今日到期":item.dueDate.replaceAll("-","/");
 }
 export function HomePage({displayName,shortcuts,onNavigate}:{displayName:string;shortcuts:HubLink[];onNavigate:HubNavigate}){
@@ -45,7 +46,7 @@ export function HomePage({displayName,shortcuts,onNavigate}:{displayName:string;
     <button type="button" className="cy-op-button compact primary" onClick={()=>onNavigate("my-todos",{new:1})}>新增待辦</button>
    </div></div>
    {data?.todos.length?<ul className="cy-home-todo-list">{data.todos.map(item=><li key={item.id}>
-    <button type="button" onClick={()=>onNavigate("my-todos",{id:item.id})}><strong>{item.title}</strong><span className={item.dueDate&&item.dueDate<new Date().toISOString().slice(0,10)?"is-overdue":""}>{todoLabel(item)}</span></button>
+    <button type="button" onClick={()=>onNavigate("my-todos",{id:item.id})}><strong>{item.title}</strong><span className={item.dueDate&&item.dueDate<taipeiTodayRange().day?"is-overdue":""}>{todoLabel(item)}</span></button>
    </li>)}</ul>:<p className="cy-hub-empty">{data?"目前沒有未完成事項":"正在讀取待辦事項…"}</p>}
   </section>
   <section className="cy-op-panel" aria-label="我的常用功能"><div className="cy-op-panel-header"><h2>我的常用功能</h2></div>

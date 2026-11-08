@@ -8,7 +8,7 @@ export const getHubReminders=(before?:string,limit=5)=>{
  if(before)url.set("before",before);
  return apiRequest<HubReminderPage>("/api/hub/reminders?"+url);
 };
-export const getTodos=(status:"open"|"done",before?:string)=>apiRequest<HubPage<PersonalTodo>>("/api/hub/todos?"+new URLSearchParams({status,...before?{before}:{}}));
+export const getTodos=(status:"open"|"done",before?:string)=>apiRequest<HubPage<PersonalTodo>>("/api/hub/todos?"+new URLSearchParams({status,...(before?{before}:{})}));
 export const getTodo=(id:number)=>apiRequest<PersonalTodo>("/api/hub/todos/"+id);
 export const saveTodo=(input:{title:string;detail:string;dueDate:string|null;dueTime:string|null;priority:TodoPriority},id?:number)=>apiRequest<PersonalTodo>("/api/hub/todos"+(id?"/"+id:""),{method:id?"PATCH":"POST",json:input});
 export const setTodoCompleted=(id:number,completed:boolean)=>apiRequest<PersonalTodo>("/api/hub/todos/"+id,{method:"PATCH",json:{completed}});
