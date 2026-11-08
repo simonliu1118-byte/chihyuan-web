@@ -21,6 +21,28 @@ const STATUS_TONE:Record<BotStatus,"neutral"|"info"|"warning"|"success">={idle:"
 const REVIEW_TONE:Record<BotReviewStatus,"warning"|"success"|"danger">={pending:"warning",approved:"success",rejected:"danger"};
 const messageOf=(error:unknown)=>error instanceof ApiClientError?error.message||error.code:"BOT 管理中心暫時無法使用";
 const PUSH_LABELS={queued:'待送出',sending:'傳送中',accepted:'已送出',failed:'失敗'};
+/** Keep an event on one line, exposing the shared toggle only when its text overflows. */
+function TimelineEvent({item}:{item:BotCompletionView}){
+ const [expanded,setExpanded]=useState(false),[overflows,setOverflows]=useState(false);
+ const previewRef=useRef<HTMLSpanElement>(null);
+ useEffect(()=>{
+  const preview=previewRef.current;
+  if(!preview)return;
+  const measure=()=>{if(!expanded)setOverflows(preview.scrollWidth>preview.clientWidth+1)};
+  measure();
+  const observer=new ResizeObserver(measure);
+  observer.observe(preview);
+  return ()=>observer.disconnect();
+ },[expanded,item.title,item.detail]);
+ return <li className="cy-bot-timeline-event"><div className="cy-bot-timeline-event-row">
+  <span className="cy-bot-timeline-bot">{item.botLabel}</span>
+  <span ref={previewRef} className={"cy-bot-timeline-preview"+(expanded?" is-expanded":"")}>
+   <strong>{item.title}</strong>{item.detail?<span className="cy-bot-timeline-detail"> {item.detail}</span>:null}
+  </span>
+  {overflows?<ExpandToggle expanded={expanded} label={item.title} className="cy-bot-timeline-toggle" onToggle={()=>setExpanded(!expanded)}/>:null}
+ </div></li>;
+}
+
 /** Group consecutive completion events by local minute so each minute has one timeline marker. */
 function TimelineList({items}:{items:BotCompletionView[]}){
  const groups:{minute:string;clock:string;items:BotCompletionView[]}[]=[];
@@ -32,10 +54,7 @@ function TimelineList({items}:{items:BotCompletionView[]}){
  }
  return <ol className="cy-bot-timeline">{groups.map(group=><li key={group.minute} className="cy-bot-timeline-group">
   <time dateTime={group.items[0].completedAt}>{group.clock}</time>
-  <ul className="cy-bot-timeline-events">{group.items.map(item=><li key={item.id}>
-   <span className="cy-bot-timeline-bot">{item.botLabel}</span>
-   <strong>{item.title}</strong>{item.detail?<span className="cy-bot-timeline-detail">{item.detail}</span>:null}
-  </li>)}</ul>
+  <ul className="cy-bot-timeline-events">{group.items.map(item=><TimelineEvent key={item.id} item={item}/>)}</ul>
  </li>)}</ol>;
 }
 
@@ -170,7 +189,7 @@ export function BotCenterPage(){
    <article className="cy-op-panel cy-bot-work-card"><h3>新文章通知</h3><div className="cy-bot-work-count"><strong>{state.workSummary.articles.count}</strong> 篇</div>
     <p>{state.workSummary.articles.latest?.title??"尚無發布紀錄"}</p>{state.workSummary.articles.latest?.detail?<p>{state.workSummary.articles.latest.detail}</p>:null}</article>
    <article className="cy-op-panel cy-bot-work-card"><h3>Threads 巡視回報</h3><div className="cy-bot-work-count"><strong>{state.workSummary.patrols.count}</strong> 次</div>
-    <p>{state.workSummary.patrols.latest?.title??"尚無巡視紀錄"}</p>{state.workSummary.patrols.latest?.detail?<p>{state.workSummary.patrols.latest.detail}</p>:null}</article>
+    <p>{state.workSummary.patrols.latest?.title??"尚無巡視紀錄"}</p></article>
    <article className="cy-op-panel cy-bot-work-card"><h3>拍板結案</h3><div className="cy-bot-work-count">—</div></article>
    <article className="cy-op-panel cy-bot-work-card"><h3>待核准</h3><div className="cy-bot-work-count"><strong>{state.workSummary.pending.count}</strong> 件</div>
     <p>{state.workSummary.pending.latest?.title??"尚無待審事項"}</p></article>
@@ -191,7 +210,7 @@ export function BotCenterPage(){
     <div className="cy-bot-review-title"><ExpandToggle expanded={openReport===report.id} label={report.title} onToggle={()=>setOpenReport(openReport===report.id?null:report.id)}/><strong>{report.title}</strong></div>{openReport===report.id?<p className="cy-bot-text">{report.body}</p>:null}</li>)}</ul>
    {!state.reports.length?<p className="cy-bot-empty">尚無回報</p>:null}{state.reportsMore?<div className="cy-bot-more"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void loadMore("reports")}>載入更多回報</button></div>:null}
   </Dialog>:null}
-     {settingsOpen?<Dialog open title="BOT 設定" size="large" dismissible={false} showCloseButton={false} onClose={()=>setSettingsOpen(false)}
+     {settingsOpen?<Dialog open title="BOT 設定" size="large" className="cy-bot-settings-dialog" dismissible={false} showCloseButton={false} onClose={()=>setSettingsOpen(false)}
     footer={<button type="button" className="cy-op-button" disabled={busy} onClick={()=>setSettingsOpen(false)}>關閉</button>}>
     <div className="cy-bot-settings"><div className="cy-bot-settings-heading"><h3>連線憑證</h3>
      <button type="button" className="cy-op-button compact primary" disabled={busy} onClick={()=>setAddOpen(true)}>新增 BOT</button></div><div className="cy-op-table-wrap"><table className="cy-op-table cy-bot-credential-table">

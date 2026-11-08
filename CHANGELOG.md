@@ -6,6 +6,13 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.12.6 Build 0 — BOT 完成時間軸單行收合與視窗精簡（2026-11-08，待 PR／CI／審查）
+
+- 今日完成時間軸（首頁五筆與「查看全部」）每筆預設單行省略；實際文字超出時才顯示共用 ExpandToggle，小箭頭展開全文或收合。保留相同分鐘共用時間點、事件原順序與分頁讀取。
+- Threads 巡視回報摘要卡只顯示最新事項標題（如「11/8 中午 Threads 海巡完成，10 則草稿已傳王麗媛審核」），不重複呈現 detail；完整詳情仍保留在時間軸供展開。
+- 社群小編推播設定視窗從 620px 縮至 414px（約少三分之一）；BOT 設定從 900px 縮至 720px（少 20%），同步縮小憑證表格最小寬與操作內距，窄螢幕仍可橫向捲動。
+- 無 API、Worker、D1、資料、推播、認證或憑證邏輯變更。測試與 Claude 審查結果見 [handoff](docs/handoff/CYWEB-BOT-CENTER-COMPACT-0126-20261108.md)；未獲本次部署授權前不更新正式站。
+
 ## CY Web V0.12.5 Build 0 — BOT 管理中心資訊密度與表格式視窗（2026-11-08，PR #453 已合併／待正式部署）
 
 - 頂部卡片去除重複標題和日期。進行中／受阻／待命及逐 BOT 狀態改共用 StatusChip 純顯示，不再使用 BOT 篩選器；審稿狀態篩選仍保留，審稿表不再顯示右上灰色「全部 BOT」。

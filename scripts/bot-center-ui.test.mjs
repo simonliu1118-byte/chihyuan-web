@@ -52,3 +52,22 @@ test("new BOT uses shared table dialog and keeps existing credential management 
  assert.match(page,/onClick=\{\(\)=>void togglePush\(item\.botCode\)\}/);
  assert.match(css,/\.cy-bot-form-table th\[scope="row"\]/);
 });
+
+test("timeline rows collapse to one line and reveal shared expand toggle only for overflow",()=>{
+ assert.match(page,/function TimelineEvent\(\{item\}/);
+ assert.match(page,/preview\.scrollWidth>preview\.clientWidth\+1/);
+ assert.match(page,/new ResizeObserver\(measure\)/);
+ assert.match(page,/<TimelineEvent key=\{item\.id\} item=\{item\}\/>/);
+ assert.match(page,/<ExpandToggle expanded=\{expanded\} label=\{item\.title\}/);
+ assert.match(css,/\.cy-bot-timeline-preview\{[^}]*white-space:nowrap/);
+ assert.match(css,/\.cy-bot-timeline-preview\.is-expanded\{[^}]*white-space:pre-wrap/);
+});
+test("Threads latest card uses title only and targeted dialogs have narrower widths",()=>{
+ assert.doesNotMatch(page,/state\.workSummary\.patrols\.latest\?\.detail/);
+ assert.match(page,/state\.workSummary\.patrols\.latest\?\.title\?\?"尚無巡視紀錄"/);
+ assert.match(dialog,/className="cy-bot-push-dialog"/);
+ assert.match(page,/className="cy-bot-settings-dialog"/);
+ assert.match(css,/\.cy-dialog\.cy-bot-push-dialog \.cy-dialog-surface\{width:min\(414px/);
+ assert.match(css,/\.cy-dialog\.cy-bot-settings-dialog \.cy-dialog-surface\{width:min\(720px/);
+ assert.match(css,/\.cy-bot-credential-table\{min-width:680px\}/);
+});

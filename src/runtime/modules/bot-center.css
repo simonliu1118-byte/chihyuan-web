@@ -23,9 +23,13 @@
 .cy-bot-timeline-group::before{content:"";position:absolute;left:-5px;top:11px;width:9px;height:9px;border-radius:50%;background:var(--cy-accent);box-shadow:0 0 0 3px var(--cy-surface)}
 .cy-bot-timeline time{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
 .cy-bot-timeline-events{padding:0;margin:0;list-style:none;display:grid;gap:5px;min-width:0}
-.cy-bot-timeline-events>li{display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 10px;min-width:0;overflow-wrap:anywhere}
+.cy-bot-timeline-events>li{min-width:0}
+.cy-bot-timeline-event-row{display:grid;grid-template-columns:max-content minmax(0,1fr) auto;align-items:start;gap:8px;min-width:0}
 .cy-bot-timeline-bot{white-space:nowrap}
-.cy-bot-timeline-detail{flex:1;min-width:min(12em,100%);overflow-wrap:anywhere}
+.cy-bot-timeline-preview{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cy-bot-timeline-preview.is-expanded{white-space:pre-wrap;overflow:visible;overflow-wrap:anywhere}
+.cy-bot-timeline-toggle{width:22px;height:22px}
+.cy-bot-timeline-toggle .cy-icon{width:16px;height:16px}
 .cy-bot-review-title{display:flex;align-items:baseline;gap:3px;overflow-wrap:anywhere}
 .cy-bot-review-title>strong{min-width:0}
 .cy-bot-review-title>button{flex-shrink:0}
@@ -46,7 +50,11 @@
 .cy-bot-settings h3{margin:0}
 .cy-bot-settings-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .cy-bot-settings-actions{justify-content:center;flex-wrap:nowrap}
-.cy-bot-credential-table{min-width:850px}
+.cy-dialog.cy-bot-push-dialog .cy-dialog-surface{width:min(414px,calc(100vw - 20px))}
+.cy-dialog.cy-bot-settings-dialog .cy-dialog-surface{width:min(720px,calc(100vw - 20px))}
+.cy-bot-credential-table{min-width:680px}
+.cy-bot-credential-table .cy-op-button.compact{padding-inline:6px}
+.cy-bot-credential-table .cy-bot-settings-actions{gap:4px}
 .cy-bot-form-table{table-layout:fixed;width:100%}
 .cy-bot-form-table th[scope="row"]{width:10em;white-space:nowrap;text-align:left;vertical-align:middle}
 .cy-bot-form-table td{min-width:0}

@@ -5,9 +5,11 @@
 
 ## 目前狀態（2026-11-08）
 
-- **受控 GitHub 發布分支恢復（治理 1.1.29，2026-11-08）**：準備恢復 `deploy/cyweb-development` 的指定 push 入口，僅允許最新 main 完整 SHA；保留 main 手動 dispatch、正式部署鎖及現有健康檢查。正式上線驗證與 Chat Connector 的 `update_ref` 觸發實測見 [handoff](docs/handoff/CYWEB-CHAT-DEPLOY-20261108.md)；不另建 Worker／D1／Secrets，不修改產品 VERSION／BUILD。
+- **V0.12.6 Build 0（BOT 時間軸／卡片／視窗調整，待 PR 與 CI）**：每件完成事件預設單行，超出才展開；Threads 摘要卡只顯示最新標題；推播設定視窗縮至約 414px、BOT 設定縮至約 720px。純前端，無 D1／Worker／憑證異動；待 PR CI、Claude 審查、桌機／手機驗收和使用者正式部署授權。[handoff](docs/handoff/CYWEB-BOT-CENTER-COMPACT-0126-20261108.md)。
 
-- **V0.12.5 Build 0（PR #453 已合併、正式部署待觸發）**：BOT 管理中心頂部精簡為純狀態 pills 與五筆時間軸，同分鐘共用一個時間點，完整時間軸改 Modal；推播設定與新增 BOT 改共用左表頭／右輸入 EntryTable，啟停移至原 BOT 設定表格操作。保留原 Grok webhook 設定和小編 CYWEB 憑證。CI 718/718 通過、main 合併 SHA `8cbd17da`；待 `main` 手動 workflow_dispatch 正式發行、Claude 事後審查及桌機／手機驗收。[handoff](docs/handoff/CYWEB-BOT-CENTER-UI-0125-20261108.md)。
+- **受控 GitHub 發布分支恢復（治理 1.1.29，2026-11-08）**：已恢復 `deploy/cyweb-development` 的指定 push 入口，僅允許最新 main 完整 SHA；保留 main 手動 dispatch、正式部署鎖及現有健康檢查。GitHub [Run #42415082976](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42415082976) 的 source/deploy jobs 成功；網站即時健康仍需獨立讀回。Chat Connector 的 `update_ref` 觸發實測見 [handoff](docs/handoff/CYWEB-CHAT-DEPLOY-20261108.md)；不另建 Worker／D1／Secrets，不修改產品 VERSION／BUILD。
+
+- **V0.12.5 Build 0（PR #453 已合併，Run #42415082976 發布 job 成功）**：BOT 管理中心頂部精簡為純狀態 pills 與五筆時間軸，同分鐘共用一個時間點，完整時間軸改 Modal；推播設定與新增 BOT 改共用左表頭／右輸入 EntryTable，啟停移至原 BOT 設定表格操作。保留原 Grok webhook 設定和小編 CYWEB 憑證。CI 718/718 通過、main 合併 SHA `8cbd17da`；push 發布工作已執行成功（來源 `427f8d82`）；待網站即時健康回讀、Claude 事後審查及桌機／手機驗收。[handoff](docs/handoff/CYWEB-BOT-CENTER-UI-0125-20261108.md)。
 
 - **V0.12.4 Build 1 已正式部署（PR #449）**：[發布 #42401625125](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42401625125)成功，遠端D1已套用0058，canonical／workers.dev健康version=0.12.4、consumer=1.0.5、database=ok、source一致；正式source=`90100f726a999ce3ad24c63b752178df6899bc8d`，BUILD=1由source核對。已建立獨立推播加密主金鑰，未讀取／輪換小編原CYWEB憑證。Grok完整URL／key仍須使用者在WEB安全輸入；Claude事後複審、UI與真實Grok端到端待辦。[handoff](docs/handoff/CYWEB-BOT-REVIEW-PUSH-0124-20261108.md)。
 - [ ] V0.12.4 Build 1：Claude審查、UI／窄螢幕驗收、使用者在WEB安全輸入小編POST to／key、更新Grok共用技能／既有routine、合成稿通過及退回各一次實機驗證。小編原CYWEB憑證及收據保持不變。

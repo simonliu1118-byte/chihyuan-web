@@ -11,7 +11,7 @@ export function BotPushSettingsDialog({label,configured,enabled,onSave,onClose}:
  async function save(event:FormEvent){event.preventDefault();if(saving.current)return;saving.current=true;setBusy(true);setError(null);
   try{await onSave({url,key:secret,enabled})}catch(e){setError(e instanceof ApiClientError?e.message:'推播設定暫時無法儲存')}finally{saving.current=false;setBusy(false)}
  }
- return <Dialog open title={label+'推播設定'} size="medium" dismissible={false} showCloseButton={false} onClose={onClose}
+ return <Dialog open title={label+'推播設定'} size="medium" className="cy-bot-push-dialog" dismissible={false} showCloseButton={false} onClose={onClose}
   footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={onClose}>取消</button><button type="submit" form="cy-bot-push-form" className="cy-op-button primary" disabled={busy}>儲存</button></div>}>
   <form id="cy-bot-push-form" onKeyDown={enterAdvancesFields} onSubmit={event=>void save(event)}>
    {error?<p role="alert">{error}</p>:null}
