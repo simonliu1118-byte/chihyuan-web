@@ -15,7 +15,7 @@
 
 - 純前端與文件修改，不接觸正式 D1、Worker、Identity、BOT machine token、Grok Webhook、加密主金鑰、排程、推播 outbox 或真實工作資料；沒有搬移資料或新增 API 查詢。
 - 展開文字只控制瀏覽器畫面，不影響先前審稿結果與發文狀態。無論是否展開，資料仍依既有角色／模組授權載入。
-- GitHub PR CI：**待執行／回填**。沒有取得成功證據前不可宣稱通過。
+- GitHub PR #456 初版 source `88ea050a9a9222c0efc296ef9717dee6ea0a0430`：Runtime Check [#42467427307](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42467427307) **success**（完整 Node 測試、TypeScript、source-contracts、Vite build 等成功）；Governance Check [#42467427394](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42467427394) **success**；部署契約 [#42467427405](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42467427405) **success**（PR 的 deploy-development 為 skipped，並非正式部署）。此純文件補記後，新 head CI 需再核對。
 - Claude 最終審查：**待辦**（需對照此 handoff、PR diff、CI 結果）。
 - 桌機、手機實際畫面驗收：**待辦**，尤其 BOT 設定操作按鈕與推播設定長欄位的窄寬表現。
 - 使用者本次未授權合併或正式部署；需明確取得批准，按受控 GitHub workflow 執行。正式站維持既有版本。
