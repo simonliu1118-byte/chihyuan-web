@@ -13,7 +13,7 @@ const stubs = {
   "react": ["useState", "useRef", "useEffect", "useMemo"].map(name =>
     `export const ${name}=(...args)=>globalThis.orderingPageHost.${name}(...args);`).join("\n")+"\nexport const useContext=()=>true; export const useId=()=>\"ordering-test-picker\";",
   "../../api/client": `export class ApiClientError extends Error{}; export const apiRequest=(...args)=>globalThis.orderingPageTransport(...args);`,
-  "../../ui/layout/MasterDetail": `export const MasterDetailBack=()=>null,MasterDetailEmpty=()=>null; export const useMasterDetailPane=()=>({className:'',open(){},close(){}});`,
+  "../../ui/layout/MasterDetail": `export const MasterDetailBack=()=>null,MasterDetailEmpty=()=>null; export const useMasterDetailPane=()=>({pane:globalThis.orderingPageMobilePane??'list',open(){globalThis.orderingPageMobilePane='detail'},close(){globalThis.orderingPageMobilePane='list'}});`,
   "../../ui/overlays/useConfirmation": `export const useConfirmation=()=>({confirm:options=>globalThis.orderingPageConfirm(options),confirmationDialog:null});`,
   "../../ui/feedback/FeedbackProvider": `import {useState} from 'react'; export const FeedbackBanner=()=>null; export function useFeedbackMessage(){const [message,setMessage]=useState(null);return [message,setMessage,value=>{globalThis.orderingPageErrors.push(value);setMessage(value)},'neutral'];}`,
   "../../ui/OrderingGrid": `export function OrderingGrid(){return null}`,
@@ -23,7 +23,7 @@ const stubs = {
   "../../ui/overlays/SidePanel": `export function SidePanel(){return null}`,
   "./RestockAssist": `export function RestockAssist(){return null}`,
   "./useErpJob": `export const ErpPageVisibleContext={}; export function useErpJob(){return {result:null,busy:false}}; export const recentJobs=async()=>[]; export const runningStatus=s=>s==="QUEUED"||s==="RUNNING"`,
-  "../../ui/foundation/useCompactLayout": `export const useCompactLayout=()=>false;`,
+  "../../ui/foundation/useCompactLayout": `export const useCompactLayout=()=>Boolean(globalThis.orderingPageCompact);`,
   "../../ui/foundation/useUnsavedChangesGuard": `export const useUnsavedChangesGuard=options=>{globalThis.orderingPageGuard=options};`,
 };
 for (const [path, names] of [
@@ -52,7 +52,8 @@ const order = sourceId => ({ id: sourceId * 10, sourceId, sourceName: sources[so
   sentAt: null, lines: [], receipts: [], revisions: [] });
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
 let activeHost;
-function mount(transport, pageProps={}) {
+function mount(transport, pageProps={}, phone=false) {
+  globalThis.orderingPageCompact=phone;globalThis.orderingPageMobilePane="list";
   const slots = [], calls = [], confirmations = []; let cursor, dirty = true, tree, effects = [];
   globalThis.orderingPageTransport = async (url, options) => {
     const path = url.replace("/api/business/ordering", ""); calls.push({ path, ...options });
@@ -97,7 +98,7 @@ function mount(transport, pageProps={}) {
 }
 test.afterEach(() => {
   activeHost?.dispose(); activeHost = null;
-  for (const key of ["orderingPageHost", "orderingPageTransport", "orderingPageConfirm", "orderingPageErrors", "orderingPageGuard","window"]) delete globalThis[key];
+  for (const key of ["orderingPageHost", "orderingPageTransport", "orderingPageConfirm", "orderingPageErrors", "orderingPageGuard","window","orderingPageCompact","orderingPageMobilePane"]) delete globalThis[key];
 });
 const normalTransport = (path, options) => path.startsWith("/orders?sourceId=") ? [order(Number(new URLSearchParams(path.split("?")[1]).get("sourceId")))] :
   path === "/orders" && options.method === "POST" ? order(options.json.sourceId) : order(Number(path.split("/")[2]) / 10);
@@ -390,4 +391,58 @@ test("from 未到貨 a source tab switches at once and shows Loading while its d
  assert.deepEqual(page.selectedTabs.map(t=>t.trim()),["測試來源甲"]);
  assert.ok(page.nodes.some(n=>n.type?.name==="Loading"),"Loading is shown");
  slow.resolve(order(1));await page.tick();assert.ok(page.grid);
+});
+
+test("phone launches with desktop-equivalent sent-only history and direct pending, never vendor tabs",async()=>{
+ const page=mount(normalTransport,{},true);await page.tick();
+ const nav=()=>page.nodes.find(n=>n.type==="nav"&&n.props?.["aria-label"]==="手機叫貨功能");
+ const buttons=()=>descendants(nav()).filter(n=>n.type==="button");
+ assert.deepEqual(buttons().map(n=>text(n).trim()),["叫貨清單","未到貨","草稿"]);
+ assert.equal(buttons()[0].props["aria-current"],"page");
+ assert.equal(page.nodes.some(n=>n.props?.["aria-label"]==="叫貨清單"),true);
+ assert.equal(page.calls.some(c=>c.path==="/orders?status=DRAFT"),false);
+ assert.equal(page.nodes.some(n=>n.props?.className==="cy-ordering-tabbar"),false,"phone does not render desktop source tabs");
+ page.click("未到貨 ");await page.tick();
+ assert.equal(buttons()[1].props["aria-current"],"page");
+ assert.ok(page.nodes.some(n=>n.type==="h2"&&text(n)==="未到貨明細"));
+ assert.equal(page.nodes.some(n=>n.props?.className==="cy-ordering-tabbar"),false);
+ assert.equal(page.nodes.some(n=>n.type?.name==="MasterDetailBack"),false,"direct pending needs no back to list");
+ page.click("叫貨清單");await page.tick();
+ assert.equal(buttons()[0].props["aria-current"],"page");
+});
+
+test("phone draft tab lists company sources and ordered vendors, opens the original editor without scanning every draft",async()=>{
+ const page=mount(normalTransport,{},true);await page.tick();
+ const originalQueries=page.calls.length;
+ page.click("草稿");await page.tick();
+ const groupLabels=page.nodes.filter(n=>n.type==="section"&&String(n.props?.className)==="cy-ordering-mobile-source-group").map(n=>n.props["aria-label"]);
+ assert.deepEqual(groupLabels,["公司內部來源","廠商來源"]);
+ assert.ok(page.nodes.some(n=>n.type==="button"&&text(n)==="測試來源甲開啟 ›"));
+ assert.ok(page.nodes.some(n=>n.type==="button"&&text(n).includes("永全")));
+ assert.equal(page.calls.length,originalQueries,"switching to source choices does not query all drafts");
+ const vendor=page.nodes.find(n=>n.type==="button"&&text(n).includes("永全"));
+ vendor.props.onClick();await page.tick();
+ assert.ok(page.calls.some(c=>c.path==="/drafts/open?sourceId=3"));
+ assert.equal(page.grid?.readOnly,false);
+ assert.equal(page.nodes.some(n=>n.props?.className==="cy-ordering-tabbar"),false);
+ const draftTab=page.nodes.find(n=>n.type==="nav"&&n.props?.["aria-label"]==="手機叫貨功能");
+ assert.equal(descendants(draftTab).filter(n=>n.type==="button").at(-1).props["aria-current"],"page");
+ page.click("叫貨清單");await page.tick();
+ assert.equal(globalThis.orderingPageMobilePane,"list");
+});
+
+test("phone history detail filters are collapsed; desktop still renders original controls",async()=>{
+ const phone=mount(normalTransport,{},true);await phone.tick();
+ let advanced=phone.nodes.find(n=>n.props?.className==="cy-ordering-history-advanced");
+ assert.equal(advanced.props.hidden,true);
+ phone.click("篩選");await phone.tick();
+ advanced=phone.nodes.find(n=>n.props?.className==="cy-ordering-history-advanced");
+ assert.equal(advanced.props.hidden,false);
+ const labels=descendants(advanced).filter(n=>n.props?.label).map(n=>n.props.label);
+ assert.ok(labels.includes("叫貨狀態"));
+ phone.dispose();
+ const desktop=mount(normalTransport);await desktop.tick();
+ advanced=desktop.nodes.find(n=>n.props?.className==="cy-ordering-history-advanced");
+ assert.equal(advanced.props.hidden,false);
+ assert.ok(desktop.nodes.some(n=>n.props?.className==="cy-ordering-tabbar"));
 });

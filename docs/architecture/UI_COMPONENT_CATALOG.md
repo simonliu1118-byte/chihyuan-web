@@ -110,3 +110,9 @@ V0.12.6：BOT 時間軸單行省略／內容溢出時用共用 `ExpandToggle`；
 - 手機 ThemeToggle 無框日月一鍵切換，原 ThemePreference 為唯一設定 owner；只有 `cy-shell-navigation-drawer` 使用 264px 寬。
 - ERP 查詢的桌機與手機共用唯一 `cy-op-tabs` + kept-mounted panel，手機 CSS 左右捲動，不新增 mobile select 或不同查詢 state。原 ERP 管理視窗以帶狀態點的小 pill 開啟。
 - 手機叫貨預設可見草稿清單（`GET /orders?status=DRAFT`），與未到貨、叫貨紀錄共用唯一 `OrderingPage`／`useMasterDetailPane` 和 `prepareSwitch`。Grid 只增加 data-label / data-col，手機以範圍限定 CSS 卡片排版，不新增第二編輯器。其他共用 Grid 的桌機與門市畫面不變。
+
+## V0.12.7 Build 1 — 手機叫貨導覽更正
+
+- OrderingPage 手機 820px 以下固定三個上方頁籤「叫貨清單／未到貨／草稿」。桌機仍保留原左清單＋右來源 tabs 與表格；兩者共用 `OrderingGrid`、`MasterDetail`、`prepareSwitch`。
+- 手機清單共用原歷史搜尋／未結案／狀態／來源／日期 filter owner，只將進階篩選收起；桌機篩選容器 `display:contents`。
+- 手機未到貨直接進原到貨明細區；草稿頁以既有 `sources`／`orderedVendors` 建來源與廠商列表，選擇後使用原 `drafts/open`。不新增 worker query、手機專用編輯器或獨立持久狀態。

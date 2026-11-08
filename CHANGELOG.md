@@ -6,6 +6,15 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.12.7 Build 1 — 手機叫貨導覽修正（2026-11-08，尚未發布）
+
+- 僅手機（820px 以下）改為「**叫貨清單／未到貨／草稿**」三個主要頁籤，進入模組預設「叫貨清單」，其 `history=1` 沿用既有正式 API、包含結案與未結案、絕不包含草稿。
+- 「未到貨」直接呈現原 `GET /pending` 的單一明細清單及叫貨單收合分組，不再顯示來源／廠商切換列；登記到貨、結掉維持原操作。
+- 「草稿」先列既有啟用的公司來源與廠商列表，點選後使用同一 `GET /drafts/open?sourceId=` 與原草稿編輯器；保留同來源多張草稿及新草稿功能。不再為手機額外請求 `GET /orders?status=DRAFT` 全量清單。
+- 叫貨清單手機搜尋常駐、詳細來源／狀態／日期篩選可展開；桌機的雙欄、清單欄位、完整篩選器、原來源／廠商頁籤原樣保留。所有畫面仍共用 `OrderingPage`、`OrderingGrid` 及未儲存切換保護。
+- 手機單據「匯出 Excel」改成「分享 Excel」，使用原生檔案分享（iPhone Safari 分享選單，含 LINE／AirDrop／檔案等可用目標）；瀏覽器沒有檔案分享能力、或分享失敗時備援下載相同 XLSX。取消分享不觸發下載。草稿剛有修改時，在同一次點擊內由系統自動完成儲存，再嘗試開啟原生分享；若 Safari 因背景儲存失去分享權限，就下載最新 XLSX 作為備援，不要求固定點第二次。按鈕始終顯示「分享 Excel」；桌機原 Blob/下載連結流程及 Excel 內容/命名不變。
+- **本次獲使用者明確授權合併及部署此手機版 PR**；無 Worker、API、CYID、D1 變動，Claude 複審與手機、桌機實機驗收待完成。[handoff](docs/handoff/CYWEB-MOBILE-ORDERING-NAV-0127B1-20261108.md)。
+
 ## CY Web V0.12.7 Build 0 — 獨立手機版調整（2026-11-08，首頁功能不在本次）
 
 - 手機模組側欄縮到 264px；頂部深淺切換改無框日月符號、收斂頂欄間距。桌機原操作方式維持。

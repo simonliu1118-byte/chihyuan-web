@@ -34,23 +34,40 @@ test("ERP category tabs are shared with desktop and preserve mounted panels",()=
  assert.doesNotMatch(erp,/<select className="cy-op-input cy-erp-category"/);
  assert.match(css,/overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x/);
 });
-test("phone ordering has actual saved draft listing with clear entry points",()=>{
- assert.match(ordering,/mobileListMode/);
- assert.match(ordering,/\/orders\?status=DRAFT/);
- assert.match(ordering,/pane.pane!=="list"\|\|mobileListMode!=="drafts"/);
+test("phone ordering opens sent list first and routes pending directly, while drafts select sources",()=>{
+ assert.match(ordering,/useState<"drafts"\|"history">\("history"\)/);
+ assert.match(ordering,/listQuery=useRef\("history=1"\)/);
  assert.match(ordering,/aria-label="手機叫貨功能"/);
- assert.match(ordering,/>草稿<\/button>/);
- assert.match(ordering,/>叫貨紀錄<\/button>/);
- assert.match(ordering,/搜尋叫貨草稿/);
- assert.match(ordering,/void reloadOrder\(d.id\)/);
- assert.match(ordering,/void chooseNewSource\(\)/);
+ assert.ok(ordering.indexOf('>叫貨清單</button>')<ordering.indexOf('>未到貨 {pending.length}</button>'));
+ assert.ok(ordering.indexOf('>未到貨 {pending.length}</button>')<ordering.indexOf('>草稿</button>'));
+ assert.match(ordering,/mobileGeneralSources=active\.filter/);
+ assert.match(ordering,/mobileVendors=orderedVendors\.filter/);
+ assert.match(ordering,/onClick=\{\(\)=>void selectSource\(item\)\}/);
+ assert.match(ordering,/onClick=\{\(\)=>void chooseVendor\(item\.id\)\}/);
+ assert.match(ordering,/搜尋叫貨來源或廠商/);
+ assert.doesNotMatch(ordering,/\/orders\?status=DRAFT/);
+ assert.match(ordering,/!compact\?<div className="cy-ordering-tabbar">/);
+ assert.match(css,/\.cy-ordering-page \.cy-ordering-vendor-picker\{display:none\}/);
 });
-test("draft navigation and back use the existing unsaved guard",()=>{
+test("phone history filters collapse without changing desktop filter owners",()=>{
+ assert.match(ordering,/cy-ordering-history-advanced" hidden=\{compact&&!mobileHistoryFiltersOpen\}/);
+ assert.match(ordering,/aria-expanded=\{mobileHistoryFiltersOpen\}/);
+ assert.match(ordering,/<OpenOnlyToggle value=\{openOnly\}/);
+ assert.match(ordering,/<StatusFilter label="叫貨狀態"/);
+ assert.match(ordering,/<OrderingSourcePicker sources=\{sources\}/);
+ assert.match(ordering,/aria-label="起日"/);
+ assert.match(ordering,/aria-label="迄日"/);
+ assert.match(css,/\.cy-ordering-page \.cy-ordering-history-advanced\{display:contents\}/);
+ assert.match(css,/\.cy-ordering-page \.cy-ordering-history-advanced\[hidden\]\{display:none\}/);
+});
+test("all mobile destinations retain original page authority and unsaved guard",()=>{
  assert.match(ordering,/async function showMobileList\(mode:"drafts"\|"history"\)\{\s*if\(!await prepareSwitch\(\)\)return/);
  assert.match(ordering,/async function backToMobileList\(\)\{\s*if\(!await prepareSwitch\(\)\)return/);
- assert.match(ordering,/async function chooseNewSource\(\)\{\s*if\(!await prepareSwitch\(\)\)return/);
- assert.match(ordering,/async function openDraft\(sourceId:number\)/);
+ assert.match(ordering,/async function openDraft\(sourceId:number\)\{\s*if\(!await prepareSwitch\(\)\)return/);
+ assert.match(ordering,/async function showPending\(\)\{if\(!await prepareSwitch\(\)\)return/);
+ assert.match(ordering,/pendingOrders\(pending\)\.map/);
  assert.match(ordering,/useUnsavedChangesGuard/);
+ assert.match(ordering,/<OrderingGrid kind=\{current.sourceKind\}/);
 });
 test("ordering keeps one grid renderer; phone labels allow readable cards",()=>{
  assert.match(grid,/data-label=\{title\} data-col=\{field\}/);
