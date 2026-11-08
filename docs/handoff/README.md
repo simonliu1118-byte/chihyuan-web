@@ -11,6 +11,9 @@
 
 ## 目前待 Claude 審查
 
+- [V0.12.7 首頁、公告通知、個人待辦及鈴鐺](CYWEB-HOME-HUB-0127-20261108.md)：2026-11-08 使用者指定的獨立工作分支；Claude 最終複審與 CI 待完成，本次嚴禁合併、部署。
+
+
 - [V0.12.6 Build 0 BOT 時間軸單行與視窗寬度](CYWEB-BOT-CENTER-COMPACT-0126-20261108.md)：2026-11-08 使用者指定四項 UI 精簡；僅更新前端與文件，CI、Claude 審查及實機驗收待辦，不自動合併／部署。
 
 - [CYWEB Chat 部署入口恢復](CYWEB-CHAT-DEPLOY-20261108.md)：恢復受控發布分支 `deploy/cyweb-development`；保留 main dispatch、SHA 與既有部署安全驗證，GitHub Connector `update_ref` 觸發實測與正式部署結果需以實際 Action Run 為準。

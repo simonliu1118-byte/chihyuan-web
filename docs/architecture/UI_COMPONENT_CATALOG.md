@@ -104,3 +104,10 @@
 頁首工作狀態與逐 BOT 身份用共用 `StatusChip` 呈現（不可作篩選）；五筆時間軸用既有共用 `Dialog` 顯示全部，時間點依台灣同分鐘合併一個藍點。底部 `cy-op-table` 是 BOT 列表及啟停按鈕；推播設定／新增 BOT 均使用 `Dialog` 包住單一 `EntryTable` 與 `EntryHeading`／`Field presentation="cell"`（左表頭、右輸入），不用一般 `FormSection` 表單取代。相關 UI 與權限參見 [BOT_CENTER.md](BOT_CENTER.md)。
 
 V0.12.6：BOT 時間軸單行省略／內容溢出時用共用 `ExpandToggle`；Threads 巡視回報卡只顯示最新事項標題。推播設定／BOT 設定視窗分別為 414px／720px 的專屬寬度，不影響其他共用 Dialog。
+
+## V0.12.7 首頁與提醒
+
+- HomePage 使用共用 panel 與 token，僅負責導覽、摘要，新增待辦前往 my-todos 正式頁，不開快捷窗。
+- MyTodosPage 使用共用 Field、SegmentedControl、確認與未存 guard。
+- AnnouncementsPage 是一個模組的兩個固定頁籤，各自發送權限與表單；沿用 Field、CheckField、ExpandToggle。
+- NotificationBell 小浮窗先五筆，每次載入十筆，只連結到原頁；新增 bell 圖示集中於共用 Icons。

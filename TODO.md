@@ -5,6 +5,9 @@
 
 ## 目前狀態（2026-11-08）
 
+- [ ] V0.12.7 Build 0 首頁／公告通知／個人待辦／鈴鐺，開發 PR 與 Claude 複審待辦，未合併未部署。D1 0059 尚未套用，正式站不變。[規格](docs/architecture/HOME_HUB.md)／[handoff](docs/handoff/CYWEB-HOME-HUB-0127-20261108.md)。
+
+
 - **V0.12.6 Build 0（BOT 時間軸／卡片／視窗調整，待 PR 與 CI）**：每件完成事件預設單行，超出才展開；Threads 摘要卡只顯示最新標題；推播設定視窗縮至約 414px、BOT 設定縮至約 720px。純前端，無 D1／Worker／憑證異動；待 PR CI、Claude 審查、桌機／手機驗收和使用者正式部署授權。[handoff](docs/handoff/CYWEB-BOT-CENTER-COMPACT-0126-20261108.md)。
 
 - **受控 GitHub 發布分支恢復（治理 1.1.29，2026-11-08）**：已恢復 `deploy/cyweb-development` 的指定 push 入口，僅允許最新 main 完整 SHA；保留 main 手動 dispatch、正式部署鎖及現有健康檢查。GitHub [Run #42415082976](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42415082976) 的 source/deploy jobs 成功；網站即時健康仍需獨立讀回。Chat Connector 的 `update_ref` 觸發實測見 [handoff](docs/handoff/CYWEB-CHAT-DEPLOY-20261108.md)；不另建 Worker／D1／Secrets，不修改產品 VERSION／BUILD。

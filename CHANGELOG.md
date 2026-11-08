@@ -6,6 +6,15 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.12.7 Build 0 — 首頁、公告通知、個人待辦與鈴鐺（2026-11-08，待 Claude 複審，未部署）
+
+- 登入預設開啟首頁，桌機／手機左上 CY 返回首頁；書籤仍直達原模組，路由更換沿用既有未儲存確認。
+- 首頁顯示個人待辦、可用模組捷徑及兩張獨立的公司公告、個人通知卡片；新增待辦跳至正式待辦頁新增，不開快捷視窗。
+- 公告與通知單一導覽、兩個固定頁籤，共用 Worker/D1 後端；獨立公告發布、個人通知發送權限。個人通知一至五十位指定收件人，不做聊天室或回覆。
+- 個人待辦對所有 CYWEB 使用者開放，入口在帳號選單，左側不增加待辦目錄；所有資料按登入身分隔離，選填期限與優先順序、完成／刪除／歷史。
+- 右上鈴鐺整合逾期／今日待辦、未讀個人通知與未讀公告，先五筆再每次多十筆、優先排序、完整計數、固定捲動高度，只連到正式頁面。
+- 新增 forward D1 migration 0059_home_hub、正式可攜備份欄位及測試。正式站與 D1 不變更，未經使用者後續授權不得合併部署。[規格](docs/architecture/HOME_HUB.md)／[handoff](docs/handoff/CYWEB-HOME-HUB-0127-20261108.md)。
+
 ## CY Web V0.12.6 Build 0 — BOT 完成時間軸單行收合與視窗精簡（2026-11-08，待 PR／CI／審查）
 
 - 今日完成時間軸（首頁五筆與「查看全部」）每筆預設單行省略；實際文字超出時才顯示共用 ExpandToggle，小箭頭展開全文或收合。保留相同分鐘共用時間點、事件原順序與分頁讀取。
