@@ -649,8 +649,8 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
           quantities:Object.fromEntries(group.lines.map(l=>[l.lineId,String(l.remaining)])),selectedLineIds:group.lines.map(l=>l.lineId)})})}>登記到貨</button>
         </div>
         {open?<table className="cy-op-table cy-ordering-pending-table"><thead><tr><th>品號</th><th>品名</th><th>叫貨</th><th>已到</th><th>剩餘</th><th/></tr></thead><tbody>
-         {group.lines.map(l=><tr key={l.lineId}><td className="cy-mono">{l.itemCode}</td><td>{l.itemName||l.vendorItemName}</td><td>{l.quantity}{l.unit}</td><td>{l.received}</td><td><strong>{l.remaining}</strong></td>
-          <td className="cy-ordering-row-actions"><button className="cy-op-button compact quiet" type="button" onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setReceipt({id:l.orderId,no:"",date:nowDate(),quantities:{[l.lineId]:String(l.remaining)},selectedLineIds:[l.lineId]})})}>登記到貨</button>
+         {group.lines.map(l=><tr key={l.lineId}><td data-label="品號" className="cy-mono">{l.itemCode}</td><td data-label="品名">{l.itemName||l.vendorItemName}</td><td data-label="叫貨">{l.quantity}{l.unit}</td><td data-label="已到">{l.received}</td><td data-label="剩餘"><strong>{l.remaining}</strong></td>
+          <td className="cy-ordering-row-actions" data-label="操作"><button className="cy-op-button compact quiet" type="button" onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setReceipt({id:l.orderId,no:"",date:nowDate(),quantities:{[l.lineId]:String(l.remaining)},selectedLineIds:[l.lineId]})})}>登記到貨</button>
            <button type="button" className="cy-op-button compact quiet" onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setClosing({id:l.lineId,kind:"SHORTAGE",reason:""})})}>結掉</button></td></tr>)}
         </tbody></table>:null}
        </section>})}

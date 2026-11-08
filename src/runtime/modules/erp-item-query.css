@@ -468,3 +468,73 @@
   .cy-erp-agent-trigger.cy-op-button.compact{min-width:0;min-height:29px;padding:3px 8px;gap:5px;border-radius:999px;font-size:var(--cy-fs-xs);white-space:nowrap;background:var(--cy-surface-muted)}
   .cy-erp-agent-trigger .cy-status-dot{width:7px;height:7px;flex:0 0 7px}
 }
+
+/* Phone ordering navigation and saved-draft access: only presentation, existing source and order API. */
+@media(max-width:820px){
+ .cy-ordering-page{min-width:0}
+ .cy-ordering-mobile-nav{position:sticky;top:var(--cy-topbar-h);z-index:4;display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;padding:5px 0 10px;background:var(--cy-bg);margin-bottom:4px}
+ .cy-ordering-mobile-nav button{min-width:0;min-height:42px;padding:6px 3px;border:1px solid var(--cy-border);border-radius:var(--cy-radius-sm);background:var(--cy-surface);color:var(--cy-text-muted);font-size:var(--cy-fs-sm);font-weight:600;white-space:nowrap;cursor:pointer}
+ .cy-ordering-mobile-nav button.active{background:var(--cy-accent-soft);border-color:var(--cy-accent);color:var(--cy-accent)}
+ .cy-ordering-mobile-drafts{display:grid;gap:12px;padding:12px;min-width:0}
+ .cy-ordering-mobile-draft-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+ .cy-ordering-mobile-draft-heading h2{margin:0;font-size:var(--cy-fs-lg);line-height:1.3}
+ .cy-ordering-mobile-draft-heading h2 small{font-weight:400;color:var(--cy-text-muted);font-size:var(--cy-fs-xs)}
+ .cy-ordering-mobile-draft-heading .cy-op-button{flex:none;min-height:40px}
+ .cy-ordering-mobile-draft-list{display:grid;gap:8px}
+ .cy-ordering-mobile-draft-row{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:68px;padding:10px 12px;border:1px solid var(--cy-border);border-radius:var(--cy-radius-md);background:var(--cy-surface);color:var(--cy-text);text-align:left;cursor:pointer}
+ .cy-ordering-mobile-draft-row>span:first-child{display:grid;gap:4px;min-width:0}
+ .cy-ordering-mobile-draft-row strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .cy-ordering-mobile-draft-row small{color:var(--cy-text-muted);font-size:var(--cy-fs-xs);overflow-wrap:anywhere}
+ .cy-ordering-mobile-draft-pill{flex:none;padding:4px 9px;border-radius:999px;background:var(--cy-accent-soft);color:var(--cy-accent);font-size:var(--cy-fs-xs);font-weight:600}
+ .cy-ordering-tabbar{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px;margin-bottom:14px}
+ .cy-ordering-tabbar .cy-op-tabs{grid-column:1/-1;flex-basis:auto;width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:none;scroll-snap-type:x proximity}
+ .cy-ordering-tabbar .cy-op-tabs::-webkit-scrollbar{display:none}
+ .cy-ordering-tabbar .cy-op-tabs button{min-height:42px;padding:8px 12px;scroll-snap-align:start}
+ .cy-ordering-tabbar .cy-ordering-manage-source{grid-column:1;position:static;left:auto;justify-self:start;min-height:38px;padding:5px 9px;font-size:var(--cy-fs-sm)}
+ .cy-ordering-tabbar .cy-ordering-restock-trigger{grid-column:2;margin:0;justify-self:end;min-height:38px;padding:5px 9px;font-size:var(--cy-fs-sm)}
+ .cy-ordering-page .cy-record-header{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+ .cy-ordering-page .cy-record-actions{justify-content:flex-start;gap:6px}
+ .cy-ordering-page .cy-record-actions .cy-op-button{min-height:38px;padding:6px 10px;font-size:var(--cy-fs-sm)}
+ .cy-ordering-page .cy-ordering-vendor-picker{padding:10px}
+ .cy-ordering-page .cy-ordering-vendor-search{width:100%;height:40px}
+ .cy-ordering-page .cy-ordering-vendor-search input{font-size:16px}
+ .cy-ordering-page .cy-ordering-vendor-pills{flex-wrap:nowrap;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:thin;padding-bottom:4px}
+ .cy-ordering-page .cy-ordering-vendor-pills button{flex:none;height:40px}
+ .cy-ordering-page .cy-ordering-vendor-legend{flex-wrap:wrap;white-space:normal;gap:6px 10px}
+ .cy-ordering-page .cy-ordering-grid-scroll{max-width:100%;overflow:visible}
+ .cy-ordering-page .cy-ordering-grid{display:block;min-width:0;width:100%;border:0;background:transparent}
+ .cy-ordering-page .cy-ordering-grid colgroup,.cy-ordering-page .cy-ordering-grid thead{display:none}
+ .cy-ordering-page .cy-ordering-grid tbody{display:grid;gap:12px}
+ .cy-ordering-page .cy-ordering-grid tbody tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 10px;min-width:0;padding:12px;border:1px solid var(--cy-border);border-radius:var(--cy-radius-md);background:var(--cy-surface)}
+ .cy-ordering-page .cy-ordering-grid tbody tr:focus-within{background:var(--cy-surface);border-color:var(--cy-accent)}
+ .cy-ordering-page .cy-ordering-grid tbody tr>td{display:grid;align-content:start;gap:4px;min-width:0;padding:0;border:0;text-align:left;white-space:normal;color:var(--cy-text)}
+ .cy-ordering-page .cy-ordering-grid tbody tr>td::before{content:attr(data-label);font-size:var(--cy-fs-xs);font-weight:600;color:var(--cy-text-muted)}
+ .cy-ordering-page .cy-ordering-grid tbody tr>td[data-col="index"]{grid-column:1/-1;display:block;padding-bottom:6px;border-bottom:1px solid var(--cy-border);font-weight:700;color:var(--cy-text-muted)}
+ .cy-ordering-page .cy-ordering-grid tbody tr>td[data-col="index"]::before{content:"第 ";color:inherit;font-size:inherit}
+ .cy-ordering-page .cy-ordering-grid tbody tr>td[data-col="index"]::after{content:" 項"}
+ .cy-ordering-page .cy-ordering-grid tbody tr>td[data-col="itemCode"],
+ .cy-ordering-page .cy-ordering-grid tbody tr>td[data-col="itemName"],
+ .cy-ordering-page .cy-ordering-grid tbody tr>td[data-col="vendorItemName"],
+ .cy-ordering-page .cy-ordering-grid tbody tr>td[data-col="note"]{grid-column:1/-1}
+ .cy-ordering-page .cy-ordering-grid .cy-ordering-cell{height:44px;min-height:44px;padding:8px 10px;border:1px solid var(--cy-border-strong);border-radius:var(--cy-radius-sm);background:var(--cy-surface);font-size:16px;line-height:1.5}
+ .cy-ordering-page .cy-ordering-grid textarea.cy-ordering-multiline{min-height:44px;resize:vertical}
+ .cy-ordering-page .cy-ordering-grid .cy-ordering-cell-text{padding:8px 0;min-height:36px}
+ .cy-ordering-page .cy-ordering-grid tbody tr>td[data-col="actions"]{grid-column:1/-1;display:flex;align-items:center;justify-content:flex-end;border-top:1px solid var(--cy-border);padding-top:6px}
+ .cy-ordering-page .cy-ordering-grid tbody tr>td[data-col="actions"]::before{display:none}
+ .cy-ordering-page .cy-ordering-grid tbody tr>td[data-col="status"]{grid-column:1/-1}
+ .cy-ordering-page .cy-ordering-grid .cy-ordering-status-cell{text-align:left;padding:0}
+ .cy-ordering-page .cy-ordering-grid .cy-ordering-grid-actions .cy-icon-button{border-radius:var(--cy-radius-sm);background:var(--cy-surface-muted)}
+ .cy-ordering-page .cy-ordering-pending-table{display:block;min-width:0;width:100%;background:transparent}
+ .cy-ordering-page .cy-ordering-pending-table thead{display:none}
+ .cy-ordering-page .cy-ordering-pending-table tbody{display:grid;gap:6px}
+ .cy-ordering-page .cy-ordering-pending-table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px;border-top:1px solid var(--cy-border)}
+ .cy-ordering-page .cy-ordering-pending-table td{display:grid;gap:3px;min-width:0;padding:0;border:0;overflow-wrap:anywhere}
+ .cy-ordering-page .cy-ordering-pending-table td::before{content:attr(data-label);color:var(--cy-text-muted);font-size:var(--cy-fs-xs);font-weight:600}
+ .cy-ordering-page .cy-ordering-pending-table td:nth-child(1),.cy-ordering-page .cy-ordering-pending-table td:nth-child(2){grid-column:1/-1}
+ .cy-ordering-page .cy-ordering-pending-table td:last-child{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:flex-end}
+ .cy-ordering-page .cy-ordering-pending-table td:last-child::before{margin-right:auto}
+ .cy-ordering-page .cy-ordering-pending-table .cy-op-button.compact{min-height:38px;padding:6px 10px}
+ .cy-ordering-page .cy-ordering-pending-head{flex-wrap:wrap}
+ .cy-ordering-page .cy-ordering-pending-toggle{flex-wrap:wrap;row-gap:4px}
+ .cy-ordering-page .cy-ordering-pending-count{margin-left:0}
+}
