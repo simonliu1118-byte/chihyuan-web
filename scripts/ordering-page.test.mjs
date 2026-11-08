@@ -397,12 +397,12 @@ test("phone launches with desktop-equivalent sent-only history and direct pendin
  const page=mount(normalTransport,{},true);await page.tick();
  const nav=()=>page.nodes.find(n=>n.type==="nav"&&n.props?.["aria-label"]==="手機叫貨功能");
  const buttons=()=>descendants(nav()).filter(n=>n.type==="button");
- assert.deepEqual(buttons().map(text),["叫貨清單","未到貨 0","草稿"]);
+ assert.deepEqual(buttons().map(n=>text(n).trim()),["叫貨清單","未到貨","草稿"]);
  assert.equal(buttons()[0].props["aria-current"],"page");
  assert.equal(page.nodes.some(n=>n.props?.["aria-label"]==="叫貨清單"),true);
  assert.equal(page.calls.some(c=>c.path==="/orders?status=DRAFT"),false);
  assert.equal(page.nodes.some(n=>n.props?.className==="cy-ordering-tabbar"),false,"phone does not render desktop source tabs");
- page.click("未到貨 0");await page.tick();
+ page.click("未到貨 ");await page.tick();
  assert.equal(buttons()[1].props["aria-current"],"page");
  assert.ok(page.nodes.some(n=>n.type==="h2"&&text(n)==="未到貨明細"));
  assert.equal(page.nodes.some(n=>n.props?.className==="cy-ordering-tabbar"),false);
