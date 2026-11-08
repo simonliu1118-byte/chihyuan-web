@@ -154,3 +154,10 @@
 - 手機三個主要頁籤改為「**叫貨清單／未到貨／草稿**」，預設叫貨清單。清單沿用 `history=1` 的全部查詢／篩選欄位，只在手機收合進階條件。未到貨直接開右側原 `pendingOrders` 明細，不顯示第二層來源 tabs 或返回草稿標籤。
 - 手機草稿頁先顯示既有啟用公司來源與廠商列表（含搜尋、廠商個人順序、原狀態點）。點選後使用同一 `openDraft`、`OrderingGrid` 與草稿 chips，無草稿依原本建立。手機**不再預先查所有草稿**，取消原 `GET /orders?status=DRAFT` 全量請求與獨立 mobileDrafts 狀態。
 - 手機來源管理與進貨輔助放在草稿來源列表；桌機的 `cy-ordering-tabbar`、原左右雙欄及所有控制、文字與流程維持不變。CSS 修改集中於叫貨手機版斷點，篩選容器桌機 `display:contents` 維持原排版，不增設平行資料 owner。
+
+## V0.12.7 Build 1 — 手機 Excel 原生分享
+
+- 手機叫貨單按鈕為「分享 Excel」，以原本 `orderSheet`＋`buildXlsx` 產生完整 XLSX `File`，用 `navigator.canShare({files:[file]})`（若可用）與 `navigator.share({files:[file],title:file.name})` 開啟瀏覽器原生分享面板。只傳實際生成的檔案，不傳 URL 或資料庫連結；不呼叫後端新 API。
+- **成功儲存且沒有待處理編輯時**直接在同一次點擊中呼叫 `navigator.share`，不先 `await`，以保留 iOS Safari 的 user activation。未完成草稿自動儲存、正在修改已送出單或儲存失敗時，先沿用 `prepareSwitch`、未儲存提示／確認，然後要求重新點擊分享。檔案永遠以已確認儲存的資料產生，不默默夾帶未存輸入。
+- 使用者取消原生分享（`AbortError`）不顯示錯誤，也不意外下載；無 Web Share files、`canShare` 不接受或分享發生其他錯誤時，下載同名 XLSX 為備援。Safari 的 Object URL 延遲釋放。
+- **桌機保留原本的 Blob 與 `a.download`、`URL.revokeObjectURL` 下載分支**，原 Excel 的工作表格式、品項內容、檔名與權限皆不改。共用業務程式仍由 `OrderingPage` 為單一 owner。

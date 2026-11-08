@@ -2,7 +2,7 @@
 
 2026-11-08 · GPT · 分支 `cyweb/mobile-ordering-navigation-0127b1-20261108`。
 正式 main 起點 `4d59487c05d68e875e71532af0e61a1cc05efff1`（已上線 V0.12.7 Build 0）。
-**使用者指示「可以，先改吧」是修改授權，沒有合併或部署授權。** 不得快轉發布分支、修改正式 D1 或藉本次 PR 合併首頁 #457。
+**授權更新**：使用者先授權修改手機叫貨導覽，之後明確指示「手機版的匯出 excel 行為改用瀏覽器原生那個分享，可以合併部署」。因此本 PR #460 **已獲合併、部署手機版授權**，但仍須先通過新版完整 CI／發布契約，並保留 #457／#458 首頁功能未合併、D1 0059 不部署。
 
 ## 使用者確認的桌機流程
 
@@ -17,6 +17,8 @@
 - **草稿來源列表**：原先手機預設直接查 `GET /orders?status=DRAFT`，現已移除該額外查詢／refresh state，改以既有 `sources` 與 `orderedVendors` 呈現公司來源／廠商兩組，可搜尋並點入 `selectSource`、`chooseVendor`；真正草稿仍由同一 `openDraft`、`OrderingGrid` 與草稿 chips 管理。沒有新增持久狀態或另一套資料操作者。廠商狀態點沿用 `VendorDots`。
 - `src/runtime/modules/erp-item-query.css`：把手機三頁籤、來源列表、進階篩選與編輯卡片限定 `@media(max-width:820px)`。共用 `cy-ordering-history-advanced` desktop `display:contents` 保持原子控制項位置；手機才有收合與 `[hidden]`，手機的冗餘廠商橫向 tabs 隱藏。來源管理與有權使用的進貨輔助保留在手機「草稿」來源區，桌機同位置原樣保留。
 - `scripts/mobile-shell-ordering.test.mjs` 更新為新流程的靜態契約檢查，保留 ERP、外觀、Drawer 和 Grid 的既有測試；另須確認桌機原 `scripts/ordering-page.test.mjs` 完整通過。
+- **手機原生 Excel 分享（本輪追加）**：`src/runtime/modules/OrderingPage.tsx` 在 `compact` 下顯示「分享 Excel」，同一次點擊同步生成 `File` 並呼叫 `shareExcelFile`，無未儲存修改時不用等待任何 `await`；草稿若仍在自動儲存、修改已送出單或儲存失敗，先跑原 `prepareSwitch`（保留既有儲存／放棄確認），完成後提示再點一次分享，避免 iOS Safari 分享面板失去點擊權限。瀏覽器不支援檔案分享時下載同一 XLSX，取消分享不下載。手機備援 Object URL 延遲清理；**桌機保留原有 Blob/anchor 即時下載程式**，無新增業務 API。
+- `src/runtime/modules/ordering-file-share.ts`：集中 Web Share files 能力檢查、取消／失敗備援；`scripts/ordering-file-share.test.mjs`：6 項合成測試覆蓋同次點擊分享、取消、無支援能力、capability 例外、分享權限錯誤與桌機下載原樣；完整 Node suite 待 CI 檢查。
 - `BUILD=1`，版號繼續 `0.12.7`，更新 CHANGELOG、TODO、ORDERING_MODULE、UI_COMPONENT_CATALOG 及 handoff。
 
 ## 請 Claude 重點檢查
@@ -28,11 +30,12 @@
 5. **未儲存保護**：從草稿到清單、未到貨、返回及切來源，執行原 `prepareSwitch` 的 flush、確認、版本處理，失敗或取消不能靜默失去輸入。
 6. **不改後端**：無 Worker／D1 migration／CYID／權限變動，無首頁 #457/#458 內容。注意原 `GET /orders?status=DRAFT` 在手機版已移除，避免每次切頁做額外 200 筆上限的草稿查詢。
 7. **手機實機視覺**：iPhone Safari 375/390/414 px、深／淺、字級放大、手機橫向，確認導覽列不擠壓、搜尋與篩選可操作、單據卡片與到貨 Dialog 不水平外溢。
-8. CI：source contracts、desktop Node ordering、mobile Node regression、browser/Worker TypeScript、Vite build、D1 本機與 Governance／PR release contract 等檢查。**Claude 複審、實機驗收未進行，不能用 CI pass 代替。**
+8. 手機 iOS Safari 另須實機確認：正常已儲存單按一次原生分享；草稿正在自動儲存時先完成儲存再提示第二次點擊；AirDrop／LINE／儲存到檔案傳送的是 `.xlsx` 附件；取消分享不觸發下載；舊 Safari 不支援 files 時下載備援。桌機匯出仍直接下載，不出現 Share 面板。
+9. CI：source contracts、desktop Node ordering、mobile Node regression、新增原生分享測試、browser/Worker TypeScript、Vite build、D1 本機與 Governance／PR release contract 等檢查。**Claude 複審、實機驗收未進行，不能用 CI pass 代替。**
 
 ## 執行紀錄與待辦
 
 - 開發 PR：待建立、回填 CI。
 - Claude 最終複審：待辦。
 - 真實桌機、手機登入操作與視覺驗收：待辦。
-- **使用者本輪未批准合併、部署**：保留此 PR 在獨立分支；main、deploy ref 及正式 D1 均不變。
+- **使用者已批准合併、部署此手機 PR**：必須以最新 CI 成功為閘門，合併 main 後驗證來源完整 SHA，以 `force=false` 快轉原 `deploy/cyweb-development` 觸發正式部署；部署後檢查 canonical、workers.dev 的 `/api/health`、D1 不套用 0059。**首頁 #457、#458 仍禁止合併部署**。
