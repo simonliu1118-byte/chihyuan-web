@@ -24,6 +24,7 @@ import {useUnsavedChangesGuard} from "../../ui/foundation/useUnsavedChangesGuard
 import {orderSheet} from "../../../shared/ordering-export";
 import "./erp-item-query.css";
 import {buildXlsx} from "../../../shared/xlsx-writer";
+import {downloadExcelFile,shareExcelFile,supportsFileShare,XLSX_MIME} from "./ordering-file-share";
 import {parseQuantity,receiptItemSummary,type OrderingReceipt} from "../../../shared/ordering";
 import {createOrderingWriteQueue,orderingTaipeiDateTime,exportFileName,pickDraft,ORDERING_STATUS_LABELS,CN_REGULAR_SECTIONS,type OrderingOrder,type OrderingSource,type OrderingPendingLine,type OrderingListRow,type OrderingSection} from "../../../shared/ordering";
 const ROOT="/api/business/ordering";
@@ -340,12 +341,39 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
  }
  async function closeRemaining(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!selected||!closing)return;
   const value=await write("/orders/"+selected.id+"/close","POST",{lineId:closing.id,closedAs:closing.kind,reason:closing.reason});if(value)setClosing(null)}
+ function xlsxFile(order:DisplayOrder){
+  const date=order.plannedSendDate??order.sentAt?.slice(0,10)??nowDate();
+  const bytes=buildXlsx([orderSheet({sourceName:order.sourceName,sourceKind:order.sourceKind,date,note:order.note,lines:order.lines})]);
+  return new File([new Uint8Array(bytes) as BlobPart],exportFileName(order.sourceName,date),{type:XLSX_MIME});
+ }
+ function hasPendingExportEdits(){
+  return Object.values(editorStates).some(state=>state.dirty||state.saving||state.failed)
+   ||headerDirtyRef.current.date||headerDirtyRef.current.note||headerSaving>0||Boolean(revisingRef.current);
+ }
  async function exportOrder(order:DisplayOrder){
+  // iOS Safari consumes transient user activation when native sharing opens.
+  // The clean mobile path must call navigator.share directly in this click (before ANY await).
+  if(compact&&!hasPendingExportEdits()){
+   try{
+    const file=xlsxFile(cached.current.get(order.id)??order);
+    const outcome=await shareExcelFile(file,downloadExcelFile);
+    if(outcome==="downloaded")setNotice("此瀏覽器無法分享 Excel，已改為下載檔案。");
+   }catch(e){setError(errorOf(e))}
+   return;
+  }
+  // Draft/revision changes must flush and pass the existing unsaved-input guard first.
   if(!await prepareSwitch())return;order=cached.current.get(order.id)??order;
-  const fallback=order.plannedSendDate??order.sentAt?.slice(0,10)??nowDate();
-  const bytes=buildXlsx([orderSheet({sourceName:order.sourceName,sourceKind:order.sourceKind,date:fallback,note:order.note,lines:order.lines})]);
-  const blob=new Blob([new Uint8Array(bytes) as BlobPart],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
-  const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=exportFileName(order.sourceName,fallback);a.click();URL.revokeObjectURL(url);
+  try{
+   const file=xlsxFile(order);
+   if(compact){
+    if(!supportsFileShare(file)){
+     downloadExcelFile(file);setNotice("此瀏覽器無法分享 Excel，已改為下載檔案。");
+    }else setNotice("Excel 已儲存完成，請再按一次「分享 Excel」開啟手機分享選單。");
+    return;
+   }
+   // Desktop keeps the original download interaction with the same XLSX bytes and filename.
+   downloadExcelFile(file);
+  }catch(e){setError(errorOf(e))}
  }
  function startRevision(){
   if(!selected||selected.storedStatus!=="SENT")return;
@@ -499,7 +527,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
          <button type="button" className="cy-op-button primary" onClick={()=>void saveRevision()} disabled={busy}>儲存</button></>:<>
         {current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button" onClick={()=>void saveDraftNow()} disabled={busy}>儲存草稿</button>:null}
         {current.storedStatus!=="DRAFT"?<button type="button" className="cy-op-button" onClick={()=>void openDraft(current.sourceId)}>回到草稿</button>:null}
-        <button type="button" className="cy-op-button" onClick={()=>void exportOrder(current)}>匯出 Excel</button>
+        <button type="button" className="cy-op-button" onClick={()=>void exportOrder(current)}>{compact?"分享 Excel":"匯出 Excel"}</button>
         {current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button danger" onClick={()=>void deleteDraft()}>刪除</button>
          :current.storedStatus==="SENT"?<button type="button" className="cy-op-button danger" onClick={()=>void voidOrder()}>作廢</button>:null}
         {/* Only a sent order with nothing received or closed yet can be revised (user 2026-11-03). */}
