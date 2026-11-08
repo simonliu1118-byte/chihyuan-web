@@ -6,6 +6,13 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.12.7 Build 0 — 獨立手機版調整（2026-11-08，首頁功能不在本次）
+
+- 手機模組側欄縮到 264px；頂部深淺切換改無框日月符號、收斂頂欄間距。桌機原操作方式維持。
+- ERP 查詢連線狀態改小 pill，點擊仍開原管理 Dialog；手機查詢類別由下拉改共用橫滑頁籤，保留背景查詢。
+- 叫貨手機預設「草稿」清單，可直接搜尋、開啟、新增；頂部「草稿／未到貨／叫貨紀錄」三入口；手機用既有 Grid 和 data-label 組出可編輯的卡片式明細，不改保存／送出／版本控制。
+- 此版是從 **main V0.12.6** 獨立抽出的手機 UI PR，與 #457 首頁／公告／個人待辦、#458 疊加 PR 分開。**不含 D1 0059，不發佈首頁**。詳見 [handoff](docs/handoff/CYWEB-MOBILE-ONLY-0127-20261108.md)。
+
 ## CY Web V0.12.6 Build 0 — BOT 完成時間軸單行收合與視窗精簡（2026-11-08，待 PR／CI／審查）
 
 - 今日完成時間軸（首頁五筆與「查看全部」）每筆預設單行省略；實際文字超出時才顯示共用 ExpandToggle，小箭頭展開全文或收合。保留相同分鐘共用時間點、事件原順序與分頁讀取。

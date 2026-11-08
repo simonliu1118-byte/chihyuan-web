@@ -139,3 +139,11 @@
 - **重複叫貨提醒**（V0.9.78）：草稿列的品號、品名、廠商品號或廠商品名與未到貨品項相同時，該列加紅框並提示（`OrderingGrid` 的 `warnRow`）。先填廠商欄位、後填品號時，已填的廠商值不會被清掉。
 - **切換來源頁籤**（V0.9.90）：點頁籤立即切換並顯示載入中；一個請求 `GET /drafts/open?sourceId=` 同時回傳草稿清單與要顯示的草稿（原本是兩個請求）。
 - **時間量測**（V0.9.89）：每個叫貨 API 回應帶 `Server-Timing: auth;dur=…, total;dur=…`，只有時間，沒有資料。
+
+## V0.12.7 Build 1 手機草稿入口與卡片顯示
+
+- 問題原因：手機初始顯示 MasterDetail 左側紀錄清單，後端 `history=1` 排除 DRAFT；草稿及來源頁籤都位於當時隱藏的 detail 面板。
+- 手機上方改「草稿／未到貨／叫貨紀錄」三入口，預設草稿清單使用既有 `GET /orders?status=DRAFT`，只在手機草稿清單可見時取得，無背景輪詢。可搜尋、直接開原草稿、選來源新增；同來源多草稿沿用原 `GET /drafts/open?sourceId=` 與 `OrderingGrid`。
+- 切換與返回先走 `prepareSwitch`，保留既有 autosave、未存確認、version conflict、送出／刪除確認及 ERP 加入草稿流程。
+- 同一 `OrderingGrid` HTML 只增加 data-label / data-col，在 `.cy-ordering-page` 的手機 CSS 用卡片版面；桌機表格及其他共用 Grid 的顯示與行為不變。未到貨明細同理有標籤卡片。
+- 來源 tabs、廠商 tabs 可橫滑；管理來源、進貨輔助在手機版分列顯示。既有 API 最多 200 張，超量目前仍回 409，不自行增加高耗 D1 讀取。

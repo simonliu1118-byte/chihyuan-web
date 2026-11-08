@@ -5,6 +5,10 @@
 
 ## 目前狀態（2026-11-08）
 
+- [ ] **V0.12.7 Build 0 手機 UI 獨立上線**：使用者允許此版合併部署，但不含 #457 首頁、公告通知／個人待辦／鈴鐺、D1 0059。手機側欄、外觀、ERP tabs/pill、叫貨草稿與卡片。需以正式 Run／health 及 SHA 回讀為發布完成依據；Claude 事後審查與 iPhone 實機驗收待辦。[handoff](docs/handoff/CYWEB-MOBILE-ONLY-0127-20261108.md)。
+- [ ] **首頁與通知、待辦**：原 Draft #457／後續疊加 Draft #458 仍未合併、未部署，後續必須根據已上線的獨立手機變更重新整理差異與版本，不得直接合併重複內容。
+
+
 - **V0.12.6 Build 0（BOT 時間軸／卡片／視窗調整，待 PR 與 CI）**：每件完成事件預設單行，超出才展開；Threads 摘要卡只顯示最新標題；推播設定視窗縮至約 414px、BOT 設定縮至約 720px。純前端，無 D1／Worker／憑證異動；待 PR CI、Claude 審查、桌機／手機驗收和使用者正式部署授權。[handoff](docs/handoff/CYWEB-BOT-CENTER-COMPACT-0126-20261108.md)。
 
 - **受控 GitHub 發布分支恢復（治理 1.1.29，2026-11-08）**：已恢復 `deploy/cyweb-development` 的指定 push 入口，僅允許最新 main 完整 SHA；保留 main 手動 dispatch、正式部署鎖及現有健康檢查。GitHub [Run #42415082976](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42415082976) 的 source/deploy jobs 成功；網站即時健康仍需獨立讀回。Chat Connector 的 `update_ref` 觸發實測見 [handoff](docs/handoff/CYWEB-CHAT-DEPLOY-20261108.md)；不另建 Worker／D1／Secrets，不修改產品 VERSION／BUILD。

@@ -11,6 +11,9 @@
 
 ## 目前待 Claude 審查
 
+- [V0.12.7 Build 0 手機 UI 獨立發布](CYWEB-MOBILE-ONLY-0127-20261108.md)：從正式 main 獨立移植 #458 的手機修正；使用者允許只合併部署手機版，保留 #457／#458 兩張 Draft，不發佈首頁或 D1 0059；Claude 事後複審及手機實機驗收待辦。
+
+
 - [V0.12.6 Build 0 BOT 時間軸單行與視窗寬度](CYWEB-BOT-CENTER-COMPACT-0126-20261108.md)：2026-11-08 使用者指定四項 UI 精簡；僅更新前端與文件，CI、Claude 審查及實機驗收待辦，不自動合併／部署。
 
 - [CYWEB Chat 部署入口恢復](CYWEB-CHAT-DEPLOY-20261108.md)：恢復受控發布分支 `deploy/cyweb-development`；保留 main dispatch、SHA 與既有部署安全驗證，GitHub Connector `update_ref` 觸發實測與正式部署結果需以實際 Action Run 為準。

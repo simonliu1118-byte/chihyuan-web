@@ -2,6 +2,7 @@ import { DateInput } from "../../ui/forms/DateInput";
 import {OpenOnlyToggle} from "../../ui/data/OpenOnlyToggle";
 import {Field,CheckField,FormSection,RequiredRows} from "../../ui/forms/Field";
 import {useContext,useEffect,useMemo,useRef,useState,type FormEvent} from "react";
+import {useCompactLayout} from "../../ui/foundation/useCompactLayout";
 import {apiRequest,ApiClientError} from "../../api/client";
 import {MasterDetailBack,MasterDetailEmpty,useMasterDetailPane} from "../../ui/layout/MasterDetail";
 import {StatusFilter} from "../../ui/data/StatusFilter";
@@ -128,6 +129,10 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
  const vendorDragging=useRef<number|null>(null);
  const [hiddenSourcesOpen,setHiddenSourcesOpen]=useState(false);
  const pane=useMasterDetailPane(),{confirm,confirmationDialog}=useConfirmation();
+ const compact=useCompactLayout();
+ const [mobileListMode,setMobileListMode]=useState<"drafts"|"history">("drafts");
+ const [mobileDrafts,setMobileDrafts]=useState<OrderingListRow[]>([]),[mobileDraftsLoading,setMobileDraftsLoading]=useState(false),[draftRefreshKey,setDraftRefreshKey]=useState(0);
+ const [mobileDraftSearch,setMobileDraftSearch]=useState("");
  const editors=useRef(new Map<string,OrderingGridEditor>());
  const bindings=useRef(new Map<string,{onRegister:(editor:OrderingGridEditor|null)=>void;onStateChange:(state:OrderingGridState)=>void}>());
  const [editorStates,setEditorStates]=useState<Record<string,OrderingGridState>>({});
@@ -158,6 +163,18 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
   if(discard){editors.current.forEach(e=>e.discard());headerDirtyRef.current={date:false,note:false};setHeaderDirty({date:false,note:false})}
   return discard;
  }
+ async function showMobileList(mode:"drafts"|"history"){
+  if(!await prepareSwitch())return;
+  setMobileListMode(mode);pane.close();
+ }
+ async function chooseNewSource(){
+  if(!await prepareSwitch())return;
+  setMobileListMode("drafts");setSelected(null);setTab(null);setVendorAll(false);setViewPending(false);pane.open();
+ }
+ async function backToMobileList(){
+  if(!await prepareSwitch())return;
+  setMobileListMode(selected?.storedStatus==="DRAFT"||viewPending?"drafts":"history");pane.close();
+ }
  const source=sources.find(x=>x.id===tab);
  const active=sources.filter(x=>x.isActive),vendors=active.filter(x=>x.kind==="VENDOR");
  // The history list keeps the filters the user typed; drafts are never listed there.
@@ -173,6 +190,14 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
  // The page stays mounted while another module is open (so the restock job lives on); coming back
  // re-reads sources, lists and the open order, unless the user is in the middle of an edit.
  const pageVisible=useContext(ErpPageVisibleContext),wasVisible=useRef(pageVisible);
+ // Phone-only draft list reuses the existing bounded ordering list API. No background polling.
+ useEffect(()=>{
+  if(!compact||!pageVisible||pane.pane!=="list"||mobileListMode!=="drafts")return;
+  let live=true;setMobileDraftsLoading(true);
+  void call<OrderingListRow[]>("/orders?status=DRAFT").then(rows=>{if(live)setMobileDrafts(rows)})
+   .catch(e=>{if(live)setError(errorOf(e))}).finally(()=>{if(live)setMobileDraftsLoading(false)});
+  return()=>{live=false};
+ },[compact,pageVisible,pane.pane,mobileListMode,draftRefreshKey]);
  useEffect(()=>{
   const back=pageVisible&&!wasVisible.current;wasVisible.current=pageVisible;if(!back)return;
   void refresh().then(refreshLists).catch(e=>setError(errorOf(e)));
@@ -188,7 +213,11 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
  const showOrder=(x:DisplayOrder)=>{setSelected(x);if(revisingRef.current?.orderId!==x.id)setRevising(null);setHeaderDirty({date:false,note:false});setHeaderSaveFailed(false);headerDirtyRef.current={date:false,note:false};return x};
  async function reloadOrder(id:number){if(!await prepareSwitch())return;const sequence=++loadSequence.current;setBusy(true);
   try{const x=remember(await call<DisplayOrder>("/orders/"+id));if(sequence!==loadSequence.current)return;
-   setViewPending(false);setVendorMode(x.sourceId,x.sourceKind==="VENDOR");pane.open();return showOrder(x);
+   if(x.storedStatus==="DRAFT"){
+    const siblings=await call<OrderingListRow[]>("/orders?sourceId="+x.sourceId+"&status=DRAFT");
+    if(sequence!==loadSequence.current)return;setDrafts(siblings);
+   }
+   setTab(x.sourceId);setViewPending(false);setVendorMode(x.sourceId,x.sourceKind==="VENDOR");pane.open();return showOrder(x);
   }finally{if(sequence===loadSequence.current)setBusy(false)}}
  async function openDraft(sourceId:number){
   if(!await prepareSwitch())return;
@@ -202,7 +231,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
    const chosen=open.order;
    const x=chosen??await call<DisplayOrder>("/orders","POST",{sourceId});
    if(sequence!==loadSequence.current)return;showOrder(remember(x));
-   if(!chosen)setDrafts([{...x}]);setViewPending(false);pane.open();
+   if(!chosen){setDrafts([{...x}]);setDraftRefreshKey(n=>n+1)}setViewPending(false);pane.open();
   }catch(e){if(sequence===loadSequence.current)setError(errorOf(e))}finally{if(sequence===loadSequence.current)setBusy(false)}
  }
  async function selectSource(s:OrderingSource){await openDraft(s.id)}
@@ -210,7 +239,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
   if(!await prepareSwitch())return;
   const sequence=++loadSequence.current;setBusy(true);
   try{const x=remember(await call<DisplayOrder>("/orders","POST",{sourceId}));
-   if(sequence!==loadSequence.current)return;setDrafts(prev=>[x,...prev]);
+   if(sequence!==loadSequence.current)return;setDrafts(prev=>[x,...prev]);setDraftRefreshKey(n=>n+1);
    showOrder(x);setViewPending(false);pane.open();
   }catch(e){setError(errorOf(e))}finally{if(sequence===loadSequence.current)setBusy(false)}
  }
@@ -235,6 +264,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
     // A row commit never disables any editor or steals focus while the network is pending.
     if(method!=="PATCH"&&!path.endsWith("/lines"))setNotice("已儲存");
     if(path.endsWith("/send")||path.endsWith("/void")){
+     setDraftRefreshKey(n=>n+1);
      void call<OrderingListRow[]>("/orders?sourceId="+data.sourceId+"&status=DRAFT").then(setDrafts).catch(e=>setError(errorOf(e)));
     }
     if(data.storedStatus!=="DRAFT")void refreshLists().catch(e=>setError(errorOf(e)));
@@ -252,7 +282,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
   try{
    await write("/orders/"+current.id,"PATCH",field==="date"?{plannedSendDate:value}:{note:value});
    // The draft chip shows the planned date; follow the saved value at once (user 2026-11-03).
-   if(field==="date")setDrafts(prev=>prev.map(d=>d.id===current.id?{...d,plannedSendDate:value}:d));
+   if(field==="date"){setDrafts(prev=>prev.map(d=>d.id===current.id?{...d,plannedSendDate:value}:d));setMobileDrafts(prev=>prev.map(d=>d.id===current.id?{...d,plannedSendDate:value}:d))}
    if(headerEditRevisions.current[field]===editRevision){setHeaderDirty(prev=>({...prev,[field]:false}));headerDirtyRef.current={...headerDirtyRef.current,[field]:false}}
   }catch{setHeaderSaveFailed(true)/* Banner and modal explain the error; leave the typed value intact. */}
   finally{setHeaderSaving(n=>n-1)}
@@ -389,7 +419,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
   editors.current.forEach(e=>e.discard());headerDirtyRef.current={date:false,note:false};setHeaderDirty({date:false,note:false});
   try{
    await enqueue("order:"+current.id,()=>call("/orders/"+current.id,"DELETE",{expectedVersion:cached.current.get(current.id)?.version??current.version}));
-   cached.current.delete(current.id);setNotice("草稿已刪除");await openDraft(current.sourceId);
+   cached.current.delete(current.id);setDraftRefreshKey(n=>n+1);setNotice("草稿已刪除");await openDraft(current.sourceId);
   }catch(e){setError(errorOf(e))}
  }
  // A draft row naming an item still waiting to arrive (same 品號, 品名, 廠商品號 or 廠商品名) is framed in
@@ -464,6 +494,8 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
  const base=useMemo(()=>openOnly?list.filter(x=>x.status==="SENT"||x.status==="PARTIAL"):list,[list,openOnly]);
  const counts=useMemo(()=>base.reduce<Record<string,number>>((n,x)=>({...n,[x.status]:(n[x.status]??0)+1}),{}),[base]);
  const shown=status?base.filter(x=>x.status===status):base;
+ const matchingMobileDrafts=mobileDrafts.filter(d=>d.sourceName.toLocaleLowerCase().includes(mobileDraftSearch.trim().toLocaleLowerCase())||
+  (d.plannedSendDate??"").includes(mobileDraftSearch.trim()));
  const sentDate=(o:{sentAt:string|null;plannedSendDate:string|null;createdAt:string})=>displayDate(o.sentAt??o.plannedSendDate??o.createdAt);
  const openLines=current?current.lines.filter(l=>l.quantity!==null&&l.received<l.quantity&&!l.closedAs):[];
  const currentSource=current?sources.find(x=>x.id===current.sourceId):undefined;
@@ -537,8 +569,31 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
  return <section className="cy-ordering-page">
   <FeedbackBanner message={message} tone={messageTone}/>
   {messageTone==="danger"&&message?<button type="button" className="cy-op-button" onClick={()=>{setMessage(null);if(selected)void reloadOrder(selected.id);void refresh()}}>重新載入</button>:null}
+  {compact?<nav className="cy-ordering-mobile-nav" aria-label="手機叫貨功能">
+    <button type="button" className={pane.pane==="list"&&mobileListMode==="drafts"?"active":undefined} aria-current={pane.pane==="list"&&mobileListMode==="drafts"?"page":undefined}
+      onClick={()=>void showMobileList("drafts")}>草稿</button>
+    <button type="button" className={pane.pane==="detail"&&viewPending?"active":undefined} aria-current={pane.pane==="detail"&&viewPending?"page":undefined}
+      onClick={()=>void showPending()}>未到貨 {pending.length}</button>
+    <button type="button" className={pane.pane==="list"&&mobileListMode==="history"?"active":undefined} aria-current={pane.pane==="list"&&mobileListMode==="history"?"page":undefined}
+      onClick={()=>void showMobileList("history")}>叫貨紀錄</button>
+  </nav>:null}
   <div className="cy-md" data-pane={pane.pane}>
-   <section className="cy-op-panel cy-md-list" aria-label="叫貨紀錄">
+   <section className="cy-op-panel cy-md-list" aria-label={compact&&mobileListMode==="drafts"?"叫貨草稿":"叫貨紀錄"}>
+    {compact&&mobileListMode==="drafts"?<div className="cy-ordering-mobile-drafts">
+      <div className="cy-ordering-mobile-draft-heading"><h2>叫貨草稿 <small>{mobileDrafts.length} 筆</small></h2>
+       <button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void chooseNewSource()}>＋ 新增叫貨</button>
+      </div>
+      <input type="search" className="cy-op-input" aria-label="搜尋叫貨草稿" placeholder="搜尋來源或預計日期" value={mobileDraftSearch}
+       onChange={e=>setMobileDraftSearch(e.target.value)}/>
+      {mobileDraftsLoading?<Loading/>:matchingMobileDrafts.length?<div className="cy-ordering-mobile-draft-list">
+       {matchingMobileDrafts.map(d=><button type="button" key={d.id} className="cy-ordering-mobile-draft-row"
+        disabled={busy} onClick={()=>void reloadOrder(d.id).catch(e=>setError(errorOf(e)))}>
+        <span><strong>{d.sourceName}</strong><small>預計送出：{d.plannedSendDate?displayDate(d.plannedSendDate):"未設定"} · 建立 {displayDate(d.createdAt)}</small></span>
+        <span className="cy-ordering-mobile-draft-pill">編輯</span>
+       </button>)}
+      </div>:<p className="cy-op-empty">{mobileDrafts.length?"沒有符合的草稿。":"目前沒有草稿。點「新增叫貨」選擇來源後即可建立。"}</p>}
+      <button type="button" className="cy-op-button compact" onClick={()=>setDraftRefreshKey(n=>n+1)}>重新整理草稿</button>
+     </div>:<>
     <div className="cy-md-toolbar">
      <div className="cy-md-toolbar-lead">
       <OpenOnlyToggle value={openOnly} onChange={v=>{setOpenOnly(v);setStatus("")}}/>
@@ -563,10 +618,10 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
       <StatusChip tone={STATUS_TONE[o.status]}>{ORDERING_STATUS_LABELS[o.status]??o.status}</StatusChip>
      </button>)}
      {!shown.length?<div className="cy-op-empty">沒有符合條件的叫貨紀錄。送出後的叫貨單才會出現在這裡。</div>:null}
-    </div>
+    </div></>}
    </section>
    <section className="cy-op-panel cy-md-detail">
-    <MasterDetailBack label="叫貨紀錄" onBack={pane.close} disabled={busy}/>
+    <MasterDetailBack label="返回草稿／紀錄" onBack={()=>void backToMobileList()} disabled={busy}/>
     <div className="cy-ordering-tabbar">
       <div className="cy-op-tabs" role="tablist" aria-label="叫貨來源">
        {/* 未到貨 is the first tab, set apart from the sources by a divider (user 2026-11-03). */}
@@ -594,8 +649,8 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
           quantities:Object.fromEntries(group.lines.map(l=>[l.lineId,String(l.remaining)])),selectedLineIds:group.lines.map(l=>l.lineId)})})}>登記到貨</button>
         </div>
         {open?<table className="cy-op-table cy-ordering-pending-table"><thead><tr><th>品號</th><th>品名</th><th>叫貨</th><th>已到</th><th>剩餘</th><th/></tr></thead><tbody>
-         {group.lines.map(l=><tr key={l.lineId}><td className="cy-mono">{l.itemCode}</td><td>{l.itemName||l.vendorItemName}</td><td>{l.quantity}{l.unit}</td><td>{l.received}</td><td><strong>{l.remaining}</strong></td>
-          <td className="cy-ordering-row-actions"><button className="cy-op-button compact quiet" type="button" onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setReceipt({id:l.orderId,no:"",date:nowDate(),quantities:{[l.lineId]:String(l.remaining)},selectedLineIds:[l.lineId]})})}>登記到貨</button>
+         {group.lines.map(l=><tr key={l.lineId}><td data-label="品號" className="cy-mono">{l.itemCode}</td><td data-label="品名">{l.itemName||l.vendorItemName}</td><td data-label="叫貨">{l.quantity}{l.unit}</td><td data-label="已到">{l.received}</td><td data-label="剩餘"><strong>{l.remaining}</strong></td>
+          <td className="cy-ordering-row-actions" data-label="操作"><button className="cy-op-button compact quiet" type="button" onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setReceipt({id:l.orderId,no:"",date:nowDate(),quantities:{[l.lineId]:String(l.remaining)},selectedLineIds:[l.lineId]})})}>登記到貨</button>
            <button type="button" className="cy-op-button compact quiet" onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setClosing({id:l.lineId,kind:"SHORTAGE",reason:""})})}>結掉</button></td></tr>)}
         </tbody></table>:null}
        </section>})}

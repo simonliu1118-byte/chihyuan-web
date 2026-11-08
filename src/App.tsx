@@ -439,7 +439,7 @@ function OperationalApp({
       navigation={navigation}
       activeNavigationKey={route}
       onNavigate={item => { if (routes.has(item.key as AppRoute)) void guardedNavigation.request(item.key as AppRoute, "link"); }}
-      appearance={compact ? <ThemeToggle iconOnly /> : <ThemeSwitch />}
+      appearance={compact ? <ThemeToggle iconOnly direct /> : <ThemeSwitch />}
       account={<AccountMenu displayName={session.user.displayName}
         role={session.user.workspaceRole} roleLabel={accountPermissionLabel(session.user.workspaceRole)} compact={compact}
         signingOut={signingOut} onAccount={() => void guardedNavigation.request("account", "link")} onLogout={() => void logout()} />}

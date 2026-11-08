@@ -8,6 +8,13 @@ import { SegmentedControl } from "../primitives/SegmentedControl";
 export type ThemePreference = "system" | "light" | "dark";
 const cookieKey = "cyweb-ui-theme";
 const listeners = new Set<() => void>();
+const darkSchemeQuery = "(prefers-color-scheme: dark)";
+function subscribeDarkScheme(changed: () => void) {
+  const media = window.matchMedia(darkSchemeQuery);
+  media.addEventListener("change", changed);
+  return () => media.removeEventListener("change", changed);
+}
+function darkScheme() { return window.matchMedia(darkSchemeQuery).matches; }
 
 function readPreference(): ThemePreference {
   try {
@@ -57,19 +64,22 @@ export function ThemeSwitch() {
   return <SegmentedControl label="外觀" compact value={current} options={options} onChange={setPreference} />;
 }
 
-/** Single icon button that cycles 系統 → 淺色 → 深色 (sign-in screen; icon only in the phone top bar). */
-export function ThemeToggle({ iconOnly = false }: { iconOnly?: boolean }) {
+/** Login keeps the three-state selector; a compact one-tap switch changes the actual phone light/dark mode. */
+export function ThemeToggle({ iconOnly = false, direct = false }: { iconOnly?: boolean; direct?: boolean }) {
   const current = useThemePreference();
+  const prefersDark = useSyncExternalStore(subscribeDarkScheme, darkScheme, () => false);
+  const effectiveDark = current === "dark" || (current === "system" && prefersDark);
   const index = options.findIndex(option => option.value === current);
-  const next = options[(index + 1) % options.length];
-  const label = `外觀：${options[index].label}（按一下改為${next.label}）`;
+  const next = direct ? (effectiveDark ? "light" : "dark") : options[(index + 1) % options.length].value;
+  const label = `外觀：${options[index].label}（目前${effectiveDark ? "深色" : "淺色"}，按一下改為${next === "light" ? "淺色" : next === "dark" ? "深色" : "跟隨系統"}）`;
+  const glyph = direct ? (effectiveDark ? "dark" : "light") : current;
   return <button type="button" className="cy-op-button quiet cy-theme-toggle" aria-label={label} title={label}
-    onClick={() => setPreference(next.value)}>
+    onClick={() => setPreference(next)}>
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8"
       strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {current === "dark"
+      {glyph === "dark"
         ? <path d="M20.9 13a9 9 0 0 1-9.9-9.9A9 9 0 1 0 20.9 13Z" />
-        : current === "light"
+        : glyph === "light"
           ? <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" /></>
           : <><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></>}
     </svg>
