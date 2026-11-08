@@ -568,7 +568,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
       onClick={()=>void showMobileList("drafts")}>草稿</button>
   </nav>:null}
   <div className="cy-md" data-pane={pane.pane}>
-   <section className="cy-op-panel cy-md-list" aria-label={compact&&mobileListMode==="drafts"?"草稿來源":"叫貨清單"}>
+   <section className="cy-op-panel cy-md-list" aria-label={compact?(mobileListMode==="drafts"?"草稿來源":"叫貨清單"):"叫貨紀錄"}>
     {compact&&mobileListMode==="drafts"?<div className="cy-ordering-mobile-drafts">
       <div className="cy-ordering-mobile-draft-heading">
        <h2>選擇叫貨來源</h2><p>選擇公司來源或廠商，開啟或建立草稿。</p>
@@ -625,11 +625,11 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
       <span>{sentDate(o)}{o.sentAt?" 送出":" 建立"}</span>
       <StatusChip tone={STATUS_TONE[o.status]}>{ORDERING_STATUS_LABELS[o.status]??o.status}</StatusChip>
      </button>)}
-     {!shown.length?<div className="cy-op-empty">沒有符合條件的叫貨單。送出後的叫貨單才會出現在這裡。</div>:null}
+     {!shown.length?<div className="cy-op-empty">{compact?"沒有符合條件的叫貨單。":"沒有符合條件的叫貨紀錄。"}送出後的叫貨單才會出現在這裡。</div>:null}
     </div></>}
    </section>
    <section className="cy-op-panel cy-md-detail">
-    {!compact||!viewPending?<MasterDetailBack label={current?.storedStatus==="DRAFT"?"返回草稿":"返回叫貨清單"} onBack={()=>void backToMobileList()} disabled={busy}/>:null}
+    {!compact||!viewPending?<MasterDetailBack label={compact?(current?.storedStatus==="DRAFT"?"返回草稿":"返回叫貨清單"):"返回草稿／紀錄"} onBack={()=>void backToMobileList()} disabled={busy}/>:null}
     {!compact?<div className="cy-ordering-tabbar">
       <div className="cy-op-tabs" role="tablist" aria-label="叫貨來源">
        {/* 未到貨 is the first tab, set apart from the sources by a divider (user 2026-11-03). */}
