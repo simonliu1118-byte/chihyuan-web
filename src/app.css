@@ -554,13 +554,17 @@ a.cy-op-button, a.cy-button { text-decoration: none; }
 @media (max-width: 820px) {
   .cy-app-shell { display: block; min-height: 100dvh; }
   .cy-shell-workspace { min-height: 100dvh; }
-  .cy-shell-topbar { padding: 6px 10px; gap: 8px; min-height: 56px; }
+  .cy-shell-topbar { padding: 6px 8px; gap: 5px; min-height: 56px; }
   .cy-shell-topbar-title { font-size: var(--cy-fs-xl); overflow: hidden; text-overflow: ellipsis; }
   .cy-shell-topbar-heading { flex: 1 1 auto; }
-  .cy-shell-topbar-end { gap: 6px; }
+  .cy-shell-topbar-end { gap: 4px; }
   .cy-account-trigger { padding: 3px; border-color: transparent; }
   .cy-shell-nav-item { min-height: 44px; }
   .cy-shell-main { padding: 12px var(--cy-gutter) 28px; }
+  .cy-shell-menu-toggle { width: 36px; height: 40px; flex-basis: 36px; }
+  .cy-shell-mobile-home .cy-shell-brand-mark { width: 29px; height: 29px; }
+  .cy-shell-page-tools { flex: 0 0 auto; gap: 4px; }
+  .cy-shell-topbar-heading { flex: 1 1 auto; min-width: 0; }
 
   .cy-md, .cy-op-split, .cy-op-grid-two { grid-template-columns: minmax(0, 1fr); }
   .cy-md-list, .cy-op-list-panel { position: static; max-height: none; }
@@ -614,8 +618,14 @@ a.cy-op-button, a.cy-button { text-decoration: none; }
 .cy-audit-detail h3 { margin: 0; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 600; }
 .cy-load-more { display: flex; justify-content: center; padding: 8px 0 4px; }
 
-/* Phone top bar: the appearance toggle is a square icon button beside the avatar. */
-.cy-shell-topbar-end .cy-theme-toggle { width: 40px; height: 40px; padding: 0; justify-content: center; border-color: var(--cy-border); }
+/* Phone appearance control: quiet circular sun/moon glyph instead of a framed square. */
+@media (max-width: 820px) {
+  .cy-shell-topbar-end .cy-theme-toggle { width: 36px; height: 40px; min-height: 40px; padding: 0; justify-content: center; border: 0; border-radius: 999px; background: transparent; color: var(--cy-text-muted); }
+  .cy-shell-topbar-end .cy-theme-toggle:hover,
+  .cy-shell-topbar-end .cy-theme-toggle:focus-visible { background: var(--cy-surface-muted); color: var(--cy-text); }
+  .cy-shell-topbar-end .cy-theme-toggle svg { width: 20px; height: 20px; }
+  .cy-shell-topbar-heading { flex: 1 1 auto; min-width: 0; }
+}
 
 /* Topbar: one line of page description beside the title (hidden on compact screens). */
 .cy-shell-topbar-heading { flex: 0 1 auto; }

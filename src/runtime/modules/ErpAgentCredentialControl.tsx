@@ -1,5 +1,6 @@
 import "./erp-item-query.css";
 import { useEffect, useState } from "react";
+import { useCompactLayout } from "../../ui/foundation/useCompactLayout";
 import { Dialog } from "../../ui/overlays/Dialog";
 import { Field } from "../../ui/forms/Field";
 import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
@@ -53,6 +54,7 @@ export type ErpQueryFailedDetail = { code: string | null; message: string };
  * ERP 關閉／暫停 controls for every ERP member (user 2026-10-27), and the Super Admin's token.
  */
 export function ErpAgentCredentialControl({ isSuperAdmin }: { isSuperAdmin: boolean }) {
+  const compact = useCompactLayout();
   const [agent, setAgent] = useState<ErpAgentStatus | null>(null);
   const [agentError, setAgentError] = useState(false);
   const [open, setOpen] = useState(false);
@@ -145,16 +147,18 @@ export function ErpAgentCredentialControl({ isSuperAdmin }: { isSuperAdmin: bool
   }
 
   const connected = !agentError && agent?.online === true;
-  const label = agentError ? "狀態未知" : connected ? "已連線" : "未連線";
+  const label = agentError ? "狀態未知" : agent === null ? "確認中" : connected ? "已連線" : "未連線";
   const held = agent?.control.holdUntil ?? null;
   const pending = agent?.control.request ?? null;
-  const tone = agentError ? "neutral" : !connected ? "danger" : held || pending ? "warning" : "success";
+  const tone = agentError || agent === null ? "neutral" : !connected ? "danger" : held || pending ? "warning" : "success";
   const summary = held ? "ERP 暫停至 " + clock(held) : pending ? "等待關閉 ERP" : label;
+  const compactLabel = held ? "暫停中" : pending ? "處理中" : label;
   return <>
     {confirmationDialog}
-    <button type="button" className="cy-op-button compact"
-      aria-label={"ERP 查詢程式：" + summary} title="ERP 查詢程式與關閉 ERP" onClick={() => setOpen(true)}>
-      <span className="cy-status-dot" data-tone={tone} aria-hidden="true" />{connected && !held && !pending ? "查詢程式 · " + label : summary}
+    <button type="button" className="cy-op-button compact cy-erp-agent-trigger"
+      aria-label={"ERP 查詢程式：" + summary + "，按下可查看連線與關閉設定"} title={"ERP 查詢程式：" + summary + "（點擊查看設定）"} onClick={() => setOpen(true)}>
+      <span className="cy-status-dot" data-tone={tone} aria-hidden="true" />
+      {compact ? compactLabel : connected && !held && !pending ? "查詢程式 · " + label : summary}
     </button>
     <Dialog open={open} title={"ERP 查詢程式 · " + label} size="medium" onClose={close} dismissible={!busy && !controlBusy}>
       <h3 className="cy-erp-control-title">關閉 ERP</h3>

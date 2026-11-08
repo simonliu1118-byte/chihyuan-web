@@ -2,7 +2,6 @@ import { DateInput } from "../../ui/forms/DateInput";
 import { FormEvent, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { SegmentedControl } from "../../ui/primitives/SegmentedControl";
 import { HistoryRangeError, resolveHistoryRange, taipeiToday } from "../../../shared/erp-query-history";
-import { useCompactLayout } from "../../ui/foundation/useCompactLayout";
 import { ErpQueryRows } from "./ErpQueryRows";
 import { parseErpCode, parseErpNameKeyword } from "../../../shared/erp-name-search";
 import { ERP_QUERY_TYPE_LABELS, type ErpQueryType } from "../../../shared/erp-item-query";
@@ -127,8 +126,8 @@ function CategoryJob({ category, onBusy, children }: {
 /**
  * ERP 查詢: one entry for 商品／客戶／供應商／進貨輔助／未收款 (user 2026-10-17, 2026-10-27);
  * the Agent's queue opens in a side panel at the right that leaves the page usable (user 2026-10-28).
- * Desktop switches categories with tabs, mobile with a drop-down (user: easier to operate). Every
- * category stays mounted with its own query, form and result; a query keeps running while another
+ * Desktop and phone share one tab list; on narrow screens the tabs scroll horizontally.
+ * Every category stays mounted with its own query, form and result; a query keeps running while another
  * category or module is open.
  */
 export function ErpItemQueryPage({ allowedModules }: { allowedModules: ReadonlySet<CyWebModuleCode> }) {
@@ -141,7 +140,6 @@ export function ErpItemQueryPage({ allowedModules }: { allowedModules: ReadonlyS
     if (current.has(key) === busy) return current;
     const next = new Set(current); if (busy) next.add(key); else next.delete(key); return next;
   }), []);
-  const compact = useCompactLayout();
   const pageVisible = useContext(ErpPageVisibleContext);
   useEffect(() => {
     const open = (event: Event) => setSelected((event as CustomEvent<string>).detail as Category);
@@ -149,23 +147,19 @@ export function ErpItemQueryPage({ allowedModules }: { allowedModules: ReadonlyS
     return () => window.removeEventListener(ERP_OPEN_CATEGORY_EVENT, open);
   }, []);
   if (!category) return <section className="cy-op-panel">你目前沒有任何 ERP 查詢的模組權限。</section>;
-  const label = (c: { key: Category; label: string }) => running.has(c.key) ? `${c.label}（查詢中）` : c.label;
   const panel = (key: Category, body: ReactNode) =>
     <ErpPageVisibleContext.Provider key={key} value={pageVisible && category === key}>
-      <div className="cy-erp-category-panel" hidden={category !== key}>{body}</div>
+      <div className="cy-erp-category-panel" id={`cy-erp-panel-${key.toLowerCase()}`} role="tabpanel"
+        aria-labelledby={`cy-erp-tab-${key.toLowerCase()}`} hidden={category !== key}>{body}</div>
     </ErpPageVisibleContext.Provider>;
   return <section className="cy-erp-page">
     <div className="cy-erp-tabbar">
-      {compact
-        ? <select className="cy-op-input cy-erp-category" aria-label="查詢類別" value={category}
-          onChange={e => setSelected(e.target.value as Category)}>
-          {categories.map(c => <option key={c.key} value={c.key}>{label(c)}</option>)}
-        </select>
-        : <div className="cy-op-tabs" role="tablist" aria-label="查詢類別">
-          {categories.map(c => <button key={c.key} type="button" role="tab" aria-selected={category === c.key}
-            className={category === c.key ? "active" : undefined}
-            onClick={() => setSelected(c.key)}>{c.label}{running.has(c.key) && <span className="cy-erp-tab-running" aria-label="查詢中" />}</button>)}
-        </div>}
+      <div className="cy-op-tabs" role="tablist" aria-label="查詢類別">
+        {categories.map(c => <button key={c.key} type="button" role="tab"
+          id={`cy-erp-tab-${c.key.toLowerCase()}`} aria-controls={`cy-erp-panel-${c.key.toLowerCase()}`}
+          aria-selected={category === c.key} className={category === c.key ? "active" : undefined}
+          onClick={() => setSelected(c.key)}>{c.label}{running.has(c.key) && <span className="cy-erp-tab-running" aria-label="查詢中" />}</button>)}
+      </div>
       <button type="button" className="cy-op-button cy-erp-queue-button" aria-expanded={queueOpen} onClick={() => setQueueOpen(open => !open)}>排程佇列</button>
     </div>
     {categories.map(c => panel(c.key, <CategoryJob category={c} onBusy={onBusy}>{job =>
