@@ -66,6 +66,9 @@ export function AppShell({
   const navigationContent = <>
     <div className="cy-shell-brand"><span className="cy-shell-brand-mark" aria-hidden="true">CY</span>
       <div><div className="cy-shell-brand-name">{appName}</div>{subtitle ? <div className="cy-shell-brand-subtitle">{subtitle}</div> : null}</div>
+      {compact ? <button type="button" className="cy-shell-nav-close" aria-label="關閉模組選單" onClick={() => setNavigationOpen(false)}>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+      </button> : null}
     </div>
     <nav className="cy-shell-nav-groups" aria-label="模組導覽">
       {navigation.filter(group => group.items.length > 0).map((group, index) => <div key={group.key}
@@ -118,7 +121,7 @@ export function AppShell({
           {children}
         </main>
       </div>
-      {compact ? <Drawer open={navigationOpen} title="模組選單" onClose={() => setNavigationOpen(false)} className="cy-shell-navigation-drawer">{navigationContent}</Drawer> : null}
+      {compact ? <Drawer open={navigationOpen} title="模組選單" onClose={() => setNavigationOpen(false)} className="cy-shell-navigation-drawer" hideHeader showCloseButton={false}>{navigationContent}</Drawer> : null}
     </div>
   );
 }
