@@ -43,12 +43,17 @@ test("share permission errors fall back to download without losing the filename"
  assert.equal(await shareExcelFile(file,f=>downloaded=f,host),"downloaded");
  assert.equal(downloaded.name,"台中20261108.xlsx");
 });
-test("clean mobile branch shares directly, dirty mobile branch flushes before a fresh tap; desktop stays unchanged",()=>{
+test("one Share Excel button silently saves pending edits, then attempts native share; desktop remains unchanged",()=>{
  const page=readFileSync("src/runtime/modules/OrderingPage.tsx","utf8");
  assert.match(page,/function hasPendingExportEdits\(\)/);
- assert.match(page,/if\(compact\)\{[\s\S]*?if\(hasPendingExportEdits\(\)\)\{[\s\S]*?if\(!await prepareSwitch\(\)\)return;[\s\S]*?請再按一次「分享 Excel」/);
- assert.match(page,/const file=xlsxFile\(cached\.current\.get\(order\.id\)\?\?order\);\s*const outcome=await shareExcelFile\(file,downloadExcelFile\)/);
+ assert.match(page,/async function saveForExcelShare\(\)/);
+ assert.match(page,/if\(needsSave&&!await saveForExcelShare\(\)\)return/);
+ assert.match(page,/const file=xlsxFile\(cached\.current\.get\(order\.id\)\?\?order\);\s*\/\/[^\n]*\n\s*\/\/[^\n]*\n\s*const outcome=await shareExcelFile\(file,downloadExcelFile\)/);
+ assert.match(page,/if\(outcome==="downloaded"\)setNotice/);
+ assert.doesNotMatch(page,/if\(outcome==="retry"\)/);
+ assert.doesNotMatch(page,/請再按一次/);
+ assert.match(page,/aria-busy=\{compact&&sharingExcel\}/);
+ assert.match(page,/\{compact\?"分享 Excel":"匯出 Excel"\}/);
  assert.match(page,/if\(!await prepareSwitch\(\)\)return;order=cached\.current\.get\(order\.id\)\?\?order;[\s\S]*?const blob=new Blob/);
  assert.match(page,/a\.href=url;a\.download=exportFileName\(order\.sourceName,fallback\);a\.click\(\);URL\.revokeObjectURL\(url\)/);
- assert.match(page,/\{compact\?"分享 Excel":"匯出 Excel"\}/);
 });
