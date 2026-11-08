@@ -22,6 +22,9 @@ export const CYWEB_MODULES = [
   // A permission inside ERP 商品查詢 (標準進價), not a page of its own.
   { code: "ERP_ITEM_COST", route: null, label: "ERP 商品成本" },
   { code: "BOT_CENTER", route: "bot-center", label: "BOT 管理中心" },
+  // Tab-specific posting grants; reading notices is a basic CY Web right.
+  { code: "ANNOUNCEMENT_PUBLISH", route: null, label: "公司公告－發布管理" },
+  { code: "PERSONAL_NOTICE_SEND", route: null, label: "個人通知－發送管理" },
 ] as const;
 
 export type CyWebModuleCode = (typeof CYWEB_MODULES)[number]["code"];
