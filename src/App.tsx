@@ -469,7 +469,7 @@ function OperationalApp({
       onHome={()=>navigate("home")}
       onNavigate={item => navigate(item.key)}
       notifications={<NotificationBell onNavigate={navigate}/>}
-      appearance={compact ? <ThemeToggle iconOnly /> : <ThemeSwitch />}
+      appearance={compact ? <ThemeToggle iconOnly direct /> : <ThemeSwitch />}
       account={<AccountMenu displayName={session.user.displayName}
         role={session.user.workspaceRole} roleLabel={accountPermissionLabel(session.user.workspaceRole)} compact={compact}
         signingOut={signingOut} onAccount={() => navigate("account")} onTodos={()=>navigate("my-todos")} onLogout={() => void logout()} />}
