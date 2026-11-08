@@ -29,16 +29,24 @@ export function AnnouncementsPage({canPublishCompany,canSendPersonal}:{canPublis
  },[]);
  useEffect(()=>{void reload(tab,mode)},[tab,mode,reload]);
  useEffect(()=>{
-  const id=initial.get("id");
-  if(!id)return;
-  void getNotice(id).then(item=>{
-   setSelected(item);
-   if(!item.readAt&&!item.revokedAt){
-    void markNoticeRead(id).then(()=>{setSelected(old=>old?.id===id?{...old,readAt:new Date().toISOString()}:old);signalHubUpdated()}).catch(()=>{});
-   }
-  }).catch(e=>setError(e instanceof Error?e.message:"通知無法開啟"));
- // Initial deep link is opened only once; tab changes should not reopen it.
- // eslint-disable-next-line react-hooks/exhaustive-deps
+  let active=true,sequence=0;
+  const sync=()=>{
+   if(!window.location.hash.startsWith("#announcements"))return;
+   const current=++sequence,p=new URLSearchParams(window.location.hash.split("?")[1]??"");
+   const selectedTab=p.get("tab")==="personal"?"personal":"company";
+   const id=p.get("id");
+   setTab(selectedTab);setMode("inbox");setReceipts(null);
+   if(!id){setSelected(null);return}
+   void getNotice(id).then(item=>{
+    if(!active||current!==sequence)return;
+    setSelected(item);
+    if(!item.readAt&&!item.revokedAt)void markNoticeRead(id).then(()=>{
+     if(active&&current===sequence){setSelected(old=>old?.id===id?{...old,readAt:new Date().toISOString()}:old);signalHubUpdated()}
+    }).catch(()=>{});
+   }).catch(e=>{if(active&&current===sequence)setError(e instanceof Error?e.message:"通知無法開啟")});
+  };
+  sync();window.addEventListener("hashchange",sync);
+  return()=>{active=false;window.removeEventListener("hashchange",sync)};
  },[]);
  async function switchTab(next:NoticeKind){
   if(next===tab)return;

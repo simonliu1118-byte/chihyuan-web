@@ -51,3 +51,10 @@ test("one bell lists first five, then keyset pages of ten; reading requires open
  assert.match(announcements,/markNoticeRead\(/);
  assert.match(server,/ORDER BY tier ASC,sort_at DESC,item_id DESC LIMIT \?/);
 });
+
+test("same-route bell links also focus the requested record without losing drafts",()=>{
+ assert.match(app,/if\(target===route\)/);
+ assert.match(app,/void canLeave\(\)\.then\(allowed/);
+ assert.match(todos,/window\.addEventListener\("hashchange",sync\)/);
+ assert.match(announcements,/window\.addEventListener\("hashchange",sync\)/);
+});

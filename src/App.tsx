@@ -328,7 +328,11 @@ function OperationalApp({
   function navigate(next:string,params:Record<string,string|number>={}){
     if(!routes.has(next as AppRoute))return;
     const target=next as AppRoute,href=routeHref(target,params);
-    if(target===route){if(window.location.hash!==href)window.location.hash=href;return}
+    if(target===route){
+      if(window.location.hash===href)return;
+      void canLeave().then(allowed=>{if(allowed)window.location.hash=href});
+      return;
+    }
     pendingRecordHash.current=href;
     void guardedNavigation.request(target,"link").finally(()=>{pendingRecordHash.current=null});
   }

@@ -25,10 +25,19 @@ export function MyTodosPage(){
  },[]);
  useEffect(()=>{
   void refresh("open");
-  const params=new URLSearchParams(window.location.hash.split("?")[1]??"");
-  if(params.get("new")==="1"){setEditId(null);setDraft(empty());setEditor(true);return}
-  const id=Number(params.get("id"));
-  if(Number.isSafeInteger(id)&&id>0)void getTodo(id).then(todo=>{setEditId(todo.id);setDraft({title:todo.title,detail:todo.detail,dueDate:todo.dueDate??"",dueTime:todo.dueTime??"",priority:todo.priority});setEditor(true)}).catch(e=>setError(e instanceof Error?e.message:"找不到指定待辦"));
+  let active=true,sequence=0;
+  const sync=()=>{
+   if(!window.location.hash.startsWith("#my-todos"))return;
+   const current=++sequence,params=new URLSearchParams(window.location.hash.split("?")[1]??"");
+   if(params.get("new")==="1"){setEditId(null);setDraft(empty());setDirty(false);setEditor(true);return}
+   const id=Number(params.get("id"));
+   if(Number.isSafeInteger(id)&&id>0)void getTodo(id).then(todo=>{
+    if(!active||current!==sequence)return;
+    setEditId(todo.id);setDraft({title:todo.title,detail:todo.detail,dueDate:todo.dueDate??"",dueTime:todo.dueTime??"",priority:todo.priority});setDirty(false);setEditor(true);
+   }).catch(e=>{if(active&&current===sequence)setError(e instanceof Error?e.message:"找不到指定待辦")});
+  };
+  sync();window.addEventListener("hashchange",sync);
+  return()=>{active=false;window.removeEventListener("hashchange",sync)};
  },[refresh]);
  function start(item?:PersonalTodo){
   setEditId(item?.id??null);
