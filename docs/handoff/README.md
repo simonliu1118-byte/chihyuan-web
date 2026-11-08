@@ -11,6 +11,8 @@
 
 ## 目前待 Claude 審查
 
+- [V0.12.6 Build 0 BOT 時間軸單行與視窗寬度](CYWEB-BOT-CENTER-COMPACT-0126-20261108.md)：2026-11-08 使用者指定四項 UI 精簡；僅更新前端與文件，CI、Claude 審查及實機驗收待辦，不自動合併／部署。
+
 - [CYWEB Chat 部署入口恢復](CYWEB-CHAT-DEPLOY-20261108.md)：恢復受控發布分支 `deploy/cyweb-development`；保留 main dispatch、SHA 與既有部署安全驗證，GitHub Connector `update_ref` 觸發實測與正式部署結果需以實際 Action Run 為準。
 
 - [V0.12.5 Build 0 BOT 管理中心介面精簡](CYWEB-BOT-CENTER-UI-0125-20261108.md)：PR #453 已合併 main（8cbd17da），**718/718 Node 測試及全部 CI 通過，正式部署尚未觸發**。狀態 pills、時間軸五筆／全部 Modal、兩組 EntryTable、原 BOT 設定表格推播啟停；Claude 事後審查及桌機／手機驗收待辦。
