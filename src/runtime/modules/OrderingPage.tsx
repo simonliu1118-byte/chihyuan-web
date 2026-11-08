@@ -567,29 +567,43 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
   <FeedbackBanner message={message} tone={messageTone}/>
   {messageTone==="danger"&&message?<button type="button" className="cy-op-button" onClick={()=>{setMessage(null);if(selected)void reloadOrder(selected.id);void refresh()}}>重新載入</button>:null}
   {compact?<nav className="cy-ordering-mobile-nav" aria-label="手機叫貨功能">
-    <button type="button" className={pane.pane==="list"&&mobileListMode==="drafts"?"active":undefined} aria-current={pane.pane==="list"&&mobileListMode==="drafts"?"page":undefined}
-      onClick={()=>void showMobileList("drafts")}>草稿</button>
-    <button type="button" className={pane.pane==="detail"&&viewPending?"active":undefined} aria-current={pane.pane==="detail"&&viewPending?"page":undefined}
+    <button type="button" className={mobileSection==="history"?"active":undefined} aria-current={mobileSection==="history"?"page":undefined}
+      onClick={()=>void showMobileList("history")}>叫貨清單</button>
+    <button type="button" className={mobileSection==="pending"?"active":undefined} aria-current={mobileSection==="pending"?"page":undefined}
       onClick={()=>void showPending()}>未到貨 {pending.length}</button>
-    <button type="button" className={pane.pane==="list"&&mobileListMode==="history"?"active":undefined} aria-current={pane.pane==="list"&&mobileListMode==="history"?"page":undefined}
-      onClick={()=>void showMobileList("history")}>叫貨紀錄</button>
+    <button type="button" className={mobileSection==="drafts"?"active":undefined} aria-current={mobileSection==="drafts"?"page":undefined}
+      onClick={()=>void showMobileList("drafts")}>草稿</button>
   </nav>:null}
   <div className="cy-md" data-pane={pane.pane}>
-   <section className="cy-op-panel cy-md-list" aria-label={compact&&mobileListMode==="drafts"?"叫貨草稿":"叫貨紀錄"}>
+   <section className="cy-op-panel cy-md-list" aria-label={compact&&mobileListMode==="drafts"?"草稿來源":"叫貨清單"}>
     {compact&&mobileListMode==="drafts"?<div className="cy-ordering-mobile-drafts">
-      <div className="cy-ordering-mobile-draft-heading"><h2>叫貨草稿 <small>{mobileDrafts.length} 筆</small></h2>
-       <button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void chooseNewSource()}>＋ 新增叫貨</button>
+      <div className="cy-ordering-mobile-draft-heading">
+       <h2>選擇叫貨來源</h2><p>選擇公司來源或廠商，開啟或建立草稿。</p>
       </div>
-      <input type="search" className="cy-op-input" aria-label="搜尋叫貨草稿" placeholder="搜尋來源或預計日期" value={mobileDraftSearch}
-       onChange={e=>setMobileDraftSearch(e.target.value)}/>
-      {mobileDraftsLoading?<Loading/>:matchingMobileDrafts.length?<div className="cy-ordering-mobile-draft-list">
-       {matchingMobileDrafts.map(d=><button type="button" key={d.id} className="cy-ordering-mobile-draft-row"
-        disabled={busy} onClick={()=>void reloadOrder(d.id).catch(e=>setError(errorOf(e)))}>
-        <span><strong>{d.sourceName}</strong><small>預計送出：{d.plannedSendDate?displayDate(d.plannedSendDate):"未設定"} · 建立 {displayDate(d.createdAt)}</small></span>
-        <span className="cy-ordering-mobile-draft-pill">編輯</span>
-       </button>)}
-      </div>:<p className="cy-op-empty">{mobileDrafts.length?"沒有符合的草稿。":"目前沒有草稿。點「新增叫貨」選擇來源後即可建立。"}</p>}
-      <button type="button" className="cy-op-button compact" onClick={()=>setDraftRefreshKey(n=>n+1)}>重新整理草稿</button>
+      <input type="search" className="cy-op-input" aria-label="搜尋叫貨來源或廠商" placeholder="搜尋來源或廠商" value={mobileSourceSearch}
+       onChange={e=>setMobileSourceSearch(e.target.value)}/>
+      {mobileGeneralSources.length?<section className="cy-ordering-mobile-source-group" aria-label="公司內部來源">
+       <h3>公司內部</h3><div className="cy-ordering-mobile-draft-list">
+        {mobileGeneralSources.map(item=><button type="button" key={item.id} className="cy-ordering-mobile-draft-row" disabled={busy}
+          onClick={()=>void selectSource(item)}>
+          <strong>{item.name}</strong><span className="cy-ordering-mobile-draft-pill">開啟 <span aria-hidden="true">›</span></span>
+        </button>)}
+       </div>
+      </section>:null}
+      {mobileVendors.length?<section className="cy-ordering-mobile-source-group" aria-label="廠商來源">
+       <h3>廠商</h3><div className="cy-ordering-mobile-draft-list">
+        {mobileVendors.map(item=><button type="button" key={item.id} className="cy-ordering-mobile-draft-row" disabled={busy}
+          onClick={()=>void chooseVendor(item.id)}>
+          <span className="cy-ordering-mobile-source-label"><strong>{item.name}</strong><VendorDots status={vendorStatus.get(item.id)}/></span>
+          <span className="cy-ordering-mobile-draft-pill">開啟 <span aria-hidden="true">›</span></span>
+        </button>)}
+       </div>
+      </section>:null}
+      {!mobileGeneralSources.length&&!mobileVendors.length?<p className="cy-op-empty">{active.length?"找不到符合的來源或廠商。":"目前沒有可用的叫貨來源。"}</p>:null}
+      <div className="cy-ordering-mobile-source-actions">
+       <button type="button" className="cy-op-button compact" onClick={()=>setManageSources(true)}>管理來源</button>
+       {canRestock?<button type="button" className="cy-op-button compact" aria-expanded={restockOpen} onClick={()=>setRestockOpen(v=>!v)}>進貨輔助</button>:null}
+      </div>
      </div>:<>
     <div className="cy-md-toolbar">
      <div className="cy-md-toolbar-lead">
