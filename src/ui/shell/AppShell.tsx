@@ -15,10 +15,14 @@ export interface AppShellProps {
   /** Top-right controls, left to right: appearance switch, then the person's menu. */
   appearance?: ReactNode;
   account?: ReactNode;
+  notifications?: ReactNode;
+  onHome?: () => void;
   onNavigate?: (item: NavigationItem) => void;
 }
 
 const navIconPaths: Record<string, string[]> = {
+  home: ["M3 11 12 3l9 8","M5 10v11h14V10","M9 21v-7h6v7"],
+  announcements: ["M3 5h18v14H3z","M7 9h10M7 13h10M7 17h6"],
   customers: ["M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2","M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8","M22 21v-2a4 4 0 0 0-3-3.87","M16 3.13a4 4 0 0 1 0 7.75"],
   items: ["m12 2 9 5-9 5-9-5 9-5Z","m3 7 9 5 9-5","M3 7v10l9 5 9-5V7","M12 12v10"],
   defects: ["m10.3 3.9-8.4 14.6A2 2 0 0 0 3.6 21h16.8a2 2 0 0 0 1.7-2.5L13.7 3.9a2 2 0 0 0-3.4 0Z","M12 9v4","M12 17h.01"],
@@ -55,6 +59,8 @@ export function AppShell({
   activeNavigationKey,
   appearance,
   account,
+  notifications,
+  onHome,
   onNavigate,
   children,
 }: PropsWithChildren<AppShellProps>) {
@@ -64,9 +70,9 @@ export function AppShell({
   useEffect(() => { setNavigationOpen(false); }, [pageTitle, compact]);
   // The same list is mounted once: sidebar on desktop, modal drawer on compact screens.
   const navigationContent = <>
-    <div className="cy-shell-brand"><span className="cy-shell-brand-mark" aria-hidden="true">CY</span>
-      <div><div className="cy-shell-brand-name">{appName}</div>{subtitle ? <div className="cy-shell-brand-subtitle">{subtitle}</div> : null}</div>
-    </div>
+    <button type="button" className="cy-shell-brand cy-shell-brand-home" title="返回首頁" onClick={()=>{setNavigationOpen(false);onHome?.()}}><span className="cy-shell-brand-mark" aria-hidden="true">CY</span>
+      <span><span className="cy-shell-brand-name">{appName}</span>{subtitle ? <span className="cy-shell-brand-subtitle">{subtitle}</span> : null}</span>
+    </button>
     <nav className="cy-shell-nav-groups" aria-label="模組導覽">
       {navigation.filter(group => group.items.length > 0).map((group, index) => <div key={group.key}
         className={["cy-shell-nav-group", group.dividerBefore && index > 0 ? "has-divider" : ""].filter(Boolean).join(" ")}>
@@ -105,12 +111,13 @@ export function AppShell({
           {compact ? <button type="button" className="cy-shell-menu-toggle" aria-label="開啟模組選單" aria-expanded={navigationOpen} onClick={() => setNavigationOpen(true)}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button> : null}
+          {compact ? <button type="button" className="cy-shell-mobile-home" title="返回首頁" aria-label="CY 首頁" onClick={()=>onHome?.()}><span className="cy-shell-brand-mark">CY</span></button> : null}
           <div className="cy-shell-topbar-heading">
             <h1 className="cy-shell-topbar-title">{pageTitle}</h1>
             {!compact && pageDescription ? <p className="cy-shell-topbar-description">{pageDescription}</p> : null}
           </div>
           {pageTools ? <div className="cy-shell-page-tools">{pageTools}</div> : null}
-          <div className="cy-shell-topbar-end">{appearance}{account}</div>
+          <div className="cy-shell-topbar-end">{notifications}{appearance}{account}</div>
         </header>
 
         {systemNotice ? <div className="cy-shell-global-notice">{systemNotice}</div> : null}

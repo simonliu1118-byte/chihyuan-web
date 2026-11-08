@@ -698,3 +698,11 @@ details[open]>summary::before{transform:rotate(90deg)}
 @media (prefers-reduced-motion:reduce){.cy-expand-toggle .cy-icon,summary::before{transition:none}}
 /* Grid-row summaries (ERP order rows) and clamped notes never showed a marker; keep them clean. */
 .cy-erp-order>summary::before,.cy-store-list-note summary::before{content:none}
+
+
+/* V0.12.7: CY brand returns to the protected home route from desktop and mobile. */
+.cy-shell-brand-home{width:100%;border:0;background:transparent;text-align:left;color:var(--cy-text);cursor:pointer;font:inherit}
+.cy-shell-brand-home:hover,.cy-shell-brand-home:focus-visible{background:var(--cy-surface-muted);border-radius:var(--cy-radius-sm)}
+.cy-shell-brand-home .cy-shell-brand-subtitle{display:block}
+.cy-shell-mobile-home{flex:0 0 auto;border:0;background:transparent;padding:0;cursor:pointer}
+.cy-shell-mobile-home .cy-shell-brand-mark{width:34px;height:34px;font-size:var(--cy-fs-sm)}
