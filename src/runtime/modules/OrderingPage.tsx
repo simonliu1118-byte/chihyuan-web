@@ -608,15 +608,19 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
     <div className="cy-md-toolbar">
      <div className="cy-md-toolbar-lead">
       <OpenOnlyToggle value={openOnly} onChange={v=>{setOpenOnly(v);setStatus("")}}/>
-      <input className="cy-op-input" type="search" aria-label="搜尋叫貨紀錄" placeholder="搜尋品號、品名、進貨單號" value={search} onChange={e=>setSearch(e.target.value)}/>
+      <input className="cy-op-input" type="search" aria-label="搜尋叫貨清單" placeholder="搜尋品號、品名、進貨單號" value={search} onChange={e=>setSearch(e.target.value)}/>
+      {compact?<button type="button" className="cy-op-button compact cy-ordering-filter-toggle" aria-expanded={mobileHistoryFiltersOpen}
+        onClick={()=>setMobileHistoryFiltersOpen(v=>!v)}>篩選{status||sourceFilter||from||to?" •":""}</button>:null}
      </div>
-     <StatusFilter label="叫貨狀態" value={status} onChange={setStatus} counts={counts}
-      options={(["SENT","PARTIAL","CLOSED","VOID"] as const).map(code=>({code,label:ORDERING_STATUS_LABELS[code],tone:STATUS_TONE[code]}))}/>
-     <div className="cy-ordering-list-filters">
-      <OrderingSourcePicker sources={sources} value={Number(sourceFilter)||0} onChange={id=>setSourceFilter(id?String(id):"")} includeHidden allowAll label="篩選叫貨來源"/>
-      <DateInput className="cy-op-input" aria-label="起日" max="9999-12-31" value={from} onChange={e=>setFrom(e)}/>
-      <span aria-hidden="true">～</span>
-      <DateInput className="cy-op-input" aria-label="迄日" max="9999-12-31" value={to} onChange={e=>setTo(e)}/>
+     <div className="cy-ordering-history-advanced" hidden={compact&&!mobileHistoryFiltersOpen}>
+      <StatusFilter label="叫貨狀態" value={status} onChange={setStatus} counts={counts}
+       options={(["SENT","PARTIAL","CLOSED","VOID"] as const).map(code=>({code,label:ORDERING_STATUS_LABELS[code],tone:STATUS_TONE[code]}))}/>
+      <div className="cy-ordering-list-filters">
+       <OrderingSourcePicker sources={sources} value={Number(sourceFilter)||0} onChange={id=>setSourceFilter(id?String(id):"")} includeHidden allowAll label="篩選叫貨來源"/>
+       <DateInput className="cy-op-input" aria-label="起日" max="9999-12-31" value={from} onChange={e=>setFrom(e)}/>
+       <span aria-hidden="true">～</span>
+       <DateInput className="cy-op-input" aria-label="迄日" max="9999-12-31" value={to} onChange={e=>setTo(e)}/>
+      </div>
      </div>
      <div className="cy-md-count">共 {shown.length} 筆</div>
     </div>
@@ -628,12 +632,12 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
       <span>{sentDate(o)}{o.sentAt?" 送出":" 建立"}</span>
       <StatusChip tone={STATUS_TONE[o.status]}>{ORDERING_STATUS_LABELS[o.status]??o.status}</StatusChip>
      </button>)}
-     {!shown.length?<div className="cy-op-empty">沒有符合條件的叫貨紀錄。送出後的叫貨單才會出現在這裡。</div>:null}
+     {!shown.length?<div className="cy-op-empty">沒有符合條件的叫貨單。送出後的叫貨單才會出現在這裡。</div>:null}
     </div></>}
    </section>
    <section className="cy-op-panel cy-md-detail">
-    <MasterDetailBack label="返回草稿／紀錄" onBack={()=>void backToMobileList()} disabled={busy}/>
-    <div className="cy-ordering-tabbar">
+    {!compact||!viewPending?<MasterDetailBack label={current?.storedStatus==="DRAFT"?"返回草稿":"返回叫貨清單"} onBack={()=>void backToMobileList()} disabled={busy}/>:null}
+    {!compact?<div className="cy-ordering-tabbar">
       <div className="cy-op-tabs" role="tablist" aria-label="叫貨來源">
        {/* 未到貨 is the first tab, set apart from the sources by a divider (user 2026-11-03). */}
        <button type="button" role="tab" className={viewPending?"active":""} aria-selected={viewPending} onClick={()=>void showPending()}>未到貨 {pending.length}</button>
@@ -645,7 +649,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
       </div>
       <button type="button" className="cy-op-button quiet cy-ordering-manage-source" onClick={()=>setManageSources(true)}>管理來源</button>
       {canRestock?<button type="button" className="cy-op-button primary cy-ordering-restock-trigger" aria-expanded={restockOpen} onClick={()=>setRestockOpen(v=>!v)}>進貨輔助</button>:null}
-    </div>
+    </div>:null}
     {viewPending?<>
       <div className="cy-record-header"><div><h2>未到貨明細</h2><p>{pendingLoading?"正在載入未到貨明細…":"已送出、還有剩餘數量的品項，共 "+pending.length+" 項。"}</p></div></div>
       {pending.length?<div className="cy-ordering-pending">
