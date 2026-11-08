@@ -377,11 +377,10 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
    try{
     if(needsSave&&!await saveForExcelShare())return;
     const file=xlsxFile(cached.current.get(order.id)??order);
-    // If Safari no longer grants activation after the network save, retain the
-    // saved file and request a fresh tap instead of sharing an older version.
-    const outcome=await shareExcelFile(file,downloadExcelFile,navigator,needsSave);
-    if(outcome==="retry")setNotice("Excel 已儲存，請再按一次「儲存並分享 Excel」開啟手機分享選單。");
-    else if(outcome==="downloaded")setNotice("此瀏覽器無法分享 Excel，已改為下載檔案。");
+    // Safari may lose transient activation during an async save. Attempt native sharing
+    // anyway and fall back to downloading the newly saved XLSX, never an old snapshot.
+    const outcome=await shareExcelFile(file,downloadExcelFile);
+    if(outcome==="downloaded")setNotice("瀏覽器無法開啟原生分享，已改為下載最新 Excel。");
    }catch(e){setError(errorOf(e))}
    finally{setSharingExcel(false)}
    return;
@@ -545,7 +544,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
          <button type="button" className="cy-op-button primary" onClick={()=>void saveRevision()} disabled={busy}>儲存</button></>:<>
         {current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button" onClick={()=>void saveDraftNow()} disabled={busy}>儲存草稿</button>:null}
         {current.storedStatus!=="DRAFT"?<button type="button" className="cy-op-button" onClick={()=>void openDraft(current.sourceId)}>回到草稿</button>:null}
-        <button type="button" className="cy-op-button" disabled={compact&&(busy||sharingExcel)} onClick={()=>void exportOrder(current)}>{compact?(sharingExcel?"儲存中／分享中…":"儲存並分享 Excel"):"匯出 Excel"}</button>
+        <button type="button" className="cy-op-button" disabled={compact&&(busy||sharingExcel)} aria-busy={compact&&sharingExcel} onClick={()=>void exportOrder(current)}>{compact?"分享 Excel":"匯出 Excel"}</button>
         {current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button danger" onClick={()=>void deleteDraft()}>刪除</button>
          :current.storedStatus==="SENT"?<button type="button" className="cy-op-button danger" onClick={()=>void voidOrder()}>作廢</button>:null}
         {/* Only a sent order with nothing received or closed yet can be revised (user 2026-11-03). */}
