@@ -76,3 +76,41 @@ test('add dialog still preselects the last source and only looks up holdings for
  assert.equal(chips.nodes.find(n=>n.props?.['aria-label']==='有草稿')!==undefined,true);
  view.dispose();
 });
+
+test('duplicate-item chooser can cancel without writing, and keeps both add routes',async()=>{
+ const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);
+ const draft={id:5,sourceId:2,plannedSendDate:today,createdAt:today,status:'DRAFT'};
+ const sources=[{id:2,name:'合成廠商',kind:'VENDOR',isActive:true,sortOrder:0}];
+ const order={id:5,sourceId:2,sourceName:'合成廠商',plannedSendDate:today,version:3,lines:[{id:17,itemCode:'QA001',itemName:'合成品名',unit:'盒',section:'',quantity:4,quantityText:'4',sortOrder:1,closedAs:null}]};
+ const calls=[];globalThis.restockTransport=async(path,options)=>{calls.push({path,options});
+  if(path.endsWith('/sources'))return sources;
+  if(path.includes('/last-source?'))return{source_id:2};
+  if(path.endsWith('/preferences/vendors'))return[2];
+  if(path.includes('/draft-items'))return[];
+  if(path.includes('/orders?status=DRAFT')||path.includes('/orders?sourceId=2&status=DRAFT'))return[draft];
+  if(path.endsWith('/orders/5'))return order;
+  return{};
+ };
+ let added=0;const view=mount(AddToOrdering,{row:{...item,net:2},onClose(){},onAdded(){added++}});
+ await view.tick();
+ const form=view.nodes.find(n=>n.type==='form');
+ assert.ok(form);
+ await form.props.onSubmit({preventDefault(){}});
+ await view.tick();
+ const options=()=>view.nodes.filter(n=>n.type==='button').map(n=>({label:text(n),onClick:n.props.onClick}));
+ assert.ok(options().some(x=>x.label==='新增一列'));
+ assert.ok(options().some(x=>x.label==='加到既有列'));
+ assert.equal(options().filter(x=>x.label==='取消').length,2);
+ options().at(-3).onClick(); // duplicate chooser cancel; the outer form cancel is earlier
+ await view.tick();
+ assert.equal(calls.filter(x=>x.path.endsWith('/lines')).length,0);
+ assert.equal(added,0);
+ await view.nodes.find(n=>n.type==='form').props.onSubmit({preventDefault(){}});
+ await view.tick();
+ options().find(x=>x.label==='新增一列').onClick();
+ await view.tick();
+ const lineCalls=calls.filter(x=>x.path.endsWith('/lines'));
+ assert.equal(lineCalls.length,1);
+ assert.equal(lineCalls[0].options.json.lineId,undefined);
+ assert.equal(added,1);
+});

@@ -167,3 +167,6 @@
 - **成功儲存且沒有待處理編輯時**直接在同一次點擊中呼叫 `navigator.share`，不先 `await`，以保留 iOS Safari 的 user activation。草稿尚在自動儲存或正在修改已送出單時，在同一次按鈕操作裡先由專用 `saveForExcelShare` 儲存（不可執行 `prepareSwitch` 的「放棄修改並切換」分支），確定寫入成功才嘗試分享；失敗則停在原畫面保留未存輸入，不匯出舊資料。若 Safari 在網路儲存後失去分享授權，下載**剛儲存的最新 XLSX** 作備援，不要求再按第二次；按鈕永遠顯示「分享 Excel」，儲存狀態不取代文字。
 - 使用者取消原生分享（`AbortError`）不顯示錯誤，也不意外下載；無 Web Share files、`canShare` 不接受或分享發生其他錯誤時，下載同名 XLSX 為備援。Safari 的 Object URL 延遲釋放。
 - **桌機保留原本的 Blob 與 `a.download`、`URL.revokeObjectURL` 下載分支**，原 Excel 的工作表格式、品項內容、檔名與權限皆不改。共用業務程式仍由 `OrderingPage` 為單一 owner。
+
+## V0.12.9 — 進貨輔助重複品項取消
+同一草稿、相同品號／單位／區段有未結掉的既有列時，進貨輔助加入對話框提供「取消」、「新增一列」、「加到既有列」三種獨立選項。取消只關閉選擇，不改草稿品項或上次來源；其餘兩種仍用同一 save line API 與既有數量合併規則。桌機與手機共用，同一 Ordering business/Mutation owner 不變。

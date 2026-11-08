@@ -5,7 +5,6 @@ import {Icons} from "../../ui/actions/icons";
 import {useCompactLayout} from "../../ui/foundation/useCompactLayout";
 import {DateInput} from "../../ui/forms/DateInput";
 import {apiRequest} from "../../api/client";
-import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {Dialog} from "../../ui/overlays/Dialog";
 import {OrderingSourceChips} from "../../ui/OrderingSourceChips";
 import {FeedbackBanner,useFeedbackMessage} from "../../ui/feedback/FeedbackProvider";
@@ -215,7 +214,7 @@ function AddToOrdering({row,onClose,onAdded}:{row:Row;onClose:()=>void;onAdded:(
  const [draftSourceIds,setDraftSourceIds]=useState<number[]>([]),[vendorOrder,setVendorOrder]=useState<number[]>([]);
  // Which drafts already hold this 品號 is looked up only here, for the one item being added (user 2026-11-03).
  const [holding,setHolding]=useState<{drafts:string[];pending:string[]}>({drafts:[],pending:[]});
- const {confirm,confirmationDialog}=useConfirmation();
+ const [duplicate,setDuplicate]=useState<{order:OrderingOrder;line:OrderingOrder["lines"][number]}|null>(null);
  const regular=sources.find(s=>s.id===sourceId)?.kind==="CN_REGULAR";
  useEffect(()=>{let valid=true;void Promise.all([
   apiRequest<OrderingSource[]>("/api/business/ordering/sources"),
@@ -230,22 +229,32 @@ function AddToOrdering({row,onClose,onAdded}:{row:Row;onClose:()=>void;onAdded:(
   setDraftSourceIds([...new Set(allDrafts.map(x=>x.sourceId))]);setVendorOrder(order);
  }}).catch(e=>{if(valid)setError(e instanceof Error?e.message:"無法讀取叫貨來源")});return()=>{valid=false}},[row.itemCode]);
  useEffect(()=>{setDrafts([]);setOrderId(0);if(!sourceId)return;let valid=true;void apiRequest<OrderingListRow[]>("/api/business/ordering/orders?sourceId="+sourceId+"&status=DRAFT").then(xs=>{if(valid){setDrafts(xs);const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);setOrderId(pickDraft(xs.map(x=>({id:x.id,plannedSendDate:x.plannedSendDate,createdAt:x.createdAt})),today)?.id??0)}}).catch(e=>{if(valid)setError(e instanceof Error?e.message:"無法讀取草稿")});return()=>{valid=false}},[sourceId]);
+ async function saveLine(current:OrderingOrder,lineId?:number){
+  const existing=lineId?current.lines.find(l=>l.id===lineId):undefined;
+  const quantityText=existing?String(Number(existing.quantity??0)+Number(qty)):qty;
+  await apiRequest("/api/business/ordering/orders/"+current.id+"/lines",{method:"POST",json:{expectedVersion:current.version,operation:"save",lineId,line:{...(regular?{section}:{}),itemCode:row.itemCode,itemName:row.itemName,unit:unit.trim(),quantityText,sortOrder:existing?existing.sortOrder:Date.now()},final:true}});
+  await apiRequest("/api/business/ordering/last-source",{method:"POST",json:{sourceId,itemCode:row.itemCode}}).catch(()=>{});
+  const source=sources.find(s=>s.id===sourceId);
+  onAdded("已加入 "+(source?.name??"叫貨")+" "+(current.plannedSendDate?current.plannedSendDate.slice(5).replace("-","/"):"未定日期")+" 草稿");
+ }
  async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!sourceId){setError("請選擇來源。");return}if(!qty.trim()||Number(qty)<=0||(regular&&!section))return;
   setBusy(true);setError("");try{
    const ROOT="/api/business/ordering";
-   let current=orderId?await apiRequest<OrderingOrder>(ROOT+"/orders/"+orderId):await apiRequest<OrderingOrder>(ROOT+"/orders",{method:"POST",json:{sourceId}});
-   // Only a line in the same block with the same unit can take the added quantity.
+   const current=orderId?await apiRequest<OrderingOrder>(ROOT+"/orders/"+orderId):await apiRequest<OrderingOrder>(ROOT+"/orders",{method:"POST",json:{sourceId}});
    const existing=current.lines.find(l=>l.itemCode===row.itemCode&&l.unit.trim()===unit.trim()&&(!regular||l.section===section)&&!l.closedAs);
-   let lineId:number|undefined;
-   if(existing&&await confirm({title:"已有同品號品項",description:draftText({sourceName:current.sourceName,plannedSendDate:current.plannedSendDate,quantityText:existing.quantityText,unit:existing.unit})+"，加到既有那一列？",confirmLabel:"加到既有列",cancelLabel:"新增一列"}))lineId=existing.id;
-   const quantityText=lineId?String(Number(existing?.quantity??0)+Number(qty)):qty;
-   await apiRequest(ROOT+"/orders/"+current.id+"/lines",{method:"POST",json:{expectedVersion:current.version,operation:"save",lineId,line:{...(regular?{section}:{}),itemCode:row.itemCode,itemName:row.itemName,unit:unit.trim(),quantityText,sortOrder:lineId?existing!.sortOrder:Date.now()},final:true}});
-   await apiRequest(ROOT+"/last-source",{method:"POST",json:{sourceId,itemCode:row.itemCode}}).catch(()=>{});
-   const source=sources.find(s=>s.id===sourceId);
-   onAdded("已加入 "+(source?.name??"叫貨")+" "+(current.plannedSendDate?current.plannedSendDate.slice(5).replace("-","/"):"未定日期")+" 草稿");
+   if(existing){setDuplicate({order:current,line:existing});return}
+   await saveLine(current);
   }catch(err){setError(err instanceof Error?err.message:"加入失敗")}finally{setBusy(false)}
  }
- return <Dialog open size="small" className="cy-restock-add-dialog" title={"加入叫貨單："+row.itemName} dismissible={false} onClose={onClose}>{error?<p role="alert">{error}</p>:null}
+ async function chooseDuplicate(joinExisting:boolean){
+  if(!duplicate)return;
+  const {order,line}=duplicate;
+  setDuplicate(null);setBusy(true);setError("");
+  try{await saveLine(order,joinExisting?line.id:undefined)}
+  catch(err){setError(err instanceof Error?err.message:"加入失敗")}
+  finally{setBusy(false)}
+ }
+ return <><Dialog open size="small" className="cy-restock-add-dialog" title={"加入叫貨單："+row.itemName} dismissible={false} onClose={onClose}>{error?<p role="alert">{error}</p>:null}
  <form onKeyDown={enterAdvancesFields} onSubmit={e=>void submit(e)}>
     <FormSection>
  {holding.drafts.length||holding.pending.length?<div className="cy-restock-in-drafts">
@@ -261,5 +270,13 @@ function AddToOrdering({row,onClose,onAdded}:{row:Row;onClose:()=>void;onAdded:(
  <div className="cy-dialog-action-row"><button type="button" className="cy-op-button" onClick={onClose}>取消</button><button type="submit" className="cy-op-button primary" disabled={busy}>加入</button></div>
  
     </FormSection>
-  </form>{confirmationDialog}</Dialog>;
+  </form></Dialog>
+  {duplicate?<Dialog open size="small" title="已有同品號品項" dismissible={false} onClose={()=>setDuplicate(null)}>
+   <p>{draftText({sourceName:duplicate.order.sourceName,plannedSendDate:duplicate.order.plannedSendDate,quantityText:duplicate.line.quantityText,unit:duplicate.line.unit})}，請選擇加入方式。</p>
+   <div className="cy-dialog-action-row">
+    <button type="button" className="cy-op-button" onClick={()=>setDuplicate(null)}>取消</button>
+    <button type="button" className="cy-op-button" onClick={()=>void chooseDuplicate(false)}>新增一列</button>
+    <button type="button" className="cy-op-button primary" onClick={()=>void chooseDuplicate(true)}>加到既有列</button>
+   </div>
+  </Dialog>:null}</>;
 }
