@@ -6,6 +6,11 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.12.9 — 進貨輔助重複品項三選一（2026-11-09）
+- 進貨輔助按「加入」，選定草稿若已有同品號、同單位及同區段的開放品項，改顯示「取消／新增一列／加到既有列」三個明確操作。
+- 按「取消」不發送品項寫入請求、不更新上次來源、不顯示加入成功；「新增一列」與「加到既有列」沿用原本儲存路徑及數量合併規則。
+- 僅修改進貨輔助共用對話框，桌機與手機同一行為，無新 API／D1／權限或架構路徑。測試和審查詳見 [handoff](docs/handoff/CYWEB-RESTOCK-DUPLICATE-CANCEL-0129-20261109.md)。
+
 ## CY Web V0.12.8 — 手機叫貨清單精簡（2026-11-09）
 - 手機模組抽屜刪除重複「模組選單」可見標題；CY Web 品牌行右側保留關閉按鈕，BOT 管理中心新增專屬機器人線條圖示（桌機與手機皆顯示）。
 - 手機叫貨清單搜尋、篩選、顯示未結案同一列；未到貨每品項改為品號／品名及數量／操作兩行；草稿公司來源／廠商改成薄分隔線密集清單，維持原來源和 orderedVendors 個人排序。
