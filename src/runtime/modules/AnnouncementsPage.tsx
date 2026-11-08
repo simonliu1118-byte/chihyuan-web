@@ -36,6 +36,7 @@ export function AnnouncementsPage({canPublishCompany,canSendPersonal}:{canPublis
    const current=++sequence,p=new URLSearchParams(window.location.hash.split("?")[1]??"");
    const selectedTab=p.get("tab")==="personal"?"personal":"company";
    const id=p.get("id");
+   setComposing(false);setDirty(false);
    setTab(selectedTab);setMode("inbox");setReceipts(null);
    if(!id){setSelected(null);return}
    void getNotice(id).then(item=>{

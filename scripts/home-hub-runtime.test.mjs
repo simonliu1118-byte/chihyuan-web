@@ -99,3 +99,20 @@ test("bell count includes all reminders and keyset cursor can page past first fi
   assert.equal(second.counts.total,13);
  }finally{f.close()}
 });
+
+test("independent user grants enable only their corresponding notice composition and recipient directory",async()=>{
+ const f=fixture();try{
+  const now="2026-11-08T00:00:00.000Z";
+  f.sql.prepare("INSERT INTO app_member_module_access(member_id,module_code,enabled,updated_at) VALUES(2,'PERSONAL_NOTICE_SEND',1,?)").run(now);
+  assert.equal(ok(await f.call(2,"/api/hub/recipients")).length,3);
+  const privateNotice=created(await f.call(2,"/api/hub/notices","POST",{kind:"personal",title:"一對一公告",body:"指定的人收得到",recipients:[3]}));
+  assert.equal(privateNotice.kind,"personal");
+  assert.equal((await f.call(2,"/api/hub/notices","POST",{kind:"company",title:"無權公告",body:"不能發布"})).status,403);
+  assert.equal(ok(await f.call(3,"/api/hub/notices?kind=personal&mode=inbox")).items[0].id,privateNotice.id);
+  f.sql.prepare("INSERT INTO app_member_module_access(member_id,module_code,enabled,updated_at) VALUES(3,'ANNOUNCEMENT_PUBLISH',1,?)").run(now);
+  const companyNotice=created(await f.call(3,"/api/hub/notices","POST",{kind:"company",title:"有效公告",body:"正式發布"}));
+  assert.equal(companyNotice.kind,"company");
+  assert.equal((await f.call(3,"/api/hub/notices","POST",{kind:"personal",title:"無權私訊",body:"不能發",recipients:[2]})).status,403);
+  assert.equal((await f.call(3,"/api/hub/recipients")).status,403);
+ }finally{f.close()}
+});
