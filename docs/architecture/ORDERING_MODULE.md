@@ -155,6 +155,12 @@
 - 手機草稿頁先顯示既有啟用公司來源與廠商列表（含搜尋、廠商個人順序、原狀態點）。點選後使用同一 `openDraft`、`OrderingGrid` 與草稿 chips，無草稿依原本建立。手機**不再預先查所有草稿**，取消原 `GET /orders?status=DRAFT` 全量請求與獨立 mobileDrafts 狀態。
 - 手機來源管理與進貨輔助放在草稿來源列表；桌機的 `cy-ordering-tabbar`、原左右雙欄及所有控制、文字與流程維持不變。CSS 修改集中於叫貨手機版斷點，篩選容器桌機 `display:contents` 維持原排版，不增設平行資料 owner。
 
+## V0.12.8 — 手機叫貨密集列表
+- 僅 compact（820px 以下）：搜尋、篩選及未結案切換同列，沿用 OpenOnlyToggle、StatusFilter 與既有 list 查詢。
+- 未到貨保留原 GET /pending 和按叫貨單收合的明細；手機每項使用品號與品名一行，數量及兩個原操作一行，長品名以省略號處理；桌機仍為原表格。
+- 草稿來源仍分公司內部與廠商，改薄分隔清單；公司來源 active 順序、廠商 orderedVendors 個人順序及狀態點皆不變。無額外草稿查詢或儲存流程。
+- 不改後端、Excel 分享、未儲存切換保護，PC 雙欄與原各項操作保持不變。
+
 ## V0.12.7 Build 1 — 手機 Excel 原生分享
 
 - 手機叫貨單按鈕為「分享 Excel」，以原本 `orderSheet`＋`buildXlsx` 產生完整 XLSX `File`，用 `navigator.canShare({files:[file]})`（若可用）與 `navigator.share({files:[file],title:file.name})` 開啟瀏覽器原生分享面板。只傳實際生成的檔案，不傳 URL 或資料庫連結；不呼叫後端新 API。

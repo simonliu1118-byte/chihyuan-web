@@ -78,3 +78,36 @@ test("ordering keeps one grid renderer; phone labels allow readable cards",()=>{
  assert.match(css,/\.cy-ordering-page \.cy-ordering-pending-table tr\{display:grid/);
  assert.match(css,/\.cy-ordering-page \.cy-ordering-grid \.cy-ordering-cell\{height:44px/);
 });
+
+test("mobile drawer brand replaces redundant title and BOT has a dedicated icon",()=>{
+ const shell=read("src/ui/shell/AppShell.tsx","utf8");
+ assert.match(shell,/cy-shell-nav-close" aria-label="關閉模組選單"/);
+ assert.match(shell,/className="cy-shell-navigation-drawer" hideHeader showCloseButton=\{false\}/);
+ assert.match(shell,/"bot-center": \[/);
+ assert.match(shellCss,/\.cy-shell-navigation-drawer\.cy-dialog-plain \.cy-dialog-body/);
+});
+test("phone history tools occupy a single row without changing their owners",()=>{
+ assert.match(css,/\.cy-ordering-page \.cy-md-toolbar-lead\{display:grid;grid-template-columns:minmax\(0,1fr\) auto auto;/);
+ assert.match(css,/\.cy-ordering-page \.cy-md-toolbar-lead>:first-child\{grid-column:3;grid-row:1;/);
+ assert.match(css,/\.cy-ordering-page \.cy-md-toolbar-lead>\.cy-op-input\{grid-column:1;grid-row:1;/);
+ assert.match(css,/\.cy-ordering-page \.cy-ordering-filter-toggle\{grid-column:2;grid-row:1;/);
+ assert.match(ordering,/<OpenOnlyToggle value=\{openOnly\}/);
+});
+test("phone pending item is two lines with all original actions",()=>{
+ assert.match(css,/cy-ordering-pending-table tr\{display:grid;grid-template-columns:minmax\(0,1fr\) auto;grid-template-rows:auto auto;/);
+ assert.match(css,/cy-ordering-pending-table td:nth-child\(1\)\{grid-column:1\/-1;grid-row:1;/);
+ assert.match(css,/cy-ordering-pending-table td:nth-child\(3\)\{grid-column:1;grid-row:2;/);
+ assert.match(css,/cy-ordering-pending-table td:last-child\{grid-column:2;grid-row:2;/);
+ assert.match(ordering,/cy-ordering-pending-mobile-name/);
+ assert.match(ordering,/cy-ordering-pending-mobile-summary/);
+ assert.match(ordering,/setReceipt\(\{id:l\.orderId/);
+ assert.match(ordering,/setClosing\(\{id:l\.lineId/);
+});
+test("phone draft rows are dense while keeping the previous source and vendor order",()=>{
+ assert.match(ordering,/mobileGeneralSources=active\.filter/);
+ assert.match(ordering,/mobileVendors=orderedVendors\.filter/);
+ assert.match(css,/\.cy-ordering-mobile-draft-list\{display:grid;gap:0\}/);
+ assert.match(css,/\.cy-ordering-mobile-draft-row\+\.cy-ordering-mobile-draft-row\{border-top:1px solid var\(--cy-border\)\}/);
+ assert.match(css,/\.cy-ordering-mobile-draft-row\{display:grid;grid-template-columns:minmax\(0,1fr\) auto;/);
+ assert.match(ordering,/VendorDots status=\{vendorStatus\.get\(item\.id\)\}/);
+});

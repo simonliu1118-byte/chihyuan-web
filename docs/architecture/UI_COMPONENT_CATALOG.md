@@ -116,3 +116,7 @@ V0.12.6：BOT 時間軸單行省略／內容溢出時用共用 `ExpandToggle`；
 - OrderingPage 手機 820px 以下固定三個上方頁籤「叫貨清單／未到貨／草稿」。桌機仍保留原左清單＋右來源 tabs 與表格；兩者共用 `OrderingGrid`、`MasterDetail`、`prepareSwitch`。
 - 手機清單共用原歷史搜尋／未結案／狀態／來源／日期 filter owner，只將進階篩選收起；桌機篩選容器 `display:contents`。
 - 手機未到貨直接進原到貨明細區；草稿頁以既有 `sources`／`orderedVendors` 建來源與廠商列表，選擇後使用原 `drafts/open`。不新增 worker query、手機專用編輯器或獨立持久狀態。
+
+ 
+## V0.12.8 — 手機叫貨密集清單及導覽
+僅手機 drawer 把 CY Web 品牌行設為唯一可見標頭（含關閉鈕）；叫貨工具列同一行；未到貨原表格在手機每品項呈兩行；草稿來源及廠商變成薄分隔列，沿用舊順序。導覽清單的 BOT 管理中心新增獨立機器人線條 icon，沒有新圖示套件及資料 owner；桌機只多此圖示，佈局不改。

@@ -6,7 +6,13 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
-## CY Web V0.12.7 Build 1 — 手機叫貨導覽修正（2026-11-08，尚未發布）
+## CY Web V0.12.8 — 手機叫貨清單精簡（2026-11-09）
+- 手機模組抽屜刪除重複「模組選單」可見標題；CY Web 品牌行右側保留關閉按鈕，BOT 管理中心新增專屬機器人線條圖示（桌機與手機皆顯示）。
+- 手機叫貨清單搜尋、篩選、顯示未結案同一列；未到貨每品項改為品號／品名及數量／操作兩行；草稿公司來源／廠商改成薄分隔線密集清單，維持原來源和 orderedVendors 個人排序。
+- 僅前端 presentation 與測試，不改業務資料、API、Worker、D1、CYID、Excel 分享／下載流程。桌機 UI 排版及操作原樣保留，BOT 導覽僅增加辨識圖示。
+- 使用者已授權合併與部署；驗證和 Claude 複審狀態見 [handoff](docs/handoff/CYWEB-MOBILE-ORDERING-DENSITY-0128-20261109.md)。
+
+## CY Web V0.12.7 Build 1 — 手機叫貨導覽修正（2026-11-08，已合併部署）
 
 - 僅手機（820px 以下）改為「**叫貨清單／未到貨／草稿**」三個主要頁籤，進入模組預設「叫貨清單」，其 `history=1` 沿用既有正式 API、包含結案與未結案、絕不包含草稿。
 - 「未到貨」直接呈現原 `GET /pending` 的單一明細清單及叫貨單收合分組，不再顯示來源／廠商切換列；登記到貨、結掉維持原操作。
