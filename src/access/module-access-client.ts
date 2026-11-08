@@ -3,7 +3,7 @@ import type { CyWebModuleCode } from "../../shared/modules";
 
 export interface ModuleCatalogItem {
   code: CyWebModuleCode;
-  route: string;
+  route: string | null;
   label: string;
 }
 

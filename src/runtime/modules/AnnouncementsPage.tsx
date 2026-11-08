@@ -3,6 +3,7 @@ import type {HubNotice,HubRecipient,HubReadReceipt,NoticeKind} from "../../../sh
 import {SegmentedControl} from "../../ui/primitives/SegmentedControl";
 import {ExpandToggle} from "../../ui/data/ExpandToggle";
 import {Field,CheckField} from "../../ui/forms/Field";
+import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {useUnsavedChangesGuard} from "../../ui/foundation/useUnsavedChangesGuard";
 import {formatDateTime} from "../../ui/foundation/format";
@@ -52,6 +53,7 @@ export function AnnouncementsPage({canPublishCompany,canSendPersonal}:{canPublis
   if(next===tab)return;
   if(composing&&dirty&&!await confirm({title:"放棄尚未發送的通知？",description:"切換頁籤將清除目前輸入內容。",confirmLabel:"放棄",confirmTone:"danger"}))return;
   setComposing(false);setDirty(false);setSelected(null);setMode("inbox");setTab(next);
+  window.history.replaceState(null,"","#announcements?tab="+next);
  }
  async function switchMode(next:"inbox"|"sent"){
   if(next===mode)return;
@@ -109,7 +111,7 @@ export function AnnouncementsPage({canPublishCompany,canSendPersonal}:{canPublis
   {composing?<section className="cy-op-panel" aria-label={tab==="company"?"發布公司公告":"發送個人通知"}>
    <div className="cy-op-panel-header"><h2>{tab==="company"?"發布公司公告":"發送個人通知"}</h2></div>
    <p className="cy-hub-empty">{tab==="company"?"此頁籤發布後，公司內可登入 CYWEB 的使用者都能看到。":"此頁籤僅發送給指定使用者；不會變成全公司公告。"}</p>
-   <form className="cy-hub-form" onSubmit={event=>void publish(event)}>
+   <form className="cy-hub-form" onKeyDown={enterAdvancesFields} onSubmit={event=>void publish(event)}>
     {tab==="personal"?<div className="cy-hub-recipient-group">
      <Field label="搜尋收件人"><input className="cy-op-input" value={search} onChange={e=>setSearch(e.target.value)} placeholder="姓名或員工編號"/></Field>
      <div className="cy-hub-recipient-picker" aria-label="指定收件人">

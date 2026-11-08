@@ -3,6 +3,8 @@ import type {PersonalTodo,TodoPriority} from "../../../shared/home-hub";
 import {useUnsavedChangesGuard} from "../../ui/foundation/useUnsavedChangesGuard";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {Field} from "../../ui/forms/Field";
+import {DateInput} from "../../ui/forms/DateInput";
+import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import {SegmentedControl} from "../../ui/primitives/SegmentedControl";
 import {formatDateTime} from "../../ui/foundation/format";
 import {deleteTodo,getTodo,getTodos,saveTodo,setTodoCompleted,signalHubUpdated} from "../api/home-hub-client";
@@ -81,11 +83,11 @@ export function MyTodosPage(){
   {error?<p className="cy-hub-error" role="alert">{error}</p>:null}
   {editor?<section className="cy-op-panel" aria-label={editId?"編輯待辦":"新增待辦"}>
     <div className="cy-op-panel-header"><h2>{editId?"編輯待辦事項":"新增待辦事項"}</h2></div>
-    <form className="cy-hub-form" onSubmit={event=>void submit(event)}>
+    <form className="cy-hub-form" onKeyDown={enterAdvancesFields} onSubmit={event=>void submit(event)}>
      <Field label="待辦事項" required><input className="cy-op-input" maxLength={160} required value={draft.title} onChange={e=>change("title",e.target.value)}/></Field>
      <Field label="詳情"><textarea className="cy-op-input" rows={3} maxLength={3000} value={draft.detail} onChange={e=>change("detail",e.target.value)}/></Field>
      <div className="cy-hub-form-grid">
-      <Field label="到期日期（選填）"><input className="cy-op-input" type="date" value={draft.dueDate} onChange={e=>{change("dueDate",e.target.value);if(!e.target.value)change("dueTime","")}}/></Field>
+      <Field label="到期日期（選填）"><DateInput className="cy-op-input" max="9999-12-31" value={draft.dueDate} onChange={date=>{change("dueDate",date);if(!date)change("dueTime","")}}/></Field>
       <Field label="到期時間（選填）"><input className="cy-op-input" type="time" disabled={!draft.dueDate} value={draft.dueTime} onChange={e=>change("dueTime",e.target.value)}/></Field>
       <Field label="優先程度"><select className="cy-op-input" value={draft.priority} onChange={e=>change("priority",e.target.value)}><option value="normal">一般</option><option value="important">重要</option></select></Field>
      </div>
