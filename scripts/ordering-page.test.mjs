@@ -23,6 +23,7 @@ const stubs = {
   "../../ui/overlays/SidePanel": `export function SidePanel(){return null}`,
   "./RestockAssist": `export function RestockAssist(){return null}`,
   "./useErpJob": `export const ErpPageVisibleContext={}; export function useErpJob(){return {result:null,busy:false}}; export const recentJobs=async()=>[]; export const runningStatus=s=>s==="QUEUED"||s==="RUNNING"`,
+  "../../ui/foundation/useCompactLayout": `export const useCompactLayout=()=>false;`,
   "../../ui/foundation/useUnsavedChangesGuard": `export const useUnsavedChangesGuard=options=>{globalThis.orderingPageGuard=options};`,
 };
 for (const [path, names] of [
