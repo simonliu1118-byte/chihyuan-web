@@ -37,7 +37,7 @@ test("ERP category tabs are shared with desktop and preserve mounted panels",()=
 test("phone ordering has actual saved draft listing with clear entry points",()=>{
  assert.match(ordering,/mobileListMode/);
  assert.match(ordering,/\/orders\?status=DRAFT/);
- assert.match(ordering,/mobileListMode!=="drafts"/);
+ assert.match(ordering,/pane.pane!=="list"\|\|mobileListMode!=="drafts"/);
  assert.match(ordering,/aria-label="手機叫貨功能"/);
  assert.match(ordering,/>草稿<\/button>/);
  assert.match(ordering,/>叫貨紀錄<\/button>/);

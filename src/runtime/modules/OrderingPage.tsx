@@ -192,12 +192,12 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
  const pageVisible=useContext(ErpPageVisibleContext),wasVisible=useRef(pageVisible);
  // Phone-only draft list reuses the existing bounded ordering list API. No background polling.
  useEffect(()=>{
-  if(!compact||!pageVisible||mobileListMode!=="drafts")return;
+  if(!compact||!pageVisible||pane.pane!=="list"||mobileListMode!=="drafts")return;
   let live=true;setMobileDraftsLoading(true);
   void call<OrderingListRow[]>("/orders?status=DRAFT").then(rows=>{if(live)setMobileDrafts(rows)})
    .catch(e=>{if(live)setError(errorOf(e))}).finally(()=>{if(live)setMobileDraftsLoading(false)});
   return()=>{live=false};
- },[compact,pageVisible,mobileListMode,draftRefreshKey]);
+ },[compact,pageVisible,pane.pane,mobileListMode,draftRefreshKey]);
  useEffect(()=>{
   const back=pageVisible&&!wasVisible.current;wasVisible.current=pageVisible;if(!back)return;
   void refresh().then(refreshLists).catch(e=>setError(errorOf(e)));
