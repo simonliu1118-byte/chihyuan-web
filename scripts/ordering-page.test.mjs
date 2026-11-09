@@ -29,7 +29,7 @@ const stubs = {
 for (const [path, names] of [
   ["../../ui/forms/Field", ["Field", "CheckField", "FormSection", "RequiredRows"]],
   ["../../ui/data/StatusFilter", ["StatusFilter"]], ["../../ui/primitives/StatusChip", ["StatusChip"]],
-  ["../../ui/overlays/Dialog", ["Dialog"]],
+  ["../../ui/overlays/Dialog", ["Dialog", "BottomSheet"]],
 ]) stubs[path] = names.map(name => `export const ${name}=()=>null;`).join("\n");
 let OrderingPage;
 try {
@@ -393,56 +393,55 @@ test("from 未到貨 a source tab switches at once and shows Loading while its d
  slow.resolve(order(1));await page.tick();assert.ok(page.grid);
 });
 
-test("phone launches with desktop-equivalent sent-only history and direct pending, never vendor tabs",async()=>{
+test("phone opens pending first through ModuleSections and preserves the original history query",async()=>{
  const page=mount(normalTransport,{},true);await page.tick();
- const nav=()=>page.nodes.find(n=>n.type==="nav"&&n.props?.["aria-label"]==="手機叫貨功能");
- const buttons=()=>descendants(nav()).filter(n=>n.type==="button");
- assert.deepEqual(buttons().map(n=>text(n).trim()),["叫貨清單","未到貨","草稿"]);
- assert.equal(buttons()[0].props["aria-current"],"page");
- assert.equal(page.nodes.some(n=>n.props?.["aria-label"]==="叫貨清單"),true);
- assert.equal(page.calls.some(c=>c.path==="/orders?status=DRAFT"),false);
- assert.equal(page.nodes.some(n=>n.props?.className==="cy-ordering-tabbar"),false,"phone does not render desktop source tabs");
- page.click("未到貨 ");await page.tick();
- assert.equal(buttons()[1].props["aria-current"],"page");
+ const nav=()=>page.nodes.find(n=>n.type?.name==="ModuleSections");
+ assert.deepEqual(nav().props.sections.map(s=>s.label),["未到貨","草稿","叫貨單"]);
+ assert.equal(nav().props.value,"pending");
  assert.ok(page.nodes.some(n=>n.type==="h2"&&text(n)==="未到貨明細"));
+ assert.equal(page.calls.some(c=>c.path==="/orders?status=DRAFT"),false);
  assert.equal(page.nodes.some(n=>n.props?.className==="cy-ordering-tabbar"),false);
- assert.equal(page.nodes.some(n=>n.type?.name==="MasterDetailBack"),false,"direct pending needs no back to list");
- page.click("叫貨清單");await page.tick();
- assert.equal(buttons()[0].props["aria-current"],"page");
+ nav().props.onChange("history");await page.tick();
+ assert.equal(nav().props.value,"history");
+ assert.ok(page.nodes.some(n=>n.type?.name==="DataViewToolbar"));
+ nav().props.onChange("pending");await page.tick();
+ assert.equal(nav().props.value,"pending");
+ assert.equal(page.nodes.some(n=>n.type?.name==="MasterDetailBack"),false);
 });
 
-test("phone draft tab lists company sources and ordered vendors, opens the original editor without scanning every draft",async()=>{
+test("phone source choices use shared ListRow without changing the draft API or vendor order",async()=>{
  const page=mount(normalTransport,{},true);await page.tick();
  const originalQueries=page.calls.length;
- page.click("草稿");await page.tick();
- const groupLabels=page.nodes.filter(n=>n.type==="section"&&String(n.props?.className)==="cy-ordering-mobile-source-group").map(n=>n.props["aria-label"]);
- assert.deepEqual(groupLabels,["公司內部來源","廠商來源"]);
- assert.ok(page.nodes.some(n=>n.type==="button"&&text(n)==="測試來源甲開啟 ›"));
- assert.ok(page.nodes.some(n=>n.type==="button"&&text(n).includes("永全")));
- assert.equal(page.calls.length,originalQueries,"switching to source choices does not query all drafts");
- const vendor=page.nodes.find(n=>n.type==="button"&&text(n).includes("永全"));
- vendor.props.onClick();await page.tick();
+ page.nodes.find(n=>n.type?.name==="ModuleSections").props.onChange("drafts");await page.tick();
+ const groups=page.nodes.filter(n=>n.type==="section"&&n.props?.className==="cy-mobile-choice-group").map(n=>n.props["aria-label"]);
+ assert.deepEqual(groups,["公司內部來源","廠商來源"]);
+ const rows=page.nodes.filter(n=>n.type?.name==="ListRow");
+ assert.ok(rows.some(n=>n.props.title==="測試來源甲"));
+ assert.ok(rows.some(n=>n.props.title==="永全"));
+ assert.equal(page.calls.length,originalQueries);
+ rows.find(n=>n.props.title==="永全").props.onClick();await page.tick();
  assert.ok(page.calls.some(c=>c.path==="/drafts/open?sourceId=3"));
  assert.equal(page.grid?.readOnly,false);
  assert.equal(page.nodes.some(n=>n.props?.className==="cy-ordering-tabbar"),false);
- const draftTab=page.nodes.find(n=>n.type==="nav"&&n.props?.["aria-label"]==="手機叫貨功能");
- assert.equal(descendants(draftTab).filter(n=>n.type==="button").at(-1).props["aria-current"],"page");
- page.click("叫貨清單");await page.tick();
+ assert.equal(page.nodes.find(n=>n.type?.name==="ModuleSections").props.value,"drafts");
+ page.nodes.find(n=>n.type?.name==="ModuleSections").props.onChange("history");await page.tick();
  assert.equal(globalThis.orderingPageMobilePane,"list");
 });
 
-test("phone history detail filters are collapsed; desktop still renders original controls",async()=>{
+test("phone history uses DataViewToolbar filters while desktop retains its original controls",async()=>{
  const phone=mount(normalTransport,{},true);await phone.tick();
- let advanced=phone.nodes.find(n=>n.props?.className==="cy-ordering-history-advanced");
- assert.equal(advanced.props.hidden,true);
- phone.click("篩選");await phone.tick();
- advanced=phone.nodes.find(n=>n.props?.className==="cy-ordering-history-advanced");
- assert.equal(advanced.props.hidden,false);
- const labels=descendants(advanced).filter(n=>n.props?.label).map(n=>n.props.label);
+ phone.nodes.find(n=>n.type?.name==="ModuleSections").props.onChange("history");await phone.tick();
+ const toolbar=phone.nodes.find(n=>n.type?.name==="DataViewToolbar");
+ assert.ok(toolbar);
+ assert.equal(toolbar.props.activeFilterCount,0);
+ assert.equal(toolbar.props.searchValue,"");
+ const labels=descendants(toolbar.props.filters).filter(n=>n.props?.label).map(n=>n.props.label);
  assert.ok(labels.includes("叫貨狀態"));
+ assert.ok(labels.includes("篩選叫貨來源"));
  phone.dispose();
  const desktop=mount(normalTransport);await desktop.tick();
- advanced=desktop.nodes.find(n=>n.props?.className==="cy-ordering-history-advanced");
- assert.equal(advanced.props.hidden,false);
+ const advanced=desktop.nodes.find(n=>n.props?.className==="cy-ordering-history-advanced");
+ assert.ok(advanced);
  assert.ok(desktop.nodes.some(n=>n.props?.className==="cy-ordering-tabbar"));
+ assert.equal(desktop.nodes.some(n=>n.type?.name==="DataViewToolbar"),false);
 });
