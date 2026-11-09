@@ -1,6 +1,6 @@
 # WO-0.16.0 商品主檔改成表格式單據，瑕疵併入商品分頁
 
-- 狀態：程式實作已提交，等待完整 CI／實際裝置驗收及 Claude 複審（2026-11-09）
+- 狀態：程式實作與完整 CI 均已完成；等待實際裝置驗收及 Claude 複審（2026-11-09；不合併不部署）
 - 分支：`cyweb/wo-0.16.0-items`　PR：[Draft #483](https://github.com/simonliu1118-byte/chihyuan-web/pull/483)
 - 版號：V0.16.0（若已被占用就用下一個空號，CHANGELOG 同步）
 - 開工前必讀：
@@ -85,10 +85,10 @@
 - [ ] 桌機 1440 與手機 390×844 截圖（`deviceScaleFactor:2`）：商品明細檢視、修改、新增、商品設定的平台維護、瑕疵分頁。
 - [ ] 可攜備份匯出、還原包含新表。
 - [ ] 固定項目：新表單按 Enter 跳下一欄、日期欄位四碼年份（`PROJECT_RULES.md` §5，`form-keyboard.test.mjs` 會檢查）。
-- [ ] `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local` 通過。
-- [ ] `node --test scripts/*.test.mjs` 通過；既有測試不得刪除或放寬，只可依新的畫面結構更新選擇器。
-- [ ] VERSION／package.json 版本、CHANGELOG、TODO 段落已更新。
-- [ ] 開 PR 給 Claude 審查。**不要自行合併或部署。**
+- [x] `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local` 通過（GitHub Runtime #42645139617）。
+- [x] `node --test scripts/*.test.mjs` 通過；舊選擇器依新畫面結構調整，原有測試未刪除或放寬（GitHub Runtime #42645139617）。
+- [x] VERSION／package.json 版本、CHANGELOG、TODO 段落已更新，並納入 V0.15.8 主線修正。
+- [x] 開 [Draft PR #483](https://github.com/simonliu1118-byte/chihyuan-web/pull/483) 給 Claude 審查。**尚未獲得 Claude 複審，不合併、不部署。**
 
 ## 8. 完成報告（GPT 填）
 
@@ -96,7 +96,7 @@
 - 程式：`item/ItemSheet` 共用 RecordSheet 檢視、修改與新增，新增 InlineGridField（網路平台價格格）；批發單位多筆、含稅前端計算、曾用品號與價格 Audit 的修改紀錄視窗。
 - 後端：`0061_item_price_tables` 三表與六個預設平台；ItemRepository／Service／Persistence 的商品價格同版本鎖儲存；SettingsService SUPER_ADMIN 平台維護、HTTP 路由及原權限護欄；三表與種子納入可攜備份。
 - 導覽：瑕疵移入商品頁共用 ModuleSections，原 #defects 可直達，ITEMS／DEFECTS 不混用。
-- 驗證：PR CI 待讀回；**尚無 1440px／390×844 的登入後原始裝置截圖**；Claude 尚未審查。必須把這些驗收項目保持未勾，不能以 CI 取代。
+- 驗證：最後通過程式 SHA `a51ea57dc4aa7cd3bc98e6c326c71f4d64850c91`；[Runtime Check #42645139617](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42645139617) 全通過（browser／worker TypeScript、來源合約、D1 本機驗收、完整 Node suite、Build）；[Governance #42645139613](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42645139613) 通過；[部署契約 #42645139713](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42645139713) 通過，**正式 deploy-development job skipped**。**尚無 1440px／390×844 的登入後原始裝置截圖**；Claude 尚未審查。不能以 CI 取代這兩項。
 - 使用者指示：**不合併 PR、不部署，不改動 main 或 deploy 分支。**
 
 
