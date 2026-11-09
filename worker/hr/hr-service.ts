@@ -92,6 +92,48 @@ export class HrService {
     result.deletable=!(await this.db.prepare("SELECT "+HAS_ACTIVITY+" AS busy").bind(id).first<{busy:number}>())?.busy;
     return result;
   }
+  /** Bulk read for the salary overview. No per-employee requests, no national IDs, no mutations. */
+  async salaryOverview(){
+    const effectiveStatus="COALESCE((SELECT c.next_status FROM hr_status_changes c WHERE c.employee_id=e.id AND c.effective_date<=date('now','+8 hours') ORDER BY c.effective_date DESC,c.id DESC LIMIT 1),e.status)";
+    const [employees,salaries]=await Promise.all([
+      this.db.prepare("SELECT e.id,e.employee_no,e.name,e.store_id,s.name AS store_name,j.name AS job_title,"+
+        effectiveStatus+" AS effective_status FROM hr_employees e LEFT JOIN hr_stores s ON s.id=e.store_id "+
+        "LEFT JOIN hr_job_titles j ON j.id=e.job_title_id ORDER BY e.employee_no,e.id").all<{
+          id:number;employee_no:string;name:string;store_id:number|null;store_name:string|null;job_title:string|null;effective_status:string
+        }>(),
+      this.db.prepare("SELECT r.id AS salary_id,r.employee_id,r.effective_date,r.payment_type,r.base_amount,r.reason,"+
+        "m.display_name AS created_by_name,a.id AS allowance_id,a.amount AS allowance_amount,a.is_regular,t.name AS item_name "+
+        "FROM hr_salary_records r LEFT JOIN hr_salary_allowances a ON a.salary_record_id=r.id "+
+        "LEFT JOIN hr_salary_item_types t ON t.id=a.item_type_id LEFT JOIN app_members m ON m.id=r.created_by "+
+        "ORDER BY r.employee_id,r.effective_date DESC,r.id DESC,a.id").all<{
+          salary_id:number;employee_id:number;effective_date:string;payment_type:string;base_amount:number;reason:string;
+          created_by_name:string|null;allowance_id:number|null;allowance_amount:number|null;is_regular:number|null;item_name:string|null
+        }>()
+    ]);
+    type Salary={id:number;effective_date:string;payment_type:string;base_amount:number;reason:string;
+      created_by_name:string|null;allowances:{item_name:string;amount:number;is_regular:number}[]};
+    const result=(employees.results??[]).map(employee=>({
+      id:employee.id,employeeNo:employee.employee_no,name:employee.name,
+      storeId:employee.store_id,storeName:employee.store_name,jobTitle:employee.job_title,
+      status:employee.effective_status,salaryRecords:[] as Salary[]
+    }));
+    const byEmployee=new Map(result.map(row=>[row.id,row]));
+    const bySalary=new Map<number,Salary>();
+    for(const row of salaries.results??[]){
+      const employee=byEmployee.get(row.employee_id);
+      if(!employee)continue;
+      let record=bySalary.get(row.salary_id);
+      if(!record){
+        record={id:row.salary_id,effective_date:row.effective_date,payment_type:row.payment_type,
+          base_amount:row.base_amount,reason:row.reason,created_by_name:row.created_by_name,allowances:[]};
+        bySalary.set(row.salary_id,record);employee.salaryRecords.push(record);
+      }
+      if(row.allowance_id!==null)record.allowances.push({item_name:row.item_name??"",
+        amount:row.allowance_amount??0,is_regular:row.is_regular??0});
+    }
+    return result;
+  }
+
   async create(raw:unknown,ctx:HrContext) {
     const v=object(raw);const profile=normalizeProfile(raw);
     const initial=status(v.status??"probation");
