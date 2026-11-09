@@ -7,6 +7,8 @@ import type {
   ItemSearchQuery,
   ItemSummary,
   ItemUnitConversion,
+  ItemWebPlatform,
+  ItemPriceHistoryRecord,
 } from "../../shared/item";
 
 type D1Scalar = string | number | null;
@@ -210,6 +212,22 @@ export class ItemRepository {
     };
   }
 
+  async getPlatforms():Promise<readonly ItemWebPlatform[]> {
+    const rows=await this.db.prepare("SELECT id,name,sort_order,is_active,updated_at FROM item_web_platforms ORDER BY sort_order,id")
+     .all<{id:number;name:string;sort_order:number;is_active:number;updated_at:string}>();
+    return (rows.results??[]).map(p=>({id:p.id,name:p.name,sortOrder:p.sort_order,isActive:p.is_active===1,updatedAt:p.updated_at}));
+  }
+
+  async listPriceHistory(itemId:number):Promise<readonly ItemPriceHistoryRecord[]> {
+    const result=await this.db.prepare("SELECT id,action,occurred_at,before_json,after_json FROM audit_events WHERE entity_type='item' AND entity_key=? AND action='item.price.changed' ORDER BY id DESC LIMIT 100")
+      .bind(String(itemId)).all<{id:number;action:string;occurred_at:string;before_json:string|null;after_json:string|null}>();
+    return (result.results??[]).map(row=>({
+      id:row.id,action:row.action,occurredAt:row.occurred_at,
+      before:row.before_json?JSON.parse(row.before_json) as Record<string,string|null>:{},
+      after:row.after_json?JSON.parse(row.after_json) as Record<string,string|null>:{},
+    }));
+  }
+
   async getDetail(itemId: number): Promise<ItemDetail | null> {
     const results = await this.db.batch([
       this.db.prepare(`SELECT ${ITEM_SELECT_FIELDS}, i.notes, i.created_at ${ITEM_FROM} WHERE i.id = ? LIMIT 1`).bind(itemId),
@@ -219,6 +237,8 @@ export class ItemRepository {
          WHERE item_id = ?
          ORDER BY sort_order ASC, id ASC
       `).bind(itemId),
+      this.db.prepare("SELECT unit,price,sort_order FROM item_wholesale_prices WHERE item_id=? ORDER BY sort_order,id").bind(itemId),
+      this.db.prepare("SELECT platform_id,price FROM item_online_prices WHERE item_id=? ORDER BY platform_id").bind(itemId),
     ]);
 
     const master = (results[0]?.results?.[0] ?? null) as ItemDetailRow | null;
@@ -228,6 +248,8 @@ export class ItemRepository {
       ...toSummary(master),
       notes: master.notes,
       createdAt: master.created_at,
+      wholesalePrices: ((results[2]?.results??[]) as {unit:string;price:number;sort_order:number}[]).map(row=>({unit:row.unit,price:formatScaled4(row.price),sortOrder:row.sort_order})),
+      onlinePrices: ((results[3]?.results??[]) as {platform_id:number;price:number}[]).map(row=>({platformId:row.platform_id,price:formatScaled4(row.price)})),
       unitConversions: conversions.map<ItemUnitConversion>((row) => ({
         id: row.id,
         fromUnit: row.from_unit,
