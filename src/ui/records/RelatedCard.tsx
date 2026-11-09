@@ -16,7 +16,7 @@ export function RelatedCard({ title, count, empty, rows, summary, onAdd, onView 
       {rows.length ? rows.map((row, index) => <div key={index} className="cy-customer-card-row">{row}</div>)
         : <p className="cy-customer-muted">{empty}</p>}
     </div>
-    {onView ? <button className="cy-customer-card-view-all" type="button" onClick={onView}>查看全部（{count}）›</button> : null}
+    {onView ? <button className="cy-op-button mini soft cy-header-action cy-customer-card-view-all" type="button" onClick={onView}>查看全部（{count}）›</button> : null}
   </article>;
 }
 

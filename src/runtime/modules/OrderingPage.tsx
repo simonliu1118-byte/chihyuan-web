@@ -588,7 +588,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
         {current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button primary" onClick={()=>void sent()}>送出</button>:null}</>}
        </div>}
       </div>
-      {compact&&(revisingNow||editable||(current.storedStatus==="SENT"&&openLines.length))?<ActionBar aboveTabs>
+      {compact&&(revisingNow||editable||(current.storedStatus==="SENT"&&openLines.length))?<ActionBar>
        {revisingNow?<><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void cancelRevision()}>取消修改</button>
         <button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void saveRevision()}>儲存修改</button></>
        :editable?<><button type="button" className="cy-op-button" disabled={busy} onClick={()=>openMobileNewLine(current.id)}>＋新增品項</button>

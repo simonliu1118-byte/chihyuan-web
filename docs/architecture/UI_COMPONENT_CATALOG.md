@@ -42,6 +42,8 @@
 - `actions/IconButton.tsx`：表格內操作一律用它（`variant="table"`，危險操作 `tone="danger"`，展開用 `expanded`/`controls`）。
 - `actions/icons.tsx`：`Icons.*` 唯一圖示來源（edit、cancel、back、history、camera、print、check、close、add、remove、retry、verify、chevronRight、grip、settings、eye）。**新圖示加在這裡**，不要在模組內寫 inline SVG。
 - 一般按鈕：`cy-op-button`（`primary`、`compact`；`quiet` 透明文字按鈕；`soft` 淡底色無框，用於列內次要動作，例如「指定結案」「移除」「修改」「載入更多」）。`quiet` 只留給本來就該像文字的地方：返回連結、工具列切換、展開／收合、灰底標題列上的按鈕（灰底上 `soft` 會看不出來）。不要再新增沒有底色也沒有框的一般按鈕。
+- 卡片／面板標題列上的小動作（「查看全部 ›」「＋ 新增待辦」）：`cy-op-button mini soft cy-header-action`（主動作用 `mini primary cy-header-action`），22px 高，不撐高標題列（2026-11-09）。
+- 浮出選單與提醒視窗必須留在畫面內：⋯ 一律用共用 `OverflowMenu`（依畫面定位），不要自己寫 `position:absolute; right:0` 的下拉。
 - 整列刪除線：在 `<tr>` 加 `cy-row-struck`（整列一條橫線、文字變灰），用於已移出的黑名單、已指定結案的叫貨品項等「保留顯示但已失效」的列。忙碌中的按鈕用 `feedback/usePendingAction`。
 - 展開箭頭：`data/ExpandToggle.tsx`（全系統同一個箭頭）。
 
@@ -111,10 +113,10 @@
 
 | 用途 | 元件 | 手機上的樣子 | 桌機 |
 | --- | --- | --- | --- |
-| 模組的子頁（門市、叫貨、人事…） | `ModuleSections` | 2–5 個時變成底部分頁（可帶數量徽章）；超過 5 個改成上方可左右滑的頁籤 | 原本的 `cy-op-tabs` |
+| 模組的子頁（門市、叫貨、人事…） | `ModuleSections` | 一律在上方的頁籤（可帶數量徽章），放不下時左右滑；**不用底部分頁**（會壓到手機底部系統手勢橫線，容易誤按，2026-11-09） | 原本的 `cy-op-tabs` |
 | 清單的每一列 | `ListRow` | 標題、副標、右側值或 `StatusChip`、箭頭 | 相同，選取時藍色左邊條 |
 | 搜尋與篩選 | `DataViewToolbar`（`filters`、`activeFilterCount`） | 搜尋占一整列；篩選收進「篩選」按鈕開的下方面板 | 不變 |
-| 主要動作 | `ActionBar` | 固定在畫面最下方、等寬大按鈕；有底部分頁時疊在分頁上方 | 靠右一列 |
+| 主要動作 | `ActionBar` | 固定在畫面最下方、等寬大按鈕（留出系統手勢區） | 靠右一列 |
 | 次要動作 | `OverflowMenu`（⋯） | 同桌機；點外面或 Esc 關閉 | 同 |
 | 對話框 | `Dialog`（不用改呼叫方式） | 自動變成從下方滑出的面板；表單底部 `cy-op-form-footer` 固定在面板底部 | 不變 |
 | 表格式表單 | `EntryTable`（不用改呼叫方式） | 自動變成「欄名｜內容」逐列；必填欄名帶＊ | 不變 |
@@ -127,7 +129,7 @@
  
 ### WO-0.14.1 第一批（叫貨）
 - 手機叫貨子頁由 ModuleSections 控制，草稿來源／叫貨紀錄使用 ListRow，搜尋篩選由 DataViewToolbar 擁有，同一套編輯 Grid 的手機行點擊開 BottomSheet；桌機仍用原表格。
-- 主要動作由 ActionBar 的 `aboveTabs` 通用變體固定在底部分頁上方，次要由 OverflowMenu 提供。共用選擇清單、精簡品項樣式維護在 `src/ui/mobile/mobile.css`，不得另建模組-specific 的手機覆蓋層。
+- 主要動作由 ActionBar 固定在畫面底部，次要由 OverflowMenu 提供（V0.17.2 起分頁在頂部，`aboveTabs` 變體已移除）。共用選擇清單、精簡品項樣式維護在 `src/ui/mobile/mobile.css`，不得另建模組-specific 的手機覆蓋層。
 
 ### WO-0.14.1 第二批（門市）
 - StoreCustomerOrders／StoreRepairs／StoreEquipment／StoreStocktake 的寬表格在手機以共用 `cy-rt`＋`data-label`＋`data-priority` 呈現，桌機不變。原模組 workflow/cy-store-cards 卡片 CSS 刪除，避免同一 mobile 排版有第二套 owner。

@@ -1190,7 +1190,7 @@ function RelatedTable({ title, count, columns, rows, onViewAll, disabled }: {
 }) {
   return <section className="cy-customer-card" aria-label={title}>
     <header><h3>{title} <span>{count}</span></h3>
-      <button type="button" className="cy-link-button" disabled={disabled} onClick={onViewAll}>查看全部 ›</button></header>
+      <button type="button" className="cy-op-button mini soft cy-header-action" disabled={disabled} onClick={onViewAll}>查看全部 ›</button></header>
     {rows.length ? <table className="cy-customer-card-table">
       <colgroup>{columns.map(column => <col key={column.label} style={column.width ? { width: column.width } : undefined} />)}</colgroup>
       <thead><tr>{columns.map(column => <th key={column.label} scope="col">{column.label}</th>)}</tr></thead>

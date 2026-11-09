@@ -14,7 +14,7 @@
 
 /* ⋯ OverflowMenu */
 .cy-overflow{position:relative;display:inline-flex}
-.cy-overflow-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:30;min-width:160px;display:grid;padding:4px;background:var(--cy-surface);border:1px solid var(--cy-border);border-radius:var(--cy-radius-sm);box-shadow:var(--cy-shadow-lg)}
+.cy-overflow-menu{position:fixed;z-index:1100;max-width:calc(100vw - 16px);min-width:160px;display:grid;padding:4px;background:var(--cy-surface);border:1px solid var(--cy-border);border-radius:var(--cy-radius-sm);box-shadow:var(--cy-shadow-lg)}
 .cy-overflow-menu button{padding:9px 12px;border:0;border-radius:6px;background:transparent;color:var(--cy-text);font:inherit;text-align:left;cursor:pointer;white-space:nowrap}
 .cy-overflow-menu button:hover:not(:disabled){background:var(--cy-surface-muted)}
 .cy-overflow-menu button.danger{color:var(--cy-danger)}
@@ -23,30 +23,19 @@
 .cy-action-bar{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 .cy-action-bar-spacer{display:none}
 
-/* Small count badge on tabs, the bottom bar and the 篩選 button. */
+/* Small count badge on tabs and the 篩選 button. */
 .cy-module-badge{display:inline-block;min-width:18px;margin-left:5px;padding:0 5px;border-radius:9px;background:var(--cy-accent);color:var(--cy-on-accent);font-size:11px;font-weight:700;line-height:18px;text-align:center}
-.cy-module-bar,.cy-module-bar-spacer{display:none}
 
 /* ResponsiveTable: mark a wide table `cy-rt`, give each td a data-label and optionally
    data-priority="title" (card heading), "wide" (full card width) or "hide" (desktop only). */
 
 @media (max-width:820px){
- /* Bottom tab bar for a module's sections. */
- .cy-module-bar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:grid;background:var(--cy-surface);border-top:1px solid var(--cy-border);padding-bottom:env(safe-area-inset-bottom,0px)}
- .cy-module-bar button{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:56px;border:0;background:transparent;color:var(--cy-text-muted);font:inherit;font-size:12px}
- .cy-module-bar button.active{color:var(--cy-accent);font-weight:700}
- .cy-module-bar button .cy-module-badge{position:absolute;top:6px;left:calc(50% + 8px);margin:0;background:var(--cy-danger)}
- .cy-module-bar-icon{display:inline-flex;font-size:18px}
- /* Room for the fixed bars at the bottom of the page, not where the component sits (V0.14.7 fix). */
- .cy-shell-main:has(.cy-module-bar){padding-bottom:calc(72px + env(safe-area-inset-bottom,0px))}
  .cy-shell-main:has(.cy-action-bar){padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
- .cy-shell-main:has(.cy-module-bar):has(.cy-action-bar){padding-bottom:calc(140px + env(safe-area-inset-bottom,0px))}
  .cy-op-tabs-scroll{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
 
  /* ActionBar fixed at the bottom. */
  .cy-action-bar{position:fixed;left:0;right:0;bottom:0;z-index:19;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:10px;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));background:var(--cy-surface);border-top:1px solid var(--cy-border)}
  .cy-action-bar>.cy-op-button{min-height:44px;justify-content:center;font-size:var(--cy-fs-md,15px)}
- .cy-module-bar~* .cy-action-bar,.cy-module-bar-spacer~.cy-action-bar{bottom:calc(56px + env(safe-area-inset-bottom,0px))}
 
  /* Toolbar: search fills the row; filters live in the 篩選 sheet. */
  .cy-data-filter-button{flex:none}
@@ -72,6 +61,8 @@
  /* ResponsiveTable cards. */
  .cy-rt,.cy-rt tbody,.cy-rt tr,.cy-rt td{display:block;width:100%;min-width:0!important}
  .cy-rt colgroup,.cy-rt thead{display:none}
+ /* Each row is its own card, so the table draws no outer frame around them (no box inside a box, user 2026-11-09). */
+ .cy-rt:not(.cy-rt-list){border:0;border-radius:0;background:none}
  .cy-rt tbody>tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:10px;border:1px solid var(--cy-border);border-radius:var(--cy-radius-md,10px);background:var(--cy-surface);overflow:hidden}
  .cy-rt tbody>tr>td{border:0;padding:6px 10px;text-align:left!important}
  .cy-rt tbody>tr>td[data-label]::before{content:attr(data-label);display:block;color:var(--cy-text-muted);font-size:var(--cy-fs-xs,12px)}
@@ -80,6 +71,9 @@
  .cy-rt tbody>tr>td[data-priority=wide],.cy-rt tbody>tr>td[colspan]{grid-column:1/-1}
  .cy-rt tbody>tr>td[data-priority=hide]{display:none}
  .cy-rt tbody>tr>td:empty{display:none}
+ /* A one-cell row (empty state such as 尚無待審稿件) is a plain line, not a card inside the panel. */
+ .cy-rt tbody>tr:has(>td[colspan]:only-child){display:block;margin:0;border:0;border-radius:0;background:none}
+ .cy-rt tbody>tr>td[colspan]:only-child{padding:8px 2px;color:var(--cy-text-muted)}
 
  /* ResponsiveTable list variant (cy-rt cy-rt-list): two-line rows inside a card instead of one card per row.
     title = line 1 left, data-rt=end = line 1 right, data-rt=meta = line 2 left (mobile-only cell), data-rt=action = line 2 right. */
@@ -92,8 +86,6 @@
  .cy-rt.cy-rt-list tbody>tr>td[data-rt=meta]{display:block;grid-area:m;align-self:center;color:var(--cy-text-muted);font-size:var(--cy-fs-xs,12px)}
  .cy-rt.cy-rt-list tbody>tr>td[data-rt=action]{grid-area:a;text-align:right!important}
 
- /* Fixed primary actions sit above the module's bottom navigation, rather than covering it. */
- .cy-action-bar-above-tabs{bottom:calc(56px + env(safe-area-inset-bottom,0px))}
  .cy-mobile-choice-panel{display:grid;gap:10px;padding:8px 10px;min-width:0}
  .cy-mobile-choice-heading{display:grid;gap:4px}
  .cy-mobile-choice-heading h2{margin:0;font-size:var(--cy-fs-lg);line-height:1.3}

@@ -374,6 +374,9 @@ h1, h2, h3, h4, h5 { line-height: 1.35; }
 /* Soft: a light-filled button with no border, for secondary row actions that should still read as buttons (e.g. 指定結案). */
 .cy-op-button.soft { border-color: transparent; background: var(--cy-surface-muted); color: var(--cy-text); }
 .cy-op-button.soft:hover:not(:disabled) { border-color: transparent; background: var(--cy-border); }
+/* Small header actions (查看全部 ›, ＋ 新增待辦) on every card/panel header: one small pill that never sets the header height (user 2026-11-09). */
+.cy-op-button.cy-header-action { flex: none; align-self: center; height: 22px; line-height: 22px; white-space: nowrap; }
+.cy-op-panel-header > div:has(> .cy-header-action) { align-self: center; align-items: center; }
 /* Struck-through table row (shared): one continuous line across every cell, muted text; e.g. removed blacklist entries, 已指定結案 order lines. */
 tr.cy-row-struck > td { position: relative; color: var(--cy-text-muted); }
 tr.cy-row-struck > td :is(span, strong, small) { color: inherit; }

@@ -175,7 +175,7 @@ export function BotCenterPage(){
     </div>}
    </div>
    <div className="cy-op-panel-header cy-bot-timeline-heading"><h2>今日完成時間軸（最新 5 筆）</h2>
-    <button type="button" className="cy-op-button compact" onClick={()=>setTimelineOpen(true)}>查看全部</button></div>
+    <button type="button" className="cy-op-button mini soft cy-header-action" onClick={()=>setTimelineOpen(true)}>查看全部 ›</button></div>
    {state.timeline.length?<TimelineList items={state.timeline.slice(0,5)}/>:<p className="cy-bot-empty">今天還沒有完成項目</p>}
   </section>
    <section className="cy-op-panel cy-bot-review" aria-label="審稿清單">

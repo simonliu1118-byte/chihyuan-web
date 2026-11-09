@@ -48,8 +48,8 @@ export function HomePage({displayName,shortcuts,onNavigate}:{displayName:string;
   </div>
   <section className="cy-op-panel cy-home-todo" aria-label="我的個人待辦">
    <div className="cy-op-panel-header"><h2>我的個人待辦</h2><div>
-    <button type="button" className="cy-op-button compact" onClick={()=>onNavigate("my-todos")}>查看全部</button>
-    <button type="button" className="cy-op-button compact primary" onClick={()=>onNavigate("my-todos",{new:1})}>新增待辦</button>
+    <button type="button" className="cy-op-button mini soft cy-header-action" onClick={()=>onNavigate("my-todos")}>查看全部 ›</button>
+    <button type="button" className="cy-op-button mini primary cy-header-action" onClick={()=>onNavigate("my-todos",{new:1})}>＋ 新增待辦</button>
    </div></div>
    {data?.todos.length?<ul className="cy-home-todo-list">{data.todos.map(item=><li key={item.id}>
     {compact?<ListRow title={item.title} subtitle={todoLabel(item)} onClick={()=>onNavigate("my-todos",{id:item.id})}/>
@@ -61,11 +61,11 @@ export function HomePage({displayName,shortcuts,onNavigate}:{displayName:string;
   </section>
   <div className="cy-home-notices">
    <section className="cy-op-panel" aria-label="公司公告">
-    <div className="cy-op-panel-header"><h2>公司公告</h2><button className="cy-op-button compact" type="button" onClick={()=>onNavigate("announcements",{tab:"company"})}>查看全部</button></div>
+    <div className="cy-op-panel-header"><h2>公司公告</h2><button className="cy-op-button mini soft cy-header-action" type="button" onClick={()=>onNavigate("announcements",{tab:"company"})}>查看全部 ›</button></div>
     {noticePreview(data?.company??[],"目前沒有公告",onNavigate,"company",compact)}
    </section>
    <section className="cy-op-panel" aria-label="個人通知">
-    <div className="cy-op-panel-header"><h2>個人通知</h2><button className="cy-op-button compact" type="button" onClick={()=>onNavigate("announcements",{tab:"personal"})}>查看全部</button></div>
+    <div className="cy-op-panel-header"><h2>個人通知</h2><button className="cy-op-button mini soft cy-header-action" type="button" onClick={()=>onNavigate("announcements",{tab:"personal"})}>查看全部 ›</button></div>
     {noticePreview(data?.personal??[],"目前沒有個人通知",onNavigate,"personal",compact)}
    </section>
   </div>
