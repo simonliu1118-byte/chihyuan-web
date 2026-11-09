@@ -29,38 +29,37 @@
   /* HR rows carry date ranges, so two wide cards per row instead of three. */
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
 }
-.cy-hr-fact-wide {
-  grid-column: 1 / -1;
-}
-.cy-hr-id {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.cy-hr-form-body {
-  display: grid;
-  gap: 16px;
-  padding-top: 16px;
-}
-.cy-hr-edit-row,
-.cy-hr-allowance-row {
-  display: grid;
-  gap: 8px;
-  align-items: center;
-}
-.cy-hr-edit-row.contact {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 1fr) auto;
-}
-.cy-hr-edit-row.education,
-.cy-hr-edit-row.work {
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto;
-}
-.cy-hr-allowance-row {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) auto auto;
-}
-.cy-hr-edit-row + .cy-hr-edit-row,
-.cy-hr-allowance-row + .cy-hr-allowance-row {
-  margin-top: 8px;
+.cy-hr-id{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cy-hr-form-body{display:grid;gap:16px;padding-top:16px}
+.cy-hr-sheet{min-width:0}
+.cy-hr-sheet .cy-sheet{overflow-x:auto}
+.cy-hr-sheet .cy-sheet-row{min-width:1060px}
+.cy-hr-sheet-address{width:100%;display:grid;gap:2px}
+.cy-hr-sheet-address>.cy-f-check{padding:2px 8px}
+.cy-hr-picker{display:flex;gap:4px;align-items:center;width:100%;min-width:0}
+.cy-hr-picker .cy-sheet-input{flex:1;min-width:0}
+.cy-hr-picker .cy-op-button{flex:none}
+.cy-hr-salary-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.cy-hr-salary-filters{display:flex;gap:8px;flex-wrap:wrap}
+.cy-hr-salary-summary{margin-left:auto;white-space:nowrap;font-variant-numeric:tabular-nums}
+.cy-hr-salary-table{width:100%;min-width:1080px}
+.cy-hr-salary-table .num,.cy-hr-salary-table th.num{text-align:right;font-variant-numeric:tabular-nums}
+.cy-hr-salary-allowances{display:flex;gap:4px;flex-wrap:wrap}
+.cy-hr-salary-chip{display:inline-flex;padding:2px 6px;border-radius:5px;background:var(--cy-surface-muted);font-size:var(--cy-fs-xs);white-space:nowrap}
+.cy-hr-salary-number{display:none;font-size:var(--cy-fs-xs);color:var(--cy-text-muted)}
+.cy-hr-salary-history-row>td{background:var(--cy-surface-muted);padding:10px}
+.cy-hr-salary-history{min-width:720px}
+.cy-hr-salary-mobile-meta{display:none}
+.cy-hr-roster-setting{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cy-hr-roster-setting>.cy-sheet-input{width:100px;flex:none}
+@media(max-width:820px){
+ .cy-hr-sheet .cy-sheet-row{min-width:0}
+ .cy-hr-salary-table{min-width:0}
+ .cy-hr-salary-number{display:block}
+ .cy-hr-salary-filters{display:grid}
+ .cy-hr-salary-table.cy-rt-list tbody>tr.cy-hr-salary-history-row{display:block;grid-template-columns:none;padding:8px;border-top:1px solid var(--cy-border)}
+ .cy-hr-salary-table.cy-rt-list tbody>tr.cy-hr-salary-history-row>td{display:block;width:100%;padding:0}
+ .cy-hr-salary-history{min-width:0}
 }
 .cy-hr-browse {
   display: grid;
@@ -94,6 +93,3 @@
   padding: 6px 0;
   border-bottom: 1px solid var(--cy-border);
 }
-.cy-hr-picker { display: flex; gap: 8px; align-items: center; }
-.cy-hr-picker .cy-op-input { flex: 1; min-width: 0; }
-.cy-hr-picker .cy-op-button { flex: none; }

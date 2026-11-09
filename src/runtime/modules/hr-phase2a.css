@@ -21,8 +21,6 @@
 .hr-roster-cell small{display:block;font-size:8px}
 .hr-roster-cell:focus-visible{outline:2px solid var(--cy-accent)}
 .hr-cell-choices{display:flex;flex-wrap:wrap;gap:6px}
-.hr-staff-setting{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px;border-bottom:1px solid var(--cy-border)}
-.hr-staff-setting label{display:flex;gap:4px;align-items:center}.hr-staff-setting input[type=number]{max-width:100px}
 .hr-attendance-table{min-width:950px;white-space:nowrap}.hr-attendance-clock{width:78px;padding:5px}
 .hr-attendance-totals{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
 .print-only{display:none}

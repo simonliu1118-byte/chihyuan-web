@@ -135,8 +135,6 @@
  /* Responsive cards also accept a row-heading table header (e.g. ERP restock). */
  .cy-rt tbody>tr>th[data-priority=title]{grid-column:1/-1;order:-1;padding:10px;background:var(--cy-surface-muted);font-weight:700;text-align:left;border:0}
  .cy-mobile-wrap-table tbody>tr>td{white-space:normal!important;overflow:visible!important;overflow-wrap:anywhere;text-overflow:clip}
- .cy-hr-edit-row.cy-mobile-form-two-col .cy-row-remove,
- .cy-hr-allowance-row.cy-mobile-form-two-col .cy-row-remove{justify-self:start}
 
 
  /* A permission-group matrix must not hide its checkbox cells on narrow screens. */
