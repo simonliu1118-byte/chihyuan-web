@@ -603,7 +603,7 @@ export function SalesOrderOperationalPage() {
                   const item = lineItem(line);
                   const units = item?.allowedUnits?.length ? item.allowedUnits : (line.unit ? [line.unit] : []);
                   return (
-                    <div className="cy-order-line" key={line.key}>
+                    <div className="cy-order-line cy-mobile-form-two-col" key={line.key}>
                       <EntityPicker<LineItemOption> label={<span className="cy-visually-hidden">第 {index + 1} 列商品</span>} disabled={busy}
                         className="cy-order-line-item" value={item} onSelect={(row) => changeLineItem(index, line.key, row)}
                         search={async (query) => (await loadSalesOrderLookups({ itemQuery: query, limit: 20 })).items}

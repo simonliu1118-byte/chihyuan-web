@@ -26,8 +26,3 @@
   .cy-worklog-summary > details { grid-column: 1 / -1; }
   .cy-worklog-head-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width: 720px) {
-  .cy-worklog-head-grid { grid-template-columns: 1fr; }
-  .cy-worklog-head-grid > label:last-child { grid-column: auto; }
-  .cy-worklog-category { grid-template-columns: 1fr 100px auto; }
-}

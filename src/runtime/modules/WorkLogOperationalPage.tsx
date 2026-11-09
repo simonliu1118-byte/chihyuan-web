@@ -634,7 +634,7 @@ export function WorkLogOperationalPage() {
             {compact?<ActionBar><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void cancelEdit()}>取消</button>
               <button className="cy-op-button primary" disabled={busy} aria-busy={busy||undefined}>{creating?"建立日誌":"儲存修改"}</button></ActionBar>:<div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
               <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立日誌" : "儲存修改"}</button></div>}</div>
-            <div className="cy-f-grid cy-worklog-head-grid cy-form-grid-spaced">
+            <div className="cy-f-grid cy-worklog-head-grid cy-mobile-form-stack cy-form-grid-spaced">
               <Field label="日誌日期" size="s"><DateInput density="regular" className="cy-op-input" max="9999-12-31" value={draft.logDate} disabled={busy} onChange={(event) => setDraft({ ...draft, logDate: event })} /></Field>
               <Field label="期間起" size="s"><DateInput density="regular" className="cy-op-input" max="9999-12-31" value={draft.dateFrom} disabled={busy} onChange={(event) => setDraft({ ...draft, dateFrom: event })} /></Field>
               <Field label="期間迄" size="s"><DateInput density="regular" className="cy-op-input" max="9999-12-31" value={draft.dateTo} disabled={busy} onChange={(event) => setDraft({ ...draft, dateTo: event })} /></Field>
@@ -661,7 +661,7 @@ export function WorkLogOperationalPage() {
                     <div className="cy-worklog-categories-head"><span>計分分類</span><button type="button" className="cy-op-button compact" disabled={busy} onClick={() => addCategory(entryIndex)}>＋ 加入分類</button></div>
                     {entry.categories.map((category, categoryIndex) => {
                       const config = category.workLogCategoryId == null ? null : categoryById.get(category.workLogCategoryId);
-                      return <div className="cy-worklog-category" key={category.key}>
+                      return <div className="cy-worklog-category cy-mobile-category-row" key={category.key}>
                         <select className="cy-op-input" value={category.workLogCategoryId ?? ""} disabled={busy} onChange={(event) => selectCategory(entryIndex, categoryIndex, Number(event.target.value) || null)}>
                           <option value="">請選擇</option>
                           {(configuration?.categories ?? []).map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}

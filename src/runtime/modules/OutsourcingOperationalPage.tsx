@@ -621,7 +621,7 @@ export function OutsourcingOperationalPage() {
                   {draft.parts.map((part, index) => {
                     const component = activeItem(part.componentItemId);
                     const units = component?.allowedUnits?.length ? component.allowedUnits : (part.unit ? [part.unit] : []);
-                    return <div className="cy-out-part" key={part.key}>
+                    return <div className="cy-out-part cy-mobile-form-two-col" key={part.key}>
                       <select className="cy-op-input" required data-label={"第 "+(index+1)+" 列料件"} value={part.componentItemId ?? ""} disabled={busy} onChange={(event) => changeComponent(index, Number(event.target.value) || null)}>
                         <option value="">選擇料件</option>
                         {(lookups?.items ?? []).map((row) => <option key={row.id} value={row.id}>{formatItem(row.itemNo, row.name)}{row.isActive ? "" : "（已停用）"}</option>)}
@@ -688,7 +688,7 @@ export function OutsourcingOperationalPage() {
 
                 {selectedOrder.statusCode === "outbound" ? <div className="cy-op-subsection">
                   <h3>入庫資料</h3>
-                  <div className="cy-out-receipt">
+                  <div className="cy-out-receipt cy-mobile-form-stack">
                     <select className="cy-op-input" value={receiptItemId ?? ""} disabled={busy} onChange={(event) => changeReceiptItem(Number(event.target.value) || null)}>
                       <option value="">選擇入庫成品</option>
                       {(lookups?.items ?? []).map((row) => <option key={row.id} value={row.id}>{formatItem(row.itemNo, row.name)}</option>)}
