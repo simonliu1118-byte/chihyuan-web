@@ -47,6 +47,7 @@
 
 ### 彈窗、抽屜、回饋
 - `overlays/Dialog.tsx`：`Dialog`（精簡框、右上 X 圖示）、`Drawer`（右側抽屜，客戶頁為 380px）、`BottomSheet`。不要巢狀面板。
+  - **寬度一定要指定 `size`**（2026-11-09 盤點後定）：`small` 440px＝確認、理由、1–3 個欄位的短表單；`medium` 620px（未指定時的預設）＝一般表單；`large` 900px＝含表格或兩欄以上的表單。不要因為沒寫 `size` 就讓短表單吃到 620px。只有內容真的需要時，才在該視窗 class 加專屬寬度。
 - `overlays/ConfirmDialog`、`useConfirmation`、`useFormPrompt`（要理由的確認）。
 - 有未儲存變更的畫面：`foundation/useUnsavedChangesGuard`；設定視窗關閉前自己確認（見 `ModuleSettingsPanel`）。
 - `feedback/FeedbackProvider`：`useFeedbackMessage`＋`FeedbackBanner`（頁面訊息）；`Loading`；`ToastRegion`。

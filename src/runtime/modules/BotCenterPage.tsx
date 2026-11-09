@@ -244,7 +244,7 @@ export function BotCenterPage(){
       </div>:null}</td></tr>)}</tbody>
     </table></div></div>
    </Dialog>:null}
-   {addOpen?<Dialog open title="新增 BOT" size="medium" dismissible={false} showCloseButton={false} onClose={()=>{if(!busy)setAddOpen(false)}}
+   {addOpen?<Dialog open title="新增 BOT" size="small" dismissible={false} showCloseButton={false} onClose={()=>{if(!busy)setAddOpen(false)}}
     footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={()=>setAddOpen(false)}>取消</button>
      <button type="submit" form="cy-bot-add-form" className="cy-op-button primary" disabled={busy}>新增</button></div>}>
     <form id="cy-bot-add-form" onKeyDown={enterAdvancesFields} onSubmit={event=>void addBot(event)}>
