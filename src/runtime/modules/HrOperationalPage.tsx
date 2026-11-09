@@ -26,6 +26,9 @@ import {HrRosterPanel} from "./HrRosterPanel";
 import {HrAttendancePanel} from "./HrAttendancePanel";
 import {HrLeavePanel} from "./HrLeavePanel";
 import {HrEmployeeLeaveOverview} from "./HrEmployeeLeaveOverview";
+import {HrEmployeeSheet} from "./HrEmployeeSheet";
+import {EntryFields} from "../../ui/forms/EntryTable";
+import {RecordRows} from "../../ui/forms/RecordSheet";
 
 const ROOT = "/api/business/hr";
 const statusLabels: Record<HrStatus, string> = { probation: "試用", active: "在職", leave: "留職停薪", terminated: "離職" };
@@ -41,7 +44,7 @@ interface StatusChangeRow { id: number; effective_date: string; next_status: HrS
 interface SalaryRow { id: number; effective_date: string; payment_type: HrPaymentType; base_amount: number; reason: string;
   allowances: { item_name: string; amount: number; is_regular: number }[] }
 interface ExclusionRow { id: number; start_date: string; end_date: string; reason: string }
-interface EmployeeDetail extends EmployeeRow {
+export interface EmployeeDetail extends EmployeeRow {
   /** No salary, leave, roster, attendance or status record yet: a mistaken record may still be deleted. */
   deletable?: boolean;
   member_id: number | null; memberLabel?: string | null; nationalIdMasked: string | null; birth_date: string | null; gender: string | null;
@@ -53,10 +56,10 @@ interface EmployeeDetail extends EmployeeRow {
   statusChanges: StatusChangeRow[]; salaryRecords: SalaryRow[]; seniorityExclusions: ExclusionRow[];
 }
 /** A live CYID account; memberId is the local CY Web record when one exists. */
-interface MemberOption { employeeId: string; employeeNo: string; name: string; memberId: number | null }
+export interface MemberOption { employeeId: string; employeeNo: string; name: string; memberId: number | null }
 interface SalaryItem { id: number; name: string; is_active: number }
 
-interface Draft {
+export interface Draft {
   employeeNo: string; name: string; nationalId: string; gender: string; birthDate: string;
   /** Binding: memberIdentityId is set only when the user picks or clears it in this edit. */
   memberIdentityId?: string | null; memberLabel: string; changeNationalId: boolean;
@@ -362,7 +365,7 @@ export function HrOperationalPage() {
 
       <section className="cy-op-panel cy-md-detail">
         <MasterDetailBack label="人事清單" disabled={busy} onBack={async () => { if (editing && !(await canLeave())) return; setDraft(null); setCreating(false); pane.close(); }} />
-        {draft ? <EmployeeForm draft={draft} creating={creating} busy={busy} members={members} stores={stores} jobTitles={jobTitles} patch={patch}
+        {draft ? <EmployeeForm draft={draft} detail={creating?null:detail} creating={creating} busy={busy} members={members} stores={stores} jobTitles={jobTitles} patch={patch}
           onCancel={() => void cancelEdit()} onSubmit={saveEmployee} />
           : loadingDetail ? <Loading />
           : detail ? <div>
@@ -378,27 +381,8 @@ export function HrOperationalPage() {
             </div>
             {compact?<ActionBar><button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>{setCreating(false);setDraft(draftFrom(detail))}}>修改</button></ActionBar>:null}
             <div className="cy-hr-detail-body">
-              <dl className="cy-customer-facts">
-                <Fact label="門市" value={stores.find(x=>x.id===detail.store_id)?.name??"未設定"} />
-              <Fact label="職稱" value={jobTitles.find(x=>x.id===detail.job_title_id)?.name??"未設定"} />
-              <Fact label="僱用型態" value={{full:"正職",half:"半職",casual:"兼職"}[detail.employment_type]??"—"} />
-              <Fact label="排班方式" value={{shift:"班別",hours:"時段或時數",none:"不排班"}[detail.schedule_mode]??"—"} />
-              <Fact label="排序" value={String(detail.roster_sort)} />
-              <Fact label="不須檢核" value={detail.skip_roster_checks?"是":"否"} />
-              <Fact label="到職日" value={date(detail.hire_date)} />
-                <Fact label="年資起算日" value={date(detail.seniority_start_date)} />
-                <Fact label="身分證字號" value={detail.nationalIdMasked ? <span className="cy-hr-id">{detail.nationalIdMasked}
-                  <button type="button" className="cy-op-button compact soft" onClick={() => void reveal()}>顯示</button></span> : null} />
-                <Fact label="綁定使用者" value={detail.member_id ? detail.memberLabel ?? "已綁定" : "未綁定"} />
-                <Fact label="出生日期" value={date(detail.birth_date)} />
-                <Fact label="性別" value={detail.gender} />
-                <Fact label="手機" value={detail.mobile} />
-                <Fact label="市話" value={detail.phone} />
-                <Fact label="戶籍地址" value={detail.registered_address} wide />
-                <Fact label="通訊地址" value={detail.mailing_address} wide />
-                {detail.termination_date ? <Fact label="離職" value={`${date(detail.termination_date)}　${detail.termination_reason ?? ""}`} wide /> : null}
-                {detail.note ? <Fact label="備註" value={detail.note} wide /> : null}
-              </dl>
+              <HrEmployeeSheet value={draftFrom(detail)} detail={detail} editing={false} creating={false} busy={busy}
+                members={members} stores={stores} jobTitles={jobTitles} patch={patch} onReveal={()=>void reveal()}/>
               <section className="cy-customer-cards" aria-label="人事紀錄">
                 <HrEmployeeLeaveOverview employeeId={detail.id} onManage={()=>{setInitialLeaveEmployeeId(detail.id);setTab("leave")}} />
                 <RelatedCard title="薪資" count={detail.salaryRecords.length} empty="尚無薪資異動。"
@@ -411,12 +395,6 @@ export function HrOperationalPage() {
                 <RelatedCard title="年資不計期間" count={detail.seniorityExclusions.length} empty="沒有年資不計期間。"
                   rows={detail.seniorityExclusions.slice(0, 3).map(row => <span key={row.id}>{date(row.start_date)}～{date(row.end_date)}　{row.reason}</span>)}
                   onAdd={() => void openAction("exclusion")} onView={() => setBrowse("exclusion")} />
-                <RelatedCard title="緊急聯絡人" count={detail.contacts.length} empty="尚未填寫。"
-                  rows={detail.contacts.map((row, index) => <span key={index}>{row.name}{row.relationship ? `（${row.relationship}）` : ""}　{row.phone}</span>)} />
-                <RelatedCard title="學歷" count={detail.education.length} empty="尚未填寫。"
-                  rows={detail.education.map((row, index) => <span key={index}>{[row.school, row.department, row.degree, row.graduation_month ? `${row.graduation_month} 畢業` : null].filter(Boolean).join("　")}</span>)} />
-                <RelatedCard title="工作經歷" count={detail.workHistory.length} empty="尚未填寫。"
-                  rows={detail.workHistory.map((row, index) => <span key={index}>{[row.company, row.job_title, row.start_month || row.end_month ? `${row.start_month ?? ""}～${row.end_month ?? ""}` : null].filter(Boolean).join("　")}</span>)} />
               </section>
             </div>
           </div>
@@ -513,19 +491,6 @@ export function HrOperationalPage() {
   </div>:tab==="roster"?<HrRosterPanel/>:tab==="attendance"?<HrAttendancePanel/>:<HrLeavePanel initialEmployeeId={initialLeaveEmployeeId}/>}</>;
 }
 
-function Fact({ label, value, wide }: { label: string; value: ReactNode; wide?: boolean }) {
-  return <div className={`cy-customer-info${wide ? " cy-hr-fact-wide" : ""}`}><dt>{label}</dt><dd>{value || "—"}</dd></div>;
-}
-
-function FormField({label,value,onChange,type="text",date=false,required,wide}:{
- label:string;value:string|undefined;onChange:(value:string)=>void;type?:string;date?:boolean;required?:boolean;wide?:boolean;
-}){
- if(date)return <Field label={label} size="s" required={required}><DateInput density="regular" className="cy-op-input" value={value??""} onChange={onChange}/></Field>;
- return <label className={wide?"wide":undefined}>{label}
-  <input className="cy-op-input" type={type} required={required} min={type==="number"?0:undefined} step={type==="number"?1:undefined}
-   value={value??""} onChange={event=>onChange(event.target.value)}/></label>;
-}
-
 /** Every field except 備註 and 學經歷 is required; one of 手機／市話 is enough. */
 function missingFields(draft: Draft): string[] {
   const missing: string[] = [];
@@ -540,149 +505,26 @@ function missingFields(draft: Draft): string[] {
   return missing;
 }
 
-function EmployeeForm({ draft, creating, busy, members, stores, jobTitles, patch, onCancel, onSubmit }: {
-  draft: Draft; creating: boolean; busy: boolean; members: MemberOption[]; stores: { id: number; name: string }[]; jobTitles: { id: number; name: string }[];
-  patch: (value: Partial<Draft>) => void; onCancel: () => void; onSubmit: (event: FormEvent) => Promise<void>;
-}) {
-  const [picking, setPicking] = useState(false);
-  const compact = useCompactLayout();
-  const text = (key:keyof Draft,type="text")=>type==="date"
-   ?<DateInput density="regular" className="cy-op-input" disabled={busy} value={draft[key] as string??""} onChange={value=>patch({[key]:value} as Partial<Draft>)}/>
-   :<input className="cy-op-input" type={type} disabled={busy} value={draft[key] as string??""} onChange={event=>patch({[key]:event.target.value} as Partial<Draft>)}/>;
-  const select = (key: keyof Draft, options: ReactNode) => <select className="cy-op-input" disabled={busy} value={draft[key] as string}
-    onChange={event => patch({ [key]: event.target.value } as Partial<Draft>)}><option value="">請選擇</option>{options}</select>;
-  const sameAddress = draft.mailingAddress !== "" && draft.registeredAddress === draft.mailingAddress;
-  const noPhone = !draft.mobile.trim() && !draft.phone.trim();
-  return <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={event => void onSubmit(event)}>
-    <div className="cy-record-header cy-edit-header">
-      <div><h2>{creating ? "新增員工" : `修改 ${draft.employeeNo} ${draft.name}`}</h2></div>
-      {compact?<ActionBar>
-        <button type="button" className="cy-op-button" disabled={busy} onClick={onCancel}>取消</button>
-        <button className="cy-op-button primary" disabled={busy} aria-busy={busy||undefined}>{creating?"建立員工":"儲存修改"}</button>
-      </ActionBar>:      <div className="cy-record-actions">
-        <button type="button" className="cy-op-button" disabled={busy} onClick={onCancel}>取消</button>
-        <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立員工" : "儲存修改"}</button>
-      </div>}
-    </div>
-    <div className="cy-hr-form-body">
-      <FormSection title="基本資料">
-        <Field label="員工編號" required size="s">{text("employeeNo")}</Field>
-        <Field label="姓名" required size="s">{text("name")}</Field>
-        {draft.changeNationalId ? <Field label="身分證字號" required size="s">{text("nationalId")}</Field>
-          : <Field label="身分證字號" size="s"><span className="cy-hr-picker">
-            <input className="cy-op-input" readOnly value={draft.nationalId} aria-label="身分證字號" />
-            <button type="button" className="cy-op-button" disabled={busy} onClick={() => patch({ changeNationalId: true, nationalId: "" })}>變更</button>
-          </span></Field>}
-        <Field label="性別" required size="s">{select("gender", <><option value="男">男</option><option value="女">女</option><option value="其他">其他</option></>)}</Field>
-        <Field label="出生日期" required size="s">{text("birthDate", "date")}</Field>
-        <Field label="綁定使用者" size="m"><span className="cy-hr-picker">
-          <input className="cy-op-input" readOnly value={draft.memberLabel || "不綁定"} aria-label="綁定使用者" />
-          <button type="button" className="cy-op-button" disabled={busy} onClick={() => setPicking(true)}>選擇</button>
-        </span></Field>
-      </FormSection>
-      <FormSection title="聯絡方式">
-        <Field label="手機" required={noPhone} oneOf="與市話擇一" reportAs="手機或市話" size="s">{text("mobile")}</Field>
-        <Field label="市話" required={noPhone} oneOf="與手機擇一" reportAs="手機或市話" size="s">{text("phone")}</Field>
-        <Field label="戶籍地址" required size="l"><input className="cy-op-input" value={draft.registeredAddress} disabled={busy}
-          onChange={event => patch(sameAddress ? { registeredAddress: event.target.value, mailingAddress: event.target.value } : { registeredAddress: event.target.value })} /></Field>
-        <Field label="通訊地址" required size="l"><input className="cy-op-input" value={draft.mailingAddress} disabled={busy || sameAddress}
-          onChange={event => patch({ mailingAddress: event.target.value })} /></Field>
-        <CheckField label="通訊地址同戶籍地址" size="l" checked={sameAddress} disabled={busy || !draft.registeredAddress}
-          onChange={event => patch({ mailingAddress: event.target.checked ? draft.registeredAddress : "" })} />
-      </FormSection>
-      <FormSection title="任職與排班">
-        {creating ? <Field label="人事狀態" required size="s"><select className="cy-op-input" value={draft.status} disabled={busy} onChange={event => patch({ status: event.target.value as HrStatus })}>
-          <option value="probation">試用</option><option value="active">在職</option></select></Field> : null}
-        <Field label="到職日" required size="s">{text("hireDate", "date")}</Field>
-        <Field label="年資起算日" size="s" hint="空白＝到職日">{text("seniorityStartDate", "date")}</Field>
-        <Field label="門市" required size="s">{select("storeId", stores.map(x => <option key={x.id} value={x.id}>{x.name}</option>))}</Field>
-        <Field label="職稱" required size="s">{select("jobTitleId", jobTitles.map(x => <option key={x.id} value={x.id}>{x.name}</option>))}</Field>
-        <Field label="僱用型態" required size="s"><select className="cy-op-input" value={draft.employmentType} disabled={busy} onChange={e => { const employmentType = e.target.value as Draft["employmentType"];
-          patch({ employmentType, scheduleMode: employmentType === "full" ? "shift" : employmentType !== "casual" && draft.scheduleMode === "none" ? "shift" : draft.scheduleMode }); }}>
-          <option value="full">正職</option><option value="half">半職</option><option value="casual">兼職</option></select></Field>
-        <Field label="排班方式" required size="s"><select className="cy-op-input" value={draft.scheduleMode} disabled={busy} onChange={e => patch({ scheduleMode: e.target.value as Draft["scheduleMode"] })}>
-          <option value="shift">班別</option>{draft.employmentType !== "full" ? <option value="hours">時段或時數</option> : null}{draft.employmentType === "casual" ? <option value="none">不排班</option> : null}</select></Field>
-        <Field label="班表排序" size="s"><input className="cy-op-input" type="number" step="1" value={draft.rosterSort} disabled={busy} onChange={e => patch({ rosterSort: e.target.value })} /></Field>
-        <CheckField label="不須檢核" checked={draft.skipRosterChecks} disabled={busy} onChange={e => patch({ skipRosterChecks: e.target.checked })} />
-        <Field label="備註" size="l"><textarea className="cy-op-input" rows={2} value={draft.note} disabled={busy} onChange={event => patch({ note: event.target.value })} /></Field>
-      </FormSection>
-
-      <RequiredRows label="緊急聯絡人" satisfied={draft.contacts.length > 0} />
-      <RowsBlock title={<>緊急聯絡人<span className="cy-field-required" aria-hidden="true">＊</span></>} addLabel="增加聯絡人" busy={busy} empty={!draft.contacts.length}
-        onAdd={() => patch({ contacts: [...draft.contacts, { name: "", relationship: "", phone: "" }] })}>
-        {draft.contacts.map((row, index) => <div className="cy-hr-edit-row contact cy-mobile-form-two-col" key={index}>
-          <RowInput label="姓名" value={row.name} required onChange={name => patch({ contacts: draft.contacts.map((item, n) => n === index ? { ...item, name } : item) })} />
-          <RowInput label="關係" value={row.relationship} onChange={relationship => patch({ contacts: draft.contacts.map((item, n) => n === index ? { ...item, relationship } : item) })} />
-          <RowInput label="電話" value={row.phone} required onChange={phone => patch({ contacts: draft.contacts.map((item, n) => n === index ? { ...item, phone } : item) })} />
-          <RemoveRow busy={busy} onRemove={() => patch({ contacts: draft.contacts.filter((_, n) => n !== index) })} />
-        </div>)}
-      </RowsBlock>
-
-      <RowsBlock title="學歷" addLabel="增加學歷" busy={busy} empty={!draft.education.length}
-        onAdd={() => patch({ education: [...draft.education, { school: "", department: "", degree: "", graduationMonth: "" }] })}>
-        {draft.education.map((row, index) => <div className="cy-hr-edit-row education cy-mobile-form-two-col" key={index}>
-          <RowInput label="學校" value={row.school} required onChange={school => patch({ education: draft.education.map((item, n) => n === index ? { ...item, school } : item) })} />
-          <RowInput label="科系" value={row.department} onChange={department => patch({ education: draft.education.map((item, n) => n === index ? { ...item, department } : item) })} />
-          <RowInput label="學位" value={row.degree} onChange={degree => patch({ education: draft.education.map((item, n) => n === index ? { ...item, degree } : item) })} />
-          <RowInput label="畢業年月" type="month" value={row.graduationMonth} onChange={graduationMonth => patch({ education: draft.education.map((item, n) => n === index ? { ...item, graduationMonth } : item) })} />
-          <RemoveRow busy={busy} onRemove={() => patch({ education: draft.education.filter((_, n) => n !== index) })} />
-        </div>)}
-      </RowsBlock>
-
-      <RowsBlock title="工作經歷" addLabel="增加經歷" busy={busy} empty={!draft.workHistory.length}
-        onAdd={() => patch({ workHistory: [...draft.workHistory, { company: "", jobTitle: "", startMonth: "", endMonth: "", note: "" }] })}>
-        {draft.workHistory.map((row, index) => <div className="cy-hr-edit-row work cy-mobile-form-two-col" key={index}>
-          <RowInput label="公司" value={row.company} required onChange={company => patch({ workHistory: draft.workHistory.map((item, n) => n === index ? { ...item, company } : item) })} />
-          <RowInput label="職稱" value={row.jobTitle} onChange={jobTitle => patch({ workHistory: draft.workHistory.map((item, n) => n === index ? { ...item, jobTitle } : item) })} />
-          <RowInput label="起年月" type="month" value={row.startMonth} onChange={startMonth => patch({ workHistory: draft.workHistory.map((item, n) => n === index ? { ...item, startMonth } : item) })} />
-          <RowInput label="迄年月" type="month" value={row.endMonth} onChange={endMonth => patch({ workHistory: draft.workHistory.map((item, n) => n === index ? { ...item, endMonth } : item) })} />
-          <RemoveRow busy={busy} onRemove={() => patch({ workHistory: draft.workHistory.filter((_, n) => n !== index) })} />
-        </div>)}
-      </RowsBlock>
-    </div>
-    {picking ? <MemberPicker members={members} employeeNo={draft.employeeNo} onClose={() => setPicking(false)}
-      onPick={member => { patch(member ? { memberIdentityId: member.employeeId, memberLabel: memberText(member) } : { memberIdentityId: null, memberLabel: "" }); setPicking(false); }} /> : null}
-  </form>;
-}
-
-/** Searchable list of live CYID accounts; the account with the same 員工編號 comes first. */
-function MemberPicker({ members, employeeNo, onPick, onClose }: {
-  members: MemberOption[]; employeeNo: string; onPick: (member: MemberOption | null) => void; onClose: () => void;
-}) {
-  const [query, setQuery] = useState("");
-  const q = query.trim().toLowerCase();
-  const rows = members.filter(row => !q || row.employeeNo.toLowerCase().includes(q) || row.name.toLowerCase().includes(q))
-    .sort((a, b) => Number(b.employeeNo === employeeNo) - Number(a.employeeNo === employeeNo) || a.employeeNo.localeCompare(b.employeeNo));
-  return <Dialog open size="small" title="選擇綁定使用者" onClose={onClose}>
-    <input className="cy-op-input" type="search" autoFocus placeholder="搜尋員工編號、姓名" aria-label="搜尋使用者" value={query} onChange={event => setQuery(event.target.value)} />
-    <div className="cy-hr-member-list">
-      <button type="button" className="cy-op-list-row" onClick={() => onPick(null)}><strong>不綁定</strong></button>
-      {rows.map(row => <button key={row.employeeId} type="button" className="cy-op-list-row" onClick={() => onPick(row)}>
-        <span className="cy-mono">{row.employeeNo}</span><strong>{row.name || "（未命名）"}</strong>
-        {row.employeeNo === employeeNo ? <StatusChip tone="info">員工編號相同</StatusChip> : null}
-      </button>)}
-      {!rows.length ? <p className="cy-op-empty">沒有符合的使用者。</p> : null}
-    </div>
-  </Dialog>;
-}
-
-function RowsBlock({ title, addLabel, onAdd, empty, busy, children }: {
-  title: ReactNode; addLabel: string; onAdd: () => void; empty: boolean; busy: boolean; children: ReactNode;
-}) {
-  return <section className="cy-form-block">
-    <div className="cy-form-block-head"><div><h3>{title}</h3></div>
-      <button type="button" className="cy-op-button compact" disabled={busy} onClick={onAdd}>＋ {addLabel}</button></div>
-    <div className="cy-form-block-body">{empty ? <p className="cy-form-block-empty">尚未填寫。</p> : children}</div>
-  </section>;
-}
-
-function RowInput({ label, value, onChange, type = "text", required }: {
-  label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean;
-}) {
-  return <input className="cy-op-input" aria-label={label} placeholder={label} type={type} required={required} max={type === "month" ? "9999-12" : undefined}
-    value={value} onChange={event => onChange(event.target.value)} />;
-}
-
-function RemoveRow({ busy, onRemove }: { busy: boolean; onRemove: () => void }) {
-  return <button type="button" className="cy-op-button compact soft cy-row-remove" disabled={busy} onClick={onRemove}>移除</button>;
+function EmployeeForm({draft,detail,creating,busy,members,stores,jobTitles,patch,onCancel,onSubmit}:{
+ draft:Draft;detail:EmployeeDetail|null;creating:boolean;busy:boolean;members:MemberOption[];
+ stores:{id:number;name:string}[];jobTitles:{id:number;name:string}[];patch:(value:Partial<Draft>)=>void;
+ onCancel:()=>void;onSubmit:(event:FormEvent)=>Promise<void>;
+}){
+ const compact=useCompactLayout();
+ return <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>void onSubmit(e)}>
+  <div className="cy-record-header cy-edit-header">
+   <h2>{creating?"新增員工":"修改 "+draft.employeeNo+" "+draft.name}</h2>
+   {compact?<ActionBar>
+    <button type="button" className="cy-op-button" disabled={busy} onClick={onCancel}>取消</button>
+    <button className="cy-op-button primary" disabled={busy} aria-busy={busy||undefined}>{creating?"建立員工":"儲存修改"}</button>
+   </ActionBar>:<div className="cy-record-actions">
+    <button type="button" className="cy-op-button" disabled={busy} onClick={onCancel}>取消</button>
+    <button className="cy-op-button primary" disabled={busy} aria-busy={busy||undefined}>{creating?"建立員工":"儲存修改"}</button>
+   </div>}
+  </div>
+  <div className="cy-hr-form-body">
+   <HrEmployeeSheet value={draft} detail={detail} editing creating={creating} busy={busy}
+    members={members} stores={stores} jobTitles={jobTitles} patch={patch} onReveal={()=>{}}/>
+  </div>
+ </form>;
 }
