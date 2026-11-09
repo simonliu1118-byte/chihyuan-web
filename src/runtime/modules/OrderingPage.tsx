@@ -534,6 +534,16 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
  const base=useMemo(()=>openOnly?list.filter(x=>x.status==="SENT"||x.status==="PARTIAL"):list,[list,openOnly]);
  const counts=useMemo(()=>base.reduce<Record<string,number>>((n,x)=>({...n,[x.status]:(n[x.status]??0)+1}),{}),[base]);
  const shown=status?base.filter(x=>x.status===status):base;
+ const historyFilterControls=<>
+  <StatusFilter label="叫貨狀態" value={status} onChange={setStatus} counts={counts}
+   options={(["SENT","PARTIAL","CLOSED","VOID"] as const).map(code=>({code,label:ORDERING_STATUS_LABELS[code],tone:STATUS_TONE[code]}))}/>
+  <div className="cy-ordering-list-filters">
+   <OrderingSourcePicker sources={sources} value={Number(sourceFilter)||0} onChange={id=>setSourceFilter(id?String(id):"")} includeHidden allowAll label="篩選叫貨來源"/>
+   <DateInput className="cy-op-input" aria-label="起日" max="9999-12-31" value={from} onChange={e=>setFrom(e)}/>
+   <span aria-hidden="true">～</span>
+   <DateInput className="cy-op-input" aria-label="迄日" max="9999-12-31" value={to} onChange={e=>setTo(e)}/>
+  </div>
+ </>;
  const sourceNeedle=mobileSourceSearch.trim().toLocaleLowerCase();
  const mobileGeneralSources=active.filter(v=>v.kind!=="VENDOR"&&v.name.toLocaleLowerCase().includes(sourceNeedle));
  const mobileVendors=orderedVendors.filter(v=>v.name.toLocaleLowerCase().includes(sourceNeedle));
@@ -624,19 +634,12 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
        onChange={e=>setMobileSourceSearch(e.target.value)}/>
       {mobileGeneralSources.length?<section className="cy-ordering-mobile-source-group" aria-label="公司內部來源">
        <h3>公司內部</h3><div className="cy-ordering-mobile-draft-list">
-        {mobileGeneralSources.map(item=><button type="button" key={item.id} className="cy-ordering-mobile-draft-row" disabled={busy}
-          onClick={()=>void selectSource(item)}>
-          <strong>{item.name}</strong><span className="cy-ordering-mobile-draft-pill">開啟 <span aria-hidden="true">›</span></span>
-        </button>)}
+        {mobileGeneralSources.map(item=><ListRow key={item.id} title={item.name} trailing="開啟" disabled={busy} onClick={()=>void selectSource(item)}/>)}
        </div>
       </section>:null}
       {mobileVendors.length?<section className="cy-ordering-mobile-source-group" aria-label="廠商來源">
        <h3>廠商</h3><div className="cy-ordering-mobile-draft-list">
-        {mobileVendors.map(item=><button type="button" key={item.id} className="cy-ordering-mobile-draft-row" disabled={busy}
-          onClick={()=>void chooseVendor(item.id)}>
-          <span className="cy-ordering-mobile-source-label"><strong>{item.name}</strong><VendorDots status={vendorStatus.get(item.id)}/></span>
-          <span className="cy-ordering-mobile-draft-pill">開啟 <span aria-hidden="true">›</span></span>
-        </button>)}
+        {mobileVendors.map(item=><ListRow key={item.id} title={item.name} trailing={<VendorDots status={vendorStatus.get(item.id)}/>} disabled={busy} onClick={()=>void chooseVendor(item.id)}/>)}
        </div>
       </section>:null}
       {!mobileGeneralSources.length&&!mobileVendors.length?<p className="cy-op-empty">{active.length?"找不到符合的來源或廠商。":"目前沒有可用的叫貨來源。"}</p>:null}
@@ -645,27 +648,25 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
        {canRestock?<button type="button" className="cy-op-button compact" aria-expanded={restockOpen} onClick={()=>setRestockOpen(v=>!v)}>進貨輔助</button>:null}
       </div>
      </div>:<>
-    <div className="cy-md-toolbar">
-     <div className="cy-md-toolbar-lead">
-      <OpenOnlyToggle value={openOnly} onChange={v=>{setOpenOnly(v);setStatus("")}}/>
-      <input className="cy-op-input" type="search" aria-label="搜尋叫貨清單" placeholder="搜尋品號、品名、進貨單號" value={search} onChange={e=>setSearch(e.target.value)}/>
-      {compact?<button type="button" className="cy-op-button compact cy-ordering-filter-toggle" aria-expanded={mobileHistoryFiltersOpen}
-        onClick={()=>setMobileHistoryFiltersOpen(v=>!v)}>篩選{status||sourceFilter||from||to?" •":""}</button>:null}
-     </div>
-     <div className="cy-ordering-history-advanced" hidden={compact&&!mobileHistoryFiltersOpen}>
-      <StatusFilter label="叫貨狀態" value={status} onChange={setStatus} counts={counts}
-       options={(["SENT","PARTIAL","CLOSED","VOID"] as const).map(code=>({code,label:ORDERING_STATUS_LABELS[code],tone:STATUS_TONE[code]}))}/>
-      <div className="cy-ordering-list-filters">
-       <OrderingSourcePicker sources={sources} value={Number(sourceFilter)||0} onChange={id=>setSourceFilter(id?String(id):"")} includeHidden allowAll label="篩選叫貨來源"/>
-       <DateInput className="cy-op-input" aria-label="起日" max="9999-12-31" value={from} onChange={e=>setFrom(e)}/>
-       <span aria-hidden="true">～</span>
-       <DateInput className="cy-op-input" aria-label="迄日" max="9999-12-31" value={to} onChange={e=>setTo(e)}/>
+    {compact?<DataViewToolbar searchValue={search} onSearchChange={setSearch} searchLabel="搜尋叫貨清單"
+      searchPlaceholder="搜尋品號、品名、進貨單號"
+      beforeSearch={<OpenOnlyToggle value={openOnly} onChange={v=>{setOpenOnly(v);setStatus("")}}/>}
+      filters={historyFilterControls}
+      activeFilterCount={[openOnly,status,sourceFilter,from,to].filter(Boolean).length}
+      resultSummary={"共 "+shown.length+" 筆"}/>
+    :<div className="cy-md-toolbar">
+      <div className="cy-md-toolbar-lead">
+       <OpenOnlyToggle value={openOnly} onChange={v=>{setOpenOnly(v);setStatus("")}}/>
+       <input className="cy-op-input" type="search" aria-label="搜尋叫貨清單" placeholder="搜尋品號、品名、進貨單號" value={search} onChange={e=>setSearch(e.target.value)}/>
       </div>
-     </div>
-     <div className="cy-md-count">共 {shown.length} 筆</div>
-    </div>
+      <div className="cy-ordering-history-advanced">{historyFilterControls}</div>
+      <div className="cy-md-count">共 {shown.length} 筆</div>
+    </div>}
     <div className="cy-op-list">
-     {shown.map(o=><button type="button" key={o.id} className={"cy-op-list-row cy-status-row cy-ordering-history-row "+(current?.id===o.id&&!viewPending?"active":"")}
+     {shown.map(o=>compact?<ListRow key={o.id} title={o.sourceName} subtitle={sentDate(o)+(o.sentAt?" 送出":" 建立")}
+      trailing={<StatusChip tone={STATUS_TONE[o.status]}>{ORDERING_STATUS_LABELS[o.status]??o.status}</StatusChip>}
+      selected={current?.id===o.id&&!viewPending} onClick={()=>void reloadOrder(o.id).catch(e=>setError(errorOf(e)))}/>
+     :<button type="button" key={o.id} className={"cy-op-list-row cy-status-row cy-ordering-history-row "+(current?.id===o.id&&!viewPending?"active":"")}
       aria-current={current?.id===o.id?"true":undefined}
       onClick={()=>void reloadOrder(o.id).catch(e=>setError(errorOf(e)))}>
       <strong>{o.sourceName}</strong>
