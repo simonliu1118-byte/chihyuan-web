@@ -57,7 +57,7 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
  const editable=detail.sheet.status==="COUNTING"||detail.sheet.status==="RECOUNTING";
  // ERP book quantities are source batch totals, never individual WEB location quantities.
  const showBookQty=detail.sheet.status!=="COUNTING"&&detail.sheet.status!=="IGNORED";
- const {groups,allRows}=useMemo(()=>{
+ const {groups,allRows,bookOwner}=useMemo(()=>{
   const lines=new Map(detail.lines.map(l=>[l.lineKey,l]));
   const allRows=detail.locationCounts.flatMap(cell=>{
    const line=lines.get(cell.sourceLineKey);
@@ -89,8 +89,17 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
    group.locations.sort((a,b)=>a.location.localeCompare(b.location));
    for(const loc of group.locations)loc.rows.sort((a,b)=>a.line.batch.localeCompare(b.line.batch)||a.line.lineKey.localeCompare(b.line.lineKey));
   }
-  return {groups:[...all.values()].sort((a,b)=>a.code.localeCompare(b.code)),allRows};
+  // A batch spread over several WEB locations carries the same ERP total on each row; it is shown on one
+  // location only (the first by location code, independent of filters) so it never reads as doubled (user 2026-11-09).
+  const bookOwner=new Map<string,Row>();
+  for(const row of allRows){const owner=bookOwner.get(row.line.lineKey);
+   if(!owner||row.cell.locationCode.localeCompare(owner.cell.locationCode)<0)bookOwner.set(row.line.lineKey,row)}
+  return {groups:[...all.values()].sort((a,b)=>a.code.localeCompare(b.code)),allRows,bookOwner};
  },[detail,search,filter,phase]);
+ /** ERP 帳面數量 cell: the number on its owning location, elsewhere a pointer to that location. */
+ const bookQty=(r:Row)=>{const owner=bookOwner.get(r.line.lineKey);
+  return !owner||owner.cell.id===r.cell.id?(r.line.bookQty??"—")
+   :<span className="cy-stocktake-book-elsewhere" title={"同一批號的 ERP 帳面合計只顯示在儲位 "+(owner.cell.locationCode||"未指定儲位")}>見 {owner.cell.locationCode||"未指定儲位"}</span>};
  const counts=(rows:Row[])=>{
   const required=phase==="firstQty"?rows:rows.filter(r=>!r.line.locked);
   return {total:required.length,done:required.filter(r=>r.cell[phase]!==null).length};
@@ -147,7 +156,7 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
       </div>
      </td></>:null}
      <td><div className="cy-stocktake-batch-inline"><span>{r.line.batch||"無"}</span>{deleteBatchButton(r)}</div></td>
-     {showBookQty?<td className="cy-stocktake-list-book-qty" title="ERP 原始批號帳面合計，非單一儲位數量">{r.line.bookQty??"—"}</td>:null}
+     {showBookQty?<td className="cy-stocktake-list-book-qty" title="ERP 原始批號帳面合計，非單一儲位數量">{bookQty(r)}</td>:null}
      <td>{editor(r,false)}</td><td className="cy-stocktake-list-unit">{r.line.unit||"—"}</td><td>{actions(r,true)}</td>
     </tr>))}</tbody>;
    })}
@@ -193,7 +202,7 @@ export function StocktakeGroupedDetail({detail,search,filter,drafts,saving,confl
      {selected.rows.map(r=><div className="cy-stocktake-batch-row" key={r.cell.id}>
       <div className="cy-stocktake-batch-context">
        <div className="cy-stocktake-batch-name cy-stocktake-batch-inline"><span>批號 {r.line.batch||"無"}</span>{deleteBatchButton(r)}</div>
-       {showBookQty?<small className="cy-stocktake-book-mobile">ERP 帳面數量（批號合計）：<strong>{r.line.bookQty??"—"}</strong></small>:null}
+       {showBookQty?<small className="cy-stocktake-book-mobile">ERP 帳面數量（批號合計）：<strong>{bookQty(r)}</strong></small>:null}
       </div>
       {editor(r)}
      </div>)}
