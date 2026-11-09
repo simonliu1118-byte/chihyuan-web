@@ -6,6 +6,12 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.15.7 — 叫貨單：到貨紀錄改用明細同款表格、廠商條件移到上方（2026-11-09，Claude）
+- 到貨紀錄改用和叫貨明細相同的框線表格，每筆一行（登記人與時間同一行）。
+- 廠商條件那一列（廠商資料）移到分隔線下、到貨紀錄上方。
+- 叫貨明細表頭：數量、已到數量靠右，狀態置中，與內容對齊。
+- 刪除到貨紀錄原本另寫的手機卡片樣式，改由共用 `cy-rt` 處理。
+
 ## CY Web V0.15.6 — 已指定結案品項整列刪除線（2026-11-09，Claude）
 - 叫貨單明細中已指定結案的品項，整列畫一條刪除線、文字變灰，和門市黑名單已移出的樣式相同。
 - 刪除線抽成共用樣式 `cy-row-struck`（黑名單改用同一個），寫入 UI_COMPONENT_CATALOG。
