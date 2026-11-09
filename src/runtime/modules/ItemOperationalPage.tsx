@@ -2,6 +2,7 @@ import { IconButton } from "../../ui/actions/IconButton";
 import { Icons } from "../../ui/actions/icons";
 import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import { Dialog } from "../../ui/overlays/Dialog";
+import {ItemSheet,type ItemSheetDraft} from "./item/ItemSheet";
 import { RelatedCard } from "../../ui/records/RelatedCard";
 import { EntityPicker } from "../../ui/pickers/EntityPicker";
 import { DefectForm } from "./defect/DefectForm";
@@ -50,25 +51,14 @@ import {
   loadItemDetail,
   loadItemLookups,
   loadItemNumberHistory,
+  loadItemPriceHistory,
+  loadItemPlatforms,
   searchItems,
   updateItem,
 } from "../api/item-runtime-client";
 import "./item-operational.css";
 
-interface ItemDraft {
-  itemNo: string;
-  name: string;
-  spec: string;
-  itemCategoryId: number | null;
-  baseUnit: string;
-  isActive: boolean;
-  cost: string;
-  costTaxMode: ItemCostTaxMode | null;
-  storePrice: string;
-  clinicPrice: string;
-  notes: string;
-  unitConversions: ItemUnitConversionInput[];
-}
+type ItemDraft=ItemSheetDraft;
 
 const taxModeText: Record<ItemCostTaxMode, string> = {
   none: "未指定",
@@ -94,6 +84,8 @@ function newDraft(lookups: ItemModuleLookups | null): ItemDraft {
     clinicPrice: "",
     notes: "",
     unitConversions: [],
+    wholesalePrices: [],
+    onlinePrices: [],
   };
 }
 
@@ -129,6 +121,8 @@ function draftFromDetail(item: ItemDetail): ItemDraft {
     clinicPrice: item.clinicPrice ?? "",
     notes: item.notes ?? "",
     unitConversions: baseConversions(item),
+    wholesalePrices:[...item.wholesalePrices],
+    onlinePrices:[...item.onlinePrices],
   };
 }
 
@@ -144,6 +138,8 @@ function profileFromDraft(draft: ItemDraft): ItemProfileInput {
     clinicPrice: draft.clinicPrice.trim() || null,
     notes: draft.notes.trim() || null,
     isActive: draft.isActive,
+    wholesalePrices: draft.wholesalePrices.map((row,index)=>({unit:row.unit.trim(),price:row.price.trim(),sortOrder:index})),
+    onlinePrices: draft.onlinePrices.map(row=>({platformId:row.platformId,price:row.price.trim()})),
     unitConversions: draft.unitConversions.map((row, index) => ({
       fromUnit: row.fromUnit.trim(),
       quantity: row.quantity.trim(),
@@ -210,6 +206,9 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [selected, setSelected] = useState<ItemDetail | null>(null);
   const [numberHistory, setNumberHistory] = useState<Awaited<ReturnType<typeof loadItemNumberHistory>>>([]);
+  const [priceHistory,setPriceHistory]=useState<Awaited<ReturnType<typeof loadItemPriceHistory>>>([]);
+  const [historyOpen,setHistoryOpen]=useState(false);
+  const [platforms,setPlatforms]=useState<Awaited<ReturnType<typeof loadItemPlatforms>>>([]);
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [activeFilter, setActiveFilter] = useState("");
@@ -299,6 +298,12 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
 
   const [lookupEpoch, setLookupEpoch] = useState(0);
   useSettingsSaved(useCallback(() => setLookupEpoch(value => value + 1), []));
+  useEffect(()=>{
+    let active=true;
+    void loadItemPlatforms().then(p=>{if(active)setPlatforms(p)}).catch(error=>{if(active)reportError(errorMessage(error))});
+    return ()=>{active=false};
+  },[lookupEpoch]);
+
   useEffect(() => {
     let cancelled = false;
     void loadItemLookups()
@@ -356,6 +361,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
     if (selectedId == null || creating) {
       setSelected(null);
       setNumberHistory([]);
+      setPriceHistory([]);
       return;
     }
 
@@ -364,16 +370,19 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
     void Promise.all([
       loadItemDetail(selectedId),
       loadItemNumberHistory(selectedId, 100),
+      loadItemPriceHistory(selectedId),
     ])
-      .then(([detail, history]) => {
+      .then(([detail, history, prices]) => {
         if (cancelled) return;
         setSelected(detail);
         setNumberHistory(history);
+        setPriceHistory(prices);
       })
       .catch((error) => {
         if (!cancelled) {
           setSelected(null);
           setNumberHistory([]);
+          setPriceHistory([]);
           reportError(errorMessage(error));
         }
       })
@@ -396,6 +405,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
     pane.open();
     setSelectedId(id);
     setRelatedDialog(null);
+    setHistoryOpen(false);
     setEditing(false);
     setCreating(false);
     setDraft(null);
@@ -637,6 +647,22 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
       </div>}
     </Dialog> : null}
     
+    {selected&&historyOpen?<Dialog open title={"商品修改紀錄 — "+selected.itemNo} size="large" onClose={()=>setHistoryOpen(false)}>
+      <div className="cy-item-history-panel">
+       <h3>歷史品號</h3>
+       {numberHistory.filter(row=>row.validTo).length?<ul>
+        {numberHistory.filter(row=>row.validTo).map(row=><li key={row.id}>{row.itemNo}（{formatDate(row.validTo)} 更改）</li>)}
+       </ul>:<p>沒有歷史品號</p>}
+       <h3>批發價與網路價異動</h3>
+       {priceHistory.length?<table className="cy-op-table cy-rt"><thead><tr><th>時間</th><th>修改前</th><th>修改後</th></tr></thead>
+        <tbody>{priceHistory.map(row=><tr key={row.id}>
+         <td data-label="時間">{formatDateTime(row.occurredAt)}</td>
+         <td data-label="修改前">{Object.entries(row.before).map(([k,v])=>k+"："+(v??"未設定")).join("、")||"—"}</td>
+         <td data-label="修改後">{Object.entries(row.after).map(([k,v])=>k+"："+(v??"已刪除")).join("、")||"—"}</td>
+        </tr>)}</tbody></table>:<p>沒有價格異動紀錄</p>}
+       <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setHistoryOpen(false)}>關閉</button></div>
+      </div>
+     </Dialog>:null}
     <FeedbackBanner message={message} tone={messageTone} />
 
     <div className="cy-md cy-item-workspace" data-pane={pane.pane}>
@@ -674,7 +700,6 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
         <MasterDetailBack label="商品清單" disabled={busy} onBack={async () => { if (editing) { if (!(await canLeave())) return; setEditing(false); setCreating(false); setDraft(null); } pane.close(); }} />
         {editing && draft ? (
           <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={(event) => void save(event)}>
-    <FormSection>
             <div className="cy-record-header cy-edit-header">
               <div>
                 <h2>{creating ? "新增商品" : `修改 ${selected?.itemNo ?? "商品"}`}</h2>
@@ -684,39 +709,10 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
               <button className="cy-op-button primary" disabled={busy} aria-busy={busy||undefined}>{creating?"建立商品":"儲存修改"}</button></ActionBar>
              :<div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void cancelEdit()}>取消</button>
               <button className="cy-op-button primary" disabled={busy} aria-busy={busy||undefined}>{creating?"建立商品":"儲存修改"}</button></div>}</div>
-            <div className="cy-item-form-body">
-              <div className="cy-f-grid">
-                <Field label="品號" size="m" required><input className="cy-op-input" value={creating ? draft.itemNo : selected?.itemNo ?? draft.itemNo} disabled={!creating || busy} onChange={(event) => creating && patch({ itemNo: event.target.value })} /></Field>
-                <Field label="名稱" size="m" required><input className="cy-op-input" value={draft.name} disabled={busy} onChange={(event) => patch({ name: event.target.value })} /></Field>
-                <Field label="規格" size="l"><input className="cy-op-input" value={draft.spec} disabled={busy} onChange={(event) => patch({ spec: event.target.value })} /></Field>
-                <Field label="分類" size="m"><select className="cy-op-input" value={draft.itemCategoryId ?? ""} disabled={busy} onChange={(event) => patch({ itemCategoryId: event.target.value ? Number(event.target.value) : null })}><option value="">未分類</option>{categories.filter((row) => row.isActive || row.id === draft.itemCategoryId).map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}</select></Field>
-                <Field label="基準單位" size="s" required><input className="cy-op-input" value={draft.baseUnit} disabled={busy} onChange={(event) => patch({ baseUnit: event.target.value })} /></Field>
-              <div className="cy-item-conversions-inline wide">
-                {draft.unitConversions.map((row, index) => (
-                  <div className="cy-item-conversion-row cy-mobile-unit-conversion-row" key={index}>
-                    <span>1</span>
-                    <input className="cy-op-input" aria-label="換算來源單位" value={row.fromUnit} disabled={busy}
-                      onChange={event => updateConversion(index, "fromUnit", event.target.value)} />
-                    <span>=</span>
-                    <input className="cy-op-input" aria-label="換算數量" inputMode="decimal" value={row.quantity} disabled={busy}
-                      onChange={event => updateConversion(index, "quantity", event.target.value)} />
-                    <span>{draft.baseUnit}</span>
-                    <IconButton variant="table" tone="danger" icon={Icons.remove} label="移除換算" disabled={busy}
-                      onClick={() => patch({ unitConversions: draft.unitConversions.filter((_, n) => n !== index) })} />
-                  </div>
-                ))}
-                <button type="button" className="cy-item-add-conversion" disabled={busy} onClick={addConversion}>＋ 換算</button>
-              </div>
-                <Field label="成本" size="s"><input className="cy-op-input" inputMode="decimal" value={draft.cost} disabled={busy} onChange={(event) => patch({ cost: event.target.value })} /></Field>
-                <Field label="成本稅別" size="s"><select className="cy-op-input" value={draft.costTaxMode ?? ""} disabled={busy} onChange={(event) => patch({ costTaxMode: (event.target.value || null) as ItemCostTaxMode | null })}><option value="">未指定</option><option value="inclusive">含稅</option><option value="exclusive">未稅</option><option value="none">無稅別</option></select></Field>
-                <Field label="門市價" size="s"><input className="cy-op-input" inputMode="decimal" value={draft.storePrice} disabled={busy} onChange={(event) => patch({ storePrice: event.target.value })} /></Field>
-                <Field label="診所價" size="s"><input className="cy-op-input" inputMode="decimal" value={draft.clinicPrice} disabled={busy} onChange={(event) => patch({ clinicPrice: event.target.value })} /></Field>
-                <Field label="備註" size="l"><textarea className="cy-op-input" rows={3} value={draft.notes} disabled={busy} onChange={(event) => patch({ notes: event.target.value })} /></Field>
-              </div>
+            <ItemSheet editing creating={creating} item={selected} draft={draft}
+              busy={busy} categories={categories} platforms={platforms}
+              onPatch={patch} onAddConversion={addConversion} onUpdateConversion={updateConversion}/>
 
-            </div>
-          
-    </FormSection>
   </form>
         ) : loadingDetail ? (
           <Loading />
@@ -729,11 +725,13 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
                   {!selected.isActive ? <StatusChip>已停用</StatusChip> : null}</p>
               </div>
               {compact?<OverflowMenu items={[
+                {label:"修改紀錄",onClick:()=>setHistoryOpen(true)},
                 {label:"更改品號",disabled:busy,onClick:()=>track("changeItemNumber",changeItemNumber())},
                 {label:selected.isActive?"停用":"啟用",disabled:busy,danger:selected.isActive,onClick:()=>track("toggleActive",toggleActive())}
                ]}/>
               :<div className="cy-record-actions">
                 <button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
+                <button type="button" className="cy-op-button" disabled={busy} onClick={()=>setHistoryOpen(true)}>修改紀錄</button>
                 <button type="button" className="cy-op-button" disabled={busy} aria-busy={(busy && pending === "changeItemNumber") || undefined}
                   onClick={() => track("changeItemNumber", changeItemNumber())}>更改品號</button>
                 <button type="button" className={`cy-op-button ${selected.isActive ? "danger" : ""}`} disabled={busy}
@@ -743,20 +741,9 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
             </div>
             {compact?<ActionBar><button type="button" className="cy-op-button primary" disabled={busy} onClick={startEdit}>修改</button></ActionBar>:null}
             <div className="cy-item-detail-body">
-              <section className="cy-op-panel cy-item-basic-card" aria-label="基本資料">
-                <h3>基本資料</h3>
-                <div><strong>基準單位</strong> {selected.baseUnit}
-                  {baseConversions(selected).map((row, index) => <span key={index}>　·　1 {row.fromUnit} = {row.quantity} {selected.baseUnit}</span>)}
-                </div>
-                <div><strong>成本</strong> {selected.cost ? `$${selected.cost}` : "—"}
-                  {selected.costTaxMode ? `（${taxModeText[selected.costTaxMode]}）` : ""}
-                  <span>　門市價 {selected.storePrice ? `$${selected.storePrice}` : "—"}</span>
-                  <span>　診所價 {selected.clinicPrice ? `$${selected.clinicPrice}` : "—"}</span>
-                </div>
-                {selected.notes ? <div><strong>備註</strong> {selected.notes}</div> : null}
-                {previousNumbers.length ? <small>曾用品號：{previousNumbers.map(row =>
-                  `${row.itemNo}（${formatDate(row.validTo)} 更改）`).join("、")}</small> : null}
-              </section>
+              <ItemSheet editing={false} creating={false} item={selected} draft={null}
+                busy={busy} categories={categories} platforms={platforms}
+                onPatch={patch} onAddConversion={addConversion} onUpdateConversion={updateConversion}/>
               {canViewDefects || canViewCustomers ? <section className="cy-customer-cards" aria-label="商品相關紀錄">
                 {canViewDefects ? <RelatedCard title="瑕疵紀錄"
                   count={Object.values(defectCounts).reduce((total, count) => total + (count ?? 0), 0)}

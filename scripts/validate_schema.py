@@ -114,6 +114,7 @@ EXPECTED_TABLES = {
     "departments",
     "item_categories",
     "item_number_history",
+    "item_web_platforms", "item_online_prices", "item_wholesale_prices",
     "item_unit_conversions",
     "items",
     "outsourcing_order_parts",

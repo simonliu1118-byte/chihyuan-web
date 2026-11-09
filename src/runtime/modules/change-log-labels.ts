@@ -52,7 +52,7 @@ export const actionLabels: Record<string,string> = {
   "customer.quote.corrected":"修正報價紀錄","customer.frequent_item.created":"加入常用商品",
   "customer.frequent_item.deleted":"移除常用商品",
   "item.created":"新增商品","item.updated":"修改商品","item.deleted":"刪除商品",
-  "item.number.changed":"更改品號",
+  "item.number.changed":"更改品號","item.price.changed":"調整商品價格",
   "defect.created":"新增瑕疵","defect.updated":"修改瑕疵","defect.processing":"開始處理瑕疵",
   "defect.resolved":"完成瑕疵處理","defect.reopened":"重新開啟瑕疵",
   "defect.invalidated":"作廢瑕疵","defect.deleted":"刪除瑕疵",

@@ -3,6 +3,8 @@ import type {
   ItemListResult,
   ItemNumberHistoryRecord,
   ItemSearchQuery,
+  ItemWebPlatform,
+  ItemPriceHistoryRecord,
 } from "../../shared/item";
 import { FieldValidationError } from "../validation/fields";
 import { ItemPersistence, type ItemMutationContext } from "./item-persistence";
@@ -54,6 +56,12 @@ export class ItemService {
     this.persistence = new ItemPersistence(db);
   }
 
+  async getPlatforms():Promise<readonly ItemWebPlatform[]> {return this.repository.getPlatforms()}
+  async listPriceHistory(itemId:number):Promise<readonly ItemPriceHistoryRecord[]> {
+    const id=normalizeItemId(itemId);
+    await this.getDetail(id);
+    return this.repository.listPriceHistory(id);
+  }
   async search(query: ItemSearchQuery): Promise<ItemListResult> {
     return this.repository.search(query);
   }
@@ -137,7 +145,16 @@ export class ItemService {
     if (await this.repository.itemNumberExists(input.itemNo)) {
       throw new ItemServiceError("ITEM_NO_CONFLICT", 409, "Item number already exists");
     }
+    await this.validatePlatforms(input.onlinePrices);
     return input;
+  }
+
+  private async validatePlatforms(entries:readonly {platformId:number}[]|null,keep:readonly number[]=[]):Promise<void> {
+    if(!entries?.length)return;
+    const platforms=await this.repository.getPlatforms();
+    const allowed=new Set([...platforms.filter(p=>p.isActive).map(p=>p.id),...keep]);
+    for(const entry of entries)if(!allowed.has(entry.platformId))
+      throw new FieldValidationError({onlinePrices:"網路平台不存在或已停用"});
   }
 
   async preflightUpdate(itemId: number, raw: unknown): Promise<NormalizedUpdateItemRequest> {
@@ -159,6 +176,7 @@ export class ItemService {
         itemCategoryId: categoryChanged ? "商品分類不存在或已停用" : "商品分類不存在",
       });
     }
+    await this.validatePlatforms(input.onlinePrices,current.onlinePrices.map(p=>p.platformId));
     return input;
   }
 

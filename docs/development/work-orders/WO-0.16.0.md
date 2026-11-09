@@ -1,7 +1,7 @@
 # WO-0.16.0 商品主檔改成表格式單據，瑕疵併入商品分頁
 
-- 狀態：待執行
-- 分支：`cyweb/wo-0.16.0-items`　PR：#（執行者填）
+- 狀態：**已結案**（Claude 2026-11-09 審查通過，V0.16.0 合併部署；見 §9）。下次文件整理移出主線。
+- 分支：`cyweb/wo-0.16.0-items`　PR：[Draft #483](https://github.com/simonliu1118-byte/chihyuan-web/pull/483)
 - 版號：V0.16.0（若已被占用就用下一個空號，CHANGELOG 同步）
 - 開工前必讀：
   - `docs/architecture/UI_COMPONENT_CATALOG.md`（表格式單據、§6 手機、按鈕 `soft`／`quiet` 規則）
@@ -85,11 +85,34 @@
 - [ ] 桌機 1440 與手機 390×844 截圖（`deviceScaleFactor:2`）：商品明細檢視、修改、新增、商品設定的平台維護、瑕疵分頁。
 - [ ] 可攜備份匯出、還原包含新表。
 - [ ] 固定項目：新表單按 Enter 跳下一欄、日期欄位四碼年份（`PROJECT_RULES.md` §5，`form-keyboard.test.mjs` 會檢查）。
-- [ ] `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local` 通過。
-- [ ] `node --test scripts/*.test.mjs` 通過；既有測試不得刪除或放寬，只可依新的畫面結構更新選擇器。
-- [ ] VERSION／package.json 版本、CHANGELOG、TODO 段落已更新。
-- [ ] 開 PR 給 Claude 審查。**不要自行合併或部署。**
+- [x] `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local` 通過（GitHub Runtime #42645139617）。
+- [x] `node --test scripts/*.test.mjs` 通過；舊選擇器依新畫面結構調整，原有測試未刪除或放寬（GitHub Runtime #42645139617）。
+- [x] VERSION／package.json 版本、CHANGELOG、TODO 段落已更新，並納入 V0.15.8 主線修正。
+- [x] 開 [Draft PR #483](https://github.com/simonliu1118-byte/chihyuan-web/pull/483) 給 Claude 審查。**尚未獲得 Claude 複審，不合併、不部署。**
 
 ## 8. 完成報告（GPT 填）
 
+- 分支：`cyweb/wo-0.16.0-items`（以 V0.15.5 `1c20ce74317ee7eb9c41ad1519e3dd5cc8aeed86` 為起點；已合入 V0.15.8 `fe805b0c67b066110bac5a6427f957d4f0185cac`）；PR：[Draft #483](https://github.com/simonliu1118-byte/chihyuan-web/pull/483)。
+- 程式：`item/ItemSheet` 共用 RecordSheet 檢視、修改與新增，新增 InlineGridField（網路平台價格格）；批發單位多筆、含稅前端計算、曾用品號與價格 Audit 的修改紀錄視窗。
+- 後端：`0061_item_price_tables` 三表與六個預設平台；ItemRepository／Service／Persistence 的商品價格同版本鎖儲存；SettingsService SUPER_ADMIN 平台維護、HTTP 路由及原權限護欄；三表與種子納入可攜備份。
+- 導覽：瑕疵移入商品頁共用 ModuleSections，原 #defects 可直達，ITEMS／DEFECTS 不混用。
+- 驗證：最後通過程式 SHA `a51ea57dc4aa7cd3bc98e6c326c71f4d64850c91`；[Runtime Check #42645139617](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42645139617) 全通過（browser／worker TypeScript、來源合約、D1 本機驗收、完整 Node suite、Build）；[Governance #42645139613](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42645139613) 通過；[部署契約 #42645139713](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42645139713) 通過，**正式 deploy-development job skipped**。**尚無 1440px／390×844 的登入後原始裝置截圖**；Claude 尚未審查。不能以 CI 取代這兩項。
+- 使用者指示：**不合併 PR、不部署，不改動 main 或 deploy 分支。**
+
+
+
 ## 9. 審查紀錄（Claude 填）
+
+- 2026-11-09：**通過**，審查者 Claude；以 PR #483（併入 main V0.15.9）合併部署為 V0.16.0。
+- 檢查結果：
+  - 版面照 §2.1：第一列品號／品名／規格／基準單位（品名、規格同寬；換算「1 [箱] = [4] 台 ×」）；第二列分類／成本／稅別／門市／診所／批發／網路；未稅顯示含稅價（小數 2 位）；批發「台$15000 / 箱$58000」；網路價只顯示有填的平台，修改時為格內小表格（共用 `InlineGridField`）。
+  - 資料：0061 三張新表與六個預設平台；價格與商品同一批次寫入並受 revision 鎖；每個價差逐項記 `item.price.changed`；可攜備份含三表，還原時以備份平台取代預設六筆、舊備份保留預設。
+  - 瑕疵併入商品分頁：ITEMS／DEFECTS 各自授權（只有其中一種的帳號也能進入且只看到自己的分頁）、`#defects` 舊網址直達瑕疵分頁、左側選單只留商品。
+  - 平台設定與商品分類同為 SUPER_ADMIN 維護，一致。
+  - tsc（前端／Worker）、validate:source、validate_schema（62 migrations）、`node --test` 795／795、本機 D1、build 全部通過。以模擬資料截圖確認 1440 與 390 的檢視、修改。
+- 審查者直接修正：
+  1. 成本格的「(含稅$…)」原本在窄欄折成三行；改成單獨一行不換行，並調整第二列欄寬（分類下拉不再被截斷）。
+  2. 手機版商品下方「瑕疵紀錄／報價紀錄」兩張卡片並排超出畫面；820px 以下改成單欄（此問題在 main 已存在）。
+  3. 與 main V0.15.9 的 VERSION／package.json／CHANGELOG 衝突整理。
+- 小意見（不阻擋）：新增商品時的價格 Audit 以「平台編號」記名（修改時用平台名稱），之後順手統一。
+

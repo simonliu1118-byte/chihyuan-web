@@ -19,11 +19,12 @@ import { deleteSetting, loadSettings, saveSetting } from "../api/settings-audit-
  * A module's own settings (BD-043 authority unchanged): structural lookups are Super Admin-only,
  * WorkLog configuration is Admin or Super Admin. Each module opens only its own sections.
  */
-export type SettingsSection = "department" | "customer_category" | "customer_status" | "item_category" | "worklog-categories" | "worklog-platforms" | "scoring";
+export type SettingsSection = "department" | "customer_category" | "customer_status" | "item_category" | "item_platform" | "worklog-categories" | "worklog-platforms" | "scoring";
 type Section = SettingsSection;
 const allSections: { key: Section; label: string; structural?: boolean }[] = [
   { key: "customer_category", label: "客戶分類", structural: true }, { key: "customer_status", label: "客戶狀態", structural: true },
   { key: "department", label: "負責部門", structural: true }, { key: "item_category", label: "商品分類", structural: true },
+  { key: "item_platform", label: "網路平台", structural: true },
   { key: "worklog-categories", label: "日誌類別" }, { key: "worklog-platforms", label: "日誌平台" },
   { key: "scoring", label: "計分設定" },
 ];
@@ -43,6 +44,7 @@ function rowsFor(snapshot: SettingsSnapshot, section: Section): readonly LookupS
     case "customer_category": return snapshot.customerCategories;
     case "customer_status": return snapshot.customerStatuses;
     case "item_category": return snapshot.itemCategories;
+    case "item_platform": return snapshot.itemPlatforms;
     case "worklog-categories": return snapshot.workLogCategories;
     case "worklog-platforms": return snapshot.workLogPlatforms;
     default: return [];
@@ -93,10 +95,10 @@ export function ModuleSettingsPanel({ role, only, onDirtyChange }: {
   }
   function saveLookup() {
     if (!lookupDraft || busy) return;
-    if (!lookupDraft.name.trim() || (!status && lookupDraft.id == null && !lookupDraft.code.trim())) { setError("請填寫" + (lookupDraft.name.trim() ? "代碼" : "名稱")); return; }
+    if (!lookupDraft.name.trim() || (!status && section !== "item_platform" && lookupDraft.id == null && !lookupDraft.code.trim())) { setError("請填寫" + (lookupDraft.name.trim() ? "代碼" : "名稱")); return; }
     const body = { name: lookupDraft.name, isActive: lookupDraft.isActive, parentId: lookupDraft.parentId,
       ...(status ? { light: lookupDraft.light } : {}),
-      ...(lookupDraft.id == null ? (status ? {} : { code: lookupDraft.code }) : { expectedUpdatedAt: lookupDraft.expectedUpdatedAt }) };
+      ...(lookupDraft.id == null ? (status || section === "item_platform" ? {} : { code: lookupDraft.code }) : { expectedUpdatedAt: lookupDraft.expectedUpdatedAt }) };
     void save(`lookups/${section}${lookupDraft.id ? `/${lookupDraft.id}` : ""}`, lookupDraft.id ? "PATCH" : "POST", body);
   }
   /** Drag order saves in the background: the table keeps the new order and nothing is locked. */
@@ -149,7 +151,7 @@ export function ModuleSettingsPanel({ role, only, onDirtyChange }: {
     {!snapshot ? <section className="cy-op-panel"><Loading /></section> : structural ? <>
       {!editable ? <p className="cy-settings-readonly">僅超級管理員可修改</p> : null}
       <LookupSettingsTable label={sections.find(row => row.key === section)?.label ?? ""} rows={rows} editable={editable} busy={busy}
-        status={status} withCode={!status} parents={section === "item_category" ? snapshot.itemCategories : undefined}
+        status={status} withCode={!status && section !== "item_platform"} parents={section === "item_category" ? snapshot.itemCategories : undefined}
         draft={lookupDraft} setDraft={setLookupDraft} onSave={saveLookup}
         onReorder={reorderLookup} onToggle={toggleLookup} onDelete={row => void deleteLookup(row)} />
       {confirmationDialog}

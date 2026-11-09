@@ -9,7 +9,7 @@ export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
  * The latest migration in migrations/ (file name without .sql). Bump it with every migration; a test
  * keeps it in step. A backup records it, and a restore maps its data by table and column name.
  */
-export const CURRENT_MIGRATION = "0060_bot_review_items";
+export const CURRENT_MIGRATION = "0061_item_price_tables";
 /**
  * Only for a migration that changes what existing data means (moves, renames, drops or recomputes
  * values). New tables, new columns with a default, new indexes and wider checks need nothing here:
@@ -279,6 +279,10 @@ export async function restoreIntoEmptyDatabase(db: D1Database, bundle: PortableB
     db.prepare("PRAGMA defer_foreign_keys = ON")];
   for(const table of ["hr_leave_types","hr_shift_types","hr_job_titles","hr_stores","regions","customer_statuses"])
     statements.push(db.prepare(`DELETE FROM ${identifier(table)}`));
+  // 0061 seeds six online platforms. Replace those seeds only when a backup actually
+  // carries the table; older snapshots retain the migration's default platforms.
+  if(data.tables.item_web_platforms?.rows.length)
+    statements.push(db.prepare("DELETE FROM item_web_platforms"));
   for (const table of BACKUP_TABLES) {
     const value = data.tables[table];
     if (!value?.rows.length) continue;

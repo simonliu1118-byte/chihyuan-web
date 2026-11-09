@@ -350,12 +350,18 @@ async function handleItems(
   if (request.method === "GET" && url.pathname === "/api/business/items/lookups") {
     return success(await lookups.itemLookups(actorRef(guarded.gate)), requestId);
   }
+  if (request.method === "GET" && url.pathname === "/api/business/items/platforms") {
+    return success(await service.getPlatforms(),requestId);
+  }
 
   if (url.pathname === "/api/business/items") {
     if (request.method === "GET") return success(await service.search(itemSearch(url)), requestId);
     if (request.method === "POST") return success(await service.create(await jsonBody(request), context), requestId, { status: 201 });
   }
 
+  const priceHistory=/^\/api\/business\/items\/(\d+)\/price-history$/.exec(url.pathname);
+  if(priceHistory && request.method==="GET")
+    return success(await service.listPriceHistory(routeId(priceHistory[1],"itemId")),requestId);
   let match = /^\/api\/business\/items\/(\d+)\/number-history$/.exec(url.pathname);
   if (match && request.method === "GET") {
     const itemId = routeId(match[1], "itemId");

@@ -1,0 +1,8 @@
+.cy-item-unit-cell{display:grid;gap:6px;min-width:0}
+.cy-item-conversion-mini,.cy-item-wholesale-mini{display:grid;gap:4px;min-width:0}
+.cy-item-conversion-mini-row{display:grid;grid-template-columns:auto minmax(38px,1fr) auto minmax(42px,1fr) auto auto;gap:3px;align-items:center}
+.cy-item-wholesale-mini-row{display:grid;grid-template-columns:minmax(48px,1fr) minmax(60px,1fr) auto;gap:4px;align-items:center}
+.cy-item-conversion-mini-row .cy-op-input,.cy-item-wholesale-mini-row .cy-op-input{width:100%;min-width:0;box-sizing:border-box;padding-inline:3px}
+.cy-item-unit-cell>.cy-op-input{max-width:96px}
+.cy-item-tax-gross{display:block;white-space:nowrap;color:var(--cy-text-muted);font-size:var(--cy-fs-xs)}
+.cy-item-conversion-mini>.cy-op-button,.cy-item-wholesale-mini>.cy-op-button{justify-self:start}

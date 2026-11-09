@@ -18,7 +18,7 @@ import { useCompactLayout } from "./ui/foundation/useCompactLayout";
 import { ModuleSettingsButton } from "./runtime/modules/ModuleSettingsPanel";
 import { AuditOperationalPage } from "./runtime/modules/AuditOperationalPage";
 import { CustomerOperationalPage } from "./runtime/modules/CustomerOperationalPage";
-import { DefectOperationalPage } from "./runtime/modules/DefectOperationalPage";
+import { ItemsModulePage } from "./runtime/modules/ItemsModulePage";
 import { ERP_OPEN_CATEGORY_EVENT, ErpItemQueryPage } from "./runtime/modules/ErpItemQueryPage";
 import { ERP_QUERY_DONE_EVENT, ErpPageVisibleContext, type ErpQueryDoneDetail } from "./runtime/modules/useErpJob";
 import { useToastQueue } from "./ui/feedback/useToastQueue";
@@ -27,7 +27,7 @@ import { ToastRegion } from "./ui/feedback/ToastRegion";
 import {OrderingPage,ORDERING_OPEN_RESTOCK_EVENT} from "./runtime/modules/OrderingPage";
 import {StorePage} from "./runtime/modules/StorePage";
 import { ErpAgentCredentialControl } from "./runtime/modules/ErpAgentCredentialControl";
-import { ItemOperationalPage } from "./runtime/modules/ItemOperationalPage";
+
 import { OutsourcingOperationalPage } from "./runtime/modules/OutsourcingOperationalPage";
 import { SalesOrderOperationalPage } from "./runtime/modules/SalesOrderOperationalPage";
 import { WorkLogOperationalPage } from "./runtime/modules/WorkLogOperationalPage";
@@ -83,7 +83,6 @@ const baseNavigation: readonly NavigationGroup[] = [
     items: [
       { key: "customers", label: "客戶", href: "#customers" },
       { key: "items", label: "商品", href: "#items" },
-      { key: "defects", label: "瑕疵", href: "#defects" },
       { key: "orders", label: "銷售工單", href: "#orders" },
       { key: "ordering", label: "叫貨", href: "#ordering" },
       { key: "store", label: "門市", href: "#store" },
@@ -353,8 +352,9 @@ function OperationalApp({
   else if (route === "announcements") content = <AnnouncementsPage canPublishCompany={allowedModules.has("ANNOUNCEMENT_PUBLISH")} canSendPersonal={allowedModules.has("PERSONAL_NOTICE_SEND")}/>;
   else if (route === "hr") content = <HrOperationalPage />;
   else if (route === "customers") content = <CustomerOperationalPage role={role} />;
-  else if (route === "items") content = <ItemOperationalPage canViewDefects={allowedModules.has("DEFECTS")} canViewCustomers={allowedModules.has("CUSTOMERS")} />;
-  else if (route === "defects") content = <DefectOperationalPage />;
+  else if (route === "items" || route === "defects") content = <ItemsModulePage route={route}
+    canItems={allowedModules.has("ITEMS")} canDefects={allowedModules.has("DEFECTS")}
+    canViewCustomers={allowedModules.has("CUSTOMERS")}/>;
   else if (route === "orders") content = <SalesOrderOperationalPage />;
   else if (route === "outsourcing") content = <OutsourcingOperationalPage />;
   else if (route === "worklogs") content = <WorkLogOperationalPage />;
@@ -459,12 +459,12 @@ function OperationalApp({
         : route === "erp-item-query"
         ? <ErpAgentCredentialControl isSuperAdmin={session.user.workspaceRole === "SUPER_ADMIN"} />
         : route === "customers" ? <ModuleSettingsButton key={route} role={role} label="客戶" only={["customer_category","customer_status","department"]} />
-        : route === "items" ? <ModuleSettingsButton key={route} role={role} label="商品" only={["item_category"]} />
+        : route === "items" ? <ModuleSettingsButton key={route} role={role} label="商品" only={["item_category","item_platform"]} />
         : route === "worklogs" ? <ModuleSettingsButton key={route} role={role} label="工作日誌" only={["worklog-categories","worklog-platforms","scoring"]} />
         : undefined}
       subtitle="志遠企業管理系統"
       navigation={navigation}
-      activeNavigationKey={route}
+      activeNavigationKey={route==="defects"?"items":route}
       onHome={()=>navigate("home")}
        onNavigate={item => navigate(item.key)}
        notifications={<NotificationBell onNavigate={navigate}/>}

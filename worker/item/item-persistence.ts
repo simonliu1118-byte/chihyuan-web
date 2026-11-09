@@ -1,4 +1,5 @@
 import { nextEntityIdSql } from "../persistence/entity-id";
+import { formatScaled4 } from "../../shared/fixed-point";
 import { AuditService } from "../audit/audit-service";
 import type { ItemRecordVersion } from "./item-repository";
 import type {
@@ -53,6 +54,41 @@ function updateConversionStatements(
   ];
 }
 
+function createPriceStatements(db:D1Database,input:NormalizedItemProfile,context:ItemMutationContext):D1PreparedStatement[]{
+ const statements:D1PreparedStatement[]=[];
+ for(const row of input.wholesalePrices??[]){
+  statements.push(db.prepare("INSERT INTO item_wholesale_prices(item_id,unit,price,sort_order) VALUES((SELECT MAX(id) FROM items),?,?,?)")
+    .bind(row.unit,row.priceScaled4,row.sortOrder));
+  statements.push(db.prepare(`INSERT INTO audit_events(entity_type,entity_key,action,actor_employee_id,occurred_at,request_id,after_json)
+   SELECT 'item',CAST(MAX(id) AS TEXT),'item.price.changed',?,?,?,? FROM items`)
+   .bind(context.actorMemberId,context.now,context.requestId??null,JSON.stringify({["批發價/"+row.unit]:formatScaled4(row.priceScaled4)})));
+ }
+ for(const row of input.onlinePrices??[]){
+  statements.push(db.prepare("INSERT INTO item_online_prices(item_id,platform_id,price) VALUES((SELECT MAX(id) FROM items),?,?)")
+    .bind(row.platformId,row.priceScaled4));
+  statements.push(db.prepare(`INSERT INTO audit_events(entity_type,entity_key,action,actor_employee_id,occurred_at,request_id,after_json)
+   SELECT 'item',CAST(MAX(id) AS TEXT),'item.price.changed',?,?,?,? FROM items`)
+   .bind(context.actorMemberId,context.now,context.requestId??null,JSON.stringify({["網路價/平台"+row.platformId]:formatScaled4(row.priceScaled4)})));
+ }
+ return statements;
+}
+function updatePriceStatements(db:D1Database,itemId:number,input:NormalizedUpdateItemRequest):D1PreparedStatement[]{
+ const statements:D1PreparedStatement[]=[];
+ if(input.wholesalePrices){
+  statements.push(db.prepare(`DELETE FROM item_wholesale_prices WHERE item_id=?1 AND EXISTS(SELECT 1 FROM items WHERE id=?1 AND revision=?2)`).bind(itemId,input.expectedRevision));
+  for(const row of input.wholesalePrices)statements.push(db.prepare(`INSERT INTO item_wholesale_prices(item_id,unit,price,sort_order)
+   SELECT ?1,?2,?3,?4 WHERE EXISTS(SELECT 1 FROM items WHERE id=?1 AND revision=?5)`)
+   .bind(itemId,row.unit,row.priceScaled4,row.sortOrder,input.expectedRevision));
+ }
+ if(input.onlinePrices){
+  statements.push(db.prepare(`DELETE FROM item_online_prices WHERE item_id=?1 AND EXISTS(SELECT 1 FROM items WHERE id=?1 AND revision=?2)`).bind(itemId,input.expectedRevision));
+  for(const row of input.onlinePrices)statements.push(db.prepare(`INSERT INTO item_online_prices(item_id,platform_id,price)
+   SELECT ?1,?2,?3 WHERE EXISTS(SELECT 1 FROM items WHERE id=?1 AND revision=?4)`)
+   .bind(itemId,row.platformId,row.priceScaled4,input.expectedRevision));
+ }
+ return statements;
+}
+
 export class ItemPersistence {
   private readonly audit: AuditService;
 
@@ -89,6 +125,7 @@ export class ItemPersistence {
         context.actorMemberId,
       ),
       ...createConversionStatements(this.db, input),
+      ...createPriceStatements(this.db,input,context),
       this.db.prepare("SELECT MAX(id) AS item_id FROM items"),
     ];
 
@@ -105,8 +142,35 @@ export class ItemPersistence {
     context: ItemMutationContext,
   ): Promise<boolean> {
     assertContext(context);
+    const events:D1PreparedStatement[]=[];
+    const auditValue=(key:string,before:number|null,after:number|null)=>{
+      if(before===after)return;
+      events.push(this.audit.prepareRecord({
+        entityType:"item",entityKey:String(itemId),action:"item.price.changed",
+        actorEmployeeId:context.actorMemberId,occurredAt:context.now,requestId:context.requestId,
+        before:{[key]:before==null?null:formatScaled4(before)},
+        after:{[key]:after==null?null:formatScaled4(after)},
+      },{sql:"EXISTS (SELECT 1 FROM items WHERE id = ? AND revision = ?)",values:[itemId,input.expectedRevision+1]}));
+    };
+    if(input.wholesalePrices){
+      const old=await this.db.prepare("SELECT unit,price FROM item_wholesale_prices WHERE item_id=?").bind(itemId).all<{unit:string;price:number}>();
+      const previous=new Map((old.results??[]).map(row=>[row.unit,row.price]));
+      const next=new Map(input.wholesalePrices.map(row=>[row.unit,row.priceScaled4]));
+      for(const unit of new Set([...previous.keys(),...next.keys()]))
+        auditValue("批發價/"+unit,previous.get(unit)??null,next.get(unit)??null);
+    }
+    if(input.onlinePrices){
+      const old=await this.db.prepare("SELECT platform_id,price FROM item_online_prices WHERE item_id=?").bind(itemId).all<{platform_id:number;price:number}>();
+      const previous=new Map((old.results??[]).map(row=>[row.platform_id,row.price]));
+      const next=new Map(input.onlinePrices.map(row=>[row.platformId,row.priceScaled4]));
+      const names=await this.db.prepare("SELECT id,name FROM item_web_platforms").all<{id:number;name:string}>();
+      const byId=new Map((names.results??[]).map(row=>[row.id,row.name]));
+      for(const id of new Set([...previous.keys(),...next.keys()]))
+        auditValue("網路價/"+(byId.get(id)??String(id)),previous.get(id)??null,next.get(id)??null);
+    }
     const statements = [
       ...updateConversionStatements(this.db, itemId, input),
+      ...updatePriceStatements(this.db,itemId,input),
       this.db.prepare(`
         UPDATE items
            SET name = ?1,
@@ -140,9 +204,10 @@ export class ItemPersistence {
         itemId,
         input.expectedRevision,
       ),
+      ...events,
     ];
     const results = await this.db.batch(statements);
-    return Number(results[results.length - 1]?.meta?.changes ?? 0) === 1;
+    return Number(results[results.length - 1-events.length]?.meta?.changes ?? 0) === 1;
   }
 
   async changeItemNumber(

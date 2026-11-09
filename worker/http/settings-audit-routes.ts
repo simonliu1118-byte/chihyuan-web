@@ -100,7 +100,13 @@ export async function handleSettingsAuditRoute(request: Request, env: IdentityRu
     const context = { actorMemberId: member.id, role, now: new Date().toISOString(), requestId };
     const order = /^\/api\/admin\/settings\/lookups\/(department|customer_category|customer_status|item_category)\/order$/.exec(url.pathname);
     let match = /^\/api\/admin\/settings\/lookups\/(department|customer_category|customer_status|item_category)(?:\/(\d+))?$/.exec(url.pathname);
-    if (order && request.method === "PUT") await service.reorderStructuralLookup(order[1] as StructuralLookupKind, body as { ids?: unknown }, context);
+    if(url.pathname==="/api/admin/settings/lookups/item_platform/order"&&request.method==="PUT")
+      await service.reorderItemPlatforms(body as {ids?:unknown},context);
+    else if(url.pathname==="/api/admin/settings/lookups/item_platform"&&request.method==="POST")
+      await service.createItemPlatform(body as {name?:unknown},context);
+    else if(/^\/api\/admin\/settings\/lookups\/item_platform\/\d+$/.test(url.pathname)&&request.method==="PATCH")
+      await service.updateItemPlatform(integer(url.pathname.split("/").pop()??null,"id")!,body as {name?:unknown;isActive?:unknown;expectedUpdatedAt?:unknown},context);
+    else if (order && request.method === "PUT") await service.reorderStructuralLookup(order[1] as StructuralLookupKind, body as { ids?: unknown }, context);
     else if (match && request.method === "POST" && !match[2]) await service.createStructuralLookup(match[1] as StructuralLookupKind, body as Parameters<SettingsService["createStructuralLookup"]>[1], context);
     else if (match && request.method === "PATCH" && match[2]) await service.updateStructuralLookup(match[1] as StructuralLookupKind, integer(match[2], "id")!, body as Parameters<SettingsService["updateStructuralLookup"]>[2], context);
     else if ((match = /^\/api\/admin\/settings\/worklog-categories(?:\/(\d+))?$/.exec(url.pathname)) && request.method === "POST" && !match[1]) await service.createWorkLogCategory(body as Parameters<SettingsService["createWorkLogCategory"]>[0], context);

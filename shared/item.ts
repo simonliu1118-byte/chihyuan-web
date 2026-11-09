@@ -31,10 +31,17 @@ export interface ItemUnitConversion {
   sortOrder: number;
 }
 
+export interface ItemWholesalePrice { unit: string; price: string; sortOrder: number; }
+export interface ItemOnlinePrice { platformId: number; price: string; }
+export interface ItemWebPlatform { id: number; name: string; sortOrder: number; isActive: boolean; updatedAt: string; }
+export interface ItemPriceHistoryRecord { id: number; occurredAt: string; action: string; before: Record<string,string|null>; after: Record<string,string|null>; }
+
 export interface ItemDetail extends ItemSummary {
   notes: string | null;
   createdAt: string;
   unitConversions: readonly ItemUnitConversion[];
+  wholesalePrices: readonly ItemWholesalePrice[];
+  onlinePrices: readonly ItemOnlinePrice[];
 }
 
 export interface ItemSearchQuery {
@@ -69,6 +76,8 @@ export interface ItemProfileInput {
   notes?: string | null;
   isActive?: boolean;
   unitConversions?: readonly ItemUnitConversionInput[];
+  wholesalePrices?: readonly ItemWholesalePrice[];
+  onlinePrices?: readonly ItemOnlinePrice[];
 }
 
 export interface CreateItemRequest extends ItemProfileInput {

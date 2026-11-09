@@ -40,6 +40,8 @@ export function isCyWebModuleRoute(value: unknown): value is CyWebModuleRoute {
 
 /** The grants that open a page; any one of them is enough (ERP 查詢 has five). */
 export function moduleCodesForRoute(route: string): CyWebModuleCode[] {
+  // 商品總頁以 ITEMS 或 DEFECTS 任一授權進入；舊 #defects 連結仍逐項檢查瑕疵權限。
+  if(route==="items")return ["ITEMS","DEFECTS"];
   return CYWEB_MODULES.filter((module) => module.route === route).map((module) => module.code);
 }
 

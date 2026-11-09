@@ -30,6 +30,8 @@ export interface NormalizedItemProfile {
   notes: string | null;
   isActive: boolean;
   unitConversions: readonly NormalizedItemUnitConversion[];
+  wholesalePrices: readonly {unit:string;priceScaled4:number;sortOrder:number}[] | null;
+  onlinePrices: readonly {platformId:number;priceScaled4:number}[] | null;
 }
 
 export interface NormalizedCreateItemRequest extends NormalizedItemProfile {
@@ -193,6 +195,38 @@ function normalizeUnitConversions(
   return rows;
 }
 
+function normalizeWholesale(input: Record<string,unknown>, errors:Record<string,string>):NormalizedItemProfile["wholesalePrices"] {
+ const raw=input.wholesalePrices;if(raw==null)return null;
+ if(!Array.isArray(raw)){errors.wholesalePrices="必須是陣列";return []}
+ const used=new Set<string>();
+ return raw.map((value,index)=>{
+  const row=(value&&typeof value==="object"&&!Array.isArray(value)?value:{}) as Record<string,unknown>;
+  const key="wholesalePrices."+index;
+  const unit=normalizedUnitText(row.unit,key+".unit",errors);
+  if(unit&&used.has(unit))errors[key+".unit"]="同一單位不可重複";
+  used.add(unit);
+  const price=optionalScaled4(row,"price",errors);
+  if(price==null)errors[key+".price"]="必填價格";
+  return {unit,priceScaled4:price??0,sortOrder:index};
+ });
+}
+function normalizeOnline(input: Record<string,unknown>,errors:Record<string,string>):NormalizedItemProfile["onlinePrices"] {
+ const raw=input.onlinePrices;if(raw==null)return null;
+ if(!Array.isArray(raw)){errors.onlinePrices="必須是陣列";return []}
+ const used=new Set<number>();
+ return raw.map((value,index)=>{
+  const row=(value&&typeof value==="object"&&!Array.isArray(value)?value:{}) as Record<string,unknown>;
+  const key="onlinePrices."+index;
+  const platformId=Number(row.platformId);
+  if(!Number.isSafeInteger(platformId)||platformId<=0)errors[key+".platformId"]="平台無效";
+  if(used.has(platformId))errors[key+".platformId"]="同一平台不可重複";
+  used.add(platformId);
+  const price=optionalScaled4(row,"price",errors);
+  if(price==null)errors[key+".price"]="必填價格";
+  return {platformId,priceScaled4:price??0};
+ });
+}
+
 function normalizeProfile(raw: unknown): NormalizedItemProfile {
   const input = asObject(raw as ItemProfileInput);
   const bag = new ValidationBag(input);
@@ -211,6 +245,8 @@ function normalizeProfile(raw: unknown): NormalizedItemProfile {
   const costTaxMode = optionalTaxMode(input, errors);
   const isActive = optionalBoolean(input, "isActive", true, errors);
   const unitConversions = normalizeUnitConversions(input, baseUnit, errors);
+  const wholesalePrices=normalizeWholesale(input,errors);
+  const onlinePrices=normalizeOnline(input,errors);
 
   if (Object.keys(errors).length > 0) throw new FieldValidationError(errors);
   return {
@@ -225,6 +261,8 @@ function normalizeProfile(raw: unknown): NormalizedItemProfile {
     notes,
     isActive,
     unitConversions,
+    wholesalePrices,
+    onlinePrices,
   };
 }
 
