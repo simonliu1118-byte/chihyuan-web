@@ -166,7 +166,7 @@ export function ErpItemQueryPage({ allowedModules }: { allowedModules: ReadonlyS
           aria-selected={category === c.key} className={category === c.key ? "active" : undefined}
           onClick={() => setSelected(c.key)}>{c.label}{running.has(c.key) && <span className="cy-erp-tab-running" aria-label="查詢中" />}</button>)}
       </div>}
-      <button type="button" className="cy-op-button cy-erp-queue-button" aria-expanded={queueOpen} onClick={() => setQueueOpen(open => !open)}>排程佇列</button>
+      <button type="button" className={"cy-op-button cy-erp-queue-button"+(compact?" mini soft":"")} aria-label="排程佇列" aria-expanded={queueOpen} onClick={() => setQueueOpen(open => !open)}>{compact?"佇列":"排程佇列"}</button>
     </div>
     {categories.map(c => panel(c.key, <CategoryJob category={c} onBusy={onBusy}>{job =>
       c.key === "ITEM" ? <ErpItemQuery job={job} />

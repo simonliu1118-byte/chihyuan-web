@@ -485,7 +485,8 @@
   .cy-erp-tabbar .cy-op-tabs{flex:1 1 auto;min-width:0;display:flex;overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:none;white-space:nowrap;scroll-snap-type:x proximity}
   .cy-erp-tabbar .cy-op-tabs::-webkit-scrollbar{display:none}
   .cy-erp-tabbar .cy-op-tabs button{flex:0 0 auto;min-height:40px;padding:8px 10px;white-space:nowrap;scroll-snap-align:start}
-  .cy-erp-queue-button{margin-bottom:0;min-height:38px;padding:4px 9px;font-size:var(--cy-fs-sm)}
+  .cy-erp-tabbar{align-items:center}
+  .cy-erp-queue-button.mini{height:24px;line-height:24px;padding:0 9px}
   .cy-erp-agent-trigger.cy-op-button.compact{min-width:0;min-height:29px;padding:3px 8px;gap:5px;border-radius:999px;font-size:var(--cy-fs-xs);white-space:nowrap;background:var(--cy-surface-muted)}
   .cy-erp-agent-trigger .cy-status-dot{width:7px;height:7px;flex:0 0 7px}
 }
