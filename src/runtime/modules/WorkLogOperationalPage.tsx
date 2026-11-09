@@ -701,7 +701,7 @@ export function WorkLogOperationalPage() {
               {compact?<ActionBar>
                 {selected.statusCode==="created"?<><button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button><button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>track("submit",submit())}>送出審核</button></>:null}
                 {selected.statusCode==="pending_review"?<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>review()}>審核計分</button>:null}
-              </ActionBar>:null}</div>
+              </ActionBar>:null}
             <ol className="cy-progress" aria-label="日誌進度">{progressSteps.map((step, index) => { const current = progressSteps.findIndex(item => item.code === selected.statusCode); return <li key={step.code} data-state={index < current ? "done" : index === current ? "current" : "todo"} aria-current={index === current ? "step" : undefined}>{step.label}</li>; })}</ol>
             <div className="cy-op-detail-grid">
               <div><span>日誌日期</span><strong>{formatDate(selected.logDate)}</strong></div>
