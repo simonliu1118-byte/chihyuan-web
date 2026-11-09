@@ -1,5 +1,5 @@
 import { DateInput } from "../../ui/forms/DateInput";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { apiRequest } from "../../api/client";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import type { HrPaymentType, HrStatus } from "../../../shared/hr";
@@ -8,7 +8,7 @@ import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackPr
 import { Loading } from "../../ui/feedback/Loading";
 import { formatDate } from "../../ui/foundation/format";
 import { enterAdvancesFields, enterAdvancesThenSubmits } from "../../ui/foundation/enter-advance";
-import { CheckField, Field, FormSection, RequiredRows } from "../../ui/forms/Field";
+import { CheckField, Field, FormSection } from "../../ui/forms/Field";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import { useCompactLayout } from "../../ui/foundation/useCompactLayout";
