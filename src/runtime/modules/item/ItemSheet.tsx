@@ -63,7 +63,7 @@ export function ItemSheet({item,draft,editing,creating,busy,categories,platforms
     onClick={()=>draft&&onPatch({wholesalePrices:[...draft.wholesalePrices,{unit:"",price:"",sortOrder:draft.wholesalePrices.length}]})}>＋ 批發價</button>
   </div>;
  const costDisplay=<>{money(source.cost)}{source.costTaxMode==="exclusive"&&source.cost!==""&&source.cost!=null
-    ? <small className="cy-item-tax-gross">（含稅{money((Math.round(Number(source.cost)*105)/100).toFixed(2))}）</small>:null}</>;
+    ? <small className="cy-item-tax-gross">(含稅{money((Math.round(Number(source.cost)*105)/100).toFixed(2))})</small>:null}</>;
  const fields:SheetRow[]=[
   {columns:"minmax(0,.8fr) minmax(0,1.35fr) minmax(0,1.35fr) minmax(0,2.5fr)",cells:[
     {label:"品號",required:true,mono:true,view:source.itemNo,edit:editing?input(draft!.itemNo,value=>onPatch({itemNo:value}),"品號",{disabled:!creating}):undefined},
@@ -76,7 +76,7 @@ export function ItemSheet({item,draft,editing,creating,busy,categories,platforms
         {conversionEditor}
       </div>:undefined},
   ]},
-  {columns:"minmax(0,.8fr) minmax(0,.85fr) minmax(0,1fr) minmax(0,.85fr) minmax(0,.85fr) minmax(0,1.7fr) minmax(0,2.8fr)",cells:[
+  {columns:"minmax(0,1fr) minmax(0,1.15fr) minmax(0,.9fr) minmax(0,.85fr) minmax(0,.85fr) minmax(0,1.6fr) minmax(0,2.6fr)",cells:[
     {label:"分類",view:categories.find(c=>c.id===(editing?draft?.itemCategoryId:item?.category?.id))?.name??item?.category?.name,
      edit:editing?<select className="cy-op-input" aria-label="商品分類" value={draft!.itemCategoryId??""} disabled={busy}
       onChange={e=>onPatch({itemCategoryId:e.target.value?Number(e.target.value):null})}>

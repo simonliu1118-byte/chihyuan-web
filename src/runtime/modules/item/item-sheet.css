@@ -4,5 +4,5 @@
 .cy-item-wholesale-mini-row{display:grid;grid-template-columns:minmax(48px,1fr) minmax(60px,1fr) auto;gap:4px;align-items:center}
 .cy-item-conversion-mini-row .cy-op-input,.cy-item-wholesale-mini-row .cy-op-input{width:100%;min-width:0;box-sizing:border-box;padding-inline:3px}
 .cy-item-unit-cell>.cy-op-input{max-width:96px}
-.cy-item-tax-gross{display:block;white-space:normal;color:var(--cy-text-muted)}
+.cy-item-tax-gross{display:block;white-space:nowrap;color:var(--cy-text-muted);font-size:var(--cy-fs-xs)}
 .cy-item-conversion-mini>.cy-op-button,.cy-item-wholesale-mini>.cy-op-button{justify-self:start}
