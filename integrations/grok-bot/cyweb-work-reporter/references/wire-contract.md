@@ -9,6 +9,9 @@
 | `check` | `{}` | 健康、版本與 `/identity` 憑證歸屬檢查；不送出業務 POST |
 | `progress` | `{"status":"working","summary":"正在準備貼文"}` | 狀態與更新時間；status：idle／working／blocked／done，摘要最多 200 字 |
 | `submit` | `{"externalRef":"social-post-20261107-r1","title":"測試標題","body":"待審全文"}` | 送審 ID、externalRef、pending／approved／rejected、理由與審核時間 |
+| `submit`（多則） | `{"externalRef":"threads-patrol-20261109-r1","title":"Threads 巡視 11/9 下午","body":"本次巡視說明","kind":"patrol","items":[{"ref":"thread-123","title":"回覆 @某帳號","body":"回覆全文"}]}` | 同上，另含 `kind` 與 `items`（各則 seq、ref、title、status、reason、sentAt）。kind：post 貼文、patrol 海巡；1–50 則 |
+| `image` | `{"externalRef":"threads-patrol-20261109-r1","item":1,"file":"/workspace/shots/1.jpg"}` | 審核用圖片；JPEG／PNG／WebP、2MB 內、每篇或每則 5 張；只能加在待審稿；item 省略則附在整篇 |
+| `sent` | `{"externalRef":"threads-patrol-20261109-r1","items":[1,3]}` | 回報已實際送出的則號（單篇省略 items）；只接受通過的則，重複回報不重算 |
 | `review-notification` | `{"type":"cyweb.review_result","eventId":"bot-review-123","botCode":"SOCIAL_EDITOR","draftId":123}` | 以本 BOT 憑證即時讀指定稿件；ignored 表示安靜略過，正式結果在 review，不發布 |
 | `review` | `{"externalRef":"social-post-20261107-r1"}` | 只讀這個 BOT 的同編號審核結果 |
 | `report` | `{"eventId":"task-01:milestone-1","title":"資料整理完成","body":"已整理合成測試素材，待撰稿"}` | 紀錄 ID、是否送達／是否由既有收據抑制重複 |
@@ -16,13 +19,13 @@
 | `pilot-start` | `{"reference":"social-editor-pilot-20261107-01"}` | 僅小編，送測試稿、回報及待人工審核摘要 |
 | `pilot-finish` | 同一 reference | 僅小編，核准後記錄測試完成，不發文 |
 
-標題最多 120 字，正文／詳情 4,000 字，externalRef 80 字、eventId 120 字、pilot reference 70 字，皆以 Unicode code point 計。`complete.completedAt` 選填有效 UTC ISO 時間（如 `2026-11-07T02:00:00.000Z`），不填用伺服器現在時間。不能回報尚未完成的事；不要預設未來時間。未列出的輸入欄位會拒絕；review-notification 對不合法喚醒安靜略過。身份由安全憑證固定，只有 review-notification 的 botCode 用來比對自己的身份，不能覆寫；不能傳 URL 或 token。
+多則稿每則標題最多 120 字、內容 4,000 字、ref 80 字；整份 JSON 輸入上限 256KB。標題最多 120 字，正文／詳情 4,000 字，externalRef 80 字、eventId 120 字、pilot reference 70 字，皆以 Unicode code point 計。`complete.completedAt` 選填有效 UTC ISO 時間（如 `2026-11-07T02:00:00.000Z`），不填用伺服器現在時間。不能回報尚未完成的事；不要預設未來時間。未列出的輸入欄位會拒絕；review-notification 對不合法喚醒安靜略過。身份由安全憑證固定，只有 review-notification 的 botCode 用來比對自己的身份，不能覆寫；不能傳 URL 或 token。
 
 輸出只有一份 JSON；成功 `{"ok":true,"data":{...}}`，失敗 `{"ok":false,"error":{"code":"...","message":"..."}}` 並回傳非零程序狀態。不要把非零狀態忽略後仍繼續依賴操作。
 
 ## 實際使用的 API
 
-只呼叫 `/api/health` 與 `/api/bot-ingest/identity|progress|reports|drafts|completions`，機器 Authorization 由工具加入；健康檢查不帶憑證。禁止轉址，不提供員工登入、審核、輪換憑證、任意 URL 或對外發布命令。HTTP 逾時 15 秒，不自動重試寫入。要求 WEB V0.12.4 Build 1／0058，identity 會回傳憑證實際歸屬。
+只呼叫 `/api/health` 與 `/api/bot-ingest/identity|progress|reports|drafts|drafts/:id/images|drafts/:id/sent|completions`，機器 Authorization 由工具加入；健康檢查不帶憑證。禁止轉址，不提供員工登入、審核、輪換憑證、任意 URL 或對外發布命令。HTTP 逾時 15 秒，不自動重試寫入。多則、圖片與送出回報要求 WEB V0.15.0／0060；其餘要求 WEB V0.12.4 Build 1／0058，identity 會回傳憑證實際歸屬。
 
 伺服器送審以同 BOT + externalRef 去重，只回傳原資料。新版 complete 把 eventId 傳為 eventRef，伺服器以同 BOT + eventRef 唯一索引去重；相同內容回原紀錄，不同內容回 409 BOT_EVENT_CONFLICT，未分類舊完成紀錄不猜測分類。非 general 分類必須有 eventRef，同一實際發布／巡視始終保持相同編號。完成 API 仍允許舊客戶端不帶 eventRef 的一般紀錄，此時沒有伺服器去重。
 

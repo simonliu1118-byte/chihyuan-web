@@ -85,7 +85,7 @@ export const actionLabels: Record<string,string> = {
   "erp_item_query.failed":"ERP 查詢失敗","erp_item_query.expired":"ERP 查詢逾時",
   "erp_item_agent.credential_rotated":"更新 ERP 連線密鑰",
   "erp_item_agent.credential_revoked":"撤銷 ERP 連線密鑰",
-  "bot_draft.approved":"通過審稿","bot_draft.rejected":"退回審稿",
+  "bot_draft.approved":"通過審稿","bot_draft.rejected":"退回審稿","bot_draft.item_approved":"通過審稿（單則）","bot_draft.item_rejected":"退回審稿（單則）",
   "bot_profile.created":"新增 BOT",
   "bot_ingest.credential_rotated":"輪換 BOT 連線憑證",
   "bot_ingest.credential_revoked":"撤銷 BOT 連線憑證",

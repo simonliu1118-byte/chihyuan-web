@@ -1,14 +1,15 @@
 import { AuditService } from "../audit/audit-service";
 import { requireModuleAccess } from "../auth/guard";
 import {
-  BOT_WORK_TYPES, BOT_LIMITS, BOT_PAGE_SIZE, BOT_REVIEW_STATUSES, BOT_STATUSES, INITIAL_BOTS,
+  BOT_WORK_TYPES, BOT_LIMITS, BOT_DRAFT_KINDS, BOT_ITEM_LIMITS, BOT_IMAGE_LIMITS,
+  type BotDraftKind, type BotDraftDetail, type BotDraftItemView, type BotReviewImageView, type BotImageType, BOT_PAGE_SIZE, BOT_REVIEW_STATUSES, BOT_STATUSES, INITIAL_BOTS,
   taipeiTodayRange, type BotCenterState, type BotCompletionView, type BotCredentialView,
   type BotDraftView, type BotProfileView, type BotProgressState, type BotReportView, type BotReviewStatus, type BotStatus, type BotWorkType,
 } from "../../shared/bot-center";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
 import { failure, success } from "./response";
 import {deliverReviewPushes,openPushTarget,pushAvailable,sealPushTarget,PushError,type BotPushEnv} from "../bot/review-push";
-type BotEnv = IdentityRuntimeEnv & BotPushEnv;
+type BotEnv = IdentityRuntimeEnv & BotPushEnv & { HR_FILES?: R2Bucket };
 
 class Bad extends Error {
   constructor(readonly code: string, message: string, readonly status = 422) { super(message); }
@@ -19,6 +20,7 @@ type DraftRow = {
   id: number; code: string; label: string; external_ref: string | null; title: string; body: string;
   review_status: BotReviewStatus; review_reason: string | null; reviewed_at: string | null;
   display_name: string | null; employee_no: string | null; created_at: string;bot_id:number;push_status:BotDraftView["pushStatus"];
+  kind: BotDraftKind; sent_at: string | null; item_total: number; item_pending: number; item_approved: number; item_rejected: number; image_count: number;
 };
 type ReportRow = { id: number; code: string; label: string; title: string; body: string; reported_at: string };
 type CompletionRow = { id: number; code: string; label: string; title: string; detail: string; completed_at: string; work_type: BotWorkType; event_ref: string | null };
@@ -33,7 +35,7 @@ const text = (value: unknown, name: string, max: number, required = false) => {
 };
 async function readBody(request: Request): Promise<Record<string, unknown>> {
   const raw = await request.text();
-  if (raw.length > 64_000) throw new Bad("BOT_INVALID", "資料過大");
+  if (raw.length > 256_000) throw new Bad("BOT_INVALID", "資料過大");
   let parsed: unknown;
   try { parsed = raw ? JSON.parse(raw) : {}; } catch { throw new Bad("BOT_INVALID", "請提供有效資料"); }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Bad("BOT_INVALID", "請提供有效資料");
@@ -89,7 +91,8 @@ const draftView = (row: DraftRow): BotDraftView => ({
   id: row.id, botCode: row.code, botLabel: row.label, externalRef: row.external_ref, title: row.title, body: row.body,
   status: row.review_status, reason: row.review_reason, reviewedAt: row.reviewed_at, createdAt: row.created_at,
   reviewer: row.reviewed_at ? { displayName: row.display_name, employeeNo: row.employee_no } : null,
-  pushStatus:row.push_status,
+  pushStatus:row.push_status, kind: row.kind ?? "general", sentAt: row.sent_at ?? null, imageCount: row.image_count ?? 0,
+  itemCounts: row.item_total ? { total: row.item_total, pending: row.item_pending, approved: row.item_approved, rejected: row.item_rejected } : null,
 });
 const reportView = (row: ReportRow): BotReportView => ({
   id: row.id, botCode: row.code, botLabel: row.label, title: row.title, body: row.body, reportedAt: row.reported_at,
@@ -98,7 +101,13 @@ const completionView = (row: CompletionRow): BotCompletionView => ({
   id: row.id, botCode: row.code, botLabel: row.label, title: row.title, detail: row.detail, completedAt: row.completed_at, workType: row.work_type, eventRef: row.event_ref,
 });
 
-const DRAFT_SQL = `SELECT d.id,d.bot_id,b.code,b.label,d.external_ref,d.title,d.body,d.review_status,d.review_reason,d.reviewed_at,d.created_at,m.display_name,m.employee_no,p.status AS push_status
+const DRAFT_SQL = `SELECT d.id,d.bot_id,b.code,b.label,d.external_ref,d.title,d.body,d.review_status,d.review_reason,d.reviewed_at,d.created_at,m.display_name,m.employee_no,p.status AS push_status,
+ d.kind,d.sent_at,
+ (SELECT count(*) FROM bot_draft_items i WHERE i.draft_id=d.id) AS item_total,
+ (SELECT count(*) FROM bot_draft_items i WHERE i.draft_id=d.id AND i.review_status='pending') AS item_pending,
+ (SELECT count(*) FROM bot_draft_items i WHERE i.draft_id=d.id AND i.review_status='approved') AS item_approved,
+ (SELECT count(*) FROM bot_draft_items i WHERE i.draft_id=d.id AND i.review_status='rejected') AS item_rejected,
+ (SELECT count(*) FROM bot_review_images g WHERE g.draft_id=d.id) AS image_count
  FROM bot_drafts d JOIN bot_profiles b ON b.id=d.bot_id LEFT JOIN app_members m ON m.id=d.reviewed_by LEFT JOIN bot_review_push_outbox p ON p.draft_id=d.id`;
 
 async function ensureInitialBots(db: D1Database, now: string): Promise<void> {
@@ -121,6 +130,38 @@ async function draftById(db: D1Database, id: number, owner?: number): Promise<Dr
   const row = await one<DraftRow>(db, `${DRAFT_SQL} WHERE d.id=?${owner === undefined ? "" : " AND d.bot_id=?"}`, id, ...(owner === undefined ? [] : [owner]));
   if (!row) throw new Bad("BOT_NOT_FOUND", "找不到這篇審稿", 404);
   return row;
+}
+
+type ItemRow = { id: number; seq: number; ref: string | null; title: string; body: string; review_status: BotReviewStatus; review_reason: string | null; reviewed_at: string | null; sent_at: string | null };
+const itemView = (row: ItemRow): BotDraftItemView => ({ id: row.id, seq: row.seq, ref: row.ref, title: row.title, body: row.body, status: row.review_status, reason: row.review_reason, reviewedAt: row.reviewed_at, sentAt: row.sent_at });
+async function draftDetail(db: D1Database, id: number, owner?: number): Promise<BotDraftDetail> {
+  const draft = await draftById(db, id, owner);
+  const items = await many<ItemRow>(db, "SELECT id,seq,ref,title,body,review_status,review_reason,reviewed_at,sent_at FROM bot_draft_items WHERE draft_id=? ORDER BY seq", id);
+  const images = await many<{ id: number; item_id: number | null; content_type: BotImageType; bytes: number }>(db, "SELECT id,item_id,content_type,bytes FROM bot_review_images WHERE draft_id=? ORDER BY id", id);
+  return { draft: draftView(draft), items: items.map(itemView), images: images.map((row): BotReviewImageView => ({ id: row.id, itemId: row.item_id, contentType: row.content_type, bytes: row.bytes })) };
+}
+/**
+ * A multi-item draft finishes when no item is pending: 通過 if any item passed (部分通過 when some were
+ * rejected), otherwise 退回. Same atomic batch as the decision, then the optional push (V0.15.0).
+ */
+function finishDraftStatements(db: D1Database, id: number, actor: number, now: string, notify: boolean): D1PreparedStatement[] {
+  return [
+    db.prepare(`UPDATE bot_drafts SET review_status=CASE WHEN EXISTS(SELECT 1 FROM bot_draft_items WHERE draft_id=?1 AND review_status='approved') THEN 'approved' ELSE 'rejected' END,
+      review_reason=CASE WHEN EXISTS(SELECT 1 FROM bot_draft_items WHERE draft_id=?1 AND review_status='approved') THEN
+        CASE WHEN EXISTS(SELECT 1 FROM bot_draft_items WHERE draft_id=?1 AND review_status='rejected') THEN '部分通過' ELSE NULL END ELSE '全部退回' END,
+      reviewed_by=?2,reviewed_at=?3 WHERE id=?1 AND review_status='pending' AND NOT EXISTS(SELECT 1 FROM bot_draft_items WHERE draft_id=?1 AND review_status='pending')`).bind(id, actor, now),
+    ...(notify ? [db.prepare("INSERT INTO bot_review_push_outbox(draft_id,next_attempt_at,created_at,updated_at) SELECT ?,?,?,? WHERE changes()=1 ON CONFLICT DO NOTHING").bind(id, now, now, now)] : []),
+  ];
+}
+function imageTypeOf(bytes: Uint8Array, declared: string | null): BotImageType {
+  const type = (declared ?? "").split(";")[0].trim().toLowerCase();
+  const jpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  const png = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+  const webp = String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" && String.fromCharCode(...bytes.slice(8, 12)) === "WEBP";
+  if (type === "image/jpeg" && jpeg) return type;
+  if (type === "image/png" && png) return type;
+  if (type === "image/webp" && webp) return type;
+  throw new Bad("BOT_IMAGE_INVALID", "圖片需為 JPEG、PNG 或 WebP，且內容與類型相符");
 }
 
 type CredentialRow = { bot_id: number; configured: number; created_at: string | null; revoked_at: string | null };
@@ -183,10 +224,21 @@ async function state(db: D1Database, url: URL, now: string, canManageCredentials
   };
   const countWork = (type: BotWorkType) => completions.filter(row => row.work_type===type && (!selected || row.bot_id===selected.id)).reduce((sum,row)=>sum+row.n,0);
   const latestPending = await one<DraftRow>(db, `${DRAFT_SQL} WHERE d.review_status='pending' ${selected ? "AND d.bot_id=?" : ""} ORDER BY d.id DESC LIMIT 1`, ...scopedArgs);
+  // V0.15.0: pending items by kind, patrol daily totals, and today's reviewed drafts per card.
+  const scope = selected ? "AND d.bot_id=?" : "";
+  const itemTotals = await one<{posts:number;patrols:number;sent_today:number;to_send:number}>(db, `SELECT
+    (SELECT count(*) FROM bot_draft_items i JOIN bot_drafts d ON d.id=i.draft_id WHERE i.review_status='pending' AND d.kind='post' ${scope}) AS posts,
+    (SELECT count(*) FROM bot_draft_items i JOIN bot_drafts d ON d.id=i.draft_id WHERE i.review_status='pending' AND d.kind='patrol' ${scope}) AS patrols,
+    (SELECT count(*) FROM bot_draft_items i JOIN bot_drafts d ON d.id=i.draft_id WHERE d.kind='patrol' AND i.sent_at>=? AND i.sent_at<? ${scope}) AS sent_today,
+    (SELECT count(*) FROM bot_draft_items i JOIN bot_drafts d ON d.id=i.draft_id WHERE d.kind='patrol' AND i.review_status IN ('pending','approved') AND i.sent_at IS NULL ${scope}) AS to_send`,
+    ...scopedArgs, ...scopedArgs, today.start, today.end, ...scopedArgs, ...scopedArgs);
+  const reviewedToday = async (kind: BotDraftKind) => (await many<DraftRow>(db,
+    `${DRAFT_SQL} WHERE d.kind=? AND d.review_status<>'pending' AND d.reviewed_at>=? AND d.reviewed_at<? ${scope} ORDER BY d.reviewed_at DESC,d.id DESC LIMIT 50`,
+    kind, today.start, today.end, ...scopedArgs)).map(draftView);
   const workSummary: BotCenterState["workSummary"] = {
-    articles: { count: countWork("article_published"), latest: await latestWork("article_published") },
-    patrols: { count: countWork("threads_patrol"), latest: await latestWork("threads_patrol") },
-    pending: { count: draftCounts.pending, latest: latestPending ? draftView(latestPending) : null },
+    articles: { count: countWork("article_published"), latest: await latestWork("article_published"), reviewed: await reviewedToday("post") },
+    patrols: { count: countWork("threads_patrol"), latest: await latestWork("threads_patrol"), sentToday: itemTotals?.sent_today ?? 0, toSend: itemTotals?.to_send ?? 0, reviewed: await reviewedToday("patrol") },
+    pending: { count: draftCounts.pending, latest: latestPending ? draftView(latestPending) : null, posts: itemTotals?.posts ?? 0, patrols: itemTotals?.patrols ?? 0 },
   };
   const visibleDrafts = draftRows.slice(0, BOT_PAGE_SIZE);
   const visibleReports = reportRows.slice(0, BOT_PAGE_SIZE);
@@ -238,6 +290,41 @@ async function human(request: Request, env: BotEnv, requestId: string, url: URL,
     return success(profileView(row!), requestId);
   }
 
+  const detailRoute = /^drafts\/(\d+)$/.exec(path);
+  if (detailRoute && request.method === "GET") return success(await draftDetail(db, Number(detailRoute[1])), requestId);
+  const imageRoute = /^images\/(\d+)$/.exec(path);
+  if (imageRoute && request.method === "GET") {
+    const image = await one<{ object_key: string; content_type: string }>(db, "SELECT object_key,content_type FROM bot_review_images WHERE id=?", Number(imageRoute[1]));
+    const object = image && env.HR_FILES ? await env.HR_FILES.get(image.object_key) : null;
+    if (!image || !object) return failure({ code: "BOT_NOT_FOUND", message: "圖片已刪除或不存在" }, requestId, 404);
+    return new Response(object.body, { headers: { "content-type": image.content_type, "cache-control": "private, max-age=3600", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'" } });
+  }
+  const itemReview = /^drafts\/(\d+)\/items\/(\d+)\/review$/.exec(path);
+  if (itemReview && request.method === "POST") {
+    const id = Number(itemReview[1]), seq = Number(itemReview[2]);
+    const body = await readBody(request);
+    if (body.decision !== "approved" && body.decision !== "rejected") throw new Bad("BOT_INVALID", "請選擇通過或退回");
+    const decision = body.decision;
+    const reason = decision === "rejected" ? text(body.reason, "退回理由", BOT_LIMITS.reason, true) : null;
+    const current = await draftById(db, id);
+    if (current.review_status !== "pending") throw new Bad("ALREADY_REVIEWED", "這篇審稿已經有結果", 409);
+    const item = await one<ItemRow>(db, "SELECT id,seq,ref,title,body,review_status,review_reason,reviewed_at,sent_at FROM bot_draft_items WHERE draft_id=? AND seq=?", id, seq);
+    if (!item) throw new Bad("BOT_NOT_FOUND", "找不到這一則", 404);
+    if (item.review_status !== "pending") throw new Bad("ALREADY_REVIEWED", "這一則已經有結果", 409);
+    const notify = await one<{ enabled: number }>(db, "SELECT enabled FROM bot_review_push_settings WHERE bot_id=?", current.bot_id);
+    const [updated] = await db.batch([
+      db.prepare("UPDATE bot_draft_items SET review_status=?,review_reason=?,reviewed_by=?,reviewed_at=? WHERE id=? AND review_status='pending'").bind(decision, reason, actor, now, item.id),
+      new AuditService(db).prepareRecord({
+        entityType: "bot_draft", entityKey: String(id), action: decision === "approved" ? "bot_draft.item_approved" : "bot_draft.item_rejected",
+        actorEmployeeId: actor, requestId, after: { name: current.title + "｜" + item.seq + " " + item.title, ...(reason ? { reason } : {}) },
+      }, { sql: "changes()=1" }),
+      ...finishDraftStatements(db, id, actor, now, notify?.enabled === 1),
+    ]);
+    if (updated.meta.changes !== 1) throw new Bad("ALREADY_REVIEWED", "這一則已經有結果", 409);
+    if (notify?.enabled === 1) ctx?.waitUntil(deliverReviewPushes(env, { draftId: id }).catch(() => undefined));
+    return success(await draftDetail(db, id), requestId);
+  }
+
   const review = /^drafts\/(\d+)\/review$/.exec(path);
   if (review && request.method === "POST") {
     const id = Number(review[1]);
@@ -248,6 +335,20 @@ async function human(request: Request, env: BotEnv, requestId: string, url: URL,
     const current = await draftById(db, id);
     if (current.review_status !== "pending") throw new Bad("ALREADY_REVIEWED", "這篇審稿已經有結果", 409);
     const notify=await one<{enabled:number}>(db,"SELECT enabled FROM bot_review_push_settings WHERE bot_id=?",current.bot_id);
+    if (current.item_total) {
+      // Multi-item draft: 全部通過／全部退回 decides every item still pending, then finishes the draft.
+      const [items] = await db.batch([
+        db.prepare("UPDATE bot_draft_items SET review_status=?,review_reason=?,reviewed_by=?,reviewed_at=? WHERE draft_id=? AND review_status='pending'").bind(decision, reason, actor, now, id),
+        new AuditService(db).prepareRecord({
+          entityType: "bot_draft", entityKey: String(id), action: decision === "approved" ? "bot_draft.approved" : "bot_draft.rejected",
+          actorEmployeeId: actor, requestId, statusFrom: "pending", statusTo: decision, after: { name: current.title, ...(reason ? { reason } : {}) },
+        }, { sql: "changes()>0" }),
+        ...finishDraftStatements(db, id, actor, now, notify?.enabled === 1),
+      ]);
+      if (items.meta.changes < 1) throw new Bad("ALREADY_REVIEWED", "這篇審稿已經有結果", 409);
+      if (notify?.enabled === 1) ctx?.waitUntil(deliverReviewPushes(env, { draftId: id }).catch(() => undefined));
+      return success(draftView(await draftById(db, id)), requestId);
+    }
     // Commit the review, its audit and optional notification atomically before attempting delivery.
     const [updated] = await db.batch([
       db.prepare("UPDATE bot_drafts SET review_status=?,review_reason=?,reviewed_by=?,reviewed_at=? WHERE id=? AND review_status='pending'")
@@ -341,16 +442,33 @@ function requireBotScope(value: unknown, owner: ProfileRow): void {
   if (value != null && botCode(value) !== owner.code) throw new Bad("BOT_SCOPE_MISMATCH","這組憑證不屬於指定 BOT",403);
 }
 
-async function saveDraft(db: D1Database, botId: number, externalRef: string | null, title: string, body: string, now: string): Promise<DraftRow> {
+type ItemInput = { ref: string | null; title: string; body: string };
+function itemsOf(value: unknown): ItemInput[] {
+  if (value == null) return [];
+  if (!Array.isArray(value) || value.length < 1 || value.length > BOT_ITEM_LIMITS.items) throw new Bad("BOT_INVALID", `多則稿需 1 至 ${BOT_ITEM_LIMITS.items} 則`);
+  const items = value.map((raw, i) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Bad("BOT_INVALID", `第 ${i + 1} 則格式不正確`);
+    const item = raw as Record<string, unknown>;
+    return { ref: text(item.ref, `第 ${i + 1} 則編號`, BOT_ITEM_LIMITS.ref) || null, title: text(item.title, `第 ${i + 1} 則標題`, BOT_ITEM_LIMITS.title, true), body: text(item.body, `第 ${i + 1} 則內容`, BOT_ITEM_LIMITS.body, true) };
+  });
+  return items;
+}
+async function saveDraft(db: D1Database, botId: number, externalRef: string | null, title: string, body: string, now: string, kind: BotDraftKind = "general", items: ItemInput[] = []): Promise<DraftRow> {
   if (externalRef) {
     const existing = await one<{ id: number }>(db, "SELECT id FROM bot_drafts WHERE bot_id=? AND external_ref=?", botId, externalRef);
     if (existing) return draftById(db, existing.id);
   }
   try {
     const inserted = await db.prepare(
-      "INSERT INTO bot_drafts(bot_id,external_ref,title,body,created_at) VALUES(?,?,?,?,?)",
-    ).bind(botId, externalRef, title, body, now).run();
-    return draftById(db, Number(inserted.meta.last_row_id));
+      "INSERT INTO bot_drafts(bot_id,external_ref,title,body,created_at,kind) VALUES(?,?,?,?,?,?)",
+    ).bind(botId, externalRef, title, body, now, kind).run();
+    const id = Number(inserted.meta.last_row_id);
+    if (items.length) {
+      try {
+        await db.batch(items.map((item, i) => db.prepare("INSERT INTO bot_draft_items(draft_id,seq,ref,title,body) VALUES(?,?,?,?,?)").bind(id, i + 1, item.ref, item.title, item.body)));
+      } catch (error) { await db.prepare("DELETE FROM bot_drafts WHERE id=?").bind(id).run(); throw error; }
+    }
+    return draftById(db, id);
   } catch (error) {
     if (externalRef && String(error).includes("UNIQUE")) {
       const existing = await one<{ id: number }>(db, "SELECT id FROM bot_drafts WHERE bot_id=? AND external_ref=?", botId, externalRef);
@@ -360,7 +478,7 @@ async function saveDraft(db: D1Database, botId: number, externalRef: string | nu
   }
 }
 
-async function ingest(request: Request, env: IdentityRuntimeEnv, requestId: string, url: URL): Promise<Response> {
+async function ingest(request: Request, env: BotEnv, requestId: string, url: URL): Promise<Response> {
   const allowed = await ingestGuard(request, env, requestId);
   if (allowed instanceof Response) return allowed;
   const bot = allowed;
@@ -384,7 +502,10 @@ async function ingest(request: Request, env: IdentityRuntimeEnv, requestId: stri
     const externalRef = text(body.externalRef, "外部編號", BOT_LIMITS.externalRef) || null;
     const title = text(body.title, "標題", BOT_LIMITS.title, true);
     const draft = text(body.body, "內容", BOT_LIMITS.body, true);
-    return success(draftView(await saveDraft(db, bot.id, externalRef, title, draft, now)), requestId);
+    const kind = body.kind ?? "general";
+    if (typeof kind !== "string" || !(BOT_DRAFT_KINDS as readonly string[]).includes(kind)) throw new Bad("BOT_INVALID", "稿件分類不正確");
+    const items = itemsOf(body.items);
+    return success(draftView(await saveDraft(db, bot.id, externalRef, title, draft, now, kind as BotDraftKind, items)), requestId);
   }
   if (path === "drafts" && request.method === "GET") {
     requireBotScope(url.searchParams.get("botCode"),bot);
@@ -394,7 +515,48 @@ async function ingest(request: Request, env: IdentityRuntimeEnv, requestId: stri
     return success(draftView(row), requestId);
   }
   const draft = /^drafts\/(\d+)$/.exec(path);
-  if (draft && request.method === "GET") return success(draftView(await draftById(db, Number(draft[1]),bot.id)), requestId);
+  if (draft && request.method === "GET") {
+    // Single drafts keep their original shape; multi-item drafts add `items` with each result.
+    const detail = await draftDetail(db, Number(draft[1]), bot.id);
+    return success(detail.items.length ? { ...detail.draft, items: detail.items } : detail.draft, requestId);
+  }
+  const imageUpload = /^drafts\/(\d+)\/images$/.exec(path);
+  if (imageUpload && request.method === "POST") {
+    const target = await draftById(db, Number(imageUpload[1]), bot.id);
+    if (target.review_status !== "pending") throw new Bad("ALREADY_REVIEWED", "已審完的稿件不能再加圖片", 409);
+    if (!env.HR_FILES) throw new Bad("BOT_IMAGE_UNAVAILABLE", "圖片儲存空間尚未設定", 503);
+    const seqParam = url.searchParams.get("item");
+    const item = seqParam ? await one<{ id: number }>(db, "SELECT id FROM bot_draft_items WHERE draft_id=? AND seq=?", target.id, Number(seqParam)) : null;
+    if (seqParam && !item) throw new Bad("BOT_NOT_FOUND", "找不到這一則", 404);
+    const declared = Number(request.headers.get("content-length") ?? "0");
+    if (declared > BOT_IMAGE_LIMITS.bytes) throw new Bad("BOT_IMAGE_TOO_LARGE", "圖片不可超過 2MB，請先縮小", 413);
+    const bytes = new Uint8Array(await request.arrayBuffer());
+    if (!bytes.length || bytes.length > BOT_IMAGE_LIMITS.bytes) throw new Bad("BOT_IMAGE_TOO_LARGE", "圖片不可超過 2MB，請先縮小", 413);
+    const type = imageTypeOf(bytes, request.headers.get("content-type"));
+    const existing = await one<{ n: number }>(db, `SELECT count(*) n FROM bot_review_images WHERE draft_id=? AND ${item ? "item_id=?" : "item_id IS NULL"}`, target.id, ...(item ? [item.id] : []));
+    if ((existing?.n ?? 0) >= BOT_IMAGE_LIMITS.perTarget) throw new Bad("BOT_IMAGE_LIMIT", `每則最多 ${BOT_IMAGE_LIMITS.perTarget} 張圖片`, 409);
+    const key = `bot-review/${target.id}/${crypto.randomUUID()}.${type.split("/")[1]}`;
+    await env.HR_FILES.put(key, bytes, { httpMetadata: { contentType: type } });
+    try {
+      const inserted = await db.prepare("INSERT INTO bot_review_images(draft_id,item_id,object_key,content_type,bytes,created_at) VALUES(?,?,?,?,?,?)").bind(target.id, item?.id ?? null, key, type, bytes.length, now).run();
+      return success({ id: Number(inserted.meta.last_row_id), itemSeq: seqParam ? Number(seqParam) : null, contentType: type, bytes: bytes.length }, requestId);
+    } catch (error) { await env.HR_FILES.delete(key); throw error; }
+  }
+  const sentRoute = /^drafts\/(\d+)\/sent$/.exec(path);
+  if (sentRoute && request.method === "POST") {
+    // The BOT reports the approved work it actually carried out (posted, replied).
+    const target = await draftById(db, Number(sentRoute[1]), bot.id);
+    if (target.review_status !== "approved") throw new Bad("BOT_NOT_APPROVED", "只有通過的稿件可以回報已送出", 409);
+    const body = await readBody(request);
+    if (target.item_total) {
+      if (!Array.isArray(body.items) || !body.items.length || body.items.some(seq => !Number.isSafeInteger(seq) || Number(seq) < 1)) throw new Bad("BOT_INVALID", "請列出已送出的則號");
+      const seqs = [...new Set(body.items as number[])];
+      const result = await db.prepare(`UPDATE bot_draft_items SET sent_at=? WHERE draft_id=? AND review_status='approved' AND sent_at IS NULL AND seq IN (SELECT value FROM json_each(?))`).bind(now, target.id, JSON.stringify(seqs)).run();
+      return success({ draftId: target.id, sent: result.meta.changes }, requestId);
+    }
+    await db.prepare("UPDATE bot_drafts SET sent_at=COALESCE(sent_at,?) WHERE id=?").bind(now, target.id).run();
+    return success({ draftId: target.id, sent: 1 }, requestId);
+  }
   if (path === "progress" && request.method === "POST") {
     const body = await readBody(request);
     requireBotScope(body.botCode,bot);
@@ -435,4 +597,19 @@ export async function handleBotCenterRoute(request: Request, env: BotEnv, reques
     if(error instanceof PushError)return failure({code:error.code,message:'推播設定無法儲存，請確認網址與密鑰'},requestId,422);
     return failure({ code: "BOT_UNAVAILABLE", message: "BOT 管理中心暫時無法使用" }, requestId, 500);
   }
+}
+
+/**
+ * Review images are kept until the day after the review (user 2026-11-09): from Taipei midnight on, the
+ * images of drafts reviewed before today are removed from storage and D1. Bounded per run.
+ */
+export async function cleanupReviewImages(env: BotEnv, now: string): Promise<number> {
+  if (!env.HR_FILES) return 0;
+  const today = taipeiTodayRange(new Date(now));
+  const rows = await many<{ id: number; object_key: string }>(env.DB, `SELECT g.id,g.object_key FROM bot_review_images g JOIN bot_drafts d ON d.id=g.draft_id
+    WHERE d.review_status<>'pending' AND d.reviewed_at<? ORDER BY g.id LIMIT 100`, today.start);
+  if (!rows.length) return 0;
+  await env.HR_FILES.delete(rows.map(row => row.object_key));
+  await env.DB.prepare("DELETE FROM bot_review_images WHERE id IN (SELECT value FROM json_each(?))").bind(JSON.stringify(rows.map(row => row.id))).run();
+  return rows.length;
 }

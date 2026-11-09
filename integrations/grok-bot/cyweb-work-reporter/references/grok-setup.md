@@ -1,6 +1,6 @@
 # Grok Bot 安裝與小編測試
 
-這是 Grok Bot 的共用技能與命令工具，不是 Grok Build 的 `.grok/skills` 安裝包，也不需要額外 MCP 服務。Node.js 22+，沒有第三方執行套件。新版須先部署 WEB V0.12.4 Build 1 與 migration 0058，再替換工具；不是直接拿新版工具測試舊 WEB。
+這是 Grok Bot 的共用技能與命令工具，不是 Grok Build 的 `.grok/skills` 安裝包，也不需要額外 MCP 服務。Node.js 22+，沒有第三方執行套件。新版須先部署 WEB V0.12.4 Build 1 與 migration 0058，再替換工具；多則逐則審核、審核圖片與 `sent` 回報須 WEB V0.15.0（migration 0060）。不是直接拿新版工具測試舊 WEB。
 
 ## 1. 準備 CYWEB 連線
 

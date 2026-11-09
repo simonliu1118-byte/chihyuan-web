@@ -21,7 +21,7 @@ import { handleUsageRoute } from "./http/usage-routes";
 import { handleBusinessApiPhase2Route } from "./http/business-api-phase2-routes";
 import { handleProgramCatalogRoute } from "./http/program-catalog-routes";
 import { handleErpItemQueryRoute, type ErpBridgeEnv } from "./http/erp-item-query-routes";
-import { handleBotCenterRoute } from "./http/bot-center-routes";
+import { handleBotCenterRoute, cleanupReviewImages } from "./http/bot-center-routes";
 import { handleHomeHubRoute } from "./http/home-hub-routes";
 import {deliverReviewPushes,cleanupReviewPushes,type BotPushEnv} from "./bot/review-push";
 import { runErpHousekeeping } from "./http/erp-housekeeping";
@@ -141,6 +141,7 @@ export default {
     // Independent jobs on one tick: one failing never skips another; any failure still fails the run.
     const jobs: Promise<unknown>[] = [runErpHousekeeping(env.DB, controller.scheduledTime)];
     if(env.BOT_PUSH_ENCRYPTION_KEY)jobs.push((async()=>{await deliverReviewPushes(env,{now});await cleanupReviewPushes(env,now)})());
+    jobs.push(cleanupReviewImages(env, now));
     if (tasks.storeMonthly) jobs.push(ensureMonthlyRows(env.DB, now));
     if (tasks.programCatalog) jobs.push(updateProgramCatalog(env.DB, now));
     if (tasks.backup) jobs.push(scheduledBackup(env, controller.scheduledTime));

@@ -1,12 +1,12 @@
 # BOT 管理中心
 
-沿用 CYWEB 殼層、`#bot-center` 路由及 `BOT_CENTER` 模組，在左側 ERP 查詢下一項。SUPER_ADMIN 自動具有模組權限；其他人須取得模組權限。以下為目前 V0.12.6 介面契約與既有 V0.12.4 伺服端推播契約；正式部署狀態以根 TODO 為準。
+沿用 CYWEB 殼層、`#bot-center` 路由及 `BOT_CENTER` 模組，在左側 ERP 查詢下一項。SUPER_ADMIN 自動具有模組權限；其他人須取得模組權限。以下為目前 V0.15.0 介面契約與既有 V0.12.4 伺服端推播契約；正式部署狀態以根 TODO 為準。
 
 ## 畫面
 
 1. 頂部總覽使用純狀態 StatusChip，BOT 狀態不作篩選；頁首仍可查看回報紀錄與設定。
-2. **待審核**：共用 `cy-op-table` 全寬表格，每件一列、不展開。時間、BOT、事項、內容、狀態、操作；非待審篩選另顯示審核資訊。文字過長依共用表格省略、title 保留原文。按「通過」直接送出，不詢問／保存理由；「退回」才開共用短視窗，理由必填，Worker 同樣強制驗證。審核與 Audit 保持原子性及並行勝出者檢查，不發布內容。
-3. **工作摘要**：桌機一排四張「新文章通知／Threads 巡視回報／拍板結案／待核准」。前兩張只統計台灣當日對應分類的實際完成事件；Threads 卡片只顯示最新事項標題，不再顯示長詳情（完整內容在時間軸展開）。待核准包含所有日期尚未處理的稿件，依目前 BOT 範圍統計。拍板結案僅保留標題與 `—`，沒有計數、查詢、事件分類或後臺串接；不得拿一般完成數冒充。
+2. **待審核**：共用 `cy-op-table` 全寬表格，每件一列。內容欄只顯示分類（貼文／海巡＋則數）與第一行；操作為「審閱」（已審為「查看」），開啟審閱視窗看全文。退回理由必填，Worker 同樣強制驗證。審核與 Audit 保持原子性及並行勝出者檢查，不發布內容。審閱視窗見下方「多則逐則審核」。
+3. **工作摘要**：桌機一排四張「新文章通知／Threads 巡視回報／拍板結案／待核准」。前兩張只統計台灣當日對應分類的實際完成事件。Threads 卡片顯示「今日巡視 N 次」與「已送出 X 則・待送出 Y 則」；新文章與 Threads 卡片下方各列出今日審完的貼文／海巡，點開看詳細內容。待核准包含所有日期尚未處理的稿件，並分列「貼文 N 篇・海巡 N 則」，依目前 BOT 範圍統計。拍板結案僅保留標題與 `—`，沒有計數、查詢、事件分類或後臺串接；不得拿一般完成數冒充。
 4. **今日完成時間軸**：位於頂部，最新五筆在首頁，完整清單於共用 Dialog 依游標載入；同分鐘共用一個時間點，但各事件各有單行文字。溢出時才顯示共用小箭頭，展開可讀取該件標題與全部詳情，再次按下收合；原資料、排序及台灣日期規則均不變。
 5. **BOT 當日摘要**：位於工作摘要卡片下方，桌機一排四張；各卡只顯示名稱、最後回報狀態及當日摘要，移除卡片的回報／待審按鈕、數字及展開。昨日摘要不當成今日資料；沒有今日摘要顯示「今日尚無回報」。此區保留全部 BOT，不因上方篩選隱去其他身份。新增 BOT 自然往下排列；中等寬度兩欄、手機單欄。
 6. 沿用 CYWEB panel／StatusChip／StatusFilter／Field／共用 Dialog，不引入第二套元件。回報紀錄維持共用視窗及按需展開；設定用共用表格逐 BOT 管理憑證。視窗沒有右上 X，背景與 Escape 不關閉，只按明確按鈕關閉。
@@ -41,6 +41,9 @@
 | POST | `/api/bot-center/bots` | `{code,label}` 新增身份 |
 | POST | `/api/bot-center/drafts/:id/review` | `{decision:"approved"\|"rejected",reason?}`；退回必填，通過忽略理由 |
 | GET／POST／DELETE | `/api/bot-center/bots/:code/credential` | 讀該 BOT 狀態／產生或輪換／撤銷；寫入僅 SUPER_ADMIN |
+| GET | `/api/bot-center/drafts/:id` | 審閱用完整內容：`{draft,items,images}` |
+| POST | `/api/bot-center/drafts/:id/items/:seq/review` | 逐則 `{decision,reason?}`；最後一則審完即結束整篇 |
+| GET | `/api/bot-center/images/:id` | 審核圖片（僅模組權限；nosniff、CSP none） |
 
 機器（自己獨立的 `Authorization: Bearer <token>`）：
 
@@ -49,8 +52,10 @@
 | GET | `/api/bot-ingest/identity` | 回傳憑證實際 botCode／botLabel，供工具核對設定 |
 | POST | `/api/bot-ingest/progress` | `{botCode?,status,summary?}`；idle／working／blocked／done |
 | POST | `/api/bot-ingest/reports` | `{botCode?,title,body}` |
-| POST | `/api/bot-ingest/drafts` | `{botCode?,title,body,externalRef?}`，同 BOT＋externalRef 回原稿、不覆寫 |
-| GET | `/api/bot-ingest/drafts/:id` | 只可讀自己的審核結果 |
+| POST | `/api/bot-ingest/drafts` | `{botCode?,title,body,externalRef?,kind?,items?}`，同 BOT＋externalRef 回原稿、不覆寫；kind=post／patrol 時 items 1–50 則 `{ref?,title,body}` |
+| GET | `/api/bot-ingest/drafts/:id` | 只可讀自己的審核結果；多則稿另回 `items`（各則結果） |
+| POST | `/api/bot-ingest/drafts/:id/images?item=` | 原始圖片內容（JPEG／PNG／WebP，≤2MB，每篇或每則最多 5 張），僅待審稿 |
+| POST | `/api/bot-ingest/drafts/:id/sent` | 回報已實際送出；多則稿 `{items:[則號]}`，只記通過且未記的則 |
 | GET | `/api/bot-ingest/drafts?botCode=&externalRef=` | 同上；botCode 可省略，帶入時必須相符 |
 | POST | `/api/bot-ingest/completions` | `{botCode?,title,detail?,completedAt?,workType?,eventRef?}`；completedAt 預設現在 |
 
@@ -90,3 +95,14 @@ V0.12.4 Build 1 在審核落庫後喚醒既有 Grok routine；推播沒有核准
 - 完成事件使用共享 `ExpandToggle` 與實際文字溢出量測，避免短文出現無效展開箭頭。展開僅在前端顯示當次已載入內容，不另發 API 或改動事件資料。
 - 推播設定 Dialog 限制桌機寬 414px（原 medium 620px）；BOT 設定 Dialog 限制桌機寬 720px（原 large 900px）。僅套用特定 class，不修改共用 Dialog 全域尺寸；憑證表格最小 680px，較窄畫面保留捲動。
 - 只刪除 Threads 巡視卡片的最新詳情段落，不刪除資料來源、統計與其他摘要卡的內容。
+
+## 多則逐則審核、審核圖片與送出回報（V0.15.0，0060）
+
+使用者 2026-11-09 定案：單篇稿整篇審（方案 A）；貼文、海巡一次送多則時逐則審（方案 B）；BOT 可附圖片僅供審核，畫質可較低，審完隔日刪除。
+
+- **資料**：`bot_drafts.kind`（general／post／patrol）、`sent_at`；`bot_draft_items` 存各則（則號 1–50、ref、標題、內容、審核結果、送出時間）；`bot_review_images` 只存 R2 物件位置（`HR_FILES` 的 `bot-review/` 前綴）。圖片表不進可攜備份。
+- **逐則審核**：每則通過或退回（退回必填理由）。最後一則審完時整篇自動結束：有任何一則通過 → 整篇「通過」，若有退回則理由為「部分通過」；全部退回 → 整篇「退回」，理由「全部退回」。BOT 只處理通過的則。整篇按鈕「剩餘 N 則全部通過／全部退回」只套用尚未審的則。逐則 Audit 為 `bot_draft.item_approved／item_rejected`，與更新同一個 batch；推播在整篇結束時才排入，沿用原 outbox。
+- **審閱視窗**（`BotReviewDialog`）：共用 Dialog；上一篇／下一篇、送審說明、各則全文（保留換行、網址可點、不解析 HTML）、圖片縮圖點開放大、各則審核按鈕。
+- **圖片**：伺服器以檔頭判斷型別，不信任宣告的 content-type；超過 2MB 回 413，每篇或每則超過 5 張回 409，已審稿不能加圖。每次排程刪除「審核日早於台灣今日」的稿件圖片（每次最多 100 張，R2 與 D1 一起刪）。
+- **送出回報與今日統計**：BOT 實際送出後回報 `sent`。Threads 卡片「已送出」為今日 `sent_at` 的海巡則數，「待送出」為尚未送出且未退回（待審＋已通過）的海巡則數；「今日巡視 N 次」仍是 `threads_patrol` 完成事件數。今日審完清單各取 50 筆。
+- **Grok 工具**：`submit` 加 `kind`／`items`，`review` 回各則結果，新增 `image`（本機絕對路徑）與 `sent`。WEB V0.15.0／0060 部署後再更新工具。

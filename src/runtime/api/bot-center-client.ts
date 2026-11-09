@@ -1,6 +1,6 @@
 import { apiRequest } from "../../api/client";
 import type {
-  BotCenterState, BotCredentialView, BotDraftView, BotProfileView, BotProgressState, BotReviewStatus,
+  BotCenterState, BotCredentialView, BotDraftDetail, BotDraftView, BotProfileView, BotProgressState, BotReviewStatus,
 } from "../../../shared/bot-center";
 
 export type BotCenterPageCursor = { botCode?: string; draftBefore?: number; reportBefore?: number; timelineBefore?: string };
@@ -45,3 +45,12 @@ export function saveBotPush(code:string,json:{enabled:boolean;url?:string;key?:s
 export function retryBotPush(id:number):Promise<BotDraftView>{
   return apiRequest(`/api/bot-center/drafts/${id}/push/retry`,{method:'POST'});
 }
+
+export function loadDraftDetail(id:number):Promise<BotDraftDetail>{
+  return apiRequest<BotDraftDetail>(`/api/bot-center/drafts/${id}`);
+}
+export function reviewDraftItem(id:number,seq:number,decision:"approved"|"rejected",reason?:string):Promise<BotDraftDetail>{
+  return apiRequest<BotDraftDetail>(`/api/bot-center/drafts/${id}/items/${seq}/review`,{method:"POST",json:{decision,reason}});
+}
+/** Same-origin image for review; the session cookie authorises it. */
+export const reviewImageUrl=(id:number)=>`/api/bot-center/images/${id}`;

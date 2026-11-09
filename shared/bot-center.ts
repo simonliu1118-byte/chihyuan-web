@@ -35,6 +35,14 @@ export const BOT_LIMITS = {
   externalRef: 80,
 } as const;
 
+/** Multi-item drafts and review images (V0.15.0, user 2026-11-09). */
+export const BOT_DRAFT_KINDS = ["general", "post", "patrol"] as const;
+export type BotDraftKind = (typeof BOT_DRAFT_KINDS)[number];
+export const BOT_DRAFT_KIND_LABELS: Record<BotDraftKind, string> = { general: "一般", post: "貼文", patrol: "海巡" };
+export const BOT_ITEM_LIMITS = { items: 50, title: 120, body: 4000, ref: 80 } as const;
+export const BOT_IMAGE_LIMITS = { bytes: 2_097_152, perTarget: 5, types: ["image/jpeg", "image/png", "image/webp"] as const } as const;
+export type BotImageType = (typeof BOT_IMAGE_LIMITS.types)[number];
+
 export const BOT_PAGE_SIZE = 50;
 export const BOT_WORK_TYPES = ["general", "article_published", "threads_patrol"] as const;
 export type BotWorkType = (typeof BOT_WORK_TYPES)[number];
@@ -66,7 +74,29 @@ export interface BotDraftView {
   reviewer: BotReviewerView | null;
   createdAt: string;
   pushStatus: "queued" | "sending" | "accepted" | "failed" | null;
+  kind: BotDraftKind;
+  /** Multi-item drafts only: how many items are in each review state. Null for a single draft. */
+  itemCounts: { total: number; pending: number; approved: number; rejected: number } | null;
+  /** Single draft: when the BOT reported it carried the approved work out. */
+  sentAt: string | null;
+  imageCount: number;
 }
+
+export interface BotDraftItemView {
+  id: number;
+  seq: number;
+  ref: string | null;
+  title: string;
+  body: string;
+  status: BotReviewStatus;
+  reason: string | null;
+  reviewedAt: string | null;
+  sentAt: string | null;
+}
+
+export interface BotReviewImageView { id: number; itemId: number | null; contentType: BotImageType; bytes: number }
+
+export interface BotDraftDetail { draft: BotDraftView; items: BotDraftItemView[]; images: BotReviewImageView[] }
 
 export interface BotReportView {
   id: number;
@@ -106,9 +136,12 @@ export interface BotProgressState {
 
 export interface BotCenterState extends BotProgressState {
   workSummary: {
-    articles: { count: number; latest: BotCompletionView | null };
-    patrols: { count: number; latest: BotCompletionView | null };
-    pending: { count: number; latest: BotDraftView | null };
+    /** `reviewed`: post drafts whose review finished today (Taipei), newest first; open to read. */
+    articles: { count: number; latest: BotCompletionView | null; reviewed: BotDraftView[] };
+    /** 今日巡視 N 次、已送出（今日）、待送出（尚未退回也尚未送出的海巡則數）; `reviewed` as above for patrol drafts. */
+    patrols: { count: number; latest: BotCompletionView | null; sentToday: number; toSend: number; reviewed: BotDraftView[] };
+    /** Pending drafts, plus the undecided items of multi-item drafts by kind. */
+    pending: { count: number; latest: BotDraftView | null; posts: number; patrols: number };
   };
   botCode: string | null;
   botStats: Record<string, { todayCompleted: number; draftCounts: Record<BotReviewStatus, number> }>;
