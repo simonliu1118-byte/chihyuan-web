@@ -41,22 +41,7 @@
 .cy-store-lines .cy-op-input { width: 100%; min-height: 0; height: 32px; padding: 3px 8px; }
 .cy-store-add-line { justify-self: start; border-style: dashed; }
 
-/* Phone width: each order is a card (label before each value) instead of a squeezed table. */
-@media (max-width: 820px) {
-  .cy-store-cards thead { display: none; }
-  .cy-op-table.cy-store-cards, .cy-store-cards tbody { display: block; width: 100%; min-width: 0; }
-  .cy-store-cards td { min-width: 0; }
-  .cy-store-cards .cy-store-status select { width: 100%; box-sizing: border-box; }
-  .cy-store-cards tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; padding: 12px; border-bottom: 1px solid var(--cy-border); }
-  .cy-op-table.cy-store-cards td { display: grid; gap: 2px; padding: 0; border: 0; text-align: left; }
-  .cy-store-cards td::before { content: attr(data-label); color: var(--cy-text-muted); font-size: var(--cy-fs-xs); }
-  .cy-store-cards td.cy-store-name, .cy-store-cards td.cy-store-items-cell, .cy-store-cards td.cy-store-status { grid-column: 1 / -1; }
-  .cy-store-cards td.cy-store-actions { grid-column: 1 / -1; justify-items: end; }
-  .cy-store-cards td.cy-store-actions::before { content: none; }
-  .cy-store-cards tr[data-overdue] td:first-child { box-shadow: none; }
-  .cy-store-cards tr[data-overdue] { background: var(--cy-danger-soft); box-shadow: inset 3px 0 var(--cy-danger); }
-  .cy-store-toolbar > .cy-op-button.primary { margin-left: 0; }
-}
+@media (max-width: 820px) { .cy-store-toolbar > .cy-op-button.primary { margin-left: 0; } }
 
 
 /* V0.9.52: adaptive blind inventory counting. Reuses Store/Operational design tokens. */
@@ -342,19 +327,7 @@
 .cy-store-blacklist-table th:last-child{text-align:center}
 @media(max-width:820px){
  .cy-store-edit-reason{grid-template-columns:minmax(100px,1fr) minmax(0,2fr);gap:8px}
- .cy-ordering-grid.cy-store-workflow-table{display:block;min-width:0}
- .cy-store-workflow-table thead{display:none}
- .cy-store-workflow-table tbody{display:block;margin-bottom:10px;border:1px solid var(--cy-border);border-radius:var(--cy-radius-sm)}
- .cy-store-workflow-table tbody>tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
- .cy-store-workflow-table tbody>tr>td{border:0;min-width:0;text-align:left}
- .cy-store-workflow-table tbody>tr>td::before{content:attr(data-label);display:block;font-size:var(--cy-fs-xs);color:var(--cy-text-muted)}
- .cy-store-workflow-table tbody>tr>td:is([data-label="訂購品項"],[data-label="備註"],[data-label="操作"]){grid-column:1/-1}
- .cy-store-workflow-table tbody>tr.cy-store-item-continuation{grid-template-columns:minmax(0,1fr)70px 50px}
- .cy-store-workflow-table tbody>tr.cy-store-item-continuation>td{grid-column:auto}
  .cy-store-date-link{position:static;height:36px;min-height:36px}
- .cy-store-workflow-table td.cy-store-milestone:has(>.cy-store-date-popover){grid-column:1/-1}
- .cy-store-orders .cy-store-workflow-table .cy-grid-divider-before{border-left:0}
- .cy-store-workflow-table td[colspan]{grid-column:1/-1}
  .cy-store-date-popover{position:relative;right:auto;max-width:100%;box-sizing:border-box}
 }
 .cy-store-orders>.cy-ordering-grid-scroll:has(.cy-store-date-popover){padding-bottom:190px}
