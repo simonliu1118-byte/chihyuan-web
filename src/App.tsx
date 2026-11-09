@@ -34,16 +34,23 @@ import { WorkLogOperationalPage } from "./runtime/modules/WorkLogOperationalPage
 import { BackupOperationalPage } from "./runtime/modules/BackupOperationalPage";
 import { ProgramCatalogPage } from "./runtime/modules/ProgramCatalogPage";
 import { BotCenterPage } from "./runtime/modules/BotCenterPage";
+import {HomePage} from "./runtime/modules/HomePage";
+import {MyTodosPage} from "./runtime/modules/MyTodosPage";
+import {AnnouncementsPage} from "./runtime/modules/AnnouncementsPage";
+import {NotificationBell} from "./runtime/modules/NotificationBell";
 import { HrOperationalPage } from "./runtime/modules/HrOperationalPage";
 import { HrSettingsButton } from "./runtime/modules/HrSettingsButton";
 import { UnsavedChangesBoundary, useNavigationGuard } from "./ui/foundation/useUnsavedChangesGuard";
 import { createGuardedHashNavigation } from "./ui/foundation/guarded-hash-navigation";
 import { FeedbackProvider, useFeedback, useFeedbackMessage } from "./ui/feedback/FeedbackProvider";
 
-type AppRoute = "hr" | "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "erp-item-query" | "bot-center" | "ordering" | "store" | "audit" | "identity" | "account" | "backups" | "programs";
+type AppRoute = "home" | "announcements" | "my-todos" | "hr" | "customers" | "items" | "defects" | "orders" | "outsourcing" | "worklogs" | "erp-item-query" | "bot-center" | "ordering" | "store" | "audit" | "identity" | "account" | "backups" | "programs";
 
 // One source of truth for the topbar titles.
 const PAGE_META: Record<AppRoute, { title: string }> = {
+  home:{title:"首頁"},
+  announcements:{title:"公告與通知"},
+  "my-todos":{title:"我的待辦事項"},
   hr: { title:"人事" },
   customers: { title:"客戶" },
   items: { title:"商品" },
@@ -63,6 +70,7 @@ const PAGE_META: Record<AppRoute, { title: string }> = {
 };
 
 const baseNavigation: readonly NavigationGroup[] = [
+  {key:"home",items:[{key:"home",label:"首頁",href:"#home"},{key:"announcements",label:"公告與通知",href:"#announcements"}]},
   {
     key: "erp-query", items: [
       { key: "erp-item-query", label: "ERP 查詢", href: "#erp-item-query" },
@@ -103,6 +111,9 @@ const programsNavigation: NavigationGroup = {
 };
 
 const routes = new Set<AppRoute>([
+  "home",
+  "announcements",
+  "my-todos",
   "hr",
   "customers",
   "items",
@@ -125,7 +136,7 @@ function currentRoute(): AppRoute {
   const hash = window.location.hash.replace(/^#/, "").split("?")[0];
   // The old bookmark routes to Ordering, where Restock is now a drawer.
   const value = (hash === "restock-assist" ? "ordering" : hash) as AppRoute;
-  return routes.has(value) ? value : "account";
+  return routes.has(value) ? value : "home";
 }
 
 function accountPermissionLabel(role: WorkspaceRole): string {
@@ -229,6 +240,7 @@ function OperationalApp({
   );
 
   const navigation = useMemo<readonly NavigationGroup[]>(() => {
+    const home = baseNavigation.find(group=>group.key==="home")!;
     const erp = baseNavigation.find(group => group.key === "erp-query")!;
     const business = baseNavigation.find(group => group.key === "business")!;
     const administration = baseNavigation.find(group => group.key === "administration")!;
@@ -241,6 +253,7 @@ function OperationalApp({
       item.key === "backups" ? session.user.workspaceRole === "SUPER_ADMIN"
         : session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN");
     return [
+      home,
       { ...erp, items: erpItems },
       { ...business, items: businessItems },
       { ...administration, items: adminItems },
@@ -267,10 +280,8 @@ function OperationalApp({
     const adminAllowed = session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN";
 
     if (!window.location.hash) {
-      const erpAllowed = moduleCodesForRoute("erp-item-query").some(code => allowedModules.has(code));
-      const firstBusiness = baseNavigation.find(group => group.key === "business")?.items.find(item =>
-        moduleCodesForRoute(item.key).some(code => allowedModules.has(code)));
-      window.location.hash = erpAllowed ? "#erp-item-query" : firstBusiness?.href ?? "#account";
+      // Login always lands on the protected work center, not the first allowed business module.
+      window.location.hash = "#home";
       return;
     }
 
@@ -314,6 +325,18 @@ function OperationalApp({
     return () => { cancelled = true; };
   }, [route, routeAllowed, routeModuleCode, moduleAccess]);
 
+  function navigate(next:string,params:Record<string,string|number>={}){
+    if(!routes.has(next as AppRoute))return;
+    const target=next as AppRoute,href=routeHref(target,params);
+    if(target===route){
+      if(window.location.hash===href)return;
+      void canLeave().then(allowed=>{if(allowed)window.location.hash=href});
+      return;
+    }
+    pendingRecordHash.current=href;
+    void guardedNavigation.request(target,"link").finally(()=>{pendingRecordHash.current=null});
+  }
+
   let content: React.ReactNode;
   const role = session.user.workspaceRole;
   const moduleCode = routeModuleCode;
@@ -324,7 +347,12 @@ function OperationalApp({
     content = routeAccess === "denied"
       ? <section className="cy-op-panel"><h2>目前無法確認模組權限</h2><p>{moduleAccessError ?? "請重新整理頁面後再試。"}</p></section>
       : <Loading />;
-  } else if (route === "hr") content = <HrOperationalPage />;
+  } else if (route === "home") content = <HomePage displayName={session.user.displayName} onNavigate={navigate} shortcuts={navigation.flatMap(group=>group.items)
+    .filter(item=>!item.external&&!["home","announcements","identity","audit","backups","programs"].includes(item.key))
+    .map(item=>({key:item.key,label:item.label}))}/>;
+  else if (route === "my-todos") content = <MyTodosPage />;
+  else if (route === "announcements") content = <AnnouncementsPage canPublishCompany={allowedModules.has("ANNOUNCEMENT_PUBLISH")} canSendPersonal={allowedModules.has("PERSONAL_NOTICE_SEND")}/>;
+  else if (route === "hr") content = <HrOperationalPage />;
   else if (route === "customers") content = <CustomerOperationalPage role={role} />;
   else if (route === "items") content = <ItemOperationalPage canViewDefects={allowedModules.has("DEFECTS")} canViewCustomers={allowedModules.has("CUSTOMERS")} />;
   else if (route === "defects") content = <DefectOperationalPage />;
@@ -438,11 +466,13 @@ function OperationalApp({
       subtitle="志遠企業管理系統"
       navigation={navigation}
       activeNavigationKey={route}
-      onNavigate={item => { if (routes.has(item.key as AppRoute)) void guardedNavigation.request(item.key as AppRoute, "link"); }}
-      appearance={compact ? <ThemeToggle iconOnly direct /> : <ThemeSwitch />}
+      onHome={()=>navigate("home")}
+       onNavigate={item => navigate(item.key)}
+       notifications={<NotificationBell onNavigate={navigate}/>}
+       appearance={compact ? <ThemeToggle iconOnly direct /> : <ThemeSwitch />}
       account={<AccountMenu displayName={session.user.displayName}
         role={session.user.workspaceRole} roleLabel={accountPermissionLabel(session.user.workspaceRole)} compact={compact}
-        signingOut={signingOut} onAccount={() => void guardedNavigation.request("account", "link")} onLogout={() => void logout()} />}
+        signingOut={signingOut} onAccount={() => navigate("account")} onTodos={()=>navigate("my-todos")} onLogout={() => void logout()} />}
     >
       {moduleAccessError && route === "account" ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-title">模組權限狀態</div><div className="cy-notice-body">{moduleAccessError}</div></div> : null}
       {content}

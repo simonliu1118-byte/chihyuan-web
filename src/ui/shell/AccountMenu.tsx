@@ -9,11 +9,12 @@ export interface AccountMenuProps {
   compact?: boolean;
   signingOut?: boolean;
   onAccount: () => void;
+  onTodos: () => void;
   onLogout: () => void;
 }
 
 /** Top-right person button; its menu holds 我的帳號 and 登出 (appearance has its own switch). */
-export function AccountMenu({ displayName, roleLabel, role, compact, signingOut, onAccount, onLogout }: AccountMenuProps) {
+export function AccountMenu({ displayName, roleLabel, role, compact, signingOut, onAccount, onTodos, onLogout }: AccountMenuProps) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const menuId = useId();
@@ -38,6 +39,7 @@ export function AccountMenu({ displayName, roleLabel, role, compact, signingOut,
       {compact ? null : <svg className="cy-account-caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>}
     </button>
     {open ? <div className="cy-account-popover" id={menuId} role="menu" aria-label="個人選單">
+      <button type="button" role="menuitem" onClick={() => pick(onTodos)}>我的待辦事項</button>
       <button type="button" role="menuitem" onClick={() => pick(onAccount)}>我的帳號（密碼、Email）</button>
       <button type="button" role="menuitem" className="danger" disabled={signingOut} aria-busy={signingOut || undefined} onClick={() => pick(onLogout)}>登出</button>
     </div> : null}

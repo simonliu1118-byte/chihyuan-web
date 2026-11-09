@@ -1,5 +1,9 @@
 // Durable portable-backup columns; regenerated from the forward migration chain.
 export const BACKUP_COLUMNS: Record<string, string[]> = {
+  "personal_todos": ["completed_at","created_at","detail","due_date","due_time","id","member_id","priority","title","updated_at"],
+  "hub_notices": ["author_name","body","created_at","created_by","id","kind","revoked_at","revoked_by","title"],
+  "hub_notice_recipients": ["member_id","notice_id"],
+  "hub_notice_reads": ["member_id","notice_id","read_at"],
   "app_member_module_access": [
     "enabled",
     "member_id",

@@ -563,7 +563,7 @@ a.cy-op-button, a.cy-button { text-decoration: none; }
   /* Phone drawer: the existing CY Web brand row is the only visible header. */
   .cy-shell-navigation-drawer.cy-dialog-plain .cy-dialog-body { padding: 8px 10px 12px; gap: 10px; }
   .cy-shell-navigation-drawer .cy-shell-brand { padding: 8px 6px 12px; }
-  .cy-shell-navigation-drawer .cy-shell-brand > div { flex: 1 1 auto; min-width: 0; }
+  .cy-shell-navigation-drawer .cy-shell-brand > .cy-shell-brand-home { flex: 1 1 auto; min-width: 0; }
   .cy-shell-navigation-drawer .cy-shell-nav-close { display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; border: 0; border-radius: var(--cy-radius-sm); color: var(--cy-text-muted); background: transparent; cursor: pointer; }
   .cy-shell-navigation-drawer .cy-shell-nav-close:hover { background: var(--cy-surface-muted); }
   .cy-shell-navigation-drawer .cy-shell-nav-close:focus-visible { outline: 2px solid var(--cy-accent); outline-offset: 1px; }
@@ -715,3 +715,11 @@ details[open]>summary::before{transform:rotate(90deg)}
 @media (prefers-reduced-motion:reduce){.cy-expand-toggle .cy-icon,summary::before{transition:none}}
 /* Grid-row summaries (ERP order rows) and clamped notes never showed a marker; keep them clean. */
 .cy-erp-order>summary::before,.cy-store-list-note summary::before{content:none}
+
+
+/* V0.12.7: CY brand returns to the protected home route from desktop and mobile. */
+.cy-shell-brand-home{display:flex;align-items:center;gap:10px;flex:1 1 auto;min-width:0;padding:0;border:0;background:transparent;text-align:left;color:var(--cy-text);cursor:pointer;font:inherit}
+.cy-shell-brand-home:hover,.cy-shell-brand-home:focus-visible{background:var(--cy-surface-muted);border-radius:var(--cy-radius-sm)}
+.cy-shell-brand-home .cy-shell-brand-subtitle{display:block}
+.cy-shell-mobile-home{flex:0 0 auto;border:0;background:transparent;padding:0;cursor:pointer}
+.cy-shell-mobile-home .cy-shell-brand-mark{width:34px;height:34px;font-size:var(--cy-fs-sm)}

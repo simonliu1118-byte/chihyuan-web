@@ -23,6 +23,7 @@
 - `forms/Field.tsx`：`Field`（每個輸入都要包；表格格子內用 `presentation="cell"`）、`CheckField`（勾選框，**不要用原生 `<label>`**，測試會擋）、`FormSection`、`RequiredRows`。
 - `forms/EntryTable.tsx`：`EntryTable`、`EntryHeading`（必填星號用 `required`）。表格式表單的外框。
 - `forms/RecordSheet.tsx`：`RecordSheet`、`RecordRows`（`hideWhenEmpty`；檢視模式空值顯示「—」）。
+- `forms/TimeInput.tsx`：所有時間輸入（24 小時 HH:MM），不要用原生 `type="time"`。
 - `forms/DateInput.tsx`：所有日期輸入（YYYY/MM/DD）；`precision="month"` 為共用 YYYY/MM 年月選擇模式，對外值是 YYYY-MM。日期可為「無」時，旁邊放 `CheckField label="無日期"`。
 - `forms/PhoneInput.tsx`：`PhoneInput`（輸入）、`PhoneText`（顯示）、`PhoneEntryInput`／`phoneEntryColumns`（含分機欄）。電話一律用這組。
 - `forms/PresetTextInput.tsx`：預設選項＋「其他」自填（例：付款條件、發票開立；選其他沒填就存「其他」）。
@@ -93,3 +94,4 @@
 | 手機版 | `OrderingPage`、`ErpItemQueryPage`、`AppShell` | 與桌機共用同一個元件和資料流，只用限定範圍的 CSS 改排版。<br>• 表格加 `data-label`／`data-col`，手機改卡片排列。<br>• 頁籤用 `cy-op-tabs`，手機可左右捲動。<br>不另做手機專用編輯器、查詢狀態或 API。<br>主題切換只由 `ThemePreference` 管理。 |
 | 年月輸入 | `DateInput precision="month"` | 對外的值是 `YYYY-MM`，不要另做年月選擇器。 |
 | 互斥選項 | `CheckField type="radio"` | 外觀與勾選框一致。 |
+| 首頁、公告、待辦、鈴鐺 | `HomePage`、`AnnouncementsPage`、`MyTodosPage`、`NotificationBell` | 首頁只做摘要與導覽，新增／編輯都到正式頁。撰寫用 `EntryTable`。鈴鐺清單有固定高度捲動，只連到正式頁。規格見 [HOME_HUB.md](HOME_HUB.md)。 |
