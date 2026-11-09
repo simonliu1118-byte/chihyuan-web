@@ -1,4 +1,4 @@
-import {useLayoutEffect,useRef,type PropsWithChildren,type ReactNode} from "react";
+import {useLayoutEffect,useRef,type PropsWithChildren,type ReactNode,type ReactElement} from "react";
 import {Field} from "./Field";
 import "./entry-table.css";
 
@@ -40,7 +40,7 @@ export function EntryHeading({children,required=false}: {children:ReactNode;requ
 /** Compact editable field table for dialogs whose controls are expressed as rows.
  * Each field remains inside the same EntryTable and the shared cell Field; the dialog owns state and submit.
  */
-export interface EntryFieldRow {label:string;content:ReactNode;required?:boolean}
+export interface EntryFieldRow {label:string;content:ReactElement;required?:boolean}
 export function EntryFields({label,rows}: {label:string;rows:readonly EntryFieldRow[]}){
  return <EntryTable label={label}><tbody>{rows.map((row,index)=>
   <tr key={index}><th scope="row"><EntryHeading required={row.required}>{row.label}</EntryHeading></th>
