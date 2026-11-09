@@ -1,7 +1,7 @@
 # WO-0.17.0 人事四個頁籤改成表格式，新增「薪資」頁籤（薪資總覽）
 
-- 狀態：待執行
-- 分支：`cyweb/wo-0.17.0-hr`　PR：#（執行者填）
+- 狀態：已提交初版／等待 PR CI、實際畫面與 Claude 審查（2026-11-10）
+- 分支：`cyweb/wo-0.17.0-hr`　PR：建立後回填；不得合併部署
 - 版號：V0.17.0（若已被占用就用下一個空號，CHANGELOG 同步）
 - 開工前必讀：
   - `docs/architecture/UI_COMPONENT_CATALOG.md`（表格式單據、`EntryTable`、§6 手機、按鈕 `soft`／`quiet`、視窗寬度規則）
@@ -97,6 +97,15 @@
 - [ ] VERSION／package.json 版本、CHANGELOG、TODO 段落已更新。
 - [ ] 開 PR 給 Claude 審查。**不要自行合併或部署。**
 
-## 8. 完成報告（GPT 填）
+## 8. 完成報告（GPT，2026-11-10）
+- 開工基準：main `2d421d375741c59b56d78b41870026973022c9ae`，V0.16.0；獨立分支 `cyweb/wo-0.17.0-hr`，開發版本 V0.17.0、BUILD 0。
+- 人員明細檢視／新增／修改共用 `HrEmployeeSheet`（`RecordSheet`＋三張 `RecordRows`）；按原儲存與 ID 遮罩／顯示 API，原非員工子卡維持。舊 `RowsBlock`／`RowInput` 已刪除。
+- 人員狀態、調薪、年資不計、排班格／門市人員設定、請假／銷假、補休／特休書面通知使用 `EntryTable`，短表單抽成共用 `EntryFields`；調薪四格＋津貼子表。
+- 第五薪資頁：搜尋／門市／狀態／在職人數與月薪總額、月薪和時薪不同顯示、津貼標籤、展開歷次、共用原調薪 POST；新增唯讀 `GET /api/business/hr/salary-overview`，不含薪資計算。
+- 未動員工與薪資 schema，不動既有 mutation 及後端權限；人事／出勤／請假／排班主清單版型不變。
+- 已提交至開發分支，仍需檢查：PR Runtime／Governance／TypeScript／完整 Node／本機 D1；390×844 與 1440px 前後截圖（此對話尚無登入後瀏覽器，不能冒充已通過）；Claude 最終審查。未合併、未部署。
+- 交接：`docs/handoff/CYWEB-WO-0170-HR-20261110.md`。
+
+## 9. 審查紀錄（Claude 填）
 
 ## 9. 審查紀錄（Claude 填）

@@ -73,3 +73,10 @@
 - 審查修正（BD-060 第 26～29 點）：補休只有一種，「換」停用、既有排班格改為「補」；補休請假可帶 `advanceHolidayDate` 預支某個國定假日（存 `advance_holiday_date`／`advance_holiday_name`），預支不扣現有餘額，只有該國定假日的補休（`hr_comp_time_grants.kind='holiday'`、`holiday_date` 相同）給予時才抵銷。國定假日補休自該日起可用，於該月的次月底到期。
 - 半職、兼職特休依基準期間打卡工時占全時每週 40 小時的比例計算（`entitled_minutes`、`basis`），特休年度開始後固定；`PATCH /api/business/hr/annual-leave-years/:id/entitlement`（`minutes` 或 `null`）由超管調整，稽核 `hr_annual_leave.adjusted`。
 
+
+ 
+## WO-0.17.0 — 薪資總覽唯讀 API
+- `GET /api/business/hr/salary-overview`：只讀；使用既有 CYID／SUPER_ADMIN 權限、同一成功 envelope，並不加入獨立授權。
+- 一次批次查詢所有員工當前有效狀態、門市與職稱，及薪資／津貼／登記人；伺服器分組，不因人數產生每人多次 API 讀取。
+- 每人回傳 `id, employeeNo, name, storeId, storeName, jobTitle, status, salaryRecords[]`。薪資紀錄各筆有 `id, effective_date, payment_type, base_amount, reason, created_by_name, allowances[]`（各津貼包含 `item_name, amount, is_regular`）。紀錄依生效日與 ID 由新到舊。
+- 前端以台北當日生效記錄顯示月薪／時薪、津貼、月合計與在職月薪摘要；不回傳身分證字號、不改薪資異動 POST 或最低工資檢查，不產生任何薪資計算結果。

@@ -5,6 +5,9 @@
 
 ## 目前狀態（2026-11-09）
 
+- [ ] **WO-0.17.0（V0.17.0）人事表格式與薪資總覽**：已於 `cyweb/wo-0.17.0-hr` 分支實作，待 PR CI／390px／1440px 視覺驗收及 Claude 複審。含員工 RecordSheet／RecordRows、所有列出的 EntryTable 視窗、薪資唯讀 API／新增薪資頁籤；不做薪資計算、不合併、不部署。詳見 [工單](docs/development/work-orders/WO-0.17.0.md) 與 [handoff](docs/handoff/CYWEB-WO-0170-HR-20261110.md)。
+
+
 
 
 - **全系統手機版 V0.14.0–V0.14.7 已上線**：共用手機元件（第一階段）與六批模組套用（WO-0.14.1，GPT；Claude 2026-11-09 審查通過）。之後新畫面一律照 UI_COMPONENT_CATALOG §6。
