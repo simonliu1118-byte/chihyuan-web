@@ -93,13 +93,13 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
       <span>{ymd(x.work_date)}{x.whole_day?"":"　"+x.start_time+"–"+x.end_time}　{detail.types.find(t=>t.id===x.leave_type_id)?.name}　{hrs(x.minutes)} 小時
        {x.advance_holiday_name?<small className="hr-leave-advance">預支 {x.advance_holiday_name}</small>:null}
        {x.reason?<small>　{x.reason}</small>:null}{x.cancelled_at?<small>（已銷假：{x.cancel_reason}）</small>:null}</span>
-      <span>{x.attachmentCount?<button type="button" className="cy-op-button compact quiet" onClick={()=>setViewAttachmentIds(x.attachmentIds)}>證明 {x.attachmentCount} 張</button>:null}
+      <span>{x.attachmentCount?<button type="button" className="cy-op-button compact soft" onClick={()=>setViewAttachmentIds(x.attachmentIds)}>證明 {x.attachmentCount} 張</button>:null}
        {!x.cancelled_at?<button type="button" className="cy-op-button compact" onClick={()=>setRequest({person,completed:{batchId:x.batch_id,date:x.work_date,code:detail.types.find(t=>t.id===x.leave_type_id)?.code??"",minutes:x.minutes}})}>銷假</button>:null}</span>
      </div>)}
      <h4>特休年度</h4>
      <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>特休年度</th><th>應給</th><th>遞延進來</th><th>剩餘</th><th>到期未休</th><th>書面通知</th></tr></thead><tbody>
       {detail?.annual.map(x=><tr key={x.periodStart}><td>{ymd(x.periodStart)}～{ymd(x.periodEnd)}</td>
-       <td>{amount(x.entitledMinutes,partTime)}{x.partTime?<button type="button" className="cy-op-button compact quiet" title={basisText(x)} onClick={()=>{setAdjust(x);setAdjustHours(x.overridden?hrs(x.entitledMinutes):"")}}>{x.overridden?"已調整":"依工時比例"}</button>:null}</td>
+       <td>{amount(x.entitledMinutes,partTime)}{x.partTime?<button type="button" className="cy-op-button compact soft" title={basisText(x)} onClick={()=>{setAdjust(x);setAdjustHours(x.overridden?hrs(x.entitledMinutes):"")}}>{x.overridden?"已調整":"依工時比例"}</button>:null}</td>
        <td>{amount(x.carriedInDays*480,partTime)}</td><td>{amount(x.remainingMinutes,partTime)}</td><td>{x.expiredUnpaidMinutes?amount(x.expiredUnpaidMinutes,partTime):"—"}</td>
        <td><button type="button" className="cy-op-button compact" onClick={()=>setPrintYear(x)}>列印通知</button> <small>{x.notifiedOn?ymd(x.notifiedOn):"未通知"}</small></td></tr>)}</tbody></table></div>
      <h4>補休帳戶</h4>

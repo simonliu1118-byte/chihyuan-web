@@ -784,10 +784,10 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
        <td className="cy-ordering-source-note">{s.conditions||"—"}</td>
        <td className="cy-ordering-source-note">{s.paymentTerms||"—"}</td>
        <td className="cy-ordering-source-actions">
-        <button type="button" className="cy-op-button compact quiet" disabled={busy} onClick={()=>setSourceForm({id:s.id,kind:s.kind==="VENDOR"?"VENDOR":"GENERAL",name:s.name,conditions:s.conditions,paymentTerms:s.paymentTerms,note:s.note,sortOrder:s.sortOrder})}>修改</button>
-        {s.isActive?<><button type="button" className="cy-op-button compact quiet" disabled={busy||active[0]?.id===s.id} aria-label={"將 "+s.name+" 排序向前"} onClick={()=>void changeSharedOrder(s.id,-1)}>↑</button>
-         <button type="button" className="cy-op-button compact quiet" disabled={busy||active.at(-1)?.id===s.id} aria-label={"將 "+s.name+" 排序向後"} onClick={()=>void changeSharedOrder(s.id,1)}>↓</button></>:null}
-        <button type="button" className="cy-op-button compact quiet" disabled={busy} onClick={()=>void updateVisibility(s)}>{s.isActive?"隱藏":"恢復"}</button>
+        <button type="button" className="cy-op-button compact soft" disabled={busy} onClick={()=>setSourceForm({id:s.id,kind:s.kind==="VENDOR"?"VENDOR":"GENERAL",name:s.name,conditions:s.conditions,paymentTerms:s.paymentTerms,note:s.note,sortOrder:s.sortOrder})}>修改</button>
+        {s.isActive?<><button type="button" className="cy-op-button compact soft" disabled={busy||active[0]?.id===s.id} aria-label={"將 "+s.name+" 排序向前"} onClick={()=>void changeSharedOrder(s.id,-1)}>↑</button>
+         <button type="button" className="cy-op-button compact soft" disabled={busy||active.at(-1)?.id===s.id} aria-label={"將 "+s.name+" 排序向後"} onClick={()=>void changeSharedOrder(s.id,1)}>↓</button></>:null}
+        <button type="button" className="cy-op-button compact soft" disabled={busy} onClick={()=>void updateVisibility(s)}>{s.isActive?"隱藏":"恢復"}</button>
        </td></tr>)}</tbody>
      </table></div>
      <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setManageSources(false)}>關閉</button>

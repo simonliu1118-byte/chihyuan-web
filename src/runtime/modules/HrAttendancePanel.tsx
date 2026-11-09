@@ -73,7 +73,7 @@ export function HrAttendancePanel(){
      <select className="cy-op-input" aria-label={row.date+" 加班時數"} value={minutes} onChange={e=>changeOvertime(row,{minutes:Number(e.target.value)})}>
       {Array.from({length:25},(_,i)=><option value={i*30} key={i}>{i?hrs(i*30)+"h":"—"}</option>)}</select>
      {minutes>0?<select className="cy-op-input" aria-label={row.date+" 加班結算"} value={otChanges[row.date]?.settlement??row.overtime?.settlement??"pay"} onChange={e=>changeOvertime(row,{settlement:e.target.value as "pay"|"comp"})}><option value="pay">加班費</option><option value="comp">補休</option></select>:null}
-     {row.overtimeSuggestion.minutes>0&&minutes!==row.overtimeSuggestion.minutes?<button type="button" title={row.overtimeSuggestion.reason} className="cy-op-button compact quiet" onClick={()=>changeOvertime(row,{minutes:row.overtimeSuggestion.minutes})}>建議 {hrs(row.overtimeSuggestion.minutes)}h</button>:null}
+     {row.overtimeSuggestion.minutes>0&&minutes!==row.overtimeSuggestion.minutes?<button type="button" title={row.overtimeSuggestion.reason} className="cy-op-button compact soft" onClick={()=>changeOvertime(row,{minutes:row.overtimeSuggestion.minutes})}>建議 {hrs(row.overtimeSuggestion.minutes)}h</button>:null}
     </>})()}</td>
     <td>{row.lateMinutes||"—"}</td><td>{row.earlyMinutes||"—"}</td><td>{row.anomalies.join("、")||"—"}</td>
     <td><input className="cy-op-input" aria-label={row.date+" 備註"} value={punch?.note??""} onChange={e=>change(row,"note",e.target.value)}/></td>
