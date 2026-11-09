@@ -679,7 +679,7 @@ export function OutsourcingOperationalPage() {
                    {selectedOrder.statusCode==="outbound"?<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>track("receive",receive())}>確認入庫</button>:null}
                    {selectedOrder.statusCode==="received"?<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>track("price",price())}>計價</button>:null}
                    {selectedOrder.statusCode==="priced"?<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>track("pay",pay())}>確認付款</button>:null}
-                 </ActionBar>:null}</div>
+                 </ActionBar>:null}
                 <OutsourcingProgress status={selectedOrder.statusCode} />
                 <div className="cy-op-detail-grid"><div><span>工單日期</span><strong>{formatDate(selectedOrder.orderDate)}</strong></div><div><span>出庫日期</span><strong>{formatDate(selectedOrder.outboundDate)}</strong></div><div><span>付款時間</span><strong>{selectedOrder.paidAt ? formatDateTime(selectedOrder.paidAt) : "—"}</strong></div></div>
                 <div className="cy-op-subsection"><h3>出庫料件</h3><div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>品號</th><th>商品</th><th className="num">數量</th><th>單位</th></tr></thead><tbody>{selectedOrder.parts.map((part) => <tr key={part.id}><td data-label="品號" className="cy-mono">{part.componentItemNoSnapshot}</td><td data-label="商品" data-priority="title">{part.componentItemNameSnapshot}</td><td data-label="數量" className="num">{part.quantity}</td><td data-label="單位">{part.unitSnapshot}</td></tr>)}</tbody></table></div></div>
