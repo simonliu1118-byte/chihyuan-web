@@ -11,6 +11,12 @@ import { enterAdvancesFields, enterAdvancesThenSubmits } from "../../ui/foundati
 import { CheckField, Field, FormSection, RequiredRows } from "../../ui/forms/Field";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
+import { useCompactLayout } from "../../ui/foundation/useCompactLayout";
+import { ModuleSections } from "../../ui/mobile/ModuleSections";
+import { ListRow } from "../../ui/mobile/ListRow";
+import { ActionBar } from "../../ui/mobile/ActionBar";
+import { OverflowMenu } from "../../ui/mobile/OverflowMenu";
+import { DataViewToolbar } from "../../ui/data/DataViewToolbar";
 import { Dialog } from "../../ui/overlays/Dialog";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { StatusChip } from "../../ui/primitives/StatusChip";
@@ -112,6 +118,7 @@ export function HrOperationalPage() {
     apiRequest<{id:number;name:string}[]>(ROOT+"/settings/job-titles")
   ]).then(([a,b])=>{setStores(a);setJobTitles(b)}).catch(()=>{});},[]);
   const pane = useMasterDetailPane();
+  const compact = useCompactLayout();
   const { confirm, confirmationDialog } = useConfirmation();
   const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
   const [rows, setRows] = useState<EmployeeRow[]>([]);
@@ -304,18 +311,29 @@ export function HrOperationalPage() {
   const currentSalary = detail?.salaryRecords.find(row => row.effective_date <= today) ?? null;
 
   return <>
-    <nav className="cy-op-tabs cy-hr-top-tabs" aria-label="人事頁籤">
+    {compact?<ModuleSections label="人事頁籤" sections={[{key:"people",label:"人員"},{key:"roster",label:"排班"},{key:"attendance",label:"出勤"},{key:"leave",label:"請假"}] as const}
+      value={tab} onChange={setTab}/>
+    :    <nav className="cy-op-tabs cy-hr-top-tabs" aria-label="人事頁籤">
       <button type="button" className={tab==="people"?"active":""} onClick={()=>setTab("people")}>人員</button>
       <button type="button" className={tab==="roster"?"active":""} onClick={()=>setTab("roster")}>排班</button>
       <button type="button" className={tab==="attendance"?"active":""} onClick={()=>setTab("attendance")}>出勤</button>
       <button type="button" className={tab==="leave"?"active":""} onClick={()=>setTab("leave")}>請假</button>
-    </nav>
+    </nav>}
     {tab==="people"?<div className="cy-op-module">
     {confirmationDialog}
     <FeedbackBanner message={message} tone={messageTone} />
     <div className="cy-md cy-hr-workspace" data-pane={pane.pane}>
       <section className="cy-op-panel cy-md-list" aria-label="人事清單">
-        <div className="cy-md-toolbar">
+        {compact?<DataViewToolbar searchValue={query} onSearchChange={setQuery} searchLabel="搜尋員工"
+          searchPlaceholder="搜尋員工編號、姓名"
+          filters={<select className="cy-op-input" aria-label="人事狀態" value={statusFilter} onChange={event=>setStatusFilter(event.target.value)}>
+            <option value="">全部狀態</option>
+            {(Object.keys(statusLabels) as HrStatus[]).map(code=><option key={code} value={code}>{statusLabels[code]}</option>)}
+          </select>}
+          activeFilterCount={statusFilter?1:0}
+          actions={<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void startCreate()}>＋ 新增員工</button>}
+          resultSummary={loadingList?"載入中":nextCursor?`已載入 ${rows.length} 筆，還有更多`:`共 ${rows.length} 筆`}/>
+        :        <div className="cy-md-toolbar">
           <div className="cy-md-toolbar-lead">
             <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增員工</button>
             <input className="cy-op-input" type="search" aria-label="搜尋員工" placeholder="搜尋員工編號、姓名" value={query} onChange={event => setQuery(event.target.value)} />
@@ -327,14 +345,16 @@ export function HrOperationalPage() {
             </select>
           </div>
           <div className="cy-md-count">{loadingList ? <Loading inline /> : nextCursor ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`}</div>
-        </div>
+        </div>}
         <div className="cy-op-list">
-          {rows.map(row => <button key={row.id} type="button" className={`cy-op-list-row cy-hr-row ${selectedId === row.id ? "active" : ""}`}
-            aria-current={selectedId === row.id ? "true" : undefined} onClick={() => void select(row.id)}>
-            <span className="cy-mono">{row.employee_no}</span>
-            <strong>{row.name}</strong>
-            <StatusChip tone={statusTone(row.status)}>{statusLabels[row.status]}</StatusChip>
-          </button>)}
+          {rows.map(row=>compact?<ListRow key={row.id} title={row.name} subtitle={row.employee_no}
+              trailing={<StatusChip tone={statusTone(row.status)}>{statusLabels[row.status]}</StatusChip>}
+              selected={selectedId===row.id} onClick={()=>void select(row.id)}/>
+            :<button key={row.id} type="button" className={`cy-op-list-row cy-hr-row ${selectedId===row.id?"active":""}`}
+              aria-current={selectedId===row.id?"true":undefined} onClick={()=>void select(row.id)}>
+              <span className="cy-mono">{row.employee_no}</span><strong>{row.name}</strong>
+              <StatusChip tone={statusTone(row.status)}>{statusLabels[row.status]}</StatusChip>
+             </button>)}
           {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的員工。</div> : null}
           {nextCursor ? <button type="button" className="cy-op-button quiet" disabled={loadingList} onClick={() => void loadList(true)}>載入更多</button> : null}
         </div>
@@ -350,11 +370,13 @@ export function HrOperationalPage() {
               <div>
                 <h2>{detail.employee_no} {detail.name} <StatusChip tone={statusTone(detail.status)}>{statusLabels[detail.status]}</StatusChip></h2>
               </div>
-              <div className="cy-record-actions">
-                <button type="button" className="cy-op-button" disabled={busy} onClick={() => { setCreating(false); setDraft(draftFrom(detail)); }}>修改</button>
-                {detail.deletable ? <button type="button" className="cy-op-button danger" disabled={busy} onClick={() => setDeleteNo("")}>刪除</button> : null}
-              </div>
+              {compact?<OverflowMenu items={detail.deletable?[{label:"刪除",danger:true,disabled:busy,onClick:()=>setDeleteNo("")}]:[]}/>
+              :<div className="cy-record-actions">
+                <button type="button" className="cy-op-button" disabled={busy} onClick={() => {setCreating(false);setDraft(draftFrom(detail))}}>修改</button>
+                {detail.deletable?<button type="button" className="cy-op-button danger" disabled={busy} onClick={()=>setDeleteNo("")}>刪除</button>:null}
+              </div>}
             </div>
+            {compact?<ActionBar><button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>{setCreating(false);setDraft(draftFrom(detail))}}>修改</button></ActionBar>:null}
             <div className="cy-hr-detail-body">
               <dl className="cy-customer-facts">
                 <Fact label="門市" value={stores.find(x=>x.id===detail.store_id)?.name??"未設定"} />
@@ -523,6 +545,7 @@ function EmployeeForm({ draft, creating, busy, members, stores, jobTitles, patch
   patch: (value: Partial<Draft>) => void; onCancel: () => void; onSubmit: (event: FormEvent) => Promise<void>;
 }) {
   const [picking, setPicking] = useState(false);
+  const compact = useCompactLayout();
   const text = (key:keyof Draft,type="text")=>type==="date"
    ?<DateInput density="regular" className="cy-op-input" disabled={busy} value={draft[key] as string??""} onChange={value=>patch({[key]:value} as Partial<Draft>)}/>
    :<input className="cy-op-input" type={type} disabled={busy} value={draft[key] as string??""} onChange={event=>patch({[key]:event.target.value} as Partial<Draft>)}/>;
@@ -533,10 +556,13 @@ function EmployeeForm({ draft, creating, busy, members, stores, jobTitles, patch
   return <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={event => void onSubmit(event)}>
     <div className="cy-record-header cy-edit-header">
       <div><h2>{creating ? "新增員工" : `修改 ${draft.employeeNo} ${draft.name}`}</h2></div>
-      <div className="cy-record-actions">
+      {compact?<ActionBar>
+        <button type="button" className="cy-op-button" disabled={busy} onClick={onCancel}>取消</button>
+        <button className="cy-op-button primary" disabled={busy} aria-busy={busy||undefined}>{creating?"建立員工":"儲存修改"}</button>
+      </ActionBar>:      <div className="cy-record-actions">
         <button type="button" className="cy-op-button" disabled={busy} onClick={onCancel}>取消</button>
         <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立員工" : "儲存修改"}</button>
-      </div>
+      </div>}
     </div>
     <div className="cy-hr-form-body">
       <FormSection title="基本資料">
