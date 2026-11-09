@@ -83,7 +83,7 @@ const baseNavigation: readonly NavigationGroup[] = [
     items: [
       { key: "customers", label: "客戶", href: "#customers" },
       { key: "items", label: "商品", href: "#items" },
-      { key: "defects", label: "瑕疵", href: "#defects" },
+      { key: "defects", label: "瑕疵", href: "#defects", parent: "items" },
       { key: "orders", label: "銷售工單", href: "#orders" },
       { key: "ordering", label: "叫貨", href: "#ordering" },
       { key: "store", label: "門市", href: "#store" },

@@ -5,6 +5,8 @@ export interface NavigationItem {
   description?: string;
   disabled?: boolean;
   external?: boolean;
+  /** Sub-module (user 2026-11-09): shown indented right under this parent item; at top level if the parent is hidden. */
+  parent?: string;
 }
 
 export interface NavigationGroup {

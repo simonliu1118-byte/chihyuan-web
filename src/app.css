@@ -216,6 +216,11 @@ h1, h2, h3, h4, h5 { line-height: 1.35; }
   color: var(--cy-text-muted); font-size: var(--cy-fs-md); font-weight: 500; text-decoration: none;
 }
 .cy-shell-nav-icon { flex: 0 0 18px; width: 18px; height: 18px; }
+/* Sub-module: indented under its parent, smaller text, a short guide line instead of an icon. */
+.cy-shell-nav-item.is-sub { position: relative; min-height: 30px; margin-left: 28px; padding-left: 12px; font-size: var(--cy-fs-sm); }
+.cy-shell-nav-item.is-sub::before { content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 2px; border-radius: 2px; background: var(--cy-border); }
+.cy-shell-nav-item.is-sub.is-active::before { background: var(--cy-accent); }
+.cy-shell-nav-item.is-sub .cy-shell-nav-icon { display: none; }
 .cy-shell-nav-item:hover:not([data-disabled="true"]) { background: var(--cy-surface-muted); color: var(--cy-text); }
 .cy-shell-nav-item.is-active { background: var(--cy-accent-soft); color: var(--cy-accent); font-weight: 600; }
 .cy-shell-nav-item[data-disabled="true"] { cursor: default; opacity: .42; pointer-events: none; }

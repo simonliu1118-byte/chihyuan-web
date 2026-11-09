@@ -84,7 +84,7 @@ export function AppShell({
         className={["cy-shell-nav-group", group.dividerBefore && index > 0 ? "has-divider" : ""].filter(Boolean).join(" ")}>
         {group.label ? <div className="cy-shell-nav-label">{group.label}</div> : null}
         <div className="cy-shell-nav-items">{group.items.map(item => <a key={item.key}
-          className={["cy-shell-nav-item", item.key === activeNavigationKey ? "is-active" : ""].filter(Boolean).join(" ")}
+          className={["cy-shell-nav-item", item.parent && group.items.some(other => other.key === item.parent) ? "is-sub" : "", item.key === activeNavigationKey ? "is-active" : ""].filter(Boolean).join(" ")}
           href={item.href} target={item.external ? "_blank" : undefined} rel={item.external ? "noopener noreferrer" : undefined}
           aria-label={item.external ? item.label+"（另開新分頁）" : undefined}
           aria-current={item.key === activeNavigationKey ? "page" : undefined}
