@@ -136,3 +136,7 @@
 - HR 人員清單與分頁採 ModuleSections、ListRow、DataViewToolbar；手機主要編輯與儲存用 ActionBar，危險動作用 OverflowMenu。HR 多欄編輯列使用同一 shared mobile.css。
 - ERP 查詢各類的 CategoryJob 始終保留 mounted state，只有最外層手機導覽換 ModuleSections；未收款和進貨輔助結果透過 cy-rt，進貨輔助篩選用 DataViewToolbar，不重寫排程佇列。
 - BOT 審稿與憑證表在手機用 cy-rt data-label，動作 handler 不變；桌機仍原表格和按鈕。避免把 BOT 審核的 approve/reject 改成非原生權限流程。
+
+### WO-0.14.1 第六批（系統管理／首頁）
+- 帳號與權限：手機 ModuleSections 分頁、使用者 DataViewToolbar/ListRow，原權限抽屜控制依業務 owner 不變；群組矩陣 cy-rt 並以 shared CSS 還原每個 checkbox 的操作能力，維持桌機的權限 table。
+- 異動紀錄以 DataViewToolbar 和 cy-rt，備份共用 LineTable cy-rt，保留記錄展開和安全確認。首頁待辦／通知預覽 ListRow，其他模組原有 DataView renderCard、Dialog/Field/EntryTable 已符合共用策略，不新增替身。

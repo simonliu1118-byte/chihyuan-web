@@ -87,3 +87,10 @@
 - 人事四頁籤 ModuleSections，員工 DataViewToolbar/ListRow/ActionBar；ERP 類別 ModuleSections 並保持 CategoryJob mounted，未收款與進貨輔助 cy-rt；BOT 審稿憑證表 cy-rt 與手機 OverflowMenu。
 - 清理 HR 舊 720px 表單列 CSS，改由 shared mobile.css；原 API／D1／權限／業務 handler 未動。
 - CI、390px／1440px 實測與 Claude 複審待辦；禁止合併部署。
+
+### 批次 6 — 系統管理與首頁（GPT，2026-11-09）
+- 分支：`cyweb/wo-0.14.1-admin-home`，stacked 於第五批；PR 待建立。
+- 帳號權限手機的主分頁 ModuleSections、使用者清單 ListRow、帳號狀態 DataViewToolbar、群組權限矩陣 cy-rt 並保留 checkbox；異動紀錄 DataViewToolbar/cy-rt，備份歷史 cy-rt；首頁預覽 ListRow。
+- CY 程式清單已經是共用 DataView 的手機 renderCard／桌機 table；我的帳號原本就用共用 Dialog、Field、FormSection，沒有多設業務 owner。
+- 六批的 GitHub PR 供分開審查，尚未獲得 390px／1440px 登入後截圖或 Claude 最終複審證據；用 CI 並不能代替實機驗收。
+- **不合併，不部署**。

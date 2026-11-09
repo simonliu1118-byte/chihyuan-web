@@ -1,0 +1,31 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {readFileSync as read} from "node:fs";
+const identity=read("src/identity/SharedIdentityPage.tsx","utf8");
+const audit=read("src/runtime/modules/AuditOperationalPage.tsx","utf8");
+const backup=read("src/runtime/modules/BackupOperationalPage.tsx","utf8");
+const home=read("src/runtime/modules/HomePage.tsx","utf8");
+const programs=read("src/runtime/modules/ProgramCatalogPage.tsx","utf8");
+const mobile=read("src/ui/mobile/mobile.css","utf8");
+test("identity phone navigation and user list share original permission drawer owner",()=>{
+ assert.match(identity,/<ModuleSections label="帳號與權限"/);
+ assert.match(identity,/<DataViewToolbar searchValue=\{query\}/);
+ assert.match(identity,/<ListRow key=\{employee.employee_id\}/);
+ assert.match(identity,/onClick=\{\(\)=>setDrawerId\(employee.employee_id\)\}/);
+ assert.match(identity,/cy-op-table cy-rt cy-mobile-access-matrix cy-identity-access-table/);
+ assert.match(identity,/onChange=\{\(event\) => toggle\(group, column, event.target.checked\)\}/);
+ assert.match(mobile,/\.cy-rt\.cy-mobile-access-matrix \.cy-access-cell\{display:block/);
+});
+test("audit, backup and home phone presentations keep existing data and actions",()=>{
+ assert.match(audit,/<DataViewToolbar searchValue=\{filters.q\}/);
+ assert.match(audit,/cy-sheet-table cy-rt cy-change-log-table/);
+ assert.match(audit,/onClick=\{\(\)=>\{if\(expandable\)toggle\(item.id\);\}\}/);
+ assert.match(backup,/cy-sheet-table cy-rt cy-mobile-wrap-table cy-backup-table/);
+ assert.match(backup,/data-label=\{column.header\}/);
+ assert.match(backup,/retry\(row.backupId\)/);
+ assert.match(home,/<ListRow key=\{item.id\} title=\{item.title\}/);
+ assert.match(home,/compact\?<ListRow title=\{item.title\}/);
+ assert.match(home,/onNavigate\("announcements",\{tab:kind,id:item.id\}\)/);
+ assert.match(programs,/<DataView ariaLabel="CY 程式清單"/);
+ assert.match(programs,/renderCard=\{program =>/);
+});

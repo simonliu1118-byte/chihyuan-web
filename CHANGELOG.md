@@ -6,6 +6,12 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.14.6 — 全系統手機第二階段：系統管理與首頁（2026-11-09，待審）
+- 帳號與權限在手機以 ModuleSections 顯示兩大工作區，使用者清單採 ListRow、搜尋與帳號狀態篩選採 DataViewToolbar，點列仍開原權限抽屜；權限群組的 checkbox 矩陣用 cy-rt 而不改任何角色／模組權限、鎖定與保存 handler。
+- 異動紀錄手機查詢採 DataViewToolbar，結果用 cy-rt 並保留原欄位展開；備份歷史的共用 LineTable 用 cy-rt 與欄位標籤，原備份／還原／驗證流程及安全確認不變。
+- 首頁待辦、公告、個人通知預覽在手機使用 ListRow、桌機原列表不變；CY 程式已使用共用 DataView renderCard 手機卡片與桌機表格、我的帳號已用共用 Dialog、Field、FormSection，保留原共用元件而不複製第二套。
+- 無 Worker、D1、API、身份授權、安全策略與主版布局變動。CI 與 390px／1440px 實機、Claude 複審待辦；**不合併不部署**。[handoff](docs/handoff/CYWEB-WO-0141-ADMIN-HOME-20261109.md)。
+
 ## CY Web V0.14.5 — 全系統手機第二階段：人事、ERP 查詢與 BOT 管理中心（2026-11-09，待審）
 - 人事手機分頁統一 ModuleSections，員工清單 ListRow，搜尋與狀態 DataViewToolbar，員工修改及存檔 ActionBar、刪除 OverflowMenu；員工詳情、請假、薪資與排班的原業務流程不改。
 - ERP 查詢類別手機透過 ModuleSections，保留每類 CategoryJob 的 keep-mounted、背景查詢與佇列控制；未收款、進貨輔助結果用 cy-rt，進貨輔助手機篩選 DataViewToolbar。

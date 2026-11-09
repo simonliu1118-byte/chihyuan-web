@@ -5,6 +5,9 @@
 
 ## 目前狀態（2026-11-09）
 
+- [ ] **WO-0.14.1 第六批系統管理／首頁**：帳號權限 ModuleSections＋DataViewToolbar＋ListRow、權限群組 cy-rt；異動紀錄查詢與備份 cy-rt；首頁 ListRow。CY 程式與我的帳號已有合適共用元件不複製。CI／390/1440px 截圖與 Claude 審查待驗。六批均保持 Draft、不合併部署。[handoff](docs/handoff/CYWEB-WO-0141-ADMIN-HOME-20261109.md)。
+
+
 - [ ] **WO-0.14.1 第五批人事／ERP／BOT**：HR ModuleSections、ListRow、DataViewToolbar、ActionBar；ERP 類別 ModuleSections keep-mounted、未收款／進貨輔助 cy-rt；BOT 表格 cy-rt 與手機溢出選單。CI／390px／1440px／Claude 複審待驗；不合併部署。[handoff](docs/handoff/CYWEB-WO-0141-HR-ERP-BOT-20261109.md)。
 
 
