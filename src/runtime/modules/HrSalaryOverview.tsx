@@ -4,8 +4,6 @@ import {formatDate} from "../../ui/foundation/format";
 import {Loading} from "../../ui/feedback/Loading";
 import {DataViewToolbar} from "../../ui/data/DataViewToolbar";
 import {useCompactLayout} from "../../ui/foundation/useCompactLayout";
-import {StatusChip} from "../../ui/primitives/StatusChip";
-import {ExpandToggle} from "../../ui/data/ExpandToggle";
 import type {HrPaymentType,HrStatus} from "../../../shared/hr";
 import {taipeiToday} from "../../../shared/erp-query-history";
 
@@ -81,7 +79,7 @@ export function HrSalaryOverview({onRaise,refreshToken}:{onRaise:(id:number,name
       <thead><tr><th>員工編號</th><th>姓名</th><th>門市</th><th>職稱</th><th>計薪</th>
         <th className="num">本薪</th><th>津貼</th><th className="num">月合計</th><th>生效日</th>
         <th className="cy-hr-salary-mobile-meta">手機摘要</th><th>操作</th></tr></thead>
-      <tbody>{shown.map(row=>{
+      {shown.map(row=>{
        const current=todaySalary(row,today),open=expanded.has(row.id);
        const headline=current?current.payment_type==="hourly"?money(current.base_amount)+" /時":money(current.base_amount):"—";
        return <tbody key={row.id} className="cy-hr-salary-group">
@@ -119,7 +117,7 @@ export function HrSalaryOverview({onRaise,refreshToken}:{onRaise:(id:number,name
           </div>:<p className="cy-op-empty">尚無歷次薪資紀錄。</p>}
          </td></tr>:null}
        </tbody>;
-      })}</tbody>
+      })}
     </table>
     {!shown.length?<p className="cy-op-empty">沒有符合條件的員工。</p>:null}
    </div>}
