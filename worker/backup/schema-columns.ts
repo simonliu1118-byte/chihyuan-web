@@ -614,6 +614,26 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "updated_at",
     "updated_by"
   ],
+  "item_online_prices": [
+    "item_id",
+    "platform_id",
+    "price"
+  ],
+  "item_web_platforms": [
+    "id",
+    "is_active",
+    "name",
+    "sort_order",
+    "updated_at",
+    "updated_by"
+  ],
+  "item_wholesale_prices": [
+    "id",
+    "item_id",
+    "price",
+    "sort_order",
+    "unit"
+  ],
   "item_number_history": [
     "change_source",
     "created_at",

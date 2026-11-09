@@ -158,6 +158,7 @@ export interface SettingsSnapshot {
   customerStatuses: readonly LookupSetting[];
   regions: readonly RegionSetting[];
   itemCategories: readonly LookupSetting[];
+  itemPlatforms: readonly LookupSetting[];
   appTags: readonly AppTagSetting[];
   workLogCategories: readonly WorkLogCategorySetting[];
   workLogPlatforms: readonly WorkLogPlatformSetting[];
