@@ -1,6 +1,6 @@
 # WO-0.16.0 商品主檔改成表格式單據，瑕疵併入商品分頁
 
-- 狀態：待執行
+- 狀態：程式實作已提交，等待完整 CI／實際裝置驗收及 Claude 複審（2026-11-09）
 - 分支：`cyweb/wo-0.16.0-items`　PR：#（執行者填）
 - 版號：V0.16.0（若已被占用就用下一個空號，CHANGELOG 同步）
 - 開工前必讀：
@@ -91,5 +91,14 @@
 - [ ] 開 PR 給 Claude 審查。**不要自行合併或部署。**
 
 ## 8. 完成報告（GPT 填）
+
+- 分支：`cyweb/wo-0.16.0-items`（以 V0.15.5 main SHA `1c20ce74317ee7eb9c41ad1519e3dd5cc8aeed86` 為起點）；PR：待建立。
+- 程式：`item/ItemSheet` 共用 RecordSheet 檢視、修改與新增，新增 InlineGridField（網路平台價格格）；批發單位多筆、含稅前端計算、曾用品號與價格 Audit 的修改紀錄視窗。
+- 後端：`0061_item_price_tables` 三表與六個預設平台；ItemRepository／Service／Persistence 的商品價格同版本鎖儲存；SettingsService SUPER_ADMIN 平台維護、HTTP 路由及原權限護欄；三表與種子納入可攜備份。
+- 導覽：瑕疵移入商品頁共用 ModuleSections，原 #defects 可直達，ITEMS／DEFECTS 不混用。
+- 驗證：PR CI 待讀回；**尚無 1440px／390×844 的登入後原始裝置截圖**；Claude 尚未審查。必須把這些驗收項目保持未勾，不能以 CI 取代。
+- 使用者指示：**不合併 PR、不部署，不改動 main 或 deploy 分支。**
+
+
 
 ## 9. 審查紀錄（Claude 填）

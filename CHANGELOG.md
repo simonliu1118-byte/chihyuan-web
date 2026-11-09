@@ -6,6 +6,14 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.16.0 — 商品主檔表格式單據與瑕疵商品分頁（2026-11-09，Draft 待審）
+- 商品明細、建立、修改共用 `RecordSheet`；基準單位及換算整合於第一列，第二列加入批發價、網路價的可編輯格子，未稅成本的含稅顯示僅在畫面計算。
+- 新增共用 `InlineGridField`，商品多筆批發單位價與六預設網路平台價；商品設定能新增、改名、排序、停用平台，後端保留版本鎖及原 ItemService mutation owner。
+- migration `0061_item_price_tables`：網路平台、每平台每商品價、多筆單位批發價三表；異動 `item.price.changed` 對每個價差逐項留 Audit，歷史品號只在商品修改紀錄視窗顯示。
+- 瑕疵從側邊選單移入商品 `ModuleSections`，用既有 ITEMS／DEFECTS 獨立權限及舊 #defects 連結；瑕疵本身不改。
+- 可攜備份同步納入三新表、schema-columns、CURRENT_MIGRATION、空白資料庫 seed guard 與 migration 驗證；沒有改動既有 ERP／其他業務 API。
+- **本版只建立 Draft PR，未合併、未部署**。CI、登入後手機／桌機實測及 Claude 複審以 PR 結果為準。
+
 ## CY Web V0.15.5 — 選單、時間軸與叫貨明細版面（2026-11-09，Claude）
 - 左側選單拿掉「首頁」（按最上方 CY 那列回首頁），「公告與通知」與 ERP 查詢、BOT 管理中心併成同一區，中間不再空一段。
 - BOT 管理中心今日時間軸：› 箭頭改成淡底色「展開／收起」小按鈕，與該列文字同一行對齊（共用 `ExpandToggle` 新增 `variant="text"`）。

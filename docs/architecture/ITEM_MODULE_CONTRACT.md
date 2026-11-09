@@ -163,3 +163,12 @@ This foundation does not yet expose protected Item HTTP routes and does not writ
 - `toUnit` must equal the Item's current `baseUnit`; duplicate `fromUnit` and a base unit reused as `fromUnit` are rejected server-side.
 - Older chained conversion rows are still **readable** using the existing exact rational `unitFactorToBase` traversal; the Item UI flattens every visible source to the base unit and submits only canonical direct-to-base entries on the next edit.
 - These rules are a forward validation change only; there is no data migration or change to inventory transaction semantics.
+
+
+## V0.16.0 商品表格式單據與價格
+- 商品詳情、新增、編輯共用 `src/ui/forms/RecordSheet.tsx`，由 `item/ItemSheet.tsx` 同一 render owner 提供兩列欄位：品號／品名／規格／基準單位含換算；分類／成本／成本稅別／門市／診所／批發／網路價。備註列位於表格下方；第一列的品名與規格同寬。
+- 網路價以共用 `InlineGridField` 管理，每個平台單獨可空白；批發價為多個單位及價格，皆與商品版本鎖同一 mutation batch。任何價格增刪改依項目產生 `item.price.changed` Audit 記錄，曾用品號移到修改紀錄視窗。
+- 新表 `item_web_platforms`（名稱唯一、順序、啟用、六個預設值）、`item_online_prices`（複合主鍵 item/platform）、`item_wholesale_prices`（item/unit 唯一）。價格和既有 items.cost 一律保存 scaled4 整數；百分之五含稅只由檢視 UI 計算，資料庫不儲存。
+- 平台設定路由 `/api/admin/settings/lookups/item_platform`（建立／PATCH／排序）僅 SUPER_ADMIN；Item API `/api/business/items/platforms`、`/:id/price-history` 需 ITEMS 模組權限。停用平台不得新增未存在價格，既有價格仍可展示與編輯。
+- 商品側邊入口同時提供 ITEMS/DEFECTS 權限的主頁，頁內二分頁；各自的權限獨立檢查，舊 `#defects` 深連結不變。瑕疵原版面及業務處理不在本次範圍。
+- migration `0061_item_price_tables` 同步 portable backup schema/seed guard，舊備份缺新表以預設種子和空表對應。
