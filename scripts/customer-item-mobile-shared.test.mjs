@@ -5,6 +5,8 @@ const customer=readFileSync("src/runtime/modules/CustomerOperationalPage.tsx","u
 const item=readFileSync("src/runtime/modules/ItemOperationalPage.tsx","utf8");
 const customerCss=readFileSync("src/runtime/modules/customer-operational.css","utf8");
 const itemCss=readFileSync("src/runtime/modules/item-operational.css","utf8");
+const sheet=readFileSync("src/runtime/modules/item/ItemSheet.tsx","utf8");
+const sheetCss=readFileSync("src/runtime/modules/item/item-sheet.css","utf8");
 const mobileCss=readFileSync("src/ui/mobile/mobile.css","utf8");
 test("customer phone list shares DataViewToolbar filters and ListRow, desktop toolbar remains",()=>{
  assert.match(customer,/const compact = useCompactLayout\(\)/);
@@ -30,7 +32,9 @@ test("item phone list and actions share owners without changing desktop behavior
  assert.match(item,/:<div className="cy-md-toolbar">/);
 });
 test("conversion row uses one shared breakpoint, not the old 560px item stylesheet",()=>{
- assert.match(item,/cy-item-conversion-row cy-mobile-unit-conversion-row/);
+ assert.match(sheet,/cy-item-conversion-mini-row/);
+ assert.match(sheet,/onUpdateConversion\(index,"quantity",value\)/);
+ assert.match(sheetCss,/\.cy-item-conversion-mini-row\{display:grid/);
  assert.match(mobileCss,/\.cy-mobile-unit-conversion-row\{grid-template-columns:16px/);
  assert.doesNotMatch(itemCss,/@media \(max-width: 560px\)/);
 });
