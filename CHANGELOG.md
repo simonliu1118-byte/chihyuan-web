@@ -9,13 +9,13 @@
 ## CY Web V0.12.9 — 進貨輔助重複品項三選一（2026-11-09）
 - 進貨輔助按「加入」，選定草稿若已有同品號、同單位及同區段的開放品項，改顯示「取消／新增一列／加到既有列」三個明確操作。
 - 按「取消」不發送品項寫入請求、不更新上次來源、不顯示加入成功；「新增一列」與「加到既有列」沿用原本儲存路徑及數量合併規則。
-- 僅修改進貨輔助共用對話框，桌機與手機同一行為，無新 API／D1／權限或架構路徑。測試和審查詳見 [handoff](docs/handoff/CYWEB-RESTOCK-DUPLICATE-CANCEL-0129-20261109.md)。
+- 僅修改進貨輔助共用對話框，桌機與手機同一行為，無新 API／D1／權限或架構路徑。測試和審查詳見 [handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-RESTOCK-DUPLICATE-CANCEL-0129-20261109.md)。
 
 ## CY Web V0.12.8 — 手機叫貨清單精簡（2026-11-09）
 - 手機模組抽屜刪除重複「模組選單」可見標題；CY Web 品牌行右側保留關閉按鈕，BOT 管理中心新增專屬機器人線條圖示（桌機與手機皆顯示）。
 - 手機叫貨清單搜尋、篩選、顯示未結案同一列；未到貨每品項改為品號／品名及數量／操作兩行；草稿公司來源／廠商改成薄分隔線密集清單，維持原來源和 orderedVendors 個人排序。
 - 僅前端 presentation 與測試，不改業務資料、API、Worker、D1、CYID、Excel 分享／下載流程。桌機 UI 排版及操作原樣保留，BOT 導覽僅增加辨識圖示。
-- 使用者已授權合併與部署；驗證和 Claude 複審狀態見 [handoff](docs/handoff/CYWEB-MOBILE-ORDERING-DENSITY-0128-20261109.md)。
+- 使用者已授權合併與部署；驗證和 Claude 複審狀態見 [handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-MOBILE-ORDERING-DENSITY-0128-20261109.md)。
 
 ## CY Web V0.12.7 Build 1 — 手機叫貨導覽修正（2026-11-08，已合併部署）
 
@@ -24,21 +24,21 @@
 - 「草稿」先列既有啟用的公司來源與廠商列表，點選後使用同一 `GET /drafts/open?sourceId=` 與原草稿編輯器；保留同來源多張草稿及新草稿功能。不再為手機額外請求 `GET /orders?status=DRAFT` 全量清單。
 - 叫貨清單手機搜尋常駐、詳細來源／狀態／日期篩選可展開；桌機的雙欄、清單欄位、完整篩選器、原來源／廠商頁籤原樣保留。所有畫面仍共用 `OrderingPage`、`OrderingGrid` 及未儲存切換保護。
 - 手機單據「匯出 Excel」改成「分享 Excel」，使用原生檔案分享（iPhone Safari 分享選單，含 LINE／AirDrop／檔案等可用目標）；瀏覽器沒有檔案分享能力、或分享失敗時備援下載相同 XLSX。取消分享不觸發下載。草稿剛有修改時，在同一次點擊內由系統自動完成儲存，再嘗試開啟原生分享；若 Safari 因背景儲存失去分享權限，就下載最新 XLSX 作為備援，不要求固定點第二次。按鈕始終顯示「分享 Excel」；桌機原 Blob/下載連結流程及 Excel 內容/命名不變。
-- **本次獲使用者明確授權合併及部署此手機版 PR**；無 Worker、API、CYID、D1 變動，Claude 複審與手機、桌機實機驗收待完成。[handoff](docs/handoff/CYWEB-MOBILE-ORDERING-NAV-0127B1-20261108.md)。
+- **本次獲使用者明確授權合併及部署此手機版 PR**；無 Worker、API、CYID、D1 變動，Claude 複審與手機、桌機實機驗收待完成。[handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-MOBILE-ORDERING-NAV-0127B1-20261108.md)。
 
 ## CY Web V0.12.7 Build 0 — 獨立手機版調整（2026-11-08，首頁功能不在本次）
 
 - 手機模組側欄縮到 264px；頂部深淺切換改無框日月符號、收斂頂欄間距。桌機原操作方式維持。
 - ERP 查詢連線狀態改小 pill，點擊仍開原管理 Dialog；手機查詢類別由下拉改共用橫滑頁籤，保留背景查詢。
 - 叫貨手機預設「草稿」清單，可直接搜尋、開啟、新增；頂部「草稿／未到貨／叫貨紀錄」三入口；手機用既有 Grid 和 data-label 組出可編輯的卡片式明細，不改保存／送出／版本控制。
-- 此版是從 **main V0.12.6** 獨立抽出的手機 UI PR，與 #457 首頁／公告／個人待辦、#458 疊加 PR 分開。**不含 D1 0059，不發佈首頁**。詳見 [handoff](docs/handoff/CYWEB-MOBILE-ONLY-0127-20261108.md)。
+- 此版是從 **main V0.12.6** 獨立抽出的手機 UI PR，與 #457 首頁／公告／個人待辦、#458 疊加 PR 分開。**不含 D1 0059，不發佈首頁**。詳見 [handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-MOBILE-ONLY-0127-20261108.md)。
 
 ## CY Web V0.12.6 Build 0 — BOT 完成時間軸單行收合與視窗精簡（2026-11-08，待 PR／CI／審查）
 
 - 今日完成時間軸（首頁五筆與「查看全部」）每筆預設單行省略；實際文字超出時才顯示共用 ExpandToggle，小箭頭展開全文或收合。保留相同分鐘共用時間點、事件原順序與分頁讀取。
 - Threads 巡視回報摘要卡只顯示最新事項標題（如「11/8 中午 Threads 海巡完成，10 則草稿已傳王麗媛審核」），不重複呈現 detail；完整詳情仍保留在時間軸供展開。
 - 社群小編推播設定視窗從 620px 縮至 414px（約少三分之一）；BOT 設定從 900px 縮至 720px（少 20%），同步縮小憑證表格最小寬與操作內距，窄螢幕仍可橫向捲動。
-- 無 API、Worker、D1、資料、推播、認證或憑證邏輯變更。測試與 Claude 審查結果見 [handoff](docs/handoff/CYWEB-BOT-CENTER-COMPACT-0126-20261108.md)；未獲本次部署授權前不更新正式站。
+- 無 API、Worker、D1、資料、推播、認證或憑證邏輯變更。測試與 Claude 審查結果見 [handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-BOT-CENTER-COMPACT-0126-20261108.md)；未獲本次部署授權前不更新正式站。
 
 ## CY Web V0.12.5 Build 0 — BOT 管理中心資訊密度與表格式視窗（2026-11-08，PR #453 已合併／待正式部署）
 
@@ -46,7 +46,7 @@
 - 今日完成時間軸移入頂部卡片，僅呈現最新五筆；「查看全部」開共用 Dialog，依既有游標載入更多。相同台灣時間分鐘的事件共用一個時間／藍點，逐件內容仍全部呈現。
 - 保留原底部 BOT 當日摘要卡；超級管理員可在原「BOT 設定」表格操作欄「啟用／停用」推播（停用需確認），另可進入「推播設定」或產生／輪換／撤銷獨立憑證，沒有自動更動憑證。
 - 推播設定 Modal 和新增 BOT Modal 都採共用 EntryTable／EntryHeading／Field 的「左表頭右輸入」兩列表格式；推播設定不再含啟用 checkbox，編輯 URL／key 時保持既有 enabled 狀態，新增設定先維持停用，啟用須從 BOT 設定表格操作欄明確操作。原 Webhook URL、key 空白保留，不讀回明文。
-- 純前端調整，未修改 Worker、API、D1 migration 或主加密金鑰。[Runtime #42408293481](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42408293481) 718/718 Node、D1 本機驗收、型別、來源與 Vite build 成功，Governance 與部署契約全數成功；PR #453 合併 main（8cbd17da）。**正式部署未觸發**，Claude 事後審查與桌機／手機 UI 驗收待辦。詳見 [handoff](docs/handoff/CYWEB-BOT-CENTER-UI-0125-20261108.md)。
+- 純前端調整，未修改 Worker、API、D1 migration 或主加密金鑰。[Runtime #42408293481](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42408293481) 718/718 Node、D1 本機驗收、型別、來源與 Vite build 成功，Governance 與部署契約全數成功；PR #453 合併 main（8cbd17da）。**正式部署未觸發**，Claude 事後審查與桌機／手機 UI 驗收待辦。詳見 [handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-BOT-CENTER-UI-0125-20261108.md)。
 
 ## CY Web V0.12.4 Build 1 — BOT 審核結果推播（2026-11-08，已部署／Claude 事後複審待辦）
 
@@ -60,43 +60,43 @@
 - 每 BOT 的獨立憑證由伺服器綁定身份，輪換／撤銷互不影響，禁止跨 BOT 讀寫。0057 原樣保存小編原憑證的雜湊及時間，不重新產生；明文仍只顯示一次、可攜備份仍排除憑證。
 - 版面改為待審核 → 四張工作摘要 → 同行完成時間軸 → 四張當日 BOT 摘要；移除提示灰字與卡片操作／展開。通過直接儲存、退回必填理由。新文章／Threads 巡視按明確完成分類及完整台灣當日統計；拍板結案只保留卡片，不接後臺。
 - complete 增工作分類與 eventRef 伺服器去重，舊資料仍為 general；回報仍使用持久收據，斷線結果不明不重送。Grok check 驗證實際憑證歸屬、general 舊收據相容，工具／技能／設定說明同步。WEB＋0057 須先部署，再用新版工具；推播留下一輪。
-- 本機54項、技能／schema／build及完整CI通過。使用者本輪授權後PR #447合併，[部署 #42391275622](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42391275622)成功；0057、兩端健康／來源及HTTPS／session／排程／portal驗證通過，正式source=`e2f50177d4e4d1162644c604a40dc41a4cb3f39e`。未取得／輪換明文key、不改CYapps；Claude事後複審與新版UI／原key實機驗收待辦。[handoff](docs/handoff/CYWEB-GROK-REPORTER-0123-20261107.md)。
+- 本機54項、技能／schema／build及完整CI通過。使用者本輪授權後PR #447合併，[部署 #42391275622](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42391275622)成功；0057、兩端健康／來源及HTTPS／session／排程／portal驗證通過，正式source=`e2f50177d4e4d1162644c604a40dc41a4cb3f39e`。未取得／輪換明文key、不改CYapps；Claude事後複審與新版UI／原key實機驗收待辦。[handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-GROK-REPORTER-0123-20261107.md)。
 
 ## CY Web V0.12.2 — BOT 工作總覽（2026-11-07，已部署）
 
 - BOT 管理中心由上至下為今日總覽、全寬「待我審核」共用表格（每件一列、無展開）、各 BOT 工作卡片、獨立全寬完成時間軸；BOT 篩選同步連動，回報與設定使用共用短視窗，BOT 卡片桌機兩欄、手機單欄，沿用 CYWEB 色彩與元件。
 - 每 BOT 今日完成／待審與各審稿狀態使用完整統計，不受 50 筆游標分頁截斷；台灣午夜日期邊界、BOT 篩選及分頁維持一致。0056 僅新增篩選／統計索引，備份 migration marker 同步，沒有新業務表或外部服務。
-- 30 秒仍僅讀進度，沒有歷史輪詢；審稿、憑證與模組權限邊界不變。相關 38 項測試、最終完整 CI、型別與建置及桌機／手機合成預覽通過。使用者本輪授權後，PR #445 合併，[發布 #42371824288](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42371824288) 成功，正式 source=`d418970210730b8cc286f22289a25dfe1fc07cfe`、BUILD=0；0056、兩端健康／來源及 HTTPS／排程／portal 驗證通過。Claude 事後複審與實機驗收仍待辦，詳見 [handoff](docs/handoff/CYWEB-BOT-OVERVIEW-0122-20261107.md)。
+- 30 秒仍僅讀進度，沒有歷史輪詢；審稿、憑證與模組權限邊界不變。相關 38 項測試、最終完整 CI、型別與建置及桌機／手機合成預覽通過。使用者本輪授權後，PR #445 合併，[發布 #42371824288](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42371824288) 成功，正式 source=`d418970210730b8cc286f22289a25dfe1fc07cfe`、BUILD=0；0056、兩端健康／來源及 HTTPS／排程／portal 驗證通過。Claude 事後複審與實機驗收仍待辦，詳見 [handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-BOT-OVERVIEW-0122-20261107.md)。
 
 ## CY Web V0.12.1 — 盤點紀錄與 ERP 清除同步歸檔（2026-11-07，已部署）
 
 - 新增「盤點紀錄」共用表格視窗，日期／單號／初盤與複盤人員占 30%，盤點內容 70% 顯示品號品名並折行；展開區沿用門市訂購的紀錄串呈現確認及歸檔事件，移除品項差異明細表，展開不另讀資料。
 - 完整同步成功且新版 Agent 明確回報 listComplete=true，才將本次請求已知、ERP 已消失的同代底稿轉入紀錄；保存摘要與差異後才清除作業明細及逐列修改紀錄。同一 D1 batch，失敗整批回滾。
 - 0055 新增四張紀錄表，納入備份；多人／多儲位數量用精確萬分位，未完成複盤不冒充最終數量。單號重用可保留多次歷史，寫回中不歸檔，單張刷新不影響其他底稿。
-- 使用者授權只合併部署 WEB；CYERPAutoQuery 程式變更已撤回，只在該專案留需求 handoff 交 Claude。配套須驗證 F2 完整清單及明確 0/0，版本由 Claude 決定；舊 Agent 可同步但不觸發歸檔。WEB PR #443 合併，正式 source=`4509f93ab6bd444f725cdebfdf0a2f9c36f7b1f5`、BUILD=0，[發布 #42347693527](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42347693527) 成功，migration 0055、兩端健康／來源、HTTPS、排程與正式 portal 驗證通過。Claude 事後複審與實機驗收仍待辦，見 [handoff](docs/handoff/CYWEB-STOCKTAKE-RECORDS-0121-20261107.md)。
+- 使用者授權只合併部署 WEB；CYERPAutoQuery 程式變更已撤回，只在該專案留需求 handoff 交 Claude。配套須驗證 F2 完整清單及明確 0/0，版本由 Claude 決定；舊 Agent 可同步但不觸發歸檔。WEB PR #443 合併，正式 source=`4509f93ab6bd444f725cdebfdf0a2f9c36f7b1f5`、BUILD=0，[發布 #42347693527](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42347693527) 成功，migration 0055、兩端健康／來源、HTTPS、排程與正式 portal 驗證通過。Claude 事後複審與實機驗收仍待辦，見 [handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-STOCKTAKE-RECORDS-0121-20261107.md)。
 
 ## CY Web V0.12.0 Build 1 — BOT 管理中心（2026-11-07，GPT）
 
-- 文件現況同步（2026-11-07）：README 改指向 TODO 的唯一正式版本／部署證據，移除 V0.9.93／migration 0045 過時快照；補齊 BOT／盤點等已部署功能的現況、待 Claude 複審與實機驗收。WO-0.9.94 兩段既有審查已完成，交接移至固定 Git 快照；WO-0.10.24 同步為已部署、待事後複審。只改文件，不升版、不重新部署，詳見 [handoff](docs/handoff/CYWEB-DOCS-CURRENT-0120-20261107.md)。
+- 文件現況同步（2026-11-07）：README 改指向 TODO 的唯一正式版本／部署證據，移除 V0.9.93／migration 0045 過時快照；補齊 BOT／盤點等已部署功能的現況、待 Claude 複審與實機驗收。WO-0.9.94 兩段既有審查已完成，交接移至固定 Git 快照；WO-0.10.24 同步為已部署、待事後複審。只改文件，不升版、不重新部署，詳見 [handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-DOCS-CURRENT-0120-20261107.md)。
 - 新增獨立 BOT 管理中心模組 `#bot-center`，接在 ERP 查詢後。超級管理員可直接使用；一般使用者需 `BOT_CENTER` 授權。
 - 顯示 BOT 進度、審稿、回報及今日完成時間軸。審稿通過或退回只寫入結果，供原 BOT 讀取，不發布、不排隊、不啟用自動回覆。
 - 修正初版的五項整合審核：BOT migration 排為 `0054_bot_center` 並保留已合併的 `0053_store_equipment_category`；機器憑證輪換／撤銷只允許超級管理員；進度自動及手動更新；審稿／回報／時間軸加入可用的逐頁載入；初始 BOT 僅在缺漏時寫入。
 - Build 1 修正並行審稿：以同一原子批次的實際更新筆數判定勝出者，只有真正更新者寫入一筆 Audit；同毫秒重複送出回傳 409，不再把未儲存的理由記成成功。
 - 自動刷新改走只讀 BOT 進度及憑證狀態的 `/api/bot-center/progress`，不再每 30 秒掃描歷史審稿統計或讀取審稿／回報／完成內容。初次載入、手動完整刷新及分頁行為不變。
-- 同步 portable backup、資料字典、權限與測試；依使用者授權，#440、#438 已合併並由 Deployment #42253210792 成功發布。正式健康回讀 version=0.12.0、source=e7530c07、database=ok；最新 Ubuntu CI 全部成功。本機 Claude 未登入，事後複審及使用者實機驗收仍待辦，見 [handoff](docs/handoff/CYWEB-BOT-CENTER-0120-20261106.md)。
+- 同步 portable backup、資料字典、權限與測試；依使用者授權，#440、#438 已合併並由 Deployment #42253210792 成功發布。正式健康回讀 version=0.12.0、source=e7530c07、database=ok；最新 Ubuntu CI 全部成功。本機 Claude 未登入，事後複審及使用者實機驗收仍待辦，見 [handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-BOT-CENTER-0120-20261106.md)。
 
 ## CY Web V0.11.6 — 盤點批號刪除圖示位置（2026-11-06，GPT，待審查）
 
 - 門市庫存盤點中，原本在「操作」欄容易折行的「刪除批號」文字按鈕改為「批號」欄旁的共用垃圾桶圖示，與批號同列不折行；右側操作欄只保留修改紀錄等操作。
 - 手機版盤點卡的新增批號旁也直接呈現刪除圖示，不需展開操作選單。按鈕保留無障礙名稱、危險操作提示、既有刪除確認流程及新增批號／盤點狀態限制。
 - 返修：補上「初盤確認後」複盤表格漏顯示的 ERP 帳面數量欄，手機亦在批號下方顯示。批號合計不是單一儲位量；初盤盲盤及 Worker 權限不變。
-- UI-only 變更，不涉及 Worker、ERP、D1 或備份契約。PR #440 已依使用者授權合併 main（197f0a67）；CI 與本機 36 項相關測試通過，已隨 V0.12.0 Build 1 成功發布（Deployment #42253210792），Claude 事後複審與桌機／手機目視驗收仍待辦。[handoff](docs/handoff/CYWEB-STOCKTAKE-BATCH-DELETE-0116-20261106.md)。
+- UI-only 變更，不涉及 Worker、ERP、D1 或備份契約。PR #440 已依使用者授權合併 main（197f0a67）；CI 與本機 36 項相關測試通過，已隨 V0.12.0 Build 1 成功發布（Deployment #42253210792），Claude 事後複審與桌機／手機目視驗收仍待辦。[handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-STOCKTAKE-BATCH-DELETE-0116-20261106.md)。
 
 ## CY Web V0.11.5 — ERP Session 無結果時不顯示舊查詢卡（2026-11-06，GPT）
 
 - 已完成的 ERP 查詢若伺服器結果已清除，且此分頁 Session 沒有相同查詢 ID 的結果，就隱藏整張空白完成卡；有相同 ID 的本機資料仍可恢復。
 - 保留查詢中、失敗、查無資料及未清除的結果，不改 ERP Worker、Agent、D1 或資料保存期限。
-- PR #439 依使用者本次合併發布指示處理；Claude 事後複審與實機驗收仍待辦，見 [handoff](docs/handoff/CYWEB-ERP-SESSION-CLEARED-0115-20261106.md)。
+- PR #439 依使用者本次合併發布指示處理；Claude 事後複審與實機驗收仍待辦，見 [handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-ERP-SESSION-CLEARED-0115-20261106.md)。
 
 ## CY Web V0.11.4 — 出機類別、財產編號與維護視窗改善（2026-11-06，GPT，待審查）
 
@@ -104,45 +104,45 @@
 - 機身各列在製造年月右側新增財產編號；清單操作新增獨立「補填財產編號」，只更新該筆機身資料的 assetNumber、版本、事件與 Audit，不更動排程、保固或其他主檔欄位。
 - 清單縮窄品牌／機型並將預計維護月份移至主表；明細展開只保留項次、機身序號、製造年月及財產編號四欄，限制展開表寬度。預計維護標題及年月改為正常黑字。
 - 三年維護矩陣的年度切換改用 〈／〉，搜尋工具列內顯示載入狀態、不額外插入會推動表格的載入列；維護日期編輯器沿用門市顧客訂購格內浮動視窗，不再增加展開編輯列。
-- Forward migration 0053 為出機主檔增加類別與自訂類別欄位；財產編號存於現有 machines_json，補齊 portable backup migration／欄位契約。驗收狀態及風險見 [handoff](docs/handoff/CYWEB-EQUIPMENT-CATEGORY-ASSETS-0114-20261106.md)。
+- Forward migration 0053 為出機主檔增加類別與自訂類別欄位；財產編號存於現有 machines_json，補齊 portable backup migration／欄位契約。驗收狀態及風險見 [handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-EQUIPMENT-CATEGORY-ASSETS-0114-20261106.md)。
 - PR #437 已於 2026-11-06 合併 main（1e6b1436），CI 654/654 成功；正式部署、Claude 事後複審及使用者實機確認仍待辦。
 
 ## CY Web V0.11.3 — ERP 未收款共用表格（2026-11-05，GPT）
 
 - 未收款客戶清單與展開明細統一共用 `cy-op-table`，並採用共用 `ExpandToggle`；客戶編號10碼、名稱10中文字、金額6位數不折行。
 - `ErpQueryRows` 加入可選共用表格模式，保留既有25筆分頁及憑證點擊；其他 ERP 查詢預設呈現不變。
-- 不變更 ERP Agent／API／D1／查詢計算；待 PR CI 與 Claude 審查，未合併部署。詳見 [handoff](docs/handoff/CYWEB-ERP-RECEIVABLE-TABLE-0113-20261105.md)。
+- 不變更 ERP Agent／API／D1／查詢計算；待 PR CI 與 Claude 審查，未合併部署。詳見 [handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-ERP-RECEIVABLE-TABLE-0113-20261105.md)。
 
 ## CY Web V0.11.2 — 出機表單與保固年月交互調整（2026-11-05，GPT，待審查）
 
 - 出機第一列併入銷售日期、數量；保固起訖同欄與月數雙向日曆計算，定期維護使用需／無須互斥單選，機身列直接接續表頭表身。
 - 共用 DateInput 新增 YYYY/MM 年月模式供製造年月使用；保固月數維持含起日、到期日前一天（5/15＋3月＝8/14），起訖回算月數無條件進位。
-- 僅調整前端、共用日期／計算、測試與現行契約；無 D1 migration、API 資料格式與正式部署變動。驗證結果與 Claude 審查見 [handoff](docs/handoff/CYWEB-EQUIPMENT-FORM-0112-20261105.md)。本版尚未合併與部署。
+- 僅調整前端、共用日期／計算、測試與現行契約；無 D1 migration、API 資料格式與正式部署變動。驗證結果與 Claude 審查見 [handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-EQUIPMENT-FORM-0112-20261105.md)。本版尚未合併與部署。
 
 ## CY Web V0.11.1 — 三年定期維護矩陣（2026-11-05，GPT）
 
 - 依後續新設計改成客戶×三年月份矩陣：預計圓圈、逾期警示、跨月去向與實際月份日期；同日多筆只顯示一個日期，點開逐筆修改，不同日期分行。
 - 沿用共用日期／備註與操作紀錄；新登記日期必填，舊無日期資料保留補填入口。客戶50筆分頁，歷程展開才讀，儲存直接更新單筆回應。
-- 0052只新增索引、備份版本同步；本機23項相關測試、型別、來源檢查與建置通過。完整測試的平台限制及CI／部署狀態見 [handoff](docs/handoff/CYWEB-MAINTENANCE-MATRIX-0111-20261105.md)。PR #431 已依使用者本功能特例合併部署，完整Linux CI及正式健康檢查通過；Claude待事後複審。
+- 0052只新增索引、備份版本同步；本機23項相關測試、型別、來源檢查與建置通過。完整測試的平台限制及CI／部署狀態見 [handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-MAINTENANCE-MATRIX-0111-20261105.md)。PR #431 已依使用者本功能特例合併部署，完整Linux CI及正式健康檢查通過；Claude待事後複審。
 
 ## CY Web V0.11.0 — 出機紀錄與定期維護（2026-11-05，GPT）
 
 - 售後維修同層切換門市送修／出機紀錄／定期維護；完整新增出機、保固、跨年維護排程與同院同月到訪彙整，故升 Minor。
 - 客戶編號可空；未填時鎖定不需維護並有tooltip。到訪沿用共用日期／無日期＋單行備註，不逐台檢核；完成摘要與日期保留，可更正與追溯。
 - 五個新表納入0051 migration與portable backup；既有售後維修使用權、原子版本防護及防重送。清單／歷程分頁，不預抓所有序號或操作紀錄。
-- 61項相關測試、來源驗證、型別與建置通過；本機19組D1驗收PASS，Windows限制及畫面見 [handoff](docs/handoff/CYWEB-EQUIPMENT-MAINTENANCE-0110-20261105.md)。PR #429 已依使用者特例合併部署；完整Linux CI及正式健康檢查通過，Claude待事後複審。
+- 61項相關測試、來源驗證、型別與建置通過；本機19組D1驗收PASS，Windows限制及畫面見 [handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-EQUIPMENT-MAINTENANCE-0110-20261105.md)。PR #429 已依使用者特例合併部署；完整Linux CI及正式健康檢查通過，Claude待事後複審。
 
 ## CY Web V0.10.25 — 售後維修清單微調（2026-11-05，GPT）
 
 - 客戶編號/姓名欄加寬至 12em，差額從故障狀況欄吸收；列印移至操作紀錄左邊。
 - 型別、建置與相關 40 項測試通過；合成畫面驗證六碼編號＋七字名稱單行，列印及紀錄按鈕正常。
-- PR #427 已依使用者授權合併部署，正式站健康檢查通過；Claude 待事後複審，驗證與發布證據見 [handoff](docs/handoff/CYWEB-REPAIR-LIST-01025-20261105.md)。
+- PR #427 已依使用者授權合併部署，正式站健康檢查通過；Claude 待事後複審，驗證與發布證據見 [handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-REPAIR-LIST-01025-20261105.md)。
 
 ## CY Web V0.10.24 — 門市步驟鎖定與物流顯示（2026-11-04，GPT，待 Claude 審查）
 
 - 售後維修及訂購登記下一步後，前一步日期與細節唯讀；維修仍可開格子檢視，API 同步拒絕更正。無日期同樣鎖定，退回後恢復修改，既有取消及猶豫規則不變。
 - 送廠與寄送歸還帶回物流及寄送編號，目前最後一步可更正並留下事件及稽核；手機展開流程格佔整欄，避免物流欄擠壓及日期按鈕撐高。
-- 相關測試 79/79、型別／建置／來源檢查通過；完整測試與本機 D1 的 Windows 限制及畫面證據見 [handoff](docs/handoff/CYWEB-WO-0.10.24-STEP-LOCK-20261104.md)。未合併、未部署。
+- 相關測試 79/79、型別／建置／來源檢查通過；完整測試與本機 D1 的 Windows 限制及畫面證據見 [handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-WO-0.10.24-STEP-LOCK-20261104.md)。未合併、未部署。
 
 ## CY Web V0.10.23 — 售後維修產品欄加寬（2026-11-04，Claude）
 - 產品欄加寬，例如「明宏低周波Alpha-2000」可一行放下；多出空間仍由故障狀況吸收。

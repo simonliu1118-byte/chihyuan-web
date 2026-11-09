@@ -60,7 +60,7 @@
 
 `check` 用 identity 驗證歸屬；complete 將固定 eventId 傳為 eventRef，general 舊收據相容。report 仍只有本機收據，斷線結果不明時不刪收據或換編號重送。工具沒有員工登入、自行審核或發布命令；核准後的外部操作仍按使用者與 Grok 授權。
 
-V0.12.4 Build 1 在審核落庫後喚醒既有 Grok routine；推播沒有核准權威，BOT 仍須認證讀取結果。小編 pilot 只測試送審 → 人工核准 → 完成回報，不對外發文、不計入文章／巡視卡片。發布與審查證據見 [TODO](../../TODO.md)、[handoff](../handoff/CYWEB-GROK-REPORTER-0123-20261107.md)。
+V0.12.4 Build 1 在審核落庫後喚醒既有 Grok routine；推播沒有核准權威，BOT 仍須認證讀取結果。小編 pilot 只測試送審 → 人工核准 → 完成回報，不對外發文、不計入文章／巡視卡片。發布與審查證據見 [TODO](../../TODO.md)、[handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-GROK-REPORTER-0123-20261107.md)。
 
 ## 審核結果推播（0058）
 

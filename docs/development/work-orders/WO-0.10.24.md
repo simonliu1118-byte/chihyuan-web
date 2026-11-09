@@ -1,6 +1,6 @@
 # WO-0.10.24 門市流程：下一步登記後上一步鎖定、送廠物流顯示
 
-- 狀態：**已合併部署，待 Claude 事後複審**（2026-11-07 核對；原工單 2026-11-04 Claude 開立，執行者：GPT）。PR #426 已合併，包含於目前 V0.12.0 Build 1；發布證據見 [Deployment #42253210792](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42253210792)。本次僅同步狀態，不代填 §9 審查結論。
+- 狀態：**已結案**（V0.10.24 合併部署；Claude 2026-11-09 事後複審通過，見 §9）。下次文件整理移出主線。
 - 分支：`cyweb/wo-0.10.24-step-lock`；版號：V0.10.24（若已被占用就用下一個空號，CHANGELOG 同步）
 - 開工前必讀：`docs/architecture/UI_COMPONENT_CATALOG.md`、`docs/architecture/STORE_REPAIRS.md`、`docs/architecture/STORE_CUSTOMER_ORDERS.md`
 
@@ -58,10 +58,13 @@
 - 指定 tsc、typecheck、build、validate:source 通過；三支相關測試 79/79。完整測試 622 項中 611 通過、11 個失敗在 main 原版重現。
 - 本機 D1 migrations、18 組 Worker／D1 及舊 session 表檢查均 PASS，但清理暫存檔遇 Windows WinError 32，指令非 exit 0；完整 Node 與 D1 命令已由 Linux CI 通過。
 - 實際元件合成畫面：送廠可改／鎖定、檢測鎖定、訂購上一步停用、歸還物流及手機版。沒有操作正式資料。
-- [handoff](../../handoff/CYWEB-WO-0.10.24-STEP-LOCK-20261104.md) 列出逐檔影響、測試限制、六張截圖及雜湊；PR #426 已合併部署，Claude 事後複審與實機驗收待辦。
+- [handoff](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff/CYWEB-WO-0.10.24-STEP-LOCK-20261104.md) 列出逐檔影響、測試限制、六張截圖及雜湊；PR #426 已合併部署，Claude 事後複審與實機驗收待辦。
 
 - [x] [Runtime Check #950](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/41833994288)：指定型別、來源驗證、完整 Node、本機 D1、建置均成功（產品提交 606cfaee）；Governance 與部署契約檢查成功。部署工作為 skipped，沒有正式操作。
 
 ## 9. 審查紀錄（Claude 填寫）
 
-待 Claude 審查，GPT 未代填通過。
+- 2026-11-04（合併前）、2026-11-09（事後複審）：**通過**，審查者 Claude。
+- 鎖定判斷前後端共用（`repairStepLocked`），退回清掉該步日期後即解鎖；訂購以有效狀態判定，保留歷史日期。
+- 物流在目前步驟可改並寫事件／稽核，鎖定時唯讀只留「關閉」。取消、未接通、結案猶豫期規則未受影響。
+- 本機 tsc／validate:source／全部測試與 CI 通過。沒有審查者直接修正的項目。完整紀錄見 [審查紀錄](../../handoff/CYWEB-CLAUDE-REVIEW-20261109.md)。
