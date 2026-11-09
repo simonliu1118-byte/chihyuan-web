@@ -15,7 +15,12 @@ try {
     platform: "node", format: "esm", jsx: "automatic", packages: "external",
     plugins: [{ name: "hook-host", setup(build) {
       build.onResolve({ filter: /^\.\/overlays\/Dialog$/ }, () => ({ path: "dialog", namespace: "dialog-boundary" }));
-      build.onLoad({ filter: /.*/, namespace: "dialog-boundary" }, () => ({ contents: "export const Dialog=()=>null;" }));
+      build.onResolve({ filter: /^\.\/foundation\/useCompactLayout$/ }, () => ({ path: "layout", namespace: "dialog-boundary" }));
+      build.onResolve({ filter: /^\.\/forms\/Field$/ }, () => ({ path: "forms", namespace: "dialog-boundary" }));
+      build.onLoad({ filter: /.*/, namespace: "dialog-boundary" }, args => ({ contents:
+        args.path==="layout"?"export const useCompactLayout=()=>false;":
+        args.path==="forms"?"export const Field=()=>null,FormSection=()=>null;":
+        "export const Dialog=()=>null,BottomSheet=()=>null;" }));
       build.onResolve({ filter: /^react$/ }, () => ({ path: "react", namespace: "hook-host" }));
       build.onLoad({ filter: /.*/, namespace: "hook-host" }, () => ({ contents:
         ["useState", "useRef", "useEffect"].map(name =>
