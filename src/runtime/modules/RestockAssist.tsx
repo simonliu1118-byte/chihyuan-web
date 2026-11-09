@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {IconButton} from "../../ui/actions/IconButton";
 import {Icons} from "../../ui/actions/icons";
 import {useCompactLayout} from "../../ui/foundation/useCompactLayout";
+import {DataViewToolbar} from "../../ui/data/DataViewToolbar";
 import {DateInput} from "../../ui/forms/DateInput";
 import {apiRequest} from "../../api/client";
 import {Dialog} from "../../ui/overlays/Dialog";
@@ -72,6 +73,7 @@ const sorters: Record<Sort, (a: Row, b: Row) => number> = {
 };
 
 function RestockTable({ from, to, items, canQueryItem, canOrdering, daily, onDailyChange, onAdded }: { from: string; to: string; items: readonly ErpRestockItem[]; canQueryItem: boolean;canOrdering:boolean;daily:boolean;onDailyChange:(value:boolean)=>void;onAdded:(message:string)=>void }) {
+  const compact=useCompactLayout();
   const days = useMemo(() => rangeDays(from, to), [from, to]);
   const rows = useMemo<Row[]>(() => items.map(item => {
     const net = Number(item.sold) - Number(item.returned);
@@ -90,7 +92,14 @@ function RestockTable({ from, to, items, canQueryItem, canOrdering, daily, onDai
   }, [rows, filter, sort, shortOnly]);
   const shortCount = rows.filter(r => r.short).length;
   return <>
-    <div className="cy-restock-tools">
+    {compact?<DataViewToolbar searchValue={filter} onSearchChange={setFilter} searchLabel="篩選品號或品名"
+      searchPlaceholder="篩選品號或品名"
+      filters={<><label>排序 <select className="cy-op-input" value={sort} onChange={e=>setSort(e.target.value as Sort)}>
+        {SORTS.map(x=><option key={x.key} value={x.key}>{x.label}</option>)}
+      </select></label><CheckField label={`只看庫存不足（${shortCount}）`} checked={shortOnly} onChange={e=>setShortOnly(e.target.checked)}/></>}
+      activeFilterCount={shortOnly||sort!=="SHORT"?Number(shortOnly)+Number(sort!=="SHORT"):0}
+      resultSummary={`共 ${rows.length} 個品號${shown.length!==rows.length?`（顯示 ${shown.length} 個）`:""}`}/>
+      :    <div className="cy-restock-tools">
       <input className="cy-op-input" type="search" value={filter} placeholder="篩選品號或品名" aria-label="篩選品號或品名" onChange={e => setFilter(e.target.value)} />
       <label>排序 <select className="cy-op-input" value={sort} onChange={e => setSort(e.target.value as Sort)}>
         {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}</select></label>
@@ -98,9 +107,9 @@ function RestockTable({ from, to, items, canQueryItem, canOrdering, daily, onDai
       <span className="cy-restock-daily-toggle"><CheckField label="顯示每日明細" checked={daily} onChange={e=>onDailyChange(e.target.checked)}/></span>
       </div>
       <span className="cy-restock-count">共 {rows.length} 個品號{shown.length !== rows.length ? `（顯示 ${shown.length} 個）` : ""}</span>
-    </div>
+    </div>}
     <div className="cy-restock-scroller" role="region" aria-label="進貨輔助結果" tabIndex={0}>
-      <table className="cy-restock-table" data-daily={daily || undefined}>
+      <table className={"cy-restock-table"+(compact?" cy-rt":"")} data-daily={daily || undefined}>
         <thead>
           <tr>
             <th rowSpan={daily?2:1} className="cy-restock-item">品號／品名</th>
@@ -115,7 +124,7 @@ function RestockTable({ from, to, items, canQueryItem, canOrdering, daily, onDai
         <tbody>{shown.map(row => {
           const byDay = new Map(row.days.map(d => [d.date, d]));
           return <tr key={row.itemCode} className={row.short ? "is-short" : undefined}>
-            <th scope="row" className="cy-restock-item" title={`${row.itemCode} ${row.itemName}${row.unit ? `（${row.unit}）` : ""}`}>
+            <th scope="row" data-priority="title" className="cy-restock-item" title={`${row.itemCode} ${row.itemName}${row.unit ? `（${row.unit}）` : ""}`}>
               <span className="cy-restock-item-line">
                 {canQueryItem && parseErpCode(row.itemCode)
                   ? <button type="button" className="cy-restock-code" onClick={() => setOpened(row.itemCode)}>{row.itemCode}</button>
@@ -136,7 +145,7 @@ function RestockTable({ from, to, items, canQueryItem, canOrdering, daily, onDai
             <td data-label="庫存" className="cy-restock-total is-break cy-restock-strong" title={row.stockValue === null ? row.stockNote || "未查到庫存" : row.short ? "庫存不足：庫存不到期間淨銷，或已無庫存" : undefined}>
               {row.stockValue === null ? <span className="cy-restock-none">—</span>
                 : row.short ? <span className="cy-restock-short">{quantity(row.stockValue)}</span> : quantity(row.stockValue)}</td>
-            {canOrdering?<td className="cy-restock-action"><IconButton icon={Icons.add} label="加入叫貨單" variant="table" onClick={()=>setAddRow(row)}/></td>:null}
+            {canOrdering?<td data-label="叫貨" data-priority="wide" className="cy-restock-action"><IconButton icon={Icons.add} label="加入叫貨單" variant="table" onClick={()=>setAddRow(row)}/></td>:null}
           </tr>;
         })}</tbody>
       </table>
