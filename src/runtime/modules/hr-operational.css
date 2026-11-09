@@ -39,7 +39,9 @@
 .cy-hr-picker{display:flex;gap:4px;align-items:center;width:100%;min-width:0}
 .cy-hr-picker .cy-sheet-input{flex:1;min-width:0}
 .cy-hr-picker .cy-op-button{flex:none}
-.cy-hr-salary-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.cy-hr-salary-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px}
+.cy-hr-salary-toolbar .cy-op-input{width:auto}.cy-hr-salary-toolbar input[type=search]{width:220px}
+.cy-hr-salary-toolbar .cy-hr-salary-summary{margin-left:auto;font-weight:400;color:var(--cy-text-muted);font-size:var(--cy-fs-sm)}
 .cy-hr-salary-filters{display:flex;gap:8px;flex-wrap:wrap}
 .cy-hr-salary-summary{margin-left:auto;white-space:nowrap;font-variant-numeric:tabular-nums}
 .cy-hr-salary-table{width:100%;min-width:1080px}

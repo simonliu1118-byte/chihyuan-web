@@ -1,5 +1,5 @@
 import { DateInput } from "../../ui/forms/DateInput";
-import {EntryFields} from "../../ui/forms/EntryTable";
+import {EntryFields} from "../../ui/forms/EntryFields";
 import {useCallback,useEffect,useState} from "react";
 import {apiRequest} from "../../api/client";
 import {taipeiToday} from "../../../shared/erp-query-history";

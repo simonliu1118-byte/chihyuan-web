@@ -27,7 +27,8 @@ import {HrAttendancePanel} from "./HrAttendancePanel";
 import {HrLeavePanel} from "./HrLeavePanel";
 import {HrEmployeeLeaveOverview} from "./HrEmployeeLeaveOverview";
 import {HrEmployeeSheet} from "./HrEmployeeSheet";
-import {EntryFields,EntryTable,EntryHeading} from "../../ui/forms/EntryTable";
+import {EntryTable,EntryHeading} from "../../ui/forms/EntryTable";
+import {EntryFields} from "../../ui/forms/EntryFields";
 import {RecordRows} from "../../ui/forms/RecordSheet";
 import {HrSalaryOverview} from "./HrSalaryOverview";
 

@@ -3,7 +3,7 @@ import {apiRequest} from "../../api/client";
 import {taipeiToday} from "../../../shared/erp-query-history";
 import {useUnsavedChangesGuard} from "../../ui/foundation/useUnsavedChangesGuard";
 import {Dialog} from "../../ui/overlays/Dialog";
-import {EntryFields} from "../../ui/forms/EntryTable";
+import {EntryFields} from "../../ui/forms/EntryFields";
 import {CheckField} from "../../ui/forms/Field";
 import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
@@ -176,7 +176,7 @@ export function HrRosterPanel() {
      const set=(next:Partial<typeof v>)=>setStaff(old=>({...old,[x.id]:{...v,...next}}));
      return {label:x.name,content:<div className="cy-hr-roster-setting">
        <input type="number" className="cy-sheet-input" aria-label={x.name+" 排序"} value={v.sort} onChange={e=>set({sort:e.target.value})}/>
-       <CheckField label="不須檢核" checked={v.skip} onChange={e=>set({skip:e.target.checked})}/>
+       <CheckField label="不檢查排班規則" checked={v.skip} onChange={e=>set({skip:e.target.checked})}/>
        <button type="button" className="cy-op-button soft" disabled={loading} onClick={async()=>{try{
         await apiRequest(ROOT+"/rosters/"+storeId+"/"+month+"/staff",{method:"PATCH",json:{employeeId:x.id,rosterSort:Number(v.sort||0),skipRosterChecks:v.skip}});
         await reload();setNotice("已更新 "+x.name+" 的排班設定");

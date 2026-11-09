@@ -68,7 +68,7 @@ export function HrSalaryOverview({onRaise,refreshToken}:{onRaise:(id:number,name
     searchPlaceholder="搜尋員工編號、姓名" filters={filters}
     activeFilterCount={Number(Boolean(store))+Number(status!=="active")}
     resultSummary={summary}/>
-   :<div className="cy-md-toolbar cy-hr-salary-toolbar">
+   :<div className="cy-hr-salary-toolbar">
      <input type="search" aria-label="搜尋員工" className="cy-op-input" value={search}
        placeholder="搜尋員工編號、姓名" onChange={e=>setSearch(e.target.value)}/>
      {filters}<strong className="cy-hr-salary-summary">{summary}</strong>

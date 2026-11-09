@@ -30,7 +30,7 @@ export function HrEmployeeSheet({value,detail,editing,creating,busy,members,stor
    <button type="button" className="cy-op-button soft compact" disabled={busy}
      onClick={()=>patch({changeNationalId:true,nationalId:""})}>變更</button></span>;
  const nationalView=detail?.nationalIdMasked
-   ?<span className="cy-hr-id">{detail.nationalIdMasked}<button type="button" className="cy-op-button compact soft" onClick={onReveal}>顯示</button></span>
+   ?<span className="cy-hr-id">{detail.nationalIdMasked}<button type="button" className="cy-op-button mini soft" onClick={onReveal}>顯示</button></span>
    :value.nationalId||"";
  const rows:SheetRow[]=[
   {columns:"1fr 1fr 1.55fr .7fr 1.05fr 1.65fr",cells:[
@@ -44,7 +44,7 @@ export function HrEmployeeSheet({value,detail,editing,creating,busy,members,stor
       <button type="button" className="cy-op-button compact soft" disabled={busy} onClick={()=>setPicking(true)}>選擇</button>
      </span>)
   ]},
-  {columns:"1.05fr 1fr 1fr 1fr 1fr 1.1fr .85fr .85fr"+(creating?" 1fr":""),cells:[
+  {columns:"1.05fr 1fr 1fr 1fr 1fr 1.1fr"+(creating?" 1fr":""),cells:[
     cell("門市",stores.find(x=>String(x.id)===value.storeId)?.name||"",select("storeId",stores.map(x=><option key={x.id} value={x.id}>{x.name}</option>)),true),
     cell("職稱",jobTitles.find(x=>String(x.id)===value.jobTitleId)?.name||"",select("jobTitleId",jobTitles.map(x=><option key={x.id} value={x.id}>{x.name}</option>)),true),
     cell("僱用型態",({full:"正職",half:"半職",casual:"兼職"} as const)[value.employmentType],
@@ -58,9 +58,7 @@ export function HrEmployeeSheet({value,detail,editing,creating,busy,members,stor
         {value.employmentType==="casual"?<option value="none">不排班</option>:null}</select>,true),
     cell("到職日",value.hireDate?formatDate(value.hireDate):"",day("hireDate"),true),
     cell("年資起算日",value.seniorityStartDate?formatDate(value.seniorityStartDate):"同到職日",day("seniorityStartDate")),
-    cell("班表排序",value.rosterSort,input("rosterSort","number")),
-    cell("不須檢核",value.skipRosterChecks?"是":"否",
-      <CheckField label="不須檢核" checked={value.skipRosterChecks} disabled={busy} onChange={e=>patch({skipRosterChecks:e.target.checked})}/>),
+    // 班表排序／不檢查排班規則 live only in 排班 → 門市人員設定 (user 2026-11-09).
     ...(creating?[cell("人事狀態",value.status==="active"?"在職":"試用",
      <select className="cy-sheet-input" disabled={busy} value={value.status} onChange={e=>patch({status:e.target.value as Draft["status"]})}>
       <option value="probation">試用</option><option value="active">在職</option></select>,true)]:[])

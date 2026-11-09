@@ -6,7 +6,7 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
-## CY Web V0.17.0 — 人事資料單、表格式視窗與薪資總覽（2026-11-10；待 Claude 審查）
+## CY Web V0.17.0 — 人事資料單、表格式視窗與薪資總覽（2026-11-10，GPT 實作、Claude 審查通過）
 - 「人員」資料單的檢視／修改／新增改共用 `RecordSheet`，四列欄位及條件式離職資料沿同一布局；緊急聯絡人、學歷與工作經歷改用共用 `RecordRows`，移除原先的 RowsBlock/RowInput 及被取代的 UI CSS，保留原伺服器驗證與保存方式。
 - 狀態異動、調薪、年資不計期間、排班格、門市排班人員設定、請假、銷假、給予補休、調整特休與書面通知日期的視窗改 `EntryTable`，共用 `EntryFields` 處理列式表單。調薪視窗上方四欄、下方津貼 `RecordRows`；原 action、附件、批次核准、最少工資與 Enter 跳欄等行為沿用原路徑。
 - 人事新增第五「薪資」頁籤：搜尋、門市／狀態篩選（預設在職）、在職月薪總額、手機 `cy-rt cy-rt-list`、時薪「—」、歷次調薪展開與原調薪 Dialog；新增唯讀 `GET /api/business/hr/salary-overview`，沿用 SUPER_ADMIN gate，兩次 SQL bulk SELECT 組合主檔／薪資／津貼與登記人，沒有 D1 schema migration。

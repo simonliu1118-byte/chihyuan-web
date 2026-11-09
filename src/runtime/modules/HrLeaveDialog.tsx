@@ -1,6 +1,6 @@
 import { DateInput } from "../../ui/forms/DateInput";
 import {CheckField} from "../../ui/forms/Field";
-import {EntryFields} from "../../ui/forms/EntryTable";
+import {EntryFields} from "../../ui/forms/EntryFields";
 import {TimeInput} from "../../ui/forms/TimeInput";
 import {useEffect,useState,type FormEvent} from "react";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
