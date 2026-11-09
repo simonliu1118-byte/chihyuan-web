@@ -396,8 +396,8 @@ test("revising after a partial receipt: only 廠商品號／廠商品名 are edi
   const ro=mount("GENERAL",[{...base,id:2,received:0,closedAs:"OTHER",closedNote:"自行向廠商訂購"},{...base,id:4,note:"",received:0,closedAs:"SHORTAGE",closedNote:""}],{readOnly:true});
   const notes=ro.nodes.filter(n=>n.type==="td"&&n.props["data-col"]==="note");
   const textOf=n=>typeof n==="string"?n:Array.isArray(n)?n.map(textOf).join(""):n?.props?textOf(n.props.children):"";
-  assert.match(textOf(notes[0]),/原備註指定結案：其他－自行向廠商訂購/);
-  assert.equal(textOf(notes[1]),"指定結案：缺貨","an empty note leaves no blank line above");
+  assert.match(textOf(notes[0]),/原備註自行向廠商訂購/);
+  assert.equal(textOf(notes[1]),"缺貨","an empty note leaves no blank line above");
   assert.doesNotMatch(textOf(ro.nodes.find(n=>n.type==="td"&&n.props["data-col"]==="received")),/其他/);
 });
 

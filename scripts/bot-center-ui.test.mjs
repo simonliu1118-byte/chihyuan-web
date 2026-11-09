@@ -58,7 +58,7 @@ test("timeline rows collapse to one line and reveal shared expand toggle only fo
  assert.match(page,/preview\.scrollWidth>preview\.clientWidth\+1/);
  assert.match(page,/new ResizeObserver\(measure\)/);
  assert.match(page,/<TimelineEvent key=\{item\.id\} item=\{item\}\/>/);
- assert.match(page,/<ExpandToggle expanded=\{expanded\} label=\{item\.title\}/);
+ assert.match(page,/<ExpandToggle variant="text" expanded=\{expanded\} label=\{item\.title\}/);
  assert.match(css,/\.cy-bot-timeline-preview\{[^}]*white-space:nowrap/);
  assert.match(css,/\.cy-bot-timeline-preview\.is-expanded\{[^}]*white-space:pre-wrap/);
 });

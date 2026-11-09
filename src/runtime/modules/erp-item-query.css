@@ -256,7 +256,19 @@
 
 /* Ordering UI: legible independent status badges and responsive multiline descriptions. */
 .cy-ordering-grid .cy-ordering-status-cell { padding: 6px; text-align: center; vertical-align: top; }
-.cy-ordering-grid .cy-ordering-close-line { display: block; margin: 4px auto 0; }
+/* Sent order view keeps each line on one row (user 2026-11-09): 指定結案 has its own narrow column, names give up width to 備註. */
+.cy-ordering-col-close { width: 76px; }
+.cy-ordering-grid .cy-ordering-close-cell { padding: 5px 6px; text-align: center; vertical-align: top; }
+.cy-ordering-grid .cy-ordering-close-line.cy-op-button.compact { min-height: 0; height: 24px; padding: 0 8px; font-size: var(--cy-fs-xs); white-space: nowrap; }
+.cy-ordering-grid[data-readonly] { table-layout: fixed; width: 100%; }
+.cy-ordering-grid[data-readonly] .cy-ordering-col-vendorItemCode { width: 112px; }
+.cy-ordering-grid[data-readonly] .cy-ordering-col-quantityText, .cy-ordering-grid[data-readonly] .cy-ordering-col-received { width: 68px; }
+.cy-ordering-grid[data-readonly] .cy-ordering-col-unit { width: 48px; }
+.cy-ordering-grid[data-readonly] .cy-ordering-col-note { width: 200px; }
+.cy-ordering-grid[data-readonly] .cy-ordering-col-status { width: 96px; }
+.cy-ordering-grid[data-readonly] .cy-ordering-col-close { width: 80px; }
+.cy-ordering-grid[data-readonly] :is(th, td) { overflow-wrap: anywhere; }
+.cy-ordering-grid[data-readonly] .cy-ordering-closed-note { padding-right: 6px; }
 .cy-ordering-status-chip { display: inline-flex; align-items: center; justify-content: center; padding: 3px 7px; min-height: 24px; border-radius: var(--cy-radius-sm); background: var(--cy-surface-muted); color: var(--cy-text-muted); font-size: var(--cy-fs-xs); font-weight: 600; white-space: nowrap; }
 .cy-ordering-status-chip.state-received { color: var(--cy-success); background: var(--cy-success-soft); }
 .cy-ordering-status-chip.state-partial { color: var(--cy-warning); background: var(--cy-warning-soft); }

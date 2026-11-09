@@ -28,8 +28,8 @@
 .cy-bot-timeline-bot{white-space:nowrap}
 .cy-bot-timeline-preview{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cy-bot-timeline-preview.is-expanded{white-space:pre-wrap;overflow:visible;overflow-wrap:anywhere}
-.cy-bot-timeline-toggle{width:22px;height:22px}
-.cy-bot-timeline-toggle .cy-icon{width:16px;height:16px}
+/* Text toggle sits on the row's first text line: same line box as the 13px/1.5 row text. */
+.cy-bot-timeline-toggle.cy-op-button.compact{min-height:0;height:21px;padding:0 8px;font-size:var(--cy-fs-xs);line-height:21px;align-self:start;margin-top:-1px;white-space:nowrap}
 .cy-bot-review-title{display:flex;align-items:baseline;gap:3px;overflow-wrap:anywhere}
 .cy-bot-review-title>strong{min-width:0}
 .cy-bot-review-title>button{flex-shrink:0}

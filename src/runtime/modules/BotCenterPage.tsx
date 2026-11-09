@@ -50,7 +50,7 @@ function TimelineEvent({item}:{item:BotCompletionView}){
   <span ref={previewRef} className={"cy-bot-timeline-preview"+(expanded?" is-expanded":"")}>
    <strong>{item.title}</strong>{item.detail?<span className="cy-bot-timeline-detail"> {item.detail}</span>:null}
   </span>
-  {overflows?<ExpandToggle expanded={expanded} label={item.title} className="cy-bot-timeline-toggle" onToggle={()=>setExpanded(!expanded)}/>:null}
+  {overflows?<ExpandToggle variant="text" expanded={expanded} label={item.title} className="cy-bot-timeline-toggle" onToggle={()=>setExpanded(!expanded)}/>:null}
  </div></li>;
 }
 
