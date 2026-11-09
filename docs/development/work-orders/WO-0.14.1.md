@@ -58,7 +58,13 @@
 - 主要動作 ActionBar、次要 OverflowMenu；未到貨、到貨紀錄與到貨表採 cy-rt。
 - 刪除 `erp-item-query.css` 原手機叫貨 nav、篩選、草稿卡片、Grid 卡片與未到貨卡片樣式；以通用 `src/ui/mobile/mobile.css` 承擔可重用呈現。
 - 需求驗收：已實作初稿，待 Runtime/Governance/TypeScript/完整 Node CI、390px/1440px 前後實測截圖與 Claude 審查。沒有把未取得的證據標示為通過。
-- 後續批次 2–6：尚未開始；各自獨立 PR。
+- 後續批次 2–6：第二批已於獨立 stacked 分支開工；第三至第六批仍待做。
+
+### 批次 2 — 門市（GPT，2026-11-09）
+- 分支：`cyweb/wo-0.14.1-store`，基於第一批分支，不修改 main。PR：待建立。
+- 客訂／黑名單／售後維修／出機／盤點管理表格統一 `cy-rt` 及 data-label、data-priority；桌機原表格與資料操作不變。三年保養矩陣與月度待辦不改其原互動網格和資料狀態。
+- 刪除 store.css 的兩套舊手機流程表與卡片規則；保留其他仍在使用的門市手機樣式。
+- 驗收：等待完整 CI、390px 與 1440px 前後照片及 Claude 審查。
 
 ## 9. 審查紀錄（Claude 填）
 

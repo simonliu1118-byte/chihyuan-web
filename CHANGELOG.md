@@ -6,6 +6,11 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.14.2 — 全系統手機版第二階段：門市批次（2026-11-09，待審）
+- 顧客訂購／黑名單、售後維修、出機紀錄、盤點忽略底稿及手動儲位表格，在手機以共用 `cy-rt` 配合 `data-label`、`data-priority` 呈現，優先展示狀態／客戶名稱／品項；桌機仍為原表格及原版面。
+- 移除 `store.css` 舊 `cy-store-cards` 與 `cy-store-workflow-table` 於 820px 的手刻卡片 CSS；三年維護矩陣及月度待辦的原互動式矩陣未改資料及操作，盤點計數的盲盤邏輯不動。
+- 只更動 UI markup 與樣式／文件；原狀態流轉、版本鎖、寫入、後端與權限不動。待 CI、390px／1440px 畫面及 Claude 審查；**不合併、不部署**。[handoff](docs/handoff/CYWEB-WO-0141-STORE-20261109.md)。
+
 ## CY Web V0.14.1 — 全系統手機版第二階段：叫貨批次（2026-11-09，待審）
 - 手機叫貨以 `ModuleSections` 呈現「未到貨／草稿／叫貨單」，進入模組預設未到貨；叫貨與草稿來源改 `ListRow`。
 - 手機叫貨紀錄搜尋／篩選採 `DataViewToolbar`；可編輯草稿品項是精簡列表，點選後在 `BottomSheet` 編輯原 `OrderingGrid` 欄位，仍共用原 `commitCell`、自動儲存、`flush`、數量解析、順序與未存保護。新增品項及送出放 `ActionBar`，次要操作採 `OverflowMenu`。

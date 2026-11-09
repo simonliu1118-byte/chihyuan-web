@@ -118,3 +118,7 @@
 ### WO-0.14.1 第一批（叫貨）
 - 手機叫貨子頁由 ModuleSections 控制，草稿來源／叫貨紀錄使用 ListRow，搜尋篩選由 DataViewToolbar 擁有，同一套編輯 Grid 的手機行點擊開 BottomSheet；桌機仍用原表格。
 - 主要動作由 ActionBar 的 `aboveTabs` 通用變體固定在底部分頁上方，次要由 OverflowMenu 提供。共用選擇清單、精簡品項樣式維護在 `src/ui/mobile/mobile.css`，不得另建模組-specific 的手機覆蓋層。
+
+### WO-0.14.1 第二批（門市）
+- StoreCustomerOrders／StoreRepairs／StoreEquipment／StoreStocktake 的寬表格在手機以共用 `cy-rt`＋`data-label`＋`data-priority` 呈現，桌機不變。原模組 workflow/cy-store-cards 卡片 CSS 刪除，避免同一 mobile 排版有第二套 owner。
+- 月度待辦和三年維護矩陣為互動式年月網格，本批保留內容與原儲存操作，不重建資料 owner；工單明確要求僅處理其外框與按鈕。
