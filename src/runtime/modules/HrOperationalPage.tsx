@@ -409,58 +409,6 @@ export function HrOperationalPage() {
       </section>
     </div>
 
-    {detail && action ? <Dialog showCloseButton={false} open size="medium" dismissible={!busy}
-      title={action === "status" ? "新增狀態異動" : action === "salary" ? "新增薪資異動" : "新增年資不計期間"}
-      onClose={() => { setAction(null); }}>
-      <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={event => void submitAction(event)}>
-    <FormSection>
-        <div className="cy-f-grid">
-          {action === "exclusion" ? <>
-            <FormField label="起日" date required value={form.startDate} onChange={value => setForm({ ...form, startDate: value })} />
-            <FormField label="迄日" date required value={form.endDate} onChange={value => setForm({ ...form, endDate: value })} />
-          </> : <FormField label="生效日" date required value={form.effectiveDate} onChange={value => setForm({ ...form, effectiveDate: value })} />}
-          {action === "status" ? <Field label="新狀態" size="s"><select className="cy-op-input" value={form.nextStatus} onChange={event => setForm({ ...form, nextStatus: event.target.value })}>
-            {(Object.keys(statusLabels) as HrStatus[]).map(code => <option key={code} value={code}>{statusLabels[code]}</option>)}</select></Field> : null}
-          {action === "status" && form.nextStatus === "terminated" ? <>
-            <FormField label="離職日" date required value={form.terminationDate} onChange={value => setForm({ ...form, terminationDate: value })} />
-            <FormField label="離職原因" required value={form.terminationReason} onChange={value => setForm({ ...form, terminationReason: value })} />
-          </> : null}
-          {action === "salary" ? <>
-            <Field label="計薪方式" size="m"><select className="cy-op-input" value={form.paymentType} onChange={event => setForm({ ...form, paymentType: event.target.value })}>
-              <option value="monthly">月薪</option><option value="hourly">時薪</option></select></Field>
-            <FormField label={form.paymentType === "hourly" ? "時薪（元）" : "本薪（元）"} type="number" required value={form.baseAmount}
-              onChange={value => setForm({ ...form, baseAmount: value })} />
-          </> : null}
-          <FormField label={action === "salary" ? "異動原因" : "原因"} required wide value={form.reason} onChange={value => setForm({ ...form, reason: value })} />
-        </div>
-        {action === "salary" ? <section className="cy-form-block">
-          <div className="cy-form-block-head"><div><h3>津貼</h3></div>
-            <button type="button" className="cy-op-button compact" disabled={busy || !salaryItems.length}
-              onClick={() => setAllowances([...allowances, { itemTypeId: String(salaryItems[0]?.id ?? ""), amount: "", isRegular: true }])}>＋ 增加津貼</button></div>
-          <div className="cy-form-block-body">
-            {!salaryItems.length ? <p className="cy-form-block-empty">尚未設定津貼項目（右上角「設定」）。</p> : null}
-            {allowances.map((row, index) => <div className="cy-hr-allowance-row cy-mobile-form-two-col" key={index}>
-              <select className="cy-op-input" aria-label="津貼項目" value={row.itemTypeId}
-                onChange={event => setAllowances(allowances.map((item, n) => n === index ? { ...item, itemTypeId: event.target.value } : item))}>
-                {salaryItems.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
-              <input className="cy-op-input" aria-label="金額" type="number" min="0" step="1" placeholder="金額" value={row.amount}
-                onChange={event => setAllowances(allowances.map((item, n) => n === index ? { ...item, amount: event.target.value } : item))} />
-              <CheckField  label="經常性" size="s"  checked={row.isRegular}
-                onChange={event => setAllowances(allowances.map((item, n) => n === index ? { ...item, isRegular: event.target.checked } : item))} />
-              <button type="button" className="cy-op-button compact soft cy-row-remove" onClick={() => setAllowances(allowances.filter((_, n) => n !== index))}>移除</button>
-            </div>)}
-          </div>
-        </section> : null}
-        {action === "salary" && !minimumWageSet ? <p className="cy-notice cy-notice-warning">尚未設定最低工資，無法比對；仍可存檔。</p> : null}
-        <div className="cy-op-form-footer">
-          <button type="button" className="cy-op-button" disabled={busy} onClick={() => { setAction(null); }}>取消</button>
-          <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>新增</button>
-        </div>
-      
-    </FormSection>
-  </form>
-    </Dialog> : null}
-
     {detail && browse ? <Dialog open size="large" onClose={() => setBrowse(null)}
       title={`${browse === "leave" ? "特休" : browse === "salary" ? "薪資異動" : browse === "status" ? "狀態異動" : "年資不計期間"} — ${detail.employee_no} ${detail.name}`}>
       <div className="cy-hr-browse">
@@ -495,7 +443,62 @@ export function HrOperationalPage() {
     </FormSection>
   </form>
     </Dialog> : null}
-  </div>:tab==="roster"?<HrRosterPanel/>:tab==="attendance"?<HrAttendancePanel/>:tab==="leave"?<HrLeavePanel initialEmployeeId={initialLeaveEmployeeId}/>:<HrSalaryOverview refreshToken={salaryRefresh} onRaise={(id)=>void openAction("salary",id)}/>}</>;
+  </div>:tab==="roster"?<HrRosterPanel/>:tab==="attendance"?<HrAttendancePanel/>:tab==="leave"?<HrLeavePanel initialEmployeeId={initialLeaveEmployeeId}/>:<HrSalaryOverview refreshToken={salaryRefresh} onRaise={(id)=>void openAction("salary",id)}/>
+    {action&&actionEmployeeId!==null?<Dialog showCloseButton={false} open
+      size={action==="salary"?"large":"medium"} dismissible={!busy}
+      title={action==="status"?"新增狀態異動":action==="salary"?"新增薪資異動":"新增年資不計期間"}
+      onClose={()=>{setAction(null);setActionEmployeeId(null)}}>
+      <form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={e=>void submitAction(e)}>
+       {action==="salary"?<>
+        <EntryTable label="調薪資料">
+         <thead><tr><th><EntryHeading required>生效日</EntryHeading></th><th>計薪方式</th>
+          <th><EntryHeading required>本薪</EntryHeading></th><th><EntryHeading required>原因</EntryHeading></th></tr></thead>
+         <tbody><tr>
+          <td><Field label="生效日" presentation="cell" required><DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.effectiveDate??""} onChange={v=>setForm({...form,effectiveDate:v})}/></Field></td>
+          <td><Field label="計薪方式" presentation="cell"><select className="cy-sheet-input" value={form.paymentType??"monthly"} onChange={e=>setForm({...form,paymentType:e.target.value})}>
+           <option value="monthly">月薪</option><option value="hourly">時薪</option></select></Field></td>
+          <td><Field label={form.paymentType==="hourly"?"時薪（元）":"本薪（元）"} presentation="cell" required><input className="cy-sheet-input" type="number" min="0" step="1" value={form.baseAmount??""} onChange={e=>setForm({...form,baseAmount:e.target.value})}/></Field></td>
+          <td><Field label="異動原因" presentation="cell" required><input className="cy-sheet-input" value={form.reason??""} onChange={e=>setForm({...form,reason:e.target.value})}/></Field></td>
+         </tr></tbody>
+        </EntryTable>
+        <RecordRows title="津貼" editing busy={busy} rows={allowances} rowKey={(_,index)=>index}
+          columns={[
+           {label:"項目",view:row=>salaryItems.find(item=>String(item.id)===row.itemTypeId)?.name??"",
+            edit:(row,index)=><select className="cy-sheet-input" aria-label="津貼項目" disabled={busy} value={row.itemTypeId}
+             onChange={e=>setAllowances(current=>current.map((x,i)=>i===index?{...x,itemTypeId:e.target.value}:x))}>
+             {salaryItems.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select>},
+           {label:"金額",view:row=>row.amount,edit:(row,index)=><input type="number" min="0" step="1"
+             aria-label="津貼金額" disabled={busy} className="cy-sheet-input" value={row.amount}
+             onChange={e=>setAllowances(current=>current.map((x,i)=>i===index?{...x,amount:e.target.value}:x))}/>},
+           {label:"經常性",view:row=>row.isRegular?"是":"否",
+            edit:(row,index)=><CheckField label="經常性" checked={row.isRegular} disabled={busy}
+             onChange={e=>setAllowances(current=>current.map((x,i)=>i===index?{...x,isRegular:e.target.checked}:x))}/>}
+          ]}
+          onInsert={index=>setAllowances(current=>[...current.slice(0,index+1),
+            {itemTypeId:String(salaryItems[0]?.id??""),amount:"",isRegular:true},...current.slice(index+1)])}
+          onRemove={index=>setAllowances(current=>current.filter((_,i)=>i!==index))}/>
+        {!salaryItems.length?<p className="cy-op-empty">尚未設定津貼項目（請先到人事設定新增）。</p>:null}
+        {!minimumWageSet?<p className="cy-notice cy-notice-warning">尚未設定最低工資，無法比對；仍可存檔。</p>:null}
+       </>:<EntryFields label={action==="status"?"狀態異動":"年資不計期間"} rows={[
+        ...(action==="exclusion"?[
+          {label:"起日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.startDate??""} onChange={v=>setForm({...form,startDate:v})}/>},
+          {label:"迄日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.endDate??""} onChange={v=>setForm({...form,endDate:v})}/>}
+        ]:[{label:"生效日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.effectiveDate??""} onChange={v=>setForm({...form,effectiveDate:v})}/>}]),
+        ...(action==="status"?[{label:"新狀態",content:<select className="cy-sheet-input" value={form.nextStatus??"active"} onChange={e=>setForm({...form,nextStatus:e.target.value})}>
+          {(Object.keys(statusLabels) as HrStatus[]).map(key=><option key={key} value={key}>{statusLabels[key]}</option>)}</select>}]:[]),
+        ...(action==="status"&&form.nextStatus==="terminated"?[
+          {label:"離職日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.terminationDate??""} onChange={v=>setForm({...form,terminationDate:v})}/>},
+          {label:"離職原因",required:true,content:<input className="cy-sheet-input" value={form.terminationReason??""} onChange={e=>setForm({...form,terminationReason:e.target.value})}/>}
+        ]:[]),
+        {label:"原因",required:true,content:<input className="cy-sheet-input" value={form.reason??""} onChange={e=>setForm({...form,reason:e.target.value})}/>}
+       ]}/>}
+       <div className="cy-op-form-footer">
+        <button type="button" className="cy-op-button" disabled={busy} onClick={()=>{setAction(null);setActionEmployeeId(null)}}>取消</button>
+        <button className="cy-op-button primary" disabled={busy} aria-busy={busy||undefined}>新增</button>
+       </div>
+      </form>
+    </Dialog>:null}
+</>;
 }
 
 /** Every field except 備註 and 學經歷 is required; one of 手機／市話 is enough. */
