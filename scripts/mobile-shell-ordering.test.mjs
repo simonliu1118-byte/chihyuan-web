@@ -78,7 +78,7 @@ test("one OrderingGrid owner renders phone ListRow editor sheet and desktop tabl
  assert.match(grid,/data-label=\{title\} data-col=\{field\}/);
  assert.match(grid,/data-label="項次" data-col="index"/);
  assert.match(ordering,/<table className="cy-op-table cy-rt cy-rt-list cy-ordering-pending-table"/);
- assert.match(ordering,/<table className="cy-op-table cy-rt cy-ordering-receipts"/);
+ assert.match(ordering,/<table className="cy-ordering-grid cy-rt cy-ordering-receipts" data-readonly>/);
 });
 
 test("mobile drawer brand replaces redundant title and BOT has a dedicated icon",()=>{
