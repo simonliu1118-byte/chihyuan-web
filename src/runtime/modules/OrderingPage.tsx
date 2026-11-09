@@ -30,7 +30,9 @@ import {orderSheet} from "../../../shared/ordering-export";
 import "./erp-item-query.css";
 import {buildXlsx} from "../../../shared/xlsx-writer";
 import {downloadExcelFile,shareExcelFile,XLSX_MIME} from "./ordering-file-share";
-import {parseQuantity,receiptItemSummary,type OrderingReceipt} from "../../../shared/ordering";
+import {CLOSED_AS_LABELS,parseQuantity,receiptItemSummary,type OrderingClosedAs,type OrderingReceipt} from "../../../shared/ordering";
+/** Older 結掉 records stored the raw code ("洞巾 OTHER"); show them like new ones ("洞巾 結掉：其他"). */
+export const revisionSummary=(summary:string)=>summary.replace(/ (SHORTAGE|CANCELLED|OTHER)$/,(_,code:OrderingClosedAs)=>" 結掉："+CLOSED_AS_LABELS[code]);
 import {createOrderingWriteQueue,orderingTaipeiDateTime,exportFileName,pickDraft,ORDERING_STATUS_LABELS,CN_REGULAR_SECTIONS,type OrderingOrder,type OrderingSource,type OrderingPendingLine,type OrderingListRow,type OrderingSection} from "../../../shared/ordering";
 const ROOT="/api/business/ordering";
 const nowDate=()=>new Date(Date.now()+8*3600000).toISOString().slice(0,10);
@@ -478,7 +480,8 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
    return hits.size?"未到貨已有："+[...hits.values()].map(p=>p.sourceName+" "+displayDate(p.orderDate).slice(5)+" "+(p.itemName||p.vendorItemName||p.itemCode)+" 未到 "+p.remaining+(p.unit?" "+p.unit:"")).join("；"):undefined;
   };
  },[pending]);
- const current=selected,editable=current?.storedStatus==="DRAFT",revisingNow=!!revising&&revising.orderId===current?.id&&current?.storedStatus==="SENT";
+ // 修改 stays available after a partial receipt, until the order is 結案 (user 2026-11-09).
+ const current=selected,editable=current?.storedStatus==="DRAFT",revisable=current?.status==="SENT"||current?.status==="PARTIAL",revisingNow=!!revising&&revising.orderId===current?.id&&current?.storedStatus==="SENT";
  const currentSaveStates:OrderingGridState[]=[{dirty:headerDirty.date||headerDirty.note,saving:headerSaving>0,failed:headerSaveFailed},...Object.entries(editorStates).filter(([key])=>key.startsWith(current?.id+"-")).map(([,state])=>state)];
  const orderedVendors=useMemo(()=>{
   const priorities=new Map(vendorTabOrder.map((id,i)=>[id,i]));
@@ -567,7 +570,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
         ...(editable?[{label:"儲存草稿",onClick:()=>void saveDraftNow(),disabled:busy},
          {label:"刪除草稿",onClick:()=>void deleteDraft(),disabled:busy,danger:true}]:[]),
         ...(current.storedStatus!=="DRAFT"?[{label:"回到草稿",onClick:()=>void openDraft(current.sourceId)}]:[]),
-        ...(current.status==="SENT"?[{label:"修改",onClick:()=>startRevision()}]:[]),
+        ...(revisable?[{label:"修改",onClick:()=>startRevision()}]:[]),
         ...(current.storedStatus==="SENT"?[{label:"作廢",onClick:()=>void voidOrder(),danger:true}]:[]),
         ...(current.revisions.length?[{label:"修改紀錄",onClick:()=>setShowHistory(true)}]:[])
        ]}/>:<div className="cy-record-actions">
@@ -578,7 +581,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
         <button type="button" className="cy-op-button" onClick={()=>void exportOrder(current)}>匯出 Excel</button>
         {current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button danger" onClick={()=>void deleteDraft()}>刪除</button>
          :current.storedStatus==="SENT"?<button type="button" className="cy-op-button danger" onClick={()=>void voidOrder()}>作廢</button>:null}
-        {current.status==="SENT"?<button type="button" className="cy-op-button" onClick={startRevision}>修改</button>:null}
+        {revisable?<button type="button" className="cy-op-button" onClick={startRevision}>修改</button>:null}
         {current.storedStatus==="SENT"&&openLines.length?<button type="button" className="cy-op-button primary" onClick={()=>setReceipt({id:current.id,no:"",date:nowDate(),quantities:Object.fromEntries(openLines.map(l=>[l.id,String((l.quantity??0)-l.received)])),selectedLineIds:[]})}>登記到貨</button>:null}
         {current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button primary" onClick={()=>void sent()}>送出</button>:null}</>}
        </div>}
@@ -636,7 +639,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
       {current.revisions.length?<section className="cy-ordering-lines"><h3>修改紀錄<small>{current.revisions.length} 筆</small>
         <button type="button" className="cy-op-button compact quiet" aria-expanded={showHistory} onClick={()=>setShowHistory(v=>!v)}>{showHistory?"收合":"展開"}</button></h3>
        {showHistory?<div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>版本</th><th>時間</th><th>人員</th><th>內容</th></tr></thead><tbody>
-        {current.revisions.map(x=><tr key={x.revision}><td>{x.revision}</td><td>{displayTime(x.at)}</td><td>{x.by}</td><td>{x.summary}</td></tr>)}</tbody></table></div>:null}</section>:null}
+        {current.revisions.map(x=><tr key={x.revision}><td>{x.revision}</td><td>{displayTime(x.at)}</td><td>{x.by}</td><td>{revisionSummary(x.summary)}</td></tr>)}</tbody></table></div>:null}</section>:null}
 </>:null;
  return <section className="cy-ordering-page">
   <FeedbackBanner message={message} tone={messageTone}/>

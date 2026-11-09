@@ -392,9 +392,31 @@ test("a sent order is revised in one explicit save that becomes one new version"
   // An unchanged resend changes nothing.
   const same=await call("/orders/"+o.id+"/revise","POST",{expectedVersion:after.version,lines:[{lineId:a.id,quantityText:"12"}]});
   assert.equal(same.body.data.revision,after.revision);
-  // Once anything has arrived the order is locked against revision.
-  const got=(await call("/orders/"+o.id+"/receipts","POST",{expectedVersion:same.body.data.version,erpPurchaseNo:"20261021001",receivedDate:"2026-10-21",lines:[{lineId:a.id,quantity:4}]})).body.data;
-  assert.equal((await call("/orders/"+o.id+"/revise","POST",{expectedVersion:got.version,lines:[{lineId:a.id,quantityText:"20"}]})).status,409);
+  // After a partial receipt the order stays revisable until 結案 (user 2026-11-09), but a received line keeps its identity.
+  let got=(await call("/orders/"+o.id+"/receipts","POST",{expectedVersion:same.body.data.version,erpPurchaseNo:"20261021001",receivedDate:"2026-10-21",lines:[{lineId:a.id,quantity:4}]})).body.data;
+  assert.equal(got.status,"PARTIAL");
+  for(const change of [{itemName:"改名"},{itemCode:"X999"},{unit:"盒"}]){
+   const r=await call("/orders/"+o.id+"/revise","POST",{expectedVersion:got.version,lines:[{lineId:a.id,...change}]});
+   assert.equal(r.status,422,JSON.stringify(change));assert.match(r.body.error.message,/已有到貨/);
+  }
+  assert.equal((await call("/orders/"+o.id+"/revise","POST",{expectedVersion:got.version,lines:[{lineId:a.id,quantityText:"3"}]})).status,422,"never below received");
+  const vendor=await call("/orders/"+o.id+"/revise","POST",{expectedVersion:got.version,lines:[{lineId:a.id,vendorItemCode:"K0543056",quantityText:"20",note:"原備註"}]});
+  assert.equal(vendor.status,200,JSON.stringify(vendor.body));got=vendor.body.data;
+  const line=got.lines.find(l=>l.id===a.id);assert.deepEqual([line.vendorItemCode,line.quantity,line.received,line.note],["K0543056",20,4,"原備註"]);
+  assert.match(got.revisions[0].summary,/廠商品號 空白 → K0543056/);
+  // Closing a line: readable summary, the closed line is locked and cannot be deleted, the note is untouched.
+  got=(await call("/orders/"+o.id+"/close","POST",{expectedVersion:got.version,lineId:a.id,closedAs:"OTHER",reason:"自行向廠商訂購"})).body.data;
+  assert.equal(got.revisions[0].summary,"測試品名甲 結掉：其他（自行向廠商訂購）");
+  assert.equal(got.lines.find(l=>l.id===a.id).note,"原備註");
+  assert.equal((await call("/orders/"+o.id+"/revise","POST",{expectedVersion:got.version,lines:[{lineId:a.id,quantityText:"30"}]})).status,422);
+  assert.equal((await call("/orders/"+o.id+"/revise","POST",{expectedVersion:got.version,deleted:[a.id]})).status,422);
+  const vendorAfterClose=await call("/orders/"+o.id+"/revise","POST",{expectedVersion:got.version,lines:[{lineId:a.id,vendorItemCode:"K0543056-2"}]});
+  assert.equal(vendorAfterClose.status,200,JSON.stringify(vendorAfterClose.body));got=vendorAfterClose.body.data;
+  // Every line settled → 結案 → no more revisions.
+  const c=got.lines.find(l=>l.itemName==="測試品名丙");
+  got=(await call("/orders/"+o.id+"/close","POST",{expectedVersion:got.version,lineId:c.id,closedAs:"SHORTAGE",reason:""})).body.data;
+  assert.equal(got.status,"CLOSED");
+  assert.equal((await call("/orders/"+o.id+"/revise","POST",{expectedVersion:got.version,lines:[{lineId:a.id,vendorItemCode:"X"}]})).status,409);
   // Drafts keep their autosave path.
   let d=(await call("/orders","POST",{sourceId:source.id})).body.data;
   assert.equal((await call("/orders/"+d.id+"/revise","POST",{expectedVersion:d.version,lines:[]})).status,409);

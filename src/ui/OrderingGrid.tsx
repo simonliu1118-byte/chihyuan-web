@@ -58,6 +58,10 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  const setEdits=(update:(previous:Record<string,string>)=>Record<string,string>)=>{editingRef.current=update(editingRef.current);setEditing(editingRef.current)};
  useEffect(()=>{cancelAllTimers();draftsRef.current=[empty(section,-1)];setDrafts(draftsRef.current);nextTemp.current=-2;inFlight.current.clear();savedDrafts.current.clear();savedRowKeys.current.clear();cellSaves.current.clear();wantFinal.current.clear();unfinal.current.clear();editingRef.current={};setEditing({});setSaveError(false)},[section,kind]);
  const fields=columns[kind];
+ // Revising a sent order (user 2026-11-09): a received or closed line keeps 品號／品名／單位 (closed: also 數量) so receipts stay on the right item.
+ const lockedFields=(row:GridLine):ReadonlySet<string>|null=>readOnly||!(row.id>0&&((row.received??0)>0||row.closedAs))?null:new Set(["itemCode","itemName","unit",...(row.closedAs?["quantityText"]:[])]);
+ const lockedTitle=(row:GridLine)=>row.closedAs?"已結掉，不能修改":"已有到貨，不能修改";
+ const closedText=(row:GridLine)=>row.closedAs?"結掉："+CLOSED_AS_LABELS[row.closedAs]+(row.closedNote?"－"+row.closedNote:""):"";
  const mappedIds=new Set([...savedDrafts.current.values()].map(x=>x.line.id));
  // Drag ordering is optimistic (user 2026-11-03): the dropped order shows at once and stays while it
  // saves in the background; new lines from the server (or a failed save) replace it.
@@ -214,7 +218,8 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
   const target=e.currentTarget;
   if(row.id>0)skipBlur.current.add(row.id+"|"+field);
   commitCell(row,field,target.value);
-  if(col<fields.length-1)focus(row.id,fields[col+1][0]);
+  const locked=lockedFields(row),nextCol=fields.findIndex(([f],c)=>c>col&&!locked?.has(f));
+  if(nextCol>=0)focus(row.id,fields[nextCol][0]);
   else{
    const currentRows=[...lines.filter(x=>x.section===section),...draftsRef.current];
    const index=currentRows.findIndex(r=>r.id===row.id);
@@ -223,7 +228,7 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
     next=empty(section,nextTemp.current--);
     draftsRef.current=[...draftsRef.current,next];setDrafts(draftsRef.current);
    }
-   if(next)focus(next.id,fields[0][0]);
+   if(next){const lockedNext=lockedFields(next);focus(next.id,(fields.find(([f])=>!lockedNext?.has(f))??fields[0])[0])}
   }
  }
  const scheduleSave=(row:GridLine,field:string,value:string)=>{
@@ -280,11 +285,11 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
   {!readOnly&&!visible.some(row=>row.id>0||hasInput(row))?<p className="cy-op-empty">尚無品項，請按「新增品項」。</p>:null}
   {mobileRow?<BottomSheet open title={(readOnly?"查看":"編輯")+"品項："+(mobileRow.itemName||mobileRow.itemCode||"新項目")} onClose={closeMobileSheet}>
    <FormSection>{fields.map(([field,title],col)=><Field key={field} label={title} size="l" required={!readOnly&&(field==="quantityText"||(field==="itemName"&&kind!=="GENERAL"&&kind!=="VENDOR"))}>
-    {readOnly?<span>{String(mobileRow[field]??"")}</span>:renderEditor(mobileRow,field,title,col,visible.findIndex(x=>mobileKey(x)===mobileRowId))}
+    {readOnly||lockedFields(mobileRow)?.has(field)?<span>{String(mobileRow[field]??"")}</span>:renderEditor(mobileRow,field,title,col,visible.findIndex(x=>mobileKey(x)===mobileRowId))}
    </Field>)}</FormSection>
-   {readOnly?<p>狀態：{LINE_STATE_LABELS[receiptState(mobileRow)]??"待到貨"}</p>:null}
+   {readOnly?<p>狀態：{LINE_STATE_LABELS[receiptState(mobileRow)]??"待到貨"}{mobileRow.closedAs?"・"+closedText(mobileRow):""}</p>:lockedFields(mobileRow)?<p>{lockedTitle(mobileRow).replace("不能修改","品號、品名、單位"+(mobileRow.closedAs?"、數量":"")+"不能修改")}</p>:null}
    <div className="cy-op-form-footer">
-    {mobileRow.id>0&&!readOnly?<button type="button" className="cy-op-button danger" disabled={busy} onClick={()=>{runAction(()=>onDelete(mobileRow));setMobileRowId(null)}}>刪除品項</button>:null}
+    {mobileRow.id>0&&!readOnly&&!lockedFields(mobileRow)?<button type="button" className="cy-op-button danger" disabled={busy} onClick={()=>{runAction(()=>onDelete(mobileRow));setMobileRowId(null)}}>刪除品項</button>:null}
     <button type="button" className="cy-op-button primary" disabled={busy} onClick={closeMobileSheet}>{readOnly?"關閉":"儲存並關閉"}</button>
    </div>
   </BottomSheet>:null}
@@ -297,10 +302,12 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
      onDragStart={e=>{dragging.current=row.id;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",String(row.id))}} onDragEnd={()=>{dragging.current=null;setDropTarget(null)}}>{i+1}</td>
     {fields.flatMap(([field,title],col)=>{
 
-     return [<td key={field} data-label={title} data-col={field}>{readOnly?<span className={"cy-ordering-cell-text"+(field==="quantityText"?" cy-ordering-quantity":"")+((field==="itemName"||field==="vendorItemName"||field==="note")?" cy-ordering-wrap":"")}>{String(row[field as keyof GridLine]??"")}</span> :renderEditor(row,field,title,col,i)}</td>,...(readOnly&&field==="quantityText"?[<td key="received" data-label="已到數量" data-col="received"><span className="cy-ordering-cell-text cy-ordering-quantity">{row.received??0}</span>{row.closedAs?<small className="cy-ordering-closed-note" title={row.closedNote}>{CLOSED_AS_LABELS[row.closedAs]}{row.closedNote?"（"+row.closedNote+"）":""}</small>:null}</td>]:[])];
+     const locked=readOnly||!!lockedFields(row)?.has(field);
+     return [<td key={field} data-label={title} data-col={field} data-locked={!readOnly&&locked||undefined} title={!readOnly&&locked?lockedTitle(row):undefined}>{locked?<span className={"cy-ordering-cell-text"+(field==="quantityText"?" cy-ordering-quantity":"")+((field==="itemName"||field==="vendorItemName"||field==="note")?" cy-ordering-wrap":"")}>{String(row[field as keyof GridLine]??"")}</span> :renderEditor(row,field,title,col,i)}
+      {field==="note"&&row.closedAs?<small className="cy-ordering-closed-note">{closedText(row)}</small>:null}</td>,...(readOnly&&field==="quantityText"?[<td key="received" data-label="已到數量" data-col="received"><span className="cy-ordering-cell-text cy-ordering-quantity">{row.received??0}</span></td>]:[])];
     })}
     {readOnly?<td className="cy-ordering-status-cell" data-label="狀態" data-col="status"><span className={"cy-ordering-status-chip state-"+receiptState(row).toLowerCase()}>{receiptState(row)==="OPEN"?"待到貨":receiptState(row)==="RECEIVED"?"已到齊":LINE_STATE_LABELS[receiptState(row)]}</span></td>:null}
-    {!readOnly?<td className="cy-ordering-grid-actions" data-label="操作" data-col="actions">{row.id>0?<IconButton label={"刪除第"+(i+1)+"列"} disabled={busy||actionSaves.current.size>0} onClick={()=>runAction(()=>onDelete(row))} icon={<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v8m4-8v8"/></svg>}/>:null}</td>:null}</tr>})}</tbody>
+    {!readOnly?<td className="cy-ordering-grid-actions" data-label="操作" data-col="actions">{row.id>0&&!lockedFields(row)?<IconButton label={"刪除第"+(i+1)+"列"} disabled={busy||actionSaves.current.size>0} onClick={()=>runAction(()=>onDelete(row))} icon={<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v8m4-8v8"/></svg>}/>:null}</td>:null}</tr>})}</tbody>
   </table>}
   {visible.filter(x=>x.quantityText&&parseQuantity(x.quantityText).quantity===null).map(x=><p key={x.id} className="cy-notice cy-notice-warning">「{x.itemName||x.vendorItemName||x.itemCode}」數量無法拆解，保留文字、不計到貨量。</p>)}
  </div>;
