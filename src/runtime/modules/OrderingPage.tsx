@@ -745,7 +745,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
           <td data-label="叫貨" data-priority="hide" className="is-number">{l.quantity}<small>{l.unit}</small></td>
           <td data-label="已到" data-priority="hide" className={"is-number"+(l.received>0?" cy-ordering-pending-got":"")}>{l.received}</td>
           <td data-label="剩餘" data-rt="end" className="is-number cy-ordering-pending-left"><span className="cy-ordering-pending-left-label">剩 </span><strong>{l.remaining}</strong><small>{l.unit}</small></td>
-          <td data-rt="action" className="cy-ordering-row-actions"><button type="button" className="cy-op-button compact quiet" disabled={busy} onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setClosing({id:l.lineId,kind:"SHORTAGE",reason:""})})}>指定結案</button></td></tr>})}
+          <td data-rt="action" className="cy-ordering-row-actions"><button type="button" className="cy-op-button compact soft" disabled={busy} onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setClosing({id:l.lineId,kind:"SHORTAGE",reason:""})})}>指定結案</button></td></tr>})}
         </tbody></table>:null}
        </section>})}
       </div>:!pendingLoading?<p className="cy-op-empty">目前沒有未到貨的品項。</p>:null}

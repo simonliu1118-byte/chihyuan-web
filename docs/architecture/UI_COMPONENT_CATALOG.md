@@ -34,7 +34,7 @@
 ### 按鈕與圖示
 - `actions/IconButton.tsx`：表格內操作一律用它（`variant="table"`，危險操作 `tone="danger"`，展開用 `expanded`/`controls`）。
 - `actions/icons.tsx`：`Icons.*` 唯一圖示來源（edit、cancel、back、history、camera、print、check、close、add、remove、retry、verify、chevronRight、grip、settings、eye）。**新圖示加在這裡**，不要在模組內寫 inline SVG。
-- 一般按鈕：`cy-op-button`（`primary`、`compact`）。忙碌中的按鈕用 `feedback/usePendingAction`。
+- 一般按鈕：`cy-op-button`（`primary`、`compact`；`quiet` 透明文字按鈕；`soft` 淡底色無框，用於列內次要動作，例如「指定結案」）。忙碌中的按鈕用 `feedback/usePendingAction`。
 - 展開箭頭：`data/ExpandToggle.tsx`（全系統同一個箭頭）。
 
 ### 清單與資料
