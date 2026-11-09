@@ -398,6 +398,7 @@ test("revising after a partial receipt: only 廠商品號／廠商品名 are edi
   const textOf=n=>typeof n==="string"?n:Array.isArray(n)?n.map(textOf).join(""):n?.props?textOf(n.props.children):"";
   assert.match(textOf(notes[0]),/原備註自行向廠商訂購/);
   assert.equal(textOf(notes[1]),"缺貨","an empty note leaves no blank line above");
+  assert.equal(ro.nodes.filter(n=>n.type==="tr"&&n.props.className==="cy-row-struck").length,2,"已指定結案 rows are struck through");
   assert.doesNotMatch(textOf(ro.nodes.find(n=>n.type==="td"&&n.props["data-col"]==="received")),/其他/);
 });
 
