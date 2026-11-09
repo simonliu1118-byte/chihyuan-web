@@ -534,6 +534,12 @@ export function OutsourcingOperationalPage() {
   }
 
   const receiptBoms = boms.filter((row) => row.isActive && row.finishedItemId === receiptItemId);
+  async function switchTab(value:Tab){
+    if(value===tab)return;
+    if(editing&&!(await discardEditing()))return;
+    if(masterEditing&&!(await confirm({title:"放棄尚未儲存的修改",description:"切換頁籤會放棄目前尚未儲存的修改。",confirmLabel:"放棄修改",confirmTone:"danger"})))return;
+    setTab(value);
+  }
 
   if (!listReady) return <Loading />;
 
@@ -543,19 +549,28 @@ export function OutsourcingOperationalPage() {
       {promptDialog}
             <FeedbackBanner message={message} tone={messageTone} />
 
-      <div className="cy-op-tabs">
-        {(["orders", "contractors", "boms", "stock"] as Tab[]).map((value) => (
-          <button type="button" className={tab === value ? "active" : ""} key={value} onClick={async () => { if (value === tab) return; if (editing && !(await discardEditing())) return; if (masterEditing && !(await confirm({ title: "放棄尚未儲存的修改", description: "切換頁籤會放棄目前尚未儲存的修改。", confirmLabel: "放棄修改", confirmTone: "danger" }))) return; setTab(value); }}>
-            {value === "orders" ? "代工單" : value === "contractors" ? "協力廠商／單價" : value === "boms" ? "BOM" : "代工庫存"}
-          </button>
-        ))}
-      </div>
+      {compact?<ModuleSections label="委外代工功能" value={tab}
+        sections={[{key:"orders",label:"代工單"},{key:"contractors",label:"協力廠商／單價"},{key:"boms",label:"BOM"},{key:"stock",label:"代工庫存"}] as const}
+        onChange={value=>void switchTab(value)}/>
+       :<div className="cy-op-tabs">
+        {(["orders","contractors","boms","stock"] as Tab[]).map(value=>
+          <button type="button" className={tab===value?"active":""} key={value} onClick={()=>void switchTab(value)}>
+            {value==="orders"?"代工單":value==="contractors"?"協力廠商／單價":value==="boms"?"BOM":"代工庫存"}
+          </button>)}
+       </div>}
 
       {tab === "orders" ? (
         <>
           <div className="cy-md" data-pane={pane.pane}>
             <section className="cy-op-panel cy-md-list" aria-label="代工單清單">
-              <div className="cy-md-toolbar">
+              {compact?<DataViewToolbar searchValue={orderQuery} onSearchChange={setOrderQuery} searchLabel="搜尋代工單"
+                 searchPlaceholder="搜尋代工單、協力廠商"
+                 filters={<StatusFilter label="代工單狀態" value={orderStatus} onChange={setOrderStatus} counts={statusCounts}
+                   options={(Object.keys(statusText) as (keyof typeof statusText)[]).map(code=>({code,label:statusText[code],tone:outsourcingTone[code]}))}/>}
+                 activeFilterCount={orderStatus?1:0}
+                 actions={<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void startCreate()}>＋ 新增代工單</button>}
+                 resultSummary={loadingOrders?"載入中":paging.hasMore?`已載入 ${orders.length} 筆，還有更多`:`共 ${orders.length} 筆`}/>
+                 :              <div className="cy-md-toolbar">
                 <div className="cy-md-toolbar-lead">
                   <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增代工單</button>
                   <input className="cy-op-input" type="search" aria-label="搜尋代工單" value={orderQuery} onChange={(event) => setOrderQuery(event.target.value)} placeholder="搜尋代工單、協力廠商" />
@@ -563,9 +578,17 @@ export function OutsourcingOperationalPage() {
                 <StatusFilter label="代工單狀態" value={orderStatus} onChange={setOrderStatus} counts={statusCounts}
                   options={(Object.keys(statusText) as (keyof typeof statusText)[]).map((code) => ({ code, label: statusText[code], tone: outsourcingTone[code] }))} />
                 <div className="cy-md-count">{loadingOrders ? <Loading inline /> : paging.hasMore ? `已載入 ${orders.length} 筆，還有更多` : `共 ${orders.length} 筆`}</div>
-              </div>
+              </div>}
               <div className="cy-op-list">
-                {orders.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedOrderId === row.id ? "active" : ""}`} aria-current={selectedOrderId === row.id ? "true" : undefined} onClick={async () => { if (editing && !(await discardEditing())) return; setSelectedOrderId(row.id); pane.open(); }}><strong>{row.contractorNameSnapshot}</strong><span><span className="cy-mono">{row.outsourcingRef}</span> · {formatDate(row.orderDate)}</span><StatusChip tone={outsourcingTone[row.statusCode]}>{statusText[row.statusCode]}</StatusChip></button>)}
+                {orders.map(row=>compact?<ListRow key={row.id} title={row.contractorNameSnapshot}
+                   subtitle={`${row.outsourcingRef} · ${formatDate(row.orderDate)}`}
+                   trailing={<StatusChip tone={outsourcingTone[row.statusCode]}>{statusText[row.statusCode]}</StatusChip>}
+                   selected={selectedOrderId===row.id} onClick={async()=>{if(editing&&!(await discardEditing()))return;setSelectedOrderId(row.id);pane.open()}}/>
+                :<button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedOrderId===row.id?"active":""}`}
+                  aria-current={selectedOrderId===row.id?"true":undefined} onClick={async()=>{if(editing&&!(await discardEditing()))return;setSelectedOrderId(row.id);pane.open()}}>
+                  <strong>{row.contractorNameSnapshot}</strong><span><span className="cy-mono">{row.outsourcingRef}</span> · {formatDate(row.orderDate)}</span>
+                  <StatusChip tone={outsourcingTone[row.statusCode]}>{statusText[row.statusCode]}</StatusChip>
+                 </button>)}
                 {orders.length === 0 ? loadingOrders ? <Loading /> : <div className="cy-op-empty">尚無代工單。</div> : null}
                 <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
               </div>
@@ -578,7 +601,9 @@ export function OutsourcingOperationalPage() {
     <FormSection>
                 <div className="cy-record-header cy-edit-header">
                   <div><h2>{creating ? "新增代工單" : correctingOutbound ? "更正已確認的出庫" : "修改代工單"}</h2>{correctingOutbound ? <p>儲存後會以新的出庫資料取代原本的出庫，並保留更正紀錄。</p> : null}</div>
-                <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立代工單" : "儲存修改"}</button></div></div>
+                {compact?<ActionBar><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void cancelEdit()}>取消</button>
+                    <button className="cy-op-button primary" disabled={busy} aria-busy={busy||undefined}>{creating?"建立代工單":"儲存修改"}</button></ActionBar>
+                 :<div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立代工單" : "儲存修改"}</button></div>}</div>
                 <div className="cy-f-grid cy-form-grid-spaced">
                   <Field label="協力廠商" size="s" required><select className="cy-op-input" value={draft.contractorId ?? ""} disabled={busy} onChange={(event) => setDraft({ ...draft, contractorId: Number(event.target.value) || null })}>
                       <option value="">請選擇</option>
@@ -621,7 +646,13 @@ export function OutsourcingOperationalPage() {
   </form>
               ) : selectedOrder ? <div>
                 <div className="cy-record-header"><div><h2>{selectedOrder.contractorNameSnapshot}</h2><p><span className="cy-mono">{selectedOrder.outsourcingRef}</span> · {formatDate(selectedOrder.orderDate)}</p></div>
-                <div className="cy-record-actions">
+                {compact?<OverflowMenu items={[
+                  ...(selectedOrder.statusCode==="pending_outbound"?[{label:"刪除",danger:true,disabled:busy,onClick:()=>void deletePending()}]:[]),
+                  ...(selectedOrder.statusCode==="outbound"?[{label:"更正出庫",disabled:busy,onClick:()=>startEdit("correct-outbound")},{label:"取消出庫",danger:true,disabled:busy,onClick:()=>track("reverse:outbound",reverse("outbound"))}]:[]),
+                  ...(selectedOrder.statusCode==="received"?[{label:"取消入庫",danger:true,disabled:busy,onClick:()=>track("reverse:receipt",reverse("receipt"))}]:[]),
+                  ...(selectedOrder.statusCode==="priced"?[{label:"取消計價",danger:true,disabled:busy,onClick:()=>track("reverse:pricing",reverse("pricing"))}]:[]),
+                  ...(selectedOrder.statusCode==="paid"?[{label:"取消付款",danger:true,disabled:busy,onClick:()=>track("reverse:payment",reverse("payment"))}]:[])
+                 ]}/>:                <div className="cy-record-actions">
                   {selectedOrder.statusCode === "pending_outbound" ? <>
                     <button className="cy-op-button" disabled={busy} onClick={() => startEdit("pending")}>修改</button>
                     <button className="cy-op-button primary" disabled={busy} aria-busy={(busy && pending === "confirmOutbound") || undefined} onClick={() => track("confirmOutbound", confirmOutbound())}>確認出庫</button>
@@ -641,10 +672,17 @@ export function OutsourcingOperationalPage() {
                     <button className="cy-op-button danger" disabled={busy} aria-busy={(busy && pending === "reverse:pricing") || undefined} onClick={() => track("reverse:pricing", reverse("pricing"))}>取消計價</button>
                   </> : null}
                   {selectedOrder.statusCode === "paid" ? <button className="cy-op-button danger" disabled={busy} aria-busy={(busy && pending === "reverse:payment") || undefined} onClick={() => track("reverse:payment", reverse("payment"))}>取消付款</button> : null}
-                </div></div>
+                </div>}
+                 </div>
+                 {compact?<ActionBar>
+                   {selectedOrder.statusCode==="pending_outbound"?<><button type="button" className="cy-op-button" disabled={busy} onClick={()=>startEdit("pending")}>修改</button><button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>track("confirmOutbound",confirmOutbound())}>確認出庫</button></>:null}
+                   {selectedOrder.statusCode==="outbound"?<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>track("receive",receive())}>確認入庫</button>:null}
+                   {selectedOrder.statusCode==="received"?<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>track("price",price())}>計價</button>:null}
+                   {selectedOrder.statusCode==="priced"?<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>track("pay",pay())}>確認付款</button>:null}
+                 </ActionBar>:null}</div>
                 <OutsourcingProgress status={selectedOrder.statusCode} />
                 <div className="cy-op-detail-grid"><div><span>工單日期</span><strong>{formatDate(selectedOrder.orderDate)}</strong></div><div><span>出庫日期</span><strong>{formatDate(selectedOrder.outboundDate)}</strong></div><div><span>付款時間</span><strong>{selectedOrder.paidAt ? formatDateTime(selectedOrder.paidAt) : "—"}</strong></div></div>
-                <div className="cy-op-subsection"><h3>出庫料件</h3><div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">數量</th><th>單位</th></tr></thead><tbody>{selectedOrder.parts.map((part) => <tr key={part.id}><td className="cy-mono">{part.componentItemNoSnapshot}</td><td>{part.componentItemNameSnapshot}</td><td className="num">{part.quantity}</td><td>{part.unitSnapshot}</td></tr>)}</tbody></table></div></div>
+                <div className="cy-op-subsection"><h3>出庫料件</h3><div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>品號</th><th>商品</th><th className="num">數量</th><th>單位</th></tr></thead><tbody>{selectedOrder.parts.map((part) => <tr key={part.id}><td data-label="品號" className="cy-mono">{part.componentItemNoSnapshot}</td><td data-label="商品" data-priority="title">{part.componentItemNameSnapshot}</td><td data-label="數量" className="num">{part.quantity}</td><td data-label="單位">{part.unitSnapshot}</td></tr>)}</tbody></table></div></div>
                 {selectedOrder.receipt ? <div className="cy-op-subsection"><h3>入庫</h3>{selectedOrder.receipt.items.map((item) => <div className="cy-op-read-row" key={item.id}>{formatItem(item.itemNoSnapshot, item.itemNameSnapshot)} · {item.quantity} {item.unitSnapshot}{item.bomRecipeId ? ` · BOM #${item.bomRecipeId}` : ""}</div>)}</div> : null}
                 {selectedOrder.pricing ? <div className="cy-op-subsection"><h3>計價</h3>{selectedOrder.pricing.items.map((item) => <div className="cy-op-read-row" key={item.id}>{item.itemNoSnapshot}　{item.quantity} {item.unitSnapshot} × {item.unitPrice} = {item.subtotal}</div>)}<div className="cy-op-total">總額 NT$ {selectedOrder.pricing.totalAmount}</div></div> : null}
 
@@ -678,7 +716,7 @@ export function OutsourcingOperationalPage() {
 
       {tab === "stock" ? <section className="cy-op-panel">
         <div className="cy-op-panel-header"><div><h2>代工庫存</h2></div><select className="cy-op-input cy-out-stock-select" aria-label="協力廠商" value={stockContractorId ?? ""} onChange={(event) => setStockContractorId(Number(event.target.value) || null)}><option value="">選擇協力廠商</option>{contractors.map((row) => <option key={row.id} value={row.id}>{row.displayName}</option>)}</select></div>
-        <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">目前庫存</th></tr></thead><tbody>{stockRows.map((row) => <tr key={row.itemId}><td className="cy-mono">{row.itemNo}</td><td>{row.itemName}</td><td className="num">{row.quantity}</td></tr>)}</tbody></table></div>
+        <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>品號</th><th>商品</th><th className="num">目前庫存</th></tr></thead><tbody>{stockRows.map((row) => <tr key={row.itemId}><td data-label="品號" className="cy-mono">{row.itemNo}</td><td data-label="商品" data-priority="title">{row.itemName}</td><td data-label="目前庫存" className="num">{row.quantity}</td></tr>)}</tbody></table></div>
         {stockRows.length === 0 ? <p>目前沒有非零代工庫存。</p> : null}
       </section> : null}
     </div>
