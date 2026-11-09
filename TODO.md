@@ -5,6 +5,9 @@
 
 ## 目前狀態（2026-11-09）
 
+- [ ] **WO-0.14.1 全系統手機共用 UI（六批）**：第一批叫貨已建分支 `cyweb/wo-0.14.1-ordering`，等待 CI、手機／桌機截圖與 Claude 複審；其餘五批（門市、客戶／商品、瑕疵／銷售工單／委外／工作日誌、人事／ERP／BOT、系統管理／首頁）尚未完成，須分別開 PR，不合併部署。見 [WO-0.14.1](docs/development/work-orders/WO-0.14.1.md)。
+
+
 - 接手手機版工作前必讀 UI_COMPONENT_CATALOG §6。
 - **正式站 V0.13.0**（`https://admin.chihyuancm.com`）：首頁、公告與通知、個人待辦、鈴鐺上線；正式 D1 migration 到 **`0059_home_hub`**。
 - **Claude 事後複審**：V0.9.87–V0.12.9 已合併部署的變更全部通過（2026-11-09），見 [審查紀錄](docs/handoff/CYWEB-CLAUDE-REVIEW-20261109.md)。已結案交接移到 [固定快照 ff3562c](https://github.com/simonliu1118-byte/chihyuan-web/tree/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff)。

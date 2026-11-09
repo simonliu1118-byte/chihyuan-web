@@ -113,3 +113,8 @@
 | 寬表格 | 在 `<table>` 加 `cy-rt`，每個 `td` 加 `data-label`；可選 `data-priority="title"`（卡片標題）、`"wide"`（整列寬）、`"hide"`（只在桌機顯示） | 每列變一張兩欄卡片 | 不變 |
 
 範例：門市頁的四個分頁（`StorePage`）用 `ModuleSections`。
+
+ 
+### WO-0.14.1 第一批（叫貨）
+- 手機叫貨子頁由 ModuleSections 控制，草稿來源／叫貨紀錄使用 ListRow，搜尋篩選由 DataViewToolbar 擁有，同一套編輯 Grid 的手機行點擊開 BottomSheet；桌機仍用原表格。
+- 主要動作由 ActionBar 的 `aboveTabs` 通用變體固定在底部分頁上方，次要由 OverflowMenu 提供。共用選擇清單、精簡品項樣式維護在 `src/ui/mobile/mobile.css`，不得另建模組-specific 的手機覆蓋層。

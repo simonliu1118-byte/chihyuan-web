@@ -1,6 +1,6 @@
 # WO-0.14.1 全系統手機版：各模組改用共用手機元件（第二階段）
 
-- 狀態：**待執行**（2026-11-09 Claude 開立，執行者：GPT）
+- 狀態：**執行中／第一批待驗證**（2026-11-09 GPT 接手；六批未完成）
 - 分支：每個批次一個分支，例如 `cyweb/wo-0.14.1-ordering`；版號自 V0.14.1 起每批 +1，CHANGELOG 同步。
 - 開工前必讀：
   - `docs/architecture/UI_COMPONENT_CATALOG.md` **§6 手機版**（共用元件與規則）
@@ -52,7 +52,13 @@
 
 ## 8. 完成報告（GPT 填）
 
-（每批一段：分支、PR、改了哪些模組、刪了哪些手機 CSS、截圖、測試結果。）
+### 批次 1 — 叫貨（GPT，2026-11-09）
+- 分支：`cyweb/wo-0.14.1-ordering`；PR：待建立。
+- 手機採 ModuleSections，預設未到貨；叫貨單、草稿來源用 ListRow；搜尋條件採 DataViewToolbar；草稿品項在原 OrderingGrid state/mutation owner 中以 BottomSheet 編輯，同一 commit/flush 流程。
+- 主要動作 ActionBar、次要 OverflowMenu；未到貨、到貨紀錄與到貨表採 cy-rt。
+- 刪除 `erp-item-query.css` 原手機叫貨 nav、篩選、草稿卡片、Grid 卡片與未到貨卡片樣式；以通用 `src/ui/mobile/mobile.css` 承擔可重用呈現。
+- 需求驗收：已實作初稿，待 Runtime/Governance/TypeScript/完整 Node CI、390px/1440px 前後實測截圖與 Claude 審查。沒有把未取得的證據標示為通過。
+- 後續批次 2–6：尚未開始；各自獨立 PR。
 
 ## 9. 審查紀錄（Claude 填）
 
