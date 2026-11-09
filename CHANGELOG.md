@@ -6,6 +6,12 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.15.8 — 短表單視窗縮小、指定結案欄名（2026-11-09，Claude）
+- 盤點全系統 73 個視窗：沒指定寬度的會吃到預設 620px（2026-10-03 定下的預設，當時多為大表單）。短表單改用小尺寸 440px：指定結案、門市人員設定、新增 BOT、退回／撤回取消訂購、LINE 同名核對、選擇黑名單對象。
+- 指定結案視窗欄名改為「原因」（缺貨／取消／其他）與「備註」；原因選其他時備註必填。
+- UI_COMPONENT_CATALOG 寫明視窗寬度規則：短表單 small、一般 medium、含表格 large，必須指定。
+- 叫貨明細、到貨紀錄：某格換成兩行時，同列其他格垂直置中。
+
 ## CY Web V0.15.7 — 叫貨單：到貨紀錄改用明細同款表格、廠商條件移到上方（2026-11-09，Claude）
 - 到貨紀錄改用和叫貨明細相同的框線表格，每筆一行（登記人與時間同一行）。
 - 廠商條件那一列（廠商資料）移到分隔線下、到貨紀錄上方。

@@ -512,3 +512,5 @@
  .cy-ordering-page .cy-ordering-vendor-legend{flex-wrap:wrap;white-space:normal;gap:6px 10px}
 
 }
+/* Read-only grids (叫貨明細, 到貨紀錄): a row with one wrapped cell keeps the others vertically centred (user 2026-11-09). */
+.cy-ordering-grid[data-readonly] td, .cy-ordering-grid[data-readonly] td.cy-ordering-status-cell, .cy-ordering-grid[data-readonly] td.cy-ordering-close-cell, .cy-ordering-receipts td:first-child { vertical-align: middle; }
