@@ -77,7 +77,7 @@ test("one OrderingGrid owner renders phone ListRow editor sheet and desktop tabl
  assert.match(grid,/void editor\.current\.flush\(\)/);
  assert.match(grid,/data-label=\{title\} data-col=\{field\}/);
  assert.match(grid,/data-label="項次" data-col="index"/);
- assert.match(ordering,/<table className="cy-op-table cy-rt cy-ordering-pending-table"/);
+ assert.match(ordering,/<table className="cy-op-table cy-rt cy-rt-list cy-ordering-pending-table"/);
  assert.match(ordering,/<table className="cy-op-table cy-rt cy-ordering-receipts"/);
 });
 
@@ -96,10 +96,14 @@ test("ordering toolbar routes history filtering through DataViewToolbar and keep
  assert.match(ordering,/<div className="cy-md-toolbar-lead">/);
 });
 
-test("pending rows reuse responsive-table presentation with original receipt and closing mutations",()=>{
- assert.match(ordering,/cy-rt cy-ordering-pending-table/);
+test("pending rows use the shared cy-rt-list presentation, one 登記到貨 per order and per-line 指定結案",()=>{
+ assert.match(ordering,/cy-rt cy-rt-list cy-ordering-pending-table/);
  assert.match(ordering,/data-label="品名" data-priority="title"/);
- assert.match(ordering,/setReceipt\(\{id:l\.orderId/);
+ assert.match(ordering,/<th>廠商品號<\/th><th>廠商品名<\/th>/);
+ assert.match(ordering,/setReceipt\(\{id:group\.orderId/);
+ assert.doesNotMatch(ordering,/setReceipt\(\{id:l\.orderId/,"no per-line 登記到貨");
+ assert.match(ordering,/onClick=\{\(\)=>void reloadOrder\(group\.orderId\)\}>開啟叫貨單/);
+ assert.match(read("src/ui/mobile/mobile.css","utf8"),/\.cy-rt\.cy-rt-list tbody>tr\{grid-template-columns/);
  assert.match(ordering,/setClosing\(\{id:l\.lineId/);
  assert.doesNotMatch(css,/cy-ordering-pending-table tr\{display:grid/);
 });

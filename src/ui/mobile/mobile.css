@@ -81,6 +81,17 @@
  .cy-rt tbody>tr>td[data-priority=hide]{display:none}
  .cy-rt tbody>tr>td:empty{display:none}
 
+ /* ResponsiveTable list variant (cy-rt cy-rt-list): two-line rows inside a card instead of one card per row.
+    title = line 1 left, data-rt=end = line 1 right, data-rt=meta = line 2 left (mobile-only cell), data-rt=action = line 2 right. */
+ .cy-rt.cy-rt-list tbody>tr{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"t e" "m a";column-gap:12px;row-gap:2px;margin:0;padding:10px 12px;border:0;border-top:1px solid var(--cy-border);border-radius:0;background:none}
+ .cy-rt.cy-rt-list tbody>tr:first-child{border-top:0}
+ .cy-rt.cy-rt-list tbody>tr>td{padding:0}
+ .cy-rt.cy-rt-list tbody>tr>td::before{display:none}
+ .cy-rt.cy-rt-list tbody>tr>td[data-priority=title]{grid-area:t;padding:0;background:none;font-weight:600}
+ .cy-rt.cy-rt-list tbody>tr>td[data-rt=end]{grid-area:e;text-align:right!important;white-space:nowrap}
+ .cy-rt.cy-rt-list tbody>tr>td[data-rt=meta]{display:block;grid-area:m;align-self:center;color:var(--cy-text-muted);font-size:var(--cy-fs-xs,12px)}
+ .cy-rt.cy-rt-list tbody>tr>td[data-rt=action]{grid-area:a;text-align:right!important}
+
  /* Fixed primary actions sit above the module's bottom navigation, rather than covering it. */
  .cy-action-bar-above-tabs{bottom:calc(56px + env(safe-area-inset-bottom,0px))}
  .cy-mobile-choice-panel{display:grid;gap:10px;padding:8px 10px;min-width:0}
@@ -138,3 +149,5 @@
  .cy-identity-mobile-users .cy-list-row+.cy-list-row{border-top:1px solid var(--cy-border)}
 
 }
+/* The list variant's phone-only summary cell. */
+.cy-rt-list td[data-rt=meta]{display:none}

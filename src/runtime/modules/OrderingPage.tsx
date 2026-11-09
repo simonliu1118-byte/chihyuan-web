@@ -725,15 +725,27 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
          <button type="button" className="cy-ordering-pending-toggle" aria-expanded={open}
           onClick={()=>setCollapsedPending(prev=>{const next=new Set(prev);if(next.has(group.orderId))next.delete(group.orderId);else next.add(group.orderId);return next})}>
           <span className={"cy-ordering-pending-caret"+(open?" open":"")} aria-hidden="true">{Icons.chevronRight}</span>
-          <strong>{first.sourceName}</strong><span>{displayDate(first.orderDate)}</span><span className="cy-ordering-pending-count">{group.lines.length} 項未到</span>
+          <strong>{first.sourceName}</strong><span>叫貨 {displayDate(first.orderDate)}</span>
          </button>
-         <button type="button" className="cy-op-button compact" onClick={()=>void reloadOrder(group.orderId).then(order=>{if(order)setReceipt({id:group.orderId,no:"",date:nowDate(),
+         <span className="cy-ordering-pending-count">{group.lines.length} 項未到</span>
+         <button type="button" className="cy-op-button compact quiet" disabled={busy} onClick={()=>void reloadOrder(group.orderId)}>開啟叫貨單</button>
+         {/* One 登記到貨 per order (user 2026-11-09): the dialog lists every waiting line to tick. */}
+         <button type="button" className="cy-op-button compact primary" disabled={busy} onClick={()=>void reloadOrder(group.orderId).then(order=>{if(order)setReceipt({id:group.orderId,no:"",date:nowDate(),
           quantities:Object.fromEntries(group.lines.map(l=>[l.lineId,String(l.remaining)])),selectedLineIds:group.lines.map(l=>l.lineId)})})}>登記到貨</button>
         </div>
-        {open?<table className="cy-op-table cy-rt cy-ordering-pending-table"><thead><tr><th>品號</th><th>品名</th><th>叫貨</th><th>已到</th><th>剩餘</th><th/></tr></thead><tbody>
-         {group.lines.map(l=><tr key={l.lineId}><td data-label="品號" className="cy-mono">{l.itemCode}</td><td data-label="品名" data-priority="title">{l.itemName||l.vendorItemName}</td><td data-label="叫貨" data-priority="hide">{l.quantity}{l.unit}</td><td data-label="已到" data-priority="hide">{l.received}</td><td data-label="剩餘"><strong>{l.remaining}</strong></td>
-          <td className="cy-ordering-row-actions" data-label="操作"><button className="cy-op-button compact quiet" type="button" onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setReceipt({id:l.orderId,no:"",date:nowDate(),quantities:{[l.lineId]:String(l.remaining)},selectedLineIds:[l.lineId]})})}>登記到貨</button>
-           <button type="button" className="cy-op-button compact quiet" onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setClosing({id:l.lineId,kind:"SHORTAGE",reason:""})})}>指定結案</button></td></tr>)}
+        {open?<table className="cy-op-table cy-rt cy-rt-list cy-ordering-pending-table">
+         <colgroup><col className="cy-ordering-pending-col-code"/><col/><col className="cy-ordering-pending-col-vcode"/><col/><col className="cy-ordering-pending-col-num"/><col className="cy-ordering-pending-col-num"/><col className="cy-ordering-pending-col-num"/><col className="cy-ordering-pending-col-action"/></colgroup>
+         <thead><tr><th>品號</th><th>品名</th><th>廠商品號</th><th>廠商品名</th><th className="is-number">叫貨</th><th className="is-number">已到</th><th className="is-number">剩餘</th><th><span className="cy-ordering-visually-hidden">操作</span></th></tr></thead><tbody>
+         {group.lines.map(l=>{const vendorName=l.vendorItemName||"",sameName=!vendorName||vendorName===l.itemName;return <tr key={l.lineId}>
+          <td data-label="品號" data-priority="hide" className="cy-mono">{l.itemCode||<span className="cy-ordering-pending-empty">—</span>}</td>
+          <td data-label="品名" data-priority="title">{l.itemName||vendorName}</td>
+          <td data-rt="meta" className="cy-mono">{[l.itemCode,l.vendorItemCode&&"廠商 "+l.vendorItemCode].filter(Boolean).join("・")||"—"}</td>
+          <td data-label="廠商品號" data-priority="hide" className="cy-mono">{l.vendorItemCode||<span className="cy-ordering-pending-empty">—</span>}</td>
+          <td data-label="廠商品名" data-priority="hide" className={sameName?"cy-ordering-pending-same":undefined}>{vendorName||l.itemName}</td>
+          <td data-label="叫貨" data-priority="hide" className="is-number">{l.quantity}<small>{l.unit}</small></td>
+          <td data-label="已到" data-priority="hide" className={"is-number"+(l.received>0?" cy-ordering-pending-got":"")}>{l.received}</td>
+          <td data-label="剩餘" data-rt="end" className="is-number cy-ordering-pending-left"><span className="cy-ordering-pending-left-label">剩 </span><strong>{l.remaining}</strong><small>{l.unit}</small></td>
+          <td data-rt="action" className="cy-ordering-row-actions"><button type="button" className="cy-op-button compact soft" disabled={busy} onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setClosing({id:l.lineId,kind:"SHORTAGE",reason:""})})}>指定結案</button></td></tr>})}
         </tbody></table>:null}
        </section>})}
       </div>:!pendingLoading?<p className="cy-op-empty">目前沒有未到貨的品項。</p>:null}

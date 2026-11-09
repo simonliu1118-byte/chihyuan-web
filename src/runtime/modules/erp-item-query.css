@@ -339,20 +339,33 @@
 /* 未到貨明細: one collapsible card per 叫貨單, compact rows (user 2026-10-27). */
 .cy-ordering-pending { display: grid; gap: 8px; }
 .cy-ordering-pending-card { border: 1px solid var(--cy-border); border-radius: var(--cy-radius-md); background: var(--cy-surface); overflow: hidden; }
-.cy-ordering-pending-head { display: flex; align-items: center; gap: 8px; padding: 4px 8px 4px 4px; background: var(--cy-surface-muted); }
+.cy-ordering-pending-head { display: flex; align-items: center; gap: 10px; padding: 6px 10px 6px 4px; background: var(--cy-surface-muted); border-bottom: 1px solid var(--cy-border); }
 .cy-ordering-pending-toggle { display: flex; flex: 1; align-items: baseline; gap: 10px; min-width: 0; padding: 4px 6px; border: 0; background: none; color: var(--cy-text); font: inherit; text-align: left; cursor: pointer; }
 .cy-ordering-pending-toggle span { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
 .cy-ordering-pending-toggle .cy-ordering-pending-caret { display: inline-grid; place-items: center; width: 18px; align-self: center; color: var(--cy-text); }
 .cy-ordering-pending-caret .cy-icon { width: 18px; height: 18px; transition: transform .15s; }
 .cy-ordering-pending-caret.open .cy-icon { transform: rotate(90deg); }
-.cy-ordering-pending-count { margin-left: auto; }
-.cy-ordering-pending-table { font-size: var(--cy-fs-sm); }
-.cy-ordering-pending-mobile-name,.cy-ordering-pending-mobile-summary { display: none; }
-.cy-ordering-pending-table :is(th, td) { padding-block: 4px; }
-.cy-ordering-pending-table th:nth-child(1) { width: 96px; }
-.cy-ordering-pending-table th:nth-child(n+3):nth-child(-n+5) { width: 64px; }
-.cy-ordering-pending-table th:last-child { width: 150px; }
+.cy-ordering-pending-count { padding: 2px 10px; border-radius: 999px; background: var(--cy-warning-soft); color: var(--cy-warning); font-size: var(--cy-fs-xs); font-weight: 600; white-space: nowrap; }
+/* 未到貨 table (user 2026-11-09): vendor code/name columns, numbers with units, one 登記到貨 per order. */
+.cy-ordering-pending-table { table-layout: fixed; width: 100%; font-size: var(--cy-fs-sm); }
+.cy-ordering-pending-table :is(th, td) { padding: 7px 10px; vertical-align: middle; }
+.cy-ordering-pending-table th { color: var(--cy-text-muted); font-weight: 500; }
+.cy-ordering-pending-col-code { width: 104px; } .cy-ordering-pending-col-vcode { width: 128px; } .cy-ordering-pending-col-num { width: 68px; } .cy-ordering-pending-col-action { width: 96px; }
+.cy-ordering-pending-table .is-number { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cy-ordering-pending-table .is-number small { margin-left: 2px; color: var(--cy-text-muted); font-size: var(--cy-fs-xs); }
+.cy-ordering-pending-left strong { font-size: var(--cy-fs-md, 15px); }
+.cy-ordering-pending-left-label { display: none; color: var(--cy-text-muted); font-size: var(--cy-fs-xs); }
+.cy-ordering-pending-got { color: var(--cy-accent); font-weight: 600; }
+.cy-ordering-pending-same, .cy-ordering-pending-empty { color: var(--cy-text-muted); }
+.cy-ordering-pending-table tbody tr:hover { background: var(--cy-accent-soft); }
 .cy-ordering-pending-table .cy-op-button.compact { min-height: 26px; padding-block: 0; }
+@media (max-width: 820px) {
+  .cy-ordering-pending-head { flex-wrap: wrap; }
+  .cy-ordering-pending-head .cy-ordering-pending-toggle { flex-basis: 100%; }
+  .cy-ordering-pending-count { margin-right: auto; }
+  .cy-ordering-pending-left-label { display: inline; }
+  .cy-ordering-pending-table tbody tr:hover { background: none; }
+}
 
 /* ERP 查詢 categories stay mounted (V0.9.41); a running one is marked on its tab. */
 .cy-erp-category-panel[hidden]{display:none}
