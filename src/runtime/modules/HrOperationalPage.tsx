@@ -454,7 +454,7 @@ export function HrOperationalPage() {
               onClick={() => setAllowances([...allowances, { itemTypeId: String(salaryItems[0]?.id ?? ""), amount: "", isRegular: true }])}>＋ 增加津貼</button></div>
           <div className="cy-form-block-body">
             {!salaryItems.length ? <p className="cy-form-block-empty">尚未設定津貼項目（右上角「設定」）。</p> : null}
-            {allowances.map((row, index) => <div className="cy-hr-allowance-row" key={index}>
+            {allowances.map((row, index) => <div className="cy-hr-allowance-row cy-mobile-form-two-col" key={index}>
               <select className="cy-op-input" aria-label="津貼項目" value={row.itemTypeId}
                 onChange={event => setAllowances(allowances.map((item, n) => n === index ? { ...item, itemTypeId: event.target.value } : item))}>
                 {salaryItems.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
@@ -610,7 +610,7 @@ function EmployeeForm({ draft, creating, busy, members, stores, jobTitles, patch
       <RequiredRows label="緊急聯絡人" satisfied={draft.contacts.length > 0} />
       <RowsBlock title={<>緊急聯絡人<span className="cy-field-required" aria-hidden="true">＊</span></>} addLabel="增加聯絡人" busy={busy} empty={!draft.contacts.length}
         onAdd={() => patch({ contacts: [...draft.contacts, { name: "", relationship: "", phone: "" }] })}>
-        {draft.contacts.map((row, index) => <div className="cy-hr-edit-row contact" key={index}>
+        {draft.contacts.map((row, index) => <div className="cy-hr-edit-row contact cy-mobile-form-two-col" key={index}>
           <RowInput label="姓名" value={row.name} required onChange={name => patch({ contacts: draft.contacts.map((item, n) => n === index ? { ...item, name } : item) })} />
           <RowInput label="關係" value={row.relationship} onChange={relationship => patch({ contacts: draft.contacts.map((item, n) => n === index ? { ...item, relationship } : item) })} />
           <RowInput label="電話" value={row.phone} required onChange={phone => patch({ contacts: draft.contacts.map((item, n) => n === index ? { ...item, phone } : item) })} />
@@ -620,7 +620,7 @@ function EmployeeForm({ draft, creating, busy, members, stores, jobTitles, patch
 
       <RowsBlock title="學歷" addLabel="增加學歷" busy={busy} empty={!draft.education.length}
         onAdd={() => patch({ education: [...draft.education, { school: "", department: "", degree: "", graduationMonth: "" }] })}>
-        {draft.education.map((row, index) => <div className="cy-hr-edit-row education" key={index}>
+        {draft.education.map((row, index) => <div className="cy-hr-edit-row education cy-mobile-form-two-col" key={index}>
           <RowInput label="學校" value={row.school} required onChange={school => patch({ education: draft.education.map((item, n) => n === index ? { ...item, school } : item) })} />
           <RowInput label="科系" value={row.department} onChange={department => patch({ education: draft.education.map((item, n) => n === index ? { ...item, department } : item) })} />
           <RowInput label="學位" value={row.degree} onChange={degree => patch({ education: draft.education.map((item, n) => n === index ? { ...item, degree } : item) })} />
@@ -631,7 +631,7 @@ function EmployeeForm({ draft, creating, busy, members, stores, jobTitles, patch
 
       <RowsBlock title="工作經歷" addLabel="增加經歷" busy={busy} empty={!draft.workHistory.length}
         onAdd={() => patch({ workHistory: [...draft.workHistory, { company: "", jobTitle: "", startMonth: "", endMonth: "", note: "" }] })}>
-        {draft.workHistory.map((row, index) => <div className="cy-hr-edit-row work" key={index}>
+        {draft.workHistory.map((row, index) => <div className="cy-hr-edit-row work cy-mobile-form-two-col" key={index}>
           <RowInput label="公司" value={row.company} required onChange={company => patch({ workHistory: draft.workHistory.map((item, n) => n === index ? { ...item, company } : item) })} />
           <RowInput label="職稱" value={row.jobTitle} onChange={jobTitle => patch({ workHistory: draft.workHistory.map((item, n) => n === index ? { ...item, jobTitle } : item) })} />
           <RowInput label="起年月" type="month" value={row.startMonth} onChange={startMonth => patch({ workHistory: draft.workHistory.map((item, n) => n === index ? { ...item, startMonth } : item) })} />
