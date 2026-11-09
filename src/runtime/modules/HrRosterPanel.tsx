@@ -3,6 +3,9 @@ import {apiRequest} from "../../api/client";
 import {taipeiToday} from "../../../shared/erp-query-history";
 import {useUnsavedChangesGuard} from "../../ui/foundation/useUnsavedChangesGuard";
 import {Dialog} from "../../ui/overlays/Dialog";
+import {EntryFields} from "../../ui/forms/EntryTable";
+import {CheckField} from "../../ui/forms/Field";
+import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {HrLeaveDialog,type LeavePerson,type LeaveTypeOption,type CompletedLeaveInfo} from "./HrLeaveDialog";
 import type {RosterResult,RosterViolation} from "../../../shared/hr-roster";
@@ -131,31 +134,56 @@ export function HrRosterPanel() {
    {pending.length?<div className="cy-op-panel no-print"><h3>主管核准</h3>{pending.map((x,i)=><p key={i}>{data.employees.find(e=>e.id===x.employeeId)?.name??x.employeeId}　{x.startDate}～{x.endDate}　{x.kind==="over_eight"?"兼職超過八小時":"連六"}。{x.suggestion}</p>)}
     <button type="button" className="cy-op-button primary" onClick={()=>void submit(pending)}>核准並儲存</button></div>:null}
   </>:<p>正在讀取排班…</p>}
-  <Dialog open={cell!==null} title={emp?emp.name+"　"+cell?.date:"排班格"} size="medium" onClose={()=>setCell(null)}>
-   {cell&&emp&&data?<div className="cy-op-form">
-    {staged.get(cell.employeeId+"|"+cell.date)?.kind==="leave"?<button type="button" className="cy-op-button primary" onClick={()=>{setLeaveInitialDate(cell.date);
-      const existing=data.leaveForms.find(x=>x.employee_id===cell.employeeId&&x.work_date===cell.date&&x.whole_day===1);
-      setCompletedLeave(existing?{batchId:existing.batch_id,date:existing.work_date,code:existing.code,minutes:existing.minutes}:null);
-      setLeaveDialogPerson({id:emp.id,name:emp.name,employee_no:emp.employee_no,employment_type:emp.employment_type});setCell(null)}}>{data.leaveForms.some(x=>x.employee_id===cell.employeeId&&x.work_date===cell.date)?"查看／補填假單":"補假單"}</button>:null}
-    {emp.schedule_mode==="shift"?<div className="hr-cell-choices">{data.shifts.filter(x=>x.is_active).map(x=><button type="button" key={x.id} className="cy-op-button" onClick={()=>setChoice("shift",{shiftTypeId:x.id})}>{x.code} {x.name}</button>)}</div>:null}
-    {emp.schedule_mode==="hours"?<><label>排定時數<input className="cy-op-input" type="number" step=".25" min=".25" max="24" value={hours} onChange={e=>setHours(e.target.value)}/></label><button type="button" className="cy-op-button" onClick={()=>setChoice("hours",{hours:Number(hours)})}>套用時數</button></>:null}
-    <div className="hr-cell-choices">{emp.schedule_mode!=="none"?<button type="button" className="cy-op-button" onClick={()=>setChoice("off",{offMark:"slash"})}>/　例休日</button>:null}
-     {emp.employment_type==="casual"?<button type="button" className="cy-op-button" onClick={()=>setChoice("off",{offMark:"x"})}>X　不用來</button>:null}
-     <button type="button" className="cy-op-button" onClick={()=>setChoice(null)}>清除</button></div>
-    {emp.schedule_mode!=="none"?<><div className="hr-cell-choices">{data.leaveTypes.filter(x=>x.is_active&&(showAllLeave||["特","事","病","補"].includes(x.code))).map(x=><button type="button" key={x.id} className="cy-op-button" onClick={()=>setChoice("leave",{leaveTypeId:x.id})}>{x.code} {x.name}</button>)}</div>
-     <button type="button" className="cy-op-button" onClick={()=>setShowAllLeave(x=>!x)}>更多假別</button>
-     <label>註記<select className="cy-op-input" value={marker} onChange={e=>setMarker(e.target.value)}><option value="">無</option><option value="home">居家工作</option><option value="booth">擺攤</option></select></label>
-     <label>備註<input className="cy-op-input" value={note} onChange={e=>setNote(e.target.value)}/></label></>:null}
-   </div>:null}
+  <Dialog open={cell!==null} title={emp?emp.name+"　"+cell?.date:"排班格"} size="large" onClose={()=>setCell(null)}>
+   {cell&&emp&&data?<form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>e.preventDefault()}>
+    <EntryFields label="排班格編輯" rows={[
+     ...(staged.get(cell.employeeId+"|"+cell.date)?.kind==="leave"?[{label:"假單",content:<button type="button" className="cy-op-button primary" onClick={()=>{
+        setLeaveInitialDate(cell.date);
+        const existing=data.leaveForms.find(x=>x.employee_id===cell.employeeId&&x.work_date===cell.date&&x.whole_day===1);
+        setCompletedLeave(existing?{batchId:existing.batch_id,date:existing.work_date,code:existing.code,minutes:existing.minutes}:null);
+        setLeaveDialogPerson({id:emp.id,name:emp.name,employee_no:emp.employee_no,employment_type:emp.employment_type});setCell(null);
+       }}>{data.leaveForms.some(x=>x.employee_id===cell.employeeId&&x.work_date===cell.date)?"查看／補填假單":"補假單"}</button>}]:[]),
+     ...(emp.schedule_mode==="shift"?[{label:"班別",content:<div className="hr-cell-choices">
+       {data.shifts.filter(x=>x.is_active).map(x=><button type="button" key={x.id} className="cy-op-button" onClick={()=>setChoice("shift",{shiftTypeId:x.id})}>{x.code} {x.name}</button>)}
+      </div>}]:[]),
+     ...(emp.schedule_mode==="hours"?[{label:"排定時數",content:<span className="cy-hr-picker">
+        <input className="cy-sheet-input" type="number" step=".25" min=".25" max="24" value={hours} onChange={e=>setHours(e.target.value)}/>
+        <button type="button" className="cy-op-button soft" onClick={()=>setChoice("hours",{hours:Number(hours)})}>套用時數</button>
+       </span>}]:[]),
+     {label:"例休／清除",content:<div className="hr-cell-choices">
+       {emp.schedule_mode!=="none"?<button type="button" className="cy-op-button" onClick={()=>setChoice("off",{offMark:"slash"})}>/　例休日</button>:null}
+       {emp.employment_type==="casual"?<button type="button" className="cy-op-button" onClick={()=>setChoice("off",{offMark:"x"})}>X　不用來</button>:null}
+       <button type="button" className="cy-op-button" onClick={()=>setChoice(null)}>清除</button>
+      </div>},
+     ...(emp.schedule_mode!=="none"?[
+       {label:"假別",content:<div className="hr-cell-choices">
+        {data.leaveTypes.filter(x=>x.is_active&&(showAllLeave||["特","事","病","補"].includes(x.code))).map(x=>
+         <button type="button" key={x.id} className="cy-op-button" onClick={()=>setChoice("leave",{leaveTypeId:x.id})}>{x.code} {x.name}</button>)}
+        <button type="button" className="cy-op-button soft" onClick={()=>setShowAllLeave(x=>!x)}>更多假別</button>
+       </div>},
+       {label:"註記",content:<select className="cy-sheet-input" value={marker} onChange={e=>setMarker(e.target.value)}>
+        <option value="">無</option><option value="home">居家工作</option><option value="booth">擺攤</option>
+       </select>},
+       {label:"備註",content:<input className="cy-sheet-input" value={note} onChange={e=>setNote(e.target.value)}/>}
+      ]:[])
+    ]}/>
+   </form>:null}
   </Dialog>
-  <Dialog open={staff!==null} title="門市人員設定" size="small" onClose={()=>setStaff(null)}>
-   {staff?data?.employees.map(x=>{const v=staff[x.id]??{sort:"0",skip:false},set=(next:Partial<typeof v>)=>setStaff(old=>({...old,[x.id]:{...v,...next}}));
-    return <div key={x.id} className="hr-staff-setting"><strong>{x.name}</strong>
-    <label>排序<input type="number" className="cy-op-input" value={v.sort} aria-label={x.name+" 排序"} onChange={e=>set({sort:e.target.value})}/></label>
-    <label><input type="checkbox" checked={v.skip} onChange={e=>set({skip:e.target.checked})}/>不須檢核</label>
-    <button type="button" className="cy-op-button" disabled={loading} onClick={async()=>{try{
-     await apiRequest(ROOT+"/rosters/"+storeId+"/"+month+"/staff",{method:"PATCH",json:{employeeId:x.id,rosterSort:Number(v.sort||0),skipRosterChecks:v.skip}});await reload();setNotice("已更新 "+x.name+" 的排班設定");
-    }catch(e){setError(e instanceof Error?e.message:"儲存失敗")}}}>儲存</button></div>}):null}
+  <Dialog open={staff!==null} title="門市人員設定" size="large" onClose={()=>setStaff(null)}>
+   {staff?<form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={e=>e.preventDefault()}>
+    <EntryFields label="門市人員設定" rows={(data?.employees??[]).map(x=>{
+     const v=staff[x.id]??{sort:"0",skip:false};
+     const set=(next:Partial<typeof v>)=>setStaff(old=>({...old,[x.id]:{...v,...next}}));
+     return {label:x.name,content:<div className="cy-hr-roster-setting">
+       <input type="number" className="cy-sheet-input" aria-label={x.name+" 排序"} value={v.sort} onChange={e=>set({sort:e.target.value})}/>
+       <CheckField label="不須檢核" checked={v.skip} onChange={e=>set({skip:e.target.checked})}/>
+       <button type="button" className="cy-op-button soft" disabled={loading} onClick={async()=>{try{
+        await apiRequest(ROOT+"/rosters/"+storeId+"/"+month+"/staff",{method:"PATCH",json:{employeeId:x.id,rosterSort:Number(v.sort||0),skipRosterChecks:v.skip}});
+        await reload();setNotice("已更新 "+x.name+" 的排班設定");
+       }catch(e){setError(e instanceof Error?e.message:"儲存失敗")}}}>儲存</button>
+      </div>};
+    })}/>
+   </form>:null}
   </Dialog>
   <HrLeaveDialog person={leaveDialogPerson} types={formalLeaveTypes.length?formalLeaveTypes:data?.leaveTypes??[]} initialDate={leaveInitialDate} initialTypeId={leaveDialogPerson&&leaveInitialDate?data?.days.find(x=>x.employee_id===leaveDialogPerson.id&&x.work_date===leaveInitialDate)?.leave_type_id??undefined:undefined} completed={completedLeave} onClose={()=>{setLeaveDialogPerson(null);setCompletedLeave(null)}} onSaved={()=>{void reload()}}/>
   {confirmationDialog}
