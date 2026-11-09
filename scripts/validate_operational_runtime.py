@@ -34,9 +34,16 @@ def main() -> int:
     worklog_client = read("src/runtime/api/work-log-runtime-client.ts")
     doc = read("docs/architecture/OPERATIONAL_RUNTIME.md")
 
-    for token in ["#customers", "#items", "#defects", "#orders", "#outsourcing", "#worklogs", "#audit"]:
+    for token in ["#customers", "#items", "#orders", "#outsourcing", "#worklogs", "#audit"]:
         if token not in app:
             raise AssertionError(f"missing operational navigation: {token}")
+    # WO-0.16.0: no separate sidebar entry for defects, but old #defects is still a
+    # routable deep link with its own grant in the shared item workspace.
+    items_workspace = read("src/runtime/modules/ItemsModulePage.tsx")
+    if '"defects"' not in app or 'route === "items" || route === "defects"' not in app:
+        raise AssertionError("missing backward-compatible defect deep link")
+    if 'routeHref(key)' not in items_workspace or 'canDefects' not in items_workspace:
+        raise AssertionError("defect route must retain its independent permission")
 
     for retired in ["src/runtime/OperationalWorkspace.tsx", "src/runtime/local-database.ts", "src/runtime/advanced-local-types.ts"]:
         if (ROOT / retired).exists():
