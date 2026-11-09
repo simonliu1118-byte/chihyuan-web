@@ -1,5 +1,7 @@
 import { DateInput } from "../../ui/forms/DateInput";
-import {Field,CheckField,FormSection} from "../../ui/forms/Field";
+import {CheckField} from "../../ui/forms/Field";
+import {EntryFields} from "../../ui/forms/EntryTable";
+import {TimeInput} from "../../ui/forms/TimeInput";
 import {useEffect,useState,type FormEvent} from "react";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {apiRequest} from "../../api/client";
@@ -86,55 +88,71 @@ export function HrLeaveDialog({person:given,people,types,initialDate,initialType
    onSaved();onClose();
   }catch(e){setError(e instanceof Error?e.message:"假單儲存失敗")}finally{setBusy(false)}
  }
- return <Dialog open={given!==null} title={completed?"假單／銷假":"請假單"} onClose={onClose} size="medium" showCloseButton={!!completed||!!createdBatchId}>
+ return <Dialog open={given!==null} title={completed?"假單／銷假":"請假單"}
+  onClose={onClose} size={completed?"small":"large"} showCloseButton={!!completed||!!createdBatchId}>
   {confirmationDialog}
   {person&&completed?<form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>void cancelCompleted(e)}>
-    <FormSection>
-   <p>員工：{person.employee_no}　{person.name}</p>
-   <p>日期：{completed.date.replaceAll("-","/")}；假別：{completed.code}；時數：{(completed.minutes/60).toFixed(1)} 小時。</p>
-   <p>此日已有正式假單，不能直接從排班格更改。若要調整，須先銷假並留下原因。</p>
-   <Field label="銷假原因（必填）" size="l" required><textarea className="cy-op-input" value={cancelReason} onChange={e=>setCancelReason(e.target.value)}/></Field>
-   {error?<p role="alert" className="cy-notice cy-notice-danger">{error}</p>:null}
-   <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={onClose}>返回</button>
-    <button className="cy-op-button primary" disabled={busy||!cancelReason.trim()}>銷假</button></div>
-  
-    </FormSection>
+    <EntryFields label="銷假" rows={[
+     {label:"員工",content:<span>{person.employee_no}　{person.name}</span>},
+     {label:"日期／假別",content:<span>{completed.date.replaceAll("-","/")}　{completed.code}　{(completed.minutes/60).toFixed(1)} 小時</span>},
+     {label:"銷假原因",required:true,content:<textarea className="cy-sheet-input" value={cancelReason} onChange={e=>setCancelReason(e.target.value)}/>}
+    ]}/>
+    <p>此日已有正式假單，不能直接從排班格更改；須先銷假留下原因。</p>
+    {error?<p role="alert" className="cy-notice cy-notice-danger">{error}</p>:null}
+    <div className="cy-op-form-footer">
+     <button type="button" className="cy-op-button" onClick={onClose}>返回</button>
+     <button className="cy-op-button primary" disabled={busy||!cancelReason.trim()}>銷假</button>
+    </div>
   </form>:person?<form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>void submit(e)}>
-    <FormSection>
-   {people?<Field label="員工" size="m"><select className="cy-op-input" value={person.id} onChange={e=>{const next=people.find(x=>x.id===Number(e.target.value));if(next){setPerson(next);setWholeDay(next.employment_type==="full")}}}>
-     {people.map(x=><option key={x.id} value={x.id}>{x.employee_no} {x.name}</option>)}</select></Field>
-    :<p>{person.employee_no}　{person.name}（{person.employment_type==="full"?"正職":person.employment_type==="half"?"半職":"兼職"}）</p>}
-   <Field label="假別" size="m" required><select className="cy-op-input" value={typeId} onChange={e=>setTypeId(Number(e.target.value))}>
-    {types.filter(x=>x.is_active!==0&&x.code!=="國").map(x=><option key={x.id} value={x.id}>{x.code} {x.name}</option>)}</select></Field>
-   <Field label="請假日期" size="s" required><DateInput density="regular" className="cy-op-input" max="9999-12-31" value={from} onChange={e=>{setFrom(e);if(!wholeDay)setTo(e)}}/></Field>
-   {person.employment_type==="full"?<CheckField  label="整天請假（8 小時）" size="s"  checked={wholeDay} onChange={e=>setWholeDay(e.target.checked)}/>:null}
-   {wholeDay?<Field label="結束日期" size="s" required><DateInput density="regular" className="cy-op-input" min={from} max="9999-12-31" value={to} onChange={e=>setTo(e)}/></Field>:
-    <>{person.employment_type!=="full"?<CheckField  label="當天沒有班別，直接輸入請假分鐘數" size="s"  checked={manualMinutes} onChange={e=>setManualMinutes(e.target.checked)}/>:null}
-    {manualMinutes&&person.employment_type!=="full"?<Field label="請假時數（分鐘，30 的倍數）" size="s" required><input className="cy-op-input" type="number" min="30" step="30" value={minutes} onChange={e=>setMinutes(e.target.value)}/></Field>:<>
-     <Field label="起始時間" size="s"><input className="cy-op-input" type="time" value={startTime} onChange={e=>setStartTime(e.target.value)}/></Field>
-     <Field label="結束時間" size="s"><input className="cy-op-input" type="time" value={endTime} onChange={e=>setEndTime(e.target.value)}/></Field>
-    </>}</>}
-   {isComp?<Field label="補休來源" size="s" hint={advanceDate?"預支會另外列出，只有這個國定假日的補休給予後才會抵銷，不會從現有補休扣除。":undefined}><select className="cy-op-input" value={advanceDate} onChange={e=>setAdvanceDate(e.target.value)}>
-     <option value="">使用現有補休</option>
-     {holidays.map(h=><option key={h.date} value={h.date}>預支 {h.date.replaceAll("-","/")} {h.name} 的補休</option>)}</select></Field>:null}
-   {type?.requires_reason?<Field label="事由（必填）" size="l" required><textarea className="cy-op-input" value={reason} onChange={e=>setReason(e.target.value)}/></Field>:null}
-   {type?.quota_period==="event"?<Field label="事件日期" size="s" required><DateInput density="regular" className="cy-op-input" max="9999-12-31" value={eventDate} onChange={e=>setEventDate(e)}/></Field>:null}
-   {type?.event_quota_options?<Field label="本次天數" size="m"><select className="cy-op-input" value={eventDays} onChange={e=>setEventDays(e.target.value)}>{type.event_quota_options.split(",").map(x=><option key={x}>{x}</option>)}</select></Field>:null}
-   {type?.accepts_proof?<><Field label="證明照片（最多 3 張，非必填）" size="m"><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>setFiles(Array.from(e.target.files??[]).slice(0,3))}/></Field>
-    <CheckField  label="黑白縮圖" size="s"  checked={gray} onChange={e=>setGray(e.target.checked)}/>{files.map(f=><small key={f.name}>{f.name}</small>)}</>:null}
-   <p>預計請假 {(wholeDay&&to!==from?from+"～"+to:from).replaceAll("-","/")}，假別：{type?.name??"尚未選擇"}。{wholeDay?"所選有效日期的排班格會同步改為假別，例休日及國定假日依規則跳過。" :manualMinutes?"無班別日期依填寫的分鐘數請假；已有班別的日期須改用起訖時間。":"部分時數的班別維持不變。"}送出會檢查假額、補休與排班規則。</p>
-   {type?.accepts_proof&&previews.length?<div className="hr-cell-choices" aria-label="證明照片預覽">{previews.map((url,i)=><img key={url} src={url} alt={"證明照片 "+(i+1)} width={96} height={96} style={{objectFit:"cover"}}/>)}</div>:null}
+   <EntryFields label="請假單" rows={[
+    {label:"員工",content:people?<select className="cy-sheet-input" value={person.id}
+       onChange={e=>{const next=people.find(x=>x.id===Number(e.target.value));if(next){setPerson(next);setWholeDay(next.employment_type==="full")}}}>
+       {people.map(x=><option key={x.id} value={x.id}>{x.employee_no} {x.name}</option>)}
+      </select>:<span>{person.employee_no}　{person.name}（{person.employment_type==="full"?"正職":person.employment_type==="half"?"半職":"兼職"}）</span>},
+    {label:"假別",required:true,content:<select className="cy-sheet-input" value={typeId} onChange={e=>setTypeId(Number(e.target.value))}>
+       {types.filter(x=>x.is_active!==0&&x.code!=="國").map(x=><option key={x.id} value={x.id}>{x.code} {x.name}</option>)}
+      </select>},
+    {label:"請假日期",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={from} onChange={v=>{setFrom(v);if(!wholeDay)setTo(v)}}/>},
+    ...(person.employment_type==="full"?[{label:"整天請假",content:<CheckField label="整天請假（8 小時）" checked={wholeDay} onChange={e=>setWholeDay(e.target.checked)}/>}]:[]),
+    ...(wholeDay?[{label:"結束日期",required:true,content:<DateInput density="regular" min={from} max="9999-12-31" className="cy-sheet-input" value={to} onChange={setTo}/>}]:[
+      ...(person.employment_type!=="full"?[{label:"直接填分鐘",content:<CheckField label="沒有班別，輸入分鐘數" checked={manualMinutes} onChange={e=>setManualMinutes(e.target.checked)}/>}]:[]),
+      ...(manualMinutes&&person.employment_type!=="full"?[
+       {label:"請假時數（分鐘）",required:true,content:<input className="cy-sheet-input" type="number" min="30" step="30" value={minutes} onChange={e=>setMinutes(e.target.value)}/>}
+      ]:[
+       {label:"起始時間",content:<TimeInput className="cy-sheet-input" value={startTime} onChange={setStartTime}/>},
+       {label:"結束時間",content:<TimeInput className="cy-sheet-input" value={endTime} onChange={setEndTime}/>}
+      ])
+    ]),
+    ...(isComp?[{label:"補休來源",content:<select className="cy-sheet-input" value={advanceDate} onChange={e=>setAdvanceDate(e.target.value)}>
+      <option value="">使用現有補休</option>
+      {holidays.map(h=><option key={h.date} value={h.date}>預支 {h.date.replaceAll("-","/")} {h.name} 的補休</option>)}
+     </select>}]:[]),
+    ...(type?.requires_reason?[{label:"事由",required:true,content:<textarea className="cy-sheet-input" value={reason} onChange={e=>setReason(e.target.value)}/>}]:[]),
+    ...(type?.quota_period==="event"?[{label:"事件日期",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={eventDate} onChange={setEventDate}/>}]:[]),
+    ...(type?.event_quota_options?[{label:"本次天數",content:<select className="cy-sheet-input" value={eventDays} onChange={e=>setEventDays(e.target.value)}>
+      {type.event_quota_options.split(",").map(x=><option key={x}>{x}</option>)}
+     </select>}]:[]),
+    ...(type?.accepts_proof?[
+      {label:"證明照片（最多 3 張）",content:<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>setFiles(Array.from(e.target.files??[]).slice(0,3))}/>},
+      {label:"黑白縮圖",content:<CheckField label="轉為黑白" checked={gray} onChange={e=>setGray(e.target.checked)}/>}
+    ]:[])
+   ]}/>
+   <p>預計請假 {(wholeDay&&to!==from?from+"～"+to:from).replaceAll("-","/")}，假別：{type?.name??"尚未選擇"}。{wholeDay?"所選有效日期的排班格會同步改為假別，例休日及國定假日依規則跳過。":manualMinutes?"無班別日期依填寫的分鐘數請假；已有班別的日期須改用起訖時間。":"部分時數的班別維持不變。"}送出會檢查假額、補休與排班規則。</p>
+   {type?.accepts_proof&&previews.length?<div className="hr-cell-choices" aria-label="證明照片預覽">
+    {previews.map((url,i)=><img key={url} src={url} alt={"證明照片 "+(i+1)} width={96} height={96} style={{objectFit:"cover"}}/>)}
+   </div>:null}
    {createdBatchId?<p role="status">正式假單已建立。若附件上傳失敗，可以重試上傳，或略過附件完成。</p>:null}
    {approvalItems.length?<div className="cy-op-panel" role="alert"><h4>排班需要主管核准</h4>
     {approvalItems.map((x,i)=><p key={i}>{x.startDate}～{x.endDate}：{x.suggestion}</p>)}
     <button type="button" className="cy-op-button primary" disabled={busy} onClick={async()=>{
-      const accepted=await confirm({title:"核准連六／兼職超時",description:"確認以主管身分核准以上排班，並建立正式假單？",confirmLabel:"核准並送出",confirmTone:"danger"});
-      if(accepted)void submit(undefined,approvalItems);
+     const accepted=await confirm({title:"核准連六／兼職超時",description:"確認以主管身分核准以上排班，並建立正式假單？",confirmLabel:"核准並送出",confirmTone:"danger"});
+     if(accepted)void submit(undefined,approvalItems);
     }}>核准並送出假單</button></div>:null}
    {error?<p role="alert" className="cy-notice cy-notice-danger">{error}</p>:null}
-   <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>{if(createdBatchId)onSaved();onClose()}}>{createdBatchId?"略過附件並完成":"取消"}</button><button className="cy-op-button primary" disabled={busy}>{createdBatchId?"重試上傳剩餘附件":"送出假單"}</button></div>
-  
-    </FormSection>
+   <div className="cy-op-form-footer">
+    <button type="button" className="cy-op-button" onClick={()=>{if(createdBatchId)onSaved();onClose()}}>{createdBatchId?"略過附件並完成":"取消"}</button>
+    <button className="cy-op-button primary" disabled={busy}>{createdBatchId?"重試上傳剩餘附件":"送出假單"}</button>
+   </div>
   </form>:null}
  </Dialog>;
 }
