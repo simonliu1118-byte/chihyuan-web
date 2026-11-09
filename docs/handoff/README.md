@@ -9,59 +9,17 @@
 - 架構與各模組契約：[architecture README](../architecture/README.md)
 - 工作單流程與模板：[工作單 README](../development/work-orders/README.md)
 
-## 目前待 Claude 審查
+## 目前仍開放
 
-- [V0.12.7 Build 1 手機叫貨三頁籤與桌機相容性](CYWEB-MOBILE-ORDERING-NAV-0127B1-20261108.md)：從已部署 V0.12.7 main 獨立修正手機導覽，**預設叫貨清單／直接未到貨／來源式草稿**；桌機原流程不變。本輪未合併未部署，待 Claude 與實機複審。
-
-
-- [V0.12.7 Build 0 手機 UI 獨立發布](CYWEB-MOBILE-ONLY-0127-20261108.md)：從正式 main 獨立移植 #458 的手機修正；使用者允許只合併部署手機版，保留 #457／#458 兩張 Draft，不發佈首頁或 D1 0059；Claude 事後複審及手機實機驗收待辦。
-
-
-- [V0.12.6 Build 0 BOT 時間軸單行與視窗寬度](CYWEB-BOT-CENTER-COMPACT-0126-20261108.md)：2026-11-08 使用者指定四項 UI 精簡；僅更新前端與文件，CI、Claude 審查及實機驗收待辦，不自動合併／部署。
-
-- [CYWEB Chat 部署入口恢復](CYWEB-CHAT-DEPLOY-20261108.md)：恢復受控發布分支 `deploy/cyweb-development`；保留 main dispatch、SHA 與既有部署安全驗證，GitHub Connector `update_ref` 觸發實測與正式部署結果需以實際 Action Run 為準。
-
-- [V0.12.5 Build 0 BOT 管理中心介面精簡](CYWEB-BOT-CENTER-UI-0125-20261108.md)：PR #453 已合併 main（8cbd17da），**718/718 Node 測試及全部 CI 通過，正式部署尚未觸發**。狀態 pills、時間軸五筆／全部 Modal、兩組 EntryTable、原 BOT 設定表格推播啟停；Claude 事後審查及桌機／手機驗收待辦。
-
-- [V0.12.4 Build 1 BOT 審核推播](CYWEB-BOT-REVIEW-PUSH-0124-20261108.md)：PR #449 已依本輪授權合併 main（4352a9f9），完整 CI 713/713 通過；[受控部署 #42401625125](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42401625125)成功，0058／兩端健康來源與傳輸驗證通過、獨立主金鑰已配置；Claude事後複審、UI與Grok私密設定／實機啟用待辦。
-
-- [V0.12.3 Build 1 BOT 獨立憑證、摘要及 Grok 工具](CYWEB-GROK-REPORTER-0123-20261107.md)：PR #447已依使用者本輪授權合併部署，發布#42391275622成功；0057原樣保留小編憑證、逐BOT隔離，健康／來源與HTTPS／session／排程／portal驗證通過。拍板結案不接後臺；Claude事後複審及新版UI／原key實機驗收待辦。推播已接續於V0.12.4部署，Grok私密設定／實機驗收待辦。
-
-- [V0.12.2 BOT 工作總覽](CYWEB-BOT-OVERVIEW-0122-20261107.md)：PR #445 已依當次使用者授權合併部署，發布 #42371824288 成功；完整 CI、0056 索引、兩端健康與 HTTPS／排程／portal 檢查通過。待審共用表格每件一列、無展開。Claude 事後複審與正式 BOT 實機驗收仍待辦。
-
-- [V0.12.1 盤點紀錄與 ERP 清除同步歸檔](CYWEB-STOCKTAKE-RECORDS-0121-20261107.md)：只合併部署 WEB，PR #443／發布 #42347693527 成功，migration 0055 及健康驗證通過；Claude 事後複審與實機驗收待辦。CYERPAutoQuery 只留專案需求 handoff，程式變更已撤回、不合併發行；舊 Agent 暫不觸發自動歸檔。
-
-- [V0.12.0 Build 1 文件現況同步](CYWEB-DOCS-CURRENT-0120-20261107.md)：只更新文件與歸檔已完成的 WO-0.9.94 交接，不改產品／版本／部署；待 Claude 複審。
-
-- [V0.12.0 Build 1 BOT 管理中心](CYWEB-BOT-CENTER-0120-20261106.md)：PR #438 已修正並行審稿及輪詢讀取，與 #440 一併合併部署成功（Run #42253210792）；Claude 事後複審及實機驗收待辦。
-
-- [V0.11.6 盤點批號刪除圖示](CYWEB-STOCKTAKE-BATCH-DELETE-0116-20261106.md)：PR #440 已合併並隨 V0.12.0 Build 1 部署成功；CI／本機測試通過，Claude 事後複審及實機驗收待辦。
-
-- [V0.11.5 ERP Session 無資料時隱藏查詢完成卡](CYWEB-ERP-SESSION-CLEARED-0115-20261106.md)：PR #439 已隨 V0.12.0 Build 1 正式部署，待 Claude 事後複審。
-
-- [V0.11.4 出機類別、財產編號及維護浮窗](CYWEB-EQUIPMENT-CATEGORY-ASSETS-0114-20261106.md)：PR #437 已隨 V0.12.0 Build 1 正式部署，待 Claude 事後複審。
-
-- [V0.11.3 ERP 未收款共用表格](CYWEB-ERP-RECEIVABLE-TABLE-0113-20261105.md)：PR #435 已合併部署，驗收／部署證據見 handoff，待 Claude 事後複審。
-
-- [V0.11.2 出機表單與保固年月](CYWEB-EQUIPMENT-FORM-0112-20261105.md)：PR #433 已合併部署，驗收／部署證據見 handoff，待 Claude 事後複審。
-
-- [V0.11.1 三年維護矩陣](CYWEB-MAINTENANCE-MATRIX-0111-20261105.md)：PR #431 已依使用者特例合併部署，完整CI／正式健康檢查通過，Claude待事後複審。
-
-- [V0.11.0 出機與定期維護](CYWEB-EQUIPMENT-MAINTENANCE-0110-20261105.md)：PR #429，已依使用者本次特例合併部署，Claude待事後複審。
-
-- [V0.10.25 售後維修清單微調](CYWEB-REPAIR-LIST-01025-20261105.md)：PR #427，已依使用者授權合併部署，Claude 待事後複審。
-
-- [V0.10.24 門市步驟鎖定與物流顯示](CYWEB-WO-0.10.24-STEP-LOCK-20261104.md)：PR #426 已合併部署，待 Claude 事後複審與實機驗收。
-
-
-- [V0.9.88 工作視窗明確關閉](CYWEB-DIALOG-EXPLICIT-CLOSE-0988-20261103.md)：PR #379，已合併部署，待 Claude 事後複審。
-- [V0.9.87 客戶介面密度](CYWEB-CUSTOMER-DENSITY-0987-20261102.md)：PR #377，已合併部署，待 Claude 事後複審。
+- [Claude 審查紀錄 2026-11-09](CYWEB-CLAUDE-REVIEW-20261109.md)：V0.9.87–V0.12.9 事後複審全部通過；#457 首頁／公告／待辦設計通過但需重整後才能合併（衝突、版號、SUPER_ADMIN 撤回、表格式表單、時間輸入、新進員工未讀數）；#458 建議關閉。
+- [V0.12.4 Build 1 BOT 審核推播](CYWEB-BOT-REVIEW-PUSH-0124-20261108.md)：程式已審查通過；Grok 通過／退回兩路已由使用者轉述驗收（#452）。剩正式 D1 `bot_review_push_outbox` draft 2、3 的獨立核對。
 
 ## 已結案交接的原文
 
 | 整理日期 | 範圍 | 固定快照 |
 | --- | --- | --- |
-| 2026-11-07 | WO-0.9.94 兩段均已由 Claude 審查通過並完成合併；第二段正式版本 V0.10.12。當前結論見 [工單 §9](../development/work-orders/WO-0.9.94.md#9-審查紀錄審查者填)；[第一段原交接](https://github.com/simonliu1118-byte/chihyuan-web/blob/c870278f36ad847a44c3d839bf822e47fbe30dd1/docs/handoff/CYWEB-WO-0.9.94-GPT-20261103.md)、[第二段原交接](https://github.com/simonliu1118-byte/chihyuan-web/blob/c870278f36ad847a44c3d839bf822e47fbe30dd1/docs/handoff/CYWEB-WO-0.9.94-PHASE2-01011-20261104.md) | [固定快照 c870278](https://github.com/simonliu1118-byte/chihyuan-web/tree/c870278f36ad847a44c3d839bf822e47fbe30dd1/docs/handoff) |
+| 2026-11-09 | V0.9.87–V0.12.9 的交接（BOT 管理中心／推播／Grok 工具、出機與定期維護、盤點紀錄、ERP 未收款與 Session、手機版、進貨輔助、售後維修清單、WO-0.10.24、文件同步、發布分支恢復），均經 Claude 2026-11-09 事後複審通過；結論見 [審查紀錄](CYWEB-CLAUDE-REVIEW-20261109.md) | [固定快照 ff3562c](https://github.com/simonliu1118-byte/chihyuan-web/tree/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff) |
+| 2026-11-07 | WO-0.9.94 兩段均已由 Claude 審查通過並完成合併；第二段正式版本 V0.10.12。當前結論見 [工單 §9](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/development/work-orders/WO-0.9.94.md#9-審查紀錄審查者填)；[第一段原交接](https://github.com/simonliu1118-byte/chihyuan-web/blob/c870278f36ad847a44c3d839bf822e47fbe30dd1/docs/handoff/CYWEB-WO-0.9.94-GPT-20261103.md)、[第二段原交接](https://github.com/simonliu1118-byte/chihyuan-web/blob/c870278f36ad847a44c3d839bf822e47fbe30dd1/docs/handoff/CYWEB-WO-0.9.94-PHASE2-01011-20261104.md) | [固定快照 c870278](https://github.com/simonliu1118-byte/chihyuan-web/tree/c870278f36ad847a44c3d839bf822e47fbe30dd1/docs/handoff) |
 | 2026-11-03 | V0.9.48–V0.9.85 的交接（盤點、門市訂購／黑名單／月度待辦、備份、ERP 清理、治理 1.1.24、WO-0.9.68～0.9.76 執行交接） | [handoff @ 4cbc554](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs/handoff) |
 | 2026-10-28 | 更早的 GPT／Claude／ERP 交接與舊版截圖 | [handoff @ b2d53cd](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) |
 

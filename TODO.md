@@ -1,45 +1,18 @@
 # CY Web 目前狀態與待辦
 
 > 本檔是 CY Web 唯一的現況與待辦清單，不是永久規則來源。各版本完成內容與驗證見 `CHANGELOG.md`；規格見 `docs/architecture/README.md`。
-> 2026-11-03 整理：已完成且已記入 CHANGELOG 的版本段落移除；已結案的交接與工作單移到 Git 固定快照（見 `docs/handoff/README.md`）。
+> 2026-11-03、2026-11-09 整理：已完成且已記入 CHANGELOG 的版本段落移除；已結案的交接與工作單移到 Git 固定快照（見 `docs/handoff/README.md`）。
 
 ## 目前狀態（2026-11-09）
 
-- [ ] **V0.12.9 進貨輔助重複品項選擇新增取消**：與新增列／加到既有列並列，取消無品項寫入與上次來源更新；桌機／手機共用。等待驗證／Claude 複審／實機驗收。[handoff](docs/handoff/CYWEB-RESTOCK-DUPLICATE-CANCEL-0129-20261109.md)。
-
-- [ ] **V0.12.8 手機 UI 密度**：側欄 CY Web 品牌置頂、叫貨搜尋／篩選／未結案同行、未到貨每項最多兩行、草稿來源密集清單，另外補 BOT 管理中心專屬線條圖示；保留桌機版與來源排序。使用者授權合併部署；Claude 複審及實機操作待驗。[handoff](docs/handoff/CYWEB-MOBILE-ORDERING-DENSITY-0128-20261109.md)。
-
-- [ ] **V0.12.7 Build 1 手機叫貨（使用者已授權合併部署）**：預設叫貨清單、未到貨直接原明細清單、草稿選來源／廠商；手機收合進階篩選與去除第二層來源 tabs；手機「分享 Excel」按鈕自動儲存後使用原生分享，瀏覽器不支援時下載備援，**桌機雙欄、叫貨操作及 Excel 原下載方式不變**。待最新 CI、正式發布及健康驗證完成；Claude 複審與雙端實機驗收待完成。[handoff](docs/handoff/CYWEB-MOBILE-ORDERING-NAV-0127B1-20261108.md)。
-
-
-- [ ] **V0.12.7 Build 0 手機 UI 獨立上線**：使用者允許此版合併部署，但不含 #457 首頁、公告通知／個人待辦／鈴鐺、D1 0059。手機側欄、外觀、ERP tabs/pill、叫貨草稿與卡片。需以正式 Run／health 及 SHA 回讀為發布完成依據；Claude 事後審查與 iPhone 實機驗收待辦。[handoff](docs/handoff/CYWEB-MOBILE-ONLY-0127-20261108.md)。
-- [ ] **首頁與通知、待辦**：原 Draft #457／後續疊加 Draft #458 仍未合併、未部署，後續必須根據已上線的獨立手機變更重新整理差異與版本，不得直接合併重複內容。
-
-
-- **V0.12.6 Build 0（BOT 時間軸／卡片／視窗調整，待 PR 與 CI）**：每件完成事件預設單行，超出才展開；Threads 摘要卡只顯示最新標題；推播設定視窗縮至約 414px、BOT 設定縮至約 720px。純前端，無 D1／Worker／憑證異動；待 PR CI、Claude 審查、桌機／手機驗收和使用者正式部署授權。[handoff](docs/handoff/CYWEB-BOT-CENTER-COMPACT-0126-20261108.md)。
-
-- **受控 GitHub 發布分支恢復（治理 1.1.29，2026-11-08）**：已恢復 `deploy/cyweb-development` 的指定 push 入口，僅允許最新 main 完整 SHA；保留 main 手動 dispatch、正式部署鎖及現有健康檢查。GitHub [Run #42415082976](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42415082976) 的 source/deploy jobs 成功；網站即時健康仍需獨立讀回。Chat Connector 的 `update_ref` 觸發實測見 [handoff](docs/handoff/CYWEB-CHAT-DEPLOY-20261108.md)；不另建 Worker／D1／Secrets，不修改產品 VERSION／BUILD。
-
-- **V0.12.5 Build 0（PR #453 已合併，Run #42415082976 發布 job 成功）**：BOT 管理中心頂部精簡為純狀態 pills 與五筆時間軸，同分鐘共用一個時間點，完整時間軸改 Modal；推播設定與新增 BOT 改共用左表頭／右輸入 EntryTable，啟停移至原 BOT 設定表格操作。保留原 Grok webhook 設定和小編 CYWEB 憑證。CI 718/718 通過、main 合併 SHA `8cbd17da`；push 發布工作已執行成功（來源 `427f8d82`）；待網站即時健康回讀、Claude 事後審查及桌機／手機驗收。[handoff](docs/handoff/CYWEB-BOT-CENTER-UI-0125-20261108.md)。
-
-- **V0.12.4 Build 1 已正式部署（PR #449）**：[發布 #42401625125](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42401625125)成功，遠端D1已套用0058，canonical／workers.dev健康version=0.12.4、consumer=1.0.5、database=ok、source一致；正式source=`90100f726a999ce3ad24c63b752178df6899bc8d`，BUILD=1由source核對。已建立獨立推播加密主金鑰，未讀取／輪換小編原CYWEB憑證。Grok完整URL／key仍須使用者在WEB安全輸入；Claude事後複審、UI與真實Grok端到端待辦。[handoff](docs/handoff/CYWEB-BOT-REVIEW-PUSH-0124-20261108.md)。
-- [ ] V0.12.4 Build 1：Claude審查、UI／窄螢幕驗收、使用者在WEB安全輸入小編POST to／key、更新Grok共用技能／既有routine、合成稿通過及退回各一次實機驗證。小編原CYWEB憑證及收據保持不變。
-
-- **V0.12.3 Build 1 已合併部署（PR #447）**：[發布 #42391275622](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42391275622)成功，0057原樣保存小編憑證並改為逐BOT隔離；新版審核／摘要／時間軸及工具／技能上線。canonical與workers.dev健康／來源、HTTPS／session／排程／portal檢查通過，拍板結案未接後臺。現在可更新Grok工具並保留小編原secret與收據；Claude事後複審、原key回讀與UI／手機驗收仍待辦。後續推播已由V0.12.4實作部署。[設定](integrations/grok-bot/cyweb-work-reporter/references/grok-setup.md)、[handoff](docs/handoff/CYWEB-GROK-REPORTER-0123-20261107.md)。
-
-- **V0.12.2 BOT 工作總覽已合併部署**：PR #445／[發布 #42371824288](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42371824288) 成功；總覽 → 全寬待審表格（每件一列、無展開）→ BOT 卡片 → 全寬時間軸，完整統計與 BOT 篩選、輕量進度輪詢。相關 38 項測試、最終完整 CI 及桌機／手機合成預覽通過；Claude 事後複審與正式 BOT 實機驗收仍待辦。[handoff](docs/handoff/CYWEB-BOT-OVERVIEW-0122-20261107.md)。
-
-- **V0.12.1 盤點紀錄／ERP 清除歸檔，WEB 已合併部署**：PR #443、[發布 #42347693527](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42347693527) 成功，紀錄視窗使用精簡共用紀錄串。Agent 原程式變更已撤回，只留 [CYERPAutoQuery 專案 handoff](https://github.com/simonliu1118-byte/CYapps/blob/cyerp/stocktake-complete-list-131/apps/CYERPAutoQuery/docs/handoff/CYERPAutoQuery-STOCKTAKE-ARCHIVE-HANDOFF-20261107.md) 交 Claude，PR #604 維持草稿、不合併發行。**舊 Agent 可同步，但自動歸檔須待 Claude 完成配套並授權更新後才啟用**。Claude 事後複審與實機驗收仍待辦。[WEB handoff](docs/handoff/CYWEB-STOCKTAKE-RECORDS-0121-20261107.md)。
-
-- **正式站 V0.12.4 Build 1**：[Deployment #42401625125](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42401625125)成功，source=`90100f726a999ce3ad24c63b752178df6899bc8d`；兩端版本／D1／CYID consumer／來源、HTTPS／無效session／排程／portal驗證通過。本次發布證據只改文件，不需再次部署。
-- **PR #438／#440 已合併部署**：BOT 管理中心包含並行審稿及輪詢讀取返修；盤點刪除圖示移到批號旁，解盲後顯示 ERP 帳面批號合計。最新 Ubuntu CI 全部成功，本機 BOT 9 項及盤點 36 項測試通過。證據見 [BOT handoff](docs/handoff/CYWEB-BOT-CENTER-0120-20261106.md)／[盤點 handoff](docs/handoff/CYWEB-STOCKTAKE-BATCH-DELETE-0116-20261106.md)。
-- 本次正式 source 也包含已合併的 #437／#439（V0.11.4／V0.11.5）。**合併／部署／自動驗證已完成，不等於 Claude 複審或使用者實機驗收完成**；尚未完成的項目分別列於下方清單。
-- **正式 D1 migration：`0058_bot_review_push`**；受控workflow已套用推播設定／通知技術表，並保留0057逐BOT憑證及工作分類／事件編號，沒有重新產生小編key、重寫舊migration或手動改正式業務資料。
-- 模組：客戶、商品、瑕疵、銷售工單、叫貨（含進貨輔助抽屜、未到貨）、門市（顧客訂購、黑名單、月度待辦、售後維修（門市送修／出機紀錄／三年定期維護矩陣）、庫存盤點）、委外/代工、工作日誌、人事、ERP 查詢、BOT 管理中心、帳號與權限、異動紀錄、備份管理、CY 程式、我的帳號。
+- **正式站 V0.12.9**（`https://admin.chihyuancm.com`）：source `67ed079`（main），CYID consumer 1.0.5，database ok；正式 D1 migration 到 **`0058_bot_review_push`**。
+- **Claude 事後複審**：V0.9.87–V0.12.9 已合併部署的變更全部通過（2026-11-09），見 [審查紀錄](docs/handoff/CYWEB-CLAUDE-REVIEW-20261109.md)。已結案交接移到 [固定快照 ff3562c](https://github.com/simonliu1118-byte/chihyuan-web/tree/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/handoff)。
+- **未合併**：#457 首頁／公告與通知／個人待辦／鈴鐺（D1 0059）——設計通過，需依審查紀錄 §2 修正後才合併；#458 已被 #459–#461 取代，建議關閉。
+- 模組：客戶、商品、瑕疵、銷售工單、叫貨（含進貨輔助抽屜、未到貨、手機版清單／草稿／分享 Excel）、門市（顧客訂購、黑名單、月度待辦、售後維修（門市送修／出機紀錄／三年定期維護矩陣）、庫存盤點與盤點紀錄）、委外/代工、工作日誌、人事、ERP 查詢、BOT 管理中心（審稿、工作總覽、逐 BOT 憑證、審核推播）、帳號與權限、異動紀錄、備份管理、CY 程式、我的帳號。
 - 帳號：CYID 正式服務；成功的登入確認在伺服器記住 30 秒（V0.9.91）。
-- 排程：網站只有一個 `*/5 * * * *` 排程（V0.9.86），每次做 ERP 逾時與結果清理；台灣 00:00 門市月度、03:00 CY 程式清單、03:15 ERP 保留期清理、03:30 每日備份，失敗時 03:45 補做一次。
-- 備份：R2 每日＋GCS 週三／週日；可攜備份 formatVersion 2（依 migration／欄位名稱還原）。手動備份 R2／GCS 已驗證；排程與隔離還原的剩餘驗收仍依下方上線檢核，不因部署成功自動勾選。
-- 部署：合併 main 不會部署；從 main 執行 `development-deploy.yml` 的 `deploy-development`。操作見 [部署文件](docs/development/IDENTITY_DEPLOYMENT.md)。
+- 排程：網站只有一個 `*/5 * * * *` 排程（V0.9.86），每次做 ERP 逾時與結果清理、BOT 推播投遞；台灣 00:00 門市月度、03:00 CY 程式清單、03:15 ERP 保留期清理、03:30 每日備份，失敗時 03:45 補做一次。
+- 備份：R2 每日＋GCS 週三／週日；可攜備份 formatVersion 2（依 migration／欄位名稱還原）。BOT 憑證與推播設定不進備份，還原後由超管重設。
+- 部署（治理 1.1.29）：合併 main 不會部署；正式更新二擇一——從 main dispatch `development-deploy.yml` 的 `deploy-development`，或把 `deploy/cyweb-development` 非強制快轉到最新 main 完整 SHA。兩者都必須與當前 main 完全一致。見 [部署文件](docs/development/IDENTITY_DEPLOYMENT.md)。
 - 接手 UI 前必讀 [UI_COMPONENT_CATALOG](docs/architecture/UI_COMPONENT_CATALOG.md)。
 
 ## 上線檢核
@@ -67,28 +40,18 @@
 - [ ] 最後走查，使用者確認後正式上線。
 - [ ] 新系統穩定後，由使用者決定停用舊 GAS／Google Sheets 的時間；舊測試資料不搬入。
 
-## 待 Claude 事後複審
+## 待 Claude 審查
 
-以下產品變更均已合併並包含於目前正式版本；核對至 2026-11-07 尚未取得對應的 Claude 通過紀錄，故保留未勾選，不再列為待合併／待部署。
+- [ ] #457 首頁／公告與通知／個人待辦／鈴鐺：依 [審查紀錄 §2](docs/handoff/CYWEB-CLAUDE-REVIEW-20261109.md#2-457-首頁公告與通知個人待辦鈴鐺設計通過需修正後才能合併) 修正（以最新 main 重整、版號 V0.13.0、SUPER_ADMIN 撤回、表格式表單與時間輸入、新進員工公告未讀）後再送審；合併部署另需使用者授權。
+- [ ] 正式 D1 `bot_review_push_outbox` draft 2、3 的投遞狀態獨立核對（Claude 唯讀查詢被環境權限擋下，需使用者授權或由管理介面確認）。
 
-- [ ] V0.12.0 Build 1 BOT 管理中心（#438）：[handoff](docs/handoff/CYWEB-BOT-CENTER-0120-20261106.md)。
-- [ ] V0.11.6 盤點批號圖示／複盤帳面量（#440）：[handoff](docs/handoff/CYWEB-STOCKTAKE-BATCH-DELETE-0116-20261106.md)。
-- [ ] V0.11.5 ERP Session 空白卡（#439）：[handoff](docs/handoff/CYWEB-ERP-SESSION-CLEARED-0115-20261106.md)。
-- [ ] V0.11.4 出機類別／財產編號／維護浮窗（#437）：[handoff](docs/handoff/CYWEB-EQUIPMENT-CATEGORY-ASSETS-0114-20261106.md)。
-- [ ] V0.11.3 ERP 未收款共用表格（#435）：[handoff](docs/handoff/CYWEB-ERP-RECEIVABLE-TABLE-0113-20261105.md)。
-- [ ] V0.11.2 出機表單與保固年月（#433）：[handoff](docs/handoff/CYWEB-EQUIPMENT-FORM-0112-20261105.md)。
-- [ ] V0.11.1 三年維護矩陣（#431）：[handoff](docs/handoff/CYWEB-MAINTENANCE-MATRIX-0111-20261105.md)。
-- [ ] V0.11.0 出機與定期維護（#429）：[handoff](docs/handoff/CYWEB-EQUIPMENT-MAINTENANCE-0110-20261105.md)。
-- [ ] V0.10.25 售後維修清單（#427）：[handoff](docs/handoff/CYWEB-REPAIR-LIST-01025-20261105.md)。
-- [ ] V0.10.24 門市步驟鎖定／物流（#426）：[handoff](docs/handoff/CYWEB-WO-0.10.24-STEP-LOCK-20261104.md)。
-- [ ] V0.9.88 工作視窗明確關閉（#379）：[handoff](docs/handoff/CYWEB-DIALOG-EXPLICIT-CLOSE-0988-20261103.md)。
-- [ ] V0.9.87 客戶介面密度（#377）：[handoff](docs/handoff/CYWEB-CUSTOMER-DENSITY-0987-20261102.md)。
-- [ ] 本輪文件狀態同步：[handoff](docs/handoff/CYWEB-DOCS-CURRENT-0120-20261107.md)。
-
-WO-0.9.94 兩段已有 Claude 審查通過紀錄並完成合併部署（第二段正式 V0.10.12），不列待審；結論見 [工單 §9](docs/development/work-orders/WO-0.9.94.md#9-審查紀錄審查者填)。
+V0.9.87–V0.12.9 已合併的項目皆於 2026-11-09 事後複審通過，不再列於此。
 
 ## 待使用者實機驗收
 
+- [ ] V0.12.7–V0.12.9 手機版：iPhone 上叫貨清單／未到貨／來源式草稿、搜尋篩選同行、分享 Excel（不支援時下載）、側欄品牌、ERP pill 與類別 tabs；進貨輔助重複品項「取消」。
+- [ ] V0.12.2–V0.12.6 BOT 管理中心：登入後總覽、待審表格、時間軸與完整 Modal、推播設定與重送、窄螢幕。
+- [ ] V0.12.1 盤點紀錄視窗（Agent 自動歸檔尚未啟用，啟用後再驗 ERP 清除歸檔）。
 - [ ] V0.12.0 Build 1 BOT 管理中心：登入後桌機／手機四區、授權、憑證管理、審稿及分頁；不得以未登入 401 檢查代替登入後驗收。
 - [ ] V0.11.6 盤點：桌機／手機批號刪除圖示、極長批號、初盤仍盲盤、複盤 ERP 帳面批號合計與多儲位顯示。
 - [ ] V0.11.0–V0.11.4 出機／定期維護：保固年月、機身財產編號、三年矩陣與格內日期浮窗。
@@ -128,8 +91,8 @@ WO-0.9.94 兩段已有 Claude 審查通過紀錄並完成合併部署（第二�
 
 ## 開發待辦
 
-- [x] **全系統灰色說明小字**（[WO-0.9.94](docs/development/work-orders/WO-0.9.94.md)）：第一段盤點（PR #396）與第二段刪除（PR #413，V0.10.12）皆完成並部署。
-- [x] **門市流程「下一步登記後上一步鎖定」與送廠物流顯示**（使用者 2026-11-04；V0.10.24 已合併部署，待 Claude 事後複審；工單 [WO-0.10.24](docs/development/work-orders/WO-0.10.24.md)，GPT 執行）：
+- [x] **全系統灰色說明小字**（[WO-0.9.94](https://github.com/simonliu1118-byte/chihyuan-web/blob/ff3562c6bfcddb67ff19ded15fa485fd527c7c4a/docs/development/work-orders/WO-0.9.94.md)）：第一段盤點（PR #396）與第二段刪除（PR #413，V0.10.12）皆完成並部署。
+- [x] **門市流程「下一步登記後上一步鎖定」與送廠物流顯示**（使用者 2026-11-04；V0.10.24 已合併部署，Claude 2026-11-09 複審通過；工單 [WO-0.10.24](docs/development/work-orders/WO-0.10.24.md)）：
   - 售後維修：檢測（可填補充說明）→ 送廠（必填物流）→ 完修 → 通知 → 歸還。登記下一步後，上一步的日期與資料（檢測日期＋補充說明、送廠日期＋物流）都不能再改；要改只能用「退回上一步」。
   - 送廠格的小視窗要顯示已填的物流（貨運、寄送編號）；目前登記後就看不到。歸還寄送的物流同理。
   - 門市顧客訂購同一規則：下一步登記後，上一步日期唯讀。
@@ -148,6 +111,7 @@ WO-0.9.94 兩段已有 Claude 審查通過紀錄並完成合併部署（第二�
   - 毛利分析：商品的毛利分析。
 - [ ] **盤點第二階段 ERP 作業**（另開工作單；WEB 清除後歸檔已納入 V0.12.1，此處仍追蹤 ERP 作業）：盤點盈虧明細表、盤點資料更新作業、核對庫存異動盤點單、（視需要）核對品號庫存、盤點資料清除作業；完成才算一次完整盤點。
 - [ ] **附檔備份**：人事附件與維修單照片的檔案本體目前不在可攜備份內，另案處理。
+- [ ] **BOT ingest 頻率上限與報告／完成紀錄保留期**（Claude 2026-11-09 建議，非阻擋）：資料量變大前評估。
 - [ ] **ERP 查詢完成通知位置**：依使用者 2026-10-28 指示改到畫面右下角；先確認是否影響其他共用通知。
 - [ ] **顧客訂購與叫貨連動**（使用者 2026-10-28）：訂購品項一鍵加入指定叫貨來源的草稿，叫貨單到貨時對應訂購自動改為到貨。先確認來源怎麼選、部分到貨怎麼算、一張叫貨單對多筆訂購的對應。
 - [ ] **銷貨分析頁**（用 `erp_sales_daily`），規格待使用者確認。
