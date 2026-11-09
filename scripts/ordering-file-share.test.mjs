@@ -52,8 +52,9 @@ test("one Share Excel button silently saves pending edits, then attempts native 
  assert.match(page,/if\(outcome==="downloaded"\)setNotice/);
  assert.doesNotMatch(page,/if\(outcome==="retry"\)/);
  assert.doesNotMatch(page,/請再按一次/);
- assert.match(page,/aria-busy=\{compact&&sharingExcel\}/);
- assert.match(page,/\{compact\?"分享 Excel":"匯出 Excel"\}/);
+ assert.match(page,/label:"分享 Excel",onClick:\(\)=>void exportOrder\(current\),disabled:busy\|\|sharingExcel/);
+ assert.match(page,/\{compact\?<OverflowMenu items=/);
+ assert.match(page,/>匯出 Excel<\/button>/);
  assert.match(page,/if\(!await prepareSwitch\(\)\)return;order=cached\.current\.get\(order\.id\)\?\?order;[\s\S]*?const blob=new Blob/);
  assert.match(page,/a\.href=url;a\.download=exportFileName\(order\.sourceName,fallback\);a\.click\(\);URL\.revokeObjectURL\(url\)/);
 });
