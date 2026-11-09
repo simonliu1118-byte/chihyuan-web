@@ -59,6 +59,7 @@ export async function handleHrRoute(request:Request,env:IdentityRuntimeEnv & HrF
       .sort((a,b)=>a.employeeNo.localeCompare(b.employeeNo));
     return success(items,requestId);
   }
+  if(url.pathname==="/api/business/hr/salary-overview" && request.method==="GET")return success(await service.salaryOverview(),requestId);
   if(url.pathname==="/api/business/hr/employees"){
     if(request.method==="GET"){
       const q=url.searchParams.get("q")?.trim()??"";
