@@ -1,4 +1,4 @@
-import {useState, type ReactNode} from "react";
+import {useState, type ReactNode, type ReactElement} from "react";
 import {RecordSheet,RecordRows,type SheetRow,type RowColumn} from "../../ui/forms/RecordSheet";
 import {DateInput} from "../../ui/forms/DateInput";
 import {CheckField} from "../../ui/forms/Field";
@@ -22,7 +22,7 @@ export function HrEmployeeSheet({value,detail,editing,creating,busy,members,stor
    value={String(value[key]??"")} onChange={e=>patch({[key]:e.target.value} as Partial<Draft>)}>
      <option value="">請選擇</option>{options}
    </select>;
- const cell=(label:string,view:ReactNode,edit:ReactNode,required=false)=>({label,view,edit,required});
+ const cell=(label:string,view:ReactNode,edit?:ReactElement,required=false)=>({label,view,edit,required});
  const sameAddress=value.mailingAddress!==""&&value.mailingAddress===value.registeredAddress;
  const phoneRequired=!value.mobile.trim()&&!value.phone.trim();
  const idCell=<span className="cy-hr-picker">
@@ -79,8 +79,8 @@ export function HrEmployeeSheet({value,detail,editing,creating,busy,members,stor
     onChange={e=>patch({note:e.target.value})}/>)]}
  ];
  if(detail?.status==="terminated")rows.push({columns:"1fr 3fr",cells:[
-   cell("離職日",detail.termination_date?formatDate(detail.termination_date):"",""),
-   cell("離職原因",detail.termination_reason||"","")
+   cell("離職日",detail.termination_date?formatDate(detail.termination_date):"",undefined),
+   cell("離職原因",detail.termination_reason||"",undefined)
  ]});
  const contacts:Draft["contacts"]=editing?value.contacts:detail?.contacts.map(x=>({name:x.name,relationship:x.relationship||"",phone:x.phone}))??[];
  const education:Draft["education"]=editing?value.education:detail?.education.map(x=>({school:x.school,department:x.department||"",degree:x.degree||"",graduationMonth:x.graduation_month?.replace("/","-")||""}))??[];
