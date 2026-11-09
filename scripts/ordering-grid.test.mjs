@@ -414,3 +414,18 @@ test("sent order view offers 結掉 on lines still waiting, never on received or
   const plain=mount("GENERAL",rows,{readOnly:true});
   assert.equal(plain.nodes.some(n=>n.type==="button"&&n.props.children==="指定結案"),false,"no handler, no button");
 });
+
+test("typing that lands while a new row's save completes goes to the saved row and is saved (user 2026-11-09)", async () => {
+  const grid = mount("GENERAL");
+  grid.change(-1, "itemName", "測試品");
+  grid.input(-1, "itemName").props.onBlur({ currentTarget: { value: "測試品" } }); grid.flush();
+  grid.settlements[0].resolve({ ...grid.commits[0].patch, id: 501, sortOrder: 1, section: "", itemCode: "", vendorItemCode: "", vendorItemName: "", spec: "", quantityText: "", unit: "", note: "" });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  // The screen has not re-rendered yet: the keystroke still arrives on the draft row's handler.
+  grid.change(-1, "quantityText", "5");
+  await new Promise(resolve => setTimeout(resolve, 0)); grid.flush();
+  assert.equal(grid.input(501, "quantityText").props.value, "5");
+  grid.input(501, "quantityText").props.onBlur({ currentTarget: { value: "5" } }); grid.flush();
+  const last = grid.commits.at(-1);
+  assert.equal(last.row.id, 501); assert.equal(last.patch.quantityText, "5"); assert.equal(last.final, true);
+});

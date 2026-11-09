@@ -97,6 +97,16 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  const dirty=!readOnly&&(drafts.some(hasInput)||hasSavedEdits(editing));
  const saving=!readOnly&&(inFlight.current.size>0||cellSaves.current.size>0||actionSaves.current.size>0);
  useEffect(()=>{onStateChange?.({dirty,saving,failed:!readOnly&&saveError})},[dirty,saving,saveError,readOnly,onStateChange]);
+ // A draft row is swapped for its saved row once its save completes. Keystrokes that land in that moment still
+ // arrive on the draft's handlers (user 2026-11-09: typed text vanished when tabbing fast), so they are routed
+ // to the saved row instead of the draft that no longer exists.
+ const promoted=useRef(new Map<number,GridLine>());
+ const linesRef=useRef(lines);linesRef.current=lines;
+ const liveRow=(row:GridLine):GridLine=>{
+  if(row.id>=0||draftsRef.current.some(d=>d.id===row.id))return row;
+  const saved=promoted.current.get(row.id);
+  return saved?linesRef.current.find(l=>l.id===saved.id)??saved:row;
+ };
  const setDraftValue=(row:GridLine,field:string,value:string)=>{
   draftsRef.current=draftsRef.current.map(d=>d.id===row.id?{...d,[field]:value}:d);
   setDrafts(draftsRef.current);
@@ -138,6 +148,7 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
     const saved=savedDrafts.current.get(row.id)?.line;
     if(saved){if(sentFinal)unfinal.current.delete(saved.id);else markUnfinal(saved.id,saved.itemCode?"itemCode":undefined)}
     wantFinal.current.delete(row.id);
+    if(saved)promoted.current.set(row.id,saved);
     draftsRef.current=draftsRef.current.filter(d=>d.id!==row.id);savedDrafts.current.delete(row.id);
     setDrafts(draftsRef.current);
     setEdits(prev=>Object.fromEntries(Object.entries(prev).filter(([key])=>!key.startsWith(row.id+"|"))));
@@ -262,16 +273,17 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
    "aria-busy":inFlight.current.has(row.id)||undefined,
    required:field==="quantityText"||(field==="itemName"&&kind!=="GENERAL"&&kind!=="VENDOR"),
    onChange:(e:ChangeEvent<HTMLInputElement|HTMLTextAreaElement>)=>{
-    setEdits(prev=>({...prev,[key]:e.target.value}));
-    if(row.id<0)setDraftValue(row,field,e.target.value);
-    scheduleSave(row,field,e.target.value);
+    const live=liveRow(row),liveKey=live.id+"|"+field,value=e.target.value;
+    setEdits(prev=>({...prev,[liveKey]:value}));
+    if(live.id<0)setDraftValue(live,field,value);
+    scheduleSave(live,field,value);
    },
    onBlur:(e:FocusEvent<HTMLInputElement|HTMLTextAreaElement>)=>{
-    const id=row.id+"|"+field;
-    if(skipBlur.current.delete(id)){cancelTimer(id);return}
-    void commitCell(row,field,e.currentTarget.value);
+    const live=liveRow(row),id=live.id+"|"+field;
+    if(skipBlur.current.delete(id)||skipBlur.current.delete(row.id+"|"+field)){cancelTimer(id);return}
+    void commitCell(live,field,e.currentTarget.value);
    },
-   onKeyDown:(e:KeyboardEvent<HTMLInputElement|HTMLTextAreaElement>)=>enter(e,row,col),
+   onKeyDown:(e:KeyboardEvent<HTMLInputElement|HTMLTextAreaElement>)=>enter(e,liveRow(row),col),
   };
   return multiline?<textarea {...props} rows={1} ref={element=>{if(element){element.style.height="34px";element.style.height=Math.min(176,Math.max(34,element.scrollHeight))+"px"}}}/>:<input {...props}/>;
  };
