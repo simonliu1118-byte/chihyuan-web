@@ -21,6 +21,11 @@ import {FeedbackBanner,useFeedbackMessage} from "../../ui/feedback/FeedbackProvi
 import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import {OrderingGrid,type GridLine,type OrderingGridEditor,type OrderingGridState} from "../../ui/OrderingGrid";
 import {useUnsavedChangesGuard} from "../../ui/foundation/useUnsavedChangesGuard";
+import {ModuleSections} from "../../ui/mobile/ModuleSections";
+import {ListRow} from "../../ui/mobile/ListRow";
+import {ActionBar} from "../../ui/mobile/ActionBar";
+import {OverflowMenu} from "../../ui/mobile/OverflowMenu";
+import {DataViewToolbar} from "../../ui/data/DataViewToolbar";
 import {orderSheet} from "../../../shared/ordering-export";
 import "./erp-item-query.css";
 import {buildXlsx} from "../../../shared/xlsx-writer";
@@ -135,7 +140,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
  // Mobile layout uses the same source and order owners as desktop.
  const [mobileListMode,setMobileListMode]=useState<"drafts"|"history">("history");
  const [mobileSourceSearch,setMobileSourceSearch]=useState("");
- const [mobileHistoryFiltersOpen,setMobileHistoryFiltersOpen]=useState(false);
+
  const editors=useRef(new Map<string,OrderingGridEditor>());
  const bindings=useRef(new Map<string,{onRegister:(editor:OrderingGridEditor|null)=>void;onStateChange:(state:OrderingGridState)=>void}>());
  const [editorStates,setEditorStates]=useState<Record<string,OrderingGridState>>({});
@@ -168,7 +173,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
  }
  async function showMobileList(mode:"drafts"|"history"){
   if(!await prepareSwitch())return;
-  setMobileListMode(mode);pane.close();
+  setMobileListMode(mode);setViewPending(false);pane.close();
  }
  async function backToMobileList(){
   if(!await prepareSwitch())return;
@@ -243,6 +248,8 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
   if(!await prepareSwitch())return;++loadSequence.current;setVendorAll(true);setSelected(null);setViewPending(false);pane.open();
  }
  async function showPending(){if(!await prepareSwitch())return;++loadSequence.current;setBusy(false);setViewPending(true);setVendorAll(false);pane.open()}
+ // Phone entry starts at 未到貨; desktop keeps its existing master/detail entry.
+ useEffect(()=>{if(compact)void showPending()},[compact]);
  async function write(path:string,method:string,input:Record<string,unknown>,refreshId=selected?.id){
   const id=Number(/^\/orders\/(\d+)/.exec(path)?.[1]??refreshId);
   if(!Number.isSafeInteger(id))throw new Error("請先選擇單據");
@@ -604,14 +611,9 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
  return <section className="cy-ordering-page">
   <FeedbackBanner message={message} tone={messageTone}/>
   {messageTone==="danger"&&message?<button type="button" className="cy-op-button" onClick={()=>{setMessage(null);if(selected)void reloadOrder(selected.id);void refresh()}}>重新載入</button>:null}
-  {compact?<nav className="cy-ordering-mobile-nav" aria-label="手機叫貨功能">
-    <button type="button" className={mobileSection==="history"?"active":undefined} aria-current={mobileSection==="history"?"page":undefined}
-      onClick={()=>void showMobileList("history")}>叫貨清單</button>
-    <button type="button" className={mobileSection==="pending"?"active":undefined} aria-current={mobileSection==="pending"?"page":undefined}
-      onClick={()=>void showPending()}>未到貨 {pending.length}</button>
-    <button type="button" className={mobileSection==="drafts"?"active":undefined} aria-current={mobileSection==="drafts"?"page":undefined}
-      onClick={()=>void showMobileList("drafts")}>草稿</button>
-  </nav>:null}
+  {compact?<ModuleSections label="手機叫貨功能"
+   sections={[{key:"pending",label:"未到貨",badge:pending.length},{key:"drafts",label:"草稿"},{key:"history",label:"叫貨單"}] as const}
+   value={mobileSection} onChange={key=>{if(key==="pending")void showPending();else void showMobileList(key)}}/>:null}
   <div className="cy-md" data-pane={pane.pane}>
    <section className="cy-op-panel cy-md-list" aria-label={compact?(mobileListMode==="drafts"?"草稿來源":"叫貨清單"):"叫貨紀錄"}>
     {compact&&mobileListMode==="drafts"?<div className="cy-ordering-mobile-drafts">
