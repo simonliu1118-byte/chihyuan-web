@@ -401,19 +401,33 @@ export function DefectOperationalPage() {
 
       <div className="cy-md cy-defect-workspace" data-pane={pane.pane}>
         <section className="cy-op-panel cy-md-list" aria-label="瑕疵清單">
-          <div className="cy-md-toolbar">
+          {compact?<DataViewToolbar searchValue={query} onSearchChange={setQuery} searchLabel="搜尋瑕疵"
+            searchPlaceholder="搜尋客戶、商品、內容"
+            filters={<><StatusFilter label="瑕疵狀態" value={statusFilter} onChange={setStatusFilter} counts={statusCounts}
+              options={(Object.keys(statusText) as (keyof typeof statusText)[]).map(code=>({code,label:statusText[code],tone:defectTone[code]}))}/>
+              <label className="cy-defect-check"><input type="checkbox" checked={includeInvalid} onChange={e=>setIncludeInvalid(e.target.checked)}/> 顯示作廢</label></>}
+            activeFilterCount={[statusFilter,includeInvalid].filter(Boolean).length}
+            actions={<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void startCreate()}>＋ 新增瑕疵</button>}/>
+          :<div className="cy-md-toolbar">
             <div className="cy-md-toolbar-lead">
-              <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增瑕疵</button>
-              <input className="cy-op-input" type="search" aria-label="搜尋瑕疵" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜尋客戶、商品、內容" />
+              <button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void startCreate()}>＋ 新增瑕疵</button>
+              <input className="cy-op-input" type="search" aria-label="搜尋瑕疵" value={query} onChange={e=>setQuery(e.target.value)} placeholder="搜尋客戶、商品、內容"/>
             </div>
             <div className="cy-md-toolbar-row cy-defect-filters">
               <StatusFilter label="瑕疵狀態" value={statusFilter} onChange={setStatusFilter} counts={statusCounts}
-                options={(Object.keys(statusText) as (keyof typeof statusText)[]).map((code) => ({ code, label: statusText[code], tone: defectTone[code] }))} />
-              <label className="cy-defect-check"><input type="checkbox" checked={includeInvalid} onChange={(e) => setIncludeInvalid(e.target.checked)} /> 顯示作廢</label>
+                options={(Object.keys(statusText) as (keyof typeof statusText)[]).map(code=>({code,label:statusText[code],tone:defectTone[code]}))}/>
+              <label className="cy-defect-check"><input type="checkbox" checked={includeInvalid} onChange={e=>setIncludeInvalid(e.target.checked)}/> 顯示作廢</label>
             </div>
-          </div>
+          </div>}
           <div className="cy-op-list">
-            {rows.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={() => void selectDefect(row.id)}><strong>{row.customerNameSnapshot}</strong><span>#{row.id} · {row.itemNoSnapshot} {row.itemNameSnapshot}</span><StatusChip tone={defectTone[row.invalidatedAt ? "voided" : row.statusCode]}>{row.invalidatedAt ? "已作廢" : statusText[row.statusCode]}</StatusChip></button>)}
+            {rows.map(row=>compact?<ListRow key={row.id} title={row.customerNameSnapshot}
+              subtitle={`#${row.id} · ${row.itemNoSnapshot} ${row.itemNameSnapshot}`}
+              trailing={<StatusChip tone={defectTone[row.invalidatedAt?"voided":row.statusCode]}>{row.invalidatedAt?"已作廢":statusText[row.statusCode]}</StatusChip>}
+              selected={selectedId===row.id} onClick={()=>void selectDefect(row.id)}/>
+            :<button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedId===row.id?"active":""}`}
+              aria-current={selectedId===row.id?"true":undefined} onClick={()=>void selectDefect(row.id)}><strong>{row.customerNameSnapshot}</strong>
+              <span>#{row.id} · {row.itemNoSnapshot} {row.itemNameSnapshot}</span>
+              <StatusChip tone={defectTone[row.invalidatedAt?"voided":row.statusCode]}>{row.invalidatedAt?"已作廢":statusText[row.statusCode]}</StatusChip></button>)}
             {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的瑕疵紀錄。</div> : null}
             <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
             {loadingList ? <Loading /> : null}
@@ -437,25 +451,38 @@ export function DefectOperationalPage() {
             <div>
               <div className="cy-record-header">
                 <div><h2>{selected.customerNameSnapshot}</h2><p>瑕疵 #{selected.id} · 回報 {formatDate(selected.reportedDate)}</p></div>
-                  <div className="cy-record-actions">
-                    <StatusChip tone={defectTone[selected.invalidatedAt ? "voided" : selected.statusCode]}>{selected.invalidatedAt ? "已作廢" : statusText[selected.statusCode]}</StatusChip>
-                    {!selected.invalidatedAt && selected.statusCode === "created" ? <>
+                  {compact?<>
+                    <StatusChip tone={defectTone[selected.invalidatedAt?"voided":selected.statusCode]}>{selected.invalidatedAt?"已作廢":statusText[selected.statusCode]}</StatusChip>
+                    {!selected.invalidatedAt&&(selected.statusCode==="created"||selected.statusCode==="processing"||selected.statusCode==="resolved")?
+                      <OverflowMenu items={[selected.statusCode==="created"
+                        ?{label:"刪除",danger:true,disabled:busy,onClick:()=>track("deleteCreated",deleteCreated())}
+                        :{label:"作廢",danger:true,disabled:busy,onClick:()=>track("invalidate",invalidate())}]}/>:null}
+                  </>:<div className="cy-record-actions">
+                    <StatusChip tone={defectTone[selected.invalidatedAt?"voided":selected.statusCode]}>{selected.invalidatedAt?"已作廢":statusText[selected.statusCode]}</StatusChip>
+                    {!selected.invalidatedAt&&selected.statusCode==="created"?<>
                       <button className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
-                      <button className="cy-op-button primary" disabled={busy} aria-busy={(busy && pending === "startProcessing") || undefined} onClick={() => track("startProcessing", startProcessing())}>開始處理</button>
-                      <button className="cy-op-button danger" disabled={busy} aria-busy={(busy && pending === "deleteCreated") || undefined} onClick={() => track("deleteCreated", deleteCreated())}>刪除</button>
-                    </> : null}
-                    {!selected.invalidatedAt && selected.statusCode === "processing" ? <>
+                      <button className="cy-op-button primary" disabled={busy} onClick={()=>track("startProcessing",startProcessing())}>開始處理</button>
+                      <button className="cy-op-button danger" disabled={busy} onClick={()=>track("deleteCreated",deleteCreated())}>刪除</button>
+                    </>:null}
+                    {!selected.invalidatedAt&&selected.statusCode==="processing"?<>
                       <button className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
-                      <button className="cy-op-button primary" disabled={busy} aria-busy={(busy && pending === "resolve") || undefined} onClick={() => track("resolve", resolve())}>完成處理</button>
-                      <button className="cy-op-button danger" disabled={busy} aria-busy={(busy && pending === "invalidate") || undefined} onClick={() => track("invalidate", invalidate())}>作廢</button>
-                    </> : null}
-                    {!selected.invalidatedAt && selected.statusCode === "resolved" ? <>
-                      <button className="cy-op-button" disabled={busy} aria-busy={(busy && pending === "reopen") || undefined} onClick={() => track("reopen", reopen())}>重新開啟</button>
-                      <button className="cy-op-button danger" disabled={busy} aria-busy={(busy && pending === "invalidate") || undefined} onClick={() => track("invalidate", invalidate())}>作廢</button>
-                    </> : null}
-                </div>
+                      <button className="cy-op-button primary" disabled={busy} onClick={()=>track("resolve",resolve())}>完成處理</button>
+                      <button className="cy-op-button danger" disabled={busy} onClick={()=>track("invalidate",invalidate())}>作廢</button>
+                    </>:null}
+                    {!selected.invalidatedAt&&selected.statusCode==="resolved"?<>
+                      <button className="cy-op-button" disabled={busy} onClick={()=>track("reopen",reopen())}>重新開啟</button>
+                      <button className="cy-op-button danger" disabled={busy} onClick={()=>track("invalidate",invalidate())}>作廢</button>
+                    </>:null}
+                  </div>}
+
               </div>
 
+              {compact&&!selected.invalidatedAt?<ActionBar>
+                {selected.statusCode==="created"||selected.statusCode==="processing"?<button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>:null}
+                {selected.statusCode==="created"?<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>track("startProcessing",startProcessing())}>開始處理</button>:null}
+                {selected.statusCode==="processing"?<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>track("resolve",resolve())}>完成處理</button>:null}
+                {selected.statusCode==="resolved"?<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>track("reopen",reopen())}>重新開啟</button>:null}
+              </ActionBar>:null}
               <div className="cy-defect-body">
                 <div className="cy-op-detail-grid">
                   <div><span>回報日期</span><strong>{formatDate(selected.reportedDate)}</strong></div>
