@@ -10,6 +10,7 @@ export const Icons = {
   tag: <Glyph><path d="M3 12V4h8l10 10-8 8L3 12Z"/><circle cx="8" cy="8" r="1.5"/></Glyph>,
   circle: <Glyph><circle cx="12" cy="12" r="8" /></Glyph>,
   warning: <Glyph><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5m0 3h.01"/></Glyph>,
+  more: <Glyph><circle cx="5" cy="12" r="1.4" /><circle cx="12" cy="12" r="1.4" /><circle cx="19" cy="12" r="1.4" /></Glyph>,
   print: <Glyph><path d="M7 9V3h10v6" /><rect x="3" y="9" width="18" height="8" rx="2" /><path d="M7 14h10v7H7z" /></Glyph>,
   camera: <Glyph><rect x="3" y="6" width="18" height="14" rx="2" /><circle cx="12" cy="13" r="4"/><path d="m8 6 1-2h6l1 2"/></Glyph>,
   history: <Glyph><path d="M3 11a9 9 0 1 1 2.5 7M3 4v7h7" /><path d="M12 7v5l3 2" /></Glyph>,
