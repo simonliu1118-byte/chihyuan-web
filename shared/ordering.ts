@@ -23,7 +23,7 @@ export const ORDERING_STATUS_LABELS: Readonly<Record<OrderingStatus, string>> = 
 };
 export type OrderingLineState = "OPEN" | "PARTIAL" | "RECEIVED" | "CLOSED" | "UNCOUNTED";
 export const LINE_STATE_LABELS: Readonly<Record<OrderingLineState, string>> = {
-  OPEN: "未到", PARTIAL: "部分到貨", RECEIVED: "已到貨", CLOSED: "已結掉", UNCOUNTED: "數量無法計算",
+  OPEN: "未到", PARTIAL: "部分到貨", RECEIVED: "已到貨", CLOSED: "已指定結案", UNCOUNTED: "數量無法計算",
 };
 
 export interface OrderingSource {

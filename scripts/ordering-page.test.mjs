@@ -304,12 +304,13 @@ test("a draft is deleted (not voided) after confirmation and the source reopens 
  assert.ok(page.calls.indexOf(del)<page.calls.length-1,"the source's draft is opened again");
 });
 
-test("a partly received order can still be revised (廠商品號 etc.)",async()=>{
+test("a partly received order opens 修改 limited to 廠商品號／廠商品名",async()=>{
  const page=mount((path,options)=>path==="/orders/10"?sentOrder():normalTransport(path,options));
  await page.tick();page.click("測試來源甲");await page.tick();
  assert.equal(page.nodes.some(n=>n.type==="button"&&text(n)==="修改"),true);
  page.click("修改");await page.tick();
- assert.equal(page.grid.readOnly,false);assert.equal(page.grid.lines[0].received,4,"the grid gets received counts to lock those lines");
+ assert.equal(page.grid.readOnly,false);assert.equal(page.grid.vendorOnly,true,"partial: only 廠商品號／廠商品名");
+ assert.equal(page.nodes.some(n=>n.props?.["aria-label"]==="單據備註"),false,"order note locked too");
 });
 
 test("a closed order offers no 修改",async()=>{
@@ -319,8 +320,9 @@ test("a closed order offers no 修改",async()=>{
 });
 
 test("older 結掉 records show the label instead of the raw code",async()=>{
- assert.equal(revisionSummary("洞巾-綠 40*40cm(500張) OTHER"),"洞巾-綠 40*40cm(500張) 結掉：其他");
- assert.equal(revisionSummary("測試品 SHORTAGE"),"測試品 結掉：缺貨");
+ assert.equal(revisionSummary("洞巾-綠 40*40cm(500張) OTHER"),"洞巾-綠 40*40cm(500張) 指定結案：其他");
+ assert.equal(revisionSummary("A00270 結掉：其他（跟洲美叫）"),"A00270 指定結案：其他（跟洲美叫）");
+ assert.equal(revisionSummary("測試品 SHORTAGE"),"測試品 指定結案：缺貨");
  assert.equal(revisionSummary("測試品：數量 10 → 12"),"測試品：數量 10 → 12");
 });
 
@@ -462,4 +464,16 @@ test("phone history uses DataViewToolbar filters while desktop retains its origi
  assert.ok(advanced);
  assert.ok(desktop.nodes.some(n=>n.props?.className==="cy-ordering-tabbar"));
  assert.equal(desktop.nodes.some(n=>n.type?.name==="DataViewToolbar"),false);
+});
+
+test("an order opened from the left list can 結掉 a waiting line in place",async()=>{
+ const posts=[];
+ const page=mount((path,options)=>{if(path.endsWith("/close")){posts.push(options.json);return sentOrder()}
+  return path==="/orders/10"?sentOrder():normalTransport(path,options)});
+ await page.tick();page.click("測試來源甲");await page.tick();
+ assert.equal(typeof page.grid.onCloseLine,"function");
+ page.grid.onCloseLine(page.grid.lines[1]);await page.tick();
+ assert.ok(page.nodes.some(n=>n.props?.title==="指定結案剩餘量"),"the same 結掉 dialog as the 未到貨 list");
+ page.click("修改");await page.tick();
+ assert.equal(page.grid.onCloseLine,undefined,"not while revising");
 });

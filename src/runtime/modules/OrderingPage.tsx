@@ -31,8 +31,8 @@ import "./erp-item-query.css";
 import {buildXlsx} from "../../../shared/xlsx-writer";
 import {downloadExcelFile,shareExcelFile,XLSX_MIME} from "./ordering-file-share";
 import {CLOSED_AS_LABELS,parseQuantity,receiptItemSummary,type OrderingClosedAs,type OrderingReceipt} from "../../../shared/ordering";
-/** Older 結掉 records stored the raw code ("洞巾 OTHER"); show them like new ones ("洞巾 結掉：其他"). */
-export const revisionSummary=(summary:string)=>summary.replace(/ (SHORTAGE|CANCELLED|OTHER)$/,(_,code:OrderingClosedAs)=>" 結掉："+CLOSED_AS_LABELS[code]);
+/** Older 指定結案 records stored the raw code ("洞巾 OTHER") or the earlier word 結掉; show them like new ones ("洞巾 指定結案：其他"). */
+export const revisionSummary=(summary:string)=>summary.replace(/ (SHORTAGE|CANCELLED|OTHER)$/,(_,code:OrderingClosedAs)=>" 指定結案："+CLOSED_AS_LABELS[code]).replace(/ 結掉：/g," 指定結案：");
 import {createOrderingWriteQueue,orderingTaipeiDateTime,exportFileName,pickDraft,ORDERING_STATUS_LABELS,CN_REGULAR_SECTIONS,type OrderingOrder,type OrderingSource,type OrderingPendingLine,type OrderingListRow,type OrderingSection} from "../../../shared/ordering";
 const ROOT="/api/business/ordering";
 const nowDate=()=>new Date(Date.now()+8*3600000).toISOString().slice(0,10);
@@ -481,7 +481,9 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
   };
  },[pending]);
  // 修改 stays available after a partial receipt, until the order is 結案 (user 2026-11-09).
- const current=selected,editable=current?.storedStatus==="DRAFT",revisable=current?.status==="SENT"||current?.status==="PARTIAL",revisingNow=!!revising&&revising.orderId===current?.id&&current?.storedStatus==="SENT";
+ const current=selected,editable=current?.storedStatus==="DRAFT",revisable=current?.status==="SENT"||current?.status==="PARTIAL",
+  // After a partial receipt only 廠商品號／廠商品名 can change, so quantities are never edited after goods arrive (user 2026-11-09).
+  vendorOnly=current?.status==="PARTIAL",revisingNow=!!revising&&revising.orderId===current?.id&&current?.storedStatus==="SENT";
  const currentSaveStates:OrderingGridState[]=[{dirty:headerDirty.date||headerDirty.note,saving:headerSaving>0,failed:headerSaveFailed},...Object.entries(editorStates).filter(([key])=>key.startsWith(current?.id+"-")).map(([,state])=>state)];
  const orderedVendors=useMemo(()=>{
   const priorities=new Map(vendorTabOrder.map((id,i)=>[id,i]));
@@ -563,7 +565,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
       <div className="cy-record-header">
        <div className="cy-ordering-title"><h2>{current.sourceName}</h2><StatusChip tone={STATUS_TONE[current.status]}>{ORDERING_STATUS_LABELS[current.status]}</StatusChip>
         {editable?<OrderingSaveStatus states={currentSaveStates}/>
-         :current.sentAt?<span className="cy-ordering-title-meta">送出 {displayTime(current.sentAt)}・版本 {current.revision}{revisingNow?"・修改中":""}</span>:null}</div>
+         :current.sentAt?<span className="cy-ordering-title-meta">送出 {displayTime(current.sentAt)}・版本 {current.revision}{revisingNow?(vendorOnly?"・修改中（部分到貨，只能改廠商品號、廠商品名）":"・修改中"):""}</span>:null}</div>
        {compact?<OverflowMenu items={[
         {label:"分享 Excel",onClick:()=>void exportOrder(current),disabled:busy||sharingExcel},
         {label:"備註",onClick:()=>document.getElementById("cy-ordering-note")?.focus(),disabled:!editable},
@@ -631,10 +633,11 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
        return <section key={group.key} className="cy-ordering-lines">
         <h3>{group.label}</h3>
         <OrderingGrid kind={current.sourceKind} section={group.key as OrderingSection} key={gridKey} lines={revisingNow?revising!.lines:current.lines} busy={busy} readOnly={!editable&&!revisingNow} {...gridBindings(gridKey)}
-         warnRow={editable?pendingWarning:undefined} onCommit={revisingNow?reviseCommit:lineCommit} onDelete={revisingNow?reviseDelete:removeLine} onReorder={revisingNow?reviseReorder:editable?reorderLines:undefined}/></section>})}
-      {!editable&&(current.note||revisingNow)?<div className="cy-ordering-order-note">
+         warnRow={editable?pendingWarning:undefined} onCommit={revisingNow?reviseCommit:lineCommit} onDelete={revisingNow?reviseDelete:removeLine} onReorder={revisingNow?reviseReorder:editable?reorderLines:undefined} vendorOnly={revisingNow&&vendorOnly}
+         onCloseLine={current.storedStatus==="SENT"&&!revisingNow?row=>setClosing({id:row.id,kind:"SHORTAGE",reason:""}):undefined}/></section>})}
+      {!editable&&(current.note||(revisingNow&&!vendorOnly))?<div className="cy-ordering-order-note">
         <span className="cy-ordering-order-note-label">單據備註</span>
-        {revisingNow?<input className="cy-op-input" aria-label="單據備註" maxLength={300} value={revising!.note} onChange={e=>setRevising({...revising!,note:e.target.value})}/>:<span className="cy-ordering-order-note-text">{current.note}</span>}
+        {revisingNow&&!vendorOnly?<input className="cy-op-input" aria-label="單據備註" maxLength={300} value={revising!.note} onChange={e=>setRevising({...revising!,note:e.target.value})}/>:<span className="cy-ordering-order-note-text">{current.note}</span>}
        </div>:null}
       {current.revisions.length?<section className="cy-ordering-lines"><h3>修改紀錄<small>{current.revisions.length} 筆</small>
         <button type="button" className="cy-op-button compact quiet" aria-expanded={showHistory} onClick={()=>setShowHistory(v=>!v)}>{showHistory?"收合":"展開"}</button></h3>
@@ -730,7 +733,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
         {open?<table className="cy-op-table cy-rt cy-ordering-pending-table"><thead><tr><th>品號</th><th>品名</th><th>叫貨</th><th>已到</th><th>剩餘</th><th/></tr></thead><tbody>
          {group.lines.map(l=><tr key={l.lineId}><td data-label="品號" className="cy-mono">{l.itemCode}</td><td data-label="品名" data-priority="title">{l.itemName||l.vendorItemName}</td><td data-label="叫貨" data-priority="hide">{l.quantity}{l.unit}</td><td data-label="已到" data-priority="hide">{l.received}</td><td data-label="剩餘"><strong>{l.remaining}</strong></td>
           <td className="cy-ordering-row-actions" data-label="操作"><button className="cy-op-button compact quiet" type="button" onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setReceipt({id:l.orderId,no:"",date:nowDate(),quantities:{[l.lineId]:String(l.remaining)},selectedLineIds:[l.lineId]})})}>登記到貨</button>
-           <button type="button" className="cy-op-button compact quiet" onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setClosing({id:l.lineId,kind:"SHORTAGE",reason:""})})}>結掉</button></td></tr>)}
+           <button type="button" className="cy-op-button compact quiet" onClick={()=>void reloadOrder(l.orderId).then(order=>{if(order)setClosing({id:l.lineId,kind:"SHORTAGE",reason:""})})}>指定結案</button></td></tr>)}
         </tbody></table>:null}
        </section>})}
       </div>:!pendingLoading?<p className="cy-op-empty">目前沒有未到貨的品項。</p>:null}
@@ -818,7 +821,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
     </tr>})}</tbody></table></div>
    <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setReceipt(null)}>取消</button><button type="submit" className="cy-op-button primary" disabled={receiptSaving} aria-busy={receiptSaving||undefined}>{receipt.receiptId?"儲存修改":"儲存到貨"}</button></div>
   </form></Dialog>:null}
-  {closing?<Dialog showCloseButton={false} open title="結掉剩餘量" onClose={()=>setClosing(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void closeRemaining(e)}>
+  {closing?<Dialog showCloseButton={false} open title="指定結案剩餘量" onClose={()=>setClosing(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void closeRemaining(e)}>
     <FormSection><Field label="處理方式" size="m"><select className="cy-op-input" value={closing.kind} onChange={e=>setClosing(v=>v?{...v,kind:e.target.value as typeof v.kind}:v)}><option value="SHORTAGE">缺貨</option><option value="CANCELLED">取消</option><option value="OTHER">其他</option></select></Field>
    <Field label="原因" size="l" required={closing.kind==="OTHER"}><input className="cy-op-input" value={closing.reason} onChange={e=>setClosing(v=>v?{...v,reason:e.target.value}:v)}/></Field>
     </FormSection>
