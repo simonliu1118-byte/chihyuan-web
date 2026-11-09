@@ -693,7 +693,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
                 <Field label="基準單位" size="s" required><input className="cy-op-input" value={draft.baseUnit} disabled={busy} onChange={(event) => patch({ baseUnit: event.target.value })} /></Field>
               <div className="cy-item-conversions-inline wide">
                 {draft.unitConversions.map((row, index) => (
-                  <div className="cy-item-conversion-row" key={index}>
+                  <div className="cy-item-conversion-row cy-mobile-unit-conversion-row" key={index}>
                     <span>1</span>
                     <input className="cy-op-input" aria-label="換算來源單位" value={row.fromUnit} disabled={busy}
                       onChange={event => updateConversion(index, "fromUnit", event.target.value)} />

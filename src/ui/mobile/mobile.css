@@ -97,4 +97,12 @@
  .cy-mobile-editable-list .cy-list-row-trailing small{font-size:var(--cy-fs-xs);color:var(--cy-text-muted)}
  .cy-mobile-editable-list .cy-list-row{min-height:52px}
 
+
+ /* Shared unit conversions and related-record search, at the single compact breakpoint. */
+ .cy-mobile-unit-conversion-row{grid-template-columns:16px minmax(0,1fr) 16px minmax(0,1fr)}
+ .cy-mobile-unit-conversion-row .cy-op-input:nth-of-type(3){grid-column:2/4}
+ .cy-mobile-unit-conversion-row .cy-op-button{grid-column:4}
+ .cy-related-toolbar{flex-wrap:wrap}
+ .cy-related-toolbar .cy-op-input{flex:1 1 100%;min-width:0}
+
 }
