@@ -36,7 +36,11 @@ try {
   await build({ entryPoints: [fileURLToPath(new URL("../src/runtime/modules/OrderingPage.tsx", import.meta.url))], outfile,
     bundle: true, platform: "node", format: "esm", jsx: "automatic", packages: "external",
     plugins: [{ name: "page-boundaries", setup(build) {
-      build.onResolve({ filter: /.*/ }, args => args.path in stubs ? { path: args.path, namespace: "page-boundary" } : undefined);
+      build.onResolve({ filter: /.*/ }, args => {
+        const path = args.path.endsWith("/foundation/useCompactLayout") ? "../../ui/foundation/useCompactLayout"
+          : args.path.endsWith("/overlays/Dialog") ? "../../ui/overlays/Dialog" : args.path;
+        return path in stubs ? { path, namespace: "page-boundary" } : undefined;
+      });
       build.onLoad({ filter: /.*/, namespace: "page-boundary" }, args => ({ contents: stubs[args.path] }));
       build.onLoad({ filter: /\.css$/ }, () => ({ contents: "", loader: "js" }));
     } }] });
