@@ -122,3 +122,7 @@
 ### WO-0.14.1 第二批（門市）
 - StoreCustomerOrders／StoreRepairs／StoreEquipment／StoreStocktake 的寬表格在手機以共用 `cy-rt`＋`data-label`＋`data-priority` 呈現，桌機不變。原模組 workflow/cy-store-cards 卡片 CSS 刪除，避免同一 mobile 排版有第二套 owner。
 - 月度待辦和三年維護矩陣為互動式年月網格，本批保留內容與原儲存操作，不重建資料 owner；工單明確要求僅處理其外框與按鈕。
+
+### WO-0.14.1 第三批（客戶／商品）
+- 手機的客戶、商品瀏覽清單採 ListRow；搜尋和分類／狀態採 DataViewToolbar 的 `filters`、`activeFilterCount`，不另造表單 state。選定明細以 ActionBar 提供主要修改，編輯頁用相同的提交按鈕處理器，其他選項在 OverflowMenu。
+- 桌機維持原 toolbar、status 操作與 MasterDetail。換算列窄版適配以 shared `cy-mobile-unit-conversion-row` 在 820px 統一處理，不再依賴商品自己的 560px rule。

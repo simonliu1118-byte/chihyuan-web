@@ -5,6 +5,9 @@
 
 ## 目前狀態（2026-11-09）
 
+- [ ] **WO-0.14.1 第三批客戶／商品**：手機清單 ListRow、分類與狀態移入 DataViewToolbar filters、明細主要修改／編輯儲存走 ActionBar，次要動作 OverflowMenu。待 CI、390px/1440px 對照與 Claude 複審。不合併部署。[handoff](docs/handoff/CYWEB-WO-0141-CUSTOMERS-ITEMS-20261109.md)。
+
+
 - [ ] **WO-0.14.1 第二批門市**：顧客訂購／黑名單、維修、出機、盤點表格已採共用 cy-rt 與 data-label，刪除被取代的卡片 CSS；三年矩陣與月度待辦維持原互動式矩陣。待 CI、桌機/手機實機畫面與 Claude 複審。不合併部署。[handoff](docs/handoff/CYWEB-WO-0141-STORE-20261109.md)。
 
 

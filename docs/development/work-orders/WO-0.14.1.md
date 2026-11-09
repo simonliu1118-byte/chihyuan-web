@@ -58,7 +58,7 @@
 - 主要動作 ActionBar、次要 OverflowMenu；未到貨、到貨紀錄與到貨表採 cy-rt。
 - 刪除 `erp-item-query.css` 原手機叫貨 nav、篩選、草稿卡片、Grid 卡片與未到貨卡片樣式；以通用 `src/ui/mobile/mobile.css` 承擔可重用呈現。
 - 需求驗收：已實作初稿，待 Runtime/Governance/TypeScript/完整 Node CI、390px/1440px 前後實測截圖與 Claude 審查。沒有把未取得的證據標示為通過。
-- 後續批次 2–6：第二批已於獨立 stacked 分支開工；第三至第六批仍待做。
+- 後續批次 2–6：第二與第三批已於各自 stacked Draft PR 開工；第四至第六批仍待做。
 
 ### 批次 2 — 門市（GPT，2026-11-09）
 - 分支：`cyweb/wo-0.14.1-store`，基於第一批分支，不修改 main。PR：待建立。
@@ -69,3 +69,9 @@
 ## 9. 審查紀錄（Claude 填）
 
 （待審）
+
+### 批次 3 — 客戶／商品（GPT，2026-11-09）
+- 分支：`cyweb/wo-0.14.1-customers-items`，建立於第二批分支後續；PR 待建立。
+- 客戶與商品在手機皆由 DataViewToolbar（含分類／狀態）與 ListRow 擔任清單入口，明細主要修改、編輯儲存、取消採 ActionBar，次要紀錄／變更／停用採 OverflowMenu；桌機原工具列與列、操作完整保留。
+- 移除客戶列表舊 @media 列尺寸、商品 560px 換算輸入排版並搬至共用 mobile.css；其餘仍在運作的客戶報價與拜訪表單保持原有呈現。
+- 待 CI、390px 和 1440px 前後截圖與 Claude 最終驗證，不合併不部署。
