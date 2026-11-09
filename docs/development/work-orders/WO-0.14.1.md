@@ -75,3 +75,9 @@
 - 客戶與商品在手機皆由 DataViewToolbar（含分類／狀態）與 ListRow 擔任清單入口，明細主要修改、編輯儲存、取消採 ActionBar，次要紀錄／變更／停用採 OverflowMenu；桌機原工具列與列、操作完整保留。
 - 移除客戶列表舊 @media 列尺寸、商品 560px 換算輸入排版並搬至共用 mobile.css；其餘仍在運作的客戶報價與拜訪表單保持原有呈現。
 - 待 CI、390px 和 1440px 前後截圖與 Claude 最終驗證，不合併不部署。
+
+### 批次 4 — 瑕疵／銷售工單／委外／工作日誌（GPT，2026-11-09）
+- 分支：`cyweb/wo-0.14.1-early-modules`，基於第三批；PR 待開立。
+- 四個模組手機清單改共用 DataViewToolbar、ListRow、ActionBar、OverflowMenu；委外 tabs 用 ModuleSections 並繼續原未儲存切換 guard；銷售和代工明細用 cy-rt。
+- 舊 560／720px 的重複手機表單列 CSS 已移進 mobile.css 的通用 two-col／stack 類，未涉及資料與原狀態流轉。
+- CI／390px／1440px 前後圖與 Claude 審查待驗；不合併不部署。

@@ -126,3 +126,8 @@
 ### WO-0.14.1 第三批（客戶／商品）
 - 手機的客戶、商品瀏覽清單採 ListRow；搜尋和分類／狀態採 DataViewToolbar 的 `filters`、`activeFilterCount`，不另造表單 state。選定明細以 ActionBar 提供主要修改，編輯頁用相同的提交按鈕處理器，其他選項在 OverflowMenu。
 - 桌機維持原 toolbar、status 操作與 MasterDetail。換算列窄版適配以 shared `cy-mobile-unit-conversion-row` 在 820px 統一處理，不再依賴商品自己的 560px rule。
+
+### WO-0.14.1 第四批（早期業務模組）
+- 瑕疵、銷售工單、代工單與工作日誌的手機主清單統一 ListRow、DataViewToolbar。委外代工四子頁以 ModuleSections 搭配既有切換／未儲存保護。
+- 主要的狀態流轉用共用 ActionBar，刪除、作廢、撤回或反向交易集中 OverflowMenu；不能更動按鈕對應的原 handler。
+- 銷售／代工寬表 cy-rt 和 data-label，窄版輸入改共用 mobile.css 的 two-col／stack，移除舊 560/720px 類似版型。
