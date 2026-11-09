@@ -6,6 +6,8 @@ import type {
   ItemListResult,
   ItemNumberHistoryRecord,
   ItemSearchQuery,
+  ItemPriceHistoryRecord,
+  ItemWebPlatform,
   UpdateItemRequest,
 } from "../../../shared/item";
 import { apiRequest } from "../../api/client";
@@ -57,4 +59,11 @@ export function loadItemNumberHistory(itemId: number, limit = 100): Promise<read
     `/api/business/items/${encodeURIComponent(String(itemId))}/number-history?${params.toString()}`,
     { method: "GET" },
   );
+}
+
+export function loadItemPlatforms():Promise<readonly ItemWebPlatform[]> {
+ return apiRequest<readonly ItemWebPlatform[]>("/api/business/items/platforms",{method:"GET"});
+}
+export function loadItemPriceHistory(itemId:number):Promise<readonly ItemPriceHistoryRecord[]> {
+ return apiRequest<readonly ItemPriceHistoryRecord[]>(`/api/business/items/${encodeURIComponent(String(itemId))}/price-history`,{method:"GET"});
 }
