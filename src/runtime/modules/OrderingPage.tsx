@@ -551,25 +551,45 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
  const sentDate=(o:{sentAt:string|null;plannedSendDate:string|null;createdAt:string})=>displayDate(o.sentAt??o.plannedSendDate??o.createdAt);
  const openLines=current?current.lines.filter(l=>l.quantity!==null&&l.received<l.quantity&&!l.closedAs):[];
  const currentSource=current?sources.find(x=>x.id===current.sourceId):undefined;
+ const openMobileNewLine=(orderId:number,section?:OrderingSection)=>{
+  const prefix=orderId+"-"+(section??(selected?.sourceKind==="CN_REGULAR"?CN_REGULAR_SECTIONS[0].key:""));
+  const entry=[...editors.current].find(([key])=>key.startsWith(prefix));
+  entry?.[1].openNew?.();
+ };
  const orderView=current?<>
       <div className="cy-record-header">
        <div className="cy-ordering-title"><h2>{current.sourceName}</h2><StatusChip tone={STATUS_TONE[current.status]}>{ORDERING_STATUS_LABELS[current.status]}</StatusChip>
         {editable?<OrderingSaveStatus states={currentSaveStates}/>
          :current.sentAt?<span className="cy-ordering-title-meta">送出 {displayTime(current.sentAt)}・版本 {current.revision}{revisingNow?"・修改中":""}</span>:null}</div>
-       <div className="cy-record-actions">
+       {compact?<OverflowMenu items={[
+        {label:"分享 Excel",onClick:()=>void exportOrder(current),disabled:busy||sharingExcel},
+        {label:"備註",onClick:()=>document.getElementById("cy-ordering-note")?.focus(),disabled:!editable},
+        ...(editable?[{label:"儲存草稿",onClick:()=>void saveDraftNow(),disabled:busy},
+         {label:"刪除草稿",onClick:()=>void deleteDraft(),disabled:busy,danger:true}]:[]),
+        ...(current.storedStatus!=="DRAFT"?[{label:"回到草稿",onClick:()=>void openDraft(current.sourceId)}]:[]),
+        ...(current.status==="SENT"?[{label:"修改",onClick:()=>startRevision()}]:[]),
+        ...(current.storedStatus==="SENT"?[{label:"作廢",onClick:()=>void voidOrder(),danger:true}]:[]),
+        ...(current.revisions.length?[{label:"修改紀錄",onClick:()=>setShowHistory(true)}]:[])
+       ]}/>:<div className="cy-record-actions">
         {revisingNow?<><button type="button" className="cy-op-button" onClick={()=>void cancelRevision()} disabled={busy}>取消</button>
          <button type="button" className="cy-op-button primary" onClick={()=>void saveRevision()} disabled={busy}>儲存</button></>:<>
         {current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button" onClick={()=>void saveDraftNow()} disabled={busy}>儲存草稿</button>:null}
         {current.storedStatus!=="DRAFT"?<button type="button" className="cy-op-button" onClick={()=>void openDraft(current.sourceId)}>回到草稿</button>:null}
-        <button type="button" className="cy-op-button" disabled={compact&&(busy||sharingExcel)} aria-busy={compact&&sharingExcel} onClick={()=>void exportOrder(current)}>{compact?"分享 Excel":"匯出 Excel"}</button>
+        <button type="button" className="cy-op-button" onClick={()=>void exportOrder(current)}>匯出 Excel</button>
         {current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button danger" onClick={()=>void deleteDraft()}>刪除</button>
          :current.storedStatus==="SENT"?<button type="button" className="cy-op-button danger" onClick={()=>void voidOrder()}>作廢</button>:null}
-        {/* Only a sent order with nothing received or closed yet can be revised (user 2026-11-03). */}
         {current.status==="SENT"?<button type="button" className="cy-op-button" onClick={startRevision}>修改</button>:null}
         {current.storedStatus==="SENT"&&openLines.length?<button type="button" className="cy-op-button primary" onClick={()=>setReceipt({id:current.id,no:"",date:nowDate(),quantities:Object.fromEntries(openLines.map(l=>[l.id,String((l.quantity??0)-l.received)])),selectedLineIds:[]})}>登記到貨</button>:null}
         {current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button primary" onClick={()=>void sent()}>送出</button>:null}</>}
-       </div>
+       </div>}
       </div>
+      {compact&&(revisingNow||editable||(current.storedStatus==="SENT"&&openLines.length))?<ActionBar aboveTabs>
+       {revisingNow?<><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void cancelRevision()}>取消修改</button>
+        <button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void saveRevision()}>儲存修改</button></>
+       :editable?<><button type="button" className="cy-op-button" disabled={busy} onClick={()=>openMobileNewLine(current.id)}>＋新增品項</button>
+        <button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void sent()}>送出叫貨</button></>
+       :<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>setReceipt({id:current.id,no:"",date:nowDate(),quantities:Object.fromEntries(openLines.map(l=>[l.id,String((l.quantity??0)-l.received)])),selectedLineIds:[]})}>登記到貨</button>}
+      </ActionBar>:null}
       {current.receipts.length?<section className="cy-ordering-lines" aria-label="到貨紀錄"><h3>到貨紀錄<small>{current.receipts.length} 筆</small></h3>
        <div className="cy-op-table-wrap"><table className="cy-op-table cy-ordering-receipts"><thead><tr><th>到貨日期</th><th>ERP 進貨單號</th><th>本次到貨品項</th><th>登記人／時間</th><th>操作</th></tr></thead><tbody>
         {current.receipts.map(x=><tr key={x.id}>
@@ -601,7 +621,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
       {editable?<form onKeyDown={enterAdvancesFields} onSubmit={e=>{e.preventDefault();if(headerDirty.date)void saveHeader("date");if(headerDirty.note)void saveHeader("note")}}>
        <FormSection>
         <Field label="預計送出日期" size="s"><DateInput density="regular" className="cy-op-input" max="9999-12-31" disabled={!editable} value={current.plannedSendDate??""} onChange={e=>{headerEditRevisions.current.date++;headerDirtyRef.current={...headerDirtyRef.current,date:true};setHeaderDirty(v=>({...v,date:true}));setSelected(v=>v?{...v,plannedSendDate:e||null}:v)}} onBlur={()=>void saveHeader("date")}/></Field>
-        <Field label="單據備註" size="m" hint={headerDirty.date||headerDirty.note?"離開欄位後自動儲存":undefined}><input className="cy-op-input" disabled={!editable} value={current.note} onChange={e=>{headerEditRevisions.current.note++;headerDirtyRef.current={...headerDirtyRef.current,note:true};setHeaderDirty(v=>({...v,note:true}));setSelected(v=>v?{...v,note:e.target.value}:v)}} onBlur={()=>void saveHeader("note")}/></Field>
+        <Field label="單據備註" size="m" hint={headerDirty.date||headerDirty.note?"離開欄位後自動儲存":undefined}><input id="cy-ordering-note" className="cy-op-input" disabled={!editable} value={current.note} onChange={e=>{headerEditRevisions.current.note++;headerDirtyRef.current={...headerDirtyRef.current,note:true};setHeaderDirty(v=>({...v,note:true}));setSelected(v=>v?{...v,note:e.target.value}:v)}} onBlur={()=>void saveHeader("note")}/></Field>
        </FormSection>
       </form>:null}
       {(current.sourceKind==="CN_REGULAR"?CN_REGULAR_SECTIONS:[{key:"" as const,label:"叫貨明細"}]).map(group=>{const gridKey=current.id+"-"+group.key+(revisingNow?"-revise":"");
