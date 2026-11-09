@@ -95,3 +95,21 @@
 | 年月輸入 | `DateInput precision="month"` | 對外的值是 `YYYY-MM`，不要另做年月選擇器。 |
 | 互斥選項 | `CheckField type="radio"` | 外觀與勾選框一致。 |
 | 首頁、公告、待辦、鈴鐺 | `HomePage`、`AnnouncementsPage`、`MyTodosPage`、`NotificationBell` | 首頁只做摘要與導覽，新增／編輯都到正式頁。撰寫用 `EntryTable`。鈴鐺清單有固定高度捲動，只連到正式頁。規格見 [HOME_HUB.md](HOME_HUB.md)。 |
+
+## 6. 手機版（V0.14.0 起，全系統共用）
+
+**規則：手機寬度只有一個標準 820px（`useCompactLayout()` 與 CSS 相同），只改呈現，不改任何業務邏輯、API、存檔規則。各模組不再自己寫手機 CSS；需要的排法缺了，就加到 `src/ui/mobile/`。** 樣式集中在 `src/ui/mobile/mobile.css`。
+
+| 用途 | 元件 | 手機上的樣子 | 桌機 |
+| --- | --- | --- | --- |
+| 模組的子頁（門市、叫貨、人事…） | `ModuleSections` | 2–5 個時變成底部分頁（可帶數量徽章）；超過 5 個改成上方可左右滑的頁籤 | 原本的 `cy-op-tabs` |
+| 清單的每一列 | `ListRow` | 標題、副標、右側值或 `StatusChip`、箭頭 | 相同，選取時藍色左邊條 |
+| 搜尋與篩選 | `DataViewToolbar`（`filters`、`activeFilterCount`） | 搜尋占一整列；篩選收進「篩選」按鈕開的下方面板 | 不變 |
+| 主要動作 | `ActionBar` | 固定在畫面最下方、等寬大按鈕；有底部分頁時疊在分頁上方 | 靠右一列 |
+| 次要動作 | `OverflowMenu`（⋯） | 同桌機；點外面或 Esc 關閉 | 同 |
+| 對話框 | `Dialog`（不用改呼叫方式） | 自動變成從下方滑出的面板；表單底部 `cy-op-form-footer` 固定在面板底部 | 不變 |
+| 表格式表單 | `EntryTable`（不用改呼叫方式） | 自動變成「欄名｜內容」逐列；必填欄名帶＊ | 不變 |
+| 主檔單據 | `RecordSheet`、`RecordRows` | 「欄名｜內容」；子表每列一張小卡 | 不變 |
+| 寬表格 | 在 `<table>` 加 `cy-rt`，每個 `td` 加 `data-label`；可選 `data-priority="title"`（卡片標題）、`"wide"`（整列寬）、`"hide"`（只在桌機顯示） | 每列變一張兩欄卡片 | 不變 |
+
+範例：門市頁的四個分頁（`StorePage`）用 `ModuleSections`。

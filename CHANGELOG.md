@@ -6,6 +6,12 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.14.0 — 手機版共用元件（第一階段，2026-11-09，Claude）
+- 全系統手機寬度統一為 820px；新增 `src/ui/mobile/`：`ModuleSections`（模組子頁，手機底部分頁）、`ListRow`、`ActionBar`（手機固定底部）、`OverflowMenu`（⋯）、共用 `mobile.css`。
+- 不用改各模組程式就生效：所有對話框在手機改成下方面板、表單按鈕固定在底部；`EntryTable` 表單在手機自動改成「欄名｜內容」；`DataViewToolbar` 的篩選在手機收進「篩選」面板；`RecordRows` 子表斷點統一。
+- 寬表格共用卡片樣式 `cy-rt`（取代各模組各自的手機卡片寫法，第二階段逐模組改用）。
+- 門市頁分頁改用 `ModuleSections` 作為範例；只改呈現，不改業務邏輯與 API。第二階段逐模組套用見工單 WO-0.14.1。
+
 ## CY Web V0.13.0 — 首頁、公告與通知、個人待辦與鈴鐺（2026-11-09，Claude）
 
 - 登入預設開啟首頁，桌機／手機左上 CY 返回首頁；書籤仍直達原模組，路由更換沿用既有未儲存確認。

@@ -10,6 +10,7 @@ import "./ui/forms.css";
 import "./ui/data/data-view.css";
 import "./ui/pickers/entity-picker.css";
 import "./ui/overlays/overlay.css";
+import "./ui/mobile/mobile.css";
 import "./ui/feedback/toast.css";
 import "./ui/related/related-record-panel.css";
 
