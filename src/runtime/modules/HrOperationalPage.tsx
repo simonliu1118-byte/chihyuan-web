@@ -27,8 +27,9 @@ import {HrAttendancePanel} from "./HrAttendancePanel";
 import {HrLeavePanel} from "./HrLeavePanel";
 import {HrEmployeeLeaveOverview} from "./HrEmployeeLeaveOverview";
 import {HrEmployeeSheet} from "./HrEmployeeSheet";
-import {EntryFields} from "../../ui/forms/EntryTable";
+import {EntryFields,EntryTable,EntryHeading} from "../../ui/forms/EntryTable";
 import {RecordRows} from "../../ui/forms/RecordSheet";
+import {HrSalaryOverview} from "./HrSalaryOverview";
 
 const ROOT = "/api/business/hr";
 const statusLabels: Record<HrStatus, string> = { probation: "試用", active: "在職", leave: "留職停薪", terminated: "離職" };
@@ -112,7 +113,7 @@ function draftFrom(detail: EmployeeDetail): Draft {
 }
 
 export function HrOperationalPage() {
-  const [tab,setTab]=useState<"people"|"roster"|"attendance"|"leave">("people");
+  const [tab,setTab]=useState<"people"|"roster"|"attendance"|"leave"|"salary">("people");
  const [initialLeaveEmployeeId,setInitialLeaveEmployeeId]=useState<number|null>(null);
   const [stores,setStores]=useState<{id:number;name:string}[]>([]);
   const [jobTitles,setJobTitles]=useState<{id:number;name:string}[]>([]);
@@ -140,6 +141,8 @@ export function HrOperationalPage() {
   const [action, setAction] = useState<ActionKind | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const [allowances, setAllowances] = useState<{ itemTypeId: string; amount: string; isRegular: boolean }[]>([]);
+  const [actionEmployeeId,setActionEmployeeId]=useState<number|null>(null);
+  const [salaryRefresh,setSalaryRefresh]=useState(0);
   const [salaryItems, setSalaryItems] = useState<SalaryItem[]>([]);
   const [minimumWageSet, setMinimumWageSet] = useState(true);
   const [browse, setBrowse] = useState<BrowseKind | null>(null);
@@ -237,7 +240,8 @@ export function HrOperationalPage() {
     finally { setBusy(false); }
   }
 
-  async function openAction(kind: ActionKind) {
+  async function openAction(kind: ActionKind,employeeId?:number) {
+    setActionEmployeeId(employeeId??detail?.id??null);
     setForm(kind === "status" ? { effectiveDate: taipeiToday(), nextStatus: "active" }
       : kind === "salary" ? { effectiveDate: taipeiToday(), paymentType: "monthly" } : {});
     setAllowances([]);
@@ -255,7 +259,8 @@ export function HrOperationalPage() {
 
   async function submitAction(event: FormEvent) {
     event.preventDefault();
-    if (!detail || !action) return;
+    if (!action || actionEmployeeId===null) return;
+    const targetId=actionEmployeeId;
     const endpoint = action === "status" ? "status-changes" : action === "salary" ? "salary-records" : "seniority-exclusions";
     const body: Record<string, unknown> = { ...form };
     if (action === "salary") {
@@ -265,9 +270,10 @@ export function HrOperationalPage() {
     }
     setBusy(true);
     try {
-      await apiRequest(`${ROOT}/employees/${detail.id}/${endpoint}`, { method: "POST", json: body });
-      setAction(null);
-      await Promise.all([loadDetail(detail.id), loadList()]);
+      await apiRequest(`${ROOT}/employees/${targetId}/${endpoint}`, { method: "POST", json: body });
+      setAction(null);setActionEmployeeId(null);
+      await Promise.all([...(detail?.id===targetId?[loadDetail(targetId)]:[]),loadList()]);
+      if(action==="salary")setSalaryRefresh(n=>n+1);
       setMessage(action === "status" ? "已新增狀態異動。" : action === "salary" ? "已新增薪資異動。" : "已新增年資不計期間。");
     } catch (error) { reportError(errorText(error)); }
     finally { setBusy(false); }
@@ -314,13 +320,14 @@ export function HrOperationalPage() {
   const currentSalary = detail?.salaryRecords.find(row => row.effective_date <= today) ?? null;
 
   return <>
-    {compact?<ModuleSections label="人事頁籤" sections={[{key:"people",label:"人員"},{key:"roster",label:"排班"},{key:"attendance",label:"出勤"},{key:"leave",label:"請假"}] as const}
+    {compact?<ModuleSections label="人事頁籤" sections={[{key:"people",label:"人員"},{key:"roster",label:"排班"},{key:"attendance",label:"出勤"},{key:"leave",label:"請假"},{key:"salary",label:"薪資"}] as const}
       value={tab} onChange={setTab}/>
     :    <nav className="cy-op-tabs cy-hr-top-tabs" aria-label="人事頁籤">
       <button type="button" className={tab==="people"?"active":""} onClick={()=>setTab("people")}>人員</button>
       <button type="button" className={tab==="roster"?"active":""} onClick={()=>setTab("roster")}>排班</button>
       <button type="button" className={tab==="attendance"?"active":""} onClick={()=>setTab("attendance")}>出勤</button>
       <button type="button" className={tab==="leave"?"active":""} onClick={()=>setTab("leave")}>請假</button>
+      <button type="button" className={tab==="salary"?"active":""} onClick={()=>setTab("salary")}>薪資</button>
     </nav>}
     {tab==="people"?<div className="cy-op-module">
     {confirmationDialog}
@@ -488,7 +495,7 @@ export function HrOperationalPage() {
     </FormSection>
   </form>
     </Dialog> : null}
-  </div>:tab==="roster"?<HrRosterPanel/>:tab==="attendance"?<HrAttendancePanel/>:<HrLeavePanel initialEmployeeId={initialLeaveEmployeeId}/>}</>;
+  </div>:tab==="roster"?<HrRosterPanel/>:tab==="attendance"?<HrAttendancePanel/>:tab==="leave"?<HrLeavePanel initialEmployeeId={initialLeaveEmployeeId}/>:<HrSalaryOverview refreshToken={salaryRefresh} onRaise={(id)=>void openAction("salary",id)}/>}</>;
 }
 
 /** Every field except 備註 and 學經歷 is required; one of 手機／市話 is enough. */
