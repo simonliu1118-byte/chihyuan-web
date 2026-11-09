@@ -964,7 +964,7 @@ function GroupWorkspace({ snapshot, session, view, columns, reload, switcher }: 
         <button type="button" className="cy-op-button" disabled={savingId !== null} aria-busy={savingId === group.id || undefined} onClick={() => void resync(group)}>重新套用</button>
       </div>)}
       <div className="cy-identity-access-scroll">
-        <table className="cy-op-table cy-rt cy-identity-access-table cy-identity-group-table">
+        <table className="cy-op-table cy-rt cy-mobile-access-matrix cy-identity-access-table cy-identity-group-table">
           <thead>
             <tr>
               <th rowSpan={2} className="cy-access-person">群組</th>

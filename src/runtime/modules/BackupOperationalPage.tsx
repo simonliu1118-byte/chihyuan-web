@@ -60,7 +60,7 @@ interface LineColumn<T> { header: string; width?: string; numeric?: boolean; cod
  * end in … when it runs out; the whole value stays selectable and shows on hover.
  */
 function LineTable<T>({ label, rows, getKey, columns }: { label: string; rows: readonly T[]; getKey: (row: T) => string; columns: LineColumn<T>[] }) {
-  return <div className="cy-backup-table-wrap"><table className="cy-sheet-table cy-rt cy-backup-table" aria-label={label}>
+  return <div className="cy-backup-table-wrap"><table className="cy-sheet-table cy-rt cy-mobile-wrap-table cy-backup-table" aria-label={label}>
         <thead><tr>{columns.map(column => <th key={column.header} scope="col" className={column.numeric ? "num" : undefined}>{column.header}</th>)}</tr></thead>
     <tbody>{rows.map(row => <tr key={getKey(row)}>{columns.map((column,index) => <td key={column.header} data-label={column.header} data-priority={index===0?"title":column.header==="操作"?"wide":undefined}
       className={[column.numeric ? "num" : "", column.code ? "code" : ""].filter(Boolean).join(" ") || undefined}>

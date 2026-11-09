@@ -125,4 +125,14 @@
  .cy-hr-edit-row.cy-mobile-form-two-col .cy-row-remove,
  .cy-hr-allowance-row.cy-mobile-form-two-col .cy-row-remove{justify-self:start}
 
+
+ /* A permission-group matrix must not hide its checkbox cells on narrow screens. */
+ .cy-rt.cy-mobile-access-matrix{width:100%!important;min-width:0!important}
+ .cy-rt.cy-mobile-access-matrix .cy-access-person{position:static;left:auto;min-width:0;border-right:0}
+ .cy-rt.cy-mobile-access-matrix .cy-access-cell{display:block;min-width:0}
+ .cy-rt.cy-mobile-access-matrix tbody>tr>td[data-label]{display:block}
+ .cy-rt.cy-mobile-access-matrix .cy-identity-row-actions{display:flex;flex-wrap:wrap;gap:8px}
+ .cy-identity-mobile-users{display:grid;gap:0}
+ .cy-identity-mobile-users .cy-list-row+.cy-list-row{border-top:1px solid var(--cy-border)}
+
 }

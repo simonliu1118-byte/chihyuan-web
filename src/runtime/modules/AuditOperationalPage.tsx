@@ -112,7 +112,7 @@ export function ChangeLogList({role,customerId}:{
   const who=(item:AuditEvent)=>item.actor?formatPerson(item.actor):"系統";
   const moduleChoices=role==="SUPER_ADMIN"?moduleOptions:moduleOptions.filter(option=>option.value!==ERP_MODULES);
   return <div className="cy-change-log">
-    {!customerId&&(compact?<DataViewToolbar searchValue={filters.q} onSearchChange={q=>setFilters(v=>({...v,q}))}
+    {!customerId&&(compact?<DataViewToolbar searchValue={filters.q} onSearchChange={q=>setFilters(v=>({...v,q:q.slice(0,100)}))}
       searchLabel="異動紀錄關鍵字" searchPlaceholder="搜尋資料名稱或編號"
       filters={<>
         <SegmentedControl label="期間" value={filters.period}
