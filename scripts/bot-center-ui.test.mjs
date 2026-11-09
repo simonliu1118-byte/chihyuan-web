@@ -62,9 +62,10 @@ test("timeline rows collapse to one line and reveal shared expand toggle only fo
  assert.match(css,/\.cy-bot-timeline-preview\{[^}]*white-space:nowrap/);
  assert.match(css,/\.cy-bot-timeline-preview\.is-expanded\{[^}]*white-space:pre-wrap/);
 });
-test("Threads latest card uses title only and targeted dialogs have narrower widths",()=>{
+test("Threads card shows daily totals and targeted dialogs have narrower widths",()=>{
  assert.doesNotMatch(page,/state\.workSummary\.patrols\.latest\?\.detail/);
- assert.match(page,/state\.workSummary\.patrols\.latest\?\.title\?\?"尚無巡視紀錄"/);
+ assert.match(page,/今日巡視 <strong>\{state\.workSummary\.patrols\.count\}<\/strong> 次/);
+ assert.match(page,/已送出 \{state\.workSummary\.patrols\.sentToday\} 則・待送出 \{state\.workSummary\.patrols\.toSend\} 則/);
  assert.match(dialog,/className="cy-bot-push-dialog"/);
  assert.match(page,/className="cy-bot-settings-dialog"/);
  assert.match(css,/\.cy-dialog\.cy-bot-push-dialog \.cy-dialog-surface\{width:min\(414px/);

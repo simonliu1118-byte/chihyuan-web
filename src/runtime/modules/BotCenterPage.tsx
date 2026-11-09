@@ -1,7 +1,7 @@
 import {useCallback,useEffect,useRef,useState,type FormEvent} from "react";
 import {ApiClientError} from "../../api/client";
 import {BOT_LIMITS,BOT_REVIEW_LABELS,BOT_STATUS_LABELS,taipeiTodayRange,type BotCenterState,type BotCompletionView,type BotReviewStatus,type BotStatus} from "../../../shared/bot-center";
-import {createBot,issueBotCredential,loadBotCenter,loadBotProgress,reviewDraft,revokeBotCredential,saveBotPush,retryBotPush} from "../api/bot-center-client";
+import {createBot,issueBotCredential,loadBotCenter,loadBotProgress,revokeBotCredential,saveBotPush,retryBotPush} from "../api/bot-center-client";
 import {ExpandToggle} from "../../ui/data/ExpandToggle";
 import {useCompactLayout} from "../../ui/foundation/useCompactLayout";
 import {OverflowMenu} from "../../ui/mobile/OverflowMenu";
@@ -14,15 +14,24 @@ import {Field,FormSection} from "../../ui/forms/Field";
 import {EntryTable,EntryHeading} from "../../ui/forms/EntryTable";
 import {Dialog} from "../../ui/overlays/Dialog";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
-import {useFormPrompt} from "../../ui/overlays/useFormPrompt";
 import {StatusChip} from "../../ui/primitives/StatusChip";
 import {BotPushSettingsDialog} from "./BotPushSettingsDialog";
+import {BotReviewDialog} from "./BotReviewDialog";
+import {BOT_DRAFT_KIND_LABELS,type BotDraftView} from "../../../shared/bot-center";
 import "./bot-center.css";
 
 const STATUS_TONE:Record<BotStatus,"neutral"|"info"|"warning"|"success">={idle:"neutral",working:"info",blocked:"warning",done:"success"};
 const REVIEW_TONE:Record<BotReviewStatus,"warning"|"success"|"danger">={pending:"warning",approved:"success",rejected:"danger"};
 const messageOf=(error:unknown)=>error instanceof ApiClientError?error.message||error.code:"BOT 管理中心暫時無法使用";
 const PUSH_LABELS={queued:'待送出',sending:'傳送中',accepted:'已送出',failed:'失敗'};
+const firstLine=(text:string)=>{const line=text.split("\n").find(row=>row.trim())??"";return line.length>80?line.slice(0,80)+"…":line};
+/** Today's reviewed drafts on a work card; each opens the read-only review dialog (user 2026-11-09). */
+function ReviewedList({title,drafts,onOpen}:{title:string;drafts:BotDraftView[];onOpen:(list:BotDraftView[],id:number)=>void}){
+ if(!drafts.length)return null;
+ return <div className="cy-bot-reviewed"><h4>{title} {drafts.length} 篇</h4>
+  {drafts.map(draft=><button key={draft.id} type="button" className="cy-bot-reviewed-row" onClick={()=>onOpen(drafts,draft.id)}>
+   <span>{draft.title}</span><small>{draft.reason==="部分通過"?"部分通過":BOT_REVIEW_LABELS[draft.status]}{draft.imageCount?"・"+draft.imageCount+" 張圖":""}</small></button>)}</div>;
+}
 /** Keep an event on one line, exposing the shared toggle only when its text overflows. */
 function TimelineEvent({item}:{item:BotCompletionView}){
  const [expanded,setExpanded]=useState(false),[overflows,setOverflows]=useState(false);
@@ -70,8 +79,9 @@ export function BotCenterPage(){
  const [tokenOwner,setTokenOwner]=useState("");
  const [pushCode,setPushCode]=useState<string|null>(null);
  const [message,setMessage,reportError,tone]=useFeedbackMessage<string|null>(null);
- const {confirm,confirmationDialog}=useConfirmation(),{ask,promptDialog}=useFormPrompt();
+ const {confirm,confirmationDialog}=useConfirmation();
  const sequence=useRef(0),actionBusy=useRef(false);
+ const [reviewing,setReviewing]=useState<{ids:number[];id:number}|null>(null);
  const draftStatus=state?.draftStatus??"pending";
 
  const refresh=useCallback(async(status:BotReviewStatus|"all")=>{
@@ -119,16 +129,6 @@ export function BotCenterPage(){
    });
   });
  }
- async function decide(id:number,decision:"approved"|"rejected"){
-  if(actionBusy.current)return;
-  let reason:string|undefined;
-  if(decision==="rejected"){
-   const values=await ask({title:"退回審稿",fields:[{name:"reason",label:"退回理由",multiline:true,required:true}],confirmLabel:"退回",confirmTone:"danger"});
-   if(!values)return;reason=values.reason;
-  }
-  await run(async()=>{await reviewDraft(id,decision,reason);await refresh(draftStatus);setMessage(decision==="approved"?"已通過":"已退回")});
- }
-
  async function addBot(event:FormEvent){event.preventDefault();await run(async()=>{await createBot(code,label);setCode("");setLabel("");setAddOpen(false);await refresh(draftStatus);setMessage("已新增 BOT")})}
  async function retryPush(id:number){await run(async()=>{await retryBotPush(id);await refresh(draftStatus);setMessage('已排入推播重送')})}
  async function togglePush(code:string){
@@ -149,10 +149,12 @@ export function BotCenterPage(){
   await run(async()=>{await revokeBotCredential(code);await refresh(draftStatus);setMessage("已撤銷"+name+"連線憑證")});
  }
 
+ const open=(list:BotDraftView[],id:number)=>setReviewing({ids:list.map(row=>row.id),id});
  if(loading&&!state)return <Loading/>;
  if(!state)return <section className="cy-op-panel"><h2>BOT 管理中心</h2><p>{message??"目前無法載入。"}</p></section>;
  return <div className="cy-bot-center">
-  <FeedbackBanner message={message} tone={tone}/>{confirmationDialog}{promptDialog}
+  <FeedbackBanner message={message} tone={tone}/>{confirmationDialog}
+  {reviewing?<BotReviewDialog ids={reviewing.ids} initialId={reviewing.id} canReview onClose={()=>setReviewing(null)} onChanged={()=>void refresh(draftStatus).catch(()=>{})}/>:null}
   <section className="cy-op-panel cy-bot-overview" aria-label="今日工作總覽">
    <div className="cy-bot-overview-toolbar">
     <div className="cy-bot-status-strip" aria-label="BOT 狀態總覽（只供顯示）">
@@ -185,8 +187,9 @@ export function BotCenterPage(){
      <tbody>{state.drafts.length?state.drafts.map(draft=>{
       const reviewInfo=[draft.reason?"理由："+draft.reason:"",draft.reviewer?(draft.reviewer.displayName||draft.reviewer.employeeNo||"使用者")+" "+formatDateTime(draft.reviewedAt):""].filter(Boolean).join("；");
       return <tr key={draft.id}><td data-label="送審時間"><time dateTime={draft.createdAt}>{formatDateTime(draft.createdAt)}</time></td><td data-label="BOT" title={draft.botLabel}>{draft.botLabel}</td>
-       <td data-label="事項" data-priority="title" title={draft.title}>{draft.title}</td><td data-label="內容" data-priority="wide" title={draft.body}>{draft.body}</td><td data-label="狀態" className="is-center"><StatusChip tone={REVIEW_TONE[draft.status]}>{BOT_REVIEW_LABELS[draft.status]}</StatusChip></td>
-       {draftStatus!=="pending"?<><td data-label="審核資訊" data-priority="wide" title={reviewInfo}>{reviewInfo}</td><td data-label="推播" className="is-center">{draft.pushStatus?<StatusChip tone={draft.pushStatus==='failed'?'danger':draft.pushStatus==='accepted'?'success':'warning'}>{PUSH_LABELS[draft.pushStatus]}</StatusChip>:null}</td></>:null}<td data-label="操作" data-priority="wide">{draft.status==="pending"?<div className="cy-bot-actions"><button type="button" className="cy-op-button compact primary" disabled={busy} onClick={()=>void decide(draft.id,"approved")}>通過</button><button type="button" className="cy-op-button compact danger" disabled={busy} onClick={()=>void decide(draft.id,"rejected")}>退回</button></div>:draft.pushStatus==='failed'&&state.canManageCredentials?<button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void retryPush(draft.id)}>重送</button>:null}</td>
+       <td data-label="事項" data-priority="title" title={draft.title}>{draft.title}</td><td data-label="內容" data-priority="wide"><span className="cy-bot-review-preview">{draft.itemCounts?<StatusChip tone="info">{BOT_DRAFT_KIND_LABELS[draft.kind]} {draft.itemCounts.total} 則</StatusChip>:null}{firstLine(draft.body)}</span></td><td data-label="狀態" className="is-center"><StatusChip tone={REVIEW_TONE[draft.status]}>{BOT_REVIEW_LABELS[draft.status]}</StatusChip></td>
+       {draftStatus!=="pending"?<><td data-label="審核資訊" data-priority="wide" title={reviewInfo}>{reviewInfo}</td><td data-label="推播" className="is-center">{draft.pushStatus?<StatusChip tone={draft.pushStatus==='failed'?'danger':draft.pushStatus==='accepted'?'success':'warning'}>{PUSH_LABELS[draft.pushStatus]}</StatusChip>:null}</td></>:null}<td data-label="操作" data-priority="wide"><div className="cy-bot-actions"><button type="button" className={"cy-op-button compact"+(draft.status==="pending"?" primary":"")} disabled={busy} onClick={()=>setReviewing({ids:state.drafts.map(row=>row.id),id:draft.id})}>{draft.status==="pending"?"審閱":"查看"}</button>
+       {draft.status!=="pending"&&draft.pushStatus==='failed'&&state.canManageCredentials?<button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void retryPush(draft.id)}>重送</button>:null}</div></td>
       </tr>;
      }):<tr><td colSpan={draftStatus==="pending"?6:8}>尚無{draftStatus==="pending"?"待審稿件":"審稿紀錄"}</td></tr>}</tbody>
     </table></div>
@@ -194,11 +197,15 @@ export function BotCenterPage(){
    </section>
   <section className="cy-bot-work-cards" aria-label="工作摘要">
    <article className="cy-op-panel cy-bot-work-card"><h3>新文章通知</h3><div className="cy-bot-work-count"><strong>{state.workSummary.articles.count}</strong> 篇</div>
-    <p>{state.workSummary.articles.latest?.title??"尚無發布紀錄"}</p>{state.workSummary.articles.latest?.detail?<p>{state.workSummary.articles.latest.detail}</p>:null}</article>
-   <article className="cy-op-panel cy-bot-work-card"><h3>Threads 巡視回報</h3><div className="cy-bot-work-count"><strong>{state.workSummary.patrols.count}</strong> 次</div>
-    <p>{state.workSummary.patrols.latest?.title??"尚無巡視紀錄"}</p></article>
+    <p>{state.workSummary.articles.latest?.title??"尚無發布紀錄"}</p>{state.workSummary.articles.latest?.detail?<p>{state.workSummary.articles.latest.detail}</p>:null}
+    <ReviewedList title="今日審完的貼文" drafts={state.workSummary.articles.reviewed} onOpen={open}/></article>
+   <article className="cy-op-panel cy-bot-work-card"><h3>Threads 巡視回報</h3>
+    <div className="cy-bot-work-count">今日巡視 <strong>{state.workSummary.patrols.count}</strong> 次</div>
+    <p>已送出 {state.workSummary.patrols.sentToday} 則・待送出 {state.workSummary.patrols.toSend} 則</p>
+    <ReviewedList title="今日審完的海巡" drafts={state.workSummary.patrols.reviewed} onOpen={open}/></article>
    <article className="cy-op-panel cy-bot-work-card"><h3>拍板結案</h3><div className="cy-bot-work-count">—</div></article>
    <article className="cy-op-panel cy-bot-work-card"><h3>待核准</h3><div className="cy-bot-work-count"><strong>{state.workSummary.pending.count}</strong> 件</div>
+    {state.workSummary.pending.posts||state.workSummary.pending.patrols?<p>貼文 {state.workSummary.pending.posts} 篇・海巡 {state.workSummary.pending.patrols} 則</p>:null}
     <p>{state.workSummary.pending.latest?.title??"尚無待審事項"}</p></article>
   </section>
         <section className="cy-bot-cards" aria-label="BOT 當日摘要">

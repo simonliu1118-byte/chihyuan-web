@@ -79,6 +79,10 @@ async function setup(t) {
     assert.ok(at.pathname.startsWith("/api/bot-ingest/"));
     assert.equal(options.redirect, "error");
     assert.equal(options.headers.cookie, void 0);
+    if (options.body instanceof Uint8Array) {
+      const raw = await fixture.raw(at.pathname + at.search, options.method, options.body, options.headers);
+      return Response.json(await raw.json(), { status: raw.status });
+    }
     const result = await fixture.call(at.pathname + at.search, options.method, options.body === void 0 ? void 0 : JSON.parse(options.body), options.headers);
     return Response.json(result.body, { status: result.status });
   };
@@ -237,4 +241,36 @@ test("portable CLI works via real HTTP, consumes JSON stdin, and does not reveal
     assert.equal(JSON.parse(result.stdout).ok, false);
   }
   assert.equal(requests.length, 2);
+});
+
+test("patrol and post drafts go item by item; images and sent reports only touch approved work", async t => {
+  const f = await setup(t);
+  const store = new Map();
+  f.env.HR_FILES = { async put(k, v) { store.set(k, v) }, async get(k) { return store.has(k) ? { body: store.get(k) } : null }, async delete(keys) { for (const k of [].concat(keys)) store.delete(k) } };
+  const items = [{ ref: "t-1", title: "回覆甲", body: "合成回覆一" }, { title: "回覆乙", body: "合成回覆二" }];
+  const draft = await f.client.run("submit", { externalRef: "synthetic-patrol-r1", title: "合成海巡", body: "合成說明", kind: "patrol", items });
+  assert.equal(draft.kind, "patrol");
+  assert.deepEqual(draft.items.map(i => [i.seq, i.ref, i.status]), [[1, "t-1", "pending"], [2, null, "pending"]]);
+  assert.equal((await f.client.run("submit", { externalRef: "synthetic-patrol-r1", title: "合成海巡", body: "合成說明", kind: "patrol", items })).id, draft.id);
+  await assert.rejects(f.client.run("submit", { externalRef: "synthetic-patrol-r1", title: "合成海巡", body: "合成說明", kind: "patrol", items: items.slice(0, 1) }), code("DRAFT_REVISION_REQUIRED"));
+  await assert.rejects(f.client.run("submit", { externalRef: "synthetic-x", title: "a", body: "b", kind: "patrol" }), code("INPUT_INVALID"));
+  await assert.rejects(f.client.run("submit", { externalRef: "synthetic-x", title: "a", body: "b", kind: "general", items }), code("INPUT_INVALID"));
+  const dir = await sandbox(t), png = join(dir, "shot.png"), txt = join(dir, "note.png");
+  await writeFile(png, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]));
+  await writeFile(txt, "<html>not an image</html>");
+  const uploaded = await f.client.run("image", { externalRef: "synthetic-patrol-r1", item: 2, file: png });
+  assert.equal(uploaded.item, 2); assert.equal(uploaded.contentType, "image/png");
+  await assert.rejects(f.client.run("image", { externalRef: "synthetic-patrol-r1", file: txt }), code("INPUT_INVALID"));
+  await assert.rejects(f.client.run("image", { externalRef: "synthetic-patrol-r1", file: "shot.png" }), code("INPUT_INVALID"));
+  await assert.rejects(f.client.run("sent", { externalRef: "synthetic-patrol-r1", items: [1] }), code("APPROVAL_PENDING"));
+  data(await f.call(`/api/bot-center/drafts/${draft.id}/items/2/review`, "POST", { decision: "rejected", reason: "合成退回" }));
+  data(await f.call(`/api/bot-center/drafts/${draft.id}/items/1/review`, "POST", { decision: "approved" }));
+  const review = await f.client.run("review", { externalRef: "synthetic-patrol-r1" });
+  assert.equal(review.status, "approved"); assert.equal(review.reason, "部分通過");
+  assert.deepEqual(review.items.map(i => [i.seq, i.status, i.reason]), [[1, "approved", null], [2, "rejected", "合成退回"]]);
+  await assert.rejects(f.client.run("image", { externalRef: "synthetic-patrol-r1", file: png }), code("ALREADY_REVIEWED"));
+  await assert.rejects(f.client.run("sent", { externalRef: "synthetic-patrol-r1", items: [1, 2] }), code("ITEM_NOT_APPROVED"));
+  assert.equal((await f.client.run("sent", { externalRef: "synthetic-patrol-r1", items: [1] })).newlySent, 1);
+  assert.equal((await f.client.run("sent", { externalRef: "synthetic-patrol-r1", items: [1] })).newlySent, 0);
+  assert.ok((await f.client.run("review", { externalRef: "synthetic-patrol-r1" })).items[0].sentAt);
 });

@@ -5,8 +5,10 @@ Usage: node scripts/cyweb-reporter.mjs <command> < input.json
 Commands:
   check        {} (read-only API/credential check)
   progress     {status,summary?}
-  submit       {externalRef,title,body}
-  review       {externalRef}
+  submit       {externalRef,title,body,kind?,items?} (kind post/patrol: items [{ref?,title,body}] reviewed one by one)
+  review       {externalRef} (multi-item drafts include each item's result)
+  image        {externalRef,file,item?} (review-only picture: JPEG/PNG/WebP, max 2MB, 5 per draft or item)
+  sent         {externalRef,items?} (report approved work actually sent; items = item numbers for post/patrol)
   review-notification {type,eventId,botCode,draftId} (read fresh review after webhook)
   report       {eventId,title,body}
   complete     {eventId,title,detail?,completedAt?,reviewRef?,workType?}
@@ -30,7 +32,7 @@ try {
   const chunks = [];
   if (!process.stdin.isTTY) for await (const chunk of process.stdin) {
     size += chunk.length;
-    if (size > 64e3) throw new ReporterError("INPUT_TOO_LARGE", "JSON 輸入超過上限");
+    if (size > 256e3) throw new ReporterError("INPUT_TOO_LARGE", "JSON 輸入超過上限");
     chunks.push(chunk);
   }
   let input;

@@ -6,6 +6,13 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.15.0 — BOT 管理中心審核改版（2026-11-09，Claude）
+- **審閱視窗**：待審表格只顯示分類與第一行，按「審閱」開視窗看全文（保留換行、網址可點），可上一篇／下一篇。
+- **逐則審核**：單篇稿整篇審；貼文、海巡一次送多則時逐則通過／退回。全部審完自動結束整篇：有通過＝「通過（部分通過）」，全部退回＝「退回」；BOT 只處理通過的則。
+- **審核圖片**：BOT 可附 JPEG／PNG／WebP（2MB 內、每篇或每則 5 張），只供審核；審完隔日自動刪除。
+- **工作摘要**：Threads 卡片顯示「今日巡視 N 次」「已送出 X 則・待送出 Y 則」；待核准分列「貼文 N 篇・海巡 N 則」；今日審完的貼文移到新文章卡片、海巡移到 Threads 卡片，可點開看內容。
+- migration `0060_bot_review_items`（稿件分類、各則、圖片）；新 API 見 `docs/architecture/BOT_CENTER.md`。Grok 工具 `submit` 加多則，新增 `image`、`sent`。
+
 ## CY Web V0.14.7 — 手機版第二階段審查修正（2026-11-09，Claude）
 - 共用元件修正：底部分頁與底部按鈕列預留的空白改加在頁面底部（原本插在元件所在位置，造成頁首下方一段空白）。
 - 叫貨未到貨手機卡片只留品名、品號、剩餘與操作（叫貨量、已到改為僅桌機），每項高度約減半。
