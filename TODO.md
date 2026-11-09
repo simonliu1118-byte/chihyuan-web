@@ -5,7 +5,7 @@
 
 ## 目前狀態（2026-11-09）
 
-- [ ] **WO-0.16.0 商品表格式單據、價格與瑕疵子分頁（Draft PR #483）**：開發分支已整合最新 V0.15.7，價格三表 migration 0061、平台設定、修改紀錄與可攜備份待自動 CI、390／1440px 登入後驗收及 Claude 複審。**不合併、不部署**。[工單](docs/development/work-orders/WO-0.16.0.md)／[交接](docs/handoff/CYWEB-WO-0160-ITEMS-20261109.md)。
+- [ ] **WO-0.16.0 商品表格式單據、價格與瑕疵子分頁（Draft PR #483）**：開發分支已整合最新 V0.15.8，價格三表 migration 0061、平台設定、修改紀錄與可攜備份待自動 CI、390／1440px 登入後驗收及 Claude 複審。**不合併、不部署**。[工單](docs/development/work-orders/WO-0.16.0.md)／[交接](docs/handoff/CYWEB-WO-0160-ITEMS-20261109.md)。
 
 
 - **全系統手機版 V0.14.0–V0.14.7 已上線**：共用手機元件（第一階段）與六批模組套用（WO-0.14.1，GPT；Claude 2026-11-09 審查通過）。之後新畫面一律照 UI_COMPONENT_CATALOG §6。
@@ -47,7 +47,7 @@
 
 ## 待 Claude 審查
 
-- [ ] [PR #483](https://github.com/simonliu1118-byte/chihyuan-web/pull/483)：V0.16.0 商品／瑕疵工單，等待完整 CI、實機與 Claude 最終複審。
+- [ ] PR #483 WO-0.16.0 等待 CI／Claude 最終複審。
 
 ## 待使用者實機驗收
 

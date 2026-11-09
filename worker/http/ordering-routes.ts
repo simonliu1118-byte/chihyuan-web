@@ -518,7 +518,7 @@ async function orderingRoute(request:Request,env:IdentityRuntimeEnv,requestId:st
     if(o.status!=="SENT")throw new Bad("ORDERING_INVALID","尚未送出");
     const lineId=int(v.lineId,"明細"),closed=String(v.closedAs??"");
     if(!["SHORTAGE","CANCELLED","OTHER"].includes(closed))throw new Bad("ORDERING_INVALID","結案類型錯誤");
-    const note=must(v.reason??"","原因",200);if(closed==="OTHER"&&!note)throw new Bad("ORDERING_INVALID","其他原因必填");
+    const note=must(v.reason??"","備註",200);if(closed==="OTHER"&&!note)throw new Bad("ORDERING_INVALID","原因選「其他」時，備註必填");
     const line=await one<Line>(ctx.db,"SELECT * FROM ordering_lines WHERE order_id=? AND id=?",id,lineId);
     if(!line||line.closed_as)throw new Bad("ORDERING_INVALID","這一項不能指定結案");
     return success(await mutate(ctx,o,expected,[ctx.db.prepare("UPDATE ordering_lines SET closed_as=?,closed_note=?,closed_at=?,closed_by=? WHERE order_id=? AND id=?").bind(closed,note,ctx.now,ctx.actor,id,lineId)],(line.item_name||line.vendor_item_name)+" 指定結案："+CLOSED_AS_LABELS[closed as OrderingClosedAs]+(note?"（"+note+"）":""),"closed"),requestId);

@@ -148,7 +148,7 @@ export function HrRosterPanel() {
      <label>備註<input className="cy-op-input" value={note} onChange={e=>setNote(e.target.value)}/></label></>:null}
    </div>:null}
   </Dialog>
-  <Dialog open={staff!==null} title="門市人員設定" size="medium" onClose={()=>setStaff(null)}>
+  <Dialog open={staff!==null} title="門市人員設定" size="small" onClose={()=>setStaff(null)}>
    {staff?data?.employees.map(x=>{const v=staff[x.id]??{sort:"0",skip:false},set=(next:Partial<typeof v>)=>setStaff(old=>({...old,[x.id]:{...v,...next}}));
     return <div key={x.id} className="hr-staff-setting"><strong>{x.name}</strong>
     <label>排序<input type="number" className="cy-op-input" value={v.sort} aria-label={x.name+" 排序"} onChange={e=>set({sort:e.target.value})}/></label>

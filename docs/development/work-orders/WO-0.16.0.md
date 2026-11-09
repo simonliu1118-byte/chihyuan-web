@@ -92,7 +92,7 @@
 
 ## 8. 完成報告（GPT 填）
 
-- 分支：`cyweb/wo-0.16.0-items`（以 V0.15.5 `1c20ce74317ee7eb9c41ad1519e3dd5cc8aeed86` 為起點；已合入 V0.15.7 `27db19b3bec9f0b7828f8598a9176c12afdc98ef`）；PR：[Draft #483](https://github.com/simonliu1118-byte/chihyuan-web/pull/483)。
+- 分支：`cyweb/wo-0.16.0-items`（以 V0.15.5 `1c20ce74317ee7eb9c41ad1519e3dd5cc8aeed86` 為起點；已合入 V0.15.8 `fe805b0c67b066110bac5a6427f957d4f0185cac`）；PR：[Draft #483](https://github.com/simonliu1118-byte/chihyuan-web/pull/483)。
 - 程式：`item/ItemSheet` 共用 RecordSheet 檢視、修改與新增，新增 InlineGridField（網路平台價格格）；批發單位多筆、含稅前端計算、曾用品號與價格 Audit 的修改紀錄視窗。
 - 後端：`0061_item_price_tables` 三表與六個預設平台；ItemRepository／Service／Persistence 的商品價格同版本鎖儲存；SettingsService SUPER_ADMIN 平台維護、HTTP 路由及原權限護欄；三表與種子納入可攜備份。
 - 導覽：瑕疵移入商品頁共用 ModuleSections，原 #defects 可直達，ITEMS／DEFECTS 不混用。
