@@ -111,6 +111,7 @@
 | 表格式表單 | `EntryTable`（不用改呼叫方式） | 自動變成「欄名｜內容」逐列；必填欄名帶＊ | 不變 |
 | 主檔單據 | `RecordSheet`、`RecordRows` | 「欄名｜內容」；子表每列一張小卡 | 不變 |
 | 寬表格 | 在 `<table>` 加 `cy-rt`，每個 `td` 加 `data-label`；可選 `data-priority="title"`（卡片標題）、`"wide"`（整列寬）、`"hide"`（只在桌機顯示） | 每列變一張兩欄卡片 | 不變 |
+| 寬表格（清單式） | `cy-rt cy-rt-list`：`data-priority="title"` 第一行左、`data-rt="end"` 第一行右、`data-rt="meta"` 第二行左（手機專用的摘要格，桌機自動隱藏）、`data-rt="action"` 第二行右；其他欄 `data-priority="hide"` | 每列兩行的精簡清單（同一張卡片內以分隔線區隔），適合項目多的明細 | 不變 |
 
 範例：門市頁的四個分頁（`StorePage`）用 `ModuleSections`。
 
