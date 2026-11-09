@@ -10,6 +10,7 @@ test("item create, edit and detail share one RecordSheet owner",()=>{
  assert.match(sheet,/<RecordSheet label="商品資料" editing=\{editing\} rows=\{fields\}/);
  assert.match(main,/<ItemSheet editing creating=/);
  assert.match(main,/<ItemSheet editing=\{false\}/);
+ assert.match(sheet,/minmax\(0,1\.35fr\) minmax\(0,1\.35fr\)/);
  assert.match(sheet, /label:"批發價"/);
  assert.match(sheet, /label:"網路價"/);
  assert.match(sheet, /<InlineGridField label="網路價"/);

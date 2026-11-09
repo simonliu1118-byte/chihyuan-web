@@ -6,13 +6,29 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.15.8 — 短表單視窗縮小、指定結案欄名（2026-11-09，Claude）
+- 盤點全系統 73 個視窗：沒指定寬度的會吃到預設 620px（2026-10-03 定下的預設，當時多為大表單）。短表單改用小尺寸 440px：指定結案、門市人員設定、新增 BOT、退回／撤回取消訂購、LINE 同名核對、選擇黑名單對象。
+- 指定結案視窗欄名改為「原因」（缺貨／取消／其他）與「備註」；原因選其他時備註必填。
+- UI_COMPONENT_CATALOG 寫明視窗寬度規則：短表單 small、一般 medium、含表格 large，必須指定。
+- 叫貨明細、到貨紀錄：某格換成兩行時，同列其他格垂直置中。
+
 ## CY Web V0.16.0 — 商品主檔表格式單據與瑕疵商品分頁（2026-11-09，Draft 待審）
 - 商品明細、建立、修改共用 `RecordSheet`；基準單位及換算整合於第一列，第二列加入批發價、網路價的可編輯格子，未稅成本的含稅顯示僅在畫面計算。
 - 新增共用 `InlineGridField`，商品多筆批發單位價與六預設網路平台價；商品設定能新增、改名、排序、停用平台，後端保留版本鎖及原 ItemService mutation owner。
 - migration `0061_item_price_tables`：網路平台、每平台每商品價、多筆單位批發價三表；異動 `item.price.changed` 對每個價差逐項留 Audit，歷史品號只在商品修改紀錄視窗顯示。
 - 瑕疵從側邊選單移入商品 `ModuleSections`，用既有 ITEMS／DEFECTS 獨立權限及舊 #defects 連結；瑕疵本身不改。
 - 可攜備份同步納入三新表、schema-columns、CURRENT_MIGRATION、空白資料庫 seed guard 與 migration 驗證；沒有改動既有 ERP／其他業務 API。
-- **本版只建立 Draft PR，未合併、未部署**。CI、登入後手機／桌機實測及 Claude 複審以 PR 結果為準。
+- **本版只建立 Draft PR，未合併、未部署**。CI、登入後手機／桌機實測及 Claude 複審以 PR #483 結果為準。
+
+## CY Web V0.15.7 — 叫貨單：到貨紀錄改用明細同款表格、廠商條件移到上方（2026-11-09，Claude）
+- 到貨紀錄改用和叫貨明細相同的框線表格，每筆一行（登記人與時間同一行）。
+- 廠商條件那一列（廠商資料）移到分隔線下、到貨紀錄上方。
+- 叫貨明細表頭：數量、已到數量靠右，狀態置中，與內容對齊。
+- 刪除到貨紀錄原本另寫的手機卡片樣式，改由共用 `cy-rt` 處理。
+
+## CY Web V0.15.6 — 已指定結案品項整列刪除線（2026-11-09，Claude）
+- 叫貨單明細中已指定結案的品項，整列畫一條刪除線、文字變灰，和門市黑名單已移出的樣式相同。
+- 刪除線抽成共用樣式 `cy-row-struck`（黑名單改用同一個），寫入 UI_COMPONENT_CATALOG。
 
 ## CY Web V0.15.5 — 選單、時間軸與叫貨明細版面（2026-11-09，Claude）
 - 左側選單拿掉「首頁」（按最上方 CY 那列回首頁），「公告與通知」與 ERP 查詢、BOT 管理中心併成同一區，中間不再空一段。

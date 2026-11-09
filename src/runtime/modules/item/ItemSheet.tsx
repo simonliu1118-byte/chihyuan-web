@@ -65,7 +65,7 @@ export function ItemSheet({item,draft,editing,creating,busy,categories,platforms
  const costDisplay=<>{money(source.cost)}{source.costTaxMode==="exclusive"&&source.cost!==""&&source.cost!=null
     ? <small className="cy-item-tax-gross">（含稅{money((Math.round(Number(source.cost)*105)/100).toFixed(2))}）</small>:null}</>;
  const fields:SheetRow[]=[
-  {columns:"minmax(0,.8fr) minmax(0,1.4fr) minmax(0,1.3fr) minmax(0,2.5fr)",cells:[
+  {columns:"minmax(0,.8fr) minmax(0,1.35fr) minmax(0,1.35fr) minmax(0,2.5fr)",cells:[
     {label:"品號",required:true,mono:true,view:source.itemNo,edit:editing?input(draft!.itemNo,value=>onPatch({itemNo:value}),"品號",{disabled:!creating}):undefined},
     {label:"品名",required:true,view:source.name,edit:editing?input(draft!.name,value=>onPatch({name:value}),"品名"):undefined},
     {label:"規格",view:source.spec,edit:editing?input(draft!.spec,value=>onPatch({spec:value}),"規格"):undefined},

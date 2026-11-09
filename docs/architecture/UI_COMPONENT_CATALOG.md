@@ -34,7 +34,8 @@
 ### 按鈕與圖示
 - `actions/IconButton.tsx`：表格內操作一律用它（`variant="table"`，危險操作 `tone="danger"`，展開用 `expanded`/`controls`）。
 - `actions/icons.tsx`：`Icons.*` 唯一圖示來源（edit、cancel、back、history、camera、print、check、close、add、remove、retry、verify、chevronRight、grip、settings、eye）。**新圖示加在這裡**，不要在模組內寫 inline SVG。
-- 一般按鈕：`cy-op-button`（`primary`、`compact`；`quiet` 透明文字按鈕；`soft` 淡底色無框，用於列內次要動作，例如「指定結案」「移除」「修改」「載入更多」）。`quiet` 只留給本來就該像文字的地方：返回連結、工具列切換、展開／收合、灰底標題列上的按鈕（灰底上 `soft` 會看不出來）。不要再新增沒有底色也沒有框的一般按鈕。忙碌中的按鈕用 `feedback/usePendingAction`。
+- 一般按鈕：`cy-op-button`（`primary`、`compact`；`quiet` 透明文字按鈕；`soft` 淡底色無框，用於列內次要動作，例如「指定結案」「移除」「修改」「載入更多」）。`quiet` 只留給本來就該像文字的地方：返回連結、工具列切換、展開／收合、灰底標題列上的按鈕（灰底上 `soft` 會看不出來）。不要再新增沒有底色也沒有框的一般按鈕。
+- 整列刪除線：在 `<tr>` 加 `cy-row-struck`（整列一條橫線、文字變灰），用於已移出的黑名單、已指定結案的叫貨品項等「保留顯示但已失效」的列。忙碌中的按鈕用 `feedback/usePendingAction`。
 - 展開箭頭：`data/ExpandToggle.tsx`（全系統同一個箭頭）。
 
 ### 清單與資料
@@ -46,6 +47,7 @@
 
 ### 彈窗、抽屜、回饋
 - `overlays/Dialog.tsx`：`Dialog`（精簡框、右上 X 圖示）、`Drawer`（右側抽屜，客戶頁為 380px）、`BottomSheet`。不要巢狀面板。
+  - **寬度一定要指定 `size`**（2026-11-09 盤點後定）：`small` 440px＝確認、理由、1–3 個欄位的短表單；`medium` 620px（未指定時的預設）＝一般表單；`large` 900px＝含表格或兩欄以上的表單。不要因為沒寫 `size` 就讓短表單吃到 620px。只有內容真的需要時，才在該視窗 class 加專屬寬度。
 - `overlays/ConfirmDialog`、`useConfirmation`、`useFormPrompt`（要理由的確認）。
 - 有未儲存變更的畫面：`foundation/useUnsavedChangesGuard`；設定視窗關閉前自己確認（見 `ModuleSettingsPanel`）。
 - `feedback/FeedbackProvider`：`useFeedbackMessage`＋`FeedbackBanner`（頁面訊息）；`Loading`；`ToastRegion`。
