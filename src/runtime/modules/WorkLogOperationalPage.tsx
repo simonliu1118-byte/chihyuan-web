@@ -10,6 +10,11 @@ import { enterAdvancesFields, enterAdvancesThenSubmits } from "../../ui/foundati
 import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
+import { useCompactLayout } from "../../ui/foundation/useCompactLayout";
+import { DataViewToolbar } from "../../ui/data/DataViewToolbar";
+import { ListRow } from "../../ui/mobile/ListRow";
+import { ActionBar } from "../../ui/mobile/ActionBar";
+import { OverflowMenu } from "../../ui/mobile/OverflowMenu";
 import "./worklog-operational.css";
 import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
@@ -165,6 +170,7 @@ export function WorkLogOperationalPage() {
   const { confirm, confirmationDialog } = useConfirmation();
   const guard = useUnsavedChangesGuard({ active: editing, blocked: busy });
   const pane = useMasterDetailPane();
+  const compact = useCompactLayout();
   const canLeave = async () => (await guard.confirmNavigationAsync(description => confirm({
     title: "放棄尚未儲存的修改？", description, confirmLabel: "放棄修改", confirmTone: "danger",
   }))).allowed;

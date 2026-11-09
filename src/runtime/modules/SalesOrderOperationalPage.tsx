@@ -16,6 +16,11 @@ import { EntityPicker } from "../../ui/pickers/EntityPicker";
 import type { SalesWorkOrderCustomerOption, SalesWorkOrderItemOption as LineItemOption } from "../../../shared/business-lookups";
 import "./sales-order-operational.css";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
+import { useCompactLayout } from "../../ui/foundation/useCompactLayout";
+import { DataViewToolbar } from "../../ui/data/DataViewToolbar";
+import { ListRow } from "../../ui/mobile/ListRow";
+import { ActionBar } from "../../ui/mobile/ActionBar";
+import { OverflowMenu } from "../../ui/mobile/OverflowMenu";
 import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -179,6 +184,7 @@ export function SalesOrderOperationalPage() {
   const { pending, track } = usePendingAction();
   const unsavedGuard = useUnsavedChangesGuard({ active: editing, blocked: busy, message: "目前有尚未儲存的工單修改，確定放棄？" });
   const pane = useMasterDetailPane();
+  const compact = useCompactLayout();
   const { confirm, confirmationDialog } = useConfirmation();
   const { ask, promptDialog } = useFormPrompt();
   const canLeave = async () => (await unsavedGuard.confirmNavigationAsync(description => confirm({

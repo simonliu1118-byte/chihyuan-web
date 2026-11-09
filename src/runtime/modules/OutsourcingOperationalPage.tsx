@@ -14,6 +14,12 @@ import { taipeiToday } from "../../../shared/erp-query-history";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { useFormPrompt } from "../../ui/overlays/useFormPrompt";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
+import { useCompactLayout } from "../../ui/foundation/useCompactLayout";
+import { DataViewToolbar } from "../../ui/data/DataViewToolbar";
+import { ListRow } from "../../ui/mobile/ListRow";
+import { ActionBar } from "../../ui/mobile/ActionBar";
+import { OverflowMenu } from "../../ui/mobile/OverflowMenu";
+import { ModuleSections } from "../../ui/mobile/ModuleSections";
 import "./outsourcing-operational.css";
 import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
@@ -175,6 +181,7 @@ export function OutsourcingOperationalPage() {
     return true;
   }
   const pane = useMasterDetailPane();
+  const compact = useCompactLayout();
   // Contractor/BOM editors live in OutsourcingMasterData; their open editor also guards tab switches.
   const [masterEditing, setMasterEditing] = useState(false);
   const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
