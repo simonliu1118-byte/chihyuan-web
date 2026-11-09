@@ -172,6 +172,7 @@ export class SettingsService {
         UNION ALL SELECT 'customer_status', customer_status_id, COUNT(*) FROM customers WHERE customer_status_id IS NOT NULL GROUP BY customer_status_id
         UNION ALL SELECT 'item_category', item_category_id, COUNT(*) FROM items WHERE item_category_id IS NOT NULL GROUP BY item_category_id
         UNION ALL SELECT 'item_category', parent_id, COUNT(*) FROM item_categories WHERE parent_id IS NOT NULL GROUP BY parent_id`),
+      this.db.prepare("SELECT id,CAST(id AS TEXT) AS code,name,sort_order,is_active,updated_at FROM item_web_platforms ORDER BY sort_order,id"),
     ]);
     const usage = new Map<string, number>();
     for (const row of (results[11]?.results ?? []) as { kind: string; id: number; n: number }[]) usage.set(`${row.kind}:${row.id}`, (usage.get(`${row.kind}:${row.id}`) ?? 0) + Number(row.n));
@@ -197,12 +198,67 @@ export class SettingsService {
       customerStatuses: withUsage("customer_status", mapLookup((results[2]?.results ?? []) as Record<string, unknown>[])),
       regions: ((results[3]?.results ?? []) as { id: number; code: string; name: string; group_code: string | null; sort_order: number; is_active: number }[]).map(row => ({ id: row.id, code: row.code, name: row.name, groupCode: row.group_code, sortOrder: row.sort_order, isActive: row.is_active === 1 })),
       itemCategories: withUsage("item_category", mapLookup((results[4]?.results ?? []) as Record<string, unknown>[])),
+      itemPlatforms: mapLookup((results[12]?.results ?? []) as Record<string,unknown>[]).map(row=>({...row,usageCount:1})),
       appTags: tagRows.map<AppTagSetting>((row) => ({id:row.id,code:row.code,name:row.name,sortOrder:row.sort_order,isActive:row.is_active===1,moduleCodes:moduleMap.get(row.id)??[],updatedAt:row.updated_at})),
       workLogCategories: workCategories.map<WorkLogCategorySetting>((row) => ({id:row.id,code:row.code,name:row.name,inputMode:row.input_mode,unitLabel:row.unit_label,sortOrder:row.sort_order,isActive:row.is_active===1,updatedAt:row.updated_at})),
       workLogPlatforms: workPlatforms.map<WorkLogPlatformSetting>((row) => ({id:row.id,code:row.code,name:row.name,sortOrder:row.sort_order,isActive:row.is_active===1,updatedAt:row.updated_at})),
       workLogScoringRows: scoringRows.map<WorkLogScoringRowSetting>((row) => ({id:row.id,workLogCategoryId:row.work_log_category_id,customName:row.custom_name,scoreValue:row.score_value==null?null:formatScaled4(row.score_value),description:row.description,note:row.note,sortOrder:row.sort_order,isActive:row.is_active===1,updatedAt:row.updated_at})),
       workLogScoringConfig: scoringConfig ? {targetAverageDailyScore:scoringConfig.target_average_daily_score==null?null:formatScaled4(scoringConfig.target_average_daily_score),minimumAverageDailyScore:scoringConfig.minimum_average_daily_score==null?null:formatScaled4(scoringConfig.minimum_average_daily_score),revision:scoringConfig.revision,updatedAt:scoringConfig.updated_at} : null,
     };
+  }
+
+  async createItemPlatform(raw:{name?:unknown},context:SettingsMutationContext):Promise<void> {
+    this.assertSuperAdmin(context);
+    const errors:Record<string,string>={};
+    const name=requiredText(raw.name,"name",80,errors);
+    if(Object.keys(errors).length)throw new FieldValidationError(errors);
+    const sortOrder=await this.nextSortOrder("item_web_platforms");
+    try {
+      await this.commitAudited(this.db.prepare(`INSERT INTO item_web_platforms(name,sort_order,is_active,updated_at,updated_by) VALUES(?,?,1,?,?)`)
+        .bind(name,sortOrder,context.now,context.actorMemberId),
+        {entityType:"setting.item_platform",entityKey:name,action:"setting.created",actorEmployeeId:context.actorMemberId,
+         occurredAt:context.now,requestId:context.requestId,after:{name,sortOrder,isActive:true}});
+    }catch(error){
+      if(error instanceof FieldValidationError||error instanceof SettingsServiceError)throw error;
+      throw new SettingsServiceError("SETTINGS_CONFLICT",409,"平台名稱已存在");
+    }
+  }
+  async updateItemPlatform(id:number,raw:{name?:unknown;isActive?:unknown;expectedUpdatedAt?:unknown},context:SettingsMutationContext):Promise<void> {
+    this.assertSuperAdmin(context);
+    const errors:Record<string,string>={};
+    const name=requiredText(raw.name,"name",80,errors);
+    const isActive=requiredBoolean(raw.isActive,"isActive",errors);
+    const expected=expectedUpdatedAt(raw.expectedUpdatedAt,errors);
+    if(Object.keys(errors).length)throw new FieldValidationError(errors);
+    const before=await this.db.prepare("SELECT name,is_active,updated_at FROM item_web_platforms WHERE id=?").bind(id)
+      .first<{name:string;is_active:number;updated_at:string}>();
+    if(!before)throw new SettingsServiceError("SETTINGS_NOT_FOUND",404,"平台不存在");
+    if(before.updated_at!==expected)throw new SettingsServiceError("SETTINGS_CONFLICT",409,"平台已被其他人修改");
+    try{
+      await this.commitAudited(this.db.prepare("UPDATE item_web_platforms SET name=?,is_active=?,updated_at=?,updated_by=? WHERE id=? AND updated_at=?")
+        .bind(name,isActive?1:0,context.now,context.actorMemberId,id,expected),
+        {entityType:"setting.item_platform",entityKey:String(id),action:"setting.changed",
+         actorEmployeeId:context.actorMemberId,occurredAt:context.now,requestId:context.requestId,
+         before:{name:before.name,isActive:before.is_active===1},after:{name,isActive}});
+    }catch(error){
+      if(error instanceof SettingsServiceError)throw error;
+      throw new SettingsServiceError("SETTINGS_CONFLICT",409,"平台名稱已存在");
+    }
+  }
+  async reorderItemPlatforms(raw:{ids?:unknown},context:SettingsMutationContext):Promise<void>{
+    this.assertSuperAdmin(context);
+    const ids=Array.isArray(raw.ids)?raw.ids:null;
+    if(!ids||!ids.every(id=>Number.isSafeInteger(id)&&id>0)||new Set(ids).size!==ids.length)
+      throw new FieldValidationError({ids:"排序資料無效"});
+    const old=(await this.db.prepare("SELECT id FROM item_web_platforms ORDER BY sort_order,id").all<{id:number}>()).results??[];
+    if(old.length!==ids.length||old.some(row=>!ids.includes(row.id)))
+      throw new SettingsServiceError("SETTINGS_CONFLICT",409,"平台排序資料已變更");
+    const statements=(ids as number[]).map((id,index)=>this.db.prepare("UPDATE item_web_platforms SET sort_order=?,updated_at=?,updated_by=? WHERE id=?")
+      .bind(index,context.now,context.actorMemberId,id));
+    statements.push(this.audit.prepareRecord({entityType:"setting.item_platform",entityKey:"order",action:"setting.reordered",
+      actorEmployeeId:context.actorMemberId,occurredAt:context.now,requestId:context.requestId,
+      before:{ids:old.map(x=>x.id)},after:{ids}}));
+    await this.db.batch(statements);
   }
 
   async createStructuralLookup(kind: StructuralLookupKind, raw: CreateLookupSettingRequest, context: SettingsMutationContext): Promise<void> {
