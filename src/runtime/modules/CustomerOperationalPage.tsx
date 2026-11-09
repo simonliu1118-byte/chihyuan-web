@@ -18,6 +18,11 @@ import { enterAdvancesFields } from "../../ui/foundation/enter-advance";
 import { LoadMoreRow, useLoadMore } from "../../ui/data/useLoadMore";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
+import { useCompactLayout } from "../../ui/foundation/useCompactLayout";
+import { DataViewToolbar } from "../../ui/data/DataViewToolbar";
+import { ListRow } from "../../ui/mobile/ListRow";
+import { ActionBar } from "../../ui/mobile/ActionBar";
+import { OverflowMenu } from "../../ui/mobile/OverflowMenu";
 import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
@@ -294,6 +299,7 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
   const [frequentAdding, setFrequentAdding] = useState(false);
   const [historyOpen,setHistoryOpen] = useState(false);
   const pane = useMasterDetailPane();
+  const compact = useCompactLayout();
   const [visitDraft, setVisitDraft] = useState<VisitDraft | null>(null);
   // A visit removed elsewhere (or by another person) must not stay open in the form.
   useEffect(() => {
@@ -805,6 +811,17 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
   }
 
   if (!listReady) return <Loading />;
+  const customerFilters = <div className="cy-md-toolbar-row">
+    <select className="cy-op-input" aria-label="客戶分類" value={categoryFilter} onChange={event => setCategoryFilter(event.target.value)}>
+      <option value="">全部分類</option>
+      {categories.map(row => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}
+    </select>
+    <select className="cy-op-input" aria-label="客戶狀態" value={statusFilter} onChange={event => setStatusFilter(event.target.value)}>
+      <option value="">全部狀態</option>
+      {statuses.map(row => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}
+    </select>
+  </div>;
+
 
   return (
     <div className="cy-customer-op">
@@ -850,46 +867,32 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
 
       <div className="cy-md cy-customer-workspace" data-pane={pane.pane}>
         <section className="cy-op-panel cy-md-list" aria-label="客戶清單">
-          <div className="cy-md-toolbar">
+          {compact?<DataViewToolbar searchValue={query} onSearchChange={setQuery} searchLabel="搜尋客戶"
+             searchPlaceholder="搜尋編號、名稱、統編"
+             filters={customerFilters}
+             activeFilterCount={[categoryFilter,statusFilter].filter(Boolean).length}
+             actions={<button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增客戶</button>}
+             resultSummary={loadingList?"載入中":paging.hasMore?`已載入 ${rows.length} 筆，還有更多`:`共 ${rows.length} 筆`}/>
+          :<div className="cy-md-toolbar">
             <div className="cy-md-toolbar-lead">
               <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增客戶</button>
-              <input
-                className="cy-op-input"
-                type="search"
-                aria-label="搜尋客戶"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="搜尋編號、名稱、統編"
-              />
+              <input className="cy-op-input" type="search" aria-label="搜尋客戶" value={query} onChange={event => setQuery(event.target.value)} placeholder="搜尋編號、名稱、統編"/>
             </div>
-            <div className="cy-md-toolbar-row">
-              <select className="cy-op-input" aria-label="客戶分類" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
-                <option value="">全部分類</option>
-                {categories.map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}
-              </select>
-              <select className="cy-op-input" aria-label="客戶狀態" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                <option value="">全部狀態</option>
-                {statuses.map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}
-              </select>
-            </div>
+            {customerFilters}
             <div className="cy-md-count">{loadingList ? <Loading inline /> : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
-          </div>
-
+          </div>}
           <div className="cy-op-list cy-customer-result-list">
-            {rows.map((customer) => (
-              <button
-                key={customer.id}
-                type="button"
-                className={`cy-customer-result-row ${selectedId === customer.id ? "active" : ""}`}
-                aria-current={selectedId === customer.id ? "true" : undefined}
-                onClick={() => void selectCustomer(customer.id)}
-              >
-                <span className="cy-customer-result-main">
-                  <strong title={[customer.customerNo, customer.shortName].filter(Boolean).join(" ")}>{customer.customerNo ? <span className="cy-customer-result-no">{customer.customerNo}</span> : null}{customer.shortName}</strong>
-                </span>
-                <span className="cy-customer-result-status">{customer.status ? <StatusPill status={lookups?.customerStatuses.find(row => row.id === customer.status?.id) ?? customer.status} /> : null}</span>
-              </button>
-            ))}
+            {rows.map(customer => compact
+              ? <ListRow key={customer.id} title={customer.shortName} subtitle={customer.customerNo ?? ""}
+                  trailing={customer.status?<StatusPill status={lookups?.customerStatuses.find(row=>row.id===customer.status?.id)??customer.status}/>:null}
+                  selected={selectedId===customer.id} onClick={()=>void selectCustomer(customer.id)}/>
+              : <button key={customer.id} type="button" className={`cy-customer-result-row ${selectedId===customer.id?"active":""}`}
+                  aria-current={selectedId===customer.id?"true":undefined} onClick={()=>void selectCustomer(customer.id)}>
+                  <span className="cy-customer-result-main"><strong title={[customer.customerNo,customer.shortName].filter(Boolean).join(" ")}>
+                    {customer.customerNo?<span className="cy-customer-result-no">{customer.customerNo}</span>:null}{customer.shortName}
+                  </strong></span>
+                  <span className="cy-customer-result-status">{customer.status?<StatusPill status={lookups?.customerStatuses.find(row=>row.id===customer.status?.id)??customer.status}/>:null}</span>
+                </button>)}
             {loadingList && rows.length === 0 ? <Loading /> : null}
             {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的客戶。</div> : null}
             <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
@@ -905,8 +908,10 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
                   {/* 客戶狀態 is chosen from its pill in the header (user 2026-11-03). */}
                   <StatusPicker statuses={lookups?.customerStatuses ?? []} value={draft.customerStatusId} disabled={busy} required
                     onChange={customerStatusId => patchDraft({ customerStatusId })} /></div>
-                <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
-                  <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立客戶" : "儲存修改"}</button></div>
+                {compact?<ActionBar><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
+                  <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立客戶" : "儲存修改"}</button></ActionBar>
+                  :<div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
+                  <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立客戶" : "儲存修改"}</button></div>}
               </div>
               <CustomerSheet draft={draft} editing busy={busy} lookups={lookups}
                 patch={patchDraft} insertRow={insertRow} removeRow={removeRow} patchRow={patchRow} />
@@ -918,11 +923,13 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
                   <h2 className="cy-customer-identity">{selected.customerNo ? <span className="cy-customer-identity-no">{selected.customerNo}</span> : null}{selected.shortName}{selected.fullName ? <small className="cy-record-title-note">（{selected.fullName}）</small> : null}
                     {selected.status ? <StatusPill className="cy-customer-identity-status" status={lookups?.customerStatuses.find(row => row.id === selected.status?.id) ?? selected.status} /> : null}</h2>
                 </div>
-                <div className="cy-record-actions">
-                  <button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
-                  {role !== "USER" ? <IconButton icon={Icons.history} label="修改紀錄" onClick={() => setHistoryOpen(true)} disabled={busy} /> : null}
-                </div>
+                {compact?<OverflowMenu items={role!=="USER"?[{label:"修改紀錄",onClick:()=>setHistoryOpen(true),disabled:busy}]:[]}/>
+                  :<div className="cy-record-actions">
+                    <button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
+                    {role!=="USER"?<IconButton icon={Icons.history} label="修改紀錄" onClick={()=>setHistoryOpen(true)} disabled={busy}/>:null}
+                  </div>}
               </div>
+              {compact?<ActionBar><button type="button" className="cy-op-button primary" disabled={busy} onClick={startEdit}>修改</button></ActionBar>:null}
 
               {selected.notes.some(row => row.isImportant) ? <div className="cy-customer-alert" role="note">
                 <strong>重要備註</strong>

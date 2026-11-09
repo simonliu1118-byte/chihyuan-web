@@ -34,32 +34,32 @@ test("ERP category tabs are shared with desktop and preserve mounted panels",()=
  assert.doesNotMatch(erp,/<select className="cy-op-input cy-erp-category"/);
  assert.match(css,/overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x/);
 });
-test("phone ordering opens sent list first and routes pending directly, while drafts select sources",()=>{
- assert.match(ordering,/useState<"drafts"\|"history">\("history"\)/);
+test("phone ordering uses shared bottom sections, pending first, and the original source owners",()=>{
+ assert.match(ordering,/useEffect\(\(\)=>\{if\(compact\)void showPending\(\)\}/);
  assert.match(ordering,/listQuery=useRef\("history=1"\)/);
- assert.match(ordering,/aria-label="手機叫貨功能"/);
- assert.ok(ordering.indexOf('>叫貨清單</button>')<ordering.indexOf('>未到貨 {pending.length}</button>'));
- assert.ok(ordering.indexOf('>未到貨 {pending.length}</button>')<ordering.indexOf('>草稿</button>'));
+ assert.match(ordering,/<ModuleSections label="手機叫貨功能"/);
+ assert.match(ordering,/\{key:"pending",label:"未到貨"/);
+ assert.match(ordering,/\{key:"drafts",label:"草稿"/);
+ assert.match(ordering,/\{key:"history",label:"叫貨單"/);
  assert.match(ordering,/mobileGeneralSources=active\.filter/);
  assert.match(ordering,/mobileVendors=orderedVendors\.filter/);
  assert.match(ordering,/onClick=\{\(\)=>void selectSource\(item\)\}/);
  assert.match(ordering,/onClick=\{\(\)=>void chooseVendor\(item\.id\)\}/);
- assert.match(ordering,/搜尋叫貨來源或廠商/);
  assert.doesNotMatch(ordering,/\/orders\?status=DRAFT/);
  assert.match(ordering,/!compact\?<div className="cy-ordering-tabbar">/);
- assert.match(css,/\.cy-ordering-page \.cy-ordering-vendor-picker\{display:none\}/);
 });
-test("phone history filters collapse without changing desktop filter owners",()=>{
- assert.match(ordering,/cy-ordering-history-advanced" hidden=\{compact&&!mobileHistoryFiltersOpen\}/);
- assert.match(ordering,/aria-expanded=\{mobileHistoryFiltersOpen\}/);
- assert.match(ordering,/<OpenOnlyToggle value=\{openOnly\}/);
+
+test("phone filters are shared DataViewToolbar controls, desktop remains unchanged",()=>{
+ assert.match(ordering,/<DataViewToolbar searchValue=\{search\}/);
+ assert.match(ordering,/filters=\{historyFilterControls\}/);
+ assert.match(ordering,/activeFilterCount=\{\[openOnly,status,sourceFilter,from,to\]/);
  assert.match(ordering,/<StatusFilter label="叫貨狀態"/);
  assert.match(ordering,/<OrderingSourcePicker sources=\{sources\}/);
  assert.match(ordering,/aria-label="起日"/);
  assert.match(ordering,/aria-label="迄日"/);
- assert.match(css,/\.cy-ordering-page \.cy-ordering-history-advanced\{display:contents\}/);
- assert.match(css,/\.cy-ordering-page \.cy-ordering-history-advanced\[hidden\]\{display:none\}/);
+ assert.match(ordering,/className="cy-ordering-history-advanced"\>\{historyFilterControls\}/);
 });
+
 test("all mobile destinations retain original page authority and unsaved guard",()=>{
  assert.match(ordering,/async function showMobileList\(mode:"drafts"\|"history"\)\{\s*if\(!await prepareSwitch\(\)\)return/);
  assert.match(ordering,/async function backToMobileList\(\)\{\s*if\(!await prepareSwitch\(\)\)return/);
@@ -69,14 +69,16 @@ test("all mobile destinations retain original page authority and unsaved guard",
  assert.match(ordering,/useUnsavedChangesGuard/);
  assert.match(ordering,/<OrderingGrid kind=\{current.sourceKind\}/);
 });
-test("ordering keeps one grid renderer; phone labels allow readable cards",()=>{
+test("one OrderingGrid owner renders phone ListRow editor sheet and desktop table",()=>{
+ assert.match(grid,/const compact=useCompactLayout\(\)/);
+ assert.match(grid,/editor\.current\.openNew=/);
+ assert.match(grid,/<ListRow key=\{mobileKey\(row\)\}/);
+ assert.match(grid,/<BottomSheet open title=/);
+ assert.match(grid,/void editor\.current\.flush\(\)/);
  assert.match(grid,/data-label=\{title\} data-col=\{field\}/);
  assert.match(grid,/data-label="項次" data-col="index"/);
- assert.match(ordering,/data-label="品號"/);
- assert.match(ordering,/data-label="剩餘"/);
- assert.match(css,/\.cy-ordering-page \.cy-ordering-grid tbody tr\{display:grid/);
- assert.match(css,/\.cy-ordering-page \.cy-ordering-pending-table tr\{display:grid/);
- assert.match(css,/\.cy-ordering-page \.cy-ordering-grid \.cy-ordering-cell\{height:44px/);
+ assert.match(ordering,/<table className="cy-op-table cy-rt cy-ordering-pending-table"/);
+ assert.match(ordering,/<table className="cy-op-table cy-rt cy-ordering-receipts"/);
 });
 
 test("mobile drawer brand replaces redundant title and BOT has a dedicated icon",()=>{
@@ -86,28 +88,27 @@ test("mobile drawer brand replaces redundant title and BOT has a dedicated icon"
  assert.match(shell,/"bot-center": \[/);
  assert.match(shellCss,/\.cy-shell-navigation-drawer\.cy-dialog-plain \.cy-dialog-body/);
 });
-test("phone history tools occupy a single row without changing their owners",()=>{
- assert.match(css,/\.cy-ordering-page \.cy-md-toolbar-lead\{display:grid;grid-template-columns:minmax\(0,1fr\) auto auto;/);
- assert.match(css,/\.cy-ordering-page \.cy-md-toolbar-lead>:first-child\{grid-column:3;grid-row:1;/);
- assert.match(css,/\.cy-ordering-page \.cy-md-toolbar-lead>\.cy-op-input\{grid-column:1;grid-row:1;/);
- assert.match(css,/\.cy-ordering-page \.cy-ordering-filter-toggle\{grid-column:2;grid-row:1;/);
- assert.match(ordering,/<OpenOnlyToggle value=\{openOnly\}/);
+test("ordering toolbar routes history filtering through DataViewToolbar and keeps the same filter state",()=>{
+ assert.match(ordering,/searchValue=\{search\} onSearchChange=\{setSearch\}/);
+ assert.match(ordering,/beforeSearch=\{<OpenOnlyToggle value=\{openOnly\}/);
+ assert.match(ordering,/activeFilterCount=\{\[openOnly,status,sourceFilter,from,to\]/);
+ assert.match(ordering,/\{compact\?<DataViewToolbar/);
+ assert.match(ordering,/<div className="cy-md-toolbar-lead">/);
 });
-test("phone pending item is two lines with all original actions",()=>{
- assert.match(css,/cy-ordering-pending-table tr\{display:grid;grid-template-columns:minmax\(0,1fr\) auto;grid-template-rows:auto auto;/);
- assert.match(css,/cy-ordering-pending-table td:nth-child\(1\)\{grid-column:1\/-1;grid-row:1;/);
- assert.match(css,/cy-ordering-pending-table td:nth-child\(3\)\{grid-column:1;grid-row:2;/);
- assert.match(css,/cy-ordering-pending-table td:last-child\{grid-column:2;grid-row:2;/);
- assert.match(ordering,/cy-ordering-pending-mobile-name/);
- assert.match(ordering,/cy-ordering-pending-mobile-summary/);
+
+test("pending rows reuse responsive-table presentation with original receipt and closing mutations",()=>{
+ assert.match(ordering,/cy-rt cy-ordering-pending-table/);
+ assert.match(ordering,/data-label="品名" data-priority="title"/);
  assert.match(ordering,/setReceipt\(\{id:l\.orderId/);
  assert.match(ordering,/setClosing\(\{id:l\.lineId/);
+ assert.doesNotMatch(css,/cy-ordering-pending-table tr\{display:grid/);
 });
-test("phone draft rows are dense while keeping the previous source and vendor order",()=>{
+
+test("phone drafts use shared ListRow, retaining the ordered source and vendor lists",()=>{
  assert.match(ordering,/mobileGeneralSources=active\.filter/);
  assert.match(ordering,/mobileVendors=orderedVendors\.filter/);
- assert.match(css,/\.cy-ordering-mobile-draft-list\{display:grid;gap:0\}/);
- assert.match(css,/\.cy-ordering-mobile-draft-row\+\.cy-ordering-mobile-draft-row\{border-top:1px solid var\(--cy-border\)\}/);
- assert.match(css,/\.cy-ordering-mobile-draft-row\{display:grid;grid-template-columns:minmax\(0,1fr\) auto;/);
+ assert.match(ordering,/mobileGeneralSources\.map\(item=><ListRow/);
+ assert.match(ordering,/mobileVendors\.map\(item=><ListRow/);
  assert.match(ordering,/VendorDots status=\{vendorStatus\.get\(item\.id\)\}/);
+ assert.doesNotMatch(css,/cy-ordering-mobile-draft-row\{/);
 });

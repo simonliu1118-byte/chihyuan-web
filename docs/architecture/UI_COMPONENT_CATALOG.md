@@ -113,3 +113,30 @@
 | 寬表格 | 在 `<table>` 加 `cy-rt`，每個 `td` 加 `data-label`；可選 `data-priority="title"`（卡片標題）、`"wide"`（整列寬）、`"hide"`（只在桌機顯示） | 每列變一張兩欄卡片 | 不變 |
 
 範例：門市頁的四個分頁（`StorePage`）用 `ModuleSections`。
+
+ 
+### WO-0.14.1 第一批（叫貨）
+- 手機叫貨子頁由 ModuleSections 控制，草稿來源／叫貨紀錄使用 ListRow，搜尋篩選由 DataViewToolbar 擁有，同一套編輯 Grid 的手機行點擊開 BottomSheet；桌機仍用原表格。
+- 主要動作由 ActionBar 的 `aboveTabs` 通用變體固定在底部分頁上方，次要由 OverflowMenu 提供。共用選擇清單、精簡品項樣式維護在 `src/ui/mobile/mobile.css`，不得另建模組-specific 的手機覆蓋層。
+
+### WO-0.14.1 第二批（門市）
+- StoreCustomerOrders／StoreRepairs／StoreEquipment／StoreStocktake 的寬表格在手機以共用 `cy-rt`＋`data-label`＋`data-priority` 呈現，桌機不變。原模組 workflow/cy-store-cards 卡片 CSS 刪除，避免同一 mobile 排版有第二套 owner。
+- 月度待辦和三年維護矩陣為互動式年月網格，本批保留內容與原儲存操作，不重建資料 owner；工單明確要求僅處理其外框與按鈕。
+
+### WO-0.14.1 第三批（客戶／商品）
+- 手機的客戶、商品瀏覽清單採 ListRow；搜尋和分類／狀態採 DataViewToolbar 的 `filters`、`activeFilterCount`，不另造表單 state。選定明細以 ActionBar 提供主要修改，編輯頁用相同的提交按鈕處理器，其他選項在 OverflowMenu。
+- 桌機維持原 toolbar、status 操作與 MasterDetail。換算列窄版適配以 shared `cy-mobile-unit-conversion-row` 在 820px 統一處理，不再依賴商品自己的 560px rule。
+
+### WO-0.14.1 第四批（早期業務模組）
+- 瑕疵、銷售工單、代工單與工作日誌的手機主清單統一 ListRow、DataViewToolbar。委外代工四子頁以 ModuleSections 搭配既有切換／未儲存保護。
+- 主要的狀態流轉用共用 ActionBar，刪除、作廢、撤回或反向交易集中 OverflowMenu；不能更動按鈕對應的原 handler。
+- 銷售／代工寬表 cy-rt 和 data-label，窄版輸入改共用 mobile.css 的 two-col／stack，移除舊 560/720px 類似版型。
+
+### WO-0.14.1 第五批（HR／ERP／BOT）
+- HR 人員清單與分頁採 ModuleSections、ListRow、DataViewToolbar；手機主要編輯與儲存用 ActionBar，危險動作用 OverflowMenu。HR 多欄編輯列使用同一 shared mobile.css。
+- ERP 查詢各類的 CategoryJob 始終保留 mounted state，只有最外層手機導覽換 ModuleSections；未收款和進貨輔助結果透過 cy-rt，進貨輔助篩選用 DataViewToolbar，不重寫排程佇列。
+- BOT 審稿與憑證表在手機用 cy-rt data-label，動作 handler 不變；桌機仍原表格和按鈕。避免把 BOT 審核的 approve/reject 改成非原生權限流程。
+
+### WO-0.14.1 第六批（系統管理／首頁）
+- 帳號與權限：手機 ModuleSections 分頁、使用者 DataViewToolbar/ListRow，原權限抽屜控制依業務 owner 不變；群組矩陣 cy-rt 並以 shared CSS 還原每個 checkbox 的操作能力，維持桌機的權限 table。
+- 異動紀錄以 DataViewToolbar 和 cy-rt，備份共用 LineTable cy-rt，保留記錄展開和安全確認。首頁待辦／通知預覽 ListRow，其他模組原有 DataView renderCard、Dialog/Field/EntryTable 已符合共用策略，不新增替身。

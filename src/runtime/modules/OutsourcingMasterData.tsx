@@ -218,7 +218,7 @@ export function ContractorWorkspace({ contractors, onChanged, onEditingChange, n
           <section className="cy-form-block">
             <div className="cy-form-block-head"><div><h3>聯絡人</h3></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={() => patch({ contacts: [...draft.contacts, { name: "", title: "", phone: "", mobile: "" }] })}>＋ 增加聯絡人</button></div>
             <div className="cy-form-block-body">
-              {draft.contacts.length === 0 ? <p className="cy-form-block-empty">尚未填寫。</p> : draft.contacts.map((row, index) => <div className="cy-out-contact" key={row.id ?? `new-${index}`}>
+              {draft.contacts.length === 0 ? <p className="cy-form-block-empty">尚未填寫。</p> : draft.contacts.map((row, index) => <div className="cy-out-contact cy-mobile-form-two-col" key={row.id ?? `new-${index}`}>
                 <input className="cy-op-input" aria-label="姓名" placeholder="姓名" value={row.name} disabled={busy} onChange={(event) => patchContact(index, { name: event.target.value })} />
                 <input className="cy-op-input" aria-label="職稱" placeholder="職稱" value={row.title} disabled={busy} onChange={(event) => patchContact(index, { title: event.target.value })} />
                 <input className="cy-op-input" aria-label="電話" placeholder="電話" value={row.phone} disabled={busy} onChange={(event) => patchContact(index, { phone: event.target.value })} />
@@ -361,7 +361,7 @@ export function BomWorkspace({ boms, onChanged, onEditingChange, notify, reportE
           <section className="cy-form-block">
             <div className="cy-form-block-head"><div><h3>料件</h3></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={() => patch({ components: [...draft.components, newComponent()] })}>＋ 增加料件</button></div>
             <div className="cy-form-block-body">
-              {draft.components.map((row, index) => <div className="cy-out-component" key={row.key}>
+              {draft.components.map((row, index) => <div className="cy-out-component cy-mobile-form-two-col" key={row.key}>
                 <EntityPicker<OutsourcingItemOption> label={<span className="cy-visually-hidden">第 {index + 1} 項料件</span>} disabled={busy} value={row.item}
                   onSelect={(item) => patchComponent(index, { item, unit: item?.baseUnit ?? "" })} search={searchItems}
                   getKey={(item) => item.id} getLabel={itemLabel} placeholder="輸入品號、品名或規格" />

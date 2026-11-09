@@ -14,6 +14,7 @@ const stubs={
  '../../ui/feedback/FeedbackProvider':`import{useState}from'react';export const FeedbackBanner=()=>null;export function useFeedbackMessage(v){const[a,b]=useState(v);return[a,b,b,'success']}`,
  '../../ui/overlays/useConfirmation':'export const useConfirmation=()=>({confirm:async()=>true,confirmationDialog:null});',
  '../../ui/foundation/useCompactLayout':'export const useCompactLayout=()=>globalThis.restockCompact;',
+ '../../ui/data/DataViewToolbar':'export const DataViewToolbar=()=>null;',
  './ErpItemDialog':'export const ErpItemDialog=()=>null;',
 };
 for(const [path,names] of [

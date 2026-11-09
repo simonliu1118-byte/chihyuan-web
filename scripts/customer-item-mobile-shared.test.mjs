@@ -1,0 +1,36 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+const customer=readFileSync("src/runtime/modules/CustomerOperationalPage.tsx","utf8");
+const item=readFileSync("src/runtime/modules/ItemOperationalPage.tsx","utf8");
+const customerCss=readFileSync("src/runtime/modules/customer-operational.css","utf8");
+const itemCss=readFileSync("src/runtime/modules/item-operational.css","utf8");
+const mobileCss=readFileSync("src/ui/mobile/mobile.css","utf8");
+test("customer phone list shares DataViewToolbar filters and ListRow, desktop toolbar remains",()=>{
+ assert.match(customer,/const compact = useCompactLayout\(\)/);
+ assert.match(customer,/const customerFilters = <div className="cy-md-toolbar-row"/);
+ assert.match(customer,/\{compact\?<DataViewToolbar searchValue=\{query\}/);
+ assert.match(customer,/activeFilterCount=\{\[categoryFilter,statusFilter\].filter\(Boolean\).length\}/);
+ assert.match(customer,/rows.map\(customer => compact/);
+ assert.match(customer,/<ListRow key=\{customer.id\}/);
+ assert.match(customer,/:<div className="cy-md-toolbar">/);
+ assert.match(customer,/aria-label="客戶分類"/);
+ assert.match(customer,/aria-label="客戶狀態"/);
+ assert.doesNotMatch(customerCss,/cy-customer-result-row \{ padding: 10px 12px;/);
+});
+test("item phone list and actions share owners without changing desktop behavior",()=>{
+ assert.match(item,/const compact = useCompactLayout\(\)/);
+ assert.match(item,/\{compact\?<DataViewToolbar searchValue=\{query\}/);
+ assert.match(item,/activeFilterCount=\{\[categoryFilter,activeFilter\].filter\(Boolean\).length\}/);
+ assert.match(item,/rows.map\(row=>compact/);
+ assert.match(item,/<ListRow key=\{row.id\}/);
+ assert.match(item,/\{compact\?<OverflowMenu items=/);
+ assert.match(item,/track\("toggleActive",toggleActive\(\)\)/);
+ assert.match(item,/<ActionBar><button type="button" className="cy-op-button primary"/);
+ assert.match(item,/:<div className="cy-md-toolbar">/);
+});
+test("conversion row uses one shared breakpoint, not the old 560px item stylesheet",()=>{
+ assert.match(item,/cy-item-conversion-row cy-mobile-unit-conversion-row/);
+ assert.match(mobileCss,/\.cy-mobile-unit-conversion-row\{grid-template-columns:16px/);
+ assert.doesNotMatch(itemCss,/@media \(max-width: 560px\)/);
+});

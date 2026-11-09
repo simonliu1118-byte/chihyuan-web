@@ -368,12 +368,12 @@ export function StoreStocktake({role}:{role:string}){
    <section className="cy-stocktake-ignored-list" aria-label="已忽略底稿">
     <h3>已忽略底稿（{ignored.length}）</h3>
     {ignored.length?<div className="cy-op-table-wrap">
-     <table className="cy-op-table cy-stocktake-ignored-table">
+     <table className="cy-op-table cy-rt cy-stocktake-ignored-table">
       <thead><tr><th scope="col">底稿編號</th><th scope="col">加入時間</th><th scope="col">操作</th></tr></thead>
       <tbody>{ignored.map(sh=><tr key={sh.sheetNo}>
-       <td><strong>{sh.sheetNo}</strong></td>
-       <td>{date(sh.createdAt)}</td>
-       <td><button type="button" className="cy-op-button compact danger" disabled={busy}
+       <td data-label="底稿編號" data-priority="title"><strong>{sh.sheetNo}</strong></td>
+       <td data-label="加入時間">{date(sh.createdAt)}</td>
+       <td data-label="操作"><button type="button" className="cy-op-button compact danger" disabled={busy}
         onClick={()=>void removeIgnored(sh)}>移除</button></td>
       </tr>)}</tbody>
      </table>
@@ -398,12 +398,12 @@ export function StoreStocktake({role}:{role:string}){
   {manualOpen?<Dialog open title="ERP 儲位待手動修改" onClose={()=>setManualOpen(false)}>
    <p>此清單只用來核對人工 ERP 作業，本頁不會呼叫 QUERY 修改儲位。須在 ERP 完成作業後再標記完成。</p>
    {manualRows.length?<div className="cy-op-table-wrap">
-    <table className="cy-op-table cy-stocktake-manual-table">
+    <table className="cy-op-table cy-rt cy-stocktake-manual-table">
      <thead><tr><th>品號／批號</th><th>庫別</th><th>ERP 儲位</th><th>WEB 儲位</th><th>狀態與操作</th></tr></thead>
      <tbody>{manualRows.map(row=><tr key={row.locationCountId}>
-      <td>{row.itemCode}／{row.batch||"無"}</td><td>{row.warehouseName}</td>
-      <td>{row.erpLocationCode||"未指定"}</td><td>{row.locationCode||"未指定"}</td>
-      <td><StatusChip tone={row.verifiedAt?"success":"warning"}>{row.verifiedAt?"已人工完成":"待手動修改"}</StatusChip>
+      <td data-label="品號／批號" data-priority="title">{row.itemCode}／{row.batch||"無"}</td><td data-label="庫別">{row.warehouseName}</td>
+      <td data-label="ERP 儲位">{row.erpLocationCode||"未指定"}</td><td data-label="WEB 儲位">{row.locationCode||"未指定"}</td>
+      <td data-label="狀態與操作" data-priority="wide"><StatusChip tone={row.verifiedAt?"success":"warning"}>{row.verifiedAt?"已人工完成":"待手動修改"}</StatusChip>
        <button className="cy-op-button compact" type="button" disabled={busy}
         onClick={()=>void verifyManual(row,!row.verifiedAt)}>{row.verifiedAt?"撤銷完成":"標記完成"}</button></td>
      </tr>)}</tbody>

@@ -12,6 +12,10 @@ import { TextInput } from "../ui/primitives/TextInput";
 import { PasswordInput } from "../ui/forms/PasswordInput";
 import { StatusChip } from "../ui/primitives/StatusChip";
 import { StatusFilter } from "../ui/data/StatusFilter";
+import { useCompactLayout } from "../ui/foundation/useCompactLayout";
+import { ModuleSections } from "../ui/mobile/ModuleSections";
+import { ListRow } from "../ui/mobile/ListRow";
+import { DataViewToolbar } from "../ui/data/DataViewToolbar";
 import { NextStep } from "../ui/feedback/NextStep";
 import { ApiClientError } from "../api/client";
 import { chineseMessage } from "../api/error-messages";
@@ -255,6 +259,7 @@ interface AccessColumn {
 type ModuleCode = Parameters<typeof setEmployeeModuleAccess>[1];
 
 function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
+  const compact = useCompactLayout();
   const isSuperAdmin = session.user.workspaceRole === "SUPER_ADMIN";
   const canIdentityAdmin = isSuperAdmin || session.user.isIdentityAdmin;
   const [query, setQuery] = useState("");
@@ -440,14 +445,28 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
 
     <FeedbackBanner message={message} tone={messageTone} />
     <section className="cy-op-panel cy-identity-table-panel">
-      <div className="cy-identity-table-toolbar">
+      {compact?<DataViewToolbar searchValue={query} onSearchChange={setQuery} searchLabel="搜尋使用者"
+        searchPlaceholder="搜尋編號、姓名、Email"
+        filters={<StatusFilter label="帳號狀態" options={accountStates} counts={counts} value={stateFilter} onChange={setStateFilter}/>}
+        activeFilterCount={stateFilter?1:0}
+        beforeSearch={switcher}
+        actions={<button type="button" className="cy-op-button primary" onClick={()=>setCreateOpen(true)}>＋ 新增使用者</button>}
+        resultSummary={busyAny?"載入中":`共 ${rows.length} 位`}/>
+      :      <div className="cy-identity-table-toolbar">
         {switcher}
         <button type="button" className="cy-op-button primary" onClick={() => setCreateOpen(true)}>＋ 新增使用者</button>
         <input className="cy-op-input" type="search" aria-label="搜尋使用者" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋編號、姓名、Email" />
         <StatusFilter label="帳號狀態" options={accountStates} counts={counts} value={stateFilter} onChange={setStateFilter} />
         <span className="cy-md-count">{busyAny ? <Loading inline /> : `共 ${rows.length} 位`}</span>
-      </div>
-      {canIdentityAdmin && !moduleView ? <Loading /> : <div className="cy-identity-access-scroll">
+      </div>}
+      {canIdentityAdmin && !moduleView ? <Loading /> : compact?<div className="cy-identity-mobile-users">
+        {rows.map(employee=><ListRow key={employee.employee_id}
+          title={employee.name+(employee.employee_id===session.user.employeeId?"（你）":"")}
+          subtitle={employee.employee_no+(employee.identity_admin===1?" · 帳號管理員":"")}
+          trailing={<StatusChip tone={stateOf(employee).tone}>{stateOf(employee).label}</StatusChip>}
+          onClick={()=>setDrawerId(employee.employee_id)}/>)}
+        {!rows.length?<div className="cy-op-empty">沒有符合條件的使用者。</div>:null}
+       </div> : <div className="cy-identity-access-scroll">
         <table className="cy-op-table cy-identity-access-table">
           <thead>
             <tr>
@@ -477,7 +496,7 @@ function UserWorkspace({ snapshot, session, refresh }: UserWorkspaceProps) {
               {columns.map((column) => {
                 const reason = lockReason(employee, column);
                 const cell = `${employee.employee_id}:${column.key}`;
-                return <td key={column.key} className={`cy-access-cell${column.role ? ` cy-access-${column.role}` : ""}`}>
+                return <td key={column.key} data-label={column.label} className={`cy-access-cell${column.role ? ` cy-access-${column.role}` : ""}`}>
                   {saving.has(cell) ? <span className="cy-loading-spinner" role="status" aria-label="儲存中" />
                     : <input type="checkbox" checked={allowed(employee, column)} disabled={!!reason} title={reason ?? `${employee.name}「${column.label}」`}
                         aria-label={`${employee.name}「${column.label}」`} onChange={(event) => void toggleCell(employee, column, event.target.checked)} />}
@@ -945,7 +964,7 @@ function GroupWorkspace({ snapshot, session, view, columns, reload, switcher }: 
         <button type="button" className="cy-op-button" disabled={savingId !== null} aria-busy={savingId === group.id || undefined} onClick={() => void resync(group)}>重新套用</button>
       </div>)}
       <div className="cy-identity-access-scroll">
-        <table className="cy-op-table cy-identity-access-table cy-identity-group-table">
+        <table className="cy-op-table cy-rt cy-mobile-access-matrix cy-identity-access-table cy-identity-group-table">
           <thead>
             <tr>
               <th rowSpan={2} className="cy-access-person">群組</th>
@@ -957,20 +976,20 @@ function GroupWorkspace({ snapshot, session, view, columns, reload, switcher }: 
           <tbody>{view.groups.map((group) => {
             const names = memberIds(group.id).map(nameOf).filter((name): name is string => !!name);
             return <tr key={group.id}>
-              <th scope="row" className="cy-access-person">
+              <th scope="row" data-priority="title" className="cy-access-person">
                 <div className="cy-access-person-text">
                   <strong>{group.name}</strong>
                   <span title={names.join("、")}>{names.length ? `${names.length} 位：${names.slice(0, 3).join("、")}${names.length > 3 ? "…" : ""}` : "尚無成員"}</span>
                 </div>
               </th>
-              {columns.map((column) => <td key={column.key} className={`cy-access-cell${column.role ? ` cy-access-${column.role}` : ""}`}>
+              {columns.map((column) => <td key={column.key} data-label={column.label} className={`cy-access-cell${column.role ? ` cy-access-${column.role}` : ""}`}>
                 {(() => {
                   const lock = column.disabledReason ?? (column.kind === "module" ? moduleLockReason(new Set<string>(group.modules), column.code as ModuleCode) : null);
                   return <input type="checkbox" checked={included(group, column)} disabled={savingId !== null || !!lock}
                     title={lock ?? undefined} aria-label={`${group.name}「${column.label}」`} onChange={(event) => toggle(group, column, event.target.checked)} />;
                 })()}
               </td>)}
-              <td><div className="cy-identity-row-actions">
+              <td data-label="操作" data-priority="wide"><div className="cy-identity-row-actions">
                 <button type="button" className="cy-op-button compact" disabled={savingId !== null} onClick={() => void rename(group)}>重新命名</button>
                 <button type="button" className="cy-op-button compact danger" disabled={savingId !== null} onClick={() => void remove(group)}>刪除</button>
               </div></td>
@@ -1109,6 +1128,7 @@ export function MyAccountPage({ session }: { session: AuthSession }) {
 }
 
 export function SharedIdentityPage({ session, usage, showUsage = false }: { session: AuthSession; usage?: CloudflareUsagePanelProps; showUsage?: boolean }) {
+  const compact = useCompactLayout();
   const [snapshot, setSnapshot] = useState<IdentityAdminSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, , setError] = useFeedbackMessage<string | null>(null);
@@ -1133,9 +1153,10 @@ export function SharedIdentityPage({ session, usage, showUsage = false }: { sess
     ...(isSuperAdmin ? [{ key: "system" as const, label: "系統與安全" }] : []),
   ];
   return <div className="cy-identity-page">
-    <div className="cy-op-tabs" role="tablist" aria-label="帳號與權限">
+    {compact?<ModuleSections label="帳號與權限" sections={tabs} value={tab} onChange={setTab}/>
+    :    <div className="cy-op-tabs" role="tablist" aria-label="帳號與權限">
       {tabs.map((item) => <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} className={tab === item.key ? "active" : ""} onClick={() => setTab(item.key)}>{item.label}</button>)}
-    </div>
+    </div>}
     {!snapshot ? (error
       ? <section className="cy-op-panel"><p className="cy-notice cy-notice-danger" role="alert">{error}</p><button type="button" className="cy-op-button" disabled={loading} aria-busy={loading || undefined} onClick={() => void refresh()}>重新讀取</button></section>
       : <Loading />)

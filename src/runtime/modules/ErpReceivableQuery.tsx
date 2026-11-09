@@ -87,7 +87,7 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
         <h3>未收合計 {erpMoney(totalUnpaid)}（{groups.length} 位客戶、{mine.bills.length} 張結帳單）</h3>
         {mine.truncated && <p className="cy-notice cy-notice-warning">共 {mine.total} 張，只顯示 {mine.bills.length} 張。</p>}
         <div className="cy-op-table-wrap cy-erp-receivable-wrap">
-          <table className="cy-op-table cy-erp-receivable-table" aria-label="未收款客戶清單">
+          <table className="cy-op-table cy-rt cy-erp-receivable-table" aria-label="未收款客戶清單">
             <colgroup><col style={{width:40}}/><col style={{width:160}}/><col/><col style={{width:100}}/><col style={{width:160}}/></colgroup>
             <thead><tr><th scope="col"><span className="cy-visually-hidden">展開</span></th>
               <th scope="col">客戶編號</th><th scope="col">客戶名稱</th><th scope="col" className="cy-erp-receivable-count">結帳單</th><th scope="col" className="num">未收款小計</th></tr></thead>
@@ -97,13 +97,13 @@ export function ErpReceivableQuery({ job, canSearchCustomers }: { job: ErpJob; c
                 <tr className="cy-erp-receivable-customer" data-open={opened||undefined}
                   tabIndex={0} onClick={()=>toggle(group.customerCode)}
                   onKeyDown={event=>{if(event.target===event.currentTarget&&(event.key==="Enter"||event.key===" ")){event.preventDefault();toggle(group.customerCode)}}}>
-                  <td><ExpandToggle expanded={opened} onToggle={()=>toggle(group.customerCode)} label={group.customerCode+" "+group.customerName+" 結帳單"}/></td>
-                  <td className="cy-erp-receivable-code" title={group.customerCode}><strong>{group.customerCode}</strong></td>
-                  <td className="cy-erp-receivable-name" title={group.customerName}>{group.customerName}</td>
-                  <td className="cy-erp-receivable-count">{group.bills.length} 張</td>
-                  <td className="num cy-erp-receivable-money">{erpMoney(group.unpaid)}</td>
+                  <td data-label="展開"><ExpandToggle expanded={opened} onToggle={()=>toggle(group.customerCode)} label={group.customerCode+" "+group.customerName+" 結帳單"}/></td>
+                  <td data-label="客戶編號" className="cy-erp-receivable-code" title={group.customerCode}><strong>{group.customerCode}</strong></td>
+                  <td data-label="客戶名稱" data-priority="title" className="cy-erp-receivable-name" title={group.customerName}>{group.customerName}</td>
+                  <td data-label="結帳單" className="cy-erp-receivable-count">{group.bills.length} 張</td>
+                  <td data-label="未收款小計" className="num cy-erp-receivable-money">{erpMoney(group.unpaid)}</td>
                 </tr>
-                {opened?<tr className="cy-erp-receivable-detail"><td colSpan={5}>
+                {opened?<tr className="cy-erp-receivable-detail"><td data-label="結帳單明細" data-priority="wide" colSpan={5}>
                   <ErpQueryRows key={mine.id+":"+group.customerCode} label={group.customerCode+" 結帳單"} columns={BILL_COLUMNS}
                     summaryColumns={[0,1,6]} tableMode="shared" columnWidths={BILL_WIDTHS} numericColumns={[4,5,6]}
                     rows={group.bills.map(b=>[b.billNo,formatDate(b.date),[b.salespersonCode,b.salespersonName].filter(Boolean).join(" "),

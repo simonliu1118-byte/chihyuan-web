@@ -28,11 +28,6 @@
 .cy-customer-related-form-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; }
 .cy-customer-frequent-form { margin-bottom: 12px; }
 
-@media (max-width: 820px) {
-.cy-customer-result-row { padding: 10px 12px; }
-
-}
-
 /* Related records: three summary cards (shared RelatedCard styles are used by Item and HR). */
 .cy-record-meta { margin-top: 4px; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
 .cy-customer-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 4px 0 12px; }

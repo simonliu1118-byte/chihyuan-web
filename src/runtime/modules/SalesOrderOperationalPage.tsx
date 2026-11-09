@@ -16,6 +16,11 @@ import { EntityPicker } from "../../ui/pickers/EntityPicker";
 import type { SalesWorkOrderCustomerOption, SalesWorkOrderItemOption as LineItemOption } from "../../../shared/business-lookups";
 import "./sales-order-operational.css";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
+import { useCompactLayout } from "../../ui/foundation/useCompactLayout";
+import { DataViewToolbar } from "../../ui/data/DataViewToolbar";
+import { ListRow } from "../../ui/mobile/ListRow";
+import { ActionBar } from "../../ui/mobile/ActionBar";
+import { OverflowMenu } from "../../ui/mobile/OverflowMenu";
 import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -179,6 +184,7 @@ export function SalesOrderOperationalPage() {
   const { pending, track } = usePendingAction();
   const unsavedGuard = useUnsavedChangesGuard({ active: editing, blocked: busy, message: "目前有尚未儲存的工單修改，確定放棄？" });
   const pane = useMasterDetailPane();
+  const compact = useCompactLayout();
   const { confirm, confirmationDialog } = useConfirmation();
   const { ask, promptDialog } = useFormPrompt();
   const canLeave = async () => (await unsavedGuard.confirmNavigationAsync(description => confirm({
@@ -521,7 +527,14 @@ export function SalesOrderOperationalPage() {
 
       <div className="cy-md cy-order-workspace" data-pane={pane.pane}>
         <section className="cy-op-panel cy-md-list" aria-label="工單清單">
-          <div className="cy-md-toolbar">
+          {compact?<DataViewToolbar searchValue={query} onSearchChange={setQuery} searchLabel="搜尋工單"
+           searchPlaceholder="搜尋工單、ERP 單號、客戶"
+           filters={<StatusFilter label="工單狀態" value={statusFilter} onChange={setStatusFilter} counts={statusCounts}
+             options={(Object.keys(statusText) as (keyof typeof statusText)[]).map(code=>({code,label:statusText[code],tone:orderTone[code]}))}/>}
+           activeFilterCount={statusFilter?1:0}
+           actions={<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void startCreate()}>＋ 新增工單</button>}
+           resultSummary={loadingList?"載入中":paging.hasMore?`已載入 ${rows.length} 筆，還有更多`:`共 ${rows.length} 筆`}/>
+          :          <div className="cy-md-toolbar">
             <div className="cy-md-toolbar-lead">
               <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增工單</button>
               <input className="cy-op-input" type="search" aria-label="搜尋工單" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋工單、ERP 單號、客戶" />
@@ -529,15 +542,19 @@ export function SalesOrderOperationalPage() {
             <StatusFilter label="工單狀態" value={statusFilter} onChange={setStatusFilter} counts={statusCounts}
               options={(Object.keys(statusText) as (keyof typeof statusText)[]).map((code) => ({ code, label: statusText[code], tone: orderTone[code] }))} />
             <div className="cy-md-count">{loadingList ? <Loading inline /> : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
-          </div>
+          </div>}
           <div className="cy-op-list">
-            {rows.map((row) => (
-              <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={() => void selectOrder(row.id)}>
-                <strong>{row.customerNameSnapshot}</strong>
-                <span><span className="cy-mono">{row.erpNo ? `ERP ${row.erpNo}` : row.workOrderRef}</span> · {formatDate(row.orderDate)}</span>
-                <StatusChip tone={orderTone[row.statusCode]}>{statusText[row.statusCode]}</StatusChip>
-              </button>
-            ))}
+            {rows.map(row=>compact
+              ? <ListRow key={row.id} title={row.customerNameSnapshot}
+                  subtitle={`${row.erpNo?"ERP "+row.erpNo:row.workOrderRef} · ${formatDate(row.orderDate)}`}
+                  trailing={<StatusChip tone={orderTone[row.statusCode]}>{statusText[row.statusCode]}</StatusChip>}
+                  selected={selectedId===row.id} onClick={()=>void selectOrder(row.id)}/>
+              : <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedId===row.id?"active":""}`}
+                  aria-current={selectedId===row.id?"true":undefined} onClick={()=>void selectOrder(row.id)}>
+                  <strong>{row.customerNameSnapshot}</strong>
+                  <span><span className="cy-mono">{row.erpNo?`ERP ${row.erpNo}`:row.workOrderRef}</span> · {formatDate(row.orderDate)}</span>
+                  <StatusChip tone={orderTone[row.statusCode]}>{statusText[row.statusCode]}</StatusChip>
+                </button>)}
             {loadingList && rows.length === 0 ? <Loading /> : null}
             {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的工單。</div> : null}
             <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
@@ -551,7 +568,9 @@ export function SalesOrderOperationalPage() {
     <FormSection>
               <div className="cy-record-header cy-edit-header">
                 <div><h2>{creating ? "新增銷售工單" : `修改 ${selected?.workOrderRef ?? "工單"}`}</h2></div>
-              <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立工單" : "儲存修改"}</button></div></div>
+              {compact?<ActionBar><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void cancelEdit()}>取消</button>
+                  <button className="cy-op-button primary" disabled={busy} aria-busy={busy||undefined}>{creating?"建立工單":"儲存修改"}</button></ActionBar>
+              :<div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button><button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立工單" : "儲存修改"}</button></div>}</div>
 
               <div className="cy-f-grid cy-form-grid-spaced">
                 <EntityPicker<SalesWorkOrderCustomerOption> label="客戶" disabled={busy}
@@ -584,7 +603,7 @@ export function SalesOrderOperationalPage() {
                   const item = lineItem(line);
                   const units = item?.allowedUnits?.length ? item.allowedUnits : (line.unit ? [line.unit] : []);
                   return (
-                    <div className="cy-order-line" key={line.key}>
+                    <div className="cy-order-line cy-mobile-form-two-col" key={line.key}>
                       <EntityPicker<LineItemOption> label={<span className="cy-visually-hidden">第 {index + 1} 列商品</span>} disabled={busy}
                         className="cy-order-line-item" value={item} onSelect={(row) => changeLineItem(index, line.key, row)}
                         search={async (query) => (await loadSalesOrderLookups({ itemQuery: query, limit: 20 })).items}
@@ -611,7 +630,12 @@ export function SalesOrderOperationalPage() {
             <div>
               <div className="cy-record-header">
                 <div><h2>{selected.customerNameSnapshot}</h2><p><span className="cy-mono">{selected.workOrderRef}</span>{selected.erpNo ? <> · ERP <span className="cy-mono">{selected.erpNo}</span></> : null} · {formatDate(selected.orderDate)}</p></div>
-                <div className="cy-record-actions">
+                {compact?<OverflowMenu items={[
+                  ...(selected.statusCode==="created"&&selected.erpNo==null?[{label:"刪除草稿",danger:true,disabled:busy,onClick:()=>track("deleteDraft",deleteDraft())}]:[]),
+                  ...(selected.statusCode!=="created"&&selected.statusCode!=="voided"?[{label:"更正 ERP 資料",disabled:busy,onClick:()=>track("fillOrCorrectErp",fillOrCorrectErp())}]:[]),
+                  ...(selected.statusCode==="shipped"?[{label:"撤銷出貨",disabled:busy,onClick:()=>track("transition:reverse",transition("reverse"))}]:[]),
+                  ...(["issued","waiting_stock","picked","shipped"].includes(selected.statusCode)?[{label:"作廢",danger:true,disabled:busy,onClick:()=>track("transition:void",transition("void"))}]:[])
+                 ]}/>:                <div className="cy-record-actions">
                 {selected.statusCode === "created" && selected.erpNo == null ? <>
                   <button className="cy-op-button" disabled={busy} onClick={startEdit}>修改草稿</button>
                   <button className="cy-op-button primary" disabled={busy} aria-busy={(busy && pending === "fillOrCorrectErp") || undefined} onClick={() => track("fillOrCorrectErp", fillOrCorrectErp())}>ERP 回填／開單</button>
@@ -626,8 +650,17 @@ export function SalesOrderOperationalPage() {
                 {selected.statusCode === "picked" ? <button className="cy-op-button primary" disabled={busy} aria-busy={(busy && pending === "transition:shipped") || undefined} onClick={() => track("transition:shipped", transition("shipped"))}>確認出貨</button> : null}
                 {selected.statusCode === "shipped" ? <button className="cy-op-button" disabled={busy} aria-busy={(busy && pending === "transition:reverse") || undefined} onClick={() => track("transition:reverse", transition("reverse"))}>撤銷出貨</button> : null}
                 {["issued", "waiting_stock", "picked", "shipped"].includes(selected.statusCode) ? <button className="cy-op-button danger" disabled={busy} aria-busy={(busy && pending === "transition:void") || undefined} onClick={() => track("transition:void", transition("void"))}>作廢</button> : null}
-                </div>
+                </div>}
+
               </div>
+              {compact?<ActionBar>
+                {selected.statusCode==="created"&&selected.erpNo==null?<><button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改草稿</button>
+                  <button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>track("fillOrCorrectErp",fillOrCorrectErp())}>ERP 回填／開單</button></>:null}
+                {selected.statusCode==="issued"?<><button type="button" className="cy-op-button" disabled={busy} onClick={()=>track("transition:waiting",transition("waiting"))}>轉待貨</button>
+                  <button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>track("transition:picked",transition("picked"))}>直接撿貨</button></>:null}
+                {selected.statusCode==="waiting_stock"?<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>track("transition:picked",transition("picked"))}>完成撿貨</button>:null}
+                {selected.statusCode==="picked"?<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>track("transition:shipped",transition("shipped"))}>確認出貨</button>:null}
+              </ActionBar>:null}
               <OrderProgress status={selected.statusCode} />
               <div className="cy-op-detail-grid">
                 <div><span>ERP 單號</span><strong>{selected.erpNo ?? "尚未回填"}</strong></div>
@@ -641,9 +674,9 @@ export function SalesOrderOperationalPage() {
 
               <div className="cy-op-subsection">
                 <h3>明細</h3>
-                <div className="cy-op-table-wrap"><table className="cy-op-table">
+                <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt">
                   <thead><tr><th>品號</th><th>商品</th><th className="num">數量</th><th>單位</th><th className="num">單價</th></tr></thead>
-                  <tbody>{selected.lines.map((line) => <tr key={line.id}><td className="cy-mono">{line.itemNoSnapshot}</td><td>{line.itemNameSnapshot}</td><td className="num">{line.quantity}</td><td>{line.unitSnapshot}</td><td className="num">{line.unitPrice}</td></tr>)}</tbody>
+                  <tbody>{selected.lines.map((line) => <tr key={line.id}><td data-label="品號" className="cy-mono">{line.itemNoSnapshot}</td><td data-label="商品" data-priority="title">{line.itemNameSnapshot}</td><td data-label="數量" className="num">{line.quantity}</td><td data-label="單位">{line.unitSnapshot}</td><td data-label="單價" className="num">{line.unitPrice}</td></tr>)}</tbody>
                 </table></div>
               </div>
 

@@ -17,11 +17,3 @@
   .cy-out-part:not(.cy-out-part-head) { padding-bottom: 8px; border-bottom: 1px dashed var(--cy-border); }
   .cy-out-receipt { grid-template-columns: 1fr 1fr; }
 }
-@media (max-width: 560px) {
-  .cy-out-part { grid-template-columns: 1fr 1fr; }
-  .cy-out-part > :first-child, .cy-out-part > :nth-child(4), .cy-out-part > :nth-child(5) { grid-column: 1 / -1; }
-  .cy-out-receipt { grid-template-columns: 1fr; }
-  .cy-out-contact { grid-template-columns: 1fr 1fr; padding-bottom: 8px; border-bottom: 1px dashed var(--cy-border); }
-  .cy-out-component { grid-template-columns: 1fr 1fr; padding-bottom: 8px; border-bottom: 1px dashed var(--cy-border); }
-  .cy-out-component > :first-child { grid-column: 1 / -1; }
-}

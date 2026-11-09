@@ -10,6 +10,8 @@ import { ErpItemResult, rowsOf } from "./ErpItemResult";
 import type { CyWebModuleCode } from "../../../shared/modules";
 import { ErpPageVisibleContext, runningStatus, useErpJob, type ErpJob } from "./useErpJob";
 import { ErpQueueSidePanel } from "./ErpQueuePanel";
+import { useCompactLayout } from "../../ui/foundation/useCompactLayout";
+import { ModuleSections } from "../../ui/mobile/ModuleSections";
 import { ErpCustomerQuery } from "./ErpCustomerQuery";
 import { ErpReceivableQuery } from "./ErpReceivableQuery";
 import { ErpSupplierQuery } from "./ErpSupplierQuery";
@@ -141,6 +143,7 @@ export function ErpItemQueryPage({ allowedModules }: { allowedModules: ReadonlyS
     const next = new Set(current); if (busy) next.add(key); else next.delete(key); return next;
   }), []);
   const pageVisible = useContext(ErpPageVisibleContext);
+  const compact = useCompactLayout();
   useEffect(() => {
     const open = (event: Event) => setSelected((event as CustomEvent<string>).detail as Category);
     window.addEventListener(ERP_OPEN_CATEGORY_EVENT, open);
@@ -154,12 +157,15 @@ export function ErpItemQueryPage({ allowedModules }: { allowedModules: ReadonlyS
     </ErpPageVisibleContext.Provider>;
   return <section className="cy-erp-page">
     <div className="cy-erp-tabbar">
-      <div className="cy-op-tabs" role="tablist" aria-label="查詢類別">
+      {compact?<ModuleSections label="ERP 查詢類別"
+        sections={categories.map(c=>({key:c.key,label:c.label,badge:running.has(c.key)?1:undefined}))}
+        value={category} onChange={setSelected}/>
+       :      <div className="cy-op-tabs" role="tablist" aria-label="查詢類別">
         {categories.map(c => <button key={c.key} type="button" role="tab"
           id={`cy-erp-tab-${c.key.toLowerCase()}`} aria-controls={`cy-erp-panel-${c.key.toLowerCase()}`}
           aria-selected={category === c.key} className={category === c.key ? "active" : undefined}
           onClick={() => setSelected(c.key)}>{c.label}{running.has(c.key) && <span className="cy-erp-tab-running" aria-label="查詢中" />}</button>)}
-      </div>
+      </div>}
       <button type="button" className="cy-op-button cy-erp-queue-button" aria-expanded={queueOpen} onClick={() => setQueueOpen(open => !open)}>排程佇列</button>
     </div>
     {categories.map(c => panel(c.key, <CategoryJob category={c} onBusy={onBusy}>{job =>

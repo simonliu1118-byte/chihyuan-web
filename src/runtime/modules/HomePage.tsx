@@ -2,13 +2,18 @@ import {useEffect,useState} from "react";
 import {getHomeSummary,HUB_UPDATED_EVENT} from "../api/home-hub-client";
 import type {HubSummary,HubNotice,PersonalTodo} from "../../../shared/home-hub";
 import {formatDateTime} from "../../ui/foundation/format";
+import {useCompactLayout} from "../../ui/foundation/useCompactLayout";
+import {ListRow} from "../../ui/mobile/ListRow";
 import {taipeiTodayRange} from "../../../shared/bot-center";
 import "./home-hub.css";
 
 export interface HubLink {key:string;label:string;}
 export interface HubNavigate{(route:string,params?:Record<string,string|number>):void;}
-function noticePreview(items:HubNotice[],empty:string,onNavigate:HubNavigate,kind:"company"|"personal"){
- return items.length?items.map(item=><button key={item.id} className="cy-hub-preview-item" type="button" onClick={()=>onNavigate("announcements",{tab:kind,id:item.id})}>
+function noticePreview(items:HubNotice[],empty:string,onNavigate:HubNavigate,kind:"company"|"personal",compact:boolean){
+ return items.length?items.map(item=>compact?<ListRow key={item.id} title={item.title}
+  subtitle={item.authorName+" · "+formatDateTime(item.createdAt)} trailing={!item.readAt?"未讀":undefined}
+  onClick={()=>onNavigate("announcements",{tab:kind,id:item.id})}/>
+  :<button key={item.id} className="cy-hub-preview-item" type="button" onClick={()=>onNavigate("announcements",{tab:kind,id:item.id})}>
   <strong>{item.title}</strong><span>{item.authorName} · {formatDateTime(item.createdAt)}{!item.readAt?" · 未讀":""}</span>
  </button>):<p className="cy-hub-empty">{empty}</p>;
 }
@@ -18,6 +23,7 @@ function todoLabel(item:PersonalTodo){
  return item.dueDate<day?"已逾期":item.dueDate===day?"今日到期":item.dueDate.replaceAll("-","/");
 }
 export function HomePage({displayName,shortcuts,onNavigate}:{displayName:string;shortcuts:HubLink[];onNavigate:HubNavigate}){
+ const compact=useCompactLayout();
  const [data,setData]=useState<HubSummary|null>(null),[error,setError]=useState("");
  useEffect(()=>{
   let active=true;
@@ -46,7 +52,8 @@ export function HomePage({displayName,shortcuts,onNavigate}:{displayName:string;
     <button type="button" className="cy-op-button compact primary" onClick={()=>onNavigate("my-todos",{new:1})}>新增待辦</button>
    </div></div>
    {data?.todos.length?<ul className="cy-home-todo-list">{data.todos.map(item=><li key={item.id}>
-    <button type="button" onClick={()=>onNavigate("my-todos",{id:item.id})}><strong>{item.title}</strong><span className={item.dueDate&&item.dueDate<taipeiTodayRange().day?"is-overdue":""}>{todoLabel(item)}</span></button>
+    {compact?<ListRow title={item.title} subtitle={todoLabel(item)} onClick={()=>onNavigate("my-todos",{id:item.id})}/>
+      :<button type="button" onClick={()=>onNavigate("my-todos",{id:item.id})}><strong>{item.title}</strong><span className={item.dueDate&&item.dueDate<taipeiTodayRange().day?"is-overdue":""}>{todoLabel(item)}</span></button>}
    </li>)}</ul>:<p className="cy-hub-empty">{data?"目前沒有未完成事項":"正在讀取待辦事項…"}</p>}
   </section>
   <section className="cy-op-panel" aria-label="我的常用功能"><div className="cy-op-panel-header"><h2>我的常用功能</h2></div>
@@ -55,11 +62,11 @@ export function HomePage({displayName,shortcuts,onNavigate}:{displayName:string;
   <div className="cy-home-notices">
    <section className="cy-op-panel" aria-label="公司公告">
     <div className="cy-op-panel-header"><h2>公司公告</h2><button className="cy-op-button compact" type="button" onClick={()=>onNavigate("announcements",{tab:"company"})}>查看全部</button></div>
-    {noticePreview(data?.company??[],"目前沒有公告",onNavigate,"company")}
+    {noticePreview(data?.company??[],"目前沒有公告",onNavigate,"company",compact)}
    </section>
    <section className="cy-op-panel" aria-label="個人通知">
     <div className="cy-op-panel-header"><h2>個人通知</h2><button className="cy-op-button compact" type="button" onClick={()=>onNavigate("announcements",{tab:"personal"})}>查看全部</button></div>
-    {noticePreview(data?.personal??[],"目前沒有個人通知",onNavigate,"personal")}
+    {noticePreview(data?.personal??[],"目前沒有個人通知",onNavigate,"personal",compact)}
    </section>
   </div>
  </section>;

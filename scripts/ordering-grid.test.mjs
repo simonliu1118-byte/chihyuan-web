@@ -15,7 +15,12 @@ try {
     platform: "node", format: "esm", jsx: "automatic", packages: "external",
     plugins: [{ name: "hook-host", setup(build) {
       build.onResolve({ filter: /^\.\/overlays\/Dialog$/ }, () => ({ path: "dialog", namespace: "dialog-boundary" }));
-      build.onLoad({ filter: /.*/, namespace: "dialog-boundary" }, () => ({ contents: "export const Dialog=()=>null;" }));
+      build.onResolve({ filter: /^\.\/foundation\/useCompactLayout$/ }, () => ({ path: "layout", namespace: "dialog-boundary" }));
+      build.onResolve({ filter: /^\.\/forms\/Field$/ }, () => ({ path: "forms", namespace: "dialog-boundary" }));
+      build.onLoad({ filter: /.*/, namespace: "dialog-boundary" }, args => ({ contents:
+        args.path==="layout"?"export const useCompactLayout=()=>Boolean(globalThis.orderingGridCompact);":
+        args.path==="forms"?"export const Field=()=>null,FormSection=()=>null;":
+        "export const Dialog=()=>null,BottomSheet=()=>null;" }));
       build.onResolve({ filter: /^react$/ }, () => ({ path: "react", namespace: "hook-host" }));
       build.onLoad({ filter: /.*/, namespace: "hook-host" }, () => ({ contents:
         ["useState", "useRef", "useEffect"].map(name =>
@@ -29,6 +34,7 @@ function descendants(node) {
   return [node, ...[node.props?.children].flat(Infinity).flatMap(descendants)];
 }
 function mount(kind = "GENERAL", lines = [], options = {}) {
+  globalThis.orderingGridCompact=Boolean(options.compact);
   const slots = [], frames = [], commits = [], settlements = [];
   let cursor = 0, dirty = true, effects = [], tree, focused, editor, state;
   const props = { kind, section: kind === "CN_REGULAR" ? "SINGLE" : "", lines, busy: false,
@@ -92,8 +98,23 @@ function mount(kind = "GENERAL", lines = [], options = {}) {
     get focused() { return focused; },
     get rowIds() { return [...new Set(descendants(tree).filter(n => n.type === "input" || n.type === "textarea").map(n => n.props["data-order-row"]))]; } };
 }
-test.afterEach(() => { delete globalThis.orderingGridHookHost; delete globalThis.requestAnimationFrame; });
+test.afterEach(() => { delete globalThis.orderingGridHookHost; delete globalThis.requestAnimationFrame; delete globalThis.orderingGridCompact; });
 
+test("phone editor opens a real shared BottomSheet and keeps the original Grid commit owner",()=>{
+ const grid=mount("GENERAL",[],{compact:true});
+ assert.equal(grid.nodes.some(n=>n.type==="table"),false);
+ assert.equal(typeof grid.editor.openNew,"function");
+ grid.editor.openNew();grid.flush();
+ assert.ok(grid.nodes.some(n=>n.type?.name==="BottomSheet"));
+ assert.ok(grid.nodes.some(n=>n.type?.name==="FormSection"));
+ grid.change(-1,"itemName","手機測試品項");
+ grid.change(-1,"quantityText","2");
+ grid.press(-1,"note");
+ assert.equal(grid.commits.length,1);
+ assert.equal(grid.commits[0].patch.itemName,"手機測試品項");
+ assert.equal(grid.commits[0].patch.quantityText,"2");
+ assert.equal(grid.commits[0].final,true);
+});
 for (const kind of ["GENERAL", "VENDOR", "CN_REGULAR", "CN_CUSTOM"]) {
   test(`${kind}: note Enter adds a row and focuses its item code even before the current row can save`, () => {
     const grid = mount(kind);
