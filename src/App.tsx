@@ -70,9 +70,10 @@ const PAGE_META: Record<AppRoute, { title: string }> = {
 };
 
 const baseNavigation: readonly NavigationGroup[] = [
-  {key:"home",items:[{key:"home",label:"首頁",href:"#home"},{key:"announcements",label:"公告與通知",href:"#announcements"}]},
+  // 首頁 is the CY brand row at the top (user 2026-11-09); 公告與通知 sits with ERP／BOT in one block, no gap.
   {
     key: "erp-query", items: [
+      { key: "announcements", label: "公告與通知", href: "#announcements" },
       { key: "erp-item-query", label: "ERP 查詢", href: "#erp-item-query" },
       { key: "bot-center", label: "BOT 管理中心", href: "#bot-center" },
     ],
@@ -240,11 +241,10 @@ function OperationalApp({
   );
 
   const navigation = useMemo<readonly NavigationGroup[]>(() => {
-    const home = baseNavigation.find(group=>group.key==="home")!;
     const erp = baseNavigation.find(group => group.key === "erp-query")!;
     const business = baseNavigation.find(group => group.key === "business")!;
     const administration = baseNavigation.find(group => group.key === "administration")!;
-    const erpItems = erp.items.filter(item =>
+    const erpItems = erp.items.filter(item => item.key === "announcements" ||
       moduleCodesForRoute(item.key).some(code => allowedModules.has(code)));
     const businessItems = business.items.filter(item => item.key === "hr"
       ? session.user.workspaceRole === "SUPER_ADMIN"
@@ -253,7 +253,6 @@ function OperationalApp({
       item.key === "backups" ? session.user.workspaceRole === "SUPER_ADMIN"
         : session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN");
     return [
-      home,
       { ...erp, items: erpItems },
       { ...business, items: businessItems },
       { ...administration, items: adminItems },
