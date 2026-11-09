@@ -1,6 +1,6 @@
 # WO-0.14.1 全系統手機版：各模組改用共用手機元件（第二階段）
 
-- 狀態：**執行中／第一批待驗證**（2026-11-09 GPT 接手；六批未完成）
+- 狀態：**六批實作與 Draft PR 已提交，等待真實裝置、Claude 與整體驗收；未合併部署**（2026-11-09 GPT）
 - 分支：每個批次一個分支，例如 `cyweb/wo-0.14.1-ordering`；版號自 V0.14.1 起每批 +1，CHANGELOG 同步。
 - 開工前必讀：
   - `docs/architecture/UI_COMPONENT_CATALOG.md` **§6 手機版**（共用元件與規則）
@@ -53,15 +53,15 @@
 ## 8. 完成報告（GPT 填）
 
 ### 批次 1 — 叫貨（GPT，2026-11-09）
-- 分支：`cyweb/wo-0.14.1-ordering`；PR：待建立。
+- 分支：`cyweb/wo-0.14.1-ordering`；[Draft PR #466](https://github.com/simonliu1118-byte/chihyuan-web/pull/466)。
 - 手機採 ModuleSections，預設未到貨；叫貨單、草稿來源用 ListRow；搜尋條件採 DataViewToolbar；草稿品項在原 OrderingGrid state/mutation owner 中以 BottomSheet 編輯，同一 commit/flush 流程。
 - 主要動作 ActionBar、次要 OverflowMenu；未到貨、到貨紀錄與到貨表採 cy-rt。
 - 刪除 `erp-item-query.css` 原手機叫貨 nav、篩選、草稿卡片、Grid 卡片與未到貨卡片樣式；以通用 `src/ui/mobile/mobile.css` 承擔可重用呈現。
 - 需求驗收：已實作初稿，待 Runtime/Governance/TypeScript/完整 Node CI、390px/1440px 前後實測截圖與 Claude 審查。沒有把未取得的證據標示為通過。
-- 後續批次 2–6：第二與第三批已於各自 stacked Draft PR 開工；第四至第六批仍待做。
+- 後續批次 2–6：均已提交各自的 stacked Draft PR；尚未取得登入後畫面／Claude 複審，全部不合併不部署。
 
 ### 批次 2 — 門市（GPT，2026-11-09）
-- 分支：`cyweb/wo-0.14.1-store`，基於第一批分支，不修改 main。PR：待建立。
+- 分支：`cyweb/wo-0.14.1-store`，基於第一批；[Draft PR #467](https://github.com/simonliu1118-byte/chihyuan-web/pull/467)，不修改 main。
 - 客訂／黑名單／售後維修／出機／盤點管理表格統一 `cy-rt` 及 data-label、data-priority；桌機原表格與資料操作不變。三年保養矩陣與月度待辦不改其原互動網格和資料狀態。
 - 刪除 store.css 的兩套舊手機流程表與卡片規則；保留其他仍在使用的門市手機樣式。
 - 驗收：等待完整 CI、390px 與 1440px 前後照片及 Claude 審查。
@@ -71,26 +71,30 @@
 （待審）
 
 ### 批次 3 — 客戶／商品（GPT，2026-11-09）
-- 分支：`cyweb/wo-0.14.1-customers-items`，建立於第二批分支後續；PR 待建立。
+- 分支：`cyweb/wo-0.14.1-customers-items`，建立於第二批；[Draft PR #468](https://github.com/simonliu1118-byte/chihyuan-web/pull/468)。
 - 客戶與商品在手機皆由 DataViewToolbar（含分類／狀態）與 ListRow 擔任清單入口，明細主要修改、編輯儲存、取消採 ActionBar，次要紀錄／變更／停用採 OverflowMenu；桌機原工具列與列、操作完整保留。
 - 移除客戶列表舊 @media 列尺寸、商品 560px 換算輸入排版並搬至共用 mobile.css；其餘仍在運作的客戶報價與拜訪表單保持原有呈現。
 - 待 CI、390px 和 1440px 前後截圖與 Claude 最終驗證，不合併不部署。
 
 ### 批次 4 — 瑕疵／銷售工單／委外／工作日誌（GPT，2026-11-09）
-- 分支：`cyweb/wo-0.14.1-early-modules`，基於第三批；PR 待開立。
+- 分支：`cyweb/wo-0.14.1-early-modules`，基於第三批；[Draft PR #469](https://github.com/simonliu1118-byte/chihyuan-web/pull/469)。
 - 四個模組手機清單改共用 DataViewToolbar、ListRow、ActionBar、OverflowMenu；委外 tabs 用 ModuleSections 並繼續原未儲存切換 guard；銷售和代工明細用 cy-rt。
 - 舊 560／720px 的重複手機表單列 CSS 已移進 mobile.css 的通用 two-col／stack 類，未涉及資料與原狀態流轉。
 - CI／390px／1440px 前後圖與 Claude 審查待驗；不合併不部署。
 
 ### 批次 5 — 人事／ERP／BOT（GPT，2026-11-09）
-- 分支：`cyweb/wo-0.14.1-hr-erp-bot`，父分支第四批；PR 待建立。
+- 分支：`cyweb/wo-0.14.1-hr-erp-bot`，父分支第四批；[Draft PR #470](https://github.com/simonliu1118-byte/chihyuan-web/pull/470)。
 - 人事四頁籤 ModuleSections，員工 DataViewToolbar/ListRow/ActionBar；ERP 類別 ModuleSections 並保持 CategoryJob mounted，未收款與進貨輔助 cy-rt；BOT 審稿憑證表 cy-rt 與手機 OverflowMenu。
 - 清理 HR 舊 720px 表單列 CSS，改由 shared mobile.css；原 API／D1／權限／業務 handler 未動。
 - CI、390px／1440px 實測與 Claude 複審待辦；禁止合併部署。
 
 ### 批次 6 — 系統管理與首頁（GPT，2026-11-09）
-- 分支：`cyweb/wo-0.14.1-admin-home`，stacked 於第五批；PR 待建立。
+- 分支：`cyweb/wo-0.14.1-admin-home`，stacked 於第五批；[Draft PR #471](https://github.com/simonliu1118-byte/chihyuan-web/pull/471)。
 - 帳號權限手機的主分頁 ModuleSections、使用者清單 ListRow、帳號狀態 DataViewToolbar、群組權限矩陣 cy-rt 並保留 checkbox；異動紀錄 DataViewToolbar/cy-rt，備份歷史 cy-rt；首頁預覽 ListRow。
 - CY 程式清單已經是共用 DataView 的手機 renderCard／桌機 table；我的帳號原本就用共用 Dialog、Field、FormSection，沒有多設業務 owner。
 - 六批的 GitHub PR 供分開審查，尚未獲得 390px／1440px 登入後截圖或 Claude 最終複審證據；用 CI 並不能代替實機驗收。
 - **不合併，不部署**。
+
+## 進度結論（2026-11-09）
+
+六批已提交 Draft PR #466～#471，按編號循序疊接。前五批已通過各自最新 Runtime Check；第六批仍以 GitHub CI 的最新結果為準。完整真實裝置 390×844 與 1440px 修改前後對照，以及 Claude 獨立複審尚未取得。**不得將 PR 自動 CI 成功誤判為整張工單驗收完成；不得合併或部署任何一批。**
