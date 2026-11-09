@@ -369,6 +369,8 @@ h1, h2, h3, h4, h5 { line-height: 1.35; }
 .cy-op-button.danger-solid:hover:not(:disabled) { filter: brightness(.92); background: var(--cy-danger); }
 .cy-button-quiet, .cy-op-button.quiet { border-color: transparent; background: transparent; color: var(--cy-text-muted); }
 .cy-button-quiet:hover:not(:disabled), .cy-op-button.quiet:hover:not(:disabled) { background: var(--cy-surface-muted); color: var(--cy-text); border-color: transparent; }
+/* Mini: the smallest inline button, e.g. 身分證字號「顯示」 beside a value (user 2026-11-09). */
+.cy-op-button.mini { min-height: 0; height: 20px; padding: 0 7px; font-size: var(--cy-fs-xs); line-height: 20px; vertical-align: 1px; }
 /* Soft: a light-filled button with no border, for secondary row actions that should still read as buttons (e.g. 指定結案). */
 .cy-op-button.soft { border-color: transparent; background: var(--cy-surface-muted); color: var(--cy-text); }
 .cy-op-button.soft:hover:not(:disabled) { border-color: transparent; background: var(--cy-border); }

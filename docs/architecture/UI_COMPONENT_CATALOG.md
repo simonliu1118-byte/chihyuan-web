@@ -28,7 +28,7 @@
 ### 表單
 - `forms/Field.tsx`：`CheckField type="radio"` 可讓互斥選項沿用共用欄位外觀，預設仍為 checkbox。
 - `forms/Field.tsx`：`Field`（每個輸入都要包；表格格子內用 `presentation="cell"`）、`CheckField`（勾選框，**不要用原生 `<label>`**，測試會擋）、`FormSection`、`RequiredRows`。
-- `forms/EntryTable.tsx`：`EntryTable`、`EntryHeading`（必填星號用 `required`）。表格式表單的外框。
+- `forms/EntryTable.tsx`：`EntryTable`、`EntryHeading`（必填星號用 `required`）、`EntryFields`（視窗內少量列式欄名／編輯格，仍自動以 `Field presentation="cell"` 包每個欄位）。表格式表單的共用外框，修改不另長出直排表單。
 - `forms/RecordSheet.tsx`：`RecordSheet`、`RecordRows`（`hideWhenEmpty`；檢視模式空值顯示「—」）。
 - `forms/TimeInput.tsx`：所有時間輸入（24 小時 HH:MM），不要用原生 `type="time"`。
 - `forms/DateInput.tsx`：所有日期輸入（YYYY/MM/DD）；`precision="month"` 為共用 YYYY/MM 年月選擇模式，對外值是 YYYY-MM。日期可為「無」時，旁邊放 `CheckField label="無日期"`。
@@ -155,3 +155,9 @@
 - 商品檢視與編輯共用 `RecordSheet` 與 `Field`；基準單位換算及批發多列價格仍由商品表單 owner 管理，不另外建立儲存層。
 - `src/ui/forms/InlineGridField.tsx` 是共用格內多欄價格輸入，欄名在上、每格十進位輸入在下，由父層提供欄位清單／onChange；手機沿用 `RecordSheet` 的響應式編排。
 - `ItemsModulePage.tsx` 使用共用 `ModuleSections` 控制商品／瑕疵子頁，沿用既有授權、路由及原瑕疵元件。
+
+ 
+### WO-0.17.0 人事資料單／薪資總覽
+- `HrEmployeeSheet` 以 `RecordSheet` 在同一畫面切換檢視／編輯並配合三張 `RecordRows`，手機沿用其 820px 共用轉置。
+- 動態資料的短視窗統一 `EntryFields`（由 `EntryTable` 與 `Field presentation=cell` 組成）；調薪的四欄一列使用 `EntryTable`，津貼採 `RecordRows`。
+- 薪資總覽桌機數字靠右、手機 `cy-rt cy-rt-list`，不複製寫入 owner。既有 `HrService.salary` POST 不修改，另加單一薪資唯讀 bulk GET。

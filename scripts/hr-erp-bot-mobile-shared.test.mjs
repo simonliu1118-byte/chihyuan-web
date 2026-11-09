@@ -17,7 +17,8 @@ test("HR phone nav, list and employee editor use shared owners",()=>{
  assert.match(hr,/onSubmit=\{saveEmployee\}/);
  assert.match(hr,/const compact = useCompactLayout\(\)/);
  assert.doesNotMatch(css,/@media \(max-width: 720px\)/);
- assert.match(mobile,/\.cy-hr-edit-row\.cy-mobile-form-two-col/);
+ assert.doesNotMatch(mobile,/\.cy-hr-edit-row/,"人事子表改用共用 RecordRows，舊的手機列樣式已移除");
+ assert.match(read("src/runtime/modules/HrEmployeeSheet.tsx","utf8"),/<RecordRows title="緊急聯絡人"/);
 });
 test("ERP keeps its category jobs mounted while changing only mobile navigation",()=>{
  assert.match(erp,/<ModuleSections label="ERP 查詢類別"/);

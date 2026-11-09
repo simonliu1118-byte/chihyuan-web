@@ -35,3 +35,4 @@ export function EntryTable({label, embedded=false, className="", children}:Props
 export function EntryHeading({children,required=false}: {children:ReactNode;required?:boolean}){
  return <>{children}{required?<span className="cy-field-required" aria-hidden="true">＊</span>:null}</>;
 }
+

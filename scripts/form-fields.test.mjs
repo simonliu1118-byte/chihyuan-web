@@ -32,7 +32,7 @@ test("every non-search form uses shared fields, never native labels or obsolete 
    const content=form.slice(head.length,-7),line=text.slice(0,m.index).split("\n").length;
    if(/<label\b/.test(content))failures.push(`${filepath}:${line} has native <label> — use Field or CheckField`);
    if(/cy-op-form-grid/.test(form))failures.push(`${filepath}:${line} uses cy-op-form-grid — use FormSection`);
-   if(!/\b(?:FormSection|FieldFrame|Field|CheckField|RecordRows|\w*Sheet)\b/.test(content))failures.push(`${filepath}:${line} has no shared field or FormSection`);
+   if(!/\b(?:FormSection|FieldFrame|Field|CheckField|RecordRows|EntryFields|\w*Sheet)\b/.test(content))failures.push(`${filepath}:${line} has no shared field or FormSection`);
   }
  }
  assert.deepEqual(failures,[],"Use Field, CheckField and FormSection; no exceptions:\n"+failures.join("\n"));
