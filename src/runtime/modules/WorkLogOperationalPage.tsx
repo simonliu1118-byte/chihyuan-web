@@ -589,7 +589,14 @@ export function WorkLogOperationalPage() {
 
       <div className="cy-md" data-pane={pane.pane}>
         <section className="cy-op-panel cy-md-list" aria-label="工作日誌清單">
-          <div className="cy-md-toolbar">
+          {compact?<DataViewToolbar searchValue={query} onSearchChange={setQuery} searchLabel="搜尋工作日誌"
+             searchPlaceholder="搜尋日誌編號、類型、內容"
+             filters={<StatusFilter label="日誌狀態" value={statusFilter} onChange={setStatusFilter} counts={statusCounts}
+               options={(Object.keys(statusText) as (keyof typeof statusText)[]).map(code=>({code,label:statusText[code],tone:workLogTone[code]}))}/>}
+             activeFilterCount={statusFilter?1:0}
+             actions={<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void startCreate()}>＋ 新增日誌</button>}
+             resultSummary={loadingList?"載入中":paging.hasMore?`已載入 ${rows.length} 筆，還有更多`:`共 ${rows.length} 筆`}/>
+            :          <div className="cy-md-toolbar">
             <div className="cy-md-toolbar-lead">
               <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增日誌</button>
               <input className="cy-op-input" type="search" aria-label="搜尋工作日誌" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋日誌編號、類型、內容" />
@@ -597,9 +604,20 @@ export function WorkLogOperationalPage() {
             <StatusFilter label="日誌狀態" value={statusFilter} onChange={setStatusFilter} counts={statusCounts}
               options={(Object.keys(statusText) as (keyof typeof statusText)[]).map((code) => ({ code, label: statusText[code], tone: workLogTone[code] }))} />
             <div className="cy-md-count">{loadingList ? <Loading inline /> : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
-          </div>
+          </div>}
           <div className="cy-op-list">
-            {rows.map((row) => <button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={async () => { if (!busy && await canLeave()) { setEditing(false); setCreating(false); setDraft(null); setSelectedId(row.id); pane.open(); } }}><strong>{formatDate(row.logDate)} · {row.workDays} 日</strong><span><span className="cy-mono">{row.workLogRef}</span> · 員工 #{row.employeeId}</span><StatusChip tone={workLogTone[row.statusCode]}>{statusText[row.statusCode]}</StatusChip></button>)}
+            {rows.map(row=>compact?<ListRow key={row.id} title={`${formatDate(row.logDate)} · ${row.workDays} 日`}
+               subtitle={`${row.workLogRef} · 員工 #${row.employeeId}`}
+               trailing={<StatusChip tone={workLogTone[row.statusCode]}>{statusText[row.statusCode]}</StatusChip>}
+               selected={selectedId===row.id}
+               onClick={async()=>{if(!busy&&await canLeave()){setEditing(false);setCreating(false);setDraft(null);setSelectedId(row.id);pane.open()}}}/>
+             :<button key={row.id} type="button" className={`cy-op-list-row cy-status-row ${selectedId===row.id?"active":""}`}
+               aria-current={selectedId===row.id?"true":undefined}
+               onClick={async()=>{if(!busy&&await canLeave()){setEditing(false);setCreating(false);setDraft(null);setSelectedId(row.id);pane.open()}}}>
+               <strong>{formatDate(row.logDate)} · {row.workDays} 日</strong>
+               <span><span className="cy-mono">{row.workLogRef}</span> · 員工 #{row.employeeId}</span>
+               <StatusChip tone={workLogTone[row.statusCode]}>{statusText[row.statusCode]}</StatusChip>
+             </button>)}
             {loadingList && rows.length === 0 ? <Loading /> : null}
             {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的工作日誌。</div> : null}
             <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
@@ -613,8 +631,9 @@ export function WorkLogOperationalPage() {
     <FormSection>
             <div className="cy-record-header cy-edit-header">
               <div><h2>{creating ? "新增工作日誌" : `修改 ${selected?.workLogRef ?? "工作日誌"}`}</h2></div>
-            <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
-              <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立日誌" : "儲存修改"}</button></div></div>
+            {compact?<ActionBar><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void cancelEdit()}>取消</button>
+              <button className="cy-op-button primary" disabled={busy} aria-busy={busy||undefined}>{creating?"建立日誌":"儲存修改"}</button></ActionBar>:<div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
+              <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立日誌" : "儲存修改"}</button></div>}</div>
             <div className="cy-f-grid cy-worklog-head-grid cy-form-grid-spaced">
               <Field label="日誌日期" size="s"><DateInput density="regular" className="cy-op-input" max="9999-12-31" value={draft.logDate} disabled={busy} onChange={(event) => setDraft({ ...draft, logDate: event })} /></Field>
               <Field label="期間起" size="s"><DateInput density="regular" className="cy-op-input" max="9999-12-31" value={draft.dateFrom} disabled={busy} onChange={(event) => setDraft({ ...draft, dateFrom: event })} /></Field>
@@ -662,7 +681,11 @@ export function WorkLogOperationalPage() {
   </form>
           ) : selected ? <div>
             <div className="cy-record-header"><div><h2>{formatDate(selected.logDate)} 工作日誌</h2><p><span className="cy-mono">{selected.workLogRef}</span> · {selected.employee.displayName || selected.employee.employeeNo || `員工 #${selected.employeeId}`}</p></div>
-              <div className="cy-record-actions">
+              {compact?<OverflowMenu items={[
+                ...(selected.statusCode==="created"?[{label:"刪除",danger:true,disabled:busy,onClick:()=>track("deleteDraft",deleteDraft())}]:[]),
+                ...(selected.statusCode==="pending_review"?[{label:"撤回審核",disabled:busy,onClick:()=>withdraw()}]:[]),
+                ...(selected.statusCode==="reviewed"?[{label:"取消審核",danger:true,disabled:busy,onClick:()=>cancelReview()}]:[])
+              ]}/>:              <div className="cy-record-actions">
                 {selected.statusCode === "created" ? <>
                 <button className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
                 <button className="cy-op-button primary" disabled={busy} aria-busy={(busy && pending === "submit") || undefined} onClick={() => track("submit", submit())}>送出審核</button>
@@ -673,7 +696,12 @@ export function WorkLogOperationalPage() {
                 <button className="cy-op-button primary" disabled={busy} onClick={() => review()}>審核計分</button>
               </> : null}
               {selected.statusCode === "reviewed" ? <button className="cy-op-button danger" disabled={busy} onClick={() => cancelReview()}>取消審核</button> : null}
-              </div></div>
+              </div>}
+              </div>
+              {compact?<ActionBar>
+                {selected.statusCode==="created"?<><button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button><button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>track("submit",submit())}>送出審核</button></>:null}
+                {selected.statusCode==="pending_review"?<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>review()}>審核計分</button>:null}
+              </ActionBar>:null}</div>
             <ol className="cy-progress" aria-label="日誌進度">{progressSteps.map((step, index) => { const current = progressSteps.findIndex(item => item.code === selected.statusCode); return <li key={step.code} data-state={index < current ? "done" : index === current ? "current" : "todo"} aria-current={index === current ? "step" : undefined}>{step.label}</li>; })}</ol>
             <div className="cy-op-detail-grid">
               <div><span>日誌日期</span><strong>{formatDate(selected.logDate)}</strong></div>
