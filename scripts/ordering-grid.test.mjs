@@ -382,3 +382,20 @@ test("a 廠商品號 typed on a saved row goes along when its 品號 is entered 
   assert.ok(itemSave, JSON.stringify(grid.commits.map(c => c.patch)));
   assert.equal(itemSave.patch.vendorItemCode, "A43", "the server would otherwise drop it as the old item's remembered value");
 });
+
+test("revising: received/closed lines lock 品號／品名／單位 (closed: 數量) and the 結掉 reason sits under 備註", () => {
+  const base={section:"",sortOrder:0,itemCode:"T001",itemName:"測試商品",vendorItemCode:"",vendorItemName:"",spec:"",quantityText:"10",quantity:10,unit:"箱",note:"原備註"};
+  const grid=mount("GENERAL",[{...base,id:1,received:4},{...base,id:2,received:0,closedAs:"OTHER",closedNote:"自行向廠商訂購"},{...base,id:3,received:0}]);
+  const editable=row=>grid.nodes.filter(n=>n.props?.["data-order-row"]===row).map(n=>n.props["data-order-field"]);
+  assert.deepEqual(editable(1).sort(),["note","quantityText","vendorItemCode","vendorItemName"].filter(f=>editable(3).includes(f)).sort());
+  assert.equal(editable(1).includes("itemCode"),false);assert.equal(editable(1).includes("unit"),false);
+  assert.equal(editable(2).includes("quantityText"),false);assert.equal(editable(2).includes("vendorItemCode"),true);
+  assert.equal(editable(3).includes("itemCode"),true);
+  assert.equal(grid.nodes.filter(n=>n.type?.name==="IconButton").length,1,"only the untouched line can be deleted");
+  const ro=mount("GENERAL",[{...base,id:2,received:0,closedAs:"OTHER",closedNote:"自行向廠商訂購"}],{readOnly:true});
+  const notes=ro.nodes.filter(n=>n.type==="td"&&n.props["data-col"]==="note");
+  assert.equal(notes.length,1);
+  const textOf=n=>typeof n==="string"?n:Array.isArray(n)?n.map(textOf).join(""):n?.props?textOf(n.props.children):"";
+  assert.match(textOf(notes[0]),/原備註結掉：其他－自行向廠商訂購/);
+  assert.doesNotMatch(textOf(ro.nodes.find(n=>n.type==="td"&&n.props["data-col"]==="received")),/其他/);
+});

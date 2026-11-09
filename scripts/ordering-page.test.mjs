@@ -31,7 +31,7 @@ for (const [path, names] of [
   ["../../ui/data/StatusFilter", ["StatusFilter"]], ["../../ui/primitives/StatusChip", ["StatusChip"]],
   ["../../ui/overlays/Dialog", ["Dialog", "BottomSheet"]],
 ]) stubs[path] = names.map(name => `export const ${name}=()=>null;`).join("\n");
-let OrderingPage;
+let OrderingPage, revisionSummary;
 try {
   await build({ entryPoints: [fileURLToPath(new URL("../src/runtime/modules/OrderingPage.tsx", import.meta.url))], outfile,
     bundle: true, platform: "node", format: "esm", jsx: "automatic", packages: "external",
@@ -44,7 +44,7 @@ try {
       build.onLoad({ filter: /.*/, namespace: "page-boundary" }, args => ({ contents: stubs[args.path] }));
       build.onLoad({ filter: /\.css$/ }, () => ({ contents: "", loader: "js" }));
     } }] });
-  ({ OrderingPage } = await import(pathToFileURL(outfile)));
+  ({ OrderingPage, revisionSummary } = await import(pathToFileURL(outfile)));
 } finally { if (existsSync(outfile)) unlinkSync(outfile); rmdirSync(directory); }
 
 const descendants = node => !node || typeof node !== "object" ? [] :
@@ -304,10 +304,24 @@ test("a draft is deleted (not voided) after confirmation and the source reopens 
  assert.ok(page.calls.indexOf(del)<page.calls.length-1,"the source's draft is opened again");
 });
 
-test("a partly received order offers no 修改",async()=>{
+test("a partly received order can still be revised (廠商品號 etc.)",async()=>{
  const page=mount((path,options)=>path==="/orders/10"?sentOrder():normalTransport(path,options));
  await page.tick();page.click("測試來源甲");await page.tick();
- assert.equal(page.nodes.some(n=>n.type==="button"&&text(n)==="修改"),false);
+ assert.equal(page.nodes.some(n=>n.type==="button"&&text(n)==="修改"),true);
+ page.click("修改");await page.tick();
+ assert.equal(page.grid.readOnly,false);assert.equal(page.grid.lines[0].received,4,"the grid gets received counts to lock those lines");
+});
+
+test("a closed order offers no 修改",async()=>{
+ const closed=mount((path,options)=>path==="/orders/10"?{...sentOrder(),status:"CLOSED"}:normalTransport(path,options));
+ await closed.tick();closed.click("測試來源甲");await closed.tick();
+ assert.equal(closed.nodes.some(n=>n.type==="button"&&text(n)==="修改"),false);
+});
+
+test("older 結掉 records show the label instead of the raw code",async()=>{
+ assert.equal(revisionSummary("洞巾-綠 40*40cm(500張) OTHER"),"洞巾-綠 40*40cm(500張) 結掉：其他");
+ assert.equal(revisionSummary("測試品 SHORTAGE"),"測試品 結掉：缺貨");
+ assert.equal(revisionSummary("測試品：數量 10 → 12"),"測試品：數量 10 → 12");
 });
 
 test("a sent order is changed in edit mode with no autosave and saved as one revision",async()=>{

@@ -2,7 +2,7 @@ import {requireModuleAccess} from "../auth/guard";
 import {identityClient,type IdentityRuntimeEnv} from "./auth-routes";
 import {success,failure} from "./response";
 import {AuditService} from "../audit/audit-service";
-import {CN_REGULAR_SECTIONS,lineIsOpen,lineState,orderStatus,orderingLineHasName,parseErpPurchaseNo,parseQuantity,pickDraft,receiptItemSummary,vendorItemKey,type OrderingStoredStatus} from "../../shared/ordering";
+import {CLOSED_AS_LABELS,CN_REGULAR_SECTIONS,lineIsOpen,lineState,orderStatus,orderingLineHasName,parseErpPurchaseNo,parseQuantity,pickDraft,receiptItemSummary,vendorItemKey,type OrderingClosedAs,type OrderingStoredStatus} from "../../shared/ordering";
 
 type Context={db:D1Database;actor:number;name:string;now:string;requestId:string};
 type Source={id:number;name:string;kind:"GENERAL"|"VENDOR"|"CN_REGULAR"|"CN_CUSTOM";conditions:string;payment_terms:string;note:string;sort_order:number;is_active:number};
@@ -302,8 +302,9 @@ async function orderingRoute(request:Request,env:IdentityRuntimeEnv,requestId:st
     const upserts=Array.isArray(v.lines)?v.lines as Record<string,unknown>[]:[],removes=Array.isArray(v.deleted)?v.deleted:[];
     if(upserts.length>500||removes.length>500||upserts.some(x=>!x||typeof x!=="object"||Array.isArray(x)))throw new Bad("ORDERING_INVALID","修改內容不正確");
     const all=await rows<Line>(ctx.db,"SELECT l.*,COALESCE((SELECT SUM(quantity) FROM ordering_receipt_lines WHERE line_id=l.id),0) received FROM ordering_lines l WHERE order_id=? LIMIT 501",id);
-    // Partly or fully received (or with a closed line): the order can no longer be revised (user 2026-11-03).
-    if(all.some(l=>l.received>0||l.closed_as))throw new Bad("ORDERING_INVALID","已有到貨或已結掉的品項，不能再修改叫貨單",409);
+    // Revisable until 結案 (user 2026-11-09; was: locked at the first receipt). Lines already received or closed keep
+    // their identity (品號／品名／單位／分類) so receipts stay attached to the right item; vendor codes, spec and notes stay editable.
+    if(orderStatus(o.status,all.map(l=>({quantity:l.quantity,received:l.received,closedAs:l.closed_as})))==="CLOSED")throw new Bad("ORDERING_INVALID","已結案的叫貨單不能再修改",409);
     const source=await one<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE id=?",o.source_id),kind=source?.kind??"GENERAL";
     const stmts:D1PreparedStatement[]=[],changes:string[]=[];
     const label=(x:{item_name:string;vendor_item_name:string;item_code:string})=>x.item_name||x.vendor_item_name||x.item_code;
@@ -312,6 +313,7 @@ async function orderingRoute(request:Request,env:IdentityRuntimeEnv,requestId:st
     for(const value of removes){const lineId=int(value,"明細"),line=all.find(x=>x.id===lineId);
      if(!line)throw new Bad("ORDERING_NOT_FOUND","找不到明細",404);
      if(line.received>0)throw new Bad("ORDERING_INVALID",label(line)+" 已有到貨，不能刪除");
+     if(line.closed_as)throw new Bad("ORDERING_INVALID",label(line)+" 已結掉，不能刪除");
      removed.add(lineId);stmts.push(ctx.db.prepare("DELETE FROM ordering_lines WHERE id=? AND order_id=?").bind(lineId,id));changes.push("刪除 "+label(line));
     }
     if(all.length-removed.size+upserts.filter(x=>!x.lineId).length>500)throw new Bad("ORDERING_LIMIT","單張叫貨單最多 500 列",409);
@@ -328,6 +330,10 @@ async function orderingRoute(request:Request,env:IdentityRuntimeEnv,requestId:st
      const name=next.item_name||typedVendorName||next.item_code||"第 "+(index+1)+" 列";
      if(!orderingLineHasName(kind,{itemName:next.item_name,vendorItemName:typedVendorName})||!next.quantity_text.trim())throw new Bad("ORDERING_INVALID",name+"：品名（一般／廠商來源亦可填廠商品名）、數量必填");
      const parsed=parseQuantity(next.quantity_text),unit=next.unit||("quantityText" in raw?parsed.unit:"");
+     if(old&&(old.received>0||old.closed_as)){
+      const locked=(["item_code","item_name","unit","section",...(old.closed_as?["quantity_text"] as const:[])] as const).filter(k=>String(old[k]??"")!==String(k==="unit"?unit:next[k]));
+      if(locked.length)throw new Bad("ORDERING_INVALID",label(old)+"："+(old.closed_as?"已結掉":"已有到貨")+"，"+locked.map(k=>labels[k]).join("、")+"不能修改");
+     }
      if(old&&old.received>0&&(parsed.quantity===null||parsed.quantity<old.received))throw new Bad("ORDERING_INVALID",name+"：數量不可少於已到貨 "+old.received);
      const follows=!typedVendorName,vendorName=typedVendorName||next.item_name;
      const row={...next,unit,vendor_item_name:vendorName};
@@ -510,7 +516,7 @@ async function orderingRoute(request:Request,env:IdentityRuntimeEnv,requestId:st
     const note=must(v.reason??"","原因",200);if(closed==="OTHER"&&!note)throw new Bad("ORDERING_INVALID","其他原因必填");
     const line=await one<Line>(ctx.db,"SELECT * FROM ordering_lines WHERE order_id=? AND id=?",id,lineId);
     if(!line||line.closed_as)throw new Bad("ORDERING_INVALID","明細不能結掉");
-    return success(await mutate(ctx,o,expected,[ctx.db.prepare("UPDATE ordering_lines SET closed_as=?,closed_note=?,closed_at=?,closed_by=? WHERE order_id=? AND id=?").bind(closed,note,ctx.now,ctx.actor,id,lineId)],(line.item_name||line.vendor_item_name)+" "+closed,"closed"),requestId);
+    return success(await mutate(ctx,o,expected,[ctx.db.prepare("UPDATE ordering_lines SET closed_as=?,closed_note=?,closed_at=?,closed_by=? WHERE order_id=? AND id=?").bind(closed,note,ctx.now,ctx.actor,id,lineId)],(line.item_name||line.vendor_item_name)+" 結掉："+CLOSED_AS_LABELS[closed as OrderingClosedAs]+(note?"（"+note+"）":""),"closed"),requestId);
    }
   }
   return failure({code:"NOT_FOUND",message:"找不到叫貨功能"},requestId,404);
