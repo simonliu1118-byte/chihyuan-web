@@ -103,6 +103,7 @@ Archive、舊 preview、review backlog、readiness checkpoint、已結案舊 han
 - `STORE_REPAIRS.md` — 門市售後維修（流程、取消、逾期、維修單照片、API 與資料）。
 - `HR_MODULE_DESIGN.md`、`HR_MODULE_CONTRACT.md` — 人事（主檔、排班出勤、請假特休加班補休）；`HR_LEGAL_WATCH.md` 為每月法規檢查。
 - `BOT_CENTER.md` — BOT 管理中心（進度、待審稿、回報、今日完成）。通過或退回只回寫審核結果，不發布。
+- [HOME_HUB.md](HOME_HUB.md) — 首頁、個人待辦、公告通知雙頁籤、站內鈴鐺提醒及權限。
 
 Module contract 與適用的最新 Business Decisions 共同定義業務語意；不要從歷史 preview 反推 current business rule。
 
