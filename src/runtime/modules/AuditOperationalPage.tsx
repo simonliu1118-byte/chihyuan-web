@@ -131,7 +131,7 @@ export function ChangeLogList({role,customerId}:{
     {error?<div role="alert" className="cy-op-notice danger">{error}</div>:null}
     <section className={customerId?"cy-change-log-list":"cy-op-panel cy-change-log-list"} aria-label="異動清單">
       {loading?<Loading/>:<>
-        {rows.length?<div className="cy-change-log-wrap"><table className="cy-sheet-table cy-change-log-table" aria-label="異動紀錄">
+        {rows.length?<div className="cy-change-log-wrap"><table className="cy-sheet-table cy-rt cy-change-log-table" aria-label="異動紀錄">
           <thead><tr><th scope="col"><span className="cy-visually-hidden">展開</span></th><th scope="col" className="cy-sheet-seq">項次</th>
             <th scope="col">時間（台灣）</th><th scope="col">人員</th><th scope="col">動作</th><th scope="col">對象</th><th scope="col">變更內容</th></tr></thead>
           <tbody>{rows.map((item,index)=>{
@@ -143,18 +143,18 @@ export function ChangeLogList({role,customerId}:{
             return <Fragment key={item.id}>
               <tr className={"cy-change-log-row"+(expanded?" open":"")} title={formatDateTime(item.occurredAt)+"　"+who(item)+"　"+auditSentence(item, lookups)}
                 onClick={()=>{if(expandable)toggle(item.id);}}>
-                <td className="cy-change-log-toggle">{expandable?<ExpandToggle expanded={expanded} onToggle={()=>toggle(item.id)} label={auditSentence(item, lookups)}/>:null}</td>
-                <td className="cy-sheet-seq">{index+1}</td>
-                <td><span className="cy-sheet-value cy-change-log-time">{formatDateTime(item.occurredAt)}</span></td>
-                <td><span className="cy-sheet-value">{who(item)}</span></td>
-                <td><span className="cy-sheet-value">{item.entityType==="erp_item_query"?"ERP 查詢":actionLabel(item.action,item.entityType)}</span></td>
-                <td><span className="cy-sheet-value">{target}</span></td>
-                <td><span className="cy-sheet-value cy-change-log-fields">{[...new Set(changes.map(row=>row.label))].join("、")||"—"}</span></td>
+                <td data-label="展開" className="cy-change-log-toggle">{expandable?<ExpandToggle expanded={expanded} onToggle={()=>toggle(item.id)} label={auditSentence(item, lookups)}/>:null}</td>
+                <td data-label="項次" className="cy-sheet-seq">{index+1}</td>
+                <td data-label="時間"><span className="cy-sheet-value cy-change-log-time">{formatDateTime(item.occurredAt)}</span></td>
+                <td data-label="人員"><span className="cy-sheet-value">{who(item)}</span></td>
+                <td data-label="動作" data-priority="title"><span className="cy-sheet-value">{item.entityType==="erp_item_query"?"ERP 查詢":actionLabel(item.action,item.entityType)}</span></td>
+                <td data-label="對象"><span className="cy-sheet-value">{target}</span></td>
+                <td data-label="變更內容" data-priority="wide"><span className="cy-sheet-value cy-change-log-fields">{[...new Set(changes.map(row=>row.label))].join("、")||"—"}</span></td>
               </tr>
               {expanded&&changes.length?<tr className="cy-change-log-sub head"><td/><td/><td/><td/><td><span className="cy-sheet-value">欄位</span></td><td><span className="cy-sheet-value">改前</span></td><td><span className="cy-sheet-value">改後</span></td></tr>:null}
               {expanded?changes.map(row=><tr key={row.key} className="cy-change-log-sub"><td/><td/><td/><td/>
                 <td><span className="cy-sheet-value">{row.label}</span></td><td><span className="cy-sheet-value">{row.before}</span></td><td><span className="cy-sheet-value">{row.after}</span></td></tr>):null}
-              {expanded&&role==="SUPER_ADMIN"?<tr className="cy-change-log-sub"><td/><td/><td colSpan={5}><details className="cy-change-log-technical"><summary>技術細節</summary>
+              {expanded&&role==="SUPER_ADMIN"?<tr className="cy-change-log-sub"><td/><td/><td data-label="技術細節" data-priority="wide" colSpan={5}><details className="cy-change-log-technical"><summary>技術細節</summary>
                 <pre className="cy-code-block">{JSON.stringify({id:item.id,entityType:item.entityType,
                   entityKey:item.entityKey,action:item.action,requestId:item.requestId,
                   before:item.before,after:item.after,metadata:item.metadata},null,2)}</pre></details></td></tr>:null}
