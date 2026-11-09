@@ -26,6 +26,11 @@ import { formatDateTime } from "../../ui/foundation/format";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { useFormPrompt } from "../../ui/overlays/useFormPrompt";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
+import { useCompactLayout } from "../../ui/foundation/useCompactLayout";
+import { DataViewToolbar } from "../../ui/data/DataViewToolbar";
+import { ListRow } from "../../ui/mobile/ListRow";
+import { ActionBar } from "../../ui/mobile/ActionBar";
+import { OverflowMenu } from "../../ui/mobile/OverflowMenu";
 import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackProvider";
 import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
@@ -215,6 +220,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
   const { pending, track } = usePendingAction();
   const unsavedGuard = useUnsavedChangesGuard({ active: editing, blocked: busy, message: "目前有尚未儲存的商品修改，確定放棄？" });
   const pane = useMasterDetailPane();
+  const compact = useCompactLayout();
   const { confirm, confirmationDialog } = useConfirmation();
   const { ask, promptDialog } = useFormPrompt();
   const canLeave = async () => (await unsavedGuard.confirmNavigationAsync(description => confirm({
@@ -552,6 +558,16 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
   }
 
   if (!listReady) return <Loading />;
+  const itemFilters = <div className="cy-md-toolbar-row">
+    <select className="cy-op-input" aria-label="商品分類" value={categoryFilter} onChange={event=>setCategoryFilter(event.target.value)}>
+      <option value="">全部分類</option>
+      {categories.map(row=><option key={row.id} value={row.id}>{row.isActive?row.name:`${row.name}（已停用）`}</option>)}
+    </select>
+    <select className="cy-op-input" aria-label="商品狀態" value={activeFilter} onChange={event=>setActiveFilter(event.target.value)}>
+      <option value="">全部狀態</option><option value="active">使用中</option><option value="inactive">已停用</option>
+    </select>
+  </div>;
+
 
   return <div className="cy-item-op">
     {confirmationDialog}
@@ -625,31 +641,29 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
 
     <div className="cy-md cy-item-workspace" data-pane={pane.pane}>
       <section className="cy-op-panel cy-md-list" aria-label="商品清單">
-        <div className="cy-md-toolbar">
+        {compact?<DataViewToolbar searchValue={query} onSearchChange={setQuery} searchLabel="搜尋商品"
+          searchPlaceholder="搜尋現行／歷史品號、名稱、規格"
+          filters={itemFilters} activeFilterCount={[categoryFilter,activeFilter].filter(Boolean).length}
+          actions={<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void startCreate()}>＋ 新增商品</button>}
+          resultSummary={loadingList?"載入中":paging.hasMore?`已載入 ${rows.length} 筆，還有更多`:`共 ${rows.length} 筆`}/>
+        :<div className="cy-md-toolbar">
           <div className="cy-md-toolbar-lead">
-            <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增商品</button>
-            <input className="cy-op-input" type="search" aria-label="搜尋商品" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋現行／歷史品號、名稱、規格" />
+            <button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void startCreate()}>＋ 新增商品</button>
+            <input className="cy-op-input" type="search" aria-label="搜尋商品" value={query} onChange={event=>setQuery(event.target.value)} placeholder="搜尋現行／歷史品號、名稱、規格"/>
           </div>
-          <div className="cy-md-toolbar-row">
-            <select className="cy-op-input" aria-label="商品分類" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
-              <option value="">全部分類</option>
-              {categories.map((row) => <option key={row.id} value={row.id}>{row.isActive ? row.name : `${row.name}（已停用）`}</option>)}
-            </select>
-            <select className="cy-op-input" aria-label="商品狀態" value={activeFilter} onChange={(event) => setActiveFilter(event.target.value)}>
-              <option value="">全部狀態</option>
-              <option value="active">使用中</option>
-              <option value="inactive">已停用</option>
-            </select>
-          </div>
-          <div className="cy-md-count">{loadingList ? <Loading inline /> : (paging.hasMore ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`)}</div>
-        </div>
+          {itemFilters}
+          <div className="cy-md-count">{loadingList?<Loading inline/>:paging.hasMore?`已載入 ${rows.length} 筆，還有更多`:`共 ${rows.length} 筆`}</div>
+        </div>}
         <div className="cy-op-list">
-          {rows.map((row) => (
-            <button key={row.id} type="button" className={`cy-op-list-row cy-item-row ${selectedId === row.id ? "active" : ""}`} aria-current={selectedId === row.id ? "true" : undefined} onClick={() => void selectItem(row.id)}>
-              <strong title={[row.itemNo, row.name, row.spec].filter(Boolean).join(" ")}><span className="cy-list-row-no">{row.itemNo}</span>{row.name}{row.spec ? `　${row.spec}` : ""}</strong>
-              {row.isActive ? <small>{categoryName(row)}</small> : <StatusChip>已停用</StatusChip>}
-            </button>
-          ))}
+          {rows.map(row=>compact
+            ?<ListRow key={row.id} title={[row.itemNo,row.name].filter(Boolean).join(" ")} subtitle={row.spec||""}
+               trailing={row.isActive?<small>{categoryName(row)}</small>:<StatusChip>已停用</StatusChip>}
+               selected={selectedId===row.id} onClick={()=>void selectItem(row.id)}/>
+            :<button key={row.id} type="button" className={`cy-op-list-row cy-item-row ${selectedId===row.id?"active":""}`}
+               aria-current={selectedId===row.id?"true":undefined} onClick={()=>void selectItem(row.id)}>
+               <strong title={[row.itemNo,row.name,row.spec].filter(Boolean).join(" ")}><span className="cy-list-row-no">{row.itemNo}</span>{row.name}{row.spec?`　${row.spec}`:""}</strong>
+               {row.isActive?<small>{categoryName(row)}</small>:<StatusChip>已停用</StatusChip>}
+             </button>)}
           {loadingList && rows.length === 0 ? <Loading /> : null}
           {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的商品。</div> : null}
           <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />
@@ -666,8 +680,10 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
                 <h2>{creating ? "新增商品" : `修改 ${selected?.itemNo ?? "商品"}`}</h2>
                 {creating ? <p>品號必須是 SMART ERP 中已存在的品號。</p> : null}
               </div>
-            <div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
-              <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立商品" : "儲存修改"}</button></div></div>
+            {compact?<ActionBar><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void cancelEdit()}>取消</button>
+              <button className="cy-op-button primary" disabled={busy} aria-busy={busy||undefined}>{creating?"建立商品":"儲存修改"}</button></ActionBar>
+             :<div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void cancelEdit()}>取消</button>
+              <button className="cy-op-button primary" disabled={busy} aria-busy={busy||undefined}>{creating?"建立商品":"儲存修改"}</button></div>}</div>
             <div className="cy-item-form-body">
               <div className="cy-f-grid">
                 <Field label="品號" size="m" required><input className="cy-op-input" value={creating ? draft.itemNo : selected?.itemNo ?? draft.itemNo} disabled={!creating || busy} onChange={(event) => creating && patch({ itemNo: event.target.value })} /></Field>
@@ -712,15 +728,20 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
                 <p>{[selected.spec, selected.category?.name, selected.isActive ? "使用中" : null].filter(Boolean).join("　")}
                   {!selected.isActive ? <StatusChip>已停用</StatusChip> : null}</p>
               </div>
-              <div className="cy-record-actions">
+              {compact?<OverflowMenu items={[
+                {label:"更改品號",disabled:busy,onClick:()=>track("changeItemNumber",changeItemNumber())},
+                {label:selected.isActive?"停用":"啟用",disabled:busy,danger:selected.isActive,onClick:()=>track("toggleActive",toggleActive())}
+               ]}/>
+              :<div className="cy-record-actions">
                 <button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button>
                 <button type="button" className="cy-op-button" disabled={busy} aria-busy={(busy && pending === "changeItemNumber") || undefined}
                   onClick={() => track("changeItemNumber", changeItemNumber())}>更改品號</button>
                 <button type="button" className={`cy-op-button ${selected.isActive ? "danger" : ""}`} disabled={busy}
                   aria-busy={(busy && pending === "toggleActive") || undefined} onClick={() => track("toggleActive", toggleActive())}>
                   {selected.isActive ? "停用" : "啟用"}</button>
-              </div>
+               </div>}
             </div>
+            {compact?<ActionBar><button type="button" className="cy-op-button primary" disabled={busy} onClick={startEdit}>修改</button></ActionBar>:null}
             <div className="cy-item-detail-body">
               <section className="cy-op-panel cy-item-basic-card" aria-label="基本資料">
                 <h3>基本資料</h3>
