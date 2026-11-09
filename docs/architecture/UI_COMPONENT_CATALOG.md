@@ -42,6 +42,8 @@
 - `actions/IconButton.tsx`：表格內操作一律用它（`variant="table"`，危險操作 `tone="danger"`，展開用 `expanded`/`controls`）。
 - `actions/icons.tsx`：`Icons.*` 唯一圖示來源（edit、cancel、back、history、camera、print、check、close、add、remove、retry、verify、chevronRight、grip、settings、eye）。**新圖示加在這裡**，不要在模組內寫 inline SVG。
 - 一般按鈕：`cy-op-button`（`primary`、`compact`；`quiet` 透明文字按鈕；`soft` 淡底色無框，用於列內次要動作，例如「指定結案」「移除」「修改」「載入更多」）。`quiet` 只留給本來就該像文字的地方：返回連結、工具列切換、展開／收合、灰底標題列上的按鈕（灰底上 `soft` 會看不出來）。不要再新增沒有底色也沒有框的一般按鈕。
+- 卡片／面板標題列上的小動作（「查看全部 ›」「＋ 新增待辦」）：`cy-op-button mini soft cy-header-action`（主動作用 `mini primary cy-header-action`），22px 高，不撐高標題列（2026-11-09）。
+- 浮出選單與提醒視窗必須留在畫面內：⋯ 一律用共用 `OverflowMenu`（依畫面定位），不要自己寫 `position:absolute; right:0` 的下拉。
 - 整列刪除線：在 `<tr>` 加 `cy-row-struck`（整列一條橫線、文字變灰），用於已移出的黑名單、已指定結案的叫貨品項等「保留顯示但已失效」的列。忙碌中的按鈕用 `feedback/usePendingAction`。
 - 展開箭頭：`data/ExpandToggle.tsx`（全系統同一個箭頭）。
 

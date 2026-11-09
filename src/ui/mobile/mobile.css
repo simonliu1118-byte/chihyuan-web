@@ -14,7 +14,7 @@
 
 /* ⋯ OverflowMenu */
 .cy-overflow{position:relative;display:inline-flex}
-.cy-overflow-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:30;min-width:160px;display:grid;padding:4px;background:var(--cy-surface);border:1px solid var(--cy-border);border-radius:var(--cy-radius-sm);box-shadow:var(--cy-shadow-lg)}
+.cy-overflow-menu{position:fixed;z-index:1100;max-width:calc(100vw - 16px);min-width:160px;display:grid;padding:4px;background:var(--cy-surface);border:1px solid var(--cy-border);border-radius:var(--cy-radius-sm);box-shadow:var(--cy-shadow-lg)}
 .cy-overflow-menu button{padding:9px 12px;border:0;border-radius:6px;background:transparent;color:var(--cy-text);font:inherit;text-align:left;cursor:pointer;white-space:nowrap}
 .cy-overflow-menu button:hover:not(:disabled){background:var(--cy-surface-muted)}
 .cy-overflow-menu button.danger{color:var(--cy-danger)}
@@ -72,6 +72,8 @@
  /* ResponsiveTable cards. */
  .cy-rt,.cy-rt tbody,.cy-rt tr,.cy-rt td{display:block;width:100%;min-width:0!important}
  .cy-rt colgroup,.cy-rt thead{display:none}
+ /* Each row is its own card, so the table draws no outer frame around them (no box inside a box, user 2026-11-09). */
+ .cy-rt:not(.cy-rt-list){border:0;border-radius:0;background:none}
  .cy-rt tbody>tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:10px;border:1px solid var(--cy-border);border-radius:var(--cy-radius-md,10px);background:var(--cy-surface);overflow:hidden}
  .cy-rt tbody>tr>td{border:0;padding:6px 10px;text-align:left!important}
  .cy-rt tbody>tr>td[data-label]::before{content:attr(data-label);display:block;color:var(--cy-text-muted);font-size:var(--cy-fs-xs,12px)}
@@ -80,6 +82,9 @@
  .cy-rt tbody>tr>td[data-priority=wide],.cy-rt tbody>tr>td[colspan]{grid-column:1/-1}
  .cy-rt tbody>tr>td[data-priority=hide]{display:none}
  .cy-rt tbody>tr>td:empty{display:none}
+ /* A one-cell row (empty state such as 尚無待審稿件) is a plain line, not a card inside the panel. */
+ .cy-rt tbody>tr:has(>td[colspan]:only-child){display:block;margin:0;border:0;border-radius:0;background:none}
+ .cy-rt tbody>tr>td[colspan]:only-child{padding:8px 2px;color:var(--cy-text-muted)}
 
  /* ResponsiveTable list variant (cy-rt cy-rt-list): two-line rows inside a card instead of one card per row.
     title = line 1 left, data-rt=end = line 1 right, data-rt=meta = line 2 left (mobile-only cell), data-rt=action = line 2 right. */
