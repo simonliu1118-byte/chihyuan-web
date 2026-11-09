@@ -223,7 +223,7 @@ export function ContractorWorkspace({ contractors, onChanged, onEditingChange, n
                 <input className="cy-op-input" aria-label="職稱" placeholder="職稱" value={row.title} disabled={busy} onChange={(event) => patchContact(index, { title: event.target.value })} />
                 <input className="cy-op-input" aria-label="電話" placeholder="電話" value={row.phone} disabled={busy} onChange={(event) => patchContact(index, { phone: event.target.value })} />
                 <input className="cy-op-input" aria-label="手機" placeholder="手機" value={row.mobile} disabled={busy} onChange={(event) => patchContact(index, { mobile: event.target.value })} />
-                <button type="button" className="cy-op-button compact quiet cy-row-remove" disabled={busy} onClick={() => patch({ contacts: draft.contacts.filter((_, i) => i !== index) })}>移除</button>
+                <button type="button" className="cy-op-button compact soft cy-row-remove" disabled={busy} onClick={() => patch({ contacts: draft.contacts.filter((_, i) => i !== index) })}>移除</button>
               </div>)}
             </div>
           </section>
@@ -244,7 +244,7 @@ export function ContractorWorkspace({ contractors, onChanged, onEditingChange, n
             <div className="cy-out-subsection-head"><h3>現行代工單價</h3><button type="button" className="cy-op-button compact" disabled={busy} onClick={() => void openPrice(null)}>＋ 設定單價</button></div>
             {detail.pricing.length ? <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">單價</th><th>單位</th><th>備註</th><th /></tr></thead>
               <tbody>{detail.pricing.map((row) => <tr key={row.id}><td className="cy-mono">{row.itemNo}</td><td>{row.itemName}</td><td className="num">{row.unitPrice}</td><td>{row.pricingUnit}</td><td>{row.note ?? ""}</td>
-                <td className="num"><button type="button" className="cy-op-button compact quiet" disabled={busy} onClick={() => void openPrice(row)}>修改</button></td></tr>)}</tbody></table></div>
+                <td className="num"><button type="button" className="cy-op-button compact soft" disabled={busy} onClick={() => void openPrice(row)}>修改</button></td></tr>)}</tbody></table></div>
               : <p className="cy-out-hint">尚未設定現行單價。計價時會依這裡的單價計算。</p>}
           </div>
         </div> : <MasterDetailEmpty title="尚未選擇代工對象" />}
@@ -368,7 +368,7 @@ export function BomWorkspace({ boms, onChanged, onEditingChange, notify, reportE
                 <input className="cy-op-input" aria-label="數量" placeholder="數量" inputMode="decimal" value={row.quantity} disabled={busy} onChange={(event) => patchComponent(index, { quantity: event.target.value })} />
                 <select className="cy-op-input" aria-label="單位" value={row.unit} disabled={busy || !row.item} onChange={(event) => patchComponent(index, { unit: event.target.value })}>
                   {unitsOf(row.item, row.unit).map((unit) => <option key={unit}>{unit}</option>)}</select>
-                <button type="button" className="cy-op-button compact quiet cy-row-remove" disabled={busy || draft.components.length <= 1} onClick={() => patch({ components: draft.components.filter((_, i) => i !== index) })}>移除</button>
+                <button type="button" className="cy-op-button compact soft cy-row-remove" disabled={busy || draft.components.length <= 1} onClick={() => patch({ components: draft.components.filter((_, i) => i !== index) })}>移除</button>
               </div>)}
             </div>
           </section>

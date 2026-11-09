@@ -85,7 +85,7 @@ function BackupRows({ history, action, kind, hasAction }: { history: BackupHisto
         { header: "資料摘要", code: true, render: digest, full: digest },
         // 操作 only when some backup has something to do (重試 GCS, 驗證隔離還原) (user 2026-11-04).
         ...(rows.some(hasAction) ? [{ header: "操作", render: action }] : [])]} />
-    {history.sets.length > BACKUP_ROWS_SHOWN ? <button type="button" className="cy-op-button quiet cy-backup-more" onClick={() => setAll(value => !value)}>
+    {history.sets.length > BACKUP_ROWS_SHOWN ? <button type="button" className="cy-op-button soft cy-backup-more" onClick={() => setAll(value => !value)}>
       {all ? "只顯示最新 " + BACKUP_ROWS_SHOWN + " 筆" : "顯示較早的備份（共 " + history.sets.length + " 筆）"}</button> : null}
   </>;
 }

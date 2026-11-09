@@ -182,7 +182,7 @@ export function ChangeLogList({role,customerId}:{
                   before:item.before,after:item.after,metadata:item.metadata},null,2)}</pre></details></td></tr>:null}
             </Fragment>;
           })}</tbody></table></div>:<p className="cy-op-empty">此範圍尚無異動紀錄。</p>}
-        {nextCursor?<button type="button" className="cy-op-button quiet cy-change-log-more" disabled={moreLoading}
+        {nextCursor?<button type="button" className="cy-op-button soft cy-change-log-more" disabled={moreLoading}
           onClick={()=>void loadMore()}>{moreLoading?"載入中…":"載入較早的紀錄"}</button>:null}
 
       </>}

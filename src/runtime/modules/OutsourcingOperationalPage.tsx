@@ -636,7 +636,7 @@ export function OutsourcingOperationalPage() {
                         <option value="">未指定 BOM</option>
                         {boms.filter((row) => row.finishedItemId === part.finishedItemId).map((row) => <option key={row.id} value={row.id}>{row.recipeRef}</option>)}
                       </select>
-                      <button type="button" className="cy-op-button compact quiet cy-row-remove" disabled={busy || draft.parts.length <= 1} onClick={() => removePart(index)}>移除</button>
+                      <button type="button" className="cy-op-button compact soft cy-row-remove" disabled={busy || draft.parts.length <= 1} onClick={() => removePart(index)}>移除</button>
                     </div>;
                   })}
                   </div>

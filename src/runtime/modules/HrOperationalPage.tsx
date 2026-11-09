@@ -356,7 +356,7 @@ export function HrOperationalPage() {
               <StatusChip tone={statusTone(row.status)}>{statusLabels[row.status]}</StatusChip>
              </button>)}
           {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的員工。</div> : null}
-          {nextCursor ? <button type="button" className="cy-op-button quiet" disabled={loadingList} onClick={() => void loadList(true)}>載入更多</button> : null}
+          {nextCursor ? <button type="button" className="cy-op-button soft" disabled={loadingList} onClick={() => void loadList(true)}>載入更多</button> : null}
         </div>
       </section>
 
@@ -388,7 +388,7 @@ export function HrOperationalPage() {
               <Fact label="到職日" value={date(detail.hire_date)} />
                 <Fact label="年資起算日" value={date(detail.seniority_start_date)} />
                 <Fact label="身分證字號" value={detail.nationalIdMasked ? <span className="cy-hr-id">{detail.nationalIdMasked}
-                  <button type="button" className="cy-op-button compact quiet" onClick={() => void reveal()}>顯示</button></span> : null} />
+                  <button type="button" className="cy-op-button compact soft" onClick={() => void reveal()}>顯示</button></span> : null} />
                 <Fact label="綁定使用者" value={detail.member_id ? detail.memberLabel ?? "已綁定" : "未綁定"} />
                 <Fact label="出生日期" value={date(detail.birth_date)} />
                 <Fact label="性別" value={detail.gender} />
@@ -462,7 +462,7 @@ export function HrOperationalPage() {
                 onChange={event => setAllowances(allowances.map((item, n) => n === index ? { ...item, amount: event.target.value } : item))} />
               <CheckField  label="經常性" size="s"  checked={row.isRegular}
                 onChange={event => setAllowances(allowances.map((item, n) => n === index ? { ...item, isRegular: event.target.checked } : item))} />
-              <button type="button" className="cy-op-button compact quiet cy-row-remove" onClick={() => setAllowances(allowances.filter((_, n) => n !== index))}>移除</button>
+              <button type="button" className="cy-op-button compact soft cy-row-remove" onClick={() => setAllowances(allowances.filter((_, n) => n !== index))}>移除</button>
             </div>)}
           </div>
         </section> : null}
@@ -489,7 +489,7 @@ export function HrOperationalPage() {
           <strong>{date(row.effective_date)}</strong><span>{statusLabels[row.next_status]}</span><span>{row.reason}</span></div>) : null}
         {browse === "exclusion" ? detail.seniorityExclusions.map(row => <div key={row.id} className="cy-hr-browse-row">
           <strong>{date(row.start_date)}～{date(row.end_date)}</strong><span>{row.reason}</span>
-          <button type="button" className="cy-op-button compact quiet cy-row-remove" disabled={busy} onClick={() => void removeExclusion(row)}>刪除</button></div>) : null}
+          <button type="button" className="cy-op-button compact soft cy-row-remove" disabled={busy} onClick={() => void removeExclusion(row)}>刪除</button></div>) : null}
       </div>
     </Dialog> : null}
 
@@ -684,5 +684,5 @@ function RowInput({ label, value, onChange, type = "text", required }: {
 }
 
 function RemoveRow({ busy, onRemove }: { busy: boolean; onRemove: () => void }) {
-  return <button type="button" className="cy-op-button compact quiet cy-row-remove" disabled={busy} onClick={onRemove}>移除</button>;
+  return <button type="button" className="cy-op-button compact soft cy-row-remove" disabled={busy} onClick={onRemove}>移除</button>;
 }

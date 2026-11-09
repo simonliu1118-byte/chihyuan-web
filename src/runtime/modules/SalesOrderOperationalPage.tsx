@@ -616,7 +616,7 @@ export function SalesOrderOperationalPage() {
                       </select>
                       <input className="cy-op-input" value={line.unitPrice} inputMode="decimal" disabled={busy} aria-label="單價" onChange={(event) => patchLine(index, { unitPrice: event.target.value })} placeholder="單價" />
                       <input className="cy-op-input" value={line.note} disabled={busy} aria-label="明細備註" onChange={(event) => patchLine(index, { note: event.target.value })} placeholder="備註" />
-                      <button type="button" className="cy-op-button compact quiet cy-row-remove" disabled={busy || draft.lines.length <= 1} onClick={() => removeLine(index)}>移除</button>
+                      <button type="button" className="cy-op-button compact soft cy-row-remove" disabled={busy || draft.lines.length <= 1} onClick={() => removeLine(index)}>移除</button>
                     </div>
                   );
                 })}

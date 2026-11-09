@@ -648,7 +648,7 @@ export function WorkLogOperationalPage() {
               <div className="cy-form-block-body">
               {draft.entries.map((entry, entryIndex) => (
                 <div className="cy-worklog-entry" key={entry.key}>
-                  <div className="cy-worklog-entry-head"><strong>工作項目 {entryIndex + 1}</strong><button type="button" className="cy-op-button compact quiet cy-row-remove" disabled={busy || draft.entries.length <= 1} onClick={() => removeEntry(entryIndex)}>移除</button></div>
+                  <div className="cy-worklog-entry-head"><strong>工作項目 {entryIndex + 1}</strong><button type="button" className="cy-op-button compact soft cy-row-remove" disabled={busy || draft.entries.length <= 1} onClick={() => removeEntry(entryIndex)}>移除</button></div>
                   <div className="cy-f-grid">
                     <Field label="項目類型" size="s" required><input className="cy-op-input" value={entry.entryTypeCode} disabled={busy} onChange={(event) => patchEntry(entryIndex, { entryTypeCode: event.target.value })} placeholder="輸入項目類型" /></Field>
                     <Field label="平台" size="m"><select className="cy-op-input" value={entry.platformId ?? ""} disabled={busy} onChange={(event) => patchEntry(entryIndex, { platformId: Number(event.target.value) || null })}>
@@ -667,7 +667,7 @@ export function WorkLogOperationalPage() {
                           {(configuration?.categories ?? []).map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
                         </select>
                         <input className="cy-op-input" value={category.quantity} inputMode="decimal" disabled={busy || config?.inputMode === "boolean"} onChange={(event) => patchCategory(entryIndex, categoryIndex, { quantity: event.target.value })} placeholder={config?.unitLabel ?? "數量"} />
-                        <button type="button" className="cy-op-button compact quiet cy-row-remove" disabled={busy} onClick={() => patchEntry(entryIndex, { categories: entry.categories.filter((_, index) => index !== categoryIndex) })}>移除</button>
+                        <button type="button" className="cy-op-button compact soft cy-row-remove" disabled={busy} onClick={() => patchEntry(entryIndex, { categories: entry.categories.filter((_, index) => index !== categoryIndex) })}>移除</button>
                       </div>;
                     })}
                   </div>
