@@ -5,6 +5,9 @@
 
 ## 目前狀態（2026-11-09）
 
+- [ ] **WO-0.14.1 第五批人事／ERP／BOT**：HR ModuleSections、ListRow、DataViewToolbar、ActionBar；ERP 類別 ModuleSections keep-mounted、未收款／進貨輔助 cy-rt；BOT 表格 cy-rt 與手機溢出選單。CI／390px／1440px／Claude 複審待驗；不合併部署。[handoff](docs/handoff/CYWEB-WO-0141-HR-ERP-BOT-20261109.md)。
+
+
 - [ ] **WO-0.14.1 第四批早期模組**：瑕疵、銷售工單、委外、工作日誌的 ListRow、DataViewToolbar、ActionBar、OverflowMenu、cy-rt 與窄表單共用化，仍需 CI、手機/桌機截圖與 Claude 複審。嚴禁合併部署。[handoff](docs/handoff/CYWEB-WO-0141-EARLY-20261109.md)。
 
 

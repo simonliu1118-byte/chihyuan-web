@@ -81,3 +81,9 @@
 - 四個模組手機清單改共用 DataViewToolbar、ListRow、ActionBar、OverflowMenu；委外 tabs 用 ModuleSections 並繼續原未儲存切換 guard；銷售和代工明細用 cy-rt。
 - 舊 560／720px 的重複手機表單列 CSS 已移進 mobile.css 的通用 two-col／stack 類，未涉及資料與原狀態流轉。
 - CI／390px／1440px 前後圖與 Claude 審查待驗；不合併不部署。
+
+### 批次 5 — 人事／ERP／BOT（GPT，2026-11-09）
+- 分支：`cyweb/wo-0.14.1-hr-erp-bot`，父分支第四批；PR 待建立。
+- 人事四頁籤 ModuleSections，員工 DataViewToolbar/ListRow/ActionBar；ERP 類別 ModuleSections 並保持 CategoryJob mounted，未收款與進貨輔助 cy-rt；BOT 審稿憑證表 cy-rt 與手機 OverflowMenu。
+- 清理 HR 舊 720px 表單列 CSS，改由 shared mobile.css；原 API／D1／權限／業務 handler 未動。
+- CI、390px／1440px 實測與 Claude 複審待辦；禁止合併部署。

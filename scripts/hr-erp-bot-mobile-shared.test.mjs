@@ -1,0 +1,44 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {readFileSync as read} from "node:fs";
+const hr=read("src/runtime/modules/HrOperationalPage.tsx","utf8");
+const erp=read("src/runtime/modules/ErpItemQueryPage.tsx","utf8");
+const restock=read("src/runtime/modules/RestockAssist.tsx","utf8");
+const receivable=read("src/runtime/modules/ErpReceivableQuery.tsx","utf8");
+const bot=read("src/runtime/modules/BotCenterPage.tsx","utf8");
+const mobile=read("src/ui/mobile/mobile.css","utf8");
+const css=read("src/runtime/modules/hr-operational.css","utf8");
+test("HR phone nav, list and employee editor use shared owners",()=>{
+ assert.match(hr,/<ModuleSections label="人事頁籤"/);
+ assert.match(hr,/<DataViewToolbar searchValue=\{query\}/);
+ assert.match(hr,/<ListRow key=\{row.id\}/);
+ assert.match(hr,/<ActionBar>/);
+ assert.match(hr,/<OverflowMenu items=/);
+ assert.match(hr,/onSubmit=\{saveEmployee\}/);
+ assert.match(hr,/const compact = useCompactLayout\(\)/);
+ assert.doesNotMatch(css,/@media \(max-width: 720px\)/);
+ assert.match(mobile,/\.cy-hr-edit-row\.cy-mobile-form-two-col/);
+});
+test("ERP keeps its category jobs mounted while changing only mobile navigation",()=>{
+ assert.match(erp,/<ModuleSections label="ERP 查詢類別"/);
+ assert.match(erp,/categories\.map\(c => panel\(c\.key,/);
+ assert.match(erp,/ErpPageVisibleContext\.Provider/);
+ assert.match(erp,/running\.has\(c\.key\)\?1/);
+ assert.match(erp,/<div className="cy-op-tabs" role="tablist"/);
+ assert.match(receivable,/cy-op-table cy-rt cy-erp-receivable-table/);
+ assert.match(restock,/const compact=useCompactLayout\(\)/);
+ assert.match(restock,/<DataViewToolbar searchValue=\{filter\}/);
+ assert.match(restock,/compact\?" cy-rt"/);
+ assert.match(restock,/onClick=\{\(\)=>setAddRow\(row\)\}/);
+});
+test("BOT phone actions and review/credentials stay on original handlers",()=>{
+ assert.match(bot,/const compact=useCompactLayout\(\)/);
+ assert.match(bot,/<OverflowMenu items=/);
+ assert.match(bot,/cy-op-table cy-rt cy-mobile-wrap-table cy-bot-review-table/);
+ assert.match(bot,/cy-op-table cy-rt cy-mobile-wrap-table cy-bot-credential-table/);
+ assert.match(bot,/data-label="事項" data-priority="title"/);
+ assert.match(bot,/data-label="操作" data-priority="wide"/);
+ assert.match(bot,/decide\(draft.id,"approved"\)/);
+ assert.match(bot,/decide\(draft.id,"rejected"\)/);
+ assert.match(bot,/retryPush\(draft.id\)/);
+});

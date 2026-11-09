@@ -131,3 +131,8 @@
 - 瑕疵、銷售工單、代工單與工作日誌的手機主清單統一 ListRow、DataViewToolbar。委外代工四子頁以 ModuleSections 搭配既有切換／未儲存保護。
 - 主要的狀態流轉用共用 ActionBar，刪除、作廢、撤回或反向交易集中 OverflowMenu；不能更動按鈕對應的原 handler。
 - 銷售／代工寬表 cy-rt 和 data-label，窄版輸入改共用 mobile.css 的 two-col／stack，移除舊 560/720px 類似版型。
+
+### WO-0.14.1 第五批（HR／ERP／BOT）
+- HR 人員清單與分頁採 ModuleSections、ListRow、DataViewToolbar；手機主要編輯與儲存用 ActionBar，危險動作用 OverflowMenu。HR 多欄編輯列使用同一 shared mobile.css。
+- ERP 查詢各類的 CategoryJob 始終保留 mounted state，只有最外層手機導覽換 ModuleSections；未收款和進貨輔助結果透過 cy-rt，進貨輔助篩選用 DataViewToolbar，不重寫排程佇列。
+- BOT 審稿與憑證表在手機用 cy-rt data-label，動作 handler 不變；桌機仍原表格和按鈕。避免把 BOT 審核的 approve/reject 改成非原生權限流程。

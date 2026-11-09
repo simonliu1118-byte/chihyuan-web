@@ -6,6 +6,12 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.14.5 — 全系統手機第二階段：人事、ERP 查詢與 BOT 管理中心（2026-11-09，待審）
+- 人事手機分頁統一 ModuleSections，員工清單 ListRow，搜尋與狀態 DataViewToolbar，員工修改及存檔 ActionBar、刪除 OverflowMenu；員工詳情、請假、薪資與排班的原業務流程不改。
+- ERP 查詢類別手機透過 ModuleSections，保留每類 CategoryJob 的 keep-mounted、背景查詢與佇列控制；未收款、進貨輔助結果用 cy-rt，進貨輔助手機篩選 DataViewToolbar。
+- BOT 管理中心重新整理／回報／設定在手機透過 OverflowMenu，審稿及憑證清單改 cy-rt 與 data-label；核准、退回、重送、憑證輪換及推播作業仍保留原 handler。
+- 移除人事 720px 形式上重複的表單列 CSS，移至共用 mobile.css 的 820px 行為。桌機原界面不變，不修改後端 API／D1／權限。待 CI、裝置驗收與 Claude 複審。**不合併不部署**。[handoff](docs/handoff/CYWEB-WO-0141-HR-ERP-BOT-20261109.md)。
+
 ## CY Web V0.14.4 — 全系統手機第二階段：瑕疵、銷售工單、委外與工作日誌（2026-11-09，待審）
 - 四項早期模組的手機清單改共用 ListRow，搜尋與狀態篩選改 DataViewToolbar；保留桌機原主明細、工具列與事件處理。
 - 瑕疵狀態流轉、銷售工單 ERP 回填／出貨、委外出庫入庫計價、日誌送審計分的手機主要動作由 ActionBar 顯示；刪除、作廢、撤回、反向交易等次要動作移 OverflowMenu，原操作權限和檢查保留。
