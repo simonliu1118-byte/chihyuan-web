@@ -646,24 +646,24 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
    value={mobileSection} onChange={key=>{if(key==="pending")void showPending();else void showMobileList(key)}}/>:null}
   <div className="cy-md" data-pane={pane.pane}>
    <section className="cy-op-panel cy-md-list" aria-label={compact?(mobileListMode==="drafts"?"草稿來源":"叫貨清單"):"叫貨紀錄"}>
-    {compact&&mobileListMode==="drafts"?<div className="cy-ordering-mobile-drafts">
-      <div className="cy-ordering-mobile-draft-heading">
+    {compact&&mobileListMode==="drafts"?<div className="cy-mobile-choice-panel">
+      <div className="cy-mobile-choice-heading">
        <h2>選擇叫貨來源</h2><p>選擇公司來源或廠商，開啟或建立草稿。</p>
       </div>
       <input type="search" className="cy-op-input" aria-label="搜尋叫貨來源或廠商" placeholder="搜尋來源或廠商" value={mobileSourceSearch}
        onChange={e=>setMobileSourceSearch(e.target.value)}/>
-      {mobileGeneralSources.length?<section className="cy-ordering-mobile-source-group" aria-label="公司內部來源">
-       <h3>公司內部</h3><div className="cy-ordering-mobile-draft-list">
+      {mobileGeneralSources.length?<section className="cy-mobile-choice-group" aria-label="公司內部來源">
+       <h3>公司內部</h3><div className="cy-mobile-choice-list">
         {mobileGeneralSources.map(item=><ListRow key={item.id} title={item.name} trailing="開啟" disabled={busy} onClick={()=>void selectSource(item)}/>)}
        </div>
       </section>:null}
-      {mobileVendors.length?<section className="cy-ordering-mobile-source-group" aria-label="廠商來源">
-       <h3>廠商</h3><div className="cy-ordering-mobile-draft-list">
+      {mobileVendors.length?<section className="cy-mobile-choice-group" aria-label="廠商來源">
+       <h3>廠商</h3><div className="cy-mobile-choice-list">
         {mobileVendors.map(item=><ListRow key={item.id} title={item.name} trailing={<VendorDots status={vendorStatus.get(item.id)}/>} disabled={busy} onClick={()=>void chooseVendor(item.id)}/>)}
        </div>
       </section>:null}
       {!mobileGeneralSources.length&&!mobileVendors.length?<p className="cy-op-empty">{active.length?"找不到符合的來源或廠商。":"目前沒有可用的叫貨來源。"}</p>:null}
-      <div className="cy-ordering-mobile-source-actions">
+      <div className="cy-mobile-choice-actions">
        <button type="button" className="cy-op-button compact" onClick={()=>setManageSources(true)}>管理來源</button>
        {canRestock?<button type="button" className="cy-op-button compact" aria-expanded={restockOpen} onClick={()=>setRestockOpen(v=>!v)}>進貨輔助</button>:null}
       </div>
