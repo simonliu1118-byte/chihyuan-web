@@ -381,8 +381,6 @@
 .cy-store-item-metadata-fields>.cy-f{flex:1;min-width:0;border:1px solid var(--cy-border)}
 .cy-store-entry-summary textarea{line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;resize:none}
 
-.cy-store-blacklist-table .cy-store-black-removed>tr:first-child>td{position:relative;color:var(--cy-text-muted)}
-.cy-store-blacklist-table .cy-store-black-removed>tr:first-child>td::after{content:"";position:absolute;top:50%;left:0;right:-1px;height:1px;background:var(--cy-text-muted);pointer-events:none;z-index:3}
 .cy-store-blacklist-table .cy-store-black-removed .cy-store-row-actions{color:var(--cy-text)}
 
 

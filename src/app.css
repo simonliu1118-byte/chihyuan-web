@@ -372,6 +372,10 @@ h1, h2, h3, h4, h5 { line-height: 1.35; }
 /* Soft: a light-filled button with no border, for secondary row actions that should still read as buttons (e.g. 指定結案). */
 .cy-op-button.soft { border-color: transparent; background: var(--cy-surface-muted); color: var(--cy-text); }
 .cy-op-button.soft:hover:not(:disabled) { border-color: transparent; background: var(--cy-border); }
+/* Struck-through table row (shared): one continuous line across every cell, muted text; e.g. removed blacklist entries, 已指定結案 order lines. */
+tr.cy-row-struck > td { position: relative; color: var(--cy-text-muted); }
+tr.cy-row-struck > td :is(span, strong, small) { color: inherit; }
+tr.cy-row-struck > td::after { content: ""; position: absolute; top: 50%; left: 0; right: -1px; height: 1px; background: var(--cy-text-muted); pointer-events: none; z-index: 3; }
 .cy-button-small, .cy-op-button.compact { min-height: var(--cy-control-h-sm); padding: 2px 10px; font-size: var(--cy-fs-sm); }
 .cy-button:disabled, .cy-op-button:disabled { opacity: .5; }
 
