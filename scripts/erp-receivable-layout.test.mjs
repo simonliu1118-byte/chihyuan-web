@@ -5,9 +5,9 @@ const r=readFileSync("src/runtime/modules/ErpReceivableQuery.tsx","utf8");
 const q=readFileSync("src/runtime/modules/ErpQueryRows.tsx","utf8");
 const c=readFileSync("src/runtime/modules/erp-item-query.css","utf8");
 test("receivable uses shared table and chevron with expandable detail row",()=>{
- assert.match(r,/cy-op-table cy-erp-receivable-table/);
+ assert.match(r,/cy-op-table cy-rt cy-erp-receivable-table/);
  assert.match(r,/<ExpandToggle expanded=\{opened\}/);
- assert.match(r,/<td colSpan=\{5\}>/);
+ assert.match(r,/data-label="結帳單明細" data-priority="wide" colSpan=\{5\}/);
  assert.match(r,/tableMode="shared"/);
  assert.doesNotMatch(r,/<details key=\{group\.customerCode\}/);
 });
