@@ -443,7 +443,7 @@ export function HrOperationalPage() {
     </FormSection>
   </form>
     </Dialog> : null}
-  </div>:tab==="roster"?<HrRosterPanel/>:tab==="attendance"?<HrAttendancePanel/>:tab==="leave"?<HrLeavePanel initialEmployeeId={initialLeaveEmployeeId}/>:<HrSalaryOverview refreshToken={salaryRefresh} onRaise={(id)=>void openAction("salary",id)}/>
+  </div>:tab==="roster"?<HrRosterPanel/>:tab==="attendance"?<HrAttendancePanel/>:tab==="leave"?<HrLeavePanel initialEmployeeId={initialLeaveEmployeeId}/>:<HrSalaryOverview refreshToken={salaryRefresh} onRaise={(id)=>void openAction("salary",id)}/>}
     {action&&actionEmployeeId!==null?<Dialog showCloseButton={false} open
       size={action==="salary"?"large":"medium"} dismissible={!busy}
       title={action==="status"?"新增狀態異動":action==="salary"?"新增薪資異動":"新增年資不計期間"}
