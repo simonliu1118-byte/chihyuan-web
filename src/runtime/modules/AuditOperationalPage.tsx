@@ -7,6 +7,8 @@ import { taipeiToday } from "../../../shared/erp-query-history";
 import { Fragment, useEffect, useState } from "react";
 import { loadAudit, loadSettings, type AuditEvent, type AuditActor } from "../api/settings-audit-client";
 import { ExpandToggle } from "../../ui/data/ExpandToggle";
+import { useCompactLayout } from "../../ui/foundation/useCompactLayout";
+import { DataViewToolbar } from "../../ui/data/DataViewToolbar";
 import { actionLabel, auditChanges, auditSentence, entityLabel, recordName, type FieldLookup } from "./change-log-labels";
 
 const moduleOptions: readonly { value:string; label:string }[] = [
@@ -52,6 +54,7 @@ function lookupDictionary(value: Awaited<ReturnType<typeof loadSettings>>):Field
 export function ChangeLogList({role,customerId}:{
   role:"ADMIN"|"SUPER_ADMIN";customerId?:number;
 }) {
+  const compact=useCompactLayout();
   const [filters,setFilters]=useState<Filters>(initialFilters);
   const [applied,setApplied]=useState<Filters>(initialFilters);
   const [events,setEvents]=useState<AuditEvent[]>([]);
@@ -109,25 +112,44 @@ export function ChangeLogList({role,customerId}:{
   const who=(item:AuditEvent)=>item.actor?formatPerson(item.actor):"系統";
   const moduleChoices=role==="SUPER_ADMIN"?moduleOptions:moduleOptions.filter(option=>option.value!==ERP_MODULES);
   return <div className="cy-change-log">
-    {!customerId ? <div role="search" className="cy-op-panel cy-change-log-filters" aria-label="異動紀錄查詢">
+    {!customerId&&(compact?<DataViewToolbar searchValue={filters.q} onSearchChange={q=>setFilters(v=>({...v,q}))}
+      searchLabel="異動紀錄關鍵字" searchPlaceholder="搜尋資料名稱或編號"
+      filters={<>
+        <SegmentedControl label="期間" value={filters.period}
+          options={[{value:"today",label:"今天"},{value:"7",label:"近 7 天"},{value:"30",label:"近 30 天"},{value:"custom",label:"自訂起訖"}] as const}
+          onChange={period=>setFilters(v=>({...v,period}))}/>
+        {filters.period==="custom"?<><DateInput density="regular" max="9999-12-31" className="cy-op-input" aria-label="開始日期" value={filters.from} onChange={from=>setFilters(v=>({...v,from}))}/>
+          <DateInput density="regular" max="9999-12-31" className="cy-op-input" aria-label="結束日期" value={filters.to} onChange={to=>setFilters(v=>({...v,to}))}/></>:null}
+        <select className="cy-op-input" aria-label="模組" value={filters.entityTypes}
+          onChange={e=>{const value=e.target.value;setFilters(v=>({...v,entityTypes:value,includeErpQueries:value===ERP_MODULES}))}}>
+          {moduleChoices.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        <select className="cy-op-input" aria-label="操作者" value={filters.actorEmployeeId}
+          onChange={e=>setFilters(v=>({...v,actorEmployeeId:e.target.value}))}>
+          <option value="">全部人員</option>{actors.map(p=><option key={p.id} value={p.id}>{formatPerson(p)}</option>)}
+        </select>
+      </>}
+      activeFilterCount={Number(filters.period!=="today")+Number(Boolean(filters.entityTypes))+Number(Boolean(filters.actorEmployeeId))}/>
+    :<div role="search" className="cy-op-panel cy-change-log-filters" aria-label="異動紀錄查詢">
       <SegmentedControl label="期間" value={filters.period}
         options={[{value:"today",label:"今天"},{value:"7",label:"近 7 天"},{value:"30",label:"近 30 天"},{value:"custom",label:"自訂起訖"}] as const}
-        onChange={period=>setFilters(v=>({...v,period}))} />
-      {filters.period==="custom" ? <>
+        onChange={period=>setFilters(v=>({...v,period}))}/>
+      {filters.period==="custom"?<>
         <DateInput density="regular" max="9999-12-31" className="cy-op-input" aria-label="開始日期" value={filters.from} onChange={e=>setFilters(v=>({...v,from:e}))}/>
         <span aria-hidden="true">～</span>
         <DateInput density="regular" max="9999-12-31" className="cy-op-input" aria-label="結束日期" value={filters.to} onChange={e=>setFilters(v=>({...v,to:e}))}/>
       </>:null}
       <select className="cy-op-input" aria-label="模組" value={filters.entityTypes}
-        onChange={e=>{const value=e.target.value;setFilters(v=>({...v,entityTypes:value,includeErpQueries:value===ERP_MODULES}));}}>
-        {moduleChoices.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select>
+        onChange={e=>{const value=e.target.value;setFilters(v=>({...v,entityTypes:value,includeErpQueries:value===ERP_MODULES}))}}>
+        {moduleChoices.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
       <select className="cy-op-input" aria-label="操作者" value={filters.actorEmployeeId}
         onChange={e=>setFilters(v=>({...v,actorEmployeeId:e.target.value}))}>
         <option value="">全部人員</option>{actors.map(p=><option key={p.id} value={p.id}>{formatPerson(p)}</option>)}
       </select>
       <input className="cy-op-input cy-change-log-search" type="search" maxLength={100} aria-label="關鍵字"
         placeholder="搜尋資料名稱或編號" value={filters.q} onChange={e=>setFilters(v=>({...v,q:e.target.value}))}/>
-    </div>:null}
+    </div>)}
     {error?<div role="alert" className="cy-op-notice danger">{error}</div>:null}
     <section className={customerId?"cy-change-log-list":"cy-op-panel cy-change-log-list"} aria-label="異動清單">
       {loading?<Loading/>:<>
