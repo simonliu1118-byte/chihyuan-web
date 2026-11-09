@@ -1,4 +1,5 @@
-.cy-inline-grid-field{display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:5px;width:100%;min-width:0}
-.cy-inline-grid-field-cell{display:grid;grid-template-rows:auto auto;gap:4px;min-width:0}
-.cy-inline-grid-field-cell>span{text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--cy-fs-xs)}
+/* A small table inside one sheet cell (e.g. 網路價): header row of names, one row of cells; borderless inputs fill each cell. */
+.cy-inline-grid-field{display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));width:100%;min-width:0;border:1px solid var(--cy-border);border-radius:var(--cy-radius-sm);overflow:hidden}
+.cy-inline-grid-field-cell{display:grid;grid-template-rows:auto auto;min-width:0;border-right:1px solid var(--cy-border);border-bottom:1px solid var(--cy-border);margin:0 -1px -1px 0}
+.cy-inline-grid-field-cell>span{padding:3px 4px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--cy-fs-xs);color:var(--cy-text-muted);background:var(--cy-surface-muted);border-bottom:1px solid var(--cy-border)}
 .cy-inline-grid-field-cell>.cy-op-input{min-width:0;width:100%;box-sizing:border-box;padding-inline:4px;text-align:center;font-size:var(--cy-fs-sm)}

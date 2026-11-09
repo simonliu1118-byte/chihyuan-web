@@ -6,3 +6,5 @@
 .cy-item-unit-cell>.cy-op-input{max-width:96px}
 .cy-item-tax-gross{display:block;white-space:nowrap;color:var(--cy-text-muted);font-size:var(--cy-fs-xs)}
 .cy-item-conversion-mini>.cy-op-button,.cy-item-wholesale-mini>.cy-op-button{justify-self:start}
+/* Inline mini rows (換算、批發價) inside a sheet cell: underline each borderless input so the entry spots stay visible. */
+.cy-sheet .cy-item-conversion-mini-row input.cy-op-input,.cy-sheet .cy-item-wholesale-mini-row input.cy-op-input,.cy-sheet .cy-item-unit-cell>input.cy-op-input{height:28px;padding:3px 6px;border-bottom:1px solid var(--cy-border-strong)}

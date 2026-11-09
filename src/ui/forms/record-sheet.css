@@ -64,3 +64,15 @@ textarea.cy-sheet-input{height:auto;min-height:64px;resize:none}
 .cy-preset-text{display:flex;min-width:0;width:100%}
 .cy-preset-text>.cy-sheet-input{flex:1 1 0;min-width:0}
 .cy-preset-text.other>select.cy-sheet-input{flex:0 0 6.4em;padding-right:20px;border-right:1px solid var(--cy-border)}
+
+/* Inside a record sheet or its rows, every input is the cell itself (user 2026-11-09: no boxed inputs inside
+   table cells). Modules that pass the general cy-op-input still get the borderless cell look. */
+.cy-sheet :is(input,select,textarea).cy-op-input,
+.cy-sheet-table :is(input,select,textarea).cy-op-input{display:block;box-sizing:border-box;width:100%;min-width:0;height:34px;min-height:0;padding:6px 8px;margin:0;border:0;border-radius:0;background:transparent;color:var(--cy-text);font:inherit;box-shadow:none}
+.cy-sheet textarea.cy-op-input,.cy-sheet-table textarea.cy-op-input{height:auto;min-height:64px;resize:none}
+.cy-sheet select.cy-op-input,.cy-sheet-table select.cy-op-input{padding-right:22px}
+.cy-sheet :is(input,select,textarea).cy-op-input:focus,
+.cy-sheet-table :is(input,select,textarea).cy-op-input:focus{outline:0;box-shadow:inset 0 0 0 1.5px var(--cy-accent);background:var(--cy-surface)}
+.cy-sheet :is(input,select,textarea).cy-op-input[aria-invalid="true"],
+.cy-sheet-table :is(input,select,textarea).cy-op-input[aria-invalid="true"]{box-shadow:inset 0 0 0 1.5px var(--cy-danger)}
+.cy-sheet :is(input,select,textarea).cy-op-input:disabled,.cy-sheet :is(input,select,textarea).cy-op-input[readonly]{color:var(--cy-text-muted)}
