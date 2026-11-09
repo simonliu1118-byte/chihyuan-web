@@ -18,5 +18,5 @@ export function ModuleSections<K extends string>({label,sections,value,onChange,
  return <><nav className="cy-module-bar" aria-label={label} style={{gridTemplateColumns:`repeat(${sections.length},minmax(0,1fr))`}}>
   {sections.map(s=><button key={s.key} type="button" aria-current={value===s.key?"page":undefined} className={value===s.key?"active":undefined} disabled={disabled} onClick={()=>onChange(s.key)}>
    {s.icon?<span className="cy-module-bar-icon" aria-hidden="true">{s.icon}</span>:null}<span>{s.label}</span>{badge(s.badge)}</button>)}
- </nav><div className="cy-module-bar-spacer" aria-hidden="true"/></>;
+ </nav></>;
 }

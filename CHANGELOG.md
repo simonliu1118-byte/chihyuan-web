@@ -6,36 +6,41 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
-## CY Web V0.14.6 — 全系統手機第二階段：系統管理與首頁（2026-11-09，待審）
+## CY Web V0.14.7 — 手機版第二階段審查修正（2026-11-09，Claude）
+- 共用元件修正：底部分頁與底部按鈕列預留的空白改加在頁面底部（原本插在元件所在位置，造成頁首下方一段空白）。
+- 叫貨未到貨手機卡片只留品名、品號、剩餘與操作（叫貨量、已到改為僅桌機），每項高度約減半。
+- WO-0.14.1 六批（V0.14.1–V0.14.6）經 Claude 審查通過，一併合併部署。
+
+## CY Web V0.14.6 — 全系統手機第二階段：系統管理與首頁（2026-11-09）
 - 帳號與權限在手機以 ModuleSections 顯示兩大工作區，使用者清單採 ListRow、搜尋與帳號狀態篩選採 DataViewToolbar，點列仍開原權限抽屜；權限群組的 checkbox 矩陣用 cy-rt 而不改任何角色／模組權限、鎖定與保存 handler。
 - 異動紀錄手機查詢採 DataViewToolbar，結果用 cy-rt 並保留原欄位展開；備份歷史的共用 LineTable 用 cy-rt 與欄位標籤，原備份／還原／驗證流程及安全確認不變。
 - 首頁待辦、公告、個人通知預覽在手機使用 ListRow、桌機原列表不變；CY 程式已使用共用 DataView renderCard 手機卡片與桌機表格、我的帳號已用共用 Dialog、Field、FormSection，保留原共用元件而不複製第二套。
 - 無 Worker、D1、API、身份授權、安全策略與主版布局變動。CI 與 390px／1440px 實機、Claude 複審待辦；**不合併不部署**。[handoff](docs/handoff/CYWEB-WO-0141-ADMIN-HOME-20261109.md)。
 
-## CY Web V0.14.5 — 全系統手機第二階段：人事、ERP 查詢與 BOT 管理中心（2026-11-09，待審）
+## CY Web V0.14.5 — 全系統手機第二階段：人事、ERP 查詢與 BOT 管理中心（2026-11-09）
 - 人事手機分頁統一 ModuleSections，員工清單 ListRow，搜尋與狀態 DataViewToolbar，員工修改及存檔 ActionBar、刪除 OverflowMenu；員工詳情、請假、薪資與排班的原業務流程不改。
 - ERP 查詢類別手機透過 ModuleSections，保留每類 CategoryJob 的 keep-mounted、背景查詢與佇列控制；未收款、進貨輔助結果用 cy-rt，進貨輔助手機篩選 DataViewToolbar。
 - BOT 管理中心重新整理／回報／設定在手機透過 OverflowMenu，審稿及憑證清單改 cy-rt 與 data-label；核准、退回、重送、憑證輪換及推播作業仍保留原 handler。
 - 移除人事 720px 形式上重複的表單列 CSS，移至共用 mobile.css 的 820px 行為。桌機原界面不變，不修改後端 API／D1／權限。待 CI、裝置驗收與 Claude 複審。**不合併不部署**。[handoff](docs/handoff/CYWEB-WO-0141-HR-ERP-BOT-20261109.md)。
 
-## CY Web V0.14.4 — 全系統手機第二階段：瑕疵、銷售工單、委外與工作日誌（2026-11-09，待審）
+## CY Web V0.14.4 — 全系統手機第二階段：瑕疵、銷售工單、委外與工作日誌（2026-11-09）
 - 四項早期模組的手機清單改共用 ListRow，搜尋與狀態篩選改 DataViewToolbar；保留桌機原主明細、工具列與事件處理。
 - 瑕疵狀態流轉、銷售工單 ERP 回填／出貨、委外出庫入庫計價、日誌送審計分的手機主要動作由 ActionBar 顯示；刪除、作廢、撤回、反向交易等次要動作移 OverflowMenu，原操作權限和檢查保留。
 - 委外原四個子頁使用 ModuleSections，切換仍走原未存確認與業務護欄；明細、庫存與工單品項表使用 cy-rt。
 - 移除原模組 560／720px 類似手機表單列 CSS，改通用 `src/ui/mobile/mobile.css` 820px 狀態；不新增 API／Worker／D1／權限修改。待 CI、裝置畫面與 Claude 複審。**不合併不部署**。[handoff](docs/handoff/CYWEB-WO-0141-EARLY-20261109.md)。
 
-## CY Web V0.14.3 — 全系統手機版第二階段：客戶與商品（2026-11-09，待審）
+## CY Web V0.14.3 — 全系統手機版第二階段：客戶與商品（2026-11-09）
 - 客戶和商品以同一 `useCompactLayout` 決定手機：清單以共用 `ListRow` 顯示；搜尋、分類、狀態篩選移入共用 `DataViewToolbar filters` 並傳有效條件數，桌機仍保留原工具列、清單及雙欄 MasterDetail。
 - 明細及編輯頁手機主要「修改／儲存／取消」改共用 `ActionBar`，商品停用／啟用／更改品號、客戶修改紀錄改 `OverflowMenu`；完整業務處理器、未存保護及權限不變。
 - 移除被取代的客戶清單手機行樣式及商品 560px 換算列特例，改由共用 mobile.css 於 820px 統一編排；未改的報價、拜訪及相關紀錄操作保持原狀。
 - 待 CI、390px／1440px 前後對照與 Claude 複審；**不合併、不部署**。[handoff](docs/handoff/CYWEB-WO-0141-CUSTOMERS-ITEMS-20261109.md)。
 
-## CY Web V0.14.2 — 全系統手機版第二階段：門市批次（2026-11-09，待審）
+## CY Web V0.14.2 — 全系統手機版第二階段：門市批次（2026-11-09）
 - 顧客訂購／黑名單、售後維修、出機紀錄、盤點忽略底稿及手動儲位表格，在手機以共用 `cy-rt` 配合 `data-label`、`data-priority` 呈現，優先展示狀態／客戶名稱／品項；桌機仍為原表格及原版面。
 - 移除 `store.css` 舊 `cy-store-cards` 與 `cy-store-workflow-table` 於 820px 的手刻卡片 CSS；三年維護矩陣及月度待辦的原互動式矩陣未改資料及操作，盤點計數的盲盤邏輯不動。
 - 只更動 UI markup 與樣式／文件；原狀態流轉、版本鎖、寫入、後端與權限不動。待 CI、390px／1440px 畫面及 Claude 審查；**不合併、不部署**。[handoff](docs/handoff/CYWEB-WO-0141-STORE-20261109.md)。
 
-## CY Web V0.14.1 — 全系統手機版第二階段：叫貨批次（2026-11-09，待審）
+## CY Web V0.14.1 — 全系統手機版第二階段：叫貨批次（2026-11-09）
 - 手機叫貨以 `ModuleSections` 呈現「未到貨／草稿／叫貨單」，進入模組預設未到貨；叫貨與草稿來源改 `ListRow`。
 - 手機叫貨紀錄搜尋／篩選採 `DataViewToolbar`；可編輯草稿品項是精簡列表，點選後在 `BottomSheet` 編輯原 `OrderingGrid` 欄位，仍共用原 `commitCell`、自動儲存、`flush`、數量解析、順序與未存保護。新增品項及送出放 `ActionBar`，次要操作採 `OverflowMenu`。
 - 未到貨、到貨紀錄及登記到貨寬表格轉用共用 `cy-rt`＋資料欄名；移除被取代的模組手機 CSS，新增可共用的選擇列、編輯列及 ActionBar 位移樣式於 `src/ui/mobile/mobile.css`。桌機仍由原清單、表格與完整工具列渲染。

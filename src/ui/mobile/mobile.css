@@ -37,13 +37,15 @@
  .cy-module-bar button.active{color:var(--cy-accent);font-weight:700}
  .cy-module-bar button .cy-module-badge{position:absolute;top:6px;left:calc(50% + 8px);margin:0;background:var(--cy-danger)}
  .cy-module-bar-icon{display:inline-flex;font-size:18px}
- .cy-module-bar-spacer{display:block;height:calc(64px + env(safe-area-inset-bottom,0px))}
+ /* Room for the fixed bars at the bottom of the page, not where the component sits (V0.14.7 fix). */
+ .cy-shell-main:has(.cy-module-bar){padding-bottom:calc(72px + env(safe-area-inset-bottom,0px))}
+ .cy-shell-main:has(.cy-action-bar){padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
+ .cy-shell-main:has(.cy-module-bar):has(.cy-action-bar){padding-bottom:calc(140px + env(safe-area-inset-bottom,0px))}
  .cy-op-tabs-scroll{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
 
  /* ActionBar fixed at the bottom. */
  .cy-action-bar{position:fixed;left:0;right:0;bottom:0;z-index:19;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:10px;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));background:var(--cy-surface);border-top:1px solid var(--cy-border)}
  .cy-action-bar>.cy-op-button{min-height:44px;justify-content:center;font-size:var(--cy-fs-md,15px)}
- .cy-action-bar-spacer{display:block;height:calc(68px + env(safe-area-inset-bottom,0px))}
  .cy-module-bar~* .cy-action-bar,.cy-module-bar-spacer~.cy-action-bar{bottom:calc(56px + env(safe-area-inset-bottom,0px))}
 
  /* Toolbar: search fills the row; filters live in the 篩選 sheet. */

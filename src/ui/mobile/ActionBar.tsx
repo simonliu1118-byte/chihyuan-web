@@ -6,5 +6,5 @@ import type {PropsWithChildren} from "react";
  * primary action stays reachable while the list scrolls. Put secondary actions in OverflowMenu.
  */
 export function ActionBar({children,label="主要操作",aboveTabs=false}:PropsWithChildren<{label?:string;aboveTabs?:boolean}>){
- return <><div className={"cy-action-bar"+(aboveTabs?" cy-action-bar-above-tabs":"")} role="group" aria-label={label}>{children}</div><div className="cy-action-bar-spacer" aria-hidden="true"/></>;
+ return <><div className={"cy-action-bar"+(aboveTabs?" cy-action-bar-above-tabs":"")} role="group" aria-label={label}>{children}</div></>;
 }

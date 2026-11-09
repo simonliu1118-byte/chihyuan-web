@@ -68,7 +68,12 @@
 
 ## 9. 審查紀錄（Claude 填）
 
-（待審）
+- 2026-11-09：**通過**（六批 #466–#471），審查者 Claude；以整合 PR 合併部署為 V0.14.7。
+- 檢查結果：整串沒有修改 Worker／migrations／shared，也沒有改任何 API 呼叫；手機用共用元件、桌機保留原畫面，符合「只改呈現、桌機不變」。叫貨手機編輯面板沿用 `OrderingGrid` 原本的存檔路徑。tsc、validate:source、全部 node 測試、建置與各批 CI 皆通過。
+- 審查者直接修正：
+  1. （共用元件，屬第一階段的 bug）`ModuleSections`／`ActionBar` 的預留空白插在元件位置，造成頁首下方空白；改成在 `.cy-shell-main` 底部預留。
+  2. 叫貨未到貨 `cy-rt` 卡片太高：叫貨量、已到改 `data-priority="hide"`。
+- 小意見（不阻擋）：`store.css` 仍新增一條 820px 規則（門市工具列主按鈕邊距），之後門市改表格式單據時一併收進共用樣式；早期模組目前是「手機共用元件／桌機原畫面」兩套並存，待各模組改表格式單據時合一。
 
 ### 批次 3 — 客戶／商品（GPT，2026-11-09）
 - 分支：`cyweb/wo-0.14.1-customers-items`，建立於第二批；[Draft PR #468](https://github.com/simonliu1118-byte/chihyuan-web/pull/468)。
