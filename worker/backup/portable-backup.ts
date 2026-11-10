@@ -54,7 +54,7 @@ const UPGRADES: { migration: string; apply: (data: Data) => void }[] = [
     const name = statuses.columns.indexOf("name");
     statuses.columns.push("pin");
     statuses.rows.forEach(row => row.push(row[name] === "正常" ? "TOP" : row[name] === "已歇業" ? "BOTTOM" : null));
-  } },,
+  } },
   // 0062 reconstructs unused one-shot outsourcing tables as batch ledger/settlement.
   // Keep every other business record intact; an unexpected populated old ledger
   // must not be silently erased from a historic portable backup.
