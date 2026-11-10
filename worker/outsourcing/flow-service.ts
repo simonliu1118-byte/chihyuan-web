@@ -5,6 +5,11 @@ import { stockGaugeFromMovements, outsourcingLifecycle, outsourcingProgress, rou
 import { AuditService } from "../audit/audit-service";
 import { FieldValidationError } from "../validation/fields";
 
+export class OutsourcingFlowError extends Error {
+  readonly code="OUTSOURCING_REVISION_CONFLICT";
+  readonly status=409;
+  constructor(message="資料已異動，請重新整理後重試") {super(message);this.name="OutsourcingFlowError";}
+}
 export interface FlowActor { actorMemberId: number; now: string; requestId?: string | null }
 type Row = Record<string, any>;
 
@@ -52,7 +57,7 @@ export class OutsourcingFlowService {
   }
   private async revision(orderId:number, expected:unknown):Promise<Row> {
     const row=await this.order(orderId);
-    if(row.revision!==id(expected,"expectedRevision"))throw new FieldValidationError({expectedRevision:"資料已異動，請重新整理"});
+    if(row.revision!==id(expected,"expectedRevision"))throw new OutsourcingFlowError();
     return row;
   }
   private async itemRefs(itemIds: number[]):Promise<Map<number,Row>> {
@@ -558,7 +563,7 @@ export class OutsourcingFlowService {
   private async draftStatement(statementId:number,expected:unknown):Promise<Row>{
     const s=await this.db.prepare("SELECT * FROM outsourcing_statements WHERE id=?").bind(statementId).first<Row>();
     if(!s)throw new FieldValidationError({statementId:"對帳單不存在"});
-    if(s.revision!==id(expected,"expectedRevision"))throw new FieldValidationError({expectedRevision:"對帳單已異動"});
+    if(s.revision!==id(expected,"expectedRevision"))throw new OutsourcingFlowError();
     if(s.status_code!=="draft")throw new FieldValidationError({statementId:"對帳單已確認，不可修改"});
     return s;
   }
@@ -629,8 +634,8 @@ export class OutsourcingFlowService {
   }
   async cancelStatementConfirmation(statementId:number,raw:unknown,actor:FlowActor) {
     const b=object(raw),s=await this.db.prepare("SELECT * FROM outsourcing_statements WHERE id=?").bind(statementId).first<Row>();
-    if(!s||s.revision!==id(b.expectedRevision,"expectedRevision")||s.status_code!=="confirmed")
-      throw new FieldValidationError({statementId:"對帳單狀態已變更"});
+    if(!s||s.status_code!=="confirmed")throw new FieldValidationError({statementId:"對帳單狀態已變更"});
+    if(s.revision!==id(b.expectedRevision,"expectedRevision"))throw new OutsourcingFlowError();
     const paid=await this.db.prepare("SELECT 1 FROM outsourcing_statement_payments WHERE statement_id=? LIMIT 1").bind(statementId).first();
     if(paid)throw new FieldValidationError({statementId:"已有付款，不能取消確認"});
     await this.db.batch([
@@ -651,7 +656,7 @@ export class OutsourcingFlowService {
   async addPayment(statementId:number,raw:unknown,actor:FlowActor) {
     const b=object(raw),s=await this.statementDetail(statementId);
     if(s.status_code!=="confirmed")throw new FieldValidationError({statementId:"請先確認對帳單"});
-    if(s.revision!==id(b.expectedRevision,"expectedRevision"))throw new FieldValidationError({expectedRevision:"對帳單已異動"});
+    if(s.revision!==id(b.expectedRevision,"expectedRevision"))throw new OutsourcingFlowError();
     const method=text(b.method,"method");if(!["cash","transfer","cheque","other"].includes(method))throw new FieldValidationError({method:"付款方式無效"});
     let amount:number;try{amount=parseMoney2(String(b.amount));}catch{throw new FieldValidationError({amount:"付款金額格式錯誤"});}
     if(amount<=0||s.paid_amount+amount>s.total_amount)throw new FieldValidationError({amount:"付款金額須大於零且不可超過剩餘應付"});
