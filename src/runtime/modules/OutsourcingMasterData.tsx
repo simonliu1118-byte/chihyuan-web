@@ -338,6 +338,20 @@ export function BomWorkspace({ boms, onChanged, onEditingChange, notify, reportE
     } finally { setBusy(false); }
   }
 
+  const componentColumns:RowColumn<ComponentDraft>[]=[
+    {label:"料件",view:r=>r.item?itemLabel(r.item):"—",
+      edit:(r,i)=><EntityPicker<OutsourcingItemOption> label={<span className="cy-visually-hidden">料件</span>} value={r.item}
+      onSelect={item=>patchComponent(i,{item,unit:item?.baseUnit??""})} search={searchItems}
+      getKey={item=>item.id} getLabel={itemLabel}/>},
+    {label:"數量",view:r=>r.quantity,edit:(r,i)=><input className="cy-sheet-input" inputMode="decimal" value={r.quantity} onChange={e=>patchComponent(i,{quantity:e.target.value})}/>},
+    {label:"單位",view:r=>r.unit,edit:(r,i)=><select className="cy-sheet-input" value={r.unit} disabled={!r.item} onChange={e=>patchComponent(i,{unit:e.target.value})}>
+      {unitsOf(r.item,r.unit).map(u=><option key={u}>{u}</option>)}</select>}
+  ];
+  const readComponentColumns:RowColumn<BomDetail["components"][number]>[]=[
+    {label:"料件",view:r=>formatItem(r.itemNo,r.itemName),edit:()=> <span/>},
+    {label:"數量",view:r=>r.quantity,edit:()=> <span/>},
+    {label:"單位",view:r=>r.unit,edit:()=> <span/>}
+  ];
   return <>
     {confirmationDialog}
     <div className="cy-md" data-pane={pane.pane}>
@@ -354,39 +368,40 @@ export function BomWorkspace({ boms, onChanged, onEditingChange, notify, reportE
     <FormSection>
           <div className="cy-record-header cy-edit-header"><div><h2>{creating ? "新增 BOM" : `修改 ${detail?.recipeRef ?? "BOM"}`}</h2></div><div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
             <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立 BOM" : "儲存修改"}</button></div></div>
-          <div className="cy-f-grid">
-            <Field label="BOM 代號" size="s" required><input className="cy-op-input" value={draft.recipeRef} disabled={busy} onChange={(event) => patch({ recipeRef: event.target.value })} placeholder="例如：紙袋-標準" /></Field>
-            <EntityPicker<OutsourcingItemOption> label="成品" required disabled={busy} value={draft.finished}
-              onSelect={(row) => patch({ finished: row, outputUnit: row?.baseUnit ?? "" })} search={searchItems}
-              getKey={(row) => row.id} getLabel={itemLabel} placeholder="輸入品號、品名或規格" />
-            <Field label="產出數量" size="s"><input className="cy-op-input" inputMode="decimal" value={draft.outputQuantity} disabled={busy} onChange={(event) => patch({ outputQuantity: event.target.value })} /></Field>
-            <Field label="產出單位" size="s"><select className="cy-op-input" value={draft.outputUnit} disabled={busy || !draft.finished} onChange={(event) => patch({ outputUnit: event.target.value })}>
-              {unitsOf(draft.finished, draft.outputUnit).map((unit) => <option key={unit}>{unit}</option>)}</select></Field>
-            <CheckField  label="使用中" size="s"  checked={draft.isActive} disabled={busy} onChange={(event) => patch({ isActive: event.target.checked })} />
-          </div>
-          <section className="cy-form-block">
-            <div className="cy-form-block-head"><div><h3>料件</h3></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={() => patch({ components: [...draft.components, newComponent()] })}>＋ 增加料件</button></div>
-            <div className="cy-form-block-body">
-              {draft.components.map((row, index) => <div className="cy-out-component cy-mobile-form-two-col" key={row.key}>
-                <EntityPicker<OutsourcingItemOption> label={<span className="cy-visually-hidden">第 {index + 1} 項料件</span>} disabled={busy} value={row.item}
-                  onSelect={(item) => patchComponent(index, { item, unit: item?.baseUnit ?? "" })} search={searchItems}
-                  getKey={(item) => item.id} getLabel={itemLabel} placeholder="輸入品號、品名或規格" />
-                <input className="cy-op-input" aria-label="數量" placeholder="數量" inputMode="decimal" value={row.quantity} disabled={busy} onChange={(event) => patchComponent(index, { quantity: event.target.value })} />
-                <select className="cy-op-input" aria-label="單位" value={row.unit} disabled={busy || !row.item} onChange={(event) => patchComponent(index, { unit: event.target.value })}>
-                  {unitsOf(row.item, row.unit).map((unit) => <option key={unit}>{unit}</option>)}</select>
-                <button type="button" className="cy-op-button compact soft cy-row-remove" disabled={busy || draft.components.length <= 1} onClick={() => patch({ components: draft.components.filter((_, i) => i !== index) })}>移除</button>
-              </div>)}
-            </div>
-          </section>
-        
-    </FormSection>
+          <RecordSheet label="BOM 主檔" editing rows={[
+            {columns:"1fr 2fr",cells:[
+              {label:"BOM 名稱",required:true,view:draft.recipeRef,edit:<input className="cy-sheet-input" required value={draft.recipeRef} onChange={e=>patch({recipeRef:e.target.value})}/>},
+              {label:"成品",required:true,view:draft.finished?itemLabel(draft.finished):"",
+                edit:<EntityPicker<OutsourcingItemOption> label={<span className="cy-visually-hidden">成品</span>} required value={draft.finished}
+                onSelect={item=>patch({finished:item,outputUnit:item?.baseUnit??""})} search={searchItems} getKey={item=>item.id} getLabel={itemLabel}/>}
+            ]},
+            {columns:"1fr 1fr 1fr",cells:[
+              {label:"產出數量",required:true,view:draft.outputQuantity,edit:<input className="cy-sheet-input" inputMode="decimal" required value={draft.outputQuantity} onChange={e=>patch({outputQuantity:e.target.value})}/>},
+              {label:"產出單位",required:true,view:draft.outputUnit,edit:<select className="cy-sheet-input" required value={draft.outputUnit} disabled={!draft.finished} onChange={e=>patch({outputUnit:e.target.value})}>{unitsOf(draft.finished,draft.outputUnit).map(u=><option key={u}>{u}</option>)}</select>},
+              {label:"使用中",view:draft.isActive?"是":"否",edit:<input type="checkbox" checked={draft.isActive} onChange={e=>patch({isActive:e.target.checked})}/>}
+            ]}
+          ]}/>
+          <RecordRows title="BOM 料件" editing columns={componentColumns} rows={draft.components}
+            rowKey={r=>r.key}
+            onInsert={i=>patch({components:[...draft.components.slice(0,i+1),newComponent(),...draft.components.slice(i+1)]})}
+            onRemove={i=>patch({components:draft.components.filter((_,j)=>i!==j)})}/>
+</FormSection>
   </form> : loadingDetail ? <Loading /> : detail ? <div>
           <div className="cy-record-header"><div><h2>{detail.finishedItemName}</h2><p><span className="cy-mono">{detail.recipeRef}</span> · {detail.finishedItemNo}</p></div>
             <div className="cy-record-actions"><StatusChip tone={detail.isActive ? "success" : "neutral"}>{detail.isActive ? "使用中" : "停用"}</StatusChip>
               <button type="button" className="cy-op-button" disabled={busy} aria-busy={busy || undefined} onClick={() => void startEdit()}>修改</button></div></div>
-          <div className="cy-op-detail-grid"><div><span>產出</span><strong>{detail.outputQuantity} {detail.outputUnit}</strong></div></div>
-          <div className="cy-op-subsection"><h3>料件</h3><div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">數量</th><th>單位</th></tr></thead>
-            <tbody>{detail.components.map((row) => <tr key={row.id}><td className="cy-mono">{row.itemNo}</td><td>{row.itemName}</td><td className="num">{row.quantity}</td><td>{row.unit}</td></tr>)}</tbody></table></div></div>
+          <RecordSheet label="BOM 主檔" editing={false} rows={[
+            {columns:"1fr 2fr",cells:[
+              {label:"BOM 名稱",view:detail.recipeRef},
+              {label:"成品",view:formatItem(detail.finishedItemNo,detail.finishedItemName)}
+            ]},
+            {columns:"1fr 1fr 1fr",cells:[
+              {label:"產出數量",view:detail.outputQuantity},
+              {label:"產出單位",view:detail.outputUnit},
+              {label:"使用中",view:detail.isActive?"是":"否"}
+            ]}
+          ]}/>
+          <RecordRows title="BOM 料件" editing={false} columns={readComponentColumns} rows={detail.components} rowKey={r=>r.id} onInsert={()=>{}} onRemove={()=>{}}/>
         </div> : <MasterDetailEmpty title="尚未選擇 BOM" />}
       </section>
     </div>
