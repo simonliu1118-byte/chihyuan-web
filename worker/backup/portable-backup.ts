@@ -54,7 +54,21 @@ const UPGRADES: { migration: string; apply: (data: Data) => void }[] = [
     const name = statuses.columns.indexOf("name");
     statuses.columns.push("pin");
     statuses.rows.forEach(row => row.push(row[name] === "正常" ? "TOP" : row[name] === "已歇業" ? "BOTTOM" : null));
-  } },
+  } },,
+  // 0062 reconstructs unused one-shot outsourcing tables as batch ledger/settlement.
+  // Keep every other business record intact; an unexpected populated old ledger
+  // must not be silently erased from a historic portable backup.
+  { migration: "0062_outsourcing_flow", apply: data => {
+    const obsolete = ["outsourcing_order_parts","outsourcing_pricing_items","outsourcing_pricings"];
+    const recreated = ["outsourcing_orders","outsourcing_receipts","outsourcing_receipt_items","contractor_stock_movements"];
+    for (const table of [...obsolete,...recreated]) {
+      const previous=data.tables[table];
+      check(!previous || previous.rows.length===0,"BACKUP_OUTSOURCING_LEGACY_RECORDS_UNSUPPORTED");
+      delete data.tables[table];
+    }
+    // The migration also adds a defaulted billing_method to contractors;
+    // absence of the old backup column intentionally uses SQLite's default.
+  } }
 ];
 // Operational queue, heartbeat and revocable credential hashes are intentionally
 // excluded from durable backup (also the ERP 關閉／暫停 request and BOT ingest token).
