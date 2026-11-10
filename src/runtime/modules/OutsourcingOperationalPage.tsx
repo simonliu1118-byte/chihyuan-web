@@ -349,11 +349,13 @@ export function OutsourcingOperationalPage(){
        {label:"BOM",view:d=>boms.find(b=>b.id===d.bomId)?.recipeRef??"—",edit:d=><select className="cy-sheet-input" value={d.bomId??""} onChange={e=>setDeliveries(ds=>ds.map(r=>r.orderProductId===d.orderProductId?{...r,bomId:Number(e.target.value)||null}:r))}>
         <option value="">不扣料</option>{boms.filter(b=>b.isActive&&b.finishedItemId===order.products.find(p=>p.id===d.orderProductId)?.item_id).map(b=><option key={b.id} value={b.id}>{b.recipeRef}</option>)}</select>}
       ]}/>:null}
-    {action==="statement-create"?<><Grid label="廠商與結算月份" headers={["協力廠商","結算月份"]}>
-      <Cell label="協力廠商"><select className="cy-sheet-input" value={statementVendor??""} onChange={e=>setStatementVendor(Number(e.target.value)||null)}>
+    {action==="stock-history"?<div><h3>料件異動紀錄</h3><table className="cy-op-table cy-rt"><thead><tr><th>時間</th><th>廠商</th><th>料件</th><th>種類</th><th>增減量</th><th>原因</th><th>操作人</th></tr></thead><tbody>{stockHistory.map((m,i)=><tr key={Number(m.id??i)}><td>{String(m.occurred_at??"")}</td><td>{String(m.contractor_name??"")}</td><td>{String(m.item_name??"")}</td><td>{String(m.movement_type??"")}</td><td>{number(Number(m.quantity_delta??0))}</td><td>{String(m.reason??"")}</td><td>{String(m.operator_employee_id??"")}</td></tr>)}</tbody></table></div>:null}
+    {action==="receipt"&&preview.length?<div className="cy-op-subsection"><h3>預計從廠商庫存扣除</h3><p>{preview.map(p=>p.itemNo+" "+p.itemName+" "+p.quantity+" "+p.unit).join("、")}</p></div>:null}
+    {action==="statement-create"?<><Grid label="對帳方式" headers={["協力廠商","選取方式"]}>
+      <Cell label="協力廠商"><select className="cy-sheet-input" value={statementVendor??""} onChange={e=>{const id=Number(e.target.value)||null;setStatementVendor(id);setStatementMode(contractors.find(c=>c.id===id)?.billingMethod==="monthly"?"month":"selection");}}>
        <option value="">請選擇</option>{contractors.map(c=><option key={c.id} value={c.id}>{c.displayName}</option>)}</select></Cell>
-      <Cell label="結算月份"><input className="cy-sheet-input" type="month" value={statementMonth} onChange={e=>setStatementMonth(e.target.value)}/></Cell>
-     </Grid><h3>未對帳交貨明細</h3>
+      <Cell label="選取方式"><select className="cy-sheet-input" value={statementMode} onChange={e=>setStatementMode(e.target.value as "month"|"selection")}><option value="month">依月份</option><option value="selection">勾選交貨批次</option></select></Cell>
+     </Grid>{statementMode==="month"?<Grid label="結算月份" headers={["月份"]}><Cell label="月份"><DateInput precision="month" value={statementMonth} onChange={setStatementMonth}/></Cell></Grid>:null}<h3>未對帳交貨明細</h3>
      <table className="cy-op-table"><thead><tr><th>選取</th><th>交貨日期</th><th>代工單</th><th>成品</th><th>數量</th></tr></thead><tbody>
       {unbilled.map(r=><tr key={r.receipt_item_id}><td><input type="checkbox" checked={selectedUnbilled.includes(r.receipt_item_id)} onChange={e=>setSelectedUnbilled(ids=>e.target.checked?[...ids,r.receipt_item_id]:ids.filter(id=>id!==r.receipt_item_id))}/></td>
        <td>{r.received_date}</td><td>{r.outsourcing_ref}</td><td>{r.item_name}</td><td>{number(r.quantity)} {r.unit}</td></tr>)}
@@ -370,7 +372,7 @@ export function OutsourcingOperationalPage(){
      <Cell label="金額"><input className="cy-sheet-input" inputMode="decimal" value={paymentAmount} onChange={e=>setPaymentAmount(e.target.value)}/></Cell>
     </Grid>:null}
     {action==="close"?<Grid label="結案原因" headers={["原因"]}><Cell label="原因"><input className="cy-sheet-input" required value={entryNote} onChange={e=>setEntryNote(e.target.value)}/></Cell></Grid>:null}
-    <div className="cy-op-form-footer"><button type="button" className="cy-op-button soft" onClick={()=>setAction(null)}>取消</button><button type="submit" className="cy-op-button primary" disabled={busy}>確認</button></div>
+    <div className="cy-op-form-footer"><button type="button" className="cy-op-button soft" onClick={()=>setAction(null)}>取消</button>{action!=="stock-history"?<button type="submit" className="cy-op-button primary" disabled={busy}>確認</button>:null}</div>
    </form>
   </Dialog>
  </div>;
