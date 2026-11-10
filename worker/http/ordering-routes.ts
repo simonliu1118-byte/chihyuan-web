@@ -2,12 +2,14 @@ import {requireModuleAccess} from "../auth/guard";
 import {identityClient,type IdentityRuntimeEnv} from "./auth-routes";
 import {success,failure} from "./response";
 import {AuditService} from "../audit/audit-service";
+import {checkModuleAccess} from "../auth/app-access";
+import {cnPurchasedLineIds,handleCnPurchase} from "./ordering-cn-routes";
 import {CLOSED_AS_LABELS,CN_REGULAR_SECTIONS,lineIsOpen,lineState,orderStatus,orderingLineHasName,parseErpPurchaseNo,parseQuantity,pickDraft,receiptItemSummary,vendorItemKey,type OrderingClosedAs,type OrderingStoredStatus} from "../../shared/ordering";
 
 type Context={db:D1Database;actor:number;name:string;now:string;requestId:string};
 type Source={id:number;name:string;kind:"GENERAL"|"VENDOR"|"CN_REGULAR"|"CN_CUSTOM";conditions:string;payment_terms:string;note:string;sort_order:number;is_active:number};
 type Ord={id:number;source_id:number;status:OrderingStoredStatus;planned_send_date:string|null;sent_at:string|null;note:string;version:number;revision:number;created_at:string;updated_at:string};
-type Line={id:number;order_id:number;section:string;sort_order:number;item_code:string;item_name:string;vendor_item_code:string;vendor_item_name:string;vendor_name_follows:number;spec:string;quantity_text:string;quantity:number|null;unit:string;note:string;closed_as:"SHORTAGE"|"CANCELLED"|"OTHER"|null;closed_note:string;received:number};
+type Line={id:number;order_id:number;section:string;sort_order:number;item_code:string;item_name:string;vendor_item_code:string;vendor_item_name:string;vendor_name_follows:number;spec:string;quantity_text:string;quantity:number|null;unit:string;note:string;closed_as:"SHORTAGE"|"CANCELLED"|"OTHER"|null;closed_note:string;received:number;original_quantity?:number|null;purchase_added?:number;cn_discontinued?:number};
 const defaults:[string,Source["kind"],string][]=[
  ["台北","GENERAL",""],["台中","GENERAL",""],["洲美","GENERAL",""],
  ["定期中國貨","CN_REGULAR",""],["自訂中國貨","CN_CUSTOM",""],
@@ -52,7 +54,7 @@ async function getOrder(ctx:Context,id:number,knownOrder?:Ord){
  if(receiptLines.length>5000)throw new Bad("ORDERING_LIMIT","到貨明細超過單次查詢安全上限",409);
  return {id:o.id,sourceId:o.source_id,sourceName:source?.name??"",sourceKind:source?.kind??"GENERAL",status:orderStatus(o.status,lines.map(x=>({quantity:x.quantity,received:x.received,closedAs:x.closed_as}))),
   storedStatus:o.status,plannedSendDate:o.planned_send_date,sentAt:o.sent_at,note:o.note,version:o.version,revision:o.revision,createdAt:o.created_at,
-  lines:lines.map(x=>({id:x.id,section:x.section,sortOrder:x.sort_order,itemCode:x.item_code,itemName:x.item_name,vendorItemCode:x.vendor_item_code,vendorItemName:x.vendor_item_name,vendorNameFollows:!!x.vendor_name_follows,spec:x.spec,quantityText:x.quantity_text,quantity:x.quantity,unit:x.unit,note:x.note,closedAs:x.closed_as,closedNote:x.closed_note,received:x.received,state:lineState({quantity:x.quantity,received:x.received,closedAs:x.closed_as})})),receipts:receipts.map(x=>({id:x.id,erpPurchaseNo:x.erp_purchase_no,receivedDate:x.received_date,createdAt:x.created_at,createdBy:x.actor_name??"",lines:receiptLines.filter(l=>l.receipt_id===x.id).map(l=>({lineId:l.line_id,quantity:l.quantity}))})),
+  lines:lines.map(x=>({id:x.id,section:x.section,sortOrder:x.sort_order,itemCode:x.item_code,itemName:x.item_name,vendorItemCode:x.vendor_item_code,vendorItemName:x.vendor_item_name,vendorNameFollows:!!x.vendor_name_follows,spec:x.spec,quantityText:x.quantity_text,quantity:x.quantity,unit:x.unit,note:x.note,closedAs:x.closed_as,closedNote:x.closed_note,received:x.received,originalQuantity:x.original_quantity??null,purchaseAdded:!!x.purchase_added,cnDiscontinued:!!x.cn_discontinued,state:lineState({quantity:x.quantity,received:x.received,closedAs:x.closed_as})})),receipts:receipts.map(x=>({id:x.id,erpPurchaseNo:x.erp_purchase_no,receivedDate:x.received_date,createdAt:x.created_at,createdBy:x.actor_name??"",lines:receiptLines.filter(l=>l.receipt_id===x.id).map(l=>({lineId:l.line_id,quantity:l.quantity}))})),
   revisions:changes.map(x=>({revision:x.revision,at:x.changed_at,by:x.actor_name??String(x.changed_by),summary:x.summary}))};
 }
 async function mutate(ctx:Context,o:Ord,expected:number,stmts:D1PreparedStatement[],summary:string,action:string,onBatchSuccess?:()=>void){
@@ -253,6 +255,13 @@ async function orderingRoute(request:Request,env:IdentityRuntimeEnv,requestId:st
   m=/^orders\/(\d+)(?:\/(.*))?$/.exec(path);
   if(m){const id=int(Number(m[1]),"單據"),action=m[2]??"",o=await one<Ord>(ctx.db,"SELECT * FROM ordering_orders WHERE id=?",id);if(!o)throw new Bad("ORDERING_NOT_FOUND","叫貨單不存在",404);
    if(!action&&method==="GET")return success(await getOrder(ctx,id,o),requestId);
+   if(action==="cn-purchase"||action.startsWith("cn-purchase/")){
+    // 自訂中國貨採購: a grant of its own on top of 叫貨 (user 2026-11-10).
+    if(!gate.principal||!(await checkModuleAccess(ctx.db,gate.principal,"ORDERING_CN_PURCHASE")).allowed)return failure({code:"ACCESS_DENIED",message:"沒有中國貨採購權限"},requestId,403);
+    const source=await one<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE id=?",o.source_id);
+    return success(await handleCnPurchase({db:ctx.db,actor:ctx.actor,now:ctx.now,bad:(code,message,status)=>new Bad(code,message,status),
+     mutate:(order,expected,stmts,summary,name)=>mutate(ctx,order as Ord,expected,stmts,summary,name),getOrder:orderId=>getOrder(ctx,orderId)},o,source?.kind??"GENERAL",action,method,request),requestId);
+   }
    const v=await body(request),expected=int(v.expectedVersion,"版本");if(expected!==o.version)throw new Bad("ORDERING_VERSION_CONFLICT","已被其他人修改，請重新載入",409);
    if(!action&&method==="PATCH"){
     if(o.status!=="DRAFT")throw new Bad("ORDERING_INVALID","只有草稿可修改，已送出或作廢的叫貨單為唯讀",409);
@@ -311,12 +320,15 @@ async function orderingRoute(request:Request,env:IdentityRuntimeEnv,requestId:st
     const stmts:D1PreparedStatement[]=[],changes:string[]=[];
     const label=(x:{item_name:string;vendor_item_name:string;item_code:string})=>x.item_name||x.vendor_item_name||x.item_code;
     if("note" in v){const next=must(v.note,"備註",300);if(next!==o.note){if(vendorOnly)throw vendorOnlyError();stmts.push(ctx.db.prepare("UPDATE ordering_orders SET note=? WHERE id=?").bind(next,id));changes.push("備註 "+(o.note||"空白")+" → "+(next||"空白"))}}
+    // 自訂中國貨: once 採購 holds a line, its 數量 is the 採購數量 and is changed only there.
+    const purchased=kind==="CN_CUSTOM"?await cnPurchasedLineIds(ctx.db,id):new Set<number>();
     const removed=new Set<number>();let moved=false;
     for(const value of removes){const lineId=int(value,"明細"),line=all.find(x=>x.id===lineId);
      if(!line)throw new Bad("ORDERING_NOT_FOUND","找不到明細",404);
      if(vendorOnly)throw vendorOnlyError();
      if(line.received>0)throw new Bad("ORDERING_INVALID",label(line)+" 已有到貨，不能刪除");
      if(line.closed_as)throw new Bad("ORDERING_INVALID",label(line)+" 已指定結案，不能刪除");
+     if(purchased.has(lineId))throw new Bad("ORDERING_INVALID",label(line)+" 已開始採購，請在「採購」處理");
      removed.add(lineId);stmts.push(ctx.db.prepare("DELETE FROM ordering_lines WHERE id=? AND order_id=?").bind(lineId,id));changes.push("刪除 "+label(line));
     }
     if(all.length-removed.size+upserts.filter(x=>!x.lineId).length>500)throw new Bad("ORDERING_LIMIT","單張叫貨單最多 500 列",409);
@@ -339,6 +351,7 @@ async function orderingRoute(request:Request,env:IdentityRuntimeEnv,requestId:st
        ||("sortOrder" in raw&&Number(raw.sortOrder)!==old.sort_order);
       if(changed)throw vendorOnlyError();
      }
+     if(old&&purchased.has(old.id)&&old.quantity_text!==next.quantity_text)throw new Bad("ORDERING_INVALID",name+"：已開始採購，數量請在「採購」修改");
      if(old&&old.received>0&&(parsed.quantity===null||parsed.quantity<old.received))throw new Bad("ORDERING_INVALID",name+"：數量不可少於已到貨 "+old.received);
      const follows=!typedVendorName,vendorName=typedVendorName||next.item_name;
      const row={...next,unit,vendor_item_name:vendorName};

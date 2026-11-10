@@ -26,6 +26,8 @@ import {ListRow} from "../../ui/mobile/ListRow";
 import {ActionBar} from "../../ui/mobile/ActionBar";
 import {OverflowMenu} from "../../ui/mobile/OverflowMenu";
 import {DataViewToolbar} from "../../ui/data/DataViewToolbar";
+import {SegmentedControl} from "../../ui/primitives/SegmentedControl";
+import {CnPurchasePanel,type CnOrder} from "./CnPurchasePanel";
 import {orderSheet} from "../../../shared/ordering-export";
 import "./erp-item-query.css";
 import {buildXlsx} from "../../../shared/xlsx-writer";
@@ -98,7 +100,9 @@ function OrderingRestockJob({open,onClose,canQueryItem}:{open:boolean;onClose:()
   <div className="cy-restock-panel"><RestockAssist job={job} canQueryItem={canQueryItem} canOrdering/></div>
  </SidePanel>:null;
 }
-export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:boolean;canQueryItem?:boolean}={}){
+export function OrderingPage({canRestock=false,canQueryItem=false,canCnPurchase=false}:{canRestock?:boolean;canQueryItem?:boolean;canCnPurchase?:boolean}={}){
+ // 自訂中國貨採購 (user 2026-11-10): 「叫貨明細｜採購」 inside a sent 自訂中國貨 叫貨單.
+ const [orderView_,setOrderView]=useState<"lines"|"purchase">("lines"),cnDirty=useRef(false);
  const [sources,setSources]=useState<OrderingSource[]>([]),[list,setList]=useState<OrderingListRow[]>([]),[pending,setPending]=useState<OrderingPendingLine[]>([]);
  const [tab,setTab]=useState<number|null>(null),[vendorAll,setVendorAll]=useState(false),[selected,setSelected]=useState<DisplayOrder|null>(null);
  const [openOnly,setOpenOnly]=useState(false);
@@ -161,6 +165,10 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
   return bindings.current.get(key)!;
  }
  async function prepareSwitch(){
+  if(cnDirty.current){
+   if(!await confirm({title:"採購尚未儲存",description:"採購的修改還沒儲存。繼續切換會放棄這些修改。",confirmLabel:"放棄修改並切換",cancelLabel:"留下繼續編輯",confirmTone:"danger"}))return false;
+   cnDirty.current=false;setOrderView("lines");
+  }
   if(revisingRef.current){
    await Promise.all([...editors.current.values()].map(e=>e.flush()));
    if(reviseChanged(revisingRef.current)&&!await confirm({title:"修改尚未儲存",description:"已送出叫貨單的修改還沒儲存。繼續切換會放棄這些修改。",confirmLabel:"放棄修改並切換",cancelLabel:"留下繼續編輯",confirmTone:"danger"}))return false;
@@ -403,6 +411,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
  }
  function startRevision(){
   if(!selected||selected.storedStatus!=="SENT")return;
+  setOrderView("lines");
   setRevising({orderId:selected.id,lines:selected.lines.map(l=>({...l})),note:selected.note,deleted:[],added:new Set()});
  }
  async function reviseCommit(row:GridLine,patch:Partial<GridLine>):Promise<GridLine>{
@@ -561,6 +570,10 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
   const entry=[...editors.current].find(([key])=>key.startsWith(prefix));
   entry?.[1].openNew?.();
  };
+ const startReceipt=()=>{if(current)setReceipt({id:current.id,no:"",date:nowDate(),quantities:Object.fromEntries(openLines.map(l=>[l.id,String((l.quantity??0)-l.received)])),selectedLineIds:[]})};
+ const cnAvailable=!!current&&canCnPurchase&&current.sourceKind==="CN_CUSTOM"&&current.storedStatus==="SENT"&&!revisingNow;
+ const showCn=cnAvailable&&orderView_==="purchase";
+ const applyCnOrder=(x:CnOrder)=>{const data=remember(x as DisplayOrder);setSelected(prev=>prev?.id===data.id?data:prev);void refreshLists().catch(e=>setError(errorOf(e)))};
  const orderView=current?<>
       <div className="cy-record-header">
        <div className="cy-ordering-title"><h2>{current.sourceName}</h2><StatusChip tone={STATUS_TONE[current.status]}>{ORDERING_STATUS_LABELS[current.status]}</StatusChip>
@@ -584,7 +597,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
         {current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button danger" onClick={()=>void deleteDraft()}>刪除</button>
          :current.storedStatus==="SENT"?<button type="button" className="cy-op-button danger" onClick={()=>void voidOrder()}>作廢</button>:null}
         {revisable?<button type="button" className="cy-op-button" onClick={startRevision}>修改</button>:null}
-        {current.storedStatus==="SENT"&&openLines.length?<button type="button" className="cy-op-button primary" onClick={()=>setReceipt({id:current.id,no:"",date:nowDate(),quantities:Object.fromEntries(openLines.map(l=>[l.id,String((l.quantity??0)-l.received)])),selectedLineIds:[]})}>登記到貨</button>:null}
+        {current.storedStatus==="SENT"&&openLines.length&&!showCn?<button type="button" className="cy-op-button primary" onClick={startReceipt}>登記到貨</button>:null}
         {current.storedStatus==="DRAFT"?<button type="button" className="cy-op-button primary" onClick={()=>void sent()}>送出</button>:null}</>}
        </div>}
       </div>
@@ -593,7 +606,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
         <button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void saveRevision()}>儲存修改</button></>
        :editable?<><button type="button" className="cy-op-button" disabled={busy} onClick={()=>openMobileNewLine(current.id)}>＋新增品項</button>
         <button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void sent()}>送出叫貨</button></>
-       :<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>setReceipt({id:current.id,no:"",date:nowDate(),quantities:Object.fromEntries(openLines.map(l=>[l.id,String((l.quantity??0)-l.received)])),selectedLineIds:[]})}>登記到貨</button>}
+       :<button type="button" className="cy-op-button primary" disabled={busy} onClick={startReceipt}>登記到貨</button>}
       </ActionBar>:null}
       {current.storedStatus==="DRAFT"||currentSource?.kind==="VENDOR"?<div className="cy-ordering-meta">
        {current.storedStatus==="DRAFT"?<><span className="cy-ordering-meta-label">草稿</span>
@@ -612,6 +625,10 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>修改廠商</button>
         </div></>:null}
       </div>:null}
+      {cnAvailable?<div className="cy-ordering-view-switch"><SegmentedControl label="叫貨單檢視" value={orderView_} onChange={v=>{if(v==="lines"&&cnDirty.current)void prepareSwitch().then(ok=>{if(ok)setOrderView("lines")});else setOrderView(v)}}
+       options={[{value:"lines",label:"叫貨明細"},{value:"purchase",label:"採購"}]}/></div>:null}
+      {showCn?<CnPurchasePanel order={current as CnOrder} onSaved={applyCnOrder} onError={setError} onNotice={setNotice} confirm={confirm} dirtyRef={cnDirty}
+       canReceive={openLines.length>0} onReceive={startReceipt}/>:null}
       {current.receipts.length?<section className="cy-ordering-lines" aria-label="到貨紀錄"><h3>到貨紀錄<small>{current.receipts.length} 筆</small></h3>
        {/* Same bordered grid as 叫貨明細 below (user 2026-11-09); one receipt per line. */}
        <div className="cy-ordering-grid-scroll"><table className="cy-ordering-grid cy-rt cy-ordering-receipts" data-readonly>
@@ -633,7 +650,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
         <Field label="單據備註" size="m" hint={headerDirty.date||headerDirty.note?"離開欄位後自動儲存":undefined}><input id="cy-ordering-note" className="cy-op-input" disabled={!editable} value={current.note} onChange={e=>{headerEditRevisions.current.note++;headerDirtyRef.current={...headerDirtyRef.current,note:true};setHeaderDirty(v=>({...v,note:true}));setSelected(v=>v?{...v,note:e.target.value}:v)}} onBlur={()=>void saveHeader("note")}/></Field>
        </FormSection>
       </form>:null}
-      {(current.sourceKind==="CN_REGULAR"?CN_REGULAR_SECTIONS:[{key:"" as const,label:"叫貨明細"}]).map(group=>{const gridKey=current.id+"-"+group.key+(revisingNow?"-revise":"");
+      {showCn?null:(current.sourceKind==="CN_REGULAR"?CN_REGULAR_SECTIONS:[{key:"" as const,label:"叫貨明細"}]).map(group=>{const gridKey=current.id+"-"+group.key+(revisingNow?"-revise":"");
        return <section key={group.key} className="cy-ordering-lines">
         <h3>{group.label}</h3>
         <OrderingGrid kind={current.sourceKind} section={group.key as OrderingSection} key={gridKey} lines={revisingNow?revising!.lines:current.lines} busy={busy} readOnly={!editable&&!revisingNow} {...gridBindings(gridKey)}
@@ -654,7 +671,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
   {compact?<ModuleSections label="手機叫貨功能"
    sections={[{key:"pending",label:"未到貨",badge:pending.length},{key:"drafts",label:"草稿"},{key:"history",label:"叫貨單"}] as const}
    value={mobileSection} onChange={key=>{if(key==="pending")void showPending();else void showMobileList(key)}}/>:null}
-  <div className="cy-md" data-pane={pane.pane}>
+  <div className={"cy-md"+(showCn&&!compact?" is-cn-wide":"")} data-pane={pane.pane}>
    <section className="cy-op-panel cy-md-list" aria-label={compact?(mobileListMode==="drafts"?"草稿來源":"叫貨清單"):"叫貨紀錄"}>
     {compact&&mobileListMode==="drafts"?<div className="cy-mobile-choice-panel">
       <div className="cy-mobile-choice-heading">
