@@ -1,6 +1,6 @@
-import { parseScaled4, formatScaled4 } from "../../shared/fixed-point";
+import { parseScaled4, formatScaled4, formatMoney2, parseMoney2 } from "../../shared/fixed-point";
 import { convertScaled4Exact } from "../../shared/unit-conversion";
-import { stockGaugeFromMovements, outsourcingLifecycle, outsourcingProgress } from "../../shared/outsourcing-flow";
+import { stockGaugeFromMovements, outsourcingLifecycle, outsourcingProgress, roundedLineMoney2, roundedStatementMoney2 } from "../../shared/outsourcing-flow";
 import { AuditService } from "../audit/audit-service";
 import { FieldValidationError } from "../validation/fields";
 
@@ -317,6 +317,181 @@ export class OutsourcingFlowService {
       this.db.prepare("DELETE FROM outsourcing_orders WHERE id=? AND revision=?").bind(orderId,o.revision),
       this.event("outsourcing.deleted","outsourcing_order",o.outsourcing_ref,actor)
     ]);return {deleted:true,orderId};
+  }
+
+
+  async unbilledReceipts(contractorId:number,month?:string) {
+    const where=month?"AND substr(r.received_date,1,7)=?":"";
+    const args=month?[contractorId,month]:[contractorId];
+    const result=await this.db.prepare(`SELECT ri.id AS receipt_item_id,ri.receipt_id,r.received_date,r.erp_no,
+      o.outsourcing_ref,o.id AS order_id,ri.item_id,i.item_no,i.name AS item_name,
+      ri.quantity,ri.unit,ri.pricing_unit,ri.unit_price
+      FROM outsourcing_receipt_items ri JOIN outsourcing_receipts r ON r.id=ri.receipt_id
+      JOIN outsourcing_orders o ON o.id=r.outsourcing_order_id
+      JOIN items i ON i.id=ri.item_id
+      LEFT JOIN outsourcing_statement_lines sl ON sl.receipt_item_id=ri.id
+      WHERE o.contractor_id=? AND r.cancelled_at IS NULL AND sl.id IS NULL ${where}
+      ORDER BY r.received_date,r.id,ri.id`).bind(...args).all<Row>();
+    return result.results??[];
+  }
+  async listStatements(contractorId?:number) {
+    const where=contractorId?"WHERE s.contractor_id=?":"";
+    const result=await this.db.prepare(`SELECT s.*,c.display_name AS contractor_name,c.billing_method,
+      (SELECT COALESCE(SUM(amount),0) FROM outsourcing_statement_payments p WHERE p.statement_id=s.id) AS paid_amount
+      FROM outsourcing_statements s JOIN contractors c ON c.id=s.contractor_id ${where}
+      ORDER BY s.statement_date DESC,s.id DESC LIMIT 100`).bind(...(contractorId?[contractorId]:[])).all<Row>();
+    const rows=[];for(const x of result.results??[]) {
+      const total=await this.statementAmount(x.id);
+      rows.push({...x,total_amount:total,paid_amount:x.paid_amount,paymentStatus:x.status_code==="draft"?"draft":
+        x.paid_amount>=total?"paid":x.paid_amount>0?"partial":"confirmed"});
+    }
+    return {items:rows,nextCursor:null};
+  }
+  async statementDetail(statementId:number) {
+    const statement=await this.db.prepare(`SELECT s.*,c.display_name AS contractor_name,c.billing_method
+      FROM outsourcing_statements s JOIN contractors c ON c.id=s.contractor_id WHERE s.id=?`).bind(statementId).first<Row>();
+    if(!statement)throw new FieldValidationError({statementId:"對帳單不存在"});
+    const [lines,adjustments,payments]=await Promise.all([
+      this.db.prepare(`SELECT sl.*,ri.quantity AS delivery_quantity,ri.unit AS delivery_unit,ri.item_id,
+       i.item_no,i.name AS item_name,r.received_date,r.erp_no,o.outsourcing_ref
+       FROM outsourcing_statement_lines sl JOIN outsourcing_receipt_items ri ON ri.id=sl.receipt_item_id
+       JOIN outsourcing_receipts r ON r.id=ri.receipt_id JOIN outsourcing_orders o ON o.id=r.outsourcing_order_id
+       JOIN items i ON i.id=ri.item_id WHERE sl.statement_id=? ORDER BY r.received_date,sl.id`).bind(statementId).all<Row>(),
+      this.db.prepare("SELECT * FROM outsourcing_statement_adjustments WHERE statement_id=? ORDER BY sort_order,id").bind(statementId).all<Row>(),
+      this.db.prepare("SELECT * FROM outsourcing_statement_payments WHERE statement_id=? ORDER BY payment_date,id").bind(statementId).all<Row>()
+    ]);
+    const list=lines.results??[],adds=adjustments.results??[],pays=payments.results??[];
+    const raw=list.reduce((t,l)=>t+(l.amount??0),0)+adds.reduce((t,l)=>t+l.amount,0);
+    const total=roundedStatementMoney2([raw]),paid=pays.reduce((t,p)=>t+p.amount,0);
+    return {...statement,lines:list,adjustments:adds,payments:pays,total_amount:total,paid_amount:paid,
+      paymentStatus:statement.status_code==="draft"?"draft":paid>=total?"paid":paid>0?"partial":"confirmed"};
+  }
+  private async statementAmount(statementId:number):Promise<number> {
+    const row=await this.db.prepare(`SELECT
+      COALESCE((SELECT SUM(amount) FROM outsourcing_statement_lines WHERE statement_id=?),0) +
+      COALESCE((SELECT SUM(amount) FROM outsourcing_statement_adjustments WHERE statement_id=?),0) AS total`)
+      .bind(statementId,statementId).first<{total:number}>();
+    return roundedStatementMoney2([row?.total??0]);
+  }
+  private async draftStatement(statementId:number,expected:unknown):Promise<Row>{
+    const s=await this.db.prepare("SELECT * FROM outsourcing_statements WHERE id=?").bind(statementId).first<Row>();
+    if(!s)throw new FieldValidationError({statementId:"對帳單不存在"});
+    if(s.revision!==id(expected,"expectedRevision"))throw new FieldValidationError({expectedRevision:"對帳單已異動"});
+    if(s.status_code!=="draft")throw new FieldValidationError({statementId:"對帳單已確認，不可修改"});
+    return s;
+  }
+  async createStatement(raw:unknown,actor:FlowActor) {
+    const b=object(raw),contractorId=id(b.contractorId,"contractorId"),statementDate=date(b.date,"date");
+    const contractor=await this.db.prepare("SELECT id,billing_method FROM contractors WHERE id=?").bind(contractorId).first<Row>();
+    if(!contractor)throw new FieldValidationError({contractorId:"廠商無效"});
+    const month=typeof b.month==="string"&&/^\d{4}-\d{2}$/.test(b.month)?b.month:null;
+    const candidates=await this.unbilledReceipts(contractorId,month??undefined);
+    // Arrays of IDs are accepted for manually selected batches.
+    const picked=b.receiptItemIds==null?candidates.map(r=>r.receipt_item_id):Array.isArray(b.receiptItemIds)?b.receiptItemIds.map((v:unknown)=>id(v,"receiptItemId")):[];
+    const selected=uniqueIDs(picked);
+    if(!selected.length)throw new FieldValidationError({receiptItemIds:"沒有可對帳的交貨明細"});
+    const candidateMap=new Map(candidates.map(r=>[r.receipt_item_id,r]));
+    for(const key of selected)if(!candidateMap.has(key))throw new FieldValidationError({receiptItemIds:"交貨明細已被對帳或不屬於廠商"});
+    const stmt:D1PreparedStatement[]=[this.db.prepare(`INSERT INTO outsourcing_statements
+      (contractor_id,statement_date,period_month,created_at,created_by,updated_at,updated_by)
+      VALUES(?,?,?,?,?,?,?)`).bind(contractorId,statementDate,month,actor.now,actor.actorMemberId,actor.now,actor.actorMemberId)];
+    for(const key of selected){
+      const r=candidateMap.get(key)!;const pricingUnit=r.pricing_unit??r.unit;
+      const refs=await this.itemRefs([r.item_id]),item=refs.get(r.item_id)!;
+      const converted=convertScaled4Exact(r.quantity,r.unit,pricingUnit,item.base_unit,item.conversions);
+      const amount=r.unit_price==null?null:roundedLineMoney2(converted,r.unit_price);
+      stmt.push(this.db.prepare(`INSERT INTO outsourcing_statement_lines
+        (statement_id,receipt_item_id,pricing_unit,quantity,unit_price,amount)
+        VALUES((SELECT MAX(id) FROM outsourcing_statements),?,?,?,?,?)`).bind(key,pricingUnit,converted,r.unit_price,amount));
+    }
+    stmt.push(this.event("outsourcing.statement_created","contractor",String(contractorId),actor,{lineCount:selected.length,month}));
+    await this.db.batch(stmt);
+    const latest=await this.db.prepare("SELECT MAX(id) AS id FROM outsourcing_statements WHERE contractor_id=?").bind(contractorId).first<{id:number}>();
+    return this.statementDetail(latest!.id);
+  }
+  async editStatement(statementId:number,raw:unknown,actor:FlowActor) {
+    const b=object(raw),s=await this.draftStatement(statementId,b.expectedRevision);
+    const lines=rows(b.lines,"lines");
+    const existing=await this.db.prepare("SELECT id FROM outsourcing_statement_lines WHERE statement_id=?").bind(statementId).all<{id:number}>();
+    const known=new Set((existing.results??[]).map(x=>x.id));
+    const stmts:D1PreparedStatement[]=[];
+    for(const l of lines) {
+      const lineId=id(l.id,"lineId");if(!known.has(lineId))throw new FieldValidationError({lineId:"明細不屬於本對帳單"});
+      const price=l.unitPrice==null||l.unitPrice===""?null:qty(l.unitPrice,"unitPrice",false);
+      if(price!==null&&price<0)throw new FieldValidationError({unitPrice:"單價不能小於零"});
+      const row=await this.db.prepare("SELECT quantity FROM outsourcing_statement_lines WHERE id=?").bind(lineId).first<{quantity:number}>();
+      stmts.push(this.db.prepare("UPDATE outsourcing_statement_lines SET unit_price=?,amount=? WHERE id=? AND statement_id=?")
+        .bind(price,price===null?null:roundedLineMoney2(row!.quantity,price),lineId,statementId));
+    }
+    const adjustments=Array.isArray(b.adjustments)?b.adjustments.map(object):[];
+    stmts.push(this.db.prepare("DELETE FROM outsourcing_statement_adjustments WHERE statement_id=?").bind(statementId));
+    for(const [index,a] of adjustments.entries()) {
+      const amount=(()=>{try{return parseMoney2(String(a.amount));}catch{throw new FieldValidationError({amount:"金額最多兩位小數"});}})();
+      stmts.push(this.db.prepare("INSERT INTO outsourcing_statement_adjustments(statement_id,description,amount,sort_order) VALUES(?,?,?,?)")
+        .bind(statementId,text(a.description,"description"),amount,index));
+    }
+    stmts.push(this.db.prepare("UPDATE outsourcing_statements SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=? AND status_code='draft'")
+      .bind(actor.now,actor.actorMemberId,statementId,s.revision));
+    stmts.push(this.event("outsourcing.statement_edited","statement",String(statementId),actor,{lineCount:lines.length}));
+    await this.db.batch(stmts);return this.statementDetail(statementId);
+  }
+  async confirmStatement(statementId:number,raw:unknown,actor:FlowActor) {
+    const b=object(raw),s=await this.draftStatement(statementId,b.expectedRevision);
+    const unpriced=await this.db.prepare("SELECT 1 FROM outsourcing_statement_lines WHERE statement_id=? AND unit_price IS NULL LIMIT 1").bind(statementId).first();
+    if(unpriced)throw new FieldValidationError({unitPrice:"所有明細均須設定單價"});
+    await this.db.batch([
+      this.db.prepare("UPDATE outsourcing_statements SET status_code='confirmed',confirmed_at=?,revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?")
+        .bind(actor.now,actor.now,actor.actorMemberId,statementId,s.revision),
+      this.event("outsourcing.statement_confirmed","statement",String(statementId),actor)
+    ]);return this.statementDetail(statementId);
+  }
+  async cancelStatementConfirmation(statementId:number,raw:unknown,actor:FlowActor) {
+    const b=object(raw),s=await this.db.prepare("SELECT * FROM outsourcing_statements WHERE id=?").bind(statementId).first<Row>();
+    if(!s||s.revision!==id(b.expectedRevision,"expectedRevision")||s.status_code!=="confirmed")
+      throw new FieldValidationError({statementId:"對帳單狀態已變更"});
+    const paid=await this.db.prepare("SELECT 1 FROM outsourcing_statement_payments WHERE statement_id=? LIMIT 1").bind(statementId).first();
+    if(paid)throw new FieldValidationError({statementId:"已有付款，不能取消確認"});
+    await this.db.batch([
+      this.db.prepare("UPDATE outsourcing_statements SET status_code='draft',confirmed_at=NULL,revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?")
+        .bind(actor.now,actor.actorMemberId,statementId,s.revision),
+      this.event("outsourcing.statement_unconfirmed","statement",String(statementId),actor)
+    ]);return this.statementDetail(statementId);
+  }
+  async removeDraftStatement(statementId:number,raw:unknown,actor:FlowActor) {
+    const b=object(raw);await this.draftStatement(statementId,b.expectedRevision);
+    await this.db.batch([
+      this.db.prepare("DELETE FROM outsourcing_statement_lines WHERE statement_id=?").bind(statementId),
+      this.db.prepare("DELETE FROM outsourcing_statement_adjustments WHERE statement_id=?").bind(statementId),
+      this.db.prepare("DELETE FROM outsourcing_statements WHERE id=?").bind(statementId),
+      this.event("outsourcing.statement_deleted","statement",String(statementId),actor)
+    ]);return {deleted:true,statementId};
+  }
+  async addPayment(statementId:number,raw:unknown,actor:FlowActor) {
+    const b=object(raw),s=await this.statementDetail(statementId);
+    if(s.status_code!=="confirmed")throw new FieldValidationError({statementId:"請先確認對帳單"});
+    if(s.revision!==id(b.expectedRevision,"expectedRevision"))throw new FieldValidationError({expectedRevision:"對帳單已異動"});
+    const method=text(b.method,"method");if(!["cash","transfer","cheque","other"].includes(method))throw new FieldValidationError({method:"付款方式無效"});
+    let amount:number;try{amount=parseMoney2(String(b.amount));}catch{throw new FieldValidationError({amount:"付款金額格式錯誤"});}
+    if(amount<=0||s.paid_amount+amount>s.total_amount)throw new FieldValidationError({amount:"付款金額須大於零且不可超過剩餘應付"});
+    await this.db.batch([
+      this.db.prepare("INSERT INTO outsourcing_statement_payments(statement_id,payment_date,method,amount,note,created_at,created_by) VALUES(?,?,?,?,?,?,?)")
+        .bind(statementId,date(b.date,"date"),method,amount,text(b.note,"note",false)||null,actor.now,actor.actorMemberId),
+      this.db.prepare("UPDATE outsourcing_statements SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?")
+        .bind(actor.now,actor.actorMemberId,statementId,s.revision),
+      this.event("outsourcing.payment_added","statement",String(statementId),actor,{amount:formatMoney2(amount),method})
+    ]);return this.statementDetail(statementId);
+  }
+  async deletePayment(statementId:number,paymentId:number,raw:unknown,actor:FlowActor) {
+    const b=object(raw),s=await this.statementDetail(statementId);
+    if(s.revision!==id(b.expectedRevision,"expectedRevision"))throw new FieldValidationError({expectedRevision:"對帳單已異動"});
+    const payment=s.payments.find((p:Row)=>p.id===paymentId);
+    if(!payment)throw new FieldValidationError({paymentId:"付款紀錄不存在"});
+    await this.db.batch([
+      this.db.prepare("DELETE FROM outsourcing_statement_payments WHERE id=? AND statement_id=?").bind(paymentId,statementId),
+      this.db.prepare("UPDATE outsourcing_statements SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?")
+        .bind(actor.now,actor.actorMemberId,statementId,s.revision),
+      this.event("outsourcing.payment_deleted","statement",String(statementId),actor,{paymentId,amount:formatMoney2(payment.amount)})
+    ]);return this.statementDetail(statementId);
   }
 
 }
