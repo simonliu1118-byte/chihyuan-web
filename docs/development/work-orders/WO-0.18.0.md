@@ -1,7 +1,7 @@
 # WO-0.18.0 委外／代工流程改版：分批發料與交貨、代工庫存電池條、對帳付款
 
-- 狀態：**待執行**
-- 分支：`cyweb/wo-0.18.0-outsourcing`　PR：#（執行者填）
+- 狀態：**執行中（尚未驗收）**
+- 分支：`cyweb/wo-0.18.0-outsourcing`　PR：#（待建立）
 - 版號：V0.18.0（若已被占用就用下一個空號，CHANGELOG 同步）
 - 開工前必讀：
   - `docs/architecture/CONTRACTOR_OUTSOURCING_MODULE_CONTRACT.md`（現行規格，本單完成後要改寫）
@@ -140,6 +140,12 @@
 - [ ] VERSION／package.json 版本、CHANGELOG、TODO（含「代工 ERP 連動」）已更新；`CONTRACTOR_OUTSOURCING_MODULE_CONTRACT.md` 改寫完成。
 - [ ] 開 PR 給 Claude 審查。**不要自行合併或部署。**
 
-## 8. 完成報告（GPT 填）
+## 8. 完成報告（GPT，開發中；尚未交付）
+
+- 開工基準：main `7527b8898aefce3673cb80de67b07224e6d1b8e6`，V0.17.3；分支 `cyweb/wo-0.18.0-outsourcing`，開發版 V0.18.0。
+- 已提交 migration 0062、批次工單與庫存 service 初版、對帳付款 service、五頁籤畫面初版、協力廠商結帳方式資料邊界與備份欄位設定。
+- **尚未通過 CI 或實機畫面驗收，不宣稱完成**；發料建議、扣料預告、成品庫存分組及版面仍待補齊，須完整測試與審查後方可合併。未合併、未部署。
+
+
 
 ## 9. 審查紀錄（Claude 填）
