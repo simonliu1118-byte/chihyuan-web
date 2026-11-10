@@ -124,7 +124,7 @@ export async function acceptBusinessHttpAuthority(db: D1Database, componentId: n
     }
   }
   provider = "ready";
-  for (const path of ["orders/1/reverse-shipment", "outsourcing/orders/1/correct-outbound", "outsourcing/orders/1/cancel-outbound"]) {
+  for (const path of ["orders/1/reverse-shipment"]) {
     await expect(path, 403, "POST", { ...spoof, expectedRevision: 1 });
   }
   check(await snapshot() === initial, "GATE_OR_VALIDATION_BUSINESS_MUTATION");
@@ -365,84 +365,83 @@ export async function acceptBusinessHttpAuthority(db: D1Database, componentId: n
   check(JSON.stringify(retainedAudit.results) === JSON.stringify(priorAudit.results), "PREVIOUS_AUDIT_RETENTION");
   role = "USER";
 
-  // Full outsourcing HTTP path: real BOM/unit/price resolution and reversals.
-  const contractor = (await (await expect("outsourcing/contractors", 201, "POST", {
-    entityType: "organization", displayName: "Isolated HTTP Contractor", contacts: [],
-  })).json() as { data: { id: number } }).data;
-  const bom = (await (await expect("outsourcing/boms", 201, "POST", {
-    recipeRef: "ACC-HTTP-BOM-001", finishedItemId: finishedId, outputQuantity: "1", outputUnit: "EA",
-    components: [{ itemId: componentId, quantity: "2", unit: "EA", sortOrder: 0 }],
-  })).json() as { data: { id: number } }).data;
-  await expect("outsourcing/contractors/" + contractor.id + "/prices", 200, "PUT", {
-    itemId: finishedId, pricingUnit: "EA", unitPrice: "1.25",
+  // WO-0.18: real HTTP -> Worker -> D1 authority, multiple issue/receipt
+  // batches, BOM consumption, statements, partial payment, and audit.
+  const contractor = (await (await expect("outsourcing/contractors",201,"POST",{
+    entityType:"organization",displayName:"Isolated HTTP Contractor",billingMethod:"monthly",contacts:[],
+  })).json() as {data:{id:number}}).data;
+  const bom = (await (await expect("outsourcing/boms",201,"POST",{
+    recipeRef:"ACC-HTTP-BOM-001",finishedItemId:finishedId,outputQuantity:"1",outputUnit:"EA",
+    components:[{itemId:componentId,quantity:"2",unit:"EA",sortOrder:0}],
+  })).json() as {data:{id:number}}).data;
+  await expect("outsourcing/contractors/"+contractor.id+"/prices",200,"PUT",{
+    itemId:finishedId,pricingUnit:"EA",unitPrice:"1.25",
   });
-  const outProfile = { contractorId: contractor.id, operatorEmployeeId: await memberId(), orderDate: "2026-10-02",
-    parts: [{ finishedItemId: finishedId, componentItemId: componentId, bomRecipeId: bom.id,
-      quantity: "1", unit: "CASE", sortOrder: 0 }] };
-  const outsourcing = (await (await expect("outsourcing/orders", 201, "POST", outProfile)).json() as {
-    data: { id: number; revision: number };
-  }).data;
-  const outPath = "outsourcing/orders/" + outsourcing.id;
-  let outRevision = outsourcing.revision;
-  async function outStock(expected: number): Promise<void> {
-    const row = await db.prepare("SELECT COALESCE(SUM(quantity_delta),0) AS n FROM contractor_stock_movements WHERE outsourcing_order_id=?")
-      .bind(outsourcing.id).first<{ n: number }>();
-    check(Number(row?.n) === expected, "OUTSOURCING_STOCK_" + expected);
-    await expect("outsourcing/stock?contractorId=" + contractor.id, 200);
-  }
-  async function outAction(action: string, target: string, extra: Record<string, unknown> = {}): Promise<void> {
-    const body = { ...spoof, expectedRevision: outRevision, reason: "isolated HTTP acceptance", ...extra };
-    const detail = (await (await expect(outPath + "/" + action, 200, "POST", body)).json() as {
-      data: { revision: number; statusCode: string; pricing: { totalAmount: string } | null };
-    }).data;
-    check(detail.revision === outRevision + 1 && detail.statusCode === target, "OUTSOURCING_STATE_" + action);
-    if (action === "price") check(detail.pricing?.totalAmount === "3.75", "OUTSOURCING_EXACT_PRICE");
-    outRevision = detail.revision;
-    const saved = await snapshot();
-    await expect(outPath + "/" + action, 409, "POST", body, true, "OUTSOURCING_REVISION_CONFLICT");
-    check(await snapshot() === saved, "OUTSOURCING_STALE_HTTP_" + action);
-    await expect(outPath, 200);
-  }
-  await outStock(0);
-  await outAction("confirm-outbound", "outbound", { effectiveDate: "2026-10-02" });
-  await outStock(240000); // CASE -> 2 BOX -> 24 EA.
-  const outboundSaved = await snapshot();
-  await expect(outPath, 403, "DELETE", { expectedRevision: outRevision, ...spoof });
-  await expect(outPath + "/correct-outbound", 403, "POST", { ...outProfile, expectedRevision: outRevision, ...spoof });
-  check(await snapshot() === outboundSaved, "OUTSOURCING_USER_ADMIN_SPOOF");
-  role = "ADMIN";
-  await expect(outPath, 409, "DELETE", { expectedRevision: outRevision }, true, "OUTSOURCING_DELETE_NOT_ALLOWED");
-  await outAction("correct-outbound", "outbound", { ...outProfile,
-    parts: [{ ...outProfile.parts[0], quantity: "2" }] });
-  await outStock(480000);
-  role = "USER";
-  await outAction("receive", "received", { receivedDate: "2026-10-02", operatorEmployeeId: await memberId(),
-    items: [{ itemId: finishedId, bomRecipeId: bom.id, quantity: "3", unit: "EA", sortOrder: 0 }] });
-  await outStock(420000); // 3 finished units consume 6 component units.
-  await outAction("price", "priced", { pricedDate: "2026-10-02", operatorEmployeeId: await memberId() });
-  await outAction("paid", "paid");
-  const paidSaved = await snapshot();
-  await expect(outPath + "/cancel-pricing", 422, "POST", { expectedRevision: outRevision, reason: "blocked" });
-  await expect(outPath + "/cancel-receipt", 422, "POST", { expectedRevision: outRevision, reason: "blocked" });
-  check(await snapshot() === paidSaved, "OUTSOURCING_REVERSE_ORDER_MUTATION");
-  await outAction("cancel-payment", "priced");
-  await outAction("cancel-pricing", "received");
-  await outAction("cancel-receipt", "outbound");
-  await outStock(480000);
-  const reversalSaved = await snapshot();
-  await expect(outPath + "/cancel-outbound", 403, "POST", { expectedRevision: outRevision, ...spoof });
-  check(await snapshot() === reversalSaved, "OUTSOURCING_USER_CANCEL_MUTATION");
-  role = "ADMIN";
-  await outAction("cancel-outbound", "voided");
-  await outStock(0);
-  const outAudit = await db.prepare("SELECT action,actor_employee_id FROM audit_events WHERE entity_type='outsourcing_order' AND entity_key=? ORDER BY id")
-    .bind(String(outsourcing.id)).all<{ action: string; actor_employee_id: number }>();
-  check(JSON.stringify(outAudit.results.map(row => row.action)) === JSON.stringify([
-    "outsourcing.outbound.confirmed", "outsourcing.outbound.corrected", "outsourcing.received", "outsourcing.priced",
-    "outsourcing.paid", "outsourcing.payment.cancelled", "outsourcing.pricing.cancelled",
-    "outsourcing.receipt.cancelled", "outsourcing.outbound.cancelled",
-  ]) && outAudit.results.every(row => row.actor_employee_id === creator?.created_by), "OUTSOURCING_HTTP_AUDIT");
-  role = "USER";
+  const outsourcingOrder = (await (await expect("outsourcing/orders",201,"POST",{
+    contractorId:contractor.id,orderDate:"2026-10-02",
+    products:[{itemId:finishedId,bomRecipeId:bom.id,quantity:"3",unit:"EA"},
+      {itemId:finishedId,quantity:"2",unit:"EA"}],
+  })).json() as {data:{id:number;revision:number;products:{id:number}[];statusCode:string;outsourcing_ref:string}}).data;
+  check(outsourcingOrder.statusCode==="pending_issue"&&outsourcingOrder.products.length===2,"OUTSOURCING_PLAN_ONLY");
+  const base="outsourcing/orders/"+outsourcingOrder.id;
+  const issued=(await(await expect(base+"/issues",200,"POST",{
+    expectedRevision:outsourcingOrder.revision,date:"2026-10-02",items:[{itemId:componentId,quantity:"30",unit:"EA"}],
+  })).json() as {data:{revision:number;statusCode:string;issues:{id:number}[]}}).data;
+  check(issued.statusCode==="in_production","OUTSOURCING_ISSUE_TRANSITION");
+  const staleIssueSnapshot=await snapshot();
+  await expect(base+"/issues",409,"POST",{
+    expectedRevision:outsourcingOrder.revision,date:"2026-10-02",
+    items:[{itemId:componentId,quantity:"1",unit:"EA"}],
+  },true,"OUTSOURCING_REVISION_CONFLICT");
+  check(await snapshot()===staleIssueSnapshot,"OUTSOURCING_STALE_ISSUE_NO_SIDE_EFFECTS");
+
+  const issuedStock=await db.prepare("SELECT SUM(quantity_delta) AS n FROM contractor_stock_movements WHERE contractor_id=? AND item_id=?")
+    .bind(contractor.id,componentId).first<{n:number}>();
+  check(issuedStock?.n===300000,"OUTSOURCING_ISSUE_LEDGER");
+  await expect("outsourcing/stock?contractorId="+contractor.id,200);
+  const batch1=(await(await expect(base+"/receipts",200,"POST",{
+    expectedRevision:issued.revision,date:"2026-10-02",erpNo:"ACCEPT-ERP-1",
+    items:[{orderProductId:outsourcingOrder.products[0].id,bomRecipeId:bom.id,quantity:"2",unit:"EA"}],
+  })).json() as {data:{revision:number;statusCode:string;receipts:{id:number;items:{id:number}[]}[]}}).data;
+  check(batch1.statusCode==="in_production","OUTSOURCING_FIRST_PARTIAL_RECEIPT");
+  const afterConsumption=await db.prepare("SELECT SUM(quantity_delta) AS n FROM contractor_stock_movements WHERE contractor_id=? AND item_id=?")
+    .bind(contractor.id,componentId).first<{n:number}>();
+  check(afterConsumption?.n===260000,"OUTSOURCING_BOM_CONSUMPTION");
+  const batch2=(await(await expect(base+"/receipts",200,"POST",{
+    expectedRevision:batch1.revision,date:"2026-10-03",erpNo:"ACCEPT-ERP-2",
+    items:[{orderProductId:outsourcingOrder.products[0].id,bomRecipeId:bom.id,quantity:"1",unit:"EA"},
+      {orderProductId:outsourcingOrder.products[1].id,quantity:"2",unit:"EA"}],
+  })).json() as {data:{revision:number;statusCode:string;receipts:{id:number;items:{id:number}[]}[]}}).data;
+  check(batch2.statusCode==="delivered"&&batch2.receipts.length===2,"OUTSOURCING_MULTI_RECEIPT_DELIVERED");
+  const receipt1=batch2.receipts.find(r=>r.items.some(i=>i.id===batch1.receipts[0].items[0].id))!;
+  const stmt=(await(await expect("outsourcing/statements",201,"POST",{
+    contractorId:contractor.id,date:"2026-10-05",month:"2026-10",receiptItemIds:[receipt1.items[0].id],
+  })).json() as {data:{id:number;revision:number;lines:{id:number}[]}}).data;
+  const confirmed=(await(await expect("outsourcing/statements/"+stmt.id+"/confirm",200,"POST",{
+    expectedRevision:stmt.revision,
+  })).json() as {data:{revision:number;status_code:string;total_amount:number}}).data;
+  check(confirmed.status_code==="confirmed"&&confirmed.total_amount>0,"OUTSOURCING_CONFIRMED_STATEMENT");
+  const locked=await snapshot();
+  await expect(base+"/receipts/"+receipt1.id+"/cancel",422,"POST",{expectedRevision:batch2.revision});
+  check(await snapshot()===locked,"OUTSOURCING_CONFIRMED_RECEIPT_LOCK");
+  const payment=(await(await expect("outsourcing/statements/"+stmt.id+"/payments",200,"POST",{
+    expectedRevision:confirmed.revision,date:"2026-10-06",method:"transfer",amount:"1",
+  })).json() as {data:{paymentStatus:string;payments:{id:number}[];revision:number}}).data;
+  check(payment.paymentStatus==="partial"&&payment.payments.length===1,"OUTSOURCING_PARTIAL_PAYMENT");
+  await expect("outsourcing/statements/"+stmt.id+"/payments/"+payment.payments[0].id,200,"DELETE",{
+    expectedRevision:payment.revision,
+  });
+  const current=(await(await expect(base,200)).json() as {data:{revision:number;receipts:{id:number}[]}}).data;
+  const secondReceipt=batch2.receipts.find(r=>r.id!==receipt1.id)!;
+  const cancelled=(await(await expect(base+"/receipts/"+secondReceipt.id+"/cancel",200,"POST",{
+    expectedRevision:current.revision,
+  })).json() as {data:{statusCode:string}}).data;
+  check(cancelled.statusCode==="in_production","OUTSOURCING_RECEIPT_CANCEL_REVERSES");
+  const outAudits=await db.prepare("SELECT action FROM audit_events WHERE entity_type='outsourcing_order' AND entity_key=? ORDER BY id")
+    .bind(outsourcingOrder.outsourcing_ref).all<{action:string}>();
+  check(outAudits.results.some(r=>r.action==="outsourcing.issued")&&outAudits.results.some(r=>r.action==="outsourcing.receipt_cancelled"),
+    "OUTSOURCING_AUDIT_REQUIRED");
+  role="USER";
 
   // WorkLog owner scope and ADMIN review are derived from the provider, not body.
   const logResponse = await expect("worklogs", 201, "POST", {

@@ -1,5 +1,6 @@
 import type {
   ContractorEntityType,
+  ContractorBillingMethod,
   ContractorProfileInput,
   CreateContractorRequest,
   SetContractorPriceRequest,
@@ -24,6 +25,7 @@ export interface NormalizedContractorContact {
 
 export interface NormalizedContractorProfile {
   entityType: ContractorEntityType;
+  billingMethod: ContractorBillingMethod;
   displayName: string;
   legalName: string | null;
   taxId: string | null;
@@ -115,10 +117,12 @@ function normalizeProfile(raw: unknown): NormalizedContractorProfile {
     : "person";
   if (entityTypeRaw !== entityType) errors.entityType = "類型必須為 person 或 organization";
 
+  const billingMethod = input.billingMethod == null ? "single" : input.billingMethod;
+  if(billingMethod !== "single" && billingMethod !== "monthly") errors.billingMethod = "結帳方式必須為單次或月結";
   const isActive = optionalBoolean(input.isActive, true, "isActive", errors);
   const contacts = normalizeContacts(input.contacts, errors);
   if (Object.keys(errors).length > 0) throw new FieldValidationError(errors);
-  return { entityType, displayName, legalName, taxId, phone, address, note, isActive, contacts };
+  return { entityType, billingMethod: billingMethod as ContractorBillingMethod, displayName, legalName, taxId, phone, address, note, isActive, contacts };
 }
 
 export function normalizeCreateContractorRequest(raw: unknown): NormalizedContractorProfile {

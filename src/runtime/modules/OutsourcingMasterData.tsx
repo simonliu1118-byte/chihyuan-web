@@ -1,4 +1,5 @@
-import {Field,CheckField,FormSection} from "../../ui/forms/Field";
+import {Field,FormSection} from "../../ui/forms/Field";
+import {RecordSheet,RecordRows,type RowColumn} from "../../ui/forms/RecordSheet";
 import { formatItem } from "../../ui/foundation/format";
 import { FormEvent, useEffect, useId, useState } from "react";
 import type { BomDetail, BomSummary, ContractorDetail, ContractorEntityType, ContractorPrice, ContractorSummary } from "../../../shared/contractor-outsourcing";
@@ -69,15 +70,15 @@ function useEditorGuard(draft: unknown, busy: boolean, onEditingChange: (editing
 
 interface ContactDraft { id?: number; name: string; title: string; phone: string; mobile: string }
 interface ContractorDraft {
-  entityType: ContractorEntityType; displayName: string; legalName: string; taxId: string;
+  entityType: ContractorEntityType; billingMethod: "single"|"monthly"; displayName: string; legalName: string; taxId: string;
   phone: string; address: string; note: string; isActive: boolean; contacts: ContactDraft[];
 }
 interface PriceDraft { item: OutsourcingItemOption | null; existing: ContractorPrice | null; pricingUnit: string; unitPrice: string; note: string }
 
-const blankContractor = (): ContractorDraft => ({ entityType: "organization", displayName: "", legalName: "", taxId: "", phone: "", address: "", note: "", isActive: true, contacts: [] });
+const blankContractor = (): ContractorDraft => ({ entityType: "organization", billingMethod:"single", displayName: "", legalName: "", taxId: "", phone: "", address: "", note: "", isActive: true, contacts: [] });
 function contractorDraft(detail: ContractorDetail): ContractorDraft {
   return {
-    entityType: detail.entityType, displayName: detail.displayName, legalName: detail.legalName ?? "", taxId: detail.taxId ?? "",
+    entityType: detail.entityType, billingMethod:detail.billingMethod, displayName: detail.displayName, legalName: detail.legalName ?? "", taxId: detail.taxId ?? "",
     phone: detail.phone ?? "", address: detail.address ?? "", note: detail.note ?? "", isActive: detail.isActive,
     contacts: detail.contacts.filter((row) => row.isActive).map((row) => ({ id: row.id, name: row.name, title: row.title ?? "", phone: row.phone ?? "", mobile: row.mobile ?? "" })),
   };
@@ -129,7 +130,7 @@ export function ContractorWorkspace({ contractors, onChanged, onEditingChange, n
     const missing = draft.contacts.findIndex((row) => !row.name.trim());
     if (missing >= 0) { reportError(`第 ${missing + 1} 位聯絡人缺少姓名。`); return; }
     const profile = {
-      entityType: draft.entityType, displayName: draft.displayName.trim(), legalName: orNull(draft.legalName), taxId: orNull(draft.taxId),
+      entityType: draft.entityType, billingMethod:draft.billingMethod, displayName: draft.displayName.trim(), legalName: orNull(draft.legalName), taxId: orNull(draft.taxId),
       phone: orNull(draft.phone), address: orNull(draft.address), note: orNull(draft.note), isActive: draft.isActive,
       contacts: draft.contacts.map((row, index) => ({ id: row.id, name: row.name.trim(), title: orNull(row.title), phone: orNull(row.phone), mobile: orNull(row.mobile), sortOrder: index })),
     };
@@ -172,6 +173,12 @@ export function ContractorWorkspace({ contractors, onChanged, onEditingChange, n
     } finally { setBusy(false); }
   }
 
+  const contactColumns:RowColumn<ContactDraft>[]=[
+    {label:"姓名",view:c=>c.name,edit:(c,i)=><input className="cy-sheet-input" required value={c.name} onChange={e=>patchContact(i,{name:e.target.value})}/>},
+    {label:"職稱",view:c=>c.title,edit:(c,i)=><input className="cy-sheet-input" value={c.title} onChange={e=>patchContact(i,{title:e.target.value})}/>},
+    {label:"電話",view:c=>c.phone,edit:(c,i)=><input className="cy-sheet-input" value={c.phone} onChange={e=>patchContact(i,{phone:e.target.value})}/>},
+    {label:"手機",view:c=>c.mobile,edit:(c,i)=><input className="cy-sheet-input" value={c.mobile} onChange={e=>patchContact(i,{mobile:e.target.value})}/>}
+  ];
   return <>
     {confirmationDialog}
     {price ? <Dialog showCloseButton={false} open title={price.existing ? `修改單價：${price.existing.itemName}` : "設定代工單價"} size="small" dismissible={!busy} onClose={() => setPrice(null)}
@@ -201,45 +208,44 @@ export function ContractorWorkspace({ contractors, onChanged, onEditingChange, n
       <section className="cy-op-panel cy-md-detail">
         <MasterDetailBack label="代工對象清單" disabled={busy} onBack={async () => { if (draft && !(await canLeave())) return; setDraft(null); setCreating(false); pane.close(); }} />
         {draft ? <form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={(event) => void save(event)}>
-    <FormSection>
-          <div className="cy-record-header cy-edit-header"><div><h2>{creating ? "新增代工對象" : `修改 ${detail?.displayName ?? "代工對象"}`}</h2></div><div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
-            <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立代工對象" : "儲存修改"}</button></div></div>
-          <div className="cy-f-grid">
-            <Field label="名稱" size="m" required><input className="cy-op-input" value={draft.displayName} disabled={busy} onChange={(event) => patch({ displayName: event.target.value })} /></Field>
-            <Field label="類型" size="s"><select className="cy-op-input" value={draft.entityType} disabled={busy} onChange={(event) => patch({ entityType: event.target.value as ContractorEntityType })}>
-              <option value="organization">公司／工廠</option><option value="person">個人</option></select></Field>
-            <Field label="正式名稱" size="m"><input className="cy-op-input" value={draft.legalName} disabled={busy} onChange={(event) => patch({ legalName: event.target.value })} /></Field>
-            <Field label="統編" size="s"><input className="cy-op-input" value={draft.taxId} disabled={busy} onChange={(event) => patch({ taxId: event.target.value })} /></Field>
-            <Field label="電話" size="s"><input className="cy-op-input" value={draft.phone} disabled={busy} onChange={(event) => patch({ phone: event.target.value })} /></Field>
-            <Field label="地址" size="l"><input className="cy-op-input" value={draft.address} disabled={busy} onChange={(event) => patch({ address: event.target.value })} /></Field>
-            <Field label="備註" size="l"><textarea className="cy-op-input" rows={2} value={draft.note} disabled={busy} onChange={(event) => patch({ note: event.target.value })} /></Field>
-            <CheckField  label="使用中（停用後不會出現在新代工單的選單）" size="s"  checked={draft.isActive} disabled={busy} onChange={(event) => patch({ isActive: event.target.checked })} />
-          </div>
-          <section className="cy-form-block">
-            <div className="cy-form-block-head"><div><h3>聯絡人</h3></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={() => patch({ contacts: [...draft.contacts, { name: "", title: "", phone: "", mobile: "" }] })}>＋ 增加聯絡人</button></div>
-            <div className="cy-form-block-body">
-              {draft.contacts.length === 0 ? <p className="cy-form-block-empty">尚未填寫。</p> : draft.contacts.map((row, index) => <div className="cy-out-contact cy-mobile-form-two-col" key={row.id ?? `new-${index}`}>
-                <input className="cy-op-input" aria-label="姓名" placeholder="姓名" value={row.name} disabled={busy} onChange={(event) => patchContact(index, { name: event.target.value })} />
-                <input className="cy-op-input" aria-label="職稱" placeholder="職稱" value={row.title} disabled={busy} onChange={(event) => patchContact(index, { title: event.target.value })} />
-                <input className="cy-op-input" aria-label="電話" placeholder="電話" value={row.phone} disabled={busy} onChange={(event) => patchContact(index, { phone: event.target.value })} />
-                <input className="cy-op-input" aria-label="手機" placeholder="手機" value={row.mobile} disabled={busy} onChange={(event) => patchContact(index, { mobile: event.target.value })} />
-                <button type="button" className="cy-op-button compact soft cy-row-remove" disabled={busy} onClick={() => patch({ contacts: draft.contacts.filter((_, i) => i !== index) })}>移除</button>
-              </div>)}
-            </div>
-          </section>
-        
-    </FormSection>
+    <RecordSheet label="協力廠商主檔" editing rows={[
+      {columns:"2fr 1fr 1fr",cells:[
+        {label:"名稱",required:true,view:draft.displayName,edit:<input className="cy-sheet-input" required value={draft.displayName} onChange={e=>patch({displayName:e.target.value})}/>},
+        {label:"類型",view:draft.entityType==="organization"?"公司／工廠":"個人",edit:<select className="cy-sheet-input" value={draft.entityType} onChange={e=>patch({entityType:e.target.value as ContractorEntityType})}><option value="organization">公司／工廠</option><option value="person">個人</option></select>},
+        {label:"結帳方式",view:draft.billingMethod==="monthly"?"月結":"單次結帳",edit:<select className="cy-sheet-input" value={draft.billingMethod} onChange={e=>patch({billingMethod:e.target.value as "monthly"|"single"})}><option value="single">單次結帳</option><option value="monthly">月結</option></select>}
+      ]},
+      {columns:"2fr 1fr 1fr",cells:[
+        {label:"正式名稱",view:draft.legalName,edit:<input className="cy-sheet-input" value={draft.legalName} onChange={e=>patch({legalName:e.target.value})}/>},
+        {label:"統編",view:draft.taxId,edit:<input className="cy-sheet-input" value={draft.taxId} onChange={e=>patch({taxId:e.target.value})}/>},
+        {label:"電話",view:draft.phone,edit:<input className="cy-sheet-input" value={draft.phone} onChange={e=>patch({phone:e.target.value})}/>}
+      ]},
+      {columns:"1fr",cells:[{label:"地址",view:draft.address,edit:<input className="cy-sheet-input" value={draft.address} onChange={e=>patch({address:e.target.value})}/>}]},
+      {columns:"1fr",cells:[{label:"備註",view:draft.note,edit:<input className="cy-sheet-input" value={draft.note} onChange={e=>patch({note:e.target.value})}/>}]},
+      {columns:"1fr",cells:[{label:"使用中",view:draft.isActive?"是":"否",edit:<input type="checkbox" checked={draft.isActive} onChange={e=>patch({isActive:e.target.checked})}/>}]}
+    ]}/>
+    <RecordRows title="聯絡人" editing rows={draft.contacts} columns={contactColumns}
+      rowKey={(c,i)=>c.id??"new-"+i}
+      onInsert={i=>patch({contacts:[...draft.contacts.slice(0,i+1),{name:"",title:"",phone:"",mobile:""},...draft.contacts.slice(i+1)]})}
+      onRemove={i=>patch({contacts:draft.contacts.filter((_,j)=>i!==j)})}/>
+
   </form> : loadingDetail ? <Loading /> : detail ? <div>
           <div className="cy-record-header"><div><h2>{detail.displayName}</h2><p>{[detail.legalName, detail.entityType === "person" ? "個人" : "公司／工廠"].filter(Boolean).join(" · ")}</p></div>
             <div className="cy-record-actions"><StatusChip tone={detail.isActive ? "success" : "neutral"}>{detail.isActive ? "使用中" : "停用"}</StatusChip>
               <button type="button" className="cy-op-button" disabled={busy} onClick={startEdit}>修改</button></div></div>
-          <div className="cy-op-detail-grid">
-            <div><span>統編</span><strong>{detail.taxId ?? "—"}</strong></div>
-            <div><span>電話</span><strong>{detail.phone ?? "—"}</strong></div>
-            <div><span>地址</span><strong>{detail.address ?? "—"}</strong></div>
-            {detail.contacts.some((row) => row.isActive) ? <div className="wide"><span>聯絡人</span><strong>{detail.contacts.filter((row) => row.isActive).map((row) => [row.name, row.title, row.mobile ?? row.phone].filter(Boolean).join(" ")).join("、")}</strong></div> : null}
-            {detail.note ? <div className="wide"><span>備註</span><strong>{detail.note}</strong></div> : null}
-          </div>
+          <RecordSheet label="協力廠商主檔" editing={false} rows={[
+            {columns:"2fr 1fr 1fr",cells:[
+              {label:"名稱",view:detail.displayName},
+              {label:"類型",view:detail.entityType==="organization"?"公司／工廠":"個人"},
+              {label:"結帳方式",view:detail.billingMethod==="monthly"?"月結":"單次結帳"}]},
+            {columns:"2fr 1fr 1fr",cells:[
+              {label:"正式名稱",view:detail.legalName},{label:"統編",view:detail.taxId},{label:"電話",view:detail.phone}]},
+            {columns:"1fr",cells:[{label:"地址",view:detail.address}]},
+            {columns:"1fr",cells:[{label:"備註",view:detail.note}]},
+            {columns:"1fr",cells:[{label:"使用中",view:detail.isActive?"是":"否"}]}
+          ]}/>
+          <RecordRows title="聯絡人" editing={false} columns={contactColumns}
+            rows={detail.contacts.filter(c=>c.isActive).map(c=>({id:c.id,name:c.name,title:c.title??"",phone:c.phone??"",mobile:c.mobile??""}))}
+            rowKey={(c,i)=>c.id??i} onInsert={()=>{}} onRemove={()=>{}}/>
           <div className="cy-op-subsection">
             <div className="cy-out-subsection-head"><h3>現行代工單價</h3><button type="button" className="cy-op-button compact" disabled={busy} onClick={() => void openPrice(null)}>＋ 設定單價</button></div>
             {detail.pricing.length ? <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">單價</th><th>單位</th><th>備註</th><th /></tr></thead>
@@ -332,6 +338,20 @@ export function BomWorkspace({ boms, onChanged, onEditingChange, notify, reportE
     } finally { setBusy(false); }
   }
 
+  const componentColumns:RowColumn<ComponentDraft>[]=[
+    {label:"料件",view:r=>r.item?itemLabel(r.item):"—",
+      edit:(r,i)=><EntityPicker<OutsourcingItemOption> label={<span className="cy-visually-hidden">料件</span>} value={r.item}
+      onSelect={item=>patchComponent(i,{item,unit:item?.baseUnit??""})} search={searchItems}
+      getKey={item=>item.id} getLabel={itemLabel}/>},
+    {label:"數量",view:r=>r.quantity,edit:(r,i)=><input className="cy-sheet-input" inputMode="decimal" value={r.quantity} onChange={e=>patchComponent(i,{quantity:e.target.value})}/>},
+    {label:"單位",view:r=>r.unit,edit:(r,i)=><select className="cy-sheet-input" value={r.unit} disabled={!r.item} onChange={e=>patchComponent(i,{unit:e.target.value})}>
+      {unitsOf(r.item,r.unit).map(u=><option key={u}>{u}</option>)}</select>}
+  ];
+  const readComponentColumns:RowColumn<BomDetail["components"][number]>[]=[
+    {label:"料件",view:r=>formatItem(r.itemNo,r.itemName),edit:()=> <span/>},
+    {label:"數量",view:r=>r.quantity,edit:()=> <span/>},
+    {label:"單位",view:r=>r.unit,edit:()=> <span/>}
+  ];
   return <>
     {confirmationDialog}
     <div className="cy-md" data-pane={pane.pane}>
@@ -348,39 +368,40 @@ export function BomWorkspace({ boms, onChanged, onEditingChange, notify, reportE
     <FormSection>
           <div className="cy-record-header cy-edit-header"><div><h2>{creating ? "新增 BOM" : `修改 ${detail?.recipeRef ?? "BOM"}`}</h2></div><div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void cancelEdit()}>取消</button>
             <button className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{creating ? "建立 BOM" : "儲存修改"}</button></div></div>
-          <div className="cy-f-grid">
-            <Field label="BOM 代號" size="s" required><input className="cy-op-input" value={draft.recipeRef} disabled={busy} onChange={(event) => patch({ recipeRef: event.target.value })} placeholder="例如：紙袋-標準" /></Field>
-            <EntityPicker<OutsourcingItemOption> label="成品" required disabled={busy} value={draft.finished}
-              onSelect={(row) => patch({ finished: row, outputUnit: row?.baseUnit ?? "" })} search={searchItems}
-              getKey={(row) => row.id} getLabel={itemLabel} placeholder="輸入品號、品名或規格" />
-            <Field label="產出數量" size="s"><input className="cy-op-input" inputMode="decimal" value={draft.outputQuantity} disabled={busy} onChange={(event) => patch({ outputQuantity: event.target.value })} /></Field>
-            <Field label="產出單位" size="s"><select className="cy-op-input" value={draft.outputUnit} disabled={busy || !draft.finished} onChange={(event) => patch({ outputUnit: event.target.value })}>
-              {unitsOf(draft.finished, draft.outputUnit).map((unit) => <option key={unit}>{unit}</option>)}</select></Field>
-            <CheckField  label="使用中" size="s"  checked={draft.isActive} disabled={busy} onChange={(event) => patch({ isActive: event.target.checked })} />
-          </div>
-          <section className="cy-form-block">
-            <div className="cy-form-block-head"><div><h3>料件</h3></div><button type="button" className="cy-op-button compact" disabled={busy} onClick={() => patch({ components: [...draft.components, newComponent()] })}>＋ 增加料件</button></div>
-            <div className="cy-form-block-body">
-              {draft.components.map((row, index) => <div className="cy-out-component cy-mobile-form-two-col" key={row.key}>
-                <EntityPicker<OutsourcingItemOption> label={<span className="cy-visually-hidden">第 {index + 1} 項料件</span>} disabled={busy} value={row.item}
-                  onSelect={(item) => patchComponent(index, { item, unit: item?.baseUnit ?? "" })} search={searchItems}
-                  getKey={(item) => item.id} getLabel={itemLabel} placeholder="輸入品號、品名或規格" />
-                <input className="cy-op-input" aria-label="數量" placeholder="數量" inputMode="decimal" value={row.quantity} disabled={busy} onChange={(event) => patchComponent(index, { quantity: event.target.value })} />
-                <select className="cy-op-input" aria-label="單位" value={row.unit} disabled={busy || !row.item} onChange={(event) => patchComponent(index, { unit: event.target.value })}>
-                  {unitsOf(row.item, row.unit).map((unit) => <option key={unit}>{unit}</option>)}</select>
-                <button type="button" className="cy-op-button compact soft cy-row-remove" disabled={busy || draft.components.length <= 1} onClick={() => patch({ components: draft.components.filter((_, i) => i !== index) })}>移除</button>
-              </div>)}
-            </div>
-          </section>
-        
-    </FormSection>
+          <RecordSheet label="BOM 主檔" editing rows={[
+            {columns:"1fr 2fr",cells:[
+              {label:"BOM 名稱",required:true,view:draft.recipeRef,edit:<input className="cy-sheet-input" required value={draft.recipeRef} onChange={e=>patch({recipeRef:e.target.value})}/>},
+              {label:"成品",required:true,view:draft.finished?itemLabel(draft.finished):"",
+                edit:<EntityPicker<OutsourcingItemOption> label={<span className="cy-visually-hidden">成品</span>} required value={draft.finished}
+                onSelect={item=>patch({finished:item,outputUnit:item?.baseUnit??""})} search={searchItems} getKey={item=>item.id} getLabel={itemLabel}/>}
+            ]},
+            {columns:"1fr 1fr 1fr",cells:[
+              {label:"產出數量",required:true,view:draft.outputQuantity,edit:<input className="cy-sheet-input" inputMode="decimal" required value={draft.outputQuantity} onChange={e=>patch({outputQuantity:e.target.value})}/>},
+              {label:"產出單位",required:true,view:draft.outputUnit,edit:<select className="cy-sheet-input" required value={draft.outputUnit} disabled={!draft.finished} onChange={e=>patch({outputUnit:e.target.value})}>{unitsOf(draft.finished,draft.outputUnit).map(u=><option key={u}>{u}</option>)}</select>},
+              {label:"使用中",view:draft.isActive?"是":"否",edit:<input type="checkbox" checked={draft.isActive} onChange={e=>patch({isActive:e.target.checked})}/>}
+            ]}
+          ]}/>
+          <RecordRows title="BOM 料件" editing columns={componentColumns} rows={draft.components}
+            rowKey={r=>r.key}
+            onInsert={i=>patch({components:[...draft.components.slice(0,i+1),newComponent(),...draft.components.slice(i+1)]})}
+            onRemove={i=>patch({components:draft.components.filter((_,j)=>i!==j)})}/>
+</FormSection>
   </form> : loadingDetail ? <Loading /> : detail ? <div>
           <div className="cy-record-header"><div><h2>{detail.finishedItemName}</h2><p><span className="cy-mono">{detail.recipeRef}</span> · {detail.finishedItemNo}</p></div>
             <div className="cy-record-actions"><StatusChip tone={detail.isActive ? "success" : "neutral"}>{detail.isActive ? "使用中" : "停用"}</StatusChip>
               <button type="button" className="cy-op-button" disabled={busy} aria-busy={busy || undefined} onClick={() => void startEdit()}>修改</button></div></div>
-          <div className="cy-op-detail-grid"><div><span>產出</span><strong>{detail.outputQuantity} {detail.outputUnit}</strong></div></div>
-          <div className="cy-op-subsection"><h3>料件</h3><div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>品號</th><th>商品</th><th className="num">數量</th><th>單位</th></tr></thead>
-            <tbody>{detail.components.map((row) => <tr key={row.id}><td className="cy-mono">{row.itemNo}</td><td>{row.itemName}</td><td className="num">{row.quantity}</td><td>{row.unit}</td></tr>)}</tbody></table></div></div>
+          <RecordSheet label="BOM 主檔" editing={false} rows={[
+            {columns:"1fr 2fr",cells:[
+              {label:"BOM 名稱",view:detail.recipeRef},
+              {label:"成品",view:formatItem(detail.finishedItemNo,detail.finishedItemName)}
+            ]},
+            {columns:"1fr 1fr 1fr",cells:[
+              {label:"產出數量",view:detail.outputQuantity},
+              {label:"產出單位",view:detail.outputUnit},
+              {label:"使用中",view:detail.isActive?"是":"否"}
+            ]}
+          ]}/>
+          <RecordRows title="BOM 料件" editing={false} columns={readComponentColumns} rows={detail.components} rowKey={r=>r.id} onInsert={()=>{}} onRemove={()=>{}}/>
         </div> : <MasterDetailEmpty title="尚未選擇 BOM" />}
       </section>
     </div>

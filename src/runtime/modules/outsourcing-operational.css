@@ -17,3 +17,6 @@
   .cy-out-part:not(.cy-out-part-head) { padding-bottom: 8px; border-bottom: 1px dashed var(--cy-border); }
   .cy-out-receipt { grid-template-columns: 1fr 1fr; }
 }
+
+/* Derived ledger can be negative after lawful cancellation. Never hide the sign. */
+.cy-outsourcing-op .cy-op-negative{color:var(--cy-danger,#bb2631);font-weight:700}

@@ -1,4 +1,5 @@
 export type ContractorEntityType = "person" | "organization";
+export type ContractorBillingMethod = "single" | "monthly";
 
 export interface ContractorContact {
   id: number;
@@ -27,6 +28,7 @@ export interface ContractorSummary {
   id: number;
   entityType: ContractorEntityType;
   displayName: string;
+  billingMethod: ContractorBillingMethod;
   legalName: string | null;
   taxId: string | null;
   phone: string | null;
@@ -56,6 +58,7 @@ export interface ContractorContactInput {
 
 export interface ContractorProfileInput {
   entityType: ContractorEntityType;
+  billingMethod?: ContractorBillingMethod;
   displayName: string;
   legalName?: string | null;
   taxId?: string | null;

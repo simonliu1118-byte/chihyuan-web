@@ -1,8 +1,6 @@
 import type {
   ContractorEntityType,
   ContractorSearchQuery,
-  OutsourcingSearchQuery,
-  OutsourcingStatusCode,
 } from "../../shared/contractor-outsourcing";
 import type {
   SalesWorkOrderSearchQuery,
@@ -16,7 +14,7 @@ import type {
 import { requireModuleAccess, type ModuleGateSuccess } from "../auth/guard";
 import { BomService, BomServiceError } from "../bom/bom-service";
 import { ContractorService, ContractorServiceError } from "../contractor/contractor-service";
-import { OutsourcingService, OutsourcingServiceError } from "../outsourcing/outsourcing-service";
+import { OutsourcingFlowService, OutsourcingFlowError } from "../outsourcing/flow-service";
 import { BusinessLookupService } from "../reference/business-lookup-service";
 import { SalesWorkOrderService, SalesWorkOrderServiceError } from "../sales-order/sales-order-service";
 import { FieldValidationError } from "../validation/fields";
@@ -29,9 +27,6 @@ type Guarded = { gate: ModuleGateSuccess } | { response: Response };
 
 const SALES_STATUSES = new Set<SalesWorkOrderStatusCode>([
   "created", "issued", "waiting_stock", "picked", "shipped", "voided",
-]);
-const OUTSOURCING_STATUSES = new Set<OutsourcingStatusCode>([
-  "pending_outbound", "outbound", "received", "priced", "paid", "voided",
 ]);
 const WORKLOG_STATUSES = new Set<WorkLogStatusCode>(["created", "pending_review", "reviewed"]);
 const CONTRACTOR_TYPES = new Set<ContractorEntityType>(["person", "organization"]);
@@ -207,27 +202,6 @@ function bomSearch(url: URL) {
   };
 }
 
-function outsourcingSearch(url: URL): OutsourcingSearchQuery {
-  const from = dateQuery(url.searchParams.get("orderDateFrom"), "orderDateFrom");
-  const to = dateQuery(url.searchParams.get("orderDateTo"), "orderDateTo");
-  assertDateRange(from, to, "orderDateTo");
-  const statusRaw = url.searchParams.get("statusCode");
-  let statusCode: OutsourcingStatusCode | undefined;
-  if (statusRaw) {
-    if (!OUTSOURCING_STATUSES.has(statusRaw as OutsourcingStatusCode)) throw new FieldValidationError({ statusCode: "狀態無效" });
-    statusCode = statusRaw as OutsourcingStatusCode;
-  }
-  return {
-    q: url.searchParams.get("q")?.trim() || undefined,
-    statusCode,
-    contractorId: positiveInteger(url.searchParams.get("contractorId"), "contractorId"),
-    orderDateFrom: from,
-    orderDateTo: to,
-    limit: boundedLimit(url.searchParams.get("limit")),
-    cursor: url.searchParams.get("cursor")?.trim() || undefined,
-  };
-}
-
 function workLogSearch(url: URL): WorkLogSearchQuery {
   const from = dateQuery(url.searchParams.get("dateFrom"), "dateFrom");
   const to = dateQuery(url.searchParams.get("dateTo"), "dateTo");
@@ -269,7 +243,7 @@ function knownFailure(error: unknown, requestId: string): Response | null {
     error instanceof SalesWorkOrderServiceError
     || error instanceof ContractorServiceError
     || error instanceof BomServiceError
-    || error instanceof OutsourcingServiceError
+    || error instanceof OutsourcingFlowError
     || error instanceof WorkLogServiceError
   ) {
     return failure({ code: error.code, message: error.message }, requestId, error.status);
@@ -342,16 +316,8 @@ async function handleOutsourcing(request: Request, env: IdentityRuntimeEnv, requ
   const mutation = { actorMemberId: guarded.gate.member.id, now: new Date().toISOString(), requestId };
   const contractorService = new ContractorService(env.DB);
   const bomService = new BomService(env.DB);
-  const outsourcingService = new OutsourcingService(env.DB, {
-    nextReference: async () => opaqueReference("OUT"),
-  });
+  const flow = new OutsourcingFlowService(env.DB);
   const lookups = new BusinessLookupService(env.DB);
-  const outsourcingContext = {
-    ...mutation,
-    allowHardDelete: admin,
-    allowOutboundCorrection: admin,
-    allowOutboundCancellation: admin,
-  };
 
   if (request.method === "GET" && url.pathname === "/api/business/outsourcing/lookups") {
     return success(await lookups.outsourcingLookups(actorRef(guarded.gate), {
@@ -395,46 +361,91 @@ async function handleOutsourcing(request: Request, env: IdentityRuntimeEnv, requ
     if (request.method === "PATCH") return success(await bomService.update(bomId, await jsonBody(request), mutation), requestId);
   }
 
-  if (url.pathname === "/api/business/outsourcing/stock" && request.method === "GET") {
+  if (url.pathname === "/api/business/outsourcing/stock") {
     const contractorId = positiveInteger(url.searchParams.get("contractorId"), "contractorId");
-    if (contractorId == null) throw new FieldValidationError({ contractorId: "必填" });
-    return success({ items: await outsourcingService.stockBalances(contractorId) }, requestId);
+    if (request.method === "GET") return success(await flow.stock(contractorId, url.searchParams.get("showAll")==="true"), requestId);
+    if (request.method === "POST") return success(await flow.adjustStock(await jsonBody(request), mutation), requestId);
   }
-
+  if (url.pathname === "/api/business/outsourcing/stock/history" && request.method === "GET") {
+    const contractorId = positiveInteger(url.searchParams.get("contractorId"), "contractorId");
+    const where = contractorId ? "WHERE m.contractor_id=?" : "";
+    const history = await env.DB.prepare(`SELECT m.*,c.display_name AS contractor_name,
+      i.item_no,i.name AS item_name,
+      SUM(m.quantity_delta) OVER(PARTITION BY m.contractor_id,m.item_id ORDER BY m.id ROWS UNBOUNDED PRECEDING) AS balance_after,
+      COALESCE(issue_order.outsourcing_ref,receipt_order.outsourcing_ref,'') AS source_order_ref,
+      COALESCE(member.display_name,member.employee_no,'') AS operator_name
+      FROM contractor_stock_movements m
+      JOIN contractors c ON c.id=m.contractor_id
+      JOIN items i ON i.id=m.item_id
+      LEFT JOIN app_members member ON member.id=m.operator_employee_id
+      LEFT JOIN outsourcing_issues iss ON iss.id=m.issue_id
+      LEFT JOIN outsourcing_orders issue_order ON issue_order.id=iss.outsourcing_order_id
+      LEFT JOIN outsourcing_receipts rec ON rec.id=m.receipt_id
+      LEFT JOIN outsourcing_orders receipt_order ON receipt_order.id=rec.outsourcing_order_id
+      ${where} ORDER BY m.id DESC LIMIT 100`)
+      .bind(...(contractorId?[contractorId]:[])).all();
+    return success({items:history.results??[]}, requestId);
+  }
+  if (url.pathname === "/api/business/outsourcing/stock/groups" && request.method==="GET"){
+    const contractorId=positiveInteger(url.searchParams.get("contractorId"),"contractorId");
+    return success(await flow.groupedStock(contractorId,url.searchParams.get("showAll")==="true"),requestId);
+  }
+  let insightMatch=/^\/api\/business\/outsourcing\/orders\/(\d+)\/issue-suggestion$/.exec(url.pathname);
+  if(insightMatch&&request.method==="GET")
+    return success(await flow.recommendedIssue(routeId(insightMatch[1],"orderId")),requestId);
+  insightMatch=/^\/api\/business\/outsourcing\/orders\/(\d+)\/consumption-preview$/.exec(url.pathname);
+  if(insightMatch&&request.method==="POST")
+    return success(await flow.previewConsumption(routeId(insightMatch[1],"orderId"),await jsonBody(request)),requestId);
+  if (url.pathname === "/api/business/outsourcing/statements") {
+    if (request.method === "GET") return success(await flow.listStatements(positiveInteger(url.searchParams.get("contractorId"), "contractorId")), requestId);
+    if (request.method === "POST") return success(await flow.createStatement(await jsonBody(request),mutation),requestId,{status:201});
+  }
+  if (url.pathname === "/api/business/outsourcing/statements/unbilled" && request.method === "GET") {
+    const contractorId = positiveInteger(url.searchParams.get("contractorId"),"contractorId");
+    if(!contractorId)throw new FieldValidationError({contractorId:"必填"});
+    return success({items:await flow.unbilledReceipts(contractorId,url.searchParams.get("month")??undefined)},requestId);
+  }
+  let statementMatch=/^\/api\/business\/outsourcing\/statements\/(\d+)\/(confirm|unconfirm|payments)$/.exec(url.pathname);
+  if(statementMatch&&request.method==="POST") {
+    const statementId=routeId(statementMatch[1],"statementId"),body=await jsonBody(request);
+    if(statementMatch[2]==="confirm")return success(await flow.confirmStatement(statementId,body,mutation),requestId);
+    if(statementMatch[2]==="unconfirm")return success(await flow.cancelStatementConfirmation(statementId,body,mutation),requestId);
+    return success(await flow.addPayment(statementId,body,mutation),requestId);
+  }
+  statementMatch=/^\/api\/business\/outsourcing\/statements\/(\d+)\/payments\/(\d+)$/.exec(url.pathname);
+  if(statementMatch&&request.method==="DELETE")
+    return success(await flow.deletePayment(routeId(statementMatch[1],"statementId"),routeId(statementMatch[2],"paymentId"),await jsonBody(request),mutation),requestId);
+  statementMatch=/^\/api\/business\/outsourcing\/statements\/(\d+)$/.exec(url.pathname);
+  if(statementMatch){
+    const statementId=routeId(statementMatch[1],"statementId");
+    if(request.method==="GET")return success(await flow.statementDetail(statementId),requestId);
+    if(request.method==="PATCH")return success(await flow.editStatement(statementId,await jsonBody(request),mutation),requestId);
+    if(request.method==="DELETE")return success(await flow.removeDraftStatement(statementId,await jsonBody(request),mutation),requestId);
+  }
   if (url.pathname === "/api/business/outsourcing/orders") {
-    if (request.method === "GET") return success(await outsourcingService.search(outsourcingSearch(url)), requestId);
-    if (request.method === "POST") return success(await outsourcingService.create(await jsonBody(request), outsourcingContext), requestId, { status: 201 });
+    if (request.method === "GET") return success(await flow.listOrders({q:url.searchParams.get("q")??undefined,
+      contractorId:positiveInteger(url.searchParams.get("contractorId"),"contractorId")}), requestId);
+    if (request.method === "POST") return success(await flow.createOrder(await jsonBody(request),mutation), requestId,{status:201});
   }
-
-  match = /^\/api\/business\/outsourcing\/orders\/(\d+)\/(confirm-outbound|correct-outbound|cancel-outbound|receive|cancel-receipt|price|cancel-pricing|paid|cancel-payment)$/.exec(url.pathname);
-  if (match && request.method === "POST") {
-    const orderId = routeId(match[1], "outsourcingId");
-    const body = await jsonBody(request);
-    if (match[2] === "confirm-outbound") return success(await outsourcingService.confirmOutbound(orderId, body, outsourcingContext), requestId);
-    if (match[2] === "correct-outbound") {
-      const row = bodyObject(body);
-      const reason = typeof row.reason === "string" ? row.reason.trim() || null : null;
-      return success(await outsourcingService.correctOutbound(orderId, body, reason, outsourcingContext), requestId);
-    }
-    if (match[2] === "cancel-outbound") return success(await outsourcingService.cancelOutbound(orderId, body, outsourcingContext), requestId);
-    if (match[2] === "receive") return success(await outsourcingService.receive(orderId, body, outsourcingContext), requestId);
-    if (match[2] === "cancel-receipt") return success(await outsourcingService.cancelReceipt(orderId, body, outsourcingContext), requestId);
-    if (match[2] === "price") return success(await outsourcingService.price(orderId, body, outsourcingContext), requestId);
-    if (match[2] === "cancel-pricing") return success(await outsourcingService.cancelPricing(orderId, body, outsourcingContext), requestId);
-    if (match[2] === "paid") return success(await outsourcingService.markPaid(orderId, body, outsourcingContext), requestId);
-    return success(await outsourcingService.cancelPayment(orderId, body, outsourcingContext), requestId);
+  let orderMatch=/^\/api\/business\/outsourcing\/orders\/(\d+)\/(issues|receipts|close|reopen)$/.exec(url.pathname);
+  if(orderMatch&&request.method==="POST"){
+    const orderId=routeId(orderMatch[1],"orderId"),body=await jsonBody(request);
+    if(orderMatch[2]==="issues")return success(await flow.issue(orderId,body,mutation),requestId);
+    if(orderMatch[2]==="receipts")return success(await flow.receive(orderId,body,mutation),requestId);
+    return success(await flow.setClosed(orderId,body,mutation,orderMatch[2]==="reopen"),requestId);
   }
-
-  match = /^\/api\/business\/outsourcing\/orders\/(\d+)$/.exec(url.pathname);
-  if (match) {
-    const orderId = routeId(match[1], "outsourcingId");
-    if (request.method === "GET") return success(await outsourcingService.getDetail(orderId), requestId);
-    if (request.method === "PATCH") return success(await outsourcingService.updatePending(orderId, await jsonBody(request), outsourcingContext), requestId);
-    if (request.method === "DELETE") {
-      const body = await jsonBody(request);
-      await outsourcingService.deletePending(orderId, expectedRevision(body), outsourcingContext);
-      return success({ deleted: true, orderId }, requestId);
-    }
+  orderMatch=/^\/api\/business\/outsourcing\/orders\/(\d+)\/(issues|receipts)\/(\d+)\/cancel$/.exec(url.pathname);
+  if(orderMatch&&request.method==="POST"){
+    const orderId=routeId(orderMatch[1],"orderId"),entryId=routeId(orderMatch[3],"entryId"),body=await jsonBody(request);
+    return success(orderMatch[2]==="issues"?await flow.cancelIssue(orderId,entryId,body,mutation):
+      await flow.cancelReceipt(orderId,entryId,body,mutation),requestId);
+  }
+  orderMatch=/^\/api\/business\/outsourcing\/orders\/(\d+)$/.exec(url.pathname);
+  if(orderMatch){
+    const orderId=routeId(orderMatch[1],"orderId");
+    if(request.method==="GET")return success(await flow.detail(orderId),requestId);
+    if(request.method==="PATCH")return success(await flow.updatePending(orderId,await jsonBody(request),mutation),requestId);
+    if(request.method==="DELETE")return success(await flow.deleteEmptyOrder(orderId,await jsonBody(request),mutation),requestId);
   }
   return null;
 }

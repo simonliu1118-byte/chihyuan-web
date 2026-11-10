@@ -1,5 +1,12 @@
 # CY Web 版本紀錄
 
+## CY Web V0.18.0 — 委外／代工分批流程改版（2026-11-10，工程完成待 Claude 審查；未合併／未部署）
+- migration `0062_outsourcing_flow.sql`：一張多成品代工單、多批發料／交貨、取消批次反向庫存異動、退料與盤點、依最新發料基準的庫存電池條、對帳付款新表。保留既有廠商／聯絡人／價格／BOM 資料與已退役 ID 不重用規則。
+- Worker／D1 新流程：多批生產、BOM 建議發料與交貨扣料預告、成品分組庫存與估算可做數量、四狀態動態推算、月結／單次對帳、兩位小數明細及整數元合計、分次付款、確認單的交貨禁止取消；stale revision 返回 409。ERP 單號目前手動輸入，**ERP 連動列 TODO 另案**。
+- React／共用元件：五頁籤依序代工單、對帳付款、代工庫存、協力廠商／單價、BOM；資料單與 BOM 明細共用 `RecordSheet`／`RecordRows`，批次視窗共用 `EntryTable`；手機沿用 `ModuleSections`／`ListRow`／`MasterDetail`／`ActionBar`，切頁會確認未存檔草稿。
+- 可攜式備份同步更新 `schema-columns.ts`、`CURRENT_MIGRATION=0062` 與空白舊代工表升級；舊版備份如真的有舊代工交易資料，會拒絕靜默丟棄。舊流程來源／D1／HTTP／歷史備份驗收改寫為新流程，未刪除必要檢查。
+- [工程 Runtime Check 全綠](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42794557399)、[Governance Check](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42794557003)、[桌機 1440／手機 390 共十二張隔離測試截圖](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42794557180/artifacts/13752249266)；工作單 `docs/development/work-orders/WO-0.18.0.md` §8，交接 `docs/handoff/CYWEB-WO-0180-OUTSOURCING-20261110.md`。**未合併、未部署正式站、未執行正式 D1 migration。**
+
 > 各版本當時的完成內容與驗收證據，由 `TODO.md` 移出（2026-10-27 整理）。不是永久規則來源。
 > 未勾選的項目已在整理時逐項核對：已完成的（例如已部署）已勾選或不再追蹤；仍待辦或待使用者確認的，彙整在 `TODO.md`。
 > 較新的版本在上；V0.7 以前的逐輪紀錄以 Git history 追溯。

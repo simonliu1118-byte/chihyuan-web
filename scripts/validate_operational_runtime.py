@@ -218,49 +218,63 @@ def main() -> int:
             raise AssertionError(f"missing Sales Order Worker API transport contract: {token}")
 
 
-    for token in [
-        "loadOutsourcingLookups",
-        "searchContractors",
-        "searchBoms",
-        "loadContractorStock",
-        "searchOutsourcingOrders",
-        "createOutsourcingOrder",
-        "confirmOutsourcingOutbound",
-        "receiveOutsourcing",
-        "priceOutsourcing",
-        "markOutsourcingPaid",
-    ]:
+    # WO-0.18: validate the *active* five-tab flow and its Worker/D1 API,
+    # rather than retaining the retired one-shot outbound/payment operations.
+    flow_client = read("src/runtime/api/outsourcing-flow-client.ts")
+    outsourcing_routes = read("worker/http/business-api-phase2-routes.ts")
+    flow_service = read("worker/outsourcing/flow-service.ts")
+    for token in (
+        "ModuleSections", "RecordSheet", "RecordRows", "EntryTable",
+        "searchContractors", "searchBoms", "flowApi.listOrders",
+        "flowApi.createOrder", "flowApi.issue", "flowApi.receive",
+        "flowApi.stockEvent", "flowApi.groupedStock",
+        "flowApi.issueSuggestion", "flowApi.consumptionPreview",
+        "flowApi.createStatement", "flowApi.addPayment",
+    ):
         if token not in outsourcing:
-            raise AssertionError(f"missing D1 Outsourcing operational behavior: {token}")
+            raise AssertionError(f"missing WO-0.18 Outsourcing UI operation: {token}")
+    for token in (
+        "flowApi.cancelIssue", "flowApi.cancelReceipt",
+        "flowApi.confirmStatement", "flowApi.unconfirmStatement",
+        "flowApi.deletePayment", "flowApi.reopen",
+    ):
+        if token not in outsourcing:
+            raise AssertionError(f"missing WO-0.18 reversible operation: {token}")
 
-    for forbidden in [
-        "useLocalDatabase",
-        "mutateLocalDatabase",
-        "../local-database",
-        "LocalOutsourcingOrder",
-        "stockMovements",
-        "nextLocalId",
-        "timestampNow",
-    ]:
+    for forbidden in (
+        "useLocalDatabase", "mutateLocalDatabase", "../local-database",
+        "LocalOutsourcingOrder", "nextLocalId", "timestampNow",
+    ):
         if forbidden in outsourcing:
-            raise AssertionError(f"Outsourcing page must not retain localStorage authority: {forbidden}")
+            raise AssertionError(f"Outsourcing page retained browser-local authority: {forbidden}")
 
-    for token in [
-        "/api/business/outsourcing",
-        "/lookups",
-        "/contractors",
-        "/boms",
-        "/stock",
-        "/orders",
-        "confirm-outbound",
-        "receive",
-        "price",
-        "paid",
-        "cancel-payment",
-        "apiRequest",
-    ]:
+    for token in (
+        "/api/business/outsourcing", "/lookups", "/contractors", "/boms", "apiRequest",
+    ):
         if token not in outsourcing_client:
-            raise AssertionError(f"missing Outsourcing Worker API transport contract: {token}")
+            raise AssertionError(f"missing Outsourcing master-data transport: {token}")
+    for token in (
+        "/orders", "/issues", "/receipts", "/stock", "/stock/groups",
+        "/issue-suggestion", "/consumption-preview", "/stock/history",
+        "/statements", "/payments", "/confirm", "/unconfirm", "apiRequest",
+    ):
+        if token not in flow_client:
+            raise AssertionError(f"missing WO-0.18 flow transport: {token}")
+    for token in (
+        'requireBusinessModule(request, env, requestId, "OUTSOURCING")',
+        "flow.createOrder", "flow.issue", "flow.receive",
+        "flow.adjustStock", "flow.recommendedIssue", "flow.previewConsumption",
+        "flow.groupedStock", "flow.createStatement", "flow.addPayment",
+    ):
+        if token not in outsourcing_routes:
+            raise AssertionError(f"missing protected WO-0.18 Worker route: {token}")
+    for token in (
+        "outsourcingLifecycle", "stockGaugeFromMovements",
+        "cancelIssue", "cancelReceipt", "statementDetail",
+        "confirmStatement", "deletePayment",
+    ):
+        if token not in (flow_service + read("shared/outsourcing-flow.ts")):
+            raise AssertionError(f"missing WO-0.18 D1 domain behavior: {token}")
 
 
     for token in [
