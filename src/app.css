@@ -581,7 +581,6 @@ a.cy-op-button, a.cy-button { text-decoration: none; }
   .cy-shell-navigation-drawer .cy-shell-nav-close:focus-visible { outline: 2px solid var(--cy-accent); outline-offset: 1px; }
   .cy-shell-main { padding: 12px var(--cy-gutter) 28px; }
   .cy-shell-menu-toggle { width: 36px; height: 40px; flex-basis: 36px; }
-  .cy-shell-mobile-home .cy-shell-brand-mark { width: 29px; height: 29px; }
   .cy-shell-page-tools { flex: 0 0 auto; gap: 4px; }
   .cy-shell-topbar-heading { flex: 1 1 auto; min-width: 0; }
 
@@ -733,5 +732,3 @@ details[open]>summary::before{transform:rotate(90deg)}
 .cy-shell-brand-home{display:flex;align-items:center;gap:10px;flex:1 1 auto;min-width:0;padding:0;border:0;background:transparent;text-align:left;color:var(--cy-text);cursor:pointer;font:inherit}
 .cy-shell-brand-home:hover,.cy-shell-brand-home:focus-visible{background:var(--cy-surface-muted);border-radius:var(--cy-radius-sm)}
 .cy-shell-brand-home .cy-shell-brand-subtitle{display:block}
-.cy-shell-mobile-home{flex:0 0 auto;border:0;background:transparent;padding:0;cursor:pointer}
-.cy-shell-mobile-home .cy-shell-brand-mark{width:34px;height:34px;font-size:var(--cy-fs-sm)}

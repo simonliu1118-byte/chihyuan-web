@@ -15,7 +15,7 @@ test("home is login default and CY brand always navigates to guarded home",()=>{
  assert.match(app,/window\.location\.hash = "#home"/);
  assert.match(app,/onHome=\{\(\)=>navigate\("home"\)\}/);
  assert.match(shell,/cy-shell-brand-home/);
- assert.match(shell,/cy-shell-mobile-home/);
+ assert.doesNotMatch(shell,/cy-shell-mobile-home/); // phone topbar has no CY mark; home is the drawer brand (user 2026-11-10)
  assert.match(app,/pendingRecordHash\.current=href/);
  assert.match(app,/guardedNavigation\.request\(target,"link"\)/);
 });

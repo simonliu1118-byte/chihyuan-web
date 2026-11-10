@@ -117,7 +117,6 @@ export function AppShell({
           {compact ? <button type="button" className="cy-shell-menu-toggle" aria-label="開啟模組選單" aria-expanded={navigationOpen} onClick={() => setNavigationOpen(true)}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button> : null}
-          {compact ? <button type="button" className="cy-shell-mobile-home" title="返回首頁" aria-label="CY 首頁" onClick={()=>onHome?.()}><span className="cy-shell-brand-mark">CY</span></button> : null}
           <div className="cy-shell-topbar-heading">
             <h1 className="cy-shell-topbar-title">{pageTitle}</h1>
             {!compact && pageDescription ? <p className="cy-shell-topbar-description">{pageDescription}</p> : null}

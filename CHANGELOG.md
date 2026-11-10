@@ -6,6 +6,9 @@
 > 2026-11-03 文件清理：V0.9.48–V0.9.85 已結案的交接與 WO-0.9.52～0.9.76 工作單移出主線，連結改指向 [2026-11-03 固定快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/4cbc554a08c7fdf47a4140c7b9d912f61ce42c10/docs)；有效規格已併入對應架構文件。
 > 2026-10-28 文件清理：已結案的舊 GPT／Claude／ERP 交接原文與合成畫面，改由 [Git 固定歷史快照](https://github.com/simonliu1118-byte/chihyuan-web/tree/b2d53cdd71c5bf9126f2976607257e892b911df5/docs/handoff) 追溯；其有效規格已整合到 `docs/architecture/ORDERING_MODULE.md`、`docs/architecture/ERP_ITEM_QUERY_BRIDGE_CONTRACT.md`，不再用舊交接作現行依據。
 
+## CY Web V0.17.3 — 手機頁首拿掉 CY 圖示（2026-11-10，Claude）
+- 手機頁首標題左邊的 CY「返回首頁」圖示移除，標題列只剩選單、標題與右側圖示。回首頁改由 ☰ 選單最上方的 CY 品牌列。
+
 ## CY Web V0.17.2 — 手機版：提醒、⋯ 選單、框中框與「查看全部」（2026-11-09，Claude）
 - 鈴鐺改成和深淺切換一樣的無框圓形圖示；手機上提醒視窗改貼齊畫面左右 10px，不再從左邊超出。
 - 共用 `OverflowMenu`（⋯）改依畫面定位：預設靠 ⋯ 右側對齊，放不下就往內移、下方不夠就往上開，也不會被可捲動的表格或面板裁掉；捲動或改變視窗大小時自動收起。全系統所有 ⋯ 一起生效。
