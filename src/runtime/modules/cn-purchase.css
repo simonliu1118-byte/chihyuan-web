@@ -13,21 +13,21 @@
 .cy-cn-scroll { overflow-x: auto; }
 .cy-cn-print-title { display: none; }
 
-.cy-cn-table { table-layout: fixed; width: 100%; min-width: 1080px; font-size: 13px; }
-.cy-cn-table td, .cy-cn-table th { padding: 4px 5px; vertical-align: middle; height: 30px; box-sizing: border-box; }
-.cy-cn-table th { font-size: 12.5px; }
-.cy-cn-table th small { font-weight: 400; }
-.cy-cn-table .is-n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.cy-cn-table .is-c { text-align: center; }
-.cy-cn-table .is-r { text-align: right; }
-.cy-cn-table col.w-seq { width: 40px; } .cy-cn-table col.w-qty { width: 46px; } .cy-cn-table col.w-qty2 { width: 66px; }
-.cy-cn-table col.w-rmb { width: 74px; } .cy-cn-table col.w-rmb2 { width: 84px; } .cy-cn-table col.w-no { width: 36px; }
-.cy-cn-table col.w-date { width: 54px; } .cy-cn-table col.w-ntd { width: 64px; } .cy-cn-table col.w-fee { width: 52px; }
-.cy-cn-table col.w-unit { width: 64px; } .cy-cn-table col.w-rate { width: 46px; } .cy-cn-table col.w-ret { width: 64px; }
-.cy-cn-table col.w-land { width: 70px; } .cy-cn-table col.w-rate2 { width: 50px; } .cy-cn-table col.w-note { width: 104px; } .cy-cn-table col.w-act { width: 34px; }
-.cy-cn-table tbody tr.is-band td:not(.cy-cn-grp) { background: color-mix(in srgb, var(--cy-accent-soft) 35%, var(--cy-surface)); }
-.cy-cn-table tbody tr.is-picked td:not(.cy-cn-grp) { background: var(--cy-accent-soft); }
-.cy-cn-table tbody tr[draggable="true"] { cursor: grab; }
+.cy-op-table.cy-cn-table { table-layout: fixed; width: 100%; min-width: 1080px; font-size: 13px; }
+.cy-op-table.cy-cn-table td, .cy-op-table.cy-cn-table th { padding: 4px 5px; vertical-align: middle; height: 30px; box-sizing: border-box; }
+.cy-op-table.cy-cn-table th { font-size: 12.5px; }
+.cy-op-table.cy-cn-table th small { font-weight: 400; }
+.cy-op-table.cy-cn-table .is-n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cy-op-table.cy-cn-table .is-c { text-align: center; }
+.cy-op-table.cy-cn-table .is-r { text-align: right; }
+.cy-op-table.cy-cn-table col.w-seq { width: 40px; } .cy-op-table.cy-cn-table col.w-qty { width: 46px; } .cy-op-table.cy-cn-table col.w-qty2 { width: 66px; }
+.cy-op-table.cy-cn-table col.w-rmb { width: 74px; } .cy-op-table.cy-cn-table col.w-rmb2 { width: 84px; } .cy-op-table.cy-cn-table col.w-no { width: 36px; }
+.cy-op-table.cy-cn-table col.w-date { width: 54px; } .cy-op-table.cy-cn-table col.w-ntd { width: 64px; } .cy-op-table.cy-cn-table col.w-fee { width: 52px; }
+.cy-op-table.cy-cn-table col.w-unit { width: 64px; } .cy-op-table.cy-cn-table col.w-rate { width: 46px; } .cy-op-table.cy-cn-table col.w-ret { width: 64px; }
+.cy-op-table.cy-cn-table col.w-land { width: 70px; } .cy-op-table.cy-cn-table col.w-rate2 { width: 50px; } .cy-op-table.cy-cn-table col.w-note { width: 104px; } .cy-op-table.cy-cn-table col.w-act { width: 34px; }
+.cy-op-table.cy-cn-table tbody tr.is-band td:not(.cy-cn-grp) { background: color-mix(in srgb, var(--cy-accent-soft) 35%, var(--cy-surface)); }
+.cy-op-table.cy-cn-table tbody tr.is-picked td:not(.cy-cn-grp) { background: var(--cy-accent-soft); }
+.cy-op-table.cy-cn-table tbody tr[draggable="true"] { cursor: grab; }
 .cy-cn-grp { background: var(--cy-surface) !important; white-space: nowrap; }
 .cy-cn-grp.is-no { border-left: 3px solid var(--cy-accent) !important; font-weight: 600; text-align: center; }
 .cy-cn-grp.is-n { text-align: right; font-variant-numeric: tabular-nums; }
@@ -38,21 +38,13 @@
 .cy-cn-tag { margin-left: 4px; padding: 1px 6px; border-radius: 999px; background: var(--cy-accent-soft); color: var(--cy-accent); font-size: 11px; }
 .cy-cn-unit { margin-left: 2px; color: var(--cy-text-muted); font-size: 11px; }
 .cy-cn-note { color: var(--cy-text-muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cy-cn-table td.cy-cn-act { padding: 0 2px; }
+.cy-op-table.cy-cn-table td.cy-cn-act { padding: 0 2px; }
 .cy-cn-act .cy-overflow > .cy-op-button.cy-icon-button { width: 26px; min-width: 26px; height: 22px; min-height: 22px; padding: 0; border-color: transparent; background: transparent; }
 .cy-cn-act .cy-overflow > .cy-op-button.cy-icon-button:hover { background: var(--cy-surface-muted); }
 .cy-cn-pick { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
-.cy-cn-in { width: 100%; min-width: 0; height: 26px; padding: 2px 6px; box-sizing: border-box; }
-.cy-cn-in.is-n { text-align: right; }
-.cy-cn-table tfoot td { background: var(--cy-surface); border-top: 1px solid var(--cy-border); }
+.cy-op-table.cy-cn-table tfoot td { background: var(--cy-surface); border-top: 1px solid var(--cy-border); }
 .cy-cn-lab { color: var(--cy-text-muted); font-weight: 600; font-size: var(--cy-fs-sm); }
-.cy-cn-table tr.cy-cn-grand td { background: var(--cy-surface-muted); font-weight: 700; font-size: 15px; }
-.cy-cn-return-edit { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
-.cy-cn-return-edit > select.cy-op-input { width: auto; min-width: 200px; }
-.cy-cn-return-edit label { display: inline-flex; align-items: center; gap: 4px; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); white-space: nowrap; }
-.cy-cn-return-edit label .cy-op-input { width: 84px; }
-.cy-cn-return-edit label.is-wide { flex: 1 1 180px; }
-.cy-cn-return-edit label.is-wide .cy-op-input { width: 100%; }
+.cy-op-table.cy-cn-table tr.cy-cn-grand td { background: var(--cy-surface-muted); font-weight: 700; font-size: 15px; }
 .cy-cn-dialog-text { margin: 0 0 10px; }
 .cy-ordering-view-switch { margin: 4px 0 10px; }
 /* 採購 is one wide table: the list steps aside on desktop while it is open. */
@@ -64,14 +56,24 @@
   body.cy-cn-printing .cy-cn-print, body.cy-cn-printing .cy-cn-print * { visibility: visible !important; }
   body.cy-cn-printing .cy-cn-print { position: absolute; left: 0; top: 0; width: 100%; overflow: visible; }
   body.cy-cn-printing .cy-cn-print-title { display: block; font-size: 16px; margin: 0 0 8px; }
-  body.cy-cn-printing .cy-cn-table { min-width: 0; font-size: 10px; }
+  body.cy-cn-printing .cy-op-table.cy-cn-table { min-width: 0; font-size: 10px; }
   @page { size: A4 landscape; margin: 10mm; }
 }
 
-/* Inputs keep the read-only row height (the step opens cells in place, not a taller form). */
-.cy-cn-table .cy-op-input.cy-cn-in { height: 24px; min-height: 24px; padding: 0 5px; font-size: 13px; line-height: 22px; margin: 0; }
-.cy-cn-table.is-editing col.w-date { width: 136px; }
+/* Editing happens in the table itself (user 2026-11-11: no input boxes). An editable cell is the
+   cell: white, no box, an accent frame only while typing; the rest of the row stays as read. */
+.cy-op-table.cy-cn-table.is-editing td, .cy-op-table.cy-cn-table.is-editing th { border-right: 1px solid var(--cy-border); }
+.cy-op-table.cy-cn-table.is-editing td:last-child, .cy-op-table.cy-cn-table.is-editing th:last-child { border-right: 0; }
+.cy-op-table.cy-cn-table td:has(> .cy-cn-cell), .cy-op-table.cy-cn-table td:has(> .cy-date-input) { padding: 0; background: var(--cy-surface) !important; }
+.cy-op-table.cy-cn-table td:has(> .cy-cn-cell:focus), .cy-op-table.cy-cn-table td:has(> .cy-date-input input:focus) { box-shadow: inset 0 0 0 1.5px var(--cy-accent); }
+.cy-cn-cell { display: block; box-sizing: border-box; width: 100%; height: 30px; min-width: 0; margin: 0; padding: 4px 5px; border: 0; border-radius: 0; background: transparent; color: var(--cy-text); font: inherit; box-shadow: none; outline: 0; }
+.cy-cn-cell.is-n { text-align: right; font-variant-numeric: tabular-nums; }
+.cy-cn-cell::placeholder { color: var(--cy-text-muted); }
+select.cy-cn-cell { cursor: pointer; }
+.cy-op-table.cy-cn-table .cy-date-input { width: 100%; }
+.cy-op-table.cy-cn-table .cy-date-input > input.cy-cn-cell { height: 30px; padding: 4px 22px 4px 5px !important; }
+.cy-op-table.cy-cn-table .cy-date-input > .cy-date-trigger { width: 20px; min-width: 20px; height: 24px; padding: 2px; }
+.cy-op-table.cy-cn-table.is-editing col.w-date { width: 104px; }
 .cy-cn-act .cy-overflow { vertical-align: middle; }
-.cy-cn-table .cy-date-input { width: 100%; }
-.cy-cn-table .cy-date-input > input { height: 24px; min-height: 24px; padding: 0 24px 0 5px; font-size: 13px; }
-.cy-cn-table .cy-cn-seq input[type=checkbox] { margin: 0; }
+.cy-op-table.cy-cn-table .cy-cn-seq input[type=checkbox] { margin: 0; }
+.cy-op-table.cy-cn-table tr.cy-cn-subhead td { color: var(--cy-text-muted); font-size: 12px; font-weight: 600; }
