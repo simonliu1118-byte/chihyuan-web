@@ -9,7 +9,7 @@ export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
  * The latest migration in migrations/ (file name without .sql). Bump it with every migration; a test
  * keeps it in step. A backup records it, and a restore maps its data by table and column name.
  */
-export const CURRENT_MIGRATION = "0062_outsourcing_flow";
+export const CURRENT_MIGRATION = "0063_hr_history_periods";
 /**
  * Only for a migration that changes what existing data means (moves, renames, drops or recomputes
  * values). New tables, new columns with a default, new indexes and wider checks need nothing here:
@@ -68,6 +68,16 @@ const UPGRADES: { migration: string; apply: (data: Data) => void }[] = [
     }
     // The migration also adds a defaulted billing_method to contractors;
     // absence of the old backup column intentionally uses SQLite's default.
+  } },
+  // 0063: 學歷 graduation month becomes the end of a start～end period; 學位 is dropped.
+  { migration: "0063_hr_history_periods", apply: data => {
+    const edu = data.tables.hr_education;
+    if (edu && edu.columns.includes("graduation_month")) {
+      const grad = edu.columns.indexOf("graduation_month"), degree = edu.columns.indexOf("degree");
+      const keep = edu.columns.map((_, i) => i).filter(i => i !== grad && i !== degree);
+      edu.rows = edu.rows.map(row => [...keep.map(i => row[i]), null, row[grad]]);
+      edu.columns = [...keep.map(i => edu.columns[i]), "start_month", "end_month"];
+    }
   } }
 ];
 // Operational queue, heartbeat and revocable credential hashes are intentionally

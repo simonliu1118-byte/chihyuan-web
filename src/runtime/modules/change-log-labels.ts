@@ -109,7 +109,7 @@ const fields:Record<string,string> = {
   nextStatus:"新狀態",startDate:"起日",endDate:"迄日",employeeNo:"員工編號",memberId:"綁定使用者",
   birthDate:"出生日期",gender:"性別",mailingAddress:"通訊地址",registeredAddress:"戶籍地址",hireDate:"到職日",
   seniorityStartDate:"年資起算日",contacts:"緊急聯絡人",education:"學歷",workHistory:"工作經歷",relationship:"關係",
-  graduationMonth:"畢業年月",jobTitle:"職稱",startMonth:"開始年月",endMonth:"結束年月",name:"名稱",
+  salary:"薪資待遇",leaveReason:"離職原因",jobTitle:"職稱",startMonth:"開始年月",endMonth:"結束年月",name:"名稱",
   shortName:"簡稱",fullName:"完整名稱",displayName:"姓名",code:"代碼",customerNo:"客戶編號",
   itemNo:"品號",workOrderRef:"工單編號",outsourcingRef:"代工單號",customerNameSnapshot:"客戶名稱",itemNameSnapshot:"商品名稱",
   taxId:"統一編號",paymentTerms:"付款條件",invoiceType:"發票開立",light:"燈號",isImportant:"重要",pin:"固定位置",ids:"順序",phone:"電話",mobile:"手機",fax:"傳真",address:"地址",

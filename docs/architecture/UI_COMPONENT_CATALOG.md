@@ -15,7 +15,7 @@
 
 | 樣式 | 範本（照著做） | 重點 |
 |---|---|---|
-| 表格式單據（主檔明細／新增修改） | 客戶 `CustomerOperationalPage.tsx`（V0.9.95 起） | `RecordSheet`＋`RecordRows`；檢視與修改同一個版面，修改時格子變輸入框；第一列自動帶出空白列 |
+| 表格式單據（主檔明細／新增修改） | 客戶 `CustomerOperationalPage.tsx`（V0.9.95 起） | `RecordSheet`＋`RecordRows`；檢視與修改同一個版面，修改時格子變輸入框；第一列自動帶出空白列。各列盡量共用同一格線（例如 `repeat(6,minmax(0,1fr))`），用 cell 的 `span` 跨欄，讓上下線條對齊；表頭上的小控制項（例如「同戶籍地址」）用 `headExtra`（人事資料單，V0.18.4） |
 | 表格式彈窗表單 | 售後維修 `StoreRepairs.tsx` 新增維修單（V0.10.16）、`StoreRepairPrintSettings.tsx` | 一個 `EntryTable` 包全部欄位；表頭列＋輸入列交替；用 colgroup 細網格＋`colSpan` 讓每列依內容配寬度；**不要上半表格、下半一般表單混用** |
 | 設定清單（分類、狀態、部門等） | `LookupSettingsTable.tsx`、`ModuleSettingsPanel.tsx` | 密集表格、項次、操作欄（修改／停用／刪除，刪除只給未被使用的）；握把拖拉排序，畫面立即生效、背景儲存，失敗才還原 |
 | 左側清單 | `.cy-op-list-row`（app.css） | 全系統一致：選取＝藍色左邊條＋淺藍底；不要自訂另一種選取樣式 |
