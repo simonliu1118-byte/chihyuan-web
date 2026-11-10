@@ -52,7 +52,7 @@ export const flowApi={
   close:(id:number,revision:number,reason:string)=>apiRequest<FlowOrder>(root+`/orders/${id}/close`,{method:"POST",json:{expectedRevision:revision,reason}}),
   reopen:(id:number,revision:number)=>apiRequest<FlowOrder>(root+`/orders/${id}/reopen`,{method:"POST",json:{expectedRevision:revision}}),
   deleteOrder:(id:number,revision:number)=>apiRequest<{deleted:boolean}>(root+"/orders/"+id,{method:"DELETE",json:{expectedRevision:revision}}),
-  groupedStock:(contractorId?:number,showAll=false)=>apiRequest<{items:{contractorId:number;contractorName:string;billingMethod:string;groups:{title:string;bomName:string|null;capacity:number|null;shortage:boolean;items:FlowStock[]}[]}[]}>(root+"/stock/groups"+params({contractorId,showAll})),
+  groupedStock:(contractorId?:number,showAll=false)=>apiRequest<{items:{contractorId:number;contractorName:string;billingMethod:string;groups:{title:string;bomName:string|null;capacity:number|null;outputUnit:string|null;shortage:boolean;items:FlowStock[]}[]}[]}>(root+"/stock/groups"+params({contractorId,showAll})),
   issueSuggestion:(id:number)=>apiRequest<{items:{itemId:number;itemNo:string;itemName:string;unit:string;quantity:string}[]}>(root+`/orders/${id}/issue-suggestion`),
   consumptionPreview:(id:number,items:unknown[])=>apiRequest<{items:{itemId:number;itemNo:string;itemName:string;unit:string;quantity:string}[]}>(root+`/orders/${id}/consumption-preview`,{method:"POST",json:{items}}),
   stock:(contractorId?:number,showAll=false)=>apiRequest<{items:FlowStock[]}>(root+"/stock"+params({contractorId,showAll})),
