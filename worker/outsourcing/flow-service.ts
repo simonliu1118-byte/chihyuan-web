@@ -434,8 +434,11 @@ export class OutsourcingFlowService {
     const stockByVendor=new Map<number,typeof all>();
     for(const row of all)stockByVendor.set(row.contractorId,[...(stockByVendor.get(row.contractorId)??[]),row]);
     for(const [vendorId,items]of stockByVendor){
-      const grouped=[],used=new Set<number>();
+      const grouped=[],used=new Set<number>(),seenProducts=new Set<string>();
       for(const p of byVendor.get(vendorId)??[]){
+        const productKey=p.item_id+":"+p.bom_recipe_id;
+        if(seenProducts.has(productKey))continue;
+        seenProducts.add(productKey);
         const cs=await this.db.prepare("SELECT component_item_id,quantity,unit FROM bom_components WHERE bom_recipe_id=?").bind(p.bom_recipe_id).all<Row>();
         const refs=await this.itemRefs((cs.results??[]).map(c=>c.component_item_id));
         const rows=[];let capacity=Number.MAX_SAFE_INTEGER;
@@ -444,7 +447,14 @@ export class OutsourcingFlowService {
           const material=refs.get(c.component_item_id);
           if(!material)continue;
           const r=items.find(x=>x.itemId===c.component_item_id);
-          if(!r)continue;
+          if(!r){
+            shortage=true;capacity=0;
+            if(showAll)rows.push({contractorId:vendorId,contractorName:items[0].contractorName,
+              billingMethod:items[0].billingMethod,itemId:material.id,itemNo:material.item_no,
+              itemName:material.name,unit:material.base_unit,quantity:"0",baseline:"0",
+              percentage:null,tone:"red"});
+            continue;
+          }
           used.add(c.component_item_id);rows.push(r);
           const count=parseScaled4(r.quantity);
           const perBatch=this.toBase(c.quantity,c.unit,material);
@@ -452,7 +462,7 @@ export class OutsourcingFlowService {
           capacity=Math.min(capacity,canProduce);
           if(count<=0)shortage=true;
         }
-        if(rows.length)grouped.push({title:p.item_no+" "+p.item_name,bomName:p.recipe_ref,
+        if((cs.results??[]).length)grouped.push({title:p.item_no+" "+p.item_name,bomName:p.recipe_ref,
           capacity:capacity===Number.MAX_SAFE_INTEGER?0:capacity,shortage,items:rows});
       }
       const other=items.filter(r=>!used.has(r.itemId));
