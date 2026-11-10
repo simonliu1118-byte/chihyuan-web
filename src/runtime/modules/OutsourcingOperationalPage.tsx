@@ -395,10 +395,10 @@ export function OutsourcingOperationalPage(){
         <option value="">不扣料</option>{boms.filter(b=>b.isActive&&b.finishedItemId===order.products.find(p=>p.id===d.orderProductId)?.item_id).map(b=><option key={b.id} value={b.id}>{b.recipeRef}</option>)}</select>}
       ]}/>:null}
     {action==="stock-history"?<div className="cy-op-subsection">
-      <div className="cy-op-toolbar"><label htmlFor="stock-history-contractor">協力廠商</label>
+      <div className="cy-op-toolbar"><Field label="協力廠商">
         <select id="stock-history-contractor" className="cy-op-input" value={stockContractor??""} onChange={e=>setStockContractor(Number(e.target.value)||null)}>
           <option value="">全部廠商</option>{contractors.map(c=><option key={c.id} value={c.id}>{c.displayName}</option>)}
-        </select></div>
+        </select></Field></div>
       <h3>料件異動紀錄</h3>
       <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr>
         <th>日期</th><th>廠商</th><th>料件</th><th>類型</th><th>增減量</th><th>異動後庫存</th><th>原因／來源單號</th><th>操作人</th>
