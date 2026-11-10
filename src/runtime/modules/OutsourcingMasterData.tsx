@@ -69,15 +69,15 @@ function useEditorGuard(draft: unknown, busy: boolean, onEditingChange: (editing
 
 interface ContactDraft { id?: number; name: string; title: string; phone: string; mobile: string }
 interface ContractorDraft {
-  entityType: ContractorEntityType; displayName: string; legalName: string; taxId: string;
+  entityType: ContractorEntityType; billingMethod: "single"|"monthly"; displayName: string; legalName: string; taxId: string;
   phone: string; address: string; note: string; isActive: boolean; contacts: ContactDraft[];
 }
 interface PriceDraft { item: OutsourcingItemOption | null; existing: ContractorPrice | null; pricingUnit: string; unitPrice: string; note: string }
 
-const blankContractor = (): ContractorDraft => ({ entityType: "organization", displayName: "", legalName: "", taxId: "", phone: "", address: "", note: "", isActive: true, contacts: [] });
+const blankContractor = (): ContractorDraft => ({ entityType: "organization", billingMethod:"single", displayName: "", legalName: "", taxId: "", phone: "", address: "", note: "", isActive: true, contacts: [] });
 function contractorDraft(detail: ContractorDetail): ContractorDraft {
   return {
-    entityType: detail.entityType, displayName: detail.displayName, legalName: detail.legalName ?? "", taxId: detail.taxId ?? "",
+    entityType: detail.entityType, billingMethod:detail.billingMethod, displayName: detail.displayName, legalName: detail.legalName ?? "", taxId: detail.taxId ?? "",
     phone: detail.phone ?? "", address: detail.address ?? "", note: detail.note ?? "", isActive: detail.isActive,
     contacts: detail.contacts.filter((row) => row.isActive).map((row) => ({ id: row.id, name: row.name, title: row.title ?? "", phone: row.phone ?? "", mobile: row.mobile ?? "" })),
   };
@@ -129,7 +129,7 @@ export function ContractorWorkspace({ contractors, onChanged, onEditingChange, n
     const missing = draft.contacts.findIndex((row) => !row.name.trim());
     if (missing >= 0) { reportError(`第 ${missing + 1} 位聯絡人缺少姓名。`); return; }
     const profile = {
-      entityType: draft.entityType, displayName: draft.displayName.trim(), legalName: orNull(draft.legalName), taxId: orNull(draft.taxId),
+      entityType: draft.entityType, billingMethod:draft.billingMethod, displayName: draft.displayName.trim(), legalName: orNull(draft.legalName), taxId: orNull(draft.taxId),
       phone: orNull(draft.phone), address: orNull(draft.address), note: orNull(draft.note), isActive: draft.isActive,
       contacts: draft.contacts.map((row, index) => ({ id: row.id, name: row.name.trim(), title: orNull(row.title), phone: orNull(row.phone), mobile: orNull(row.mobile), sortOrder: index })),
     };
@@ -208,6 +208,7 @@ export function ContractorWorkspace({ contractors, onChanged, onEditingChange, n
             <Field label="名稱" size="m" required><input className="cy-op-input" value={draft.displayName} disabled={busy} onChange={(event) => patch({ displayName: event.target.value })} /></Field>
             <Field label="類型" size="s"><select className="cy-op-input" value={draft.entityType} disabled={busy} onChange={(event) => patch({ entityType: event.target.value as ContractorEntityType })}>
               <option value="organization">公司／工廠</option><option value="person">個人</option></select></Field>
+            <Field label="結帳方式" size="s"><select className="cy-op-input" value={draft.billingMethod} disabled={busy} onChange={event=>patch({billingMethod:event.target.value as "single"|"monthly"})}><option value="single">單次結帳</option><option value="monthly">月結</option></select></Field>
             <Field label="正式名稱" size="m"><input className="cy-op-input" value={draft.legalName} disabled={busy} onChange={(event) => patch({ legalName: event.target.value })} /></Field>
             <Field label="統編" size="s"><input className="cy-op-input" value={draft.taxId} disabled={busy} onChange={(event) => patch({ taxId: event.target.value })} /></Field>
             <Field label="電話" size="s"><input className="cy-op-input" value={draft.phone} disabled={busy} onChange={(event) => patch({ phone: event.target.value })} /></Field>
