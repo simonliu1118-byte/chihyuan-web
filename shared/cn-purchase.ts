@@ -56,7 +56,8 @@ export interface CnPieceResult {
   ntdShare: number | null;
   ntdUnit: number | null;
   rate: number | null;
-  /** 含稅含運單價 and 總匯率; null until every card has its amount. */
+  /** 含稅含運 in whole 台幣 (all pieces add up to the 總計), its 單價 over the goods kept, and 總匯率. */
+  landedTotal: number | null;
   landedUnit: number | null;
   totalRate: number | null;
   /** The part of the line's 退貨 that falls on this piece (by quantity). */
@@ -86,35 +87,47 @@ export function computeCnPurchase(lines: readonly CnLineRef[], purchase: Pick<Cn
   const cardRmb = new Map<number, number>();
   for (const p of pieces) if (p.chargeId !== null && cards.has(p.chargeId)) cardRmb.set(p.chargeId, (cardRmb.get(p.chargeId) ?? 0) + (subtotal(p) ?? 0));
 
-  const results = new Map<number, CnPieceResult>(), net = new Map<number, number>();
+  const results = new Map<number, CnPieceResult>();
   // Pieces not yet charged wait outside the allocation; a charged piece whose card has no 台幣 yet
   // leaves the whole allocation open (待補).
   let complete = pieces.some((p) => p.chargeId !== null && cards.has(p.chargeId));
+  // Whole 台幣 per piece (user 2026-11-11: 對帳 must match): each card's 金額＋手續費 is split by 人民幣小計
+  // so the pieces add up to the card exactly; each line's 刷退 and 刷退手續費 likewise by quantity.
+  const share = new Map<number, number>();
+  for (const card of cards.values()) {
+    const mine = pieces.filter((p) => p.chargeId === card.id && subtotal(p) !== null);
+    if (!mine.length) continue;
+    if (card.amount === null) { complete = false; continue; }
+    allocate(card.amount + (card.fee ?? 0), mine.map((p) => subtotal(p)!)).forEach((v, i) => share.set(mine[i].id, v));
+  }
+  if (pieces.some((p) => p.chargeId !== null && cards.has(p.chargeId) && subtotal(p) === null)) complete = false;
+  const refundOf = new Map<number, number>(), returned = new Map<number, number>();
+  for (const r of returns.values()) {
+    const mine = pieces.filter((p) => p.lineId === r.lineId), q = mine.map((p) => p.quantity);
+    allocate((r.ntdAmount ?? 0) - (r.fee ?? 0), q).forEach((v, i) => refundOf.set(mine[i].id, v));
+    const total = lineQty.get(r.lineId) || 1;
+    mine.forEach((p) => returned.set(p.id, r.quantity * p.quantity / total));
+  }
   for (const p of pieces) {
-    const card = p.chargeId === null ? undefined : cards.get(p.chargeId);
-    const rmb = subtotal(p), total = card ? cardRmb.get(card.id) ?? 0 : 0;
-    const share = card && card.amount !== null && rmb !== null && total > 0 ? (card.amount + (card.fee ?? 0)) * rmb / total : null;
-    const ret = returns.get(p.lineId), part = ret ? p.quantity / (lineQty.get(p.lineId) || 1) : 0;
-    const returnedQuantity = ret ? ret.quantity * part : 0;
-    if (share === null) { if (card) complete = false; }
-    else net.set(p.id, share - (ret?.ntdAmount ?? 0) * part + (ret?.fee ?? 0) * part);
-    const ntdUnit = share === null ? null : share / p.quantity;
-    results.set(p.id, { rmbSubtotal: rmb, ntdShare: share, ntdUnit, rate: ntdUnit !== null && p.rmbPrice ? ntdUnit / (p.rmbPrice / 100) : null, landedUnit: null, totalRate: null, returnedQuantity });
+    const s = share.get(p.id) ?? null, ntdUnit = s === null ? null : s / p.quantity;
+    results.set(p.id, { rmbSubtotal: subtotal(p), ntdShare: s, ntdUnit, rate: ntdUnit !== null && p.rmbPrice ? ntdUnit / (p.rmbPrice / 100) : null,
+      landedTotal: null, landedUnit: null, totalRate: null, returnedQuantity: returned.get(p.id) ?? 0 });
   }
   const sum = (kind: CnChargeKind, field: "amount" | "fee") => purchase.charges.filter((c) => c.kind === kind).reduce((s, c) => s + (c[field] ?? 0), 0);
   const shipping = sum("SHIPPING", "amount") + sum("SHIPPING", "fee"), tax = sum("TAX", "amount") + sum("TAX", "fee");
   const refund = [...returns.values()].reduce((s, r) => s + (r.ntdAmount ?? 0), 0), refundFee = [...returns.values()].reduce((s, r) => s + (r.fee ?? 0), 0);
   const usedCards = [...cards.values()].filter((c) => pieces.some((p) => p.chargeId === c.id));
   const cardAmount = usedCards.reduce((s, c) => s + (c.amount ?? 0), 0), cardFee = usedCards.reduce((s, c) => s + (c.fee ?? 0), 0);
-  const base = [...net.values()].reduce((s, v) => s + v, 0);
   const grand = complete ? cardAmount + cardFee + shipping + tax - refund + refundFee : null;
-  if (complete && grand !== null && base > 0) {
-    for (const p of pieces) {
-      const r = results.get(p.id)!, kept = p.quantity - r.returnedQuantity;
-      if (kept <= 0 || !net.has(p.id)) continue;
-      r.landedUnit = grand * net.get(p.id)! / base / kept;
-      r.totalRate = p.rmbPrice ? r.landedUnit / (p.rmbPrice / 100) : null;
-    }
+  if (complete && grand !== null) {
+    // 含稅含運 in whole 台幣 per piece, by 淨額 (share － 刷退 ＋ 刷退手續費): the pieces add up to the 總計.
+    const charged = pieces.filter((p) => share.has(p.id));
+    const net = charged.map((p) => Math.max(0, share.get(p.id)! - (refundOf.get(p.id) ?? 0)));
+    if (net.some((v) => v > 0)) allocate(grand, net).forEach((total, i) => {
+      const p = charged[i], r = results.get(p.id)!, kept = p.quantity - r.returnedQuantity;
+      r.landedTotal = total;
+      if (kept > 0) { r.landedUnit = total / kept; r.totalRate = p.rmbPrice ? r.landedUnit / (p.rmbPrice / 100) : null; }
+    });
   }
   return {
     pieces: results,
@@ -125,6 +138,22 @@ export function computeCnPurchase(lines: readonly CnLineRef[], purchase: Pick<Cn
       unchargedPieces: pieces.filter((p) => p.chargeId === null || !cards.has(p.chargeId)).length,
     },
   };
+}
+
+/**
+ * Whole numbers in proportion to <paramref name="weights"/> that add up to <paramref name="total"/>
+ * exactly (largest remainder; ties go to the earlier row), so no rounding leaves 對帳 a dollar off.
+ */
+export function allocate(total: number, weights: readonly number[]): number[] {
+  const sum = weights.reduce((s, w) => s + Math.max(0, w), 0);
+  if (!weights.length) return [];
+  if (sum <= 0) { const out = weights.map(() => 0); out[0] = total; return out; }
+  const sign = total < 0 ? -1 : 1, abs = Math.abs(total);
+  const raw = weights.map((w) => abs * Math.max(0, w) / sum), out = raw.map(Math.floor);
+  let left = abs - out.reduce((s, v) => s + v, 0);
+  const order = raw.map((v, i) => [v - Math.floor(v), i] as const).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+  for (let k = 0; left > 0; k = (k + 1) % order.length, left--) out[order[k][1]]++;
+  return out.map((v) => v * sign);
 }
 
 export interface CnRow { piece: CnPiece; seq: number; firstOfLine: boolean; card: CnCharge | null; cardNo: number; cardSpan: number; unchargedSpan: number; discontinued: boolean }
@@ -164,8 +193,8 @@ export interface CnLineSummary {
   rmbSubtotal: number | null; rmbUnit: number | null;
   /** Card shares added up; null while a piece has none. */
   ntdShare: number | null; ntdUnit: number | null; rate: number | null;
-  /** 含稅含運單價 over the goods kept, and 總匯率; null while a piece has none. */
-  landedUnit: number | null; totalRate: number | null;
+  /** 含稅含運小計 (whole 台幣, the pieces' own), its 單價 over the goods kept, and 總匯率. */
+  landedTotal: number | null; landedUnit: number | null; totalRate: number | null;
 }
 /**
  * 品項合計 (user 2026-11-11): the pieces of one item folded back into one row. A at ¥100×20 and
@@ -183,11 +212,12 @@ export function summarizeCnLines(lines: readonly CnLineRef[], pieces: readonly C
     const ntdShare = all("ntdShare") ? rs.reduce((s, r) => s + (r!.ntdShare as number), 0) : null;
     const ntdUnit = ntdShare !== null && quantity ? ntdShare / quantity : null;
     const returnedQuantity = rs.reduce((s, r) => s + (r?.returnedQuantity ?? 0), 0), kept = quantity - returnedQuantity;
-    const landed = all("landedUnit") && kept > 0 ? mine.reduce((s, p, i) => s + rs[i]!.landedUnit! * (p.quantity - rs[i]!.returnedQuantity), 0) / kept : null;
+    const landedTotal = all("landedTotal") ? rs.reduce((s, r) => s + (r!.landedTotal as number), 0) : null;
+    const landed = landedTotal !== null && kept > 0 ? landedTotal / kept : null;
     out.set(line.id, {
       quantity, returnedQuantity, rmbSubtotal, rmbUnit, ntdShare, ntdUnit,
       rate: ntdUnit !== null && rmbUnit ? ntdUnit / (rmbUnit / 100) : null,
-      landedUnit: landed, totalRate: landed !== null && rmbUnit ? landed / (rmbUnit / 100) : null,
+      landedTotal, landedUnit: landed, totalRate: landed !== null && rmbUnit ? landed / (rmbUnit / 100) : null,
     });
   }
   return out;

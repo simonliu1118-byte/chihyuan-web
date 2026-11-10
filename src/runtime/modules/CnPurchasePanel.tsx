@@ -359,27 +359,30 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    <td className="cy-cn-name">{i.name}{i.added?<span className="cy-cn-tag">採購新增</span>:null}</td>
    <td className="is-n cy-cn-mut">{i.planned===null?"—":qtyText(i.planned)}</td>
    <td className="is-n">{qtyText(i.discontinued?0:x.quantity)}{i.unit?<small className="cy-cn-unit">{i.unit}</small>:null}</td>
-   <td className="is-n">{x.rmbUnit===null?<span className="cy-cn-mut">—</span>:"¥"+ntdText(x.rmbUnit/100,2)}</td>
+   <td className="is-n" title={x.rmbUnit!==null?"人民幣小計 ÷ 採購數量":undefined}>{x.rmbUnit===null?<span className="cy-cn-mut">—</span>:"¥"+ntdText(x.rmbUnit/100,2)}</td>
    <td className="is-n">{rmbText(x.rmbSubtotal)}</td>
    <td className="is-n">{unit(x.ntdShare,0)}</td>
    <td className="is-n">{unit(x.ntdUnit,1)}</td>
    <td className="is-n cy-cn-mut">{unit(x.rate,2)}</td>
    <td className="is-n">{ret?<span>{qtyText(ret.quantity)}・{ret.ntdAmount===null?"—":ntdText(ret.ntdAmount)}</span>:<span className="cy-cn-mut">—</span>}</td>
+   <td className="is-n">{unit(x.landedTotal,0)}</td>
    <td className="is-n"><b>{unit(x.landedUnit,1)}</b></td>
    <td className="is-n cy-cn-mut">{unit(x.totalRate,2)}</td>
    <td className="cy-cn-note" title={note||undefined}>{note}</td>
    <td className="is-c cy-cn-act">{menu.length?<OverflowMenu label={"更多操作："+i.name} items={menu}/>:null}</td>
   </tr>}):null;
  const shippingTotal=view.charges.filter(c=>c.kind==="SHIPPING").reduce((n,c)=>n+(c.amount??0)+(c.fee??0),0);
+ // Every amount sits in the 台幣小計 column so the column adds up; 含稅含運小計 adds up to the same 總計.
  const itemFooter=<tfoot>
   <tr className="cy-cn-sub"><td colSpan={5} className="cy-cn-lab is-r">刷卡（含手續費）</td><td className="is-n">{rmbText(t.rmb)}</td><td className="is-n">{ntdText(t.cardAmount+t.cardFee)}</td>
-   <td colSpan={7} className="cy-cn-mut">{cardsShown.length} 筆刷卡{t.missingFee?" · 手續費待補 "+t.missingFee+" 筆":""}</td></tr>
-  {shippingTotal?<tr className="cy-cn-sub"><td colSpan={6} className="cy-cn-lab is-r">運費</td><td className="is-n">{ntdText(shippingTotal)}</td><td colSpan={7} className="cy-cn-mut">{view.charges.filter(c=>c.kind==="SHIPPING").length} 筆</td></tr>:null}
-  {tax?<tr className="cy-cn-sub"><td colSpan={6} className="cy-cn-lab is-r">營業稅</td><td className="is-n">{ntdText(tax.amount)}</td><td colSpan={7}/></tr>:null}
+   <td colSpan={8} className="cy-cn-mut">{cardsShown.length} 筆刷卡{t.missingFee?" · 手續費待補 "+t.missingFee+" 筆":""}</td></tr>
+  {shippingTotal?<tr className="cy-cn-sub"><td colSpan={6} className="cy-cn-lab is-r">運費</td><td className="is-n">{ntdText(shippingTotal)}</td><td colSpan={8} className="cy-cn-mut">{view.charges.filter(c=>c.kind==="SHIPPING").length} 筆，依各品項台幣淨額分攤</td></tr>:null}
+  {tax?<tr className="cy-cn-sub"><td colSpan={6} className="cy-cn-lab is-r">營業稅</td><td className="is-n">{ntdText(tax.amount)}</td><td colSpan={8} className="cy-cn-mut">依各品項台幣淨額分攤</td></tr>:null}
   {t.refund||t.refundFee?<tr className="cy-cn-sub"><td colSpan={6} className="cy-cn-lab is-r">退貨刷退</td><td className="is-n">−{ntdText(t.refund-t.refundFee)}</td>
-   <td colSpan={7} className="cy-cn-mut">{view.returns.map(r=>(info.get(r.lineId)?.name??"")+" "+qtyText(r.quantity)).join("、")}{t.refundFee?"（刷退手續費 ＋"+ntdText(t.refundFee)+"）":""}</td></tr>:null}
+   <td colSpan={8} className="cy-cn-mut">{view.returns.map(r=>(info.get(r.lineId)?.name??"")+" "+qtyText(r.quantity)).join("、")}{t.refundFee?"（刷退手續費 ＋"+ntdText(t.refundFee)+"）":""}</td></tr>:null}
   <tr className="cy-cn-grand"><td colSpan={6} className="is-r">含稅含運總計</td><td className="is-n">{t.grand===null?"—":ntdText(t.grand)}</td>
-   <td colSpan={7} className="cy-cn-mut">{t.grand===null&&t.missingCardAmount?"刷卡台幣待補 "+t.missingCardAmount+" 筆":t.unchargedPieces?"未含未刷卡 "+t.unchargedPieces+" 項":""}</td></tr>
+   <td colSpan={3} className="cy-cn-mut">{t.grand===null&&t.missingCardAmount?"刷卡台幣待補 "+t.missingCardAmount+" 筆":t.unchargedPieces?"未含未刷卡 "+t.unchargedPieces+" 項":""}</td>
+   <td className="is-n">{t.grand===null?"—":ntdText(t.grand)}</td><td colSpan={4}/></tr>
  </tfoot>;
 
  const orderedText=purchase.orderedAt?(()=>{const p=orderingTaipeiDateTime(purchase.orderedAt);return "完成訂購 "+(p?.date??"")+(purchase.orderedBy?" · "+purchase.orderedBy:"")})():"";
@@ -412,9 +415,9 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    <h2 className="cy-cn-print-title">{order.sourceName} · 採購 · {CN_STAGE_LABELS[stage]}</h2>
    {byItem?<table className="cy-ordering-grid cy-cn-table is-items">
     <colgroup><col className="w-seq"/><col/><col className="w-qty"/><col className="w-qty2"/><col className="w-rmb"/><col className="w-rmb2"/><col className="w-ntd2"/>
-     <col className="w-unit"/><col className="w-rate"/><col className="w-ret"/><col className="w-land"/><col className="w-rate2"/><col className="w-note"/><col className="w-act"/></colgroup>
+     <col className="w-unit"/><col className="w-rate"/><col className="w-ret"/><col className="w-ntd2"/><col className="w-land"/><col className="w-rate2"/><col className="w-note"/><col className="w-act"/></colgroup>
     <thead><tr><th className="is-c">項次</th><th>品名</th><th className="is-n">原定</th><th className="is-n">採購數量</th><th className="is-n">人民幣單價</th><th className="is-n">人民幣小計</th>
-     <th className="is-n">台幣小計</th><th className="is-n">台幣單價</th><th className="is-n">匯率</th><th className="is-n">退貨<br/><small>數量・刷退</small></th><th className="is-n">含稅含運<br/>單價</th>
+     <th className="is-n">台幣小計</th><th className="is-n">台幣單價</th><th className="is-n">匯率</th><th className="is-n">退貨<br/><small>數量・刷退</small></th><th className="is-n">含稅含運<br/>小計</th><th className="is-n">含稅含運<br/>單價</th>
      <th className="is-n">總匯率</th><th>備註</th><th className="is-c"><span className="cy-visually-hidden">操作</span></th></tr></thead>
     <tbody>{itemRows}</tbody>
     {itemFooter}
@@ -429,7 +432,7 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    </table>}
   </div>
   <p className="cy-cn-foot">{[t.unchargedPieces?"未刷卡 "+t.unchargedPieces+" 項":"",t.missingFee?"手續費待補 "+t.missingFee+" 筆":"",
-   "含稅含運單價＝（刷卡分攤 − 刷退 ＋ 刷退手續費）＋依比例分攤的運費與營業稅，除以（採購數量 − 退貨數量）。"].filter(Boolean).join(" · ")}</p>
+   "小計都以整數台幣分攤：每筆刷卡的金額＋手續費依人民幣小計分給各列，加起來等於該筆刷卡；含稅含運小計加起來等於總計。單價＝小計 ÷ 數量（含稅含運單價扣除退貨數量）。"].filter(Boolean).join(" · ")}</p>
  </section>;
 }
 

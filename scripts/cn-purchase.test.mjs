@@ -33,23 +33,30 @@ test("stage follows 完成訂購, 運費, 營業稅 and 結案",()=>{
  assert.equal(cn.cnStage({orderedAt:null,charges},true),"CLOSED");
 });
 
-test("card shares split by 人民幣小計 and fee counts as cost",()=>{
+test("card shares are whole 台幣 that add up to each card exactly",()=>{
  const {pieces:r,totals}=cn.computeCnPurchase(lines,{pieces,charges,returns:[]});
- // card 1 RMB = 175 + 34 + 104 = 313; A5 gets 1414 × 175/313.
- assert.ok(Math.abs(r.get(11).ntdShare-1414*17500/31300)<1e-9);
+ // card 1 RMB = 175 + 34 + 104 = 313; 1414 split 790.57/153.60/469.83 → 790/154/470 (largest remainder).
+ assert.deepEqual([11,21,31].map(id=>r.get(id).ntdShare),[790,154,470]);
+ assert.equal([11,21,31].reduce((s,id)=>s+r.get(id).ntdShare,0),1414);
  assert.equal(r.get(12).ntdShare,480);
  assert.equal(totals.missingFee,1);assert.equal(totals.cardAmount,2200);assert.equal(totals.cardFee,17);
  assert.equal(totals.grand,2217);
 });
 
+test("allocate never loses a dollar",()=>{
+ assert.deepEqual(cn.allocate(10,[1,1,1]),[4,3,3]);
+ assert.deepEqual(cn.allocate(100,[0,0]),[100,0]);
+ assert.deepEqual(cn.allocate(-7,[1,1]),[-4,-3]);
+ for(let t=0;t<200;t++){const w=[1+t%7,3+t%5,11,2+t%3],total=1000+t*37;assert.equal(cn.allocate(total,w).reduce((a,b)=>a+b,0),total)}
+});
 test("whole-table recalculation: shipping and tax spread by net and borne by kept goods",()=>{
  const withCosts=[...charges,{id:201,kind:"SHIPPING",sortOrder:1,chargedOn:"2026-11-20",amount:300,fee:3,note:""},{id:301,kind:"TAX",sortOrder:1,chargedOn:"2026-12-18",amount:100,fee:null,note:""}];
  const returns=[{lineId:3,quantity:2,rmbAmount:1040,ntdAmount:50,fee:2,reason:"瑕疵"}];
  const {pieces:r,totals}=cn.computeCnPurchase(lines,{pieces,charges:withCosts,returns});
  assert.equal(totals.grand,2217+303+100-50+2);
- // Every kept unit × landed unit adds back to the grand total.
- const kept=pieces.reduce((s,p)=>s+(p.quantity-r.get(p.id).returnedQuantity)*r.get(p.id).landedUnit,0);
- assert.ok(Math.abs(kept-totals.grand)<1e-6);
+ // 含稅含運小計 are whole 台幣 and add up to the grand total exactly.
+ assert.ok(pieces.every(p=>Number.isInteger(r.get(p.id).landedTotal)));
+ assert.equal(pieces.reduce((s,p)=>s+r.get(p.id).landedTotal,0),totals.grand);
  assert.equal(r.get(31).returnedQuantity,2);
  // A 退貨 raises nothing for C but changes everyone's share: recompute without it differs.
  const before=cn.computeCnPurchase(lines,{pieces,charges:withCosts,returns:[]}).pieces.get(11).landedUnit;
@@ -82,5 +89,5 @@ test("品項合計 folds an item's pieces into one weighted row",()=>{
  assert.equal(s.quantity,30);assert.equal(s.rmbSubtotal,320000);
  assert.ok(Math.abs(s.rmbUnit-(100*20+120*10)/30*100)<1e-9);
  assert.equal(s.ntdShare,15000);assert.equal(s.ntdUnit,500);
- assert.ok(Math.abs(s.landedUnit*30-15000)<1e-6);
+ assert.equal(s.landedTotal,15000);assert.equal(s.landedUnit,500);
 });
