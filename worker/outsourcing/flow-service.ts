@@ -1,6 +1,6 @@
 import { nextEntityIdSql } from "../persistence/entity-id";
 import { parseScaled4, formatScaled4, formatMoney2, parseMoney2 } from "../../shared/fixed-point";
-import { convertScaled4Exact } from "../../shared/unit-conversion";
+import { convertScaled4Exact, allowedUnits } from "../../shared/unit-conversion";
 import { stockGaugeFromMovements, outsourcingLifecycle, outsourcingProgress, roundedLineMoney2, roundedStatementMoney2 } from "../../shared/outsourcing-flow";
 import { AuditService } from "../audit/audit-service";
 import { FieldValidationError } from "../validation/fields";
@@ -81,15 +81,31 @@ export class OutsourcingFlowService {
     for(const row of result.results??[]){const p=await this.productProgress(row.id);items.push({...row,statusCode:outsourcingLifecycle(row.closed_at,row.issue_count,p.map(x=>({planned:x.planned_quantity,delivered:x.delivered_quantity})))});}
     return {items,nextCursor:null};
   }
-  private async productProgress(orderId:number) {
+  private async productProgress(orderId:number):Promise<Row[]> {
     const r=await this.db.prepare(`SELECT p.*,i.item_no,i.name AS item_name,b.recipe_ref,
-      COALESCE((SELECT SUM(ri.quantity) FROM outsourcing_receipt_items ri
-        JOIN outsourcing_receipts r ON r.id=ri.receipt_id
-        WHERE ri.order_product_id=p.id AND r.cancelled_at IS NULL),0) AS delivered_quantity
-      FROM outsourcing_order_products p JOIN items i ON i.id=p.item_id
+      cp.pricing_unit AS current_pricing_unit,cp.unit_price AS current_unit_price
+      FROM outsourcing_order_products p
+      JOIN items i ON i.id=p.item_id
+      JOIN outsourcing_orders o ON o.id=p.outsourcing_order_id
       LEFT JOIN bom_recipes b ON b.id=p.bom_recipe_id
+      LEFT JOIN contractor_pricing cp ON cp.contractor_id=o.contractor_id AND cp.item_id=p.item_id
       WHERE p.outsourcing_order_id=? ORDER BY p.sort_order,p.id`).bind(orderId).all<Row>();
-    return (r.results??[]).map(p=>({...p,progress:outsourcingProgress(p.planned_quantity,p.delivered_quantity)})) as Row[];
+    const refs=await this.itemRefs((r.results??[]).map(p=>p.item_id));
+    const progress=[];
+    for(const p of r.results??[]){
+      const finished=refs.get(p.item_id)!;
+      const receipts=await this.db.prepare(`SELECT ri.quantity,ri.unit
+        FROM outsourcing_receipt_items ri JOIN outsourcing_receipts r ON r.id=ri.receipt_id
+        WHERE ri.order_product_id=? AND r.cancelled_at IS NULL`).bind(p.id).all<{quantity:number;unit:string}>();
+      let delivered=0;
+      for(const ri of receipts.results??[]){
+        delivered+=convertScaled4Exact(ri.quantity,ri.unit,p.unit,finished.base_unit,finished.conversions);
+      }
+      progress.push({...p,delivered_quantity:delivered,
+        allowed_units:[...allowedUnits(finished.base_unit,finished.conversions)],
+        progress:outsourcingProgress(p.planned_quantity,delivered)});
+    }
+    return progress;
   }
   async detail(orderId:number):Promise<Row> {
     const order=await this.order(orderId);
@@ -297,7 +313,7 @@ export class OutsourcingFlowService {
           movements.push({itemId:c.component_item_id,finishedId:p.item_id,quantity:-this.toBase(exact,c.unit,material)});
         }
       }
-      if(pricedUnit&&!finished.conversions.some((c:Row)=>c.fromUnit===pricedUnit)&&pricedUnit!==finished.base_unit) {
+      if(pricedUnit&&!allowedUnits(finished.base_unit,finished.conversions).has(pricedUnit)) {
         pricedUnit=null;unitPrice=null;
       }
       received.push({productId,itemId:p.item_id,bomId,quantity,unit,pricedUnit,unitPrice,index});
