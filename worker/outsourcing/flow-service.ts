@@ -388,7 +388,9 @@ export class OutsourcingFlowService {
     const byVendor=new Map<number,Row[]>();
     for(const r of orders.results??[])byVendor.set(r.contractor_id,[...(byVendor.get(r.contractor_id)??[]),r]);
     const vendors=[];
-    for(const [vendorId,items]of Map.groupBy(all,x=>x.contractorId)){
+    const stockByVendor=new Map<number,typeof all>();
+    for(const row of all)stockByVendor.set(row.contractorId,[...(stockByVendor.get(row.contractorId)??[]),row]);
+    for(const [vendorId,items]of stockByVendor){
       const grouped=[],used=new Set<number>();
       for(const p of byVendor.get(vendorId)??[]){
         const cs=await this.db.prepare("SELECT component_item_id,quantity,unit FROM bom_components WHERE bom_recipe_id=?").bind(p.bom_recipe_id).all<Row>();
