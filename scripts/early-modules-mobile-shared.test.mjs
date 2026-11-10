@@ -9,7 +9,7 @@ const modules=[
 ].map(([name,label])=>({code:read("src/runtime/modules/"+name,"utf8"),label}));
 test("early modules retain shared phone list, filter, action and desktop list",()=>{
  for(const {code,label} of modules){
-  assert.match(code,/const compact = useCompactLayout\(\)/,label);
+  assert.match(code,/const compact\s*=\s*useCompactLayout\(\)/,label);
   assert.match(code,/<DataViewToolbar searchValue=\{/,label);
   assert.match(code,/<OverflowMenu items=/,label);
   if(label==="代工單"){
