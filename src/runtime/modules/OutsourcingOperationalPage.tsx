@@ -14,7 +14,14 @@ import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {OverflowMenu} from "../../ui/mobile/OverflowMenu";
 import {EntityPicker} from "../../ui/pickers/EntityPicker";
 import {StockGauge,ProductionGauge} from "../../ui/data/StockGauge";
+import {ExpandToggle} from "../../ui/data/ExpandToggle";
 import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
+import {formatDate} from "../../ui/foundation/format";
+import {StatusChip} from "../../ui/primitives/StatusChip";
+import {StatusFilter} from "../../ui/data/StatusFilter";
+import {FeedbackBanner,useFeedbackMessage} from "../../ui/feedback/FeedbackProvider";
+import {MasterDetailEmpty} from "../../ui/layout/MasterDetail";
+import type {StatusTone} from "./status-flow";
 import {taipeiToday} from "../../../shared/erp-query-history";
 import {formatScaled4,formatMoney2} from "../../../shared/fixed-point";
 import {loadOutsourcingLookups,searchContractors,searchBoms,loadBomDetail} from "../api/outsourcing-runtime-client";
@@ -36,13 +43,23 @@ const tabs:readonly {key:Tab;label:string}[]=[
 ];
 const statusLabel:Record<string,string>={pending_issue:"待發料",in_production:"生產中",delivered:"已交齊",closed:"已結案",
  draft:"草稿",confirmed:"已確認",partial:"部分付款",paid:"已付清"};
+const statusTone:Record<string,StatusTone>={pending_issue:"warning",in_production:"info",delivered:"success",closed:"neutral",
+ draft:"warning",confirmed:"info",partial:"info",paid:"success"};
+const orderStatusOptions=(["pending_issue","in_production","delivered","closed"] as const).map(code=>({code,label:statusLabel[code],tone:statusTone[code]}));
+const statementStatusOptions=(["draft","confirmed","partial","paid"] as const).map(code=>({code,label:statusLabel[code],tone:statusTone[code]}));
+/** draft until confirmed; afterwards the payment state decides. */
+const statementState=(s:{status_code:string;paymentStatus:string})=>s.status_code==="draft"?"draft":s.paymentStatus==="paid"||s.paymentStatus==="partial"?s.paymentStatus:"confirmed";
+const chip=(code:string)=><StatusChip tone={statusTone[code]??"neutral"}>{statusLabel[code]??code}</StatusChip>;
 const searchItems=async(q:string)=>(await loadOutsourcingLookups({itemQuery:q,limit:30})).items;
 const number=(n:number)=>new Intl.NumberFormat("zh-TW",{maximumFractionDigits:4}).format(n/10000);
 const money=(n:number|null|undefined)=>n==null?"—":new Intl.NumberFormat("zh-TW",{minimumFractionDigits:0,maximumFractionDigits:2}).format(n/100);
 let nextKey=0;
 const newLine=():ItemDraft=>({key:++nextKey,item:null,quantity:"",unit:"",bomId:null});
 const newMaterial=():MaterialDraft=>({key:++nextKey,item:null,quantity:"",unit:""});
-const button=(text:string,fn:()=>void,busy:boolean,primary=false)=><button type="button" className={"cy-op-button mini "+(primary?"primary":"soft")} disabled={busy} onClick={fn}>{text}</button>;
+/** Record header actions: same compact buttons as 叫貨／門市. */
+const button=(text:string,fn:()=>void,busy:boolean,primary=false)=><button type="button" className={"cy-op-button compact"+(primary?" primary":"")} disabled={busy} onClick={fn}>{text}</button>;
+/** Row-level actions inside tables: small soft buttons. */
+const rowButton=(text:string,fn:()=>void,busy:boolean)=><button type="button" className="cy-op-button mini soft" disabled={busy} onClick={fn}>{text}</button>;
 function Grid({label,headers,children}:{label:string;headers:readonly string[];children:React.ReactNode}){
  return <EntryTable label={label}><thead><tr>{headers.map(h=><th key={h} scope="col"><EntryHeading>{h}</EntryHeading></th>)}</tr></thead><tbody><tr>{children}</tr></tbody></EntryTable>;
 }
@@ -85,8 +102,12 @@ export function OutsourcingOperationalPage(){
  const [statementId,setStatementId]=useState<number|null>(null);
  const [action,setAction]=useState<Action>(null);
  const [busy,setBusy]=useState(false);
- const [error,setError]=useState("");
- const [message,setMessage]=useState("");
+ const [message,setMessageRaw,reportError,messageTone]=useFeedbackMessage<string|null>(null);
+ const setError=(value:string)=>{if(value)reportError(value);else setMessageRaw(null);};
+ const setMessage=(value:string)=>setMessageRaw(value||null);
+ const [orderStatus,setOrderStatus]=useState("");
+ const [statementStatus,setStatementStatus]=useState("");
+ const [collapsed,setCollapsed]=useState<Record<number,boolean>>({});
  const [entryDate,setEntryDate]=useState(taipeiToday());
  const [entryNote,setEntryNote]=useState("");
  const [erpNo,setErpNo]=useState("");
@@ -182,9 +203,7 @@ export function OutsourcingOperationalPage(){
     <option value="">不指定</option>{boms.filter(b=>b.isActive&&b.finishedItemId===p.item?.id).map(b=><option key={b.id} value={b.id}>{b.recipeRef}</option>)}</select>},
   {label:"預計數量",width:"120px",view:p=>p.quantity,edit:(p,i)=><input className="cy-sheet-input" inputMode="decimal" value={p.quantity} onChange={e=>patchLine(i,{quantity:e.target.value})}/>},
   {label:"單位",width:"110px",view:p=>p.unit,edit:(p,i)=>unitSelect(p.item,p.unit,v=>patchLine(i,{unit:v}),busy)},
-  {label:"已交",view:()=>"0",edit:()=> <span>0</span>},
-  {label:"進度",view:()=> <ProductionGauge planned={1} delivered={0}/>,edit:()=> <ProductionGauge planned={1} delivered={0}/>}
- ];
+];
  const active=order?.products??[];
  const productsColumns:RowColumn<FlowOrder["products"][number]>[]=[
   {label:"成品",view:p=>p.item_no+" "+p.item_name,edit:()=> <span/>},
@@ -237,17 +256,57 @@ export function OutsourcingOperationalPage(){
   if(action==="payment"&&statement)await run(()=>flowApi.addPayment(statement.id,{expectedRevision:statement.revision,date:entryDate,method:paymentMethod,amount:paymentAmount,note:entryNote}));
  }
 
+ const orderCounts:Record<string,number>={};for(const o of orders)orderCounts[o.statusCode]=(orderCounts[o.statusCode]??0)+1;
+ const shownOrders=orders.filter(row=>(!orderStatus||row.statusCode===orderStatus)&&(!orderSearch||row.outsourcing_ref.includes(orderSearch)||row.contractor_name_snapshot.includes(orderSearch)));
+ const orderFilter=<StatusFilter label="代工單狀態" value={orderStatus} onChange={setOrderStatus} counts={orderCounts} options={orderStatusOptions}/>;
+ const statementCounts:Record<string,number>={};for(const st of statements){const k=statementState(st);statementCounts[k]=(statementCounts[k]??0)+1;}
+ const shownStatements=statements.filter(st=>!statementStatus||statementState(st)===statementStatus);
+ const statementFilter=<StatusFilter label="對帳狀態" value={statementStatus} onChange={setStatementStatus} counts={statementCounts} options={statementStatusOptions}/>;
+ const matchStock=(name:string,r:{itemNo:string;itemName:string})=>!stockSearch||name.includes(stockSearch)||r.itemNo.includes(stockSearch)||r.itemName.includes(stockSearch);
+ const visibleStock=stockGroups.filter(v=>(stockContractor==null||v.contractorId===stockContractor)&&v.groups.some(g=>g.items.some(r=>matchStock(v.contractorName,r))));
+ /** Row actions open 退料／盤點調整 with that contractor and item already filled in. */
+ async function beginStock(kind:"return"|"adjust",contractorId:number,itemId:number){
+  setStockKind(kind);setStockContractor(contractorId);begin(kind);
+  try{const item=(await loadOutsourcingLookups({itemIds:[itemId],limit:1})).items[0]??null;
+   setMaterials([{key:++nextKey,item,quantity:"",unit:item?.baseUnit??""}]);}catch(e){setError(outsourcingErrorMessage(e));}
+ }
+ async function openOrder(id:number){
+  if(draft&&!(await confirm({title:"放棄代工單修改",description:"代工單尚未儲存，確定放棄？",confirmLabel:"放棄修改",confirmTone:"danger"})))return;
+  setDraft(null);setOrderId(id);orderPane.open();
+ }
+ /** Destructive or reversing actions always ask first (same as 叫貨／門市). */
+ async function confirmRun(title:string,description:string,label:string,task:()=>Promise<unknown>,after?:()=>void){
+  if(!(await confirm({title,description,confirmLabel:label,confirmTone:"danger"})))return;
+  await run(task,after);
+ }
  return <div className="cy-op-module cy-outsourcing-op">
   {confirmationDialog}
   <ModuleSections label="委外代工功能" sections={tabs} value={tab} onChange={value=>void switchTab(value)}/>
-  {error?<p className="cy-op-error" role="alert">{error}</p>:null}{message?<p className="cy-op-hint">{message}</p>:null}
+  <FeedbackBanner message={message} tone={messageTone}/>
   {tab==="orders"?<div className="cy-md cy-op-master-detail" data-pane={orderPane.pane}>
-    <section className="cy-op-panel cy-md-list"><div className="cy-op-panel-header cy-md-toolbar"><h2>代工單</h2>{button("＋ 新增",openOrderCreate,busy,true)}</div>
-     <DataViewToolbar searchValue={orderSearch} onSearchChange={setOrderSearch} searchPlaceholder="搜尋廠商／單號"/>
-     {orders.filter(row=>!orderSearch||row.outsourcing_ref.includes(orderSearch)||row.contractor_name_snapshot.includes(orderSearch)).map(row=>
-       <ListRow key={row.id} title={row.contractor_name_snapshot}
-         subtitle={row.outsourcing_ref+" · "+row.order_date} trailing={statusLabel[row.statusCode]??row.statusCode}
-         selected={row.id===orderId} onClick={()=>{setDraft(null);setOrderId(row.id);orderPane.open();}}/>)}
+    <section className="cy-op-panel cy-md-list" aria-label="代工單清單">
+     {compact?<DataViewToolbar searchValue={orderSearch} onSearchChange={setOrderSearch} searchLabel="搜尋代工單" searchPlaceholder="搜尋廠商、單號"
+       filters={orderFilter} activeFilterCount={orderStatus?1:0}
+       actions={<button type="button" className="cy-op-button primary" disabled={busy} onClick={openOrderCreate}>＋ 新增代工單</button>}
+       resultSummary={"共 "+shownOrders.length+" 筆"}/>
+     :<div className="cy-md-toolbar">
+       <div className="cy-md-toolbar-lead">
+        <button type="button" className="cy-op-button primary" disabled={busy} onClick={openOrderCreate}>＋ 新增代工單</button>
+        <input className="cy-op-input" type="search" aria-label="搜尋代工單" placeholder="搜尋廠商、單號" value={orderSearch} onChange={e=>setOrderSearch(e.target.value)}/>
+       </div>
+       {orderFilter}
+       <div className="cy-md-count">共 {shownOrders.length} 筆</div>
+     </div>}
+     <div className="cy-op-list">
+      {shownOrders.map(row=>compact?<ListRow key={row.id} title={row.contractor_name_snapshot}
+         subtitle={row.outsourcing_ref+" · "+formatDate(row.order_date)} trailing={chip(row.statusCode)}
+         selected={row.id===orderId} onClick={()=>void openOrder(row.id)}/>
+       :<button type="button" key={row.id} className={"cy-op-list-row cy-status-row"+(row.id===orderId?" active":"")}
+         aria-current={row.id===orderId?"true":undefined} onClick={()=>void openOrder(row.id)}>
+         <strong>{row.contractor_name_snapshot}</strong><span><span className="cy-mono">{row.outsourcing_ref}</span> · {formatDate(row.order_date)}</span>{chip(row.statusCode)}
+       </button>)}
+      {!shownOrders.length?<div className="cy-op-empty">{orders.length?"沒有符合條件的代工單。":"尚無代工單。"}</div>:null}
+     </div>
     </section>
     <section className="cy-op-panel cy-md-detail"><MasterDetailBack label="代工單清單" onBack={()=>{setDraft(null);orderPane.close();}} disabled={busy}/>
      {draft?<form onKeyDown={enterAdvancesFields} onSubmit={e=>{e.preventDefault();void run(async()=>{
@@ -255,7 +314,8 @@ export function OutsourcingOperationalPage(){
          products:draft.products.map(p=>({itemId:p.item?.id,bomRecipeId:p.bomId,quantity:p.quantity,unit:p.unit}))};
        const saved=orderId&&order?await flowApi.updateOrder(orderId,{...payload,expectedRevision:order.revision}):await flowApi.createOrder(payload);
        setOrderId(saved.id);setOrder(saved);setDraft(null);});}}>
-       <div className="cy-op-panel-header"><h2>{orderId?"修改代工單":"新增代工單"}</h2></div>
+       <div className="cy-record-header cy-edit-header"><div><h2>{orderId?"修改代工單":"新增代工單"}</h2></div>
+        {compact?null:<div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={()=>setDraft(null)}>取消</button><button className="cy-op-button primary" disabled={busy}>{orderId?"儲存修改":"建立代工單"}</button></div>}</div>
        <RecordSheet label="代工單資料" editing rows={[
         {columns:"2fr 1fr 1fr",cells:[
          {label:"協力廠商",required:true,view:contractors.find(c=>c.id===draft.contractorId)?.displayName??"",edit:<select className="cy-sheet-input" value={draft.contractorId??""} onChange={e=>setDraft({...draft,contractorId:Number(e.target.value)||null})}><option value="">請選擇</option>{contractors.map(c=><option key={c.id} value={c.id}>{c.displayName}</option>)}</select>},
@@ -265,98 +325,122 @@ export function OutsourcingOperationalPage(){
         {columns:"1fr",cells:[{label:"備註",view:draft.note,edit:<input className="cy-sheet-input" value={draft.note} onChange={e=>setDraft({...draft,note:e.target.value})}/>}]}
        ]}/>
        <RecordRows title="成品" editing columns={orderColumns} rows={draft.products} rowKey={p=>p.key} onInsert={i=>setDraft(d=>d?{...d,products:[...d.products.slice(0,i+1),newLine(),...d.products.slice(i+1)]}:d)} onRemove={i=>setDraft(d=>d?{...d,products:d.products.filter((_,j)=>i!==j)}:d)}/>
-       {compact?<ActionBar><button type="button" className="cy-op-button soft" onClick={()=>setDraft(null)}>取消</button><button className="cy-op-button primary" disabled={busy}>儲存</button></ActionBar>
-        :<div className="cy-op-form-footer"><button type="button" className="cy-op-button soft" onClick={()=>setDraft(null)}>取消</button><button className="cy-op-button primary" disabled={busy}>儲存</button></div>}
+       {compact?<ActionBar><button type="button" className="cy-op-button" disabled={busy} onClick={()=>setDraft(null)}>取消</button><button className="cy-op-button primary" disabled={busy}>{orderId?"儲存修改":"建立代工單"}</button></ActionBar>:null}
       </form>:order?<div>
-       <div className="cy-record-header"><div><h2>{order.contractor_name_snapshot}</h2><small>{order.outsourcing_ref} · {statusLabel[order.statusCode]}</small></div>
-        <div className="cy-record-actions">{!order.closed_at?<>
+       <div className="cy-record-header"><div><h2>{order.contractor_name_snapshot} {chip(order.statusCode)}</h2><p><span className="cy-mono">{order.outsourcing_ref}</span> · 工單日期 {formatDate(order.order_date)}{order.closed_reason?" · 結案原因："+order.closed_reason:""}</p></div>
+        {compact?(order.issues.length===0&&order.receipts.length===0?<OverflowMenu items={[...(!order.closed_at?[{label:"修改",disabled:busy,onClick:()=>void startOrderEdit()}]:[]),{label:"刪除代工單",danger:true,disabled:busy,onClick:()=>void confirmRun("刪除代工單","刪除後無法復原，確定刪除這張代工單？","刪除",()=>flowApi.deleteOrder(order.id,order.revision),()=>{setOrderId(null);orderPane.close();})}]}/>:null)
+        :<div className="cy-record-actions">{!order.closed_at?<>
           {order.issues.length===0&&order.receipts.length===0?button("修改",()=>void startOrderEdit(),busy):null}
    {button("＋ 發料",()=>begin("issue"),busy,true)}{button("＋ 交貨入庫",()=>begin("receipt"),busy,true)}
           {button("結案",()=>begin("close"),busy)}
-         </>:button("重新開啟",()=>void run(()=>flowApi.reopen(order.id,order.revision)),busy)}
-         <OverflowMenu items={[{label:"刪除空白代工單",danger:true,disabled:busy,onClick:()=>void run(()=>flowApi.deleteOrder(order.id,order.revision),()=>setOrderId(null))}]}/>
-        </div></div>
+         </>:button("重新開啟",()=>void confirmRun("重新開啟代工單","重新開啟後可以繼續發料、交貨。","重新開啟",()=>flowApi.reopen(order.id,order.revision)),busy)}
+         {order.issues.length===0&&order.receipts.length===0?<OverflowMenu items={[{label:"刪除代工單",danger:true,disabled:busy,onClick:()=>void confirmRun("刪除代工單","刪除後無法復原，確定刪除這張代工單？","刪除",()=>flowApi.deleteOrder(order.id,order.revision),()=>{setOrderId(null);orderPane.close();})}]}/>:null}
+        </div>}</div>
+        {compact?<ActionBar>{!order.closed_at?<>{button("＋ 發料",()=>begin("issue"),busy,true)}{button("＋ 交貨入庫",()=>begin("receipt"),busy,true)}{button("結案",()=>begin("close"),busy)}</>:button("重新開啟",()=>void confirmRun("重新開啟代工單","重新開啟後可以繼續發料、交貨。","重新開啟",()=>flowApi.reopen(order.id,order.revision)),busy)}</ActionBar>:null}
        <RecordSheet label="代工單資料" editing={false} rows={[
-        {columns:"2fr 1fr 1fr",cells:[{label:"協力廠商",view:order.contractor_name_snapshot},{label:"工單日期",view:order.order_date},{label:"狀態",view:statusLabel[order.statusCode]}]},
+        {columns:"2fr 1fr 1fr",cells:[{label:"協力廠商",view:order.contractor_name_snapshot},{label:"工單日期",view:formatDate(order.order_date)},{label:"狀態",view:chip(order.statusCode)}]},
         {columns:"1fr",cells:[{label:"備註",view:order.note}]}
        ]}/>
        <RecordRows title="成品" editing={false} columns={productsColumns} rows={active} rowKey={p=>p.id} onInsert={()=>{}} onRemove={()=>{}}/>
-       <RecordRows title="發料紀錄" editing={false} rows={order.issues} rowKey={r=>r.id} onInsert={()=>{}} onRemove={()=>{}} columns={[
-        {label:"日期",view:r=>r.issued_date,edit:()=> <span/>},
-        {label:"料件",view:r=>r.items.map(i=>i.item_no+" "+i.name+" "+number(i.quantity)+" "+i.unit).join("、"),edit:()=> <span/>},
-        {label:"備註",view:r=>r.cancelled_at?"已取消":r.note??"",edit:()=> <span/>},
-        {label:"操作",view:r=>r.cancelled_at?"—":button("取消發料",()=>void run(()=>flowApi.cancelIssue(order.id,r.id,order.revision)),busy),edit:()=> <span/>}
-       ]}/>
-       <RecordRows title="交貨入庫" editing={false} rows={order.receipts} rowKey={r=>r.id} onInsert={()=>{}} onRemove={()=>{}} columns={[
-        {label:"日期",view:r=>r.received_date,edit:()=> <span/>},
-        {label:"ERP 單號",view:r=>r.erp_no,edit:()=> <span/>},
-        {label:"成品",view:r=>r.items.map(i=>i.name+" "+number(i.quantity)+" "+i.unit).join("、"),edit:()=> <span/>},
-        {label:"對帳狀態",view:r=>r.cancelled_at?"已取消":r.items.some(i=>i.statement_status==="paid")?"已付清":r.items.some(i=>i.statement_status==="confirmed")?"已確認":r.items.some(i=>i.statement_status==="draft")?"對帳中":"待對帳",edit:()=> <span/>},
-        {label:"操作",view:r=>r.cancelled_at?"—":button("取消交貨",()=>void run(()=>flowApi.cancelReceipt(order.id,r.id,order.revision)),busy),edit:()=> <span/>}
-       ]}/>
-      </div>:<p>請選擇代工單，或新增代工單。</p>}
+       <div className="cy-op-subsection"><h3>發料紀錄</h3>
+        {order.issues.length?<div className="cy-op-table-wrap"><table className="cy-op-table cy-rt cy-out-table">
+         <thead><tr><th>日期</th><th>品號</th><th>料件</th><th className="is-number">數量</th><th>備註</th><th className="is-center">操作</th></tr></thead>
+         <tbody>{order.issues.flatMap(r=>r.items.map((it,k)=><tr key={r.id+"-"+it.id} className={r.cancelled_at?"cy-row-struck":undefined}>
+          {k===0||compact?<td rowSpan={compact?undefined:r.items.length} data-label="日期">{formatDate(r.issued_date)}</td>:null}
+          <td data-label="品號" className="cy-mono">{it.item_no}</td><td data-label="料件" data-priority="title">{it.name}</td>
+          <td data-label="數量" className="is-number">{number(it.quantity)} {it.unit}</td>
+          {k===0||compact?<><td rowSpan={compact?undefined:r.items.length} data-label="備註">{r.cancelled_at?"已取消":r.note??""}</td>
+           <td rowSpan={compact?undefined:r.items.length} data-label="操作" className="is-center">{r.cancelled_at||order.closed_at?null:rowButton("取消發料",()=>void confirmRun("取消發料","會把這次發料從廠商庫存扣回，並留下紀錄。","取消發料",()=>flowApi.cancelIssue(order.id,r.id,order.revision)),busy)}</td></>:null}
+         </tr>))}</tbody></table></div>:<p className="cy-op-empty">尚未發料。</p>}
+       </div>
+       <div className="cy-op-subsection"><h3>交貨入庫</h3>
+        {order.receipts.length?<div className="cy-op-table-wrap"><table className="cy-op-table cy-rt cy-out-table">
+         <thead><tr><th>日期</th><th>ERP 單號</th><th>成品</th><th className="is-number">數量</th><th className="is-center">對帳</th><th className="is-center">操作</th></tr></thead>
+         <tbody>{order.receipts.flatMap(r=>{const state=r.cancelled_at?"cancelled":r.items.some(i=>i.statement_status==="paid")?"paid":r.items.some(i=>i.statement_status==="confirmed")?"confirmed":r.items.some(i=>i.statement_status==="draft")?"draft":"unbilled";
+          return r.items.map((it,k)=><tr key={r.id+"-"+it.id} className={r.cancelled_at?"cy-row-struck":undefined}>
+          {k===0||compact?<><td rowSpan={compact?undefined:r.items.length} data-label="日期">{formatDate(r.received_date)}</td><td rowSpan={compact?undefined:r.items.length} data-label="ERP 單號" className="cy-mono">{r.erp_no||"—"}</td></>:null}
+          <td data-label="成品" data-priority="title">{it.item_no} {it.name}</td><td data-label="數量" className="is-number">{number(it.quantity)} {it.unit}</td>
+          {k===0||compact?<><td rowSpan={compact?undefined:r.items.length} data-label="對帳" className="is-center">{state==="cancelled"?"已取消":state==="unbilled"?<StatusChip tone="warning">待對帳</StatusChip>:state==="draft"?<StatusChip tone="info">對帳中</StatusChip>:chip(state)}</td>
+           <td rowSpan={compact?undefined:r.items.length} data-label="操作" className="is-center">{r.cancelled_at||state==="confirmed"||state==="paid"||order.closed_at?null:rowButton("取消交貨",()=>void confirmRun("取消交貨","會把這批交貨依 BOM 扣的料加回廠商庫存，並留下紀錄。","取消交貨",()=>flowApi.cancelReceipt(order.id,r.id,order.revision)),busy)}</td></>:null}
+         </tr>);})}</tbody></table></div>:<p className="cy-op-empty">尚未交貨。</p>}
+       </div>
+      </div>:<MasterDetailEmpty title="尚未選擇代工單" hint="從左邊選一張代工單，或按「＋ 新增代工單」。"/>}
     </section>
    </div>:null}
 
   {tab==="stock"?<section className="cy-op-panel">
-   <div className="cy-op-panel-header"><h2>代工庫存</h2><div className="cy-record-actions">
-    {button("退料",()=>{setStockKind("return");setStockContractor(v=>v??contractors[0]?.id??null);begin("return");},busy)}
-    {button("盤點調整",()=>{setStockKind("adjust");setStockContractor(v=>v??contractors[0]?.id??null);begin("adjust");},busy)}
-    {button("異動紀錄",()=>begin("stock-history"),busy)}
-   </div></div>
-   <div className="cy-op-toolbar"><input className="cy-op-input" placeholder="搜尋廠商／料件" value={stockSearch} onChange={e=>setStockSearch(e.target.value)}/>
-    <select className="cy-op-input" value={stockContractor??""} onChange={e=>setStockContractor(Number(e.target.value)||null)}>
+   <div className="cy-out-stock-toolbar">
+    <input className="cy-op-input" type="search" aria-label="搜尋廠商或料件" placeholder="搜尋廠商、料件" value={stockSearch} onChange={e=>setStockSearch(e.target.value)}/>
+    <select className="cy-op-input" aria-label="協力廠商" value={stockContractor??""} onChange={e=>setStockContractor(Number(e.target.value)||null)}>
       <option value="">全部廠商</option>{contractors.map(c=><option key={c.id} value={c.id}>{c.displayName}</option>)}</select>
-    <label><input type="checkbox" checked={showAllStock} onChange={e=>setShowAllStock(e.target.checked)}/> 顯示零庫存</label>
+    <label className="cy-out-check"><input type="checkbox" checked={showAllStock} onChange={e=>setShowAllStock(e.target.checked)}/> 顯示零庫存</label>
+    <span className="cy-out-spacer"/>
+    {button("異動紀錄",()=>begin("stock-history"),busy)}
    </div>
-   {stockGroups.filter(v=>(stockContractor==null||v.contractorId===stockContractor)&&
-      (!stockSearch||v.contractorName.includes(stockSearch)||v.groups.some(g=>g.items.some(r=>r.itemNo.includes(stockSearch)||r.itemName.includes(stockSearch))))).map(v=>
-       <details key={v.contractorId} open><summary><strong>{v.contractorName}</strong> · {v.billingMethod==="monthly"?"月結":"單次"} · {new Set(v.groups.flatMap(g=>g.items.map(r=>r.itemId))).size} 種料件</summary>
-       {v.groups.map(g=><section key={g.title+g.bomName} className="cy-op-subsection">
-        <h3>{g.title}{g.bomName?" · "+g.bomName:""}{g.capacity!==null?" · "+(g.shortage?"料件不足，需補料":"現有料件還能做約 "+g.capacity+" "+(g.outputUnit??"")):""}</h3>
-        <table className="cy-op-table cy-rt"><thead><tr><th>品號</th><th>料件</th><th>電池條</th><th>現有</th><th>基準（補料後）</th><th>操作</th></tr></thead><tbody>
-         {g.items.filter(r=>!stockSearch||v.contractorName.includes(stockSearch)||r.itemNo.includes(stockSearch)||r.itemName.includes(stockSearch)).map(r=><tr key={r.itemId}><td>{r.itemNo}</td><td data-priority="title">{r.itemName}</td>
-          <td><StockGauge quantity={r.quantity} baseline={r.baseline} percentage={r.percentage} tone={r.tone}/></td>
-          <td className={Number(r.quantity)<0?"cy-op-negative":""}>{r.quantity} {r.unit}</td><td>{r.baseline} {r.unit}</td>
-          <td>{button("退料",()=>{setStockContractor(v.contractorId);begin("return");},busy)}
-          {button("盤點調整",()=>{setStockContractor(v.contractorId);begin("adjust");},busy)}</td></tr>)}
-        </tbody></table>
-       </section>)}
-      </details>)}
-      {stockGroups.length===0?<p>沒有符合條件的庫存。</p>:null}
+   {visibleStock.map(v=>{const open=!collapsed[v.contractorId];return <section key={v.contractorId} className="cy-out-stock-block">
+     <div className="cy-out-stock-head"><strong>{v.contractorName}</strong><span>{v.billingMethod==="monthly"?"月結":"單次付款"} · {new Set(v.groups.flatMap(g=>g.items.map(r=>r.itemId))).size} 種料件</span>
+      <span className="cy-out-spacer"/><ExpandToggle variant="text" expanded={open} label={v.contractorName} onToggle={()=>setCollapsed(c=>({...c,[v.contractorId]:open}))}/></div>
+     {open?v.groups.map(g=><div key={g.title+g.bomName} className="cy-out-stock-group">
+      <h3>{g.title}{g.bomName?<span>{g.bomName}</span>:null}{g.capacity!==null?<em className={g.shortage?"is-short":undefined}>{g.shortage?"料件不足，需補料":"現有料件還能做約 "+g.capacity+" "+(g.outputUnit??"")}</em>:null}</h3>
+      <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt cy-out-table"><thead><tr><th>品號</th><th>料件</th><th>剩餘（相對上次補料後）</th><th className="is-number">現有</th><th className="is-number">補料後</th><th className="is-center">操作</th></tr></thead><tbody>
+       {g.items.filter(r=>matchStock(v.contractorName,r)).map(r=><tr key={r.itemId}><td data-label="品號" className="cy-mono">{r.itemNo}</td><td data-label="料件" data-priority="title">{r.itemName}</td>
+        <td data-label="剩餘"><StockGauge quantity={r.quantity} baseline={r.baseline} percentage={r.percentage} tone={r.tone}/></td>
+        <td data-label="現有" className={"is-number"+(Number(r.quantity)<0?" cy-op-negative":"")}>{r.quantity} {r.unit}</td><td data-label="補料後" className="is-number">{r.baseline} {r.unit}</td>
+        <td data-label="操作" className="is-center">{rowButton("退料",()=>void beginStock("return",v.contractorId,r.itemId),busy)} {rowButton("盤點調整",()=>void beginStock("adjust",v.contractorId,r.itemId),busy)}</td></tr>)}
+      </tbody></table></div>
+     </div>):null}
+    </section>;})}
+   {!visibleStock.length?<p className="cy-op-empty">{stockGroups.length?"沒有符合條件的庫存。":"目前沒有協力廠商持有料件。"}</p>:null}
   </section>:null}
 
   {tab==="statements"?<div className="cy-md cy-op-master-detail" data-pane={statementPane.pane}>
-    <section className="cy-op-panel cy-md-list"><div className="cy-op-panel-header cy-md-toolbar"><h2>對帳付款</h2>{button("＋ 建立對帳單",()=>begin("statement-create"),busy,true)}</div>
-      {statements.map(row=><ListRow key={row.id} title={row.contractor_name}
-        subtitle={row.period_month??row.statement_date} trailing={"NT$ "+money(row.total_amount)+" · "+statusLabel[row.paymentStatus]}
-        selected={row.id===statementId} onClick={()=>{setStatementId(row.id);statementPane.open();}}/>)}
+    <section className="cy-op-panel cy-md-list" aria-label="對帳單清單">
+     {compact?<DataViewToolbar searchValue="" onSearchChange={()=>{}} filters={statementFilter} activeFilterCount={statementStatus?1:0}
+       actions={<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>begin("statement-create")}>＋ 建立對帳單</button>}
+       resultSummary={"共 "+shownStatements.length+" 筆"}/>
+     :<div className="cy-md-toolbar">
+       <div className="cy-md-toolbar-lead"><button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>begin("statement-create")}>＋ 建立對帳單</button></div>
+       {statementFilter}
+       <div className="cy-md-count">共 {shownStatements.length} 筆</div>
+     </div>}
+     <div className="cy-op-list">
+      {shownStatements.map(row=>{const when=row.period_month?row.period_month.replace("-","/")+" 月結":formatDate(row.statement_date)+" 單次";
+       return compact?<ListRow key={row.id} title={row.contractor_name} subtitle={when+" · NT$ "+money(row.total_amount)} trailing={chip(statementState(row))}
+         selected={row.id===statementId} onClick={()=>{setStatementId(row.id);statementPane.open();}}/>
+       :<button type="button" key={row.id} className={"cy-op-list-row cy-status-row"+(row.id===statementId?" active":"")}
+         aria-current={row.id===statementId?"true":undefined} onClick={()=>{setStatementId(row.id);statementPane.open();}}>
+         <strong>{row.contractor_name}</strong><span>{when} · NT$ {money(row.total_amount)}</span>{chip(statementState(row))}
+       </button>;})}
+      {!shownStatements.length?<div className="cy-op-empty">{statements.length?"沒有符合條件的對帳單。":"尚無對帳單。"}</div>:null}
+     </div>
     </section>
     <section className="cy-op-panel cy-md-detail"><MasterDetailBack label="對帳單清單" onBack={()=>statementPane.close()} disabled={busy}/>{statement?<div>
-      <div className="cy-record-header"><h2>{statement.contractor_name} · {statusLabel[statement.paymentStatus]}</h2>
+      <div className="cy-record-header"><div><h2>{statement.contractor_name} {chip(statementState(statement))}</h2><p>{statement.period_month?statement.period_month.replace("-","/")+" 月結":"單次對帳"} · 對帳日期 {formatDate(statement.statement_date)}</p></div>
       <div className="cy-record-actions">{statement.status_code==="draft"?<>
         {button("修改單價與費用",()=>begin("statement-edit"),busy)}
         {button("確認對帳",()=>void run(()=>flowApi.confirmStatement(statement.id,statement.revision)),busy,true)}
-        {button("刪除草稿",()=>void run(()=>flowApi.deleteStatement(statement.id,statement.revision),()=>setStatementId(null)),busy)}
+        {button("刪除草稿",()=>void confirmRun("刪除對帳單草稿","刪除後，這些交貨明細會回到未對帳。","刪除",()=>flowApi.deleteStatement(statement.id,statement.revision),()=>{setStatementId(null);statementPane.close();}),busy)}
       </>:<>
         {button("＋ 付款",()=>begin("payment"),busy,true)}
-        {statement.payments.length===0?button("取消確認",()=>void run(()=>flowApi.unconfirmStatement(statement.id,statement.revision)),busy):null}
+        {statement.payments.length===0?button("取消確認",()=>void confirmRun("取消確認對帳","對帳單會回到草稿，可以再修改單價與費用。","取消確認",()=>flowApi.unconfirmStatement(statement.id,statement.revision)),busy):null}
       </>}</div></div>
       <RecordSheet label="對帳單表頭" editing={false} rows={[{columns:"2fr 1fr 1fr",cells:[
-       {label:"廠商",view:statement.contractor_name},{label:"對帳日期",view:statement.statement_date},{label:"對帳月份",view:statement.period_month??"單次"}
+       {label:"廠商",view:statement.contractor_name},{label:"對帳日期",view:formatDate(statement.statement_date)},{label:"對帳月份",view:statement.period_month?statement.period_month.replace("-","/"):"單次"}
       ]}]}/>
-      <table className="cy-op-table cy-rt"><thead><tr>{["日期","代工單","ERP 單號","成品","數量","計價單位","單價","金額"].map(h=><th key={h}>{h}</th>)}</tr></thead>
-       <tbody>{statement.lines.map(l=><tr key={l.id}><td>{l.received_date}</td><td>{l.outsourcing_ref}</td><td>{l.erp_no??"—"}</td><td>{l.item_no} {l.item_name}</td>
-        <td className="num">{number(l.quantity)}</td><td>{l.pricing_unit}</td><td className="num">{l.unit_price==null?"待填":formatScaled4(l.unit_price)}</td><td className="num">{money(l.amount)}</td></tr>)}</tbody></table>
-      <table className="cy-op-table"><thead><tr><th>其他費用／折讓</th><th>金額</th></tr></thead><tbody>
-       {statement.adjustments.map(a=><tr key={a.id}><td>{a.description}</td><td className="num">{money(a.amount)}</td></tr>)}
-       <tr><th>合計（四捨五入到元）</th><td className="num"><strong>NT$ {money(statement.total_amount)}</strong></td></tr>
-      </tbody></table>
-      <h3>付款紀錄</h3><table className="cy-op-table cy-rt"><thead><tr><th>日期</th><th>方式</th><th>金額</th><th>備註</th><th>操作</th></tr></thead><tbody>
-       {statement.payments.map(p=><tr key={p.id}><td>{p.payment_date}</td><td>{({cash:"現金",transfer:"匯款",cheque:"支票",other:"其他"} as Record<string,string>)[p.method]}</td>
-        <td>{money(p.amount)}</td><td>{p.note}</td><td>{button("刪除",()=>void run(()=>flowApi.deletePayment(statement.id,p.id,statement.revision)),busy)}</td></tr>)}
-      </tbody></table><p>已付款 NT$ {money(statement.paid_amount)}／應付款 NT$ {money(statement.total_amount)}</p>
-    </div>:<p>請選擇對帳單。</p>}</section>
+      <div className="cy-op-subsection"><h3>對帳明細</h3><div className="cy-op-table-wrap"><table className="cy-op-table cy-rt cy-out-table">
+       <thead><tr><th>日期</th><th>代工單</th><th>ERP 單號</th><th>成品</th><th className="is-number">數量</th><th className="is-number">單價</th><th className="is-number">金額</th></tr></thead>
+       <tbody>{statement.lines.map(l=><tr key={l.id}><td data-label="日期">{formatDate(l.received_date)}</td><td data-label="代工單" className="cy-mono">{l.outsourcing_ref}</td><td data-label="ERP 單號" className="cy-mono">{l.erp_no||"—"}</td>
+        <td data-label="成品" data-priority="title">{l.item_no} {l.item_name}</td><td data-label="數量" className="is-number">{number(l.quantity)} {l.pricing_unit}</td>
+        <td data-label="單價" className="is-number">{l.unit_price==null?"待填":formatScaled4(l.unit_price)}</td><td data-label="金額" className="is-number">{money(l.amount)}</td></tr>)}
+        {statement.adjustments.map(a=><tr key={"a"+a.id} className="cy-out-adjust"><td data-label="其他費用／折讓" colSpan={6}>{a.description}</td><td data-label="金額" className="is-number">{money(a.amount)}</td></tr>)}
+        <tr className="cy-out-total"><td colSpan={6}>合計（元以下四捨五入）</td><td className="is-number">NT$ {money(statement.total_amount)}</td></tr>
+       </tbody></table></div></div>
+      <div className="cy-op-subsection"><h3>付款紀錄 <span className="cy-out-paid">已付 NT$ {money(statement.paid_amount)}／應付 NT$ {money(statement.total_amount)}</span></h3>
+       {statement.payments.length?<div className="cy-op-table-wrap"><table className="cy-op-table cy-rt cy-out-table"><thead><tr><th>付款日</th><th>方式</th><th className="is-number">金額</th><th>備註</th><th className="is-center">操作</th></tr></thead><tbody>
+       {statement.payments.map(p=><tr key={p.id}><td data-label="付款日">{formatDate(p.payment_date)}</td><td data-label="方式">{({cash:"現金",transfer:"匯款",cheque:"支票",other:"其他"} as Record<string,string>)[p.method]}</td>
+        <td data-label="金額" className="is-number">{money(p.amount)}</td><td data-label="備註">{p.note}</td><td data-label="操作" className="is-center">{rowButton("刪除",()=>void confirmRun("刪除付款紀錄","確定刪除這筆付款？","刪除",()=>flowApi.deletePayment(statement.id,p.id,statement.revision)),busy)}</td></tr>)}
+       </tbody></table></div>:<p className="cy-op-empty">{statement.status_code==="draft"?"確認對帳後才能登記付款。":"尚無付款。"}</p>}</div>
+    </div>:<MasterDetailEmpty title="尚未選擇對帳單" hint="從左邊選一張對帳單，或按「＋ 建立對帳單」。"/>}</section>
    </div>:null}
 
   {tab==="contractors"?<ContractorWorkspace contractors={contractors} onChanged={reload} onEditingChange={setMasterEditing} notify={setMessage} reportError={setError}/>:null}
@@ -437,7 +521,7 @@ export function OutsourcingOperationalPage(){
      <Cell label="金額"><input className="cy-sheet-input" inputMode="decimal" value={paymentAmount} onChange={e=>setPaymentAmount(e.target.value)}/></Cell>
     </Grid>:null}
     {action==="close"?<Grid label="結案原因" headers={["原因"]}><Cell label="原因"><input className="cy-sheet-input" required value={entryNote} onChange={e=>setEntryNote(e.target.value)}/></Cell></Grid>:null}
-    <div className="cy-op-form-footer"><button type="button" className="cy-op-button soft" onClick={()=>setAction(null)}>取消</button>{action!=="stock-history"?<button type="submit" className="cy-op-button primary" disabled={busy}>確認</button>:null}</div>
+    <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={()=>setAction(null)}>{action==="stock-history"?"關閉":"取消"}</button>{action!=="stock-history"?<button type="submit" className="cy-op-button primary" disabled={busy} aria-busy={busy||undefined}>{({issue:"確認發料",receipt:"確認入庫",return:"確認退料",adjust:"確認調整","statement-create":"建立對帳單","statement-edit":"儲存",payment:"登記付款",close:"結案"} as Record<string,string>)[action??""]??"確認"}</button>:null}</div>
    </form>
   </Dialog>
  </div>;
