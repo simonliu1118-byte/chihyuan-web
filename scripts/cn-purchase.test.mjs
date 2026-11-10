@@ -73,3 +73,14 @@ test("table rows group each card, then uncharged, then discontinued",()=>{
  assert.deepEqual(rows.map(r=>r.firstOfLine),[true,true,true,false,false,false,true]);
  assert.equal(rows[6].discontinued,true);assert.equal(rows[6].seq,4);
 });
+
+test("品項合計 folds an item's pieces into one weighted row",()=>{
+ const ps=[{id:1,lineId:9,sortOrder:0,quantity:20,rmbPrice:10000,chargeId:7},{id:2,lineId:9,sortOrder:1,quantity:10,rmbPrice:12000,chargeId:8}];
+ const cs=[{id:7,kind:"CARD",sortOrder:0,chargedOn:null,amount:9000,fee:0,note:""},{id:8,kind:"CARD",sortOrder:1,chargedOn:null,amount:6000,fee:0,note:""}];
+ const lines=[{id:9,discontinued:false}],res=cn.computeCnPurchase(lines,{pieces:ps,charges:cs,returns:[]});
+ const s=cn.summarizeCnLines(lines,ps,res.pieces).get(9);
+ assert.equal(s.quantity,30);assert.equal(s.rmbSubtotal,320000);
+ assert.ok(Math.abs(s.rmbUnit-(100*20+120*10)/30*100)<1e-9);
+ assert.equal(s.ntdShare,15000);assert.equal(s.ntdUnit,500);
+ assert.ok(Math.abs(s.landedUnit*30-15000)<1e-6);
+});

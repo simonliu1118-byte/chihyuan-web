@@ -1,7 +1,7 @@
 /* 自訂中國貨採購：一張表（使用者 2026-11-10）。刷卡四欄合併成 rowspan，列高不因刷卡資訊變高。 */
 .cy-cn { min-width: 0; }
 .cy-cn-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
-.cy-cn-title { display: flex; align-items: center; gap: 8px; }
+.cy-cn-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .cy-cn-meta, .cy-cn-hint, .cy-cn-foot { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
 .cy-cn-hint { margin: 0 0 8px; }
 .cy-cn-foot { margin: 8px 2px 0; }
@@ -77,3 +77,6 @@ select.cy-cn-cell { cursor: pointer; }
 .cy-cn-act .cy-overflow { vertical-align: middle; }
 .cy-op-table.cy-cn-table .cy-cn-seq input[type=checkbox] { margin: 0; }
 .cy-op-table.cy-cn-table tr.cy-cn-subhead td { color: var(--cy-text-muted); font-size: 12px; font-weight: 600; }
+.cy-op-table.cy-cn-table.is-items { min-width: 960px; }
+.cy-op-table.cy-cn-table col.w-ntd2 { width: 84px; }
+@media print { body.cy-cn-printing .cy-cn-title .cy-segmented { display: none; } }

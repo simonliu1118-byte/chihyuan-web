@@ -7,11 +7,12 @@ import {useEffect,useMemo,useRef,useState,type DragEvent,type ReactNode} from "r
 import {apiRequest,ApiClientError} from "../../api/client";
 import {DateInput} from "../../ui/forms/DateInput";
 import {StatusChip} from "../../ui/primitives/StatusChip";
+import {SegmentedControl} from "../../ui/primitives/SegmentedControl";
 import {OverflowMenu,type OverflowItem} from "../../ui/mobile/OverflowMenu";
 import {IconButton} from "../../ui/actions/IconButton";
 import {Icons} from "../../ui/actions/icons";
 import {useUnsavedChangesGuard} from "../../ui/foundation/useUnsavedChangesGuard";
-import {CN_STAGE_LABELS,cnStage,cnTableRows,computeCnPurchase,fenText,ntdText,parseNtd,parseRmbFen,qtyText,rmbText,
+import {CN_STAGE_LABELS,cnStage,cnTableRows,computeCnPurchase,summarizeCnLines,fenText,ntdText,parseNtd,parseRmbFen,qtyText,rmbText,
  type CnCharge,type CnLineRef,type CnPiece,type CnPurchase,type CnReturn,type CnStage} from "../../../shared/cn-purchase";
 import {orderingTaipeiDateTime,type OrderingLine,type OrderingOrder} from "../../../shared/ordering";
 import "./cn-purchase.css";
@@ -42,6 +43,7 @@ const MODE_HINTS:Record<Mode,string>={
  returns:"退貨數量、人民幣、台幣刷退、刷退手續費；退的部分扣回成本並整表重算。",
 };
 const errorText=(e:unknown)=>e instanceof ApiClientError&&e.code==="ORDERING_VERSION_CONFLICT"?"已被其他人修改，請重新載入":e instanceof Error?e.message:"採購操作失敗";
+const GROUPING_KEY="cy-cn-purchase-grouping";
 const VIRTUAL=2e15,DRAFT_PIECE=1e15,NEW_LINE=-1e14,NEW_CARD=-2e14;
 
 export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef,canReceive,onReceive}:{
@@ -51,6 +53,9 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
 }){
  const [purchase,setPurchase]=useState<CnPurchase|null>(null),[loading,setLoading]=useState(true);
  const [mode,setMode]=useState<Mode|null>(null),[drafts,setDrafts]=useState<Drafts>({});
+ // 刷卡明細 (one row per card piece) or 品項合計 (pieces folded into one row per item); remembered per viewer.
+ const [grouping,setGroupingState]=useState<"card"|"item">(()=>{try{return localStorage.getItem(GROUPING_KEY)==="item"?"item":"card"}catch{return "card"}});
+ const setGrouping=(v:"card"|"item")=>{setGroupingState(v);try{localStorage.setItem(GROUPING_KEY,v)}catch{/* view preference only */}};
  const [selectedRows,setSelectedRows]=useState<ReadonlySet<string>>(new Set());
  const [saving,setSaving]=useState(false);
  const [discontinue,setDiscontinue]=useState<{lineId:number;name:string;reason:string}|null>(null);
@@ -290,7 +295,7 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    <td className="is-n">{row.firstOfLine&&ret?<span>{qtyText(ret.quantity)}・{ret.ntdAmount===null?"—":ntdText(ret.ntdAmount)}</span>:<span className="cy-cn-mut">—</span>}</td>
    <td className="is-n"><b>{unit(r?.landedUnit??null,1)}</b></td>
    <td className="is-n cy-cn-mut">{unit(r?.totalRate??null,2)}</td>
-   <td className="cy-cn-note">{note}</td>
+   <td className="cy-cn-note" title={note||undefined}>{note}</td>
    <td className="is-c cy-cn-act">{menu.length?<OverflowMenu label={"更多操作："+i.name} items={menu}/>:null}</td>
   </tr>;
  });
@@ -340,11 +345,50 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    <td colSpan={7} className="is-n">{t.grand===null?"—":"NT$ "+ntdText(t.grand)}</td></tr>
  </tfoot>;
 
+ // ---- 品項合計: one row per item, card columns folded into 台幣小計 ----
+ const byItem=!mode&&grouping==="item";
+ const sums=byItem?summarizeCnLines(view.refs,view.pieces,calc.pieces):null;
+ const itemRows=sums?view.refs.map(ref=>{
+  const i=info.get(ref.id)!,x=sums.get(ref.id)!,ret=view.returns.find(r=>r.lineId===ref.id);
+  const note=i.discontinued?(i.line?.closedNote||"絕版／停產"):[i.planned!==null&&x.quantity!==i.planned?(x.quantity>i.planned?"多訂 ":"少訂 ")+qtyText(Math.abs(x.quantity-i.planned)):"",
+   (()=>{const n=view.pieces.filter(p=>p.lineId===ref.id).length;return n>1?"分 "+n+" 筆刷卡":""})(),i.line?.note??""].filter(Boolean).join("；");
+  const menu:OverflowItem[]=[];
+  if(!closed&&i.line){if(i.discontinued)menu.push({label:"恢復採購",onClick:()=>void restore(i.line!.id,i.name)});
+   else if(!i.line.closedAs)for(const reason of ["絕版","停產"])menu.push({label:"標記"+reason,onClick:()=>void markDiscontinued(i.line!.id,i.name,reason),danger:true});}
+  return <tr key={ref.id} className={i.discontinued?"cy-row-struck":""}>
+   <td className="is-c">{i.seq}</td>
+   <td className="cy-cn-name">{i.name}{i.added?<span className="cy-cn-tag">採購新增</span>:null}</td>
+   <td className="is-n cy-cn-mut">{i.planned===null?"—":qtyText(i.planned)}</td>
+   <td className="is-n">{qtyText(i.discontinued?0:x.quantity)}{i.unit?<small className="cy-cn-unit">{i.unit}</small>:null}</td>
+   <td className="is-n">{x.rmbUnit===null?<span className="cy-cn-mut">—</span>:"¥"+ntdText(x.rmbUnit/100,2)}</td>
+   <td className="is-n">{rmbText(x.rmbSubtotal)}</td>
+   <td className="is-n">{unit(x.ntdShare,0)}</td>
+   <td className="is-n">{unit(x.ntdUnit,1)}</td>
+   <td className="is-n cy-cn-mut">{unit(x.rate,2)}</td>
+   <td className="is-n">{ret?<span>{qtyText(ret.quantity)}・{ret.ntdAmount===null?"—":ntdText(ret.ntdAmount)}</span>:<span className="cy-cn-mut">—</span>}</td>
+   <td className="is-n"><b>{unit(x.landedUnit,1)}</b></td>
+   <td className="is-n cy-cn-mut">{unit(x.totalRate,2)}</td>
+   <td className="cy-cn-note" title={note||undefined}>{note}</td>
+   <td className="is-c cy-cn-act">{menu.length?<OverflowMenu label={"更多操作："+i.name} items={menu}/>:null}</td>
+  </tr>}):null;
+ const shippingTotal=view.charges.filter(c=>c.kind==="SHIPPING").reduce((n,c)=>n+(c.amount??0)+(c.fee??0),0);
+ const itemFooter=<tfoot>
+  <tr className="cy-cn-sub"><td colSpan={5} className="cy-cn-lab is-r">刷卡（含手續費）</td><td className="is-n">{rmbText(t.rmb)}</td><td className="is-n">{ntdText(t.cardAmount+t.cardFee)}</td>
+   <td colSpan={7} className="cy-cn-mut">{cardsShown.length} 筆刷卡{t.missingFee?" · 手續費待補 "+t.missingFee+" 筆":""}</td></tr>
+  {shippingTotal?<tr className="cy-cn-sub"><td colSpan={6} className="cy-cn-lab is-r">運費</td><td className="is-n">{ntdText(shippingTotal)}</td><td colSpan={7} className="cy-cn-mut">{view.charges.filter(c=>c.kind==="SHIPPING").length} 筆</td></tr>:null}
+  {tax?<tr className="cy-cn-sub"><td colSpan={6} className="cy-cn-lab is-r">營業稅</td><td className="is-n">{ntdText(tax.amount)}</td><td colSpan={7}/></tr>:null}
+  {t.refund||t.refundFee?<tr className="cy-cn-sub"><td colSpan={6} className="cy-cn-lab is-r">退貨刷退</td><td className="is-n">−{ntdText(t.refund-t.refundFee)}</td>
+   <td colSpan={7} className="cy-cn-mut">{view.returns.map(r=>(info.get(r.lineId)?.name??"")+" "+qtyText(r.quantity)).join("、")}{t.refundFee?"（刷退手續費 ＋"+ntdText(t.refundFee)+"）":""}</td></tr>:null}
+  <tr className="cy-cn-grand"><td colSpan={6} className="is-r">含稅含運總計</td><td className="is-n">{t.grand===null?"—":ntdText(t.grand)}</td>
+   <td colSpan={7} className="cy-cn-mut">{t.grand===null&&t.missingCardAmount?"刷卡台幣待補 "+t.missingCardAmount+" 筆":t.unchargedPieces?"未含未刷卡 "+t.unchargedPieces+" 項":""}</td></tr>
+ </tfoot>;
+
  const orderedText=purchase.orderedAt?(()=>{const p=orderingTaipeiDateTime(purchase.orderedAt);return "完成訂購 "+(p?.date??"")+(purchase.orderedBy?" · "+purchase.orderedBy:"")})():"";
  const stageTone=stage==="CLOSED"?"success":stage==="ORDERING"?"neutral":"info";
  return <section className="cy-cn" aria-label="中國貨採購">
   <div className="cy-cn-head">
-   <div className="cy-cn-title"><StatusChip tone={stageTone}>{CN_STAGE_LABELS[stage]}</StatusChip>{orderedText?<span className="cy-cn-meta">{orderedText}</span>:null}</div>
+   <div className="cy-cn-title"><StatusChip tone={stageTone}>{CN_STAGE_LABELS[stage]}</StatusChip>{orderedText?<span className="cy-cn-meta">{orderedText}</span>:null}
+    {mode?null:<SegmentedControl compact label="採購表檢視" value={grouping} onChange={setGrouping} options={[{value:"card",label:"刷卡明細"},{value:"item",label:"品項合計"}]}/>}</div>
    {mode?<div className="cy-cn-acts"><span className="cy-cn-editing">編輯：{MODE_LABELS[mode]}</span>
      <button type="button" className="cy-op-button compact" disabled={saving} onClick={()=>void cancel()}>取消</button>
      <button type="button" className="cy-op-button compact primary" disabled={saving||!dirty} onClick={()=>void save()}>儲存</button></div>
@@ -367,7 +411,15 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   </div>:null}
   <div className="cy-cn-scroll cy-cn-print">
    <h2 className="cy-cn-print-title">{order.sourceName} · 採購 · {CN_STAGE_LABELS[stage]}</h2>
-   <table className={"cy-op-table cy-cn-table"+(mode?" is-editing":"")}>
+   {byItem?<table className="cy-op-table cy-cn-table is-items">
+    <colgroup><col className="w-seq"/><col/><col className="w-qty"/><col className="w-qty2"/><col className="w-rmb"/><col className="w-rmb2"/><col className="w-ntd2"/>
+     <col className="w-unit"/><col className="w-rate"/><col className="w-ret"/><col className="w-land"/><col className="w-rate2"/><col className="w-note"/><col className="w-act"/></colgroup>
+    <thead><tr><th className="is-c">項次</th><th>品名</th><th className="is-n">原定</th><th className="is-n">採購數量</th><th className="is-n">人民幣單價</th><th className="is-n">人民幣小計</th>
+     <th className="is-n">台幣小計</th><th className="is-n">台幣單價</th><th className="is-n">匯率</th><th className="is-n">退貨<br/><small>數量・刷退</small></th><th className="is-n">含稅含運<br/>單價</th>
+     <th className="is-n">總匯率</th><th>備註</th><th className="is-c"><span className="cy-visually-hidden">操作</span></th></tr></thead>
+    <tbody>{itemRows}</tbody>
+    {itemFooter}
+   </table>:<table className={"cy-op-table cy-cn-table"+(mode?" is-editing":"")}>
     <colgroup><col className="w-seq"/><col/><col className="w-qty"/><col className="w-qty2"/><col className="w-rmb"/><col className="w-rmb2"/><col className="w-no"/><col className="w-date"/>
      <col className="w-ntd"/><col className="w-fee"/><col className="w-unit"/><col className="w-rate"/><col className="w-ret"/><col className="w-land"/><col className="w-rate2"/><col className="w-note"/><col className="w-act"/></colgroup>
     <thead><tr><th className="is-c">項次</th><th>品名</th><th className="is-n">原定</th><th className="is-n">採購數量</th><th className="is-n">人民幣單價</th><th className="is-n">人民幣小計</th>
@@ -375,7 +427,7 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
      <th className="is-n">退貨<br/><small>數量・刷退</small></th><th className="is-n">含稅含運<br/>單價</th><th className="is-n">總匯率</th><th>備註</th><th className="is-c"><span className="cy-visually-hidden">操作</span></th></tr></thead>
     <tbody>{body}</tbody>
     {footer}
-   </table>
+   </table>}
   </div>
   <p className="cy-cn-foot">{[t.unchargedPieces?"未刷卡 "+t.unchargedPieces+" 項":"",t.missingFee?"手續費待補 "+t.missingFee+" 筆":"",
    "含稅含運單價＝（刷卡分攤 − 刷退 ＋ 刷退手續費）＋依比例分攤的運費與營業稅，除以（採購數量 − 退貨數量）。"].filter(Boolean).join(" · ")}</p>

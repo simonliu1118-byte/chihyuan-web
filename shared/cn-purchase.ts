@@ -157,3 +157,38 @@ export function cnTableRows(lines: readonly CnLineRef[], purchase: Pick<CnPurcha
   }
   return rows;
 }
+
+export interface CnLineSummary {
+  quantity: number; returnedQuantity: number;
+  /** 人民幣小計 (分) and the weighted 人民幣單價 (分), over every piece of the line. */
+  rmbSubtotal: number | null; rmbUnit: number | null;
+  /** Card shares added up; null while a piece has none. */
+  ntdShare: number | null; ntdUnit: number | null; rate: number | null;
+  /** 含稅含運單價 over the goods kept, and 總匯率; null while a piece has none. */
+  landedUnit: number | null; totalRate: number | null;
+}
+/**
+ * 品項合計 (user 2026-11-11): the pieces of one item folded back into one row. A at ¥100×20 and
+ * ¥120×10 reads 30 at (100×20＋120×10)÷30; 台幣 and 含稅含運 are weighted the same way.
+ */
+export function summarizeCnLines(lines: readonly CnLineRef[], pieces: readonly CnPiece[], result: Map<number, CnPieceResult>): Map<number, CnLineSummary> {
+  const out = new Map<number, CnLineSummary>();
+  for (const line of lines) {
+    const mine = pieces.filter((p) => p.lineId === line.id);
+    const quantity = mine.reduce((s, p) => s + p.quantity, 0);
+    const rs = mine.map((p) => result.get(p.id));
+    const all = <K extends keyof CnPieceResult>(k: K) => rs.length > 0 && rs.every((r) => r && r[k] !== null);
+    const rmbSubtotal = all("rmbSubtotal") ? rs.reduce((s, r) => s + (r!.rmbSubtotal as number), 0) : null;
+    const rmbUnit = rmbSubtotal !== null && quantity ? rmbSubtotal / quantity : null;
+    const ntdShare = all("ntdShare") ? rs.reduce((s, r) => s + (r!.ntdShare as number), 0) : null;
+    const ntdUnit = ntdShare !== null && quantity ? ntdShare / quantity : null;
+    const returnedQuantity = rs.reduce((s, r) => s + (r?.returnedQuantity ?? 0), 0), kept = quantity - returnedQuantity;
+    const landed = all("landedUnit") && kept > 0 ? mine.reduce((s, p, i) => s + rs[i]!.landedUnit! * (p.quantity - rs[i]!.returnedQuantity), 0) / kept : null;
+    out.set(line.id, {
+      quantity, returnedQuantity, rmbSubtotal, rmbUnit, ntdShare, ntdUnit,
+      rate: ntdUnit !== null && rmbUnit ? ntdUnit / (rmbUnit / 100) : null,
+      landedUnit: landed, totalRate: landed !== null && rmbUnit ? landed / (rmbUnit / 100) : null,
+    });
+  }
+  return out;
+}
