@@ -1,237 +1,64 @@
-# CY Web Contractor / BOM / Outsourcing Module Contract
-
-> Status: active Contractor / BOM / Outsourcing domain/runtime contract; protected HTTP API and React Worker/D1 transport are implemented in development.
->
-> Legacy GAS is workflow evidence only. Stock timing and correction behavior follow the confirmed CY Web Business Decisions rather than Legacy mutable-balance shortcuts.
-
-## 1. Scope
-
-This slice covers:
-
-- Contractor master and contacts;
-- one current Contractor Price per Contractor + Item;
-- multiple BOM variants per finished Item;
-- Outsourcing order planning;
-- confirmed material outbound;
-- receiving with explicit BOM selection when multiple BOMs apply;
-- contractor-stock movement ledger;
-- pricing and payment;
-- controlled reversal/correction paths.
-
-Protected same-origin Worker routes now expose this domain in development behind current CYID Session + `OUTSOURCING` Module Access. Production cutover remains separate and explicitly approved.
-
-## 2. Contractor
-
-A Contractor is identified by immutable `contractors.id`; name is display data, never a foreign key.
-
-`entity_type` supports `person` and `organization`.
-
-Referenced Contractors are retained. A Contractor that has participated in any Outsourcing order cannot be hard-deleted; it may be deactivated. Never-used Contractor hard delete remains an explicitly authorized action.
-
-Ordinary Contractor profile edits keep latest-modified metadata. They do not create unbounded field-by-field history.
-
-## 3. Contractor Price
-
-Per BD-038 there is exactly one current price for:
-
-```text
-Contractor + Item
-```
-
-The current row contains:
-
-- pricing unit;
-- scaled4 unit price;
-- optional note;
-- revision.
-
-The pricing unit must be a valid Item unit according to the canonical Item conversion graph.
-
-Changing a current Contractor Price is a meaningful business event and records structured shared Audit before/after values. Historical Outsourcing pricing snapshots never change when the current Contractor Price later changes.
-
-## 4. BOM
-
-Multiple active/inactive BOM variants may point to the same finished Item.
-
-A BOM contains:
-
-- stable technical ID;
-- display/system `recipe_ref`;
-- finished Item;
-- output quantity + output unit;
-- component Item rows with quantity + unit;
-- active state and revision.
-
-BOM units must be valid units of their Items.
-
-`recipe_ref` is not an ERP Item number and its final production formatting remains a server/provider concern before protected API rollout; the browser UI must not imply that users are managing technical database IDs.
-
-## 5. Outsourcing lifecycle
-
-Canonical states:
-
-```text
-pending_outbound
-      ↓ confirm outbound
-outbound
-      ↓ receive
-received
-      ↓ price
-priced
-      ↓ pay
-paid
-```
-
-`voided` is terminal after a confirmed outbound is cancelled.
-
-A newly created `pending_outbound` record is only a plan. It does **not** change contractor-held stock.
-
-## 6. Outbound and stock ledger
-
-Confirming outbound is the first physical stock event.
-
-Each planned component quantity is converted exactly to the Item base unit and written as a positive `outbound_supply` movement in `contractor_stock_movements`.
-
-The ledger is authoritative. There is no separately authoritative mutable Contractor stock balance.
-
-Current balance is derived as:
-
-```text
-SUM(contractor_stock_movements.quantity_delta)
-by Contractor + Item
-```
-
-## 7. Confirmed-outbound correction
-
-After confirmation, contractor/material/quantity/unit facts are no longer ordinary editable fields.
-
-Before receiving, an authorized **更正出庫** action may replace incorrect outbound facts while keeping the order active in `outbound`:
-
-1. preserve the original movements;
-2. create linked reversal movements for the currently active outbound movements;
-3. replace the corrected order-part snapshot;
-4. create new outbound movements for the corrected facts;
-5. record structured shared Audit before/after context.
-
-The original physical/event history is never rewritten away.
-
-## 8. Cancel outbound
-
-**取消出庫** is available only after downstream receiving/pricing/payment effects have first been reversed.
-
-Cancellation:
-
-- creates linked reversal movements for active outbound supply;
-- records shared Audit;
-- terminates the Outsourcing order as `voided`;
-- does not return the same order to `pending_outbound`.
-
-A new job after cancellation is a new Outsourcing order.
-
-## 9. Receiving and BOM choice
-
-Initial scope supports one active completed receiving record per Outsourcing order; partial/multiple concurrent receipt events are not silently introduced.
-
-For each received finished Item:
-
-- zero active applicable BOMs: the receipt may remain without a BOM and creates no component-consumption movement for that line;
-- exactly one active BOM: the service may select it directly;
-- multiple active BOMs: the caller must explicitly identify the BOM actually used;
-- an explicitly supplied BOM must belong to that finished Item and be active.
-
-When a BOM is selected, the received quantity is converted to the BOM output unit and the component consumption is derived from the selected BOM. Consumption is then converted to each component Item base unit and recorded as negative `receipt_consumption` movements.
-
-All quantity conversions are exact to the canonical scaled4 precision. The service does not silently round a quantity that cannot be represented at that precision.
-
-## 10. Cancel receiving
-
-Receiving cancellation is a controlled reverse operation and requires the order to be in `received` state. Pricing/payment must first be reversed.
-
-The service:
-
-- records the cancelled receiving facts in shared Audit;
-- creates linked reversal movements for active `receipt_consumption` movements;
-- removes the current active receipt projection;
-- returns the order to `outbound`.
-
-The physical/history fact remains traceable through Audit plus the original and reversal stock movements. The current receipt tables represent the active completed receipt projection, not a second independent history store.
-
-## 11. Pricing
-
-Pricing is calculated from the active receiving record and the current Contractor Price for every received finished Item.
-
-For each line:
-
-```text
-received quantity/unit
-  -> exact Item unit conversion
-  -> quantity in Contractor Price pricing unit
-  -> quantity × scaled4 unit price
-  -> money2 subtotal
-```
-
-The initial service intentionally performs **no hidden monetary rounding**. If the result cannot be represented exactly as TWD money2, automatic pricing is rejected so the data can be corrected or a later explicit rounding rule can be approved.
-
-The completed pricing rows snapshot:
-
-- Item identity/name;
-- pricing unit;
-- converted pricing quantity;
-- applied unit price;
-- subtotal;
-- total amount.
-
-Later Contractor Price changes do not rewrite this snapshot.
-
-## 12. Reverse pricing / payment
-
-The validated Legacy workflow includes explicit backward operations, retained in the new domain semantics:
-
-```text
-paid     -> cancel payment -> priced
-priced   -> cancel pricing -> received
-received -> cancel receipt -> outbound
-```
-
-Cancellation is not an ordinary edit. Each action records shared Audit.
-
-The current pricing row is the active priced projection. Cancelling pricing records its transaction facts in Audit before removing the current projection and returning the workflow to `received`.
-
-Cancelling receipt records the full receipt snapshot and consumption movement IDs in Audit, inserts linked reversal movements, and clears only the nullable receipt link before removing the active receipt projection. Original stock quantities, order links and reversal links are retained. All effects and the final master revision transition share one atomic original-revision/status gate; stale cancellation cannot unlink or remove a newer receipt.
-
-Cancelling payment preserves the prior payment timestamp in Audit and clears the current payment projection before returning to `priced`.
-
-## 13. Pending hard delete
-
-Hard delete is permitted only for an authorized `pending_outbound` order that has never produced a confirmed physical outbound event.
-
-Once outbound has ever been confirmed, the order is retained permanently and correction/cancellation uses controlled events.
-
-## 14. Precision and unit semantics
-
-Canonical unit conversion means:
-
-```text
-1 fromUnit = quantity toUnit
-```
-
-All stock movements are stored in Item base-unit scaled4 quantities because the stock-ledger schema intentionally does not carry a second movement-unit authority.
-
-Formal SMART ERP rounding remains a later ERP-integration concern and is not inferred from these internal Outsourcing calculations.
-
-## 15. Runtime gate
-
-The integrated `#outsourcing` React route now uses the protected Worker/D1 path.
-
-Runtime rules:
-
-- every Contractor / BOM / stock / Outsourcing request resolves the current CYID Session and requires current `OUTSOURCING` Module Access before lookup or domain-service access;
-- Item picker data comes from bounded `/api/business/outsourcing/lookups` projections under the same authority and includes allowed units;
-- the current authenticated actor is used as the current React order/receipt/pricing operator;
-- pending edit and all later correction/reversal actions send the current D1 revision;
-- hard-delete, outbound-correction and outbound-cancellation capabilities are derived server-side from current Workspace authority;
-- contractor stock remains movement-derived; no browser-local mutable balance is used as authority;
-- React does not fall back to browser-local Contractor/BOM/Outsourcing/stock writes when the API fails;
-- development writes target development Worker/D1 only; production cutover remains a separate explicitly approved operation.
-
-No production Worker/D1/DNS/R2/GCS resource is changed by this development transport cutover.
+# 委外／代工模組契約 — WO-0.18.0
+
+> 本版屬 **V0.18.0 開發中的新流程規格**；實作尚待 CI、畫面、資料驗收及 Claude 最終審查。未合併、未部署前，正式站仍以 V0.17.3 既有流程為準。
+> 對外業務語意依工作單 [WO-0.18.0](../development/work-orders/WO-0.18.0.md) §2，既有 BD-026、027、032、036、038、040 與本次使用者確認事項共同決定；新規格取代舊單次入庫、計價、付款綁在工單狀態的設計。
+
+## 1. 權限與 authority
+
+- 所有代工主檔、BOM、代工單、庫存、對帳付款均經 `OUTSOURCING` 模組權限的 protected Worker API → D1；所有寫入寫共用 Audit，包含取消、重啟及付款刪除。
+- 瀏覽器僅負責資料呈現及操作草稿，D1 ledger／單據／調整／對帳等 business mutation 均由 Worker service 擁有；瀏覽器不得以自身暫存取代 D1。
+- 每次修改／撤銷／付款必須帶 `expectedRevision`，由後端驗證最新狀態；不可因裝置差異改變權限或資料語意。
+- ERP 連動暫不實作，ERP 單號為手動輸入參考，不會自動在 ERP 出庫、入庫、改庫存。
+
+## 2. 協力廠商、單價與 BOM
+
+- `contractors` 支援個人與公司，聯絡人與既有資料保留。
+- 廠商 `billing_method`：`single`（單次，預設）或 `monthly`（月結）；它只決定建立對帳單的預設選取方式，不阻止另一種方式。
+- 現行 `contractor_pricing`：一個廠商＋成品只有一個當前價，含計價單位、每單位單價及 revision。交貨時取當下快照，後續改廠商價不可回寫已交貨單價。
+- 每成品可有多個有效 BOM variant；建立工單時的 BOM 下拉僅列該成品 BOM，僅一筆時預選，允許留空。
+- BOM 使用成品 output quantity/unit 和 component quantity/unit 及商品 unit-conversion，全部採 scaled4 exact 運算。交貨指定 BOM 時扣料；不指定則不扣料。
+
+## 3. 代工單：成品、發料、交貨
+
+一張 `outsourcing_orders` 有多筆 `outsourcing_order_products`，每筆記成品、BOM、預計數量、單位、排序。
+
+- 狀態由 service 根據資料即時得出，**只有四種**：
+  - `pending_issue` 待發料：未有有效發料。
+  - `in_production` 生產中：已有有效發料且尚有成品未交齊。
+  - `delivered` 已交齊：有有效發料、所有成品實交量均 ≥ 預計。
+  - `closed` 已結案：手動填原因；重新開啟後恢復依資料計算的狀態。
+- `outsourcing_issues`＋`outsourcing_issue_items`：每批可有不同日期、多料件，確認後在 ledger 記 `issue` 正數；預設建議數量是工單全部未交成品 BOM 所需量合計減該廠商現有料件量，小於零取零，使用者仍可調整及新增其他料件。
+- `outsourcing_receipts`＋`outsourcing_receipt_items`：每批有日期、ERP 單號、備註、多種成品、BOM、數量、單位及單價快照。多批累積達預計量就視為已交齊，可超交；表格進度條上限 100%。交貨視窗顯示本批 BOM 消耗預告。
+- 取消發料：批次記 `cancelled_at`，在 ledger 對原 issue 建反向 `reversal`；可能產生負庫存（允許，不擋單）。
+- 取消交貨：批次記 `cancelled_at`，ledger 對原 BOM consumption 建反向 `reversal`；**已被 confirmed statement 引用的交貨不可取消**。原本尚在草稿對帳單的明細取消後解除歸屬。
+- 單據已存在發料或交貨（含取消者）時不得硬刪；只有完全沒有操作歷史的草稿可硬刪。
+
+## 4. 廠商庫存 ledger 與電池條
+
+`contractor_stock_movements` 是單一 authority；以 `contractor_id + item_id` 的所有 delta 合計成現有量，異動種類 `issue/consumption/return/adjust/reversal`，來源指向原發料、交貨或庫存事件。
+
+- 退料 `return`：廠商退回公司，減少廠商持有量。
+- 盤點 `adjust`：輸入實際量或增減量，原因必選損耗、盤點差異、其他（其他須填補充說明）。
+- 退料與盤點只適用該廠商**曾有發料**的料件。退料、盤點、消耗、取消交貨均不重設電池條基準。
+- 基準量 = 這個廠商＋料件「最新一次**有效發料後**」的現有量，若最新發料取消，回復到前一次有效發料後；不另存可修改的 baseline。
+- 百分比 `round(current/baseline × 100)`，最多 100%；>= 50% 綠，20%～49% 黃，<20% 紅；現有為負時整條紅、百分比顯示「—」，數量紅字粗體。
+- 定案案例：發 100→100%、耗到10→10%、再發100→110／110=100%、耗到5→5／110≈5%、再發100→105／105=100%。
+- 庫存頁按廠商可收合，依該廠商尚未結案代工單成品 BOM 分組；其他材料列「其他料件」。對每成品，**約能做 N** 為所有 BOM 料件能支持的整數件數之最小值；任一必要料件 <= 0 顯示「料件不足，需補料」。
+- 預設隱藏現有量為零的料件，可切換顯示全部；異動歷程應列出日期、廠商、料件、種類、delta、現有量、原因、來源、操作人。
+
+## 5. 對帳單與付款
+
+- 對帳單與代工單分離。對帳單屬單一廠商，可選月份自動列出當月所有未對帳的交貨明細，或逐批勾選；同一 `receipt_item_id` 不可被兩張對帳單重複引用。
+- 對帳單 `draft` 可修改單價、其他費用與折讓（負數）；`confirmed` 必須全部有單價，確認後鎖定；沒有付款時可取消確認回草稿；草稿可刪。
+- 明細金額：已按正式計價單位換算的數量 × 單價，四捨五入至兩位小數 money2；總計加上正負調整後四捨五入至整數元，不因小數拒絕計價。
+- 付款記錄日期、方式（現金／匯款／支票／其他）、正金額、備註及操作者；可多次付款，未達應付為部分付款、付清為已付清；單筆可刪並留 Audit。工單本身不具有計價或付款狀態。
+- 交貨表須顯示待對帳／草稿對帳中／已確認／已付清。
+
+## 6. 共用 UI、備份與驗證
+
+- 五頁籤：代工單｜對帳付款｜代工庫存｜協力廠商／單價｜BOM；手機採共用 `ModuleSections` 頂部分頁。
+- 主單據的瀏覽與編輯用 `RecordSheet`＋`RecordRows`，新增批次／退料／盤點／對帳視窗用 `Dialog`＋`EntryTable`。表格格子本身是輸入區，不另設直排表單。BOM 顯示 `recipe_ref`，禁止顯示內部 ID。
+- 金額、數量、日期、單位應沿用共用輸入元件；Enter 移到下一格、Ctrl／⌘＋Enter 儲存；日期四碼年份。
+- `0062_outsourcing_flow.sql` 僅重建原本確認無代工單／BOM／單價資料的代工流程表，保留既有廠商、聯絡人、廠商價格與 BOM 主檔資料。
+- 新 D1 tables 與欄位列入 `worker/backup/schema-columns.ts` 的可攜備份來源；歷史 schema 留在 Git migration chain，不在 active owner 另開一套。
+- 實作驗收清單以 WO §6，工程進度看 TODO 與工作分支 handoff；此文件**不是新增第四層永久治理規則**。
