@@ -388,7 +388,9 @@ export function OutsourcingOperationalPage(){
        {label:"未交",view:d=>{const p=order.products.find(p=>p.id===d.orderProductId);return p?number(Math.max(0,p.planned_quantity-p.delivered_quantity)):"";},edit:d=><span>{number(Math.max(0,(order.products.find(p=>p.id===d.orderProductId)?.planned_quantity??0)-(order.products.find(p=>p.id===d.orderProductId)?.delivered_quantity??0)))}</span>},
        {label:"本次數量",view:d=>d.quantity,edit:d=><input className="cy-sheet-input" value={d.quantity} inputMode="decimal" onChange={e=>setDeliveries(ds=>ds.map(r=>r.orderProductId===d.orderProductId?{...r,quantity:e.target.value}:r))}/>},
        {label:"單位",view:d=>d.unit,edit:d=><select className="cy-sheet-input" value={d.unit} onChange={e=>setDeliveries(ds=>ds.map(r=>r.orderProductId===d.orderProductId?{...r,unit:e.target.value}:r))}>
-        <option value={d.unit}>{d.unit}</option></select>},
+        {(order.products.find(p=>p.id===d.orderProductId)?.allowed_units??[d.unit]).map(unit=><option key={unit} value={unit}>{unit}</option>)}</select>},
+       {label:"目前單價",view:d=>{const p=order.products.find(p=>p.id===d.orderProductId);return p?.current_unit_price==null?"待對帳":formatScaled4(p.current_unit_price)+(p.current_pricing_unit?"／"+p.current_pricing_unit:"");},
+        edit:d=>{const p=order.products.find(p=>p.id===d.orderProductId);return <span>{p?.current_unit_price==null?"待對帳":formatScaled4(p.current_unit_price)+(p.current_pricing_unit?"／"+p.current_pricing_unit:"")}</span>;}},
        {label:"BOM",view:d=>boms.find(b=>b.id===d.bomId)?.recipeRef??"—",edit:d=><select className="cy-sheet-input" value={d.bomId??""} onChange={e=>setDeliveries(ds=>ds.map(r=>r.orderProductId===d.orderProductId?{...r,bomId:Number(e.target.value)||null}:r))}>
         <option value="">不扣料</option>{boms.filter(b=>b.isActive&&b.finishedItemId===order.products.find(p=>p.id===d.orderProductId)?.item_id).map(b=><option key={b.id} value={b.id}>{b.recipeRef}</option>)}</select>}
       ]}/>:null}
