@@ -227,16 +227,19 @@ export function OutsourcingOperationalPage(){
       </button>)}
     </section>
     <section className="cy-op-panel">
-     {draft?<form onKeyDown={enterAdvancesFields} onSubmit={e=>{e.preventDefault();void run(async()=>{const created=await flowApi.createOrder({
-       contractorId:draft.contractorId,orderDate:draft.orderDate,note:draft.note,products:draft.products.map(p=>({
-         itemId:p.item?.id,bomRecipeId:p.bomId,quantity:p.quantity,unit:p.unit}))});setOrderId(created.id);setDraft(null);});}}>
-       <div className="cy-op-panel-header"><h2>新增代工單</h2></div>
+     {draft?<form onKeyDown={enterAdvancesFields} onSubmit={e=>{e.preventDefault();void run(async()=>{
+       const payload={contractorId:draft.contractorId,orderDate:draft.orderDate,note:draft.note,
+         products:draft.products.map(p=>({itemId:p.item?.id,bomRecipeId:p.bomId,quantity:p.quantity,unit:p.unit}))};
+       const saved=orderId&&order?await flowApi.updateOrder(orderId,{...payload,expectedRevision:order.revision}):await flowApi.createOrder(payload);
+       setOrderId(saved.id);setOrder(saved);setDraft(null);});}}>
+       <div className="cy-op-panel-header"><h2>{orderId?"修改代工單":"新增代工單"}</h2></div>
        <RecordSheet label="代工單資料" editing rows={[
-        {columns:"2fr 1fr",cells:[
-         {label:"協力廠商",required:true,view:"",edit:<select className="cy-sheet-input" value={draft.contractorId??""} onChange={e=>setDraft({...draft,contractorId:Number(e.target.value)||null})}><option value="">請選擇</option>{contractors.map(c=><option key={c.id} value={c.id}>{c.displayName}</option>)}</select>},
-         {label:"工單日期",required:true,view:"",edit:<DateInput value={draft.orderDate} onChange={v=>setDraft({...draft,orderDate:v})}/>}
+        {columns:"2fr 1fr 1fr",cells:[
+         {label:"協力廠商",required:true,view:contractors.find(c=>c.id===draft.contractorId)?.displayName??"",edit:<select className="cy-sheet-input" value={draft.contractorId??""} onChange={e=>setDraft({...draft,contractorId:Number(e.target.value)||null})}><option value="">請選擇</option>{contractors.map(c=><option key={c.id} value={c.id}>{c.displayName}</option>)}</select>},
+         {label:"工單日期",required:true,view:draft.orderDate,edit:<DateInput value={draft.orderDate} onChange={v=>setDraft({...draft,orderDate:v})}/>},
+         {label:"狀態",view:"待發料"}
         ]},
-        {columns:"1fr",cells:[{label:"備註",view:"",edit:<input className="cy-sheet-input" value={draft.note} onChange={e=>setDraft({...draft,note:e.target.value})}/>}]}
+        {columns:"1fr",cells:[{label:"備註",view:draft.note,edit:<input className="cy-sheet-input" value={draft.note} onChange={e=>setDraft({...draft,note:e.target.value})}/>}]}
        ]}/>
        <RecordRows title="成品" editing columns={orderColumns} rows={draft.products} rowKey={p=>p.key} onInsert={i=>setDraft(d=>d?{...d,products:[...d.products.slice(0,i+1),newLine(),...d.products.slice(i+1)]}:d)} onRemove={i=>setDraft(d=>d?{...d,products:d.products.filter((_,j)=>i!==j)}:d)}/>
        <div className="cy-op-form-footer"><button type="button" className="cy-op-button soft" onClick={()=>setDraft(null)}>取消</button><button className="cy-op-button primary" disabled={busy}>儲存</button></div>
