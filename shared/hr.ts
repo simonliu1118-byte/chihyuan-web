@@ -1,8 +1,8 @@
 export type HrStatus = "probation" | "active" | "leave" | "terminated";
 export type HrPaymentType = "monthly" | "hourly";
 export interface HrContact { name: string; relationship: string | null; phone: string }
-export interface HrEducation { school: string; department: string | null; degree: string | null; graduationMonth: string | null }
-export interface HrWorkHistory { company: string; jobTitle: string | null; startMonth: string | null; endMonth: string | null; note: string | null }
+export interface HrEducation { school: string; department: string | null; startMonth: string | null; endMonth: string | null }
+export interface HrWorkHistory { company: string; jobTitle: string | null; startMonth: string | null; endMonth: string | null; salary: string | null; leaveReason: string | null }
 export interface HrEmployee {
  id: number; employeeNo: string; name: string; status: HrStatus;
  memberId: number | null; nationalIdMasked: string | null;

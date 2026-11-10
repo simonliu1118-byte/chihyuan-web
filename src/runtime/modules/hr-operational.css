@@ -34,8 +34,6 @@
 .cy-hr-sheet{min-width:0}
 .cy-hr-sheet .cy-sheet{overflow-x:auto}
 .cy-hr-sheet .cy-sheet-row{min-width:1060px}
-.cy-hr-sheet-address{width:100%;display:grid;gap:2px}
-.cy-hr-sheet-address>.cy-f-check{padding:2px 8px}
 .cy-hr-picker{display:flex;gap:4px;align-items:center;width:100%;min-width:0}
 .cy-hr-picker .cy-sheet-input{flex:1;min-width:0}
 .cy-hr-picker .cy-op-button{flex:none}
@@ -95,3 +93,10 @@
   padding: 6px 0;
   border-bottom: 1px solid var(--cy-border);
 }
+
+/* 學歷就讀年月／經歷起迄年月：一格內兩個年月，中間「～」(user 2026-11-10). */
+.cy-hr-period{display:flex;align-items:center;gap:4px;width:100%}
+.cy-hr-period>*:not(span){flex:1 1 0;min-width:0}
+.cy-sheet-head .cy-f-check{padding:0;font-size:var(--cy-fs-sm);color:var(--cy-text)}
+.cy-sheet-head .cy-f-check{min-height:0;height:auto;padding:0;gap:4px;line-height:1.2}
+.cy-sheet-head .cy-f-check input{width:14px;height:14px;margin:0}

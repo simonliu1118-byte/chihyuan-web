@@ -353,13 +353,13 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "overtime_day_id"
   ],
   "hr_education": [
-    "degree",
     "department",
     "employee_id",
-    "graduation_month",
+    "end_month",
     "id",
     "school",
-    "sort_order"
+    "sort_order",
+    "start_month"
   ],
   "hr_emergency_contacts": [
     "employee_id",
@@ -593,7 +593,9 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "end_month",
     "id",
     "job_title",
+    "leave_reason",
     "note",
+    "salary",
     "sort_order",
     "start_month"
   ],

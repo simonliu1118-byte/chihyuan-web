@@ -43,7 +43,7 @@ export async function acceptHrPhase1(db:D1Database):Promise<void>{
  const input={employeeNo:"HRTEST001",name:"測試員工甲",hireDate:"2025-01-01",seniorityStartDate:"2025-01-01",status:"active",nationalId:"A123456789",
   birthDate:"1990-01-01",gender:"女",mobile:"0900000001",registeredAddress:"虛構縣測試路1號",mailingAddress:"虛構縣測試路1號",storeId:1,jobTitleId:1,
   contacts:[{name:"測試聯絡甲",relationship:"家人",phone:"0900000000"}],
-  education:[{school:"虛構學校",department:"測試科",degree:"學士",graduationMonth:"2024/06"}],
+  education:[{school:"虛構學校",department:"測試科",startMonth:"2020/09",endMonth:"2024/06"}],
   workHistory:[{company:"測試公司",jobTitle:"測試職務",startMonth:"2024/07",endMonth:"2024/12",note:"測試"}]};
  const created=await svc.create(input,ctx) as Record<string,unknown>;
  check(typeof created.id==="number","ACCEPT_HR_CREATE");

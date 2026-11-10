@@ -25,5 +25,5 @@ test("item price writes stay in revision guarded mutation batches and audit each
 test("defect grants and old deep links survive item sidebar consolidation",()=>{
  assert.doesNotMatch(route, /key: "defects", label: "瑕疵", href: "#defects"/);
  assert.match(route,/route === "items" \|\| route === "defects"/);
- assert.match(backup,/CURRENT_MIGRATION = "0062_outsourcing_flow"/);
+ assert.match(backup,/CURRENT_MIGRATION = "0063_hr_history_periods"/);
 });

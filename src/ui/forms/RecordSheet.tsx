@@ -16,18 +16,26 @@ export interface SheetCell {
   mono?: boolean;
   view: ReactNode;
   edit?: ReactElement;
+  /** Grid columns this cell spans, so rows can share one column grid and their lines line up. */
+  span?: number;
+  /** Extra control in the header cell while editing (for example 同戶籍地址). */
+  headExtra?: ReactNode;
 }
 export interface SheetRow { columns: string; cells: SheetCell[] }
 
 export function RecordSheet({ label, editing, rows }: { label: string; editing: boolean; rows: SheetRow[] }) {
   return <div className={"cy-sheet" + (editing ? " editing" : "")} role="group" aria-label={label}>
     {rows.map((row, index) => <div key={index} className="cy-sheet-row" style={{ gridTemplateColumns: row.columns }}>
-      {row.cells.map((cell, i) => <div key={"h" + cell.label} className={"cy-sheet-head" + (i === row.cells.length - 1 ? " last" : "")}>{cell.label}
-        {editing && cell.required ? <span className="cy-field-required" aria-hidden="true">＊</span> : null}</div>)}
-      {row.cells.map((cell, i) => <div key={"v" + cell.label} data-label={cell.label}
+      {row.cells.map((cell, i) => <div key={"h" + cell.label} style={cell.span ? { gridColumn: "span " + cell.span } : undefined}
+        className={"cy-sheet-head" + (i === row.cells.length - 1 ? " last" : "") + (editing && cell.headExtra ? " has-extra" : "")}>{cell.label}
+        {editing && cell.required ? <span className="cy-field-required" aria-hidden="true">＊</span> : null}
+        {editing && cell.headExtra ? <span className="cy-sheet-head-extra">{cell.headExtra}</span> : null}</div>)}
+      {row.cells.map((cell, i) => <div key={"v" + cell.label} data-label={cell.label} style={cell.span ? { gridColumn: "span " + cell.span } : undefined}
         className={"cy-sheet-cell" + (cell.mono ? " mono" : "") + (i === row.cells.length - 1 ? " last" : "")}>
         {editing && cell.edit ? <Field label={cell.label} required={cell.required} presentation="cell">{cell.edit}</Field>
           : <span className="cy-sheet-value">{isEmpty(cell.view) ? "—" : cell.view}</span>}
+        {/* Phones hide the header row, so the header control moves into the cell there. */}
+        {editing && cell.headExtra ? <span className="cy-sheet-cell-extra">{cell.headExtra}</span> : null}
       </div>)}
     </div>)}
   </div>;

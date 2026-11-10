@@ -6,8 +6,8 @@ import { date, employeeNumber, HrValidationError, integer, month, nationalId, nu
 export interface HrContext { actor: number; requestId: string; now: string }
 const CHILDREN = [
   { field: "contacts", table: "hr_emergency_contacts", columns: ["name","relationship","phone"], names: ["name","relationship","phone"] },
-  { field: "education", table: "hr_education", columns: ["school","department","degree","graduation_month"], names: ["school","department","degree","graduationMonth"] },
-  { field: "workHistory", table: "hr_work_history", columns: ["company","job_title","start_month","end_month","note"], names: ["company","jobTitle","startMonth","endMonth","note"] },
+  { field: "education", table: "hr_education", columns: ["school","department","start_month","end_month"], names: ["school","department","startMonth","endMonth"] },
+  { field: "workHistory", table: "hr_work_history", columns: ["company","job_title","start_month","end_month","salary","leave_reason"], names: ["company","jobTitle","startMonth","endMonth","salary","leaveReason"] },
 ] as const;
 const fields = ["employee_no","name","member_id","national_id","birth_date","gender","mobile","phone","mailing_address","registered_address","hire_date","seniority_start_date","note","store_id","job_title_id","roster_sort","employment_type","skip_roster_checks","schedule_mode"] as const;
 const bodyFields = ["employeeNo","name","memberId","nationalId","birthDate","gender","mobile","phone","mailingAddress","registeredAddress","hireDate","seniorityStartDate","note","storeId","jobTitleId","rosterSort","employmentType","skipRosterChecks","scheduleMode"] as const;
@@ -40,7 +40,7 @@ function normalizeProfile(raw: unknown) {
   if(!["shift","hours","none"].includes(mode)||employment==="full"&&mode!=="shift"||employment==="half"&&mode==="none")throw new HrValidationError("scheduleMode","排班方式與僱用型態不符");
   const children = CHILDREN.map(g=>({ ...g, values: rows(v[g.field],g.field).map((row,index)=>{
     const record: Scalar[] = g.names.map((key)=>{
-      const value = row[key]; if (key === "graduationMonth" || key === "startMonth" || key === "endMonth") return month(value,key);
+      const value = row[key]; if (key === "startMonth" || key === "endMonth") return month(value,key);
       if (key==="name" || key==="phone" && g.field==="contacts" || key==="school" || key==="company") return required(value,key,150);
       return optional(value,key,1000);
     });

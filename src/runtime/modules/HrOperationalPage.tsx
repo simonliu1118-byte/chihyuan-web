@@ -40,8 +40,8 @@ const statusTone = (status: HrStatus) => status === "active" ? "success" as cons
 // Rows come back from the HR API as stored (snake_case); only the fields this page reads are typed.
 interface EmployeeRow { id: number; employee_no: string; name: string; status: HrStatus }
 interface ContactRow { name: string; relationship: string | null; phone: string }
-interface EducationRow { school: string; department: string | null; degree: string | null; graduation_month: string | null }
-interface WorkRow { company: string; job_title: string | null; start_month: string | null; end_month: string | null; note: string | null }
+interface EducationRow { school: string; department: string | null; start_month: string | null; end_month: string | null }
+interface WorkRow { company: string; job_title: string | null; start_month: string | null; end_month: string | null; salary: string | null; leave_reason: string | null }
 interface StatusChangeRow { id: number; effective_date: string; next_status: HrStatus; reason: string }
 interface SalaryRow { id: number; effective_date: string; payment_type: HrPaymentType; base_amount: number; reason: string;
   allowances: { item_name: string; amount: number; is_regular: number }[] }
@@ -69,8 +69,8 @@ export interface Draft {
   hireDate: string; seniorityStartDate: string; note: string; status: HrStatus;
   storeId:string;jobTitleId:string;rosterSort:string;employmentType:"full"|"half"|"casual";skipRosterChecks:boolean;scheduleMode:"shift"|"hours"|"none";
   contacts: { name: string; relationship: string; phone: string }[];
-  education: { school: string; department: string; degree: string; graduationMonth: string }[];
-  workHistory: { company: string; jobTitle: string; startMonth: string; endMonth: string; note: string }[];
+  education: { school: string; department: string; startMonth: string; endMonth: string }[];
+  workHistory: { company: string; jobTitle: string; startMonth: string; endMonth: string; salary: string; leaveReason: string }[];
 }
 type ActionKind = "status" | "salary" | "exclusion";
 type BrowseKind = "leave" | "salary" | "status" | "exclusion";
@@ -93,7 +93,7 @@ function emptyDraft(): Draft {
   return { employeeNo: "", name: "", memberLabel: "", changeNationalId: true, nationalId: "", gender: "", birthDate: "", mobile: "", phone: "",
     mailingAddress: "", registeredAddress: "", hireDate: taipeiToday(), seniorityStartDate: "", note: "", status: "probation",
     storeId:"",jobTitleId:"",rosterSort:"0",employmentType:"full",skipRosterChecks:false,scheduleMode:"shift",
-    contacts: [], education: [], workHistory: [] };
+    contacts: [{ name: "", relationship: "", phone: "" }], education: [], workHistory: [] };
 }
 
 function draftFrom(detail: EmployeeDetail): Draft {
@@ -105,11 +105,12 @@ function draftFrom(detail: EmployeeDetail): Draft {
     storeId:detail.store_id?String(detail.store_id):"",jobTitleId:detail.job_title_id?String(detail.job_title_id):"",
     rosterSort:String(detail.roster_sort??0),employmentType:detail.employment_type??"full",
     skipRosterChecks:detail.skip_roster_checks===1,scheduleMode:detail.schedule_mode??"shift",
-    contacts: detail.contacts.map(row => ({ name: row.name, relationship: row.relationship ?? "", phone: row.phone })),
-    education: detail.education.map(row => ({ school: row.school, department: row.department ?? "", degree: row.degree ?? "",
-      graduationMonth: toMonthInput(row.graduation_month) })),
+    // One emergency contact, kept in the sheet (user 2026-11-10).
+    contacts: [detail.contacts[0] ? { name: detail.contacts[0].name, relationship: detail.contacts[0].relationship ?? "", phone: detail.contacts[0].phone } : { name: "", relationship: "", phone: "" }],
+    education: detail.education.map(row => ({ school: row.school, department: row.department ?? "",
+      startMonth: toMonthInput(row.start_month), endMonth: toMonthInput(row.end_month) })),
     workHistory: detail.workHistory.map(row => ({ company: row.company, jobTitle: row.job_title ?? "",
-      startMonth: toMonthInput(row.start_month), endMonth: toMonthInput(row.end_month), note: row.note ?? "" })),
+      startMonth: toMonthInput(row.start_month), endMonth: toMonthInput(row.end_month), salary: row.salary ?? "", leaveReason: row.leave_reason ?? "" })),
   };
 }
 
@@ -221,7 +222,7 @@ export function HrOperationalPage() {
       storeId:draft.storeId?Number(draft.storeId):null,jobTitleId:draft.jobTitleId?Number(draft.jobTitleId):null,
       rosterSort:Number(draft.rosterSort),employmentType:draft.employmentType,skipRosterChecks:draft.skipRosterChecks,scheduleMode:draft.scheduleMode,
       contacts: draft.contacts,
-      education: draft.education.map(row => ({ ...row, graduationMonth: fromMonthInput(row.graduationMonth) })),
+      education: draft.education.map(row => ({ ...row, startMonth: fromMonthInput(row.startMonth), endMonth: fromMonthInput(row.endMonth) })),
       workHistory: draft.workHistory.map(row => ({ ...row, startMonth: fromMonthInput(row.startMonth), endMonth: fromMonthInput(row.endMonth) })),
     };
     if (draft.memberIdentityId !== undefined) body.memberIdentityId = draft.memberIdentityId;
@@ -512,7 +513,8 @@ function missingFields(draft: Draft): string[] {
   if (!draft.mobile.trim() && !draft.phone.trim()) missing.push("手機或市話");
   need("門市", draft.storeId); need("職稱", draft.jobTitleId);
   need("戶籍地址", draft.registeredAddress); need("通訊地址", draft.mailingAddress);
-  if (!draft.contacts.length) missing.push("緊急聯絡人");
+  if (!draft.contacts[0]?.name.trim()) missing.push("緊急聯絡人姓名");
+  if (!draft.contacts[0]?.phone.trim()) missing.push("緊急聯絡人電話");
   return missing;
 }
 
