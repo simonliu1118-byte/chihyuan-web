@@ -123,7 +123,20 @@ export class OutsourcingFlowService {
         FROM outsourcing_receipt_items ri JOIN items i ON i.id=ri.item_id
         LEFT JOIN outsourcing_statement_lines sl ON sl.receipt_item_id=ri.id
         LEFT JOIN outsourcing_statements s ON s.id=sl.statement_id WHERE ri.receipt_id=? ORDER BY ri.sort_order`).bind(r.id).all<Row>();
-      receiptRows.push({...r,items:items.results??[]});
+      const statementCache=new Map<number,string>();
+      const withStatus=[];
+      for(const item of items.results??[]){
+        if(item.statement_id && item.statement_status==="confirmed"){
+          let paymentStatus=statementCache.get(item.statement_id);
+          if(!paymentStatus){
+            const st=await this.statementDetail(item.statement_id);
+            paymentStatus=st.paymentStatus;
+            statementCache.set(item.statement_id,paymentStatus!);
+          }
+          withStatus.push({...item,statement_status:paymentStatus==="paid"?"paid":"confirmed"});
+        }else withStatus.push(item);
+      }
+      receiptRows.push({...r,items:withStatus});
     }
     return {...order,products,issues:issueRows,receipts:receiptRows,
       statusCode:outsourcingLifecycle(order.closed_at,issueRows.filter(r=>!r.cancelled_at).length,products.map(p=>({planned:p.planned_quantity,delivered:p.delivered_quantity})))};
@@ -479,10 +492,10 @@ export class OutsourcingFlowService {
           if(count<=0)shortage=true;
         }
         if((cs.results??[]).length)grouped.push({title:p.item_no+" "+p.item_name,bomName:p.recipe_ref,
-          capacity:capacity===Number.MAX_SAFE_INTEGER?0:capacity,shortage,items:rows});
+          capacity:capacity===Number.MAX_SAFE_INTEGER?0:capacity,outputUnit:p.output_unit,shortage,items:rows});
       }
       const other=items.filter(r=>!used.has(r.itemId));
-      if(other.length)grouped.push({title:"其他料件",capacity:null,shortage:false,items:other});
+      if(other.length)grouped.push({title:"其他料件",capacity:null,outputUnit:null,shortage:false,items:other});
       vendors.push({contractorId:vendorId,contractorName:items[0].contractorName,
         billingMethod:items[0].billingMethod,groups:grouped});
     }
