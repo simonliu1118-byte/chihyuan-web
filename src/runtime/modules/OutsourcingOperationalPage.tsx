@@ -321,7 +321,7 @@ export function OutsourcingOperationalPage(){
 
   <Dialog open={action!==null} title={{
     issue:"新增發料",receipt:"新增交貨入庫",return:"退料",adjust:"盤點調整","statement-create":"建立對帳單",
-    "statement-edit":"修改對帳單",payment:"登記付款",close:"結案"
+    "statement-edit":"修改對帳單",payment:"登記付款",close:"結案","stock-history":"庫存異動紀錄"
   }[action??"issue"]??"異動紀錄"} size={action==="close"?"small":action==="payment"?"medium":"large"} onClose={()=>setAction(null)}>
    <form onKeyDown={enterAdvancesFields} onSubmit={e=>void submitAction(e)}>
     {action==="issue"||action==="receipt"||action==="return"||action==="adjust"||action==="payment"||action==="statement-create"?<Grid label="日期資料" headers={action==="receipt"?["日期","ERP 單號"]:["日期","備註"]}>
