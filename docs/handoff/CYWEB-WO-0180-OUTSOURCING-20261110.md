@@ -32,6 +32,6 @@
 ## 審查順序與注意事項
 
 - 優先比對 [WO §2／§6](../development/work-orders/WO-0.18.0.md) 與此程式分支，尤其 `0062` 的資料保留、退役 ID trigger、D1 批次 rollback、revision/Audit、stock baseline、單位換算、金額四捨五入與 confirmed statement 的交貨鎖定。
-- UI 請看本次 artifact 的桌機／手機實際 React 截圖，並檢視 `scripts/visual/wo0180-capture.mjs` 的 fixture 邊界；未登入真實站的測試不可冒充正式端驗收。
+- UI 截圖用的一次性 `scripts/visual/wo0180*` 與 `wo-0180-visual.yml` 已在 Claude 審查時移除（不留常駐 CI）；截圖證據見 PR #494 的 run 42795788312 artifact。未登入真實站的測試不可冒充正式端驗收。
 - ERP 連動使用者明確指示不做；只留手動 ERP 單號與 `TODO.md` 的獨立待辦。
 - 請 Claude 在工單 §9 寫下 reviewer、結論、必修項與測試證據；若有問題先在本 PR 修正，**不得自動合併或部署**。

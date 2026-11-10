@@ -47,6 +47,12 @@ function uniqueIDs(numbers: number[]): number[] { return [...new Set(numbers)]; 
 export class OutsourcingFlowService {
   private audit: AuditService;
   constructor(private db: D1Database) { this.audit = new AuditService(db); }
+  /** Abort the whole batch unless the preceding revision UPDATE changed exactly one row. */
+  private gate(){return this.db.prepare("SELECT CASE WHEN changes()!=1 THEN json('') ELSE 1 END");}
+  /** A tripped gate means a stale or repeated request: nothing was written. */
+  private async commit(stmts:D1PreparedStatement[]){
+    try{await this.db.batch(stmts);}catch(e){if(String(e).includes("malformed JSON"))throw new OutsourcingFlowError();throw e;}
+  }
   private event(action:string,entityType:string,key:string,actor:FlowActor,metadata:Row = {}) {
     return this.audit.prepareRecord({entityType,entityKey:key,action,actorEmployeeId:actor.actorMemberId,occurredAt:actor.now,requestId:actor.requestId,metadata});
   }
@@ -169,7 +175,7 @@ export class OutsourcingFlowService {
       (outsourcing_order_id,item_id,bom_recipe_id,planned_quantity,unit,sort_order)
       VALUES((SELECT MAX(id) FROM outsourcing_orders),?,?,?,?,?)`).bind(p.itemId,p.bomId,p.quantity,p.unit,p.sort));
     stmts.push(this.event("outsourcing.created","outsourcing_order",reference,actor,{contractorId,productCount:normalized.length}));
-    await this.db.batch(stmts);
+    await this.commit(stmts);
     const order=await this.db.prepare("SELECT id FROM outsourcing_orders WHERE outsourcing_ref=?").bind(reference).first<{id:number}>();
     return this.detail(order!.id);
   }
@@ -207,7 +213,7 @@ export class OutsourcingFlowService {
         AND NOT EXISTS(SELECT 1 FROM outsourcing_receipts WHERE outsourcing_order_id=?)`)
         .bind(contractorId,contractor.display_name,orderDate,text(b.note,"note",false)||null,actor.now,actor.actorMemberId,orderId,previous.revision,orderId,orderId),
       // Atomic revision gate: abort the batch if another caller changed the row.
-      this.db.prepare("SELECT CASE WHEN changes()!=1 THEN json('') ELSE 1 END"),
+      this.gate(),
       this.db.prepare("DELETE FROM outsourcing_order_products WHERE outsourcing_order_id=?").bind(orderId),
     ];
     for(const p of normalized)stmts.push(this.db.prepare(
@@ -215,7 +221,7 @@ export class OutsourcingFlowService {
     ).bind(orderId,p.itemId,p.bomId,p.quantity,p.unit,p.index));
     stmts.push(this.event("outsourcing.updated","outsourcing_order",previous.outsourcing_ref,actor,
       {contractorId,productCount:normalized.length}));
-    await this.db.batch(stmts);return this.detail(orderId);
+    await this.commit(stmts);return this.detail(orderId);
   }
 
   async issue(orderId:number,raw:unknown,actor:FlowActor) {
@@ -235,9 +241,9 @@ export class OutsourcingFlowService {
         (contractor_id,item_id,movement_type,quantity_delta,occurred_at,issue_id,created_at,operator_employee_id)
         VALUES(?,?,'issue',?, ?, (SELECT MAX(id) FROM outsourcing_issues),?,?)`).bind(o.contractor_id,p.itemId,p.delta,d,actor.now,actor.actorMemberId));
     }
-    stmts.push(this.db.prepare("UPDATE outsourcing_orders SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?").bind(actor.now,actor.actorMemberId,orderId,o.revision));
+    stmts.unshift(this.db.prepare("UPDATE outsourcing_orders SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?").bind(actor.now,actor.actorMemberId,orderId,o.revision),this.gate());
     stmts.push(this.event("outsourcing.issued","outsourcing_order",o.outsourcing_ref,actor,{itemCount:data.length}));
-    await this.db.batch(stmts);return this.detail(orderId);
+    await this.commit(stmts);return this.detail(orderId);
   }
   async cancelIssue(orderId:number,issueId:number,raw:unknown,actor:FlowActor) {
     const b=object(raw),o=await this.revision(orderId,b.expectedRevision);
@@ -249,9 +255,9 @@ export class OutsourcingFlowService {
       (contractor_id,item_id,movement_type,quantity_delta,occurred_at,issue_id,reversal_of_movement_id,created_at,operator_employee_id)
       VALUES(?,?,'reversal',?,?,?,?,?,?)`).bind(m.contractor_id,m.item_id,-m.quantity_delta,actor.now,issueId,m.id,actor.now,actor.actorMemberId));
     stmts.push(this.db.prepare("UPDATE outsourcing_issues SET cancelled_at=? WHERE id=? AND cancelled_at IS NULL").bind(actor.now,issueId));
-    stmts.push(this.db.prepare("UPDATE outsourcing_orders SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?").bind(actor.now,actor.actorMemberId,orderId,o.revision));
+    stmts.unshift(this.db.prepare("UPDATE outsourcing_orders SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?").bind(actor.now,actor.actorMemberId,orderId,o.revision),this.gate());
     stmts.push(this.event("outsourcing.issue_cancelled","outsourcing_order",o.outsourcing_ref,actor,{issueId}));
-    await this.db.batch(stmts);return this.detail(orderId);
+    await this.commit(stmts);return this.detail(orderId);
   }
   async stock(contractorId?:number,showAll=false) {
     const q=contractorId?"WHERE m.contractor_id=?":"";
@@ -299,7 +305,7 @@ export class OutsourcingFlowService {
         VALUES(?,?,?,?,?,(SELECT MAX(id) FROM contractor_stock_events),?,?,?)`).bind(contractorId,p.itemId,eventType,p.delta,dateValue,reason||null,actor.now,actor.actorMemberId));
     }
     stmts.push(this.event("outsourcing.stock_"+eventType,"contractor",String(contractorId),actor,{itemCount:data.length}));
-    await this.db.batch(stmts);return this.stock(contractorId);
+    await this.commit(stmts);return this.stock(contractorId);
   }
 
   /** Every delivery is independent; consumption is derived from the selected BOM. */
@@ -355,9 +361,9 @@ export class OutsourcingFlowService {
       (contractor_id,item_id,related_finished_item_id,movement_type,quantity_delta,occurred_at,receipt_id,created_at,operator_employee_id)
       VALUES(?,?,?,'consumption',?, ?, (SELECT MAX(id) FROM outsourcing_receipts),?,?)`)
       .bind(o.contractor_id,m.itemId,m.finishedId,m.quantity,dateValue,actor.now,actor.actorMemberId));
-    stmt.push(this.db.prepare("UPDATE outsourcing_orders SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?").bind(actor.now,actor.actorMemberId,orderId,o.revision));
+    stmt.unshift(this.db.prepare("UPDATE outsourcing_orders SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?").bind(actor.now,actor.actorMemberId,orderId,o.revision),this.gate());
     stmt.push(this.event("outsourcing.received","outsourcing_order",o.outsourcing_ref,actor,{itemCount:received.length,erpNo:text(b.erpNo,"erpNo",false)}));
-    await this.db.batch(stmt);return this.detail(orderId);
+    await this.commit(stmt);return this.detail(orderId);
   }
 
   async cancelReceipt(orderId:number,receiptId:number,raw:unknown,actor:FlowActor){
@@ -376,9 +382,9 @@ export class OutsourcingFlowService {
       (contractor_id,item_id,related_finished_item_id,movement_type,quantity_delta,occurred_at,receipt_id,reversal_of_movement_id,created_at,operator_employee_id)
       VALUES(?,?,?,'reversal',?,?,?,?,?,?)`).bind(m.contractor_id,m.item_id,m.related_finished_item_id,-m.quantity_delta,actor.now,receiptId,m.id,actor.now,actor.actorMemberId));
     stmt.push(this.db.prepare("UPDATE outsourcing_receipts SET cancelled_at=? WHERE id=?").bind(actor.now,receiptId));
-    stmt.push(this.db.prepare("UPDATE outsourcing_orders SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?").bind(actor.now,actor.actorMemberId,orderId,o.revision));
+    stmt.unshift(this.db.prepare("UPDATE outsourcing_orders SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?").bind(actor.now,actor.actorMemberId,orderId,o.revision),this.gate());
     stmt.push(this.event("outsourcing.receipt_cancelled","outsourcing_order",o.outsourcing_ref,actor,{receiptId}));
-    await this.db.batch(stmt);return this.detail(orderId);
+    await this.commit(stmt);return this.detail(orderId);
   }
 
   async setClosed(orderId:number,raw:unknown,actor:FlowActor,reopen=false){
@@ -386,9 +392,10 @@ export class OutsourcingFlowService {
     if(!reopen&&!text(b.reason,"reason"))throw new FieldValidationError({reason:"結案原因必填"});
     if(reopen&&!o.closed_at)throw new FieldValidationError({orderId:"尚未結案"});
     if(!reopen&&o.closed_at)throw new FieldValidationError({orderId:"已結案"});
-    await this.db.batch([
+    await this.commit([
       this.db.prepare("UPDATE outsourcing_orders SET closed_at=?,closed_reason=?,revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?")
         .bind(reopen?null:actor.now,reopen?null:text(b.reason,"reason"),actor.now,actor.actorMemberId,orderId,o.revision),
+      this.gate(),
       this.event(reopen?"outsourcing.reopened":"outsourcing.closed","outsourcing_order",o.outsourcing_ref,actor,{reason:reopen?null:text(b.reason,"reason")})
     ]);
     return this.detail(orderId);
@@ -398,9 +405,10 @@ export class OutsourcingFlowService {
     const hasIssues=await this.db.prepare("SELECT 1 FROM outsourcing_issues WHERE outsourcing_order_id=? LIMIT 1").bind(orderId).first();
     const hasReceipts=await this.db.prepare("SELECT 1 FROM outsourcing_receipts WHERE outsourcing_order_id=? LIMIT 1").bind(orderId).first();
     if(hasIssues||hasReceipts)throw new FieldValidationError({orderId:"已有發料或交貨紀錄，不可刪除"});
-    await this.db.batch([
-      this.db.prepare("DELETE FROM outsourcing_order_products WHERE outsourcing_order_id=?").bind(orderId),
+    await this.commit([
       this.db.prepare("DELETE FROM outsourcing_orders WHERE id=? AND revision=?").bind(orderId,o.revision),
+      this.gate(),
+      this.db.prepare("DELETE FROM outsourcing_order_products WHERE outsourcing_order_id=?").bind(orderId),
       this.event("outsourcing.deleted","outsourcing_order",o.outsourcing_ref,actor)
     ]);return {deleted:true,orderId};
   }
@@ -601,7 +609,7 @@ export class OutsourcingFlowService {
         VALUES((SELECT MAX(id) FROM outsourcing_statements),?,?,?,?,?)`).bind(key,pricingUnit,converted,r.unit_price,amount));
     }
     stmt.push(this.event("outsourcing.statement_created","contractor",String(contractorId),actor,{lineCount:selected.length,month}));
-    await this.db.batch(stmt);
+    await this.commit(stmt);
     const latest=await this.db.prepare("SELECT MAX(id) AS id FROM outsourcing_statements WHERE contractor_id=?").bind(contractorId).first<{id:number}>();
     return this.statementDetail(latest!.id);
   }
@@ -626,10 +634,10 @@ export class OutsourcingFlowService {
       stmts.push(this.db.prepare("INSERT INTO outsourcing_statement_adjustments(statement_id,description,amount,sort_order) VALUES(?,?,?,?)")
         .bind(statementId,text(a.description,"description"),amount,index));
     }
-    stmts.push(this.db.prepare("UPDATE outsourcing_statements SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=? AND status_code='draft'")
-      .bind(actor.now,actor.actorMemberId,statementId,s.revision));
+    stmts.unshift(this.db.prepare("UPDATE outsourcing_statements SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=? AND status_code='draft'")
+      .bind(actor.now,actor.actorMemberId,statementId,s.revision),this.gate());
     stmts.push(this.event("outsourcing.statement_edited","statement",String(statementId),actor,{lineCount:lines.length}));
-    await this.db.batch(stmts);return this.statementDetail(statementId);
+    await this.commit(stmts);return this.statementDetail(statementId);
   }
   async confirmStatement(statementId:number,raw:unknown,actor:FlowActor) {
     const b=object(raw),s=await this.draftStatement(statementId,b.expectedRevision);
@@ -637,9 +645,10 @@ export class OutsourcingFlowService {
     if(!hasLines)throw new FieldValidationError({statementId:"對帳單沒有有效交貨明細"});
     const unpriced=await this.db.prepare("SELECT 1 FROM outsourcing_statement_lines WHERE statement_id=? AND unit_price IS NULL LIMIT 1").bind(statementId).first();
     if(unpriced)throw new FieldValidationError({unitPrice:"所有明細均須設定單價"});
-    await this.db.batch([
+    await this.commit([
       this.db.prepare("UPDATE outsourcing_statements SET status_code='confirmed',confirmed_at=?,revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?")
         .bind(actor.now,actor.now,actor.actorMemberId,statementId,s.revision),
+      this.gate(),
       this.event("outsourcing.statement_confirmed","statement",String(statementId),actor)
     ]);return this.statementDetail(statementId);
   }
@@ -649,15 +658,18 @@ export class OutsourcingFlowService {
     if(s.revision!==id(b.expectedRevision,"expectedRevision"))throw new OutsourcingFlowError();
     const paid=await this.db.prepare("SELECT 1 FROM outsourcing_statement_payments WHERE statement_id=? LIMIT 1").bind(statementId).first();
     if(paid)throw new FieldValidationError({statementId:"已有付款，不能取消確認"});
-    await this.db.batch([
+    await this.commit([
       this.db.prepare("UPDATE outsourcing_statements SET status_code='draft',confirmed_at=NULL,revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?")
         .bind(actor.now,actor.actorMemberId,statementId,s.revision),
+      this.gate(),
       this.event("outsourcing.statement_unconfirmed","statement",String(statementId),actor)
     ]);return this.statementDetail(statementId);
   }
   async removeDraftStatement(statementId:number,raw:unknown,actor:FlowActor) {
-    const b=object(raw);await this.draftStatement(statementId,b.expectedRevision);
-    await this.db.batch([
+    const b=object(raw),s=await this.draftStatement(statementId,b.expectedRevision);
+    await this.commit([
+      this.db.prepare("UPDATE outsourcing_statements SET revision=revision+1 WHERE id=? AND revision=? AND status_code='draft'").bind(statementId,s.revision),
+      this.gate(),
       this.db.prepare("DELETE FROM outsourcing_statement_lines WHERE statement_id=?").bind(statementId),
       this.db.prepare("DELETE FROM outsourcing_statement_adjustments WHERE statement_id=?").bind(statementId),
       this.db.prepare("DELETE FROM outsourcing_statements WHERE id=?").bind(statementId),
@@ -671,11 +683,12 @@ export class OutsourcingFlowService {
     const method=text(b.method,"method");if(!["cash","transfer","cheque","other"].includes(method))throw new FieldValidationError({method:"付款方式無效"});
     let amount:number;try{amount=parseMoney2(String(b.amount));}catch{throw new FieldValidationError({amount:"付款金額格式錯誤"});}
     if(amount<=0||s.paid_amount+amount>s.total_amount)throw new FieldValidationError({amount:"付款金額須大於零且不可超過剩餘應付"});
-    await this.db.batch([
-      this.db.prepare("INSERT INTO outsourcing_statement_payments(statement_id,payment_date,method,amount,note,created_at,created_by) VALUES(?,?,?,?,?,?,?)")
-        .bind(statementId,date(b.date,"date"),method,amount,text(b.note,"note",false)||null,actor.now,actor.actorMemberId),
+    await this.commit([
       this.db.prepare("UPDATE outsourcing_statements SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?")
         .bind(actor.now,actor.actorMemberId,statementId,s.revision),
+      this.gate(),
+      this.db.prepare("INSERT INTO outsourcing_statement_payments(statement_id,payment_date,method,amount,note,created_at,created_by) VALUES(?,?,?,?,?,?,?)")
+        .bind(statementId,date(b.date,"date"),method,amount,text(b.note,"note",false)||null,actor.now,actor.actorMemberId),
       this.event("outsourcing.payment_added","statement",String(statementId),actor,{amount:formatMoney2(amount),method})
     ]);return this.statementDetail(statementId);
   }
@@ -684,10 +697,11 @@ export class OutsourcingFlowService {
     if(s.revision!==id(b.expectedRevision,"expectedRevision"))throw new FieldValidationError({expectedRevision:"對帳單已異動"});
     const payment=s.payments.find((p:Row)=>p.id===paymentId);
     if(!payment)throw new FieldValidationError({paymentId:"付款紀錄不存在"});
-    await this.db.batch([
-      this.db.prepare("DELETE FROM outsourcing_statement_payments WHERE id=? AND statement_id=?").bind(paymentId,statementId),
+    await this.commit([
       this.db.prepare("UPDATE outsourcing_statements SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?")
         .bind(actor.now,actor.actorMemberId,statementId,s.revision),
+      this.gate(),
+      this.db.prepare("DELETE FROM outsourcing_statement_payments WHERE id=? AND statement_id=?").bind(paymentId,statementId),
       this.event("outsourcing.payment_deleted","statement",String(statementId),actor,{paymentId,amount:formatMoney2(payment.amount)})
     ]);return this.statementDetail(statementId);
   }
