@@ -662,7 +662,7 @@ function UserDrawer({ employee, snapshot, session, refresh, columns, allowed, lo
       onClick={() => track(key, onClick())}>{label}</button>;
   const accessGroups = (["系統使用權", "業務模組", "ERP 查詢"] as const).map((group) => ({ group, columns: columns.filter((column) => column.group === group) })).filter((item) => item.columns.length);
 
-  return <Drawer open title={employee.name} description={`${employee.employee_no} · ${employee.email_normalized}`} dismissible={!busy} onClose={onClose}>
+  return <Drawer size="medium" open title={employee.name} description={`${employee.employee_no} · ${employee.email_normalized}`} dismissible={!busy} onClose={onClose}>
     {confirmationDialog}
     {promptDialog}
     {transferOpen ? <TransferDialog employees={snapshot.employees} onClose={() => setTransferOpen(false)} /> : null}

@@ -10,7 +10,7 @@
 .cy-equipment-category-cell{display:flex;align-items:center;gap:4px;min-width:0}
 .cy-equipment-category-cell select{flex:0 1 auto;min-width:0}
 .cy-equipment-category-other{flex:1 0 10em;min-width:10em!important}
-.cy-equipment-asset-dialog .cy-dialog-surface{width:min(620px,calc(100vw - 24px))}
+.cy-equipment-asset-dialog > .cy-dialog-surface{width:min(620px,calc(100vw - 24px))}
 .cy-equipment-asset-dialog .cy-entry-table{table-layout:fixed}
 .cy-equipment-asset-dialog .cy-entry-table th:first-child{width:55px}
 .cy-equipment-asset-dialog .cy-entry-table th:nth-child(2){width:36%}
@@ -20,7 +20,7 @@
 .cy-equipment-detail>td{padding:8px!important}
 .cy-equipment-detail .cy-entry-table td{background:var(--cy-surface)!important;text-align:left}
 .cy-equipment-detail .cy-entry-table td:first-child{text-align:center}
-.cy-equipment-form-dialog .cy-dialog-surface{width:min(1160px,calc(100vw - 24px))}
+.cy-equipment-form-dialog > .cy-dialog-surface{width:min(1160px,calc(100vw - 24px))}
 .cy-equipment-entry{min-width:1060px;table-layout:fixed}
 .cy-equipment-entry td{padding:2px}
 .cy-equipment-entry .cy-entry-table{table-layout:fixed}

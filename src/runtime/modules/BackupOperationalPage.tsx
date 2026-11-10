@@ -218,7 +218,7 @@ export function BackupOperationalPage({ session }: { session: AuthSession }) {
         ? <div className="cy-op-notice danger" role="alert">隔離演練紀錄暫時無法讀取；不能據此判定演練成功或失敗。請稍後再更新紀錄，不要直接重送。</div>
         : <BackupRehearsalHistoryView items={history?.rehearsals ?? []} />}
     </section>
-    <Dialog showCloseButton={false} open={selected !== null} title="驗證隔離還原" dismissible={!busy} onClose={() => { if (!busy) setSelected(null); }}
+    <Dialog size="medium" showCloseButton={false} open={selected !== null} title="驗證隔離還原" dismissible={!busy} onClose={() => { if (!busy) setSelected(null); }}
       footer={<><button className="cy-op-button" type="button" disabled={busy} onClick={() => setSelected(null)}>取消</button>
         <button className="cy-op-button primary" type="button" disabled={busy || !reviewed || confirmation !== BACKUP_REHEARSAL_CONFIRMATION}
           aria-busy={busy || undefined} onClick={() => void rehearse()}>開始驗證</button></>}>

@@ -116,7 +116,7 @@
 .cy-stocktake-ignored-list{margin-top:18px;border-top:1px solid var(--cy-border);padding-top:14px;min-width:0}
 .cy-stocktake-ignored-list h3{margin:0 0 10px}
 /* Dialog-specific sizing; shared Dialog and ordering table styles remain unchanged elsewhere. */
-.cy-dialog.cy-stocktake-ignore-dialog .cy-dialog-surface{width:min(496px,calc(100vw - 32px))}
+.cy-dialog.cy-stocktake-ignore-dialog > .cy-dialog-surface{width:min(496px,calc(100vw - 32px))}
 .cy-stocktake-ignore-input{display:flex;align-items:flex-end;gap:8px;min-width:0;grid-column:1/-1}
 .cy-stocktake-ignore-input>.cy-f{flex:1 1 auto;min-width:0;max-width:none}
 .cy-stocktake-ignore-input .cy-op-input{width:100%;min-width:0}
@@ -149,7 +149,7 @@
 .cy-stocktake-batch-inline>.cy-icon-button{flex-shrink:0}
 .cy-stocktake-book-mobile{display:block;margin-top:3px;color:var(--cy-text);font-size:var(--cy-fs-xs);overflow-wrap:anywhere}
 .cy-stocktake-book-mobile strong{font-variant-numeric:tabular-nums}
-.cy-dialog.cy-stocktake-records-dialog .cy-dialog-surface{width:min(1700px,calc(100vw - 32px))}
+.cy-dialog.cy-stocktake-records-dialog > .cy-dialog-surface{width:min(1700px,calc(100vw - 32px))}
 .cy-stocktake-records-table{table-layout:fixed;min-width:1080px}
 .cy-stocktake-records-table th,.cy-stocktake-records-table td{white-space:normal;overflow-wrap:anywhere;vertical-align:top}
 .cy-stocktake-records-table .cy-stocktake-record-items{white-space:normal;overflow-wrap:anywhere;line-height:1.5}
@@ -278,8 +278,8 @@
 .cy-store-history ol>li{display:grid;grid-template-columns:140px 84px 86px minmax(0,1fr);gap:8px;padding:3px 0;border-bottom:1px solid var(--cy-border);white-space:nowrap}
 .cy-store-history ol>li>*{overflow:hidden;text-overflow:ellipsis}
 .cy-store-history-summary{min-width:0}
-.cy-dialog.cy-store-order-dialog .cy-dialog-surface{width:min(840px,calc(100vw - 32px))}
-.cy-dialog.cy-store-blacklist-dialog .cy-dialog-surface{width:min(840px,calc(100vw - 32px))}
+.cy-dialog.cy-store-order-dialog > .cy-dialog-surface{width:min(840px,calc(100vw - 32px))}
+.cy-dialog.cy-store-blacklist-dialog > .cy-dialog-surface{width:min(840px,calc(100vw - 32px))}
 .cy-store-entry-table{min-width:600px!important;color:var(--cy-text)}
 .cy-store-entry-table th{padding:6px 8px}
 .cy-store-entry-table td{padding:0;vertical-align:middle}
@@ -294,7 +294,7 @@
 .cy-store-black-phone{width:calc((100% - 62px)/4 - 14px)}
 .cy-store-note-text{white-space:pre-wrap;overflow-wrap:anywhere}
 .cy-store-list-note>.cy-store-note-text{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
-.cy-dialog.cy-store-blacklist-ask .cy-dialog-surface{width:max-content;min-width:0;max-width:calc(100vw - 32px)}
+.cy-dialog.cy-store-blacklist-ask > .cy-dialog-surface{width:max-content;min-width:0;max-width:calc(100vw - 32px)}
 .cy-dialog.cy-store-blacklist-ask .cy-dialog-body{padding:14px}
 .cy-dialog.cy-store-blacklist-ask .cy-dialog-body>p{margin:0 0 20px;white-space:nowrap}
 .cy-store-blacklist-ask .cy-op-form-footer{margin:0;padding:0;border:0;justify-content:flex-end}
@@ -368,7 +368,7 @@
 .cy-store-price-empty{position:absolute;inset:0;display:block;width:100%;height:100%;border:0;background:transparent;cursor:pointer}
 .cy-store-price-empty:hover,.cy-store-price-empty:focus-visible{background:var(--cy-accent-soft)}
 .cy-store-price-input{width:90px!important;box-sizing:border-box;text-align:right}
-.cy-dialog.cy-store-cancel-dialog .cy-dialog-surface{width:min(288px,calc(100vw - 32px))}
+.cy-dialog.cy-store-cancel-dialog > .cy-dialog-surface{width:min(288px,calc(100vw - 32px))}
 .cy-store-entry-name{display:flex;align-items:center;min-width:0}
 .cy-store-entry-name>.cy-f{flex:1;min-width:0}
 .cy-store-entry-name>.cy-store-item-expand{flex:0 0 22px;min-width:22px;width:22px;height:24px;min-height:24px;padding:0;margin:0 3px}
@@ -401,13 +401,13 @@
  .cy-store-repairs .cy-repair-list td.cy-store-milestone,.cy-store-repairs .cy-repair-list td[data-label="照片"],
  .cy-store-repairs .cy-repair-list td[data-label="操作"],.cy-store-repairs .cy-repair-list th.cy-repair-center{text-align:center}
 }
-.cy-repair-form-dialog .cy-dialog-surface{width:min(1080px,calc(100vw - 20px))}
+.cy-repair-form-dialog > .cy-dialog-surface{width:min(1080px,calc(100vw - 20px))}
 .cy-repair-entry-table{min-width:660px;margin-bottom:14px}
 .cy-repair-entry-table td{padding:3px}
 .cy-repair-shipping-fields{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:8px}
 .cy-repair-shipping-fields .cy-f{flex:1;min-width:130px}
 @media(max-width:820px){
- .cy-repair-form-dialog .cy-dialog-surface{width:calc(100vw - 16px)}
+ .cy-repair-form-dialog > .cy-dialog-surface{width:calc(100vw - 16px)}
 }
 
 .cy-repair-ops{position:relative}

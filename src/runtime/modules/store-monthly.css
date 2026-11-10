@@ -33,7 +33,7 @@
 .cy-store-monthly .cy-store-date-popover{max-width:none;width:max-content;box-sizing:border-box}
 .cy-monthly-undo{margin-right:auto!important}
 /* The item table now has a 週期 column; the dialog fits it without horizontal scrolling. */
-.cy-monthly-settings-dialog .cy-dialog-surface{width:min(1080px,calc(100vw - 32px))}
+.cy-monthly-settings-dialog > .cy-dialog-surface{width:min(1080px,calc(100vw - 32px))}
 .cy-monthly-settings-table{min-width:850px!important}
 .cy-monthly-settings-table th{padding:6px 8px}
 .cy-monthly-settings-table td{padding:0;vertical-align:middle}
