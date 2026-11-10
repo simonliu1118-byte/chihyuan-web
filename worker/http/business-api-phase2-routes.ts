@@ -432,6 +432,7 @@ async function handleOutsourcing(request: Request, env: IdentityRuntimeEnv, requ
   if(orderMatch){
     const orderId=routeId(orderMatch[1],"orderId");
     if(request.method==="GET")return success(await flow.detail(orderId),requestId);
+    if(request.method==="PATCH")return success(await flow.updatePending(orderId,await jsonBody(request),mutation),requestId);
     if(request.method==="DELETE")return success(await flow.deleteEmptyOrder(orderId,await jsonBody(request),mutation),requestId);
   }
   return null;
