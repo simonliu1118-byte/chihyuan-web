@@ -14,7 +14,8 @@ export interface DialogProps {
   /** Hide the header X when this view already provides an explicit cancel action. */
   showCloseButton?: boolean;
   presentation?: DialogPresentation;
-  size?: DialogSize;
+  /** Required: every dialog chooses small (short form), medium (normal) or large (tables). */
+  size: DialogSize;
   closeLabel?: string;
   className?: string;
   hideHeader?: boolean;
@@ -135,14 +136,14 @@ export function Dialog({
   );
 }
 
-export type DrawerProps = Omit<DialogProps, "presentation">;
+export type DrawerProps = Omit<DialogProps, "presentation" | "size"> & { size?: DialogSize };
 
 export function Drawer(props: PropsWithChildren<DrawerProps>) {
-  return <Dialog {...props} presentation="drawer" />;
+  return <Dialog size="medium" {...props} presentation="drawer" />;
 }
 
-export type BottomSheetProps = Omit<DialogProps, "presentation">;
+export type BottomSheetProps = Omit<DialogProps, "presentation" | "size"> & { size?: DialogSize };
 
 export function BottomSheet(props: PropsWithChildren<BottomSheetProps>) {
-  return <Dialog {...props} presentation="sheet" />;
+  return <Dialog size="medium" {...props} presentation="sheet" />;
 }

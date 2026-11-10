@@ -50,8 +50,8 @@
 .cy-bot-settings h3{margin:0}
 .cy-bot-settings-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .cy-bot-settings-actions{justify-content:center;flex-wrap:nowrap}
-.cy-dialog.cy-bot-push-dialog .cy-dialog-surface{width:min(414px,calc(100vw - 20px))}
-.cy-dialog.cy-bot-settings-dialog .cy-dialog-surface{width:min(720px,calc(100vw - 20px))}
+.cy-dialog.cy-bot-push-dialog > .cy-dialog-surface{width:min(414px,calc(100vw - 20px))}
+.cy-dialog.cy-bot-settings-dialog > .cy-dialog-surface{width:min(720px,calc(100vw - 20px))}
 .cy-bot-credential-table{min-width:680px}
 .cy-bot-credential-table .cy-op-button.compact{padding-inline:6px}
 .cy-bot-credential-table .cy-bot-settings-actions{gap:4px}
@@ -70,7 +70,7 @@
 
 /* 審稿視窗與今日審完清單 (V0.15.0) */
 .cy-bot-review-preview{display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.cy-bot-review-dialog .cy-dialog-surface{width:min(1040px,calc(100vw - 32px))}
+.cy-bot-review-dialog > .cy-dialog-surface{width:min(1040px,calc(100vw - 32px))}
 .cy-bot-review-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-bottom:12px;color:var(--cy-text-muted);font-size:var(--cy-fs-sm)}
 .cy-bot-review-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:16px;align-items:start}
 .cy-bot-review-toc{position:sticky;top:0;display:grid;gap:2px;max-height:60vh;overflow:auto}

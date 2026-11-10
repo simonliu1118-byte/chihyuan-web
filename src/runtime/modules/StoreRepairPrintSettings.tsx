@@ -15,7 +15,7 @@ export function StoreRepairPrintSettingsDialog({value,busy,onClose,onSave}:{valu
  const submit=(e:FormEvent)=>{e.preventDefault();onSave({...draft,expectedVersion:value.version})};
  const area=(label:string,key:"contact"|"notes"|"cardFooter",max:number,lines:number)=><Field label={label} presentation="cell">
   <textarea className="cy-ordering-cell" rows={lines} maxLength={max} placeholder={`每行一項，最多 ${lines} 行`} value={draft[key]} onChange={e=>set({[key]:e.target.value})}/></Field>;
- return <Dialog open dismissible={false} title="列印設定" className="cy-repair-print-settings" onClose={()=>!busy&&onClose()}><form onKeyDown={enterAdvancesFields} onSubmit={submit}>
+ return <Dialog size="medium" open dismissible={false} title="列印設定" className="cy-repair-print-settings" onClose={()=>!busy&&onClose()}><form onKeyDown={enterAdvancesFields} onSubmit={submit}>
   <EntryTable label="維修單（點陣式）">
    <colgroup><col style={{width:"8em"}}/><col/></colgroup>
    <tbody>

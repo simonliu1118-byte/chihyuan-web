@@ -355,7 +355,7 @@ export function StoreStocktake({role}:{role:string}){
     </>}
    </div>
   </div>
-  {ignoreForm!==null?<Dialog open title="忽略底稿管理" className="cy-stocktake-ignore-dialog" onClose={()=>setIgnoreForm(null)}>
+  {ignoreForm!==null?<Dialog size="small" open title="忽略底稿管理" className="cy-stocktake-ignore-dialog" onClose={()=>setIgnoreForm(null)}>
    <form className="cy-stocktake-ignore-form" onKeyDown={enterAdvancesThenSubmits} onSubmit={e=>void addIgnored(e)}>
     <FormSection><div className="cy-stocktake-ignore-input">
      <Field label="底稿編號" size="l" required>
@@ -380,7 +380,7 @@ export function StoreStocktake({role}:{role:string}){
     </div>:<p className="cy-op-empty">目前沒有忽略底稿。</p>}
    </section>
   </Dialog>:null}
-  {batchForm?<Dialog showCloseButton={false} open title="新增批號" onClose={()=>setBatchForm(null)}>
+  {batchForm?<Dialog size="small" showCloseButton={false} open title="新增批號" onClose={()=>setBatchForm(null)}>
    <form onKeyDown={enterAdvancesFields} onSubmit={e=>void addBatch(e)}>
     <FormSection>
      <Field label="品號" size="m"><input className="cy-op-input" value={batchForm.itemCode} readOnly/></Field>
@@ -395,7 +395,7 @@ export function StoreStocktake({role}:{role:string}){
      <button type="submit" className="cy-op-button primary" disabled={busy}>新增</button></div>
    </form>
   </Dialog>:null}
-  {manualOpen?<Dialog open title="ERP 儲位待手動修改" onClose={()=>setManualOpen(false)}>
+  {manualOpen?<Dialog size="large" open title="ERP 儲位待手動修改" onClose={()=>setManualOpen(false)}>
    <p>此清單只用來核對人工 ERP 作業，本頁不會呼叫 QUERY 修改儲位。須在 ERP 完成作業後再標記完成。</p>
    {manualRows.length?<div className="cy-op-table-wrap">
     <table className="cy-op-table cy-rt cy-stocktake-manual-table">
@@ -410,7 +410,7 @@ export function StoreStocktake({role}:{role:string}){
     </table>
    </div>:<p className="cy-op-empty">目前沒有需要人工修改的 ERP 儲位。</p>}
   </Dialog>:null}
-  {history?<Dialog open title={history.line.itemCode+"／"+(history.cell.locationCode||"未指定儲位")+"／"+history.line.batch+" 修改紀錄"} onClose={()=>setHistory(null)}>
+  {history?<Dialog size="medium" open title={history.line.itemCode+"／"+(history.cell.locationCode||"未指定儲位")+"／"+history.line.batch+" 修改紀錄"} onClose={()=>setHistory(null)}>
     {history.rows.length? <ul>{history.rows.map(h=><li key={h.id}>{date(h.at)} {h.actorName}：{h.field} {h.beforeValue??"未填"} → {h.afterValue??"空"}</li>)}</ul>:
      <p>尚無修改紀錄。</p>}
    </Dialog>:null}

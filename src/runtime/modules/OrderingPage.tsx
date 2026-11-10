@@ -798,14 +798,14 @@ export function OrderingPage({canRestock=false,canQueryItem=false}:{canRestock?:
       <button type="button" className="cy-op-button primary" onClick={()=>setSourceForm({kind:"GENERAL",name:"",conditions:"",paymentTerms:"",note:""})}>＋ 新增來源</button></div>
     </div>
   </Dialog>:null}
-  {hiddenSourcesOpen?<Dialog open title="已隱藏叫貨來源" onClose={()=>setHiddenSourcesOpen(false)}>
+  {hiddenSourcesOpen?<Dialog size="small" open title="已隱藏叫貨來源" onClose={()=>setHiddenSourcesOpen(false)}>
    <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>名稱</th><th>類型</th><th>操作</th></tr></thead>
     <tbody>{sources.filter(x=>!x.isActive).map(s=><tr key={s.id}><td>{s.name}</td><td>{s.kind==="VENDOR"?"外部廠商":"公司內部"}</td>
      <td><button className="cy-op-button compact" type="button" disabled={busy} onClick={()=>void updateVisibility(s)}>恢復</button></td></tr>)}</tbody></table>
     {!sources.some(x=>!x.isActive)?<p className="cy-op-empty">目前沒有已隱藏的來源。</p>:null}</div>
    <div className="cy-op-form-footer"><button className="cy-op-button" type="button" onClick={()=>setHiddenSourcesOpen(false)}>關閉</button></div>
   </Dialog>:null}
-  {sourceForm?<Dialog showCloseButton={false} open title={sourceForm.id?"修改叫貨來源":"新增叫貨來源"} onClose={()=>setSourceForm(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void saveSource(e)}>
+  {sourceForm?<Dialog size="small" showCloseButton={false} open title={sourceForm.id?"修改叫貨來源":"新增叫貨來源"} onClose={()=>setSourceForm(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void saveSource(e)}>
     <FormSection>
      <Field label="名稱" size="m" required><input className="cy-op-input" maxLength={40} required value={sourceForm.name} onChange={e=>setSourceForm(s=>s?{...s,name:e.target.value}:s)}/></Field>
      {!sourceForm.id?<Field label="類型" size="s"><select className="cy-op-input" value={sourceForm.kind} onChange={e=>setSourceForm(s=>s?{...s,kind:e.target.value as "GENERAL"|"VENDOR"}:s)}><option value="GENERAL">公司內部</option><option value="VENDOR">外部廠商</option></select></Field>:null}

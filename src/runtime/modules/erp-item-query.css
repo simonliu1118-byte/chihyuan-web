@@ -197,7 +197,7 @@
 .cy-ordering-closed-note:first-child { padding-top: 7px; }
 .cy-ordering-grid td[data-locked], .cy-ordering-grid td[data-locked] .cy-ordering-cell-text { background: var(--cy-surface-muted); color: var(--cy-text-muted); cursor: not-allowed; }
 .cy-ordering-receipt-table { table-layout: fixed; min-width: 900px; }
-.cy-dialog.cy-ordering-receipt-dialog .cy-dialog-surface { width: min(1120px, calc(100vw - 32px)); }
+.cy-dialog.cy-ordering-receipt-dialog > .cy-dialog-surface { width: min(1120px, calc(100vw - 32px)); }
 .cy-ordering-receipt-table th { white-space: nowrap; }
 .cy-ordering-receipt-table .cy-f,.cy-ordering-receipt-table .cy-f-check { margin: 0; min-height: 0; }
 .cy-ordering-receipt-col-select { width: 42px; }

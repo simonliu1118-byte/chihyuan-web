@@ -1,6 +1,6 @@
 /* Module settings dialog (V0.9.97–0.9.99): narrow, and the structural lookups are one dense table
    in the same look as the record sheets (borders, grey header, inline editing). */
-.cy-module-settings-dialog.cy-dialog-medium .cy-dialog-surface { width: min(520px, calc(100vw - 32px)); }
+.cy-module-settings-dialog.cy-dialog-medium > .cy-dialog-surface { width: min(520px, calc(100vw - 32px)); }
 .cy-module-settings-dialog .cy-page-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .cy-module-settings-dialog .cy-settings-add { margin-left: auto; }
 .cy-settings-readonly { margin: 0 0 8px; font-size: var(--cy-fs-sm); }

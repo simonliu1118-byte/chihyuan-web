@@ -68,7 +68,7 @@ test("Threads card shows daily totals and targeted dialogs have narrower widths"
  assert.match(page,/已送出 \{state\.workSummary\.patrols\.sentToday\} 則・待送出 \{state\.workSummary\.patrols\.toSend\} 則/);
  assert.match(dialog,/className="cy-bot-push-dialog"/);
  assert.match(page,/className="cy-bot-settings-dialog"/);
- assert.match(css,/\.cy-dialog\.cy-bot-push-dialog \.cy-dialog-surface\{width:min\(414px/);
- assert.match(css,/\.cy-dialog\.cy-bot-settings-dialog \.cy-dialog-surface\{width:min\(720px/);
+ assert.match(css,/\.cy-dialog\.cy-bot-push-dialog > \.cy-dialog-surface\{width:min\(414px/);
+ assert.match(css,/\.cy-dialog\.cy-bot-settings-dialog > \.cy-dialog-surface\{width:min\(720px/);
  assert.match(css,/\.cy-bot-credential-table\{min-width:680px\}/);
 });
