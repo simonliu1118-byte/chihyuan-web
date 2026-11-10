@@ -156,7 +156,10 @@ export class OutsourcingFlowService {
       const itemId=id(p.itemId,"itemId"),item=refs.get(itemId);if(!item)throw new FieldValidationError({itemId:"找不到成品"});
       const bomId=p.bomRecipeId == null ? null : id(p.bomRecipeId,"bomRecipeId");
       if(bomId){const bom=await this.db.prepare("SELECT id FROM bom_recipes WHERE id=? AND finished_item_id=? AND is_active=1").bind(bomId,itemId).first();if(!bom)throw new FieldValidationError({bomRecipeId:"BOM 與成品不符"});}
-      normalized.push({itemId,bomId,quantity:qty(p.quantity,"quantity"),unit:text(p.unit,"unit"),sort:index});
+      const quantity=qty(p.quantity,"quantity"),unit=text(p.unit,"unit");
+      try{convertScaled4Exact(quantity,unit,item.base_unit,item.base_unit,item.conversions);}
+      catch{throw new FieldValidationError({unit:"成品計量單位無法換算"});}
+      normalized.push({itemId,bomId,quantity,unit,sort:index});
     }
     const reference="OUT-"+actor.now.slice(0,10).replace(/-/g,"")+"-"+crypto.randomUUID().slice(0,8).toUpperCase();
     const stmts:D1PreparedStatement[]=[this.db.prepare(`INSERT INTO outsourcing_orders
@@ -191,7 +194,10 @@ export class OutsourcingFlowService {
         const bom=await this.db.prepare("SELECT id FROM bom_recipes WHERE id=? AND finished_item_id=? AND is_active=1").bind(bomId,itemId).first();
         if(!bom)throw new FieldValidationError({bomRecipeId:"BOM 與成品不符"});
       }
-      normalized.push({itemId,bomId,quantity:qty(p.quantity,"quantity"),unit:text(p.unit,"unit"),index});
+      const quantity=qty(p.quantity,"quantity"),unit=text(p.unit,"unit");
+      try{convertScaled4Exact(quantity,unit,item.base_unit,item.base_unit,item.conversions);}
+      catch{throw new FieldValidationError({unit:"成品計量單位無法換算"});}
+      normalized.push({itemId,bomId,quantity,unit,index});
     }
     const stmts:D1PreparedStatement[]=[
       this.db.prepare(`UPDATE outsourcing_orders SET contractor_id=?,contractor_name_snapshot=?,
@@ -313,6 +319,9 @@ export class OutsourcingFlowService {
       const productId=id(x.orderProductId,"orderProductId"),p=productMap.get(productId);
       if(!p)throw new FieldValidationError({orderProductId:"成品不屬於此代工單"});
       const quantity=qty(x.quantity,"quantity"),unit=text(x.unit,"unit"),finished=refs.get(p.item_id)!;
+      try{convertScaled4Exact(quantity,unit,p.unit,finished.base_unit,finished.conversions);}
+      catch{throw new FieldValidationError({unit:"交貨單位無法換算到工單單位"});}
+
       const bomId=x.bomRecipeId == null ? p.bom_recipe_id : id(x.bomRecipeId,"bomRecipeId");
       const currentPrice=await this.db.prepare("SELECT pricing_unit,unit_price FROM contractor_pricing WHERE contractor_id=? AND item_id=?").bind(o.contractor_id,p.item_id).first<Row>();
       let pricedUnit=currentPrice?.pricing_unit??null,unitPrice=currentPrice?.unit_price??null;
@@ -624,6 +633,8 @@ export class OutsourcingFlowService {
   }
   async confirmStatement(statementId:number,raw:unknown,actor:FlowActor) {
     const b=object(raw),s=await this.draftStatement(statementId,b.expectedRevision);
+    const hasLines=await this.db.prepare("SELECT 1 FROM outsourcing_statement_lines WHERE statement_id=? LIMIT 1").bind(statementId).first();
+    if(!hasLines)throw new FieldValidationError({statementId:"對帳單沒有有效交貨明細"});
     const unpriced=await this.db.prepare("SELECT 1 FROM outsourcing_statement_lines WHERE statement_id=? AND unit_price IS NULL LIMIT 1").bind(statementId).first();
     if(unpriced)throw new FieldValidationError({unitPrice:"所有明細均須設定單價"});
     await this.db.batch([
