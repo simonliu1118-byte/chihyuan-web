@@ -43,6 +43,7 @@ export const flowApi={
   listOrders:(q:Dict={})=>apiRequest<{items:FlowOrder[];nextCursor:null}>(root+"/orders"+params(q)),
   order:(id:number)=>apiRequest<FlowOrder>(root+"/orders/"+id),
   createOrder:(data:unknown)=>apiRequest<FlowOrder>(root+"/orders",{method:"POST",json:data}),
+  updateOrder:(id:number,data:unknown)=>apiRequest<FlowOrder>(root+"/orders/"+id,{method:"PATCH",json:data}),
   issue:(id:number,data:unknown)=>apiRequest<FlowOrder>(root+"/orders/"+id+"/issues",{method:"POST",json:data}),
   receive:(id:number,data:unknown)=>apiRequest<FlowOrder>(root+"/orders/"+id+"/receipts",{method:"POST",json:data}),
   cancelIssue:(id:number,entry:number,revision:number)=>apiRequest<FlowOrder>(root+`/orders/${id}/issues/${entry}/cancel`,{method:"POST",json:{expectedRevision:revision}}),
