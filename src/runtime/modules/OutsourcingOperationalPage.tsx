@@ -136,6 +136,17 @@ export function OutsourcingOperationalPage(){
   catch(e){setError(outsourcingErrorMessage(e));}finally{setBusy(false);}
  };
  function openOrderCreate(){setDraft({contractorId:contractors[0]?.id??null,orderDate:taipeiToday(),note:"",products:[newLine()]});setOrderId(null);setOrder(null);}
+ async function startOrderEdit(){
+   if(!order||order.issues.length||order.receipts.length||order.closed_at)return;
+   setBusy(true);setError("");
+   try {
+     const options=(await loadOutsourcingLookups({itemIds:order.products.map(p=>p.item_id),limit:100})).items;
+     setDraft({contractorId:order.contractor_id,orderDate:order.order_date,note:order.note??"",
+       products:order.products.map(p=>({key:++nextKey,item:options.find(x=>x.id===p.item_id)??null,
+         bomId:p.bom_recipe_id,quantity:formatScaled4(p.planned_quantity),unit:p.unit}))});
+   }catch(e){setError(outsourcingErrorMessage(e));}finally{setBusy(false);}
+ }
+
  function patchLine(index:number,value:Partial<ItemDraft>){setDraft(d=>d?{...d,products:d.products.map((p,i)=>i===index?{...p,...value}:p)}:d);}
  function selectFinished(index:number,item:OutsourcingItemOption|null){
   const options=boms.filter(b=>b.isActive&&b.finishedItemId===item?.id);
@@ -146,13 +157,16 @@ export function OutsourcingOperationalPage(){
   {label:"BOM",view:p=>boms.find(b=>b.id===p.bomId)?.recipeRef??"—",edit:(p,i)=><select className="cy-sheet-input" value={p.bomId??""} onChange={e=>patchLine(i,{bomId:e.target.value?Number(e.target.value):null})}>
     <option value="">不指定</option>{boms.filter(b=>b.isActive&&b.finishedItemId===p.item?.id).map(b=><option key={b.id} value={b.id}>{b.recipeRef}</option>)}</select>},
   {label:"預計數量",width:"120px",view:p=>p.quantity,edit:(p,i)=><input className="cy-sheet-input" inputMode="decimal" value={p.quantity} onChange={e=>patchLine(i,{quantity:e.target.value})}/>},
-  {label:"單位",width:"110px",view:p=>p.unit,edit:(p,i)=>unitSelect(p.item,p.unit,v=>patchLine(i,{unit:v}),busy)}
+  {label:"單位",width:"110px",view:p=>p.unit,edit:(p,i)=>unitSelect(p.item,p.unit,v=>patchLine(i,{unit:v}),busy)},
+  {label:"已交",view:()=>"0",edit:()=> <span>0</span>},
+  {label:"進度",view:()=> <ProductionGauge planned={1} delivered={0}/>,edit:()=> <ProductionGauge planned={1} delivered={0}/>}
  ];
  const active=order?.products??[];
  const productsColumns:RowColumn<FlowOrder["products"][number]>[]=[
   {label:"成品",view:p=>p.item_no+" "+p.item_name,edit:()=> <span/>},
   {label:"BOM",view:p=>p.recipe_ref??"—",edit:()=> <span/>},
-  {label:"預計",view:p=>number(p.planned_quantity)+" "+p.unit,edit:()=> <span/>},
+  {label:"預計數量",view:p=>number(p.planned_quantity),edit:()=> <span/>},
+  {label:"單位",view:p=>p.unit,edit:()=> <span/>},
   {label:"已交",view:p=>number(p.delivered_quantity)+" "+p.unit,edit:()=> <span/>},
   {label:"進度",view:p=><ProductionGauge planned={p.planned_quantity} delivered={p.delivered_quantity}/>,edit:()=> <span/>}
  ];
@@ -229,13 +243,14 @@ export function OutsourcingOperationalPage(){
       </form>:order?<div>
        <div className="cy-record-header"><div><h2>{order.contractor_name_snapshot}</h2><small>{order.outsourcing_ref} · {statusLabel[order.statusCode]}</small></div>
         <div className="cy-record-actions">{!order.closed_at?<>
-          {button("＋ 發料",()=>begin("issue"),busy,true)}{button("＋ 交貨入庫",()=>begin("receipt"),busy,true)}
+          {order.issues.length===0&&order.receipts.length===0?button("修改",()=>void startOrderEdit(),busy):null}
+   {button("＋ 發料",()=>begin("issue"),busy,true)}{button("＋ 交貨入庫",()=>begin("receipt"),busy,true)}
           {button("結案",()=>begin("close"),busy)}
          </>:button("重新開啟",()=>void run(()=>flowApi.reopen(order.id,order.revision)),busy)}
          <OverflowMenu items={[{label:"刪除空白代工單",danger:true,disabled:busy,onClick:()=>void run(()=>flowApi.deleteOrder(order.id,order.revision),()=>setOrderId(null))}]}/>
         </div></div>
        <RecordSheet label="代工單資料" editing={false} rows={[
-        {columns:"2fr 1fr 1fr",cells:[{label:"廠商",view:order.contractor_name_snapshot},{label:"工單日期",view:order.order_date},{label:"狀態",view:statusLabel[order.statusCode]}]},
+        {columns:"2fr 1fr 1fr",cells:[{label:"協力廠商",view:order.contractor_name_snapshot},{label:"工單日期",view:order.order_date},{label:"狀態",view:statusLabel[order.statusCode]}]},
         {columns:"1fr",cells:[{label:"備註",view:order.note}]}
        ]}/>
        <RecordRows title="成品" editing={false} columns={productsColumns} rows={active} rowKey={p=>p.id} onInsert={()=>{}} onRemove={()=>{}}/>
