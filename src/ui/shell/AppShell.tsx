@@ -69,6 +69,38 @@ export function AppShell({
   const compact = useCompactLayout();
 
   useEffect(() => { setNavigationOpen(false); }, [pageTitle, compact]);
+  // Phone: swipe right from the left edge opens the menu; swipe left closes it (user 2026-11-10).
+  useEffect(() => {
+    if (!compact) return;
+    let start: { x: number; y: number; opening: boolean } | null = null;
+    const down = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (e.touches.length !== 1 || !t) { start = null; return; }
+      const navOpen = Boolean(document.querySelector("dialog.cy-shell-navigation-drawer[open]"));
+      if (navOpen) start = { x: t.clientX, y: t.clientY, opening: false };
+      else if (t.clientX <= 24 && !document.querySelector("dialog[open]")) start = { x: t.clientX, y: t.clientY, opening: true };
+      else start = null;
+    };
+    const move = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (!start || !t) return;
+      const dx = t.clientX - start.x, dy = Math.abs(t.clientY - start.y);
+      if (dy > 40 && dy > Math.abs(dx)) { start = null; return; }
+      if (start.opening && dx > 50) { start = null; setNavigationOpen(true); }
+      else if (!start.opening && dx < -60) { start = null; setNavigationOpen(false); }
+    };
+    const end = () => { start = null; };
+    document.addEventListener("touchstart", down, { passive: true });
+    document.addEventListener("touchmove", move, { passive: true });
+    document.addEventListener("touchend", end, { passive: true });
+    document.addEventListener("touchcancel", end, { passive: true });
+    return () => {
+      document.removeEventListener("touchstart", down);
+      document.removeEventListener("touchmove", move);
+      document.removeEventListener("touchend", end);
+      document.removeEventListener("touchcancel", end);
+    };
+  }, [compact]);
   // The same list is mounted once: sidebar on desktop, modal drawer on compact screens.
   const navigationContent = <>
     <div className="cy-shell-brand">
@@ -130,7 +162,7 @@ export function AppShell({
           {children}
         </main>
       </div>
-      {compact ? <Drawer open={navigationOpen} title="模組選單" onClose={() => setNavigationOpen(false)} className="cy-shell-navigation-drawer" hideHeader showCloseButton={false}>{navigationContent}</Drawer> : null}
+      {compact ? <Drawer open={navigationOpen} title="模組選單" onClose={() => setNavigationOpen(false)} className="cy-shell-navigation-drawer" hideHeader showCloseButton={false} closeOnBackdrop>{navigationContent}</Drawer> : null}
     </div>
   );
 }
