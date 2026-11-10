@@ -71,7 +71,7 @@ try {
    const capture=async name=>{await page.screenshot({path:directory+"/"+spec.name+"-"+name+".png",fullPage:true,animations:"disabled"});};
    await load();
    await page.locator(".cy-op-list-row").first().click();
-   await page.getByText(order.outsourcing_ref).first().waitFor();
+   await page.locator(".cy-md-detail").getByText(order.outsourcing_ref).waitFor();
    await capture("01-order");
    await page.getByRole("button",{name:"＋ 發料"}).click();
    await page.getByRole("dialog").waitFor();
