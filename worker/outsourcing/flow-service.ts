@@ -90,7 +90,7 @@ export class OutsourcingFlowService {
       WHERE p.outsourcing_order_id=? ORDER BY p.sort_order,p.id`).bind(orderId).all<Row>();
     return (r.results??[]).map(p=>({...p,progress:outsourcingProgress(p.planned_quantity,p.delivered_quantity)})) as Row[];
   }
-  async detail(orderId:number) {
+  async detail(orderId:number):Promise<Row> {
     const order=await this.order(orderId);
     const [products,issues,receipts]=await Promise.all([
       this.productProgress(orderId),
