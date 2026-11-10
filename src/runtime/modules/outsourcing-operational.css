@@ -1,22 +1,33 @@
-/* Outsourcing part editor and receipt row. Everything else uses the shared design system. */
+/* 委外／代工：只放本模組特有的排版；清單、單據、表格、按鈕都用共用元件。 */
 .cy-outsourcing-op { min-width: 0; }
-.cy-out-part { display: grid; grid-template-columns: minmax(160px, 2fr) 80px 80px minmax(140px, 1.6fr) minmax(110px, 1fr) auto; gap: 8px; align-items: center; }
-.cy-out-part-head { color: var(--cy-text-muted); font-size: var(--cy-fs-xs); }
-.cy-out-receipt { display: grid; grid-template-columns: minmax(180px, 2fr) minmax(120px, 1fr) 110px 90px; gap: 8px; }
 .cy-out-hint { margin: 0 0 8px; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
-.cy-out-stock-select { width: auto; min-width: 200px; }
-.cy-out-contact { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(90px, .8fr) minmax(110px, 1fr) minmax(110px, 1fr) auto; gap: 8px; align-items: center; }
-.cy-out-component { display: grid; grid-template-columns: minmax(200px, 2fr) 100px 100px auto; gap: 8px; align-items: start; }
 .cy-out-subsection-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .cy-out-subsection-head h3 { margin: 0; }
-@media (max-width: 1180px) {
-  .cy-out-part { grid-template-columns: minmax(0, 1fr) 80px 80px; }
-  .cy-out-part > :nth-child(4) { grid-column: 1 / 2; }
-  .cy-out-part > :nth-child(5) { grid-column: 2 / 4; }
-  .cy-out-part-head { display: none; }
-  .cy-out-part:not(.cy-out-part-head) { padding-bottom: 8px; border-bottom: 1px dashed var(--cy-border); }
-  .cy-out-receipt { grid-template-columns: 1fr 1fr; }
-}
+
+/* Read-only tables: compact rows, numbers right, actions centred (same as 叫貨明細). */
+.cy-out-table { table-layout: auto; }
+.cy-out-table td, .cy-out-table th { vertical-align: middle; }
+.cy-out-table .is-number { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cy-out-table .is-center { text-align: center; white-space: nowrap; }
+.cy-out-table tr.cy-out-adjust td { color: var(--cy-text-muted); }
+.cy-out-table tr.cy-out-total td { font-weight: 700; background: var(--cy-surface-muted); }
+.cy-out-paid { margin-left: 8px; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); font-weight: 400; }
+
+/* 代工庫存: one toolbar row, one block per contractor, grouped by finished product. */
+.cy-out-stock-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.cy-out-stock-toolbar > .cy-op-input[type=search] { flex: 0 1 260px; min-width: 160px; }
+.cy-out-stock-toolbar > select.cy-op-input { flex: 0 0 auto; width: auto; min-width: 140px; }
+.cy-out-check { display: inline-flex; align-items: center; gap: 6px; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); white-space: nowrap; }
+.cy-out-spacer { flex: 1 1 auto; }
+.cy-out-stock-block { border: 1px solid var(--cy-border); border-radius: var(--cy-radius-md, 10px); padding: 10px 12px; }
+.cy-out-stock-block + .cy-out-stock-block { margin-top: 10px; }
+.cy-out-stock-head { display: flex; align-items: baseline; gap: 10px; }
+.cy-out-stock-head strong { font-size: var(--cy-fs-md); }
+.cy-out-stock-head > span:not(.cy-out-spacer) { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
+.cy-out-stock-group h3 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin: 12px 0 6px; font-size: var(--cy-fs-md); }
+.cy-out-stock-group h3 span { color: var(--cy-text-muted); font-weight: 400; font-size: var(--cy-fs-sm); }
+.cy-out-stock-group h3 em { font-style: normal; font-weight: 400; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
+.cy-out-stock-group h3 em.is-short { color: var(--cy-danger); font-weight: 600; }
 
 /* Derived ledger can be negative after lawful cancellation. Never hide the sign. */
-.cy-outsourcing-op .cy-op-negative{color:var(--cy-danger,#bb2631);font-weight:700}
+.cy-outsourcing-op .cy-op-negative { color: var(--cy-danger, #bb2631); font-weight: 700; }
