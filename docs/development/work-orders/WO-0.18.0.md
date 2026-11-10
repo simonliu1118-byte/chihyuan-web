@@ -1,7 +1,7 @@
 # WO-0.18.0 委外／代工流程改版：分批發料與交貨、代工庫存電池條、對帳付款
 
 - 狀態：**執行中（尚未驗收）**
-- 分支：`cyweb/wo-0.18.0-outsourcing`　PR：#（待建立）
+- 分支：`cyweb/wo-0.18.0-outsourcing`　PR：#494（Draft，開發中）
 - 版號：V0.18.0（若已被占用就用下一個空號，CHANGELOG 同步）
 - 開工前必讀：
   - `docs/architecture/CONTRACTOR_OUTSOURCING_MODULE_CONTRACT.md`（現行規格，本單完成後要改寫）
