@@ -213,9 +213,9 @@ export function OutsourcingOperationalPage(){
       </button>)}
     </section>
     <section className="cy-op-panel">
-     {draft?<form onSubmit={e=>{e.preventDefault();void run(async()=>{const created=await flowApi.createOrder({
+     {draft?<form onKeyDown={enterAdvancesFields} onSubmit={e=>{e.preventDefault();void run(async()=>{const created=await flowApi.createOrder({
        contractorId:draft.contractorId,orderDate:draft.orderDate,note:draft.note,products:draft.products.map(p=>({
-         itemId:p.item?.id,bomRecipeId:p.bomId,quantity:p.quantity,unit:p.unit}))});setOrderId(created.id);setDraft(null);});}} onKeyDown={enterAdvancesFields}>
+         itemId:p.item?.id,bomRecipeId:p.bomId,quantity:p.quantity,unit:p.unit}))});setOrderId(created.id);setDraft(null);});}}>
        <div className="cy-op-panel-header"><h2>新增代工單</h2></div>
        <RecordSheet label="代工單資料" editing rows={[
         {columns:"2fr 1fr",cells:[
@@ -323,7 +323,7 @@ export function OutsourcingOperationalPage(){
     issue:"新增發料",receipt:"新增交貨入庫",return:"退料",adjust:"盤點調整","statement-create":"建立對帳單",
     "statement-edit":"修改對帳單",payment:"登記付款",close:"結案"
   }[action??"issue"]??"異動紀錄"} size={action==="close"?"small":action==="payment"?"medium":"large"} onClose={()=>setAction(null)}>
-   <form onSubmit={e=>void submitAction(e)} onKeyDown={enterAdvancesFields}>
+   <form onKeyDown={enterAdvancesFields} onSubmit={e=>void submitAction(e)}>
     {action==="issue"||action==="receipt"||action==="return"||action==="adjust"||action==="payment"||action==="statement-create"?<Grid label="日期資料" headers={action==="receipt"?["日期","ERP 單號"]:["日期","備註"]}>
       <Cell label="日期"><DateInput value={entryDate} onChange={setEntryDate}/></Cell>
       <Cell label={action==="receipt"?"ERP 單號":"備註"}><input className="cy-sheet-input" value={action==="receipt"?erpNo:entryNote} onChange={e=>action==="receipt"?setErpNo(e.target.value):setEntryNote(e.target.value)}/></Cell>
