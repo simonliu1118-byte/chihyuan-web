@@ -153,6 +153,12 @@
 - 帳號與權限：手機 ModuleSections 分頁、使用者 DataViewToolbar/ListRow，原權限抽屜控制依業務 owner 不變；群組矩陣 cy-rt 並以 shared CSS 還原每個 checkbox 的操作能力，維持桌機的權限 table。
 - 異動紀錄以 DataViewToolbar 和 cy-rt，備份共用 LineTable cy-rt，保留記錄展開和安全確認。首頁待辦／通知預覽 ListRow，其他模組原有 DataView renderCard、Dialog/Field/EntryTable 已符合共用策略，不新增替身。
 
+### WO-0.18.0 委外代工庫存／產出進度
+- `src/ui/data/StockGauge.tsx`：`StockGauge` 是廠商庫存電池條（綠／黃／紅、整數百分比、負庫存顯示「—」）；baseline 與顏色由 `shared/outsourcing-flow.ts` 算，元件不儲存庫存 authority。
+- `ProductionGauge` 共用同樣的條狀元件樣式，成品進度 = 實交／預計，最多 100%。
+- 代工資料單使用 `RecordSheet`＋`RecordRows`，新增發料、交貨、退料、盤點、對帳與付款視窗用 `Dialog`＋`EntryTable`；手機沿用單一 820px 共用排法，不得另建一套 business state。
+- **本項仍在 V0.18.0 開發分支，尚待 CI 與 Claude 審查，不代表正式站已採用。**
+
 ### WO-0.16.0 商品主檔與共用格子內價格表
 - 商品檢視與編輯共用 `RecordSheet` 與 `Field`；基準單位換算及批發多列價格仍由商品表單 owner 管理，不另外建立儲存層。
 - `src/ui/forms/InlineGridField.tsx` 是共用格內多欄價格輸入，欄名在上、每格十進位輸入在下，由父層提供欄位清單／onChange；手機沿用 `RecordSheet` 的響應式編排。
