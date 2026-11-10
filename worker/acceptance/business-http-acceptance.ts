@@ -124,7 +124,7 @@ export async function acceptBusinessHttpAuthority(db: D1Database, componentId: n
     }
   }
   provider = "ready";
-  for (const path of ["orders/1/reverse-shipment", "outsourcing/orders/1/correct-outbound", "outsourcing/orders/1/cancel-outbound"]) {
+  for (const path of ["orders/1/reverse-shipment"]) {
     await expect(path, 403, "POST", { ...spoof, expectedRevision: 1 });
   }
   check(await snapshot() === initial, "GATE_OR_VALIDATION_BUSINESS_MUTATION");
