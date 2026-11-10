@@ -175,10 +175,11 @@ def main() -> int:
 
     for action in (
         "reverse-shipment",
-        "confirm-outbound",
-        "correct-outbound",
-        "cancel-outbound",
-        "cancel-payment",
+        "issues",
+        "receipts",
+        "statements",
+        "confirm",
+        "payments",
         "submit",
         "review",
         "cancel-review",
