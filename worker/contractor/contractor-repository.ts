@@ -13,6 +13,7 @@ type ContractorRow = {
   id: number;
   entity_type: "person" | "organization";
   display_name: string;
+  billing_method: "single" | "monthly";
   legal_name: string | null;
   tax_id: string | null;
   phone: string | null;
@@ -66,6 +67,7 @@ function toSummary(row: ContractorRow): ContractorSummary {
     id: row.id,
     entityType: row.entity_type,
     displayName: row.display_name,
+    billingMethod: row.billing_method,
     legalName: row.legal_name,
     taxId: row.tax_id,
     phone: row.phone,
@@ -106,7 +108,7 @@ export class ContractorRepository {
       : 30;
     params.push(limit + 1);
     const result = await this.db.prepare(`
-      SELECT c.id, c.entity_type, c.display_name, c.legal_name, c.tax_id, c.phone,
+      SELECT c.id, c.entity_type, c.display_name,c.billing_method, c.legal_name, c.tax_id, c.phone,
              c.is_active, c.updated_at, c.revision
         FROM contractors AS c
         ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
@@ -123,7 +125,7 @@ export class ContractorRepository {
   async getDetail(contractorId: number): Promise<ContractorDetail | null> {
     const results = await this.db.batch([
       this.db.prepare(`
-        SELECT id, entity_type, display_name, legal_name, tax_id, phone, address, note,
+        SELECT id, entity_type, display_name,billing_method, legal_name, tax_id, phone, address, note,
                is_active, created_at, updated_at, revision
           FROM contractors WHERE id = ? LIMIT 1
       `).bind(contractorId),
