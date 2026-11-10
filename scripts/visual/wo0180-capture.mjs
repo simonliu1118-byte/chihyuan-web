@@ -14,7 +14,7 @@ const itemList=[product,component,component2];
 const contractor={id:1,entityType:"organization",displayName:"高雄甲代工廠",billingMethod:"monthly",legalName:"高雄甲工業有限公司",taxId:"",phone:"07-200-1234",isActive:true,revision:1,updatedAt:"2026-11-10T08:00:00Z"};
 const bom={id:11,recipeRef:"標準組裝配方 A",finishedItemId:101,outputQuantity:"1",outputUnit:"EA",isActive:true,revision:1,updatedAt:"2026-11-10T08:00:00Z",components:[]};
 const order={id:1,outsourcing_ref:"OUT-20261110-A001",contractor_id:1,contractor_name_snapshot:contractor.displayName,order_date:"2026-11-10",note:"分批生產驗收",revision:3,closed_at:null,closed_reason:null,statusCode:"in_production",
-  products:[{id:11,item_id:101,item_no:"FIN-001",item_name:"志遠成品 A",bom_recipe_id:11,recipe_ref:"標準組裝配方 A",planned_quantity:200000,delivered_quantity:120000,progress:60,unit:"EA"}],
+  products:[{id:11,item_id:101,item_no:"FIN-001",item_name:"志遠成品 A",bom_recipe_id:11,recipe_ref:"標準組裝配方 A",planned_quantity:200000,delivered_quantity:120000,progress:60,unit:"EA",current_pricing_unit:"EA",current_unit_price:25000,allowed_units:["EA","BOX"]}],
   issues:[{id:1,issued_date:"2026-11-08",note:"第一批",cancelled_at:null,items:[{id:1,item_id:201,item_no:"MAT-001",name:"原料甲",quantity:1000000,unit:"EA"},{id:2,item_id:202,item_no:"MAT-002",name:"原料乙",quantity:300000,unit:"EA"}]}],
   receipts:[{id:1,received_date:"2026-11-09",erp_no:"IN-20261109-01",note:"第一批交貨",cancelled_at:null,items:[{id:1,item_id:101,item_no:"FIN-001",name:"志遠成品 A",order_product_id:11,quantity:120000,unit:"EA",unit_price:25000,pricing_unit:"EA",statement_status:"confirmed"}]}]};
 const balances=[
