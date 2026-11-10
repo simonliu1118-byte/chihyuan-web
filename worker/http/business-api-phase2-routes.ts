@@ -374,6 +374,16 @@ async function handleOutsourcing(request: Request, env: IdentityRuntimeEnv, requ
       .bind(...(contractorId?[contractorId]:[])).all();
     return success({items:history.results??[]}, requestId);
   }
+  if (url.pathname === "/api/business/outsourcing/stock/groups" && request.method==="GET"){
+    const contractorId=positiveInteger(url.searchParams.get("contractorId"),"contractorId");
+    return success(await flow.groupedStock(contractorId,url.searchParams.get("showAll")==="true"),requestId);
+  }
+  let insightMatch=/^\/api\/business\/outsourcing\/orders\/(\d+)\/issue-suggestion$/.exec(url.pathname);
+  if(insightMatch&&request.method==="GET")
+    return success(await flow.recommendedIssue(routeId(insightMatch[1],"orderId")),requestId);
+  insightMatch=/^\/api\/business\/outsourcing\/orders\/(\d+)\/consumption-preview$/.exec(url.pathname);
+  if(insightMatch&&request.method==="POST")
+    return success(await flow.previewConsumption(routeId(insightMatch[1],"orderId"),await jsonBody(request)),requestId);
   if (url.pathname === "/api/business/outsourcing/statements") {
     if (request.method === "GET") return success(await flow.listStatements(positiveInteger(url.searchParams.get("contractorId"), "contractorId")), requestId);
     if (request.method === "POST") return success(await flow.createStatement(await jsonBody(request),mutation),requestId,{status:201});
