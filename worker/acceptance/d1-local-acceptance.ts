@@ -485,13 +485,13 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
     VALUES(2001,'organization','Acceptance Contractor',1,?1,1,?1,1,1)`).bind(t3).run();
   const flow = new OutsourcingFlowService(db);
   const flowActor = { actorMemberId:1, now:t4 };
-  const created = await flow.createOrder({
+  const outsourcingCreated = await flow.createOrder({
     contractorId:2001, orderDate:"2026-09-28",
     products:[{itemId:finishedItem.id,quantity:"4",unit:"EA"}],
   },flowActor);
-  assertAcceptance(created.statusCode==="pending_issue","ACCEPT_OUTSOURCING_PLAN_ONLY");
+  assertAcceptance(outsourcingCreated.statusCode==="pending_issue","ACCEPT_OUTSOURCING_PLAN_ONLY");
   assertAcceptance(await stockBalance(db,2001,componentItem.id)===0,"ACCEPT_OUTSOURCING_PLAN_CHANGED_STOCK");
-  const issued = await flow.issue(created.id,{expectedRevision:created.revision,date:"2026-09-28",
+  const issued = await flow.issue(outsourcingCreated.id,{expectedRevision:outsourcingCreated.revision,date:"2026-09-28",
     items:[{itemId:componentItem.id,quantity:"100",unit:"EA"}]},flowActor);
   assertAcceptance(issued.statusCode==="in_production","ACCEPT_OUTSOURCING_ISSUE_STATUS");
   assertAcceptance(await stockBalance(db,2001,componentItem.id)===1_000_000,"ACCEPT_OUTSOURCING_ISSUE_BALANCE");
@@ -501,7 +501,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
     items:[{itemId:componentItem.id,unit:"EA",actualQuantity:"10"}]},flowActor);
   const ten = (await flow.stock(2001)).items.find(x=>x.itemId===componentItem.id);
   assertAcceptance(ten?.percentage===10,"ACCEPT_OUTSOURCING_TEN_PERCENT");
-  const second = await flow.issue(created.id,{expectedRevision:issued.revision,date:"2026-09-29",
+  const second = await flow.issue(outsourcingCreated.id,{expectedRevision:issued.revision,date:"2026-09-29",
     items:[{itemId:componentItem.id,quantity:"100",unit:"EA"}]},flowActor);
   const fresh = (await flow.stock(2001)).items.find(x=>x.itemId===componentItem.id);
   assertAcceptance(fresh?.percentage===100&&fresh?.quantity==="110","ACCEPT_OUTSOURCING_SECOND_BASELINE");
@@ -509,22 +509,22 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
     items:[{itemId:componentItem.id,unit:"EA",actualQuantity:"5"}]},flowActor);
   const five = (await flow.stock(2001)).items.find(x=>x.itemId===componentItem.id);
   assertAcceptance(five?.percentage===5,"ACCEPT_OUTSOURCING_FIVE_PERCENT");
-  const third = await flow.issue(created.id,{expectedRevision:second.revision,date:"2026-09-30",
+  const third = await flow.issue(outsourcingCreated.id,{expectedRevision:second.revision,date:"2026-09-30",
     items:[{itemId:componentItem.id,quantity:"100",unit:"EA"}]},flowActor);
   const reset = (await flow.stock(2001)).items.find(x=>x.itemId===componentItem.id);
   assertAcceptance(reset?.percentage===100&&reset?.quantity==="105","ACCEPT_OUTSOURCING_THIRD_BASELINE");
-  const delivered = await flow.receive(created.id,{expectedRevision:third.revision,date:"2026-09-30",erpNo:"ERP-TEST",
-    items:[{orderProductId:created.products[0].id,quantity:"1",unit:"EA"}]},flowActor);
+  const delivered = await flow.receive(outsourcingCreated.id,{expectedRevision:third.revision,date:"2026-09-30",erpNo:"ERP-TEST",
+    items:[{orderProductId:outsourcingCreated.products[0].id,quantity:"1",unit:"EA"}]},flowActor);
   assertAcceptance(delivered.receipts.length===1&&delivered.statusCode==="in_production","ACCEPT_OUTSOURCING_FIRST_RECEIPT");
-  const delivered2 = await flow.receive(created.id,{expectedRevision:delivered.revision,date:"2026-10-01",erpNo:"ERP-TEST-2",
-    items:[{orderProductId:created.products[0].id,quantity:"3",unit:"EA"}]},flowActor);
+  const delivered2 = await flow.receive(outsourcingCreated.id,{expectedRevision:delivered.revision,date:"2026-10-01",erpNo:"ERP-TEST-2",
+    items:[{orderProductId:outsourcingCreated.products[0].id,quantity:"3",unit:"EA"}]},flowActor);
   assertAcceptance(delivered2.receipts.length===2&&delivered2.statusCode==="delivered","ACCEPT_OUTSOURCING_MULTI_RECEIPT");
-  const reversed = await flow.cancelReceipt(created.id,delivered2.receipts[0].id,
+  const reversed = await flow.cancelReceipt(outsourcingCreated.id,delivered2.receipts[0].id,
     {expectedRevision:delivered2.revision},flowActor);
   assertAcceptance(reversed.statusCode==="in_production","ACCEPT_OUTSOURCING_CANCEL_RECEIPT");
   assertAcceptance(await stockBalance(db,2001,componentItem.id)===1_050_000,"ACCEPT_OUTSOURCING_RETAIN_STOCK");
   assertAcceptance((await db.prepare("SELECT COUNT(*) AS n FROM audit_events WHERE entity_type='outsourcing_order' AND entity_key=?")
-    .bind(created.outsourcing_ref).first<{n:number}>())!.n>=6,"ACCEPT_OUTSOURCING_AUDIT");
+    .bind(outsourcingCreated.outsourcing_ref).first<{n:number}>())!.n>=6,"ACCEPT_OUTSOURCING_AUDIT");
   
   // WorkLog domain: owner creates/submits, reviewer finalizes corrected Work Days
   // and scores, statistics read the stored finalized result, then cancel-review
