@@ -1,0 +1,7 @@
+.cy-stock-gauge{display:flex;align-items:center;gap:8px;min-width:110px}
+.cy-stock-gauge-track{flex:1;min-width:60px;height:12px;border-radius:6px;background:var(--cy-surface-muted);border:1px solid var(--cy-border);overflow:hidden}
+.cy-stock-gauge-track span{display:block;height:100%;background:#29965f;border-radius:inherit}
+.cy-stock-gauge.yellow .cy-stock-gauge-track span{background:#dfa821}
+.cy-stock-gauge.red .cy-stock-gauge-track span{background:#d13b40}
+.cy-stock-gauge.red strong{color:var(--cy-danger);font-weight:700}
+.cy-stock-gauge strong{min-width:34px;text-align:right;font-size:var(--cy-fs-xs);font-variant-numeric:tabular-nums}
