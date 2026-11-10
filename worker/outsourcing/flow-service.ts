@@ -1,3 +1,4 @@
+import { nextEntityIdSql } from "../persistence/entity-id";
 import { parseScaled4, formatScaled4, formatMoney2, parseMoney2 } from "../../shared/fixed-point";
 import { convertScaled4Exact } from "../../shared/unit-conversion";
 import { stockGaugeFromMovements, outsourcingLifecycle, outsourcingProgress, roundedLineMoney2, roundedStatementMoney2 } from "../../shared/outsourcing-flow";
@@ -125,8 +126,8 @@ export class OutsourcingFlowService {
     }
     const reference="OUT-"+actor.now.slice(0,10).replace(/-/g,"")+"-"+crypto.randomUUID().slice(0,8).toUpperCase();
     const stmts:D1PreparedStatement[]=[this.db.prepare(`INSERT INTO outsourcing_orders
-      (outsourcing_ref,contractor_id,contractor_name_snapshot,order_date,note,created_at,created_by,updated_at,updated_by)
-      VALUES(?,?,?,?,?,?,?,?,?)`).bind(reference,contractorId,contractor.display_name,orderDate,text(body.note,"note",false)||null,actor.now,actor.actorMemberId,actor.now,actor.actorMemberId)];
+      (id,outsourcing_ref,contractor_id,contractor_name_snapshot,order_date,note,created_at,created_by,updated_at,updated_by)
+      VALUES (${nextEntityIdSql("outsourcing_orders")},?,?,?,?,?,?,?,?,?)`).bind(reference,contractorId,contractor.display_name,orderDate,text(body.note,"note",false)||null,actor.now,actor.actorMemberId,actor.now,actor.actorMemberId)];
     for(const p of normalized)stmts.push(this.db.prepare(`INSERT INTO outsourcing_order_products
       (outsourcing_order_id,item_id,bom_recipe_id,planned_quantity,unit,sort_order)
       VALUES((SELECT MAX(id) FROM outsourcing_orders),?,?,?,?,?)`).bind(p.itemId,p.bomId,p.quantity,p.unit,p.sort));
