@@ -9,7 +9,6 @@ import { acceptHrPhase2a } from "./hr-phase2a-acceptance";
 import { acceptHrPhase2b } from "./hr-phase2b-acceptance";
 import { acceptRetiredIdentitySource, acceptRetiredIdentityRestore } from "./retired-identity-acceptance";
 import { acceptDefectStaleAudit } from "./defect-stale-acceptance";
-import { acceptOutsourcingStaleEffects } from "./outsourcing-stale-acceptance";
 import { handleBackupRoute } from "../http/backup-routes";
 import { acceptIsolatedRecovery } from "./isolated-recovery-acceptance";
 import { acceptTieredBackup } from "./tiered-backup-acceptance";
@@ -21,7 +20,7 @@ import { ensureAppMemberProjection, resolveAppMember } from "../auth/app-access"
 import { ItemService } from "../item/item-service";
 import { CustomerRepository } from "../customer/customer-repository";
 import { convertScaled4Exact, scaled4ProductToMoney2Exact } from "../../shared/unit-conversion";
-import { OutsourcingService } from "../outsourcing/outsourcing-service";
+import { OutsourcingFlowService } from "../outsourcing/flow-service";
 import { BusinessLookupService } from "../reference/business-lookup-service";
 import { handleSettingsAuditRoute } from "../http/settings-audit-routes";
 import { WorkLogRepository } from "../worklog/work-log-repository";
@@ -479,128 +478,54 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
     "ACCEPT_ITEM_EXACT_MONEY_MISMATCH",
   );
 
-  // Outsourcing domain: pending is plan-only; confirm creates actual stock,
-  // correction reverses old actual movements and writes replacements, and
-  // cancellation reverses the replacement so derived stock returns to zero.
-  await db.prepare(`
-    INSERT INTO contractors (
-      id, entity_type, display_name, is_active,
-      created_at, created_by, updated_at, updated_by, revision
-    ) VALUES (2001, 'organization', 'Acceptance Contractor', 1, ?1, 1, ?1, 1, 1)
-  `).bind(t3).run();
-  const outsourcingService = new OutsourcingService(db, {
-    nextReference: async () => "ACC-OUT-001",
-  });
-  const outsourcingCreated = await outsourcingService.create(
-    {
-      contractorId: 2001,
-      operatorEmployeeId: 1,
-      orderDate: "2026-09-28",
-      parts: [
-        {
-          finishedItemId: finishedItem.id,
-          componentItemId: componentItem.id,
-          quantity: "2",
-          unit: "CASE",
-          sortOrder: 0,
-        },
-      ],
-    },
-    { actorMemberId: 1, now: t4 },
-  );
-  assertAcceptance(outsourcingCreated.statusCode === "pending_outbound", "ACCEPT_OUTSOURCING_CREATE_STATUS");
-  assertAcceptance(
-    await stockBalance(db, 2001, componentItem.id) === 0,
-    "ACCEPT_OUTSOURCING_PENDING_CHANGED_STOCK",
-  );
-
-  const outsourcingConfirmed = await outsourcingService.confirmOutbound(
-    outsourcingCreated.id,
-    {
-      expectedRevision: outsourcingCreated.revision,
-      effectiveDate: "2026-09-28",
-      reason: "acceptance confirm",
-    },
-    { actorMemberId: 1, now: t5 },
-  );
-  assertAcceptance(outsourcingConfirmed.statusCode === "outbound", "ACCEPT_OUTSOURCING_CONFIRM_STATUS");
-  assertAcceptance(
-    await stockBalance(db, 2001, componentItem.id) === 480000,
-    "ACCEPT_OUTSOURCING_CONFIRM_BALANCE",
-  );
-
-  const outsourcingCorrected = await outsourcingService.correctOutbound(
-    outsourcingConfirmed.id,
-    {
-      expectedRevision: outsourcingConfirmed.revision,
-      contractorId: 2001,
-      operatorEmployeeId: 1,
-      orderDate: "2026-09-28",
-      parts: [
-        {
-          finishedItemId: finishedItem.id,
-          componentItemId: componentItem.id,
-          quantity: "3",
-          unit: "CASE",
-          sortOrder: 0,
-        },
-      ],
-    },
-    "acceptance correction",
-    { actorMemberId: 1, now: t6, allowOutboundCorrection: true },
-  );
-  assertAcceptance(outsourcingCorrected.statusCode === "outbound", "ACCEPT_OUTSOURCING_CORRECTION_STATUS");
-  assertAcceptance(
-    await stockBalance(db, 2001, componentItem.id) === 720000,
-    "ACCEPT_OUTSOURCING_CORRECTION_BALANCE",
-  );
-  const correctedMovementRows = await db.prepare(`
-    SELECT movement_type, quantity_delta, reversal_of_movement_id
-      FROM contractor_stock_movements
-     WHERE outsourcing_order_id = ?1
-     ORDER BY id
-  `).bind(outsourcingCreated.id).all<{
-    movement_type: string;
-    quantity_delta: number;
-    reversal_of_movement_id: number | null;
-  }>();
-  assertAcceptance(correctedMovementRows.results.length === 3, "ACCEPT_OUTSOURCING_CORRECTION_MOVEMENT_COUNT");
-  assertAcceptance(
-    correctedMovementRows.results.filter((row) => row.movement_type === "reversal").length === 1,
-    "ACCEPT_OUTSOURCING_CORRECTION_REVERSAL_MISSING",
-  );
-
-  const outsourcingCancelled = await outsourcingService.cancelOutbound(
-    outsourcingCorrected.id,
-    {
-      expectedRevision: outsourcingCorrected.revision,
-      reason: "acceptance cancellation",
-    },
-    { actorMemberId: 1, now: t7, allowOutboundCancellation: true },
-  );
-  assertAcceptance(outsourcingCancelled.statusCode === "voided", "ACCEPT_OUTSOURCING_CANCEL_STATUS");
-  assertAcceptance(
-    await stockBalance(db, 2001, componentItem.id) === 0,
-    "ACCEPT_OUTSOURCING_CANCEL_BALANCE",
-  );
-  const finalMovementRows = await db.prepare(`
-    SELECT movement_type, quantity_delta, reversal_of_movement_id
-      FROM contractor_stock_movements
-     WHERE outsourcing_order_id = ?1
-     ORDER BY id
-  `).bind(outsourcingCreated.id).all<{
-    movement_type: string;
-    quantity_delta: number;
-    reversal_of_movement_id: number | null;
-  }>();
-  assertAcceptance(finalMovementRows.results.length === 4, "ACCEPT_OUTSOURCING_FINAL_MOVEMENT_COUNT");
-  assertAcceptance(
-    finalMovementRows.results.filter((row) => row.movement_type === "reversal" && row.reversal_of_movement_id != null).length === 2,
-    "ACCEPT_OUTSOURCING_LINKED_REVERSALS_MISSING",
-  );
-
-  await acceptOutsourcingStaleEffects(db,componentItem.id,finishedItem.id);
-
+  // WO-0.18: the order is plan-only until a dated material issue.
+  // Multiple issues reset the stock gauge baseline; adjustments and
+  // multiple receipts preserve historical stock entries and reversals.
+  await db.prepare(`INSERT INTO contractors(id,entity_type,display_name,is_active,created_at,created_by,updated_at,updated_by,revision)
+    VALUES(2001,'organization','Acceptance Contractor',1,?1,1,?1,1,1)`).bind(t3).run();
+  const flow = new OutsourcingFlowService(db);
+  const flowActor = { actorMemberId:1, now:t4 };
+  const created = await flow.createOrder({
+    contractorId:2001, orderDate:"2026-09-28",
+    products:[{itemId:finishedItem.id,quantity:"4",unit:"EA"}],
+  },flowActor);
+  assertAcceptance(created.statusCode==="pending_issue","ACCEPT_OUTSOURCING_PLAN_ONLY");
+  assertAcceptance(await stockBalance(db,2001,componentItem.id)===0,"ACCEPT_OUTSOURCING_PLAN_CHANGED_STOCK");
+  const issued = await flow.issue(created.id,{expectedRevision:created.revision,date:"2026-09-28",
+    items:[{itemId:componentItem.id,quantity:"100",unit:"EA"}]},flowActor);
+  assertAcceptance(issued.statusCode==="in_production","ACCEPT_OUTSOURCING_ISSUE_STATUS");
+  assertAcceptance(await stockBalance(db,2001,componentItem.id)===1_000_000,"ACCEPT_OUTSOURCING_ISSUE_BALANCE");
+  const firstStock = (await flow.stock(2001)).items.find(x=>x.itemId===componentItem.id);
+  assertAcceptance(firstStock?.percentage===100,"ACCEPT_OUTSOURCING_FIRST_BASELINE");
+  await flow.adjustStock({type:"adjust",contractorId:2001,date:"2026-09-28",reason:"盤點差異",
+    items:[{itemId:componentItem.id,unit:"EA",actualQuantity:"10"}]},flowActor);
+  const ten = (await flow.stock(2001)).items.find(x=>x.itemId===componentItem.id);
+  assertAcceptance(ten?.percentage===10,"ACCEPT_OUTSOURCING_TEN_PERCENT");
+  const second = await flow.issue(created.id,{expectedRevision:issued.revision,date:"2026-09-29",
+    items:[{itemId:componentItem.id,quantity:"100",unit:"EA"}]},flowActor);
+  const fresh = (await flow.stock(2001)).items.find(x=>x.itemId===componentItem.id);
+  assertAcceptance(fresh?.percentage===100&&fresh?.quantity==="110","ACCEPT_OUTSOURCING_SECOND_BASELINE");
+  await flow.adjustStock({type:"adjust",contractorId:2001,date:"2026-09-29",reason:"盤點差異",
+    items:[{itemId:componentItem.id,unit:"EA",actualQuantity:"5"}]},flowActor);
+  const five = (await flow.stock(2001)).items.find(x=>x.itemId===componentItem.id);
+  assertAcceptance(five?.percentage===5,"ACCEPT_OUTSOURCING_FIVE_PERCENT");
+  const third = await flow.issue(created.id,{expectedRevision:second.revision,date:"2026-09-30",
+    items:[{itemId:componentItem.id,quantity:"100",unit:"EA"}]},flowActor);
+  const reset = (await flow.stock(2001)).items.find(x=>x.itemId===componentItem.id);
+  assertAcceptance(reset?.percentage===100&&reset?.quantity==="105","ACCEPT_OUTSOURCING_THIRD_BASELINE");
+  const delivered = await flow.receive(created.id,{expectedRevision:third.revision,date:"2026-09-30",erpNo:"ERP-TEST",
+    items:[{orderProductId:created.products[0].id,quantity:"1",unit:"EA"}]},flowActor);
+  assertAcceptance(delivered.receipts.length===1&&delivered.statusCode==="in_production","ACCEPT_OUTSOURCING_FIRST_RECEIPT");
+  const delivered2 = await flow.receive(created.id,{expectedRevision:delivered.revision,date:"2026-10-01",erpNo:"ERP-TEST-2",
+    items:[{orderProductId:created.products[0].id,quantity:"3",unit:"EA"}]},flowActor);
+  assertAcceptance(delivered2.receipts.length===2&&delivered2.statusCode==="delivered","ACCEPT_OUTSOURCING_MULTI_RECEIPT");
+  const reversed = await flow.cancelReceipt(created.id,delivered2.receipts[0].id,
+    {expectedRevision:delivered2.revision},flowActor);
+  assertAcceptance(reversed.statusCode==="in_production","ACCEPT_OUTSOURCING_CANCEL_RECEIPT");
+  assertAcceptance(await stockBalance(db,2001,componentItem.id)===1_050_000,"ACCEPT_OUTSOURCING_RETAIN_STOCK");
+  assertAcceptance((await db.prepare("SELECT COUNT(*) AS n FROM audit_events WHERE entity_type='outsourcing_order' AND entity_key=?")
+    .bind(created.outsourcing_ref).first<{n:number}>())!.n>=6,"ACCEPT_OUTSOURCING_AUDIT");
+  
   // WorkLog domain: owner creates/submits, reviewer finalizes corrected Work Days
   // and scores, statistics read the stored finalized result, then cancel-review
   // returns to pending_review and clears the current finalized projection.
