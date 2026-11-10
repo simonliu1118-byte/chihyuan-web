@@ -368,9 +368,20 @@ async function handleOutsourcing(request: Request, env: IdentityRuntimeEnv, requ
   if (url.pathname === "/api/business/outsourcing/stock/history" && request.method === "GET") {
     const contractorId = positiveInteger(url.searchParams.get("contractorId"), "contractorId");
     const where = contractorId ? "WHERE m.contractor_id=?" : "";
-    const history = await env.DB.prepare(`SELECT m.*,c.display_name AS contractor_name,i.item_no,i.name AS item_name
-      FROM contractor_stock_movements m JOIN contractors c ON c.id=m.contractor_id
-      JOIN items i ON i.id=m.item_id ${where} ORDER BY m.id DESC LIMIT 100`)
+    const history = await env.DB.prepare(`SELECT m.*,c.display_name AS contractor_name,
+      i.item_no,i.name AS item_name,
+      SUM(m.quantity_delta) OVER(PARTITION BY m.contractor_id,m.item_id ORDER BY m.id ROWS UNBOUNDED PRECEDING) AS balance_after,
+      COALESCE(issue_order.outsourcing_ref,receipt_order.outsourcing_ref,'') AS source_order_ref,
+      COALESCE(member.display_name,member.employee_no,'') AS operator_name
+      FROM contractor_stock_movements m
+      JOIN contractors c ON c.id=m.contractor_id
+      JOIN items i ON i.id=m.item_id
+      LEFT JOIN app_members member ON member.id=m.operator_employee_id
+      LEFT JOIN outsourcing_issues iss ON iss.id=m.issue_id
+      LEFT JOIN outsourcing_orders issue_order ON issue_order.id=iss.outsourcing_order_id
+      LEFT JOIN outsourcing_receipts rec ON rec.id=m.receipt_id
+      LEFT JOIN outsourcing_orders receipt_order ON receipt_order.id=rec.outsourcing_order_id
+      ${where} ORDER BY m.id DESC LIMIT 100`)
       .bind(...(contractorId?[contractorId]:[])).all();
     return success({items:history.results??[]}, requestId);
   }
