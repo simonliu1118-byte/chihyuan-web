@@ -100,12 +100,12 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "updated_at",
     "updated_by"
   ],
-  "contractor_stock_events": ["created_at","created_by","event_date","event_type","id","note","reason","contractor_id"],
+  "contractor_stock_events": ["contractor_id","created_at","created_by","event_date","event_type","id","note","reason"],
   "contractor_stock_event_items": ["event_id","id","item_id","quantity_delta","unit"],
   "contractor_stock_movements": [
-    "contractor_id","created_at","id","item_id","movement_type","occurred_at",
-    "operator_employee_id","issue_id","receipt_id","stock_event_id",
-    "quantity_delta","reason","related_finished_item_id","reversal_of_movement_id"
+    "contractor_id","created_at","id","issue_id","item_id","movement_type",
+    "occurred_at","operator_employee_id","quantity_delta","reason","receipt_id",
+    "related_finished_item_id","reversal_of_movement_id","stock_event_id"
   ],
   "contractors": [
     "address",
