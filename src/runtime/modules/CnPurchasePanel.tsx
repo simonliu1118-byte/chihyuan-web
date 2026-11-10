@@ -43,7 +43,6 @@ const MODE_HINTS:Record<Mode,string>={
  returns:"退貨數量、人民幣、台幣刷退、刷退手續費；退的部分扣回成本並整表重算。",
 };
 const errorText=(e:unknown)=>e instanceof ApiClientError&&e.code==="ORDERING_VERSION_CONFLICT"?"已被其他人修改，請重新載入":e instanceof Error?e.message:"採購操作失敗";
-const GROUPING_KEY="cy-cn-purchase-grouping";
 const VIRTUAL=2e15,DRAFT_PIECE=1e15,NEW_LINE=-1e14,NEW_CARD=-2e14;
 
 export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef,canReceive,onReceive}:{
@@ -53,9 +52,8 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
 }){
  const [purchase,setPurchase]=useState<CnPurchase|null>(null),[loading,setLoading]=useState(true);
  const [mode,setMode]=useState<Mode|null>(null),[drafts,setDrafts]=useState<Drafts>({});
- // 刷卡明細 (one row per card piece) or 品項合計 (pieces folded into one row per item); remembered per viewer.
- const [grouping,setGroupingState]=useState<"card"|"item">(()=>{try{return localStorage.getItem(GROUPING_KEY)==="item"?"item":"card"}catch{return "card"}});
- const setGrouping=(v:"card"|"item")=>{setGroupingState(v);try{localStorage.setItem(GROUPING_KEY,v)}catch{/* view preference only */}};
+ // 刷卡明細 (one row per card piece) or 品項合計 (pieces folded into one row per item).
+ const [grouping,setGrouping]=useState<"card"|"item">("card");
  const [selectedRows,setSelectedRows]=useState<ReadonlySet<string>>(new Set());
  const [saving,setSaving]=useState(false);
  const [discontinue,setDiscontinue]=useState<{lineId:number;name:string;reason:string}|null>(null);
