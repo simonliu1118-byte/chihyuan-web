@@ -1,7 +1,7 @@
 # WO-0.18.0 委外／代工流程改版：分批發料與交貨、代工庫存電池條、對帳付款
 
-- 狀態：**執行中（尚未驗收）**
-- 分支：`cyweb/wo-0.18.0-outsourcing`　PR：#494（Draft，開發中）
+- 狀態：**開發完成、全部工程 CI 綠燈，待 Claude 審查（未合併／未部署）**
+- 分支：`cyweb/wo-0.18.0-outsourcing`　PR：#494（工程驗收完成，轉 Ready for review 後交 Claude）
 - 版號：V0.18.0（若已被占用就用下一個空號，CHANGELOG 同步）
 - 開工前必讀：
   - `docs/architecture/CONTRACTOR_OUTSOURCING_MODULE_CONTRACT.md`（現行規格，本單完成後要改寫）
@@ -124,28 +124,51 @@
 
 ## 6. 驗收清單
 
-- [ ] 一張代工單可有多種成品；可多次發料、多批交貨；每批交貨有 ERP 單號；狀態四種依 §2.1 自動變化；手動結案、重新開啟、刪除條件正確。
-- [ ] 發料視窗建議量、交貨視窗未交量與扣料預告正確；沒有 BOM 的成品交貨不扣料。
-- [ ] 取消發料／交貨產生反向異動並留紀錄；已進入已確認對帳單的交貨不能取消。
-- [ ] 代工庫存：電池條依 §2.4，用使用者的例子（100 → 10 → 發 100 → 5 → 發 100）逐步驗證百分比 100/10/100/5/100；退料、盤點調整不重設基準；負數紅字；「還能做約 N」計算正確。
-- [ ] 退料、盤點調整只能用在發過料的料件；盤點調整原因必選。
-- [ ] 對帳：月結選月份帶入、單次勾選批次；草稿改單價、加費用／折讓；合計四捨五入到元；確認／取消確認／刪除草稿；分次付款與自動判斷已付清。
-- [ ] 協力廠商結帳方式可設定，對帳預設方式跟著變。
-- [ ] 畫面沒有一欄一欄的表單、沒有 `BOM #id`；單位都是下拉。
-- [ ] 可攜式備份匯出還原包含新資料表（`validate:d1:local`、備份相關測試）。
-- [ ] 桌機 1440 與手機 390×844（`deviceScaleFactor:2`）截圖：代工單（三張表）、發料視窗、交貨視窗、代工庫存（含黃／紅／負數）、對帳單（含付款）、協力廠商結帳方式。
-- [ ] 固定項目：新表單按 Enter 跳下一欄、日期欄位四碼年份（`PROJECT_RULES.md` §5，`form-keyboard.test.mjs` 會檢查）。
-- [ ] `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local` 通過。
-- [ ] `node --test scripts/*.test.mjs` 通過；舊流程的測試改寫成新流程，不得只刪不補。
-- [ ] VERSION／package.json 版本、CHANGELOG、TODO（含「代工 ERP 連動」）已更新；`CONTRACTOR_OUTSOURCING_MODULE_CONTRACT.md` 改寫完成。
-- [ ] 開 PR 給 Claude 審查。**不要自行合併或部署。**
+- [x] 一張代工單可有多種成品；可多次發料、多批交貨；每批交貨有 ERP 單號；狀態四種依 §2.1 自動變化；手動結案、重新開啟、刪除條件正確。
+- [x] 發料視窗建議量、交貨視窗未交量與扣料預告正確；沒有 BOM 的成品交貨不扣料。
+- [x] 取消發料／交貨產生反向異動並留紀錄；已進入已確認對帳單的交貨不能取消。
+- [x] 代工庫存：電池條依 §2.4，用使用者的例子（100 → 10 → 發 100 → 5 → 發 100）逐步驗證百分比 100/10/100/5/100；退料、盤點調整不重設基準；負數紅字；「還能做約 N」計算正確。
+- [x] 退料、盤點調整只能用在發過料的料件；盤點調整原因必選。
+- [x] 對帳：月結選月份帶入、單次勾選批次；草稿改單價、加費用／折讓；合計四捨五入到元；確認／取消確認／刪除草稿；分次付款與自動判斷已付清。
+- [x] 協力廠商結帳方式可設定，對帳預設方式跟著變。
+- [x] 畫面沒有一欄一欄的表單、沒有 `BOM #id`；單位都是下拉。
+- [x] 可攜式備份匯出還原包含新資料表（`validate:d1:local`、備份相關測試）。
+- [x] 桌機 1440 與手機 390×844（`deviceScaleFactor:2`）截圖：代工單（三張表）、發料視窗、交貨視窗、代工庫存（含黃／紅／負數）、對帳單（含付款）、協力廠商結帳方式。
+- [x] 固定項目：新表單按 Enter 跳下一欄、日期欄位四碼年份（`PROJECT_RULES.md` §5，`form-keyboard.test.mjs` 會檢查）。
+- [x] `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local` 通過。
+- [x] `node --test scripts/*.test.mjs` 通過；舊流程的測試改寫成新流程，不得只刪不補。
+- [x] VERSION／package.json 版本、CHANGELOG、TODO（含「代工 ERP 連動」）已更新；`CONTRACTOR_OUTSOURCING_MODULE_CONTRACT.md` 改寫完成。
+- [x] 開 PR 給 Claude 審查。**不要自行合併或部署。**
 
-## 8. 完成報告（GPT，開發中；尚未交付）
+## 8. 完成報告（GPT，2026-11-10）
 
-- 開工基準：main `7527b8898aefce3673cb80de67b07224e6d1b8e6`，V0.17.3；分支 `cyweb/wo-0.18.0-outsourcing`，開發版 V0.18.0。
-- 已提交 migration 0062、批次工單與庫存 service 初版、對帳付款 service、五頁籤畫面初版、協力廠商結帳方式資料邊界與備份欄位設定。
-- **尚未通過 CI 或實機畫面驗收，不宣稱完成**；發料建議、扣料預告、成品庫存分組及版面仍待補齊，須完整測試與審查後方可合併。未合併、未部署。
+### 8.1 分支、版本與風險界線
 
+- 開工基準：main `7527b8898aefce3673cb80de67b07224e6d1b8e6`（V0.17.3）。
+- 開發版本：**V0.18.0**；分支 `cyweb/wo-0.18.0-outsourcing`；[PR #494](https://github.com/simonliu1118-byte/chihyuan-web/pull/494)。
+- **未合併、未部署正式站、未更動正式 D1。** 本次允許的 ERP 單號僅人工填寫；ERP 實際單據／存貨連動已列 `TODO.md` 後續另案。
+- migration `0062_outsourcing_flow.sql` 僅重建已確認未使用的舊代工單／相關表；**保留既有三家協力廠商、聯絡人、廠商單價、BOM 主檔**。重建後補回刪除工單時的退役身分 trigger，保證 ID 不重用。
 
+### 8.2 本單已完成的變更
+
+1. **多成品工單／分批作業：** `OutsourcingFlowService` 支援新增與未發料原位修改、多次發料、多批交貨入庫（各批 ERP 單號）、預計／已交比例、四狀態動態判斷、結案／重新開啟、限制空白工單刪除；發料建議量與即時 BOM 扣料預告由 Worker 計算。數量在讀寫前確認 allowed-unit 換算可行。
+2. **廠商庫存：** 唯一 ledger `contractor_stock_movements` 實作 issue／consumption／return／adjust／reversal，批次取消保留反向異動和 Audit；盤點理由、負庫存及曾發料限制。共用 `StockGauge` 以最新有效發料後庫存為基準；依未結案 BOM 成品分組，計算可做量及缺料。
+3. **對帳付款：** 協力廠商預設單次／月結；可勾批次或選月份，記錄交貨時單價快照、草稿調價、正負其他費用、逐筆金額兩位小數與合計四捨五入到元；確認／取消確認／刪草稿、分次付款／刪付款、狀態自動推算；已確認的交貨不可取消。版本衝突傳回 HTTP 409 且測試無副作用。
+4. **畫面／元件：** 五頁籤依工單順序；代工單、協力廠商、BOM 檢視與編輯共用 `RecordSheet`／`RecordRows`；發料／交貨／對帳 Dialog 使用 `EntryTable`，共用手機 `ModuleSections`、`MasterDetail`、`ListRow`／`ActionBar` 與切頁未存檔確認；BOM 顯示 recipe_ref 而非內部 ID；庫存歷程顯示操作者、來源單號、異動後餘額。
+5. **契約與備份：** 更新 `shared/contractor-outsourcing.ts`、`CONTRACTOR_OUTSOURCING_MODULE_CONTRACT.md`、`UI_COMPONENT_CATALOG.md`、`schema-columns.ts`、`portable-backup.ts` 的 `CURRENT_MIGRATION=0062`；舊版可攜備份僅對**沒有舊代工紀錄**的資料表升級，若真的含舊交易資料則拒絕，防止靜默資料遺失。
+6. **測試改寫：** 保留且改寫 `validate_operational_runtime.py`、`validate_business_http_api.py`、`validate_contractor_outsourcing_foundation.py`、`validate_outsourcing_runtime_transport.py`、`retired-identity-acceptance.ts`、`business-http-acceptance.ts`、`d1-local-acceptance.ts` 及歷史備份／手機共用元件測試。原本的舊 `status_code`、`loadContractorStock` 驗收已指向新流程，而不是刪掉測試。
+
+### 8.3 CI 與截圖證據
+
+- [Runtime Check — 全綠](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42794557399)：Worker TypeScript、Browser TypeScript、Source Contracts、Build（含 `validate:d1:local` 及 `node --test scripts/*.test.mjs`）。
+- [Governance Check — 通過](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42794557003)。
+- [WO-0.18.0 Visual Acceptance — 通過](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42794557180)；[桌機／手機十二張 PNG 驗收截圖（Actions artifact）](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/42794557180/artifacts/13752249266)。
+- 視覺驗收：**實際 React 頁面 + 隔離 mock API**，桌機 1440×900 與手機 390×844、`deviceScaleFactor=2`，各六畫面：工單三表、發料、交貨與扣料預告、黃／紅／負庫存、對帳與付款、協力廠商結帳方式。**非正式登入站的實機驗收**；合併前仍由 Claude 進行程式審查，部署後的真實資料與裝置驗收屬另一個步驟。
+
+### 8.4 交接與審查
+
+- 詳細實作、驗證與風險：[handoff](../../handoff/CYWEB-WO-0180-OUTSOURCING-20261110.md)。
+- 本次已完成工程實作與 CI 驗證，提 PR 交 Claude 審查。**Claude 尚未填寫 §9，任何審查結論均不可先宣稱通過。**
+- 合併／部署：**不執行**；由使用者另行核准。
 
 ## 9. 審查紀錄（Claude 填）
