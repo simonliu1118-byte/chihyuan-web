@@ -108,17 +108,14 @@ def main() -> int:
         "BusinessLookupService",
         "ContractorServiceError",
         "BomServiceError",
-        "OutsourcingServiceError",
+        "OutsourcingFlowService",
         "WorkLogServiceError",
         "actorMemberId: guarded.gate.member.id",
         "allowHardDelete: admin",
         "allowShipmentReversal: admin",
-        "allowOutboundCorrection: admin",
-        "allowOutboundCancellation: admin",
         "allowReview: admin",
         "allowCrossEmployeeRead: admin",
         'opaqueReference("WO")',
-        'opaqueReference("OUT")',
         'opaqueReference("WL", logDate)',
     ):
         if token not in phase2:
