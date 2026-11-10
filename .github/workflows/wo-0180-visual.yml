@@ -9,6 +9,10 @@ on:
       - ".github/workflows/wo-0180-visual.yml"
   workflow_dispatch:
 
+concurrency:
+  group: wo-0180-visual-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
