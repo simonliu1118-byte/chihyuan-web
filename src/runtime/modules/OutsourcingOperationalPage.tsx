@@ -21,7 +21,7 @@ import "./outsourcing-operational.css";
 type Tab="orders"|"statements"|"stock"|"contractors"|"boms";
 type ItemDraft={key:number;item:OutsourcingItemOption|null;quantity:string;unit:string;bomId:number|null};
 type OrderDraft={contractorId:number|null;orderDate:string;note:string;products:ItemDraft[]};
-type Action="issue"|"receipt"|"return"|"adjust"|"statement-create"|"statement-edit"|"payment"|"close"|null;
+type Action="issue"|"receipt"|"return"|"adjust"|"statement-create"|"statement-edit"|"payment"|"close"|"stock-history"|null;
 type MaterialDraft={key:number;item:OutsourcingItemOption|null;quantity:string;unit:string};
 type DeliveryDraft={orderProductId:number;quantity:string;unit:string;bomId:number|null};
 const tabs:readonly {key:Tab;label:string}[]=[
@@ -65,6 +65,9 @@ export function OutsourcingOperationalPage(){
  const [stock,setStock]=useState<FlowStock[]>([]);
  const [showAllStock,setShowAllStock]=useState(false);
  const [stockSearch,setStockSearch]=useState("");
+ const [stockGroups,setStockGroups]=useState<Awaited<ReturnType<typeof flowApi.groupedStock>>["items"]>([]);
+ const [stockHistory,setStockHistory]=useState<Record<string,unknown>[]>([]);
+ const [preview,setPreview]=useState<Awaited<ReturnType<typeof flowApi.consumptionPreview>>["items"]>([]);
  const [stockContractor,setStockContractor]=useState<number|null>(null);
  const [statements,setStatements]=useState<Statement[]>([]);
  const [statement,setStatement]=useState<Statement|null>(null);
@@ -83,6 +86,7 @@ export function OutsourcingOperationalPage(){
  const [stockActual,setStockActual]=useState(true);
  const [statementVendor,setStatementVendor]=useState<number|null>(null);
  const [statementMonth,setStatementMonth]=useState(taipeiToday().slice(0,7));
+ const [statementMode,setStatementMode]=useState<"month"|"selection">("selection");
  const [unbilled,setUnbilled]=useState<Record<string,any>[]>([]);
  const [selectedUnbilled,setSelectedUnbilled]=useState<number[]>([]);
  const [priceRows,setPriceRows]=useState<{id:number;unitPrice:string}[]>([]);
@@ -92,9 +96,9 @@ export function OutsourcingOperationalPage(){
 
  useEffect(()=>{
   let live=true;
-  Promise.all([searchContractors({limit:100}),searchBoms({limit:100}),flowApi.listOrders(),flowApi.statements(),flowApi.stock(undefined,showAllStock)])
-   .then(([c,b,o,s,g])=>{if(!live)return;setContractors([...c.items]);setBoms([...b.items]);setOrders(o.items);
-    setStatements(s.items);setStock(g.items);}).catch(e=>{if(live)setError(outsourcingErrorMessage(e));});
+  Promise.all([searchContractors({limit:100}),searchBoms({limit:100}),flowApi.listOrders(),flowApi.statements(),flowApi.stock(undefined,showAllStock),flowApi.groupedStock(undefined,showAllStock)])
+   .then(([c,b,o,s,g,groups])=>{if(!live)return;setContractors([...c.items]);setBoms([...b.items]);setOrders(o.items);
+    setStatements(s.items);setStock(g.items);setStockGroups(groups.items);}).catch(e=>{if(live)setError(outsourcingErrorMessage(e));});
   return()=>{live=false;};
  },[epoch,showAllStock]);
  useEffect(()=>{
@@ -109,12 +113,22 @@ export function OutsourcingOperationalPage(){
  },[statementId,epoch]);
  useEffect(()=>{
   if(action!=="statement-create"||statementVendor==null)return;
-  let live=true;flowApi.unbilled(statementVendor,statementMonth||undefined).then(x=>{
+  let live=true;flowApi.unbilled(statementVendor,statementMode==="month"?statementMonth:undefined).then(x=>{
    if(!live)return;setUnbilled(x.items);setSelectedUnbilled(x.items.map(i=>i.receipt_item_id));
   }).catch(e=>{if(live)setError(outsourcingErrorMessage(e));});
   return()=>{live=false;};
- },[action,statementVendor,statementMonth]);
+ },[action,statementVendor,statementMonth,statementMode]);
 
+ useEffect(()=>{
+   if(action!=="receipt"||!order)return;
+   const lines=deliveries.filter(d=>d.quantity&&Number(d.quantity)>0).map(d=>({
+     orderProductId:d.orderProductId,bomRecipeId:d.bomId,quantity:d.quantity,unit:d.unit
+   }));
+   if(!lines.length){setPreview([]);return;}
+   let live=true;flowApi.consumptionPreview(order.id,lines).then(result=>{if(live)setPreview(result.items);})
+     .catch(e=>{if(live)setError(outsourcingErrorMessage(e));});
+   return()=>{live=false;};
+ },[action,order?.id,deliveries]);
  const reload=()=>refresh(e=>e+1);
  const run=async(task:()=>Promise<unknown>,after?:()=>void)=>{
   if(busy)return;setBusy(true);setError("");
@@ -145,8 +159,17 @@ export function OutsourcingOperationalPage(){
  function begin(actionName:Action){
   setAction(actionName);setEntryDate(taipeiToday());setEntryNote("");setErpNo("");setError("");
   setMaterials([newMaterial()]);
+  if(actionName==="issue"&&order){
+    void flowApi.issueSuggestion(order.id).then(async suggestions=>{
+      const choices=(await loadOutsourcingLookups({itemIds:suggestions.items.map(i=>i.itemId),limit:100})).items;
+      setMaterials(suggestions.items.length?suggestions.items.map(i=>({key:++nextKey,
+        item:choices.find(x=>x.id===i.itemId)??null,quantity:i.quantity,unit:i.unit})):[newMaterial()]);
+    }).catch(e=>setError(outsourcingErrorMessage(e)));
+  }
+  if(actionName==="stock-history")void flowApi.history(stockContractor??undefined)
+    .then(r=>setStockHistory(r.items)).catch(e=>setError(outsourcingErrorMessage(e)));
   if(actionName==="receipt"&&order)setDeliveries(order.products.map(p=>({orderProductId:p.id,quantity:"",unit:p.unit,bomId:p.bom_recipe_id})));
-  if(actionName==="statement-create"){const vendor=statementVendor??contractors[0]?.id??null;setStatementVendor(vendor);}
+  if(actionName==="statement-create"){const vendor=statementVendor??contractors[0]?.id??null;setStatementVendor(vendor);setStatementMode(contractors.find(c=>c.id===vendor)?.billingMethod==="monthly"?"month":"selection");}
   if(actionName==="statement-edit"&&statement){
    setPriceRows(statement.lines.map(l=>({id:l.id,unitPrice:l.unit_price==null?"":formatScaled4(l.unit_price)})));
    setAdjustments(statement.adjustments.map(a=>({key:++nextKey,description:a.description,amount:formatMoney2(a.amount)})));
@@ -177,7 +200,7 @@ export function OutsourcingOperationalPage(){
       ...(action==="return"?{quantity:x.quantity}:stockActual?{actualQuantity:x.quantity}:{delta:x.quantity})}))}));
   if(action==="close"&&order)await run(()=>flowApi.close(order.id,order.revision,entryNote));
   if(action==="statement-create"&&statementVendor)await run(async()=>{
-   const s=await flowApi.createStatement({contractorId:statementVendor,date:entryDate,month:statementMonth||null,receiptItemIds:selectedUnbilled});
+   const s=await flowApi.createStatement({contractorId:statementVendor,date:entryDate,month:statementMode==="month"?statementMonth:null,receiptItemIds:selectedUnbilled});
    setStatementId(s.id);setTab("statements");
   });
   if(action==="statement-edit"&&statement)await run(()=>flowApi.editStatement(statement.id,{expectedRevision:statement.revision,
@@ -242,9 +265,9 @@ export function OutsourcingOperationalPage(){
 
   {tab==="stock"?<section className="cy-op-panel">
    <div className="cy-op-panel-header"><h2>代工庫存</h2><div className="cy-record-actions">
-    {button("退料",()=>{setStockKind("return");begin("return");},busy)}
-    {button("盤點調整",()=>{setStockKind("adjust");begin("adjust");},busy)}
-    {button("異動紀錄",()=>begin("stock-history" as Action),busy)}
+    {button("退料",()=>{setStockKind("return");setStockContractor(v=>v??contractors[0]?.id??null);begin("return");},busy)}
+    {button("盤點調整",()=>{setStockKind("adjust");setStockContractor(v=>v??contractors[0]?.id??null);begin("adjust");},busy)}
+    {button("異動紀錄",()=>begin("stock-history"),busy)}
    </div></div>
    <div className="cy-op-toolbar"><input className="cy-op-input" placeholder="搜尋廠商／料件" value={stockSearch} onChange={e=>setStockSearch(e.target.value)}/>
     <select className="cy-op-input" value={stockContractor??""} onChange={e=>setStockContractor(Number(e.target.value)||null)}>
