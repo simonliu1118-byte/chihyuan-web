@@ -388,6 +388,13 @@ export async function acceptBusinessHttpAuthority(db: D1Database, componentId: n
     expectedRevision:outsourcingOrder.revision,date:"2026-10-02",items:[{itemId:componentId,quantity:"30",unit:"EA"}],
   })).json() as {data:{revision:number;statusCode:string;issues:{id:number}[]}}).data;
   check(issued.statusCode==="in_production","OUTSOURCING_ISSUE_TRANSITION");
+  const staleIssueSnapshot=await snapshot();
+  await expect(base+"/issues",409,"POST",{
+    expectedRevision:outsourcingOrder.revision,date:"2026-10-02",
+    items:[{itemId:componentId,quantity:"1",unit:"EA"}],
+  },true,"OUTSOURCING_REVISION_CONFLICT");
+  check(await snapshot()===staleIssueSnapshot,"OUTSOURCING_STALE_ISSUE_NO_SIDE_EFFECTS");
+
   const issuedStock=await db.prepare("SELECT SUM(quantity_delta) AS n FROM contractor_stock_movements WHERE contractor_id=? AND item_id=?")
     .bind(contractor.id,componentId).first<{n:number}>();
   check(issuedStock?.n===300000,"OUTSOURCING_ISSUE_LEDGER");
