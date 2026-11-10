@@ -38,6 +38,7 @@
 - [ ] `npm run typecheck`、`npm run validate:source`、`npm run build`、`npm run validate:d1:local` 通過。
 - [ ] `node --test scripts/*.test.mjs` 通過（`audit-account-portal` 需 `.tmp/canonical-cyapps` 的 CYapps checkout）。
 - [ ] VERSION／package.json 版本、TODO 段落已更新。
+- [ ] 固定項目：畫面逐項符合下方「介面一致性審查清單」（大型畫面改版必附 1440／390 截圖，並與叫貨、門市、商品、客戶同類畫面對照）。
 
 ## 7. 截圖要求
 - 列出要附的畫面（桌面 1440 寬、手機 390 寬；淺色／深色視需要）。
@@ -55,3 +56,24 @@
 - [WO-0.14.1](WO-0.14.1.md)：全系統手機版，各模組改用共用手機元件（第二階段；已結案，Claude 2026-11-09 通過，V0.14.7；下次整理移出主線）。
 - [WO-0.16.0](WO-0.16.0.md)：商品主檔改成表格式單據，瑕疵併入商品分頁（已結案，Claude 2026-11-09 通過，V0.16.0；下次整理移出主線）。
 - [WO-0.17.0](WO-0.17.0.md)：人事四個頁籤改成表格式，新增薪資頁籤（薪資總覽）（待執行，GPT）。
+
+
+## 介面一致性審查清單（Claude 審查大型畫面工單必查）
+
+使用者 2026-11-10 要求：大型調整交 GPT 做的工單，回來審查時一律逐項確認以下項目。來源是 WO-0.18.0 委外／代工改版交件後的整體檢查（V0.18.3 由 Claude 修正）：功能正確，但清單、表格、按鈕、確認、手機都沒有照共用元件，和其他已修過的模組不一致。對照範本：叫貨 `OrderingPage.tsx`、門市、商品 `item/ItemSheet.tsx`、客戶、委外 `OutsourcingOperationalPage.tsx`（V0.18.3 起）。任一項不符就退回或由 Claude 直接修正，並寫進工單 §9。
+
+1. **左側清單**：上方主按鈕（「＋ 新增○○」用 `cy-op-button primary`，不是小按鈕）＋搜尋框，`StatusFilter` 含筆數，「共 N 筆」；桌機用 `cy-md-toolbar`，手機用 `DataViewToolbar`。列用 `cy-op-list-row cy-status-row`（手機 `ListRow`），右側 `StatusChip`。清單空的時候有提示文字；右邊未選取時用 `MasterDetailEmpty`。不准拿手機的 `ListRow` 當桌機清單。
+2. **單據標題**：名稱旁 `StatusChip`，下一行單號與日期；動作按鈕 `cy-op-button compact`（主要動作 `primary`），次要或危險動作收進 `OverflowMenu`。不要自己寫按鈕函式改成 `mini`。
+3. **單據與修改**：`RecordSheet`／`RecordRows`；各列共用同一格線、用 `span` 跨欄讓線條對齊；格子就是輸入區；修改時「取消／儲存」在上方（`cy-record-header cy-edit-header`），手機放 `ActionBar`。新增或修改時不顯示還沒有意義的欄位（例如新增時的「已交」「進度」）。
+4. **唯讀明細表**：用 `cy-op-table cy-rt`，一個項目一列，不要把多個料件串成一格文字；數字靠右（`is-number`）、操作置中（`is-center`）；已取消的整列 `cy-row-struck`；手機卡片不用 `rowSpan`。不要用 `RecordRows editing={false}` 加空的 `onInsert`／`onRemove` 假裝唯讀表。
+5. **按鈕尺寸**：標題列 `compact`；表格列內 `mini soft`；卡片／面板標題列的小動作 `mini soft cy-header-action`。不准出現沒有底色也沒有框的純文字按鈕。
+6. **確認**：取消、刪除、沖銷、重新開啟、取消確認等反向或破壞性動作，一律先 `useConfirmation` 跳確認，說明會發生什麼。
+7. **狀態顯示**：狀態一律用 `StatusChip`（含清單、標題、表格內），不用純文字。
+8. **格式**：日期 `formatDate`（YYYY/MM/DD）；電話 `PhoneInput`／`PhoneText`；金額千分位靠右；數量帶單位。
+9. **訊息**：成功與錯誤用 `useFeedbackMessage`＋`FeedbackBanner`，不要自己寫 `<p className="cy-op-error">`。
+10. **視窗**：`Dialog` 一定指定 `size`；表單用 `EntryTable`；專屬寬度寫成 `.class > .cy-dialog-surface`；送出按鈕依動作命名（「確認發料」「建立對帳單」），不是一律「確認」。
+11. **手機**：頁籤用頂部 `ModuleSections`；主要動作在底部 `ActionBar`；工具列、區塊照共用 `mobile.css`，不另寫模組手機樣式。
+12. **工具列與區塊**：搜尋、篩選、勾選放同一行；可收起區塊用 `ExpandToggle`，不要用原生 `<details>`。
+13. **後端寫入**：每個會寫入的批次，第一步更新 revision 並緊接 `changes()` 檢查（重複送出或兩人同時操作要整批不寫入、回 409）。
+14. **不留一次性工具**：工單專用的 CI workflow、截圖腳本、測試頁不得進 repo；截圖放 PR 證據即可。
+15. **CSS**：模組 CSS 只放模組特有排版；舊流程留下沒人用的 class 要清掉。
