@@ -54,12 +54,12 @@ export class ContractorPersistence {
     const statements: D1PreparedStatement[] = [
       this.db.prepare(`
         INSERT INTO contractors (id,
-          entity_type, display_name, legal_name, tax_id, phone, address, note, is_active,
+          entity_type, display_name, legal_name, tax_id, phone, address, note, is_active,billing_method,
           created_at, created_by, updated_at, updated_by, revision
-        ) VALUES (${nextEntityIdSql("contractors")}, ?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?9,?10,1)
+        ) VALUES (${nextEntityIdSql("contractors")}, ?1,?2,?3,?4,?5,?6,?7,?8,?11,?9,?10,?9,?10,1)
       `).bind(
         input.entityType, input.displayName, input.legalName, input.taxId, input.phone,
-        input.address, input.note, input.isActive ? 1 : 0, context.now, context.actorMemberId,
+        input.address, input.note, input.isActive ? 1 : 0, context.now, context.actorMemberId,input.billingMethod,
       ),
     ];
     input.contacts.forEach((contact) => {
@@ -95,13 +95,13 @@ export class ContractorPersistence {
     statements.push(this.db.prepare(`
       UPDATE contractors
          SET entity_type=?1, display_name=?2, legal_name=?3, tax_id=?4, phone=?5,
-             address=?6, note=?7, is_active=?8, updated_at=?9, updated_by=?10,
+             address=?6, note=?7, is_active=?8, billing_method=?13,updated_at=?9, updated_by=?10,
              revision=revision+1
        WHERE id=?11 AND revision=?12
     `).bind(
       input.entityType, input.displayName, input.legalName, input.taxId, input.phone,
       input.address, input.note, input.isActive ? 1 : 0, context.now, context.actorMemberId,
-      contractorId, input.expectedRevision,
+      contractorId, input.expectedRevision,input.billingMethod,
     ));
     const results = await this.db.batch(statements);
     return Number(results[results.length - 1]?.meta?.changes ?? 0) === 1;
