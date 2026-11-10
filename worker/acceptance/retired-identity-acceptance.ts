@@ -3,7 +3,7 @@ import { nextEntityIdSql, type StableEntityTable } from "../persistence/entity-i
 import { CustomerRelatedService } from "../customer/customer-related-service";
 import { WorkLogService } from "../worklog/work-log-service";
 import { ContractorService } from "../contractor/contractor-service";
-import { OutsourcingService } from "../outsourcing/outsourcing-service";
+import { OutsourcingFlowService } from "../outsourcing/flow-service";
 
 const entities: readonly [StableEntityTable, string][] = [
   ["customers", "customer"], ["items", "item"], ["defect_reports", "defect"],
@@ -52,13 +52,18 @@ export async function acceptRetiredIdentitySource(db: D1Database): Promise<void>
   const contractor = await contractors.create(contractorInput, context);
   const item = await db.prepare("SELECT id,base_unit FROM items ORDER BY id LIMIT 1").first<{ id: number; base_unit: string }>();
   check(item, "OUTSOURCING_COMPONENT");
-  const outsourcing = new OutsourcingService(db, { nextReference: async () => "ACC-RETIRED-OUT-" + crypto.randomUUID() });
-  const outboundInput = { contractorId: contractor.id, operatorEmployeeId: 1, orderDate: "2026-10-02", parts: [{ componentItemId: item.id, quantity: "1", unit: item.base_unit, sortOrder: 0 }] };
-  const outbound = await outsourcing.create(outboundInput, context);
-  await outsourcing.deletePending(outbound.id, outbound.revision, { ...context, allowHardDelete: true });
-  const nextOutbound = await outsourcing.create(outboundInput, context);
-  check(nextOutbound.id > outbound.id, "OUTSOURCING_SERVICE_NONREUSE");
-  await outsourcing.deletePending(nextOutbound.id, nextOutbound.revision, { ...context, allowHardDelete: true });
+  // V0.18 uses plan-only orders with finished products; preserve the
+  // ID-retirement/recreate check instead of exercising removed status_code.
+  const outsourcing = new OutsourcingFlowService(db);
+  const orderInput = {
+    contractorId: contractor.id, orderDate: "2026-10-02",
+    products: [{ itemId: item.id, quantity: "1", unit: item.base_unit }],
+  };
+  const first = await outsourcing.createOrder(orderInput, context);
+  await outsourcing.deleteEmptyOrder(first.id, { expectedRevision:first.revision }, context);
+  const next = await outsourcing.createOrder(orderInput, context);
+  check(next.id > first.id, "OUTSOURCING_SERVICE_NONREUSE");
+  await outsourcing.deleteEmptyOrder(next.id, { expectedRevision:next.revision }, context);
   await contractors.deleteNeverUsed(contractor.id, contractor.revision, context, true);
   check((await contractors.create(contractorInput, context)).id > contractor.id, "CONTRACTOR_SERVICE_NONREUSE");
   for (const [table, type] of entities) {
