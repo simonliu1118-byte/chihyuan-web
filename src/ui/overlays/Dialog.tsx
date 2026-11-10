@@ -19,6 +19,8 @@ export interface DialogProps {
   className?: string;
   hideHeader?: boolean;
   style?: CSSProperties;
+  /** Tapping outside the surface closes it (navigation drawer only; forms keep their input). */
+  closeOnBackdrop?: boolean;
 }
 
 export function Dialog({
@@ -35,6 +37,7 @@ export function Dialog({
   className = "",
   hideHeader = false,
   style,
+  closeOnBackdrop = false,
   children,
 }: PropsWithChildren<DialogProps>) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -90,6 +93,10 @@ export function Dialog({
       aria-labelledby={titleId}
       style={style}
       aria-describedby={description ? descriptionId : undefined}
+      onClick={closeOnBackdrop && dismissible ? (event) => {
+        // The backdrop and the transparent part of the <dialog> report the dialog itself as the target.
+        if (event.target === event.currentTarget) onClose();
+      } : undefined}
       onCancel={(event) => {
         if (!dismissible) {
           event.preventDefault();
