@@ -129,6 +129,12 @@ export function OutsourcingOperationalPage(){
      .catch(e=>{if(live)setError(outsourcingErrorMessage(e));});
    return()=>{live=false;};
  },[action,order?.id,deliveries]);
+ useEffect(()=>{
+   if(action!=="stock-history")return;
+   let live=true;flowApi.history(stockContractor??undefined).then(r=>{if(live)setStockHistory(r.items);})
+     .catch(e=>{if(live)setError(outsourcingErrorMessage(e));});
+   return()=>{live=false;};
+ },[action,stockContractor,epoch]);
  const reload=()=>refresh(e=>e+1);
  const run=async(task:()=>Promise<unknown>,after?:()=>void)=>{
   if(busy)return;setBusy(true);setError("");
@@ -180,8 +186,6 @@ export function OutsourcingOperationalPage(){
         item:choices.find(x=>x.id===i.itemId)??null,quantity:i.quantity,unit:i.unit})):[newMaterial()]);
     }).catch(e=>setError(outsourcingErrorMessage(e)));
   }
-  if(actionName==="stock-history")void flowApi.history(stockContractor??undefined)
-    .then(r=>setStockHistory(r.items)).catch(e=>setError(outsourcingErrorMessage(e)));
   if(actionName==="receipt"&&order)setDeliveries(order.products.map(p=>({orderProductId:p.id,quantity:"",unit:p.unit,bomId:p.bom_recipe_id})));
   if(actionName==="statement-create"){const vendor=statementVendor??contractors[0]?.id??null;setStatementVendor(vendor);setStatementMode(contractors.find(c=>c.id===vendor)?.billingMethod==="monthly"?"month":"selection");}
   if(actionName==="statement-edit"&&statement){
@@ -367,7 +371,27 @@ export function OutsourcingOperationalPage(){
        {label:"BOM",view:d=>boms.find(b=>b.id===d.bomId)?.recipeRef??"—",edit:d=><select className="cy-sheet-input" value={d.bomId??""} onChange={e=>setDeliveries(ds=>ds.map(r=>r.orderProductId===d.orderProductId?{...r,bomId:Number(e.target.value)||null}:r))}>
         <option value="">不扣料</option>{boms.filter(b=>b.isActive&&b.finishedItemId===order.products.find(p=>p.id===d.orderProductId)?.item_id).map(b=><option key={b.id} value={b.id}>{b.recipeRef}</option>)}</select>}
       ]}/>:null}
-    {action==="stock-history"?<div><h3>料件異動紀錄</h3><table className="cy-op-table cy-rt"><thead><tr><th>時間</th><th>廠商</th><th>料件</th><th>種類</th><th>增減量</th><th>原因</th><th>操作人</th></tr></thead><tbody>{stockHistory.map((m,i)=><tr key={Number(m.id??i)}><td>{String(m.occurred_at??"")}</td><td>{String(m.contractor_name??"")}</td><td>{String(m.item_name??"")}</td><td>{String(m.movement_type??"")}</td><td>{number(Number(m.quantity_delta??0))}</td><td>{String(m.reason??"")}</td><td>{String(m.operator_employee_id??"")}</td></tr>)}</tbody></table></div>:null}
+    {action==="stock-history"?<div className="cy-op-subsection">
+      <div className="cy-op-toolbar"><label htmlFor="stock-history-contractor">協力廠商</label>
+        <select id="stock-history-contractor" className="cy-op-input" value={stockContractor??""} onChange={e=>setStockContractor(Number(e.target.value)||null)}>
+          <option value="">全部廠商</option>{contractors.map(c=><option key={c.id} value={c.id}>{c.displayName}</option>)}
+        </select></div>
+      <h3>料件異動紀錄</h3>
+      <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr>
+        <th>日期</th><th>廠商</th><th>料件</th><th>類型</th><th>增減量</th><th>異動後庫存</th><th>原因／來源單號</th><th>操作人</th>
+      </tr></thead><tbody>
+        {stockHistory.map((m,i)=><tr key={Number(m.id??i)}>
+          <td>{String(m.occurred_at??"")}</td><td>{String(m.contractor_name??"")}</td>
+          <td>{String(m.item_no??"")} {String(m.item_name??"")}</td>
+          <td>{({issue:"發料",consumption:"BOM 扣料",return:"退料",adjust:"盤點調整",reversal:"沖銷"} as Record<string,string>)[String(m.movement_type)]??String(m.movement_type)}</td>
+          <td>{number(Number(m.quantity_delta??0))}</td>
+          <td className={Number(m.balance_after)<0?"cy-op-negative":undefined}>{number(Number(m.balance_after??0))}</td>
+          <td>{[m.reason,m.source_order_ref].filter(Boolean).map(String).join(" · ")||"—"}</td>
+          <td>{String(m.operator_name??m.operator_employee_id??"")}</td>
+        </tr>)}
+      </tbody></table></div>
+      {stockHistory.length===0?<p>目前沒有異動紀錄。</p>:null}
+    </div>:null}
     {action==="receipt"&&preview.length?<div className="cy-op-subsection"><h3>預計從廠商庫存扣除</h3><p>{preview.map(p=>p.itemNo+" "+p.itemName+" "+p.quantity+" "+p.unit).join("、")}</p></div>:null}
     {action==="statement-create"?<><Grid label="對帳方式" headers={["協力廠商","選取方式"]}>
       <Cell label="協力廠商"><select className="cy-sheet-input" value={statementVendor??""} onChange={e=>{const id=Number(e.target.value)||null;setStatementVendor(id);setStatementMode(contractors.find(c=>c.id===id)?.billingMethod==="monthly"?"month":"selection");}}>
