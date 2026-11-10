@@ -14,7 +14,7 @@ import type {
 import { requireModuleAccess, type ModuleGateSuccess } from "../auth/guard";
 import { BomService, BomServiceError } from "../bom/bom-service";
 import { ContractorService, ContractorServiceError } from "../contractor/contractor-service";
-import { OutsourcingFlowService } from "../outsourcing/flow-service";
+import { OutsourcingFlowService, OutsourcingFlowError } from "../outsourcing/flow-service";
 import { BusinessLookupService } from "../reference/business-lookup-service";
 import { SalesWorkOrderService, SalesWorkOrderServiceError } from "../sales-order/sales-order-service";
 import { FieldValidationError } from "../validation/fields";
@@ -243,6 +243,7 @@ function knownFailure(error: unknown, requestId: string): Response | null {
     error instanceof SalesWorkOrderServiceError
     || error instanceof ContractorServiceError
     || error instanceof BomServiceError
+    || error instanceof OutsourcingFlowError
     || error instanceof WorkLogServiceError
   ) {
     return failure({ code: error.code, message: error.message }, requestId, error.status);
