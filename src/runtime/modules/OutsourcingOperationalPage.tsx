@@ -1,4 +1,4 @@
-import {useEffect,useMemo,useState,type FormEvent} from "react";
+import {useEffect,useState,type FormEvent} from "react";
 import {RecordSheet,RecordRows,type RowColumn} from "../../ui/forms/RecordSheet";
 import {EntryTable,EntryHeading} from "../../ui/forms/EntryTable";
 import {Field} from "../../ui/forms/Field";
@@ -181,13 +181,6 @@ export function OutsourcingOperationalPage(){
   {label:action==="adjust"?(stockActual?"實際數量":"增減量"):"數量",width:"150px",view:p=>p.quantity,edit:(p,i)=><input className="cy-sheet-input" inputMode="decimal" value={p.quantity} onChange={e=>patchMaterial(i,{quantity:e.target.value})}/>},
   {label:"單位",width:"120px",view:p=>p.unit,edit:(p,i)=>unitSelect(p.item,p.unit,v=>patchMaterial(i,{unit:v}),busy)}
  ];
- const grouped=useMemo(()=>{
-  const map=new Map<number,FlowStock[]>();
-  for(const item of stock.filter(x=>(stockContractor==null||x.contractorId===stockContractor)&&
-    (!stockSearch||[x.contractorName,x.itemNo,x.itemName].some(y=>y.includes(stockSearch))))){
-   map.set(item.contractorId,[...(map.get(item.contractorId)??[]),item]);}
-  return [...map.entries()];
- },[stock,stockContractor,stockSearch]);
  async function submitAction(e:FormEvent){
   e.preventDefault();
   if(action==="issue"&&order)await run(()=>flowApi.issue(order.id,{expectedRevision:order.revision,date:entryDate,note:entryNote,
@@ -274,14 +267,21 @@ export function OutsourcingOperationalPage(){
       <option value="">全部廠商</option>{contractors.map(c=><option key={c.id} value={c.id}>{c.displayName}</option>)}</select>
     <label><input type="checkbox" checked={showAllStock} onChange={e=>setShowAllStock(e.target.checked)}/> 顯示零庫存</label>
    </div>
-   {grouped.map(([vendor,rows])=><details key={vendor} open><summary><strong>{rows[0].contractorName}</strong> · {rows[0].billingMethod==="monthly"?"月結":"單次"} · {rows.length} 種料件</summary>
-     <table className="cy-op-table cy-rt"><thead><tr><th>品號</th><th>料件</th><th>電池條</th><th>現有</th><th>基準（補料後）</th><th>操作</th></tr></thead><tbody>
-      {rows.map(r=><tr key={r.itemId}><td>{r.itemNo}</td><td data-priority="title">{r.itemName}</td>
-       <td><StockGauge quantity={r.quantity} baseline={r.baseline} percentage={r.percentage} tone={r.tone}/></td>
-       <td className={Number(r.quantity)<0?"cy-op-error":""}>{r.quantity} {r.unit}</td><td>{r.baseline} {r.unit}</td>
-       <td>{button("退料",()=>{setStockContractor(vendor);begin("return");},busy)} {button("盤點調整",()=>{setStockContractor(vendor);begin("adjust");},busy)}</td></tr>)}
-     </tbody></table>
-   </details>)}{!grouped.length?<p>沒有符合條件的庫存。</p>:null}
+   {stockGroups.filter(v=>(stockContractor==null||v.contractorId===stockContractor)&&
+      (!stockSearch||v.contractorName.includes(stockSearch)||v.groups.some(g=>g.items.some(r=>r.itemNo.includes(stockSearch)||r.itemName.includes(stockSearch))))).map(v=>
+       <details key={v.contractorId} open><summary><strong>{v.contractorName}</strong> · {v.billingMethod==="monthly"?"月結":"單次"} · {new Set(v.groups.flatMap(g=>g.items.map(r=>r.itemId))).size} 種料件</summary>
+       {v.groups.map(g=><section key={g.title+g.bomName} className="cy-op-subsection">
+        <h3>{g.title}{g.bomName?" · "+g.bomName:""}{g.capacity!==null?" · "+(g.shortage?"料件不足，需補料":"現有料件還能做約 "+g.capacity+" 個"):""}</h3>
+        <table className="cy-op-table cy-rt"><thead><tr><th>品號</th><th>料件</th><th>電池條</th><th>現有</th><th>基準（補料後）</th><th>操作</th></tr></thead><tbody>
+         {g.items.filter(r=>!stockSearch||v.contractorName.includes(stockSearch)||r.itemNo.includes(stockSearch)||r.itemName.includes(stockSearch)).map(r=><tr key={r.itemId}><td>{r.itemNo}</td><td data-priority="title">{r.itemName}</td>
+          <td><StockGauge quantity={r.quantity} baseline={r.baseline} percentage={r.percentage} tone={r.tone}/></td>
+          <td className={Number(r.quantity)<0?"cy-op-error":""}>{r.quantity} {r.unit}</td><td>{r.baseline} {r.unit}</td>
+          <td>{button("退料",()=>{setStockContractor(v.contractorId);begin("return");},busy)}
+          {button("盤點調整",()=>{setStockContractor(v.contractorId);begin("adjust");},busy)}</td></tr>)}
+        </tbody></table>
+       </section>)}
+      </details>)}
+      {stockGroups.length===0?<p>沒有符合條件的庫存。</p>:null}
   </section>:null}
 
   {tab==="statements"?<div className="cy-op-master-detail">
