@@ -5,6 +5,12 @@ import {Field} from "../../ui/forms/Field";
 import {DateInput} from "../../ui/forms/DateInput";
 import {Dialog} from "../../ui/overlays/Dialog";
 import {ModuleSections} from "../../ui/mobile/ModuleSections";
+import {ListRow} from "../../ui/mobile/ListRow";
+import {ActionBar} from "../../ui/mobile/ActionBar";
+import {DataViewToolbar} from "../../ui/data/DataViewToolbar";
+import {useCompactLayout} from "../../ui/foundation/useCompactLayout";
+import {MasterDetailBack,useMasterDetailPane} from "../../ui/layout/MasterDetail";
+import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {OverflowMenu} from "../../ui/mobile/OverflowMenu";
 import {EntityPicker} from "../../ui/pickers/EntityPicker";
 import {StockGauge,ProductionGauge} from "../../ui/data/StockGauge";
@@ -54,6 +60,11 @@ function unitSelect(item:OutsourcingItemOption|null,unit:string,change:(s:string
 
 export function OutsourcingOperationalPage(){
  const [tab,setTab]=useState<Tab>("orders");
+ const compact=useCompactLayout();
+ const orderPane=useMasterDetailPane();
+ const statementPane=useMasterDetailPane();
+ const [masterEditing,setMasterEditing]=useState(false);
+ const {confirm,confirmationDialog}=useConfirmation();
  const [epoch,refresh]=useState(0);
  const [contractors,setContractors]=useState<ContractorSummary[]>([]);
  const [boms,setBoms]=useState<BomSummary[]>([]);
@@ -135,6 +146,13 @@ export function OutsourcingOperationalPage(){
      .catch(e=>{if(live)setError(outsourcingErrorMessage(e));});
    return()=>{live=false;};
  },[action,stockContractor,epoch]);
+ async function switchTab(value:Tab){
+   if(value===tab||busy)return;
+   if(draft && !(await confirm({title:"放棄代工單修改",description:"代工單尚未儲存，確定放棄？",confirmLabel:"放棄修改",confirmTone:"danger"})))return;
+   if(masterEditing && !(await confirm({title:"放棄主檔修改",description:"協力廠商或 BOM 尚未儲存，確定切換頁籤？",confirmLabel:"切換",confirmTone:"danger"})))return;
+   setDraft(null);setAction(null);setTab(value);
+   orderPane.close();statementPane.close();
+ }
  const reload=()=>refresh(e=>e+1);
  const run=async(task:()=>Promise<unknown>,after?:()=>void)=>{
   if(busy)return;setBusy(true);setError("");
@@ -220,7 +238,8 @@ export function OutsourcingOperationalPage(){
  }
 
  return <div className="cy-op-module cy-outsourcing-op">
-  <ModuleSections label="委外代工" sections={tabs} value={tab} onChange={setTab}/>
+  {confirmationDialog}
+  <ModuleSections label="委外代工功能" sections={tabs} value={tab} onChange={value=>void switchTab(value)}/>
   {error?<p className="cy-op-error" role="alert">{error}</p>:null}{message?<p className="cy-op-hint">{message}</p>:null}
   {tab==="orders"?<div className="cy-op-master-detail">
     <section className="cy-op-panel"><div className="cy-op-panel-header"><h2>代工單</h2>{button("＋ 新增",openOrderCreate,busy,true)}</div>
@@ -338,7 +357,7 @@ export function OutsourcingOperationalPage(){
     </div>:<p>請選擇對帳單。</p>}</section>
    </div>:null}
 
-  {tab==="contractors"?<ContractorWorkspace contractors={contractors} onChanged={reload} onEditingChange={()=>{}} notify={setMessage} reportError={setError}/>:null}
+  {tab==="contractors"?<ContractorWorkspace contractors={contractors} onChanged={reload} onEditingChange={setMasterEditing} notify={setMessage} reportError={setError}/>:null}
   {tab==="boms"?<BomWorkspace boms={boms} onChanged={reload} onEditingChange={()=>{}} notify={setMessage} reportError={setError}/>:null}
 
   <Dialog open={action!==null} title={{
