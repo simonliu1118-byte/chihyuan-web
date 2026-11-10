@@ -377,15 +377,15 @@ export async function acceptBusinessHttpAuthority(db: D1Database, componentId: n
   await expect("outsourcing/contractors/"+contractor.id+"/prices",200,"PUT",{
     itemId:finishedId,pricingUnit:"EA",unitPrice:"1.25",
   });
-  const order = (await (await expect("outsourcing/orders",201,"POST",{
+  const outsourcingOrder = (await (await expect("outsourcing/orders",201,"POST",{
     contractorId:contractor.id,orderDate:"2026-10-02",
     products:[{itemId:finishedId,bomRecipeId:bom.id,quantity:"3",unit:"EA"},
       {itemId:finishedId,quantity:"2",unit:"EA"}],
   })).json() as {data:{id:number;revision:number;products:{id:number}[];statusCode:string;outsourcing_ref:string}}).data;
-  check(order.statusCode==="pending_issue"&&order.products.length===2,"OUTSOURCING_PLAN_ONLY");
-  const base="outsourcing/orders/"+order.id;
+  check(outsourcingOrder.statusCode==="pending_issue"&&outsourcingOrder.products.length===2,"OUTSOURCING_PLAN_ONLY");
+  const base="outsourcing/orders/"+outsourcingOrder.id;
   const issued=(await(await expect(base+"/issues",200,"POST",{
-    expectedRevision:order.revision,date:"2026-10-02",items:[{itemId:componentId,quantity:"30",unit:"EA"}],
+    expectedRevision:outsourcingOrder.revision,date:"2026-10-02",items:[{itemId:componentId,quantity:"30",unit:"EA"}],
   })).json() as {data:{revision:number;statusCode:string;issues:{id:number}[]}}).data;
   check(issued.statusCode==="in_production","OUTSOURCING_ISSUE_TRANSITION");
   const issuedStock=await db.prepare("SELECT SUM(quantity_delta) AS n FROM contractor_stock_movements WHERE contractor_id=? AND item_id=?")
@@ -394,7 +394,7 @@ export async function acceptBusinessHttpAuthority(db: D1Database, componentId: n
   await expect("outsourcing/stock?contractorId="+contractor.id,200);
   const batch1=(await(await expect(base+"/receipts",200,"POST",{
     expectedRevision:issued.revision,date:"2026-10-02",erpNo:"ACCEPT-ERP-1",
-    items:[{orderProductId:order.products[0].id,bomRecipeId:bom.id,quantity:"2",unit:"EA"}],
+    items:[{orderProductId:outsourcingOrder.products[0].id,bomRecipeId:bom.id,quantity:"2",unit:"EA"}],
   })).json() as {data:{revision:number;statusCode:string;receipts:{id:number;items:{id:number}[]}[]}}).data;
   check(batch1.statusCode==="in_production","OUTSOURCING_FIRST_PARTIAL_RECEIPT");
   const afterConsumption=await db.prepare("SELECT SUM(quantity_delta) AS n FROM contractor_stock_movements WHERE contractor_id=? AND item_id=?")
@@ -402,8 +402,8 @@ export async function acceptBusinessHttpAuthority(db: D1Database, componentId: n
   check(afterConsumption?.n===260000,"OUTSOURCING_BOM_CONSUMPTION");
   const batch2=(await(await expect(base+"/receipts",200,"POST",{
     expectedRevision:batch1.revision,date:"2026-10-03",erpNo:"ACCEPT-ERP-2",
-    items:[{orderProductId:order.products[0].id,bomRecipeId:bom.id,quantity:"1",unit:"EA"},
-      {orderProductId:order.products[1].id,quantity:"2",unit:"EA"}],
+    items:[{orderProductId:outsourcingOrder.products[0].id,bomRecipeId:bom.id,quantity:"1",unit:"EA"},
+      {orderProductId:outsourcingOrder.products[1].id,quantity:"2",unit:"EA"}],
   })).json() as {data:{revision:number;statusCode:string;receipts:{id:number;items:{id:number}[]}[]}}).data;
   check(batch2.statusCode==="delivered"&&batch2.receipts.length===2,"OUTSOURCING_MULTI_RECEIPT_DELIVERED");
   const receipt1=batch2.receipts.find(r=>r.items.some(i=>i.id===batch1.receipts[0].items[0].id))!;
@@ -431,7 +431,7 @@ export async function acceptBusinessHttpAuthority(db: D1Database, componentId: n
   })).json() as {data:{statusCode:string}}).data;
   check(cancelled.statusCode==="in_production","OUTSOURCING_RECEIPT_CANCEL_REVERSES");
   const outAudits=await db.prepare("SELECT action FROM audit_events WHERE entity_type='outsourcing_order' AND entity_key=? ORDER BY id")
-    .bind(order.outsourcing_ref).all<{action:string}>();
+    .bind(outsourcingOrder.outsourcing_ref).all<{action:string}>();
   check(outAudits.results.some(r=>r.action==="outsourcing.issued")&&outAudits.results.some(r=>r.action==="outsourcing.receipt_cancelled"),
     "OUTSOURCING_AUDIT_REQUIRED");
   role="USER";
