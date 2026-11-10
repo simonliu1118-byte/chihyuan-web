@@ -50,7 +50,7 @@ async function waitReady(){
  }
  throw new Error("Vite fixture server not ready");
 }
-const server=spawn("npx",["vite","--host","127.0.0.1","--port",String(port),"--strictPort"],{stdio:["ignore","pipe","pipe"]});
+const server=spawn("npx",["vite","--config","scripts/visual/vite.config.ts","--host","127.0.0.1","--port",String(port),"--strictPort"],{stdio:["ignore","pipe","pipe"]});
 server.stdout.on("data",b=>process.stdout.write(b));
 server.stderr.on("data",b=>process.stderr.write(b));
 let browser;
