@@ -22,7 +22,7 @@ function text(value: unknown, name: string, required = true): string {
 }
 function date(value: unknown, name: string): string {
   const v = text(value, name);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || new Date(v+"T00:00:00Z").toISOString().slice(0,10) !== v)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(Date.parse(v+"T00:00:00Z")) || new Date(v+"T00:00:00Z").toISOString().slice(0,10) !== v)
     throw new FieldValidationError({[name]:"日期格式無效"});
   return v;
 }
@@ -201,10 +201,10 @@ export class OutsourcingFlowService {
       const previouslyIssued=await this.db.prepare("SELECT 1 FROM contractor_stock_movements WHERE contractor_id=? AND item_id=? AND movement_type='issue' LIMIT 1").bind(contractorId,itemId).first();
       if(!previouslyIssued)throw new FieldValidationError({itemId:"此料件尚未發料，不能退料或調整"});
       if(!item)throw new FieldValidationError({itemId:"料件不存在"});
-      const unit=text(p.unit,"unit"),before=qty(stock.find(x=>x.itemId===itemId)?.quantity??"0","quantity",false);
+      const unit=text(p.unit,"unit"),before=parseScaled4(stock.find(x=>x.itemId===itemId)?.quantity??"0");
       let delta=eventType==="return"?-this.toBase(qty(p.quantity,"quantity"),unit,item):0;
       if(eventType==="adjust")delta=p.actualQuantity!=null
-        ? this.toBase(qty(p.actualQuantity,"actualQuantity",false),unit,item)-before
+        ? this.toBase(parseScaled4(String(p.actualQuantity)),unit,item)-before
         : this.toBase(qty(p.delta,"delta",false),unit,item);
       if(delta===0)continue;
       data.push({itemId,unit,delta});
@@ -417,7 +417,7 @@ export class OutsourcingFlowService {
     const stmts:D1PreparedStatement[]=[];
     for(const l of lines) {
       const lineId=id(l.id,"lineId");if(!known.has(lineId))throw new FieldValidationError({lineId:"明細不屬於本對帳單"});
-      const price=l.unitPrice==null||l.unitPrice===""?null:qty(l.unitPrice,"unitPrice",false);
+      const price=l.unitPrice==null||l.unitPrice===""?null:parseScaled4(String(l.unitPrice));
       if(price!==null&&price<0)throw new FieldValidationError({unitPrice:"單價不能小於零"});
       const row=await this.db.prepare("SELECT quantity FROM outsourcing_statement_lines WHERE id=?").bind(lineId).first<{quantity:number}>();
       stmts.push(this.db.prepare("UPDATE outsourcing_statement_lines SET unit_price=?,amount=? WHERE id=? AND statement_id=?")
