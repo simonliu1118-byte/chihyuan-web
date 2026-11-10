@@ -291,7 +291,7 @@ export function OutsourcingOperationalPage(){
         {label:"日期",view:r=>r.received_date,edit:()=> <span/>},
         {label:"ERP 單號",view:r=>r.erp_no,edit:()=> <span/>},
         {label:"成品",view:r=>r.items.map(i=>i.name+" "+number(i.quantity)+" "+i.unit).join("、"),edit:()=> <span/>},
-        {label:"對帳狀態",view:r=>r.cancelled_at?"已取消":r.items.some(i=>i.statement_status==="confirmed")?"已確認":r.items.some(i=>i.statement_status==="draft")?"對帳中":"待對帳",edit:()=> <span/>},
+        {label:"對帳狀態",view:r=>r.cancelled_at?"已取消":r.items.some(i=>i.statement_status==="paid")?"已付清":r.items.some(i=>i.statement_status==="confirmed")?"已確認":r.items.some(i=>i.statement_status==="draft")?"對帳中":"待對帳",edit:()=> <span/>},
         {label:"操作",view:r=>r.cancelled_at?"—":button("取消交貨",()=>void run(()=>flowApi.cancelReceipt(order.id,r.id,order.revision)),busy),edit:()=> <span/>}
        ]}/>
       </div>:<p>請選擇代工單，或新增代工單。</p>}
@@ -313,11 +313,11 @@ export function OutsourcingOperationalPage(){
       (!stockSearch||v.contractorName.includes(stockSearch)||v.groups.some(g=>g.items.some(r=>r.itemNo.includes(stockSearch)||r.itemName.includes(stockSearch))))).map(v=>
        <details key={v.contractorId} open><summary><strong>{v.contractorName}</strong> · {v.billingMethod==="monthly"?"月結":"單次"} · {new Set(v.groups.flatMap(g=>g.items.map(r=>r.itemId))).size} 種料件</summary>
        {v.groups.map(g=><section key={g.title+g.bomName} className="cy-op-subsection">
-        <h3>{g.title}{g.bomName?" · "+g.bomName:""}{g.capacity!==null?" · "+(g.shortage?"料件不足，需補料":"現有料件還能做約 "+g.capacity+" 個"):""}</h3>
+        <h3>{g.title}{g.bomName?" · "+g.bomName:""}{g.capacity!==null?" · "+(g.shortage?"料件不足，需補料":"現有料件還能做約 "+g.capacity+" "+(g.outputUnit??"")):""}</h3>
         <table className="cy-op-table cy-rt"><thead><tr><th>品號</th><th>料件</th><th>電池條</th><th>現有</th><th>基準（補料後）</th><th>操作</th></tr></thead><tbody>
          {g.items.filter(r=>!stockSearch||v.contractorName.includes(stockSearch)||r.itemNo.includes(stockSearch)||r.itemName.includes(stockSearch)).map(r=><tr key={r.itemId}><td>{r.itemNo}</td><td data-priority="title">{r.itemName}</td>
           <td><StockGauge quantity={r.quantity} baseline={r.baseline} percentage={r.percentage} tone={r.tone}/></td>
-          <td className={Number(r.quantity)<0?"cy-op-error":""}>{r.quantity} {r.unit}</td><td>{r.baseline} {r.unit}</td>
+          <td className={Number(r.quantity)<0?"cy-op-negative":""}>{r.quantity} {r.unit}</td><td>{r.baseline} {r.unit}</td>
           <td>{button("退料",()=>{setStockContractor(v.contractorId);begin("return");},busy)}
           {button("盤點調整",()=>{setStockContractor(v.contractorId);begin("adjust");},busy)}</td></tr>)}
         </tbody></table>
