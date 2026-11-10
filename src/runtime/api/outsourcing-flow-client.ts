@@ -9,6 +9,7 @@ const root="/api/business/outsourcing";
 export interface FlowProduct {
   id:number; item_id:number; item_no:string; item_name:string; bom_recipe_id:number|null;
   recipe_ref:string|null; planned_quantity:number; delivered_quantity:number; unit:string; progress:number;
+  current_pricing_unit:string|null; current_unit_price:number|null; allowed_units:readonly string[];
 }
 export interface FlowIssue {
   id:number;issued_date:string;note:string|null;cancelled_at:string|null;
