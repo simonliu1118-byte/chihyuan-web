@@ -88,7 +88,7 @@ export class OutsourcingFlowService {
       FROM outsourcing_order_products p JOIN items i ON i.id=p.item_id
       LEFT JOIN bom_recipes b ON b.id=p.bom_recipe_id
       WHERE p.outsourcing_order_id=? ORDER BY p.sort_order,p.id`).bind(orderId).all<Row>();
-    return (r.results??[]).map(p=>({...p,progress:outsourcingProgress(p.planned_quantity,p.delivered_quantity)}));
+    return (r.results??[]).map(p=>({...p,progress:outsourcingProgress(p.planned_quantity,p.delivered_quantity)})) as Row[];
   }
   async detail(orderId:number) {
     const order=await this.order(orderId);
@@ -97,11 +97,11 @@ export class OutsourcingFlowService {
       this.db.prepare("SELECT * FROM outsourcing_issues WHERE outsourcing_order_id=? ORDER BY id DESC").bind(orderId).all<Row>(),
       this.db.prepare("SELECT * FROM outsourcing_receipts WHERE outsourcing_order_id=? ORDER BY id DESC").bind(orderId).all<Row>()
     ]);
-    const issueRows=[];for(const r of issues.results??[]) {
+    const issueRows: Row[]=[];for(const r of issues.results??[]) {
       const items=await this.db.prepare(`SELECT ii.*,i.item_no,i.name FROM outsourcing_issue_items ii JOIN items i ON i.id=ii.item_id WHERE ii.issue_id=? ORDER BY ii.sort_order`).bind(r.id).all<Row>();
       issueRows.push({...r,items:items.results??[]});
     }
-    const receiptRows=[];for(const r of receipts.results??[]) {
+    const receiptRows: Row[]=[];for(const r of receipts.results??[]) {
       const items=await this.db.prepare(`SELECT ri.*,i.item_no,i.name,sl.statement_id,s.status_code AS statement_status
         FROM outsourcing_receipt_items ri JOIN items i ON i.id=ri.item_id
         LEFT JOIN outsourcing_statement_lines sl ON sl.receipt_item_id=ri.id
@@ -347,7 +347,7 @@ export class OutsourcingFlowService {
     }
     return {items:rows,nextCursor:null};
   }
-  async statementDetail(statementId:number) {
+  async statementDetail(statementId:number):Promise<Row> {
     const statement=await this.db.prepare(`SELECT s.*,c.display_name AS contractor_name,c.billing_method
       FROM outsourcing_statements s JOIN contractors c ON c.id=s.contractor_id WHERE s.id=?`).bind(statementId).first<Row>();
     if(!statement)throw new FieldValidationError({statementId:"對帳單不存在"});
