@@ -28,6 +28,15 @@ CREATE TABLE outsourcing_orders (
  revision INTEGER NOT NULL DEFAULT 1
 );
 CREATE INDEX idx_outsourcing_orders_contractor ON outsourcing_orders(contractor_id,order_date DESC);
+-- 0007's retirement trigger is removed with the old outsourcing_orders table;
+-- recreate it on the new table so IDs never get reused after deleting a draft.
+CREATE TRIGGER retire_outsourcing_orders_identity AFTER DELETE ON outsourcing_orders
+BEGIN
+  INSERT INTO entity_id_high_watermarks(table_name,last_id)
+  VALUES('outsourcing_orders',OLD.id)
+  ON CONFLICT(table_name) DO UPDATE SET last_id=MAX(last_id,excluded.last_id);
+END;
+
 
 CREATE TABLE outsourcing_order_products (
  id INTEGER PRIMARY KEY,
