@@ -159,7 +159,7 @@ export function OutsourcingOperationalPage(){
   try{await task();setMessage("已儲存");setAction(null);after?.();reload();}
   catch(e){setError(outsourcingErrorMessage(e));}finally{setBusy(false);}
  };
- function openOrderCreate(){setDraft({contractorId:contractors[0]?.id??null,orderDate:taipeiToday(),note:"",products:[newLine()]});setOrderId(null);setOrder(null);}
+ function openOrderCreate(){setDraft({contractorId:contractors[0]?.id??null,orderDate:taipeiToday(),note:"",products:[newLine()]});setOrderId(null);setOrder(null);orderPane.open();}
  async function startOrderEdit(){
    if(!order||order.issues.length||order.receipts.length||order.closed_at)return;
    setBusy(true);setError("");
@@ -241,15 +241,15 @@ export function OutsourcingOperationalPage(){
   {confirmationDialog}
   <ModuleSections label="委外代工功能" sections={tabs} value={tab} onChange={value=>void switchTab(value)}/>
   {error?<p className="cy-op-error" role="alert">{error}</p>:null}{message?<p className="cy-op-hint">{message}</p>:null}
-  {tab==="orders"?<div className="cy-op-master-detail">
-    <section className="cy-op-panel"><div className="cy-op-panel-header"><h2>代工單</h2>{button("＋ 新增",openOrderCreate,busy,true)}</div>
-     <input className="cy-op-input" role="searchbox" placeholder="搜尋廠商／單號" value={orderSearch} onChange={e=>setOrderSearch(e.target.value)}/>
-     {orders.filter(o=>!orderSearch||o.outsourcing_ref.includes(orderSearch)||o.contractor_name_snapshot.includes(orderSearch)).map(o=>
-      <button key={o.id} className={"cy-op-list-row "+(o.id===orderId?"active":"")} onClick={()=>{setDraft(null);setOrderId(o.id);}}>
-       <strong>{o.contractor_name_snapshot}</strong><small>{o.outsourcing_ref} · {o.order_date}</small><span>{statusLabel[o.statusCode]??o.statusCode}</span>
-      </button>)}
+  {tab==="orders"?<div className="cy-md cy-op-master-detail" data-pane={orderPane.pane}>
+    <section className="cy-op-panel cy-md-list"><div className="cy-op-panel-header cy-md-toolbar"><h2>代工單</h2>{button("＋ 新增",openOrderCreate,busy,true)}</div>
+     <DataViewToolbar searchValue={orderSearch} onSearchChange={setOrderSearch} searchPlaceholder="搜尋廠商／單號"/>
+     {orders.filter(row=>!orderSearch||row.outsourcing_ref.includes(orderSearch)||row.contractor_name_snapshot.includes(orderSearch)).map(row=>
+       <ListRow key={row.id} title={row.contractor_name_snapshot}
+         subtitle={row.outsourcing_ref+" · "+row.order_date} trailing={statusLabel[row.statusCode]??row.statusCode}
+         selected={row.id===orderId} onClick={()=>{setDraft(null);setOrderId(row.id);orderPane.open();}}/>)}
     </section>
-    <section className="cy-op-panel">
+    <section className="cy-op-panel cy-md-detail"><MasterDetailBack label="代工單清單" onBack={()=>{setDraft(null);orderPane.close();}} disabled={busy}/>
      {draft?<form onKeyDown={enterAdvancesFields} onSubmit={e=>{e.preventDefault();void run(async()=>{
        const payload={contractorId:draft.contractorId,orderDate:draft.orderDate,note:draft.note,
          products:draft.products.map(p=>({itemId:p.item?.id,bomRecipeId:p.bomId,quantity:p.quantity,unit:p.unit}))};
@@ -265,7 +265,8 @@ export function OutsourcingOperationalPage(){
         {columns:"1fr",cells:[{label:"備註",view:draft.note,edit:<input className="cy-sheet-input" value={draft.note} onChange={e=>setDraft({...draft,note:e.target.value})}/>}]}
        ]}/>
        <RecordRows title="成品" editing columns={orderColumns} rows={draft.products} rowKey={p=>p.key} onInsert={i=>setDraft(d=>d?{...d,products:[...d.products.slice(0,i+1),newLine(),...d.products.slice(i+1)]}:d)} onRemove={i=>setDraft(d=>d?{...d,products:d.products.filter((_,j)=>i!==j)}:d)}/>
-       <div className="cy-op-form-footer"><button type="button" className="cy-op-button soft" onClick={()=>setDraft(null)}>取消</button><button className="cy-op-button primary" disabled={busy}>儲存</button></div>
+       {compact?<ActionBar><button type="button" className="cy-op-button soft" onClick={()=>setDraft(null)}>取消</button><button className="cy-op-button primary" disabled={busy}>儲存</button></ActionBar>
+        :<div className="cy-op-form-footer"><button type="button" className="cy-op-button soft" onClick={()=>setDraft(null)}>取消</button><button className="cy-op-button primary" disabled={busy}>儲存</button></div>}
       </form>:order?<div>
        <div className="cy-record-header"><div><h2>{order.contractor_name_snapshot}</h2><small>{order.outsourcing_ref} · {statusLabel[order.statusCode]}</small></div>
         <div className="cy-record-actions">{!order.closed_at?<>
@@ -325,12 +326,13 @@ export function OutsourcingOperationalPage(){
       {stockGroups.length===0?<p>沒有符合條件的庫存。</p>:null}
   </section>:null}
 
-  {tab==="statements"?<div className="cy-op-master-detail">
-    <section className="cy-op-panel"><div className="cy-op-panel-header"><h2>對帳付款</h2>{button("＋ 建立對帳單",()=>begin("statement-create"),busy,true)}</div>
-      {statements.map(s=><button key={s.id} className={"cy-op-list-row "+(s.id===statementId?"active":"")} onClick={()=>setStatementId(s.id)}>
-       <strong>{s.contractor_name}</strong><small>{s.period_month??s.statement_date}</small><span>NT$ {money(s.total_amount)} · {statusLabel[s.paymentStatus]}</span></button>)}
+  {tab==="statements"?<div className="cy-md cy-op-master-detail" data-pane={statementPane.pane}>
+    <section className="cy-op-panel cy-md-list"><div className="cy-op-panel-header cy-md-toolbar"><h2>對帳付款</h2>{button("＋ 建立對帳單",()=>begin("statement-create"),busy,true)}</div>
+      {statements.map(row=><ListRow key={row.id} title={row.contractor_name}
+        subtitle={row.period_month??row.statement_date} trailing={"NT$ "+money(row.total_amount)+" · "+statusLabel[row.paymentStatus]}
+        selected={row.id===statementId} onClick={()=>{setStatementId(row.id);statementPane.open();}}/>)}
     </section>
-    <section className="cy-op-panel">{statement?<div>
+    <section className="cy-op-panel cy-md-detail"><MasterDetailBack label="對帳單清單" onBack={()=>statementPane.close()} disabled={busy}/>{statement?<div>
       <div className="cy-record-header"><h2>{statement.contractor_name} · {statusLabel[statement.paymentStatus]}</h2>
       <div className="cy-record-actions">{statement.status_code==="draft"?<>
         {button("修改單價與費用",()=>begin("statement-edit"),busy)}
