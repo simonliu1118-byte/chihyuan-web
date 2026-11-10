@@ -320,6 +320,104 @@ export class OutsourcingFlowService {
   }
 
 
+  /** The suggested material issue is remaining ordered output x BOM - vendor-held inventory. */
+  async recommendedIssue(orderId:number) {
+    const o=await this.detail(orderId);
+    const requirements=new Map<number,number>();
+    for(const p of o.products as Row[]) {
+      if(!p.bom_recipe_id || p.delivered_quantity>=p.planned_quantity)continue;
+      const bom=await this.db.prepare("SELECT * FROM bom_recipes WHERE id=?").bind(p.bom_recipe_id).first<Row>();
+      if(!bom)continue;
+      const refs=await this.itemRefs([p.item_id]);
+      const item=refs.get(p.item_id)!;
+      const remaining=p.planned_quantity-p.delivered_quantity;
+      const output=convertScaled4Exact(remaining,p.unit,bom.output_unit,item.base_unit,item.conversions);
+      const components=await this.db.prepare("SELECT component_item_id,quantity,unit FROM bom_components WHERE bom_recipe_id=?").bind(bom.id).all<Row>();
+      const materials=await this.itemRefs((components.results??[]).map(c=>c.component_item_id));
+      for(const c of components.results??[]){
+        const material=materials.get(c.component_item_id)!;
+        const fraction=BigInt(output)*BigInt(c.quantity);
+        if(fraction%BigInt(bom.output_quantity)!==0n)throw new FieldValidationError({quantity:"建議發料量超出四位小數"});
+        const needed=this.toBase(Number(fraction/BigInt(bom.output_quantity)),c.unit,material);
+        requirements.set(c.component_item_id,(requirements.get(c.component_item_id)??0)+needed);
+      }
+    }
+    const balance=new Map((await this.stock(o.contractor_id,true)).items.map(x=>[x.itemId,parseScaled4(x.quantity)]));
+    const refs=await this.itemRefs([...requirements.keys()]);
+    return {items:[...requirements].map(([itemId,needed])=>{
+      const item=refs.get(itemId)!;
+      return {itemId,itemNo:item.item_no,itemName:item.name,unit:item.base_unit,
+        quantity:formatScaled4(Math.max(0,needed-(balance.get(itemId)??0)))};
+    }).filter(x=>parseScaled4(x.quantity)>0)};
+  }
+  async previewConsumption(orderId:number,raw:unknown) {
+    const o=await this.detail(orderId),b=object(raw),entries=rows(b.items,"items");
+    const byProduct=new Map((o.products as Row[]).map(p=>[p.id,p]));
+    const materials=new Map<number,number>();
+    for(const itemRow of entries){
+      const p=byProduct.get(id(itemRow.orderProductId,"orderProductId"));
+      if(!p)throw new FieldValidationError({orderProductId:"成品不屬於此工單"});
+      const bomId=itemRow.bomRecipeId==null?p.bom_recipe_id:id(itemRow.bomRecipeId,"bomRecipeId");
+      if(!bomId)continue;
+      const bom=await this.db.prepare("SELECT * FROM bom_recipes WHERE id=? AND finished_item_id=?").bind(bomId,p.item_id).first<Row>();
+      if(!bom)throw new FieldValidationError({bomRecipeId:"BOM 不屬於成品"});
+      const finished=(await this.itemRefs([p.item_id])).get(p.item_id)!;
+      const output=convertScaled4Exact(qty(itemRow.quantity,"quantity"),text(itemRow.unit,"unit"),bom.output_unit,finished.base_unit,finished.conversions);
+      const components=await this.db.prepare("SELECT component_item_id,quantity,unit FROM bom_components WHERE bom_recipe_id=?").bind(bomId).all<Row>();
+      const refs=await this.itemRefs((components.results??[]).map(c=>c.component_item_id));
+      for(const c of components.results??[]){
+        const used=BigInt(output)*BigInt(c.quantity);
+        if(used%BigInt(bom.output_quantity)!==0n)throw new FieldValidationError({quantity:"BOM 用料數量超出四位小數"});
+        const delta=-this.toBase(Number(used/BigInt(bom.output_quantity)),c.unit,refs.get(c.component_item_id)!);
+        materials.set(c.component_item_id,(materials.get(c.component_item_id)??0)+delta);
+      }
+    }
+    const refs=await this.itemRefs([...materials.keys()]);
+    return {items:[...materials].map(([itemId,delta])=>{
+      const item=refs.get(itemId)!;return {itemId,itemNo:item.item_no,itemName:item.name,quantity:formatScaled4(delta),unit:item.base_unit};
+    })};
+  }
+  async groupedStock(contractorId?:number,showAll=false){
+    const all=(await this.stock(contractorId,showAll)).items;
+    const orders=await this.db.prepare(`SELECT p.item_id,p.bom_recipe_id,p.outsourcing_order_id,i.item_no,i.name AS item_name,
+      o.contractor_id,b.output_quantity,b.output_unit,b.recipe_ref
+      FROM outsourcing_order_products p JOIN outsourcing_orders o ON o.id=p.outsourcing_order_id
+      JOIN items i ON i.id=p.item_id LEFT JOIN bom_recipes b ON b.id=p.bom_recipe_id
+      WHERE o.closed_at IS NULL AND p.bom_recipe_id IS NOT NULL
+      ORDER BY o.contractor_id,p.item_id,p.id`).all<Row>();
+    const byVendor=new Map<number,Row[]>();
+    for(const r of orders.results??[])byVendor.set(r.contractor_id,[...(byVendor.get(r.contractor_id)??[]),r]);
+    const vendors=[];
+    for(const [vendorId,items]of Map.groupBy(all,x=>x.contractorId)){
+      const grouped=[],used=new Set<number>();
+      for(const p of byVendor.get(vendorId)??[]){
+        const cs=await this.db.prepare("SELECT component_item_id,quantity,unit FROM bom_components WHERE bom_recipe_id=?").bind(p.bom_recipe_id).all<Row>();
+        const refs=await this.itemRefs((cs.results??[]).map(c=>c.component_item_id));
+        const rows=[];let capacity=Number.MAX_SAFE_INTEGER;
+        let shortage=false;
+        for(const c of cs.results??[]){
+          const material=refs.get(c.component_item_id);
+          if(!material)continue;
+          const r=items.find(x=>x.itemId===c.component_item_id);
+          if(!r)continue;
+          used.add(c.component_item_id);rows.push(r);
+          const count=parseScaled4(r.quantity);
+          const perBatch=this.toBase(c.quantity,c.unit,material);
+          const canProduce=perBatch>0?Number((BigInt(Math.max(0,count))*BigInt(p.output_quantity))/(BigInt(perBatch)*10000n)):0;
+          capacity=Math.min(capacity,canProduce);
+          if(count<=0)shortage=true;
+        }
+        if(rows.length)grouped.push({title:p.item_no+" "+p.item_name,bomName:p.recipe_ref,
+          capacity:capacity===Number.MAX_SAFE_INTEGER?0:capacity,shortage,items:rows});
+      }
+      const other=items.filter(r=>!used.has(r.itemId));
+      if(other.length)grouped.push({title:"其他料件",capacity:null,shortage:false,items:other});
+      vendors.push({contractorId:vendorId,contractorName:items[0].contractorName,
+        billingMethod:items[0].billingMethod,groups:grouped});
+    }
+    return {items:vendors};
+  }
+
   async unbilledReceipts(contractorId:number,month?:string) {
     const where=month?"AND substr(r.received_date,1,7)=?":"";
     const args=month?[contractorId,month]:[contractorId];
