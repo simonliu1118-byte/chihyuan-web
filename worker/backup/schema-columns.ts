@@ -683,6 +683,41 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "updated_at",
     "updated_by"
   ],
+  "ordering_cn_charges": [
+    "amount",
+    "charged_on",
+    "fee",
+    "id",
+    "kind",
+    "note",
+    "order_id",
+    "sort_order"
+  ],
+  "ordering_cn_pieces": [
+    "charge_id",
+    "id",
+    "line_id",
+    "order_id",
+    "quantity",
+    "rmb_price",
+    "sort_order"
+  ],
+  "ordering_cn_purchases": [
+    "created_at",
+    "order_id",
+    "ordered_at",
+    "ordered_by",
+    "updated_at"
+  ],
+  "ordering_cn_returns": [
+    "fee",
+    "line_id",
+    "ntd_amount",
+    "order_id",
+    "quantity",
+    "reason",
+    "rmb_amount"
+  ],
   "ordering_item_last_source": [
     "item_code",
     "source_id",
@@ -693,11 +728,14 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "closed_at",
     "closed_by",
     "closed_note",
+    "cn_discontinued",
     "id",
     "item_code",
     "item_name",
     "note",
     "order_id",
+    "original_quantity",
+    "purchase_added",
     "quantity",
     "quantity_text",
     "section",

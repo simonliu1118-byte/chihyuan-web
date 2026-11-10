@@ -477,7 +477,7 @@ function OperationalApp({
       {content}
       {allowedModules.has("ORDERING")&&(orderingOpened||orderingShown)?<div className="cy-kept-page" hidden={!orderingShown}>
         <ErpPageVisibleContext.Provider value={orderingShown}>
-          <OrderingPage canRestock={allowedModules.has("ERP_RESTOCK_ASSIST")} canQueryItem={allowedModules.has("ERP_ITEM_QUERY")}/>
+          <OrderingPage canRestock={allowedModules.has("ERP_RESTOCK_ASSIST")} canQueryItem={allowedModules.has("ERP_ITEM_QUERY")} canCnPurchase={allowedModules.has("ORDERING_CN_PURCHASE")}/>
         </ErpPageVisibleContext.Provider>
       </div>:null}
       {erpAllowed && (erpOpened || erpShown) && <div className="cy-kept-page" hidden={!erpShown}>

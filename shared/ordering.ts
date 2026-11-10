@@ -40,6 +40,8 @@ export interface OrderingLine {
   spec: string; quantityText: string; quantity: number | null; unit: string; note: string;
   closedAs: OrderingClosedAs | null; closedNote: string;
   received: number;
+  /** 自訂中國貨採購: the 原定 數量 once 採購 changed it; 採購 added the line; marked 絕版／停產. */
+  originalQuantity?: number | null; purchaseAdded?: boolean; cnDiscontinued?: boolean;
 }
 /** Format receipt items consistently in the UI and revision summaries. */
 export function receiptItemSummary(items:readonly {itemName:string;quantity:number;unit:string}[]):string {

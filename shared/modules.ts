@@ -14,6 +14,8 @@ export const CYWEB_MODULES = [
   // ERP 查詢 since V0.9.41 (user 2026-10-27).
   { code: "ERP_RESTOCK_ASSIST", route: "ordering", label: "進貨輔助" },
   { code: "ORDERING", route: "ordering", label: "叫貨" },
+  // 自訂中國貨採購 (user 2026-11-10): a switch inside a 自訂中國貨 叫貨單, not a page of its own.
+  { code: "ORDERING_CN_PURCHASE", route: null, label: "叫貨－中國貨採購" },
   // 門市 (user 2026-10-28): a page of tabs like ERP 查詢; each tab has its own grant.
   { code: "STORE_CUSTOMER_ORDERS", route: "store", label: "門市顧客訂購" },
   { code: "STORE_REPAIRS", route: "store", label: "門市售後維修" },
@@ -52,6 +54,7 @@ export function moduleCodesForRoute(route: string): CyWebModuleCode[] {
  */
 export const MODULE_REQUIREMENTS: Partial<Record<CyWebModuleCode, readonly CyWebModuleCode[]>> = {
   ERP_RESTOCK_ASSIST: ["ERP_ITEM_QUERY", "ERP_CUSTOMER_QUERY"],
+  ORDERING_CN_PURCHASE: ["ORDERING"],
 };
 
 export function moduleLabel(code: CyWebModuleCode): string {

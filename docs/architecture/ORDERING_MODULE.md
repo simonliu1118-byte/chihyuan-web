@@ -178,3 +178,12 @@
 
 ## V0.12.9 — 進貨輔助重複品項取消
 同一草稿、相同品號／單位／區段有未結掉的既有列時，進貨輔助加入對話框提供「取消」、「新增一列」、「加到既有列」三種獨立選項。取消只關閉選擇，不改草稿品項或上次來源；其餘兩種仍用同一 save line API 與既有數量合併規則。桌機與手機共用，同一 Ordering business/Mutation owner 不變。
+
+## V0.18.5 — 自訂中國貨採購
+
+- 入口：已送出（SENT）的 `CN_CUSTOM` 叫貨單上「叫貨明細｜採購」切換；權限代碼 `ORDERING_CN_PURCHASE`（需 `ORDERING`，`MODULE_REQUIREMENTS`）。
+- API：`GET /api/business/ordering/orders/:id/cn-purchase`；`PUT …/cn-purchase/{order|reconcile|shipping|tax|returns}`；`POST …/cn-purchase/{complete|discontinue|restore}`。全部帶 `expectedVersion`，經同一個 `mutate()`（版本鎖＋修改紀錄＋稽核），回傳 `{order, purchase}`。實作在 `worker/http/ordering-cn-routes.ts`。
+- 資料（migration 0064）：`ordering_cn_purchases`（完成訂購時間／人）、`ordering_cn_charges`（CARD／SHIPPING／TAX，台幣整數）、`ordering_cn_pieces`（品項拆段：數量、人民幣單價（分）、所屬刷卡）、`ordering_cn_returns`（每品項一筆）。`ordering_lines` 加 `original_quantity`、`purchase_added`、`cn_discontinued`。
+- 採購數量＝各段數量合計，寫回 `ordering_lines.quantity`（到貨、未到貨照舊以它為準）；第一次改動時把原數量留在 `original_quantity`。已有採購段的品項，「修改」叫貨單不能再改數量或刪除。
+- 絕版／停產＝`closed_as='OTHER'`＋`cn_discontinued=1`，恢復時清除；已刷卡或有退貨的品項不能標記。
+- 計算與表格列順序在 `shared/cn-purchase.ts`（`computeCnPurchase`、`cnTableRows`、`cnStage`），前端 `CnPurchasePanel.tsx`。
