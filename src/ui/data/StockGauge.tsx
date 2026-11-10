@@ -1,3 +1,4 @@
+import "./stock-gauge.css";
 import type { CSSProperties } from "react";
 import { outsourcingProgress } from "../../../shared/outsourcing-flow";
 
