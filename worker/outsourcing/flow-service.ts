@@ -136,6 +136,48 @@ export class OutsourcingFlowService {
     const order=await this.db.prepare("SELECT id FROM outsourcing_orders WHERE outsourcing_ref=?").bind(reference).first<{id:number}>();
     return this.detail(order!.id);
   }
+  /** Pending, never-used orders can be edited in-place without rewriting history. */
+  async updatePending(orderId:number,raw:unknown,actor:FlowActor){
+    const b=object(raw),previous=await this.revision(orderId,b.expectedRevision);
+    const [issues,receipts]=await Promise.all([
+      this.db.prepare("SELECT 1 FROM outsourcing_issues WHERE outsourcing_order_id=? LIMIT 1").bind(orderId).first(),
+      this.db.prepare("SELECT 1 FROM outsourcing_receipts WHERE outsourcing_order_id=? LIMIT 1").bind(orderId).first(),
+    ]);
+    if(issues||receipts||previous.closed_at)throw new FieldValidationError({orderId:"已有發料／交貨或已結案，不可修改"});
+    const contractorId=id(b.contractorId,"contractorId"),orderDate=date(b.orderDate,"orderDate"),products=rows(b.products,"products");
+    const contractor=await this.db.prepare("SELECT display_name FROM contractors WHERE id=? AND is_active=1").bind(contractorId).first<{display_name:string}>();
+    if(!contractor)throw new FieldValidationError({contractorId:"協力廠商無效"});
+    const refs=await this.itemRefs(products.map(p=>id(p.itemId,"itemId")));
+    const normalized=[];
+    for(const [index,p] of products.entries()){
+      const itemId=id(p.itemId,"itemId"),item=refs.get(itemId);
+      if(!item)throw new FieldValidationError({itemId:"成品不存在"});
+      const bomId=p.bomRecipeId==null?null:id(p.bomRecipeId,"bomRecipeId");
+      if(bomId){
+        const bom=await this.db.prepare("SELECT id FROM bom_recipes WHERE id=? AND finished_item_id=? AND is_active=1").bind(bomId,itemId).first();
+        if(!bom)throw new FieldValidationError({bomRecipeId:"BOM 與成品不符"});
+      }
+      normalized.push({itemId,bomId,quantity:qty(p.quantity,"quantity"),unit:text(p.unit,"unit"),index});
+    }
+    const stmts:D1PreparedStatement[]=[
+      this.db.prepare(`UPDATE outsourcing_orders SET contractor_id=?,contractor_name_snapshot=?,
+        order_date=?,note=?,updated_at=?,updated_by=?,revision=revision+1
+        WHERE id=? AND revision=? AND closed_at IS NULL
+        AND NOT EXISTS(SELECT 1 FROM outsourcing_issues WHERE outsourcing_order_id=?)
+        AND NOT EXISTS(SELECT 1 FROM outsourcing_receipts WHERE outsourcing_order_id=?)`)
+        .bind(contractorId,contractor.display_name,orderDate,text(b.note,"note",false)||null,actor.now,actor.actorMemberId,orderId,previous.revision,orderId,orderId),
+      // Atomic revision gate: abort the batch if another caller changed the row.
+      this.db.prepare("SELECT CASE WHEN changes()!=1 THEN json('') ELSE 1 END"),
+      this.db.prepare("DELETE FROM outsourcing_order_products WHERE outsourcing_order_id=?").bind(orderId),
+    ];
+    for(const p of normalized)stmts.push(this.db.prepare(
+      "INSERT INTO outsourcing_order_products(outsourcing_order_id,item_id,bom_recipe_id,planned_quantity,unit,sort_order) VALUES(?,?,?,?,?,?)"
+    ).bind(orderId,p.itemId,p.bomId,p.quantity,p.unit,p.index));
+    stmts.push(this.event("outsourcing.updated","outsourcing_order",previous.outsourcing_ref,actor,
+      {contractorId,productCount:normalized.length}));
+    await this.db.batch(stmts);return this.detail(orderId);
+  }
+
   async issue(orderId:number,raw:unknown,actor:FlowActor) {
     const b=object(raw),o=await this.revision(orderId,b.expectedRevision);
     if(o.closed_at)throw new FieldValidationError({orderId:"已結案不可發料"});
