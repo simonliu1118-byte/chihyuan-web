@@ -8,7 +8,7 @@ import { columnName, type XlsxCell, type XlsxSheet } from "./xlsx-writer";
  */
 export interface ExportOrder {
   sourceName: string; sourceKind: OrderingSourceKind; date: string; note: string;
-  lines: readonly Pick<OrderingLine, "section" | "itemCode" | "itemName" | "vendorItemCode" | "vendorItemName" | "spec" | "quantityText" | "quantity" | "unit" | "note">[];
+  lines: readonly Pick<OrderingLine, "section" | "itemCode" | "itemName" | "vendorItemCode" | "vendorItemName" | "spec" | "publisher" | "author" | "quantityText" | "quantity" | "unit" | "note">[];
 }
 
 const quantityCell = (line: ExportOrder["lines"][number]): XlsxCell => line.quantity ?? line.quantityText;
@@ -39,7 +39,9 @@ export function orderSheet(order: ExportOrder, sheetName = order.sourceName): Xl
     const withCode = true;
     titles = [...["項次"], ...(withCode ? ["品號"] : []), "品名", "規格", "數量", "單位", "備註"];
     widths = [6, ...(withCode ? [14] : []), 40, 30, 10, 8, 24];
-    order.lines.forEach((line, i) => rows.push([i + 1, ...(withCode ? [line.itemCode] : []), line.itemName, line.spec, quantityCell(line), line.unit, line.note]));
+    // 書籍 send 出版社/作者 in the 規格 column, as the vendor sheet always had it.
+    const spec = (line: ExportOrder["lines"][number]) => line.section === "OTHER" ? [line.publisher, line.author].filter(Boolean).join("/") : line.spec;
+    order.lines.forEach((line, i) => rows.push([i + 1, ...(withCode ? [line.itemCode] : []), line.itemName, spec(line), quantityCell(line), line.unit, line.note]));
   } else {
     titles = ["項次", "廠商品號", "廠商品名", "數量", "單位", "備註"];
     widths = [6, 16, 40, 10, 8, 24];

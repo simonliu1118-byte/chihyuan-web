@@ -28,6 +28,7 @@ import {OverflowMenu} from "../../ui/mobile/OverflowMenu";
 import {DataViewToolbar} from "../../ui/data/DataViewToolbar";
 import {SegmentedControl} from "../../ui/primitives/SegmentedControl";
 import {CnPurchasePanel,type CnOrder} from "./CnPurchasePanel";
+import {OrderingLinePhoto} from "./OrderingLinePhoto";
 import {orderSheet} from "../../../shared/ordering-export";
 import "./erp-item-query.css";
 import {buildXlsx} from "../../../shared/xlsx-writer";
@@ -35,7 +36,7 @@ import {downloadExcelFile,shareExcelFile,XLSX_MIME} from "./ordering-file-share"
 import {CLOSED_AS_LABELS,parseQuantity,receiptItemSummary,type OrderingClosedAs,type OrderingReceipt} from "../../../shared/ordering";
 /** Older 指定結案 records stored the raw code ("洞巾 OTHER") or the earlier word 結掉; show them like new ones ("洞巾 指定結案：其他"). */
 export const revisionSummary=(summary:string)=>summary.replace(/ (SHORTAGE|CANCELLED|OTHER)$/,(_,code:OrderingClosedAs)=>" 指定結案："+CLOSED_AS_LABELS[code]).replace(/ 結掉：/g," 指定結案：");
-import {createOrderingWriteQueue,orderingTaipeiDateTime,exportFileName,pickDraft,ORDERING_STATUS_LABELS,CN_REGULAR_SECTIONS,type OrderingOrder,type OrderingSource,type OrderingPendingLine,type OrderingListRow,type OrderingSection} from "../../../shared/ordering";
+import {createOrderingWriteQueue,orderingTaipeiDateTime,exportFileName,pickDraft,ORDERING_STATUS_LABELS,orderingSections,type OrderingOrder,type OrderingSource,type OrderingPendingLine,type OrderingListRow,type OrderingSection} from "../../../shared/ordering";
 const ROOT="/api/business/ordering";
 const nowDate=()=>new Date(Date.now()+8*3600000).toISOString().slice(0,10);
 const displayDate=(value:string|null|undefined)=>orderingTaipeiDateTime(value)?.date??"";
@@ -54,7 +55,7 @@ type ReviseLine=GridLine&{received:number;quantity:number|null};
 type Revision={orderId:number;lines:ReviseLine[];note:string;deleted:number[];added:Set<number>};
 // Local ids for rows added in edit mode sit above any server id (server ids are below 2^52).
 let localLineId=Number.MAX_SAFE_INTEGER;
-const REVISE_FIELDS=["sortOrder","section","itemCode","itemName","vendorItemCode","vendorItemName","spec","quantityText","unit","note"] as const;
+const REVISE_FIELDS=["sortOrder","section","itemCode","itemName","vendorItemCode","vendorItemName","spec","publisher","author","quantityText","unit","note"] as const;
 const revisePayload=(l:ReviseLine)=>Object.fromEntries(REVISE_FIELDS.map(f=>[f,f==="vendorItemName"&&l.vendorNameFollows?"":String(l[f]??"")]));
 function applyRevise(line:ReviseLine,patch:Partial<GridLine>):ReviseLine{
  // A new row's first save carries the whole row with id 0; the local id must survive it.
@@ -566,11 +567,23 @@ export function OrderingPage({canRestock=false,canQueryItem=false,canCnPurchase=
  const openLines=current?current.lines.filter(l=>l.quantity!==null&&l.received<l.quantity&&!l.closedAs):[];
  const currentSource=current?sources.find(x=>x.id===current.sourceId):undefined;
  const openMobileNewLine=(orderId:number,section?:OrderingSection)=>{
-  const prefix=orderId+"-"+(section??(selected?.sourceKind==="CN_REGULAR"?CN_REGULAR_SECTIONS[0].key:""));
+  const prefix=orderId+"-"+(section??(selected?orderingSections(selected.sourceKind)[0].key:""));
   const entry=[...editors.current].find(([key])=>key.startsWith(prefix));
   entry?.[1].openNew?.();
  };
  const startReceipt=()=>{if(current)setReceipt({id:current.id,no:"",date:nowDate(),quantities:Object.fromEntries(openLines.map(l=>[l.id,String((l.quantity??0)-l.received)])),selectedLineIds:[]})};
+ // 自訂中國貨 照片 (user 2026-11-11): one per line, kept until the order is 結案 or 作廢.
+ const markPhoto=(orderId:number,lineId:number,has:boolean)=>{
+  const patch=(o:DisplayOrder)=>({...o,lines:o.lines.map(l=>l.id===lineId?{...l,photo:has}:l)});
+  const known=cached.current.get(orderId);if(known)cached.current.set(orderId,patch(known));
+  setSelected(prev=>prev?.id===orderId?patch(prev):prev);
+ };
+ const photoOf=current&&current.sourceKind==="CN_CUSTOM"&&current.storedStatus!=="VOID"?(lineId:number)=>{
+  const line=current.lines.find(l=>l.id===lineId);if(!line)return null;
+  const open=current.status!=="CLOSED";if(!line.photo&&!open)return null;
+  return <OrderingLinePhoto key={current.id+"-"+lineId} orderId={current.id} lineId={lineId} name={line.itemName||line.vendorItemName||line.itemCode||"品項"}
+   hasPhoto={!!line.photo} canEdit={open} onChanged={has=>markPhoto(current.id,lineId,has)} onError={setError}/>;
+ }:undefined;
  const cnAvailable=!!current&&canCnPurchase&&current.sourceKind==="CN_CUSTOM"&&current.storedStatus==="SENT"&&!revisingNow;
  const showCn=cnAvailable&&orderView_==="purchase";
  const applyCnOrder=(x:CnOrder)=>{const data=remember(x as DisplayOrder);setSelected(prev=>prev?.id===data.id?data:prev);void refreshLists().catch(e=>setError(errorOf(e)))};
@@ -628,7 +641,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false,canCnPurchase=
       {cnAvailable?<div className="cy-ordering-view-switch"><SegmentedControl label="叫貨單檢視" value={orderView_} onChange={v=>{if(v==="lines"&&cnDirty.current)void prepareSwitch().then(ok=>{if(ok)setOrderView("lines")});else setOrderView(v)}}
        options={[{value:"lines",label:"叫貨明細"},{value:"purchase",label:"採購"}]}/></div>:null}
       {showCn?<CnPurchasePanel order={current as CnOrder} onSaved={applyCnOrder} onError={setError} onNotice={setNotice} confirm={confirm} dirtyRef={cnDirty}
-       canReceive={openLines.length>0} onReceive={startReceipt}/>:null}
+       canReceive={openLines.length>0} onReceive={startReceipt} photoOf={photoOf}/>:null}
       {current.receipts.length?<section className="cy-ordering-lines" aria-label="到貨紀錄"><h3>到貨紀錄<small>{current.receipts.length} 筆</small></h3>
        {/* Same bordered grid as 叫貨明細 below (user 2026-11-09); one receipt per line. */}
        <div className="cy-ordering-grid-scroll"><table className="cy-ordering-grid cy-rt cy-ordering-receipts" data-readonly>
@@ -650,12 +663,13 @@ export function OrderingPage({canRestock=false,canQueryItem=false,canCnPurchase=
         <Field label="單據備註" size="m" hint={headerDirty.date||headerDirty.note?"離開欄位後自動儲存":undefined}><input id="cy-ordering-note" className="cy-op-input" disabled={!editable} value={current.note} onChange={e=>{headerEditRevisions.current.note++;headerDirtyRef.current={...headerDirtyRef.current,note:true};setHeaderDirty(v=>({...v,note:true}));setSelected(v=>v?{...v,note:e.target.value}:v)}} onBlur={()=>void saveHeader("note")}/></Field>
        </FormSection>
       </form>:null}
-      {showCn?null:(current.sourceKind==="CN_REGULAR"?CN_REGULAR_SECTIONS:[{key:"" as const,label:"叫貨明細"}]).map(group=>{const gridKey=current.id+"-"+group.key+(revisingNow?"-revise":"");
+      {showCn?null:orderingSections(current.sourceKind).map(group=>{const gridKey=current.id+"-"+group.key+(revisingNow?"-revise":"");
        return <section key={group.key} className="cy-ordering-lines">
         <h3>{group.label}</h3>
         <OrderingGrid kind={current.sourceKind} section={group.key as OrderingSection} key={gridKey} lines={revisingNow?revising!.lines:current.lines} busy={busy} readOnly={!editable&&!revisingNow} {...gridBindings(gridKey)}
          warnRow={editable?pendingWarning:undefined} onCommit={revisingNow?reviseCommit:lineCommit} onDelete={revisingNow?reviseDelete:removeLine} onReorder={revisingNow?reviseReorder:editable?reorderLines:undefined} vendorOnly={revisingNow&&vendorOnly}
-         onCloseLine={current.storedStatus==="SENT"&&!revisingNow?row=>setClosing({id:row.id,kind:"SHORTAGE",reason:""}):undefined}/></section>})}
+         onCloseLine={current.storedStatus==="SENT"&&!revisingNow?row=>setClosing({id:row.id,kind:"SHORTAGE",reason:""}):undefined}
+         photoCell={photoOf&&!revisingNow?row=>photoOf(row.id):undefined}/></section>})}
       {!editable&&(current.note||(revisingNow&&!vendorOnly))?<div className="cy-ordering-order-note">
         <span className="cy-ordering-order-note-label">單據備註</span>
         {revisingNow&&!vendorOnly?<input className="cy-op-input" aria-label="單據備註" maxLength={300} value={revising!.note} onChange={e=>setRevising({...revising!,note:e.target.value})}/>:<span className="cy-ordering-order-note-text">{current.note}</span>}

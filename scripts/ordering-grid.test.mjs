@@ -34,10 +34,13 @@ function descendants(node) {
   return [node, ...[node.props?.children].flat(Infinity).flatMap(descendants)];
 }
 function mount(kind = "GENERAL", lines = [], options = {}) {
+  return mountGrid(kind, lines, options);
+}
+function mountGrid(kind = "GENERAL", lines = [], options = {}) {
   globalThis.orderingGridCompact=Boolean(options.compact);
   const slots = [], frames = [], commits = [], settlements = [];
   let cursor = 0, dirty = true, effects = [], tree, focused, editor, state;
-  const props = { kind, section: kind === "CN_REGULAR" ? "SINGLE" : "", lines, busy: false,
+  const props = { kind, section: options.section ?? (kind === "CN_REGULAR" ? "SINGLE" : ""), lines, busy: false,
     onRegister(value) { editor = value; }, onStateChange(value) { state = value; },
     onDelete: async () => {}, onCommit(row, patch, final) {
       commits.push({ row, patch, final });
@@ -236,8 +239,12 @@ for (const [kind, fields] of Object.entries({
   GENERAL: ["itemCode", "itemName", "vendorItemCode", "vendorItemName", "quantityText", "unit", "note"],
   VENDOR: ["itemCode", "itemName", "vendorItemCode", "vendorItemName", "quantityText", "unit", "note"],
   CN_REGULAR: ["itemCode", "itemName", "quantityText", "unit", "note"],
+  // 自訂中國貨 (user 2026-11-11): 商品 keeps 規格; 書籍 ("OTHER") has 出版社 and 作者.
   CN_CUSTOM: ["itemCode", "itemName", "spec", "quantityText", "unit", "note"],
+  "CN_CUSTOM/OTHER": ["itemCode", "itemName", "publisher", "author", "quantityText", "unit", "note"],
 })) test(`${kind}: full Enter order is consistent on pending and saved rows`, () => {
+  const section = kind.split("/")[1];
+  const mount = (k, lines = []) => mountGrid(k.split("/")[0], lines.map(l => section ? { ...l, section } : l), section ? { section } : {});
   const grid = mount(kind);
   grid.change(-1, "itemName", "測試商品"); grid.change(-1, "quantityText", "2");
   for (let i = 0; i < fields.length - 1; i++) {

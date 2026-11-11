@@ -11,6 +11,20 @@ export type OrderingSection = "" | "SINGLE" | "BAG" | "OTHER";
 export const CN_REGULAR_SECTIONS: readonly { key: Exclude<OrderingSection, "">; label: string }[] = [
   { key: "SINGLE", label: "針灸針－單支" }, { key: "BAG", label: "針灸針－氣包袋" }, { key: "OTHER", label: "其他" },
 ];
+/**
+ * 自訂中國貨 is split in 商品 and 書籍 (user 2026-11-11). The section codes are read per 來源 kind: here
+ * "" is 商品 and "OTHER" is 書籍, so ordering_lines.section keeps its CHECK list (no table rebuild).
+ */
+export const CN_CUSTOM_SECTIONS: readonly { key: OrderingSection; label: string }[] = [
+  { key: "", label: "商品" }, { key: "OTHER", label: "書籍" },
+];
+/** The blocks a 來源 kind shows (one unnamed block for the others) and the section a new line takes. */
+export function orderingSections(kind: OrderingSourceKind): readonly { key: OrderingSection; label: string }[] {
+  return kind === "CN_REGULAR" ? CN_REGULAR_SECTIONS : kind === "CN_CUSTOM" ? CN_CUSTOM_SECTIONS : [{ key: "", label: "叫貨明細" }];
+}
+export const defaultSection = (kind: OrderingSourceKind): OrderingSection => kind === "CN_REGULAR" ? "OTHER" : "";
+export const sectionLabel = (kind: OrderingSourceKind, section: string): string =>
+  kind === "CN_REGULAR" || kind === "CN_CUSTOM" ? orderingSections(kind).find((s) => s.key === section)?.label ?? "" : "";
 /** How a line's remainder was settled when it will not (all) come. */
 export type OrderingClosedAs = "SHORTAGE" | "CANCELLED" | "OTHER";
 export const CLOSED_AS_LABELS: Readonly<Record<OrderingClosedAs, string>> = { SHORTAGE: "缺貨", CANCELLED: "取消", OTHER: "其他" };
@@ -42,6 +56,10 @@ export interface OrderingLine {
   received: number;
   /** 自訂中國貨採購: the 原定 數量 once 採購 changed it; 採購 added the line; marked 絕版／停產. */
   originalQuantity?: number | null; purchaseAdded?: boolean; cnDiscontinued?: boolean;
+  /** 自訂中國貨 書籍 (user 2026-11-11): 出版社 and 作者 in place of 規格. */
+  publisher?: string; author?: string;
+  /** 自訂中國貨: the line has a photo (客訂書); deleted at 結案. */
+  photo?: boolean;
 }
 /** Format receipt items consistently in the UI and revision summaries. */
 export function receiptItemSummary(items:readonly {itemName:string;quantity:number;unit:string}[]):string {
@@ -68,7 +86,7 @@ export interface OrderingPendingLine {
   quantity: number; unit: string; received: number; remaining: number;
 }
 
-export const ORDERING_LIMITS = { name: 40, conditions: 500, itemCode: 40, text: 200, quantityText: 40, unit: 10, note: 300 } as const;
+export const ORDERING_LIMITS = { name: 40, conditions: 500, itemCode: 40, text: 200, publisher: 200, author: 200, quantityText: 40, unit: 10, note: 300 } as const;
 export const ERP_PURCHASE_PREFIX = "341A-";
 
 /** General/vendor orders may identify goods by the vendor name without filling our own item fields. */

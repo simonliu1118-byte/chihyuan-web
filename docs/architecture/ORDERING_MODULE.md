@@ -187,3 +187,14 @@
 - 採購數量＝各段數量合計，寫回 `ordering_lines.quantity`（到貨、未到貨照舊以它為準）；第一次改動時把原數量留在 `original_quantity`。已有採購段的品項，「修改」叫貨單不能再改數量或刪除。
 - 絕版／停產＝`closed_as='OTHER'`＋`cn_discontinued=1`，恢復時清除；已刷卡或有退貨的品項不能標記。
 - 計算與表格列順序在 `shared/cn-purchase.ts`（`computeCnPurchase`、`cnTableRows`、`cnStage`），前端 `CnPurchasePanel.tsx`。
+
+## V0.18.6 — 自訂中國貨每列照片
+
+- `ordering_line_photos`（`line_id` 主鍵，一列一張）；JPEG 存在 `HR_FILES` R2，key `ordering/{orderId}/{lineId}/{uuid}.jpg`。
+- API：`GET|PUT|DELETE /api/business/ordering/orders/:id/lines/:lineId/photo`（`PUT` 本體為 `image/jpeg`，≤1 MB、長邊 ≤2000px；前端先縮到 1280px）。只限 `CN_CUSTOM`；結案或作廢後拒絕上傳。照片不改叫貨單版本、不進修改紀錄，只記稽核。
+- 清除：每次 `mutate()` 寫入成功後 `sweepPhotos()`：品項已不存在的照片、以及叫貨單變成結案／作廢時的全部照片，先刪 R2 檔再刪列；刪除草稿後也會清。
+
+## V0.18.6 — 自訂中國貨分「商品／書籍」
+
+- 區段代碼依來源種類解讀（`shared/ordering.ts` `orderingSections()`）：定期中國貨 `SINGLE/BAG/OTHER`；自訂中國貨 `''`＝商品、`'OTHER'`＝書籍；其他來源只有 `''`。沿用 `ordering_lines.section` 既有 CHECK，不重建表。
+- `ordering_lines` 加 `publisher`、`author`（≤200 字）。書籍區欄位：品號、品名、出版社、作者、數量、單位、備註；商品區沿用規格。出版社排序依序比較出版社、作者、品名（作者欄不可單獨排序）。自訂中國貨表格每格單行顯示（`data-kind=CN_CUSTOM`），截斷文字以 title 顯示全文。migration 0066 把既有自訂中國貨有規格的列移到書籍並以第一個「/」拆成出版社與作者；可攜式備份有對應升級步驟。匯出 Excel 書籍規格欄寫「出版社/作者」。

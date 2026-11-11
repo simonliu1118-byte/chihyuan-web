@@ -9,7 +9,7 @@ export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
  * The latest migration in migrations/ (file name without .sql). Bump it with every migration; a test
  * keeps it in step. A backup records it, and a restore maps its data by table and column name.
  */
-export const CURRENT_MIGRATION = "0064_ordering_cn_purchase";
+export const CURRENT_MIGRATION = "0066_ordering_cn_custom_sections";
 /**
  * Only for a migration that changes what existing data means (moves, renames, drops or recomputes
  * values). New tables, new columns with a default, new indexes and wider checks need nothing here:
@@ -77,6 +77,22 @@ const UPGRADES: { migration: string; apply: (data: Data) => void }[] = [
       const keep = edu.columns.map((_, i) => i).filter(i => i !== grad && i !== degree);
       edu.rows = edu.rows.map(row => [...keep.map(i => row[i]), null, row[grad]]);
       edu.columns = [...keep.map(i => edu.columns[i]), "start_month", "end_month"];
+    }
+  } },
+  // 0066: 自訂中國貨 lines with a 規格 (出版社/作者) move to the 書籍 block ("OTHER"), split in 出版社 and 作者.
+  { migration: "0066_ordering_cn_custom_sections", apply: data => {
+    const lines = data.tables.ordering_lines, orders = data.tables.ordering_orders, sources = data.tables.ordering_sources;
+    if (!lines || !orders || !sources) return;
+    const col = (t: { columns: string[] }, name: string) => t.columns.indexOf(name);
+    const custom = new Set(sources.rows.filter(r => r[col(sources, "kind")] === "CN_CUSTOM").map(r => r[col(sources, "id")]));
+    const orderIds = new Set(orders.rows.filter(r => custom.has(r[col(orders, "source_id")])).map(r => r[col(orders, "id")]));
+    if (!lines.columns.includes("publisher")) { lines.columns.push("publisher", "author"); lines.rows.forEach(row => row.push("", "")); }
+    const section = col(lines, "section"), spec = col(lines, "spec"), order = col(lines, "order_id"), publisher = col(lines, "publisher"), author = col(lines, "author");
+    for (const row of lines.rows) {
+      const text = row[spec];
+      if (!orderIds.has(row[order]) || row[section] !== "" || typeof text !== "string" || text === "") continue;
+      const at = text.indexOf("/");
+      row[section] = "OTHER"; row[publisher] = (at < 0 ? text : text.slice(0, at)).trim(); row[author] = at < 0 ? "" : text.slice(at + 1).trim(); row[spec] = "";
     }
   } }
 ];
