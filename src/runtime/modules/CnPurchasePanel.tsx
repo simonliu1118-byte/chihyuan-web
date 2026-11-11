@@ -40,7 +40,7 @@ const mdShort=(d:string|null|undefined)=>d?<span title={md(d)}>{d.slice(5).repla
 const numText=(n:number|null|undefined)=>n===null||n===undefined?"":String(n);
 const MODE_LABELS:Record<Mode,string>={order:"訂購",reconcile:"對帳",shipping:"回台灣運費",tax:"營業稅",returns:"退貨"};
 const MODE_HINTS:Record<Mode,string>={
- order:"填採購數量、人民幣單價與備註；勾選列後按「刷卡」成為一筆刷卡，按刷卡編號旁的 × 可取消整筆重新處理；⠿ 拖曳調整順序；⋯ 可拆分、取消訂購（絕版、停產、客訂取消等；未刷卡的才能取消，移到最下面，可再從 ⋯ 恢復；已刷卡的請用退貨）。",
+ order:"填採購數量、人民幣單價與備註；勾選列後按「刷卡」成為一筆刷卡；按刷卡編號會選取整筆，再按「取消刷卡」可整筆重新處理；⠿ 拖曳調整順序；⋯ 可拆分、取消訂購（絕版、停產、客訂取消等；未刷卡的才能取消，移到最下面，可再從 ⋯ 恢復；已刷卡的請用退貨）。",
  reconcile:"對帳單到了再補每筆刷卡的台幣、手續費與該筆刷卡的運費。",
  shipping:"回台灣的運費，每筆一列（含手續費），依各品項成本攤給全部品項。刷卡時另付的運費請填在該筆刷卡的「運費」欄。",
  tax:"到台灣後填營業稅。",
@@ -238,7 +238,11 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   setSelectedRows(new Set());
  }
  /** 取消整筆刷卡: every row of that card goes back to 未刷卡 to be charged again. */
- function cancelCard(cardKey:string){setOrder(d=>({...d,pieces:d.pieces.map(p=>p.cardKey===cardKey?{...p,cardKey:null}:p)}))}
+ /** Clicking a card's # ticks (or unticks) all its rows; 「取消刷卡」 then takes the whole card apart (user 2026-11-11: no × to hit by accident). */
+ const cardKeysOf=(cardKey:string)=>(drafts.order?.pieces??[]).filter(p=>p.cardKey===cardKey).map(p=>p.key);
+ const cardPicked=(cardKey:string)=>{const k=cardKeysOf(cardKey);return k.length>0&&k.every(x=>selectedRows.has(x))};
+ function pickCard(cardKey:string){const keys=cardKeysOf(cardKey),on=!cardPicked(cardKey);
+  setSelectedRows(prev=>{const n=new Set(prev);for(const k of keys)if(on)n.add(k);else n.delete(k);return n})}
  function dropOn(targetKey:string){
   const from=dragging.current;dragging.current=null;if(!from||from===targetKey)return;
   setOrder(d=>{
@@ -297,9 +301,8 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   const i=info.get(row.piece.lineId)!,r=calc.pieces.get(row.piece.id),key=pieceOf(row),editing=mode==="order"&&!!key&&!row.discontinued;
   const dp=key?od!.pieces.find(p=>p.key===key):undefined;
   const ret=view.returns.find(x=>x.lineId===row.piece.lineId);
-  const purchased=view.pieces.filter(p=>p.lineId===row.piece.lineId).reduce((s,p)=>s+p.quantity,0);
-  const derived=row.discontinued?i.offNote:!row.firstOfLine?"拆分自項次 "+i.seq
-   :[i.line?.note??"",i.planned!==null&&purchased!==i.planned?(purchased>i.planned?"多訂 ":"少訂 ")+qtyText(Math.abs(purchased-i.planned)):""].filter(Boolean).join("；");
+  // 叫貨備註 on every row of the item; a split-off row says where it came from (user 2026-11-11). Nothing else is generated.
+  const derived=row.discontinued?i.offNote:(i.line?.note??"")+(row.firstOfLine?"":"（拆分自項次 "+i.seq+"）");
   const card=row.card,cardKey=card?view.cardKeyOf.get(card.id):undefined,dc=cardKey?od?.cards.find(c=>c.key===cardKey):undefined;
   const rc=card&&mode==="reconcile"?drafts.reconcile?.[card.id]:undefined;
   const menu:OverflowItem[]=[];
@@ -325,7 +328,7 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   let group:ReactNode=null;
   if(row.discontinued)group=<td className="cy-cn-grp is-none" colSpan={5}>—</td>;
   else if(row.cardSpan&&card)group=<>
-   <td className="cy-cn-grp is-no" rowSpan={row.cardSpan}>#{row.cardNo}{dc?<button type="button" className="cy-cn-card-cancel" title="取消這筆刷卡，品項回到未刷卡" aria-label={"取消刷卡 #"+row.cardNo} onClick={()=>cancelCard(dc.key)}>×</button>:null}</td>
+   <td className="cy-cn-grp is-no" rowSpan={row.cardSpan}>{dc?<button type="button" className="cy-cn-card-pick" title="選取這筆刷卡的全部品項（再按「取消刷卡」可整筆重新處理）" aria-pressed={cardPicked(dc.key)} onClick={()=>pickCard(dc.key)}>#{row.cardNo}</button>:"#"+row.cardNo}</td>
    <td className="cy-cn-grp" rowSpan={row.cardSpan}>{dc?<DateInput className="cy-ordering-cell" aria-label={"刷卡 #"+row.cardNo+" 日期"} value={dc.chargedOn} onChange={v=>patchCard(dc.key,{chargedOn:v})}/>:mdShort(card.chargedOn)}</td>
    <td className="cy-cn-grp is-n" rowSpan={row.cardSpan}>{dc?<input className="cy-ordering-cell is-n" inputMode="numeric" aria-label={"刷卡 #"+row.cardNo+" 台幣"} value={dc.amount} onChange={e=>patchCard(dc.key,{amount:e.target.value})}/>
     :rc?<input className="cy-ordering-cell is-n" inputMode="numeric" aria-label={"刷卡 #"+row.cardNo+" 台幣"} value={rc.amount} onChange={e=>setDrafts(p=>({...p,reconcile:{...p.reconcile!,[card.id]:{...rc,amount:e.target.value}}}))}/>
@@ -412,8 +415,7 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
  const itemRows=sums?view.refs.map(ref=>{
   const i=info.get(ref.id)!,x=sums.get(ref.id)!,ret=view.returns.find(r=>r.lineId===ref.id);
   const pieceNotes=view.pieces.filter(p=>p.lineId===ref.id).map(p=>p.note??"").filter(Boolean).join("／");
-  const refNote=i.discontinued?i.offNote:[i.line?.note??"",i.planned!==null&&x.quantity!==i.planned?(x.quantity>i.planned?"多訂 ":"少訂 ")+qtyText(Math.abs(x.quantity-i.planned)):"",
-   (()=>{const n=view.pieces.filter(p=>p.lineId===ref.id).length;return n>1?"分 "+n+" 筆刷卡":""})()].filter(Boolean).join("；");
+  const refNote=i.discontinued?i.offNote:i.line?.note??"";
   const menu:OverflowItem[]=[];
   if(!closed&&i.line){if(i.discontinued)menu.push({label:"恢復採購",onClick:()=>void restore(i.line!.id)});
    else if(!i.line.closedAs&&paidOn(i.line.id))menu.push({label:"已刷卡：取消請用退貨",onClick:()=>{},disabled:true});
