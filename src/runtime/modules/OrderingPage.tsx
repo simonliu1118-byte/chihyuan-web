@@ -584,6 +584,12 @@ export function OrderingPage({canRestock=false,canQueryItem=false,canCnPurchase=
   return <OrderingLinePhoto key={current.id+"-"+lineId} orderId={current.id} lineId={lineId} name={line.itemName||line.vendorItemName||line.itemCode||"品項"}
    hasPhoto={!!line.photo} canEdit={open} onChanged={has=>markPhoto(current.id,lineId,has)} onError={setError}/>;
  }:undefined;
+ // 採購 only shows the photos already there (user 2026-11-11): no upload from the purchase table.
+ const photoViewOf=current&&current.sourceKind==="CN_CUSTOM"?(lineId:number)=>{
+  const line=current.lines.find(l=>l.id===lineId);if(!line?.photo)return null;
+  return <OrderingLinePhoto key={current.id+"-view-"+lineId} orderId={current.id} lineId={lineId} name={line.itemName||line.vendorItemName||line.itemCode||"品項"}
+   hasPhoto canEdit={false} onChanged={has=>markPhoto(current.id,lineId,has)} onError={setError}/>;
+ }:undefined;
  const cnAvailable=!!current&&canCnPurchase&&current.sourceKind==="CN_CUSTOM"&&current.storedStatus==="SENT"&&!revisingNow;
  const showCn=cnAvailable&&orderView_==="purchase";
  const applyCnOrder=(x:CnOrder)=>{const data=remember(x as DisplayOrder);setSelected(prev=>prev?.id===data.id?data:prev);void refreshLists().catch(e=>setError(errorOf(e)))};
@@ -641,7 +647,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false,canCnPurchase=
       {cnAvailable?<div className="cy-ordering-view-switch"><SegmentedControl label="叫貨單檢視" value={orderView_} onChange={v=>{if(v==="lines"&&cnDirty.current)void prepareSwitch().then(ok=>{if(ok)setOrderView("lines")});else setOrderView(v)}}
        options={[{value:"lines",label:"叫貨明細"},{value:"purchase",label:"採購"}]}/></div>:null}
       {showCn?<CnPurchasePanel order={current as CnOrder} onSaved={applyCnOrder} onError={setError} onNotice={setNotice} confirm={confirm} dirtyRef={cnDirty}
-       canReceive={openLines.length>0} onReceive={startReceipt} photoOf={photoOf}/>:null}
+       canReceive={openLines.length>0} onReceive={startReceipt} photoOf={photoViewOf}/>:null}
       {current.receipts.length?<section className="cy-ordering-lines" aria-label="到貨紀錄"><h3>到貨紀錄<small>{current.receipts.length} 筆</small></h3>
        {/* Same bordered grid as 叫貨明細 below (user 2026-11-09); one receipt per line. */}
        <div className="cy-ordering-grid-scroll"><table className="cy-ordering-grid cy-rt cy-ordering-receipts" data-readonly>

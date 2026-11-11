@@ -8,8 +8,10 @@
  */
 
 export type CnChargeKind = "CARD" | "SHIPPING" | "TAX";
-export interface CnPiece { id: number; lineId: number; sortOrder: number; quantity: number; rmbPrice: number | null; chargeId: number | null }
-export interface CnCharge { id: number; kind: CnChargeKind; sortOrder: number; chargedOn: string | null; amount: number | null; fee: number | null; note: string }
+export interface CnPiece { id: number; lineId: number; sortOrder: number; quantity: number; rmbPrice: number | null; chargeId: number | null; note?: string }
+export interface CnCharge { id: number; kind: CnChargeKind; sortOrder: number; chargedOn: string | null; amount: number | null; fee: number | null; note: string;
+  /** CARD only (user 2026-11-11): this card's own 運費 in 台幣, spread over the items of this card only. */
+  shipping?: number | null }
 export interface CnReturn { lineId: number; quantity: number; rmbAmount: number | null; ntdAmount: number | null; fee: number | null; reason: string }
 export interface CnPurchase { orderedAt: string | null; orderedBy: string; pieces: CnPiece[]; charges: CnCharge[]; returns: CnReturn[] }
 /** What the calculation needs of a 叫貨 line. */
@@ -56,6 +58,8 @@ export interface CnPieceResult {
   ntdShare: number | null;
   ntdUnit: number | null;
   rate: number | null;
+  /** This piece's part of its card's own 運費 (whole 台幣), by 人民幣小計 within the card. */
+  cardShipping: number | null;
   /** 含稅含運 in whole 台幣 (all pieces add up to the 總計), its 單價 over the goods kept, and 總匯率. */
   landedTotal: number | null;
   landedUnit: number | null;
@@ -64,8 +68,10 @@ export interface CnPieceResult {
   returnedQuantity: number;
 }
 export interface CnTotals {
-  rmb: number; cardAmount: number; cardFee: number; shipping: number; tax: number; refund: number; refundFee: number;
-  /** 含稅含運總計 = 刷卡 ＋ 運費 ＋ 營業稅 － 刷退 ＋ 刷退手續費 (null while a used card has no amount). */
+  rmb: number; cardAmount: number; cardFee: number;
+  /** Every card's own 運費 (spread within its card), then the 回台灣 運費 and 營業稅 (spread over everything). */
+  cardShipping: number; shipping: number; tax: number; refund: number; refundFee: number;
+  /** 含稅含運總計 = 刷卡（金額＋手續費＋刷卡運費）＋ 回台灣運費 ＋ 營業稅 － 刷退 ＋ 刷退手續費 (null while a used card has no amount). */
   grand: number | null;
   missingCardAmount: number; missingFee: number; unchargedPieces: number;
 }
@@ -92,13 +98,16 @@ export function computeCnPurchase(lines: readonly CnLineRef[], purchase: Pick<Cn
   // leaves the whole allocation open (待補).
   let complete = pieces.some((p) => p.chargeId !== null && cards.has(p.chargeId));
   // Whole 台幣 per piece (user 2026-11-11: 對帳 must match): each card's 金額＋手續費 is split by 人民幣小計
-  // so the pieces add up to the card exactly; each line's 刷退 and 刷退手續費 likewise by quantity.
-  const share = new Map<number, number>();
+  // so the pieces add up to the card exactly; the card's own 運費 is split the same way among its own
+  // pieces only; each line's 刷退 and 刷退手續費 by quantity.
+  const share = new Map<number, number>(), cardShip = new Map<number, number>();
   for (const card of cards.values()) {
     const mine = pieces.filter((p) => p.chargeId === card.id && subtotal(p) !== null);
     if (!mine.length) continue;
     if (card.amount === null) { complete = false; continue; }
-    allocate(card.amount + (card.fee ?? 0), mine.map((p) => subtotal(p)!)).forEach((v, i) => share.set(mine[i].id, v));
+    const weights = mine.map((p) => subtotal(p)!);
+    allocate(card.amount + (card.fee ?? 0), weights).forEach((v, i) => share.set(mine[i].id, v));
+    allocate(card.shipping ?? 0, weights).forEach((v, i) => cardShip.set(mine[i].id, v));
   }
   if (pieces.some((p) => p.chargeId !== null && cards.has(p.chargeId) && subtotal(p) === null)) complete = false;
   const refundOf = new Map<number, number>(), returned = new Map<number, number>();
@@ -111,20 +120,23 @@ export function computeCnPurchase(lines: readonly CnLineRef[], purchase: Pick<Cn
   for (const p of pieces) {
     const s = share.get(p.id) ?? null, ntdUnit = s === null ? null : s / p.quantity;
     results.set(p.id, { rmbSubtotal: subtotal(p), ntdShare: s, ntdUnit, rate: ntdUnit !== null && p.rmbPrice ? ntdUnit / (p.rmbPrice / 100) : null,
-      landedTotal: null, landedUnit: null, totalRate: null, returnedQuantity: returned.get(p.id) ?? 0 });
+      cardShipping: cardShip.get(p.id) ?? null, landedTotal: null, landedUnit: null, totalRate: null, returnedQuantity: returned.get(p.id) ?? 0 });
   }
   const sum = (kind: CnChargeKind, field: "amount" | "fee") => purchase.charges.filter((c) => c.kind === kind).reduce((s, c) => s + (c[field] ?? 0), 0);
   const shipping = sum("SHIPPING", "amount") + sum("SHIPPING", "fee"), tax = sum("TAX", "amount") + sum("TAX", "fee");
   const refund = [...returns.values()].reduce((s, r) => s + (r.ntdAmount ?? 0), 0), refundFee = [...returns.values()].reduce((s, r) => s + (r.fee ?? 0), 0);
   const usedCards = [...cards.values()].filter((c) => pieces.some((p) => p.chargeId === c.id));
   const cardAmount = usedCards.reduce((s, c) => s + (c.amount ?? 0), 0), cardFee = usedCards.reduce((s, c) => s + (c.fee ?? 0), 0);
-  const grand = complete ? cardAmount + cardFee + shipping + tax - refund + refundFee : null;
+  const cardShipping = usedCards.reduce((s, c) => s + (c.shipping ?? 0), 0);
+  const grand = complete ? cardAmount + cardFee + cardShipping + shipping + tax - refund + refundFee : null;
   if (complete && grand !== null) {
-    // 含稅含運 in whole 台幣 per piece, by 淨額 (share － 刷退 ＋ 刷退手續費): the pieces add up to the 總計.
+    // 含稅含運 per piece in whole 台幣: its own cost (刷卡分攤 ＋ 刷卡運費 － 刷退 ＋ 刷退手續費) plus its part of
+    // the 回台灣 運費 and 營業稅, spread by that cost. The pieces add up to the 總計 exactly.
     const charged = pieces.filter((p) => share.has(p.id));
-    const net = charged.map((p) => Math.max(0, share.get(p.id)! - (refundOf.get(p.id) ?? 0)));
-    if (net.some((v) => v > 0)) allocate(grand, net).forEach((total, i) => {
-      const p = charged[i], r = results.get(p.id)!, kept = p.quantity - r.returnedQuantity;
+    const own = charged.map((p) => share.get(p.id)! + (cardShip.get(p.id) ?? 0) - (refundOf.get(p.id) ?? 0));
+    const spread = allocate(shipping + tax, own.map((v) => Math.max(0, v)));
+    charged.forEach((p, i) => {
+      const r = results.get(p.id)!, kept = p.quantity - r.returnedQuantity, total = own[i] + (spread[i] ?? 0);
       r.landedTotal = total;
       if (kept > 0) { r.landedUnit = total / kept; r.totalRate = p.rmbPrice ? r.landedUnit / (p.rmbPrice / 100) : null; }
     });
@@ -132,7 +144,7 @@ export function computeCnPurchase(lines: readonly CnLineRef[], purchase: Pick<Cn
   return {
     pieces: results,
     totals: {
-      rmb: pieces.reduce((s, p) => s + (subtotal(p) ?? 0), 0), cardAmount, cardFee, shipping, tax, refund, refundFee, grand,
+      rmb: pieces.reduce((s, p) => s + (subtotal(p) ?? 0), 0), cardAmount, cardFee, cardShipping, shipping, tax, refund, refundFee, grand,
       missingCardAmount: usedCards.filter((c) => c.amount === null).length,
       missingFee: usedCards.filter((c) => c.fee === null).length,
       unchargedPieces: pieces.filter((p) => p.chargeId === null || !cards.has(p.chargeId)).length,
@@ -177,7 +189,8 @@ export function cnTableRows(lines: readonly CnLineRef[], purchase: Pick<CnPurcha
     if (mine.length) rows[rows.length - mine.length].cardSpan = mine.length;
   });
   const loose = live.filter((p) => p.chargeId === null || !cards.some((c) => c.id === p.chargeId))
-    .sort((a, b) => (seq.get(a.lineId) ?? 0) - (seq.get(b.lineId) ?? 0) || a.sortOrder - b.sortOrder || a.id - b.id);
+    // In the order they were put (user 2026-11-11: every row can be dragged anywhere); 項次 only breaks ties.
+    .sort((a, b) => a.sortOrder - b.sortOrder || (seq.get(a.lineId) ?? 0) - (seq.get(b.lineId) ?? 0) || a.id - b.id);
   loose.forEach((p) => push(p, null, 0));
   if (loose.length) rows[rows.length - loose.length].unchargedSpan = loose.length;
   for (const line of lines.filter((l) => l.discontinued)) {

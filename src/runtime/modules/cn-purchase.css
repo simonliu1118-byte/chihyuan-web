@@ -41,7 +41,11 @@
 .cy-ordering-grid.cy-cn-table col.w-land { width: 70px; } .cy-ordering-grid.cy-cn-table col.w-rate2 { width: 50px; } .cy-ordering-grid.cy-cn-table col.w-note { width: 104px; } .cy-ordering-grid.cy-cn-table col.w-act { width: 34px; }
 .cy-ordering-grid.cy-cn-table tbody tr.is-band td:not(.cy-cn-grp) { background: color-mix(in srgb, var(--cy-accent-soft) 35%, var(--cy-surface)); }
 .cy-ordering-grid.cy-cn-table tbody tr.is-picked td:not(.cy-cn-grp) { background: var(--cy-accent-soft); }
-.cy-ordering-grid.cy-cn-table tbody tr[draggable="true"] { cursor: grab; }
+.cy-cn-seq { white-space: nowrap; }
+.cy-cn-handle { display: inline-flex; vertical-align: middle; margin-left: 2px; padding: 2px; color: var(--cy-text-muted); cursor: grab; border-radius: 4px; }
+.cy-cn-handle:hover { background: var(--cy-surface-muted); color: var(--cy-text); }
+.cy-cn-handle:active { cursor: grabbing; }
+.cy-cn-handle svg, .cy-cn-handle .cy-icon { width: 14px; height: 14px; }
 .cy-cn-grp { background: var(--cy-surface) !important; white-space: nowrap; }
 .cy-cn-grp.is-no { box-shadow: inset 3px 0 0 var(--cy-accent); font-weight: 600; text-align: center; }
 .cy-cn-grp.is-n { text-align: right; font-variant-numeric: tabular-nums; }
@@ -77,3 +81,6 @@
 
 .cy-cn-name-in { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .cy-cn-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cy-cn-bar > select.cy-op-input.cy-cn-join { min-width: 180px; }
+.cy-ordering-grid.cy-cn-table td.cy-cn-note:has(> .cy-ordering-cell) { padding: 0; }
+.cy-ordering-grid.cy-cn-table.is-editing col.w-seq { width: 72px; }

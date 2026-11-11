@@ -526,17 +526,12 @@
 .cy-ordering-photo .cy-icon-button-table { width: 26px; height: 26px; }
 .cy-ordering-photo-large { display: block; max-width: 100%; max-height: 70vh; margin: 0 auto; object-fit: contain; }
 .cy-ordering-photo-hint { margin: 8px 0 0; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
-/* 自訂中國貨 (user 2026-11-11): every cell stays on one line; a cut-off text shows in full on hover
-   (read) or scrolls inside the cell while typing (edit). */
-.cy-ordering-grid[data-kind=CN_CUSTOM] .cy-ordering-cell-text.cy-ordering-wrap { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cy-ordering-grid[data-kind=CN_CUSTOM] textarea.cy-ordering-multiline,
-.cy-ordering-grid[data-kind=CN_CUSTOM] .cy-ordering-multiline:focus { white-space: nowrap; overflow: hidden; height: 34px !important; }
-.cy-ordering-grid[data-kind=CN_CUSTOM] .cy-ordering-cell-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
+/* 自訂中國貨 (user 2026-11-11): text wraps inside its cell when it is longer than the column. */
 .cy-ordering-grid[data-kind=CN_CUSTOM] textarea.cy-ordering-multiline { line-height: 20px; padding-top: 7px; padding-bottom: 7px; }
-/* 自訂中國貨 商品／書籍 line up (user 2026-11-11): same 品名 width, 出版社＋作者 = 規格 (half each),
-   數量 fits four digits; the other columns are the same fixed widths in both blocks. */
-.cy-ordering-grid[data-kind=CN_CUSTOM] .cy-ordering-col-spec { width: 30%; }
-.cy-ordering-grid[data-kind=CN_CUSTOM] .cy-ordering-col-publisher,
-.cy-ordering-grid[data-kind=CN_CUSTOM] .cy-ordering-col-author { width: 15%; }
+/* 自訂中國貨 商品／書籍 line up (user 2026-11-11): same 品名 width, 出版社＋作者 = 規格; 備註 is narrow and
+   what it gives up goes to 規格 (商品) and 作者 (書籍) by the same amount; 數量 fits four digits. */
+.cy-ordering-grid[data-kind=CN_CUSTOM] .cy-ordering-col-note { width: 96px !important; }
+.cy-ordering-grid[data-kind=CN_CUSTOM] .cy-ordering-col-spec { width: 33%; }
+.cy-ordering-grid[data-kind=CN_CUSTOM] .cy-ordering-col-publisher { width: 15%; }
+.cy-ordering-grid[data-kind=CN_CUSTOM] .cy-ordering-col-author { width: 18%; }
 .cy-ordering-grid[data-kind=CN_CUSTOM] .cy-ordering-col-quantityText { width: 56px; }

@@ -198,3 +198,9 @@
 
 - 區段代碼依來源種類解讀（`shared/ordering.ts` `orderingSections()`）：定期中國貨 `SINGLE/BAG/OTHER`；自訂中國貨 `''`＝商品、`'OTHER'`＝書籍；其他來源只有 `''`。沿用 `ordering_lines.section` 既有 CHECK，不重建表。
 - `ordering_lines` 加 `publisher`、`author`（≤200 字）。書籍區欄位：品號、品名、出版社、作者、數量、單位、備註；商品區沿用規格。出版社排序依序比較出版社、作者、品名（作者欄不可單獨排序）。自訂中國貨表格每格單行顯示（`data-kind=CN_CUSTOM`），截斷文字以 title 顯示全文。migration 0066 把既有自訂中國貨有規格的列移到書籍並以第一個「/」拆成出版社與作者；可攜式備份有對應升級步驟。匯出 Excel 書籍規格欄寫「出版社/作者」。
+
+## V0.18.8 — 採購刷卡運費、備註；叫貨表格存檔修正
+
+- `ordering_cn_pieces.note`（≤200 字，訂購時編輯）、`ordering_cn_charges.shipping`（CARD 專屬運費，台幣整數，訂購／對帳時編輯）。
+- 計算（`computeCnPurchase`）：刷卡金額＋手續費、刷卡運費各以 `allocate()` 依人民幣小計分給該刷卡的段；回台灣運費（SHIPPING）＋營業稅（TAX）以 `allocate()` 依各段成本（刷卡分攤＋刷卡運費－刷退＋刷退手續費）分給全部已刷卡的段；含稅含運小計＝成本＋分到的回台灣運費與稅，加總等於總計。
+- 表格存檔（`OrderingGrid`）：已存列的「確認」補送使用最後送出的值（`lastSent`），不讀可能過期的 props；可編輯區按欄位標題＝一次性重新排列並呼叫 `onReorder` 存檔。

@@ -375,8 +375,34 @@ test("dragging a 項次 onto another row reorders the block; sorting turns dragg
   row(101).props.onDragOver({ preventDefault() {} }); grid.flush();
   row(101).props.onDrop({ preventDefault() {} }); grid.flush(); await tick(grid);
   assert.deepEqual(orders, [[103, 101, 102]]);
-  grid.nodes.find(n => n.type === "button" && n.props.className === "cy-ordering-sort").props.onClick(); grid.flush();
-  assert.equal(grid.nodes.some(n => n.type === "td" && n.props.draggable), false, "manual order only when the view is not sorted");
+});
+
+test("in an editable block a header click reorders once and saves; later rows are not re-sorted (user 2026-11-11)", async () => {
+  const orders = [];
+  const grid = mount("GENERAL", [sortLine(101, "C10", "測試丙", 1), sortLine(102, "A2", "測試甲", 2), sortLine(103, "A10", "測試乙", 3)],
+    { onReorder: async ids => { orders.push(ids); } });
+  const header = () => grid.nodes.find(n => n.type === "button" && n.props.className === "cy-ordering-sort" && n.props.title.startsWith("依品號"));
+  header().props.onClick(); grid.flush(); await tick(grid);
+  assert.deepEqual(orders, [[102, 103, 101]], "saved in 品號 order (A2 before A10)");
+  header().props.onClick(); grid.flush(); await tick(grid);
+  assert.deepEqual(orders[1], [101, 103, 102], "second click saves the reverse order");
+  assert.equal(grid.nodes.some(n => n.type === "td" && n.props.draggable), true, "dragging stays available");
+  grid.change(-1, "itemCode", "A1"); grid.flush();
+  assert.equal(grid.rowIds.at(-1) === -1 || grid.rowIds.includes(-1), true, "a typed row stays where it was typed");
+});
+
+test("leaving a saved cell before its autosave returns confirms the typed value, never the old one (user 2026-11-11)", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const line = { id: 101, section: "", sortOrder: 1, itemCode: "", itemName: "測試品名甲", vendorItemCode: "", vendorItemName: "測試品名甲",
+    vendorNameFollows: true, spec: "大號", quantityText: "1", unit: "", note: "" };
+  const grid = mount("CN_CUSTOM", [line]);
+  grid.change(101, "spec", "大號乙規"); t.mock.timers.tick(900); grid.flush();
+  assert.equal(grid.commits.length, 1); assert.equal(grid.commits[0].final, false);
+  grid.input(101, "spec").props.onBlur({ currentTarget: { value: "大號乙規" } }); grid.flush();
+  // The autosave comes back; the final resend must carry 大號乙規 even though the blur saw the old row.
+  acknowledge(grid, 0); await tick(grid);
+  assert.equal(grid.commits.length, 2); assert.equal(grid.commits[1].final, true);
+  assert.equal(grid.commits[1].patch.spec, "大號乙規");
 });
 
 test("a 廠商品號 typed on a saved row goes along when its 品號 is entered afterwards", async () => {
