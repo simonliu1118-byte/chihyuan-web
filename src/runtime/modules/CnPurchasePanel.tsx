@@ -46,6 +46,8 @@ const MODE_HINTS:Record<Mode,string>={
  tax:"到台灣後填營業稅。",
  returns:"退貨數量、人民幣、台幣刷退、刷退手續費；退的部分扣回成本並整表重算。",
 };
+/** 備註 parts joined once each: the same words in the 叫貨 備註 and the 採購 備註 show once (user 2026-11-11). */
+const joinNotes=(parts:string[])=>[...new Set(parts.map(x=>x.trim()).filter(Boolean))].join("；");
 const errorText=(e:unknown)=>e instanceof ApiClientError&&e.code==="ORDERING_VERSION_CONFLICT"?"已被其他人修改，請重新載入":e instanceof Error?e.message:"採購操作失敗";
 const VIRTUAL=2e15,DRAFT_PIECE=1e15,NEW_LINE=-1e14,NEW_CARD=-2e14;
 
@@ -290,7 +292,7 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   const purchased=view.pieces.filter(p=>p.lineId===row.piece.lineId).reduce((s,p)=>s+p.quantity,0);
   const derived=row.discontinued?i.offNote:!row.firstOfLine?"拆分自項次 "+i.seq
    :[i.planned!==null&&purchased!==i.planned?(purchased>i.planned?"多訂 ":"少訂 ")+qtyText(Math.abs(purchased-i.planned)):"",i.line?.note??""].filter(Boolean).join("；");
-  const note=[row.piece.note??"",derived].filter(Boolean).join("；");
+  const note=joinNotes([row.piece.note??"",...derived.split("；")]);
   const card=row.card,cardKey=card?view.cardKeyOf.get(card.id):undefined,dc=cardKey?od?.cards.find(c=>c.key===cardKey):undefined;
   const rc=card&&mode==="reconcile"?drafts.reconcile?.[card.id]:undefined;
   const menu:OverflowItem[]=[];
@@ -403,8 +405,8 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
  const itemRows=sums?view.refs.map(ref=>{
   const i=info.get(ref.id)!,x=sums.get(ref.id)!,ret=view.returns.find(r=>r.lineId===ref.id);
   const pieceNotes=view.pieces.filter(p=>p.lineId===ref.id).map(p=>p.note??"").filter(Boolean).join("；");
-  const note=i.discontinued?i.offNote:[pieceNotes,i.planned!==null&&x.quantity!==i.planned?(x.quantity>i.planned?"多訂 ":"少訂 ")+qtyText(Math.abs(x.quantity-i.planned)):"",
-   (()=>{const n=view.pieces.filter(p=>p.lineId===ref.id).length;return n>1?"分 "+n+" 筆刷卡":""})(),i.line?.note??""].filter(Boolean).join("；");
+  const note=i.discontinued?i.offNote:joinNotes([...pieceNotes.split("；"),i.planned!==null&&x.quantity!==i.planned?(x.quantity>i.planned?"多訂 ":"少訂 ")+qtyText(Math.abs(x.quantity-i.planned)):"",
+   (()=>{const n=view.pieces.filter(p=>p.lineId===ref.id).length;return n>1?"分 "+n+" 筆刷卡":""})(),i.line?.note??""]);
   const menu:OverflowItem[]=[];
   if(!closed&&i.line){if(i.discontinued)menu.push({label:"恢復採購",onClick:()=>void restore(i.line!.id)});
    else if(!i.line.closedAs&&paidOn(i.line.id))menu.push({label:"已刷卡：取消請用退貨",onClick:()=>{},disabled:true});
