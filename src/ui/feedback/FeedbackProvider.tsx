@@ -55,7 +55,7 @@ export function FeedbackProvider({ children }: PropsWithChildren) {
   }
   return <FeedbackContext.Provider value={notify}>
     <div style={{ display: "contents" }} onInvalidCapture={invalid}>{children}</div>
-    {alert ? <Dialog key={alert.message} open title={alert.title} size="small" onClose={close}
+    {alert ? <Dialog key={alert.message} open title={alert.title} size="small" showCloseButton={false} onClose={close}
       footer={<div className="cy-dialog-action-row"><Button type="button" onClick={close}>知道了</Button></div>}>
       <p className="cy-feedback-message" role="alert">{alert.message}</p>
     </Dialog> : null}

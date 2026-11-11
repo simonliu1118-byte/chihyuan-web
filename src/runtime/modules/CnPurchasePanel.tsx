@@ -509,13 +509,13 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   </div>
   <p className="cy-cn-foot">{[t.unchargedPieces?"未刷卡 "+t.unchargedPieces+" 項":"",t.missingFee?"手續費待補 "+t.missingFee+" 筆":"",
    "算法：每筆刷卡的金額＋手續費、以及該筆刷卡的運費，依人民幣小計分給這筆刷卡的品項；回台灣運費與營業稅再依各品項成本（刷卡分攤＋刷卡運費－刷退＋刷退手續費）分給全部品項，只由留下的貨負擔。全部以整數台幣分配，各列加總剛好等於實際金額；單價＝小計 ÷ 數量。"].filter(Boolean).join(" · ")}</p>
- {cancelAsk?<Dialog size="mini" open dismissible={false} title="取消訂購" onClose={()=>!saving&&setCancelAsk(null)}>
-  <form onKeyDown={enterAdvancesFields} onSubmit={e=>{e.preventDefault();void submitCancel()}}>
+ {cancelAsk?<Dialog size="mini" open dismissible={false} title="取消訂購" onClose={()=>!saving&&setCancelAsk(null)}
+  footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={saving} onClick={()=>setCancelAsk(null)}>返回</button><button type="submit" form="cy-cn-cancel-form" className="cy-op-button danger" disabled={saving}>取消訂購</button></div>}>
+  <form id="cy-cn-cancel-form" onKeyDown={enterAdvancesFields} onSubmit={e=>{e.preventDefault();void submitCancel()}}>
    <FormSection>
     <Field label="原因" required><select className="cy-op-input" autoFocus value={cancelAsk.kind} onChange={e=>setCancelAsk(a=>a?{...a,kind:e.target.value}:a)}><option value="">請選擇</option>{CN_CANCEL_REASONS.map(r=><option key={r}>{r}</option>)}</select></Field>
     {cancelAsk.kind==="其他"?<Field label="輸入原因" required><input className="cy-op-input" maxLength={200} value={cancelAsk.detail} onChange={e=>setCancelAsk(a=>a?{...a,detail:e.target.value}:a)}/></Field>:null}
    </FormSection>
-   <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={saving} onClick={()=>setCancelAsk(null)}>返回</button><button type="submit" className="cy-op-button danger" disabled={saving}>取消訂購</button></div>
   </form>
  </Dialog>:null}
  </section>;

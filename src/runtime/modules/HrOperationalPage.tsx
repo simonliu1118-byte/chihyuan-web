@@ -430,7 +430,6 @@ export function HrOperationalPage() {
 
     {revealed !== null ? <Dialog open size="small" title="身分證字號" onClose={() => setRevealed(null)}>
       <p className="cy-hr-revealed">{revealed}</p>
-      <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={() => setRevealed(null)}>關閉</button></div>
     </Dialog> : null}
     {deleteNo !== null && detail ? <Dialog showCloseButton={false} open size="small" title="刪除人事資料" onClose={() => setDeleteNo(null)}>
       <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={event => void removeEmployee(event)}>

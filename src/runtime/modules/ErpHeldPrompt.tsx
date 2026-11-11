@@ -18,7 +18,7 @@ export function ErpHeldPrompt() {
     return () => window.removeEventListener(ERP_HELD_EVENT, listen);
   }, []);
   const answer = (queue: boolean) => { ask?.answer(queue); setAsk(null); };
-  return <Dialog open={!!ask} title="ERP 暫停中" size="small" onClose={() => answer(false)}
+  return <Dialog open={!!ask} title="ERP 暫停中" size="small" showCloseButton={false} onClose={() => answer(false)}
     footer={<div className="cy-dialog-action-row">
       <button type="button" className="cy-op-button" onClick={() => answer(false)}>知道了</button>
       <button type="button" className="cy-op-button primary" onClick={() => answer(true)}>加入佇列，暫停結束自動查</button>

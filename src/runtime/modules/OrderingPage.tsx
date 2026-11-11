@@ -831,7 +831,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false,canCnPurchase=
         <button type="button" className="cy-op-button compact soft" disabled={busy} onClick={()=>void updateVisibility(s)}>{s.isActive?"隱藏":"恢復"}</button>
        </td></tr>)}</tbody>
      </table></div>
-     <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setManageSources(false)}>關閉</button>
+     <div className="cy-op-form-footer">
       <button type="button" className="cy-op-button primary" onClick={()=>setSourceForm({kind:"GENERAL",name:"",conditions:"",paymentTerms:"",note:""})}>＋ 新增來源</button></div>
     </div>
   </Dialog>:null}
@@ -840,7 +840,6 @@ export function OrderingPage({canRestock=false,canQueryItem=false,canCnPurchase=
     <tbody>{sources.filter(x=>!x.isActive).map(s=><tr key={s.id}><td>{s.name}</td><td>{s.kind==="VENDOR"?"外部廠商":"公司內部"}</td>
      <td><button className="cy-op-button compact" type="button" disabled={busy} onClick={()=>void updateVisibility(s)}>恢復</button></td></tr>)}</tbody></table>
     {!sources.some(x=>!x.isActive)?<p className="cy-op-empty">目前沒有已隱藏的來源。</p>:null}</div>
-   <div className="cy-op-form-footer"><button className="cy-op-button" type="button" onClick={()=>setHiddenSourcesOpen(false)}>關閉</button></div>
   </Dialog>:null}
   {sourceForm?<Dialog size="small" showCloseButton={false} open title={sourceForm.id?"修改叫貨來源":"新增叫貨來源"} onClose={()=>setSourceForm(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void saveSource(e)}>
     <FormSection>

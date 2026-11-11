@@ -60,10 +60,9 @@ export function OrderingLinePhoto({orderId,lineId,name,hasPhoto,canEdit,onChange
   <button type="button" className="cy-ordering-photo-thumb" aria-label={"查看「"+name+"」照片"} title="查看照片" onClick={()=>setOpen(true)}>
    {src?<img src={src} alt=""/>:<span aria-hidden="true">…</span>}
   </button>
-  <Dialog open={open} size="medium" className="cy-ordering-photo-dialog" title={name+" · 照片"} onClose={()=>setOpen(false)} footer={<>
-   {canEdit?<button type="button" className="cy-op-button danger" disabled={busy} onClick={()=>void remove()}>刪除照片</button>:null}
-   {canEdit?<button type="button" className="cy-op-button" disabled={busy} onClick={()=>input.current?.click()}>換一張</button>:null}
-   <button type="button" className="cy-op-button primary" onClick={()=>setOpen(false)}>關閉</button></>}>
+  <Dialog open={open} size="medium" className="cy-ordering-photo-dialog" title={name+" · 照片"} onClose={()=>setOpen(false)} footer={canEdit?<div className="cy-dialog-action-row">
+   <button type="button" className="cy-op-button danger" disabled={busy} onClick={()=>void remove()}>刪除照片</button>
+   <button type="button" className="cy-op-button" disabled={busy} onClick={()=>input.current?.click()}>換一張</button></div>:undefined}>
    {src?<img className="cy-ordering-photo-large" src={src} alt={name+" 照片"}/>:<p className="cy-op-empty">載入中…</p>}
    <p className="cy-ordering-photo-hint">叫貨單結案或作廢後，照片會自動刪除。</p>
   </Dialog>
