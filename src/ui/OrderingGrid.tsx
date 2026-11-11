@@ -56,6 +56,10 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  const markUnfinal=(id:number,field?:string)=>{const set=unfinal.current.get(id)??new Set<string>();if(field)set.add(field);unfinal.current.set(id,set)};
  const markFinal=(id:number,field:string)=>{const set=unfinal.current.get(id);if(!set)return;set.delete(field);if(!set.size)unfinal.current.delete(id)};
  const actionSaves=useRef(new Set<Promise<boolean>>());
+ // The value last sent for each saved cell ("id|field"). A final resend after an autosave sends this, not
+ // the row from props: props can still be the copy from before that autosave came back (user 2026-11-11:
+ // 規格 typed while the previous save was pending was overwritten by the old value).
+ const lastSent=useRef(new Map<string,string>());
  const skipBlur=useRef(new Set<string>());
  const saveTimers=useRef(new Map<string,ReturnType<typeof setTimeout>>());
  const cancelTimer=(key:string)=>{const timer=saveTimers.current.get(key);if(timer!==undefined)clearTimeout(timer);saveTimers.current.delete(key)};
@@ -87,7 +91,21 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  const mobileKey=(row:GridLine)=>savedRowKeys.current.get(row.id)??row.id;
  const mobileRow=visible.find(row=>mobileKey(row)===mobileRowId);
  const canDrag=!readOnly&&!vendorOnly&&!sort&&!!onReorder&&!busy;
- const toggleSort=(field:string)=>setSort(prev=>prev?.field!==field?{field,dir:1}:prev.dir===1?{field,dir:-1}:null);
+ // Editable blocks (user 2026-11-11): a header click puts the rows in that order once and saves it, like a drag;
+ // rows typed afterwards stay where they are. Clicking the same header again reverses. Read-only views only sort the view.
+ const [applied,setApplied]=useState<{field:string;dir:1|-1}|null>(null);
+ const persistSort=!readOnly&&!vendorOnly&&!!onReorder;
+ const toggleSort=(field:string)=>{
+  if(!persistSort){setSort(prev=>prev?.field!==field?{field,dir:1}:prev.dir===1?{field,dir:-1}:null);return}
+  const dir:1|-1=applied?.field===field&&applied.dir===1?-1:1;
+  const order={field,dir};
+  const ids=sectionLines.filter(x=>x.id>0).slice().sort((a,b)=>{for(const k of sortKeys(field)){const c=collator.compare(String(a[k as keyof GridLine]??""),String(b[k as keyof GridLine]??""));if(c)return dir*c}return a.sortOrder-b.sortOrder}).map(x=>x.id);
+  setApplied(order);
+  if(!ids.length||ids.every((id,i)=>id===sectionLines[i]?.id))return;
+  setLocalOrder(ids);
+  runAction(()=>onReorder!(ids).catch(error=>{setLocalOrder(null);throw error}));
+ };
+ const shownSort=persistSort?applied:sort;
  const drop=(targetId:number)=>{
   const from=dragging.current;dragging.current=null;setDropTarget(null);
   if(from===null||from===targetId||!onReorder)return;
@@ -195,6 +213,7 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
   setSaveError(false);
   if(final)markFinal(row.id,field);else markUnfinal(row.id,field);
   if(field==="vendorItemCode"||field==="vendorItemName"){const typed=typedVendor.current.get(row.id)??new Map();if(value.trim())typed.set(field,value);else typed.delete(field);typedVendor.current.set(row.id,typed)}
+  lastSent.current.set(key,value);
   const promise=onCommit(row,withTypedVendor(row,{[field]:value}),final).then(()=>{setEdits(prev=>{
     if(prev[key]!==value)return prev;
     const n={...prev};delete n[key];return n;
@@ -208,8 +227,9 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
   const fieldsToResend=unfinal.current.get(row.id);
   if(!fieldsToResend)return Promise.resolve(true);
   unfinal.current.delete(row.id);
-  const latest=lines.find(l=>l.id===row.id)??row;
-  const patch=withTypedVendor(latest,{...finalPatch(latest),...Object.fromEntries([...fieldsToResend].map(field=>[field,getValue(latest,field)]))});
+  const latest=linesRef.current.find(l=>l.id===row.id)??row;
+  const valueOf=(field:string)=>lastSent.current.get(row.id+"|"+field)??getValue(latest,field);
+  const patch=withTypedVendor(latest,{...finalPatch(latest),...Object.fromEntries([...fieldsToResend].map(field=>[field,valueOf(field)]))});
   const promise=onCommit(latest,patch,true).then(()=>true).catch(()=>{unfinal.current.set(row.id,fieldsToResend);setSaveError(true);return false})
    .finally(()=>{actionSaves.current.delete(promise);setDrafts([...draftsRef.current])});
   actionSaves.current.add(promise);return promise;
@@ -323,7 +343,7 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
   </BottomSheet>:null}
  </div>:<table className="cy-ordering-grid" data-kind={kind} data-readonly={readOnly||undefined} data-photo={photoCell?true:undefined}>
    <colgroup><col className="cy-ordering-col-index"/>{fields.flatMap(([field])=>[<col key={field} className={"cy-ordering-col-"+field}/>,...(readOnly&&field==="quantityText"?[<col key="received" className="cy-ordering-col-received"/>]:[])])}{photoCell?<col className="cy-ordering-col-photo"/>:null}{readOnly?<col className="cy-ordering-col-status"/>:<col className="cy-ordering-col-actions"/>}{readOnly&&onCloseLine?<col className="cy-ordering-col-close"/>:null}</colgroup>
-   <thead><tr><th scope="col">項次</th>{fields.flatMap(([field,label])=>[<th scope="col" key={field} className={field==="quantityText"?"is-number":undefined} aria-sort={sort?.field===field?(sort.dir===1?"ascending":"descending"):undefined}>{SORTABLE.has(field)?<button type="button" className="cy-ordering-sort" data-active={sort?.field===field||undefined} title={"依"+label+"排序（再按一次反向，第三次取消）"} onClick={()=>toggleSort(field)}>{label}<svg viewBox="0 0 10 14" width="8" height="12" aria-hidden="true"><path d="M5 1 8.5 5h-7z" data-on={sort?.field===field&&sort.dir===1||undefined}/><path d="M5 13 1.5 9h7z" data-on={sort?.field===field&&sort.dir===-1||undefined}/></svg></button>:label}</th>,...(readOnly&&field==="quantityText"?[<th scope="col" key="received" className="is-number">已到數量</th>]:[])])}{photoCell?<th scope="col" className="is-center">照片</th>:null}{readOnly?<th scope="col" className="is-center">狀態</th>:<th scope="col">操作</th>}{readOnly&&onCloseLine?<th scope="col"><span className="cy-ordering-visually-hidden">操作</span></th>:null}</tr></thead>
+   <thead><tr><th scope="col">項次</th>{fields.flatMap(([field,label])=>[<th scope="col" key={field} className={field==="quantityText"?"is-number":undefined} aria-sort={shownSort?.field===field?(shownSort.dir===1?"ascending":"descending"):undefined}>{SORTABLE.has(field)?<button type="button" className="cy-ordering-sort" data-active={shownSort?.field===field||undefined} title={persistSort?"依"+label+"重新排列並儲存順序（再按一次反向）":"依"+label+"排序（再按一次反向，第三次取消）"} onClick={()=>toggleSort(field)}>{label}<svg viewBox="0 0 10 14" width="8" height="12" aria-hidden="true"><path d="M5 1 8.5 5h-7z" data-on={shownSort?.field===field&&shownSort.dir===1||undefined}/><path d="M5 13 1.5 9h7z" data-on={shownSort?.field===field&&shownSort.dir===-1||undefined}/></svg></button>:label}</th>,...(readOnly&&field==="quantityText"?[<th scope="col" key="received" className="is-number">已到數量</th>]:[])])}{photoCell?<th scope="col" className="is-center">照片</th>:null}{readOnly?<th scope="col" className="is-center">狀態</th>:<th scope="col">操作</th>}{readOnly&&onCloseLine?<th scope="col"><span className="cy-ordering-visually-hidden">操作</span></th>:null}</tr></thead>
    <tbody>{visible.map((row,i)=>{const warning=warnRow?.(row);return <tr key={savedRowKeys.current.get(row.id)??row.id} className={readOnly&&row.closedAs?"cy-row-struck":undefined} data-saving={inFlight.current.has(row.id)||undefined} data-warning={warning?true:undefined} title={warning} data-drop-target={dropTarget===row.id||undefined}
     onDragOver={e=>{if(dragging.current!==null&&row.id>0){e.preventDefault();if(dropTarget!==row.id)setDropTarget(row.id)}}} onDrop={e=>{e.preventDefault();drop(row.id)}}>
     <td data-label="項次" data-col="index" draggable={canDrag&&row.id>0||undefined} className={canDrag&&row.id>0?"cy-ordering-drag":undefined} title={canDrag&&row.id>0?"拖曳調整順序":undefined}
