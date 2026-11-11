@@ -38,7 +38,7 @@
 .cy-ordering-grid.cy-cn-table col.w-rmb { width: 74px; } .cy-ordering-grid.cy-cn-table col.w-rmb2 { width: 84px; } .cy-ordering-grid.cy-cn-table col.w-no { width: 36px; }
 .cy-ordering-grid.cy-cn-table col.w-date { width: 54px; } .cy-ordering-grid.cy-cn-table col.w-ntd { width: 64px; } .cy-ordering-grid.cy-cn-table col.w-fee { width: 52px; }
 .cy-ordering-grid.cy-cn-table col.w-unit { width: 64px; } .cy-ordering-grid.cy-cn-table col.w-rate { width: 46px; } .cy-ordering-grid.cy-cn-table col.w-ret { width: 64px; }
-.cy-ordering-grid.cy-cn-table col.w-land { width: 70px; } .cy-ordering-grid.cy-cn-table col.w-rate2 { width: 50px; } .cy-ordering-grid.cy-cn-table col.w-note { width: 104px; } .cy-ordering-grid.cy-cn-table col.w-act { width: 34px; }
+.cy-ordering-grid.cy-cn-table col.w-land { width: 70px; } .cy-ordering-grid.cy-cn-table col.w-rate2 { width: 50px; } .cy-ordering-grid.cy-cn-table col.w-note { width: 150px; } .cy-ordering-grid.cy-cn-table col.w-act { width: 34px; }
 .cy-ordering-grid.cy-cn-table tbody tr.is-band td:not(.cy-cn-grp) { background: color-mix(in srgb, var(--cy-accent-soft) 35%, var(--cy-surface)); }
 .cy-ordering-grid.cy-cn-table tbody tr.is-picked td:not(.cy-cn-grp) { background: var(--cy-accent-soft); }
 .cy-cn-seq { white-space: nowrap; }
@@ -93,3 +93,10 @@
 .cy-ordering-grid.cy-cn-table.is-editing col.w-seq { width: 40px; }
 .cy-cn-card-cancel { margin-left: 4px; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--cy-text-muted); font-size: 14px; line-height: 18px; cursor: pointer; }
 .cy-cn-card-cancel:hover { background: var(--cy-danger-soft, #fde8e8); color: var(--cy-danger); }
+/* 備註 in two rows: 叫貨／system (grey, read-only) above, 採購 below (user 2026-11-11). 10 字寬, taken from 品名. */
+.cy-ordering-grid.cy-cn-table td.cy-cn-note { padding: 0; vertical-align: middle; }
+.cy-cn-note-ref, .cy-cn-note-own { padding: 3px 6px; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
+.cy-cn-note-ref { color: var(--cy-text-muted); font-size: 12px; }
+.cy-cn-note-own { color: var(--cy-text); font-size: 12.5px; }
+.cy-cn-note-ref + .cy-cn-note-own, .cy-cn-note-ref + .cy-ordering-cell { border-top: 1px solid var(--cy-border-subtle, var(--cy-border)); }
+.cy-ordering-grid.cy-cn-table td.cy-cn-note > .cy-ordering-cell { display: block; width: 100%; min-height: 26px; }

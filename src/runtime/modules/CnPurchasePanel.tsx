@@ -46,8 +46,16 @@ const MODE_HINTS:Record<Mode,string>={
  tax:"到台灣後填營業稅。",
  returns:"退貨數量、人民幣、台幣刷退、刷退手續費；退的部分扣回成本並整表重算。",
 };
-/** 備註 parts joined once each: the same words in the 叫貨 備註 and the 採購 備註 show once (user 2026-11-11). */
-const joinNotes=(parts:string[])=>[...new Set(parts.map(x=>x.trim()).filter(Boolean))].join("；");
+/**
+ * 備註 cell in two rows (user 2026-11-11): what the 叫貨單 and the system say (grey, read-only) above, the
+ * 採購 備註 below — edited right in the cell while 訂購, never as a separate input box.
+ */
+function NoteCell({info:refText,own,edit}:{info:string;own:string;edit?:ReactNode}){
+ return <td className="cy-cn-note" title={[refText,own].filter(Boolean).join("\n")||undefined}>
+  {refText?<div className="cy-cn-note-ref">{refText}</div>:null}
+  {edit??(own?<div className="cy-cn-note-own">{own}</div>:null)}
+ </td>;
+}
 const errorText=(e:unknown)=>e instanceof ApiClientError&&e.code==="ORDERING_VERSION_CONFLICT"?"已被其他人修改，請重新載入":e instanceof Error?e.message:"採購操作失敗";
 const VIRTUAL=2e15,DRAFT_PIECE=1e15,NEW_LINE=-1e14,NEW_CARD=-2e14;
 
@@ -291,8 +299,7 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   const ret=view.returns.find(x=>x.lineId===row.piece.lineId);
   const purchased=view.pieces.filter(p=>p.lineId===row.piece.lineId).reduce((s,p)=>s+p.quantity,0);
   const derived=row.discontinued?i.offNote:!row.firstOfLine?"拆分自項次 "+i.seq
-   :[i.planned!==null&&purchased!==i.planned?(purchased>i.planned?"多訂 ":"少訂 ")+qtyText(Math.abs(purchased-i.planned)):"",i.line?.note??""].filter(Boolean).join("；");
-  const note=joinNotes([row.piece.note??"",...derived.split("；")]);
+   :[i.line?.note??"",i.planned!==null&&purchased!==i.planned?(purchased>i.planned?"多訂 ":"少訂 ")+qtyText(Math.abs(purchased-i.planned)):""].filter(Boolean).join("；");
   const card=row.card,cardKey=card?view.cardKeyOf.get(card.id):undefined,dc=cardKey?od?.cards.find(c=>c.key===cardKey):undefined;
   const rc=card&&mode==="reconcile"?drafts.reconcile?.[card.id]:undefined;
   const menu:OverflowItem[]=[];
@@ -348,7 +355,7 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    <td className="is-n">{row.firstOfLine&&ret?<span>{qtyText(ret.quantity)}・{ret.ntdAmount===null?"—":ntdText(ret.ntdAmount)}</span>:<span className="cy-cn-mut">—</span>}</td>
    <td className="is-n"><b>{unit(r?.landedUnit??null,1)}</b></td>
    <td className="is-n cy-cn-mut">{unit(r?.totalRate??null,2)}</td>
-   <td className="cy-cn-note" title={note||undefined}>{editing&&dp?<input className="cy-ordering-cell" maxLength={200} aria-label={i.name+" 備註"} placeholder={derived||undefined} value={dp.note} onChange={e=>patchPiece(dp.key,{note:e.target.value})}/>:note}</td>
+   <NoteCell info={derived} own={row.piece.note??""} edit={editing&&dp?<input className="cy-ordering-cell" maxLength={200} aria-label={i.name+" 採購備註"} value={dp.note} onChange={e=>patchPiece(dp.key,{note:e.target.value})}/>:undefined}/>
    <td className="is-c cy-cn-act">{menu.length?<OverflowMenu label={"更多操作："+i.name} items={menu}/>:null}</td>
   </tr>;
  });
@@ -404,9 +411,9 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
  const sums=byItem?summarizeCnLines(view.refs,view.pieces,calc.pieces):null;
  const itemRows=sums?view.refs.map(ref=>{
   const i=info.get(ref.id)!,x=sums.get(ref.id)!,ret=view.returns.find(r=>r.lineId===ref.id);
-  const pieceNotes=view.pieces.filter(p=>p.lineId===ref.id).map(p=>p.note??"").filter(Boolean).join("；");
-  const note=i.discontinued?i.offNote:joinNotes([...pieceNotes.split("；"),i.planned!==null&&x.quantity!==i.planned?(x.quantity>i.planned?"多訂 ":"少訂 ")+qtyText(Math.abs(x.quantity-i.planned)):"",
-   (()=>{const n=view.pieces.filter(p=>p.lineId===ref.id).length;return n>1?"分 "+n+" 筆刷卡":""})(),i.line?.note??""]);
+  const pieceNotes=view.pieces.filter(p=>p.lineId===ref.id).map(p=>p.note??"").filter(Boolean).join("／");
+  const refNote=i.discontinued?i.offNote:[i.line?.note??"",i.planned!==null&&x.quantity!==i.planned?(x.quantity>i.planned?"多訂 ":"少訂 ")+qtyText(Math.abs(x.quantity-i.planned)):"",
+   (()=>{const n=view.pieces.filter(p=>p.lineId===ref.id).length;return n>1?"分 "+n+" 筆刷卡":""})()].filter(Boolean).join("；");
   const menu:OverflowItem[]=[];
   if(!closed&&i.line){if(i.discontinued)menu.push({label:"恢復採購",onClick:()=>void restore(i.line!.id)});
    else if(!i.line.closedAs&&paidOn(i.line.id))menu.push({label:"已刷卡：取消請用退貨",onClick:()=>{},disabled:true});
@@ -426,7 +433,7 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    <td className="is-n">{unit(x.landedTotal,0)}</td>
    <td className="is-n"><b>{unit(x.landedUnit,1)}</b></td>
    <td className="is-n cy-cn-mut">{unit(x.totalRate,2)}</td>
-   <td className="cy-cn-note" title={note||undefined}>{note}</td>
+   <NoteCell info={refNote} own={i.discontinued?"":pieceNotes}/>
    <td className="is-c cy-cn-act">{menu.length?<OverflowMenu label={"更多操作："+i.name} items={menu}/>:null}</td>
   </tr>}):null;
  const shippingTotal=view.charges.filter(c=>c.kind==="SHIPPING").reduce((n,c)=>n+(c.amount??0)+(c.fee??0),0);
