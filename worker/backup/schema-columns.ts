@@ -718,6 +718,16 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "reason",
     "rmb_amount"
   ],
+  "ordering_line_photos": [
+    "bytes",
+    "created_at",
+    "created_by",
+    "height",
+    "line_id",
+    "object_key",
+    "order_id",
+    "width"
+  ],
   "ordering_item_last_source": [
     "item_code",
     "source_id",

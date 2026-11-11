@@ -515,3 +515,14 @@
 }
 /* Read-only grids (叫貨明細, 到貨紀錄): a row with one wrapped cell keeps the others vertically centred (user 2026-11-09). */
 .cy-ordering-grid[data-readonly] td, .cy-ordering-grid[data-readonly] td.cy-ordering-status-cell, .cy-ordering-grid[data-readonly] td.cy-ordering-close-cell, .cy-ordering-receipts td:first-child { vertical-align: middle; }
+/* 自訂中國貨 照片 (V0.18.6): one small thumbnail per line; tap to enlarge. */
+.cy-ordering-col-photo { width: 52px; }
+.cy-ordering-grid[data-photo] .cy-ordering-col-note { width: 120px; }
+.cy-ordering-grid[data-photo][data-readonly] .cy-ordering-col-note { width: 130px; }
+.cy-ordering-grid td.cy-ordering-photo-cell { vertical-align: middle; text-align: center; }
+.cy-ordering-photo { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; }
+.cy-ordering-photo-thumb { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 26px; padding: 0; border: 1px solid var(--cy-border); border-radius: 4px; background: var(--cy-surface-muted); overflow: hidden; cursor: zoom-in; }
+.cy-ordering-photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cy-ordering-photo .cy-icon-button-table { width: 26px; height: 26px; }
+.cy-ordering-photo-large { display: block; max-width: 100%; max-height: 70vh; margin: 0 auto; object-fit: contain; }
+.cy-ordering-photo-hint { margin: 8px 0 0; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }

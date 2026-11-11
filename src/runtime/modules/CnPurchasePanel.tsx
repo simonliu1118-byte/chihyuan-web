@@ -45,10 +45,12 @@ const MODE_HINTS:Record<Mode,string>={
 const errorText=(e:unknown)=>e instanceof ApiClientError&&e.code==="ORDERING_VERSION_CONFLICT"?"已被其他人修改，請重新載入":e instanceof Error?e.message:"採購操作失敗";
 const VIRTUAL=2e15,DRAFT_PIECE=1e15,NEW_LINE=-1e14,NEW_CARD=-2e14;
 
-export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef,canReceive,onReceive}:{
+export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef,canReceive,onReceive,photoOf}:{
  order:CnOrder;onSaved:(order:CnOrder)=>void;onError:(message:string)=>void;onNotice:(message:string)=>void;
  confirm:(c:{title:string;description:string;confirmLabel?:string;cancelLabel?:string;confirmTone?:"danger"})=>Promise<boolean>;
  dirtyRef:{current:boolean};canReceive:boolean;onReceive:()=>void;
+ /** 自訂中國貨 照片 cell of a line (shared with 叫貨明細). */
+ photoOf?:(lineId:number)=>ReactNode;
 }){
  const [purchase,setPurchase]=useState<CnPurchase|null>(null),[loading,setLoading]=useState(true);
  const [mode,setMode]=useState<Mode|null>(null),[drafts,setDrafts]=useState<Drafts>({});
@@ -283,7 +285,7 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    <td className="is-c cy-cn-seq">{editing&&dp?<label className="cy-cn-pick"><input type="checkbox" checked={checked} aria-label={"選取 "+i.name}
     onChange={e=>setSelectedRows(prev=>{const n=new Set(prev);if(e.target.checked)n.add(dp.key);else n.delete(dp.key);return n})}/><span>{i.seq}</span></label>:i.seq}</td>
    <td className="cy-cn-name">{newLine&&row.firstOfLine?<input className="cy-ordering-cell" aria-label="新增項目品名" placeholder="品名" value={newLine.itemName} onChange={e=>setOrder(d=>({...d,lines:d.lines.map(l=>l.key===newLine.key?{...l,itemName:e.target.value}:l)}))}/>
-    :<>{i.name}{i.added&&row.firstOfLine?<span className="cy-cn-tag">採購新增</span>:null}</>}</td>
+    :<span className="cy-cn-name-in">{row.firstOfLine&&i.line&&photoOf?photoOf(i.line.id):null}<span className="cy-cn-name-text">{i.name}</span>{i.added&&row.firstOfLine?<span className="cy-cn-tag">採購新增</span>:null}</span>}</td>
    <td className="is-n cy-cn-mut">{row.firstOfLine?(i.planned===null?"—":qtyText(i.planned)):""}</td>
    <td className="is-n">{editing&&dp?<input className="cy-ordering-cell is-n" inputMode="decimal" aria-label={i.name+" 採購數量"} value={dp.quantity} onChange={e=>patchPiece(dp.key,{quantity:e.target.value})}/>:qtyText(row.piece.quantity)}{i.unit&&!editing?<small className="cy-cn-unit">{i.unit}</small>:null}</td>
    <td className="is-n">{editing&&dp?<input className="cy-ordering-cell is-n" inputMode="decimal" aria-label={i.name+" 人民幣單價"} value={dp.price} onChange={e=>patchPiece(dp.key,{price:e.target.value})}/>:rmbText(row.piece.rmbPrice)}</td>
@@ -356,7 +358,7 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    else if(!i.line.closedAs)for(const reason of ["絕版","停產"])menu.push({label:"標記"+reason,onClick:()=>void markDiscontinued(i.line!.id,i.name,reason),danger:true});}
   return <tr key={ref.id} className={i.discontinued?"cy-row-struck":""}>
    <td className="is-c">{i.seq}</td>
-   <td className="cy-cn-name">{i.name}{i.added?<span className="cy-cn-tag">採購新增</span>:null}</td>
+   <td className="cy-cn-name"><span className="cy-cn-name-in">{i.line&&photoOf?photoOf(i.line.id):null}<span className="cy-cn-name-text">{i.name}</span>{i.added?<span className="cy-cn-tag">採購新增</span>:null}</span></td>
    <td className="is-n cy-cn-mut">{i.planned===null?"—":qtyText(i.planned)}</td>
    <td className="is-n">{qtyText(i.discontinued?0:x.quantity)}{i.unit?<small className="cy-cn-unit">{i.unit}</small>:null}</td>
    <td className="is-n" title={x.rmbUnit!==null?"人民幣小計 ÷ 採購數量":undefined}>{x.rmbUnit===null?<span className="cy-cn-mut">—</span>:"¥"+ntdText(x.rmbUnit/100,2)}</td>

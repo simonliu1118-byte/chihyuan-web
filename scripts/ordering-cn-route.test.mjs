@@ -5,7 +5,7 @@ import {readFileSync,readdirSync} from "node:fs";
 import {build} from "esbuild";
 const compiled=await build({entryPoints:["worker/http/ordering-routes.ts"],bundle:true,write:false,platform:"node",format:"esm"});
 const {handleOrderingRoute}=await import("data:text/javascript;base64,"+Buffer.from(compiled.outputFiles[0].text).toString("base64"));
-function fixture(role="SUPER_ADMIN"){
+function fixture(role="SUPER_ADMIN",files=undefined){
  const sql=new DatabaseSync(":memory:");
  const queries=[];
  sql.exec("PRAGMA foreign_keys=ON");
@@ -20,9 +20,10 @@ function fixture(role="SUPER_ADMIN"){
  };
  const principal={workspaceId:"workspace-test",employeeId:"test-ordering",employeeNo:"9999",displayName:"測試員工甲",workspaceRole:role,
  isIdentityAdmin:false,emailVerified:true,isWorkspaceSuperAdmin:role==="SUPER_ADMIN",credentialVersion:1,employeeRevision:1};
- const env={DB:db,IDENTITY_APPLICATION_ID:"APP_TEST",IDENTITY_WORKSPACE_ID:"workspace-test",IDENTITY:{async fetch(){return Response.json({principal,session:{expiresAt:"2999-01-01T00:00:00Z"}})}}};
+ const env={HR_FILES:files,DB:db,IDENTITY_APPLICATION_ID:"APP_TEST",IDENTITY_WORKSPACE_ID:"workspace-test",IDENTITY:{async fetch(){return Response.json({principal,session:{expiresAt:"2999-01-01T00:00:00Z"}})}}};
  const call=async(path,method="GET",json)=>{const req=new Request("https://acceptance.test/api/business/ordering"+path,{method,headers:{cookie:"cyweb_identity_session=cyid_"+"a".repeat(64),"content-type":"application/json"},body:json===undefined?undefined:JSON.stringify(json)});const res=await handleOrderingRoute(req,env,"ordering-test");return {status:res.status,body:await res.json()}};
- return {sql,call,queries,db};
+ const raw=async(path,init)=>handleOrderingRoute(new Request("https://acceptance.test/api/business/ordering"+path,{...init,headers:{cookie:"cyweb_identity_session=cyid_"+"a".repeat(64),...(init?.headers??{})}}),env,"ordering-test");
+ return {sql,call,queries,db,raw};
 }
 
 async function sentCnOrder(call){
@@ -110,5 +111,46 @@ test("CN purchase: 絕版／停產 closes the line and can be restored",async()=
   assert.match(o.revisions[0].summary,/恢復採購/);
   // 完成訂購 needs every active line purchased
   r=await call("/orders/"+o.id+"/cn-purchase/complete","POST",{expectedVersion:o.version});assert.equal(r.status,422);assert.match(r.body.error.message,/檀木魚形按摩梳/);
+ }finally{sql.close()}
+});
+
+function fakeBucket(){
+ const store=new Map();
+ return {store,async put(k,v){store.set(k,new Uint8Array(v))},async get(k){const v=store.get(k);return v?{body:new Blob([v]).stream()}:null},
+  async delete(k){for(const key of [k].flat())store.delete(key)}};
+}
+// A minimal valid baseline JPEG header (SOI, SOF0 4x3, EOI) is enough for the size check.
+const jpeg=new Uint8Array([0xff,0xd8,0xff,0xc0,0x00,0x11,0x08,0x00,0x03,0x00,0x04,0x03,0x01,0x22,0x00,0x02,0x11,0x01,0x03,0x11,0x01,0xff,0xd9]);
+test("CN line photo: one per line, replaced, removed with its line, and gone at 結案",async()=>{
+ const bucket=fakeBucket();
+ const {sql,call,raw}=fixture("SUPER_ADMIN",bucket);try{
+  const sources=(await call("/sources")).body.data,source=sources.find(x=>x.kind==="CN_CUSTOM");
+  let o=(await call("/orders","POST",{sourceId:source.id})).body.data;
+  for(const [name,qty] of [["甲品","2"],["乙品","1"]])o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,operation:"save",line:{itemName:name,quantityText:qty}})).body.data;
+  const [a,b]=o.lines,put=lineId=>raw("/orders/"+o.id+"/lines/"+lineId+"/photo",{method:"PUT",headers:{"content-type":"image/jpeg"},body:jpeg});
+  assert.equal((await put(a.id)).status,200);assert.equal((await put(b.id)).status,200);
+  assert.equal(bucket.store.size,2);
+  assert.equal((await put(a.id)).status,200,"replacing keeps one file per line");assert.equal(bucket.store.size,2);
+  const got=await raw("/orders/"+o.id+"/lines/"+a.id+"/photo");assert.equal(got.headers.get("content-type"),"image/jpeg");
+  assert.equal((await raw("/orders/"+o.id+"/lines/"+a.id+"/photo",{method:"PUT",headers:{"content-type":"image/png"},body:jpeg})).status,422);
+  o=(await call("/orders/"+o.id)).body.data;assert.deepEqual(o.lines.map(l=>l.photo),[true,true]);
+  // deleting a draft line removes its photo file
+  o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,operation:"delete",lineId:b.id})).body.data;
+  assert.equal(bucket.store.size,1);assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_line_photos").get().n,1);
+  o=(await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version})).body.data;
+  assert.equal(o.lines[0].photo,true);
+  // full receipt → 結案 → photo deleted
+  o=(await call("/orders/"+o.id+"/receipts","POST",{expectedVersion:o.version,erpPurchaseNo:"20261111001",receivedDate:"2026-11-11",lines:[{lineId:a.id,quantity:2}]})).body.data;
+  assert.equal(o.status,"CLOSED");assert.equal(o.lines[0].photo,false);
+  assert.equal(bucket.store.size,0);assert.equal(sql.prepare("SELECT COUNT(*) n FROM ordering_line_photos").get().n,0);
+  assert.equal((await put(a.id)).status,409,"no new photo after 結案");
+ }finally{sql.close()}
+});
+test("CN line photo is only for 自訂中國貨",async()=>{
+ const {sql,call,raw}=fixture("SUPER_ADMIN",fakeBucket());try{
+  const source=(await call("/sources")).body.data.find(x=>x.name==="台中");
+  let o=(await call("/orders","POST",{sourceId:source.id})).body.data;
+  o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,operation:"save",line:{itemName:"甲品",quantityText:"1"}})).body.data;
+  assert.equal((await raw("/orders/"+o.id+"/lines/"+o.lines[0].id+"/photo",{method:"PUT",headers:{"content-type":"image/jpeg"},body:jpeg})).status,422);
  }finally{sql.close()}
 });

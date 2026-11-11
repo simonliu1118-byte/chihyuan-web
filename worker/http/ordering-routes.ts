@@ -4,12 +4,14 @@ import {success,failure} from "./response";
 import {AuditService} from "../audit/audit-service";
 import {checkModuleAccess} from "../auth/app-access";
 import {cnPurchasedLineIds,handleCnPurchase} from "./ordering-cn-routes";
+import {inspectJpeg,JpegUploadError,putJpegWithRecords} from "../files/jpeg-upload";
 import {CLOSED_AS_LABELS,CN_REGULAR_SECTIONS,lineIsOpen,lineState,orderStatus,orderingLineHasName,parseErpPurchaseNo,parseQuantity,pickDraft,receiptItemSummary,vendorItemKey,type OrderingClosedAs,type OrderingStoredStatus} from "../../shared/ordering";
 
-type Context={db:D1Database;actor:number;name:string;now:string;requestId:string};
+type Context={db:D1Database;actor:number;name:string;now:string;requestId:string;files?:R2Bucket};
+type OrderingEnv=IdentityRuntimeEnv&{HR_FILES?:R2Bucket};
 type Source={id:number;name:string;kind:"GENERAL"|"VENDOR"|"CN_REGULAR"|"CN_CUSTOM";conditions:string;payment_terms:string;note:string;sort_order:number;is_active:number};
 type Ord={id:number;source_id:number;status:OrderingStoredStatus;planned_send_date:string|null;sent_at:string|null;note:string;version:number;revision:number;created_at:string;updated_at:string};
-type Line={id:number;order_id:number;section:string;sort_order:number;item_code:string;item_name:string;vendor_item_code:string;vendor_item_name:string;vendor_name_follows:number;spec:string;quantity_text:string;quantity:number|null;unit:string;note:string;closed_as:"SHORTAGE"|"CANCELLED"|"OTHER"|null;closed_note:string;received:number;original_quantity?:number|null;purchase_added?:number;cn_discontinued?:number};
+type Line={id:number;order_id:number;section:string;sort_order:number;item_code:string;item_name:string;vendor_item_code:string;vendor_item_name:string;vendor_name_follows:number;spec:string;quantity_text:string;quantity:number|null;unit:string;note:string;closed_as:"SHORTAGE"|"CANCELLED"|"OTHER"|null;closed_note:string;received:number;original_quantity?:number|null;purchase_added?:number;cn_discontinued?:number;has_photo?:number};
 const defaults:[string,Source["kind"],string][]=[
  ["台北","GENERAL",""],["台中","GENERAL",""],["洲美","GENERAL",""],
  ["定期中國貨","CN_REGULAR",""],["自訂中國貨","CN_CUSTOM",""],
@@ -42,7 +44,7 @@ async function getOrder(ctx:Context,id:number,knownOrder?:Ord){
  const draft=o.status==="DRAFT";
  const [source,lines,receipts,changes]=await Promise.all([
   one<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE id=?",o.source_id),
-  rows<Line>(ctx.db,"SELECT l.*,"+(draft?"0":"COALESCE((SELECT SUM(quantity) FROM ordering_receipt_lines WHERE line_id=l.id),0)")+" received FROM ordering_lines l WHERE order_id=? ORDER BY section,sort_order,id LIMIT 501",id),
+  rows<Line>(ctx.db,"SELECT l.*,EXISTS(SELECT 1 FROM ordering_line_photos p WHERE p.line_id=l.id) has_photo,"+(draft?"0":"COALESCE((SELECT SUM(quantity) FROM ordering_receipt_lines WHERE line_id=l.id),0)")+" received FROM ordering_lines l WHERE order_id=? ORDER BY section,sort_order,id LIMIT 501",id),
   draft?Promise.resolve([]):rows<{id:number;erp_purchase_no:string;received_date:string;created_at:string;actor_name:string|null}>(ctx.db,"SELECT r.id,r.erp_purchase_no,r.received_date,r.created_at,COALESCE(m.display_name,m.employee_no) actor_name FROM ordering_receipts r LEFT JOIN app_members m ON m.id=r.created_by WHERE r.order_id=? ORDER BY r.received_date DESC,r.created_at DESC,r.id DESC LIMIT 101",id),
   draft?Promise.resolve([]):rows<{revision:number;changed_at:string;changed_by:number;actor_name:string|null;summary:string}>(ctx.db,"SELECT r.revision,r.changed_at,r.changed_by,COALESCE(m.display_name,m.employee_no) AS actor_name,r.summary FROM ordering_revisions r LEFT JOIN app_members m ON m.id=r.changed_by WHERE r.order_id=? ORDER BY r.revision DESC LIMIT 501",id),
  ]);
@@ -54,7 +56,7 @@ async function getOrder(ctx:Context,id:number,knownOrder?:Ord){
  if(receiptLines.length>5000)throw new Bad("ORDERING_LIMIT","到貨明細超過單次查詢安全上限",409);
  return {id:o.id,sourceId:o.source_id,sourceName:source?.name??"",sourceKind:source?.kind??"GENERAL",status:orderStatus(o.status,lines.map(x=>({quantity:x.quantity,received:x.received,closedAs:x.closed_as}))),
   storedStatus:o.status,plannedSendDate:o.planned_send_date,sentAt:o.sent_at,note:o.note,version:o.version,revision:o.revision,createdAt:o.created_at,
-  lines:lines.map(x=>({id:x.id,section:x.section,sortOrder:x.sort_order,itemCode:x.item_code,itemName:x.item_name,vendorItemCode:x.vendor_item_code,vendorItemName:x.vendor_item_name,vendorNameFollows:!!x.vendor_name_follows,spec:x.spec,quantityText:x.quantity_text,quantity:x.quantity,unit:x.unit,note:x.note,closedAs:x.closed_as,closedNote:x.closed_note,received:x.received,originalQuantity:x.original_quantity??null,purchaseAdded:!!x.purchase_added,cnDiscontinued:!!x.cn_discontinued,state:lineState({quantity:x.quantity,received:x.received,closedAs:x.closed_as})})),receipts:receipts.map(x=>({id:x.id,erpPurchaseNo:x.erp_purchase_no,receivedDate:x.received_date,createdAt:x.created_at,createdBy:x.actor_name??"",lines:receiptLines.filter(l=>l.receipt_id===x.id).map(l=>({lineId:l.line_id,quantity:l.quantity}))})),
+  lines:lines.map(x=>({id:x.id,section:x.section,sortOrder:x.sort_order,itemCode:x.item_code,itemName:x.item_name,vendorItemCode:x.vendor_item_code,vendorItemName:x.vendor_item_name,vendorNameFollows:!!x.vendor_name_follows,spec:x.spec,quantityText:x.quantity_text,quantity:x.quantity,unit:x.unit,note:x.note,closedAs:x.closed_as,closedNote:x.closed_note,received:x.received,originalQuantity:x.original_quantity??null,purchaseAdded:!!x.purchase_added,cnDiscontinued:!!x.cn_discontinued,photo:!!x.has_photo,state:lineState({quantity:x.quantity,received:x.received,closedAs:x.closed_as})})),receipts:receipts.map(x=>({id:x.id,erpPurchaseNo:x.erp_purchase_no,receivedDate:x.received_date,createdAt:x.created_at,createdBy:x.actor_name??"",lines:receiptLines.filter(l=>l.receipt_id===x.id).map(l=>({lineId:l.line_id,quantity:l.quantity}))})),
   revisions:changes.map(x=>({revision:x.revision,at:x.changed_at,by:x.actor_name??String(x.changed_by),summary:x.summary}))};
 }
 async function mutate(ctx:Context,o:Ord,expected:number,stmts:D1PreparedStatement[],summary:string,action:string,onBatchSuccess?:()=>void){
@@ -67,7 +69,19 @@ async function mutate(ctx:Context,o:Ord,expected:number,stmts:D1PreparedStatemen
  stm.push(audit(ctx,o.id,action,{summary,revision,version:expected+1}));
  try{await run(ctx,stm)}catch(e){if(o.version!==expected||String(e).includes("UNIQUE")||String(e).includes("malformed JSON"))throw new Bad("ORDERING_VERSION_CONFLICT","已被其他人修改，請重新載入",409);throw e}
  onBatchSuccess?.(); // The D1 batch committed: distinguish subsequent readback failure from failed persistence.
- return getOrder(ctx,o.id);
+ const result=await getOrder(ctx,o.id);
+ // 自訂中國貨照片 are only for ordering: gone once the order is 結案 or 作廢, or its line is deleted.
+ const swept=await sweepPhotos(ctx,o.id,result.status==="CLOSED"||result.status==="VOID").catch(e=>{console.error("[ordering_photo_sweep]",{requestId:ctx.requestId,error:String(e).slice(0,300)});return 0});
+ return swept?getOrder(ctx,o.id):result;
+}
+/** Deletes the photos of deleted lines (and every photo when <paramref name="all"/>): file first, then its row. */
+async function sweepPhotos(ctx:Context,orderId:number,all:boolean):Promise<number>{
+ const stale=await rows<{line_id:number;object_key:string}>(ctx.db,"SELECT line_id,object_key FROM ordering_line_photos p WHERE order_id=? AND (?=1 OR NOT EXISTS(SELECT 1 FROM ordering_lines l WHERE l.id=p.line_id AND l.order_id=p.order_id)) LIMIT 501",orderId,all?1:0);
+ if(!stale.length)return 0;
+ if(ctx.files)await ctx.files.delete(stale.map(x=>x.object_key));
+ await run(ctx,[ctx.db.prepare("DELETE FROM ordering_line_photos WHERE order_id=? AND line_id IN (SELECT value FROM json_each(?))").bind(orderId,JSON.stringify(stale.map(x=>x.line_id))),
+  audit(ctx,orderId,"line_photos_removed",{count:stale.length,reason:all?"closed":"line_deleted"})]);
+ return stale.length;
 }
 const currentStatusSql=`CASE WHEN o.status<>'SENT' THEN o.status
  WHEN EXISTS(SELECT 1 FROM ordering_lines l WHERE l.order_id=o.id)
@@ -82,7 +96,7 @@ const currentStatusSql=`CASE WHEN o.status<>'SENT' THEN o.status
  * login check and module grant, `total` the whole request, so the browser's Network panel shows where
  * the time goes. Durations only; no identifiers or data.
  */
-export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv,requestId:string):Promise<Response|null>{
+export async function handleOrderingRoute(request:Request,env:OrderingEnv,requestId:string):Promise<Response|null>{
  const started=Date.now(),timing={auth:0};
  const response=await orderingRoute(request,env,requestId,timing);
  if(!response)return null;
@@ -90,14 +104,14 @@ export async function handleOrderingRoute(request:Request,env:IdentityRuntimeEnv
  headers.set("Server-Timing",`auth;dur=${timing.auth}, total;dur=${Date.now()-started}`);
  return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
 }
-async function orderingRoute(request:Request,env:IdentityRuntimeEnv,requestId:string,timing:{auth:number}):Promise<Response|null>{
+async function orderingRoute(request:Request,env:OrderingEnv,requestId:string,timing:{auth:number}):Promise<Response|null>{
  const url=new URL(request.url);if(!url.pathname.startsWith("/api/business/ordering"))return null;
  const provider=identityClient(env);if(!provider)return failure({code:"IDENTITY_UNAVAILABLE",message:"身分服務無法使用"},requestId,503);
  const authStarted=Date.now();
  const gate=await requireModuleAccess(provider,env.DB,request,"ORDERING");
  timing.auth=Date.now()-authStarted;
  if(!gate.ok)return failure({code:gate.code,message:"沒有叫貨權限"},requestId,gate.status);
- const ctx:Context={db:env.DB,actor:gate.member.id,name:gate.member.displayName??gate.member.employeeNo??"使用者",now:new Date().toISOString(),requestId};
+ const ctx:Context={db:env.DB,actor:gate.member.id,name:gate.member.displayName??gate.member.employeeNo??"使用者",now:new Date().toISOString(),requestId,files:env.HR_FILES};
  const path=url.pathname.replace(/^\/api\/business\/ordering\/?/,""),method=request.method;
  // Receipt requests track the commit/readback boundary; no retry or extra database query is introduced.
  const receiptPhase:{value:"preflight"|"persist"|"readback"|null}={value:/^orders\/\d+\/receipts$/.test(path)&&method==="POST"?"preflight":null};
@@ -255,6 +269,43 @@ async function orderingRoute(request:Request,env:IdentityRuntimeEnv,requestId:st
   m=/^orders\/(\d+)(?:\/(.*))?$/.exec(path);
   if(m){const id=int(Number(m[1]),"單據"),action=m[2]??"",o=await one<Ord>(ctx.db,"SELECT * FROM ordering_orders WHERE id=?",id);if(!o)throw new Bad("ORDERING_NOT_FOUND","叫貨單不存在",404);
    if(!action&&method==="GET")return success(await getOrder(ctx,id,o),requestId);
+   const photoRoute=/^lines\/(\d+)\/photo$/.exec(action);
+   if(photoRoute){
+    // 自訂中國貨: one photo per line (user 2026-11-11, 客訂書 to compare), deleted at 結案.
+    const source=await one<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE id=?",o.source_id);
+    if(source?.kind!=="CN_CUSTOM")throw new Bad("ORDERING_INVALID","只有自訂中國貨可以附照片");
+    const lineId=int(Number(photoRoute[1]),"明細");
+    const line=await one<{id:number}>(ctx.db,"SELECT id FROM ordering_lines WHERE id=? AND order_id=?",lineId,id);if(!line)throw new Bad("ORDERING_NOT_FOUND","找不到明細",404);
+    if(!ctx.files)return failure({code:"ORDERING_FILES_UNAVAILABLE",message:"附檔儲存尚未設定"},requestId,503);
+    const photo=await one<{object_key:string;bytes:number}>(ctx.db,"SELECT object_key,bytes FROM ordering_line_photos WHERE line_id=? AND order_id=?",lineId,id);
+    if(method==="GET"){
+     if(!photo)throw new Bad("ORDERING_NOT_FOUND","沒有照片",404);
+     const blob=await ctx.files.get(photo.object_key);if(!blob)throw new Bad("ORDERING_NOT_FOUND","照片不存在",404);
+     return new Response(blob.body,{headers:{"content-type":"image/jpeg","cache-control":"private, no-store","x-content-type-options":"nosniff"}});
+    }
+    const status=(await one<{status:string}>(ctx.db,"SELECT "+currentStatusSql+" status FROM ordering_orders o WHERE o.id=?",id))?.status;
+    if(status==="CLOSED"||status==="VOID")throw new Bad("ORDERING_INVALID","已結案或作廢的叫貨單不保留照片",409);
+    if(method==="PUT"){
+     const bytes=new Uint8Array(await request.arrayBuffer());
+     let size:{width:number;height:number};
+     try{size=inspectJpeg(bytes,request.headers.get("content-type"),1048576)}catch(e){if(e instanceof JpegUploadError)throw new Bad("ORDERING_INVALID",e.message);throw e}
+     const key="ordering/"+id+"/"+lineId+"/"+crypto.randomUUID()+".jpg";
+     await putJpegWithRecords(ctx.files,ctx.db,key,bytes,[
+      ctx.db.prepare("DELETE FROM ordering_line_photos WHERE line_id=?").bind(lineId),
+      ctx.db.prepare("INSERT INTO ordering_line_photos(line_id,order_id,object_key,bytes,width,height,created_at,created_by) VALUES(?,?,?,?,?,?,?,?)").bind(lineId,id,key,bytes.length,size.width,size.height,ctx.now,ctx.actor),
+      audit(ctx,id,photo?"line_photo_replaced":"line_photo_uploaded",{lineId,bytes:bytes.length,...size}),
+     ]);
+     if(photo)await ctx.files.delete(photo.object_key);
+     return success({lineId,photo:true},requestId);
+    }
+    if(method==="DELETE"){
+     if(!photo)return success({lineId,photo:false},requestId);
+     await run(ctx,[ctx.db.prepare("DELETE FROM ordering_line_photos WHERE line_id=? AND order_id=?").bind(lineId,id),audit(ctx,id,"line_photo_deleted",{lineId,bytes:photo.bytes})]);
+     await ctx.files.delete(photo.object_key);
+     return success({lineId,photo:false},requestId);
+    }
+    throw new Bad("NOT_FOUND","找不到照片功能",404);
+   }
    if(action==="cn-purchase"||action.startsWith("cn-purchase/")){
     // 自訂中國貨採購: a grant of its own on top of 叫貨 (user 2026-11-10).
     if(!gate.principal||!(await checkModuleAccess(ctx.db,gate.principal,"ORDERING_CN_PURCHASE")).allowed)return failure({code:"ACCESS_DENIED",message:"沒有中國貨採購權限"},requestId,403);
@@ -303,6 +354,7 @@ async function orderingRoute(request:Request,env:IdentityRuntimeEnv,requestId:st
     const lines=await one<{n:number}>(ctx.db,"SELECT COUNT(*) n FROM ordering_lines WHERE order_id=?",id);
     try{await run(ctx,[guard,ctx.db.prepare("DELETE FROM ordering_orders WHERE id=? AND version=? AND status='DRAFT'").bind(id,expected),audit(ctx,id,"deleted",{sourceId:o.source_id,items:lines?.n??0})])}
     catch(e){if(String(e).includes("malformed JSON"))throw new Bad("ORDERING_VERSION_CONFLICT","已被其他人修改，請重新載入",409);throw e}
+    await sweepPhotos(ctx,id,true).catch(e=>console.error("[ordering_photo_sweep]",{requestId,error:String(e).slice(0,300)}));
     return success({deleted:true},requestId);
    }
    if(action==="revise"&&method==="POST"){

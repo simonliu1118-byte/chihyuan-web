@@ -75,3 +75,5 @@
   @page { size: A4 landscape; margin: 10mm; }
 }
 
+.cy-cn-name-in { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.cy-cn-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

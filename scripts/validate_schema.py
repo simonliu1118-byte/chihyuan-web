@@ -47,6 +47,7 @@ EXPECTED_TABLES = {
     "ordering_cn_charges",
     "ordering_cn_pieces",
     "ordering_cn_returns",
+    "ordering_line_photos",
     "ordering_item_last_source",
     "ordering_revisions",
     "hr_leave_records",

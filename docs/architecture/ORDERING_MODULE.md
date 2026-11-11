@@ -187,3 +187,9 @@
 - 採購數量＝各段數量合計，寫回 `ordering_lines.quantity`（到貨、未到貨照舊以它為準）；第一次改動時把原數量留在 `original_quantity`。已有採購段的品項，「修改」叫貨單不能再改數量或刪除。
 - 絕版／停產＝`closed_as='OTHER'`＋`cn_discontinued=1`，恢復時清除；已刷卡或有退貨的品項不能標記。
 - 計算與表格列順序在 `shared/cn-purchase.ts`（`computeCnPurchase`、`cnTableRows`、`cnStage`），前端 `CnPurchasePanel.tsx`。
+
+## V0.18.6 — 自訂中國貨每列照片
+
+- `ordering_line_photos`（`line_id` 主鍵，一列一張）；JPEG 存在 `HR_FILES` R2，key `ordering/{orderId}/{lineId}/{uuid}.jpg`。
+- API：`GET|PUT|DELETE /api/business/ordering/orders/:id/lines/:lineId/photo`（`PUT` 本體為 `image/jpeg`，≤1 MB、長邊 ≤2000px；前端先縮到 1280px）。只限 `CN_CUSTOM`；結案或作廢後拒絕上傳。照片不改叫貨單版本、不進修改紀錄，只記稽核。
+- 清除：每次 `mutate()` 寫入成功後 `sweepPhotos()`：品項已不存在的照片、以及叫貨單變成結案／作廢時的全部照片，先刪 R2 檔再刪列；刪除草稿後也會清。

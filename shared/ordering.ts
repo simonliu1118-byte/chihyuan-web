@@ -42,6 +42,8 @@ export interface OrderingLine {
   received: number;
   /** 自訂中國貨採購: the 原定 數量 once 採購 changed it; 採購 added the line; marked 絕版／停產. */
   originalQuantity?: number | null; purchaseAdded?: boolean; cnDiscontinued?: boolean;
+  /** 自訂中國貨: the line has a photo (客訂書); deleted at 結案. */
+  photo?: boolean;
 }
 /** Format receipt items consistently in the UI and revision summaries. */
 export function receiptItemSummary(items:readonly {itemName:string;quantity:number;unit:string}[]):string {

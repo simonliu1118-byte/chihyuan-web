@@ -28,6 +28,7 @@ import {OverflowMenu} from "../../ui/mobile/OverflowMenu";
 import {DataViewToolbar} from "../../ui/data/DataViewToolbar";
 import {SegmentedControl} from "../../ui/primitives/SegmentedControl";
 import {CnPurchasePanel,type CnOrder} from "./CnPurchasePanel";
+import {OrderingLinePhoto} from "./OrderingLinePhoto";
 import {orderSheet} from "../../../shared/ordering-export";
 import "./erp-item-query.css";
 import {buildXlsx} from "../../../shared/xlsx-writer";
@@ -571,6 +572,18 @@ export function OrderingPage({canRestock=false,canQueryItem=false,canCnPurchase=
   entry?.[1].openNew?.();
  };
  const startReceipt=()=>{if(current)setReceipt({id:current.id,no:"",date:nowDate(),quantities:Object.fromEntries(openLines.map(l=>[l.id,String((l.quantity??0)-l.received)])),selectedLineIds:[]})};
+ // 自訂中國貨 照片 (user 2026-11-11): one per line, kept until the order is 結案 or 作廢.
+ const markPhoto=(orderId:number,lineId:number,has:boolean)=>{
+  const patch=(o:DisplayOrder)=>({...o,lines:o.lines.map(l=>l.id===lineId?{...l,photo:has}:l)});
+  const known=cached.current.get(orderId);if(known)cached.current.set(orderId,patch(known));
+  setSelected(prev=>prev?.id===orderId?patch(prev):prev);
+ };
+ const photoOf=current&&current.sourceKind==="CN_CUSTOM"&&current.storedStatus!=="VOID"?(lineId:number)=>{
+  const line=current.lines.find(l=>l.id===lineId);if(!line)return null;
+  const open=current.status!=="CLOSED";if(!line.photo&&!open)return null;
+  return <OrderingLinePhoto key={current.id+"-"+lineId} orderId={current.id} lineId={lineId} name={line.itemName||line.vendorItemName||line.itemCode||"品項"}
+   hasPhoto={!!line.photo} canEdit={open} onChanged={has=>markPhoto(current.id,lineId,has)} onError={setError}/>;
+ }:undefined;
  const cnAvailable=!!current&&canCnPurchase&&current.sourceKind==="CN_CUSTOM"&&current.storedStatus==="SENT"&&!revisingNow;
  const showCn=cnAvailable&&orderView_==="purchase";
  const applyCnOrder=(x:CnOrder)=>{const data=remember(x as DisplayOrder);setSelected(prev=>prev?.id===data.id?data:prev);void refreshLists().catch(e=>setError(errorOf(e)))};
@@ -628,7 +641,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false,canCnPurchase=
       {cnAvailable?<div className="cy-ordering-view-switch"><SegmentedControl label="叫貨單檢視" value={orderView_} onChange={v=>{if(v==="lines"&&cnDirty.current)void prepareSwitch().then(ok=>{if(ok)setOrderView("lines")});else setOrderView(v)}}
        options={[{value:"lines",label:"叫貨明細"},{value:"purchase",label:"採購"}]}/></div>:null}
       {showCn?<CnPurchasePanel order={current as CnOrder} onSaved={applyCnOrder} onError={setError} onNotice={setNotice} confirm={confirm} dirtyRef={cnDirty}
-       canReceive={openLines.length>0} onReceive={startReceipt}/>:null}
+       canReceive={openLines.length>0} onReceive={startReceipt} photoOf={photoOf}/>:null}
       {current.receipts.length?<section className="cy-ordering-lines" aria-label="到貨紀錄"><h3>到貨紀錄<small>{current.receipts.length} 筆</small></h3>
        {/* Same bordered grid as 叫貨明細 below (user 2026-11-09); one receipt per line. */}
        <div className="cy-ordering-grid-scroll"><table className="cy-ordering-grid cy-rt cy-ordering-receipts" data-readonly>
@@ -655,7 +668,8 @@ export function OrderingPage({canRestock=false,canQueryItem=false,canCnPurchase=
         <h3>{group.label}</h3>
         <OrderingGrid kind={current.sourceKind} section={group.key as OrderingSection} key={gridKey} lines={revisingNow?revising!.lines:current.lines} busy={busy} readOnly={!editable&&!revisingNow} {...gridBindings(gridKey)}
          warnRow={editable?pendingWarning:undefined} onCommit={revisingNow?reviseCommit:lineCommit} onDelete={revisingNow?reviseDelete:removeLine} onReorder={revisingNow?reviseReorder:editable?reorderLines:undefined} vendorOnly={revisingNow&&vendorOnly}
-         onCloseLine={current.storedStatus==="SENT"&&!revisingNow?row=>setClosing({id:row.id,kind:"SHORTAGE",reason:""}):undefined}/></section>})}
+         onCloseLine={current.storedStatus==="SENT"&&!revisingNow?row=>setClosing({id:row.id,kind:"SHORTAGE",reason:""}):undefined}
+         photoCell={photoOf&&!revisingNow?row=>photoOf(row.id):undefined}/></section>})}
       {!editable&&(current.note||(revisingNow&&!vendorOnly))?<div className="cy-ordering-order-note">
         <span className="cy-ordering-order-note-label">單據備註</span>
         {revisingNow&&!vendorOnly?<input className="cy-op-input" aria-label="單據備註" maxLength={300} value={revising!.note} onChange={e=>setRevising({...revising!,note:e.target.value})}/>:<span className="cy-ordering-order-note-text">{current.note}</span>}
