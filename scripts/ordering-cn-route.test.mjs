@@ -29,8 +29,9 @@ function fixture(role="SUPER_ADMIN",files=undefined){
 async function sentCnOrder(call){
  const sources=(await call("/sources")).body.data,source=sources.find(x=>x.kind==="CN_CUSTOM");
  let o=(await call("/orders","POST",{sourceId:source.id})).body.data;
- for(const [name,qty] of [["無煙自黏艾粒","10"],["檀木魚形按摩梳","5"],["牛角刮痧匙(大)","20"]])
-  o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,operation:"save",line:{itemName:name,quantityText:qty}})).body.data;
+ // Explicit sortOrder: lines saved in the same millisecond would otherwise tie and come back in id (random) order.
+ for(const [i,[name,qty]] of [["無煙自黏艾粒","10"],["檀木魚形按摩梳","5"],["牛角刮痧匙(大)","20"]].entries())
+  o=(await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,operation:"save",line:{itemName:name,quantityText:qty,sortOrder:(i+1)*10}})).body.data;
  return (await call("/orders/"+o.id+"/send","POST",{expectedVersion:o.version})).body.data;
 }
 test("CN purchase: grant, split over cards, 原定 kept, logged, conflicts",async()=>{
