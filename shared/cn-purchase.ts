@@ -189,7 +189,8 @@ export function cnTableRows(lines: readonly CnLineRef[], purchase: Pick<CnPurcha
     if (mine.length) rows[rows.length - mine.length].cardSpan = mine.length;
   });
   const loose = live.filter((p) => p.chargeId === null || !cards.some((c) => c.id === p.chargeId))
-    .sort((a, b) => (seq.get(a.lineId) ?? 0) - (seq.get(b.lineId) ?? 0) || a.sortOrder - b.sortOrder || a.id - b.id);
+    // In the order they were put (user 2026-11-11: every row can be dragged anywhere); 項次 only breaks ties.
+    .sort((a, b) => a.sortOrder - b.sortOrder || (seq.get(a.lineId) ?? 0) - (seq.get(b.lineId) ?? 0) || a.id - b.id);
   loose.forEach((p) => push(p, null, 0));
   if (loose.length) rows[rows.length - loose.length].unchargedSpan = loose.length;
   for (const line of lines.filter((l) => l.discontinued)) {
