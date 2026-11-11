@@ -37,7 +37,7 @@ const mdShort=(d:string|null|undefined)=>d?<span title={md(d)}>{d.slice(5).repla
 const numText=(n:number|null|undefined)=>n===null||n===undefined?"":String(n);
 const MODE_LABELS:Record<Mode,string>={order:"訂購",reconcile:"對帳",shipping:"回台灣運費",tax:"營業稅",returns:"退貨"};
 const MODE_HINTS:Record<Mode,string>={
- order:"填採購數量、人民幣單價與備註；勾選列後按「刷卡」成為一筆刷卡，按刷卡編號旁的 × 可取消整筆重新處理；⠿ 拖曳調整順序；⋯ 可拆分、標記絕版／停產（移到最下面，可再從 ⋯ 恢復）。",
+ order:"填採購數量、人民幣單價與備註；勾選列後按「刷卡」成為一筆刷卡，按刷卡編號旁的 × 可取消整筆重新處理；⠿ 拖曳調整順序；⋯ 可拆分、標記絕版／停產（未刷卡的才能標記，移到最下面，可再從 ⋯ 恢復；已刷卡的請用退貨）。",
  reconcile:"對帳單到了再補每筆刷卡的台幣、手續費與該筆刷卡的運費。",
  shipping:"回台灣的運費，每筆一列（含手續費），依各品項成本攤給全部品項。刷卡時另付的運費請填在該筆刷卡的「運費」欄。",
  tax:"到台灣後填營業稅。",
@@ -238,6 +238,8 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    const half=total>=2?Math.floor(total/2):total/2;const next=[...d.pieces];
    next.splice(i,1,{...p,quantity:qtyText(total-half)},{...p,key:fresh("S"),quantity:qtyText(half),cardKey:null,note:""});return {...d,pieces:next}});
  }
+ /** Saved on a card (paid): 絕版／停產 is then 退貨's job. */
+ const paidOn=(lineId:number)=>!!purchase?.pieces.some(p=>p.lineId===lineId&&p.chargeId!==null);
  /** 絕版／停產 in 訂購 (user 2026-11-11): the item leaves the table's live rows (its pieces, cards included) and drops to the bottom. */
  function stopLine(lineId:number,reason:string){
   setOrder(d=>{const mine=d.pieces.filter(p=>p.lineKey==="L"+lineId),pieces=d.pieces.filter(p=>p.lineKey!=="L"+lineId);
@@ -289,10 +291,16 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   if(editing&&dp){menu.push({label:"拆分",onClick:()=>splitPiece(dp.key)});
    if(od!.pieces.filter(p=>p.lineKey===dp.lineKey).length>1)menu.push({label:"刪除這段",onClick:()=>setOrder(d=>({...d,pieces:d.pieces.filter(p=>p.key!==dp.key)})),danger:true});
    if(i.added)menu.push({label:"刪除這個新增項目",onClick:()=>removeLine(dp.lineKey),danger:true});
-   if(i.line&&!i.line.closedAs&&!(i.line.received>0)&&!view.returns.some(r=>r.lineId===i.line!.id))for(const reason of ["絕版","停產"])menu.push({label:"標記"+reason,onClick:()=>stopLine(i.line!.id,reason),danger:true});}
+   if(i.line&&!i.line.closedAs&&!(i.line.received>0)&&!view.returns.some(r=>r.lineId===i.line!.id)){
+    // 刷過卡的已經買了，買不到要走退貨 (user 2026-11-11); one being grouped in this step is taken off its card first.
+    if(paidOn(i.line.id))menu.push({label:"已刷卡：絕版／停產請用退貨",onClick:()=>{},disabled:true});
+    else if(od!.pieces.some(p=>p.lineKey==="L"+i.line!.id&&p.cardKey))menu.push({label:"在刷卡中：先取消刷卡才能標記絕版／停產",onClick:()=>{},disabled:true});
+    else for(const reason of ["絕版","停產"])menu.push({label:"標記"+reason,onClick:()=>stopLine(i.line!.id,reason),danger:true});
+   }}
   if(mode==="order"&&row.discontinued&&row.firstOfLine&&i.line)menu.push({label:"恢復採購",onClick:()=>restoreLine(i.line!.id)});
   if(!mode&&!closed&&row.firstOfLine&&i.line){
    if(i.discontinued)menu.push({label:"恢復採購",onClick:()=>void restore(i.line!.id,i.name)});
+   else if(!i.line.closedAs&&paidOn(i.line.id))menu.push({label:"已刷卡：絕版／停產請用退貨",onClick:()=>{},disabled:true});
    else if(!i.line.closedAs)for(const reason of ["絕版","停產"])menu.push({label:"標記"+reason,onClick:()=>void markDiscontinued(i.line!.id,i.name,reason),danger:true});
   }
   // Only the ⠿ handle drags (user 2026-11-11: a draggable row could not have its text selected); the row is the drop target.
@@ -393,6 +401,7 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    (()=>{const n=view.pieces.filter(p=>p.lineId===ref.id).length;return n>1?"分 "+n+" 筆刷卡":""})(),i.line?.note??""].filter(Boolean).join("；");
   const menu:OverflowItem[]=[];
   if(!closed&&i.line){if(i.discontinued)menu.push({label:"恢復採購",onClick:()=>void restore(i.line!.id,i.name)});
+   else if(!i.line.closedAs&&paidOn(i.line.id))menu.push({label:"已刷卡：絕版／停產請用退貨",onClick:()=>{},disabled:true});
    else if(!i.line.closedAs)for(const reason of ["絕版","停產"])menu.push({label:"標記"+reason,onClick:()=>void markDiscontinued(i.line!.id,i.name,reason),danger:true});}
   const firstBook=i.line?.section==="OTHER"&&view.refs.find(r=>info.get(r.id)?.line?.section==="OTHER")?.id===ref.id&&view.refs[0]?.id!==ref.id;
   return <tr key={ref.id} className={(i.discontinued?"cy-row-struck":"")+(firstBook?" is-book-start":"")}>

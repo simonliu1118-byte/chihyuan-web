@@ -112,6 +112,8 @@ export async function handleCnPurchase(d:CnDeps,o:Ord,sourceKind:string,action:s
    if(l.cn_discontinued)continue;
    if(l.closed_as)throw bad("ORDERING_INVALID",label(l)+" 已指定結案");
    if(l.received>0)throw bad("ORDERING_INVALID",label(l)+" 已有到貨，不能標記"+reason);
+   // Once paid on a card the goods are bought: what cannot be delivered goes through 退貨 (user 2026-11-11).
+   if(purchase.pieces.some(p=>p.lineId===l.id&&p.chargeId!==null))throw bad("ORDERING_INVALID",label(l)+" 已刷卡，不能標記"+reason+"，請用退貨處理");
    if(purchase.returns.some(r=>r.lineId===l.id))throw bad("ORDERING_INVALID",label(l)+" 有退貨紀錄，不能標記"+reason);
    stopping.set(l.id,reason);
   }
@@ -293,7 +295,7 @@ export async function handleCnPurchase(d:CnDeps,o:Ord,sourceKind:string,action:s
  if(sub==="discontinue"&&method==="POST"){
   const l=lineOf(v.lineId),reason=text(v.reason,"原因",CN_LIMITS.reason)||"絕版／停產";
   if(l.closed_as)throw bad("ORDERING_INVALID",label(l)+" 已指定結案");
-  if(purchase.pieces.some(p=>p.lineId===l.id&&p.chargeId!==null))throw bad("ORDERING_INVALID",label(l)+" 已有刷卡，請先在「訂購」移出刷卡");
+  if(purchase.pieces.some(p=>p.lineId===l.id&&p.chargeId!==null))throw bad("ORDERING_INVALID",label(l)+" 已刷卡，不能標記絕版／停產，請用退貨處理");
   if(purchase.returns.some(r=>r.lineId===l.id))throw bad("ORDERING_INVALID",label(l)+" 有退貨紀錄，不能標記停產");
   stmts.push(db.prepare("UPDATE ordering_lines SET closed_as='OTHER',closed_note=?,closed_at=?,closed_by=?,cn_discontinued=1 WHERE id=? AND order_id=? AND closed_as IS NULL").bind(reason,d.now,d.actor,l.id,o.id));
   return finish(label(l)+" 標記絕版／停產（"+reason+"），指定結案","discontinued");
