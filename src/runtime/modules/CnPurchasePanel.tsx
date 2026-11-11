@@ -132,6 +132,11 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   }
   const calc=computeCnPurchase(refs,{pieces,charges,returns});
   const rows=cnTableRows(refs,{pieces,charges});
+  // 項次 follows the table top to bottom (user 2026-11-11): an item's number is where it first shows; split rows keep it.
+  const order=new Map<number,number>();
+  for(const r of rows)if(!order.has(r.piece.lineId))order.set(r.piece.lineId,order.size+1);
+  for(const r of refs)if(!order.has(r.id))order.set(r.id,order.size+1);
+  order.forEach((n,id)=>{const x=info.get(id);if(x)x.seq=n});
   return {info,refs,pieces,charges,returns,calc,rows,pieceKey,cardKeyOf};
  },[lines,purchase,mode,drafts]);
 
@@ -412,7 +417,10 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
  // ---- 品項合計: one row per item, card columns folded into 台幣小計 ----
  const byItem=!mode&&grouping==="item";
  const sums=byItem?summarizeCnLines(view.refs,view.pieces,calc.pieces):null;
- const itemRows=sums?view.refs.map(ref=>{
+ // 品項合計 in the same 項次 order, 商品 before 書籍 (the separator stays one line), 取消訂購 last.
+ const isBookRef=(id:number)=>info.get(id)?.line?.section==="OTHER";
+ const itemRefs=[...view.refs].sort((a,b)=>Number(a.discontinued)-Number(b.discontinued)||Number(isBookRef(a.id))-Number(isBookRef(b.id))||info.get(a.id)!.seq-info.get(b.id)!.seq);
+ const itemRows=sums?itemRefs.map(ref=>{
   const i=info.get(ref.id)!,x=sums.get(ref.id)!,ret=view.returns.find(r=>r.lineId===ref.id);
   const pieceNotes=view.pieces.filter(p=>p.lineId===ref.id).map(p=>p.note??"").filter(Boolean).join("／");
   const refNote=i.discontinued?i.offNote:i.line?.note??"";
@@ -420,7 +428,7 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   if(!closed&&i.line){if(i.discontinued)menu.push({label:"恢復採購",onClick:()=>void restore(i.line!.id)});
    else if(!i.line.closedAs&&paidOn(i.line.id))menu.push({label:"已刷卡：取消請用退貨",onClick:()=>{},disabled:true});
    else if(!i.line.closedAs)menu.push({label:"取消訂購",onClick:()=>askCancel(i.line!.id,i.name,false),danger:true});}
-  const firstBook=i.line?.section==="OTHER"&&view.refs.find(r=>info.get(r.id)?.line?.section==="OTHER")?.id===ref.id&&view.refs[0]?.id!==ref.id;
+  const firstBook=isBookRef(ref.id)&&itemRefs.find(r=>isBookRef(r.id))?.id===ref.id&&itemRefs[0]?.id!==ref.id;
   return <tr key={ref.id} className={(i.discontinued?"cy-row-struck":"")+(firstBook?" is-book-start":"")}>
    <td className="is-c">{i.seq}</td>
    <td className="cy-cn-name"><span className="cy-cn-name-in">{i.line&&photoOf?photoOf(i.line.id):null}<span className="cy-cn-name-text" title={i.full}>{i.full}</span>{i.added?<span className="cy-cn-tag">採購新增</span>:null}</span></td>
