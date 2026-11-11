@@ -124,6 +124,9 @@
 .cy-dialog-body > p:first-child,
 .cy-dialog-body > form > p:first-child { margin-top: 0; }
 .cy-dialog-body > p:last-child { margin-bottom: 0; }
+/* Same for the first form section: a page's own section spacing (e.g. 叫貨) must not push a dialog's first field down. */
+.cy-dialog-body > .cy-f-section:first-child,
+.cy-dialog-body > form > .cy-f-section:first-child { margin-top: 0; }
 
 .cy-dialog-action-row {
   width: 100%;

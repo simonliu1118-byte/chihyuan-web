@@ -60,7 +60,7 @@ export function OrderingLinePhoto({orderId,lineId,name,hasPhoto,canEdit,onChange
   <button type="button" className="cy-ordering-photo-thumb" aria-label={"查看「"+name+"」照片"} title="查看照片" onClick={()=>setOpen(true)}>
    {src?<img src={src} alt=""/>:<span aria-hidden="true">…</span>}
   </button>
-  <Dialog open={open} size="large" title={name+" · 照片"} onClose={()=>setOpen(false)} footer={<>
+  <Dialog open={open} size="medium" className="cy-ordering-photo-dialog" title={name+" · 照片"} onClose={()=>setOpen(false)} footer={<>
    {canEdit?<button type="button" className="cy-op-button danger" disabled={busy} onClick={()=>void remove()}>刪除照片</button>:null}
    {canEdit?<button type="button" className="cy-op-button" disabled={busy} onClick={()=>input.current?.click()}>換一張</button>:null}
    <button type="button" className="cy-op-button primary" onClick={()=>setOpen(false)}>關閉</button></>}>

@@ -210,8 +210,9 @@
 .cy-ordering-receipt-table .cy-op-input { min-width: 0; min-height: 0; height: 28px; padding: 2px 8px; text-align: right; }
 .cy-ordering-receipt-table .cy-f-label,.cy-ordering-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 /* Fixed footprint: the spinner slot is always there and the width never changes, so the line does not jump. */
-.cy-ordering-save-state { display: inline-block; min-width: 5.5em; white-space: nowrap; }
-.cy-ordering-save-state .cy-ordering-save-spinner { display: inline-block; margin-left: 5px; vertical-align: -1px; }
+/* Text and spinner centred as one box: an inline spinner made the line taller and pushed 已儲存 below the title's middle. */
+.cy-ordering-save-state { display: inline-flex; align-items: center; gap: 5px; min-width: 5.5em; line-height: 1.2; white-space: nowrap; }
+.cy-ordering-save-state .cy-ordering-save-spinner { display: inline-block; flex: 0 0 auto; }
 .cy-ordering-save-state .cy-ordering-save-spinner[data-idle] { visibility: hidden; animation: none; }
 .cy-ordering-save-state[data-state="failed"] { color: var(--cy-danger); font-weight: 600; }
 .cy-ordering-save-spinner { width: 12px; height: 12px; border-width: 1.5px; }
@@ -524,7 +525,9 @@
 .cy-ordering-photo-thumb { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 26px; padding: 0; border: 1px solid var(--cy-border); border-radius: 4px; background: var(--cy-surface-muted); overflow: hidden; cursor: zoom-in; }
 .cy-ordering-photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cy-ordering-photo .cy-icon-button-table { width: 26px; height: 26px; }
-.cy-ordering-photo-large { display: block; max-width: 100%; max-height: 70vh; margin: 0 auto; object-fit: contain; }
+/* The photo is shrunk into one fixed box (user 2026-11-11): never a scrollbar, whatever its size. */
+.cy-ordering-photo-dialog .cy-dialog-body { overflow: hidden; }
+.cy-ordering-photo-large { display: block; width: 100%; height: min(56vh, 520px); margin: 0 auto; object-fit: contain; }
 .cy-ordering-photo-hint { margin: 8px 0 0; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
 /* 自訂中國貨 (user 2026-11-11): text wraps inside its cell when it is longer than the column. */
 .cy-ordering-grid[data-kind=CN_CUSTOM] textarea.cy-ordering-multiline { line-height: 20px; padding-top: 7px; padding-bottom: 7px; }
