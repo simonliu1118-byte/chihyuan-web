@@ -536,3 +536,8 @@
 .cy-ordering-grid[data-kind=CN_CUSTOM] textarea.cy-ordering-multiline,
 .cy-ordering-grid[data-kind=CN_CUSTOM] .cy-ordering-multiline:focus { white-space: nowrap; overflow: hidden; height: 34px !important; }
 .cy-ordering-grid[data-kind=CN_CUSTOM] .cy-ordering-cell-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+
+/* 自訂中國貨 字級 (user 2026-11-11): smaller type so 書名、出版社 fit on one line. */
+.cy-ordering-grid[data-kind=CN_CUSTOM] { font-size: 12px; }
+.cy-ordering-grid[data-kind=CN_CUSTOM] textarea.cy-ordering-multiline { line-height: 20px; padding-top: 7px; padding-bottom: 7px; }
