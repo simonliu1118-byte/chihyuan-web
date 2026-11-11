@@ -5,7 +5,7 @@ import {AuditService} from "../audit/audit-service";
 import {checkModuleAccess} from "../auth/app-access";
 import {cnPurchasedLineIds,handleCnPurchase} from "./ordering-cn-routes";
 import {inspectJpeg,JpegUploadError,putJpegWithRecords} from "../files/jpeg-upload";
-import {CLOSED_AS_LABELS,CN_REGULAR_SECTIONS,lineIsOpen,lineState,orderStatus,orderingLineHasName,parseErpPurchaseNo,parseQuantity,pickDraft,receiptItemSummary,vendorItemKey,type OrderingClosedAs,type OrderingStoredStatus} from "../../shared/ordering";
+import {CLOSED_AS_LABELS,defaultSection,orderingSections,sectionLabel,lineIsOpen,lineState,orderStatus,orderingLineHasName,parseErpPurchaseNo,parseQuantity,pickDraft,receiptItemSummary,vendorItemKey,type OrderingClosedAs,type OrderingStoredStatus} from "../../shared/ordering";
 
 type Context={db:D1Database;actor:number;name:string;now:string;requestId:string;files?:R2Bucket};
 type OrderingEnv=IdentityRuntimeEnv&{HR_FILES?:R2Bucket};
@@ -340,7 +340,7 @@ async function orderingRoute(request:Request,env:OrderingEnv,requestId:string,ti
     // Row numbers as the grid shows them: counted within each block.
     const incomplete=lines.map(x=>({x,n:lines.filter(y=>y.section===x.section).indexOf(x)+1}))
      .filter(({x})=>!orderingLineHasName(source?.kind??"GENERAL",{itemName:x.item_name,vendorItemName:x.vendor_item_name})||!x.quantity_text.trim())
-     .map(({x,n})=>(CN_REGULAR_SECTIONS.find(s=>s.key===x.section)?.label.concat(" ")??"")+"第 "+n+" 列");
+     .map(({x,n})=>(sectionLabel(source?.kind??"GENERAL",x.section)?sectionLabel(source?.kind??"GENERAL",x.section)+" ":"")+"第 "+n+" 列");
     if(incomplete.length)throw new Bad("ORDERING_INVALID",incomplete.slice(0,10).join("、")+(incomplete.length>10?" 等 "+incomplete.length+" 列":"")+"：品名（一般／廠商來源亦可填廠商品名）、數量必填");
     const guard=ctx.db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM ordering_orders WHERE id=? AND version=? AND status='DRAFT') THEN 1 ELSE json('') END").bind(id,expected);
     const drop=all.filter(blank).map(x=>ctx.db.prepare("DELETE FROM ordering_lines WHERE id=? AND order_id=?").bind(x.id,id));
@@ -392,8 +392,8 @@ async function orderingRoute(request:Request,env:OrderingEnv,requestId:string,ti
      const typedVendorName="vendorItemName" in raw?must(raw.vendorItemName,"vendorItemName",200):old&&!old.vendor_name_follows?old.vendor_item_name:"";
      const next={item_code:text("itemCode","item_code",40),item_name:text("itemName","item_name",200),vendor_item_code:text("vendorItemCode","vendor_item_code",200),
       spec:text("spec","spec",200),quantity_text:text("quantityText","quantity_text",40),unit:text("unit","unit",10),note:text("note","note",300),
-      section:kind==="CN_REGULAR"?String(raw.section??old?.section??"OTHER"):""};
-     if(!(kind==="CN_REGULAR"?["SINGLE","BAG","OTHER"]:[""]).includes(next.section))throw new Bad("ORDERING_INVALID","區段不正確");
+      section:String(raw.section??old?.section??defaultSection(kind))};
+     if(!orderingSections(kind).some(s=>s.key===next.section))throw new Bad("ORDERING_INVALID","區段不正確");
      const name=next.item_name||typedVendorName||next.item_code||"第 "+(index+1)+" 列";
      if(!orderingLineHasName(kind,{itemName:next.item_name,vendorItemName:typedVendorName})||!next.quantity_text.trim())throw new Bad("ORDERING_INVALID",name+"：品名（一般／廠商來源亦可填廠商品名）、數量必填");
      const parsed=parseQuantity(next.quantity_text),unit=next.unit||("quantityText" in raw?parsed.unit:"");
@@ -484,8 +484,8 @@ async function orderingRoute(request:Request,env:OrderingEnv,requestId:string,ti
     }
     const source=await one<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE id=?",o.source_id);
     if(!old&&!source?.is_active)throw new Bad("ORDERING_INVALID","來源已隱藏，不能再加入品項",409);
-    const section=source?.kind==="CN_REGULAR"?String(raw.section??old?.section??"OTHER"):"";
-    if(!(source?.kind==="CN_REGULAR"?["SINGLE","BAG","OTHER"]:[""]).includes(section))throw new Bad("ORDERING_INVALID","區段不正確");
+    const kindOf=source?.kind??"GENERAL",section=String(raw.section??old?.section??defaultSection(kindOf));
+    if(!orderingSections(kindOf).some(s=>s.key===section))throw new Bad("ORDERING_INVALID","區段不正確");
     const memoryOf=(key:{type:string;key:string}|null)=>key?one<{vendor_item_code:string;vendor_item_name:string}>(ctx.db,"SELECT vendor_item_code,vendor_item_name FROM ordering_vendor_items WHERE source_id=? AND key_type=? AND item_key=?",o.source_id,key.type,key.key):Promise.resolve(null);
     const remembered=vendorItemKey(itemCode,finalName),previous=old?vendorItemKey(old.item_code,old.item_name):null;
     // A field sent empty on an existing line is a deliberate clear; on a new row it is just not filled in yet.

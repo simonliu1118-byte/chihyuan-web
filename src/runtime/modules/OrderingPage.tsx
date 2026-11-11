@@ -36,7 +36,7 @@ import {downloadExcelFile,shareExcelFile,XLSX_MIME} from "./ordering-file-share"
 import {CLOSED_AS_LABELS,parseQuantity,receiptItemSummary,type OrderingClosedAs,type OrderingReceipt} from "../../../shared/ordering";
 /** Older 指定結案 records stored the raw code ("洞巾 OTHER") or the earlier word 結掉; show them like new ones ("洞巾 指定結案：其他"). */
 export const revisionSummary=(summary:string)=>summary.replace(/ (SHORTAGE|CANCELLED|OTHER)$/,(_,code:OrderingClosedAs)=>" 指定結案："+CLOSED_AS_LABELS[code]).replace(/ 結掉：/g," 指定結案：");
-import {createOrderingWriteQueue,orderingTaipeiDateTime,exportFileName,pickDraft,ORDERING_STATUS_LABELS,CN_REGULAR_SECTIONS,type OrderingOrder,type OrderingSource,type OrderingPendingLine,type OrderingListRow,type OrderingSection} from "../../../shared/ordering";
+import {createOrderingWriteQueue,orderingTaipeiDateTime,exportFileName,pickDraft,ORDERING_STATUS_LABELS,orderingSections,type OrderingOrder,type OrderingSource,type OrderingPendingLine,type OrderingListRow,type OrderingSection} from "../../../shared/ordering";
 const ROOT="/api/business/ordering";
 const nowDate=()=>new Date(Date.now()+8*3600000).toISOString().slice(0,10);
 const displayDate=(value:string|null|undefined)=>orderingTaipeiDateTime(value)?.date??"";
@@ -567,7 +567,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false,canCnPurchase=
  const openLines=current?current.lines.filter(l=>l.quantity!==null&&l.received<l.quantity&&!l.closedAs):[];
  const currentSource=current?sources.find(x=>x.id===current.sourceId):undefined;
  const openMobileNewLine=(orderId:number,section?:OrderingSection)=>{
-  const prefix=orderId+"-"+(section??(selected?.sourceKind==="CN_REGULAR"?CN_REGULAR_SECTIONS[0].key:""));
+  const prefix=orderId+"-"+(section??(selected?orderingSections(selected.sourceKind)[0].key:""));
   const entry=[...editors.current].find(([key])=>key.startsWith(prefix));
   entry?.[1].openNew?.();
  };
@@ -663,7 +663,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false,canCnPurchase=
         <Field label="單據備註" size="m" hint={headerDirty.date||headerDirty.note?"離開欄位後自動儲存":undefined}><input id="cy-ordering-note" className="cy-op-input" disabled={!editable} value={current.note} onChange={e=>{headerEditRevisions.current.note++;headerDirtyRef.current={...headerDirtyRef.current,note:true};setHeaderDirty(v=>({...v,note:true}));setSelected(v=>v?{...v,note:e.target.value}:v)}} onBlur={()=>void saveHeader("note")}/></Field>
        </FormSection>
       </form>:null}
-      {showCn?null:(current.sourceKind==="CN_REGULAR"?CN_REGULAR_SECTIONS:[{key:"" as const,label:"叫貨明細"}]).map(group=>{const gridKey=current.id+"-"+group.key+(revisingNow?"-revise":"");
+      {showCn?null:orderingSections(current.sourceKind).map(group=>{const gridKey=current.id+"-"+group.key+(revisingNow?"-revise":"");
        return <section key={group.key} className="cy-ordering-lines">
         <h3>{group.label}</h3>
         <OrderingGrid kind={current.sourceKind} section={group.key as OrderingSection} key={gridKey} lines={revisingNow?revising!.lines:current.lines} busy={busy} readOnly={!editable&&!revisingNow} {...gridBindings(gridKey)}

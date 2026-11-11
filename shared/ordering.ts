@@ -11,6 +11,20 @@ export type OrderingSection = "" | "SINGLE" | "BAG" | "OTHER";
 export const CN_REGULAR_SECTIONS: readonly { key: Exclude<OrderingSection, "">; label: string }[] = [
   { key: "SINGLE", label: "針灸針－單支" }, { key: "BAG", label: "針灸針－氣包袋" }, { key: "OTHER", label: "其他" },
 ];
+/**
+ * 自訂中國貨 is split in 商品 and 書籍 (user 2026-11-11). The section codes are read per 來源 kind: here
+ * "" is 商品 and "OTHER" is 書籍, so ordering_lines.section keeps its CHECK list (no table rebuild).
+ */
+export const CN_CUSTOM_SECTIONS: readonly { key: OrderingSection; label: string }[] = [
+  { key: "", label: "商品" }, { key: "OTHER", label: "書籍" },
+];
+/** The blocks a 來源 kind shows (one unnamed block for the others) and the section a new line takes. */
+export function orderingSections(kind: OrderingSourceKind): readonly { key: OrderingSection; label: string }[] {
+  return kind === "CN_REGULAR" ? CN_REGULAR_SECTIONS : kind === "CN_CUSTOM" ? CN_CUSTOM_SECTIONS : [{ key: "", label: "叫貨明細" }];
+}
+export const defaultSection = (kind: OrderingSourceKind): OrderingSection => kind === "CN_REGULAR" ? "OTHER" : "";
+export const sectionLabel = (kind: OrderingSourceKind, section: string): string =>
+  kind === "CN_REGULAR" || kind === "CN_CUSTOM" ? orderingSections(kind).find((s) => s.key === section)?.label ?? "" : "";
 /** How a line's remainder was settled when it will not (all) come. */
 export type OrderingClosedAs = "SHORTAGE" | "CANCELLED" | "OTHER";
 export const CLOSED_AS_LABELS: Readonly<Record<OrderingClosedAs, string>> = { SHORTAGE: "缺貨", CANCELLED: "取消", OTHER: "其他" };

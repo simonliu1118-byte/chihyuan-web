@@ -193,3 +193,8 @@
 - `ordering_line_photos`（`line_id` 主鍵，一列一張）；JPEG 存在 `HR_FILES` R2，key `ordering/{orderId}/{lineId}/{uuid}.jpg`。
 - API：`GET|PUT|DELETE /api/business/ordering/orders/:id/lines/:lineId/photo`（`PUT` 本體為 `image/jpeg`，≤1 MB、長邊 ≤2000px；前端先縮到 1280px）。只限 `CN_CUSTOM`；結案或作廢後拒絕上傳。照片不改叫貨單版本、不進修改紀錄，只記稽核。
 - 清除：每次 `mutate()` 寫入成功後 `sweepPhotos()`：品項已不存在的照片、以及叫貨單變成結案／作廢時的全部照片，先刪 R2 檔再刪列；刪除草稿後也會清。
+
+## V0.18.6 — 自訂中國貨分「商品／書籍」
+
+- 區段代碼依來源種類解讀（`shared/ordering.ts` `orderingSections()`）：定期中國貨 `SINGLE/BAG/OTHER`；自訂中國貨 `''`＝商品、`'OTHER'`＝書籍；其他來源只有 `''`。沿用 `ordering_lines.section` 既有 CHECK，不重建表。
+- 書籍區顯示規格並可依規格排序；商品區預設不顯示規格。migration 0066 把既有自訂中國貨有規格的列移到書籍；可攜式備份有對應升級步驟。

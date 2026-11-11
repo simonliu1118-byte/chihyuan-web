@@ -28,7 +28,7 @@ type Props={kind:OrderingSourceKind;section:OrderingSection;lines:GridLine[];bus
  warnRow?:(row:GridLine)=>string|undefined;
  /** 自訂中國貨: the 照片 cell of a saved line (user 2026-11-11). */
  photoCell?:(row:GridLine)=>ReactNode};
-const SORTABLE=new Set(["itemCode","itemName","vendorItemCode","vendorItemName"]);
+const SORTABLE_BASE=["itemCode","itemName","vendorItemCode","vendorItemName"];
 const collator=new Intl.Collator("zh-Hant",{numeric:true,sensitivity:"base"});
 export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,onDelete,onRegister,onStateChange,onReorder,onCloseLine,vendorOnly=false,warnRow,photoCell}:Props){
  const compact=useCompactLayout();
@@ -63,7 +63,10 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  const [saveError,setSaveError]=useState(false);
  const setEdits=(update:(previous:Record<string,string>)=>Record<string,string>)=>{editingRef.current=update(editingRef.current);setEditing(editingRef.current)};
  useEffect(()=>{cancelAllTimers();draftsRef.current=[empty(section,-1)];setDrafts(draftsRef.current);nextTemp.current=-2;inFlight.current.clear();savedDrafts.current.clear();savedRowKeys.current.clear();cellSaves.current.clear();wantFinal.current.clear();unfinal.current.clear();editingRef.current={};setEditing({});setSaveError(false)},[section,kind]);
- const fields=columns[kind];
+ // 自訂中國貨 (user 2026-11-11): 規格 (出版社／作者) belongs to 書籍; 商品 shows it only if a line has one.
+ const book=kind==="CN_CUSTOM"&&section==="OTHER";
+ const fields=kind==="CN_CUSTOM"&&!book&&!lines.some(x=>x.section===section&&x.spec)?columns.CN_CUSTOM.filter(([f])=>f!=="spec"):columns[kind];
+ const SORTABLE=new Set<string>(book?[...SORTABLE_BASE,"spec"]:SORTABLE_BASE);
  const lockedFields=(row:GridLine):ReadonlySet<string>|null=>readOnly||!vendorOnly||row.id<=0?null:new Set(fields.map(([f])=>f as string).filter(f=>f!=="vendorItemCode"&&f!=="vendorItemName"));
  const lockedTitle=(_row:GridLine)=>"部分到貨後只能修改廠商品號、廠商品名";
  const closable=(row:GridLine)=>readOnly&&!!onCloseLine&&row.id>0&&["OPEN","PARTIAL"].includes(receiptState(row));
