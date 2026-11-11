@@ -117,6 +117,40 @@ test("CN purchase: 絕版／停產 closes the line and can be restored",async()=
  }finally{sql.close()}
 });
 
+test("CN purchase: 絕版／停產 and 恢復 inside 訂購 save with the rest of the step; a paid line goes through 退貨",async()=>{
+ const {sql,call}=fixture();try{
+  let o=await sentCnOrder(call);const [a,b,c]=o.lines;
+  let r=await call("/orders/"+o.id+"/cn-purchase/order","PUT",{expectedVersion:o.version,cards:[{key:"k",chargedOn:"2026-11-11",amount:null,fee:null}],pieces:[{lineKey:"L"+a.id,quantity:10,rmbPrice:3500,cardKey:"k"},{lineKey:"L"+b.id,quantity:5,rmbPrice:680},{lineKey:"L"+c.id,quantity:20,rmbPrice:520}]});
+  assert.equal(r.status,200,JSON.stringify(r.body));o=r.body.data.order;
+  const cards={cards:[{id:r.body.data.purchase.charges[0].id,chargedOn:"2026-11-11",amount:null,fee:null}]},cardKey="C"+cards.cards[0].id;
+  const pa={lineKey:"L"+a.id,quantity:10,rmbPrice:3500,cardKey},pb={lineKey:"L"+b.id,quantity:5,rmbPrice:680},pc={lineKey:"L"+c.id,quantity:20,rmbPrice:520};
+  // a is on a saved card: paid, so not 絕版 (in 訂購 or by itself) — 退貨 handles it
+  r=await call("/orders/"+o.id+"/cn-purchase/order","PUT",{expectedVersion:o.version,cards:[],discontinued:[{lineId:a.id,reason:"絕版"}],pieces:[pb,pc]});
+  assert.equal(r.status,422);assert.match(r.body.error.message,/已刷卡.*退貨/);
+  assert.equal((await call("/orders/"+o.id+"/cn-purchase/discontinue","POST",{expectedVersion:o.version,lineId:a.id})).status,422);
+  // 取消訂購 needs its reason
+  assert.equal((await call("/orders/"+o.id+"/cn-purchase/order","PUT",{expectedVersion:o.version,...cards,discontinued:[{lineId:b.id,reason:" "}],pieces:[pa,pc]})).status,422);
+  // pieces on a line being marked are refused
+  r=await call("/orders/"+o.id+"/cn-purchase/order","PUT",{expectedVersion:o.version,...cards,discontinued:[{lineId:b.id,reason:"停產"}],pieces:[pa,pb,pc]});
+  assert.equal(r.status,422);
+  r=await call("/orders/"+o.id+"/cn-purchase/order","PUT",{expectedVersion:o.version,...cards,discontinued:[{lineId:b.id,reason:"停產"}],pieces:[pa,pc]});
+  assert.equal(r.status,200,JSON.stringify(r.body));o=r.body.data.order;
+  let bl=o.lines.find(x=>x.id===b.id);assert.equal(bl.cnDiscontinued,true);assert.equal(bl.closedNote,"停產");assert.equal(bl.closedAs,"OTHER");
+  assert.equal(r.body.data.purchase.pieces.some(p=>p.lineId===b.id),false);
+  assert.match(o.revisions[0].summary,/取消訂購（停產）/);
+  // 恢復 in 訂購: the line needs its pieces again
+  r=await call("/orders/"+o.id+"/cn-purchase/order","PUT",{expectedVersion:o.version,...cards,restored:[b.id],pieces:[pa,pc]});
+  assert.equal(r.status,422);
+  r=await call("/orders/"+o.id+"/cn-purchase/order","PUT",{expectedVersion:o.version,...cards,restored:[b.id],pieces:[pa,pc,{...pb,rmbPrice:null}]});
+  assert.equal(r.status,200,JSON.stringify(r.body));o=r.body.data.order;
+  bl=o.lines.find(x=>x.id===b.id);assert.equal(bl.cnDiscontinued,false);assert.equal(bl.closedAs,null);
+  assert.match(o.revisions[0].summary,/恢復採購/);
+  // 恢復 of a line that is not 絕版 is refused
+  r=await call("/orders/"+o.id+"/cn-purchase/order","PUT",{expectedVersion:o.version,...cards,restored:[c.id],pieces:[pa,pc,pb]});
+  assert.equal(r.status,422);
+ }finally{sql.close()}
+});
+
 function fakeBucket(){
  const store=new Map();
  return {store,async put(k,v){store.set(k,new Uint8Array(v))},async get(k){const v=store.get(k);return v?{body:new Blob([v]).stream()}:null},

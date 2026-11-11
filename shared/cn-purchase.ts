@@ -21,6 +21,13 @@ export type CnStage = "ORDERING" | "ORDERED" | "SHIPPED" | "ARRIVED" | "CLOSED";
 export const CN_STAGE_LABELS: Readonly<Record<CnStage, string>> = {
   ORDERING: "訂購中", ORDERED: "已訂購", SHIPPED: "已發貨", ARRIVED: "已到台灣", CLOSED: "結案",
 };
+/** 取消訂購 的原因 (user 2026-11-11); 其他 needs the reason typed. */
+export const CN_CANCEL_REASONS = ["絕版", "停產", "客訂取消", "其他"] as const;
+/** The 備註 a 取消訂購 leaves: the chosen reason, with what was typed (其他: what was typed alone). */
+export function cnCancelNote(kind: string, detail: string): string {
+  const d = detail.trim();
+  return kind === "其他" ? d : d ? kind + "：" + d : kind;
+}
 export const CN_LIMITS = { pieces: 1000, charges: 200, shipping: 20, reason: 200, quantity: 1_000_000, rmbFen: 100_000_000, ntd: 100_000_000 } as const;
 
 /** 訂購中 → 已訂購 (完成訂購) → 已發貨 (first 運費) → 已到台灣 (營業稅) → 結案 (every line received or settled). */

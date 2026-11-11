@@ -38,7 +38,7 @@ export function BotReviewDialog({ids,initialId,canReview,onClose,onChanged}:{ids
  const load=useCallback(async(target:number)=>{setBusy(true);setError(null);try{setDetail(await loadDraftDetail(target))}catch(e){setError(e instanceof Error?e.message:"無法載入審稿")}finally{setBusy(false)}},[]);
  useEffect(()=>{void load(id)},[id,load]);
  const index=ids.indexOf(id);
- async function reason(){const values=await ask({title:"退回理由",fields:[{name:"reason",label:"退回理由",multiline:true,required:true}],confirmLabel:"退回",confirmTone:"danger"});return values?.reason?.trim()||null}
+ async function reason(){const values=await ask({title:"退回理由",fields:[{name:"reason",label:"退回理由",multiline:true,required:true}],confirmLabel:"退回",confirmTone:"danger",size:"mini"});return values?.reason?.trim()||null}
  async function act(task:()=>Promise<unknown>){setBusy(true);setError(null);try{await task();await load(id);onChanged()}catch(e){setError(e instanceof Error?e.message:"審核失敗")}finally{setBusy(false)}}
  const draft=detail?.draft,pending=!!draft&&draft.status==="pending"&&canReview;
  const imagesOf=(itemId:number|null)=>detail?.images.filter(image=>image.itemId===itemId)??[];
