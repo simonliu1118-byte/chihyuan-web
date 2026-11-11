@@ -84,3 +84,11 @@
 .cy-cn-bar > select.cy-op-input.cy-cn-join { min-width: 180px; }
 .cy-ordering-grid.cy-cn-table td.cy-cn-note:has(> .cy-ordering-cell) { padding: 0; }
 .cy-ordering-grid.cy-cn-table.is-editing col.w-seq { width: 72px; }
+/* 商品／書籍 split, lead column (⠿ then ☐), cancel a card (user 2026-11-11). */
+.cy-ordering-grid.cy-cn-table tr.is-book-start > td { border-top: 2px solid var(--cy-text-muted); }
+.cy-ordering-grid.cy-cn-table col.w-lead { width: 52px; }
+.cy-ordering-grid.cy-cn-table td.cy-cn-lead { white-space: nowrap; text-align: center; padding: 0 4px; }
+.cy-ordering-grid.cy-cn-table td.cy-cn-lead input[type=checkbox] { margin: 0 0 0 4px; vertical-align: middle; }
+.cy-ordering-grid.cy-cn-table.is-editing col.w-seq { width: 40px; }
+.cy-cn-card-cancel { margin-left: 4px; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--cy-text-muted); font-size: 14px; line-height: 18px; cursor: pointer; }
+.cy-cn-card-cancel:hover { background: var(--cy-danger-soft, #fde8e8); color: var(--cy-danger); }
