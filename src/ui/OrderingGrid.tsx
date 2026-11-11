@@ -68,7 +68,7 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  // 自訂中國貨 (user 2026-11-11): 商品 keeps 規格; 書籍 has 出版社 and 作者 (sortable) instead.
  const book=kind==="CN_CUSTOM"&&section==="OTHER";
  const fields:readonly (readonly [keyof GridLine,string])[]=book?CN_BOOK_COLUMNS:columns[kind];
- const SORTABLE=new Set<string>(book?[...SORTABLE_BASE,"publisher","author"]:SORTABLE_BASE);
+ const SORTABLE=new Set<string>(book?[...SORTABLE_BASE,"publisher"]:SORTABLE_BASE);
  const lockedFields=(row:GridLine):ReadonlySet<string>|null=>readOnly||!vendorOnly||row.id<=0?null:new Set(fields.map(([f])=>f as string).filter(f=>f!=="vendorItemCode"&&f!=="vendorItemName"));
  const lockedTitle=(_row:GridLine)=>"部分到貨後只能修改廠商品號、廠商品名";
  const closable=(row:GridLine)=>readOnly&&!!onCloseLine&&row.id>0&&["OPEN","PARTIAL"].includes(receiptState(row));
@@ -80,8 +80,8 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  const [localOrder,setLocalOrder]=useState<number[]|null>(null);
  useEffect(()=>{setLocalOrder(null)},[lines]);
  const sectionLines=(()=>{const rows=lines.filter(x=>x.section===section);if(!localOrder)return rows;const at=new Map(localOrder.map((id,i)=>[id,i]));return rows.slice().sort((a,b)=>(at.get(a.id)??1e9)-(at.get(b.id)??1e9))})();
- // 出版社 sorts by 出版社, then 作者 within each 出版社 (user 2026-11-11), then 品名.
- const sortKeys=(field:string)=>field==="publisher"?["publisher","author","itemName"]:field==="author"?["author","itemName"]:[field];
+ // 出版社 sorts by 出版社, then 作者 within each 出版社 (user 2026-11-11), then 品名; 作者 is not sorted on its own.
+ const sortKeys=(field:string)=>field==="publisher"?["publisher","author","itemName"]:[field];
  const sorted=(rows:GridLine[])=>sort?rows.slice().sort((a,b)=>{for(const k of sortKeys(sort.field)){const c=collator.compare(String(a[k as keyof GridLine]??""),String(b[k as keyof GridLine]??""));if(c)return sort.dir*c}return a.sortOrder-b.sortOrder}):rows;
  const visible=readOnly?sorted(sectionLines):[...sorted(sectionLines.filter(x=>!mappedIds.has(x.id))),...(vendorOnly?[]:drafts)];
  const mobileKey=(row:GridLine)=>savedRowKeys.current.get(row.id)??row.id;
@@ -331,7 +331,7 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
     {fields.flatMap(([field,title],col)=>{
 
      const locked=readOnly||!!lockedFields(row)?.has(field);
-     return [<td key={field} data-label={title} data-col={field} data-locked={!readOnly&&locked||undefined} title={!readOnly&&locked?lockedTitle(row):undefined}>{locked&&field==="note"&&row.closedAs&&!row.note?null:locked?<span className={"cy-ordering-cell-text"+(field==="quantityText"?" cy-ordering-quantity":"")+((field==="itemName"||field==="vendorItemName"||field==="note")?" cy-ordering-wrap":"")}>{String(row[field as keyof GridLine]??"")}</span> :renderEditor(row,field,title,col,i)}
+     return [<td key={field} data-label={title} data-col={field} data-locked={!readOnly&&locked||undefined} title={!readOnly&&locked?lockedTitle(row):undefined}>{locked&&field==="note"&&row.closedAs&&!row.note?null:locked?<span className={"cy-ordering-cell-text"+(field==="quantityText"?" cy-ordering-quantity":"")+((field==="itemName"||field==="vendorItemName"||field==="note")?" cy-ordering-wrap":"")} title={kind==="CN_CUSTOM"&&String(row[field as keyof GridLine]??"")||undefined}>{String(row[field as keyof GridLine]??"")}</span> :renderEditor(row,field,title,col,i)}
       {field==="note"&&row.closedAs?<small className="cy-ordering-closed-note">{closedText(row)}</small>:null}</td>,...(readOnly&&field==="quantityText"?[<td key="received" data-label="已到數量" data-col="received"><span className="cy-ordering-cell-text cy-ordering-quantity">{row.received??0}</span></td>]:[])];
     })}
     {photoCell?<td className="cy-ordering-photo-cell" data-label="照片" data-col="photo">{row.id>0?photoCell(row):null}</td>:null}
