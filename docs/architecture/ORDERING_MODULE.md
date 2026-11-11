@@ -186,7 +186,7 @@
 - 資料（migration 0064）：`ordering_cn_purchases`（完成訂購時間／人）、`ordering_cn_charges`（CARD／SHIPPING／TAX，台幣整數）、`ordering_cn_pieces`（品項拆段：數量、人民幣單價（分）、所屬刷卡）、`ordering_cn_returns`（每品項一筆）。`ordering_lines` 加 `original_quantity`、`purchase_added`、`cn_discontinued`。
 - 採購數量＝各段數量合計，寫回 `ordering_lines.quantity`（到貨、未到貨照舊以它為準）；第一次改動時把原數量留在 `original_quantity`。已有採購段的品項，「修改」叫貨單不能再改數量或刪除。
 - 絕版／停產＝`closed_as='OTHER'`＋`cn_discontinued=1`，恢復時清除；已刷卡或有退貨的品項不能標記。
-- 「訂購」時 ⋯ 也能標記絕版／停產與恢復（V0.18.10）：存在 `PUT …/cn-purchase/order` 的 `discontinued:[{lineId,reason}]`、`restored:[lineId]`，與採購明細同一筆寫入；已存在刷卡裡（已付款）的品項不能標記，請用退貨；標記的品項不能再帶採購明細；恢復的品項必須帶回採購明細。已到貨或有退貨不能標記。
+- 取消訂購（V0.18.10，原 ⋯ 標記絕版／停產）：原因選 `CN_CANCEL_REASONS`（絕版、停產、客訂取消、其他；`cnCancelNote` 組成 `closed_note`，必填）。「訂購」中存在 `PUT …/cn-purchase/order` 的 `discontinued:[{lineId,reason}]`、`restored:[lineId]`，與採購明細同一筆寫入；平常檢視走 `…/discontinue`、`…/restore`。已存在刷卡裡（已付款）的品項不能取消，請用退貨；取消的品項不能再帶採購明細，恢復的品項必須帶回。已到貨或有退貨不能取消。
 - 計算與表格列順序在 `shared/cn-purchase.ts`（`computeCnPurchase`、`cnTableRows`、`cnStage`），前端 `CnPurchasePanel.tsx`。
 
 ## V0.18.6 — 自訂中國貨每列照片

@@ -110,6 +110,12 @@ test("a card's own 運費 stays within that card; 回台灣 運費 and 稅 are s
  assert.ok(r.get(11).landedTotal>plain.pieces.get(11).landedTotal,"card-1 pieces carry the card's 運費");
 });
 
+test("取消訂購 note: the reason, with what was typed; 其他 is what was typed",()=>{
+ assert.deepEqual([...cn.CN_CANCEL_REASONS],["絕版","停產","客訂取消","其他"]);
+ assert.equal(cn.cnCancelNote("絕版",""),"絕版");assert.equal(cn.cnCancelNote("客訂取消"," 王小姐 "),"客訂取消：王小姐");
+ assert.equal(cn.cnCancelNote("其他","廠商不出貨"),"廠商不出貨");assert.equal(cn.cnCancelNote("其他",""),"");
+});
+
 test("uncharged rows keep the order they were dragged into",()=>{
  const ps=[{id:1,lineId:1,sortOrder:5,quantity:1,rmbPrice:null,chargeId:null},{id:2,lineId:2,sortOrder:1,quantity:1,rmbPrice:null,chargeId:null},{id:3,lineId:3,sortOrder:3,quantity:1,rmbPrice:null,chargeId:null}];
  assert.deepEqual(cn.cnTableRows(lines,{pieces:ps,charges:[]}).map(r=>r.piece.id),[2,3,1]);

@@ -106,19 +106,19 @@ export async function handleCnPurchase(d:CnDeps,o:Ord,sourceKind:string,action:s
     db.prepare("DELETE FROM ordering_lines WHERE id=? AND order_id=? AND purchase_added=1").bind(l.id,o.id));
    changes.push("刪除新增項目 "+label(l));
   }
-  // 絕版／停產 and 恢復採購 from the 訂購 table's ⋯ (user 2026-11-11), saved with the rest of the step.
+  // 取消訂購 (絕版／停產／客訂取消／其他) and 恢復採購 from the 訂購 table's ⋯ (user 2026-11-11), saved with the rest of the step.
   const stopping=new Map<number,string>(),restoring=new Set<number>();
-  for(const raw of list(v.discontinued??[],"絕版／停產",200)){const l=lineOf(raw.lineId),reason=text(raw.reason,"原因",CN_LIMITS.reason)||"絕版／停產";
+  for(const raw of list(v.discontinued??[],"取消訂購",200)){const l=lineOf(raw.lineId),reason=text(raw.reason,"原因",CN_LIMITS.reason,true);
    if(l.cn_discontinued)continue;
    if(l.closed_as)throw bad("ORDERING_INVALID",label(l)+" 已指定結案");
-   if(l.received>0)throw bad("ORDERING_INVALID",label(l)+" 已有到貨，不能標記"+reason);
+   if(l.received>0)throw bad("ORDERING_INVALID",label(l)+" 已有到貨，不能取消訂購");
    // Once paid on a card the goods are bought: what cannot be delivered goes through 退貨 (user 2026-11-11).
-   if(purchase.pieces.some(p=>p.lineId===l.id&&p.chargeId!==null))throw bad("ORDERING_INVALID",label(l)+" 已刷卡，不能標記"+reason+"，請用退貨處理");
-   if(purchase.returns.some(r=>r.lineId===l.id))throw bad("ORDERING_INVALID",label(l)+" 有退貨紀錄，不能標記"+reason);
+   if(purchase.pieces.some(p=>p.lineId===l.id&&p.chargeId!==null))throw bad("ORDERING_INVALID",label(l)+" 已刷卡，不能取消訂購，請用退貨處理");
+   if(purchase.returns.some(r=>r.lineId===l.id))throw bad("ORDERING_INVALID",label(l)+" 有退貨紀錄，不能取消訂購");
    stopping.set(l.id,reason);
   }
   for(const raw of list(v.restored===undefined?[]:Array.isArray(v.restored)?v.restored.map(x=>({id:x})):null,"恢復採購",200)){const l=lineOf(raw.id);
-   if(!l.cn_discontinued)throw bad("ORDERING_INVALID",label(l)+" 沒有標記絕版／停產");
+   if(!l.cn_discontinued)throw bad("ORDERING_INVALID",label(l)+" 沒有取消訂購");
    restoring.add(l.id);
   }
   const stopped=(l:LineRow|null|undefined)=>!!l&&(stopping.has(l.id)||(!!l.cn_discontinued&&!restoring.has(l.id)));
@@ -144,7 +144,7 @@ export async function handleCnPurchase(d:CnDeps,o:Ord,sourceKind:string,action:s
   const totals=new Map<number,number>(),usedCards=new Set<number>(),pieces:{lineId:number;quantity:number;rmbPrice:number|null;chargeId:number|null;sortOrder:number;note:string}[]=[];
   pieceInput.forEach((raw,i)=>{
    const target=lineKey.get(String(raw.lineKey??""));if(!target)throw bad("ORDERING_INVALID","採購明細的項目不正確");
-   if(stopped(target.row))throw bad("ORDERING_INVALID",target.name+" 已標記絕版／停產，請先恢復");
+   if(stopped(target.row))throw bad("ORDERING_INVALID",target.name+" 已取消訂購，請先恢復");
    const q=quantity(raw.quantity,target.name),price=money(raw.rmbPrice,target.name+" 人民幣單價",CN_LIMITS.rmbFen);
    const card=raw.cardKey?cardKey.get(String(raw.cardKey)):null;if(raw.cardKey&&!card)throw bad("ORDERING_INVALID","採購明細的刷卡不正確");
    if(card)usedCards.add(card);
@@ -155,14 +155,14 @@ export async function handleCnPurchase(d:CnDeps,o:Ord,sourceKind:string,action:s
   for(const [,t] of lineKey){
    const l=t.row;if(stopped(l))continue;
    const total=Math.round((totals.get(t.id)??0)*10000)/10000;
-   if(!total)throw bad("ORDERING_INVALID",t.name+"：請填採購數量（買不到請用「絕版／停產」）");
+   if(!total)throw bad("ORDERING_INVALID",t.name+"：請填採購數量（買不到請用 ⋯「取消訂購」）");
    if(l&&total<l.received)throw bad("ORDERING_INVALID",t.name+"：採購數量不可少於已到貨 "+qtyText(l.received));
    if(returns.has(t.id)&&total<returns.get(t.id)!.quantity)throw bad("ORDERING_INVALID",t.name+"：採購數量不可少於退貨數量");
   }
   ensureHead();
   for(const [id,reason] of stopping){const l=lineOf(id);
    stmts.push(db.prepare("UPDATE ordering_lines SET closed_as='OTHER',closed_note=?,closed_at=?,closed_by=?,cn_discontinued=1 WHERE id=? AND order_id=? AND closed_as IS NULL").bind(reason,d.now,d.actor,id,o.id));
-   changes.push(label(l)+" 標記"+reason+"（指定結案）");
+   changes.push(label(l)+" 取消訂購（"+reason+"），指定結案");
   }
   for(const id of restoring){
    stmts.push(db.prepare("UPDATE ordering_lines SET closed_as=NULL,closed_note='',closed_at=NULL,closed_by=NULL,cn_discontinued=0 WHERE id=? AND order_id=? AND cn_discontinued=1").bind(id,o.id));
@@ -269,7 +269,7 @@ export async function handleCnPurchase(d:CnDeps,o:Ord,sourceKind:string,action:s
   const seen=new Set<number>(),items:CnReturn[]=[];
   for(const raw of list(v.items,"退貨",500)){
    const l=lineOf(raw.lineId);if(seen.has(l.id))throw bad("ORDERING_INVALID",label(l)+" 退貨重複");seen.add(l.id);
-   if(l.cn_discontinued)throw bad("ORDERING_INVALID",label(l)+" 已標記絕版／停產");
+   if(l.cn_discontinued)throw bad("ORDERING_INVALID",label(l)+" 已取消訂購");
    const q=quantity(raw.quantity,label(l)+" 退貨");
    if(q>l.received)throw bad("ORDERING_INVALID",label(l)+"：退貨數量不可多於已到貨 "+qtyText(l.received));
    items.push({lineId:l.id,quantity:q,rmbAmount:money(raw.rmbAmount,"退貨人民幣",CN_LIMITS.rmbFen),ntdAmount:money(raw.ntdAmount,"台幣刷退",CN_LIMITS.ntd),fee:money(raw.fee,"刷退手續費",CN_LIMITS.ntd),reason:text(raw.reason,"退貨原因",CN_LIMITS.reason)});
@@ -293,19 +293,19 @@ export async function handleCnPurchase(d:CnDeps,o:Ord,sourceKind:string,action:s
  }
 
  if(sub==="discontinue"&&method==="POST"){
-  const l=lineOf(v.lineId),reason=text(v.reason,"原因",CN_LIMITS.reason)||"絕版／停產";
+  const l=lineOf(v.lineId),reason=text(v.reason,"原因",CN_LIMITS.reason,true);
   if(l.closed_as)throw bad("ORDERING_INVALID",label(l)+" 已指定結案");
-  if(purchase.pieces.some(p=>p.lineId===l.id&&p.chargeId!==null))throw bad("ORDERING_INVALID",label(l)+" 已刷卡，不能標記絕版／停產，請用退貨處理");
-  if(purchase.returns.some(r=>r.lineId===l.id))throw bad("ORDERING_INVALID",label(l)+" 有退貨紀錄，不能標記停產");
+  if(purchase.pieces.some(p=>p.lineId===l.id&&p.chargeId!==null))throw bad("ORDERING_INVALID",label(l)+" 已刷卡，不能取消訂購，請用退貨處理");
+  if(purchase.returns.some(r=>r.lineId===l.id))throw bad("ORDERING_INVALID",label(l)+" 有退貨紀錄，不能取消訂購");
   stmts.push(db.prepare("UPDATE ordering_lines SET closed_as='OTHER',closed_note=?,closed_at=?,closed_by=?,cn_discontinued=1 WHERE id=? AND order_id=? AND closed_as IS NULL").bind(reason,d.now,d.actor,l.id,o.id));
-  return finish(label(l)+" 標記絕版／停產（"+reason+"），指定結案","discontinued");
+  return finish(label(l)+" 取消訂購（"+reason+"），指定結案","discontinued");
  }
 
  if(sub==="restore"&&method==="POST"){
   const l=lineOf(v.lineId);
-  if(!l.cn_discontinued)throw bad("ORDERING_INVALID",label(l)+" 沒有標記絕版／停產");
+  if(!l.cn_discontinued)throw bad("ORDERING_INVALID",label(l)+" 沒有取消訂購");
   stmts.push(db.prepare("UPDATE ordering_lines SET closed_as=NULL,closed_note='',closed_at=NULL,closed_by=NULL,cn_discontinued=0 WHERE id=? AND order_id=? AND cn_discontinued=1").bind(l.id,o.id));
-  return finish(label(l)+" 恢復採購（取消絕版／停產）","restored");
+  return finish(label(l)+" 恢復採購","restored");
  }
  throw bad("NOT_FOUND","找不到採購功能",404);
 }

@@ -12,7 +12,10 @@ import {OverflowMenu,type OverflowItem} from "../../ui/mobile/OverflowMenu";
 import {IconButton} from "../../ui/actions/IconButton";
 import {Icons} from "../../ui/actions/icons";
 import {useUnsavedChangesGuard} from "../../ui/foundation/useUnsavedChangesGuard";
-import {CN_STAGE_LABELS,cnStage,cnTableRows,computeCnPurchase,summarizeCnLines,fenText,ntdText,parseNtd,parseRmbFen,qtyText,rmbText,
+import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
+import {Dialog} from "../../ui/overlays/Dialog";
+import {Field,FormSection} from "../../ui/forms/Field";
+import {CN_CANCEL_REASONS,cnCancelNote,CN_STAGE_LABELS,cnStage,cnTableRows,computeCnPurchase,summarizeCnLines,fenText,ntdText,parseNtd,parseRmbFen,qtyText,rmbText,
  type CnCharge,type CnLineRef,type CnPiece,type CnPurchase,type CnReturn,type CnStage} from "../../../shared/cn-purchase";
 import {orderingTaipeiDateTime,type OrderingLine,type OrderingOrder} from "../../../shared/ordering";
 import "./cn-purchase.css";
@@ -23,7 +26,7 @@ type Mode="order"|"reconcile"|"shipping"|"tax"|"returns";
 interface DPiece{key:string;lineKey:string;quantity:string;price:string;cardKey:string|null;note:string}
 interface DCard{key:string;id?:number;chargedOn:string;amount:string;fee:string;shipping:string}
 interface DLine{key:string;lineId?:number;itemName:string;spec:string;unit:string}
-/** stop: lines marked 絕版／停產 in this step (their pieces kept to put back on 恢復); restore: saved ones taken back. */
+/** stop: lines whose 訂購 is cancelled (取消訂購) in this step (their pieces kept to put back on 恢復); restore: saved ones taken back. */
 interface OrderDraft{pieces:DPiece[];cards:DCard[];lines:DLine[];deleted:number[];stop:Record<string,{reason:string;pieces:DPiece[]}>;restore:number[]}
 interface DShipping{chargedOn:string;amount:string;fee:string}
 interface DReturn{lineId:string;quantity:string;rmb:string;ntd:string;fee:string;reason:string}
@@ -37,7 +40,7 @@ const mdShort=(d:string|null|undefined)=>d?<span title={md(d)}>{d.slice(5).repla
 const numText=(n:number|null|undefined)=>n===null||n===undefined?"":String(n);
 const MODE_LABELS:Record<Mode,string>={order:"訂購",reconcile:"對帳",shipping:"回台灣運費",tax:"營業稅",returns:"退貨"};
 const MODE_HINTS:Record<Mode,string>={
- order:"填採購數量、人民幣單價與備註；勾選列後按「刷卡」成為一筆刷卡，按刷卡編號旁的 × 可取消整筆重新處理；⠿ 拖曳調整順序；⋯ 可拆分、標記絕版／停產（未刷卡的才能標記，移到最下面，可再從 ⋯ 恢復；已刷卡的請用退貨）。",
+ order:"填採購數量、人民幣單價與備註；勾選列後按「刷卡」成為一筆刷卡，按刷卡編號旁的 × 可取消整筆重新處理；⠿ 拖曳調整順序；⋯ 可拆分、取消訂購（絕版、停產、客訂取消等；未刷卡的才能取消，移到最下面，可再從 ⋯ 恢復；已刷卡的請用退貨）。",
  reconcile:"對帳單到了再補每筆刷卡的台幣、手續費與該筆刷卡的運費。",
  shipping:"回台灣的運費，每筆一列（含手續費），依各品項成本攤給全部品項。刷卡時另付的運費請填在該筆刷卡的「運費」欄。",
  tax:"到台灣後填營業稅。",
@@ -60,7 +63,8 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
  const [grouping,setGrouping]=useState<"card"|"item">("item");
  const [selectedRows,setSelectedRows]=useState<ReadonlySet<string>>(new Set());
  const [saving,setSaving]=useState(false);
- const [discontinue,setDiscontinue]=useState<{lineId:number;name:string;reason:string}|null>(null);
+ /** 取消訂購 asks its reason in a small dialog; in 訂購 it joins the step, otherwise it is saved at once. */
+ const [cancelAsk,setCancelAsk]=useState<{lineId:number;name:string;inOrder:boolean;kind:string;detail:string}|null>(null);
  const dragging=useRef<string|null>(null),sequence=useRef(0);
  const baseline=useRef("");
  const dirty=mode!==null&&JSON.stringify(drafts)!==baseline.current;
@@ -88,10 +92,10 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    const draft=od?.lines.find(x=>x.lineId===l.id);
    // 品名／規格 (書籍: 品名／出版社／作者) in one column (user 2026-11-11), as the 叫貨單 wrote them.
    const full=[draft?.itemName??(l.itemName||l.vendorItemName||l.itemCode),...(l.section==="OTHER"?[l.publisher??"",l.author??""]:[draft?.spec??l.spec])].map(x=>x.trim()).filter(Boolean).join("／");
-   // 絕版／停產 as this 訂購 step leaves it: marked here, or saved and not taken back here.
+   // 取消訂購 as this 訂購 step leaves it: marked here, or saved and not taken back here.
    const stopped=od?.stop[l.id],off=!!stopped||(!!l.cnDiscontinued&&!od?.restore.includes(l.id));
    info.set(l.id,{seq:0,name:draft?.itemName??(l.itemName||l.vendorItemName||l.itemCode),full,spec:l.spec,unit:draft?.unit??l.unit,
-    planned:l.purchaseAdded?null:l.originalQuantity??l.quantity,line:l,added:!!l.purchaseAdded,discontinued:off,offNote:off?stopped?.reason||l.closedNote||"絕版／停產":"",key:"L"+l.id});
+    planned:l.purchaseAdded?null:l.originalQuantity??l.quantity,line:l,added:!!l.purchaseAdded,discontinued:off,offNote:off?stopped?.reason||l.closedNote||"取消訂購":"",key:"L"+l.id});
    keyToLine.set("L"+l.id,l.id);refs.push({id:l.id,discontinued:off});
   });
   od?.lines.filter(x=>!x.lineId).forEach((x,i)=>{const id=NEW_LINE-i;
@@ -195,14 +199,16 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   if(!await confirm({title:"完成訂購",description:"進入「已訂購」。之後仍可修改訂購，每次修改都會留下紀錄。",confirmLabel:"完成訂購"}))return;
   await send("/complete","POST",{},"已完成訂購");
  }
- async function markDiscontinued(lineId:number,name:string,reason:string){
-  if(!await confirm({title:"標記"+reason,description:"「"+name+"」整列劃掉、備註寫「"+reason+"」並指定結案，不發提醒。之後買得到可以從 ⋯「恢復採購」。",confirmLabel:"標記"+reason,confirmTone:"danger"}))return;
-  await send("/discontinue","POST",{lineId,reason},"已標記"+reason);
+ function askCancel(lineId:number,name:string,inOrder:boolean){setCancelAsk({lineId,name,inOrder,kind:"",detail:""})}
+ async function submitCancel(){
+  const a=cancelAsk;if(!a)return;
+  if(!a.kind)return onError("請選擇取消原因");
+  const reason=cnCancelNote(a.kind,a.kind==="其他"?a.detail:"");if(!reason)return onError("請輸入原因");
+  if(reason.length>200)return onError("原因最多 200 字");
+  if(a.inOrder){stopLine(a.lineId,reason);setCancelAsk(null);return}
+  if(await send("/discontinue","POST",{lineId:a.lineId,reason},"已取消訂購"))setCancelAsk(null);
  }
- async function restore(lineId:number,name:string){
-  if(!await confirm({title:"恢復採購",description:"「"+name+"」取消絕版／停產，回到未結案。",confirmLabel:"恢復"}))return;
-  await send("/restore","POST",{lineId},"已恢復");
- }
+ async function restore(lineId:number){await send("/restore","POST",{lineId},"已恢復採購")}
 
  // ---- 訂購 step editing ----
  const od=drafts.order;
@@ -238,15 +244,15 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    const half=total>=2?Math.floor(total/2):total/2;const next=[...d.pieces];
    next.splice(i,1,{...p,quantity:qtyText(total-half)},{...p,key:fresh("S"),quantity:qtyText(half),cardKey:null,note:""});return {...d,pieces:next}});
  }
- /** Saved on a card (paid): 絕版／停產 is then 退貨's job. */
+ /** Saved on a card (paid): what cannot come is then 退貨's job, not 取消訂購. */
  const paidOn=(lineId:number)=>!!purchase?.pieces.some(p=>p.lineId===lineId&&p.chargeId!==null);
- /** 絕版／停產 in 訂購 (user 2026-11-11): the item leaves the table's live rows (its pieces, cards included) and drops to the bottom. */
+ /** 取消訂購 in 訂購 (user 2026-11-11): the item leaves the table's live rows (its pieces, cards included) and drops to the bottom. */
  function stopLine(lineId:number,reason:string){
   setOrder(d=>{const mine=d.pieces.filter(p=>p.lineKey==="L"+lineId),pieces=d.pieces.filter(p=>p.lineKey!=="L"+lineId);
    if(d.restore.includes(lineId))return {...d,pieces,restore:d.restore.filter(x=>x!==lineId)};
    return {...d,pieces,stop:{...d.stop,[lineId]:{reason,pieces:mine}}}});
  }
- /** 恢復採購: back among the uncharged rows with what it had (a saved 絕版 comes back with its 叫貨數量). */
+ /** 恢復採購: back among the uncharged rows with what it had (a saved 取消 comes back with its 叫貨數量). */
  function restoreLine(lineId:number){
   setOrder(d=>{const held=d.stop[lineId];
    if(held){const stop={...d.stop};delete stop[lineId];return {...d,stop,pieces:[...d.pieces,...held.pieces.map(p=>({...p,cardKey:null}))]}}
@@ -293,15 +299,15 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    if(i.added)menu.push({label:"刪除這個新增項目",onClick:()=>removeLine(dp.lineKey),danger:true});
    if(i.line&&!i.line.closedAs&&!(i.line.received>0)&&!view.returns.some(r=>r.lineId===i.line!.id)){
     // 刷過卡的已經買了，買不到要走退貨 (user 2026-11-11); one being grouped in this step is taken off its card first.
-    if(paidOn(i.line.id))menu.push({label:"已刷卡：絕版／停產請用退貨",onClick:()=>{},disabled:true});
-    else if(od!.pieces.some(p=>p.lineKey==="L"+i.line!.id&&p.cardKey))menu.push({label:"在刷卡中：先取消刷卡才能標記絕版／停產",onClick:()=>{},disabled:true});
-    else for(const reason of ["絕版","停產"])menu.push({label:"標記"+reason,onClick:()=>stopLine(i.line!.id,reason),danger:true});
+    if(paidOn(i.line.id))menu.push({label:"已刷卡：取消請用退貨",onClick:()=>{},disabled:true});
+    else if(od!.pieces.some(p=>p.lineKey==="L"+i.line!.id&&p.cardKey))menu.push({label:"在刷卡中：先取消刷卡才能取消訂購",onClick:()=>{},disabled:true});
+    else menu.push({label:"取消訂購",onClick:()=>askCancel(i.line!.id,i.name,true),danger:true});
    }}
   if(mode==="order"&&row.discontinued&&row.firstOfLine&&i.line)menu.push({label:"恢復採購",onClick:()=>restoreLine(i.line!.id)});
   if(!mode&&!closed&&row.firstOfLine&&i.line){
-   if(i.discontinued)menu.push({label:"恢復採購",onClick:()=>void restore(i.line!.id,i.name)});
-   else if(!i.line.closedAs&&paidOn(i.line.id))menu.push({label:"已刷卡：絕版／停產請用退貨",onClick:()=>{},disabled:true});
-   else if(!i.line.closedAs)for(const reason of ["絕版","停產"])menu.push({label:"標記"+reason,onClick:()=>void markDiscontinued(i.line!.id,i.name,reason),danger:true});
+   if(i.discontinued)menu.push({label:"恢復採購",onClick:()=>void restore(i.line!.id)});
+   else if(!i.line.closedAs&&paidOn(i.line.id))menu.push({label:"已刷卡：取消請用退貨",onClick:()=>{},disabled:true});
+   else if(!i.line.closedAs)menu.push({label:"取消訂購",onClick:()=>askCancel(i.line!.id,i.name,false),danger:true});
   }
   // Only the ⠿ handle drags (user 2026-11-11: a draggable row could not have its text selected); the row is the drop target.
   const dragProps=editing&&dp?{
@@ -400,9 +406,9 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   const note=i.discontinued?i.offNote:[pieceNotes,i.planned!==null&&x.quantity!==i.planned?(x.quantity>i.planned?"多訂 ":"少訂 ")+qtyText(Math.abs(x.quantity-i.planned)):"",
    (()=>{const n=view.pieces.filter(p=>p.lineId===ref.id).length;return n>1?"分 "+n+" 筆刷卡":""})(),i.line?.note??""].filter(Boolean).join("；");
   const menu:OverflowItem[]=[];
-  if(!closed&&i.line){if(i.discontinued)menu.push({label:"恢復採購",onClick:()=>void restore(i.line!.id,i.name)});
-   else if(!i.line.closedAs&&paidOn(i.line.id))menu.push({label:"已刷卡：絕版／停產請用退貨",onClick:()=>{},disabled:true});
-   else if(!i.line.closedAs)for(const reason of ["絕版","停產"])menu.push({label:"標記"+reason,onClick:()=>void markDiscontinued(i.line!.id,i.name,reason),danger:true});}
+  if(!closed&&i.line){if(i.discontinued)menu.push({label:"恢復採購",onClick:()=>void restore(i.line!.id)});
+   else if(!i.line.closedAs&&paidOn(i.line.id))menu.push({label:"已刷卡：取消請用退貨",onClick:()=>{},disabled:true});
+   else if(!i.line.closedAs)menu.push({label:"取消訂購",onClick:()=>askCancel(i.line!.id,i.name,false),danger:true});}
   const firstBook=i.line?.section==="OTHER"&&view.refs.find(r=>info.get(r.id)?.line?.section==="OTHER")?.id===ref.id&&view.refs[0]?.id!==ref.id;
   return <tr key={ref.id} className={(i.discontinued?"cy-row-struck":"")+(firstBook?" is-book-start":"")}>
    <td className="is-c">{i.seq}</td>
@@ -484,6 +490,15 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   </div>
   <p className="cy-cn-foot">{[t.unchargedPieces?"未刷卡 "+t.unchargedPieces+" 項":"",t.missingFee?"手續費待補 "+t.missingFee+" 筆":"",
    "算法：每筆刷卡的金額＋手續費、以及該筆刷卡的運費，依人民幣小計分給這筆刷卡的品項；回台灣運費與營業稅再依各品項成本（刷卡分攤＋刷卡運費－刷退＋刷退手續費）分給全部品項，只由留下的貨負擔。全部以整數台幣分配，各列加總剛好等於實際金額；單價＝小計 ÷ 數量。"].filter(Boolean).join(" · ")}</p>
+ {cancelAsk?<Dialog size="mini" open dismissible={false} title="取消訂購" onClose={()=>!saving&&setCancelAsk(null)}>
+  <form onKeyDown={enterAdvancesFields} onSubmit={e=>{e.preventDefault();void submitCancel()}}>
+   <FormSection>
+    <Field label="原因" required><select className="cy-op-input" autoFocus value={cancelAsk.kind} onChange={e=>setCancelAsk(a=>a?{...a,kind:e.target.value}:a)}><option value="">請選擇</option>{CN_CANCEL_REASONS.map(r=><option key={r}>{r}</option>)}</select></Field>
+    {cancelAsk.kind==="其他"?<Field label="輸入原因" required><input className="cy-op-input" maxLength={200} value={cancelAsk.detail} onChange={e=>setCancelAsk(a=>a?{...a,detail:e.target.value}:a)}/></Field>:null}
+   </FormSection>
+   <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={saving} onClick={()=>setCancelAsk(null)}>返回</button><button type="submit" className="cy-op-button danger" disabled={saving}>取消訂購</button></div>
+  </form>
+ </Dialog>:null}
  </section>;
 }
 

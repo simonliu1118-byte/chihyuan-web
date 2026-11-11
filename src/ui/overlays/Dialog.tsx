@@ -2,7 +2,8 @@ import { Icons } from "../actions/icons";
 import { useLayoutEffect, useId, useRef, type PropsWithChildren, type ReactNode, type CSSProperties } from "react";
 
 export type DialogPresentation = "modal" | "drawer" | "sheet";
-export type DialogSize = "small" | "medium" | "large";
+/** mini: one short choice or reason (half of small, user 2026-11-11). */
+export type DialogSize = "mini" | "small" | "medium" | "large";
 
 export interface DialogProps {
   open: boolean;

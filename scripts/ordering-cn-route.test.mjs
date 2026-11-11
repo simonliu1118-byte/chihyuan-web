@@ -128,6 +128,8 @@ test("CN purchase: 絕版／停產 and 恢復 inside 訂購 save with the rest o
   r=await call("/orders/"+o.id+"/cn-purchase/order","PUT",{expectedVersion:o.version,cards:[],discontinued:[{lineId:a.id,reason:"絕版"}],pieces:[pb,pc]});
   assert.equal(r.status,422);assert.match(r.body.error.message,/已刷卡.*退貨/);
   assert.equal((await call("/orders/"+o.id+"/cn-purchase/discontinue","POST",{expectedVersion:o.version,lineId:a.id})).status,422);
+  // 取消訂購 needs its reason
+  assert.equal((await call("/orders/"+o.id+"/cn-purchase/order","PUT",{expectedVersion:o.version,...cards,discontinued:[{lineId:b.id,reason:" "}],pieces:[pa,pc]})).status,422);
   // pieces on a line being marked are refused
   r=await call("/orders/"+o.id+"/cn-purchase/order","PUT",{expectedVersion:o.version,...cards,discontinued:[{lineId:b.id,reason:"停產"}],pieces:[pa,pb,pc]});
   assert.equal(r.status,422);
@@ -135,7 +137,7 @@ test("CN purchase: 絕版／停產 and 恢復 inside 訂購 save with the rest o
   assert.equal(r.status,200,JSON.stringify(r.body));o=r.body.data.order;
   let bl=o.lines.find(x=>x.id===b.id);assert.equal(bl.cnDiscontinued,true);assert.equal(bl.closedNote,"停產");assert.equal(bl.closedAs,"OTHER");
   assert.equal(r.body.data.purchase.pieces.some(p=>p.lineId===b.id),false);
-  assert.match(o.revisions[0].summary,/標記停產/);
+  assert.match(o.revisions[0].summary,/取消訂購（停產）/);
   // 恢復 in 訂購: the line needs its pieces again
   r=await call("/orders/"+o.id+"/cn-purchase/order","PUT",{expectedVersion:o.version,...cards,restored:[b.id],pieces:[pa,pc]});
   assert.equal(r.status,422);
