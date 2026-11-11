@@ -106,6 +106,20 @@ export async function handleCnPurchase(d:CnDeps,o:Ord,sourceKind:string,action:s
     db.prepare("DELETE FROM ordering_lines WHERE id=? AND order_id=? AND purchase_added=1").bind(l.id,o.id));
    changes.push("刪除新增項目 "+label(l));
   }
+  // 絕版／停產 and 恢復採購 from the 訂購 table's ⋯ (user 2026-11-11), saved with the rest of the step.
+  const stopping=new Map<number,string>(),restoring=new Set<number>();
+  for(const raw of list(v.discontinued??[],"絕版／停產",200)){const l=lineOf(raw.lineId),reason=text(raw.reason,"原因",CN_LIMITS.reason)||"絕版／停產";
+   if(l.cn_discontinued)continue;
+   if(l.closed_as)throw bad("ORDERING_INVALID",label(l)+" 已指定結案");
+   if(l.received>0)throw bad("ORDERING_INVALID",label(l)+" 已有到貨，不能標記"+reason);
+   if(purchase.returns.some(r=>r.lineId===l.id))throw bad("ORDERING_INVALID",label(l)+" 有退貨紀錄，不能標記"+reason);
+   stopping.set(l.id,reason);
+  }
+  for(const raw of list(v.restored===undefined?[]:Array.isArray(v.restored)?v.restored.map(x=>({id:x})):null,"恢復採購",200)){const l=lineOf(raw.id);
+   if(!l.cn_discontinued)throw bad("ORDERING_INVALID",label(l)+" 沒有標記絕版／停產");
+   restoring.add(l.id);
+  }
+  const stopped=(l:LineRow|null|undefined)=>!!l&&(stopping.has(l.id)||(!!l.cn_discontinued&&!restoring.has(l.id)));
   if(lines.length-deleted.size+added.filter(x=>!x.lineId).length>500)throw bad("ORDERING_LIMIT","單張叫貨單最多 500 列",409);
   const lineEdits:{id:number;old:LineRow|null;name:string;spec:string;unit:string;note:string}[]=[];
   let nextSort=lines.reduce((m,l)=>Math.max(m,l.sort_order),0);
@@ -128,7 +142,7 @@ export async function handleCnPurchase(d:CnDeps,o:Ord,sourceKind:string,action:s
   const totals=new Map<number,number>(),usedCards=new Set<number>(),pieces:{lineId:number;quantity:number;rmbPrice:number|null;chargeId:number|null;sortOrder:number;note:string}[]=[];
   pieceInput.forEach((raw,i)=>{
    const target=lineKey.get(String(raw.lineKey??""));if(!target)throw bad("ORDERING_INVALID","採購明細的項目不正確");
-   if(target.row?.cn_discontinued)throw bad("ORDERING_INVALID",target.name+" 已標記絕版／停產，請先恢復");
+   if(stopped(target.row))throw bad("ORDERING_INVALID",target.name+" 已標記絕版／停產，請先恢復");
    const q=quantity(raw.quantity,target.name),price=money(raw.rmbPrice,target.name+" 人民幣單價",CN_LIMITS.rmbFen);
    const card=raw.cardKey?cardKey.get(String(raw.cardKey)):null;if(raw.cardKey&&!card)throw bad("ORDERING_INVALID","採購明細的刷卡不正確");
    if(card)usedCards.add(card);
@@ -137,13 +151,21 @@ export async function handleCnPurchase(d:CnDeps,o:Ord,sourceKind:string,action:s
   });
   const returns=new Map(purchase.returns.map(r=>[r.lineId,r]));
   for(const [,t] of lineKey){
-   const l=t.row;if(l?.cn_discontinued)continue;
+   const l=t.row;if(stopped(l))continue;
    const total=Math.round((totals.get(t.id)??0)*10000)/10000;
    if(!total)throw bad("ORDERING_INVALID",t.name+"：請填採購數量（買不到請用「絕版／停產」）");
    if(l&&total<l.received)throw bad("ORDERING_INVALID",t.name+"：採購數量不可少於已到貨 "+qtyText(l.received));
    if(returns.has(t.id)&&total<returns.get(t.id)!.quantity)throw bad("ORDERING_INVALID",t.name+"：採購數量不可少於退貨數量");
   }
   ensureHead();
+  for(const [id,reason] of stopping){const l=lineOf(id);
+   stmts.push(db.prepare("UPDATE ordering_lines SET closed_as='OTHER',closed_note=?,closed_at=?,closed_by=?,cn_discontinued=1 WHERE id=? AND order_id=? AND closed_as IS NULL").bind(reason,d.now,d.actor,id,o.id));
+   changes.push(label(l)+" 標記"+reason+"（指定結案）");
+  }
+  for(const id of restoring){
+   stmts.push(db.prepare("UPDATE ordering_lines SET closed_as=NULL,closed_note='',closed_at=NULL,closed_by=NULL,cn_discontinued=0 WHERE id=? AND order_id=? AND cn_discontinued=1").bind(id,o.id));
+   changes.push(label(lineOf(id))+" 恢復採購");
+  }
   // Pieces first: the card rows they point to are then free to change or go.
   stmts.push(db.prepare("DELETE FROM ordering_cn_pieces WHERE order_id=?").bind(o.id));
   const kept=cardRows.filter(c=>c.old).map(c=>c.id);
@@ -167,7 +189,7 @@ export async function handleCnPurchase(d:CnDeps,o:Ord,sourceKind:string,action:s
   pieces.forEach(p=>stmts.push(db.prepare("INSERT INTO ordering_cn_pieces(id,order_id,line_id,sort_order,quantity,rmb_price,charge_id,note) VALUES(?,?,?,?,?,?,?,?)").bind(newId(),o.id,p.lineId,p.sortOrder,p.quantity,p.rmbPrice,p.chargeId,p.note)));
   // 採購數量 becomes the line's 數量; the first change keeps the 原定.
   for(const l of lines){
-   if(deleted.has(l.id)||l.cn_discontinued)continue;
+   if(deleted.has(l.id)||stopped(l))continue;
    const total=Math.round((totals.get(l.id)??0)*10000)/10000;
    if(total!==l.quantity){
     stmts.push(db.prepare("UPDATE ordering_lines SET original_quantity=CASE WHEN purchase_added=1 THEN NULL ELSE COALESCE(original_quantity,quantity) END,quantity=?,quantity_text=? WHERE id=? AND order_id=?").bind(total,qtyText(total),l.id,o.id));

@@ -23,7 +23,8 @@ type Mode="order"|"reconcile"|"shipping"|"tax"|"returns";
 interface DPiece{key:string;lineKey:string;quantity:string;price:string;cardKey:string|null;note:string}
 interface DCard{key:string;id?:number;chargedOn:string;amount:string;fee:string;shipping:string}
 interface DLine{key:string;lineId?:number;itemName:string;spec:string;unit:string}
-interface OrderDraft{pieces:DPiece[];cards:DCard[];lines:DLine[];deleted:number[]}
+/** stop: lines marked 絕版／停產 in this step (their pieces kept to put back on 恢復); restore: saved ones taken back. */
+interface OrderDraft{pieces:DPiece[];cards:DCard[];lines:DLine[];deleted:number[];stop:Record<string,{reason:string;pieces:DPiece[]}>;restore:number[]}
 interface DShipping{chargedOn:string;amount:string;fee:string}
 interface DReturn{lineId:string;quantity:string;rmb:string;ntd:string;fee:string;reason:string}
 interface Drafts{order?:OrderDraft;reconcile?:Record<number,{amount:string;fee:string;shipping:string}>;shipping?:DShipping[];tax?:{chargedOn:string;amount:string}|null;returns?:DReturn[]}
@@ -36,7 +37,7 @@ const mdShort=(d:string|null|undefined)=>d?<span title={md(d)}>{d.slice(5).repla
 const numText=(n:number|null|undefined)=>n===null||n===undefined?"":String(n);
 const MODE_LABELS:Record<Mode,string>={order:"訂購",reconcile:"對帳",shipping:"回台灣運費",tax:"營業稅",returns:"退貨"};
 const MODE_HINTS:Record<Mode,string>={
- order:"填採購數量、人民幣單價與備註；勾選列後按「刷卡」成為一筆刷卡，按刷卡編號旁的 × 可取消整筆重新處理；⠿ 拖曳調整順序；⋯ 可拆分。",
+ order:"填採購數量、人民幣單價與備註；勾選列後按「刷卡」成為一筆刷卡，按刷卡編號旁的 × 可取消整筆重新處理；⠿ 拖曳調整順序；⋯ 可拆分、標記絕版／停產（移到最下面，可再從 ⋯ 恢復）。",
  reconcile:"對帳單到了再補每筆刷卡的台幣、手續費與該筆刷卡的運費。",
  shipping:"回台灣的運費，每筆一列（含手續費），依各品項成本攤給全部品項。刷卡時另付的運費請填在該筆刷卡的「運費」欄。",
  tax:"到台灣後填營業稅。",
@@ -79,7 +80,7 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
 
  // ---- What the table shows: the saved purchase, or the open step's draft over it. ----
  const view=useMemo(()=>{
-  const info=new Map<number,{seq:number;name:string;full:string;spec:string;unit:string;planned:number|null;line:Line|null;added:boolean;discontinued:boolean;key:string}>();
+  const info=new Map<number,{seq:number;name:string;full:string;spec:string;unit:string;planned:number|null;line:Line|null;added:boolean;discontinued:boolean;offNote:string;key:string}>();
   const refs:CnLineRef[]=[];
   const od=mode==="order"?drafts.order:undefined;
   const keyToLine=new Map<string,number>();
@@ -87,12 +88,14 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    const draft=od?.lines.find(x=>x.lineId===l.id);
    // 品名／規格 (書籍: 品名／出版社／作者) in one column (user 2026-11-11), as the 叫貨單 wrote them.
    const full=[draft?.itemName??(l.itemName||l.vendorItemName||l.itemCode),...(l.section==="OTHER"?[l.publisher??"",l.author??""]:[draft?.spec??l.spec])].map(x=>x.trim()).filter(Boolean).join("／");
+   // 絕版／停產 as this 訂購 step leaves it: marked here, or saved and not taken back here.
+   const stopped=od?.stop[l.id],off=!!stopped||(!!l.cnDiscontinued&&!od?.restore.includes(l.id));
    info.set(l.id,{seq:0,name:draft?.itemName??(l.itemName||l.vendorItemName||l.itemCode),full,spec:l.spec,unit:draft?.unit??l.unit,
-    planned:l.purchaseAdded?null:l.originalQuantity??l.quantity,line:l,added:!!l.purchaseAdded,discontinued:!!l.cnDiscontinued,key:"L"+l.id});
-   keyToLine.set("L"+l.id,l.id);refs.push({id:l.id,discontinued:!!l.cnDiscontinued});
+    planned:l.purchaseAdded?null:l.originalQuantity??l.quantity,line:l,added:!!l.purchaseAdded,discontinued:off,offNote:off?stopped?.reason||l.closedNote||"絕版／停產":"",key:"L"+l.id});
+   keyToLine.set("L"+l.id,l.id);refs.push({id:l.id,discontinued:off});
   });
   od?.lines.filter(x=>!x.lineId).forEach((x,i)=>{const id=NEW_LINE-i;
-   info.set(id,{seq:0,name:x.itemName||"（新項目）",full:[x.itemName,x.spec].filter(Boolean).join("／")||"（新項目）",spec:x.spec,unit:x.unit,planned:null,line:null,added:true,discontinued:false,key:x.key});
+   info.set(id,{seq:0,name:x.itemName||"（新項目）",full:[x.itemName,x.spec].filter(Boolean).join("／")||"（新項目）",spec:x.spec,unit:x.unit,planned:null,line:null,added:true,discontinued:false,offNote:"",key:x.key});
    keyToLine.set(x.key,id);refs.push({id,discontinued:false});
   });
   refs.forEach((r,i)=>info.get(r.id)!.seq=i+1);
@@ -128,7 +131,7 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
     .map((p,i)=>({key:"P"+i,lineKey:"L"+p.lineId,quantity:qtyText(p.quantity),price:fenText(p.rmbPrice),cardKey:p.chargeId?"C"+p.chargeId:null,note:p.note??""}));
    for(const l of lines)if(!l.cnDiscontinued&&!pieces.some(p=>p.lineKey==="L"+l.id))pieces.push({key:"V"+l.id,lineKey:"L"+l.id,quantity:l.quantity===null?"":qtyText(l.quantity),price:"",cardKey:null,note:""});
    d.order={pieces,cards:cards.map(c=>({key:"C"+c.id,id:c.id,chargedOn:c.chargedOn??"",amount:numText(c.amount),fee:numText(c.fee),shipping:numText(c.shipping)})),
-    lines:lines.filter(l=>l.purchaseAdded).map(l=>({key:"L"+l.id,lineId:l.id,itemName:l.itemName,spec:l.spec,unit:l.unit})),deleted:[]};
+    lines:lines.filter(l=>l.purchaseAdded).map(l=>({key:"L"+l.id,lineId:l.id,itemName:l.itemName,spec:l.spec,unit:l.unit})),deleted:[],stop:{},restore:[]};
   }
   if(next==="reconcile")d.reconcile=Object.fromEntries(purchase.charges.filter(c=>c.kind==="CARD").map(c=>[c.id,{amount:numText(c.amount),fee:numText(c.fee),shipping:numText(c.shipping)}]));
   if(next==="shipping"){const s=purchase.charges.filter(c=>c.kind==="SHIPPING").map(c=>({chargedOn:c.chargedOn??"",amount:numText(c.amount),fee:numText(c.fee)}));d.shipping=s.length?s:[{chargedOn:today(),amount:"",fee:""}]}
@@ -163,6 +166,7 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    await send("/order","PUT",{
     lines:d.lines.map(l=>l.lineId?{lineId:l.lineId,itemName:l.itemName,spec:l.spec,unit:l.unit}:{key:l.key,itemName:l.itemName,spec:l.spec,unit:l.unit}),
     deletedLines:d.deleted,
+    discontinued:Object.entries(d.stop).map(([id,x])=>({lineId:Number(id),reason:x.reason})),restored:d.restore,
     cards:d.cards.filter(c=>used.has(c.key)).map(c=>({...(c.id?{id:c.id}:{key:c.key}),chargedOn:c.chargedOn,amount:parseNtd(c.amount),fee:parseNtd(c.fee),shipping:parseNtd(c.shipping)})),
     pieces:d.pieces.map((p,i)=>({lineKey:p.lineKey,quantity:Number(p.quantity),rmbPrice:parseRmbFen(p.price),cardKey:p.cardKey&&used.has(p.cardKey)?p.cardKey:null,sortOrder:i,note:p.note.trim()})),
    },"訂購已儲存");return;
@@ -234,6 +238,20 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    const half=total>=2?Math.floor(total/2):total/2;const next=[...d.pieces];
    next.splice(i,1,{...p,quantity:qtyText(total-half)},{...p,key:fresh("S"),quantity:qtyText(half),cardKey:null,note:""});return {...d,pieces:next}});
  }
+ /** 絕版／停產 in 訂購 (user 2026-11-11): the item leaves the table's live rows (its pieces, cards included) and drops to the bottom. */
+ function stopLine(lineId:number,reason:string){
+  setOrder(d=>{const mine=d.pieces.filter(p=>p.lineKey==="L"+lineId),pieces=d.pieces.filter(p=>p.lineKey!=="L"+lineId);
+   if(d.restore.includes(lineId))return {...d,pieces,restore:d.restore.filter(x=>x!==lineId)};
+   return {...d,pieces,stop:{...d.stop,[lineId]:{reason,pieces:mine}}}});
+ }
+ /** 恢復採購: back among the uncharged rows with what it had (a saved 絕版 comes back with its 叫貨數量). */
+ function restoreLine(lineId:number){
+  setOrder(d=>{const held=d.stop[lineId];
+   if(held){const stop={...d.stop};delete stop[lineId];return {...d,stop,pieces:[...d.pieces,...held.pieces.map(p=>({...p,cardKey:null}))]}}
+   const l=lines.find(x=>x.id===lineId);
+   return {...d,restore:[...d.restore,lineId],pieces:[...d.pieces,{key:fresh("R"),lineKey:"L"+lineId,quantity:l?.quantity?qtyText(l.quantity):"1",price:"",cardKey:null,note:""}]};
+  });
+ }
  function addLine(){
   const key=fresh("N");
   setOrder(d=>({...d,lines:[...d.lines,{key,itemName:"",spec:"",unit:""}],pieces:[...d.pieces,{key:fresh("P"),lineKey:key,quantity:"1",price:"",cardKey:null,note:""}]}));
@@ -262,7 +280,7 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   const dp=key?od!.pieces.find(p=>p.key===key):undefined;
   const ret=view.returns.find(x=>x.lineId===row.piece.lineId);
   const purchased=view.pieces.filter(p=>p.lineId===row.piece.lineId).reduce((s,p)=>s+p.quantity,0);
-  const derived=row.discontinued?(i.line?.closedNote||"絕版／停產"):!row.firstOfLine?"拆分自項次 "+i.seq
+  const derived=row.discontinued?i.offNote:!row.firstOfLine?"拆分自項次 "+i.seq
    :[i.planned!==null&&purchased!==i.planned?(purchased>i.planned?"多訂 ":"少訂 ")+qtyText(Math.abs(purchased-i.planned)):"",i.line?.note??""].filter(Boolean).join("；");
   const note=[row.piece.note??"",derived].filter(Boolean).join("；");
   const card=row.card,cardKey=card?view.cardKeyOf.get(card.id):undefined,dc=cardKey?od?.cards.find(c=>c.key===cardKey):undefined;
@@ -270,7 +288,9 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   const menu:OverflowItem[]=[];
   if(editing&&dp){menu.push({label:"拆分",onClick:()=>splitPiece(dp.key)});
    if(od!.pieces.filter(p=>p.lineKey===dp.lineKey).length>1)menu.push({label:"刪除這段",onClick:()=>setOrder(d=>({...d,pieces:d.pieces.filter(p=>p.key!==dp.key)})),danger:true});
-   if(i.added)menu.push({label:"刪除這個新增項目",onClick:()=>removeLine(dp.lineKey),danger:true});}
+   if(i.added)menu.push({label:"刪除這個新增項目",onClick:()=>removeLine(dp.lineKey),danger:true});
+   if(i.line&&!i.line.closedAs&&!(i.line.received>0)&&!view.returns.some(r=>r.lineId===i.line!.id))for(const reason of ["絕版","停產"])menu.push({label:"標記"+reason,onClick:()=>stopLine(i.line!.id,reason),danger:true});}
+  if(mode==="order"&&row.discontinued&&row.firstOfLine&&i.line)menu.push({label:"恢復採購",onClick:()=>restoreLine(i.line!.id)});
   if(!mode&&!closed&&row.firstOfLine&&i.line){
    if(i.discontinued)menu.push({label:"恢復採購",onClick:()=>void restore(i.line!.id,i.name)});
    else if(!i.line.closedAs)for(const reason of ["絕版","停產"])menu.push({label:"標記"+reason,onClick:()=>void markDiscontinued(i.line!.id,i.name,reason),danger:true});
@@ -369,7 +389,7 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
  const itemRows=sums?view.refs.map(ref=>{
   const i=info.get(ref.id)!,x=sums.get(ref.id)!,ret=view.returns.find(r=>r.lineId===ref.id);
   const pieceNotes=view.pieces.filter(p=>p.lineId===ref.id).map(p=>p.note??"").filter(Boolean).join("；");
-  const note=i.discontinued?(i.line?.closedNote||"絕版／停產"):[pieceNotes,i.planned!==null&&x.quantity!==i.planned?(x.quantity>i.planned?"多訂 ":"少訂 ")+qtyText(Math.abs(x.quantity-i.planned)):"",
+  const note=i.discontinued?i.offNote:[pieceNotes,i.planned!==null&&x.quantity!==i.planned?(x.quantity>i.planned?"多訂 ":"少訂 ")+qtyText(Math.abs(x.quantity-i.planned)):"",
    (()=>{const n=view.pieces.filter(p=>p.lineId===ref.id).length;return n>1?"分 "+n+" 筆刷卡":""})(),i.line?.note??""].filter(Boolean).join("；");
   const menu:OverflowItem[]=[];
   if(!closed&&i.line){if(i.discontinued)menu.push({label:"恢復採購",onClick:()=>void restore(i.line!.id,i.name)});
