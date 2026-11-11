@@ -269,7 +269,8 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    if(i.discontinued)menu.push({label:"恢復採購",onClick:()=>void restore(i.line!.id,i.name)});
    else if(!i.line.closedAs)for(const reason of ["絕版","停產"])menu.push({label:"標記"+reason,onClick:()=>void markDiscontinued(i.line!.id,i.name,reason),danger:true});
   }
-  const dragProps=editing&&dp?{draggable:true,onDragStart:(e:DragEvent)=>{dragging.current=dp.key;e.dataTransfer.effectAllowed="move"},
+  // Only the ⠿ handle drags (user 2026-11-11: a draggable row could not have its text selected); the row is the drop target.
+  const dragProps=editing&&dp?{
    onDragOver:(e:DragEvent)=>{if(dragging.current){e.preventDefault();e.dataTransfer.dropEffect="move"}},onDrop:(e:DragEvent)=>{e.preventDefault();dropOn(dp.key)}}:{};
   const newLine=od?.lines.find(l=>l.key===dp?.lineKey&&!l.lineId);
   let group:ReactNode=null;
@@ -289,7 +290,10 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   const checked=!!dp&&selectedRows.has(dp.key);
   return <tr key={row.piece.id} className={(row.discontinued?"cy-row-struck ":"")+(row.cardNo%2===1?"is-band":"")+(checked?" is-picked":"")} {...dragProps}>
    <td className="is-c cy-cn-seq">{editing&&dp?<label className="cy-cn-pick"><input type="checkbox" checked={checked} aria-label={"選取 "+i.name}
-    onChange={e=>setSelectedRows(prev=>{const n=new Set(prev);if(e.target.checked)n.add(dp.key);else n.delete(dp.key);return n})}/><span>{i.seq}</span></label>:i.seq}</td>
+    onChange={e=>setSelectedRows(prev=>{const n=new Set(prev);if(e.target.checked)n.add(dp.key);else n.delete(dp.key);return n})}/><span>{i.seq}</span></label>:i.seq}
+    {editing&&dp?<span className="cy-cn-handle" draggable title="拖曳到另一筆刷卡" aria-label={"拖曳 "+i.name}
+     onDragStart={e=>{dragging.current=dp.key;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",dp.key);const tr=(e.currentTarget as HTMLElement).closest("tr");if(tr)e.dataTransfer.setDragImage(tr,12,12)}}
+     onDragEnd={()=>{dragging.current=null}}>{Icons.grip}</span>:null}</td>
    <td className="cy-cn-name">{newLine&&row.firstOfLine?<input className="cy-ordering-cell" aria-label="新增項目品名" placeholder="品名" value={newLine.itemName} onChange={e=>setOrder(d=>({...d,lines:d.lines.map(l=>l.key===newLine.key?{...l,itemName:e.target.value}:l)}))}/>
     :<span className="cy-cn-name-in">{row.firstOfLine&&i.line&&photoOf?photoOf(i.line.id):null}<span className="cy-cn-name-text" title={i.full}>{i.full}</span>{i.added&&row.firstOfLine?<span className="cy-cn-tag">採購新增</span>:null}</span>}</td>
    <td className="is-n cy-cn-mut">{row.firstOfLine?(i.planned===null?"—":qtyText(i.planned)):""}</td>
