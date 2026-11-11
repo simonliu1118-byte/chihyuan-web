@@ -293,7 +293,8 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
 
  const renderEditor=(row:GridLine,field:keyof GridLine,title:string,col:number,index:number)=>{
   const key=row.id+"|"+field,value=editing[key]??getValue(row,field);
-  const multiline=field==="itemName"||field==="vendorItemName"||field==="note";
+  // 自訂中國貨 (user 2026-11-11): 規格、出版社、作者 also wrap when longer than their column.
+  const multiline=field==="itemName"||field==="vendorItemName"||field==="note"||(kind==="CN_CUSTOM"&&(field==="spec"||field==="publisher"||field==="author"));
   const props={
    "data-order-row":row.id,"data-order-field":field,
    className:"cy-ordering-cell"+(multiline?" cy-ordering-multiline":""),
@@ -351,7 +352,7 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
     {fields.flatMap(([field,title],col)=>{
 
      const locked=readOnly||!!lockedFields(row)?.has(field);
-     return [<td key={field} data-label={title} data-col={field} data-locked={!readOnly&&locked||undefined} title={!readOnly&&locked?lockedTitle(row):undefined}>{locked&&field==="note"&&row.closedAs&&!row.note?null:locked?<span className={"cy-ordering-cell-text"+(field==="quantityText"?" cy-ordering-quantity":"")+((field==="itemName"||field==="vendorItemName"||field==="note")?" cy-ordering-wrap":"")} title={kind==="CN_CUSTOM"&&String(row[field as keyof GridLine]??"")||undefined}>{String(row[field as keyof GridLine]??"")}</span> :renderEditor(row,field,title,col,i)}
+     return [<td key={field} data-label={title} data-col={field} data-locked={!readOnly&&locked||undefined} title={!readOnly&&locked?lockedTitle(row):undefined}>{locked&&field==="note"&&row.closedAs&&!row.note?null:locked?<span className={"cy-ordering-cell-text"+(field==="quantityText"?" cy-ordering-quantity":"")+((field==="itemName"||field==="vendorItemName"||field==="note"||(kind==="CN_CUSTOM"&&(field==="spec"||field==="publisher"||field==="author")))?" cy-ordering-wrap":"")}>{String(row[field as keyof GridLine]??"")}</span> :renderEditor(row,field,title,col,i)}
       {field==="note"&&row.closedAs?<small className="cy-ordering-closed-note">{closedText(row)}</small>:null}</td>,...(readOnly&&field==="quantityText"?[<td key="received" data-label="已到數量" data-col="received"><span className="cy-ordering-cell-text cy-ordering-quantity">{row.received??0}</span></td>]:[])];
     })}
     {photoCell?<td className="cy-ordering-photo-cell" data-label="照片" data-col="photo">{row.id>0?photoCell(row):null}</td>:null}

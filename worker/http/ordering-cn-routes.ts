@@ -26,13 +26,13 @@ const md=(d:string|null)=>d?d.slice(5).replace("-","/"):"";
 export async function loadCnPurchase(db:D1Database,orderId:number):Promise<CnPurchase>{
  const [head,pieces,charges,returns]=await Promise.all([
   db.prepare("SELECT p.ordered_at,COALESCE(m.display_name,m.employee_no,'') ordered_by FROM ordering_cn_purchases p LEFT JOIN app_members m ON m.id=p.ordered_by WHERE p.order_id=?").bind(orderId).first<{ordered_at:string|null;ordered_by:string}>(),
-  rowsOf<{id:number;line_id:number;sort_order:number;quantity:number;rmb_price:number|null;charge_id:number|null}>(db,"SELECT * FROM ordering_cn_pieces WHERE order_id=? ORDER BY sort_order,id LIMIT 1001",orderId),
-  rowsOf<{id:number;kind:CnCharge["kind"];sort_order:number;charged_on:string|null;amount:number|null;fee:number|null;note:string}>(db,"SELECT * FROM ordering_cn_charges WHERE order_id=? ORDER BY kind,sort_order,id LIMIT 251",orderId),
+  rowsOf<{id:number;line_id:number;sort_order:number;quantity:number;rmb_price:number|null;charge_id:number|null;note:string}>(db,"SELECT * FROM ordering_cn_pieces WHERE order_id=? ORDER BY sort_order,id LIMIT 1001",orderId),
+  rowsOf<{id:number;kind:CnCharge["kind"];sort_order:number;charged_on:string|null;amount:number|null;fee:number|null;shipping:number|null;note:string}>(db,"SELECT * FROM ordering_cn_charges WHERE order_id=? ORDER BY kind,sort_order,id LIMIT 251",orderId),
   rowsOf<{line_id:number;quantity:number;rmb_amount:number|null;ntd_amount:number|null;fee:number|null;reason:string}>(db,"SELECT * FROM ordering_cn_returns WHERE order_id=? LIMIT 501",orderId),
  ]);
  return {orderedAt:head?.ordered_at??null,orderedBy:head?.ordered_by??"",
-  pieces:pieces.map(p=>({id:p.id,lineId:p.line_id,sortOrder:p.sort_order,quantity:p.quantity,rmbPrice:p.rmb_price,chargeId:p.charge_id})),
-  charges:charges.map(c=>({id:c.id,kind:c.kind,sortOrder:c.sort_order,chargedOn:c.charged_on,amount:c.amount,fee:c.fee,note:c.note})),
+  pieces:pieces.map(p=>({id:p.id,lineId:p.line_id,sortOrder:p.sort_order,quantity:p.quantity,rmbPrice:p.rmb_price,chargeId:p.charge_id,note:p.note??""})),
+  charges:charges.map(c=>({id:c.id,kind:c.kind,sortOrder:c.sort_order,chargedOn:c.charged_on,amount:c.amount,fee:c.fee,shipping:c.shipping??null,note:c.note})),
   returns:returns.map(r=>({lineId:r.line_id,quantity:r.quantity,rmbAmount:r.rmb_amount,ntdAmount:r.ntd_amount,fee:r.fee,reason:r.reason}))};
 }
 
@@ -116,16 +116,16 @@ export async function handleCnPurchase(d:CnDeps,o:Ord,sourceKind:string,action:s
    const key=text(raw.key,"項目代號",40,true);if(lineKey.has(key))throw bad("ORDERING_INVALID","項目代號重複");
    const id=newId();lineKey.set(key,{id,row:null,name});lineEdits.push({id,old:null,name,spec,unit,note});
   }
-  const cardKey=new Map<string,number>(),cardRows:{id:number;old:CnCharge|null;chargedOn:string|null;amount:number|null;fee:number|null;sortOrder:number}[]=[];
+  const cardKey=new Map<string,number>(),cardRows:{id:number;old:CnCharge|null;chargedOn:string|null;amount:number|null;fee:number|null;shipping:number|null;sortOrder:number}[]=[];
   cardInput.forEach((raw,i)=>{
    const old=raw.id?cards.find(c=>c.id===Number(raw.id))??null:null;
    if(raw.id&&!old)throw bad("ORDERING_NOT_FOUND","找不到刷卡紀錄",404);
    const key=old?"C"+old.id:text(raw.key,"刷卡代號",40,true);
    if(cardKey.has(key))throw bad("ORDERING_INVALID","刷卡代號重複");
    const id=old?.id??newId();cardKey.set(key,id);
-   cardRows.push({id,old,chargedOn:day(raw.chargedOn,"刷卡日期"),amount:money(raw.amount,"刷卡台幣",CN_LIMITS.ntd),fee:money(raw.fee,"手續費",CN_LIMITS.ntd),sortOrder:(i+1)*10});
+   cardRows.push({id,old,chargedOn:day(raw.chargedOn,"刷卡日期"),amount:money(raw.amount,"刷卡台幣",CN_LIMITS.ntd),fee:money(raw.fee,"手續費",CN_LIMITS.ntd),shipping:money(raw.shipping,"刷卡運費",CN_LIMITS.ntd),sortOrder:(i+1)*10});
   });
-  const totals=new Map<number,number>(),usedCards=new Set<number>(),pieces:{lineId:number;quantity:number;rmbPrice:number|null;chargeId:number|null;sortOrder:number}[]=[];
+  const totals=new Map<number,number>(),usedCards=new Set<number>(),pieces:{lineId:number;quantity:number;rmbPrice:number|null;chargeId:number|null;sortOrder:number;note:string}[]=[];
   pieceInput.forEach((raw,i)=>{
    const target=lineKey.get(String(raw.lineKey??""));if(!target)throw bad("ORDERING_INVALID","採購明細的項目不正確");
    if(target.row?.cn_discontinued)throw bad("ORDERING_INVALID",target.name+" 已標記絕版／停產，請先恢復");
@@ -133,7 +133,7 @@ export async function handleCnPurchase(d:CnDeps,o:Ord,sourceKind:string,action:s
    const card=raw.cardKey?cardKey.get(String(raw.cardKey)):null;if(raw.cardKey&&!card)throw bad("ORDERING_INVALID","採購明細的刷卡不正確");
    if(card)usedCards.add(card);
    const sortOrder=Number(raw.sortOrder??i);if(!Number.isSafeInteger(sortOrder)||sortOrder<0)throw bad("ORDERING_INVALID","排序不正確");
-   totals.set(target.id,(totals.get(target.id)??0)+q);pieces.push({lineId:target.id,quantity:q,rmbPrice:price,chargeId:card??null,sortOrder});
+   totals.set(target.id,(totals.get(target.id)??0)+q);pieces.push({lineId:target.id,quantity:q,rmbPrice:price,chargeId:card??null,sortOrder,note:text(raw.note,target.name+" 備註",200)});
   });
   const returns=new Map(purchase.returns.map(r=>[r.lineId,r]));
   for(const [,t] of lineKey){
@@ -161,10 +161,10 @@ export async function handleCnPurchase(d:CnDeps,o:Ord,sourceKind:string,action:s
    }
   }
   for(const c of cardRows){
-   if(c.old)stmts.push(db.prepare("UPDATE ordering_cn_charges SET sort_order=?,charged_on=?,amount=?,fee=? WHERE id=? AND order_id=? AND kind='CARD'").bind(c.sortOrder,c.chargedOn,c.amount,c.fee,c.id,o.id));
-   else stmts.push(db.prepare("INSERT INTO ordering_cn_charges(id,order_id,kind,sort_order,charged_on,amount,fee) VALUES(?,?,'CARD',?,?,?,?)").bind(c.id,o.id,c.sortOrder,c.chargedOn,c.amount,c.fee));
+   if(c.old)stmts.push(db.prepare("UPDATE ordering_cn_charges SET sort_order=?,charged_on=?,amount=?,fee=?,shipping=? WHERE id=? AND order_id=? AND kind='CARD'").bind(c.sortOrder,c.chargedOn,c.amount,c.fee,c.shipping,c.id,o.id));
+   else stmts.push(db.prepare("INSERT INTO ordering_cn_charges(id,order_id,kind,sort_order,charged_on,amount,fee,shipping) VALUES(?,?,'CARD',?,?,?,?,?)").bind(c.id,o.id,c.sortOrder,c.chargedOn,c.amount,c.fee,c.shipping));
   }
-  pieces.forEach(p=>stmts.push(db.prepare("INSERT INTO ordering_cn_pieces(id,order_id,line_id,sort_order,quantity,rmb_price,charge_id) VALUES(?,?,?,?,?,?,?)").bind(newId(),o.id,p.lineId,p.sortOrder,p.quantity,p.rmbPrice,p.chargeId)));
+  pieces.forEach(p=>stmts.push(db.prepare("INSERT INTO ordering_cn_pieces(id,order_id,line_id,sort_order,quantity,rmb_price,charge_id,note) VALUES(?,?,?,?,?,?,?,?)").bind(newId(),o.id,p.lineId,p.sortOrder,p.quantity,p.rmbPrice,p.chargeId,p.note)));
   // 採購數量 becomes the line's 數量; the first change keeps the 原定.
   for(const l of lines){
    if(deleted.has(l.id)||l.cn_discontinued)continue;
@@ -178,21 +178,24 @@ export async function handleCnPurchase(d:CnDeps,o:Ord,sourceKind:string,action:s
    if(before.length&&prices(before)!==prices(after))changes.push(label(l)+" 人民幣單價 "+(prices(before)||"空白")+" → "+(prices(after)||"空白"));
    else if(!before.length&&prices(after))changes.push(label(l)+" 人民幣單價 ¥"+prices(after));
    if(before.length&&before.length!==after.length)changes.push(label(l)+" 拆成 "+after.length+" 段");
+   const notes=(ps:{note?:string}[])=>ps.map(p=>p.note??"").filter(Boolean).join("／");
+   if(notes(before)!==notes(after))changes.push(label(l)+" 備註 "+(notes(before)||"空白")+" → "+(notes(after)||"空白"));
   }
   const cardNo=(id:number)=>cardRows.findIndex(c=>c.id===id)+1;
   for(const c of cardRows){
-   if(!c.old){changes.push("新增刷卡 #"+cardNo(c.id)+" "+md(c.chargedOn)+" 台幣 "+ntd(c.amount)+" 手續費 "+ntd(c.fee));continue}
+   if(!c.old){changes.push("新增刷卡 #"+cardNo(c.id)+" "+md(c.chargedOn)+" 台幣 "+ntd(c.amount)+" 手續費 "+ntd(c.fee)+(c.shipping?" 運費 "+ntd(c.shipping):""));continue}
    const diff:string[]=[];
    if(c.old.chargedOn!==c.chargedOn)diff.push("日期 "+md(c.old.chargedOn)+" → "+md(c.chargedOn));
    if(c.old.amount!==c.amount)diff.push("台幣 "+ntd(c.old.amount)+" → "+ntd(c.amount));
    if(c.old.fee!==c.fee)diff.push("手續費 "+ntd(c.old.fee)+" → "+ntd(c.fee));
+   if((c.old.shipping??null)!==c.shipping)diff.push("運費 "+(c.old.shipping==null?"空白":ntd(c.old.shipping))+" → "+(c.shipping==null?"空白":ntd(c.shipping)));
    if(diff.length)changes.push("刷卡 #"+cardNo(c.id)+" "+diff.join("、"));
   }
   const gone=cards.filter(c=>!kept.includes(c.id)).length;if(gone)changes.push("刪除刷卡 "+gone+" 筆");
   const regroup=purchase.pieces.length!==pieces.length||purchase.pieces.some(p=>p.chargeId!==null&&!kept.includes(p.chargeId))||cardRows.some(c=>!c.old)
    ||[...usedCards].some(id=>purchase.pieces.filter(p=>p.chargeId===id).length!==pieces.filter(p=>p.chargeId===id).length);
   if(regroup&&!changes.some(x=>x.includes("刷卡")))changes.push("調整刷卡分組");
-  const sig=(ps:{lineId:number;quantity:number;rmbPrice:number|null;chargeId:number|null;sortOrder:number}[])=>JSON.stringify(ps.map(p=>[p.lineId,p.quantity,p.rmbPrice,p.chargeId,p.sortOrder]).sort());
+  const sig=(ps:{lineId:number;quantity:number;rmbPrice:number|null;chargeId:number|null;sortOrder:number;note?:string}[])=>JSON.stringify(ps.map(p=>[p.lineId,p.quantity,p.rmbPrice,p.chargeId,p.sortOrder,p.note??""]).sort());
   if(!changes.length&&sig(purchase.pieces)===sig(pieces))return {order:await d.getOrder(o.id),purchase};
   return finish("採購："+(changes.join("；")||"調整拆分或順序"),"ordered_items");
  }
@@ -202,11 +205,13 @@ export async function handleCnPurchase(d:CnDeps,o:Ord,sourceKind:string,action:s
   for(const raw of list(v.cards,"刷卡",CN_LIMITS.charges)){
    const old=cards.find(c=>c.id===Number(raw.id));if(!old)throw bad("ORDERING_NOT_FOUND","找不到刷卡紀錄",404);
    const amount=money(raw.amount,"刷卡台幣",CN_LIMITS.ntd),fee=money(raw.fee,"手續費",CN_LIMITS.ntd);
-   if(amount===old.amount&&fee===old.fee)continue;
+   const shipping="shipping" in raw?money(raw.shipping,"刷卡運費",CN_LIMITS.ntd):old.shipping??null;
+   if(amount===old.amount&&fee===old.fee&&shipping===(old.shipping??null))continue;
    const no=cards.findIndex(c=>c.id===old.id)+1,diff:string[]=[];
    if(amount!==old.amount)diff.push("台幣 "+ntd(old.amount)+" → "+ntd(amount));
    if(fee!==old.fee)diff.push("手續費 "+ntd(old.fee)+" → "+ntd(fee));
-   stmts.push(db.prepare("UPDATE ordering_cn_charges SET amount=?,fee=? WHERE id=? AND order_id=? AND kind='CARD'").bind(amount,fee,old.id,o.id));
+   if(shipping!==(old.shipping??null))diff.push("運費 "+(old.shipping==null?"空白":ntd(old.shipping))+" → "+(shipping==null?"空白":ntd(shipping)));
+   stmts.push(db.prepare("UPDATE ordering_cn_charges SET amount=?,fee=?,shipping=? WHERE id=? AND order_id=? AND kind='CARD'").bind(amount,fee,shipping,old.id,o.id));
    changes.push("刷卡 #"+no+" "+diff.join("、"));
   }
   return finish("對帳："+changes.join("；"),"reconciled");

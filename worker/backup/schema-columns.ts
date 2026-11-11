@@ -691,12 +691,14 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "kind",
     "note",
     "order_id",
+    "shipping",
     "sort_order"
   ],
   "ordering_cn_pieces": [
     "charge_id",
     "id",
     "line_id",
+    "note",
     "order_id",
     "quantity",
     "rmb_price",

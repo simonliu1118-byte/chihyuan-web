@@ -20,13 +20,13 @@ import "./cn-purchase.css";
 type Line=OrderingLine&{originalQuantity?:number|null;purchaseAdded?:boolean;cnDiscontinued?:boolean};
 export type CnOrder=OrderingOrder&{storedStatus:"DRAFT"|"SENT"|"VOID";lines:Line[]};
 type Mode="order"|"reconcile"|"shipping"|"tax"|"returns";
-interface DPiece{key:string;lineKey:string;quantity:string;price:string;cardKey:string|null}
-interface DCard{key:string;id?:number;chargedOn:string;amount:string;fee:string}
+interface DPiece{key:string;lineKey:string;quantity:string;price:string;cardKey:string|null;note:string}
+interface DCard{key:string;id?:number;chargedOn:string;amount:string;fee:string;shipping:string}
 interface DLine{key:string;lineId?:number;itemName:string;spec:string;unit:string}
 interface OrderDraft{pieces:DPiece[];cards:DCard[];lines:DLine[];deleted:number[]}
 interface DShipping{chargedOn:string;amount:string;fee:string}
 interface DReturn{lineId:string;quantity:string;rmb:string;ntd:string;fee:string;reason:string}
-interface Drafts{order?:OrderDraft;reconcile?:Record<number,{amount:string;fee:string}>;shipping?:DShipping[];tax?:{chargedOn:string;amount:string}|null;returns?:DReturn[]}
+interface Drafts{order?:OrderDraft;reconcile?:Record<number,{amount:string;fee:string;shipping:string}>;shipping?:DShipping[];tax?:{chargedOn:string;amount:string}|null;returns?:DReturn[]}
 
 const ROOT="/api/business/ordering/orders/";
 const today=()=>new Date(Date.now()+8*3600000).toISOString().slice(0,10);
@@ -34,11 +34,11 @@ const md=(d:string|null|undefined)=>d?d.replaceAll("-","/"):"";
 /** Table dates are MM/DD (the year is in the tooltip) so the four card columns stay narrow. */
 const mdShort=(d:string|null|undefined)=>d?<span title={md(d)}>{d.slice(5).replace("-","/")}</span>:"";
 const numText=(n:number|null|undefined)=>n===null||n===undefined?"":String(n);
-const MODE_LABELS:Record<Mode,string>={order:"訂購",reconcile:"對帳",shipping:"運費",tax:"營業稅",returns:"退貨"};
+const MODE_LABELS:Record<Mode,string>={order:"訂購",reconcile:"對帳",shipping:"回台灣運費",tax:"營業稅",returns:"退貨"};
 const MODE_HINTS:Record<Mode,string>={
- order:"填採購數量與人民幣單價；勾選列後「合為一筆刷卡」，或把列拖到另一筆刷卡上。⋯ 可拆分。",
- reconcile:"對帳單到了再補每筆刷卡的台幣與手續費。",
- shipping:"每筆運費一列（含手續費）。",
+ order:"填採購數量、人民幣單價與備註；勾選列後選擇「移到」哪一筆刷卡，也可以把列拖到另一筆刷卡上。⋯ 可拆分。",
+ reconcile:"對帳單到了再補每筆刷卡的台幣、手續費與該筆刷卡的運費。",
+ shipping:"回台灣的運費，每筆一列（含手續費），依各品項成本攤給全部品項。刷卡時另付的運費請填在該筆刷卡的「運費」欄。",
  tax:"到台灣後填營業稅。",
  returns:"退貨數量、人民幣、台幣刷退、刷退手續費；退的部分扣回成本並整表重算。",
 };
@@ -79,18 +79,20 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
 
  // ---- What the table shows: the saved purchase, or the open step's draft over it. ----
  const view=useMemo(()=>{
-  const info=new Map<number,{seq:number;name:string;spec:string;unit:string;planned:number|null;line:Line|null;added:boolean;discontinued:boolean;key:string}>();
+  const info=new Map<number,{seq:number;name:string;full:string;spec:string;unit:string;planned:number|null;line:Line|null;added:boolean;discontinued:boolean;key:string}>();
   const refs:CnLineRef[]=[];
   const od=mode==="order"?drafts.order:undefined;
   const keyToLine=new Map<string,number>();
   lines.filter(l=>!od?.deleted.includes(l.id)).forEach(l=>{
    const draft=od?.lines.find(x=>x.lineId===l.id);
-   info.set(l.id,{seq:0,name:draft?.itemName??(l.itemName||l.vendorItemName||l.itemCode),spec:l.spec,unit:draft?.unit??l.unit,
+   // 品名／規格 (書籍: 品名／出版社／作者) in one column (user 2026-11-11), as the 叫貨單 wrote them.
+   const full=[draft?.itemName??(l.itemName||l.vendorItemName||l.itemCode),...(l.section==="OTHER"?[l.publisher??"",l.author??""]:[draft?.spec??l.spec])].map(x=>x.trim()).filter(Boolean).join("／");
+   info.set(l.id,{seq:0,name:draft?.itemName??(l.itemName||l.vendorItemName||l.itemCode),full,spec:l.spec,unit:draft?.unit??l.unit,
     planned:l.purchaseAdded?null:l.originalQuantity??l.quantity,line:l,added:!!l.purchaseAdded,discontinued:!!l.cnDiscontinued,key:"L"+l.id});
    keyToLine.set("L"+l.id,l.id);refs.push({id:l.id,discontinued:!!l.cnDiscontinued});
   });
   od?.lines.filter(x=>!x.lineId).forEach((x,i)=>{const id=NEW_LINE-i;
-   info.set(id,{seq:0,name:x.itemName||"（新項目）",spec:x.spec,unit:x.unit,planned:null,line:null,added:true,discontinued:false,key:x.key});
+   info.set(id,{seq:0,name:x.itemName||"（新項目）",full:[x.itemName,x.spec].filter(Boolean).join("／")||"（新項目）",spec:x.spec,unit:x.unit,planned:null,line:null,added:true,discontinued:false,key:x.key});
    keyToLine.set(x.key,id);refs.push({id,discontinued:false});
   });
   refs.forEach((r,i)=>info.get(r.id)!.seq=i+1);
@@ -99,14 +101,14 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   if(od){
    const cardId=new Map<string,number>();
    od.cards.forEach((c,i)=>{const id=c.id??NEW_CARD-i;cardId.set(c.key,id);cardKeyOf.set(id,c.key)});
-   charges=[...od.cards.filter(c=>od.pieces.some(p=>p.cardKey===c.key)).map((c,i)=>({id:cardId.get(c.key)!,kind:"CARD" as const,sortOrder:i,chargedOn:c.chargedOn||null,amount:num(parseNtd(c.amount)),fee:num(parseNtd(c.fee)),note:""})),
+   charges=[...od.cards.filter(c=>od.pieces.some(p=>p.cardKey===c.key)).map((c,i)=>({id:cardId.get(c.key)!,kind:"CARD" as const,sortOrder:i,chargedOn:c.chargedOn||null,amount:num(parseNtd(c.amount)),fee:num(parseNtd(c.fee)),shipping:num(parseNtd(c.shipping)),note:""})),
     ...(purchase?.charges??[]).filter(c=>c.kind!=="CARD")];
    pieces=od.pieces.map((p,i)=>{const id=DRAFT_PIECE+i;pieceKey.set(id,p.key);
-    return {id,lineId:keyToLine.get(p.lineKey)??0,sortOrder:i,quantity:Number(p.quantity)||0,rmbPrice:num(parseRmbFen(p.price)),chargeId:p.cardKey?cardId.get(p.cardKey)??null:null}});
+    return {id,lineId:keyToLine.get(p.lineKey)??0,sortOrder:i,quantity:Number(p.quantity)||0,rmbPrice:num(parseRmbFen(p.price)),chargeId:p.cardKey?cardId.get(p.cardKey)??null:null,note:p.note}});
   }else{
    pieces=[...(purchase?.pieces??[])];
    for(const l of lines)if(!l.cnDiscontinued&&!pieces.some(p=>p.lineId===l.id))pieces.push({id:VIRTUAL+l.id,lineId:l.id,sortOrder:0,quantity:l.quantity??0,rmbPrice:null,chargeId:null});
-   if(mode==="reconcile"&&drafts.reconcile)charges=charges.map(c=>{const d=drafts.reconcile![c.id];return d?{...c,amount:num(parseNtd(d.amount)),fee:num(parseNtd(d.fee))}:c});
+   if(mode==="reconcile"&&drafts.reconcile)charges=charges.map(c=>{const d=drafts.reconcile![c.id];return d?{...c,amount:num(parseNtd(d.amount)),fee:num(parseNtd(d.fee)),shipping:num(parseNtd(d.shipping))}:c});
    if(mode==="shipping"&&drafts.shipping)charges=[...charges.filter(c=>c.kind!=="SHIPPING"),...drafts.shipping.map((s,i)=>({id:-(i+1),kind:"SHIPPING" as const,sortOrder:i,chargedOn:s.chargedOn||null,amount:num(parseNtd(s.amount)),fee:num(parseNtd(s.fee)),note:""}))];
    if(mode==="tax"&&drafts.tax!==undefined)charges=[...charges.filter(c=>c.kind!=="TAX"),...(drafts.tax?[{id:-99,kind:"TAX" as const,sortOrder:0,chargedOn:drafts.tax.chargedOn||null,amount:num(parseNtd(drafts.tax.amount)),fee:null,note:""}]:[])];
    if(mode==="returns"&&drafts.returns)returns=drafts.returns.filter(r=>Number(r.lineId)&&Number(r.quantity)>0).map(r=>({lineId:Number(r.lineId),quantity:Number(r.quantity),rmbAmount:num(parseRmbFen(r.rmb)),ntdAmount:num(parseNtd(r.ntd)),fee:num(parseNtd(r.fee)),reason:r.reason}));
@@ -123,12 +125,12 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   if(next==="order"){
    const cards=purchase.charges.filter(c=>c.kind==="CARD");
    const pieces:DPiece[]=purchase.pieces.filter(p=>lines.some(l=>l.id===p.lineId&&!l.cnDiscontinued))
-    .map((p,i)=>({key:"P"+i,lineKey:"L"+p.lineId,quantity:qtyText(p.quantity),price:fenText(p.rmbPrice),cardKey:p.chargeId?"C"+p.chargeId:null}));
-   for(const l of lines)if(!l.cnDiscontinued&&!pieces.some(p=>p.lineKey==="L"+l.id))pieces.push({key:"V"+l.id,lineKey:"L"+l.id,quantity:l.quantity===null?"":qtyText(l.quantity),price:"",cardKey:null});
-   d.order={pieces,cards:cards.map(c=>({key:"C"+c.id,id:c.id,chargedOn:c.chargedOn??"",amount:numText(c.amount),fee:numText(c.fee)})),
+    .map((p,i)=>({key:"P"+i,lineKey:"L"+p.lineId,quantity:qtyText(p.quantity),price:fenText(p.rmbPrice),cardKey:p.chargeId?"C"+p.chargeId:null,note:p.note??""}));
+   for(const l of lines)if(!l.cnDiscontinued&&!pieces.some(p=>p.lineKey==="L"+l.id))pieces.push({key:"V"+l.id,lineKey:"L"+l.id,quantity:l.quantity===null?"":qtyText(l.quantity),price:"",cardKey:null,note:""});
+   d.order={pieces,cards:cards.map(c=>({key:"C"+c.id,id:c.id,chargedOn:c.chargedOn??"",amount:numText(c.amount),fee:numText(c.fee),shipping:numText(c.shipping)})),
     lines:lines.filter(l=>l.purchaseAdded).map(l=>({key:"L"+l.id,lineId:l.id,itemName:l.itemName,spec:l.spec,unit:l.unit})),deleted:[]};
   }
-  if(next==="reconcile")d.reconcile=Object.fromEntries(purchase.charges.filter(c=>c.kind==="CARD").map(c=>[c.id,{amount:numText(c.amount),fee:numText(c.fee)}]));
+  if(next==="reconcile")d.reconcile=Object.fromEntries(purchase.charges.filter(c=>c.kind==="CARD").map(c=>[c.id,{amount:numText(c.amount),fee:numText(c.fee),shipping:numText(c.shipping)}]));
   if(next==="shipping"){const s=purchase.charges.filter(c=>c.kind==="SHIPPING").map(c=>({chargedOn:c.chargedOn??"",amount:numText(c.amount),fee:numText(c.fee)}));d.shipping=s.length?s:[{chargedOn:today(),amount:"",fee:""}]}
   if(next==="tax"){const t=purchase.charges.find(c=>c.kind==="TAX");d.tax={chargedOn:t?.chargedOn??today(),amount:numText(t?.amount)}}
   if(next==="returns"){const r=purchase.returns.map(x=>({lineId:String(x.lineId),quantity:qtyText(x.quantity),rmb:fenText(x.rmbAmount),ntd:numText(x.ntdAmount),fee:numText(x.fee),reason:x.reason}));
@@ -155,19 +157,19 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    for(const p of d.pieces){const name=view.info.get(view.pieces[d.pieces.indexOf(p)].lineId)?.name??"";
     if(!(Number(p.quantity)>0))return bad(name+"：採購數量要大於 0");
     if(Number.isNaN(parseRmbFen(p.price)))return bad(name+"：人民幣單價格式不正確");}
-   for(const c of d.cards){if(Number.isNaN(parseNtd(c.amount))||Number.isNaN(parseNtd(c.fee)))return bad("刷卡金額請填整數");if(!c.chargedOn)return bad("刷卡日期必填")}
+   for(const c of d.cards){if(Number.isNaN(parseNtd(c.amount))||Number.isNaN(parseNtd(c.fee))||Number.isNaN(parseNtd(c.shipping)))return bad("刷卡金額請填整數");if(!c.chargedOn)return bad("刷卡日期必填")}
    for(const l of d.lines)if(!l.itemName.trim())return bad("新增項目的品名必填");
    const used=new Set(d.pieces.map(p=>p.cardKey).filter(Boolean));
    await send("/order","PUT",{
     lines:d.lines.map(l=>l.lineId?{lineId:l.lineId,itemName:l.itemName,spec:l.spec,unit:l.unit}:{key:l.key,itemName:l.itemName,spec:l.spec,unit:l.unit}),
     deletedLines:d.deleted,
-    cards:d.cards.filter(c=>used.has(c.key)).map(c=>({...(c.id?{id:c.id}:{key:c.key}),chargedOn:c.chargedOn,amount:parseNtd(c.amount),fee:parseNtd(c.fee)})),
-    pieces:d.pieces.map((p,i)=>({lineKey:p.lineKey,quantity:Number(p.quantity),rmbPrice:parseRmbFen(p.price),cardKey:p.cardKey&&used.has(p.cardKey)?p.cardKey:null,sortOrder:i})),
+    cards:d.cards.filter(c=>used.has(c.key)).map(c=>({...(c.id?{id:c.id}:{key:c.key}),chargedOn:c.chargedOn,amount:parseNtd(c.amount),fee:parseNtd(c.fee),shipping:parseNtd(c.shipping)})),
+    pieces:d.pieces.map((p,i)=>({lineKey:p.lineKey,quantity:Number(p.quantity),rmbPrice:parseRmbFen(p.price),cardKey:p.cardKey&&used.has(p.cardKey)?p.cardKey:null,sortOrder:i,note:p.note.trim()})),
    },"訂購已儲存");return;
   }
   if(mode==="reconcile"){
-   const cards=Object.entries(drafts.reconcile!).map(([id,v])=>({id:Number(id),amount:parseNtd(v.amount),fee:parseNtd(v.fee)}));
-   if(cards.some(c=>Number.isNaN(c.amount)||Number.isNaN(c.fee)))return bad("台幣與手續費請填整數");
+   const cards=Object.entries(drafts.reconcile!).map(([id,v])=>({id:Number(id),amount:parseNtd(v.amount),fee:parseNtd(v.fee),shipping:parseNtd(v.shipping)}));
+   if(cards.some(c=>Number.isNaN(c.amount)||Number.isNaN(c.fee)||Number.isNaN(c.shipping)))return bad("台幣與手續費請填整數");
    await send("/reconcile","PUT",{cards},"對帳已儲存");return;
   }
   if(mode==="shipping"){
@@ -209,7 +211,7 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   if(!selectedRows.size)return;
   setOrder(d=>{
    let cards=d.cards,target=cardKey;
-   if(target==="new"){target=fresh("N");cards=[...cards,{key:target,chargedOn:today(),amount:"",fee:""}]}
+   if(target==="new"){target=fresh("N");cards=[...cards,{key:target,chargedOn:today(),amount:"",fee:"",shipping:""}]}
    const chosen=d.pieces.filter(p=>selectedRows.has(p.key)),rest=d.pieces.filter(p=>!selectedRows.has(p.key));
    return {...d,cards,pieces:[...rest,...chosen.map(p=>({...p,cardKey:target}))]};
   });
@@ -227,11 +229,11 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
  function splitPiece(key:string){
   setOrder(d=>{const i=d.pieces.findIndex(x=>x.key===key);if(i<0)return d;const p=d.pieces[i],total=Number(p.quantity)||0;
    const half=total>=2?Math.floor(total/2):total/2;const next=[...d.pieces];
-   next.splice(i,1,{...p,quantity:qtyText(total-half)},{...p,key:fresh("S"),quantity:qtyText(half),cardKey:null});return {...d,pieces:next}});
+   next.splice(i,1,{...p,quantity:qtyText(total-half)},{...p,key:fresh("S"),quantity:qtyText(half),cardKey:null,note:""});return {...d,pieces:next}});
  }
  function addLine(){
   const key=fresh("N");
-  setOrder(d=>({...d,lines:[...d.lines,{key,itemName:"",spec:"",unit:""}],pieces:[...d.pieces,{key:fresh("P"),lineKey:key,quantity:"1",price:"",cardKey:null}]}));
+  setOrder(d=>({...d,lines:[...d.lines,{key,itemName:"",spec:"",unit:""}],pieces:[...d.pieces,{key:fresh("P"),lineKey:key,quantity:"1",price:"",cardKey:null,note:""}]}));
  }
  function removeLine(lineKey:string){
   setOrder(d=>{const line=d.lines.find(l=>l.key===lineKey);
@@ -254,8 +256,9 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   const dp=key?od!.pieces.find(p=>p.key===key):undefined;
   const ret=view.returns.find(x=>x.lineId===row.piece.lineId);
   const purchased=view.pieces.filter(p=>p.lineId===row.piece.lineId).reduce((s,p)=>s+p.quantity,0);
-  const note=row.discontinued?(i.line?.closedNote||"絕版／停產"):!row.firstOfLine?"拆分自項次 "+i.seq
+  const derived=row.discontinued?(i.line?.closedNote||"絕版／停產"):!row.firstOfLine?"拆分自項次 "+i.seq
    :[i.planned!==null&&purchased!==i.planned?(purchased>i.planned?"多訂 ":"少訂 ")+qtyText(Math.abs(purchased-i.planned)):"",i.line?.note??""].filter(Boolean).join("；");
+  const note=[row.piece.note??"",derived].filter(Boolean).join("；");
   const card=row.card,cardKey=card?view.cardKeyOf.get(card.id):undefined,dc=cardKey?od?.cards.find(c=>c.key===cardKey):undefined;
   const rc=card&&mode==="reconcile"?drafts.reconcile?.[card.id]:undefined;
   const menu:OverflowItem[]=[];
@@ -270,7 +273,7 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    onDragOver:(e:DragEvent)=>{if(dragging.current){e.preventDefault();e.dataTransfer.dropEffect="move"}},onDrop:(e:DragEvent)=>{e.preventDefault();dropOn(dp.key)}}:{};
   const newLine=od?.lines.find(l=>l.key===dp?.lineKey&&!l.lineId);
   let group:ReactNode=null;
-  if(row.discontinued)group=<td className="cy-cn-grp is-none" colSpan={4}>—</td>;
+  if(row.discontinued)group=<td className="cy-cn-grp is-none" colSpan={5}>—</td>;
   else if(row.cardSpan&&card)group=<>
    <td className="cy-cn-grp is-no" rowSpan={row.cardSpan}>#{row.cardNo}</td>
    <td className="cy-cn-grp" rowSpan={row.cardSpan}>{dc?<DateInput className="cy-ordering-cell" aria-label={"刷卡 #"+row.cardNo+" 日期"} value={dc.chargedOn} onChange={v=>patchCard(dc.key,{chargedOn:v})}/>:mdShort(card.chargedOn)}</td>
@@ -278,14 +281,17 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
     :rc?<input className="cy-ordering-cell is-n" inputMode="numeric" aria-label={"刷卡 #"+row.cardNo+" 台幣"} value={rc.amount} onChange={e=>setDrafts(p=>({...p,reconcile:{...p.reconcile!,[card.id]:{...rc,amount:e.target.value}}}))}/>
     :card.amount===null?<span className="cy-cn-todo">待補</span>:ntdText(card.amount)}</td>
    <td className={"cy-cn-grp is-n"+(card.fee===null&&!rc?" cy-cn-todo":"")} rowSpan={row.cardSpan}>{rc?<input className="cy-ordering-cell is-n" inputMode="numeric" aria-label={"刷卡 #"+row.cardNo+" 手續費"} value={rc.fee} onChange={e=>setDrafts(p=>({...p,reconcile:{...p.reconcile!,[card.id]:{...rc,fee:e.target.value}}}))}/>
-    :card.fee===null?"待補":ntdText(card.fee)}</td></>;
-  else if(row.unchargedSpan)group=<td className="cy-cn-grp is-none" colSpan={4} rowSpan={row.unchargedSpan}>未刷卡</td>;
+    :card.fee===null?"待補":ntdText(card.fee)}</td>
+   <td className="cy-cn-grp is-n" rowSpan={row.cardSpan} title="這筆刷卡專屬的運費，只攤給這筆刷卡的品項">{dc?<input className="cy-ordering-cell is-n" inputMode="numeric" aria-label={"刷卡 #"+row.cardNo+" 運費"} value={dc.shipping} onChange={e=>patchCard(dc.key,{shipping:e.target.value})}/>
+    :rc?<input className="cy-ordering-cell is-n" inputMode="numeric" aria-label={"刷卡 #"+row.cardNo+" 運費"} value={rc.shipping} onChange={e=>setDrafts(p=>({...p,reconcile:{...p.reconcile!,[card.id]:{...rc,shipping:e.target.value}}}))}/>
+    :card.shipping?ntdText(card.shipping):<span className="cy-cn-mut">—</span>}</td></>;
+  else if(row.unchargedSpan)group=<td className="cy-cn-grp is-none" colSpan={5} rowSpan={row.unchargedSpan}>未刷卡</td>;
   const checked=!!dp&&selectedRows.has(dp.key);
   return <tr key={row.piece.id} className={(row.discontinued?"cy-row-struck ":"")+(row.cardNo%2===1?"is-band":"")+(checked?" is-picked":"")} {...dragProps}>
    <td className="is-c cy-cn-seq">{editing&&dp?<label className="cy-cn-pick"><input type="checkbox" checked={checked} aria-label={"選取 "+i.name}
     onChange={e=>setSelectedRows(prev=>{const n=new Set(prev);if(e.target.checked)n.add(dp.key);else n.delete(dp.key);return n})}/><span>{i.seq}</span></label>:i.seq}</td>
    <td className="cy-cn-name">{newLine&&row.firstOfLine?<input className="cy-ordering-cell" aria-label="新增項目品名" placeholder="品名" value={newLine.itemName} onChange={e=>setOrder(d=>({...d,lines:d.lines.map(l=>l.key===newLine.key?{...l,itemName:e.target.value}:l)}))}/>
-    :<span className="cy-cn-name-in">{row.firstOfLine&&i.line&&photoOf?photoOf(i.line.id):null}<span className="cy-cn-name-text">{i.name}</span>{i.added&&row.firstOfLine?<span className="cy-cn-tag">採購新增</span>:null}</span>}</td>
+    :<span className="cy-cn-name-in">{row.firstOfLine&&i.line&&photoOf?photoOf(i.line.id):null}<span className="cy-cn-name-text" title={i.full}>{i.full}</span>{i.added&&row.firstOfLine?<span className="cy-cn-tag">採購新增</span>:null}</span>}</td>
    <td className="is-n cy-cn-mut">{row.firstOfLine?(i.planned===null?"—":qtyText(i.planned)):""}</td>
    <td className="is-n">{editing&&dp?<input className="cy-ordering-cell is-n" inputMode="decimal" aria-label={i.name+" 採購數量"} value={dp.quantity} onChange={e=>patchPiece(dp.key,{quantity:e.target.value})}/>:qtyText(row.piece.quantity)}{i.unit&&!editing?<small className="cy-cn-unit">{i.unit}</small>:null}</td>
    <td className="is-n">{editing&&dp?<input className="cy-ordering-cell is-n" inputMode="decimal" aria-label={i.name+" 人民幣單價"} value={dp.price} onChange={e=>patchPiece(dp.key,{price:e.target.value})}/>:rmbText(row.piece.rmbPrice)}</td>
@@ -296,25 +302,25 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    <td className="is-n">{row.firstOfLine&&ret?<span>{qtyText(ret.quantity)}・{ret.ntdAmount===null?"—":ntdText(ret.ntdAmount)}</span>:<span className="cy-cn-mut">—</span>}</td>
    <td className="is-n"><b>{unit(r?.landedUnit??null,1)}</b></td>
    <td className="is-n cy-cn-mut">{unit(r?.totalRate??null,2)}</td>
-   <td className="cy-cn-note" title={note||undefined}>{note}</td>
+   <td className="cy-cn-note" title={note||undefined}>{editing&&dp?<input className="cy-ordering-cell" maxLength={200} aria-label={i.name+" 備註"} placeholder={derived||undefined} value={dp.note} onChange={e=>patchPiece(dp.key,{note:e.target.value})}/>:note}</td>
    <td className="is-c cy-cn-act">{menu.length?<OverflowMenu label={"更多操作："+i.name} items={menu}/>:null}</td>
   </tr>;
  });
 
  // ---- Footer: 刷卡小計, 運費, 營業稅, 退貨刷退, 總計 ----
  const shippingRows=mode==="shipping"?drafts.shipping!.map((s,k)=><tr key={"s"+k} className="cy-cn-sub is-edit">
-   <td colSpan={6} className="cy-cn-lab is-r">{k===0?"運費":""}</td><td/>
+   <td colSpan={6} className="cy-cn-lab is-r">{k===0?"回台灣運費":""}</td><td/>
    <td><DateInput className="cy-ordering-cell" aria-label={"運費 "+(k+1)+" 日期"} value={s.chargedOn} onChange={v=>setDrafts(p=>({...p,shipping:p.shipping!.map((x,j)=>j===k?{...x,chargedOn:v}:x)}))}/></td>
    <td className="is-n"><input className="cy-ordering-cell is-n" inputMode="numeric" aria-label={"運費 "+(k+1)+" 金額"} value={s.amount} onChange={e=>setDrafts(p=>({...p,shipping:p.shipping!.map((x,j)=>j===k?{...x,amount:e.target.value}:x)}))}/></td>
    <td className="is-n"><input className="cy-ordering-cell is-n" inputMode="numeric" aria-label={"運費 "+(k+1)+" 手續費"} value={s.fee} onChange={e=>setDrafts(p=>({...p,shipping:p.shipping!.map((x,j)=>j===k?{...x,fee:e.target.value}:x)}))}/></td>
-   <td colSpan={6} className="is-n">{ntdText((num(parseNtd(s.amount))??0)+(num(parseNtd(s.fee))??0))}</td>
+   <td colSpan={7} className="is-n">{ntdText((num(parseNtd(s.amount))??0)+(num(parseNtd(s.fee))??0))}</td>
    <td className="is-c cy-cn-act"><IconButton icon={Icons.remove} label={"刪除運費 "+(k+1)} variant="table" tone="danger" onClick={()=>setDrafts(p=>({...p,shipping:p.shipping!.filter((_,j)=>j!==k)}))}/></td></tr>)
   :view.charges.filter(c=>c.kind==="SHIPPING").map((c,k)=><tr key={"s"+c.id} className="cy-cn-sub">
-   <td colSpan={6} className="cy-cn-lab is-r">{k===0?"運費":""}</td><td/><td>{mdShort(c.chargedOn)}</td>
-   <td className="is-n">{ntdText(c.amount)}</td><td className="is-n">{c.fee===null?"":ntdText(c.fee)}</td><td colSpan={7} className="is-n">{ntdText((c.amount??0)+(c.fee??0))}</td></tr>);
+   <td colSpan={6} className="cy-cn-lab is-r">{k===0?"回台灣運費":""}</td><td/><td>{mdShort(c.chargedOn)}</td>
+   <td className="is-n">{ntdText(c.amount)}</td><td className="is-n">{c.fee===null?"":ntdText(c.fee)}</td><td colSpan={8} className="is-n">{ntdText((c.amount??0)+(c.fee??0))}</td></tr>);
  const tax=view.charges.find(c=>c.kind==="TAX");
  const returnRows=mode==="returns"?[<tr key="rh" className="cy-cn-sub cy-cn-subhead"><td colSpan={6} className="cy-cn-lab is-r">退貨品項</td><td colSpan={2} className="is-n">數量</td>
-   <td className="is-n">人民幣</td><td className="is-n">台幣刷退</td><td className="is-n">刷退手續費</td><td colSpan={5}>原因</td><td/></tr>,
+   <td className="is-n">人民幣</td><td className="is-n">台幣刷退</td><td className="is-n">刷退手續費</td><td colSpan={6}>原因</td><td/></tr>,
   ...drafts.returns!.map((r,k)=>{
    const set=(patch:Partial<DReturn>)=>setDrafts(p=>({...p,returns:p.returns!.map((x,j)=>j===k?{...x,...patch}:x)}));
    return <tr key={"r"+k} className="cy-cn-sub is-edit">
@@ -324,25 +330,25 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
     <td><input className="cy-ordering-cell is-n" inputMode="decimal" aria-label={"退貨 "+(k+1)+" 人民幣"} value={r.rmb} onChange={e=>set({rmb:e.target.value})}/></td>
     <td><input className="cy-ordering-cell is-n" inputMode="numeric" aria-label={"退貨 "+(k+1)+" 台幣刷退"} value={r.ntd} onChange={e=>set({ntd:e.target.value})}/></td>
     <td><input className="cy-ordering-cell is-n" inputMode="numeric" aria-label={"退貨 "+(k+1)+" 刷退手續費"} value={r.fee} onChange={e=>set({fee:e.target.value})}/></td>
-    <td colSpan={5}><input className="cy-ordering-cell" maxLength={200} aria-label={"退貨 "+(k+1)+" 原因"} value={r.reason} onChange={e=>set({reason:e.target.value})}/></td>
+    <td colSpan={6}><input className="cy-ordering-cell" maxLength={200} aria-label={"退貨 "+(k+1)+" 原因"} value={r.reason} onChange={e=>set({reason:e.target.value})}/></td>
     <td className="is-c cy-cn-act"><IconButton icon={Icons.remove} label={"刪除退貨 "+(k+1)} variant="table" tone="danger" onClick={()=>setDrafts(p=>({...p,returns:p.returns!.filter((_,j)=>j!==k)}))}/></td></tr>})]
   :view.returns.map((r,k)=>{const name=info.get(r.lineId)?.name??"";return <tr key={"r"+r.lineId} className="cy-cn-sub">
    <td colSpan={6} className="cy-cn-lab is-r">{k===0?"退貨刷退":""}</td>
-   <td colSpan={4} className="cy-cn-mut">{name} {qtyText(r.quantity)} {info.get(r.lineId)?.unit||"個"}{r.rmbAmount!==null?"，"+rmbText(r.rmbAmount):""}{r.reason?"（"+r.reason+"）":""}</td>
+   <td colSpan={5} className="cy-cn-mut">{name} {qtyText(r.quantity)} {info.get(r.lineId)?.unit||"個"}{r.rmbAmount!==null?"，"+rmbText(r.rmbAmount):""}{r.reason?"（"+r.reason+"）":""}</td>
    <td colSpan={7} className="is-n">−{ntdText(r.ntdAmount??0)}{r.fee?<small className="cy-cn-mut">（手續費 ＋{ntdText(r.fee)}）</small>:null}</td></tr>});
  const footer=<tfoot>
   <tr className="cy-cn-sub"><td colSpan={5}/><td className="is-n">{rmbText(t.rmb)}</td><td colSpan={2} className="cy-cn-lab">刷卡小計</td>
-   <td className="is-n">{ntdText(t.cardAmount)}</td><td className="is-n">{ntdText(t.cardFee)}</td><td colSpan={7} className="is-n">NT$ {ntdText(t.cardAmount+t.cardFee)}</td></tr>
+   <td className="is-n">{ntdText(t.cardAmount)}</td><td className="is-n">{ntdText(t.cardFee)}</td><td className="is-n">{t.cardShipping?ntdText(t.cardShipping):""}</td><td colSpan={7} className="is-n">NT$ {ntdText(t.cardAmount+t.cardFee+t.cardShipping)}</td></tr>
   {shippingRows}
-  {mode==="shipping"?<tr className="cy-cn-sub"><td colSpan={17}><button type="button" className="cy-op-button mini soft" onClick={()=>setDrafts(p=>({...p,shipping:[...p.shipping!,{chargedOn:today(),amount:"",fee:""}]}))}>＋ 新增運費</button></td></tr>:null}
+  {mode==="shipping"?<tr className="cy-cn-sub"><td colSpan={18}><button type="button" className="cy-op-button mini soft" onClick={()=>setDrafts(p=>({...p,shipping:[...p.shipping!,{chargedOn:today(),amount:"",fee:""}]}))}>＋ 新增運費</button></td></tr>:null}
   {mode==="tax"?<tr className="cy-cn-sub is-edit"><td colSpan={6} className="cy-cn-lab is-r">營業稅</td><td/>
    <td><DateInput className="cy-ordering-cell" aria-label="營業稅日期" value={drafts.tax?.chargedOn??""} onChange={v=>setDrafts(p=>({...p,tax:{chargedOn:v,amount:p.tax?.amount??""}}))}/></td>
    <td className="is-n"><input className="cy-ordering-cell is-n" inputMode="numeric" aria-label="營業稅金額" value={drafts.tax?.amount??""} onChange={e=>setDrafts(p=>({...p,tax:{chargedOn:p.tax?.chargedOn??today(),amount:e.target.value}}))}/></td>
-   <td/><td colSpan={7} className="cy-cn-mut">清空金額後儲存＝刪除營業稅</td></tr>
-   :tax?<tr className="cy-cn-sub"><td colSpan={6} className="cy-cn-lab is-r">營業稅</td><td/><td>{mdShort(tax.chargedOn)}</td><td className="is-n">{ntdText(tax.amount)}</td><td/><td colSpan={7} className="is-n">{ntdText(tax.amount)}</td></tr>:null}
+   <td/><td colSpan={8} className="cy-cn-mut">清空金額後儲存＝刪除營業稅</td></tr>
+   :tax?<tr className="cy-cn-sub"><td colSpan={6} className="cy-cn-lab is-r">營業稅</td><td/><td>{mdShort(tax.chargedOn)}</td><td className="is-n">{ntdText(tax.amount)}</td><td/><td colSpan={8} className="is-n">{ntdText(tax.amount)}</td></tr>:null}
   {returnRows}
-  {mode==="returns"?<tr className="cy-cn-sub"><td colSpan={17}><button type="button" className="cy-op-button mini soft" onClick={()=>setDrafts(p=>({...p,returns:[...p.returns!,{lineId:"",quantity:"",rmb:"",ntd:"",fee:"",reason:""}]}))}>＋ 新增退貨</button></td></tr>:null}
-  <tr className="cy-cn-grand"><td colSpan={6} className="is-r">含稅含運總計</td><td colSpan={4} className="cy-cn-mut">{t.grand===null&&t.missingCardAmount?"刷卡台幣待補 "+t.missingCardAmount+" 筆":t.unchargedPieces?"未含未刷卡 "+t.unchargedPieces+" 項":""}</td>
+  {mode==="returns"?<tr className="cy-cn-sub"><td colSpan={18}><button type="button" className="cy-op-button mini soft" onClick={()=>setDrafts(p=>({...p,returns:[...p.returns!,{lineId:"",quantity:"",rmb:"",ntd:"",fee:"",reason:""}]}))}>＋ 新增退貨</button></td></tr>:null}
+  <tr className="cy-cn-grand"><td colSpan={6} className="is-r">含稅含運總計</td><td colSpan={5} className="cy-cn-mut">{t.grand===null&&t.missingCardAmount?"刷卡台幣待補 "+t.missingCardAmount+" 筆":t.unchargedPieces?"未含未刷卡 "+t.unchargedPieces+" 項":""}</td>
    <td colSpan={7} className="is-n">{t.grand===null?"—":"NT$ "+ntdText(t.grand)}</td></tr>
  </tfoot>;
 
@@ -351,14 +357,15 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
  const sums=byItem?summarizeCnLines(view.refs,view.pieces,calc.pieces):null;
  const itemRows=sums?view.refs.map(ref=>{
   const i=info.get(ref.id)!,x=sums.get(ref.id)!,ret=view.returns.find(r=>r.lineId===ref.id);
-  const note=i.discontinued?(i.line?.closedNote||"絕版／停產"):[i.planned!==null&&x.quantity!==i.planned?(x.quantity>i.planned?"多訂 ":"少訂 ")+qtyText(Math.abs(x.quantity-i.planned)):"",
+  const pieceNotes=view.pieces.filter(p=>p.lineId===ref.id).map(p=>p.note??"").filter(Boolean).join("；");
+  const note=i.discontinued?(i.line?.closedNote||"絕版／停產"):[pieceNotes,i.planned!==null&&x.quantity!==i.planned?(x.quantity>i.planned?"多訂 ":"少訂 ")+qtyText(Math.abs(x.quantity-i.planned)):"",
    (()=>{const n=view.pieces.filter(p=>p.lineId===ref.id).length;return n>1?"分 "+n+" 筆刷卡":""})(),i.line?.note??""].filter(Boolean).join("；");
   const menu:OverflowItem[]=[];
   if(!closed&&i.line){if(i.discontinued)menu.push({label:"恢復採購",onClick:()=>void restore(i.line!.id,i.name)});
    else if(!i.line.closedAs)for(const reason of ["絕版","停產"])menu.push({label:"標記"+reason,onClick:()=>void markDiscontinued(i.line!.id,i.name,reason),danger:true});}
   return <tr key={ref.id} className={i.discontinued?"cy-row-struck":""}>
    <td className="is-c">{i.seq}</td>
-   <td className="cy-cn-name"><span className="cy-cn-name-in">{i.line&&photoOf?photoOf(i.line.id):null}<span className="cy-cn-name-text">{i.name}</span>{i.added?<span className="cy-cn-tag">採購新增</span>:null}</span></td>
+   <td className="cy-cn-name"><span className="cy-cn-name-in">{i.line&&photoOf?photoOf(i.line.id):null}<span className="cy-cn-name-text" title={i.full}>{i.full}</span>{i.added?<span className="cy-cn-tag">採購新增</span>:null}</span></td>
    <td className="is-n cy-cn-mut">{i.planned===null?"—":qtyText(i.planned)}</td>
    <td className="is-n">{qtyText(i.discontinued?0:x.quantity)}{i.unit?<small className="cy-cn-unit">{i.unit}</small>:null}</td>
    <td className="is-n" title={x.rmbUnit!==null?"人民幣小計 ÷ 採購數量":undefined}>{x.rmbUnit===null?<span className="cy-cn-mut">—</span>:"¥"+ntdText(x.rmbUnit/100,2)}</td>
@@ -378,8 +385,9 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
  const itemFooter=<tfoot>
   <tr className="cy-cn-sub"><td colSpan={5} className="cy-cn-lab is-r">刷卡（含手續費）</td><td className="is-n">{rmbText(t.rmb)}</td><td className="is-n">{ntdText(t.cardAmount+t.cardFee)}</td>
    <td colSpan={8} className="cy-cn-mut">{cardsShown.length} 筆刷卡{t.missingFee?" · 手續費待補 "+t.missingFee+" 筆":""}</td></tr>
-  {shippingTotal?<tr className="cy-cn-sub"><td colSpan={6} className="cy-cn-lab is-r">運費</td><td className="is-n">{ntdText(shippingTotal)}</td><td colSpan={8} className="cy-cn-mut">{view.charges.filter(c=>c.kind==="SHIPPING").length} 筆，依各品項台幣淨額分攤</td></tr>:null}
-  {tax?<tr className="cy-cn-sub"><td colSpan={6} className="cy-cn-lab is-r">營業稅</td><td className="is-n">{ntdText(tax.amount)}</td><td colSpan={8} className="cy-cn-mut">依各品項台幣淨額分攤</td></tr>:null}
+  {t.cardShipping?<tr className="cy-cn-sub"><td colSpan={6} className="cy-cn-lab is-r">刷卡運費</td><td className="is-n">{ntdText(t.cardShipping)}</td><td colSpan={8} className="cy-cn-mut">各自攤給同一筆刷卡的品項</td></tr>:null}
+  {shippingTotal?<tr className="cy-cn-sub"><td colSpan={6} className="cy-cn-lab is-r">回台灣運費</td><td className="is-n">{ntdText(shippingTotal)}</td><td colSpan={8} className="cy-cn-mut">{view.charges.filter(c=>c.kind==="SHIPPING").length} 筆，依各品項成本分攤</td></tr>:null}
+  {tax?<tr className="cy-cn-sub"><td colSpan={6} className="cy-cn-lab is-r">營業稅</td><td className="is-n">{ntdText(tax.amount)}</td><td colSpan={8} className="cy-cn-mut">依各品項成本分攤</td></tr>:null}
   {t.refund||t.refundFee?<tr className="cy-cn-sub"><td colSpan={6} className="cy-cn-lab is-r">退貨刷退</td><td className="is-n">−{ntdText(t.refund-t.refundFee)}</td>
    <td colSpan={8} className="cy-cn-mut">{view.returns.map(r=>(info.get(r.lineId)?.name??"")+" "+qtyText(r.quantity)).join("、")}{t.refundFee?"（刷退手續費 ＋"+ntdText(t.refundFee)+"）":""}</td></tr>:null}
   <tr className="cy-cn-grand"><td colSpan={6} className="is-r">含稅含運總計</td><td className="is-n">{t.grand===null?"—":ntdText(t.grand)}</td>
@@ -405,11 +413,14 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
   </div>
   {mode?<p className="cy-cn-hint">{MODE_HINTS[mode]}</p>:null}
   {mode==="order"?<div className="cy-cn-bar">
-   <span>已選 {selectedRows.size} 列</span>
-   <button type="button" className="cy-op-button compact soft" disabled={!selectedRows.size} onClick={()=>groupSelected("new")}>合為一筆刷卡</button>
-   <select className="cy-op-input cy-cn-join" aria-label="加入刷卡" disabled={!selectedRows.size||!cardsShown.length} value="" onChange={e=>{if(e.target.value)groupSelected(e.target.value)}}>
-    <option value="">加入刷卡…</option>{od!.cards.filter(c=>od!.pieces.some(p=>p.cardKey===c.key)).map((c,k)=><option key={c.key} value={c.key}>#{k+1} {md(c.chargedOn)}</option>)}</select>
-   <button type="button" className="cy-op-button compact soft" disabled={!selectedRows.size} onClick={()=>groupSelected(null)}>移出刷卡</button>
+   {/* One control (user 2026-11-11: three buttons were unclear): tick rows, then pick where they go. */}
+   <span>{selectedRows.size?"已勾選 "+selectedRows.size+" 列，移到":"勾選要一起刷卡的列，再選擇移到哪一筆"}</span>
+   <select className="cy-op-input cy-cn-join" aria-label="移到刷卡" disabled={!selectedRows.size} value="" onChange={e=>{const v=e.target.value;if(v)groupSelected(v==="none"?null:v)}}>
+    <option value="">選擇刷卡…</option>
+    <option value="new">＋ 新的一筆刷卡</option>
+    {od!.cards.filter(c=>od!.pieces.some(p=>p.cardKey===c.key)).map((c,k)=><option key={c.key} value={c.key}>刷卡 #{k+1}{c.chargedOn?"（"+md(c.chargedOn)+(c.amount?"・NT$ "+c.amount:"")+"）":""}</option>)}
+    <option value="none">未刷卡（移出刷卡）</option></select>
+   {selectedRows.size?<button type="button" className="cy-op-button compact soft" onClick={()=>setSelectedRows(new Set())}>取消勾選</button>:null}
    <span className="cy-cn-sp"/>
    <button type="button" className="cy-op-button compact soft" onClick={addLine}>＋ 新增項目</button>
   </div>:null}
@@ -418,23 +429,23 @@ export function CnPurchasePanel({order,onSaved,onError,onNotice,confirm,dirtyRef
    {byItem?<table className="cy-ordering-grid cy-cn-table is-items">
     <colgroup><col className="w-seq"/><col/><col className="w-qty"/><col className="w-qty2"/><col className="w-rmb"/><col className="w-rmb2"/><col className="w-ntd2"/>
      <col className="w-unit"/><col className="w-rate"/><col className="w-ret"/><col className="w-ntd2"/><col className="w-land"/><col className="w-rate2"/><col className="w-note"/><col className="w-act"/></colgroup>
-    <thead><tr><th className="is-c">項次</th><th>品名</th><th className="is-n">原定</th><th className="is-n">採購數量</th><th className="is-n">人民幣單價</th><th className="is-n">人民幣小計</th>
+    <thead><tr><th className="is-c">項次</th><th>品名／規格（出版社／作者）</th><th className="is-n">原定</th><th className="is-n">採購數量</th><th className="is-n">人民幣單價</th><th className="is-n">人民幣小計</th>
      <th className="is-n">台幣小計</th><th className="is-n">台幣單價</th><th className="is-n">匯率</th><th className="is-n">退貨<br/><small>數量・刷退</small></th><th className="is-n">含稅含運<br/>小計</th><th className="is-n">含稅含運<br/>單價</th>
      <th className="is-n">總匯率</th><th>備註</th><th className="is-c"><span className="cy-visually-hidden">操作</span></th></tr></thead>
     <tbody>{itemRows}</tbody>
     {itemFooter}
    </table>:<table className={"cy-ordering-grid cy-cn-table"+(mode?" is-editing":"")}>
     <colgroup><col className="w-seq"/><col/><col className="w-qty"/><col className="w-qty2"/><col className="w-rmb"/><col className="w-rmb2"/><col className="w-no"/><col className="w-date"/>
-     <col className="w-ntd"/><col className="w-fee"/><col className="w-unit"/><col className="w-rate"/><col className="w-ret"/><col className="w-land"/><col className="w-rate2"/><col className="w-note"/><col className="w-act"/></colgroup>
-    <thead><tr><th className="is-c">項次</th><th>品名</th><th className="is-n">原定</th><th className="is-n">採購數量</th><th className="is-n">人民幣單價</th><th className="is-n">人民幣小計</th>
-     <th className="is-c">刷卡</th><th>刷卡日期</th><th className="is-n">台幣</th><th className="is-n">手續費</th><th className="is-n">台幣單價</th><th className="is-n">匯率</th>
+     <col className="w-ntd"/><col className="w-fee"/><col className="w-fee"/><col className="w-unit"/><col className="w-rate"/><col className="w-ret"/><col className="w-land"/><col className="w-rate2"/><col className="w-note"/><col className="w-act"/></colgroup>
+    <thead><tr><th className="is-c">項次</th><th>品名／規格（出版社／作者）</th><th className="is-n">原定</th><th className="is-n">採購數量</th><th className="is-n">人民幣單價</th><th className="is-n">人民幣小計</th>
+     <th className="is-c">刷卡</th><th>刷卡日期</th><th className="is-n">台幣</th><th className="is-n">手續費</th><th className="is-n" title="這筆刷卡專屬的運費">運費</th><th className="is-n">台幣單價</th><th className="is-n">匯率</th>
      <th className="is-n">退貨<br/><small>數量・刷退</small></th><th className="is-n">含稅含運<br/>單價</th><th className="is-n">總匯率</th><th>備註</th><th className="is-c"><span className="cy-visually-hidden">操作</span></th></tr></thead>
     <tbody>{body}</tbody>
     {footer}
    </table>}
   </div>
   <p className="cy-cn-foot">{[t.unchargedPieces?"未刷卡 "+t.unchargedPieces+" 項":"",t.missingFee?"手續費待補 "+t.missingFee+" 筆":"",
-   "小計都以整數台幣分攤：每筆刷卡的金額＋手續費依人民幣小計分給各列，加起來等於該筆刷卡；含稅含運小計加起來等於總計。單價＝小計 ÷ 數量（含稅含運單價扣除退貨數量）。"].filter(Boolean).join(" · ")}</p>
+   "算法：每筆刷卡的金額＋手續費、以及該筆刷卡的運費，依人民幣小計分給這筆刷卡的品項；回台灣運費與營業稅再依各品項成本（刷卡分攤＋刷卡運費－刷退＋刷退手續費）分給全部品項，只由留下的貨負擔。全部以整數台幣分配，各列加總剛好等於實際金額；單價＝小計 ÷ 數量。"].filter(Boolean).join(" · ")}</p>
  </section>;
 }
 

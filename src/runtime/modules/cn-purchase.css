@@ -77,3 +77,5 @@
 
 .cy-cn-name-in { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .cy-cn-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cy-cn-bar > select.cy-op-input.cy-cn-join { min-width: 180px; }
+.cy-ordering-grid.cy-cn-table td.cy-cn-note:has(> .cy-ordering-cell) { padding: 0; }

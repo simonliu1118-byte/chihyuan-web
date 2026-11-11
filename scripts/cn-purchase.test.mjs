@@ -91,3 +91,21 @@ test("品項合計 folds an item's pieces into one weighted row",()=>{
  assert.equal(s.ntdShare,15000);assert.equal(s.ntdUnit,500);
  assert.equal(s.landedTotal,15000);assert.equal(s.landedUnit,500);
 });
+
+test("a card's own 運費 stays within that card; 回台灣 運費 and 稅 are spread over everything; totals add up exactly",()=>{
+ const withShip=charges.map(c=>c.id===101?{...c,shipping:47}:c);
+ const all=[...withShip,{id:201,kind:"SHIPPING",sortOrder:1,chargedOn:null,amount:1001,fee:7,note:""},{id:301,kind:"TAX",sortOrder:1,chargedOn:null,amount:333,fee:null,note:""}];
+ const returns=[{lineId:3,quantity:2,rmbAmount:1040,ntdAmount:50,fee:3,reason:""}];
+ const {pieces:r,totals}=cn.computeCnPurchase(lines,{pieces,charges:all,returns});
+ // card 1's 47 goes to its three pieces only, in whole 台幣 that add up to 47
+ assert.equal([11,21,31].reduce((s,id)=>s+r.get(id).cardShipping,0),47);
+ assert.equal(r.get(12).cardShipping,0);assert.equal(r.get(13).cardShipping,0);
+ assert.equal(totals.cardShipping,47);
+ assert.equal(totals.grand,2217+47+1008+333-50+3);
+ assert.ok(pieces.every(p=>Number.isInteger(r.get(p.id).landedTotal)));
+ assert.equal(pieces.reduce((s,p)=>s+r.get(p.id).landedTotal,0),totals.grand,"含稅含運小計 add up to the 總計");
+ // without card 1's 運費, a card-2 piece's own cost is unchanged; only its share of 回台灣 運費／稅 moves
+ const plain=cn.computeCnPurchase(lines,{pieces,charges:[...charges,all[3],all[4]],returns});
+ assert.equal(r.get(12).ntdShare,plain.pieces.get(12).ntdShare);
+ assert.ok(r.get(11).landedTotal>plain.pieces.get(11).landedTotal,"card-1 pieces carry the card's 運費");
+});

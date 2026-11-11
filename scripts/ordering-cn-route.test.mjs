@@ -47,9 +47,9 @@ test("CN purchase: grant, split over cards, 原定 kept, logged, conflicts",asyn
   let r=await call("/orders/"+o.id+"/cn-purchase");assert.equal(r.status,200,JSON.stringify(r.body));
   assert.deepEqual(r.body.data.purchase.pieces,[]);
   const save={expectedVersion:o.version,
-   cards:[{key:"n1",chargedOn:"2026-11-11",amount:1400,fee:null},{key:"n2",chargedOn:"2026-11-12",amount:480,fee:5}],
+   cards:[{key:"n1",chargedOn:"2026-11-11",amount:1400,fee:null,shipping:60},{key:"n2",chargedOn:"2026-11-12",amount:480,fee:5}],
    pieces:[{lineKey:"L"+a.id,quantity:5,rmbPrice:3500,cardKey:"n1",sortOrder:1},{lineKey:"L"+b.id,quantity:5,rmbPrice:680,cardKey:"n1",sortOrder:2},
-    {lineKey:"L"+c.id,quantity:24,rmbPrice:520,cardKey:"n1",sortOrder:3},{lineKey:"L"+a.id,quantity:3,rmbPrice:3500,cardKey:"n2",sortOrder:1},
+    {lineKey:"L"+c.id,quantity:24,rmbPrice:520,cardKey:"n1",sortOrder:3,note:"多買給門市"},{lineKey:"L"+a.id,quantity:3,rmbPrice:3500,cardKey:"n2",sortOrder:1},
     {lineKey:"L"+a.id,quantity:2,rmbPrice:3500,cardKey:null,sortOrder:9},{lineKey:"N1",quantity:3,rmbPrice:23900,cardKey:null,sortOrder:10}],
    lines:[{key:"N1",itemName:"倪海廈一套8本",unit:"套"}]};
   r=await call("/orders/"+o.id+"/cn-purchase/order","PUT",save);assert.equal(r.status,200,JSON.stringify(r.body));
@@ -57,7 +57,9 @@ test("CN purchase: grant, split over cards, 原定 kept, logged, conflicts",asyn
   assert.equal(p.pieces.length,6);assert.equal(p.charges.filter(x=>x.kind==="CARD").length,2);
   const cl=o.lines.find(x=>x.id===c.id);assert.equal(cl.quantity,24);assert.equal(cl.originalQuantity,20);
   const added=o.lines.find(x=>x.purchaseAdded);assert.equal(added.itemName,"倪海廈一套8本");assert.equal(added.quantity,3);assert.equal(added.originalQuantity,null);
-  assert.match(o.revisions[0].summary,/牛角刮痧匙\(大\) 採購數量 20 → 24/);assert.match(o.revisions[0].summary,/採購新增 倪海廈一套8本/);
+  assert.match(o.revisions[0].summary,/牛角刮痧匙\(大\) 採購數量 20 → 24/);
+  assert.equal(p.pieces.find(x=>x.lineId===c.id).note,"多買給門市");
+  assert.equal(p.charges.find(x=>x.kind==="CARD"&&x.amount===1400).shipping,60);assert.match(o.revisions[0].summary,/運費 60/);assert.match(o.revisions[0].summary,/備註 空白 → 多買給門市/);assert.match(o.revisions[0].summary,/採購新增 倪海廈一套8本/);
   // stale version
   assert.equal((await call("/orders/"+o.id+"/cn-purchase/order","PUT",save)).status,409);
   // 修改叫貨單 may not change a purchased quantity
