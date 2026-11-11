@@ -239,9 +239,9 @@ for (const [kind, fields] of Object.entries({
   GENERAL: ["itemCode", "itemName", "vendorItemCode", "vendorItemName", "quantityText", "unit", "note"],
   VENDOR: ["itemCode", "itemName", "vendorItemCode", "vendorItemName", "quantityText", "unit", "note"],
   CN_REGULAR: ["itemCode", "itemName", "quantityText", "unit", "note"],
-  // 自訂中國貨 (user 2026-11-11): 商品 has no 規格; 書籍 ("OTHER") does.
-  CN_CUSTOM: ["itemCode", "itemName", "quantityText", "unit", "note"],
-  "CN_CUSTOM/OTHER": ["itemCode", "itemName", "spec", "quantityText", "unit", "note"],
+  // 自訂中國貨 (user 2026-11-11): 商品 keeps 規格; 書籍 ("OTHER") has 出版社 and 作者.
+  CN_CUSTOM: ["itemCode", "itemName", "spec", "quantityText", "unit", "note"],
+  "CN_CUSTOM/OTHER": ["itemCode", "itemName", "publisher", "author", "quantityText", "unit", "note"],
 })) test(`${kind}: full Enter order is consistent on pending and saved rows`, () => {
   const section = kind.split("/")[1];
   const mount = (k, lines = []) => mountGrid(k.split("/")[0], lines.map(l => section ? { ...l, section } : l), section ? { section } : {});

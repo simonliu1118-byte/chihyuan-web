@@ -56,6 +56,8 @@ export interface OrderingLine {
   received: number;
   /** 自訂中國貨採購: the 原定 數量 once 採購 changed it; 採購 added the line; marked 絕版／停產. */
   originalQuantity?: number | null; purchaseAdded?: boolean; cnDiscontinued?: boolean;
+  /** 自訂中國貨 書籍 (user 2026-11-11): 出版社 and 作者 in place of 規格. */
+  publisher?: string; author?: string;
   /** 自訂中國貨: the line has a photo (客訂書); deleted at 結案. */
   photo?: boolean;
 }
@@ -84,7 +86,7 @@ export interface OrderingPendingLine {
   quantity: number; unit: string; received: number; remaining: number;
 }
 
-export const ORDERING_LIMITS = { name: 40, conditions: 500, itemCode: 40, text: 200, quantityText: 40, unit: 10, note: 300 } as const;
+export const ORDERING_LIMITS = { name: 40, conditions: 500, itemCode: 40, text: 200, publisher: 200, author: 200, quantityText: 40, unit: 10, note: 300 } as const;
 export const ERP_PURCHASE_PREFIX = "341A-";
 
 /** General/vendor orders may identify goods by the vendor name without filling our own item fields. */

@@ -11,7 +11,7 @@ type Context={db:D1Database;actor:number;name:string;now:string;requestId:string
 type OrderingEnv=IdentityRuntimeEnv&{HR_FILES?:R2Bucket};
 type Source={id:number;name:string;kind:"GENERAL"|"VENDOR"|"CN_REGULAR"|"CN_CUSTOM";conditions:string;payment_terms:string;note:string;sort_order:number;is_active:number};
 type Ord={id:number;source_id:number;status:OrderingStoredStatus;planned_send_date:string|null;sent_at:string|null;note:string;version:number;revision:number;created_at:string;updated_at:string};
-type Line={id:number;order_id:number;section:string;sort_order:number;item_code:string;item_name:string;vendor_item_code:string;vendor_item_name:string;vendor_name_follows:number;spec:string;quantity_text:string;quantity:number|null;unit:string;note:string;closed_as:"SHORTAGE"|"CANCELLED"|"OTHER"|null;closed_note:string;received:number;original_quantity?:number|null;purchase_added?:number;cn_discontinued?:number;has_photo?:number};
+type Line={id:number;order_id:number;section:string;sort_order:number;item_code:string;item_name:string;vendor_item_code:string;vendor_item_name:string;vendor_name_follows:number;spec:string;publisher?:string;author?:string;quantity_text:string;quantity:number|null;unit:string;note:string;closed_as:"SHORTAGE"|"CANCELLED"|"OTHER"|null;closed_note:string;received:number;original_quantity?:number|null;purchase_added?:number;cn_discontinued?:number;has_photo?:number};
 const defaults:[string,Source["kind"],string][]=[
  ["台北","GENERAL",""],["台中","GENERAL",""],["洲美","GENERAL",""],
  ["定期中國貨","CN_REGULAR",""],["自訂中國貨","CN_CUSTOM",""],
@@ -56,7 +56,7 @@ async function getOrder(ctx:Context,id:number,knownOrder?:Ord){
  if(receiptLines.length>5000)throw new Bad("ORDERING_LIMIT","到貨明細超過單次查詢安全上限",409);
  return {id:o.id,sourceId:o.source_id,sourceName:source?.name??"",sourceKind:source?.kind??"GENERAL",status:orderStatus(o.status,lines.map(x=>({quantity:x.quantity,received:x.received,closedAs:x.closed_as}))),
   storedStatus:o.status,plannedSendDate:o.planned_send_date,sentAt:o.sent_at,note:o.note,version:o.version,revision:o.revision,createdAt:o.created_at,
-  lines:lines.map(x=>({id:x.id,section:x.section,sortOrder:x.sort_order,itemCode:x.item_code,itemName:x.item_name,vendorItemCode:x.vendor_item_code,vendorItemName:x.vendor_item_name,vendorNameFollows:!!x.vendor_name_follows,spec:x.spec,quantityText:x.quantity_text,quantity:x.quantity,unit:x.unit,note:x.note,closedAs:x.closed_as,closedNote:x.closed_note,received:x.received,originalQuantity:x.original_quantity??null,purchaseAdded:!!x.purchase_added,cnDiscontinued:!!x.cn_discontinued,photo:!!x.has_photo,state:lineState({quantity:x.quantity,received:x.received,closedAs:x.closed_as})})),receipts:receipts.map(x=>({id:x.id,erpPurchaseNo:x.erp_purchase_no,receivedDate:x.received_date,createdAt:x.created_at,createdBy:x.actor_name??"",lines:receiptLines.filter(l=>l.receipt_id===x.id).map(l=>({lineId:l.line_id,quantity:l.quantity}))})),
+  lines:lines.map(x=>({id:x.id,section:x.section,sortOrder:x.sort_order,itemCode:x.item_code,itemName:x.item_name,vendorItemCode:x.vendor_item_code,vendorItemName:x.vendor_item_name,vendorNameFollows:!!x.vendor_name_follows,spec:x.spec,publisher:x.publisher??"",author:x.author??"",quantityText:x.quantity_text,quantity:x.quantity,unit:x.unit,note:x.note,closedAs:x.closed_as,closedNote:x.closed_note,received:x.received,originalQuantity:x.original_quantity??null,purchaseAdded:!!x.purchase_added,cnDiscontinued:!!x.cn_discontinued,photo:!!x.has_photo,state:lineState({quantity:x.quantity,received:x.received,closedAs:x.closed_as})})),receipts:receipts.map(x=>({id:x.id,erpPurchaseNo:x.erp_purchase_no,receivedDate:x.received_date,createdAt:x.created_at,createdBy:x.actor_name??"",lines:receiptLines.filter(l=>l.receipt_id===x.id).map(l=>({lineId:l.line_id,quantity:l.quantity}))})),
   revisions:changes.map(x=>({revision:x.revision,at:x.changed_at,by:x.actor_name??String(x.changed_by),summary:x.summary}))};
 }
 async function mutate(ctx:Context,o:Ord,expected:number,stmts:D1PreparedStatement[],summary:string,action:string,onBatchSuccess?:()=>void){
@@ -334,7 +334,7 @@ async function orderingRoute(request:Request,env:OrderingEnv,requestId:string,ti
     const all=await rows<Line>(ctx.db,"SELECT * FROM ordering_lines WHERE order_id=? ORDER BY section,sort_order,id LIMIT 501",id);
     const source=await one<Source>(ctx.db,"SELECT * FROM ordering_sources WHERE id=?",o.source_id);
     // A draft row emptied out while editing is dropped on send rather than sent blank.
-    const blank=(x:Line)=>![x.item_code,x.item_name,x.vendor_item_code,x.vendor_item_name,x.spec,x.quantity_text,x.unit,x.note].some(t=>t.trim());
+    const blank=(x:Line)=>![x.item_code,x.item_name,x.vendor_item_code,x.vendor_item_name,x.spec,x.publisher??"",x.author??"",x.quantity_text,x.unit,x.note].some(t=>t.trim());
     const lines=all.filter(x=>!blank(x));
     if(!lines.length)throw new Bad("ORDERING_INVALID","至少需要一列品項");
     // Row numbers as the grid shows them: counted within each block.
@@ -384,14 +384,14 @@ async function orderingRoute(request:Request,env:OrderingEnv,requestId:string,ti
      removed.add(lineId);stmts.push(ctx.db.prepare("DELETE FROM ordering_lines WHERE id=? AND order_id=?").bind(lineId,id));changes.push("刪除 "+label(line));
     }
     if(all.length-removed.size+upserts.filter(x=>!x.lineId).length>500)throw new Bad("ORDERING_LIMIT","單張叫貨單最多 500 列",409);
-    const labels:Record<string,string>={item_code:"品號",item_name:"品名",vendor_item_code:"廠商品號",vendor_item_name:"廠商品名",spec:"規格",quantity_text:"數量",unit:"單位",note:"備註",section:"分類"};
+    const labels:Record<string,string>={item_code:"品號",item_name:"品名",vendor_item_code:"廠商品號",vendor_item_name:"廠商品名",spec:"規格",publisher:"出版社",author:"作者",quantity_text:"數量",unit:"單位",note:"備註",section:"分類"};
     upserts.forEach((raw,index)=>{
      const old=raw.lineId?all.find(x=>x.id===Number(raw.lineId)):null;
      if(raw.lineId&&(!old||removed.has(old.id)))throw new Bad("ORDERING_NOT_FOUND","找不到明細",404);
      const text=(key:string,column:keyof Line,max:number)=>key in raw?must(raw[key],key,max):old?String(old[column]??""):"";
      const typedVendorName="vendorItemName" in raw?must(raw.vendorItemName,"vendorItemName",200):old&&!old.vendor_name_follows?old.vendor_item_name:"";
      const next={item_code:text("itemCode","item_code",40),item_name:text("itemName","item_name",200),vendor_item_code:text("vendorItemCode","vendor_item_code",200),
-      spec:text("spec","spec",200),quantity_text:text("quantityText","quantity_text",40),unit:text("unit","unit",10),note:text("note","note",300),
+      spec:text("spec","spec",200),publisher:text("publisher","publisher",200),author:text("author","author",200),quantity_text:text("quantityText","quantity_text",40),unit:text("unit","unit",10),note:text("note","note",300),
       section:String(raw.section??old?.section??defaultSection(kind))};
      if(!orderingSections(kind).some(s=>s.key===next.section))throw new Bad("ORDERING_INVALID","區段不正確");
      const name=next.item_name||typedVendorName||next.item_code||"第 "+(index+1)+" 列";
@@ -399,7 +399,7 @@ async function orderingRoute(request:Request,env:OrderingEnv,requestId:string,ti
      const parsed=parseQuantity(next.quantity_text),unit=next.unit||("quantityText" in raw?parsed.unit:"");
      if(vendorOnly){
       if(!old)throw vendorOnlyError();
-      const changed=(["item_code","item_name","spec","quantity_text","note","section"] as const).some(k=>String(old[k]??"")!==String(next[k]))||String(old.unit??"")!==String(unit)
+      const changed=(["item_code","item_name","spec","publisher","author","quantity_text","note","section"] as const).some(k=>String(old[k]??"")!==String(next[k]))||String(old.unit??"")!==String(unit)
        ||("sortOrder" in raw&&Number(raw.sortOrder)!==old.sort_order);
       if(changed)throw vendorOnlyError();
      }
@@ -413,13 +413,13 @@ async function orderingRoute(request:Request,env:OrderingEnv,requestId:string,ti
       if(!Number.isSafeInteger(sortOrder)||sortOrder<0)throw new Bad("ORDERING_INVALID","排序不正確");
       if(sortOrder!==old.sort_order)moved=true;
       if(!diff.length&&(old.vendor_name_follows?1:0)===(follows?1:0)&&sortOrder===old.sort_order)return;
-      stmts.push(ctx.db.prepare("UPDATE ordering_lines SET section=?,sort_order=?,item_code=?,item_name=?,vendor_item_code=?,vendor_item_name=?,vendor_name_follows=?,spec=?,quantity_text=?,quantity=?,unit=?,note=? WHERE id=? AND order_id=?")
-       .bind(row.section,sortOrder,row.item_code,row.item_name,row.vendor_item_code,row.vendor_item_name,follows?1:0,row.spec,row.quantity_text,parsed.quantity,row.unit,row.note,old.id,id));
+      stmts.push(ctx.db.prepare("UPDATE ordering_lines SET section=?,sort_order=?,item_code=?,item_name=?,vendor_item_code=?,vendor_item_name=?,vendor_name_follows=?,spec=?,publisher=?,author=?,quantity_text=?,quantity=?,unit=?,note=? WHERE id=? AND order_id=?")
+       .bind(row.section,sortOrder,row.item_code,row.item_name,row.vendor_item_code,row.vendor_item_name,follows?1:0,row.spec,row.publisher,row.author,row.quantity_text,parsed.quantity,row.unit,row.note,old.id,id));
       if(diff.length)changes.push(label(old)+"："+diff.map(k=>labels[k]+" "+(String(old[k as keyof Line]??"")||"空白")+" → "+(String(row[k])||"空白")).join("、"));
      }else{
       const sortOrder=Number(raw.sortOrder??Date.now());if(!Number.isSafeInteger(sortOrder)||sortOrder<0)throw new Bad("ORDERING_INVALID","排序不正確");
-      stmts.push(ctx.db.prepare("INSERT INTO ordering_lines(id,order_id,section,sort_order,item_code,item_name,vendor_item_code,vendor_item_name,vendor_name_follows,spec,quantity_text,quantity,unit,note) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-       .bind(Number.parseInt(crypto.randomUUID().replaceAll("-","").slice(0,13),16),id,row.section,sortOrder,row.item_code,row.item_name,row.vendor_item_code,row.vendor_item_name,follows?1:0,row.spec,row.quantity_text,parsed.quantity,row.unit,row.note));
+      stmts.push(ctx.db.prepare("INSERT INTO ordering_lines(id,order_id,section,sort_order,item_code,item_name,vendor_item_code,vendor_item_name,vendor_name_follows,spec,publisher,author,quantity_text,quantity,unit,note) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+       .bind(Number.parseInt(crypto.randomUUID().replaceAll("-","").slice(0,13),16),id,row.section,sortOrder,row.item_code,row.item_name,row.vendor_item_code,row.vendor_item_name,follows?1:0,row.spec,row.publisher,row.author,row.quantity_text,parsed.quantity,row.unit,row.note));
       changes.push("新增 "+name+" "+row.quantity_text+row.unit);
      }
     });
@@ -455,7 +455,7 @@ async function orderingRoute(request:Request,env:OrderingEnv,requestId:string,ti
     const qt=field("quantityText",old?.quantity_text??"",40);
     // A partially entered DRAFT line is saved immediately. /send validates completeness.
     // Reject only a completely empty new row (no phantom draft records).
-    if(!old&&!["itemCode","itemName","vendorItemCode","vendorItemName","spec","quantityText","unit","note"]
+    if(!old&&!["itemCode","itemName","vendorItemCode","vendorItemName","spec","publisher","author","quantityText","unit","note"]
      .some(key=>typeof raw[key]==="string"&&(raw[key] as string).trim()))
      throw new Bad("ORDERING_INVALID","空白明細不需要儲存");
     if(!old){const total=await one<{n:number}>(ctx.db,"SELECT COUNT(*) n FROM ordering_lines WHERE order_id=?",id);
@@ -503,14 +503,15 @@ async function orderingRoute(request:Request,env:OrderingEnv,requestId:string,ti
     const ownName=typedName||(sent("vendorItemName")?"":baseName||memory?.vendor_item_name||"");
     const vendorNameFollows=!ownName,vendorItemName=ownName||finalName;
     const spec=field("spec",old?.spec??"",200),note=field("note",old?.note??"",300);
+    const publisher=field("publisher",old?.publisher??"",200),author=field("author",old?.author??"",200);
     const sortOrder=Number(raw.sortOrder??old?.sort_order??Date.now());if(!Number.isSafeInteger(sortOrder)||sortOrder<0)throw new Bad("ORDERING_INVALID","排序不正確");
-    const fields=[section,sortOrder,itemCode,finalName,vendorCode,vendorItemName,vendorNameFollows?1:0,spec,qt,parsed.quantity,unit,note];
-    const sql=old?"UPDATE ordering_lines SET section=?,sort_order=?,item_code=?,item_name=?,vendor_item_code=?,vendor_item_name=?,vendor_name_follows=?,spec=?,quantity_text=?,quantity=?,unit=?,note=? WHERE id=? AND order_id=?":
-      "INSERT INTO ordering_lines(section,sort_order,item_code,item_name,vendor_item_code,vendor_item_name,vendor_name_follows,spec,quantity_text,quantity,unit,note,id,order_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    const fields=[section,sortOrder,itemCode,finalName,vendorCode,vendorItemName,vendorNameFollows?1:0,spec,publisher,author,qt,parsed.quantity,unit,note];
+    const sql=old?"UPDATE ordering_lines SET section=?,sort_order=?,item_code=?,item_name=?,vendor_item_code=?,vendor_item_name=?,vendor_name_follows=?,spec=?,publisher=?,author=?,quantity_text=?,quantity=?,unit=?,note=? WHERE id=? AND order_id=?":
+      "INSERT INTO ordering_lines(section,sort_order,item_code,item_name,vendor_item_code,vendor_item_name,vendor_name_follows,spec,publisher,author,quantity_text,quantity,unit,note,id,order_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
     const savedLineId=old?.id??Number.parseInt(crypto.randomUUID().replaceAll("-","").slice(0,13),16);
     const stmt=ctx.db.prepare(sql).bind(...fields,savedLineId,id);
-    const oldKeys:Record<string,string>={itemCode:"item_code",itemName:"item_name",quantityText:"quantity_text",unit:"unit",vendorItemCode:"vendor_item_code",vendorItemName:"vendor_item_name",sortOrder:"sort_order",spec:"spec",section:"section",note:"note"};
-    const labels:Record<string,string>={itemCode:"品號",itemName:"品名",quantityText:"數量",unit:"單位",vendorItemCode:"廠商品號",vendorItemName:"廠商品名",sortOrder:"排序",spec:"規格",section:"分類",note:"備註"};
+    const oldKeys:Record<string,string>={itemCode:"item_code",itemName:"item_name",quantityText:"quantity_text",unit:"unit",vendorItemCode:"vendor_item_code",vendorItemName:"vendor_item_name",sortOrder:"sort_order",spec:"spec",publisher:"publisher",author:"author",section:"section",note:"note"};
+    const labels:Record<string,string>={itemCode:"品號",itemName:"品名",quantityText:"數量",unit:"單位",vendorItemCode:"廠商品號",vendorItemName:"廠商品名",sortOrder:"排序",spec:"規格",publisher:"出版社",author:"作者",section:"分類",note:"備註"};
     const updates=Object.entries(raw).filter(([key,value])=>key in oldKeys&&String(old?.[oldKeys[key] as keyof Line]??"")!==String(value??""));
     const summary=(old?.item_name||finalName||vendorItemName)+" "+(!old?"新增":updates.length?updates.map(([key,value])=>labels[key]+" "+String(old?.[oldKeys[key] as keyof Line]??"")+" → "+String(value)).join("、"):"編輯");
     const stmts:D1PreparedStatement[]=[stmt];

@@ -160,20 +160,22 @@ test("自訂中國貨 has 商品 ('') and 書籍 ('OTHER') blocks",async()=>{
   let o=(await call("/orders","POST",{sourceId:source.id})).body.data;
   let r=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,operation:"save",line:{itemName:"艾粒",quantityText:"1"}});
   assert.equal(r.status,200);o=r.body.data;assert.equal(o.lines[0].section,"");
-  r=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,operation:"save",line:{section:"OTHER",itemName:"傷寒論",spec:"人民衛生出版社/劉渡舟",quantityText:"1"}});
+  r=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,operation:"save",line:{section:"OTHER",itemName:"傷寒論",publisher:"人民衛生出版社",author:"劉渡舟",quantityText:"1"}});
   assert.equal(r.status,200,JSON.stringify(r.body));o=r.body.data;assert.deepEqual(o.lines.map(l=>l.section),["","OTHER"]);
+  assert.deepEqual([o.lines[1].publisher,o.lines[1].author],["人民衛生出版社","劉渡舟"]);
   r=await call("/orders/"+o.id+"/lines","POST",{expectedVersion:o.version,operation:"save",line:{section:"BAG",itemName:"錯",quantityText:"1"}});
   assert.equal(r.status,422);
  }finally{sql.close()}
 });
-test("migration 0066 moves 自訂中國貨 lines with a 規格 to 書籍",()=>{
+test("migration 0066 moves 自訂中國貨 lines with a 規格 to 書籍 and splits 出版社/作者",()=>{
  const sql=new DatabaseSync(":memory:");
  const files=readdirSync(new URL("../migrations/",import.meta.url)).filter(f=>f.endsWith(".sql")).sort();
  for(const f of files.filter(f=>f<"0066"))sql.exec(readFileSync(new URL("../migrations/"+f,import.meta.url),"utf8"));
  const t="2026-11-11T00:00:00Z";
  sql.exec(`INSERT INTO ordering_sources(id,name,kind,sort_order,created_at,updated_at) VALUES(1,'自訂中國貨','CN_CUSTOM',0,'${t}','${t}'),(2,'台中','GENERAL',1,'${t}','${t}')`);
  sql.exec(`INSERT INTO ordering_orders(id,source_id,status,note,version,revision,created_at,updated_at) VALUES(1,1,'DRAFT','',1,0,'${t}','${t}'),(2,2,'DRAFT','',1,0,'${t}','${t}')`);
- sql.exec(`INSERT INTO ordering_lines(id,order_id,sort_order,item_name,spec,quantity_text) VALUES(1,1,1,'艾粒','','1'),(2,1,2,'傷寒論','人衛/劉渡舟','1'),(3,2,1,'台中品','某規格','1')`);
+ sql.exec(`INSERT INTO ordering_lines(id,order_id,sort_order,item_name,spec,quantity_text) VALUES(1,1,1,'艾粒','','1'),(2,1,2,'傷寒論','人衛/劉渡舟、蘇寶剛','1'),(3,2,1,'台中品','某規格','1'),(4,1,3,'某書','只有出版社','1')`);
  sql.exec(readFileSync(new URL("../migrations/"+files.find(f=>f.startsWith("0066")),import.meta.url),"utf8"));
- assert.deepEqual(sql.prepare("SELECT id,section FROM ordering_lines ORDER BY id").all().map(r=>[r.id,r.section]),[[1,""],[2,"OTHER"],[3,""]]);
+ assert.deepEqual(sql.prepare("SELECT id,section,spec,publisher,author FROM ordering_lines ORDER BY id").all().map(r=>[r.id,r.section,r.spec,r.publisher,r.author]),
+  [[1,"","","",""],[2,"OTHER","","人衛","劉渡舟、蘇寶剛"],[3,"","某規格","",""],[4,"OTHER","","只有出版社",""]]);
 });

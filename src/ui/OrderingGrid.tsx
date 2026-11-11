@@ -6,13 +6,15 @@ import {useCompactLayout} from "./foundation/useCompactLayout";
 import {ListRow} from "./mobile/ListRow";
 import {BottomSheet} from "./overlays/Dialog";
 import {Field,FormSection} from "./forms/Field";
-export interface GridLine{ id:number;section:OrderingSection;sortOrder:number;itemCode:string;itemName:string;vendorItemCode:string;vendorItemName:string;spec:string;quantityText:string;unit:string;note:string;vendorNameFollows?:boolean;quantity?:number|null;received?:number;closedAs?:OrderingClosedAs|null;closedNote?:string; }
+export interface GridLine{ id:number;section:OrderingSection;sortOrder:number;itemCode:string;itemName:string;vendorItemCode:string;vendorItemName:string;spec:string;publisher?:string;author?:string;quantityText:string;unit:string;note:string;vendorNameFollows?:boolean;quantity?:number|null;received?:number;closedAs?:OrderingClosedAs|null;closedNote?:string; }
 const columns={
  GENERAL:[["itemCode","品號"],["itemName","品名"],["vendorItemCode","廠商品號"],["vendorItemName","廠商品名"],["quantityText","數量"],["unit","單位"],["note","備註"]],
  VENDOR:[["itemCode","品號"],["itemName","品名"],["vendorItemCode","廠商品號"],["vendorItemName","廠商品名"],["quantityText","數量"],["unit","單位"],["note","備註"]],
  CN_REGULAR:[["itemCode","品號"],["itemName","品名"],["quantityText","數量"],["unit","單位"],["note","備註"]],
  CN_CUSTOM:[["itemCode","品號"],["itemName","品名"],["spec","規格"],["quantityText","數量"],["unit","單位"],["note","備註"]],
 } as const;
+/** 自訂中國貨 書籍 (user 2026-11-11): 規格 is split in 出版社 and 作者. */
+const CN_BOOK_COLUMNS=[["itemCode","品號"],["itemName","品名"],["publisher","出版社"],["author","作者"],["quantityText","數量"],["unit","單位"],["note","備註"]] as const;
 const receiptState=(row:GridLine)=>lineState({quantity:row.quantity===undefined?parseQuantity(row.quantityText).quantity:row.quantity,received:row.received??0,closedAs:row.closedAs??null});
 /** What a final save of an unchanged row sends: its own vendor values, so they are remembered. */
 const finalPatch=(row:GridLine):Partial<GridLine>=>({...(row.vendorItemCode?{vendorItemCode:row.vendorItemCode}:{}),...(row.vendorNameFollows===false&&row.vendorItemName?{vendorItemName:row.vendorItemName}:{})});
@@ -63,10 +65,10 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  const [saveError,setSaveError]=useState(false);
  const setEdits=(update:(previous:Record<string,string>)=>Record<string,string>)=>{editingRef.current=update(editingRef.current);setEditing(editingRef.current)};
  useEffect(()=>{cancelAllTimers();draftsRef.current=[empty(section,-1)];setDrafts(draftsRef.current);nextTemp.current=-2;inFlight.current.clear();savedDrafts.current.clear();savedRowKeys.current.clear();cellSaves.current.clear();wantFinal.current.clear();unfinal.current.clear();editingRef.current={};setEditing({});setSaveError(false)},[section,kind]);
- // 自訂中國貨 (user 2026-11-11): 規格 (出版社／作者) belongs to 書籍; 商品 shows it only if a line has one.
+ // 自訂中國貨 (user 2026-11-11): 商品 keeps 規格; 書籍 has 出版社 and 作者 (sortable) instead.
  const book=kind==="CN_CUSTOM"&&section==="OTHER";
- const fields=kind==="CN_CUSTOM"&&!book&&!lines.some(x=>x.section===section&&x.spec)?columns.CN_CUSTOM.filter(([f])=>f!=="spec"):columns[kind];
- const SORTABLE=new Set<string>(book?[...SORTABLE_BASE,"spec"]:SORTABLE_BASE);
+ const fields:readonly (readonly [keyof GridLine,string])[]=book?CN_BOOK_COLUMNS:columns[kind];
+ const SORTABLE=new Set<string>(book?[...SORTABLE_BASE,"publisher","author"]:SORTABLE_BASE);
  const lockedFields=(row:GridLine):ReadonlySet<string>|null=>readOnly||!vendorOnly||row.id<=0?null:new Set(fields.map(([f])=>f as string).filter(f=>f!=="vendorItemCode"&&f!=="vendorItemName"));
  const lockedTitle=(_row:GridLine)=>"部分到貨後只能修改廠商品號、廠商品名";
  const closable=(row:GridLine)=>readOnly&&!!onCloseLine&&row.id>0&&["OPEN","PARTIAL"].includes(receiptState(row));
@@ -78,7 +80,9 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  const [localOrder,setLocalOrder]=useState<number[]|null>(null);
  useEffect(()=>{setLocalOrder(null)},[lines]);
  const sectionLines=(()=>{const rows=lines.filter(x=>x.section===section);if(!localOrder)return rows;const at=new Map(localOrder.map((id,i)=>[id,i]));return rows.slice().sort((a,b)=>(at.get(a.id)??1e9)-(at.get(b.id)??1e9))})();
- const sorted=(rows:GridLine[])=>sort?rows.slice().sort((a,b)=>sort.dir*collator.compare(String(a[sort.field as keyof GridLine]??""),String(b[sort.field as keyof GridLine]??""))||a.sortOrder-b.sortOrder):rows;
+ // 出版社 sorts by 出版社, then 作者 within each 出版社 (user 2026-11-11), then 品名.
+ const sortKeys=(field:string)=>field==="publisher"?["publisher","author","itemName"]:field==="author"?["author","itemName"]:[field];
+ const sorted=(rows:GridLine[])=>sort?rows.slice().sort((a,b)=>{for(const k of sortKeys(sort.field)){const c=collator.compare(String(a[k as keyof GridLine]??""),String(b[k as keyof GridLine]??""));if(c)return sort.dir*c}return a.sortOrder-b.sortOrder}):rows;
  const visible=readOnly?sorted(sectionLines):[...sorted(sectionLines.filter(x=>!mappedIds.has(x.id))),...(vendorOnly?[]:drafts)];
  const mobileKey=(row:GridLine)=>savedRowKeys.current.get(row.id)??row.id;
  const mobileRow=visible.find(row=>mobileKey(row)===mobileRowId);

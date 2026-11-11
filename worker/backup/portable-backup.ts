@@ -79,15 +79,21 @@ const UPGRADES: { migration: string; apply: (data: Data) => void }[] = [
       edu.columns = [...keep.map(i => edu.columns[i]), "start_month", "end_month"];
     }
   } },
-  // 0066: 自訂中國貨 lines with a 規格 (出版社／作者) move to the 書籍 block ("OTHER").
+  // 0066: 自訂中國貨 lines with a 規格 (出版社/作者) move to the 書籍 block ("OTHER"), split in 出版社 and 作者.
   { migration: "0066_ordering_cn_custom_sections", apply: data => {
     const lines = data.tables.ordering_lines, orders = data.tables.ordering_orders, sources = data.tables.ordering_sources;
     if (!lines || !orders || !sources) return;
     const col = (t: { columns: string[] }, name: string) => t.columns.indexOf(name);
     const custom = new Set(sources.rows.filter(r => r[col(sources, "kind")] === "CN_CUSTOM").map(r => r[col(sources, "id")]));
     const orderIds = new Set(orders.rows.filter(r => custom.has(r[col(orders, "source_id")])).map(r => r[col(orders, "id")]));
-    const section = col(lines, "section"), spec = col(lines, "spec"), order = col(lines, "order_id");
-    for (const row of lines.rows) if (orderIds.has(row[order]) && row[section] === "" && typeof row[spec] === "string" && row[spec] !== "") row[section] = "OTHER";
+    if (!lines.columns.includes("publisher")) { lines.columns.push("publisher", "author"); lines.rows.forEach(row => row.push("", "")); }
+    const section = col(lines, "section"), spec = col(lines, "spec"), order = col(lines, "order_id"), publisher = col(lines, "publisher"), author = col(lines, "author");
+    for (const row of lines.rows) {
+      const text = row[spec];
+      if (!orderIds.has(row[order]) || row[section] !== "" || typeof text !== "string" || text === "") continue;
+      const at = text.indexOf("/");
+      row[section] = "OTHER"; row[publisher] = (at < 0 ? text : text.slice(0, at)).trim(); row[author] = at < 0 ? "" : text.slice(at + 1).trim(); row[spec] = "";
+    }
   } }
 ];
 // Operational queue, heartbeat and revocable credential hashes are intentionally

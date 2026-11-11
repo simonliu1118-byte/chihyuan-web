@@ -526,3 +526,7 @@
 .cy-ordering-photo .cy-icon-button-table { width: 26px; height: 26px; }
 .cy-ordering-photo-large { display: block; max-width: 100%; max-height: 70vh; margin: 0 auto; object-fit: contain; }
 .cy-ordering-photo-hint { margin: 8px 0 0; color: var(--cy-text-muted); font-size: var(--cy-fs-sm); }
+/* 自訂中國貨 書籍: 出版社／作者 in place of 規格 (V0.18.6). */
+.cy-ordering-col-publisher { width: 128px; }
+.cy-ordering-col-author { width: 108px; }
+.cy-ordering-grid[data-photo]:has(.cy-ordering-col-publisher) .cy-ordering-col-note { width: 96px; }

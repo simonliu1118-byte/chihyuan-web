@@ -55,7 +55,7 @@ type ReviseLine=GridLine&{received:number;quantity:number|null};
 type Revision={orderId:number;lines:ReviseLine[];note:string;deleted:number[];added:Set<number>};
 // Local ids for rows added in edit mode sit above any server id (server ids are below 2^52).
 let localLineId=Number.MAX_SAFE_INTEGER;
-const REVISE_FIELDS=["sortOrder","section","itemCode","itemName","vendorItemCode","vendorItemName","spec","quantityText","unit","note"] as const;
+const REVISE_FIELDS=["sortOrder","section","itemCode","itemName","vendorItemCode","vendorItemName","spec","publisher","author","quantityText","unit","note"] as const;
 const revisePayload=(l:ReviseLine)=>Object.fromEntries(REVISE_FIELDS.map(f=>[f,f==="vendorItemName"&&l.vendorNameFollows?"":String(l[f]??"")]));
 function applyRevise(line:ReviseLine,patch:Partial<GridLine>):ReviseLine{
  // A new row's first save carries the whole row with id 0; the local id must survive it.

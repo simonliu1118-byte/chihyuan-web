@@ -734,6 +734,7 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "updated_at"
   ],
   "ordering_lines": [
+    "author",
     "closed_as",
     "closed_at",
     "closed_by",
@@ -745,6 +746,7 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "note",
     "order_id",
     "original_quantity",
+    "publisher",
     "purchase_added",
     "quantity",
     "quantity_text",
