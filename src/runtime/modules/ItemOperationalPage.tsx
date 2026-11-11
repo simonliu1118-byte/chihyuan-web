@@ -660,7 +660,6 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
          <td data-label="修改前">{Object.entries(row.before).map(([k,v])=>k+"："+(v??"未設定")).join("、")||"—"}</td>
          <td data-label="修改後">{Object.entries(row.after).map(([k,v])=>k+"："+(v??"已刪除")).join("、")||"—"}</td>
         </tr>)}</tbody></table>:<p>沒有價格異動紀錄</p>}
-       <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setHistoryOpen(false)}>關閉</button></div>
       </div>
      </Dialog>:null}
     <FeedbackBanner message={message} tone={messageTone} />

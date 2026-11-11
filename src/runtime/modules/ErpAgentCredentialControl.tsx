@@ -216,7 +216,7 @@ export function ErpAgentCredentialControl({ isSuperAdmin }: { isSuperAdmin: bool
       {error && <p className="cy-notice cy-notice-danger" role="alert">{error}</p>}
       </>}
     </Dialog>
-    <Dialog open={!!failure} title="ERP 查詢失敗" size="small" onClose={() => setFailure(null)}
+    <Dialog open={!!failure} title="ERP 查詢失敗" size="small" showCloseButton={false} onClose={() => setFailure(null)}
       footer={<div className="cy-dialog-action-row">
         <button type="button" className="cy-op-button" onClick={() => setFailure(null)}>不用</button>
         <button type="button" className="cy-op-button danger" disabled={controlBusy}

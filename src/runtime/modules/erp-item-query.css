@@ -538,3 +538,9 @@
 .cy-ordering-grid[data-kind=CN_CUSTOM] .cy-ordering-col-publisher { width: 15%; }
 .cy-ordering-grid[data-kind=CN_CUSTOM] .cy-ordering-col-author { width: 18%; }
 .cy-ordering-grid[data-kind=CN_CUSTOM] .cy-ordering-col-quantityText { width: 56px; }
+/* 已送出 adds 已到數量／狀態／操作: 33% for 規格 then left 品名 one character wide (user 2026-11-12). The read-only
+   view gives 規格（出版社＋作者）20% so 品名 keeps the rest; both blocks stay aligned. */
+.cy-ordering-grid[data-kind=CN_CUSTOM][data-readonly] { min-width: 940px; }
+.cy-ordering-grid[data-kind=CN_CUSTOM][data-readonly] .cy-ordering-col-spec { width: 20%; }
+.cy-ordering-grid[data-kind=CN_CUSTOM][data-readonly] .cy-ordering-col-publisher { width: 9%; }
+.cy-ordering-grid[data-kind=CN_CUSTOM][data-readonly] .cy-ordering-col-author { width: 11%; }
