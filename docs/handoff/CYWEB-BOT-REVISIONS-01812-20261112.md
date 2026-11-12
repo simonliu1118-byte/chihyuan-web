@@ -32,6 +32,12 @@
 - 合成預覽使用實際 API fixture 產生資料，沒有正式資料／憑證。IAB 1440×1000：四張工作卡 clientWidth=scrollWidth=343；390×844：單欄卡349，整頁scrollWidth375≤viewport390。長中英標題與已送出文字沒有越界。手機審稿表只在自身橫向捲動。
 - AITeam main shared/cy-visual/README.md 已讀；目前只含 desktop/icon package，Web依專案規則和既有共用元件，不改家族視覺。
 
+### 雲端CI最終證據
+
+- c8069e9f 的 [Runtime Check #43243242207](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/43243242207) 全部成功：完整 Node **827／827 通過、0失敗**；真實 local D1、Vite build、browser／worker typecheck、source-contracts 皆通過。Linux CI 沒有上述 Windows 路徑、fingerprint或暫存檔清理問題。
+- governance 與 [部署流程契約 #43243242230](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/43243242230) 也通過；實際部署job因PR而跳過，沒有發布正式環境。
+- 本次補交接只新增本段驗證證據與檔案說明，不改工程內容。完整變更另含 scripts/item-price-record-sheet.test.mjs（僅同步 CURRENT_MIGRATION=0068斷言）、VERSION/package（0.18.12）、docs/handoff/README入口；BUILD原值0不變。
+
 ## 風險與後續
 
 - 0068 IT清除是使用者指定的不可逆業務清理；本輪只備妥 migration。正式執行前按受控部署先備份，R2清理排程需要HR_FILES綁定。IT歷史備份若將來刻意還原可能恢復舊資料，需當次處理，不改寫歷史備份。
