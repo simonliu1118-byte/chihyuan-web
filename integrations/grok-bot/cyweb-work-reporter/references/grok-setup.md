@@ -33,7 +33,7 @@ Grok Bots 共用雲端電腦；持久檔案放在 `/workspace`，不要放臨時
 | `CYWEB_REPORTER_STATE_DIR` | `/workspace/cyweb-report-receipts`，保留不刪，勿放在可定期清理的目錄 |
 | `CYWEB_BOT_TOKEN` | 此 BOT 自己的憑證，由 Grok 安全 Secrets 注入工具環境；小編保留原值，值不要傳聊天 |
 
-前三項不是祕密，可以由小編的每次執行環境提供；不要把全機 `CYWEB_BOT_CODE` 設成小編而讓其他 BOT 沿用。其他 BOT 各自配置代碼（`CONTENT_EXPERT`、`CEO`、`IT`）與對應獨立憑證。收據可共用同一持久目錄，檔名已依網址、BOT、類型與事件分開。更新程式不刪除收據，舊版 general 完成事件的收據仍相容。
+前三項不是祕密，可以由小編的每次執行環境提供；不要把全機 `CYWEB_BOT_CODE` 設成小編而讓其他 BOT 沿用。其他 BOT 各自配置代碼（`CONTENT_EXPERT`、`CEO`、`FINANCE`）與對應獨立憑證。收據可共用同一持久目錄，檔名已依網址、BOT、類型與事件分開。更新程式不刪除收據，舊版 general 完成事件的收據仍相容。
 
 官方文件提供安全 secret card，以及共用 BOT 詳情 → Secrets → Add secret 的方式。不同帳號／版本的可用介面可能不同。請確認安全值確實能注入 shell 程序環境；只檢查工具 `check` 的成功或錯誤，**不要列出環境值**。若該版本只能安全登入網站、不能注入自訂程序環境，先停止並回報缺少此能力；不要把值改存明文檔或貼入命令。Team Secrets 的 setup script 是另一項企業能力，不作本工具前提。
 
@@ -73,3 +73,7 @@ Grok Bots 共用雲端電腦；持久檔案放在 `/workspace`，不要放臨時
 推播暫時失敗會限次重試；WEB 審核結果不回滾。失敗可由超管在已審稿件列重送，事件編號保持不變。Grok routine 停用或金鑰變動時，先更新／停用該 BOT 推播設定。只在啟用之後的審核才建立推播，不補送全部歷史。技術推播狀態保留30天，審稿業務紀錄不刪。
 
 依 [Grok 官方 webhook 說明](https://docs.x.ai/grok-bot/skills-routines-and-automations#webhooks)，以 POST＋Authorization Bearer 傳送，只有200確認喚醒；其他結果須確認例行工作與 key。本工具不設定 Grok 自身用量／發布權限。
+
+## 更新至 V0.18.12
+
+保留原 token、原收據目錄與既有 routine；只替換工具與技能檔。更新後 check 確認 SOCIAL_EDITOR，routine 繼續把同一四欄喚醒交給 review-notification，已有新版的舊喚醒會安靜略過。改稿 submit 要帶 previousDraftId，圖片每則最多 10 張。實際發布後 sent 與具固定 eventId 的 article_published 完成事件各回報一次；不要為補畫面而重報歷史已完成事件。

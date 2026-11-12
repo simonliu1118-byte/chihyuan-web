@@ -34,7 +34,7 @@ test("webhook wakeups read only their own fresh result and never approve or publ
   const draft = await f.client.run("submit", {externalRef:"synthetic-push",title:"合成稿",body:"合成內容"});
   const event = {type:"cyweb.review_result",eventId:"bot-review-"+draft.id,botCode:"SOCIAL_EDITOR",draftId:draft.id};
   const before = f.calls.length;
-  for (const invalid of [{},null,{...event,draftId:undefined},{...event,botCode:"IT"},{...event,eventId:"other"},{...event,decision:"approved"}]) {
+  for (const invalid of [{},null,{...event,draftId:undefined},{...event,botCode:"FINANCE"},{...event,eventId:"other"},{...event,decision:"approved"}]) {
     assert.deepEqual(await f.client.run("review-notification", invalid), {ignored:true,reason:"invalid_notification",notifyHuman:false});
   }
   assert.equal(f.calls.length,before,"untrusted payloads must not query");
@@ -46,7 +46,7 @@ test("webhook wakeups read only their own fresh result and never approve or publ
   assert.deepEqual(await f.client.run("review-notification",event),result,"repeat wakeups still read the authoritative result");
   assert.equal(f.calls.at(-1).path,`/api/bot-ingest/drafts/${draft.id}`);
   assert.deepEqual(await f.client.run("review-notification",{...event,draftId:99999,eventId:"bot-review-99999"}),{ignored:true,reason:"draft_not_found",notifyHuman:false});
-  const other = data(await f.call('/api/bot-center/bots/IT/credential','POST')).token;
+  const other = data(await f.call('/api/bot-center/bots/FINANCE/credential','POST')).token;
   const foreign = data(await f.call('/api/bot-ingest/drafts','POST',{title:"別人",body:"別人內容",externalRef:"foreign"},{authorization:'Bearer '+other}));
   assert.equal((await f.client.run("review-notification",{...event,draftId:foreign.id,eventId:"bot-review-"+foreign.id})).ignored,true);
   assert.equal(f.sql.prepare('SELECT count(*) n FROM bot_completions').get().n,0);
@@ -140,7 +140,7 @@ test("rejected review cannot finish; non-editor roles cannot run the pilot", asy
   data(await f.call(`/api/bot-center/drafts/${draft.id}/review`, "POST", { decision: "rejected", reason: "\u5408\u6210\u9000\u56DE" }));
   await assert.rejects(f.client.run("pilot-finish", input), code("REVIEW_REJECTED"));
   assert.equal(f.sql.prepare("SELECT count(*) n FROM bot_completions").get().n, 0);
-  await assert.rejects(createReporter({ ...f.config, botCode: "IT" }, { fetchImpl: f.fetchImpl }).run("pilot-start", input), code("PILOT_ROLE_INVALID"));
+  await assert.rejects(createReporter({ ...f.config, botCode: "FINANCE" }, { fetchImpl: f.fetchImpl }).run("pilot-start", input), code("PILOT_ROLE_INVALID"));
 });
 test("receipt replay suppresses duplicate reports, detects conflicts, and stores no report content or credentials", async (t) => {
   const f = await setup(t), input = { eventId: "synthetic-report-1", title: "unique-private-title", body: "unique-private-body" };
@@ -180,7 +180,7 @@ test("known authentication rejection allows a corrected retry, while simultaneou
 });
 test('check verifies the token owner and typed completions retain server deduplication across clients',async t=>{
  const f=await setup(t);
- await assert.rejects(createReporter({...f.config,botCode:'IT'},{fetchImpl:f.fetchImpl}).run('check'),code('BOT_SCOPE_MISMATCH'));
+ await assert.rejects(createReporter({...f.config,botCode:'FINANCE'},{fetchImpl:f.fetchImpl}).run('check'),code('BOT_SCOPE_MISMATCH'));
  const input={eventId:'synthetic-article-1',title:'合成文章已發布',detail:'合成平台',workType:'article_published'};
  const first=await f.client.run('complete',input);
  const another=createReporter({...f.config,stateDir:await sandbox(t)},{fetchImpl:f.fetchImpl});
@@ -273,4 +273,13 @@ test("patrol and post drafts go item by item; images and sent reports only touch
   assert.equal((await f.client.run("sent", { externalRef: "synthetic-patrol-r1", items: [1] })).newlySent, 1);
   assert.equal((await f.client.run("sent", { externalRef: "synthetic-patrol-r1", items: [1] })).newlySent, 0);
   assert.ok((await f.client.run("review", { externalRef: "synthetic-patrol-r1" })).items[0].sentAt);
+});
+
+test('new draft references replace the previous revision and stale wakeups stop silently',async t=>{
+ const f=await setup(t),a=await f.client.run('submit',{externalRef:'replace-r1',title:'合成初稿',body:'合成全文'});
+ data(await f.call(`/api/bot-center/drafts/${a.id}/review`,'POST',{decision:'approved'}));
+ const b=await f.client.run('submit',{externalRef:'replace-r2',previousDraftId:a.id,title:'合成新版',body:'新版全文'});assert.equal(b.revisionNumber,2);assert.notEqual(a.id,b.id);assert.equal(b.status,'pending');
+ assert.equal((await f.client.run('submit',{externalRef:'replace-r2',previousDraftId:a.id,title:'合成新版',body:'新版全文'})).id,b.id);
+ await assert.rejects(f.client.run('sent',{externalRef:'replace-r1'}),code('DRAFT_SUPERSEDED'));
+ assert.deepEqual(await f.client.run('review-notification',{type:'cyweb.review_result',eventId:'bot-review-'+a.id,botCode:'SOCIAL_EDITOR',draftId:a.id}),{ignored:true,reason:'draft_superseded',notifyHuman:false});
 });

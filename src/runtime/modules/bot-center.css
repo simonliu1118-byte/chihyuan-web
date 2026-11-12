@@ -103,3 +103,11 @@
  .cy-bot-review-toc{position:static;display:flex;overflow-x:auto;max-height:none}
  .cy-bot-review-toc a{flex:none}
 }
+
+/* Grid children must shrink before long titles can ellipsize (desktop and touch). */
+.cy-bot-center,.cy-bot-work-cards,.cy-bot-cards,.cy-bot-work-card,.cy-bot-card,.cy-bot-reviewed{min-width:0;max-width:100%}
+.cy-bot-reviewed-row{min-width:0;width:100%;max-width:100%;align-items:center;box-sizing:border-box}
+.cy-bot-reviewed-row>span{flex:1 1 0;min-width:0;text-align:left}
+.cy-bot-reviewed-row>small{white-space:nowrap}
+.cy-bot-review-item header,.cy-bot-review-meta{min-width:0;overflow-wrap:anywhere}
+@media(max-width:640px){.cy-bot-work-cards,.cy-bot-cards{grid-template-columns:minmax(0,1fr)}.cy-bot-reviewed-row{gap:4px;padding:4px 0}}

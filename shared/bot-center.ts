@@ -5,7 +5,7 @@ export const INITIAL_BOTS = [
   { code: "SOCIAL_EDITOR", label: "社群小編" },
   { code: "CONTENT_EXPERT", label: "內容專家" },
   { code: "CEO", label: "CEO" },
-  { code: "IT", label: "IT" },
+  { code: "FINANCE", label: "財務會計" },
 ] as const;
 
 export const BOT_STATUSES = ["idle", "working", "blocked", "done"] as const;
@@ -40,7 +40,7 @@ export const BOT_DRAFT_KINDS = ["general", "post", "patrol"] as const;
 export type BotDraftKind = (typeof BOT_DRAFT_KINDS)[number];
 export const BOT_DRAFT_KIND_LABELS: Record<BotDraftKind, string> = { general: "一般", post: "貼文", patrol: "海巡" };
 export const BOT_ITEM_LIMITS = { items: 50, title: 120, body: 4000, ref: 80 } as const;
-export const BOT_IMAGE_LIMITS = { bytes: 2_097_152, perTarget: 5, types: ["image/jpeg", "image/png", "image/webp"] as const } as const;
+export const BOT_IMAGE_LIMITS = { bytes: 2_097_152, perTarget: 10, types: ["image/jpeg", "image/png", "image/webp"] as const } as const;
 export type BotImageType = (typeof BOT_IMAGE_LIMITS.types)[number];
 
 export const BOT_PAGE_SIZE = 50;
@@ -62,6 +62,9 @@ export interface BotReviewerView {
 }
 
 export interface BotDraftView {
+  revisionNumber: number;
+  previousDraftId: number | null;
+  supersededById: number | null;
   id: number;
   botCode: string;
   botLabel: string;
@@ -136,9 +139,9 @@ export interface BotProgressState {
 
 export interface BotCenterState extends BotProgressState {
   workSummary: {
-    /** `reviewed`: post drafts whose review finished today (Taipei), newest first; open to read. */
+    /** `reviewed`: legacy field name: post drafts with actual sent_at today (Taipei), newest first; open to read. */
     articles: { count: number; latest: BotCompletionView | null; reviewed: BotDraftView[] };
-    /** 今日巡視 N 次、已送出（今日）、待送出（尚未退回也尚未送出的海巡則數）; `reviewed` as above for patrol drafts. */
+    /** 今日巡視 N 次、已送出（今日）、待送出（尚未退回也尚未送出的海巡則數）; `reviewed` is the legacy name for actually sent patrol drafts. */
     patrols: { count: number; latest: BotCompletionView | null; sentToday: number; toSend: number; reviewed: BotDraftView[] };
     /** Pending drafts, plus the undecided items of multi-item drafts by kind. */
     pending: { count: number; latest: BotDraftView | null; posts: number; patrols: number };

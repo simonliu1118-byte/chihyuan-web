@@ -3,6 +3,13 @@
 > 本檔是 CY Web 唯一的現況與待辦清單，不是永久規則來源。各版本完成內容與驗證見 `CHANGELOG.md`；規格見 `docs/architecture/README.md`。
 > 2026-11-03、2026-11-09 整理：已完成且已記入 CHANGELOG 的版本段落移除；已結案的交接與工作單移到 Git 固定快照（見 `docs/handoff/README.md`）。
 
+## V0.18.12 BOT 版面／改稿（工程完成，未合併／未部署）
+
+- [x] 卡片溢出修正、改稿版本鏈與唯讀歷史、10 張圖片、實際送出明細、IT 清除／FINANCE 獨立身分、取消動態新增 BOT；工具與共用技能同步。
+- [x] TypeScript、建置、來源契約、69項BOT相關測試通過；完整回歸既有Windows問題與D1清理限制已記錄。
+- [ ] Claude 審查 PR；見 [handoff](docs/handoff/CYWEB-BOT-REVISIONS-01812-20261112.md)。本輪含資料遷移，未取得本版合併／部署授權。
+- [ ] 部署 0068 後更新 Grok 的程式／技能；沿用原憑證、原收據與原 routine，實機測試改稿、10 圖、送出與完成兩類回報。IT 圖片的技術刪除佇列由排程完成。
+
 ## WO-0.18.0 委外代工改版（工程完成，待 Claude 複審；未合併／未部署）
 
 - [x] PR #494：分批發料／交貨、BOM 扣料、廠商庫存與電池條、退料盤點、對帳與分次付款、五頁籤表格式主檔已完成工程實作；2026-11-10 全部 Runtime／Source／TypeScript／Build／本地 D1／Node CI 成功，桌機 1440 與手機 390 隔離 fixture 各六張截圖通過。細節見 [工單 §8](docs/development/work-orders/WO-0.18.0.md)。

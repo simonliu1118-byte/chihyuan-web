@@ -5,7 +5,7 @@ Usage: node scripts/cyweb-reporter.mjs <command> < input.json
 Commands:
   check        {} (read-only API/credential check)
   progress     {status,summary?}
-  submit       {externalRef,title,body,kind?,items?} (kind post/patrol: items [{ref?,title,body}] reviewed one by one)
+  submit       {externalRef,title,body,kind?,items?,previousDraftId?} (kind post/patrol: items [{ref?,title,body}] reviewed one by one)
   review       {externalRef} (multi-item drafts include each item's result)
   image        {externalRef,file,item?} (review-only picture: JPEG/PNG/WebP, max 2MB, 5 per draft or item)
   sent         {externalRef,items?} (report approved work actually sent; items = item numbers for post/patrol)

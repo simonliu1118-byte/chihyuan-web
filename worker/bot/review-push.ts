@@ -44,7 +44,7 @@ export async function deliverReviewPushes(env:BotPushEnv,{now=new Date().toISOSt
   const rows=await env.DB.prepare(`SELECT o.draft_id,o.attempts,d.bot_id,b.code,s.encrypted_target
     FROM bot_review_push_outbox o JOIN bot_drafts d ON d.id=o.draft_id JOIN bot_profiles b ON b.id=d.bot_id
     JOIN bot_review_push_settings s ON s.bot_id=d.bot_id AND s.enabled=1
-    WHERE o.status IN ('queued','sending') AND o.attempts<6 AND o.next_attempt_at<=? AND d.review_status IN ('approved','rejected')
+    WHERE o.status IN ('queued','sending') AND o.attempts<6 AND o.next_attempt_at<=? AND d.review_status IN ('approved','rejected') AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id)
       AND (o.lease_until IS NULL OR o.lease_until<=?) ${draftId===undefined?'':'AND o.draft_id=?'}
     ORDER BY o.next_attempt_at,o.draft_id LIMIT ?`).bind(now,now,...(draftId===undefined?[]:[draftId]),Math.max(1,Math.min(limit,3))).all<PushRow>();
   let accepted=0,failed=0;

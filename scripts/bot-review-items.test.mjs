@@ -70,7 +70,7 @@ test('invalid kinds and item lists are rejected without leaving a draft behind',
  assert.equal(f.sql.prepare('SELECT count(*) n FROM bot_drafts').get().n,0);
 });
 
-test('review images: type by content, 2MB, five per target, pending only, served only to the center',async t=>{
+test('review images: type by content, 2MB, ten per target, pending only, served only to the center',async t=>{
  const f=await setup(t);
  const post=ok(await f.multi('post',2));
  const a=ok(await f.upload(post.id,PNG,{item:1}));assert.equal(a.contentType,'image/png');assert.equal(a.itemSeq,1);
@@ -79,11 +79,11 @@ test('review images: type by content, 2MB, five per target, pending only, served
  assert.equal((await f.upload(post.id,PNG,{type:'text/html'})).status,422);
  assert.equal((await f.upload(post.id,new Uint8Array(2_097_153).fill(0x89))).status,413);
  assert.equal((await f.upload(post.id,PNG,{item:9})).status,404);
- for(let i=0;i<4;i++)ok(await f.upload(post.id,PNG,{item:1}));
+ for(let i=0;i<9;i++)ok(await f.upload(post.id,PNG,{item:1}));
  assert.equal((await f.upload(post.id,PNG,{item:1})).status,409);
  const detail=ok(await f.call(`/api/bot-center/drafts/${post.id}`));
- assert.equal(detail.images.length,6);assert.equal(detail.draft.imageCount,6);
- assert.equal(detail.images.filter(i=>i.itemId===detail.items[0].id).length,5);
+ assert.equal(detail.images.length,11);assert.equal(detail.draft.imageCount,11);
+ assert.equal(detail.images.filter(i=>i.itemId===detail.items[0].id).length,10);
  const served=await f.raw(`/api/bot-center/images/${a.id}`,'GET');
  assert.equal(served.status,200);assert.equal(served.headers.get('content-type'),'image/png');assert.equal(served.headers.get('x-content-type-options'),'nosniff');
  assert.deepEqual(new Uint8Array(await served.arrayBuffer()),PNG);
@@ -108,7 +108,9 @@ test('sent reporting and the daily summary per card',async t=>{
  ok(await f.call(`/api/bot-center/drafts/${post.id}/review`,'POST',{decision:'approved'}));
  s=ok(await f.call('/api/bot-center')).workSummary;
  assert.equal(s.pending.posts,0);assert.equal(s.pending.patrols,2);assert.equal(s.patrols.sentToday,2);assert.equal(s.patrols.toSend,2);
- assert.deepEqual(s.patrols.reviewed.map(d=>d.id),[patrol.id]);assert.deepEqual(s.articles.reviewed.map(d=>d.id),[post.id]);
+ assert.deepEqual(s.patrols.reviewed.map(d=>d.id),[patrol.id]);assert.deepEqual(s.articles.reviewed,[]);
+ ok(await f.ingest(`drafts/${post.id}/sent`,'POST',{items:[1]}));
+ assert.deepEqual(ok(await f.call('/api/bot-center')).workSummary.articles.reviewed.map(d=>d.id),[post.id]);
  const single=ok(await f.ingest('drafts','POST',{title:'合成單篇',body:'合成本文'}));
  ok(await f.call(`/api/bot-center/drafts/${single.id}/review`,'POST',{decision:'approved'}));
  assert.equal(ok(await f.ingest(`drafts/${single.id}/sent`,'POST',{})).sent,1);
