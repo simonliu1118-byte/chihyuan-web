@@ -3,7 +3,9 @@
 - 執行：GPT；分支 cyweb/bot-revisions-layout-01812；基準 main 93cb25e6（V0.18.11），VERSION/package=0.18.12、BUILD=0。
 - PR：[#509](https://github.com/simonliu1118-byte/chihyuan-web/pull/509)；工程提交73174506。Claude 尚未審查；CI結果以該PR最新提交為準。
 - 本輪需求：桌機／手機卡片破版、初稿與修訂版本、主動新版覆蓋、每則10圖、今日實際發布明細、IT→財務會計、移除動態新增BOT；使用者另明確授權 IT 舊資料不用保留。需提供小編更新指令與共用工具／技能。
-- **未合併／未部署；未執行正式 D1 或 R2 刪除，待 Claude 審查及本版發布授權。**
+- 使用者於2026-11-12明確授權「PR509可以合併部署，更新handoff給Claude事後審查」，本輪依此授權先發布，Claude結論仍由Claude事後填寫。
+- PR509已合併：7587d79be5fbeae37121b71e70dca7c5928e7997；受控發布 [#43248383242](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/43248383242) 已成功；實際驗證見下節。
+- 正式遷移前已透過Cloudflare D1 API確認Time Travel bookmark並私下保存（僅技術還原點，無帳務／客戶／稿件內容），不把正式資源識別或bookmark寫進公開repo。
 
 ## 實作與檔案
 
@@ -38,15 +40,26 @@
 - governance 與 [部署流程契約 #43243242230](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/43243242230) 也通過；實際部署job因PR而跳過，沒有發布正式環境。
 - 本次補交接只新增本段驗證證據與檔案說明，不改工程內容。完整變更另含 scripts/item-price-record-sheet.test.mjs（僅同步 CURRENT_MIGRATION=0068斷言）、VERSION/package（0.18.12）、docs/handoff/README入口；BUILD原值0不變。
 
+## 2026-11-12 正式發布結果（使用者授權先發布，Claude事後審查）
+
+- [PR509](https://github.com/simonliu1118-byte/chihyuan-web/pull/509) 已合併，發布 source=7587d79be5fbeae37121b71e70dca7c5928e7997，VERSION=0.18.12／BUILD=0。
+- [受控發布 #43248383242](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/43248383242) 成功；由main手動派送deploy-development，沒有本機臨時部署、額外Release或修改憑證。0068_bot_revisions.sql已在既有D1執行一次。
+- 2026-11-12 23:32（台灣）正式主機 /api/health 回service=cyweb、version=0.18.12、database=ok、identityConsumerVersion=1.0.5，sourceCommit與上述發布提交完全相同。
+- 工作流程的canonical與workers.dev兩端來源／D1、HTTPS與靜態資產、custom domain、無效session清除、每日排程、production portal authority全數通過。僅readiness／規約檢查不代表Grok已完成實機改稿測試。
+- 正式D1僅查技術彙總：IT profile發布前1→發布後0；0068 migration紀錄0→1；SOCIAL_EDITOR有效憑證與推播設定皆維持各1筆；bot_review_image_deletions=0。沒有讀取／輸出token_hash、推播密文、key或業務正文；既有小編憑證未輪換。
+- 發布前Time Travel還原點僅存私下技術記錄，未執行還原或正式內容export；公開Git／Actions沒有加入正式資料、bookmark或資源識別。
+- 本輪文件同步：本handoff、根TODO、CHANGELOG、BOT_CENTER契約標頭，補實際發布狀態；不改runtime、schema或版本號，不另做一次部署。
+- Claude尚未事後審查；原審查欄保留待填，不能把使用者合併授權或CI通過寫成Claude已通過。
+
 ## 風險與後續
 
-- 0068 IT清除是使用者指定的不可逆業務清理；本輪只備妥 migration。正式執行前按受控部署先備份，R2清理排程需要HR_FILES綁定。IT歷史備份若將來刻意還原可能恢復舊資料，需當次處理，不改寫歷史備份。
+- 0068 IT清除已依使用者授權執行；正式變更前已確認Time Travel還原點。R2清理排程需要HR_FILES綁定，發布後待清理佇列為0。IT歷史備份若將來刻意還原可能恢復舊資料，需當次處理，不改寫歷史備份。
 - 不猜測既有 r2/r10 標題的關係；新版起需明確 previousDraftId 形成修訂鏈。已送出任一則不能覆蓋整批，避免混淆已發布內容。
 - 多則的部分通過只可發出 approved 的則；新版不繼承圖片與核准。外部發布前仍須讀最新審核，推播不是發布授權。
 - 實機 Grok 改稿／10圖／公開平台發布尚未驗證，不用本機合成測試代稱正式成功。
-- 小編更新包與貼上指令在完成後提供，待WEB0068部署後再啟用新版改稿。
+- 小編更新包與貼上指令已提供，WEB0068現已部署，可更新Grok程式／技能後驗收；原憑證、收據與routine保留。
 
 ## Claude 審查（由 Claude 填寫）
 
-- 結論：待審查。
+- 結論：待Claude事後審查（使用者2026-11-12授權先合併部署）。
 - 審查重點：revision競爭與跨BOT隔離、IT清除範圍及原小編憑證保留、備份還原與ephemeral排除、實際送出／完成事件兩種維度、手機不溢出、工具收據與routine相容。
