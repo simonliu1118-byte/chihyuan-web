@@ -77,11 +77,12 @@ function createReporter(config, { fetchImpl = fetch, timeoutMs = 15e3 } = {}) {
     if (ref.includes(token)) bad("INPUT_CONTAINS_SECRET", "送審編號不可包含連線憑證");
     const data = checkRecord(await request(refQuery(ref)));
     if (data.externalRef !== ref || !["pending", "approved", "rejected"].includes(data.status)) bad("RESPONSE_UNCONFIRMED", "送審回應的編號或狀態不正確");
+    if(data.supersededById)bad("DRAFT_SUPERSEDED","此稿已有新版，請使用新版編號");
     return data;
   }
   // Single drafts keep the original shape; multi-item drafts (posts / patrols) add kind and each item's result.
   const itemView = (item) => ({ seq: item.seq, ref: item.ref ?? null, title: item.title, status: item.status, reason: item.reason ?? null, sentAt: item.sentAt ?? null });
-  const reviewView = (data) => ({ id: data.id, externalRef: data.externalRef, status: data.status, reason: data.reason ?? null, reviewedAt: data.reviewedAt ?? null,
+  const reviewView = (data) => ({ revisionNumber:data.revisionNumber, supersededById:data.supersededById, id: data.id, externalRef: data.externalRef, status: data.status, reason: data.reason ?? null, reviewedAt: data.reviewedAt ?? null,
     ...data.itemCounts ? { kind: data.kind, items: (data.items ?? []).map(itemView) } : {} });
   const withItems = async (data) => data.itemCounts && !data.items ? checkRecord(await request("/api/bot-ingest/drafts/" + data.id)) : data;
   async function reviewNotification(input) {
@@ -93,6 +94,7 @@ function createReporter(config, { fetchImpl = fetch, timeoutMs = 15e3 } = {}) {
     try { data = checkRecord(await request("/api/bot-ingest/drafts/" + input.draftId)); }
     catch (error) { if (error.code === "BOT_NOT_FOUND") return ignored("draft_not_found"); throw error; }
     if (data.id !== input.draftId || !["pending", "approved", "rejected"].includes(data.status)) bad("RESPONSE_UNCONFIRMED", "送審回應的編號或狀態不正確");
+    if(data.supersededById)return ignored("draft_superseded");
     if (data.status === "pending") return ignored("review_pending");
     return { ignored: false, eventId: input.eventId, review: reviewView(await withItems(data)), automaticPublication: false };
   }
@@ -113,10 +115,11 @@ function createReporter(config, { fetchImpl = fetch, timeoutMs = 15e3 } = {}) {
     });
   };
   async function submit(input) {
-    fields(input, ["externalRef", "title", "body", "kind", "items"]);
+    fields(input, ["externalRef", "title", "body", "kind", "items", "previousDraftId"]);
     const externalRef = string(input.externalRef, "送審固定編號", 80), title = string(input.title, "標題", 120), body = string(input.body, "內容", 4e3);
     const kind = input.kind ?? (input.items ? "post" : "general");
     if (!["general", "post", "patrol"].includes(kind)) bad("INPUT_INVALID", "稿件分類須為 general、post 或 patrol");
+    if(input.previousDraftId!==undefined&&(!Number.isSafeInteger(input.previousDraftId)||input.previousDraftId<1))bad("INPUT_INVALID","previousDraftId 須為原稿編號");
     const items = itemsOf(input.items);
     if ((kind === "general") !== !items) bad("INPUT_INVALID", "貼文／海巡請用 items 逐則送審；一般單篇不帶 items");
     if (JSON.stringify([externalRef, title, body, items ?? []]).includes(token)) bad("INPUT_CONTAINS_SECRET", "回報內容不可包含連線憑證");
@@ -126,16 +129,16 @@ function createReporter(config, { fetchImpl = fetch, timeoutMs = 15e3 } = {}) {
     } catch (error) {
       if (error.code !== "BOT_NOT_FOUND") throw error;
     }
-    const data = await withItems(existing ?? checkRecord(await request("/api/bot-ingest/drafts", { botCode, externalRef, title, body, ...items ? { kind, items } : {} })));
+    const data = await withItems(existing ?? checkRecord(await request("/api/bot-ingest/drafts", { botCode, externalRef, title, body, ...(input.previousDraftId===undefined?{}:{previousDraftId:input.previousDraftId}), ...items ? { kind, items } : {} })));
     const sameItems = !items ? !data.itemCounts : (data.kind === kind && data.items?.length === items.length && items.every((item, i) => data.items[i].title === item.title && data.items[i].body === item.body && (data.items[i].ref ?? void 0) === item.ref));
-    if (data.externalRef !== externalRef || data.title !== title || data.body !== body || !sameItems) bad("DRAFT_REVISION_REQUIRED", "這個送審編號已有不同內容；改稿請使用新的版本編號");
+    if (data.externalRef !== externalRef || data.title !== title || data.body !== body || !sameItems || (input.previousDraftId!==undefined&&data.previousDraftId!==input.previousDraftId)) bad("DRAFT_REVISION_REQUIRED", "這個送審編號已有不同內容；改稿請使用新的版本編號");
     return reviewView(data);
   }
   const imageType = (bytes) => bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255 ? "image/jpeg"
     : bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71 ? "image/png"
     : String.fromCharCode(...bytes.subarray(0, 4)) === "RIFF" && String.fromCharCode(...bytes.subarray(8, 12)) === "WEBP" ? "image/webp" : null;
   async function image(input) {
-    // Review-only picture for a pending draft (or one item of it). Max 2MB and 5 per target; CYWEB deletes it the day after review.
+    // Review-only picture for a pending draft (or one item of it). Max 2MB and 10 per target; CYWEB deletes it the day after review.
     fields(input, ["externalRef", "item", "file"]);
     const externalRef = string(input.externalRef, "送審固定編號", 80), file = string(input.file, "圖片路徑", 1024);
     if (!isAbsolute(file)) bad("INPUT_INVALID", "圖片路徑須為絕對路徑");

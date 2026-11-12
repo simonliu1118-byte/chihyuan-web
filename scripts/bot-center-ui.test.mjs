@@ -40,18 +40,7 @@ test("push settings use shared table cells only and keep enabled flag unchanged"
  assert.match(page,/!state\.canManageCredentials\)return/);
  assert.match(page,/disabled=\{busy\|\|!state\.pushReady\|\|!state\.pushSettings\.find/);
 });
-test("new BOT uses shared table dialog and keeps existing credential management separate",()=>{
- assert.match(page,/addOpen\?<Dialog open title="新增 BOT"/);
- assert.match(page,/<EntryTable label="新增 BOT" className="cy-bot-form-table">/);
- assert.match(page,/<th scope="row"><EntryHeading required>代碼/);
- assert.match(page,/<th scope="row"><EntryHeading required>名稱/);
- assert.match(page,/id="cy-bot-add-form" onKeyDown=\{enterAdvancesFields\}/);
- assert.match(page,/setAddOpen\(false\);await refresh/);
- assert.match(page,/<section className="cy-bot-cards" aria-label="BOT 當日摘要"/);
- assert.match(page,/className="cy-bot-settings-heading"/);
- assert.match(page,/onClick=\{\(\)=>void togglePush\(item\.botCode\)\}/);
- assert.match(css,/\.cy-bot-form-table th\[scope="row"\]/);
-});
+test("settings expose existing credentials without a dynamic BOT creation form",()=>{assert.doesNotMatch(page,/新增 BOT|createBot|addOpen/);assert.match(page,/BOT 當日摘要/);assert.match(page,/togglePush/)});
 
 test("timeline rows collapse to one line and reveal shared expand toggle only for overflow",()=>{
  assert.match(page,/function TimelineEvent\(\{item\}/);

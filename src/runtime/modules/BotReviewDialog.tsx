@@ -40,13 +40,13 @@ export function BotReviewDialog({ids,initialId,canReview,onClose,onChanged}:{ids
  const index=ids.indexOf(id);
  async function reason(){const values=await ask({title:"退回理由",fields:[{name:"reason",label:"退回理由",multiline:true,required:true}],confirmLabel:"退回",confirmTone:"danger",size:"mini"});return values?.reason?.trim()||null}
  async function act(task:()=>Promise<unknown>){setBusy(true);setError(null);try{await task();await load(id);onChanged()}catch(e){setError(e instanceof Error?e.message:"審核失敗")}finally{setBusy(false)}}
- const draft=detail?.draft,pending=!!draft&&draft.status==="pending"&&canReview;
+ const draft=detail?.draft,pending=!!draft&&draft.status==="pending"&&!draft.supersededById&&canReview;
  const imagesOf=(itemId:number|null)=>detail?.images.filter(image=>image.itemId===itemId)??[];
  const decideAll=async(decision:"approved"|"rejected")=>{const r=decision==="rejected"?await reason():null;if(decision==="rejected"&&!r)return;await act(()=>reviewDraft(id,decision,r??undefined))};
  const decideItem=async(seq:number,decision:"approved"|"rejected")=>{const r=decision==="rejected"?await reason():null;if(decision==="rejected"&&!r)return;await act(()=>reviewDraftItem(id,seq,decision,r??undefined))};
  const remaining=detail?.items.filter(item=>item.status==="pending").length??0;
  const footer=<div className="cy-bot-review-footer">
-  {ids.length>1?<span className="cy-bot-review-nav"><button type="button" className="cy-op-button compact" disabled={busy||index<=0} onClick={()=>setId(ids[index-1])}>‹ 上一篇</button>
+  {ids.length>1&&index>=0?<span className="cy-bot-review-nav"><button type="button" className="cy-op-button compact" disabled={busy||index<=0} onClick={()=>setId(ids[index-1])}>‹ 上一篇</button>
    <span>{index+1}／{ids.length}</span><button type="button" className="cy-op-button compact" disabled={busy||index>=ids.length-1} onClick={()=>setId(ids[index+1])}>下一篇 ›</button></span>:null}
   <button type="button" className="cy-op-button" disabled={busy} onClick={onClose}>關閉</button>
   {pending?<><button type="button" className="cy-op-button danger" disabled={busy} onClick={()=>void decideAll("rejected")}>{detail?.items.length?`剩餘 ${remaining} 則全部退回…`:"退回…"}</button>
@@ -57,8 +57,12 @@ export function BotReviewDialog({ids,initialId,canReview,onClose,onChanged}:{ids
   {!detail?<Loading/>:<>
    <div className="cy-bot-review-meta">
     <StatusChip tone={TONE[detail.draft.status]}>{detail.draft.reason==="部分通過"?"部分通過":BOT_REVIEW_LABELS[detail.draft.status]}</StatusChip>
+    <span>{detail.draft.revisionNumber===1?"初稿":detail.draft.revisionNumber+"修"}{detail.draft.supersededById?"・已有新版":""}</span>
+    {detail.draft.sentAt?<StatusChip tone="info">已送出 {formatDateTime(detail.draft.sentAt)}</StatusChip>:null}
     <span>{detail.draft.botLabel}・{BOT_DRAFT_KIND_LABELS[detail.draft.kind]}・{formatDateTime(detail.draft.createdAt)} 送審</span>
     {detail.draft.itemCounts?<span>共 {detail.draft.itemCounts.total} 則：通過 {detail.draft.itemCounts.approved}・退回 {detail.draft.itemCounts.rejected}・待審 {detail.draft.itemCounts.pending}</span>:null}
+    {detail.draft.previousDraftId?<button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>setId(detail.draft.previousDraftId!)}>上一版</button>:null}
+    {detail.draft.supersededById?<button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>setId(detail.draft.supersededById!)}>查看新版</button>:null}
    </div>
    {error?<p className="cy-notice cy-notice-danger" role="alert">{error}</p>:null}
    {detail.items.length?<div className="cy-bot-review-layout">
@@ -67,7 +71,7 @@ export function BotReviewDialog({ids,initialId,canReview,onClose,onChanged}:{ids
     <div className="cy-bot-review-main">
      <section className="cy-bot-review-note"><RichText text={detail.draft.body}/><Images images={imagesOf(null)} onOpen={setZoom}/></section>
      {detail.items.map(item=><article key={item.id} id={"bot-item-"+item.id} className="cy-bot-review-item">
-      <header><strong>{item.seq}　{item.title}</strong><StatusChip tone={TONE[item.status]}>{BOT_REVIEW_LABELS[item.status]}</StatusChip>{item.sentAt?<StatusChip tone="info">已送出</StatusChip>:null}</header>
+      <header><strong>{item.seq}　{item.title}</strong><StatusChip tone={TONE[item.status]}>{BOT_REVIEW_LABELS[item.status]}</StatusChip>{item.sentAt?<StatusChip tone="info">已送出 {formatDateTime(item.sentAt)}</StatusChip>:null}</header>
       <RichText text={item.body}/>
       <Images images={imagesOf(item.id)} onOpen={setZoom}/>
       {item.reason?<p className="cy-bot-review-reason">退回理由：{item.reason}</p>:null}

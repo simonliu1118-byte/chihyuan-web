@@ -41,7 +41,7 @@ test('configuration is encrypted per BOT and never returned or audited as plaint
  assert.equal(exposed.includes(target.key),false);assert.equal(exposed.includes(target.url),false);assert.equal(exposed.includes(row.encrypted_target),false);
  const enabled=view.pushSettings.find(x=>x.botCode==='SOCIAL_EDITOR');assert.equal(enabled.enabled,true);assert.equal(enabled.configured,true);assert.equal(view.pushReady,true);
  const original=row.encrypted_target;
- ok(await f.call('/api/bot-center/bots/IT/push','PUT',{enabled:true,url:target.url+'/it',key:target.key+'-it'}));
+ ok(await f.call('/api/bot-center/bots/FINANCE/push','PUT',{enabled:true,url:target.url+'/it',key:target.key+'-it'}));
  assert.equal(f.sql.prepare('SELECT encrypted_target FROM bot_review_push_settings WHERE bot_id=?').get(row.bot_id).encrypted_target,original);
  ok(await f.configure({enabled:false,url:'',key:''}));
  assert.equal(f.sql.prepare('SELECT encrypted_target FROM bot_review_push_settings WHERE bot_id=?').get(row.bot_id).encrypted_target,original);
@@ -150,4 +150,10 @@ test('turning an existing BOT push configuration off and back on keeps encrypted
  assert.equal(previous.encrypted_target,after.encrypted_target);
  assert.equal(previous.token_hash,after.token_hash);
  assert.equal(after.enabled,1);
+});
+
+test('queued notifications for an obsolete revision never leave CYWEB',async t=>{
+ const f=await setup(t),draft=await f.draft();await f.review(draft.id);
+ const next=ok(await f.call('/api/bot-ingest/drafts','POST',{externalRef:'synthetic-replacement',previousDraftId:draft.id,title:'合成新版',body:'合成新內容'},{authorization:'Bearer '+f.token}));assert.equal(next.revisionNumber,2);
+ const original=globalThis.fetch;let calls=0;try{globalThis.fetch=async()=>{calls++;return new Response('',{status:200})};await push.deliverReviewPushes(f.env);assert.equal(calls,0)}finally{globalThis.fetch=original}
 });

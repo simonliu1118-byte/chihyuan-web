@@ -5,12 +5,13 @@ import { build } from "esbuild";
 const compiled = await build({ entryPoints: ["worker/http/bot-center-routes.ts"], bundle: true, write: false, platform: "node", format: "esm" });
 const { handleBotCenterRoute, cleanupReviewImages } = await import("data:text/javascript;base64," + Buffer.from(compiled.outputFiles[0].text).toString("base64"));
 
-export function botCenterFixture(role = "SUPER_ADMIN", grant = false, {beforeScopedMigration, seedMember = true} = {}) {
+export function botCenterFixture(role = "SUPER_ADMIN", grant = false, {beforeScopedMigration, beforeRevisionMigration, seedMember = true} = {}) {
   const sql = new DatabaseSync(":memory:");
   const queries = [];
   sql.exec("PRAGMA foreign_keys=ON");
   for (const file of readdirSync(new URL("../../migrations/", import.meta.url)).filter(name => name.endsWith(".sql")).sort()) {
     if (file.startsWith("0057_")) beforeScopedMigration?.(sql);
+    if(file.startsWith("0068_"))beforeRevisionMigration?.(sql);
     sql.exec(readFileSync(new URL("../../migrations/" + file, import.meta.url), "utf8"));
   }
   const t = "2026-11-06T00:00:00.000Z";

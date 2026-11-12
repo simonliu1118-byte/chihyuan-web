@@ -1244,7 +1244,7 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
   "store_repair_events": ["actor","after_json","at","before_json","id","kind","reason","repair_id","request_key"],
   "store_repair_print_settings": ["card_footer","card_title","contact","id","notes","title","updated_at","updated_by","version"],
   "bot_completions": ["bot_id", "completed_at", "detail", "event_ref", "id", "title", "work_type"],
-  "bot_drafts": ["body", "bot_id", "created_at", "external_ref", "id", "kind", "review_reason", "review_status", "reviewed_at", "reviewed_by", "sent_at", "title"],
+  "bot_drafts": ["body","bot_id","created_at","external_ref","id","kind","previous_draft_id","review_reason","review_status","reviewed_at","reviewed_by","revision_number","sent_at","title"],
   "bot_draft_items": ["body", "draft_id", "id", "ref", "review_reason", "review_status", "reviewed_at", "reviewed_by", "sent_at", "seq", "title"],
   "bot_profiles": ["code", "id", "label", "status", "summary", "updated_at"],
   "bot_reports": ["body", "bot_id", "id", "reported_at", "title"],

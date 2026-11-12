@@ -10,7 +10,7 @@
 | `progress` | `{"status":"working","summary":"正在準備貼文"}` | 狀態與更新時間；status：idle／working／blocked／done，摘要最多 200 字 |
 | `submit` | `{"externalRef":"social-post-20261107-r1","title":"測試標題","body":"待審全文"}` | 送審 ID、externalRef、pending／approved／rejected、理由與審核時間 |
 | `submit`（多則） | `{"externalRef":"threads-patrol-20261109-r1","title":"Threads 巡視 11/9 下午","body":"本次巡視說明","kind":"patrol","items":[{"ref":"thread-123","title":"回覆 @某帳號","body":"回覆全文"}]}` | 同上，另含 `kind` 與 `items`（各則 seq、ref、title、status、reason、sentAt）。kind：post 貼文、patrol 海巡；1–50 則 |
-| `image` | `{"externalRef":"threads-patrol-20261109-r1","item":1,"file":"/workspace/shots/1.jpg"}` | 審核用圖片；JPEG／PNG／WebP、2MB 內、每篇或每則 5 張；只能加在待審稿；item 省略則附在整篇 |
+| `image` | `{"externalRef":"threads-patrol-20261109-r1","item":1,"file":"/workspace/shots/1.jpg"}` | 審核用圖片；JPEG／PNG／WebP、2MB 內、每篇或每則 10 張；只能加在待審稿；item 省略則附在整篇 |
 | `sent` | `{"externalRef":"threads-patrol-20261109-r1","items":[1,3]}` | 回報已實際送出的則號（單篇省略 items）；只接受通過的則，重複回報不重算 |
 | `review-notification` | `{"type":"cyweb.review_result","eventId":"bot-review-123","botCode":"SOCIAL_EDITOR","draftId":123}` | 以本 BOT 憑證即時讀指定稿件；ignored 表示安靜略過，正式結果在 review，不發布 |
 | `review` | `{"externalRef":"social-post-20261107-r1"}` | 只讀這個 BOT 的同編號審核結果 |
@@ -25,7 +25,7 @@
 
 ## 實際使用的 API
 
-只呼叫 `/api/health` 與 `/api/bot-ingest/identity|progress|reports|drafts|drafts/:id/images|drafts/:id/sent|completions`，機器 Authorization 由工具加入；健康檢查不帶憑證。禁止轉址，不提供員工登入、審核、輪換憑證、任意 URL 或對外發布命令。HTTP 逾時 15 秒，不自動重試寫入。多則、圖片與送出回報要求 WEB V0.15.0／0060；其餘要求 WEB V0.12.4 Build 1／0058，identity 會回傳憑證實際歸屬。
+只呼叫 `/api/health` 與 `/api/bot-ingest/identity|progress|reports|drafts|drafts/:id/images|drafts/:id/sent|completions`，機器 Authorization 由工具加入；健康檢查不帶憑證。禁止轉址，不提供員工登入、審核、輪換憑證、任意 URL 或對外發布命令。HTTP 逾時 15 秒，不自動重試寫入。多則、圖片與送出回報要求 WEB V0.15.0／0060；改稿要求 WEB V0.18.12／0068；其餘要求 WEB V0.12.4 Build 1／0058，identity 會回傳憑證實際歸屬。
 
 伺服器送審以同 BOT + externalRef 去重，只回傳原資料。新版 complete 把 eventId 傳為 eventRef，伺服器以同 BOT + eventRef 唯一索引去重；相同內容回原紀錄，不同內容回 409 BOT_EVENT_CONFLICT，未分類舊完成紀錄不猜測分類。非 general 分類必須有 eventRef，同一實際發布／巡視始終保持相同編號。完成 API 仍允許舊客戶端不帶 eventRef 的一般紀錄，此時沒有伺服器去重。
 
@@ -38,8 +38,16 @@ report 仍無伺服器 idempotency key。工具對 report／complete 都在首�
 - 憑證在伺服器綁定 bot_id。寫入只可操作自己，傳不相符的 botCode 回 403；按 ID 讀別隻 BOT 的稿件回 404，按外部編號指定別隻 BOT 回 403。工具輸入仍不能覆寫 BOT 身分。原共用憑證已原樣歸屬 SOCIAL_EDITOR，其他 BOT 必須取得自己的憑證。
 - `complete.reviewRef` 的核准檢查只在本工具發送前執行，沒有修改伺服器完成 API 或加入發布交易。不能宣稱任何持有憑證的客戶端都必須先審核，也不能宣稱核准與外部發布原子同步。
 - `check` 以 GET identity 確認實際身份，不再用不存在稿件的 404 推論成功。憑證失效或 BOT 設定不符都會失敗。
-- 沒有對所有歷史的輪詢，也不會拉取客戶／訂單資料。每次 submit 最多一次查詢加一次新增；每次 review 一次 GET。附 reviewRef 的 complete 會先讀該份審核。pilot 是有限次設定與送出，不是常駐服務。
+- 沒有對所有歷史的輪詢，也不會拉取客戶／訂單資料。每次 submit 查該編號是否已存在，再按需新增版本；每次 review 一次 GET。附 reviewRef 的 complete 會先讀該份審核。pilot 是有限次設定與送出，不是常駐服務。
 - 正常 UI 依自己的刷新機制更新；CLI 回傳成功不代表瀏覽器立刻重繪，必要時手動重新整理管理中心。
 - 只有 article_published／threads_patrol 的成功完成事件進對應今日卡片；detail 可放平台或巡視結果。一般 report、送審、人工核准、測試皆不直接增加文章數。拍板結案目前沒有分類／後臺。推播僅傳四個識別欄位，不含審核決定、理由或稿件正文；收到後一次 GET 讀回正式結果。重送可能重複喚醒，不能宣稱外部工作 exactly-once。
 
 CYWEB 完整契約見主專案 `docs/architecture/BOT_CENTER.md`。
+
+## 新版覆蓋（WEB V0.18.12／0068）
+
+`submit` 新增選填 `previousDraftId`（正整數，原稿 id），externalRef 必須換新。新列會設 previous_draft_id 與 revision_number=原稿+1，原稿保留歷史但不再出現在待審／主清單與統計。新稿重新待審；不能從別隻 BOT、不同 kind、已有新版或已送出任一則的稿件分叉。競爭失敗回 409，先讀回最新版，不盲目重試。舊 externalRef 仍可直接 GET，回 supersededById；工具會阻止依舊稿進行後續操作。
+
+送審回應多 revisionNumber、previousDraftId、supersededById；review 輸出保留 revisionNumber／supersededById。歷史 legacy r2／r10 不依標題猜配對；此版起必須明確帶 previousDraftId，才會連成版本鏈。
+
+新文章卡的發布總數仍以 complete.article_published 計數；卡下清單改以該稿／則的實際 sent_at 台北當日列出。一次海巡完成的 complete.threads_patrol 與逐則 sent 是不同維度。兩種回報不可互相冒充，單純審核不是實際送出。

@@ -23,10 +23,6 @@ export function loadBotCenter(
   return apiRequest<BotCenterState>(`/api/bot-center${query}`);
 }
 
-export function createBot(code: string, label: string): Promise<BotProfileView> {
-  return apiRequest<BotProfileView>("/api/bot-center/bots", { method: "POST", json: { code, label } });
-}
-
 export function reviewDraft(id: number, decision: "approved" | "rejected", reason?: string): Promise<BotDraftView> {
   return apiRequest<BotDraftView>(`/api/bot-center/drafts/${id}/review`, { method: "POST", json: { decision, reason } });
 }

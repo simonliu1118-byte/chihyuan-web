@@ -20,6 +20,7 @@ type DraftRow = {
   id: number; code: string; label: string; external_ref: string | null; title: string; body: string;
   review_status: BotReviewStatus; review_reason: string | null; reviewed_at: string | null;
   display_name: string | null; employee_no: string | null; created_at: string;bot_id:number;push_status:BotDraftView["pushStatus"];
+  revision_number: number; previous_draft_id: number|null; superseded_by_id: number|null;
   kind: BotDraftKind; sent_at: string | null; item_total: number; item_pending: number; item_approved: number; item_rejected: number; image_count: number;
 };
 type ReportRow = { id: number; code: string; label: string; title: string; body: string; reported_at: string };
@@ -88,6 +89,7 @@ const profileView = (row: ProfileRow): BotProfileView => ({
   id: row.id, code: row.code, label: row.label, status: row.status, summary: row.summary, updatedAt: row.updated_at,
 });
 const draftView = (row: DraftRow): BotDraftView => ({
+  revisionNumber: row.revision_number ?? 1, previousDraftId: row.previous_draft_id ?? null, supersededById: row.superseded_by_id ?? null,
   id: row.id, botCode: row.code, botLabel: row.label, externalRef: row.external_ref, title: row.title, body: row.body,
   status: row.review_status, reason: row.review_reason, reviewedAt: row.reviewed_at, createdAt: row.created_at,
   reviewer: row.reviewed_at ? { displayName: row.display_name, employeeNo: row.employee_no } : null,
@@ -102,7 +104,7 @@ const completionView = (row: CompletionRow): BotCompletionView => ({
 });
 
 const DRAFT_SQL = `SELECT d.id,d.bot_id,b.code,b.label,d.external_ref,d.title,d.body,d.review_status,d.review_reason,d.reviewed_at,d.created_at,m.display_name,m.employee_no,p.status AS push_status,
- d.kind,d.sent_at,
+ d.kind,d.sent_at,d.revision_number,d.previous_draft_id,(SELECT newer.id FROM bot_drafts newer WHERE newer.previous_draft_id=d.id) AS superseded_by_id,
  (SELECT count(*) FROM bot_draft_items i WHERE i.draft_id=d.id) AS item_total,
  (SELECT count(*) FROM bot_draft_items i WHERE i.draft_id=d.id AND i.review_status='pending') AS item_pending,
  (SELECT count(*) FROM bot_draft_items i WHERE i.draft_id=d.id AND i.review_status='approved') AS item_approved,
@@ -123,7 +125,7 @@ async function ensureInitialBots(db: D1Database, now: string): Promise<void> {
 }
 async function profileByCode(db: D1Database, code: string): Promise<ProfileRow> {
   const row = await one<ProfileRow>(db, "SELECT id,code,label,status,summary,updated_at FROM bot_profiles WHERE code=?", code);
-  if (!row) throw new Bad("BOT_NOT_FOUND", "沒有這個 BOT，請先在 BOT 管理中心新增", 404);
+  if (!row) throw new Bad("BOT_NOT_FOUND", "沒有這個 BOT，請聯絡管理員", 404);
   return row;
 }
 async function draftById(db: D1Database, id: number, owner?: number): Promise<DraftRow> {
@@ -149,7 +151,7 @@ function finishDraftStatements(db: D1Database, id: number, actor: number, now: s
     db.prepare(`UPDATE bot_drafts SET review_status=CASE WHEN EXISTS(SELECT 1 FROM bot_draft_items WHERE draft_id=?1 AND review_status='approved') THEN 'approved' ELSE 'rejected' END,
       review_reason=CASE WHEN EXISTS(SELECT 1 FROM bot_draft_items WHERE draft_id=?1 AND review_status='approved') THEN
         CASE WHEN EXISTS(SELECT 1 FROM bot_draft_items WHERE draft_id=?1 AND review_status='rejected') THEN '部分通過' ELSE NULL END ELSE '全部退回' END,
-      reviewed_by=?2,reviewed_at=?3 WHERE id=?1 AND review_status='pending' AND NOT EXISTS(SELECT 1 FROM bot_draft_items WHERE draft_id=?1 AND review_status='pending')`).bind(id, actor, now),
+      reviewed_by=?2,reviewed_at=?3 WHERE id=?1 AND review_status='pending' AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=bot_drafts.id) AND NOT EXISTS(SELECT 1 FROM bot_draft_items WHERE draft_id=?1 AND review_status='pending')`).bind(id, actor, now),
     ...(notify ? [db.prepare("INSERT INTO bot_review_push_outbox(draft_id,next_attempt_at,created_at,updated_at) SELECT ?,?,?,? WHERE changes()=1 ON CONFLICT DO NOTHING").bind(id, now, now, now)] : []),
   ];
 }
@@ -198,10 +200,10 @@ async function state(db: D1Database, url: URL, now: string, canManageCredentials
   if (requestedBot !== null && !selected) throw new Bad("BOT_NOT_FOUND", "沒有這個 BOT", 404);
   const scopedArgs = selected ? [selected.id] : [];
   // Static clauses with bound IDs let the per-BOT indexes serve every page.
-  const draftRows = await many<DraftRow>(db, `${DRAFT_SQL} WHERE (?='all' OR d.review_status=?) AND (?=0 OR d.id<?) ${selected ? "AND d.bot_id=?" : ""} ORDER BY d.id DESC LIMIT ?`,
+  const draftRows = await many<DraftRow>(db, `${DRAFT_SQL} WHERE NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id) AND (?='all' OR d.review_status=?) AND (?=0 OR d.id<?) ${selected ? "AND d.bot_id=?" : ""} ORDER BY d.id DESC LIMIT ?`,
     draftStatus, draftStatus, draftBefore, draftBefore, ...scopedArgs, BOT_PAGE_SIZE + 1);
   const counts = await many<{ bot_id: number; review_status: BotReviewStatus; n: number }>(db,
-    "SELECT bot_id,review_status,count(*) n FROM bot_drafts GROUP BY bot_id,review_status");
+    "SELECT bot_id,review_status,count(*) n FROM bot_drafts d WHERE NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id) GROUP BY bot_id,review_status");
   const completions = await many<{bot_id:number;work_type:BotWorkType;n:number}>(db,
     "SELECT bot_id,work_type,count(*) n FROM bot_completions WHERE completed_at>=? AND completed_at<? GROUP BY bot_id,work_type",today.start,today.end);
   const reportRows = await many<ReportRow>(db, `SELECT r.id,b.code,b.label,r.title,r.body,r.reported_at FROM bot_reports r JOIN bot_profiles b ON b.id=r.bot_id
@@ -223,9 +225,9 @@ async function state(db: D1Database, url: URL, now: string, canManageCredentials
     return row ? completionView(row) : null;
   };
   const countWork = (type: BotWorkType) => completions.filter(row => row.work_type===type && (!selected || row.bot_id===selected.id)).reduce((sum,row)=>sum+row.n,0);
-  const latestPending = await one<DraftRow>(db, `${DRAFT_SQL} WHERE d.review_status='pending' ${selected ? "AND d.bot_id=?" : ""} ORDER BY d.id DESC LIMIT 1`, ...scopedArgs);
-  // V0.15.0: pending items by kind, patrol daily totals, and today's reviewed drafts per card.
-  const scope = selected ? "AND d.bot_id=?" : "";
+  const latestPending = await one<DraftRow>(db, `${DRAFT_SQL} WHERE NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id) AND d.review_status='pending' ${selected ? "AND d.bot_id=?" : ""} ORDER BY d.id DESC LIMIT 1`, ...scopedArgs);
+  // V0.15.0: pending items by kind, patrol daily totals, and today's actually sent drafts per card.
+  const scope = "AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id)" + (selected ? " AND d.bot_id=?" : "");
   const itemTotals = await one<{posts:number;patrols:number;sent_today:number;to_send:number}>(db, `SELECT
     (SELECT count(*) FROM bot_draft_items i JOIN bot_drafts d ON d.id=i.draft_id WHERE i.review_status='pending' AND d.kind='post' ${scope}) AS posts,
     (SELECT count(*) FROM bot_draft_items i JOIN bot_drafts d ON d.id=i.draft_id WHERE i.review_status='pending' AND d.kind='patrol' ${scope}) AS patrols,
@@ -233,8 +235,8 @@ async function state(db: D1Database, url: URL, now: string, canManageCredentials
     (SELECT count(*) FROM bot_draft_items i JOIN bot_drafts d ON d.id=i.draft_id WHERE d.kind='patrol' AND i.review_status IN ('pending','approved') AND i.sent_at IS NULL ${scope}) AS to_send`,
     ...scopedArgs, ...scopedArgs, today.start, today.end, ...scopedArgs, ...scopedArgs);
   const reviewedToday = async (kind: BotDraftKind) => (await many<DraftRow>(db,
-    `${DRAFT_SQL} WHERE d.kind=? AND d.review_status<>'pending' AND d.reviewed_at>=? AND d.reviewed_at<? ${scope} ORDER BY d.reviewed_at DESC,d.id DESC LIMIT 50`,
-    kind, today.start, today.end, ...scopedArgs)).map(draftView);
+    `${DRAFT_SQL} WHERE d.kind=? AND (d.sent_at>=? AND d.sent_at<? OR EXISTS(SELECT 1 FROM bot_draft_items si WHERE si.draft_id=d.id AND si.sent_at>=? AND si.sent_at<?)) ${scope} ORDER BY d.id DESC LIMIT 50`,
+    kind,today.start,today.end,today.start,today.end,...scopedArgs)).map(draftView);
   const workSummary: BotCenterState["workSummary"] = {
     articles: { count: countWork("article_published"), latest: await latestWork("article_published"), reviewed: await reviewedToday("post") },
     patrols: { count: countWork("threads_patrol"), latest: await latestWork("threads_patrol"), sentToday: itemTotals?.sent_today ?? 0, toSend: itemTotals?.to_send ?? 0, reviewed: await reviewedToday("patrol") },
@@ -271,25 +273,6 @@ async function human(request: Request, env: BotEnv, requestId: string, url: URL,
   if ((path === "" || path === "/") && request.method === "GET") return success(await state(db, url, now, canManageCredentials,pushAvailable(env)), requestId);
   if (path === "progress" && request.method === "GET") return success(await progress(db, canManageCredentials,pushAvailable(env)), requestId);
 
-  if (path === "bots" && request.method === "POST") {
-    await ensureInitialBots(db, now);
-    const body = await readBody(request);
-    const code = botCode(body.code);
-    const label = text(body.label, "名稱", BOT_LIMITS.label, true);
-    const existing = await one<{ id: number }>(db, "SELECT id FROM bot_profiles WHERE code=?", code);
-    if (existing) throw new Bad("BOT_EXISTS", "這個 BOT 代碼已經存在", 409);
-    const inserted = await db.prepare(
-      "INSERT INTO bot_profiles(code,label,status,summary,updated_at) VALUES(?,?,'idle','',?)",
-    ).bind(code, label, now).run();
-    const id = Number(inserted.meta.last_row_id);
-    await new AuditService(db).prepareRecord({
-      entityType: "bot_profile", entityKey: String(id), action: "bot_profile.created",
-      actorEmployeeId: actor, requestId, after: { name: label, code },
-    }).run();
-    const row = await one<ProfileRow>(db, "SELECT id,code,label,status,summary,updated_at FROM bot_profiles WHERE id=?", id);
-    return success(profileView(row!), requestId);
-  }
-
   const detailRoute = /^drafts\/(\d+)$/.exec(path);
   if (detailRoute && request.method === "GET") return success(await draftDetail(db, Number(detailRoute[1])), requestId);
   const imageRoute = /^images\/(\d+)$/.exec(path);
@@ -307,13 +290,14 @@ async function human(request: Request, env: BotEnv, requestId: string, url: URL,
     const decision = body.decision;
     const reason = decision === "rejected" ? text(body.reason, "退回理由", BOT_LIMITS.reason, true) : null;
     const current = await draftById(db, id);
+    if(current.superseded_by_id)throw new Bad("BOT_SUPERSEDED","此稿已有新版",409);
     if (current.review_status !== "pending") throw new Bad("ALREADY_REVIEWED", "這篇審稿已經有結果", 409);
     const item = await one<ItemRow>(db, "SELECT id,seq,ref,title,body,review_status,review_reason,reviewed_at,sent_at FROM bot_draft_items WHERE draft_id=? AND seq=?", id, seq);
     if (!item) throw new Bad("BOT_NOT_FOUND", "找不到這一則", 404);
     if (item.review_status !== "pending") throw new Bad("ALREADY_REVIEWED", "這一則已經有結果", 409);
     const notify = await one<{ enabled: number }>(db, "SELECT enabled FROM bot_review_push_settings WHERE bot_id=?", current.bot_id);
     const [updated] = await db.batch([
-      db.prepare("UPDATE bot_draft_items SET review_status=?,review_reason=?,reviewed_by=?,reviewed_at=? WHERE id=? AND review_status='pending'").bind(decision, reason, actor, now, item.id),
+      db.prepare("UPDATE bot_draft_items SET review_status=?,review_reason=?,reviewed_by=?,reviewed_at=? WHERE id=? AND review_status='pending' AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=bot_draft_items.draft_id)").bind(decision, reason, actor, now, item.id),
       new AuditService(db).prepareRecord({
         entityType: "bot_draft", entityKey: String(id), action: decision === "approved" ? "bot_draft.item_approved" : "bot_draft.item_rejected",
         actorEmployeeId: actor, requestId, after: { name: current.title + "｜" + item.seq + " " + item.title, ...(reason ? { reason } : {}) },
@@ -333,12 +317,13 @@ async function human(request: Request, env: BotEnv, requestId: string, url: URL,
     const decision = body.decision;
     const reason = decision === "rejected" ? text(body.reason, "退回理由", BOT_LIMITS.reason, true) : null;
     const current = await draftById(db, id);
+    if(current.superseded_by_id)throw new Bad("BOT_SUPERSEDED","此稿已有新版",409);
     if (current.review_status !== "pending") throw new Bad("ALREADY_REVIEWED", "這篇審稿已經有結果", 409);
     const notify=await one<{enabled:number}>(db,"SELECT enabled FROM bot_review_push_settings WHERE bot_id=?",current.bot_id);
     if (current.item_total) {
       // Multi-item draft: 全部通過／全部退回 decides every item still pending, then finishes the draft.
       const [items] = await db.batch([
-        db.prepare("UPDATE bot_draft_items SET review_status=?,review_reason=?,reviewed_by=?,reviewed_at=? WHERE draft_id=? AND review_status='pending'").bind(decision, reason, actor, now, id),
+        db.prepare("UPDATE bot_draft_items SET review_status=?,review_reason=?,reviewed_by=?,reviewed_at=? WHERE draft_id=? AND review_status='pending' AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=bot_draft_items.draft_id)").bind(decision, reason, actor, now, id),
         new AuditService(db).prepareRecord({
           entityType: "bot_draft", entityKey: String(id), action: decision === "approved" ? "bot_draft.approved" : "bot_draft.rejected",
           actorEmployeeId: actor, requestId, statusFrom: "pending", statusTo: decision, after: { name: current.title, ...(reason ? { reason } : {}) },
@@ -351,7 +336,7 @@ async function human(request: Request, env: BotEnv, requestId: string, url: URL,
     }
     // Commit the review, its audit and optional notification atomically before attempting delivery.
     const [updated] = await db.batch([
-      db.prepare("UPDATE bot_drafts SET review_status=?,review_reason=?,reviewed_by=?,reviewed_at=? WHERE id=? AND review_status='pending'")
+      db.prepare("UPDATE bot_drafts SET review_status=?,review_reason=?,reviewed_by=?,reviewed_at=? WHERE id=? AND review_status='pending' AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=bot_drafts.id)")
         .bind(decision, reason, actor, now, id),
       new AuditService(db).prepareRecord({
         entityType: "bot_draft", entityKey: String(id), action: decision === "approved" ? "bot_draft.approved" : "bot_draft.rejected",
@@ -453,10 +438,27 @@ function itemsOf(value: unknown): ItemInput[] {
   });
   return items;
 }
-async function saveDraft(db: D1Database, botId: number, externalRef: string | null, title: string, body: string, now: string, kind: BotDraftKind = "general", items: ItemInput[] = []): Promise<DraftRow> {
+async function saveDraft(db: D1Database, botId: number, externalRef: string | null, title: string, body: string, now: string, kind: BotDraftKind = "general", items: ItemInput[] = [], previousId?: number): Promise<DraftRow> {
   if (externalRef) {
     const existing = await one<{ id: number }>(db, "SELECT id FROM bot_drafts WHERE bot_id=? AND external_ref=?", botId, externalRef);
     if (existing) return draftById(db, existing.id);
+  }
+  if (previousId !== undefined) {
+    if(!externalRef || !Number.isSafeInteger(previousId) || previousId<1)throw new Bad("BOT_INVALID","覆蓋新版需新externalRef與有效previousDraftId");
+    const old=await draftById(db,previousId,botId);
+    if(old.kind!==kind)throw new Bad("BOT_REVISION_CONFLICT","新版須保持原稿分類",409);
+    if(old.superseded_by_id || old.sent_at || await one(db,"SELECT id FROM bot_draft_items WHERE draft_id=? AND sent_at IS NOT NULL LIMIT 1",previousId))throw new Bad("BOT_REVISION_CONFLICT","原稿已有新版或已送出，不能覆蓋",409);
+    try {
+      const [inserted]=await db.batch([
+        db.prepare(`INSERT INTO bot_drafts(bot_id,external_ref,title,body,created_at,kind,previous_draft_id,revision_number)
+          SELECT ?,?,?,?,?,?,d.id,d.revision_number+1 FROM bot_drafts d WHERE d.id=? AND d.bot_id=? AND d.sent_at IS NULL
+          AND NOT EXISTS(SELECT 1 FROM bot_draft_items WHERE draft_id=d.id AND sent_at IS NOT NULL)
+          AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id)`).bind(botId,externalRef,title,body,now,kind,previousId,botId),
+        ...items.map((item,i)=>db.prepare("INSERT INTO bot_draft_items(draft_id,seq,ref,title,body) VALUES((SELECT id FROM bot_drafts WHERE bot_id=? AND external_ref=?),?,?,?,?)").bind(botId,externalRef,i+1,item.ref,item.title,item.body))
+      ]);
+      if(inserted.meta.changes!==1)throw Error('conflict');
+      return draftById(db,Number(inserted.meta.last_row_id));
+    }catch{throw new Bad("BOT_REVISION_CONFLICT","原稿已變更，請重新讀取後再送新版",409)}
   }
   try {
     const inserted = await db.prepare(
@@ -505,7 +507,7 @@ async function ingest(request: Request, env: BotEnv, requestId: string, url: URL
     const kind = body.kind ?? "general";
     if (typeof kind !== "string" || !(BOT_DRAFT_KINDS as readonly string[]).includes(kind)) throw new Bad("BOT_INVALID", "稿件分類不正確");
     const items = itemsOf(body.items);
-    return success(draftView(await saveDraft(db, bot.id, externalRef, title, draft, now, kind as BotDraftKind, items)), requestId);
+    return success(draftView(await saveDraft(db, bot.id, externalRef, title, draft, now, kind as BotDraftKind, items, body.previousDraftId as number|undefined)), requestId);
   }
   if (path === "drafts" && request.method === "GET") {
     requireBotScope(url.searchParams.get("botCode"),bot);
@@ -523,6 +525,7 @@ async function ingest(request: Request, env: BotEnv, requestId: string, url: URL
   const imageUpload = /^drafts\/(\d+)\/images$/.exec(path);
   if (imageUpload && request.method === "POST") {
     const target = await draftById(db, Number(imageUpload[1]), bot.id);
+    if(target.superseded_by_id)throw new Bad("BOT_SUPERSEDED","此稿已有新版",409);
     if (target.review_status !== "pending") throw new Bad("ALREADY_REVIEWED", "已審完的稿件不能再加圖片", 409);
     if (!env.HR_FILES) throw new Bad("BOT_IMAGE_UNAVAILABLE", "圖片儲存空間尚未設定", 503);
     const seqParam = url.searchParams.get("item");
@@ -538,7 +541,8 @@ async function ingest(request: Request, env: BotEnv, requestId: string, url: URL
     const key = `bot-review/${target.id}/${crypto.randomUUID()}.${type.split("/")[1]}`;
     await env.HR_FILES.put(key, bytes, { httpMetadata: { contentType: type } });
     try {
-      const inserted = await db.prepare("INSERT INTO bot_review_images(draft_id,item_id,object_key,content_type,bytes,created_at) VALUES(?,?,?,?,?,?)").bind(target.id, item?.id ?? null, key, type, bytes.length, now).run();
+      const inserted = await db.prepare("INSERT INTO bot_review_images(draft_id,item_id,object_key,content_type,bytes,created_at) SELECT ?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM bot_drafts WHERE previous_draft_id=?) AND EXISTS(SELECT 1 FROM bot_drafts WHERE id=? AND review_status='pending') AND (SELECT count(*) FROM bot_review_images WHERE draft_id=? AND item_id IS ?)<?").bind(target.id, item?.id ?? null, key, type, bytes.length, now,target.id,target.id,target.id,item?.id??null,BOT_IMAGE_LIMITS.perTarget).run();
+      if(!inserted.meta.changes)throw new Bad("BOT_IMAGE_CONFLICT","稿件已變更或圖片已達上限，請重新讀取",409);
       return success({ id: Number(inserted.meta.last_row_id), itemSeq: seqParam ? Number(seqParam) : null, contentType: type, bytes: bytes.length }, requestId);
     } catch (error) { await env.HR_FILES.delete(key); throw error; }
   }
@@ -546,15 +550,17 @@ async function ingest(request: Request, env: BotEnv, requestId: string, url: URL
   if (sentRoute && request.method === "POST") {
     // The BOT reports the approved work it actually carried out (posted, replied).
     const target = await draftById(db, Number(sentRoute[1]), bot.id);
+    if(target.superseded_by_id)throw new Bad("BOT_SUPERSEDED","此稿已有新版",409);
     if (target.review_status !== "approved") throw new Bad("BOT_NOT_APPROVED", "只有通過的稿件可以回報已送出", 409);
     const body = await readBody(request);
     if (target.item_total) {
       if (!Array.isArray(body.items) || !body.items.length || body.items.some(seq => !Number.isSafeInteger(seq) || Number(seq) < 1)) throw new Bad("BOT_INVALID", "請列出已送出的則號");
       const seqs = [...new Set(body.items as number[])];
-      const result = await db.prepare(`UPDATE bot_draft_items SET sent_at=? WHERE draft_id=? AND review_status='approved' AND sent_at IS NULL AND seq IN (SELECT value FROM json_each(?))`).bind(now, target.id, JSON.stringify(seqs)).run();
+      const result = await db.prepare(`UPDATE bot_draft_items SET sent_at=? WHERE draft_id=? AND review_status='approved' AND sent_at IS NULL AND seq IN (SELECT value FROM json_each(?)) AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=bot_draft_items.draft_id)`).bind(now, target.id, JSON.stringify(seqs)).run();
       return success({ draftId: target.id, sent: result.meta.changes }, requestId);
     }
-    await db.prepare("UPDATE bot_drafts SET sent_at=COALESCE(sent_at,?) WHERE id=?").bind(now, target.id).run();
+    const result=await db.prepare("UPDATE bot_drafts SET sent_at=COALESCE(sent_at,?) WHERE id=? AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=bot_drafts.id)").bind(now, target.id).run();
+    if(!result.meta.changes)throw new Bad("BOT_SUPERSEDED","此稿已有新版",409);
     return success({ draftId: target.id, sent: 1 }, requestId);
   }
   if (path === "progress" && request.method === "POST") {
@@ -605,11 +611,13 @@ export async function handleBotCenterRoute(request: Request, env: BotEnv, reques
  */
 export async function cleanupReviewImages(env: BotEnv, now: string): Promise<number> {
   if (!env.HR_FILES) return 0;
+  const discarded=await many<{object_key:string}>(env.DB,"SELECT object_key FROM bot_review_image_deletions LIMIT 100");
+  if(discarded.length){await env.HR_FILES.delete(discarded.map(x=>x.object_key));await env.DB.prepare("DELETE FROM bot_review_image_deletions WHERE object_key IN(SELECT value FROM json_each(?))").bind(JSON.stringify(discarded.map(x=>x.object_key))).run();}
   const today = taipeiTodayRange(new Date(now));
   const rows = await many<{ id: number; object_key: string }>(env.DB, `SELECT g.id,g.object_key FROM bot_review_images g JOIN bot_drafts d ON d.id=g.draft_id
-    WHERE d.review_status<>'pending' AND d.reviewed_at<? ORDER BY g.id LIMIT 100`, today.start);
-  if (!rows.length) return 0;
+    WHERE (d.review_status<>'pending' AND d.reviewed_at<?) OR EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id AND newer.created_at<?) ORDER BY g.id LIMIT 100`, today.start,today.start);
+  if (!rows.length) return discarded.length;
   await env.HR_FILES.delete(rows.map(row => row.object_key));
   await env.DB.prepare("DELETE FROM bot_review_images WHERE id IN (SELECT value FROM json_each(?))").bind(JSON.stringify(rows.map(row => row.id))).run();
-  return rows.length;
+  return rows.length+discarded.length;
 }
