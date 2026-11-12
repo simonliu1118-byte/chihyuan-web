@@ -1,6 +1,7 @@
 # CYWEB V0.18.12 BOT 改稿與卡片修正交接
 
 - 執行：GPT；分支 cyweb/bot-revisions-layout-01812；基準 main 93cb25e6（V0.18.11），VERSION/package=0.18.12、BUILD=0。
+- PR：[#509](https://github.com/simonliu1118-byte/chihyuan-web/pull/509)；工程提交73174506。Claude 尚未審查；CI結果以該PR最新提交為準。
 - 本輪需求：桌機／手機卡片破版、初稿與修訂版本、主動新版覆蓋、每則10圖、今日實際發布明細、IT→財務會計、移除動態新增BOT；使用者另明確授權 IT 舊資料不用保留。需提供小編更新指令與共用工具／技能。
 - **未合併／未部署；未執行正式 D1 或 R2 刪除，待 Claude 審查及本版發布授權。**
 
