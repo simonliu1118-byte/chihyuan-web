@@ -3,12 +3,13 @@
 > 本檔是 CY Web 唯一的現況與待辦清單，不是永久規則來源。各版本完成內容與驗證見 `CHANGELOG.md`；規格見 `docs/architecture/README.md`。
 > 2026-11-03、2026-11-09 整理：已完成且已記入 CHANGELOG 的版本段落移除；已結案的交接與工作單移到 Git 固定快照（見 `docs/handoff/README.md`）。
 
-## V0.18.12 BOT 版面／改稿（工程完成，未合併／未部署）
+## V0.18.12 BOT 版面／改稿（已部署，待Claude事後審查）
 
 - [x] 卡片溢出修正、改稿版本鏈與唯讀歷史、10 張圖片、實際送出明細、IT 清除／FINANCE 獨立身分、取消動態新增 BOT；工具與共用技能同步。
 - [x] TypeScript、建置、來源契約、69項BOT相關測試通過；完整回歸既有Windows問題與D1清理限制已記錄。
-- [ ] Claude 審查 [PR #509](https://github.com/simonliu1118-byte/chihyuan-web/pull/509)；見 [handoff](docs/handoff/CYWEB-BOT-REVISIONS-01812-20261112.md)。本輪含資料遷移，未取得本版合併／部署授權。
-- [ ] 部署 0068 後更新 Grok 的程式／技能；沿用原憑證、原收據與原 routine，實機測試改稿、10 圖、送出與完成兩類回報。IT 圖片的技術刪除佇列由排程完成。
+- [ ] Claude 審查 [PR #509](https://github.com/simonliu1118-byte/chihyuan-web/pull/509)；見 [handoff](docs/handoff/CYWEB-BOT-REVISIONS-01812-20261112.md)。使用者2026-11-12已明確授權先合併部署，待Claude事後填結論。
+- [x] [PR509發布 #43248383242](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/43248383242) 成功：V0.18.12／0068、來源與D1健康、HTTPS／排程／portal均通過；IT已清除，小編整合設定保留，圖片待清理佇列為0。
+- [ ] 更新 Grok 的程式／技能；沿用原憑證、原收據與原 routine，實機測試改稿、10 圖、送出與完成兩類回報。IT 圖片的技術刪除佇列由排程完成。
 
 ## WO-0.18.0 委外代工改版（工程完成，待 Claude 複審；未合併／未部署）
 
