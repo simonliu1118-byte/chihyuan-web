@@ -1,7 +1,7 @@
 import {useCallback,useEffect,useRef,useState} from "react";
 import {ApiClientError} from "../../api/client";
 import {BOT_REVIEW_LABELS,BOT_STATUS_LABELS,taipeiTodayRange,type BotCenterState,type BotCompletionView,type BotReviewStatus,type BotStatus} from "../../../shared/bot-center";
-import {issueBotCredential,loadBotCenter,loadBotProgress,revokeBotCredential,saveBotPush,retryBotPush} from "../api/bot-center-client";
+import {issueBotCredential,loadBotCenter,loadBotProgress,revokeBotCredential,saveBotPush,retryBotPush,loadPublishedPosts} from "../api/bot-center-client";
 import {ExpandToggle} from "../../ui/data/ExpandToggle";
 import {useCompactLayout} from "../../ui/foundation/useCompactLayout";
 import {OverflowMenu} from "../../ui/mobile/OverflowMenu";
@@ -15,7 +15,9 @@ import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {StatusChip} from "../../ui/primitives/StatusChip";
 import {BotPushSettingsDialog} from "./BotPushSettingsDialog";
 import {BotReviewDialog} from "./BotReviewDialog";
-import {BOT_DRAFT_KIND_LABELS,type BotDraftView} from "../../../shared/bot-center";
+import {BotText} from "./BotText";
+import {BotSentPatrolDialog} from "./BotSentPatrolDialog";
+import {BOT_DRAFT_KIND_LABELS} from "../../../shared/bot-center";
 import "./bot-center.css";
 
 const STATUS_TONE:Record<BotStatus,"neutral"|"info"|"warning"|"success">={idle:"neutral",working:"info",blocked:"warning",done:"success"};
@@ -23,13 +25,6 @@ const REVIEW_TONE:Record<BotReviewStatus,"warning"|"success"|"danger">={pending:
 const messageOf=(error:unknown)=>error instanceof ApiClientError?error.message||error.code:"BOT 管理中心暫時無法使用";
 const PUSH_LABELS={queued:'待送出',sending:'傳送中',accepted:'已送出',failed:'失敗'};
 const firstLine=(text:string)=>{const line=text.split("\n").find(row=>row.trim())??"";return line.length>80?line.slice(0,80)+"…":line};
-/** Actual deliveries today; review decisions alone do not put a draft on a card. */
-function ReviewedList({title,drafts,onOpen}:{title:string;drafts:BotDraftView[];onOpen:(list:BotDraftView[],id:number)=>void}){
- if(!drafts.length)return null;
- return <div className="cy-bot-reviewed"><h4>{title} {drafts.length} 篇</h4>
-  {drafts.map(draft=><button key={draft.id} type="button" className="cy-bot-reviewed-row" onClick={()=>onOpen(drafts,draft.id)}>
-   <span>{draft.title}</span><small>{"已送出"}{draft.imageCount?"・"+draft.imageCount+" 張圖":""}</small></button>)}</div>;
-}
 /** Keep an event on one line, exposing the shared toggle only when its text overflows. */
 function TimelineEvent({item}:{item:BotCompletionView}){
  const [expanded,setExpanded]=useState(false),[overflows,setOverflows]=useState(false);
@@ -72,6 +67,7 @@ export function BotCenterPage(){
  const [state,setState]=useState<BotCenterState|null>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
  const [settingsOpen,setSettingsOpen]=useState(false),[reportsOpen,setReportsOpen]=useState(false);
  const [timelineOpen,setTimelineOpen]=useState(false);
+ const [patrolOpen,setPatrolOpen]=useState(false);
  const [openReport,setOpenReport]=useState<number|null>(null);
  const [token,setToken]=useState<string|null>(null);
  const [tokenOwner,setTokenOwner]=useState("");
@@ -79,7 +75,7 @@ export function BotCenterPage(){
  const [message,setMessage,reportError,tone]=useFeedbackMessage<string|null>(null);
  const {confirm,confirmationDialog}=useConfirmation();
  const sequence=useRef(0),actionBusy=useRef(false);
- const [reviewing,setReviewing]=useState<{ids:number[];id:number}|null>(null);
+ const [reviewing,setReviewing]=useState<{ids:number[];id:number;itemSeq?:number;readOnly?:boolean}|null>(null);
  const draftStatus=state?.draftStatus??"pending";
 
  const refresh=useCallback(async(status:BotReviewStatus|"all")=>{
@@ -146,12 +142,22 @@ export function BotCenterPage(){
   await run(async()=>{await revokeBotCredential(code);await refresh(draftStatus);setMessage("已撤銷"+name+"連線憑證")});
  }
 
- const open=(list:BotDraftView[],id:number)=>setReviewing({ids:list.map(row=>row.id),id});
+ async function morePublished(){
+  if(!state?.workSummary.articles.published.nextBefore)return;
+  const current=state.workSummary.articles.published;
+  await run(async()=>{
+   let page=await loadPublishedPosts(current.nextBefore!,state.botCode??undefined);
+   if(page.day!==current.day)page=await loadPublishedPosts(undefined,state.botCode??undefined);
+   const incoming=page;
+   setState(previous=>previous?{...previous,workSummary:{...previous.workSummary,articles:{...previous.workSummary.articles,published:{...incoming,items:incoming.day===current.day?[...current.items,...incoming.items.filter(item=>!current.items.some(old=>old.id===item.id))]:incoming.items}}}}:previous);
+  });
+ }
  if(loading&&!state)return <Loading/>;
  if(!state)return <section className="cy-op-panel"><h2>BOT 管理中心</h2><p>{message??"目前無法載入。"}</p></section>;
  return <div className="cy-bot-center">
   <FeedbackBanner message={message} tone={tone}/>{confirmationDialog}
-  {reviewing?<BotReviewDialog ids={reviewing.ids} initialId={reviewing.id} canReview onClose={()=>setReviewing(null)} onChanged={()=>void refresh(draftStatus).catch(()=>{})}/>:null}
+  {patrolOpen?<BotSentPatrolDialog botCode={state.botCode??undefined} onClose={()=>setPatrolOpen(false)}/>:null}
+  {reviewing?<BotReviewDialog ids={reviewing.ids} initialId={reviewing.id} onlyItemSeq={reviewing.itemSeq} canReview={!reviewing.readOnly} onClose={()=>setReviewing(null)} onChanged={()=>void refresh(draftStatus).catch(()=>{})}/>:null}
   <section className="cy-op-panel cy-bot-overview" aria-label="今日工作總覽">
    <div className="cy-bot-overview-toolbar">
     <div className="cy-bot-status-strip" aria-label="BOT 狀態總覽（只供顯示）">
@@ -194,14 +200,13 @@ export function BotCenterPage(){
    </section>
   <section className="cy-bot-work-cards" aria-label="工作摘要">
    <article className="cy-op-panel cy-bot-work-card"><h3>新文章通知</h3><div className="cy-bot-work-count"><strong>{state.workSummary.articles.count}</strong> 篇</div>
-    <p>{state.workSummary.articles.latest?.title??state.workSummary.articles.reviewed[0]?.title??"尚無發布紀錄"}</p>{state.workSummary.articles.latest?.detail?<p>{state.workSummary.articles.latest.detail}</p>:null}
-    <ReviewedList title="今日發布的貼文" drafts={state.workSummary.articles.reviewed} onOpen={open}/></article>
+    <div className="cy-bot-reviewed">{state.workSummary.articles.published.items.map(item=><button key={item.id} type="button" className="cy-bot-reviewed-row" onClick={()=>setReviewing({ids:[item.draftId],id:item.draftId,itemSeq:item.seq,readOnly:true})}><span>{item.title}</span><small>已發布</small></button>)}
+    {state.workSummary.articles.published.more?<button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void morePublished()}>載入更多發布紀錄</button>:null}</div></article>
    <article className="cy-op-panel cy-bot-work-card"><h3>Threads 巡視回報</h3>
-    <div className="cy-bot-work-count">今日巡視 <strong>{state.workSummary.patrols.count}</strong> 次</div>
-    <p>已送出 {state.workSummary.patrols.sentToday} 則・待送出 {state.workSummary.patrols.toSend} 則</p>
-    <ReviewedList title="今日送出的海巡" drafts={state.workSummary.patrols.reviewed} onOpen={open}/></article>
+    <div className="cy-bot-work-count">今日巡視 <strong><button type="button" className="cy-bot-count-button" aria-label={`查看今日送出的 ${state.workSummary.patrols.sentToday} 則海巡回覆`} onClick={()=>setPatrolOpen(true)}>{state.workSummary.patrols.sentToday}</button></strong> 則</div>
+    <div className="cy-bot-patrol-reports">{state.workSummary.patrols.reports.map(report=><article key={report.id}><strong>{report.title}</strong>{report.detail?<BotText text={report.detail}/>:null}</article>)}</div></article>
    <article className="cy-op-panel cy-bot-work-card"><h3>拍板結案</h3><div className="cy-bot-work-count">—</div></article>
-   <article className="cy-op-panel cy-bot-work-card"><h3>待核准</h3><div className="cy-bot-work-count"><strong>{state.workSummary.pending.count}</strong> 件</div>
+   <article className="cy-op-panel cy-bot-work-card"><h3>待核准</h3><div className="cy-bot-work-count"><strong className="cy-bot-pending-count">{state.workSummary.pending.count}</strong> 件</div>
     {state.workSummary.pending.posts||state.workSummary.pending.patrols?<p>貼文 {state.workSummary.pending.posts} 篇・海巡 {state.workSummary.pending.patrols} 則</p>:null}
     <p>{state.workSummary.pending.latest?.title??"尚無待審事項"}</p></article>
   </section>
