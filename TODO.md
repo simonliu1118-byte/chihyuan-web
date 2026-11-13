@@ -3,12 +3,14 @@
 > 本檔是 CY Web 唯一的現況與待辦清單，不是永久規則來源。各版本完成內容與驗證見 `CHANGELOG.md`；規格見 `docs/architecture/README.md`。
 > 2026-11-03、2026-11-09 整理：已完成且已記入 CHANGELOG 的版本段落移除；已結案的交接與工作單移到 Git 固定快照（見 `docs/handoff/README.md`）。
 
-## V0.18.13 BOT 巡視摘要／發布點閱（工程完成，待驗證／部署）
+## V0.18.13 BOT 巡視摘要／發布點閱（已部署，待Claude事後審查）
 
 - [x] Threads實際送出則數可點閱、巡視名稱／狀態／摘要依BOT回報；新文章逐篇點閱、總篇數不作按鈕；待核准N紅字。
 - [x] 財務正式唯讀查核：當日progress摘要已收到、狀態完成；沒有改動財務資料或憑證。
-- [ ] 完成PR檢查並依單純UI可合併部署的既有授權發布；[handoff](docs/handoff/CYWEB-BOT-PATROL-01813-20261113.md)留Claude事後審查。
-- [ ] 交給社群小編新的巡視命名／摘要與逐篇發布回報文字；原憑證、收據、routine保留。
+- [x] PR511檢查全部成功（831項完整Node測試通過）；[受控發布 #43356893401](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/43356893401) 成功，正式版本／來源／D1／HTTPS驗證通過。
+- [ ] Claude事後審查；[handoff](docs/handoff/CYWEB-BOT-PATROL-01813-20261113.md)留Claude事後審查。
+- [x] 已準備隨本輪交付社群小編的巡視命名／摘要與逐篇發布回報文字及更新技能；原憑證、收據、routine保留。
+- [ ] 小編實際更新技能並驗收新格式、巡視N與單篇發布內容；不要將本機合成驗證當作Grok實機成功。
 
 ## V0.18.12 BOT 版面／改稿（已部署，待Claude事後審查）
 
