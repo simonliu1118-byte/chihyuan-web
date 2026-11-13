@@ -2,6 +2,15 @@
 
 沿用 CYWEB 殼層、`#bot-center` 路由及 `BOT_CENTER` 模組，在左側 ERP 查詢下一項。SUPER_ADMIN 自動具有模組權限；其他人須取得模組權限。以下為目前 V0.15.0 介面契約與既有 V0.12.4 伺服端推播契約；正式部署狀態以根 TODO 為準。
 
+## V0.18.13 工作卡片與送出內容（待部署）
+
+- Threads卡片維持「今日巡視N則」，N是台北當日實際sent_at海巡回覆數，不是巡視完成批次。點N開啟共用Dialog，逐則呈現已送出全文／送出時間；未送出或退回項目不列入。
+- N下方呈現當日threads_patrol完成回報的title與detail（最新在上，最多50筆）；早巡／午巡／晚巡及已送出等文字由BOT自行回報，CYWEB不依時間猜名稱、不把巡視完成自動當作已送出。過多回報在卡內捲動，沒有展開收合。舊count／latest／reviewed／toSend API欄位保留相容。
+- 新文章N篇保持純顯示（仍由article_published完成事件計數）。下方published每列對應一則實際送出的post item，可點開原BotReviewDialog，但僅顯示該篇全文／附圖，不顯示同批其他篇、批次說明、版本導航或審核按鈕。審核圖片仍依原隔日清理政策，不能宣稱長期保存公開平台媒體。
+- 新GET /api/bot-center/sent-items需既有BOT_CENTER人員權限；kind=patrol/post，before=sentAt|itemId，summary=1只回標題與識別／時間、不回正文；botCode選填。每頁50則、以sent_at DESC,id DESC續頁，限制台北當日並排除被取代的稿件，沿用既有sent_at索引，沒有migration。
+- 主頁articles.published首批只取標題／識別，完整內容點開才查；巡視全文也只在點N時讀取。多頁由使用者按載入更多，不先載入全部歷史。主頁巡視回報查詢取代原latest巡視查詢；新增文章逐則metadata一個有界查詢，30秒progress輪詢不變，不增加背景歷史／送出明細輪詢。
+- 待核准N以var(--cy-danger)紅字顯示，沿用既有字級。FINANCE卡片仍只讀當日progress摘要，不改財務BOT設定或憑證。
+
 ## V0.18.12 目前改稿／發布契約（已部署，待Claude事後審查）
 
 以下變更優先於後文的歷史沿革；未列出的既有權限、推播與完成回報契約不變。

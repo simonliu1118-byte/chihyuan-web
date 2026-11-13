@@ -15,6 +15,7 @@
 .cy-bot-work-card h3{margin:0;font-size:var(--cy-fs-md)}
 .cy-bot-work-count{font-size:var(--cy-fs-sm);min-height:30px}
 .cy-bot-work-count strong{font-size:24px;font-weight:650;margin-right:3px}
+.cy-bot-pending-count{color:var(--cy-danger)}
 .cy-bot-work-card p{margin:0;line-height:1.4;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .cy-bot-center .cy-op-panel-header h2{font-size:var(--cy-fs-md)}
 .cy-bot-timeline{list-style:none;margin:8px 0 0;padding:0 0 0 8px}
@@ -111,3 +112,15 @@
 .cy-bot-reviewed-row>small{white-space:nowrap}
 .cy-bot-review-item header,.cy-bot-review-meta{min-width:0;overflow-wrap:anywhere}
 @media(max-width:640px){.cy-bot-work-cards,.cy-bot-cards{grid-template-columns:minmax(0,1fr)}.cy-bot-reviewed-row{gap:4px;padding:4px 0}}
+
+.cy-bot-count-button{font:inherit;line-height:1;color:var(--cy-accent);border:0;background:transparent;padding:0;cursor:pointer}
+.cy-bot-count-button:hover{text-decoration:underline}
+.cy-bot-patrol-reports{display:grid;gap:8px;max-height:240px;overflow:auto;min-width:0}
+.cy-bot-patrol-reports>article{min-width:0;overflow-wrap:anywhere}
+.cy-bot-patrol-reports .cy-bot-rich{font-size:var(--cy-fs-sm);line-height:1.45}
+.cy-bot-single-item{grid-template-columns:minmax(0,1fr)}
+.cy-bot-sent-items{display:grid;gap:10px}
+.cy-bot-sent-items>article{border-bottom:1px solid var(--cy-border);padding-bottom:8px;min-width:0}
+.cy-bot-sent-items>article:last-child{border-bottom:0}
+.cy-bot-sent-heading{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;margin-bottom:4px}
+.cy-bot-sent-heading time{font-size:var(--cy-fs-sm);color:var(--cy-text-muted)}

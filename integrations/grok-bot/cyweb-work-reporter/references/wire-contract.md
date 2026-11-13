@@ -51,3 +51,10 @@ CYWEB 完整契約見主專案 `docs/architecture/BOT_CENTER.md`。
 送審回應多 revisionNumber、previousDraftId、supersededById；review 輸出保留 revisionNumber／supersededById。歷史 legacy r2／r10 不依標題猜配對；此版起必須明確帶 previousDraftId，才會連成版本鏈。
 
 新文章卡的發布總數仍以 complete.article_published 計數；卡下清單改以該稿／則的實際 sent_at 台北當日列出。一次海巡完成的 complete.threads_patrol 與逐則 sent 是不同維度。兩種回報不可互相冒充，單純審核不是實際送出。
+
+
+## V0.18.13 顯示規則
+
+巡視卡N取sent回報的海巡回覆則數；complete.threads_patrol仍是一個巡視事件，title原樣顯示名稱＋實際狀態，detail原樣顯示摘要。示例title「午巡 已送出」，detail「本次回覆的重點與待人工確認事項」。每次巡視一個固定eventId，不逐則建立巡視完成事件。
+
+文章每個post item即一篇發布內容，items.title／body分別放標題與該篇全文；實際發布後sent該seq，再用article_published完成事件記入總篇數與時間軸。若有送審保留對應reviewRef。不要依標題猜配對、不重報舊事件、不把尚未送出的內容標成已發布。人員端的sent-items查詢不在BOT工具呼叫範圍，BOT不使用員工session。

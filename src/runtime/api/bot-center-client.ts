@@ -1,6 +1,6 @@
 import { apiRequest } from "../../api/client";
 import type {
-  BotCenterState, BotCredentialView, BotDraftDetail, BotDraftView, BotProfileView, BotProgressState, BotReviewStatus,
+  BotSentItemPage,BotSentItemSummary,BotCenterState, BotCredentialView, BotDraftDetail, BotDraftView, BotProfileView, BotProgressState, BotReviewStatus,
 } from "../../../shared/bot-center";
 
 export type BotCenterPageCursor = { botCode?: string; draftBefore?: number; reportBefore?: number; timelineBefore?: string };
@@ -50,3 +50,12 @@ export function reviewDraftItem(id:number,seq:number,decision:"approved"|"reject
 }
 /** Same-origin image for review; the session cookie authorises it. */
 export const reviewImageUrl=(id:number)=>`/api/bot-center/images/${id}`;
+
+export function loadSentPatrolItems(before?:string,botCode?:string):Promise<BotSentItemPage>{
+ const query=new URLSearchParams({kind:"patrol"});if(before)query.set("before",before);if(botCode)query.set("botCode",botCode);
+ return apiRequest<BotSentItemPage>("/api/bot-center/sent-items?"+query);
+}
+export function loadPublishedPosts(before?:string,botCode?:string):Promise<BotSentItemPage<BotSentItemSummary>>{
+ const query=new URLSearchParams({kind:"post",summary:"1"});if(before)query.set("before",before);if(botCode)query.set("botCode",botCode);
+ return apiRequest<BotSentItemPage<BotSentItemSummary>>("/api/bot-center/sent-items?"+query);
+}

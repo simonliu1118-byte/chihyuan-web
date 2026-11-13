@@ -121,6 +121,10 @@ export interface BotCompletionView {
   eventRef: string | null;
 }
 
+export interface BotSentItemSummary {id:number;draftId:number;seq:number;title:string;sentAt:string}
+export interface BotSentItemView extends BotSentItemSummary {body:string;draftTitle:string;botCode:string;botLabel:string}
+export interface BotSentItemPage<T=BotSentItemView> {day:string;items:T[];more:boolean;nextBefore:string|null}
+
 export interface BotCredentialView {
   botCode: string;
   botLabel: string;
@@ -140,9 +144,9 @@ export interface BotProgressState {
 export interface BotCenterState extends BotProgressState {
   workSummary: {
     /** `reviewed`: legacy field name: post drafts with actual sent_at today (Taipei), newest first; open to read. */
-    articles: { count: number; latest: BotCompletionView | null; reviewed: BotDraftView[] };
-    /** 今日巡視 N 次、已送出（今日）、待送出（尚未退回也尚未送出的海巡則數）; `reviewed` is the legacy name for actually sent patrol drafts. */
-    patrols: { count: number; latest: BotCompletionView | null; sentToday: number; toSend: number; reviewed: BotDraftView[] };
+    articles: { count: number; latest: BotCompletionView | null; reviewed: BotDraftView[]; published:BotSentItemPage<BotSentItemSummary> };
+    /** count 保留巡視批次 API；主卡用 sentToday 顯示今日實際送出則數，toSend 是尚未退回也尚未送出的海巡則數; `reviewed` is the legacy name for actually sent patrol drafts. */
+    patrols: { count: number; latest: BotCompletionView | null; sentToday: number; toSend: number; reviewed: BotDraftView[]; reports:BotCompletionView[] };
     /** Pending drafts, plus the undecided items of multi-item drafts by kind. */
     pending: { count: number; latest: BotDraftView | null; posts: number; patrols: number };
   };

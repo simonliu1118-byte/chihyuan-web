@@ -2,7 +2,7 @@ import { AuditService } from "../audit/audit-service";
 import { requireModuleAccess } from "../auth/guard";
 import {
   BOT_WORK_TYPES, BOT_LIMITS, BOT_DRAFT_KINDS, BOT_ITEM_LIMITS, BOT_IMAGE_LIMITS,
-  type BotDraftKind, type BotDraftDetail, type BotDraftItemView, type BotReviewImageView, type BotImageType, BOT_PAGE_SIZE, BOT_REVIEW_STATUSES, BOT_STATUSES, INITIAL_BOTS,
+  type BotSentItemSummary,type BotSentItemView,type BotSentItemPage,type BotDraftKind, type BotDraftDetail, type BotDraftItemView, type BotReviewImageView, type BotImageType, BOT_PAGE_SIZE, BOT_REVIEW_STATUSES, BOT_STATUSES, INITIAL_BOTS,
   taipeiTodayRange, type BotCenterState, type BotCompletionView, type BotCredentialView,
   type BotDraftView, type BotProfileView, type BotProgressState, type BotReportView, type BotReviewStatus, type BotStatus, type BotWorkType,
 } from "../../shared/bot-center";
@@ -184,6 +184,23 @@ async function progress(db: D1Database, canManageCredentials: boolean, ready:boo
 }
 const COMPLETION_SQL = "SELECT c.id,b.code,b.label,c.title,c.detail,c.completed_at,c.work_type,c.event_ref FROM bot_completions c JOIN bot_profiles b ON b.id=c.bot_id";
 
+type SentRow={id:number;draft_id:number;seq:number;title:string;sent_at:string;body?:string;draft_title?:string;code?:string;label?:string};
+async function sentItemsPage(db:D1Database,kind:"post"|"patrol",now:string,before:string|null,selectedId?:number,summaryOnly=false):Promise<BotSentItemPage<BotSentItemSummary|BotSentItemView>>{
+  const today=taipeiTodayRange(new Date(now)),position=timelineCursor(before);
+  const rows=await many<SentRow>(db,`SELECT i.id,i.draft_id,i.seq,i.title,i.sent_at${summaryOnly?"":",i.body,d.title AS draft_title,b.code,b.label"}
+    FROM bot_draft_items i JOIN bot_drafts d ON d.id=i.draft_id ${summaryOnly?"":"JOIN bot_profiles b ON b.id=d.bot_id"}
+    WHERE d.kind=? AND i.sent_at>=? AND i.sent_at<?
+    AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id)
+    AND (?='' OR i.sent_at<? OR (i.sent_at=? AND i.id<?)) ${selectedId===undefined?"":"AND d.bot_id=?"}
+    ORDER BY i.sent_at DESC,i.id DESC LIMIT ?`,kind,today.start,today.end,
+    position?.at??"",position?.at??"",position?.at??"",position?.id??0,...(selectedId===undefined?[]:[selectedId]),BOT_PAGE_SIZE+1);
+  const visible=rows.slice(0,BOT_PAGE_SIZE),last=visible.at(-1),more=rows.length>BOT_PAGE_SIZE;
+  return {day:today.day,more,nextBefore:more&&last?last.sent_at+"|"+last.id:null,items:visible.map(row=>({
+    id:row.id,draftId:row.draft_id,seq:row.seq,title:row.title,sentAt:row.sent_at,
+    ...(summaryOnly?{}:{body:row.body!,draftTitle:row.draft_title!,botCode:row.code!,botLabel:row.label!})
+  }))};
+}
+
 async function state(db: D1Database, url: URL, now: string, canManageCredentials: boolean,ready:boolean): Promise<BotCenterState> {
   await ensureInitialBots(db, now);
   const requested = url.searchParams.get("draftStatus") ?? "pending";
@@ -237,9 +254,10 @@ async function state(db: D1Database, url: URL, now: string, canManageCredentials
   const reviewedToday = async (kind: BotDraftKind) => (await many<DraftRow>(db,
     `${DRAFT_SQL} WHERE d.kind=? AND (d.sent_at>=? AND d.sent_at<? OR EXISTS(SELECT 1 FROM bot_draft_items si WHERE si.draft_id=d.id AND si.sent_at>=? AND si.sent_at<?)) ${scope} ORDER BY d.id DESC LIMIT 50`,
     kind,today.start,today.end,today.start,today.end,...scopedArgs)).map(draftView);
+  const patrolReports=await many<CompletionRow>(db,`${COMPLETION_SQL} WHERE c.work_type='threads_patrol' AND c.completed_at>=? AND c.completed_at<? ${selected?"AND c.bot_id=?":""} ORDER BY c.completed_at DESC,c.id DESC LIMIT ?`,today.start,today.end,...scopedArgs,BOT_PAGE_SIZE);
   const workSummary: BotCenterState["workSummary"] = {
-    articles: { count: countWork("article_published"), latest: await latestWork("article_published"), reviewed: await reviewedToday("post") },
-    patrols: { count: countWork("threads_patrol"), latest: await latestWork("threads_patrol"), sentToday: itemTotals?.sent_today ?? 0, toSend: itemTotals?.to_send ?? 0, reviewed: await reviewedToday("patrol") },
+    articles: { count: countWork("article_published"), latest: await latestWork("article_published"), reviewed: await reviewedToday("post"), published:await sentItemsPage(db,"post",now,null,selected?.id,true) },
+    patrols: { count: countWork("threads_patrol"), latest: patrolReports[0]?completionView(patrolReports[0]):null, sentToday: itemTotals?.sent_today ?? 0, toSend: itemTotals?.to_send ?? 0, reviewed: await reviewedToday("patrol"),reports:patrolReports.map(completionView) },
     pending: { count: draftCounts.pending, latest: latestPending ? draftView(latestPending) : null, posts: itemTotals?.posts ?? 0, patrols: itemTotals?.patrols ?? 0 },
   };
   const visibleDrafts = draftRows.slice(0, BOT_PAGE_SIZE);
@@ -272,6 +290,13 @@ async function human(request: Request, env: BotEnv, requestId: string, url: URL,
   const path = url.pathname.replace(/^\/api\/bot-center\/?/, "");
   if ((path === "" || path === "/") && request.method === "GET") return success(await state(db, url, now, canManageCredentials,pushAvailable(env)), requestId);
   if (path === "progress" && request.method === "GET") return success(await progress(db, canManageCredentials,pushAvailable(env)), requestId);
+
+  if(path==="sent-items"&&request.method==="GET"){
+    const kind=url.searchParams.get("kind");if(kind!=="post"&&kind!=="patrol")throw new Bad("BOT_INVALID","請選擇貼文或海巡");
+    const summary=url.searchParams.get("summary");if(summary!==null&&summary!=="1")throw new Bad("BOT_INVALID","顯示方式不正確");
+    const code=url.searchParams.get("botCode"),selected=code===null?undefined:await profileByCode(db,botCode(code));
+    return success(await sentItemsPage(db,kind,now,url.searchParams.get("before"),selected?.id,summary==="1"),requestId);
+  }
 
   const detailRoute = /^drafts\/(\d+)$/.exec(path);
   if (detailRoute && request.method === "GET") return success(await draftDetail(db, Number(detailRoute[1])), requestId);
