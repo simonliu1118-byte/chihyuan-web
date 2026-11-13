@@ -18,7 +18,7 @@
 - src/runtime/modules/BotCenterPage.tsx：Threads「今日巡視N則」用sentToday並開送出回覆視窗，下面列BOT完成回報的title/detail；文章每一post item一列可點，總篇數維持strong純顯示；待核准strong加紅色class。發文／巡視內容太多按需分頁，卡內summary可捲動、不加展開收合。
 - src/runtime/modules/BotSentPatrolDialog.tsx：沿用Dialog、Loading，逐則只讀全文／時間，每頁50，錯誤可重試；跨午夜續頁重置到當日，不混接兩天。沒有外側點擊關閉或右上X。
 - src/runtime/modules/BotReviewDialog.tsx：onlyItemSeq只呈現選定發布項目，隱藏同批其他篇、批次備註、目錄／版本導航及審核按鈕；保留原共用視窗與項目圖片。沒有改審核API。
-- src/runtime/modules/BotText.tsx：從既有審稿視窗抽出相同安全文字／http(s)連結呈現，供回覆／摘要共用；不解析HTML或執行BOT文字。
+- src/runtime/modules/BotText.tsx：從既有審稿視窗抽出相同安全文字／http(s)連結呈現，供回覆／摘要共用；不解析HTML或執行BOT文字；提交前同步正規化抽出檔案的檔尾空白。
 - src/runtime/modules/bot-center.css：既有危險色token呈現待核准N紅字；點擊數字、卡內摘要／明細及單篇布局，不新建視覺元件或配色。
 - scripts/bot-deliveries.test.mjs：已送／未送／退回／post隔離、metadata不帶正文、時間邊界、同秒分頁完整、送出索引、BOT原始巡視命名、權限／cursor／scope與唯讀查核。
 - scripts/bot-center-ui.test.mjs：更新既有卡片契約斷言。VERSION／package版本同步，BUILD仍0。

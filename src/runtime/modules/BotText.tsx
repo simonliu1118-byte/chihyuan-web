@@ -10,4 +10,3 @@ export function BotText({text}:{text:string}){
  parts.push(text.slice(last));
  return <div className="cy-bot-rich">{parts}</div>;
 }
-
