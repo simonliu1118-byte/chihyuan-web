@@ -11,7 +11,7 @@
 
 ## 目前仍開放
 
-- [V0.18.13 BOT 巡視摘要／發布點閱](CYWEB-BOT-PATROL-01813-20261113.md)：待完成發布證據及Claude事後審查。
+- [V0.18.13 BOT 巡視摘要／發布點閱](CYWEB-BOT-PATROL-01813-20261113.md)：已發布並補齊證據，待Claude事後審查。
 
 - [V0.18.12 BOT 改稿與工作卡片](CYWEB-BOT-REVISIONS-01812-20261112.md)：待 Claude 審查，未合併／未部署。
 

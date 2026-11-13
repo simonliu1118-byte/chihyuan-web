@@ -32,11 +32,14 @@
 - sent-items與sentToday採同一個已送出的patrol item來源；未送出、退回、其他日期或被取代版本不列入。既有無items的legacy draft不冒充逐則海巡或猜為已發布文章；技能已明確改為貼文只有一篇也用kind=post與一個item，一般工作才可省略items。
 - 單篇批次亦顯示原整稿附圖；多篇批次必須image.item指定歸屬，批次共用圖不混入任意一篇。審核圖片依既有隔日清理政策，不承諾長期保存公開平台的圖片。Grok實機與正式發布全文尚待小編更新後驗收。
 
-## 驗證與發布（待補齊）
+## 驗證與發布（已部署，待Claude事後審查）
 
-- TypeScript、npm run build與npm run validate:source通過；BOT／Grok／備份marker相關70項測試全數通過。雲端完整Node與local D1驗收以PR最新結果補齊。
+- TypeScript、npm run build與npm run validate:source通過；BOT／Grok／備份marker相關70項測試全數通過。[Runtime Check #43356427808](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/43356427808) 全部成功，完整Node **831／831通過、0失敗**，真實local D1驗收與Vite build亦通過。
 - IAB合成fixture：點巡視N只顯示實際送出的第一則，未送出的第二則不出現；點文章第二篇只見第二篇全文，不出現第一篇或批次說明，也沒有審核按鈕。新文章N沒有button；待核准computed color為既有危險紅色rgb(255,138,128)。手機390寬client／scroll均375，沒有整頁水平溢出。
-- 沒有migration或正式D1寫入；發布證據待完成後填寫。
+- 本輪沒有新migration或正式業務資料寫入；依單純UI可合併部署及Claude事後審查的既有授權，PR511已合併，發布source=95ad778934d2a436b9d078e67cd3234b6d9a058e。
+- [受控發布 #43356893401](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/43356893401) 成功；2026-11-13 11:10（台灣）canonical健康回version=0.18.13、source與上述提交一致、database=ok、consumer=1.0.5。工作流程兩端健康／來源、HTTPS／靜態資產、custom domain、session清除、每日排程與production portal檢查皆通過。沒有額外Release、憑證輪換或新的背景輪詢。
+- 正式新sent-items未登入請求回401；財務發布後僅核對技術欄位，當日summary非空、status=done及獨立credential已配置均與發布前一致，未讀取正文或機密。
+- 本輪後續文件PR只補發布證據及狀態，不改runtime或另做一次部署；小編交接文字／技能已準備，實際Grok更新與新回報格式仍待使用者轉交後驗收。
 - 共用技能quick_validate通過；更新包只有既定5個工具／技能檔，解壓CLI通過；24002bytes，SHA256=3c96a47c952b907bf7e67ac47cf802b2da80ebe23d754f71cb4f5e3277b09443。工具程式本輪不變，只更新技能與回報文字規則，原收據及routine不變。
 
 ## Claude事後審查（由Claude填寫）
