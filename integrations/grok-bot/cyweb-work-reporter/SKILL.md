@@ -77,6 +77,6 @@ JSON
 ## V0.18.13 巡視卡片與逐篇發布
 
 - Threads「今日巡視N則」自動計算當日sent的實際回覆數，N不是巡視批次，也不是看過的貼文數。點N會列出真正送出的回覆全文。不要為湊N而回報未實際送出的則。
-- 每次巡視用一次complete.workType=threads_patrol回報，title寫實際名稱與狀態，例如「早巡 已送出」「午巡 已送出」「晚巡 待審」；detail放需要摘要的內容。名稱由你依任務實際時間決定，CYWEB不會代猜。沒有送出就不要寫已送出；需要核准的後續行動仍等核准。
+- 每次巡視用一次complete.workType=threads_patrol回報，title寫實際名稱與狀態，例如「早巡 已送出」「午巡 已送出」「晚巡 無待回覆」；detail放需要摘要的內容。名稱由你依任務實際時間決定，CYWEB不會代猜。沒有送出就不要寫已送出；需要核准的後續行動仍等核准。
 - 每篇文章實際發布後先sent對應則號，再以固定eventId、workType=article_published回報complete；有送審必填reviewRef。卡片每列顯示已送出的post item標題，可點開該篇全文。submit.items中的title／body要分別對應該篇標題與完整發布內容，不要把數篇全文塞成同一則；貼文只有一篇也用kind=post與一個item。多篇批次的圖片上傳必須指定item則號，才會顯示在對應單篇。
 - 既有工具程式可沿用，這次更新技能與回報規則即可。原token、SOCIAL_EDITOR身分、收據目錄與routine不變；既有一般單篇舊稿不依標題猜分類或重報歷史；不要補報已完成且已有收據的歷史事件。

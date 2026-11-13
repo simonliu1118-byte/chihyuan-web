@@ -1,6 +1,7 @@
 # CYWEB V0.18.13 BOT 巡視摘要與發布點閱交接
 
 - 分支：cyweb/bot-patrol-summary-01813，基準main3385578a；VERSION/package=0.18.13，BUILD=0。
+- PR：[511](https://github.com/simonliu1118-byte/chihyuan-web/pull/511)；工程提交ac0f9970，後續格式與技能示例補正不改runtime行為，Claude結論仍待填。
 - 使用者先要求財務回報查核、Threads從次改則及待核准N紅字，隨後明確確認N為「今日實際送出的海巡回覆數」，補充N可點開、下方巡視名稱／狀態與摘要由小編回報；新文章N篇不可點、逐篇發布紀錄可點開全文，完成後提供小編交接文字。
 - 單純UI可合併部署與handoff供Claude事後審查的既有授權沿用；本輪只增加查看功能，不改審核／發布流程或正式資料。因新增獨立查看能力，從0.18.12升Z到0.18.13，沒有交付過的Build1草稿不保留為版本。
 
@@ -36,7 +37,7 @@
 - TypeScript、npm run build與npm run validate:source通過；BOT／Grok／備份marker相關70項測試全數通過。雲端完整Node與local D1驗收以PR最新結果補齊。
 - IAB合成fixture：點巡視N只顯示實際送出的第一則，未送出的第二則不出現；點文章第二篇只見第二篇全文，不出現第一篇或批次說明，也沒有審核按鈕。新文章N沒有button；待核准computed color為既有危險紅色rgb(255,138,128)。手機390寬client／scroll均375，沒有整頁水平溢出。
 - 沒有migration或正式D1寫入；發布證據待完成後填寫。
-- 共用技能quick_validate通過；更新包只有既定5個工具／技能檔，解壓CLI通過；23998bytes，SHA256=9545b365b99d112c2894e8e8fa79fdfac7b0f9eb29e066c77752add06b2f2af3。工具程式本輪不變，只更新技能與回報文字規則，原收據及routine不變。
+- 共用技能quick_validate通過；更新包只有既定5個工具／技能檔，解壓CLI通過；24002bytes，SHA256=3c96a47c952b907bf7e67ac47cf802b2da80ebe23d754f71cb4f5e3277b09443。工具程式本輪不變，只更新技能與回報文字規則，原收據及routine不變。
 
 ## Claude事後審查（由Claude填寫）
 
